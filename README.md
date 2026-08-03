@@ -143,7 +143,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   - 鎖住斷面性質、合成斷面與 RC 補強斷面頁的 inline status / 報表 payload 邊界，並把共享報表與 runtime HTML 轉成可讀文字檢查標題、主要章節、核可狀態與 page-only wording 排除清單。共用計算書產生器預設內部審閱，核可後標示正式附件；空白案件欄位與 NG 工程結果不再產生 DRAFT。工作頁直接列印仍由共用邊界樣式封鎖。
 - 平面剛架報告邊界契約測試：
   [frame-analysis.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/frame-analysis.contract.test.js:1)
-  - 鎖住 `鋼架/平面剛架分析.html` 的頁面 / 計算書邊界，確認附件閱讀狀態只留在頁面，`printReport()` 實際產出的 blob 計算書具備產出工具、版本、輸出時間、計算指紋、必要分析章節與節點 / 桿件資料，且不帶 page-only wording；案件欄位可留空，模型待確認項目仍如實列入，文件預設內部審閱並可核可為正式附件。另維持彈性支承、分析組合、平衡檢核與響應式版面 smoke。
+  - 鎖住 `鋼架/平面剛架分析.html` 的 JSON 重播結果鏈與頁面 / 計算書邊界。雙案例載重的門型剛架會實際經過 JSON 蒐集、模型改動、重新匯入與直接勁度法重算，要求模型、位移、反力、彈簧力、平衡結果、桿端力、M/V/N 圖與計算書指紋完全一致；舊版無 schema 的 V0.2 JSON 仍可讀取，未知 schema 或重複節點編號則必須在清空目前模型前拒絕。另確認附件閱讀狀態只留在頁面，`printReport()` 實際產出的 blob 計算書具備產出工具、版本、輸出時間、計算指紋、必要分析章節與節點 / 桿件資料，且不帶 page-only wording；案件欄位可留空，模型待確認項目仍如實列入，文件預設內部審閱並可核可為正式附件。
 - 覆工板 Word 報告邊界契約測試：
   [覆工板/decking-report.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/覆工板/decking-report.contract.test.js:1)
   - 鎖住 `覆工板/report/gen_report.py` 與固定 smoke fixture 的 `.docx` 產報邊界，確認案名 / 編號 / 日期與主要章節仍會寫入 Word 計算書，但頁面上的附件閱讀狀態不會混入輸出；操作頁直接列印只顯示一頁邊界通知，頁面內「列印彙整計算書」才會暫時啟用只含彙整報告的 PDF 列印模式，Word 流程維持獨立。正式 release 另把當輪 DOCX 與結構摘要保存在 `decking-formal` 證據目錄，供平台總閘門重新解析。

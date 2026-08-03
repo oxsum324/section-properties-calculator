@@ -154,7 +154,7 @@
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
       '/beam-analysis': '2026-08-03',
-      '/frame-analysis': '2026-08-02',
+      '/frame-analysis': '2026-08-03',
       '/struct-dx': '2026-07-19',
       '/section': '2026-07-19',
       '/composite-section': '2026-08-02',
@@ -257,13 +257,13 @@
     },
     {
       title: '平面剛架分析',
-      version: 'V0.2',
+      version: 'V0.3',
       href: '/frame-analysis',
       categories: ['analysis'],
       state: 'assist',
       governance: 'frame-analysis',
       output: '位移、反力、M/V/N 內力圖、計算書與 JSON',
-      summary: '2D 剛架直接勁度法：節點／集中／均布／自重載重、端部鉸接釋放，輸出位移、反力、內力圖與計算書。',
+      summary: '2D 剛架直接勁度法：節點／集中／均布／自重載重、端部鉸接釋放，支援以 JSON 重播模型並輸出位移、反力、內力圖與計算書。',
       fit: '簡化剛架模型、連續梁與手算前後校核。',
       limit: '複雜工程模型仍應回正式分析軟體。',
       capabilities: ['鉸接釋放', '集中載重', '計算書']

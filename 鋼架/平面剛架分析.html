@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>平面剛架分析 V0.2</title>
+<title>平面剛架分析 V0.3</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
 <style>
@@ -125,7 +125,7 @@
 <body class="formal-tool-output-page">
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>分析工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面提供的計算書輸出按鈕產生只包含案件資料、分析輸入、計算結果與必要結論的計算書；本頁不得作為附件。</span></div>
 <header>
-  <h1>平面剛架分析 V0.2</h1>
+  <h1>平面剛架分析 V0.3</h1>
   <p>2D Rigid Frame — 直接勁度法 ‧ 集中/均布/自重載重 ‧ 端部鉸接 ‧ JSON ‧ 計算書 ‧ 單位 tf-m</p>
 </header>
 
@@ -1991,7 +1991,8 @@ let lastReportObjectUrl = null;
 function collectProjectData() {
   syncLoadCaseTableFromDom();
   return {
-    tool: '平面剛架分析', version: 'V0.2', unit: 'tf-m',
+    schema: 'plane-frame.project.v1',
+    tool: '平面剛架分析', version: 'V0.3', unit: 'tf-m',
     project: getFrameProjectInfo(),
     defaults: {
       E: parseFloat(document.getElementById('defE').value) || 0,
@@ -2056,7 +2057,38 @@ function loadDraft() {
     setReportStatus('讀取暫存失敗: ' + e.message);
   }
 }
+function validateFrameProjectData(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('案例內容不是有效物件。');
+  if (data.schema && data.schema !== 'plane-frame.project.v1') throw new Error('不支援的平面剛架案例版本: ' + data.schema);
+  if (data.tool && data.tool !== '平面剛架分析') throw new Error('此 JSON 不屬於平面剛架分析工具。');
+  if (data.project != null && (typeof data.project !== 'object' || Array.isArray(data.project))) throw new Error('專案資料格式不正確。');
+  if (data.defaults != null && (typeof data.defaults !== 'object' || Array.isArray(data.defaults))) throw new Error('預設斷面資料格式不正確。');
+  if (data.comboFactors != null && (typeof data.comboFactors !== 'object' || Array.isArray(data.comboFactors))) throw new Error('載重組合因子格式不正確。');
+  const arrays = ['loadCases', 'nodes', 'members', 'nodalLoads', 'memberLoads', 'memberPointLoads'];
+  arrays.forEach(key => {
+    if (data[key] != null && !Array.isArray(data[key])) throw new Error(key + ' 必須是陣列。');
+    (data[key] || []).forEach((item, index) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) throw new Error(key + '[' + index + '] 格式不正確。');
+    });
+  });
+  const assertUniqueFiniteIds = (items, label) => {
+    const ids = items.map(item => Number(item.id));
+    if (ids.some(id => !Number.isInteger(id) || id <= 0)) throw new Error(label + '編號必須是正整數。');
+    if (new Set(ids).size !== ids.length) throw new Error(label + '編號不得重複。');
+  };
+  assertUniqueFiniteIds(data.loadCases || [], '載重案例');
+  assertUniqueFiniteIds(data.nodes || [], '節點');
+  assertUniqueFiniteIds(data.members || [], '桿件');
+  (data.nodes || []).forEach(node => {
+    if (!Number.isFinite(Number(node.x)) || !Number.isFinite(Number(node.y))) throw new Error('節點座標必須是有限數值。');
+  });
+  (data.members || []).forEach(member => {
+    if (!Number.isInteger(Number(member.i)) || !Number.isInteger(Number(member.j))) throw new Error('桿件端點編號必須是整數。');
+  });
+  return data;
+}
 function loadFromData(data) {
+  validateFrameProjectData(data);
   resetAll();
   const project = data.project || {};
   document.getElementById('projName').value = project.name || '';
@@ -2141,7 +2173,7 @@ function printReport() {
   });
   const reportTrace = window.ToolReportUI.buildReportTrace({
     title: '平面剛架分析計算書',
-    outputSource: { tool: '平面剛架分析', version: 'V0.2' },
+    outputSource: { tool: '平面剛架分析', version: 'V0.3' },
     snapshot: {
       project,
       loadCases: state.loadCases,

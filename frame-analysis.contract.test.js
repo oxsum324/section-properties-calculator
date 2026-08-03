@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const crypto = require('crypto');
 const calculationBookContentBoundary = require('./結構工具箱/tools/calculation-book-content-boundary.json');
 
 function read(relPath) {
@@ -46,7 +47,7 @@ function assertIncludesAll(source, needles, label) {
   });
 }
 
-function captureFrameReportHtml(source, project = {}) {
+function captureFrameReportHtml(source, project = {}, runtimeState = null) {
   let reportHtml = '';
   const reportStatus = { textContent: '' };
   const reportLink = {
@@ -71,7 +72,7 @@ function captureFrameReportHtml(source, project = {}) {
     ['axialCanvas', { toDataURL() { return 'data:image/png;base64,axial'; } }],
   ]);
   const context = {
-    state: {
+    state: runtimeState ? JSON.parse(JSON.stringify(runtimeState)) : {
       nodes: [
         { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
         { id: 2, x: 6, y: 0, cx: false, cy: true, crz: false, kx: 0, ky: 0, krz: 0 },
@@ -189,6 +190,102 @@ function captureFrameReportHtml(source, project = {}) {
   };
 }
 
+function stableSha256(value) {
+  return crypto.createHash('sha256').update(JSON.stringify(value), 'utf8').digest('hex');
+}
+
+function reportCalculationFingerprint(reportHtml) {
+  return String(reportHtml || '').match(/計算指紋<\/b>(CF-[0-9A-F]{16})/)?.[1] || '';
+}
+
+function createFrameAnalysisContext(source) {
+  const elements = new Map([
+    ['projName', { value: '' }],
+    ['projNo', { value: '' }],
+    ['projDesigner', { value: '' }],
+    ['projNote', { value: '' }],
+    ['defE', { value: '2040' }],
+    ['defA', { value: '63.1' }],
+    ['defI', { value: '13600' }],
+    ['selfWeight', { checked: false }],
+    ['density', { value: '7.85' }],
+  ]);
+  const context = {
+    state: {
+      nodes: [], members: [], loadCases: [], comboFactors: {},
+      nodalLoads: [], memberLoads: [], memberPointLoads: [], solution: null,
+    },
+    nodeIdCnt: 0,
+    memberIdCnt: 0,
+    loadCaseIdCnt: 0,
+    document: {
+      getElementById(id) { return elements.get(id) || null; },
+    },
+    window: {
+      ToolReportUI: {
+        normalizeProjectFieldValue(value) { return String(value || '').trim(); },
+      },
+    },
+    syncLoadCaseTableFromDom() {},
+    invalidateAnalysisState() { context.state.solution = null; },
+    renderLoadCaseTable() {},
+    renderNodeTable() {},
+    refreshNodeSelectors() {},
+    console,
+    Math,
+    Number,
+    String,
+    Boolean,
+    JSON,
+    Object,
+    Array,
+    Map,
+    Set,
+    parseFloat,
+    parseInt,
+    isFinite,
+  };
+  vm.createContext(context);
+  [
+    'asNonNegativeNumber', 'makeNode', 'springValue', 'activeSpring', 'hasSupportDof',
+    'ensureLoadCases', 'firstLoadCaseId', 'normalizeLoadCaseId', 'comboFactor',
+    'formatActiveCombination', 'activeLoadFactors', 'momentAboutOrigin',
+    'computeAppliedResultant', 'validateModel', 'zeros', 'matmul', 'matvec',
+    'transpose', 'subtractMat', 'invSmall', 'condenseReleases', 'solveLinear',
+    'analyze', 'getFrameProjectInfo', 'resetAll', 'validateFrameProjectData',
+    'collectProjectData', 'loadFromData',
+  ].forEach(name => {
+    vm.runInContext(functionSource(source, name), context, { filename: `frame-analysis:${name}` });
+  });
+  context.runAnalysis = () => {
+    context.state.solution = context.analyze();
+    return context.state.solution;
+  };
+  return { context, elements };
+}
+
+function frameResultSnapshot(context) {
+  const solution = context.state.solution;
+  return JSON.parse(JSON.stringify({
+    input: context.collectProjectData(),
+    solution: {
+      d: solution?.d || [],
+      reactions: solution?.reactions || [],
+      springForces: solution?.springForces || [],
+      equilibrium: solution?.equilibrium || null,
+      loadFactors: solution?.loadFactors || {},
+      comboText: solution?.comboText || '',
+      elems: (solution?.elems || []).map(elem => ({
+        id: elem.m.id,
+        L: elem.L,
+        qLocal: elem.qLocal,
+        dLocal: elem.dLocal,
+        diag: elem.diag,
+      })),
+    },
+  }));
+}
+
 const pageOnlyReportStatusNeedles = [...new Set(
   Object.values(calculationBookContentBoundary.forbiddenCategories).flat(),
 )];
@@ -228,6 +325,11 @@ assert(!frameAnalysisHtml.includes('alert('), 'rigid frame avoids blocking alert
 
 assertIncludesAll(frameAnalysisHtml, [
   '<title>平面剛架分析',
+  '<title>平面剛架分析 V0.3</title>',
+  '<h1>平面剛架分析 V0.3</h1>',
+  "schema: 'plane-frame.project.v1'",
+  "version: 'V0.3'",
+  'function validateFrameProjectData',
   'function solveLinear',
   'function analyze',
   'function validateModel',
@@ -336,5 +438,97 @@ assert(readyFrameReport.html.includes('本計算內容已完成審閱，核可�
 assert(readyFrameReport.html.includes('Frame QA'), 'rigid frame complete report keeps project name', 'Frame QA');
 assert(readyFrameReport.html.includes('FR-001'), 'rigid frame complete report keeps project number', 'FR-001');
 assert(readyFrameReport.html.includes('Codex QA'), 'rigid frame complete report keeps designer', 'Codex QA');
+
+const frameProjectFixture = {
+  schema: 'plane-frame.project.v1',
+  tool: '平面剛架分析',
+  version: 'V0.3',
+  unit: 'tf-m',
+  project: { name: 'Frame Replay', no: 'FR-R01', designer: 'QA', note: 'JSON result chain' },
+  defaults: { E: 2040, A: 63.1, I: 13600 },
+  selfWeight: false,
+  density: 7.85,
+  loadCases: [{ id: 1, name: 'D' }, { id: 2, name: 'L' }],
+  comboFactors: { 1: 1.2, 2: 1.6 },
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: 0, y: 4, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 3, x: 6, y: 4, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 4, x: 6, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [
+    { id: 1, i: 1, j: 2, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+    { id: 2, i: 2, j: 3, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+    { id: 3, i: 3, j: 4, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+  ],
+  nodalLoads: [{ caseId: 2, node: 2, Fx: 1.25, Fy: 0, M: 0 }],
+  memberLoads: [{ caseId: 1, member: 2, w: 2.5, dir: 'globalY' }],
+  memberPointLoads: [{ caseId: 2, member: 2, P: 5.5, a: 2.25, dir: 'globalY' }],
+};
+
+const frameRuntime = createFrameAnalysisContext(frameAnalysisHtml);
+frameRuntime.context.loadFromData(JSON.parse(JSON.stringify(frameProjectFixture)));
+const sourceProjectJson = JSON.parse(JSON.stringify(frameRuntime.context.collectProjectData()));
+const sourceResultSnapshot = frameResultSnapshot(frameRuntime.context);
+const sourceResultSha256 = stableSha256(sourceResultSnapshot);
+const sourceFrameReport = captureFrameReportHtml(
+  frameAnalysisHtml,
+  frameRuntime.context.getFrameProjectInfo(),
+  frameRuntime.context.state,
+);
+const sourceFrameFingerprint = reportCalculationFingerprint(sourceFrameReport.html);
+assert(sourceProjectJson.schema === 'plane-frame.project.v1', 'rigid frame JSON declares stable schema', sourceProjectJson.schema);
+assert(sourceProjectJson.version === 'V0.3', 'rigid frame JSON records current version', sourceProjectJson.version);
+assert(frameRuntime.context.state.solution.equilibrium.ok === true, 'rigid frame replay fixture passes equilibrium check', JSON.stringify(frameRuntime.context.state.solution.equilibrium));
+assert(/^[0-9a-f]{64}$/.test(sourceResultSha256), 'rigid frame source input/result snapshot has stable SHA-256', sourceResultSha256);
+assert(/^CF-[0-9A-F]{16}$/.test(sourceFrameFingerprint), 'rigid frame source report exposes calculation fingerprint', sourceFrameFingerprint);
+
+frameRuntime.context.state.nodes[2].x = 8;
+frameRuntime.context.state.memberLoads.length = 0;
+frameRuntime.elements.get('projNo').value = 'MUTATED';
+frameRuntime.context.runAnalysis();
+frameRuntime.context.loadFromData(JSON.parse(JSON.stringify(sourceProjectJson)));
+const replayResultSnapshot = frameResultSnapshot(frameRuntime.context);
+const replayResultSha256 = stableSha256(replayResultSnapshot);
+const replayFrameReport = captureFrameReportHtml(
+  frameAnalysisHtml,
+  frameRuntime.context.getFrameProjectInfo(),
+  frameRuntime.context.state,
+);
+const replayFrameFingerprint = reportCalculationFingerprint(replayFrameReport.html);
+assert(replayResultSha256 === sourceResultSha256, 'rigid frame JSON replay reproduces model and every analysis result', `source=${sourceResultSha256}, replay=${replayResultSha256}`);
+assert(replayFrameFingerprint === sourceFrameFingerprint, 'rigid frame JSON replay reproduces calculation-book fingerprint', `source=${sourceFrameFingerprint}, replay=${replayFrameFingerprint}`);
+
+const legacyFrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
+delete legacyFrameJson.schema;
+legacyFrameJson.version = 'V0.2';
+frameRuntime.context.loadFromData(legacyFrameJson);
+assert(
+  stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
+  'legacy V0.2 JSON remains readable and reproduces the same analysis result',
+  'schema-less compatibility path',
+);
+frameRuntime.context.loadFromData(JSON.parse(JSON.stringify(sourceProjectJson)));
+
+const stateBeforeRejectedFrameImport = stableSha256(frameRuntime.context.collectProjectData());
+let rejectedFrameSchema = '';
+try {
+  frameRuntime.context.loadFromData({ ...sourceProjectJson, schema: 'plane-frame.project.v999' });
+} catch (error) {
+  rejectedFrameSchema = error.message;
+}
+assert(rejectedFrameSchema.includes('不支援的平面剛架案例版本'), 'rigid frame rejects unknown JSON schema before reset', rejectedFrameSchema);
+assert(stableSha256(frameRuntime.context.collectProjectData()) === stateBeforeRejectedFrameImport, 'rejected rigid frame schema leaves active model unchanged', stateBeforeRejectedFrameImport);
+
+const malformedFrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
+malformedFrameJson.nodes[1].id = malformedFrameJson.nodes[0].id;
+let rejectedFrameTopology = '';
+try {
+  frameRuntime.context.loadFromData(malformedFrameJson);
+} catch (error) {
+  rejectedFrameTopology = error.message;
+}
+assert(rejectedFrameTopology.includes('節點編號不得重複'), 'rigid frame rejects malformed node identity before reset', rejectedFrameTopology);
+assert(stableSha256(frameRuntime.context.collectProjectData()) === stateBeforeRejectedFrameImport, 'rejected rigid frame topology leaves active model unchanged', stateBeforeRejectedFrameImport);
 
 console.log('\nFrame analysis contract checks passed.');
