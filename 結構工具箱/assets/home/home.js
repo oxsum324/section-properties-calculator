@@ -134,7 +134,8 @@
       { text: '石材結果鏈', tone: 'ok' },
       { text: '錨栓結果鏈', tone: 'ok' },
       { text: '覆工板結果鏈', tone: 'ok' },
-      { text: '開挖結果鏈', tone: 'ok' }
+      { text: '開挖結果鏈', tone: 'ok' },
+      { text: '局部快算結果鏈', tone: 'ok' }
     ],
     details: [
       '已治理家族涵蓋風力 / 地震 / 鋼構正式工具、RC 正式工具、連續梁 / 斷面與補強頁、平面剛架、錨栓、石材、覆工板、開挖擋土支撐與局部快算。',
@@ -1296,6 +1297,9 @@
         : null,
       Number.isInteger(payload.excavationResultReconciliationRequired) && payload.excavationResultReconciliationRequired > 0
         ? ratio('開挖結果鏈', payload.excavationResultReconciliationComplete, payload.excavationResultReconciliationRequired, payload.excavationResultReconciliationIssueCount)
+        : null,
+      Number.isInteger(payload.localQuickResultReconciliationRequired) && payload.localQuickResultReconciliationRequired > 0
+        ? ratio('局部快算結果鏈', payload.localQuickResultReconciliationComplete, payload.localQuickResultReconciliationRequired, payload.localQuickResultReconciliationIssueCount)
         : null,
       Number.isInteger(payload.supplementalDeliveryEvidenceRequired) && payload.supplementalDeliveryEvidenceRequired > 0
         ? ratio('補充成品', payload.supplementalDeliveryEvidenceComplete, payload.supplementalDeliveryEvidenceRequired, payload.supplementalDeliveryEvidenceIssueCount)

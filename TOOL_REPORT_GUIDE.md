@@ -294,6 +294,8 @@ Schema v10 新增覆工板正式計算書結果鏈。Producer 必須保存實際
 
 Schema v11 新增開挖擋土支撐正式計算書結果鏈。Producer 必須保存不含 `calculation_results` 的 ProjectState，回讀後呼叫目前 `calculate_project`，逐項核對支撐、橫擋、斜撐、大角撐與柱構件 47 筆檢核及摘要、警告等至少 618 項欄位，再以重算結果及同一計算指紋產生 PDF 與 DOCX；私密 summary 須綁定 ProjectState、完整結果及兩份成品 SHA-256。Aggregate 要求 `1/1`、案例身分唯一與私人集合 SHA-256；公開狀態只顯示完成數，不公開 ProjectState、輸入／結果資料、計算指紋或成品雜湊。
 
+Schema v12 新增局部快算計算書結果鏈。基礎局部檢核、設備局部荷重與擋土土壓 producer 必須在同一瀏覽器工作階段匯出來源 JSON，改動表單後回讀重算，逐值核對全部 `input` 與 `result`，再由同一重播狀態產生詳細計算書 PDF；私密 summary 須保存來源 JSON SHA-256、來源／重播輸入與結果 SHA-256、逐值斷言數、計算指紋及 PDF SHA-256。Aggregate 要求 `3/3`、案例身分唯一與私人集合 SHA-256；公開狀態只顯示完成數，不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊。
+
 ### 採用依據文字
 
 應使用：

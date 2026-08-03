@@ -603,6 +603,12 @@ async function main() {
   assert.equal(reportReadinessStatus.excavationResultReconciliationPass, true, 'report readiness excavation result reconciliation passes');
   assert.equal(reportReadinessJson.includes('"excavationResultReconciliation":'), false, 'report readiness omits the private excavation reconciliation aggregate');
   assert.equal(/excavation-project-state-replay-to-pdf-docx-hash|sourceProjectSha256|resultSha256|excavation-project-state\.json/.test(reportReadinessJson), false, 'report readiness omits private excavation reconciliation scope and hashes');
+  assert.equal(reportReadinessStatus.localQuickResultReconciliationRequired, 3, 'report readiness expects 3 local quick result reconciliations');
+  assert.equal(reportReadinessStatus.localQuickResultReconciliationComplete, reportReadinessStatus.localQuickResultReconciliationRequired, 'report readiness completes every local quick result reconciliation');
+  assert.equal(reportReadinessStatus.localQuickResultReconciliationIssueCount, 0, 'report readiness local quick result reconciliation issues empty');
+  assert.equal(reportReadinessStatus.localQuickResultReconciliationPass, true, 'report readiness local quick result reconciliation passes');
+  assert.equal(reportReadinessJson.includes('"localQuickResultReconciliation":'), false, 'report readiness omits the private local quick reconciliation aggregate');
+  assert.equal(/local-quick-json-replay-to-pdf-hash|sourceJsonSha256|sourceInputSha256|sourceResultSha256|replayResultSha256/.test(reportReadinessJson), false, 'report readiness omits private local quick reconciliation scope and hashes');
   if (Number.isInteger(reportReadinessStatus.supplementalDeliveryEvidenceRequired)) {
     assert.ok([1, 2].includes(reportReadinessStatus.supplementalDeliveryEvidenceRequired), 'report readiness supplemental delivery uses a supported transition count');
     assert.equal(reportReadinessStatus.supplementalDeliveryEvidenceComplete, reportReadinessStatus.supplementalDeliveryEvidenceRequired, 'report readiness supplemental delivery fully covered');
@@ -647,6 +653,8 @@ async function main() {
   assert.ok(reportReadinessStatus.details.join(' ').includes('不公開 golden 案例資料、來源 payload 雜湊、結果雜湊或成品雜湊'), 'report readiness status explains stone reconciliation privacy boundary');
   assert.ok(reportReadinessStatus.details.join(' ').includes('錨栓正式計算書結果鏈'), 'report readiness status exposes anchor result reconciliation count');
   assert.ok(reportReadinessStatus.details.join(' ').includes('不公開工作區資料、來源備份雜湊、案例重現指紋、計算指紋或成品雜湊'), 'report readiness status explains anchor reconciliation privacy boundary');
+  assert.ok(reportReadinessStatus.details.join(' ').includes('局部快算計算書結果鏈'), 'report readiness status exposes local quick result reconciliation count');
+  assert.ok(reportReadinessStatus.details.join(' ').includes('全輸入與全結果逐值重播'), 'report readiness status explains local quick replay coverage');
   assert.ok(reportReadinessStatus.details.join(' ').includes('RC 正式附件 HTML 完整性'), 'report readiness status exposes RC HTML attachment integrity');
   assert.equal(reportReadinessStatus.runId, preflightStatus.runId, 'report readiness runId matches public preflight status');
   assert.equal(reportReadinessStatus.preflightStatusSourcePath, preflightStatus.sourcePath, 'report readiness preflight source matches public preflight status');

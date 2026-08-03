@@ -1578,6 +1578,7 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const anchorResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 9;
   const deckingResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 10;
   const excavationResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 11;
+  const localQuickResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 12;
   return Boolean(
     evidence
     && evidence.kind === 'release-rendered-delivery-evidence'
@@ -1676,6 +1677,14 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       && evidence.excavationResultReconciliation.issueCount === 0
       && evidence.excavationResultReconciliation.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.excavationResultReconciliation.setSha256 || ''))
+    ))
+    && (!localQuickResultReconciliationDeclared || (
+      evidence.localQuickResultReconciliation?.scope === 'local-quick-json-replay-to-pdf-hash'
+      && evidence.localQuickResultReconciliation.required === 3
+      && evidence.localQuickResultReconciliation.complete === 3
+      && evidence.localQuickResultReconciliation.issueCount === 0
+      && evidence.localQuickResultReconciliation.pass === true
+      && /^[0-9a-f]{64}$/i.test(String(evidence.localQuickResultReconciliation.setSha256 || ''))
     ))
   );
 }
@@ -1983,6 +1992,21 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     : excavationResultReconciliation.pass === true
       ? Math.max(0, excavationResultReconciliationRequired - excavationResultReconciliationComplete)
       : Math.max(1, compactNumber(excavationResultReconciliation.issueCount) || excavationResultReconciliationRequired - excavationResultReconciliationComplete);
+  const localQuickResultReconciliation = renderedDeliveryPayload?.localQuickResultReconciliation;
+  const localQuickResultReconciliationDeclared = Boolean(
+    Number(renderedDeliveryPayload?.schemaVersion) >= 12
+    && localQuickResultReconciliation
+    && localQuickResultReconciliation.scope === 'local-quick-json-replay-to-pdf-hash'
+    && Number.isInteger(localQuickResultReconciliation.required)
+    && Number.isInteger(localQuickResultReconciliation.complete)
+  );
+  const localQuickResultReconciliationRequired = localQuickResultReconciliationDeclared ? compactNumber(localQuickResultReconciliation.required) : 0;
+  const localQuickResultReconciliationComplete = localQuickResultReconciliationDeclared ? compactNumber(localQuickResultReconciliation.complete) : 0;
+  const localQuickResultReconciliationIssueCount = !localQuickResultReconciliationDeclared
+    ? 0
+    : localQuickResultReconciliation.pass === true
+      ? Math.max(0, localQuickResultReconciliationRequired - localQuickResultReconciliationComplete)
+      : Math.max(1, compactNumber(localQuickResultReconciliation.issueCount) || localQuickResultReconciliationRequired - localQuickResultReconciliationComplete);
   const renderedDeliverySummary = supplementalDeliveryDeclared
     ? `最新正式放行實際交付物渲染：首頁正式工具 ${renderedDeliveryComplete} / ${renderedDeliveryRequired}；補充報告 / 服務成品 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired}。`
     : `最新正式放行實際交付物渲染：${renderedDeliveryComplete} / ${renderedDeliveryRequired}。`;
@@ -2001,6 +2025,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     ...(anchorResultReconciliationDeclared ? [`錨栓正式計算書結果鏈：工作區備份 ${anchorResultReconciliationComplete} / ${anchorResultReconciliationRequired} 已依 v2 案例重現指紋重新計算，並核對正式 HTML、DOCX 與 XLSX。公開狀態只顯示完成數，不公開工作區資料、來源備份雜湊、案例重現指紋、計算指紋或成品雜湊。`] : []),
     ...(deckingResultReconciliationDeclared ? [`覆工板正式計算書結果鏈：來源 JSON ${deckingResultReconciliationComplete} / ${deckingResultReconciliationRequired} 已由目前頁面核心重算 31 項控制結果，再核對 DOCX 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊。`] : []),
     ...(excavationResultReconciliationDeclared ? [`開挖擋土支撐正式計算書結果鏈：ProjectState ${excavationResultReconciliationComplete} / ${excavationResultReconciliationRequired} 已由目前後端核心重算 47 項構件檢核，再核對 PDF、DOCX 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開 ProjectState、輸入／結果資料、計算指紋或成品雜湊。`] : []),
+    ...(localQuickResultReconciliationDeclared ? [`局部快算計算書結果鏈：基礎、設備荷重與擋土土壓共 ${localQuickResultReconciliationComplete} / ${localQuickResultReconciliationRequired} 組來源 JSON 已完成全輸入與全結果逐值重播，再核對 PDF 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊。`] : []),
     ...(attachmentIntegrityDeclared ? [`RC 正式附件 HTML 完整性：預期 ${attachmentIntegrityRequired} 份、實際 ${attachmentIntegrityActual} 份、已驗證 ${attachmentIntegrityVerified} 份；集合 SHA-256 ${String(attachmentIntegrity.setSha256 || '').slice(0, 12)}。本項是放行證據，不會寫入計算書、列印或 PDF。`] : []),
     `可讀文字抽檢範圍：${reportTextSmokeEvidence.scope}`,
     '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。',
@@ -2011,8 +2036,8 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     kind: 'report-readiness-status',
     generatedAt: String(matrixPayload.generatedAt || ''),
     runId: String(preflightStatus?.runId || matrixPayload.latestPreflight?.runId || ''),
-    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && formalResultReconciliationIssueCount === 0 && rcResultReconciliationIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0,
-    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + formalResultReconciliationIssueCount + rcResultReconciliationIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount,
+    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && formalResultReconciliationIssueCount === 0 && rcResultReconciliationIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
+    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + formalResultReconciliationIssueCount + rcResultReconciliationIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
@@ -2101,6 +2126,14 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       excavationResultReconciliationPass: excavationResultReconciliation.pass === true
         && excavationResultReconciliationComplete === excavationResultReconciliationRequired
         && excavationResultReconciliationIssueCount === 0,
+    } : {}),
+    ...(localQuickResultReconciliationDeclared ? {
+      localQuickResultReconciliationRequired,
+      localQuickResultReconciliationComplete,
+      localQuickResultReconciliationIssueCount,
+      localQuickResultReconciliationPass: localQuickResultReconciliation.pass === true
+        && localQuickResultReconciliationComplete === localQuickResultReconciliationRequired
+        && localQuickResultReconciliationIssueCount === 0,
     } : {}),
     ...(supplementalDeliveryDeclared ? {
       supplementalDeliveryEvidenceRequired: supplementalDeliveryRequired,

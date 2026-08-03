@@ -6,6 +6,7 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const { spawn } = require('child_process');
 const assert = require('assert');
+const crypto = require('crypto');
 const {
   resolveEvidenceDir,
   renderAndValidateReportPdf,
@@ -45,6 +46,59 @@ function reportHtmlText(reportHtml) {
     .replace(/&#39;/g, "'")
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function canonicalizeJson(value) {
+  if (Array.isArray(value)) return value.map(canonicalizeJson);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonicalizeJson(value[key])]));
+  }
+  return value;
+}
+
+function sha256Json(value) {
+  return crypto.createHash('sha256').update(JSON.stringify(canonicalizeJson(value)), 'utf8').digest('hex');
+}
+
+function countJsonLeafValues(value) {
+  if (Array.isArray(value)) return value.reduce((sum, item) => sum + countJsonLeafValues(item), 0);
+  if (value && typeof value === 'object') {
+    return Object.values(value).reduce((sum, item) => sum + countJsonLeafValues(item), 0);
+  }
+  return 1;
+}
+
+function assertLocalQuickReplayPayload(sourcePayload, replayPayload, tool, label) {
+  assert.equal(replayPayload?.tool?.id, sourcePayload?.tool?.id, `${label} ${tool.key} replay tool identity`);
+  assert.deepStrictEqual(
+    canonicalizeJson(replayPayload?.input),
+    canonicalizeJson(sourcePayload?.input),
+    `${label} ${tool.key} replay restores every input value`
+  );
+  assert.deepStrictEqual(
+    canonicalizeJson(replayPayload?.result),
+    canonicalizeJson(sourcePayload?.result),
+    `${label} ${tool.key} replay reproduces every result value`
+  );
+  const sourceInputSha256 = sha256Json(sourcePayload?.input);
+  const replayInputSha256 = sha256Json(replayPayload?.input);
+  const sourceResultSha256 = sha256Json(sourcePayload?.result);
+  const replayResultSha256 = sha256Json(replayPayload?.result);
+  assert.equal(replayInputSha256, sourceInputSha256, `${label} ${tool.key} replay input SHA-256`);
+  assert.equal(replayResultSha256, sourceResultSha256, `${label} ${tool.key} replay result SHA-256`);
+  return {
+    sourceInputSha256,
+    replayInputSha256,
+    sourceResultSha256,
+    replayResultSha256,
+    verifiedAssertionCount: countJsonLeafValues(sourcePayload?.input) + countJsonLeafValues(sourcePayload?.result),
+  };
+}
+
+function calculationFingerprintFromReport(reportHtml, label) {
+  const match = reportHtmlText(reportHtml).match(/計算指紋[：:\s]*(CF-[0-9A-F]{16})/i);
+  assert.ok(match, `${label} report exposes a calculation fingerprint`);
+  return match[1].toUpperCase();
 }
 
 function toolboxFile(relativePath) {
@@ -2970,6 +3024,27 @@ async function main() {
               assert.ok(wallTypeState.modelSummary.includes('重力式擋土牆'), `${interactionLabel} ${tool.key} gravity model summary`);
             }
             if (tool.reportMode === true) {
+              const replayImportState = await evaluate(client, sessionId, jsonImportExpression(tool, exportState.payload));
+              if (tool.key === 'foundation-local') assertFoundationJsonImportState(replayImportState, `${interactionLabel} report replay`);
+              if (tool.key === 'equipment-load') assertEquipmentJsonImportState(replayImportState, `${interactionLabel} report replay`);
+              if (tool.key === 'earth-pressure') assertEarthJsonImportState(replayImportState, `${interactionLabel} report replay`);
+              const replayExportState = await evaluate(client, sessionId, jsonExportExpression('preserve'));
+              assert.equal(replayExportState.downloadCount, 1, `${interactionLabel} ${tool.key} report replay JSON click count`);
+              assert.equal(replayExportState.blobCount, 1, `${interactionLabel} ${tool.key} report replay JSON blob count`);
+              assert.equal(replayExportState.payload?.tool?.id, tool.key, `${interactionLabel} ${tool.key} report replay JSON tool identity`);
+              assert.equal(replayExportState.payload?.project?.name, '回讀測試案', `${interactionLabel} ${tool.key} report replay JSON project identity`);
+              const replayComparison = assertLocalQuickReplayPayload(
+                exportState.payload,
+                replayExportState.payload,
+                tool,
+                `${interactionLabel} report replay`
+              );
+              const sourceJsonName = `${tool.key}-replay-source.json`;
+              const sourceJsonPath = path.join(renderedEvidenceDir, sourceJsonName);
+              const sourceJsonText = `${JSON.stringify(exportState.payload, null, 2)}\n`;
+              fs.mkdirSync(renderedEvidenceDir, { recursive: true });
+              fs.writeFileSync(sourceJsonPath, sourceJsonText, 'utf8');
+              const sourceJsonSha256 = crypto.createHash('sha256').update(sourceJsonText, 'utf8').digest('hex');
               const detailedReportState = await evaluate(client, sessionId, reportExpression('detailed'));
               const detailedPlaceholderReportState = await evaluate(client, sessionId, reportExpression('detailed', 'placeholder'));
               assertReportState(detailedReportState, tool, interactionLabel, 'detailed');
@@ -3000,6 +3075,14 @@ async function main() {
                 ],
                 forbiddenNeedles: ['DRAFT'],
               });
+              const calculationFingerprint = calculationFingerprintFromReport(
+                detailedReportState.html,
+                `${interactionLabel} ${tool.key}`
+              );
+              assert.ok(
+                detailedEvidence.pdf.visibleText.text.includes(calculationFingerprint),
+                `${interactionLabel} ${tool.key} rendered PDF contains replay calculation fingerprint`
+              );
               renderedEvidenceRecords.push({
                 key: tool.key,
                 renderer: detailedEvidence.renderer,
@@ -3007,6 +3090,18 @@ async function main() {
                 evidence: path.basename(detailedEvidence.evidencePath),
                 pageCount: detailedEvidence.pdf.pageCount,
                 textLength: detailedEvidence.pdf.textLength,
+                calculationFingerprint,
+                resultReconciliation: {
+                  schemaVersion: 1,
+                  strategy: 'local-quick-json-replay-to-pdf-hash',
+                  caseId: tool.key,
+                  sourceJson: sourceJsonName,
+                  sourceJsonSha256,
+                  ...replayComparison,
+                  calculationFingerprint,
+                  pdfSha256: detailedEvidence.artifactSha256,
+                  pass: true,
+                },
               });
               const internalEvidence = await renderAndValidateReportPdf(client, {
                 html: detailedPlaceholderReportState.html,
