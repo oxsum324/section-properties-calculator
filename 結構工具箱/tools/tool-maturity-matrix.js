@@ -1569,6 +1569,7 @@ function renderedDeliveryEvidencePathForRun(runId) {
 function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const supplementalDeclared = Number.isInteger(evidence?.supplementalRequired);
   const attachmentIntegrityDeclared = Number(evidence?.schemaVersion) >= 2;
+  const completeIntegrityDeclared = Number(evidence?.schemaVersion) >= 3;
   return Boolean(
     evidence
     && evidence.kind === 'release-rendered-delivery-evidence'
@@ -1589,6 +1590,26 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       && evidence.attachmentIntegrity.verified === evidence.attachmentIntegrity.required
       && evidence.attachmentIntegrity.issueCount === 0
       && /^[0-9a-f]{64}$/i.test(String(evidence.attachmentIntegrity.setSha256 || ''))
+    ))
+    && (!completeIntegrityDeclared || (
+      evidence.mixedArtifactIntegrity?.scope === 'mixed-format-release-artifacts'
+      && evidence.mixedArtifactIntegrity.required === 13
+      && evidence.mixedArtifactIntegrity.verified === 13
+      && evidence.mixedArtifactIntegrity.issueCount === 0
+      && evidence.mixedArtifactIntegrity.pass === true
+      && /^[0-9a-f]{64}$/i.test(String(evidence.mixedArtifactIntegrity.setSha256 || ''))
+      && evidence.rcVisualArtifactIntegrity?.scope === 'rc-rendered-pdf-png'
+      && evidence.rcVisualArtifactIntegrity.required === 62
+      && evidence.rcVisualArtifactIntegrity.verified === 62
+      && evidence.rcVisualArtifactIntegrity.issueCount === 0
+      && evidence.rcVisualArtifactIntegrity.pass === true
+      && /^[0-9a-f]{64}$/i.test(String(evidence.rcVisualArtifactIntegrity.setSha256 || ''))
+      && evidence.canonicalArtifactIntegrity?.scope === 'canonical-rendered-pdf-evidence'
+      && evidence.canonicalArtifactIntegrity.required === 60
+      && evidence.canonicalArtifactIntegrity.verified === 60
+      && evidence.canonicalArtifactIntegrity.issueCount === 0
+      && evidence.canonicalArtifactIntegrity.pass === true
+      && /^[0-9a-f]{64}$/i.test(String(evidence.canonicalArtifactIntegrity.setSha256 || ''))
     ))
   );
 }

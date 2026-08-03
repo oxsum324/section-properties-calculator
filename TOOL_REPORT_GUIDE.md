@@ -276,6 +276,8 @@ RC、鋼構、錨栓、石材、覆工板、開挖擋土支撐或其他正式 / 
 
 `結構工具箱/tools/rendered-delivery-evidence.js` 是正式放行的實際渲染門檻，`rendered-delivery-evidence.inventory.json` 對齊首頁 31 個 formal 入口，`rendered-delivery-evidence.contract.test.js` 負責彙整當輪證據。風力 / 地震正式工具、局部快算與鋼構正式報表會在 release 慢測中真正列印成 A4 PDF，逐件檢查頁數、可讀文字、非空白頁、頁邊截切、表格標題、標題到案件資料的閱讀順序、頁尾不得只剩孤立章節標題、續頁第一個可讀內容必須是章節 / 步驟 / 重複表頭，以及本章 page-only 字串完全排除；同時依輸出類型驗證採用輸入、計算／檢核過程、工程結果與必要追溯資訊，任一正向內容群組缺漏即阻擋正式放行。若從孤立公式、單一資料列或無標籤片段起頁，必須記入 `uncontextualPageStartCount` 並判定失敗。共用摘要與詳算版型各保留至少一件代表證據。RC 報告沿用各工具的 PNG / PDF 視覺 smoke，並呼叫相同的 PDF 分頁與正向內容成品檢查；30 組 RC 正式案例與 1 組補強案例的 PDF、整頁 PNG 共 62 份視覺成品，必須由產出端 audit 先保存 bytes 與 SHA-256，再由 release 彙整層穩定重讀、逐份核對，且被總閘門採用的代表 PDF 必須存在於原始 audit 記錄。錨栓 release 會保存實際 HTML、DOCX、XLSX，重新解析 HTML、`word/document.xml` 與 XLSX workbook / worksheet XML，核對案名、章節、工作表與 page-only 排除清單。覆工板 release 會在 `decking-formal` 保存當輪 DOCX，重新解析 `word/document.xml`，核對案名 / 編號 / 日期、主要章節、段落數、表格數、檔案尺寸及 page-only 排除清單。動力分析摘要雖屬 report 狀態，release 仍會在 `formal-tools` 保存當輪 PDF 與 evidence JSON，總閘門以 `seismic-report` 補充家族重新解析頁數、文字、表格、續頁脈絡與正向內容；開挖本機服務則在 `excavation-formal` 保存當輪 PDF、DOCX 與 latest download 副本，重新解析 PDF / Office XML 並核對副本雜湊。石材、錨栓、覆工板與開挖的產出端摘要必須先保存每一份 PDF、HTML、DOCX、XLSX、audit JSON 與 latest download 的 bytes 及 SHA-256；總閘門再從實體檔穩定重讀，逐份核對產出端記錄，並以負向 fixture 證明同大小替換仍會失敗關閉。兩者合計以補充報告 / 服務成品 `2/2` 呈現，不灌入首頁正式工具的 `31/31`。DOCX / workbook 必須抽取段落、表格或儲存格文字；只通過 HTML 字串、固定共用輸出路徑、原始碼契約或測試日誌，不再足以作為 release 證據。
 
+Canonical family summary 另須保存 evidence bytes；schema v3 release aggregate 會把風力／地震、局部快算與鋼構的 30 組 PDF／evidence 去重為 60 份實體檔，逐份保存彙整端重驗結果及集合 SHA-256。PDF 或 evidence 任一被同大小替換都必須失敗關閉。成熟度矩陣只有在 canonical `60/60`、RC 視覺 `62/62`、混合格式 `13/13` 與 RC HTML `32/32` 同時通過時，才可採納該輪為完整 rendered delivery evidence；詳細清冊不進計算書或 Pages 公開狀態。
+
 ### 採用依據文字
 
 應使用：

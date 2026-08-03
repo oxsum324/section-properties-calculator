@@ -421,6 +421,30 @@ function integritySetHash(artifacts) {
     .digest('hex');
 }
 
+function scopedIntegritySetHash(artifacts) {
+  return createHash('sha256')
+    .update(artifacts
+      .map(artifact => `${artifact.family || ''}\u0000${artifact.role || ''}\u0000${artifact.name}\u0000${artifact.bytes}\u0000${artifact.sha256}`)
+      .sort()
+      .join('\n'), 'utf8')
+    .digest('hex');
+}
+
+function uniqueIntegrityArtifacts(artifacts, label) {
+  const unique = new Map();
+  for (const artifact of artifacts) {
+    const key = `${artifact.family || ''}\u0000${artifact.role || ''}\u0000${artifact.name || ''}`;
+    const existing = unique.get(key);
+    if (existing) {
+      assert.equal(existing.bytes, artifact.bytes, `${label} duplicate artifact bytes agree: ${artifact.name}`);
+      assert.equal(existing.sha256, artifact.sha256, `${label} duplicate artifact SHA-256 agrees: ${artifact.name}`);
+      continue;
+    }
+    unique.set(key, artifact);
+  }
+  return [...unique.values()];
+}
+
 function buildHtmlIntegrityGroup(tool, artifacts) {
   const expected = Number(tool.htmlExpected);
   assert.ok(Number.isInteger(expected) && expected > 0, `${tool.title} declares a positive HTML attachment expectation`);
@@ -461,6 +485,7 @@ function validateFamilySummary(runDir, family, expectedKeys) {
   const summary = readJson(summaryPath);
   assert.equal(summary.pass, true, `${family} rendered summary passes`);
   const complete = new Set(summary.complete || summary.records?.map(record => record.key) || []);
+  const canonicalArtifacts = [];
   for (const key of expectedKeys) {
     assert.ok(complete.has(key), `${family} rendered summary covers ${key}`);
   }
@@ -473,7 +498,11 @@ function validateFamilySummary(runDir, family, expectedKeys) {
       assert.equal(fs.readFileSync(artifactPath).subarray(0, 4).toString('ascii'), '%PDF', `${family} artifact is PDF: ${record.artifact}`);
     }
     if (artifactPath && evidencePath && ['formal-tools', 'local-quick-tools', 'steel-formal'].includes(family)) {
-      verifyCanonicalRenderedArtifact(path.dirname(summaryPath), record, `${family} ${record.key || record.artifact}`);
+      const verified = verifyCanonicalRenderedArtifact(path.dirname(summaryPath), record, `${family} ${record.key || record.artifact}`);
+      canonicalArtifacts.push(
+        { family, role: 'reportPdf', name: record.artifact, bytes: verified.artifactBytes, sha256: verified.artifactSha256 },
+        { family, role: 'renderEvidence', name: record.evidence, bytes: verified.evidenceBytes, sha256: verified.evidenceSha256 },
+      );
     }
     if (htmlArtifactPath) {
       validateHtmlArtifactRecord(path.dirname(summaryPath), {
@@ -483,7 +512,7 @@ function validateFamilySummary(runDir, family, expectedKeys) {
     }
     if (evidencePath) assert.ok(fs.existsSync(evidencePath), `${family} evidence JSON exists: ${record.evidence}`);
   }
-  return summary;
+  return { summary, canonicalArtifacts };
 }
 
 function validateArtifactFamilySummary(runDir, family, expectedKeys) {
@@ -608,6 +637,7 @@ try {
   assert.match(fixtureRecord.artifactSha256, /^[0-9a-f]{64}$/i, 'family summary records canonical artifact hash');
   assert.match(fixtureRecord.evidenceSha256, /^[0-9a-f]{64}$/i, 'family summary records canonical evidence hash');
   assert.equal(fixtureRecord.artifactBytes, originalArtifact.length, 'family summary records canonical artifact bytes');
+  assert.equal(fixtureRecord.evidenceBytes, fs.statSync(path.join(canonicalIntegrityFixtureDir, evidenceName)).size, 'family summary records canonical evidence bytes');
   verifyCanonicalRenderedArtifact(canonicalIntegrityFixtureDir, fixtureRecord, 'canonical fixture');
   const tamperedArtifact = Buffer.from(originalArtifact);
   tamperedArtifact[tamperedArtifact.indexOf('original')] = 'X'.charCodeAt(0);
@@ -617,6 +647,17 @@ try {
     () => verifyCanonicalRenderedArtifact(canonicalIntegrityFixtureDir, fixtureRecord, 'tampered canonical fixture'),
     /artifact SHA-256 matches its original render evidence/,
     'same-size canonical PDF replacement is blocked by original evidence hash'
+  );
+  fs.writeFileSync(path.join(canonicalIntegrityFixtureDir, artifactName), originalArtifact);
+  const originalEvidence = fs.readFileSync(path.join(canonicalIntegrityFixtureDir, evidenceName));
+  const tamperedEvidence = Buffer.from(originalEvidence);
+  tamperedEvidence[tamperedEvidence.indexOf('\n')] = ' '.charCodeAt(0);
+  assert.equal(tamperedEvidence.length, originalEvidence.length, 'negative canonical evidence fixture preserves byte length');
+  fs.writeFileSync(path.join(canonicalIntegrityFixtureDir, evidenceName), tamperedEvidence);
+  assert.throws(
+    () => verifyCanonicalRenderedArtifact(canonicalIntegrityFixtureDir, fixtureRecord, 'tampered canonical evidence fixture'),
+    /family summary records evidence SHA-256/,
+    'same-size canonical evidence replacement is blocked by family summary hash'
   );
 } finally {
   fs.rmSync(canonicalIntegrityFixtureDir, { recursive: true, force: true });
@@ -676,11 +717,13 @@ const runDir = path.resolve(process.env.PREFLIGHT_RUN_DIR || '');
 assert.ok(process.env.PREFLIGHT_RUN_DIR && fs.existsSync(runDir), 'release rendered evidence receives PREFLIGHT_RUN_DIR');
 const records = [];
 const supplementalRecords = [];
+const canonicalArtifactRecords = [];
 
 for (const family of ['formal-tools', 'local-quick-tools', 'steel-formal']) {
   const tools = inventory.tools.filter(tool => tool.family === family);
   const expectedKeys = [...new Set(tools.map(tool => tool.evidenceKey))];
-  const summary = validateFamilySummary(runDir, family, expectedKeys);
+  const { summary, canonicalArtifacts } = validateFamilySummary(runDir, family, expectedKeys);
+  canonicalArtifactRecords.push(...canonicalArtifacts);
   for (const tool of tools) {
     const evidence = summary.records.find(record => record.key === tool.evidenceKey);
     records.push({ href: tool.href, title: tool.title, family, evidenceKey: tool.evidenceKey, artifact: evidence?.artifact || '' });
@@ -712,7 +755,7 @@ for (const tool of inventory.tools.filter(item => item.family === 'rc-formal')) 
   records.push({ href: tool.href, title: tool.title, family: tool.family, evidenceKey: tool.evidenceKey, artifact: artifact.name, htmlArtifacts, htmlIntegrity, integrity, visualArtifactIntegrity, pageCount: pdf.pageCount, textLength: pdf.textLength });
 }
 
-const retrofitSummary = validateFamilySummary(runDir, 'rc-retrofit', ['rc-retrofit-section']);
+const { summary: retrofitSummary } = validateFamilySummary(runDir, 'rc-retrofit', ['rc-retrofit-section']);
 const retrofitTool = inventory.tools.find(tool => tool.family === 'rc-retrofit');
 const retrofitEvidence = retrofitSummary.records.find(record => record.key === retrofitTool.evidenceKey);
 const retrofitEvidenceDir = path.join(runDir, 'rendered-delivery-evidence', 'rc-retrofit');
@@ -738,7 +781,7 @@ records.push({
   visualArtifactIntegrity: retrofitVisualArtifactIntegrity,
 });
 
-const stoneSummary = validateFamilySummary(runDir, 'stone-formal', ['stone-fixing']);
+const { summary: stoneSummary } = validateFamilySummary(runDir, 'stone-formal', ['stone-fixing']);
 const stoneTool = inventory.tools.find(tool => tool.family === 'stone-formal');
 const stoneEvidence = stoneSummary.records.find(record => record.key === stoneTool.evidenceKey);
 const stoneEvidenceDir = path.join(runDir, 'rendered-delivery-evidence', 'stone-formal');
@@ -1248,6 +1291,19 @@ const rcVisualArtifactIntegrity = {
   setSha256: integritySetHash(rcVisualArtifacts),
   artifacts: rcVisualArtifacts,
 };
+const canonicalArtifacts = uniqueIntegrityArtifacts(canonicalArtifactRecords, 'canonical rendered artifact integrity');
+const canonicalArtifactIntegrity = {
+  schemaVersion: 1,
+  scope: 'canonical-rendered-pdf-evidence',
+  required: 60,
+  verified: canonicalArtifacts.length,
+  issueCount: Math.max(0, 60 - canonicalArtifacts.length),
+  pass: canonicalArtifacts.length === 60,
+  setSha256: scopedIntegritySetHash(canonicalArtifacts),
+  artifacts: canonicalArtifacts,
+};
+assert.equal(canonicalArtifactIntegrity.verified, canonicalArtifactIntegrity.required, 'release rendered evidence verifies all 60 canonical PDF and evidence files');
+assert.equal(canonicalArtifactIntegrity.pass, true, 'release rendered evidence passes canonical PDF and evidence integrity');
 assert.equal(rcVisualArtifactIntegrity.verified, rcVisualArtifactIntegrity.required, 'release rendered evidence verifies all 62 RC PDF and PNG visual artifacts');
 assert.equal(rcVisualArtifactIntegrity.pass, true, 'release rendered evidence passes RC PDF and PNG visual artifact integrity');
 assert.equal(mixedArtifactIntegrity.verified, mixedArtifactIntegrity.required, 'release rendered evidence verifies all 13 mixed-format artifacts');
@@ -1258,7 +1314,7 @@ assert.equal(attachmentIntegrity.verified, attachmentIntegrity.required, 'releas
 assert.equal(attachmentIntegrity.issueCount, 0, 'release rendered evidence has no RC HTML attachment integrity issue');
 assert.equal(attachmentIntegrity.pass, true, 'release rendered evidence passes RC HTML attachment integrity');
 const aggregate = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),
@@ -1267,14 +1323,15 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass,
   attachmentIntegrity,
   mixedArtifactIntegrity,
   rcVisualArtifactIntegrity,
+  canonicalArtifactIntegrity,
   records,
   supplementalRecords,
 };
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, summary=${aggregatePath})`);

@@ -167,6 +167,11 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
+  'schemaVersion: 3',
+  'canonicalArtifactIntegrity',
+  "scope: 'canonical-rendered-pdf-evidence'",
+  'required: 60',
+  'canonicalIntegrity=',
   'rendered-delivery-evidence-summary.json',
 ].forEach(needle => assertIncludes(renderedEvidenceContract, needle, `rendered evidence aggregate contract preserves ${needle}`));
 assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evidence inventory has 31 formal tools', 'rendered-delivery-evidence.inventory.json');
@@ -190,6 +195,9 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   "/^[0-9a-f]{40}$/i.test(String(payload.sourceCommitSha || ''))",
   'payload.sourceDirty === false',
   'function isCompleteRenderedDeliveryEvidence',
+  'completeIntegrityDeclared',
+  "evidence.canonicalArtifactIntegrity?.scope === 'canonical-rendered-pdf-evidence'",
+  'evidence.canonicalArtifactIntegrity.required === 60',
   'function resolveRenderedDeliveryEvidenceSource',
   'function resolveHomepagePreflightSource',
   'latestSummary && latestSummary.quick === false && latestSummary.pass === true',

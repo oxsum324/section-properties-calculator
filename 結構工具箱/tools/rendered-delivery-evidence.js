@@ -116,11 +116,13 @@ function verifyCanonicalRenderedArtifact(directory, record, label, options = {})
   if (options.requireSummaryIntegrity !== false) {
     assert.equal(Number(record.artifactBytes), artifactBuffer.length, `${label} family summary records artifact bytes`);
     assert.equal(String(record.artifactSha256 || '').toLowerCase(), artifactSha256, `${label} family summary records artifact SHA-256`);
+    assert.equal(Number(record.evidenceBytes), evidenceBuffer.length, `${label} family summary records evidence bytes`);
     assert.equal(String(record.evidenceSha256 || '').toLowerCase(), evidenceSha256, `${label} family summary records evidence SHA-256`);
   }
   return {
     artifactBytes: artifactBuffer.length,
     artifactSha256,
+    evidenceBytes: evidenceBuffer.length,
     evidenceSha256,
   };
 }
