@@ -545,7 +545,10 @@ function validateFormalResultReconciliationRecord(record, label) {
 function validateRcResultReconciliationRecord(record, label) {
   const reconciliation = record?.resultReconciliation;
   assert.equal(reconciliation?.schemaVersion, 1, `${label} RC result reconciliation schema`);
-  assert.equal(reconciliation?.strategy, 'rc-project-replay-to-report-fingerprint', `${label} RC result reconciliation strategy`);
+  assert.ok([
+    'rc-project-replay-to-report-fingerprint',
+    'rc-form-replay-to-report-fingerprint',
+  ].includes(reconciliation?.strategy), `${label} RC result reconciliation strategy`);
   assert.equal(reconciliation?.caseId, record?.key, `${label} RC result reconciliation case identity`);
   assert.match(String(reconciliation?.sourceSnapshotSha256 || ''), /^[0-9a-f]{64}$/i, `${label} RC project snapshot SHA-256`);
   assert.ok(Number.isInteger(reconciliation?.verifiedAssertionCount) && reconciliation.verifiedAssertionCount > 0, `${label} RC verified result assertions`);
@@ -939,6 +942,8 @@ for (const tool of inventory.tools.filter(item => item.family === 'rc-formal')) 
 const { summary: retrofitSummary } = validateFamilySummary(runDir, 'rc-retrofit', ['rc-retrofit-section']);
 const retrofitTool = inventory.tools.find(tool => tool.family === 'rc-retrofit');
 const retrofitEvidence = retrofitSummary.records.find(record => record.key === retrofitTool.evidenceKey);
+const retrofitReconciliations = retrofitSummary.records.map(record => validateRcResultReconciliationRecord(record, `${retrofitTool.title} ${record.key || ''}`));
+rcResultReconciliationRecords.push(...retrofitReconciliations.map(reconciliation => ({ href: retrofitTool.href, ...reconciliation })));
 const retrofitEvidenceDir = path.join(runDir, 'rendered-delivery-evidence', 'rc-retrofit');
 const retrofitHtmlIntegrity = retrofitSummary.records
   .filter(record => record.htmlArtifact)
@@ -1497,16 +1502,16 @@ assert.equal(formalResultReconciliation.complete, formalResultReconciliation.req
 assert.equal(formalResultReconciliation.pass, true, 'release rendered evidence passes formal result reconciliation');
 const rcResultReconciliation = {
   schemaVersion: 1,
-  scope: 'rc-project-replay-to-report-fingerprint',
-  required: 30,
+  scope: 'rc-source-replay-to-report-fingerprint',
+  required: 32,
   complete: rcResultReconciliationRecords.length,
-  issueCount: Math.max(0, 30 - rcResultReconciliationRecords.length),
-  pass: rcResultReconciliationRecords.length === 30,
+  issueCount: Math.max(0, 32 - rcResultReconciliationRecords.length),
+  pass: rcResultReconciliationRecords.length === 32,
   setSha256: rcResultReconciliationSetHash(rcResultReconciliationRecords),
   records: rcResultReconciliationRecords,
 };
 assert.equal(new Set(rcResultReconciliationRecords.map(record => `${record.href}\u0000${record.key}`)).size, rcResultReconciliationRecords.length, 'release rendered evidence RC result reconciliation identities are unique');
-assert.equal(rcResultReconciliation.complete, rcResultReconciliation.required, 'release rendered evidence reconciles all 30 RC regression results to report fingerprints');
+assert.equal(rcResultReconciliation.complete, rcResultReconciliation.required, 'release rendered evidence reconciles all 32 RC design and retrofit results to report fingerprints');
 assert.equal(rcResultReconciliation.pass, true, 'release rendered evidence passes RC result reconciliation');
 const steelResultReconciliation = {
   schemaVersion: 1,
@@ -1533,7 +1538,7 @@ assert.equal(attachmentIntegrity.verified, attachmentIntegrity.required, 'releas
 assert.equal(attachmentIntegrity.issueCount, 0, 'release rendered evidence has no RC HTML attachment integrity issue');
 assert.equal(attachmentIntegrity.pass, true, 'release rendered evidence passes RC HTML attachment integrity');
 const aggregate = {
-  schemaVersion: 6,
+  schemaVersion: 7,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),

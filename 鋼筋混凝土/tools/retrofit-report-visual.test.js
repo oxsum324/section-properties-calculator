@@ -5,6 +5,7 @@ const path = require('path');
 const { chromium } = require('playwright');
 const { assertReportPdfTextQuality, assertReportScreenshotQuality, captureArtifactIntegrity } = require('./report-screenshot-quality');
 const { assertPortableFormalHtml } = require('./report-portable-html-check');
+const { buildRcResultReconciliation } = require('./report-result-reconciliation');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const outputDir = path.resolve(
@@ -56,6 +57,66 @@ function startServer() {
   });
 }
 
+async function captureRetrofitSourceSnapshot(page, kind) {
+  return page.evaluate(sourceKind => {
+    const prefix = sourceKind === 'beam' ? 'b-' : 'c-';
+    const fields = Array.from(document.querySelectorAll('input[id], select[id], textarea[id]'))
+      .filter(node => node.id.startsWith(prefix))
+      .map(node => ({
+        id: node.id,
+        type: node.type || node.tagName.toLowerCase(),
+        value: node.value,
+        checked: Boolean(node.checked),
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+    const result = sourceKind === 'beam' ? lastBeam : lastCol;
+    return JSON.parse(JSON.stringify({
+      schemaVersion: 1,
+      kind: `rc-retrofit-${sourceKind}-form-snapshot`,
+      fields,
+      result,
+    }));
+  }, kind);
+}
+
+async function replayRetrofitSourceSnapshot(page, kind, sourceSnapshot) {
+  const replayed = await page.evaluate(({ sourceKind, snapshot }) => {
+    const perturbId = sourceKind === 'beam' ? 'b-Vu' : 'c-Mu';
+    const perturb = document.getElementById(perturbId);
+    if (perturb) {
+      perturb.value = String(Number(perturb.value || 0) + 7);
+      perturb.dispatchEvent(new Event('input', { bubbles: true }));
+      perturb.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if (sourceKind === 'beam') calcBeam(); else calcCol();
+    const perturbedResult = JSON.parse(JSON.stringify(sourceKind === 'beam' ? lastBeam : lastCol));
+    for (const field of snapshot.fields) {
+      const node = document.getElementById(field.id);
+      if (!node) throw new Error(`Missing retrofit replay field: ${field.id}`);
+      if (node.type === 'checkbox' || node.type === 'radio') node.checked = field.checked;
+      else node.value = field.value;
+      node.dispatchEvent(new Event('input', { bubbles: true }));
+      node.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if (sourceKind === 'beam') calcBeam(); else calcCol();
+    const result = JSON.parse(JSON.stringify(sourceKind === 'beam' ? lastBeam : lastCol));
+    return { perturbedResult, result };
+  }, { sourceKind: kind, snapshot: sourceSnapshot });
+  assert.notDeepEqual(replayed.perturbedResult, sourceSnapshot.result, `RC retrofit ${kind} perturbation changes calculated results before replay`);
+  assert.deepEqual(replayed.result, sourceSnapshot.result, `RC retrofit ${kind} form snapshot replays the same calculated results`);
+  return replayed.result;
+}
+
+async function openReplayReportFingerprint(page, exportFunctionName) {
+  const popupPromise = page.context().waitForEvent('page', { timeout: 15000 });
+  await page.evaluate(name => window[name](), exportFunctionName);
+  const replayReport = await popupPromise;
+  await replayReport.waitForSelector('.rep-attachment-approval-source', { state: 'attached', timeout: 15000 });
+  const fingerprint = await replayReport.locator('.rep-attachment-approval-source').getAttribute('data-calculation-fingerprint');
+  await replayReport.close();
+  return fingerprint || '';
+}
+
 async function main() {
   fs.mkdirSync(outputDir, { recursive: true });
   const browserPath = browserCandidates.find(candidate => fs.existsSync(candidate));
@@ -99,6 +160,8 @@ async function main() {
     assert.ok(pageState.readiness.includes('優先閱讀'), 'RC retrofit page renders page-only readiness');
     assert.ok(pageState.readiness.includes('不會寫入計算書或列印 PDF'), 'RC retrofit page keeps readiness export boundary');
     assert.equal(pageState.readinessStatus, 'ready', 'RC retrofit complete beam is ready to sign');
+
+    const beamSourceSnapshotBase = await captureRetrofitSourceSnapshot(page, 'beam');
 
     const popupPromise = page.context().waitForEvent('page', { timeout: 15000 });
     await page.evaluate(() => exportBeamReport());
@@ -151,6 +214,21 @@ async function main() {
     });
     const portableBeamHtml = await assertPortableFormalHtml(report, 'RC retrofit beam report', assert, { outputDir });
     assert.equal(errors.length, 0, `RC retrofit page/report console errors: ${errors.join(' | ')}`);
+    const beamSourceSnapshot = {
+      ...beamSourceSnapshotBase,
+      calculationFingerprint: portableBeamHtml.calculationFingerprint,
+    };
+    await report.close();
+    await replayRetrofitSourceSnapshot(page, 'beam', beamSourceSnapshot);
+    const replayBeamFingerprint = await openReplayReportFingerprint(page, 'exportBeamReport');
+    assert.equal(replayBeamFingerprint, portableBeamHtml.calculationFingerprint, 'RC retrofit beam replay keeps the original report calculation fingerprint');
+    const beamResultReconciliation = buildRcResultReconciliation({
+      strategy: 'rc-form-replay-to-report-fingerprint',
+      caseId: 'rc-retrofit-section',
+      sourceSnapshot: beamSourceSnapshot,
+      reportCalculationFingerprint: replayBeamFingerprint,
+      verifiedAssertionCount: 6,
+    });
     const summary = {
       schemaVersion: 1,
       family: 'rc-retrofit',
@@ -170,10 +248,12 @@ async function main() {
           captureArtifactIntegrity(pdfPath, 'reportPdf'),
           captureArtifactIntegrity(screenshotPath, 'reportScreenshot'),
         ],
+        metrics: { calculationFingerprint: portableBeamHtml.calculationFingerprint },
+        calculationFingerprint: portableBeamHtml.calculationFingerprint,
         portableHtml: portableBeamHtml,
+        resultReconciliation: beamResultReconciliation,
       }],
     };
-    await report.close();
 
     const metadataReviewPromise = page.context().waitForEvent('page', { timeout: 15000 });
     await page.evaluate(() => {
@@ -195,7 +275,6 @@ async function main() {
     assert.equal(metadataReviewState.bodyText.includes('DRAFT／非正式附件'), false, 'RC retrofit blank project metadata does not create DRAFT');
     await metadataReview.close();
 
-    const blockedPopupPromise = page.context().waitForEvent('page', { timeout: 15000 });
     await page.evaluate(() => {
       const setField = (id, value) => {
         const input = document.getElementById(id);
@@ -206,8 +285,11 @@ async function main() {
       setField('projNo', 'RC-RETROFIT-VERIFY-001');
       setField('c-Mu', '1000');
       switchTab('col');
-      exportColReport();
+      calcCol();
     });
+    const columnSourceSnapshotBase = await captureRetrofitSourceSnapshot(page, 'column');
+    const blockedPopupPromise = page.context().waitForEvent('page', { timeout: 15000 });
+    await page.evaluate(() => exportColReport());
     const blockedReport = await blockedPopupPromise;
     await blockedReport.waitForSelector('.rep-document-status-line', { timeout: 10000 });
     const blockedState = await blockedReport.evaluate(() => ({
@@ -223,14 +305,31 @@ async function main() {
     assert.equal(approvedBlockedState.state, 'formal-attachment', 'RC retrofit NG calculation can be explicitly approved as a truthful formal attachment');
     assert.ok(approvedBlockedState.text.includes('核可時間'), 'RC retrofit formal attachment records approval time');
     const portableBlockedHtml = await assertPortableFormalHtml(blockedReport, 'RC retrofit NG column report', assert, { outputDir });
+    const columnSourceSnapshot = {
+      ...columnSourceSnapshotBase,
+      calculationFingerprint: portableBlockedHtml.calculationFingerprint,
+    };
+    await blockedReport.close();
+    await replayRetrofitSourceSnapshot(page, 'column', columnSourceSnapshot);
+    const replayColumnFingerprint = await openReplayReportFingerprint(page, 'exportColReport');
+    assert.equal(replayColumnFingerprint, portableBlockedHtml.calculationFingerprint, 'RC retrofit column replay keeps the original report calculation fingerprint');
+    const columnResultReconciliation = buildRcResultReconciliation({
+      strategy: 'rc-form-replay-to-report-fingerprint',
+      caseId: 'rc-retrofit-ng-column-formal-html',
+      sourceSnapshot: columnSourceSnapshot,
+      reportCalculationFingerprint: replayColumnFingerprint,
+      verifiedAssertionCount: 6,
+    });
     summary.records.push({
       key: 'rc-retrofit-ng-column-formal-html',
       htmlArtifact: portableBlockedHtml.htmlArtifact,
       title: portableBlockedHtml.reportTitle,
+      metrics: { calculationFingerprint: portableBlockedHtml.calculationFingerprint },
+      calculationFingerprint: portableBlockedHtml.calculationFingerprint,
       portableHtml: portableBlockedHtml,
+      resultReconciliation: columnResultReconciliation,
     });
     fs.writeFileSync(path.join(outputDir, 'rendered-delivery-evidence-summary.json'), `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
-    await blockedReport.close();
     await page.close();
     console.log(`RC retrofit report visual smoke OK (downloads=${portableBeamHtml.downloadedFileName}, ${portableBlockedHtml.downloadedFileName}; summary=${path.join(outputDir, 'rendered-delivery-evidence-summary.json')})`);
   } finally {

@@ -593,7 +593,7 @@ if (Number.isInteger(reportReadinessStatusSnapshot.formalResultReconciliationReq
   assert.equal(reportReadinessStatusSnapshot.formalResultReconciliationPass, true, 'tracked report readiness snapshot formal result reconciliation passes');
 }
 if (Number.isInteger(reportReadinessStatusSnapshot.rcResultReconciliationRequired)) {
-  assert.equal(reportReadinessStatusSnapshot.rcResultReconciliationRequired, 30, 'tracked report readiness snapshot expects 30 RC result reconciliations');
+  assert.ok([30, 32].includes(reportReadinessStatusSnapshot.rcResultReconciliationRequired), 'tracked report readiness snapshot expects a supported RC result reconciliation transition count');
   assert.equal(reportReadinessStatusSnapshot.rcResultReconciliationComplete, reportReadinessStatusSnapshot.rcResultReconciliationRequired, 'tracked report readiness snapshot completes every RC result reconciliation');
   assert.equal(reportReadinessStatusSnapshot.rcResultReconciliationIssueCount, 0, 'tracked report readiness snapshot RC result reconciliation issues empty');
   assert.equal(reportReadinessStatusSnapshot.rcResultReconciliationPass, true, 'tracked report readiness snapshot RC result reconciliation passes');

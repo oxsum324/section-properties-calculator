@@ -1572,6 +1572,7 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const completeIntegrityDeclared = Number(evidence?.schemaVersion) >= 3;
   const resultReconciliationDeclared = Number(evidence?.schemaVersion) >= 4;
   const rcResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 5;
+  const expandedRcResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 7;
   const steelResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 6;
   return Boolean(
     evidence
@@ -1623,9 +1624,11 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       && /^[0-9a-f]{64}$/i.test(String(evidence.formalResultReconciliation.setSha256 || ''))
     ))
     && (!rcResultReconciliationDeclared || (
-      evidence.rcResultReconciliation?.scope === 'rc-project-replay-to-report-fingerprint'
-      && evidence.rcResultReconciliation.required === 30
-      && evidence.rcResultReconciliation.complete === 30
+      evidence.rcResultReconciliation?.scope === (expandedRcResultReconciliationDeclared
+        ? 'rc-source-replay-to-report-fingerprint'
+        : 'rc-project-replay-to-report-fingerprint')
+      && evidence.rcResultReconciliation.required === (expandedRcResultReconciliationDeclared ? 32 : 30)
+      && evidence.rcResultReconciliation.complete === (expandedRcResultReconciliationDeclared ? 32 : 30)
       && evidence.rcResultReconciliation.issueCount === 0
       && evidence.rcResultReconciliation.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.rcResultReconciliation.setSha256 || ''))
@@ -1852,10 +1855,13 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       ? Math.max(0, formalResultReconciliationRequired - formalResultReconciliationComplete)
       : Math.max(1, compactNumber(formalResultReconciliation.issueCount) || formalResultReconciliationRequired - formalResultReconciliationComplete);
   const rcResultReconciliation = renderedDeliveryPayload?.rcResultReconciliation;
+  const expandedRcResultReconciliationDeclared = Number(renderedDeliveryPayload?.schemaVersion) >= 7;
   const rcResultReconciliationDeclared = Boolean(
     Number(renderedDeliveryPayload?.schemaVersion) >= 5
     && rcResultReconciliation
-    && rcResultReconciliation.scope === 'rc-project-replay-to-report-fingerprint'
+    && rcResultReconciliation.scope === (expandedRcResultReconciliationDeclared
+      ? 'rc-source-replay-to-report-fingerprint'
+      : 'rc-project-replay-to-report-fingerprint')
     && Number.isInteger(rcResultReconciliation.required)
     && Number.isInteger(rcResultReconciliation.complete)
   );
@@ -1893,7 +1899,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     `正式放行實際交付物渲染佐證：${renderedDeliveryComplete} / ${renderedDeliveryRequired} 個首頁正式工具已完成，涵蓋 ${renderedDeliveryFamilies.length} 個工具家族${supplementalDeliveryDeclared ? `；另有 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired} 個矩陣外報告 / 服務成品，涵蓋 ${supplementalDeliveryFamilies.length} 個補充家族` : ''}；證據來自 release ${String(renderedDeliveryPayload?.runId || '-')}。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。`,
     ...(deliveryFileIntegrityDeclared ? [`正式交付檔案完整性：${deliveryFileIntegrityBreakdown.map(item => `${item.label} ${item.verified} / ${item.required}`).join('、')}；合計 ${deliveryFileIntegrityVerified} / ${deliveryFileIntegrityRequired}。公開狀態只提供類別、數量與通過狀態，不公開檔名、逐檔雜湊或完整性集合。`] : []),
     ...(formalResultReconciliationDeclared ? [`正式計算書結果鏈：風力／地震正式工具 ${formalResultReconciliationComplete} / ${formalResultReconciliationRequired} 已先完成 golden case 精確結果重算，再以同一計算狀態的指紋產生正式附件。公開狀態只顯示完成數，不公開案例輸入、預期數值、案例雜湊或計算指紋。`] : []),
-    ...(rcResultReconciliationDeclared ? [`RC 正式計算書結果鏈：梁、柱、板、牆、剪力牆、基礎與單樁共 ${rcResultReconciliationComplete} / ${rcResultReconciliationRequired} 組瀏覽器回歸案例已完成專案資料重現，再核對 PDF 與正式 HTML 的同一計算指紋。公開狀態只顯示完成數，不公開案例資料、專案快照雜湊或計算指紋。`] : []),
+    ...(rcResultReconciliationDeclared ? [`RC 正式計算書結果鏈：梁、柱、板、牆、剪力牆、基礎、單樁${expandedRcResultReconciliationDeclared ? '與梁／柱補強' : ''}共 ${rcResultReconciliationComplete} / ${rcResultReconciliationRequired} 組瀏覽器回歸案例已完成來源資料重現，再核對 PDF 與正式 HTML 的同一計算指紋。公開狀態只顯示完成數，不公開案例資料、來源快照雜湊或計算指紋。`] : []),
     ...(steelResultReconciliationDeclared ? [`鋼構正式計算書結果鏈：主工具連接板、主工具拉力構件、獨立連接板、鋼梁與鋼柱共 ${steelResultReconciliationComplete} / ${steelResultReconciliationRequired} 組來源 JSON 已完成匯入重算及不相容版本拒絕，再核對渲染報告的同一計算指紋。公開狀態只顯示完成數，不公開來源資料、來源雜湊或計算指紋。`] : []),
     ...(attachmentIntegrityDeclared ? [`RC 正式附件 HTML 完整性：預期 ${attachmentIntegrityRequired} 份、實際 ${attachmentIntegrityActual} 份、已驗證 ${attachmentIntegrityVerified} 份；集合 SHA-256 ${String(attachmentIntegrity.setSha256 || '').slice(0, 12)}。本項是放行證據，不會寫入計算書、列印或 PDF。`] : []),
     `可讀文字抽檢範圍：${reportTextSmokeEvidence.scope}`,
@@ -2306,12 +2312,12 @@ function checkMatrix(payload, markdown, options = {}) {
     assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('不公開案例輸入、預期數值、案例雜湊或計算指紋'), 'homepage report readiness keeps reconciliation evidence private');
   }
   if (Number.isInteger(homepageReportReadinessStatus.rcResultReconciliationRequired)) {
-    assert.equal(homepageReportReadinessStatus.rcResultReconciliationRequired, 30, 'homepage report readiness expects 30 RC result reconciliations');
+    assert.ok([30, 32].includes(homepageReportReadinessStatus.rcResultReconciliationRequired), 'homepage report readiness expects a supported RC result reconciliation transition count');
     assert.equal(homepageReportReadinessStatus.rcResultReconciliationComplete, homepageReportReadinessStatus.rcResultReconciliationRequired, 'homepage report readiness completes every RC result reconciliation');
     assert.equal(homepageReportReadinessStatus.rcResultReconciliationIssueCount, 0, 'homepage report readiness RC result reconciliation issues empty');
     assert.equal(homepageReportReadinessStatus.rcResultReconciliationPass, true, 'homepage report readiness RC result reconciliation passes');
     assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('RC 正式計算書結果鏈'), 'homepage report readiness explains RC result reconciliation');
-    assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('不公開案例資料、專案快照雜湊或計算指紋'), 'homepage report readiness keeps RC reconciliation evidence private');
+    assert.ok(/不公開案例資料、(?:專案|來源)快照雜湊或計算指紋/.test((homepageReportReadinessStatus.details || []).join(' ')), 'homepage report readiness keeps RC reconciliation evidence private');
   }
   if (Number.isInteger(homepageReportReadinessStatus.steelResultReconciliationRequired)) {
     assert.equal(homepageReportReadinessStatus.steelResultReconciliationRequired, 5, 'homepage report readiness expects 5 steel result reconciliations');

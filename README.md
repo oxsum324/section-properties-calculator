@@ -96,6 +96,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 - 正式計算書結果鏈：schema v4 會要求 14 個風力／地震正式工具先在同一瀏覽器工作階段完成 manifest 全部 golden case 的 selector、metric 與文字結果斷言，再以最後一個已驗證案例的同一計算狀態產生正式附件。Producer summary 保存 golden case 身分雜湊、驗證案例數、斷言數與報告計算指紋，release aggregate 重新核對 `14/14` 並保存集合 SHA-256；Pages 僅顯示「數值結果鏈 `14/14`」，不公開案例輸入、預期數值、案例雜湊或計算指紋。
 - RC 正式計算書結果鏈：schema v5 另要求 RC 梁、柱、板、牆、剪力牆、基礎與單樁的 30 組瀏覽器回歸案例，先把實際專案快照重現計算，再確認 PDF 與核可後可攜 HTML 沿用同一計算指紋。每筆 producer audit 保存案例 ID、專案快照 SHA-256、結果斷言數及計算指紋；release aggregate 核對 `30/30`、唯一案例身分與集合 SHA-256。Pages 僅顯示「RC 結果鏈 `30/30`」，不公開案例資料、專案快照雜湊或計算指紋。
 - 鋼構正式計算書結果鏈：schema v6 再要求主工具連接板、主工具拉力構件、獨立連接板、鋼梁與鋼柱共 5 個計算來源，在同一瀏覽器工作階段匯出來源 JSON、重新匯入重算、確認不相容版本會被拒絕且不改動既有狀態，再核對渲染計算書沿用同一計算指紋。Producer 保存來源 payload SHA-256、結果斷言數與計算指紋；release aggregate 核對 `5/5`、唯一案例身分與集合 SHA-256。Pages 僅顯示「鋼構結果鏈 `5/5`」，不公開來源資料、來源雜湊或計算指紋。
+- RC 補強結果鏈：schema v7 把梁、柱補強兩組真實瀏覽器案例加入既有 RC 結果鏈。Producer 先保存補強表單與計算結果快照，刻意改動需求值後再還原表單重算，確認結果與原快照一致，最後核對重播報告及核可後可攜 HTML 沿用同一計算指紋；release aggregate 因此由 `30/30` 擴為 `32/32`。Pages 仍只顯示「RC 結果鏈 `32/32`」，不公開案例內容、來源快照雜湊或計算指紋。
 - 工具成熟度矩陣產生器：
   [結構工具箱/tools/tool-maturity-matrix.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/tool-maturity-matrix.js:1)
   - 合併正式工具與局部快算 manifest，輸出 `reportTextSmoke` / `報告可讀文字抽檢`、`documentState` / `計算書文件狀態`、golden case、JSON round-trip、reference traceability 等治理覆蓋率，讓首頁與巡檢儀表板能看見報告可讀性及內部審閱／正式附件核可邊界證據，但不把頁面閱讀狀態明細寫入計算書或列印 PDF。

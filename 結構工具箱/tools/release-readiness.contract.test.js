@@ -45,7 +45,7 @@ const steelResultReconciliationHelper = readText('鋼構工具/steel-result-reco
 const rcAudit = readText('鋼筋混凝土/audit-tool.ps1');
 const rcResultReconciliationHelper = readText('鋼筋混凝土/tools/report-result-reconciliation.js');
 const rcReportVisualSources = [
-  'beam', 'column', 'slab', 'wall', 'shear-wall', 'foundation', 'single-pile',
+  'beam', 'column', 'slab', 'wall', 'shear-wall', 'foundation', 'single-pile', 'retrofit',
 ].map(name => ({ name, source: readText(`鋼筋混凝土/tools/${name}-report-visual.test.js`) }));
 const deliveryArtifactsContract = readText('結構工具箱/tools/delivery-artifacts.contract.test.js');
 const renderedEvidenceContract = readText('結構工具箱/tools/rendered-delivery-evidence.contract.test.js');
@@ -158,7 +158,8 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
 [
   'rc-project-replay-to-report-fingerprint',
   'sourceSnapshotSha256',
-  'RC report fingerprint matches the recalculated project snapshot',
+  'RC report fingerprint matches the recalculated source snapshot',
+  'rc-form-replay-to-report-fingerprint',
 ].forEach(needle => assertIncludes(rcResultReconciliationHelper, needle, `RC result reconciliation helper preserves ${needle}`));
 for (const { name, source } of rcReportVisualSources) {
   assertIncludes(source, 'buildRcResultReconciliation', `RC ${name} report visual smoke builds result reconciliation`);
@@ -198,7 +199,7 @@ for (const { name, source } of rcReportVisualSources) {
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 6',
+  'schemaVersion: 7',
   'canonicalArtifactIntegrity',
   "scope: 'canonical-rendered-pdf-evidence'",
   'required: 60',
@@ -207,8 +208,8 @@ for (const { name, source } of rcReportVisualSources) {
   "scope: 'formal-golden-result-to-report-fingerprint'",
   'formalResultReconciliation=',
   'rcResultReconciliation',
-  "scope: 'rc-project-replay-to-report-fingerprint'",
-  'required: 30',
+  "scope: 'rc-source-replay-to-report-fingerprint'",
+  'required: 32',
   'rcResultReconciliation=',
   'steelResultReconciliation',
   "scope: 'steel-source-replay-to-report-fingerprint'",
@@ -245,8 +246,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'evidence.canonicalArtifactIntegrity.required === 60',
   "evidence.formalResultReconciliation?.scope === 'formal-golden-result-to-report-fingerprint'",
   'evidence.formalResultReconciliation.required === 14',
-  "evidence.rcResultReconciliation?.scope === 'rc-project-replay-to-report-fingerprint'",
-  'evidence.rcResultReconciliation.required === 30',
+  "'rc-source-replay-to-report-fingerprint'",
+  'expandedRcResultReconciliationDeclared ? 32 : 30',
   "evidence.steelResultReconciliation?.scope === 'steel-source-replay-to-report-fingerprint'",
   'evidence.steelResultReconciliation.required === 5',
   'function resolveRenderedDeliveryEvidenceSource',
