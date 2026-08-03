@@ -59,7 +59,7 @@
         "rolesInsideDiagram": true
       },
       "reportNeedles": [
-        "不在本頁範圍",
+        "不在本次計算範圍",
         "正式詳算"
       ]
     },
@@ -134,7 +134,7 @@
         "rolesInsideDiagram": true
       },
       "reportNeedles": [
-        "不在本頁範圍",
+        "不在本次計算範圍",
         "正式詳算"
       ]
     }

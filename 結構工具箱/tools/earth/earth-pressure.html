@@ -183,8 +183,8 @@
         <h2>適用範圍</h2>
         <div class="scope-box">
           <strong>本頁是土壓與簡化穩定初估，不是完整擋土牆設計。</strong><br>
-          適用水平背填、垂直牆背、無黏性土之 Rankine 主動 / 靜止土壓；可加入均佈超載與地下水壓。
-          不處理斜背填、Coulomb 牆摩擦、地震土壓、分層土、排水細節、結構配筋與正式施工支撐設計。
+          可依本次條件採 Rankine 主動／靜止土壓、Coulomb 主動土壓、Mononobe-Okabe 地震主動土壓，或分層砂／黏土 Rankine 有效應力路線；並可加入均佈超載、地下水壓與簡化牆體穩定檢核。
+          排水與滲流場、被動土壓動員位移、牆身／趾踵版結構配筋及正式施工支撐分析仍不在本頁範圍。
           <div class="tool-meta" aria-label="工具版本與責任邊界">
             <span>頁面 V0.6</span>
             <span id="coreVersion">Core v—</span>
@@ -995,7 +995,7 @@
         : `<code style="color:#b91c1c;">${escapeHtml(r.seismic.reason)}</code>`}
       </div>` : ''}
       <div class="scope-box" style="margin-top:12px;">
-        本頁以每公尺牆長做初估。${r.useCoulomb ? '已採 Coulomb 含牆背 / 背填傾角與牆摩擦；' : ''}${r.seismic ? '已加做地震時 M-O 土壓；' : ''}分層土、基礎埋置、滲流、被動土壓動員位移與牆身 / 趾踵版結構配筋仍應另行正式詳算。
+        ${escapeHtml(reportScopeNote(r))}
       </div>`;
   }
 
@@ -1033,6 +1033,17 @@
   function reportRows(rows) {
     return rows.map(row => `<tr><th>${escapeHtml(row[0])}</th><td>${escapeHtml(row[1])}</td></tr>`).join('');
   }
+
+  function reportScopeNote(r) {
+    const adopted = r.useLayered && r.layered
+      ? `分層土 Rankine 主動土壓（${r.layered.layerCount} 層，有效應力＋靜水壓）`
+      : (r.useCoulomb
+        ? 'Coulomb 主動土壓（含牆摩擦與背填／牆背傾角）'
+        : `${r.theoryLabel || 'Rankine 土壓'}`);
+    const seismic = r.seismic ? '，並加做 Mononobe-Okabe 地震主動土壓' : '';
+    return `本次每公尺牆長計算採用 ${adopted}${seismic}。基礎埋置、排水與滲流場、被動土壓動員位移、牆身／趾踵版結構配筋及正式施工支撐分析不在本次計算範圍，應另行正式詳算。`;
+  }
+
   function nowText() {
     return new Date().toLocaleString('zh-TW', { hour12: false });
   }
@@ -1263,14 +1274,14 @@ ${r.seismic.valid ? `<p><code>ψ = atan(kh/(1−kv)) = atan(${fmt(r.kh, 3)}/${fm
 <p><code>FS_slide(地震) = ${fmt(r.seismic.seismicFsSlide, 2)} / 需求 ${fmt(r.seismic.fsSlideReqSeismic, 2)}；FS_over(地震) = ${fmt(r.seismic.seismicFsOver, 2)} / 需求 ${fmt(r.seismic.fsOverReqSeismic, 2)}</code></p>`
 : `<p><code style="color:#b91c1c;">${escapeHtml(r.seismic.reason)}</code></p>`}` : ''}
 <h2>牆型工作輸出</h2><table>${reportRows(wallTypeRows)}</table>
-<div class="note">本頁以每公尺牆長做局部穩定檢核${r.useCoulomb ? '（採 Coulomb 含牆摩擦 δ 與背填 / 牆背傾角）' : '（Rankine 水平背填土壓）'}${r.seismic ? '，並加做地震時 Mononobe-Okabe 土壓' : '；地震土壓、背填坡度、牆背摩擦不在本頁範圍'}。分層土、基礎埋置、滲流、被動土壓動員位移與牆身 / 趾踵版結構配筋仍應另行正式詳算。</div>
+<div class="note">${escapeHtml(reportScopeNote(r))}</div>
 <h2>檢核結論</h2><div class="conclusion">${r.overallOk ? '土壓局部穩定檢核通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>`;
     const summaryBodyHtml = `
 <h2>設計條件</h2><table>${reportRows(basisRows.concat([inputRows[1], inputRows[3], inputRows[4]]))}</table>
 <h2>計算示意圖</h2><div class="report-diagram">${diagramHtml}</div>
 <h2>牆型工作輸出</h2><table>${reportRows(wallTypeRows)}</table>
 <h2>控制結果</h2><table>${reportRows(resultRows)}</table>
-<div class="note">本頁以每公尺牆長做局部穩定檢核${r.useCoulomb ? '（採 Coulomb 含牆摩擦 δ 與背填 / 牆背傾角）' : '（Rankine 水平背填土壓）'}${r.seismic ? '，並加做地震時 Mononobe-Okabe 土壓' : '；地震土壓、背填坡度、牆背摩擦不在本頁範圍'}。分層土、基礎埋置、滲流、被動土壓動員位移與牆身 / 趾踵版結構配筋仍應另行正式詳算。</div>
+<div class="note">${escapeHtml(reportScopeNote(r))}</div>
 <h2>檢核結論</h2><div class="conclusion">${r.overallOk ? '土壓局部穩定檢核通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>`;
     const body = mode === 'summary' ? summaryBodyHtml : detailedBodyHtml;
     const reportHtml = `<!DOCTYPE html>

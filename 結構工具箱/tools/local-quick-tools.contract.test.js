@@ -527,6 +527,13 @@ assert.equal(repoDocs.homeHtml.includes('id="toolSearch"'), false, 'new home rem
 assert.equal(repoDocs.homeHtml.includes('id="stateFilterPanel"'), false, 'new home removes state filter panel');
 assert.equal(repoDocs.homeHtml.includes('id="stateFilters"'), false, 'new home removes state filters');
 assertIncludes(repoDocs.homeHtml, 'id="memberSystemPanel"', 'new home member system panel');
+assertIncludes(repoDocs.homeHtml, '不再把補齊既有案例基準列為主要工作', 'new home roadmap follows completed local quick maturity');
+assertIncludes(repoDocs.homeHtml, '成熟度矩陣與巡檢儀表板', 'new home roadmap points to current governance evidence');
+assertIncludes(repoDocs.indexClassic, '三項局部快算均已具多案例基準', 'classic home reflects completed local quick golden coverage');
+assertIncludes(repoDocs.indexClassic, '擋土牆牆身／趾踵版配筋、群樁／側向樁、SRC 構件及施工階段支撐整合', 'classic home lists capability expansion after maturity closure');
+assert.equal(repoDocs.indexClassic.includes('短期先補 <strong>基礎局部檢核</strong>'), false, 'classic home removes stale foundation golden-case recommendation');
+assertIncludes(repoDocs.readme, '首頁的「下一步」不得沿用已完成的舊缺口', 'README documents evidence-driven roadmap');
+assertIncludes(repoDocs.boundaries, '首頁的下一步建議須對齊最新成熟度矩陣', 'tool boundary prevents stale roadmap claims');
 [
   '結構分析力量',
   '風力規範外力',
@@ -1483,6 +1490,18 @@ for (const tool of tools) {
     assert.equal(tool.jsonRoundTrip, true, `${tool.key} manifest declares JSON round-trip smoke`);
   }
   assert.ok(Array.isArray(tool.reportNeedles) && tool.reportNeedles.length >= 2, `${tool.key} manifest report needles`);
+  if (tool.key === 'foundation-local') {
+    assertIncludes(html, '另可選用彈性沉陷、一維壓密時間率及 SPT 液化簡化初判', 'foundation scope lists implemented screening capabilities');
+    assertIncludes(html, 'function reportScopeNote(r)', 'foundation report uses one capability-aware scope note');
+    assertNoIncludes(html, '沉陷、液化、樁基與土壤互制不在本頁範圍', 'foundation report does not exclude implemented screening capabilities');
+    assertNoIncludes(core, '沉陷、液化、樁基與結構配筋仍需另行詳算', 'foundation provenance does not contradict implemented screening capabilities');
+  }
+  if (tool.key === 'earth-pressure') {
+    assertIncludes(html, 'Coulomb 主動土壓、Mononobe-Okabe 地震主動土壓，或分層砂／黏土 Rankine 有效應力路線', 'earth scope lists implemented theory routes');
+    assertIncludes(html, 'function reportScopeNote(r)', 'earth report uses one capability-aware scope note');
+    assertNoIncludes(html, '不處理斜背填、Coulomb 牆摩擦、地震土壓、分層土', 'earth scope does not exclude implemented theory routes');
+    assertNoIncludes(html, '分層土、基礎埋置、滲流、被動土壓動員位移', 'earth report does not exclude its implemented layered-soil route');
+  }
 
   [
     tool.smoke,
@@ -1697,6 +1716,7 @@ for (const tool of tools) {
   assert.equal(apiProvenance.resultSchemaVersion, api.resultSchemaVersion, `${tool.key} provenance result schema`);
   assert.equal(apiProvenance.logicSignature, api.logicSignature, `${tool.key} provenance signature`);
   const goldenCases = require(goldenPath);
+  assert.ok(Array.isArray(goldenCases) && goldenCases.length >= 4, `${tool.key} keeps multiple golden cases before homepage maturity closure`);
   const result = api.calculate(goldenCases[0].input);
   assert.equal(result.resultSchemaVersion, api.resultSchemaVersion, `${tool.key} result schema`);
   assert.deepEqual(result.provenance, apiProvenance, `${tool.key} result provenance`);

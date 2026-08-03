@@ -414,7 +414,12 @@ async function evaluate(client, sessionId, expression) {
   }, sessionId);
 
   if (result.exceptionDetails) {
-    throw new Error(result.exceptionDetails.text || 'Runtime evaluate failed');
+    const details = result.exceptionDetails;
+    const description = details.exception && details.exception.description;
+    const location = Number.isInteger(details.lineNumber)
+      ? ` at ${details.lineNumber + 1}:${(details.columnNumber || 0) + 1}`
+      : '';
+    throw new Error(`${description || details.text || 'Runtime evaluate failed'}${location}`);
   }
   return result.result.value;
 }
@@ -1199,6 +1204,37 @@ function jsonImportExpression(tool, payload) {
       wallTypeOutput: document.getElementById('wallTypeOutputBody')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
       diagramText: document.getElementById('diagramBody')?.textContent?.replace(/\\s+/g, ' ').trim() || ''
     };
+  })()`;
+}
+
+function advancedCapabilityExpression(toolKey) {
+  return `(() => {
+    const toolKey = ${JSON.stringify(toolKey)};
+    const setValue = (id, value) => {
+      const element = document.getElementById(id);
+      if (!element) throw new Error('missing advanced capability field: ' + id);
+      element.value = value;
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    if (toolKey === 'foundation-local') {
+      setValue('Es', '5000');
+      setValue('allowableSettlementCm', '2.50');
+      document.getElementById('btnCalc').click();
+      const text = [document.getElementById('metricGrid')?.textContent, document.getElementById('checkList')?.textContent].join(' ');
+      return { toolKey, hasSettlement: text.includes('彈性沉陷') };
+    }
+    if (toolKey === 'earth-pressure') {
+      setValue('mode', 'active');
+      setValue('pressureTheory', 'coulomb');
+      setValue('deltaDeg', '10');
+      setValue('betaDeg', '5');
+      setValue('thetaDeg', '0');
+      document.getElementById('btnCalc').click();
+      const text = [document.getElementById('metricGrid')?.textContent, document.getElementById('checkList')?.textContent].join(' ');
+      return { toolKey, useCoulomb: text.includes('Coulomb Ka'), coulombValid: !text.includes('Coulomb 解不成立') };
+    }
+    return { toolKey };
   })()`;
 }
 
@@ -3170,6 +3206,20 @@ async function main() {
                   pageCount: detailedEvidence.pdf.pageCount,
                   textLength: detailedEvidence.pdf.textLength,
                 });
+              }
+              if (tool.key === 'foundation-local' || tool.key === 'earth-pressure') {
+                const advancedState = await evaluate(client, sessionId, advancedCapabilityExpression(tool.key));
+                const advancedReportState = await evaluate(client, sessionId, reportExpression('detailed'));
+                if (tool.key === 'foundation-local') {
+                  assert.equal(advancedState.hasSettlement, true, `${interactionLabel} foundation advanced settlement calculation`);
+                  assert.ok(advancedReportState.html.includes('本次計算採用：底壓／偏心、抗滑、抗傾覆、彈性沉陷初估'), `${interactionLabel} foundation report lists selected settlement capability`);
+                  assert.equal(advancedReportState.html.includes('沉陷、液化、樁基與土壤互制不在本頁範圍'), false, `${interactionLabel} foundation report does not exclude selected settlement capability`);
+                } else {
+                  assert.equal(advancedState.useCoulomb, true, `${interactionLabel} earth advanced Coulomb route selected`);
+                  assert.equal(advancedState.coulombValid, true, `${interactionLabel} earth advanced Coulomb route valid`);
+                  assert.ok(advancedReportState.html.includes('本次每公尺牆長計算採用 Coulomb 主動土壓'), `${interactionLabel} earth report lists selected Coulomb route`);
+                  assert.equal(advancedReportState.html.includes('背填坡度、牆背摩擦不在本頁範圍'), false, `${interactionLabel} earth report does not exclude selected Coulomb route`);
+                }
               }
             } else {
               const reportState = await evaluate(client, sessionId, reportExpression());

@@ -152,8 +152,8 @@
         <h2>適用範圍</h2>
         <div class="scope-box">
           <strong>本頁是局部快算，不是完整基礎設計。</strong><br>
-          適用於矩形獨立基礎或設備基座的初步穩定檢核：服務載重底壓、合力偏心、抗滑與抗傾覆。
-          若有樁基、筏基、聯合基腳、衝剪、配筋、沉陷或土壤互制問題，應回 RC 基礎完整工具或正式計算書處理。
+          適用於矩形獨立基礎或設備基座的初步檢核：服務載重底壓、合力偏心、抗滑、抗傾覆與有效面積承壓；另可選用彈性沉陷、一維壓密時間率及 SPT 液化簡化初判。
+          筏基、聯合基腳、衝剪、單向剪力、結構配筋、樁基、非線性土壤互制與完整地工評估仍應回正式設計流程處理。
           <div class="tool-meta" aria-label="工具版本與責任邊界">
             <span>頁面 V0.6</span>
             <span id="coreVersion">Core v—</span>
@@ -1007,6 +1007,15 @@
     return rows.map(row => `<tr><th>${escapeHtml(row[0])}</th><td>${escapeHtml(row[1])}</td></tr>`).join('');
   }
 
+  function reportScopeNote(r) {
+    const adopted = ['底壓／偏心', '抗滑', '抗傾覆'];
+    if (r.effectiveAreaCheck) adopted.push('有效面積承壓');
+    if (r.hasSettlement) adopted.push('彈性沉陷初估');
+    if (r.hasConsolidation) adopted.push('一維壓密沉陷與時間率');
+    if (r.hasLiquefaction) adopted.push('SPT 液化簡化初判');
+    return `本次計算採用：${adopted.join('、')}。衝剪、單向剪力、結構配筋、樁基、非線性土壤互制與完整地工評估不在本次計算範圍，應另行正式詳算。`;
+  }
+
   function nowText() {
     return new Date().toLocaleString('zh-TW', { hour12: false });
   }
@@ -1135,7 +1144,7 @@ ${r.liquefactionValid ? r.liquefactionPointResults.map(function (P, idx) {
 }).join('') : '<p><code style="color:#b91c1c;">部分深度點輸入不足或不合理，無法計算。</code></p>'}
 ${r.liquefactionValid ? `<p><code>控制點：z=${fmt(r.liquefactionGoverningPoint.z, 1)}m，FSliq=${fmt(r.liquefactionGoverningFS, 2)} ${r.liquefactionOk ? '≥' : '<'} 要求 ${fmt(r.liquefactionFsReq, 2)} → ${r.liquefactionOk ? '初判通過' : '初判不通過'}</code></p>` : ''}
 <div class="note" style="margin-bottom:10px;">本液化初判為簡化篩選（未含 Kσ 覆土壓力修正），屬初步層級；正式設計仍應以完整地質鑽探報告與液化潛能詳細評估為準，且未必等同台灣現行規範指定程序，請併同地質技師意見複核。</div>` : ''}
-<div class="note">本頁為矩形淺基礎服務載重之<strong>局部穩定檢核</strong>（底壓、偏心、抗滑、抗傾覆${r.effectiveAreaCheck ? '、有效面積承壓' : ''}${r.hasSettlement ? '、彈性沉陷初估' : ''}${r.hasConsolidation ? '、壓密沉陷初估' : ''}${r.hasLiquefaction ? '、液化初判' : ''}）。衝剪、單向剪力、配筋、${r.hasConsolidation ? '' : '壓密沉陷、'}${r.hasLiquefaction ? '' : '液化、'}樁基與土壤互制不在本頁範圍，應另行正式詳算。${r.fullContact ? '' : '目前合力已超出中央核，線性全接觸公式僅供參考，須改採非線性接觸或正式土壓分布。'}</div>
+<div class="note">${escapeHtml(reportScopeNote(r))}${r.fullContact ? '' : ' 目前合力已超出中央核，線性全接觸公式僅供參考，須改採非線性接觸或正式土壓分布。'}</div>
 <h2>檢核結論</h2><div class="conclusion">${r.overallOk ? '局部穩定檢核初步通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>`;
   }
 
@@ -1170,7 +1179,7 @@ ${r.liquefactionValid ? `<p><code>控制點：z=${fmt(r.liquefactionGoverningPoi
 <h2>控制結果</h2>
 <table>${reportRows(ctrlRows)}</table>
 <table><tr><th>檢核項目</th><th>結果</th></tr>${checkRows}</table>
-<div class="note">本頁為矩形淺基礎服務載重之局部穩定檢核；衝剪、單向剪力、配筋、沉陷、液化、樁基與土壤互制不在本頁範圍，應另行正式詳算。</div>
+<div class="note">${escapeHtml(reportScopeNote(r))}</div>
 <h2>檢核結論</h2><div class="conclusion">${r.overallOk ? '局部穩定檢核初步通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>`;
   }
 
