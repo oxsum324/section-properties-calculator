@@ -135,7 +135,7 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'new home preflight source commit',
   'new home preflight clean source',
   '成品檔案完整性',
-  '135 / 135',
+  '137 / 137',
 ].forEach(needle => assertIncludes(localQuickBrowserSmoke, needle, `local quick browser smoke preserves rendered evidence ${needle}`));
 
 [
