@@ -4,6 +4,7 @@ const http = require('http');
 const { chromium } = require('playwright');
 const { assertReportPdfTextQuality, assertReportScreenshotQuality, captureArtifactIntegrity, readPdfTextWithPoppler } = require('./report-screenshot-quality');
 const { assertPortableFormalHtml } = require('./report-portable-html-check');
+const { buildRcResultReconciliation } = require('./report-result-reconciliation');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.RC_VISUAL_PORT || 0);
@@ -245,7 +246,8 @@ async function main() {
           height: rect ? Math.round(rect.height) : 0
         };
       });
-      const sourceFingerprint = await page.evaluate(() => window.collectColumnProjectData().calculationFingerprint);
+      const sourceSnapshot = await page.evaluate(() => window.collectColumnProjectData());
+      const sourceFingerprint = sourceSnapshot.calculationFingerprint;
 
       const directPrintPdfPath = path.join(OUT_DIR, `column-direct-print-${tc.key}.pdf`);
       await page.emulateMedia({ media: 'print' });
@@ -310,7 +312,13 @@ async function main() {
         captureArtifactIntegrity(pdfPath, 'reportPdf'),
         captureArtifactIntegrity(screenshotPath, 'reportScreenshot'),
       ];
-      results.push({ key: tc.key, pageErrors, failedResponses, screenshotPath, pdfPath, directPrintPdfPath, directPrintState, directPrintPdfText, metrics, printMetrics, screenshotQuality, pdfTextQuality, artifactIntegrity });
+      const resultReconciliation = buildRcResultReconciliation({
+        caseId: tc.key,
+        sourceSnapshot,
+        reportCalculationFingerprint: metrics.calculationFingerprint,
+        verifiedAssertionCount: (EXPECTED_REPORT_TEXT[tc.key] || []).length + 2,
+      });
+      results.push({ key: tc.key, pageErrors, failedResponses, screenshotPath, pdfPath, directPrintPdfPath, directPrintState, directPrintPdfText, metrics, printMetrics, screenshotQuality, pdfTextQuality, artifactIntegrity, resultReconciliation });
 
       assert(pageErrors.length === 0, `${tc.key} report page errors`, 'none');
       assert(failedResponses.length === 0, `${tc.key} report failed responses`, 'none');
@@ -399,6 +407,7 @@ async function main() {
       approvalRequired: window.lastColumnAttachmentReadiness?.approvalRequired
     }));
     assert(readyState.status === 'ready' && readyState.readyToSign === false && readyState.approvalRequired === true, 'resolved engineering review still awaits explicit document approval', JSON.stringify(readyState));
+    const resolvedSourceSnapshot = await page.evaluate(() => window.collectColumnProjectData());
 
     const report = await openReportPopup(page);
     await report.waitForSelector('.rep-paper', { timeout: 10000 });
@@ -431,7 +440,13 @@ async function main() {
       captureArtifactIntegrity(pdfPath, 'reportPdf'),
       captureArtifactIntegrity(screenshotPath, 'reportScreenshot'),
     ];
-    results.push({ key: 'resolved-review-formal-attachment', screenshotPath, pdfPath, metrics, screenshotQuality, pdfTextQuality, artifactIntegrity });
+    const resultReconciliation = buildRcResultReconciliation({
+      caseId: 'resolved-review-formal-attachment',
+      sourceSnapshot: resolvedSourceSnapshot,
+      reportCalculationFingerprint: metrics.calculationFingerprint,
+      verifiedAssertionCount: 8,
+    });
+    results.push({ key: 'resolved-review-formal-attachment', screenshotPath, pdfPath, metrics, screenshotQuality, pdfTextQuality, artifactIntegrity, resultReconciliation });
     const portableHtml = await assertPortableFormalHtml(report, 'resolved review report', assert, { outputDir: OUT_DIR });
     results[results.length - 1].portableHtml = portableHtml;
     await report.close();

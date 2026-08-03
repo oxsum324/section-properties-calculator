@@ -448,6 +448,21 @@ function formalResultReconciliationSetHash(records) {
     .digest('hex');
 }
 
+function rcResultReconciliationSetHash(records) {
+  return createHash('sha256')
+    .update(records
+      .map(record => [
+        record.href,
+        record.key,
+        record.sourceSnapshotSha256,
+        record.calculationFingerprint,
+        record.verifiedAssertionCount,
+      ].join('\u0000'))
+      .sort()
+      .join('\n'), 'utf8')
+    .digest('hex');
+}
+
 function uniqueIntegrityArtifacts(artifacts, label) {
   const unique = new Map();
   for (const artifact of artifacts) {
@@ -510,6 +525,20 @@ function validateFormalResultReconciliationRecord(record, label) {
   assert.ok(reconciliation.verifiedAssertionCount >= reconciliation.renderedCaseAssertionCount, `${label} assertion coverage includes rendered case`);
   assert.equal(reconciliation?.calculationFingerprint, record?.calculationFingerprint, `${label} report fingerprint matches reconciliation`);
   assert.equal(reconciliation?.pass, true, `${label} result reconciliation passes`);
+  return { key: record.key, ...reconciliation };
+}
+
+function validateRcResultReconciliationRecord(record, label) {
+  const reconciliation = record?.resultReconciliation;
+  assert.equal(reconciliation?.schemaVersion, 1, `${label} RC result reconciliation schema`);
+  assert.equal(reconciliation?.strategy, 'rc-project-replay-to-report-fingerprint', `${label} RC result reconciliation strategy`);
+  assert.equal(reconciliation?.caseId, record?.key, `${label} RC result reconciliation case identity`);
+  assert.match(String(reconciliation?.sourceSnapshotSha256 || ''), /^[0-9a-f]{64}$/i, `${label} RC project snapshot SHA-256`);
+  assert.ok(Number.isInteger(reconciliation?.verifiedAssertionCount) && reconciliation.verifiedAssertionCount > 0, `${label} RC verified result assertions`);
+  assert.match(String(reconciliation?.calculationFingerprint || ''), /^CF-[0-9A-F]{16}$/i, `${label} RC reconciliation calculation fingerprint`);
+  assert.equal(reconciliation?.calculationFingerprint, record?.metrics?.calculationFingerprint, `${label} RC report fingerprint matches reconciliation`);
+  assert.equal(reconciliation?.calculationFingerprint, record?.portableHtml?.calculationFingerprint, `${label} RC formal HTML fingerprint matches reconciliation`);
+  assert.equal(reconciliation?.pass, true, `${label} RC result reconciliation passes`);
   return { key: record.key, ...reconciliation };
 }
 
@@ -774,6 +803,30 @@ assert.throws(
   'formal result reconciliation blocks a report fingerprint detached from the verified golden state'
 );
 
+const rcResultReconciliationFixture = {
+  key: 'fixture-rc-case',
+  metrics: { calculationFingerprint: 'CF-1234567890ABCDEF' },
+  portableHtml: { calculationFingerprint: 'CF-1234567890ABCDEF' },
+  resultReconciliation: {
+    schemaVersion: 1,
+    strategy: 'rc-project-replay-to-report-fingerprint',
+    caseId: 'fixture-rc-case',
+    sourceSnapshotSha256: 'b'.repeat(64),
+    verifiedAssertionCount: 6,
+    calculationFingerprint: 'CF-1234567890ABCDEF',
+    pass: true,
+  },
+};
+validateRcResultReconciliationRecord(rcResultReconciliationFixture, 'RC result reconciliation fixture');
+assert.throws(
+  () => validateRcResultReconciliationRecord({
+    ...rcResultReconciliationFixture,
+    portableHtml: { calculationFingerprint: 'CF-FEDCBA0987654321' },
+  }, 'tampered RC result reconciliation fixture'),
+  /RC formal HTML fingerprint matches reconciliation/,
+  'RC result reconciliation blocks a formal HTML fingerprint detached from the recalculated project snapshot'
+);
+
 const strictRelease = process.env.PREFLIGHT_RELEASE === '1';
 if (!strictRelease) {
   console.log(`Rendered delivery evidence contract OK (inventory=${inventory.tools.length}, current-run artifact verification skipped outside release mode)`);
@@ -786,6 +839,7 @@ const records = [];
 const supplementalRecords = [];
 const canonicalArtifactRecords = [];
 const formalResultReconciliationRecords = [];
+const rcResultReconciliationRecords = [];
 
 for (const family of ['formal-tools', 'local-quick-tools', 'steel-formal']) {
   const tools = inventory.tools.filter(tool => tool.family === family);
@@ -813,6 +867,8 @@ for (const tool of inventory.tools.filter(item => item.family === 'rc-formal')) 
   const auditPayload = readJson(auditPath);
   const auditRecords = Array.isArray(auditPayload) ? auditPayload : auditPayload.results;
   assert.ok(Array.isArray(auditRecords) && auditRecords.length > 0, `${tool.title} report audit has records`);
+  const rcReconciliations = auditRecords.map(record => validateRcResultReconciliationRecord(record, `${tool.title} ${record.key || ''}`));
+  rcResultReconciliationRecords.push(...rcReconciliations.map(reconciliation => ({ href: tool.href, ...reconciliation })));
   const portableRecords = auditRecords.map(record => record.portableHtml).filter(Boolean);
   assert.equal(portableRecords.length, auditRecords.length, `${tool.title} every report audit record has portable HTML evidence`);
   const htmlIntegrity = portableRecords.map(record => validateHtmlArtifactRecord(rcDir, record, tool.title, { requireRecordedIntegrity: true }));
@@ -1383,6 +1439,19 @@ const formalResultReconciliation = {
 };
 assert.equal(formalResultReconciliation.complete, formalResultReconciliation.required, 'release rendered evidence reconciles all 14 formal golden results to report fingerprints');
 assert.equal(formalResultReconciliation.pass, true, 'release rendered evidence passes formal result reconciliation');
+const rcResultReconciliation = {
+  schemaVersion: 1,
+  scope: 'rc-project-replay-to-report-fingerprint',
+  required: 30,
+  complete: rcResultReconciliationRecords.length,
+  issueCount: Math.max(0, 30 - rcResultReconciliationRecords.length),
+  pass: rcResultReconciliationRecords.length === 30,
+  setSha256: rcResultReconciliationSetHash(rcResultReconciliationRecords),
+  records: rcResultReconciliationRecords,
+};
+assert.equal(new Set(rcResultReconciliationRecords.map(record => `${record.href}\u0000${record.key}`)).size, rcResultReconciliationRecords.length, 'release rendered evidence RC result reconciliation identities are unique');
+assert.equal(rcResultReconciliation.complete, rcResultReconciliation.required, 'release rendered evidence reconciles all 30 RC regression results to report fingerprints');
+assert.equal(rcResultReconciliation.pass, true, 'release rendered evidence passes RC result reconciliation');
 assert.equal(canonicalArtifactIntegrity.verified, canonicalArtifactIntegrity.required, 'release rendered evidence verifies all 60 canonical PDF and evidence files');
 assert.equal(canonicalArtifactIntegrity.pass, true, 'release rendered evidence passes canonical PDF and evidence integrity');
 assert.equal(rcVisualArtifactIntegrity.verified, rcVisualArtifactIntegrity.required, 'release rendered evidence verifies all 62 RC PDF and PNG visual artifacts');
@@ -1395,7 +1464,7 @@ assert.equal(attachmentIntegrity.verified, attachmentIntegrity.required, 'releas
 assert.equal(attachmentIntegrity.issueCount, 0, 'release rendered evidence has no RC HTML attachment integrity issue');
 assert.equal(attachmentIntegrity.pass, true, 'release rendered evidence passes RC HTML attachment integrity');
 const aggregate = {
-  schemaVersion: 4,
+  schemaVersion: 5,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),
@@ -1404,16 +1473,17 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && formalResultReconciliation.pass,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && formalResultReconciliation.pass && rcResultReconciliation.pass,
   attachmentIntegrity,
   mixedArtifactIntegrity,
   rcVisualArtifactIntegrity,
   canonicalArtifactIntegrity,
   formalResultReconciliation,
+  rcResultReconciliation,
   records,
   supplementalRecords,
 };
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, summary=${aggregatePath})`);

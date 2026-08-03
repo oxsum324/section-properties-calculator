@@ -4,6 +4,7 @@ const http = require('http');
 const { chromium } = require('playwright');
 const { assertReportPdfTextQuality, assertReportScreenshotQuality, captureArtifactIntegrity } = require('./report-screenshot-quality');
 const { assertPortableFormalHtml } = require('./report-portable-html-check');
+const { buildRcResultReconciliation } = require('./report-result-reconciliation');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.SHEAR_WALL_REPORT_PORT || 0);
@@ -257,6 +258,7 @@ async function main() {
         const result = window.applyShearWallProjectData(source, { silent: true });
         return {
           applied: result.applied,
+          sourceSnapshot: source,
           sourceFingerprint: source.calculationFingerprint,
           replayedFingerprint: window.collectShearWallProjectData().calculationFingerprint
         };
@@ -297,7 +299,13 @@ async function main() {
         captureArtifactIntegrity(pdfPath, 'reportPdf'),
         captureArtifactIntegrity(screenshotPath, 'reportScreenshot'),
       ];
-      results.push({ key: tc.key, title: tc.title, screenshotPath, pdfPath, state, metrics, screenshotQuality, pdfTextQuality, artifactIntegrity });
+      const resultReconciliation = buildRcResultReconciliation({
+        caseId: tc.key,
+        sourceSnapshot: sourceReplay.sourceSnapshot,
+        reportCalculationFingerprint: metrics.calculationFingerprint,
+        verifiedAssertionCount: tc.expected.length + 3,
+      });
+      results.push({ key: tc.key, title: tc.title, screenshotPath, pdfPath, state, metrics, screenshotQuality, pdfTextQuality, artifactIntegrity, resultReconciliation });
 
       assert(metrics.title === '剪力牆設計計算書', `${tc.key} report title`, metrics.title);
       assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${tc.key} project JSON calculation fingerprint`, sourceFingerprint);

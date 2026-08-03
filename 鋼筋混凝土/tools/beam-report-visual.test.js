@@ -4,6 +4,7 @@ const http = require('http');
 const { chromium } = require('playwright');
 const { assertReportPdfTextQuality, assertReportScreenshotQuality, captureArtifactIntegrity, readPdfTextWithPoppler } = require('./report-screenshot-quality');
 const { assertPortableFormalHtml } = require('./report-portable-html-check');
+const { buildRcResultReconciliation } = require('./report-result-reconciliation');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.BEAM_REPORT_PORT || 0);
@@ -373,7 +374,8 @@ async function main() {
       assert(!directPrintPdfText.text.includes('DRAFT'), `${tc.key} direct-print PDF is not a draft calculation book`, 'DRAFT');
       assertArtifact(directPrintPdfPath, [0x25, 0x50, 0x44, 0x46], `${tc.key} blocked direct-print PDF written`);
 
-      const sourceFingerprint = await page.evaluate(() => window.collectBeamProjectData().calculationFingerprint);
+      const sourceSnapshot = await page.evaluate(() => window.collectBeamProjectData());
+      const sourceFingerprint = sourceSnapshot.calculationFingerprint;
       const report = await openReportPopup(page);
       attachPageGuards(report, guard, `${tc.key}:report`);
       await report.waitForSelector('.rep-paper', { timeout: 10000 });
@@ -436,7 +438,13 @@ async function main() {
         captureArtifactIntegrity(pdfPath, 'reportPdf'),
         captureArtifactIntegrity(screenshotPath, 'reportScreenshot'),
       ];
-      results.push({ key: tc.key, screenshotPath, pdfPath, directPrintPdfPath, directPrintState, directPrintPdfText, state, metrics, portableHtmlState, printMetrics, screenshotQuality, pdfTextQuality, artifactIntegrity });
+      const resultReconciliation = buildRcResultReconciliation({
+        caseId: tc.key,
+        sourceSnapshot,
+        reportCalculationFingerprint: metrics.calculationFingerprint,
+        verifiedAssertionCount: (expected.fragments || []).length + 2,
+      });
+      results.push({ key: tc.key, screenshotPath, pdfPath, directPrintPdfPath, directPrintState, directPrintPdfText, state, metrics, portableHtmlState, printMetrics, screenshotQuality, pdfTextQuality, artifactIntegrity, resultReconciliation });
 
       assert(metrics.title === expected.title, `${tc.key} report title`, metrics.title);
       assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${tc.key} project JSON calculation fingerprint`, sourceFingerprint);

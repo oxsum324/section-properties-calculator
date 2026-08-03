@@ -4,6 +4,7 @@ const http = require('http');
 const { chromium } = require('playwright');
 const { assertReportPdfTextQuality, assertReportScreenshotQuality, captureArtifactIntegrity } = require('./report-screenshot-quality');
 const { assertPortableFormalHtml } = require('./report-portable-html-check');
+const { buildRcResultReconciliation } = require('./report-result-reconciliation');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.WALL_REPORT_PORT || 0);
@@ -621,7 +622,8 @@ async function main() {
         assert(state.pmBoundaryRebar === true && state.pmBoundaryBarCountTotal === 8, `${key} includes both-end concentrated reinforcement`, `count=${state.pmBoundaryBarCountTotal}`);
         assert(state.pmDiagramText.includes('需求 (25.0, -90.0)'), `${key} plots signed demand point below zero axial force`, state.pmDiagramText);
       }
-      const sourceFingerprint = await page.evaluate(() => window.collectWallProjectData().calculationFingerprint);
+      const sourceSnapshot = await page.evaluate(() => window.collectWallProjectData());
+      const sourceFingerprint = sourceSnapshot.calculationFingerprint;
       const report = await openReportPopup(page);
       attachPageGuards(report, guard, `${key}:report`);
       await report.waitForSelector('.rep-paper', { timeout: 10000 });
@@ -654,7 +656,13 @@ async function main() {
         captureArtifactIntegrity(pdfPath, 'reportPdf'),
         captureArtifactIntegrity(screenshotPath, 'reportScreenshot'),
       ];
-      results.push({ key, screenshotPath, pdfPath, state, metrics, printMetrics, screenshotQuality, pdfTextQuality, artifactIntegrity });
+      const resultReconciliation = buildRcResultReconciliation({
+        caseId: key,
+        sourceSnapshot,
+        reportCalculationFingerprint: metrics.calculationFingerprint,
+        verifiedAssertionCount: (expected.fragments || []).length + 2,
+      });
+      results.push({ key, screenshotPath, pdfPath, state, metrics, printMetrics, screenshotQuality, pdfTextQuality, artifactIntegrity, resultReconciliation });
 
       assert(metrics.title === expected.title, `${key} report title`, metrics.title);
       assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${key} project JSON calculation fingerprint`, sourceFingerprint);

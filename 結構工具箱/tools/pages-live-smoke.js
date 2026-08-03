@@ -567,6 +567,12 @@ async function main() {
   const reportReadinessJson = JSON.stringify(reportReadinessStatus);
   assert.equal(reportReadinessJson.includes('"formalResultReconciliation":'), false, 'report readiness omits the private reconciliation aggregate');
   assert.equal(/formal-golden-result-to-report-fingerprint|goldenCase|calculationFingerprint/.test(reportReadinessJson), false, 'report readiness omits private reconciliation scope, case identity and fingerprints');
+  assert.equal(reportReadinessStatus.rcResultReconciliationRequired, 30, 'report readiness expects 30 RC result reconciliations');
+  assert.equal(reportReadinessStatus.rcResultReconciliationComplete, reportReadinessStatus.rcResultReconciliationRequired, 'report readiness completes every RC result reconciliation');
+  assert.equal(reportReadinessStatus.rcResultReconciliationIssueCount, 0, 'report readiness RC result reconciliation issues empty');
+  assert.equal(reportReadinessStatus.rcResultReconciliationPass, true, 'report readiness RC result reconciliation passes');
+  assert.equal(reportReadinessJson.includes('"rcResultReconciliation":'), false, 'report readiness omits the private RC reconciliation aggregate');
+  assert.equal(/rc-project-replay-to-report-fingerprint|sourceSnapshotSha256|"caseId"/.test(reportReadinessJson), false, 'report readiness omits private RC reconciliation scope, case identity and project snapshot hashes');
   if (Number.isInteger(reportReadinessStatus.supplementalDeliveryEvidenceRequired)) {
     assert.ok([1, 2].includes(reportReadinessStatus.supplementalDeliveryEvidenceRequired), 'report readiness supplemental delivery uses a supported transition count');
     assert.equal(reportReadinessStatus.supplementalDeliveryEvidenceComplete, reportReadinessStatus.supplementalDeliveryEvidenceRequired, 'report readiness supplemental delivery fully covered');
@@ -603,6 +609,8 @@ async function main() {
   assert.ok(reportReadinessStatus.details.join(' ').includes('不公開檔名、逐檔雜湊或完整性集合'), 'report readiness status explains the private evidence boundary');
   assert.ok(reportReadinessStatus.details.join(' ').includes('正式計算書結果鏈'), 'report readiness status exposes formal result reconciliation count');
   assert.ok(reportReadinessStatus.details.join(' ').includes('不公開案例輸入、預期數值、案例雜湊或計算指紋'), 'report readiness status explains reconciliation privacy boundary');
+  assert.ok(reportReadinessStatus.details.join(' ').includes('RC 正式計算書結果鏈'), 'report readiness status exposes RC result reconciliation count');
+  assert.ok(reportReadinessStatus.details.join(' ').includes('不公開案例資料、專案快照雜湊或計算指紋'), 'report readiness status explains RC reconciliation privacy boundary');
   assert.ok(reportReadinessStatus.details.join(' ').includes('RC 正式附件 HTML 完整性'), 'report readiness status exposes RC HTML attachment integrity');
   assert.equal(reportReadinessStatus.runId, preflightStatus.runId, 'report readiness runId matches public preflight status');
   assert.equal(reportReadinessStatus.preflightStatusSourcePath, preflightStatus.sourcePath, 'report readiness preflight source matches public preflight status');

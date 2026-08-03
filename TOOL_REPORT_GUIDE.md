@@ -280,6 +280,8 @@ Canonical family summary 另須保存 evidence bytes；schema v3 release aggrega
 
 Schema v4 另建立風力／地震 14 個正式工具的「golden 重算結果 → 正式報告指紋」閉合。每個 producer 必須在產報前完成該工具全部 golden case 的精確 selector、metric 與文字斷言，記錄實際用於產報的最後案例 ID／SHA-256、已驗證案例數、斷言數及同一份正式報告計算指紋；aggregate 只有在 `14/14` 全部一致時才能通過。此鏈證明成品來自已重算的既定工程案例，但不取代設計者對實際專案輸入、規範適用性及工程判定的複核。Pages 只公開完成數，不公開 golden case 內容、預期數值、雜湊或指紋。
 
+Schema v5 再建立 RC 七類正式工具、30 組實際瀏覽器案例的「專案快照重現 → PDF／正式 HTML 指紋」閉合。Producer 必須從工作頁取得含計算指紋的實際專案快照，完成匯入重現與報告結果斷言後，才可把案例 ID、快照 SHA-256、斷言數及同一計算指紋寫入 visual audit；aggregate 逐筆核對 PDF、可攜正式 HTML 與 reconciliation 指紋，並要求 `30/30` 且案例身分唯一。此鏈不公開案例資料或工程數值，也不取代設計者複核。
+
 ### 採用依據文字
 
 應使用：

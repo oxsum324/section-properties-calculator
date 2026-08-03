@@ -42,6 +42,10 @@ const formalBrowserSmoke = readText('結構工具箱/tools/formal-browser-smoke.
 const localQuickBrowserSmoke = readText('結構工具箱/tools/local-quick-browser-smoke.test.js');
 const steelBrowserRunner = readText('鋼構工具/steel-audit-browser-runner.js');
 const rcAudit = readText('鋼筋混凝土/audit-tool.ps1');
+const rcResultReconciliationHelper = readText('鋼筋混凝土/tools/report-result-reconciliation.js');
+const rcReportVisualSources = [
+  'beam', 'column', 'slab', 'wall', 'shear-wall', 'foundation', 'single-pile',
+].map(name => ({ name, source: readText(`鋼筋混凝土/tools/${name}-report-visual.test.js`) }));
 const deliveryArtifactsContract = readText('結構工具箱/tools/delivery-artifacts.contract.test.js');
 const renderedEvidenceContract = readText('結構工具箱/tools/rendered-delivery-evidence.contract.test.js');
 const renderedEvidenceInventory = readText('結構工具箱/tools/rendered-delivery-evidence.inventory.json');
@@ -151,6 +155,16 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
 ].forEach(needle => assertIncludes(rcAudit, needle, `RC audit preserves actual report rendering ${needle}`));
 
 [
+  'rc-project-replay-to-report-fingerprint',
+  'sourceSnapshotSha256',
+  'RC report fingerprint matches the recalculated project snapshot',
+].forEach(needle => assertIncludes(rcResultReconciliationHelper, needle, `RC result reconciliation helper preserves ${needle}`));
+for (const { name, source } of rcReportVisualSources) {
+  assertIncludes(source, 'buildRcResultReconciliation', `RC ${name} report visual smoke builds result reconciliation`);
+  assertIncludes(source, 'resultReconciliation', `RC ${name} report visual audit records result reconciliation`);
+}
+
+[
   'extract_docx_text',
   'docxPayload.text.length > 2500',
   'workbook/docx 邊界',
@@ -172,7 +186,7 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 4',
+  'schemaVersion: 5',
   'canonicalArtifactIntegrity',
   "scope: 'canonical-rendered-pdf-evidence'",
   'required: 60',
@@ -180,6 +194,10 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'formalResultReconciliation',
   "scope: 'formal-golden-result-to-report-fingerprint'",
   'formalResultReconciliation=',
+  'rcResultReconciliation',
+  "scope: 'rc-project-replay-to-report-fingerprint'",
+  'required: 30',
+  'rcResultReconciliation=',
   'rendered-delivery-evidence-summary.json',
 ].forEach(needle => assertIncludes(renderedEvidenceContract, needle, `rendered evidence aggregate contract preserves ${needle}`));
 assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evidence inventory has 31 formal tools', 'rendered-delivery-evidence.inventory.json');
@@ -205,10 +223,13 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'function isCompleteRenderedDeliveryEvidence',
   'completeIntegrityDeclared',
   'resultReconciliationDeclared',
+  'rcResultReconciliationDeclared',
   "evidence.canonicalArtifactIntegrity?.scope === 'canonical-rendered-pdf-evidence'",
   'evidence.canonicalArtifactIntegrity.required === 60',
   "evidence.formalResultReconciliation?.scope === 'formal-golden-result-to-report-fingerprint'",
   'evidence.formalResultReconciliation.required === 14',
+  "evidence.rcResultReconciliation?.scope === 'rc-project-replay-to-report-fingerprint'",
+  'evidence.rcResultReconciliation.required === 30',
   'function resolveRenderedDeliveryEvidenceSource',
   'function resolveHomepagePreflightSource',
   'latestSummary && latestSummary.quick === false && latestSummary.pass === true',
@@ -224,6 +245,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   '公開狀態只提供類別、數量與通過狀態',
   'formalResultReconciliationRequired',
   '正式計算書結果鏈',
+  'rcResultReconciliationRequired',
+  'RC 正式計算書結果鏈',
 ].forEach(needle => assertIncludes(maturityMatrix, needle, `maturity matrix preserves release readiness ${needle}`));
 
 [
