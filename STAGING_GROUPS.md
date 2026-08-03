@@ -82,7 +82,7 @@ git add -- platform-audit-preflight.ps1 refresh-platform-status.ps1 audit-all.ps
 git add -- "鋼構工具/run-audit.bat" "鋼筋混凝土/run-audit.bat" "結構工具箱/audit-core.ps1" "結構工具箱/run-audit-core.bat"
 git add -- run-audit-all.bat run-audit-all-loop.bat run-preflight-tools.bat run-preflight-tools-quick.bat run-preflight-tools-ci.bat run-preflight-tools-release.bat "鋼筋混凝土/run-audit.bat" "鋼筋混凝土/run-audit-loop.bat" "鋼構工具/run-audit.bat" "鋼構工具/run-audit-loop.bat" "鋼構工具/run-sync-formal-core.bat" "結構工具箱/run-audit-core.bat" "安裝案件附件工作台捷徑.bat" "檢查案件附件工作台捷徑.bat" "移除案件附件工作台捷徑.bat" "結構工具箱/tools/啟動案件附件工作台.bat" "結構工具箱/tools/啟動案件附件治理檢視器.bat" "結構工具箱/tools/啟動正式附件包管理器.bat" "結構工具箱/tools/啟動舊版附件升級助手.bat"
 git add -- "開挖擋土支撐/start_html_mode.ps1" "開挖擋土支撐/stop_html_mode.ps1" "開挖擋土支撐/excavation-traceability.contract.test.js" "開挖擋土支撐/excavation-report.contract.test.js" "開挖擋土支撐/backend/tests/release_report_artifacts.py"
-git add -- index.html "斷面性質計算.html" "合成斷面性質.html" "RC補強斷面性質.html"
+git add -- index.html "斷面性質計算.html" "合成斷面性質.html" "RC補強斷面性質.html" dev_tools/section-properties-browser-smoke.js
 git add -- "解題/struct_dx/frontend/diagnosis.html" "解題/struct_dx/frontend/verify_engine.html" "解題/struct_dx/frontend/struct_suite.html"
 git add -- "鋼構工具/audit-tool.ps1" "鋼構工具/steel-audit-browser-runner.js"
 git add -- "結構工具箱/core/style.css" "結構工具箱/core/direct-print-boundary.css"

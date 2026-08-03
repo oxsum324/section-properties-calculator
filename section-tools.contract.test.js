@@ -453,7 +453,16 @@ const tools = [
   {
     label: 'section property picker',
     path: 'index.html',
-    needles: ['id="exportStatus"', 'function setStatus', 'sendIxToOpener()'],
+    needles: [
+      '<title>斷面性質計算工具 V2.1</title>', 'id="exportStatus"', 'function setStatus', 'sendIxToOpener()',
+      'id="sectionJsonFile"', 'id="attachmentApproved"', 'section-properties.project.v1',
+      'function collectSectionProjectData', 'function validateSectionProjectData', 'function applySectionProjectData',
+      'function applySectionProjectDataUnchecked', 'function sectionCalculationFingerprint', 'function revokeSectionAttachmentApproval',
+      "addEventListener('input', revokeSectionAttachmentApproval)", "addEventListener('change', revokeSectionAttachmentApproval)",
+      '採用尺寸', '計算結果－斷面性質',
+      '文件狀態：${documentStatus}', '產出工具：斷面性質計算', '工具版本：${SECTION_TOOL_VERSION}',
+      '輸出時間：${escapeHtml(outputTime)}', '計算指紋：${fingerprint}',
+    ],
   },
   {
     label: 'section property standalone',
@@ -512,6 +521,18 @@ const compositeHtml = read('合成斷面性質.html');
 assertPrintHidesSelectors(compositeHtml, ['.page-only-tool-actions'], 'composite section JSON actions');
 assertReportPayloadExcludes(compositeHtml, 'exportReport', pageOnlyReportStatusNeedles);
 assertProjectMetaUsesSharedNormalization(compositeHtml, 'composite section report', ['exportReport']);
+
+const sectionPickerHtml = read('index.html');
+assertPrintHidesSelectors(sectionPickerHtml, ['.page-only-tool-actions'], 'section property JSON actions');
+const sectionPdfSource = functionSource(sectionPickerHtml, 'exportPDF');
+for (const needle of pageOnlyReportStatusNeedles) {
+  assert(!sectionPdfSource.includes(needle), 'section property calculation book excludes page-only wording', needle);
+}
+assert(sectionPdfSource.includes('文件狀態：${documentStatus}') && sectionPdfSource.includes('計算指紋：${fingerprint}'), 'section property calculation book keeps state and traceability', 'document status + fingerprint');
+const sectionBrowserSmoke = read(path.join('dev_tools', 'section-properties-browser-smoke.js'));
+for (const needle of ['儲存案例 JSON', 'JSON 載入重算指紋不符', '錯誤 JSON 改變了目前案例', '計算書缺少採用尺寸', '計算書混入操作頁訊息']) {
+  assert(sectionBrowserSmoke.includes(needle), 'section property browser smoke locks replay/report boundary', needle);
+}
 
 const rcRetrofitHtml = read('RC補強斷面性質.html');
 assertPrintHidesSelectors(rcRetrofitHtml, ['.page-only-tool-actions'], 'RC retrofit JSON actions');

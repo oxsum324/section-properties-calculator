@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>斷面性質計算工具 V2.0</title>
+<title>斷面性質計算工具 V2.1</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="結構工具箱/core/direct-print-boundary.css">
 <style>
@@ -55,9 +55,13 @@
   .status-msg.ok { display: block; background: #ecfdf5; color: #047857; }
   .status-msg.warn { display: block; background: #fffbeb; color: #92400e; }
   .status-msg.error { display: block; background: #fef2f2; color: #dc2626; }
+  .case-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; padding:10px 12px; background:#fff; border:1px solid var(--border); border-radius:10px; }
+  .case-bar button { padding:7px 11px; border:1px solid var(--border); background:#fff; border-radius:7px; cursor:pointer; font-family:inherit; font-size:.82em; font-weight:600; }
+  .case-bar label { margin-left:auto; display:flex; align-items:center; gap:7px; font-size:.84em; color:var(--text-light); font-weight:600; }
   @media (max-width: 900px) {
     .main-layout { grid-template-columns: 1fr; }
   }
+  @media print { .page-only-tool-actions { display:none !important; } }
   @media (max-width: 768px) {
     .results-grid { grid-template-columns: 1fr; }
     header { padding: 14px 16px; }
@@ -88,10 +92,16 @@
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>斷面工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面提供的 PDF／計算書輸出按鈕產生只包含採用輸入、計算結果與必要圖示的文件；本頁不得作為附件。</span></div>
 <header>
   <p><a href="結構工具箱/index.html" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.85em;">← 回主選單</a></p>
-  <h1>斷面性質計算工具 V2.0</h1>
+  <h1>斷面性質計算工具 V2.1</h1>
   <p>鋼結構 / 基本幾何斷面性質計算 | 尺寸輸入 mm, 結果輸出 cm</p>
 </header>
 <div class="container">
+  <div class="case-bar page-only-tool-actions">
+    <button type="button" onclick="downloadSectionProject()">儲存案例 JSON</button>
+    <button type="button" onclick="document.getElementById('sectionJsonFile').click()">載入案例 JSON</button>
+    <input id="sectionJsonFile" type="file" accept="application/json,.json" hidden onchange="loadSectionProjectFile(event)">
+    <label><input id="attachmentApproved" type="checkbox"> 核可為正式附件</label>
+  </div>
   <div class="tabs" id="tabBar"></div>
   <div class="main-layout">
     <div class="card" id="input-panel"></div>
@@ -104,7 +114,7 @@
             <button onclick="toggleAllResults()" title="全選/取消全選" style="padding:5px 10px;border:1px solid var(--border);background:white;border-radius:6px;cursor:pointer;font-size:0.78em;color:var(--text-light);font-family:inherit;">☑ 全選</button>
             <button id="btnPickI" onclick="sendIxToOpener()" style="display:none;padding:5px 12px;border:none;background:#2563eb;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">→ 導入至連續梁工具</button>
             <button onclick="exportJPG()" style="padding:5px 12px;border:none;background:#059669;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">↓ JPG</button>
-            <button onclick="exportPDF()" style="padding:5px 12px;border:none;background:#dc2626;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">↓ PDF</button>
+            <button onclick="exportPDF()" style="padding:5px 12px;border:none;background:#dc2626;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">↓ 計算書 PDF</button>
           </div>
         </div>
         <div class="results-grid" id="results"><div class="result-item"><span class="label">請輸入尺寸後點擊計算</span></div></div>
@@ -218,6 +228,175 @@ function toggleAllResults() {
   cbs.forEach(cb => cb.checked = !allChecked);
 }
 
+const SECTION_PROJECT_SCHEMA = 'section-properties.project.v1';
+const SECTION_TOOL_VERSION = 'V2.1';
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+function collectSectionInputs() {
+  const inputs = {};
+  document.querySelectorAll('#input-panel input[id], #input-panel select[id]').forEach(el => { inputs[el.id] = el.value; });
+  const custom = [...document.querySelectorAll('#custom-rects .custom-rect-row')].map(row => ({
+    b: row.querySelector('.rect-b')?.value ?? '',
+    h: row.querySelector('.rect-h')?.value ?? '',
+    yc: row.querySelector('.rect-yc')?.value ?? '',
+  }));
+  return { inputs, custom };
+}
+
+function collectSectionProjectData() {
+  const source = collectSectionInputs();
+  return {
+    schema: SECTION_PROJECT_SCHEMA,
+    version: 1,
+    toolVersion: SECTION_TOOL_VERSION,
+    savedAt: new Date().toISOString(),
+    section: {
+      tab: currentTab,
+      inputs: source.inputs,
+      custom: source.custom,
+      selectedResults: [...document.querySelectorAll('.res-cb')].map((cb, i) => cb.checked ? String(lastResults[i]?.[0] || '') : '').filter(Boolean),
+    },
+    calculation: {
+      title: lastTitle,
+      results: lastResults.map(([label, value, unit]) => ({ label: String(label), value: Number(value), unit: String(unit || '') })),
+      fingerprint: sectionCalculationFingerprint(),
+    },
+  };
+}
+
+function stableSectionHash(value, seed) {
+  let hash = seed >>> 0;
+  const text = JSON.stringify(value);
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return hash.toString(16).toUpperCase().padStart(8, '0');
+}
+
+function sectionCalculationFingerprint() {
+  const source = collectSectionInputs();
+  const payload = {
+    tab: currentTab,
+    inputs: source.inputs,
+    custom: source.custom,
+    results: lastResults.map(([label, value, unit]) => [String(label), Number(value), String(unit || '')]),
+  };
+  return `CF-${stableSectionHash(payload, 2166136261)}${stableSectionHash(payload, 2246822507)}`;
+}
+
+function validateSectionProjectData(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('案例內容不是有效物件');
+  if (data.schema !== SECTION_PROJECT_SCHEMA || data.version !== 1) throw new Error('案例格式或版本不相容');
+  const section = data.section;
+  if (!section || !tabs.some(tab => tab.id === section.tab)) throw new Error('案例缺少有效的斷面類型');
+  if (!section.inputs || typeof section.inputs !== 'object' || Array.isArray(section.inputs)) throw new Error('案例缺少尺寸輸入');
+  const entries = Object.entries(section.inputs);
+  if (entries.length > 80 || entries.some(([key, value]) => !/^[A-Za-z0-9_-]{1,40}$/.test(key) || !['string','number'].includes(typeof value))) {
+    throw new Error('案例尺寸欄位不合法');
+  }
+  if (section.tab === 'custom') {
+    if (!Array.isArray(section.custom) || !section.custom.length || section.custom.length > 50) throw new Error('自訂斷面矩形資料不合法');
+    section.custom.forEach((rect, index) => {
+      const b = Number(rect?.b), h = Number(rect?.h), yc = Number(rect?.yc);
+      if (!(b > 0) || !(h > 0) || !Number.isFinite(yc)) throw new Error(`第 ${index + 1} 個矩形尺寸不合法`);
+    });
+  }
+  const fingerprint = data.calculation?.fingerprint;
+  if (!/^CF-[0-9A-F]{16}$/.test(String(fingerprint || ''))) throw new Error('案例缺少有效計算指紋');
+  return data;
+}
+
+function applySectionProjectDataUnchecked(checked, verifyFingerprint = true) {
+  const section = checked.section;
+  switchTab(section.tab);
+  if (section.tab === 'geo' && section.inputs['geo-type']) {
+    document.getElementById('geo-type').value = section.inputs['geo-type'];
+    buildGeoInputs();
+  }
+  if (section.tab === 'custom') {
+    while (document.querySelectorAll('#custom-rects .custom-rect-row').length < section.custom.length) addRect();
+    while (document.querySelectorAll('#custom-rects .custom-rect-row').length > section.custom.length) removeRect();
+  }
+  Object.entries(section.inputs).forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.value = String(value);
+  });
+  if (section.tab === 'custom') {
+    [...document.querySelectorAll('#custom-rects .custom-rect-row')].forEach((row, index) => {
+      const rect = section.custom[index];
+      row.querySelector('.rect-b').value = rect.b;
+      row.querySelector('.rect-h').value = rect.h;
+      row.querySelector('.rect-yc').value = rect.yc;
+    });
+  }
+  calcFns[section.tab]?.();
+  const selected = new Set(Array.isArray(section.selectedResults) ? section.selectedResults : []);
+  if (selected.size) document.querySelectorAll('.res-cb').forEach((cb, index) => { cb.checked = selected.has(String(lastResults[index]?.[0] || '')); });
+  const sourceFingerprint = checked.calculation?.fingerprint || '';
+  const replayFingerprint = sectionCalculationFingerprint();
+  if (verifyFingerprint && replayFingerprint !== sourceFingerprint) throw new Error(`重算指紋不符（來源 ${sourceFingerprint}；目前 ${replayFingerprint}）`);
+  return replayFingerprint;
+}
+
+function applySectionProjectData(data) {
+  const checked = validateSectionProjectData(data);
+  const previous = collectSectionProjectData();
+  try {
+    return applySectionProjectDataUnchecked(checked, true);
+  } catch (error) {
+    try { applySectionProjectDataUnchecked(previous, false); } catch (_) { /* 保留原畫面可用性 */ }
+    throw error;
+  }
+}
+
+function downloadSectionProject() {
+  if (!lastResults.length) { setStatus('請先完成斷面計算', 'warn'); return; }
+  const data = collectSectionProjectData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${(lastTitle || '斷面性質').replace(/[\\/:*?"<>|]+/g, '-')}.json`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  setStatus(`案例已儲存；計算指紋 ${data.calculation.fingerprint}`, 'ok');
+}
+
+async function loadSectionProjectFile(event) {
+  const input = event?.target;
+  const file = input?.files?.[0];
+  if (!file) return;
+  try {
+    const data = validateSectionProjectData(JSON.parse(await file.text()));
+    const fingerprint = applySectionProjectData(data);
+    setStatus(`案例已載入並重算；計算指紋 ${fingerprint}`, 'ok');
+  } catch (error) {
+    setStatus(`載入失敗：${error.message || error}`, 'error');
+  } finally {
+    input.value = '';
+  }
+}
+
+function collectReportInputRows() {
+  return [...document.querySelectorAll('#input-panel .form-group')].map(group => {
+    const control = group.querySelector('input, select');
+    if (!control) return null;
+    const label = group.querySelector('label')?.textContent?.trim() || control.id || '輸入值';
+    const value = control.tagName === 'SELECT'
+      ? (control.options[control.selectedIndex]?.text || control.value)
+      : control.value;
+    return { label, value };
+  }).filter(Boolean);
+}
+
+function revokeSectionAttachmentApproval() {
+  const approval = document.getElementById('attachmentApproved');
+  if (approval) approval.checked = false;
+}
+
 function exportJPG() {
   const checked = getCheckedResults();
   if (!checked.length) { setStatus('請至少勾選一個計算項目', 'warn'); return; }
@@ -265,7 +444,7 @@ function exportJPG() {
   // Footer
   ctx.fillStyle = '#94a3b8'; ctx.font = '10px "Segoe UI",sans-serif';
   ctx.textAlign = 'right';
-  ctx.fillText('斷面性質計算工具 V2.0  |  ' + new Date().toLocaleDateString('zh-TW'), totalW - pad, totalH - 6);
+  ctx.fillText(`斷面性質計算工具 ${SECTION_TOOL_VERSION}  |  ` + new Date().toLocaleDateString('zh-TW'), totalW - pad, totalH - 6);
   const a = document.createElement('a');
   a.href = out.toDataURL('image/jpeg', 0.95);
   a.download = (lastTitle || '斷面性質') + '.jpg';
@@ -276,15 +455,22 @@ function exportPDF() {
   const checked = getCheckedResults();
   if (!checked.length) { setStatus('請至少勾選一個計算項目', 'warn'); return; }
   const imgData = document.getElementById('sectionCanvas').toDataURL('image/png');
+  const inputRows = collectReportInputRows().map(({label, value}) =>
+    `<tr><td>${escapeHtml(label)}</td><td class="val" colspan="2">${escapeHtml(value)}</td></tr>`).join('');
   const rows = checked.map(([l,v,u]) =>
-    `<tr><td>${l}</td><td class="val">${fmt(v)}</td><td class="unit">${u}</td></tr>`).join('');
-  const html = `<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><title>${lastTitle||'斷面性質計算'}</title>
+    `<tr><td>${escapeHtml(l)}</td><td class="val">${escapeHtml(fmt(v))}</td><td class="unit">${escapeHtml(u)}</td></tr>`).join('');
+  const outputTime = new Date().toLocaleString('zh-TW', { hour12: false });
+  const fingerprint = sectionCalculationFingerprint();
+  const approved = Boolean(document.getElementById('attachmentApproved')?.checked);
+  const documentStatus = approved ? '正式附件' : '內部審閱';
+  const html = `<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><title>${escapeHtml(lastTitle||'斷面性質計算')}</title>
 <style>
   body{font-family:"Microsoft JhengHei","Segoe UI",sans-serif;padding:24px 30px;color:#1e293b;max-width:680px;margin:0 auto;}
-  .hdr{background:#2563eb;color:white;padding:12px 16px;border-radius:8px 8px 0 0;}
+  .hdr{border-bottom:3px double #1e293b;padding:4px 0 10px;margin-bottom:12px;}
   .hdr h1{font-size:16px;margin:0 0 3px;}
-  .hdr p{font-size:12px;margin:0;opacity:.85;}
-  .fig{text-align:center;border:1px solid #e2e8f0;border-top:none;padding:12px;background:#fafbfc;}
+  .hdr p{font-size:12px;margin:0;color:#475569;}
+  .meta{display:grid;grid-template-columns:1fr 1fr;gap:3px 18px;font-size:10px;color:#475569;margin:8px 0 12px;}
+  .fig{text-align:center;border:1px solid #e2e8f0;padding:12px;background:#fafbfc;}
   .fig img{max-height:220px;}
   table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px;}
   th{background:#2563eb;color:white;padding:7px 12px;text-align:left;font-size:12px;}
@@ -293,13 +479,15 @@ function exportPDF() {
   tr td:first-child{border-left-color:#2563eb;}
   td.val{font-family:Consolas,monospace;font-weight:bold;text-align:right;white-space:nowrap;}
   td.unit{color:#64748b;white-space:nowrap;}
-  .foot{margin-top:14px;font-size:10px;color:#94a3b8;text-align:right;}
+  .foot{margin-top:14px;padding-top:7px;border-top:1px solid #cbd5e1;font-size:9px;color:#64748b;display:flex;justify-content:space-between;gap:12px;}
   @media print{body{padding:8px;}@page{margin:1.2cm;}}
 </style></head><body>
-<div class="hdr"><h1>斷面性質計算</h1><p>${lastTitle}</p></div>
+<div class="hdr"><h1>斷面性質計算書</h1><p>${escapeHtml(lastTitle)}</p></div>
+<div class="meta"><span>文件狀態：${documentStatus}</span><span>產出工具：斷面性質計算</span><span>工具版本：${SECTION_TOOL_VERSION}</span><span>輸出時間：${escapeHtml(outputTime)}</span>${approved ? `<span>核可時間：${escapeHtml(outputTime)}</span>` : ''}<span>計算指紋：${fingerprint}</span></div>
 <div class="fig"><img src="${imgData}"></div>
-<table><tr><th>性質</th><th style="text-align:right">數值</th><th>單位</th></tr>${rows}</table>
-<div class="foot">斷面性質計算工具 V2.0 &nbsp;|&nbsp; ${new Date().toLocaleDateString('zh-TW')}</div>
+<table><tr><th>採用尺寸</th><th style="text-align:right" colspan="2">輸入值（依欄位標示）</th></tr>${inputRows}</table>
+<table><tr><th>計算結果－斷面性質</th><th style="text-align:right">計算值</th><th>單位</th></tr>${rows}</table>
+<div class="foot"><span>斷面性質計算 ${SECTION_TOOL_VERSION}</span><span>${fingerprint}</span></div>
 <script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
 </body></html>`;
   const w = window.open('', '_blank');
@@ -343,6 +531,7 @@ function buildTabs() {
 }
 
 function switchTab(id) {
+  revokeSectionAttachmentApproval();
   currentTab = id;
   buildTabs();
   buildPanel(id);
@@ -1188,6 +1377,8 @@ function calcCustom() {
 buildTabs();
 buildPanel('h-beam');
 calcHBeam();
+document.getElementById('input-panel').addEventListener('input', revokeSectionAttachmentApproval);
+document.getElementById('results').addEventListener('change', revokeSectionAttachmentApproval);
 </script>
 </body>
 </html>
