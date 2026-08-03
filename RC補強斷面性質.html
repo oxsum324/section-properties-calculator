@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RC 補強斷面性質計算 V1.6</title>
+<title>RC 補強斷面性質計算 V1.7</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="鋼筋混凝土/shared/direct-print-boundary.css">
 <style>
@@ -79,8 +79,14 @@
   .report-readiness-item span { display: block; font-size: 0.72em; font-weight: 700; color: var(--text-light); }
   .report-readiness-item strong { display: block; margin-top: 2px; font-size: 0.84em; color: var(--text); line-height: 1.35; }
   .report-readiness-notes { margin: 0; padding-left: 18px; font-size: 0.78em; color: #57534e; line-height: 1.65; }
+  .case-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+  .btn-case { padding:6px 12px; background:#475569; color:white; border:none; border-radius:7px; font-size:0.8em; font-weight:700; cursor:pointer; font-family:inherit; }
+  .btn-case:hover { background:#334155; }
+  .case-status { min-height:1.4em; font-size:0.78em; color:var(--text-light); }
+  .case-status.error { color:#b91c1c; }
   @media print {
     .page-only-report-status { display: none !important; }
+    .page-only-tool-actions { display: none !important; }
   }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78em; color: var(--text-light); margin-top: 6px; justify-content: center; }
   .legend span { display: flex; align-items: center; gap: 4px; }
@@ -105,7 +111,7 @@
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
   <p><a href="結構工具箱/index.html" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.85em;">← 回主選單</a></p>
-  <h1>RC 補強斷面性質計算 <span style="font-size:0.55em; font-weight:500; opacity:0.85; margin-left:6px;">V1.6</span></h1>
+  <h1>RC 補強斷面性質計算 <span style="font-size:0.55em; font-weight:500; opacity:0.85; margin-left:6px;">V1.7</span></h1>
   <p>既有 RC 矩形斷面 ＋ 鋼板／碳纖補強 | 彈性斷面性質 + 極限強度（Mn／Pn）| 依 112 規範 + ACI 440.2R-17</p>
 </header>
 
@@ -119,6 +125,12 @@
       <div class="form-group"><label>計畫編號</label><input type="text" id="projNo" placeholder="—"></div>
       <div class="form-group"><label>設計人員</label><input type="text" id="projDesigner" placeholder="—"></div>
       <div class="form-group"><label>備註</label><input type="text" id="projNote" placeholder="—"></div>
+    </div>
+    <div class="case-actions page-only-tool-actions" aria-label="案例存取">
+      <button type="button" class="btn-case" onclick="exportRetrofitJSON()">本地存檔 JSON</button>
+      <button type="button" class="btn-case" onclick="document.getElementById('retrofitJsonFile').click()">讀取 JSON</button>
+      <input id="retrofitJsonFile" type="file" accept="application/json,.json" hidden onchange="importRetrofitJSONFile(this)">
+      <span id="caseStatus" class="case-status" role="status" aria-live="polite"></span>
     </div>
   </div>
 
@@ -545,6 +557,144 @@ function normalizeProjectFieldValue(value) {
 
 function getProjectFieldValue(id) {
   return normalizeProjectFieldValue(document.getElementById(id)?.value);
+}
+
+const RETROFIT_PROJECT_SCHEMA = 'rc-retrofit-section.project.v1';
+function setCaseStatus(message, tone = '') {
+  const el = document.getElementById('caseStatus');
+  if (!el) return;
+  el.textContent = message || '';
+  el.className = `case-status${tone ? ` ${tone}` : ''}`;
+}
+function collectRetrofitFields(prefix) {
+  return Array.from(document.querySelectorAll('input[id], select[id], textarea[id]'))
+    .filter(node => node.id.startsWith(prefix))
+    .map(node => ({
+      id: node.id,
+      type: node.type || node.tagName.toLowerCase(),
+      value: String(node.value ?? ''),
+      checked: Boolean(node.checked),
+    }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+}
+function collectRetrofitProjectData() {
+  return {
+    schema: RETROFIT_PROJECT_SCHEMA,
+    tool: { id: 'rc-retrofit-section', name: 'RC 補強斷面性質計算', version: 'V1.7' },
+    savedAt: new Date().toISOString(),
+    project: {
+      name: getProjectFieldValue('projName'),
+      no: getProjectFieldValue('projNo'),
+      designer: getProjectFieldValue('projDesigner'),
+      note: getProjectFieldValue('projNote'),
+    },
+    view: {
+      activeTab: document.getElementById('tabColBtn')?.classList.contains('active') ? 'col' : 'beam',
+    },
+    inputs: {
+      beam: collectRetrofitFields('b-'),
+      column: collectRetrofitFields('c-'),
+    },
+  };
+}
+function retrofitFieldValue(records, id) {
+  const record = records.find(item => item.id === id);
+  return record ? record.value : undefined;
+}
+function validateRetrofitFieldRecords(records, prefix, label) {
+  if (!Array.isArray(records)) throw new Error(`${label}輸入格式不正確。`);
+  const expected = collectRetrofitFields(prefix).map(item => item.id);
+  const ids = records.map(item => item?.id);
+  if (new Set(ids).size !== ids.length) throw new Error(`${label}輸入含重複欄位。`);
+  if (ids.length !== expected.length || expected.some(id => !ids.includes(id))) throw new Error(`${label}輸入欄位不完整或版本不符。`);
+  for (const record of records) {
+    if (!record || typeof record !== 'object' || !expected.includes(record.id)) throw new Error(`${label}輸入含未知欄位。`);
+    const node = document.getElementById(record.id);
+    const nodeType = node.type || node.tagName.toLowerCase();
+    if (record.type !== nodeType) throw new Error(`${record.id} 欄位型式不符。`);
+    if (typeof record.value !== 'string' || typeof record.checked !== 'boolean') throw new Error(`${record.id} 欄位內容不正確。`);
+    if (nodeType === 'number' && record.value.trim() !== '' && !Number.isFinite(Number(record.value))) throw new Error(`${record.id} 必須是有限數值或空白。`);
+  }
+  return records;
+}
+function validateRetrofitProjectData(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('案例內容不是有效物件。');
+  if (data.schema !== RETROFIT_PROJECT_SCHEMA) throw new Error('不支援的 RC 補強案例版本：' + (data.schema || '未標示'));
+  if (data.tool?.id && data.tool.id !== 'rc-retrofit-section') throw new Error('此 JSON 不屬於 RC 補強斷面工具。');
+  if (data.project != null && (typeof data.project !== 'object' || Array.isArray(data.project))) throw new Error('專案資料格式不正確。');
+  if (!data.inputs || typeof data.inputs !== 'object' || Array.isArray(data.inputs)) throw new Error('案例缺少梁柱輸入。');
+  const beam = validateRetrofitFieldRecords(data.inputs.beam, 'b-', '梁');
+  const column = validateRetrofitFieldRecords(data.inputs.column, 'c-', '柱');
+  for (const [records, ids] of [[beam, ['b-b', 'b-h', 'b-d', 'b-fc', 'b-fy']], [column, ['c-b', 'c-h', 'c-fc', 'c-fy']]]) {
+    for (const id of ids) {
+      if (!(Number(retrofitFieldValue(records, id)) > 0)) throw new Error(`${id} 必須大於 0。`);
+    }
+  }
+  if (!['none', 'plate', 'frp'].includes(retrofitFieldValue(beam, 'b-mode'))) throw new Error('梁補強型式不受支援。');
+  if (!['none', 'jacket', 'frp'].includes(retrofitFieldValue(column, 'c-mode'))) throw new Error('柱補強型式不受支援。');
+  if (!['simple', 'detail'].includes(retrofitFieldValue(column, 'c-rebar-mode'))) throw new Error('柱主筋輸入模式不受支援。');
+  if (data.view != null && !['beam', 'col'].includes(data.view.activeTab)) throw new Error('頁籤狀態不受支援。');
+  return data;
+}
+function applyRetrofitFieldRecords(records) {
+  records.forEach(record => {
+    const node = document.getElementById(record.id);
+    if (node.type === 'checkbox' || node.type === 'radio') node.checked = record.checked;
+    else node.value = record.value;
+  });
+}
+function applyRetrofitProjectData(data) {
+  validateRetrofitProjectData(data);
+  const project = data.project || {};
+  document.getElementById('projName').value = normalizeProjectFieldValue(project.name);
+  document.getElementById('projNo').value = normalizeProjectFieldValue(project.no);
+  document.getElementById('projDesigner').value = normalizeProjectFieldValue(project.designer);
+  document.getElementById('projNote').value = normalizeProjectFieldValue(project.note);
+  applyRetrofitFieldRecords(data.inputs.beam);
+  applyRetrofitFieldRecords(data.inputs.column);
+  onBeamModeChange();
+  togglePlateUWrap();
+  toggleFrpUWrap();
+  toggleFrpShear();
+  onColModeChange();
+  onRebarModeChange();
+  updateRebarSummary();
+  calcBeam();
+  calcCol();
+  switchTab(data.view?.activeTab || 'beam');
+  setCaseStatus('已讀取 JSON，並重新計算梁、柱結果。');
+}
+function downloadRetrofitJSON(filename, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+function exportRetrofitJSON() {
+  try {
+    const payload = collectRetrofitProjectData();
+    validateRetrofitProjectData(payload);
+    downloadRetrofitJSON('rc-retrofit-section-' + payload.savedAt.slice(0, 10) + '.json', payload);
+    setCaseStatus('已下載本地 JSON。');
+  } catch (error) {
+    setCaseStatus('存檔失敗：' + error.message, 'error');
+  }
+}
+async function importRetrofitJSONFile(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  try {
+    applyRetrofitProjectData(JSON.parse(await file.text()));
+  } catch (error) {
+    setCaseStatus('讀檔失敗：' + error.message, 'error');
+  } finally {
+    input.value = '';
+  }
 }
 
 function missingProjectFields() {
@@ -2253,6 +2403,7 @@ function exportBeamReport() {
   openReport({
     title: 'RC 梁補強斷面計算書',
     subtitle: `${g.b_mm}×${g.h_mm} 矩形梁　｜　${modeTxt}`,
+    outputSource: { tool: 'RC 補強斷面性質計算', version: 'V1.7' },
     project,
     documentState: attachmentReadiness.documentState,
     documentClass: attachmentReadiness.documentClass,
@@ -2372,6 +2523,7 @@ function exportColReport() {
   openReport({
     title: 'RC 柱補強斷面計算書',
     subtitle: `${g.b_mm}×${g.h_mm} 矩形柱　｜　${modeTxt}`,
+    outputSource: { tool: 'RC 補強斷面性質計算', version: 'V1.7' },
     project,
     documentState: attachmentReadiness.documentState,
     documentClass: attachmentReadiness.documentClass,

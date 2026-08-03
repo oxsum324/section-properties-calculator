@@ -165,7 +165,7 @@
       '/rc-shear-wall': '2026-08-02',
       '/rc-foundation': '2026-08-02',
       '/rc-pile': '2026-08-02',
-      '/rc-retrofit-section': '2026-08-02',
+      '/rc-retrofit-section': '2026-08-03',
       '/steel-formal': '2026-07-21',
       '/steel-beam-formal': '2026-08-02',
       '/steel-column-formal': '2026-08-02',
@@ -406,17 +406,17 @@
     },
     {
       title: 'RC 補強斷面',
-      version: 'V1.6',
+      version: 'V1.7',
       href: '/rc-retrofit-section',
       categories: ['member'],
       memberSystem: 'rc',
       state: 'formal',
       governance: 'rc-audit',
-      output: '補強斷面、P-M 互制與剪力檢核摘要',
-      summary: '梁柱補強、鋼板、CFRP、P-M 互制與剪力檢核，對齊 112 規範與 ACI 440.2R-17。',
+      output: '補強斷面、P-M 互制、剪力檢核與本地 JSON',
+      summary: '梁柱補強、鋼板、CFRP、P-M 互制與剪力檢核；可用版本化 JSON 保存完整梁柱案例並重算。',
       fit: '補強斷面評估與送審前整理。',
       limit: '補強細部、施工與耐久性仍需專案判斷。',
-      capabilities: ['NEW', '補強']
+      capabilities: ['JSON', '補強']
     },
     {
       title: '鋼構正式規範工具',

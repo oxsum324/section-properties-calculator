@@ -59,28 +59,19 @@ function startServer() {
 
 async function captureRetrofitSourceSnapshot(page, kind) {
   return page.evaluate(sourceKind => {
-    const prefix = sourceKind === 'beam' ? 'b-' : 'c-';
-    const fields = Array.from(document.querySelectorAll('input[id], select[id], textarea[id]'))
-      .filter(node => node.id.startsWith(prefix))
-      .map(node => ({
-        id: node.id,
-        type: node.type || node.tagName.toLowerCase(),
-        value: node.value,
-        checked: Boolean(node.checked),
-      }))
-      .sort((a, b) => a.id.localeCompare(b.id));
     const result = sourceKind === 'beam' ? lastBeam : lastCol;
     return JSON.parse(JSON.stringify({
       schemaVersion: 1,
-      kind: `rc-retrofit-${sourceKind}-form-snapshot`,
-      fields,
+      kind: `rc-retrofit-${sourceKind}-portable-json`,
+      projectJson: collectRetrofitProjectData(),
       result,
     }));
   }, kind);
 }
 
 async function replayRetrofitSourceSnapshot(page, kind, sourceSnapshot) {
-  const replayed = await page.evaluate(({ sourceKind, snapshot }) => {
+  const preparation = await page.evaluate(({ sourceKind, snapshot }) => {
+    const stableProjectState = payload => JSON.stringify({ project: payload.project, view: payload.view, inputs: payload.inputs });
     const perturbId = sourceKind === 'beam' ? 'b-Vu' : 'c-Mu';
     const perturb = document.getElementById(perturbId);
     if (perturb) {
@@ -90,20 +81,47 @@ async function replayRetrofitSourceSnapshot(page, kind, sourceSnapshot) {
     }
     if (sourceKind === 'beam') calcBeam(); else calcCol();
     const perturbedResult = JSON.parse(JSON.stringify(sourceKind === 'beam' ? lastBeam : lastCol));
-    for (const field of snapshot.fields) {
-      const node = document.getElementById(field.id);
-      if (!node) throw new Error(`Missing retrofit replay field: ${field.id}`);
-      if (node.type === 'checkbox' || node.type === 'radio') node.checked = field.checked;
-      else node.value = field.value;
-      node.dispatchEvent(new Event('input', { bubbles: true }));
-      node.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-    if (sourceKind === 'beam') calcBeam(); else calcCol();
-    const result = JSON.parse(JSON.stringify(sourceKind === 'beam' ? lastBeam : lastCol));
-    return { perturbedResult, result };
+    const stateBeforeRejected = stableProjectState(collectRetrofitProjectData());
+    const unknownSchema = JSON.parse(JSON.stringify(snapshot.projectJson));
+    unknownSchema.schema = 'rc-retrofit-section.project.v999';
+    let unknownSchemaError = '';
+    try { applyRetrofitProjectData(unknownSchema); } catch (error) { unknownSchemaError = error.message; }
+    const malformed = JSON.parse(JSON.stringify(snapshot.projectJson));
+    const malformedId = sourceKind === 'beam' ? 'b-b' : 'c-b';
+    malformed.inputs[sourceKind].find(item => item.id === malformedId).value = '0';
+    let malformedError = '';
+    try { applyRetrofitProjectData(malformed); } catch (error) { malformedError = error.message; }
+    const rejectedStateUnchanged = stableProjectState(collectRetrofitProjectData()) === stateBeforeRejected;
+    return {
+      perturbedResult,
+      unknownSchemaError,
+      malformedError,
+      rejectedStateUnchanged,
+    };
   }, { sourceKind: kind, snapshot: sourceSnapshot });
-  assert.notDeepEqual(replayed.perturbedResult, sourceSnapshot.result, `RC retrofit ${kind} perturbation changes calculated results before replay`);
+  assert.notDeepEqual(preparation.perturbedResult, sourceSnapshot.result, `RC retrofit ${kind} perturbation changes calculated results before replay`);
+  assert.match(preparation.unknownSchemaError, /不支援的 RC 補強案例版本/, `RC retrofit ${kind} rejects unknown JSON schema`);
+  assert.match(preparation.malformedError, /必須大於 0/, `RC retrofit ${kind} rejects malformed geometry`);
+  assert.equal(preparation.rejectedStateUnchanged, true, `RC retrofit ${kind} rejects invalid JSON before changing current state`);
+
+  await page.locator('#retrofitJsonFile').setInputFiles({
+    name: `rc-retrofit-${kind}-replay.json`,
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(sourceSnapshot.projectJson), 'utf8'),
+  });
+  await page.waitForFunction(() => (document.getElementById('caseStatus')?.textContent || '').includes('已讀取 JSON'), null, { timeout: 10000 });
+  const replayed = await page.evaluate(sourceKind => ({
+    result: JSON.parse(JSON.stringify(sourceKind === 'beam' ? lastBeam : lastCol)),
+    replayedProject: collectRetrofitProjectData(),
+    caseStatus: document.getElementById('caseStatus')?.textContent || '',
+  }), kind);
   assert.deepEqual(replayed.result, sourceSnapshot.result, `RC retrofit ${kind} form snapshot replays the same calculated results`);
+  assert.equal(replayed.replayedProject.schema, 'rc-retrofit-section.project.v1', `RC retrofit ${kind} JSON replay keeps versioned schema`);
+  assert.equal(replayed.replayedProject.tool.version, 'V1.7', `RC retrofit ${kind} JSON replay keeps tool version`);
+  assert.deepEqual(replayed.replayedProject.project, sourceSnapshot.projectJson.project, `RC retrofit ${kind} JSON replay restores project metadata`);
+  assert.deepEqual(replayed.replayedProject.view, sourceSnapshot.projectJson.view, `RC retrofit ${kind} JSON replay restores active tab`);
+  assert.deepEqual(replayed.replayedProject.inputs, sourceSnapshot.projectJson.inputs, `RC retrofit ${kind} JSON replay restores all beam and column inputs`);
+  assert.ok(replayed.caseStatus.includes('已讀取 JSON'), `RC retrofit ${kind} reports successful JSON replay`);
   return replayed.result;
 }
 
@@ -161,7 +179,19 @@ async function main() {
     assert.ok(pageState.readiness.includes('不會寫入計算書或列印 PDF'), 'RC retrofit page keeps readiness export boundary');
     assert.equal(pageState.readinessStatus, 'ready', 'RC retrofit complete beam is ready to sign');
 
+    const jsonDownloadPromise = page.waitForEvent('download', { timeout: 10000 });
+    await page.evaluate(() => exportRetrofitJSON());
+    const projectJsonDownload = await jsonDownloadPromise;
+    const projectJsonPath = await projectJsonDownload.path();
+    const downloadedProjectJson = JSON.parse(fs.readFileSync(projectJsonPath, 'utf8'));
+    assert.match(projectJsonDownload.suggestedFilename(), /^rc-retrofit-section-\d{4}-\d{2}-\d{2}\.json$/, 'RC retrofit JSON download filename is traceable');
+    assert.equal(downloadedProjectJson.schema, 'rc-retrofit-section.project.v1', 'RC retrofit JSON download uses versioned schema');
+    assert.equal(downloadedProjectJson.tool.version, 'V1.7', 'RC retrofit JSON download records tool version');
+    assert.ok(downloadedProjectJson.inputs.beam.length > 20 && downloadedProjectJson.inputs.column.length > 20, 'RC retrofit JSON download includes complete beam and column fields');
+
     const beamSourceSnapshotBase = await captureRetrofitSourceSnapshot(page, 'beam');
+    assert.deepEqual(downloadedProjectJson.project, beamSourceSnapshotBase.projectJson.project, 'RC retrofit downloaded JSON keeps project metadata');
+    assert.deepEqual(downloadedProjectJson.inputs, beamSourceSnapshotBase.projectJson.inputs, 'RC retrofit downloaded JSON matches runtime beam and column inputs');
 
     const popupPromise = page.context().waitForEvent('page', { timeout: 15000 });
     await page.evaluate(() => exportBeamReport());

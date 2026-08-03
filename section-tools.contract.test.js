@@ -474,7 +474,13 @@ const tools = [
   {
     label: 'RC retrofit section reports',
     path: 'RC補強斷面性質.html',
-    needles: ['id="b-report-status"', 'id="c-report-status"', 'id="b-report-readiness"', 'id="c-report-readiness"', 'function renderReportReadiness', 'page-only-report-status'],
+    needles: [
+      '<title>RC 補強斷面性質計算 V1.7</title>',
+      'id="b-report-status"', 'id="c-report-status"', 'id="b-report-readiness"', 'id="c-report-readiness"',
+      'id="caseStatus"', 'id="retrofitJsonFile"', 'function collectRetrofitProjectData',
+      'function validateRetrofitProjectData', 'function applyRetrofitProjectData',
+      'rc-retrofit-section.project.v1', "version: 'V1.7'", 'function renderReportReadiness', 'page-only-report-status',
+    ],
   },
 ];
 
@@ -508,6 +514,7 @@ assertReportPayloadExcludes(compositeHtml, 'exportReport', pageOnlyReportStatusN
 assertProjectMetaUsesSharedNormalization(compositeHtml, 'composite section report', ['exportReport']);
 
 const rcRetrofitHtml = read('RC補強斷面性質.html');
+assertPrintHidesSelectors(rcRetrofitHtml, ['.page-only-tool-actions'], 'RC retrofit JSON actions');
 assertReportPayloadExcludes(rcRetrofitHtml, 'exportBeamReport', pageOnlyReportStatusNeedles);
 assertReportPayloadExcludes(rcRetrofitHtml, 'exportColReport', pageOnlyReportStatusNeedles);
 assertProjectMetaUsesSharedNormalization(rcRetrofitHtml, 'RC retrofit section reports', ['exportBeamReport', 'exportColReport']);
