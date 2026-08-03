@@ -1,4 +1,5 @@
 const fs = require('fs');
+const crypto = require('crypto');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const zlib = require('zlib');
@@ -10,6 +11,25 @@ const PAGE_ONLY_REPORT_STATUS_NEEDLES = [...new Set([
   ...Object.values(CALCULATION_BOOK_CONTENT_BOUNDARY.forbiddenCategories).flat(),
   '可作附件，需人工複核',
 ])];
+
+function captureArtifactIntegrity(file, role) {
+  const initialStat = fs.lstatSync(file);
+  if (initialStat.isSymbolicLink() || !initialStat.isFile()) {
+    throw new Error(`artifact is not a regular file: ${path.basename(file)}`);
+  }
+  const buffer = fs.readFileSync(file);
+  const finalStat = fs.lstatSync(file);
+  if (finalStat.isSymbolicLink() || !finalStat.isFile()
+    || finalStat.size !== initialStat.size || finalStat.mtimeMs !== initialStat.mtimeMs) {
+    throw new Error(`artifact changed while recording integrity: ${path.basename(file)}`);
+  }
+  return {
+    role: String(role || 'artifact'),
+    name: path.basename(file),
+    bytes: buffer.length,
+    sha256: crypto.createHash('sha256').update(buffer).digest('hex'),
+  };
+}
 
 function paethPredictor(left, up, upperLeft) {
   const p = left + up - upperLeft;
@@ -246,6 +266,7 @@ function assertReportPdfTextQuality(file, title, options = {}) {
 }
 
 module.exports = {
+  captureArtifactIntegrity,
   assertReportPdfTextQuality,
   assertReportScreenshotQuality,
   readPdfTextWithPoppler,

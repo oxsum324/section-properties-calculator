@@ -76,14 +76,23 @@ function verifyRecordedArtifact(directory, record, fields, label) {
   const nameField = String(fields?.nameField || 'artifact');
   const bytesField = String(fields?.bytesField || `${nameField}Bytes`);
   const sha256Field = String(fields?.sha256Field || `${nameField}Sha256`);
-  const artifact = safeRelativeFile(directory, record?.[nameField], label);
+  return verifyArtifactIntegrityEntry(directory, {
+    role: nameField,
+    name: record?.[nameField],
+    bytes: record?.[bytesField],
+    sha256: record?.[sha256Field],
+  }, label);
+}
+
+function verifyArtifactIntegrityEntry(directory, entry, label) {
+  const artifact = safeRelativeFile(directory, entry?.name, label);
   const buffer = readStableFile(artifact.filePath, artifact.stat, label);
   const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
-  assert.equal(Number(record?.[bytesField]), buffer.length, `${label} producer summary records artifact bytes`);
-  assert.match(String(record?.[sha256Field] || ''), /^[0-9a-f]{64}$/i, `${label} producer summary records artifact SHA-256`);
-  assert.equal(String(record[sha256Field]).toLowerCase(), sha256, `${label} artifact SHA-256 matches its producer summary`);
+  assert.equal(Number(entry?.bytes), buffer.length, `${label} producer summary records artifact bytes`);
+  assert.match(String(entry?.sha256 || ''), /^[0-9a-f]{64}$/i, `${label} producer summary records artifact SHA-256`);
+  assert.equal(String(entry.sha256).toLowerCase(), sha256, `${label} artifact SHA-256 matches its producer summary`);
   return {
-    role: nameField,
+    role: String(entry?.role || 'artifact'),
     name: artifact.name,
     bytes: buffer.length,
     sha256,
@@ -820,6 +829,7 @@ module.exports = {
   resolveEvidenceDir,
   renderAndValidateReportPdf,
   verifyCanonicalRenderedArtifact,
+  verifyArtifactIntegrityEntry,
   verifyRecordedArtifact,
   validatePdfFile,
   writeEvidenceSummary,

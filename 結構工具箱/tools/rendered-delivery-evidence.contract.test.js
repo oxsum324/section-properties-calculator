@@ -6,6 +6,7 @@ const vm = require('vm');
 const { inflateRawSync } = require('zlib');
 const AttachmentPackageChecker = require('./attachment-package-check');
 const { verifyHtmlArtifact } = require('../../dev_tools/html-attachment-integrity');
+const { captureArtifactIntegrity } = require('../../鋼筋混凝土/tools/report-screenshot-quality');
 const {
   CALCULATION_BOOK_CONTENT_BOUNDARY,
   CONTENT_GROUPS,
@@ -18,6 +19,7 @@ const {
   findPdfUncontextualPageStarts,
   findSparseFinalPage,
   validatePdfFile,
+  verifyArtifactIntegrityEntry,
   verifyCanonicalRenderedArtifact,
   verifyRecordedArtifact,
   writeEvidenceSummary,
@@ -438,6 +440,21 @@ function buildHtmlIntegrityGroup(tool, artifacts) {
   };
 }
 
+function verifyRcVisualArtifactRecord(directory, record, label) {
+  const entries = Array.isArray(record?.artifactIntegrity) ? record.artifactIntegrity : [];
+  assert.equal(entries.length, 2, `${label} producer audit records PDF and PNG integrity`);
+  const byRole = new Map(entries.map(entry => [entry.role, entry]));
+  assert.equal(byRole.size, 2, `${label} producer audit uses unique visual artifact roles`);
+  const pdfPath = record.pdfPath || record.artifact;
+  const screenshotPath = record.screenshotPath || record.screenshot;
+  assert.equal(byRole.get('reportPdf')?.name, path.basename(String(pdfPath || '')), `${label} PDF integrity names the audited PDF`);
+  assert.equal(byRole.get('reportScreenshot')?.name, path.basename(String(screenshotPath || '')), `${label} PNG integrity names the audited screenshot`);
+  return [
+    verifyArtifactIntegrityEntry(directory, byRole.get('reportPdf'), `${label} PDF`),
+    verifyArtifactIntegrityEntry(directory, byRole.get('reportScreenshot'), `${label} PNG`),
+  ];
+}
+
 function validateFamilySummary(runDir, family, expectedKeys) {
   const summaryPath = path.join(runDir, 'rendered-delivery-evidence', family, 'rendered-delivery-evidence-summary.json');
   assert.ok(fs.existsSync(summaryPath), `${family} current-run rendered summary exists`);
@@ -629,6 +646,26 @@ try {
   fs.rmSync(mixedIntegrityFixtureDir, { recursive: true, force: true });
 }
 
+const visualIntegrityFixtureDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'visual-artifact-integrity-'));
+try {
+  const screenshotPath = path.join(visualIntegrityFixtureDir, 'fixture.png');
+  const originalScreenshot = Buffer.from('\x89PNG\r\n\x1a\noriginal visual fixture', 'binary');
+  fs.writeFileSync(screenshotPath, originalScreenshot);
+  const integrity = captureArtifactIntegrity(screenshotPath, 'reportScreenshot');
+  verifyArtifactIntegrityEntry(visualIntegrityFixtureDir, integrity, 'visual artifact fixture');
+  const tamperedScreenshot = Buffer.from(originalScreenshot);
+  tamperedScreenshot[tamperedScreenshot.indexOf('original')] = 'X'.charCodeAt(0);
+  assert.equal(tamperedScreenshot.length, originalScreenshot.length, 'negative visual artifact fixture preserves byte length');
+  fs.writeFileSync(screenshotPath, tamperedScreenshot);
+  assert.throws(
+    () => verifyArtifactIntegrityEntry(visualIntegrityFixtureDir, integrity, 'tampered visual artifact fixture'),
+    /artifact SHA-256 matches its producer summary/,
+    'same-size RC visual artifact replacement is blocked by producer audit hash'
+  );
+} finally {
+  fs.rmSync(visualIntegrityFixtureDir, { recursive: true, force: true });
+}
+
 const strictRelease = process.env.PREFLIGHT_RELEASE === '1';
 if (!strictRelease) {
   console.log(`Rendered delivery evidence contract OK (inventory=${inventory.tools.length}, current-run artifact verification skipped outside release mode)`);
@@ -669,7 +706,10 @@ for (const tool of inventory.tools.filter(item => item.family === 'rc-formal')) 
   const htmlIntegrity = portableRecords.map(record => validateHtmlArtifactRecord(rcDir, record, tool.title, { requireRecordedIntegrity: true }));
   const htmlArtifacts = htmlIntegrity.map(item => item.name);
   const integrity = buildHtmlIntegrityGroup(tool, htmlIntegrity);
-  records.push({ href: tool.href, title: tool.title, family: tool.family, evidenceKey: tool.evidenceKey, artifact: artifact.name, htmlArtifacts, htmlIntegrity, integrity, pageCount: pdf.pageCount, textLength: pdf.textLength });
+  const visualArtifactIntegrity = auditRecords.flatMap(record => verifyRcVisualArtifactRecord(rcDir, record, `${tool.title} ${record.key || ''}`));
+  assert.equal(visualArtifactIntegrity.length, Number(tool.htmlExpected) * 2, `${tool.title} verifies PDF and PNG for every visual case`);
+  assert.ok(visualArtifactIntegrity.some(item => item.name === artifact.name && item.role === 'reportPdf'), `${tool.title} selected PDF is bound to its producer audit`);
+  records.push({ href: tool.href, title: tool.title, family: tool.family, evidenceKey: tool.evidenceKey, artifact: artifact.name, htmlArtifacts, htmlIntegrity, integrity, visualArtifactIntegrity, pageCount: pdf.pageCount, textLength: pdf.textLength });
 }
 
 const retrofitSummary = validateFamilySummary(runDir, 'rc-retrofit', ['rc-retrofit-section']);
@@ -685,6 +725,7 @@ const retrofitHtmlIntegrity = retrofitSummary.records
     calculationFingerprint: record.portableHtml?.calculationFingerprint || '',
   }, retrofitTool.title, { requireRecordedIntegrity: true }));
 const retrofitIntegrity = buildHtmlIntegrityGroup(retrofitTool, retrofitHtmlIntegrity);
+const retrofitVisualArtifactIntegrity = verifyRcVisualArtifactRecord(retrofitEvidenceDir, retrofitEvidence, retrofitTool.title);
 records.push({
   href: retrofitTool.href,
   title: retrofitTool.title,
@@ -694,6 +735,7 @@ records.push({
   htmlArtifacts: retrofitHtmlIntegrity.map(item => item.name),
   htmlIntegrity: retrofitHtmlIntegrity,
   integrity: retrofitIntegrity,
+  visualArtifactIntegrity: retrofitVisualArtifactIntegrity,
 });
 
 const stoneSummary = validateFamilySummary(runDir, 'stone-formal', ['stone-fixing']);
@@ -1193,6 +1235,21 @@ const mixedArtifactIntegrity = {
   setSha256: integritySetHash(mixedArtifactRecords),
   artifacts: mixedArtifactRecords,
 };
+const rcVisualArtifacts = records
+  .filter(record => ['rc-formal', 'rc-retrofit'].includes(record.family))
+  .flatMap(record => record.visualArtifactIntegrity || []);
+const rcVisualArtifactIntegrity = {
+  schemaVersion: 1,
+  scope: 'rc-rendered-pdf-png',
+  required: 62,
+  verified: rcVisualArtifacts.length,
+  issueCount: Math.max(0, 62 - rcVisualArtifacts.length),
+  pass: rcVisualArtifacts.length === 62,
+  setSha256: integritySetHash(rcVisualArtifacts),
+  artifacts: rcVisualArtifacts,
+};
+assert.equal(rcVisualArtifactIntegrity.verified, rcVisualArtifactIntegrity.required, 'release rendered evidence verifies all 62 RC PDF and PNG visual artifacts');
+assert.equal(rcVisualArtifactIntegrity.pass, true, 'release rendered evidence passes RC PDF and PNG visual artifact integrity');
 assert.equal(mixedArtifactIntegrity.verified, mixedArtifactIntegrity.required, 'release rendered evidence verifies all 13 mixed-format artifacts');
 assert.equal(mixedArtifactIntegrity.pass, true, 'release rendered evidence passes mixed-format artifact integrity');
 assert.equal(attachmentIntegrity.required, 32, 'release rendered evidence expects 32 RC HTML attachments');
@@ -1210,13 +1267,14 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass,
   attachmentIntegrity,
   mixedArtifactIntegrity,
+  rcVisualArtifactIntegrity,
   records,
   supplementalRecords,
 };
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, summary=${aggregatePath})`);

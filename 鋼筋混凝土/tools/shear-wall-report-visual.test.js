@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { chromium } = require('playwright');
-const { assertReportPdfTextQuality, assertReportScreenshotQuality } = require('./report-screenshot-quality');
+const { assertReportPdfTextQuality, assertReportScreenshotQuality, captureArtifactIntegrity } = require('./report-screenshot-quality');
 const { assertPortableFormalHtml } = require('./report-portable-html-check');
 
 const ROOT = path.resolve(__dirname, '..', '..');
@@ -293,7 +293,11 @@ async function main() {
         include: ['RC Shear Wall', '計算書', 'V0.3', '文件狀態：內部審閱'],
         exclude: ['DRAFT／非正式附件'],
       });
-      results.push({ key: tc.key, title: tc.title, screenshotPath, pdfPath, state, metrics, screenshotQuality, pdfTextQuality });
+      const artifactIntegrity = [
+        captureArtifactIntegrity(pdfPath, 'reportPdf'),
+        captureArtifactIntegrity(screenshotPath, 'reportScreenshot'),
+      ];
+      results.push({ key: tc.key, title: tc.title, screenshotPath, pdfPath, state, metrics, screenshotQuality, pdfTextQuality, artifactIntegrity });
 
       assert(metrics.title === '剪力牆設計計算書', `${tc.key} report title`, metrics.title);
       assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${tc.key} project JSON calculation fingerprint`, sourceFingerprint);

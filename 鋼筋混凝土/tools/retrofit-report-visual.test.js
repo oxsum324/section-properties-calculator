@@ -3,7 +3,7 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const { chromium } = require('playwright');
-const { assertReportPdfTextQuality, assertReportScreenshotQuality } = require('./report-screenshot-quality');
+const { assertReportPdfTextQuality, assertReportScreenshotQuality, captureArtifactIntegrity } = require('./report-screenshot-quality');
 const { assertPortableFormalHtml } = require('./report-portable-html-check');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
@@ -166,6 +166,10 @@ async function main() {
         tableHeaderCount: metrics.tableHeaderCount,
         screenshotQuality,
         pdfTextQuality,
+        artifactIntegrity: [
+          captureArtifactIntegrity(pdfPath, 'reportPdf'),
+          captureArtifactIntegrity(screenshotPath, 'reportScreenshot'),
+        ],
         portableHtml: portableBeamHtml,
       }],
     };

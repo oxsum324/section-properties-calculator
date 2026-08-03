@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { chromium } = require('playwright');
-const { assertReportPdfTextQuality, assertReportScreenshotQuality, readPdfTextWithPoppler } = require('./report-screenshot-quality');
+const { assertReportPdfTextQuality, assertReportScreenshotQuality, captureArtifactIntegrity, readPdfTextWithPoppler } = require('./report-screenshot-quality');
 const { assertPortableFormalHtml } = require('./report-portable-html-check');
 
 const ROOT = path.resolve(__dirname, '..', '..');
@@ -306,7 +306,11 @@ async function main() {
         includeAny: [['柱設計計算書', '柱檢核計算書']],
         exclude: ['DRAFT／非正式附件', '容量式主筋候選', '整體配筋候選', '箍筋／繫筋', '候選只留在工作頁', '套用並檢核'],
       });
-      results.push({ key: tc.key, pageErrors, failedResponses, screenshotPath, pdfPath, directPrintPdfPath, directPrintState, directPrintPdfText, metrics, printMetrics, screenshotQuality, pdfTextQuality });
+      const artifactIntegrity = [
+        captureArtifactIntegrity(pdfPath, 'reportPdf'),
+        captureArtifactIntegrity(screenshotPath, 'reportScreenshot'),
+      ];
+      results.push({ key: tc.key, pageErrors, failedResponses, screenshotPath, pdfPath, directPrintPdfPath, directPrintState, directPrintPdfText, metrics, printMetrics, screenshotQuality, pdfTextQuality, artifactIntegrity });
 
       assert(pageErrors.length === 0, `${tc.key} report page errors`, 'none');
       assert(failedResponses.length === 0, `${tc.key} report failed responses`, 'none');
@@ -423,7 +427,11 @@ async function main() {
     assert(metrics.documentState === 'formal-attachment' && metrics.documentApproved === 'true', 'resolved review checkbox produces formal attachment status', metrics.documentStateText);
     assertArtifact(screenshotPath, [0x89, 0x50, 0x4e, 0x47], 'resolved review screenshot written');
     assertArtifact(pdfPath, [0x25, 0x50, 0x44, 0x46], 'resolved review PDF written');
-    results.push({ key: 'resolved-review-formal-attachment', screenshotPath, pdfPath, metrics, screenshotQuality, pdfTextQuality });
+    const artifactIntegrity = [
+      captureArtifactIntegrity(pdfPath, 'reportPdf'),
+      captureArtifactIntegrity(screenshotPath, 'reportScreenshot'),
+    ];
+    results.push({ key: 'resolved-review-formal-attachment', screenshotPath, pdfPath, metrics, screenshotQuality, pdfTextQuality, artifactIntegrity });
     const portableHtml = await assertPortableFormalHtml(report, 'resolved review report', assert, { outputDir: OUT_DIR });
     results[results.length - 1].portableHtml = portableHtml;
     await report.close();

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { chromium } = require('playwright');
-const { assertReportPdfTextQuality, assertReportScreenshotQuality, readPdfTextWithPoppler } = require('./report-screenshot-quality');
+const { assertReportPdfTextQuality, assertReportScreenshotQuality, captureArtifactIntegrity, readPdfTextWithPoppler } = require('./report-screenshot-quality');
 const { assertPortableFormalHtml } = require('./report-portable-html-check');
 
 const ROOT = path.resolve(__dirname, '..', '..');
@@ -432,7 +432,11 @@ async function main() {
         exclude: ['DRAFT／非正式附件'],
       });
       const expected = EXPECTED[tc.key] || {};
-      results.push({ key: tc.key, screenshotPath, pdfPath, directPrintPdfPath, directPrintState, directPrintPdfText, state, metrics, portableHtmlState, printMetrics, screenshotQuality, pdfTextQuality });
+      const artifactIntegrity = [
+        captureArtifactIntegrity(pdfPath, 'reportPdf'),
+        captureArtifactIntegrity(screenshotPath, 'reportScreenshot'),
+      ];
+      results.push({ key: tc.key, screenshotPath, pdfPath, directPrintPdfPath, directPrintState, directPrintPdfText, state, metrics, portableHtmlState, printMetrics, screenshotQuality, pdfTextQuality, artifactIntegrity });
 
       assert(metrics.title === expected.title, `${tc.key} report title`, metrics.title);
       assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${tc.key} project JSON calculation fingerprint`, sourceFingerprint);

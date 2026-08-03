@@ -70,6 +70,10 @@ const cases = JSON.parse(read(casesPath));
   'blocked direct-print PDF written',
   'screenshotQuality',
   'pdfTextQuality',
+  'captureArtifactIntegrity',
+  "'reportPdf'",
+  "'reportScreenshot'",
+  'artifactIntegrity',
   'assertArtifact(pdfPath',
   'beam-report-visual-audit.json',
 ].forEach(needle => assertIncludes(visual, needle, 'beam report visual smoke quality gate'));
@@ -80,6 +84,7 @@ const cases = JSON.parse(read(casesPath));
   'function readPdfTextWithPoppler',
   "spawnSync('pdftotext'",
   'function assertReportPdfTextQuality',
+  'function captureArtifactIntegrity',
   'PAGE_ONLY_REPORT_STATUS_NEEDLES',
   'includeAny',
   'from pypdf import PdfReader',
