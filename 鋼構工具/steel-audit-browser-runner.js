@@ -11,6 +11,7 @@ const {
 } = require('../結構工具箱/tools/rendered-delivery-evidence');
 const AttachmentPackageChecker = require('../結構工具箱/tools/attachment-package-check');
 const CALCULATION_BOOK_CONTENT_BOUNDARY = require('../結構工具箱/tools/calculation-book-content-boundary.json');
+const { buildSteelResultReconciliation } = require('./steel-result-reconciliation');
 
 const args = parseArgs(process.argv.slice(2));
 const baseUrl = String(args['base-url'] || 'http://127.0.0.1:8123').replace(/\/$/, '');
@@ -957,6 +958,7 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
   if (state.beforeReject !== state.afterReject || !state.inputCleared) {
     throw new Error(`${options.label} rejected source should preserve state and clear file input: ${JSON.stringify(state)}`);
   }
+  return state;
 }
 
 async function assertFormalReportPopup(cdp, sessionId, options) {
@@ -992,8 +994,9 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
       })()`, `${options.label} source payload`)
     : null;
   const sourcePayload = sourceExport?.payload || null;
+  let sourceReplayState = null;
   if (sourcePayload && options.sourceReplay) {
-    await assertSourceJsonReplay(cdp, sessionId, { ...options.sourceReplay, label: options.label });
+    sourceReplayState = await assertSourceJsonReplay(cdp, sessionId, { ...options.sourceReplay, label: options.label });
   }
   const popup = await openFormalReportPopup(cdp, sessionId, options.label, options.buttonSelector || '#btnReport');
   const snapshot = await evaluate(cdp, popup.sessionId, `(() => ({
@@ -1140,8 +1143,9 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
     throw new Error(`${options.label} should not render a DRAFT banner: ${snapshot.bodyText}`);
   }
   assertFormalReportTraceText(snapshot.bodyText, options.label);
+  let reportFingerprint = '';
   if (sourcePayload) {
-    const reportFingerprint = snapshot.bodyText.match(/計算指紋\s*(CF-[0-9A-F]{16})/)?.[1] || '';
+    reportFingerprint = snapshot.bodyText.match(/計算指紋\s*(CF-[0-9A-F]{16})/)?.[1] || '';
     if (sourcePayload.schemaVersion !== 1 || sourcePayload.kind !== 'formal-calculation-source') {
       throw new Error(`${options.label} invalid source payload envelope: ${JSON.stringify(sourcePayload)}`);
     }
@@ -1159,6 +1163,13 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
     }
   }
   if (options.renderEvidenceKey) {
+    const resultReconciliation = buildSteelResultReconciliation({
+      caseId: options.renderEvidenceKey,
+      sourcePayload,
+      replayCalculationFingerprint: sourceReplayState?.replayFingerprint,
+      reportCalculationFingerprint: reportFingerprint,
+      verifiedAssertionCount: 8,
+    });
     const evidence = await renderAndValidateReportPdf(cdp, {
       html: snapshot.html,
       outputDir: renderedEvidenceDir,
@@ -1178,6 +1189,8 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
       evidence: path.basename(evidence.evidencePath),
       pageCount: evidence.pdf.pageCount,
       textLength: evidence.pdf.textLength,
+      calculationFingerprint: reportFingerprint,
+      resultReconciliation,
     });
   }
   return {
@@ -1219,8 +1232,9 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
       })()`, `${options.label} source payload`)
     : null;
   const sourcePayload = sourceExport?.payload || null;
+  let sourceReplayState = null;
   if (sourcePayload && options.sourceReplay) {
-    await assertSourceJsonReplay(cdp, sessionId, { ...options.sourceReplay, label: options.label });
+    sourceReplayState = await assertSourceJsonReplay(cdp, sessionId, { ...options.sourceReplay, label: options.label });
   }
   const popup = await openLegacyReportPopup(cdp, sessionId, options.label, options.buttonSelector);
   const snapshot = await evaluate(cdp, popup.sessionId, `(() => ({
@@ -1266,8 +1280,9 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
     throw new Error(`${options.label} project designer mismatch: ${JSON.stringify(snapshot.metaRows)}`);
   }
   assertFormalReportTraceText(snapshot.bodyText, options.label);
+  let reportFingerprint = '';
   if (sourcePayload) {
-    const reportFingerprint = snapshot.bodyText.match(/計算指紋\s*(CF-[0-9A-F]{16})/)?.[1] || '';
+    reportFingerprint = snapshot.bodyText.match(/計算指紋\s*(CF-[0-9A-F]{16})/)?.[1] || '';
     if (sourcePayload.schemaVersion !== 1 || sourcePayload.kind !== 'formal-calculation-source') {
       throw new Error(`${options.label} invalid source payload envelope: ${JSON.stringify(sourcePayload)}`);
     }
@@ -1285,6 +1300,13 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
     }
   }
   if (options.renderEvidenceKey) {
+    const resultReconciliation = buildSteelResultReconciliation({
+      caseId: options.renderEvidenceKey,
+      sourcePayload,
+      replayCalculationFingerprint: sourceReplayState?.replayFingerprint,
+      reportCalculationFingerprint: reportFingerprint,
+      verifiedAssertionCount: 8,
+    });
     const evidence = await renderAndValidateReportPdf(cdp, {
       html: snapshot.html,
       outputDir: renderedEvidenceDir,
@@ -1304,6 +1326,8 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
       evidence: path.basename(evidence.evidencePath),
       pageCount: evidence.pdf.pageCount,
       textLength: evidence.pdf.textLength,
+      calculationFingerprint: reportFingerprint,
+      resultReconciliation,
     });
   }
   return {

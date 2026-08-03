@@ -41,6 +41,7 @@ const renderedEvidenceHelper = readText('結構工具箱/tools/rendered-delivery
 const formalBrowserSmoke = readText('結構工具箱/tools/formal-browser-smoke.test.js');
 const localQuickBrowserSmoke = readText('結構工具箱/tools/local-quick-browser-smoke.test.js');
 const steelBrowserRunner = readText('鋼構工具/steel-audit-browser-runner.js');
+const steelResultReconciliationHelper = readText('鋼構工具/steel-result-reconciliation.js');
 const rcAudit = readText('鋼筋混凝土/audit-tool.ps1');
 const rcResultReconciliationHelper = readText('鋼筋混凝土/tools/report-result-reconciliation.js');
 const rcReportVisualSources = [
@@ -165,6 +166,17 @@ for (const { name, source } of rcReportVisualSources) {
 }
 
 [
+  'steel-source-replay-to-report-fingerprint',
+  'sourcePayloadSha256',
+  'steel rendered report fingerprint matches its replayed source',
+].forEach(needle => assertIncludes(steelResultReconciliationHelper, needle, `steel result reconciliation helper preserves ${needle}`));
+[
+  'buildSteelResultReconciliation',
+  'resultReconciliation',
+  'calculationFingerprint',
+].forEach(needle => assertIncludes(steelBrowserRunner, needle, `steel browser runner preserves result reconciliation ${needle}`));
+
+[
   'extract_docx_text',
   'docxPayload.text.length > 2500',
   'workbook/docx 邊界',
@@ -186,7 +198,7 @@ for (const { name, source } of rcReportVisualSources) {
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 5',
+  'schemaVersion: 6',
   'canonicalArtifactIntegrity',
   "scope: 'canonical-rendered-pdf-evidence'",
   'required: 60',
@@ -198,6 +210,10 @@ for (const { name, source } of rcReportVisualSources) {
   "scope: 'rc-project-replay-to-report-fingerprint'",
   'required: 30',
   'rcResultReconciliation=',
+  'steelResultReconciliation',
+  "scope: 'steel-source-replay-to-report-fingerprint'",
+  'required: 5',
+  'steelResultReconciliation=',
   'rendered-delivery-evidence-summary.json',
 ].forEach(needle => assertIncludes(renderedEvidenceContract, needle, `rendered evidence aggregate contract preserves ${needle}`));
 assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evidence inventory has 31 formal tools', 'rendered-delivery-evidence.inventory.json');
@@ -224,12 +240,15 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'completeIntegrityDeclared',
   'resultReconciliationDeclared',
   'rcResultReconciliationDeclared',
+  'steelResultReconciliationDeclared',
   "evidence.canonicalArtifactIntegrity?.scope === 'canonical-rendered-pdf-evidence'",
   'evidence.canonicalArtifactIntegrity.required === 60',
   "evidence.formalResultReconciliation?.scope === 'formal-golden-result-to-report-fingerprint'",
   'evidence.formalResultReconciliation.required === 14',
   "evidence.rcResultReconciliation?.scope === 'rc-project-replay-to-report-fingerprint'",
   'evidence.rcResultReconciliation.required === 30',
+  "evidence.steelResultReconciliation?.scope === 'steel-source-replay-to-report-fingerprint'",
+  'evidence.steelResultReconciliation.required === 5',
   'function resolveRenderedDeliveryEvidenceSource',
   'function resolveHomepagePreflightSource',
   'latestSummary && latestSummary.quick === false && latestSummary.pass === true',
@@ -247,6 +266,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   '正式計算書結果鏈',
   'rcResultReconciliationRequired',
   'RC 正式計算書結果鏈',
+  'steelResultReconciliationRequired',
+  '鋼構正式計算書結果鏈',
 ].forEach(needle => assertIncludes(maturityMatrix, needle, `maturity matrix preserves release readiness ${needle}`));
 
 [

@@ -14,7 +14,7 @@
   - `2029758 Enforce formal attachment boundaries and rendered release evidence`
 - 公開狀態快照正式放行基準：上述 tracked JSON 必須為 `quick=false`、`ForcePlatformAudit=true`、`ForceSlowChecks=true`、`sourceDirty=false`、`recordsCount=passedCount`、post checks 全數通過，且沒有慢測或平台巡檢重用；`sourceCommitSha`、`sourceBranch` 必須明確指出受測來源，當前 `runId` 直接讀取 JSON，不在本 ledger 複製。
 - 公開狀態快照發布基準：最新 `Pages deploy` 必須為 completed/success，並以 `gh run list --workflow "Pages deploy" --limit 1` 查詢；workflow run ID 不在本 ledger 硬編碼。
-- 報告閱讀狀態：`頁面專用`，page-only boundary `4/4`、可讀文字 `17/17`、瀏覽器 smoke `2/2`、首頁正式工具實際交付物渲染 `31/31`、補充報告 / 服務成品 `2/2`、成品檔案完整性 `135/135`、風力／地震數值結果鏈 `14/14`、RC 結果鏈 `30/30`，issue `0`；此總覽只能出現在頁面或工具本身，不得附入計算書、列印輸出或 PDF，也不得寫入 Word / DOCX 或 workbook。公開的 135 份只分成正式 PDF／證據 `60`、RC PDF／PNG `62` 與混合格式附件 `13` 三類計數；結果鏈也只公開完成數，不得帶出檔名、bytes、雜湊、golden case 內容、RC 案例資料、預期數值或計算指紋。
+- 報告閱讀狀態：`頁面專用`，page-only boundary `4/4`、可讀文字 `17/17`、瀏覽器 smoke `2/2`、首頁正式工具實際交付物渲染 `31/31`、補充報告 / 服務成品 `2/2`、成品檔案完整性 `135/135`、風力／地震數值結果鏈 `14/14`、RC 結果鏈 `30/30`、鋼構結果鏈 `5/5`，issue `0`；此總覽只能出現在頁面或工具本身，不得附入計算書、列印輸出或 PDF，也不得寫入 Word / DOCX 或 workbook。公開的 135 份只分成正式 PDF／證據 `60`、RC PDF／PNG `62` 與混合格式附件 `13` 三類計數；結果鏈也只公開完成數，不得帶出檔名、bytes、雜湊、golden case 內容、RC 案例資料、鋼構來源資料、預期數值或計算指紋。
 - 下列 A0~G 是下次同類變更的分包 playbook，不是目前待 staging 清單。
 
 ## A0. 報告閱讀狀態與 Pages release governance
@@ -258,6 +258,7 @@ RC 柱報告慢測治理：`rc-column-report-contract` 的 preflight 專屬上�
 - Canonical rendered evidence aggregate 改動必須同批 staging `rendered-delivery-evidence.js`、aggregate contract、三個 producer browser runner 的既有 `writeEvidenceSummary` 呼叫路徑、`release-readiness.contract.test.js`、`tool-maturity-matrix.js`、`assets/home/home.js`、`pages-live-smoke.js` 與報告邊界文件。Schema v3 固定要求 30 組 PDF／evidence、60 份實體檔全數通過；family summary 缺 PDF 或 evidence bytes／SHA-256、總閘門未去重重驗、或同大小替換負向 fixture 未封鎖時不得 release。公開狀態只允許將 canonical `60`、RC 視覺 `62`、混合格式 `13` 彙成「成品檔案完整性 `135/135`」的匿名計數，不得複製 aggregate 私有欄位、scope、artifact 清冊或 set hash。
 - Formal result reconciliation 改動必須同批 staging `formal-tools.manifest.json`、`formal-browser-smoke.test.js`、aggregate / release contract、成熟度矩陣、首頁狀態、Pages live smoke 與報告邊界文件。Schema v4 固定要求風力／地震 14 個正式工具全部在產報前完成 golden case 重算斷言，producer 記錄用於產報的案例雜湊、驗證數、斷言數與報告指紋，aggregate 核對 `14/14` 並形成私人集合雜湊；公開狀態只顯示「數值結果鏈 `14/14`」。
 - RC result reconciliation 改動必須同批 staging `report-result-reconciliation.js`、七個 `*-report-visual.test.js` producer、aggregate / release contract、成熟度矩陣、首頁狀態、Pages live smoke 與報告邊界文件。Schema v5 固定要求 30 組 RC 瀏覽器回歸案例完成專案快照重現、PDF 與正式 HTML 指紋核對；aggregate 核對 `30/30`、唯一案例身分與私人集合 SHA-256。公開狀態只顯示「RC 結果鏈 `30/30`」。
+- Steel result reconciliation 改動必須同批 staging `steel-result-reconciliation.js`、`steel-audit-browser-runner.js` producer、aggregate / release contract、成熟度矩陣、首頁狀態、Pages live smoke 與報告邊界文件。Schema v6 固定要求主工具連接板、主工具拉力構件、獨立連接板、鋼梁與鋼柱共 5 個來源完成 JSON 匯出／重播、不相容版本拒絕與正式計算書指紋核對；aggregate 核對 `5/5`、唯一案例身分與私人集合 SHA-256。公開狀態只顯示「鋼構結果鏈 `5/5`」。
 - 不要把基礎局部工具放在 `結構工具箱/tools/基礎/`，目前 `.gitignore` 的 `基礎/` 規則會讓該資料夾被忽略。
 - 初估型工具的標題、報表與 note 都應保留「初估 / 局部」語意，避免被誤用為完整規範設計。
 
