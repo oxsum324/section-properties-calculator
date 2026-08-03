@@ -126,6 +126,8 @@ Schema v6 再固定治理鋼構主工具連接板、主工具拉力構件、獨�
 
 Schema v7 再把 RC 梁、柱補強兩組表單重播案例納入 RC 結果鏈：producer 必須保存表單與結果快照，證明需求值改動會改變結果，再還原表單重算並核對報告及正式 HTML 指紋；aggregate 必須要求 RC 設計與補強合計 32/32、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「RC 結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、案例內容、來源快照雜湊或計算指紋。
 
+Schema v8 新增石材 golden replay 至成品雜湊結果鏈：producer 必須使用目前瀏覽器核心重播 `case_01_standard_safe`，核對至少 6 項關鍵數值與控制結果，再以同一 payload 產生 PDF、DOCX 及 audit，並將 golden 檔、來源 payload、輸入／結果／計算來源與三份成品 SHA-256 綁入 summary。Aggregate 必須要求 1/1、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「石材結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、golden 案例內容、來源 payload、結果或成品雜湊。
+
 ### Windows 案件附件工作台捷徑
 
 根目錄 `安裝案件附件工作台捷徑.bat`、根目錄 `檢查案件附件工作台捷徑.bat`、根目錄 `移除案件附件工作台捷徑.bat`、`結構工具箱/tools/install-attachment-governance-shortcuts.ps1` 與 `結構工具箱/tools/attachment-governance-shortcut-installer.test.js` 屬於納管的本機 Windows 入口。桌面、SendTo 與開始功能表三個 `.lnk` 只能指向 repo 根目錄受治理的 `啟動案件附件工作台.bat`，工作目錄必須是當前 repo，且 `Arguments` 必須為空，使 SendTo 只轉交當次 Windows 選取的資料夾。檢查模式必須全程唯讀：個別捷徑只可回報 `current`、`repairable`、`foreign` 或 `absent`，整體只可依序判為 `ready`、`review` 或 `blocked`；檢查前後檔案時間與內容不得改變。安裝器必須先預檢三個目的地，只可更新帶管理標記或精確指向目前 repo 受治理啟動器的捷徑；任一處存在同名但非本工具管理的捷徑時，必須保留原檔、在寫入前停止整批安裝並失敗封閉。指向其他資料夾同名批次檔的捷徑必須判為 `foreign`，不得由檢查、安裝或移除模式接管。建立後必須重讀 `.lnk` 驗證目標、工作目錄、空參數、描述與圖示；相同且正確的捷徑不得重寫。移除模式只可刪除帶管理標記或精確指向目前 repo 受治理啟動器的捷徑；不存在回報 `absent`，同名非管理捷徑或指向其他資料夾同名批次檔的捷徑回報 `preserved` 且不得刪除，已刪除須重驗路徑不存在。批次入口、PowerShell 安裝器與動態測試均屬私有本機治理資產，不發布至 Pages；PowerShell 檔須保留 UTF-8 BOM。

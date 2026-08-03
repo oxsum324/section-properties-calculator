@@ -50,6 +50,7 @@ const rcReportVisualSources = [
 const deliveryArtifactsContract = readText('結構工具箱/tools/delivery-artifacts.contract.test.js');
 const renderedEvidenceContract = readText('結構工具箱/tools/rendered-delivery-evidence.contract.test.js');
 const renderedEvidenceInventory = readText('結構工具箱/tools/rendered-delivery-evidence.inventory.json');
+const stoneAutoWordArtifact = readText('石材固定/auto_word_artifact_test.py');
 
 [
   'preflight-tools.ps1',
@@ -199,7 +200,7 @@ for (const { name, source } of rcReportVisualSources) {
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 7',
+  'schemaVersion: 8',
   'canonicalArtifactIntegrity',
   "scope: 'canonical-rendered-pdf-evidence'",
   'required: 60',
@@ -215,6 +216,9 @@ for (const { name, source } of rcReportVisualSources) {
   "scope: 'steel-source-replay-to-report-fingerprint'",
   'required: 5',
   'steelResultReconciliation=',
+  'stoneResultReconciliation',
+  "scope: 'stone-golden-replay-to-pdf-docx-hash'",
+  'stoneResultReconciliation=',
   'rendered-delivery-evidence-summary.json',
 ].forEach(needle => assertIncludes(renderedEvidenceContract, needle, `rendered evidence aggregate contract preserves ${needle}`));
 assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evidence inventory has 31 formal tools', 'rendered-delivery-evidence.inventory.json');
@@ -242,6 +246,7 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'resultReconciliationDeclared',
   'rcResultReconciliationDeclared',
   'steelResultReconciliationDeclared',
+  'stoneResultReconciliationDeclared',
   "evidence.canonicalArtifactIntegrity?.scope === 'canonical-rendered-pdf-evidence'",
   'evidence.canonicalArtifactIntegrity.required === 60',
   "evidence.formalResultReconciliation?.scope === 'formal-golden-result-to-report-fingerprint'",
@@ -250,6 +255,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'expandedRcResultReconciliationDeclared ? 32 : 30',
   "evidence.steelResultReconciliation?.scope === 'steel-source-replay-to-report-fingerprint'",
   'evidence.steelResultReconciliation.required === 5',
+  "evidence.stoneResultReconciliation?.scope === 'stone-golden-replay-to-pdf-docx-hash'",
+  'evidence.stoneResultReconciliation.required === 1',
   'function resolveRenderedDeliveryEvidenceSource',
   'function resolveHomepagePreflightSource',
   'latestSummary && latestSummary.quick === false && latestSummary.pass === true',
@@ -269,7 +276,20 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'RC 正式計算書結果鏈',
   'steelResultReconciliationRequired',
   '鋼構正式計算書結果鏈',
+  'stoneResultReconciliationRequired',
+  '石材正式計算書結果鏈',
 ].forEach(needle => assertIncludes(maturityMatrix, needle, `maturity matrix preserves release readiness ${needle}`));
+
+[
+  'replay_golden_formal_payload',
+  'stone-golden-replay-to-pdf-docx-hash',
+  'goldenCaseSha256',
+  'goldenInputSha256',
+  'sourcePayloadSha256',
+  'pdfSha256',
+  'docxSha256',
+  'auditSha256',
+].forEach(needle => assertIncludes(stoneAutoWordArtifact, needle, `stone formal artifact preserves ${needle}`));
 
 [
   '.run-tick.release',

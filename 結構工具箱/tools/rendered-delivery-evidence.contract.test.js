@@ -477,6 +477,27 @@ function steelResultReconciliationSetHash(records) {
     .digest('hex');
 }
 
+function stoneResultReconciliationSetHash(records) {
+  return createHash('sha256')
+    .update(records
+      .map(record => [
+        record.caseId,
+        record.goldenCaseSha256,
+        record.goldenInputSha256,
+        record.sourcePayloadSha256,
+        record.inputHash,
+        record.resultHash,
+        record.calcSourceHash,
+        record.verifiedAssertionCount,
+        record.pdfSha256,
+        record.docxSha256,
+        record.auditSha256,
+      ].join('\u0000'))
+      .sort()
+      .join('\n'), 'utf8')
+    .digest('hex');
+}
+
 function uniqueIntegrityArtifacts(artifacts, label) {
   const unique = new Map();
   for (const artifact of artifacts) {
@@ -569,6 +590,39 @@ function validateSteelResultReconciliationRecord(record, label) {
   assert.match(String(reconciliation?.calculationFingerprint || ''), /^CF-[0-9A-F]{16}$/i, `${label} steel reconciliation calculation fingerprint`);
   assert.equal(reconciliation?.calculationFingerprint, record?.calculationFingerprint, `${label} steel report fingerprint matches reconciliation`);
   assert.equal(reconciliation?.pass, true, `${label} steel result reconciliation passes`);
+  return { key: record.key, ...reconciliation };
+}
+
+function validateStoneResultReconciliationRecord(record, audit, label) {
+  const reconciliation = record?.resultReconciliation;
+  const stripPrefix = value => String(value || '').replace(/^sha256:/i, '');
+  const goldenCasePath = path.join(repoRoot, '石材固定', 'tests', 'golden', 'case_01_standard_safe.json');
+  const goldenInputPath = path.join(repoRoot, '石材固定', 'tests', 'golden', 'inputs', 'case_01_standard_safe.json');
+  assert.equal(reconciliation?.schemaVersion, 1, `${label} stone result reconciliation schema`);
+  assert.equal(reconciliation?.strategy, 'stone-golden-replay-to-pdf-docx-hash', `${label} stone result reconciliation strategy`);
+  assert.equal(reconciliation?.caseId, 'case_01_standard_safe', `${label} stone golden case identity`);
+  assert.equal(reconciliation?.goldenCaseSha256, sha256File(goldenCasePath), `${label} stone golden case SHA-256`);
+  assert.equal(reconciliation?.goldenInputSha256, sha256File(goldenInputPath), `${label} stone golden input SHA-256`);
+  for (const [field, value] of Object.entries({
+    sourcePayloadSha256: reconciliation?.sourcePayloadSha256,
+    inputHash: reconciliation?.inputHash,
+    resultHash: reconciliation?.resultHash,
+    calcSourceHash: reconciliation?.calcSourceHash,
+    pdfSha256: reconciliation?.pdfSha256,
+    docxSha256: reconciliation?.docxSha256,
+    auditSha256: reconciliation?.auditSha256,
+  })) {
+    assert.match(stripPrefix(value), /^[0-9a-f]{64}$/i, `${label} stone ${field}`);
+  }
+  assert.equal(stripPrefix(reconciliation?.sourcePayloadSha256), stripPrefix(audit?.trace?.payload_sha256), `${label} stone source payload matches export audit`);
+  assert.equal(stripPrefix(reconciliation?.inputHash), stripPrefix(audit?.trace?.input_hash), `${label} stone input hash matches export audit`);
+  assert.equal(stripPrefix(reconciliation?.resultHash), stripPrefix(audit?.trace?.result_hash), `${label} stone result hash matches export audit`);
+  assert.equal(stripPrefix(reconciliation?.calcSourceHash), stripPrefix(audit?.trace?.calc_source_hash), `${label} stone calculator source hash matches export audit`);
+  assert.ok(Number.isInteger(reconciliation?.verifiedAssertionCount) && reconciliation.verifiedAssertionCount >= 6, `${label} stone verified result assertions`);
+  assert.equal(reconciliation?.pdfSha256, record?.artifactSha256, `${label} stone PDF hash matches producer summary`);
+  assert.equal(reconciliation?.docxSha256, record?.documentSha256, `${label} stone DOCX hash matches producer summary`);
+  assert.equal(reconciliation?.auditSha256, record?.evidenceSha256, `${label} stone audit hash matches producer summary`);
+  assert.equal(reconciliation?.pass, true, `${label} stone result reconciliation passes`);
   return { key: record.key, ...reconciliation };
 }
 
@@ -884,6 +938,50 @@ assert.throws(
   'steel result reconciliation blocks a rendered report fingerprint detached from the replayed source payload'
 );
 
+const stoneFixturePayloadSha = 'd'.repeat(64);
+const stoneFixtureInputHash = 'e'.repeat(64);
+const stoneFixtureResultHash = `sha256:${'f'.repeat(64)}`;
+const stoneFixtureCalcHash = `sha256:${'1'.repeat(64)}`;
+const stoneResultReconciliationFixture = {
+  key: 'stone-fixing',
+  artifactSha256: '2'.repeat(64),
+  documentSha256: '3'.repeat(64),
+  evidenceSha256: '4'.repeat(64),
+  resultReconciliation: {
+    schemaVersion: 1,
+    strategy: 'stone-golden-replay-to-pdf-docx-hash',
+    caseId: 'case_01_standard_safe',
+    goldenCaseSha256: sha256File(path.join(repoRoot, '石材固定', 'tests', 'golden', 'case_01_standard_safe.json')),
+    goldenInputSha256: sha256File(path.join(repoRoot, '石材固定', 'tests', 'golden', 'inputs', 'case_01_standard_safe.json')),
+    sourcePayloadSha256: stoneFixturePayloadSha,
+    inputHash: stoneFixtureInputHash,
+    resultHash: stoneFixtureResultHash,
+    calcSourceHash: stoneFixtureCalcHash,
+    verifiedAssertionCount: 6,
+    pdfSha256: '2'.repeat(64),
+    docxSha256: '3'.repeat(64),
+    auditSha256: '4'.repeat(64),
+    pass: true,
+  },
+};
+const stoneResultReconciliationAuditFixture = {
+  trace: {
+    payload_sha256: stoneFixturePayloadSha,
+    input_hash: stoneFixtureInputHash,
+    result_hash: stoneFixtureResultHash,
+    calc_source_hash: stoneFixtureCalcHash,
+  },
+};
+validateStoneResultReconciliationRecord(stoneResultReconciliationFixture, stoneResultReconciliationAuditFixture, 'stone result reconciliation fixture');
+assert.throws(
+  () => validateStoneResultReconciliationRecord({
+    ...stoneResultReconciliationFixture,
+    artifactSha256: '5'.repeat(64),
+  }, stoneResultReconciliationAuditFixture, 'tampered stone result reconciliation fixture'),
+  /stone PDF hash matches producer summary/,
+  'stone result reconciliation blocks a PDF detached from the golden replay and audit chain'
+);
+
 const strictRelease = process.env.PREFLIGHT_RELEASE === '1';
 if (!strictRelease) {
   console.log(`Rendered delivery evidence contract OK (inventory=${inventory.tools.length}, current-run artifact verification skipped outside release mode)`);
@@ -898,6 +996,7 @@ const canonicalArtifactRecords = [];
 const formalResultReconciliationRecords = [];
 const rcResultReconciliationRecords = [];
 const steelResultReconciliationRecords = [];
+const stoneResultReconciliationRecords = [];
 
 for (const family of ['formal-tools', 'local-quick-tools', 'steel-formal']) {
   const tools = inventory.tools.filter(tool => tool.family === family);
@@ -978,17 +1077,17 @@ const stonePdf = validatePdfFile(stonePdfPath, {
   label: stoneTool.title,
   contentBoundaryProfile: 'compiled-engineering-report',
   minTextLength: 8000,
-  requiredNeedles: ['結 構 計 算 書', '石材外牆固定構件', 'Auto Word Formal Artifact', '送審速覽', '設計者註記'],
+  requiredNeedles: ['結 構 計 算 書', '石材外牆固定構件', 'Stone Golden Replay Formal Artifact', '送審速覽', '設計者註記'],
   titleNeedle: '結 構 計 算 書',
-  projectNeedle: 'Auto Word Formal Artifact',
+  projectNeedle: 'Stone Golden Replay Formal Artifact',
   continuationContextLabels: [
     '目 錄',
-    'Auto Word Formal Artifact送審速覽',
-    'Auto Word Formal Artifact簽章頁',
-    'Auto Word Formal Artifact主文（一）',
-    'Auto Word Formal Artifact主文（二）',
-    'Auto Word Formal Artifact 附件 2 標準板',
-    'Auto Word Formal Artifact 附件 2 標準板（續）',
+    'Stone Golden Replay Formal Artifact送審速覽',
+    'Stone Golden Replay Formal Artifact簽章頁',
+    'Stone Golden Replay Formal Artifact主文（一）',
+    'Stone Golden Replay Formal Artifact主文（二）',
+    'Stone Golden Replay Formal Artifact 附件 2 BASELINE_CASE_01',
+    'Stone Golden Replay Formal Artifact 附件 2 BASELINE_CASE_01（續）',
     '附圖 B – 工法實拍照片',
   ],
 });
@@ -998,6 +1097,7 @@ assert.ok(fs.existsSync(stoneAuditPath), 'stone current-run rendered evidence in
 const stoneAudit = readJson(stoneAuditPath);
 assert.equal(stoneAudit.mode, 'auto_word', 'stone rendered evidence audit records the formal export path');
 assert.equal(stoneAudit.output.size_bytes, fs.statSync(stoneDocxPath).size, 'stone rendered evidence audit matches the preserved DOCX');
+stoneResultReconciliationRecords.push(validateStoneResultReconciliationRecord(stoneEvidence, stoneAudit, stoneTool.title));
 const stoneArtifactIntegrity = [
   verifyRecordedArtifact(stoneEvidenceDir, stoneEvidence, { nameField: 'artifact' }, 'stone PDF'),
   verifyRecordedArtifact(stoneEvidenceDir, stoneEvidence, { nameField: 'document' }, 'stone DOCX'),
@@ -1526,6 +1626,19 @@ const steelResultReconciliation = {
 assert.equal(new Set(steelResultReconciliationRecords.map(record => record.key)).size, steelResultReconciliationRecords.length, 'release rendered evidence steel result reconciliation identities are unique');
 assert.equal(steelResultReconciliation.complete, steelResultReconciliation.required, 'release rendered evidence reconciles all 5 steel source replays to report fingerprints');
 assert.equal(steelResultReconciliation.pass, true, 'release rendered evidence passes steel result reconciliation');
+const stoneResultReconciliation = {
+  schemaVersion: 1,
+  scope: 'stone-golden-replay-to-pdf-docx-hash',
+  required: 1,
+  complete: stoneResultReconciliationRecords.length,
+  issueCount: Math.max(0, 1 - stoneResultReconciliationRecords.length),
+  pass: stoneResultReconciliationRecords.length === 1,
+  setSha256: stoneResultReconciliationSetHash(stoneResultReconciliationRecords),
+  records: stoneResultReconciliationRecords,
+};
+assert.equal(new Set(stoneResultReconciliationRecords.map(record => record.caseId)).size, stoneResultReconciliationRecords.length, 'release rendered evidence stone result reconciliation identities are unique');
+assert.equal(stoneResultReconciliation.complete, stoneResultReconciliation.required, 'release rendered evidence reconciles the stone golden replay to PDF, DOCX, and audit hashes');
+assert.equal(stoneResultReconciliation.pass, true, 'release rendered evidence passes stone result reconciliation');
 assert.equal(canonicalArtifactIntegrity.verified, canonicalArtifactIntegrity.required, 'release rendered evidence verifies all 60 canonical PDF and evidence files');
 assert.equal(canonicalArtifactIntegrity.pass, true, 'release rendered evidence passes canonical PDF and evidence integrity');
 assert.equal(rcVisualArtifactIntegrity.verified, rcVisualArtifactIntegrity.required, 'release rendered evidence verifies all 62 RC PDF and PNG visual artifacts');
@@ -1538,7 +1651,7 @@ assert.equal(attachmentIntegrity.verified, attachmentIntegrity.required, 'releas
 assert.equal(attachmentIntegrity.issueCount, 0, 'release rendered evidence has no RC HTML attachment integrity issue');
 assert.equal(attachmentIntegrity.pass, true, 'release rendered evidence passes RC HTML attachment integrity');
 const aggregate = {
-  schemaVersion: 7,
+  schemaVersion: 8,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),
@@ -1547,7 +1660,7 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && formalResultReconciliation.pass && rcResultReconciliation.pass && steelResultReconciliation.pass,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && formalResultReconciliation.pass && rcResultReconciliation.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass,
   attachmentIntegrity,
   mixedArtifactIntegrity,
   rcVisualArtifactIntegrity,
@@ -1555,10 +1668,11 @@ const aggregate = {
   formalResultReconciliation,
   rcResultReconciliation,
   steelResultReconciliation,
+  stoneResultReconciliation,
   records,
   supplementalRecords,
 };
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, summary=${aggregatePath})`);

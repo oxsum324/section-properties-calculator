@@ -32,6 +32,9 @@ def file_sha256(file_path: Path) -> str:
 
 ROOT = Path(__file__).resolve().parent
 ROOT_URL = f'http://127.0.0.1:{server.PORT}'
+GOLDEN_CASE_ID = 'case_01_standard_safe'
+GOLDEN_CASE_PATH = ROOT / 'tests' / 'golden' / f'{GOLDEN_CASE_ID}.json'
+GOLDEN_INPUT_PATH = ROOT / 'tests' / 'golden' / 'inputs' / f'{GOLDEN_CASE_ID}.json'
 
 
 def local_server_status() -> dict | None:
@@ -80,6 +83,58 @@ def formal_payload() -> dict:
     return payload
 
 
+def replay_golden_formal_payload() -> tuple[dict, dict]:
+    from playwright.sync_api import sync_playwright
+
+    golden = json.loads(GOLDEN_CASE_PATH.read_text(encoding='utf-8'))
+    payload = json.loads(json.dumps(golden['input']['raw'], ensure_ascii=False))
+    payload['inp'].update({
+        'proj': 'Stone Golden Replay Formal Artifact',
+        'review_summary_on': True,
+    })
+    payload['cases'][0]['id'] = 1
+    payload['reviewNotes'] = {
+        '1::背擴孔深度': 'Golden replay：已核對控制強度與細部檢核。',
+    }
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={'width': 1280, 'height': 1800})
+            page.goto(auto_word.TOOL_URL, wait_until='domcontentloaded', timeout=60000)
+            page.evaluate(
+                """(args) => {
+                  localStorage.clear();
+                  localStorage.setItem(args.key, JSON.stringify(args.data));
+                }""",
+                {'key': auto_word.STORAGE_KEY, 'data': payload},
+            )
+            page.goto(auto_word.TOOL_URL, wait_until='networkidle', timeout=60000)
+            page.wait_for_function(
+                """() => document.querySelectorAll('#preview-sheets .a4').length > 0""",
+                timeout=30000,
+            )
+            replayed = page.evaluate("""async () => {
+              const hashes = await v2RefreshDeliveryHashes();
+              const payload = await buildProjectPayload();
+              payload.meta.normalized_input_hash = hashes?.normalized_input_hash || '';
+              payload.meta.result_hash = hashes?.result_hash || '';
+              payload.meta.calc_source_hash = window.__CALC_SOURCE_HASH || '';
+              payload.meta.calculator_version = payload.meta.calculator_build || '';
+              return payload;
+            }""")
+        finally:
+            browser.close()
+
+    replayed['meta']['review_summary']['priority_report_reading_status'] = {
+        'title': '優先建議報告閱讀狀態',
+        'decision': '暫勿作附件',
+        'note': '頁面輔助，不會寫入計算書或列印 PDF。',
+    }
+    replayed['meta']['review_summary']['delivery_quality']['reasons'].append('報告閱讀狀態：暫勿作附件')
+    return replayed, golden
+
+
 def extract_docx_text(docx_path: Path) -> tuple[str, Document]:
     document = Document(str(docx_path))
     paragraph_text = '\n'.join(paragraph.text for paragraph in document.paragraphs)
@@ -110,6 +165,7 @@ def persist_rendered_evidence(
     page_count: int,
     pdf_text_length: int,
     docx_text_length: int,
+    result_reconciliation: dict,
 ) -> Path | None:
     output_dir = rendered_evidence_dir()
     if output_dir is None:
@@ -140,6 +196,7 @@ def persist_rendered_evidence(
             'pageCount': page_count,
             'pdfTextLength': pdf_text_length,
             'docxTextLength': docx_text_length,
+            'resultReconciliation': result_reconciliation,
         }],
     }
     summary_path = output_dir / 'rendered-delivery-evidence-summary.json'
@@ -228,7 +285,22 @@ class AutoWordArtifactTests(unittest.TestCase):
                 browser.close()
 
     def test_formal_auto_word_outputs_pdf_docx_with_review_notes_and_boundaries(self) -> None:
-        payload = formal_payload()
+        payload, golden = replay_golden_formal_payload()
+        replayed_result = payload['results'][0]
+        expected = golden['result']['summary']
+        governing = next(
+            check for check in replayed_result.get('checks', [])
+            if check.get('item') == expected['governing_check']
+        )
+        self.assertAlmostEqual(replayed_result['Fph'], expected['Fph'], places=6)
+        self.assertAlmostEqual(replayed_result['T'], expected['Tmax'], places=6)
+        self.assertAlmostEqual(replayed_result['V'], expected['Vmax'], places=6)
+        self.assertAlmostEqual(governing['dcr'], expected['DCR_governing'], places=4)
+        self.assertEqual(governing['item'], expected['governing_check'])
+        self.assertEqual(payload['cases'][0]['name'], expected['governing_case'])
+        self.assertRegex(payload['meta']['input_hash'], r'^(?:sha256:)?[0-9a-f]{64}$')
+        self.assertRegex(payload['meta']['result_hash'], r'^(?:sha256:)?[0-9a-f]{64}$')
+        self.assertRegex(payload['meta']['calc_source_hash'], r'^sha256:[0-9a-f]{64}$')
         validation = auto_word.validate_payload_for_formal_output(payload)
         self.assertTrue(validation['is_formal'], validation)
 
@@ -260,9 +332,9 @@ class AutoWordArtifactTests(unittest.TestCase):
             for needle in (
                 '送審速覽',
                 '設計者註記',
-                '正式路徑註記：已加大插銷後覆核。',
+                'Golden replay：已核對控制強度與細部檢核。',
                 '石材外牆固定構件',
-                '插銷 剪力',
+                expected['governing_check'],
             ):
                 self.assertIn(needle, pdf_text)
                 self.assertIn(needle, docx_text)
@@ -285,8 +357,29 @@ class AutoWordArtifactTests(unittest.TestCase):
             self.assertEqual(report['trace']['result_source'], 'frontend_results')
             self.assertTrue(report['review']['server_evaluation']['tool_html_match'])
             self.assertNotIn('priority_report_reading_status', report['review'])
+            self.assertEqual(report['trace']['payload_sha256'], server.payload_sha256(payload))
+            self.assertEqual(report['trace']['input_hash'], payload['meta']['input_hash'])
+            self.assertEqual(report['trace']['result_hash'], payload['meta']['result_hash'])
+            self.assertEqual(report['trace']['calc_source_hash'], payload['meta']['calc_source_hash'])
             for needle in PAGE_ONLY_REPORT_STATUS_NEEDLES:
                 self.assertNotIn(needle, report_text(report))
+
+            result_reconciliation = {
+                'schemaVersion': 1,
+                'strategy': 'stone-golden-replay-to-pdf-docx-hash',
+                'caseId': GOLDEN_CASE_ID,
+                'goldenCaseSha256': file_sha256(GOLDEN_CASE_PATH),
+                'goldenInputSha256': file_sha256(GOLDEN_INPUT_PATH),
+                'sourcePayloadSha256': report['trace']['payload_sha256'],
+                'inputHash': report['trace']['input_hash'],
+                'resultHash': report['trace']['result_hash'],
+                'calcSourceHash': report['trace']['calc_source_hash'],
+                'verifiedAssertionCount': 6,
+                'pdfSha256': file_sha256(pdf_path),
+                'docxSha256': file_sha256(docx_path),
+                'auditSha256': file_sha256(audit_path),
+                'pass': True,
+            }
 
             evidence_summary = persist_rendered_evidence(
                 pdf_path,
@@ -295,6 +388,7 @@ class AutoWordArtifactTests(unittest.TestCase):
                 page_count=len(reader.pages),
                 pdf_text_length=len(pdf_text),
                 docx_text_length=len(docx_text),
+                result_reconciliation=result_reconciliation,
             )
             if rendered_evidence_dir() is not None:
                 self.assertIsNotNone(evidence_summary)
