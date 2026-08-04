@@ -156,6 +156,12 @@ const visualTests = [
 for (const file of visualTests) {
   const source = fs.readFileSync(path.join(__dirname, file), 'utf8');
   assert.ok(source.includes('project JSON matches report calculation fingerprint'), `${file} should verify source/report fingerprint equality`);
+  assert.match(source, /assertPortableFormalHtml\([^\n]+sourceSnapshot/, `${file} should submit the real project snapshot and approved HTML to the package checker`);
 }
+
+const portablePackageGate = fs.readFileSync(path.join(__dirname, 'report-portable-html-check.js'), 'utf8');
+assert.ok(portablePackageGate.includes('AttachmentPackageChecker.checkPackage'), 'portable report gate should execute the real attachment package checker');
+assert.ok(portablePackageGate.includes('rejects a tampered project fingerprint'), 'portable report gate should prove fingerprint tampering fails closed');
+assert.ok(portablePackageGate.includes('rejects a wrong-version project source'), 'portable report gate should prove wrong-version pairing fails closed');
 
 console.log('RC project/report calculation fingerprint contract OK');

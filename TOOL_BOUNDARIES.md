@@ -138,7 +138,7 @@ Schema v10 新增覆工板 JSON 重播至 DOCX 雜湊結果鏈：producer 必須
 
 Schema v11 新增開挖擋土支撐 ProjectState 重播至 PDF／DOCX 雜湊結果鏈：producer 必須保存不含快取結果的 ProjectState 實體檔，回讀後執行目前 Python 後端核心，逐項核對 47 筆構件檢核與至少 618 項結果欄位，再用重算結果與同一計算指紋產生 PDF、DOCX。Aggregate 必須重新核對 ProjectState 案例、各輸入群組、結果／計算指紋及兩份成品 SHA-256，要求 1/1、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「開挖結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、ProjectState、輸入／結果資料、計算指紋或成品雜湊。
 
-RC 梁、柱、板、牆、剪力牆、基礎與單樁的專案 JSON 維持來源資料角色，附件檢查器直接辨識既有 `metadata`／`fields` 與單樁 `state` 結構。七個 RC 計算書的產出工具名稱與版本須和各自專案 JSON 完全一致，讓案件、工具、版本及 `CF-` 可形成自動來源／報告配對；不得要求使用者另造轉接 JSON，也不得把專案來源移入正式附件目錄。
+RC 梁、柱、板、牆、剪力牆、基礎與單樁的專案 JSON 維持來源資料角色，附件檢查器直接辨識既有 `metadata`／`fields` 與單樁 `state` 結構。七個 RC 計算書的產出工具名稱與版本須和各自專案 JSON 完全一致，讓案件、工具、版本及 `CF-` 可形成自動來源／報告配對；實際瀏覽器測試必須把核可後可攜 HTML 與真實專案 JSON 交給同一組包檢查器，並證明正常配對 `ready`、竄改指紋與錯版本來源 `blocked`。不得要求使用者另造轉接 JSON，也不得把專案來源移入正式附件目錄。
 
 ### Windows 案件附件工作台捷徑
 

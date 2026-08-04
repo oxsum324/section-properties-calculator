@@ -1,7 +1,73 @@
 const AttachmentPackageChecker = require('../../結構工具箱/tools/attachment-package-check');
 const { describeHtmlArtifact } = require('../../dev_tools/html-attachment-integrity');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+
+function assertSourceReportPackagePair(sourceSnapshot, approvedHtml, label, assert) {
+  const pairDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rc-source-report-pair-'));
+  try {
+    const sourceFile = 'RC專案來源.json';
+    const reportFile = 'RC正式計算書.html';
+    fs.writeFileSync(path.join(pairDir, reportFile), approvedHtml, 'utf8');
+    const sourceMetadata = AttachmentPackageChecker.extractJsonMetadata(sourceSnapshot);
+    const checkSnapshot = snapshot => {
+      fs.writeFileSync(path.join(pairDir, sourceFile), `${JSON.stringify(snapshot, null, 2)}\n`, 'utf8');
+      return AttachmentPackageChecker.checkPackage(pairDir, { projectNo: sourceMetadata.projectNo || '' });
+    };
+    const packageReport = checkSnapshot(sourceSnapshot);
+    const detail = JSON.stringify({
+      status: packageReport.status,
+      summary: packageReport.summary,
+      links: packageReport.fingerprintLinks,
+      issues: packageReport.issues.map(issue => ({ level: issue.level, code: issue.code })),
+    });
+    assert(packageReport.status === 'ready', `${label} real project JSON and formal HTML are package-ready`, detail);
+    assert(
+      packageReport.fingerprintLinks.length === 1
+        && packageReport.fingerprintLinks[0].sourceFile === sourceFile
+        && packageReport.fingerprintLinks[0].reportFile === reportFile
+        && packageReport.fingerprintLinks[0].fingerprint === sourceSnapshot.calculationFingerprint,
+      `${label} real project JSON and formal HTML share one traceability link`,
+      detail,
+    );
+
+    const tamperedSnapshot = JSON.parse(JSON.stringify(sourceSnapshot));
+    tamperedSnapshot.calculationFingerprint = 'CF-0000000000000000';
+    const tamperedReport = checkSnapshot(tamperedSnapshot);
+    assert(
+      tamperedReport.status === 'blocked'
+        && tamperedReport.issues.some(issue => issue.code === 'source-report-fingerprint-mismatch'),
+      `${label} rejects a tampered project fingerprint`,
+      JSON.stringify({ status: tamperedReport.status, issues: tamperedReport.issues.map(issue => issue.code) }),
+    );
+
+    const wrongVersionSnapshot = JSON.parse(JSON.stringify(sourceSnapshot));
+    const wrongVersion = 'v0.0-package-mismatch';
+    if (wrongVersionSnapshot.tool && typeof wrongVersionSnapshot.tool === 'object') {
+      wrongVersionSnapshot.tool.version = wrongVersion;
+      wrongVersionSnapshot.tool.pageVersion = wrongVersion;
+    }
+    wrongVersionSnapshot.appVersion = wrongVersion;
+    wrongVersionSnapshot.toolVersion = wrongVersion;
+    wrongVersionSnapshot.pageVersion = wrongVersion;
+    const wrongVersionReport = checkSnapshot(wrongVersionSnapshot);
+    assert(
+      wrongVersionReport.status === 'blocked'
+        && wrongVersionReport.issues.some(issue => issue.code === 'source-report-identity-mismatch'),
+      `${label} rejects a wrong-version project source`,
+      JSON.stringify({ status: wrongVersionReport.status, issues: wrongVersionReport.issues.map(issue => issue.code) }),
+    );
+
+    return {
+      status: packageReport.status,
+      fingerprintLinkCount: packageReport.fingerprintLinks.length,
+      fingerprint: packageReport.fingerprintLinks[0]?.fingerprint || '',
+    };
+  } finally {
+    fs.rmSync(pairDir, { recursive: true, force: true });
+  }
+}
 
 async function assertPortableFormalHtml(report, label, assert, options = {}) {
   const state = await report.evaluate(() => {
@@ -81,7 +147,11 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
     fs.writeFileSync(path.join(options.outputDir, htmlArtifact), state.approvedHtml, 'utf8');
   }
 
-  return { ...summary, htmlArtifact, ...htmlArtifactManifest };
+  const sourceReportPackage = options.sourceSnapshot
+    ? assertSourceReportPackagePair(options.sourceSnapshot, state.approvedHtml, label, assert)
+    : null;
+
+  return { ...summary, htmlArtifact, ...htmlArtifactManifest, sourceReportPackage };
 }
 
-module.exports = { assertPortableFormalHtml };
+module.exports = { assertPortableFormalHtml, assertSourceReportPackagePair };

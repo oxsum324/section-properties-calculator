@@ -349,7 +349,7 @@ async function main() {
       assertArtifact(screenshotPath, [0x89, 0x50, 0x4e, 0x47], `${tc.key} screenshot written`);
       assertArtifact(pdfPath, [0x25, 0x50, 0x44, 0x46], `${tc.key} pdf written`);
 
-      const portableHtml = await assertPortableFormalHtml(report, `${tc.key} report`, assert, { outputDir: OUT_DIR });
+      const portableHtml = await assertPortableFormalHtml(report, `${tc.key} report`, assert, { outputDir: OUT_DIR, sourceSnapshot: sourceReplay.sourceSnapshot });
       results[results.length - 1].portableHtml = portableHtml;
       await report.close();
       await page.close();

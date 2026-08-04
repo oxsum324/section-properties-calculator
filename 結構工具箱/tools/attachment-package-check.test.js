@@ -158,11 +158,24 @@ const contrastedHeadingHtml = Checker.extractHtmlVisibleContent('<div style="bac
 assert.equal(contrastedHeadingHtml.text, '明確對比彩色標題', 'white text on an explicit dark ancestor remains visible');
 assert.deepEqual(contrastedHeadingHtml.visibilityIssues, [], 'clear foreground/background contrast is not flagged');
 const complexVisibilitySelectorHtml = Checker.extractHtmlVisibleContent('<style>.report .calc{color:white}</style><section class="report"><div class="calc">保留作診斷的工程內容</div></section>');
-assert(complexVisibilitySelectorHtml.text.includes('保留作診斷的工程內容'));
-assert.deepEqual(complexVisibilitySelectorHtml.visibilityIssues, ['.report .calc'], 'unparsed selectors with visibility-related declarations require review');
+assert.equal(complexVisibilitySelectorHtml.text, '', 'matched descendant selector concealed content is excluded');
+assert.deepEqual(complexVisibilitySelectorHtml.visibilityIssues, ['.report .calc'], 'matched descendant selector remains visible in the review evidence');
 const complexTypographySelectorHtml = Checker.extractHtmlVisibleContent('<style>.report h1{font-weight:700;letter-spacing:.02em}</style><section class="report"><h1>純排版標題</h1></section>');
 assert.equal(complexTypographySelectorHtml.text, '純排版標題');
 assert.deepEqual(complexTypographySelectorHtml.visibilityIssues, [], 'pure typography on a complex selector does not require visibility review');
+const unmatchedDescendantHtml = Checker.extractHtmlVisibleContent('<style>.removed-toolbar button{display:none;color:white}</style><main><button>保留按鈕</button></main>');
+assert.equal(unmatchedDescendantHtml.text, '保留按鈕');
+assert.deepEqual(unmatchedDescendantHtml.visibilityIssues, [], 'a parsed descendant rule cannot affect markup without its required ancestor');
+const descendantHiddenHtml = Checker.extractHtmlVisibleContent('<style>.report .hidden{display:none}</style><section class="report"><div class="hidden">隱藏內容</div><div>可見內容</div></section>');
+assert.equal(descendantHiddenHtml.text, '可見內容', 'descendant display:none content cannot satisfy the attachment boundary');
+const attributeSelectorHtml = Checker.extractHtmlVisibleContent('<style>.status[data-document-class="formal-attachment"]{color:navy}</style><div class="status" data-document-class="formal-attachment">正式附件</div>');
+assert.equal(attributeSelectorHtml.text, '正式附件');
+assert.deepEqual(attributeSelectorHtml.visibilityIssues, [], 'exact attribute selectors are evaluated against the serialized markup');
+const interactiveSelectorHtml = Checker.extractHtmlVisibleContent('<style>.removed-toolbar button:hover{display:none;color:white}</style><main><button>列印內容</button></main>');
+assert.equal(interactiveSelectorHtml.text, '列印內容');
+assert.deepEqual(interactiveSelectorHtml.visibilityIssues, [], 'interactive-only pseudo states do not affect the static print artifact');
+const unsupportedCombinatorHtml = Checker.extractHtmlVisibleContent('<style>.report > .calc{color:white}</style><section class="report"><div class="calc">診斷內容</div></section>');
+assert.deepEqual(unsupportedCombinatorHtml.visibilityIssues, ['.report > .calc'], 'unsupported combinators remain fail-closed');
 const linkedStylesheetHtml = Checker.extractHtmlVisibleContent('<link rel="stylesheet" href="report.css"><div>外部樣式診斷內容</div>');
 assert.equal(linkedStylesheetHtml.text, '外部樣式診斷內容');
 assert.deepEqual(linkedStylesheetHtml.visibilityIssues, ['link[rel=stylesheet]']);
@@ -316,6 +329,13 @@ const mismatchedSourceReport = Checker.analyzePackage([
 assert.equal(mismatchedSourceReport.status, 'blocked', 'one-to-one source/report fingerprint mismatch blocks packaging');
 assert.equal(mismatchedSourceReport.issues.find(issue => issue.code === 'source-report-fingerprint-mismatch')?.level, 'error');
 
+const wrongVersionSourceReport = Checker.analyzePackage([
+  { ...sourceRecord, toolVersion: 'v0.0' },
+  reportRecord,
+], { projectNo: 'PKG-001' });
+assert.equal(wrongVersionSourceReport.status, 'blocked', 'a shared fingerprint cannot override source/report version mismatch');
+assert.equal(wrongVersionSourceReport.issues.find(issue => issue.code === 'source-report-identity-mismatch')?.level, 'error');
+
 const duplicateReports = Checker.analyzePackage([
   sourceRecord,
   reportRecord,
@@ -456,6 +476,7 @@ try {
     { name: 'inline-white-default', html: `${visibilitySecurityShell}<div style="color:white">${COMPLETE_CALCULATION_CONTENT}</div>` },
     { name: 'split-same-color', html: `<style>.concealed{color:white}.concealed{background:white}</style>${visibilitySecurityShell}<div class="concealed">${COMPLETE_CALCULATION_CONTENT}</div>` },
     { name: 'zero-clipped-box', html: `${visibilitySecurityShell}<div style="width:0;height:0;overflow:hidden">${COMPLETE_CALCULATION_CONTENT}</div>` },
+    { name: 'descendant-visibility-selector', html: `<style>.report .calc{color:white}</style>${visibilitySecurityShell}<section class="report"><div class="calc">${COMPLETE_CALCULATION_CONTENT}</div></section>` },
   ];
   visibilitySecurityCases.forEach(testCase => {
     const fixturePath = path.join(tempDir, `${testCase.name}.html`);
@@ -472,7 +493,7 @@ try {
   });
 
   const visibilityReviewCases = [
-    { name: 'complex-visibility-selector', html: `<style>.report .calc{color:white}</style>${visibilitySecurityShell}<section class="report"><div class="calc">${COMPLETE_CALCULATION_CONTENT}</div></section>` },
+    { name: 'unsupported-combinator-selector', html: `<style>.report > .calc{color:white}</style>${visibilitySecurityShell}<section class="report"><div class="calc">${COMPLETE_CALCULATION_CONTENT}</div></section>` },
     { name: 'external-stylesheet', html: `<link rel="stylesheet" href="report.css">${visibilitySecurityShell}${COMPLETE_CALCULATION_CONTENT}` },
     { name: 'css-import', html: `<style>@import url("report.css");</style>${visibilitySecurityShell}${COMPLETE_CALCULATION_CONTENT}` },
     { name: 'unparsed-color', html: `<style>.tone{color:hsl(0 0% 100%);background:var(--report-background)}</style>${visibilitySecurityShell}<div class="tone">${COMPLETE_CALCULATION_CONTENT}</div>` },

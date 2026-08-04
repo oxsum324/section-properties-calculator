@@ -23,7 +23,7 @@
 巡檢會跑：
 
 - `shared/common.js` helper 單元測試
-- RC 專案 JSON／計算書指紋一致性 contract
+- RC 專案 JSON／計算書指紋一致性 contract（另含七類工具的正式 HTML＋來源 JSON 實檔組包，以及竄改與錯版本失敗封閉）
 - 稽核狀態與首頁選單 contract
 - 首頁入口瀏覽器 smoke
 - 梁報告視覺 smoke contract
@@ -235,7 +235,7 @@ node .\shared\common.test.js
 .\tools\test-rc-index-menu.ps1
 ```
 
-單跑 RC 專案 JSON／計算書指紋一致性 contract：
+單跑 RC 專案 JSON／計算書指紋一致性 contract（含實檔組包）：
 
 ```powershell
 node .\tools\rc-project-fingerprint.contract.test.js

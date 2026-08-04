@@ -99,14 +99,20 @@ function parseMarkupAttributes(value) {
 
 function parseSimpleCssSelector(value) {
   let rest = String(value || '').trim();
-  if (!rest || /[\s>+~:\[\]*]/.test(rest)) return null;
+  if (!rest || /[\s>+~:*]/.test(rest)) return null;
   const tagMatch = /^[a-z][\w-]*/i.exec(rest);
-  const selector = { tag: '', id: '', classes: [] };
+  const selector = { tag: '', id: '', classes: [], attributes: [] };
   if (tagMatch) {
     selector.tag = tagMatch[0].toLowerCase();
     rest = rest.slice(tagMatch[0].length);
   }
   while (rest) {
+    const attribute = /^\[([\w-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([\w.-]+)))?\]/.exec(rest);
+    if (attribute) {
+      selector.attributes.push({ name: attribute[1].toLowerCase(), value: attribute[2] ?? attribute[3] ?? attribute[4] ?? null });
+      rest = rest.slice(attribute[0].length);
+      continue;
+    }
     const item = /^([.#])([\w-]+)/.exec(rest);
     if (!item) return null;
     if (item[1] === '#') {
@@ -115,7 +121,19 @@ function parseSimpleCssSelector(value) {
     } else selector.classes.push(item[2]);
     rest = rest.slice(item[0].length);
   }
-  return selector.tag || selector.id || selector.classes.length ? selector : null;
+  return selector.tag || selector.id || selector.classes.length || selector.attributes.length ? selector : null;
+}
+
+function parseCssSelector(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const interactiveState = /:(?:hover|focus|focus-visible|focus-within|active)\b/gi;
+  const staticSelector = raw.replace(interactiveState, '');
+  const dynamicOnly = staticSelector !== raw;
+  if (/:/.test(staticSelector) || /[>+~]/.test(staticSelector)) return null;
+  const parts = staticSelector.split(/\s+/).map(parseSimpleCssSelector);
+  if (!parts.length || parts.some(part => !part)) return null;
+  return { parts, dynamicOnly };
 }
 
 function collectApplicableCssRules(value, applies = true, rules = []) {
@@ -298,8 +316,9 @@ function collectHiddenCssSelectors(value) {
       const definitelyHidden = hasDefinitelyHiddenStyle(declarations);
       const ambiguous = hasAmbiguousVisibilityStyle(declarations);
       rule.selectors.split(',').map(item => item.trim()).filter(Boolean).forEach(rawSelector => {
-        const parsed = parseSimpleCssSelector(rawSelector);
+        const parsed = parseCssSelector(rawSelector);
         if (parsed) {
+          if (parsed.dynamicOnly) return;
           rules.push({ selector: parsed, declarations, rawSelector });
           if (definitelyHidden) selectors.push(parsed);
         } else if (definitelyHidden || ambiguous || visibilityRelated) visibilityIssues.push(rawSelector);
@@ -313,7 +332,25 @@ function matchesSimpleCssSelector(tagName, attributes, selector) {
   if (selector.tag && selector.tag !== tagName) return false;
   if (selector.id && selector.id !== attributes.id) return false;
   const classes = new Set(String(attributes.class || '').split(/\s+/).filter(Boolean));
-  return selector.classes.every(className => classes.has(className));
+  return selector.classes.every(className => classes.has(className))
+    && selector.attributes.every(attribute => Object.prototype.hasOwnProperty.call(attributes, attribute.name)
+      && (attribute.value === null || attributes[attribute.name] === attribute.value));
+}
+
+function matchesCssSelector(tagName, attributes, ancestors, selector) {
+  const parts = selector.parts || [];
+  if (!parts.length || !matchesSimpleCssSelector(tagName, attributes, parts.at(-1))) return false;
+  let ancestorIndex = ancestors.length - 1;
+  for (let partIndex = parts.length - 2; partIndex >= 0; partIndex -= 1) {
+    while (ancestorIndex >= 0 && !matchesSimpleCssSelector(
+      ancestors[ancestorIndex].tagName,
+      ancestors[ancestorIndex].attributes,
+      parts[partIndex],
+    )) ancestorIndex -= 1;
+    if (ancestorIndex < 0) return false;
+    ancestorIndex -= 1;
+  }
+  return true;
 }
 
 function extractHtmlVisibleContent(value) {
@@ -346,7 +383,7 @@ function extractHtmlVisibleContent(value) {
     const tagName = opening[1].toLowerCase();
     const attributes = parseMarkupAttributes(opening[2]);
     const inlineStyle = String(attributes.style || '');
-    const matchedRules = css.rules.filter(rule => matchesSimpleCssSelector(tagName, attributes, rule.selector));
+    const matchedRules = css.rules.filter(rule => matchesCssSelector(tagName, attributes, stack, rule.selector));
     const mergedStyle = mergeCssDeclarations(...matchedRules.map(rule => rule.declarations), inlineStyle);
     const parentState = stack.at(-1) || { hidden: false, foreground: [0, 0, 0, 1], background: [255, 255, 255, 1] };
     const specifiedForeground = extractCssColorDeclaration(mergedStyle, '-webkit-text-fill-color') || extractCssColorDeclaration(mergedStyle, 'color');
@@ -357,7 +394,7 @@ function extractHtmlVisibleContent(value) {
     const ownHidden = Object.prototype.hasOwnProperty.call(attributes, 'hidden')
       || String(attributes['aria-hidden'] || '').toLowerCase() === 'true'
       || hasDefinitelyHiddenStyle(mergedStyle)
-      || css.selectors.some(selector => matchesSimpleCssSelector(tagName, attributes, selector))
+      || css.selectors.some(selector => matchesCssSelector(tagName, attributes, stack, selector))
       || sameEffectiveColor;
     const ambiguous = hasAmbiguousVisibilityStyle(mergedStyle) || sameEffectiveColor || hasUnparsedColorDeclarations(mergedStyle);
     if (ambiguous) {
@@ -369,7 +406,7 @@ function extractHtmlVisibleContent(value) {
       visibilityIssues.push(...issueLabels);
     }
     const hidden = Boolean(parentState.hidden || ownHidden);
-    if (!voidTags.has(tagName) && !/\/\s*>$/.test(token)) stack.push({ tagName, hidden, foreground, background });
+    if (!voidTags.has(tagName) && !/\/\s*>$/.test(token)) stack.push({ tagName, attributes, hidden, foreground, background });
   });
   return {
     text: normalizeText(output.join(' ')),
@@ -1094,6 +1131,20 @@ function fingerprintPairingKey(record) {
 
 function analyzeFingerprintRelationships(records, issues) {
   const groups = new Map();
+  const sourceRecords = records.filter(record => String(record.type || '').toLowerCase() === 'json');
+  const reportRecords = records.filter(record => String(record.type || '').toLowerCase() !== 'json' && isDocumentClassRequired(record));
+  sourceRecords.forEach(source => reportRecords.forEach(report => {
+    const shared = normalizedFingerprints(report).filter(fingerprint => normalizedFingerprints(source).includes(fingerprint));
+    const sourceKey = fingerprintPairingKey(source);
+    const reportKey = fingerprintPairingKey(report);
+    if (!shared.length || !sourceKey || !reportKey || sourceKey === reportKey) return;
+    issues.push(buildIssue(
+      'error',
+      'source-report-identity-mismatch',
+      `${source.file} 與 ${report.file} 雖含相同計算指紋，但案件、工具或版本識別不一致；不得視為同一計算來源。`,
+      [source.file, report.file],
+    ));
+  }));
   records.forEach(record => {
     const key = fingerprintPairingKey(record);
     if (!key || !normalizedFingerprints(record).length) return;

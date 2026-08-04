@@ -195,7 +195,7 @@ git add -- "開挖擋土支撐/README.md" "開挖擋土支撐/excavation-traceab
 git add -- "覆工板/README.md" "覆工板/decking-result-replay.js" "覆工板/decking-report.contract.test.js" "覆工板/test-fixtures/report-smoke.json" "覆工板/decking-traceability.catalog.json" "覆工板/decking-traceability.contract.test.js"
 ```
 
-RC 專案 JSON／計算書追溯對齊：調整 `attachment-package-check.js` 的 RC JSON 欄位辨識時，需一併 staging 單元測試、七個 RC 正式工具頁、`rc-project-fingerprint.contract.test.js`、相關回歸測試與三份治理文件。既有 `metadata`／`fields` 及單樁 `state` 都必須可抽取案件資料；計算書 `outputSource` 必須與同頁專案 JSON 的工具名稱、版本完全相同，並以代表性來源／正式報告 pair 證明案件、工具、版本及 `CF-` 可自動配對。不得要求改寫舊專案檔或另造轉接來源。
+RC 專案 JSON／計算書追溯對齊：調整 `attachment-package-check.js` 的 RC JSON 欄位辨識或 CSS 可見性解析時，需一併 staging 單元測試、七個 RC report visual producer、共用可攜 HTML gate、`rc-project-fingerprint.contract.test.js`、相關回歸測試與三份治理文件。既有 `metadata`／`fields` 及單樁 `state` 都必須可抽取案件資料；計算書 `outputSource` 必須與同頁專案 JSON 的工具名稱、版本完全相同。每個正式瀏覽器案例都要以真實來源 JSON 與核可後 HTML 通過同一附件檢查器，且竄改指紋與錯版本來源必須 `blocked`。CSS 後代與屬性選擇器只可在可逐層對照實際標記時自動判讀；無法解析的組合器仍維持失敗封閉。不得要求改寫舊專案檔或另造轉接來源。
 
 ## D. 高頻局部快算工具
 
