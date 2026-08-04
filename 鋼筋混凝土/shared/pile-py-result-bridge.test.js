@@ -53,11 +53,37 @@ assert.equal(candidate.results.y.momentOk, true);
 assert.equal(candidate.source.analysisScope, 'pile-group');
 assert.equal(candidate.source.analysisHorizontalXTf, 90);
 
-const adopted = Bridge.adopt(candidate, { sourceFilename: 'pile-py.json', sourceSha256: 'a'.repeat(64) });
+const sourceText = `${JSON.stringify(payload, null, 2)}\n`;
+const adopted = Bridge.adopt(candidate, { sourceFilename: 'pile-py.json', sourceSha256: 'a'.repeat(64), sourceText });
 const inspected = Bridge.inspectState(JSON.stringify(adopted), current);
+assert.equal(adopted.stateSchema, 'rc-pile-py-adoption.v2');
+assert.equal(adopted.sourceArtifact.text, sourceText);
 assert.equal(inspected.valid, true);
 assert.equal(inspected.pass, true, 'p-y reviewed candidate becomes adopted result');
 assert.equal(inspected.payload.analysis.analysisId, 'PY-CASE-001');
+assert.equal(inspected.state.sourceArtifact.text, sourceText);
+
+const legacyAdopted = JSON.parse(JSON.stringify(adopted));
+legacyAdopted.stateSchema = 'rc-pile-py-adoption.v1';
+delete legacyAdopted.sourceArtifact;
+const legacyInspected = Bridge.inspectState(legacyAdopted, current);
+assert.equal(legacyInspected.valid, true, 'legacy v1 adoption remains calculation-compatible');
+assert.equal(legacyInspected.state.sourceArtifact, null, 'legacy v1 does not invent source bytes');
+
+const mismatchedSource = JSON.parse(JSON.stringify(payload));
+mismatchedSource.analysis.analysisId = 'PY-OTHER';
+assert.throws(
+  () => Bridge.adopt(candidate, { sourceFilename: 'pile-py.json', sourceSha256: 'a'.repeat(64), sourceText: JSON.stringify(mismatchedSource) }),
+  /來源 JSON 原始檔與已驗證候選結果不一致/
+);
+assert.throws(
+  () => Bridge.adopt(candidate, { sourceFilename: '../pile-py.json', sourceSha256: 'a'.repeat(64), sourceText }),
+  /來源檔名 格式錯誤/
+);
+assert.throws(
+  () => Bridge.adopt(candidate, { sourceFilename: 'pile-py.json', sourceSha256: 'a'.repeat(64), sourceText: `${sourceText}${' '.repeat(1024 * 1024)}` }),
+  /超過 1 MiB/
+);
 
 const failedPayload = JSON.parse(JSON.stringify(payload));
 failedPayload.results.x.headDisplacementCm = 3.1;
@@ -122,6 +148,12 @@ tampered.payload.source.pileDiameterCm = 80;
 const rejectedState = Bridge.inspectState(tampered, current);
 assert.equal(rejectedState.valid, false);
 assert.match(rejectedState.reason, /來源與目前樁基模型不符/);
+
+const tamperedArtifact = JSON.parse(JSON.stringify(adopted));
+tamperedArtifact.sourceArtifact.text = tamperedArtifact.sourceArtifact.text.replace('PY-CASE-001', 'PY-CASE-999');
+const rejectedArtifact = Bridge.inspectState(tamperedArtifact, current);
+assert.equal(rejectedArtifact.valid, false);
+assert.match(rejectedArtifact.reason, /來源 JSON 原始檔與採用結果不一致/);
 
 const noResult = Bridge.inspectState('', current);
 assert.equal(noResult.available, false);

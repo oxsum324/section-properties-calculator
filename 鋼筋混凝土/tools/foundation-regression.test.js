@@ -273,6 +273,24 @@ async function exercisePilePyBridge(page) {
     window.applyFoundationProjectData(saved, { silent: true });
     const replayPass = window.ftLast?.pilePyResponse?.pass === true && window.ftLast?.lateralResponseOk === true;
     const replayStatus = document.getElementById('pilePyImportStatus')?.textContent || '';
+    const adoptedArtifact = await window.downloadAdoptedPilePySourceJson();
+    const adoptedRaw = document.getElementById('pilePyAdoptedSource')?.value || '';
+    const storedAdoption = JSON.parse(adoptedRaw);
+    const legacyState = JSON.parse(adoptedRaw);
+    legacyState.stateSchema = 'rc-pile-py-adoption.v1';
+    delete legacyState.sourceArtifact;
+    document.getElementById('pilePyAdoptedSource').value = JSON.stringify(legacyState);
+    window.calcFdtn();
+    const legacyReplayPass = window.ftLast?.pilePyResponse?.valid === true;
+    const legacyDownloadBlocked = await window.downloadAdoptedPilePySourceJson() == null;
+    const tamperedState = JSON.parse(adoptedRaw);
+    tamperedState.sourceArtifact.text = tamperedState.sourceArtifact.text.replace('PY-REG-001', 'PY-REG-999');
+    document.getElementById('pilePyAdoptedSource').value = JSON.stringify(tamperedState);
+    window.calcFdtn();
+    const tamperedArtifactRejected = window.ftLast?.pilePyResponse?.valid === false
+      && await window.downloadAdoptedPilePySourceJson() == null;
+    document.getElementById('pilePyAdoptedSource').value = adoptedRaw;
+    window.calcFdtn();
     setField('pHX', 80);
     window.calcFdtn();
     const mismatchRejected = window.ftLast?.pilePyResponse?.valid === false && window.ftLast?.lateralResponseOk === false;
@@ -309,7 +327,10 @@ async function exercisePilePyBridge(page) {
     document.getElementById('pilePyReview').checked = true;
     const tableAdopted = window.adoptPilePyCandidate();
     const savedAfterTable = window.collectFoundationProjectData();
+    window.clearPilePySource({ silent: true });
+    window.applyFoundationProjectData(savedAfterTable, { silent: true });
     const tableResponse = window.ftLast?.pilePyResponse;
+    const restoredTableArtifact = await window.prepareAdoptedPilePyArtifact();
     const transientAdapterIds = [
       'pilePyAdapterSoftware', 'pilePyAdapterVersion', 'pilePyAdapterAnalysisId',
       'pilePyAdapterCaseName', 'pilePyAdapterScope', 'pilePyAdapterUnits',
@@ -330,11 +351,17 @@ async function exercisePilePyBridge(page) {
       blockedWithoutReview,
       adoptedStateSchema: adopted?.stateSchema,
       adoptedPass: adopted?.payload?.pass,
+      adoptedArtifactMatches: adoptedArtifact?.sourceText === JSON.stringify(payload)
+        && adoptedArtifact?.sourceSha256 === adopted?.sourceSha256,
+      embeddedSourceStored: storedAdoption?.sourceArtifact?.text === JSON.stringify(payload),
       savedSource: saved.fields.pilePyAdoptedSource?.value || '',
       excludedFile: saved.fields.pilePyJsonFile == null,
       excludedReview: saved.fields.pilePyReview == null,
       replayPass,
       replayStatus,
+      legacyReplayPass,
+      legacyDownloadBlocked,
+      tamperedArtifactRejected,
       mismatchRejected,
       mismatchStatus,
       tableCandidateScope: tableCandidate?.source?.analysisScope,
@@ -351,6 +378,8 @@ async function exercisePilePyBridge(page) {
       archivedAnalysisId: archivedPayload?.analysis?.analysisId,
       archiveRoundTripVisible,
       archiveHashMatchesAdoption: archivedArtifact?.sourceSha256 === tableAdopted?.sourceSha256,
+      restoredArchiveMatches: restoredTableArtifact?.sourceText === archivedArtifact?.sourceText
+        && restoredTableArtifact?.sourceSha256 === tableAdopted?.sourceSha256,
       tableAdoptedSchema: tableAdopted?.payload?.adapterEvidence?.schema,
       tableAdoptedProfile: tableAdopted?.payload?.adapterEvidence?.unitProfile,
       tableAdoptedXFile: tableAdopted?.payload?.adapterEvidence?.x?.sourceFilename,
@@ -367,10 +396,13 @@ async function exercisePilePyBridge(page) {
   assert(state.candidateVisible, 'p-y import exposes verified candidate review', state.candidateStatus);
   assert(state.candidateStatus.includes('候選結果已通過') && !state.candidateStatus.includes('已採用 p-y 結果'), 'p-y candidate does not auto-adopt', state.candidateStatus);
   assert(state.blockedWithoutReview, 'p-y adoption requires explicit engineer review checkbox', 'adoption blocked before review');
-  assert(state.adoptedStateSchema === 'rc-pile-py-adoption.v1' && state.adoptedPass === true, 'p-y reviewed candidate becomes adopted result', state.adoptedStateSchema);
-  assert(state.savedSource.includes('PY-REG-001') && state.savedSource.includes('sourceSha256'), 'p-y adopted result persists in foundation project', 'adopted source stored');
+  assert(state.adoptedStateSchema === 'rc-pile-py-adoption.v2' && state.adoptedPass === true, 'p-y reviewed candidate becomes source-complete adopted result', state.adoptedStateSchema);
+  assert(state.adoptedArtifactMatches && state.embeddedSourceStored, 'p-y adopted result preserves exact source JSON bytes and SHA-256', 'source artifact stored');
+  assert(state.savedSource.includes('PY-REG-001') && state.savedSource.includes('sourceSha256') && state.savedSource.includes('sourceArtifact'), 'p-y adopted result persists source artifact in foundation project', 'adopted source stored');
   assert(state.excludedFile && state.excludedReview, 'p-y transient file and review controls stay out of project payload', 'transient controls excluded');
-  assert(state.replayPass && state.replayStatus.includes('已採用 p-y 結果'), 'p-y adopted result replays with project calculation fingerprint', state.replayStatus);
+  assert(state.replayPass && state.replayStatus.includes('已採用 p-y 結果') && state.replayStatus.includes('來源 JSON 已隨專案保存'), 'p-y adopted result replays with downloadable source artifact', state.replayStatus);
+  assert(state.legacyReplayPass && state.legacyDownloadBlocked, 'legacy p-y adoption remains usable without inventing missing source bytes', 'v1 compatible, archive unavailable');
+  assert(state.tamperedArtifactRejected, 'tampered adopted source artifact fails closed for calculation and download', 'tampered source rejected');
   assert(state.mismatchRejected && state.mismatchStatus.includes('目前模型不相容'), 'p-y adopted result fails closed after source model changes', state.mismatchStatus);
   assert(state.tableCandidateScope === 'representative-pile' && nearlyEqual(state.tableCandidateHX, 16, toleranceDefault) && nearlyEqual(state.tableCandidateHY, 8, toleranceDefault), 'LPile table adapter binds representative pile p-multiplier loads', `${state.tableCandidateScope} ${state.tableCandidateHX}/${state.tableCandidateHY}`);
   assert(state.tableStatus.includes('X / Y 列數 = 3 / 3') && state.tableStatus.includes('尚未採用'), 'p-y table adapter reports verified candidate without auto-adoption', state.tableStatus);
@@ -381,6 +413,7 @@ async function exercisePilePyBridge(page) {
   assert(state.staleTableBlocked, 'p-y candidate cannot be adopted after pile model changes', 'stale candidate rejected at adoption');
   assert(state.archivedFilename === 'lpile-table-adapter.json' && state.archivedAnalysisId === 'LP-REG-001', 'p-y candidate archive keeps a stable JSON identity', `${state.archivedFilename} ${state.archivedAnalysisId}`);
   assert(state.archiveRoundTripVisible && state.archiveHashMatchesAdoption, 'p-y archived candidate reimports with the same adoption SHA-256', 'same-byte archive round trip');
+  assert(state.restoredArchiveMatches, 'p-y adopted source remains exactly downloadable after project save and reload', 'persisted source artifact round trip');
   assert(state.tableAdoptedSchema === 'rc-pile-py-table-adapter.v1' && state.tableAdoptedProfile === 'si-kn-m-mm', 'p-y table adoption preserves conversion provenance', `${state.tableAdoptedSchema} ${state.tableAdoptedProfile}`);
   assert(state.tableAdoptedXFile === 'lpile-reg-x.csv' && state.tableAdoptedYFile === 'lpile-reg-y.tsv', 'p-y table adoption preserves source filenames', `${state.tableAdoptedXFile}/${state.tableAdoptedYFile}`);
   assert(nearlyEqual(state.tableResultX, 0.82, toleranceDefault) && nearlyEqual(state.tableResultY, 0.41, toleranceDefault), 'p-y table adapter uses head row displacement in project units', `${state.tableResultX}/${state.tableResultY}`);
@@ -429,6 +462,7 @@ async function main() {
   assert(html.includes('pile-py-table-adapter.js') && html.includes('id="btnBuildPilePyFromTable"'), 'foundation loads p-y table adapter with explicit candidate action', 'table adapter workflow exists');
   assert(html.includes('id="btnLoadPilePyXTable"') && html.includes('id="btnLoadPilePyYTable"') && html.includes('id="btnDownloadPilePyTableSample"'), 'foundation exposes direct table file loading and sample download', 'CSV/TSV/TXT workflow exists');
   assert(html.includes('id="btnDownloadPilePyCandidate"') && html.includes('preparePilePyCandidateArtifact'), 'foundation exposes same-byte verified candidate JSON archive', 'candidate archive workflow exists');
+  assert(html.includes('id="btnDownloadAdoptedPilePy"') && html.includes('prepareAdoptedPilePyArtifact'), 'foundation exposes adopted source JSON after project reload', 'adopted archive workflow exists');
   assert(html.includes('PILE_PY_BRIDGE.inspectState'), 'foundation revalidates adopted p-y source against current model', 'fail-closed replay gate exists');
   assert(reportSrc.includes("group:'專項 p-y 分析結果'"), 'foundation report includes adopted p-y calculation results', 'formal report result group exists');
   assert(reportSrc.includes("label:'分析範圍 / Hx / Hy'") && reportSrc.includes("label:'來源表格換算'"), 'foundation report identifies p-y analysis scope and table provenance', 'formal report provenance exists');

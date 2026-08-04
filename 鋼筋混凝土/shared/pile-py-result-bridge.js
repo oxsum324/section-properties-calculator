@@ -6,8 +6,10 @@
   'use strict';
 
   const SCHEMA = 'rc-pile-py-result.v1';
-  const STATE_SCHEMA = 'rc-pile-py-adoption.v1';
+  const STATE_SCHEMA = 'rc-pile-py-adoption.v2';
+  const LEGACY_STATE_SCHEMA = 'rc-pile-py-adoption.v1';
   const ADAPTER_SCHEMA = 'rc-pile-py-table-adapter.v1';
+  const MAX_SOURCE_BYTES = 1024 * 1024;
 
   function object(value, label) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} 必須是物件。`);
@@ -57,6 +59,26 @@
       catch (_) { throw new Error(`${label} 不是有效 JSON。`); }
     }
     return raw;
+  }
+
+  function utf8ByteLength(value) {
+    const normalized = String(value == null ? '' : value);
+    if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(normalized).byteLength;
+    return unescape(encodeURIComponent(normalized)).length;
+  }
+
+  function normalizeSourceArtifact(raw, required = false) {
+    if (raw == null) {
+      if (required) throw new Error('p-y 採用記錄缺少來源 JSON 原始檔。');
+      return null;
+    }
+    const artifact = object(raw, '來源 JSON 原始檔');
+    if (artifact.mediaType !== 'application/json') throw new Error('來源 JSON 原始檔 mediaType 必須為 application/json。');
+    if (String(artifact.encoding || '').toLowerCase() !== 'utf-8') throw new Error('來源 JSON 原始檔 encoding 必須為 utf-8。');
+    const sourceText = String(artifact.text == null ? '' : artifact.text);
+    if (!sourceText.trim()) throw new Error('來源 JSON 原始檔不得空白。');
+    if (utf8ByteLength(sourceText) > MAX_SOURCE_BYTES) throw new Error('來源 JSON 原始檔超過 1 MiB 上限。');
+    return { mediaType: 'application/json', encoding: 'utf-8', text: sourceText };
   }
 
   function close(actual, expected, absoluteTolerance = 0.01, relativeTolerance = 0.001) {
@@ -241,11 +263,21 @@
     const source = provenance && typeof provenance === 'object' ? provenance : {};
     const sha256 = text(source.sourceSha256, '來源檔 SHA-256');
     if (!/^[0-9a-f]{64}$/i.test(sha256)) throw new Error('來源檔 SHA-256 格式錯誤。');
+    const sourceArtifact = normalizeSourceArtifact({
+      mediaType: 'application/json',
+      encoding: 'utf-8',
+      text: source.sourceText
+    }, true);
+    const artifactPayload = validatePayload(sourceArtifact.text, normalized.source);
+    if (JSON.stringify(artifactPayload) !== JSON.stringify(normalized)) {
+      throw new Error('來源 JSON 原始檔與已驗證候選結果不一致。');
+    }
     return {
       stateSchema: STATE_SCHEMA,
       adoptedAt: new Date().toISOString(),
-      sourceFilename: text(source.sourceFilename, '來源檔名'),
+      sourceFilename: sourceFilename(source.sourceFilename, '來源檔名'),
       sourceSha256: sha256.toLowerCase(),
+      sourceArtifact,
       payload: normalized
     };
   }
@@ -254,9 +286,14 @@
     if (raw == null || raw === '') return { available: false, valid: false, complete: false, pass: false, reason: '尚未採用專業 p-y 分析結果。' };
     try {
       const state = object(parse(raw, 'p-y 採用記錄'), 'p-y 採用記錄');
-      if (state.stateSchema !== STATE_SCHEMA) throw new Error(`p-y 採用記錄 schema 不相容：${state.stateSchema || '缺少'}。`);
+      if (![STATE_SCHEMA, LEGACY_STATE_SCHEMA].includes(state.stateSchema)) throw new Error(`p-y 採用記錄 schema 不相容：${state.stateSchema || '缺少'}。`);
       if (!/^[0-9a-f]{64}$/i.test(String(state.sourceSha256 || ''))) throw new Error('p-y 採用記錄缺少有效來源檔 SHA-256。');
       const payload = validatePayload(state.payload, currentModel);
+      const sourceArtifact = normalizeSourceArtifact(state.sourceArtifact, state.stateSchema === STATE_SCHEMA);
+      if (sourceArtifact) {
+        const artifactPayload = validatePayload(sourceArtifact.text, currentModel);
+        if (JSON.stringify(artifactPayload) !== JSON.stringify(payload)) throw new Error('來源 JSON 原始檔與採用結果不一致。');
+      }
       return {
         available: true,
         valid: true,
@@ -264,10 +301,11 @@
         pass: payload.pass,
         reason: payload.pass ? '' : '外部 p-y 結果至少一項超過容許值或容量。',
         state: {
-          stateSchema: STATE_SCHEMA,
+          stateSchema: state.stateSchema,
           adoptedAt: text(state.adoptedAt, '採用時間'),
-          sourceFilename: text(state.sourceFilename, '來源檔名'),
+          sourceFilename: sourceFilename(state.sourceFilename, '來源檔名'),
           sourceSha256: String(state.sourceSha256).toLowerCase(),
+          sourceArtifact,
           payload
         },
         payload
@@ -277,5 +315,5 @@
     }
   }
 
-  return { schema: SCHEMA, stateSchema: STATE_SCHEMA, normalizeExpected, validatePayload, adopt, inspectState };
+  return { schema: SCHEMA, stateSchema: STATE_SCHEMA, legacyStateSchema: LEGACY_STATE_SCHEMA, normalizeExpected, validatePayload, adopt, inspectState };
 });

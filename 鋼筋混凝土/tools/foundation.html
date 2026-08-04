@@ -688,6 +688,7 @@
           <div class="retain-source-actions">
             <button class="mode-bar__action" id="btnDownloadPilePyTemplate" type="button">下載目前模型範本</button>
             <button class="mode-bar__action" id="btnImportPilePy" type="button">匯入 p-y JSON</button>
+            <button class="mode-bar__action" id="btnDownloadAdoptedPilePy" type="button">下載已採用來源</button>
             <button class="mode-bar__action" id="btnClearPilePy" type="button">清除採用結果</button>
           </div>
           <input class="mode-bar__file" id="pilePyJsonFile" type="file" accept=".json,application/json">
@@ -2198,7 +2199,8 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       return;
     }
     const source = response.state;
-    el.textContent = `已採用 p-y 結果：${pilePyResponseSummary(response)}｜來源 ${source.sourceFilename}｜SHA-256 ${source.sourceSha256.slice(0, 12)}｜${response.pass ? '需求／容量核對通過' : '至少一項超過容許值或容量'}`;
+    const archiveStatus = source.sourceArtifact ? '來源 JSON 已隨專案保存' : '舊版紀錄未保存來源 JSON';
+    el.textContent = `已採用 p-y 結果：${pilePyResponseSummary(response)}｜來源 ${source.sourceFilename}｜SHA-256 ${source.sourceSha256.slice(0, 12)}｜${archiveStatus}｜${response.pass ? '需求／容量核對通過' : '至少一項超過容許值或容量'}`;
     el.style.color = response.pass ? '#166534' : '#991b1b';
   }
 
@@ -2478,6 +2480,46 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     }
   }
 
+  async function prepareAdoptedPilePyArtifact() {
+    const response = PILE_PY_BRIDGE.inspectState($('pilePyAdoptedSource')?.value || '', currentPilePyModel());
+    if (!response.available) throw new Error('目前尚未採用 p-y 分析結果。');
+    if (!response.valid) throw new Error(`已採用的 p-y 結果無法下載：${response.reason}`);
+    const sourceArtifact = response.state?.sourceArtifact;
+    if (!sourceArtifact?.text) throw new Error('此為舊版採用紀錄，未保存來源 JSON；請重新匯入原始檔並採用。');
+    const sourceText = sourceArtifact.text;
+    const sourceSha256 = await sha256Text(sourceText);
+    if (sourceSha256 !== response.state.sourceSha256) throw new Error('已採用來源 JSON 的 SHA-256 與採用記錄不一致。');
+    const rawName = String(response.state.sourceFilename || 'pile-py-adopted.json');
+    const leafName = rawName.split(/[\\/]/).pop() || 'pile-py-adopted.json';
+    const filename = /\.json$/i.test(leafName) ? leafName : `${leafName}.json`;
+    return {
+      filename,
+      sourceText,
+      sourceSha256,
+      analysisId: response.payload.analysis.analysisId
+    };
+  }
+
+  async function downloadAdoptedPilePySourceJson() {
+    try {
+      const artifact = await prepareAdoptedPilePyArtifact();
+      const blob = new Blob([artifact.sourceText], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = artifact.filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      showFoundationProjectStatus(`已下載採用來源 JSON：${artifact.filename}；SHA-256 ${artifact.sourceSha256.slice(0, 12)}。`);
+      return artifact;
+    } catch (err) {
+      showFoundationProjectStatus(`已採用來源下載失敗：${err?.message || err}`, 'fail');
+      return null;
+    }
+  }
+
   function adoptPilePyCandidate() {
     if (!pendingPilePyCandidate) {
       showFoundationProjectStatus('目前沒有已驗證的 p-y 候選結果。', 'fail');
@@ -2489,7 +2531,10 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     }
     try {
       const revalidated = PILE_PY_BRIDGE.validatePayload(pendingPilePyCandidate.candidate, currentPilePyModel());
-      const state = PILE_PY_BRIDGE.adopt(revalidated, pendingPilePyCandidate.provenance);
+      const state = PILE_PY_BRIDGE.adopt(revalidated, {
+        ...pendingPilePyCandidate.provenance,
+        sourceText: pendingPilePyCandidate.sourceText
+      });
       $('pilePyAdoptedSource').value = JSON.stringify(state);
       pendingPilePyCandidate = null;
       $('pilePyCandidate').hidden = true;
@@ -2735,6 +2780,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     });
     $('btnDownloadPilePyTemplate')?.addEventListener('click', downloadPilePyJsonTemplate);
     $('btnImportPilePy')?.addEventListener('click', () => $('pilePyJsonFile')?.click());
+    $('btnDownloadAdoptedPilePy')?.addEventListener('click', downloadAdoptedPilePySourceJson);
     $('btnDownloadPilePyCandidate')?.addEventListener('click', downloadPilePyCandidateJson);
     $('btnAdoptPilePy')?.addEventListener('click', adoptPilePyCandidate);
     $('btnClearPilePy')?.addEventListener('click', () => clearPilePySource());
@@ -2780,6 +2826,8 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   window.loadPilePyJsonFile = loadPilePyJsonFile;
   window.preparePilePyCandidateArtifact = preparePilePyCandidateArtifact;
   window.downloadPilePyCandidateJson = downloadPilePyCandidateJson;
+  window.prepareAdoptedPilePyArtifact = prepareAdoptedPilePyArtifact;
+  window.downloadAdoptedPilePySourceJson = downloadAdoptedPilePySourceJson;
   window.adoptPilePyCandidate = adoptPilePyCandidate;
   window.clearPilePySource = clearPilePySource;
   window.currentPilePyModel = currentPilePyModel;
