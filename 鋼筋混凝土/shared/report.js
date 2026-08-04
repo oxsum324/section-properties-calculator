@@ -576,8 +576,8 @@ function openReport(cfg) {
     </section>
   `).join('');
 
-  const checksHtml = (cfg.checks || []).map(g => `
-    <section class="rep-block">
+  const checksHtml = (cfg.checks || []).map((g, index, groups) => `
+    <section class="rep-block${index === groups.length - 1 ? ' rep-block--last-check' : ''}${index === groups.length - 1 && g.items.length <= 4 ? ' rep-block--short-tail' : ''}">
       <h3>${esc(checkGroupTitle(g.group))}</h3>
       <table class="rep-check">
         <thead>
@@ -708,6 +708,8 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   body { background:#fff; padding:0; }
   .rep-toolbar { display:none; }
   .rep-paper { position:relative; box-shadow:none; padding:0; max-width:none; }
+  .rep-block--last-check { margin-bottom:0; }
+  .rep-block--short-tail { break-inside:avoid-page; page-break-inside:avoid; }
   .rep-block h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }
   .rep-block--keep { break-inside:avoid-page; page-break-inside:avoid; }
   .rep-steps-wrap > .rep-step:last-of-type { break-after:avoid-page; page-break-after:avoid; }
@@ -716,7 +718,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   table { break-inside:auto; page-break-inside:auto; }
   tr { break-inside:avoid-page; page-break-inside:avoid; }
   p, li, .rep-step-body { orphans:3; widows:3; }
-  .rep-footer { position:static; width:auto; clear:both; padding:1mm 0 0; margin-top:8mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; }
+  .rep-footer { position:static; width:auto; clear:both; padding:1mm 0 0; margin-top:4mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; }
 }
 </style>
 </head>
