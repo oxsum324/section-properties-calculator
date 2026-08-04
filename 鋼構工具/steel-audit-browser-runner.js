@@ -1128,7 +1128,10 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
   if (!Number.isFinite(Date.parse(approvalState.approvedAt || ''))) {
     throw new Error(`${options.label} formal HTML should preserve a machine-readable approval time: ${JSON.stringify(approvalState)}`);
   }
-  const savedStatusCount = (approvalState.approvedHtml.match(/class=["'][^"']*rep-document-status-line[^"']*["']/gi) || []).length;
+  const savedStaticMarkup = approvalState.approvedHtml
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '');
+  const savedStatusCount = (savedStaticMarkup.match(/class=["'][^"']*rep-document-status-line[^"']*["']/gi) || []).length;
   const savedVisibleText = AttachmentPackageChecker.extractHtmlVisibleContent(approvalState.approvedHtml).text;
   if (savedStatusCount !== 1
       || !savedVisibleText.includes('文件狀態：正式附件')

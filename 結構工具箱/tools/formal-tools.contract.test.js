@@ -567,7 +567,9 @@ assertIncludes(
 
 [
   'tools/formal-tools.manifest.json',
-  'formalTools = formalManifest.tools',
+  'requestedToolKey',
+  'formalManifest.tools.filter',
+  'Unknown FORMAL_BROWSER_TOOL',
   'requiredFormalRoutes = formalManifest.requiredRoutes',
   'popupReportModes',
   'reportExpectations',

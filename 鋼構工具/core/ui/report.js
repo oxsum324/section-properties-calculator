@@ -330,15 +330,20 @@ function assessFormalAttachment(state = {}) {
 }
 
 const FORMAL_DOCUMENT_STATE_REPORT_CSS = `
-.rep-attachment-approval-source { display:none !important; }
+.rep-attachment-approval-source, .rep-formal-content-seal-source, .rep-formal-approval-seal-source { display:none !important; }
 .rep-approval-control { display:inline-flex; align-items:center; gap:6px; margin-right:10px; padding:7px 10px;
   border:1px solid #94a3b8; border-radius:4px; background:#fff; color:#1f2937; font-size:12px; cursor:pointer; }
 .rep-approval-control input { width:16px; height:16px; margin:0; accent-color:#166534; }
 .rep-document-status-line { display:block; margin-bottom:3mm; color:#4b5563; font-weight:600; }
+.rep-content-integrity-status { display:block; margin-top:6px; color:#166534; font-size:12px; font-weight:700; }
+.rep-content-integrity-status[data-integrity-status="failed"] { color:#b91c1c; }
+.rep-content-integrity-status[data-integrity-status="unsealed"] { color:#92400e; }
+.rep-content-integrity-alert { display:block; margin:0 0 8mm; padding:4mm; border:2px solid #b91c1c;
+  color:#991b1b; background:#fef2f2; font-weight:800; }
 .rep-footer-copyright { display:block; }
 .rep-footer { break-inside:avoid-page; page-break-inside:avoid; }
 .rep-document-status-line[data-document-class="formal-attachment"] { color:#14532d; }
-@media print { .rep-approval-control { display:none !important; } }`;
+@media print { .rep-approval-control, .rep-content-integrity-status { display:none !important; } }`;
 
 function normalizeFormalDocumentState(documentState) {
   if (!documentState) return null;
@@ -372,15 +377,116 @@ function buildAttachmentApprovalReport(options = {}) {
     css: FORMAL_DOCUMENT_STATE_REPORT_CSS,
     html: `<style data-formal-document-state-style>${FORMAL_DOCUMENT_STATE_REPORT_CSS}</style>
       <span class="rep-attachment-approval-source" data-initial-approved="${approved ? 'true' : 'false'}" data-calculation-fingerprint="${esc(fingerprint)}" data-approved-at="${esc(approvedAt)}" aria-hidden="true"></span>
+      <span class="rep-formal-content-seal-source" data-content-seal-scope="formal-calculation-book-content-v1" data-content-sha256="" aria-hidden="true"></span>
+      <span class="rep-formal-approval-seal-source" data-approval-seal-scope="formal-calculation-book-approval-v1" data-approval-sha256="" aria-hidden="true"></span>
       <script data-attachment-approval-script>
       (function () {
+        var CONTENT_SEAL_START = '<!--formal-content-seal:start-->';
+        var CONTENT_SEAL_END = '<!--formal-content-seal:end-->';
+        function canonicalSealedContent(serializedHtml) {
+          var text = String(serializedHtml || '')
+            .replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script>/gi, '')
+            .replace(/<style\\b[^>]*>[\\s\\S]*?<\\/style>/gi, '');
+          var start = text.lastIndexOf(CONTENT_SEAL_START);
+          var end = text.lastIndexOf(CONTENT_SEAL_END);
+          if (start < 0 || end < 0 || end <= start) return '';
+          return text.slice(start + CONTENT_SEAL_START.length, end)
+            .replace(/<span\\b(?=[^>]*\\brep-document-status-line\\b)[^>]*>[\\s\\S]*?<\\/span>/i, '<' + 'span class="rep-document-status-line"></span>');
+        }
+        function canonicalApprovalPayload(serializedHtml) {
+          var parsed = new DOMParser().parseFromString(String(serializedHtml || ''), 'text/html');
+          var sources = parsed.querySelectorAll('.rep-attachment-approval-source');
+          var statuses = parsed.querySelectorAll('.rep-document-status-line');
+          var contentSeals = parsed.querySelectorAll('.rep-formal-content-seal-source');
+          var titles = parsed.head ? parsed.head.querySelectorAll('title') : [];
+          if (sources.length !== 1 || statuses.length !== 1 || contentSeals.length !== 1 || titles.length !== 1) return '';
+          var approvalSource = sources[0];
+          var statusSource = statuses[0];
+          function clean(value) { return String(value || '').replace(/\\s+/g, ' ').trim(); }
+          return JSON.stringify({
+            scope:'formal-calculation-book-approval-v1',
+            reportTitle:clean(approvalSource.dataset.reportTitle),
+            calculationFingerprint:clean(approvalSource.dataset.calculationFingerprint),
+            sourceApproved:clean(approvalSource.dataset.initialApproved),
+            sourceApprovedAt:clean(approvalSource.dataset.approvedAt),
+            documentClass:clean(statusSource.dataset.documentClass),
+            statusApproved:clean(statusSource.dataset.approved),
+            statusApprovedAt:clean(statusSource.dataset.approvedAt),
+            statusText:clean(statusSource.textContent),
+            documentTitle:clean(titles[0].textContent),
+            contentSha256:clean(contentSeals[0].dataset.contentSha256).toLowerCase()
+          });
+        }
+        function sha256Text(value) {
+          var bytes = typeof TextEncoder === 'function'
+            ? Array.from(new TextEncoder().encode(String(value || '')))
+            : Array.from(unescape(encodeURIComponent(String(value || '')))).map(function (char) { return char.charCodeAt(0); });
+          var bitLength = bytes.length * 8;
+          bytes.push(128);
+          while (bytes.length % 64 !== 56) bytes.push(0);
+          var high = Math.floor(bitLength / 4294967296);
+          var low = bitLength >>> 0;
+          [high, low].forEach(function (word) {
+            bytes.push((word >>> 24) & 255, (word >>> 16) & 255, (word >>> 8) & 255, word & 255);
+          });
+          var h = [1779033703,3144134277,1013904242,2773480762,1359893119,2600822924,528734635,1541459225];
+          var k = [1116352408,1899447441,3049323471,3921009573,961987163,1508970993,2453635748,2870763221,3624381080,310598401,607225278,1426881987,1925078388,2162078206,2614888103,3248222580,3835390401,4022224774,264347078,604807628,770255983,1249150122,1555081692,1996064986,2554220882,2821834349,2952996808,3210313671,3336571891,3584528711,113926993,338241895,666307205,773529912,1294757372,1396182291,1695183700,1986661051,2177026350,2456956037,2730485921,2820302411,3259730800,3345764771,3516065817,3600352804,4094571909,275423344,430227734,506948616,659060556,883997877,958139571,1322822218,1537002063,1747873779,1955562222,2024104815,2227730452,2361852424,2428436474,2756734187,3204031479,3329325298];
+          function rotr(word, amount) { return (word >>> amount) | (word << (32 - amount)); }
+          for (var offset = 0; offset < bytes.length; offset += 64) {
+            var w = new Array(64);
+            for (var index = 0; index < 16; index += 1) {
+              var pos = offset + index * 4;
+              w[index] = ((bytes[pos] << 24) | (bytes[pos + 1] << 16) | (bytes[pos + 2] << 8) | bytes[pos + 3]) >>> 0;
+            }
+            for (var wi = 16; wi < 64; wi += 1) {
+              var s0 = rotr(w[wi - 15], 7) ^ rotr(w[wi - 15], 18) ^ (w[wi - 15] >>> 3);
+              var s1 = rotr(w[wi - 2], 17) ^ rotr(w[wi - 2], 19) ^ (w[wi - 2] >>> 10);
+              w[wi] = (w[wi - 16] + s0 + w[wi - 7] + s1) >>> 0;
+            }
+            var a=h[0],b=h[1],c=h[2],d=h[3],e=h[4],f=h[5],g=h[6],hh=h[7];
+            for (var round = 0; round < 64; round += 1) {
+              var sum1 = rotr(e,6) ^ rotr(e,11) ^ rotr(e,25);
+              var choice = (e & f) ^ ((~e) & g);
+              var temp1 = (hh + sum1 + choice + k[round] + w[round]) >>> 0;
+              var sum0 = rotr(a,2) ^ rotr(a,13) ^ rotr(a,22);
+              var majority = (a & b) ^ (a & c) ^ (b & c);
+              var temp2 = (sum0 + majority) >>> 0;
+              hh=g; g=f; f=e; e=(d+temp1)>>>0; d=c; c=b; b=a; a=(temp1+temp2)>>>0;
+            }
+            h=[(h[0]+a)>>>0,(h[1]+b)>>>0,(h[2]+c)>>>0,(h[3]+d)>>>0,(h[4]+e)>>>0,(h[5]+f)>>>0,(h[6]+g)>>>0,(h[7]+hh)>>>0];
+          }
+          return h.map(function (word) { return word.toString(16).padStart(8, '0'); }).join('');
+        }
         function initAttachmentApproval() {
           var source = document.querySelector('.rep-attachment-approval-source');
           if (!source || source.dataset.initialized === 'true') return;
           source.dataset.initialized = 'true';
           var toolbar = document.querySelector('.rep-toolbar, .toolbar');
+          var contentSealSource = document.querySelector('.rep-formal-content-seal-source');
+          var approvalSealSource = document.querySelector('.rep-formal-approval-seal-source');
           var footer = document.querySelector('.rep-footer');
           var paper = document.querySelector('.rep-paper, .paper') || document.body;
+          function ensureSealedContentBoundary() {
+            if (paper.querySelector('.rep-sealed-content')) return;
+            var wrapper = document.createElement('div');
+            wrapper.className = 'rep-sealed-content';
+            var excludedSelector = [
+              'style[data-formal-document-state-style]',
+              '.rep-attachment-approval-source',
+              '.rep-formal-content-seal-source',
+              '.rep-formal-approval-seal-source',
+              'script[data-attachment-approval-script]'
+            ].join(',');
+            Array.from(paper.childNodes).forEach(function (node) {
+              if (node.nodeType === 1 && node.matches(excludedSelector)) return;
+              wrapper.appendChild(node);
+            });
+            paper.appendChild(document.createComment('formal-content-seal:start'));
+            paper.appendChild(wrapper);
+            paper.appendChild(document.createComment('formal-content-seal:end'));
+          }
+          ensureSealedContentBoundary();
+          var initialSerializedHtml = document.documentElement ? document.documentElement.outerHTML : '';
           Array.from(document.querySelectorAll('.rep-meta div, .meta div')).forEach(function (row) {
             var text = String(row.textContent || '').replace(/\s+/g, ' ').trim();
             if (/^(計畫名稱|計畫編號|設計人員)\s*[—-]$/.test(text)) row.hidden = true;
@@ -423,6 +529,64 @@ function buildAttachmentApprovalReport(options = {}) {
             toolbar.insertBefore(label, toolbar.firstChild);
           }
           if (!checkbox) return;
+          function refreshIntegrityAlert() {
+            var contentFailed = document.body.dataset.contentIntegrity === 'failed';
+            var approvalFailed = document.body.dataset.approvalIntegrity === 'failed';
+            var alert = document.querySelector('.rep-content-integrity-alert');
+            if (contentFailed || approvalFailed) {
+              if (!alert) {
+                alert = document.createElement('div');
+                alert.className = 'rep-content-integrity-alert';
+                paper.insertBefore(alert, paper.firstChild);
+              }
+              alert.textContent = contentFailed
+                ? '內容完整性異常：本 HTML 的計算內容與下載時封印不一致，請勿作為正式附件。'
+                : '核可完整性異常：本 HTML 的核可狀態、時間或文件識別與下載時封印不一致，請勿作為正式附件。';
+            } else if (alert) alert.remove();
+          }
+          function setIntegrityStatus(kind, statusValue, message) {
+            document.body.dataset[kind === 'approval' ? 'approvalIntegrity' : 'contentIntegrity'] = statusValue;
+            var target = document.querySelector('.rep-content-integrity-status[data-integrity-kind="' + kind + '"]');
+            if (!target && toolbar) {
+              target = document.createElement('span');
+              target.className = 'rep-content-integrity-status';
+              target.dataset.integrityKind = kind;
+              toolbar.appendChild(target);
+            }
+            if (target) {
+              target.dataset.integrityStatus = statusValue;
+              target.textContent = message;
+            }
+            refreshIntegrityAlert();
+          }
+          function verifySavedContentSeal(serializedHtml) {
+            var expected = String(contentSealSource && contentSealSource.dataset.contentSha256 || '').trim().toLowerCase();
+            if (!expected) {
+              setIntegrityStatus('content', 'unsealed', '內容完整性：舊版未封印，作為正式附件前需複核');
+              return { status:'unsealed', expected:'', actual:'' };
+            }
+            var sealedContent = canonicalSealedContent(serializedHtml || initialSerializedHtml || (document.documentElement && document.documentElement.outerHTML));
+            var actual = sealedContent ? sha256Text(sealedContent) : '';
+            var pass = Boolean(actual) && actual === expected;
+            setIntegrityStatus('content', pass ? 'verified' : 'failed', pass
+              ? '內容完整性：已驗證（SHA-256 內容封印；非數位簽章）'
+              : '內容完整性：異常，計算內容已與下載時不同');
+            return { status:pass ? 'verified' : 'failed', expected:expected, actual:actual };
+          }
+          function verifySavedApprovalSeal(serializedHtml) {
+            var expected = String(approvalSealSource && approvalSealSource.dataset.approvalSha256 || '').trim().toLowerCase();
+            if (!expected) {
+              setIntegrityStatus('approval', 'unsealed', '核可完整性：舊版未封印，作為正式附件前需複核');
+              return { status:'unsealed', expected:'', actual:'' };
+            }
+            var payload = canonicalApprovalPayload(serializedHtml || initialSerializedHtml || (document.documentElement && document.documentElement.outerHTML));
+            var actual = payload ? sha256Text(payload) : '';
+            var pass = Boolean(actual) && actual === expected;
+            setIntegrityStatus('approval', pass ? 'verified' : 'failed', pass
+              ? '核可完整性：已驗證（SHA-256 核可封印；非數位簽章）'
+              : '核可完整性：異常，核可狀態或文件識別已與下載時不同');
+            return { status:pass ? 'verified' : 'failed', expected:expected, actual:actual };
+          }
           function serializeCurrentReportHtml() {
             var root = document.documentElement ? document.documentElement.cloneNode(true) : null;
             if (!root) return '';
@@ -436,6 +600,17 @@ function buildAttachmentApprovalReport(options = {}) {
             });
             var savedBody = root.querySelector('body');
             if (savedBody) savedBody.removeAttribute('data-document-class');
+            if (savedBody) savedBody.removeAttribute('data-content-integrity');
+            if (savedBody) savedBody.removeAttribute('data-approval-integrity');
+            root.querySelectorAll('.rep-content-integrity-status, .rep-content-integrity-alert').forEach(function (node) { node.remove(); });
+            var savedContentSealSource = root.querySelector('.rep-formal-content-seal-source');
+            var sealedContent = canonicalSealedContent(root.outerHTML);
+            if (!savedContentSealSource || !sealedContent) throw new Error('無法建立正式計算書內容封印');
+            savedContentSealSource.dataset.contentSha256 = sha256Text(sealedContent);
+            var savedApprovalSealSource = root.querySelector('.rep-formal-approval-seal-source');
+            var approvalPayload = canonicalApprovalPayload(root.outerHTML);
+            if (!savedApprovalSealSource || !approvalPayload) throw new Error('無法建立正式計算書核可封印');
+            savedApprovalSealSource.dataset.approvalSha256 = sha256Text(approvalPayload);
             return '<!doctype html>' + String.fromCharCode(10) + root.outerHTML;
           }
           function showDownloadStatus(message) {
@@ -459,7 +634,7 @@ function buildAttachmentApprovalReport(options = {}) {
             link.click();
             link.remove();
             setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-            showDownloadStatus('已下載' + documentLabel + ' HTML；檔案保留核可狀態、核可時間與計算指紋。');
+            showDownloadStatus('已下載' + documentLabel + ' HTML；檔案保留核可狀態、核可時間、計算指紋與獨立 SHA-256 內容／核可封印。');
           }
           window.serializeReportDocumentHtml = serializeCurrentReportHtml;
           window.downloadReportHtml = downloadCurrentReportHtml;
@@ -500,6 +675,10 @@ function buildAttachmentApprovalReport(options = {}) {
           }
           checkbox.addEventListener('change', updateStatus);
           updateStatus();
+          window.verifyReportContentSeal = verifySavedContentSeal;
+          window.verifyReportApprovalSeal = verifySavedApprovalSeal;
+          verifySavedContentSeal(initialSerializedHtml);
+          verifySavedApprovalSeal(initialSerializedHtml);
         }
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initAttachmentApproval, { once:true });
         else initAttachmentApproval();
@@ -852,11 +1031,13 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   <span class="rep-window-status" id="repWindowStatus" role="status" aria-live="polite"></span>
 </div>
 <div class="rep-paper">
+  ${documentStateHtml}
+  <!--formal-content-seal:start-->
+  <div class="rep-sealed-content">
   <div class="rep-header">
     <h1>${esc(cfg.title || '計算書')}</h1>
     ${cfg.subtitle?`<div class="sub">${esc(cfg.subtitle)}</div>`:''}
   </div>
-  ${documentStateHtml}
   <div class="rep-meta${sourceTrace.tool ? ' rep-meta--traceable' : ''}">
     ${proj.name ? `<div><b>計畫名稱</b>${esc(proj.name)}</div>` : ''}
     ${proj.no ? `<div><b>計畫編號</b>${esc(proj.no)}</div>` : ''}
@@ -878,6 +1059,8 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   </div>
 
   <div class="rep-footer"><span class="rep-footer-copyright">版權所有 弘一工程顧問有限公司</span></div>
+  </div>
+  <!--formal-content-seal:end-->
 </div>
 <script>
 function showReportWindowStatus(message) {
