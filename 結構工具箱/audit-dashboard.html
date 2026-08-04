@@ -2022,11 +2022,12 @@
       const actual = Number(payload.attachmentIntegrityActual || 0);
       const verified = Number(payload.attachmentIntegrityVerified || 0);
       const issues = Number(payload.attachmentIntegrityIssueCount || 0);
+      const privateDetails = payload.attachmentIntegrityDiagnostic === true;
       const pass = payload.attachmentIntegrityPass === true && required > 0 && actual === required && verified === required && issues === 0;
       setKpiValue('attachmentIntegrityStatus', pass ? '通過' : `異常 ${issues || 1} 項`, pass ? 'ok' : 'fail');
       setKpiValue('attachmentIntegrityCount', `${actual} / ${required}`, actual === required ? 'ok' : 'fail');
       setKpiValue('attachmentIntegrityVerified', `${verified} / ${required}`, verified === required ? 'ok' : 'fail');
-      setKpiValue('attachmentIntegrityHash', formatCommandHash(payload.attachmentIntegritySetSha256), pass ? 'ok' : 'warn');
+      setKpiValue('attachmentIntegrityHash', privateDetails ? formatCommandHash(payload.attachmentIntegritySetSha256) : '內部留存', privateDetails && pass ? 'ok' : 'warn');
       const releaseRunId = payload.renderedDeliveryEvidenceRunId || payload.runId || '-';
       const sourceHint = payload.attachmentIntegrityDiagnostic === true
         ? `本機失敗 release ${releaseRunId}；公開狀態仍保留 release ${payload.publicReleaseRunId || '-'}`
@@ -2048,13 +2049,12 @@
               <th>實際</th>
               <th>已驗證</th>
               <th>狀態</th>
-              <th>集合 hash</th>
-              <th>附件檔案與 SHA-256</th>
+              ${privateDetails ? '<th>集合 hash</th><th>附件檔案與 SHA-256</th>' : ''}
             </tr>
           </thead>
           <tbody>
             ${groups.map((group) => {
-              const artifacts = Array.isArray(group.artifacts) ? group.artifacts : [];
+              const artifacts = privateDetails && Array.isArray(group.artifacts) ? group.artifacts : [];
               const groupPass = group.pass === true
                 && Number(group.actual) === Number(group.expected)
                 && Number(group.verified) === Number(group.expected);
@@ -2084,8 +2084,7 @@
                   <td>${escapeHtml(`${group.actual ?? 0}`)}</td>
                   <td>${escapeHtml(`${group.verified ?? 0}`)}</td>
                   <td><span class="${groupPass ? 'history-pass' : 'history-fail'}">${groupPass ? '通過' : `異常 ${group.issueCount || 1} 項`}</span></td>
-                  <td><code>${escapeHtml(formatCommandHash(group.setSha256))}</code></td>
-                  <td><details><summary>${escapeHtml(`${artifacts.length} 份附件`)}</summary><ul>${artifactRows}</ul></details></td>
+                  ${privateDetails ? `<td><code>${escapeHtml(formatCommandHash(group.setSha256))}</code></td><td><details><summary>${escapeHtml(`${artifacts.length} 份附件`)}</summary><ul>${artifactRows}</ul></details></td>` : ''}
                 </tr>
               `;
             }).join('')}

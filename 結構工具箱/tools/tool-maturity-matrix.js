@@ -2210,7 +2210,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     ...(deckingResultReconciliationDeclared ? [`覆工板正式計算書結果鏈：來源 JSON ${deckingResultReconciliationComplete} / ${deckingResultReconciliationRequired} 已由目前頁面核心重算 31 項控制結果，再核對 DOCX 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊。`] : []),
     ...(excavationResultReconciliationDeclared ? [`開挖擋土支撐正式計算書結果鏈：ProjectState ${excavationResultReconciliationComplete} / ${excavationResultReconciliationRequired} 已由目前後端核心重算 47 項構件檢核，再核對 PDF、DOCX 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開 ProjectState、輸入／結果資料、計算指紋或成品雜湊。`] : []),
     ...(localQuickResultReconciliationDeclared ? [`局部快算計算書結果鏈：基礎、設備荷重與擋土土壓共 ${localQuickResultReconciliationComplete} / ${localQuickResultReconciliationRequired} 組來源 JSON 已完成全輸入與全結果逐值重播，再核對 PDF 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊。`] : []),
-    ...(attachmentIntegrityDeclared ? [`RC 正式附件 HTML 完整性：預期 ${attachmentIntegrityRequired} 份、實際 ${attachmentIntegrityActual} 份、已驗證 ${attachmentIntegrityVerified} 份；集合 SHA-256 ${String(attachmentIntegrity.setSha256 || '').slice(0, 12)}。本項是放行證據，不會寫入計算書、列印或 PDF。`] : []),
+    ...(attachmentIntegrityDeclared ? [`RC 正式附件 HTML 完整性：預期 ${attachmentIntegrityRequired} 份、實際 ${attachmentIntegrityActual} 份、已驗證 ${attachmentIntegrityVerified} 份。公開狀態只提供各工具類別、數量與通過狀態；集合與逐檔完整性證據僅留在內部 release 證據。本項不會寫入計算書、列印或 PDF。`] : []),
     `可讀文字抽檢範圍：${reportTextSmokeEvidence.scope}`,
     '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。',
     '正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。'
@@ -2387,13 +2387,11 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       supplementalDeliveryEvidenceSummary: `補充報告 / 服務實際交付物渲染：${supplementalDeliveryComplete} / ${supplementalDeliveryRequired}。`,
     } : {}),
     ...(attachmentIntegrityDeclared ? {
-      attachmentIntegrityScope: String(attachmentIntegrity.scope || ''),
       attachmentIntegrityRequired,
       attachmentIntegrityActual,
       attachmentIntegrityVerified,
       attachmentIntegrityIssueCount,
       attachmentIntegrityPass: attachmentIntegrity.pass === true,
-      attachmentIntegritySetSha256: String(attachmentIntegrity.setSha256 || ''),
       attachmentIntegrityGroups: Array.isArray(attachmentIntegrity.groups)
         ? attachmentIntegrity.groups.map(group => ({
           href: String(group.href || ''),
@@ -2404,14 +2402,6 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
           verified: compactNumber(group.verified),
           issueCount: compactNumber(group.issueCount),
           pass: group.pass === true,
-          setSha256: String(group.setSha256 || ''),
-          artifacts: Array.isArray(group.artifacts)
-            ? group.artifacts.map((artifact, index) => ({
-              ordinal: index + 1,
-              bytes: compactNumber(artifact.bytes),
-              sha256: String(artifact.sha256 || ''),
-            }))
-            : [],
         }))
         : [],
     } : {}),
@@ -2790,13 +2780,13 @@ function checkMatrix(payload, markdown, options = {}) {
     }
   }
   if (Number.isInteger(homepageReportReadinessStatus.attachmentIntegrityRequired)) {
-    assert.equal(homepageReportReadinessStatus.attachmentIntegrityScope, 'rc-formal-html', 'homepage report readiness attachment integrity scope');
     assert.ok([32, 33, 34].includes(homepageReportReadinessStatus.attachmentIntegrityRequired), 'homepage report readiness expects a supported RC HTML attachment transition count');
     assert.equal(homepageReportReadinessStatus.attachmentIntegrityActual, homepageReportReadinessStatus.attachmentIntegrityRequired, 'homepage report readiness keeps every RC HTML attachment');
     assert.equal(homepageReportReadinessStatus.attachmentIntegrityVerified, homepageReportReadinessStatus.attachmentIntegrityRequired, 'homepage report readiness verifies every RC HTML attachment');
     assert.equal(homepageReportReadinessStatus.attachmentIntegrityIssueCount, 0, 'homepage report readiness attachment integrity issues empty');
     assert.equal(homepageReportReadinessStatus.attachmentIntegrityPass, true, 'homepage report readiness attachment integrity passes');
-    assert.match(homepageReportReadinessStatus.attachmentIntegritySetSha256, /^[0-9a-f]{64}$/i, 'homepage report readiness attachment integrity set hash');
+    assert.equal(Object.prototype.hasOwnProperty.call(homepageReportReadinessStatus, 'attachmentIntegrityScope'), false, 'homepage report readiness omits private attachment integrity scope');
+    assert.equal(Object.prototype.hasOwnProperty.call(homepageReportReadinessStatus, 'attachmentIntegritySetSha256'), false, 'homepage report readiness omits private attachment integrity set hash');
     assert.equal(Array.isArray(homepageReportReadinessStatus.attachmentIntegrityGroups), true, 'homepage report readiness attachment integrity groups array');
     assert.equal(homepageReportReadinessStatus.attachmentIntegrityGroups.length, 8, 'homepage report readiness exposes eight RC attachment integrity groups');
     assert.equal(homepageReportReadinessStatus.attachmentIntegrityGroups.reduce((sum, group) => sum + group.expected, 0), homepageReportReadinessStatus.attachmentIntegrityRequired, 'homepage report readiness attachment group expectations match the required total');
@@ -2805,15 +2795,8 @@ function checkMatrix(payload, markdown, options = {}) {
       assert.equal(group.verified, group.expected, `homepage report readiness attachment verification matches: ${group.title}`);
       assert.equal(group.issueCount, 0, `homepage report readiness attachment issues empty: ${group.title}`);
       assert.equal(group.pass, true, `homepage report readiness attachment group passes: ${group.title}`);
-      assert.match(group.setSha256, /^[0-9a-f]{64}$/i, `homepage report readiness attachment group set hash: ${group.title}`);
-      assert.equal(Array.isArray(group.artifacts), true, `homepage report readiness attachment artifacts array: ${group.title}`);
-      assert.equal(group.artifacts.length, group.expected, `homepage report readiness attachment artifacts count: ${group.title}`);
-      for (const artifact of group.artifacts) {
-        assert.equal(Object.prototype.hasOwnProperty.call(artifact, 'name'), false, `homepage report readiness does not expose attachment filename: ${group.title}`);
-        assert.ok(Number.isInteger(artifact.ordinal) && artifact.ordinal > 0, `homepage report readiness attachment artifact ordinal: ${group.title}`);
-        assert.ok(artifact.bytes > 0, `homepage report readiness attachment artifact bytes: ${group.title} #${artifact.ordinal}`);
-        assert.match(artifact.sha256, /^[0-9a-f]{64}$/i, `homepage report readiness attachment artifact hash: ${group.title} #${artifact.ordinal}`);
-      }
+      assert.equal(Object.prototype.hasOwnProperty.call(group, 'setSha256'), false, `homepage report readiness omits attachment group set hash: ${group.title}`);
+      assert.equal(Object.prototype.hasOwnProperty.call(group, 'artifacts'), false, `homepage report readiness omits attachment artifact list: ${group.title}`);
     }
     assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('RC 正式附件 HTML 完整性'), 'homepage report readiness details include RC HTML attachment integrity');
   }

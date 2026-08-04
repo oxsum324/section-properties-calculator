@@ -75,6 +75,11 @@ const fixtureAttachmentGroups = fixtureAttachmentCounts.map(([href, title, famil
     sha256: `${(groupIndex + artifactIndex + 1) % 10}`.repeat(64),
   })),
 }));
+const fixtureAttachmentPublicGroups = fixtureAttachmentGroups.map(({
+  setSha256,
+  artifacts,
+  ...group
+}) => group);
 const fixtureAttachmentStatus = {
   snapshotVersion: 1,
   kind: 'report-readiness-status',
@@ -83,14 +88,12 @@ const fixtureAttachmentStatus = {
   pass: true,
   failureCount: 0,
   renderedDeliveryEvidenceRunId: 'fixture-release',
-  attachmentIntegrityScope: 'rc-formal-html',
   attachmentIntegrityRequired: 34,
   attachmentIntegrityActual: 34,
   attachmentIntegrityVerified: 34,
   attachmentIntegrityIssueCount: 0,
   attachmentIntegrityPass: true,
-  attachmentIntegritySetSha256: 'a'.repeat(64),
-  attachmentIntegrityGroups: fixtureAttachmentGroups,
+  attachmentIntegrityGroups: fixtureAttachmentPublicGroups,
 };
 const fixtureAttachmentFailureGroups = fixtureAttachmentGroups.map((group) => {
   const artifacts = group.artifacts.map(artifact => ({ ...artifact }));
@@ -121,6 +124,7 @@ const fixtureAttachmentFailureDiagnostic = {
   attachmentIntegrityVerified: 32,
   attachmentIntegrityIssueCount: 2,
   attachmentIntegrityPass: false,
+  attachmentIntegrityScope: 'rc-formal-html',
   attachmentIntegritySetSha256: 'b'.repeat(64),
   attachmentIntegrityGroups: fixtureAttachmentFailureGroups,
 };
@@ -130,6 +134,9 @@ const fixtureAttachmentDiagnostic = {
   attachmentIntegrityDiagnostic: true,
   runId: 'fixture-release',
   renderedDeliveryEvidenceRunId: 'fixture-release',
+  attachmentIntegrityScope: 'rc-formal-html',
+  attachmentIntegritySetSha256: 'a'.repeat(64),
+  attachmentIntegrityGroups: fixtureAttachmentGroups,
 };
 const fixtureAttachmentClosureFailureDiagnostic = {
   ...fixtureAttachmentFailureDiagnostic,
@@ -1528,7 +1535,7 @@ function assertDashboardLiveState(state, label, expected) {
   assert.equal(state.attachmentIntegrityStatus, attachmentStatus.attachmentIntegrityPass ? '通過' : `異常 ${attachmentStatus.attachmentIntegrityIssueCount || 1} 項`, `${label} live attachment integrity status`);
   assert.equal(state.attachmentIntegrityCount, `${attachmentStatus.attachmentIntegrityActual} / ${attachmentStatus.attachmentIntegrityRequired}`, `${label} live attachment integrity count`);
   assert.equal(state.attachmentIntegrityVerified, `${attachmentStatus.attachmentIntegrityVerified} / ${attachmentStatus.attachmentIntegrityRequired}`, `${label} live attachment integrity verified count`);
-  assert.equal(state.attachmentIntegrityHash, String(attachmentStatus.attachmentIntegritySetSha256 || '').slice(0, 12), `${label} live attachment integrity set hash`);
+  assert.equal(state.attachmentIntegrityHash, '內部留存', `${label} live attachment integrity keeps set hash private`);
   assert.ok(state.attachmentIntegrityStatusHint.includes(`release ${attachmentStatus.renderedDeliveryEvidenceRunId || attachmentStatus.runId}`), `${label} live attachment integrity release trace`);
   assert.equal(state.attachmentIntegrityGroups.length, attachmentStatus.attachmentIntegrityGroups.length, `${label} live attachment integrity group count`);
   for (const group of attachmentStatus.attachmentIntegrityGroups) {
@@ -1539,11 +1546,11 @@ function assertDashboardLiveState(state, label, expected) {
     assert.equal(rendered.actual, String(group.actual), `${label} live attachment integrity actual: ${group.title}`);
     assert.equal(rendered.verified, String(group.verified), `${label} live attachment integrity verified: ${group.title}`);
     assert.equal(rendered.status, group.pass ? '通過' : `異常 ${group.issueCount || 1} 項`, `${label} live attachment integrity group status: ${group.title}`);
-    assert.equal(rendered.setHash, String(group.setSha256 || '').slice(0, 12), `${label} live attachment integrity group hash: ${group.title}`);
-    assert.equal(rendered.artifactCount, group.artifacts.length, `${label} live attachment integrity artifact count: ${group.title}`);
-    assert.deepEqual(rendered.artifactHashes, group.artifacts.map(artifact => String(artifact.sha256 || '').slice(0, 12)), `${label} live attachment integrity artifact hashes: ${group.title}`);
-    assert.deepEqual(rendered.artifactStatuses, group.artifacts.map(() => ({ code: 'verified', label: '已驗證', failed: false })), `${label} live attachment integrity artifact statuses: ${group.title}`);
-    assert.deepEqual(rendered.artifactActions, group.artifacts.map(() => ''), `${label} live passed attachments do not show remediation actions: ${group.title}`);
+    assert.equal(rendered.setHash, '', `${label} live attachment integrity omits group hash: ${group.title}`);
+    assert.equal(rendered.artifactCount, 0, `${label} live attachment integrity omits artifact list: ${group.title}`);
+    assert.deepEqual(rendered.artifactHashes, [], `${label} live attachment integrity omits artifact hashes: ${group.title}`);
+    assert.deepEqual(rendered.artifactStatuses, [], `${label} live attachment integrity omits artifact statuses: ${group.title}`);
+    assert.deepEqual(rendered.artifactActions, [], `${label} live attachment integrity omits artifact actions: ${group.title}`);
   }
   assert.ok(state.maturityPreflightHint.includes(`runId ${summary.runId}`), `${label} live maturity hint runId: ${state.maturityPreflightHint}`);
   assert.ok(state.maturityPreflightHint.includes(`通過 ${summary.passedCount} / ${summary.recordsCount}`), `${label} live maturity hint pass count: ${state.maturityPreflightHint}`);
@@ -1712,7 +1719,7 @@ function assertDashboardState(state, label, expectedLive = null) {
   assert.equal(state.attachmentIntegrityCountFail, false, `${label} attachment integrity count is not failed`);
   assert.equal(state.attachmentIntegrityVerified, '34 / 34', `${label} attachment integrity verified count`);
   assert.equal(state.attachmentIntegrityVerifiedFail, false, `${label} attachment integrity verified count is not failed`);
-  assert.equal(state.attachmentIntegrityHash, 'aaaaaaaaaaaa', `${label} attachment integrity set hash`);
+  assert.equal(state.attachmentIntegrityHash, '內部留存', `${label} public attachment integrity set hash is private`);
   assert.ok(state.attachmentIntegrityStatusHint.includes('release fixture-release'), `${label} attachment integrity release trace`);
   assert.equal(state.attachmentRemediationVisible, false, `${label} passed/public attachment state hides local remediation copy`);
   assert.equal(state.attachmentRemediationButtonDisabled, true, `${label} passed/public remediation copy is disabled`);
@@ -1732,7 +1739,7 @@ function assertDashboardState(state, label, expectedLive = null) {
   assert.ok(state.attachmentClosures[0].text.includes('附件 34 / 34、已驗證 34 / 34、問題 0 項'), `${label} closure record includes resolution evidence`);
   assert.equal(state.attachmentClosurePrintVisible, false, `${label} closure governance is excluded from print media`);
   assert.equal(state.attachmentIntegrityGroups.length, 8, `${label} attachment integrity group count`);
-  for (const group of fixtureAttachmentGroups) {
+  for (const group of fixtureAttachmentPublicGroups) {
     const rendered = state.attachmentIntegrityGroups.find(item => item.title === group.title);
     assert.ok(rendered, `${label} attachment integrity group rendered: ${group.title}`);
     assert.equal(rendered.family, group.family, `${label} attachment integrity family: ${group.title}`);
@@ -1741,11 +1748,11 @@ function assertDashboardState(state, label, expectedLive = null) {
     assert.equal(rendered.verified, String(group.verified), `${label} attachment integrity verified: ${group.title}`);
     assert.equal(rendered.status, '通過', `${label} attachment integrity group status: ${group.title}`);
     assert.equal(rendered.failed, false, `${label} attachment integrity group is not failed: ${group.title}`);
-    assert.equal(rendered.setHash, String(group.setSha256).slice(0, 12), `${label} attachment integrity group hash: ${group.title}`);
-    assert.equal(rendered.artifactCount, group.artifacts.length, `${label} attachment integrity artifact count: ${group.title}`);
-    assert.deepEqual(rendered.artifactHashes, group.artifacts.map(artifact => artifact.sha256.slice(0, 12)), `${label} attachment integrity artifact hashes: ${group.title}`);
-    assert.deepEqual(rendered.artifactStatuses, group.artifacts.map(() => ({ code: 'verified', label: '已驗證', failed: false })), `${label} attachment integrity artifact statuses: ${group.title}`);
-    assert.deepEqual(rendered.artifactActions, group.artifacts.map(() => ''), `${label} passed attachments do not show remediation actions: ${group.title}`);
+    assert.equal(rendered.setHash, '', `${label} public attachment integrity omits group hash: ${group.title}`);
+    assert.equal(rendered.artifactCount, 0, `${label} public attachment integrity omits artifact list: ${group.title}`);
+    assert.deepEqual(rendered.artifactHashes, [], `${label} public attachment integrity omits artifact hashes: ${group.title}`);
+    assert.deepEqual(rendered.artifactStatuses, [], `${label} public attachment integrity omits artifact statuses: ${group.title}`);
+    assert.deepEqual(rendered.artifactActions, [], `${label} public attachment integrity omits artifact actions: ${group.title}`);
     assert.equal(rendered.sourceToolHref, '', `${label} passed/public attachment does not show source tool shortcut: ${group.title}`);
     assert.equal(rendered.sourceToolRoute, '', `${label} passed/public attachment does not retain source route control: ${group.title}`);
   }
