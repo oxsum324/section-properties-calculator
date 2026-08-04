@@ -5,6 +5,7 @@ const path = require('path');
 const toolsDir = __dirname;
 const visualPath = path.join(toolsDir, 'retrofit-report-visual.test.js');
 const portableHtmlPath = path.join(toolsDir, 'report-portable-html-check.js');
+const sharedReportPath = path.join(toolsDir, '..', 'shared', 'report.js');
 const wrapperPath = path.join(toolsDir, 'test-retrofit-report.ps1');
 
 function read(file) {
@@ -18,6 +19,7 @@ function assertIncludes(text, needle, label) {
 
 const visual = read(visualPath);
 const portableHtml = read(portableHtmlPath);
+const sharedReport = read(sharedReportPath);
 const wrapper = read(wrapperPath);
 
 [
@@ -54,6 +56,17 @@ const wrapper = read(wrapperPath);
   'downloadedFileName',
   'attachment checker reads one static formal state line',
   'saved HTML excludes transient controls',
+  'renderStandaloneFormalHtmlPdf',
+  'standalone HTML keeps screen controls out of print media',
+  'standalone HTML reopens without external network requests',
+  "'standaloneFormalHtmlPrintPdf'",
+  "contentBoundaryProfile: 'traceable-calculation-book'",
 ].forEach(needle => assertIncludes(portableHtml, needle, 'RC portable formal HTML gate'));
+
+[
+  '.rep-steps-wrap > .rep-step:last-of-type',
+  '.rep-summary { break-before:avoid-page',
+  'page-break-after:avoid',
+].forEach(needle => assertIncludes(sharedReport, needle, 'RC formal report closing-page print boundary'));
 
 console.log('RC retrofit report visual contract OK');

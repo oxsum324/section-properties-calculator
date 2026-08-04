@@ -579,6 +579,12 @@ async function main() {
   assert.equal(reportReadinessStatus.rcSourceReportPackagePass, true, 'report readiness RC source/report package checks pass');
   assert.equal(reportReadinessJson.includes('"rcSourceReportPackage":'), false, 'report readiness omits the private RC source/report package aggregate');
   assert.equal(/rc-real-source-json-to-formal-html-package-check|fingerprintLinkCount|"fingerprint"/.test(reportReadinessJson), false, 'report readiness omits private RC source/report package scope and fingerprints');
+  assert.equal(reportReadinessStatus.rcStandaloneFormalHtmlPrintRequired, 34, 'report readiness expects 34 RC standalone formal HTML print checks');
+  assert.equal(reportReadinessStatus.rcStandaloneFormalHtmlPrintComplete, reportReadinessStatus.rcStandaloneFormalHtmlPrintRequired, 'report readiness completes every RC standalone formal HTML print check');
+  assert.equal(reportReadinessStatus.rcStandaloneFormalHtmlPrintIssueCount, 0, 'report readiness RC standalone formal HTML print issues empty');
+  assert.equal(reportReadinessStatus.rcStandaloneFormalHtmlPrintPass, true, 'report readiness RC standalone formal HTML print checks pass');
+  assert.equal(reportReadinessJson.includes('"rcStandaloneFormalHtmlPrint":'), false, 'report readiness omits the private RC standalone formal HTML print aggregate');
+  assert.equal(/rc-approved-standalone-html-to-validated-pdf|externalRequestCount|standalonePrintArtifacts/.test(reportReadinessJson), false, 'report readiness omits private RC standalone formal HTML print scope and artifact details');
   assert.equal(reportReadinessStatus.steelResultReconciliationRequired, 5, 'report readiness expects 5 steel result reconciliations');
   assert.equal(reportReadinessStatus.steelResultReconciliationComplete, reportReadinessStatus.steelResultReconciliationRequired, 'report readiness completes every steel result reconciliation');
   assert.equal(reportReadinessStatus.steelResultReconciliationIssueCount, 0, 'report readiness steel result reconciliation issues empty');

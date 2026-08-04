@@ -1,8 +1,97 @@
 const AttachmentPackageChecker = require('../../結構工具箱/tools/attachment-package-check');
 const { describeHtmlArtifact } = require('../../dev_tools/html-attachment-integrity');
+const { assertReportPdfTextQuality, captureArtifactIntegrity } = require('./report-screenshot-quality');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+
+async function renderStandaloneFormalHtmlPdf(report, approvedHtml, summary, label, assert, outputDir) {
+  const standalonePage = await report.context().browser().newPage({ viewport: { width: 980, height: 1200 } });
+  const externalRequests = [];
+  standalonePage.on('request', request => {
+    if (/^https?:/i.test(request.url())) externalRequests.push(request.url());
+  });
+  const artifact = summary.downloadedFileName.replace(/\.html$/i, '_獨立列印.pdf');
+  const artifactPath = path.join(outputDir, artifact);
+  try {
+    await standalonePage.setContent(approvedHtml, { waitUntil: 'load' });
+    await standalonePage.emulateMedia({ media: 'print' });
+    const reopened = await standalonePage.evaluate(() => {
+      const statusLines = [...document.querySelectorAll('.rep-document-status-line')];
+      const transientControls = [...document.querySelectorAll('.rep-approval-control, .rep-download-control')];
+      const visibleText = document.body?.innerText || '';
+      return {
+        title: document.title || '',
+        paperCount: document.querySelectorAll('.rep-paper').length,
+        statusCount: statusLines.length,
+        visibleStatusCount: statusLines.filter(node => node.getClientRects().length > 0).length,
+        documentClass: statusLines[0]?.dataset.documentClass || '',
+        approved: statusLines[0]?.dataset.approved || '',
+        approvedAt: statusLines[0]?.dataset.approvedAt || '',
+        transientControlCount: transientControls.length,
+        visibleTransientControlCount: transientControls.filter(node => node.getClientRects().length > 0).length,
+        visibleText,
+      };
+    });
+    const reopenedDetail = JSON.stringify({
+      ...reopened,
+      visibleText: undefined,
+      externalRequestCount: externalRequests.length,
+    });
+    assert(reopened.title === summary.approvedDocumentTitle, `${label} standalone HTML reopens with the approved title`, reopenedDetail);
+    assert(reopened.paperCount === 1, `${label} standalone HTML reopens one calculation-book paper`, reopenedDetail);
+    assert(
+      reopened.statusCount === 1
+        && reopened.visibleStatusCount === 1
+        && reopened.documentClass === 'formal-attachment'
+        && reopened.approved === 'true'
+        && Number.isFinite(Date.parse(reopened.approvedAt)),
+      `${label} standalone HTML reopens with one visible formal approval state`,
+      reopenedDetail,
+    );
+    assert(
+      reopened.transientControlCount >= 1 && reopened.visibleTransientControlCount === 0,
+      `${label} standalone HTML keeps screen controls out of print media`,
+      reopenedDetail,
+    );
+    assert(
+      reopened.visibleText.includes(summary.reportTitle)
+        && reopened.visibleText.includes('文件狀態：正式附件')
+        && reopened.visibleText.includes(summary.calculationFingerprint),
+      `${label} standalone HTML keeps the report title, formal state and fingerprint visible`,
+      reopenedDetail,
+    );
+    assert(externalRequests.length === 0, `${label} standalone HTML reopens without external network requests`, externalRequests.join(' | '));
+
+    await standalonePage.pdf({
+      path: artifactPath,
+      format: 'A4',
+      printBackground: true,
+      preferCSSPageSize: true,
+    });
+  } finally {
+    await standalonePage.close();
+  }
+
+  const pdfQuality = assertReportPdfTextQuality(artifactPath, `${label} standalone approved HTML`, {
+    assert,
+    minPages: 1,
+    minTextLength: 500,
+    include: ['文件狀態：正式附件', summary.calculationFingerprint],
+    contentBoundaryProfile: 'traceable-calculation-book',
+  });
+  const integrity = captureArtifactIntegrity(artifactPath, 'standaloneFormalHtmlPrintPdf');
+  return {
+    status: 'ready',
+    artifact: integrity.name,
+    artifactBytes: integrity.bytes,
+    artifactSha256: integrity.sha256,
+    pageCount: Number(pdfQuality?.pages || 0),
+    textLength: Number(pdfQuality?.textLength || 0),
+    calculationFingerprint: summary.calculationFingerprint,
+    externalRequestCount: externalRequests.length,
+  };
+}
 
 function assertSourceReportPackagePair(sourceSnapshot, approvedHtml, label, assert) {
   const pairDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rc-source-report-pair-'));
@@ -157,18 +246,27 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
 
   let htmlArtifact = '';
   let htmlArtifactManifest = {};
+  let standalonePrint = null;
   if (options.outputDir) {
     fs.mkdirSync(options.outputDir, { recursive: true });
     htmlArtifact = state.downloadedFileName;
     htmlArtifactManifest = describeHtmlArtifact(htmlArtifact, state.approvedHtml);
     fs.writeFileSync(path.join(options.outputDir, htmlArtifact), state.approvedHtml, 'utf8');
+    standalonePrint = await renderStandaloneFormalHtmlPdf(
+      report,
+      state.approvedHtml,
+      summary,
+      label,
+      assert,
+      options.outputDir,
+    );
   }
 
   const sourceReportPackage = options.sourceSnapshot
     ? assertSourceReportPackagePair(options.sourceSnapshot, state.approvedHtml, label, assert)
     : null;
 
-  return { ...summary, htmlArtifact, ...htmlArtifactManifest, sourceReportPackage };
+  return { ...summary, htmlArtifact, ...htmlArtifactManifest, standalonePrint, sourceReportPackage };
 }
 
-module.exports = { assertPortableFormalHtml, assertSourceReportPackagePair };
+module.exports = { assertPortableFormalHtml, assertSourceReportPackagePair, renderStandaloneFormalHtmlPdf };

@@ -165,7 +165,7 @@
       '/rc-shear-wall': '2026-08-04',
       '/rc-foundation': '2026-08-04',
       '/rc-pile': '2026-08-04',
-      '/rc-retrofit-section': '2026-08-03',
+      '/rc-retrofit-section': '2026-08-04',
       '/steel-formal': '2026-07-21',
       '/steel-beam-formal': '2026-08-02',
       '/steel-column-formal': '2026-08-02',
@@ -1285,6 +1285,9 @@
         : null,
       Number.isInteger(payload.rcSourceReportPackageRequired) && payload.rcSourceReportPackageRequired > 0
         ? ratio('RC 來源組包', payload.rcSourceReportPackageComplete, payload.rcSourceReportPackageRequired, payload.rcSourceReportPackageIssueCount)
+        : null,
+      Number.isInteger(payload.rcStandaloneFormalHtmlPrintRequired) && payload.rcStandaloneFormalHtmlPrintRequired > 0
+        ? ratio('RC 核可 HTML 列印', payload.rcStandaloneFormalHtmlPrintComplete, payload.rcStandaloneFormalHtmlPrintRequired, payload.rcStandaloneFormalHtmlPrintIssueCount)
         : null,
       Number.isInteger(payload.steelResultReconciliationRequired) && payload.steelResultReconciliationRequired > 0
         ? ratio('鋼構結果鏈', payload.steelResultReconciliationComplete, payload.steelResultReconciliationRequired, payload.steelResultReconciliationIssueCount)

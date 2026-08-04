@@ -45,6 +45,7 @@ const steelBrowserRunner = readText('鋼構工具/steel-audit-browser-runner.js'
 const steelResultReconciliationHelper = readText('鋼構工具/steel-result-reconciliation.js');
 const rcAudit = readText('鋼筋混凝土/audit-tool.ps1');
 const rcResultReconciliationHelper = readText('鋼筋混凝土/tools/report-result-reconciliation.js');
+const rcPortableHtmlHelper = readText('鋼筋混凝土/tools/report-portable-html-check.js');
 const rcReportVisualSources = [
   'beam', 'column', 'slab', 'wall', 'shear-wall', 'foundation', 'single-pile', 'retrofit',
 ].map(name => ({ name, source: readText(`鋼筋混凝土/tools/${name}-report-visual.test.js`) }));
@@ -168,6 +169,12 @@ for (const { name, source } of rcReportVisualSources) {
   assertIncludes(source, 'buildRcResultReconciliation', `RC ${name} report visual smoke builds result reconciliation`);
   assertIncludes(source, 'resultReconciliation', `RC ${name} report visual audit records result reconciliation`);
 }
+[
+  'renderStandaloneFormalHtmlPdf',
+  'standalone HTML keeps screen controls out of print media',
+  'standalone HTML reopens without external network requests',
+  "'standaloneFormalHtmlPrintPdf'",
+].forEach(needle => assertIncludes(rcPortableHtmlHelper, needle, `RC portable formal HTML helper preserves ${needle}`));
 
 [
   'steel-source-replay-to-report-fingerprint',
@@ -202,7 +209,7 @@ for (const { name, source } of rcReportVisualSources) {
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 15',
+  'schemaVersion: 16',
   'canonicalArtifactIntegrity',
   "scope: 'canonical-rendered-pdf-evidence'",
   'required: 60',
@@ -218,6 +225,9 @@ for (const { name, source } of rcReportVisualSources) {
   "scope: 'rc-real-source-json-to-formal-html-package-check'",
   'required: 32',
   'rcSourceReportPackage=',
+  'rcStandaloneFormalHtmlPrint',
+  "scope: 'rc-approved-standalone-html-to-validated-pdf'",
+  'rcStandaloneFormalHtmlPrint=',
   'steelResultReconciliation',
   "scope: 'steel-source-replay-to-report-fingerprint'",
   'required: 5',
@@ -264,6 +274,7 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'resultReconciliationDeclared',
   'rcResultReconciliationDeclared',
   'rcSourceReportPackageDeclared',
+  'rcStandaloneFormalHtmlPrintDeclared',
   'steelResultReconciliationDeclared',
   'stoneResultReconciliationDeclared',
   'anchorResultReconciliationDeclared',
@@ -278,6 +289,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'expandedRcResultReconciliationDeclared ? 32 : 30',
   "evidence.rcSourceReportPackage?.scope === 'rc-real-source-json-to-formal-html-package-check'",
   'evidence.rcSourceReportPackage.required === 32',
+  "evidence.rcStandaloneFormalHtmlPrint?.scope === 'rc-approved-standalone-html-to-validated-pdf'",
+  'evidence.rcStandaloneFormalHtmlPrint.required === 34',
   "evidence.steelResultReconciliation?.scope === 'steel-source-replay-to-report-fingerprint'",
   'evidence.steelResultReconciliation.required === 5',
   "evidence.stoneResultReconciliation?.scope === 'stone-golden-replay-to-pdf-docx-hash'",
@@ -309,6 +322,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'RC 正式計算書結果鏈',
   'rcSourceReportPackageRequired',
   'RC 來源／正式 HTML 組包',
+  'rcStandaloneFormalHtmlPrintRequired',
+  'RC 核可 HTML 獨立列印',
   'steelResultReconciliationRequired',
   '鋼構正式計算書結果鏈',
   'stoneResultReconciliationRequired',
@@ -411,6 +426,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
 ].forEach(([label, source]) => {
   assertIncludes(source, 'Schema v15', `${label} documents RC source/report package release evidence schema`);
   assertIncludes(source, '32/32', `${label} documents RC source/report package required count`);
+  assertIncludes(source, 'Schema v16', `${label} documents RC standalone formal HTML print release evidence schema`);
+  assertIncludes(source, '核可 HTML', `${label} documents RC standalone formal HTML print scope`);
 });
 
 if (failed) {

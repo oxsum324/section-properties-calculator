@@ -618,6 +618,12 @@ if (Number.isInteger(reportReadinessStatusSnapshot.rcSourceReportPackageRequired
   assert.equal(reportReadinessStatusSnapshot.rcSourceReportPackageIssueCount, 0, 'tracked report readiness snapshot RC source/report package issues empty');
   assert.equal(reportReadinessStatusSnapshot.rcSourceReportPackagePass, true, 'tracked report readiness snapshot RC source/report package checks pass');
 }
+if (Number.isInteger(reportReadinessStatusSnapshot.rcStandaloneFormalHtmlPrintRequired)) {
+  assert.equal(reportReadinessStatusSnapshot.rcStandaloneFormalHtmlPrintRequired, 34, 'tracked report readiness snapshot expects 34 RC standalone formal HTML print checks');
+  assert.equal(reportReadinessStatusSnapshot.rcStandaloneFormalHtmlPrintComplete, reportReadinessStatusSnapshot.rcStandaloneFormalHtmlPrintRequired, 'tracked report readiness snapshot completes every RC standalone formal HTML print check');
+  assert.equal(reportReadinessStatusSnapshot.rcStandaloneFormalHtmlPrintIssueCount, 0, 'tracked report readiness snapshot RC standalone formal HTML print issues empty');
+  assert.equal(reportReadinessStatusSnapshot.rcStandaloneFormalHtmlPrintPass, true, 'tracked report readiness snapshot RC standalone formal HTML print checks pass');
+}
 if (Number.isInteger(reportReadinessStatusSnapshot.steelResultReconciliationRequired)) {
   assert.equal(reportReadinessStatusSnapshot.steelResultReconciliationRequired, 5, 'tracked report readiness snapshot expects 5 steel result reconciliations');
   assert.equal(reportReadinessStatusSnapshot.steelResultReconciliationComplete, reportReadinessStatusSnapshot.steelResultReconciliationRequired, 'tracked report readiness snapshot completes every steel result reconciliation');

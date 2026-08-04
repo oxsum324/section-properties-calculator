@@ -132,6 +132,8 @@ Schema v14 再把群樁 X／Y 向側向荷重分配納入結果鏈：aggregate �
 
 Schema v15 再把 RC 真實來源 JSON／核可後正式 HTML 組包提升為 release aggregate 閘門：梁、柱、板、牆、剪力牆、基礎與單樁共 32 組專案重播案例，均須由 producer 保存附件檢查器 `ready`、唯一指紋連結及與重算結果相同的計算指紋；缺件、blocked、多重連結或指紋分離皆不得正式放行。補強兩案採表單重播而非專案 JSON，不得偽造來源組包證據。私人 aggregate 保存案例身分與集合 SHA-256；Pages 只可公開「RC 來源／正式 HTML 組包」required／complete／issue／pass，不得公開 scope、records、案例、檔名、工具版本、來源雜湊或計算指紋。
 
+Schema v16 再把 RC 核可 HTML 的獨立可列印性提升為 release aggregate 閘門：設計與補強共 34 份下載後 HTML，必須在新的瀏覽器頁面、零外部網路請求下重新開啟；螢幕可恢復核可／下載控制項，但 print media 中控制項必須完全不可見。每份 HTML 都須重新列印成 PDF，通過正式附件狀態、計算指紋、正向工程內容、頁面專用文字排除及共同分頁檢查，並由 producer 與 aggregate 雙重核對 bytes／SHA-256；缺件、網路依賴、指紋分離、排版或內容失敗皆不得正式放行。私人 aggregate 保存案例、PDF 清冊與集合 SHA-256；Pages 只可公開「RC 核可 HTML 獨立列印」required／complete／issue／pass，不得公開 scope、records、案例、檔名、bytes、成品雜湊或計算指紋。
+
 Schema v8 新增石材 golden replay 至成品雜湊結果鏈：producer 必須使用目前瀏覽器核心重播 `case_01_standard_safe`，核對至少 6 項關鍵數值與控制結果，再以同一 payload 產生 PDF、DOCX 及 audit，並將 golden 檔、來源 payload、輸入／結果／計算來源與三份成品 SHA-256 綁入 summary。Aggregate 必須要求 1/1、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「石材結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、golden 案例內容、來源 payload、結果或成品雜湊。
 
 Schema v9 新增錨栓工作區重播至成品雜湊結果鏈：producer 必須保存 v2 工作區備份實體檔，先驗證案例重現指紋並以目前核心重新計算至少 7 項控制結果，再用同一重現指紋產生正式 HTML、DOCX 及 XLSX。Aggregate 必須重新核對來源備份 schema／版本／案例／產品／重現指紋、三份成品中的計算指紋與成品 SHA-256，要求 1/1、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「錨栓結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、工作區資料、來源備份、重現／計算指紋或成品雜湊。

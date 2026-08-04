@@ -585,6 +585,8 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   .rep-paper { position:relative; box-shadow:none; padding:0; max-width:none; }
   .rep-block h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }
   .rep-block--keep { break-inside:avoid-page; page-break-inside:avoid; }
+  .rep-steps-wrap > .rep-step:last-of-type { break-after:avoid-page; page-break-after:avoid; }
+  .rep-summary { break-before:avoid-page; page-break-before:avoid; break-after:avoid-page; page-break-after:avoid; break-inside:avoid; page-break-inside:avoid; }
   thead { display:table-header-group; }
   table { break-inside:auto; page-break-inside:auto; }
   tr { break-inside:avoid-page; page-break-inside:avoid; }
