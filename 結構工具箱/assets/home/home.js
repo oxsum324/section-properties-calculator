@@ -1283,6 +1283,9 @@
       Number.isInteger(payload.rcResultReconciliationRequired) && payload.rcResultReconciliationRequired > 0
         ? ratio('RC 結果鏈', payload.rcResultReconciliationComplete, payload.rcResultReconciliationRequired, payload.rcResultReconciliationIssueCount)
         : null,
+      Number.isInteger(payload.rcSourceReportPackageRequired) && payload.rcSourceReportPackageRequired > 0
+        ? ratio('RC 來源組包', payload.rcSourceReportPackageComplete, payload.rcSourceReportPackageRequired, payload.rcSourceReportPackageIssueCount)
+        : null,
       Number.isInteger(payload.steelResultReconciliationRequired) && payload.steelResultReconciliationRequired > 0
         ? ratio('鋼構結果鏈', payload.steelResultReconciliationComplete, payload.steelResultReconciliationRequired, payload.steelResultReconciliationIssueCount)
         : null,

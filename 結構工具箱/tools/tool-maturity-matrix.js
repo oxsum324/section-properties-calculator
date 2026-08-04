@@ -1581,6 +1581,7 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const localQuickResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 12;
   const earthBridgeRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 13;
   const pileGroupLateralRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 14;
+  const rcSourceReportPackageDeclared = Number(evidence?.schemaVersion) >= 15;
   return Boolean(
     evidence
     && evidence.kind === 'release-rendered-delivery-evidence'
@@ -1639,6 +1640,14 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       && evidence.rcResultReconciliation.issueCount === 0
       && evidence.rcResultReconciliation.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.rcResultReconciliation.setSha256 || ''))
+    ))
+    && (!rcSourceReportPackageDeclared || (
+      evidence.rcSourceReportPackage?.scope === 'rc-real-source-json-to-formal-html-package-check'
+      && evidence.rcSourceReportPackage.required === 32
+      && evidence.rcSourceReportPackage.complete === 32
+      && evidence.rcSourceReportPackage.issueCount === 0
+      && evidence.rcSourceReportPackage.pass === true
+      && /^[0-9a-f]{64}$/i.test(String(evidence.rcSourceReportPackage.setSha256 || ''))
     ))
     && (!steelResultReconciliationDeclared || (
       evidence.steelResultReconciliation?.scope === 'steel-source-replay-to-report-fingerprint'
@@ -1919,6 +1928,21 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     : rcResultReconciliation.pass === true
       ? Math.max(0, rcResultReconciliationRequired - rcResultReconciliationComplete)
       : Math.max(1, compactNumber(rcResultReconciliation.issueCount) || rcResultReconciliationRequired - rcResultReconciliationComplete);
+  const rcSourceReportPackage = renderedDeliveryPayload?.rcSourceReportPackage;
+  const rcSourceReportPackageDeclared = Boolean(
+    Number(renderedDeliveryPayload?.schemaVersion) >= 15
+    && rcSourceReportPackage
+    && rcSourceReportPackage.scope === 'rc-real-source-json-to-formal-html-package-check'
+    && Number.isInteger(rcSourceReportPackage.required)
+    && Number.isInteger(rcSourceReportPackage.complete)
+  );
+  const rcSourceReportPackageRequired = rcSourceReportPackageDeclared ? compactNumber(rcSourceReportPackage.required) : 0;
+  const rcSourceReportPackageComplete = rcSourceReportPackageDeclared ? compactNumber(rcSourceReportPackage.complete) : 0;
+  const rcSourceReportPackageIssueCount = !rcSourceReportPackageDeclared
+    ? 0
+    : rcSourceReportPackage.pass === true
+      ? Math.max(0, rcSourceReportPackageRequired - rcSourceReportPackageComplete)
+      : Math.max(1, compactNumber(rcSourceReportPackage.issueCount) || rcSourceReportPackageRequired - rcSourceReportPackageComplete);
   const steelResultReconciliation = renderedDeliveryPayload?.steelResultReconciliation;
   const steelResultReconciliationDeclared = Boolean(
     Number(renderedDeliveryPayload?.schemaVersion) >= 6
@@ -2022,6 +2046,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     ...(deliveryFileIntegrityDeclared ? [`正式交付檔案完整性：${deliveryFileIntegrityBreakdown.map(item => `${item.label} ${item.verified} / ${item.required}`).join('、')}；合計 ${deliveryFileIntegrityVerified} / ${deliveryFileIntegrityRequired}。公開狀態只提供類別、數量與通過狀態，不公開檔名、逐檔雜湊或完整性集合。`] : []),
     ...(formalResultReconciliationDeclared ? [`正式計算書結果鏈：風力／地震正式工具 ${formalResultReconciliationComplete} / ${formalResultReconciliationRequired} 已先完成 golden case 精確結果重算，再以同一計算狀態的指紋產生正式附件。公開狀態只顯示完成數，不公開案例輸入、預期數值、案例雜湊或計算指紋。`] : []),
     ...(rcResultReconciliationDeclared ? [`RC 正式計算書結果鏈：梁、柱、板、牆、剪力牆、基礎、單樁${expandedRcResultReconciliationDeclared ? '與梁／柱補強' : ''}共 ${rcResultReconciliationComplete} / ${rcResultReconciliationRequired} 組瀏覽器回歸案例已完成來源資料重現，再核對 PDF 與正式 HTML 的同一計算指紋。公開狀態只顯示完成數，不公開案例資料、來源快照雜湊或計算指紋。`] : []),
+    ...(rcSourceReportPackageDeclared ? [`RC 來源／正式 HTML 組包：梁、柱、板、牆、剪力牆、基礎與單樁共 ${rcSourceReportPackageComplete} / ${rcSourceReportPackageRequired} 組真實專案 JSON 已與核可後 HTML 通過附件檢查器，並驗證唯一來源／報告配對。公開狀態只顯示完成數，不公開案件資料、檔名、工具版本或計算指紋。`] : []),
     ...(steelResultReconciliationDeclared ? [`鋼構正式計算書結果鏈：主工具連接板、主工具拉力構件、獨立連接板、鋼梁與鋼柱共 ${steelResultReconciliationComplete} / ${steelResultReconciliationRequired} 組來源 JSON 已完成匯入重算及不相容版本拒絕，再核對渲染報告的同一計算指紋。公開狀態只顯示完成數，不公開來源資料、來源雜湊或計算指紋。`] : []),
     ...(stoneResultReconciliationDeclared ? [`石材正式計算書結果鏈：golden case ${stoneResultReconciliationComplete} / ${stoneResultReconciliationRequired} 已由目前瀏覽器核心重算並核對 PDF、DOCX 與 audit。公開狀態只顯示完成數，不公開 golden 案例資料、來源 payload 雜湊、結果雜湊或成品雜湊。`] : []),
     ...(anchorResultReconciliationDeclared ? [`錨栓正式計算書結果鏈：工作區備份 ${anchorResultReconciliationComplete} / ${anchorResultReconciliationRequired} 已依 v2 案例重現指紋重新計算，並核對正式 HTML、DOCX 與 XLSX。公開狀態只顯示完成數，不公開工作區資料、來源備份雜湊、案例重現指紋、計算指紋或成品雜湊。`] : []),
@@ -2038,8 +2063,8 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     kind: 'report-readiness-status',
     generatedAt: String(matrixPayload.generatedAt || ''),
     runId: String(preflightStatus?.runId || matrixPayload.latestPreflight?.runId || ''),
-    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && formalResultReconciliationIssueCount === 0 && rcResultReconciliationIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
-    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + formalResultReconciliationIssueCount + rcResultReconciliationIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
+    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && formalResultReconciliationIssueCount === 0 && rcResultReconciliationIssueCount === 0 && rcSourceReportPackageIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
+    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + formalResultReconciliationIssueCount + rcResultReconciliationIssueCount + rcSourceReportPackageIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
@@ -2088,6 +2113,14 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       rcResultReconciliationPass: rcResultReconciliation.pass === true
         && rcResultReconciliationComplete === rcResultReconciliationRequired
         && rcResultReconciliationIssueCount === 0,
+    } : {}),
+    ...(rcSourceReportPackageDeclared ? {
+      rcSourceReportPackageRequired,
+      rcSourceReportPackageComplete,
+      rcSourceReportPackageIssueCount,
+      rcSourceReportPackagePass: rcSourceReportPackage.pass === true
+        && rcSourceReportPackageComplete === rcSourceReportPackageRequired
+        && rcSourceReportPackageIssueCount === 0,
     } : {}),
     ...(steelResultReconciliationDeclared ? {
       steelResultReconciliationRequired,

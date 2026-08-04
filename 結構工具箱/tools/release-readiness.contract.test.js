@@ -37,6 +37,7 @@ const dashboardBrowserSmoke = readText('結構工具箱/tools/audit-dashboard-br
 const readme = readText('README.md');
 const staging = readText('STAGING_GROUPS.md');
 const boundaries = readText('TOOL_BOUNDARIES.md');
+const reportGuide = readText('TOOL_REPORT_GUIDE.md');
 const renderedEvidenceHelper = readText('結構工具箱/tools/rendered-delivery-evidence.js');
 const formalBrowserSmoke = readText('結構工具箱/tools/formal-browser-smoke.test.js');
 const localQuickBrowserSmoke = readText('結構工具箱/tools/local-quick-browser-smoke.test.js');
@@ -201,7 +202,7 @@ for (const { name, source } of rcReportVisualSources) {
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 14',
+  'schemaVersion: 15',
   'canonicalArtifactIntegrity',
   "scope: 'canonical-rendered-pdf-evidence'",
   'required: 60',
@@ -213,6 +214,10 @@ for (const { name, source } of rcReportVisualSources) {
   "scope: 'rc-source-replay-to-report-fingerprint'",
   'required: 34',
   'rcResultReconciliation=',
+  'rcSourceReportPackage',
+  "scope: 'rc-real-source-json-to-formal-html-package-check'",
+  'required: 32',
+  'rcSourceReportPackage=',
   'steelResultReconciliation',
   "scope: 'steel-source-replay-to-report-fingerprint'",
   'required: 5',
@@ -258,6 +263,7 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'completeIntegrityDeclared',
   'resultReconciliationDeclared',
   'rcResultReconciliationDeclared',
+  'rcSourceReportPackageDeclared',
   'steelResultReconciliationDeclared',
   'stoneResultReconciliationDeclared',
   'anchorResultReconciliationDeclared',
@@ -270,6 +276,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'evidence.formalResultReconciliation.required === 14',
   "'rc-source-replay-to-report-fingerprint'",
   'expandedRcResultReconciliationDeclared ? 32 : 30',
+  "evidence.rcSourceReportPackage?.scope === 'rc-real-source-json-to-formal-html-package-check'",
+  'evidence.rcSourceReportPackage.required === 32',
   "evidence.steelResultReconciliation?.scope === 'steel-source-replay-to-report-fingerprint'",
   'evidence.steelResultReconciliation.required === 5',
   "evidence.stoneResultReconciliation?.scope === 'stone-golden-replay-to-pdf-docx-hash'",
@@ -299,6 +307,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   '正式計算書結果鏈',
   'rcResultReconciliationRequired',
   'RC 正式計算書結果鏈',
+  'rcSourceReportPackageRequired',
+  'RC 來源／正式 HTML 組包',
   'steelResultReconciliationRequired',
   '鋼構正式計算書結果鏈',
   'stoneResultReconciliationRequired',
@@ -391,6 +401,16 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   assertIncludes(readme, needle, `README documents release readiness ${needle}`);
   assertIncludes(staging, needle, `STAGING_GROUPS documents release readiness ${needle}`);
   assertIncludes(boundaries, needle, `TOOL_BOUNDARIES documents release readiness ${needle}`);
+});
+
+[
+  ['README', readme],
+  ['STAGING_GROUPS', staging],
+  ['TOOL_BOUNDARIES', boundaries],
+  ['TOOL_REPORT_GUIDE', reportGuide],
+].forEach(([label, source]) => {
+  assertIncludes(source, 'Schema v15', `${label} documents RC source/report package release evidence schema`);
+  assertIncludes(source, '32/32', `${label} documents RC source/report package required count`);
 });
 
 if (failed) {

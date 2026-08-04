@@ -573,6 +573,12 @@ async function main() {
   assert.equal(reportReadinessStatus.rcResultReconciliationPass, true, 'report readiness RC result reconciliation passes');
   assert.equal(reportReadinessJson.includes('"rcResultReconciliation":'), false, 'report readiness omits the private RC reconciliation aggregate');
   assert.equal(/rc-(?:project|source|form)-replay-to-report-fingerprint|sourceSnapshotSha256|"caseId"/.test(reportReadinessJson), false, 'report readiness omits private RC reconciliation scope, case identity and source snapshot hashes');
+  assert.equal(reportReadinessStatus.rcSourceReportPackageRequired, 32, 'report readiness expects 32 RC real source/report package checks');
+  assert.equal(reportReadinessStatus.rcSourceReportPackageComplete, reportReadinessStatus.rcSourceReportPackageRequired, 'report readiness completes every RC source/report package check');
+  assert.equal(reportReadinessStatus.rcSourceReportPackageIssueCount, 0, 'report readiness RC source/report package issues empty');
+  assert.equal(reportReadinessStatus.rcSourceReportPackagePass, true, 'report readiness RC source/report package checks pass');
+  assert.equal(reportReadinessJson.includes('"rcSourceReportPackage":'), false, 'report readiness omits the private RC source/report package aggregate');
+  assert.equal(/rc-real-source-json-to-formal-html-package-check|fingerprintLinkCount|"fingerprint"/.test(reportReadinessJson), false, 'report readiness omits private RC source/report package scope and fingerprints');
   assert.equal(reportReadinessStatus.steelResultReconciliationRequired, 5, 'report readiness expects 5 steel result reconciliations');
   assert.equal(reportReadinessStatus.steelResultReconciliationComplete, reportReadinessStatus.steelResultReconciliationRequired, 'report readiness completes every steel result reconciliation');
   assert.equal(reportReadinessStatus.steelResultReconciliationIssueCount, 0, 'report readiness steel result reconciliation issues empty');

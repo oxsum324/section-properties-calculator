@@ -130,6 +130,8 @@ Schema v7 再把 RC 梁、柱補強兩組表單重播案例納入 RC 結果鏈�
 Schema v13 再把土壓 JSON 銜接 RC 基礎案例納入結果鏈：來源必須由相同版本核心重新計算，並拒絕無效時間、遭竄改結果、不相容版本、重力式牆、靜止土壓及尚未定義 RC 強度組合的地震土壓；aggregate 必須要求 RC 設計與補強合計 33/33、RC PDF／PNG 64/64 與 RC HTML 33/33。
 Schema v14 再把群樁 X／Y 向側向荷重分配納入結果鏈：aggregate 必須要求 RC 設計與補強合計 34/34、RC PDF／PNG 66/66 與 RC HTML 34/34；該分配只證明列別 p-multiplier 與水平力平衡。專業 p-y 結果必須使用固定 schema／單位，與目前樁數、樁距、樁徑、樁長、分析範圍及分析 Hx／Hy 相符，並經工程師明確勾選採用。表格可從 CSV／TSV／TXT 直接讀取或由 Excel 貼上，不直接解析 `.xlsx`；換算僅接受明示單位 profile 與固定欄名，取深度 0 位移和全深度最大絕對內力，保存各向原始檔名、列數與內容雜湊。代表單樁對應最大單樁 p-multiplier 荷重，群樁才對應整組荷重。已驗證候選可下載為與採用證據同位元組的 JSON；重新匯入、下載與採用前都須依目前模型重驗，匯入檔上限為 1 MiB。採用紀錄 v2 將原始 JSON 隨專案保存並在事後下載時重算雜湊；舊 v1 仍可重播計算，但沒有原文時不得產生替代檔。原文與採用結果被改動或不一致時必須失敗封閉。計算書只列採用結果、分析範圍、荷重與來源證據，候選警告與歸檔操作留在頁面。未採用相符結果時不得宣稱側向位移或樁身內力檢核完成。
 
+Schema v15 再把 RC 真實來源 JSON／核可後正式 HTML 組包提升為 release aggregate 閘門：梁、柱、板、牆、剪力牆、基礎與單樁共 32 組專案重播案例，均須由 producer 保存附件檢查器 `ready`、唯一指紋連結及與重算結果相同的計算指紋；缺件、blocked、多重連結或指紋分離皆不得正式放行。補強兩案採表單重播而非專案 JSON，不得偽造來源組包證據。私人 aggregate 保存案例身分與集合 SHA-256；Pages 只可公開「RC 來源／正式 HTML 組包」required／complete／issue／pass，不得公開 scope、records、案例、檔名、工具版本、來源雜湊或計算指紋。
+
 Schema v8 新增石材 golden replay 至成品雜湊結果鏈：producer 必須使用目前瀏覽器核心重播 `case_01_standard_safe`，核對至少 6 項關鍵數值與控制結果，再以同一 payload 產生 PDF、DOCX 及 audit，並將 golden 檔、來源 payload、輸入／結果／計算來源與三份成品 SHA-256 綁入 summary。Aggregate 必須要求 1/1、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「石材結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、golden 案例內容、來源 payload、結果或成品雜湊。
 
 Schema v9 新增錨栓工作區重播至成品雜湊結果鏈：producer 必須保存 v2 工作區備份實體檔，先驗證案例重現指紋並以目前核心重新計算至少 7 項控制結果，再用同一重現指紋產生正式 HTML、DOCX 及 XLSX。Aggregate 必須重新核對來源備份 schema／版本／案例／產品／重現指紋、三份成品中的計算指紋與成品 SHA-256，要求 1/1、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「錨栓結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、工作區資料、來源備份、重現／計算指紋或成品雜湊。

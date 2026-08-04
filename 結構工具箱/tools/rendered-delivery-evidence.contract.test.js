@@ -475,6 +475,21 @@ function rcResultReconciliationSetHash(records) {
     .digest('hex');
 }
 
+function rcSourceReportPackageSetHash(records) {
+  return createHash('sha256')
+    .update(records
+      .map(record => [
+        record.href,
+        record.key,
+        record.status,
+        record.fingerprintLinkCount,
+        record.fingerprint,
+      ].join('\u0000'))
+      .sort()
+      .join('\n'), 'utf8')
+    .digest('hex');
+}
+
 function steelResultReconciliationSetHash(records) {
   return createHash('sha256')
     .update(records
@@ -740,7 +755,18 @@ function validateRcResultReconciliationRecord(record, label) {
   assert.equal(reconciliation?.calculationFingerprint, record?.metrics?.calculationFingerprint, `${label} RC report fingerprint matches reconciliation`);
   assert.equal(reconciliation?.calculationFingerprint, record?.portableHtml?.calculationFingerprint, `${label} RC formal HTML fingerprint matches reconciliation`);
   assert.equal(reconciliation?.pass, true, `${label} RC result reconciliation passes`);
-  return { key: record.key, ...reconciliation };
+  const sourceReportPackage = record?.portableHtml?.sourceReportPackage || null;
+  if (reconciliation?.strategy === 'rc-project-replay-to-report-fingerprint') {
+    assert.equal(sourceReportPackage?.status, 'ready', `${label} RC real source JSON and formal HTML package is ready`);
+    assert.equal(sourceReportPackage?.fingerprintLinkCount, 1, `${label} RC source/report package has exactly one traceability link`);
+    assert.match(String(sourceReportPackage?.fingerprint || ''), /^CF-[0-9A-F]{16}$/i, `${label} RC source/report package fingerprint`);
+    assert.equal(sourceReportPackage?.fingerprint, reconciliation?.calculationFingerprint, `${label} RC source/report package fingerprint matches reconciliation`);
+  }
+  return {
+    key: record.key,
+    ...reconciliation,
+    ...(sourceReportPackage ? { sourceReportPackage } : {}),
+  };
 }
 
 function validateSteelResultReconciliationRecord(record, label) {
@@ -1138,7 +1164,14 @@ assert.throws(
 const rcResultReconciliationFixture = {
   key: 'fixture-rc-case',
   metrics: { calculationFingerprint: 'CF-1234567890ABCDEF' },
-  portableHtml: { calculationFingerprint: 'CF-1234567890ABCDEF' },
+  portableHtml: {
+    calculationFingerprint: 'CF-1234567890ABCDEF',
+    sourceReportPackage: {
+      status: 'ready',
+      fingerprintLinkCount: 1,
+      fingerprint: 'CF-1234567890ABCDEF',
+    },
+  },
   resultReconciliation: {
     schemaVersion: 1,
     strategy: 'rc-project-replay-to-report-fingerprint',
@@ -1153,10 +1186,35 @@ validateRcResultReconciliationRecord(rcResultReconciliationFixture, 'RC result r
 assert.throws(
   () => validateRcResultReconciliationRecord({
     ...rcResultReconciliationFixture,
-    portableHtml: { calculationFingerprint: 'CF-FEDCBA0987654321' },
+    portableHtml: { ...rcResultReconciliationFixture.portableHtml, calculationFingerprint: 'CF-FEDCBA0987654321' },
   }, 'tampered RC result reconciliation fixture'),
   /RC formal HTML fingerprint matches reconciliation/,
   'RC result reconciliation blocks a formal HTML fingerprint detached from the recalculated project snapshot'
+);
+assert.throws(
+  () => validateRcResultReconciliationRecord({
+    ...rcResultReconciliationFixture,
+    portableHtml: {
+      ...rcResultReconciliationFixture.portableHtml,
+      sourceReportPackage: { ...rcResultReconciliationFixture.portableHtml.sourceReportPackage, status: 'blocked' },
+    },
+  }, 'blocked RC source/report package fixture'),
+  /RC real source JSON and formal HTML package is ready/,
+  'RC result reconciliation blocks a producer record whose real source/report package did not pass'
+);
+assert.throws(
+  () => validateRcResultReconciliationRecord({
+    ...rcResultReconciliationFixture,
+    portableHtml: {
+      ...rcResultReconciliationFixture.portableHtml,
+      sourceReportPackage: {
+        ...rcResultReconciliationFixture.portableHtml.sourceReportPackage,
+        fingerprint: 'CF-FEDCBA0987654321',
+      },
+    },
+  }, 'mismatched RC source/report package fixture'),
+  /RC source\/report package fingerprint matches reconciliation/,
+  'RC result reconciliation blocks a package whose source/report link is detached from the recalculated result'
 );
 
 const steelResultReconciliationFixture = {
@@ -1946,6 +2004,22 @@ const rcResultReconciliation = {
 assert.equal(new Set(rcResultReconciliationRecords.map(record => `${record.href}\u0000${record.key}`)).size, rcResultReconciliationRecords.length, 'release rendered evidence RC result reconciliation identities are unique');
 assert.equal(rcResultReconciliation.complete, rcResultReconciliation.required, 'release rendered evidence reconciles all 34 RC design and retrofit results to report fingerprints');
 assert.equal(rcResultReconciliation.pass, true, 'release rendered evidence passes RC result reconciliation');
+const rcSourceReportPackageRecords = rcResultReconciliationRecords
+  .filter(record => record.strategy === 'rc-project-replay-to-report-fingerprint')
+  .map(record => ({ href: record.href, key: record.key, ...record.sourceReportPackage }));
+const rcSourceReportPackage = {
+  schemaVersion: 1,
+  scope: 'rc-real-source-json-to-formal-html-package-check',
+  required: 32,
+  complete: rcSourceReportPackageRecords.length,
+  issueCount: Math.max(0, 32 - rcSourceReportPackageRecords.length),
+  pass: rcSourceReportPackageRecords.length === 32,
+  setSha256: rcSourceReportPackageSetHash(rcSourceReportPackageRecords),
+  records: rcSourceReportPackageRecords,
+};
+assert.equal(new Set(rcSourceReportPackageRecords.map(record => `${record.href}\u0000${record.key}`)).size, rcSourceReportPackageRecords.length, 'release rendered evidence RC source/report package identities are unique');
+assert.equal(rcSourceReportPackage.complete, rcSourceReportPackage.required, 'release rendered evidence verifies all 32 RC project JSON and formal HTML packages');
+assert.equal(rcSourceReportPackage.pass, true, 'release rendered evidence passes RC source/report package verification');
 const steelResultReconciliation = {
   schemaVersion: 1,
   scope: 'steel-source-replay-to-report-fingerprint',
@@ -2023,7 +2097,7 @@ assert.equal(attachmentIntegrity.verified, attachmentIntegrity.required, 'releas
 assert.equal(attachmentIntegrity.issueCount, 0, 'release rendered evidence has no RC HTML attachment integrity issue');
 assert.equal(attachmentIntegrity.pass, true, 'release rendered evidence passes RC HTML attachment integrity');
 const aggregate = {
-  schemaVersion: 14,
+  schemaVersion: 15,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),
@@ -2032,7 +2106,7 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && formalResultReconciliation.pass && localQuickResultReconciliation.pass && rcResultReconciliation.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && formalResultReconciliation.pass && localQuickResultReconciliation.pass && rcResultReconciliation.pass && rcSourceReportPackage.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
   attachmentIntegrity,
   mixedArtifactIntegrity,
   rcVisualArtifactIntegrity,
@@ -2040,6 +2114,7 @@ const aggregate = {
   formalResultReconciliation,
   localQuickResultReconciliation,
   rcResultReconciliation,
+  rcSourceReportPackage,
   steelResultReconciliation,
   stoneResultReconciliation,
   anchorResultReconciliation,
@@ -2051,4 +2126,4 @@ const aggregate = {
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, localQuickResultReconciliation=${localQuickResultReconciliation.complete}/${localQuickResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, localQuickResultReconciliation=${localQuickResultReconciliation.complete}/${localQuickResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, rcSourceReportPackage=${rcSourceReportPackage.complete}/${rcSourceReportPackage.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);
