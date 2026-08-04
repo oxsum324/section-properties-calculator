@@ -162,6 +162,28 @@
       }
     },
     {
+      "key": "pile_lateral_distribution",
+      "label": "群樁側向水平力分配例",
+      "tab": "pile",
+      "values": {
+        "pileNL": 3,
+        "pileNB": 3,
+        "pileD": 60,
+        "pileSL": 180,
+        "pileSB": 180,
+        "pHX": 90,
+        "pHY": 45
+      },
+      "expected": {
+        "tab": "pile",
+        "lateralRequired": true,
+        "lateralSupported": true,
+        "lateralMaxX": 16,
+        "lateralMaxY": 8,
+        "lateralResponseOk": false
+      }
+    },
+    {
       "key": "retain_earth_bridge",
       "label": "土壓 JSON 銜接懸臂式擋土牆例",
       "tab": "retain",

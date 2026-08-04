@@ -678,6 +678,11 @@
         <div class="form-row">
           <div class="form-group"><label>My 彎矩 (tf·m)</label><input type="number" id="pMy" value="0"></div>
         </div>
+        <div class="form-row">
+          <div class="form-group"><label>Hx 服務水平力 (tf)</label><input type="number" id="pHX" value="0" step="1"></div>
+          <div class="form-group"><label>Hy 服務水平力 (tf)</label><input type="number" id="pHY" value="0" step="1"></div>
+        </div>
+        <p class="hint">水平力依 FHWA-HIF-18-031 表 7-1 的 p-multiplier 分配至各列垂直樁；本頁不以分配結果取代樁頭位移、剪力與彎矩之專項 p-y 分析。</p>
         <h3 style="margin-top:12px; font-size:1em; color:#1a3d5c;">配筋</h3>
         <div class="form-row">
           <div class="form-group"><label>主筋號數</label>
@@ -999,6 +1004,8 @@
           <div class="result-item rc-pending" id="pr-capFlex"><span class="label">樁帽 Mu / φMn</span><span><span class="value">—</span><span class="unit">tf·m</span></span></div>
           <div class="result-item rc-pending" id="pr-capShear"><span class="label">樁帽 Vu / φ(Vc+Vs)</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
           <div class="result-item rc-pending" id="pr-prestress"><span class="label">預力樁 Pu/0.4Ag·fc'</span><span class="value">—</span></div>
+          <div class="result-item rc-pending" id="pr-lateralX"><span class="label">X 向最大單樁水平力</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item rc-pending" id="pr-lateralY"><span class="label">Y 向最大單樁水平力</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
         </div>
       </div>
       <div class="card" data-shows="pile">
@@ -1019,6 +1026,8 @@
           <div class="result-item rc-pending" id="pc-structural"><span class="label">斷面/配筋限制</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="pc-confine"><span class="label">軟弱土壤圍束</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="pc-lateral"><span class="label">無側向約束 → 柱規定提示</span><span class="value">—</span></div>
+          <div class="result-item rc-pending" id="pc-pm"><span class="label">群樁 p-multiplier 適用範圍</span><span class="value">—</span></div>
+          <div class="result-item rc-pending" id="pc-lateralResponse"><span class="label">側向 p-y 位移／內力分析</span><span class="value">—</span></div>
         </div>
       </div>
       <div class="card advanced-card" data-shows="pile">
@@ -1147,6 +1156,7 @@
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
 <script src="../shared/retaining-base-demand.js?v=1"></script>
+<script src="../shared/pile-group-lateral.js?v=1"></script>
 <script src="../shared/report.js?v=6"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
@@ -3164,6 +3174,7 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
     const pileQo = num('pileQo');
     const PD = num('pPD'), PL = num('pPL'), PE = num('pPE');
     const Mx = num('pMx'), My = num('pMy');
+    const HX = num('pHX'), HY = num('pHY');
     const Bc = num('pcB'), Lc = num('pcL'), hc = num('pcH'), pcCover = num('pcCover');
     const barNo = $('pBarNo').value;
     const nBar = num('pNBar');
@@ -3217,6 +3228,18 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
       if (Rlo < rMin) rMin = Rlo;
     }
     const minSpacing = Math.min(pileSL, pileSB);
+    const lateralGroup = window.PileGroupLateral.evaluate({
+      pileNL,
+      pileNB,
+      spacingL: pileSL,
+      spacingB: pileSB,
+      pileDiameterCm: pileD,
+      horizontalX: HX,
+      horizontalY: HY
+    });
+    const lateralRequired = lateralGroup.required;
+    const lateralDistributionOk = !lateralRequired || lateralGroup.supported;
+    const lateralResponseOk = !lateralRequired;
     let soilCapacity = null;
     let pileCurves = null;
     let tipLayerLabel = '—';
@@ -3439,6 +3462,10 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
     setResult('pr-phiVc2', phiVc2/1000, 'tf', 2);
     setResult('pr-pileStress', pileStressKgCm2, 'kgf/cm²', 2, okPileStress ? 'ok' : 'fail');
     setResult('pr-pileAllow', pileStressAllow, 'kgf/cm²', 2);
+    setResult('pr-lateralX', lateralGroup.x.maxPerPile, 'tf', 2,
+      !lateralRequired ? null : (lateralGroup.x.supported ? 'warn' : 'fail'));
+    setResult('pr-lateralY', lateralGroup.y.maxPerPile, 'tf', 2,
+      !lateralRequired ? null : (lateralGroup.y.supported ? 'warn' : 'fail'));
     {
       const el = $('pr-capFlex');
       if (el) {
@@ -3494,6 +3521,14 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
       isSoft ? '⚠ 第3類軟弱土壤：須全長圍束箍筋' : '非軟弱土壤');
     setCheck('pc-lateral', noLateral ? false : null,
       noLateral ? '⚠ 無側向約束：須套用柱配筋規定' : '有側向約束');
+    setCheck('pc-pm', lateralRequired ? lateralDistributionOk : null,
+      lateralRequired
+        ? (lateralGroup.supported
+          ? `X s/D=${lateralGroup.x.spacingRatio.toFixed(2)}；Y s/D=${lateralGroup.y.spacingRatio.toFixed(2)}`
+          : [lateralGroup.x.reason, lateralGroup.y.reason].filter(Boolean).join('；'))
+        : '無水平力需求');
+    setCheck('pc-lateralResponse', lateralRequired ? lateralResponseOk : null,
+      lateralRequired ? '待專項 p-y 分析承接' : '無水平力需求');
 
     drawPile(Bc, Lc, c1, c2, d, xs, ys, pileD, c1d, c2d);
     drawPileCurves(pileCurves || { tz:[], qw:[], py:[] });
@@ -3508,6 +3543,12 @@ Pu = 1.2×${PD} + 1.6×${PL} + 1.0×${PE} = ${Pu_tf.toFixed(2)} tf
 Rmax = ${rMax.toFixed(2)} tf  ${okR ? '≤' : '>'} Qallow,eff = ${governingQaEff.toFixed(2)} tf → ${okR ? '✓' : '✗'}
 Rmin = ${rMin.toFixed(2)} tf  ${okT ? '≥' : '<'} -Qt = -${pileQt} tf → ${okT ? '✓' : '✗'}
 最小樁間距 = ${minSpacing.toFixed(0)} cm  ${okSp ? '≥' : '<'} ${spacingLimit.toFixed(0)} cm → ${okSp ? '✓' : '✗'}
+${lateralRequired ? `
+<span class="h">▸ 群樁側向荷重分配（FHWA-HIF-18-031 表 7-1）</span>
+Hx / Hy = ${Math.abs(HX).toFixed(2)} / ${Math.abs(HY).toFixed(2)} tf
+X 向：s/D=${lateralGroup.x.spacingRatio.toFixed(2)}；${lateralGroup.x.supported ? lateralGroup.x.rows.map(row => `第${row.row}列 Pm=${row.multiplier.toFixed(3)}, Hrow=${row.rowLoad.toFixed(2)} tf, Hpile=${row.perPileLoad.toFixed(2)} tf`).join('；') : lateralGroup.x.reason}
+Y 向：s/D=${lateralGroup.y.spacingRatio.toFixed(2)}；${lateralGroup.y.supported ? lateralGroup.y.rows.map(row => `第${row.row}列 Pm=${row.multiplier.toFixed(3)}, Hrow=${row.rowLoad.toFixed(2)} tf, Hpile=${row.perPileLoad.toFixed(2)} tf`).join('；') : lateralGroup.y.reason}
+本項完成群樁水平力分配；樁頭位移、剪力與彎矩須由專項 p-y 分析承接。` : ''}
 
 <span class="h">▸ 土層承載力</span>
 ${soilOk ? `樁型式 = ${pileType === 'cast-in-place' ? '場鑄混凝土樁' : '鋼管樁'}；施工 = ${pileInstall === 'driven' ? '打入樁' : '鑽掘樁'}
@@ -3556,15 +3597,20 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
     ];
     if (soilOk) checks.push(['Qall ≥ 服務需求', Qall >= serviceDemandPerPile]);
     if (prestressed) checks.push(['Pu ≤ 0.4Ag·fc\'', okPrestress]);
+    if (lateralRequired) {
+      checks.push(['p-multiplier 適用範圍', lateralDistributionOk]);
+      checks.push(['側向 p-y 位移/內力分析', lateralResponseOk]);
+    }
     updateBannerSimple(checks);
 
     window.ftLast = { tab:'pile', fc, fy, c1, c2, cover, pileD, pileQa, pileQt,
       pileType, pileInstall, pileNL, pileNB, pileSL, pileSB, pileEta, pileLength, pileFS, pileSteelThickness, soilProfileText,
-      PD, PL, PE, Mx, My,
+      PD, PL, PE, Mx, My, HX, HY,
       Bc, Lc, hc, pcCover, barNo, nBar, ab, db, As, d, nPile, QaEff,
       Pu_tf, rMax, rMin, minSpacing, okR, okT, okSp, okDMin,
       Vu2_tf, phiVc2:phiVc2/1000, okV2, excludedCount,
       prestressed, puLimit, okPrestress, isSoft, noLateral,
+      lateralGroup, lateralRequired, lateralDistributionOk, lateralResponseOk,
       soilErrors, soilLayers: soilProfile.layers, soilOk,
       Qs, Qb, Qult, Qall, qbUlt, capApplied, capText, tipLayerLabel, criticalDepth, sigmaCrit,
       serviceDemandPerPile, QaDemandEff, spacingLimit, structuralOk, castInPlaceAreaReq, castInPlaceAreaProv,
@@ -4022,7 +4068,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
       ];
     }
     if (r.tab === 'pile') {
-      return [
+      const pileChecks = [
         ['土層資料有效', r.soilOk],
         ['Rmax ≤ Qallow,eff', r.okR],
         ['|Rmin| ≤ Qt', r.okT],
@@ -4035,6 +4081,11 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
         ['樁帽 φ(Vc+Vs) ≥ Vu,max', r.okCapShear],
         ['斷面/配筋限制', r.structuralOk],
       ];
+      if (r.lateralRequired) {
+        pileChecks.push(['p-multiplier 適用範圍', r.lateralDistributionOk]);
+        pileChecks.push(['側向 p-y 位移/內力分析', r.lateralResponseOk]);
+      }
+      return pileChecks;
     }
     if (r.tab === 'retain') {
       return [
@@ -4719,6 +4770,18 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
           { label:'樁帽 Mu / φMn', value:`${r.capMu_tfm.toFixed(2)} / ${r.capPhiMn_tfm.toFixed(2)}`, unit:'tf·m' }
         ]}
       ];
+      if (r.lateralRequired) {
+        const rowText = direction => direction.supported
+          ? direction.rows.map(row => `第${row.row}列 Pm=${row.multiplier.toFixed(3)}，Hrow=${row.rowLoad.toFixed(2)}，Hpile=${row.perPileLoad.toFixed(2)}`).join('；')
+          : direction.reason;
+        inputs.push({ group:'群樁側向荷重分配結果', items:[
+          { label:'分配依據', value:r.lateralGroup.source, unit:'' },
+          { label:'服務水平力 Hx / Hy', value:`${Math.abs(r.HX).toFixed(2)} / ${Math.abs(r.HY).toFixed(2)}`, unit:'tf' },
+          { label:'X 向列分配', value:rowText(r.lateralGroup.x), unit:'' },
+          { label:'Y 向列分配', value:rowText(r.lateralGroup.y), unit:'' },
+          { label:'最大單樁 Hx / Hy', value:`${Number.isFinite(r.lateralGroup.x.maxPerPile) ? r.lateralGroup.x.maxPerPile.toFixed(2) : '—'} / ${Number.isFinite(r.lateralGroup.y.maxPerPile) ? r.lateralGroup.y.maxPerPile.toFixed(2) : '—'}`, unit:'tf' }
+        ]});
+      }
       checks = [
         { group:'土層與單樁承載', items:[
           { label:'土層資料有效', value:r.soilOk ? `共 ${r.soilLayers.length} 層` : r.soilErrors.join('；'), ok:r.soilOk },
@@ -4741,6 +4804,12 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
           { label:'樁帽 φ(Vc+Vs) ≥ Vu,max', value:`${r.capPhiVn_tfm.toFixed(2)} / ${r.capVu_tfm.toFixed(2)}`, unit:'tf', ok:r.okCapShear }
         ]}
       ];
+      if (r.lateralRequired) {
+        checks.push({ group:'側向分析', items:[
+          { label:'p-multiplier 適用範圍', value:`X s/D=${r.lateralGroup.x.spacingRatio.toFixed(2)}；Y s/D=${r.lateralGroup.y.spacingRatio.toFixed(2)}`, ok:r.lateralDistributionOk },
+          { label:'樁頭位移、剪力與彎矩', value:'須由專項 p-y 分析承接', ok:r.lateralResponseOk }
+        ]});
+      }
       if (r.pilePresetSummaryText) steps.push({ group:'場址摘要', body:r.pilePresetSummaryText });
       if (r.pileSiteSummaryText) steps.push({ group:'場址總結', body:r.pileSiteSummaryText });
       if (r.pileSiteCompareTableText) steps.push({ group:'多鑽孔比較表', body:r.pileSiteCompareTableText });

@@ -12,7 +12,7 @@ const CASES_PATH = path.join(__dirname, 'foundation-regression-cases.json');
 const OUT_DIR = path.resolve(process.env.FOUNDATION_REPORT_OUT || (process.env.PREFLIGHT_RUN_DIR
   ? path.join(process.env.PREFLIGHT_RUN_DIR, 'rendered-delivery-evidence', 'rc-formal')
   : path.join(ROOT, 'output', 'playwright')));
-const CASE_KEYS = (process.env.FOUNDATION_REPORT_CASES || 'iso_default,combined_default,combined_pass_warn,mat_pass_warn,retain_earth_bridge,retain_counterfort_warn,pile_default')
+const CASE_KEYS = (process.env.FOUNDATION_REPORT_CASES || 'iso_default,combined_default,combined_pass_warn,mat_pass_warn,retain_earth_bridge,retain_counterfort_warn,pile_default,pile_lateral_distribution')
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
@@ -89,6 +89,22 @@ const EXPECTED = {
       '樁帽 φMn ≥ Mu',
       'Qall ≥ 服務需求',
       '逐層承載力表',
+    ],
+  },
+  pile_lateral_distribution: {
+    title: '基礎設計計算書 — 樁基／樁帽',
+    expectedSnapshot: 'NG',
+    minCheckGroups: 5,
+    fragments: [
+      '基礎設計計算書 — 樁基／樁帽',
+      '群樁側向荷重分配',
+      'FHWA-HIF-18-031 Table 7-1',
+      '服務水平力 Hx / Hy',
+      '第1列 Pm=',
+      '最大單樁 Hx / Hy',
+      'p-multiplier 適用範圍',
+      '樁頭位移、剪力與彎矩',
+      '須由專項 p-y 分析承接',
     ],
   },
   retain_earth_bridge: {

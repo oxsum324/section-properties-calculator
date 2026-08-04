@@ -9,6 +9,8 @@ const casesPath = path.join(toolsDir, 'foundation-regression-cases.json');
 const toolPath = path.join(toolsDir, 'foundation.html');
 const baseDemandPath = path.join(toolsDir, '..', 'shared', 'retaining-base-demand.js');
 const baseDemandTestPath = path.join(toolsDir, '..', 'shared', 'retaining-base-demand.test.js');
+const pileGroupLateralPath = path.join(toolsDir, '..', 'shared', 'pile-group-lateral.js');
+const pileGroupLateralTestPath = path.join(toolsDir, '..', 'shared', 'pile-group-lateral.test.js');
 
 function read(file) {
   assert.ok(fs.existsSync(file), `missing required file: ${file}`);
@@ -25,6 +27,8 @@ const cases = JSON.parse(read(casesPath));
 const tool = read(toolPath);
 const baseDemand = read(baseDemandPath);
 const baseDemandTest = read(baseDemandTestPath);
+const pileGroupLateral = read(pileGroupLateralPath);
+const pileGroupLateralTest = read(pileGroupLateralTestPath);
 
 [
   'assessFoundationAttachmentReadiness',
@@ -60,6 +64,32 @@ const baseDemandTest = read(baseDemandTestPath);
 ].forEach(needle => assertIncludes(baseDemandTest, needle, 'retaining wall base demand regression'));
 
 [
+  '../shared/pile-group-lateral.js?v=1',
+  'pHX',
+  'pHY',
+  'PileGroupLateral.evaluate',
+  "group:'群樁側向荷重分配結果'",
+  "group:'側向分析'",
+  '須由專項 p-y 分析承接',
+].forEach(needle => assertIncludes(tool, needle, 'pile group lateral report wiring'));
+
+[
+  'rc-pile-group-lateral.v1',
+  'FHWA-HIF-18-031 Table 7-1',
+  'rowMultiplier',
+  'responseAnalysisComplete: !required',
+  'spacingRatio',
+].forEach(needle => assertIncludes(pileGroupLateral, needle, 'pile group lateral core'));
+
+[
+  '3D front row',
+  '4D second row interpolation',
+  '5D trailing row',
+  'spacing below 3D fails closed',
+  'load distribution does not claim p-y response completion',
+].forEach(needle => assertIncludes(pileGroupLateralTest, needle, 'pile group lateral regression'));
+
+[
   'iso_default',
   'combined_default',
   'combined_pass_warn',
@@ -67,6 +97,7 @@ const baseDemandTest = read(baseDemandTestPath);
   'retain_earth_bridge',
   'retain_counterfort_warn',
   'pile_default',
+  'pile_lateral_distribution',
 ].forEach(key => {
   assert.ok(cases.cases.some(tc => tc.key === key), `visual smoke case missing from regression cases: ${key}`);
   assertIncludes(visual, key, 'foundation report visual smoke case list');
@@ -75,6 +106,7 @@ const baseDemandTest = read(baseDemandTestPath);
 [
   'Foundation report visual smoke',
   'foundation-report-visual.test.js',
+  'pile-group-lateral.test.js',
   'node $visualTestFile',
 ].forEach(needle => assertIncludes(testFoundation, needle, 'test-foundation visual smoke wiring'));
 
