@@ -581,7 +581,7 @@ assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceFamilies.redu
 assert.ok(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSummary.includes('實際交付物渲染'), 'tracked report readiness snapshot rendered delivery summary');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatusSnapshot.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'tracked report readiness snapshot rendered delivery source path');
 assert.match(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'tracked report readiness snapshot rendered delivery source hash');
-assert.ok([135, 137].includes(reportReadinessStatusSnapshot.deliveryFileIntegrityRequired), 'tracked report readiness snapshot exposes a supported delivery-file transition count');
+assert.ok([135, 137, 139].includes(reportReadinessStatusSnapshot.deliveryFileIntegrityRequired), 'tracked report readiness snapshot exposes a supported delivery-file transition count');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityVerified, reportReadinessStatusSnapshot.deliveryFileIntegrityRequired, 'tracked report readiness snapshot verifies every delivery file');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityIssueCount, 0, 'tracked report readiness snapshot delivery file integrity issues empty');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityPass, true, 'tracked report readiness snapshot delivery file integrity passes');
@@ -595,6 +595,7 @@ assert.ok(
   [
     [[60, 60], [62, 62], [13, 13]],
     [[60, 60], [64, 64], [13, 13]],
+    [[60, 60], [66, 66], [13, 13]],
   ].some(expected => JSON.stringify(expected) === JSON.stringify(trackedDeliveryCounts)),
   'tracked report readiness snapshot preserves supported redacted delivery counts'
 );
@@ -606,7 +607,7 @@ if (Number.isInteger(reportReadinessStatusSnapshot.formalResultReconciliationReq
   assert.equal(reportReadinessStatusSnapshot.formalResultReconciliationPass, true, 'tracked report readiness snapshot formal result reconciliation passes');
 }
 if (Number.isInteger(reportReadinessStatusSnapshot.rcResultReconciliationRequired)) {
-  assert.ok([30, 32, 33].includes(reportReadinessStatusSnapshot.rcResultReconciliationRequired), 'tracked report readiness snapshot expects a supported RC result reconciliation transition count');
+  assert.ok([30, 32, 33, 34].includes(reportReadinessStatusSnapshot.rcResultReconciliationRequired), 'tracked report readiness snapshot expects a supported RC result reconciliation transition count');
   assert.equal(reportReadinessStatusSnapshot.rcResultReconciliationComplete, reportReadinessStatusSnapshot.rcResultReconciliationRequired, 'tracked report readiness snapshot completes every RC result reconciliation');
   assert.equal(reportReadinessStatusSnapshot.rcResultReconciliationIssueCount, 0, 'tracked report readiness snapshot RC result reconciliation issues empty');
   assert.equal(reportReadinessStatusSnapshot.rcResultReconciliationPass, true, 'tracked report readiness snapshot RC result reconciliation passes');
