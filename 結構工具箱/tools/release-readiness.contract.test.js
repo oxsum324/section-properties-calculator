@@ -47,6 +47,8 @@ const rcAudit = readText('鋼筋混凝土/audit-tool.ps1');
 const rcResultReconciliationHelper = readText('鋼筋混凝土/tools/report-result-reconciliation.js');
 const rcPortableHtmlHelper = readText('鋼筋混凝土/tools/report-portable-html-check.js');
 const rcSharedReport = readText('鋼筋混凝土/shared/report.js');
+const formalSharedReport = readText('結構工具箱/core/ui/report.js');
+const formalWindReport = readText('結構工具箱/core/wind-report.js');
 const attachmentPackageChecker = readText('結構工具箱/tools/attachment-package-check.js');
 const rcReportVisualSources = [
   'beam', 'column', 'slab', 'wall', 'shear-wall', 'foundation', 'single-pile', 'retrofit',
@@ -129,6 +131,25 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'golden-state-to-report-fingerprint',
   'resultReconciliation',
 ].forEach(needle => assertIncludes(formalBrowserSmoke, needle, `formal browser smoke preserves rendered evidence ${needle}`));
+[
+  'formal-calculation-book-content-v1',
+  'formal-calculation-book-approval-v1',
+  'verifyReportContentSeal',
+  'verifyReportApprovalSeal',
+  '內容完整性異常',
+  '核可完整性異常',
+].forEach(needle => assertIncludes(formalSharedReport, needle, `formal shared report preserves HTML dual seal ${needle}`));
+[
+  '<!--formal-content-seal:start-->',
+  '<!--formal-content-seal:end-->',
+  'rep-sealed-content',
+].forEach(needle => assertIncludes(formalWindReport, needle, `formal wind/seismic report preserves sealed calculation boundary ${needle}`));
+[
+  'verifyApprovedHtmlDualSeals',
+  'contentTamperDetectionStatus',
+  'approvalTamperDetectionStatus',
+  'htmlArtifactSha256',
+].forEach(needle => assertIncludes(formalBrowserSmoke, needle, `formal browser smoke preserves HTML dual seal evidence ${needle}`));
 
 [
   'renderAndValidateReportPdf',
@@ -203,6 +224,12 @@ for (const { name, source } of rcReportVisualSources) {
   'rc-html-approval-seal-invalid',
   '人工複核核可狀態',
 ].forEach(needle => assertIncludes(attachmentPackageChecker, needle, `attachment checker preserves RC HTML approval seal ${needle}`));
+[
+  'verifyFormalHtmlContentSeal',
+  'verifyFormalHtmlApprovalSeal',
+  'formal-html-content-seal-invalid',
+  'formal-html-approval-seal-invalid',
+].forEach(needle => assertIncludes(attachmentPackageChecker, needle, `attachment checker preserves formal-tool HTML dual seal ${needle}`));
 
 [
   'steel-source-replay-to-report-fingerprint',
@@ -237,7 +264,7 @@ for (const { name, source } of rcReportVisualSources) {
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 18',
+  'schemaVersion: 19',
   'canonicalArtifactIntegrity',
   "scope: 'canonical-rendered-pdf-evidence'",
   'required: 60',
@@ -262,6 +289,12 @@ for (const { name, source } of rcReportVisualSources) {
   'rcFormalHtmlApprovalSeal',
   "scope: 'rc-formal-html-reproducible-approval-sha256'",
   'rcFormalHtmlApprovalSeal=',
+  'formalHtmlContentSeal',
+  "scope: 'formal-tools-html-reproducible-content-sha256'",
+  'formalHtmlContentSeal=',
+  'formalHtmlApprovalSeal',
+  "scope: 'formal-tools-html-reproducible-approval-sha256'",
+  'formalHtmlApprovalSeal=',
   'steelResultReconciliation',
   "scope: 'steel-source-replay-to-report-fingerprint'",
   'required: 5',
@@ -311,6 +344,7 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'rcStandaloneFormalHtmlPrintDeclared',
   'rcFormalHtmlContentSealDeclared',
   'rcFormalHtmlApprovalSealDeclared',
+  'formalHtmlDualSealDeclared',
   'steelResultReconciliationDeclared',
   'stoneResultReconciliationDeclared',
   'anchorResultReconciliationDeclared',
@@ -331,6 +365,10 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'evidence.rcFormalHtmlContentSeal.required === 34',
   "evidence.rcFormalHtmlApprovalSeal?.scope === 'rc-formal-html-reproducible-approval-sha256'",
   'evidence.rcFormalHtmlApprovalSeal.required === 34',
+  "evidence.formalHtmlContentSeal?.scope === 'formal-tools-html-reproducible-content-sha256'",
+  'evidence.formalHtmlContentSeal.required === 14',
+  "evidence.formalHtmlApprovalSeal?.scope === 'formal-tools-html-reproducible-approval-sha256'",
+  'evidence.formalHtmlApprovalSeal.required === 14',
   "evidence.steelResultReconciliation?.scope === 'steel-source-replay-to-report-fingerprint'",
   'evidence.steelResultReconciliation.required === 5',
   "evidence.stoneResultReconciliation?.scope === 'stone-golden-replay-to-pdf-docx-hash'",
@@ -368,6 +406,9 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'RC 正式 HTML 內容封印',
   'rcFormalHtmlApprovalSealRequired',
   'RC 正式 HTML 核可封印',
+  'formalHtmlContentSealRequired',
+  'formalHtmlApprovalSealRequired',
+  '風力／地震正式 HTML 雙封印',
   'steelResultReconciliationRequired',
   '鋼構正式計算書結果鏈',
   'stoneResultReconciliationRequired',
@@ -474,6 +515,9 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   assertIncludes(source, '核可 HTML', `${label} documents RC standalone formal HTML print scope`);
   assertIncludes(source, 'Schema v17', `${label} documents RC formal HTML content seal release evidence schema`);
   assertIncludes(source, 'Schema v18', `${label} documents RC formal HTML approval seal release evidence schema`);
+  assertIncludes(source, 'Schema v19', `${label} documents formal-tool HTML dual seal release evidence schema`);
+  assertIncludes(source, '風力／地震', `${label} documents formal-tool HTML dual seal family`);
+  assertIncludes(source, '雙封印', `${label} documents formal-tool HTML dual seal scope`);
   assertIncludes(source, '內容封印', `${label} documents RC formal HTML content seal scope`);
   assertIncludes(source, '數位簽章', `${label} distinguishes content seal from identity signature`);
 });

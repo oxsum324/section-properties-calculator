@@ -175,25 +175,25 @@
       '/wind-overview': '2026-08-02',
       '/wind-kzt': '2026-08-02',
       '/wind-special': '2026-07-10',
-      '/wind-force': '2026-08-02',
-      '/wind-cc': '2026-08-02',
-      '/wind-parapet': '2026-08-02',
-      '/wind-open-roof': '2026-08-02',
-      '/wind-object-solid': '2026-08-02',
-      '/wind-object-frame': '2026-08-02',
-      '/wind-lattice-tower': '2026-08-02',
-      '/wind-object-tower': '2026-08-02',
-      '/wind-fence-sign': '2026-08-02',
-      '/wind-sign-pole': '2026-08-02',
-      '/seismic-force': '2026-08-02',
-      '/seismic-dynamic': '2026-08-02',
-      '/seismic-appendage': '2026-08-02',
-      '/seismic-misc': '2026-08-02',
+      '/wind-force': '2026-08-05',
+      '/wind-cc': '2026-08-05',
+      '/wind-parapet': '2026-08-05',
+      '/wind-open-roof': '2026-08-05',
+      '/wind-object-solid': '2026-08-05',
+      '/wind-object-frame': '2026-08-05',
+      '/wind-lattice-tower': '2026-08-05',
+      '/wind-object-tower': '2026-08-05',
+      '/wind-fence-sign': '2026-08-05',
+      '/wind-sign-pole': '2026-08-05',
+      '/seismic-force': '2026-08-05',
+      '/seismic-dynamic': '2026-08-05',
+      '/seismic-appendage': '2026-08-05',
+      '/seismic-misc': '2026-08-05',
       '/anchor': '2026-08-02',
       '/stone-fixing': '2026-07-21',
-      '/foundation-local': '2026-08-04',
-      '/equipment-load': '2026-08-02',
-      '/earth-pressure': '2026-08-04',
+      '/foundation-local': '2026-08-05',
+      '/equipment-load': '2026-08-05',
+      '/earth-pressure': '2026-08-05',
       '/decking': '2026-07-21',
       '/excavation-support': '2026-06-26'
     }
@@ -1279,6 +1279,12 @@
         : null,
       Number.isInteger(payload.formalResultReconciliationRequired) && payload.formalResultReconciliationRequired > 0
         ? ratio('數值結果鏈', payload.formalResultReconciliationComplete, payload.formalResultReconciliationRequired, payload.formalResultReconciliationIssueCount)
+        : null,
+      Number.isInteger(payload.formalHtmlContentSealRequired) && payload.formalHtmlContentSealRequired > 0
+        ? ratio('正式 HTML 內容封印', payload.formalHtmlContentSealComplete, payload.formalHtmlContentSealRequired, payload.formalHtmlContentSealIssueCount)
+        : null,
+      Number.isInteger(payload.formalHtmlApprovalSealRequired) && payload.formalHtmlApprovalSealRequired > 0
+        ? ratio('正式 HTML 核可封印', payload.formalHtmlApprovalSealComplete, payload.formalHtmlApprovalSealRequired, payload.formalHtmlApprovalSealIssueCount)
         : null,
       Number.isInteger(payload.rcResultReconciliationRequired) && payload.rcResultReconciliationRequired > 0
         ? ratio('RC 結果鏈', payload.rcResultReconciliationComplete, payload.rcResultReconciliationRequired, payload.rcResultReconciliationIssueCount)

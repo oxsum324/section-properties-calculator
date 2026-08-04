@@ -828,11 +828,13 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 <body>
 ${reportToolbarHtml()}
 <div class="rep-paper">
+  ${documentStateReport.html}
+  <!--formal-content-seal:start-->
+  <div class="rep-sealed-content">
   <div class="rep-header">
     <h1>${esc(title)} 計算書</h1>
     ${subtitle ? `<div class="sub">${esc(subtitle)}</div>` : ''}
   </div>
-  ${documentStateReport.html}
   <div class="rep-meta rep-meta--traceable">
     <div><b>計畫名稱</b>${esc(proj.name) || '—'}</div>
     <div><b>計畫編號</b>${esc(proj.no) || '—'}</div>
@@ -861,6 +863,8 @@ ${reportToolbarHtml()}
   ${!isSummaryReport ? buildStepsHtml() : ''}
   ${notesHtml}
   <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>
+  </div>
+  <!--formal-content-seal:end-->
 </div>
 ${reportWindowScriptHtml()}
 </body>
@@ -963,11 +967,13 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 <body>
 ${reportToolbarHtml()}
 <div class="rep-paper">
+  ${documentStateReport.html}
+  <!--formal-content-seal:start-->
+  <div class="rep-sealed-content">
   <div class="rep-header">
     <h1>${esc(title)} 計算書</h1>
     ${subtitle ? `<div class="sub">${esc(subtitle)}</div>` : ''}
   </div>
-  ${documentStateReport.html}
   <div class="rep-meta rep-meta--traceable">
     <div><b>計畫名稱</b>${esc(proj.name) || '—'}</div>
     <div><b>計畫編號</b>${esc(proj.no) || '—'}</div>
@@ -984,6 +990,8 @@ ${reportToolbarHtml()}
   ${!isSummaryReport && !hasStructuredSteps ? buildStepsHtml() : ''}
   ${notesHtml}
   <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>
+  </div>
+  <!--formal-content-seal:end-->
 </div>
 ${reportWindowScriptHtml()}
 </body>

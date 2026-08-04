@@ -26,8 +26,12 @@ const READY_DOCUMENT_CLASS_LABEL = '文件狀態：正式附件';
 const CANONICAL_RENDER_EVIDENCE_KIND = 'attachment-canonical-render-evidence.v1';
 const RC_CONTENT_SEAL_SCOPE = 'rc-calculation-book-content-v1';
 const RC_APPROVAL_SEAL_SCOPE = 'rc-calculation-book-approval-v1';
+const FORMAL_CONTENT_SEAL_SCOPE = 'formal-calculation-book-content-v1';
+const FORMAL_APPROVAL_SEAL_SCOPE = 'formal-calculation-book-approval-v1';
 const RC_CONTENT_SEAL_START = '<!--rc-content-seal:start-->';
 const RC_CONTENT_SEAL_END = '<!--rc-content-seal:end-->';
+const FORMAL_CONTENT_SEAL_START = '<!--formal-content-seal:start-->';
+const FORMAL_CONTENT_SEAL_END = '<!--formal-content-seal:end-->';
 const PACKAGE_STATUS_EXIT_CODES = Object.freeze({
   ready: 0,
   review: 1,
@@ -226,6 +230,92 @@ function isRcHtmlApprovalSealRequired(record) {
   if (!['html', 'htm'].includes(String(record?.type || '').toLowerCase())) return false;
   if (record?.approvalSeal?.scope === RC_APPROVAL_SEAL_SCOPE) return true;
   return isRcHtmlContentSealRequired(record);
+}
+
+function canonicalizeFormalHtmlContentSeal(html) {
+  const value = String(html || '')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '');
+  const start = value.lastIndexOf(FORMAL_CONTENT_SEAL_START);
+  const end = value.lastIndexOf(FORMAL_CONTENT_SEAL_END);
+  if (start < 0 || end < 0 || end <= start) return '';
+  return value.slice(start + FORMAL_CONTENT_SEAL_START.length, end)
+    .replace(/<span\b(?=[^>]*\brep-document-status-line\b)[^>]*>[\s\S]*?<\/span>/i, '<span class="rep-document-status-line"></span>');
+}
+
+function verifyFormalHtmlContentSeal(html) {
+  const value = String(html || '');
+  const sourceTag = value.match(/<span\b(?=[^>]*\brep-formal-content-seal-source\b)[^>]*>/i)?.[0] || '';
+  if (!sourceTag) return { status: 'missing', scope: '', expectedSha256: '', actualSha256: '', reasons: ['seal-source-missing'] };
+  const attributes = parseMarkupAttributes(sourceTag);
+  const scope = String(attributes['data-content-seal-scope'] || '').trim();
+  const expectedSha256 = String(attributes['data-content-sha256'] || '').trim().toLowerCase();
+  const canonicalContent = canonicalizeFormalHtmlContentSeal(value);
+  const reasons = [];
+  if (scope !== FORMAL_CONTENT_SEAL_SCOPE) reasons.push('seal-scope');
+  if (!/^[0-9a-f]{64}$/.test(expectedSha256)) reasons.push('seal-sha256');
+  if (!canonicalContent) reasons.push('sealed-content-boundary');
+  const actualSha256 = canonicalContent
+    ? crypto.createHash('sha256').update(canonicalContent, 'utf8').digest('hex')
+    : '';
+  if (expectedSha256 && actualSha256 && expectedSha256 !== actualSha256) reasons.push('content-sha256-mismatch');
+  return { status: reasons.length ? 'failed' : 'verified', scope, expectedSha256, actualSha256, reasons };
+}
+
+function canonicalizeFormalHtmlApprovalSeal(html) {
+  const value = String(html || '');
+  const markup = value
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '');
+  const sourceMatches = [...markup.matchAll(/<span\b(?=[^>]*\brep-attachment-approval-source\b)[^>]*>[\s\S]*?<\/span>/gi)];
+  const statusMatches = [...markup.matchAll(/<span\b(?=[^>]*\brep-document-status-line\b)[^>]*>([\s\S]*?)<\/span>/gi)];
+  const contentSealMatches = [...markup.matchAll(/<span\b(?=[^>]*\brep-formal-content-seal-source\b)[^>]*>[\s\S]*?<\/span>/gi)];
+  const headMarkup = markup.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] || '';
+  const titleMatches = [...headMarkup.matchAll(/<title\b[^>]*>([\s\S]*?)<\/title>/gi)];
+  if (sourceMatches.length !== 1 || statusMatches.length !== 1 || contentSealMatches.length !== 1 || titleMatches.length !== 1) return '';
+  const sourceAttributes = parseMarkupAttributes(sourceMatches[0][0].replace(/>[\s\S]*$/, '>'));
+  const statusAttributes = parseMarkupAttributes(statusMatches[0][0].replace(/>[\s\S]*$/, '>'));
+  const contentSealAttributes = parseMarkupAttributes(contentSealMatches[0][0].replace(/>[\s\S]*$/, '>'));
+  const clean = input => normalizeText(decodeXmlEntities(input));
+  return JSON.stringify({
+    scope: FORMAL_APPROVAL_SEAL_SCOPE,
+    reportTitle: clean(sourceAttributes['data-report-title']),
+    calculationFingerprint: clean(sourceAttributes['data-calculation-fingerprint']),
+    sourceApproved: clean(sourceAttributes['data-initial-approved']),
+    sourceApprovedAt: clean(sourceAttributes['data-approved-at']),
+    documentClass: clean(statusAttributes['data-document-class']),
+    statusApproved: clean(statusAttributes['data-approved']),
+    statusApprovedAt: clean(statusAttributes['data-approved-at']),
+    statusText: normalizeText(statusMatches[0][1]),
+    documentTitle: normalizeText(titleMatches[0][1]),
+    contentSha256: clean(contentSealAttributes['data-content-sha256']).toLowerCase(),
+  });
+}
+
+function verifyFormalHtmlApprovalSeal(html) {
+  const value = String(html || '');
+  const sourceTag = value.match(/<span\b(?=[^>]*\brep-formal-approval-seal-source\b)[^>]*>/i)?.[0] || '';
+  if (!sourceTag) return { status: 'missing', scope: '', expectedSha256: '', actualSha256: '', reasons: ['seal-source-missing'] };
+  const attributes = parseMarkupAttributes(sourceTag);
+  const scope = String(attributes['data-approval-seal-scope'] || '').trim();
+  const expectedSha256 = String(attributes['data-approval-sha256'] || '').trim().toLowerCase();
+  const canonicalPayload = canonicalizeFormalHtmlApprovalSeal(value);
+  const reasons = [];
+  if (scope !== FORMAL_APPROVAL_SEAL_SCOPE) reasons.push('seal-scope');
+  if (!/^[0-9a-f]{64}$/.test(expectedSha256)) reasons.push('seal-sha256');
+  if (!canonicalPayload) reasons.push('approval-payload');
+  const actualSha256 = canonicalPayload
+    ? crypto.createHash('sha256').update(canonicalPayload, 'utf8').digest('hex')
+    : '';
+  if (expectedSha256 && actualSha256 && expectedSha256 !== actualSha256) reasons.push('approval-sha256-mismatch');
+  return { status: reasons.length ? 'failed' : 'verified', scope, expectedSha256, actualSha256, reasons };
+}
+
+function isFormalHtmlSealRequired(record) {
+  if (!['html', 'htm'].includes(String(record?.type || '').toLowerCase())) return false;
+  return record?.formalReportSealCandidate === true
+    || record?.formalContentSeal?.scope === FORMAL_CONTENT_SEAL_SCOPE
+    || record?.formalApprovalSeal?.scope === FORMAL_APPROVAL_SEAL_SCOPE;
 }
 
 function parseCssSelector(value) {
@@ -1089,7 +1179,7 @@ function inspectAttachment(filePath, rootDir) {
     file: path.relative(rootDir, filePath) || path.basename(filePath), type, size: 0, sourceSha256: '',
     textLength: 0, projectName: '', projectNo: '', designer: '', sourceTool: '', toolVersion: '', outputTime: '', approvalTime: '',
     fingerprints: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: [],
-    reportDocumentNeedles: [], calculationSummaryNeedles: [], documentClassRequired: false, contentBoundary: null, visibilityEvidence: null, contentSeal: null, approvalSeal: null, errors: [],
+    reportDocumentNeedles: [], calculationSummaryNeedles: [], documentClassRequired: false, contentBoundary: null, visibilityEvidence: null, contentSeal: null, approvalSeal: null, formalContentSeal: null, formalApprovalSeal: null, formalReportSealCandidate: false, errors: [],
   };
   try {
     const before = fileSnapshot(filePath);
@@ -1131,6 +1221,10 @@ function inspectAttachment(filePath, rootDir) {
       if (type === 'html' || type === 'htm') {
         record.contentSeal = verifyRcHtmlContentSeal(text);
         record.approvalSeal = verifyRcHtmlApprovalSeal(text);
+        record.formalContentSeal = verifyFormalHtmlContentSeal(text);
+        record.formalApprovalSeal = verifyFormalHtmlApprovalSeal(text);
+        record.formalReportSealCandidate = /data-attachment-approval-script/i.test(text)
+          && !new RegExp(`data-content-seal-scope=["']${RC_CONTENT_SEAL_SCOPE}["']`, 'i').test(text);
         const visibleContent = extractHtmlVisibleContent(text);
         text = visibleContent.text;
         record.visibilityEvidence = visibleContent.visibilityIssues.length
@@ -1422,6 +1516,18 @@ function analyzePackage(records, options = {}) {
         ));
       }
     }
+    if ((record.readyDocumentNeedles || []).length && isFormalHtmlSealRequired(record)) {
+      if (!record.formalContentSeal || record.formalContentSeal.status === 'missing') {
+        issues.push(buildIssue('warn', 'formal-html-content-seal-missing', `${record.file} 是共用正式 HTML，但沒有可重算的 SHA-256 內容封印；可能是舊版輸出，需人工確認後再決定是否沿用。`, [record.file]));
+      } else if (record.formalContentSeal.status !== 'verified') {
+        issues.push(buildIssue('error', 'formal-html-content-seal-invalid', `${record.file} 的計算內容與下載時 SHA-256 封印不一致（${(record.formalContentSeal.reasons || ['unknown']).join('、')}）；不得作為正式附件，請回原工具重新輸出。`, [record.file]));
+      }
+      if (!record.formalApprovalSeal || record.formalApprovalSeal.status === 'missing') {
+        issues.push(buildIssue('warn', 'formal-html-approval-seal-missing', `${record.file} 是共用正式 HTML，但沒有可重算的 SHA-256 核可封印；可能是舊版輸出，需人工複核核可狀態後再決定是否沿用。`, [record.file]));
+      } else if (record.formalApprovalSeal.status !== 'verified') {
+        issues.push(buildIssue('error', 'formal-html-approval-seal-invalid', `${record.file} 的核可狀態、核可時間或文件識別與下載時 SHA-256 封印不一致（${(record.formalApprovalSeal.reasons || ['unknown']).join('、')}）；不得作為正式附件，請回原工具重新輸出。`, [record.file]));
+      }
+    }
     if ((record.draftDocumentNeedles || []).length) {
       issues.push(buildIssue('error', 'internal-review-document', `${record.file} 的文件狀態仍為內部審閱：${record.draftDocumentNeedles.join('、')}；請在計算書預覽完成核可後再納入正式附件組包。`, [record.file]));
     } else if (isDocumentClassRequired(record) && !(record.readyDocumentNeedles || []).length) {
@@ -1572,4 +1678,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { CALCULATION_BOOK_CONTENT_BOUNDARY, CONTENT_GROUPS, CONTENT_PROFILES, CANONICAL_RENDER_EVIDENCE_KIND, RC_CONTENT_SEAL_SCOPE, RC_APPROVAL_SEAL_SCOPE, RC_CONTENT_SEAL_START, RC_CONTENT_SEAL_END, SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, CALCULATION_SUMMARY_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, decodeXmlEntities, extractHtmlText, extractHtmlVisibleContent, canonicalizeRcHtmlContentSeal, verifyRcHtmlContentSeal, isRcHtmlContentSealRequired, canonicalizeRcHtmlApprovalSeal, verifyRcHtmlApprovalSeal, isRcHtmlApprovalSealRequired, hasDefinitelyHiddenStyle, hasAmbiguousVisibilityStyle, detectCalculationContentProfile, evaluateCalculationContent, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, validateCanonicalRenderEvidence, loadPdfVisibilityEvidence, collectDocxHiddenStyleIds, stripDocxHiddenText, parseSharedStrings, extractVisibleWorksheetText, resolveVisibleWorksheetEntries, extractXlsxVisibleContent, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };
+module.exports = { CALCULATION_BOOK_CONTENT_BOUNDARY, CONTENT_GROUPS, CONTENT_PROFILES, CANONICAL_RENDER_EVIDENCE_KIND, RC_CONTENT_SEAL_SCOPE, RC_APPROVAL_SEAL_SCOPE, FORMAL_CONTENT_SEAL_SCOPE, FORMAL_APPROVAL_SEAL_SCOPE, RC_CONTENT_SEAL_START, RC_CONTENT_SEAL_END, FORMAL_CONTENT_SEAL_START, FORMAL_CONTENT_SEAL_END, SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, CALCULATION_SUMMARY_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, decodeXmlEntities, extractHtmlText, extractHtmlVisibleContent, canonicalizeRcHtmlContentSeal, verifyRcHtmlContentSeal, isRcHtmlContentSealRequired, canonicalizeRcHtmlApprovalSeal, verifyRcHtmlApprovalSeal, isRcHtmlApprovalSealRequired, canonicalizeFormalHtmlContentSeal, verifyFormalHtmlContentSeal, canonicalizeFormalHtmlApprovalSeal, verifyFormalHtmlApprovalSeal, isFormalHtmlSealRequired, hasDefinitelyHiddenStyle, hasAmbiguousVisibilityStyle, detectCalculationContentProfile, evaluateCalculationContent, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, validateCanonicalRenderEvidence, loadPdfVisibilityEvidence, collectDocxHiddenStyleIds, stripDocxHiddenText, parseSharedStrings, extractVisibleWorksheetText, resolveVisibleWorksheetEntries, extractXlsxVisibleContent, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };

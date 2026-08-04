@@ -29,7 +29,13 @@ const viewports = [
 ];
 
 const formalManifest = readRootJson('結構工具箱/tools/formal-tools.manifest.json');
-const formalTools = formalManifest.tools;
+const requestedToolKey = String(process.env.FORMAL_BROWSER_TOOL || '').trim();
+const formalTools = requestedToolKey
+  ? formalManifest.tools.filter(tool => tool.key === requestedToolKey)
+  : formalManifest.tools;
+if (requestedToolKey && formalTools.length !== 1) {
+  throw new Error(`Unknown FORMAL_BROWSER_TOOL: ${requestedToolKey}`);
+}
 const requiredFormalRoutes = formalManifest.requiredRoutes;
 const renderedEvidenceDir = resolveEvidenceDir(repoRoot, 'formal-tools');
 const directPrintOutputDir = path.join(repoRoot, 'output', 'playwright', 'formal-direct-print-block');
@@ -99,9 +105,9 @@ const inlineValidationCases = {
 function assertFormalToolCoverage() {
   assert.equal(formalManifest.family, 'formal-tools', 'formal browser smoke manifest family');
   assert.equal(formalManifest.version, '0.3.0', 'formal browser smoke manifest version');
-  assert.ok(Array.isArray(formalTools), 'formal browser smoke manifest tools');
+  assert.ok(Array.isArray(formalManifest.tools), 'formal browser smoke manifest tools');
   assert.ok(Array.isArray(requiredFormalRoutes), 'formal browser smoke manifest required routes');
-  const coveredRoutes = new Set(formalTools.map(tool => tool.route));
+  const coveredRoutes = new Set(formalManifest.tools.map(tool => tool.route));
   for (const route of requiredFormalRoutes) {
     assert.ok(coveredRoutes.has(route), `formal browser smoke missing route: ${route}`);
   }
@@ -437,7 +443,9 @@ async function evaluate(client, sessionId, expression) {
   }, sessionId);
 
   if (result.exceptionDetails) {
-    throw new Error(result.exceptionDetails.text || 'Runtime evaluate failed');
+    const exception = result.exceptionDetails.exception;
+    const description = exception?.description || exception?.value || '';
+    throw new Error([result.exceptionDetails.text, description].filter(Boolean).join(': ') || 'Runtime evaluate failed');
   }
   return result.result.value;
 }
@@ -2246,13 +2254,57 @@ function assertPopupDocumentStateMatchesPage(state, tool, label) {
   assert.ok(state.approvedHtml.includes(state.approvedCalculationFingerprint), `${label} ${tool.key} approved HTML preserves the same calculation fingerprint`);
   assert.match(state.approvedHtml, /<title>[^<]*正式附件[^<]*CF-[0-9A-F]{16}[^<]*<\/title>/i, `${label} ${tool.key} saved formal HTML preserves the traceable artifact title`);
   assert.match(state.approvedHtml, /data-report-title=["'][^"']*計算書[^"']*["']/i, `${label} ${tool.key} saved formal HTML preserves the stable base report title`);
-  const savedStatusCount = (state.approvedHtml.match(/class=["'][^"']*rep-document-status-line[^"']*["']/gi) || []).length;
+  const savedStaticMarkup = state.approvedHtml
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '');
+  const savedStatusCount = (savedStaticMarkup.match(/class=["'][^"']*rep-document-status-line[^"']*["']/gi) || []).length;
   const savedVisibleText = AttachmentPackageChecker.extractHtmlVisibleContent(state.approvedHtml).text;
   assert.equal(savedStatusCount, 1, `${label} ${tool.key} saved formal HTML preserves exactly one static document-state line`);
   assert.ok(savedVisibleText.includes(readyDocumentLabel) && savedVisibleText.includes('核可時間') && savedVisibleText.includes(state.approvedCalculationFingerprint), `${label} ${tool.key} attachment checker can read formal status, approval time, and fingerprint without running scripts`);
   assert.doesNotMatch(state.approvedHtml, /class=["'][^"']*(?:rep-approval-control|rep-download-control)[^"']*["']/i, `${label} ${tool.key} saved formal HTML removes interactive controls`);
   assert.doesNotMatch(state.approvedHtml, /<body\b[^>]*data-document-class=/i, `${label} ${tool.key} approved HTML must rehydrate its document class from the serialized approval source`);
+  verifyApprovedHtmlDualSeals(state.approvedHtml, `${label} ${tool.key}`);
   assert.equal(state.bodyText.includes('DRAFT／非正式附件'), false, `${label} ${tool.key} popup has no DRAFT banner regardless of engineering readiness`);
+}
+
+function verifyApprovedHtmlDualSeals(approvedHtml, label) {
+  const contentSeal = AttachmentPackageChecker.verifyFormalHtmlContentSeal(approvedHtml);
+  const approvalSeal = AttachmentPackageChecker.verifyFormalHtmlApprovalSeal(approvedHtml);
+  assert.equal(contentSeal.status, 'verified', `${label} saved HTML content seal verifies independently`);
+  assert.equal(contentSeal.scope, AttachmentPackageChecker.FORMAL_CONTENT_SEAL_SCOPE, `${label} saved HTML content seal scope`);
+  assert.equal(contentSeal.expectedSha256, contentSeal.actualSha256, `${label} saved HTML content seal SHA-256 matches`);
+  assert.equal(approvalSeal.status, 'verified', `${label} saved HTML approval seal verifies independently`);
+  assert.equal(approvalSeal.scope, AttachmentPackageChecker.FORMAL_APPROVAL_SEAL_SCOPE, `${label} saved HTML approval seal scope`);
+  assert.equal(approvalSeal.expectedSha256, approvalSeal.actualSha256, `${label} saved HTML approval seal SHA-256 matches`);
+
+  const contentBoundaryIndex = approvedHtml.lastIndexOf(AttachmentPackageChecker.FORMAL_CONTENT_SEAL_START);
+  assert.ok(contentBoundaryIndex >= 0, `${label} saved HTML exposes the formal calculation-content boundary`);
+  const contentInsertAt = contentBoundaryIndex + AttachmentPackageChecker.FORMAL_CONTENT_SEAL_START.length;
+  const contentTamperedHtml = `${approvedHtml.slice(0, contentInsertAt)}<div>異動後計算內容</div>${approvedHtml.slice(contentInsertAt)}`;
+  const contentTamperSeal = AttachmentPackageChecker.verifyFormalHtmlContentSeal(contentTamperedHtml);
+  assert.equal(contentTamperSeal.status, 'failed', `${label} calculation-body tamper invalidates the content seal`);
+  assert.ok(contentTamperSeal.reasons.includes('content-sha256-mismatch'), `${label} calculation-body tamper records a SHA-256 mismatch`);
+
+  const approvalTamperedHtml = approvedHtml.replace(
+    /(rep-attachment-approval-source[^>]*data-approved-at=")[^"]+/i,
+    (_, prefix) => `${prefix}2000-01-01T00:00:00.000Z`
+  );
+  const approvalTamperContentSeal = AttachmentPackageChecker.verifyFormalHtmlContentSeal(approvalTamperedHtml);
+  const approvalTamperSeal = AttachmentPackageChecker.verifyFormalHtmlApprovalSeal(approvalTamperedHtml);
+  assert.equal(approvalTamperContentSeal.status, 'verified', `${label} approval-only tamper leaves the calculation-body seal intact`);
+  assert.equal(approvalTamperSeal.status, 'failed', `${label} approval-only tamper invalidates the approval seal`);
+  assert.ok(approvalTamperSeal.reasons.includes('approval-sha256-mismatch'), `${label} approval-only tamper records a SHA-256 mismatch`);
+  return {
+    contentSealStatus: contentSeal.status,
+    contentSealScope: contentSeal.scope,
+    contentSha256: contentSeal.actualSha256,
+    contentTamperDetectionStatus: contentTamperSeal.status,
+    approvalSealStatus: approvalSeal.status,
+    approvalSealScope: approvalSeal.scope,
+    approvalSha256: approvalSeal.actualSha256,
+    approvalTamperDetectionStatus: approvalTamperSeal.status,
+    approvalTamperContentSealStatus: approvalTamperContentSeal.status,
+  };
 }
 
 function getReportDocumentState(state) {
@@ -2773,6 +2825,12 @@ async function main() {
           assert.ok(renderedReportState?.approvedHtml, `${interactionLabel} ${tool.key} has approved report HTML for real formal-attachment PDF evidence`);
           const renderedDocumentStateNeedles = getApprovedReportPdfDocumentStateNeedles(renderedReportState);
           const resultReconciliation = buildFormalResultReconciliation(tool, goldenStates, renderedReportState);
+          const dualSealEvidence = verifyApprovedHtmlDualSeals(renderedReportState.approvedHtml, `${interactionLabel} ${tool.key} release evidence`);
+          const htmlArtifact = `${viewport.key}-${tool.key}-approved-formal-attachment.html`;
+          const htmlArtifactPath = path.join(renderedEvidenceDir, htmlArtifact);
+          fs.writeFileSync(htmlArtifactPath, renderedReportState.approvedHtml, 'utf8');
+          const htmlArtifactBytes = fs.statSync(htmlArtifactPath).size;
+          const htmlArtifactSha256 = crypto.createHash('sha256').update(fs.readFileSync(htmlArtifactPath)).digest('hex');
           const renderedEvidence = await renderAndValidateReportPdf(client, {
             html: renderedReportState.approvedHtml,
             outputDir: renderedEvidenceDir,
@@ -2805,6 +2863,10 @@ async function main() {
             approvalTime: renderedReportState.approvedAt,
             calculationFingerprint: renderedReportState.approvedCalculationFingerprint,
             resultReconciliation,
+            htmlArtifact,
+            htmlArtifactBytes,
+            htmlArtifactSha256,
+            ...dualSealEvidence,
             internalReviewDocumentClass: renderedReportState.documentClass,
             internalReviewStateVerified: renderedReportState.documentClass === 'internal-review',
             artifact: path.basename(renderedEvidence.pdfPath),
@@ -2882,8 +2944,9 @@ async function main() {
 
     const expectedRenderedEvidence = [
       ...formalTools.map(tool => tool.key),
-      'shared-summary-layout',
-      'shared-detailed-layout',
+      ...(formalTools.some(tool => tool.key === 'wind-force')
+        ? ['shared-summary-layout', 'shared-detailed-layout']
+        : []),
     ];
     const renderedSummary = writeEvidenceSummary(
       renderedEvidenceDir,

@@ -214,6 +214,29 @@ assert(tamperedRcSeal.reasons.includes('content-sha256-mismatch'));
 assert.equal(Checker.verifyRcHtmlContentSeal(sealedRcHtml.replace(Checker.RC_CONTENT_SEAL_START, '')).status, 'failed', 'removing the sealed boundary fails verification');
 assert.equal(Checker.verifyRcHtmlContentSeal(COMPLETE_CALCULATION_CONTENT).status, 'missing', 'legacy HTML without a content seal remains distinguishable');
 
+const formalSealedContentBlock = `${Checker.FORMAL_CONTENT_SEAL_START}<div class="rep-sealed-content"><h1>風力計算書</h1><span class="rep-document-status-line" data-document-class="formal-attachment" data-approved="true" data-approved-at="2026-08-05T01:30:00.000Z">文件狀態：正式附件｜核可時間：2026/08/05 09:30:00｜計算指紋：CF-ABCDEF1234567890</span><svg><title>工程圖說明</title></svg>${COMPLETE_CALCULATION_CONTENT}</div>${Checker.FORMAL_CONTENT_SEAL_END}`;
+const formalContentCanonical = Checker.canonicalizeFormalHtmlContentSeal(formalSealedContentBlock);
+const formalContentSha256 = crypto.createHash('sha256').update(formalContentCanonical, 'utf8').digest('hex');
+const formalApprovalSource = '<span class="rep-attachment-approval-source" data-initial-approved="true" data-calculation-fingerprint="CF-ABCDEF1234567890" data-approved-at="2026-08-05T01:30:00.000Z" data-report-title="風力計算書" aria-hidden="true"></span>';
+const formalContentSealSource = `<span class="rep-formal-content-seal-source" data-content-seal-scope="${Checker.FORMAL_CONTENT_SEAL_SCOPE}" data-content-sha256="${formalContentSha256}" aria-hidden="true"></span>`;
+const formalApprovalSealPlaceholder = `<span class="rep-formal-approval-seal-source" data-approval-seal-scope="${Checker.FORMAL_APPROVAL_SEAL_SCOPE}" data-approval-sha256="" aria-hidden="true"></span>`;
+const formalApprovalFixtureBase = `<html><head><title>風力計算書_正式附件_CF-ABCDEF1234567890</title></head><body>${formalApprovalSource}${formalContentSealSource}${formalApprovalSealPlaceholder}<script data-attachment-approval-script>void 0;</script>${formalSealedContentBlock}</body></html>`;
+const formalApprovalPayload = Checker.canonicalizeFormalHtmlApprovalSeal(formalApprovalFixtureBase);
+const formalApprovalSha256 = crypto.createHash('sha256').update(formalApprovalPayload, 'utf8').digest('hex');
+const sealedFormalHtml = formalApprovalFixtureBase.replace('data-approval-sha256=""', `data-approval-sha256="${formalApprovalSha256}"`);
+const verifiedFormalContentSeal = Checker.verifyFormalHtmlContentSeal(sealedFormalHtml);
+const verifiedFormalApprovalSeal = Checker.verifyFormalHtmlApprovalSeal(sealedFormalHtml);
+assert.equal(verifiedFormalContentSeal.status, 'verified', 'shared formal HTML content seal independently verifies the calculation body');
+assert.equal(verifiedFormalContentSeal.expectedSha256, verifiedFormalContentSeal.actualSha256);
+assert.equal(verifiedFormalApprovalSeal.status, 'verified', 'shared formal HTML approval seal binds status, time, title, fingerprint, and content seal');
+assert.equal(verifiedFormalApprovalSeal.expectedSha256, verifiedFormalApprovalSeal.actualSha256);
+const tamperedFormalContentSeal = Checker.verifyFormalHtmlContentSeal(sealedFormalHtml.replace('DCR=0.69', 'DCR=9.69'));
+assert.equal(tamperedFormalContentSeal.status, 'failed', 'editing shared formal calculation content invalidates its content seal');
+assert(tamperedFormalContentSeal.reasons.includes('content-sha256-mismatch'));
+const tamperedFormalApprovalSeal = Checker.verifyFormalHtmlApprovalSeal(sealedFormalHtml.replace('2026-08-05T01:30:00.000Z', '2000-01-01T00:00:00.000Z'));
+assert.equal(tamperedFormalApprovalSeal.status, 'failed', 'editing shared formal approval metadata invalidates its approval seal');
+assert.equal(Checker.verifyFormalHtmlApprovalSeal(sealedFormalHtml.replace(/<span class="rep-formal-approval-seal-source"[^>]*><\/span>/, '')).status, 'missing', 'legacy shared formal HTML remains distinguishable');
+
 const sealFixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rc-html-content-seal-'));
 try {
   const sealFixturePath = path.join(sealFixtureDir, 'rc-formal.html');
@@ -268,6 +291,27 @@ assert(unsealedRcHtmlPackage.issues.some(issue => issue.code === 'rc-html-conten
 const tamperedRcHtmlPackage = Checker.analyzePackage([{ ...sealedHtmlRecord, file: 'beam-tampered.html', contentSeal: tamperedRcSeal }]);
 assert.equal(tamperedRcHtmlPackage.status, 'blocked', 'RC formal HTML whose content seal does not match is blocked');
 assert.equal(tamperedRcHtmlPackage.issues.find(issue => issue.code === 'rc-html-content-seal-invalid')?.level, 'error');
+const sealedFormalHtmlRecord = {
+  ...reportRecord,
+  file: 'wind-force-formal.html',
+  type: 'html',
+  sourceTool: '風力設計／檢核',
+  formalReportSealCandidate: true,
+  formalContentSeal: verifiedFormalContentSeal,
+  formalApprovalSeal: verifiedFormalApprovalSeal,
+};
+assert.equal(Checker.isFormalHtmlSealRequired(sealedFormalHtmlRecord), true);
+assert.equal(Checker.analyzePackage([sealedFormalHtmlRecord]).status, 'ready', 'verified shared formal HTML dual seals preserve formal readiness');
+const unsealedFormalPackage = Checker.analyzePackage([{ ...sealedFormalHtmlRecord, formalContentSeal: { status: 'missing', scope: '', reasons: ['seal-source-missing'] }, formalApprovalSeal: { status: 'missing', scope: '', reasons: ['seal-source-missing'] } }]);
+assert.equal(unsealedFormalPackage.status, 'review', 'legacy shared formal HTML without dual seals requires manual review');
+assert(unsealedFormalPackage.issues.some(issue => issue.code === 'formal-html-content-seal-missing'));
+assert(unsealedFormalPackage.issues.some(issue => issue.code === 'formal-html-approval-seal-missing'));
+const tamperedFormalContentPackage = Checker.analyzePackage([{ ...sealedFormalHtmlRecord, formalContentSeal: tamperedFormalContentSeal }]);
+assert.equal(tamperedFormalContentPackage.status, 'blocked', 'shared formal HTML whose calculation body changed is blocked');
+assert.equal(tamperedFormalContentPackage.issues.find(issue => issue.code === 'formal-html-content-seal-invalid')?.level, 'error');
+const tamperedFormalApprovalPackage = Checker.analyzePackage([{ ...sealedFormalHtmlRecord, formalApprovalSeal: tamperedFormalApprovalSeal }]);
+assert.equal(tamperedFormalApprovalPackage.status, 'blocked', 'shared formal HTML whose approval metadata changed is blocked');
+assert.equal(tamperedFormalApprovalPackage.issues.find(issue => issue.code === 'formal-html-approval-seal-invalid')?.level, 'error');
 const whiteOnWhitePackage = Checker.analyzePackage([{ ...reportRecord, file: 'white-on-white.html', type: 'html', visibilityEvidence: { status: 'review', method: 'html-static-print-visibility', reasons: whiteOnWhiteHtml.visibilityIssues } }]);
 assert.equal(whiteOnWhitePackage.status, 'review', 'white-on-white HTML cannot automatically pass as a formal attachment');
 assert(whiteOnWhitePackage.issues.some(issue => issue.code === 'visibility-boundary-review'));
