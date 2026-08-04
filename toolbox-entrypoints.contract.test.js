@@ -978,6 +978,16 @@ assert.equal(releaseWrapper.includes('%*'), false, 'release wrapper must not pas
 assert.equal(releaseWrapper.includes('-Quick'), false, 'release wrapper must not enable quick mode');
 assert.ok(auditAll.includes('[System.Diagnostics.ProcessStartInfo]::new()'), 'audit-all uses ProcessStartInfo for child audits');
 assert.equal(auditAll.includes('Start-Process -FilePath powershell'), false, 'audit-all avoids Start-Process powershell env dictionary bug');
+assert.match(
+  auditAll,
+  /key\s*=\s*"rc"[\s\S]{0,320}?timeoutSeconds\s*=\s*900/,
+  'platform audit keeps a fifteen-minute timeout for the complete RC audit under release contention'
+);
+assert.match(
+  preflight,
+  /key\s*=\s*"platform-audit"[\s\S]{0,320}?timeoutSeconds\s*=\s*1200/,
+  'preflight keeps a twenty-minute outer timeout for the forced platform audit'
+);
 assert.ok(readText(path.join(toolboxRoot, 'tools/local-quick-tools.run.js')).includes('spawn error'), 'local quick runner reports spawn errors');
 assert.ok(readText(path.join(toolboxRoot, 'tools/formal-tools.run.js')).includes('spawn error'), 'formal tools runner reports spawn errors');
 
