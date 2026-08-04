@@ -6,6 +6,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const Builder = require('./attachment-package-build.js');
+const Checker = require('./attachment-package-check.js');
 const Verifier = require('./attachment-package-verify.js');
 
 const FINGERPRINT = 'CF-1234ABCD5678EF90';
@@ -43,6 +44,48 @@ function createPackage(tempRoot, name) {
   const outputDir = path.join(tempRoot, `${name}-package`);
   fs.mkdirSync(inputDir, { recursive: true });
   writeReadySource(inputDir);
+  const result = Builder.buildPackage(inputDir, {
+    output: outputDir,
+    projectNo: 'PKG-VERIFY-001',
+    now: FIXED_NOW,
+  });
+  assert.equal(result.status, 'ready');
+  return outputDir;
+}
+
+function buildSealedAnchorHtml() {
+  const content = [
+    '<!--anchor-content-seal:start--><main>',
+    '<h1>錨栓檢討報告</h1>',
+    '<section><h2>文件追溯與版本</h2><div>計畫編號：PKG-VERIFY-001</div><div>產出工具：錨栓檢討工具</div><div>工具版本：v1.0</div><div>輸出時間：2026/07/21 22:00:00</div><div>計算指紋：CF-1234ABCD5678EF90</div></section>',
+    '<section><h2>採用輸入</h2><div>材料與荷載資料：fc\'=280 kgf/cm²；Mu=12.5 tf·m</div></section>',
+    '<section><h2>計算內容</h2><div>檢核公式與代入值：Mu=12.5 tf·m；φMn=18.2 tf·m</div></section>',
+    '<section><h2>檢核結論</h2><div>DCR=0.69；檢核結果：通過</div></section>',
+    '</main><!--anchor-content-seal:end-->',
+  ].join('');
+  const contentSource = `<span class="anchor-content-seal-source" data-content-seal-scope="${Checker.ANCHOR_CONTENT_SEAL_SCOPE}" data-content-sha256="" hidden></span>`;
+  const approvalSource = `<span class="anchor-approval-seal-source" data-approval-seal-scope="${Checker.ANCHOR_APPROVAL_SEAL_SCOPE}" data-approval-sha256="" data-report-title="錨栓檢討報告" data-calculation-fingerprint="${FINGERPRINT}" data-approved="true" data-approved-at="2026-07-21T14:05:00.000Z" hidden></span>`;
+  const footer = `<footer id="reportDocumentStatus" data-document-state="formal-attachment" data-approved-at="2026-07-21T14:05:00.000Z">文件狀態：正式附件｜核可時間：2026/07/21 22:05:00｜計算指紋：${FINGERPRINT}</footer>`;
+  const placeholder = `<!doctype html><html><head><title>錨栓檢討報告_正式附件_${FINGERPRINT}</title></head><body>${contentSource}${approvalSource}${content}${footer}</body></html>`;
+  const contentSha256 = Checker.verifyAnchorHtmlDualSeals(placeholder).content.actualSha256;
+  const contentSealed = placeholder.replace('data-content-sha256=""', `data-content-sha256="${contentSha256}"`);
+  const approvalSha256 = Checker.verifyAnchorHtmlDualSeals(contentSealed).approval.actualSha256;
+  return contentSealed.replace('data-approval-sha256=""', `data-approval-sha256="${approvalSha256}"`);
+}
+
+function createAnchorPackage(tempRoot, name) {
+  const inputDir = path.join(tempRoot, `${name}-input`);
+  const outputDir = path.join(tempRoot, `${name}-package`);
+  fs.mkdirSync(path.join(inputDir, 'source'), { recursive: true });
+  fs.mkdirSync(path.join(inputDir, 'reports'), { recursive: true });
+  fs.writeFileSync(path.join(inputDir, 'source', 'anchor.json'), JSON.stringify({
+    schema: 'tool-project-storage.v1',
+    tool: { id: 'anchor-review', name: '錨栓檢討工具', version: 'v1.0' },
+    project: { no: 'PKG-VERIFY-001' },
+    calculationFingerprint: FINGERPRINT,
+    savedAt: '2026/07/21 22:00:00',
+  }), 'utf8');
+  fs.writeFileSync(path.join(inputDir, 'reports', 'anchor.html'), buildSealedAnchorHtml(), 'utf8');
   const result = Builder.buildPackage(inputDir, {
     output: outputDir,
     projectNo: 'PKG-VERIFY-001',
@@ -141,6 +184,32 @@ try {
   assert.deepEqual(readyFormalRecord.contentBoundary, { profile: 'traceable-calculation-book', missingGroups: [] });
   assert.match(Verifier.formatSummary(readyReport), /完整性與工程內容驗證：通過/);
   assert.match(Verifier.formatSummary(readyReport), /正式附件內容複驗 1 \/ 1 份/);
+
+  const readyAnchorPackage = createAnchorPackage(tempRoot, 'ready-anchor');
+  const readyAnchorReport = Verifier.verifyPackage(readyAnchorPackage);
+  assert.equal(readyAnchorReport.status, 'ready', 'sealed anchor formal HTML survives package build and post-package verification');
+
+  const forgedAnchorContentPackage = createAnchorPackage(tempRoot, 'forged-anchor-content');
+  const forgedAnchorContentManifest = readManifest(forgedAnchorContentPackage);
+  const forgedAnchorContentPath = path.join(forgedAnchorContentPackage, ...forgedAnchorContentManifest.formalAttachments[0].packagedFile.split('/'));
+  fs.writeFileSync(forgedAnchorContentPath, fs.readFileSync(forgedAnchorContentPath, 'utf8').replace('DCR=0.69', 'DCR=9.69'), 'utf8');
+  refreshV3PackageIntegrity(forgedAnchorContentPackage, forgedAnchorContentManifest);
+  const forgedAnchorContentReport = Verifier.verifyPackage(forgedAnchorContentPackage);
+  assert.equal(forgedAnchorContentReport.status, 'blocked', 'self-consistent package hashes cannot hide changed anchor calculation content');
+  assert.equal(hasIssue(forgedAnchorContentReport, 'anchor-html-content-seal-invalid'), true);
+  assert.equal(hasIssue(forgedAnchorContentReport, 'hash-mismatch'), false);
+  assert.equal(hasIssue(forgedAnchorContentReport, 'package-fingerprint-mismatch'), false);
+
+  const forgedAnchorApprovalPackage = createAnchorPackage(tempRoot, 'forged-anchor-approval');
+  const forgedAnchorApprovalManifest = readManifest(forgedAnchorApprovalPackage);
+  const forgedAnchorApprovalPath = path.join(forgedAnchorApprovalPackage, ...forgedAnchorApprovalManifest.formalAttachments[0].packagedFile.split('/'));
+  fs.writeFileSync(forgedAnchorApprovalPath, fs.readFileSync(forgedAnchorApprovalPath, 'utf8').replace('2026-07-21T14:05:00.000Z', '2000-01-01T00:00:00.000Z'), 'utf8');
+  refreshV3PackageIntegrity(forgedAnchorApprovalPackage, forgedAnchorApprovalManifest);
+  const forgedAnchorApprovalReport = Verifier.verifyPackage(forgedAnchorApprovalPackage);
+  assert.equal(forgedAnchorApprovalReport.status, 'blocked', 'self-consistent package hashes cannot hide changed anchor approval metadata');
+  assert.equal(hasIssue(forgedAnchorApprovalReport, 'anchor-html-approval-seal-invalid'), true);
+  assert.equal(hasIssue(forgedAnchorApprovalReport, 'hash-mismatch'), false);
+  assert.equal(hasIssue(forgedAnchorApprovalReport, 'package-fingerprint-mismatch'), false);
   assert.equal(
     Verifier.samePackageRoot(
       Verifier.packageRootIdentity(readyPackage),

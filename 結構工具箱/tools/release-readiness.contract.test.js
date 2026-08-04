@@ -243,6 +243,15 @@ for (const { name, source } of rcReportVisualSources) {
 ].forEach(needle => assertIncludes(attachmentPackageChecker, needle, `attachment checker preserves formal-tool HTML dual seal ${needle}`));
 
 [
+  'verifyAnchorHtmlDualSeals',
+  'isAnchorHtmlSealRequired',
+  'anchor-html-content-seal-missing',
+  'anchor-html-content-seal-invalid',
+  'anchor-html-approval-seal-missing',
+  'anchor-html-approval-seal-invalid',
+].forEach(needle => assertIncludes(attachmentPackageChecker, needle, `attachment checker preserves anchor HTML dual seal ${needle}`));
+
+[
   'steel-source-replay-to-report-fingerprint',
   'sourcePayloadSha256',
   'steel rendered report fingerprint matches its replayed source',

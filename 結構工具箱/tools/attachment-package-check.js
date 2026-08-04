@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const AnchorHtmlSealVerifier = require('./anchor-html-seal-verifier.js');
 
 const {
   CALCULATION_BOOK_CONTENT_BOUNDARY,
@@ -28,6 +29,8 @@ const RC_CONTENT_SEAL_SCOPE = 'rc-calculation-book-content-v1';
 const RC_APPROVAL_SEAL_SCOPE = 'rc-calculation-book-approval-v1';
 const FORMAL_CONTENT_SEAL_SCOPE = 'formal-calculation-book-content-v1';
 const FORMAL_APPROVAL_SEAL_SCOPE = 'formal-calculation-book-approval-v1';
+const ANCHOR_CONTENT_SEAL_SCOPE = AnchorHtmlSealVerifier.ANCHOR_CONTENT_SEAL_SCOPE;
+const ANCHOR_APPROVAL_SEAL_SCOPE = AnchorHtmlSealVerifier.ANCHOR_APPROVAL_SEAL_SCOPE;
 const RC_CONTENT_SEAL_START = '<!--rc-content-seal:start-->';
 const RC_CONTENT_SEAL_END = '<!--rc-content-seal:end-->';
 const FORMAL_CONTENT_SEAL_START = '<!--formal-content-seal:start-->';
@@ -316,6 +319,37 @@ function isFormalHtmlSealRequired(record) {
   return record?.formalReportSealCandidate === true
     || record?.formalContentSeal?.scope === FORMAL_CONTENT_SEAL_SCOPE
     || record?.formalApprovalSeal?.scope === FORMAL_APPROVAL_SEAL_SCOPE;
+}
+
+function normalizeAnchorHtmlSealResult(result, expectedScope) {
+  const scope = String(result?.scope || '').trim();
+  const expectedSha256 = String(result?.expectedSha256 || '').trim().toLowerCase();
+  const actualSha256 = String(result?.actualSha256 || '').trim().toLowerCase();
+  if (!scope && !expectedSha256) {
+    return { status: 'missing', scope: '', expectedSha256: '', actualSha256, reasons: ['seal-source-missing'] };
+  }
+  const reasons = [];
+  if (scope !== expectedScope) reasons.push('seal-scope');
+  if (!/^[0-9a-f]{64}$/i.test(expectedSha256)) reasons.push('seal-sha256');
+  if (!/^[0-9a-f]{64}$/i.test(actualSha256)) reasons.push('seal-boundary');
+  if (expectedSha256 && actualSha256 && expectedSha256 !== actualSha256) reasons.push('seal-sha256-mismatch');
+  return { status: reasons.length ? 'failed' : 'verified', scope, expectedSha256, actualSha256, reasons };
+}
+
+function verifyAnchorHtmlDualSeals(html) {
+  const result = AnchorHtmlSealVerifier.verifyAnchorReportHtmlSeals(html);
+  return {
+    content: normalizeAnchorHtmlSealResult(result.content, ANCHOR_CONTENT_SEAL_SCOPE),
+    approval: normalizeAnchorHtmlSealResult(result.approval, ANCHOR_APPROVAL_SEAL_SCOPE),
+  };
+}
+
+function isAnchorHtmlSealRequired(record) {
+  if (!['html', 'htm'].includes(String(record?.type || '').toLowerCase())) return false;
+  return record?.anchorReportSealCandidate === true
+    || record?.anchorContentSeal?.scope === ANCHOR_CONTENT_SEAL_SCOPE
+    || record?.anchorApprovalSeal?.scope === ANCHOR_APPROVAL_SEAL_SCOPE
+    || String(record?.sourceTool || '').trim() === '錨栓檢討工具';
 }
 
 function parseCssSelector(value) {
@@ -1179,7 +1213,7 @@ function inspectAttachment(filePath, rootDir) {
     file: path.relative(rootDir, filePath) || path.basename(filePath), type, size: 0, sourceSha256: '',
     textLength: 0, projectName: '', projectNo: '', designer: '', sourceTool: '', toolVersion: '', outputTime: '', approvalTime: '',
     fingerprints: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: [],
-    reportDocumentNeedles: [], calculationSummaryNeedles: [], documentClassRequired: false, contentBoundary: null, visibilityEvidence: null, contentSeal: null, approvalSeal: null, formalContentSeal: null, formalApprovalSeal: null, formalReportSealCandidate: false, errors: [],
+    reportDocumentNeedles: [], calculationSummaryNeedles: [], documentClassRequired: false, contentBoundary: null, visibilityEvidence: null, contentSeal: null, approvalSeal: null, formalContentSeal: null, formalApprovalSeal: null, formalReportSealCandidate: false, anchorContentSeal: null, anchorApprovalSeal: null, anchorReportSealCandidate: false, errors: [],
   };
   try {
     const before = fileSnapshot(filePath);
@@ -1223,6 +1257,10 @@ function inspectAttachment(filePath, rootDir) {
         record.approvalSeal = verifyRcHtmlApprovalSeal(text);
         record.formalContentSeal = verifyFormalHtmlContentSeal(text);
         record.formalApprovalSeal = verifyFormalHtmlApprovalSeal(text);
+        const anchorSeals = verifyAnchorHtmlDualSeals(text);
+        record.anchorContentSeal = anchorSeals.content;
+        record.anchorApprovalSeal = anchorSeals.approval;
+        record.anchorReportSealCandidate = /\banchor-(?:content|approval)-seal-source\b/i.test(text);
         record.formalReportSealCandidate = /data-attachment-approval-script/i.test(text)
           && !new RegExp(`data-content-seal-scope=["']${RC_CONTENT_SEAL_SCOPE}["']`, 'i').test(text);
         const visibleContent = extractHtmlVisibleContent(text);
@@ -1528,6 +1566,18 @@ function analyzePackage(records, options = {}) {
         issues.push(buildIssue('error', 'formal-html-approval-seal-invalid', `${record.file} 的核可狀態、核可時間或文件識別與下載時 SHA-256 封印不一致（${(record.formalApprovalSeal.reasons || ['unknown']).join('、')}）；不得作為正式附件，請回原工具重新輸出。`, [record.file]));
       }
     }
+    if ((record.readyDocumentNeedles || []).length && isAnchorHtmlSealRequired(record)) {
+      if (!record.anchorContentSeal || record.anchorContentSeal.status === 'missing') {
+        issues.push(buildIssue('warn', 'anchor-html-content-seal-missing', `${record.file} 是錨栓正式 HTML，但沒有可重算的 SHA-256 內容封印；可能是舊版輸出，需人工確認後再決定是否沿用。`, [record.file]));
+      } else if (record.anchorContentSeal.status !== 'verified') {
+        issues.push(buildIssue('error', 'anchor-html-content-seal-invalid', `${record.file} 的錨栓計算內容與下載時 SHA-256 封印不一致（${(record.anchorContentSeal.reasons || ['unknown']).join('、')}）；不得作為正式附件，請回原工具重新輸出。`, [record.file]));
+      }
+      if (!record.anchorApprovalSeal || record.anchorApprovalSeal.status === 'missing') {
+        issues.push(buildIssue('warn', 'anchor-html-approval-seal-missing', `${record.file} 是錨栓正式 HTML，但沒有可重算的 SHA-256 核可封印；可能是舊版輸出，需人工複核核可狀態後再決定是否沿用。`, [record.file]));
+      } else if (record.anchorApprovalSeal.status !== 'verified') {
+        issues.push(buildIssue('error', 'anchor-html-approval-seal-invalid', `${record.file} 的錨栓核可狀態、核可時間或文件識別與下載時 SHA-256 封印不一致（${(record.anchorApprovalSeal.reasons || ['unknown']).join('、')}）；不得作為正式附件，請回原工具重新輸出。`, [record.file]));
+      }
+    }
     if ((record.draftDocumentNeedles || []).length) {
       issues.push(buildIssue('error', 'internal-review-document', `${record.file} 的文件狀態仍為內部審閱：${record.draftDocumentNeedles.join('、')}；請在計算書預覽完成核可後再納入正式附件組包。`, [record.file]));
     } else if (isDocumentClassRequired(record) && !(record.readyDocumentNeedles || []).length) {
@@ -1678,4 +1728,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { CALCULATION_BOOK_CONTENT_BOUNDARY, CONTENT_GROUPS, CONTENT_PROFILES, CANONICAL_RENDER_EVIDENCE_KIND, RC_CONTENT_SEAL_SCOPE, RC_APPROVAL_SEAL_SCOPE, FORMAL_CONTENT_SEAL_SCOPE, FORMAL_APPROVAL_SEAL_SCOPE, RC_CONTENT_SEAL_START, RC_CONTENT_SEAL_END, FORMAL_CONTENT_SEAL_START, FORMAL_CONTENT_SEAL_END, SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, CALCULATION_SUMMARY_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, decodeXmlEntities, extractHtmlText, extractHtmlVisibleContent, canonicalizeRcHtmlContentSeal, verifyRcHtmlContentSeal, isRcHtmlContentSealRequired, canonicalizeRcHtmlApprovalSeal, verifyRcHtmlApprovalSeal, isRcHtmlApprovalSealRequired, canonicalizeFormalHtmlContentSeal, verifyFormalHtmlContentSeal, canonicalizeFormalHtmlApprovalSeal, verifyFormalHtmlApprovalSeal, isFormalHtmlSealRequired, hasDefinitelyHiddenStyle, hasAmbiguousVisibilityStyle, detectCalculationContentProfile, evaluateCalculationContent, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, validateCanonicalRenderEvidence, loadPdfVisibilityEvidence, collectDocxHiddenStyleIds, stripDocxHiddenText, parseSharedStrings, extractVisibleWorksheetText, resolveVisibleWorksheetEntries, extractXlsxVisibleContent, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };
+module.exports = { CALCULATION_BOOK_CONTENT_BOUNDARY, CONTENT_GROUPS, CONTENT_PROFILES, CANONICAL_RENDER_EVIDENCE_KIND, RC_CONTENT_SEAL_SCOPE, RC_APPROVAL_SEAL_SCOPE, FORMAL_CONTENT_SEAL_SCOPE, FORMAL_APPROVAL_SEAL_SCOPE, ANCHOR_CONTENT_SEAL_SCOPE, ANCHOR_APPROVAL_SEAL_SCOPE, RC_CONTENT_SEAL_START, RC_CONTENT_SEAL_END, FORMAL_CONTENT_SEAL_START, FORMAL_CONTENT_SEAL_END, SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, CALCULATION_SUMMARY_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, decodeXmlEntities, extractHtmlText, extractHtmlVisibleContent, canonicalizeRcHtmlContentSeal, verifyRcHtmlContentSeal, isRcHtmlContentSealRequired, canonicalizeRcHtmlApprovalSeal, verifyRcHtmlApprovalSeal, isRcHtmlApprovalSealRequired, canonicalizeFormalHtmlContentSeal, verifyFormalHtmlContentSeal, canonicalizeFormalHtmlApprovalSeal, verifyFormalHtmlApprovalSeal, isFormalHtmlSealRequired, normalizeAnchorHtmlSealResult, verifyAnchorHtmlDualSeals, isAnchorHtmlSealRequired, hasDefinitelyHiddenStyle, hasAmbiguousVisibilityStyle, detectCalculationContentProfile, evaluateCalculationContent, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, validateCanonicalRenderEvidence, loadPdfVisibilityEvidence, collectDocxHiddenStyleIds, stripDocxHiddenText, parseSharedStrings, extractVisibleWorksheetText, resolveVisibleWorksheetEntries, extractXlsxVisibleContent, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };

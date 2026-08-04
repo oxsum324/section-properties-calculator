@@ -237,6 +237,27 @@ const tamperedFormalApprovalSeal = Checker.verifyFormalHtmlApprovalSeal(sealedFo
 assert.equal(tamperedFormalApprovalSeal.status, 'failed', 'editing shared formal approval metadata invalidates its approval seal');
 assert.equal(Checker.verifyFormalHtmlApprovalSeal(sealedFormalHtml.replace(/<span class="rep-formal-approval-seal-source"[^>]*><\/span>/, '')).status, 'missing', 'legacy shared formal HTML remains distinguishable');
 
+const anchorContentBlock = `<!--anchor-content-seal:start--><main><h1>錨栓檢討報告</h1><section><h2>文件追溯與版本</h2><div>產出工具：錨栓檢討工具</div><div>工具版本：v1.0</div><div>輸出時間：2026/08/05 16:00:00</div><div>計算指紋：CF-5678ABCD1234EF90</div></section>${COMPLETE_CALCULATION_CONTENT}</main><!--anchor-content-seal:end-->`;
+const anchorContentPlaceholder = `<span class="anchor-content-seal-source" data-content-seal-scope="${Checker.ANCHOR_CONTENT_SEAL_SCOPE}" data-content-sha256="" hidden></span>`;
+const anchorApprovalPlaceholder = `<span class="anchor-approval-seal-source" data-approval-seal-scope="${Checker.ANCHOR_APPROVAL_SEAL_SCOPE}" data-approval-sha256="" data-report-title="錨栓檢討報告" data-calculation-fingerprint="CF-5678ABCD1234EF90" data-approved="true" data-approved-at="2026-08-05T08:05:00.000Z" hidden></span>`;
+const anchorFooter = '<footer id="reportDocumentStatus" data-document-state="formal-attachment" data-approved-at="2026-08-05T08:05:00.000Z">文件狀態：正式附件｜核可時間：2026/08/05 16:05:00｜計算指紋：CF-5678ABCD1234EF90</footer>';
+const anchorFixturePlaceholder = `<!doctype html><html><head><title>錨栓檢討報告_正式附件_CF-5678ABCD1234EF90</title></head><body>${anchorContentPlaceholder}${anchorApprovalPlaceholder}${anchorContentBlock}${anchorFooter}</body></html>`;
+const anchorContentSha256 = Checker.verifyAnchorHtmlDualSeals(anchorFixturePlaceholder).content.actualSha256;
+const anchorFixtureWithContentSeal = anchorFixturePlaceholder.replace('data-content-sha256=""', `data-content-sha256="${anchorContentSha256}"`);
+const anchorApprovalSha256 = Checker.verifyAnchorHtmlDualSeals(anchorFixtureWithContentSeal).approval.actualSha256;
+const sealedAnchorHtml = anchorFixtureWithContentSeal.replace('data-approval-sha256=""', `data-approval-sha256="${anchorApprovalSha256}"`);
+const verifiedAnchorSeals = Checker.verifyAnchorHtmlDualSeals(sealedAnchorHtml);
+assert.equal(verifiedAnchorSeals.content.status, 'verified', 'anchor HTML content seal independently verifies the calculation body');
+assert.equal(verifiedAnchorSeals.approval.status, 'verified', 'anchor HTML approval seal independently binds the approved attachment identity');
+const tamperedAnchorContentSeals = Checker.verifyAnchorHtmlDualSeals(sealedAnchorHtml.replace('DCR=0.69', 'DCR=9.69'));
+assert.equal(tamperedAnchorContentSeals.content.status, 'failed', 'editing anchor calculation content invalidates its content seal');
+assert.equal(tamperedAnchorContentSeals.approval.status, 'verified', 'content-only anchor tampering leaves the separately stored approval seal reproducible');
+const tamperedAnchorApprovalSeals = Checker.verifyAnchorHtmlDualSeals(sealedAnchorHtml.replace('2026-08-05T08:05:00.000Z', '2000-01-01T00:00:00.000Z'));
+assert.equal(tamperedAnchorApprovalSeals.content.status, 'verified', 'approval-only anchor tampering leaves calculation content intact');
+assert.equal(tamperedAnchorApprovalSeals.approval.status, 'failed', 'editing anchor approval metadata invalidates its approval seal');
+assert.equal(Checker.verifyAnchorHtmlDualSeals(COMPLETE_CALCULATION_CONTENT).content.status, 'missing', 'legacy anchor HTML without seals remains distinguishable');
+assert.equal(Checker.verifyAnchorHtmlDualSeals(sealedAnchorHtml.replace(Checker.ANCHOR_CONTENT_SEAL_SCOPE, 'unexpected-anchor-scope')).content.status, 'failed', 'unexpected anchor seal scope is rejected');
+
 const sealFixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rc-html-content-seal-'));
 try {
   const sealFixturePath = path.join(sealFixtureDir, 'rc-formal.html');
@@ -312,6 +333,27 @@ assert.equal(tamperedFormalContentPackage.issues.find(issue => issue.code === 'f
 const tamperedFormalApprovalPackage = Checker.analyzePackage([{ ...sealedFormalHtmlRecord, formalApprovalSeal: tamperedFormalApprovalSeal }]);
 assert.equal(tamperedFormalApprovalPackage.status, 'blocked', 'shared formal HTML whose approval metadata changed is blocked');
 assert.equal(tamperedFormalApprovalPackage.issues.find(issue => issue.code === 'formal-html-approval-seal-invalid')?.level, 'error');
+const sealedAnchorHtmlRecord = {
+  ...reportRecord,
+  file: 'anchor-formal.html',
+  type: 'html',
+  sourceTool: '錨栓檢討工具',
+  anchorReportSealCandidate: true,
+  anchorContentSeal: verifiedAnchorSeals.content,
+  anchorApprovalSeal: verifiedAnchorSeals.approval,
+};
+assert.equal(Checker.isAnchorHtmlSealRequired(sealedAnchorHtmlRecord), true);
+assert.equal(Checker.analyzePackage([sealedAnchorHtmlRecord]).status, 'ready', 'verified anchor HTML dual seals preserve formal readiness');
+const unsealedAnchorPackage = Checker.analyzePackage([{ ...sealedAnchorHtmlRecord, anchorContentSeal: { status: 'missing', scope: '', reasons: ['seal-source-missing'] }, anchorApprovalSeal: { status: 'missing', scope: '', reasons: ['seal-source-missing'] } }]);
+assert.equal(unsealedAnchorPackage.status, 'review', 'legacy anchor formal HTML without dual seals requires manual review');
+assert(unsealedAnchorPackage.issues.some(issue => issue.code === 'anchor-html-content-seal-missing'));
+assert(unsealedAnchorPackage.issues.some(issue => issue.code === 'anchor-html-approval-seal-missing'));
+const tamperedAnchorContentPackage = Checker.analyzePackage([{ ...sealedAnchorHtmlRecord, anchorContentSeal: tamperedAnchorContentSeals.content }]);
+assert.equal(tamperedAnchorContentPackage.status, 'blocked', 'anchor formal HTML whose calculation body changed is blocked');
+assert.equal(tamperedAnchorContentPackage.issues.find(issue => issue.code === 'anchor-html-content-seal-invalid')?.level, 'error');
+const tamperedAnchorApprovalPackage = Checker.analyzePackage([{ ...sealedAnchorHtmlRecord, anchorApprovalSeal: tamperedAnchorApprovalSeals.approval }]);
+assert.equal(tamperedAnchorApprovalPackage.status, 'blocked', 'anchor formal HTML whose approval metadata changed is blocked');
+assert.equal(tamperedAnchorApprovalPackage.issues.find(issue => issue.code === 'anchor-html-approval-seal-invalid')?.level, 'error');
 const whiteOnWhitePackage = Checker.analyzePackage([{ ...reportRecord, file: 'white-on-white.html', type: 'html', visibilityEvidence: { status: 'review', method: 'html-static-print-visibility', reasons: whiteOnWhiteHtml.visibilityIssues } }]);
 assert.equal(whiteOnWhitePackage.status, 'review', 'white-on-white HTML cannot automatically pass as a formal attachment');
 assert(whiteOnWhitePackage.issues.some(issue => issue.code === 'visibility-boundary-review'));
