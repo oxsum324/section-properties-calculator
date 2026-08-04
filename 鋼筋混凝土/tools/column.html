@@ -4864,6 +4864,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
 
     const reportConfig = {
       title: isDesignMode ? '柱設計計算書' : '柱檢核計算書',
+      outputSource:{ tool:'柱 Column 設計／檢核', version:'V3.1' },
       subtitle: isDesignMode ? 'RC Column Design Report' : 'RC Column Check Report',
       project: proj,
       calculationFingerprint: projectSnapshot.calculationFingerprint,

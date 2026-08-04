@@ -848,24 +848,29 @@ function extractXlsxText(filePath) {
 
 function extractJsonMetadata(value) {
   const fields = value && typeof value === 'object' ? value.fields || {} : {};
+  const state = value && typeof value === 'object' ? value.state || {} : {};
   const fieldValue = (...ids) => {
     for (const id of ids) {
-      const item = fields[id];
-      if (item && typeof item === 'object' && item.value != null) return String(item.value).trim();
-      if (typeof item === 'string') return item.trim();
+      for (const source of [fields, state]) {
+        const item = source[id];
+        if (item && typeof item === 'object' && item.value != null) return String(item.value).trim();
+        if (typeof item === 'string') return item.trim();
+      }
     }
     return '';
   };
   const project = value?.project && typeof value.project === 'object' ? value.project : {};
+  const metadata = value?.metadata && typeof value.metadata === 'object' ? value.metadata : {};
   const tool = value?.tool && typeof value.tool === 'object' ? value.tool : {};
+  const toolId = typeof value?.tool === 'string' ? value.tool : tool.id;
   const fingerprints = unique([value?.calculationFingerprint, value?.fingerprint, value?.report?.calculationFingerprint]
     .map(item => String(item || '').trim()).filter(item => /^CF-[0-9A-F]{16}$/i.test(item)));
   return {
-    projectName: cleanMetadataValue(project.name || value?.projectName || fieldValue('projName', 'projectName')),
-    projectNo: cleanMetadataValue(project.no || value?.projectNo || fieldValue('projNo', 'projectNo')),
-    designer: cleanMetadataValue(project.designer || value?.projectDesigner || fieldValue('projDesigner', 'projectDesigner')),
-    sourceTool: cleanMetadataValue(tool.name || tool.id || value?.toolName),
-    toolVersion: normalizeToolVersion(tool.version || value?.toolVersion || value?.pageVersion),
+    projectName: cleanMetadataValue(project.name || metadata.projectName || metadata.name || value?.projectName || fieldValue('projName', 'projectName')),
+    projectNo: cleanMetadataValue(project.no || metadata.projectNo || metadata.no || value?.projectNo || fieldValue('projNo', 'projectNo')),
+    designer: cleanMetadataValue(project.designer || metadata.designer || value?.projectDesigner || fieldValue('projDesigner', 'projectDesigner')),
+    sourceTool: cleanMetadataValue(tool.name || value?.toolTitle || toolId || value?.toolName),
+    toolVersion: normalizeToolVersion(tool.version || tool.pageVersion || value?.appVersion || value?.toolVersion || value?.pageVersion),
     outputTime: cleanMetadataValue(value?.savedAt || value?.outputTime),
     approvalTime: cleanMetadataValue(value?.documentApproval?.approvedAt || value?.approvedAt || value?.report?.approvedAt),
     fingerprints,

@@ -195,6 +195,8 @@ git add -- "開挖擋土支撐/README.md" "開挖擋土支撐/excavation-traceab
 git add -- "覆工板/README.md" "覆工板/decking-result-replay.js" "覆工板/decking-report.contract.test.js" "覆工板/test-fixtures/report-smoke.json" "覆工板/decking-traceability.catalog.json" "覆工板/decking-traceability.contract.test.js"
 ```
 
+RC 專案 JSON／計算書追溯對齊：調整 `attachment-package-check.js` 的 RC JSON 欄位辨識時，需一併 staging 單元測試、七個 RC 正式工具頁、`rc-project-fingerprint.contract.test.js`、相關回歸測試與三份治理文件。既有 `metadata`／`fields` 及單樁 `state` 都必須可抽取案件資料；計算書 `outputSource` 必須與同頁專案 JSON 的工具名稱、版本完全相同，並以代表性來源／正式報告 pair 證明案件、工具、版本及 `CF-` 可自動配對。不得要求改寫舊專案檔或另造轉接來源。
+
 ## D. 高頻局部快算工具
 
 Windows 案件附件工作台捷徑安裝器：新增或調整根目錄 `安裝案件附件工作台捷徑.bat`、根目錄 `檢查案件附件工作台捷徑.bat`、根目錄 `移除案件附件工作台捷徑.bat` 或 `install-attachment-governance-shortcuts.ps1` 時，必須同步 staging `attachment-governance-shortcut-installer.test.js`、preflight、Pages artifact／HTTP 私有邊界清冊、README 與 `TOOL_BOUNDARIES.md`。桌面、SendTo 與開始功能表三個捷徑只能指向根目錄受治理啟動器，工作目錄必須對齊 repo，參數必須為空。檢查模式全程唯讀，個別捷徑只可回報 `current`、`repairable`、`foreign` 或 `absent`，整體依序判為 `ready`、`review` 或 `blocked`，且不得改變捷徑內容或時間。只有帶管理標記或精確指向目前 repo 受治理啟動器的捷徑可修復；指向其他資料夾同名批次檔的捷徑必須判為 `foreign`。必須先預檢全部目的地；任一處同名使用者捷徑都必須保留原檔、在寫入前停止整批安裝並失敗封閉。已正確安裝的捷徑不得重寫。移除模式只能刪除受管理捷徑，不存在與同名使用者捷徑必須分別回報 `absent` 與 `preserved`。PowerShell 檔須保留 UTF-8 BOM，五個檢查／安裝／移除檔案均不得發布至 Pages。

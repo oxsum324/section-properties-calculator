@@ -116,16 +116,17 @@ const foundationPile = fingerprintApi.buildProjectCalculationFingerprint(foundat
 assert.notStrictEqual(foundationIso, foundationPile, 'foundation calculation type must change the calculation fingerprint');
 
 const pageContracts = [
-  ['beam.html', 'collectBeamProjectData', 'projectSnapshot = collectBeamProjectData()'],
-  ['column.html', 'collectColumnProjectData', 'projectSnapshot = collectColumnProjectData()'],
-  ['slab.html', 'collectSlabProjectData', 'projectSnapshot = collectSlabProjectData()'],
-  ['wall.html', 'collectWallProjectData', 'projectSnapshot = collectWallProjectData()'],
-  ['shear-wall.html', 'collectShearWallProjectData', 'projectSnapshot = collectShearWallProjectData()'],
-  ['foundation.html', 'collectFoundationProjectData', 'projectSnapshot = collectFoundationProjectData()'],
-  ['single-pile-designer.html', 'buildProjectPayload', 'projectSnapshot = buildProjectPayload()'],
+  ['beam.html', 'collectBeamProjectData', 'projectSnapshot = collectBeamProjectData()', '梁 Beam 設計／檢核', 'V3.1'],
+  ['column.html', 'collectColumnProjectData', 'projectSnapshot = collectColumnProjectData()', '柱 Column 設計／檢核', 'V3.1'],
+  ['slab.html', 'collectSlabProjectData', 'projectSnapshot = collectSlabProjectData()', '板 Slab 設計／檢核', 'V3.2'],
+  ['wall.html', 'collectWallProjectData', 'projectSnapshot = collectWallProjectData()', '牆 Wall 設計／檢核', 'V3.2'],
+  ['shear-wall.html', 'collectShearWallProjectData', 'projectSnapshot = collectShearWallProjectData()', '剪力牆 Shear Wall 設計／檢核', 'V0.3'],
+  ['foundation.html', 'collectFoundationProjectData', 'projectSnapshot = collectFoundationProjectData()', '基礎 Foundation 設計／檢核', 'V3.1'],
+  ['single-pile-designer.html', 'buildProjectPayload', 'projectSnapshot = buildProjectPayload()', '單樁承載力設計器', 'V3.1'],
 ];
 
-for (const [file, collector, snapshotCall] of pageContracts) {
+const escapeRegExp = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+for (const [file, collector, snapshotCall, sourceTool, sourceVersion] of pageContracts) {
   const html = fs.readFileSync(path.join(__dirname, file), 'utf8');
   assert.ok(html.includes('shared/report.js?v=6'), `${file} should load the replay-verified shared report`);
   assert.ok(html.includes('withProjectCalculationFingerprint(payload'), `${file} should fingerprint its project JSON payload`);
@@ -135,6 +136,8 @@ for (const [file, collector, snapshotCall] of pageContracts) {
   assert.ok(html.includes(snapshotCall), `${file} report should use a fresh ${collector} snapshot`);
   assert.ok(html.includes('calculationFingerprint: projectSnapshot.calculationFingerprint')
     || html.includes('calculationFingerprint:projectSnapshot.calculationFingerprint'), `${file} report should reuse the project JSON calculation fingerprint`);
+  const outputSourcePattern = new RegExp(`outputSource\\s*:\\s*\\{\\s*tool\\s*:\\s*['"]${escapeRegExp(sourceTool)}['"]\\s*,\\s*version\\s*:\\s*['"]${escapeRegExp(sourceVersion)}['"]\\s*\\}`);
+  assert.match(html, outputSourcePattern, `${file} report source tool and version should match its project JSON provenance`);
 }
 assert.ok(
   fs.readFileSync(path.join(__dirname, 'single-pile-designer.html'), 'utf8').includes('window.buildProjectPayload = buildProjectPayload'),

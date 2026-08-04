@@ -3332,6 +3332,7 @@ ${layerBars.map(L => {
 
     openReport({
       title: isDesignMode ? '梁設計計算書' : '梁檢核計算書',
+      outputSource:{ tool:'梁 Beam 設計／檢核', version:'V3.1' },
       subtitle: isDesignMode ? 'RC Beam Design Report' : 'RC Beam Check Report',
       project: proj,
       calculationFingerprint: projectSnapshot.calculationFingerprint,

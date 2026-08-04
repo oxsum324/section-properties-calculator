@@ -5490,6 +5490,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
 
     openReport({
       title: `基礎${modeStr}計算書 — ${tabNames[r.tab] || ''}`,
+      outputSource:{ tool:'基礎 Foundation 設計／檢核', version:'V3.1' },
       subtitle: `112 年混凝土結構設計規範`,
       project: proj,
       calculationFingerprint: projectSnapshot.calculationFingerprint,

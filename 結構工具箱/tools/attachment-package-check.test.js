@@ -57,6 +57,60 @@ assert.equal(steelMemberSourceExtracted.sourceTool, '鋼梁正式規範核算工
 assert.equal(steelMemberSourceExtracted.toolVersion, 'v1.0');
 assert.deepEqual(steelMemberSourceExtracted.fingerprints, ['CF-ABCDEF0123456789']);
 
+const rcFoundationSourceExtracted = Checker.extractJsonMetadata({
+  schema: 'rc-foundation-project-v1',
+  tool: 'rc-foundation',
+  toolTitle: '基礎 Foundation 設計／檢核',
+  appVersion: 'V3.1',
+  savedAt: '2026-08-04T10:00:00.000Z',
+  metadata: { projectName: 'RC 基礎測試案', projectNo: 'RC-FT-001', designer: 'Codex QA' },
+  calculationFingerprint: 'CF-0123456789ABCDEF',
+  fields: { pileD: { kind: 'input', value: '80' } },
+});
+assert.equal(rcFoundationSourceExtracted.projectName, 'RC 基礎測試案');
+assert.equal(rcFoundationSourceExtracted.projectNo, 'RC-FT-001');
+assert.equal(rcFoundationSourceExtracted.designer, 'Codex QA');
+assert.equal(rcFoundationSourceExtracted.sourceTool, '基礎 Foundation 設計／檢核');
+assert.equal(rcFoundationSourceExtracted.toolVersion, 'v3.1');
+assert.equal(rcFoundationSourceExtracted.outputTime, '2026-08-04T10:00:00.000Z');
+assert.deepEqual(rcFoundationSourceExtracted.fingerprints, ['CF-0123456789ABCDEF']);
+
+const singlePileSourceExtracted = Checker.extractJsonMetadata({
+  schema: 'single-pile-designer.project.v1',
+  tool: { id: 'single-pile-designer', name: '單樁承載力設計器', pageVersion: 'V3.1' },
+  savedAt: '2026-08-04T10:00:00.000Z',
+  state: { projName: '單樁測試案', projNo: 'RC-PILE-001', projDesigner: 'Codex QA', pileD: '80' },
+  calculationFingerprint: 'CF-FEDCBA9876543210',
+});
+assert.equal(singlePileSourceExtracted.projectName, '單樁測試案');
+assert.equal(singlePileSourceExtracted.projectNo, 'RC-PILE-001');
+assert.equal(singlePileSourceExtracted.designer, 'Codex QA');
+assert.equal(singlePileSourceExtracted.sourceTool, '單樁承載力設計器');
+assert.equal(singlePileSourceExtracted.toolVersion, 'v3.1');
+
+const rcSourceReportPair = Checker.analyzePackage([
+  {
+    file: 'RC基礎專案.json', type: 'json', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: [],
+    ...rcFoundationSourceExtracted,
+  },
+  {
+    file: 'RC基礎計算書.pdf', type: 'pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [],
+    readyDocumentNeedles: ['文件狀態：正式附件'], projectName: 'RC 基礎測試案', projectNo: 'RC-FT-001', designer: 'Codex QA',
+    sourceTool: '基礎 Foundation 設計／檢核', toolVersion: 'V3.1', outputTime: '2026/08/04 18:00:00',
+    approvalTime: '2026/08/04 18:05:00', fingerprints: ['CF-0123456789ABCDEF'],
+  },
+], { projectNo: 'RC-FT-001' });
+assert.equal(rcSourceReportPair.status, 'ready');
+assert.equal(rcSourceReportPair.fingerprintLinks.length, 1);
+assert.deepEqual(rcSourceReportPair.fingerprintLinks[0], {
+  projectNo: 'RC-FT-001',
+  sourceTool: '基礎 Foundation 設計／檢核',
+  toolVersion: 'v3.1',
+  fingerprint: 'CF-0123456789ABCDEF',
+  sourceFile: 'RC基礎專案.json',
+  reportFile: 'RC基礎計算書.pdf',
+});
+
 const readyReport = Checker.analyzePackage([
   { file: 'beam.pdf', type: 'pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: ['文件狀態：正式附件'], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/12 13:00:00', approvalTime: '2026/07/12 13:05:00', fingerprints: ['CF-1234ABCD5678EF90'] },
 ], { projectNo: 'PKG-001' });

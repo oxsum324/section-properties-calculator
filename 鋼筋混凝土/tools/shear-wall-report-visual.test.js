@@ -311,7 +311,7 @@ async function main() {
       assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${tc.key} project JSON calculation fingerprint`, sourceFingerprint);
       assert(metrics.calculationFingerprint === sourceFingerprint, `${tc.key} project JSON matches report calculation fingerprint`, `${sourceFingerprint} -> ${metrics.calculationFingerprint}`);
       assert(metrics.bodyText.includes('產出工具'), `${tc.key} report source tool label`, metrics.bodyText);
-      assert(metrics.bodyText.includes('剪力牆設計／檢核'), `${tc.key} report source tool`, metrics.bodyText);
+      assert(metrics.bodyText.includes('剪力牆 Shear Wall 設計／檢核'), `${tc.key} report source tool matches project JSON`, metrics.bodyText);
       assert(metrics.bodyText.includes('工具版本'), `${tc.key} report source version label`, metrics.bodyText);
       assert(metrics.bodyText.includes('V0.3'), `${tc.key} report source version`, metrics.bodyText);
       assert(!metrics.hasReportSummary, `${tc.key} report status summary hidden`, 'no .rep-summary');
