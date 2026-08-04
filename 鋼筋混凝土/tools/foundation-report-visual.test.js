@@ -109,6 +109,9 @@ const EXPECTED = {
       '代表單樁',
       '分析範圍 / Hx / Hy',
       '來源表格換算',
+      'X / Y 來源檔名',
+      'lpile-visual-x.csv',
+      'lpile-visual-y.tsv',
       'X / Y 來源列數',
       '位移、剪力、彎矩需求／容量核對通過',
     ],
@@ -272,11 +275,13 @@ async function applyCase(page, tc) {
         pilePyAdapterCapacityBasis: '專案核定樁身斷面容量',
         pilePyAdapterAllow: '2.5',
         pilePyAdapterShearCap: '36',
-        pilePyAdapterMomentCap: '28',
-        pilePyAdapterXTable: 'depth_m,deflection_mm,shear_kN,moment_kN_m\n0,8.2,149.06,-115.72\n3,5.1,-132,110\n9,-1.2,41,-80',
-        pilePyAdapterYTable: 'depth_m,deflection_mm,shear_kN,moment_kN_m\n0,4.3,75.50,-59.82\n3,2.4,-65,55\n9,-0.8,20,-30'
+        pilePyAdapterMomentCap: '28'
       };
       Object.entries(values).forEach(([id, value]) => { document.getElementById(id).value = value; });
+      const xTable = 'depth_m,deflection_mm,shear_kN,moment_kN_m\n0,8.2,149.06,-115.72\n3,5.1,-132,110\n9,-1.2,41,-80';
+      const yTable = 'depth_m,deflection_mm,shear_kN,moment_kN_m\n0,4.3,75.50,-59.82\n3,2.4,-65,55\n9,-0.8,20,-30';
+      if (!await window.loadPilePyTableFile(new File([xTable], 'lpile-visual-x.csv', { type: 'text/csv' }), 'x')) throw new Error('visual X table file load failed');
+      if (!await window.loadPilePyTableFile(new File([yTable], 'lpile-visual-y.tsv', { type: 'text/tab-separated-values' }), 'y')) throw new Error('visual Y table file load failed');
       const candidate = await window.buildPilePyCandidateFromTable();
       if (!candidate || candidate.source.analysisScope !== 'representative-pile') throw new Error('visual p-y table candidate validation failed');
       document.getElementById('pilePyReview').checked = true;

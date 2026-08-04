@@ -85,12 +85,13 @@ representativePayload.adapterEvidence = {
   sourceKind: 'tabular-export',
   unitProfile: 'si-kn-m-mm',
   analysisScope: 'representative-pile',
-  x: { rowCount: 3, tableSha256: 'a'.repeat(64) },
-  y: { rowCount: 3, tableSha256: 'b'.repeat(64) }
+  x: { rowCount: 3, tableSha256: 'a'.repeat(64), sourceFilename: 'lpile-x.csv' },
+  y: { rowCount: 3, tableSha256: 'b'.repeat(64), sourceFilename: 'lpile-y.tsv' }
 };
 const representative = Bridge.validatePayload(representativePayload, { ...current, representativeXTf: 16, representativeYTf: 8 });
 assert.equal(representative.source.analysisScope, 'representative-pile');
 assert.equal(representative.adapterEvidence.x.rowCount, 3);
+assert.equal(representative.adapterEvidence.x.sourceFilename, 'lpile-x.csv');
 assert.throws(
   () => Bridge.validatePayload(representativePayload, { ...current, representativeXTf: 15, representativeYTf: 8 }),
   /分析 Hx 16 ≠ 15/
@@ -100,6 +101,12 @@ badEvidence.adapterEvidence.x.tableSha256 = 'bad';
 assert.throws(
   () => Bridge.validatePayload(badEvidence, { ...current, representativeXTf: 16, representativeYTf: 8 }),
   /SHA-256 格式錯誤/
+);
+const badFilenameEvidence = JSON.parse(JSON.stringify(representativePayload));
+badFilenameEvidence.adapterEvidence.x.sourceFilename = 'C:\\secret\\lpile-x.csv';
+assert.throws(
+  () => Bridge.validatePayload(badFilenameEvidence, { ...current, representativeXTf: 16, representativeYTf: 8 }),
+  /來源檔名 格式錯誤/
 );
 assert.throws(
   () => Bridge.validatePayload({ ...payload, schema: 'rc-pile-py-result.v0' }, current),

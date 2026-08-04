@@ -126,10 +126,16 @@ const pilePyTableAdapterTest = read(pilePyTableAdapterTestPath);
 [
   '../shared/pile-py-table-adapter.js?v=1',
   'btnBuildPilePyFromTable',
+  'btnLoadPilePyXTable',
+  'btnLoadPilePyYTable',
+  'btnDownloadPilePyTableSample',
+  'loadPilePyTableFile',
+  '表格檔超過 1 MiB 上限',
   'buildPilePyCandidateFromTable',
   'analysisScope',
   '來源表格換算',
   'X / Y 表格 SHA-256',
+  'X / Y 來源檔名',
 ].forEach(needle => assertIncludes(tool, needle, 'pile p-y table adapter wiring'));
 
 [
@@ -139,6 +145,7 @@ const pilePyTableAdapterTest = read(pilePyTableAdapterTestPath);
   'project-tf-m-cm',
   '缺少深度 0 m 的樁頭列',
   'representative-pile',
+  'sourceFilename',
 ].forEach(needle => assertIncludes(pilePyTableAdapter, needle, 'pile p-y table adapter core'));
 
 [

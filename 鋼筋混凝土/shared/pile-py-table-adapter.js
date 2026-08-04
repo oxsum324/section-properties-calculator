@@ -42,6 +42,13 @@
     return normalized;
   }
 
+  function sourceFilename(value, label) {
+    const normalized = text(value, label, false);
+    if (!normalized) return '';
+    if (normalized.length > 180 || /[\\/\u0000-\u001f]/.test(normalized)) throw new Error(`${label} 格式錯誤。`);
+    return normalized;
+  }
+
   function finite(value, label) {
     const normalized = String(value == null ? '' : value).trim().replace(/,/g, '');
     const number = Number(normalized);
@@ -188,6 +195,7 @@
       const parsed = parseTable(tableText, profileKey, label);
       const sha256 = text(input.tableSha256?.[key], `${label} 向來源表格 SHA-256`);
       if (!/^[0-9a-f]{64}$/i.test(sha256)) throw new Error(`${label} 向來源表格 SHA-256 格式錯誤。`);
+      const filename = sourceFilename(input.tableSourceFilename?.[key], `${label} 向來源檔名`);
       return {
         result: {
           headDisplacementCm: parsed.headDisplacementCm,
@@ -199,7 +207,8 @@
         },
         evidence: {
           rowCount: parsed.rowCount,
-          tableSha256: sha256.toLowerCase()
+          tableSha256: sha256.toLowerCase(),
+          sourceFilename: filename
         }
       };
     };

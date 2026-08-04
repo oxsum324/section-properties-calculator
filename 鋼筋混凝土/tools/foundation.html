@@ -695,7 +695,7 @@
           <p class="retain-source-status" id="pilePyImportStatus">尚未採用專業 p-y 分析結果。匯入後會先核對樁群幾何、Hx／Hy、單位與需求／容量比。</p>
           <details id="pilePyAdapterPanel" style="margin-top:10px;">
             <summary style="cursor:pointer; font-weight:700; color:#1e3a5f;">由 LPile／FB-MultiPier 表格製作候選 JSON</summary>
-            <p class="hint">從 Excel 複製四欄表格；欄名與單位必須完全符合所選格式。轉換器只取深度 0 的樁頭位移及全深度最大絕對剪力／彎矩，不猜測專有報告文字。</p>
+            <p class="hint">可從 Excel 複製四欄表格，或直接選取 CSV／TSV／TXT；不直接解析 .xlsx。欄名與單位必須完全符合所選格式。轉換器只取深度 0 的樁頭位移及全深度最大絕對剪力／彎矩，不猜測專有報告文字。</p>
             <div class="form-row">
               <div class="form-group"><label>來源軟體</label><select id="pilePyAdapterSoftware"><option value="LPile">LPile</option><option value="FB-MultiPier">FB-MultiPier</option><option value="其他專業 p-y 軟體">其他專業 p-y 軟體</option></select></div>
               <div class="form-group"><label>軟體版本</label><input id="pilePyAdapterVersion" type="text" placeholder="例如 2026 R13"></div>
@@ -719,6 +719,13 @@
             <div class="form-row">
               <div class="form-group"><label>樁身彎矩容量 (tf·m)</label><input id="pilePyAdapterMomentCap" type="number" min="0" step="0.01"></div>
             </div>
+            <div class="retain-source-actions">
+              <button class="mode-bar__action" id="btnDownloadPilePyTableSample" type="button">下載所選單位 CSV 範本</button>
+              <button class="mode-bar__action" id="btnLoadPilePyXTable" type="button">讀取 X 向表格檔</button>
+              <button class="mode-bar__action" id="btnLoadPilePyYTable" type="button">讀取 Y 向表格檔</button>
+            </div>
+            <input class="mode-bar__file" id="pilePyAdapterXFile" type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain">
+            <input class="mode-bar__file" id="pilePyAdapterYFile" type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain">
             <div class="form-group"><label>X 向輸出表格</label><textarea id="pilePyAdapterXTable" class="soil-input" style="min-height:105px;" spellcheck="false" placeholder="depth_m,deflection_mm,shear_kN,moment_kN_m&#10;0,8.2,149.1,182.4&#10;3,5.1,132.0,165.0"></textarea></div>
             <div class="form-group"><label>Y 向輸出表格</label><textarea id="pilePyAdapterYTable" class="soil-input" style="min-height:105px;" spellcheck="false" placeholder="depth_m,deflection_mm,shear_kN,moment_kN_m&#10;0,4.1,76.5,92.2&#10;3,2.4,65.0,81.0"></textarea></div>
             <button class="mode-bar__action" id="btnBuildPilePyFromTable" type="button">驗證表格並建立候選結果</button>
@@ -1226,7 +1233,7 @@
     'pilePyAdapterSoftware', 'pilePyAdapterVersion', 'pilePyAdapterAnalysisId', 'pilePyAdapterCaseName',
     'pilePyAdapterScope', 'pilePyAdapterUnits', 'pilePyAdapterAnalyst', 'pilePyAdapterCapacityBasis',
     'pilePyAdapterAllow', 'pilePyAdapterShearCap', 'pilePyAdapterMomentCap',
-    'pilePyAdapterXTable', 'pilePyAdapterYTable'
+    'pilePyAdapterXTable', 'pilePyAdapterYTable', 'pilePyAdapterXFile', 'pilePyAdapterYFile'
   ]);
   const EARTH_PRESSURE_BRIDGE = window.EarthPressureRcBridge;
   const RETAINING_BASE_DEMAND = window.RetainingBaseDemand;
@@ -2274,6 +2281,68 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     ['pilePyAdapterXTable', 'pilePyAdapterYTable'].forEach(id => { if ($(id)) $(id).placeholder = example; });
   }
 
+  function pilePyTableSample(profileKey = $('pilePyAdapterUnits')?.value) {
+    const profile = PILE_PY_TABLE_ADAPTER.profiles[profileKey];
+    if (!profile) throw new Error(`不支援的來源單位：${profileKey || '缺少'}。`);
+    const rows = profileKey === 'us-kip-ft-in'
+      ? ['0,0.25,20,80', '10,0.10,12,60']
+      : profileKey === 'project-tf-m-cm'
+        ? ['0,0.82,15.2,18.6', '3,0.51,13.2,16.5']
+        : ['0,8.2,149.1,182.4', '3,5.1,132.0,165.0'];
+    return `${profile.headers.join(',')}\r\n${rows.join('\r\n')}\r\n`;
+  }
+
+  function downloadPilePyTableSample() {
+    try {
+      const profileKey = $('pilePyAdapterUnits')?.value;
+      const blob = new Blob([pilePyTableSample(profileKey)], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `pile-py-table-template-${profileKey}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      renderPilePyAdapterStatus(`已下載 ${PILE_PY_TABLE_ADAPTER.profiles[profileKey].label} 範本；X、Y 向均使用相同欄位格式。`);
+      return true;
+    } catch (err) {
+      renderPilePyAdapterStatus(`範本下載失敗：${err?.message || err}`, 'fail');
+      return false;
+    }
+  }
+
+  function invalidatePilePyCandidate(message = '') {
+    if (!pendingPilePyCandidate) return;
+    pendingPilePyCandidate = null;
+    if ($('pilePyCandidate')) $('pilePyCandidate').hidden = true;
+    if ($('pilePyReview')) $('pilePyReview').checked = false;
+    if (message) renderPilePyAdapterStatus(message);
+  }
+
+  async function loadPilePyTableFile(file, direction) {
+    const key = String(direction || '').toLowerCase();
+    const label = key === 'x' ? 'X' : key === 'y' ? 'Y' : '';
+    try {
+      if (!label) throw new Error('表格方向必須是 X 或 Y。');
+      if (!file) return null;
+      if (file.size > 1024 * 1024) throw new Error(`${label} 向表格檔超過 1 MiB 上限。`);
+      if (!/\.(csv|tsv|txt)$/i.test(file.name || '')) throw new Error(`${label} 向只接受 .csv、.tsv 或 .txt 表格檔。`);
+      const raw = await file.text();
+      if (!raw.trim()) throw new Error(`${label} 向表格檔是空白檔案。`);
+      if (raw.includes('\u0000')) throw new Error(`${label} 向表格檔不是可接受的純文字內容。`);
+      invalidatePilePyCandidate();
+      const textarea = $(`pilePyAdapter${label}Table`);
+      textarea.value = raw;
+      textarea.dataset.sourceFilename = file.name;
+      renderPilePyAdapterStatus(`已讀取 ${label} 向表格：${file.name}（${raw.split(/\r?\n/).filter(line => line.trim()).length - 1} 筆資料列）。尚未驗證或採用。`);
+      return { direction: key, sourceFilename: file.name, text: raw };
+    } catch (err) {
+      renderPilePyAdapterStatus(`表格檔讀取失敗：${err?.message || err}`, 'fail');
+      return null;
+    }
+  }
+
   async function buildPilePyCandidateFromTable() {
     try {
       const xText = $('pilePyAdapterXTable')?.value || '';
@@ -2296,7 +2365,11 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
         shearCapacityTf: $('pilePyAdapterShearCap')?.value,
         momentCapacityTfm: $('pilePyAdapterMomentCap')?.value,
         tables: { x: xText, y: yText },
-        tableSha256
+        tableSha256,
+        tableSourceFilename: {
+          x: xText.trim() ? ($('pilePyAdapterXTable')?.dataset.sourceFilename || '手動貼上') : '',
+          y: yText.trim() ? ($('pilePyAdapterYTable')?.dataset.sourceFilename || '手動貼上') : ''
+        }
       });
       const candidate = PILE_PY_BRIDGE.validatePayload(payload, currentPilePyModel());
       const serialized = JSON.stringify(payload);
@@ -2333,7 +2406,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
         pilePyDirectionSummary(candidate.results.x, 'X'),
         pilePyDirectionSummary(candidate.results.y, 'Y'),
         `候選核對：${candidate.pass ? '需求／容量比均 ≤ 1.0' : '至少一項需求／容量比 > 1.0'}`,
-        ...(candidate.adapterEvidence ? [`來源表格：${candidate.adapterEvidence.unitProfile}｜X / Y 列數 ${candidate.adapterEvidence.x?.rowCount || 0} / ${candidate.adapterEvidence.y?.rowCount || 0}`] : []),
+        ...(candidate.adapterEvidence ? [`來源表格：${candidate.adapterEvidence.unitProfile}｜X / Y 檔名 ${candidate.adapterEvidence.x?.sourceFilename || '—'} / ${candidate.adapterEvidence.y?.sourceFilename || '—'}｜列數 ${candidate.adapterEvidence.x?.rowCount || 0} / ${candidate.adapterEvidence.y?.rowCount || 0}`] : []),
         `來源檔：${provenance.sourceFilename}｜SHA-256 ${provenance.sourceSha256.slice(0, 12)}`
       ].join('\n');
     }
@@ -2369,7 +2442,8 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       return null;
     }
     try {
-      const state = PILE_PY_BRIDGE.adopt(pendingPilePyCandidate.candidate, pendingPilePyCandidate.provenance);
+      const revalidated = PILE_PY_BRIDGE.validatePayload(pendingPilePyCandidate.candidate, currentPilePyModel());
+      const state = PILE_PY_BRIDGE.adopt(revalidated, pendingPilePyCandidate.provenance);
       $('pilePyAdoptedSource').value = JSON.stringify(state);
       pendingPilePyCandidate = null;
       $('pilePyCandidate').hidden = true;
@@ -2618,11 +2692,31 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     $('btnAdoptPilePy')?.addEventListener('click', adoptPilePyCandidate);
     $('btnClearPilePy')?.addEventListener('click', () => clearPilePySource());
     $('btnBuildPilePyFromTable')?.addEventListener('click', buildPilePyCandidateFromTable);
+    $('btnDownloadPilePyTableSample')?.addEventListener('click', downloadPilePyTableSample);
+    $('btnLoadPilePyXTable')?.addEventListener('click', () => $('pilePyAdapterXFile')?.click());
+    $('btnLoadPilePyYTable')?.addEventListener('click', () => $('pilePyAdapterYFile')?.click());
     $('pilePyAdapterSoftware')?.addEventListener('change', syncPilePyAdapterDefaults);
     $('pilePyAdapterUnits')?.addEventListener('change', syncPilePyAdapterPlaceholders);
     $('pilePyJsonFile')?.addEventListener('change', event => {
       const file = event.target.files && event.target.files[0];
       loadPilePyJsonFile(file).finally(() => { event.target.value = ''; });
+    });
+    [['pilePyAdapterXFile', 'x'], ['pilePyAdapterYFile', 'y']].forEach(([id, direction]) => {
+      $(id)?.addEventListener('change', event => {
+        const file = event.target.files && event.target.files[0];
+        loadPilePyTableFile(file, direction).finally(() => { event.target.value = ''; });
+      });
+    });
+    [
+      'pilePyAdapterSoftware', 'pilePyAdapterVersion', 'pilePyAdapterAnalysisId', 'pilePyAdapterCaseName',
+      'pilePyAdapterScope', 'pilePyAdapterUnits', 'pilePyAdapterAnalyst', 'pilePyAdapterCapacityBasis',
+      'pilePyAdapterAllow', 'pilePyAdapterShearCap', 'pilePyAdapterMomentCap'
+    ].forEach(id => $(id)?.addEventListener('input', () => invalidatePilePyCandidate('表格候選已因轉換設定變更而撤銷；請重新驗證。')));
+    [['pilePyAdapterXTable', 'X'], ['pilePyAdapterYTable', 'Y']].forEach(([id, label]) => {
+      $(id)?.addEventListener('input', event => {
+        event.target.dataset.sourceFilename = '';
+        invalidatePilePyCandidate(`${label} 向表格已變更；來源改列為手動貼上，請重新驗證。`);
+      });
     });
     syncPilePyAdapterDefaults();
     syncPilePyAdapterPlaceholders();
@@ -2645,6 +2739,9 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   window.buildPilePyCandidateFromTable = buildPilePyCandidateFromTable;
   window.syncPilePyAdapterDefaults = syncPilePyAdapterDefaults;
   window.syncPilePyAdapterPlaceholders = syncPilePyAdapterPlaceholders;
+  window.pilePyTableSample = pilePyTableSample;
+  window.downloadPilePyTableSample = downloadPilePyTableSample;
+  window.loadPilePyTableFile = loadPilePyTableFile;
 
   // ============================================================
   //  主計算分派
@@ -5173,6 +5270,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
             const evidence = py.adapterEvidence;
             pyItems.push(
               { label:'來源表格換算', value:`${pyProfile} / ${pyScope}`, unit:'' },
+              { label:'X / Y 來源檔名', value:`${evidence.x?.sourceFilename || '—'} / ${evidence.y?.sourceFilename || '—'}`, unit:'' },
               { label:'X / Y 來源列數', value:`${evidence.x?.rowCount || 0} / ${evidence.y?.rowCount || 0}`, unit:'列' },
               { label:'X / Y 表格 SHA-256', value:`${evidence.x?.tableSha256?.slice(0, 12) || '—'} / ${evidence.y?.tableSha256?.slice(0, 12) || '—'}`, unit:'' }
             );
@@ -5188,7 +5286,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
           inputs.push({ group:'專項 p-y 分析結果', items:pyItems });
           steps.push({
             group:'專項 p-y 分析採用範圍',
-            body:`採用 ${py.analysis.software} ${py.analysis.version} 之 ${py.analysis.caseName}；分析範圍為${pyScope}，分析 Hx / Hy = ${py.source.analysisHorizontalXTf.toFixed(2)} / ${py.source.analysisHorizontalYTf.toFixed(2)} tf。${py.adapterEvidence ? `結果由 ${pyProfile} 表格換算，X / Y 有效列數為 ${py.adapterEvidence.x?.rowCount || 0} / ${py.adapterEvidence.y?.rowCount || 0}。` : ''}`
+            body:`採用 ${py.analysis.software} ${py.analysis.version} 之 ${py.analysis.caseName}；分析範圍為${pyScope}，分析 Hx / Hy = ${py.source.analysisHorizontalXTf.toFixed(2)} / ${py.source.analysisHorizontalYTf.toFixed(2)} tf。${py.adapterEvidence ? `結果由 ${pyProfile} 表格換算，X / Y 來源為 ${py.adapterEvidence.x?.sourceFilename || '—'} / ${py.adapterEvidence.y?.sourceFilename || '—'}，有效列數為 ${py.adapterEvidence.x?.rowCount || 0} / ${py.adapterEvidence.y?.rowCount || 0}。` : ''}`
           });
         }
       }

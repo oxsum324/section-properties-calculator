@@ -44,7 +44,8 @@ const payload = Adapter.buildPayload({
   momentCapacityTfm: 31,
   generatedAt: '2026-08-04T00:00:00.000Z',
   tables: { x: siX, y: siY },
-  tableSha256: { x: 'a'.repeat(64), y: 'b'.repeat(64) }
+  tableSha256: { x: 'a'.repeat(64), y: 'b'.repeat(64) },
+  tableSourceFilename: { x: 'lpile-x.csv', y: 'lpile-y.tsv' }
 });
 assert.equal(payload.schema, 'rc-pile-py-result.v1');
 assert.equal(payload.source.analysisScope, 'representative-pile');
@@ -52,6 +53,8 @@ assert.equal(payload.source.analysisHorizontalXTf, 16);
 assert.equal(payload.source.analysisHorizontalYTf, 8);
 assert.equal(payload.adapterEvidence.x.rowCount, 3);
 assert.equal(payload.adapterEvidence.y.tableSha256, 'b'.repeat(64));
+assert.equal(payload.adapterEvidence.x.sourceFilename, 'lpile-x.csv');
+assert.equal(payload.adapterEvidence.y.sourceFilename, 'lpile-y.tsv');
 
 const us = `depth_ft,deflection_in,shear_kip,moment_kip_ft
 0,0.25,-20,-80
@@ -79,6 +82,18 @@ assert.throws(
     unitProfile: 'si-kn-m-mm', analysisScope: 'representative-pile'
   }),
   /須先完成支援範圍內的 p-multiplier/
+);
+assert.throws(
+  () => Adapter.buildPayload({
+    model,
+    unitProfile: 'si-kn-m-mm', analysisScope: 'representative-pile',
+    analysisId: 'BAD-FILE', software: 'LPile', version: '2026', caseName: 'SERVICE', capacityBasis: '核定容量',
+    allowableHeadDisplacementCm: 2.5, shearCapacityTf: 28, momentCapacityTfm: 31,
+    tables: { x: siX, y: siY },
+    tableSha256: { x: 'a'.repeat(64), y: 'b'.repeat(64) },
+    tableSourceFilename: { x: '../lpile-x.csv', y: 'lpile-y.csv' }
+  }),
+  /來源檔名 格式錯誤/
 );
 
 console.log('pile p-y table adapter unit tests OK');

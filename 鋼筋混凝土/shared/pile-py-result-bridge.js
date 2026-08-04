@@ -44,6 +44,13 @@
     return number;
   }
 
+  function sourceFilename(value, label) {
+    const normalized = text(value, label, false);
+    if (!normalized) return '';
+    if (normalized.length > 180 || /[\\/\u0000-\u001f]/.test(normalized)) throw new Error(`${label} 格式錯誤。`);
+    return normalized;
+  }
+
   function parse(raw, label) {
     if (typeof raw === 'string') {
       try { return JSON.parse(raw); }
@@ -120,7 +127,11 @@
       const direction = object(item, `${label} 向表格轉換證據`);
       const sha256 = text(direction.tableSha256, `${label} 向來源表格 SHA-256`);
       if (!/^[0-9a-f]{64}$/i.test(sha256)) throw new Error(`${label} 向來源表格 SHA-256 格式錯誤。`);
-      return { rowCount: positiveInteger(direction.rowCount, `${label} 向來源表格列數`), tableSha256: sha256.toLowerCase() };
+      return {
+        rowCount: positiveInteger(direction.rowCount, `${label} 向來源表格列數`),
+        tableSha256: sha256.toLowerCase(),
+        sourceFilename: sourceFilename(direction.sourceFilename, `${label} 向來源檔名`)
+      };
     };
     return {
       schema: ADAPTER_SCHEMA,
