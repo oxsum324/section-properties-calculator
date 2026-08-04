@@ -591,6 +591,12 @@ async function main() {
   assert.equal(reportReadinessStatus.rcFormalHtmlContentSealPass, true, 'report readiness RC formal HTML content seal checks pass');
   assert.equal(reportReadinessJson.includes('"rcFormalHtmlContentSeal":'), false, 'report readiness omits the private RC formal HTML content seal aggregate');
   assert.equal(/rc-formal-html-reproducible-content-sha256|"contentSha256"|contentSealArtifacts/.test(reportReadinessJson), false, 'report readiness omits private RC formal HTML content seal scope and artifact details');
+  assert.equal(reportReadinessStatus.rcFormalHtmlApprovalSealRequired, 34, 'report readiness expects 34 RC formal HTML approval seal checks');
+  assert.equal(reportReadinessStatus.rcFormalHtmlApprovalSealComplete, reportReadinessStatus.rcFormalHtmlApprovalSealRequired, 'report readiness completes every RC formal HTML approval seal check');
+  assert.equal(reportReadinessStatus.rcFormalHtmlApprovalSealIssueCount, 0, 'report readiness RC formal HTML approval seal issues empty');
+  assert.equal(reportReadinessStatus.rcFormalHtmlApprovalSealPass, true, 'report readiness RC formal HTML approval seal checks pass');
+  assert.equal(reportReadinessJson.includes('"rcFormalHtmlApprovalSeal":'), false, 'report readiness omits the private RC formal HTML approval seal aggregate');
+  assert.equal(/rc-formal-html-reproducible-approval-sha256|"approvalSha256"|approvalSealArtifacts/.test(reportReadinessJson), false, 'report readiness omits private RC formal HTML approval seal scope and artifact details');
   assert.equal(reportReadinessStatus.steelResultReconciliationRequired, 5, 'report readiness expects 5 steel result reconciliations');
   assert.equal(reportReadinessStatus.steelResultReconciliationComplete, reportReadinessStatus.steelResultReconciliationRequired, 'report readiness completes every steel result reconciliation');
   assert.equal(reportReadinessStatus.steelResultReconciliationIssueCount, 0, 'report readiness steel result reconciliation issues empty');

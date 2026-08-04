@@ -189,13 +189,25 @@ const unparsedVariableBackgroundHtml = Checker.extractHtmlVisibleContent('<div s
 assert.equal(unparsedVariableBackgroundHtml.text, 'CSS 變數診斷內容');
 assert.deepEqual(unparsedVariableBackgroundHtml.visibilityIssues, ['inline div']);
 
-const sealedContentBlock = `${Checker.RC_CONTENT_SEAL_START}<div class="rep-sealed-content"><h1>梁設計計算書</h1><span class="rep-document-status-line" data-document-class="formal-attachment">文件狀態：正式附件｜核可時間：2026/08/04 22:30:00</span>${COMPLETE_CALCULATION_CONTENT}</div>${Checker.RC_CONTENT_SEAL_END}`;
+const sealedContentBlock = `${Checker.RC_CONTENT_SEAL_START}<div class="rep-sealed-content"><h1>梁設計計算書</h1><span class="rep-document-status-line" data-document-class="formal-attachment" data-approved="true" data-approved-at="2026-08-04T14:30:00.000Z">文件狀態：正式附件｜核可時間：2026/08/04 22:30:00｜計算指紋：CF-1234ABCD5678EF90</span>${COMPLETE_CALCULATION_CONTENT}</div>${Checker.RC_CONTENT_SEAL_END}`;
 const sealedContentCanonical = Checker.canonicalizeRcHtmlContentSeal(sealedContentBlock);
 const sealedContentSha256 = crypto.createHash('sha256').update(sealedContentCanonical, 'utf8').digest('hex');
-const sealedRcHtml = `<span class="rep-content-seal-source" data-content-seal-scope="${Checker.RC_CONTENT_SEAL_SCOPE}" data-content-sha256="${sealedContentSha256}" aria-hidden="true"></span>${sealedContentBlock}`;
+const approvalSource = '<span class="rep-attachment-approval-source" data-initial-approved="true" data-calculation-fingerprint="CF-1234ABCD5678EF90" data-approved-at="2026-08-04T14:30:00.000Z" data-report-title="梁設計計算書" aria-hidden="true"></span>';
+const contentSealSource = `<span class="rep-content-seal-source" data-content-seal-scope="${Checker.RC_CONTENT_SEAL_SCOPE}" data-content-sha256="${sealedContentSha256}" aria-hidden="true"></span>`;
+const approvalSealPlaceholder = `<span class="rep-approval-seal-source" data-approval-seal-scope="${Checker.RC_APPROVAL_SEAL_SCOPE}" data-approval-sha256="" aria-hidden="true"></span>`;
+const approvalFixtureBase = `<html><head><title>梁設計計算書_正式附件_CF-1234ABCD5678EF90</title></head><body>${approvalSource}${contentSealSource}${approvalSealPlaceholder}${sealedContentBlock}</body></html>`;
+const approvalPayload = Checker.canonicalizeRcHtmlApprovalSeal(approvalFixtureBase);
+const approvalSha256 = crypto.createHash('sha256').update(approvalPayload, 'utf8').digest('hex');
+const sealedRcHtml = approvalFixtureBase.replace('data-approval-sha256=""', `data-approval-sha256="${approvalSha256}"`);
 const verifiedRcSeal = Checker.verifyRcHtmlContentSeal(sealedRcHtml);
+const verifiedRcApprovalSeal = Checker.verifyRcHtmlApprovalSeal(sealedRcHtml);
 assert.equal(verifiedRcSeal.status, 'verified', 'RC HTML content seal independently verifies the sealed calculation content');
 assert.equal(verifiedRcSeal.expectedSha256, verifiedRcSeal.actualSha256);
+assert.equal(verifiedRcApprovalSeal.status, 'verified', 'RC HTML approval seal independently binds status, time, title, fingerprint and content seal');
+assert.equal(verifiedRcApprovalSeal.expectedSha256, verifiedRcApprovalSeal.actualSha256);
+assert.equal(Checker.verifyRcHtmlApprovalSeal(sealedRcHtml.replace('2026-08-04T14:30:00.000Z', '2000-01-01T00:00:00.000Z')).status, 'failed', 'editing approval metadata invalidates the approval seal');
+assert.equal(Checker.verifyRcHtmlApprovalSeal(sealedRcHtml.replace('梁設計計算書_正式附件', '異動後標題_正式附件')).status, 'failed', 'editing the saved document title invalidates the approval seal');
+assert.equal(Checker.verifyRcHtmlApprovalSeal(sealedRcHtml.replace(/<span class="rep-approval-seal-source"[^>]*><\/span>/, '')).status, 'missing', 'legacy HTML without an approval seal remains distinguishable');
 const tamperedRcSeal = Checker.verifyRcHtmlContentSeal(sealedRcHtml.replace('φMn=18.2', 'φMn=99.9'));
 assert.equal(tamperedRcSeal.status, 'failed', 'editing a visible calculation value invalidates the RC HTML content seal');
 assert(tamperedRcSeal.reasons.includes('content-sha256-mismatch'));
@@ -238,9 +250,18 @@ const sealedHtmlRecord = {
   type: 'html',
   sourceTool: '梁 Beam 設計／檢核',
   contentSeal: verifiedRcSeal,
+  approvalSeal: verifiedRcApprovalSeal,
 };
+assert.equal(Checker.isRcHtmlApprovalSealRequired(sealedHtmlRecord), true);
 assert.equal(Checker.isRcHtmlContentSealRequired(sealedHtmlRecord), true);
 assert.equal(Checker.analyzePackage([sealedHtmlRecord]).status, 'ready', 'verified RC HTML content seal preserves formal readiness');
+const unsealedRcApprovalPackage = Checker.analyzePackage([{ ...sealedHtmlRecord, file: 'beam-legacy-approval.html', approvalSeal: { status: 'missing', scope: '', reasons: ['seal-source-missing'] } }]);
+assert.equal(unsealedRcApprovalPackage.status, 'review', 'legacy RC formal HTML without an approval seal cannot pass automatically');
+assert(unsealedRcApprovalPackage.issues.some(issue => issue.code === 'rc-html-approval-seal-missing'));
+const invalidApprovalSeal = Checker.verifyRcHtmlApprovalSeal(sealedRcHtml.replace('2026-08-04T14:30:00.000Z', '2000-01-01T00:00:00.000Z'));
+const tamperedRcApprovalPackage = Checker.analyzePackage([{ ...sealedHtmlRecord, file: 'beam-approval-tampered.html', approvalSeal: invalidApprovalSeal }]);
+assert.equal(tamperedRcApprovalPackage.status, 'blocked', 'RC formal HTML whose approval seal does not match is blocked');
+assert.equal(tamperedRcApprovalPackage.issues.find(issue => issue.code === 'rc-html-approval-seal-invalid')?.level, 'error');
 const unsealedRcHtmlPackage = Checker.analyzePackage([{ ...sealedHtmlRecord, file: 'beam-legacy.html', contentSeal: { status: 'missing', scope: '', reasons: ['seal-source-missing'] } }]);
 assert.equal(unsealedRcHtmlPackage.status, 'review', 'legacy RC formal HTML without a seal cannot pass automatically');
 assert(unsealedRcHtmlPackage.issues.some(issue => issue.code === 'rc-html-content-seal-missing'));

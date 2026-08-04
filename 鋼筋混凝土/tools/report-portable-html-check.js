@@ -14,12 +14,19 @@ async function renderStandaloneFormalHtmlPdf(report, approvedHtml, summary, labe
   const artifact = summary.downloadedFileName.replace(/\.html$/i, '_獨立列印.pdf');
   const artifactPath = path.join(outputDir, artifact);
   let sealVerification = null;
+  let approvalSealVerification = null;
   let tamperDetection = null;
+  let approvalTamperDetection = null;
   try {
     await standalonePage.setContent(approvedHtml, { waitUntil: 'load' });
     sealVerification = await standalonePage.evaluate(async () => (
       typeof window.verifyReportContentSeal === 'function'
         ? window.verifyReportContentSeal()
+        : { status: 'missing-verifier', expected: '', actual: '' }
+    ));
+    approvalSealVerification = await standalonePage.evaluate(async () => (
+      typeof window.verifyReportApprovalSeal === 'function'
+        ? window.verifyReportApprovalSeal()
         : { status: 'missing-verifier', expected: '', actual: '' }
     ));
     await standalonePage.emulateMedia({ media: 'print' });
@@ -38,6 +45,7 @@ async function renderStandaloneFormalHtmlPdf(report, approvedHtml, summary, labe
         transientControlCount: transientControls.length,
         visibleTransientControlCount: transientControls.filter(node => node.getClientRects().length > 0).length,
         contentIntegrity: document.body?.dataset.contentIntegrity || '',
+        approvalIntegrity: document.body?.dataset.approvalIntegrity || '',
         visibleText,
       };
     });
@@ -54,6 +62,14 @@ async function renderStandaloneFormalHtmlPdf(report, approvedHtml, summary, labe
         && reopened.contentIntegrity === 'verified',
       `${label} standalone HTML independently verifies its SHA-256 content seal`,
       JSON.stringify({ sealVerification, reopened: reopenedDetail }),
+    );
+    assert(
+      approvalSealVerification?.status === 'verified'
+        && approvalSealVerification.expected === summary.approvalSealSha256
+        && approvalSealVerification.actual === summary.approvalSealSha256
+        && reopened.approvalIntegrity === 'verified',
+      `${label} standalone HTML independently verifies its SHA-256 approval seal`,
+      JSON.stringify({ approvalSealVerification, reopened: reopenedDetail }),
     );
     assert(reopened.paperCount === 1, `${label} standalone HTML reopens one calculation-book paper`, reopenedDetail);
     assert(
@@ -114,6 +130,39 @@ async function renderStandaloneFormalHtmlPdf(report, approvedHtml, summary, labe
       `${label} changed standalone HTML is visibly blocked on screen and in print`,
       JSON.stringify({ tamperDetection, tamperPrintAlertVisible }),
     );
+
+    const approvalTamperedHtml = approvedHtml.replace(
+      /data-approved-at="[^"]*"/i,
+      'data-approved-at="2000-01-01T00:00:00.000Z"',
+    );
+    await standalonePage.setContent(approvalTamperedHtml, { waitUntil: 'load' });
+    approvalTamperDetection = await standalonePage.evaluate(async () => {
+      const contentVerification = typeof window.verifyReportContentSeal === 'function'
+        ? await window.verifyReportContentSeal()
+        : { status: 'missing-verifier' };
+      const approvalVerification = typeof window.verifyReportApprovalSeal === 'function'
+        ? await window.verifyReportApprovalSeal()
+        : { status: 'missing-verifier', expected: '', actual: '' };
+      return {
+        ...approvalVerification,
+        contentStatus: contentVerification.status,
+        documentIntegrity: document.body?.dataset.approvalIntegrity || '',
+        alertText: document.querySelector('.rep-content-integrity-alert')?.textContent || '',
+      };
+    });
+    await standalonePage.emulateMedia({ media: 'print' });
+    const approvalTamperPrintAlertVisible = await standalonePage.evaluate(() => (
+      (document.querySelector('.rep-content-integrity-alert')?.getClientRects().length || 0) > 0
+    ));
+    assert(
+      approvalTamperDetection?.status === 'failed'
+        && approvalTamperDetection.contentStatus === 'verified'
+        && approvalTamperDetection.documentIntegrity === 'failed'
+        && approvalTamperDetection.alertText.includes('核可完整性異常')
+        && approvalTamperPrintAlertVisible,
+      `${label} changed approval record is independently blocked on screen and in print`,
+      JSON.stringify({ approvalTamperDetection, approvalTamperPrintAlertVisible }),
+    );
   } finally {
     await standalonePage.close();
   }
@@ -138,6 +187,9 @@ async function renderStandaloneFormalHtmlPdf(report, approvedHtml, summary, labe
     contentSealStatus: sealVerification?.status || '',
     contentSealSha256: sealVerification?.actual || '',
     tamperDetectionStatus: tamperDetection?.status || '',
+    approvalSealStatus: approvalSealVerification?.status || '',
+    approvalSealSha256: approvalSealVerification?.actual || '',
+    approvalTamperDetectionStatus: approvalTamperDetection?.status || '',
   };
 }
 
@@ -265,12 +317,18 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
 
   const visibleText = AttachmentPackageChecker.extractHtmlVisibleContent(state.approvedHtml).text;
   const contentSeal = AttachmentPackageChecker.verifyRcHtmlContentSeal(state.approvedHtml);
+  const approvalSeal = AttachmentPackageChecker.verifyRcHtmlApprovalSeal(state.approvedHtml);
   const sealEnd = '<!--rc-content-seal:end-->';
   const sealEndIndex = state.approvedHtml.lastIndexOf(sealEnd);
   const tamperedApprovedHtml = sealEndIndex >= 0
     ? `${state.approvedHtml.slice(0, sealEndIndex)}<span>竄改後內容</span>${state.approvedHtml.slice(sealEndIndex)}`
     : state.approvedHtml;
   const tamperedContentSeal = AttachmentPackageChecker.verifyRcHtmlContentSeal(tamperedApprovedHtml);
+  const tamperedApprovalHtml = state.approvedHtml.replace(
+    /data-approved-at="[^"]*"/i,
+    'data-approved-at="2000-01-01T00:00:00.000Z"',
+  );
+  const tamperedApprovalSeal = AttachmentPackageChecker.verifyRcHtmlApprovalSeal(tamperedApprovalHtml);
   const savedStatusCount = (state.approvedHtml.match(/<span\b[^>]*class=["'][^"']*rep-document-status-line[^"']*["'][^>]*data-document-class=/gi) || []).length;
   const savedTitle = state.approvedHtml.match(/<title>([^<]*)<\/title>/i)?.[1] || '';
   const summary = {
@@ -287,6 +345,9 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
     contentSealStatus: contentSeal.status,
     contentSealScope: contentSeal.scope,
     contentSealSha256: contentSeal.actualSha256,
+    approvalSealStatus: approvalSeal.status,
+    approvalSealScope: approvalSeal.scope,
+    approvalSealSha256: approvalSeal.actualSha256,
   };
   const detail = JSON.stringify(summary);
 
@@ -309,9 +370,23 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
     JSON.stringify(contentSeal),
   );
   assert(
+    approvalSeal.status === 'verified'
+      && approvalSeal.scope === AttachmentPackageChecker.RC_APPROVAL_SEAL_SCOPE
+      && /^[0-9a-f]{64}$/.test(approvalSeal.actualSha256),
+    `${label} saved HTML carries an independently reproducible SHA-256 approval seal`,
+    JSON.stringify(approvalSeal),
+  );
+  assert(
     tamperedContentSeal.status === 'failed' && tamperedContentSeal.reasons.includes('content-sha256-mismatch'),
     `${label} changed calculation content invalidates the saved HTML seal`,
     JSON.stringify(tamperedContentSeal),
+  );
+  assert(
+    tamperedApprovalSeal.status === 'failed'
+      && tamperedApprovalSeal.reasons.includes('approval-sha256-mismatch')
+      && AttachmentPackageChecker.verifyRcHtmlContentSeal(tamperedApprovalHtml).status === 'verified',
+    `${label} changed approval metadata invalidates only the approval seal`,
+    JSON.stringify(tamperedApprovalSeal),
   );
 
   let htmlArtifact = '';

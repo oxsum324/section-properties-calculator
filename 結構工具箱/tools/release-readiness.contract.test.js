@@ -177,6 +177,7 @@ for (const { name, source } of rcReportVisualSources) {
   'standalone HTML reopens without external network requests',
   "'standaloneFormalHtmlPrintPdf'",
   'changed standalone HTML is visibly blocked on screen and in print',
+  'changed approval record is independently blocked on screen and in print',
 ].forEach(needle => assertIncludes(rcPortableHtmlHelper, needle, `RC portable formal HTML helper preserves ${needle}`));
 [
   'rc-calculation-book-content-v1',
@@ -186,11 +187,22 @@ for (const { name, source } of rcReportVisualSources) {
   '非數位簽章',
 ].forEach(needle => assertIncludes(rcSharedReport, needle, `RC shared report preserves HTML content seal ${needle}`));
 [
+  'rc-calculation-book-approval-v1',
+  'verifyReportApprovalSeal',
+  '核可完整性異常',
+].forEach(needle => assertIncludes(rcSharedReport, needle, `RC shared report preserves HTML approval seal ${needle}`));
+[
   'verifyRcHtmlContentSeal',
   'rc-html-content-seal-missing',
   'rc-html-content-seal-invalid',
   '可能是舊版輸出',
 ].forEach(needle => assertIncludes(attachmentPackageChecker, needle, `attachment checker preserves RC HTML content seal ${needle}`));
+[
+  'verifyRcHtmlApprovalSeal',
+  'rc-html-approval-seal-missing',
+  'rc-html-approval-seal-invalid',
+  '人工複核核可狀態',
+].forEach(needle => assertIncludes(attachmentPackageChecker, needle, `attachment checker preserves RC HTML approval seal ${needle}`));
 
 [
   'steel-source-replay-to-report-fingerprint',
@@ -225,7 +237,7 @@ for (const { name, source } of rcReportVisualSources) {
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 17',
+  'schemaVersion: 18',
   'canonicalArtifactIntegrity',
   "scope: 'canonical-rendered-pdf-evidence'",
   'required: 60',
@@ -247,6 +259,9 @@ for (const { name, source } of rcReportVisualSources) {
   'rcFormalHtmlContentSeal',
   "scope: 'rc-formal-html-reproducible-content-sha256'",
   'rcFormalHtmlContentSeal=',
+  'rcFormalHtmlApprovalSeal',
+  "scope: 'rc-formal-html-reproducible-approval-sha256'",
+  'rcFormalHtmlApprovalSeal=',
   'steelResultReconciliation',
   "scope: 'steel-source-replay-to-report-fingerprint'",
   'required: 5',
@@ -295,6 +310,7 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'rcSourceReportPackageDeclared',
   'rcStandaloneFormalHtmlPrintDeclared',
   'rcFormalHtmlContentSealDeclared',
+  'rcFormalHtmlApprovalSealDeclared',
   'steelResultReconciliationDeclared',
   'stoneResultReconciliationDeclared',
   'anchorResultReconciliationDeclared',
@@ -313,6 +329,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'evidence.rcStandaloneFormalHtmlPrint.required === 34',
   "evidence.rcFormalHtmlContentSeal?.scope === 'rc-formal-html-reproducible-content-sha256'",
   'evidence.rcFormalHtmlContentSeal.required === 34',
+  "evidence.rcFormalHtmlApprovalSeal?.scope === 'rc-formal-html-reproducible-approval-sha256'",
+  'evidence.rcFormalHtmlApprovalSeal.required === 34',
   "evidence.steelResultReconciliation?.scope === 'steel-source-replay-to-report-fingerprint'",
   'evidence.steelResultReconciliation.required === 5',
   "evidence.stoneResultReconciliation?.scope === 'stone-golden-replay-to-pdf-docx-hash'",
@@ -348,6 +366,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'RC 核可 HTML 獨立列印',
   'rcFormalHtmlContentSealRequired',
   'RC 正式 HTML 內容封印',
+  'rcFormalHtmlApprovalSealRequired',
+  'RC 正式 HTML 核可封印',
   'steelResultReconciliationRequired',
   '鋼構正式計算書結果鏈',
   'stoneResultReconciliationRequired',
@@ -453,6 +473,7 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   assertIncludes(source, 'Schema v16', `${label} documents RC standalone formal HTML print release evidence schema`);
   assertIncludes(source, '核可 HTML', `${label} documents RC standalone formal HTML print scope`);
   assertIncludes(source, 'Schema v17', `${label} documents RC formal HTML content seal release evidence schema`);
+  assertIncludes(source, 'Schema v18', `${label} documents RC formal HTML approval seal release evidence schema`);
   assertIncludes(source, '內容封印', `${label} documents RC formal HTML content seal scope`);
   assertIncludes(source, '數位簽章', `${label} distinguishes content seal from identity signature`);
 });

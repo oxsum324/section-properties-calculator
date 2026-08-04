@@ -128,7 +128,7 @@ const pageContracts = [
 const escapeRegExp = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 for (const [file, collector, snapshotCall, sourceTool, sourceVersion] of pageContracts) {
   const html = fs.readFileSync(path.join(__dirname, file), 'utf8');
-  assert.ok(html.includes('shared/report.js?v=8'), `${file} should load the replay-verified shared report`);
+  assert.ok(html.includes('shared/report.js?v=9'), `${file} should load the replay-verified shared report`);
   assert.ok(html.includes('withProjectCalculationFingerprint(payload'), `${file} should fingerprint its project JSON payload`);
   assert.ok(html.includes('validateProjectCalculationSource'), `${file} should validate schema, tool, version, and source fingerprint before applying project JSON`);
   assert.ok(html.includes('assertProjectCalculationReplay'), `${file} should recompute and compare the fingerprint after applying project JSON`);

@@ -251,13 +251,14 @@ function getReportSourceTrace(cfg) {
 }
 
 const RC_ATTACHMENT_APPROVAL_REPORT_CSS = `
-.rep-attachment-approval-source, .rep-content-seal-source { display:none !important; }
+.rep-attachment-approval-source, .rep-content-seal-source, .rep-approval-seal-source { display:none !important; }
 .rep-approval-control { display:inline-flex; align-items:center; gap:6px; margin-right:10px; padding:7px 10px;
   border:1px solid #94a3b8; border-radius:4px; background:#fff; color:#1f2937; font-size:12px; cursor:pointer; }
 .rep-approval-control input { width:16px; height:16px; margin:0; accent-color:#166534; }
 .rep-document-status-line { display:block; margin-bottom:3mm; color:#4b5563; font-weight:600; }
 .rep-content-integrity-status { display:block; margin-top:6px; color:#166534; font-size:12px; font-weight:700; }
 .rep-content-integrity-status[data-integrity-status="failed"] { color:#b91c1c; }
+.rep-content-integrity-status[data-integrity-status="unsealed"] { color:#92400e; }
 .rep-content-integrity-alert { display:block; margin:0 0 8mm; padding:4mm; border:2px solid #b91c1c;
   color:#991b1b; background:#fef2f2; font-weight:800; }
 .rep-footer-copyright { display:block; }
@@ -274,6 +275,7 @@ function buildRcAttachmentApprovalReport(options = {}) {
   return `<style data-formal-document-state-style>${RC_ATTACHMENT_APPROVAL_REPORT_CSS}</style>
     <span class="rep-attachment-approval-source" data-initial-approved="${approved ? 'true' : 'false'}" data-calculation-fingerprint="${esc(fingerprint)}" data-approved-at="${esc(approvedAt)}" aria-hidden="true"></span>
     <span class="rep-content-seal-source" data-content-seal-scope="rc-calculation-book-content-v1" data-content-sha256="" aria-hidden="true"></span>
+    <span class="rep-approval-seal-source" data-approval-seal-scope="rc-calculation-book-approval-v1" data-approval-sha256="" aria-hidden="true"></span>
     <script data-attachment-approval-script>
     (function () {
       var CONTENT_SEAL_START = '<!--rc-content-seal:start-->';
@@ -285,6 +287,30 @@ function buildRcAttachmentApprovalReport(options = {}) {
         if (start < 0 || end < 0 || end <= start) return '';
         return text.slice(start + CONTENT_SEAL_START.length, end)
           .replace(/<span\\b(?=[^>]*\\brep-document-status-line\\b)[^>]*>[\\s\\S]*?<\\/span>/i, '<span class="rep-document-status-line"></span>');
+      }
+      function canonicalApprovalPayload(serializedHtml) {
+        var parsed = new DOMParser().parseFromString(String(serializedHtml || ''), 'text/html');
+        var sources = parsed.querySelectorAll('.rep-attachment-approval-source');
+        var statuses = parsed.querySelectorAll('.rep-document-status-line');
+        var contentSeals = parsed.querySelectorAll('.rep-content-seal-source');
+        var titles = parsed.querySelectorAll('title');
+        if (sources.length !== 1 || statuses.length !== 1 || contentSeals.length !== 1 || titles.length !== 1) return '';
+        var approvalSource = sources[0];
+        var statusSource = statuses[0];
+        function clean(value) { return String(value || '').replace(/\\s+/g, ' ').trim(); }
+        return JSON.stringify({
+          scope:'rc-calculation-book-approval-v1',
+          reportTitle:clean(approvalSource.dataset.reportTitle),
+          calculationFingerprint:clean(approvalSource.dataset.calculationFingerprint),
+          sourceApproved:clean(approvalSource.dataset.initialApproved),
+          sourceApprovedAt:clean(approvalSource.dataset.approvedAt),
+          documentClass:clean(statusSource.dataset.documentClass),
+          statusApproved:clean(statusSource.dataset.approved),
+          statusApprovedAt:clean(statusSource.dataset.approvedAt),
+          statusText:clean(statusSource.textContent),
+          documentTitle:clean(titles[0].textContent),
+          contentSha256:clean(contentSeals[0].dataset.contentSha256).toLowerCase()
+        });
       }
       function sha256Fallback(value) {
         var bytes = typeof TextEncoder === 'function'
@@ -340,6 +366,8 @@ function buildRcAttachmentApprovalReport(options = {}) {
         source.dataset.initialized = 'true';
         var toolbar = document.querySelector('.rep-toolbar, .toolbar');
         var sealSource = document.querySelector('.rep-content-seal-source');
+        var approvalSealSource = document.querySelector('.rep-approval-seal-source');
+        var initialSerializedHtml = document.documentElement ? document.documentElement.outerHTML : '';
         var footer = document.querySelector('.rep-footer');
         var paper = document.querySelector('.rep-paper, .paper') || document.body;
         Array.from(document.querySelectorAll('.rep-meta div, .meta div')).forEach(function (row) {
@@ -378,45 +406,77 @@ function buildRcAttachmentApprovalReport(options = {}) {
           toolbar.insertBefore(label, toolbar.firstChild);
         }
         if (!checkbox) return;
-        function setIntegrityStatus(statusValue, message) {
-          document.body.dataset.contentIntegrity = statusValue;
-          var target = document.querySelector('.rep-content-integrity-status');
+        function refreshIntegrityAlert() {
+          var contentFailed = document.body.dataset.contentIntegrity === 'failed';
+          var approvalFailed = document.body.dataset.approvalIntegrity === 'failed';
+          var alert = document.querySelector('.rep-content-integrity-alert');
+          if (contentFailed || approvalFailed) {
+            if (!alert) {
+              alert = document.createElement('div');
+              alert.className = 'rep-content-integrity-alert';
+              paper.insertBefore(alert, paper.firstChild);
+            }
+            alert.textContent = contentFailed
+              ? '內容完整性異常：本 HTML 的計算內容與下載時封印不一致，請勿作為正式附件。'
+              : '核可完整性異常：本 HTML 的核可狀態、時間或文件識別與下載時封印不一致，請勿作為正式附件。';
+          } else if (alert) alert.remove();
+        }
+        function setIntegrityStatus(kind, statusValue, message) {
+          var datasetKey = kind === 'approval' ? 'approvalIntegrity' : 'contentIntegrity';
+          document.body.dataset[datasetKey] = statusValue;
+          var target = document.querySelector('.rep-content-integrity-status[data-integrity-kind="' + kind + '"]');
           if (!target && toolbar) {
             target = document.createElement('span');
             target.className = 'rep-content-integrity-status';
+            target.dataset.integrityKind = kind;
             toolbar.appendChild(target);
           }
           if (target) {
             target.dataset.integrityStatus = statusValue;
             target.textContent = message;
           }
-          var alert = document.querySelector('.rep-content-integrity-alert');
-          if (statusValue === 'failed') {
-            if (!alert) {
-              alert = document.createElement('div');
-              alert.className = 'rep-content-integrity-alert';
-              paper.insertBefore(alert, paper.firstChild);
-            }
-            alert.textContent = '內容完整性異常：本 HTML 的計算內容與下載時封印不一致，請勿作為正式附件。';
-          } else if (alert) alert.remove();
+          refreshIntegrityAlert();
         }
-        async function verifySavedContentSeal() {
+        async function verifySavedContentSeal(serializedHtml) {
           var expected = String(sealSource && sealSource.dataset.contentSha256 || '').trim().toLowerCase();
           if (!expected) return { status:'unsealed', expected:'', actual:'' };
-          var sealedContent = canonicalSealedContent(document.documentElement && document.documentElement.outerHTML);
+          var sealedContent = canonicalSealedContent(serializedHtml || initialSerializedHtml || (document.documentElement && document.documentElement.outerHTML));
           if (!sealedContent) {
-            setIntegrityStatus('failed', '內容完整性：異常（找不到封印範圍）');
+            setIntegrityStatus('content', 'failed', '內容完整性：異常（找不到封印範圍）');
             return { status:'failed', expected:expected, actual:'' };
           }
           try {
             var actual = await sha256Text(sealedContent);
             var pass = actual === expected;
-            setIntegrityStatus(pass ? 'verified' : 'failed', pass
+            setIntegrityStatus('content', pass ? 'verified' : 'failed', pass
               ? '內容完整性：已驗證（SHA-256 內容封印；非數位簽章）'
               : '內容完整性：異常，計算內容已與下載時不同');
             return { status:pass ? 'verified' : 'failed', expected:expected, actual:actual };
           } catch (error) {
-            setIntegrityStatus('failed', '內容完整性：無法驗證（' + (error && error.message || error) + '）');
+            setIntegrityStatus('content', 'failed', '內容完整性：無法驗證（' + (error && error.message || error) + '）');
+            return { status:'failed', expected:expected, actual:'', error:String(error && error.message || error) };
+          }
+        }
+        async function verifySavedApprovalSeal(serializedHtml) {
+          var expected = String(approvalSealSource && approvalSealSource.dataset.approvalSha256 || '').trim().toLowerCase();
+          if (!expected) {
+            setIntegrityStatus('approval', 'unsealed', '核可完整性：舊版未封印，作為正式附件前需複核');
+            return { status:'unsealed', expected:'', actual:'' };
+          }
+          var payload = canonicalApprovalPayload(serializedHtml || initialSerializedHtml || (document.documentElement && document.documentElement.outerHTML));
+          if (!payload) {
+            setIntegrityStatus('approval', 'failed', '核可完整性：異常（核可欄位不完整）');
+            return { status:'failed', expected:expected, actual:'' };
+          }
+          try {
+            var actual = await sha256Text(payload);
+            var pass = actual === expected;
+            setIntegrityStatus('approval', pass ? 'verified' : 'failed', pass
+              ? '核可完整性：已驗證（SHA-256 核可封印；非數位簽章）'
+              : '核可完整性：異常，核可狀態或文件識別已與下載時不同');
+            return { status:pass ? 'verified' : 'failed', expected:expected, actual:actual };
+          } catch (error) {
+            setIntegrityStatus('approval', 'failed', '核可完整性：無法驗證（' + (error && error.message || error) + '）');
             return { status:'failed', expected:expected, actual:'', error:String(error && error.message || error) };
           }
         }
@@ -434,12 +494,17 @@ function buildRcAttachmentApprovalReport(options = {}) {
           var savedBody = root.querySelector('body');
           if (savedBody) savedBody.removeAttribute('data-document-class');
           if (savedBody) savedBody.removeAttribute('data-content-integrity');
+          if (savedBody) savedBody.removeAttribute('data-approval-integrity');
           root.querySelectorAll('.rep-content-integrity-status').forEach(function (node) { node.remove(); });
           root.querySelectorAll('.rep-content-integrity-alert').forEach(function (node) { node.remove(); });
           var savedSealSource = root.querySelector('.rep-content-seal-source');
           var sealedContent = canonicalSealedContent(root.outerHTML);
           if (!savedSealSource || !sealedContent) throw new Error('無法建立 RC 計算書內容封印');
           savedSealSource.dataset.contentSha256 = await sha256Text(sealedContent);
+          var savedApprovalSealSource = root.querySelector('.rep-approval-seal-source');
+          var approvalPayload = canonicalApprovalPayload(root.outerHTML);
+          if (!savedApprovalSealSource || !approvalPayload) throw new Error('無法建立 RC 計算書核可封印');
+          savedApprovalSealSource.dataset.approvalSha256 = await sha256Text(approvalPayload);
           return '<!doctype html>' + String.fromCharCode(10) + root.outerHTML;
         }
         function showDownloadStatus(message) {
@@ -463,7 +528,7 @@ function buildRcAttachmentApprovalReport(options = {}) {
           link.click();
           link.remove();
           setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-          showDownloadStatus('已下載' + documentLabel + ' HTML；檔案保留核可狀態、核可時間、計算指紋與 SHA-256 內容封印。');
+          showDownloadStatus('已下載' + documentLabel + ' HTML；檔案保留核可狀態、核可時間、計算指紋與獨立 SHA-256 內容／核可封印。');
         }
         window.serializeReportDocumentHtml = serializeCurrentReportHtml;
         window.downloadReportHtml = downloadCurrentReportHtml;
@@ -509,7 +574,9 @@ function buildRcAttachmentApprovalReport(options = {}) {
         checkbox.addEventListener('change', updateStatus);
         updateStatus();
         window.verifyReportContentSeal = verifySavedContentSeal;
-        verifySavedContentSeal();
+        window.verifyReportApprovalSeal = verifySavedApprovalSeal;
+        verifySavedContentSeal(initialSerializedHtml);
+        verifySavedApprovalSeal(initialSerializedHtml);
       }
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initAttachmentApproval, { once:true });
       else initAttachmentApproval();
