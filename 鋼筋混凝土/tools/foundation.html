@@ -737,7 +737,10 @@
               <input type="checkbox" id="pilePyReview">
               <label for="pilePyReview">已由工程師核對來源模型、分析案例與容量依據</label>
             </div>
-            <button class="mode-bar__action" id="btnAdoptPilePy" type="button" style="margin-top:8px;">採用此 p-y 結果</button>
+            <div class="retain-source-actions" style="margin-top:8px;">
+              <button class="mode-bar__action" id="btnDownloadPilePyCandidate" type="button">下載已驗證候選 JSON</button>
+              <button class="mode-bar__action" id="btnAdoptPilePy" type="button">採用此 p-y 結果</button>
+            </div>
           </div>
         </div>
         <h3 style="margin-top:12px; font-size:1em; color:#1a3d5c;">配筋</h3>
@@ -2372,13 +2375,13 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
         }
       });
       const candidate = PILE_PY_BRIDGE.validatePayload(payload, currentPilePyModel());
-      const serialized = JSON.stringify(payload);
+      const serialized = `${JSON.stringify(payload, null, 2)}\n`;
       const sourceSlug = String(payload.analysis.software || 'p-y').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'p-y';
       const provenance = {
         sourceFilename: `${sourceSlug}-table-adapter.json`,
         sourceSha256: await sha256Text(serialized)
       };
-      showPilePyCandidate(candidate, provenance);
+      showPilePyCandidate(candidate, provenance, serialized);
       const evidence = candidate.adapterEvidence;
       renderPilePyAdapterStatus(`表格已驗證：${pilePyAnalysisScopeLabel(candidate.source)}；分析 Hx / Hy = ${candidate.source.analysisHorizontalXTf.toFixed(2)} / ${candidate.source.analysisHorizontalYTf.toFixed(2)} tf；X / Y 列數 = ${evidence?.x?.rowCount || 0} / ${evidence?.y?.rowCount || 0}。尚未採用。`, 'pass');
       renderPilePyImportStatus(PILE_PY_BRIDGE.inspectState($('pilePyAdoptedSource')?.value || '', currentPilePyModel()), '表格候選結果已通過格式、單位、模型與分析荷重核對；勾選工程師核對後才會採用。');
@@ -2392,8 +2395,8 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     }
   }
 
-  function showPilePyCandidate(candidate, provenance) {
-    pendingPilePyCandidate = { candidate, provenance };
+  function showPilePyCandidate(candidate, provenance, sourceText) {
+    pendingPilePyCandidate = { candidate, provenance, sourceText: String(sourceText || '') };
     const box = $('pilePyCandidate');
     const summary = $('pilePyCandidateSummary');
     if (box) box.hidden = false;
@@ -2415,10 +2418,11 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   async function loadPilePyJsonFile(file) {
     if (!file) return null;
     try {
+      if (file.size > 1024 * 1024) throw new Error('p-y JSON 超過 1 MiB 上限。');
       const text = await file.text();
       const candidate = PILE_PY_BRIDGE.validatePayload(text, currentPilePyModel());
       const provenance = { sourceFilename: file.name || 'pile-py.json', sourceSha256: await sha256Text(text) };
-      showPilePyCandidate(candidate, provenance);
+      showPilePyCandidate(candidate, provenance, text);
       renderPilePyImportStatus(PILE_PY_BRIDGE.inspectState($('pilePyAdoptedSource')?.value || '', currentPilePyModel()), '候選結果已通過格式與模型核對；勾選工程師核對後才會採用。');
       showFoundationProjectStatus('p-y 候選結果已驗證；尚未採用。請核對分析案例與容量依據。', 'warn');
       return candidate;
@@ -2428,6 +2432,48 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       if ($('pilePyCandidate')) $('pilePyCandidate').hidden = true;
       renderPilePyImportStatus(PILE_PY_BRIDGE.inspectState($('pilePyAdoptedSource')?.value || '', currentPilePyModel()), `p-y JSON 匯入失敗：${err?.message || err}`);
       showFoundationProjectStatus(`p-y JSON 匯入失敗，原採用結果未變更：${err?.message || err}`, 'fail');
+      return null;
+    }
+  }
+
+  async function preparePilePyCandidateArtifact() {
+    if (!pendingPilePyCandidate) throw new Error('目前沒有已驗證的 p-y 候選結果。');
+    const sourceText = String(pendingPilePyCandidate.sourceText || '');
+    if (!sourceText) throw new Error('候選結果缺少可歸檔的來源 JSON。');
+    const candidate = PILE_PY_BRIDGE.validatePayload(sourceText, currentPilePyModel());
+    const sourceSha256 = await sha256Text(sourceText);
+    if (sourceSha256 !== pendingPilePyCandidate.provenance.sourceSha256) {
+      throw new Error('候選 JSON 內容與驗證時的 SHA-256 不一致。');
+    }
+    const rawName = String(pendingPilePyCandidate.provenance.sourceFilename || 'pile-py-candidate.json');
+    const leafName = rawName.split(/[\\/]/).pop() || 'pile-py-candidate.json';
+    const filename = /\.json$/i.test(leafName) ? leafName : `${leafName}.json`;
+    return {
+      filename,
+      sourceText,
+      sourceSha256,
+      analysisId: candidate.analysis.analysisId
+    };
+  }
+
+  async function downloadPilePyCandidateJson() {
+    try {
+      const artifact = await preparePilePyCandidateArtifact();
+      const blob = new Blob([artifact.sourceText], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = artifact.filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      renderPilePyAdapterStatus(`已下載候選 JSON：${artifact.filename}；SHA-256 ${artifact.sourceSha256.slice(0, 12)}。此檔可重新匯入核對。`, 'pass');
+      showFoundationProjectStatus(`已下載與候選採用證據相同的 p-y JSON：${artifact.analysisId}`);
+      return artifact;
+    } catch (err) {
+      renderPilePyAdapterStatus(`候選 JSON 下載失敗：${err?.message || err}`, 'fail');
+      showFoundationProjectStatus(`候選 JSON 下載失敗：${err?.message || err}`, 'fail');
       return null;
     }
   }
@@ -2689,6 +2735,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     });
     $('btnDownloadPilePyTemplate')?.addEventListener('click', downloadPilePyJsonTemplate);
     $('btnImportPilePy')?.addEventListener('click', () => $('pilePyJsonFile')?.click());
+    $('btnDownloadPilePyCandidate')?.addEventListener('click', downloadPilePyCandidateJson);
     $('btnAdoptPilePy')?.addEventListener('click', adoptPilePyCandidate);
     $('btnClearPilePy')?.addEventListener('click', () => clearPilePySource());
     $('btnBuildPilePyFromTable')?.addEventListener('click', buildPilePyCandidateFromTable);
@@ -2731,6 +2778,8 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   window.clearEarthPressureSource = clearEarthPressureSource;
   window.readImportedEarthPressureSource = readImportedEarthPressureSource;
   window.loadPilePyJsonFile = loadPilePyJsonFile;
+  window.preparePilePyCandidateArtifact = preparePilePyCandidateArtifact;
+  window.downloadPilePyCandidateJson = downloadPilePyCandidateJson;
   window.adoptPilePyCandidate = adoptPilePyCandidate;
   window.clearPilePySource = clearPilePySource;
   window.currentPilePyModel = currentPilePyModel;

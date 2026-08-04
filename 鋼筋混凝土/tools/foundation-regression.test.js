@@ -261,6 +261,7 @@ async function exercisePilePyBridge(page) {
         y: { headDisplacementCm: 0.41, allowableHeadDisplacementCm: 2.5, maxShearTf: 7.8, shearCapacityTf: 28, maxMomentTfm: 9.4, momentCapacityTfm: 31 }
       }
     };
+    const oversizedJsonRejected = await window.loadPilePyJsonFile(new File(['x'.repeat(1024 * 1024 + 1)], 'oversized-pile-py.json', { type: 'application/json' })) == null;
     await window.loadPilePyJsonFile(new File([JSON.stringify(payload)], 'pile-py-regression.json', { type: 'application/json' }));
     const candidateVisible = !document.getElementById('pilePyCandidate')?.hidden;
     const candidateStatus = document.getElementById('pilePyImportStatus')?.textContent || '';
@@ -293,12 +294,18 @@ async function exercisePilePyBridge(page) {
     const loadedX = await window.loadPilePyTableFile(new File([xTable], 'lpile-reg-x.csv', { type: 'text/csv' }), 'x');
     const loadedY = await window.loadPilePyTableFile(new File([yTable], 'lpile-reg-y.tsv', { type: 'text/tab-separated-values' }), 'y');
     let tableCandidate = await window.buildPilePyCandidateFromTable();
+    const downloadedArtifact = await window.downloadPilePyCandidateJson();
     setField('pHX', 80);
+    const staleDownloadBlocked = await window.downloadPilePyCandidateJson() == null;
     document.getElementById('pilePyReview').checked = true;
     const staleTableBlocked = window.adoptPilePyCandidate() == null;
     setField('pHX', 90);
     tableCandidate = await window.buildPilePyCandidateFromTable();
     const tableStatus = document.getElementById('pilePyAdapterStatus')?.textContent || '';
+    const archivedArtifact = await window.preparePilePyCandidateArtifact();
+    const archivedPayload = JSON.parse(archivedArtifact.sourceText);
+    await window.loadPilePyJsonFile(new File([archivedArtifact.sourceText], archivedArtifact.filename, { type: 'application/json' }));
+    const archiveRoundTripVisible = !document.getElementById('pilePyCandidate')?.hidden;
     document.getElementById('pilePyReview').checked = true;
     const tableAdopted = window.adoptPilePyCandidate();
     const savedAfterTable = window.collectFoundationProjectData();
@@ -314,6 +321,7 @@ async function exercisePilePyBridge(page) {
     window.clearPilePySource({ silent: true });
     return {
       candidateVisible,
+      oversizedJsonRejected,
       templateMatchesModel: template.schema === 'rc-pile-py-result.v1'
         && template.source.horizontalXTf === 90
         && template.source.horizontalYTf === 45
@@ -336,7 +344,13 @@ async function exercisePilePyBridge(page) {
       sampleTemplateOk: window.pilePyTableSample('us-kip-ft-in').startsWith('depth_ft,deflection_in,shear_kip,moment_kip_ft\r\n'),
       loadedX: loadedX?.sourceFilename,
       loadedY: loadedY?.sourceFilename,
+      downloadedCandidateOk: downloadedArtifact?.sourceSha256?.length === 64 && downloadedArtifact?.sourceText?.endsWith('\n'),
+      staleDownloadBlocked,
       staleTableBlocked,
+      archivedFilename: archivedArtifact?.filename,
+      archivedAnalysisId: archivedPayload?.analysis?.analysisId,
+      archiveRoundTripVisible,
+      archiveHashMatchesAdoption: archivedArtifact?.sourceSha256 === tableAdopted?.sourceSha256,
       tableAdoptedSchema: tableAdopted?.payload?.adapterEvidence?.schema,
       tableAdoptedProfile: tableAdopted?.payload?.adapterEvidence?.unitProfile,
       tableAdoptedXFile: tableAdopted?.payload?.adapterEvidence?.x?.sourceFilename,
@@ -349,6 +363,7 @@ async function exercisePilePyBridge(page) {
     };
   });
   assert(state.templateMatchesModel, 'p-y downloadable template binds current pile model and stays intentionally incomplete', 'current model template');
+  assert(state.oversizedJsonRejected, 'p-y JSON import rejects files over the 1 MiB boundary', 'oversized JSON rejected');
   assert(state.candidateVisible, 'p-y import exposes verified candidate review', state.candidateStatus);
   assert(state.candidateStatus.includes('候選結果已通過') && !state.candidateStatus.includes('已採用 p-y 結果'), 'p-y candidate does not auto-adopt', state.candidateStatus);
   assert(state.blockedWithoutReview, 'p-y adoption requires explicit engineer review checkbox', 'adoption blocked before review');
@@ -361,7 +376,11 @@ async function exercisePilePyBridge(page) {
   assert(state.tableStatus.includes('X / Y 列數 = 3 / 3') && state.tableStatus.includes('尚未採用'), 'p-y table adapter reports verified candidate without auto-adoption', state.tableStatus);
   assert(state.loadedX === 'lpile-reg-x.csv' && state.loadedY === 'lpile-reg-y.tsv', 'p-y table adapter reads named CSV and TSV files', `${state.loadedX}/${state.loadedY}`);
   assert(state.sampleTemplateOk, 'p-y table sample follows selected unit profile headers', 'US CSV template');
+  assert(state.downloadedCandidateOk, 'p-y verified candidate downloads the hashed source JSON bytes', 'downloaded candidate artifact');
+  assert(state.staleDownloadBlocked, 'p-y candidate download fails closed after pile model changes', 'stale candidate download rejected');
   assert(state.staleTableBlocked, 'p-y candidate cannot be adopted after pile model changes', 'stale candidate rejected at adoption');
+  assert(state.archivedFilename === 'lpile-table-adapter.json' && state.archivedAnalysisId === 'LP-REG-001', 'p-y candidate archive keeps a stable JSON identity', `${state.archivedFilename} ${state.archivedAnalysisId}`);
+  assert(state.archiveRoundTripVisible && state.archiveHashMatchesAdoption, 'p-y archived candidate reimports with the same adoption SHA-256', 'same-byte archive round trip');
   assert(state.tableAdoptedSchema === 'rc-pile-py-table-adapter.v1' && state.tableAdoptedProfile === 'si-kn-m-mm', 'p-y table adoption preserves conversion provenance', `${state.tableAdoptedSchema} ${state.tableAdoptedProfile}`);
   assert(state.tableAdoptedXFile === 'lpile-reg-x.csv' && state.tableAdoptedYFile === 'lpile-reg-y.tsv', 'p-y table adoption preserves source filenames', `${state.tableAdoptedXFile}/${state.tableAdoptedYFile}`);
   assert(nearlyEqual(state.tableResultX, 0.82, toleranceDefault) && nearlyEqual(state.tableResultY, 0.41, toleranceDefault), 'p-y table adapter uses head row displacement in project units', `${state.tableResultX}/${state.tableResultY}`);
@@ -409,6 +428,7 @@ async function main() {
   assert(html.includes('pile-py-result-bridge.js'), 'foundation loads p-y result bridge', 'versioned p-y bridge module exists');
   assert(html.includes('pile-py-table-adapter.js') && html.includes('id="btnBuildPilePyFromTable"'), 'foundation loads p-y table adapter with explicit candidate action', 'table adapter workflow exists');
   assert(html.includes('id="btnLoadPilePyXTable"') && html.includes('id="btnLoadPilePyYTable"') && html.includes('id="btnDownloadPilePyTableSample"'), 'foundation exposes direct table file loading and sample download', 'CSV/TSV/TXT workflow exists');
+  assert(html.includes('id="btnDownloadPilePyCandidate"') && html.includes('preparePilePyCandidateArtifact'), 'foundation exposes same-byte verified candidate JSON archive', 'candidate archive workflow exists');
   assert(html.includes('PILE_PY_BRIDGE.inspectState'), 'foundation revalidates adopted p-y source against current model', 'fail-closed replay gate exists');
   assert(reportSrc.includes("group:'專項 p-y 分析結果'"), 'foundation report includes adopted p-y calculation results', 'formal report result group exists');
   assert(reportSrc.includes("label:'分析範圍 / Hx / Hy'") && reportSrc.includes("label:'來源表格換算'"), 'foundation report identifies p-y analysis scope and table provenance', 'formal report provenance exists');
