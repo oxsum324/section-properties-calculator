@@ -1580,6 +1580,7 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const excavationResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 11;
   const localQuickResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 12;
   const earthBridgeRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 13;
+  const pileGroupLateralRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 14;
   return Boolean(
     evidence
     && evidence.kind === 'release-rendered-delivery-evidence'
@@ -1609,8 +1610,8 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       && evidence.mixedArtifactIntegrity.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.mixedArtifactIntegrity.setSha256 || ''))
       && evidence.rcVisualArtifactIntegrity?.scope === 'rc-rendered-pdf-png'
-      && evidence.rcVisualArtifactIntegrity.required === (earthBridgeRcEvidenceDeclared ? 64 : 62)
-      && evidence.rcVisualArtifactIntegrity.verified === (earthBridgeRcEvidenceDeclared ? 64 : 62)
+      && evidence.rcVisualArtifactIntegrity.required === (pileGroupLateralRcEvidenceDeclared ? 66 : earthBridgeRcEvidenceDeclared ? 64 : 62)
+      && evidence.rcVisualArtifactIntegrity.verified === (pileGroupLateralRcEvidenceDeclared ? 66 : earthBridgeRcEvidenceDeclared ? 64 : 62)
       && evidence.rcVisualArtifactIntegrity.issueCount === 0
       && evidence.rcVisualArtifactIntegrity.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.rcVisualArtifactIntegrity.setSha256 || ''))
@@ -1633,8 +1634,8 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       evidence.rcResultReconciliation?.scope === (expandedRcResultReconciliationDeclared
         ? 'rc-source-replay-to-report-fingerprint'
         : 'rc-project-replay-to-report-fingerprint')
-      && evidence.rcResultReconciliation.required === (earthBridgeRcEvidenceDeclared ? 33 : expandedRcResultReconciliationDeclared ? 32 : 30)
-      && evidence.rcResultReconciliation.complete === (earthBridgeRcEvidenceDeclared ? 33 : expandedRcResultReconciliationDeclared ? 32 : 30)
+      && evidence.rcResultReconciliation.required === (pileGroupLateralRcEvidenceDeclared ? 34 : earthBridgeRcEvidenceDeclared ? 33 : expandedRcResultReconciliationDeclared ? 32 : 30)
+      && evidence.rcResultReconciliation.complete === (pileGroupLateralRcEvidenceDeclared ? 34 : earthBridgeRcEvidenceDeclared ? 33 : expandedRcResultReconciliationDeclared ? 32 : 30)
       && evidence.rcResultReconciliation.issueCount === 0
       && evidence.rcResultReconciliation.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.rcResultReconciliation.setSha256 || ''))
@@ -2455,7 +2456,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'homepage report readiness rendered delivery source hash');
   assert.ok(String(homepageReportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'homepage report readiness rendered delivery summary');
   if (Number.isInteger(homepageReportReadinessStatus.deliveryFileIntegrityRequired)) {
-    assert.ok([135, 137].includes(homepageReportReadinessStatus.deliveryFileIntegrityRequired), 'homepage report readiness exposes a supported verified delivery-file transition count');
+    assert.ok([135, 137, 139].includes(homepageReportReadinessStatus.deliveryFileIntegrityRequired), 'homepage report readiness exposes a supported verified delivery-file transition count');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityVerified, homepageReportReadinessStatus.deliveryFileIntegrityRequired, 'homepage report readiness verifies every delivery file');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'homepage report readiness delivery file integrity issues empty');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityPass, true, 'homepage report readiness delivery file integrity passes');
@@ -2469,6 +2470,7 @@ function checkMatrix(payload, markdown, options = {}) {
       [
         [[60, 60], [62, 62], [13, 13]],
         [[60, 60], [64, 64], [13, 13]],
+        [[60, 60], [66, 66], [13, 13]],
       ].some(expected => JSON.stringify(expected) === JSON.stringify(homepageDeliveryCounts)),
       'homepage report readiness preserves supported redacted delivery counts'
     );
@@ -2486,7 +2488,7 @@ function checkMatrix(payload, markdown, options = {}) {
     assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('不公開案例輸入、預期數值、案例雜湊或計算指紋'), 'homepage report readiness keeps reconciliation evidence private');
   }
   if (Number.isInteger(homepageReportReadinessStatus.rcResultReconciliationRequired)) {
-    assert.ok([30, 32, 33].includes(homepageReportReadinessStatus.rcResultReconciliationRequired), 'homepage report readiness expects a supported RC result reconciliation transition count');
+    assert.ok([30, 32, 33, 34].includes(homepageReportReadinessStatus.rcResultReconciliationRequired), 'homepage report readiness expects a supported RC result reconciliation transition count');
     assert.equal(homepageReportReadinessStatus.rcResultReconciliationComplete, homepageReportReadinessStatus.rcResultReconciliationRequired, 'homepage report readiness completes every RC result reconciliation');
     assert.equal(homepageReportReadinessStatus.rcResultReconciliationIssueCount, 0, 'homepage report readiness RC result reconciliation issues empty');
     assert.equal(homepageReportReadinessStatus.rcResultReconciliationPass, true, 'homepage report readiness RC result reconciliation passes');

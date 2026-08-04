@@ -1014,7 +1014,7 @@ for (const tool of inventory.tools) {
 }
 const rcHtmlInventory = inventory.tools.filter(tool => ['rc-formal', 'rc-retrofit'].includes(tool.family));
 assert.equal(rcHtmlInventory.length, 8, 'rendered delivery inventory maps all eight RC HTML attachment families');
-assert.equal(rcHtmlInventory.reduce((sum, tool) => sum + tool.htmlExpected, 0), 33, 'rendered delivery inventory declares 33 expected RC HTML attachments');
+assert.equal(rcHtmlInventory.reduce((sum, tool) => sum + tool.htmlExpected, 0), 34, 'rendered delivery inventory declares 34 expected RC HTML attachments');
 
 const canonicalIntegrityFixtureDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'canonical-render-integrity-'));
 try {
@@ -1890,10 +1890,10 @@ const rcVisualArtifacts = records
 const rcVisualArtifactIntegrity = {
   schemaVersion: 1,
   scope: 'rc-rendered-pdf-png',
-  required: 64,
+  required: 66,
   verified: rcVisualArtifacts.length,
-  issueCount: Math.max(0, 64 - rcVisualArtifacts.length),
-  pass: rcVisualArtifacts.length === 64,
+  issueCount: Math.max(0, 66 - rcVisualArtifacts.length),
+  pass: rcVisualArtifacts.length === 66,
   setSha256: integritySetHash(rcVisualArtifacts),
   artifacts: rcVisualArtifacts,
 };
@@ -1936,15 +1936,15 @@ assert.equal(localQuickResultReconciliation.pass, true, 'release rendered eviden
 const rcResultReconciliation = {
   schemaVersion: 1,
   scope: 'rc-source-replay-to-report-fingerprint',
-  required: 33,
+  required: 34,
   complete: rcResultReconciliationRecords.length,
-  issueCount: Math.max(0, 33 - rcResultReconciliationRecords.length),
-  pass: rcResultReconciliationRecords.length === 33,
+  issueCount: Math.max(0, 34 - rcResultReconciliationRecords.length),
+  pass: rcResultReconciliationRecords.length === 34,
   setSha256: rcResultReconciliationSetHash(rcResultReconciliationRecords),
   records: rcResultReconciliationRecords,
 };
 assert.equal(new Set(rcResultReconciliationRecords.map(record => `${record.href}\u0000${record.key}`)).size, rcResultReconciliationRecords.length, 'release rendered evidence RC result reconciliation identities are unique');
-assert.equal(rcResultReconciliation.complete, rcResultReconciliation.required, 'release rendered evidence reconciles all 33 RC design and retrofit results to report fingerprints');
+assert.equal(rcResultReconciliation.complete, rcResultReconciliation.required, 'release rendered evidence reconciles all 34 RC design and retrofit results to report fingerprints');
 assert.equal(rcResultReconciliation.pass, true, 'release rendered evidence passes RC result reconciliation');
 const steelResultReconciliation = {
   schemaVersion: 1,
@@ -2013,17 +2013,17 @@ assert.equal(excavationResultReconciliation.complete, excavationResultReconcilia
 assert.equal(excavationResultReconciliation.pass, true, 'release rendered evidence passes excavation result reconciliation');
 assert.equal(canonicalArtifactIntegrity.verified, canonicalArtifactIntegrity.required, 'release rendered evidence verifies all 60 canonical PDF and evidence files');
 assert.equal(canonicalArtifactIntegrity.pass, true, 'release rendered evidence passes canonical PDF and evidence integrity');
-assert.equal(rcVisualArtifactIntegrity.verified, rcVisualArtifactIntegrity.required, 'release rendered evidence verifies all 64 RC PDF and PNG visual artifacts');
+assert.equal(rcVisualArtifactIntegrity.verified, rcVisualArtifactIntegrity.required, 'release rendered evidence verifies all 66 RC PDF and PNG visual artifacts');
 assert.equal(rcVisualArtifactIntegrity.pass, true, 'release rendered evidence passes RC PDF and PNG visual artifact integrity');
 assert.equal(mixedArtifactIntegrity.verified, mixedArtifactIntegrity.required, 'release rendered evidence verifies all 13 mixed-format artifacts');
 assert.equal(mixedArtifactIntegrity.pass, true, 'release rendered evidence passes mixed-format artifact integrity');
-assert.equal(attachmentIntegrity.required, 33, 'release rendered evidence expects 33 RC HTML attachments');
+assert.equal(attachmentIntegrity.required, 34, 'release rendered evidence expects 34 RC HTML attachments');
 assert.equal(attachmentIntegrity.actual, attachmentIntegrity.required, 'release rendered evidence keeps every expected RC HTML attachment');
 assert.equal(attachmentIntegrity.verified, attachmentIntegrity.required, 'release rendered evidence verifies every RC HTML attachment');
 assert.equal(attachmentIntegrity.issueCount, 0, 'release rendered evidence has no RC HTML attachment integrity issue');
 assert.equal(attachmentIntegrity.pass, true, 'release rendered evidence passes RC HTML attachment integrity');
 const aggregate = {
-  schemaVersion: 13,
+  schemaVersion: 14,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),

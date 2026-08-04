@@ -135,7 +135,7 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'new home preflight source commit',
   'new home preflight clean source',
   '成品檔案完整性',
-  '137 / 137',
+  '139 / 139',
 ].forEach(needle => assertIncludes(localQuickBrowserSmoke, needle, `local quick browser smoke preserves rendered evidence ${needle}`));
 
 [
@@ -201,7 +201,7 @@ for (const { name, source } of rcReportVisualSources) {
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 13',
+  'schemaVersion: 14',
   'canonicalArtifactIntegrity',
   "scope: 'canonical-rendered-pdf-evidence'",
   'required: 60',
@@ -211,7 +211,7 @@ for (const { name, source } of rcReportVisualSources) {
   'formalResultReconciliation=',
   'rcResultReconciliation',
   "scope: 'rc-source-replay-to-report-fingerprint'",
-  'required: 33',
+  'required: 34',
   'rcResultReconciliation=',
   'steelResultReconciliation',
   "scope: 'steel-source-replay-to-report-fingerprint'",
