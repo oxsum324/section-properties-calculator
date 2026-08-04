@@ -100,7 +100,7 @@ RC 專案 JSON 與正式計算書共用同一枚 `CF-` 計算指紋。指紋納�
 基礎報告視覺 smoke 已接在 [tools/test-foundation.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/test-foundation.ps1:1)，會以瀏覽器產生計算書，檢查：
 
 - 獨立、聯合、筏式、樁基／樁帽、群樁側向分配、懸臂式擋土牆與扶壁式待確認等八種代表報告情境。
-- 樁基報告須揭露土層與單樁承載、群樁構造、服務性與樁身、樁帽結構四類檢核；輸入水平力時另輸出 FHWA / AASHTO p-multiplier、各列與最大單樁水平力，並將未完成的專項 p-y 位移／內力分析列為 NG。
+- 樁基報告須揭露土層與單樁承載、群樁構造、服務性與樁身、樁帽結構四類檢核；輸入水平力時另輸出 FHWA / AASHTO p-multiplier、各列與最大單樁水平力。專業 p-y JSON 通過固定單位、樁群模型與 Hx／Hy 核對且經工程師明確採用後，計算書直接列出位移、剪力、彎矩、容量、分析識別與來源雜湊；未採用相符結果時維持 NG。
 - 懸臂式擋土牆報告須揭露 qmin 全寬接觸、趾版底層與踵版頂層之 Mu、Vu、As、φMn 與 φVc；需求核心另由 `shared/retaining-base-demand.test.js` 做純數值回歸。
 - 報告不得出現 `NaN` / `Infinity` / `undefined` / `null` / `∞` 等原始無效值。
 - 報告表格與逐層承載力表不得產生水平 overflow，並確認列印時 toolbar 隱藏。

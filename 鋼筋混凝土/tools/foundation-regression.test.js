@@ -220,6 +220,94 @@ async function exerciseEarthPressureBridge(page) {
   assert(state.statusText.includes('同版核心') || state.statusText.includes('已採用外部土壓'), 'earth pressure bridge renders page-only source status', state.statusText);
 }
 
+async function exercisePilePyBridge(page) {
+  const state = await page.evaluate(async () => {
+    const setField = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    document.querySelector('#mainTabs button[data-tab="pile"]')?.click();
+    setField('pileNL', 3);
+    setField('pileNB', 3);
+    setField('pileSL', 180);
+    setField('pileSB', 180);
+    setField('pileD', 60);
+    setField('pileLength', 18);
+    setField('pHX', 90);
+    setField('pHY', 45);
+    window.calcFdtn();
+    const template = window.createPilePyJsonTemplate();
+    const payload = {
+      schema: 'rc-pile-py-result.v1',
+      generatedAt: new Date().toISOString(),
+      analysis: {
+        analysisId: 'PY-REG-001',
+        software: 'LPile-compatible solver',
+        version: '2025.1',
+        caseName: 'SERVICE-X-Y',
+        analyst: '',
+        capacityBasis: '專案核定樁身斷面容量'
+      },
+      units: { length: 'cm', force: 'tf', moment: 'tf·m' },
+      source: {
+        pileNL: 3, pileNB: 3, spacingLCm: 180, spacingBCm: 180,
+        pileDiameterCm: 60, pileLengthM: 18, horizontalXTf: 90, horizontalYTf: 45
+      },
+      results: {
+        x: { headDisplacementCm: 0.82, allowableHeadDisplacementCm: 2.5, maxShearTf: 15.2, shearCapacityTf: 28, maxMomentTfm: 18.6, momentCapacityTfm: 31 },
+        y: { headDisplacementCm: 0.41, allowableHeadDisplacementCm: 2.5, maxShearTf: 7.8, shearCapacityTf: 28, maxMomentTfm: 9.4, momentCapacityTfm: 31 }
+      }
+    };
+    await window.loadPilePyJsonFile(new File([JSON.stringify(payload)], 'pile-py-regression.json', { type: 'application/json' }));
+    const candidateVisible = !document.getElementById('pilePyCandidate')?.hidden;
+    const candidateStatus = document.getElementById('pilePyImportStatus')?.textContent || '';
+    const blockedWithoutReview = window.adoptPilePyCandidate() == null;
+    document.getElementById('pilePyReview').checked = true;
+    const adopted = window.adoptPilePyCandidate();
+    const saved = window.collectFoundationProjectData();
+    window.clearPilePySource({ silent: true });
+    window.applyFoundationProjectData(saved, { silent: true });
+    const replayPass = window.ftLast?.pilePyResponse?.pass === true && window.ftLast?.lateralResponseOk === true;
+    const replayStatus = document.getElementById('pilePyImportStatus')?.textContent || '';
+    setField('pHX', 80);
+    window.calcFdtn();
+    const mismatchRejected = window.ftLast?.pilePyResponse?.valid === false && window.ftLast?.lateralResponseOk === false;
+    const mismatchStatus = document.getElementById('pilePyImportStatus')?.textContent || '';
+    setField('pHX', 90);
+    window.clearPilePySource({ silent: true });
+    return {
+      candidateVisible,
+      templateMatchesModel: template.schema === 'rc-pile-py-result.v1'
+        && template.source.horizontalXTf === 90
+        && template.source.horizontalYTf === 45
+        && template.results.x?.headDisplacementCm === '請填入分析值',
+      candidateStatus,
+      blockedWithoutReview,
+      adoptedStateSchema: adopted?.stateSchema,
+      adoptedPass: adopted?.payload?.pass,
+      savedSource: saved.fields.pilePyAdoptedSource?.value || '',
+      excludedFile: saved.fields.pilePyJsonFile == null,
+      excludedReview: saved.fields.pilePyReview == null,
+      replayPass,
+      replayStatus,
+      mismatchRejected,
+      mismatchStatus
+    };
+  });
+  assert(state.templateMatchesModel, 'p-y downloadable template binds current pile model and stays intentionally incomplete', 'current model template');
+  assert(state.candidateVisible, 'p-y import exposes verified candidate review', state.candidateStatus);
+  assert(state.candidateStatus.includes('候選結果已通過') && !state.candidateStatus.includes('已採用 p-y 結果'), 'p-y candidate does not auto-adopt', state.candidateStatus);
+  assert(state.blockedWithoutReview, 'p-y adoption requires explicit engineer review checkbox', 'adoption blocked before review');
+  assert(state.adoptedStateSchema === 'rc-pile-py-adoption.v1' && state.adoptedPass === true, 'p-y reviewed candidate becomes adopted result', state.adoptedStateSchema);
+  assert(state.savedSource.includes('PY-REG-001') && state.savedSource.includes('sourceSha256'), 'p-y adopted result persists in foundation project', 'adopted source stored');
+  assert(state.excludedFile && state.excludedReview, 'p-y transient file and review controls stay out of project payload', 'transient controls excluded');
+  assert(state.replayPass && state.replayStatus.includes('已採用 p-y 結果'), 'p-y adopted result replays with project calculation fingerprint', state.replayStatus);
+  assert(state.mismatchRejected && state.mismatchStatus.includes('目前模型不相容'), 'p-y adopted result fails closed after source model changes', state.mismatchStatus);
+}
+
 async function main() {
   const html = fs.readFileSync(htmlPath, 'utf8');
   const common = fs.readFileSync(commonPath, 'utf8');
@@ -256,6 +344,10 @@ async function main() {
   assert(html.includes('id="btnImportEarthPressure"'), 'foundation has earth pressure JSON import', 'cross-tool import button exists');
   assert(html.includes('earth-pressure-rc-bridge.js'), 'foundation loads earth pressure bridge', 'versioned bridge module exists');
   assert(html.includes('EARTH_PRESSURE_BRIDGE.importPayload'), 'foundation validates earth pressure payload before use', 'same-core recalculation gate exists');
+  assert(html.includes('id="btnDownloadPilePyTemplate"') && html.includes('id="btnImportPilePy"') && html.includes('id="btnAdoptPilePy"'), 'foundation has p-y template, import and explicit adoption controls', 'candidate review workflow exists');
+  assert(html.includes('pile-py-result-bridge.js'), 'foundation loads p-y result bridge', 'versioned p-y bridge module exists');
+  assert(html.includes('PILE_PY_BRIDGE.inspectState'), 'foundation revalidates adopted p-y source against current model', 'fail-closed replay gate exists');
+  assert(reportSrc.includes("group:'專項 p-y 分析結果'"), 'foundation report includes adopted p-y calculation results', 'formal report result group exists');
 
   const chromePath = CHROME_CANDIDATES.find(p => fs.existsSync(p));
   assert(!!chromePath, 'browser executable', 'system Chrome/Edge found for foundation regression test');
@@ -277,6 +369,7 @@ async function main() {
     assert(failedResponses.length === 0, 'foundation page resources', 'no missing static resources during initial load');
     await exerciseFoundationProjectStorage(page);
     await exerciseEarthPressureBridge(page);
+    await exercisePilePyBridge(page);
     await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
     await wait(300);
 

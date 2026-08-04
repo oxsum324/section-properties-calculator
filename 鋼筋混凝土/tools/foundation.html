@@ -683,6 +683,25 @@
           <div class="form-group"><label>Hy 服務水平力 (tf)</label><input type="number" id="pHY" value="0" step="1"></div>
         </div>
         <p class="hint">水平力依 FHWA-HIF-18-031 表 7-1 的 p-multiplier 分配至各列垂直樁；本頁不以分配結果取代樁頭位移、剪力與彎矩之專項 p-y 分析。</p>
+        <div class="retain-source-box" id="pilePyImportBox">
+          <strong>專業 p-y 分析結果銜接</strong>
+          <div class="retain-source-actions">
+            <button class="mode-bar__action" id="btnDownloadPilePyTemplate" type="button">下載目前模型範本</button>
+            <button class="mode-bar__action" id="btnImportPilePy" type="button">匯入 p-y JSON</button>
+            <button class="mode-bar__action" id="btnClearPilePy" type="button">清除採用結果</button>
+          </div>
+          <input class="mode-bar__file" id="pilePyJsonFile" type="file" accept=".json,application/json">
+          <input id="pilePyAdoptedSource" type="hidden" value="">
+          <p class="retain-source-status" id="pilePyImportStatus">尚未採用專業 p-y 分析結果。匯入後會先核對樁群幾何、Hx／Hy、單位與需求／容量比。</p>
+          <div id="pilePyCandidate" hidden>
+            <pre class="steps-body" id="pilePyCandidateSummary" style="margin-top:8px; white-space:pre-wrap;"></pre>
+            <div class="checkbox-row" style="margin-top:8px;">
+              <input type="checkbox" id="pilePyReview">
+              <label for="pilePyReview">已由工程師核對來源模型、分析案例與容量依據</label>
+            </div>
+            <button class="mode-bar__action" id="btnAdoptPilePy" type="button" style="margin-top:8px;">採用此 p-y 結果</button>
+          </div>
+        </div>
         <h3 style="margin-top:12px; font-size:1em; color:#1a3d5c;">配筋</h3>
         <div class="form-row">
           <div class="form-group"><label>主筋號數</label>
@@ -1157,6 +1176,7 @@
 <script src="../shared/flexure.js?v=1"></script>
 <script src="../shared/retaining-base-demand.js?v=1"></script>
 <script src="../shared/pile-group-lateral.js?v=1"></script>
+<script src="../shared/pile-py-result-bridge.js?v=1"></script>
 <script src="../shared/report.js?v=6"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
@@ -1169,9 +1189,10 @@
   const lambda = LAMBDA_NORMAL;
   const FOUNDATION_PROJECT_SCHEMA = 'rc-foundation-project-v1';
   const FOUNDATION_PROJECT_STORAGE_KEY = 'rc.foundation.project.draft';
-  const FOUNDATION_PROJECT_EXCLUDED_IDS = new Set(['foundationProjectFile', 'earthPressureJsonFile']);
+  const FOUNDATION_PROJECT_EXCLUDED_IDS = new Set(['foundationProjectFile', 'earthPressureJsonFile', 'pilePyJsonFile', 'pilePyReview']);
   const EARTH_PRESSURE_BRIDGE = window.EarthPressureRcBridge;
   const RETAINING_BASE_DEMAND = window.RetainingBaseDemand;
+  const PILE_PY_BRIDGE = window.PilePyResultBridge;
   const PILE_SITE_GROUPS = window.PILE_SITE_GROUPS || {};
   const PILE_SITE_PRESETS = window.PILE_SITE_PRESETS || {};
 
@@ -2064,6 +2085,176 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     }
   }
 
+  let pendingPilePyCandidate = null;
+
+  function currentPilePyModel() {
+    return {
+      pileNL: num('pileNL'),
+      pileNB: num('pileNB'),
+      spacingLCm: num('pileSL'),
+      spacingBCm: num('pileSB'),
+      pileDiameterCm: num('pileD'),
+      pileLengthM: num('pileLength'),
+      horizontalXTf: Math.abs(num('pHX')),
+      horizontalYTf: Math.abs(num('pHY'))
+    };
+  }
+
+  function pilePyDirectionSummary(direction, label) {
+    if (!direction) return `${label} 向：無水平力需求`;
+    return `${label} 向：位移 ${direction.headDisplacementCm.toFixed(3)} / ${direction.allowableHeadDisplacementCm.toFixed(3)} cm；剪力 ${direction.maxShearTf.toFixed(2)} / ${direction.shearCapacityTf.toFixed(2)} tf；彎矩 ${direction.maxMomentTfm.toFixed(2)} / ${direction.momentCapacityTfm.toFixed(2)} tf·m`;
+  }
+
+  function pilePyResponseSummary(response) {
+    if (!response?.valid || !response.payload) return response?.reason || '尚未採用專業 p-y 分析結果。';
+    const payload = response.payload;
+    return `${payload.analysis.software} ${payload.analysis.version}｜${payload.analysis.caseName}｜${pilePyDirectionSummary(payload.results.x, 'X')}｜${pilePyDirectionSummary(payload.results.y, 'Y')}`;
+  }
+
+  function renderPilePyImportStatus(response, message = '') {
+    const el = $('pilePyImportStatus');
+    if (!el) return;
+    const horizontalRequired = Math.abs(num('pHX')) > 0 || Math.abs(num('pHY')) > 0;
+    if (!response?.available) {
+      el.textContent = message || (horizontalRequired
+        ? '尚未採用專業 p-y 分析結果。匯入後會先核對樁群幾何、Hx／Hy、單位與需求／容量比。'
+        : '目前無水平力需求；如後續輸入 Hx／Hy，可匯入專業 p-y 分析結果。');
+      el.style.color = message ? '#991b1b' : '#1e3a8a';
+      return;
+    }
+    if (!response.valid) {
+      el.textContent = message || `已採用的 p-y 結果與目前模型不相容：${response.reason}`;
+      el.style.color = '#991b1b';
+      return;
+    }
+    const source = response.state;
+    el.textContent = `已採用 p-y 結果：${pilePyResponseSummary(response)}｜來源 ${source.sourceFilename}｜SHA-256 ${source.sourceSha256.slice(0, 12)}｜${response.pass ? '需求／容量核對通過' : '至少一項超過容許值或容量'}`;
+    el.style.color = response.pass ? '#166534' : '#991b1b';
+  }
+
+  async function sha256Text(text) {
+    if (!window.crypto?.subtle) throw new Error('目前瀏覽器不支援來源檔 SHA-256 驗證。');
+    const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(digest)).map(value => value.toString(16).padStart(2, '0')).join('');
+  }
+
+  function createPilePyJsonTemplate() {
+    const source = currentPilePyModel();
+    const direction = required => required ? {
+      headDisplacementCm: '請填入分析值',
+      allowableHeadDisplacementCm: '請填入容許值',
+      maxShearTf: '請填入分析值',
+      shearCapacityTf: '請填入容量',
+      maxMomentTfm: '請填入分析值',
+      momentCapacityTfm: '請填入容量'
+    } : null;
+    return {
+      schema: PILE_PY_BRIDGE.schema,
+      generatedAt: new Date().toISOString(),
+      units: { length: 'cm', force: 'tf', moment: 'tf·m' },
+      analysis: {
+        analysisId: '請填入唯一分析識別碼',
+        software: '請填入分析軟體',
+        version: '請填入軟體版本',
+        caseName: '請填入案例名稱',
+        analyst: '',
+        capacityBasis: '請填入位移容許值與樁身容量依據'
+      },
+      source,
+      results: {
+        x: direction(source.horizontalXTf > 0),
+        y: direction(source.horizontalYTf > 0)
+      }
+    };
+  }
+
+  function downloadPilePyJsonTemplate() {
+    const payload = createPilePyJsonTemplate();
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'pile-py-result-template.json';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showFoundationProjectStatus('已下載目前樁群模型的 p-y JSON 範本；請由專業分析結果填妥後再匯入。');
+    return payload;
+  }
+
+  function showPilePyCandidate(candidate, provenance) {
+    pendingPilePyCandidate = { candidate, provenance };
+    const box = $('pilePyCandidate');
+    const summary = $('pilePyCandidateSummary');
+    if (box) box.hidden = false;
+    if ($('pilePyReview')) $('pilePyReview').checked = false;
+    if (summary) {
+      summary.textContent = [
+        `候選案例：${candidate.analysis.analysisId}｜${candidate.analysis.software} ${candidate.analysis.version}｜${candidate.analysis.caseName}`,
+        `容量依據：${candidate.analysis.capacityBasis}`,
+        pilePyDirectionSummary(candidate.results.x, 'X'),
+        pilePyDirectionSummary(candidate.results.y, 'Y'),
+        `候選核對：${candidate.pass ? '需求／容量比均 ≤ 1.0' : '至少一項需求／容量比 > 1.0'}`,
+        `來源檔：${provenance.sourceFilename}｜SHA-256 ${provenance.sourceSha256.slice(0, 12)}`
+      ].join('\n');
+    }
+  }
+
+  async function loadPilePyJsonFile(file) {
+    if (!file) return null;
+    try {
+      const text = await file.text();
+      const candidate = PILE_PY_BRIDGE.validatePayload(text, currentPilePyModel());
+      const provenance = { sourceFilename: file.name || 'pile-py.json', sourceSha256: await sha256Text(text) };
+      showPilePyCandidate(candidate, provenance);
+      renderPilePyImportStatus(PILE_PY_BRIDGE.inspectState($('pilePyAdoptedSource')?.value || '', currentPilePyModel()), '候選結果已通過格式與模型核對；勾選工程師核對後才會採用。');
+      showFoundationProjectStatus('p-y 候選結果已驗證；尚未採用。請核對分析案例與容量依據。', 'warn');
+      return candidate;
+    } catch (err) {
+      console.error('pile p-y import failed', err);
+      pendingPilePyCandidate = null;
+      if ($('pilePyCandidate')) $('pilePyCandidate').hidden = true;
+      renderPilePyImportStatus(PILE_PY_BRIDGE.inspectState($('pilePyAdoptedSource')?.value || '', currentPilePyModel()), `p-y JSON 匯入失敗：${err?.message || err}`);
+      showFoundationProjectStatus(`p-y JSON 匯入失敗，原採用結果未變更：${err?.message || err}`, 'fail');
+      return null;
+    }
+  }
+
+  function adoptPilePyCandidate() {
+    if (!pendingPilePyCandidate) {
+      showFoundationProjectStatus('目前沒有已驗證的 p-y 候選結果。', 'fail');
+      return null;
+    }
+    if (!$('pilePyReview')?.checked) {
+      showFoundationProjectStatus('請先勾選工程師核對，再採用 p-y 結果。', 'fail');
+      return null;
+    }
+    try {
+      const state = PILE_PY_BRIDGE.adopt(pendingPilePyCandidate.candidate, pendingPilePyCandidate.provenance);
+      $('pilePyAdoptedSource').value = JSON.stringify(state);
+      pendingPilePyCandidate = null;
+      $('pilePyCandidate').hidden = true;
+      $('pilePyReview').checked = false;
+      calcFdtn();
+      showFoundationProjectStatus(`已採用 p-y 分析結果：${state.payload.analysis.analysisId}`);
+      return state;
+    } catch (err) {
+      showFoundationProjectStatus(`p-y 結果採用失敗：${err?.message || err}`, 'fail');
+      return null;
+    }
+  }
+
+  function clearPilePySource(options = {}) {
+    if ($('pilePyAdoptedSource')) $('pilePyAdoptedSource').value = '';
+    pendingPilePyCandidate = null;
+    if ($('pilePyCandidate')) $('pilePyCandidate').hidden = true;
+    if ($('pilePyReview')) $('pilePyReview').checked = false;
+    if (currentTab === 'pile') calcFdtn();
+    else renderPilePyImportStatus(null);
+    if (!options.silent) showFoundationProjectStatus('已清除採用的 p-y 分析結果。', 'warn');
+  }
+
   function foundationProjectControls() {
     return Array.from(document.querySelectorAll('input[id], select[id], textarea[id]')).filter(el => {
       if (!el.id || FOUNDATION_PROJECT_EXCLUDED_IDS.has(el.id)) return false;
@@ -2205,6 +2396,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     }
     renderEarthPressureImportStatus(readImportedEarthPressureSource());
     if (typeof calcFdtn === 'function') calcFdtn();
+    if (currentTab !== 'pile') renderPilePyImportStatus(PILE_PY_BRIDGE.inspectState($('pilePyAdoptedSource')?.value || '', currentPilePyModel()));
     const tab = ['iso','combined','mat','pile','retain','seismic'].includes(payload.activeTab) ? payload.activeTab : 'iso';
     applyPanel(tab);
     if (!options.skipReplayCheck) {
@@ -2283,6 +2475,14 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       const file = event.target.files && event.target.files[0];
       loadEarthPressureJsonFile(file).finally(() => { event.target.value = ''; });
     });
+    $('btnDownloadPilePyTemplate')?.addEventListener('click', downloadPilePyJsonTemplate);
+    $('btnImportPilePy')?.addEventListener('click', () => $('pilePyJsonFile')?.click());
+    $('btnAdoptPilePy')?.addEventListener('click', adoptPilePyCandidate);
+    $('btnClearPilePy')?.addEventListener('click', () => clearPilePySource());
+    $('pilePyJsonFile')?.addEventListener('change', event => {
+      const file = event.target.files && event.target.files[0];
+      loadPilePyJsonFile(file).finally(() => { event.target.value = ''; });
+    });
   }
 
   window.collectFoundationProjectData = collectFoundationProjectData;
@@ -2293,6 +2493,12 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   window.applyEarthPressurePayload = applyEarthPressurePayload;
   window.clearEarthPressureSource = clearEarthPressureSource;
   window.readImportedEarthPressureSource = readImportedEarthPressureSource;
+  window.loadPilePyJsonFile = loadPilePyJsonFile;
+  window.adoptPilePyCandidate = adoptPilePyCandidate;
+  window.clearPilePySource = clearPilePySource;
+  window.currentPilePyModel = currentPilePyModel;
+  window.createPilePyJsonTemplate = createPilePyJsonTemplate;
+  window.downloadPilePyJsonTemplate = downloadPilePyJsonTemplate;
 
   // ============================================================
   //  主計算分派
@@ -3239,7 +3445,19 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
     });
     const lateralRequired = lateralGroup.required;
     const lateralDistributionOk = !lateralRequired || lateralGroup.supported;
-    const lateralResponseOk = !lateralRequired;
+    const pilePyModel = {
+      pileNL,
+      pileNB,
+      spacingLCm: pileSL,
+      spacingBCm: pileSB,
+      pileDiameterCm: pileD,
+      pileLengthM: pileLength,
+      horizontalXTf: Math.abs(HX),
+      horizontalYTf: Math.abs(HY)
+    };
+    const pilePyResponse = PILE_PY_BRIDGE.inspectState($('pilePyAdoptedSource')?.value || '', pilePyModel);
+    const lateralResponseOk = !lateralRequired || (pilePyResponse.valid && pilePyResponse.complete && pilePyResponse.pass);
+    renderPilePyImportStatus(pilePyResponse);
     let soilCapacity = null;
     let pileCurves = null;
     let tipLayerLabel = '—';
@@ -3528,7 +3746,9 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
           : [lateralGroup.x.reason, lateralGroup.y.reason].filter(Boolean).join('；'))
         : '無水平力需求');
     setCheck('pc-lateralResponse', lateralRequired ? lateralResponseOk : null,
-      lateralRequired ? '待專項 p-y 分析承接' : '無水平力需求');
+      lateralRequired
+        ? (pilePyResponse.valid ? pilePyResponseSummary(pilePyResponse) : '尚未採用與目前模型相符的專項 p-y 結果')
+        : '無水平力需求');
 
     drawPile(Bc, Lc, c1, c2, d, xs, ys, pileD, c1d, c2d);
     drawPileCurves(pileCurves || { tz:[], qw:[], py:[] });
@@ -3548,7 +3768,13 @@ ${lateralRequired ? `
 Hx / Hy = ${Math.abs(HX).toFixed(2)} / ${Math.abs(HY).toFixed(2)} tf
 X 向：s/D=${lateralGroup.x.spacingRatio.toFixed(2)}；${lateralGroup.x.supported ? lateralGroup.x.rows.map(row => `第${row.row}列 Pm=${row.multiplier.toFixed(3)}, Hrow=${row.rowLoad.toFixed(2)} tf, Hpile=${row.perPileLoad.toFixed(2)} tf`).join('；') : lateralGroup.x.reason}
 Y 向：s/D=${lateralGroup.y.spacingRatio.toFixed(2)}；${lateralGroup.y.supported ? lateralGroup.y.rows.map(row => `第${row.row}列 Pm=${row.multiplier.toFixed(3)}, Hrow=${row.rowLoad.toFixed(2)} tf, Hpile=${row.perPileLoad.toFixed(2)} tf`).join('；') : lateralGroup.y.reason}
-本項完成群樁水平力分配；樁頭位移、剪力與彎矩須由專項 p-y 分析承接。` : ''}
+本項完成群樁水平力分配；${pilePyResponse.valid ? `樁頭位移、剪力與彎矩已由專項 p-y 案例 ${pilePyResponse.payload.analysis.analysisId} 承接。` : '樁頭位移、剪力與彎矩須由專項 p-y 分析承接。'}` : ''}
+${lateralRequired && pilePyResponse.valid ? `
+<span class="h">▸ 專項 p-y 分析結果</span>
+分析 = ${pilePyResponse.payload.analysis.analysisId}；${pilePyResponse.payload.analysis.software} ${pilePyResponse.payload.analysis.version}；案例 ${pilePyResponse.payload.analysis.caseName}
+${pilePyDirectionSummary(pilePyResponse.payload.results.x, 'X')}
+${pilePyDirectionSummary(pilePyResponse.payload.results.y, 'Y')}
+需求／容量核對 → ${pilePyResponse.pass ? '✓' : '✗'}` : ''}
 
 <span class="h">▸ 土層承載力</span>
 ${soilOk ? `樁型式 = ${pileType === 'cast-in-place' ? '場鑄混凝土樁' : '鋼管樁'}；施工 = ${pileInstall === 'driven' ? '打入樁' : '鑽掘樁'}
@@ -3610,7 +3836,7 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
       Pu_tf, rMax, rMin, minSpacing, okR, okT, okSp, okDMin,
       Vu2_tf, phiVc2:phiVc2/1000, okV2, excludedCount,
       prestressed, puLimit, okPrestress, isSoft, noLateral,
-      lateralGroup, lateralRequired, lateralDistributionOk, lateralResponseOk,
+      lateralGroup, lateralRequired, lateralDistributionOk, pilePyModel, pilePyResponse, lateralResponseOk,
       soilErrors, soilLayers: soilProfile.layers, soilOk,
       Qs, Qb, Qult, Qall, qbUlt, capApplied, capText, tipLayerLabel, criticalDepth, sigmaCrit,
       serviceDemandPerPile, QaDemandEff, spacingLimit, structuralOk, castInPlaceAreaReq, castInPlaceAreaProv,
@@ -4781,6 +5007,25 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
           { label:'Y 向列分配', value:rowText(r.lateralGroup.y), unit:'' },
           { label:'最大單樁 Hx / Hy', value:`${Number.isFinite(r.lateralGroup.x.maxPerPile) ? r.lateralGroup.x.maxPerPile.toFixed(2) : '—'} / ${Number.isFinite(r.lateralGroup.y.maxPerPile) ? r.lateralGroup.y.maxPerPile.toFixed(2) : '—'}`, unit:'tf' }
         ]});
+        if (r.pilePyResponse?.valid) {
+          const py = r.pilePyResponse.payload;
+          const pyItems = [
+            { label:'分析識別 / 案例', value:`${py.analysis.analysisId} / ${py.analysis.caseName}`, unit:'' },
+            { label:'分析軟體', value:`${py.analysis.software} ${py.analysis.version}`, unit:'' },
+            { label:'容量依據', value:py.analysis.capacityBasis, unit:'' },
+            { label:'分析產出時間', value:py.generatedAt, unit:'' },
+            { label:'來源檔 / SHA-256', value:`${r.pilePyResponse.state.sourceFilename} / ${r.pilePyResponse.state.sourceSha256.slice(0, 12)}`, unit:'' }
+          ];
+          [['X', py.results.x], ['Y', py.results.y]].forEach(([label, direction]) => {
+            if (!direction) return;
+            pyItems.push(
+              { label:`${label} 向樁頭位移 / 容許`, value:`${direction.headDisplacementCm.toFixed(3)} / ${direction.allowableHeadDisplacementCm.toFixed(3)}`, unit:'cm', ok:direction.displacementOk },
+              { label:`${label} 向最大剪力 / 容量`, value:`${direction.maxShearTf.toFixed(2)} / ${direction.shearCapacityTf.toFixed(2)}`, unit:'tf', ok:direction.shearOk },
+              { label:`${label} 向最大彎矩 / 容量`, value:`${direction.maxMomentTfm.toFixed(2)} / ${direction.momentCapacityTfm.toFixed(2)}`, unit:'tf·m', ok:direction.momentOk }
+            );
+          });
+          inputs.push({ group:'專項 p-y 分析結果', items:pyItems });
+        }
       }
       checks = [
         { group:'土層與單樁承載', items:[
@@ -4805,9 +5050,12 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
         ]}
       ];
       if (r.lateralRequired) {
+        const pyCheckValue = r.pilePyResponse?.valid
+          ? `案例 ${r.pilePyResponse.payload.analysis.analysisId}；位移、剪力、彎矩需求／容量核對${r.pilePyResponse.pass ? '通過' : '不通過'}`
+          : '須由專項 p-y 分析承接（尚未採用與本次樁群模型相符的結果）';
         checks.push({ group:'側向分析', items:[
           { label:'p-multiplier 適用範圍', value:`X s/D=${r.lateralGroup.x.spacingRatio.toFixed(2)}；Y s/D=${r.lateralGroup.y.spacingRatio.toFixed(2)}`, ok:r.lateralDistributionOk },
-          { label:'樁頭位移、剪力與彎矩', value:'須由專項 p-y 分析承接', ok:r.lateralResponseOk }
+          { label:'樁頭位移、剪力與彎矩', value:pyCheckValue, ok:r.lateralResponseOk }
         ]});
       }
       if (r.pilePresetSummaryText) steps.push({ group:'場址摘要', body:r.pilePresetSummaryText });

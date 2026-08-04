@@ -11,6 +11,8 @@ const baseDemandPath = path.join(toolsDir, '..', 'shared', 'retaining-base-deman
 const baseDemandTestPath = path.join(toolsDir, '..', 'shared', 'retaining-base-demand.test.js');
 const pileGroupLateralPath = path.join(toolsDir, '..', 'shared', 'pile-group-lateral.js');
 const pileGroupLateralTestPath = path.join(toolsDir, '..', 'shared', 'pile-group-lateral.test.js');
+const pilePyBridgePath = path.join(toolsDir, '..', 'shared', 'pile-py-result-bridge.js');
+const pilePyBridgeTestPath = path.join(toolsDir, '..', 'shared', 'pile-py-result-bridge.test.js');
 
 function read(file) {
   assert.ok(fs.existsSync(file), `missing required file: ${file}`);
@@ -29,6 +31,8 @@ const baseDemand = read(baseDemandPath);
 const baseDemandTest = read(baseDemandTestPath);
 const pileGroupLateral = read(pileGroupLateralPath);
 const pileGroupLateralTest = read(pileGroupLateralTestPath);
+const pilePyBridge = read(pilePyBridgePath);
+const pilePyBridgeTest = read(pilePyBridgeTestPath);
 
 [
   'assessFoundationAttachmentReadiness',
@@ -90,6 +94,32 @@ const pileGroupLateralTest = read(pileGroupLateralTestPath);
 ].forEach(needle => assertIncludes(pileGroupLateralTest, needle, 'pile group lateral regression'));
 
 [
+  '../shared/pile-py-result-bridge.js?v=1',
+  'btnDownloadPilePyTemplate',
+  'btnImportPilePy',
+  'btnAdoptPilePy',
+  'PILE_PY_BRIDGE.inspectState',
+  "group:'專項 p-y 分析結果'",
+  '來源檔 / SHA-256',
+].forEach(needle => assertIncludes(tool, needle, 'pile p-y result adoption wiring'));
+
+[
+  'rc-pile-py-result.v1',
+  'rc-pile-py-adoption.v1',
+  'p-y 分析來源與目前樁基模型不符',
+  'sourceSha256',
+  'displacementRatio',
+  'momentRatio',
+  'shearRatio',
+].forEach(needle => assertIncludes(pilePyBridge, needle, 'pile p-y result bridge core'));
+
+[
+  'p-y reviewed candidate becomes adopted result',
+  '來源與目前樁基模型不符',
+  'pile p-y result bridge unit tests OK',
+].forEach(needle => assertIncludes(pilePyBridgeTest, needle, 'pile p-y result bridge regression'));
+
+[
   'iso_default',
   'combined_default',
   'combined_pass_warn',
@@ -107,6 +137,7 @@ const pileGroupLateralTest = read(pileGroupLateralTestPath);
   'Foundation report visual smoke',
   'foundation-report-visual.test.js',
   'pile-group-lateral.test.js',
+  'pile-py-result-bridge.test.js',
   'node $visualTestFile',
 ].forEach(needle => assertIncludes(testFoundation, needle, 'test-foundation visual smoke wiring'));
 

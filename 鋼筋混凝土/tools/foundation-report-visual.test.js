@@ -104,7 +104,9 @@ const EXPECTED = {
       '最大單樁 Hx / Hy',
       'p-multiplier 適用範圍',
       '樁頭位移、剪力與彎矩',
-      '須由專項 p-y 分析承接',
+      '專項 p-y 分析結果',
+      'PY-VISUAL-001',
+      '位移、剪力、彎矩需求／容量核對通過',
     ],
   },
   retain_earth_bridge: {
@@ -252,6 +254,48 @@ async function applyCase(page, tc) {
       });
       if (typeof window.calcFdtn === 'function') window.calcFdtn();
     }, tc.values);
+  }
+  if (tc.key === 'pile_lateral_distribution') {
+    await page.evaluate(async () => {
+      const sourceModel = window.currentPilePyModel();
+      const payload = {
+        schema: 'rc-pile-py-result.v1',
+        generatedAt: '2026-08-04T01:00:00.000Z',
+        units: { length: 'cm', force: 'tf', moment: 'tf·m' },
+        analysis: {
+          analysisId: 'PY-VISUAL-001',
+          software: 'Verified p-y Solver',
+          version: '1.0',
+          caseName: '群樁側向正式附件案例',
+          capacityBasis: '專案核定樁身斷面容量',
+          analyst: 'QA'
+        },
+        source: sourceModel,
+        results: {
+          x: {
+            headDisplacementCm: 0.82,
+            allowableHeadDisplacementCm: 2.50,
+            maxShearTf: 15.2,
+            shearCapacityTf: 36.0,
+            maxMomentTfm: 11.8,
+            momentCapacityTfm: 28.0
+          },
+          y: {
+            headDisplacementCm: 0.43,
+            allowableHeadDisplacementCm: 2.50,
+            maxShearTf: 7.7,
+            shearCapacityTf: 36.0,
+            maxMomentTfm: 6.1,
+            momentCapacityTfm: 28.0
+          }
+        }
+      };
+      const file = new File([JSON.stringify(payload)], 'pile-py-visual.json', { type: 'application/json' });
+      const candidate = await window.loadPilePyJsonFile(file);
+      if (!candidate) throw new Error('visual p-y candidate validation failed');
+      document.getElementById('pilePyReview').checked = true;
+      if (!window.adoptPilePyCandidate()) throw new Error('visual p-y adoption failed');
+    });
   }
   await page.waitForFunction(expectedTab => window.ftLast?.tab === expectedTab, tc.tab, { timeout: 10000 });
 }

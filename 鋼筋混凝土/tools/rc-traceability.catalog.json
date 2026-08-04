@@ -292,12 +292,12 @@
         {
           "id": "foundation-pile-cap",
           "clause": "混凝土結構設計規範 112 年版樁基、樁帽、衝剪與樁身檢核規定",
-          "purpose": "樁基 / 樁帽把群樁軸向反力、單樁承載、服務性、樁身壓應力、樁帽撓曲 / 剪力 / 衝剪分區呈現；有水平力時依 FHWA / AASHTO p-multiplier 分配各列需求。",
-          "inputs": ["pileLayout", "pileSpacing", "pileLoads", "horizontalX", "horizontalY", "soilProfile", "Qallow", "settlementAllow", "capDepth", "capRebar"],
-          "calculation": ["Ri = P/n ± Mx yi / Σy² ± My xi / Σx²", "Rmax ≤ Qallow,eff", "FHWA-HIF-18-031 Table 7-1 p-multiplier", "各列與最大單樁水平力", "Wo ≤ 容許沉陷", "樁身壓應力", "樁帽 φMn / φVc / φVn", "逐層承載力表"],
-          "report": ["基礎設計計算書 — 樁基／樁帽", "土層與單樁承載", "群樁構造", "群樁側向荷重分配結果", "側向分析", "服務性與樁身", "樁帽結構", "逐層承載力表"],
-          "evidence": ["shared/pile-group-lateral.test.js", "tools/foundation-regression.test.js", "tools/foundation-regression-cases.json", "tools/foundation-report-visual.test.js", "tools/foundation-report-visual.contract.test.js"],
-          "manualReview": ["p-multiplier 僅完成水平力分配；樁頭位移、樁身側向剪力 / 彎矩、非線性 p-y 曲線、負摩擦、試樁結果、樁帽力流與樁位偏差須依地工報告與專案模型承接。"]
+          "purpose": "樁基 / 樁帽把群樁軸向反力、單樁承載、服務性、樁身壓應力、樁帽撓曲 / 剪力 / 衝剪分區呈現；有水平力時依 FHWA / AASHTO p-multiplier 分配各列需求，並可經工程師明確核對後承接相符的專項 p-y 位移與樁身內力結果。",
+          "inputs": ["pileLayout", "pileSpacing", "pileLoads", "horizontalX", "horizontalY", "soilProfile", "Qallow", "settlementAllow", "capDepth", "capRebar", "rc-pile-py-result.v1 JSON"],
+          "calculation": ["Ri = P/n ± Mx yi / Σy² ± My xi / Σx²", "Rmax ≤ Qallow,eff", "FHWA-HIF-18-031 Table 7-1 p-multiplier", "各列與最大單樁水平力", "p-y schema / 單位 / 樁群幾何 / Hx / Hy 核對", "樁頭位移 / 容許位移", "樁身剪力 / 容量", "樁身彎矩 / 容量", "Wo ≤ 容許沉陷", "樁身壓應力", "樁帽 φMn / φVc / φVn", "逐層承載力表"],
+          "report": ["基礎設計計算書 — 樁基／樁帽", "土層與單樁承載", "群樁構造", "群樁側向荷重分配結果", "專項 p-y 分析結果", "側向分析", "服務性與樁身", "樁帽結構", "逐層承載力表"],
+          "evidence": ["shared/pile-group-lateral.test.js", "shared/pile-py-result-bridge.js", "shared/pile-py-result-bridge.test.js", "tools/foundation-regression.test.js", "tools/foundation-regression-cases.json", "tools/foundation-report-visual.test.js", "tools/foundation-report-visual.contract.test.js"],
+          "manualReview": ["p-multiplier 僅完成水平力分配。外部 p-y 結果須由工程師核對分析軟體、土層彈簧、邊界條件、群樁互制與容量依據後明確採用；負摩擦、試樁結果、樁帽力流與樁位偏差仍須依地工報告與專案模型承接。"]
         },
         {
           "id": "foundation-retaining-wall-boundary",
