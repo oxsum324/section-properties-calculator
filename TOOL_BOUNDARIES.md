@@ -141,6 +141,8 @@ Schema v18 再把 RC 正式 HTML 核可封印提升為獨立 release aggregate �
 
 Schema v19 將雙封印邊界擴及 14 項風力／地震正式計算書：文件狀態控制與封印來源留在計算正文邊界之外，標題、追溯欄位、採用輸入、公式、結果、圖說與頁尾納入內容封印；核可封印另綁定文件狀態、核可時間、計算指紋、文件標題及內容封印。正式放行必須保存實際下載 HTML，重驗檔案 bytes／SHA-256、內容封印、核可封印，以及內容／核可兩種獨立竄改攔截。舊版缺封印轉人工複核，封印不符 blocked。Pages 只可公開兩組 `14/14` 完成數，不得公開下載檔名、scope、records 或逐檔雜湊。
 
+Schema v20 將相同邊界擴及鋼構正式計算書：主工具連接板、主工具拉力構件、獨立連接板、鋼梁與鋼柱共 5 份核可 HTML 都必須保存實體檔並重驗雙封印。三類主工具報告從舊式直接列印改為預設內部審閱、核可後正式附件；空白計畫名稱、編號或設計人員直接省略，可由主文承接且不構成 NG，工程檢核 NG 仍可如實核可入附件。Pages 只公開內容與核可封印各 `5/5`，不得公開檔名、scope、records、bytes 或雜湊。
+
 Schema v8 新增石材 golden replay 至成品雜湊結果鏈：producer 必須使用目前瀏覽器核心重播 `case_01_standard_safe`，核對至少 6 項關鍵數值與控制結果，再以同一 payload 產生 PDF、DOCX 及 audit，並將 golden 檔、來源 payload、輸入／結果／計算來源與三份成品 SHA-256 綁入 summary。Aggregate 必須要求 1/1、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「石材結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、golden 案例內容、來源 payload、結果或成品雜湊。
 
 Schema v9 新增錨栓工作區重播至成品雜湊結果鏈：producer 必須保存 v2 工作區備份實體檔，先驗證案例重現指紋並以目前核心重新計算至少 7 項控制結果，再用同一重現指紋產生正式 HTML、DOCX 及 XLSX。Aggregate 必須重新核對來源備份 schema／版本／案例／產品／重現指紋、三份成品中的計算指紋與成品 SHA-256，要求 1/1、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「錨栓結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、工作區資料、來源備份、重現／計算指紋或成品雜湊。

@@ -608,6 +608,17 @@ async function main() {
   assert.equal(reportReadinessJson.includes('"formalHtmlContentSeal":'), false, 'report readiness omits the private formal-tool HTML content seal aggregate');
   assert.equal(reportReadinessJson.includes('"formalHtmlApprovalSeal":'), false, 'report readiness omits the private formal-tool HTML approval seal aggregate');
   assert.equal(/formal-tools-html-reproducible-(?:content|approval)-sha256|"htmlArtifact"|"contentSha256"|"approvalSha256"/.test(reportReadinessJson), false, 'report readiness omits private formal-tool seal scopes, artifacts, and hashes');
+  assert.equal(reportReadinessStatus.steelHtmlContentSealRequired, 5, 'report readiness expects 5 steel formal HTML content seal checks');
+  assert.equal(reportReadinessStatus.steelHtmlContentSealComplete, reportReadinessStatus.steelHtmlContentSealRequired, 'report readiness completes every steel formal HTML content seal check');
+  assert.equal(reportReadinessStatus.steelHtmlContentSealIssueCount, 0, 'report readiness steel formal HTML content seal issues empty');
+  assert.equal(reportReadinessStatus.steelHtmlContentSealPass, true, 'report readiness steel formal HTML content seal checks pass');
+  assert.equal(reportReadinessStatus.steelHtmlApprovalSealRequired, 5, 'report readiness expects 5 steel formal HTML approval seal checks');
+  assert.equal(reportReadinessStatus.steelHtmlApprovalSealComplete, reportReadinessStatus.steelHtmlApprovalSealRequired, 'report readiness completes every steel formal HTML approval seal check');
+  assert.equal(reportReadinessStatus.steelHtmlApprovalSealIssueCount, 0, 'report readiness steel formal HTML approval seal issues empty');
+  assert.equal(reportReadinessStatus.steelHtmlApprovalSealPass, true, 'report readiness steel formal HTML approval seal checks pass');
+  assert.equal(reportReadinessJson.includes('"steelHtmlContentSeal":'), false, 'report readiness omits the private steel formal HTML content seal aggregate');
+  assert.equal(reportReadinessJson.includes('"steelHtmlApprovalSeal":'), false, 'report readiness omits the private steel formal HTML approval seal aggregate');
+  assert.equal(/steel-formal-html-reproducible-(?:content|approval)-sha256/.test(reportReadinessJson), false, 'report readiness omits private steel formal HTML seal scopes');
   assert.equal(reportReadinessStatus.steelResultReconciliationRequired, 5, 'report readiness expects 5 steel result reconciliations');
   assert.equal(reportReadinessStatus.steelResultReconciliationComplete, reportReadinessStatus.steelResultReconciliationRequired, 'report readiness completes every steel result reconciliation');
   assert.equal(reportReadinessStatus.steelResultReconciliationIssueCount, 0, 'report readiness steel result reconciliation issues empty');

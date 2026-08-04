@@ -2343,6 +2343,16 @@
 
   function buildReportHtml(result) {
     const reportTrace = buildConnectionReportTrace(result);
+    const reportDocument = SteelFormalUI.buildFormalDocumentStateReport({
+      project: {
+        name: normalizeProjectMetaValue(result.state.projectName),
+        no: normalizeProjectMetaValue(result.state.connectionTag),
+        designer: normalizeProjectMetaValue(result.state.designer),
+      },
+      calculated: true,
+      readinessLevel: result.passes ? (result.overallStatus === "warn" ? "review" : "ready") : "blocked",
+      calculationFingerprint: reportTrace.calculationFingerprint,
+    });
     const escReport = SteelFormalUI.escapeHtml;
     const strengthRows = result.checks.map((check) => `
       <tr>
@@ -2433,12 +2443,13 @@ ul{margin:0;padding-left:20px}.toolbar{max-width:820px;margin:0 auto 12px;text-a
 <body>
 <div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button></div>
 <div class="paper">
+${reportDocument.html}
 <h1>${result.reportTitle}</h1>
 <div class="sub">${result.reportSubtitle}</div>
 <div class="meta">
-  <div><b>計畫名稱</b> ${getProjectMetaDisplayValue(result.state.projectName)}</div>
-  <div><b>接頭編號</b> ${getProjectMetaDisplayValue(result.state.connectionTag)}</div>
-  <div><b>設計人</b> ${getProjectMetaDisplayValue(result.state.designer)}</div>
+  ${normalizeProjectMetaValue(result.state.projectName) ? `<div><b>計畫名稱</b> ${escReport(normalizeProjectMetaValue(result.state.projectName))}</div>` : ""}
+  ${normalizeProjectMetaValue(result.state.connectionTag) ? `<div><b>計畫編號</b> ${escReport(normalizeProjectMetaValue(result.state.connectionTag))}</div>` : ""}
+  ${normalizeProjectMetaValue(result.state.designer) ? `<div><b>設計人員</b> ${escReport(normalizeProjectMetaValue(result.state.designer))}</div>` : ""}
   <div><b>產出工具</b> ${escReport(reportTrace.sourceTrace.tool)}</div>
   <div><b>工具版本</b> ${escReport(reportTrace.sourceTrace.version)}</div>
   <div><b>輸出時間</b> ${escReport(reportTrace.generatedAt)}</div>

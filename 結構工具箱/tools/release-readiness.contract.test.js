@@ -170,6 +170,15 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'renderAndValidateReportPdf',
   'writeEvidenceSummary',
 ].forEach(needle => assertIncludes(steelBrowserRunner, needle, `steel browser runner preserves rendered evidence ${needle}`));
+[
+  'captureReportApprovalState',
+  'verifySteelApprovedHtml',
+  'saveSteelApprovedHtml',
+  "evidenceRole: 'approved-formal-attachment'",
+  'contentTamperDetectionStatus',
+  'approvalTamperDetectionStatus',
+  'htmlArtifactSha256',
+].forEach(needle => assertIncludes(steelBrowserRunner, needle, `steel browser runner preserves approved HTML dual seal evidence ${needle}`));
 
 [
   'Beam regression and report visual smoke',
@@ -264,7 +273,7 @@ for (const { name, source } of rcReportVisualSources) {
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 19',
+  'schemaVersion: 20',
   'canonicalArtifactIntegrity',
   "scope: 'canonical-rendered-pdf-evidence'",
   'required: 60',
@@ -295,6 +304,12 @@ for (const { name, source } of rcReportVisualSources) {
   'formalHtmlApprovalSeal',
   "scope: 'formal-tools-html-reproducible-approval-sha256'",
   'formalHtmlApprovalSeal=',
+  'steelHtmlContentSeal',
+  "scope: 'steel-formal-html-reproducible-content-sha256'",
+  'steelHtmlContentSeal=',
+  'steelHtmlApprovalSeal',
+  "scope: 'steel-formal-html-reproducible-approval-sha256'",
+  'steelHtmlApprovalSeal=',
   'steelResultReconciliation',
   "scope: 'steel-source-replay-to-report-fingerprint'",
   'required: 5',
@@ -345,6 +360,7 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'rcFormalHtmlContentSealDeclared',
   'rcFormalHtmlApprovalSealDeclared',
   'formalHtmlDualSealDeclared',
+  'steelHtmlDualSealDeclared',
   'steelResultReconciliationDeclared',
   'stoneResultReconciliationDeclared',
   'anchorResultReconciliationDeclared',
@@ -369,6 +385,10 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'evidence.formalHtmlContentSeal.required === 14',
   "evidence.formalHtmlApprovalSeal?.scope === 'formal-tools-html-reproducible-approval-sha256'",
   'evidence.formalHtmlApprovalSeal.required === 14',
+  "evidence.steelHtmlContentSeal?.scope === 'steel-formal-html-reproducible-content-sha256'",
+  'evidence.steelHtmlContentSeal.required === 5',
+  "evidence.steelHtmlApprovalSeal?.scope === 'steel-formal-html-reproducible-approval-sha256'",
+  'evidence.steelHtmlApprovalSeal.required === 5',
   "evidence.steelResultReconciliation?.scope === 'steel-source-replay-to-report-fingerprint'",
   'evidence.steelResultReconciliation.required === 5',
   "evidence.stoneResultReconciliation?.scope === 'stone-golden-replay-to-pdf-docx-hash'",
@@ -409,6 +429,9 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'formalHtmlContentSealRequired',
   'formalHtmlApprovalSealRequired',
   '風力／地震正式 HTML 雙封印',
+  'steelHtmlContentSealRequired',
+  'steelHtmlApprovalSealRequired',
+  '鋼構正式 HTML 雙封印',
   'steelResultReconciliationRequired',
   '鋼構正式計算書結果鏈',
   'stoneResultReconciliationRequired',
@@ -516,7 +539,9 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   assertIncludes(source, 'Schema v17', `${label} documents RC formal HTML content seal release evidence schema`);
   assertIncludes(source, 'Schema v18', `${label} documents RC formal HTML approval seal release evidence schema`);
   assertIncludes(source, 'Schema v19', `${label} documents formal-tool HTML dual seal release evidence schema`);
+  assertIncludes(source, 'Schema v20', `${label} documents steel formal HTML dual seal release evidence schema`);
   assertIncludes(source, '風力／地震', `${label} documents formal-tool HTML dual seal family`);
+  assertIncludes(source, '鋼構', `${label} documents steel formal HTML dual seal family`);
   assertIncludes(source, '雙封印', `${label} documents formal-tool HTML dual seal scope`);
   assertIncludes(source, '內容封印', `${label} documents RC formal HTML content seal scope`);
   assertIncludes(source, '數位簽章', `${label} distinguishes content seal from identity signature`);

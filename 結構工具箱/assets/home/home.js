@@ -166,10 +166,10 @@
       '/rc-foundation': '2026-08-05',
       '/rc-pile': '2026-08-05',
       '/rc-retrofit-section': '2026-08-05',
-      '/steel-formal': '2026-07-21',
+      '/steel-formal': '2026-08-05',
       '/steel-beam-formal': '2026-08-02',
       '/steel-column-formal': '2026-08-02',
-      '/steel-plate': '2026-07-21',
+      '/steel-plate': '2026-08-05',
       '/steel-beam': '2026-08-02',
       '/steel-column': '2026-08-02',
       '/wind-overview': '2026-08-02',
@@ -1300,6 +1300,12 @@
         : null,
       Number.isInteger(payload.rcFormalHtmlApprovalSealRequired) && payload.rcFormalHtmlApprovalSealRequired > 0
         ? ratio('RC HTML 核可封印', payload.rcFormalHtmlApprovalSealComplete, payload.rcFormalHtmlApprovalSealRequired, payload.rcFormalHtmlApprovalSealIssueCount)
+        : null,
+      Number.isInteger(payload.steelHtmlContentSealRequired) && payload.steelHtmlContentSealRequired > 0
+        ? ratio('鋼構 HTML 內容封印', payload.steelHtmlContentSealComplete, payload.steelHtmlContentSealRequired, payload.steelHtmlContentSealIssueCount)
+        : null,
+      Number.isInteger(payload.steelHtmlApprovalSealRequired) && payload.steelHtmlApprovalSealRequired > 0
+        ? ratio('鋼構 HTML 核可封印', payload.steelHtmlApprovalSealComplete, payload.steelHtmlApprovalSealRequired, payload.steelHtmlApprovalSealIssueCount)
         : null,
       Number.isInteger(payload.steelResultReconciliationRequired) && payload.steelResultReconciliationRequired > 0
         ? ratio('鋼構結果鏈', payload.steelResultReconciliationComplete, payload.steelResultReconciliationRequired, payload.steelResultReconciliationIssueCount)

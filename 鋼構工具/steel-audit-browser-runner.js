@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const net = require('node:net');
+const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 const {
   resolveEvidenceDir,
@@ -961,6 +962,157 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
   return state;
 }
 
+async function captureReportApprovalState(cdp, sessionId, label) {
+  return evaluate(cdp, sessionId, `(() => {
+    const approval = document.getElementById('repAttachmentApproval');
+    const downloadButton = document.getElementById('repDownloadCurrentHtml');
+    const serializerAvailable = typeof serializeReportDocumentHtml === 'function';
+    const status = () => document.querySelector('.rep-document-status-line');
+    const calculationFingerprint = () => (status()?.textContent || '').match(/CF-[0-9A-F]{16}/)?.[0] || '';
+    const initialDocumentClass = status()?.dataset.documentClass || '';
+    const initialStatusText = (status()?.textContent || '').replace(/\\s+/g, ' ').trim();
+    const initialCalculationFingerprint = calculationFingerprint();
+    const initialDocumentTitle = document.title || '';
+    if (approval) {
+      approval.checked = true;
+      approval.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    const approvedDocumentClass = status()?.dataset.documentClass || '';
+    const approvedStatusText = (status()?.textContent || '').replace(/\\s+/g, ' ').trim();
+    const approvedAt = status()?.dataset.approvedAt || '';
+    const approvedCalculationFingerprint = calculationFingerprint();
+    const approvedDocumentTitle = document.title || '';
+    const approvedHtml = serializerAvailable ? serializeReportDocumentHtml() : '';
+    let downloadedFileName = '';
+    if (downloadButton) {
+      const originalAnchorClick = HTMLAnchorElement.prototype.click;
+      try {
+        HTMLAnchorElement.prototype.click = function captureReportDownload() {
+          downloadedFileName = this.download || '';
+        };
+        downloadButton.click();
+      } finally {
+        HTMLAnchorElement.prototype.click = originalAnchorClick;
+      }
+    }
+    if (approval) {
+      approval.checked = false;
+      approval.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    const internalDocumentTitle = document.title || '';
+    return {
+      approvalControl: Boolean(approval),
+      downloadControl: Boolean(downloadButton),
+      serializerAvailable,
+      initialDocumentClass,
+      initialStatusText,
+      initialCalculationFingerprint,
+      initialDocumentTitle,
+      approvedDocumentClass,
+      approvedStatusText,
+      approvedAt,
+      approvedCalculationFingerprint,
+      approvedDocumentTitle,
+      approvedHtml,
+      downloadedFileName,
+      internalDocumentTitle,
+    };
+  })()`, `${label} approval state`);
+}
+
+function verifySteelApprovedHtml(approvalState, label) {
+  if (!approvalState.approvalControl || approvalState.initialDocumentClass !== 'internal-review' || !approvalState.initialStatusText.includes('文件狀態：內部審閱')) {
+    throw new Error(`${label} should default to printable internal review: ${JSON.stringify(approvalState)}`);
+  }
+  if (approvalState.approvedDocumentClass !== 'formal-attachment' || !approvalState.approvedStatusText.includes('文件狀態：正式附件') || !approvalState.approvedStatusText.includes('核可時間')) {
+    throw new Error(`${label} approval checkbox should create a traceable formal attachment: ${JSON.stringify(approvalState)}`);
+  }
+  if (!approvalState.downloadControl || !approvalState.serializerAvailable) {
+    throw new Error(`${label} should expose the reusable current-state HTML download: ${JSON.stringify(approvalState)}`);
+  }
+  if (!/^CF-[0-9A-F]{16}$/.test(approvalState.initialCalculationFingerprint)
+      || approvalState.approvedCalculationFingerprint !== approvalState.initialCalculationFingerprint) {
+    throw new Error(`${label} approval should preserve one calculation fingerprint: ${JSON.stringify(approvalState)}`);
+  }
+  if (!approvalState.initialDocumentTitle.includes('內部審閱')
+      || !approvalState.initialDocumentTitle.includes(approvalState.initialCalculationFingerprint)
+      || !approvalState.approvedDocumentTitle.includes('正式附件')
+      || !approvalState.approvedDocumentTitle.includes(approvalState.approvedCalculationFingerprint)
+      || !approvalState.internalDocumentTitle.includes('內部審閱')
+      || !approvalState.internalDocumentTitle.includes(approvalState.initialCalculationFingerprint)) {
+    throw new Error(`${label} document title should follow approval state and fingerprint: ${JSON.stringify(approvalState)}`);
+  }
+  if (approvalState.downloadedFileName !== `${approvalState.approvedDocumentTitle}.html`) {
+    throw new Error(`${label} formal HTML filename should match the approved title: ${JSON.stringify(approvalState)}`);
+  }
+  if (!Number.isFinite(Date.parse(approvalState.approvedAt || ''))) {
+    throw new Error(`${label} formal HTML should preserve a machine-readable approval time: ${JSON.stringify(approvalState)}`);
+  }
+  const savedStaticMarkup = approvalState.approvedHtml
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '');
+  const savedStatusCount = (savedStaticMarkup.match(/class=["'][^"']*rep-document-status-line[^"']*["']/gi) || []).length;
+  const savedVisibleText = AttachmentPackageChecker.extractHtmlVisibleContent(approvalState.approvedHtml).text;
+  if (savedStatusCount !== 1
+      || !savedVisibleText.includes('文件狀態：正式附件')
+      || !savedVisibleText.includes('核可時間')
+      || !savedVisibleText.includes(approvalState.approvedCalculationFingerprint)) {
+    throw new Error(`${label} saved formal HTML should expose one static traceable state line: ${JSON.stringify(approvalState)}`);
+  }
+  if (/class=["'][^"']*(?:rep-approval-control|rep-download-control)[^"']*["']/i.test(approvalState.approvedHtml)) {
+    throw new Error(`${label} saved formal HTML should exclude interactive controls`);
+  }
+  const contentSeal = AttachmentPackageChecker.verifyFormalHtmlContentSeal(approvalState.approvedHtml);
+  const approvalSeal = AttachmentPackageChecker.verifyFormalHtmlApprovalSeal(approvalState.approvedHtml);
+  if (contentSeal.status !== 'verified' || contentSeal.scope !== AttachmentPackageChecker.FORMAL_CONTENT_SEAL_SCOPE) {
+    throw new Error(`${label} saved formal HTML content seal failed: ${JSON.stringify(contentSeal)}`);
+  }
+  if (approvalSeal.status !== 'verified' || approvalSeal.scope !== AttachmentPackageChecker.FORMAL_APPROVAL_SEAL_SCOPE) {
+    throw new Error(`${label} saved formal HTML approval seal failed: ${JSON.stringify(approvalSeal)}`);
+  }
+  const contentBoundaryIndex = approvalState.approvedHtml.lastIndexOf(AttachmentPackageChecker.FORMAL_CONTENT_SEAL_START);
+  if (contentBoundaryIndex < 0) throw new Error(`${label} saved HTML lacks calculation-content boundary`);
+  const contentInsertAt = contentBoundaryIndex + AttachmentPackageChecker.FORMAL_CONTENT_SEAL_START.length;
+  const contentTamperedHtml = `${approvalState.approvedHtml.slice(0, contentInsertAt)}<div>異動後計算內容</div>${approvalState.approvedHtml.slice(contentInsertAt)}`;
+  const contentTamperSeal = AttachmentPackageChecker.verifyFormalHtmlContentSeal(contentTamperedHtml);
+  if (contentTamperSeal.status !== 'failed' || !contentTamperSeal.reasons.includes('content-sha256-mismatch')) {
+    throw new Error(`${label} calculation-body tamper should fail content seal: ${JSON.stringify(contentTamperSeal)}`);
+  }
+  const approvalTamperedHtml = approvalState.approvedHtml.replace(
+    /(rep-attachment-approval-source[^>]*data-approved-at=")[^"]+/i,
+    (_, prefix) => `${prefix}2000-01-01T00:00:00.000Z`
+  );
+  const approvalTamperContentSeal = AttachmentPackageChecker.verifyFormalHtmlContentSeal(approvalTamperedHtml);
+  const approvalTamperSeal = AttachmentPackageChecker.verifyFormalHtmlApprovalSeal(approvalTamperedHtml);
+  if (approvalTamperContentSeal.status !== 'verified' || approvalTamperSeal.status !== 'failed' || !approvalTamperSeal.reasons.includes('approval-sha256-mismatch')) {
+    throw new Error(`${label} approval-only tamper should preserve content seal and fail approval seal`);
+  }
+  return {
+    contentSealStatus: contentSeal.status,
+    contentSealScope: contentSeal.scope,
+    contentSha256: contentSeal.actualSha256,
+    contentTamperDetectionStatus: contentTamperSeal.status,
+    approvalSealStatus: approvalSeal.status,
+    approvalSealScope: approvalSeal.scope,
+    approvalSha256: approvalSeal.actualSha256,
+    approvalTamperDetectionStatus: approvalTamperSeal.status,
+    approvalTamperContentSealStatus: approvalTamperContentSeal.status,
+  };
+}
+
+function saveSteelApprovedHtml(key, approvedHtml) {
+  ensureDir(renderedEvidenceDir);
+  const htmlArtifact = `${key}-approved-formal-attachment.html`;
+  const htmlArtifactPath = path.join(renderedEvidenceDir, htmlArtifact);
+  fs.writeFileSync(htmlArtifactPath, approvedHtml, 'utf8');
+  const content = fs.readFileSync(htmlArtifactPath);
+  return {
+    htmlArtifact,
+    htmlArtifactBytes: content.length,
+    htmlArtifactSha256: crypto.createHash('sha256').update(content).digest('hex'),
+  };
+}
+
 async function assertFormalReportPopup(cdp, sessionId, options) {
   const sourceExport = options.sourcePayloadBuilder
     ? await evaluate(cdp, sessionId, `(() => {
@@ -1142,6 +1294,7 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
   if (/class=["'][^"']*(?:rep-approval-control|rep-download-control)[^"']*["']/i.test(approvalState.approvedHtml)) {
     throw new Error(`${options.label} saved formal HTML should exclude interactive controls`);
   }
+  const dualSealEvidence = verifySteelApprovedHtml(approvalState, options.label);
   if (snapshot.bodyText.includes('DRAFT')) {
     throw new Error(`${options.label} should not render a DRAFT banner: ${snapshot.bodyText}`);
   }
@@ -1166,6 +1319,7 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
     }
   }
   if (options.renderEvidenceKey) {
+    const htmlEvidence = saveSteelApprovedHtml(options.renderEvidenceKey, approvalState.approvedHtml);
     const resultReconciliation = buildSteelResultReconciliation({
       caseId: options.renderEvidenceKey,
       sourcePayload,
@@ -1174,14 +1328,14 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
       verifiedAssertionCount: 8,
     });
     const evidence = await renderAndValidateReportPdf(cdp, {
-      html: snapshot.html,
+      html: approvalState.approvedHtml,
       outputDir: renderedEvidenceDir,
       artifactName: options.renderEvidenceKey,
       label: options.label,
-      renderer: 'steel-formal-report',
+      renderer: 'steel-formal-attachment',
       contentBoundaryProfile: 'traceable-calculation-book',
       titleNeedle: options.titleNeedle,
-      requiredNeedles: [options.titleNeedle, '計畫名稱', '計算過程明細', '檢核結論', '文件狀態：內部審閱', ...FORMAL_REPORT_TRACE_LABELS],
+      requiredNeedles: [options.titleNeedle, '計畫名稱', '計算過程明細', '檢核結論', '文件狀態：正式附件', '核可時間', ...FORMAL_REPORT_TRACE_LABELS],
       forbiddenNeedles,
     });
     assertFormalReportTraceText(fs.readFileSync(evidence.pdf.textPath, 'utf8'), `${options.label} rendered PDF`);
@@ -1194,6 +1348,11 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
       textLength: evidence.pdf.textLength,
       calculationFingerprint: reportFingerprint,
       resultReconciliation,
+      evidenceRole: 'approved-formal-attachment',
+      documentClass: 'formal-attachment',
+      approvedAt: approvalState.approvedAt,
+      ...htmlEvidence,
+      ...dualSealEvidence,
     });
   }
   return {
@@ -1248,6 +1407,8 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
     metaRows: Array.from(document.querySelectorAll('.meta div')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
     sectionHeadings: Array.from(document.querySelectorAll('.paper h3')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
   }))()`, `${options.label} snapshot`);
+  const approvalState = await captureReportApprovalState(cdp, popup.sessionId, options.label);
+  const dualSealEvidence = verifySteelApprovedHtml(approvalState, options.label);
   if (!snapshot.title.includes(options.titleNeedle) || !snapshot.header.includes(options.titleNeedle)) {
     throw new Error(`${options.label} title mismatch: ${JSON.stringify(snapshot)}`);
   }
@@ -1272,17 +1433,22 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
   if (legacyConclusionIndex < 0 || legacyConclusionIndex !== snapshot.sectionHeadings.length - 1) {
     throw new Error(`${options.label} should place 檢核結論 after calculation content: ${JSON.stringify(snapshot.sectionHeadings)}`);
   }
-  const [nameRow = '', tagRow = '', designerRow = ''] = snapshot.metaRows;
-  if (!nameRow.includes(options.expectedProject.name)) {
+  const nameRow = snapshot.metaRows.find(row => row.startsWith('計畫名稱')) || '';
+  const tagRow = snapshot.metaRows.find(row => /^(?:計畫編號|接頭編號)/.test(row)) || '';
+  const designerRow = snapshot.metaRows.find(row => /^(?:設計人員|設計人)/.test(row)) || '';
+  if (options.expectedProject.name ? !nameRow.includes(options.expectedProject.name) : Boolean(nameRow)) {
     throw new Error(`${options.label} project name mismatch: ${JSON.stringify(snapshot.metaRows)}`);
   }
-  if (!tagRow.includes(options.expectedProject.tag)) {
+  if (options.expectedProject.tag ? !tagRow.includes(options.expectedProject.tag) : Boolean(tagRow)) {
     throw new Error(`${options.label} connection tag mismatch: ${JSON.stringify(snapshot.metaRows)}`);
   }
-  if (!designerRow.includes(options.expectedProject.designer)) {
+  if (options.expectedProject.designer ? !designerRow.includes(options.expectedProject.designer) : Boolean(designerRow)) {
     throw new Error(`${options.label} project designer mismatch: ${JSON.stringify(snapshot.metaRows)}`);
   }
   assertFormalReportTraceText(snapshot.bodyText, options.label);
+  if (snapshot.bodyText.includes('DRAFT')) {
+    throw new Error(`${options.label} should not render a DRAFT banner: ${snapshot.bodyText}`);
+  }
   let reportFingerprint = '';
   if (sourcePayload) {
     reportFingerprint = snapshot.bodyText.match(/計算指紋\s*(CF-[0-9A-F]{16})/)?.[1] || '';
@@ -1303,6 +1469,7 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
     }
   }
   if (options.renderEvidenceKey) {
+    const htmlEvidence = saveSteelApprovedHtml(options.renderEvidenceKey, approvalState.approvedHtml);
     const resultReconciliation = buildSteelResultReconciliation({
       caseId: options.renderEvidenceKey,
       sourcePayload,
@@ -1311,14 +1478,14 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
       verifiedAssertionCount: 8,
     });
     const evidence = await renderAndValidateReportPdf(cdp, {
-      html: snapshot.html,
+      html: approvalState.approvedHtml,
       outputDir: renderedEvidenceDir,
       artifactName: options.renderEvidenceKey,
       label: options.label,
-      renderer: 'steel-main-report',
+      renderer: 'steel-formal-attachment',
       contentBoundaryProfile: 'traceable-calculation-book',
       titleNeedle: options.titleNeedle,
-      requiredNeedles: [options.titleNeedle, '計畫名稱', '檢核結論', ...FORMAL_REPORT_TRACE_LABELS],
+      requiredNeedles: [options.titleNeedle, ...(options.expectedProject.name ? ['計畫名稱'] : []), '檢核結論', '文件狀態：正式附件', '核可時間', ...FORMAL_REPORT_TRACE_LABELS],
       forbiddenNeedles,
     });
     assertFormalReportTraceText(fs.readFileSync(evidence.pdf.textPath, 'utf8'), `${options.label} rendered PDF`);
@@ -1331,6 +1498,11 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
       textLength: evidence.pdf.textLength,
       calculationFingerprint: reportFingerprint,
       resultReconciliation,
+      evidenceRole: 'approved-formal-attachment',
+      documentClass: 'formal-attachment',
+      approvedAt: approvalState.approvedAt,
+      ...htmlEvidence,
+      ...dualSealEvidence,
     });
   }
   return {

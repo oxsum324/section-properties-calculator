@@ -486,6 +486,16 @@ assert.match(
   "connection, tension, and plate source JSON should reuse the formal report configuration and calculation fingerprint",
 );
 assert.match(
+  mainReportBuilderSource,
+  /function buildReportHtml\(result\)[\s\S]*SteelFormalUI\.buildFormalDocumentStateReport\([\s\S]*calculationFingerprint:\s*reportTrace\.calculationFingerprint[\s\S]*\$\{reportDocument\.html\}/s,
+  "connection, tension, and plate reports should use shared printable review, approval, and dual-seal governance",
+);
+assert.match(
+  mainReportBuilderSource,
+  /normalizeProjectMetaValue\(result\.state\.projectName\)\s*\?[^\n]*計畫名稱[\s\S]*normalizeProjectMetaValue\(result\.state\.connectionTag\)\s*\?[^\n]*計畫編號[\s\S]*normalizeProjectMetaValue\(result\.state\.designer\)\s*\?[^\n]*設計人員/s,
+  "connection, tension, and plate reports should omit blank project rows without blocking formal attachment approval",
+);
+assert.match(
   appSource,
   /exportSourceJsonBtn\.addEventListener\("click", exportConnectionSourceJson\)[\s\S]*window\.buildSteelConnectionSourcePayload = buildConnectionSourcePayload/s,
   "connection suite should wire and expose the source JSON payload for browser verification",
@@ -964,7 +974,7 @@ assert.doesNotMatch(
 );
 assert.match(
   appSource,
-  /function normalizeProjectMetaValue\(value\)[\s\S]*"未填"[\s\S]*function getProjectMetaDisplayValue\(value\)[\s\S]*metaProjectName\.textContent = getProjectMetaDisplayValue\(result\.state\.projectName\)[\s\S]*metaConnectionTag\.textContent = getProjectMetaDisplayValue\(result\.state\.connectionTag\)[\s\S]*metaDesigner\.textContent = getProjectMetaDisplayValue\(result\.state\.designer\)[\s\S]*<div><b>計畫名稱<\/b> \$\{getProjectMetaDisplayValue\(result\.state\.projectName\)\}<\/div>[\s\S]*<div><b>接頭編號<\/b> \$\{getProjectMetaDisplayValue\(result\.state\.connectionTag\)\}<\/div>[\s\S]*<div><b>設計人<\/b> \$\{getProjectMetaDisplayValue\(result\.state\.designer\)\}<\/div>[\s\S]*`計畫：\$\{getProjectMetaDisplayValue\(result\.state\.projectName\)\}`[\s\S]*`接頭：\$\{getProjectMetaDisplayValue\(result\.state\.connectionTag\)\}`/s,
+  /function normalizeProjectMetaValue\(value\)[\s\S]*"未填"[\s\S]*function getProjectMetaDisplayValue\(value\)[\s\S]*metaProjectName\.textContent = getProjectMetaDisplayValue\(result\.state\.projectName\)[\s\S]*metaConnectionTag\.textContent = getProjectMetaDisplayValue\(result\.state\.connectionTag\)[\s\S]*metaDesigner\.textContent = getProjectMetaDisplayValue\(result\.state\.designer\)[\s\S]*normalizeProjectMetaValue\(result\.state\.projectName\) \? `<div><b>計畫名稱[\s\S]*normalizeProjectMetaValue\(result\.state\.connectionTag\) \? `<div><b>計畫編號[\s\S]*normalizeProjectMetaValue\(result\.state\.designer\) \? `<div><b>設計人員[\s\S]*`計畫：\$\{getProjectMetaDisplayValue\(result\.state\.projectName\)\}`[\s\S]*`接頭：\$\{getProjectMetaDisplayValue\(result\.state\.connectionTag\)\}`/s,
   "app.js should normalize placeholder project metadata before rendering page meta, printable report output, and copied summaries",
 );
 assert.match(
