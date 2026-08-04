@@ -163,5 +163,6 @@ const portablePackageGate = fs.readFileSync(path.join(__dirname, 'report-portabl
 assert.ok(portablePackageGate.includes('AttachmentPackageChecker.checkPackage'), 'portable report gate should execute the real attachment package checker');
 assert.ok(portablePackageGate.includes('rejects a tampered project fingerprint'), 'portable report gate should prove fingerprint tampering fails closed');
 assert.ok(portablePackageGate.includes('rejects a wrong-version project source'), 'portable report gate should prove wrong-version pairing fails closed');
+assert.ok(portablePackageGate.includes('rejects a fully reidentified unrelated project source'), 'portable report gate should prove simultaneous identity, version, and fingerprint tampering fails closed');
 
 console.log('RC project/report calculation fingerprint contract OK');

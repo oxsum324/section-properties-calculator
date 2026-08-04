@@ -1190,6 +1190,22 @@ function analyzeFingerprintRelationships(records, issues) {
       files,
     ));
   });
+  const pairableSources = sourceRecords.filter(record => fingerprintPairingKey(record) && normalizedFingerprints(record).length);
+  const pairableReports = reportRecords.filter(record => fingerprintPairingKey(record) && normalizedFingerprints(record).length);
+  const hasSpecificPairingError = issues.some(issue => [
+    'source-report-fingerprint-mismatch',
+    'source-report-identity-mismatch',
+    'tool-version-conflict',
+  ].includes(issue.code));
+  if (pairableSources.length && pairableReports.length && !links.length && !hasSpecificPairingError) {
+    const files = unique([...pairableSources, ...pairableReports].map(record => record.file));
+    issues.push(buildIssue(
+      'error',
+      'source-report-link-missing',
+      '來源資料與正式計算書均具有完整追溯欄位，但沒有任何案件、工具、版本及計算指紋完全相符的配對；不得將不相關來源宣稱為本附件包的計算依據。',
+      files,
+    ));
+  }
   return links;
 }
 

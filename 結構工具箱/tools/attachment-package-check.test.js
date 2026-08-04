@@ -336,6 +336,14 @@ const wrongVersionSourceReport = Checker.analyzePackage([
 assert.equal(wrongVersionSourceReport.status, 'blocked', 'a shared fingerprint cannot override source/report version mismatch');
 assert.equal(wrongVersionSourceReport.issues.find(issue => issue.code === 'source-report-identity-mismatch')?.level, 'error');
 
+const fullyReidentifiedSourceReport = Checker.analyzePackage([
+  { ...sourceRecord, sourceTool: '偽造來源', toolVersion: 'v9.9', fingerprints: ['CF-0000000000000000'] },
+  reportRecord,
+], { projectNo: 'PKG-001' });
+assert.equal(fullyReidentifiedSourceReport.status, 'blocked', 'changing source identity, version, and fingerprint together cannot evade pairing');
+assert.equal(fullyReidentifiedSourceReport.fingerprintLinks.length, 0);
+assert.equal(fullyReidentifiedSourceReport.issues.find(issue => issue.code === 'source-report-link-missing')?.level, 'error');
+
 const duplicateReports = Checker.analyzePackage([
   sourceRecord,
   reportRecord,

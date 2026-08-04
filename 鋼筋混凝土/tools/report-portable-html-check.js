@@ -59,6 +59,23 @@ function assertSourceReportPackagePair(sourceSnapshot, approvedHtml, label, asse
       JSON.stringify({ status: wrongVersionReport.status, issues: wrongVersionReport.issues.map(issue => issue.code) }),
     );
 
+    const reidentifiedSnapshot = JSON.parse(JSON.stringify(wrongVersionSnapshot));
+    reidentifiedSnapshot.calculationFingerprint = 'CF-0000000000000000';
+    reidentifiedSnapshot.toolTitle = '偽造來源';
+    reidentifiedSnapshot.toolName = '偽造來源';
+    if (reidentifiedSnapshot.tool && typeof reidentifiedSnapshot.tool === 'object') {
+      reidentifiedSnapshot.tool.id = 'forged-source';
+      reidentifiedSnapshot.tool.name = '偽造來源';
+    } else reidentifiedSnapshot.tool = 'forged-source';
+    const reidentifiedReport = checkSnapshot(reidentifiedSnapshot);
+    assert(
+      reidentifiedReport.status === 'blocked'
+        && reidentifiedReport.fingerprintLinks.length === 0
+        && reidentifiedReport.issues.some(issue => issue.code === 'source-report-link-missing'),
+      `${label} rejects a fully reidentified unrelated project source`,
+      JSON.stringify({ status: reidentifiedReport.status, issues: reidentifiedReport.issues.map(issue => issue.code) }),
+    );
+
     return {
       status: packageReport.status,
       fingerprintLinkCount: packageReport.fingerprintLinks.length,
