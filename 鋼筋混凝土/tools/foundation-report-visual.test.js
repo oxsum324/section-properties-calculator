@@ -105,7 +105,11 @@ const EXPECTED = {
       'p-multiplier 適用範圍',
       '樁頭位移、剪力與彎矩',
       '專項 p-y 分析結果',
-      'PY-VISUAL-001',
+      'LP-VISUAL-001',
+      '代表單樁',
+      '分析範圍 / Hx / Hy',
+      '來源表格換算',
+      'X / Y 來源列數',
       '位移、剪力、彎矩需求／容量核對通過',
     ],
   },
@@ -257,44 +261,26 @@ async function applyCase(page, tc) {
   }
   if (tc.key === 'pile_lateral_distribution') {
     await page.evaluate(async () => {
-      const sourceModel = window.currentPilePyModel();
-      const payload = {
-        schema: 'rc-pile-py-result.v1',
-        generatedAt: '2026-08-04T01:00:00.000Z',
-        units: { length: 'cm', force: 'tf', moment: 'tf·m' },
-        analysis: {
-          analysisId: 'PY-VISUAL-001',
-          software: 'Verified p-y Solver',
-          version: '1.0',
-          caseName: '群樁側向正式附件案例',
-          capacityBasis: '專案核定樁身斷面容量',
-          analyst: 'QA'
-        },
-        source: sourceModel,
-        results: {
-          x: {
-            headDisplacementCm: 0.82,
-            allowableHeadDisplacementCm: 2.50,
-            maxShearTf: 15.2,
-            shearCapacityTf: 36.0,
-            maxMomentTfm: 11.8,
-            momentCapacityTfm: 28.0
-          },
-          y: {
-            headDisplacementCm: 0.43,
-            allowableHeadDisplacementCm: 2.50,
-            maxShearTf: 7.7,
-            shearCapacityTf: 36.0,
-            maxMomentTfm: 6.1,
-            momentCapacityTfm: 28.0
-          }
-        }
+      const values = {
+        pilePyAdapterSoftware: 'LPile',
+        pilePyAdapterVersion: '2026',
+        pilePyAdapterAnalysisId: 'LP-VISUAL-001',
+        pilePyAdapterCaseName: '代表單樁側向正式附件案例',
+        pilePyAdapterScope: 'representative-pile',
+        pilePyAdapterUnits: 'si-kn-m-mm',
+        pilePyAdapterAnalyst: 'QA',
+        pilePyAdapterCapacityBasis: '專案核定樁身斷面容量',
+        pilePyAdapterAllow: '2.5',
+        pilePyAdapterShearCap: '36',
+        pilePyAdapterMomentCap: '28',
+        pilePyAdapterXTable: 'depth_m,deflection_mm,shear_kN,moment_kN_m\n0,8.2,149.06,-115.72\n3,5.1,-132,110\n9,-1.2,41,-80',
+        pilePyAdapterYTable: 'depth_m,deflection_mm,shear_kN,moment_kN_m\n0,4.3,75.50,-59.82\n3,2.4,-65,55\n9,-0.8,20,-30'
       };
-      const file = new File([JSON.stringify(payload)], 'pile-py-visual.json', { type: 'application/json' });
-      const candidate = await window.loadPilePyJsonFile(file);
-      if (!candidate) throw new Error('visual p-y candidate validation failed');
+      Object.entries(values).forEach(([id, value]) => { document.getElementById(id).value = value; });
+      const candidate = await window.buildPilePyCandidateFromTable();
+      if (!candidate || candidate.source.analysisScope !== 'representative-pile') throw new Error('visual p-y table candidate validation failed');
       document.getElementById('pilePyReview').checked = true;
-      if (!window.adoptPilePyCandidate()) throw new Error('visual p-y adoption failed');
+      if (!window.adoptPilePyCandidate()) throw new Error('visual p-y table adoption failed');
     });
   }
   await page.waitForFunction(expectedTab => window.ftLast?.tab === expectedTab, tc.tab, { timeout: 10000 });

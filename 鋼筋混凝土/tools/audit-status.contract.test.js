@@ -207,6 +207,8 @@ const requiredQaArtifacts = [
   'shared/retaining-base-demand.test.js',
   'shared/pile-py-result-bridge.js',
   'shared/pile-py-result-bridge.test.js',
+  'shared/pile-py-table-adapter.js',
+  'shared/pile-py-table-adapter.test.js',
   'tools/single-pile-regression.test.js',
   'tools/single-pile-report-visual.test.js',
   'tools/single-pile-report-visual.contract.test.js',
@@ -354,6 +356,7 @@ assertIncludes(testWall, 'wall-report-visual.test.js', 'test-wall wires wall rep
 assertIncludes(testFoundation, 'Foundation report visual smoke', 'test-foundation runs foundation report visual smoke');
 assertIncludes(testFoundation, 'Retaining wall base demand unit tests', 'test-foundation runs retaining base demand unit tests');
 assertIncludes(testFoundation, 'Pile p-y result bridge unit tests', 'test-foundation runs pile p-y result bridge unit tests');
+assertIncludes(testFoundation, 'Pile p-y table adapter unit tests', 'test-foundation runs pile p-y table adapter unit tests');
 assertIncludes(testFoundation, 'foundation-report-visual.test.js', 'test-foundation wires foundation report visual script');
 assertIncludes(testSinglePile, 'Single pile report visual smoke', 'test-single-pile runs single pile report visual smoke');
 assertIncludes(testSinglePile, 'single-pile-report-visual.test.js', 'test-single-pile wires single pile report visual script');

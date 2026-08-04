@@ -693,6 +693,37 @@
           <input class="mode-bar__file" id="pilePyJsonFile" type="file" accept=".json,application/json">
           <input id="pilePyAdoptedSource" type="hidden" value="">
           <p class="retain-source-status" id="pilePyImportStatus">尚未採用專業 p-y 分析結果。匯入後會先核對樁群幾何、Hx／Hy、單位與需求／容量比。</p>
+          <details id="pilePyAdapterPanel" style="margin-top:10px;">
+            <summary style="cursor:pointer; font-weight:700; color:#1e3a5f;">由 LPile／FB-MultiPier 表格製作候選 JSON</summary>
+            <p class="hint">從 Excel 複製四欄表格；欄名與單位必須完全符合所選格式。轉換器只取深度 0 的樁頭位移及全深度最大絕對剪力／彎矩，不猜測專有報告文字。</p>
+            <div class="form-row">
+              <div class="form-group"><label>來源軟體</label><select id="pilePyAdapterSoftware"><option value="LPile">LPile</option><option value="FB-MultiPier">FB-MultiPier</option><option value="其他專業 p-y 軟體">其他專業 p-y 軟體</option></select></div>
+              <div class="form-group"><label>軟體版本</label><input id="pilePyAdapterVersion" type="text" placeholder="例如 2026 R13"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>分析識別碼</label><input id="pilePyAdapterAnalysisId" type="text" placeholder="例如 PY-SERVICE-001"></div>
+              <div class="form-group"><label>案例名稱</label><input id="pilePyAdapterCaseName" type="text" placeholder="例如 SERVICE-X-Y"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>分析範圍</label><select id="pilePyAdapterScope"><option value="representative-pile">代表單樁（LPile 常用）</option><option value="pile-group">群樁整體（FB-MultiPier 常用）</option></select></div>
+              <div class="form-group"><label>來源表格單位</label><select id="pilePyAdapterUnits"><option value="si-kn-m-mm">SI：m / mm / kN / kN·m</option><option value="us-kip-ft-in">US：ft / in / kip / kip·ft</option><option value="project-tf-m-cm">專案：m / cm / tf / tf·m</option></select></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>分析人員（可空白）</label><input id="pilePyAdapterAnalyst" type="text"></div>
+              <div class="form-group"><label>容量依據</label><input id="pilePyAdapterCapacityBasis" type="text" placeholder="例如專案核定樁身斷面容量"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>容許樁頭位移 (cm)</label><input id="pilePyAdapterAllow" type="number" min="0" step="0.01" placeholder="例如 2.5"></div>
+              <div class="form-group"><label>樁身剪力容量 (tf)</label><input id="pilePyAdapterShearCap" type="number" min="0" step="0.01"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>樁身彎矩容量 (tf·m)</label><input id="pilePyAdapterMomentCap" type="number" min="0" step="0.01"></div>
+            </div>
+            <div class="form-group"><label>X 向輸出表格</label><textarea id="pilePyAdapterXTable" class="soil-input" style="min-height:105px;" spellcheck="false" placeholder="depth_m,deflection_mm,shear_kN,moment_kN_m&#10;0,8.2,149.1,182.4&#10;3,5.1,132.0,165.0"></textarea></div>
+            <div class="form-group"><label>Y 向輸出表格</label><textarea id="pilePyAdapterYTable" class="soil-input" style="min-height:105px;" spellcheck="false" placeholder="depth_m,deflection_mm,shear_kN,moment_kN_m&#10;0,4.1,76.5,92.2&#10;3,2.4,65.0,81.0"></textarea></div>
+            <button class="mode-bar__action" id="btnBuildPilePyFromTable" type="button">驗證表格並建立候選結果</button>
+            <p class="retain-source-status" id="pilePyAdapterStatus">尚未轉換表格；產生後仍須勾選工程師核對才能採用。</p>
+          </details>
           <div id="pilePyCandidate" hidden>
             <pre class="steps-body" id="pilePyCandidateSummary" style="margin-top:8px; white-space:pre-wrap;"></pre>
             <div class="checkbox-row" style="margin-top:8px;">
@@ -1176,6 +1207,7 @@
 <script src="../shared/flexure.js?v=1"></script>
 <script src="../shared/retaining-base-demand.js?v=1"></script>
 <script src="../shared/pile-group-lateral.js?v=1"></script>
+<script src="../shared/pile-py-table-adapter.js?v=1"></script>
 <script src="../shared/pile-py-result-bridge.js?v=1"></script>
 <script src="../shared/report.js?v=6"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
@@ -1189,9 +1221,16 @@
   const lambda = LAMBDA_NORMAL;
   const FOUNDATION_PROJECT_SCHEMA = 'rc-foundation-project-v1';
   const FOUNDATION_PROJECT_STORAGE_KEY = 'rc.foundation.project.draft';
-  const FOUNDATION_PROJECT_EXCLUDED_IDS = new Set(['foundationProjectFile', 'earthPressureJsonFile', 'pilePyJsonFile', 'pilePyReview']);
+  const FOUNDATION_PROJECT_EXCLUDED_IDS = new Set([
+    'foundationProjectFile', 'earthPressureJsonFile', 'pilePyJsonFile', 'pilePyReview',
+    'pilePyAdapterSoftware', 'pilePyAdapterVersion', 'pilePyAdapterAnalysisId', 'pilePyAdapterCaseName',
+    'pilePyAdapterScope', 'pilePyAdapterUnits', 'pilePyAdapterAnalyst', 'pilePyAdapterCapacityBasis',
+    'pilePyAdapterAllow', 'pilePyAdapterShearCap', 'pilePyAdapterMomentCap',
+    'pilePyAdapterXTable', 'pilePyAdapterYTable'
+  ]);
   const EARTH_PRESSURE_BRIDGE = window.EarthPressureRcBridge;
   const RETAINING_BASE_DEMAND = window.RetainingBaseDemand;
+  const PILE_PY_TABLE_ADAPTER = window.PilePyTableAdapter;
   const PILE_PY_BRIDGE = window.PilePyResultBridge;
   const PILE_SITE_GROUPS = window.PILE_SITE_GROUPS || {};
   const PILE_SITE_PRESETS = window.PILE_SITE_PRESETS || {};
@@ -2088,7 +2127,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   let pendingPilePyCandidate = null;
 
   function currentPilePyModel() {
-    return {
+    const model = {
       pileNL: num('pileNL'),
       pileNB: num('pileNB'),
       spacingLCm: num('pileSL'),
@@ -2098,6 +2137,27 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       horizontalXTf: Math.abs(num('pHX')),
       horizontalYTf: Math.abs(num('pHY'))
     };
+    try {
+      const lateral = window.PileGroupLateral.evaluate({
+        pileNL: model.pileNL,
+        pileNB: model.pileNB,
+        pileDiameterCm: model.pileDiameterCm,
+        spacingL: model.spacingLCm,
+        spacingB: model.spacingBCm,
+        horizontalX: model.horizontalXTf,
+        horizontalY: model.horizontalYTf
+      });
+      model.representativeXTf = lateral.x.supported ? lateral.x.maxPerPile : null;
+      model.representativeYTf = lateral.y.supported ? lateral.y.maxPerPile : null;
+    } catch (_) {
+      model.representativeXTf = null;
+      model.representativeYTf = null;
+    }
+    return model;
+  }
+
+  function pilePyAnalysisScopeLabel(source) {
+    return source?.analysisScope === 'representative-pile' ? '代表單樁' : '群樁整體';
   }
 
   function pilePyDirectionSummary(direction, label) {
@@ -2108,7 +2168,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   function pilePyResponseSummary(response) {
     if (!response?.valid || !response.payload) return response?.reason || '尚未採用專業 p-y 分析結果。';
     const payload = response.payload;
-    return `${payload.analysis.software} ${payload.analysis.version}｜${payload.analysis.caseName}｜${pilePyDirectionSummary(payload.results.x, 'X')}｜${pilePyDirectionSummary(payload.results.y, 'Y')}`;
+    return `${payload.analysis.software} ${payload.analysis.version}｜${payload.analysis.caseName}｜${pilePyAnalysisScopeLabel(payload.source)}｜${pilePyDirectionSummary(payload.results.x, 'X')}｜${pilePyDirectionSummary(payload.results.y, 'Y')}`;
   }
 
   function renderPilePyImportStatus(response, message = '') {
@@ -2160,7 +2220,12 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
         analyst: '',
         capacityBasis: '請填入位移容許值與樁身容量依據'
       },
-      source,
+      source: {
+        ...source,
+        analysisScope: 'pile-group',
+        analysisHorizontalXTf: source.horizontalXTf,
+        analysisHorizontalYTf: source.horizontalYTf
+      },
       results: {
         x: direction(source.horizontalXTf > 0),
         y: direction(source.horizontalYTf > 0)
@@ -2183,6 +2248,77 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     return payload;
   }
 
+  function renderPilePyAdapterStatus(message, type = 'info') {
+    const el = $('pilePyAdapterStatus');
+    if (!el) return;
+    el.textContent = message;
+    el.style.color = type === 'fail' ? '#991b1b' : type === 'pass' ? '#166534' : '#1e3a8a';
+  }
+
+  function syncPilePyAdapterDefaults() {
+    const software = $('pilePyAdapterSoftware')?.value;
+    if ($('pilePyAdapterScope')) {
+      $('pilePyAdapterScope').value = software === 'FB-MultiPier' ? 'pile-group' : 'representative-pile';
+    }
+  }
+
+  function syncPilePyAdapterPlaceholders() {
+    const profile = PILE_PY_TABLE_ADAPTER.profiles[$('pilePyAdapterUnits')?.value];
+    if (!profile) return;
+    const header = profile.headers.join(',');
+    const example = profile.headers[0] === 'depth_ft'
+      ? `${header}\n0,0.25,20,80\n10,0.10,12,60`
+      : profile.headers[1] === 'deflection_cm'
+        ? `${header}\n0,0.82,15.2,18.6\n3,0.51,13.2,16.5`
+        : `${header}\n0,8.2,149.1,182.4\n3,5.1,132.0,165.0`;
+    ['pilePyAdapterXTable', 'pilePyAdapterYTable'].forEach(id => { if ($(id)) $(id).placeholder = example; });
+  }
+
+  async function buildPilePyCandidateFromTable() {
+    try {
+      const xText = $('pilePyAdapterXTable')?.value || '';
+      const yText = $('pilePyAdapterYTable')?.value || '';
+      const tableSha256 = {
+        x: xText.trim() ? await sha256Text(xText) : '',
+        y: yText.trim() ? await sha256Text(yText) : ''
+      };
+      const payload = PILE_PY_TABLE_ADAPTER.buildPayload({
+        model: currentPilePyModel(),
+        unitProfile: $('pilePyAdapterUnits')?.value,
+        analysisScope: $('pilePyAdapterScope')?.value,
+        analysisId: $('pilePyAdapterAnalysisId')?.value,
+        software: $('pilePyAdapterSoftware')?.value,
+        version: $('pilePyAdapterVersion')?.value,
+        caseName: $('pilePyAdapterCaseName')?.value,
+        analyst: $('pilePyAdapterAnalyst')?.value,
+        capacityBasis: $('pilePyAdapterCapacityBasis')?.value,
+        allowableHeadDisplacementCm: $('pilePyAdapterAllow')?.value,
+        shearCapacityTf: $('pilePyAdapterShearCap')?.value,
+        momentCapacityTfm: $('pilePyAdapterMomentCap')?.value,
+        tables: { x: xText, y: yText },
+        tableSha256
+      });
+      const candidate = PILE_PY_BRIDGE.validatePayload(payload, currentPilePyModel());
+      const serialized = JSON.stringify(payload);
+      const sourceSlug = String(payload.analysis.software || 'p-y').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'p-y';
+      const provenance = {
+        sourceFilename: `${sourceSlug}-table-adapter.json`,
+        sourceSha256: await sha256Text(serialized)
+      };
+      showPilePyCandidate(candidate, provenance);
+      const evidence = candidate.adapterEvidence;
+      renderPilePyAdapterStatus(`表格已驗證：${pilePyAnalysisScopeLabel(candidate.source)}；分析 Hx / Hy = ${candidate.source.analysisHorizontalXTf.toFixed(2)} / ${candidate.source.analysisHorizontalYTf.toFixed(2)} tf；X / Y 列數 = ${evidence?.x?.rowCount || 0} / ${evidence?.y?.rowCount || 0}。尚未採用。`, 'pass');
+      renderPilePyImportStatus(PILE_PY_BRIDGE.inspectState($('pilePyAdoptedSource')?.value || '', currentPilePyModel()), '表格候選結果已通過格式、單位、模型與分析荷重核對；勾選工程師核對後才會採用。');
+      showFoundationProjectStatus('p-y 表格候選結果已建立；尚未採用。請核對分析範圍、案例與容量依據。', 'warn');
+      return candidate;
+    } catch (err) {
+      console.error('pile p-y table adapter failed', err);
+      renderPilePyAdapterStatus(`表格轉換失敗：${err?.message || err}`, 'fail');
+      showFoundationProjectStatus(`p-y 表格轉換失敗，原採用結果未變更：${err?.message || err}`, 'fail');
+      return null;
+    }
+  }
+
   function showPilePyCandidate(candidate, provenance) {
     pendingPilePyCandidate = { candidate, provenance };
     const box = $('pilePyCandidate');
@@ -2192,10 +2328,12 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     if (summary) {
       summary.textContent = [
         `候選案例：${candidate.analysis.analysisId}｜${candidate.analysis.software} ${candidate.analysis.version}｜${candidate.analysis.caseName}`,
+        `分析範圍：${pilePyAnalysisScopeLabel(candidate.source)}｜分析 Hx / Hy = ${candidate.source.analysisHorizontalXTf.toFixed(2)} / ${candidate.source.analysisHorizontalYTf.toFixed(2)} tf`,
         `容量依據：${candidate.analysis.capacityBasis}`,
         pilePyDirectionSummary(candidate.results.x, 'X'),
         pilePyDirectionSummary(candidate.results.y, 'Y'),
         `候選核對：${candidate.pass ? '需求／容量比均 ≤ 1.0' : '至少一項需求／容量比 > 1.0'}`,
+        ...(candidate.adapterEvidence ? [`來源表格：${candidate.adapterEvidence.unitProfile}｜X / Y 列數 ${candidate.adapterEvidence.x?.rowCount || 0} / ${candidate.adapterEvidence.y?.rowCount || 0}`] : []),
         `來源檔：${provenance.sourceFilename}｜SHA-256 ${provenance.sourceSha256.slice(0, 12)}`
       ].join('\n');
     }
@@ -2479,10 +2617,15 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     $('btnImportPilePy')?.addEventListener('click', () => $('pilePyJsonFile')?.click());
     $('btnAdoptPilePy')?.addEventListener('click', adoptPilePyCandidate);
     $('btnClearPilePy')?.addEventListener('click', () => clearPilePySource());
+    $('btnBuildPilePyFromTable')?.addEventListener('click', buildPilePyCandidateFromTable);
+    $('pilePyAdapterSoftware')?.addEventListener('change', syncPilePyAdapterDefaults);
+    $('pilePyAdapterUnits')?.addEventListener('change', syncPilePyAdapterPlaceholders);
     $('pilePyJsonFile')?.addEventListener('change', event => {
       const file = event.target.files && event.target.files[0];
       loadPilePyJsonFile(file).finally(() => { event.target.value = ''; });
     });
+    syncPilePyAdapterDefaults();
+    syncPilePyAdapterPlaceholders();
   }
 
   window.collectFoundationProjectData = collectFoundationProjectData;
@@ -2499,6 +2642,9 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   window.currentPilePyModel = currentPilePyModel;
   window.createPilePyJsonTemplate = createPilePyJsonTemplate;
   window.downloadPilePyJsonTemplate = downloadPilePyJsonTemplate;
+  window.buildPilePyCandidateFromTable = buildPilePyCandidateFromTable;
+  window.syncPilePyAdapterDefaults = syncPilePyAdapterDefaults;
+  window.syncPilePyAdapterPlaceholders = syncPilePyAdapterPlaceholders;
 
   // ============================================================
   //  主計算分派
@@ -3453,7 +3599,9 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
       pileDiameterCm: pileD,
       pileLengthM: pileLength,
       horizontalXTf: Math.abs(HX),
-      horizontalYTf: Math.abs(HY)
+      horizontalYTf: Math.abs(HY),
+      representativeXTf: lateralGroup.x.supported ? lateralGroup.x.maxPerPile : null,
+      representativeYTf: lateralGroup.y.supported ? lateralGroup.y.maxPerPile : null
     };
     const pilePyResponse = PILE_PY_BRIDGE.inspectState($('pilePyAdoptedSource')?.value || '', pilePyModel);
     const lateralResponseOk = !lateralRequired || (pilePyResponse.valid && pilePyResponse.complete && pilePyResponse.pass);
@@ -5009,13 +5157,26 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
         ]});
         if (r.pilePyResponse?.valid) {
           const py = r.pilePyResponse.payload;
+          const pyScope = pilePyAnalysisScopeLabel(py.source);
+          const pyProfile = py.adapterEvidence
+            ? (PILE_PY_TABLE_ADAPTER.profiles[py.adapterEvidence.unitProfile]?.label || py.adapterEvidence.unitProfile)
+            : '';
           const pyItems = [
             { label:'分析識別 / 案例', value:`${py.analysis.analysisId} / ${py.analysis.caseName}`, unit:'' },
             { label:'分析軟體', value:`${py.analysis.software} ${py.analysis.version}`, unit:'' },
+            { label:'分析範圍 / Hx / Hy', value:`${pyScope} / ${py.source.analysisHorizontalXTf.toFixed(2)} / ${py.source.analysisHorizontalYTf.toFixed(2)}`, unit:'tf' },
             { label:'容量依據', value:py.analysis.capacityBasis, unit:'' },
             { label:'分析產出時間', value:py.generatedAt, unit:'' },
             { label:'來源檔 / SHA-256', value:`${r.pilePyResponse.state.sourceFilename} / ${r.pilePyResponse.state.sourceSha256.slice(0, 12)}`, unit:'' }
           ];
+          if (py.adapterEvidence) {
+            const evidence = py.adapterEvidence;
+            pyItems.push(
+              { label:'來源表格換算', value:`${pyProfile} / ${pyScope}`, unit:'' },
+              { label:'X / Y 來源列數', value:`${evidence.x?.rowCount || 0} / ${evidence.y?.rowCount || 0}`, unit:'列' },
+              { label:'X / Y 表格 SHA-256', value:`${evidence.x?.tableSha256?.slice(0, 12) || '—'} / ${evidence.y?.tableSha256?.slice(0, 12) || '—'}`, unit:'' }
+            );
+          }
           [['X', py.results.x], ['Y', py.results.y]].forEach(([label, direction]) => {
             if (!direction) return;
             pyItems.push(
@@ -5025,6 +5186,10 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
             );
           });
           inputs.push({ group:'專項 p-y 分析結果', items:pyItems });
+          steps.push({
+            group:'專項 p-y 分析採用範圍',
+            body:`採用 ${py.analysis.software} ${py.analysis.version} 之 ${py.analysis.caseName}；分析範圍為${pyScope}，分析 Hx / Hy = ${py.source.analysisHorizontalXTf.toFixed(2)} / ${py.source.analysisHorizontalYTf.toFixed(2)} tf。${py.adapterEvidence ? `結果由 ${pyProfile} 表格換算，X / Y 有效列數為 ${py.adapterEvidence.x?.rowCount || 0} / ${py.adapterEvidence.y?.rowCount || 0}。` : ''}`
+          });
         }
       }
       checks = [
@@ -5051,7 +5216,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
       ];
       if (r.lateralRequired) {
         const pyCheckValue = r.pilePyResponse?.valid
-          ? `案例 ${r.pilePyResponse.payload.analysis.analysisId}；位移、剪力、彎矩需求／容量核對${r.pilePyResponse.pass ? '通過' : '不通過'}`
+          ? `案例 ${r.pilePyResponse.payload.analysis.analysisId}；${pilePyAnalysisScopeLabel(r.pilePyResponse.payload.source)}；位移、剪力、彎矩需求／容量核對${r.pilePyResponse.pass ? '通過' : '不通過'}`
           : '須由專項 p-y 分析承接（尚未採用與本次樁群模型相符的結果）';
         checks.push({ group:'側向分析', items:[
           { label:'p-multiplier 適用範圍', value:`X s/D=${r.lateralGroup.x.spacingRatio.toFixed(2)}；Y s/D=${r.lateralGroup.y.spacingRatio.toFixed(2)}`, ok:r.lateralDistributionOk },

@@ -6,6 +6,7 @@ $visualTestFile = Join-Path $root 'foundation-report-visual.test.js'
 $baseDemandTestFile = Join-Path (Split-Path -Parent $root) 'shared\retaining-base-demand.test.js'
 $pileGroupLateralTestFile = Join-Path (Split-Path -Parent $root) 'shared\pile-group-lateral.test.js'
 $pilePyBridgeTestFile = Join-Path (Split-Path -Parent $root) 'shared\pile-py-result-bridge.test.js'
+$pilePyTableAdapterTestFile = Join-Path (Split-Path -Parent $root) 'shared\pile-py-table-adapter.test.js'
 $playwrightDepsScript = Join-Path $root 'ensure-playwright-deps.ps1'
 . $playwrightDepsScript -Root $root -PreferredDirName '.foundation-testdeps'
 
@@ -25,6 +26,12 @@ Write-Host "`n== Pile p-y result bridge unit tests ==" -ForegroundColor Cyan
 node $pilePyBridgeTestFile
 if ($LASTEXITCODE -ne 0) {
   throw "pile p-y result bridge unit tests failed with exit code $LASTEXITCODE"
+}
+
+Write-Host "`n== Pile p-y table adapter unit tests ==" -ForegroundColor Cyan
+node $pilePyTableAdapterTestFile
+if ($LASTEXITCODE -ne 0) {
+  throw "pile p-y table adapter unit tests failed with exit code $LASTEXITCODE"
 }
 
 Write-Host "`n== Foundation regression tests ==" -ForegroundColor Cyan

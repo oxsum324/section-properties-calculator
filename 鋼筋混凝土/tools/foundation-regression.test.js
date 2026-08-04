@@ -278,6 +278,32 @@ async function exercisePilePyBridge(page) {
     const mismatchStatus = document.getElementById('pilePyImportStatus')?.textContent || '';
     setField('pHX', 90);
     window.clearPilePySource({ silent: true });
+    setField('pilePyAdapterSoftware', 'LPile');
+    setField('pilePyAdapterVersion', '2026');
+    setField('pilePyAdapterAnalysisId', 'LP-REG-001');
+    setField('pilePyAdapterCaseName', 'SERVICE-X-Y-TABLE');
+    setField('pilePyAdapterScope', 'representative-pile');
+    setField('pilePyAdapterUnits', 'si-kn-m-mm');
+    setField('pilePyAdapterCapacityBasis', '專案核定樁身斷面容量');
+    setField('pilePyAdapterAllow', 2.5);
+    setField('pilePyAdapterShearCap', 28);
+    setField('pilePyAdapterMomentCap', 31);
+    setField('pilePyAdapterXTable', 'depth_m,deflection_mm,shear_kN,moment_kN_m\n0,8.2,149.06,-182.40\n3,5.1,-132,165\n9,-1.2,41,-80');
+    setField('pilePyAdapterYTable', 'depth_m,deflection_mm,shear_kN,moment_kN_m\n0,4.1,76.49,-92.18\n3,2.4,-65,81\n9,-0.8,20,-30');
+    const tableCandidate = await window.buildPilePyCandidateFromTable();
+    const tableStatus = document.getElementById('pilePyAdapterStatus')?.textContent || '';
+    document.getElementById('pilePyReview').checked = true;
+    const tableAdopted = window.adoptPilePyCandidate();
+    const savedAfterTable = window.collectFoundationProjectData();
+    const tableResponse = window.ftLast?.pilePyResponse;
+    const transientAdapterIds = [
+      'pilePyAdapterSoftware', 'pilePyAdapterVersion', 'pilePyAdapterAnalysisId',
+      'pilePyAdapterCaseName', 'pilePyAdapterScope', 'pilePyAdapterUnits',
+      'pilePyAdapterAnalyst', 'pilePyAdapterCapacityBasis', 'pilePyAdapterAllow',
+      'pilePyAdapterShearCap', 'pilePyAdapterMomentCap', 'pilePyAdapterXTable', 'pilePyAdapterYTable'
+    ];
+    const adapterFieldsExcluded = transientAdapterIds.every(id => savedAfterTable.fields[id] == null);
+    window.clearPilePySource({ silent: true });
     return {
       candidateVisible,
       templateMatchesModel: template.schema === 'rc-pile-py-result.v1'
@@ -294,7 +320,18 @@ async function exercisePilePyBridge(page) {
       replayPass,
       replayStatus,
       mismatchRejected,
-      mismatchStatus
+      mismatchStatus,
+      tableCandidateScope: tableCandidate?.source?.analysisScope,
+      tableCandidateHX: tableCandidate?.source?.analysisHorizontalXTf,
+      tableCandidateHY: tableCandidate?.source?.analysisHorizontalYTf,
+      tableStatus,
+      tableAdoptedSchema: tableAdopted?.payload?.adapterEvidence?.schema,
+      tableAdoptedProfile: tableAdopted?.payload?.adapterEvidence?.unitProfile,
+      tableResultX: tableAdopted?.payload?.results?.x?.headDisplacementCm,
+      tableResultY: tableAdopted?.payload?.results?.y?.headDisplacementCm,
+      tableReplayValid: tableResponse?.valid === true,
+      tableReplayReason: tableResponse?.reason || '',
+      adapterFieldsExcluded
     };
   });
   assert(state.templateMatchesModel, 'p-y downloadable template binds current pile model and stays intentionally incomplete', 'current model template');
@@ -306,6 +343,12 @@ async function exercisePilePyBridge(page) {
   assert(state.excludedFile && state.excludedReview, 'p-y transient file and review controls stay out of project payload', 'transient controls excluded');
   assert(state.replayPass && state.replayStatus.includes('已採用 p-y 結果'), 'p-y adopted result replays with project calculation fingerprint', state.replayStatus);
   assert(state.mismatchRejected && state.mismatchStatus.includes('目前模型不相容'), 'p-y adopted result fails closed after source model changes', state.mismatchStatus);
+  assert(state.tableCandidateScope === 'representative-pile' && nearlyEqual(state.tableCandidateHX, 16, toleranceDefault) && nearlyEqual(state.tableCandidateHY, 8, toleranceDefault), 'LPile table adapter binds representative pile p-multiplier loads', `${state.tableCandidateScope} ${state.tableCandidateHX}/${state.tableCandidateHY}`);
+  assert(state.tableStatus.includes('X / Y 列數 = 3 / 3') && state.tableStatus.includes('尚未採用'), 'p-y table adapter reports verified candidate without auto-adoption', state.tableStatus);
+  assert(state.tableAdoptedSchema === 'rc-pile-py-table-adapter.v1' && state.tableAdoptedProfile === 'si-kn-m-mm', 'p-y table adoption preserves conversion provenance', `${state.tableAdoptedSchema} ${state.tableAdoptedProfile}`);
+  assert(nearlyEqual(state.tableResultX, 0.82, toleranceDefault) && nearlyEqual(state.tableResultY, 0.41, toleranceDefault), 'p-y table adapter uses head row displacement in project units', `${state.tableResultX}/${state.tableResultY}`);
+  assert(state.tableReplayValid, 'p-y table adoption revalidates against current model', state.tableReplayReason);
+  assert(state.adapterFieldsExcluded, 'p-y table work fields stay out of foundation project payload', 'adapter page-only fields excluded');
 }
 
 async function main() {
@@ -346,8 +389,10 @@ async function main() {
   assert(html.includes('EARTH_PRESSURE_BRIDGE.importPayload'), 'foundation validates earth pressure payload before use', 'same-core recalculation gate exists');
   assert(html.includes('id="btnDownloadPilePyTemplate"') && html.includes('id="btnImportPilePy"') && html.includes('id="btnAdoptPilePy"'), 'foundation has p-y template, import and explicit adoption controls', 'candidate review workflow exists');
   assert(html.includes('pile-py-result-bridge.js'), 'foundation loads p-y result bridge', 'versioned p-y bridge module exists');
+  assert(html.includes('pile-py-table-adapter.js') && html.includes('id="btnBuildPilePyFromTable"'), 'foundation loads p-y table adapter with explicit candidate action', 'table adapter workflow exists');
   assert(html.includes('PILE_PY_BRIDGE.inspectState'), 'foundation revalidates adopted p-y source against current model', 'fail-closed replay gate exists');
   assert(reportSrc.includes("group:'專項 p-y 分析結果'"), 'foundation report includes adopted p-y calculation results', 'formal report result group exists');
+  assert(reportSrc.includes("label:'分析範圍 / Hx / Hy'") && reportSrc.includes("label:'來源表格換算'"), 'foundation report identifies p-y analysis scope and table provenance', 'formal report provenance exists');
 
   const chromePath = CHROME_CANDIDATES.find(p => fs.existsSync(p));
   assert(!!chromePath, 'browser executable', 'system Chrome/Edge found for foundation regression test');

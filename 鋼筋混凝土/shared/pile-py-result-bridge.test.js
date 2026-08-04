@@ -50,6 +50,8 @@ assert.equal(candidate.complete, true);
 assert.equal(candidate.pass, true);
 assert.equal(candidate.results.x.displacementOk, true);
 assert.equal(candidate.results.y.momentOk, true);
+assert.equal(candidate.source.analysisScope, 'pile-group');
+assert.equal(candidate.source.analysisHorizontalXTf, 90);
 
 const adopted = Bridge.adopt(candidate, { sourceFilename: 'pile-py.json', sourceSha256: 'a'.repeat(64) });
 const inspected = Bridge.inspectState(JSON.stringify(adopted), current);
@@ -67,6 +69,37 @@ assert.equal(failed.results.x.displacementOk, false);
 assert.throws(
   () => Bridge.validatePayload(payload, { ...current, horizontalXTf: 80 }),
   /來源與目前樁基模型不符/
+);
+
+const representativePayload = JSON.parse(JSON.stringify(payload));
+representativePayload.source = {
+  ...current,
+  representativeXTf: 16,
+  representativeYTf: 8,
+  analysisScope: 'representative-pile',
+  analysisHorizontalXTf: 16,
+  analysisHorizontalYTf: 8
+};
+representativePayload.adapterEvidence = {
+  schema: 'rc-pile-py-table-adapter.v1',
+  sourceKind: 'tabular-export',
+  unitProfile: 'si-kn-m-mm',
+  analysisScope: 'representative-pile',
+  x: { rowCount: 3, tableSha256: 'a'.repeat(64) },
+  y: { rowCount: 3, tableSha256: 'b'.repeat(64) }
+};
+const representative = Bridge.validatePayload(representativePayload, { ...current, representativeXTf: 16, representativeYTf: 8 });
+assert.equal(representative.source.analysisScope, 'representative-pile');
+assert.equal(representative.adapterEvidence.x.rowCount, 3);
+assert.throws(
+  () => Bridge.validatePayload(representativePayload, { ...current, representativeXTf: 15, representativeYTf: 8 }),
+  /分析 Hx 16 ≠ 15/
+);
+const badEvidence = JSON.parse(JSON.stringify(representativePayload));
+badEvidence.adapterEvidence.x.tableSha256 = 'bad';
+assert.throws(
+  () => Bridge.validatePayload(badEvidence, { ...current, representativeXTf: 16, representativeYTf: 8 }),
+  /SHA-256 格式錯誤/
 );
 assert.throws(
   () => Bridge.validatePayload({ ...payload, schema: 'rc-pile-py-result.v0' }, current),

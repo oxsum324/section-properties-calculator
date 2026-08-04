@@ -7,6 +7,7 @@
 
   const SCHEMA = 'rc-pile-py-result.v1';
   const STATE_SCHEMA = 'rc-pile-py-adoption.v1';
+  const ADAPTER_SCHEMA = 'rc-pile-py-table-adapter.v1';
 
   function object(value, label) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} 必須是物件。`);
@@ -65,7 +66,9 @@
       pileDiameterCm: positive(expected.pileDiameterCm, '樁徑'),
       pileLengthM: positive(expected.pileLengthM, '樁長'),
       horizontalXTf: Math.abs(finite(expected.horizontalXTf || 0, 'Hx')),
-      horizontalYTf: Math.abs(finite(expected.horizontalYTf || 0, 'Hy'))
+      horizontalYTf: Math.abs(finite(expected.horizontalYTf || 0, 'Hy')),
+      representativeXTf: expected.representativeXTf == null ? null : Math.abs(finite(expected.representativeXTf, '代表單樁 Hx')),
+      representativeYTf: expected.representativeYTf == null ? null : Math.abs(finite(expected.representativeYTf, '代表單樁 Hy'))
     };
   }
 
@@ -89,7 +92,44 @@
     numeric.forEach(([key, label, tolerance]) => {
       if (!close(source[key], expected[key], tolerance)) mismatches.push(`${label} ${source[key]} ≠ ${expected[key]}`);
     });
+    const expectedAnalysisX = source.analysisScope === 'representative-pile' ? expected.representativeXTf : expected.horizontalXTf;
+    const expectedAnalysisY = source.analysisScope === 'representative-pile' ? expected.representativeYTf : expected.horizontalYTf;
+    if (!Number.isFinite(expectedAnalysisX) || !Number.isFinite(expectedAnalysisY)) {
+      mismatches.push('目前模型缺少代表單樁水平力分配結果');
+    } else {
+      if (!close(source.analysisHorizontalXTf, expectedAnalysisX, 0.01)) mismatches.push(`分析 Hx ${source.analysisHorizontalXTf} ≠ ${expectedAnalysisX}`);
+      if (!close(source.analysisHorizontalYTf, expectedAnalysisY, 0.01)) mismatches.push(`分析 Hy ${source.analysisHorizontalYTf} ≠ ${expectedAnalysisY}`);
+    }
     return mismatches;
+  }
+
+  function normalizeAdapterEvidence(raw, source) {
+    if (raw == null) return null;
+    const evidence = object(raw, '表格轉換證據');
+    if (evidence.schema !== ADAPTER_SCHEMA) throw new Error(`表格轉換證據 schema 不相容：${evidence.schema || '缺少'}。`);
+    if (evidence.sourceKind !== 'tabular-export') throw new Error('表格轉換證據來源型式必須為 tabular-export。');
+    const unitProfile = text(evidence.unitProfile, '表格來源單位');
+    if (!['si-kn-m-mm', 'us-kip-ft-in', 'project-tf-m-cm'].includes(unitProfile)) throw new Error(`不支援的表格來源單位：${unitProfile}。`);
+    const analysisScope = text(evidence.analysisScope, '表格分析範圍');
+    if (analysisScope !== source.analysisScope) throw new Error('表格轉換證據的分析範圍與來源模型不一致。');
+    const normalizeDirectionEvidence = (item, label, required) => {
+      if (!item) {
+        if (required) throw new Error(`${label} 向表格轉換證據缺失。`);
+        return null;
+      }
+      const direction = object(item, `${label} 向表格轉換證據`);
+      const sha256 = text(direction.tableSha256, `${label} 向來源表格 SHA-256`);
+      if (!/^[0-9a-f]{64}$/i.test(sha256)) throw new Error(`${label} 向來源表格 SHA-256 格式錯誤。`);
+      return { rowCount: positiveInteger(direction.rowCount, `${label} 向來源表格列數`), tableSha256: sha256.toLowerCase() };
+    };
+    return {
+      schema: ADAPTER_SCHEMA,
+      sourceKind: 'tabular-export',
+      unitProfile,
+      analysisScope,
+      x: normalizeDirectionEvidence(evidence.x, 'X', source.analysisHorizontalXTf > 0),
+      y: normalizeDirectionEvidence(evidence.y, 'Y', source.analysisHorizontalYTf > 0)
+    };
   }
 
   function normalizeDirection(raw, direction, required) {
@@ -137,6 +177,10 @@
     if (!Number.isFinite(Date.parse(generatedAt))) throw new Error('分析產出時間不是有效 ISO 日期時間。');
     if (Date.parse(generatedAt) > Date.now() + 5 * 60 * 1000) throw new Error('分析產出時間不得晚於目前時間 5 分鐘以上。');
     const sourceRaw = object(payload.source, '分析來源模型');
+    const analysisScope = text(sourceRaw.analysisScope, '分析範圍', false) || 'pile-group';
+    if (!['pile-group', 'representative-pile'].includes(analysisScope)) throw new Error('分析範圍須為 pile-group 或 representative-pile。');
+    const sourceHorizontalXTf = Math.abs(finite(sourceRaw.horizontalXTf || 0, '來源 Hx'));
+    const sourceHorizontalYTf = Math.abs(finite(sourceRaw.horizontalYTf || 0, '來源 Hy'));
     const source = {
       pileNL: positiveInteger(sourceRaw.pileNL, '來源 L 向樁數'),
       pileNB: positiveInteger(sourceRaw.pileNB, '來源 B 向樁數'),
@@ -144,8 +188,13 @@
       spacingBCm: positive(sourceRaw.spacingBCm, '來源 B 向樁距'),
       pileDiameterCm: positive(sourceRaw.pileDiameterCm, '來源樁徑'),
       pileLengthM: positive(sourceRaw.pileLengthM, '來源樁長'),
-      horizontalXTf: Math.abs(finite(sourceRaw.horizontalXTf || 0, '來源 Hx')),
-      horizontalYTf: Math.abs(finite(sourceRaw.horizontalYTf || 0, '來源 Hy'))
+      horizontalXTf: sourceHorizontalXTf,
+      horizontalYTf: sourceHorizontalYTf,
+      representativeXTf: sourceRaw.representativeXTf == null ? null : Math.abs(finite(sourceRaw.representativeXTf, '來源代表單樁 Hx')),
+      representativeYTf: sourceRaw.representativeYTf == null ? null : Math.abs(finite(sourceRaw.representativeYTf, '來源代表單樁 Hy')),
+      analysisScope,
+      analysisHorizontalXTf: Math.abs(finite(sourceRaw.analysisHorizontalXTf == null ? sourceHorizontalXTf : sourceRaw.analysisHorizontalXTf, '來源分析 Hx')),
+      analysisHorizontalYTf: Math.abs(finite(sourceRaw.analysisHorizontalYTf == null ? sourceHorizontalYTf : sourceRaw.analysisHorizontalYTf, '來源分析 Hy'))
     };
     const mismatches = compareSource(source, expected);
     if (mismatches.length) throw new Error(`p-y 分析來源與目前樁基模型不符：${mismatches.join('；')}。`);
@@ -154,6 +203,7 @@
     const y = normalizeDirection(results.y, 'Y', expected.horizontalYTf > 0);
     const requiredDirections = [expected.horizontalXTf > 0 ? x : null, expected.horizontalYTf > 0 ? y : null].filter(Boolean);
     const complete = requiredDirections.length > 0 && requiredDirections.every(Boolean);
+    const adapterEvidence = normalizeAdapterEvidence(payload.adapterEvidence, source);
     return {
       schema: SCHEMA,
       generatedAt: new Date(Date.parse(generatedAt)).toISOString(),
@@ -168,6 +218,7 @@
       units: { length: 'cm', force: 'tf', moment: 'tf·m' },
       source,
       results: { x, y },
+      adapterEvidence,
       complete,
       pass: complete && requiredDirections.every(item => item.pass)
     };

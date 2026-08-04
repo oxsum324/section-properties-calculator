@@ -128,7 +128,7 @@ Schema v6 再固定治理鋼構主工具連接板、主工具拉力構件、獨�
 Schema v7 再把 RC 梁、柱補強兩組表單重播案例納入 RC 結果鏈：producer 必須保存表單與結果快照，證明需求值改動會改變結果，再還原表單重算並核對報告及正式 HTML 指紋；aggregate 必須要求 RC 設計與補強合計 32/32、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「RC 結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、案例內容、來源快照雜湊或計算指紋。
 
 Schema v13 再把土壓 JSON 銜接 RC 基礎案例納入結果鏈：來源必須由相同版本核心重新計算，並拒絕無效時間、遭竄改結果、不相容版本、重力式牆、靜止土壓及尚未定義 RC 強度組合的地震土壓；aggregate 必須要求 RC 設計與補強合計 33/33、RC PDF／PNG 64/64 與 RC HTML 33/33。
-Schema v14 再把群樁 X／Y 向側向荷重分配納入結果鏈：aggregate 必須要求 RC 設計與補強合計 34/34、RC PDF／PNG 66/66 與 RC HTML 34/34；該分配只證明列別 p-multiplier 與水平力平衡。專業 p-y 結果必須使用固定 schema／單位，與目前樁數、樁距、樁徑、樁長及 Hx／Hy 相符，並經工程師明確勾選採用；計算書只列採用結果與來源識別，候選警告留在頁面，模型變更即失敗封閉。未採用相符結果時不得宣稱側向位移或樁身內力檢核完成。
+Schema v14 再把群樁 X／Y 向側向荷重分配納入結果鏈：aggregate 必須要求 RC 設計與補強合計 34/34、RC PDF／PNG 66/66 與 RC HTML 34/34；該分配只證明列別 p-multiplier 與水平力平衡。專業 p-y 結果必須使用固定 schema／單位，與目前樁數、樁距、樁徑、樁長、分析範圍及分析 Hx／Hy 相符，並經工程師明確勾選採用。表格換算僅接受明示單位 profile 與固定欄名，取深度 0 位移和全深度最大絕對內力；代表單樁對應最大單樁 p-multiplier 荷重，群樁才對應整組荷重。計算書只列採用結果、分析範圍、荷重與來源證據，候選警告留在頁面，模型變更即失敗封閉。未採用相符結果時不得宣稱側向位移或樁身內力檢核完成。
 
 Schema v8 新增石材 golden replay 至成品雜湊結果鏈：producer 必須使用目前瀏覽器核心重播 `case_01_standard_safe`，核對至少 6 項關鍵數值與控制結果，再以同一 payload 產生 PDF、DOCX 及 audit，並將 golden 檔、來源 payload、輸入／結果／計算來源與三份成品 SHA-256 綁入 summary。Aggregate 必須要求 1/1、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「石材結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、golden 案例內容、來源 payload、結果或成品雜湊。
 

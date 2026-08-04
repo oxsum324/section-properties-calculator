@@ -13,6 +13,8 @@ const pileGroupLateralPath = path.join(toolsDir, '..', 'shared', 'pile-group-lat
 const pileGroupLateralTestPath = path.join(toolsDir, '..', 'shared', 'pile-group-lateral.test.js');
 const pilePyBridgePath = path.join(toolsDir, '..', 'shared', 'pile-py-result-bridge.js');
 const pilePyBridgeTestPath = path.join(toolsDir, '..', 'shared', 'pile-py-result-bridge.test.js');
+const pilePyTableAdapterPath = path.join(toolsDir, '..', 'shared', 'pile-py-table-adapter.js');
+const pilePyTableAdapterTestPath = path.join(toolsDir, '..', 'shared', 'pile-py-table-adapter.test.js');
 
 function read(file) {
   assert.ok(fs.existsSync(file), `missing required file: ${file}`);
@@ -33,6 +35,8 @@ const pileGroupLateral = read(pileGroupLateralPath);
 const pileGroupLateralTest = read(pileGroupLateralTestPath);
 const pilePyBridge = read(pilePyBridgePath);
 const pilePyBridgeTest = read(pilePyBridgeTestPath);
+const pilePyTableAdapter = read(pilePyTableAdapterPath);
+const pilePyTableAdapterTest = read(pilePyTableAdapterTestPath);
 
 [
   'assessFoundationAttachmentReadiness',
@@ -120,6 +124,32 @@ const pilePyBridgeTest = read(pilePyBridgeTestPath);
 ].forEach(needle => assertIncludes(pilePyBridgeTest, needle, 'pile p-y result bridge regression'));
 
 [
+  '../shared/pile-py-table-adapter.js?v=1',
+  'btnBuildPilePyFromTable',
+  'buildPilePyCandidateFromTable',
+  'analysisScope',
+  '來源表格換算',
+  'X / Y 表格 SHA-256',
+].forEach(needle => assertIncludes(tool, needle, 'pile p-y table adapter wiring'));
+
+[
+  'rc-pile-py-table-adapter.v1',
+  'si-kn-m-mm',
+  'us-kip-ft-in',
+  'project-tf-m-cm',
+  '缺少深度 0 m 的樁頭列',
+  'representative-pile',
+].forEach(needle => assertIncludes(pilePyTableAdapter, needle, 'pile p-y table adapter core'));
+
+[
+  'Adapter.parseTable(siX',
+  "Adapter.parseTable(us, 'us-kip-ft-in'",
+  '/缺少深度 0 m/',
+  '/缺少欄位 depth_m/',
+  '/須先完成支援範圍內的 p-multiplier/',
+].forEach(needle => assertIncludes(pilePyTableAdapterTest, needle, 'pile p-y table adapter regression'));
+
+[
   'iso_default',
   'combined_default',
   'combined_pass_warn',
@@ -138,6 +168,8 @@ const pilePyBridgeTest = read(pilePyBridgeTestPath);
   'foundation-report-visual.test.js',
   'pile-group-lateral.test.js',
   'pile-py-result-bridge.test.js',
+  'pile-py-table-adapter.test.js',
+  'Pile p-y table adapter unit tests',
   'node $visualTestFile',
 ].forEach(needle => assertIncludes(testFoundation, needle, 'test-foundation visual smoke wiring'));
 
