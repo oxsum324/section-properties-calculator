@@ -61,12 +61,20 @@ const wrapper = read(wrapperPath);
   'standalone HTML reopens without external network requests',
   "'standaloneFormalHtmlPrintPdf'",
   "contentBoundaryProfile: 'traceable-calculation-book'",
+  'saved HTML carries an independently reproducible SHA-256 content seal',
+  'changed calculation content invalidates the saved HTML seal',
+  'standalone HTML independently verifies its SHA-256 content seal',
+  'changed standalone HTML is visibly blocked on screen and in print',
 ].forEach(needle => assertIncludes(portableHtml, needle, 'RC portable formal HTML gate'));
 
 [
   '.rep-steps-wrap > .rep-step:last-of-type',
   '.rep-summary { break-before:avoid-page',
   'page-break-after:avoid',
+  'rc-calculation-book-content-v1',
+  'sha256Fallback',
+  'rep-content-integrity-alert',
+  '非數位簽章',
 ].forEach(needle => assertIncludes(sharedReport, needle, 'RC formal report closing-page print boundary'));
 
 console.log('RC retrofit report visual contract OK');

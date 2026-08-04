@@ -1289,6 +1289,9 @@
       Number.isInteger(payload.rcStandaloneFormalHtmlPrintRequired) && payload.rcStandaloneFormalHtmlPrintRequired > 0
         ? ratio('RC 核可 HTML 列印', payload.rcStandaloneFormalHtmlPrintComplete, payload.rcStandaloneFormalHtmlPrintRequired, payload.rcStandaloneFormalHtmlPrintIssueCount)
         : null,
+      Number.isInteger(payload.rcFormalHtmlContentSealRequired) && payload.rcFormalHtmlContentSealRequired > 0
+        ? ratio('RC HTML 內容封印', payload.rcFormalHtmlContentSealComplete, payload.rcFormalHtmlContentSealRequired, payload.rcFormalHtmlContentSealIssueCount)
+        : null,
       Number.isInteger(payload.steelResultReconciliationRequired) && payload.steelResultReconciliationRequired > 0
         ? ratio('鋼構結果鏈', payload.steelResultReconciliationComplete, payload.steelResultReconciliationRequired, payload.steelResultReconciliationIssueCount)
         : null,

@@ -398,15 +398,21 @@ async function main() {
       await report.emulateMedia({ media: 'screen' });
 
       const metrics = await reportMetrics(report);
-      const portableHtmlState = await report.evaluate(() => {
+      const portableHtmlState = await report.evaluate(async () => {
         const checkbox = document.getElementById('repAttachmentApproval');
         if (checkbox) {
           checkbox.checked = true;
           checkbox.dispatchEvent(new Event('change', { bubbles: true }));
         }
         const source = document.querySelector('.rep-attachment-approval-source');
-        const html = typeof serializeReportDocumentHtml === 'function' ? serializeReportDocumentHtml() : '';
+        const html = typeof serializeReportDocumentHtml === 'function' ? await serializeReportDocumentHtml() : '';
         const savedDocument = html ? new DOMParser().parseFromString(html, 'text/html') : null;
+        const savedSeal = savedDocument?.querySelector('.rep-content-seal-source');
+        const sealComments = [];
+        if (savedDocument) {
+          const walker = savedDocument.createTreeWalker(savedDocument, NodeFilter.SHOW_COMMENT);
+          while (walker.nextNode()) sealComments.push((walker.currentNode.nodeValue || '').trim());
+        }
         return {
           hasDownloadControl: Array.from(document.querySelectorAll('.rep-toolbar button'))
             .some(button => /下載目前版本 HTML/.test(button.textContent || '')),
@@ -424,6 +430,9 @@ async function main() {
           preservesFingerprint: Boolean(source?.dataset.calculationFingerprint) && html.includes(source.dataset.calculationFingerprint),
           removesTransientControls: !savedDocument?.querySelector('.rep-approval-control, .rep-download-control'),
           rehydratesDocumentClass: !savedDocument?.body?.hasAttribute('data-document-class'),
+          contentSealScope: savedSeal?.dataset.contentSealScope || '',
+          contentSealSha256: savedSeal?.dataset.contentSha256 || '',
+          contentSealBoundaryCount: sealComments.filter(value => /^rc-content-seal:(?:start|end)$/.test(value)).length,
         };
       });
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
@@ -459,6 +468,7 @@ async function main() {
       assert(portableHtmlState.savedDocumentTitle === portableHtmlState.activeDocumentTitle, `${tc.key} downloaded HTML preserves the same traceable artifact title`, `${portableHtmlState.activeDocumentTitle} -> ${portableHtmlState.savedDocumentTitle}`);
       assert(portableHtmlState.savedStaticStatusCount === 1 && portableHtmlState.savedStaticStatusText.includes('文件狀態：正式附件') && portableHtmlState.savedStaticStatusText.includes('核可時間') && portableHtmlState.savedStaticStatusText.includes(portableHtmlState.calculationFingerprint), `${tc.key} downloaded formal HTML is statically identifiable without running scripts`, JSON.stringify(portableHtmlState));
       assert(portableHtmlState.removesTransientControls && portableHtmlState.rehydratesDocumentClass, `${tc.key} downloaded formal HTML rehydrates without duplicate approval UI`, JSON.stringify(portableHtmlState));
+      assert(portableHtmlState.contentSealScope === 'rc-calculation-book-content-v1' && /^[0-9a-f]{64}$/.test(portableHtmlState.contentSealSha256) && portableHtmlState.contentSealBoundaryCount === 2, `${tc.key} downloaded formal HTML carries the RC SHA-256 content seal`, JSON.stringify(portableHtmlState));
       assert(metrics.checkGroupCount >= 6, `${tc.key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.diagramCount >= 1, `${tc.key} report diagrams`, `count=${metrics.diagramCount}`);
       for (const img of metrics.imageNaturalSizes) {

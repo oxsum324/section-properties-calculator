@@ -13,8 +13,15 @@ async function renderStandaloneFormalHtmlPdf(report, approvedHtml, summary, labe
   });
   const artifact = summary.downloadedFileName.replace(/\.html$/i, '_獨立列印.pdf');
   const artifactPath = path.join(outputDir, artifact);
+  let sealVerification = null;
+  let tamperDetection = null;
   try {
     await standalonePage.setContent(approvedHtml, { waitUntil: 'load' });
+    sealVerification = await standalonePage.evaluate(async () => (
+      typeof window.verifyReportContentSeal === 'function'
+        ? window.verifyReportContentSeal()
+        : { status: 'missing-verifier', expected: '', actual: '' }
+    ));
     await standalonePage.emulateMedia({ media: 'print' });
     const reopened = await standalonePage.evaluate(() => {
       const statusLines = [...document.querySelectorAll('.rep-document-status-line')];
@@ -30,6 +37,7 @@ async function renderStandaloneFormalHtmlPdf(report, approvedHtml, summary, labe
         approvedAt: statusLines[0]?.dataset.approvedAt || '',
         transientControlCount: transientControls.length,
         visibleTransientControlCount: transientControls.filter(node => node.getClientRects().length > 0).length,
+        contentIntegrity: document.body?.dataset.contentIntegrity || '',
         visibleText,
       };
     });
@@ -39,6 +47,14 @@ async function renderStandaloneFormalHtmlPdf(report, approvedHtml, summary, labe
       externalRequestCount: externalRequests.length,
     });
     assert(reopened.title === summary.approvedDocumentTitle, `${label} standalone HTML reopens with the approved title`, reopenedDetail);
+    assert(
+      sealVerification?.status === 'verified'
+        && sealVerification.expected === summary.contentSealSha256
+        && sealVerification.actual === summary.contentSealSha256
+        && reopened.contentIntegrity === 'verified',
+      `${label} standalone HTML independently verifies its SHA-256 content seal`,
+      JSON.stringify({ sealVerification, reopened: reopenedDetail }),
+    );
     assert(reopened.paperCount === 1, `${label} standalone HTML reopens one calculation-book paper`, reopenedDetail);
     assert(
       reopened.statusCount === 1
@@ -69,6 +85,35 @@ async function renderStandaloneFormalHtmlPdf(report, approvedHtml, summary, labe
       printBackground: true,
       preferCSSPageSize: true,
     });
+
+    const sealEnd = '<!--rc-content-seal:end-->';
+    const sealEndIndex = approvedHtml.lastIndexOf(sealEnd);
+    const tamperedHtml = sealEndIndex >= 0
+      ? `${approvedHtml.slice(0, sealEndIndex)}<span class="rep-tamper-probe">變更後計算內容</span>${approvedHtml.slice(sealEndIndex)}`
+      : approvedHtml;
+    await standalonePage.setContent(tamperedHtml, { waitUntil: 'load' });
+    tamperDetection = await standalonePage.evaluate(async () => {
+      const verification = typeof window.verifyReportContentSeal === 'function'
+        ? await window.verifyReportContentSeal()
+        : { status: 'missing-verifier', expected: '', actual: '' };
+      return {
+        ...verification,
+        documentIntegrity: document.body?.dataset.contentIntegrity || '',
+        alertText: document.querySelector('.rep-content-integrity-alert')?.textContent || '',
+      };
+    });
+    await standalonePage.emulateMedia({ media: 'print' });
+    const tamperPrintAlertVisible = await standalonePage.evaluate(() => (
+      (document.querySelector('.rep-content-integrity-alert')?.getClientRects().length || 0) > 0
+    ));
+    assert(
+      tamperDetection?.status === 'failed'
+        && tamperDetection.documentIntegrity === 'failed'
+        && tamperDetection.alertText.includes('內容完整性異常')
+        && tamperPrintAlertVisible,
+      `${label} changed standalone HTML is visibly blocked on screen and in print`,
+      JSON.stringify({ tamperDetection, tamperPrintAlertVisible }),
+    );
   } finally {
     await standalonePage.close();
   }
@@ -90,6 +135,9 @@ async function renderStandaloneFormalHtmlPdf(report, approvedHtml, summary, labe
     textLength: Number(pdfQuality?.textLength || 0),
     calculationFingerprint: summary.calculationFingerprint,
     externalRequestCount: externalRequests.length,
+    contentSealStatus: sealVerification?.status || '',
+    contentSealSha256: sealVerification?.actual || '',
+    tamperDetectionStatus: tamperDetection?.status || '',
   };
 }
 
@@ -176,7 +224,7 @@ function assertSourceReportPackagePair(sourceSnapshot, approvedHtml, label, asse
 }
 
 async function assertPortableFormalHtml(report, label, assert, options = {}) {
-  const state = await report.evaluate(() => {
+  const state = await report.evaluate(async () => {
     const approval = document.getElementById('repAttachmentApproval');
     const downloadButton = document.getElementById('repDownloadCurrentHtml');
     const serializerAvailable = typeof serializeReportDocumentHtml === 'function';
@@ -188,7 +236,7 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
     const source = document.querySelector('.rep-attachment-approval-source');
     const status = document.querySelector('.rep-document-status-line');
     const approvedDocumentTitle = document.title || '';
-    const approvedHtml = serializerAvailable ? serializeReportDocumentHtml() : '';
+    const approvedHtml = serializerAvailable ? await serializeReportDocumentHtml() : '';
     let downloadedFileName = '';
     if (downloadButton) {
       const originalAnchorClick = HTMLAnchorElement.prototype.click;
@@ -196,7 +244,7 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
         HTMLAnchorElement.prototype.click = function captureReportDownload() {
           downloadedFileName = this.download || '';
         };
-        downloadButton.click();
+        await window.downloadReportHtml();
       } finally {
         HTMLAnchorElement.prototype.click = originalAnchorClick;
       }
@@ -216,7 +264,14 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
   });
 
   const visibleText = AttachmentPackageChecker.extractHtmlVisibleContent(state.approvedHtml).text;
-  const savedStatusCount = (state.approvedHtml.match(/class=["'][^"']*rep-document-status-line[^"']*["']/gi) || []).length;
+  const contentSeal = AttachmentPackageChecker.verifyRcHtmlContentSeal(state.approvedHtml);
+  const sealEnd = '<!--rc-content-seal:end-->';
+  const sealEndIndex = state.approvedHtml.lastIndexOf(sealEnd);
+  const tamperedApprovedHtml = sealEndIndex >= 0
+    ? `${state.approvedHtml.slice(0, sealEndIndex)}<span>竄改後內容</span>${state.approvedHtml.slice(sealEndIndex)}`
+    : state.approvedHtml;
+  const tamperedContentSeal = AttachmentPackageChecker.verifyRcHtmlContentSeal(tamperedApprovedHtml);
+  const savedStatusCount = (state.approvedHtml.match(/<span\b[^>]*class=["'][^"']*rep-document-status-line[^"']*["'][^>]*data-document-class=/gi) || []).length;
   const savedTitle = state.approvedHtml.match(/<title>([^<]*)<\/title>/i)?.[1] || '';
   const summary = {
     approvalControl: state.approvalControl,
@@ -229,6 +284,9 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
     downloadedFileName: state.downloadedFileName,
     savedStatusCount,
     savedTitle,
+    contentSealStatus: contentSeal.status,
+    contentSealScope: contentSeal.scope,
+    contentSealSha256: contentSeal.actualSha256,
   };
   const detail = JSON.stringify(summary);
 
@@ -243,6 +301,18 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
   assert(/data-initial-approved=["']true["']/i.test(state.approvedHtml) && state.approvedHtml.includes(`data-approved-at="${state.approvedAt}"`), `${label} saved HTML preserves approval provenance`, detail);
   assert(!/class=["'][^"']*(?:rep-approval-control|rep-download-control)[^"']*["']/i.test(state.approvedHtml), `${label} saved HTML excludes transient controls`, detail);
   assert(!/<body\b[^>]*data-document-class=/i.test(state.approvedHtml), `${label} saved HTML rehydrates document class from static source`, detail);
+  assert(
+    contentSeal.status === 'verified'
+      && contentSeal.scope === AttachmentPackageChecker.RC_CONTENT_SEAL_SCOPE
+      && /^[0-9a-f]{64}$/.test(contentSeal.actualSha256),
+    `${label} saved HTML carries an independently reproducible SHA-256 content seal`,
+    JSON.stringify(contentSeal),
+  );
+  assert(
+    tamperedContentSeal.status === 'failed' && tamperedContentSeal.reasons.includes('content-sha256-mismatch'),
+    `${label} changed calculation content invalidates the saved HTML seal`,
+    JSON.stringify(tamperedContentSeal),
+  );
 
   let htmlArtifact = '';
   let htmlArtifactManifest = {};

@@ -1583,6 +1583,7 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const pileGroupLateralRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 14;
   const rcSourceReportPackageDeclared = Number(evidence?.schemaVersion) >= 15;
   const rcStandaloneFormalHtmlPrintDeclared = Number(evidence?.schemaVersion) >= 16;
+  const rcFormalHtmlContentSealDeclared = Number(evidence?.schemaVersion) >= 17;
   return Boolean(
     evidence
     && evidence.kind === 'release-rendered-delivery-evidence'
@@ -1657,6 +1658,14 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       && evidence.rcStandaloneFormalHtmlPrint.issueCount === 0
       && evidence.rcStandaloneFormalHtmlPrint.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.rcStandaloneFormalHtmlPrint.setSha256 || ''))
+    ))
+    && (!rcFormalHtmlContentSealDeclared || (
+      evidence.rcFormalHtmlContentSeal?.scope === 'rc-formal-html-reproducible-content-sha256'
+      && evidence.rcFormalHtmlContentSeal.required === 34
+      && evidence.rcFormalHtmlContentSeal.complete === 34
+      && evidence.rcFormalHtmlContentSeal.issueCount === 0
+      && evidence.rcFormalHtmlContentSeal.pass === true
+      && /^[0-9a-f]{64}$/i.test(String(evidence.rcFormalHtmlContentSeal.setSha256 || ''))
     ))
     && (!steelResultReconciliationDeclared || (
       evidence.steelResultReconciliation?.scope === 'steel-source-replay-to-report-fingerprint'
@@ -1967,6 +1976,21 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     : rcStandaloneFormalHtmlPrint.pass === true
       ? Math.max(0, rcStandaloneFormalHtmlPrintRequired - rcStandaloneFormalHtmlPrintComplete)
       : Math.max(1, compactNumber(rcStandaloneFormalHtmlPrint.issueCount) || rcStandaloneFormalHtmlPrintRequired - rcStandaloneFormalHtmlPrintComplete);
+  const rcFormalHtmlContentSeal = renderedDeliveryPayload?.rcFormalHtmlContentSeal;
+  const rcFormalHtmlContentSealDeclared = Boolean(
+    Number(renderedDeliveryPayload?.schemaVersion) >= 17
+    && rcFormalHtmlContentSeal
+    && rcFormalHtmlContentSeal.scope === 'rc-formal-html-reproducible-content-sha256'
+    && Number.isInteger(rcFormalHtmlContentSeal.required)
+    && Number.isInteger(rcFormalHtmlContentSeal.complete)
+  );
+  const rcFormalHtmlContentSealRequired = rcFormalHtmlContentSealDeclared ? compactNumber(rcFormalHtmlContentSeal.required) : 0;
+  const rcFormalHtmlContentSealComplete = rcFormalHtmlContentSealDeclared ? compactNumber(rcFormalHtmlContentSeal.complete) : 0;
+  const rcFormalHtmlContentSealIssueCount = !rcFormalHtmlContentSealDeclared
+    ? 0
+    : rcFormalHtmlContentSeal.pass === true
+      ? Math.max(0, rcFormalHtmlContentSealRequired - rcFormalHtmlContentSealComplete)
+      : Math.max(1, compactNumber(rcFormalHtmlContentSeal.issueCount) || rcFormalHtmlContentSealRequired - rcFormalHtmlContentSealComplete);
   const steelResultReconciliation = renderedDeliveryPayload?.steelResultReconciliation;
   const steelResultReconciliationDeclared = Boolean(
     Number(renderedDeliveryPayload?.schemaVersion) >= 6
@@ -2072,6 +2096,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     ...(rcResultReconciliationDeclared ? [`RC 正式計算書結果鏈：梁、柱、板、牆、剪力牆、基礎、單樁${expandedRcResultReconciliationDeclared ? '與梁／柱補強' : ''}共 ${rcResultReconciliationComplete} / ${rcResultReconciliationRequired} 組瀏覽器回歸案例已完成來源資料重現，再核對 PDF 與正式 HTML 的同一計算指紋。公開狀態只顯示完成數，不公開案例資料、來源快照雜湊或計算指紋。`] : []),
     ...(rcSourceReportPackageDeclared ? [`RC 來源／正式 HTML 組包：梁、柱、板、牆、剪力牆、基礎與單樁共 ${rcSourceReportPackageComplete} / ${rcSourceReportPackageRequired} 組真實專案 JSON 已與核可後 HTML 通過附件檢查器，並驗證唯一來源／報告配對。公開狀態只顯示完成數，不公開案件資料、檔名、工具版本或計算指紋。`] : []),
     ...(rcStandaloneFormalHtmlPrintDeclared ? [`RC 核可 HTML 獨立列印：設計與補強共 ${rcStandaloneFormalHtmlPrintComplete} / ${rcStandaloneFormalHtmlPrintRequired} 份核可後 HTML 已在無外部網路請求下重新開啟並列印成 PDF，且通過正式狀態、工程內容與分頁檢查。公開狀態只顯示完成數，不公開案件、檔名、成品雜湊或計算指紋。`] : []),
+    ...(rcFormalHtmlContentSealDeclared ? [`RC 正式 HTML 內容封印：設計與補強共 ${rcFormalHtmlContentSealComplete} / ${rcFormalHtmlContentSealRequired} 份核可 HTML 已由瀏覽器與附件檢查器分別重算 SHA-256 計算內容封印；內容變更會阻擋組包。此封印不等同核可人數位簽章；公開狀態只顯示完成數。`] : []),
     ...(steelResultReconciliationDeclared ? [`鋼構正式計算書結果鏈：主工具連接板、主工具拉力構件、獨立連接板、鋼梁與鋼柱共 ${steelResultReconciliationComplete} / ${steelResultReconciliationRequired} 組來源 JSON 已完成匯入重算及不相容版本拒絕，再核對渲染報告的同一計算指紋。公開狀態只顯示完成數，不公開來源資料、來源雜湊或計算指紋。`] : []),
     ...(stoneResultReconciliationDeclared ? [`石材正式計算書結果鏈：golden case ${stoneResultReconciliationComplete} / ${stoneResultReconciliationRequired} 已由目前瀏覽器核心重算並核對 PDF、DOCX 與 audit。公開狀態只顯示完成數，不公開 golden 案例資料、來源 payload 雜湊、結果雜湊或成品雜湊。`] : []),
     ...(anchorResultReconciliationDeclared ? [`錨栓正式計算書結果鏈：工作區備份 ${anchorResultReconciliationComplete} / ${anchorResultReconciliationRequired} 已依 v2 案例重現指紋重新計算，並核對正式 HTML、DOCX 與 XLSX。公開狀態只顯示完成數，不公開工作區資料、來源備份雜湊、案例重現指紋、計算指紋或成品雜湊。`] : []),
@@ -2088,8 +2113,8 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     kind: 'report-readiness-status',
     generatedAt: String(matrixPayload.generatedAt || ''),
     runId: String(preflightStatus?.runId || matrixPayload.latestPreflight?.runId || ''),
-    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && formalResultReconciliationIssueCount === 0 && rcResultReconciliationIssueCount === 0 && rcSourceReportPackageIssueCount === 0 && rcStandaloneFormalHtmlPrintIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
-    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + formalResultReconciliationIssueCount + rcResultReconciliationIssueCount + rcSourceReportPackageIssueCount + rcStandaloneFormalHtmlPrintIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
+    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && formalResultReconciliationIssueCount === 0 && rcResultReconciliationIssueCount === 0 && rcSourceReportPackageIssueCount === 0 && rcStandaloneFormalHtmlPrintIssueCount === 0 && rcFormalHtmlContentSealIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
+    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + formalResultReconciliationIssueCount + rcResultReconciliationIssueCount + rcSourceReportPackageIssueCount + rcStandaloneFormalHtmlPrintIssueCount + rcFormalHtmlContentSealIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
@@ -2154,6 +2179,14 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       rcStandaloneFormalHtmlPrintPass: rcStandaloneFormalHtmlPrint.pass === true
         && rcStandaloneFormalHtmlPrintComplete === rcStandaloneFormalHtmlPrintRequired
         && rcStandaloneFormalHtmlPrintIssueCount === 0,
+    } : {}),
+    ...(rcFormalHtmlContentSealDeclared ? {
+      rcFormalHtmlContentSealRequired,
+      rcFormalHtmlContentSealComplete,
+      rcFormalHtmlContentSealIssueCount,
+      rcFormalHtmlContentSealPass: rcFormalHtmlContentSeal.pass === true
+        && rcFormalHtmlContentSealComplete === rcFormalHtmlContentSealRequired
+        && rcFormalHtmlContentSealIssueCount === 0,
     } : {}),
     ...(steelResultReconciliationDeclared ? {
       steelResultReconciliationRequired,

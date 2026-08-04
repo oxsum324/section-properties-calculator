@@ -251,15 +251,19 @@ function getReportSourceTrace(cfg) {
 }
 
 const RC_ATTACHMENT_APPROVAL_REPORT_CSS = `
-.rep-attachment-approval-source { display:none !important; }
+.rep-attachment-approval-source, .rep-content-seal-source { display:none !important; }
 .rep-approval-control { display:inline-flex; align-items:center; gap:6px; margin-right:10px; padding:7px 10px;
   border:1px solid #94a3b8; border-radius:4px; background:#fff; color:#1f2937; font-size:12px; cursor:pointer; }
 .rep-approval-control input { width:16px; height:16px; margin:0; accent-color:#166534; }
 .rep-document-status-line { display:block; margin-bottom:3mm; color:#4b5563; font-weight:600; }
+.rep-content-integrity-status { display:block; margin-top:6px; color:#166534; font-size:12px; font-weight:700; }
+.rep-content-integrity-status[data-integrity-status="failed"] { color:#b91c1c; }
+.rep-content-integrity-alert { display:block; margin:0 0 8mm; padding:4mm; border:2px solid #b91c1c;
+  color:#991b1b; background:#fef2f2; font-weight:800; }
 .rep-footer-copyright { display:block; }
 .rep-footer { break-inside:avoid-page; page-break-inside:avoid; }
 .rep-document-status-line[data-document-class="formal-attachment"] { color:#14532d; }
-@media print { .rep-approval-control { display:none !important; } }`;
+@media print { .rep-approval-control, .rep-content-integrity-status { display:none !important; } }`;
 
 function buildRcAttachmentApprovalReport(options = {}) {
   const approved = options.approved === true;
@@ -269,13 +273,73 @@ function buildRcAttachmentApprovalReport(options = {}) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   return `<style data-formal-document-state-style>${RC_ATTACHMENT_APPROVAL_REPORT_CSS}</style>
     <span class="rep-attachment-approval-source" data-initial-approved="${approved ? 'true' : 'false'}" data-calculation-fingerprint="${esc(fingerprint)}" data-approved-at="${esc(approvedAt)}" aria-hidden="true"></span>
+    <span class="rep-content-seal-source" data-content-seal-scope="rc-calculation-book-content-v1" data-content-sha256="" aria-hidden="true"></span>
     <script data-attachment-approval-script>
     (function () {
+      var CONTENT_SEAL_START = '<!--rc-content-seal:start-->';
+      var CONTENT_SEAL_END = '<!--rc-content-seal:end-->';
+      function canonicalSealedContent(serializedHtml) {
+        var text = String(serializedHtml || '');
+        var start = text.lastIndexOf(CONTENT_SEAL_START);
+        var end = text.lastIndexOf(CONTENT_SEAL_END);
+        if (start < 0 || end < 0 || end <= start) return '';
+        return text.slice(start + CONTENT_SEAL_START.length, end)
+          .replace(/<span\\b(?=[^>]*\\brep-document-status-line\\b)[^>]*>[\\s\\S]*?<\\/span>/i, '<span class="rep-document-status-line"></span>');
+      }
+      function sha256Fallback(value) {
+        var bytes = typeof TextEncoder === 'function'
+          ? Array.from(new TextEncoder().encode(String(value || '')))
+          : Array.from(unescape(encodeURIComponent(String(value || '')))).map(function (char) { return char.charCodeAt(0); });
+        var bitLength = bytes.length * 8;
+        bytes.push(128);
+        while (bytes.length % 64 !== 56) bytes.push(0);
+        var high = Math.floor(bitLength / 4294967296);
+        var low = bitLength >>> 0;
+        [high, low].forEach(function (word) {
+          bytes.push((word >>> 24) & 255, (word >>> 16) & 255, (word >>> 8) & 255, word & 255);
+        });
+        var h = [1779033703, 3144134277, 1013904242, 2773480762, 1359893119, 2600822924, 528734635, 1541459225];
+        var k = [1116352408,1899447441,3049323471,3921009573,961987163,1508970993,2453635748,2870763221,3624381080,310598401,607225278,1426881987,1925078388,2162078206,2614888103,3248222580,3835390401,4022224774,264347078,604807628,770255983,1249150122,1555081692,1996064986,2554220882,2821834349,2952996808,3210313671,3336571891,3584528711,113926993,338241895,666307205,773529912,1294757372,1396182291,1695183700,1986661051,2177026350,2456956037,2730485921,2820302411,3259730800,3345764771,3516065817,3600352804,4094571909,275423344,430227734,506948616,659060556,883997877,958139571,1322822218,1537002063,1747873779,1955562222,2024104815,2227730452,2361852424,2428436474,2756734187,3204031479,3329325298];
+        function rotr(value, amount) { return (value >>> amount) | (value << (32 - amount)); }
+        for (var offset = 0; offset < bytes.length; offset += 64) {
+          var w = new Array(64);
+          for (var index = 0; index < 16; index += 1) {
+            var pos = offset + index * 4;
+            w[index] = ((bytes[pos] << 24) | (bytes[pos + 1] << 16) | (bytes[pos + 2] << 8) | bytes[pos + 3]) >>> 0;
+          }
+          for (var wi = 16; wi < 64; wi += 1) {
+            var s0 = rotr(w[wi - 15], 7) ^ rotr(w[wi - 15], 18) ^ (w[wi - 15] >>> 3);
+            var s1 = rotr(w[wi - 2], 17) ^ rotr(w[wi - 2], 19) ^ (w[wi - 2] >>> 10);
+            w[wi] = (w[wi - 16] + s0 + w[wi - 7] + s1) >>> 0;
+          }
+          var a = h[0], b = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], hh = h[7];
+          for (var round = 0; round < 64; round += 1) {
+            var sum1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+            var choice = (e & f) ^ ((~e) & g);
+            var temp1 = (hh + sum1 + choice + k[round] + w[round]) >>> 0;
+            var sum0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+            var majority = (a & b) ^ (a & c) ^ (b & c);
+            var temp2 = (sum0 + majority) >>> 0;
+            hh = g; g = f; f = e; e = (d + temp1) >>> 0; d = c; c = b; b = a; a = (temp1 + temp2) >>> 0;
+          }
+          h = [(h[0] + a) >>> 0, (h[1] + b) >>> 0, (h[2] + c) >>> 0, (h[3] + d) >>> 0,
+            (h[4] + e) >>> 0, (h[5] + f) >>> 0, (h[6] + g) >>> 0, (h[7] + hh) >>> 0];
+        }
+        return h.map(function (word) { return word.toString(16).padStart(8, '0'); }).join('');
+      }
+      async function sha256Text(value) {
+        if (!window.crypto || !window.crypto.subtle || typeof TextEncoder !== 'function') return sha256Fallback(value);
+        var digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(value || '')));
+        return Array.from(new Uint8Array(digest)).map(function (byte) {
+          return byte.toString(16).padStart(2, '0');
+        }).join('');
+      }
       function initAttachmentApproval() {
         var source = document.querySelector('.rep-attachment-approval-source');
         if (!source || source.dataset.initialized === 'true') return;
         source.dataset.initialized = 'true';
         var toolbar = document.querySelector('.rep-toolbar, .toolbar');
+        var sealSource = document.querySelector('.rep-content-seal-source');
         var footer = document.querySelector('.rep-footer');
         var paper = document.querySelector('.rep-paper, .paper') || document.body;
         Array.from(document.querySelectorAll('.rep-meta div, .meta div')).forEach(function (row) {
@@ -314,7 +378,49 @@ function buildRcAttachmentApprovalReport(options = {}) {
           toolbar.insertBefore(label, toolbar.firstChild);
         }
         if (!checkbox) return;
-        function serializeCurrentReportHtml() {
+        function setIntegrityStatus(statusValue, message) {
+          document.body.dataset.contentIntegrity = statusValue;
+          var target = document.querySelector('.rep-content-integrity-status');
+          if (!target && toolbar) {
+            target = document.createElement('span');
+            target.className = 'rep-content-integrity-status';
+            toolbar.appendChild(target);
+          }
+          if (target) {
+            target.dataset.integrityStatus = statusValue;
+            target.textContent = message;
+          }
+          var alert = document.querySelector('.rep-content-integrity-alert');
+          if (statusValue === 'failed') {
+            if (!alert) {
+              alert = document.createElement('div');
+              alert.className = 'rep-content-integrity-alert';
+              paper.insertBefore(alert, paper.firstChild);
+            }
+            alert.textContent = '內容完整性異常：本 HTML 的計算內容與下載時封印不一致，請勿作為正式附件。';
+          } else if (alert) alert.remove();
+        }
+        async function verifySavedContentSeal() {
+          var expected = String(sealSource && sealSource.dataset.contentSha256 || '').trim().toLowerCase();
+          if (!expected) return { status:'unsealed', expected:'', actual:'' };
+          var sealedContent = canonicalSealedContent(document.documentElement && document.documentElement.outerHTML);
+          if (!sealedContent) {
+            setIntegrityStatus('failed', '內容完整性：異常（找不到封印範圍）');
+            return { status:'failed', expected:expected, actual:'' };
+          }
+          try {
+            var actual = await sha256Text(sealedContent);
+            var pass = actual === expected;
+            setIntegrityStatus(pass ? 'verified' : 'failed', pass
+              ? '內容完整性：已驗證（SHA-256 內容封印；非數位簽章）'
+              : '內容完整性：異常，計算內容已與下載時不同');
+            return { status:pass ? 'verified' : 'failed', expected:expected, actual:actual };
+          } catch (error) {
+            setIntegrityStatus('failed', '內容完整性：無法驗證（' + (error && error.message || error) + '）');
+            return { status:'failed', expected:expected, actual:'', error:String(error && error.message || error) };
+          }
+        }
+        async function serializeCurrentReportHtml() {
           var root = document.documentElement ? document.documentElement.cloneNode(true) : null;
           if (!root) return '';
           var savedSource = root.querySelector('.rep-attachment-approval-source');
@@ -327,14 +433,21 @@ function buildRcAttachmentApprovalReport(options = {}) {
           });
           var savedBody = root.querySelector('body');
           if (savedBody) savedBody.removeAttribute('data-document-class');
+          if (savedBody) savedBody.removeAttribute('data-content-integrity');
+          root.querySelectorAll('.rep-content-integrity-status').forEach(function (node) { node.remove(); });
+          root.querySelectorAll('.rep-content-integrity-alert').forEach(function (node) { node.remove(); });
+          var savedSealSource = root.querySelector('.rep-content-seal-source');
+          var sealedContent = canonicalSealedContent(root.outerHTML);
+          if (!savedSealSource || !sealedContent) throw new Error('無法建立 RC 計算書內容封印');
+          savedSealSource.dataset.contentSha256 = await sha256Text(sealedContent);
           return '<!doctype html>' + String.fromCharCode(10) + root.outerHTML;
         }
         function showDownloadStatus(message) {
           var messageTarget = document.getElementById('repWindowStatus') || document.querySelector('.rep-window-status');
           if (messageTarget) messageTarget.textContent = message;
         }
-        function downloadCurrentReportHtml() {
-          var html = serializeCurrentReportHtml();
+        async function downloadCurrentReportHtml() {
+          var html = await serializeCurrentReportHtml();
           if (!html) {
             showDownloadStatus('無法建立下載檔案，請改用列印 / 存 PDF。');
             return;
@@ -350,7 +463,7 @@ function buildRcAttachmentApprovalReport(options = {}) {
           link.click();
           link.remove();
           setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-          showDownloadStatus('已下載' + documentLabel + ' HTML；檔案保留核可狀態、核可時間與計算指紋。');
+          showDownloadStatus('已下載' + documentLabel + ' HTML；檔案保留核可狀態、核可時間、計算指紋與 SHA-256 內容封印。');
         }
         window.serializeReportDocumentHtml = serializeCurrentReportHtml;
         window.downloadReportHtml = downloadCurrentReportHtml;
@@ -361,7 +474,11 @@ function buildRcAttachmentApprovalReport(options = {}) {
           downloadButton.id = 'repDownloadCurrentHtml';
           downloadButton.className = 'rep-download-control';
           downloadButton.textContent = '⬇ 下載目前版本 HTML';
-          downloadButton.addEventListener('click', downloadCurrentReportHtml);
+          downloadButton.addEventListener('click', function () {
+            downloadCurrentReportHtml().catch(function (error) {
+              showDownloadStatus('無法下載 HTML：' + (error && error.message || error));
+            });
+          });
           var approvalControl = checkbox.closest('.rep-approval-control');
           toolbar.insertBefore(downloadButton, approvalControl ? approvalControl.nextSibling : toolbar.firstChild);
         }
@@ -391,6 +508,8 @@ function buildRcAttachmentApprovalReport(options = {}) {
         }
         checkbox.addEventListener('change', updateStatus);
         updateStatus();
+        window.verifyReportContentSeal = verifySavedContentSeal;
+        verifySavedContentSeal();
       }
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initAttachmentApproval, { once:true });
       else initAttachmentApproval();
@@ -513,6 +632,12 @@ function openReport(cfg) {
     ? `<div class="rep-summary ${summaryCls}">${esc(summary.text || '—')}</div>`
     : '';
   const documentStateHtml = approvalHtml;
+  const initialApprovedAt = String(initialApproval.approvedAt || '').trim();
+  const initialDocumentStatusParts = approved
+    ? ['文件狀態：正式附件', initialApprovedAt ? `核可時間：${initialApprovedAt}` : '']
+    : ['文件狀態：內部審閱'];
+  initialDocumentStatusParts.push(`計算指紋：${calculationFingerprint}`);
+  const initialDocumentStatusHtml = `<span class="rep-document-status-line" data-document-class="${esc(documentClass.key)}" data-approved="${approved ? 'true' : 'false'}" data-approved-at="${esc(initialApprovedAt)}">${esc(initialDocumentStatusParts.filter(Boolean).join('｜'))}</span>`;
 
   const html = `<!doctype html>
 <html lang="zh-TW">
@@ -602,11 +727,14 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   <span class="rep-window-status" id="repWindowStatus" role="status" aria-live="polite"></span>
 </div>
 <div class="rep-paper">
+  ${documentStateHtml}
+<!--rc-content-seal:start-->
+<div class="rep-sealed-content">
   <div class="rep-header">
     <h1>${esc(cfg.title || '計算書')}</h1>
     ${cfg.subtitle?`<div class="sub">${esc(cfg.subtitle)}</div>`:''}
   </div>
-  ${documentStateHtml}
+  ${initialDocumentStatusHtml}
   <div class="rep-meta${sourceTrace.tool ? ' rep-meta--traceable' : ''}">
     ${proj.name ? `<div><b>計畫名稱</b>${esc(proj.name)}</div>` : ''}
     ${proj.no ? `<div><b>計畫編號</b>${esc(proj.no)}</div>` : ''}
@@ -625,6 +753,8 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   ${summaryHtml}
 
   <div class="rep-footer"><span class="rep-footer-copyright">版權所有 弘一工程顧問有限公司</span></div>
+</div>
+<!--rc-content-seal:end-->
 </div>
 <script>
 function showReportWindowStatus(message) {

@@ -24,6 +24,9 @@ const DRAFT_DOCUMENT_NEEDLES = [
 ];
 const READY_DOCUMENT_CLASS_LABEL = '文件狀態：正式附件';
 const CANONICAL_RENDER_EVIDENCE_KIND = 'attachment-canonical-render-evidence.v1';
+const RC_CONTENT_SEAL_SCOPE = 'rc-calculation-book-content-v1';
+const RC_CONTENT_SEAL_START = '<!--rc-content-seal:start-->';
+const RC_CONTENT_SEAL_END = '<!--rc-content-seal:end-->';
 const PACKAGE_STATUS_EXIT_CODES = Object.freeze({
   ready: 0,
   review: 1,
@@ -122,6 +125,46 @@ function parseSimpleCssSelector(value) {
     rest = rest.slice(item[0].length);
   }
   return selector.tag || selector.id || selector.classes.length || selector.attributes.length ? selector : null;
+}
+
+function canonicalizeRcHtmlContentSeal(html) {
+  const value = String(html || '');
+  const start = value.lastIndexOf(RC_CONTENT_SEAL_START);
+  const end = value.lastIndexOf(RC_CONTENT_SEAL_END);
+  if (start < 0 || end < 0 || end <= start) return '';
+  return value.slice(start + RC_CONTENT_SEAL_START.length, end)
+    .replace(/<span\b(?=[^>]*\brep-document-status-line\b)[^>]*>[\s\S]*?<\/span>/i, '<span class="rep-document-status-line"></span>');
+}
+
+function verifyRcHtmlContentSeal(html) {
+  const value = String(html || '');
+  const sourceTag = value.match(/<span\b(?=[^>]*\brep-content-seal-source\b)[^>]*>/i)?.[0] || '';
+  if (!sourceTag) return { status: 'missing', scope: '', expectedSha256: '', actualSha256: '', reasons: ['seal-source-missing'] };
+  const attributes = parseMarkupAttributes(sourceTag);
+  const scope = String(attributes['data-content-seal-scope'] || '').trim();
+  const expectedSha256 = String(attributes['data-content-sha256'] || '').trim().toLowerCase();
+  const canonicalContent = canonicalizeRcHtmlContentSeal(value);
+  const reasons = [];
+  if (scope !== RC_CONTENT_SEAL_SCOPE) reasons.push('seal-scope');
+  if (!/^[0-9a-f]{64}$/.test(expectedSha256)) reasons.push('seal-sha256');
+  if (!canonicalContent) reasons.push('sealed-content-boundary');
+  const actualSha256 = canonicalContent
+    ? crypto.createHash('sha256').update(canonicalContent, 'utf8').digest('hex')
+    : '';
+  if (expectedSha256 && actualSha256 && expectedSha256 !== actualSha256) reasons.push('content-sha256-mismatch');
+  return {
+    status: reasons.length ? 'failed' : 'verified',
+    scope,
+    expectedSha256,
+    actualSha256,
+    reasons,
+  };
+}
+
+function isRcHtmlContentSealRequired(record) {
+  if (!['html', 'htm'].includes(String(record?.type || '').toLowerCase())) return false;
+  if (record?.contentSeal?.scope === RC_CONTENT_SEAL_SCOPE) return true;
+  return /^(?:梁 Beam 設計／檢核|柱 Column 設計／檢核|板 Slab 設計／檢核|牆 Wall 設計／檢核|剪力牆 Shear Wall 設計／檢核|基礎 Foundation 設計／檢核|單樁承載力設計器|RC 補強斷面性質計算)$/i.test(String(record?.sourceTool || '').trim());
 }
 
 function parseCssSelector(value) {
@@ -985,7 +1028,7 @@ function inspectAttachment(filePath, rootDir) {
     file: path.relative(rootDir, filePath) || path.basename(filePath), type, size: 0, sourceSha256: '',
     textLength: 0, projectName: '', projectNo: '', designer: '', sourceTool: '', toolVersion: '', outputTime: '', approvalTime: '',
     fingerprints: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: [],
-    reportDocumentNeedles: [], calculationSummaryNeedles: [], documentClassRequired: false, contentBoundary: null, visibilityEvidence: null, errors: [],
+    reportDocumentNeedles: [], calculationSummaryNeedles: [], documentClassRequired: false, contentBoundary: null, visibilityEvidence: null, contentSeal: null, errors: [],
   };
   try {
     const before = fileSnapshot(filePath);
@@ -1025,6 +1068,7 @@ function inspectAttachment(filePath, rootDir) {
     } else {
       text = fs.readFileSync(filePath, 'utf8');
       if (type === 'html' || type === 'htm') {
+        record.contentSeal = verifyRcHtmlContentSeal(text);
         const visibleContent = extractHtmlVisibleContent(text);
         text = visibleContent.text;
         record.visibilityEvidence = visibleContent.visibilityIssues.length
@@ -1282,6 +1326,23 @@ function analyzePackage(records, options = {}) {
         [record.file],
       ));
     }
+    if ((record.readyDocumentNeedles || []).length && isRcHtmlContentSealRequired(record)) {
+      if (record.contentSeal?.status === 'missing') {
+        issues.push(buildIssue(
+          'warn',
+          'rc-html-content-seal-missing',
+          `${record.file} 是 RC 正式 HTML，但沒有可重算的 SHA-256 內容封印；可能是舊版輸出，需人工確認後再決定是否沿用。`,
+          [record.file],
+        ));
+      } else if (record.contentSeal?.status !== 'verified') {
+        issues.push(buildIssue(
+          'error',
+          'rc-html-content-seal-invalid',
+          `${record.file} 的 RC 計算內容與下載時 SHA-256 封印不一致（${(record.contentSeal?.reasons || ['unknown']).join('、')}）；不得作為正式附件，請回原工具重新輸出。`,
+          [record.file],
+        ));
+      }
+    }
     if ((record.draftDocumentNeedles || []).length) {
       issues.push(buildIssue('error', 'internal-review-document', `${record.file} 的文件狀態仍為內部審閱：${record.draftDocumentNeedles.join('、')}；請在計算書預覽完成核可後再納入正式附件組包。`, [record.file]));
     } else if (isDocumentClassRequired(record) && !(record.readyDocumentNeedles || []).length) {
@@ -1432,4 +1493,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { CALCULATION_BOOK_CONTENT_BOUNDARY, CONTENT_GROUPS, CONTENT_PROFILES, CANONICAL_RENDER_EVIDENCE_KIND, SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, CALCULATION_SUMMARY_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, decodeXmlEntities, extractHtmlText, extractHtmlVisibleContent, hasDefinitelyHiddenStyle, hasAmbiguousVisibilityStyle, detectCalculationContentProfile, evaluateCalculationContent, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, validateCanonicalRenderEvidence, loadPdfVisibilityEvidence, collectDocxHiddenStyleIds, stripDocxHiddenText, parseSharedStrings, extractVisibleWorksheetText, resolveVisibleWorksheetEntries, extractXlsxVisibleContent, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };
+module.exports = { CALCULATION_BOOK_CONTENT_BOUNDARY, CONTENT_GROUPS, CONTENT_PROFILES, CANONICAL_RENDER_EVIDENCE_KIND, RC_CONTENT_SEAL_SCOPE, RC_CONTENT_SEAL_START, RC_CONTENT_SEAL_END, SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, CALCULATION_SUMMARY_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, decodeXmlEntities, extractHtmlText, extractHtmlVisibleContent, canonicalizeRcHtmlContentSeal, verifyRcHtmlContentSeal, isRcHtmlContentSealRequired, hasDefinitelyHiddenStyle, hasAmbiguousVisibilityStyle, detectCalculationContentProfile, evaluateCalculationContent, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, validateCanonicalRenderEvidence, loadPdfVisibilityEvidence, collectDocxHiddenStyleIds, stripDocxHiddenText, parseSharedStrings, extractVisibleWorksheetText, resolveVisibleWorksheetEntries, extractXlsxVisibleContent, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };

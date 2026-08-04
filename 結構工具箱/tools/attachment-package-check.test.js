@@ -189,6 +189,30 @@ const unparsedVariableBackgroundHtml = Checker.extractHtmlVisibleContent('<div s
 assert.equal(unparsedVariableBackgroundHtml.text, 'CSS 變數診斷內容');
 assert.deepEqual(unparsedVariableBackgroundHtml.visibilityIssues, ['inline div']);
 
+const sealedContentBlock = `${Checker.RC_CONTENT_SEAL_START}<div class="rep-sealed-content"><h1>梁設計計算書</h1><span class="rep-document-status-line" data-document-class="formal-attachment">文件狀態：正式附件｜核可時間：2026/08/04 22:30:00</span>${COMPLETE_CALCULATION_CONTENT}</div>${Checker.RC_CONTENT_SEAL_END}`;
+const sealedContentCanonical = Checker.canonicalizeRcHtmlContentSeal(sealedContentBlock);
+const sealedContentSha256 = crypto.createHash('sha256').update(sealedContentCanonical, 'utf8').digest('hex');
+const sealedRcHtml = `<span class="rep-content-seal-source" data-content-seal-scope="${Checker.RC_CONTENT_SEAL_SCOPE}" data-content-sha256="${sealedContentSha256}" aria-hidden="true"></span>${sealedContentBlock}`;
+const verifiedRcSeal = Checker.verifyRcHtmlContentSeal(sealedRcHtml);
+assert.equal(verifiedRcSeal.status, 'verified', 'RC HTML content seal independently verifies the sealed calculation content');
+assert.equal(verifiedRcSeal.expectedSha256, verifiedRcSeal.actualSha256);
+const tamperedRcSeal = Checker.verifyRcHtmlContentSeal(sealedRcHtml.replace('φMn=18.2', 'φMn=99.9'));
+assert.equal(tamperedRcSeal.status, 'failed', 'editing a visible calculation value invalidates the RC HTML content seal');
+assert(tamperedRcSeal.reasons.includes('content-sha256-mismatch'));
+assert.equal(Checker.verifyRcHtmlContentSeal(sealedRcHtml.replace(Checker.RC_CONTENT_SEAL_START, '')).status, 'failed', 'removing the sealed boundary fails verification');
+assert.equal(Checker.verifyRcHtmlContentSeal(COMPLETE_CALCULATION_CONTENT).status, 'missing', 'legacy HTML without a content seal remains distinguishable');
+
+const sealFixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rc-html-content-seal-'));
+try {
+  const sealFixturePath = path.join(sealFixtureDir, 'rc-formal.html');
+  fs.writeFileSync(sealFixturePath, sealedRcHtml, 'utf8');
+  assert.equal(Checker.inspectAttachment(sealFixturePath, sealFixtureDir).contentSeal?.status, 'verified', 'HTML inspection recomputes the RC content seal');
+  fs.writeFileSync(sealFixturePath, sealedRcHtml.replace('DCR=0.69', 'DCR=1.69'), 'utf8');
+  assert.equal(Checker.inspectAttachment(sealFixturePath, sealFixtureDir).contentSeal?.status, 'failed', 'HTML inspection records a changed calculation body');
+} finally {
+  fs.rmSync(sealFixtureDir, { recursive: true, force: true });
+}
+
 
 
 
@@ -208,6 +232,21 @@ const reportRecord = {
   projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1',
   outputTime: '2026/07/12 13:00:00', approvalTime: '2026/07/12 13:05:00', fingerprints: ['CF-1234ABCD5678EF90'],
 };
+const sealedHtmlRecord = {
+  ...reportRecord,
+  file: 'beam-formal.html',
+  type: 'html',
+  sourceTool: '梁 Beam 設計／檢核',
+  contentSeal: verifiedRcSeal,
+};
+assert.equal(Checker.isRcHtmlContentSealRequired(sealedHtmlRecord), true);
+assert.equal(Checker.analyzePackage([sealedHtmlRecord]).status, 'ready', 'verified RC HTML content seal preserves formal readiness');
+const unsealedRcHtmlPackage = Checker.analyzePackage([{ ...sealedHtmlRecord, file: 'beam-legacy.html', contentSeal: { status: 'missing', scope: '', reasons: ['seal-source-missing'] } }]);
+assert.equal(unsealedRcHtmlPackage.status, 'review', 'legacy RC formal HTML without a seal cannot pass automatically');
+assert(unsealedRcHtmlPackage.issues.some(issue => issue.code === 'rc-html-content-seal-missing'));
+const tamperedRcHtmlPackage = Checker.analyzePackage([{ ...sealedHtmlRecord, file: 'beam-tampered.html', contentSeal: tamperedRcSeal }]);
+assert.equal(tamperedRcHtmlPackage.status, 'blocked', 'RC formal HTML whose content seal does not match is blocked');
+assert.equal(tamperedRcHtmlPackage.issues.find(issue => issue.code === 'rc-html-content-seal-invalid')?.level, 'error');
 const whiteOnWhitePackage = Checker.analyzePackage([{ ...reportRecord, file: 'white-on-white.html', type: 'html', visibilityEvidence: { status: 'review', method: 'html-static-print-visibility', reasons: whiteOnWhiteHtml.visibilityIssues } }]);
 assert.equal(whiteOnWhitePackage.status, 'review', 'white-on-white HTML cannot automatically pass as a formal attachment');
 assert(whiteOnWhitePackage.issues.some(issue => issue.code === 'visibility-boundary-review'));

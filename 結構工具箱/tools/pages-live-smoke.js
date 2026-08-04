@@ -585,6 +585,12 @@ async function main() {
   assert.equal(reportReadinessStatus.rcStandaloneFormalHtmlPrintPass, true, 'report readiness RC standalone formal HTML print checks pass');
   assert.equal(reportReadinessJson.includes('"rcStandaloneFormalHtmlPrint":'), false, 'report readiness omits the private RC standalone formal HTML print aggregate');
   assert.equal(/rc-approved-standalone-html-to-validated-pdf|externalRequestCount|standalonePrintArtifacts/.test(reportReadinessJson), false, 'report readiness omits private RC standalone formal HTML print scope and artifact details');
+  assert.equal(reportReadinessStatus.rcFormalHtmlContentSealRequired, 34, 'report readiness expects 34 RC formal HTML content seal checks');
+  assert.equal(reportReadinessStatus.rcFormalHtmlContentSealComplete, reportReadinessStatus.rcFormalHtmlContentSealRequired, 'report readiness completes every RC formal HTML content seal check');
+  assert.equal(reportReadinessStatus.rcFormalHtmlContentSealIssueCount, 0, 'report readiness RC formal HTML content seal issues empty');
+  assert.equal(reportReadinessStatus.rcFormalHtmlContentSealPass, true, 'report readiness RC formal HTML content seal checks pass');
+  assert.equal(reportReadinessJson.includes('"rcFormalHtmlContentSeal":'), false, 'report readiness omits the private RC formal HTML content seal aggregate');
+  assert.equal(/rc-formal-html-reproducible-content-sha256|"contentSha256"|contentSealArtifacts/.test(reportReadinessJson), false, 'report readiness omits private RC formal HTML content seal scope and artifact details');
   assert.equal(reportReadinessStatus.steelResultReconciliationRequired, 5, 'report readiness expects 5 steel result reconciliations');
   assert.equal(reportReadinessStatus.steelResultReconciliationComplete, reportReadinessStatus.steelResultReconciliationRequired, 'report readiness completes every steel result reconciliation');
   assert.equal(reportReadinessStatus.steelResultReconciliationIssueCount, 0, 'report readiness steel result reconciliation issues empty');
