@@ -2828,6 +2828,7 @@ async function main() {
           const dualSealEvidence = verifyApprovedHtmlDualSeals(renderedReportState.approvedHtml, `${interactionLabel} ${tool.key} release evidence`);
           const htmlArtifact = `${viewport.key}-${tool.key}-approved-formal-attachment.html`;
           const htmlArtifactPath = path.join(renderedEvidenceDir, htmlArtifact);
+          fs.mkdirSync(renderedEvidenceDir, { recursive: true });
           fs.writeFileSync(htmlArtifactPath, renderedReportState.approvedHtml, 'utf8');
           const htmlArtifactBytes = fs.statSync(htmlArtifactPath).size;
           const htmlArtifactSha256 = crypto.createHash('sha256').update(fs.readFileSync(htmlArtifactPath)).digest('hex');
