@@ -2549,7 +2549,7 @@ function checkMatrix(payload, markdown, options = {}) {
   }
   if (Number.isInteger(homepageReportReadinessStatus.attachmentIntegrityRequired)) {
     assert.equal(homepageReportReadinessStatus.attachmentIntegrityScope, 'rc-formal-html', 'homepage report readiness attachment integrity scope');
-    assert.ok([32, 33].includes(homepageReportReadinessStatus.attachmentIntegrityRequired), 'homepage report readiness expects a supported RC HTML attachment transition count');
+    assert.ok([32, 33, 34].includes(homepageReportReadinessStatus.attachmentIntegrityRequired), 'homepage report readiness expects a supported RC HTML attachment transition count');
     assert.equal(homepageReportReadinessStatus.attachmentIntegrityActual, homepageReportReadinessStatus.attachmentIntegrityRequired, 'homepage report readiness keeps every RC HTML attachment');
     assert.equal(homepageReportReadinessStatus.attachmentIntegrityVerified, homepageReportReadinessStatus.attachmentIntegrityRequired, 'homepage report readiness verifies every RC HTML attachment');
     assert.equal(homepageReportReadinessStatus.attachmentIntegrityIssueCount, 0, 'homepage report readiness attachment integrity issues empty');
