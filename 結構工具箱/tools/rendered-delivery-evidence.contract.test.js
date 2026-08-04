@@ -5,6 +5,7 @@ const path = require('path');
 const vm = require('vm');
 const { inflateRawSync } = require('zlib');
 const AttachmentPackageChecker = require('./attachment-package-check');
+const AnchorHtmlSealVerifier = require('./anchor-html-seal-verifier');
 const { verifyHtmlArtifact } = require('../../dev_tools/html-attachment-integrity');
 const { captureArtifactIntegrity } = require('../../鋼筋混凝土/tools/report-screenshot-quality');
 const {
@@ -1586,6 +1587,7 @@ const canonicalArtifactRecords = [];
 const formalResultReconciliationRecords = [];
 const formalHtmlDualSealRecords = [];
 const steelHtmlDualSealRecords = [];
+const anchorHtmlDualSealRecords = [];
 const localQuickResultReconciliationRecords = [];
 const rcResultReconciliationRecords = [];
 const rcStandaloneFormalHtmlPrintRecords = [];
@@ -1793,6 +1795,16 @@ for (const [filePath, label] of [
 
 const anchorHtml = fs.readFileSync(anchorHtmlPath, 'utf8');
 const anchorHtmlText = decodeHtmlText(anchorHtml);
+const anchorHtmlSealVerification = AnchorHtmlSealVerifier.verifyAnchorReportHtmlSeals(anchorHtml);
+const anchorContentTamperVerification = AnchorHtmlSealVerifier.verifyAnchorReportHtmlSeals(
+  anchorHtml.replace('載重組合批次檢核', '載重組合批次檢核（遭修改）')
+);
+const anchorApprovalTamperVerification = AnchorHtmlSealVerifier.verifyAnchorReportHtmlSeals(
+  anchorHtml.replace(
+    /(<[^>]+class=["'][^"']*\banchor-approval-seal-source\b[^"']*["'][^>]*\bdata-approved-at=["'])[^"']*(["'])/i,
+    (_match, prefix, suffix) => `${prefix}2026-07-20T10:01:00.000Z${suffix}`
+  )
+);
 const anchorReviewHtml = fs.readFileSync(anchorReviewHtmlPath, 'utf8');
 const anchorReviewHtmlText = decodeHtmlText(anchorReviewHtml);
 const anchorBlockedHtml = fs.readFileSync(anchorBlockedHtmlPath, 'utf8');
@@ -1803,6 +1815,31 @@ for (const needle of ['錨栓檢討報告', '柱腳基板示例', '載重組合�
 }
 assert.ok(anchorHtml.includes('data-document-state="formal-attachment"'), 'anchor HTML artifact records formal attachment state');
 assert.ok(anchorHtmlText.includes('文件狀態：正式附件'), 'anchor HTML artifact identifies the approved attachment');
+assert.equal(anchorHtmlSealVerification.content.status, 'verified', 'anchor HTML content seal verifies from the saved artifact');
+assert.equal(anchorHtmlSealVerification.content.scope, AnchorHtmlSealVerifier.ANCHOR_CONTENT_SEAL_SCOPE, 'anchor HTML content seal scope');
+assert.equal(anchorEvidence.contentSealStatus, 'verified', 'anchor producer records verified HTML content seal');
+assert.equal(anchorEvidence.contentSealScope, anchorHtmlSealVerification.content.scope, 'anchor producer and aggregate content seal scopes match');
+assert.equal(anchorEvidence.contentSha256, anchorHtmlSealVerification.content.actualSha256, 'anchor producer and aggregate content SHA-256 match');
+assert.equal(anchorEvidence.contentTamperDetectionStatus, 'failed', 'anchor producer proves calculation-body tamper detection');
+assert.equal(anchorContentTamperVerification.content.status, 'failed', 'anchor aggregate independently detects calculation-body tamper');
+assert.equal(anchorHtmlSealVerification.approval.status, 'verified', 'anchor HTML approval seal verifies from the saved artifact');
+assert.equal(anchorHtmlSealVerification.approval.scope, AnchorHtmlSealVerifier.ANCHOR_APPROVAL_SEAL_SCOPE, 'anchor HTML approval seal scope');
+assert.equal(anchorEvidence.approvalSealStatus, 'verified', 'anchor producer records verified HTML approval seal');
+assert.equal(anchorEvidence.approvalSealScope, anchorHtmlSealVerification.approval.scope, 'anchor producer and aggregate approval seal scopes match');
+assert.equal(anchorEvidence.approvalSha256, anchorHtmlSealVerification.approval.actualSha256, 'anchor producer and aggregate approval SHA-256 match');
+assert.equal(anchorEvidence.approvalTamperDetectionStatus, 'failed', 'anchor producer proves approval-record tamper detection');
+assert.equal(anchorEvidence.approvalTamperContentStatus, 'verified', 'anchor producer keeps content seal valid for approval-only tamper');
+assert.equal(anchorApprovalTamperVerification.approval.status, 'failed', 'anchor aggregate independently detects approval-record tamper');
+assert.equal(anchorApprovalTamperVerification.content.status, 'verified', 'anchor aggregate keeps content seal valid for approval-only tamper');
+anchorHtmlDualSealRecords.push({
+  key: anchorEvidence.key,
+  htmlArtifact: anchorEvidence.artifact,
+  htmlArtifactSha256: anchorEvidence.artifactSha256,
+  contentSealScope: anchorHtmlSealVerification.content.scope,
+  contentSha256: anchorHtmlSealVerification.content.actualSha256,
+  approvalSealScope: anchorHtmlSealVerification.approval.scope,
+  approvalSha256: anchorHtmlSealVerification.approval.actualSha256,
+});
 assert.ok(anchorHtmlText.includes('王設計') && anchorHtmlText.includes('李複核'), 'anchor HTML artifact includes designer and checker');
 assertCalculationContentProfile(anchorHtmlText, 'traceable-calculation-book', 'anchor HTML artifact');
 assertCalculationContentProfile(anchorReviewHtmlText, 'traceable-calculation-book', 'anchor review HTML artifact');
@@ -2414,6 +2451,43 @@ assert.equal(steelHtmlContentSeal.complete, steelHtmlContentSeal.required, 'rele
 assert.equal(steelHtmlApprovalSeal.complete, steelHtmlApprovalSeal.required, 'release rendered evidence independently verifies all 5 steel formal HTML approval seals');
 assert.equal(steelHtmlContentSeal.pass, true, 'release rendered evidence passes steel formal HTML content seal verification');
 assert.equal(steelHtmlApprovalSeal.pass, true, 'release rendered evidence passes steel formal HTML approval seal verification');
+const anchorHtmlContentSeal = {
+  schemaVersion: 1,
+  scope: 'anchor-formal-html-reproducible-content-sha256',
+  required: 1,
+  complete: anchorHtmlDualSealRecords.length,
+  issueCount: Math.max(0, 1 - anchorHtmlDualSealRecords.length),
+  pass: anchorHtmlDualSealRecords.length === 1,
+  setSha256: formalHtmlSealSetHash(anchorHtmlDualSealRecords, 'content'),
+  records: anchorHtmlDualSealRecords.map(record => ({
+    key: record.key,
+    htmlArtifact: record.htmlArtifact,
+    htmlArtifactSha256: record.htmlArtifactSha256,
+    scope: record.contentSealScope,
+    contentSha256: record.contentSha256,
+  })),
+};
+const anchorHtmlApprovalSeal = {
+  schemaVersion: 1,
+  scope: 'anchor-formal-html-reproducible-approval-sha256',
+  required: 1,
+  complete: anchorHtmlDualSealRecords.length,
+  issueCount: Math.max(0, 1 - anchorHtmlDualSealRecords.length),
+  pass: anchorHtmlDualSealRecords.length === 1,
+  setSha256: formalHtmlSealSetHash(anchorHtmlDualSealRecords, 'approval'),
+  records: anchorHtmlDualSealRecords.map(record => ({
+    key: record.key,
+    htmlArtifact: record.htmlArtifact,
+    htmlArtifactSha256: record.htmlArtifactSha256,
+    scope: record.approvalSealScope,
+    approvalSha256: record.approvalSha256,
+  })),
+};
+assert.equal(new Set(anchorHtmlDualSealRecords.map(record => record.key)).size, anchorHtmlDualSealRecords.length, 'release rendered evidence anchor formal HTML seal identities are unique');
+assert.equal(anchorHtmlContentSeal.complete, anchorHtmlContentSeal.required, 'release rendered evidence independently verifies the anchor formal HTML content seal');
+assert.equal(anchorHtmlApprovalSeal.complete, anchorHtmlApprovalSeal.required, 'release rendered evidence independently verifies the anchor formal HTML approval seal');
+assert.equal(anchorHtmlContentSeal.pass, true, 'release rendered evidence passes anchor formal HTML content seal verification');
+assert.equal(anchorHtmlApprovalSeal.pass, true, 'release rendered evidence passes anchor formal HTML approval seal verification');
 const steelResultReconciliation = {
   schemaVersion: 1,
   scope: 'steel-source-replay-to-report-fingerprint',
@@ -2491,7 +2565,7 @@ assert.equal(attachmentIntegrity.verified, attachmentIntegrity.required, 'releas
 assert.equal(attachmentIntegrity.issueCount, 0, 'release rendered evidence has no RC HTML attachment integrity issue');
 assert.equal(attachmentIntegrity.pass, true, 'release rendered evidence passes RC HTML attachment integrity');
 const aggregate = {
-  schemaVersion: 20,
+  schemaVersion: 21,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),
@@ -2500,7 +2574,7 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && formalResultReconciliation.pass && formalHtmlContentSeal.pass && formalHtmlApprovalSeal.pass && steelHtmlContentSeal.pass && steelHtmlApprovalSeal.pass && localQuickResultReconciliation.pass && rcResultReconciliation.pass && rcSourceReportPackage.pass && rcStandaloneFormalHtmlPrint.pass && rcFormalHtmlContentSeal.pass && rcFormalHtmlApprovalSeal.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && formalResultReconciliation.pass && formalHtmlContentSeal.pass && formalHtmlApprovalSeal.pass && steelHtmlContentSeal.pass && steelHtmlApprovalSeal.pass && anchorHtmlContentSeal.pass && anchorHtmlApprovalSeal.pass && localQuickResultReconciliation.pass && rcResultReconciliation.pass && rcSourceReportPackage.pass && rcStandaloneFormalHtmlPrint.pass && rcFormalHtmlContentSeal.pass && rcFormalHtmlApprovalSeal.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
   attachmentIntegrity,
   mixedArtifactIntegrity,
   rcVisualArtifactIntegrity,
@@ -2510,6 +2584,8 @@ const aggregate = {
   formalHtmlApprovalSeal,
   steelHtmlContentSeal,
   steelHtmlApprovalSeal,
+  anchorHtmlContentSeal,
+  anchorHtmlApprovalSeal,
   localQuickResultReconciliation,
   rcResultReconciliation,
   rcSourceReportPackage,
@@ -2527,4 +2603,4 @@ const aggregate = {
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, formalHtmlContentSeal=${formalHtmlContentSeal.complete}/${formalHtmlContentSeal.required}, formalHtmlApprovalSeal=${formalHtmlApprovalSeal.complete}/${formalHtmlApprovalSeal.required}, steelHtmlContentSeal=${steelHtmlContentSeal.complete}/${steelHtmlContentSeal.required}, steelHtmlApprovalSeal=${steelHtmlApprovalSeal.complete}/${steelHtmlApprovalSeal.required}, localQuickResultReconciliation=${localQuickResultReconciliation.complete}/${localQuickResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, rcSourceReportPackage=${rcSourceReportPackage.complete}/${rcSourceReportPackage.required}, rcStandaloneFormalHtmlPrint=${rcStandaloneFormalHtmlPrint.complete}/${rcStandaloneFormalHtmlPrint.required}, rcFormalHtmlContentSeal=${rcFormalHtmlContentSeal.complete}/${rcFormalHtmlContentSeal.required}, rcFormalHtmlApprovalSeal=${rcFormalHtmlApprovalSeal.complete}/${rcFormalHtmlApprovalSeal.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, formalHtmlContentSeal=${formalHtmlContentSeal.complete}/${formalHtmlContentSeal.required}, formalHtmlApprovalSeal=${formalHtmlApprovalSeal.complete}/${formalHtmlApprovalSeal.required}, steelHtmlContentSeal=${steelHtmlContentSeal.complete}/${steelHtmlContentSeal.required}, steelHtmlApprovalSeal=${steelHtmlApprovalSeal.complete}/${steelHtmlApprovalSeal.required}, anchorHtmlContentSeal=${anchorHtmlContentSeal.complete}/${anchorHtmlContentSeal.required}, anchorHtmlApprovalSeal=${anchorHtmlApprovalSeal.complete}/${anchorHtmlApprovalSeal.required}, localQuickResultReconciliation=${localQuickResultReconciliation.complete}/${localQuickResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, rcSourceReportPackage=${rcSourceReportPackage.complete}/${rcSourceReportPackage.required}, rcStandaloneFormalHtmlPrint=${rcStandaloneFormalHtmlPrint.complete}/${rcStandaloneFormalHtmlPrint.required}, rcFormalHtmlContentSeal=${rcFormalHtmlContentSeal.complete}/${rcFormalHtmlContentSeal.required}, rcFormalHtmlApprovalSeal=${rcFormalHtmlApprovalSeal.complete}/${rcFormalHtmlApprovalSeal.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);

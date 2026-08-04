@@ -58,6 +58,8 @@ const renderedEvidenceContract = readText('結構工具箱/tools/rendered-delive
 const renderedEvidenceInventory = readText('結構工具箱/tools/rendered-delivery-evidence.inventory.json');
 const stoneAutoWordArtifact = readText('石材固定/auto_word_artifact_test.py');
 const anchorReportArtifacts = readText('螺栓檢討/bolt-review-tool/tests/reportArtifacts.test.ts');
+const anchorReportHtmlSeal = readText('螺栓檢討/bolt-review-tool/src/reportHtmlSeal.ts');
+const anchorHtmlSealVerifier = readText('結構工具箱/tools/anchor-html-seal-verifier.js');
 
 [
   'preflight-tools.ps1',
@@ -273,7 +275,7 @@ for (const { name, source } of rcReportVisualSources) {
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 20',
+  'schemaVersion: 21',
   'canonicalArtifactIntegrity',
   "scope: 'canonical-rendered-pdf-evidence'",
   'required: 60',
@@ -310,6 +312,12 @@ for (const { name, source } of rcReportVisualSources) {
   'steelHtmlApprovalSeal',
   "scope: 'steel-formal-html-reproducible-approval-sha256'",
   'steelHtmlApprovalSeal=',
+  'anchorHtmlContentSeal',
+  "scope: 'anchor-formal-html-reproducible-content-sha256'",
+  'anchorHtmlContentSeal=',
+  'anchorHtmlApprovalSeal',
+  "scope: 'anchor-formal-html-reproducible-approval-sha256'",
+  'anchorHtmlApprovalSeal=',
   'steelResultReconciliation',
   "scope: 'steel-source-replay-to-report-fingerprint'",
   'required: 5',
@@ -361,6 +369,7 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'rcFormalHtmlApprovalSealDeclared',
   'formalHtmlDualSealDeclared',
   'steelHtmlDualSealDeclared',
+  'anchorHtmlDualSealDeclared',
   'steelResultReconciliationDeclared',
   'stoneResultReconciliationDeclared',
   'anchorResultReconciliationDeclared',
@@ -389,6 +398,10 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'evidence.steelHtmlContentSeal.required === 5',
   "evidence.steelHtmlApprovalSeal?.scope === 'steel-formal-html-reproducible-approval-sha256'",
   'evidence.steelHtmlApprovalSeal.required === 5',
+  "evidence.anchorHtmlContentSeal?.scope === 'anchor-formal-html-reproducible-content-sha256'",
+  'evidence.anchorHtmlContentSeal.required === 1',
+  "evidence.anchorHtmlApprovalSeal?.scope === 'anchor-formal-html-reproducible-approval-sha256'",
+  'evidence.anchorHtmlApprovalSeal.required === 1',
   "evidence.steelResultReconciliation?.scope === 'steel-source-replay-to-report-fingerprint'",
   'evidence.steelResultReconciliation.required === 5',
   "evidence.stoneResultReconciliation?.scope === 'stone-golden-replay-to-pdf-docx-hash'",
@@ -432,6 +445,9 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'steelHtmlContentSealRequired',
   'steelHtmlApprovalSealRequired',
   '鋼構正式 HTML 雙封印',
+  'anchorHtmlContentSealRequired',
+  'anchorHtmlApprovalSealRequired',
+  '錨栓正式 HTML 雙封印',
   'steelResultReconciliationRequired',
   '鋼構正式計算書結果鏈',
   'stoneResultReconciliationRequired',
@@ -467,7 +483,24 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'htmlSha256',
   'docxSha256',
   'workbookSha256',
+  "evidenceRole: 'approved-formal-attachment'",
+  'contentTamperDetectionStatus',
+  'approvalTamperDetectionStatus',
 ].forEach(needle => assertIncludes(anchorReportArtifacts, needle, `anchor formal artifact preserves ${needle}`));
+
+[
+  'anchor-calculation-book-content-v1',
+  'anchor-calculation-book-approval-v1',
+  'sealAnchorReportHtml',
+  'verifyAnchorReportHtmlSeals',
+  'anchor-integrity-alert',
+].forEach(needle => assertIncludes(anchorReportHtmlSeal, needle, `anchor report producer preserves ${needle}`));
+
+[
+  'anchor-calculation-book-content-v1',
+  'anchor-calculation-book-approval-v1',
+  'verifyAnchorReportHtmlSeals',
+].forEach(needle => assertIncludes(anchorHtmlSealVerifier, needle, `anchor independent seal verifier preserves ${needle}`));
 
 [
   '.run-tick.release',
@@ -540,8 +573,10 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   assertIncludes(source, 'Schema v18', `${label} documents RC formal HTML approval seal release evidence schema`);
   assertIncludes(source, 'Schema v19', `${label} documents formal-tool HTML dual seal release evidence schema`);
   assertIncludes(source, 'Schema v20', `${label} documents steel formal HTML dual seal release evidence schema`);
+  assertIncludes(source, 'Schema v21', `${label} documents anchor formal HTML dual seal release evidence schema`);
   assertIncludes(source, '風力／地震', `${label} documents formal-tool HTML dual seal family`);
   assertIncludes(source, '鋼構', `${label} documents steel formal HTML dual seal family`);
+  assertIncludes(source, '錨栓', `${label} documents anchor formal HTML dual seal family`);
   assertIncludes(source, '雙封印', `${label} documents formal-tool HTML dual seal scope`);
   assertIncludes(source, '內容封印', `${label} documents RC formal HTML content seal scope`);
   assertIncludes(source, '數位簽章', `${label} distinguishes content seal from identity signature`);

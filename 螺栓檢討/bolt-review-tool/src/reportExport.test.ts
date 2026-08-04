@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
+import { TextEncoder } from 'node:util'
+import { JSDOM } from 'jsdom'
 import {
   assessProductCompleteness,
   evaluateCandidateProducts,
@@ -14,6 +16,7 @@ import {
 import { CURRENT_CALC_ENGINE_VERSION, ENGINEERING_USE_DISCLAIMER, REPORT_SOURCE_TOOL } from './appMeta'
 import { getEvaluationFieldStates } from './evaluationCatalog'
 import { buildStandaloneReportHtml } from './reportExport'
+import { verifyAnchorReportHtmlSeals } from './reportHtmlSeal'
 import { normalizeUnitPreferences } from './units'
 
 const CALCULATION_BOOK_CONTENT_BOUNDARY = JSON.parse(readFileSync(
@@ -30,8 +33,23 @@ function expectNoPageOnlyReportStatus(text: string) {
   }
 }
 
+async function openStandaloneReportHtml(html: string) {
+  const dom = new JSDOM(html, {
+    runScripts: 'dangerously',
+    url: 'https://anchor-report.test/',
+    beforeParse(window) {
+      Object.defineProperty(window, 'TextEncoder', { value: TextEncoder })
+    },
+  })
+  await new Promise<void>((resolve) => {
+    if (dom.window.document.readyState === 'complete') resolve()
+    else dom.window.addEventListener('load', () => resolve(), { once: true })
+  })
+  return dom
+}
+
 describe('buildStandaloneReportHtml', () => {
-  it('renders a standalone HTML report with core sections', () => {
+  it('renders a standalone HTML report with core sections', async () => {
     const product = defaultProducts.find(
       (item) => item.id === defaultProject.selectedProductId,
     )
@@ -67,7 +85,58 @@ describe('buildStandaloneReportHtml', () => {
     expect(html).toContain('文件追溯與版本')
     expect(html).toContain('data-document-state="formal-attachment"')
     expect(html).toContain('文件狀態：正式附件')
-    expect(html).toContain('本計算內容已完成審閱，核可作為正式附件')
+    expect(html).toContain('工作頁核可狀態：正式附件')
+    expect(html).not.toContain('id="reportAttachmentApproval"')
+    expect(html).toMatch(/data-content-sha256="[0-9a-f]{64}"/)
+    expect(html).toMatch(/data-approval-sha256="[0-9a-f]{64}"/)
+    expect(verifyAnchorReportHtmlSeals(html)).toMatchObject({
+      content: { status: 'verified' },
+      approval: { status: 'verified' },
+    })
+    const contentTampered = html.replace('載重組合批次檢核', '載重組合批次檢核（遭修改）')
+    expect(verifyAnchorReportHtmlSeals(contentTampered)).toMatchObject({
+      content: { status: 'failed' },
+      approval: { status: 'verified' },
+    })
+    const approvalTampered = html.replace(
+      'data-approved-at="2026-07-20T10:00:00.000Z"',
+      'data-approved-at="2026-07-20T10:01:00.000Z"',
+    )
+    expect(verifyAnchorReportHtmlSeals(approvalTampered)).toMatchObject({
+      content: { status: 'verified' },
+      approval: { status: 'failed' },
+    })
+    const opened = await openStandaloneReportHtml(html)
+    const openedVerification = (opened.window as unknown as {
+      __verifyAnchorReportSeals: () => {
+        approval: { expected: string; actual: string }
+      }
+    }).__verifyAnchorReportSeals()
+    expect(openedVerification.approval.actual).toBe(openedVerification.approval.expected)
+    expect(opened.window.document.body.dataset).toMatchObject({
+      contentIntegrity: 'verified',
+      approvalIntegrity: 'verified',
+    })
+    expect(opened.window.document.querySelector('.anchor-integrity-alert')).toBeNull()
+    opened.window.close()
+
+    const openedContentTamper = await openStandaloneReportHtml(contentTampered)
+    expect(openedContentTamper.window.document.body.dataset).toMatchObject({
+      contentIntegrity: 'failed',
+      approvalIntegrity: 'verified',
+    })
+    expect(openedContentTamper.window.document.querySelector('.anchor-integrity-alert')?.textContent)
+      .toContain('內容完整性異常')
+    openedContentTamper.window.close()
+
+    const openedApprovalTamper = await openStandaloneReportHtml(approvalTampered)
+    expect(openedApprovalTamper.window.document.body.dataset).toMatchObject({
+      contentIntegrity: 'verified',
+      approvalIntegrity: 'failed',
+    })
+    expect(openedApprovalTamper.window.document.querySelector('.anchor-integrity-alert')?.textContent)
+      .toContain('核可完整性異常')
+    openedApprovalTamper.window.close()
     expect(html).toContain('王設計')
     expect(html).toContain('李複核')
     expect(html).not.toContain('DRAFT /')

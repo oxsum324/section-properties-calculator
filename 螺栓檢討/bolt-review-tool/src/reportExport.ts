@@ -12,6 +12,12 @@ import {
 } from './basePlateGeometry'
 import { getResultPresentationSummary } from './resultPresentation'
 import { buildReportDocumentState } from './reportDocumentState'
+import {
+  ANCHOR_APPROVAL_SEAL_SCOPE,
+  ANCHOR_CONTENT_SEAL_SCOPE,
+  ANCHOR_REPORT_SEAL_BROWSER_SCRIPT,
+  sealAnchorReportHtml,
+} from './reportHtmlSeal'
 import { getSeismicRouteGuidance } from './seismicRouteGuidance'
 import type {
   AnchorProduct,
@@ -719,6 +725,14 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
       }
       .preview-toolbar-hint { color: #6a7a80; font-size: 12px; }
       .preview-approval-control { display:flex; gap:6px; align-items:center; font-weight:600; }
+      .anchor-seal-source { display:none !important; }
+      .anchor-integrity-status { color:#4b5f66; font-size:11px; }
+      .anchor-integrity-status[data-integrity-status='failed'] { color:#b91c1c; font-weight:700; }
+      .anchor-integrity-alert {
+        max-width:1120px; margin:16px auto 0; padding:14px 18px;
+        border:2px solid #b91c1c; border-radius:14px; background:#fff1f2;
+        color:#991b1b; font-weight:800;
+      }
       @media print {
         body { background:#fff; }
         main { max-width:none; padding:0; }
@@ -734,10 +748,7 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
   </head>
   <body>
     <div class="report-preview-toolbar" data-role="preview-toolbar">
-      <label class="preview-approval-control">
-        <input id="reportAttachmentApproval" type="checkbox" ${documentState.status === 'formal-attachment' ? 'checked' : ''} />
-        本計算內容已完成審閱，核可作為正式附件
-      </label>
+      <span class="preview-approval-control">工作頁核可狀態：${escapeHtml(documentState.label)}</span>
       <button type="button" onclick="window.print()" aria-label="列印報表">
         🖨 列印 / 另存 PDF
       </button>
@@ -746,7 +757,25 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
       </button>
       <span class="preview-toolbar-hint">預覽列印效果；印出後此工具列會自動隱藏</span>
     </div>
+    <span
+      class="anchor-seal-source anchor-content-seal-source"
+      data-content-seal-scope="${ANCHOR_CONTENT_SEAL_SCOPE}"
+      data-content-sha256=""
+      aria-hidden="true"
+    ></span>
+    <span
+      class="anchor-seal-source anchor-approval-seal-source"
+      data-approval-seal-scope="${ANCHOR_APPROVAL_SEAL_SCOPE}"
+      data-approval-sha256=""
+      data-report-title="${escapeHtml(review.project.name)}"
+      data-calculation-fingerprint="${escapeHtml(calculationFingerprint)}"
+      data-approved="${documentState.status === 'formal-attachment' ? 'true' : 'false'}"
+      data-approved-at="${escapeHtml(reportSettings.documentApprovedAt || '')}"
+      aria-hidden="true"
+    ></span>
     <main>
+      <!--anchor-content-seal:start-->
+      <div class="anchor-sealed-content">
       <section class="hero">
         ${
           reportSettings.companyLogoDataUrl
@@ -1100,6 +1129,8 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
             .join('')}
         </ul>
       </section>
+      </div>
+      <!--anchor-content-seal:end-->
       <footer
         id="reportDocumentStatus"
         class="document-footer-status"
@@ -1109,32 +1140,7 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
       >文件狀態：${escapeHtml(documentState.label)}${documentState.reason ? `｜${escapeHtml(documentState.reason)}` : ''}${calculationFingerprint ? `｜計算指紋：${escapeHtml(calculationFingerprint)}` : ''}</footer>
     </main>
     <script>
-      (() => {
-        const checkbox = document.getElementById('reportAttachmentApproval')
-        const status = document.getElementById('reportDocumentStatus')
-        if (!checkbox || !status) return
-        let approvedAt = status.dataset.approvedAt || ''
-        const fingerprint = status.dataset.calculationFingerprint || ''
-        const formatApprovedAt = (value) => {
-          const parsed = new Date(value)
-          return Number.isFinite(parsed.getTime())
-            ? parsed.toLocaleString('zh-TW', { timeZone:'Asia/Taipei', hour12:false })
-            : value
-        }
-        const update = () => {
-          if (checkbox.checked && !approvedAt) approvedAt = new Date().toISOString()
-          if (!checkbox.checked) approvedAt = ''
-          const parts = checkbox.checked
-            ? ['文件狀態：正式附件', approvedAt ? '核可時間：' + formatApprovedAt(approvedAt) : '']
-            : ['文件狀態：內部審閱']
-          if (fingerprint) parts.push('計算指紋：' + fingerprint)
-          status.textContent = parts.filter(Boolean).join('｜')
-          status.dataset.documentState = checkbox.checked ? 'formal-attachment' : 'internal-review'
-          status.dataset.approvedAt = approvedAt
-        }
-        checkbox.addEventListener('change', update)
-        update()
-      })()
+      ${ANCHOR_REPORT_SEAL_BROWSER_SCRIPT}
     </script>
     ${
       autoPrint
@@ -1154,5 +1160,5 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
   </body>
 </html>`
 
-  return html
+  return sealAnchorReportHtml(html)
 }

@@ -1587,6 +1587,7 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const rcFormalHtmlApprovalSealDeclared = Number(evidence?.schemaVersion) >= 18;
   const formalHtmlDualSealDeclared = Number(evidence?.schemaVersion) >= 19;
   const steelHtmlDualSealDeclared = Number(evidence?.schemaVersion) >= 20;
+  const anchorHtmlDualSealDeclared = Number(evidence?.schemaVersion) >= 21;
   return Boolean(
     evidence
     && evidence.kind === 'release-rendered-delivery-evidence'
@@ -1705,6 +1706,20 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       && evidence.steelHtmlApprovalSeal.issueCount === 0
       && evidence.steelHtmlApprovalSeal.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.steelHtmlApprovalSeal.setSha256 || ''))
+    ))
+    && (!anchorHtmlDualSealDeclared || (
+      evidence.anchorHtmlContentSeal?.scope === 'anchor-formal-html-reproducible-content-sha256'
+      && evidence.anchorHtmlContentSeal.required === 1
+      && evidence.anchorHtmlContentSeal.complete === 1
+      && evidence.anchorHtmlContentSeal.issueCount === 0
+      && evidence.anchorHtmlContentSeal.pass === true
+      && /^[0-9a-f]{64}$/i.test(String(evidence.anchorHtmlContentSeal.setSha256 || ''))
+      && evidence.anchorHtmlApprovalSeal?.scope === 'anchor-formal-html-reproducible-approval-sha256'
+      && evidence.anchorHtmlApprovalSeal.required === 1
+      && evidence.anchorHtmlApprovalSeal.complete === 1
+      && evidence.anchorHtmlApprovalSeal.issueCount === 0
+      && evidence.anchorHtmlApprovalSeal.pass === true
+      && /^[0-9a-f]{64}$/i.test(String(evidence.anchorHtmlApprovalSeal.setSha256 || ''))
     ))
     && (!steelResultReconciliationDeclared || (
       evidence.steelResultReconciliation?.scope === 'steel-source-replay-to-report-fingerprint'
@@ -2095,6 +2110,31 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     : steelHtmlApprovalSeal.pass === true
       ? Math.max(0, steelHtmlApprovalSealRequired - steelHtmlApprovalSealComplete)
       : Math.max(1, compactNumber(steelHtmlApprovalSeal.issueCount) || steelHtmlApprovalSealRequired - steelHtmlApprovalSealComplete);
+  const anchorHtmlContentSeal = renderedDeliveryPayload?.anchorHtmlContentSeal;
+  const anchorHtmlApprovalSeal = renderedDeliveryPayload?.anchorHtmlApprovalSeal;
+  const anchorHtmlDualSealDeclared = Boolean(
+    Number(renderedDeliveryPayload?.schemaVersion) >= 21
+    && anchorHtmlContentSeal?.scope === 'anchor-formal-html-reproducible-content-sha256'
+    && anchorHtmlApprovalSeal?.scope === 'anchor-formal-html-reproducible-approval-sha256'
+    && Number.isInteger(anchorHtmlContentSeal.required)
+    && Number.isInteger(anchorHtmlContentSeal.complete)
+    && Number.isInteger(anchorHtmlApprovalSeal.required)
+    && Number.isInteger(anchorHtmlApprovalSeal.complete)
+  );
+  const anchorHtmlContentSealRequired = anchorHtmlDualSealDeclared ? compactNumber(anchorHtmlContentSeal.required) : 0;
+  const anchorHtmlContentSealComplete = anchorHtmlDualSealDeclared ? compactNumber(anchorHtmlContentSeal.complete) : 0;
+  const anchorHtmlContentSealIssueCount = !anchorHtmlDualSealDeclared
+    ? 0
+    : anchorHtmlContentSeal.pass === true
+      ? Math.max(0, anchorHtmlContentSealRequired - anchorHtmlContentSealComplete)
+      : Math.max(1, compactNumber(anchorHtmlContentSeal.issueCount) || anchorHtmlContentSealRequired - anchorHtmlContentSealComplete);
+  const anchorHtmlApprovalSealRequired = anchorHtmlDualSealDeclared ? compactNumber(anchorHtmlApprovalSeal.required) : 0;
+  const anchorHtmlApprovalSealComplete = anchorHtmlDualSealDeclared ? compactNumber(anchorHtmlApprovalSeal.complete) : 0;
+  const anchorHtmlApprovalSealIssueCount = !anchorHtmlDualSealDeclared
+    ? 0
+    : anchorHtmlApprovalSeal.pass === true
+      ? Math.max(0, anchorHtmlApprovalSealRequired - anchorHtmlApprovalSealComplete)
+      : Math.max(1, compactNumber(anchorHtmlApprovalSeal.issueCount) || anchorHtmlApprovalSealRequired - anchorHtmlApprovalSealComplete);
   const steelResultReconciliation = renderedDeliveryPayload?.steelResultReconciliation;
   const steelResultReconciliationDeclared = Boolean(
     Number(renderedDeliveryPayload?.schemaVersion) >= 6
@@ -2204,6 +2244,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     ...(rcFormalHtmlApprovalSealDeclared ? [`RC 正式 HTML 核可封印：設計與補強共 ${rcFormalHtmlApprovalSealComplete} / ${rcFormalHtmlApprovalSealRequired} 份核可 HTML 已將文件狀態、核可時間、計算指紋、標題與內容封印綁定並由瀏覽器及附件檢查器分別重算；任一欄位變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
     ...(formalHtmlDualSealDeclared ? [`風力／地震正式 HTML 雙封印：${formalHtmlContentSealComplete} / ${formalHtmlContentSealRequired} 份內容封印與 ${formalHtmlApprovalSealComplete} / ${formalHtmlApprovalSealRequired} 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；計算正文、文件狀態、核可時間、指紋或標題遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
     ...(steelHtmlDualSealDeclared ? [`鋼構正式 HTML 雙封印：主工具連接板、主工具拉力構件、獨立連接板、鋼梁與鋼柱共 ${steelHtmlContentSealComplete} / ${steelHtmlContentSealRequired} 份內容封印與 ${steelHtmlApprovalSealComplete} / ${steelHtmlApprovalSealRequired} 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；計算正文或核可資料遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
+    ...(anchorHtmlDualSealDeclared ? [`錨栓正式 HTML 雙封印：${anchorHtmlContentSealComplete} / ${anchorHtmlContentSealRequired} 份內容封印與 ${anchorHtmlApprovalSealComplete} / ${anchorHtmlApprovalSealRequired} 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；工作頁核可後輸出狀態固定，計算正文或核可資料遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
     ...(steelResultReconciliationDeclared ? [`鋼構正式計算書結果鏈：主工具連接板、主工具拉力構件、獨立連接板、鋼梁與鋼柱共 ${steelResultReconciliationComplete} / ${steelResultReconciliationRequired} 組來源 JSON 已完成匯入重算及不相容版本拒絕，再核對渲染報告的同一計算指紋。公開狀態只顯示完成數，不公開來源資料、來源雜湊或計算指紋。`] : []),
     ...(stoneResultReconciliationDeclared ? [`石材正式計算書結果鏈：golden case ${stoneResultReconciliationComplete} / ${stoneResultReconciliationRequired} 已由目前瀏覽器核心重算並核對 PDF、DOCX 與 audit。公開狀態只顯示完成數，不公開 golden 案例資料、來源 payload 雜湊、結果雜湊或成品雜湊。`] : []),
     ...(anchorResultReconciliationDeclared ? [`錨栓正式計算書結果鏈：工作區備份 ${anchorResultReconciliationComplete} / ${anchorResultReconciliationRequired} 已依 v2 案例重現指紋重新計算，並核對正式 HTML、DOCX 與 XLSX。公開狀態只顯示完成數，不公開工作區資料、來源備份雜湊、案例重現指紋、計算指紋或成品雜湊。`] : []),
@@ -2220,8 +2261,8 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     kind: 'report-readiness-status',
     generatedAt: String(matrixPayload.generatedAt || ''),
     runId: String(preflightStatus?.runId || matrixPayload.latestPreflight?.runId || ''),
-    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && formalResultReconciliationIssueCount === 0 && formalHtmlContentSealIssueCount === 0 && formalHtmlApprovalSealIssueCount === 0 && steelHtmlContentSealIssueCount === 0 && steelHtmlApprovalSealIssueCount === 0 && rcResultReconciliationIssueCount === 0 && rcSourceReportPackageIssueCount === 0 && rcStandaloneFormalHtmlPrintIssueCount === 0 && rcFormalHtmlContentSealIssueCount === 0 && rcFormalHtmlApprovalSealIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
-    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + formalResultReconciliationIssueCount + formalHtmlContentSealIssueCount + formalHtmlApprovalSealIssueCount + steelHtmlContentSealIssueCount + steelHtmlApprovalSealIssueCount + rcResultReconciliationIssueCount + rcSourceReportPackageIssueCount + rcStandaloneFormalHtmlPrintIssueCount + rcFormalHtmlContentSealIssueCount + rcFormalHtmlApprovalSealIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
+    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && formalResultReconciliationIssueCount === 0 && formalHtmlContentSealIssueCount === 0 && formalHtmlApprovalSealIssueCount === 0 && steelHtmlContentSealIssueCount === 0 && steelHtmlApprovalSealIssueCount === 0 && anchorHtmlContentSealIssueCount === 0 && anchorHtmlApprovalSealIssueCount === 0 && rcResultReconciliationIssueCount === 0 && rcSourceReportPackageIssueCount === 0 && rcStandaloneFormalHtmlPrintIssueCount === 0 && rcFormalHtmlContentSealIssueCount === 0 && rcFormalHtmlApprovalSealIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
+    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + formalResultReconciliationIssueCount + formalHtmlContentSealIssueCount + formalHtmlApprovalSealIssueCount + steelHtmlContentSealIssueCount + steelHtmlApprovalSealIssueCount + anchorHtmlContentSealIssueCount + anchorHtmlApprovalSealIssueCount + rcResultReconciliationIssueCount + rcSourceReportPackageIssueCount + rcStandaloneFormalHtmlPrintIssueCount + rcFormalHtmlContentSealIssueCount + rcFormalHtmlApprovalSealIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
@@ -2290,6 +2331,20 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       steelHtmlApprovalSealPass: steelHtmlApprovalSeal.pass === true
         && steelHtmlApprovalSealComplete === steelHtmlApprovalSealRequired
         && steelHtmlApprovalSealIssueCount === 0,
+    } : {}),
+    ...(anchorHtmlDualSealDeclared ? {
+      anchorHtmlContentSealRequired,
+      anchorHtmlContentSealComplete,
+      anchorHtmlContentSealIssueCount,
+      anchorHtmlContentSealPass: anchorHtmlContentSeal.pass === true
+        && anchorHtmlContentSealComplete === anchorHtmlContentSealRequired
+        && anchorHtmlContentSealIssueCount === 0,
+      anchorHtmlApprovalSealRequired,
+      anchorHtmlApprovalSealComplete,
+      anchorHtmlApprovalSealIssueCount,
+      anchorHtmlApprovalSealPass: anchorHtmlApprovalSeal.pass === true
+        && anchorHtmlApprovalSealComplete === anchorHtmlApprovalSealRequired
+        && anchorHtmlApprovalSealIssueCount === 0,
     } : {}),
     ...(rcResultReconciliationDeclared ? {
       rcResultReconciliationRequired,

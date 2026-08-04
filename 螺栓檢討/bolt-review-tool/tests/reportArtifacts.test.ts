@@ -22,6 +22,11 @@ import type { AnchorProduct, ProjectCase } from '../src/domain'
 import { getEvaluationFieldStates } from '../src/evaluationCatalog'
 import { serializeReportDocument } from '../src/reportDocx'
 import { buildStandaloneReportHtml } from '../src/reportExport'
+import {
+  ANCHOR_APPROVAL_SEAL_SCOPE,
+  ANCHOR_CONTENT_SEAL_SCOPE,
+  verifyAnchorReportHtmlSeals,
+} from '../src/reportHtmlSeal'
 import { serializeReportWorkbook } from '../src/reportWorkbook'
 import { normalizeUnitPreferences } from '../src/units'
 
@@ -213,6 +218,16 @@ describe('release report artifacts', () => {
     const html = buildStandaloneReportHtml(params)
     const reviewHtml = buildStandaloneReportHtml(buildParams('review'))
     const blockedHtml = buildStandaloneReportHtml(buildParams('blocked'))
+    const htmlSealVerification = verifyAnchorReportHtmlSeals(html)
+    const contentTamperVerification = verifyAnchorReportHtmlSeals(
+      html.replace('載重組合批次檢核', '載重組合批次檢核（遭修改）'),
+    )
+    const approvalTamperVerification = verifyAnchorReportHtmlSeals(
+      html.replace(
+        `data-approved-at="${REPORT_GENERATED_AT}"`,
+        'data-approved-at="2026-07-17T00:01:00.000Z"',
+      ),
+    )
     const docx = await serializeReportDocument(params)
     const workbook = await serializeReportWorkbook(params)
     const calculationFingerprint = `CF-${replayRecord.fingerprint
@@ -229,6 +244,18 @@ describe('release report artifacts', () => {
     expect(html).toContain('王設計')
     expect(html).toContain('李複核')
     expect(html).toContain(calculationFingerprint)
+    expect(htmlSealVerification).toMatchObject({
+      content: { status: 'verified' },
+      approval: { status: 'verified' },
+    })
+    expect(contentTamperVerification).toMatchObject({
+      content: { status: 'failed' },
+      approval: { status: 'verified' },
+    })
+    expect(approvalTamperVerification).toMatchObject({
+      content: { status: 'verified' },
+      approval: { status: 'failed' },
+    })
     expect(reviewHtml).toContain('data-document-state="internal-review"')
     expect(reviewHtml).toContain('文件狀態：內部審閱')
     expect(blockedHtml).toContain('data-document-state="internal-review"')
@@ -301,6 +328,16 @@ describe('release report artifacts', () => {
               sourceBackupBytes: Buffer.byteLength(sourceBackupJson, 'utf8'),
               sourceBackupArtifactSha256: sha256(sourceBackupJson),
               documentState: 'ready',
+              evidenceRole: 'approved-formal-attachment',
+              contentSealStatus: htmlSealVerification.content.status,
+              contentSealScope: ANCHOR_CONTENT_SEAL_SCOPE,
+              contentSha256: htmlSealVerification.content.actual,
+              approvalSealStatus: htmlSealVerification.approval.status,
+              approvalSealScope: ANCHOR_APPROVAL_SEAL_SCOPE,
+              approvalSha256: htmlSealVerification.approval.actual,
+              contentTamperDetectionStatus: contentTamperVerification.content.status,
+              approvalTamperDetectionStatus: approvalTamperVerification.approval.status,
+              approvalTamperContentStatus: approvalTamperVerification.content.status,
               reviewArtifact: reviewHtmlName,
               reviewArtifactBytes: Buffer.byteLength(reviewHtml, 'utf8'),
               reviewArtifactSha256: sha256(reviewHtml),

@@ -189,7 +189,7 @@
       '/seismic-dynamic': '2026-08-05',
       '/seismic-appendage': '2026-08-05',
       '/seismic-misc': '2026-08-05',
-      '/anchor': '2026-08-02',
+      '/anchor': '2026-08-05',
       '/stone-fixing': '2026-07-21',
       '/foundation-local': '2026-08-05',
       '/equipment-load': '2026-08-05',
@@ -1306,6 +1306,12 @@
         : null,
       Number.isInteger(payload.steelHtmlApprovalSealRequired) && payload.steelHtmlApprovalSealRequired > 0
         ? ratio('鋼構 HTML 核可封印', payload.steelHtmlApprovalSealComplete, payload.steelHtmlApprovalSealRequired, payload.steelHtmlApprovalSealIssueCount)
+        : null,
+      Number.isInteger(payload.anchorHtmlContentSealRequired) && payload.anchorHtmlContentSealRequired > 0
+        ? ratio('錨栓 HTML 內容封印', payload.anchorHtmlContentSealComplete, payload.anchorHtmlContentSealRequired, payload.anchorHtmlContentSealIssueCount)
+        : null,
+      Number.isInteger(payload.anchorHtmlApprovalSealRequired) && payload.anchorHtmlApprovalSealRequired > 0
+        ? ratio('錨栓 HTML 核可封印', payload.anchorHtmlApprovalSealComplete, payload.anchorHtmlApprovalSealRequired, payload.anchorHtmlApprovalSealIssueCount)
         : null,
       Number.isInteger(payload.steelResultReconciliationRequired) && payload.steelResultReconciliationRequired > 0
         ? ratio('鋼構結果鏈', payload.steelResultReconciliationComplete, payload.steelResultReconciliationRequired, payload.steelResultReconciliationIssueCount)
