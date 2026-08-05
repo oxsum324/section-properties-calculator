@@ -150,7 +150,7 @@
   const HOME_TOOL_UPDATES = {
     version: 1,
     generatedAt: '2026-08-06',
-    releaseVerifiedAt: '2026-08-05',
+    releaseVerifiedAt: '2026-08-06',
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
       '/beam-analysis': '2026-08-03',
