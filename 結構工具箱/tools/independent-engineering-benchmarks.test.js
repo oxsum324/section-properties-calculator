@@ -26,6 +26,11 @@ const rcBeamAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-en
 assert.ok(rcBeamAdapterSource.includes("../../../鋼筋混凝土/shared/flexure.js"), 'RC beam adapter exercises the production flexure core');
 assert.ok(rcBeamAdapterSource.includes("../../../鋼筋混凝土/shared/beam-evaluator.js"), 'RC beam adapter exercises the production shear evaluator');
 assert.ok(!rcBeamAdapterSource.includes('golden'), 'RC beam adapter does not replay a golden-case fixture');
+const rcShearWallAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'rc-shear-wall-strength.js'), 'utf8');
+assert.ok(rcShearWallAdapterSource.includes("../../../鋼筋混凝土/shared/pmsection.js"), 'RC shear-wall adapter exercises the production P-M engine');
+assert.ok(rcShearWallAdapterSource.includes("../../../鋼筋混凝土/shared/wall-base.js"), 'RC shear-wall adapter exercises the production wall base assembly');
+assert.ok(rcShearWallAdapterSource.includes("../../../鋼筋混凝土/shared/wall-evaluator.js"), 'RC shear-wall adapter exercises the production load-case evaluator');
+assert.ok(!rcShearWallAdapterSource.includes('golden'), 'RC shear-wall adapter does not replay a golden-case fixture');
 const rcFoundationAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'rc-foundation.js'), 'utf8');
 assert.ok(rcFoundationAdapterSource.includes("require('../../../鋼筋混凝土/shared/foundation-isolated.js')"), 'RC foundation adapter exercises the production isolated-footing strength core');
 assert.ok(!rcFoundationAdapterSource.includes('golden'), 'RC foundation adapter does not replay a golden-case fixture');
@@ -54,10 +59,10 @@ assert.ok(anchorBackupSource.includes("import { evaluateProjectBatch } from './c
 const result = runBenchmarks(catalog);
 assert.equal(result.status, 'ready', JSON.stringify(result.issues));
 assert.equal(result.summary.eligibleFormalRoutes, 31, 'formal route portfolio is explicit');
-assert.equal(result.summary.pilotRequired, 12, 'twelve independent pilot benchmarks required');
-assert.equal(result.summary.pilotVerified, 12, 'twelve independent pilot benchmarks verified');
-assert.equal(result.summary.independentlyVerifiedRoutes, 12, 'twelve distinct routes independently verified');
-assert.equal(result.summary.priorityTargets, 4, 'four P1 routes remain in the independent benchmark roadmap');
+assert.equal(result.summary.pilotRequired, 13, 'thirteen independent pilot benchmarks required');
+assert.equal(result.summary.pilotVerified, 13, 'thirteen independent pilot benchmarks verified');
+assert.equal(result.summary.independentlyVerifiedRoutes, 13, 'thirteen distinct routes independently verified');
+assert.equal(result.summary.priorityTargets, 3, 'three P1 routes remain in the independent benchmark roadmap');
 assert.equal(result.priorityTargets.some(target => target.priority === 'P0'), false, 'no P0 route remains in the independent benchmark roadmap');
 assert.equal(result.summary.issueCount, 0, 'independent pilot has no issues');
 assert.ok(result.records.every(record => record.status === 'verified'), 'every pilot record is independently verified');
@@ -76,6 +81,7 @@ const falsePositiveResult = runBenchmarks(catalog, {
         if (relativePath === 'equipment/equipment-load-core.js') production.pointLoad += 0.25;
         if (relativePath === 'independent-engineering-adapters/rc-column-pm.js') production.designM += 0.5;
         if (relativePath === 'independent-engineering-adapters/rc-beam-strength.js') production.phiVnEffective += 500;
+        if (relativePath === 'independent-engineering-adapters/rc-shear-wall-strength.js') production.sbeHoriz += 5;
         if (relativePath === 'independent-engineering-adapters/rc-foundation.js') production.phiVc2Tf += 0.5;
         if (relativePath === 'independent-engineering-adapters/rc-pile.js') production.rMax += 0.5;
         if (relativePath === 'independent-engineering-adapters/steel-beam-asd.js') production.MnOmegaTfm += 0.5;
@@ -92,6 +98,7 @@ assert.equal(falsePositiveResult.status, 'blocked', 'independent benchmark detec
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:pointLoad')), 'production drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:designM')), 'RC column P-M production drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:phiVnEffective')), 'RC beam seismic shear drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:sbeHoriz')), 'RC shear-wall boundary-element drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:phiVc2Tf')), 'RC foundation punching production drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:rMax')), 'RC pile group-reaction production drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:MnOmegaTfm')), 'steel beam ASD production drift identifies the mismatched quantity');

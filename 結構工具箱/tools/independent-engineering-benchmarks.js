@@ -213,6 +213,163 @@ function rcBeamStrengthOracle(i) {
   };
 }
 
+function rcShearWallStrengthOracle(i) {
+  const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
+  const bool = value => value ? 1 : 0;
+  const rowsBE = Math.max(1, Math.round(i.nBE / 2));
+  const bars = [];
+  const y0 = i.cover;
+  const y1 = Math.max(i.cover + 0.1, i.lbe - i.cover);
+  const AsRowBE = i.nBE * i.aBE / rowsBE;
+  for (let k = 0; k < rowsBE; k += 1) {
+    const y = rowsBE === 1 ? (y0 + y1) / 2 : y0 + (y1 - y0) * k / (rowsBE - 1);
+    bars.push({ y, As:AsRowBE });
+    bars.push({ y:i.lw - y, As:AsRowBE });
+  }
+  const webLength = i.lw - 2 * i.lbe;
+  const webBarRows = webLength > 0 ? Math.max(0, Math.round(webLength / i.sV)) : 0;
+  for (let k = 0; k < webBarRows; k += 1) {
+    bars.push({ y:i.lbe + (k + 0.5) * webLength / webBarRows, As:i.nLayer * i.aV });
+  }
+
+  const AstTotal = bars.reduce((sum, bar) => sum + bar.As, 0);
+  const Ag = i.tw * i.lw;
+  const Acv = Ag;
+  const beta1 = i.fc <= 280 ? 0.85 : (i.fc >= 560 ? 0.65 : 0.85 - 0.05 * (i.fc - 280) / 70);
+  const Po = (0.85 * i.fc * (Ag - AstTotal) + i.fy * AstTotal) / 1000;
+  const phiPnMax = 0.65 * 0.8 * Po;
+  const dt = Math.max(...bars.map(bar => bar.y));
+  const nominal = [{ P:Po, M:0, phi:0.65, c:5 * i.lw }];
+  for (let step = 0; step < i.pmSteps; step += 1) {
+    const cRatio = 5 - (5 - 0.02) * step / (i.pmSteps - 1);
+    const c = cRatio * i.lw;
+    const a = Math.min(beta1 * c, i.lw);
+    const Cc = 0.85 * i.fc * i.tw * a;
+    let Pn = Cc;
+    let Mn = Cc * (i.lw / 2 - a / 2);
+    for (const bar of bars) {
+      const strain = 0.003 * (c - bar.y) / c;
+      const stress = clamp(strain * 2.04e6, -i.fy, i.fy);
+      const force = bar.y < a ? (stress - 0.85 * i.fc) * bar.As : stress * bar.As;
+      Pn += force;
+      Mn += force * (i.lw / 2 - bar.y);
+    }
+    const epsT = 0.003 * (dt - c) / c;
+    const phi = epsT >= 0.005 ? 0.9 : (epsT <= 0.002 ? 0.65 : 0.65 + 0.25 * (epsT - 0.002) / 0.003);
+    nominal.push({ P:Pn / 1000, M:Math.abs(Mn) / 1e5, phi, c });
+  }
+  nominal.push({ P:-AstTotal * i.fy / 1000, M:0, phi:0.9, c:0 });
+  const design = nominal.map(point => ({
+    P:point.P > 0 ? Math.min(point.phi * point.P, phiPnMax) : point.phi * point.P,
+    M:point.phi * point.M
+  }));
+
+  function interpolate(points, P, valueKey, takeAbsolute = false) {
+    let best = null;
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const A = points[index];
+      const B = points[index + 1];
+      if ((A.P - P) * (B.P - P) <= 0 && A.P !== B.P) {
+        const t = (P - A.P) / (B.P - A.P);
+        let value = A[valueKey] + t * (B[valueKey] - A[valueKey]);
+        if (takeAbsolute) value = Math.abs(value);
+        if (best == null || value > best) best = value;
+      }
+    }
+    return best == null ? 0 : best;
+  }
+
+  const cAtPu = interpolate(nominal, i.Pu, 'c');
+  const phiMn = interpolate(design, i.Pu, 'M');
+  const MnNomAtPu = interpolate(nominal, i.Pu, 'M', true);
+  const pmPMin = Math.min(...design.map(point => point.P));
+  const pmPMax = Math.max(...design.map(point => point.P));
+  const pmUtil = Math.abs(i.Mu) / phiMn;
+  const pmOk = i.Pu >= pmPMin - 1e-9 && i.Pu <= pmPMax + 1e-9 && Math.abs(i.Mu) <= phiMn + 1e-9;
+
+  const hwlw = i.hw / i.lw;
+  const alphaC = hwlw <= 1.5 ? 0.8 : (hwlw >= 2 ? 0.53 : 0.8 + (0.53 - 0.8) * (hwlw - 1.5) / 0.5);
+  const rhol = i.nLayer * i.aV / (i.tw * i.sV);
+  const rhot = i.nLayer * i.aH / (i.tw * i.sH);
+  const Vn = Acv * (alphaC * i.lambda * Math.sqrt(i.fc) + rhot * i.fyt);
+  const VnMaxSingle = 2.65 * Math.sqrt(i.fc) * Acv;
+  const Ve = i.shearDemandMode === 'amplified'
+    ? Math.abs(i.Vuns) + Math.abs(i.omegaV) * Math.abs(i.omegaW) * Math.abs(i.VuEh)
+    : Math.abs(i.Vu);
+  const Vmn = Ve > 0 && Math.abs(i.Mu) > 0 && MnNomAtPu > 0 ? Ve * 1000 * MnNomAtPu / Math.abs(i.Mu) : null;
+  const flexureControlled = Vmn != null && Vn < Vmn;
+  const phiShear = flexureControlled ? 0.6 : 0.75;
+  const phiVn = phiShear * Vn;
+  const shearUtil = Ve * 1000 / phiVn;
+  const shearOk = phiVn >= Ve * 1000 - 1e-9;
+  const vnMaxOk = Ve * 1000 <= phiShear * VnMaxSingle + 1e-9;
+  const needTwoLayer = Ve * 1000 > 0.5 * phiShear * alphaC * i.lambda * Math.sqrt(i.fc) * Acv || hwlw >= 2;
+  const twoLayerOk = !needTwoLayer || i.nLayer >= 2;
+
+  const S = i.tw * i.lw * i.lw / 6;
+  const sigmaFiber = i.Pu * 1000 / Ag + Math.abs(i.Mu) * 1e5 / S;
+  const cLimit = i.lw / (600 * 1.5 * Math.max(0.005, i.duhw));
+  const sigmaTrig = sigmaFiber > 0.2 * i.fc;
+  const cTrig = cAtPu >= cLimit;
+  const sbeReq = i.seismic && (sigmaTrig || cTrig);
+  const sbeHoriz = Math.max(cAtPu - 0.1 * i.lw, cAtPu / 2);
+  const sbeVert = Ve > 0 ? Math.max(i.lw, Math.abs(i.Mu) * 1e5 / (4 * Ve * 1000)) : i.lw;
+  const sigmaStop = 0.15 * i.fc;
+  const sbeExtX = sigmaFiber > sigmaStop ? i.lw * (1 - sigmaStop / sigmaFiber) : 0;
+  const bWidthMin = i.hu / 16;
+  const hxLimit = Math.min(35, 2 * i.bComp / 3);
+  const sbeLengthOk = !sbeReq || i.lbe >= sbeHoriz - 1e-9;
+  const sbeBWidthOk = !sbeReq || i.bComp >= bWidthMin - 1e-9;
+  const b30Required = sbeReq && cAtPu / i.lw >= 0.375;
+  const sbeCratioBOk = !sbeReq || !b30Required || i.bComp >= 30 - 1e-9;
+  const sbeHxOk = !sbeReq || i.hx <= hxLimit + 1e-9;
+  const so = Math.min(15, Math.max(10, 10 + (35 - i.hx) / 3));
+  const sbeSpLimit = Math.min(Math.min(i.tw, i.lbe) / 3, 6 * i.dbBE, so);
+  const AshReq = 0.09 * i.fc / i.fyt * i.sTie * (i.tw - 2 * i.cover);
+  const AshProv = i.nLegTie * i.aTie;
+  const sbeSpOk = !sbeReq || i.sTie <= sbeSpLimit + 1e-9;
+  const sbeAshOk = !sbeReq || AshProv >= AshReq - 1e-9;
+  const sbeDesignOk = !sbeReq || (sbeLengthOk && sbeBWidthOk && sbeCratioBOk && sbeHxOk && sbeSpOk && sbeAshOk);
+
+  const shearFricLimit = 1.1 * i.lambda * Math.sqrt(i.fc) * Acv;
+  const shearFricActive = i.hasJoint && Ve * 1000 > shearFricLimit;
+  const surfaceMu = { monolithic:1.4, roughened:1, not_roughened:0.6, steel:0.7 }[i.jointSurface] * i.lambda;
+  const shearFricAvfProv = 2 * i.nBE * i.aBE + webBarRows * i.nLayer * i.aV;
+  const shearFricAvfReq = shearFricActive ? Ve * 1000 / (phiShear * surfaceMu * Math.min(i.fy, 4200)) : 0;
+  const shearFricVnBySteel = surfaceMu * shearFricAvfProv * Math.min(i.fy, 4200);
+  const roughSurface = i.jointSurface === 'monolithic' || i.jointSurface === 'roughened';
+  const shearFricVnMax = roughSurface
+    ? Math.min(0.2 * i.fc * Acv, (33.6 + 0.08 * i.fc) * Acv, 112 * Acv)
+    : Math.min(0.2 * i.fc * Acv, 56 * Acv);
+  const shearFricVn = Math.min(shearFricVnBySteel, shearFricVnMax);
+  const shearFricPhiVn = phiShear * shearFricVn;
+  const shearFricOk = !i.hasJoint || !shearFricActive || (shearFricPhiVn >= Ve * 1000 - 1e-9 && Ve * 1000 <= phiShear * shearFricVnMax + 1e-9);
+
+  const spVmax = Math.min(3 * i.tw, 45, i.lw / 3);
+  const spHmax = Math.min(3 * i.tw, 45, i.lw / 5);
+  const rholOk = rhol >= 0.0025 - 1e-9;
+  const rhotOk = rhot >= 0.0025 - 1e-9;
+  const spVOk = i.sV <= spVmax + 1e-9;
+  const spHOk = i.sH <= spHmax + 1e-9;
+  const isPier = hwlw >= 2 && i.lw / i.tw <= 2.5;
+  const geomModelOk = i.cover * 2 < i.tw && i.lbe > 2 * i.cover && 2 * i.lbe < i.lw;
+  const overallOk = geomModelOk && !isPier && pmOk && shearOk && vnMaxOk && twoLayerOk && sbeDesignOk && shearFricOk && rholOk && rhotOk && spVOk && spHOk;
+
+  return {
+    barRows:bars.length, webBarRows, AstTotal, rhol, rhot, Po, phiPnMax, pmPMin, pmPMax,
+    cAtPu, phiMn, pmUtil, pmOk:bool(pmOk), alphaC, Vn, VnMaxSingle, Ve,
+    MnNomAtPu, Vmn, phiShear, phiVn, shearUtil, flexureControlled:bool(flexureControlled),
+    shearOk:bool(shearOk), vnMaxOk:bool(vnMaxOk), needTwoLayer:bool(needTwoLayer), twoLayerOk:bool(twoLayerOk),
+    sigmaFiber, cLimit, sigmaTrig:bool(sigmaTrig), cTrig:bool(cTrig), sbeReq:bool(sbeReq),
+    sbeHoriz, sbeVert, sbeExtX, bWidthMin, hxLimit, sbeLengthOk:bool(sbeLengthOk),
+    sbeBWidthOk:bool(sbeBWidthOk), sbeHxOk:bool(sbeHxOk), sbeSpLimit, AshReq, AshProv,
+    sbeSpOk:bool(sbeSpOk), sbeAshOk:bool(sbeAshOk), sbeDesignOk:bool(sbeDesignOk),
+    shearFricLimit, shearFricActive:bool(shearFricActive), shearFricAvfProv, shearFricAvfReq,
+    shearFricVn, shearFricPhiVn, shearFricOk:bool(shearFricOk), rholOk:bool(rholOk),
+    rhotOk:bool(rhotOk), spVOk:bool(spVOk), spHOk:bool(spHOk), overallOk:bool(overallOk)
+  };
+}
+
 function rcFoundationOracle(i) {
   const dX = i.hf - i.cover - i.dbX;
   const dY = i.hf - i.cover - i.dbY;
@@ -876,6 +1033,7 @@ const ORACLES = {
   'foundation-external-load-only': foundationOracle,
   'rc-column-balanced-nearby-pm-point': rcColumnPmOracle,
   'rc-beam-seismic-strength': rcBeamStrengthOracle,
+  'rc-shear-wall-seismic-strength': rcShearWallStrengthOracle,
   'rc-foundation-isolated-strength': rcFoundationOracle,
   'rc-pile-clay-group-cap': rcPileOracle,
   'steel-beam-asd-inelastic-ltb': steelBeamAsdOracle,
