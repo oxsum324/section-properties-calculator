@@ -2806,9 +2806,9 @@ function checkMatrix(payload, markdown, options = {}) {
     assert.ok(Number.isInteger(homepageReportReadinessStatus.independentBenchmarkPilotVerified), 'preserved homepage report readiness independent benchmark pilot verified integer');
     assert.ok(homepageReportReadinessStatus.independentBenchmarkPilotVerified <= homepageReportReadinessStatus.independentBenchmarkPilotRequired, 'preserved homepage report readiness independent benchmark pilot remains coherent');
   } else {
-    assert.equal(homepageReportReadinessStatus.independentBenchmarkVerified, 6, 'homepage report readiness independent benchmark verified routes');
-    assert.equal(homepageReportReadinessStatus.independentBenchmarkPilotRequired, 6, 'homepage report readiness independent benchmark pilot required');
-    assert.equal(homepageReportReadinessStatus.independentBenchmarkPilotVerified, 6, 'homepage report readiness independent benchmark pilot verified');
+    assert.equal(homepageReportReadinessStatus.independentBenchmarkVerified, 7, 'homepage report readiness independent benchmark verified routes');
+    assert.equal(homepageReportReadinessStatus.independentBenchmarkPilotRequired, 7, 'homepage report readiness independent benchmark pilot required');
+    assert.equal(homepageReportReadinessStatus.independentBenchmarkPilotVerified, 7, 'homepage report readiness independent benchmark pilot verified');
   }
   assert.equal(homepageReportReadinessStatus.independentBenchmarkIssueCount, 0, 'homepage report readiness independent benchmark issues empty');
   assert.equal(homepageReportReadinessStatus.independentBenchmarkPass, true, 'homepage report readiness independent benchmark pilot passes');
