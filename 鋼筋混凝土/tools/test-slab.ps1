@@ -1,10 +1,17 @@
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$unitTestFile = Join-Path (Split-Path -Parent $root) 'shared\slab-evaluator.test.js'
 $testFile = Join-Path $root 'slab-regression.test.js'
 $visualTestFile = Join-Path $root 'slab-report-visual.test.js'
 $playwrightDepsScript = Join-Path $root 'ensure-playwright-deps.ps1'
 . $playwrightDepsScript -Root $root -PreferredDirName '.slab-testdeps'
+
+Write-Host "`n== Slab evaluator unit tests ==" -ForegroundColor Cyan
+node $unitTestFile
+if ($LASTEXITCODE -ne 0) {
+  throw "slab evaluator unit tests failed with exit code $LASTEXITCODE"
+}
 
 Write-Host "`n== Slab regression tests ==" -ForegroundColor Cyan
 node $testFile

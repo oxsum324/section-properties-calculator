@@ -1239,6 +1239,74 @@ function anchorCastInOracle(i) {
   };
 }
 
+function rcSlabStrengthOracle(input) {
+  const coefficients = support => ({
+    simple:{ pos:8, neg:Infinity }, oneEnd:{ pos:14, neg:9 },
+    bothEnd:{ pos:16, neg:11 }, cantilever:{ pos:Infinity, neg:2 },
+  })[support];
+  const phiFlexure = (epsT, fy) => {
+    const epsY = fy / 2040000;
+    if (epsT >= 0.005) return 0.9;
+    if (epsT <= epsY) return 0.65;
+    return 0.65 + 0.25 * (epsT - epsY) / (0.005 - epsY);
+  };
+  const calculateCase = i => {
+    const b = 100;
+    const netSpanCm = Math.max(i.Lx - i.supW, 0);
+    const thicknessFactor = ({ simple:20, oneEnd:24, bothEnd:28, cantilever:10 })[i.supportX];
+    const hmin = netSpanCm / thicknessFactor * (0.4 + i.fy / 7000);
+    const spanM = i.Lx / 100;
+    const cf = coefficients(i.supportX);
+    const positiveMoment = Number.isFinite(cf.pos) ? i.wu * spanM ** 2 / cf.pos : 0;
+    const negativeMoment = Number.isFinite(cf.neg) ? i.wu * spanM ** 2 / cf.neg : 0;
+    const shearDemand = i.wu * spanM / 2;
+    const temperatureRatio = i.fyT <= 2800 ? 0.002
+      : i.fyT <= 4200 ? 0.0018
+        : Math.max(0.0018 * 4200 / i.fyT, 0.0014);
+    const AsMinimum = temperatureRatio * b * i.h;
+    const effectiveDepth = i.h - i.cover - i.barDiameter / 2;
+    const AsProvided = i.barArea * 100 / i.barSpacing;
+    const capacity = Mu => {
+      const nominalDemand = Mu * 100000 / 0.9;
+      const quadraticA = i.fy ** 2 / (1.7 * i.fc * b);
+      const quadraticB = -i.fy * effectiveDepth;
+      const discriminant = quadraticB ** 2 - 4 * quadraticA * nominalDemand;
+      const flexuralAs = Mu > 0 ? (-quadraticB - Math.sqrt(discriminant)) / (2 * quadraticA) : 0;
+      const AsRequired = Math.max(flexuralAs, AsMinimum);
+      const a = AsProvided * i.fy / (0.85 * i.fc * b);
+      const beta1 = i.fc <= 280 ? 0.85 : Math.max(0.65, 0.85 - 0.05 * (i.fc - 280) / 70);
+      const c = a / beta1;
+      const epsT = 0.003 * (effectiveDepth - c) / c;
+      const phi = phiFlexure(epsT, i.fy);
+      const phiMn = phi * AsProvided * i.fy * (effectiveDepth - a / 2) / 100000;
+      return { AsRequired, phiMn, ratio:Mu / phiMn, pass:AsProvided >= AsRequired && phiMn >= Mu ? 1 : 0 };
+    };
+    const positive = capacity(positiveMoment);
+    const negative = capacity(negativeMoment);
+    const rhoW = AsProvided / (b * effectiveDepth);
+    const sizeEffect = Math.min(1, Math.sqrt(2 / (1 + effectiveDepth / 25)));
+    const vc = 2.12 * sizeEffect * Math.cbrt(rhoW) * Math.sqrt(i.fc);
+    const Vc = vc * b * effectiveDepth / 1000;
+    const phiVc = 0.75 * Vc;
+    const shearRatio = shearDemand / phiVc;
+    const thicknessPass = i.h >= hmin ? 1 : 0;
+    const shearPass = phiVc >= shearDemand ? 1 : 0;
+    return {
+      hmin, thicknessPass, spanM,
+      positiveCoefficient:cf.pos, negativeCoefficient:cf.neg,
+      positiveMoment, negativeMoment, shearDemand,
+      temperatureRatio, AsMinimum, effectiveDepth, AsProvided,
+      positiveAsRequired:positive.AsRequired, negativeAsRequired:negative.AsRequired,
+      positivePhiMn:positive.phiMn, negativePhiMn:negative.phiMn,
+      positiveRatio:positive.ratio, negativeRatio:negative.ratio,
+      positivePass:positive.pass, negativePass:negative.pass,
+      rhoW, sizeEffect, vc, Vc, phiVc, shearRatio, shearPass,
+      overallPass:thicknessPass && positive.pass && negative.pass && shearPass ? 1 : 0,
+    };
+  };
+  return Object.fromEntries(input.cases.map(item => [item.id, calculateCase(item)]));
+}
+
 const ORACLES = {
   'equipment-basic-load-path': equipmentOracle,
   'earth-rankine-dry-active': earthOracle,
@@ -1251,6 +1319,7 @@ const ORACLES = {
   'steel-beam-asd-inelastic-ltb': steelBeamAsdOracle,
   'steel-column-asd-weak-axis-interaction': steelColumnAsdOracle,
   'steel-plate-connection-strength': steelPlateConnectionOracle,
+  'rc-slab-one-way-strength': rcSlabStrengthOracle,
   'wind-force-rigid-three-story-mwfrs': windForceMwfrsOracle,
   'wind-object-solid-table-2-10': windObjectSolidTable210Oracle,
   'seismic-force-eight-story-static': seismicForceStaticOracle,

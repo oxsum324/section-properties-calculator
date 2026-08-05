@@ -1138,13 +1138,110 @@
         { "path": "overallPass", "absTolerance": 0 },
         { "path": "formalPass", "absTolerance": 0 }
       ]
+    },
+    {
+      "id": "rc-slab-one-way-strength",
+      "route": "/rc-slab",
+      "title": "一向 RC 板內跨／端跨板厚、彎矩、配筋與剪力",
+      "productionModule": "independent-engineering-adapters/rc-slab-strength.js",
+      "oracle": "rc-slab-one-way-strength",
+      "referenceType": "closed-form-identity",
+      "referenceBasis": "台灣《建築物混凝土結構設計規範》112 年版第 6.5、9.3.1.1、22.5 與 24.4.3.2；以兩端連續內跨及一端連續端跨兩組一向板封閉算例，獨立推導板厚下限、正負彎矩、溫度收縮筋下限、單筋矩形斷面配筋與 φMn、以及無剪力筋單向剪力 φVc。雙向板簡化條帶法與無梁板衝剪不納入本正式獨立基準。",
+      "input": {
+        "cases": [
+          {
+            "id": "continuous",
+            "Lx": 300,
+            "Ly": 650,
+            "h": 12,
+            "cover": 2,
+            "supW": 25,
+            "fc": 280,
+            "fy": 4200,
+            "fyT": 4200,
+            "wu": 1.15,
+            "supportX": "bothEnd",
+            "barDiameter": 1.27,
+            "barArea": 1.267,
+            "barSpacing": 20
+          },
+          {
+            "id": "endSpan",
+            "Lx": 420,
+            "Ly": 950,
+            "h": 18,
+            "cover": 2.5,
+            "supW": 30,
+            "fc": 350,
+            "fy": 4200,
+            "fyT": 5000,
+            "wu": 1.6,
+            "supportX": "oneEnd",
+            "barDiameter": 1.59,
+            "barArea": 1.986,
+            "barSpacing": 15
+          }
+        ]
+      },
+      "assertions": [
+        { "path": "continuous.hmin", "absTolerance": 1e-12 },
+        { "path": "continuous.thicknessPass", "absTolerance": 0 },
+        { "path": "continuous.spanM", "absTolerance": 1e-12 },
+        { "path": "continuous.positiveCoefficient", "absTolerance": 0 },
+        { "path": "continuous.negativeCoefficient", "absTolerance": 0 },
+        { "path": "continuous.positiveMoment", "absTolerance": 1e-12 },
+        { "path": "continuous.negativeMoment", "absTolerance": 1e-12 },
+        { "path": "continuous.shearDemand", "absTolerance": 1e-12 },
+        { "path": "continuous.temperatureRatio", "absTolerance": 1e-12 },
+        { "path": "continuous.AsMinimum", "absTolerance": 1e-12 },
+        { "path": "continuous.effectiveDepth", "absTolerance": 1e-12 },
+        { "path": "continuous.AsProvided", "absTolerance": 1e-12 },
+        { "path": "continuous.positiveAsRequired", "absTolerance": 2e-6 },
+        { "path": "continuous.negativeAsRequired", "absTolerance": 2e-6 },
+        { "path": "continuous.positivePhiMn", "absTolerance": 1e-10 },
+        { "path": "continuous.negativePhiMn", "absTolerance": 1e-10 },
+        { "path": "continuous.positiveRatio", "absTolerance": 1e-10 },
+        { "path": "continuous.negativeRatio", "absTolerance": 1e-10 },
+        { "path": "continuous.positivePass", "absTolerance": 0 },
+        { "path": "continuous.negativePass", "absTolerance": 0 },
+        { "path": "continuous.rhoW", "absTolerance": 1e-12 },
+        { "path": "continuous.sizeEffect", "absTolerance": 1e-12 },
+        { "path": "continuous.vc", "absTolerance": 1e-12 },
+        { "path": "continuous.Vc", "absTolerance": 1e-12 },
+        { "path": "continuous.phiVc", "absTolerance": 1e-12 },
+        { "path": "continuous.shearRatio", "absTolerance": 1e-12 },
+        { "path": "continuous.shearPass", "absTolerance": 0 },
+        { "path": "continuous.overallPass", "absTolerance": 0 },
+        { "path": "endSpan.hmin", "absTolerance": 1e-12 },
+        { "path": "endSpan.thicknessPass", "absTolerance": 0 },
+        { "path": "endSpan.spanM", "absTolerance": 1e-12 },
+        { "path": "endSpan.positiveCoefficient", "absTolerance": 0 },
+        { "path": "endSpan.negativeCoefficient", "absTolerance": 0 },
+        { "path": "endSpan.positiveMoment", "absTolerance": 1e-12 },
+        { "path": "endSpan.negativeMoment", "absTolerance": 1e-12 },
+        { "path": "endSpan.shearDemand", "absTolerance": 1e-12 },
+        { "path": "endSpan.temperatureRatio", "absTolerance": 1e-12 },
+        { "path": "endSpan.AsMinimum", "absTolerance": 1e-12 },
+        { "path": "endSpan.effectiveDepth", "absTolerance": 1e-12 },
+        { "path": "endSpan.AsProvided", "absTolerance": 1e-12 },
+        { "path": "endSpan.positiveAsRequired", "absTolerance": 2e-6 },
+        { "path": "endSpan.negativeAsRequired", "absTolerance": 2e-6 },
+        { "path": "endSpan.positivePhiMn", "absTolerance": 1e-10 },
+        { "path": "endSpan.negativePhiMn", "absTolerance": 1e-10 },
+        { "path": "endSpan.positiveRatio", "absTolerance": 1e-10 },
+        { "path": "endSpan.negativeRatio", "absTolerance": 1e-10 },
+        { "path": "endSpan.positivePass", "absTolerance": 0 },
+        { "path": "endSpan.negativePass", "absTolerance": 0 },
+        { "path": "endSpan.rhoW", "absTolerance": 1e-12 },
+        { "path": "endSpan.sizeEffect", "absTolerance": 1e-12 },
+        { "path": "endSpan.vc", "absTolerance": 1e-12 },
+        { "path": "endSpan.Vc", "absTolerance": 1e-12 },
+        { "path": "endSpan.phiVc", "absTolerance": 1e-12 },
+        { "path": "endSpan.shearRatio", "absTolerance": 1e-12 },
+        { "path": "endSpan.shearPass", "absTolerance": 0 },
+        { "path": "endSpan.overallPass", "absTolerance": 0 }
+      ]
     }
   ],
-  "priorityTargets": [
-    {
-      "route": "/rc-slab",
-      "priority": "P1",
-      "evidenceNeeded": "建立板帶彎矩、配筋、單向剪力與撓度控制的獨立封閉算例。"
-    }
-  ]
+  "priorityTargets": []
 }

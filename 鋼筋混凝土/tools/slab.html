@@ -608,6 +608,7 @@
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
+<script src="../shared/slab-evaluator.js?v=1"></script>
 <script src="../shared/report.js?v=9"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
@@ -1288,11 +1289,7 @@
   // ─── 規範 6.5 連續板係數 ────────────────────────
   // 回傳分母 x：M = wu·ℓn²/x
   function getCoefficients(support) {
-    if (support === 'simple')     return { pos: 8,    neg: Infinity };
-    if (support === 'oneEnd')     return { pos: 14,   neg: 9 };
-    if (support === 'bothEnd')    return { pos: 16,   neg: 11 };
-    if (support === 'cantilever') return { pos: Infinity, neg: 2 };
-    return { pos: 16, neg: 11 };
+    return SlabEvaluator.getCoefficients(support);
   }
   function getSupportName(support) {
     return ({ simple:'簡支代表跨', oneEnd:'端跨 (一端外端)', bothEnd:'內跨 (兩端連續)', cantilever:'懸臂' })[support] || support;
@@ -1305,16 +1302,10 @@
     return '代表跨模型。';
   }
   function sizeEffectLambda(dCm) {
-    if (!isFinite(dCm) || dCm <= 0) return 1;
-    return Math.min(1, Math.sqrt(2 / (1 + dCm / 25)));
+    return SlabEvaluator.sizeEffectLambda(dCm);
   }
   function calcOneWayVcNoShearReinf({ fc, lambda, b, d, rhoW }) {
-    const lambdaS = sizeEffectLambda(d);
-    const rho = Math.max(0, rhoW || 0);
-    const vc = rho > 0 ? 2.12 * lambdaS * lambda * Math.cbrt(rho) * Math.sqrt(fc) : 0;
-    const Vc = vc * b * d / 1000;
-    const phiVc = PHI.shear * Vc;
-    return { lambdaS, rhoW: rho, vc, Vc, phiVc, phiVn: phiVc, Vs: 0 };
+    return SlabEvaluator.oneWayShearNoReinf({ fc, lambda, b, d, rhoW, phi: PHI.shear });
   }
   function calcPunchCriticalGeometry({ c1, c2, d, colPos }) {
     if (!(c1 > 0) || !(c2 > 0) || !(d > 0)) {
@@ -1591,63 +1582,13 @@
     const supW = num('supW') || 0;                              // 支承寬 c (cm)
     const lnX_cm = Math.max(Lx - supW, 0);                      // 短向淨跨 (cm)
     const lnY_cm = Math.max(Ly - supW, 0);                      // 長向淨跨 (cm)
-    const fyFactor1Way = (0.4 + fy / 7000);                     // 一向板修正
-    const fyFactor2Way = (0.8 + fy / 14000);                    // 雙向板修正
-    let hmin, hminFormula = '', hminRef = '';
-
-    if (isOneWay) {
-      // 規範 9.3.1.1 — 一向實心板 (無內梁)
-      const factor = ({ simple:20, oneEnd:24, bothEnd:28, cantilever:10 })[supX];
-      const supName = getSupportName(supX);
-      hmin = (lnX_cm / factor) * fyFactor1Way;
-      hminFormula = `ℓn/${factor}·(0.4+fy/7000) = ${lnX_cm.toFixed(1)}/${factor}×${fyFactor1Way.toFixed(3)}`;
-      hminRef = `規範 9.3.1.1 — 一向板 (${supName})`;
-    } else if (stype === 'two') {
-      // 規範 8.3.1.2 — 有梁兩向板 (依 α_fm)
-      const alphaFm = num('alphaFm');
-      const lnLong = Math.max(lnX_cm, lnY_cm);                   // 長向淨跨
-      const lnShort = Math.min(lnX_cm, lnY_cm);
-      const beta = (lnShort > 0) ? (lnLong / lnShort) : 1;       // 長/短淨跨比
-      if (alphaFm <= 0.2) {
-        // → 套用 8.3.1.1 (視為無梁)
-        hmin = (lnLong / 30) * fyFactor1Way;                      // 與外版無邊梁同
-        hmin = Math.max(hmin, 12.5);
-        hminFormula = `α_fm=${alphaFm.toFixed(2)} ≤ 0.2 → 套用 8.3.1.1; max(ℓn/30·(0.4+fy/7000), 12.5)\n  = max(${lnLong.toFixed(1)}/30×${fyFactor1Way.toFixed(3)}, 12.5)`;
-        hminRef = `規範 8.3.1.2(a) → 8.3.1.1 (α_fm ≤ 0.2)`;
-      } else if (alphaFm <= 2.0) {
-        const denom = 36 + 5 * beta * (alphaFm - 0.2);
-        hmin = (lnLong * fyFactor2Way) / denom;
-        hmin = Math.max(hmin, 12.5);
-        hminFormula = `h = ℓn(0.8+fy/14000) / [36+5β(α_fm−0.2)]\n  = ${lnLong.toFixed(1)}×${fyFactor2Way.toFixed(3)} / [36+5×${beta.toFixed(2)}×${(alphaFm-0.2).toFixed(2)}]\n  = ${lnLong.toFixed(1)}×${fyFactor2Way.toFixed(3)} / ${denom.toFixed(2)}; ≥ 12.5`;
-        hminRef = `規範 8.3.1.2(b) (0.2 < α_fm ≤ 2.0)`;
-      } else {
-        const denom = 36 + 9 * beta;
-        hmin = (lnLong * fyFactor2Way) / denom;
-        hmin = Math.max(hmin, 9);
-        hminFormula = `h = ℓn(0.8+fy/14000) / [36+9β]\n  = ${lnLong.toFixed(1)}×${fyFactor2Way.toFixed(3)} / [36+9×${beta.toFixed(2)}]\n  = ${lnLong.toFixed(1)}×${fyFactor2Way.toFixed(3)} / ${denom.toFixed(2)}; ≥ 9`;
-        hminRef = `規範 8.3.1.2(c) (α_fm > 2.0)`;
-      }
-    } else {
-      // 規範 8.3.1.1 — 無梁版 (flat / flatDrop)
-      const panelPos = $('panelPos').value;
-      const hasDrop = (stype === 'flatDrop');
-      const lnLong = Math.max(lnX_cm, lnY_cm);                   // 長向淨跨
-      // 規範 8.3.1.1 表 — 對 fy=4200，依柱頭板與位置
-      // 無柱頭板:  外版無邊梁 ℓn/30, 外版有邊梁 ℓn/33, 內版 ℓn/33
-      // 有柱頭板:  外版無邊梁 ℓn/33, 外版有邊梁 ℓn/36, 內版 ℓn/36
-      let factor, posName;
-      if (!hasDrop) {
-        factor = (panelPos === 'extNoBeam') ? 30 : 33;
-      } else {
-        factor = (panelPos === 'extNoBeam') ? 33 : 36;
-      }
-      posName = ({ interior:'內版', extWithBeam:'外版(有邊梁)', extNoBeam:'外版(無邊梁)' })[panelPos];
-      const hMinAbs = hasDrop ? 10 : 12.5;
-      hmin = (lnLong / factor) * fyFactor1Way;
-      hmin = Math.max(hmin, hMinAbs);
-      hminFormula = `${posName}${hasDrop?'·有柱頭板':'·無柱頭板'}: max(ℓn/${factor}·(0.4+fy/7000), ${hMinAbs})\n  = max(${lnLong.toFixed(1)}/${factor}×${fyFactor1Way.toFixed(3)}, ${hMinAbs})`;
-      hminRef = `規範 8.3.1.1 (${posName}${hasDrop?'，有柱頭板':'，無柱頭板'})`;
-    }
+    const hminResult = SlabEvaluator.minimumThickness({
+      stype, Lx, Ly, fy, supW, supportX: supX,
+      alphaFm: num('alphaFm'), panelPos: $('panelPos').value,
+    });
+    const hmin = hminResult.hmin;
+    const hminFormula = hminResult.formula;
+    const hminRef = hminResult.reference;
     // 暴露給計算書使用
     window.__slab_hmin = { hmin, hminFormula, hminRef };
     setResult('r-hmin', hmin, 'cm', 1);
@@ -1686,21 +1627,22 @@
 
     // — C. 內力分析
     const moments = [];
-    const wuKgM2 = wu * 1000;   // kgf/m²
 
     // 各 support 類型的代號 → 中文 (用於說明)
     const SUP_NAME = { simple:'簡支代表跨', oneEnd:'端跨 (一端外端)', bothEnd:'內跨 (兩端連續)', cantilever:'懸臂' };
+    const stripAnalysis = SlabEvaluator.analyzeStripMoments({
+      stype: isOneWay ? 'one' : 'two', Lx, Ly, wu, supportX: supX, supportY: supY,
+    });
     let methodRef = '';
     if (isOneWay) {
       // 單向板：以短向 (Lx) 為主向；採規範 6.5.2 連續板係數法
       methodRef = `規範 6.5.2 連續板/梁係數法 (一向板)`;
-      const lnX = Lx / 100;
+      const lnX = stripAnalysis.lnX;
       const cf = getCoefficients(supX);
-      const VuLine = wuKgM2 * lnX / 2 / 1000;
+      const VuLine = stripAnalysis.VuX;
       const wuT = wu;   // tf/m²
-      const lnSqr = lnX * lnX;
       if (isFinite(cf.pos)) {
-        const Mpos = wuKgM2 * lnSqr / cf.pos / 1000;
+        const Mpos = stripAnalysis.Xpos;
         moments.push({
           dir:'X', loc:'+M (中跨底)', coef:`wu·ℓn²/${cf.pos}`, M: Mpos, V: 0,
           ref: `${methodRef} — 支承=${SUP_NAME[supX]} → +M 係數 1/${cf.pos}`,
@@ -1708,7 +1650,7 @@
         });
       }
       if (isFinite(cf.neg)) {
-        const Mneg = wuKgM2 * lnSqr / cf.neg / 1000;
+        const Mneg = stripAnalysis.Xneg;
         moments.push({
           dir:'X', loc:'−M (連續端頂)', coef:`wu·ℓn²/${cf.neg}`, M: Mneg, V: 0,
           ref: `${methodRef} — 支承=${SUP_NAME[supX]} → −M 係數 1/${cf.neg}`,
@@ -1729,14 +1671,12 @@
       // ─ 各方向再依規範 6.5 之 +M、−M、V 係數計算 per-meter 內力
       // 物理意義：短向勁度大 (跨距小)，分配到較大載重，故 Mx > My，符合雙向板實際行為
       methodRef = `簡化二向條帶法 (Rankine-Grashof 載重分配 + 規範 6.5 連續板係數)`;
-      const lnX = Lx / 100, lnY = Ly / 100;
-      const m_ratio = lnX / lnY;                      // ≤ 1
-      const m4 = Math.pow(m_ratio, 4);
-      const alphaX = 1 / (1 + m4);                    // 短向載重分配
-      const alphaY = m4 / (1 + m4);                   // 長向載重分配
+      const lnX = stripAnalysis.lnX, lnY = stripAnalysis.lnY;
+      const m_ratio = stripAnalysis.mRatio;            // ≤ 1
+      const alphaX = stripAnalysis.alphaX;             // 短向載重分配
+      const alphaY = stripAnalysis.alphaY;             // 長向載重分配
       const wuX = wu * alphaX;                        // 短向 strip 載重
       const wuY = wu * alphaY;                        // 長向 strip 載重
-      const wuXkgm2 = wuX * 1000, wuYkgm2 = wuY * 1000;
       const cfX = getCoefficients(supX);
       const cfY = getCoefficients(supY);
       const wuT = wu;
@@ -1753,7 +1693,7 @@
       // 共用步驟產生器
       const buildStep = (alpha, dlPart, llPart, ln, cfDiv, label, dirAxis) => {
         const wuStrip = wu * alpha;
-        const Mu = wuStrip * ln * ln / cfDiv;
+        const Mu = SlabEvaluator.stripMoment({ wu, alpha, spanM: ln, coefficient: cfDiv });
         let s = `wu(${dirAxis}) = α·wu = ${alpha.toFixed(3)}×${wu.toFixed(3)} = ${wuStrip.toFixed(3)} tf/m²`
               + `\n  ${label} = wu(${dirAxis})·ℓn²/${cfDiv} = ${wuStrip.toFixed(3)}×${ln.toFixed(2)}²/${cfDiv} = ${Mu.toFixed(3)} tf·m/m`;
         if (rigorousDL && isFinite(dlPart) && isFinite(llPart)) {
@@ -1803,8 +1743,8 @@
         });
       }
       // 剪力：每方向以該向 strip 自身分配後之 wu 計算
-      const VuX = wuX * lnX / 2;       // tf/m
-      const VuY = wuY * lnY / 2;
+      const VuX = stripAnalysis.VuX;       // tf/m
+      const VuY = stripAnalysis.VuY;
       moments.push({
         dir:'X (短)', loc:'剪力 V', coef:'α_x·wu·ℓnx/2', M:0, V:VuX,
         ref:'支承反力之半 (短向 strip)',
@@ -1837,11 +1777,13 @@
     const beta1 = calcBeta1(fc);
     // 溫度筋比例 (規範 24.4.3.2)
     const fyT = num('fyT') || 2800;
-    let rhoT, rhoTFormula;
-    if (fyT <= 2800)      { rhoT = 0.0020; rhoTFormula = '0.0020 (fy ≤ 2800)'; }
-    else if (fyT <= 4200) { rhoT = 0.0018; rhoTFormula = '0.0018 (fy = 4200)'; }
-    else                  { rhoT = Math.max(0.0018 * 4200 / fyT, 0.0014);
-                            rhoTFormula = `max(0.0018·4200/${fyT}, 0.0014) = ${rhoT.toFixed(5)}`; }
+    const temperatureResult = SlabEvaluator.temperatureRatio(fyT);
+    const rhoT = temperatureResult.rho;
+    const rhoTFormula = temperatureResult.branch === 'fy-le-2800'
+      ? '0.0020 (fy ≤ 2800)'
+      : temperatureResult.branch === 'fy-le-4200'
+        ? '0.0018 (fy = 4200)'
+        : `max(0.0018·4200/${fyT}, 0.0014) = ${rhoT.toFixed(5)}`;
     const AsMin_temp = rhoT * b * h;            // cm²/m (溫度筋下限)
     // 主筋最大間距 — 規範 7.7.2.3 (一向板): min(3h, 45)；§ 8.7.2.2 (二向板): min(2h, 45)
     const sMaxFlex = Math.min(isOneWay ? 3*h : 2*h, 45);
@@ -1994,11 +1936,9 @@
 
     // — 5. 剪力 / 衝剪
     const lambda = LAMBDA_NORMAL;
-    const lnX = Lx / 100, lnY = Ly / 100;
-    const _aX = isOneWay ? 1 : (window.__slab_alphaX ?? 1);
-    const _aY = isOneWay ? 0 : (window.__slab_alphaY ?? 0);
-    const VuX = (wuKgM2 * _aX) * lnX / 2 / 1000;
-    const VuY = isOneWay ? NaN : ((wuKgM2 * _aY) * lnY / 2 / 1000);
+    const lnX = stripAnalysis.lnX, lnY = stripAnalysis.lnY;
+    const VuX = stripAnalysis.VuX;
+    const VuY = isOneWay ? NaN : stripAnalysis.VuY;
     function shearLongitudinal(axis, support) {
       const bot = slots.find(s => s.key === `bot${axis}`);
       const top = slots.find(s => s.key === `top${axis}`);

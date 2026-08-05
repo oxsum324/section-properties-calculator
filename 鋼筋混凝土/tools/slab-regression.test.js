@@ -279,6 +279,10 @@ async function main() {
   assert(slabHtml.includes('btnSaveSlabProject'), 'slab.html has save project button', 'local JSON export control exists');
   assert(slabHtml.includes('btnLoadSlabProject'), 'slab.html has load project button', 'local JSON import control exists');
   assert(slabHtml.includes('rc.slab.project.draft'), 'slab.html has browser draft storage key', 'browser-local draft storage exists');
+  assert(slabHtml.includes('../shared/slab-evaluator.js?v=1'), 'slab.html loads shared slab evaluator', 'formal page and independent benchmark share the production slab core');
+  assert(slabHtml.includes('SlabEvaluator.minimumThickness({'), 'slab.html delegates thickness calculation', 'minimum thickness uses production slab core');
+  assert(slabHtml.includes('SlabEvaluator.analyzeStripMoments({'), 'slab.html delegates strip actions', 'strip moments and shear demand use production slab core');
+  assert(slabHtml.includes('SlabEvaluator.temperatureRatio(fyT)'), 'slab.html delegates temperature ratio', 'temperature reinforcement minimum uses production slab core');
   assert(slabHtml.includes('caseJson') && slabHtml.includes('SLAB_PROJECT_EXCLUDED_IDS'), 'slab.html excludes case-tool textareas from project files', 'case-tool scratch text is not project data');
   assert(common.includes('window.RCUI.buildReviewCheckGroup'), 'shared/common.js exposes review check group builder', 'review report rows have shared helper');
   assert(common.includes('window.RCUI.renderAttachmentReadiness'), 'shared/common.js exposes attachment readiness renderer', 'page-only attachment status has shared helper');
