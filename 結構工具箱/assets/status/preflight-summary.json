@@ -1,12 +1,12 @@
 {
   "snapshotVersion": 1,
   "kind": "preflight-summary",
-  "generatedAt": "2026-08-05 19:05:52",
-  "runId": "20260805-184049",
+  "generatedAt": "2026-08-05 19:54:06",
+  "runId": "20260805-192902",
   "quick": false,
   "forcePlatformAudit": true,
   "forceSlowChecks": true,
-  "sourceCommitSha": "1ec469cd83788f2b6816fa88e6eded95eb16345e",
+  "sourceCommitSha": "f7f6098c9fabf68b35043d12b80d78af8273ee04",
   "sourceBranch": "master",
   "sourceDirty": false,
   "pass": true,
@@ -17,12 +17,12 @@
   "platformAuditReused": false,
   "recordsCount": 81,
   "passedCount": 81,
-  "totalSeconds": 1432.2,
+  "totalSeconds": 1433.9,
   "slowestKey": "platform-audit",
-  "slowestSeconds": 745.8,
+  "slowestSeconds": 757,
   "postCheckCount": 3,
   "postChecksPassedCount": 3,
   "postCheckFailures": [],
-  "sourcePath": "output/preflight/history/20260805-184049/preflight-summary.json",
-  "sourceHash": "5f316deaedf3cab9c88ff68d3b602604bf2d9edcdb7b79e6343f6a8094eb1693"
+  "sourcePath": "output/preflight/history/20260805-192902/preflight-summary.json",
+  "sourceHash": "151e013659a2bdd1b14c6776920ef2965a1a802314b1540e6ebfd9a708bee8b0"
 }
