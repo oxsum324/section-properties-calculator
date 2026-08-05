@@ -1,8 +1,8 @@
 {
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-08-05T07:27:51.954Z",
-  "runId": "20260805-135927",
+  "generatedAt": "2026-08-05T07:56:04.303Z",
+  "runId": "20260805-152828",
   "pass": true,
   "failureCount": 0,
   "badge": "頁面專用",
@@ -12,7 +12,7 @@
   "details": [
     "目前覆蓋 過渡工具 / 輔助查詢 入口：鋼梁舊案延續頁、鋼柱舊案延續頁、Kzt 地形係數、特殊修正 / 折減。",
     "正式計算書可讀文字抽檢：17 / 17 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 2 / 2。本項確認輸出可讀文字、頁面診斷明細排除，以及內部審閱／正式附件核可狀態。",
-    "正式放行實際交付物渲染佐證：31 / 31 個首頁正式工具已完成，涵蓋 8 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20260805-135927。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
+    "正式放行實際交付物渲染佐證：31 / 31 個首頁正式工具已完成，涵蓋 8 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20260805-152828。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
     "正式交付檔案完整性：正式 PDF 與渲染證據 60 / 60、RC PDF / PNG 成品 66 / 66、混合格式附件 13 / 13；合計 139 / 139。公開狀態只提供類別、數量與通過狀態，不公開檔名、逐檔雜湊或完整性集合。",
     "正式計算書結果鏈：風力／地震正式工具 14 / 14 已先完成 golden case 精確結果重算，再以同一計算狀態的指紋產生正式附件。公開狀態只顯示完成數，不公開案例輸入、預期數值、案例雜湊或計算指紋。",
     "RC 正式計算書結果鏈：梁、柱、板、牆、剪力牆、基礎、單樁與梁／柱補強共 34 / 34 組瀏覽器回歸案例已完成來源資料重現，再核對 PDF 與正式 HTML 的同一計算指紋。公開狀態只顯示完成數，不公開案例資料、來源快照雜湊或計算指紋。",
@@ -50,7 +50,7 @@
   "reportTextSmokeEvidenceRequired": 2,
   "reportTextSmokeEvidenceComplete": 2,
   "reportTextSmokeEvidenceIssueCount": 0,
-  "reportTextSmokeEvidenceRunId": "20260805-135927",
+  "reportTextSmokeEvidenceRunId": "20260805-152828",
   "reportTextSmokeEvidenceGates": [
     {
       "key": "formal-browser-smoke",
@@ -61,7 +61,7 @@
       "complete": 14,
       "pass": true,
       "reused": false,
-      "seconds": 138.4
+      "seconds": 124.6
     },
     {
       "key": "local-quick-tools-runner",
@@ -72,7 +72,7 @@
       "complete": 3,
       "pass": true,
       "reused": false,
-      "seconds": 59.1
+      "seconds": 59.8
     }
   ],
   "reportTextSmokeEvidenceUnmappedFamilies": [],
@@ -80,7 +80,7 @@
   "renderedDeliveryEvidenceRequired": 31,
   "renderedDeliveryEvidenceComplete": 31,
   "renderedDeliveryEvidenceIssueCount": 0,
-  "renderedDeliveryEvidenceRunId": "20260805-135927",
+  "renderedDeliveryEvidenceRunId": "20260805-152828",
   "renderedDeliveryEvidenceFamilies": [
     {
       "family": "anchor-formal",
@@ -116,8 +116,8 @@
     }
   ],
   "renderedDeliveryEvidenceSummary": "最新正式放行實際交付物渲染：首頁正式工具 31 / 31；補充報告 / 服務成品 2 / 2。",
-  "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260805-135927/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
-  "renderedDeliveryEvidenceSourceHash": "3629c3575ab0d29c203d83fae5dc6049b1e8c6bb3b53a00db2b8a13035d61373",
+  "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260805-152828/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
+  "renderedDeliveryEvidenceSourceHash": "ac2b3bbcc12ec8c1c7fc46e116acd58346c8f0d63b3e95e874391665b83800b7",
   "deliveryFileIntegrityRequired": 139,
   "deliveryFileIntegrityVerified": 139,
   "deliveryFileIntegrityIssueCount": 0,
@@ -348,6 +348,6 @@
     }
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
-  "preflightStatusSourcePath": "output/preflight/history/20260805-135927/preflight-summary.json",
-  "sourceHash": "1fd19ef84e23678e64cc6902bc74e605904a1abec740112e14f59cbfdc5cf8e4"
+  "preflightStatusSourcePath": "output/preflight/history/20260805-152828/preflight-summary.json",
+  "sourceHash": "b93a229e84e742b9b8de0f504c7482e8fd7bb7a72e05ee7240714493cd87e526"
 }
