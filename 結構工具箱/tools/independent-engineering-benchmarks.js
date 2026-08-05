@@ -795,6 +795,106 @@ function windForceMwfrsOracle(i) {
   };
 }
 
+function windObjectSolidTable210Oracle(i) {
+  const terrains = {
+    A:{ alpha:0.32, zg:500, c:0.45, ell:55, eps:0.50, zmin:18 },
+    B:{ alpha:0.25, zg:400, c:0.30, ell:98, eps:0.33, zmin:9 },
+    C:{ alpha:0.15, zg:300, c:0.20, ell:152, eps:0.20, zmin:4.5 }
+  };
+  const groundTable = [[3,1.2],[5,1.3],[8,1.4],[10,1.5],[20,1.75],[30,1.85],[40,2.0]];
+  const aboveTable = [[6,1.2],[10,1.3],[16,1.4],[20,1.5],[40,1.75],[60,1.85],[80,2.0]];
+  const terrain = terrains[i.terrain];
+
+  function lookup(table, ratio) {
+    const used = Math.max(table[0][0], Math.min(ratio, table[table.length - 1][0]));
+    let low = table[0];
+    let high = table[table.length - 1];
+    for (let index = 0; index < table.length - 1; index += 1) {
+      if (used >= table[index][0] && used <= table[index + 1][0]) {
+        low = table[index];
+        high = table[index + 1];
+        break;
+      }
+    }
+    const cf = low[0] === high[0]
+      ? low[1]
+      : low[1] + (high[1] - low[1]) * (used - low[0]) / (high[0] - low[0]);
+    return { used, lowRatio:low[0], highRatio:high[0], lowCf:low[1], highCf:high[1], cf };
+  }
+
+  function calculateCase(item) {
+    const objectHeight = item.objectHeight;
+    const bigM = Math.max(item.sectionMajor, item.sectionMinor);
+    const smallN = Math.min(item.sectionMajor, item.sectionMinor);
+    const windWidth = item.windWidth;
+    const nu = objectHeight / windWidth;
+    const mnRatio = bigM / smallN;
+    const groundLimit = 0.25 * objectHeight;
+    const atGround = item.bottomClearance < groundLimit;
+    const cfNu = lookup(groundTable, nu);
+    const cfMn = lookup(aboveTable, mnRatio);
+    const controlNu = cfNu.cf >= cfMn.cf;
+    const codeCf = Math.max(cfNu.cf, cfMn.cf);
+    const manualAdoption = item.cfSource !== 'code';
+    const baseCf = manualAdoption ? item.adoptedCf : codeCf;
+    const zr = item.bottomClearance + objectHeight / 2;
+    const topElevation = item.bottomClearance + objectHeight;
+    const zPressure = Math.max(zr, terrain.zmin);
+    const Kz = 2.774 * (zPressure / terrain.zg) ** (2 * terrain.alpha);
+    const qz = 0.06 * Kz * i.Kzt * i.I ** 2 * i.V ** 2;
+    const gustHeight = Math.max(zr, 0.1);
+    const gustWidth = Math.max(windWidth, 1);
+    const gustZBar = Math.max(0.6 * gustHeight, terrain.zmin);
+    const gustIz = terrain.c * (10 / gustZBar) ** (1 / 6);
+    const gustLz = terrain.ell * (gustZBar / 10) ** terrain.eps;
+    const gustQ2 = 1 / (1 + 0.63 * ((gustWidth + gustHeight) / gustLz) ** 0.63);
+    const gustQ = Math.sqrt(gustQ2);
+    const G = 1.927 * (1 + 1.7 * 3.4 * gustIz * gustQ) / (1 + 1.7 * 3.4 * gustIz);
+    const area = objectHeight * windWidth;
+    const force = qz * G * baseCf * area;
+    const eccentricity = 0.3 * windWidth;
+    return {
+      objectHeight, bigM, smallN, windWidth, nu, mnRatio, groundLimit,
+      atGround:atGround ? 1 : 0,
+      cfNuRatio:cfNu.used,
+      cfNuLowRatio:cfNu.lowRatio,
+      cfNuHighRatio:cfNu.highRatio,
+      cfNuLow:cfNu.lowCf,
+      cfNuHigh:cfNu.highCf,
+      cfNu:cfNu.cf,
+      cfMnRatio:cfMn.used,
+      cfMnLowRatio:cfMn.lowRatio,
+      cfMnHighRatio:cfMn.highRatio,
+      cfMnLow:cfMn.lowCf,
+      cfMnHigh:cfMn.highCf,
+      cfMn:cfMn.cf,
+      controlNu:controlNu ? 1 : 0,
+      controlMn:controlNu ? 0 : 1,
+      codeCf,
+      baseCf,
+      manualAdoption:manualAdoption ? 1 : 0,
+      zr,
+      topElevation,
+      Kz,
+      qz,
+      gustZBar,
+      gustIz,
+      gustLz,
+      gustQ2,
+      gustQ,
+      G,
+      area,
+      force,
+      baseShear:force,
+      baseMoment:force * zr,
+      eccentricity,
+      torsion:force * eccentricity
+    };
+  }
+
+  return Object.fromEntries(i.cases.map(item => [item.id, calculateCase(item)]));
+}
+
 function seismicForceStaticOracle(i) {
   const faX = [0.5, 0.6, 0.7, 0.8, 0.9];
   const fvX = [0.30, 0.35, 0.40, 0.45, 0.50];
@@ -1039,6 +1139,7 @@ const ORACLES = {
   'steel-beam-asd-inelastic-ltb': steelBeamAsdOracle,
   'steel-column-asd-weak-axis-interaction': steelColumnAsdOracle,
   'wind-force-rigid-three-story-mwfrs': windForceMwfrsOracle,
+  'wind-object-solid-table-2-10': windObjectSolidTable210Oracle,
   'seismic-force-eight-story-static': seismicForceStaticOracle,
   'anchor-cast-in-m20-chapter-17': anchorCastInOracle
 };

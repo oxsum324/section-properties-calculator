@@ -377,4 +377,4 @@ git status --short --untracked-files=normal
 - `結構工具箱/tools/release-readiness.contract.test.js`
 - `README.md`、`TOOL_BOUNDARIES.md`、`TOOL_REPORT_GUIDE.md`
 
-此組需一起提交，避免只有測試案例卻沒有 production core、preflight、成熟度與報告邊界。試辦通過只可標示 13 / 13，整體正式入口需同時標示 13 / 31；golden case 或同核心結果鏈不等同獨立工程驗證，也不得算入獨立覆蓋。原列 P0 路由已歸零，目前 P1 依序為實體標示物風力、鋼構連接板及 RC 板；分析摘要身分的 `/seismic-dynamic` 不得計入正式附件入口覆蓋。
+此組需一起提交，避免只有測試案例卻沒有 production core、preflight、成熟度與報告邊界。試辦通過只可標示 14 / 14，整體正式入口需同時標示 14 / 31；golden case 或同核心結果鏈不等同獨立工程驗證，也不得算入獨立覆蓋。原列 P0 路由已歸零，目前 P1 依序為鋼構連接板及 RC 板；分析摘要身分的 `/seismic-dynamic` 不得計入正式附件入口覆蓋。
