@@ -556,6 +556,106 @@ function windForceMwfrsOracle(i) {
   };
 }
 
+function seismicForceStaticOracle(i) {
+  const faX = [0.5, 0.6, 0.7, 0.8, 0.9];
+  const fvX = [0.30, 0.35, 0.40, 0.45, 0.50];
+  const faRows = { 1:[1, 1, 1, 1, 1], 2:[1.1, 1.1, 1, 1, 1], 3:[1.2, 1.2, 1.1, 1, 1] };
+  const fvRows = { 1:[1, 1, 1, 1, 1], 2:[1.5, 1.4, 1.3, 1.2, 1.1], 3:[1.8, 1.7, 1.6, 1.5, 1.4] };
+  const interpolate = (xs, ys, x) => {
+    if (x <= xs[0]) return ys[0];
+    if (x >= xs[xs.length - 1]) return ys[ys.length - 1];
+    for (let index = 0; index < xs.length - 1; index += 1) {
+      if (x <= xs[index + 1]) {
+        const fraction = (x - xs[index]) / (xs[index + 1] - xs[index]);
+        return ys[index] + fraction * (ys[index + 1] - ys[index]);
+      }
+    }
+    return ys[ys.length - 1];
+  };
+  const FaD = interpolate(faX, faRows[i.siteClass], i.SsD);
+  const FvD = interpolate(fvX, fvRows[i.siteClass], i.S1D);
+  const FaM = interpolate(faX, faRows[i.siteClass], i.SsM);
+  const FvM = interpolate(fvX, fvRows[i.siteClass], i.S1M);
+  const SDS = FaD * i.SsD;
+  const SD1 = FvD * i.S1D;
+  const SMS = FaM * i.SsM;
+  const SM1 = FvM * i.S1M;
+  const ToD = SD1 / SDS;
+  const ToM = SM1 / SMS;
+  const system = { R:4.8, alphaY:1, periodC:0.07 };
+  const Tcode = system.periodC * i.hn ** 0.75;
+  const Tdesign = Math.min(i.CU * Tcode, i.Tdyna);
+  const Ra = 1 + (system.R - 1) / 1.5;
+  const calcFu = (capacity, period, transition) => {
+    const short = Math.sqrt(2 * capacity - 1);
+    if (period >= transition) return capacity;
+    if (period >= 0.6 * transition) return short + (capacity - short) * (period - 0.6 * transition) / (0.4 * transition);
+    if (period >= 0.2 * transition) return short;
+    return 1 + (short - 1) * period / (0.2 * transition);
+  };
+  const Fu = calcFu(Ra, Tdesign, ToD);
+  const FuM = Tdesign >= ToM ? system.R : calcFu(system.R, Tdesign, ToM);
+  const calcSa = (period, short, oneSecond) => {
+    const transition = oneSecond / short;
+    if (period <= 0.2 * transition) return short * (0.4 + 3 * period / transition);
+    if (period <= transition) return short;
+    if (period <= 2.5 * transition) return oneSecond / period;
+    return Math.max(0.4 * short, oneSecond / period);
+  };
+  const SaD = calcSa(Tdesign, SDS, SD1);
+  const SaM = calcSa(Tdesign, SMS, SM1);
+  const W = i.floors.reduce((sum, floor) => sum + floor.W, 0);
+  const modifiedRatio = ratio => ratio <= 0.3 ? ratio : (ratio >= 0.8 ? 0.7 * ratio : 0.52 * ratio + 0.144);
+  const VD_ratio = SaD / Fu;
+  const VD_ratio_m = modifiedRatio(VD_ratio);
+  const VD = i.I / (1.4 * system.alphaY) * VD_ratio_m * W;
+  const Vs_ratio = VD_ratio;
+  const Vs_ratio_m = modifiedRatio(Vs_ratio);
+  const Vstar = i.I * Fu / (4.2 * system.alphaY) * Vs_ratio_m * W;
+  const VM_ratio = SaM / FuM;
+  const VM_ratio_m = modifiedRatio(VM_ratio);
+  const VM = i.I / (1.4 * system.alphaY) * VM_ratio_m * W;
+  const Vdesign = Math.max(VD, Vstar, VM);
+  const Ft = Tdesign <= 0.7 ? 0 : (Tdesign >= 3.6 ? 0.25 * Vdesign : Math.min(0.07 * Tdesign * Vdesign, 0.25 * Vdesign));
+  const remaining = Vdesign - Ft;
+  let cumulativeHeight = 0;
+  const floors = i.floors.map(floor => {
+    cumulativeHeight += floor.dH;
+    return { h:cumulativeHeight, Wh:floor.W * cumulativeHeight };
+  });
+  const sumWh = floors.reduce((sum, floor) => sum + floor.Wh, 0);
+  floors.forEach((floor, index) => {
+    floor.Fi = remaining * floor.Wh / sumWh + (index === floors.length - 1 ? Ft : 0);
+  });
+  let accumulatedShear = 0;
+  for (let index = floors.length - 1; index >= 0; index -= 1) {
+    accumulatedShear += floors[index].Fi;
+    floors[index].Vstory = accumulatedShear;
+  }
+  const OTM = floors.reduce((sum, floor) => sum + floor.Fi * floor.h, 0);
+  const output = {
+    R:system.R, alphaY:system.alphaY,
+    FaD, FvD, FaM, FvM, SDS, SD1, SMS, SM1, ToD, ToM,
+    Tcode, Tdesign, dynamicPeriodControls:Tdesign === i.Tdyna ? 1 : 0,
+    Ra, Fu, FuM, SaD, SaM, W,
+    VD, VD_ratio, VD_ratio_m, VD_coeff:VD / W,
+    Vstar, Vs_ratio, Vs_ratio_m, Vs_coeff:Vstar / W,
+    VM, VM_ratio, VM_ratio_m, VM_coeff:VM / W,
+    Vdesign, V_coeff:Vdesign / W,
+    controlledByVstar:Vdesign === Vstar ? 1 : 0,
+    controlledByVM:Vdesign === VM ? 1 : 0,
+    Ft, sumWh, OTM, forceSum:floors.reduce((sum, floor) => sum + floor.Fi, 0)
+  };
+  floors.forEach((floor, index) => {
+    const n = index + 1;
+    output[`h${n}`] = floor.h;
+    output[`Wh${n}`] = floor.Wh;
+    output[`Fi${n}`] = floor.Fi;
+    output[`Vstory${n}`] = floor.Vstory;
+  });
+  return output;
+}
+
 const ORACLES = {
   'equipment-basic-load-path': equipmentOracle,
   'earth-rankine-dry-active': earthOracle,
@@ -565,7 +665,8 @@ const ORACLES = {
   'rc-pile-clay-group-cap': rcPileOracle,
   'steel-beam-asd-inelastic-ltb': steelBeamAsdOracle,
   'steel-column-asd-weak-axis-interaction': steelColumnAsdOracle,
-  'wind-force-rigid-three-story-mwfrs': windForceMwfrsOracle
+  'wind-force-rigid-three-story-mwfrs': windForceMwfrsOracle,
+  'seismic-force-eight-story-static': seismicForceStaticOracle
 };
 
 function loadProductionModule(relativePath) {

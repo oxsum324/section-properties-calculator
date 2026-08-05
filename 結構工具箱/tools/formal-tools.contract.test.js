@@ -1221,6 +1221,8 @@ for (const [relativePath, traceFunction, reportFunction, openFunction] of [
   assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'seismic-force page-only report readiness hidden from print');
   assertIncludes(html, 'class="rep-source-tool"', 'seismic-force trace source has dedicated print cell');
   assertIncludes(html, '.rep-meta--traceable .rep-source-tool { grid-column:span 2; }', 'seismic-force trace source spans two print columns');
+  assertIncludes(html, '../../core/loads/seismic.js', 'seismic-force page loads the production seismic core covered by the independent benchmark');
+  assertIncludes(html, 'const r = S.calcFullSeismic(p);', 'seismic-force general-site path calculates through the production static seismic core');
   const reportStart = html.indexOf('function openSeismicReport()');
   const reportEnd = html.indexOf("document.getElementById('btnExportCase')", reportStart);
   assert.ok(reportStart >= 0 && reportEnd > reportStart, 'seismic-force report body isolated');
