@@ -24,14 +24,17 @@ assert.ok(!steelBeamAdapterSource.includes('golden'), 'steel beam adapter does n
 const steelColumnAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'steel-column-asd.js'), 'utf8');
 assert.ok(steelColumnAdapterSource.includes("../../../鋼構工具/core/materials/steel.js"), 'steel column adapter exercises the production steel member core');
 assert.ok(!steelColumnAdapterSource.includes('golden'), 'steel column adapter does not replay a golden-case fixture');
+const windForceAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'wind-force-mwfrs.js'), 'utf8');
+assert.ok(windForceAdapterSource.includes("../../core/loads/wind.js"), 'wind-force adapter exercises the production MWFRS wind core');
+assert.ok(!windForceAdapterSource.includes('golden'), 'wind-force adapter does not replay a golden-case fixture');
 
 const result = runBenchmarks(catalog);
 assert.equal(result.status, 'ready', JSON.stringify(result.issues));
 assert.equal(result.summary.eligibleFormalRoutes, 31, 'formal route portfolio is explicit');
-assert.equal(result.summary.pilotRequired, 8, 'eight independent pilot benchmarks required');
-assert.equal(result.summary.pilotVerified, 8, 'eight independent pilot benchmarks verified');
-assert.equal(result.summary.independentlyVerifiedRoutes, 8, 'eight distinct routes independently verified');
-assert.equal(result.summary.priorityTargets, 3, 'three high-risk routes remain in priority roadmap');
+assert.equal(result.summary.pilotRequired, 9, 'nine independent pilot benchmarks required');
+assert.equal(result.summary.pilotVerified, 9, 'nine independent pilot benchmarks verified');
+assert.equal(result.summary.independentlyVerifiedRoutes, 9, 'nine distinct routes independently verified');
+assert.equal(result.summary.priorityTargets, 2, 'two high-risk routes remain in priority roadmap');
 assert.equal(result.summary.issueCount, 0, 'independent pilot has no issues');
 assert.ok(result.records.every(record => record.status === 'verified'), 'every pilot record is independently verified');
 assert.ok(result.records.every(record => record.referenceType === 'closed-form-identity'), 'every pilot uses a closed-form identity');
@@ -52,6 +55,7 @@ const falsePositiveResult = runBenchmarks(catalog, {
         if (relativePath === 'independent-engineering-adapters/rc-pile.js') production.rMax += 0.5;
         if (relativePath === 'independent-engineering-adapters/steel-beam-asd.js') production.MnOmegaTfm += 0.5;
         if (relativePath === 'independent-engineering-adapters/steel-column-asd.js') production.IR1 += 0.2;
+        if (relativePath === 'independent-engineering-adapters/wind-force-mwfrs.js') production.xVb += 250;
         return production;
       }
     };
@@ -64,6 +68,7 @@ assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-val
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:rMax')), 'RC pile group-reaction production drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:MnOmegaTfm')), 'steel beam ASD production drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:IR1')), 'steel column ASD interaction drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:xVb')), 'wind-force base-shear drift identifies the mismatched quantity');
 
 const duplicateCatalog = JSON.parse(JSON.stringify(catalog));
 duplicateCatalog.benchmarks[1].route = duplicateCatalog.benchmarks[0].route;

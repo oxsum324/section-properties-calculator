@@ -476,6 +476,86 @@ function steelColumnAsdOracle(i) {
   };
 }
 
+function windForceMwfrsOracle(i) {
+  const terrain = { alpha:0.15, zg:300, b:0.94, c:0.20, ell:152, eps:0.20, zmin:4.5 };
+  const cpWindward = 0.8;
+  const gcpi = 0.375;
+  const totalH = i.storyH.reduce((sum, height) => sum + height, 0);
+  const zBar = Math.max(0.6 * totalH, terrain.zmin);
+  const Iz = terrain.c * (10 / zBar) ** (1 / 6);
+  const Lz = terrain.ell * (zBar / 10) ** terrain.eps;
+  const calcKz = z => 2.774 * (Math.max(z, terrain.zmin) / terrain.zg) ** (2 * terrain.alpha);
+  const calcQz = z => 0.06 * calcKz(z) * i.Kzt * i.I ** 2 * i.V ** 2;
+  const KzH = calcKz(totalH);
+  const qH = calcQz(totalH);
+  const Vh = terrain.b * (Math.max(totalH, terrain.zmin) / 10) ** terrain.alpha * i.V;
+  let cumulativeHeight = 0;
+  const storyRows = i.storyH.map(height => {
+    const zBottom = cumulativeHeight;
+    cumulativeHeight += height;
+    const zMid = (zBottom + cumulativeHeight) / 2;
+    return { height, zMid, Kz:calcKz(zMid), qz:calcQz(zMid) };
+  });
+
+  const leewardCp = (L, B) => {
+    const ratio = L / B;
+    if (ratio <= 1) return -0.5;
+    if (ratio >= 4) return -0.2;
+    if (ratio <= 2) return -0.5 + (ratio - 1) * 0.2;
+    return -0.3 + (ratio - 2) / 2 * 0.1;
+  };
+
+  const direction = (prefix, B, L) => {
+    const Q2 = 1 / (1 + 0.63 * ((B + totalH) / Lz) ** 0.63);
+    const Q = Math.sqrt(Q2);
+    const G = 1.927 * (1 + 1.7 * 3.4 * Iz * Q) / (1 + 1.7 * 3.4 * Iz);
+    const Cpl = leewardCp(L, B);
+    const pl = qH * G * Cpl;
+    const rows = storyRows.map(row => {
+      const pw = row.qz * G * cpWindward;
+      const pNet = pw - pl;
+      const A = row.height * B;
+      const F = pNet * A;
+      return {
+        ...row, pw, pl, pNet, A, F,
+        WL:0.87 * Math.sqrt(L / B) * F,
+        MT:0.28 * B * F,
+        wallCasePos:row.qz * G * cpWindward - qH * gcpi,
+        wallCaseNeg:row.qz * G * cpWindward + qH * gcpi
+      };
+    });
+    const Vb = rows.reduce((sum, row) => sum + row.F, 0);
+    const OTM = rows.reduce((sum, row) => sum + row.F * row.zMid, 0);
+    const roofPMax = qH * gcpi;
+    const roofPMin = qH * G * -0.7 - qH * gcpi;
+    return {
+      [`${prefix}G`]:G, [`${prefix}Iz`]:Iz, [`${prefix}Lz`]:Lz,
+      [`${prefix}Q2`]:Q2, [`${prefix}Q`]:Q, [`${prefix}Cpl`]:Cpl,
+      [`${prefix}SimpleRegime`]:totalH / Math.sqrt(B * L) < 3 ? 1 : 0,
+      [`${prefix}Vb`]:Vb, [`${prefix}OTM`]:OTM,
+      [`${prefix}F1`]:rows[0].F, [`${prefix}F2`]:rows[1].F, [`${prefix}F3`]:rows[2].F,
+      [`${prefix}Pnet1`]:rows[0].pNet, [`${prefix}Pnet3`]:rows[2].pNet,
+      [`${prefix}WL1`]:rows[0].WL, [`${prefix}WL3`]:rows[2].WL,
+      [`${prefix}MT1`]:rows[0].MT, [`${prefix}MT3`]:rows[2].MT,
+      [`${prefix}CrossTotal`]:rows.reduce((sum, row) => sum + row.WL, 0),
+      [`${prefix}TorsionTotal`]:rows.reduce((sum, row) => sum + row.MT, 0),
+      [`${prefix}WallCasePos1`]:rows[0].wallCasePos,
+      [`${prefix}WallCaseNeg1`]:rows[0].wallCaseNeg,
+      [`${prefix}RoofCpMax`]:0, [`${prefix}RoofCpMin`]:-0.7,
+      [`${prefix}RoofPMax`]:roofPMax, [`${prefix}RoofPMin`]:roofPMin
+    };
+  };
+
+  return {
+    totalH, zBar, KzH, qH, Vh,
+    zMid1:storyRows[0].zMid, zMid2:storyRows[1].zMid, zMid3:storyRows[2].zMid,
+    Kz1:storyRows[0].Kz, Kz2:storyRows[1].Kz, Kz3:storyRows[2].Kz,
+    qz1:storyRows[0].qz, qz2:storyRows[1].qz, qz3:storyRows[2].qz,
+    ...direction('x', i.B, i.L),
+    ...direction('y', i.L, i.B)
+  };
+}
+
 const ORACLES = {
   'equipment-basic-load-path': equipmentOracle,
   'earth-rankine-dry-active': earthOracle,
@@ -484,7 +564,8 @@ const ORACLES = {
   'rc-foundation-isolated-strength': rcFoundationOracle,
   'rc-pile-clay-group-cap': rcPileOracle,
   'steel-beam-asd-inelastic-ltb': steelBeamAsdOracle,
-  'steel-column-asd-weak-axis-interaction': steelColumnAsdOracle
+  'steel-column-asd-weak-axis-interaction': steelColumnAsdOracle,
+  'wind-force-rigid-three-story-mwfrs': windForceMwfrsOracle
 };
 
 function loadProductionModule(relativePath) {

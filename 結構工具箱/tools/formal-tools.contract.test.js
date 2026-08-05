@@ -908,6 +908,8 @@ for (const inlineValidationPage of [
     '計算書模式'
   ].forEach(needle => assertIncludes(html, needle, 'wind-force page-only report readiness'));
   assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-force page-only report readiness hidden from print');
+  assertIncludes(html, '../../core/loads/wind.js', 'wind-force page loads the production wind core covered by the independent benchmark');
+  assert.ok(/const r = W\.calcBuildingWind\([\s\S]*const rY = W\.calcBuildingWind\(/.test(html), 'wind-force page calculates both directions through the production MWFRS core');
 
   const windReport = readText(toolboxFile('core/wind-report.js'));
   assertIncludes(windReport, 'function isProjectMetaMissing', 'wind report shared project meta helper');
