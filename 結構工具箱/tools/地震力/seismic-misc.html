@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>雜項工作物地震力 V3.3</title>
+<title>雜項工作物地震力 V3.4</title>
 <link rel="stylesheet" href="../../core/style.css">
 <link rel="stylesheet" href="../../core/direct-print-boundary.css">
 <style>
@@ -145,7 +145,7 @@
 <body class="formal-tool-output-page">
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>正式工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「列印計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
 <header>
-  <h1>雜項工作物地震力 <span class="badge-v">V3.3</span></h1>
+  <h1>雜項工作物地震力 <span class="badge-v">V3.4</span></h1>
   <p>依「建築物耐震設計規範及解說」113 年版 ｜ 第五章雜項工作物 ｜ 單位：m, tf, sec</p>
   <p class="header-links">
     <a href="https://www.nlma.gov.tw/ch/legislation/law%26regusw/175" target="_blank" rel="noopener noreferrer">官方規範頁</a>
@@ -363,7 +363,7 @@
 <details class="card" id="versionInfoCard">
   <summary class="fold-summary">版本與更新重點</summary>
   <div class="note" style="margin-top:12px;">
-    本頁目前版本為 <strong>V3.3</strong>，定位為第五章局部章節工具，核心目標是把雜項工作物的輸入、分流、列印與正式章節語言整理乾淨。
+    本頁目前版本為 <strong>V3.4</strong>，定位為第五章局部章節工具，核心目標是把雜項工作物的輸入、分流、列印與正式章節語言整理乾淨。
   </div>
   <div class="hint" style="margin-top:10px;">
     本版已完成：5.3 / 5.4 分流、表 5-1 / 表 5-2 型式整理、Vh / Vv 公式分流、地區回填、案件 JSON 匯入匯出、輸入檢核、計算示意圖、詳算式 / 簡易結果列印與全裝置版面。<br>
@@ -380,7 +380,7 @@ const S = Seismic;
 let lastMiscResult = null;
 let lastMiscReportValidationMessage = '';
 let miscReportInputsChanged = false;
-const TOOL_VERSION = '3.3';
+const TOOL_VERSION = '3.4';
 const CASE_SCHEMA_VERSION = 'seismic-misc.case.v1';
 const PROJECT_INFO_STORAGE_KEY = 'seismic-project-meta';
 const DEFAULT_CASE_INPUTS = {
@@ -1030,126 +1030,15 @@ function markMiscReportInputsChanged() {
 }
 
 function calcMiscSeismicFull(p) {
-  const site = S.calcSiteCoeff(p.siteClass, p.SsD, p.S1D, p.SsM, p.S1M);
-  const { ToD, ToM } = S.calcTo(site.SDS, site.SD1, site.SMS, site.SM1);
-  const T = p.T_user > 0 ? p.T_user : 0;
-  const Ra = S.calcRa(p.R, p.isTaipeiBasin);
-  const Fu = S.calcFu(Ra, T, ToD);
-  const FuM = S.calcFuM(p.R, T, ToM);
-  const SaD = S.calcSa(T, site.SDS, site.SD1);
-  const SaM = S.calcSa(T, site.SMS, site.SM1);
-  const ratio = SaD / Fu;
-  const ratio_m = S.calcSaFuM(ratio);
-  const ratioM = SaM / FuM;
-  const ratioM_m = S.calcSaFuM(ratioM);
-
-  if (p.mode === 'similar') {
-    // 5.3 相似於建築結構 — 式(2-3)
-    const denom = 1.4 * p.alphaY;
-    const Vh_main = (p.I / denom) * ratio_m * p.W;
-    const Vh = Vh_main;
-    const vvRes = S.calcVerticalSeismic({
-      SDS: site.SDS,
-      SD1: site.SD1,
-      I: p.I,
-      alphaY: p.alphaY,
-      T,
-      ToD,
-      isNearFault: p.isNearFault,
-      isTaipeiBasin: p.isTaipeiBasin,
-      W_slab: p.W
-    });
-    return {
-      mode: 'similar',
-      typeName: p.typeName,
-      hLimit: p.hLimit || '—',
-      hMin: p.hMin == null ? null : p.hMin,
-      hMax: p.hMax == null ? null : p.hMax,
-      hMinInclusive: p.hMinInclusive !== false,
-      hMaxInclusive: p.hMaxInclusive !== false,
-      R: p.R,
-      alphaY: p.alphaY,
-      I: p.I,
-      W: p.W,
-      hn: p.hn,
-      T,
-      site,
-      ToD,
-      ToM,
-      Ra,
-      Fu,
-      FuM,
-      SaD,
-      SaM,
-      ratio,
-      ratio_m,
-      ratioM,
-      ratioM_m,
-      Vh_main,
-      VhCoeff: p.W > 0 ? Vh / p.W : 0,
-      controlledBy: '式(2-3)',
-      Vh,
-      Vv: vvRes.VZ,
-      VvCoeff: p.W > 0 ? vvRes.VZ / p.W : 0,
-      verticalSource: '2.18 節',
-      vvRes,
-      formulaUsed: '式(2-3)',
-      denom
-    };
-  }
-
-  // 5.4 非相似於建築結構
-  let Vh, Vh_main, controlledBy, formulaUsed, denom;
-  if (T < 0.06) {
-    // 式(5-1) 本身即為「假設 SaD/Fu = 0.4·SDS」的簡化剛性公式
-    denom = 3 * p.alphaY;
-    Vh_main = site.SDS * p.I * p.W / denom;
-    Vh = Vh_main;
-    controlledBy = '式(5-1) 剛性結構簡化';
-    formulaUsed = '式(5-1)';
-  } else {
-    denom = 1.2 * p.alphaY;
-    Vh_main = (p.I / denom) * ratio_m * p.W;
-    Vh = Vh_main;
-    controlledBy = '式(5-2)';
-    formulaUsed = '式(5-2)';
-  }
-  const Vv = (p.isNearFault ? 2 / 3 : 1 / 2) * Vh;
+  const result = S.calcMiscSeismic({ ...p, typeIdx: -1 });
   return {
-    mode: 'nonsimilar',
+    ...result,
     typeName: p.typeName,
     hLimit: p.hLimit || '—',
     hMin: p.hMin == null ? null : p.hMin,
     hMax: p.hMax == null ? null : p.hMax,
     hMinInclusive: p.hMinInclusive !== false,
-    hMaxInclusive: p.hMaxInclusive !== false,
-    R: p.R,
-    alphaY: p.alphaY,
-    I: p.I,
-    W: p.W,
-    hn: p.hn,
-    T,
-    site,
-    ToD,
-    ToM,
-    Ra,
-    Fu,
-    FuM,
-    SaD,
-    SaM,
-    ratio,
-    ratio_m,
-    ratioM,
-    ratioM_m,
-    Vh_main,
-    VhCoeff: p.W > 0 ? Vh / p.W : 0,
-    controlledBy,
-    Vh,
-    Vv,
-    VvCoeff: p.W > 0 ? Vv / p.W : 0,
-    verticalSource: p.isNearFault ? '近斷層取 2/3 Vh' : '一般 / 臺北盆地取 1/2 Vh',
-    formulaUsed,
-    denom
+    hMaxInclusive: p.hMaxInclusive !== false
   };
 }
 
@@ -1515,7 +1404,7 @@ function openMiscReport() {
   <html lang="zh-TW">
   <head>
   <meta charset="utf-8">
-  <title>雜項工作物地震力計算書 V3.3</title>
+  <title>雜項工作物地震力計算書 V3.4</title>
   <style>
     @page { size: A4 portrait; margin: 18mm 14mm 18mm; }
     * { box-sizing: border-box; }

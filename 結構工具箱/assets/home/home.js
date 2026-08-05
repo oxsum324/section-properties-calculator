@@ -188,7 +188,7 @@
       '/seismic-force': '2026-08-05',
       '/seismic-dynamic': '2026-08-05',
       '/seismic-appendage': '2026-08-05',
-      '/seismic-misc': '2026-08-05',
+      '/seismic-misc': '2026-08-06',
       '/anchor': '2026-08-05',
       '/stone-fixing': '2026-07-21',
       '/foundation-local': '2026-08-05',
@@ -706,7 +706,7 @@
     },
     {
       title: '雜項工作物地震力',
-      version: 'V3.3',
+      version: 'V3.4',
       href: '/seismic-misc',
       categories: ['seismic'],
       state: 'formal',

@@ -1017,6 +1017,94 @@ function seismicAppendageOracle(input) {
   }));
 }
 
+function seismicMiscOracle(input) {
+  const interpolate = (xs, ys, x) => {
+    if (x <= xs[0]) return ys[0];
+    if (x >= xs[xs.length - 1]) return ys[ys.length - 1];
+    const upper = xs.findIndex(value => value >= x);
+    const lower = upper - 1;
+    return ys[lower] + (x - xs[lower]) / (xs[upper] - xs[lower]) * (ys[upper] - ys[lower]);
+  };
+  const faX = [0.5, 0.6, 0.7, 0.8, 0.9];
+  const fvX = [0.30, 0.35, 0.40, 0.45, 0.50];
+  const faRows = { 1:[1,1,1,1,1], 2:[1.1,1.1,1,1,1], 3:[1.2,1.2,1.1,1,1] };
+  const fvRows = { 1:[1,1,1,1,1], 2:[1.5,1.4,1.3,1.2,1.1], 3:[1.8,1.7,1.6,1.5,1.4] };
+  const calcSa = (T, short, oneSecond) => {
+    const transition = oneSecond / short;
+    if (T <= 0.2 * transition) return short * (0.4 + 3 * T / transition);
+    if (T <= transition) return short;
+    if (T <= 2.5 * transition) return oneSecond / T;
+    return Math.max(0.4 * short, oneSecond / T);
+  };
+  const calcFu = (capacity, T, transition) => {
+    const short = Math.sqrt(2 * capacity - 1);
+    if (T >= transition) return capacity;
+    if (T >= 0.6 * transition) return short + (capacity - short) * (T - 0.6 * transition) / (0.4 * transition);
+    if (T >= 0.2 * transition) return short;
+    return 1 + (short - 1) * T / (0.2 * transition);
+  };
+  const modified = ratio => ratio <= 0.3 ? ratio : ratio >= 0.8 ? 0.7 * ratio : 0.52 * ratio + 0.144;
+  const modifiedVertical = (ratio, nearFault) => {
+    const low = nearFault ? 0.20 : 0.15;
+    const high = nearFault ? 0.53 : 0.40;
+    return ratio >= high ? 0.7 * ratio : ratio > low ? 0.52 * ratio + 0.18 * high : ratio;
+  };
+  return Object.fromEntries(input.cases.map(i => {
+    const FaD = interpolate(faX, faRows[i.siteClass], i.SsD);
+    const FvD = interpolate(fvX, fvRows[i.siteClass], i.S1D);
+    const FaM = interpolate(faX, faRows[i.siteClass], i.SsM);
+    const FvM = interpolate(fvX, fvRows[i.siteClass], i.S1M);
+    const SDS = FaD * i.SsD;
+    const SD1 = FvD * i.S1D;
+    const SMS = FaM * i.SsM;
+    const SM1 = FvM * i.S1M;
+    const ToD = SD1 / SDS;
+    const ToM = SM1 / SMS;
+    const T = i.T_user > 0 ? i.T_user : 0;
+    const Ra = 1 + (i.R - 1) / (i.isTaipeiBasin ? 2 : 1.5);
+    const Fu = calcFu(Ra, T, ToD);
+    const FuM = T >= ToM ? i.R : calcFu(i.R, T, ToM);
+    const SaD = calcSa(T, SDS, SD1);
+    const SaM = calcSa(T, SMS, SM1);
+    const ratio = SaD / Fu;
+    const ratioM = SaM / FuM;
+    const ratioModified = modified(ratio);
+    let denom;
+    let Vh;
+    let similarPath = 0;
+    let rigidPath = 0;
+    let flexiblePath = 0;
+    let Vv;
+    let verticalSa = 0;
+    let verticalFu = 0;
+    let verticalRatioModified = 0;
+    if (i.mode === 'similar') {
+      denom = 1.4 * i.alphaY;
+      Vh = i.I / denom * ratioModified * i.W;
+      similarPath = 1;
+      verticalSa = (i.isNearFault ? 2 / 3 : 1 / 2) * SaD;
+      verticalFu = calcFu(3, T, ToD);
+      verticalRatioModified = modifiedVertical(verticalSa / verticalFu, i.isNearFault);
+      Vv = i.I / (1.4 * i.alphaY) * verticalRatioModified * i.W;
+    } else if (T < 0.06) {
+      denom = 3 * i.alphaY;
+      Vh = SDS * i.I * i.W / denom;
+      Vv = (i.isNearFault ? 2 / 3 : 1 / 2) * Vh;
+      rigidPath = 1;
+    } else {
+      denom = 1.2 * i.alphaY;
+      Vh = i.I / denom * ratioModified * i.W;
+      Vv = (i.isNearFault ? 2 / 3 : 1 / 2) * Vh;
+      flexiblePath = 1;
+    }
+    return [i.id, {
+      FaD, FvD, SDS, SD1, ToD, T, Ra, Fu, SaD, ratio, ratioM, ratioModified,
+      denom, Vh, VhCoeff:Vh / i.W, Vv, VvCoeff:Vv / i.W,
+      similarPath, rigidPath, flexiblePath, verticalSa, verticalFu, verticalRatioModified
+    }];
+  }));
+}
+
 function steelPlateConnectionOracle(input) {
   const baseEdgeDistance = diameter => {
     const table = [
@@ -1346,6 +1434,7 @@ const ORACLES = {
   'wind-object-solid-table-2-10': windObjectSolidTable210Oracle,
   'seismic-force-eight-story-static': seismicForceStaticOracle,
   'seismic-appendage-three-control-branches': seismicAppendageOracle,
+  'seismic-misc-three-formula-paths': seismicMiscOracle,
   'anchor-cast-in-m20-chapter-17': anchorCastInOracle
 };
 

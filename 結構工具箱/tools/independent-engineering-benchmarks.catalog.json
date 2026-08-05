@@ -1291,6 +1291,56 @@
         { "path": "minimum.maxControls", "absTolerance": 0 },
         { "path": "minimum.minControls", "absTolerance": 0 }
       ]
+    },
+    {
+      "id": "seismic-misc-three-formula-paths",
+      "route": "/seismic-misc",
+      "title": "雜項工作物式(2-3)、式(5-1)與式(5-2)地震力",
+      "productionModule": "independent-engineering-adapters/seismic-misc.js",
+      "oracle": "seismic-misc-three-formula-paths",
+      "referenceType": "closed-form-identity",
+      "referenceBasis": "113 年 3 月修正版耐震規範第五章 5.3、5.4 及式 5-1、5-2，連同表 2-4 工址係數、表 2-5 反應譜、式 2-2 韌性修正、式 2-3 相似建築水平力與 2.18 節垂直力；以相似建築、非相似剛性及非相似柔性近斷層三條路徑逐項封閉計算。",
+      "input": {
+        "cases": [
+          { "id": "similar", "mode": "similar", "R": 3.6, "alphaY": 1, "I": 1.25, "W": 30, "hn": 20, "T_user": 0.8, "siteClass": 2, "SsD": 0.65, "S1D": 0.375, "SsM": 0.85, "S1M": 0.475, "isTaipeiBasin": false, "isNearFault": false },
+          { "id": "rigid", "mode": "nonsimilar", "R": 1.8, "alphaY": 1, "I": 1, "W": 40, "hn": 12, "T_user": 0, "siteClass": 3, "SsD": 0.7, "S1D": 0.4, "SsM": 0.9, "S1M": 0.5, "isTaipeiBasin": false, "isNearFault": false },
+          { "id": "flexible", "mode": "nonsimilar", "R": 1.2, "alphaY": 1, "I": 1.5, "W": 25, "hn": 35, "T_user": 1.2, "siteClass": 2, "SsD": 0.6, "S1D": 0.35, "SsM": 0.8, "S1M": 0.45, "isTaipeiBasin": true, "isNearFault": true }
+        ]
+      },
+      "assertions": [
+        { "path": "similar.FaD", "absTolerance": 1e-12 }, { "path": "similar.FvD", "absTolerance": 1e-12 },
+        { "path": "similar.SDS", "absTolerance": 1e-12 }, { "path": "similar.SD1", "absTolerance": 1e-12 },
+        { "path": "similar.ToD", "absTolerance": 1e-12 }, { "path": "similar.T", "absTolerance": 1e-12 },
+        { "path": "similar.Ra", "absTolerance": 1e-12 }, { "path": "similar.Fu", "absTolerance": 1e-12 },
+        { "path": "similar.SaD", "absTolerance": 1e-12 }, { "path": "similar.ratio", "absTolerance": 1e-12 },
+        { "path": "similar.ratioM", "absTolerance": 1e-12 }, { "path": "similar.ratioModified", "absTolerance": 1e-12 },
+        { "path": "similar.denom", "absTolerance": 1e-12 }, { "path": "similar.Vh", "absTolerance": 1e-10 },
+        { "path": "similar.VhCoeff", "absTolerance": 1e-12 }, { "path": "similar.Vv", "absTolerance": 1e-10 },
+        { "path": "similar.VvCoeff", "absTolerance": 1e-12 }, { "path": "similar.similarPath", "absTolerance": 0 },
+        { "path": "similar.rigidPath", "absTolerance": 0 }, { "path": "similar.flexiblePath", "absTolerance": 0 },
+        { "path": "similar.verticalSa", "absTolerance": 1e-12 }, { "path": "similar.verticalFu", "absTolerance": 1e-12 },
+        { "path": "similar.verticalRatioModified", "absTolerance": 1e-12 },
+        { "path": "rigid.FaD", "absTolerance": 1e-12 }, { "path": "rigid.FvD", "absTolerance": 1e-12 },
+        { "path": "rigid.SDS", "absTolerance": 1e-12 }, { "path": "rigid.SD1", "absTolerance": 1e-12 },
+        { "path": "rigid.ToD", "absTolerance": 1e-12 }, { "path": "rigid.T", "absTolerance": 1e-12 },
+        { "path": "rigid.Ra", "absTolerance": 1e-12 }, { "path": "rigid.Fu", "absTolerance": 1e-12 },
+        { "path": "rigid.SaD", "absTolerance": 1e-12 }, { "path": "rigid.ratio", "absTolerance": 1e-12 },
+        { "path": "rigid.ratioM", "absTolerance": 1e-12 }, { "path": "rigid.ratioModified", "absTolerance": 1e-12 },
+        { "path": "rigid.denom", "absTolerance": 1e-12 }, { "path": "rigid.Vh", "absTolerance": 1e-10 },
+        { "path": "rigid.VhCoeff", "absTolerance": 1e-12 }, { "path": "rigid.Vv", "absTolerance": 1e-10 },
+        { "path": "rigid.VvCoeff", "absTolerance": 1e-12 }, { "path": "rigid.similarPath", "absTolerance": 0 },
+        { "path": "rigid.rigidPath", "absTolerance": 0 }, { "path": "rigid.flexiblePath", "absTolerance": 0 },
+        { "path": "flexible.FaD", "absTolerance": 1e-12 }, { "path": "flexible.FvD", "absTolerance": 1e-12 },
+        { "path": "flexible.SDS", "absTolerance": 1e-12 }, { "path": "flexible.SD1", "absTolerance": 1e-12 },
+        { "path": "flexible.ToD", "absTolerance": 1e-12 }, { "path": "flexible.T", "absTolerance": 1e-12 },
+        { "path": "flexible.Ra", "absTolerance": 1e-12 }, { "path": "flexible.Fu", "absTolerance": 1e-12 },
+        { "path": "flexible.SaD", "absTolerance": 1e-12 }, { "path": "flexible.ratio", "absTolerance": 1e-12 },
+        { "path": "flexible.ratioM", "absTolerance": 1e-12 }, { "path": "flexible.ratioModified", "absTolerance": 1e-12 },
+        { "path": "flexible.denom", "absTolerance": 1e-12 }, { "path": "flexible.Vh", "absTolerance": 1e-10 },
+        { "path": "flexible.VhCoeff", "absTolerance": 1e-12 }, { "path": "flexible.Vv", "absTolerance": 1e-10 },
+        { "path": "flexible.VvCoeff", "absTolerance": 1e-12 }, { "path": "flexible.similarPath", "absTolerance": 0 },
+        { "path": "flexible.rigidPath", "absTolerance": 0 }, { "path": "flexible.flexiblePath", "absTolerance": 0 }
+      ]
     }
   ],
   "priorityTargets": []

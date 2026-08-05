@@ -1041,7 +1041,7 @@ assertIncludes(repoDocs.vercel, '"destination": "/結構工具箱/"', 'new home 
 ].forEach(needle => assertIncludes(repoDocs.seismicAppendage, needle, 'seismic appendage case workflow'));
 assert.equal(repoDocs.seismicAppendage.includes('id="btnPrint"'), false, 'seismic appendage removes duplicate print action');
 [
-  '<title>雜項工作物地震力 V3.3</title>',
+  '<title>雜項工作物地震力 V3.4</title>',
   'TOOL_VERSION',
   'CASE_SCHEMA_VERSION',
   'seismic-misc.case.v1',
