@@ -995,6 +995,28 @@ function seismicForceStaticOracle(i) {
   return output;
 }
 
+function seismicAppendageOracle(input) {
+  return Object.fromEntries(input.cases.map(i => {
+    const Rpa = i.isTaipeiBasin ? 1 + (i.Rp - 1) / 2 : 1 + (i.Rp - 1) / 1.5;
+    const CphCalc = 0.4 * i.SDS * i.Ip * (i.ap / Rpa) * (1 + 2 * i.hx / i.hn);
+    const CphMax = 1.6 * i.SDS * i.Ip;
+    const CphMin = 0.3 * i.SDS * i.Ip;
+    const Cph = Math.min(CphMax, Math.max(CphMin, CphCalc));
+    const FphCalc = CphCalc * i.Wp;
+    const FphMax = CphMax * i.Wp;
+    const FphMin = CphMin * i.Wp;
+    const Fph = Cph * i.Wp;
+    const Fpv = (i.isNearFault ? 2 / 3 : 1 / 2) * Fph;
+    return [i.id, {
+      Rpa, CphCalc, CphMax, CphMin, Cph,
+      FphCalc, FphMax, FphMin, Fph, Fpv, Cpv:Fpv / i.Wp,
+      calcControls:CphCalc <= CphMax && CphCalc >= CphMin ? 1 : 0,
+      maxControls:CphCalc > CphMax ? 1 : 0,
+      minControls:CphCalc < CphMin ? 1 : 0
+    }];
+  }));
+}
+
 function steelPlateConnectionOracle(input) {
   const baseEdgeDistance = diameter => {
     const table = [
@@ -1323,6 +1345,7 @@ const ORACLES = {
   'wind-force-rigid-three-story-mwfrs': windForceMwfrsOracle,
   'wind-object-solid-table-2-10': windObjectSolidTable210Oracle,
   'seismic-force-eight-story-static': seismicForceStaticOracle,
+  'seismic-appendage-three-control-branches': seismicAppendageOracle,
   'anchor-cast-in-m20-chapter-17': anchorCastInOracle
 };
 

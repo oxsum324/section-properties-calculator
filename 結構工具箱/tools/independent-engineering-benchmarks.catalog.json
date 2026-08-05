@@ -1241,6 +1241,56 @@
         { "path": "endSpan.shearPass", "absTolerance": 0 },
         { "path": "endSpan.overallPass", "absTolerance": 0 }
       ]
+    },
+    {
+      "id": "seismic-appendage-three-control-branches",
+      "route": "/seismic-appendage",
+      "title": "附屬構造物水平與垂直地震力三種控制分支",
+      "productionModule": "independent-engineering-adapters/seismic-appendage.js",
+      "oracle": "seismic-appendage-three-control-branches",
+      "referenceType": "closed-form-identity",
+      "referenceBasis": "113 年 3 月修正版耐震規範第四章式 4-1 至 4-3；以一般計算值、水平力上限及水平力下限三組封閉算例，獨立推導 Rpa、Cph、Fph 與 Fpv，並涵蓋臺北盆地韌性調整及近斷層 2/3 垂直力比例。",
+      "input": {
+        "cases": [
+          { "id": "calculated", "SDS": 0.6, "Wp": 12, "ap": 1, "Rp": 2.5, "Ip": 1, "hx": 9, "hn": 30, "isTaipeiBasin": false, "isNearFault": false },
+          { "id": "maximum", "SDS": 0.7, "Wp": 8, "ap": 2.5, "Rp": 1.25, "Ip": 1.5, "hx": 24, "hn": 24, "isTaipeiBasin": true, "isNearFault": true },
+          { "id": "minimum", "SDS": 0.5, "Wp": 20, "ap": 0.5, "Rp": 5, "Ip": 1, "hx": 0, "hn": 18, "isTaipeiBasin": false, "isNearFault": false }
+        ]
+      },
+      "assertions": [
+        { "path": "calculated.Rpa", "absTolerance": 1e-12 },
+        { "path": "calculated.CphCalc", "absTolerance": 1e-12 },
+        { "path": "calculated.CphMax", "absTolerance": 1e-12 },
+        { "path": "calculated.CphMin", "absTolerance": 1e-12 },
+        { "path": "calculated.Cph", "absTolerance": 1e-12 },
+        { "path": "calculated.FphCalc", "absTolerance": 1e-12 },
+        { "path": "calculated.FphMax", "absTolerance": 1e-12 },
+        { "path": "calculated.FphMin", "absTolerance": 1e-12 },
+        { "path": "calculated.Fph", "absTolerance": 1e-12 },
+        { "path": "calculated.Fpv", "absTolerance": 1e-12 },
+        { "path": "calculated.Cpv", "absTolerance": 1e-12 },
+        { "path": "calculated.calcControls", "absTolerance": 0 },
+        { "path": "calculated.maxControls", "absTolerance": 0 },
+        { "path": "calculated.minControls", "absTolerance": 0 },
+        { "path": "maximum.Rpa", "absTolerance": 1e-12 },
+        { "path": "maximum.CphCalc", "absTolerance": 1e-12 },
+        { "path": "maximum.Cph", "absTolerance": 1e-12 },
+        { "path": "maximum.Fph", "absTolerance": 1e-12 },
+        { "path": "maximum.Fpv", "absTolerance": 1e-12 },
+        { "path": "maximum.Cpv", "absTolerance": 1e-12 },
+        { "path": "maximum.calcControls", "absTolerance": 0 },
+        { "path": "maximum.maxControls", "absTolerance": 0 },
+        { "path": "maximum.minControls", "absTolerance": 0 },
+        { "path": "minimum.Rpa", "absTolerance": 1e-12 },
+        { "path": "minimum.CphCalc", "absTolerance": 1e-12 },
+        { "path": "minimum.Cph", "absTolerance": 1e-12 },
+        { "path": "minimum.Fph", "absTolerance": 1e-12 },
+        { "path": "minimum.Fpv", "absTolerance": 1e-12 },
+        { "path": "minimum.Cpv", "absTolerance": 1e-12 },
+        { "path": "minimum.calcControls", "absTolerance": 0 },
+        { "path": "minimum.maxControls", "absTolerance": 0 },
+        { "path": "minimum.minControls", "absTolerance": 0 }
+      ]
     }
   ],
   "priorityTargets": []
