@@ -1,7 +1,7 @@
 {
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-08-05T17:22:41.542Z",
+  "generatedAt": "2026-08-05T18:22:45.254Z",
   "runId": "20260806-005726",
   "pass": true,
   "failureCount": 0,
@@ -33,12 +33,12 @@
     "可讀文字抽檢範圍：正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具 14 項、局部快算 3 項。矩陣外工具家族仍以各自報告合約治理。",
     "首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。",
     "正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。",
-    "獨立工程基準：試辦 16 / 16；正式工具整體 16 / 31。其餘工具目前只宣稱既有重播、結果鏈或家族治理證據，不宣稱已完成獨立工程驗證。"
+    "獨立工程基準：試辦 17 / 17；正式工具整體 17 / 31。其餘工具目前只宣稱既有重播、結果鏈或家族治理證據，不宣稱已完成獨立工程驗證。"
   ],
   "independentBenchmarkEligible": 31,
-  "independentBenchmarkVerified": 16,
-  "independentBenchmarkPilotRequired": 16,
-  "independentBenchmarkPilotVerified": 16,
+  "independentBenchmarkVerified": 17,
+  "independentBenchmarkPilotRequired": 17,
+  "independentBenchmarkPilotVerified": 17,
   "independentBenchmarkIssueCount": 0,
   "independentBenchmarkPass": true,
   "pageOnlyBoundaryRequired": 4,
@@ -349,5 +349,5 @@
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
   "preflightStatusSourcePath": "output/preflight/history/20260806-005726/preflight-summary.json",
-  "sourceHash": "c4d28a2c2c8d6aa695ff1ee2a4d79fff115557c59bd530283750335740089f1d"
+  "sourceHash": "87496060ac485b06fc00cc03d25062a3785f4b9715bd287397f7b9e68d80db95"
 }
