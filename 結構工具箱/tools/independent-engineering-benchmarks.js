@@ -304,13 +304,88 @@ function rcPileOracle(i) {
   };
 }
 
+function steelBeamAsdOracle(i) {
+  const E = 2.04e6;
+  const H = i.H / 10;
+  const B = i.B / 10;
+  const tw = i.tw / 10;
+  const tf = i.tf / 10;
+  const hw = H - 2 * tf;
+  const A = 2 * B * tf + hw * tw;
+  const Ix = 2 * (B * tf ** 3 / 12 + B * tf * ((H - tf) / 2) ** 2) + tw * hw ** 3 / 12;
+  const Iy = 2 * tf * B ** 3 / 12 + hw * tw ** 3 / 12;
+  const Sx = Ix / (H / 2);
+  const Zx = 2 * (B * tf * (H / 2 - tf / 2) + tw * (hw / 2) * (hw / 4));
+  const ry = Math.sqrt(Iy / A);
+  const J = (2 * B * tf ** 3 + hw * tw ** 3) / 3;
+  const ho = H - tf;
+  const Cw = Iy * ho ** 2 / 4;
+  const rts = Math.sqrt(Iy * ho / (2 * Sx));
+  const lambdaF = B / (2 * tf);
+  const lambdaW = hw / tw;
+  const lpf = 0.38 * Math.sqrt(E / i.Fy);
+  const lrf = Math.sqrt(E / i.Fy);
+  const lpw = 3.76 * Math.sqrt(E / i.Fy);
+  const lrw = 5.70 * Math.sqrt(E / i.Fy);
+
+  const Mp = i.Fy * Zx;
+  const Mr = 0.7 * i.Fy * Sx;
+  const Lp = 1.76 * ry * Math.sqrt(E / i.Fy);
+  const arg = J / (Sx * ho);
+  const Lr = 1.95 * rts * E / (0.7 * i.Fy)
+    * Math.sqrt(arg + Math.sqrt(arg ** 2 + 6.76 * (0.7 * i.Fy / E) ** 2));
+  const MnLtb = Math.min(i.Cb * (Mp - (Mp - Mr) * (i.Lb - Lp) / (Lr - Lp)), Mp);
+  const MnYield = Mp;
+  const MnFlb = Mp;
+  const Mn = Math.min(MnYield, MnLtb, MnFlb);
+
+  const Aw = hw * tw;
+  const shearRatio = hw / tw;
+  const kv = 5.34;
+  const compactShearWeb = shearRatio <= 2.24 * Math.sqrt(E / i.Fy);
+  let Cv1;
+  if (compactShearWeb || shearRatio <= 1.10 * Math.sqrt(kv * E / i.Fy)) Cv1 = 1;
+  else if (shearRatio <= 1.37 * Math.sqrt(kv * E / i.Fy)) Cv1 = 1.10 * Math.sqrt(kv * E / i.Fy) / shearRatio;
+  else Cv1 = 1.51 * kv * E / (shearRatio ** 2 * i.Fy);
+  const Vn = 0.6 * i.Fy * Aw * Cv1;
+  const EI = E * Ix;
+  const deltaD = 5 * i.wD * i.L ** 4 / (384 * EI);
+  const deltaL = 5 * i.wL * i.L ** 4 / (384 * EI);
+  const deltaT = deltaD + deltaL;
+
+  return {
+    A, Ix, Iy, Sx, Zx, ry, J, Cw, ho, rts,
+    lambdaF, lambdaW, lpf, lrf, lpw, lrw,
+    compactFlange: lambdaF <= lpf ? 1 : 0,
+    compactWeb: lambdaW <= lpw ? 1 : 0,
+    Lp, Lr,
+    inelasticLtb: i.Lb > Lp && i.Lb <= Lr ? 1 : 0,
+    governingLtb: MnLtb < MnYield && MnLtb <= MnFlb ? 1 : 0,
+    Mp, Mr, MnYield, MnLtb, MnFlb, Mn,
+    MnOmegaTfm: Mn / 1.67 / 1e5,
+    Cv1,
+    compactShearWeb: compactShearWeb ? 1 : 0,
+    VnTf: Vn / 1000,
+    VnOmegaTf: Vn / (compactShearWeb ? 1.5 : 1.67) / 1000,
+    EI,
+    deltaD,
+    deltaL,
+    deltaT,
+    ratioL: i.L / deltaL,
+    ratioT: i.L / deltaT,
+    allowLive: i.L / i.limitLive,
+    allowTotal: i.L / i.limitTotal
+  };
+}
+
 const ORACLES = {
   'equipment-basic-load-path': equipmentOracle,
   'earth-rankine-dry-active': earthOracle,
   'foundation-external-load-only': foundationOracle,
   'rc-column-balanced-nearby-pm-point': rcColumnPmOracle,
   'rc-foundation-isolated-strength': rcFoundationOracle,
-  'rc-pile-clay-group-cap': rcPileOracle
+  'rc-pile-clay-group-cap': rcPileOracle,
+  'steel-beam-asd-inelastic-ltb': steelBeamAsdOracle
 };
 
 function loadProductionModule(relativePath) {

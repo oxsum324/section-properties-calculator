@@ -631,6 +631,11 @@ assert.match(
   "steel-beam-formal.js should wire SHS\/RHS\/CHS beam calculations, size libraries, and filter logic into the formal beam tool",
 );
 assert.match(
+  beamFormalSource,
+  /Steel\.calcProps\(mm\)[\s\S]*Steel\.classify\(sec, Fy\)[\s\S]*Steel\.calcMn\(sec, Fy,[\s\S]*Steel\.calcVn\(sec, Fy\)[\s\S]*Steel\.calcDeflection\(sec, loadDead, loadLive, L\)/,
+  "steel-beam-formal.js should route H-section strength and deflection through the production steel core covered by the independent benchmark",
+);
+assert.match(
   beamFormalHtmlSource,
   /id="sectionTypeSelect"/,
   "steel-beam-formal.html should expose a section type selector",
