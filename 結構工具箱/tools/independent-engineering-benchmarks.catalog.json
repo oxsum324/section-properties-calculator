@@ -1293,6 +1293,48 @@
       ]
     },
     {
+      "id": "wind-cc-three-control-branches",
+      "route": "/wind-cc",
+      "title": "區域風壓 C&C 高度、內壓高度與屋面角隅控制分支",
+      "productionModule": "independent-engineering-adapters/wind-cc.js",
+      "oracle": "wind-cc-three-control-branches",
+      "referenceType": "closed-form-identity",
+      "referenceBasis": "107 年版耐風規範式 2.6、2.7、3.1、3.2，表 2.2、2.17 與圖 3.1、3.2；獨立核對 h=18 m 外牆 q(h) 路徑、h>18 m 部分封閉外牆正壓 q(z) 與負壓內壓 q(z_h0) 路徑，以及高層低坡屋面區域 3 負壓曲線於 A=9.3 m² 提前收斂之對數內插。",
+      "input": {
+        "cases": [
+          { "id": "lowWallBoundary", "V": 42.5, "terrain": "C", "I": 1.1, "Kzt": 1.05, "h": 18, "z": 7, "zh0": 18, "zone": "zone5", "surface": "wall", "A": 5, "encl": "enclosed" },
+          { "id": "highPartialWall", "V": 37.5, "terrain": "B", "I": 1.15, "Kzt": 1.1, "h": 30, "z": 12, "zh0": 6, "zone": "zone5", "surface": "wall", "A": 12, "encl": "partial" },
+          { "id": "highRoofCorner", "V": 45, "terrain": "A", "I": 0.95, "Kzt": 1, "h": 24, "z": 24, "zh0": 24, "zone": "zone3", "surface": "roof", "A": 20, "encl": "enclosed" }
+        ]
+      },
+      "assertions": [
+        { "path": "lowWallBoundary.qh", "absTolerance": 1e-10 }, { "path": "lowWallBoundary.qz", "absTolerance": 1e-10 },
+        { "path": "lowWallBoundary.qPos", "absTolerance": 1e-10 }, { "path": "lowWallBoundary.qNeg", "absTolerance": 1e-10 },
+        { "path": "lowWallBoundary.qiPos", "absTolerance": 1e-10 }, { "path": "lowWallBoundary.gcpPos", "absTolerance": 1e-12 },
+        { "path": "lowWallBoundary.gcpNeg", "absTolerance": 1e-12 }, { "path": "lowWallBoundary.gcpi", "absTolerance": 1e-12 },
+        { "path": "lowWallBoundary.pPos", "absTolerance": 1e-10 }, { "path": "lowWallBoundary.pNeg", "absTolerance": 1e-10 },
+        { "path": "lowWallBoundary.isLE18", "absTolerance": 0 }, { "path": "lowWallBoundary.positiveUsesZ", "absTolerance": 0 },
+        { "path": "lowWallBoundary.partialNegativeUsesZh0", "absTolerance": 0 },
+        { "path": "highPartialWall.qh", "absTolerance": 1e-10 }, { "path": "highPartialWall.qz", "absTolerance": 1e-10 },
+        { "path": "highPartialWall.qh0", "absTolerance": 1e-10 }, { "path": "highPartialWall.qPos", "absTolerance": 1e-10 },
+        { "path": "highPartialWall.qNeg", "absTolerance": 1e-10 }, { "path": "highPartialWall.qiPos", "absTolerance": 1e-10 },
+        { "path": "highPartialWall.qiNeg", "absTolerance": 1e-10 }, { "path": "highPartialWall.zUse", "absTolerance": 0 },
+        { "path": "highPartialWall.zh0Use", "absTolerance": 0 }, { "path": "highPartialWall.gcpPos", "absTolerance": 1e-12 },
+        { "path": "highPartialWall.gcpNeg", "absTolerance": 1e-12 }, { "path": "highPartialWall.gcpi", "absTolerance": 1e-12 },
+        { "path": "highPartialWall.pPos", "absTolerance": 1e-10 }, { "path": "highPartialWall.pNeg", "absTolerance": 1e-10 },
+        { "path": "highPartialWall.isLE18", "absTolerance": 0 }, { "path": "highPartialWall.positiveUsesZ", "absTolerance": 0 },
+        { "path": "highPartialWall.partialNegativeUsesZh0", "absTolerance": 0 },
+        { "path": "highRoofCorner.qh", "absTolerance": 1e-10 }, { "path": "highRoofCorner.qz", "absTolerance": 1e-10 },
+        { "path": "highRoofCorner.qh0", "absTolerance": 1e-10 }, { "path": "highRoofCorner.qPos", "absTolerance": 1e-10 },
+        { "path": "highRoofCorner.qNeg", "absTolerance": 1e-10 }, { "path": "highRoofCorner.qiPos", "absTolerance": 1e-10 },
+        { "path": "highRoofCorner.qiNeg", "absTolerance": 1e-10 }, { "path": "highRoofCorner.gcpPos", "absTolerance": 1e-12 },
+        { "path": "highRoofCorner.gcpNeg", "absTolerance": 1e-12 }, { "path": "highRoofCorner.gcpi", "absTolerance": 1e-12 },
+        { "path": "highRoofCorner.pPos", "absTolerance": 1e-10 }, { "path": "highRoofCorner.pNeg", "absTolerance": 1e-10 },
+        { "path": "highRoofCorner.isLE18", "absTolerance": 0 }, { "path": "highRoofCorner.positiveUsesZ", "absTolerance": 0 },
+        { "path": "highRoofCorner.partialNegativeUsesZh0", "absTolerance": 0 }
+      ]
+    },
+    {
       "id": "seismic-misc-three-formula-paths",
       "route": "/seismic-misc",
       "title": "雜項工作物式(2-3)、式(5-1)與式(5-2)地震力",

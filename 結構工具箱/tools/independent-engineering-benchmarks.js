@@ -1017,6 +1017,71 @@ function seismicAppendageOracle(input) {
   }));
 }
 
+function windCcThreeBranchOracle(input) {
+  const terrain = {
+    A:{ alpha:0.32, zg:500, zmin:18 },
+    B:{ alpha:0.25, zg:400, zmin:9 },
+    C:{ alpha:0.15, zg:300, zmin:4.5 },
+  };
+  const tables = {
+    lowWall:{
+      zone4:{ pos:[1.89, 1.46], neg:[-2.08, -1.67] },
+      zone5:{ pos:[1.89, 1.46], neg:[-2.71, -1.67] },
+    },
+    lowRoof:{
+      zone1:{ pos:[0.62, 0.42], neg:[-2.08, -1.46] },
+      zone2:{ pos:[0.62, 0.42], neg:[-3.75, -1.67] },
+      zone3:{ pos:[0.62, 0.42], neg:[-5.83, -2.08], negAmax:9.3 },
+    },
+    highWall:{
+      zone4:{ pos:[1.87, 1.46], neg:[-1.88, -1.67] },
+      zone5:{ pos:[1.87, 1.46], neg:[-3.75, -1.67] },
+    },
+    highRoof:{
+      zone1:{ pos:[0.62, 0.42], neg:[-2.08, -1.75] },
+      zone2:{ pos:[0.62, 0.42], neg:[-3.75, -2.29] },
+      zone3:{ pos:[0.62, 0.42], neg:[-5.83, -2.29], negAmax:9.3 },
+    },
+  };
+  const q = (z, i) => {
+    const t = terrain[i.terrain];
+    const zUse = Math.max(z, t.zmin);
+    const kz = 2.774 * Math.pow(zUse / t.zg, 2 * t.alpha);
+    return 0.06 * kz * i.Kzt * i.I ** 2 * i.V ** 2;
+  };
+  const interpolate = (curve, area, maxArea = 46.5) => {
+    if (area <= 0.93) return curve[0];
+    if (area >= maxArea) return curve[1];
+    const ratio = Math.log10(area / 0.93) / Math.log10(maxArea / 0.93);
+    return curve[0] + (curve[1] - curve[0]) * ratio;
+  };
+  return Object.fromEntries(input.cases.map(i => {
+    const isLE18 = i.h <= 18;
+    const tableKey = `${isLE18 ? 'low' : 'high'}${i.surface === 'roof' ? 'Roof' : 'Wall'}`;
+    const curve = tables[tableKey][i.zone];
+    const qh = q(i.h, i);
+    const qz = q(Math.max(i.z, 0), i);
+    const qh0 = q(Math.max(i.zh0, 0), i);
+    const gcpPos = interpolate(curve.pos, i.A);
+    const gcpNeg = interpolate(curve.neg, i.A, curve.negAmax);
+    const gcpi = i.encl === 'partial' ? 1.145 : 0.375;
+    const qPos = !isLE18 && i.surface === 'wall' ? qz : qh;
+    const qNeg = qh;
+    const qiPos = i.encl === 'partial' ? qh0 : qh;
+    const qiNeg = qh;
+    return [i.id, {
+      qh, qz, qh0, qPos, qNeg, qiPos, qiNeg,
+      zUse:i.z, zh0Use:i.zh0,
+      gcpPos, gcpNeg, gcpi,
+      pPos:qPos * gcpPos + qiNeg * gcpi,
+      pNeg:qNeg * gcpNeg - qiPos * gcpi,
+      isLE18:isLE18 ? 1 : 0,
+      positiveUsesZ:qPos === qz && qz !== qh ? 1 : 0,
+      partialNegativeUsesZh0:qiPos === qh0 && qh0 !== qh ? 1 : 0,
+    }];
+  }));
+}
+
 function seismicMiscOracle(input) {
   const interpolate = (xs, ys, x) => {
     if (x <= xs[0]) return ys[0];
@@ -1432,6 +1497,7 @@ const ORACLES = {
   'rc-slab-one-way-strength': rcSlabStrengthOracle,
   'wind-force-rigid-three-story-mwfrs': windForceMwfrsOracle,
   'wind-object-solid-table-2-10': windObjectSolidTable210Oracle,
+  'wind-cc-three-control-branches': windCcThreeBranchOracle,
   'seismic-force-eight-story-static': seismicForceStaticOracle,
   'seismic-appendage-three-control-branches': seismicAppendageOracle,
   'seismic-misc-three-formula-paths': seismicMiscOracle,

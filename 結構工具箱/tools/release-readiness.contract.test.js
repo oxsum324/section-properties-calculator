@@ -588,8 +588,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
 
 [
   'independent-engineering-benchmarks.catalog.json',
-  '18 / 18',
-  '18 / 31',
+  '19 / 19',
+  '19 / 31',
   '不等同獨立工程驗證',
 ].forEach(needle => {
   assertIncludes(readme, needle, `README documents independent engineering benchmark boundary ${needle}`);
