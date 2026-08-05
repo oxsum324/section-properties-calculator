@@ -566,6 +566,11 @@ assert.match(
   "steel-column-formal.js should wire SHS\/RHS\/CHS calculations, size libraries, and filter logic into the column formal tool",
 );
 assert.match(
+  columnFormalSource,
+  /Steel\.calcProps\(mm\)[\s\S]*Steel\.classifyCompression\(sec, Fy\)[\s\S]*Steel\.calcPn\(sec, Fy, KLrX, KLrY\)[\s\S]*Steel\.calcMn\(sec, Fy, Lbx, Cbx\)[\s\S]*Steel\.calcMny\(sec, Fy\)[\s\S]*Steel\.calcInteractionASD\(/,
+  "steel-column-formal.js should route H-section ASD compression and interaction through the production steel core covered by the independent benchmark",
+);
+assert.match(
   columnFormalHtmlSource,
   /id="sectionTypeSelect"/,
   "steel-column-formal.html should expose a section type selector",

@@ -378,6 +378,104 @@ function steelBeamAsdOracle(i) {
   };
 }
 
+function steelColumnAsdOracle(i) {
+  const E = 2.04e6;
+  const omega = 1.67;
+  const H = i.H / 10;
+  const B = i.B / 10;
+  const tw = i.tw / 10;
+  const tf = i.tf / 10;
+  const hw = H - 2 * tf;
+  const A = 2 * B * tf + hw * tw;
+  const Ix = 2 * (B * tf ** 3 / 12 + B * tf * ((H - tf) / 2) ** 2) + tw * hw ** 3 / 12;
+  const Iy = 2 * tf * B ** 3 / 12 + hw * tw ** 3 / 12;
+  const Sx = Ix / (H / 2);
+  const Sy = Iy / (B / 2);
+  const Zx = 2 * (B * tf * (H / 2 - tf / 2) + tw * (hw / 2) * (hw / 4));
+  const Zy = 2 * (tf * B ** 2 / 4) + hw * tw ** 2 / 4;
+  const rx = Math.sqrt(Ix / A);
+  const ry = Math.sqrt(Iy / A);
+  const lambdaF = B / (2 * tf);
+  const lambdaW = hw / tw;
+  const lrfComp = 0.56 * Math.sqrt(E / i.Fy);
+  const lrwComp = 1.49 * Math.sqrt(E / i.Fy);
+  const nonSlenderFlange = lambdaF <= lrfComp;
+  const nonSlenderWeb = lambdaW <= lrwComp;
+  const Qs = nonSlenderFlange ? 1 : NaN;
+  const Qa = nonSlenderWeb ? 1 : NaN;
+  const Q = Qs * Qa;
+
+  const KLrX = i.Kx * i.Lx / rx;
+  const KLrY = i.Ky * i.Ly / ry;
+  const KLr = Math.max(KLrX, KLrY);
+  const Fe = Math.PI ** 2 * E / KLr ** 2;
+  const Cc = Math.sqrt(2 * Math.PI ** 2 * E / i.Fy);
+  const limit = 4.71 * Math.sqrt(E / (Q * i.Fy));
+  const compressionInelastic = KLr <= limit;
+  const Fcr = compressionInelastic
+    ? Q * 0.658 ** (Q * i.Fy / Fe) * i.Fy
+    : 0.877 * Fe;
+  const Pn = Fcr * A;
+  const slendernessRatio = KLr / Cc;
+  const traditionalSafetyFactor = 5 / 3 + 3 * slendernessRatio / 8 - slendernessRatio ** 3 / 8;
+  const Fa = KLr < Cc
+    ? (1 - slendernessRatio ** 2 / 2) * i.Fy / traditionalSafetyFactor
+    : 12 * Math.PI ** 2 * E / (23 * KLr ** 2);
+
+  const J = (2 * B * tf ** 3 + hw * tw ** 3) / 3;
+  const ho = H - tf;
+  const rts = Math.sqrt(Iy * ho / (2 * Sx));
+  const Mpx = i.Fy * Zx;
+  const Mrx = 0.7 * i.Fy * Sx;
+  const Lp = 1.76 * ry * Math.sqrt(E / i.Fy);
+  const ltbArg = J / (Sx * ho);
+  const Lr = 1.95 * rts * E / (0.7 * i.Fy)
+    * Math.sqrt(ltbArg + Math.sqrt(ltbArg ** 2 + 6.76 * (0.7 * i.Fy / E) ** 2));
+  const MnxLtb = Math.min(i.Cb * (Mpx - (Mpx - Mrx) * (i.Lb - Lp) / (Lr - Lp)), Mpx);
+  const Mnx = Math.min(Mpx, MnxLtb);
+  const Mpy = Math.min(i.Fy * Zy, 1.6 * i.Fy * Sy);
+  const Mny = Mpy;
+
+  const fa = i.Pu * 1000 / A;
+  const fbx = i.Mux * 1e5 / Sx;
+  const fby = i.Muy * 1e5 / Sy;
+  const Fbx = Mnx / (omega * Sx);
+  const Fby = Mny / (omega * Sy);
+  const Fex = 12 * Math.PI ** 2 * E / (23 * KLrX ** 2);
+  const Fey = 12 * Math.PI ** 2 * E / (23 * KLrY ** 2);
+  const axialStressRatio = fa / Fa;
+  const ampX = 1 - fa / Fex;
+  const ampY = 1 - fa / Fey;
+  const IR1 = axialStressRatio
+    + i.Cmx * fbx / (ampX * Fbx)
+    + i.Cmy * fby / (ampY * Fby);
+  const IR2 = fa / (0.60 * i.Fy) + fbx / Fbx + fby / Fby;
+
+  return {
+    A, Ix, Iy, Sx, Sy, Zx, Zy, rx, ry,
+    lambdaF, lambdaW, lrfComp, lrwComp,
+    nonSlenderFlange: nonSlenderFlange ? 1 : 0,
+    nonSlenderWeb: nonSlenderWeb ? 1 : 0,
+    KLrX, KLrY, KLr,
+    controlY: KLrY > KLrX ? 1 : 0,
+    Fe, Cc, limit, Q, Qs, Qa,
+    compressionInelastic: compressionInelastic ? 1 : 0,
+    Fcr, Pn, PnOmegaTf:Pn / omega / 1000,
+    Fa, PaAsdTf:Fa * A / 1000,
+    Lp, Lr,
+    majorLtbInelastic:i.Lb > Lp && i.Lb <= Lr ? 1 : 0,
+    majorGoverningLtb:MnxLtb < Mpx ? 1 : 0,
+    Mpx, Mrx, Mnx,
+    MnxOmegaTfm:Mnx / omega / 1e5,
+    Mpy, Mny, MnyOmegaTfm:Mny / omega / 1e5,
+    fa, fbx, fby, Fbx, Fby, Fex, Fey,
+    interactionFull:axialStressRatio > 0.15 ? 1 : 0,
+    axialStressRatio, IR1, IR2,
+    maxIR:Math.max(IR1, IR2),
+    interactionOk:IR1 <= 1 && IR2 <= 1 ? 1 : 0
+  };
+}
+
 const ORACLES = {
   'equipment-basic-load-path': equipmentOracle,
   'earth-rankine-dry-active': earthOracle,
@@ -385,7 +483,8 @@ const ORACLES = {
   'rc-column-balanced-nearby-pm-point': rcColumnPmOracle,
   'rc-foundation-isolated-strength': rcFoundationOracle,
   'rc-pile-clay-group-cap': rcPileOracle,
-  'steel-beam-asd-inelastic-ltb': steelBeamAsdOracle
+  'steel-beam-asd-inelastic-ltb': steelBeamAsdOracle,
+  'steel-column-asd-weak-axis-interaction': steelColumnAsdOracle
 };
 
 function loadProductionModule(relativePath) {
