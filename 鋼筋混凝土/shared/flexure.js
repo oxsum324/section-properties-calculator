@@ -113,7 +113,10 @@
   // 解 As^2·(fy²/(1.7 fc' b)) − As·fy·d + Mu/φ = 0
   function designAsRect(opt) {
     const { b, d, Mu_kgcm, fc, fy } = opt;
-    if (Mu_kgcm <= 0 || b <= 0 || d <= 0) return { As: 0, a: 0, converged: true };
+    if (![b, d, Mu_kgcm, fc, fy].every(Number.isFinite) || b <= 0 || d <= 0 || fc <= 0 || fy <= 0) {
+      return { As: NaN, a: NaN, converged: false };
+    }
+    if (Mu_kgcm <= 0) return { As: 0, a: 0, converged: true };
     const phi = 0.9;                            // 假設拉控；若不足會於檢核反映
     const Mn = Mu_kgcm / phi;
     // 迭代: As_new = Mn / (fy·(d − a/2))
@@ -157,4 +160,8 @@
     phiMnRect,
     asMinFlexure,
   };
-})(window);
+})(typeof window !== 'undefined' ? window : globalThis);
+
+if (typeof module === 'object' && module.exports) {
+  module.exports = globalThis.Flexure;
+}

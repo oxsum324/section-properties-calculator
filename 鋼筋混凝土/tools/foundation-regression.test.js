@@ -431,6 +431,9 @@ async function main() {
   assert(html.includes('id="mainTabs"'), 'foundation.html has section tabs', 'multi-foundation tab UI exists');
   assert(html.includes('id="bannerStatus"'), 'foundation.html has banner', 'summary banner exists');
   assert(html.includes('window.ftLast'), 'foundation.html exports ftLast', 'result snapshot exists for regression capture');
+  assert(html.includes('../shared/foundation-isolated.js?v=1') && html.includes('FoundationIsolated.calculateStrength'), 'foundation isolated footing uses the shared production strength core', 'shared core is loaded and called');
+  assert(!/designAsRect\(\{[^\n}]*\bMu\s*:/.test(html), 'foundation flexural design uses the Mu_kgcm interface', 'no obsolete Mu key remains');
+  assert(html.includes('Mu_kgcm:Mu_long_tfm * 1e5') && html.includes('Mu_kgcm: capMu_tfm * 1e5'), 'combined footing and pile cap read finite reinforcement demand', 'designAsRect result uses .As');
   assert(html.includes('id="cHDL"') && html.includes('id="cHE"'), 'combined footing has horizontal force inputs', 'HDL/HE inputs exist');
   assert(html.includes('id="cc-slide"') && html.includes('id="cr-FSslide"'), 'combined footing has sliding checks', 'combined sliding UI exists');
   assert(!html.includes('預留，尚未做抗滑檢核'), 'combined footing sliding input is not stale placeholder text', 'cMu is active');
@@ -548,6 +551,10 @@ async function main() {
           qu: r.qu,
           As_per_m: r.As_per_m !== undefined ? r.As_per_m : (r.AsX_per_m !== undefined ? r.AsX_per_m : undefined),
           AsMin_per_m: r.AsMin_per_m,
+          AsReq: r.AsReq,
+          AsReqX: r.AsReqX,
+          AsReqY: r.AsReqY,
+          capAsReq: r.capAsReq,
           okQ: r.okQ,
           okV1: r.okV1,
           okV2: r.okV2,
@@ -606,6 +613,15 @@ async function main() {
       ['Vu1_tf', 'phiVc1_tf', 'Vu2_tf', 'phiVc2_tf'].forEach(key => {
         actual[key] = toTfMaybe(actual[key]);
       });
+      if (tc.tab === 'iso') {
+        assert(Number.isFinite(actual.AsReqX) && Number.isFinite(actual.AsReqY), `${tc.key} :: isolated footing reinforcement demand is finite`, JSON.stringify({ AsReqX:actual.AsReqX, AsReqY:actual.AsReqY }));
+      }
+      if (tc.tab === 'combined') {
+        assert(Number.isFinite(actual.AsReq), `${tc.key} :: combined footing reinforcement demand is finite`, String(actual.AsReq));
+      }
+      if (tc.tab === 'pile') {
+        assert(Number.isFinite(actual.capAsReq), `${tc.key} :: pile-cap reinforcement demand is finite`, String(actual.capAsReq));
+      }
 
       Object.entries(tc.expected).forEach(([key, expected]) => {
         const pass = nearlyEqual(actual[key], expected, tolerance);

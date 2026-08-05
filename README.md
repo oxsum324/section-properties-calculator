@@ -310,7 +310,7 @@ Canonical profile 也不直接相信 evidence 宣告：檢查器先由可見標�
 
 若不希望每次手動輸入四個治理來源，可使用 `node 結構工具箱/tools/attachment-case-governance-workspace.js --config <附件治理工作區設定 JSON> [--json]`，或把設定檔拖曳至 `結構工具箱/tools/檢查附件治理工作區.bat`。初次建立使用 `--create --workspace-name <名稱> --directory <快照> --ledger <處置鏈> --history <檢查點歷程> --head <受信任 TAC 終點> --output <設定資料夾> --reviewer <複核人> --basis <依據>`；終點合法前進後，使用 `--create --previous-config <前一設定> --head <新終點> --output <設定資料夾> --reviewer <複核人> --basis <依據>`，或使用 `結構工具箱/tools/建立附件治理工作區.bat`。設定檔採相對於自身資料夾的正規化路徑，以 `TGW-` 綁定工作區名稱、三個固定來源、受信任終點的檔名／`TAC-`／SHA-256、內部複核決定及前一設定身分；輸出資料夾必須與所有治理來源完全分離。每次建立排他鎖與暫存檔，fsync、封閉回讀、發布前後來源重驗後才原子發布新檔，永不覆寫既有設定；前進固定沿用前一設定名稱與來源，且新終點必須是舊終點的後續檢查點。日常檢查只需一個 `--config`，若設定被改名、移動後相對拓撲失效、硬連結化、終點三重身分不符或任一治理來源改變，均失敗封閉。命令結果不含相對／完整路徑、複核人或依據，且不會降低目前工程 `review`／`blocked`；工作區設定不是正式附件核可、防竄改儲存或數位簽章，也不得進入計算書、主報告、正式附件包或 Pages。
 
-RC 基礎工具的 `tools/test-foundation.ps1` 已串接底版需求、群樁側向分配、p-y 結果橋接與表格換算純數值回歸，以及 8 份基礎報告視覺 smoke：涵蓋獨立、聯合、筏式、樁基／樁帽、代表單樁 p-y 採用及擋土牆，檢查 NG／待確認邊界、主要檢核群組、逐層承載力表、趾版底層與踵版頂層設計、無 `NaN` / `Infinity` / `undefined` / `null` / `∞`、無水平溢出，並輸出 PNG / PDF / JSON 稽核檔；列印模式也會確認工具列隱藏。
+RC 基礎工具的 `tools/test-foundation.ps1` 已串接獨立基腳 production core、有限配筋需求、底版需求、群樁側向分配、p-y 結果橋接與表格換算純數值回歸，以及 8 份基礎報告視覺 smoke：涵蓋獨立、聯合、筏式、樁基／樁帽、代表單樁 p-y 採用及擋土牆，檢查 NG／待確認邊界、主要檢核群組、逐層承載力表、趾版底層與踵版頂層設計、無 `NaN` / `Infinity` / `undefined` / `null` / `∞`、無水平溢出，並輸出 PNG / PDF / JSON 稽核檔；列印模式也會確認工具列隱藏。
 
 工具成熟度矩陣的下一步品質欄位同時包含 `reportTextSmoke`、`goldenCaseRegression`、`jsonRoundTrip` 與 `referenceTraceability`；其中 `reportTextSmoke` 只揭露報告可讀文字抽檢是否已被 smoke / contract 覆蓋，不把頁面專用閱讀狀態寫入計算書或 PDF。
 
@@ -324,7 +324,7 @@ RC 梁、柱、板、牆、剪力牆、基礎與單樁既有專案 JSON 可直�
 
 既有 golden case、JSON 重播與成品結果鏈用來證明程式在版本間維持一致，但不等同獨立工程驗證。`結構工具箱/tools/independent-engineering-benchmarks.catalog.json` 另行登錄可由封閉式力學關係推導的案例，`independent-engineering-benchmarks.js` 不讀取 golden case 預期答案，會以獨立推導值核對目前 production core。
 
-目前試辦涵蓋設備局部荷重、乾土 Rankine 主動土壓、矩形基礎外力底壓與矩形 RC 柱平衡附近 P–M 控制點，共 4 / 4 路由通過；31 個正式入口的整體獨立驗證覆蓋為 4 / 31。RC 基礎、RC 樁、正式鋼梁、正式鋼柱、風力、地震力與錨栓列為 P0 後續基準。試辦狀態只留在盤點與首頁頁面診斷，不寫入計算書或正式附件。
+目前試辦涵蓋設備局部荷重、乾土 Rankine 主動土壓、矩形基礎外力底壓、矩形 RC 柱平衡附近 P–M 控制點與 RC 獨立基腳撓曲／單向剪力／衝剪，共 5 / 5 路由通過；31 個正式入口的整體獨立驗證覆蓋為 5 / 31。RC 樁、正式鋼梁、正式鋼柱、風力、地震力與錨栓列為 P0 後續基準。試辦狀態只留在盤點與首頁頁面診斷，不寫入計算書或正式附件。
 
 可單獨執行：
 

@@ -1216,6 +1216,7 @@
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
+<script src="../shared/foundation-isolated.js?v=1"></script>
 <script src="../shared/retaining-base-demand.js?v=1"></script>
 <script src="../shared/pile-group-lateral.js?v=1"></script>
 <script src="../shared/pile-py-table-adapter.js?v=1"></script>
@@ -2881,9 +2882,6 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     const dbY = REBAR_TABLE[barNoY].db;
     const AsX_per_m = (100 / spX) * abX;
     const AsY_per_m = (100 / spY) * abY;
-    const dX = hf - cover - dbX;
-    const dY = hf - cover - dbY;
-    const d = Math.min(dX, dY);
     const Ag_m2 = (B * L) / 1e4;
 
     // === 偏心土壓 (含雙向) ===
@@ -2941,58 +2939,31 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     const qu = Pu_tf / Ag_m2;
     const qu_kgf_cm2 = qu / 10;
 
-    // === 撓曲 (使用 Flexure 模組) ===
-    const armX = (L - c1) / 2;
-    const armY = (B - c2) / 2;
-    const arm = Math.max(armX, armY);
-    const Mux_kgcm = qu_kgf_cm2 * B * armX * armX / 2;
-    const Muy_kgcm = qu_kgf_cm2 * L * armY * armY / 2;
-    const Mu_kgcm = Math.max(Mux_kgcm, Muy_kgcm);
-    const Mu_tfm = Mu_kgcm / 1e5;
-    const Mux_tfm = Mux_kgcm / 1e5;
-    const Muy_tfm = Muy_kgcm / 1e5;
-
-    // 板式配筋設計
-    const AsProvX = AsX_per_m * (B / 100);
-    const AsProvY = AsY_per_m * (L / 100);
-    const phiMnX_tfm = Flexure.phiMnRect({ b: B, d: dX, h: hf, As: AsProvX, fc, fy }).phiMn / 1e5;
-    const phiMnY_tfm = Flexure.phiMnRect({ b: L, d: dY, h: hf, As: AsProvY, fc, fy }).phiMn / 1e5;
-    const MuMode = Mux_tfm >= Muy_tfm ? 'X 向柱面懸臂' : 'Y 向柱面懸臂';
-    const phiMn_tfm = MuMode === 'X 向柱面懸臂' ? phiMnX_tfm : phiMnY_tfm;
+    // === 獨立基腳強度（共用 production core） ===
+    const isolatedStrength = FoundationIsolated.calculateStrength({
+      fc, fy, B, L, hf, c1, c2, cover, dbX, dbY,
+      AsXPerM: AsX_per_m, AsYPerM: AsY_per_m,
+      PuTf: Pu_tf, phiShear: PHI.shear, lambda
+    });
+    const {
+      dX, dY, d, armX, armY, arm,
+      MuxKgfCm: Mux_kgcm, MuyKgfCm: Muy_kgcm, MuKgfCm: Mu_kgcm,
+      MuxTfm: Mux_tfm, MuyTfm: Muy_tfm, MuTfm: Mu_tfm,
+      AsProvX, AsProvY, phiMnXTfm: phiMnX_tfm, phiMnYTfm: phiMnY_tfm,
+      MuMode, phiMnTfm: phiMn_tfm,
+      AsMinPerM: AsMin_per_m, AsReqX, AsReqY, AsReq,
+      betaRect: beta_rect, centerBandRatio: cbRatio, isRect,
+      v1Arm, Vu1Kgf: Vu1, Vc1Kgf: Vc1, phiVc1Kgf: phiVc1,
+      c1d, c2d, bo, criticalAreaM2: Acrit_m2, Vu2Kgf: Vu2,
+      betaC: beta_c, vcA: vc_a, vcB: vc_b, alphaS: alpha_s,
+      vcC: vc_c, vc2, phiVc2Kgf: phiVc2
+    } = isolatedStrength;
     const phiMn_kgcm = phiMn_tfm * 1e5;
-    const AsMin_per_m = 0.0018 * 100 * hf;
-    const AsReqX = Math.max(Flexure.designAsRect({ b: B, d: dX, Mu: Mux_kgcm, fc, fy }), AsMin_per_m * (B / 100));
-    const AsReqY = Math.max(Flexure.designAsRect({ b: L, d: dY, Mu: Muy_kgcm, fc, fy }), AsMin_per_m * (L / 100));
-    const AsReq = MuMode === 'X 向柱面懸臂' ? AsReqX : AsReqY;
     const sMax = Math.min(3 * hf, 45);
     const clearX = spX - dbX;
     const clearY = spY - dbY;
     const clearMinX = Math.max(dbX, 2.5);
     const clearMinY = Math.max(dbY, 2.5);
-
-    // === 中央帶比 (矩形 L > B) ===
-    const beta_rect = L > B ? L / B : B / L;
-    const cbRatio = 2 / (beta_rect + 1);
-    const isRect = Math.abs(L - B) > 1;
-
-    // === 單向剪力 ===
-    const v1Arm = Math.max(0, arm - d);
-    const Vu1 = qu_kgf_cm2 * B * v1Arm;
-    const Vc1 = 0.53 * lambda * Math.sqrt(fc) * B * d;
-    const phiVc1 = PHI.shear * Vc1;
-
-    // === 雙向衝剪 ===
-    const c1d = c1 + d, c2d = c2 + d;
-    const bo = 2 * (c1d + c2d);
-    const Acrit_m2 = (c1d * c2d) / 1e4;
-    const Vu2 = (Pu_tf - qu * Acrit_m2) * 1000;
-    const beta_c = Math.max(c1, c2) / Math.min(c1, c2);
-    const vc_a = 1.06 * lambda * Math.sqrt(fc);
-    const vc_b = 0.27 * (2 + 4 / beta_c) * lambda * Math.sqrt(fc);
-    const alpha_s = 40;
-    const vc_c = 0.27 * (alpha_s * d / bo + 2) * lambda * Math.sqrt(fc);
-    const vc2 = Math.min(vc_a, vc_b, vc_c);
-    const phiVc2 = PHI.shear * vc2 * bo * d;
 
     // === 握裹 ===
     const dbDev = MuMode === 'X 向柱面懸臂' ? dbX : dbY;
@@ -3309,8 +3280,8 @@ Si = q·B·(1−ν²)·Iw/Es = ${Si_cm.toFixed(2)} cm  ${okSettle?'≤':'>'} Sa=
     const clearY = spY - dbY;
     const okSpacing = spX <= sMax && spY <= sMax;
     const okClear = clearX >= clearMinX && clearY >= clearMinY;
-    const AsReqLong = Math.max(Flexure.designAsRect({ b: B, d:dX, Mu:Mu_long_tfm * 1e5, fc, fy }), AsMin_per_m * (B / 100));
-    const AsReqTrans = Math.max(Flexure.designAsRect({ b: L, d:dY, Mu:Mu_trans_tfm * 1e5, fc, fy }), AsMin_per_m * (L / 100));
+    const AsReqLong = Math.max(Flexure.designAsRect({ b: B, d:dX, Mu_kgcm:Mu_long_tfm * 1e5, fc, fy }).As, AsMin_per_m * (B / 100));
+    const AsReqTrans = Math.max(Flexure.designAsRect({ b: L, d:dY, Mu_kgcm:Mu_trans_tfm * 1e5, fc, fy }).As, AsMin_per_m * (L / 100));
     const AsReq = MuMode === '長向梁化包絡' ? AsReqLong : AsReqTrans;
 
     const Vu1 = beamEnv.maxShear.V * 1000;
@@ -3955,7 +3926,7 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
     const capMuTrans_tfm = controlRowB * Math.max(rowSpanB, pileD / 100) / 8;
     const capMu_tfm = Math.max(capMuLong_tfm, capMuTrans_tfm);
     const capVu_tfm = Math.max(controlRowL / 2, controlRowB / 2, Math.max(rMax, 0));
-    const capAsDesign = Flexure.designAsRect({ b: 100, d, Mu: capMu_tfm * 1e5, fc, fy });
+    const capAsDesign = Flexure.designAsRect({ b: 100, d, Mu_kgcm: capMu_tfm * 1e5, fc, fy }).As;
     const capAsReq = Math.max(0.0018 * 100 * hc, Number.isFinite(capAsDesign) ? capAsDesign : 0);
     const capAsProv = Math.max(As / 2, capAsReq);
     const capFlexRaw = Flexure.phiMnRect({ b: 100, d, h: hc, As: capAsProv, fc, fy }).phiMn / 1e5;

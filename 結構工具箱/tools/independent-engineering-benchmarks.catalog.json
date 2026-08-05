@@ -157,10 +157,55 @@
         { "path": "designP", "absTolerance": 1e-10 },
         { "path": "designM", "absTolerance": 1e-10 }
       ]
+    },
+    {
+      "id": "rc-foundation-isolated-strength",
+      "route": "/rc-foundation",
+      "title": "矩形 RC 獨立基腳撓曲、單向剪力與雙向衝剪",
+      "productionModule": "independent-engineering-adapters/rc-foundation.js",
+      "oracle": "rc-foundation-isolated-strength",
+      "referenceType": "closed-form-identity",
+      "referenceBasis": "均佈因數化底壓下之柱面懸臂彎矩、單筋矩形斷面閉合解、距柱面 d 之單向剪力，以及距柱面 d/2 周長之雙向衝剪。",
+      "input": {
+        "fc": 280,
+        "fy": 4200,
+        "Es": 2040000,
+        "beta1": 0.85,
+        "B": 250,
+        "L": 250,
+        "hf": 60,
+        "c1": 60,
+        "c2": 60,
+        "cover": 7.5,
+        "dbX": 2.222,
+        "dbY": 2.222,
+        "AsXPerM": 21.55,
+        "AsYPerM": 21.55,
+        "PuTf": 184,
+        "phiShear": 0.75,
+        "lambda": 1
+      },
+      "assertions": [
+        { "path": "dX", "absTolerance": 1e-12 },
+        { "path": "dY", "absTolerance": 1e-12 },
+        { "path": "quTfM2", "absTolerance": 1e-12 },
+        { "path": "MuxTfm", "absTolerance": 1e-10 },
+        { "path": "MuyTfm", "absTolerance": 1e-10 },
+        { "path": "phiMnXTfm", "absTolerance": 1e-8 },
+        { "path": "phiMnYTfm", "absTolerance": 1e-8 },
+        { "path": "flexuralAsX", "absTolerance": 1e-5 },
+        { "path": "flexuralAsY", "absTolerance": 1e-5 },
+        { "path": "AsReqX", "absTolerance": 1e-10 },
+        { "path": "AsReqY", "absTolerance": 1e-10 },
+        { "path": "Vu1Tf", "absTolerance": 1e-10 },
+        { "path": "phiVc1Tf", "absTolerance": 1e-10 },
+        { "path": "bo", "absTolerance": 1e-10 },
+        { "path": "Vu2Tf", "absTolerance": 1e-10 },
+        { "path": "phiVc2Tf", "absTolerance": 1e-10 }
+      ]
     }
   ],
   "priorityTargets": [
-    { "route": "/rc-foundation", "priority": "P0", "evidenceNeeded": "沖切、單向剪力與彎矩配筋之獨立基準" },
     { "route": "/rc-pile", "priority": "P0", "evidenceNeeded": "樁承載、群樁分配與樁帽設計之獨立基準" },
     { "route": "/steel-beam-formal", "priority": "P0", "evidenceNeeded": "ASD 梁彎曲、剪力、撓度及側扭挫屈之獨立基準" },
     { "route": "/steel-column-formal", "priority": "P0", "evidenceNeeded": "ASD 壓彎構件互制與有效長度之獨立基準" },

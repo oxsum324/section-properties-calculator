@@ -131,11 +131,82 @@ function rcColumnPmOracle(i) {
   };
 }
 
+function rcFoundationOracle(i) {
+  const dX = i.hf - i.cover - i.dbX;
+  const dY = i.hf - i.cover - i.dbY;
+  const d = Math.min(dX, dY);
+  const areaM2 = i.B * i.L / 1e4;
+  const quTfM2 = i.PuTf / areaM2;
+  const quKgfCm2 = quTfM2 / 10;
+  const armX = (i.L - i.c1) / 2;
+  const armY = (i.B - i.c2) / 2;
+  const MuxKgfCm = quKgfCm2 * i.B * armX * armX / 2;
+  const MuyKgfCm = quKgfCm2 * i.L * armY * armY / 2;
+  const AsProvX = i.AsXPerM * i.B / 100;
+  const AsProvY = i.AsYPerM * i.L / 100;
+
+  function flexuralCapacity(width, depth, steelArea) {
+    const a = steelArea * i.fy / (0.85 * i.fc * width);
+    const c = a / i.beta1;
+    const epsT = 0.003 * (depth - c) / c;
+    const epsY = i.fy / i.Es;
+    const phi = epsT >= 0.005 ? 0.9 : (epsT <= epsY ? 0.65 : 0.65 + 0.25 * (epsT - epsY) / (0.005 - epsY));
+    return phi * steelArea * i.fy * (depth - a / 2) / 1e5;
+  }
+
+  function requiredSteel(width, depth, momentKgfCm) {
+    const coefficient = i.fy * i.fy / (1.7 * i.fc * width);
+    const linear = i.fy * depth;
+    const discriminant = linear * linear - 4 * coefficient * momentKgfCm / 0.9;
+    return (linear - Math.sqrt(discriminant)) / (2 * coefficient);
+  }
+
+  const flexuralAsX = requiredSteel(i.B, dX, MuxKgfCm);
+  const flexuralAsY = requiredSteel(i.L, dY, MuyKgfCm);
+  const AsMinPerM = 0.0018 * 100 * i.hf;
+  const AsReqX = Math.max(flexuralAsX, AsMinPerM * i.B / 100);
+  const AsReqY = Math.max(flexuralAsY, AsMinPerM * i.L / 100);
+  const v1Arm = Math.max(0, Math.max(armX, armY) - d);
+  const Vu1Kgf = quKgfCm2 * i.B * v1Arm;
+  const phiVc1Kgf = i.phiShear * 0.53 * i.lambda * Math.sqrt(i.fc) * i.B * d;
+  const c1d = i.c1 + d;
+  const c2d = i.c2 + d;
+  const bo = 2 * (c1d + c2d);
+  const criticalAreaM2 = c1d * c2d / 1e4;
+  const Vu2Kgf = (i.PuTf - quTfM2 * criticalAreaM2) * 1000;
+  const betaC = Math.max(i.c1, i.c2) / Math.min(i.c1, i.c2);
+  const vc = Math.min(
+    1.06 * i.lambda * Math.sqrt(i.fc),
+    0.27 * (2 + 4 / betaC) * i.lambda * Math.sqrt(i.fc),
+    0.27 * (40 * d / bo + 2) * i.lambda * Math.sqrt(i.fc)
+  );
+  const phiVc2Kgf = i.phiShear * vc * bo * d;
+  return {
+    dX,
+    dY,
+    quTfM2,
+    MuxTfm: MuxKgfCm / 1e5,
+    MuyTfm: MuyKgfCm / 1e5,
+    phiMnXTfm: flexuralCapacity(i.B, dX, AsProvX),
+    phiMnYTfm: flexuralCapacity(i.L, dY, AsProvY),
+    flexuralAsX,
+    flexuralAsY,
+    AsReqX,
+    AsReqY,
+    Vu1Tf: Vu1Kgf / 1000,
+    phiVc1Tf: phiVc1Kgf / 1000,
+    bo,
+    Vu2Tf: Vu2Kgf / 1000,
+    phiVc2Tf: phiVc2Kgf / 1000
+  };
+}
+
 const ORACLES = {
   'equipment-basic-load-path': equipmentOracle,
   'earth-rankine-dry-active': earthOracle,
   'foundation-external-load-only': foundationOracle,
-  'rc-column-balanced-nearby-pm-point': rcColumnPmOracle
+  'rc-column-balanced-nearby-pm-point': rcColumnPmOracle,
+  'rc-foundation-isolated-strength': rcFoundationOracle
 };
 
 function loadProductionModule(relativePath) {
