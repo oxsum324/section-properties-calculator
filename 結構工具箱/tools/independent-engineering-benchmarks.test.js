@@ -72,6 +72,12 @@ assert.ok(windParapetAdapterSource.includes("../風力/wind-parapet.html"), 'win
 assert.ok(windParapetAdapterSource.includes('W.calcMwfrsParapet({ V, terrain, I, Kzt, h, hp, face })'), 'wind parapet adapter locks the formal MWFRS page route');
 assert.ok(windParapetAdapterSource.includes("W.calcSingleRoofParapetCcCases : W.calcParapetCcCases"), 'wind parapet adapter locks both formal C&C page routes');
 assert.ok(!windParapetAdapterSource.includes('golden'), 'wind parapet adapter does not replay a golden-case fixture');
+const windOpenRoofAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'wind-open-roof.js'), 'utf8');
+assert.ok(windOpenRoofAdapterSource.includes("../../core/loads/wind.js"), 'wind open-roof adapter exercises the production wind core');
+assert.ok(windOpenRoofAdapterSource.includes("../風力/wind-open-roof.html"), 'wind open-roof adapter guards the formal page calculation wiring');
+assert.ok(windOpenRoofAdapterSource.includes('const hUse = theta <= 10 ? hEave : hAvg;'), 'wind open-roof adapter locks the formal height-selection rule');
+assert.ok(windOpenRoofAdapterSource.includes('W.calcOpenRoofCC({ V, terrain, I, h: hUse, B, L, Kzt, theta, A, zone, roofType, blockage })'), 'wind open-roof adapter locks the formal core call');
+assert.ok(!windOpenRoofAdapterSource.includes('golden'), 'wind open-roof adapter does not replay a golden-case fixture');
 const seismicForceAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'seismic-force-static.js'), 'utf8');
 assert.ok(seismicForceAdapterSource.includes("../../core/loads/seismic.js"), 'seismic-force adapter exercises the production static seismic core');
 assert.ok(!seismicForceAdapterSource.includes('golden'), 'seismic-force adapter does not replay a golden-case fixture');
@@ -95,9 +101,9 @@ assert.ok(anchorBackupSource.includes("import { evaluateProjectBatch } from './c
 const result = runBenchmarks(catalog);
 assert.equal(result.status, 'ready', JSON.stringify(result.issues));
 assert.equal(result.summary.eligibleFormalRoutes, 31, 'formal route portfolio is explicit');
-assert.equal(result.summary.pilotRequired, 20, 'twenty independent pilot benchmarks required');
-assert.equal(result.summary.pilotVerified, 20, 'twenty independent pilot benchmarks verified');
-assert.equal(result.summary.independentlyVerifiedRoutes, 20, 'twenty distinct routes independently verified');
+assert.equal(result.summary.pilotRequired, 21, 'twenty-one independent pilot benchmarks required');
+assert.equal(result.summary.pilotVerified, 21, 'twenty-one independent pilot benchmarks verified');
+assert.equal(result.summary.independentlyVerifiedRoutes, 21, 'twenty-one distinct routes independently verified');
 assert.equal(result.summary.priorityTargets, 0, 'no priority route remains in the independent benchmark roadmap');
 assert.equal(result.priorityTargets.some(target => target.priority === 'P0'), false, 'no P0 route remains in the independent benchmark roadmap');
 assert.equal(result.summary.issueCount, 0, 'independent pilot has no issues');
@@ -128,6 +134,7 @@ const falsePositiveResult = runBenchmarks(catalog, {
         if (relativePath === 'independent-engineering-adapters/wind-object-solid-table210.js') production.nuControl.torsion += 5;
         if (relativePath === 'independent-engineering-adapters/wind-cc.js') production.highPartialWall.pNeg += 5;
         if (relativePath === 'independent-engineering-adapters/wind-parapet.js') production.buildingCc.windward_corner.pDiff += 5;
+        if (relativePath === 'independent-engineering-adapters/wind-open-roof.js') production.monoUnblockedSmallInterp.zone3.pNeg += 5;
         if (relativePath === 'independent-engineering-adapters/seismic-force-static.js') production.Vdesign += 25;
         if (relativePath === 'independent-engineering-adapters/seismic-appendage.js') production.maximum.Fpv += 0.25;
         if (relativePath === 'independent-engineering-adapters/seismic-misc.js') production.flexible.Vh += 0.25;
@@ -152,6 +159,7 @@ assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-val
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:nuControl.torsion')), 'solid-object skew-wind torsion drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:highPartialWall.pNeg')), 'wind C&C partial-enclosure negative-pressure drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:buildingCc.windward_corner.pDiff')), 'wind parapet corner pressure-difference drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:monoUnblockedSmallInterp.zone3.pNeg')), 'wind open-roof interpolated suction drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:Vdesign')), 'seismic-force design base-shear drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:maximum.Fpv')), 'seismic-appendage near-fault vertical-force drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:flexible.Vh')), 'seismic-misc flexible Chapter 5 force drift identifies the mismatched quantity');

@@ -1204,6 +1204,97 @@ function windParapetThreeRouteOracle(input) {
   };
 }
 
+function windOpenRoofFourCombinationOracle(input) {
+  const terrain = {
+    A:{ alpha:0.32, zg:500, c:0.45, ell:55, eps:0.50, zmin:18 },
+    B:{ alpha:0.25, zg:400, c:0.30, ell:98, eps:0.33, zmin:9 },
+    C:{ alpha:0.15, zg:300, c:0.20, ell:152, eps:0.20, zmin:4.5 },
+  };
+  const coefficientTables = {
+    monoslope:{
+      unblocked:{
+        7.5:{ small:{ zone1:[1.6, -1.4], zone2:[2.4, -2.1], zone3:[3.2, -4.2] } },
+        15:{ small:{ zone1:[1.8, -1.9], zone2:[2.7, -2.9], zone3:[3.6, -3.8] } },
+      },
+      blocked:{
+        30:{ medium:{ zone1:[1.6, -2.3], zone2:[2.4, -3.5], zone3:[2.4, -3.5] } },
+      },
+    },
+    gable:{
+      unblocked:{
+        30:{ large:{ zone1:[1.3, -0.9], zone2:[1.3, -0.9], zone3:[1.3, -0.9] } },
+        45:{ large:{ zone1:[1.1, -0.8], zone2:[1.1, -0.8], zone3:[1.1, -0.8] } },
+      },
+      blocked:{
+        7.5:{ small:{ zone1:[0.5, -1.7], zone2:[0.8, -2.6], zone3:[1.0, -5.1] } },
+      },
+    },
+  };
+  const angleBounds = theta => {
+    const angles = [0, 7.5, 15, 30, 45];
+    const thetaUse = Math.max(angles[0], Math.min(theta, angles[angles.length - 1]));
+    const exact = angles.find(angle => angle === thetaUse);
+    if (exact !== undefined) return { thetaUse, low:exact, high:exact };
+    const high = angles.find(angle => angle > thetaUse);
+    return { thetaUse, low:angles[angles.indexOf(high) - 1], high };
+  };
+  const interpolate = (low, high, theta, lowValue, highValue) => (
+    low === high ? lowValue : lowValue + (highValue - lowValue) * (theta - low) / (high - low)
+  );
+  return Object.fromEntries(input.cases.map(i => {
+    const t = terrain[i.terrain];
+    const hUse = i.theta <= 10 ? i.hEave : i.hAvg;
+    const zQ = Math.max(hUse, t.zmin);
+    const kz = 2.774 * Math.pow(zQ / t.zg, 2 * t.alpha);
+    const qh = 0.06 * kz * i.Kzt * i.I ** 2 * i.V ** 2;
+    const zBar = Math.max(0.6 * hUse, t.zmin);
+    const Iz = t.c * Math.pow(10 / zBar, 1 / 6);
+    const Lz = t.ell * Math.pow(zBar / 10, t.eps);
+    const Q2 = 1 / (1 + 0.63 * Math.pow((i.B + hUse) / Lz, 0.63));
+    const Q = Math.sqrt(Q2);
+    const G = 1.927 * (1 + 1.7 * 3.4 * Iz * Q) / (1 + 1.7 * 3.4 * Iz);
+    const minWidth = Math.min(i.B, i.L);
+    const a = Math.max(0.1 * minWidth, 0.9);
+    const band = i.A < a ** 2 ? 'small' : i.A <= 4 * a ** 2 ? 'medium' : 'large';
+    const { thetaUse, low, high } = angleBounds(i.theta);
+    const table = coefficientTables[i.roofType][i.blockage];
+    const zones = ['zone1', 'zone2', 'zone3'].map(zone => {
+      const lowPair = table[low][band][zone];
+      const highPair = table[high][band][zone];
+      const cpnPos = interpolate(low, high, thetaUse, lowPair[0], highPair[0]);
+      const cpnNeg = interpolate(low, high, thetaUse, lowPair[1], highPair[1]);
+      return { zone, cpnPos, cpnNeg, pPos:qh * G * cpnPos, pNeg:qh * G * cpnNeg };
+    });
+    const maxPos = zones.reduce((best, current) => current.pPos > best.pPos ? current : best, zones[0]);
+    const maxNeg = zones.reduce((best, current) => current.pNeg < best.pNeg ? current : best, zones[0]);
+    const maxAbs = zones.reduce((best, current) => (
+      Math.max(Math.abs(current.pPos), Math.abs(current.pNeg))
+        > Math.max(Math.abs(best.pPos), Math.abs(best.pNeg)) ? current : best
+    ), zones[0]);
+    const result = {
+      hUse,
+      eaveHeightControls:i.theta <= 10 ? 1 : 0,
+      qh, G, minWidth, a,
+      smallBand:band === 'small' ? 1 : 0,
+      mediumBand:band === 'medium' ? 1 : 0,
+      largeBand:band === 'large' ? 1 : 0,
+      thetaUse, thetaLow:low, thetaHigh:high,
+    };
+    for (const item of zones) {
+      result[item.zone] = {
+        cpnPos:item.cpnPos,
+        cpnNeg:item.cpnNeg,
+        pPos:item.pPos,
+        pNeg:item.pNeg,
+        maxPos:item.zone === maxPos.zone ? 1 : 0,
+        maxNeg:item.zone === maxNeg.zone ? 1 : 0,
+        maxAbs:item.zone === maxAbs.zone ? 1 : 0,
+      };
+    }
+    return [i.id, result];
+  }));
+}
+
 function seismicMiscOracle(input) {
   const interpolate = (xs, ys, x) => {
     if (x <= xs[0]) return ys[0];
@@ -1621,6 +1712,7 @@ const ORACLES = {
   'wind-object-solid-table-2-10': windObjectSolidTable210Oracle,
   'wind-cc-three-control-branches': windCcThreeBranchOracle,
   'wind-parapet-three-design-routes': windParapetThreeRouteOracle,
+  'wind-open-roof-four-combinations': windOpenRoofFourCombinationOracle,
   'seismic-force-eight-story-static': seismicForceStaticOracle,
   'seismic-appendage-three-control-branches': seismicAppendageOracle,
   'seismic-misc-three-formula-paths': seismicMiscOracle,

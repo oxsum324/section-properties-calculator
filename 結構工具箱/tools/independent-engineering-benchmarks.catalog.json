@@ -1384,6 +1384,609 @@
       ]
     },
     {
+      "id": "wind-open-roof-four-combinations",
+      "route": "/wind-open-roof",
+      "title": "開放式建築單斜／雙斜屋頂四種阻擋組合",
+      "productionModule": "independent-engineering-adapters/wind-open-roof.js",
+      "oracle": "wind-open-roof-four-combinations",
+      "referenceType": "closed-form-identity",
+      "referenceBasis": "107 年版耐風規範式 2.6、2.7、2.9、3.4，表 2.2 與圖 3.3(a)、3.3(b)；獨立核對單斜／雙斜屋頂與有／無阻擋四種組合，涵蓋小／中／大有效面積、坡度表列值與線性內插，以及 θ≤10° 採屋簷高、θ>10° 採平均屋頂高的頁面控制。",
+      "input": {
+        "cases": [
+          {
+            "id": "monoUnblockedSmallInterp",
+            "V": 42.5,
+            "terrain": "C",
+            "I": 1.1,
+            "Kzt": 1.05,
+            "hAvg": 12,
+            "hEave": 10,
+            "B": 12,
+            "L": 18,
+            "theta": 11.25,
+            "A": 1,
+            "roofType": "monoslope",
+            "blockage": "unblocked"
+          },
+          {
+            "id": "monoBlockedMediumExact",
+            "V": 37.5,
+            "terrain": "B",
+            "I": 1.15,
+            "Kzt": 1.1,
+            "hAvg": 15,
+            "hEave": 12,
+          "B": 10,
+          "L": 18,
+          "theta": 30,
+          "A": 1,
+            "roofType": "monoslope",
+            "blockage": "blocked"
+          },
+          {
+            "id": "gableUnblockedLargeInterp",
+            "V": 45,
+            "terrain": "A",
+            "I": 0.95,
+            "Kzt": 1,
+            "hAvg": 24,
+            "hEave": 18,
+            "B": 8,
+            "L": 20,
+            "theta": 37.5,
+            "A": 4,
+            "roofType": "gable",
+            "blockage": "unblocked"
+          },
+          {
+            "id": "gableBlockedSmallExact",
+            "V": 40,
+            "terrain": "C",
+            "I": 1,
+            "Kzt": 1.08,
+            "hAvg": 9,
+            "hEave": 7,
+            "B": 10,
+            "L": 10,
+            "theta": 7.5,
+            "A": 0.5,
+            "roofType": "gable",
+            "blockage": "blocked"
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "path": "monoUnblockedSmallInterp.hUse",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoUnblockedSmallInterp.eaveHeightControls",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoUnblockedSmallInterp.qh",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "monoUnblockedSmallInterp.G",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "monoUnblockedSmallInterp.minWidth",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoUnblockedSmallInterp.a",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoUnblockedSmallInterp.smallBand",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoUnblockedSmallInterp.mediumBand",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoUnblockedSmallInterp.largeBand",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoUnblockedSmallInterp.thetaUse",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoUnblockedSmallInterp.thetaLow",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoUnblockedSmallInterp.thetaHigh",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone1.cpnPos",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone1.cpnNeg",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone1.pPos",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone1.pNeg",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone1.maxPos",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone1.maxNeg",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone1.maxAbs",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone2.cpnPos",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone2.cpnNeg",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone2.pPos",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone2.pNeg",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone2.maxPos",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone2.maxNeg",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone2.maxAbs",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone3.cpnPos",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone3.cpnNeg",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone3.pPos",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone3.pNeg",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone3.maxPos",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone3.maxNeg",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoUnblockedSmallInterp.zone3.maxAbs",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.hUse",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.eaveHeightControls",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.qh",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "monoBlockedMediumExact.G",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "monoBlockedMediumExact.minWidth",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.a",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.smallBand",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.mediumBand",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.largeBand",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.thetaUse",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.thetaLow",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.thetaHigh",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.zone1.cpnPos",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "monoBlockedMediumExact.zone1.cpnNeg",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "monoBlockedMediumExact.zone1.pPos",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "monoBlockedMediumExact.zone1.pNeg",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "monoBlockedMediumExact.zone1.maxPos",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.zone1.maxNeg",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.zone1.maxAbs",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.zone2.cpnPos",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "monoBlockedMediumExact.zone2.cpnNeg",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "monoBlockedMediumExact.zone2.pPos",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "monoBlockedMediumExact.zone2.pNeg",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "monoBlockedMediumExact.zone2.maxPos",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.zone2.maxNeg",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.zone2.maxAbs",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.zone3.cpnPos",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "monoBlockedMediumExact.zone3.cpnNeg",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "monoBlockedMediumExact.zone3.pPos",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "monoBlockedMediumExact.zone3.pNeg",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "monoBlockedMediumExact.zone3.maxPos",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.zone3.maxNeg",
+          "absTolerance": 0
+        },
+        {
+          "path": "monoBlockedMediumExact.zone3.maxAbs",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.hUse",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.eaveHeightControls",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.qh",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "gableUnblockedLargeInterp.G",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "gableUnblockedLargeInterp.minWidth",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.a",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.smallBand",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.mediumBand",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.largeBand",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.thetaUse",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.thetaLow",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.thetaHigh",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone1.cpnPos",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone1.cpnNeg",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone1.pPos",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone1.pNeg",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone1.maxPos",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone1.maxNeg",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone1.maxAbs",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone2.cpnPos",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone2.cpnNeg",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone2.pPos",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone2.pNeg",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone2.maxPos",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone2.maxNeg",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone2.maxAbs",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone3.cpnPos",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone3.cpnNeg",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone3.pPos",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone3.pNeg",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone3.maxPos",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone3.maxNeg",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableUnblockedLargeInterp.zone3.maxAbs",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.hUse",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.eaveHeightControls",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.qh",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "gableBlockedSmallExact.G",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "gableBlockedSmallExact.minWidth",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.a",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.smallBand",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.mediumBand",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.largeBand",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.thetaUse",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.thetaLow",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.thetaHigh",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.zone1.cpnPos",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "gableBlockedSmallExact.zone1.cpnNeg",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "gableBlockedSmallExact.zone1.pPos",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "gableBlockedSmallExact.zone1.pNeg",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "gableBlockedSmallExact.zone1.maxPos",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.zone1.maxNeg",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.zone1.maxAbs",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.zone2.cpnPos",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "gableBlockedSmallExact.zone2.cpnNeg",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "gableBlockedSmallExact.zone2.pPos",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "gableBlockedSmallExact.zone2.pNeg",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "gableBlockedSmallExact.zone2.maxPos",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.zone2.maxNeg",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.zone2.maxAbs",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.zone3.cpnPos",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "gableBlockedSmallExact.zone3.cpnNeg",
+          "absTolerance": 1e-12
+        },
+        {
+          "path": "gableBlockedSmallExact.zone3.pPos",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "gableBlockedSmallExact.zone3.pNeg",
+          "absTolerance": 1e-10
+        },
+        {
+          "path": "gableBlockedSmallExact.zone3.maxPos",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.zone3.maxNeg",
+          "absTolerance": 0
+        },
+        {
+          "path": "gableBlockedSmallExact.zone3.maxAbs",
+          "absTolerance": 0
+        }
+      ]
+    },
+    {
       "id": "seismic-misc-three-formula-paths",
       "route": "/seismic-misc",
       "title": "雜項工作物式(2-3)、式(5-1)與式(5-2)地震力",
