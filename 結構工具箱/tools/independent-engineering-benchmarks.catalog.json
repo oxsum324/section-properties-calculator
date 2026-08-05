@@ -120,10 +120,46 @@
         { "path": "fsSlide", "absTolerance": 1e-10 },
         { "path": "fsOver", "absTolerance": 1e-10 }
       ]
+    },
+    {
+      "id": "rc-column-balanced-nearby-pm-point",
+      "route": "/rc-column",
+      "title": "矩形 RC 柱平衡附近 P–M 應變相容控制點",
+      "productionModule": "independent-engineering-adapters/rc-column-pm.js",
+      "oracle": "rc-column-balanced-nearby-pm-point",
+      "referenceType": "closed-form-identity",
+      "referenceBasis": "Whitney 等值矩形壓力塊、平截面應變相容、鋼筋彈塑性截斷、壓力區鋼筋排擠混凝土扣除，以及最外受拉筋應變控制之強度折減。",
+      "input": {
+        "b": 30,
+        "h": 60,
+        "fc": 280,
+        "fy": 4200,
+        "Es": 2040000,
+        "beta1": 0.85,
+        "c": 32,
+        "phiComp": 0.65,
+        "phiTen": 0.9,
+        "PnMaxFactor": 0.8,
+        "bars": [
+          { "y": 6, "As": 10 },
+          { "y": 54, "As": 10 }
+        ]
+      },
+      "assertions": [
+        { "path": "Pn", "absTolerance": 1e-10 },
+        { "path": "Mn", "absTolerance": 1e-10 },
+        { "path": "epsT", "absTolerance": 1e-12 },
+        { "path": "phi", "absTolerance": 1e-12 },
+        { "path": "phiPn", "absTolerance": 1e-10 },
+        { "path": "phiMn", "absTolerance": 1e-10 },
+        { "path": "Po", "absTolerance": 1e-10 },
+        { "path": "phiPnMax", "absTolerance": 1e-10 },
+        { "path": "designP", "absTolerance": 1e-10 },
+        { "path": "designM", "absTolerance": 1e-10 }
+      ]
     }
   ],
   "priorityTargets": [
-    { "route": "/rc-column", "priority": "P0", "evidenceNeeded": "手算或第三方軟體之軸力－彎矩互制基準" },
     { "route": "/rc-foundation", "priority": "P0", "evidenceNeeded": "沖切、單向剪力與彎矩配筋之獨立基準" },
     { "route": "/rc-pile", "priority": "P0", "evidenceNeeded": "樁承載、群樁分配與樁帽設計之獨立基準" },
     { "route": "/steel-beam-formal", "priority": "P0", "evidenceNeeded": "ASD 梁彎曲、剪力、撓度及側扭挫屈之獨立基準" },

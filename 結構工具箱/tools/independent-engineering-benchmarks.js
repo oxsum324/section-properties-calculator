@@ -90,10 +90,52 @@ function foundationOracle(i) {
   };
 }
 
+function rcColumnPmOracle(i) {
+  const a = Math.min(i.beta1 * i.c, i.h);
+  const concreteForce = 0.85 * i.fc * i.b * a;
+  let PnKgf = concreteForce;
+  let MnKgfCm = concreteForce * (i.h / 2 - a / 2);
+  let dt = 0;
+  for (const bar of i.bars) {
+    dt = Math.max(dt, bar.y);
+    const strain = 0.003 * (i.c - bar.y) / i.c;
+    const stress = Math.max(-i.fy, Math.min(i.fy, strain * i.Es));
+    const netForce = bar.y < a ? (stress - 0.85 * i.fc) * bar.As : stress * bar.As;
+    PnKgf += netForce;
+    MnKgfCm += netForce * (i.h / 2 - bar.y);
+  }
+  const epsT = 0.003 * (dt - i.c) / i.c;
+  const phi = epsT >= 0.005
+    ? i.phiTen
+    : (epsT <= 0.002
+      ? i.phiComp
+      : i.phiComp + (i.phiTen - i.phiComp) * (epsT - 0.002) / 0.003);
+  const Ast = i.bars.reduce((sum, bar) => sum + bar.As, 0);
+  const Po = (0.85 * i.fc * (i.b * i.h - Ast) + i.fy * Ast) / 1000;
+  const phiPnMax = i.phiComp * i.PnMaxFactor * Po;
+  const Pn = PnKgf / 1000;
+  const Mn = Math.abs(MnKgfCm) / 1e5;
+  const phiPn = phi * Pn;
+  const phiMn = phi * Mn;
+  return {
+    Pn,
+    Mn,
+    epsT,
+    phi,
+    phiPn,
+    phiMn,
+    Po,
+    phiPnMax,
+    designP: Pn > 0 ? Math.min(phiPn, phiPnMax) : phiPn,
+    designM: phiMn
+  };
+}
+
 const ORACLES = {
   'equipment-basic-load-path': equipmentOracle,
   'earth-rankine-dry-active': earthOracle,
-  'foundation-external-load-only': foundationOracle
+  'foundation-external-load-only': foundationOracle,
+  'rc-column-balanced-nearby-pm-point': rcColumnPmOracle
 };
 
 function loadProductionModule(relativePath) {

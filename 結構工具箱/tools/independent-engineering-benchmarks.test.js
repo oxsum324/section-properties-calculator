@@ -9,14 +9,17 @@ const runnerPath = path.join(toolsRoot, 'independent-engineering-benchmarks.js')
 const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8').replace(/^\uFEFF/, ''));
 
 assert.deepEqual(validateCatalog(catalog), [], 'independent engineering benchmark catalog is valid');
+const rcColumnAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'rc-column-pm.js'), 'utf8');
+assert.ok(rcColumnAdapterSource.includes("require('../../../鋼筋混凝土/shared/pmsection.js')"), 'RC column adapter exercises the production P-M engine');
+assert.ok(!rcColumnAdapterSource.includes('golden'), 'RC column adapter does not replay a golden-case fixture');
 
 const result = runBenchmarks(catalog);
 assert.equal(result.status, 'ready', JSON.stringify(result.issues));
 assert.equal(result.summary.eligibleFormalRoutes, 31, 'formal route portfolio is explicit');
-assert.equal(result.summary.pilotRequired, 3, 'three independent pilot benchmarks required');
-assert.equal(result.summary.pilotVerified, 3, 'three independent pilot benchmarks verified');
-assert.equal(result.summary.independentlyVerifiedRoutes, 3, 'three distinct routes independently verified');
-assert.equal(result.summary.priorityTargets, 8, 'eight high-risk routes remain in priority roadmap');
+assert.equal(result.summary.pilotRequired, 4, 'four independent pilot benchmarks required');
+assert.equal(result.summary.pilotVerified, 4, 'four independent pilot benchmarks verified');
+assert.equal(result.summary.independentlyVerifiedRoutes, 4, 'four distinct routes independently verified');
+assert.equal(result.summary.priorityTargets, 7, 'seven high-risk routes remain in priority roadmap');
 assert.equal(result.summary.issueCount, 0, 'independent pilot has no issues');
 assert.ok(result.records.every(record => record.status === 'verified'), 'every pilot record is independently verified');
 assert.ok(result.records.every(record => record.referenceType === 'closed-form-identity'), 'every pilot uses a closed-form identity');
@@ -32,6 +35,7 @@ const falsePositiveResult = runBenchmarks(catalog, {
       calculate(input) {
         const production = realModule.calculate(input);
         if (relativePath === 'equipment/equipment-load-core.js') production.pointLoad += 0.25;
+        if (relativePath === 'independent-engineering-adapters/rc-column-pm.js') production.designM += 0.5;
         return production;
       }
     };
@@ -39,6 +43,7 @@ const falsePositiveResult = runBenchmarks(catalog, {
 });
 assert.equal(falsePositiveResult.status, 'blocked', 'independent benchmark detects production drift');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:pointLoad')), 'production drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:designM')), 'RC column P-M production drift identifies the mismatched quantity');
 
 const duplicateCatalog = JSON.parse(JSON.stringify(catalog));
 duplicateCatalog.benchmarks[1].route = duplicateCatalog.benchmarks[0].route;
