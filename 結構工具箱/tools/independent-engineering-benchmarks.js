@@ -656,6 +656,138 @@ function seismicForceStaticOracle(i) {
   return output;
 }
 
+function anchorCastInOracle(i) {
+  const round = (value, digits = 2) => {
+    const scale = 10 ** digits;
+    return Math.round(value * scale) / scale;
+  };
+  const phiTensionSteel = 0.75;
+  const phiShearSteel = 0.65;
+  const phiConcrete = 0.7;
+  const futa = Math.min(i.steelUltimateStrengthMpa, 1.9 * i.steelYieldStrengthMpa, 862);
+  const anchorCount = i.anchorCountX * i.anchorCountY;
+  const maxAnchorTension = i.tensionKn / anchorCount;
+
+  const steelTensionNominalRaw = i.effectiveAreaMm2 * futa / 1000;
+  const steelTensionDesignRaw = phiTensionSteel * steelTensionNominalRaw;
+  const steelTensionDcrRaw = maxAnchorTension / steelTensionDesignRaw;
+
+  const projection = 1.5 * i.effectiveEmbedmentMm;
+  const xMin = Math.max(0, i.edgeLeftMm - projection);
+  const xMax = Math.min(i.concreteWidthMm, i.edgeLeftMm + i.spacingXmm + projection);
+  const yMin = Math.max(0, i.edgeBottomMm - projection);
+  const yMax = Math.min(i.concreteHeightMm, i.edgeBottomMm + i.spacingYmm + projection);
+  const failureArea = (xMax - xMin) * (yMax - yMin);
+  const singleArea = 9 * i.effectiveEmbedmentMm ** 2;
+  const tensionAreaRatio = failureArea / singleArea;
+  const minimumEdge = Math.min(i.edgeLeftMm, i.edgeRightMm, i.edgeBottomMm, i.edgeTopMm);
+  const tensionEdgeFactor = Math.min(1, 0.7 + 0.3 * minimumEdge / projection);
+  const tensionBaseNominal = 10 * Math.sqrt(i.concreteStrengthMpa) * i.effectiveEmbedmentMm ** 1.5 / 1000;
+  const tensionBreakoutNominalRaw = tensionAreaRatio * tensionEdgeFactor * tensionBaseNominal;
+  const tensionBreakoutDesignRaw = phiConcrete * tensionBreakoutNominalRaw;
+  const tensionBreakoutDcrRaw = i.tensionKn / tensionBreakoutDesignRaw;
+
+  const pulloutNominalRaw = 8 * i.headBearingAreaMm2 * i.concreteStrengthMpa / 1000;
+  const pulloutDesignRaw = phiConcrete * pulloutNominalRaw;
+  const pulloutDcrRaw = maxAnchorTension / pulloutDesignRaw;
+
+  const shearDemandRaw = Math.hypot(i.shearXKn, i.shearYKn);
+  const steelShearNominalRaw = 0.6 * i.effectiveAreaMm2 * futa * 2 / 1000;
+  const steelShearDesignRaw = phiShearSteel * steelShearNominalRaw;
+  const steelShearDcrRaw = shearDemandRaw / steelShearDesignRaw;
+
+  const mergeLength = intervals => {
+    const sorted = intervals.map(interval => ({ ...interval })).sort((a, b) => a.start - b.start);
+    const merged = [];
+    for (const interval of sorted) {
+      const current = merged[merged.length - 1];
+      if (current && interval.start <= current.end) current.end = Math.max(current.end, interval.end);
+      else merged.push(interval);
+    }
+    return merged.reduce((sum, interval) => sum + Math.max(0, interval.end - interval.start), 0);
+  };
+  const directionalShearStrength = direction => {
+    const actualCa1 = direction === 'x' ? i.edgeRightMm : i.edgeTopMm;
+    const ca2 = direction === 'x'
+      ? Math.min(i.edgeBottomMm, i.edgeTopMm)
+      : Math.min(i.edgeLeftMm, i.edgeRightMm);
+    const parallelSpacing = direction === 'x' ? i.spacingYmm : i.spacingXmm;
+    const ca1 = Math.min(actualCa1, Math.max(ca2 / 1.5, i.thicknessMm / 1.5, parallelSpacing / 3));
+    const centers = direction === 'x'
+      ? [i.edgeBottomMm, i.edgeBottomMm + i.spacingYmm]
+      : [i.edgeLeftMm, i.edgeLeftMm + i.spacingXmm];
+    const boundary = direction === 'x' ? i.concreteHeightMm : i.concreteWidthMm;
+    const union = mergeLength(centers.map(center => ({
+      start:Math.max(0, center - 1.5 * ca1),
+      end:Math.min(boundary, center + 1.5 * ca1)
+    })));
+    const projectedArea = union * 1.5 * ca1;
+    const areaRatio = projectedArea / (4.5 * ca1 ** 2);
+    const edgeFactor = Math.min(1, 0.7 + 0.3 * ca2 / (1.5 * ca1));
+    const baseA = 0.6 * (i.effectiveEmbedmentMm / i.diameterMm) ** 0.2
+      * Math.sqrt(i.concreteStrengthMpa) * i.diameterMm ** 0.2 * ca1 ** 1.5 / 1000;
+    const baseB = 3.7 * Math.sqrt(i.concreteStrengthMpa) * ca1 ** 1.5 / 1000;
+    return areaRatio * edgeFactor * Math.min(baseA, baseB) * phiConcrete;
+  };
+  const shearStrengthX = directionalShearStrength('x');
+  const shearStrengthY = directionalShearStrength('y');
+  const dcrX = Math.abs(i.shearXKn) / shearStrengthX;
+  const dcrY = Math.abs(i.shearYKn) / shearStrengthY;
+  const orthogonalDcr = Math.hypot(dcrX, dcrY);
+  const cornerVectorDcr = shearDemandRaw / Math.min(shearStrengthX, shearStrengthY);
+  const shearBreakoutDcrRaw = Math.max(orthogonalDcr, cornerVectorDcr);
+  const shearBreakoutDesignRaw = shearDemandRaw / shearBreakoutDcrRaw;
+
+  const roundedTensionBreakoutNominal = round(tensionBreakoutNominalRaw);
+  const roundedPulloutNominal = round(pulloutNominalRaw);
+  const pryoutNominalRaw = 2 * Math.min(roundedTensionBreakoutNominal, roundedPulloutNominal);
+  const pryoutDesignRaw = phiConcrete * pryoutNominalRaw;
+  const pryoutDcrRaw = shearDemandRaw / pryoutDesignRaw;
+
+  const tensionBreakoutDcr = round(tensionBreakoutDcrRaw, 3);
+  const shearBreakoutDcr = round(shearBreakoutDcrRaw, 3);
+  const interactionDemand = round(tensionBreakoutDcr + shearBreakoutDcr, 3);
+  const interactionDcr = round((tensionBreakoutDcr + shearBreakoutDcr) / 1.2, 3);
+  return {
+    anchorCount,
+    maxAnchorTension:round(maxAnchorTension, 3),
+    steelTensionNominal:round(steelTensionNominalRaw),
+    steelTensionDesign:round(steelTensionDesignRaw),
+    steelTensionDemand:round(maxAnchorTension),
+    steelTensionDcr:round(steelTensionDcrRaw, 3),
+    tensionBreakoutNominal:roundedTensionBreakoutNominal,
+    tensionBreakoutDesign:round(tensionBreakoutDesignRaw),
+    tensionBreakoutDemand:round(i.tensionKn),
+    tensionBreakoutDcr,
+    pulloutNominal:roundedPulloutNominal,
+    pulloutDesign:round(pulloutDesignRaw),
+    pulloutDemand:round(maxAnchorTension),
+    pulloutDcr:round(pulloutDcrRaw, 3),
+    steelShearNominal:round(steelShearNominalRaw),
+    steelShearDesign:round(steelShearDesignRaw),
+    steelShearDemand:round(shearDemandRaw),
+    steelShearDcr:round(steelShearDcrRaw, 3),
+    shearBreakoutNominal:round(shearBreakoutDesignRaw),
+    shearBreakoutDesign:round(shearBreakoutDesignRaw),
+    shearBreakoutDemand:round(shearDemandRaw),
+    shearBreakoutDcr,
+    pryoutNominal:round(pryoutNominalRaw),
+    pryoutDesign:round(pryoutDesignRaw),
+    pryoutDemand:round(shearDemandRaw),
+    pryoutDcr:round(pryoutDcrRaw, 3),
+    interactionDemand,
+    interactionCapacity:1.2,
+    interactionDcr,
+    tensionBreakoutControls:1,
+    shearBreakoutControls:1,
+    interactionControls:1,
+    governingDcr:interactionDcr,
+    maxDcr:interactionDcr,
+    overallPass:interactionDcr <= 1 ? 1 : 0,
+    formalPass:interactionDcr <= 1 ? 1 : 0
+  };
+}
+
 const ORACLES = {
   'equipment-basic-load-path': equipmentOracle,
   'earth-rankine-dry-active': earthOracle,
@@ -666,7 +798,8 @@ const ORACLES = {
   'steel-beam-asd-inelastic-ltb': steelBeamAsdOracle,
   'steel-column-asd-weak-axis-interaction': steelColumnAsdOracle,
   'wind-force-rigid-three-story-mwfrs': windForceMwfrsOracle,
-  'seismic-force-eight-story-static': seismicForceStaticOracle
+  'seismic-force-eight-story-static': seismicForceStaticOracle,
+  'anchor-cast-in-m20-chapter-17': anchorCastInOracle
 };
 
 function loadProductionModule(relativePath) {

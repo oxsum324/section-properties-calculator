@@ -364,9 +364,11 @@ git status --short --untracked-files=normal
 - `結構工具箱/tools/independent-engineering-adapters/steel-column-asd.js`
 - `結構工具箱/tools/independent-engineering-adapters/wind-force-mwfrs.js`
 - `結構工具箱/tools/independent-engineering-adapters/seismic-force-static.js`
+- `結構工具箱/tools/independent-engineering-adapters/anchor-cast-in.js`
 - `鋼構工具/core/materials/steel.js`、`steel-beam-formal.html`、`steel-beam-formal.js`、`steel-column-formal.html`、`steel-column-formal.js`、`steel-formal.regression-test.js`
 - `結構工具箱/core/loads/wind.js`、`結構工具箱/tools/風力/wind-force.html`、`結構工具箱/tests/wind.test.js`、`結構工具箱/tools/formal-tools.contract.test.js`
 - `結構工具箱/core/loads/seismic.js`、`結構工具箱/tools/地震力/seismic-force.html`、`結構工具箱/tests/seismic.test.js`
+- `螺栓檢討/bolt-review-tool/src/calc.ts`、`calc.test.ts`、`defaults.ts`、`backup.ts`、`螺栓檢討/anchor-report.contract.test.js`
 - `鋼筋混凝土/shared/foundation-isolated.js`、`foundation-isolated.test.js`、`foundation-pile.js`、`foundation-pile.test.js`、`flexure.js`
 - `鋼筋混凝土/tools/foundation.html`、`foundation-regression.test.js`、`foundation-regression-cases.json`、`single-pile-designer.html`、`single-pile-regression.test.js`、`test-foundation.ps1`
 - `結構工具箱/tools/tool-maturity-matrix.js`
@@ -374,4 +376,4 @@ git status --short --untracked-files=normal
 - `結構工具箱/tools/release-readiness.contract.test.js`
 - `README.md`、`TOOL_BOUNDARIES.md`、`TOOL_REPORT_GUIDE.md`
 
-此組需一起提交，避免只有測試案例卻沒有 production core、preflight、成熟度與報告邊界。試辦通過只可標示 10 / 10，整體正式入口需同時標示 10 / 31；golden case 或同核心結果鏈不等同獨立工程驗證，也不得算入獨立覆蓋。
+此組需一起提交，避免只有測試案例卻沒有 production core、preflight、成熟度與報告邊界。試辦通過只可標示 11 / 11，整體正式入口需同時標示 11 / 31；golden case 或同核心結果鏈不等同獨立工程驗證，也不得算入獨立覆蓋。原列 P0 路由已歸零，後續擴充須重新依工程風險排序。

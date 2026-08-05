@@ -30,14 +30,20 @@ assert.ok(!windForceAdapterSource.includes('golden'), 'wind-force adapter does n
 const seismicForceAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'seismic-force-static.js'), 'utf8');
 assert.ok(seismicForceAdapterSource.includes("../../core/loads/seismic.js"), 'seismic-force adapter exercises the production static seismic core');
 assert.ok(!seismicForceAdapterSource.includes('golden'), 'seismic-force adapter does not replay a golden-case fixture');
+const anchorAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'anchor-cast-in.js'), 'utf8');
+assert.ok(anchorAdapterSource.includes("'螺栓檢討', 'bolt-review-tool', 'src'"), 'anchor adapter resolves the production anchor source tree');
+assert.ok(anchorAdapterSource.includes("require(path.join(anchorSourceRoot, 'calc.ts'))"), 'anchor adapter exercises the production Chapter 17 calculation core');
+assert.ok(!anchorAdapterSource.includes('golden'), 'anchor adapter does not replay a golden-case fixture');
+const anchorBackupSource = fs.readFileSync(path.join(toolsRoot, '..', '..', '螺栓檢討', 'bolt-review-tool', 'src', 'backup.ts'), 'utf8');
+assert.ok(anchorBackupSource.includes("import { evaluateProjectBatch } from './calc'"), 'anchor formal workspace replay remains connected to the benchmarked production core');
 
 const result = runBenchmarks(catalog);
 assert.equal(result.status, 'ready', JSON.stringify(result.issues));
 assert.equal(result.summary.eligibleFormalRoutes, 31, 'formal route portfolio is explicit');
-assert.equal(result.summary.pilotRequired, 10, 'ten independent pilot benchmarks required');
-assert.equal(result.summary.pilotVerified, 10, 'ten independent pilot benchmarks verified');
-assert.equal(result.summary.independentlyVerifiedRoutes, 10, 'ten distinct routes independently verified');
-assert.equal(result.summary.priorityTargets, 1, 'one high-risk route remains in priority roadmap');
+assert.equal(result.summary.pilotRequired, 11, 'eleven independent pilot benchmarks required');
+assert.equal(result.summary.pilotVerified, 11, 'eleven independent pilot benchmarks verified');
+assert.equal(result.summary.independentlyVerifiedRoutes, 11, 'eleven distinct routes independently verified');
+assert.equal(result.summary.priorityTargets, 0, 'no P0 route remains in the independent benchmark roadmap');
 assert.equal(result.summary.issueCount, 0, 'independent pilot has no issues');
 assert.ok(result.records.every(record => record.status === 'verified'), 'every pilot record is independently verified');
 assert.ok(result.records.every(record => record.referenceType === 'closed-form-identity'), 'every pilot uses a closed-form identity');
@@ -60,6 +66,7 @@ const falsePositiveResult = runBenchmarks(catalog, {
         if (relativePath === 'independent-engineering-adapters/steel-column-asd.js') production.IR1 += 0.2;
         if (relativePath === 'independent-engineering-adapters/wind-force-mwfrs.js') production.xVb += 250;
         if (relativePath === 'independent-engineering-adapters/seismic-force-static.js') production.Vdesign += 25;
+        if (relativePath === 'independent-engineering-adapters/anchor-cast-in.js') production.interactionDcr += 0.1;
         return production;
       }
     };
@@ -74,6 +81,7 @@ assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-val
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:IR1')), 'steel column ASD interaction drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:xVb')), 'wind-force base-shear drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:Vdesign')), 'seismic-force design base-shear drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:interactionDcr')), 'anchor tension-shear interaction drift identifies the mismatched quantity');
 
 const duplicateCatalog = JSON.parse(JSON.stringify(catalog));
 duplicateCatalog.benchmarks[1].route = duplicateCatalog.benchmarks[0].route;
