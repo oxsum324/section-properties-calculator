@@ -43,15 +43,28 @@ function checkRecords(report = {}, checker = Checker) {
 }
 
 function verifyRecords(report = {}) {
-  return (report.records || []).map(record => ({
-    file: text(record.packagedFile || record.file),
-    role: text(record.role || record.type),
-    state: text(record.documentState || record.status),
-    tool: text(record.sourceTool),
-    version: text(record.toolVersion),
-    fingerprint: firstFingerprint(record),
-    result: text(record.status),
-  }));
+  return (report.records || []).map(record => {
+    const familyLabels = { anchor: '錨栓', rc: 'RC', formal: '共用正式 HTML' };
+    const seal = record.htmlDualSeal;
+    const sealResult = seal
+      ? `${familyLabels[seal.family] || 'HTML'}雙封印${seal.contentStatus === 'verified' && seal.approvalStatus === 'verified' ? '已驗證' : '異常'}`
+      : '';
+    return {
+      file: text(record.packagedFile || record.file),
+      role: text(record.role || record.type),
+      state: text(record.documentState || record.status),
+      tool: text(record.sourceTool),
+      version: text(record.toolVersion),
+      fingerprint: firstFingerprint(record),
+      result: [text(record.status), sealResult].filter(Boolean).join('｜'),
+    };
+  });
+}
+
+function dualSealSummaryLine(summary = {}) {
+  const expected = Number(summary.htmlDualSealExpected || 0);
+  if (!expected) return '';
+  return `HTML 雙封印複驗 ${Number(summary.htmlDualSealVerified || 0)} / ${expected} 份（只顯示完成數，不輸出封印值）。`;
 }
 
 function issueRecords(report = {}) {
@@ -101,6 +114,7 @@ function buildResponse(result, checker = Checker) {
     lines.push(`正式附件 ${result.formalAttachmentCount} 份；內部追溯來源 ${result.traceabilitySourceCount} 份。`);
     lines.push(`附件包指紋：${result.packageFingerprint}`);
     lines.push('發布前完整性與工程內容驗證：通過。');
+    lines.push(dualSealSummaryLine(result.selfVerification?.summary));
   } else {
     lines.push('未建立正式附件包。');
   }
@@ -117,6 +131,8 @@ function buildResponse(result, checker = Checker) {
       errors: Number(report.summary?.errors || 0),
       warnings: Number(report.summary?.warnings || 0),
       fingerprintLinks: Number(report.fingerprintLinks?.length || 0),
+      htmlDualSealExpected: Number(result.selfVerification?.summary?.htmlDualSealExpected || 0),
+      htmlDualSealVerified: Number(result.selfVerification?.summary?.htmlDualSealVerified || 0),
     },
     records: checkRecords(report, checker),
     issues: issueRecords(report),
@@ -138,6 +154,8 @@ function verifyResponse(report, verifier = Verifier) {
       verified: Number(report.summary?.verifiedFiles || 0),
       errors: Number(report.summary?.errors || 0),
       warnings: Number(report.summary?.warnings || 0),
+      htmlDualSealExpected: Number(report.summary?.htmlDualSealExpected || 0),
+      htmlDualSealVerified: Number(report.summary?.htmlDualSealVerified || 0),
     },
     records: verifyRecords(report),
     issues: issueRecords(report),
@@ -237,6 +255,7 @@ module.exports = {
   documentState,
   checkRecords,
   verifyRecords,
+  dualSealSummaryLine,
   issueRecords,
   requireInput,
   checkResponse,

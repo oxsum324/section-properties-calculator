@@ -188,6 +188,13 @@ try {
   const readyAnchorPackage = createAnchorPackage(tempRoot, 'ready-anchor');
   const readyAnchorReport = Verifier.verifyPackage(readyAnchorPackage);
   assert.equal(readyAnchorReport.status, 'ready', 'sealed anchor formal HTML survives package build and post-package verification');
+  assert.equal(readyAnchorReport.summary.htmlDualSealExpected, 1);
+  assert.equal(readyAnchorReport.summary.htmlDualSealVerified, 1);
+  assert.deepEqual(
+    readyAnchorReport.records.find(record => record.role === 'formal').htmlDualSeal,
+    { family: 'anchor', contentStatus: 'verified', approvalStatus: 'verified' },
+  );
+  assert.match(Verifier.formatSummary(readyAnchorReport), /HTML 雙封印複驗 1 \/ 1 份/);
 
   const forgedAnchorContentPackage = createAnchorPackage(tempRoot, 'forged-anchor-content');
   const forgedAnchorContentManifest = readManifest(forgedAnchorContentPackage);
@@ -199,6 +206,8 @@ try {
   assert.equal(hasIssue(forgedAnchorContentReport, 'anchor-html-content-seal-invalid'), true);
   assert.equal(hasIssue(forgedAnchorContentReport, 'hash-mismatch'), false);
   assert.equal(hasIssue(forgedAnchorContentReport, 'package-fingerprint-mismatch'), false);
+  assert.equal(forgedAnchorContentReport.summary.htmlDualSealExpected, 1);
+  assert.equal(forgedAnchorContentReport.summary.htmlDualSealVerified, 0);
 
   const forgedAnchorApprovalPackage = createAnchorPackage(tempRoot, 'forged-anchor-approval');
   const forgedAnchorApprovalManifest = readManifest(forgedAnchorApprovalPackage);
@@ -210,6 +219,8 @@ try {
   assert.equal(hasIssue(forgedAnchorApprovalReport, 'anchor-html-approval-seal-invalid'), true);
   assert.equal(hasIssue(forgedAnchorApprovalReport, 'hash-mismatch'), false);
   assert.equal(hasIssue(forgedAnchorApprovalReport, 'package-fingerprint-mismatch'), false);
+  assert.equal(forgedAnchorApprovalReport.summary.htmlDualSealExpected, 1);
+  assert.equal(forgedAnchorApprovalReport.summary.htmlDualSealVerified, 0);
   assert.equal(
     Verifier.samePackageRoot(
       Verifier.packageRootIdentity(readyPackage),

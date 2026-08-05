@@ -147,6 +147,8 @@ Schema v21 將相同邊界擴及錨栓正式 HTML：核可方塊與核可撤銷�
 
 錨栓雙封印亦屬日常案件組包的必要語意檢查，不只存在 release 證據。`attachment-package-check.js` 必須以獨立檢查器重算正式 HTML 的內容與核可封印；舊版缺封印為 review，封印或 scope 不符為 blocked。v3 事後驗證會重新解析包內附件並套用相同判定，因此同步改寫附件、檔案雜湊、清單與附件包指紋仍不得掩蓋正文或核可資料竄改。
 
+v3 事後驗證的正向證據必須保存於記憶體回傳結果：摘要只顯示 HTML 雙封印完成數／應驗數，逐份紀錄只顯示 `anchor`、`rc` 或 `formal` 家族及內容／核可封印的 `verified`／異常狀態，不得輸出封印值、scope 或正規化正文。正式附件包管理器只能呈現這份既有自我驗證證據，不得另行改判；所有顯示仍屬內部交付確認，不得寫入附件包或計算書。
+
 Schema v8 新增石材 golden replay 至成品雜湊結果鏈：producer 必須使用目前瀏覽器核心重播 `case_01_standard_safe`，核對至少 6 項關鍵數值與控制結果，再以同一 payload 產生 PDF、DOCX 及 audit，並將 golden 檔、來源 payload、輸入／結果／計算來源與三份成品 SHA-256 綁入 summary。Aggregate 必須要求 1/1、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「石材結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、golden 案例內容、來源 payload、結果或成品雜湊。
 
 Schema v9 新增錨栓工作區重播至成品雜湊結果鏈：producer 必須保存 v2 工作區備份實體檔，先驗證案例重現指紋並以目前核心重新計算至少 7 項控制結果，再用同一重現指紋產生正式 HTML、DOCX 及 XLSX。Aggregate 必須重新核對來源備份 schema／版本／案例／產品／重現指紋、三份成品中的計算指紋與成品 SHA-256，要求 1/1、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「錨栓結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、工作區資料、來源備份、重現／計算指紋或成品雜湊。

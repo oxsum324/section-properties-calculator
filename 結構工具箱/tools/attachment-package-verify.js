@@ -463,6 +463,31 @@ function manifestContentMetadataMismatches(item, inspectedRecord, schemaVersion)
   return mismatches;
 }
 
+function htmlDualSealEvidence(record = {}) {
+  if (Checker.isAnchorHtmlSealRequired(record)) {
+    return {
+      family: 'anchor',
+      contentStatus: record.anchorContentSeal?.status || 'missing',
+      approvalStatus: record.anchorApprovalSeal?.status || 'missing',
+    };
+  }
+  if (Checker.isRcHtmlContentSealRequired(record) || Checker.isRcHtmlApprovalSealRequired(record)) {
+    return {
+      family: 'rc',
+      contentStatus: record.contentSeal?.status || 'missing',
+      approvalStatus: record.approvalSeal?.status || 'missing',
+    };
+  }
+  if (Checker.isFormalHtmlSealRequired(record)) {
+    return {
+      family: 'formal',
+      contentStatus: record.formalContentSeal?.status || 'missing',
+      approvalStatus: record.formalApprovalSeal?.status || 'missing',
+    };
+  }
+  return null;
+}
+
 function verifyPackagedContent(packageDir, validItems, manifest, report) {
   if (manifest.schemaVersion < 3) return;
   const verifiedPaths = new Set(report.records
@@ -485,6 +510,8 @@ function verifyPackagedContent(packageDir, validItems, manifest, report) {
           missingGroups: [...inspectedRecord.contentBoundary.missingGroups],
         }
         : null;
+      const dualSeal = item.role === 'formal' ? htmlDualSealEvidence(inspectedRecord) : null;
+      if (dualSeal) verification.htmlDualSeal = dualSeal;
     }
     const mismatches = manifestContentMetadataMismatches(item, inspectedRecord, manifest.schemaVersion);
     if (mismatches.length) {
@@ -499,6 +526,11 @@ function verifyPackagedContent(packageDir, validItems, manifest, report) {
 
   report.summary.formalContentExpected = validItems.filter(item => item.role === 'formal').length;
   report.summary.formalContentChecked = inspectedItems.filter(entry => entry.item.role === 'formal').length;
+  const dualSealEvidence = report.records.map(record => record.htmlDualSeal).filter(Boolean);
+  report.summary.htmlDualSealExpected = dualSealEvidence.length;
+  report.summary.htmlDualSealVerified = dualSealEvidence.filter(seal => (
+    seal.contentStatus === 'verified' && seal.approvalStatus === 'verified'
+  )).length;
   if (!inspectedItems.length) return;
   const contentReport = Checker.analyzePackage(
     inspectedItems.map(entry => entry.inspectedRecord),
@@ -580,6 +612,8 @@ function verifyPackage(inputDir) {
       verifiedFiles: 0,
       formalContentExpected: 0,
       formalContentChecked: 0,
+      htmlDualSealExpected: 0,
+      htmlDualSealVerified: 0,
       errors: 0,
       warnings: 0,
     },
@@ -704,6 +738,9 @@ function formatSummary(report) {
     `清單檔案 ${report.summary.expectedFiles} 份；已驗證 ${report.summary.verifiedFiles} 份；阻擋 ${report.summary.errors} 項；提醒 ${report.summary.warnings} 項。`,
     `正式附件內容複驗 ${report.summary.formalContentChecked} / ${report.summary.formalContentExpected} 份。`,
   ];
+  if (Number(report.summary.htmlDualSealExpected || 0) > 0) {
+    lines.push(`HTML 雙封印複驗 ${report.summary.htmlDualSealVerified} / ${report.summary.htmlDualSealExpected} 份（只顯示完成數，不輸出封印值）。`);
+  }
   if (report.packageFingerprint) lines.push(`附件包指紋：${report.packageFingerprint}`);
   report.issues.forEach(issue => lines.push(`[${issue.level === 'warning' ? '提醒' : '阻擋'}] ${issue.message}`));
   lines.push('此驗證結果僅供交付與歸檔前確認，不應附入主報告。');
@@ -771,6 +808,7 @@ module.exports = {
   comparableTraceDate,
   comparableFingerprints,
   manifestContentMetadataMismatches,
+  htmlDualSealEvidence,
   verifyPackagedContent,
   summarizeIssues,
   verifyPackage,

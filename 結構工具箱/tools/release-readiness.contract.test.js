@@ -50,6 +50,8 @@ const rcSharedReport = readText('鋼筋混凝土/shared/report.js');
 const formalSharedReport = readText('結構工具箱/core/ui/report.js');
 const formalWindReport = readText('結構工具箱/core/wind-report.js');
 const attachmentPackageChecker = readText('結構工具箱/tools/attachment-package-check.js');
+const attachmentPackageVerifier = readText('結構工具箱/tools/attachment-package-verify.js');
+const attachmentPackageManagerWorker = readText('結構工具箱/tools/attachment-package-manager-worker.js');
 const rcReportVisualSources = [
   'beam', 'column', 'slab', 'wall', 'shear-wall', 'foundation', 'single-pile', 'retrofit',
 ].map(name => ({ name, source: readText(`鋼筋混凝土/tools/${name}-report-visual.test.js`) }));
@@ -60,6 +62,28 @@ const stoneAutoWordArtifact = readText('石材固定/auto_word_artifact_test.py'
 const anchorReportArtifacts = readText('螺栓檢討/bolt-review-tool/tests/reportArtifacts.test.ts');
 const anchorReportHtmlSeal = readText('螺栓檢討/bolt-review-tool/src/reportHtmlSeal.ts');
 const anchorHtmlSealVerifier = readText('結構工具箱/tools/anchor-html-seal-verifier.js');
+
+[
+  'htmlDualSealEvidence',
+  'htmlDualSealExpected',
+  'htmlDualSealVerified',
+  '只顯示完成數，不輸出封印值',
+].forEach(needle => assertIncludes(attachmentPackageVerifier, needle, `attachment verifier preserves private dual seal evidence ${needle}`));
+[
+  'dualSealSummaryLine',
+  'htmlDualSealExpected',
+  'htmlDualSealVerified',
+  "anchor: '錨栓'",
+  '雙封印',
+].forEach(needle => assertIncludes(attachmentPackageManagerWorker, needle, `attachment manager exposes dual seal verification ${needle}`));
+[
+  ['README', readme],
+  ['STAGING_GROUPS', staging],
+  ['TOOL_BOUNDARIES', boundaries],
+].forEach(([label, source]) => {
+  assertIncludes(source, 'HTML 雙封印', `${label} documents daily package dual seal evidence`);
+  assertIncludes(source, '封印值', `${label} keeps daily package seal values private`);
+});
 
 [
   'preflight-tools.ps1',
