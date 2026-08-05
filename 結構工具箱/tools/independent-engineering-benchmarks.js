@@ -131,6 +131,88 @@ function rcColumnPmOracle(i) {
   };
 }
 
+function rcBeamStrengthOracle(i) {
+  const flexure = (As, d) => {
+    const tensileForce = As * i.fy;
+    const a = tensileForce / (0.85 * i.fc * i.b);
+    const c = a / i.beta1;
+    const epsT = 0.003 * (d - c) / c;
+    const epsY = i.fy / 2.04e6;
+    const phi = epsT >= 0.005
+      ? 0.9
+      : (epsT <= epsY ? 0.65 : 0.65 + 0.25 * (epsT - epsY) / (0.005 - epsY));
+    const Mn = tensileForce * (d - a / 2);
+    return { c, a, Cc:tensileForce, eqN:0, Mn, epsT, phi, phiMn:phi * Mn, valid:1 };
+  };
+  const positive = flexure(i.asPositive, i.dPositive);
+  const negative = flexure(i.asNegative, i.dNegative);
+  const asMin = d => Math.max(0.8 * Math.sqrt(i.fc) / i.fy, 14 / i.fy) * i.b * d;
+
+  const Ag = i.b * i.h;
+  const rhoShear = i.asPositive / (i.b * i.dPositive);
+  const AvProvidedPerS = i.Av / i.stirrupSpacing;
+  const AvMinPerS = Math.max(0.2 * Math.sqrt(i.fc) * i.b / i.fyt, 3.5 * i.b / i.fyt);
+  const hasMinStir = AvProvidedPerS >= AvMinPerS;
+  const sqrtFc = Math.sqrt(i.fc);
+  const vcBaseStress = 0.53 * i.lambda * sqrtFc;
+  const axialStress = Math.min(Math.max(i.axialDemand * 1000 / (6 * Ag), -vcBaseStress), 0.05 * i.fc);
+  const vcSimpleStress = Math.max(0, vcBaseStress + axialStress);
+  const vcRhoStress = Math.max(0, 2.12 * i.lambda * Math.cbrt(Math.max(rhoShear, 0.0001)) * sqrtFc + axialStress);
+  const VcSimple = vcSimpleStress * i.b * i.dPositive;
+  const VcRho = vcRhoStress * i.b * i.dPositive;
+  const lambdaS = Math.min(1, Math.sqrt(2 / (1 + i.dPositive / 25)));
+  const VcRaw = hasMinStir ? Math.max(VcSimple, VcRho) : lambdaS * VcRho;
+  const Vc = Math.max(0, Math.min(VcRaw, 1.33 * i.lambda * sqrtFc * i.b * i.dPositive));
+  const phiVc = i.phiShear * Vc;
+  const VsProvided = i.Av * i.fyt * i.dPositive / i.stirrupSpacing;
+  const phiVs = i.phiShear * VsProvided;
+  const phiVn = phiVc + phiVs;
+  const shearDemand = Math.max(i.shearDemand, i.Ve) * 1000;
+  const forceVc0 = i.Ve * 1000 > 0.5 * shearDemand && i.axialDemand * 1000 < Ag * i.fc / 20;
+  const phiVnEffective = forceVc0 ? phiVs : phiVn;
+  const flexureUtilization = i.momentDemand / (positive.phiMn / 1e5);
+  const shearUtilization = shearDemand / phiVnEffective;
+  const governingUtilization = Math.max(flexureUtilization, shearUtilization);
+  return {
+    positiveC:positive.c,
+    positiveA:positive.a,
+    positiveCc:positive.Cc,
+    positiveEqN:positive.eqN,
+    positiveMn:positive.Mn,
+    positiveEpsT:positive.epsT,
+    positivePhi:positive.phi,
+    positivePhiMn:positive.phiMn,
+    positiveValid:positive.valid,
+    negativeC:negative.c,
+    negativeA:negative.a,
+    negativeCc:negative.Cc,
+    negativeEqN:negative.eqN,
+    negativeMn:negative.Mn,
+    negativeEpsT:negative.epsT,
+    negativePhi:negative.phi,
+    negativePhiMn:negative.phiMn,
+    negativeValid:negative.valid,
+    asMinPositive:asMin(i.dPositive),
+    asMinNegative:asMin(i.dNegative),
+    AvProvidedPerS,
+    AvMinPerS,
+    hasMinStir:hasMinStir ? 1 : 0,
+    Vc,
+    phiVc,
+    VsProvided,
+    phiVs,
+    phiVn,
+    forceVc0:forceVc0 ? 1 : 0,
+    phiVnEffective,
+    shearDemand,
+    veControls:i.Ve > i.shearDemand ? 1 : 0,
+    flexureUtilization,
+    shearUtilization,
+    governingUtilization,
+    overallPass:governingUtilization <= 1 ? 1 : 0
+  };
+}
+
 function rcFoundationOracle(i) {
   const dX = i.hf - i.cover - i.dbX;
   const dY = i.hf - i.cover - i.dbY;
@@ -793,6 +875,7 @@ const ORACLES = {
   'earth-rankine-dry-active': earthOracle,
   'foundation-external-load-only': foundationOracle,
   'rc-column-balanced-nearby-pm-point': rcColumnPmOracle,
+  'rc-beam-seismic-strength': rcBeamStrengthOracle,
   'rc-foundation-isolated-strength': rcFoundationOracle,
   'rc-pile-clay-group-cap': rcPileOracle,
   'steel-beam-asd-inelastic-ltb': steelBeamAsdOracle,
@@ -856,7 +939,7 @@ function validateCatalog(catalog) {
     exactKeys(target, TARGET_KEYS, label, issues);
     if (!/^\/[a-z0-9-]+$/.test(String(target.route || '')) || targetRoutes.has(target.route)) issues.push(`${label}:unique-route`);
     targetRoutes.add(target.route);
-    if (target.priority !== 'P0') issues.push(`${label}:priority`);
+    if (!['P0', 'P1'].includes(target.priority)) issues.push(`${label}:priority`);
     if (!String(target.evidenceNeeded || '').trim()) issues.push(`${label}:evidence-needed`);
     if (routes.has(target.route)) issues.push(`${label}:already-benchmarked`);
   }

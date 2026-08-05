@@ -159,6 +159,73 @@
       ]
     },
     {
+      "id": "rc-beam-seismic-strength",
+      "route": "/rc-beam",
+      "title": "矩形 RC 梁正負撓曲與耐震剪力強度",
+      "productionModule": "independent-engineering-adapters/rc-beam-strength.js",
+      "oracle": "rc-beam-seismic-strength",
+      "referenceType": "closed-form-identity",
+      "referenceBasis": "112 年混凝土規範之 Whitney 等值矩形壓力塊、單筋梁平截面應變相容、拉控強度折減、最小撓曲鋼筋、混凝土與箍筋剪力強度，以及特殊抗彎矩構架可能地震剪力 Ve 控制且 Vc 歸零之逐項封閉計算。",
+      "input": {
+        "b": 30,
+        "h": 60,
+        "dPositive": 54,
+        "dNegative": 53,
+        "asPositive": 15.21,
+        "asNegative": 10.14,
+        "fc": 280,
+        "fy": 4200,
+        "beta1": 0.85,
+        "fyt": 2800,
+        "Av": 2.54,
+        "stirrupSpacing": 10,
+        "phiShear": 0.75,
+        "lambda": 1,
+        "Ve": 25,
+        "momentDemand": 25,
+        "shearDemand": 18,
+        "axialDemand": 12
+      },
+      "assertions": [
+        { "path": "positiveC", "absTolerance": 1e-10 },
+        { "path": "positiveA", "absTolerance": 1e-10 },
+        { "path": "positiveCc", "absTolerance": 1e-8 },
+        { "path": "positiveEqN", "absTolerance": 1e-7 },
+        { "path": "positiveMn", "absTolerance": 1e-7 },
+        { "path": "positiveEpsT", "absTolerance": 1e-12 },
+        { "path": "positivePhi", "absTolerance": 1e-12 },
+        { "path": "positivePhiMn", "absTolerance": 1e-7 },
+        { "path": "positiveValid", "absTolerance": 0 },
+        { "path": "negativeC", "absTolerance": 1e-10 },
+        { "path": "negativeA", "absTolerance": 1e-10 },
+        { "path": "negativeCc", "absTolerance": 1e-8 },
+        { "path": "negativeEqN", "absTolerance": 1e-7 },
+        { "path": "negativeMn", "absTolerance": 1e-7 },
+        { "path": "negativeEpsT", "absTolerance": 1e-12 },
+        { "path": "negativePhi", "absTolerance": 1e-12 },
+        { "path": "negativePhiMn", "absTolerance": 1e-7 },
+        { "path": "negativeValid", "absTolerance": 0 },
+        { "path": "asMinPositive", "absTolerance": 1e-12 },
+        { "path": "asMinNegative", "absTolerance": 1e-12 },
+        { "path": "AvProvidedPerS", "absTolerance": 1e-12 },
+        { "path": "AvMinPerS", "absTolerance": 1e-12 },
+        { "path": "hasMinStir", "absTolerance": 0 },
+        { "path": "Vc", "absTolerance": 1e-8 },
+        { "path": "phiVc", "absTolerance": 1e-8 },
+        { "path": "VsProvided", "absTolerance": 1e-8 },
+        { "path": "phiVs", "absTolerance": 1e-8 },
+        { "path": "phiVn", "absTolerance": 1e-8 },
+        { "path": "forceVc0", "absTolerance": 0 },
+        { "path": "phiVnEffective", "absTolerance": 1e-8 },
+        { "path": "shearDemand", "absTolerance": 1e-8 },
+        { "path": "veControls", "absTolerance": 0 },
+        { "path": "flexureUtilization", "absTolerance": 1e-12 },
+        { "path": "shearUtilization", "absTolerance": 1e-12 },
+        { "path": "governingUtilization", "absTolerance": 1e-12 },
+        { "path": "overallPass", "absTolerance": 0 }
+      ]
+    },
+    {
       "id": "rc-foundation-isolated-strength",
       "route": "/rc-foundation",
       "title": "矩形 RC 獨立基腳撓曲、單向剪力與雙向衝剪",
@@ -688,5 +755,26 @@
       ]
     }
   ],
-  "priorityTargets": []
+  "priorityTargets": [
+    {
+      "route": "/rc-shear-wall",
+      "priority": "P1",
+      "evidenceNeeded": "建立邊界構材、P-M 應變相容、剪力強度與耐震細節控制的獨立封閉算例。"
+    },
+    {
+      "route": "/wind-object-solid",
+      "priority": "P1",
+      "evidenceNeeded": "建立表 2.10 兩條 Cf 路線、斜風向偏心、基底剪力與彎矩的獨立手算。"
+    },
+    {
+      "route": "/steel-plate",
+      "priority": "P1",
+      "evidenceNeeded": "建立螺栓、孔壁承壓、淨斷面、塊狀剪斷與控制模式的獨立算例。"
+    },
+    {
+      "route": "/rc-slab",
+      "priority": "P1",
+      "evidenceNeeded": "建立板帶彎矩、配筋、單向剪力與撓度控制的獨立封閉算例。"
+    }
+  ]
 }

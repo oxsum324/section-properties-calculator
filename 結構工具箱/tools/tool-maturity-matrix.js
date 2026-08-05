@@ -2648,9 +2648,9 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(markdown.includes('rendered-delivery-evidence'), 'tool maturity matrix markdown exposes rendered delivery evidence gate');
   assert.ok(payload.independentBenchmarkCoverage && typeof payload.independentBenchmarkCoverage === 'object', 'tool maturity matrix independent benchmark coverage object');
   assert.equal(payload.independentBenchmarkCoverage.status, 'ready', 'tool maturity matrix independent benchmark pilot ready');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 11, 'tool maturity matrix independent benchmark pilot verified');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 11, 'tool maturity matrix independent benchmark pilot required');
-  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 11, 'tool maturity matrix independent benchmark verified route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 12, 'tool maturity matrix independent benchmark pilot verified');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 12, 'tool maturity matrix independent benchmark pilot required');
+  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 12, 'tool maturity matrix independent benchmark verified route count');
   assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 31, 'tool maturity matrix independent benchmark eligible route count');
   assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, payload.entrypointCoverage.byState.formal, 'tool maturity matrix independent benchmark portfolio matches formal homepage entry count');
   assert.equal(payload.independentBenchmarkCoverage.summary.issueCount, 0, 'tool maturity matrix independent benchmark issues empty');
@@ -2801,14 +2801,14 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(homepageReportReadinessStatus.independentBenchmarkEligible, 31, 'homepage report readiness independent benchmark eligible routes');
   if (preserveHomepageStatus) {
     assert.ok(Number.isInteger(homepageReportReadinessStatus.independentBenchmarkVerified), 'preserved homepage report readiness independent benchmark verified routes integer');
-    assert.ok(homepageReportReadinessStatus.independentBenchmarkVerified >= 0 && homepageReportReadinessStatus.independentBenchmarkVerified <= 11, 'preserved homepage report readiness independent benchmark verified routes bounded by current coverage');
+    assert.ok(homepageReportReadinessStatus.independentBenchmarkVerified >= 0 && homepageReportReadinessStatus.independentBenchmarkVerified <= 12, 'preserved homepage report readiness independent benchmark verified routes bounded by current coverage');
     assert.ok(Number.isInteger(homepageReportReadinessStatus.independentBenchmarkPilotRequired), 'preserved homepage report readiness independent benchmark pilot required integer');
     assert.ok(Number.isInteger(homepageReportReadinessStatus.independentBenchmarkPilotVerified), 'preserved homepage report readiness independent benchmark pilot verified integer');
     assert.ok(homepageReportReadinessStatus.independentBenchmarkPilotVerified <= homepageReportReadinessStatus.independentBenchmarkPilotRequired, 'preserved homepage report readiness independent benchmark pilot remains coherent');
   } else {
-    assert.equal(homepageReportReadinessStatus.independentBenchmarkVerified, 11, 'homepage report readiness independent benchmark verified routes');
-    assert.equal(homepageReportReadinessStatus.independentBenchmarkPilotRequired, 11, 'homepage report readiness independent benchmark pilot required');
-    assert.equal(homepageReportReadinessStatus.independentBenchmarkPilotVerified, 11, 'homepage report readiness independent benchmark pilot verified');
+    assert.equal(homepageReportReadinessStatus.independentBenchmarkVerified, 12, 'homepage report readiness independent benchmark verified routes');
+    assert.equal(homepageReportReadinessStatus.independentBenchmarkPilotRequired, 12, 'homepage report readiness independent benchmark pilot required');
+    assert.equal(homepageReportReadinessStatus.independentBenchmarkPilotVerified, 12, 'homepage report readiness independent benchmark pilot verified');
   }
   assert.equal(homepageReportReadinessStatus.independentBenchmarkIssueCount, 0, 'homepage report readiness independent benchmark issues empty');
   assert.equal(homepageReportReadinessStatus.independentBenchmarkPass, true, 'homepage report readiness independent benchmark pilot passes');
