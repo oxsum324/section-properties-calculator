@@ -1082,6 +1082,128 @@ function windCcThreeBranchOracle(input) {
   }));
 }
 
+function windParapetThreeRouteOracle(input) {
+  const terrain = {
+    A:{ alpha:0.32, zg:500, zmin:18 },
+    B:{ alpha:0.25, zg:400, zmin:9 },
+    C:{ alpha:0.15, zg:300, zmin:4.5 },
+  };
+  const tables = {
+    lowWall:{
+      zone4:{ pos:[1.89, 1.46], neg:[-2.08, -1.67] },
+      zone5:{ pos:[1.89, 1.46], neg:[-2.71, -1.67] },
+    },
+    lowRoof:{
+      zone2:{ pos:[0.62, 0.42], neg:[-3.75, -1.67] },
+      zone3:{ pos:[0.62, 0.42], neg:[-5.83, -2.08], negAmax:9.3 },
+    },
+    highWall:{
+      zone4:{ pos:[1.87, 1.46], neg:[-1.88, -1.67] },
+      zone5:{ pos:[1.87, 1.46], neg:[-3.75, -1.67] },
+    },
+    highRoof:{
+      zone2:{ pos:[0.62, 0.42], neg:[-3.75, -2.29] },
+      zone3:{ pos:[0.62, 0.42], neg:[-5.83, -2.29], negAmax:9.3 },
+    },
+  };
+  const q = (z, i) => {
+    const t = terrain[i.terrain];
+    const zUse = Math.max(z, t.zmin);
+    const kz = 2.774 * Math.pow(zUse / t.zg, 2 * t.alpha);
+    return 0.06 * kz * i.Kzt * i.I ** 2 * i.V ** 2;
+  };
+  const interpolate = (curve, area, maxArea = 46.5) => {
+    if (area <= 0.93) return curve[0];
+    if (area >= maxArea) return curve[1];
+    const ratio = Math.log10(area / 0.93) / Math.log10(maxArea / 0.93);
+    return curve[0] + (curve[1] - curve[0]) * ratio;
+  };
+  const pressure = (qp, coefficient, gcpi) => qp * (
+    coefficient >= 0 ? coefficient + gcpi : coefficient - gcpi
+  );
+  const summarize = cases => {
+    const control = cases.reduce(
+      (best, item) => Math.abs(item.pDiff) > Math.abs(best.pDiff) ? item : best,
+      cases[0]
+    );
+    const output = {
+      caseCount:cases.length,
+      qp:cases[0].qp,
+      topZ:cases[0].topZ,
+      gcpi:cases[0].gcpi,
+      isLE18:cases[0].isLE18,
+    };
+    for (const item of cases) {
+      output[item.key] = {
+        frontGCp:item.frontGCp,
+        backGCp:item.backGCp,
+        pFront:item.pFront,
+        pBack:item.pBack,
+        pDiff:item.pDiff,
+        controls:item.key === control.key ? 1 : 0,
+      };
+    }
+    return output;
+  };
+  const buildBuildingCases = i => {
+    const isLE18 = i.h <= 18;
+    const wall = tables[isLE18 ? 'lowWall' : 'highWall'];
+    const roof = tables[isLE18 ? 'lowRoof' : 'highRoof'];
+    const qp = q(i.h + i.hp, i);
+    const gcpi = i.GCpiOverride != null ? i.GCpiOverride : ({ enclosed:0.375, partial:1.145, open:0 })[i.encl];
+    const definitions = [
+      { key:'windward_edge', face:'windward', wallZone:'zone4', roofZone:'zone2' },
+      { key:'windward_corner', face:'windward', wallZone:'zone5', roofZone:'zone3' },
+      { key:'leeward_edge', face:'leeward', wallZone:'zone4', roofZone:'zone2' },
+      { key:'leeward_corner', face:'leeward', wallZone:'zone5', roofZone:'zone3' },
+    ];
+    return definitions.map(item => {
+      const wallPos = interpolate(wall[item.wallZone].pos, i.A);
+      const wallNeg = interpolate(wall[item.wallZone].neg, i.A, wall[item.wallZone].negAmax);
+      const roofNeg = interpolate(roof[item.roofZone].neg, i.A, roof[item.roofZone].negAmax);
+      const frontGCp = item.face === 'windward' ? wallPos : wallNeg;
+      const backGCp = item.face === 'windward' ? roofNeg : wallPos;
+      const pFront = pressure(qp, frontGCp, gcpi);
+      const pBack = pressure(qp, backGCp, gcpi);
+      return { ...item, qp, topZ:i.h + i.hp, gcpi, isLE18:isLE18 ? 1 : 0, frontGCp, backGCp, pFront, pBack, pDiff:pFront - pBack };
+    });
+  };
+  const buildSingleCases = i => {
+    const isLE18 = i.h <= 18;
+    const wall = tables[isLE18 ? 'lowWall' : 'highWall'];
+    const qp = q(i.h + i.hp, i);
+    const gcpi = i.GCpiOverride != null ? i.GCpiOverride : ({ enclosed:0.375, partial:1.145, open:0 })[i.encl];
+    const definitions = [
+      { key:'edge_left', zone:'zone4', left:true },
+      { key:'edge_right', zone:'zone4', left:false },
+      { key:'corner_left', zone:'zone5', left:true },
+      { key:'corner_right', zone:'zone5', left:false },
+    ];
+    return definitions.map(item => {
+      const wallPos = interpolate(wall[item.zone].pos, i.A);
+      const wallNeg = interpolate(wall[item.zone].neg, i.A, wall[item.zone].negAmax);
+      const frontGCp = item.left ? wallPos : wallNeg;
+      const backGCp = item.left ? wallNeg : wallPos;
+      const pFront = pressure(qp, frontGCp, gcpi);
+      const pBack = pressure(qp, backGCp, gcpi);
+      return { ...item, qp, topZ:i.h + i.hp, gcpi, isLE18:isLE18 ? 1 : 0, frontGCp, backGCp, pFront, pBack, pDiff:pFront - pBack };
+    });
+  };
+  const mwQp = q(input.mwfrs.h + input.mwfrs.hp, input.mwfrs);
+  return {
+    mwfrs:{
+      qp:mwQp,
+      topZ:input.mwfrs.h + input.mwfrs.hp,
+      windwardGCpn:1.8,
+      windwardP:mwQp * 1.8,
+      leewardGCpn:-1.1,
+      leewardP:mwQp * -1.1,
+    },
+    buildingCc:summarize(buildBuildingCases(input.buildingCc)),
+    singleCc:summarize(buildSingleCases(input.singleCc)),
+  };
+}
+
 function seismicMiscOracle(input) {
   const interpolate = (xs, ys, x) => {
     if (x <= xs[0]) return ys[0];
@@ -1498,6 +1620,7 @@ const ORACLES = {
   'wind-force-rigid-three-story-mwfrs': windForceMwfrsOracle,
   'wind-object-solid-table-2-10': windObjectSolidTable210Oracle,
   'wind-cc-three-control-branches': windCcThreeBranchOracle,
+  'wind-parapet-three-design-routes': windParapetThreeRouteOracle,
   'seismic-force-eight-story-static': seismicForceStaticOracle,
   'seismic-appendage-three-control-branches': seismicAppendageOracle,
   'seismic-misc-three-formula-paths': seismicMiscOracle,
