@@ -1217,6 +1217,7 @@
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
 <script src="../shared/foundation-isolated.js?v=1"></script>
+<script src="../shared/foundation-pile.js?v=1"></script>
 <script src="../shared/retaining-base-demand.js?v=1"></script>
 <script src="../shared/pile-group-lateral.js?v=1"></script>
 <script src="../shared/pile-py-table-adapter.js?v=1"></script>
@@ -1381,55 +1382,10 @@
     return stress;
   }
   function integratePileSkinFriction(layers, pileLength, pileD_m, pileInstall) {
-    const perim = Math.PI * pileD_m;
-    let Qs = 0;
-    const segments = [];
-    for (const layer of layers) {
-      const segLen = Math.max(0, Math.min(pileLength, layer.to) - layer.from);
-      if (segLen <= 0) continue;
-      const zMid = layer.from + segLen / 2;
-      const sigmaMid = effectiveStressAtDepth(layers, zMid);
-      let fs = 0;
-      if (layer.type === 'clay') {
-        const alpha = layer.c <= 3 ? 0.9 : layer.c <= 6 ? 0.7 : 0.55;
-        fs = alpha * layer.c;
-      } else {
-        const K = pileInstall === 'driven' ? 0.9 : 0.65;
-        const delta = Math.max(15, Math.min(35, layer.phi * 0.75)) * Math.PI / 180;
-        fs = Math.min((layer.N > 50 ? 12 : 8), K * sigmaMid * Math.tan(delta));
-      }
-      const dQs = fs * perim * segLen;
-      Qs += dQs;
-      segments.push({ from: layer.from, to: layer.from + segLen, fs, dQs, type: layer.type });
-    }
-    return { Qs, segments };
+    return FoundationPile.integrateSkinFriction(layers, pileLength, pileD_m, pileInstall);
   }
   function calcTipResistance(layers, pileLength, pileD_m, pileInstall) {
-    const tipLayer = getLayerAtDepth(layers, pileLength);
-    if (!tipLayer) {
-      return { Qb: 0, qbUlt: 0, tipLayer: null, capApplied: false, capValue: null, criticalDepth: pileLength };
-    }
-    const area = Math.PI * pileD_m * pileD_m / 4;
-    const criticalDepth = Math.min(pileLength, 20 * pileD_m);
-    const sigmaCrit = effectiveStressAtDepth(layers, criticalDepth);
-    let qbUlt = 0;
-    let capApplied = false;
-    let capValue = null;
-    if (tipLayer.type === 'clay') {
-      qbUlt = 9 * tipLayer.c;
-    } else {
-      const phiRad = Math.max(0, Math.min(45, tipLayer.phi)) * Math.PI / 180;
-      const Nq = Math.exp(Math.PI * Math.tan(phiRad)) * Math.pow(Math.tan(Math.PI / 4 + phiRad / 2), 2);
-      qbUlt = sigmaCrit * Nq;
-      if (tipLayer.N > 50 || tipLayer.type === 'gravel') {
-        capValue = pileInstall === 'driven' ? 1800 : 750;
-        if (qbUlt > capValue) {
-          qbUlt = capValue;
-          capApplied = true;
-        }
-      }
-    }
-    return { Qb: qbUlt * area, qbUlt, tipLayer, capApplied, capValue, criticalDepth, sigmaCrit };
+    return FoundationPile.calculateTipResistance(layers, pileLength, pileD_m, pileInstall);
   }
   function buildWinklerCurves({ Qs, Qb, qbUlt, pileD_m, pileLength, layers }) {
     const tipLayer = getLayerAtDepth(layers, pileLength) || layers[layers.length - 1];
@@ -3724,27 +3680,24 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
     const serviceDemandPerPile = pileTargetAllowInput > 0 ? pileTargetAllowInput : (PD + PL) / nPile;
     const QaDemandEff = serviceDemandPerPile / Math.max(pileEta, 1e-6);
 
-    // 樁座標
-    const xs = [], ys = [];
-    for (let i = 0; i < pileNL; i++) {
-      for (let j = 0; j < pileNB; j++) {
-        xs.push((i - (pileNL - 1) / 2) * pileSL);
-        ys.push((j - (pileNB - 1) / 2) * pileSB);
-      }
-    }
-    const sumX2 = xs.reduce((s, v) => s + v*v, 0);
-    const sumY2 = ys.reduce((s, v) => s + v*v, 0);
-    const Mx_cm = Mx * 100, My_cm = My * 100;
-    let rMax = -Infinity, rMin = Infinity;
-    for (let i = 0; i < nPile; i++) {
-      const dRy = sumY2 > 0 ? Math.abs(Mx_cm * ys[i] / sumY2) : 0;
-      const dRx = sumX2 > 0 ? Math.abs(My_cm * xs[i] / sumX2) : 0;
-      const Rhi = Pu_tf / nPile + dRy + dRx;
-      const Rlo = Pu_tf / nPile - dRy - dRx;
-      if (Rhi > rMax) rMax = Rhi;
-      if (Rlo < rMin) rMin = Rlo;
-    }
-    const minSpacing = Math.min(pileSL, pileSB);
+    const pileSystem = FoundationPile.calculateGroupAndCap({
+      fc, fy, phiShear: PHI.shear, lambda,
+      c1, c2, pileD, pileNL, pileNB, pileSL, pileSB,
+      PuTf: Pu_tf, MxTfm: Mx, MyTfm: My,
+      hc, cover: pcCover, db, capSteelAreaTotal: As
+    });
+    const {
+      xs, ys, reactions: pileReactions, rMax, rMin, minSpacing,
+      c1d, c2d, bo, phiVc2Kgf: phiVc2, Vu2Tf: Vu2_tf, excludedCount,
+      okPunching: okV2,
+      rowSpanL, rowSpanB, pileReactionRowsL, pileReactionRowsB,
+      controlRowL, controlRowB,
+      capMuLongTfm: capMuLong_tfm, capMuTransTfm: capMuTrans_tfm,
+      capMuTfm: capMu_tfm, capVuTf: capVu_tfm,
+      capAsReq, capAsProv,
+      capPhiMnTfm: capPhiMn_tfm, capPhiVnTf: capPhiVn_tfm,
+      okCapFlex, okCapShear
+    } = pileSystem;
     const lateralGroup = window.PileGroupLateral.evaluate({
       pileNL,
       pileNB,
@@ -3844,36 +3797,6 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
     const okSp = minSpacing >= spacingLimit;
     const okDMin = d >= 30;
 
-    // 衝剪 (含排除規則)
-    const c1d = c1 + d, c2d = c2 + d;
-    const bo = 2 * (c1d + c2d);
-    const beta_c = Math.max(c1, c2) / Math.min(c1, c2);
-    const vc = Math.min(
-      1.06 * lambda * Math.sqrt(fc),
-      0.27 * (2 + 4 / beta_c) * lambda * Math.sqrt(fc),
-      0.27 * (40 * d / bo + 2) * lambda * Math.sqrt(fc)
-    );
-    const phiVc2 = PHI.shear * vc * bo * d;
-    // 排除規則：樁中心距臨界面 < dp/2 → 排除
-    let Vu2_sum = 0;
-    let excludedCount = 0;
-    for (let i = 0; i < nPile; i++) {
-      const px = xs[i], py = ys[i];
-      // 距臨界面邊界的最近距離
-      const distX = Math.abs(px) - c1d / 2;
-      const distY = Math.abs(py) - c2d / 2;
-      const insideCrit = distX <= 0 && distY <= 0;
-      const dist = insideCrit ? 0 : Math.sqrt(Math.max(0, distX)**2 + Math.max(0, distY)**2);
-      if (dist < pileD / 2) {
-        excludedCount++;
-        continue;
-      }
-      const Ri = Pu_tf / nPile + (sumY2 > 0 ? Mx_cm * ys[i] / sumY2 : 0) + (sumX2 > 0 ? My_cm * xs[i] / sumX2 : 0);
-      Vu2_sum += Math.max(0, Ri);
-    }
-    const Vu2_tf = Vu2_sum;
-    const okV2 = phiVc2 / 1000 >= Vu2_tf;
-
     // 預力樁上限
     const Ag_pile = Math.PI * (pileD / 2) ** 2;
     const puLimit = 0.4 * Ag_pile * fc / 1000;  // kgf→tf
@@ -3900,44 +3823,6 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
     const pileStressKgCm2 = (Pu_tf * 1.5 * 1000) / Math.max(Ag_pile, 1e-6);
     const pileStressAllow = 0.7 * 0.85 * 0.85 * fc;
     const okPileStress = pileStressKgCm2 <= pileStressAllow;
-    const rowSpanL = pileNL > 1 ? ((pileNL - 1) * pileSL) / 100 : pileD / 100;
-    const rowSpanB = pileNB > 1 ? ((pileNB - 1) * pileSB) / 100 : pileD / 100;
-    const pileReactionRowsL = [];
-    const pileReactionRowsB = [];
-    for (let i = 0; i < pileNL; i++) {
-      let rowSum = 0;
-      for (let j = 0; j < pileNB; j++) {
-        const idx = i * pileNB + j;
-        rowSum += Math.max(0, Pu_tf / nPile + (sumY2 > 0 ? Mx_cm * ys[idx] / sumY2 : 0) + (sumX2 > 0 ? My_cm * xs[idx] / sumX2 : 0));
-      }
-      pileReactionRowsL.push(rowSum);
-    }
-    for (let j = 0; j < pileNB; j++) {
-      let rowSum = 0;
-      for (let i = 0; i < pileNL; i++) {
-        const idx = i * pileNB + j;
-        rowSum += Math.max(0, Pu_tf / nPile + (sumY2 > 0 ? Mx_cm * ys[idx] / sumY2 : 0) + (sumX2 > 0 ? My_cm * xs[idx] / sumX2 : 0));
-      }
-      pileReactionRowsB.push(rowSum);
-    }
-    const controlRowL = pileReactionRowsL.length ? Math.max(...pileReactionRowsL) : Math.max(rMax, 0);
-    const controlRowB = pileReactionRowsB.length ? Math.max(...pileReactionRowsB) : Math.max(rMax, 0);
-    const capMuLong_tfm = controlRowL * Math.max(rowSpanL, pileD / 100) / 8;
-    const capMuTrans_tfm = controlRowB * Math.max(rowSpanB, pileD / 100) / 8;
-    const capMu_tfm = Math.max(capMuLong_tfm, capMuTrans_tfm);
-    const capVu_tfm = Math.max(controlRowL / 2, controlRowB / 2, Math.max(rMax, 0));
-    const capAsDesign = Flexure.designAsRect({ b: 100, d, Mu_kgcm: capMu_tfm * 1e5, fc, fy }).As;
-    const capAsReq = Math.max(0.0018 * 100 * hc, Number.isFinite(capAsDesign) ? capAsDesign : 0);
-    const capAsProv = Math.max(As / 2, capAsReq);
-    const capFlexRaw = Flexure.phiMnRect({ b: 100, d, h: hc, As: capAsProv, fc, fy }).phiMn / 1e5;
-    const aCap = (capAsProv * fy) / Math.max(0.85 * fc * 100, 1e-6);
-    const capPhiMnManual = 0.9 * capAsProv * fy * Math.max(d - aCap / 2, 0) / 1e5;
-    const capPhiMn_tfm = Number.isFinite(capFlexRaw) && capFlexRaw > 0 ? capFlexRaw : capPhiMnManual;
-    const capPhiVc_tfm = (PHI.shear * 0.53 * lambda * Math.sqrt(fc) * 100 * d) / 1000;
-    const capVs_tfm = ((11.4 * 2800 * d) / 10) / 1000;
-    const capPhiVn_tfm = capPhiVc_tfm + capVs_tfm;
-    const okCapFlex = capPhiMn_tfm >= capMu_tfm;
-    const okCapShear = capPhiVn_tfm >= capVu_tfm;
     const okSettlement = soilOk ? settlement.Wo_cm <= pileSettlementAllow : null;
 
     setResult('pr-pileN', nPile, '支', 0);
@@ -4160,7 +4045,7 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
       pilePresetSummaryText: $('pilePresetSummary')?.textContent?.trim() || '',
       pileSiteCompareTableText: tableToText('pileSiteCompareTable'),
       pileCapacityTableText: tableToText('pileCapacityTable'),
-      pileStressKgCm2, pileStressAllow, okPileStress,
+      pileStressKgCm2, pileStressAllow, okPileStress, pileReactions,
       rowSpanL, rowSpanB, pileReactionRowsL, pileReactionRowsB, controlRowL, controlRowB, capMuLong_tfm, capMuTrans_tfm,
       capMu_tfm, capPhiMn_tfm, capVu_tfm, capPhiVn_tfm, capAsReq, capAsProv, okCapFlex, okCapShear,
       tzCurve: pileCurves?.tz || [], qwCurve: pileCurves?.qw || [], pyCurve: pileCurves?.py || [] };

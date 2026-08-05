@@ -4,6 +4,7 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $testFile = Join-Path $root 'foundation-regression.test.js'
 $visualTestFile = Join-Path $root 'foundation-report-visual.test.js'
 $isolatedStrengthTestFile = Join-Path (Split-Path -Parent $root) 'shared\foundation-isolated.test.js'
+$pileStrengthTestFile = Join-Path (Split-Path -Parent $root) 'shared\foundation-pile.test.js'
 $baseDemandTestFile = Join-Path (Split-Path -Parent $root) 'shared\retaining-base-demand.test.js'
 $pileGroupLateralTestFile = Join-Path (Split-Path -Parent $root) 'shared\pile-group-lateral.test.js'
 $pilePyBridgeTestFile = Join-Path (Split-Path -Parent $root) 'shared\pile-py-result-bridge.test.js'
@@ -15,6 +16,12 @@ Write-Host "`n== Isolated footing strength core unit tests ==" -ForegroundColor 
 node $isolatedStrengthTestFile
 if ($LASTEXITCODE -ne 0) {
   throw "isolated footing strength core unit tests failed with exit code $LASTEXITCODE"
+}
+
+Write-Host "`n== Pile axial, group and pile-cap core unit tests ==" -ForegroundColor Cyan
+node $pileStrengthTestFile
+if ($LASTEXITCODE -ne 0) {
+  throw "pile axial, group and pile-cap core unit tests failed with exit code $LASTEXITCODE"
 }
 
 Write-Host "`n== Retaining wall base demand unit tests ==" -ForegroundColor Cyan

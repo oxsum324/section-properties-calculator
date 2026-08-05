@@ -423,6 +423,7 @@ async function exercisePilePyBridge(page) {
 
 async function main() {
   const html = fs.readFileSync(htmlPath, 'utf8');
+  const pileCore = fs.readFileSync(path.join(__dirname, '..', 'shared', 'foundation-pile.js'), 'utf8');
   const common = fs.readFileSync(commonPath, 'utf8');
   const pack = JSON.parse(fs.readFileSync(casesPath, 'utf8'));
   const tolerance = pack.tolerance ?? toleranceDefault;
@@ -432,8 +433,10 @@ async function main() {
   assert(html.includes('id="bannerStatus"'), 'foundation.html has banner', 'summary banner exists');
   assert(html.includes('window.ftLast'), 'foundation.html exports ftLast', 'result snapshot exists for regression capture');
   assert(html.includes('../shared/foundation-isolated.js?v=1') && html.includes('FoundationIsolated.calculateStrength'), 'foundation isolated footing uses the shared production strength core', 'shared core is loaded and called');
+  assert(html.includes('../shared/foundation-pile.js?v=1') && html.includes('FoundationPile.calculateGroupAndCap'), 'foundation pile group and pile cap use the shared production core', 'shared pile core is loaded and called');
+  assert(html.includes('FoundationPile.integrateSkinFriction') && html.includes('FoundationPile.calculateTipResistance'), 'foundation pile axial capacity uses the shared production core', 'skin friction and tip resistance delegate to the shared core');
   assert(!/designAsRect\(\{[^\n}]*\bMu\s*:/.test(html), 'foundation flexural design uses the Mu_kgcm interface', 'no obsolete Mu key remains');
-  assert(html.includes('Mu_kgcm:Mu_long_tfm * 1e5') && html.includes('Mu_kgcm: capMu_tfm * 1e5'), 'combined footing and pile cap read finite reinforcement demand', 'designAsRect result uses .As');
+  assert(html.includes('Mu_kgcm:Mu_long_tfm * 1e5') && pileCore.includes('Mu_kgcm:capMuTfm * 1e5'), 'combined footing and pile cap read finite reinforcement demand', 'designAsRect result uses .As');
   assert(html.includes('id="cHDL"') && html.includes('id="cHE"'), 'combined footing has horizontal force inputs', 'HDL/HE inputs exist');
   assert(html.includes('id="cc-slide"') && html.includes('id="cr-FSslide"'), 'combined footing has sliding checks', 'combined sliding UI exists');
   assert(!html.includes('預留，尚未做抗滑檢核'), 'combined footing sliding input is not stale placeholder text', 'cMu is active');

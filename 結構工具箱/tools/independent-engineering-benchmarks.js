@@ -201,12 +201,116 @@ function rcFoundationOracle(i) {
   };
 }
 
+function rcPileOracle(i) {
+  const layer = i.layers[0];
+  const alpha = layer.c <= 3 ? 0.9 : layer.c <= 6 ? 0.7 : 0.55;
+  const perimeter = Math.PI * i.pileDiameterM;
+  const pileAreaM2 = Math.PI * i.pileDiameterM * i.pileDiameterM / 4;
+  const Qs = alpha * layer.c * perimeter * i.pileLength;
+  const Qb = 9 * layer.c * pileAreaM2;
+  const Qult = Qs + Qb;
+
+  const xs = [];
+  const ys = [];
+  for (let xIndex = 0; xIndex < i.pileNL; xIndex++) {
+    for (let yIndex = 0; yIndex < i.pileNB; yIndex++) {
+      xs.push((xIndex - (i.pileNL - 1) / 2) * i.pileSL);
+      ys.push((yIndex - (i.pileNB - 1) / 2) * i.pileSB);
+    }
+  }
+  const sumX2 = xs.reduce((sum, value) => sum + value * value, 0);
+  const sumY2 = ys.reduce((sum, value) => sum + value * value, 0);
+  const reactions = xs.map((x, index) => (
+    i.PuTf / xs.length
+    + i.MxTfm * 100 * ys[index] / sumY2
+    + i.MyTfm * 100 * x / sumX2
+  ));
+  const rowL = Array.from({ length:i.pileNL }, (_, xIndex) => (
+    reactions.slice(xIndex * i.pileNB, (xIndex + 1) * i.pileNB).reduce((sum, value) => sum + Math.max(value, 0), 0)
+  ));
+  const rowB = Array.from({ length:i.pileNB }, (_, yIndex) => (
+    Array.from({ length:i.pileNL }, (_, xIndex) => reactions[xIndex * i.pileNB + yIndex])
+      .reduce((sum, value) => sum + Math.max(value, 0), 0)
+  ));
+
+  const d = i.hc - i.cover - i.db;
+  const c1d = i.c1 + d;
+  const c2d = i.c2 + d;
+  const bo = 2 * (c1d + c2d);
+  const betaC = Math.max(i.c1, i.c2) / Math.min(i.c1, i.c2);
+  const vc = Math.min(
+    1.06 * i.lambda * Math.sqrt(i.fc),
+    0.27 * (2 + 4 / betaC) * i.lambda * Math.sqrt(i.fc),
+    0.27 * (40 * d / bo + 2) * i.lambda * Math.sqrt(i.fc)
+  );
+  let excludedCount = 0;
+  let Vu2Tf = 0;
+  reactions.forEach((reaction, index) => {
+    const dx = Math.abs(xs[index]) - c1d / 2;
+    const dy = Math.abs(ys[index]) - c2d / 2;
+    const distance = dx <= 0 && dy <= 0 ? 0 : Math.hypot(Math.max(dx, 0), Math.max(dy, 0));
+    if (distance < i.pileD / 2) excludedCount += 1;
+    else Vu2Tf += Math.max(reaction, 0);
+  });
+
+  const rowSpanL = (i.pileNL - 1) * i.pileSL / 100;
+  const rowSpanB = (i.pileNB - 1) * i.pileSB / 100;
+  const controlRowL = Math.max(...rowL);
+  const controlRowB = Math.max(...rowB);
+  const capMuLongTfm = controlRowL * rowSpanL / 8;
+  const capMuTransTfm = controlRowB * rowSpanB / 8;
+  const capMuTfm = Math.max(capMuLongTfm, capMuTransTfm);
+  const capVuTf = Math.max(controlRowL / 2, controlRowB / 2, ...reactions);
+  const momentKgfCm = capMuTfm * 1e5;
+  const width = 100;
+  const quadratic = i.fy * i.fy / (1.7 * i.fc * width);
+  const linear = i.fy * d;
+  const capFlexuralAs = (linear - Math.sqrt(linear * linear - 4 * quadratic * momentKgfCm / 0.9)) / (2 * quadratic);
+  const capAsReq = Math.max(0.0018 * width * i.hc, capFlexuralAs);
+  const capAsProv = Math.max(i.capSteelAreaTotal / 2, capAsReq);
+  const a = capAsProv * i.fy / (0.85 * i.fc * width);
+  const capPhiMnTfm = 0.9 * capAsProv * i.fy * (d - a / 2) / 1e5;
+  const capPhiVcTf = i.phiShear * 0.53 * i.lambda * Math.sqrt(i.fc) * width * d / 1000;
+  const capVsTf = 11.4 * 2800 * d / 10 / 1000;
+
+  return {
+    Qs,
+    Qb,
+    Qult,
+    Qall: Qult / i.safetyFactor,
+    reaction1: reactions[0],
+    reaction2: reactions[1],
+    reaction3: reactions[2],
+    reaction4: reactions[3],
+    reactionSum: reactions.reduce((sum, value) => sum + value, 0),
+    rMax: Math.max(...reactions),
+    rMin: Math.min(...reactions),
+    d,
+    Vu2Tf,
+    phiVc2Tf: i.phiShear * vc * bo * d / 1000,
+    excludedCount,
+    rowL1: rowL[0],
+    rowL2: rowL[1],
+    rowB1: rowB[0],
+    rowB2: rowB[1],
+    capMuLongTfm,
+    capMuTransTfm,
+    capMuTfm,
+    capVuTf,
+    capFlexuralAs,
+    capAsReq,
+    capPhiMnTfm,
+    capPhiVnTf: capPhiVcTf + capVsTf
+  };
+}
+
 const ORACLES = {
   'equipment-basic-load-path': equipmentOracle,
   'earth-rankine-dry-active': earthOracle,
   'foundation-external-load-only': foundationOracle,
   'rc-column-balanced-nearby-pm-point': rcColumnPmOracle,
-  'rc-foundation-isolated-strength': rcFoundationOracle
+  'rc-foundation-isolated-strength': rcFoundationOracle,
+  'rc-pile-clay-group-cap': rcPileOracle
 };
 
 function loadProductionModule(relativePath) {

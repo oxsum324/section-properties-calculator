@@ -57,6 +57,8 @@ async function main() {
   assert(html.includes('btnSaveDefaults'), 'single-pile save defaults control', 'save default button exists');
   assert(html.includes('page-only-case-tools'), 'single-pile preset workflow page-only card', 'page-only-case-tools exists');
   assert(html.includes('../shared/common.js'), 'single-pile page loads shared common helper', 'RCUI helper is available');
+  assert(html.includes('../shared/foundation-pile.js?v=1'), 'single-pile page loads shared axial production core', 'foundation-pile.js is loaded');
+  assert(html.includes('FoundationPile.integrateSkinFriction') && html.includes('FoundationPile.calculateTipResistance'), 'single-pile general engineering mode uses shared axial production core', 'skin friction and tip resistance delegate to the shared core');
   assert(html.includes('RCUI.renderAttachmentReadiness'), 'single-pile page uses shared attachment readiness renderer', 'page-only readiness helper is used');
   assert(html.includes('id="singlePileAttachmentReadiness"'), 'single-pile page has attachment readiness card', 'page-only readiness target exists');
   const reportSrc = html.slice(html.indexOf('function buildSinglePileReport'), html.indexOf('function updateModeUi'));

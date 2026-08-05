@@ -621,6 +621,7 @@
 
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/report.js?v=9"></script>
+<script src="../shared/foundation-pile.js?v=1"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -976,54 +977,11 @@
   }
 
   function integrateSkin(layers, pileLength, pileD_m, pileInstall, rules) {
-    const perimeter = Math.PI * pileD_m;
-    const segments = [];
-    let Qs = 0;
-    for (const layer of layers) {
-      const segLen = Math.max(0, Math.min(pileLength, layer.to) - layer.from);
-      if (segLen <= 0) continue;
-      const zMid = layer.from + segLen / 2;
-      const sigmaMid = effectiveStressAtDepth(layers, zMid);
-      let fs = 0;
-      if (layer.type === 'clay' || layer.type === 'rock') {
-        const alpha = layer.c <= 3 ? rules.alphaSoft : layer.c <= 6 ? rules.alphaMedium : rules.alphaStiff;
-        fs = alpha * Math.max(layer.c, layer.type === 'rock' ? 8 : layer.c);
-      } else {
-        const K = pileInstall === 'driven' ? rules.sandKDriven : rules.sandKBored;
-        const delta = Math.max(15, Math.min(35, layer.phi * rules.deltaRatio)) * Math.PI / 180;
-        fs = Math.min(layer.N > 50 ? rules.denseSandFsCap : rules.sandFsCap, K * sigmaMid * Math.tan(delta));
-      }
-      const dQs = fs * perimeter * segLen;
-      Qs += dQs;
-      segments.push({ ...layer, segLen, fs, dQs, accumQs: Qs });
-    }
-    return { Qs, segments };
+    return FoundationPile.integrateSkinFriction(layers, pileLength, pileD_m, pileInstall, rules);
   }
 
   function calcTipResistance(layers, pileLength, pileD_m, pileInstall, rules) {
-    const tipLayer = getLayerAtDepth(layers, pileLength);
-    if (!tipLayer) return { Qb: 0, qbUlt: 0, tipLayer: null, capApplied: false, criticalDepth: pileLength, sigmaCrit: 0 };
-    const area = Math.PI * pileD_m * pileD_m / 4;
-    const criticalDepth = Math.min(pileLength, 20 * pileD_m);
-    const sigmaCrit = effectiveStressAtDepth(layers, criticalDepth);
-    let qbUlt = 0;
-    let capApplied = false;
-    let capValue = null;
-    if (tipLayer.type === 'clay' || tipLayer.type === 'rock') {
-      qbUlt = 9 * Math.max(tipLayer.c, tipLayer.type === 'rock' ? 20 : tipLayer.c);
-    } else {
-      const phiRad = Math.max(0, Math.min(45, tipLayer.phi)) * Math.PI / 180;
-      const Nq = Math.exp(Math.PI * Math.tan(phiRad)) * Math.pow(Math.tan(Math.PI / 4 + phiRad / 2), 2);
-      qbUlt = sigmaCrit * Nq;
-      if (tipLayer.N > 50 || tipLayer.type === 'gravel') {
-        capValue = pileInstall === 'driven' ? rules.tipCapDriven : rules.tipCapBored;
-        if (qbUlt > capValue) {
-          qbUlt = capValue;
-          capApplied = true;
-        }
-      }
-    }
-    return { Qb: qbUlt * area, qbUlt, tipLayer, capApplied, capValue, criticalDepth, sigmaCrit };
+    return FoundationPile.calculateTipResistance(layers, pileLength, pileD_m, pileInstall, rules);
   }
 
   function calcSettlement({ Qb, Qs, pileLength, pileArea_m2, pileD_m, fc, mode, xiInput, cpInput, csInput, qoInput, qbUlt }) {
