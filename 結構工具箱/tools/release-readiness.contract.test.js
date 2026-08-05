@@ -122,6 +122,10 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'rendered-delivery-evidence',
   'node 結構工具箱/tools/rendered-delivery-evidence.contract.test.js',
   'Rendered delivery evidence release gate',
+  'independent-engineering-benchmarks',
+  'node 結構工具箱/tools/independent-engineering-benchmarks.test.js',
+  'node 結構工具箱/tools/independent-engineering-benchmarks.js --write',
+  'Independent engineering benchmark pilot',
 ].forEach(needle => assertIncludes(preflight, needle, `preflight preserves release readiness ${needle}`));
 
 [
@@ -389,6 +393,10 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'rendered-delivery-evidence',
   '實際交付物渲染佐證',
   'tool maturity matrix rendered delivery evidence gate passed',
+  'independent-engineering-benchmarks',
+  '獨立工程基準試辦',
+  'tool maturity matrix independent engineering benchmark gate passed',
+  '## Independent Engineering Benchmarks',
   'function isRenderedDeliveryRelease',
   "/^[0-9a-f]{40}$/i.test(String(payload.sourceCommitSha || ''))",
   'payload.sourceDirty === false',
@@ -559,6 +567,9 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'maturity latest preflight sourceDirty boolean',
   'rendered-delivery-evidence',
   'maturity globalGovernance rendered delivery evidence gate exists',
+  'independent-engineering-benchmarks',
+  'maturity globalGovernance independent engineering benchmark gate exists',
+  'maturity independent engineering benchmark pilot verified',
 ].forEach(needle => assertIncludes(dashboardContract, needle, `dashboard contract preserves release readiness ${needle}`));
 
 [
@@ -574,6 +585,22 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'rendered-delivery-evidence',
   '實際交付物渲染佐證',
 ].forEach(needle => assertIncludes(dashboardBrowserSmoke, needle, `dashboard browser smoke preserves release readiness ${needle}`));
+
+[
+  'independent-engineering-benchmarks.catalog.json',
+  '3 / 3',
+  '3 / 31',
+  '不等同獨立工程驗證',
+].forEach(needle => {
+  assertIncludes(readme, needle, `README documents independent engineering benchmark boundary ${needle}`);
+  assertIncludes(staging, needle, `STAGING_GROUPS documents independent engineering benchmark boundary ${needle}`);
+  assertIncludes(boundaries, needle, `TOOL_BOUNDARIES documents independent engineering benchmark boundary ${needle}`);
+});
+[
+  '獨立工程基準與計算書邊界',
+  '不可直接稱為獨立工程驗證',
+  '不寫入計算書正文、列印或正式附件',
+].forEach(needle => assertIncludes(reportGuide, needle, `TOOL_REPORT_GUIDE documents independent engineering benchmark report boundary ${needle}`));
 
 [
   'run-preflight-tools-release.bat',

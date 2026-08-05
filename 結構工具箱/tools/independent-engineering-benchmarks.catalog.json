@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "kind": "independent-engineering-benchmarks.v1",
+  "portfolio": {
+    "eligibleState": "formal",
+    "eligibleFormalRoutes": 31,
+    "scopeNote": "本目錄只計入具有獨立推導預期值的案例；既有 golden case 與同核心重播不視為獨立工程基準。"
+  },
+  "benchmarks": [
+    {
+      "id": "equipment-basic-load-path",
+      "route": "/equipment-load",
+      "title": "設備局部荷重基本力流",
+      "productionModule": "equipment/equipment-load-core.js",
+      "oracle": "equipment-basic-load-path",
+      "referenceType": "closed-form-identity",
+      "referenceBasis": "重量加總、動力放大、支承均分反力，以及接觸、擴散與設備平面面積平均壓力。",
+      "input": {
+        "equipmentWeight": 12,
+        "fluidWeight": 2,
+        "accessoryWeight": 1,
+        "dynamicFactor": 1.1,
+        "supportCount": 4,
+        "contactB": 0.25,
+        "contactL": 0.25,
+        "spreadDepth": 0.15,
+        "planB": 2.4,
+        "planL": 1.2,
+        "allowableContact": 100,
+        "allowableSpread": 20,
+        "allowablePoint": 5,
+        "horizontalCoeff": 0.2
+      },
+      "assertions": [
+        { "path": "serviceWeight", "absTolerance": 1e-10 },
+        { "path": "designWeight", "absTolerance": 1e-10 },
+        { "path": "pointLoad", "absTolerance": 1e-10 },
+        { "path": "qContact", "absTolerance": 1e-10 },
+        { "path": "spreadB", "absTolerance": 1e-10 },
+        { "path": "spreadL", "absTolerance": 1e-10 },
+        { "path": "qSpread", "absTolerance": 1e-10 },
+        { "path": "qEquivalent", "absTolerance": 1e-10 },
+        { "path": "horizontalTotal", "absTolerance": 1e-10 },
+        { "path": "horizontalPerSupport", "absTolerance": 1e-10 }
+      ]
+    },
+    {
+      "id": "earth-rankine-dry-active",
+      "route": "/earth-pressure",
+      "title": "乾土 Rankine 主動土壓與穩定力流",
+      "productionModule": "earth/earth-pressure-core.js",
+      "oracle": "earth-rankine-dry-active",
+      "referenceType": "closed-form-identity",
+      "referenceBasis": "水平背填、垂直牆背、無黏聚力乾土之 Rankine Ka；三角形土壓與矩形超載土壓分別取 H/3、H/2 力臂。",
+      "input": {
+        "wallCondition": "yielding",
+        "mode": "active",
+        "pressureTheory": "rankine",
+        "H": 2.5,
+        "gammaSoil": 1.8,
+        "phiDeg": 30,
+        "surcharge": 1,
+        "waterModel": "none",
+        "waterDepth": 0,
+        "gammaWater": 1,
+        "baseB": 1.8,
+        "verticalLoad": 16,
+        "qa": 15,
+        "mu": 0.45,
+        "passive": 0,
+        "passiveMode": "ignore",
+        "fsSlideReq": 1.5,
+        "fsOverReq": 1.5
+      },
+      "assertions": [
+        { "path": "Ka", "absTolerance": 1e-10 },
+        { "path": "soilForce", "absTolerance": 1e-10 },
+        { "path": "surchargeForce", "absTolerance": 1e-10 },
+        { "path": "totalForce", "absTolerance": 1e-10 },
+        { "path": "overturningMoment", "absTolerance": 1e-10 },
+        { "path": "fsSlide", "absTolerance": 1e-10 },
+        { "path": "fsOver", "absTolerance": 1e-10 }
+      ]
+    },
+    {
+      "id": "foundation-external-load-only",
+      "route": "/foundation-local",
+      "title": "矩形基礎外力底壓與穩定力流",
+      "productionModule": "foundation/foundation-local-core.js",
+      "oracle": "foundation-external-load-only",
+      "referenceType": "closed-form-identity",
+      "referenceBasis": "矩形基礎雙向線性底壓分布、中央核接觸條件，以及垂直力對基礎邊緣之抗傾覆力矩。",
+      "input": {
+        "B": 2,
+        "L": 2,
+        "t": 0.5,
+        "Df": 0.8,
+        "gammaC": 2.4,
+        "gammaS": 1.8,
+        "P": 40,
+        "Mx": 3,
+        "My": 2,
+        "Hx": 0,
+        "Hy": 0,
+        "qa": 15,
+        "mu": 0.4,
+        "passive": 0,
+        "fsSlideReq": 1.5,
+        "fsOverReq": 1.5,
+        "includeSelfWeight": false
+      },
+      "assertions": [
+        { "path": "area", "absTolerance": 1e-10 },
+        { "path": "Ptotal", "absTolerance": 1e-10 },
+        { "path": "qAvg", "absTolerance": 1e-10 },
+        { "path": "qFromMx", "absTolerance": 1e-10 },
+        { "path": "qFromMy", "absTolerance": 1e-10 },
+        { "path": "qmax", "absTolerance": 1e-10 },
+        { "path": "qmin", "absTolerance": 1e-10 },
+        { "path": "fsSlide", "absTolerance": 1e-10 },
+        { "path": "fsOver", "absTolerance": 1e-10 }
+      ]
+    }
+  ],
+  "priorityTargets": [
+    { "route": "/rc-column", "priority": "P0", "evidenceNeeded": "手算或第三方軟體之軸力－彎矩互制基準" },
+    { "route": "/rc-foundation", "priority": "P0", "evidenceNeeded": "沖切、單向剪力與彎矩配筋之獨立基準" },
+    { "route": "/rc-pile", "priority": "P0", "evidenceNeeded": "樁承載、群樁分配與樁帽設計之獨立基準" },
+    { "route": "/steel-beam-formal", "priority": "P0", "evidenceNeeded": "ASD 梁彎曲、剪力、撓度及側扭挫屈之獨立基準" },
+    { "route": "/steel-column-formal", "priority": "P0", "evidenceNeeded": "ASD 壓彎構件互制與有效長度之獨立基準" },
+    { "route": "/wind-force", "priority": "P0", "evidenceNeeded": "規範例題或逐項手算之風力基準" },
+    { "route": "/seismic-force", "priority": "P0", "evidenceNeeded": "規範例題或逐項手算之地震力基準" },
+    { "route": "/anchor", "priority": "P0", "evidenceNeeded": "混凝土破壞模式與鋼材強度之獨立基準" }
+  ]
+}

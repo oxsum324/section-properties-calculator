@@ -320,6 +320,19 @@ RC 基礎工具的 `tools/test-foundation.ps1` 已串接底版需求、群樁側
 
 RC 梁、柱、板、牆、剪力牆、基礎與單樁既有專案 JSON 可直接抽取案件、產出工具、版本、輸出時間及計算指紋，並與同頁計算書自動配對，不需另行改寫來源檔。七個計算書固定使用與各自專案 JSON 相同的工具名稱及版本，避免同一次計算因追溯標籤漂移而停在人工複核。
 
+## 獨立工程基準
+
+既有 golden case、JSON 重播與成品結果鏈用來證明程式在版本間維持一致，但不等同獨立工程驗證。`結構工具箱/tools/independent-engineering-benchmarks.catalog.json` 另行登錄可由封閉式力學關係推導的案例，`independent-engineering-benchmarks.js` 不讀取 golden case 預期答案，會以獨立推導值核對目前 production core。
+
+目前試辦涵蓋設備局部荷重、乾土 Rankine 主動土壓與矩形基礎外力底壓，共 3 / 3 路由通過；31 個正式入口的整體獨立驗證覆蓋仍是 3 / 31。RC 柱、RC 基礎、RC 樁、正式鋼梁、正式鋼柱、風力、地震力與錨栓列為 P0 後續基準。試辦狀態只留在盤點與首頁頁面診斷，不寫入計算書或正式附件。
+
+可單獨執行：
+
+```powershell
+node 結構工具箱/tools/independent-engineering-benchmarks.test.js
+node 結構工具箱/tools/independent-engineering-benchmarks.js --write
+```
+
 ## 巡檢啟動
 
 - 鋼構：

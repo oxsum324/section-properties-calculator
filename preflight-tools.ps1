@@ -1406,6 +1406,13 @@ node 結構工具箱/tools/release-readiness.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$independentEngineeringBenchmarksCommand = @'
+node 結構工具箱/tools/independent-engineering-benchmarks.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node 結構工具箱/tools/independent-engineering-benchmarks.js --write
+exit $LASTEXITCODE
+'@
+
 $renderedDeliveryEvidenceContractCommand = @'
 node 結構工具箱/tools/rendered-delivery-evidence.contract.test.js
 $renderedDeliveryExitCode = $LASTEXITCODE
@@ -2500,6 +2507,13 @@ $checks = @(
     label = "Release readiness governance contract"
     workdir = $root
     command = $releaseReadinessContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "independent-engineering-benchmarks"
+    label = "Independent engineering benchmark pilot"
+    workdir = $root
+    command = $independentEngineeringBenchmarksCommand
     slow = $false
   },
   [pscustomobject]@{

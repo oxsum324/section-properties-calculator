@@ -352,3 +352,14 @@ Replace anchor dialogs with in-app confirmations
 git diff --check
 git status --short --untracked-files=normal
 ```
+### 獨立工程基準
+
+- `結構工具箱/tools/independent-engineering-benchmarks.catalog.json`
+- `結構工具箱/tools/independent-engineering-benchmarks.js`
+- `結構工具箱/tools/independent-engineering-benchmarks.test.js`
+- `結構工具箱/tools/tool-maturity-matrix.js`
+- `preflight-tools.ps1`
+- `結構工具箱/tools/release-readiness.contract.test.js`
+- `README.md`、`TOOL_BOUNDARIES.md`、`TOOL_REPORT_GUIDE.md`
+
+此組需一起提交，避免只有測試案例卻沒有 preflight、成熟度與報告邊界。試辦通過只可標示 3 / 3，整體正式入口需同時標示 3 / 31；golden case 或同核心結果鏈不等同獨立工程驗證，也不得算入獨立覆蓋。

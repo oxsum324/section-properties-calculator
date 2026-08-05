@@ -892,13 +892,17 @@ const auditDashboardBrowserSmokeScript = readText(toolboxFile('tools/audit-dashb
   'report-disclosure-contract',
   'delivery-artifacts-contract',
   'release-readiness-contract',
+  'independent-engineering-benchmarks',
   'rendered-delivery-evidence',
   '交付物一致性',
   '正式放行證據',
+  '獨立工程基準試辦',
   '實際交付物渲染佐證',
   '結構工具箱/tools/delivery-artifacts.contract.test.js',
   '結構工具箱/tools/release-readiness.contract.test.js',
+  '結構工具箱/tools/independent-engineering-benchmarks.test.js',
   '結構工具箱/tools/rendered-delivery-evidence.contract.test.js',
+  '## Independent Engineering Benchmarks',
   '## Global Governance Gates',
   'latestFullPreflightSummary',
   'preflightHistoryHealth',
@@ -993,6 +997,16 @@ if (fs.existsSync(maturityMatrixPath)) {
   assert.equal(releaseReadinessGate.coveredCatalogs, 0, 'maturity globalGovernance release readiness catalog count');
   assert.deepEqual(releaseReadinessGate.catalogFamilies, [], 'maturity globalGovernance release readiness relevant families empty');
   assert.deepEqual(releaseReadinessGate.issues, [], 'maturity globalGovernance release readiness issues empty');
+  const independentBenchmarkGate = matrix.globalGovernance.gates.find(gate => gate.key === 'independent-engineering-benchmarks');
+  assert.ok(independentBenchmarkGate, 'maturity globalGovernance independent engineering benchmark gate exists');
+  assert.equal(independentBenchmarkGate.pass, true, 'maturity globalGovernance independent engineering benchmark gate passes');
+  assert.equal(independentBenchmarkGate.coveredCatalogs, 0, 'maturity globalGovernance independent engineering benchmark catalog count');
+  assert.deepEqual(independentBenchmarkGate.catalogFamilies, [], 'maturity globalGovernance independent engineering benchmark relevant families empty');
+  assert.deepEqual(independentBenchmarkGate.issues, [], 'maturity globalGovernance independent engineering benchmark issues empty');
+  assert.equal(matrix.independentBenchmarkCoverage?.status, 'ready', 'maturity independent engineering benchmark pilot ready');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.pilotVerified, 3, 'maturity independent engineering benchmark pilot verified');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes, 31, 'maturity independent engineering benchmark eligible formal routes');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes, matrix.entrypointCoverage?.byState?.formal, 'maturity independent engineering benchmark portfolio matches formal homepage entries');
   const renderedDeliveryGate = matrix.globalGovernance.gates.find(gate => gate.key === 'rendered-delivery-evidence');
   assert.ok(renderedDeliveryGate, 'maturity globalGovernance rendered delivery evidence gate exists');
   assert.equal(renderedDeliveryGate.pass, true, 'maturity globalGovernance rendered delivery evidence gate passes');
@@ -1003,6 +1017,8 @@ if (fs.existsSync(maturityMatrixPath)) {
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('report-disclosure-contract'), 'maturity markdown exposes report disclosure gate');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('delivery-artifacts-contract'), 'maturity markdown exposes delivery artifacts gate');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('release-readiness-contract'), 'maturity markdown exposes release readiness gate');
+  assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('independent-engineering-benchmarks'), 'maturity markdown exposes independent engineering benchmark gate');
+  assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('## Independent Engineering Benchmarks'), 'maturity markdown exposes independent engineering benchmark coverage');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('rendered-delivery-evidence'), 'maturity markdown exposes rendered delivery evidence gate');
   if (maturityFresh) {
     assert.ok(matrix.preflightHistoryHealth && typeof matrix.preflightHistoryHealth === 'object', 'maturity preflightHistoryHealth object');
@@ -1092,6 +1108,7 @@ if (fs.existsSync(maturityMatrixPath)) {
       'decking-traceability-catalog',
       'excavation-traceability-catalog',
       'local-quick-tools-manifest',
+      'independent-engineering-benchmarks',
       'vercel-routes',
       'home-entrypoints',
       'latest-preflight-summary'

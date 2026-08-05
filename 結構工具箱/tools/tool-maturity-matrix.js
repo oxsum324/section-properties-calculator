@@ -2,6 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const crypto = require('crypto');
 const path = require('path');
+const { runBenchmarks } = require('./independent-engineering-benchmarks.js');
 
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
@@ -75,6 +76,14 @@ const GLOBAL_GOVERNANCE_GATES = [
     label: '正式放行證據',
     contract: '結構工具箱/tools/release-readiness.contract.test.js',
     scope: 'release wrapper、force flags、慢測重用揭露與 dashboard 放行模式顯示',
+    catalogFamilies: [],
+    minCatalogs: 0
+  },
+  {
+    key: 'independent-engineering-benchmarks',
+    label: '獨立工程基準試辦',
+    contract: '結構工具箱/tools/independent-engineering-benchmarks.test.js',
+    scope: '以獨立封閉式推導核對設備荷重、土壓與基礎局部設計；不把 golden case 重播誤稱為獨立驗證',
     catalogFamilies: [],
     minCatalogs: 0
   },
@@ -802,6 +811,7 @@ function buildGlobalGovernance(preflightEvidenceSummaries, traceabilityCatalogCo
 }
 
 function loadSourceState() {
+  const independentBenchmarkRelativePath = '結構工具箱/tools/independent-engineering-benchmarks.catalog.json';
   const formalManifestRelativePath = '結構工具箱/tools/formal-tools.manifest.json';
   const formalTraceabilityRelativePath = '結構工具箱/tools/formal-traceability.catalog.json';
   const rcTraceabilityRelativePath = '鋼筋混凝土/tools/rc-traceability.catalog.json';
@@ -828,6 +838,7 @@ function loadSourceState() {
   const homePath = toolboxFile('assets/home/home.js');
   const preflightSummaryPath = repoFile(preflightSummaryRelativePath);
   const preflightHistoryPath = repoFile(preflightHistoryRelativePath);
+  const independentBenchmarkPath = toolboxFile('tools/independent-engineering-benchmarks.catalog.json');
   const formalManifest = readJson(formalManifestPath);
   const formalTraceabilityCatalog = readJson(formalTraceabilityPath);
   const rcTraceabilityCatalog = readJson(rcTraceabilityPath);
@@ -837,6 +848,7 @@ function loadSourceState() {
   const deckingTraceabilityCatalog = readJson(deckingTraceabilityPath);
   const excavationTraceabilityCatalog = readJson(excavationTraceabilityPath);
   const localQuickManifest = readJson(localQuickManifestPath);
+  const independentBenchmarkCatalog = readJson(independentBenchmarkPath);
   const vercelText = readText(vercelPath);
   const homeJs = readText(homePath);
   const routeFileMap = extractRouteFileMap(homeJs);
@@ -883,6 +895,7 @@ function loadSourceState() {
     sourceInput('decking-traceability-catalog', deckingTraceabilityRelativePath, deckingTraceabilityPath),
     sourceInput('excavation-traceability-catalog', excavationTraceabilityRelativePath, excavationTraceabilityPath),
     sourceInput('local-quick-tools-manifest', localQuickManifestRelativePath, localQuickManifestPath),
+    sourceInput('independent-engineering-benchmarks', independentBenchmarkRelativePath, independentBenchmarkPath),
     sourceInput('vercel-routes', vercelRelativePath, vercelPath),
     sourceInput('home-entrypoints', homeRelativePath, homePath),
     sourceInput('latest-preflight-summary', preflightSummaryRelativePath, preflightSummaryPath)
@@ -904,6 +917,7 @@ function loadSourceState() {
     deckingTraceabilityCatalog,
     excavationTraceabilityCatalog,
     localQuickManifest,
+    independentBenchmarkCatalog,
     vercelText,
     homeJs,
     routeFileMap,
@@ -1150,7 +1164,8 @@ function summarize(rows, preflightSummary, preflightSummarySource = null, source
       '石材固定/stone-traceability.catalog.json',
       '覆工板/decking-traceability.catalog.json',
       '開挖擋土支撐/excavation-traceability.catalog.json',
-      '結構工具箱/tools/local-quick-tools.manifest.json'
+      '結構工具箱/tools/local-quick-tools.manifest.json',
+      '結構工具箱/tools/independent-engineering-benchmarks.catalog.json'
     ],
     sourceTrace: sourceTrace || { inputs: [] },
     traceabilityCatalogCoverage,
@@ -1250,6 +1265,7 @@ function buildMarkdown(payload) {
     `- nonMatrixBoundary: complete=${entrypoint.boundaryComplete || 0}/${entrypoint.boundaryRequired || 0}, issues=${entrypoint.boundaryIssueCount || 0}`,
     `- pageOnlyBoundary: complete=${entrypoint.pageOnlyBoundaryComplete || 0}/${entrypoint.pageOnlyBoundaryRequired || 0}, issues=${entrypoint.pageOnlyBoundaryIssueCount || 0}`,
     `- globalGovernance: complete=${payload.globalGovernance?.passed || 0}/${payload.globalGovernance?.required || 0}, issues=${payload.globalGovernance?.issueCount || 0}`,
+    `- independentEngineeringBenchmarks: pilot=${payload.independentBenchmarkCoverage?.summary?.pilotVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.pilotRequired || 0}, formalPortfolio=${payload.independentBenchmarkCoverage?.summary?.independentlyVerifiedRoutes || 0}/${payload.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes || 0}, issues=${payload.independentBenchmarkCoverage?.summary?.issueCount || 0}`,
     `- preflightHistoryHealth: completed=${payload.preflightHistoryHealth?.completedCount || 0}/${payload.preflightHistoryHealth?.count || 0}, incomplete=${payload.preflightHistoryHealth?.incompleteCount || 0}, inProgress=${payload.preflightHistoryHealth?.inProgressCount || 0}, latestState=${payload.preflightHistoryHealth?.latestState || '-'}`,
     payload.latestPreflight
       ? `- latestPreflight: ${payload.latestPreflight.runId}, pass=${payload.latestPreflight.pass}, quick=${payload.latestPreflight.quick}, commit=${(payload.latestPreflight.sourceCommitSha || '').slice(0, 12) || '-'}, branch=${payload.latestPreflight.sourceBranch || '-'}, dirty=${payload.latestPreflight.sourceDirty}, source=${payload.latestPreflight.sourcePath || '-'}, hash=${(payload.latestPreflight.sourceHash || '').slice(0, 12) || '-'}`
@@ -1290,6 +1306,31 @@ function buildMarkdown(payload) {
     for (const gate of globalGates) {
       const issues = Array.isArray(gate.issues) && gate.issues.length ? gate.issues.join(', ') : '-';
       lines.push(`| ${markdownCell(gate.label)} | ${markdownCell(gate.key)} | ${gate.pass ? 'pass' : 'fail'} | ${markdownCell(gate.runId)} | ${gate.coveredCatalogs || 0} | ${markdownCell(gate.scope)} | ${markdownCell(issues)} |`);
+    }
+  }
+
+  const independentCoverage = payload.independentBenchmarkCoverage || {};
+  const independentSummary = independentCoverage.summary || {};
+  lines.push(
+    '',
+    '## Independent Engineering Benchmarks',
+    '',
+    `- pilot: ${independentSummary.pilotVerified || 0} / ${independentSummary.pilotRequired || 0}`,
+    `- formal portfolio independently verified: ${independentSummary.independentlyVerifiedRoutes || 0} / ${independentSummary.eligibleFormalRoutes || 0}`,
+    `- priority roadmap targets: ${independentSummary.priorityTargets || 0}`,
+    `- issues: ${independentSummary.issueCount || 0}`,
+    '- boundary: golden case、同核心 JSON 重播與結果鏈一致性不等同獨立工程基準。',
+    '',
+    '| route | benchmark | reference | status | assertions | issues |',
+    '|---|---|---|---|---:|---|'
+  );
+  const independentRecords = Array.isArray(independentCoverage.records) ? independentCoverage.records : [];
+  if (independentRecords.length === 0) {
+    lines.push('| - | - | - | - | 0 | - |');
+  } else {
+    for (const record of independentRecords) {
+      const issues = Array.isArray(record.issues) && record.issues.length ? record.issues.join(', ') : '-';
+      lines.push(`| ${markdownCell(record.route)} | ${markdownCell(record.title)} | ${markdownCell(record.referenceBasis)} | ${markdownCell(record.status)} | ${record.assertionCount || 0} | ${markdownCell(issues)} |`);
     }
   }
 
@@ -1439,8 +1480,10 @@ function buildMatrix() {
   );
   const traceabilityCatalogCoverage = buildTraceabilityCatalogCoverage(state);
   const globalGovernance = buildGlobalGovernance(state.preflightEvidenceSummaries, traceabilityCatalogCoverage);
+  const independentBenchmarkCoverage = runBenchmarks(state.independentBenchmarkCatalog);
   const payload = {
     ...summarize(rows, state.preflightSummary, state.preflightSummarySource, state.sourceTrace, entrypointCoverage, state.preflightHistoryHealth, traceabilityCatalogCoverage, globalGovernance),
+    independentBenchmarkCoverage,
     rows
   };
 
@@ -2256,6 +2299,14 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。',
     '正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。'
   ];
+  const independentBenchmarkCoverage = matrixPayload.independentBenchmarkCoverage || {};
+  const independentBenchmarkSummary = independentBenchmarkCoverage.summary || {};
+  const independentBenchmarkEligible = compactNumber(independentBenchmarkSummary.eligibleFormalRoutes);
+  const independentBenchmarkVerified = compactNumber(independentBenchmarkSummary.independentlyVerifiedRoutes);
+  const independentBenchmarkPilotRequired = compactNumber(independentBenchmarkSummary.pilotRequired);
+  const independentBenchmarkPilotVerified = compactNumber(independentBenchmarkSummary.pilotVerified);
+  const independentBenchmarkIssueCount = compactNumber(independentBenchmarkSummary.issueCount);
+  details.push(`獨立工程基準：試辦 ${independentBenchmarkPilotVerified} / ${independentBenchmarkPilotRequired}；正式工具整體 ${independentBenchmarkVerified} / ${independentBenchmarkEligible}。其餘工具目前只宣稱既有重播、結果鏈或家族治理證據，不宣稱已完成獨立工程驗證。`);
   return {
     snapshotVersion: 1,
     kind: 'report-readiness-status',
@@ -2268,6 +2319,14 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     summary,
     compactSummary: '頁面診斷明細不進計算書；文件預設內部審閱，明確核可後為正式附件，兩者皆可列印。',
     details,
+    independentBenchmarkEligible,
+    independentBenchmarkVerified,
+    independentBenchmarkPilotRequired,
+    independentBenchmarkPilotVerified,
+    independentBenchmarkIssueCount,
+    independentBenchmarkPass: independentBenchmarkCoverage.status === 'ready'
+      && independentBenchmarkPilotVerified === independentBenchmarkPilotRequired
+      && independentBenchmarkIssueCount === 0,
     pageOnlyBoundaryRequired: required,
     pageOnlyBoundaryComplete: complete,
     pageOnlyBoundaryIssueCount: issues,
@@ -2572,6 +2631,11 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(releaseReadinessGate.coveredCatalogs, 0, 'tool maturity matrix release readiness gate has no catalog dependency');
   assert.deepEqual(releaseReadinessGate.catalogFamilies, [], 'tool maturity matrix release readiness gate relevant families empty');
   assert.deepEqual(releaseReadinessGate.issues, [], 'tool maturity matrix release readiness gate issues empty');
+  const independentBenchmarkGate = payload.globalGovernance.gates.find(item => item.key === 'independent-engineering-benchmarks');
+  assert.ok(independentBenchmarkGate, 'tool maturity matrix independent engineering benchmark gate exists');
+  assert.equal(independentBenchmarkGate.pass, true, 'tool maturity matrix independent engineering benchmark gate passed');
+  assert.equal(independentBenchmarkGate.coveredCatalogs, 0, 'tool maturity matrix independent benchmark gate has no traceability catalog dependency');
+  assert.deepEqual(independentBenchmarkGate.issues, [], 'tool maturity matrix independent engineering benchmark gate issues empty');
   const renderedDeliveryGate = payload.globalGovernance.gates.find(item => item.key === 'rendered-delivery-evidence');
   assert.ok(renderedDeliveryGate, 'tool maturity matrix rendered delivery evidence gate exists');
   assert.equal(renderedDeliveryGate.pass, true, 'tool maturity matrix rendered delivery evidence gate passed');
@@ -2582,6 +2646,16 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(markdown.includes('delivery-artifacts-contract'), 'tool maturity matrix markdown exposes delivery artifacts gate');
   assert.ok(markdown.includes('release-readiness-contract'), 'tool maturity matrix markdown exposes release readiness gate');
   assert.ok(markdown.includes('rendered-delivery-evidence'), 'tool maturity matrix markdown exposes rendered delivery evidence gate');
+  assert.ok(payload.independentBenchmarkCoverage && typeof payload.independentBenchmarkCoverage === 'object', 'tool maturity matrix independent benchmark coverage object');
+  assert.equal(payload.independentBenchmarkCoverage.status, 'ready', 'tool maturity matrix independent benchmark pilot ready');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 3, 'tool maturity matrix independent benchmark pilot verified');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 3, 'tool maturity matrix independent benchmark pilot required');
+  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 3, 'tool maturity matrix independent benchmark verified route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 31, 'tool maturity matrix independent benchmark eligible route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, payload.entrypointCoverage.byState.formal, 'tool maturity matrix independent benchmark portfolio matches formal homepage entry count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.issueCount, 0, 'tool maturity matrix independent benchmark issues empty');
+  assert.ok(markdown.includes('## Independent Engineering Benchmarks'), 'tool maturity matrix markdown exposes independent engineering benchmarks');
+  assert.ok(markdown.includes('golden case、同核心 JSON 重播與結果鏈一致性不等同獨立工程基準'), 'tool maturity matrix markdown distinguishes replay from independent verification');
   assert.ok(payload.entrypointCoverage && typeof payload.entrypointCoverage === 'object', 'tool maturity matrix entrypointCoverage object');
   assert.equal(Number.isInteger(payload.entrypointCoverage.total), true, 'tool maturity matrix entrypointCoverage total integer');
   assert.equal(Number.isInteger(payload.entrypointCoverage.matrixCovered), true, 'tool maturity matrix entrypointCoverage matrixCovered integer');
@@ -2724,6 +2798,12 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(String(homepageReportReadinessStatus.reportTextSmokeScope || '').includes('矩陣外工具家族'), 'homepage report readiness report text scope keeps other-family boundary');
   assert.ok(String(homepageReportReadinessStatus.compactSummary || '').includes('頁面診斷明細不進計算書'), 'homepage report readiness compact summary keeps page-only wording');
   assert.ok(String(homepageReportReadinessStatus.compactSummary || '').includes('兩者皆可列印'), 'homepage report readiness compact summary keeps printable approval boundary');
+  assert.equal(homepageReportReadinessStatus.independentBenchmarkEligible, 31, 'homepage report readiness independent benchmark eligible routes');
+  assert.equal(homepageReportReadinessStatus.independentBenchmarkVerified, 3, 'homepage report readiness independent benchmark verified routes');
+  assert.equal(homepageReportReadinessStatus.independentBenchmarkPilotRequired, 3, 'homepage report readiness independent benchmark pilot required');
+  assert.equal(homepageReportReadinessStatus.independentBenchmarkPilotVerified, 3, 'homepage report readiness independent benchmark pilot verified');
+  assert.equal(homepageReportReadinessStatus.independentBenchmarkIssueCount, 0, 'homepage report readiness independent benchmark issues empty');
+  assert.equal(homepageReportReadinessStatus.independentBenchmarkPass, true, 'homepage report readiness independent benchmark pilot passes');
   assert.equal(Array.isArray(homepageReportReadinessStatus.reportTextSmokeEvidenceGates), true, 'homepage report readiness report text evidence gates array');
   assert.deepEqual(homepageReportReadinessStatus.reportTextSmokeEvidenceGates.map(gate => gate.key).sort(), REPORT_TEXT_SMOKE_EVIDENCE_GATES.map(gate => gate.key).sort(), 'homepage report readiness report text evidence gates match expected');
   for (const gate of homepageReportReadinessStatus.reportTextSmokeEvidenceGates) {
@@ -2867,6 +2947,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('鋼梁舊案延續頁'), 'homepage report readiness details include steel beam transition page');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('鋼柱舊案延續頁'), 'homepage report readiness details include steel column transition page');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('JSON/計算書/文字 邊界'), 'homepage report readiness details include local quick text boundary chip');
+  assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('不宣稱已完成獨立工程驗證'), 'homepage report readiness details distinguish independent engineering verification');
   assert.equal((homepageReportReadinessStatus.details || []).join(' ').includes('JSON/計算書 邊界'), false, 'homepage report readiness details reject stale local quick boundary chip');
   assert.ok(Array.isArray(homepageReportReadinessStatus.pageOnlyRoutes) && homepageReportReadinessStatus.pageOnlyRoutes.length >= 4, 'homepage report readiness routes array');
   if (latestFullHomepagePreflight?.payload?.quick === false) {
@@ -2876,7 +2957,7 @@ function checkMatrix(payload, markdown, options = {}) {
   }
   assert.ok(payload.sourceTrace && typeof payload.sourceTrace === 'object', 'tool maturity matrix sourceTrace object');
   assert.ok(Array.isArray(payload.sourceTrace.inputs), 'tool maturity matrix sourceTrace inputs array');
-  const requiredSourceKeys = ['formal-tools-manifest', 'formal-traceability-catalog', 'rc-traceability-catalog', 'steel-traceability-catalog', 'anchor-traceability-catalog', 'stone-traceability-catalog', 'decking-traceability-catalog', 'excavation-traceability-catalog', 'local-quick-tools-manifest', 'vercel-routes', 'home-entrypoints'];
+  const requiredSourceKeys = ['formal-tools-manifest', 'formal-traceability-catalog', 'rc-traceability-catalog', 'steel-traceability-catalog', 'anchor-traceability-catalog', 'stone-traceability-catalog', 'decking-traceability-catalog', 'excavation-traceability-catalog', 'local-quick-tools-manifest', 'independent-engineering-benchmarks', 'vercel-routes', 'home-entrypoints'];
   for (const key of requiredSourceKeys) {
     const input = payload.sourceTrace.inputs.find(item => item.key === key);
     assert.ok(input, `tool maturity matrix sourceTrace includes ${key}`);
