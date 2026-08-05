@@ -160,7 +160,7 @@
       '/composite-section': '2026-08-03',
       '/rc-beam': '2026-08-05',
       '/rc-column': '2026-08-05',
-      '/rc-slab': '2026-08-05',
+      '/rc-slab': '2026-08-06',
       '/rc-wall': '2026-08-05',
       '/rc-shear-wall': '2026-08-05',
       '/rc-foundation': '2026-08-05',
