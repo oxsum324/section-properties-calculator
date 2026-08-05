@@ -995,6 +995,118 @@ function seismicForceStaticOracle(i) {
   return output;
 }
 
+function steelPlateConnectionOracle(input) {
+  const baseEdgeDistance = diameter => {
+    const table = [
+      [13, 19], [16, 22], [20, 25], [22, 28.5], [24, 32], [27, 38], [30, 41],
+    ];
+    return table.find(([limit]) => diameter <= limit)?.[1] || 1.5 * diameter;
+  };
+  const holeIncrement = (holeType, diameter, direction) => {
+    if (holeType === 'short_slot_perpendicular' && direction === 'side') return diameter <= 22 ? 3 : diameter <= 24 ? 3 : 4.5;
+    return 0;
+  };
+  const available = (nominal, method, phi, omega) => method === 'ASD' ? nominal / omega : phi * nominal;
+
+  const calculateCase = i => {
+    const horizontal = i.loadDirection === 'horizontal';
+    const grossWidth = horizontal ? i.plateLength : i.plateWidth;
+    const holeCountAcross = horizontal ? i.rowCount : i.lineCount;
+    const holeCountAlong = horizontal ? i.lineCount : i.rowCount;
+    const parallelSpacing = horizontal ? i.pitchX : i.pitchY;
+    const transverseSpacing = horizontal ? i.pitchY : i.pitchX;
+    const holeWidth = i.holeDiameter + 1.5;
+    const controlNetWidth = grossWidth - holeCountAcross * holeWidth;
+    const shearLength = Math.min(i.endDistanceStart, i.endDistanceEnd) + Math.max(holeCountAlong - 1, 0) * parallelSpacing;
+    const Ag = grossWidth * i.plateThickness;
+    const An = controlNetWidth * i.plateThickness;
+    const Ae = Math.min(An, 0.85 * Ag);
+    const automatic = {
+      Agv:2 * shearLength * i.plateThickness,
+      Anv:2 * (shearLength - (holeCountAlong - 0.5) * holeWidth) * i.plateThickness,
+      Agt:Ag,
+      Ant:An,
+    };
+    const areas = i.useManualBlockShearPath
+      ? { Agv:i.manualAgv, Anv:i.manualAnv, Agt:i.manualAgt, Ant:i.manualAnt }
+      : automatic;
+
+    const grossNominal = i.plateYieldStrength * Ag / 1000;
+    const grossAvailable = available(grossNominal, i.designMethod, 0.9, 1.67);
+    const netNominal = i.plateUltimateStrength * Ae / 1000;
+    const netAvailable = available(netNominal, i.designMethod, 0.75, 2);
+    const tensionRupture = i.plateUltimateStrength * areas.Ant / 1000;
+    const shearRupture = 0.6 * i.plateUltimateStrength * areas.Anv / 1000;
+    const shearYield = 0.6 * i.plateYieldStrength * areas.Agv / 1000;
+    const tensionYield = i.plateYieldStrength * areas.Agt / 1000;
+    const equation3 = tensionRupture >= shearRupture;
+    const blockNominal = equation3
+      ? Math.min(shearYield + tensionRupture, shearRupture + tensionRupture)
+      : Math.min(shearRupture + tensionYield, shearRupture + tensionRupture);
+    const blockAvailable = available(blockNominal, i.designMethod, 0.75, 2);
+
+    const ratios = [
+      ['gross', i.requiredTension / grossAvailable],
+      ['net', i.requiredTension / netAvailable],
+      ['block', i.requiredTension / blockAvailable],
+    ];
+    const governing = ratios.sort((a, b) => b[1] - a[1])[0][0];
+    const minSpacing = 3 * i.boltDiameter;
+    const baseEdge = baseEdgeDistance(i.boltDiameter);
+    const minEnd = baseEdge + holeIncrement(i.holeType, i.boltDiameter, 'end');
+    const minSide = baseEdge + holeIncrement(i.holeType, i.boltDiameter, 'side');
+    const maxEdge = Math.min(12 * i.plateThickness, 150);
+    const maxSpacing = i.exposureCondition === 'weathering'
+      ? Math.min(14 * i.plateThickness, 180)
+      : Math.min(24 * i.plateThickness, 300);
+    const spacingAlong = holeCountAlong > 1 ? parallelSpacing : minSpacing;
+    const spacingAcross = holeCountAcross > 1 ? transverseSpacing : minSpacing;
+    const holeCompatible = ['standard', 'short_slot_perpendicular', 'long_slot_perpendicular'].includes(i.holeType);
+    const geometryValid = An > 0 && areas.Agv > 0 && areas.Anv > 0 && areas.Agt > 0 && areas.Ant > 0;
+    const detailPass = holeCompatible
+      && spacingAlong >= minSpacing && spacingAcross >= minSpacing
+      && i.endDistanceStart >= minEnd && i.endDistanceEnd >= minEnd
+      && i.edgeDistanceTop >= minSide && i.edgeDistanceBottom >= minSide
+      && spacingAlong <= maxSpacing && spacingAcross <= maxSpacing
+      && Math.max(i.endDistanceStart, i.endDistanceEnd) <= maxEdge
+      && geometryValid;
+
+    return {
+      horizontal:horizontal ? 1 : 0,
+      lrfd:i.designMethod === 'LRFD' ? 1 : 0,
+      holeWidth,
+      Ag, An, Ae,
+      Agv:areas.Agv, Anv:areas.Anv, Agt:areas.Agt, Ant:areas.Ant,
+      grossNominal, grossAvailable, grossRatio:i.requiredTension / grossAvailable,
+      netNominal, netAvailable, netRatio:i.requiredTension / netAvailable,
+      blockNominal, blockAvailable, blockRatio:i.requiredTension / blockAvailable,
+      blockEquation3:equation3 ? 1 : 0,
+      blockEquation4:equation3 ? 0 : 1,
+      grossControls:governing === 'gross' ? 1 : 0,
+      netControls:governing === 'net' ? 1 : 0,
+      blockControls:governing === 'block' ? 1 : 0,
+      minSpacingAlongProvided:spacingAlong,
+      minSpacingAlongRequired:minSpacing,
+      minSpacingAlongPass:spacingAlong >= minSpacing ? 1 : 0,
+      minSpacingAcrossProvided:spacingAcross,
+      minSpacingAcrossRequired:minSpacing,
+      minSpacingAcrossPass:spacingAcross >= minSpacing ? 1 : 0,
+      minEndRequired:minEnd,
+      minSideRequired:minSide,
+      maxSpacingRequired:maxSpacing,
+      maxEdgeRequired:maxEdge,
+      holeCompatible:holeCompatible ? 1 : 0,
+      geometryNetValid:An > 0 ? 1 : 0,
+      geometryBlockValid:geometryValid ? 1 : 0,
+      manualBlockPath:i.useManualBlockShearPath ? 1 : 0,
+      validationCount:0,
+      overallPass:detailPass && ratios.every(([, ratio]) => ratio <= 1) ? 1 : 0,
+    };
+  };
+
+  return Object.fromEntries(input.cases.map(item => [item.id, calculateCase(item)]));
+}
+
 function anchorCastInOracle(i) {
   const round = (value, digits = 2) => {
     const scale = 10 ** digits;
@@ -1138,6 +1250,7 @@ const ORACLES = {
   'rc-pile-clay-group-cap': rcPileOracle,
   'steel-beam-asd-inelastic-ltb': steelBeamAsdOracle,
   'steel-column-asd-weak-axis-interaction': steelColumnAsdOracle,
+  'steel-plate-connection-strength': steelPlateConnectionOracle,
   'wind-force-rigid-three-story-mwfrs': windForceMwfrsOracle,
   'wind-object-solid-table-2-10': windObjectSolidTable210Oracle,
   'seismic-force-eight-story-static': seismicForceStaticOracle,
