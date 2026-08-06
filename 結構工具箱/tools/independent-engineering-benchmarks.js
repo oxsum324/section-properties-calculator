@@ -1176,6 +1176,149 @@ function windFenceSignTable210Oracle(input) {
   }));
 }
 
+function windSignPoleCompositeOracle(input) {
+  const terrains = {
+    A:{ alpha:0.32, zg:500, c:0.45, ell:55, eps:0.50, zmin:18 },
+    B:{ alpha:0.25, zg:400, c:0.30, ell:98, eps:0.33, zmin:9 },
+    C:{ alpha:0.15, zg:300, c:0.20, ell:152, eps:0.20, zmin:4.5 },
+  };
+  const signTables = {
+    ground:[[3,1.2],[5,1.3],[8,1.4],[10,1.5],[20,1.75],[30,1.85],[40,2.0]],
+    elevated:[[6,1.2],[10,1.3],[16,1.4],[20,1.5],[40,1.75],[60,1.85],[80,2.0]],
+  };
+  const angularCf = { rect_long:2.2, rect_short:1.4, tri_vertex:1.2, tri_face:2.0, right_iso_vertex:1.55 };
+  const cableCf = {
+    smooth:[1.2,0.5], moderate:[1.2,0.7], fine_cable:[1.2,0.9], rough_cable:[1.3,1.1],
+  };
+  const interpolate = (points, raw) => {
+    const x = Math.max(points[0][0], Math.min(raw, points[points.length - 1][0]));
+    let low = points[0];
+    let high = points[points.length - 1];
+    for (let index = 0; index < points.length - 1; index += 1) {
+      if (x >= points[index][0] && x <= points[index + 1][0]) {
+        low = points[index];
+        high = points[index + 1];
+        break;
+      }
+    }
+    const fraction = high[0] === low[0] ? 0 : (x - low[0]) / (high[0] - low[0]);
+    return { x, value:low[1] + fraction * (high[1] - low[1]) };
+  };
+  const calcQz = (z, item) => {
+    const terrain = terrains[item.terrain];
+    const zUse = Math.max(z, terrain.zmin);
+    const Kz = 2.774 * Math.pow(zUse / terrain.zg, 2 * terrain.alpha);
+    return { Kz, qz:0.06 * Kz * item.Kzt * item.I ** 2 * item.V ** 2 };
+  };
+  const calcGust = (height, width, terrainKey) => {
+    const terrain = terrains[terrainKey];
+    const zBar = Math.max(0.6 * height, terrain.zmin);
+    const Iz = terrain.c * Math.pow(10 / zBar, 1 / 6);
+    const Lz = terrain.ell * Math.pow(zBar / 10, terrain.eps);
+    const Q = Math.sqrt(1 / (1 + 0.63 * Math.pow((width + height) / Lz, 0.63)));
+    return 1.927 * (1 + 1.7 * 3.4 * Iz * Q) / (1 + 1.7 * 3.4 * Iz);
+  };
+  const angularR = slenderness => slenderness < 4 ? 0.6 : slenderness < 8 ? 0.7 : slenderness < 40 ? 0.8 : 1.0;
+
+  return Object.fromEntries(input.cases.map(item => {
+    const panelTop = item.panelBottom + item.panelHeight;
+    const panelZr = item.panelBottom + item.panelHeight / 2;
+    const panelArea = item.panelWidth * item.panelHeight * (1 - item.openingRatio / 100);
+    const panelAtGround = item.panelBottom <= 0;
+    const panelAspect = item.panelWidth / item.panelHeight;
+    const panelTable = interpolate(panelAtGround ? signTables.ground : signTables.elevated, panelAspect);
+    const panelCf = item.panelCfOverride == null ? panelTable.value : item.panelCfOverride;
+    const panelQ = calcQz(panelZr, item);
+    const panelG = calcGust(Math.max(panelTop, 0.1), item.panelWidth, item.terrain);
+    const panelPressure = panelQ.qz * panelG * panelCf;
+    const panelForce = panelPressure * panelArea;
+    const panelMoment = panelForce * panelZr;
+
+    const supportHeight = item.panelBottom;
+    const supportSegments = Math.max(1, Math.min(24, Math.round(item.supportSegments)));
+    const supportCount = Math.max(1, Math.round(item.supportCount));
+    const supportWidth = item.supportType === 'pipe' ? item.pipeDiameter : item.prismWidth;
+    const supportG = supportHeight > 0 ? calcGust(Math.max(supportHeight, 0.1), supportWidth, item.terrain) : 0;
+    const segmentHeight = supportHeight > 0 ? supportHeight / supportSegments : 0;
+    const slenderness = item.supportType === 'angular' ? supportHeight / supportWidth : 0;
+    const R = item.supportType === 'angular' ? angularR(slenderness) : 0;
+    const rows = [];
+    for (let index = 0; index < supportSegments && supportHeight > 0; index += 1) {
+      const zMid = index * segmentHeight + segmentHeight / 2;
+      const q = calcQz(zMid, item);
+      const dSqrtQz = item.supportType === 'pipe' ? item.pipeDiameter * Math.sqrt(q.qz) : 0;
+      const cf = item.supportType === 'pipe'
+        ? cableCf[item.pipeRoughness][dSqrtQz <= 1.70 ? 0 : 1]
+        : angularCf[item.prismShape] * R;
+      const area = supportWidth * segmentHeight * supportCount;
+      const pressure = q.qz * supportG * cf;
+      const force = pressure * area;
+      rows.push({ zMid, Kz:q.Kz, qz:q.qz, dSqrtQz, cf, area, force, moment:force * zMid });
+    }
+    const supportShear = rows.reduce((sum, row) => sum + row.force, 0);
+    const supportMoment = rows.reduce((sum, row) => sum + row.moment, 0);
+    const first = rows[0] || {};
+    const last = rows[rows.length - 1] || {};
+    const totalShear = panelForce + supportShear;
+    const totalMoment = panelMoment + supportMoment;
+    return [item.id, {
+      panelGroundRoute:panelAtGround ? 1 : 0,
+      panelElevatedRoute:panelAtGround ? 0 : 1,
+      panelAspect,
+      panelAspectUsed:panelTable.x,
+      panelClampedLow:panelAspect < (panelAtGround ? 3 : 6) ? 1 : 0,
+      panelClampedHigh:panelAspect > (panelAtGround ? 40 : 80) ? 1 : 0,
+      panelTableCf:panelTable.value,
+      panelManualCf:item.panelCfOverride == null ? 0 : 1,
+      panelCf,
+      panelTop,
+      panelZr,
+      panelArea,
+      panelKz:panelQ.Kz,
+      panelQz:panelQ.qz,
+      panelG,
+      panelPressure,
+      panelForce,
+      panelMoment,
+      supportPipeRoute:item.supportType === 'pipe' ? 1 : 0,
+      supportAngularRoute:item.supportType === 'angular' ? 1 : 0,
+      supportZeroHeight:supportHeight === 0 ? 1 : 0,
+      supportCount,
+      supportSegments,
+      supportHeight,
+      supportWidth,
+      supportG,
+      segmentHeight,
+      angularShapeCf:item.supportType === 'angular' ? angularCf[item.prismShape] : 0,
+      angularSlenderness:slenderness,
+      angularR:R,
+      angularR06:R === 0.6 ? 1 : 0,
+      angularR07:R === 0.7 ? 1 : 0,
+      angularR08:R === 0.8 ? 1 : 0,
+      angularR10:R === 1.0 ? 1 : 0,
+      pipeLowRegimeCount:item.supportType === 'pipe' ? rows.filter(row => row.dSqrtQz <= 1.70).length : 0,
+      pipeHighRegimeCount:item.supportType === 'pipe' ? rows.filter(row => row.dSqrtQz > 1.70).length : 0,
+      firstZMid:first.zMid || 0,
+      firstKz:first.Kz || 0,
+      firstQz:first.qz || 0,
+      firstDSqrtQz:first.dSqrtQz || 0,
+      firstCf:first.cf || 0,
+      lastZMid:last.zMid || 0,
+      lastKz:last.Kz || 0,
+      lastQz:last.qz || 0,
+      lastDSqrtQz:last.dSqrtQz || 0,
+      lastCf:last.cf || 0,
+      supportArea:rows.reduce((sum, row) => sum + row.area, 0),
+      supportShear,
+      supportMoment,
+      supportLineLoad:supportHeight > 0 ? supportShear / supportHeight : 0,
+      totalShear,
+      totalMoment,
+      resultantHeight:totalShear > 0 ? totalMoment / totalShear : 0,
+    }];
+  }));
+}
+
 function seismicForceStaticOracle(i) {
   const faX = [0.5, 0.6, 0.7, 0.8, 0.9];
   const fvX = [0.30, 0.35, 0.40, 0.45, 0.50];
@@ -1995,6 +2138,7 @@ const ORACLES = {
   'wind-lattice-tower-four-table-branches': windLatticeTowerFourBranchOracle,
   'wind-object-tower-table-2-12': windObjectTowerTable212Oracle,
   'wind-fence-sign-table-2-10': windFenceSignTable210Oracle,
+  'wind-sign-pole-composite-tables': windSignPoleCompositeOracle,
   'wind-cc-three-control-branches': windCcThreeBranchOracle,
   'wind-parapet-three-design-routes': windParapetThreeRouteOracle,
   'wind-open-roof-four-combinations': windOpenRoofFourCombinationOracle,
