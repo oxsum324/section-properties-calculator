@@ -590,6 +590,357 @@ function rcWallStrengthOracle(input) {
   }));
 }
 
+function rcRetrofitSectionOracle(input) {
+  const flag = value => value ? 1 : 0;
+  const elasticConcrete = strength => 12000 * Math.sqrt(strength);
+  const blockFactor = strength => strength <= 280 ? 0.85 : strength >= 560 ? 0.65 : 0.85 - 0.05 * (strength - 280) / 70;
+  const concreteShearBeam = (strength, width, depth) => 0.53 * Math.sqrt(strength) * width * depth;
+  const concreteShearColumn = (strength, width, height, depth, axial) => {
+    const axialFactor = 1 + axial / (140 * width * height);
+    return Math.max(0, 0.53 * Math.sqrt(Math.max(strength, 0)) * Math.max(axialFactor, 0) * width * depth);
+  };
+  const stirrupShear = (area, yieldStrength, depth, spacing) => spacing > 0 ? area * yieldStrength * depth / spacing : 0;
+  const bondLength = (layers, modulusMPa, thicknessMm) => 23300 / (layers * thicknessMm * modulusMPa) ** 0.58;
+  const debondingStrain = (strength, layers, modulus, thicknessMm, ruptureStrain) => Math.min(0.083 * Math.sqrt(strength / (layers * modulus * thicknessMm)), 0.9 * ruptureStrain);
+  const shearBond = (strengthMPa, layers, modulusMPa, thicknessMm, depthMm, ruptureStrain) => {
+    const Le = bondLength(layers, modulusMPa, thicknessMm);
+    const k1 = (Math.max(strengthMPa, 0) / 27.6) ** (2 / 3);
+    const k2 = Math.max(0, (depthMm - Le) / depthMm);
+    const raw = k1 * k2 * Le / (11900 * ruptureStrain);
+    return { Le, raw, value:Math.min(raw, 0.75) };
+  };
+
+  function beamCapacity(section, addition) {
+    const { b, h, d, dp, fc, fy, Es, As, Asp } = section;
+    const mode = addition.mode;
+    const epsCu = 0.003;
+    const epsY = fy / Es;
+    const b1 = blockFactor(fc);
+    const compression = c => 0.85 * fc * b * Math.min(b1 * c, h);
+    const compressionSteel = c => {
+      if (!(Asp > 0)) return 0;
+      const a = Math.min(b1 * c, h);
+      const strain = epsCu * (c - dp) / c;
+      const stress = Math.max(-fy, Math.min(fy, Es * strain));
+      return Asp * (dp < a && strain > 0 ? stress - 0.85 * fc : stress);
+    };
+    const tensionSteel = c => As * Math.min(Es * epsCu * (d - c) / c, fy);
+    const frpForce = (c, area, location) => {
+      if (mode !== 'frp' || !(area > 0)) return 0;
+      const strain = Math.min(epsCu * (location - c) / c - addition.epsBi, addition.epsLimit, addition.efu);
+      return strain > 0 ? 0.85 * area * addition.Ef * strain : 0;
+    };
+    const plateForce = (c, area, location) => {
+      if (mode !== 'plate' || !(area > 0)) return 0;
+      const strain = epsCu * (location - c) / c;
+      return strain > 0 ? area * Math.min(addition.EsPlate * strain, addition.fyPlate) : 0;
+    };
+    const equilibrium = c => compression(c) + compressionSteel(c) - tensionSteel(c)
+      - frpForce(c, addition.Af, addition.df) - frpForce(c, addition.AfSide, addition.dfSide)
+      - plateForce(c, addition.ApPlate, addition.dsp) - plateForce(c, addition.ApSide, addition.dspSide);
+    let lower = 0.01 * d;
+    let upper = 0.95 * h;
+    let lowForce = equilibrium(lower);
+    let highForce = equilibrium(upper);
+    if (lowForce * highForce > 0) {
+      lower = 0.001;
+      upper = h;
+      lowForce = equilibrium(lower);
+      highForce = equilibrium(upper);
+      if (lowForce * highForce > 0) return { ok:false };
+    }
+    let neutralAxis = 0;
+    for (let iteration = 0; iteration < 80; iteration += 1) {
+      neutralAxis = (lower + upper) / 2;
+      const residual = equilibrium(neutralAxis);
+      if (Math.abs(residual) < 1e-3) break;
+      if (lowForce * residual < 0) {
+        upper = neutralAxis;
+        highForce = residual;
+      } else {
+        lower = neutralAxis;
+        lowForce = residual;
+      }
+    }
+    const a = b1 * neutralAxis;
+    const steelStrain = epsCu * (d - neutralAxis) / neutralAxis;
+    const steelStress = Math.min(Es * steelStrain, fy);
+    const compressionStrain = epsCu * (neutralAxis - dp) / neutralAxis;
+    const compressionStress = Math.max(-fy, Math.min(fy, Es * compressionStrain));
+    const compressionStressNet = Asp > 0 && dp < a && compressionStrain > 0 ? compressionStress - 0.85 * fc : compressionStress;
+    const frpStrain = mode === 'frp' ? Math.max(0, Math.min(epsCu * (addition.df - neutralAxis) / neutralAxis - addition.epsBi, addition.epsLimit, addition.efu)) : 0;
+    const sideFrpStrain = mode === 'frp' && addition.AfSide > 0 ? Math.max(0, Math.min(epsCu * (addition.dfSide - neutralAxis) / neutralAxis - addition.epsBi, addition.epsLimit, addition.efu)) : 0;
+    const plateStrain = mode === 'plate' ? epsCu * (addition.dsp - neutralAxis) / neutralAxis : 0;
+    const plateStress = mode === 'plate' ? Math.min(addition.EsPlate * plateStrain, addition.fyPlate) : 0;
+    const sidePlateStrain = mode === 'plate' && addition.ApSide > 0 ? epsCu * (addition.dspSide - neutralAxis) / neutralAxis : 0;
+    const sidePlateStress = sidePlateStrain > 0 ? Math.min(addition.EsPlate * sidePlateStrain, addition.fyPlate) : 0;
+    const moment = As * steelStress * (d - a / 2)
+      + (Asp > 0 ? Asp * compressionStressNet * (a / 2 - dp) : 0)
+      + 0.85 * addition.Af * addition.Ef * frpStrain * (addition.df - a / 2)
+      + 0.85 * addition.AfSide * addition.Ef * sideFrpStrain * (addition.dfSide - a / 2)
+      + addition.ApPlate * plateStress * (addition.dsp - a / 2)
+      + addition.ApSide * sidePlateStress * (addition.dspSide - a / 2);
+    const phi = steelStrain >= 0.005 ? 0.90 : steelStrain >= epsY ? 0.65 + 0.25 * (steelStrain - epsY) / (0.005 - epsY) : 0.65;
+    const rawFrpStrain = mode === 'frp' ? epsCu * (addition.df - neutralAxis) / neutralAxis - addition.epsBi : 0;
+    return {
+      ok:true,
+      c:neutralAxis,
+      Mn:moment,
+      phi,
+      failMode:mode === 'frp' && rawFrpStrain > addition.epsLimit ? 'FRP 脫層' : mode === 'frp' && rawFrpStrain > addition.efu ? 'FRP 破斷' : '混凝土壓碎',
+    };
+  }
+
+  function uncracked(section, materials) {
+    const concreteArea = section.b * section.h;
+    const concreteY = section.h / 2;
+    const additions = [
+      [section.As, materials.ns, section.h - section.d],
+      [section.Asp, materials.ns, section.h - section.dp],
+      [materials.Af, materials.nf, section.h - materials.df],
+      [materials.ApPlate, materials.nsPlate, section.h - materials.dsp],
+    ];
+    let area = concreteArea;
+    let firstMoment = concreteArea * concreteY;
+    for (const [memberArea, ratio, y] of additions) {
+      const transformed = memberArea > 0 && ratio > 0 ? (ratio - 1) * memberArea : 0;
+      area += transformed;
+      firstMoment += transformed * y;
+    }
+    const centroid = firstMoment / area;
+    let inertia = section.b * section.h ** 3 / 12 + concreteArea * (concreteY - centroid) ** 2;
+    for (const [memberArea, ratio, y] of additions) {
+      const transformed = memberArea > 0 && ratio > 0 ? (ratio - 1) * memberArea : 0;
+      inertia += transformed * (y - centroid) ** 2;
+    }
+    return { area, inertia };
+  }
+
+  function cracked(section, materials) {
+    const linear = (materials.ns - 1) * section.Asp + materials.ns * section.As + materials.nf * materials.Af + materials.nsPlate * materials.ApPlate;
+    const constant = -(materials.ns - 1) * section.Asp * section.dp - materials.ns * section.As * section.d
+      - materials.nf * materials.Af * materials.df - materials.nsPlate * materials.ApPlate * materials.dsp;
+    const discriminant = linear ** 2 - 2 * section.b * constant;
+    if (discriminant < 0) return { ok:false, kd:0, inertia:0 };
+    const kd = (-linear + Math.sqrt(discriminant)) / section.b;
+    if (!(kd > 0 && kd < section.h)) return { ok:false, kd:0, inertia:0 };
+    let inertia = section.b * kd ** 3 / 3;
+    inertia += (materials.ns - 1) * section.Asp * (kd - section.dp) ** 2;
+    inertia += materials.ns * section.As * (section.d - kd) ** 2;
+    inertia += materials.nf * materials.Af * (materials.df - kd) ** 2;
+    inertia += materials.nsPlate * materials.ApPlate * (materials.dsp - kd) ** 2;
+    return { ok:true, kd, inertia };
+  }
+
+  function interaction(width, height, layers, strength, yieldStrength, steelModulus) {
+    const epsCu = 0.003;
+    const epsY = yieldStrength / steelModulus;
+    const b1 = blockFactor(strength);
+    const grossArea = width * height;
+    const steelArea = layers.reduce((sum, layer) => sum + layer.A, 0);
+    const Po = 0.85 * strength * (grossArea - steelArea) + yieldStrength * steelArea;
+    const nominalCompressionLimit = 0.80 * Po;
+    const points = [];
+    for (let index = 0; index <= 120; index += 1) {
+      const fraction = index / 120;
+      const c = 0.02 * height + (5 * height - 0.02 * height) * fraction ** 2;
+      const a = Math.min(b1 * c, height);
+      const concreteForce = 0.85 * strength * a * width;
+      let axial = concreteForce;
+      let moment = concreteForce * (height / 2 - a / 2);
+      let tensionStrain = -Infinity;
+      for (const layer of layers) {
+        const strain = epsCu * (c - layer.y) / c;
+        const stress = Math.max(-yieldStrength, Math.min(yieldStrength, steelModulus * strain));
+        const force = layer.A * (layer.y < a && strain > 0 ? stress - 0.85 * strength : stress);
+        axial += force;
+        moment += force * (height / 2 - layer.y);
+        tensionStrain = Math.max(tensionStrain, -strain);
+      }
+      const phi = tensionStrain >= 0.005 ? 0.90 : tensionStrain >= epsY ? 0.65 + 0.25 * (tensionStrain - epsY) / (0.005 - epsY) : 0.65;
+      const limitedAxial = Math.min(axial, nominalCompressionLimit);
+      points.push({ Pn:limitedAxial, Mn:Math.max(0, moment), phi });
+    }
+    points.push({ Pn:-yieldStrength * steelArea, Mn:0, phi:0.90 });
+    return points;
+  }
+
+  function momentAtAxial(points, target) {
+    let best = null;
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const first = points[index];
+      const second = points[index + 1];
+      if ((first.Pn - target) * (second.Pn - target) <= 0 && first.Pn !== second.Pn) {
+        const fraction = (target - first.Pn) / (second.Pn - first.Pn);
+        const moment = first.Mn + fraction * (second.Mn - first.Mn);
+        const phi = first.phi + fraction * (second.phi - first.phi);
+        if (!best || moment > best.Mn) best = { Mn:moment, phiMn:phi * moment };
+      }
+    }
+    return best;
+  }
+
+  function evaluateBeam(item) {
+    const section = { b:item.bMm / 10, h:item.hMm / 10, d:item.dMm / 10, dp:item.dpMm / 10, fc:item.fc, fy:item.fy, Es:2.04e6, As:item.As, Asp:item.Asp };
+    const addition = { mode:item.mode, Af:0, AfSide:0, Ef:0, efu:0, epsLimit:0, epsBi:item.epsBi || 0, df:section.h, dfSide:section.h, ApPlate:0, ApSide:0, fyPlate:0, EsPlate:0, dsp:section.h, dspSide:section.h };
+    let epsFdCalc = 0;
+    let activeBondLength = 0;
+    let plateShear = 0;
+    let frpShear = 0;
+    let shearKv = 0;
+    let shearKvRaw = 0;
+    let shearEps = 0;
+    if (item.mode === 'frp') {
+      const p = item.frp;
+      addition.Ef = p.EfGPa * 10197;
+      addition.efu = p.efuPct / 100 * p.CE;
+      const totalThicknessMm = p.tfMm * p.layers;
+      addition.Af = p.widthMm / 10 * (totalThicknessMm / 10);
+      epsFdCalc = debondingStrain(item.fc, p.layers, addition.Ef, p.tfMm, addition.efu);
+      addition.epsLimit = p.anchor || p.uwrap ? addition.efu : epsFdCalc;
+      activeBondLength = bondLength(p.layers, p.EfGPa * 1000, p.tfMm);
+      if (p.uwrap) {
+        const heightMm = Math.max(0, item.hMm - p.slabMm);
+        addition.AfSide = 2 * totalThicknessMm / 10 * (heightMm / 10);
+        addition.dfSide = section.h - heightMm / 20;
+        const bond = shearBond(item.fc * 0.0980665, p.layers, p.EfGPa * 1000, p.tfMm, heightMm, addition.efu);
+        shearKv = bond.value;
+        shearKvRaw = bond.raw;
+        shearEps = Math.min(bond.value * addition.efu, 0.004);
+        frpShear = 0.85 * 2 * totalThicknessMm / 10 * addition.Ef * shearEps * (heightMm / 10);
+      } else if (item.frpShear) {
+        const s = item.frpShear;
+        const bond = shearBond(item.fc * 0.0980665, p.layers, p.EfGPa * 1000, p.tfMm, s.dfvMm, addition.efu);
+        shearKv = bond.value;
+        shearKvRaw = bond.raw;
+        shearEps = Math.min(s.userEps, bond.value * addition.efu, 0.004);
+        const angle = s.angleDeg * Math.PI / 180;
+        const raw = 2 * p.layers * (p.tfMm / 10) * (s.widthMm / 10) * addition.Ef * shearEps
+          * (Math.sin(angle) + Math.cos(angle)) * (s.dfvMm / 10) / (s.spacingMm / 10);
+        frpShear = 0.85 * raw;
+      }
+    } else if (item.mode === 'plate') {
+      const p = item.plate;
+      addition.fyPlate = p.fy;
+      addition.EsPlate = p.Es;
+      addition.ApPlate = p.widthMm / 10 * (p.thicknessMm / 10);
+      addition.dsp = section.h + p.thicknessMm / 20;
+      if (p.uwrap) {
+        const sideThicknessMm = p.sideThicknessMm || p.thicknessMm;
+        const sideHeightMm = Math.max(0, item.hMm - p.slabMm);
+        addition.ApSide = 2 * sideThicknessMm / 10 * (sideHeightMm / 10);
+        addition.dspSide = section.h - sideHeightMm / 20;
+        plateShear = 2 * sideThicknessMm / 10 * p.fy * Math.min(section.d, sideHeightMm / 10 * 0.9);
+      }
+    }
+    const result = beamCapacity(section, addition);
+    const baselineAddition = { mode:'rc', Af:0, AfSide:0, Ef:0, efu:0, epsLimit:0, epsBi:0, df:section.h, dfSide:section.h, ApPlate:0, ApSide:0, fyPlate:0, EsPlate:0, dsp:section.h, dspSide:section.h };
+    const baseline = beamCapacity(section, baselineAddition);
+    const Ec = elasticConcrete(item.fc);
+    const materials = { ns:section.Es / Ec, Af:addition.Af, nf:addition.Ef / Ec, df:addition.df, ApPlate:addition.ApPlate, nsPlate:addition.EsPlate / Ec, dsp:addition.dsp };
+    const gross = uncracked(section, materials);
+    const crackedResult = cracked(section, materials);
+    const Vc = concreteShearBeam(item.fc, section.b, section.d);
+    const Vs = stirrupShear(item.Av, item.fyt, section.d, item.stirrupSpacing);
+    const shearCap = 2.1 * Math.sqrt(item.fc) * section.b * section.d;
+    const shearReinfRaw = Vs + plateShear + frpShear;
+    const shearReinfUsed = Math.min(shearReinfRaw, shearCap);
+    const Vn = Vc + shearReinfUsed;
+    const phiVn = 0.75 * Vn;
+    return {
+      beamRoute:1, columnRoute:0, frpRoute:flag(item.mode === 'frp'), plateRoute:flag(item.mode === 'plate'),
+      uwrapRoute:flag(item.mode === 'frp' ? item.frp.uwrap : item.mode === 'plate' && item.plate.uwrap),
+      Af:addition.Af, AfSide:addition.AfSide, ApPlate:addition.ApPlate, ApSide:addition.ApSide,
+      epsFdCalc, epsFdUsed:addition.epsLimit, activeBondLength,
+      neutralAxis:result.c, Mn:result.Mn, phi:result.phi, phiMn:result.phi * result.Mn,
+      baselineMn:baseline.Mn, strengthGain:result.Mn / baseline.Mn,
+      frpDelamination:flag(result.failMode === 'FRP 脫層'), frpRupture:flag(result.failMode === 'FRP 破斷'),
+      uncrackedArea:gross.area, uncrackedI:gross.inertia,
+      crackedOk:flag(crackedResult.ok), crackedNeutralAxis:crackedResult.kd, crackedI:crackedResult.inertia,
+      Vc, Vs, plateShear, frpShear, shearKv, shearKvRaw, shearEps,
+      shearCap, shearReinfRaw, shearReinfUsed, shearCapped:flag(shearReinfRaw > shearCap),
+      Vn, phiVn, shearRatio:item.VuTf * 1000 / phiVn,
+    };
+  }
+
+  function evaluateColumn(item) {
+    const width = item.bMm / 10;
+    const height = item.hMm / 10;
+    const cover = item.coverMm / 10;
+    const steelModulus = 2.04e6;
+    const steelArea = item.rebarLayers.reduce((sum, layer) => sum + layer.A, 0);
+    const grossArea = width * height;
+    const concreteModulus = elasticConcrete(item.fc);
+    const modularRatio = steelModulus / concreteModulus;
+    let lateralPressure = 0;
+    let confinedFc = item.fc;
+    let retrofitArea = 0;
+    let retrofitInertia = 0;
+    let retrofitModularRatio = 0;
+    let jacketShear = 0;
+    if (item.mode === 'jacket') {
+      const p = item.jacket;
+      const thickness = p.thicknessMm / 10;
+      lateralPressure = p.ke * 2 * p.fy * thickness / height;
+      confinedFc = item.fc * (-1.254 + 2.254 * Math.sqrt(1 + 7.94 * lateralPressure / item.fc) - 2 * lateralPressure / item.fc);
+      if (!Number.isFinite(confinedFc) || confinedFc < item.fc) confinedFc = item.fc;
+      retrofitArea = 2 * (width + height + 2 * thickness) * thickness;
+      retrofitInertia = 2 * width * thickness * (height / 2 + thickness / 2) ** 2 + 2 * height * thickness ** 3 / 12;
+      retrofitModularRatio = p.Es / concreteModulus;
+      jacketShear = 2 * thickness * p.fy * (height - cover);
+    } else {
+      const p = item.frp;
+      const modulus = p.EfGPa * 10197;
+      const totalThickness = p.tfMm / 10 * p.layers;
+      lateralPressure = p.ka * 2 * modulus * p.effectiveStrain * totalThickness / height;
+      confinedFc = item.fc + 4.1 * lateralPressure;
+      retrofitArea = 2 * (width + height) * totalThickness;
+      retrofitInertia = retrofitArea * (height / 2) ** 2 * 0.5;
+      retrofitModularRatio = modulus / concreteModulus;
+      jacketShear = 0.95 * 2 * totalThickness * modulus * 0.004 * (height - cover);
+    }
+    const PoBase = 0.85 * item.fc * (grossArea - steelArea) + item.fy * steelArea;
+    const PoConf = 0.85 * confinedFc * (grossArea - steelArea) + item.fy * steelArea;
+    const fraction = item.layout === 'perim' ? 0.3 : 0.5;
+    const flexSection = { b:width, h:height, d:height - cover, dp:cover, fc:item.fc, fy:item.fy, Es:steelModulus, As:steelArea * fraction, Asp:steelArea * fraction };
+    const emptyAddition = { mode:'rc', Af:0, AfSide:0, Ef:0, efu:0, epsLimit:0, epsBi:0, df:height, dfSide:height, ApPlate:0, ApSide:0, fyPlate:0, EsPlate:0, dsp:height, dspSide:height };
+    const flexBase = beamCapacity(flexSection, emptyAddition);
+    const flexConf = beamCapacity({ ...flexSection, fc:confinedFc }, emptyAddition);
+    const baseArea = grossArea + (modularRatio - 1) * steelArea;
+    const baseI = width * height ** 3 / 12 + (modularRatio - 1) * (2 * steelArea * fraction * (height / 2 - cover) ** 2);
+    const transformedArea = baseArea + (retrofitModularRatio - 1) * retrofitArea;
+    const transformedI = baseI + (retrofitModularRatio - 1) * retrofitInertia;
+    const Nu = item.NuTf * 1000;
+    const Mu = item.MuTfm * 1e5;
+    const Vc = concreteShearColumn(item.fc, width, height, height - cover, Nu);
+    const VsRaw = stirrupShear(item.Av, item.fyt, height - cover, item.stirrupSpacing);
+    const shearCap = 2.1 * Math.sqrt(item.fc) * width * (height - cover);
+    const Vs = Math.min(VsRaw, shearCap);
+    const shearReinfRaw = Vs + jacketShear;
+    const shearReinfUsed = Math.min(shearReinfRaw, shearCap);
+    const Vn = Vc + shearReinfUsed;
+    const phiVn = 0.75 * Vn;
+    const demandBase = momentAtAxial(interaction(width, height, item.rebarLayers, item.fc, item.fy, steelModulus), Nu);
+    const demandConf = momentAtAxial(interaction(width, height, item.rebarLayers, confinedFc, item.fy, steelModulus), Nu);
+    return {
+      beamRoute:0, columnRoute:1, jacketRoute:flag(item.mode === 'jacket'), frpRoute:flag(item.mode === 'frp'),
+      Ast:steelArea, lateralPressure, confinedFc, PoBase, PoConf, PnMaxBase:0.8 * PoBase, PnMaxConf:0.8 * PoConf,
+      phiPnMaxConf:0.65 * 0.8 * PoConf,
+      flexMnBase:flexBase.Mn, flexMnConf:flexConf.Mn,
+      baseArea, transformedArea, baseI, transformedI,
+      Vc, VsRaw, Vs, jacketShear, shearCap, shearReinfRaw, shearReinfUsed,
+      shearCapped:flag(shearReinfRaw > shearCap), Vn, phiVn,
+      pmBaseEvaluated:flag(demandBase), pmConfEvaluated:flag(demandConf),
+      pmPhiMnBase:demandBase ? demandBase.phiMn : 0,
+      pmPhiMnConf:demandConf ? demandConf.phiMn : 0,
+      pmRatioConf:demandConf && demandConf.phiMn > 0 ? Mu / demandConf.phiMn : 0,
+      pmOk:flag(demandConf && demandConf.phiMn > 0 && Mu <= demandConf.phiMn),
+    };
+  }
+
+  return Object.fromEntries(input.cases.map(item => [item.id, item.kind === 'beam' ? evaluateBeam(item) : evaluateColumn(item)]));
+}
+
 function rcFoundationOracle(i) {
   const dX = i.hf - i.cover - i.dbX;
   const dY = i.hf - i.cover - i.dbY;
@@ -2347,6 +2698,7 @@ const ORACLES = {
   'rc-beam-seismic-strength': rcBeamStrengthOracle,
   'rc-shear-wall-seismic-strength': rcShearWallStrengthOracle,
   'rc-wall-general-strength': rcWallStrengthOracle,
+  'rc-retrofit-section-strength': rcRetrofitSectionOracle,
   'rc-foundation-isolated-strength': rcFoundationOracle,
   'rc-pile-clay-group-cap': rcPileOracle,
   'steel-beam-asd-inelastic-ltb': steelBeamAsdOracle,
