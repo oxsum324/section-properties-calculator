@@ -821,6 +821,8 @@ assert.ok(boundaries.includes('push-pages-release.ps1') && boundaries.includes('
 assert.ok(pushPagesRelease.includes("'status', '--porcelain', '--untracked-files=all'") && pushPagesRelease.includes("'rev-list', '--left-right', '--count'"), 'safe Pages release wrapper proves clean and non-diverged source');
 assert.ok(pushPagesRelease.includes("$ErrorActionPreference = 'Continue'") && pushPagesRelease.includes('$exitCode = $LASTEXITCODE'), 'safe Pages release wrapper handles successful native stderr without weakening exit-code failures');
 assert.ok(pushPagesRelease.includes('Wait-PushRun') && pushPagesRelease.includes('Dispatch-WorkflowRun'), 'safe Pages release wrapper waits before fallback dispatch');
+assert.ok(pushPagesRelease.includes('Test-QueuedPagesDeploymentTimeout') && pushPagesRelease.includes('Wait-PagesDeploymentRecovery'), 'safe Pages release wrapper recognizes and follows a timed-out queued deployment');
+assert.ok(pushPagesRelease.includes("'run', 'rerun', ([string]$RunId), '--failed'") && pushPagesRelease.includes('deploymentRecoveryUsed'), 'safe Pages release wrapper reruns failed jobs only after backend recovery and reports it');
 assert.ok(pushPagesRelease.includes("$expectedNames = @('build', 'deploy', 'live-smoke')") && pushPagesRelease.includes('TopLevelStale'), 'safe Pages release wrapper uses required job evidence even when aggregate status is stale');
 assert.ok(pushPagesRelease.includes('JobStatusStale') && pushPagesRelease.includes('allStepsSuccessful') && pushPagesRelease.includes('$failedSteps'), 'safe Pages release wrapper requires successful steps before accepting a stale job aggregate');
 assert.ok(pushPagesRelease.includes('pages-deployment.json?release_check=') && pushPagesRelease.includes('sourceDirty'), 'safe Pages release wrapper verifies cache-busted public provenance');
@@ -860,7 +862,6 @@ assert.ok(pagesArtifactSmoke.includes('Stop-Process'), 'local Pages artifact smo
 assert.ok(pagesDeployWorkflow.includes('actions/configure-pages@v6'), 'Pages deploy workflow configures Pages');
 assert.ok(pagesDeployWorkflow.includes('actions/upload-artifact@v6'), 'Pages deploy workflow uploads artifact');
 assert.ok(pagesDeployWorkflow.includes('actions/deploy-pages@v5'), 'Pages deploy workflow deploys Pages');
-assert.ok(pagesDeployWorkflow.includes('timeout: 1200000'), 'Pages deploy workflow allows twenty minutes for a queued Pages deployment');
 assert.ok(pagesDeployWorkflow.includes('actions/checkout@v6'), 'Pages deploy workflow uses current checkout action');
 assert.ok(pagesDeployWorkflow.includes('actions: read'), 'Pages deploy workflow has actions read permission for deploy-pages v5');
 assert.ok(pagesDeployWorkflow.includes('pages: write'), 'Pages deploy workflow has pages write permission');

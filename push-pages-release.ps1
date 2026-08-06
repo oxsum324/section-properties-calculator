@@ -6,6 +6,7 @@ param(
   [int]$PushRunWaitSeconds = 90,
   [int]$RunTimeoutSeconds = 1800,
   [int]$ManifestTimeoutSeconds = 300,
+  [int]$DeploymentRecoverySeconds = 180,
   [int]$PollSeconds = 5,
   [switch]$ForceDeploy,
   [switch]$VerifyOnly,
@@ -202,6 +203,102 @@ function Get-PagesInfo {
   )
 }
 
+function Test-QueuedPagesDeploymentTimeout {
+  param(
+    [long]$RunId
+  )
+
+  $failedLog = Invoke-ExternalText -FilePath $script:GhPath -Arguments @(
+    'run', 'view', ([string]$RunId), '--log-failed'
+  ) -AllowEmpty
+  return ($failedLog -match 'Current status: deployment_(queued|in_progress)' -and
+    $failedLog -match 'Timeout reached, aborting!' -and
+    $failedLog -match 'Canceling Pages deployment')
+}
+
+function Get-PagesDeploymentStatus {
+  param(
+    [string]$HeadSha
+  )
+
+  try {
+    $deployment = Invoke-ExternalJson -FilePath $script:GhPath -Arguments @(
+      'api', "repos/$script:RepoName/pages/deployments/$HeadSha"
+    )
+    return ([string]$deployment.status).Trim()
+  } catch {
+    return ''
+  }
+}
+
+function Wait-PagesDeploymentRecovery {
+  param(
+    [string]$HeadSha
+  )
+
+  $deadline = (Get-Date).AddSeconds($DeploymentRecoverySeconds)
+  while ((Get-Date) -lt $deadline) {
+    $status = Get-PagesDeploymentStatus -HeadSha $HeadSha
+    if ($status -eq 'succeed') {
+      Write-ProgressLine "Pages backend completed deployment $HeadSha after the action timeout."
+      return $true
+    }
+    Write-ProgressLine "Waiting for the timed-out Pages backend deployment ($status)."
+    Start-Sleep -Seconds $PollSeconds
+  }
+  return $false
+}
+
+function Wait-RerunAttempt {
+  param(
+    [long]$RunId,
+    [int]$PreviousAttempt
+  )
+
+  $deadline = (Get-Date).AddSeconds([Math]::Max(60, $PollSeconds * 12))
+  while ((Get-Date) -lt $deadline) {
+    $run = Invoke-ExternalJson -FilePath $script:GhPath -Arguments @(
+      'api', "repos/$script:RepoName/actions/runs/$RunId"
+    )
+    if ([int]$run.run_attempt -gt $PreviousAttempt) {
+      return
+    }
+    Start-Sleep -Seconds $PollSeconds
+  }
+  throw "Timed out waiting for rerun attempt after Pages backend recovery for run $RunId."
+}
+
+function Wait-RunJobsWithRecovery {
+  param(
+    [long]$RunId,
+    [string]$HeadSha
+  )
+
+  try {
+    return Wait-RunJobs -RunId $RunId
+  } catch {
+    $initialError = $_
+    $run = Invoke-ExternalJson -FilePath $script:GhPath -Arguments @(
+      'api', "repos/$script:RepoName/actions/runs/$RunId"
+    )
+    if (-not (Test-QueuedPagesDeploymentTimeout -RunId $RunId)) {
+      throw $initialError
+    }
+    if (-not (Wait-PagesDeploymentRecovery -HeadSha $HeadSha)) {
+      throw "Pages deployment remained incomplete for $DeploymentRecoverySeconds seconds after the queued-deployment timeout. $initialError"
+    }
+
+    $previousAttempt = [int]$run.run_attempt
+    Write-ProgressLine "Rerunning failed jobs for run $RunId after the Pages backend completed."
+    Invoke-ExternalText -FilePath $script:GhPath -Arguments @(
+      'run', 'rerun', ([string]$RunId), '--failed'
+    ) -AllowEmpty | Out-Null
+    Wait-RerunAttempt -RunId $RunId -PreviousAttempt $previousAttempt
+    $script:DeploymentRecoveryUsed = $true
+    return Wait-RunJobs -RunId $RunId
+  }
+}
+
 function Get-PublicManifest {
   param(
     [string]$PagesUrl
@@ -313,7 +410,7 @@ function Dispatch-WorkflowRun {
   throw "The fallback workflow dispatch did not create a discoverable run for commit $HeadSha."
 }
 
-if ($PushRunWaitSeconds -lt 0 -or $RunTimeoutSeconds -le 0 -or $ManifestTimeoutSeconds -le 0 -or $PollSeconds -le 0) {
+if ($PushRunWaitSeconds -lt 0 -or $RunTimeoutSeconds -le 0 -or $ManifestTimeoutSeconds -le 0 -or $DeploymentRecoverySeconds -le 0 -or $PollSeconds -le 0) {
   throw 'Timeout values must be positive; PushRunWaitSeconds may be zero.'
 }
 if ($AllowDirtyVerification -and -not $VerifyOnly) {
@@ -470,7 +567,8 @@ if ($VerifyOnly) {
 $runId = [long]$selectedRun.databaseId
 if ($runId -le 0) { throw 'Could not resolve a valid Pages workflow run ID.' }
 Write-ProgressLine "Tracking run $runId."
-$runEvidence = Wait-RunJobs -RunId $runId
+$script:DeploymentRecoveryUsed = $false
+$runEvidence = Wait-RunJobsWithRecovery -RunId $runId -HeadSha $headSha
 $manifest = Wait-PublicManifest -PagesUrl $pagesUrl -HeadSha $headSha -RunId $runId
 $publicSmokeScript = Resolve-RepoToolScript -LeafName 'pages-live-smoke.js'
 Write-ProgressLine "Independently verifying every public artifact file from this workstation."
@@ -500,6 +598,7 @@ $result = [ordered]@{
   aggregateRunConclusion = [string]$runEvidence.Run.conclusion
   aggregateStatusStale = [bool]$runEvidence.TopLevelStale
   aggregateJobStatusStale = [bool]$runEvidence.JobStatusStale
+  deploymentRecoveryUsed = [bool]$script:DeploymentRecoveryUsed
   staleJobNames = @($runEvidence.StaleJobNames)
   jobs = $runEvidence.Jobs
   pagesUrl = $pagesUrl

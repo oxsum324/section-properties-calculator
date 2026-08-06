@@ -96,6 +96,10 @@ assert.ok(pushPagesRelease.includes("$ErrorActionPreference = 'Continue'") && pu
 assert.ok(pushPagesRelease.includes("'fetch', '--prune', $Remote, $Branch") && pushPagesRelease.includes("'rev-list', '--left-right', '--count'"), 'Pages push wrapper checks remote divergence before push');
 assert.ok(pushPagesRelease.includes("'push', $Remote") && !pushPagesRelease.includes('--force'), 'Pages push wrapper performs a non-force push');
 assert.ok(pushPagesRelease.includes('Wait-PushRun') && pushPagesRelease.includes('Dispatch-WorkflowRun'), 'Pages push wrapper waits for the push workflow before fallback dispatch');
+assert.ok(pushPagesRelease.includes('Test-QueuedPagesDeploymentTimeout') && pushPagesRelease.includes('Timeout reached, aborting!') && pushPagesRelease.includes('Canceling Pages deployment'), 'Pages push wrapper narrowly identifies the deploy-pages queued timeout');
+assert.ok(pushPagesRelease.includes('Wait-PagesDeploymentRecovery') && pushPagesRelease.includes('pages/deployments/$HeadSha') && pushPagesRelease.includes("$status -eq 'succeed'"), 'Pages push wrapper waits for backend completion after the action timeout');
+assert.ok(pushPagesRelease.includes("'run', 'rerun', ([string]$RunId), '--failed'") && pushPagesRelease.includes('Wait-RerunAttempt'), 'Pages push wrapper reruns only failed jobs after backend completion');
+assert.ok(pushPagesRelease.includes('deploymentRecoveryUsed = [bool]$script:DeploymentRecoveryUsed'), 'Pages push wrapper reports queued-deployment recovery evidence');
 assert.ok(pushPagesRelease.indexOf('Wait-PushRun -HeadSha $headSha') < pushPagesRelease.indexOf('Dispatch-WorkflowRun -HeadSha $headSha'), 'fallback dispatch is ordered after the bounded push-run wait');
 assert.ok(pushPagesRelease.includes("$expectedNames = @('build', 'deploy', 'live-smoke')"), 'Pages push wrapper requires all three release jobs');
 assert.ok(pushPagesRelease.includes('$failedJobs') && pushPagesRelease.includes('has failed jobs'), 'Pages push wrapper fails closed on a failed job instead of dispatching over it');
@@ -311,7 +315,6 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
 
 assert.ok(pagesWorkflow.includes('node "結構工具箱/tools/build-pages-artifact.js" --repo-root "." --site-root "_site"'), 'Pages workflow stages through the shared Git-inventory builder');
 assert.ok(pagesWorkflow.includes('fetch-depth: 2'), 'Pages workflow fetches the tested parent commit for release lineage verification');
-assert.ok(pagesWorkflow.includes('timeout: 1200000'), 'Pages workflow allows twenty minutes for a queued Pages deployment');
 assert.ok(pagesWorkflow.includes('- name: Verify tested release lineage') && pagesWorkflow.includes('verify-pages-release-lineage.js'), 'Pages workflow blocks staging until tested release lineage passes');
 assert.ok(pagesWorkflow.indexOf('- name: Verify tested release lineage') < pagesWorkflow.indexOf('- name: Stage static site'), 'Pages release lineage gate runs before artifact staging');
 assert.equal(pagesWorkflow.includes('rsync -a'), false, 'Pages workflow does not keep a second rsync exclusion policy');

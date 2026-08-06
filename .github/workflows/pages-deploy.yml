@@ -123,8 +123,6 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
-        with:
-          timeout: 1200000
 
   live-smoke:
     runs-on: ubuntu-latest
