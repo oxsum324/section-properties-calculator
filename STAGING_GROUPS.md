@@ -372,6 +372,7 @@ git status --short --untracked-files=normal
 - `結構工具箱/tools/independent-engineering-adapters/wind-parapet.js`
 - `結構工具箱/tools/independent-engineering-adapters/wind-open-roof.js`
 - `結構工具箱/tools/independent-engineering-adapters/wind-object-frame.js`
+- `結構工具箱/tools/independent-engineering-adapters/wind-lattice-tower.js`
 - `結構工具箱/tools/independent-engineering-adapters/seismic-force-static.js`
 - `結構工具箱/tools/independent-engineering-adapters/seismic-appendage.js`
 - `結構工具箱/tools/independent-engineering-adapters/seismic-misc.js`
@@ -388,4 +389,4 @@ git status --short --untracked-files=normal
 - `結構工具箱/tools/release-readiness.contract.test.js`
 - `README.md`、`TOOL_BOUNDARIES.md`、`TOOL_REPORT_GUIDE.md`
 
-此組需一起提交，避免只有測試案例卻沒有 production core、preflight、成熟度與報告邊界。試辦通過只可標示 22 / 22，整體正式入口需同時標示 22 / 31；golden case 或同核心結果鏈不等同獨立工程驗證，也不得算入獨立覆蓋。第十九條路由為正式區域風壓 C&C，獨立核對 18 m 高度界線、部分封閉內壓高度及屋面角隅負壓提前收斂；第二十條路由為正式女兒牆風壓，獨立核對 MWFRS 式 2.3、圖 3.4 與圖 3.5 三條設計路線；第二十一條路由為正式開放式屋頂風壓，獨立核對單斜／雙斜屋頂、有／無阻擋、小／中／大有效面積、坡度直接取值／內插及 10° 高度切換；第二十二條路由為正式中空式／格子式風力，獨立核對表 2.11 圓形低／高 D√q(z) 與平邊構材三條路線、三種實體率帶、等效寬度及底部作用。既定 P0／P1 基準路由已完成；分析摘要身分的 `/seismic-dynamic` 不得計入正式附件入口覆蓋。
+此組需一起提交，避免只有測試案例卻沒有 production core、preflight、成熟度與報告邊界。試辦通過只可標示 23 / 23，整體正式入口需同時標示 23 / 31；golden case 或同核心結果鏈不等同獨立工程驗證，也不得算入獨立覆蓋。第十九條路由為正式區域風壓 C&C，獨立核對 18 m 高度界線、部分封閉內壓高度及屋面角隅負壓提前收斂；第二十條路由為正式女兒牆風壓，獨立核對 MWFRS 式 2.3、圖 3.4 與圖 3.5 三條設計路線；第二十一條路由為正式開放式屋頂風壓，獨立核對單斜／雙斜屋頂、有／無阻擋、小／中／大有效面積、坡度直接取值／內插及 10° 高度切換；第二十二條路由為正式中空式／格子式風力，獨立核對表 2.11 圓形低／高 D√q(z) 與平邊構材三條路線、三種實體率帶、等效寬度及底部作用；第二十三條路由為正式格構式高塔風力，獨立核對表 2.15 四段基本係數、構材／斜風向修正與完整分段剪力／彎矩力流。既定 P0／P1 基準路由已完成；分析摘要身分的 `/seismic-dynamic` 不得計入正式附件入口覆蓋。

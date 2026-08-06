@@ -942,6 +942,79 @@ function windObjectFrameThreeRouteOracle(input) {
   }));
 }
 
+function windLatticeTowerFourBranchOracle(input) {
+  const terrain = {
+    A:{ alpha:0.32, zg:500, c:0.45, ell:55, eps:0.50, zmin:18 },
+    B:{ alpha:0.25, zg:400, c:0.30, ell:98, eps:0.33, zmin:9 },
+    C:{ alpha:0.15, zg:300, c:0.20, ell:152, eps:0.20, zmin:4.5 },
+  };
+  const kzAt = (z, t) => 2.774 * Math.pow(Math.max(z, t.zmin) / t.zg, 2 * t.alpha);
+  return Object.fromEntries(input.cases.map(i => {
+    const t = terrain[i.terrain];
+    let baseCf;
+    if (i.towerShape === 'square') {
+      baseCf = i.solidity < 0.025 ? 4.0
+        : i.solidity <= 0.44 ? 4.1 - 5.2 * i.solidity
+          : i.solidity <= 0.69 ? 1.8 : 1.3 + 0.7 * i.solidity;
+    } else {
+      baseCf = i.solidity < 0.025 ? 3.6
+        : i.solidity <= 0.44 ? 3.7 - 4.5 * i.solidity
+          : i.solidity <= 0.69 ? 1.7 : 1.0 + i.solidity;
+    }
+    let memberFactor = 1;
+    if (i.memberShape === 'circular') {
+      memberFactor = i.solidity <= 0.29 ? 0.67 : i.solidity <= 0.79 ? 0.67 * i.solidity + 0.47 : 1;
+    }
+    const skewFactor = i.towerShape === 'square' && i.skewWind && i.solidity < 0.5
+      ? 1 + 0.75 * i.solidity : 1;
+    const cf = baseCf * memberFactor * skewFactor;
+    const segments = Math.max(1, Math.round(i.segments));
+    const segmentHeight = i.height / segments;
+    const topZ = i.zBase + i.height;
+    const gustHeight = Math.max(topZ, segmentHeight);
+    const gustWidth = Math.max(i.faceWidth, 1);
+    const gustZBar = Math.max(0.6 * gustHeight, t.zmin);
+    const gustIz = t.c * Math.pow(10 / gustZBar, 1 / 6);
+    const gustLz = t.ell * Math.pow(gustZBar / 10, t.eps);
+    const gustQ2 = 1 / (1 + 0.63 * Math.pow((gustWidth + gustHeight) / gustLz, 0.63));
+    const gustQ = Math.sqrt(gustQ2);
+    const G = 1.927 * (1 + 1.7 * 3.4 * gustIz * gustQ) / (1 + 1.7 * 3.4 * gustIz);
+    const segmentArea = i.faceWidth * i.solidity * segmentHeight;
+    const rows = Array.from({ length:segments }, (_, index) => {
+      const z1 = i.zBase + index * segmentHeight;
+      const zMid = z1 + segmentHeight / 2;
+      const Kz = kzAt(zMid, t);
+      const qz = 0.06 * Kz * i.Kzt * i.I ** 2 * i.V ** 2;
+      const force = qz * G * cf * segmentArea;
+      return { zMid, Kz, qz, force, moment:force * zMid };
+    });
+    const first = rows[0];
+    const top = rows[rows.length - 1];
+    const baseShear = rows.reduce((sum, row) => sum + row.force, 0);
+    const baseMoment = rows.reduce((sum, row) => sum + row.moment, 0);
+    return [i.id, {
+      baseCf, memberFactor, skewFactor, cf,
+      lowPhiBaseBranch:i.solidity < 0.025 ? 1 : 0,
+      linearBaseBranch:i.solidity >= 0.025 && i.solidity <= 0.44 ? 1 : 0,
+      plateauBaseBranch:i.solidity > 0.44 && i.solidity <= 0.69 ? 1 : 0,
+      highPhiBaseBranch:i.solidity > 0.69 ? 1 : 0,
+      circularConstantBranch:i.memberShape === 'circular' && i.solidity <= 0.29 ? 1 : 0,
+      circularInterpolatedBranch:i.memberShape === 'circular' && i.solidity > 0.29 && i.solidity <= 0.79 ? 1 : 0,
+      unitMemberBranch:i.memberShape !== 'circular' || i.solidity > 0.79 ? 1 : 0,
+      skewApplied:skewFactor !== 1 ? 1 : 0,
+      segments, segmentHeight,
+      totalSolidArea:i.faceWidth * i.height * i.solidity,
+      G, gustZBar, gustIz, gustLz, gustQ2, gustQ,
+      firstZMid:first.zMid, firstKz:first.Kz, firstQz:first.qz,
+      topZMid:top.zMid, topKz:top.Kz, topQz:top.qz,
+      segmentArea,
+      baseShear, sumForce:baseShear,
+      baseMoment, sumMoment:baseMoment,
+      resultantHeight:baseShear > 0 ? baseMoment / baseShear : 0,
+    }];
+  }));
+}
+
 function seismicForceStaticOracle(i) {
   const faX = [0.5, 0.6, 0.7, 0.8, 0.9];
   const fvX = [0.30, 0.35, 0.40, 0.45, 0.50];
@@ -1758,6 +1831,7 @@ const ORACLES = {
   'wind-force-rigid-three-story-mwfrs': windForceMwfrsOracle,
   'wind-object-solid-table-2-10': windObjectSolidTable210Oracle,
   'wind-object-frame-three-table-routes': windObjectFrameThreeRouteOracle,
+  'wind-lattice-tower-four-table-branches': windLatticeTowerFourBranchOracle,
   'wind-cc-three-control-branches': windCcThreeBranchOracle,
   'wind-parapet-three-design-routes': windParapetThreeRouteOracle,
   'wind-open-roof-four-combinations': windOpenRoofFourCombinationOracle,
