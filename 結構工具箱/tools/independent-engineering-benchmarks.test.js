@@ -66,6 +66,12 @@ assert.ok(steelFormalAdapterSource.includes("<option value=\"plate_check\">"), '
 assert.ok(steelFormalAdapterSource.includes("<option value=\"tension_member\">"), 'steel formal adapter locks the main-page tension-member route');
 assert.ok(steelFormalAdapterSource.includes("buildConnectionReportConfig(result)"), 'steel formal adapter locks the production result-to-report route');
 assert.ok(!steelFormalAdapterSource.includes('golden'), 'steel formal adapter does not replay a golden-case fixture');
+const deckingAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'decking.js'), 'utf8');
+assert.ok(deckingAdapterSource.includes("../../../覆工板"), 'decking adapter resolves the production formal tool');
+assert.ok(deckingAdapterSource.includes("productionPageSource.slice(calculationStart, calculationEnd)"), 'decking adapter executes the production calculation functions extracted from the formal page');
+assert.ok(deckingAdapterSource.includes('function calcDeck()') && deckingAdapterSource.includes('function calcPile()'), 'decking adapter locks the complete formal-page load path');
+assert.ok(deckingAdapterSource.includes("shared', 'h-section-table.js"), 'decking adapter exercises the production section table');
+assert.ok(!deckingAdapterSource.includes('golden'), 'decking adapter does not replay a golden-case fixture');
 const rcSlabAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'rc-slab-strength.js'), 'utf8');
 assert.ok(rcSlabAdapterSource.includes("../../../鋼筋混凝土/shared/slab-evaluator.js"), 'RC slab adapter exercises the production slab calculation core');
 assert.ok(rcSlabAdapterSource.includes("../../../鋼筋混凝土/shared/flexure.js"), 'RC slab adapter exercises the production flexure core');
@@ -153,9 +159,9 @@ assert.ok(anchorBackupSource.includes("import { evaluateProjectBatch } from './c
 const result = runBenchmarks(catalog);
 assert.equal(result.status, 'ready', JSON.stringify(result.issues));
 assert.equal(result.summary.eligibleFormalRoutes, 31, 'formal route portfolio is explicit');
-assert.equal(result.summary.pilotRequired, 29, 'twenty-nine independent pilot benchmarks required');
-assert.equal(result.summary.pilotVerified, 29, 'twenty-nine independent pilot benchmarks verified');
-assert.equal(result.summary.independentlyVerifiedRoutes, 29, 'twenty-nine distinct routes independently verified');
+assert.equal(result.summary.pilotRequired, 30, 'thirty independent pilot benchmarks required');
+assert.equal(result.summary.pilotVerified, 30, 'thirty independent pilot benchmarks verified');
+assert.equal(result.summary.independentlyVerifiedRoutes, 30, 'thirty distinct routes independently verified');
 assert.equal(result.summary.priorityTargets, 0, 'no priority route remains in the independent benchmark roadmap');
 assert.equal(result.priorityTargets.some(target => target.priority === 'P0'), false, 'no P0 route remains in the independent benchmark roadmap');
 assert.equal(result.summary.issueCount, 0, 'independent pilot has no issues');
@@ -184,6 +190,7 @@ const falsePositiveResult = runBenchmarks(catalog, {
         if (relativePath === 'independent-engineering-adapters/steel-column-asd.js') production.IR1 += 0.2;
         if (relativePath === 'independent-engineering-adapters/steel-plate-connection.js') production.manualAsd.blockAvailable += 5;
         if (relativePath === 'independent-engineering-adapters/steel-formal.js') production.boltedLrfd.bearingAvailable += 5;
+        if (relativePath === 'independent-engineering-adapters/decking.js') production.longUnbracedHeavy.girder.PuMax += 5;
         if (relativePath === 'independent-engineering-adapters/rc-slab-strength.js') production.endSpan.phiVc += 0.5;
         if (relativePath === 'independent-engineering-adapters/wind-force-mwfrs.js') production.xVb += 250;
         if (relativePath === 'independent-engineering-adapters/wind-object-solid-table210.js') production.nuControl.torsion += 5;
@@ -217,6 +224,7 @@ assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-val
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:IR1')), 'steel column ASD interaction drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:manualAsd.blockAvailable')), 'steel plate ASD block-shear drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:boltedLrfd.bearingAvailable')), 'steel formal bolt-bearing drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:longUnbracedHeavy.girder.PuMax')), 'decking load-path drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:endSpan.phiVc')), 'RC slab one-way shear drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:xVb')), 'wind-force base-shear drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:nuControl.torsion')), 'solid-object skew-wind torsion drift identifies the mismatched quantity');

@@ -2886,6 +2886,154 @@ function rcSlabStrengthOracle(input) {
   return Object.fromEntries(input.cases.map(item => [item.id, calculateCase(item)]));
 }
 
+function deckingSystemOracle(input) {
+  const controlCode = values => {
+    const maximum = Math.max(...values);
+    return maximum === values[2] ? 3 : (maximum === values[1] ? 2 : 1);
+  };
+  const loadCombination = ({ WT, WT2 = WT, L, P_HS, Pcrane, Wc, craneUsesWT2 = false }) => {
+    const M1 = WT * L * L / 8 + P_HS * L / 4;
+    const V1 = WT * L / 2 + P_HS;
+    const trackLength = 4.35;
+    const M2 = WT * L * L / 8 + (L <= trackLength
+      ? Wc * L * L / 8
+      : Wc * (L * L - 4 * ((L - trackLength) / 2) ** 2) / 8);
+    const V2 = WT * L / 2 + Wc * Math.min(L, trackLength) / 2;
+    const craneWeight = craneUsesWT2 ? WT2 : WT;
+    const M3 = craneWeight * L * L / 8 + Pcrane * L / 4;
+    const V3 = craneWeight * L / 2 + Pcrane;
+    return { M1, M2, M3, Mmax:Math.max(M1, M2, M3), V1, V2, V3, Vmax:Math.max(V1, V2, V3), control:controlCode([M1, M2, M3]) };
+  };
+  const deflections = ({ weight, craneWeight = weight, P_HS, Pcrane, Wc, L, E, I }) => {
+    const span = L * 100;
+    const EI = E * I;
+    const full = wKgfM => 5 * (wKgfM / 100) * span ** 4 / (384 * EI);
+    const point = loadTf => loadTf * 1000 * span ** 3 / (48 * EI);
+    const track = Math.min(4.35, L) * 100;
+    const trackDeflection = track >= span
+      ? full(Wc * 1000)
+      : (Wc * 10 * track) * (8 * span ** 3 - 4 * track ** 2 * span + track ** 3) / (384 * EI);
+    const d1 = full(weight) + point(P_HS);
+    const d2 = full(weight) + trackDeflection;
+    const d3 = full(craneWeight) + point(Pcrane);
+    return { d1, d2, d3, dmax:Math.max(d1, d2, d3), deflectionControl:controlCode([d1, d2, d3]) };
+  };
+  const classification = (section, Fy, fa, Lt) => {
+    const flangeRatio = section.B / (2 * section.tf);
+    const compactLimit = 545 / Math.sqrt(Fy);
+    const noncompactLimit = 800 / Math.sqrt(Fy);
+    const flangeCode = flangeRatio < compactLimit ? 1 : (flangeRatio < noncompactLimit ? 2 : 3);
+    const webLimit = 5370 / Math.sqrt(Fy) * Math.max(0, 1 - 3.74 * fa / Fy);
+    const webCode = section.H / section.tw < webLimit ? 1 : 2;
+    const L1 = 640 * section.B / Math.sqrt(Fy);
+    const L2 = 1.4e6 * (section.B * section.tf) / (section.H * Fy);
+    const Lc = Math.min(L1, L2);
+    const Lu = Math.max(L1, L2);
+    const braceCode = Lt <= Lc ? 10 : (Lt <= Lu ? 20 : 30);
+    let basicFb;
+    if (braceCode === 10 && flangeCode === 1) basicFb = 0.66 * Fy;
+    else if (braceCode === 10 && flangeCode === 2) basicFb = Math.min(0.66 * Fy, Fy * (1.07 - 0.005 * flangeRatio * Math.sqrt(Fy)));
+    else basicFb = 0.6 * Fy;
+    return { flangeCode, webCode, braceCode, FbBasic:basicFb };
+  };
+  const memberResult = ({ item, global, kind }) => {
+    const section = item.section;
+    const Sx = kind === 'deck' ? item.Sx * item.n : section.Sx * item.n;
+    const Ix = kind === 'deck' ? item.Ix * item.n : section.Ix * item.n;
+    const Aw = kind === 'deck' ? item.Aw * item.n : section.H * section.tw * item.n;
+    const Wb = kind === 'deck' ? 0 : section.Wb * item.n;
+    const surfaceWeight = global.Wp * item.B;
+    const liveWeight = global.Wl * item.B;
+    const P_HS = 7.3 * (1 + global.imp);
+    const Wc = 8.244 * (1 + global.imp);
+    let WT = (surfaceWeight + liveWeight + Wb + (kind === 'girder' ? item.W2 : 0)) / 1000;
+    let WT2 = WT;
+    if (kind === 'girder') WT2 = (surfaceWeight + Wb + item.W2) / 1000;
+    let loads;
+    if (kind === 'deck') {
+      const M1 = WT * item.L ** 2 / 8 + P_HS * item.L / 4;
+      const M2 = WT * item.L ** 2 / 8 + Wc * item.L ** 2 / 8;
+      const M3 = WT * item.L ** 2 / 8 + item.Pcrane * item.L / 4;
+      const V1 = WT * item.L / 2 + P_HS;
+      const V2 = WT * item.L / 2 + Wc * item.L / 2;
+      const V3 = WT * item.L / 2 + item.Pcrane;
+      loads = { M1, M2, M3, Mmax:Math.max(M1, M2, M3), V1, V2, V3, Vmax:Math.max(V1, V2, V3), control:controlCode([M1, M2, M3]) };
+    } else {
+      loads = loadCombination({ WT, WT2, L:item.L, P_HS, Pcrane:item.Pcrane, Wc, craneUsesWT2:kind === 'girder' });
+    }
+    const classificationResult = kind === 'deck' ? null : classification(section, global.Fy, item.fa, item.Lt);
+    const Fb = kind === 'deck' ? 0.6 * global.Fy * global.beta : classificationResult.FbBasic * global.beta;
+    const Fv = 0.4 * global.Fy * global.beta;
+    const fb = loads.Mmax * 1e5 / Sx;
+    const fv = loads.Vmax * 1e3 / Aw;
+    const weight = surfaceWeight + liveWeight + Wb + (kind === 'girder' ? item.W2 : 0);
+    const craneWeight = kind === 'girder' ? surfaceWeight + Wb + item.W2 : weight;
+    const deflection = deflections({ weight, craneWeight, P_HS, Pcrane:item.Pcrane, Wc, L:item.L, E:global.E, I:Ix });
+    const defAllow = item.L * 100 / global.defl;
+    return {
+      WT, P_HS, Wc, ...loads, Fb, fb, Fv, fv, ...deflection, defAllow,
+      flexurePass:fb < Fb ? 1 : 0, shearPass:fv < Fv ? 1 : 0,
+      deflectionPass:deflection.dmax < defAllow ? 1 : 0,
+      ...(classificationResult || {}),
+      ...(kind === 'girder' ? { WT2 } : {}),
+    };
+  };
+  const calculateCase = item => {
+    const deck = memberResult({ item:item.deck, global:item.global, kind:'deck' });
+    const stringer = memberResult({ item:item.stringer, global:item.global, kind:'stringer' });
+    const girder = memberResult({ item:item.girder, global:item.global, kind:'girder' });
+    girder.Pu1 = girder.Vmax;
+    girder.Pu2 = 0.5 * girder.WT2 * item.girder.L + item.girder.Pcrane * (item.girder.L - 0.5) / item.girder.L;
+    girder.Pu3 = 0.5 * girder.WT2 * item.girder.L + item.girder.Pcrane * 2 * Math.max(0, item.girder.L - 4) / item.girder.L;
+    girder.PuMax = Math.max(girder.Pu1, girder.Pu2, girder.Pu3);
+
+    const section = item.column.section;
+    const fa = item.column.N * 1000 / section.A;
+    const Mx = item.column.N * item.column.ex / 100;
+    const My = item.column.N * item.column.ey / 100;
+    const fbx = Mx * 1e5 / section.Sx;
+    const fby = My * 1e5 / section.Sy;
+    const KLrx = item.column.K * item.column.L / section.rx;
+    const KLry = item.column.K * item.column.L / section.ry;
+    const KLr = Math.max(KLrx, KLry);
+    const Cc = Math.sqrt(2 * Math.PI ** 2 * item.global.E / item.global.Fy);
+    const Fa = KLr < Cc
+      ? (1 - (KLr / Cc) ** 2 / 2) * item.global.Fy / (5 / 3 + 3 * (KLr / Cc) / 8 - (KLr / Cc) ** 3 / 8)
+      : 12 * Math.PI ** 2 * item.global.E / (23 * KLr ** 2);
+    const Fa1 = Fa * item.global.beta * item.column.old;
+    const Fbx = 0.66 * item.global.Fy * item.global.beta * item.column.old;
+    const Fby = 0.75 * item.global.Fy * item.global.beta * item.column.old;
+    const Fex = 12 * Math.PI ** 2 * item.global.E / (23 * KLrx ** 2);
+    const Fey = 12 * Math.PI ** 2 * item.global.E / (23 * KLry ** 2);
+    const ratio = fa / Fa1;
+    const chk1 = ratio > 0.15
+      ? ratio + fbx / ((1 - fa / Fex) * Fbx) + fby / ((1 - fa / Fey) * Fby)
+      : ratio + fbx / Fbx + fby / Fby;
+    const chk2 = ratio > 0.15 ? fa / (0.6 * item.global.Fy * item.column.old) + fbx / Fbx + fby / Fby : chk1;
+    const worst = Math.max(chk1, chk2);
+    const column = { fa, Mx, My, fbx, fby, KLrx, KLry, Cc, Fa, Fa1, Fbx, Fby, chk1, chk2, worst, pass:worst <= 1 ? 1 : 0 };
+
+    const bondSection = item.column.section;
+    const ls = 2 * (bondSection.B + bondSection.H);
+    const tau = 0.03 * item.bond.fc;
+    const F = tau * item.bond.L * ls / 1000;
+    const Nc = (tau * item.bond.L * ls + 0.35 * item.bond.fc * bondSection.A) / 1000;
+    const tensionPass = F > item.bond.T ? 1 : 0;
+    const compressionPass = Nc > item.bond.P ? 1 : 0;
+    const bond = { ls, tau, F, Nc, tensionPass, compressionPass, pass:tensionPass && compressionPass ? 1 : 0 };
+
+    const Ab = Math.PI * item.pile.D ** 2 / 4;
+    const qb = 7.5 * item.pile.Nb;
+    const fs = item.pile.Ns / 3;
+    const Qb = qb * Ab / 10000;
+    const Qs = fs * (Math.PI * item.pile.D / 100) * (item.pile.Lb / 100);
+    const Qa = Qb / item.pile.FSb + Qs / item.pile.FSs;
+    const pile = { Ab, qb, fs, Qb, Qs, Qa, pass:Qa > item.pile.P ? 1 : 0 };
+    return { deck, stringer, girder, column, bond, pile };
+  };
+  return Object.fromEntries(input.cases.map(item => [item.id, calculateCase(item)]));
+}
+
 const ORACLES = {
   'equipment-basic-load-path': equipmentOracle,
   'earth-rankine-dry-active': earthOracle,
@@ -2901,6 +3049,7 @@ const ORACLES = {
   'steel-column-asd-weak-axis-interaction': steelColumnAsdOracle,
   'steel-plate-connection-strength': steelPlateConnectionOracle,
   'steel-formal-strength': steelFormalOracle,
+  'decking-system-load-path': deckingSystemOracle,
   'rc-slab-one-way-strength': rcSlabStrengthOracle,
   'wind-force-rigid-three-story-mwfrs': windForceMwfrsOracle,
   'wind-object-solid-table-2-10': windObjectSolidTable210Oracle,
