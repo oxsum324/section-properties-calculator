@@ -2490,6 +2490,202 @@ function steelPlateConnectionOracle(input) {
   return Object.fromEntries(input.cases.map(item => [item.id, calculateCase(item)]));
 }
 
+function steelFormalOracle(input) {
+  const available = (nominal, method, phi, omega) => method === 'ASD' ? nominal / omega : phi * nominal;
+  const baseEdgeDistance = (diameter, fabrication) => {
+    const rolled = [[13, 19], [16, 22], [20, 25], [22, 28.5], [24, 32], [27, 38], [30, 41]];
+    const sheared = [[13, 22], [16, 28.5], [20, 32], [22, 38], [24, 44.5], [27, 50], [30, 57]];
+    const table = fabrication === 'sheared' ? sheared : rolled;
+    return table.find(([limit]) => diameter <= limit)?.[1] || (fabrication === 'sheared' ? 1.75 : 1.25) * diameter;
+  };
+  const bearingPerBolt = (lc, i) => {
+    const c1 = i.deformationConsidered === false ? 1.5 : 1.2;
+    const c2 = i.deformationConsidered === false ? 3.0 : 2.4;
+    return Math.min(c1 * Math.max(lc, 0) * i.memberThickness * i.memberUltimateStrength, c2 * i.boltDiameter * i.memberThickness * i.memberUltimateStrength) / 1000;
+  };
+  const governing = checks => checks.reduce((best, current) => current.ratio > best.ratio ? current : best, checks[0]).key;
+
+  const plateCase = i => {
+    const holeWidth = i.holeDiameter + 1.5;
+    const grossWidth = i.plateLength;
+    const shearLength = Math.min(i.endDistanceStart, i.endDistanceEnd) + (i.lineCount - 1) * i.pitchX;
+    const Ag = grossWidth * i.plateThickness;
+    const An = (grossWidth - i.rowCount * holeWidth) * i.plateThickness;
+    const Ae = Math.min(An, 0.85 * Ag);
+    const Agv = 2 * shearLength * i.plateThickness;
+    const Anv = 2 * (shearLength - (i.lineCount - 0.5) * holeWidth) * i.plateThickness;
+    const Agt = Ag;
+    const Ant = An;
+    const grossAvailable = available(i.plateYieldStrength * Ag / 1000, i.designMethod, 0.9, 1.67);
+    const netAvailable = available(i.plateUltimateStrength * Ae / 1000, i.designMethod, 0.75, 2);
+    const tensionRupture = i.plateUltimateStrength * Ant / 1000;
+    const shearRupture = 0.6 * i.plateUltimateStrength * Anv / 1000;
+    const shearYield = 0.6 * i.plateYieldStrength * Agv / 1000;
+    const tensionYield = i.plateYieldStrength * Agt / 1000;
+    const equation3 = tensionRupture >= shearRupture;
+    const blockNominal = equation3
+      ? Math.min(shearYield + tensionRupture, shearRupture + tensionRupture)
+      : Math.min(shearRupture + tensionYield, shearRupture + tensionRupture);
+    const blockAvailable = available(blockNominal, i.designMethod, 0.75, 2);
+    const checks = [
+      { key:'gross', ratio:i.requiredTension / grossAvailable },
+      { key:'net', ratio:i.requiredTension / netAvailable },
+      { key:'block', ratio:i.requiredTension / blockAvailable },
+    ];
+    const minSpacing = 3 * i.boltDiameter;
+    const minEdge = baseEdgeDistance(i.boltDiameter, i.edgeFabrication);
+    const maxSpacing = i.exposureCondition === 'weathering' ? Math.min(14 * i.plateThickness, 180) : Math.min(24 * i.plateThickness, 300);
+    const maxEdge = Math.min(12 * i.plateThickness, 150);
+    const detailPass = i.pitchX >= minSpacing && i.pitchY >= minSpacing
+      && i.endDistanceStart >= minEdge && i.endDistanceEnd >= minEdge
+      && i.edgeDistanceTop >= minEdge && i.edgeDistanceBottom >= minEdge
+      && i.pitchX <= maxSpacing && i.pitchY <= maxSpacing
+      && Math.max(i.endDistanceStart, i.endDistanceEnd) <= maxEdge
+      && An > 0 && Agv > 0 && Anv > 0 && Agt > 0 && Ant > 0;
+    return {
+      Ag, An, Ae, Agv, Anv, Agt, Ant,
+      grossAvailable, netAvailable, blockAvailable,
+      governingBlock: governing(checks) === 'block' ? 1 : 0,
+      detailPass: detailPass ? 1 : 0,
+      overallPass: detailPass && checks.every(check => check.ratio <= 1) ? 1 : 0,
+    };
+  };
+
+  const tensionCase = i => {
+    const bolted = i.tensionConnectionMode === 'bolted';
+    const Ag = i.memberWidth * i.memberThickness;
+    const holeWidth = i.holeDiameter + 1.5;
+    const An = bolted ? (i.memberWidth - i.tensionBoltRowCount * holeWidth) * i.memberThickness : Ag;
+    let U;
+    let Ae;
+    if (bolted) {
+      U = i.tensionShearLagCase === 'w_shape_flange_ge_3' ? 0.9
+        : i.tensionShearLagCase === 'other_ge_3' ? 0.85
+          : i.tensionShearLagCase === 'two_bolts' ? 0.75 : Math.min(An, 0.85 * Ag) / Ag;
+      Ae = i.tensionShearLagCase === 'connection_plate_cap' ? Math.min(An, 0.85 * Ag) : U * An;
+    } else if (i.tensionWeldCase === 'transverse_direct') {
+      U = 1;
+      Ae = i.tensionDirectConnectedArea;
+    } else {
+      const ratio = i.tensionWeldLengthLongitudinal / i.memberWidth;
+      U = ratio >= 2 ? 1 : ratio >= 1.5 ? 0.87 : ratio >= 1 ? 0.75 : 0;
+      Ae = U * Ag;
+    }
+    const grossNominal = i.memberYieldStrength * Ag / 1000;
+    const grossAvailable = available(grossNominal, i.designMethod, 0.9, 1.67);
+    const netNominal = i.memberUltimateStrength * Ae / 1000;
+    const netAvailable = available(netNominal, i.designMethod, 0.75, 2);
+    const checks = [
+      { key:'gross', ratio:i.requiredTension / grossAvailable },
+      { key:'net', ratio:i.requiredTension / netAvailable },
+    ];
+    const output = {
+      bolted:bolted ? 1 : 0,
+      lrfd:i.designMethod === 'LRFD' ? 1 : 0,
+      Ag, An, Ae, U,
+      slenderness:i.unsupportedLength / i.radiusOfGyration,
+      grossNominal, grossAvailable, grossRatio:i.requiredTension / grossAvailable,
+      netNominal, netAvailable, netRatio:i.requiredTension / netAvailable,
+      validationCount:1,
+    };
+
+    let detailPass = output.slenderness <= 300 && Ae <= Ag;
+    if (bolted) {
+      const boltCount = i.tensionBoltLineCount * i.tensionBoltRowCount;
+      const boltArea = Math.PI * i.boltDiameter ** 2 / 4;
+      const shearFactor = i.threadsCondition === 'excluded' ? 0.62 : 0.48;
+      const boltNominal = shearFactor * i.boltUltimateStrength * boltArea * boltCount * i.tensionShearPlanes / 1000;
+      const boltAvailable = available(boltNominal, i.designMethod, 0.75, 2);
+      const endLc = i.tensionEndDistance - i.holeDiameter / 2;
+      const interiorLc = i.tensionPitchLongitudinal - i.holeDiameter;
+      const bearingNominal = (bearingPerBolt(endLc, i) + bearingPerBolt(interiorLc, i) * (i.tensionBoltLineCount - 1)) * i.tensionBoltRowCount;
+      const bearingAvailable = available(bearingNominal, i.designMethod, 0.75, 2);
+      const shearLength = i.tensionEndDistance + (i.tensionBoltLineCount - 1) * i.tensionPitchLongitudinal;
+      const Agv = 2 * shearLength * i.memberThickness;
+      const Anv = 2 * (shearLength - (i.tensionBoltLineCount - 0.5) * holeWidth) * i.memberThickness;
+      const Agt = Ag;
+      const Ant = An;
+      const tensionRupture = i.memberUltimateStrength * Ant / 1000;
+      const shearRupture = 0.6 * i.memberUltimateStrength * Anv / 1000;
+      const shearYield = 0.6 * i.memberYieldStrength * Agv / 1000;
+      const tensionYield = i.memberYieldStrength * Agt / 1000;
+      const equation3 = tensionRupture >= shearRupture;
+      const blockNominal = equation3
+        ? Math.min(shearYield + tensionRupture, shearRupture + tensionRupture)
+        : Math.min(shearRupture + tensionYield, shearRupture + tensionRupture);
+      const blockAvailable = available(blockNominal, i.designMethod, 0.75, 2);
+      checks.push(
+        { key:'bolt', ratio:i.requiredTension / boltAvailable },
+        { key:'bearing', ratio:i.requiredTension / bearingAvailable },
+        { key:'block', ratio:i.requiredTension / blockAvailable },
+      );
+      const minSpacingRequired = 3 * i.boltDiameter;
+      const minEndRequired = baseEdgeDistance(i.boltDiameter, i.edgeFabrication);
+      const maxSpacingRequired = i.exposureCondition === 'weathering' ? Math.min(14 * i.memberThickness, 180) : Math.min(24 * i.memberThickness, 300);
+      const maxEdge = Math.min(12 * i.memberThickness, 150);
+      detailPass = detailPass
+        && i.tensionPitchLongitudinal >= minSpacingRequired && i.tensionGaugeTransverse >= minSpacingRequired
+        && i.tensionEndDistance >= minEndRequired && i.tensionEdgeDistanceNear >= minEndRequired && i.tensionEdgeDistanceFar >= minEndRequired
+        && i.tensionPitchLongitudinal <= maxSpacingRequired
+        && Math.max(i.tensionEndDistance, i.tensionEdgeDistanceNear, i.tensionEdgeDistanceFar) <= maxEdge
+        && Agv > 0 && Anv > 0 && Agt > 0 && Ant > 0;
+      Object.assign(output, {
+        Agv, Anv, Agt, Ant,
+        boltNominal, boltAvailable, boltRatio:i.requiredTension / boltAvailable,
+        bearingNominal, bearingAvailable, bearingRatio:i.requiredTension / bearingAvailable,
+        blockNominal, blockAvailable, blockRatio:i.requiredTension / blockAvailable,
+        blockEquation3:equation3 ? 1 : 0,
+        minSpacingRequired, minEndRequired, maxSpacingRequired,
+      });
+    } else {
+      let weldAvailable;
+      if (i.tensionWeldType === 'groove_cjp') {
+        weldAvailable = available(i.memberYieldStrength * i.tensionDirectConnectedArea / 1000, i.designMethod, 0.9, 1.67);
+      } else {
+        const totalLength = i.tensionWeldLengthLongitudinal * i.tensionWeldLineCount + i.tensionWeldLengthTransverse;
+        const baseArea = i.tensionConnectedThickness * totalLength;
+        const weldArea = 0.707 * i.tensionWeldSize * totalLength;
+        const baseAvailable = available(0.6 * i.memberYieldStrength * baseArea / 1000, i.designMethod, 0.9, 1.67);
+        const electrodeAvailable = (i.designMethod === 'LRFD' ? 0.75 * 0.6 : 0.3) * i.tensionWeldElectrodeStrength * weldArea / 1000;
+        weldAvailable = Math.min(baseAvailable, electrodeAvailable);
+        const thicker = Math.max(i.memberThickness, i.tensionConnectedThickness);
+        const thinner = Math.min(i.memberThickness, i.tensionConnectedThickness);
+        const minimumFillet = thicker <= 6 ? 3 : thicker <= 12 ? 5 : thicker <= 19 ? 6 : 8;
+        detailPass = detailPass && i.tensionWeldLengthLongitudinal >= i.memberWidth
+          && i.tensionWeldLengthLongitudinal >= 4 * i.tensionWeldSize
+          && i.tensionWeldSize >= minimumFillet && i.tensionWeldSize <= (thinner < 6 ? thinner : thinner - 1.5)
+          && i.tensionLapLength >= Math.max(5 * thinner, 25);
+      }
+      checks.push({ key:'weld', ratio:i.requiredTension / weldAvailable });
+      detailPass = detailPass && (i.tensionWeldType !== 'groove_cjp' || i.tensionWeldMatchingFiller === true);
+      Object.assign(output, {
+        weldNominal:weldAvailable,
+        weldAvailable,
+        weldRatio:i.requiredTension / weldAvailable,
+        fillet:i.tensionWeldType === 'fillet' ? 1 : 0,
+        cjp:i.tensionWeldType === 'groove_cjp' ? 1 : 0,
+      });
+    }
+    const governingKey = governing(checks);
+    Object.assign(output, {
+      governingGross:governingKey === 'gross' ? 1 : 0,
+      governingNet:governingKey === 'net' ? 1 : 0,
+      governingBolt:governingKey === 'bolt' ? 1 : 0,
+      governingBearing:governingKey === 'bearing' ? 1 : 0,
+      governingBlock:governingKey === 'block' ? 1 : 0,
+      governingWeld:governingKey === 'weld' ? 1 : 0,
+      detailPass:detailPass ? 1 : 0,
+      overallPass:detailPass && checks.every(check => check.ratio <= 1) ? 1 : 0,
+    });
+    return output;
+  };
+
+  return {
+    [input.plateCase.id]:plateCase(input.plateCase),
+    ...Object.fromEntries(input.tensionCases.map(item => [item.id, tensionCase(item)])),
+  };
+}
+
 function anchorCastInOracle(i) {
   const round = (value, digits = 2) => {
     const scale = 10 ** digits;
@@ -2704,6 +2900,7 @@ const ORACLES = {
   'steel-beam-asd-inelastic-ltb': steelBeamAsdOracle,
   'steel-column-asd-weak-axis-interaction': steelColumnAsdOracle,
   'steel-plate-connection-strength': steelPlateConnectionOracle,
+  'steel-formal-strength': steelFormalOracle,
   'rc-slab-one-way-strength': rcSlabStrengthOracle,
   'wind-force-rigid-three-story-mwfrs': windForceMwfrsOracle,
   'wind-object-solid-table-2-10': windObjectSolidTable210Oracle,
