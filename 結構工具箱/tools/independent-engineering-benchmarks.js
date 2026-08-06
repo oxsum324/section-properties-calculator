@@ -1115,6 +1115,67 @@ function windObjectTowerTable212Oracle(input) {
   }));
 }
 
+function windFenceSignTable210Oracle(input) {
+  const terrains = {
+    A:{ alpha:0.32, zg:500, c:0.45, ell:55, eps:0.50, zmin:18 },
+    B:{ alpha:0.25, zg:400, c:0.30, ell:98, eps:0.33, zmin:9 },
+    C:{ alpha:0.15, zg:300, c:0.20, ell:152, eps:0.20, zmin:4.5 },
+  };
+  const groundTable = [[3,1.2],[5,1.3],[8,1.4],[10,1.5],[20,1.75],[30,1.85],[40,2.0]];
+  const elevatedTable = [[6,1.2],[10,1.3],[16,1.4],[20,1.5],[40,1.75],[60,1.85],[80,2.0]];
+  const interpolate = (points, rawRatio) => {
+    const x = Math.max(points[0][0], Math.min(rawRatio, points[points.length - 1][0]));
+    let low = points[0];
+    let high = points[points.length - 1];
+    for (let index = 0; index < points.length - 1; index += 1) {
+      if (x >= points[index][0] && x <= points[index + 1][0]) {
+        low = points[index];
+        high = points[index + 1];
+        break;
+      }
+    }
+    const fraction = high[0] === low[0] ? 0 : (x - low[0]) / (high[0] - low[0]);
+    return { x, low, high, cf:low[1] + fraction * (high[1] - low[1]) };
+  };
+  return Object.fromEntries(input.cases.map(item => {
+    const terrain = terrains[item.terrain];
+    const atGround = item.type === 'fence';
+    const zr = item.s + item.h / 2;
+    const zUse = Math.max(zr, terrain.zmin);
+    const Kz = 2.774 * Math.pow(zUse / terrain.zg, 2 * terrain.alpha);
+    const qz = 0.06 * Kz * item.Kzt * item.I ** 2 * item.V ** 2;
+    const aspectRatio = item.B / item.h;
+    const cf = interpolate(atGround ? groundTable : elevatedTable, aspectRatio);
+    const manualAdoption = item.cfOverride != null;
+    const cfBase = manualAdoption ? item.cfOverride : cf.cf;
+    const cfEff = cfBase * item.phi;
+    const gustHeight = item.h + item.s;
+    const gustWidth = item.B;
+    const gustZBar = Math.max(0.6 * gustHeight, terrain.zmin);
+    const gustIz = terrain.c * Math.pow(10 / gustZBar, 1 / 6);
+    const gustLz = terrain.ell * Math.pow(gustZBar / 10, terrain.eps);
+    const gustQ2 = 1 / (1 + 0.63 * Math.pow((gustWidth + gustHeight) / gustLz, 0.63));
+    const gustQ = Math.sqrt(gustQ2);
+    const G = 1.927 * (1 + 1.7 * 3.4 * gustIz * gustQ) / (1 + 1.7 * 3.4 * gustIz);
+    const area = item.h * item.B;
+    const force = qz * G * cfEff * area;
+    return [item.id, {
+      groundRoute:atGround ? 1 : 0,
+      elevatedRoute:atGround ? 0 : 1,
+      aspectRatio,
+      aspectRatioUsed:cf.x,
+      clampedLow:aspectRatio < (atGround ? 3 : 6) ? 1 : 0,
+      clampedHigh:aspectRatio > (atGround ? 40 : 80) ? 1 : 0,
+      lowRatio:cf.low[0], highRatio:cf.high[0], lowCf:cf.low[1], highCf:cf.high[1], tableCf:cf.cf,
+      manualAdoption:manualAdoption ? 1 : 0,
+      cfBase, phi:item.phi, cfEff,
+      zr, zUse, Kz, qz,
+      gustHeight, gustWidth, gustZBar, gustIz, gustLz, gustQ2, gustQ, G,
+      area, force, baseShear:force, baseMoment:force * zr,
+    }];
+  }));
+}
+
 function seismicForceStaticOracle(i) {
   const faX = [0.5, 0.6, 0.7, 0.8, 0.9];
   const fvX = [0.30, 0.35, 0.40, 0.45, 0.50];
@@ -1933,6 +1994,7 @@ const ORACLES = {
   'wind-object-frame-three-table-routes': windObjectFrameThreeRouteOracle,
   'wind-lattice-tower-four-table-branches': windLatticeTowerFourBranchOracle,
   'wind-object-tower-table-2-12': windObjectTowerTable212Oracle,
+  'wind-fence-sign-table-2-10': windFenceSignTable210Oracle,
   'wind-cc-three-control-branches': windCcThreeBranchOracle,
   'wind-parapet-three-design-routes': windParapetThreeRouteOracle,
   'wind-open-roof-four-combinations': windOpenRoofFourCombinationOracle,

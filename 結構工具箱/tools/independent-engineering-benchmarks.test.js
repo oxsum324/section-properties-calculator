@@ -80,6 +80,13 @@ assert.ok(windObjectTowerAdapterSource.includes("../風力/wind-object-tower.htm
 assert.ok(windObjectTowerAdapterSource.includes('W.calcTowerWind({ V, terrain, I, zBase, height, D, segments, Kzt, sectionType, shapeFactor, topArea, topAreaCf: topCf })'), 'wind object-tower adapter locks the formal Table 2.12 core call');
 assert.ok(windObjectTowerAdapterSource.includes('const topRow = raw.body.rows[raw.body.rows.length - 1];'), 'wind object-tower adapter locks the formal top-segment selection');
 assert.ok(!windObjectTowerAdapterSource.includes('golden'), 'wind object-tower adapter does not replay a golden-case fixture');
+const windFenceSignAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'wind-fence-sign.js'), 'utf8');
+assert.ok(windFenceSignAdapterSource.includes("../../core/loads/wind.js"), 'wind fence/sign adapter exercises the production wind core');
+assert.ok(windFenceSignAdapterSource.includes("../風力/wind-fence-sign.html"), 'wind fence/sign adapter guards the formal page calculation wiring');
+assert.ok(windFenceSignAdapterSource.includes('W.lookupSignCf({ atGround, aspectRatio })'), 'wind fence/sign adapter locks the formal Table 2.10 route');
+assert.ok(windFenceSignAdapterSource.includes('W.calcGustRigid(h + s, B, terrain)'), 'wind fence/sign adapter locks the formal gust-factor route');
+assert.ok(windFenceSignAdapterSource.includes('const F = qz * G * cfEff * A;'), 'wind fence/sign adapter locks the formal force equation');
+assert.ok(!windFenceSignAdapterSource.includes('golden'), 'wind fence/sign adapter does not replay a golden-case fixture');
 const windCcAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'wind-cc.js'), 'utf8');
 assert.ok(windCcAdapterSource.includes("../../core/loads/wind.js"), 'wind C&C adapter exercises the production wind core');
 assert.ok(windCcAdapterSource.includes("../風力/wind-cc.html"), 'wind C&C adapter guards the formal page calculation wiring');
@@ -120,9 +127,9 @@ assert.ok(anchorBackupSource.includes("import { evaluateProjectBatch } from './c
 const result = runBenchmarks(catalog);
 assert.equal(result.status, 'ready', JSON.stringify(result.issues));
 assert.equal(result.summary.eligibleFormalRoutes, 31, 'formal route portfolio is explicit');
-assert.equal(result.summary.pilotRequired, 24, 'twenty-four independent pilot benchmarks required');
-assert.equal(result.summary.pilotVerified, 24, 'twenty-four independent pilot benchmarks verified');
-assert.equal(result.summary.independentlyVerifiedRoutes, 24, 'twenty-four distinct routes independently verified');
+assert.equal(result.summary.pilotRequired, 25, 'twenty-five independent pilot benchmarks required');
+assert.equal(result.summary.pilotVerified, 25, 'twenty-five independent pilot benchmarks verified');
+assert.equal(result.summary.independentlyVerifiedRoutes, 25, 'twenty-five distinct routes independently verified');
 assert.equal(result.summary.priorityTargets, 0, 'no priority route remains in the independent benchmark roadmap');
 assert.equal(result.priorityTargets.some(target => target.priority === 'P0'), false, 'no P0 route remains in the independent benchmark roadmap');
 assert.equal(result.summary.issueCount, 0, 'independent pilot has no issues');
@@ -154,6 +161,7 @@ const falsePositiveResult = runBenchmarks(catalog, {
         if (relativePath === 'independent-engineering-adapters/wind-object-frame.js') production.circularHighBand.force += 5;
         if (relativePath === 'independent-engineering-adapters/wind-lattice-tower.js') production.squareLinearCircularSkew.baseMoment += 5;
         if (relativePath === 'independent-engineering-adapters/wind-object-tower.js') production.circularAutoHighSpecifiedTop.baseMoment += 5;
+        if (relativePath === 'independent-engineering-adapters/wind-fence-sign.js') production.elevatedInterpolated.baseMoment += 5;
         if (relativePath === 'independent-engineering-adapters/wind-cc.js') production.highPartialWall.pNeg += 5;
         if (relativePath === 'independent-engineering-adapters/wind-parapet.js') production.buildingCc.windward_corner.pDiff += 5;
         if (relativePath === 'independent-engineering-adapters/wind-open-roof.js') production.monoUnblockedSmallInterp.zone3.pNeg += 5;
@@ -181,6 +189,7 @@ assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-val
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:nuControl.torsion')), 'solid-object skew-wind torsion drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:circularHighBand.force')), 'porous-frame high-D√q(z) force drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:squareLinearCircularSkew.baseMoment')), 'lattice-tower segmented base-moment drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:elevatedInterpolated.baseMoment')), 'fence/sign elevated base-moment drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:highPartialWall.pNeg')), 'wind C&C partial-enclosure negative-pressure drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:buildingCc.windward_corner.pDiff')), 'wind parapet corner pressure-difference drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:monoUnblockedSmallInterp.zone3.pNeg')), 'wind open-roof interpolated suction drift identifies the mismatched quantity');
