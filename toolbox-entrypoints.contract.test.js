@@ -860,6 +860,7 @@ assert.ok(pagesArtifactSmoke.includes('Stop-Process'), 'local Pages artifact smo
 assert.ok(pagesDeployWorkflow.includes('actions/configure-pages@v6'), 'Pages deploy workflow configures Pages');
 assert.ok(pagesDeployWorkflow.includes('actions/upload-artifact@v6'), 'Pages deploy workflow uploads artifact');
 assert.ok(pagesDeployWorkflow.includes('actions/deploy-pages@v5'), 'Pages deploy workflow deploys Pages');
+assert.ok(pagesDeployWorkflow.includes('timeout: 1200000'), 'Pages deploy workflow allows twenty minutes for a queued Pages deployment');
 assert.ok(pagesDeployWorkflow.includes('actions/checkout@v6'), 'Pages deploy workflow uses current checkout action');
 assert.ok(pagesDeployWorkflow.includes('actions: read'), 'Pages deploy workflow has actions read permission for deploy-pages v5');
 assert.ok(pagesDeployWorkflow.includes('pages: write'), 'Pages deploy workflow has pages write permission');

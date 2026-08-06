@@ -311,6 +311,7 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
 
 assert.ok(pagesWorkflow.includes('node "結構工具箱/tools/build-pages-artifact.js" --repo-root "." --site-root "_site"'), 'Pages workflow stages through the shared Git-inventory builder');
 assert.ok(pagesWorkflow.includes('fetch-depth: 2'), 'Pages workflow fetches the tested parent commit for release lineage verification');
+assert.ok(pagesWorkflow.includes('timeout: 1200000'), 'Pages workflow allows twenty minutes for a queued Pages deployment');
 assert.ok(pagesWorkflow.includes('- name: Verify tested release lineage') && pagesWorkflow.includes('verify-pages-release-lineage.js'), 'Pages workflow blocks staging until tested release lineage passes');
 assert.ok(pagesWorkflow.indexOf('- name: Verify tested release lineage') < pagesWorkflow.indexOf('- name: Stage static site'), 'Pages release lineage gate runs before artifact staging');
 assert.equal(pagesWorkflow.includes('rsync -a'), false, 'Pages workflow does not keep a second rsync exclusion policy');
