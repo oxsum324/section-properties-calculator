@@ -1,8 +1,8 @@
 {
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-08-06T17:20:59.298Z",
-  "runId": "20260807-005339",
+  "generatedAt": "2026-08-06T20:33:49.846Z",
+  "runId": "20260807-040608",
   "pass": true,
   "failureCount": 0,
   "badge": "頁面專用",
@@ -12,7 +12,7 @@
   "details": [
     "目前覆蓋 過渡工具 / 輔助查詢 入口：鋼梁舊案延續頁、鋼柱舊案延續頁、Kzt 地形係數、特殊修正 / 折減。",
     "正式計算書可讀文字抽檢：17 / 17 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 2 / 2。本項確認輸出可讀文字、頁面診斷明細排除，以及內部審閱／正式附件核可狀態。",
-    "正式放行實際交付物渲染佐證：31 / 31 個首頁正式工具已完成，涵蓋 8 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20260807-005339。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
+    "正式放行實際交付物渲染佐證：31 / 31 個首頁正式工具已完成，涵蓋 8 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20260807-040608。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
     "正式交付檔案完整性：正式 PDF 與渲染證據 60 / 60、RC PDF / PNG 成品 66 / 66、混合格式附件 13 / 13；合計 139 / 139。公開狀態只提供類別、數量與通過狀態，不公開檔名、逐檔雜湊或完整性集合。",
     "正式計算書結果鏈：風力／地震正式工具 14 / 14 已先完成 golden case 精確結果重算，再以同一計算狀態的指紋產生正式附件。公開狀態只顯示完成數，不公開案例輸入、預期數值、案例雜湊或計算指紋。",
     "RC 正式計算書結果鏈：梁、柱、板、牆、剪力牆、基礎、單樁與梁／柱補強共 34 / 34 組瀏覽器回歸案例已完成來源資料重現，再核對 PDF 與正式 HTML 的同一計算指紋。公開狀態只顯示完成數，不公開案例資料、來源快照雜湊或計算指紋。",
@@ -33,12 +33,12 @@
     "可讀文字抽檢範圍：正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具 14 項、局部快算 3 項。矩陣外工具家族仍以各自報告合約治理。",
     "首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。",
     "正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。",
-    "獨立工程基準：試辦 27 / 27；正式工具整體 27 / 31。其餘工具目前只宣稱既有重播、結果鏈或家族治理證據，不宣稱已完成獨立工程驗證。"
+    "獨立工程基準：試辦 28 / 28；正式工具整體 28 / 31。其餘工具目前只宣稱既有重播、結果鏈或家族治理證據，不宣稱已完成獨立工程驗證。"
   ],
   "independentBenchmarkEligible": 31,
-  "independentBenchmarkVerified": 27,
-  "independentBenchmarkPilotRequired": 27,
-  "independentBenchmarkPilotVerified": 27,
+  "independentBenchmarkVerified": 28,
+  "independentBenchmarkPilotRequired": 28,
+  "independentBenchmarkPilotVerified": 28,
   "independentBenchmarkIssueCount": 0,
   "independentBenchmarkPass": true,
   "pageOnlyBoundaryRequired": 4,
@@ -50,7 +50,7 @@
   "reportTextSmokeEvidenceRequired": 2,
   "reportTextSmokeEvidenceComplete": 2,
   "reportTextSmokeEvidenceIssueCount": 0,
-  "reportTextSmokeEvidenceRunId": "20260807-005339",
+  "reportTextSmokeEvidenceRunId": "20260807-040608",
   "reportTextSmokeEvidenceGates": [
     {
       "key": "formal-browser-smoke",
@@ -61,7 +61,7 @@
       "complete": 14,
       "pass": true,
       "reused": false,
-      "seconds": 102.8
+      "seconds": 97.2
     },
     {
       "key": "local-quick-tools-runner",
@@ -72,7 +72,7 @@
       "complete": 3,
       "pass": true,
       "reused": false,
-      "seconds": 56.3
+      "seconds": 53.4
     }
   ],
   "reportTextSmokeEvidenceUnmappedFamilies": [],
@@ -80,7 +80,7 @@
   "renderedDeliveryEvidenceRequired": 31,
   "renderedDeliveryEvidenceComplete": 31,
   "renderedDeliveryEvidenceIssueCount": 0,
-  "renderedDeliveryEvidenceRunId": "20260807-005339",
+  "renderedDeliveryEvidenceRunId": "20260807-040608",
   "renderedDeliveryEvidenceFamilies": [
     {
       "family": "anchor-formal",
@@ -116,8 +116,8 @@
     }
   ],
   "renderedDeliveryEvidenceSummary": "最新正式放行實際交付物渲染：首頁正式工具 31 / 31；補充報告 / 服務成品 2 / 2。",
-  "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260807-005339/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
-  "renderedDeliveryEvidenceSourceHash": "9c922ed2e5828bf19869dcf9ad7ee6dd6b5b30300d75b7c8c8ff5a9b4e5d47f4",
+  "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260807-040608/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
+  "renderedDeliveryEvidenceSourceHash": "d2741f731e7988f4d7d27f5444e7506a9a6ed7150f03ba1640832bd165a0afa0",
   "deliveryFileIntegrityRequired": 139,
   "deliveryFileIntegrityVerified": 139,
   "deliveryFileIntegrityIssueCount": 0,
@@ -348,6 +348,6 @@
     }
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
-  "preflightStatusSourcePath": "output/preflight/history/20260807-005339/preflight-summary.json",
-  "sourceHash": "076efeaedd273005d2cc179a8ab848291a53cdc0a756756f13c9df588dc0952d"
+  "preflightStatusSourcePath": "output/preflight/history/20260807-040608/preflight-summary.json",
+  "sourceHash": "0664dcd06964afb121509f11925c0f4a5fc3dc1d3879c1fed76b0afb4afbd6dd"
 }
