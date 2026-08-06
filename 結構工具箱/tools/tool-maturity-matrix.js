@@ -2648,9 +2648,9 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(markdown.includes('rendered-delivery-evidence'), 'tool maturity matrix markdown exposes rendered delivery evidence gate');
   assert.ok(payload.independentBenchmarkCoverage && typeof payload.independentBenchmarkCoverage === 'object', 'tool maturity matrix independent benchmark coverage object');
   assert.equal(payload.independentBenchmarkCoverage.status, 'ready', 'tool maturity matrix independent benchmark pilot ready');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 26, 'tool maturity matrix independent benchmark pilot verified');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 26, 'tool maturity matrix independent benchmark pilot required');
-  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 26, 'tool maturity matrix independent benchmark verified route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 27, 'tool maturity matrix independent benchmark pilot verified');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 27, 'tool maturity matrix independent benchmark pilot required');
+  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 27, 'tool maturity matrix independent benchmark verified route count');
   assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 31, 'tool maturity matrix independent benchmark eligible route count');
   assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, payload.entrypointCoverage.byState.formal, 'tool maturity matrix independent benchmark portfolio matches formal homepage entry count');
   assert.equal(payload.independentBenchmarkCoverage.summary.issueCount, 0, 'tool maturity matrix independent benchmark issues empty');

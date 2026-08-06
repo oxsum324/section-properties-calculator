@@ -370,6 +370,226 @@ function rcShearWallStrengthOracle(i) {
   };
 }
 
+function rcWallStrengthOracle(input) {
+  const bool = value => value ? 1 : 0;
+  const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
+  const hmin = item => {
+    if (item.wallType === 'bearing') return Math.max(10, Math.min(item.lc, item.lw) / 25);
+    if (item.wallType === 'nonbearing') return Math.max(10, Math.min(item.lc, item.lw) / 30);
+    if (item.wallType === 'basement') return 20;
+    return Math.max(10, item.lc / 25, item.lw / 25);
+  };
+  const alphaC = ratio => ratio <= 1.5 ? 0.8 : ratio >= 2 ? 0.53 : 0.8 + (0.53 - 0.8) * (ratio - 1.5) / 0.5;
+
+  const pmEnvelope = item => {
+    const edgeOffset = item.cover + item.hBarDb + item.vBarDb / 2;
+    const usableLength = item.lw - 2 * edgeOffset;
+    const intervals = Math.max(1, Math.ceil(usableLength / item.vSp));
+    const actualSpacing = usableLength / intervals;
+    const distributedRows = intervals + 1;
+    const bars = Array.from({ length:distributedRows }, (_, index) => ({
+      y:edgeOffset + actualSpacing * index,
+      As:item.layers * item.vBarArea,
+    }));
+    const boundaryEnabled = item.boundaryBarCountEach > 0;
+    const boundaryEdgeOffset = boundaryEnabled ? item.cover + item.hBarDb + item.boundaryBarDb / 2 : 0;
+    if (boundaryEnabled) {
+      bars.push({ y:boundaryEdgeOffset, As:item.boundaryBarCountEach * item.boundaryBarArea });
+      bars.push({ y:item.lw - boundaryEdgeOffset, As:item.boundaryBarCountEach * item.boundaryBarArea });
+      bars.sort((a, b) => a.y - b.y);
+    }
+    const AstDistributed = distributedRows * item.layers * item.vBarArea;
+    const AstBoundary = item.boundaryBarCountEach * 2 * item.boundaryBarArea;
+    const Ast = AstDistributed + AstBoundary;
+    const Ag = item.h * item.lw;
+    const beta1 = item.fc <= 280 ? 0.85 : item.fc >= 560 ? 0.65 : 0.85 - 0.05 * (item.fc - 280) / 70;
+    const Po = (0.85 * item.fc * (Ag - Ast) + item.fy * Ast) / 1000;
+    const phiPnMax = 0.65 * 0.8 * Po;
+    const dt = Math.max(...bars.map(bar => bar.y));
+    const nominal = [{ P:Po, M:0, phi:0.65, c:5 * item.lw }];
+    for (let step = 0; step < item.pmSteps; step += 1) {
+      const cRatio = 5 - (5 - 0.02) * step / (item.pmSteps - 1);
+      const c = cRatio * item.lw;
+      const a = Math.min(beta1 * c, item.lw);
+      const Cc = 0.85 * item.fc * item.h * a;
+      let Pn = Cc;
+      let Mn = Cc * (item.lw / 2 - a / 2);
+      for (const bar of bars) {
+        const strain = 0.003 * (c - bar.y) / c;
+        const stress = clamp(strain * 2.04e6, -item.fy, item.fy);
+        const force = bar.y < a ? (stress - 0.85 * item.fc) * bar.As : stress * bar.As;
+        Pn += force;
+        Mn += force * (item.lw / 2 - bar.y);
+      }
+      const epsT = 0.003 * (dt - c) / c;
+      const phi = epsT >= 0.005 ? 0.9 : epsT <= 0.002 ? 0.65 : 0.65 + 0.25 * (epsT - 0.002) / 0.003;
+      nominal.push({ P:Pn / 1000, M:Math.abs(Mn) / 1e5, phi, c });
+    }
+    nominal.push({ P:-Ast * item.fy / 1000, M:0, phi:0.9, c:0 });
+    const design = nominal.map(point => ({
+      P:point.P > 0 ? Math.min(point.phi * point.P, phiPnMax) : point.phi * point.P,
+      M:point.phi * point.M,
+    }));
+    const pMin = Math.min(...design.map(point => point.P));
+    const pMax = Math.max(...design.map(point => point.P));
+    const moment = item.M == null ? item.P * item.e / 100 : item.M;
+    let phiMn = 0;
+    for (let index = 0; index < design.length - 1; index += 1) {
+      const A = design[index];
+      const B = design[index + 1];
+      if ((A.P - item.P) * (B.P - item.P) <= 0 && A.P !== B.P) {
+        const fraction = (item.P - A.P) / (B.P - A.P);
+        phiMn = Math.max(phiMn, A.M + fraction * (B.M - A.M));
+      }
+    }
+    const axialOk = item.P >= pMin - 1e-9 && item.P <= pMax + 1e-9;
+    const utilization = phiMn > 0 ? Math.abs(moment) / phiMn : Math.abs(moment) > 0 ? Infinity : 0;
+    return {
+      moment, evaluated:axialOk && Number.isFinite(utilization), axialOut:!axialOk,
+      ok:axialOk && Math.abs(moment) <= phiMn + 1e-9,
+      phiMn, utilization, pMin, pMax, Po, phiPnMax,
+      distributedRows, distributedBars:distributedRows * item.layers,
+      boundaryBars:item.boundaryBarCountEach * 2,
+      AstDistributed, AstBoundary, Ast,
+      edgeOffset, boundaryEdgeOffset,
+      throughThicknessOffset:item.cover + item.hBarDb + Math.max(item.vBarDb, boundaryEnabled ? item.boundaryBarDb : 0) / 2,
+      actualSpacing,
+    };
+  };
+
+  return Object.fromEntries(input.cases.map(item => {
+    const isShearWall = item.seismic || item.wallType === 'shear';
+    const minimumThickness = hmin(item);
+    const hwlw = item.hw / item.lw;
+    const hwlwPier = hwlw;
+    const lwbw = item.lw / item.h;
+    const wallPier = hwlwPier >= 2 && lwbw <= 2.5;
+    const rhol = item.layers * item.vBarArea / (item.h * item.vSp);
+    const rhot = item.layers * item.hBarArea / (item.h * item.hSp);
+    const Ag = item.h * item.lw;
+    const eLimit = item.h / 6;
+    const eOk = Math.abs(item.e) <= eLimit + 1e-9;
+    const Pn = 0.55 * item.fc * Ag * (1 - (item.k * item.lc / (32 * item.h)) ** 2);
+    const phiPn = eOk && Pn > 0 ? 0.65 * Pn : 0;
+    const ac = alphaC(hwlw);
+    const Vn = Ag * (ac * item.lambda * Math.sqrt(item.fc) + rhot * item.fy);
+    const phiVn = 0.75 * Vn;
+    const VnLimit = 2.65 * Math.sqrt(item.fc) * Ag;
+    const effectiveShearCapacity = isShearWall ? Math.min(phiVn, VnLimit) : phiVn;
+    const shearDemand = Math.abs(item.V) * 1000;
+    const shearUtilization = shearDemand / phiVn;
+    const shearLimitUtilization = isShearWall ? shearDemand / VnLimit : 0;
+    const shearControlUtilization = Math.max(shearUtilization, shearLimitUtilization);
+    const axialUtilization = item.P > 1e-9 && phiPn > 0 ? item.P * 1000 / phiPn : 0;
+    const simpleTensionFailClosed = item.P < -1e-9;
+    const simpleEccentricityFailClosed = item.P > 1e-9 && (!eOk || !(phiPn > 0));
+    const simpleEvaluated = !simpleTensionFailClosed && !simpleEccentricityFailClosed;
+    const simpleOk = simpleEvaluated && Math.max(axialUtilization, shearControlUtilization) <= 1;
+    const needTwoLayer = shearDemand > 0.5 * 0.75 * ac * item.lambda * Math.sqrt(item.fc) * Ag || hwlw >= 2;
+    const rholMin = isShearWall ? 0.0025 : 0.0012;
+    const rhotMin = isShearWall || needTwoLayer ? 0.0025 : 0.0020;
+    const spacingGeneral = Math.min(3 * item.h, 45);
+    const spacingVertical = item.lw / 3;
+    const spacingHorizontal = item.lw / 5;
+    const vSpacingOk = item.vSp <= spacingGeneral && (!isShearWall || item.vSp <= spacingVertical);
+    const hSpacingOk = item.hSp <= spacingGeneral && (!isShearWall || item.hSp <= spacingHorizontal);
+    const pm = pmEnvelope(item);
+
+    let basement = { route:0, cantilever:0, simple:0, triCoef:0, uniCoef:0, pa:0, ps:0, pw:0, Mtri:0, Muni:0, Mw:0, Mu:0 };
+    if (item.basement) {
+      const isCantilever = item.basement.support === 'cantilever';
+      const triCoef = isCantilever ? 1 / 6 : 0.0641;
+      const uniCoef = isCantilever ? 1 / 2 : 1 / 8;
+      const pa = item.basement.Ka * item.basement.gamma * item.basement.H;
+      const ps = item.basement.Ka * item.basement.surcharge;
+      const pw = item.basement.gammaWater * item.basement.waterHeight;
+      const Mtri = triCoef * pa * item.basement.H ** 2;
+      const Muni = uniCoef * ps * item.basement.H ** 2;
+      const Mw = triCoef * pw * item.basement.waterHeight ** 2;
+      basement = { route:1, cantilever:bool(isCantilever), simple:bool(!isCantilever), triCoef, uniCoef, pa, ps, pw, Mtri, Muni, Mw, Mu:1.6 * (Mtri + Muni + Mw) };
+    }
+
+    return [item.id, {
+      bearingRoute:bool(item.wallType === 'bearing'),
+      nonbearingRoute:bool(item.wallType === 'nonbearing'),
+      basementRoute:basement.route,
+      shearRoute:bool(isShearWall),
+      basementCantileverRoute:basement.cantilever,
+      basementSimpleRoute:basement.simple,
+      hmin:minimumThickness,
+      thicknessOk:bool(item.h >= minimumThickness),
+      hwlwPier,
+      lwbw,
+      wallPier:bool(wallPier),
+      fcLimitOk:bool(!isShearWall || item.fc <= 350),
+      rhol,
+      rhot,
+      needTwoLayer:bool(needTwoLayer),
+      layersOk:bool(!needTwoLayer || item.layers >= 2),
+      rholMin,
+      rhotMin,
+      rholOk:bool(rhol >= rholMin),
+      rhotOk:bool(rhot >= rhotMin),
+      spacingGeneral,
+      spacingVertical,
+      spacingHorizontal,
+      vSpacingOk:bool(vSpacingOk),
+      hSpacingOk:bool(hSpacingOk),
+      eLimit,
+      eOk:bool(eOk),
+      Ag,
+      Pn,
+      phiPn,
+      hwlw,
+      alphaC:ac,
+      Vn,
+      phiVn,
+      VnLimit,
+      effectiveShearCapacity,
+      simpleEvaluated:bool(simpleEvaluated),
+      simpleTensionFailClosed:bool(simpleTensionFailClosed),
+      simpleEccentricityFailClosed:bool(simpleEccentricityFailClosed),
+      simpleOk:bool(simpleOk),
+      axialUtilization,
+      shearUtilization,
+      shearLimitUtilization,
+      shearControlUtilization,
+      moment:pm.moment,
+      pmEvaluated:bool(pm.evaluated),
+      pmAxialOut:bool(pm.axialOut),
+      pmOk:bool(pm.ok),
+      pmPhiMn:pm.phiMn,
+      pmUtilization:Number.isFinite(pm.utilization) ? pm.utilization : 0,
+      pmPMin:pm.pMin,
+      pmPMax:pm.pMax,
+      pmPo:pm.Po,
+      pmPhiPnMax:pm.phiPnMax,
+      pmDistributedRows:pm.distributedRows,
+      pmDistributedBars:pm.distributedBars,
+      pmBoundaryBars:pm.boundaryBars,
+      pmAstDistributed:pm.AstDistributed,
+      pmAstBoundary:pm.AstBoundary,
+      pmAst:pm.Ast,
+      pmEdgeOffset:pm.edgeOffset,
+      pmBoundaryEdgeOffset:pm.boundaryEdgeOffset,
+      pmThroughThicknessOffset:pm.throughThicknessOffset,
+      pmActualSpacing:pm.actualSpacing,
+      basementTriCoef:basement.triCoef,
+      basementUniCoef:basement.uniCoef,
+      basementPa:basement.pa,
+      basementPs:basement.ps,
+      basementPw:basement.pw,
+      basementMtri:basement.Mtri,
+      basementMuni:basement.Muni,
+      basementMw:basement.Mw,
+      basementMu:basement.Mu,
+      coreChecksOk:bool(item.h >= minimumThickness && !wallPier && pm.ok
+        && phiVn >= shearDemand && rhol >= rholMin && rhot >= rhotMin
+        && (!needTwoLayer || item.layers >= 2)),
+    }];
+  }));
+}
+
 function rcFoundationOracle(i) {
   const dX = i.hf - i.cover - i.dbX;
   const dY = i.hf - i.cover - i.dbY;
@@ -2126,6 +2346,7 @@ const ORACLES = {
   'rc-column-balanced-nearby-pm-point': rcColumnPmOracle,
   'rc-beam-seismic-strength': rcBeamStrengthOracle,
   'rc-shear-wall-seismic-strength': rcShearWallStrengthOracle,
+  'rc-wall-general-strength': rcWallStrengthOracle,
   'rc-foundation-isolated-strength': rcFoundationOracle,
   'rc-pile-clay-group-cap': rcPileOracle,
   'steel-beam-asd-inelastic-ltb': steelBeamAsdOracle,
