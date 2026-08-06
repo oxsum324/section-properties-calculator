@@ -74,6 +74,12 @@ assert.ok(windLatticeTowerAdapterSource.includes("../風力/wind-lattice-tower.h
 assert.ok(windLatticeTowerAdapterSource.includes('W.calcLatticeTowerWind({ V, terrain, I, zBase, height, faceWidth, solidity: phi, segments, Kzt, towerShape, memberShape, skewWind })'), 'wind lattice-tower adapter locks the formal Table 2.15 core call');
 assert.ok(windLatticeTowerAdapterSource.includes('const topRow = raw.body.rows[raw.body.rows.length - 1];'), 'wind lattice-tower adapter locks the formal top-segment selection');
 assert.ok(!windLatticeTowerAdapterSource.includes('golden'), 'wind lattice-tower adapter does not replay a golden-case fixture');
+const windObjectTowerAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'wind-object-tower.js'), 'utf8');
+assert.ok(windObjectTowerAdapterSource.includes("../../core/loads/wind.js"), 'wind object-tower adapter exercises the production wind core');
+assert.ok(windObjectTowerAdapterSource.includes("../風力/wind-object-tower.html"), 'wind object-tower adapter guards the formal page calculation wiring');
+assert.ok(windObjectTowerAdapterSource.includes('W.calcTowerWind({ V, terrain, I, zBase, height, D, segments, Kzt, sectionType, shapeFactor, topArea, topAreaCf: topCf })'), 'wind object-tower adapter locks the formal Table 2.12 core call');
+assert.ok(windObjectTowerAdapterSource.includes('const topRow = raw.body.rows[raw.body.rows.length - 1];'), 'wind object-tower adapter locks the formal top-segment selection');
+assert.ok(!windObjectTowerAdapterSource.includes('golden'), 'wind object-tower adapter does not replay a golden-case fixture');
 const windCcAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'wind-cc.js'), 'utf8');
 assert.ok(windCcAdapterSource.includes("../../core/loads/wind.js"), 'wind C&C adapter exercises the production wind core');
 assert.ok(windCcAdapterSource.includes("../風力/wind-cc.html"), 'wind C&C adapter guards the formal page calculation wiring');
@@ -114,9 +120,9 @@ assert.ok(anchorBackupSource.includes("import { evaluateProjectBatch } from './c
 const result = runBenchmarks(catalog);
 assert.equal(result.status, 'ready', JSON.stringify(result.issues));
 assert.equal(result.summary.eligibleFormalRoutes, 31, 'formal route portfolio is explicit');
-assert.equal(result.summary.pilotRequired, 23, 'twenty-three independent pilot benchmarks required');
-assert.equal(result.summary.pilotVerified, 23, 'twenty-three independent pilot benchmarks verified');
-assert.equal(result.summary.independentlyVerifiedRoutes, 23, 'twenty-three distinct routes independently verified');
+assert.equal(result.summary.pilotRequired, 24, 'twenty-four independent pilot benchmarks required');
+assert.equal(result.summary.pilotVerified, 24, 'twenty-four independent pilot benchmarks verified');
+assert.equal(result.summary.independentlyVerifiedRoutes, 24, 'twenty-four distinct routes independently verified');
 assert.equal(result.summary.priorityTargets, 0, 'no priority route remains in the independent benchmark roadmap');
 assert.equal(result.priorityTargets.some(target => target.priority === 'P0'), false, 'no P0 route remains in the independent benchmark roadmap');
 assert.equal(result.summary.issueCount, 0, 'independent pilot has no issues');
@@ -147,6 +153,7 @@ const falsePositiveResult = runBenchmarks(catalog, {
         if (relativePath === 'independent-engineering-adapters/wind-object-solid-table210.js') production.nuControl.torsion += 5;
         if (relativePath === 'independent-engineering-adapters/wind-object-frame.js') production.circularHighBand.force += 5;
         if (relativePath === 'independent-engineering-adapters/wind-lattice-tower.js') production.squareLinearCircularSkew.baseMoment += 5;
+        if (relativePath === 'independent-engineering-adapters/wind-object-tower.js') production.circularAutoHighSpecifiedTop.baseMoment += 5;
         if (relativePath === 'independent-engineering-adapters/wind-cc.js') production.highPartialWall.pNeg += 5;
         if (relativePath === 'independent-engineering-adapters/wind-parapet.js') production.buildingCc.windward_corner.pDiff += 5;
         if (relativePath === 'independent-engineering-adapters/wind-open-roof.js') production.monoUnblockedSmallInterp.zone3.pNeg += 5;

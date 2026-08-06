@@ -1015,6 +1015,106 @@ function windLatticeTowerFourBranchOracle(input) {
   }));
 }
 
+function windObjectTowerTable212Oracle(input) {
+  const terrain = {
+    A:{ alpha:0.32, zg:500, c:0.45, ell:55, eps:0.50, zmin:18 },
+    B:{ alpha:0.25, zg:400, c:0.30, ell:98, eps:0.33, zmin:9 },
+    C:{ alpha:0.15, zg:300, c:0.20, ell:152, eps:0.20, zmin:4.5 },
+  };
+  const tables = {
+    square_face:[[1,1.3],[7,1.4],[25,2.0]],
+    square_diagonal:[[1,1.0],[7,1.1],[25,1.5]],
+    hex_oct:[[1,1.0],[7,1.2],[25,1.4]],
+    circular_low_qd:[[1,0.7],[7,0.8],[25,1.2]],
+    circular_moderate:[[1,0.5],[7,0.6],[25,0.7]],
+    circular_rough:[[1,0.7],[7,0.8],[25,0.9]],
+    circular_very_rough:[[1,0.8],[7,1.0],[25,1.2]],
+  };
+  const kzAt = (z, t) => 2.774 * Math.pow(Math.max(z, t.zmin) / t.zg, 2 * t.alpha);
+  const interpolate = (points, value) => {
+    const x = Math.max(points[0][0], Math.min(value, points[points.length - 1][0]));
+    let low = points[0];
+    let high = points[points.length - 1];
+    for (let index = 0; index < points.length - 1; index += 1) {
+      if (x >= points[index][0] && x <= points[index + 1][0]) {
+        low = points[index];
+        high = points[index + 1];
+        break;
+      }
+    }
+    const fraction = high[0] === low[0] ? 0 : (x - low[0]) / (high[0] - low[0]);
+    return { x, low, high, value:low[1] + fraction * (high[1] - low[1]) };
+  };
+  return Object.fromEntries(input.cases.map(i => {
+    const t = terrain[i.terrain];
+    const topZ = i.zBase + i.height;
+    const topKz = kzAt(topZ, t);
+    const qTop = 0.06 * topKz * i.Kzt * i.I ** 2 * i.V ** 2;
+    const dSqrtQz = i.D * Math.sqrt(qTop);
+    const resolved = i.sectionType === 'circular_auto'
+      ? (dSqrtQz <= 1.70 ? 'circular_low_qd' : 'circular_moderate')
+      : i.sectionType;
+    const hOverDActual = i.height / i.D;
+    const cf = interpolate(tables[resolved], hOverDActual);
+    const CfEff = cf.value * i.shapeFactor;
+    const segments = Math.max(1, Math.round(i.segments));
+    const segmentHeight = i.height / segments;
+    const gustHeight = Math.max(topZ, segmentHeight);
+    const gustWidth = Math.max(i.D, 1);
+    const gustZBar = Math.max(0.6 * gustHeight, t.zmin);
+    const gustIz = t.c * Math.pow(10 / gustZBar, 1 / 6);
+    const gustLz = t.ell * Math.pow(gustZBar / 10, t.eps);
+    const gustQ2 = 1 / (1 + 0.63 * Math.pow((gustWidth + gustHeight) / gustLz, 0.63));
+    const gustQ = Math.sqrt(gustQ2);
+    const G = 1.927 * (1 + 1.7 * 3.4 * gustIz * gustQ) / (1 + 1.7 * 3.4 * gustIz);
+    const segmentArea = i.D * segmentHeight;
+    const rows = Array.from({ length:segments }, (_, index) => {
+      const zMid = i.zBase + index * segmentHeight + segmentHeight / 2;
+      const Kz = kzAt(zMid, t);
+      const qz = 0.06 * Kz * i.Kzt * i.I ** 2 * i.V ** 2;
+      const force = qz * G * CfEff * segmentArea;
+      return { zMid, Kz, qz, area:segmentArea, force, moment:force * zMid };
+    });
+    const first = rows[0];
+    const topRow = rows[rows.length - 1];
+    const bodyBaseShear = rows.reduce((sum, row) => sum + row.force, 0);
+    const bodyBaseMoment = rows.reduce((sum, row) => sum + row.moment, 0);
+    const topPresent = i.topArea > 0;
+    const topBaseCf = topPresent ? (i.topAreaCf == null ? cf.value : i.topAreaCf) : 0;
+    const topCfEff = topBaseCf * i.shapeFactor;
+    const topForce = topPresent ? qTop * G * topCfEff * i.topArea : 0;
+    const topMoment = topForce * topZ;
+    const baseShear = bodyBaseShear + topForce;
+    const baseMoment = bodyBaseMoment + topMoment;
+    return [i.id, {
+      squareFaceRoute:resolved === 'square_face' ? 1 : 0,
+      squareDiagonalRoute:resolved === 'square_diagonal' ? 1 : 0,
+      hexOctRoute:resolved === 'hex_oct' ? 1 : 0,
+      circularAutoLowRoute:i.sectionType === 'circular_auto' && resolved === 'circular_low_qd' ? 1 : 0,
+      circularAutoHighRoute:i.sectionType === 'circular_auto' && resolved === 'circular_moderate' ? 1 : 0,
+      explicitCircularRoute:i.sectionType.startsWith('circular_') && i.sectionType !== 'circular_auto' ? 1 : 0,
+      hOverDActual, hOverDUsed:cf.x,
+      clampedLowRatio:hOverDActual < 1 ? 1 : 0,
+      clampedHighRatio:hOverDActual > 25 ? 1 : 0,
+      lowRatio:cf.low[0], highRatio:cf.high[0],
+      baseCf:cf.value, shapeFactor:i.shapeFactor, CfEff,
+      qTop, dSqrtQz,
+      segments, segmentHeight, totalArea:i.D * i.height,
+      G, gustZBar, gustIz, gustLz, gustQ2, gustQ,
+      firstZMid:first.zMid, firstKz:first.Kz, firstQz:first.qz, firstArea:first.area, firstForce:first.force,
+      topZMid:topRow.zMid, topKz:topRow.Kz, topQz:topRow.qz, topSegmentForce:topRow.force,
+      bodyBaseShear, sumBodyForce:bodyBaseShear,
+      bodyBaseMoment, sumBodyMoment:bodyBaseMoment,
+      topPresent:topPresent ? 1 : 0,
+      topInheritedCf:topPresent && i.topAreaCf == null ? 1 : 0,
+      topSpecifiedCf:topPresent && i.topAreaCf != null ? 1 : 0,
+      topBaseCf, topCfEff, topForce, topMoment,
+      baseShear, baseMoment,
+      resultantHeight:baseShear > 0 ? baseMoment / baseShear : 0,
+    }];
+  }));
+}
+
 function seismicForceStaticOracle(i) {
   const faX = [0.5, 0.6, 0.7, 0.8, 0.9];
   const fvX = [0.30, 0.35, 0.40, 0.45, 0.50];
@@ -1832,6 +1932,7 @@ const ORACLES = {
   'wind-object-solid-table-2-10': windObjectSolidTable210Oracle,
   'wind-object-frame-three-table-routes': windObjectFrameThreeRouteOracle,
   'wind-lattice-tower-four-table-branches': windLatticeTowerFourBranchOracle,
+  'wind-object-tower-table-2-12': windObjectTowerTable212Oracle,
   'wind-cc-three-control-branches': windCcThreeBranchOracle,
   'wind-parapet-three-design-routes': windParapetThreeRouteOracle,
   'wind-open-roof-four-combinations': windOpenRoofFourCombinationOracle,
