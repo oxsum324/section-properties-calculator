@@ -61,6 +61,13 @@ assert.ok(windObjectSolidAdapterSource.includes("../風力/wind-object-solid.htm
 assert.ok(windObjectSolidAdapterSource.includes('W.lookupSignCf({ atGround: true, aspectRatio: nu })'), 'solid-object adapter preserves the nu Table 2.10 route');
 assert.ok(windObjectSolidAdapterSource.includes('W.lookupSignCf({ atGround: false, aspectRatio: mnRatio })'), 'solid-object adapter preserves the M/N Table 2.10 route');
 assert.ok(!windObjectSolidAdapterSource.includes('golden'), 'solid-object adapter does not replay a golden-case fixture');
+const windObjectFrameAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'wind-object-frame.js'), 'utf8');
+assert.ok(windObjectFrameAdapterSource.includes("../../core/loads/wind.js"), 'wind-object frame adapter exercises the production wind core');
+assert.ok(windObjectFrameAdapterSource.includes("../風力/wind-object-frame.html"), 'wind-object frame adapter guards the formal page calculation wiring');
+assert.ok(windObjectFrameAdapterSource.includes('W.lookupPorousFrameCf({ solidity: phi, memberType, dSqrtQz })'), 'wind-object frame adapter locks the formal Table 2.11 route');
+assert.ok(windObjectFrameAdapterSource.includes('W.calcGustRigid(z, Math.max(Math.sqrt(A), 1), terrain)'), 'wind-object frame adapter locks the formal equivalent-width gust route');
+assert.ok(windObjectFrameAdapterSource.includes('const force = q.qz * G * cfData.cf * A;'), 'wind-object frame adapter locks the formal force equation');
+assert.ok(!windObjectFrameAdapterSource.includes('golden'), 'wind-object frame adapter does not replay a golden-case fixture');
 const windCcAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'wind-cc.js'), 'utf8');
 assert.ok(windCcAdapterSource.includes("../../core/loads/wind.js"), 'wind C&C adapter exercises the production wind core');
 assert.ok(windCcAdapterSource.includes("../風力/wind-cc.html"), 'wind C&C adapter guards the formal page calculation wiring');
@@ -101,9 +108,9 @@ assert.ok(anchorBackupSource.includes("import { evaluateProjectBatch } from './c
 const result = runBenchmarks(catalog);
 assert.equal(result.status, 'ready', JSON.stringify(result.issues));
 assert.equal(result.summary.eligibleFormalRoutes, 31, 'formal route portfolio is explicit');
-assert.equal(result.summary.pilotRequired, 21, 'twenty-one independent pilot benchmarks required');
-assert.equal(result.summary.pilotVerified, 21, 'twenty-one independent pilot benchmarks verified');
-assert.equal(result.summary.independentlyVerifiedRoutes, 21, 'twenty-one distinct routes independently verified');
+assert.equal(result.summary.pilotRequired, 22, 'twenty-two independent pilot benchmarks required');
+assert.equal(result.summary.pilotVerified, 22, 'twenty-two independent pilot benchmarks verified');
+assert.equal(result.summary.independentlyVerifiedRoutes, 22, 'twenty-two distinct routes independently verified');
 assert.equal(result.summary.priorityTargets, 0, 'no priority route remains in the independent benchmark roadmap');
 assert.equal(result.priorityTargets.some(target => target.priority === 'P0'), false, 'no P0 route remains in the independent benchmark roadmap');
 assert.equal(result.summary.issueCount, 0, 'independent pilot has no issues');
@@ -132,6 +139,7 @@ const falsePositiveResult = runBenchmarks(catalog, {
         if (relativePath === 'independent-engineering-adapters/rc-slab-strength.js') production.endSpan.phiVc += 0.5;
         if (relativePath === 'independent-engineering-adapters/wind-force-mwfrs.js') production.xVb += 250;
         if (relativePath === 'independent-engineering-adapters/wind-object-solid-table210.js') production.nuControl.torsion += 5;
+        if (relativePath === 'independent-engineering-adapters/wind-object-frame.js') production.circularHighBand.force += 5;
         if (relativePath === 'independent-engineering-adapters/wind-cc.js') production.highPartialWall.pNeg += 5;
         if (relativePath === 'independent-engineering-adapters/wind-parapet.js') production.buildingCc.windward_corner.pDiff += 5;
         if (relativePath === 'independent-engineering-adapters/wind-open-roof.js') production.monoUnblockedSmallInterp.zone3.pNeg += 5;
@@ -157,6 +165,7 @@ assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-val
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:endSpan.phiVc')), 'RC slab one-way shear drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:xVb')), 'wind-force base-shear drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:nuControl.torsion')), 'solid-object skew-wind torsion drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:circularHighBand.force')), 'porous-frame high-D√q(z) force drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:highPartialWall.pNeg')), 'wind C&C partial-enclosure negative-pressure drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:buildingCc.windward_corner.pDiff')), 'wind parapet corner pressure-difference drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:monoUnblockedSmallInterp.zone3.pNeg')), 'wind open-roof interpolated suction drift identifies the mismatched quantity');

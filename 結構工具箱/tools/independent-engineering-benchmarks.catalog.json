@@ -964,6 +964,57 @@
       ]
     },
     {
+      "id": "wind-object-frame-three-table-routes",
+      "route": "/wind-object-frame",
+      "title": "中空式／格子式表 2.11 三條構材路線",
+      "productionModule": "independent-engineering-adapters/wind-object-frame.js",
+      "oracle": "wind-object-frame-three-table-routes",
+      "referenceType": "closed-form-identity",
+      "referenceBasis": "107 年版耐風規範式 2.6、2.7、2.9 與表 2.11；獨立核對圓形構材 D√q(z)≤1.70、圓形構材 D√q(z)>1.70、平邊構材三條 C_f 路線，涵蓋低／中／高實體率帶、地況最低高度、等效寬度 max(√A,1)、設計風力、底部剪力與彎矩。",
+      "input": {
+        "cases": [
+          {"id":"circularLowBand","V":37.5,"terrain":"A","I":1,"Kzt":1,"z":5,"A":0.64,"phi":0.05,"D":0.08,"memberType":"circular"},
+          {"id":"circularHighBand","V":42.5,"terrain":"C","I":1.1,"Kzt":1.05,"z":15,"A":9,"phi":0.2,"D":0.35,"memberType":"circular"},
+          {"id":"flatHighBand","V":45,"terrain":"B","I":0.95,"Kzt":1.08,"z":25,"A":16,"phi":0.5,"D":0,"memberType":"flat"}
+        ]
+      },
+      "assertions": [
+        { "path": "circularLowBand.zUse", "absTolerance": 0 }, { "path": "circularLowBand.Kz", "absTolerance": 1e-10 },
+        { "path": "circularLowBand.qz", "absTolerance": 1e-10 }, { "path": "circularLowBand.equivalentWidth", "absTolerance": 0 },
+        { "path": "circularLowBand.gustZBar", "absTolerance": 0 }, { "path": "circularLowBand.gustIz", "absTolerance": 1e-10 },
+        { "path": "circularLowBand.gustLz", "absTolerance": 1e-10 }, { "path": "circularLowBand.gustQ2", "absTolerance": 1e-10 },
+        { "path": "circularLowBand.gustQ", "absTolerance": 1e-10 }, { "path": "circularLowBand.G", "absTolerance": 1e-10 },
+        { "path": "circularLowBand.dSqrtQz", "absTolerance": 1e-10 }, { "path": "circularLowBand.circularLowRoute", "absTolerance": 0 },
+        { "path": "circularLowBand.circularHighRoute", "absTolerance": 0 }, { "path": "circularLowBand.flatRoute", "absTolerance": 0 },
+        { "path": "circularLowBand.lowBand", "absTolerance": 0 }, { "path": "circularLowBand.mediumBand", "absTolerance": 0 },
+        { "path": "circularLowBand.highBand", "absTolerance": 0 }, { "path": "circularLowBand.cf", "absTolerance": 0 },
+        { "path": "circularLowBand.force", "absTolerance": 1e-10 }, { "path": "circularLowBand.baseShear", "absTolerance": 1e-10 },
+        { "path": "circularLowBand.baseMoment", "absTolerance": 1e-10 }, { "path": "circularLowBand.resultantHeight", "absTolerance": 0 },
+        { "path": "circularHighBand.zUse", "absTolerance": 0 }, { "path": "circularHighBand.Kz", "absTolerance": 1e-10 },
+        { "path": "circularHighBand.qz", "absTolerance": 1e-10 }, { "path": "circularHighBand.equivalentWidth", "absTolerance": 0 },
+        { "path": "circularHighBand.gustZBar", "absTolerance": 0 }, { "path": "circularHighBand.gustIz", "absTolerance": 1e-10 },
+        { "path": "circularHighBand.gustLz", "absTolerance": 1e-10 }, { "path": "circularHighBand.gustQ2", "absTolerance": 1e-10 },
+        { "path": "circularHighBand.gustQ", "absTolerance": 1e-10 }, { "path": "circularHighBand.G", "absTolerance": 1e-10 },
+        { "path": "circularHighBand.dSqrtQz", "absTolerance": 1e-10 }, { "path": "circularHighBand.circularLowRoute", "absTolerance": 0 },
+        { "path": "circularHighBand.circularHighRoute", "absTolerance": 0 }, { "path": "circularHighBand.flatRoute", "absTolerance": 0 },
+        { "path": "circularHighBand.lowBand", "absTolerance": 0 }, { "path": "circularHighBand.mediumBand", "absTolerance": 0 },
+        { "path": "circularHighBand.highBand", "absTolerance": 0 }, { "path": "circularHighBand.cf", "absTolerance": 0 },
+        { "path": "circularHighBand.force", "absTolerance": 1e-10 }, { "path": "circularHighBand.baseShear", "absTolerance": 1e-10 },
+        { "path": "circularHighBand.baseMoment", "absTolerance": 1e-10 }, { "path": "circularHighBand.resultantHeight", "absTolerance": 0 },
+        { "path": "flatHighBand.zUse", "absTolerance": 0 }, { "path": "flatHighBand.Kz", "absTolerance": 1e-10 },
+        { "path": "flatHighBand.qz", "absTolerance": 1e-10 }, { "path": "flatHighBand.equivalentWidth", "absTolerance": 0 },
+        { "path": "flatHighBand.gustZBar", "absTolerance": 0 }, { "path": "flatHighBand.gustIz", "absTolerance": 1e-10 },
+        { "path": "flatHighBand.gustLz", "absTolerance": 1e-10 }, { "path": "flatHighBand.gustQ2", "absTolerance": 1e-10 },
+        { "path": "flatHighBand.gustQ", "absTolerance": 1e-10 }, { "path": "flatHighBand.G", "absTolerance": 1e-10 },
+        { "path": "flatHighBand.dSqrtQz", "absTolerance": 1e-10 }, { "path": "flatHighBand.circularLowRoute", "absTolerance": 0 },
+        { "path": "flatHighBand.circularHighRoute", "absTolerance": 0 }, { "path": "flatHighBand.flatRoute", "absTolerance": 0 },
+        { "path": "flatHighBand.lowBand", "absTolerance": 0 }, { "path": "flatHighBand.mediumBand", "absTolerance": 0 },
+        { "path": "flatHighBand.highBand", "absTolerance": 0 }, { "path": "flatHighBand.cf", "absTolerance": 0 },
+        { "path": "flatHighBand.force", "absTolerance": 1e-10 }, { "path": "flatHighBand.baseShear", "absTolerance": 1e-10 },
+        { "path": "flatHighBand.baseMoment", "absTolerance": 1e-10 }, { "path": "flatHighBand.resultantHeight", "absTolerance": 0 }
+      ]
+    },
+    {
       "id": "seismic-force-eight-story-static",
       "route": "/seismic-force",
       "title": "八層 RC 構架等值靜力地震力與樓層分配",

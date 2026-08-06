@@ -895,6 +895,53 @@ function windObjectSolidTable210Oracle(i) {
   return Object.fromEntries(i.cases.map(item => [item.id, calculateCase(item)]));
 }
 
+function windObjectFrameThreeRouteOracle(input) {
+  const terrain = {
+    A:{ alpha:0.32, zg:500, c:0.45, ell:55, eps:0.50, zmin:18 },
+    B:{ alpha:0.25, zg:400, c:0.30, ell:98, eps:0.33, zmin:9 },
+    C:{ alpha:0.15, zg:300, c:0.20, ell:152, eps:0.20, zmin:4.5 },
+  };
+  const coefficient = (memberType, lowQD, phi) => {
+    if (memberType === 'flat') return phi <= 0.10 ? 0.8 : phi <= 0.29 ? 0.9 : 1.1;
+    if (lowQD) return phi <= 0.10 ? 2.0 : phi <= 0.29 ? 1.8 : 1.6;
+    return phi <= 0.10 ? 1.2 : phi <= 0.29 ? 1.3 : 1.5;
+  };
+  return Object.fromEntries(input.cases.map(i => {
+    const t = terrain[i.terrain];
+    const zUse = Math.max(i.z, t.zmin);
+    const Kz = 2.774 * Math.pow(zUse / t.zg, 2 * t.alpha);
+    const qz = 0.06 * Kz * i.Kzt * i.I ** 2 * i.V ** 2;
+    const dSqrtQz = i.memberType === 'circular' ? i.D * Math.sqrt(qz) : 0;
+    const circularLowRoute = i.memberType === 'circular' && dSqrtQz <= 1.70;
+    const circularHighRoute = i.memberType === 'circular' && dSqrtQz > 1.70;
+    const equivalentWidth = Math.max(Math.sqrt(i.A), 1);
+    const gustZBar = Math.max(0.6 * i.z, t.zmin);
+    const gustIz = t.c * Math.pow(10 / gustZBar, 1 / 6);
+    const gustLz = t.ell * Math.pow(gustZBar / 10, t.eps);
+    const gustQ2 = 1 / (1 + 0.63 * Math.pow((equivalentWidth + i.z) / gustLz, 0.63));
+    const gustQ = Math.sqrt(gustQ2);
+    const G = 1.927 * (1 + 1.7 * 3.4 * gustIz * gustQ) / (1 + 1.7 * 3.4 * gustIz);
+    const cf = coefficient(i.memberType, circularLowRoute, i.phi);
+    const force = qz * G * cf * i.A;
+    return [i.id, {
+      zUse, Kz, qz, equivalentWidth,
+      gustZBar, gustIz, gustLz, gustQ2, gustQ, G,
+      dSqrtQz,
+      circularLowRoute:circularLowRoute ? 1 : 0,
+      circularHighRoute:circularHighRoute ? 1 : 0,
+      flatRoute:i.memberType === 'flat' ? 1 : 0,
+      lowBand:i.phi <= 0.10 ? 1 : 0,
+      mediumBand:i.phi > 0.10 && i.phi <= 0.29 ? 1 : 0,
+      highBand:i.phi > 0.29 ? 1 : 0,
+      cf,
+      force,
+      baseShear:force,
+      baseMoment:force * i.z,
+      resultantHeight:i.z,
+    }];
+  }));
+}
+
 function seismicForceStaticOracle(i) {
   const faX = [0.5, 0.6, 0.7, 0.8, 0.9];
   const fvX = [0.30, 0.35, 0.40, 0.45, 0.50];
@@ -1710,6 +1757,7 @@ const ORACLES = {
   'rc-slab-one-way-strength': rcSlabStrengthOracle,
   'wind-force-rigid-three-story-mwfrs': windForceMwfrsOracle,
   'wind-object-solid-table-2-10': windObjectSolidTable210Oracle,
+  'wind-object-frame-three-table-routes': windObjectFrameThreeRouteOracle,
   'wind-cc-three-control-branches': windCcThreeBranchOracle,
   'wind-parapet-three-design-routes': windParapetThreeRouteOracle,
   'wind-open-roof-four-combinations': windOpenRoofFourCombinationOracle,
