@@ -3034,6 +3034,194 @@ function deckingSystemOracle(input) {
   return Object.fromEntries(input.cases.map(item => [item.id, calculateCase(item)]));
 }
 
+function stoneFixingOracle(input) {
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+  const pass = (value, limit) => value <= limit ? 1 : 0;
+  const missing = () => ({ value: 0, limit: 0, pass: 0 });
+  const anchorCatalog = {
+    'SH-440': { hole: 17.5, embed: 50.8, Nu: { 210: 2800, 280: 3700 }, Vu: { 210: 3000, 280: 3000 } },
+    'SH-550': { hole: 22.2, embed: 63.5, Nu: { 210: 3850, 280: 5200 }, Vu: { 210: 4600, 280: 5100 } },
+    'SH-560': { hole: 22.2, embed: 63.5, Nu: { 210: 3850, 280: 5200 }, Vu: { 210: 4600, 280: 5100 } },
+    'SH-660': { hole: 26, embed: 76.2, Nu: { 210: 5700, 280: 5700 }, Vu: { 210: 7200, 280: 7200 } },
+  };
+
+  function calculateCase(item) {
+    const cd = item.caseData;
+    const i = item.global;
+    const isPin = String(cd.type).startsWith('pk_');
+    const totalPoints = cd.N;
+    const effectivePoints = isPin ? Math.max(1, totalPoints / 2) : totalPoints;
+    const area = cd.w * cd.h / 1e6;
+    const weightPerArea = i.st_gam * i.st_t / 1000;
+    const gravity = area * weightPerArea;
+    const ipEffective = i.sp_ip15_on ? Math.max(i.s_ip_raw, i.sp_ip_default || 1.5) : i.s_ip_raw;
+    const lowerSeismicPressure = 0.3 * i.s_sds * ipEffective * weightPerArea;
+    const upperSeismicPressure = 1.6 * i.s_sds * ipEffective * weightPerArea;
+    const detailedSeismicPressure = 0.4 * i.sp_seis_ap * i.s_sds * ipEffective
+      * (1 + 2 * i.sp_seis_zh_ratio) * weightPerArea / i.sp_seis_rp;
+    const seismicPressure = i.sp_seismic_detail_on
+      ? Math.min(upperSeismicPressure, Math.max(lowerSeismicPressure, detailedSeismicPressure))
+      : upperSeismicPressure;
+    const seismicForce = seismicPressure * area;
+    const verticalSeismic = i.sp_pev_conservative_on
+      ? 0.5 * seismicForce
+      : 0.2 * i.s_sds * gravity;
+    let rawWindPos = i.w_pos;
+    let rawWindNeg = i.w_neg;
+    if (i.w_src === 'manual' && i.w_manual_mode === 'coeff') {
+      rawWindPos = Math.abs(i.w_qref * (i.w_cpe_pos + i.w_gcpi));
+      rawWindNeg = Math.abs(i.w_qref * (i.w_cpe_neg - i.w_gcpi));
+    }
+    const windPressurePos = rawWindPos * i.w_cf;
+    const windPressureNeg = rawWindNeg * i.w_cf;
+    const windForcePos = area * windPressurePos;
+    const windForceNeg = area * windPressureNeg;
+    const windEnvelope = Math.max(windForcePos, windForceNeg);
+    const horizontalPull = i.sp_wind_dir_on ? Math.max(seismicForce, windForceNeg) : Math.max(seismicForce, windEnvelope);
+    const horizontalPush = i.sp_wind_dir_on ? Math.max(seismicForce, windForcePos) : horizontalPull;
+    const eqControlsPull = seismicForce >= (i.sp_wind_dir_on ? windForceNeg : windEnvelope);
+    const eqControlsPush = seismicForce >= windForcePos;
+    const verticalDemand = Math.max(
+      eqControlsPull ? gravity + verticalSeismic : gravity,
+      eqControlsPush ? gravity + verticalSeismic : gravity
+    );
+    const tensionPerPoint = horizontalPull / effectivePoints;
+    const bendingPerPoint = Math.max(horizontalPull, horizontalPush) / effectivePoints;
+    const shearPerPoint = verticalDemand / effectivePoints;
+
+    const catalog = anchorCatalog[i.m_anc_type];
+    const ultimateTension = catalog?.Nu?.[i.m_anc_fc] || i.m_anc_ta * i.m_anc_sf;
+    const ultimateShear = catalog?.Vu?.[i.m_anc_fc] || ultimateTension;
+    const vendorTa = i.m_anc_ta || ultimateTension / i.m_anc_sf;
+    const vendorVa = ultimateShear / i.m_anc_sf;
+    let psiCn = 1;
+    let psiCv = 1;
+    if (i.sp_psicv_on) {
+      if (i.sp_concrete_crack === 'noncracked') {
+        psiCn = Number(i.sp_anchor_aci_category || 1) === 1 ? 1.25 : 1;
+        psiCv = 1.4;
+      } else {
+        psiCn = 1;
+        psiCv = { none: 1, edge_rebar: 1.2, full_rebar: 1.4 }[i.sp_rebar_support || 'none'];
+      }
+    }
+    const appendixTa = ultimateTension * i.sp_anchor_phi * psiCn / i.sp_anchor_service_factor;
+    const appendixVa = ultimateShear * i.sp_anchor_phi * psiCv / i.sp_anchor_service_factor;
+    const anchorMode = i.sp_anchor_on ? i.sp_anchor_design_mode : 'vendor_sf';
+    const baseTa = anchorMode === 'appendix_d' ? appendixTa
+      : anchorMode === 'dual_compare' ? Math.min(vendorTa, appendixTa) : vendorTa;
+    const baseVa = anchorMode === 'appendix_d' ? appendixVa
+      : anchorMode === 'dual_compare' ? Math.min(vendorVa, appendixVa) : vendorVa;
+    const embed = catalog?.embed || i.sp_custom_anchor_embed_mm || 0;
+    let tensionFactor = 1;
+    let shearFactor = 1;
+    if (i.sp_anchor_group_on && embed > 0) {
+      const groupRatio = cd.N > 1 && cd.anchor_spacing_mm > 0
+        ? clamp((3 * embed + cd.anchor_spacing_mm) / (6 * embed), 0.5, 1)
+        : 1;
+      const edgeFactor = cd.anchor_edge_mm >= 1.5 * embed
+        ? 1
+        : clamp(0.7 + 0.3 * cd.anchor_edge_mm / (1.5 * embed), 0.7, 1);
+      tensionFactor = clamp(groupRatio * edgeFactor, 0.35, 1);
+      shearFactor = tensionFactor;
+    }
+    const effectiveTa = baseTa * tensionFactor;
+    const effectiveVa = baseVa * shearFactor;
+
+    let spanX = Math.max(50, cd.w - 2 * cd.fx);
+    let spanY = Math.max(50, cd.h - cd.fy1 - cd.fy2);
+    if (/^pk_.*h$/.test(cd.type)) spanY = Math.max(50, cd.h);
+    if (/^pk_.*v$/.test(cd.type)) spanX = Math.max(50, cd.w);
+    const q = Math.max(windPressureNeg, windPressurePos, seismicPressure);
+    const qStrip = q / 10000;
+    const shortMm = Math.min(spanX, spanY);
+    const longMm = Math.max(spanX, spanY);
+    let momentShort = 0;
+    let momentLong = 0;
+    let moment;
+    if (cd.panel_mode === 'two_way_rankine') {
+      const shareShort = longMm ** 4 / (shortMm ** 4 + longMm ** 4);
+      const shareLong = 1 - shareShort;
+      momentShort = qStrip * shareShort * (shortMm / 10) ** 2 / 8;
+      momentLong = qStrip * shareLong * (longMm / 10) ** 2 / 8;
+      moment = Math.max(momentShort, momentLong);
+    } else {
+      const span = cd.panel_mode === 'one_way_long' ? longMm : shortMm;
+      moment = qStrip * (span / 10) ** 2 / 8;
+    }
+    const panelSectionModulus = (i.st_t / 10) ** 2 / 6;
+    const bendingStress = moment / panelSectionModulus;
+    const holeDiameterCm = (cd.hole_diameter_mm || cd.d0 * 10) / 10;
+    const netThicknessCm = Math.max(0, (i.st_t - cd.hole_depth_mm) / 10);
+    const localMode = (i.sp_panel_local_mode || 'auto') === 'auto' ? (isPin ? 'ring' : 'cone') : i.sp_panel_local_mode;
+    let localArea = Math.PI * holeDiameterCm * Math.max(netThicknessCm, 0.1);
+    if (localMode === 'cone' && !isPin) {
+      const outer = holeDiameterCm + 2 * Math.max(netThicknessCm, 0.1) * Math.tan(i.sp_panel_cone_angle * Math.PI / 180);
+      localArea = Math.PI * (outer ** 2 - holeDiameterCm ** 2) / 4;
+    }
+    localArea = Math.max(0.01, localArea);
+    const localStress = tensionPerPoint / localArea;
+    const panelPass = bendingStress <= i.sp_stone_fb && netThicknessCm > 0 && localStress <= i.sp_stone_ft ? 1 : 0;
+
+    const driftEnabled = Boolean(i.sp_drift_on);
+    const driftDisplacement = driftEnabled
+      ? i.sp_drift_theta * (cd.drift_span_mode === 'multi_story' ? i.sp_story_height_mm : Math.min(cd.h, i.sp_story_height_mm))
+      : 0;
+    const driftRotation = driftEnabled ? i.sp_drift_theta * 180 / Math.PI : 0;
+    const driftPass = !driftEnabled || (driftDisplacement <= cd.movement_allow_mm && driftRotation <= cd.rotation_allow_deg) ? 1 : 0;
+    const thermalEnabled = Boolean(i.sp_thermal_on);
+    const deltaWidth = thermalEnabled ? i.sp_thermal_alpha * i.sp_thermal_delta_t * cd.w : 0;
+    const deltaHeight = thermalEnabled ? i.sp_thermal_alpha * i.sp_thermal_delta_t * cd.h : 0;
+    const requiredJoint = thermalEnabled ? Math.max(deltaWidth, deltaHeight) + i.sp_thermal_reserve_mm : 0;
+    const thermalPass = !thermalEnabled || cd.joint_width_mm >= requiredJoint ? 1 : 0;
+
+    const Tu1 = shearPerPoint * cd.bh / cd.d1;
+    const Tu2 = tensionPerPoint * cd.bh / cd.d1;
+    const Tu = Math.max(Tu1, Tu2);
+    const interactionSeparated = i.sp_interaction_mode === 'separated' && Tu2 < Tu1;
+    const interaction = interactionSeparated
+      ? (Tu1 / effectiveTa) ** (5 / 3)
+      : (Math.max(Tu1, Tu2) / effectiveTa) ** (5 / 3) + (shearPerPoint / effectiveVa) ** (5 / 3);
+    const allowStressFactor = i.sp_allow_stress_static_on ? 1 : i.w_cf;
+    const angleShearLimit = 0.4 * i.m_fy * Math.max(0.01, (cd.LL - cd.d0) * cd.Lt);
+    const angleMoment = Math.max(shearPerPoint * cd.bh, bendingPerPoint * cd.d1);
+    const angleBendingDemand = angleMoment / (0.6 * i.m_fy * allowStressFactor);
+    const angleBendingLimit = cd.LL * cd.Lt ** 2 / 6;
+    const screw = isPin ? missing() : { value: tensionPerPoint, limit: i.m_screw_ta, pass: pass(tensionPerPoint, i.m_screw_ta) };
+    const anchorVertical = { value: Tu1, limit: effectiveTa, pass: pass(Tu1, effectiveTa) };
+    const anchorHorizontal = { value: Tu2, limit: effectiveTa, pass: pass(Tu2, effectiveTa) };
+    const anchorShear = { value: shearPerPoint, limit: effectiveVa, pass: pass(shearPerPoint, effectiveVa) };
+    const anchorInteraction = { value: interaction, limit: 1, pass: pass(interaction, 1) };
+    const carriageShear = cd.hasMC
+      ? { value: tensionPerPoint, limit: i.m_mc_va, pass: pass(tensionPerPoint, i.m_mc_va) } : missing();
+    const carriageTensionValue = shearPerPoint * 3.4 / 3.6;
+    const carriageTension = cd.hasMC
+      ? { value: carriageTensionValue, limit: i.m_mc_ta, pass: pass(carriageTensionValue, i.m_mc_ta) } : missing();
+    const pin = isPin ? { value: Tu, limit: i.m_pin_va, pass: pass(Tu, i.m_pin_va) } : missing();
+    const angleShear = { value: shearPerPoint, limit: angleShearLimit, pass: pass(shearPerPoint, angleShearLimit) };
+    const angleBending = { value: angleBendingDemand, limit: angleBendingLimit, pass: pass(angleBendingDemand, angleBendingLimit) };
+    const requiredPasses = [anchorVertical, anchorHorizontal, anchorShear, anchorInteraction, angleShear, angleBending];
+    if (!isPin) requiredPasses.push(screw);
+    if (isPin) requiredPasses.push(pin);
+    if (cd.hasMC) requiredPasses.push(carriageShear, carriageTension);
+    const allPass = requiredPasses.every(check => check.pass) && panelPass && driftPass && thermalPass ? 1 : 0;
+
+    return {
+      area, weightPerArea, gravity, ipEffective, seismicPressure, seismicForce, verticalSeismic,
+      windPressurePos, windPressureNeg, windForcePos, windForceNeg, horizontalPull, horizontalPush,
+      verticalDemand, tensionPerPoint, bendingPerPoint, shearPerPoint, totalPoints, effectivePoints,
+      anchor: { vendorTa, vendorVa, appendixTa, appendixVa, baseTa, baseVa, effectiveTa, effectiveVa, psiCn, psiCv, tensionFactor, shearFactor },
+      panel: { spanX, spanY, q, moment, momentShort, momentLong, sectionModulus: panelSectionModulus, bendingStress, localArea, localStress, pass: panelPass },
+      drift: { displacement: driftDisplacement, rotation: driftRotation, pass: driftPass },
+      thermal: { deltaWidth, deltaHeight, requiredJoint, pass: thermalPass },
+      checks: { screw, anchorVertical, anchorHorizontal, anchorShear, anchorInteraction, carriageShear, carriageTension, pin, angleShear, angleBending },
+      allPass,
+    };
+  }
+
+  return Object.fromEntries(input.cases.map(item => [item.id, calculateCase(item)]));
+}
+
 const ORACLES = {
   'equipment-basic-load-path': equipmentOracle,
   'earth-rankine-dry-active': earthOracle,
@@ -3050,6 +3238,7 @@ const ORACLES = {
   'steel-plate-connection-strength': steelPlateConnectionOracle,
   'steel-formal-strength': steelFormalOracle,
   'decking-system-load-path': deckingSystemOracle,
+  'stone-fixing-load-path': stoneFixingOracle,
   'rc-slab-one-way-strength': rcSlabStrengthOracle,
   'wind-force-rigid-three-story-mwfrs': windForceMwfrsOracle,
   'wind-object-solid-table-2-10': windObjectSolidTable210Oracle,

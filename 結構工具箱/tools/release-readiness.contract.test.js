@@ -394,7 +394,7 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   '實際交付物渲染佐證',
   'tool maturity matrix rendered delivery evidence gate passed',
   'independent-engineering-benchmarks',
-  '獨立工程基準試辦',
+  '獨立工程基準',
   'tool maturity matrix independent engineering benchmark gate passed',
   '## Independent Engineering Benchmarks',
   'function isRenderedDeliveryRelease',
@@ -588,8 +588,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
 
 [
   'independent-engineering-benchmarks.catalog.json',
-  '30 / 30',
-  '30 / 31',
+  '31 / 31',
+  '石材固定',
   '不等同獨立工程驗證',
 ].forEach(needle => {
   assertIncludes(readme, needle, `README documents independent engineering benchmark boundary ${needle}`);

@@ -81,7 +81,7 @@ const GLOBAL_GOVERNANCE_GATES = [
   },
   {
     key: 'independent-engineering-benchmarks',
-    label: '獨立工程基準試辦',
+    label: '獨立工程基準',
     contract: '結構工具箱/tools/independent-engineering-benchmarks.test.js',
     scope: '以獨立封閉式推導核對設備荷重、土壓與基礎局部設計；不把 golden case 重播誤稱為獨立驗證',
     catalogFamilies: [],
@@ -2306,7 +2306,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
   const independentBenchmarkPilotRequired = compactNumber(independentBenchmarkSummary.pilotRequired);
   const independentBenchmarkPilotVerified = compactNumber(independentBenchmarkSummary.pilotVerified);
   const independentBenchmarkIssueCount = compactNumber(independentBenchmarkSummary.issueCount);
-  details.push(`獨立工程基準：試辦 ${independentBenchmarkPilotVerified} / ${independentBenchmarkPilotRequired}；正式工具整體 ${independentBenchmarkVerified} / ${independentBenchmarkEligible}。其餘工具目前只宣稱既有重播、結果鏈或家族治理證據，不宣稱已完成獨立工程驗證。`);
+  details.push(`獨立工程基準：${independentBenchmarkVerified} / ${independentBenchmarkEligible} 個正式工具已具獨立封閉算例。既有重播、結果鏈與家族治理證據仍屬不同證據層級，不取代設計者複核。`);
   return {
     snapshotVersion: 1,
     kind: 'report-readiness-status',
@@ -2648,9 +2648,9 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(markdown.includes('rendered-delivery-evidence'), 'tool maturity matrix markdown exposes rendered delivery evidence gate');
   assert.ok(payload.independentBenchmarkCoverage && typeof payload.independentBenchmarkCoverage === 'object', 'tool maturity matrix independent benchmark coverage object');
   assert.equal(payload.independentBenchmarkCoverage.status, 'ready', 'tool maturity matrix independent benchmark pilot ready');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 30, 'tool maturity matrix independent benchmark pilot verified');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 30, 'tool maturity matrix independent benchmark pilot required');
-  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 30, 'tool maturity matrix independent benchmark verified route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 31, 'tool maturity matrix independent benchmark pilot verified');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 31, 'tool maturity matrix independent benchmark pilot required');
+  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 31, 'tool maturity matrix independent benchmark verified route count');
   assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 31, 'tool maturity matrix independent benchmark eligible route count');
   assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, payload.entrypointCoverage.byState.formal, 'tool maturity matrix independent benchmark portfolio matches formal homepage entry count');
   assert.equal(payload.independentBenchmarkCoverage.summary.issueCount, 0, 'tool maturity matrix independent benchmark issues empty');
@@ -2957,7 +2957,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('鋼梁舊案延續頁'), 'homepage report readiness details include steel beam transition page');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('鋼柱舊案延續頁'), 'homepage report readiness details include steel column transition page');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('JSON/計算書/文字 邊界'), 'homepage report readiness details include local quick text boundary chip');
-  assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('不宣稱已完成獨立工程驗證'), 'homepage report readiness details distinguish independent engineering verification');
+  assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('不取代設計者複核'), 'homepage report readiness details distinguish independent engineering verification from designer review');
   assert.equal((homepageReportReadinessStatus.details || []).join(' ').includes('JSON/計算書 邊界'), false, 'homepage report readiness details reject stale local quick boundary chip');
   assert.ok(Array.isArray(homepageReportReadinessStatus.pageOnlyRoutes) && homepageReportReadinessStatus.pageOnlyRoutes.length >= 4, 'homepage report readiness routes array');
   if (latestFullHomepagePreflight?.payload?.quick === false) {

@@ -6,7 +6,7 @@ REM 涵蓋：
 REM   1. 4 套 Node.js smoke 測試（calc-core / formula-registry / dashboard / version-sync）
 REM   2. JS 語法靜態檢查（V2 HTML inline script）
 REM   3. 5 組 baseline 漂移偵測（auto_diff.py）
-REM   4. auto_word.py 指紋閘門端對端驗證
+REM   4. auto_word.py 內部審閱／正式附件狀態端對端驗證
 REM   5. 最終 CI 摘要報告
 REM
 REM 結束碼：
@@ -78,16 +78,16 @@ if errorlevel 1 (
   echo   v 5/5 PASS
 )
 
-REM ── [4/5] auto_word 指紋閘門驗證 ──
+REM ── [4/5] auto_word 核可文件狀態驗證 ──
 echo.
-echo [4/5] auto_word.py 指紋閘門端對端驗證
-echo [4/5] auto_word.py 指紋閘門驗證 >> "%RUN_LOG%"
+echo [4/5] auto_word.py 內部審閱／正式附件狀態端對端驗證
+echo [4/5] auto_word.py 核可文件狀態驗證 >> "%RUN_LOG%"
 python tests\autoword_guard_test.py >> "%RUN_LOG%" 2>&1
 if errorlevel 1 (
-  echo   X 指紋閘門驗證失敗
+  echo   X 核可文件狀態驗證失敗
   set /a TOTAL_FAILED+=1
 ) else (
-  echo   v 草稿浮水印確認注入
+  echo   v 內部審閱／正式附件狀態切換通過
 )
 
 REM ── [5/6] 視覺裝飾驗證（tier banner / 法規 footer / dock 模式 / 預設值徽章）──

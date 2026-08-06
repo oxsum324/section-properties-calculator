@@ -209,7 +209,7 @@ def main():
 
         # ─── V2.2.4：模擬 override 後再驗證 diff viewer 出現且 delta 正確 ───
         p.evaluate("""() => {
-            localStorage.setItem('stone_v2_profile_override', JSON.stringify({ seismic: 'cns_seismic_113_conservative' }));
+            v2SetRuntimeProfileOverride({ seismic: 'cns_seismic_113_conservative' });
             if(typeof render === 'function') render();
         }""")
         p.wait_for_timeout(800)
@@ -228,7 +228,7 @@ def main():
         }""")
         print(f"  diff viewer (有 override): present={diff_state.get('present')} rows={diff_state.get('row_count')} pct_marker={diff_state.get('has_pct_marker')}")
         # 清掉 override 避免影響後續
-        p.evaluate("() => { localStorage.removeItem('stone_v2_profile_override'); if(typeof render === 'function') render(); }")
+        p.evaluate("() => { v2SetRuntimeProfileOverride({}); if(typeof render === 'function') render(); }")
         p.wait_for_timeout(400)
 
         # ─── V2.4.2：模擬 profile params 偏離 archive 後驗證 WARN 出現於匯出檢查 ───
@@ -345,7 +345,7 @@ def main():
         # ─── V2.7.0：規範採用聲明 — 切換對照 profile 後驗證聲明區塊出現 ───
         decl_state = p.evaluate("""() => {
             // 切到對照 profile（觸發 override 路徑）
-            localStorage.setItem('stone_v2_profile_override', JSON.stringify({ seismic: 'cns_seismic_113_conservative' }));
+            v2SetRuntimeProfileOverride({ seismic: 'cns_seismic_113_conservative' });
             if (typeof render === 'function') render();
             // 等 decorator 跑完
             return new Promise(resolve => setTimeout(() => {
@@ -360,7 +360,7 @@ def main():
         }""")
         print(f"  V2.7.0 規範採用聲明：present={decl_state.get('present')} overrides={decl_state.get('has_overrides')} seismic_label={decl_state.get('has_seismic_label')} conservative_id={decl_state.get('has_conservative_id')}")
         # 還原 override
-        p.evaluate("() => { localStorage.removeItem('stone_v2_profile_override'); if(typeof render === 'function') render(); }")
+        p.evaluate("() => { v2SetRuntimeProfileOverride({}); if(typeof render === 'function') render(); }")
         p.wait_for_timeout(400)
 
 
@@ -368,7 +368,7 @@ def main():
         # （此時 stub_v2_profile_override 仍存在 seismic 對照）
         v271_state = p.evaluate("""() => {
             // 重設 override（前述 V2.7.0 已清掉）
-            localStorage.setItem('stone_v2_profile_override', JSON.stringify({ seismic: 'cns_seismic_113_conservative' }));
+            v2SetRuntimeProfileOverride({ seismic: 'cns_seismic_113_conservative' });
             // 確保 ack 為空
             const ackEl = document.getElementById('governance_ack');
             if (ackEl) { ackEl.value = ''; ackEl.dispatchEvent(new Event('input', { bubbles: true })); }
@@ -420,7 +420,7 @@ def main():
         v280_state = p.evaluate("""() => {
             // 仍在 V2.5.0 stub 階段：__CALC_SOURCE_HASH 已注入
             // 設 override + ack 文字
-            localStorage.setItem('stone_v2_profile_override', JSON.stringify({ seismic: 'cns_seismic_113_conservative' }));
+            v2SetRuntimeProfileOverride({ seismic: 'cns_seismic_113_conservative' });
             const ackEl = document.getElementById('governance_ack');
             if (ackEl) { ackEl.value = 'V2.8.0 測試用採用理由'; ackEl.dispatchEvent(new Event('input', { bubbles: true })); }
             if (typeof render === 'function') render();
@@ -458,7 +458,7 @@ def main():
             if (projEl) { projEl.value = 'V281Test'; projEl.dispatchEvent(new Event('input', { bubbles: true })); }
             const ackEl = document.getElementById('governance_ack');
             // 確保 override 存在以觸發 ack_hash 產生
-            localStorage.setItem('stone_v2_profile_override', JSON.stringify({ seismic: 'cns_seismic_113_conservative' }));
+            v2SetRuntimeProfileOverride({ seismic: 'cns_seismic_113_conservative' });
 
             const editions = ['理由 A 第一版', '理由 B 補強', '理由 C 最終版'];
             return new Promise(async resolve => {
@@ -592,7 +592,7 @@ def main():
         }""")
         v272_state = p.evaluate("""() => {
             // 重設 override + 填 ack
-            localStorage.setItem('stone_v2_profile_override', JSON.stringify({ seismic: 'cns_seismic_113_conservative' }));
+            v2SetRuntimeProfileOverride({ seismic: 'cns_seismic_113_conservative' });
             const ackEl = document.getElementById('governance_ack');
             if (ackEl) { ackEl.value = '本案保守對照 profile 採用理由（測試用）'; ackEl.dispatchEvent(new Event('input', { bubbles: true })); }
             if (typeof render === 'function') render();
@@ -612,7 +612,7 @@ def main():
 
         # ─── V2.7.2 fallback：清空 override + ack 後 helper 回空陣列 ───
         v272_empty = p.evaluate("""() => {
-            localStorage.removeItem('stone_v2_profile_override');
+            v2SetRuntimeProfileOverride({});
             const ackEl = document.getElementById('governance_ack');
             if (ackEl) { ackEl.value = ''; ackEl.dispatchEvent(new Event('input', { bubbles: true })); }
             if (typeof render === 'function') render();

@@ -30,7 +30,7 @@ def main():
         'smoke_codeprofiles':('code-profiles', re.search(r'StoneCodeProfiles\s+(\S+)\s+smoke test passed\s*\((\d+)\s*tests?\)', text)),
         'syntax':            ('V2 HTML inline JS syntax', re.search(r'Total inline scripts:\s*(\d+),\s*failed:\s*(\d+)', text)),
         'drift':             ('baseline drift', re.search(r'通過\s*(\d+)/(\d+)\s+容許', text)),
-        'autoword':          ('auto_word fingerprint gate', '所有 auto_word.py 指紋閘門端對端驗證通過' in text),
+        'autoword':          ('auto_word attachment state', '所有 auto_word.py 核可文件狀態端對端驗證通過' in text),
         'visual':            ('visual decoration', '視覺裝飾測試全通過' in text),
     }
 

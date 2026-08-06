@@ -2975,6 +2975,62 @@
         { "path": "flexible.VvCoeff", "absTolerance": 1e-12 }, { "path": "flexible.similarPath", "absTolerance": 0 },
         { "path": "flexible.rigidPath", "absTolerance": 0 }, { "path": "flexible.flexiblePath", "absTolerance": 0 }
       ]
+    },
+    {
+      "id": "stone-fixing-load-path",
+      "route": "/stone-fixing",
+      "title": "石材板、背扣／插銷固定件與錨栓完整受力鏈",
+      "productionModule": "independent-engineering-adapters/stone-fixing.js",
+      "oracle": "stone-fixing-load-path",
+      "referenceType": "closed-form-identity",
+      "referenceBasis": "外牆石材自重、耐震水平力與垂直地震力、正負風壓包絡、有效固定點分攤、錨栓廠商服務值／附篇 D 等效值／群組邊距折減、5/3 次方拉剪互制、角鋼淨斷面、石板雙向或單向彎曲、背擴孔錐形或插銷孔周局部應力，以及層間變位與熱伸縮之封閉式逐項手算。",
+      "input": {
+        "cases": [
+          {
+            "id": "backAnchorWindCone",
+            "caseData": { "id": "backAnchorWindCone", "type": "bk_4h", "w": 870, "h": 800, "N": 4, "fx": 150, "fy1": 150, "fy2": 200, "bh": 10, "d1": 8, "Lt": 2, "LL": 5, "d0": 1.2, "hasMC": true, "hole_depth_mm": 10, "hole_diameter_mm": 12, "panel_mode": "two_way_rankine", "anchor_spacing_mm": 80, "anchor_edge_mm": 40, "joint_width_mm": 8 },
+            "global": { "st_gam": 2800, "st_t": 30, "s_sds": 0.6, "s_ip_raw": 1, "sp_ip15_on": true, "sp_ip_default": 1.5, "sp_seismic_detail_on": false, "sp_seis_ap": 1, "sp_seis_rp": 2.5, "sp_seis_zh_ratio": 0.5, "sp_pev_conservative_on": false, "w_src": "manual", "w_manual_mode": "pressure", "w_pos": 426, "w_neg": 341, "w_cf": 1.25, "sp_wind_dir_on": true, "m_anc_type": "SH-440", "m_anc_fc": 280, "m_anc_sf": 5, "m_anc_ta": 0, "sp_anchor_on": true, "sp_anchor_design_mode": "dual_compare", "sp_anchor_phi": 0.75, "sp_anchor_service_factor": 1.6, "sp_psicv_on": true, "sp_concrete_crack": "cracked", "sp_rebar_support": "none", "sp_anchor_aci_category": 1, "sp_anchor_group_on": true, "sp_panel_on": true, "sp_panel_local_mode": "auto", "sp_panel_cone_angle": 30, "sp_stone_fb": 55, "sp_stone_ft": 35, "sp_drift_on": false, "sp_thermal_on": false, "sp_interaction_mode": "conservative_envelope", "m_fy": 2100, "m_screw_ta": 255.3, "m_mc_va": 567, "m_mc_ta": 709, "m_pin_va": 500 }
+          },
+          {
+            "id": "pinCoeffServiceability",
+            "caseData": { "id": "pinCoeffServiceability", "type": "pk_4h", "w": 900, "h": 1200, "N": 4, "fx": 150, "fy1": 150, "fy2": 150, "bh": 10, "d1": 8, "Lt": 2, "LL": 5, "d0": 1.2, "hasMC": false, "hasSlipPlate": false, "hole_depth_mm": 10, "hole_diameter_mm": 12, "panel_mode": "one_way_short", "anchor_spacing_mm": 0, "anchor_edge_mm": 50, "drift_span_mode": "single_story", "movement_allow_mm": 6, "rotation_allow_deg": 0.3, "joint_width_mm": 5 },
+            "global": { "st_gam": 2400, "st_t": 40, "s_sds": 0.8, "s_ip_raw": 1.2, "sp_ip15_on": false, "sp_ip_default": 1.5, "sp_seismic_detail_on": true, "sp_seis_ap": 1.2, "sp_seis_rp": 2.5, "sp_seis_zh_ratio": 0.75, "sp_pev_conservative_on": true, "w_src": "manual", "w_manual_mode": "coeff", "w_qref": 250, "w_cpe_pos": 0.8, "w_cpe_neg": -1.2, "w_gcpi": 0.18, "w_pos": 0, "w_neg": 0, "w_cf": 1.25, "sp_wind_dir_on": true, "m_anc_type": "custom", "m_anc_fc": 280, "m_anc_sf": 5, "m_anc_ta": 600, "sp_anchor_on": true, "sp_anchor_design_mode": "vendor_sf", "sp_anchor_phi": 0.75, "sp_anchor_service_factor": 1.6, "sp_psicv_on": false, "sp_concrete_crack": "cracked", "sp_rebar_support": "none", "sp_anchor_aci_category": 1, "sp_anchor_group_on": false, "sp_custom_anchor_embed_mm": 60, "sp_panel_on": true, "sp_panel_local_mode": "auto", "sp_panel_cone_angle": 30, "sp_stone_fb": 55, "sp_stone_ft": 35, "sp_drift_on": true, "sp_drift_theta": 0.0045, "sp_story_height_mm": 4000, "sp_thermal_on": true, "sp_thermal_alpha": 0.000008, "sp_thermal_delta_t": 40, "sp_thermal_reserve_mm": 3, "sp_interaction_mode": "conservative_envelope", "m_fy": 2100, "m_screw_ta": 255.3, "m_mc_va": 567, "m_mc_ta": 709, "m_pin_va": 500 }
+          }
+        ]
+      },
+      "assertions": [
+        { "path": "backAnchorWindCone.area", "absTolerance": 1e-12 }, { "path": "backAnchorWindCone.weightPerArea", "absTolerance": 1e-12 },
+        { "path": "backAnchorWindCone.gravity", "absTolerance": 1e-10 }, { "path": "backAnchorWindCone.ipEffective", "absTolerance": 1e-12 },
+        { "path": "backAnchorWindCone.seismicPressure", "absTolerance": 1e-10 }, { "path": "backAnchorWindCone.verticalSeismic", "absTolerance": 1e-10 },
+        { "path": "backAnchorWindCone.windPressurePos", "absTolerance": 1e-10 }, { "path": "backAnchorWindCone.windForceNeg", "absTolerance": 1e-10 },
+        { "path": "backAnchorWindCone.horizontalPull", "absTolerance": 1e-10 }, { "path": "backAnchorWindCone.horizontalPush", "absTolerance": 1e-10 },
+        { "path": "backAnchorWindCone.tensionPerPoint", "absTolerance": 1e-10 }, { "path": "backAnchorWindCone.bendingPerPoint", "absTolerance": 1e-10 },
+        { "path": "backAnchorWindCone.shearPerPoint", "absTolerance": 1e-10 }, { "path": "backAnchorWindCone.effectivePoints", "absTolerance": 0 },
+        { "path": "backAnchorWindCone.anchor.vendorTa", "absTolerance": 1e-10 }, { "path": "backAnchorWindCone.anchor.appendixTa", "absTolerance": 1e-10 },
+        { "path": "backAnchorWindCone.anchor.appendixVa", "absTolerance": 1e-10 }, { "path": "backAnchorWindCone.anchor.tensionFactor", "absTolerance": 1e-12 },
+        { "path": "backAnchorWindCone.anchor.effectiveTa", "absTolerance": 1e-10 }, { "path": "backAnchorWindCone.anchor.effectiveVa", "absTolerance": 1e-10 },
+        { "path": "backAnchorWindCone.panel.spanX", "absTolerance": 0 }, { "path": "backAnchorWindCone.panel.spanY", "absTolerance": 0 },
+        { "path": "backAnchorWindCone.panel.momentShort", "absTolerance": 1e-10 }, { "path": "backAnchorWindCone.panel.momentLong", "absTolerance": 1e-10 },
+        { "path": "backAnchorWindCone.panel.bendingStress", "absTolerance": 1e-10 }, { "path": "backAnchorWindCone.panel.localArea", "absTolerance": 1e-10 },
+        { "path": "backAnchorWindCone.panel.localStress", "absTolerance": 1e-10 }, { "path": "backAnchorWindCone.checks.anchorInteraction.value", "absTolerance": 1e-12 },
+        { "path": "backAnchorWindCone.checks.angleBending.value", "absTolerance": 1e-12 }, { "path": "backAnchorWindCone.checks.carriageTension.value", "absTolerance": 1e-10 },
+        { "path": "backAnchorWindCone.allPass", "absTolerance": 0 },
+        { "path": "pinCoeffServiceability.area", "absTolerance": 1e-12 }, { "path": "pinCoeffServiceability.gravity", "absTolerance": 1e-10 },
+        { "path": "pinCoeffServiceability.seismicPressure", "absTolerance": 1e-10 }, { "path": "pinCoeffServiceability.verticalSeismic", "absTolerance": 1e-10 },
+        { "path": "pinCoeffServiceability.windPressurePos", "absTolerance": 1e-10 }, { "path": "pinCoeffServiceability.windPressureNeg", "absTolerance": 1e-10 },
+        { "path": "pinCoeffServiceability.windForcePos", "absTolerance": 1e-10 }, { "path": "pinCoeffServiceability.windForceNeg", "absTolerance": 1e-10 },
+        { "path": "pinCoeffServiceability.effectivePoints", "absTolerance": 0 }, { "path": "pinCoeffServiceability.tensionPerPoint", "absTolerance": 1e-10 },
+        { "path": "pinCoeffServiceability.shearPerPoint", "absTolerance": 1e-10 }, { "path": "pinCoeffServiceability.anchor.vendorTa", "absTolerance": 1e-10 },
+        { "path": "pinCoeffServiceability.anchor.appendixTa", "absTolerance": 1e-10 }, { "path": "pinCoeffServiceability.anchor.effectiveTa", "absTolerance": 1e-10 },
+        { "path": "pinCoeffServiceability.panel.spanX", "absTolerance": 0 }, { "path": "pinCoeffServiceability.panel.spanY", "absTolerance": 0 },
+        { "path": "pinCoeffServiceability.panel.moment", "absTolerance": 1e-10 }, { "path": "pinCoeffServiceability.panel.localArea", "absTolerance": 1e-10 },
+        { "path": "pinCoeffServiceability.panel.localStress", "absTolerance": 1e-10 }, { "path": "pinCoeffServiceability.drift.displacement", "absTolerance": 1e-12 },
+        { "path": "pinCoeffServiceability.drift.rotation", "absTolerance": 1e-12 }, { "path": "pinCoeffServiceability.thermal.deltaWidth", "absTolerance": 1e-12 },
+        { "path": "pinCoeffServiceability.thermal.deltaHeight", "absTolerance": 1e-12 }, { "path": "pinCoeffServiceability.thermal.requiredJoint", "absTolerance": 1e-12 },
+        { "path": "pinCoeffServiceability.checks.anchorHorizontal.value", "absTolerance": 1e-10 }, { "path": "pinCoeffServiceability.checks.anchorInteraction.value", "absTolerance": 1e-12 },
+        { "path": "pinCoeffServiceability.checks.pin.value", "absTolerance": 1e-10 }, { "path": "pinCoeffServiceability.checks.angleBending.value", "absTolerance": 1e-12 },
+        { "path": "pinCoeffServiceability.allPass", "absTolerance": 0 }
+      ]
     }
   ],
   "priorityTargets": []

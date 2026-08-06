@@ -896,7 +896,7 @@ const auditDashboardBrowserSmokeScript = readText(toolboxFile('tools/audit-dashb
   'rendered-delivery-evidence',
   '交付物一致性',
   '正式放行證據',
-  '獨立工程基準試辦',
+  '獨立工程基準',
   '實際交付物渲染佐證',
   '結構工具箱/tools/delivery-artifacts.contract.test.js',
   '結構工具箱/tools/release-readiness.contract.test.js',
@@ -1004,7 +1004,7 @@ if (fs.existsSync(maturityMatrixPath)) {
   assert.deepEqual(independentBenchmarkGate.catalogFamilies, [], 'maturity globalGovernance independent engineering benchmark relevant families empty');
   assert.deepEqual(independentBenchmarkGate.issues, [], 'maturity globalGovernance independent engineering benchmark issues empty');
   assert.equal(matrix.independentBenchmarkCoverage?.status, 'ready', 'maturity independent engineering benchmark pilot ready');
-  assert.equal(matrix.independentBenchmarkCoverage?.summary?.pilotVerified, 30, 'maturity independent engineering benchmark pilot verified');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.pilotVerified, 31, 'maturity independent engineering benchmark pilot verified');
   assert.equal(matrix.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes, 31, 'maturity independent engineering benchmark eligible formal routes');
   assert.equal(matrix.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes, matrix.entrypointCoverage?.byState?.formal, 'maturity independent engineering benchmark portfolio matches formal homepage entries');
   const renderedDeliveryGate = matrix.globalGovernance.gates.find(gate => gate.key === 'rendered-delivery-evidence');

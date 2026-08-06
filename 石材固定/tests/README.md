@@ -25,7 +25,7 @@ node tmp/_v2syntax.js
 # 5 組 baseline 漂移偵測（Playwright）
 python tests/golden/auto_diff.py
 
-# auto_word.py 指紋閘門端對端驗證
+# auto_word.py 內部審閱／正式附件狀態端對端驗證
 python tmp/_v2_autoword_draft_verify.py
 
 # CI 摘要報告
@@ -42,7 +42,7 @@ python tests/ci_summary.py tests/_run_log/_last_run.log
 | 版本同步 | `version-sync-smoke.test.js` | toolHeader 與內部 APP_VERSION 一致 |
 | HTML 語法 | `tmp/_v2syntax.js` | V2 inline script 解析無錯 |
 | 漂移偵測 | `tests/golden/auto_diff.py` | 5 組 golden samples 對照當前 V2 結果 |
-| 指紋閘門 | `tmp/_v2_autoword_draft_verify.py` | auto_word.py 缺指紋時草稿浮水印注入 |
+| 核可文件狀態 | `autoword_guard_test.py` | 資料不完整仍可列印為內部審閱；核可後切換為正式附件，不注入 DRAFT 浮水印 |
 
 ## 排程定期跑
 
@@ -91,4 +91,4 @@ tests/
 1. 開啟 `tests/_run_log/_last_run.log` 找具體錯誤訊息
 2. 若是 `baseline drift`：跑 `python tests/golden/auto_diff.py --tolerance 2.0` 確認是否為非預期變動，若為「approved drift」則重拍 baseline 並更新 `tests/golden/_approval_log.md`
 3. 若是 `regression smoke`：表示 calc-core 本身計算錯誤，需立即檢視 `js/calculator.spec.js`
-4. 若是 `auto_word fingerprint gate`：檢查 `auto_word.py` 的 `validate_payload_for_formal_output` 邏輯
+4. 若是 `auto_word attachment state`：檢查 `auto_word.py` 的資料完整性判定與內部審閱／正式附件核可切換
