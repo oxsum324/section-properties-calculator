@@ -71,6 +71,7 @@ const receiverSigningLauncher = readUtf8('sign_receiver_request.ps1');
 const receiverKeyEnrollment = readUtf8('backend/app/receiver_key_enrollment.py');
 const receiverKeyManager = readUtf8('backend/manage_receiver_key.py');
 const receiverKeyLauncher = readUtf8('manage_receiver_key.ps1');
+const receiverTrustStore = readUtf8('backend/app/receiver_trust_store.py');
 const receiverTrustStoreTests = readUtf8('backend/tests/test_receiver_trust_store.py');
 
 const expectedTools = [
@@ -172,6 +173,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '/api/removal-transfer-receipts/attach-signature',
   '/api/removal-transfer-trust-keys/enrollments/validate',
   '/api/removal-transfer-trust-keys/enrollments/register',
+  '/api/removal-transfer-trust-keys/{key_id}/revoke',
+  'RevokeReceiverTrustKeyRequest',
   'build_removal_transfer_handoff',
   'build_receiver_verification_receipt',
   'validate_receiver_verification_receipt',
@@ -209,6 +212,9 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'handleImportReceiverKeyEnrollment',
   '匯入 RKE 公鑰登錄包',
   '已透過獨立管道核對公鑰所屬單位與 Key ID',
+  '撤銷原因與處理摘要',
+  '確認撤銷並寫入事件清冊',
+  '金鑰生命週期事件清冊',
   '交接完成不等於承接構造合格',
 ].forEach((needle) => {
   assert(app.includes(needle) || api.includes(needle), `excavation removal transfer frontend keeps ${needle}`, needle);
@@ -273,9 +279,22 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   assert(receiverKeyLauncher.includes(needle), `excavation receiver key launcher keeps ${needle}`, needle);
 });
 [
+  'receiver-verification-key-event',
+  'eventFingerprint',
+  'previousEventFingerprint',
+  'revocationReasonCode',
+  'revocationEventFingerprint',
+  '既有撤銷原因與事件記錄不可覆寫',
+].forEach((needle) => {
+  assert(receiverTrustStore.includes(needle), `excavation receiver trust store keeps ${needle}`, needle);
+});
+[
   'test_validates_and_registers_proof_of_possession_enrollment',
   'test_rotation_enrollment_links_but_does_not_revoke_previous_key',
   'test_creates_encrypted_private_key_and_public_only_enrollment',
+  'test_revocation_requires_complete_confirmation_and_supported_reason',
+  'test_event_chain_rejects_tampering_and_old_registry_remains_readable',
+  'test_registry_rejects_revoked_key_restored_without_matching_event',
 ].forEach((needle) => {
   assert(receiverTrustStoreTests.includes(needle), `excavation receiver trust tests keep ${needle}`, needle);
 });

@@ -33,11 +33,109 @@ class ReceiverTrustStoreTests(unittest.TestCase):
             self.assertRegex(record["keyId"], r"^RVK-[0-9A-F]{20}$")
             self.assertEqual(store.list_keys()[0]["status"], "trusted")
 
-            revoked = store.revoke_key(record["keyId"])
+            revoked = store.revoke_key(
+                record["keyId"],
+                reason_code="suspected-compromise",
+                reason="保管電腦疑似遭未授權存取，先行撤銷並更換金鑰。",
+                handled_by="王管理者",
+                incident_reference="INC-2026-001",
+                revocation_confirmed=True,
+            )
             self.assertEqual(revoked["status"], "revoked")
+            self.assertEqual(revoked["revocationReasonCode"], "suspected-compromise")
+            self.assertEqual(revoked["revokedBy"], "王管理者")
             saved = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual(saved["keys"][0]["status"], "revoked")
             self.assertIsNotNone(saved["keys"][0]["revokedAt"])
+            self.assertEqual(len(saved["events"]), 2)
+            self.assertEqual(saved["events"][0]["eventType"], "key-registered")
+            self.assertEqual(saved["events"][1]["eventType"], "key-revoked")
+            self.assertEqual(
+                saved["events"][1]["previousEventFingerprint"],
+                saved["events"][0]["eventFingerprint"],
+            )
+            self.assertEqual(revoked["revocationEventFingerprint"], saved["events"][1]["eventFingerprint"])
+
+            with self.assertRaisesRegex(ValueError, "不可覆寫"):
+                store.revoke_key(
+                    record["keyId"],
+                    reason_code="other",
+                    reason="企圖改寫原始撤銷原因。",
+                    handled_by="另一位管理者",
+                    revocation_confirmed=True,
+                )
+
+    def test_revocation_requires_complete_confirmation_and_supported_reason(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = ReceiverTrustStore(Path(directory) / "receiver-trust.json")
+            raw = Ed25519PrivateKey.generate().public_key().public_bytes(
+                serialization.Encoding.Raw,
+                serialization.PublicFormat.Raw,
+            )
+            record = store.register_key("接收端單位", "正式章", base64.b64encode(raw).decode("ascii"), True)
+
+            with self.assertRaisesRegex(ValueError, "不可復原"):
+                store.revoke_key(
+                    record["keyId"],
+                    reason_code="retired",
+                    reason="完成除役程序。",
+                    handled_by="管理者",
+                )
+            with self.assertRaisesRegex(ValueError, "不受支援"):
+                store.revoke_key(
+                    record["keyId"],
+                    reason_code="erase-history",
+                    reason="錯誤原因分類。",
+                    handled_by="管理者",
+                    revocation_confirmed=True,
+                )
+            self.assertEqual(store.list_keys()[0]["status"], "trusted")
+
+    def test_event_chain_rejects_tampering_and_old_registry_remains_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "receiver-trust.json"
+            path.write_text(
+                json.dumps({"schemaVersion": 1, "kind": "receiver-verification-trust-registry", "keys": []}),
+                encoding="utf-8",
+            )
+            store = ReceiverTrustStore(path)
+            self.assertEqual(store.list_events(), [])
+
+            raw = Ed25519PrivateKey.generate().public_key().public_bytes(
+                serialization.Encoding.Raw,
+                serialization.PublicFormat.Raw,
+            )
+            store.register_key("接收端單位", "正式章", base64.b64encode(raw).decode("ascii"), True)
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["events"][0]["reason"] = "竄改後的事件原因"
+            path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "指紋驗證失敗"):
+                store.list_events()
+
+    def test_registry_rejects_revoked_key_restored_without_matching_event(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "receiver-trust.json"
+            store = ReceiverTrustStore(path)
+            raw = Ed25519PrivateKey.generate().public_key().public_bytes(
+                serialization.Encoding.Raw,
+                serialization.PublicFormat.Raw,
+            )
+            record = store.register_key("接收端單位", "正式章", base64.b64encode(raw).decode("ascii"), True)
+            store.revoke_key(
+                record["keyId"],
+                reason_code="confirmed-compromise",
+                reason="確認私鑰已遭未授權複製。",
+                handled_by="資安管理者",
+                incident_reference="SEC-2026-002",
+                revocation_confirmed=True,
+            )
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["keys"][0]["status"] = "trusted"
+            path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "狀態與撤銷事件不一致"):
+                store.list_keys()
 
     def test_accepts_raw_base64_and_rejects_duplicate(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

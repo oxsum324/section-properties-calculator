@@ -21,6 +21,8 @@ import {
   ReceiverIdentityVerification,
   ReceiverIdentitySignatureResponse,
   ReceiverKeyEnrollment,
+  ReceiverRevocationReason,
+  ReceiverTrustEvent,
   ReceiverTrustKey,
   ReceiverVerificationAuthority,
   ReceiverVerificationResult,
@@ -77,6 +79,31 @@ const ADVANCED_PARAMETER_DEFAULTS = {
 const foundationTypeOptions = ["鑽掘或引孔樁", "打入樁"] as const;
 const foundationShapeOptions = ["(直徑)", "(寬×長)"] as const;
 const wallTypeOptions = ["連續壁", "鋼板樁", "其他"] as const;
+
+const receiverRevocationReasonOptions: Array<{ value: ReceiverRevocationReason; label: string }> = [
+  { value: "suspected-compromise", label: "疑似私鑰或密碼外洩" },
+  { value: "confirmed-compromise", label: "確認私鑰或密碼外洩" },
+  { value: "lost-key-or-password", label: "私鑰或密碼遺失" },
+  { value: "custodian-change", label: "保管人異動" },
+  { value: "organization-change", label: "組織或單位異動" },
+  { value: "superseded-after-rotation", label: "輪替完成後停用舊金鑰" },
+  { value: "retired", label: "一般除役" },
+  { value: "other", label: "其他" },
+];
+
+const emptyReceiverRevocationDraft = {
+  reasonCode: "suspected-compromise" as ReceiverRevocationReason,
+  reason: "",
+  handledBy: "",
+  incidentReference: "",
+  confirmed: false,
+};
+
+function receiverTrustEventReasonLabel(value: ReceiverTrustEvent["reasonCode"]): string {
+  if (value === "new-registration") return "新金鑰登錄";
+  if (value === "rotation-registration") return "輪替金鑰登錄";
+  return receiverRevocationReasonOptions.find((option) => option.value === value)?.label ?? value;
+}
 
 type ConstructionStageHandoff = {
   schemaVersion: number;
@@ -264,9 +291,12 @@ function App() {
   const [receiverAssistantReceipt, setReceiverAssistantReceipt] = useState<ReceiverCapacityVerificationReceipt | null>(null);
   const [receiverAssistantIdentityVerification, setReceiverAssistantIdentityVerification] = useState<ReceiverIdentityVerification | null>(null);
   const [receiverTrustKeys, setReceiverTrustKeys] = useState<ReceiverTrustKey[]>([]);
+  const [receiverTrustEvents, setReceiverTrustEvents] = useState<ReceiverTrustEvent[]>([]);
   const [receiverTrustDraft, setReceiverTrustDraft] = useState({ organization: "", displayName: "", publicKey: "" });
   const [receiverTrustEnrollment, setReceiverTrustEnrollment] = useState<ReceiverKeyEnrollment | null>(null);
   const [receiverTrustVerificationConfirmed, setReceiverTrustVerificationConfirmed] = useState(false);
+  const [receiverRevocationKeyId, setReceiverRevocationKeyId] = useState<string | null>(null);
+  const [receiverRevocationDraft, setReceiverRevocationDraft] = useState(emptyReceiverRevocationDraft);
   const [analysisSingleSide, setAnalysisSingleSide] = useState<AnalysisSourceSide>("top");
   const [componentTab, setComponentTab] = useState<ComponentTabKey>("support");
   const [advancedSettingsExpanded, setAdvancedSettingsExpanded] = useState(false);
@@ -313,7 +343,10 @@ function App() {
     let cancelled = false;
     api.listReceiverTrustKeys()
       .then((response) => {
-        if (!cancelled) setReceiverTrustKeys(response.keys);
+        if (!cancelled) {
+          setReceiverTrustKeys(response.keys);
+          setReceiverTrustEvents(response.events);
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err));
@@ -753,6 +786,7 @@ function App() {
             receiverTrustDraft.publicKey,
           );
       setReceiverTrustKeys(response.keys);
+      setReceiverTrustEvents(response.events);
       setReceiverTrustDraft({ organization: "", displayName: "", publicKey: "" });
       setReceiverTrustEnrollment(null);
       setReceiverTrustVerificationConfirmed(false);
@@ -803,11 +837,28 @@ function App() {
     setReceiverTrustVerificationConfirmed(false);
   }
 
-  async function handleRevokeReceiverTrustKey(keyId: string) {
+  function beginReceiverTrustKeyRevocation(keyId: string) {
+    setReceiverRevocationKeyId(keyId);
+    setReceiverRevocationDraft(emptyReceiverRevocationDraft);
+  }
+
+  function cancelReceiverTrustKeyRevocation() {
+    setReceiverRevocationKeyId(null);
+    setReceiverRevocationDraft(emptyReceiverRevocationDraft);
+  }
+
+  async function handleRevokeReceiverTrustKey() {
+    if (!receiverRevocationKeyId) return;
+    if (!receiverRevocationDraft.confirmed) {
+      setError("撤銷前必須確認此動作不可復原，且既有 RVR 將不再視為受信任回簽。");
+      return;
+    }
     try {
       setBusy("撤銷受信任回簽公鑰");
-      const response = await api.revokeReceiverTrustKey(keyId);
+      const response = await api.revokeReceiverTrustKey(receiverRevocationKeyId, receiverRevocationDraft);
       setReceiverTrustKeys(response.keys);
+      setReceiverTrustEvents(response.events);
+      cancelReceiverTrustKeyRevocation();
       if (receiverAssistantHandoff && receiverAssistantReceipt) {
         const validated = await api.validateReceiverVerificationReceipt(receiverAssistantHandoff, receiverAssistantReceipt);
         setReceiverAssistantIdentityVerification(validated.receiptValidation.identityVerification);
@@ -3825,15 +3876,19 @@ function App() {
                             {key.replacesKeyId && <><br /><span className="table-muted">取代：{key.replacesKeyId}</span></>}
                           </td>
                           <td>{key.keyId}</td>
-                          <td>{key.status === "trusted" ? "受信任" : "已撤銷"}</td>
+                          <td>
+                            {key.status === "trusted" ? "受信任" : "已撤銷"}
+                            {key.revokedAt && <><br /><span className="table-muted">{key.revokedAt}</span></>}
+                            {key.revocationReasonCode && <><br /><span className="table-muted">{receiverTrustEventReasonLabel(key.revocationReasonCode)}</span></>}
+                          </td>
                           <td>
                             <button
                               className="mini-action"
                               type="button"
                               disabled={key.status === "revoked"}
-                              onClick={() => handleRevokeReceiverTrustKey(key.keyId)}
+                              onClick={() => beginReceiverTrustKeyRevocation(key.keyId)}
                             >
-                              撤銷
+                              填寫撤銷紀錄
                             </button>
                           </td>
                         </tr>
@@ -3843,6 +3898,96 @@ function App() {
                 </div>
               ) : (
                 <p className="empty-state">本機尚未登錄受信任回簽公鑰；未簽或未知公鑰的 RVR 仍可檢查內容，但身分維持人工核對。</p>
+              )}
+              {receiverRevocationKeyId && (
+                <div className="receiver-key-revocation-card">
+                  <h4>撤銷金鑰：{receiverRevocationKeyId}</h4>
+                  <p className="meta-line attention-line">
+                    撤銷是一次性生命週期事件，不提供復原或覆寫；歷史 RVR 仍可驗證簽章，但不再顯示為受信任回簽。
+                  </p>
+                  <div className="form-grid">
+                    <label className="field-block">
+                      <span>撤銷原因分類</span>
+                      <select
+                        value={receiverRevocationDraft.reasonCode}
+                        onChange={(event) => setReceiverRevocationDraft((current) => ({
+                          ...current,
+                          reasonCode: event.target.value as ReceiverRevocationReason,
+                          confirmed: false,
+                        }))}
+                      >
+                        {receiverRevocationReasonOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <Field
+                      label="處理者／管理者"
+                      value={receiverRevocationDraft.handledBy}
+                      onChange={(value) => setReceiverRevocationDraft((current) => ({ ...current, handledBy: value, confirmed: false }))}
+                    />
+                    <Field
+                      label="事故、案件或變更編號（選填）"
+                      value={receiverRevocationDraft.incidentReference}
+                      onChange={(value) => setReceiverRevocationDraft((current) => ({ ...current, incidentReference: value, confirmed: false }))}
+                    />
+                  </div>
+                  <TextAreaField
+                    label="撤銷原因與處理摘要"
+                    value={receiverRevocationDraft.reason}
+                    onChange={(value) => setReceiverRevocationDraft((current) => ({ ...current, reason: value, confirmed: false }))}
+                  />
+                  <label className="check-field">
+                    <input
+                      type="checkbox"
+                      checked={receiverRevocationDraft.confirmed}
+                      onChange={(event) => setReceiverRevocationDraft((current) => ({ ...current, confirmed: event.target.checked }))}
+                    />
+                    <span>我確認撤銷原因與處理者正確，並了解撤銷不可復原、既有事件記錄不可覆寫。</span>
+                  </label>
+                  <div className="action-row">
+                    <button
+                      className="danger-button"
+                      type="button"
+                      disabled={!receiverRevocationDraft.confirmed || !receiverRevocationDraft.reason.trim() || !receiverRevocationDraft.handledBy.trim()}
+                      onClick={handleRevokeReceiverTrustKey}
+                    >
+                      確認撤銷並寫入事件清冊
+                    </button>
+                    <button className="ghost" type="button" onClick={cancelReceiverTrustKeyRevocation}>取消</button>
+                  </div>
+                </div>
+              )}
+              <h4>金鑰生命週期事件清冊</h4>
+              <p className="meta-line">
+                登錄與撤銷事件依序串接指紋；此紀錄用於本機稽核，不代表外部時間戳或憑證機構背書。
+              </p>
+              {receiverTrustEvents.length ? (
+                <div className="table-scroll-card">
+                  <table className="data-table compact">
+                    <thead><tr><th>時間／事件</th><th>Key ID</th><th>處理者／依據</th><th>事件指紋</th></tr></thead>
+                    <tbody>
+                      {[...receiverTrustEvents].reverse().map((event) => (
+                        <tr key={event.eventFingerprint}>
+                          <td>
+                            <strong>{event.eventType === "key-revoked" ? "撤銷" : "登錄"}</strong><br />
+                            <span className="table-muted">{event.effectiveAt}</span><br />
+                            <span className="table-muted">{receiverTrustEventReasonLabel(event.reasonCode)}</span>
+                          </td>
+                          <td>{event.keyId}</td>
+                          <td>
+                            {event.actor}<br />
+                            <span className="table-muted">{event.reason}</span>
+                            {event.incidentReference && <><br /><span className="table-muted">依據：{event.incidentReference}</span></>}
+                          </td>
+                          <td>{event.eventFingerprint}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="empty-state">舊版清冊尚無生命週期事件；下一次登錄或撤銷後將開始建立串接紀錄。</p>
               )}
             </Panel>
 

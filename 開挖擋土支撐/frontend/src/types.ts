@@ -482,6 +482,36 @@ export type ReceiverTrustKey = {
   replacesKeyId?: string | null;
   proofOfPossessionVerified?: boolean;
   independentVerificationConfirmedAt?: string;
+  revocationReasonCode?: ReceiverRevocationReason;
+  revocationReason?: string;
+  revokedBy?: string;
+  revocationReference?: string | null;
+  revocationEventFingerprint?: string;
+};
+
+export type ReceiverRevocationReason =
+  | "suspected-compromise"
+  | "confirmed-compromise"
+  | "lost-key-or-password"
+  | "custodian-change"
+  | "organization-change"
+  | "superseded-after-rotation"
+  | "retired"
+  | "other";
+
+export type ReceiverTrustEvent = {
+  schemaVersion: 1;
+  kind: "receiver-verification-key-event";
+  eventType: "key-registered" | "key-revoked";
+  keyId: string;
+  effectiveAt: string;
+  recordedAt: string;
+  actor: string;
+  reasonCode: ReceiverRevocationReason | "new-registration" | "rotation-registration";
+  reason: string;
+  incidentReference: string | null;
+  previousEventFingerprint: string | null;
+  eventFingerprint: string;
 };
 
 export type ReceiverKeyEnrollment = {

@@ -9,6 +9,8 @@ import {
   ReceiverVerificationAuthority,
   ReceiverVerificationResult,
   ReceiverTrustKey,
+  ReceiverTrustEvent,
+  ReceiverRevocationReason,
   ReceiverIdentitySigningRequest,
   ReceiverIdentitySignatureResponse,
   ReceiverKeyEnrollment,
@@ -116,9 +118,9 @@ export const api = {
       body: JSON.stringify({ handoff, receipt }),
     }),
   listReceiverTrustKeys: () =>
-    request<{ schemaVersion: 1; keys: ReceiverTrustKey[] }>("/api/removal-transfer-trust-keys"),
+    request<{ schemaVersion: 1; keys: ReceiverTrustKey[]; events: ReceiverTrustEvent[] }>("/api/removal-transfer-trust-keys"),
   registerReceiverTrustKey: (organization: string, displayName: string, publicKey: string) =>
-    request<{ key: ReceiverTrustKey; keys: ReceiverTrustKey[] }>("/api/removal-transfer-trust-keys", {
+    request<{ key: ReceiverTrustKey; keys: ReceiverTrustKey[]; events: ReceiverTrustEvent[] }>("/api/removal-transfer-trust-keys", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ organization, displayName, publicKey, independentVerificationConfirmed: true }),
@@ -133,7 +135,7 @@ export const api = {
       },
     ),
   registerReceiverKeyEnrollment: (enrollment: ReceiverKeyEnrollment) =>
-    request<{ key: ReceiverTrustKey; keys: ReceiverTrustKey[] }>(
+    request<{ key: ReceiverTrustKey; keys: ReceiverTrustKey[]; events: ReceiverTrustEvent[] }>(
       "/api/removal-transfer-trust-keys/enrollments/register",
       {
         method: "POST",
@@ -141,10 +143,28 @@ export const api = {
         body: JSON.stringify({ enrollment, independent_verification_confirmed: true }),
       },
     ),
-  revokeReceiverTrustKey: (keyId: string) =>
-    request<{ key: ReceiverTrustKey; keys: ReceiverTrustKey[] }>(
+  revokeReceiverTrustKey: (
+    keyId: string,
+    revocation: {
+      reasonCode: ReceiverRevocationReason;
+      reason: string;
+      handledBy: string;
+      incidentReference: string;
+    },
+  ) =>
+    request<{ key: ReceiverTrustKey; keys: ReceiverTrustKey[]; events: ReceiverTrustEvent[] }>(
       `/api/removal-transfer-trust-keys/${encodeURIComponent(keyId)}/revoke`,
-      { method: "POST" },
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason_code: revocation.reasonCode,
+          reason: revocation.reason,
+          handled_by: revocation.handledBy,
+          incident_reference: revocation.incidentReference,
+          revocation_confirmed: true,
+        }),
+      },
     ),
   buildReceiverIdentitySigningRequest: (
     handoff: RemovalTransferHandoff,

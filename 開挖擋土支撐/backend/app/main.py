@@ -41,6 +41,7 @@ from .schemas import (
     ReferenceData,
     ReportPayload,
     RegisterReceiverEnrollmentRequest,
+    RevokeReceiverTrustKeyRequest,
     SaveReferenceDataRequest,
     SaveProjectRequest,
     SaveProjectResponse,
@@ -87,9 +88,10 @@ def _receipt_validation(receipt: dict[str, Any]) -> dict[str, Any]:
 def list_receiver_trust_keys() -> dict[str, Any]:
     try:
         keys = receiver_trust_store.list_keys()
+        events = receiver_trust_store.list_events()
     except ValueError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    return {"schemaVersion": 1, "keys": keys}
+    return {"schemaVersion": 1, "keys": keys, "events": events}
 
 
 @app.post("/api/removal-transfer-trust-keys")
@@ -103,7 +105,11 @@ def register_receiver_trust_key(request: dict[str, Any]) -> dict[str, Any]:
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"key": record, "keys": receiver_trust_store.list_keys()}
+    return {
+        "key": record,
+        "keys": receiver_trust_store.list_keys(),
+        "events": receiver_trust_store.list_events(),
+    }
 
 
 @app.post("/api/removal-transfer-trust-keys/enrollments/validate")
@@ -126,18 +132,36 @@ def register_receiver_trust_key_enrollment(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"key": record, "keys": receiver_trust_store.list_keys()}
+    return {
+        "key": record,
+        "keys": receiver_trust_store.list_keys(),
+        "events": receiver_trust_store.list_events(),
+    }
 
 
 @app.post("/api/removal-transfer-trust-keys/{key_id}/revoke")
-def revoke_receiver_trust_key(key_id: str) -> dict[str, Any]:
+def revoke_receiver_trust_key(
+    key_id: str,
+    request: RevokeReceiverTrustKeyRequest,
+) -> dict[str, Any]:
     try:
-        record = receiver_trust_store.revoke_key(key_id)
+        record = receiver_trust_store.revoke_key(
+            key_id,
+            reason_code=request.reason_code,
+            reason=request.reason,
+            handled_by=request.handled_by,
+            incident_reference=request.incident_reference,
+            revocation_confirmed=request.revocation_confirmed,
+        )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="本機信任清冊找不到指定公鑰。") from exc
     except ValueError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    return {"key": record, "keys": receiver_trust_store.list_keys()}
+    return {
+        "key": record,
+        "keys": receiver_trust_store.list_keys(),
+        "events": receiver_trust_store.list_events(),
+    }
 
 
 @app.post("/api/removal-transfer-handoffs/validate")

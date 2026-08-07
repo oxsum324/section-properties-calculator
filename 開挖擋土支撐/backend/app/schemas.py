@@ -406,6 +406,23 @@ class RegisterReceiverEnrollmentRequest(BaseModel):
     independent_verification_confirmed: Literal[True]
 
 
+class RevokeReceiverTrustKeyRequest(BaseModel):
+    reason_code: Literal[
+        "suspected-compromise",
+        "confirmed-compromise",
+        "lost-key-or-password",
+        "custodian-change",
+        "organization-change",
+        "superseded-after-rotation",
+        "retired",
+        "other",
+    ]
+    reason: str = Field(min_length=1, max_length=500)
+    handled_by: str = Field(min_length=1, max_length=120)
+    incident_reference: str = Field(default="", max_length=160)
+    revocation_confirmed: Literal[True]
+
+
 class ReportPayload(BaseModel):
     project: ProjectState
     report_path: str
