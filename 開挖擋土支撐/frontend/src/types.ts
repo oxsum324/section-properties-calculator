@@ -115,7 +115,16 @@ export type ConstructionStageLoadSource = {
   handoff_record: Record<string, unknown>;
 };
 
+export type ConstructionStageLoadAdoption = {
+  stage_id: string;
+  stage_label: string;
+  target_column_id: string;
+  load_t: number;
+  source: ConstructionStageLoadSource;
+};
+
 export type ColumnScenarioInput = {
+  column_id: string;
   title: string;
   variant: "middle" | "composite_normal" | "composite_crane";
   enabled: boolean;
@@ -136,6 +145,7 @@ export type ColumnScenarioInput = {
   soil_layers: FoundationSoilLayer[];
   construction_stage_load_t: number;
   construction_stage_load_source?: ConstructionStageLoadSource | null;
+  construction_stage_loads: ConstructionStageLoadAdoption[];
   compression_fs: number;
   tension_fs: number;
   pile_unit_weight_t_per_m3: number;

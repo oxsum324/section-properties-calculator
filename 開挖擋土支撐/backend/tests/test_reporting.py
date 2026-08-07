@@ -12,7 +12,7 @@ from pypdf import PdfReader
 from backend.app.calculations import calculate_project
 from backend.app.reporting import _concise_metric_text, build_report, build_word_report, calculation_fingerprint
 from backend.app.workbook_loader import load_default_project
-from backend.tests.handoff_fixtures import make_verified_handoff_source
+from backend.tests.handoff_fixtures import make_stage_adoption, make_verified_handoff_source
 
 
 CALCULATION_BOOK_CONTENT_BOUNDARY = json.loads(
@@ -332,6 +332,34 @@ class ReportingTests(unittest.TestCase):
         self.assertIn("CF-0123456789ABCDEF", combined_text)
         self.assertIn(column.construction_stage_load_source.handoff_fingerprint, combined_text)
         self.assertIn("控制工況 = Pu1", combined_text)
+        report_path.unlink(missing_ok=True)
+
+    def test_word_report_lists_multi_stage_envelope_and_separate_controls(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        for column in project.columns:
+            column.enabled = column.variant == "composite_crane"
+        column = next(item for item in project.columns if item.variant == "composite_crane")
+        initial = make_stage_adoption(column.column_id, "構台初設", 40.0)
+        crane = make_stage_adoption(column.column_id, "吊車作業", 80.0)
+        column.construction_stage_load_t = 80.0
+        column.construction_stage_load_source = crane.source
+        column.construction_stage_loads = [initial, crane]
+        project.calculation_results = calculate_project(project)
+
+        report_path = build_word_report(project, concise_mode=False)
+        document = Document(str(report_path))
+        text = "\n".join(paragraph.text for paragraph in document.paragraphs)
+        table_text = "\n".join(cell.text for table in document.tables for row in table.rows for cell in row.cells)
+        combined_text = text + "\n" + table_text
+
+        self.assertIn("施工階段包絡 = 3 案", combined_text)
+        self.assertIn("施工階段逐案包絡結果如下", combined_text)
+        self.assertIn("構台初設", combined_text)
+        self.assertIn("吊車作業", combined_text)
+        self.assertIn("柱交互作用控制階段 = 吊車作業", combined_text)
+        self.assertIn("拉拔力控制階段 = 無施工構台荷重基準案", combined_text)
+        self.assertIn(initial.source.handoff_fingerprint, combined_text)
+        self.assertIn(crane.source.handoff_fingerprint, combined_text)
         report_path.unlink(missing_ok=True)
 
     def test_word_report_hides_non_included_structural_modules(self) -> None:

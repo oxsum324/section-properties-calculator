@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 
-from backend.app.schemas import ConstructionStageLoadSource
+from backend.app.schemas import ConstructionStageLoadAdoption, ConstructionStageLoadSource
 
 
 def make_verified_handoff_source(load_t: float = 64.32) -> ConstructionStageLoadSource:
@@ -47,4 +47,15 @@ def make_verified_handoff_source(load_t: float = 64.32) -> ConstructionStageLoad
         source_project_no=record["source"]["projectNo"],
         controlling_cases=list(record["load"]["controllingCases"]),
         handoff_record=record,
+    )
+
+
+def make_stage_adoption(column_id: str, stage_label: str, load_t: float) -> ConstructionStageLoadAdoption:
+    source = make_verified_handoff_source(load_t)
+    return ConstructionStageLoadAdoption(
+        stage_id=f"STG-{source.handoff_fingerprint[4:]}",
+        stage_label=stage_label,
+        target_column_id=column_id,
+        load_t=load_t,
+        source=source,
     )

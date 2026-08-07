@@ -586,13 +586,13 @@ assert.equal(repoDocs.homeHtml.includes('id="toolSearch"'), false, 'new home rem
 assert.equal(repoDocs.homeHtml.includes('id="stateFilterPanel"'), false, 'new home removes state filter panel');
 assert.equal(repoDocs.homeHtml.includes('id="stateFilters"'), false, 'new home removes state filters');
 assertIncludes(repoDocs.homeHtml, 'id="memberSystemPanel"', 'new home member system panel');
-assertIncludes(repoDocs.homeHtml, '覆工板控制柱頂軸力現在也可經現行核心重算', 'new home roadmap records completed decking-to-excavation handoff');
-assertIncludes(repoDocs.homeHtml, '多施工階段包絡、構件位置對應、偏心傳力及 SRC 構件能力', 'new home roadmap points to the next deeper construction-stage capabilities');
+assertIncludes(repoDocs.homeHtml, '以固定柱位 ID 逐階段套用到指定開挖共構柱', 'new home roadmap records completed column-mapped multi-stage handoff');
+assertIncludes(repoDocs.homeHtml, '階段別偏心／彎矩交接、支撐內力隨階段變化及 SRC 構件能力', 'new home roadmap points to the next deeper construction-stage capabilities');
 assertIncludes(repoDocs.homeHtml, '成熟度矩陣與巡檢儀表板', 'new home roadmap points to current governance evidence');
 assertIncludes(repoDocs.indexClassic, '三項局部快算均已具多案例基準', 'classic home reflects completed local quick golden coverage');
 assertIncludes(repoDocs.indexClassic, '牆身、趾版底層與踵版頂層設計', 'classic home records completed earth-to-RC base slab design');
-assertIncludes(repoDocs.indexClassic, '覆工板控制柱頂軸力至指定開挖共構柱 Np 的受控交接', 'classic home records completed construction-stage handoff');
-assertIncludes(repoDocs.indexClassic, '多施工階段包絡、構件位置對應、偏心傳力及 SRC 構件能力', 'classic home lists next construction-stage capability expansion');
+assertIncludes(repoDocs.indexClassic, '固定開挖共構柱的多階段受控交接', 'classic home records completed column-mapped multi-stage handoff');
+assertIncludes(repoDocs.indexClassic, '階段別偏心／彎矩交接、支撐內力隨階段變化及 SRC 構件能力', 'classic home lists next construction-stage capability expansion');
 assertIncludes(repoDocs.readme, '同版核心重算並比對 schema、邏輯簽章、合力與傾覆矩', 'README documents earth-to-RC recalculation boundary');
 assertIncludes(repoDocs.boundaries, 'earth-pressure-rc-bridge.js', 'tool boundaries govern earth-to-RC bridge');
 assert.equal(repoDocs.indexClassic.includes('短期先補 <strong>基礎局部檢核</strong>'), false, 'classic home removes stale foundation golden-case recommendation');

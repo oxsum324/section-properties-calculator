@@ -2281,7 +2281,13 @@ def _column_detail_content(
     details = check.details
     warnings = details.get("warnings", [])
     warning_text = _column_warning_summary(check, default="無額外註記")
+    envelope = details.get("construction_stage_envelope", [])
+    controls = details.get("construction_stage_controls", {})
+    interaction_control = controls.get("interaction", {}) if isinstance(controls, dict) else {}
+    compression_control = controls.get("compression", {}) if isinstance(controls, dict) else {}
+    tension_control = controls.get("tension", {}) if isinstance(controls, dict) else {}
     formulas = [
+        "各施工階段（含無構台荷重基準案）分別計算 N、PT、柱互制比、壓入比與拉拔比，再各自取最大值作為包絡控制。",
         "N = Np + N1 + N2 + N3 + N4",
         "PT = max(N3 - N4 - N2 - N1 - Np, 0)",
         "beta = ((Kh x B) / (4 x E x I))^(1/4)，l0 = 1 / beta",
@@ -2310,12 +2316,19 @@ def _column_detail_content(
         f"fby = {_fmt_short(details.get('fby_value'))} tf/cm2，Fby = {_fmt_short(details.get('fby_allow'))} tf/cm2，Fey = {_fmt_short(details.get('fey'))} tf/cm2",
         f"Qskin(壓入) = {_fmt_short(details.get('compression_skin_t'))} tf，Qb = {_fmt_short(details.get('compression_tip_t'))} tf，Qc,allow = ({_fmt_short(details.get('compression_skin_t'))} + {_fmt_short(details.get('compression_tip_t'))}) / {_fmt_short(details.get('compression_fs'))} = {_fmt_short(details.get('compression_capacity_t'))} tf",
         f"Qskin(拉拔) = {_fmt_short(details.get('tension_skin_t'))} tf，Wpile = {_fmt_short(details.get('tension_self_weight_t'))} tf，Qt,allow = {_fmt_short(details.get('tension_skin_t'))} / {_fmt_short(details.get('tension_fs'))} + {_fmt_short(details.get('tension_self_weight_t'))} = {_fmt_short(details.get('tension_capacity_t'))} tf",
-        f"壓入比 = {_fmt_short(inputs.get('N'))} / {_fmt_short(details.get('compression_capacity_t'))} = {_fmt_short(details.get('compression_ratio'))}；拉拔比 = {_fmt_short(inputs.get('PT'))} / {_fmt_short(details.get('tension_capacity_t'))} = {_fmt_short(details.get('tension_ratio'))}",
+        f"壓入控制：N = {_fmt_short(compression_control.get('N'))} tf，壓入比 = {_fmt_short(details.get('compression_ratio'))}；拉拔控制：PT = {_fmt_short(tension_control.get('PT'))} tf，拉拔比 = {_fmt_short(details.get('tension_ratio'))}",
     ]
+    if isinstance(envelope, list) and len(envelope) > 1:
+        substitutions.append("施工階段逐案包絡結果如下：")
+        substitutions.extend(
+            f"{item.get('stage_label', '—')} [{item.get('stage_id', '—')}]：Np = {_fmt_short(item.get('Np'))} tf，N = {_fmt_short(item.get('N'))} tf，PT = {_fmt_short(item.get('PT'))} tf，柱互制比 = {_fmt_short(item.get('interaction_ratio'))}，壓入比 = {_fmt_short(item.get('compression_ratio'))}，拉拔比 = {_fmt_short(item.get('tension_ratio'))}"
+            for item in envelope
+            if isinstance(item, dict)
+        )
     results = [
-        f"柱交互作用比 R = {_fmt_short(check.utilization_ratio)}，允許值 = 1.000，判定 = {_report_status_text(check.status)}",
-        f"壓入力比較：N = {_fmt_short(inputs.get('N'))} tf，Qc,allow = {_fmt_short(details.get('compression_capacity_t'))} tf，判定 = {'OK' if (details.get('compression_ratio') or 0) <= 1.0 else 'NG'}",
-        f"拉拔力比較：PT = {_fmt_short(inputs.get('PT'))} tf，Qt,allow = {_fmt_short(details.get('tension_capacity_t'))} tf，判定 = {'OK' if (details.get('tension_ratio') or 0) <= 1.0 else 'NG'}",
+        f"柱交互作用控制階段 = {interaction_control.get('stage_label', inputs.get('施工階段', '—'))}；R = {_fmt_short(check.utilization_ratio)}，允許值 = 1.000，判定 = {_report_status_text(check.status)}",
+        f"壓入力控制階段 = {compression_control.get('stage_label', '—')}；N = {_fmt_short(compression_control.get('N'))} tf，Qc,allow = {_fmt_short(details.get('compression_capacity_t'))} tf，判定 = {'OK' if (details.get('compression_ratio') or 0) <= 1.0 else 'NG'}",
+        f"拉拔力控制階段 = {tension_control.get('stage_label', '—')}；PT = {_fmt_short(tension_control.get('PT'))} tf，Qt,allow = {_fmt_short(details.get('tension_capacity_t'))} tf，判定 = {'OK' if (details.get('tension_ratio') or 0) <= 1.0 else 'NG'}",
         f"壓入 / 拉拔檢核說明：{warning_text}",
     ]
     return formulas, substitutions, results
@@ -2466,6 +2479,7 @@ def _input_parameter_lines(check: CheckResult) -> list[str]:
         ]
     if check.formula_id == "column_interaction":
         lines = [
+            f"施工階段包絡 = {_fmt_short(inputs.get('施工階段包絡數'))} 案（含無構台荷重基準案）；柱互制控制階段 = {inputs.get('施工階段', '—')} [{inputs.get('施工階段編號', '—')}]",
             f"Np = {_fmt_short(inputs.get('Np'))} tf，N1 = {_fmt_short(inputs.get('N1'))} tf，N2 = {_fmt_short(inputs.get('N2'))} tf，N3 = {_fmt_short(inputs.get('N3'))} tf，N4 = {_fmt_short(inputs.get('N4'))} tf",
             f"N = {_fmt_short(inputs.get('N'))} tf，PT = {_fmt_short(inputs.get('PT'))} tf",
             f"基礎型式 = {inputs.get('基礎型式', '—')}，基礎形狀 = {inputs.get('基礎形狀', '—')}，Bx = {_fmt_short(inputs.get('基礎尺寸 Bx'))} m，By = {_fmt_short(inputs.get('基礎尺寸 By'))} m",
@@ -2477,6 +2491,18 @@ def _input_parameter_lines(check: CheckResult) -> list[str]:
                 f"來源計算指紋 = {inputs.get('來源計算指紋', '—')}；交接指紋 = {inputs.get('交接指紋', '—')}；"
                 f"控制工況 = {inputs.get('來源控制工況', '—')}"
             )
+        envelope = check.details.get("construction_stage_envelope", [])
+        if isinstance(envelope, list):
+            for item in envelope:
+                if not isinstance(item, dict) or not item.get("handoff_fingerprint"):
+                    continue
+                lines.append(
+                    f"階段來源「{item.get('stage_label', '—')}」：Np = {_fmt_short(item.get('Np'))} tf；"
+                    f"{item.get('source_tool', '—')} {item.get('source_version', '')}；"
+                    f"來源計算指紋 = {item.get('source_calculation_fingerprint', '—')}；"
+                    f"交接指紋 = {item.get('handoff_fingerprint', '—')}；"
+                    f"控制工況 = {', '.join(str(value) for value in item.get('controlling_cases', []))}"
+                )
         return lines
     return _format_inputs_as_lines(inputs)
 
@@ -2505,7 +2531,12 @@ def _concise_metric_lines(check: CheckResult) -> list[str]:
             f"M = {_fmt_short(details.get('moment_tf_m'))} tf-m；fbx / Fbx = {_fmt_short(details.get('fbx_stress'))} / {_fmt_short(details.get('fbx_allow'))} tf/cm2",
         ]
     if check.formula_id == "column_interaction":
+        controls = details.get("construction_stage_controls", {})
+        interaction_control = controls.get("interaction", {}) if isinstance(controls, dict) else {}
+        compression_control = controls.get("compression", {}) if isinstance(controls, dict) else {}
+        tension_control = controls.get("tension", {}) if isinstance(controls, dict) else {}
         return [
+            f"柱互制／壓入／拉拔控制階段 = {interaction_control.get('stage_label', '—')}／{compression_control.get('stage_label', '—')}／{tension_control.get('stage_label', '—')}",
             f"N / PT = {_fmt_short(check.inputs.get('N'))} / {_fmt_short(check.inputs.get('PT'))} tf",
             f"fa / Fa = {_fmt_short(details.get('fa_value'))} / {_fmt_short(details.get('fa_allow'))} tf/cm2",
             f"Qc / Qt = {_fmt_short(details.get('compression_capacity_t'))} / {_fmt_short(details.get('tension_capacity_t'))} tf",

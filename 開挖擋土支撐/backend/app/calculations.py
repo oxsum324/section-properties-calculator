@@ -766,9 +766,16 @@ def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParamete
             f"支撐層 {', '.join(invalid_support_rows)} 尚未選擇型鋼型號，請先完成支撐選型。",
             inputs,
         )
-    platform_load = column.construction_stage_load_t
-    platform_source = column.construction_stage_load_source
-    if platform_load > 0 and column.variant == "middle":
+    stage_cases, stage_error = _construction_stage_load_cases(column)
+    if stage_error:
+        return _incomplete_check(
+            "柱構件",
+            column.title,
+            "column_interaction",
+            stage_error,
+            inputs,
+        )
+    if len(stage_cases) > 1 and column.variant == "middle":
         return _incomplete_check(
             "柱構件",
             column.title,
@@ -776,26 +783,13 @@ def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParamete
             "施工構台荷重只能套用於共構柱情境。",
             inputs,
         )
-    handoff_valid, handoff_message = (True, "") if platform_load <= 0 else _validate_construction_stage_handoff(platform_load, platform_source)
-    if not handoff_valid:
-        return _incomplete_check(
-            "柱構件",
-            column.title,
-            "column_interaction",
-            handoff_message,
-            inputs,
-        )
     n1 = sum(params.surcharge_wl_tf_per_m * row.spacing_m * row.support_count for row in column.support_rows)
     n2 = sum(find_section(row.section_name).unit_weight_kgf_per_m / 1000.0 * row.support_count * row.spacing_m for row in column.support_rows)
     n3 = sum((row.axial_force_t + row.temp_force_t) / 100.0 * 4.0 for row in column.support_rows)
     n4 = section.unit_weight_kgf_per_m / 1000.0 * column.column_length_m
-    total_n = platform_load + n1 + n2 + n3 + n4
-    pt = max(0.0, n3 - n4 - n2 - n1 - platform_load)
     e_x = column.eccentricity_x_m if column.eccentricity_x_m is not None else section.depth_cm / 200.0 + 0.2
     e_y = column.eccentricity_y_m
     mx = n3 * e_x
-    my = total_n * e_y
-    fa_value = total_n / section.area_cm2
     pile_width_cm = column.pile_width_cm or section.flange_width_cm
     beta = ((column.kh_kg_per_cm3 * pile_width_cm) / (4.0 * params.e_tf_per_cm2 * 1000.0 * section.iy_cm4)) ** 0.25
     l0 = 1.0 / max(beta, 1e-8) / 100.0
@@ -808,31 +802,79 @@ def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParamete
     fex = 12.0 / 23.0 * math.pi**2 * params.e_tf_per_cm2 / max(klr_x**2, 1e-6)
     fey = 12.0 / 23.0 * math.pi**2 * params.e_tf_per_cm2 / max(klr_y**2, 1e-6)
     fbx_value = mx * 100.0 / section.sx_cm3
-    fby_value = my * 100.0 / section.sy_cm3 if section.sy_cm3 else 0.0
-    ratio = interaction_ratio(
-        params.fy_tf_per_cm2,
-        fa_value,
-        fa_allow,
-        fbx_value,
-        fbx_allow,
-        fby_value,
-        fby_allow,
-        fex,
-        fey,
-        1.0,
-        1.0,
-    ) / params.psi_material
     compression = _compression_breakdown(column, section)
     tension = _tension_breakdown(column, section)
     compression_capacity = compression["allowable_t"]
     tension_capacity = tension["allowable_t"]
-    compression_ratio = total_n / max(compression_capacity, 1e-6)
-    tension_ratio = pt / max(tension_capacity, 1e-6) if pt > 0 else 0.0
+    evaluated_cases: list[dict[str, object]] = []
+    for stage in stage_cases:
+        platform_load = float(stage["load_t"])
+        total_n = platform_load + n1 + n2 + n3 + n4
+        pt = max(0.0, n3 - n4 - n2 - n1 - platform_load)
+        my = total_n * e_y
+        fa_value = total_n / section.area_cm2
+        fby_value = my * 100.0 / section.sy_cm3 if section.sy_cm3 else 0.0
+        ratio = interaction_ratio(
+            params.fy_tf_per_cm2,
+            fa_value,
+            fa_allow,
+            fbx_value,
+            fbx_allow,
+            fby_value,
+            fby_allow,
+            fex,
+            fey,
+            1.0,
+            1.0,
+        ) / params.psi_material
+        evaluated_cases.append({
+            **stage,
+            "total_n": total_n,
+            "pt": pt,
+            "my": my,
+            "fa_value": fa_value,
+            "fby_value": fby_value,
+            "interaction_ratio": ratio,
+            "compression_ratio": total_n / max(compression_capacity, 1e-6),
+            "tension_ratio": pt / max(tension_capacity, 1e-6) if pt > 0 else 0.0,
+        })
+    interaction_control = max(evaluated_cases, key=lambda item: float(item["interaction_ratio"]))
+    compression_control = max(evaluated_cases, key=lambda item: float(item["compression_ratio"]))
+    tension_control = max(evaluated_cases, key=lambda item: float(item["tension_ratio"]))
+    platform_load = float(interaction_control["load_t"])
+    platform_source = interaction_control.get("source")
+    total_n = float(interaction_control["total_n"])
+    pt = float(interaction_control["pt"])
+    my = float(interaction_control["my"])
+    fa_value = float(interaction_control["fa_value"])
+    fby_value = float(interaction_control["fby_value"])
+    ratio = float(interaction_control["interaction_ratio"])
+    compression_ratio = float(compression_control["compression_ratio"])
+    tension_ratio = float(tension_control["tension_ratio"])
     warnings: list[str] = []
-    if compression_capacity < total_n:
-        warnings.append("壓入力檢核未通過")
-    if tension_capacity < pt:
-        warnings.append("拉拔力檢核未通過")
+    if compression_ratio > 1.0:
+        warnings.append(f"壓入力檢核未通過（控制階段：{compression_control['stage_label']}）")
+    if tension_ratio > 1.0:
+        warnings.append(f"拉拔力檢核未通過（控制階段：{tension_control['stage_label']}）")
+    stage_envelope = [
+        {
+            "stage_id": item["stage_id"],
+            "stage_label": item["stage_label"],
+            "target_column_id": item["target_column_id"],
+            "Np": round(float(item["load_t"]), 3),
+            "N": round(float(item["total_n"]), 3),
+            "PT": round(float(item["pt"]), 3),
+            "interaction_ratio": round(float(item["interaction_ratio"]), 4),
+            "compression_ratio": round(float(item["compression_ratio"]), 4),
+            "tension_ratio": round(float(item["tension_ratio"]), 4),
+            "source_tool": getattr(item.get("source"), "source_tool", "") if item.get("source") else "",
+            "source_version": getattr(item.get("source"), "source_version", "") if item.get("source") else "",
+            "source_calculation_fingerprint": getattr(item.get("source"), "source_calculation_fingerprint", "") if item.get("source") else "",
+            "handoff_fingerprint": getattr(item.get("source"), "handoff_fingerprint", "") if item.get("source") else "",
+            "controlling_cases": list(getattr(item.get("source"), "controlling_cases", [])) if item.get("source") else [],
+        }
+        for item in evaluated_cases
+    ]
     return CheckResult(
         module_name="柱構件",
         label=column.title,
@@ -846,11 +888,14 @@ def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParamete
             "Np": round(platform_load, 3),
             "N": round(total_n, 3),
             "PT": round(pt, 3),
-            "施工構台荷重來源": platform_source.source_tool if platform_source else "",
-            "來源工具版本": platform_source.source_version if platform_source else "",
-            "來源計算指紋": platform_source.source_calculation_fingerprint if platform_source else "",
-            "交接指紋": platform_source.handoff_fingerprint if platform_source else "",
-            "來源控制工況": ", ".join(platform_source.controlling_cases) if platform_source else "",
+            "施工階段": interaction_control["stage_label"],
+            "施工階段編號": interaction_control["stage_id"],
+            "施工階段包絡數": len(evaluated_cases),
+            "施工構台荷重來源": getattr(platform_source, "source_tool", "") if platform_source else "",
+            "來源工具版本": getattr(platform_source, "source_version", "") if platform_source else "",
+            "來源計算指紋": getattr(platform_source, "source_calculation_fingerprint", "") if platform_source else "",
+            "交接指紋": getattr(platform_source, "handoff_fingerprint", "") if platform_source else "",
+            "來源控制工況": ", ".join(getattr(platform_source, "controlling_cases", [])) if platform_source else "",
         },
         computed_value=round(ratio, 3),
         allowable_value=1.0,
@@ -895,8 +940,80 @@ def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParamete
             "foundation_type": column.foundation_type,
             "kh_kg_per_cm3": round(column.kh_kg_per_cm3, 3),
             "warnings": warnings,
+            "construction_stage_envelope": stage_envelope,
+            "construction_stage_controls": {
+                "interaction": {"stage_id": interaction_control["stage_id"], "stage_label": interaction_control["stage_label"], "Np": round(platform_load, 3), "N": round(total_n, 3), "ratio": round(ratio, 4)},
+                "compression": {"stage_id": compression_control["stage_id"], "stage_label": compression_control["stage_label"], "Np": round(float(compression_control["load_t"]), 3), "N": round(float(compression_control["total_n"]), 3), "ratio": round(compression_ratio, 4)},
+                "tension": {"stage_id": tension_control["stage_id"], "stage_label": tension_control["stage_label"], "Np": round(float(tension_control["load_t"]), 3), "PT": round(float(tension_control["pt"]), 3), "ratio": round(tension_ratio, 4)},
+            },
+            "construction_stage_assignment_count": max(len(evaluated_cases) - 1, 0),
         },
     )
+
+
+def _construction_stage_load_cases(column: ColumnScenarioInput) -> tuple[list[dict[str, object]], str]:
+    baseline = {
+        "stage_id": "BASE",
+        "stage_label": "無施工構台荷重基準案",
+        "target_column_id": column.column_id or "LEGACY-COLUMN",
+        "load_t": 0.0,
+        "source": None,
+    }
+    adoptions = list(column.construction_stage_loads)
+    if not adoptions and column.construction_stage_load_t > 0:
+        source = column.construction_stage_load_source
+        valid, message = _validate_construction_stage_handoff(column.construction_stage_load_t, source)
+        if not valid:
+            return [baseline], message
+        return [
+            baseline,
+            {
+                "stage_id": f"LEGACY-{source.handoff_fingerprint[4:]}",
+                "stage_label": "舊案單一施工階段",
+                "target_column_id": column.column_id or "LEGACY-COLUMN",
+                "load_t": column.construction_stage_load_t,
+                "source": source,
+            },
+        ], ""
+    if not adoptions:
+        return [baseline], ""
+    if not column.column_id.strip():
+        return [baseline], "共構柱缺少固定柱識別碼，無法確認施工階段荷重對應。"
+    seen_ids: set[str] = set()
+    seen_labels: set[str] = set()
+    seen_fingerprints: set[str] = set()
+    cases = [baseline]
+    for adoption in adoptions:
+        stage_id = adoption.stage_id.strip().upper()
+        stage_label = adoption.stage_label.strip()
+        if not re.fullmatch(r"STG-[0-9A-F]{20}", stage_id):
+            return [baseline], "施工階段識別碼格式不正確。"
+        if not stage_label or len(stage_label) > 80:
+            return [baseline], "施工階段名稱必須為 1 至 80 個字元。"
+        if adoption.target_column_id != column.column_id:
+            return [baseline], f"施工階段「{stage_label}」所綁定的柱識別碼與目前共構柱不一致。"
+        fingerprint = adoption.source.handoff_fingerprint
+        if fingerprint in seen_fingerprints:
+            return [baseline], "同一共構柱不得重複採用相同覆工板交接檔。"
+        if stage_id in seen_ids:
+            return [baseline], "同一共構柱不得有重複的施工階段識別碼。"
+        normalized_label = stage_label.casefold()
+        if normalized_label in seen_labels:
+            return [baseline], "同一共構柱不得有重複的施工階段名稱。"
+        valid, message = _validate_construction_stage_handoff(adoption.load_t, adoption.source)
+        if not valid:
+            return [baseline], f"施工階段「{stage_label}」：{message}"
+        seen_ids.add(stage_id)
+        seen_labels.add(normalized_label)
+        seen_fingerprints.add(fingerprint)
+        cases.append({
+            "stage_id": stage_id,
+            "stage_label": stage_label,
+            "target_column_id": adoption.target_column_id,
+            "load_t": adoption.load_t,
+            "source": adoption.source,
+        })
+    return cases, ""
 
 
 def cc_value(params: BasicParameters) -> float:

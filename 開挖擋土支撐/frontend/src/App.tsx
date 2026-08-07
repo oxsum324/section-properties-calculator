@@ -11,6 +11,8 @@ import {
   CalculationOptions,
   CheckResult,
   ColumnScenarioInput,
+  ConstructionStageLoadAdoption,
+  ConstructionStageLoadSource,
   CornerBraceRow,
   ProjectListItem,
   ProjectState,
@@ -134,6 +136,29 @@ async function validateConstructionStageHandoff(record: ConstructionStageHandoff
   if (record.handoffFingerprint !== await constructionStageHandoffFingerprint(record)) {
     throw new Error("施工階段荷重交接內容與交接指紋不一致。");
   }
+}
+
+function constructionStageSourceFromRecord(record: ConstructionStageHandoff): ConstructionStageLoadSource {
+  return {
+    kind: "construction-stage-decking-load-handoff",
+    handoff_fingerprint: record.handoffFingerprint,
+    source_tool: record.source?.toolName || "覆工板系統計算工具",
+    source_version: record.source?.toolVersion || "",
+    source_calculation_fingerprint: record.source?.calculationFingerprint || "",
+    source_project_name: record.source?.projectName || "",
+    source_project_no: record.source?.projectNo || "",
+    controlling_cases: Array.isArray(record.load?.controllingCases) ? [...record.load.controllingCases] : [],
+    handoff_record: JSON.parse(JSON.stringify(record)) as Record<string, unknown>,
+  };
+}
+
+function uniqueConstructionStageLabel(stages: ConstructionStageLoadAdoption[], requested: string): string {
+  const base = (requested.trim() || `施工階段 ${stages.length + 1}`).slice(0, 72);
+  const used = new Set(stages.map((stage) => stage.stage_label.trim().toLocaleLowerCase()));
+  if (!used.has(base.toLocaleLowerCase())) return base;
+  let suffix = 2;
+  while (used.has(`${base} (${suffix})`.toLocaleLowerCase())) suffix += 1;
+  return `${base} (${suffix})`.slice(0, 80);
 }
 
 const columnNumericFields: Array<keyof ColumnScenarioInput> = [
@@ -727,23 +752,34 @@ function App() {
     try {
       const column = project.columns[index];
       if (!column || column.variant === "middle") throw new Error("施工階段荷重只能套用至共構柱情境。");
+      if (!column.column_id) throw new Error("本共構柱缺少固定識別碼，請先儲存專案後再匯入。");
       const record = JSON.parse(await file.text()) as ConstructionStageHandoff;
       await validateConstructionStageHandoff(record);
+      const currentStages = column.construction_stage_loads ?? [];
+      if (currentStages.length >= 20) throw new Error("單一共構柱最多可納入 20 個施工階段。");
+      if (currentStages.some((stage) => stage.source.handoff_fingerprint === record.handoffFingerprint)) {
+        throw new Error("本共構柱已採用相同覆工板交接檔，不得重複匯入。");
+      }
+      const source = constructionStageSourceFromRecord(record);
+      const stageLabel = uniqueConstructionStageLabel(
+        currentStages,
+        record.source?.projectName || record.source?.projectNo || `施工階段 ${currentStages.length + 1}`,
+      );
+      const adoption: ConstructionStageLoadAdoption = {
+        stage_id: `STG-${record.handoffFingerprint.slice(4)}`,
+        stage_label: stageLabel,
+        target_column_id: column.column_id,
+        load_t: Number(record.load?.controlAxialLoadTf),
+        source,
+      };
+      const constructionStageLoads = [...currentStages, adoption];
+      const legacyControl = constructionStageLoads.reduce((control, stage) => stage.load_t > control.load_t ? stage : control);
       const columns = [...project.columns];
       columns[index] = {
         ...column,
-        construction_stage_load_t: Number(record.load?.controlAxialLoadTf),
-        construction_stage_load_source: {
-          kind: "construction-stage-decking-load-handoff",
-          handoff_fingerprint: record.handoffFingerprint,
-          source_tool: record.source?.toolName || "覆工板系統計算工具",
-          source_version: record.source?.toolVersion || "",
-          source_calculation_fingerprint: record.source?.calculationFingerprint || "",
-          source_project_name: record.source?.projectName || "",
-          source_project_no: record.source?.projectNo || "",
-          controlling_cases: Array.isArray(record.load?.controllingCases) ? [...record.load.controllingCases] : [],
-          handoff_record: JSON.parse(JSON.stringify(record)) as Record<string, unknown>,
-        },
+        construction_stage_load_t: legacyControl.load_t,
+        construction_stage_load_source: legacyControl.source,
+        construction_stage_loads: constructionStageLoads,
       };
       applyProjectState({ ...project, columns, calculation_results: null });
       setError("");
@@ -752,10 +788,32 @@ function App() {
     }
   }
 
-  function clearConstructionStageHandoff(index: number) {
+  function updateConstructionStageLabel(columnIndex: number, stageIndex: number, value: string) {
     if (!project) return;
     const columns = [...project.columns];
-    columns[index] = { ...columns[index], construction_stage_load_t: 0, construction_stage_load_source: null };
+    const column = columns[columnIndex];
+    const constructionStageLoads = [...(column.construction_stage_loads ?? [])];
+    constructionStageLoads[stageIndex] = { ...constructionStageLoads[stageIndex], stage_label: value };
+    columns[columnIndex] = { ...column, construction_stage_loads: constructionStageLoads };
+    applyProjectState({ ...project, columns, calculation_results: null });
+    setError("");
+  }
+
+  function removeConstructionStageHandoff(columnIndex: number, stageId: string) {
+    if (!project) return;
+    const columns = [...project.columns];
+    const column = columns[columnIndex];
+    const constructionStageLoads = (column.construction_stage_loads ?? []).filter((stage) => stage.stage_id !== stageId);
+    const legacyControl = constructionStageLoads.reduce<ConstructionStageLoadAdoption | null>(
+      (control, stage) => !control || stage.load_t > control.load_t ? stage : control,
+      null,
+    );
+    columns[columnIndex] = {
+      ...column,
+      construction_stage_load_t: legacyControl?.load_t ?? 0,
+      construction_stage_load_source: legacyControl?.source ?? null,
+      construction_stage_loads: constructionStageLoads,
+    };
     applyProjectState({ ...project, columns, calculation_results: null });
     setError("");
   }
@@ -2814,13 +2872,13 @@ function App() {
                     </div>
                     {column.variant !== "middle" && (
                       <div className="info-card construction-stage-handoff-card">
-                        <p className="info-title">施工構台荷重交接</p>
+                        <p className="info-title">施工構台荷重交接與階段包絡</p>
                         <p className="info-body">
-                          只接受由覆工板目前計算核心重算驗證後產生的交接檔；選擇檔案即代表明確套用到本共構柱，不會影響其他情境。
+                          每份交接檔只套用到本共構柱（{column.title}，識別碼 {column.column_id}）。可匯入多個施工階段；後端會連同無構台荷重基準案逐案驗算，分別找出柱互制、壓入與拉拔控制階段。
                         </p>
                         <div className="upload-row">
                           <label className="file-action secondary">
-                            匯入並套用覆工板交接檔
+                            新增覆工板施工階段
                             <input
                               className="file-picker-input"
                               type="file"
@@ -2828,18 +2886,36 @@ function App() {
                               onChange={(event) => importConstructionStageHandoff(index, event)}
                             />
                           </label>
-                          {column.construction_stage_load_t > 0 && (
-                            <button className="ghost" type="button" onClick={() => clearConstructionStageHandoff(index)}>
-                              移除交接荷重
-                            </button>
-                          )}
                         </div>
-                        <div className="meta-grid">
-                          <MetaItem label="採用軸力 Np" value={`${fmt(column.construction_stage_load_t || 0)} tf`} />
-                          <MetaItem label="來源工具" value={column.construction_stage_load_source?.source_tool || "尚未套用"} />
-                          <MetaItem label="來源計算指紋" value={column.construction_stage_load_source?.source_calculation_fingerprint || "—"} />
-                          <MetaItem label="交接指紋" value={column.construction_stage_load_source?.handoff_fingerprint || "—"} />
-                        </div>
+                        {(column.construction_stage_loads ?? []).length === 0 ? (
+                          <p className="meta-line">尚未加入覆工板施工階段；計算時仍保留無構台荷重基準案。</p>
+                        ) : (
+                          <div className="construction-stage-list">
+                            {(column.construction_stage_loads ?? []).map((stage, stageIndex) => (
+                              <div className="construction-stage-item" key={stage.stage_id}>
+                                <div className="construction-stage-item-head">
+                                  <label>
+                                    <span>施工階段名稱</span>
+                                    <input
+                                      value={stage.stage_label}
+                                      maxLength={80}
+                                      onChange={(event) => updateConstructionStageLabel(index, stageIndex, event.target.value)}
+                                    />
+                                  </label>
+                                  <button className="ghost" type="button" onClick={() => removeConstructionStageHandoff(index, stage.stage_id)}>
+                                    移除此階段
+                                  </button>
+                                </div>
+                                <div className="meta-grid">
+                                  <MetaItem label="採用軸力 Np" value={`${fmt(stage.load_t)} tf`} />
+                                  <MetaItem label="來源工具" value={`${stage.source.source_tool} ${stage.source.source_version}`.trim()} />
+                                  <MetaItem label="來源計算指紋" value={stage.source.source_calculation_fingerprint} />
+                                  <MetaItem label="交接指紋" value={stage.source.handoff_fingerprint} />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                     </>
@@ -4463,9 +4539,9 @@ function syncProjectGuardrails(project: ProjectState): ProjectState {
     wall_type: normalizeWallTypeValue(project.basic_parameters.wall_type),
   };
   const normalizedSoils = buildEditableSoils(project);
-  const nextColumns = syncColumnsFromSoils(project.columns, normalizedSoils);
+  const nextColumns = normalizeConstructionStageColumns(syncColumnsFromSoils(project.columns, normalizedSoils));
   const soilsChanged = !isSameSoilRows(project.analysis_import.soils, normalizedSoils);
-  const columnsChanged = !isSameColumnSoils(project.columns, nextColumns);
+  const columnsChanged = JSON.stringify(project.columns) !== JSON.stringify(nextColumns);
   const basicChanged = JSON.stringify(project.basic_parameters) !== JSON.stringify(normalizedBasicParameters);
   const originalTopSeeds = project.calculation_options.include_top_supports
     ? buildSupportSeeds(project.top_supports)
@@ -4529,6 +4605,39 @@ function syncProjectGuardrails(project: ProjectState): ProjectState {
     bottom_braces: bottomBraces,
     corner_braces: cornerBraces,
   };
+}
+
+function normalizeConstructionStageColumns(columns: ColumnScenarioInput[]): ColumnScenarioInput[] {
+  const usedColumnIds = new Set<string>();
+  return columns.map((column, index) => {
+    const existingStages = column.construction_stage_loads ?? [];
+    const targetFromStage = existingStages[0]?.target_column_id?.trim() || "";
+    let columnId = column.column_id?.trim() || targetFromStage || `COL-${column.variant.toUpperCase().replaceAll("_", "-")}-${index + 1}`;
+    if (usedColumnIds.has(columnId)) columnId = `${columnId}-${index + 1}`;
+    usedColumnIds.add(columnId);
+
+    let constructionStageLoads = existingStages;
+    if (constructionStageLoads.length === 0 && column.construction_stage_load_t > 0 && column.construction_stage_load_source) {
+      constructionStageLoads = [{
+        stage_id: `STG-${column.construction_stage_load_source.handoff_fingerprint.slice(4)}`,
+        stage_label: "舊案單一施工階段",
+        target_column_id: columnId,
+        load_t: column.construction_stage_load_t,
+        source: column.construction_stage_load_source,
+      }];
+    }
+    const legacyControl = constructionStageLoads.reduce<ConstructionStageLoadAdoption | null>(
+      (control, stage) => !control || stage.load_t > control.load_t ? stage : control,
+      null,
+    );
+    return {
+      ...column,
+      column_id: columnId,
+      construction_stage_load_t: legacyControl?.load_t ?? 0,
+      construction_stage_load_source: legacyControl?.source ?? null,
+      construction_stage_loads: constructionStageLoads,
+    };
+  });
 }
 
 function syncSupportRows(rows: SupportRow[], useDefaultTempForce: boolean): [SupportRow[], boolean] {
@@ -5739,6 +5848,7 @@ function createColumnScenario(
   variant: ColumnScenarioInput["variant"],
 ): ColumnScenarioInput {
   return {
+    column_id: `COL-${crypto.randomUUID().toUpperCase()}`,
     title: columnVariantLabel(variant),
     variant,
     enabled: true,
@@ -5759,6 +5869,7 @@ function createColumnScenario(
     soil_layers: toFoundationSoils(project.analysis_import.soils),
     construction_stage_load_t: 0.0,
     construction_stage_load_source: null,
+    construction_stage_loads: [],
     compression_fs: 2.0,
     tension_fs: 3.0,
     pile_unit_weight_t_per_m3: 1.8,

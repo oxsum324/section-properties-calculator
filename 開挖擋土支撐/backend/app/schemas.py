@@ -203,7 +203,16 @@ class ConstructionStageLoadSource(BaseModel):
     handoff_record: dict[str, Any] = Field(default_factory=dict)
 
 
+class ConstructionStageLoadAdoption(BaseModel):
+    stage_id: str
+    stage_label: str
+    target_column_id: str
+    load_t: float = Field(ge=0.0)
+    source: ConstructionStageLoadSource
+
+
 class ColumnScenarioInput(BaseModel):
+    column_id: str = ""
     title: str
     variant: Literal["middle", "composite_normal", "composite_crane"] = "middle"
     enabled: bool = True
@@ -224,6 +233,7 @@ class ColumnScenarioInput(BaseModel):
     soil_layers: list[FoundationSoilLayer] = Field(default_factory=list)
     construction_stage_load_t: float = Field(default=0.0, ge=0.0)
     construction_stage_load_source: ConstructionStageLoadSource | None = None
+    construction_stage_loads: list[ConstructionStageLoadAdoption] = Field(default_factory=list, max_length=20)
     compression_fs: float = 2.0
     tension_fs: float = 3.0
     pile_unit_weight_t_per_m3: float = 1.8

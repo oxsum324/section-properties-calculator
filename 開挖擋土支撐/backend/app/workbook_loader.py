@@ -421,6 +421,7 @@ def _column_from_sheet(
     size_x = float(ws["L3"].value or 0.8)
     size_y = float(ws["M3"].value or 2.5)
     return ColumnScenarioInput(
+        column_id=f"COL-{variant.upper().replace('_', '-')}",
         title=title,
         variant=variant,  # type: ignore[arg-type]
         enabled=True,

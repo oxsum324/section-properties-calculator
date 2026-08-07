@@ -15,7 +15,7 @@ from backend.app.calculations import (
 )
 from backend.app.schemas import BraceRow, WaleRow
 from backend.app.workbook_loader import load_default_project, load_reference_data
-from backend.tests.handoff_fixtures import make_verified_handoff_source
+from backend.tests.handoff_fixtures import make_stage_adoption, make_verified_handoff_source
 
 
 class CalculationTests(unittest.TestCase):
@@ -329,6 +329,58 @@ class CalculationTests(unittest.TestCase):
 
         self.assertEqual(check.status, "NG")
         self.assertIn("只能套用於共構柱", check.details["message"])
+
+    def test_multiple_construction_stages_are_enveloped_per_composite_column(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        for column in project.columns:
+            column.enabled = column.variant == "composite_crane"
+        column = next(item for item in project.columns if item.variant == "composite_crane")
+        column.construction_stage_load_t = 0.0
+        column.construction_stage_load_source = None
+        column.construction_stage_loads = [
+            make_stage_adoption(column.column_id, "構台初設", 40.0),
+            make_stage_adoption(column.column_id, "吊車作業", 80.0),
+        ]
+
+        check = calculate_project(project).column_checks[0]
+        envelope = check.details["construction_stage_envelope"]
+        controls = check.details["construction_stage_controls"]
+
+        self.assertEqual(len(envelope), 3)
+        self.assertEqual(check.inputs["施工階段包絡數"], 3)
+        self.assertEqual(controls["interaction"]["stage_label"], "吊車作業")
+        self.assertEqual(controls["compression"]["stage_label"], "吊車作業")
+        self.assertEqual(controls["tension"]["stage_label"], "無施工構台荷重基準案")
+        self.assertAlmostEqual(check.inputs["Np"], 80.0, places=3)
+        self.assertGreater(envelope[0]["PT"], envelope[-1]["PT"])
+
+    def test_multiple_construction_stages_fail_closed_on_column_mapping_mismatch(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        for column in project.columns:
+            column.enabled = column.variant == "composite_crane"
+        column = next(item for item in project.columns if item.variant == "composite_crane")
+        adoption = make_stage_adoption("COL-WRONG-TARGET", "錯誤柱位", 40.0)
+        column.construction_stage_loads = [adoption]
+
+        check = calculate_project(project).column_checks[0]
+
+        self.assertEqual(check.status, "NG")
+        self.assertIn("柱識別碼與目前共構柱不一致", check.details["message"])
+
+    def test_multiple_construction_stages_fail_closed_on_duplicate_handoff(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        for column in project.columns:
+            column.enabled = column.variant == "composite_crane"
+        column = next(item for item in project.columns if item.variant == "composite_crane")
+        adoption = make_stage_adoption(column.column_id, "第一階段", 40.0)
+        duplicate = adoption.model_copy(deep=True)
+        duplicate.stage_label = "第二階段"
+        column.construction_stage_loads = [adoption, duplicate]
+
+        check = calculate_project(project).column_checks[0]
+
+        self.assertEqual(check.status, "NG")
+        self.assertIn("重複採用相同覆工板交接檔", check.details["message"])
 
 
 if __name__ == "__main__":
