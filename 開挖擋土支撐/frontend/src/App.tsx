@@ -18,6 +18,8 @@ import {
   ProjectListItem,
   ProjectState,
   ReceiverCapacityVerificationReceipt,
+  ReceiverVerificationAuthority,
+  ReceiverVerificationResult,
   ReferenceData,
   RemovalTransferHandoff,
   RemovalTransferMode,
@@ -34,6 +36,7 @@ const STEP_COMPONENTS = 2;
 const STEP_COLUMNS = 3;
 const STEP_RESULTS = 4;
 const STEP_REPORT = 5;
+const STEP_RECEIPT = 6;
 
 const steps = [
   "專案設定",
@@ -42,6 +45,7 @@ const steps = [
   "柱構件",
   "檢核結果",
   "報表匯出",
+  "接收端回簽助手",
 ];
 
 const columnVariantOptions: Array<{
@@ -242,6 +246,17 @@ function App() {
   const [generatedWordMode, setGeneratedWordMode] = useState<"detailed" | "concise" | null>(null);
   const [removalTransferHandoff, setRemovalTransferHandoff] = useState<RemovalTransferHandoff | null>(null);
   const [removalTransferReceipt, setRemovalTransferReceipt] = useState<ReceiverCapacityVerificationReceipt | null>(null);
+  const [receiverAssistantHandoff, setReceiverAssistantHandoff] = useState<RemovalTransferHandoff | null>(null);
+  const [receiverAssistantAuthority, setReceiverAssistantAuthority] = useState<ReceiverVerificationAuthority>({
+    organization: "",
+    verifierName: "",
+    verifierRole: "",
+    reportReference: "",
+  });
+  const [receiverAssistantResults, setReceiverAssistantResults] = useState<ReceiverVerificationResult[]>([]);
+  const [receiverCalculationConfirmed, setReceiverCalculationConfirmed] = useState(false);
+  const [receiverIdentityAcknowledged, setReceiverIdentityAcknowledged] = useState(false);
+  const [receiverAssistantReceipt, setReceiverAssistantReceipt] = useState<ReceiverCapacityVerificationReceipt | null>(null);
   const [analysisSingleSide, setAnalysisSingleSide] = useState<AnalysisSourceSide>("top");
   const [componentTab, setComponentTab] = useState<ComponentTabKey>("support");
   const [advancedSettingsExpanded, setAdvancedSettingsExpanded] = useState(false);
@@ -261,6 +276,27 @@ function App() {
     () => removalTransferReceipt ?? latestRemovalTransferReceipt(project, activeRemovalTransferHandoff?.handoffFingerprint),
     [project?.removal_transfer_verification_receipts, removalTransferReceipt, activeRemovalTransferHandoff?.handoffFingerprint],
   );
+  const receiverAssistantReady = useMemo(() => {
+    if (!receiverAssistantHandoff || !receiverCalculationConfirmed || !receiverIdentityAcknowledged) return false;
+    if (Object.values(receiverAssistantAuthority).some((value) => !value.trim())) return false;
+    if (receiverAssistantResults.length !== receiverAssistantHandoff.transfers.length) return false;
+    return receiverAssistantResults.every((result) => (
+      result.receiverTarget.trim().length > 0
+      && result.verificationBasis.trim().length > 0
+      && result.conclusion.trim().length > 0
+      && Number.isFinite(result.adoptedDemandTf)
+      && result.adoptedDemandTf > 0
+      && Number.isFinite(result.capacityUtilizationRatio)
+      && result.capacityUtilizationRatio > 0
+      && !(result.status === "passed" && result.capacityUtilizationRatio > 1)
+    ));
+  }, [
+    receiverAssistantHandoff,
+    receiverAssistantAuthority,
+    receiverAssistantResults,
+    receiverCalculationConfirmed,
+    receiverIdentityAcknowledged,
+  ]);
 
   useEffect(() => {
     void initialize();
@@ -543,6 +579,108 @@ function App() {
     } finally {
       setBusy("");
     }
+  }
+
+  function loadReceiverAssistantHandoff(record: RemovalTransferHandoff) {
+    setReceiverAssistantHandoff(record);
+    setReceiverAssistantResults(receiverResultDrafts(record));
+    setReceiverCalculationConfirmed(false);
+    setReceiverIdentityAcknowledged(false);
+    setReceiverAssistantReceipt(null);
+  }
+
+  function openReceiverAssistant(record?: RemovalTransferHandoff | null) {
+    if (record) loadReceiverAssistantHandoff(record);
+    setActiveStep(STEP_RECEIPT);
+    setError("");
+  }
+
+  async function handleImportReceiverAssistantHandoff(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      setBusy("驗證 ERH 交接檔");
+      const parsed = JSON.parse(await file.text()) as RemovalTransferHandoff;
+      const handoff = await api.validateRemovalTransferHandoff(parsed);
+      loadReceiverAssistantHandoff(handoff);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleBuildReceiverAssistantReceipt() {
+    if (!receiverAssistantHandoff) return;
+    if (!receiverCalculationConfirmed || !receiverIdentityAcknowledged) {
+      setError("請先確認接收端計算已完成，並了解 RVR 不取代回簽人身分核對。");
+      return;
+    }
+    try {
+      setBusy("建立接收端 RVR 回簽");
+      const response = await api.buildReceiverVerificationReceipt(
+        receiverAssistantHandoff,
+        receiverAssistantAuthority,
+        receiverAssistantResults,
+      );
+      setReceiverAssistantReceipt(response.receipt);
+      downloadJsonFile(
+        response.receipt,
+        `承接構造回簽-${response.receipt.handoffFingerprint}-${response.receipt.receiptFingerprint}.json`,
+      );
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleValidateReceiverAssistantReceipt(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !receiverAssistantHandoff) return;
+    try {
+      setBusy("檢查既有 RVR 回簽");
+      const parsed = JSON.parse(await file.text()) as unknown;
+      const response = await api.validateReceiverVerificationReceipt(receiverAssistantHandoff, parsed);
+      setReceiverAssistantAuthority(response.receipt.verificationAuthority);
+      setReceiverAssistantResults(response.receipt.results);
+      setReceiverAssistantReceipt(response.receipt);
+      setReceiverCalculationConfirmed(true);
+      setReceiverIdentityAcknowledged(true);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  function updateReceiverAssistantAuthority(field: keyof ReceiverVerificationAuthority, value: string) {
+    setReceiverAssistantAuthority((current) => ({ ...current, [field]: value }));
+    setReceiverAssistantReceipt(null);
+  }
+
+  function updateReceiverAssistantResult(
+    index: number,
+    field: keyof ReceiverVerificationResult,
+    value: string,
+  ) {
+    setReceiverAssistantResults((current) => {
+      const next = [...current];
+      const result = { ...next[index] };
+      if (field === "adoptedDemandTf" || field === "capacityUtilizationRatio") {
+        result[field] = Number(value);
+      } else {
+        result[field] = value as never;
+      }
+      next[index] = result;
+      return next;
+    });
+    setReceiverAssistantReceipt(null);
   }
 
   async function handleSaveReferenceData() {
@@ -1520,6 +1658,14 @@ function App() {
         ? { text: "已有最新檔案", tone: "ok" as const }
         : { text: "可產出報表", tone: "warn" as const };
 
+    const receiptAssistantSummary = !receiverAssistantHandoff
+      ? { text: "待匯入 ERH", tone: "muted" as const }
+      : receiverAssistantReceipt
+        ? receiverAssistantReceipt.summary.status === "passed"
+          ? { text: "RVR 已建立／待核身分", tone: "ok" as const }
+          : { text: "RVR 結果未通過", tone: "ng" as const }
+        : { text: `待填 ${receiverAssistantHandoff.transfers.length} 筆`, tone: "warn" as const };
+
     return [
       projectSettingSummary,
       analysisSummary,
@@ -1527,6 +1673,7 @@ function App() {
       columnSummary,
       resultSummary,
       reportSummary,
+      receiptAssistantSummary,
     ];
   }, [
     project,
@@ -1539,6 +1686,8 @@ function App() {
     statusCounts,
     reportUrl,
     wordReportUrl,
+    receiverAssistantHandoff,
+    receiverAssistantReceipt,
   ]);
   const enabledSummaryLabels = useMemo(() => {
     if (!project?.calculation_results) return [] as string[];
@@ -1872,57 +2021,79 @@ function App() {
       <main className="content">
         <header className="toolbar">
           <div className="toolbar-group">
-            <label className="toolbar-label">專案</label>
-            <select
-              value={project.metadata.id ?? ""}
-              onChange={(event) => handleProjectSwitch(event.target.value)}
-            >
-              {projectList.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-            <button className="secondary" onClick={handleCreateProject}>
-              新增專案
-            </button>
+            {activeStep === STEP_RECEIPT ? (
+              <>
+                <strong>獨立接收端工作區</strong>
+                <span className="toolbar-label">不會寫入目前來源專案或計算書</span>
+              </>
+            ) : (
+              <>
+                <label className="toolbar-label">專案</label>
+                <select
+                  value={project.metadata.id ?? ""}
+                  onChange={(event) => handleProjectSwitch(event.target.value)}
+                >
+                  {projectList.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+                <button className="secondary" onClick={handleCreateProject}>
+                  新增專案
+                </button>
+              </>
+            )}
           </div>
           <div className="toolbar-group">
-            <button className="secondary" onClick={handleSaveProject} disabled={!projectDirty}>
-              {projectDirty ? "儲存變更" : "已儲存"}
-            </button>
-            <span className="toolbar-label">{autoSaveLabel}</span>
+            {activeStep !== STEP_RECEIPT && (
+              <>
+                <button className="secondary" onClick={handleSaveProject} disabled={!projectDirty}>
+                  {projectDirty ? "儲存變更" : "已儲存"}
+                </button>
+                <span className="toolbar-label">{autoSaveLabel}</span>
+              </>
+            )}
             <button className="secondary" onClick={() => jumpToStep(STEP_RESULTS)}>
               前往檢核結果
             </button>
             <button className="secondary" onClick={() => jumpToStep(STEP_REPORT)}>
               前往報表匯出
             </button>
+            <button className="secondary" onClick={() => openReceiverAssistant(activeRemovalTransferHandoff)}>
+              接收端回簽助手
+            </button>
           </div>
         </header>
 
-        <div className="toolbar-status-strip">
-          <div className={`toolbar-status-card ${projectFreshness.tone}`}>
-            <span>專案狀態</span>
-            <strong>{projectFreshness.text}</strong>
-            <small>{projectFreshness.detail}</small>
+        {activeStep !== STEP_RECEIPT ? (
+          <div className="toolbar-status-strip">
+            <div className={`toolbar-status-card ${projectFreshness.tone}`}>
+              <span>專案狀態</span>
+              <strong>{projectFreshness.text}</strong>
+              <small>{projectFreshness.detail}</small>
+            </div>
+            <div className={`toolbar-status-card ${calculationFreshness.tone}`}>
+              <span>檢算狀態</span>
+              <strong>{calculationFreshness.text}</strong>
+              <small>{calculationFreshness.detail}</small>
+            </div>
+            <div className={`toolbar-status-card ${reportFreshness.tone}`}>
+              <span>報表狀態</span>
+              <strong>{reportFreshness.text}</strong>
+              <small>{reportFreshness.detail}</small>
+            </div>
+            <div className="toolbar-status-card muted compact">
+              <span>附件模式</span>
+              <strong>{reportModeLabel}</strong>
+              <small>可於報表匯出頁切換詳細版或簡述版。</small>
+            </div>
           </div>
-          <div className={`toolbar-status-card ${calculationFreshness.tone}`}>
-            <span>檢算狀態</span>
-            <strong>{calculationFreshness.text}</strong>
-            <small>{calculationFreshness.detail}</small>
+        ) : (
+          <div className="banner-info receiver-workspace-banner">
+            目前為獨立接收端工作區：ERH、表單與產出的 RVR 只存在本次瀏覽器工作階段，不會改動來源專案，也不會寫入 PDF／DOCX 計算書。
           </div>
-          <div className={`toolbar-status-card ${reportFreshness.tone}`}>
-            <span>報表狀態</span>
-            <strong>{reportFreshness.text}</strong>
-            <small>{reportFreshness.detail}</small>
-          </div>
-          <div className="toolbar-status-card muted compact">
-            <span>附件模式</span>
-            <strong>{reportModeLabel}</strong>
-            <small>可於報表匯出頁切換詳細版或簡述版。</small>
-          </div>
-        </div>
+        )}
 
         {busy && <div className="banner-info">處理中：{busy}</div>}
         {error && <div className="banner-error">{error}</div>}
@@ -3276,7 +3447,7 @@ function App() {
             </Panel>
             <Panel
               title="拆撐承接構造驗證交接"
-              subtitle="將已確認的拆撐處置輸出成具指紋的待驗證 JSON，供專案分析或未來專用接收工具回簽。"
+              subtitle="將已確認的拆撐處置輸出成具指紋的待驗證 JSON；接收單位可在回簽助手完成逐列檢核結果。"
             >
               <div className="report-mode-card">
                 <strong>{`目前可交接：${removalTransferCandidateCount(project)} 筆拆撐處置`}</strong>
@@ -3301,6 +3472,13 @@ function App() {
                     onChange={handleImportRemovalTransferReceipt}
                   />
                 </label>
+                <button
+                  className="secondary"
+                  type="button"
+                  onClick={() => openReceiverAssistant(activeRemovalTransferHandoff)}
+                >
+                  開啟接收端回簽助手
+                </button>
               </div>
               {!project.calculation_results && (
                 <p className="meta-line attention-line">請先完成最新計算，再建立與該計算指紋一致的交接檔。</p>
@@ -3362,6 +3540,204 @@ function App() {
             </Panel>
           </section>
         )}
+        {activeStep === STEP_RECEIPT && (
+          <section className="panel-stack">
+            <Panel
+              title="接收端回簽助手"
+              subtitle="匯入來源端 ERH，逐筆登錄承接構造檢核結果，再由後端產生具完整性指紋的 RVR；本頁不代替承接構造計算。"
+            >
+              <div className="action-row">
+                <label className="file-action secondary">
+                  匯入 ERH 交接 JSON
+                  <input
+                    className="file-picker-input"
+                    type="file"
+                    accept=".json,application/json"
+                    onChange={handleImportReceiverAssistantHandoff}
+                  />
+                </label>
+                <label className={`file-action secondary${receiverAssistantHandoff ? "" : " disabled"}`}>
+                  檢查既有 RVR JSON
+                  <input
+                    className="file-picker-input"
+                    type="file"
+                    accept=".json,application/json"
+                    disabled={!receiverAssistantHandoff}
+                    onChange={handleValidateReceiverAssistantReceipt}
+                  />
+                </label>
+                {activeRemovalTransferHandoff && (
+                  <button
+                    className="secondary"
+                    type="button"
+                    onClick={() => loadReceiverAssistantHandoff(activeRemovalTransferHandoff)}
+                  >
+                    採用目前專案 ERH
+                  </button>
+                )}
+              </div>
+              <p className="meta-line attention-line">
+                RVR 只封裝接收端已完成的工程結果並檢查內容未遭竄改；容量、傳力路徑、荷重分配、偏心與載重組合仍須由接收端依正式模型及文件完成。
+              </p>
+            </Panel>
+
+            {receiverAssistantHandoff ? (
+              <>
+                <Panel title="ERH 交接摘要" subtitle="已通過 ERH／ERT 指紋與責任邊界驗證。">
+                  <div className="meta-grid">
+                    <MetaItem label="來源專案" value={receiverAssistantHandoff.source.projectName || "—"} />
+                    <MetaItem label="計畫編號" value={receiverAssistantHandoff.source.projectNo || "—"} />
+                    <MetaItem label="交接列數" value={String(receiverAssistantHandoff.transfers.length)} />
+                    <MetaItem label="來源計算指紋" value={receiverAssistantHandoff.source.calculationFingerprint} />
+                    <MetaItem label="ERH 指紋" value={receiverAssistantHandoff.handoffFingerprint} />
+                    <MetaItem label="接收端狀態" value="待逐列登錄檢核結果" />
+                  </div>
+                </Panel>
+
+                <Panel title="回簽單位與正式依據" subtitle="下列欄位會寫入 RVR；專案名稱或來源端設計者是否留空不影響回簽格式。">
+                  <div className="form-grid">
+                    <Field
+                      label="回簽單位"
+                      value={receiverAssistantAuthority.organization}
+                      onChange={(value) => updateReceiverAssistantAuthority("organization", value)}
+                    />
+                    <Field
+                      label="檢核人員"
+                      value={receiverAssistantAuthority.verifierName}
+                      onChange={(value) => updateReceiverAssistantAuthority("verifierName", value)}
+                    />
+                    <Field
+                      label="人員職責"
+                      value={receiverAssistantAuthority.verifierRole}
+                      onChange={(value) => updateReceiverAssistantAuthority("verifierRole", value)}
+                    />
+                    <Field
+                      label="正式檢核文件編號"
+                      value={receiverAssistantAuthority.reportReference}
+                      onChange={(value) => updateReceiverAssistantAuthority("reportReference", value)}
+                    />
+                  </div>
+                </Panel>
+
+                <Panel title="逐列承接構造結果" subtitle="每一個 ERT 必須且只能回簽一次；利用率大於 1 的結果不得標示為通過。">
+                  <div className="receiver-result-list">
+                    {receiverAssistantResults.map((result, index) => {
+                      const transfer = receiverAssistantHandoff.transfers[index];
+                      return (
+                        <article className="receiver-result-card" key={result.transferId}>
+                          <header className="receiver-result-head">
+                            <div>
+                              <span>{`交接列 ${index + 1}`}</span>
+                              <strong>{handoffSourceMemberLabel(transfer)}</strong>
+                            </div>
+                            <code>{result.transferId}</code>
+                          </header>
+                          <div className="receiver-source-summary">
+                            <span>{`來源設計軸力：${fmt(handoffDesignDemandTf(transfer), " tf")}`}</span>
+                            <span>{`原指定承接對象：${transfer.receiver.target || "待接收端明確指定"}`}</span>
+                            <span>{`處置依據：${transfer.receiver.dispositionBasis || "—"}`}</span>
+                          </div>
+                          <div className="form-grid receiver-result-fields">
+                            <label className="field-block">
+                              <span>接收端結果</span>
+                              <select
+                                value={result.status}
+                                onChange={(event) => updateReceiverAssistantResult(index, "status", event.target.value)}
+                              >
+                                <option value="passed">通過</option>
+                                <option value="failed">未通過</option>
+                              </select>
+                            </label>
+                            <Field
+                              label="實際承接構造識別"
+                              value={result.receiverTarget}
+                              onChange={(value) => updateReceiverAssistantResult(index, "receiverTarget", value)}
+                            />
+                            <NumberField
+                              label="接收端採用需求值（tf）"
+                              value={result.adoptedDemandTf}
+                              onChange={(value) => updateReceiverAssistantResult(index, "adoptedDemandTf", value)}
+                            />
+                            <NumberField
+                              label="容量利用率"
+                              value={result.capacityUtilizationRatio}
+                              onChange={(value) => updateReceiverAssistantResult(index, "capacityUtilizationRatio", value)}
+                            />
+                            <TextAreaField
+                              label="接收端檢核依據"
+                              value={result.verificationBasis}
+                              onChange={(value) => updateReceiverAssistantResult(index, "verificationBasis", value)}
+                            />
+                            <TextAreaField
+                              label="逐列檢核結論"
+                              value={result.conclusion}
+                              onChange={(value) => updateReceiverAssistantResult(index, "conclusion", value)}
+                            />
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </Panel>
+
+                <Panel title="確認與輸出 RVR" subtitle="兩項確認只代表建立回簽的前提已具備，不是電子簽章或來源端正式核可。">
+                  <div className="receiver-confirmation-list">
+                    <label className="check-field">
+                      <input
+                        type="checkbox"
+                        checked={receiverCalculationConfirmed}
+                        onChange={(event) => {
+                          setReceiverCalculationConfirmed(event.target.checked);
+                          setReceiverAssistantReceipt(null);
+                        }}
+                      />
+                      <span>我確認接收端已完成容量、傳力路徑、分配、偏心及載重組合檢核。</span>
+                    </label>
+                    <label className="check-field">
+                      <input
+                        type="checkbox"
+                        checked={receiverIdentityAcknowledged}
+                        onChange={(event) => {
+                          setReceiverIdentityAcknowledged(event.target.checked);
+                          setReceiverAssistantReceipt(null);
+                        }}
+                      />
+                      <span>我了解 RVR 指紋不驗證人員身分，來源端仍須核對回簽單位、人員與正式文件。</span>
+                    </label>
+                  </div>
+                  <div className="action-row">
+                    <button
+                      className="primary"
+                      type="button"
+                      disabled={!receiverAssistantReady}
+                      onClick={handleBuildReceiverAssistantReceipt}
+                    >
+                      產生並下載 RVR 回簽 JSON
+                    </button>
+                  </div>
+                  {!receiverAssistantReady && (
+                    <p className="meta-line">請完成回簽單位、每筆檢核結果及兩項確認；通過列的容量利用率不得大於 1。</p>
+                  )}
+                  {receiverAssistantReceipt && (
+                    <div className={`receiver-receipt-result ${receiverAssistantReceipt.summary.status === "passed" ? "ok" : "ng"}`}>
+                      <strong>
+                        {receiverAssistantReceipt.summary.status === "passed"
+                          ? "RVR 已建立：接收端結果通過／回簽人身分待核對"
+                          : "RVR 已建立：接收端結果包含未通過項目"}
+                      </strong>
+                      <span>{`RVR 指紋：${receiverAssistantReceipt.receiptFingerprint}`}</span>
+                      <span>{`通過 ${receiverAssistantReceipt.summary.passed}／未通過 ${receiverAssistantReceipt.summary.failed}`}</span>
+                    </div>
+                  )}
+                </Panel>
+              </>
+            ) : (
+              <Panel title="尚未載入 ERH" subtitle="請先取得來源端匯出的拆撐承接構造交接 JSON。">
+                <p className="empty-state">匯入後會先驗證 ERH 與每一筆 ERT 指紋，再展開接收端逐列表單。</p>
+              </Panel>
+            )}
+          </section>
+        )}
         {showScrollTop && (
           <button className="primary floating-top-button" type="button" onClick={scrollToTop}>
             回到頁首
@@ -3391,6 +3767,15 @@ function Field(props: { label: string; value: string | number; onChange: (value:
     <label className="field-block">
       <span>{props.label}</span>
       <input value={props.value} onChange={(event) => props.onChange(event.target.value)} />
+    </label>
+  );
+}
+
+function TextAreaField(props: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="field-block text-area-field">
+      <span>{props.label}</span>
+      <textarea rows={3} value={props.value} onChange={(event) => props.onChange(event.target.value)} />
     </label>
   );
 }
@@ -4649,6 +5034,32 @@ function downloadJsonFile(payload: unknown, filename: string): void {
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function handoffDesignDemandTf(transfer: RemovalTransferHandoff["transfers"][number]): number {
+  const value = Number(transfer.sourceDemand.memberDesignAxialForceTf ?? 0);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function handoffSourceMemberLabel(transfer: RemovalTransferHandoff["transfers"][number]): string {
+  const parts = [
+    String(transfer.sourceMember.moduleName ?? "").trim(),
+    String(transfer.sourceMember.levelLabel ?? "").trim(),
+    String(transfer.sourceMember.sectionName ?? "").trim(),
+  ].filter(Boolean);
+  return parts.join("／") || "未命名來源構件";
+}
+
+function receiverResultDrafts(handoff: RemovalTransferHandoff): ReceiverVerificationResult[] {
+  return handoff.transfers.map((transfer) => ({
+    transferId: transfer.transferId,
+    status: "passed",
+    receiverTarget: transfer.receiver.target,
+    adoptedDemandTf: handoffDesignDemandTf(transfer),
+    capacityUtilizationRatio: 0,
+    verificationBasis: "",
+    conclusion: "",
+  }));
 }
 
 function latestRemovalTransferHandoff(project: ProjectState | null): RemovalTransferHandoff | null {

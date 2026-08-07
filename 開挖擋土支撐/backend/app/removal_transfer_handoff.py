@@ -412,11 +412,65 @@ def validate_receiver_verification_receipt(
     return deepcopy(receipt)
 
 
+def build_receiver_verification_receipt(
+    handoff: dict[str, Any],
+    verification_authority: dict[str, Any],
+    results: list[dict[str, Any]],
+    *,
+    issued_at: str | None = None,
+) -> dict[str, Any]:
+    """Build a minimal controlled RVR receipt from receiver-entered results."""
+    validated_handoff = validate_removal_transfer_handoff(handoff)
+    authority = {
+        "organization": verification_authority.get("organization", ""),
+        "verifierName": verification_authority.get("verifierName", ""),
+        "verifierRole": verification_authority.get("verifierRole", ""),
+        "reportReference": verification_authority.get("reportReference", ""),
+    }
+    controlled_results = [
+        {
+            "transferId": result.get("transferId", ""),
+            "status": result.get("status", ""),
+            "receiverTarget": result.get("receiverTarget", ""),
+            "adoptedDemandTf": result.get("adoptedDemandTf"),
+            "capacityUtilizationRatio": result.get("capacityUtilizationRatio"),
+            "verificationBasis": result.get("verificationBasis", ""),
+            "conclusion": result.get("conclusion", ""),
+        }
+        for result in results
+        if isinstance(result, dict)
+    ]
+    passed = sum(result["status"] == "passed" for result in controlled_results)
+    failed = sum(result["status"] == "failed" for result in controlled_results)
+    receipt = {
+        "schemaVersion": SCHEMA_VERSION,
+        "kind": RECEIPT_KIND,
+        "issuedAt": issued_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "handoffFingerprint": validated_handoff["handoffFingerprint"],
+        "sourceCalculationFingerprint": validated_handoff["source"]["calculationFingerprint"],
+        "verificationAuthority": authority,
+        "results": controlled_results,
+        "summary": {
+            "status": "passed" if failed == 0 and passed == len(controlled_results) else "failed",
+            "passed": passed,
+            "failed": failed,
+        },
+        "boundary": {
+            "receiverCalculationCompleted": True,
+            "sourceToolDidNotAutoVerify": True,
+            "verifierIdentityRequiresManualReview": True,
+        },
+    }
+    receipt["receiptFingerprint"] = receiver_verification_receipt_fingerprint(receipt)
+    return validate_receiver_verification_receipt(receipt, validated_handoff)
+
+
 __all__ = [
     "SCHEMA_VERSION",
     "KIND",
     "RECEIPT_KIND",
     "build_removal_transfer_handoff",
+    "build_receiver_verification_receipt",
     "receiver_verification_receipt_fingerprint",
     "same_removal_transfer_handoff_content",
     "validate_removal_transfer_handoff",

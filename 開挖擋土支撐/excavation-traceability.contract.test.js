@@ -75,7 +75,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.0.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.1.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -138,6 +138,7 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'excavation-removal-transfer-handoff',
   'receiver-capacity-verification-receipt',
   'def build_removal_transfer_handoff',
+  'def build_receiver_verification_receipt',
   'def validate_removal_transfer_handoff',
   'def validate_receiver_verification_receipt',
   'def receiver_verification_receipt_fingerprint',
@@ -155,7 +156,11 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
 [
   '/api/projects/{project_id}/removal-transfer-handoff',
   '/api/projects/{project_id}/removal-transfer-receipts',
+  '/api/removal-transfer-handoffs/validate',
+  '/api/removal-transfer-receipts/build',
+  '/api/removal-transfer-receipts/validate',
   'build_removal_transfer_handoff',
+  'build_receiver_verification_receipt',
   'validate_receiver_verification_receipt',
   'removal_transfer_handoffs',
   'removal_transfer_verification_receipts',
@@ -168,6 +173,17 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'handleGenerateRemovalTransferHandoff',
   'importRemovalTransferReceipt',
   'handleImportRemovalTransferReceipt',
+  'validateRemovalTransferHandoff',
+  'buildReceiverVerificationReceipt',
+  'validateReceiverVerificationReceipt',
+  'handleImportReceiverAssistantHandoff',
+  'handleBuildReceiverAssistantReceipt',
+  'handleValidateReceiverAssistantReceipt',
+  '接收端回簽助手',
+  '獨立接收端工作區',
+  '不會寫入目前來源專案或計算書',
+  '產生並下載 RVR 回簽 JSON',
+  'RVR 指紋不驗證人員身分',
   '匯出待驗證交接 JSON',
   '匯入承接構造回簽 JSON',
   '待承接構造驗證',
@@ -187,6 +203,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'test_rejects_incomplete_receiver_receipt',
   'test_rejects_passed_receipt_with_over_capacity_ratio',
   'test_reuses_handoff_when_only_issue_time_changes',
+  'test_builds_controlled_receiver_receipt_for_assistant',
+  'test_assistant_rejects_missing_receiver_result',
 ].forEach((needle) => {
   assert(removalTransferHandoffTests.includes(needle), `excavation removal transfer tests keep ${needle}`, needle);
 });

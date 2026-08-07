@@ -9,6 +9,7 @@ from backend.app.removal_transfer_handoff import (
     KIND,
     RECEIPT_KIND,
     build_removal_transfer_handoff,
+    build_receiver_verification_receipt,
     receiver_verification_receipt_fingerprint,
     same_removal_transfer_handoff_content,
     validate_removal_transfer_handoff,
@@ -166,6 +167,47 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         self.assertTrue(validated["boundary"]["verifierIdentityRequiresManualReview"])
         round_tripped = json.loads(json.dumps(receipt))
         self.assertEqual(validate_receiver_verification_receipt(round_tripped, handoff), receipt)
+
+    def test_builds_controlled_receiver_receipt_for_assistant(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        draft = self.receiver_receipt(handoff)
+        draft["verificationAuthority"]["untrustedField"] = "must not survive"
+        draft["results"][0]["untrustedField"] = "must not survive"
+
+        receipt = build_receiver_verification_receipt(
+            handoff,
+            draft["verificationAuthority"],
+            draft["results"],
+            issued_at="2026-08-07T12:00:00Z",
+        )
+
+        self.assertEqual(receipt["summary"], {"status": "passed", "passed": 1, "failed": 0})
+        self.assertNotIn("untrustedField", receipt["verificationAuthority"])
+        self.assertNotIn("untrustedField", receipt["results"][0])
+        self.assertTrue(receipt["boundary"]["receiverCalculationCompleted"])
+        self.assertRegex(receipt["receiptFingerprint"], r"^RVR-[0-9A-F]{20}$")
+        self.assertEqual(
+            validate_receiver_verification_receipt(json.loads(json.dumps(receipt)), handoff),
+            receipt,
+        )
+
+    def test_assistant_rejects_missing_receiver_result(self) -> None:
+        project = self.prepared_project()
+        second = deepcopy(project.top_supports[0])
+        second.level_label = "第二層"
+        project.top_supports.append(second)
+        project.calculation_results = calculate_project(project)
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        draft = self.receiver_receipt(handoff)
+        draft["results"].pop()
+
+        with self.assertRaisesRegex(ValueError, "未完整涵蓋"):
+            build_receiver_verification_receipt(
+                handoff,
+                draft["verificationAuthority"],
+                draft["results"],
+            )
 
     def test_rejects_tampered_receiver_receipt(self) -> None:
         project = self.prepared_project()

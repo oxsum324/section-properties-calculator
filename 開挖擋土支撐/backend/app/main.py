@@ -17,6 +17,7 @@ from .parsers import parse_analysis_file
 from .project_store import ProjectStore
 from .removal_transfer_handoff import (
     build_removal_transfer_handoff,
+    build_receiver_verification_receipt,
     same_removal_transfer_handoff_content,
     validate_removal_transfer_handoff,
     validate_receiver_verification_receipt,
@@ -27,6 +28,7 @@ from .schemas import (
     AnalysisSideSource,
     BootstrapPayload,
     BraceRow,
+    BuildReceiverReceiptRequest,
     CreateProjectRequest,
     ProjectState,
     ReferenceData,
@@ -35,6 +37,7 @@ from .schemas import (
     SaveProjectRequest,
     SaveProjectResponse,
     SupportRow,
+    ValidateReceiverReceiptRequest,
 )
 from .workbook_loader import (
     load_default_project,
@@ -59,6 +62,58 @@ app.add_middleware(
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.post("/api/removal-transfer-handoffs/validate")
+def validate_external_removal_transfer_handoff(handoff: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return validate_removal_transfer_handoff(handoff)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/removal-transfer-receipts/build")
+def build_external_receiver_verification_receipt(
+    request: BuildReceiverReceiptRequest,
+) -> dict[str, Any]:
+    try:
+        handoff = validate_removal_transfer_handoff(request.handoff)
+        receipt = build_receiver_verification_receipt(
+            handoff,
+            request.verification_authority,
+            request.results,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "handoff": handoff,
+        "receipt": receipt,
+        "receiptValidation": {
+            "integrity": "valid",
+            "engineeringStatus": receipt["summary"]["status"],
+            "verifierIdentity": "manual-review-required",
+        },
+    }
+
+
+@app.post("/api/removal-transfer-receipts/validate")
+def validate_external_receiver_verification_receipt(
+    request: ValidateReceiverReceiptRequest,
+) -> dict[str, Any]:
+    try:
+        handoff = validate_removal_transfer_handoff(request.handoff)
+        receipt = validate_receiver_verification_receipt(request.receipt, handoff)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "handoff": handoff,
+        "receipt": receipt,
+        "receiptValidation": {
+            "integrity": "valid",
+            "engineeringStatus": receipt["summary"]["status"],
+            "verifierIdentity": "manual-review-required",
+        },
+    }
 
 
 def _append_warning(project_result, message: str) -> None:

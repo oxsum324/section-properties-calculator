@@ -377,6 +377,19 @@ class SaveReferenceDataRequest(BaseModel):
     reference_data: ReferenceData
 
 
+class BuildReceiverReceiptRequest(BaseModel):
+    handoff: dict[str, Any]
+    verification_authority: dict[str, Any]
+    results: list[dict[str, Any]]
+    receiver_calculation_confirmed: Literal[True]
+    identity_review_acknowledged: Literal[True]
+
+
+class ValidateReceiverReceiptRequest(BaseModel):
+    handoff: dict[str, Any]
+    receipt: dict[str, Any]
+
+
 class ReportPayload(BaseModel):
     project: ProjectState
     report_path: str

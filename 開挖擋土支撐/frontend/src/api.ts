@@ -5,6 +5,8 @@ import {
   ReferenceData,
   RemovalTransferHandoff,
   RemovalTransferReceiptImportResponse,
+  ReceiverVerificationAuthority,
+  ReceiverVerificationResult,
   ReportPayload,
 } from "./types";
 
@@ -17,7 +19,14 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `${response.status} ${response.statusText}`);
+    let detail = "";
+    try {
+      const payload = JSON.parse(text) as { detail?: unknown };
+      if (typeof payload.detail === "string" && payload.detail.trim()) {
+        detail = payload.detail;
+      }
+    } catch {}
+    throw new Error(detail || text || `${response.status} ${response.statusText}`);
   }
   return (await response.json()) as T;
 }
@@ -70,6 +79,37 @@ export const api = {
       { method: "POST", body: form },
     );
   },
+  validateRemovalTransferHandoff: (handoff: RemovalTransferHandoff) =>
+    request<RemovalTransferHandoff>("/api/removal-transfer-handoffs/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(handoff),
+    }),
+  buildReceiverVerificationReceipt: (
+    handoff: RemovalTransferHandoff,
+    verificationAuthority: ReceiverVerificationAuthority,
+    results: ReceiverVerificationResult[],
+  ) =>
+    request<RemovalTransferReceiptImportResponse>("/api/removal-transfer-receipts/build", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        handoff,
+        verification_authority: verificationAuthority,
+        results,
+        receiver_calculation_confirmed: true,
+        identity_review_acknowledged: true,
+      }),
+    }),
+  validateReceiverVerificationReceipt: (
+    handoff: RemovalTransferHandoff,
+    receipt: unknown,
+  ) =>
+    request<RemovalTransferReceiptImportResponse>("/api/removal-transfer-receipts/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ handoff, receipt }),
+    }),
   generateReport: (projectId: string, concise = false) =>
     request<ReportPayload>(`/api/projects/${projectId}/report?concise=${concise ? "true" : "false"}`, {
       method: "POST",

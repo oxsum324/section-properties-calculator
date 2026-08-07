@@ -403,27 +403,31 @@ export type RemovalTransferHandoff = {
   handoffFingerprint: string;
 };
 
+export type ReceiverVerificationAuthority = {
+  organization: string;
+  verifierName: string;
+  verifierRole: string;
+  reportReference: string;
+};
+
+export type ReceiverVerificationResult = {
+  transferId: string;
+  status: "passed" | "failed";
+  receiverTarget: string;
+  adoptedDemandTf: number;
+  capacityUtilizationRatio: number;
+  verificationBasis: string;
+  conclusion: string;
+};
+
 export type ReceiverCapacityVerificationReceipt = {
   schemaVersion: 1;
   kind: "receiver-capacity-verification-receipt";
   issuedAt: string;
   handoffFingerprint: string;
   sourceCalculationFingerprint: string;
-  verificationAuthority: {
-    organization: string;
-    verifierName: string;
-    verifierRole: string;
-    reportReference: string;
-  };
-  results: Array<{
-    transferId: string;
-    status: "passed" | "failed";
-    receiverTarget: string;
-    adoptedDemandTf: number;
-    capacityUtilizationRatio: number;
-    verificationBasis: string;
-    conclusion: string;
-  }>;
+  verificationAuthority: ReceiverVerificationAuthority;
+  results: ReceiverVerificationResult[];
   summary: {
     status: "passed" | "failed";
     passed: number;
