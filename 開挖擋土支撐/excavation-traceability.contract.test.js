@@ -72,6 +72,7 @@ const receiverKeyEnrollment = readUtf8('backend/app/receiver_key_enrollment.py')
 const receiverKeyManager = readUtf8('backend/manage_receiver_key.py');
 const receiverKeyLauncher = readUtf8('manage_receiver_key.ps1');
 const receiverTrustStore = readUtf8('backend/app/receiver_trust_store.py');
+const receiverTrustBackup = readUtf8('backend/app/receiver_trust_backup.py');
 const receiverTrustStoreTests = readUtf8('backend/tests/test_receiver_trust_store.py');
 
 const expectedTools = [
@@ -174,6 +175,9 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '/api/removal-transfer-trust-keys/enrollments/validate',
   '/api/removal-transfer-trust-keys/enrollments/register',
   '/api/removal-transfer-trust-keys/{key_id}/revoke',
+  '/api/removal-transfer-trust-registry/backups/export',
+  '/api/removal-transfer-trust-registry/backups/validate',
+  '/api/removal-transfer-trust-registry/backups/restore',
   'RevokeReceiverTrustKeyRequest',
   'build_removal_transfer_handoff',
   'build_receiver_verification_receipt',
@@ -215,6 +219,13 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '撤銷原因與處理摘要',
   '確認撤銷並寫入事件清冊',
   '金鑰生命週期事件清冊',
+  'handleDownloadReceiverTrustRegistryBackup',
+  'handleImportReceiverTrustRegistryBackup',
+  'handleRestoreReceiverTrustRegistryBackup',
+  '下載目前信任清冊備份',
+  '驗證／預覽清冊備份',
+  '確認復原已驗證備份',
+  '此備份不得復原',
   '交接完成不等於承接構造合格',
 ].forEach((needle) => {
   assert(app.includes(needle) || api.includes(needle), `excavation removal transfer frontend keeps ${needle}`, needle);
@@ -289,12 +300,31 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   assert(receiverTrustStore.includes(needle), `excavation receiver trust store keeps ${needle}`, needle);
 });
 [
+  'receiver-verification-trust-registry-backup',
+  'registryFingerprint',
+  'backupFingerprint',
+  'build_receiver_trust_registry_backup',
+  'validate_receiver_trust_registry_backup',
+  'preview_receiver_trust_registry_restore',
+  'restore_receiver_trust_registry_backup',
+  'restoreAllowed',
+  '備份會把已撤銷金鑰恢復為受信任',
+  '備份事件鏈不是目前清冊的向前延伸',
+].forEach((needle) => {
+  assert(receiverTrustBackup.includes(needle), `excavation receiver trust backup keeps ${needle}`, needle);
+});
+assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust restore keeps safeguard copy', 'pre-restore');
+[
   'test_validates_and_registers_proof_of_possession_enrollment',
   'test_rotation_enrollment_links_but_does_not_revoke_previous_key',
   'test_creates_encrypted_private_key_and_public_only_enrollment',
   'test_revocation_requires_complete_confirmation_and_supported_reason',
   'test_event_chain_rejects_tampering_and_old_registry_remains_readable',
   'test_registry_rejects_revoked_key_restored_without_matching_event',
+  'test_builds_and_validates_public_only_trust_registry_backup',
+  'test_previews_and_restores_backup_with_safeguard_copy',
+  'test_restore_blocks_revocation_rollback_or_key_removal',
+  'test_restore_can_replace_unreadable_registry_after_preview',
 ].forEach((needle) => {
   assert(receiverTrustStoreTests.includes(needle), `excavation receiver trust tests keep ${needle}`, needle);
 });

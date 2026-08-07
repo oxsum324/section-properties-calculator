@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import base64
+from copy import deepcopy
 from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import shutil
 from typing import Any
 
 from cryptography.hazmat.primitives import serialization
@@ -50,6 +52,9 @@ class ReceiverTrustStore:
     def list_events(self) -> list[dict[str, Any]]:
         return [dict(item) for item in self._read_registry()["events"]]
 
+    def snapshot(self) -> dict[str, list[dict[str, Any]]]:
+        return deepcopy(self._read_registry())
+
     def _read_registry(self) -> dict[str, list[dict[str, Any]]]:
         if not self.path.exists():
             return {"keys": [], "events": []}
@@ -59,17 +64,71 @@ class ReceiverTrustStore:
             raise ValueError("本機回簽公鑰信任清冊無法讀取。") from exc
         if not isinstance(payload, dict) or payload.get("schemaVersion") != 1:
             raise ValueError("本機回簽公鑰信任清冊版本不受支援。")
-        keys = payload.get("keys")
+        return self.validate_snapshot(payload.get("keys"), payload.get("events", []))
+
+    @classmethod
+    def validate_snapshot(cls, keys: Any, events: Any) -> dict[str, list[dict[str, Any]]]:
         if not isinstance(keys, list):
             raise ValueError("本機回簽公鑰信任清冊格式不正確。")
         if any(not isinstance(item, dict) for item in keys):
             raise ValueError("本機回簽公鑰信任清冊包含無效的金鑰記錄。")
-        events = payload.get("events", [])
         if not isinstance(events, list) or any(not isinstance(item, dict) for item in events):
             raise ValueError("本機回簽公鑰事件清冊格式不正確。")
-        self._validate_event_chain(events)
-        self._validate_key_event_consistency(keys, events)
-        return {"keys": [dict(item) for item in keys], "events": [dict(item) for item in events]}
+        normalized_keys = deepcopy(keys)
+        normalized_events = deepcopy(events)
+        seen_key_ids: set[str] = set()
+        for key in normalized_keys:
+            key_id = _required_text(key.get("keyId"), "Key ID", 24)
+            if key_id in seen_key_ids:
+                raise ValueError("本機回簽公鑰信任清冊包含重複的 Key ID。")
+            seen_key_ids.add(key_id)
+            if key.get("algorithm") != "Ed25519":
+                raise ValueError("本機回簽公鑰信任清冊包含非 Ed25519 金鑰。")
+            raw = cls._parse_public_key(str(key.get("publicKeyBase64", "")))
+            if receiver_identity_key_id(raw) != key_id:
+                raise ValueError("本機回簽公鑰的 Key ID 與公開金鑰不一致。")
+            _required_text(key.get("organization"), "公鑰所屬單位", 200)
+            _required_text(key.get("displayName"), "金鑰名稱", 200)
+            if key.get("status") not in {"trusted", "revoked"}:
+                raise ValueError("本機回簽公鑰狀態不受支援。")
+        cls._validate_event_chain(normalized_events)
+        cls._validate_key_event_consistency(normalized_keys, normalized_events)
+        return {"keys": normalized_keys, "events": normalized_events}
+
+    def replace_snapshot(
+        self,
+        keys: Any,
+        events: Any,
+        *,
+        restore_confirmed: bool = False,
+    ) -> dict[str, Any]:
+        if restore_confirmed is not True:
+            raise ValueError("復原前必須明確確認以備份內容取代目前本機信任清冊。")
+        validated = self.validate_snapshot(keys, events)
+        safeguard_path: Path | None = None
+        if self.path.exists():
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
+            suffix = self.path.suffix or ".json"
+            safeguard_path = self.path.with_name(f"{self.path.stem}.pre-restore-{stamp}{suffix}")
+            try:
+                safeguard_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(self.path, safeguard_path)
+            except OSError as exc:
+                raise ValueError("無法建立復原前的本機信任清冊保護副本。") from exc
+        try:
+            self._write(validated["keys"], validated["events"])
+            restored = self._read_registry()
+        except (OSError, ValueError) as exc:
+            if safeguard_path is not None and safeguard_path.exists():
+                shutil.copy2(safeguard_path, self.path)
+            elif self.path.exists():
+                self.path.unlink(missing_ok=True)
+            raise ValueError("本機信任清冊復原失敗，已嘗試回復原始狀態。") from exc
+        return {
+            "keys": restored["keys"],
+            "events": restored["events"],
+            "safeguardPath": str(safeguard_path) if safeguard_path else None,
+        }
 
     def register_key(
         self,
@@ -222,14 +281,20 @@ class ReceiverTrustStore:
     @classmethod
     def _validate_event_chain(cls, events: list[dict[str, Any]]) -> None:
         previous: str | None = None
+        seen_fingerprints: set[str] = set()
         for event in events:
             if event.get("schemaVersion") != 1 or event.get("kind") != "receiver-verification-key-event":
                 raise ValueError("本機回簽公鑰事件清冊版本不受支援。")
+            if event.get("eventType") not in {"key-registered", "key-revoked"}:
+                raise ValueError("本機回簽公鑰事件類型不受支援。")
             if event.get("previousEventFingerprint") != previous:
                 raise ValueError("本機回簽公鑰事件清冊的串接順序不一致。")
             expected = cls._event_fingerprint(event)
             if event.get("eventFingerprint") != expected:
                 raise ValueError("本機回簽公鑰事件清冊指紋驗證失敗。")
+            if expected in seen_fingerprints:
+                raise ValueError("本機回簽公鑰事件清冊包含重複指紋。")
+            seen_fingerprints.add(expected)
             previous = expected
 
     @staticmethod

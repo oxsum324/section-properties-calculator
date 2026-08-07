@@ -27,6 +27,11 @@ from .removal_transfer_handoff import (
 )
 from .receiver_trust_store import ReceiverTrustStore
 from .receiver_key_enrollment import validate_receiver_key_enrollment
+from .receiver_trust_backup import (
+    build_receiver_trust_registry_backup,
+    preview_receiver_trust_registry_restore,
+    restore_receiver_trust_registry_backup,
+)
 from .reporting import build_report, build_word_report, calculation_fingerprint
 from .schemas import (
     AnalysisImportResult,
@@ -41,6 +46,7 @@ from .schemas import (
     ReferenceData,
     ReportPayload,
     RegisterReceiverEnrollmentRequest,
+    RestoreReceiverTrustRegistryRequest,
     RevokeReceiverTrustKeyRequest,
     SaveReferenceDataRequest,
     SaveProjectRequest,
@@ -162,6 +168,37 @@ def revoke_receiver_trust_key(
         "keys": receiver_trust_store.list_keys(),
         "events": receiver_trust_store.list_events(),
     }
+
+
+@app.post("/api/removal-transfer-trust-registry/backups/export")
+def export_receiver_trust_registry_backup() -> dict[str, Any]:
+    try:
+        backup = build_receiver_trust_registry_backup(receiver_trust_store)
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return {"backup": backup}
+
+
+@app.post("/api/removal-transfer-trust-registry/backups/validate")
+def validate_receiver_trust_registry_backup(backup: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return preview_receiver_trust_registry_restore(receiver_trust_store, backup)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/removal-transfer-trust-registry/backups/restore")
+def restore_receiver_trust_registry(
+    request: RestoreReceiverTrustRegistryRequest,
+) -> dict[str, Any]:
+    try:
+        return restore_receiver_trust_registry_backup(
+            receiver_trust_store,
+            request.backup,
+            restore_confirmed=request.restore_confirmed,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/removal-transfer-handoffs/validate")

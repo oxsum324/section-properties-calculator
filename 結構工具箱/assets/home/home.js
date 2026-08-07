@@ -149,8 +149,8 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 1,
-    generatedAt: '2026-08-07',
-    releaseVerifiedAt: '2026-08-07',
+    generatedAt: '2026-08-08',
+    releaseVerifiedAt: '2026-08-08',
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
       '/beam-analysis': '2026-08-03',
@@ -195,7 +195,7 @@
       '/equipment-load': '2026-08-05',
       '/earth-pressure': '2026-08-05',
       '/decking': '2026-07-21',
-      '/excavation-support': '2026-06-26'
+      '/excavation-support': '2026-08-08'
     }
   };
 
@@ -237,7 +237,8 @@
       '/seismic-misc': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/foundation-local': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/equipment-load': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
-      '/earth-pressure': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js']
+      '/earth-pressure': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
+      '/excavation-support': ['開挖擋土支撐/frontend/src/App.tsx', '開挖擋土支撐/backend/app/receiver_trust_backup.py']
     }
   };
 

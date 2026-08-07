@@ -11,6 +11,12 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from backend.app.receiver_trust_store import ReceiverTrustStore
+from backend.app.receiver_trust_backup import (
+    build_receiver_trust_registry_backup,
+    preview_receiver_trust_registry_restore,
+    restore_receiver_trust_registry_backup,
+    validate_receiver_trust_registry_backup,
+)
 from backend.app.receiver_key_enrollment import (
     build_receiver_key_enrollment,
     validate_receiver_key_enrollment,
@@ -226,6 +232,137 @@ class ReceiverTrustStoreTests(unittest.TestCase):
             self.assertIsInstance(private_key, Ed25519PrivateKey)
             self.assertEqual(validate_receiver_key_enrollment(saved_enrollment), enrollment)
             self.assertNotIn("private", enrollment_path.read_text(encoding="utf-8").lower())
+
+    def test_builds_and_validates_public_only_trust_registry_backup(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = ReceiverTrustStore(Path(directory) / "receiver-trust.json")
+            raw = Ed25519PrivateKey.generate().public_key().public_bytes(
+                serialization.Encoding.Raw,
+                serialization.PublicFormat.Raw,
+            )
+            store.register_key("接收端單位", "正式章", base64.b64encode(raw).decode("ascii"), True)
+
+            backup = build_receiver_trust_registry_backup(store)
+            validated = validate_receiver_trust_registry_backup(backup)
+
+            self.assertRegex(validated["backupFingerprint"], r"^RTB-[0-9A-F]{20}$")
+            self.assertRegex(validated["registry"]["registryFingerprint"], r"^RTR-[0-9A-F]{20}$")
+            self.assertEqual(validated["registry"]["keyCount"], 1)
+            self.assertEqual(validated["registry"]["eventCount"], 1)
+            self.assertNotIn("private", json.dumps(validated, ensure_ascii=False).lower())
+
+            tampered = deepcopy(backup)
+            tampered["registry"]["keys"][0]["status"] = "revoked"
+            with self.assertRaisesRegex(ValueError, "清冊指紋驗證失敗|狀態與撤銷事件不一致"):
+                validate_receiver_trust_registry_backup(tampered)
+
+            contains_secret = deepcopy(backup)
+            contains_secret["privateKey"] = "forbidden"
+            with self.assertRaisesRegex(ValueError, "不得包含私密欄位"):
+                validate_receiver_trust_registry_backup(contains_secret)
+
+    def test_previews_and_restores_backup_with_safeguard_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target_path = root / "target.json"
+            target = ReceiverTrustStore(target_path)
+            first_raw = Ed25519PrivateKey.generate().public_key().public_bytes(
+                serialization.Encoding.Raw,
+                serialization.PublicFormat.Raw,
+            )
+            first_record = target.register_key(
+                "備份來源單位",
+                "正式章",
+                base64.b64encode(first_raw).decode("ascii"),
+                True,
+            )
+            source_path = root / "source.json"
+            source_path.write_bytes(target_path.read_bytes())
+            source = ReceiverTrustStore(source_path)
+            source.revoke_key(
+                first_record["keyId"],
+                reason_code="retired",
+                reason="測試清冊復原所需的除役紀錄。",
+                handled_by="來源管理者",
+                revocation_confirmed=True,
+            )
+            second_raw = Ed25519PrivateKey.generate().public_key().public_bytes(
+                serialization.Encoding.Raw,
+                serialization.PublicFormat.Raw,
+            )
+            second_record = source.register_key(
+                "備份來源單位",
+                "輪替章",
+                base64.b64encode(second_raw).decode("ascii"),
+                True,
+            )
+            backup = build_receiver_trust_registry_backup(source)
+
+            preview = preview_receiver_trust_registry_restore(target, backup)["preview"]
+            self.assertEqual(preview["addedKeyIds"], [second_record["keyId"]])
+            self.assertEqual(preview["removedKeyIds"], [])
+            self.assertTrue(preview["wouldReplace"])
+            self.assertTrue(preview["restoreAllowed"])
+
+            with self.assertRaisesRegex(ValueError, "明確確認"):
+                restore_receiver_trust_registry_backup(target, backup)
+            restored = restore_receiver_trust_registry_backup(target, backup, restore_confirmed=True)
+            safeguard = Path(restored["safeguardPath"])
+
+            self.assertTrue(safeguard.exists())
+            self.assertEqual(target.list_keys()[0]["keyId"], first_record["keyId"])
+            self.assertEqual(target.list_keys()[0]["status"], "revoked")
+            self.assertEqual(restored["registryFingerprint"], backup["registry"]["registryFingerprint"])
+            safeguarded_payload = json.loads(safeguard.read_text(encoding="utf-8"))
+            self.assertEqual(safeguarded_payload["keys"][0]["keyId"], first_record["keyId"])
+            self.assertEqual(safeguarded_payload["keys"][0]["status"], "trusted")
+
+    def test_restore_blocks_revocation_rollback_or_key_removal(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = ReceiverTrustStore(Path(directory) / "receiver-trust.json")
+            raw = Ed25519PrivateKey.generate().public_key().public_bytes(
+                serialization.Encoding.Raw,
+                serialization.PublicFormat.Raw,
+            )
+            record = store.register_key("接收端單位", "正式章", base64.b64encode(raw).decode("ascii"), True)
+            old_backup = build_receiver_trust_registry_backup(store)
+            store.revoke_key(
+                record["keyId"],
+                reason_code="retired",
+                reason="不可由舊備份回退的撤銷事件。",
+                handled_by="來源管理者",
+                revocation_confirmed=True,
+            )
+
+            preview = preview_receiver_trust_registry_restore(store, old_backup)["preview"]
+            self.assertFalse(preview["restoreAllowed"])
+            self.assertTrue(any("撤銷" in reason or "事件鏈" in reason for reason in preview["blockingReasons"]))
+            with self.assertRaisesRegex(ValueError, "不得復原"):
+                restore_receiver_trust_registry_backup(store, old_backup, restore_confirmed=True)
+            self.assertEqual(store.list_keys()[0]["status"], "revoked")
+
+    def test_restore_can_replace_unreadable_registry_after_preview(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = ReceiverTrustStore(root / "source.json")
+            raw = Ed25519PrivateKey.generate().public_key().public_bytes(
+                serialization.Encoding.Raw,
+                serialization.PublicFormat.Raw,
+            )
+            source.register_key("來源單位", "正式章", base64.b64encode(raw).decode("ascii"), True)
+            backup = build_receiver_trust_registry_backup(source)
+
+            broken_path = root / "broken.json"
+            broken_path.write_text("{not-json", encoding="utf-8")
+            broken = ReceiverTrustStore(broken_path)
+            preview = preview_receiver_trust_registry_restore(broken, backup)["preview"]
+            self.assertEqual(preview["currentStatus"], "unreadable")
+            self.assertTrue(preview["currentError"])
+
+            restored = restore_receiver_trust_registry_backup(broken, backup, restore_confirmed=True)
+            self.assertEqual(len(restored["keys"]), 1)
+            self.assertEqual(broken.list_keys()[0]["organization"], "來源單位")
+            self.assertEqual(Path(restored["safeguardPath"]).read_text(encoding="utf-8"), "{not-json")
 
 
 if __name__ == "__main__":

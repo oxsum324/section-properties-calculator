@@ -24,6 +24,8 @@ import {
   ReceiverRevocationReason,
   ReceiverTrustEvent,
   ReceiverTrustKey,
+  ReceiverTrustRegistryBackup,
+  ReceiverTrustRestorePreview,
   ReceiverVerificationAuthority,
   ReceiverVerificationResult,
   ReferenceData,
@@ -297,6 +299,10 @@ function App() {
   const [receiverTrustVerificationConfirmed, setReceiverTrustVerificationConfirmed] = useState(false);
   const [receiverRevocationKeyId, setReceiverRevocationKeyId] = useState<string | null>(null);
   const [receiverRevocationDraft, setReceiverRevocationDraft] = useState(emptyReceiverRevocationDraft);
+  const [receiverTrustBackup, setReceiverTrustBackup] = useState<ReceiverTrustRegistryBackup | null>(null);
+  const [receiverTrustRestorePreview, setReceiverTrustRestorePreview] = useState<ReceiverTrustRestorePreview | null>(null);
+  const [receiverTrustRestoreConfirmed, setReceiverTrustRestoreConfirmed] = useState(false);
+  const [receiverTrustRestoreOutcome, setReceiverTrustRestoreOutcome] = useState<{ registryFingerprint: string; safeguardPath: string | null } | null>(null);
   const [analysisSingleSide, setAnalysisSingleSide] = useState<AnalysisSourceSide>("top");
   const [componentTab, setComponentTab] = useState<ComponentTabKey>("support");
   const [advancedSettingsExpanded, setAdvancedSettingsExpanded] = useState(false);
@@ -790,6 +796,10 @@ function App() {
       setReceiverTrustDraft({ organization: "", displayName: "", publicKey: "" });
       setReceiverTrustEnrollment(null);
       setReceiverTrustVerificationConfirmed(false);
+      setReceiverTrustBackup(null);
+      setReceiverTrustRestorePreview(null);
+      setReceiverTrustRestoreConfirmed(false);
+      setReceiverTrustRestoreOutcome(null);
       if (receiverAssistantHandoff && receiverAssistantReceipt) {
         const validated = await api.validateReceiverVerificationReceipt(receiverAssistantHandoff, receiverAssistantReceipt);
         setReceiverAssistantIdentityVerification(validated.receiptValidation.identityVerification);
@@ -859,6 +869,10 @@ function App() {
       setReceiverTrustKeys(response.keys);
       setReceiverTrustEvents(response.events);
       cancelReceiverTrustKeyRevocation();
+      setReceiverTrustBackup(null);
+      setReceiverTrustRestorePreview(null);
+      setReceiverTrustRestoreConfirmed(false);
+      setReceiverTrustRestoreOutcome(null);
       if (receiverAssistantHandoff && receiverAssistantReceipt) {
         const validated = await api.validateReceiverVerificationReceipt(receiverAssistantHandoff, receiverAssistantReceipt);
         setReceiverAssistantIdentityVerification(validated.receiptValidation.identityVerification);
@@ -867,6 +881,73 @@ function App() {
         const validated = await api.validateReceiverVerificationReceipt(activeRemovalTransferHandoff, activeRemovalTransferReceipt);
         setRemovalTransferIdentityVerification(validated.receiptValidation.identityVerification);
       }
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleDownloadReceiverTrustRegistryBackup() {
+    try {
+      setBusy("建立信任清冊備份");
+      const response = await api.exportReceiverTrustRegistryBackup();
+      downloadJsonFile(
+        response.backup,
+        `RVR-信任清冊備份-${response.backup.registry.registryFingerprint}-${response.backup.backupFingerprint}.json`,
+      );
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleImportReceiverTrustRegistryBackup(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      setBusy("驗證信任清冊備份並建立復原預覽");
+      const parsed = JSON.parse(await file.text()) as ReceiverTrustRegistryBackup;
+      const response = await api.validateReceiverTrustRegistryBackup(parsed);
+      setReceiverTrustBackup(response.backup);
+      setReceiverTrustRestorePreview(response.preview);
+      setReceiverTrustRestoreConfirmed(false);
+      setReceiverTrustRestoreOutcome(null);
+      setError("");
+    } catch (err) {
+      setReceiverTrustBackup(null);
+      setReceiverTrustRestorePreview(null);
+      setReceiverTrustRestoreConfirmed(false);
+      setReceiverTrustRestoreOutcome(null);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleRestoreReceiverTrustRegistryBackup() {
+    if (!receiverTrustBackup || !receiverTrustRestorePreview) return;
+    if (!receiverTrustRestoreConfirmed) {
+      setError("復原前必須確認以已驗證備份取代目前本機信任清冊。");
+      return;
+    }
+    try {
+      setBusy("復原本機信任清冊");
+      const response = await api.restoreReceiverTrustRegistryBackup(receiverTrustBackup);
+      setReceiverTrustKeys(response.keys);
+      setReceiverTrustEvents(response.events);
+      setReceiverTrustRestoreOutcome({
+        registryFingerprint: response.registryFingerprint,
+        safeguardPath: response.safeguardPath,
+      });
+      setReceiverTrustBackup(null);
+      setReceiverTrustRestorePreview(null);
+      setReceiverTrustRestoreConfirmed(false);
+      cancelReceiverTrustKeyRevocation();
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -3989,6 +4070,116 @@ function App() {
               ) : (
                 <p className="empty-state">舊版清冊尚無生命週期事件；下一次登錄或撤銷後將開始建立串接紀錄。</p>
               )}
+              <div className="receiver-trust-backup-card">
+                <div>
+                  <h4>信任清冊備份與復原</h4>
+                  <p className="meta-line">
+                    備份只包含受信任公鑰與生命週期事件，不含私鑰。匯入後會先驗證雙重指紋並顯示差異；核准復原時，系統會先保留目前清冊副本，再以備份完整取代本機清冊。
+                  </p>
+                </div>
+                <div className="action-row">
+                  <button className="ghost" type="button" onClick={handleDownloadReceiverTrustRegistryBackup}>
+                    下載目前信任清冊備份
+                  </button>
+                  <label className="file-action secondary">
+                    驗證／預覽清冊備份
+                    <input
+                      className="file-picker-input"
+                      type="file"
+                      accept="application/json,.json"
+                      onChange={handleImportReceiverTrustRegistryBackup}
+                    />
+                  </label>
+                </div>
+                {receiverTrustRestorePreview && receiverTrustBackup && (
+                  <div className="receiver-trust-restore-preview">
+                    <h4>復原預覽</h4>
+                    <div className="meta-grid">
+                      <MetaItem label="備份指紋" value={receiverTrustBackup.backupFingerprint} />
+                      <MetaItem label="清冊指紋" value={receiverTrustBackup.registry.registryFingerprint} />
+                      <MetaItem label="備份時間" value={receiverTrustBackup.exportedAt} />
+                      <MetaItem
+                        label="目前清冊"
+                        value={receiverTrustRestorePreview.currentStatus === "valid"
+                          ? "有效"
+                          : receiverTrustRestorePreview.currentStatus === "missing"
+                            ? "尚未建立"
+                            : "無法讀取"}
+                      />
+                      <MetaItem
+                        label="金鑰數"
+                        value={`目前 ${receiverTrustRestorePreview.currentKeyCount}／備份 ${receiverTrustRestorePreview.backupKeyCount}`}
+                      />
+                      <MetaItem
+                        label="事件數"
+                        value={`目前 ${receiverTrustRestorePreview.currentEventCount}／備份 ${receiverTrustRestorePreview.backupEventCount}`}
+                      />
+                    </div>
+                    {receiverTrustRestorePreview.currentError && (
+                      <p className="meta-line attention-line">目前清冊無法讀取：{receiverTrustRestorePreview.currentError}</p>
+                    )}
+                    {receiverTrustRestorePreview.blockingReasons.length > 0 && (
+                      <div className="receiver-receipt-result ng">
+                        <strong>此備份不得復原</strong>
+                        {receiverTrustRestorePreview.blockingReasons.map((reason) => <span key={reason}>{reason}</span>)}
+                      </div>
+                    )}
+                    <div className="receiver-trust-diff-grid">
+                      <div>
+                        <strong>將新增的 Key ID</strong>
+                        <p>{receiverTrustRestorePreview.addedKeyIds.length ? receiverTrustRestorePreview.addedKeyIds.join("、") : "無"}</p>
+                      </div>
+                      <div>
+                        <strong>將移除的 Key ID</strong>
+                        <p>{receiverTrustRestorePreview.removedKeyIds.length ? receiverTrustRestorePreview.removedKeyIds.join("、") : "無"}</p>
+                      </div>
+                      <div>
+                        <strong>狀態變更</strong>
+                        <p>
+                          {receiverTrustRestorePreview.statusChanges.length
+                            ? receiverTrustRestorePreview.statusChanges
+                              .map((change) => `${change.keyId}：${change.currentStatus} → ${change.backupStatus}`)
+                              .join("、")
+                            : "無"}
+                        </p>
+                      </div>
+                    </div>
+                    {receiverTrustRestorePreview.wouldReplace && receiverTrustRestorePreview.restoreAllowed ? (
+                      <>
+                        <label className="check-field">
+                          <input
+                            type="checkbox"
+                            checked={receiverTrustRestoreConfirmed}
+                            onChange={(event) => setReceiverTrustRestoreConfirmed(event.target.checked)}
+                          />
+                          <span>我確認以此已驗證備份取代目前本機信任清冊；系統會先保留復原前副本。</span>
+                        </label>
+                        <button
+                          className="danger-button"
+                          type="button"
+                          disabled={!receiverTrustRestoreConfirmed}
+                          onClick={handleRestoreReceiverTrustRegistryBackup}
+                        >
+                          確認復原已驗證備份
+                        </button>
+                      </>
+                    ) : !receiverTrustRestorePreview.wouldReplace ? (
+                      <p className="meta-line">備份內容與目前清冊相同，無需復原。</p>
+                    ) : null}
+                  </div>
+                )}
+                {receiverTrustRestoreOutcome && (
+                  <div className="receiver-receipt-result ok">
+                    <strong>信任清冊已完成復原</strong>
+                    <span>{`復原後清冊指紋：${receiverTrustRestoreOutcome.registryFingerprint}`}</span>
+                    <span>
+                      {receiverTrustRestoreOutcome.safeguardPath
+                        ? `復原前保護副本：${receiverTrustRestoreOutcome.safeguardPath}`
+                        : "復原前尚無既有清冊，因此未建立保護副本。"}
+                    </span>
+                  </div>
+                )}
+              </div>
             </Panel>
 
             {receiverAssistantHandoff ? (

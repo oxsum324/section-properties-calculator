@@ -514,6 +514,44 @@ export type ReceiverTrustEvent = {
   eventFingerprint: string;
 };
 
+export type ReceiverTrustRegistryBackup = {
+  schemaVersion: 1;
+  kind: "receiver-verification-trust-registry-backup";
+  exportedAt: string;
+  registry: {
+    schemaVersion: 1;
+    kind: "receiver-verification-trust-registry";
+    keys: ReceiverTrustKey[];
+    events: ReceiverTrustEvent[];
+    keyCount: number;
+    eventCount: number;
+    chainHeadEventFingerprint: string | null;
+    registryFingerprint: string;
+  };
+  backupFingerprint: string;
+};
+
+export type ReceiverTrustRestorePreview = {
+  currentStatus: "valid" | "missing" | "unreadable";
+  currentError: string | null;
+  currentKeyCount: number;
+  currentEventCount: number;
+  backupKeyCount: number;
+  backupEventCount: number;
+  addedKeyIds: string[];
+  removedKeyIds: string[];
+  statusChanges: Array<{
+    keyId: string;
+    currentStatus: "trusted" | "revoked";
+    backupStatus: "trusted" | "revoked";
+  }>;
+  currentRegistryFingerprint: string;
+  backupRegistryFingerprint: string;
+  wouldReplace: boolean;
+  restoreAllowed: boolean;
+  blockingReasons: string[];
+};
+
 export type ReceiverKeyEnrollment = {
   schemaVersion: 1;
   kind: "receiver-verification-key-enrollment";

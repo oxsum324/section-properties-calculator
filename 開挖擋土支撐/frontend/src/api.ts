@@ -11,6 +11,8 @@ import {
   ReceiverTrustKey,
   ReceiverTrustEvent,
   ReceiverRevocationReason,
+  ReceiverTrustRegistryBackup,
+  ReceiverTrustRestorePreview,
   ReceiverIdentitySigningRequest,
   ReceiverIdentitySignatureResponse,
   ReceiverKeyEnrollment,
@@ -166,6 +168,33 @@ export const api = {
         }),
       },
     ),
+  exportReceiverTrustRegistryBackup: () =>
+    request<{ backup: ReceiverTrustRegistryBackup }>(
+      "/api/removal-transfer-trust-registry/backups/export",
+      { method: "POST" },
+    ),
+  validateReceiverTrustRegistryBackup: (backup: ReceiverTrustRegistryBackup) =>
+    request<{ backup: ReceiverTrustRegistryBackup; preview: ReceiverTrustRestorePreview }>(
+      "/api/removal-transfer-trust-registry/backups/validate",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(backup),
+      },
+    ),
+  restoreReceiverTrustRegistryBackup: (backup: ReceiverTrustRegistryBackup) =>
+    request<{
+      keys: ReceiverTrustKey[];
+      events: ReceiverTrustEvent[];
+      safeguardPath: string | null;
+      registryFingerprint: string;
+      backupFingerprint: string;
+      preview: ReceiverTrustRestorePreview;
+    }>("/api/removal-transfer-trust-registry/backups/restore", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ backup, restore_confirmed: true }),
+    }),
   buildReceiverIdentitySigningRequest: (
     handoff: RemovalTransferHandoff,
     receipt: ReceiverCapacityVerificationReceipt,

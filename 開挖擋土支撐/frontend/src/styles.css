@@ -1049,6 +1049,54 @@ button.danger-button {
   margin: 0;
 }
 
+.receiver-trust-backup-card {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+  padding: 18px;
+  border: 1px solid rgba(15, 118, 110, 0.2);
+  border-radius: 16px;
+  background: rgba(240, 253, 250, 0.54);
+}
+
+.receiver-trust-backup-card h4,
+.receiver-trust-backup-card .action-row,
+.receiver-trust-diff-grid p {
+  margin: 0;
+}
+
+.receiver-trust-restore-preview {
+  display: grid;
+  gap: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(15, 118, 110, 0.18);
+}
+
+.receiver-trust-diff-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.receiver-trust-diff-grid > div {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.receiver-trust-diff-grid p {
+  margin-top: 6px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .receiver-trust-diff-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .file-picker-input {
   position: absolute;
   width: 1px;

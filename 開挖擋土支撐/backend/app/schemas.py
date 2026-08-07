@@ -423,6 +423,11 @@ class RevokeReceiverTrustKeyRequest(BaseModel):
     revocation_confirmed: Literal[True]
 
 
+class RestoreReceiverTrustRegistryRequest(BaseModel):
+    backup: dict[str, Any]
+    restore_confirmed: Literal[True]
+
+
 class ReportPayload(BaseModel):
     project: ProjectState
     report_path: str
