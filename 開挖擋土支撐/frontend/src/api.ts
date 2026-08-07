@@ -11,6 +11,7 @@ import {
   ReceiverTrustKey,
   ReceiverIdentitySigningRequest,
   ReceiverIdentitySignatureResponse,
+  ReceiverKeyEnrollment,
   ReportPayload,
 } from "./types";
 
@@ -120,8 +121,26 @@ export const api = {
     request<{ key: ReceiverTrustKey; keys: ReceiverTrustKey[] }>("/api/removal-transfer-trust-keys", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organization, displayName, publicKey }),
+      body: JSON.stringify({ organization, displayName, publicKey, independentVerificationConfirmed: true }),
     }),
+  validateReceiverKeyEnrollment: (enrollment: ReceiverKeyEnrollment) =>
+    request<{ enrollment: ReceiverKeyEnrollment; proofOfPossession: "valid" }>(
+      "/api/removal-transfer-trust-keys/enrollments/validate",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(enrollment),
+      },
+    ),
+  registerReceiverKeyEnrollment: (enrollment: ReceiverKeyEnrollment) =>
+    request<{ key: ReceiverTrustKey; keys: ReceiverTrustKey[] }>(
+      "/api/removal-transfer-trust-keys/enrollments/register",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enrollment, independent_verification_confirmed: true }),
+      },
+    ),
   revokeReceiverTrustKey: (keyId: string) =>
     request<{ key: ReceiverTrustKey; keys: ReceiverTrustKey[] }>(
       `/api/removal-transfer-trust-keys/${encodeURIComponent(keyId)}/revoke`,

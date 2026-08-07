@@ -26,6 +26,7 @@ from .removal_transfer_handoff import (
     verify_receiver_identity_signature,
 )
 from .receiver_trust_store import ReceiverTrustStore
+from .receiver_key_enrollment import validate_receiver_key_enrollment
 from .reporting import build_report, build_word_report, calculation_fingerprint
 from .schemas import (
     AnalysisImportResult,
@@ -39,6 +40,7 @@ from .schemas import (
     ProjectState,
     ReferenceData,
     ReportPayload,
+    RegisterReceiverEnrollmentRequest,
     SaveReferenceDataRequest,
     SaveProjectRequest,
     SaveProjectResponse,
@@ -97,6 +99,30 @@ def register_receiver_trust_key(request: dict[str, Any]) -> dict[str, Any]:
             str(request.get("organization", "")),
             str(request.get("displayName", "")),
             str(request.get("publicKey", "")),
+            request.get("independentVerificationConfirmed") is True,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"key": record, "keys": receiver_trust_store.list_keys()}
+
+
+@app.post("/api/removal-transfer-trust-keys/enrollments/validate")
+def validate_receiver_trust_key_enrollment(enrollment: dict[str, Any]) -> dict[str, Any]:
+    try:
+        validated = validate_receiver_key_enrollment(enrollment)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"enrollment": validated, "proofOfPossession": "valid"}
+
+
+@app.post("/api/removal-transfer-trust-keys/enrollments/register")
+def register_receiver_trust_key_enrollment(
+    request: RegisterReceiverEnrollmentRequest,
+) -> dict[str, Any]:
+    try:
+        record = receiver_trust_store.register_enrollment(
+            request.enrollment,
+            request.independent_verification_confirmed,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

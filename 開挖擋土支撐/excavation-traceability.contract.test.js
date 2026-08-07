@@ -68,6 +68,10 @@ const removalTransferHandoff = readUtf8('backend/app/removal_transfer_handoff.py
 const removalTransferHandoffTests = readUtf8('backend/tests/test_removal_transfer_handoff.py');
 const receiverOfflineSigner = readUtf8('backend/sign_receiver_request.py');
 const receiverSigningLauncher = readUtf8('sign_receiver_request.ps1');
+const receiverKeyEnrollment = readUtf8('backend/app/receiver_key_enrollment.py');
+const receiverKeyManager = readUtf8('backend/manage_receiver_key.py');
+const receiverKeyLauncher = readUtf8('manage_receiver_key.ps1');
+const receiverTrustStoreTests = readUtf8('backend/tests/test_receiver_trust_store.py');
 
 const expectedTools = [
   'excavation-analysis-import',
@@ -166,6 +170,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '/api/removal-transfer-receipts/validate',
   '/api/removal-transfer-receipts/signing-request',
   '/api/removal-transfer-receipts/attach-signature',
+  '/api/removal-transfer-trust-keys/enrollments/validate',
+  '/api/removal-transfer-trust-keys/enrollments/register',
   'build_removal_transfer_handoff',
   'build_receiver_verification_receipt',
   'validate_receiver_verification_receipt',
@@ -200,6 +206,9 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'RVR 指紋已通過完整性檢查',
   '下載離線身分簽署請求',
   '匯入離線簽章回應',
+  'handleImportReceiverKeyEnrollment',
+  '匯入 RKE 公鑰登錄包',
+  '已透過獨立管道核對公鑰所屬單位與 Key ID',
   '交接完成不等於承接構造合格',
 ].forEach((needle) => {
   assert(app.includes(needle) || api.includes(needle), `excavation removal transfer frontend keeps ${needle}`, needle);
@@ -236,6 +245,39 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '--output',
 ].forEach((needle) => {
   assert(receiverSigningLauncher.includes(needle), `excavation receiver signer launcher keeps ${needle}`, needle);
+});
+[
+  'receiver-verification-key-enrollment',
+  'receiver-verification-key-enrollment-v1',
+  'build_receiver_key_enrollment',
+  'validate_receiver_key_enrollment',
+  'proofOfPossessionBase64',
+  'packageFingerprint',
+  'replacesKeyId',
+].forEach((needle) => {
+  assert(receiverKeyEnrollment.includes(needle), `excavation receiver key enrollment keeps ${needle}`, needle);
+});
+[
+  'BestAvailableEncryption',
+  'create_receiver_key_package',
+  '--replaces-key-id',
+  '--password-env',
+].forEach((needle) => {
+  assert(receiverKeyManager.includes(needle), `excavation receiver key manager keeps ${needle}`, needle);
+});
+[
+  'backend.manage_receiver_key',
+  '--output-dir',
+  '--password-env',
+].forEach((needle) => {
+  assert(receiverKeyLauncher.includes(needle), `excavation receiver key launcher keeps ${needle}`, needle);
+});
+[
+  'test_validates_and_registers_proof_of_possession_enrollment',
+  'test_rotation_enrollment_links_but_does_not_revoke_previous_key',
+  'test_creates_encrypted_private_key_and_public_only_enrollment',
+].forEach((needle) => {
+  assert(receiverTrustStoreTests.includes(needle), `excavation receiver trust tests keep ${needle}`, needle);
 });
 [
   'removal_transfer_handoffs',

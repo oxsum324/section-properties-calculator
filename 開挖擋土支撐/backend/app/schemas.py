@@ -401,6 +401,11 @@ class AttachReceiverSignatureRequest(BaseModel):
     signature_response: dict[str, Any]
 
 
+class RegisterReceiverEnrollmentRequest(BaseModel):
+    enrollment: dict[str, Any]
+    independent_verification_confirmed: Literal[True]
+
+
 class ReportPayload(BaseModel):
     project: ProjectState
     report_path: str

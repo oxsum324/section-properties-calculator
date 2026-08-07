@@ -10,6 +10,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from .config import get_settings
+from .receiver_key_enrollment import validate_receiver_key_enrollment
 from .removal_transfer_handoff import receiver_identity_key_id
 
 
@@ -31,7 +32,52 @@ class ReceiverTrustStore:
             raise ValueError("本機回簽公鑰信任清冊格式不正確。")
         return [dict(item) for item in keys if isinstance(item, dict)]
 
-    def register_key(self, organization: str, display_name: str, public_key: str) -> dict[str, Any]:
+    def register_key(
+        self,
+        organization: str,
+        display_name: str,
+        public_key: str,
+        independent_verification_confirmed: bool = False,
+    ) -> dict[str, Any]:
+        if independent_verification_confirmed is not True:
+            raise ValueError("登錄信任公鑰前，必須明確確認已透過獨立管道核對單位與 Key ID。")
+        return self._register_key(organization, display_name, public_key)
+
+    def register_enrollment(
+        self,
+        enrollment: dict[str, Any],
+        independent_verification_confirmed: bool = False,
+    ) -> dict[str, Any]:
+        if independent_verification_confirmed is not True:
+            raise ValueError("登錄 RKE 公鑰包前，必須明確確認已透過獨立管道核對單位與 Key ID。")
+        validated = validate_receiver_key_enrollment(enrollment)
+        keys = self.list_keys()
+        replacement = validated.get("replacesKeyId")
+        if replacement:
+            previous = next((item for item in keys if item.get("keyId") == replacement), None)
+            if previous is None:
+                raise ValueError("RKE 宣告的被取代金鑰尚未存在於本機信任清冊。")
+            if str(previous.get("organization", "")).strip() != validated["organization"]:
+                raise ValueError("RKE 新舊金鑰的登錄單位不一致。")
+        return self._register_key(
+            validated["organization"],
+            validated["displayName"],
+            validated["publicKeyBase64"],
+            enrollment_fingerprint=validated["packageFingerprint"],
+            replaces_key_id=replacement,
+            proof_of_possession_verified=True,
+        )
+
+    def _register_key(
+        self,
+        organization: str,
+        display_name: str,
+        public_key: str,
+        *,
+        enrollment_fingerprint: str | None = None,
+        replaces_key_id: str | None = None,
+        proof_of_possession_verified: bool = False,
+    ) -> dict[str, Any]:
         organization = organization.strip()
         display_name = display_name.strip()
         if not organization or not display_name:
@@ -51,6 +97,11 @@ class ReceiverTrustStore:
             "status": "trusted",
             "registeredAt": now,
             "revokedAt": None,
+            "registrationMethod": "enrollment-package" if enrollment_fingerprint else "manual",
+            "enrollmentFingerprint": enrollment_fingerprint,
+            "replacesKeyId": replaces_key_id,
+            "proofOfPossessionVerified": proof_of_possession_verified,
+            "independentVerificationConfirmedAt": now,
         }
         keys.append(record)
         self._write(keys)

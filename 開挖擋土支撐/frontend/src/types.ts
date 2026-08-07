@@ -477,6 +477,25 @@ export type ReceiverTrustKey = {
   status: "trusted" | "revoked";
   registeredAt: string;
   revokedAt: string | null;
+  registrationMethod?: "manual" | "enrollment-package";
+  enrollmentFingerprint?: string | null;
+  replacesKeyId?: string | null;
+  proofOfPossessionVerified?: boolean;
+  independentVerificationConfirmedAt?: string;
+};
+
+export type ReceiverKeyEnrollment = {
+  schemaVersion: 1;
+  kind: "receiver-verification-key-enrollment";
+  algorithm: "Ed25519";
+  createdAt: string;
+  organization: string;
+  displayName: string;
+  keyId: string;
+  publicKeyBase64: string;
+  replacesKeyId: string | null;
+  proofOfPossessionBase64: string;
+  packageFingerprint: string;
 };
 
 export type ReceiverIdentitySigningRequest = {

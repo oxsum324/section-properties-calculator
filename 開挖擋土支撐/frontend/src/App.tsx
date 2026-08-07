@@ -20,6 +20,7 @@ import {
   ReceiverCapacityVerificationReceipt,
   ReceiverIdentityVerification,
   ReceiverIdentitySignatureResponse,
+  ReceiverKeyEnrollment,
   ReceiverTrustKey,
   ReceiverVerificationAuthority,
   ReceiverVerificationResult,
@@ -264,6 +265,8 @@ function App() {
   const [receiverAssistantIdentityVerification, setReceiverAssistantIdentityVerification] = useState<ReceiverIdentityVerification | null>(null);
   const [receiverTrustKeys, setReceiverTrustKeys] = useState<ReceiverTrustKey[]>([]);
   const [receiverTrustDraft, setReceiverTrustDraft] = useState({ organization: "", displayName: "", publicKey: "" });
+  const [receiverTrustEnrollment, setReceiverTrustEnrollment] = useState<ReceiverKeyEnrollment | null>(null);
+  const [receiverTrustVerificationConfirmed, setReceiverTrustVerificationConfirmed] = useState(false);
   const [analysisSingleSide, setAnalysisSingleSide] = useState<AnalysisSourceSide>("top");
   const [componentTab, setComponentTab] = useState<ComponentTabKey>("support");
   const [advancedSettingsExpanded, setAdvancedSettingsExpanded] = useState(false);
@@ -736,15 +739,23 @@ function App() {
   }
 
   async function handleRegisterReceiverTrustKey() {
+    if (!receiverTrustVerificationConfirmed) {
+      setError("登錄前請先確認已透過獨立管道核對單位與 Key ID。");
+      return;
+    }
     try {
       setBusy("登錄受信任回簽公鑰");
-      const response = await api.registerReceiverTrustKey(
-        receiverTrustDraft.organization,
-        receiverTrustDraft.displayName,
-        receiverTrustDraft.publicKey,
-      );
+      const response = receiverTrustEnrollment
+        ? await api.registerReceiverKeyEnrollment(receiverTrustEnrollment)
+        : await api.registerReceiverTrustKey(
+            receiverTrustDraft.organization,
+            receiverTrustDraft.displayName,
+            receiverTrustDraft.publicKey,
+          );
       setReceiverTrustKeys(response.keys);
       setReceiverTrustDraft({ organization: "", displayName: "", publicKey: "" });
+      setReceiverTrustEnrollment(null);
+      setReceiverTrustVerificationConfirmed(false);
       if (receiverAssistantHandoff && receiverAssistantReceipt) {
         const validated = await api.validateReceiverVerificationReceipt(receiverAssistantHandoff, receiverAssistantReceipt);
         setReceiverAssistantIdentityVerification(validated.receiptValidation.identityVerification);
@@ -759,6 +770,37 @@ function App() {
     } finally {
       setBusy("");
     }
+  }
+
+  async function handleImportReceiverKeyEnrollment(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      setBusy("驗證 RKE 公鑰登錄包");
+      const parsed = JSON.parse(await file.text()) as ReceiverKeyEnrollment;
+      const response = await api.validateReceiverKeyEnrollment(parsed);
+      setReceiverTrustEnrollment(response.enrollment);
+      setReceiverTrustDraft({
+        organization: response.enrollment.organization,
+        displayName: response.enrollment.displayName,
+        publicKey: response.enrollment.publicKeyBase64,
+      });
+      setReceiverTrustVerificationConfirmed(false);
+      setError("");
+    } catch (err) {
+      setReceiverTrustEnrollment(null);
+      setReceiverTrustVerificationConfirmed(false);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  function updateReceiverTrustDraft(field: "organization" | "displayName" | "publicKey", value: string) {
+    setReceiverTrustDraft((current) => ({ ...current, [field]: value }));
+    setReceiverTrustEnrollment(null);
+    setReceiverTrustVerificationConfirmed(false);
   }
 
   async function handleRevokeReceiverTrustKey(keyId: string) {
@@ -3712,31 +3754,61 @@ function App() {
               title="本機受信任回簽公鑰"
               subtitle="只有經管理者核對後登錄的 Ed25519 公鑰，才能把有效簽章提升為「受信任簽章通過」；私人金鑰不會進入本工具。"
             >
+              <div className="action-row">
+                <label className="file-action secondary">
+                  匯入 RKE 公鑰登錄包
+                  <input
+                    className="file-picker-input"
+                    type="file"
+                    accept=".json,application/json"
+                    onChange={handleImportReceiverKeyEnrollment}
+                  />
+                </label>
+              </div>
+              <p className="meta-line">
+                建議使用離線建鑰程式產出的公開 RKE；系統會先驗證 Key ID、包指紋與私鑰持有證明，但組織身分仍須由管理者透過獨立管道核對。
+              </p>
+              {receiverTrustEnrollment && (
+                <div className="meta-grid">
+                  <MetaItem label="持有證明" value="Ed25519 驗證通過" />
+                  <MetaItem label="Key ID" value={receiverTrustEnrollment.keyId} />
+                  <MetaItem label="RKE 指紋" value={receiverTrustEnrollment.packageFingerprint} />
+                  <MetaItem label="輪替關聯" value={receiverTrustEnrollment.replacesKeyId || "新建金鑰"} />
+                </div>
+              )}
               <div className="form-grid">
                 <Field
                   label="公鑰所屬單位"
                   value={receiverTrustDraft.organization}
-                  onChange={(value) => setReceiverTrustDraft((current) => ({ ...current, organization: value }))}
+                  onChange={(value) => updateReceiverTrustDraft("organization", value)}
                 />
                 <Field
                   label="金鑰名稱／用途"
                   value={receiverTrustDraft.displayName}
-                  onChange={(value) => setReceiverTrustDraft((current) => ({ ...current, displayName: value }))}
+                  onChange={(value) => updateReceiverTrustDraft("displayName", value)}
                 />
               </div>
               <TextAreaField
                 label="Ed25519 公鑰（PEM 或 raw Base64）"
                 value={receiverTrustDraft.publicKey}
-                onChange={(value) => setReceiverTrustDraft((current) => ({ ...current, publicKey: value }))}
+                onChange={(value) => updateReceiverTrustDraft("publicKey", value)}
               />
+              <label className="check-field">
+                <input
+                  type="checkbox"
+                  checked={receiverTrustVerificationConfirmed}
+                  onChange={(event) => setReceiverTrustVerificationConfirmed(event.target.checked)}
+                />
+                <span>我已透過獨立管道核對公鑰所屬單位與 Key ID；RKE 持有證明本身不等於組織身分證明。</span>
+              </label>
               <div className="action-row">
                 <button
                   className="secondary"
                   type="button"
-                  disabled={!receiverTrustDraft.organization.trim() || !receiverTrustDraft.displayName.trim() || !receiverTrustDraft.publicKey.trim()}
+                  disabled={!receiverTrustVerificationConfirmed || !receiverTrustDraft.organization.trim() || !receiverTrustDraft.displayName.trim() || !receiverTrustDraft.publicKey.trim()}
                   onClick={handleRegisterReceiverTrustKey}
                 >
-                  核對後登錄為本機信任公鑰
+                  {receiverTrustEnrollment ? "確認並登錄已驗證 RKE 公鑰" : "核對後登錄為本機信任公鑰"}
                 </button>
               </div>
               {receiverTrustKeys.length ? (
@@ -3746,7 +3818,12 @@ function App() {
                     <tbody>
                       {receiverTrustKeys.map((key) => (
                         <tr key={key.keyId}>
-                          <td><strong>{key.organization}</strong><br /><span className="table-muted">{key.displayName}</span></td>
+                          <td>
+                            <strong>{key.organization}</strong><br />
+                            <span className="table-muted">{key.displayName}</span>
+                            {key.registrationMethod === "enrollment-package" && <><br /><span className="table-muted">RKE 持有證明已驗證</span></>}
+                            {key.replacesKeyId && <><br /><span className="table-muted">取代：{key.replacesKeyId}</span></>}
+                          </td>
                           <td>{key.keyId}</td>
                           <td>{key.status === "trusted" ? "受信任" : "已撤銷"}</td>
                           <td>
