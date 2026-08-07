@@ -73,7 +73,11 @@ const receiverKeyManager = readUtf8('backend/manage_receiver_key.py');
 const receiverKeyLauncher = readUtf8('manage_receiver_key.ps1');
 const receiverTrustStore = readUtf8('backend/app/receiver_trust_store.py');
 const receiverTrustBackup = readUtf8('backend/app/receiver_trust_backup.py');
+const receiverTrustRecovery = readUtf8('backend/app/receiver_trust_recovery.py');
+const receiverTrustBackupCli = readUtf8('backend/backup_receiver_trust_registry.py');
+const receiverTrustBackupLauncher = readUtf8('backup_receiver_trust_registry.ps1');
 const receiverTrustStoreTests = readUtf8('backend/tests/test_receiver_trust_store.py');
+const receiverTrustRecoveryTests = readUtf8('backend/tests/test_receiver_trust_recovery.py');
 
 const expectedTools = [
   'excavation-analysis-import',
@@ -315,6 +319,38 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
 });
 assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust restore keeps safeguard copy', 'pre-restore');
 [
+  'receiver-trust-registry-recovery-drill-receipt',
+  'write_receiver_trust_registry_backup',
+  'validate_receiver_trust_registry_backup_file',
+  'perform_receiver_trust_registry_recovery_drill',
+  'validate_receiver_trust_recovery_drill_receipt',
+  'isolated-temporary-registry',
+  'productionRegistryUnchanged',
+  'receiptFingerprint',
+  'RDR-',
+  '備份最長允許天數',
+].forEach((needle) => {
+  assert(receiverTrustRecovery.includes(needle), `excavation receiver trust recovery keeps ${needle}`, needle);
+});
+[
+  'backup-created-and-verified',
+  'backup-valid',
+  'recovery-drill-passed',
+  'backup-cycle-passed',
+  '--max-age-days',
+  'productionRegistryUnchanged',
+].forEach((needle) => {
+  assert(receiverTrustBackupCli.includes(needle), `excavation receiver trust backup CLI keeps ${needle}`, needle);
+});
+[
+  'ValidateSet("Cycle", "Backup", "Verify", "Drill")',
+  'backend.backup_receiver_trust_registry',
+  '--registry',
+  '--max-age-days',
+].forEach((needle) => {
+  assert(receiverTrustBackupLauncher.includes(needle), `excavation receiver trust backup launcher keeps ${needle}`, needle);
+});
+[
   'test_validates_and_registers_proof_of_possession_enrollment',
   'test_rotation_enrollment_links_but_does_not_revoke_previous_key',
   'test_creates_encrypted_private_key_and_public_only_enrollment',
@@ -327,6 +363,15 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'test_restore_can_replace_unreadable_registry_after_preview',
 ].forEach((needle) => {
   assert(receiverTrustStoreTests.includes(needle), `excavation receiver trust tests keep ${needle}`, needle);
+});
+[
+  'test_backup_cycle_restores_in_isolation_and_keeps_production_unchanged',
+  'test_tampered_backup_cannot_create_drill_receipt',
+  'test_backup_freshness_gate_rejects_stale_evidence',
+  'test_existing_backup_is_never_overwritten_or_deleted',
+  'test_drill_receipt_tampering_is_detected',
+].forEach((needle) => {
+  assert(receiverTrustRecoveryTests.includes(needle), `excavation receiver trust recovery tests keep ${needle}`, needle);
 });
 [
   'removal_transfer_handoffs',

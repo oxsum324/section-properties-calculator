@@ -238,7 +238,7 @@
       '/foundation-local': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/equipment-load': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/earth-pressure': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
-      '/excavation-support': ['開挖擋土支撐/frontend/src/App.tsx', '開挖擋土支撐/backend/app/receiver_trust_backup.py']
+      '/excavation-support': ['開挖擋土支撐/frontend/src/App.tsx', '開挖擋土支撐/backend/app/receiver_trust_backup.py', '開挖擋土支撐/backend/app/receiver_trust_recovery.py']
     }
   };
 
