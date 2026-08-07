@@ -5,9 +5,12 @@ import {
   ReferenceData,
   RemovalTransferHandoff,
   RemovalTransferReceiptImportResponse,
+  ReceiverCapacityVerificationReceipt,
   ReceiverVerificationAuthority,
   ReceiverVerificationResult,
   ReceiverTrustKey,
+  ReceiverIdentitySigningRequest,
+  ReceiverIdentitySignatureResponse,
   ReportPayload,
 } from "./types";
 
@@ -124,6 +127,25 @@ export const api = {
       `/api/removal-transfer-trust-keys/${encodeURIComponent(keyId)}/revoke`,
       { method: "POST" },
     ),
+  buildReceiverIdentitySigningRequest: (
+    handoff: RemovalTransferHandoff,
+    receipt: ReceiverCapacityVerificationReceipt,
+  ) =>
+    request<{ signingRequest: ReceiverIdentitySigningRequest }>("/api/removal-transfer-receipts/signing-request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ handoff, receipt }),
+    }),
+  attachReceiverIdentitySignature: (
+    handoff: RemovalTransferHandoff,
+    receipt: ReceiverCapacityVerificationReceipt,
+    signatureResponse: ReceiverIdentitySignatureResponse,
+  ) =>
+    request<RemovalTransferReceiptImportResponse>("/api/removal-transfer-receipts/attach-signature", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ handoff, receipt, signature_response: signatureResponse }),
+    }),
   generateReport: (projectId: string, concise = false) =>
     request<ReportPayload>(`/api/projects/${projectId}/report?concise=${concise ? "true" : "false"}`, {
       method: "POST",

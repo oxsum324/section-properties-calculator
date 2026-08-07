@@ -66,6 +66,8 @@ const reportContract = readUtf8('excavation-report.contract.test.js');
 const handoff = readUtf8('../結構工具箱/tools/construction-stage-load-handoff.js');
 const removalTransferHandoff = readUtf8('backend/app/removal_transfer_handoff.py');
 const removalTransferHandoffTests = readUtf8('backend/tests/test_removal_transfer_handoff.py');
+const receiverOfflineSigner = readUtf8('backend/sign_receiver_request.py');
+const receiverSigningLauncher = readUtf8('sign_receiver_request.ps1');
 
 const expectedTools = [
   'excavation-analysis-import',
@@ -142,6 +144,9 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'def validate_removal_transfer_handoff',
   'def validate_receiver_verification_receipt',
   'def receiver_verification_receipt_fingerprint',
+  'def build_receiver_identity_signing_request',
+  'def validate_receiver_identity_signing_request',
+  'def attach_receiver_identity_signature',
   'def same_removal_transfer_handoff_content',
   'ERH',
   'ERT',
@@ -159,6 +164,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '/api/removal-transfer-handoffs/validate',
   '/api/removal-transfer-receipts/build',
   '/api/removal-transfer-receipts/validate',
+  '/api/removal-transfer-receipts/signing-request',
+  '/api/removal-transfer-receipts/attach-signature',
   'build_removal_transfer_handoff',
   'build_receiver_verification_receipt',
   'validate_receiver_verification_receipt',
@@ -179,6 +186,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'handleImportReceiverAssistantHandoff',
   'handleBuildReceiverAssistantReceipt',
   'handleValidateReceiverAssistantReceipt',
+  'handleDownloadReceiverIdentitySigningRequest',
+  'handleAttachReceiverIdentitySignature',
   '接收端回簽助手',
   '獨立接收端工作區',
   '不會寫入目前來源專案或計算書',
@@ -189,6 +198,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '待承接構造驗證',
   '接收端檢核通過／回簽人身分待核對',
   'RVR 指紋已通過完整性檢查',
+  '下載離線身分簽署請求',
+  '匯入離線簽章回應',
   '交接完成不等於承接構造合格',
 ].forEach((needle) => {
   assert(app.includes(needle) || api.includes(needle), `excavation removal transfer frontend keeps ${needle}`, needle);
@@ -205,8 +216,26 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'test_reuses_handoff_when_only_issue_time_changes',
   'test_builds_controlled_receiver_receipt_for_assistant',
   'test_assistant_rejects_missing_receiver_result',
+  'test_builds_offline_signing_request_and_attaches_response',
+  'test_rejects_tampered_signing_request_or_signature_response',
 ].forEach((needle) => {
   assert(removalTransferHandoffTests.includes(needle), `excavation removal transfer tests keep ${needle}`, needle);
+});
+
+[
+  'validate_receiver_identity_signing_request',
+  'Ed25519PrivateKey',
+  'build_signature_response',
+  'signatureBase64',
+].forEach((needle) => {
+  assert(receiverOfflineSigner.includes(needle), `excavation offline receiver signer keeps ${needle}`, needle);
+});
+[
+  '-m backend.sign_receiver_request',
+  '--private-key',
+  '--output',
+].forEach((needle) => {
+  assert(receiverSigningLauncher.includes(needle), `excavation receiver signer launcher keeps ${needle}`, needle);
 });
 [
   'removal_transfer_handoffs',

@@ -22,6 +22,8 @@ KIND = "excavation-removal-transfer-handoff"
 RECEIPT_KIND = "receiver-capacity-verification-receipt"
 RECEIPT_FINGERPRINT_PREFIX = "RVR"
 IDENTITY_SIGNATURE_CONTEXT = "receiver-verification-identity-signature-v1"
+IDENTITY_SIGNING_REQUEST_KIND = "receiver-verification-identity-signing-request"
+IDENTITY_SIGNATURE_RESPONSE_KIND = "receiver-verification-identity-signature-response"
 TRANSFER_MODE_LABELS = {
     "outside_scope": "本構件檢核範圍外（另案檢核）",
     "floor": "移轉至樓版",
@@ -76,17 +78,167 @@ def receiver_identity_key_id(public_key_bytes: bytes) -> str:
     return f"RVK-{hashlib.sha256(public_key_bytes).hexdigest()[:20].upper()}"
 
 
-def receiver_identity_signing_payload(receipt: dict[str, Any], signed_at: str) -> bytes:
-    authority = receipt.get("verificationAuthority", {})
+def _receiver_identity_signing_payload_from_fields(
+    *,
+    receipt_fingerprint: str,
+    handoff_fingerprint: str,
+    source_calculation_fingerprint: str,
+    organization: str,
+    signed_at: str,
+) -> bytes:
     payload = {
         "context": IDENTITY_SIGNATURE_CONTEXT,
         "signedAt": signed_at,
-        "receiptFingerprint": str(receipt.get("receiptFingerprint", "")),
-        "handoffFingerprint": str(receipt.get("handoffFingerprint", "")),
-        "sourceCalculationFingerprint": str(receipt.get("sourceCalculationFingerprint", "")),
-        "organization": str(authority.get("organization", "")).strip(),
+        "receiptFingerprint": receipt_fingerprint,
+        "handoffFingerprint": handoff_fingerprint,
+        "sourceCalculationFingerprint": source_calculation_fingerprint,
+        "organization": organization.strip(),
     }
     return _canonical_json(payload).encode("utf-8")
+
+
+def receiver_identity_signing_payload(receipt: dict[str, Any], signed_at: str) -> bytes:
+    authority = receipt.get("verificationAuthority", {})
+    return _receiver_identity_signing_payload_from_fields(
+        receipt_fingerprint=str(receipt.get("receiptFingerprint", "")),
+        handoff_fingerprint=str(receipt.get("handoffFingerprint", "")),
+        source_calculation_fingerprint=str(receipt.get("sourceCalculationFingerprint", "")),
+        organization=str(authority.get("organization", "")),
+        signed_at=signed_at,
+    )
+
+
+def _receiver_identity_signing_request_fingerprint(request: dict[str, Any]) -> str:
+    unsigned = {key: value for key, value in request.items() if key != "requestFingerprint"}
+    return _digest("RSR", unsigned)
+
+
+def validate_receiver_identity_signing_request(
+    request: dict[str, Any],
+    receipt: dict[str, Any] | None = None,
+    handoff: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    if not isinstance(request, dict):
+        raise ValueError("RVR 身分簽署請求格式不正確。")
+    if request.get("schemaVersion") != 1 or request.get("kind") != IDENTITY_SIGNING_REQUEST_KIND:
+        raise ValueError("RVR 身分簽署請求版本或種類不受支援。")
+    if request.get("algorithm") != "Ed25519" or request.get("payloadEncoding") != "base64":
+        raise ValueError("RVR 身分簽署請求演算法或訊息編碼不受支援。")
+    receipt_fingerprint = str(request.get("receiptFingerprint", ""))
+    handoff_fingerprint = str(request.get("handoffFingerprint", ""))
+    source_fingerprint = str(request.get("sourceCalculationFingerprint", ""))
+    if not re.fullmatch(r"RVR-[0-9A-F]{20}", receipt_fingerprint):
+        raise ValueError("RVR 身分簽署請求缺少有效回簽指紋。")
+    if not re.fullmatch(r"ERH-[0-9A-F]{20}", handoff_fingerprint):
+        raise ValueError("RVR 身分簽署請求缺少有效交接指紋。")
+    if not re.fullmatch(r"CF-[0-9A-F]{16}", source_fingerprint):
+        raise ValueError("RVR 身分簽署請求缺少有效來源計算指紋。")
+    organization = _required_text(request.get("organization"), "簽署請求單位", max_length=120)
+    signed_at = _required_text(request.get("signedAt"), "簽署請求時間", max_length=40)
+    try:
+        datetime.fromisoformat(signed_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("RVR 身分簽署請求時間不是有效 ISO 8601 日期時間。") from exc
+    expected_payload = _receiver_identity_signing_payload_from_fields(
+        receipt_fingerprint=receipt_fingerprint,
+        handoff_fingerprint=handoff_fingerprint,
+        source_calculation_fingerprint=source_fingerprint,
+        organization=organization,
+        signed_at=signed_at,
+    )
+    try:
+        payload = base64.b64decode(
+            _required_text(request.get("payloadBase64"), "簽署訊息", max_length=1000),
+            validate=True,
+        )
+    except (binascii.Error, ValueError) as exc:
+        raise ValueError("RVR 身分簽署請求的訊息不是有效 Base64。") from exc
+    if not hmac.compare_digest(payload, expected_payload):
+        raise ValueError("RVR 身分簽署請求的欄位與實際簽署訊息不一致。")
+    fingerprint = str(request.get("requestFingerprint", ""))
+    if not re.fullmatch(r"RSR-[0-9A-F]{20}", fingerprint) or not hmac.compare_digest(
+        fingerprint,
+        _receiver_identity_signing_request_fingerprint(request),
+    ):
+        raise ValueError("RVR 身分簽署請求內容與請求指紋不一致。")
+    if receipt is not None:
+        if (
+            receipt_fingerprint != str(receipt.get("receiptFingerprint", ""))
+            or handoff_fingerprint != str(receipt.get("handoffFingerprint", ""))
+            or source_fingerprint != str(receipt.get("sourceCalculationFingerprint", ""))
+            or organization != str(receipt.get("verificationAuthority", {}).get("organization", "")).strip()
+        ):
+            raise ValueError("RVR 身分簽署請求與目前回簽內容不一致。")
+    if handoff is not None and (
+        handoff_fingerprint != str(handoff.get("handoffFingerprint", ""))
+        or source_fingerprint != str(handoff.get("source", {}).get("calculationFingerprint", ""))
+    ):
+        raise ValueError("RVR 身分簽署請求與目前 ERH 交接內容不一致。")
+    return deepcopy(request)
+
+
+def build_receiver_identity_signing_request(
+    receipt: dict[str, Any],
+    handoff: dict[str, Any],
+    *,
+    signed_at: str | None = None,
+) -> dict[str, Any]:
+    validated_handoff = validate_removal_transfer_handoff(handoff)
+    validated_receipt = validate_receiver_verification_receipt(receipt, validated_handoff)
+    requested_at = signed_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    payload = receiver_identity_signing_payload(validated_receipt, requested_at)
+    request = {
+        "schemaVersion": 1,
+        "kind": IDENTITY_SIGNING_REQUEST_KIND,
+        "algorithm": "Ed25519",
+        "payloadEncoding": "base64",
+        "signedAt": requested_at,
+        "receiptFingerprint": validated_receipt["receiptFingerprint"],
+        "handoffFingerprint": validated_receipt["handoffFingerprint"],
+        "sourceCalculationFingerprint": validated_receipt["sourceCalculationFingerprint"],
+        "organization": validated_receipt["verificationAuthority"]["organization"].strip(),
+        "payloadBase64": base64.b64encode(payload).decode("ascii"),
+    }
+    request["requestFingerprint"] = _receiver_identity_signing_request_fingerprint(request)
+    return validate_receiver_identity_signing_request(request, validated_receipt, validated_handoff)
+
+
+def attach_receiver_identity_signature(
+    receipt: dict[str, Any],
+    handoff: dict[str, Any],
+    signature_response: dict[str, Any],
+) -> dict[str, Any]:
+    validated_handoff = validate_removal_transfer_handoff(handoff)
+    validated_receipt = validate_receiver_verification_receipt(receipt, validated_handoff)
+    if not isinstance(signature_response, dict):
+        raise ValueError("RVR 身分簽章回應格式不正確。")
+    if (
+        signature_response.get("schemaVersion") != 1
+        or signature_response.get("kind") != IDENTITY_SIGNATURE_RESPONSE_KIND
+    ):
+        raise ValueError("RVR 身分簽章回應版本或種類不受支援。")
+    signing_request = validate_receiver_identity_signing_request(
+        signature_response.get("signingRequest"),
+        validated_receipt,
+        validated_handoff,
+    )
+    signature = signature_response.get("signature")
+    if not isinstance(signature, dict):
+        raise ValueError("RVR 身分簽章回應缺少簽章資料。")
+    if signature.get("algorithm") != "Ed25519":
+        raise ValueError("RVR 身分簽章回應的簽章演算法不受支援。")
+    signed_receipt = deepcopy(validated_receipt)
+    signed_receipt["identitySignature"] = {
+        "schemaVersion": 1,
+        "algorithm": "Ed25519",
+        "keyId": signature.get("keyId"),
+        "publicKeyBase64": signature.get("publicKeyBase64"),
+        "signedAt": signing_request["signedAt"],
+        "signatureBase64": signature.get("signatureBase64"),
+    }
+    validate_receiver_verification_receipt(signed_receipt, validated_handoff)
+    verify_receiver_identity_signature(signed_receipt)
+    return signed_receipt
 
 
 def verify_receiver_identity_signature(
@@ -586,13 +738,18 @@ __all__ = [
     "SCHEMA_VERSION",
     "KIND",
     "RECEIPT_KIND",
+    "IDENTITY_SIGNING_REQUEST_KIND",
+    "IDENTITY_SIGNATURE_RESPONSE_KIND",
+    "attach_receiver_identity_signature",
     "build_removal_transfer_handoff",
+    "build_receiver_identity_signing_request",
     "build_receiver_verification_receipt",
     "receiver_verification_receipt_fingerprint",
     "receiver_identity_key_id",
     "receiver_identity_signing_payload",
     "same_removal_transfer_handoff_content",
     "validate_removal_transfer_handoff",
+    "validate_receiver_identity_signing_request",
     "validate_receiver_verification_receipt",
     "verify_receiver_identity_signature",
 ]

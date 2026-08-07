@@ -19,6 +19,7 @@ import {
   ProjectState,
   ReceiverCapacityVerificationReceipt,
   ReceiverIdentityVerification,
+  ReceiverIdentitySignatureResponse,
   ReceiverTrustKey,
   ReceiverVerificationAuthority,
   ReceiverVerificationResult,
@@ -674,6 +675,52 @@ function App() {
       setReceiverAssistantIdentityVerification(response.receiptValidation.identityVerification);
       setReceiverCalculationConfirmed(true);
       setReceiverIdentityAcknowledged(true);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleDownloadReceiverIdentitySigningRequest() {
+    if (!receiverAssistantHandoff || !receiverAssistantReceipt) return;
+    try {
+      setBusy("建立 RVR 身分簽署請求");
+      const response = await api.buildReceiverIdentitySigningRequest(
+        receiverAssistantHandoff,
+        receiverAssistantReceipt,
+      );
+      downloadJsonFile(
+        response.signingRequest,
+        `RVR-身分簽署請求-${response.signingRequest.requestFingerprint}.json`,
+      );
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleAttachReceiverIdentitySignature(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !receiverAssistantHandoff || !receiverAssistantReceipt) return;
+    try {
+      setBusy("附加並驗證 RVR 身分簽章");
+      const parsed = JSON.parse(await file.text()) as ReceiverIdentitySignatureResponse;
+      const response = await api.attachReceiverIdentitySignature(
+        receiverAssistantHandoff,
+        receiverAssistantReceipt,
+        parsed,
+      );
+      setReceiverAssistantReceipt(response.receipt);
+      setReceiverAssistantIdentityVerification(response.receiptValidation.identityVerification);
+      downloadJsonFile(
+        response.receipt,
+        `承接構造回簽-已簽署-${response.receipt.handoffFingerprint}-${response.receipt.receiptFingerprint}.json`,
+      );
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -3877,6 +3924,34 @@ function App() {
                       <span>{`RVR 指紋：${receiverAssistantReceipt.receiptFingerprint}`}</span>
                       <span>{`通過 ${receiverAssistantReceipt.summary.passed}／未通過 ${receiverAssistantReceipt.summary.failed}`}</span>
                       {receiverAssistantIdentityVerification && <span>{receiverAssistantIdentityVerification.message}</span>}
+                    </div>
+                  )}
+                  {receiverAssistantReceipt && (
+                    <div className="report-mode-card">
+                      <strong>選用：由接收單位離線完成 RVR 身分簽署</strong>
+                      <span>先下載 RSR 簽署請求；接收單位以既有 Ed25519 私鑰執行離線簽署程式，再將簽章回應匯回。本網頁不會接觸私人金鑰。</span>
+                      <div className="action-row">
+                        <button
+                          className="secondary"
+                          type="button"
+                          disabled={Boolean(receiverAssistantReceipt.identitySignature)}
+                          onClick={handleDownloadReceiverIdentitySigningRequest}
+                        >
+                          下載離線身分簽署請求
+                        </button>
+                        <label className="file-action secondary">
+                          匯入離線簽章回應
+                          <input
+                            className="file-picker-input"
+                            type="file"
+                            accept=".json,application/json"
+                            onChange={handleAttachReceiverIdentitySignature}
+                          />
+                        </label>
+                      </div>
+                      {receiverAssistantReceipt.identitySignature && (
+                        <span>{`目前已附簽章：${receiverAssistantReceipt.identitySignature.keyId}`}</span>
+                      )}
                     </div>
                   )}
                 </Panel>

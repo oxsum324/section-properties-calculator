@@ -390,6 +390,17 @@ class ValidateReceiverReceiptRequest(BaseModel):
     receipt: dict[str, Any]
 
 
+class BuildReceiverSigningRequestRequest(BaseModel):
+    handoff: dict[str, Any]
+    receipt: dict[str, Any]
+
+
+class AttachReceiverSignatureRequest(BaseModel):
+    handoff: dict[str, Any]
+    receipt: dict[str, Any]
+    signature_response: dict[str, Any]
+
+
 class ReportPayload(BaseModel):
     project: ProjectState
     report_path: str

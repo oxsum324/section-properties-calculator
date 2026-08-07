@@ -479,6 +479,32 @@ export type ReceiverTrustKey = {
   revokedAt: string | null;
 };
 
+export type ReceiverIdentitySigningRequest = {
+  schemaVersion: 1;
+  kind: "receiver-verification-identity-signing-request";
+  algorithm: "Ed25519";
+  payloadEncoding: "base64";
+  signedAt: string;
+  receiptFingerprint: string;
+  handoffFingerprint: string;
+  sourceCalculationFingerprint: string;
+  organization: string;
+  payloadBase64: string;
+  requestFingerprint: string;
+};
+
+export type ReceiverIdentitySignatureResponse = {
+  schemaVersion: 1;
+  kind: "receiver-verification-identity-signature-response";
+  signingRequest: ReceiverIdentitySigningRequest;
+  signature: {
+    algorithm: "Ed25519";
+    keyId: string;
+    publicKeyBase64: string;
+    signatureBase64: string;
+  };
+};
+
 export type RemovalTransferReceiptImportResponse = {
   project: ProjectState;
   handoff: RemovalTransferHandoff;

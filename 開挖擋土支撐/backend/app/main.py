@@ -16,7 +16,9 @@ from .config import get_settings
 from .parsers import parse_analysis_file
 from .project_store import ProjectStore
 from .removal_transfer_handoff import (
+    attach_receiver_identity_signature,
     build_removal_transfer_handoff,
+    build_receiver_identity_signing_request,
     build_receiver_verification_receipt,
     same_removal_transfer_handoff_content,
     validate_removal_transfer_handoff,
@@ -28,9 +30,11 @@ from .reporting import build_report, build_word_report, calculation_fingerprint
 from .schemas import (
     AnalysisImportResult,
     AnalysisSideSource,
+    AttachReceiverSignatureRequest,
     BootstrapPayload,
     BraceRow,
     BuildReceiverReceiptRequest,
+    BuildReceiverSigningRequestRequest,
     CreateProjectRequest,
     ProjectState,
     ReferenceData,
@@ -145,6 +149,40 @@ def validate_external_receiver_verification_receipt(
     try:
         handoff = validate_removal_transfer_handoff(request.handoff)
         receipt = validate_receiver_verification_receipt(request.receipt, handoff)
+        validation = _receipt_validation(receipt)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "handoff": handoff,
+        "receipt": receipt,
+        "receiptValidation": validation,
+    }
+
+
+@app.post("/api/removal-transfer-receipts/signing-request")
+def build_external_receiver_identity_signing_request(
+    request: BuildReceiverSigningRequestRequest,
+) -> dict[str, Any]:
+    try:
+        handoff = validate_removal_transfer_handoff(request.handoff)
+        receipt = validate_receiver_verification_receipt(request.receipt, handoff)
+        signing_request = build_receiver_identity_signing_request(receipt, handoff)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"signingRequest": signing_request}
+
+
+@app.post("/api/removal-transfer-receipts/attach-signature")
+def attach_external_receiver_identity_signature(
+    request: AttachReceiverSignatureRequest,
+) -> dict[str, Any]:
+    try:
+        handoff = validate_removal_transfer_handoff(request.handoff)
+        receipt = attach_receiver_identity_signature(
+            request.receipt,
+            handoff,
+            request.signature_response,
+        )
         validation = _receipt_validation(receipt)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

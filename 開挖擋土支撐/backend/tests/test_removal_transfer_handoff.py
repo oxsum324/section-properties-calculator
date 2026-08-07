@@ -10,18 +10,23 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from backend.app.calculations import calculate_project
 from backend.app.removal_transfer_handoff import (
+    IDENTITY_SIGNATURE_RESPONSE_KIND,
     KIND,
     RECEIPT_KIND,
+    attach_receiver_identity_signature,
     build_removal_transfer_handoff,
+    build_receiver_identity_signing_request,
     build_receiver_verification_receipt,
     receiver_verification_receipt_fingerprint,
     receiver_identity_key_id,
     receiver_identity_signing_payload,
     same_removal_transfer_handoff_content,
     validate_removal_transfer_handoff,
+    validate_receiver_identity_signing_request,
     validate_receiver_verification_receipt,
     verify_receiver_identity_signature,
 )
+from backend.sign_receiver_request import build_signature_response
 from backend.app.reporting import calculation_fingerprint
 from backend.app.schemas import AnalysisForceCase
 from backend.app.workbook_loader import load_default_project
@@ -252,6 +257,52 @@ class RemovalTransferHandoffTests(unittest.TestCase):
             verify_receiver_identity_signature(receipt, [key])["status"],
             "valid-signature-organization-mismatch",
         )
+
+    def test_builds_offline_signing_request_and_attaches_response(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt = self.receiver_receipt(handoff)
+        request = build_receiver_identity_signing_request(
+            receipt,
+            handoff,
+            signed_at="2026-08-07T14:00:00Z",
+        )
+        private_key = Ed25519PrivateKey.generate()
+
+        response = build_signature_response(request, private_key)
+        signed_receipt = attach_receiver_identity_signature(receipt, handoff, response)
+
+        self.assertRegex(request["requestFingerprint"], r"^RSR-[0-9A-F]{20}$")
+        self.assertEqual(response["kind"], IDENTITY_SIGNATURE_RESPONSE_KIND)
+        self.assertEqual(signed_receipt["receiptFingerprint"], receipt["receiptFingerprint"])
+        self.assertEqual(
+            verify_receiver_identity_signature(signed_receipt)["status"],
+            "valid-signature-untrusted-key",
+        )
+
+    def test_rejects_tampered_signing_request_or_signature_response(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt = self.receiver_receipt(handoff)
+        request = build_receiver_identity_signing_request(
+            receipt,
+            handoff,
+            signed_at="2026-08-07T14:00:00Z",
+        )
+        tampered_request = deepcopy(request)
+        tampered_request["organization"] = "冒用單位"
+        with self.assertRaisesRegex(ValueError, "欄位與實際簽署訊息不一致"):
+            validate_receiver_identity_signing_request(tampered_request)
+
+        response = build_signature_response(request, Ed25519PrivateKey.generate())
+        response["signature"]["algorithm"] = "RSA"
+        with self.assertRaisesRegex(ValueError, "簽章演算法不受支援"):
+            attach_receiver_identity_signature(receipt, handoff, response)
+
+        response = build_signature_response(request, Ed25519PrivateKey.generate())
+        response["signature"]["signatureBase64"] = base64.b64encode(b"x" * 64).decode("ascii")
+        with self.assertRaisesRegex(ValueError, "數位簽章驗證失敗"):
+            attach_receiver_identity_signature(receipt, handoff, response)
 
     def test_builds_controlled_receiver_receipt_for_assistant(self) -> None:
         project = self.prepared_project()
