@@ -64,6 +64,8 @@ const preflight = readUtf8('../preflight-tools.ps1');
 const home = readUtf8('../結構工具箱/assets/home/home.js');
 const reportContract = readUtf8('excavation-report.contract.test.js');
 const handoff = readUtf8('../結構工具箱/tools/construction-stage-load-handoff.js');
+const removalTransferHandoff = readUtf8('backend/app/removal_transfer_handoff.py');
+const removalTransferHandoffTests = readUtf8('backend/tests/test_removal_transfer_handoff.py');
 
 const expectedTools = [
   'excavation-analysis-import',
@@ -73,7 +75,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '0.8.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '0.9.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -131,6 +133,45 @@ assert(manualReviewCount >= 10, 'excavation traceability catalog manual review v
   assert(app.includes(needle), `excavation frontend handoff keeps ${needle}`, needle);
 });
 assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation handoff producer schema is governed', 'construction-stage-decking-load-handoff');
+
+[
+  'excavation-removal-transfer-handoff',
+  'receiver-capacity-verification-receipt',
+  'def build_removal_transfer_handoff',
+  'def validate_removal_transfer_handoff',
+  'ERH',
+  'ERT',
+  '"status": "pending"',
+  '"autoApplied": False',
+  '"autoVerified": False',
+  '來源構件、生命週期、控制軸力',
+].forEach((needle) => {
+  assert(removalTransferHandoff.includes(needle), `excavation removal transfer handoff keeps ${needle}`, needle);
+});
+[
+  '/api/projects/{project_id}/removal-transfer-handoff',
+  'build_removal_transfer_handoff',
+  'calculation_fingerprint(project)',
+].forEach((needle) => {
+  assert(main.includes(needle), `excavation removal transfer API keeps ${needle}`, needle);
+});
+[
+  'generateRemovalTransferHandoff',
+  'handleGenerateRemovalTransferHandoff',
+  '匯出待驗證交接 JSON',
+  '待承接構造驗證',
+  '交接完成不等於承接構造合格',
+].forEach((needle) => {
+  assert(app.includes(needle) || api.includes(needle), `excavation removal transfer frontend keeps ${needle}`, needle);
+});
+[
+  'test_builds_pending_receiver_verification_handoff',
+  'test_rejects_tampered_transfer_content',
+  'test_outside_scope_handoff_keeps_receiver_identity_pending',
+  'test_rejects_source_member_that_did_not_pass_calculation',
+].forEach((needle) => {
+  assert(removalTransferHandoffTests.includes(needle), `excavation removal transfer tests keep ${needle}`, needle);
+});
 
 [
   'parse_analysis_file',

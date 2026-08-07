@@ -18,6 +18,7 @@ import {
   ProjectListItem,
   ProjectState,
   ReferenceData,
+  RemovalTransferHandoff,
   RemovalTransferMode,
   SectionProperty,
   SoilLayer,
@@ -238,6 +239,7 @@ function App() {
   const [conciseReportMode, setConciseReportMode] = useState<boolean>(false);
   const [generatedPdfMode, setGeneratedPdfMode] = useState<"detailed" | "concise" | null>(null);
   const [generatedWordMode, setGeneratedWordMode] = useState<"detailed" | "concise" | null>(null);
+  const [removalTransferHandoff, setRemovalTransferHandoff] = useState<RemovalTransferHandoff | null>(null);
   const [analysisSingleSide, setAnalysisSingleSide] = useState<AnalysisSourceSide>("top");
   const [componentTab, setComponentTab] = useState<ComponentTabKey>("support");
   const [advancedSettingsExpanded, setAdvancedSettingsExpanded] = useState(false);
@@ -490,6 +492,25 @@ function App() {
     }
   }
 
+  async function handleGenerateRemovalTransferHandoff() {
+    if (!project?.metadata.id) return;
+    try {
+      setBusy("建立拆撐承接構造交接檔");
+      const savedProject = await saveCurrentProjectState(project);
+      const record = await api.generateRemovalTransferHandoff(savedProject.metadata.id ?? project.metadata.id);
+      downloadJsonFile(
+        record,
+        `${savedProject.metadata.id ?? "excavation"}-拆撐承接構造交接-${record.handoffFingerprint}.json`,
+      );
+      setRemovalTransferHandoff(record);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
   async function handleSaveReferenceData() {
     if (!referenceDraft) return;
     try {
@@ -522,6 +543,7 @@ function App() {
   function applyProjectState(nextProject: ProjectState) {
     const synced = syncProjectGuardrails(nextProject);
     setProject(synced);
+    setRemovalTransferHandoff(null);
     if (!synced.calculation_results) {
       setReportUrl("");
       setWordReportUrl("");
@@ -3217,6 +3239,42 @@ function App() {
                 {`目前附件編排方式為${reportModeLabel}。Word 與 PDF 皆包含摘要、輸入基本資料、分析匯入結果、結果彙整與主要檢核內容；簡述版附件改採首筆詳算、後續摘要列示，詳細版則維持逐筆完整展開。`}
               </p>
             </Panel>
+            <Panel
+              title="拆撐承接構造驗證交接"
+              subtitle="將已確認的拆撐處置輸出成具指紋的待驗證 JSON，供專案分析或未來專用接收工具回簽。"
+            >
+              <div className="report-mode-card">
+                <strong>{`目前可交接：${removalTransferCandidateCount(project)} 筆拆撐處置`}</strong>
+                <span>交接檔只保存來源構件、生命週期、控制軸力與指定承接對象；所有列初始狀態均為待承接構造驗證。</span>
+              </div>
+              <div className="action-row">
+                <button
+                  className="secondary"
+                  type="button"
+                  onClick={handleGenerateRemovalTransferHandoff}
+                  disabled={!project.calculation_results || removalTransferCandidateCount(project) === 0}
+                >
+                  匯出待驗證交接 JSON
+                </button>
+              </div>
+              {!project.calculation_results && (
+                <p className="meta-line attention-line">請先完成最新計算，再建立與該計算指紋一致的交接檔。</p>
+              )}
+              {project.calculation_results && removalTransferCandidateCount(project) === 0 && (
+                <p className="meta-line">目前沒有已確認拆撐處置且納入計算的支撐／斜撐列。</p>
+              )}
+              {removalTransferHandoff && (
+                <div className="meta-grid">
+                  <MetaItem label="交接狀態" value="待承接構造驗證" />
+                  <MetaItem label="交接列數" value={String(removalTransferHandoff.transfers.length)} />
+                  <MetaItem label="來源計算指紋" value={removalTransferHandoff.source.calculationFingerprint} />
+                  <MetaItem label="交接指紋" value={removalTransferHandoff.handoffFingerprint} />
+                </div>
+              )}
+              <p className="meta-line">
+                交接完成不等於承接構造合格；樓版、重撐、永久結構或其他接收端仍須核對實際傳力方向、荷重分配、偏心、載重組合與容量，並以相同交接指紋回簽驗證結果。
+              </p>
+            </Panel>
             <Panel title="匯出前檢查" subtitle="建議先確認計算結果與警示清單。">
               {project.calculation_results?.warnings.length ? (
                 <ul className="warning-list">
@@ -4505,6 +4563,35 @@ function extractDownloadFilename(url: string): string {
   } catch {
     return url;
   }
+}
+
+function downloadJsonFile(payload: unknown, filename: string): void {
+  const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function removalTransferCandidateCount(project: ProjectState): number {
+  const groups: Array<{ enabled: boolean; rows: Array<SupportRow | BraceRow> }> = [
+    { enabled: project.calculation_options.include_top_supports, rows: project.top_supports },
+    { enabled: project.calculation_options.include_bottom_supports, rows: project.bottom_supports },
+    { enabled: project.calculation_options.include_top_braces, rows: project.top_braces },
+    { enabled: project.calculation_options.include_bottom_braces, rows: project.bottom_braces },
+  ];
+  return groups.reduce((count, group) => count + (group.enabled
+    ? group.rows.filter((row) =>
+      row.force_source === "analysis_import" &&
+      row.analysis_removal_stage_index != null &&
+      row.removal_transfer_mode !== "unassigned" &&
+      row.removal_transfer_confirmed === true,
+    ).length
+    : 0), 0);
 }
 
 function collectBoltSizeKeys(rows: BoltStrengthRow[]): string[] {

@@ -14,7 +14,8 @@ from .calculations import calculate_project
 from .config import get_settings
 from .parsers import parse_analysis_file
 from .project_store import ProjectStore
-from .reporting import build_report, build_word_report
+from .removal_transfer_handoff import build_removal_transfer_handoff
+from .reporting import build_report, build_word_report, calculation_fingerprint
 from .schemas import (
     AnalysisImportResult,
     AnalysisSideSource,
@@ -575,6 +576,20 @@ def calculate(project_id: str) -> ProjectState:
         raise HTTPException(status_code=404, detail="Project not found") from exc
     project.calculation_results = calculate_project(project)
     return store.save_project(project)
+
+
+@app.post("/api/projects/{project_id}/removal-transfer-handoff")
+def generate_removal_transfer_handoff(project_id: str) -> dict[str, Any]:
+    try:
+        project = store.get_project(project_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Project not found") from exc
+    project.calculation_results = calculate_project(project)
+    project = store.save_project(project)
+    try:
+        return build_removal_transfer_handoff(project, calculation_fingerprint(project))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/projects/{project_id}/report", response_model=ReportPayload)

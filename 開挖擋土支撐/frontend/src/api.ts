@@ -3,6 +3,7 @@ import {
   ProjectListItem,
   ProjectState,
   ReferenceData,
+  RemovalTransferHandoff,
   ReportPayload,
 } from "./types";
 
@@ -58,6 +59,8 @@ export const api = {
   },
   calculate: (projectId: string) =>
     request<ProjectState>(`/api/projects/${projectId}/calculate`, { method: "POST" }),
+  generateRemovalTransferHandoff: (projectId: string) =>
+    request<RemovalTransferHandoff>(`/api/projects/${projectId}/removal-transfer-handoff`, { method: "POST" }),
   generateReport: (projectId: string, concise = false) =>
     request<ReportPayload>(`/api/projects/${projectId}/report?concise=${concise ? "true" : "false"}`, {
       method: "POST",

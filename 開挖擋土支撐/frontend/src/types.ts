@@ -346,6 +346,54 @@ export type ProjectState = {
   calculation_results?: CalculationResults | null;
 };
 
+export type RemovalTransferHandoff = {
+  schemaVersion: 1;
+  kind: "excavation-removal-transfer-handoff";
+  generatedAt: string;
+  source: {
+    toolId: string;
+    toolName: string;
+    toolVersion: string;
+    projectId: string;
+    projectName: string;
+    projectNo: string;
+    calculationFingerprint: string;
+  };
+  transfers: Array<{
+    transferId: string;
+    sourceMember: Record<string, string | number>;
+    lifecycle: Record<string, unknown>;
+    sourceDemand: Record<string, unknown>;
+    receiver: {
+      mode: RemovalTransferMode;
+      modeLabel: string;
+      target: string;
+      dispositionBasis: string;
+      receiverIdentityRequired: boolean;
+    };
+    sourceCheck: Record<string, unknown>;
+    verification: {
+      status: "pending";
+      required: true;
+      autoVerified: false;
+      acceptedReceiptKind: "receiver-capacity-verification-receipt";
+    };
+  }>;
+  verificationSummary: {
+    status: "pending";
+    required: number;
+    verified: 0;
+    receiptKind: "receiver-capacity-verification-receipt";
+  };
+  boundary: {
+    requiresReceiverVerification: true;
+    autoApplied: false;
+    autoVerified: false;
+    scope: string;
+  };
+  handoffFingerprint: string;
+};
+
 export type BootstrapPayload = {
   reference_data: ReferenceData;
   default_project: ProjectState;
