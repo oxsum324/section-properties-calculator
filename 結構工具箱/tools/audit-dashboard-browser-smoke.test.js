@@ -95,6 +95,44 @@ const fixtureAttachmentStatus = {
   attachmentIntegrityPass: true,
   attachmentIntegrityGroups: fixtureAttachmentPublicGroups,
 };
+const fixtureRvrBackupHealth = {
+  schemaVersion: 1,
+  kind: 'rvr-backup-health-status',
+  checkedAt: fixtureGeneratedAt,
+  status: 'healthy',
+  maxAgeDays: 8,
+  issueCount: 0,
+  issueCodes: [],
+  evidence: {
+    status: 'backup-health-ok',
+    backupAgeSeconds: 7200,
+    receiptAgeSeconds: 7100,
+    productionRegistryUnchanged: true,
+  },
+  backupTask: {
+    state: 'Ready',
+    lastRunTime: '2026-06-21T09:00:00+08:00',
+    lastTaskResult: 0,
+    nextRunTime: '2026-06-28T09:00:00+08:00',
+    numberOfMissedRuns: 0,
+  },
+  privacy: {
+    scope: 'local-only',
+    containsPaths: false,
+    containsRegistryContent: false,
+  },
+};
+const fixtureRvrBackupHealthFailure = {
+  ...fixtureRvrBackupHealth,
+  status: 'attention-required',
+  issueCount: 2,
+  issueCodes: ['evidence-validation-failed', 'backup-task-last-run-failed'],
+  evidence: null,
+  backupTask: {
+    ...fixtureRvrBackupHealth.backupTask,
+    lastTaskResult: 1,
+  },
+};
 const fixtureAttachmentFailureGroups = fixtureAttachmentGroups.map((group) => {
   const artifacts = group.artifacts.map(artifact => ({ ...artifact }));
   if (group.href !== '/rc-column') return { ...group, artifacts };
@@ -275,6 +313,7 @@ function preflightHistoryItem(overrides = {}) {
 
 const fixtures = new Map(Object.entries({
   '結構工具箱/assets/status/report-readiness-status.json': fixtureAttachmentStatus,
+  'output/audit/rvr-backup-health-status.json': fixtureRvrBackupHealth,
   'output/preflight/attachment-integrity-latest.json': fixtureAttachmentDiagnostic,
   'output/preflight/history/fixture-release/rendered-delivery-evidence/attachment-integrity-diagnostic.json': fixtureAttachmentDiagnostic,
   'output/preflight/history/fixture-attachment-failure/rendered-delivery-evidence/attachment-integrity-diagnostic.json': fixtureAttachmentClosureFailureDiagnostic,
@@ -796,6 +835,7 @@ function assertRequestAudit(audit, options = {}) {
     'output/audit/platform-history.json',
     'output/preflight/post-checks.json',
     'output/audit/tool-maturity-matrix.json',
+    'output/audit/rvr-backup-health-status.json',
     'output/preflight/preflight-summary.json',
     'output/preflight/preflight-history.json',
     '鋼構工具/output/audit/audit-status.json',
@@ -839,6 +879,7 @@ function loadLiveExpected() {
     summary: readJsonFile('output/preflight/preflight-summary.json'),
     history: readJsonFile('output/preflight/preflight-history.json'),
     matrix: readJsonFile('output/audit/tool-maturity-matrix.json'),
+    rvrBackupHealth: readJsonFile('output/audit/rvr-backup-health-status.json'),
     postChecks: normalizePostChecksPayload(readJsonFile('output/preflight/post-checks.json')),
     platformStatus: readJsonFile('output/audit/platform-status.json'),
     reportReadinessStatus: readJsonFile('結構工具箱/assets/status/report-readiness-status.json'),
@@ -1239,6 +1280,23 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         coverageTotals,
         traceabilityCatalogCoverage,
         globalGovernance,
+        rvrBackupHealthState: document.getElementById('rvrBackupHealthCard')?.dataset.rvrHealthState || '',
+        rvrBackupHealthStatus: document.getElementById('rvrBackupHealthStatus')?.textContent?.trim() || '',
+        rvrBackupHealthStatusFail: document.getElementById('rvrBackupHealthStatus')?.classList.contains('fail') || false,
+        rvrBackupHealthStatusHint: document.getElementById('rvrBackupHealthStatusHint')?.textContent?.trim() || '',
+        rvrBackupHealthCheckedAt: document.getElementById('rvrBackupHealthCheckedAt')?.textContent?.trim() || '',
+        rvrBackupHealthBackupAge: document.getElementById('rvrBackupHealthBackupAge')?.textContent?.trim() || '',
+        rvrBackupHealthReceiptAge: document.getElementById('rvrBackupHealthReceiptAge')?.textContent?.trim() || '',
+        rvrBackupHealthTask: document.getElementById('rvrBackupHealthTask')?.textContent?.trim() || '',
+        rvrBackupHealthTaskHint: document.getElementById('rvrBackupHealthTaskHint')?.textContent?.trim() || '',
+        rvrBackupHealthNextRun: document.getElementById('rvrBackupHealthNextRun')?.textContent?.trim() || '',
+        rvrBackupHealthIssues: Array.from(document.querySelectorAll('#rvrBackupHealthIssues [data-rvr-health-issue]')).map((node) => ({
+          code: node.getAttribute('data-rvr-health-issue') || '',
+          title: node.querySelector('strong')?.textContent?.trim() || '',
+          text: node.querySelector('span')?.textContent?.trim() || '',
+          ok: node.classList.contains('ok'),
+        })),
+        rvrBackupHealthText: document.getElementById('rvrBackupHealthCard')?.textContent?.replace(/\s+/g, ' ').trim() || '',
         attachmentIntegrityStatus: document.getElementById('attachmentIntegrityStatus')?.textContent?.trim() || '',
         attachmentIntegrityStatusFail: document.getElementById('attachmentIntegrityStatus')?.classList.contains('fail') || false,
         attachmentIntegrityStatusHint: document.getElementById('attachmentIntegrityStatusHint')?.textContent?.trim() || '',
@@ -1362,6 +1420,8 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
       lastState.maturityBoundaryRows.length >= 1 &&
       lastState.latestPostCheckRows.length === expectedPostCheckRows &&
       lastState.attachmentIntegrityGroups.length === expectedAttachmentGroups &&
+      lastState.rvrBackupHealthStatus &&
+      !lastState.rvrBackupHealthStatus.includes('讀取中') &&
       lastState.freshness &&
       lastState.maturityPreflightHint.includes(expectedPreflightHint) &&
       (!expectedLive || Object.values(lastState.summaryPreviews || {}).every(value => value && !value.includes('讀取中') && !value.includes('讀取失敗'))) &&
@@ -1531,6 +1591,33 @@ function assertDashboardLiveState(state, label, expected) {
     }
     assert.ok(rendered.value.includes(gate.key), `${label} live global governance preflight key ${gate.key}: ${rendered.value}`);
   }
+  const rvrBackupHealth = expected.rvrBackupHealth;
+  const rvrHealthy = rvrBackupHealth.status === 'healthy'
+    && Number(rvrBackupHealth.issueCount || 0) === 0
+    && rvrBackupHealth.evidence?.status === 'backup-health-ok'
+    && rvrBackupHealth.evidence?.productionRegistryUnchanged === true
+    && rvrBackupHealth.privacy?.scope === 'local-only'
+    && rvrBackupHealth.privacy?.containsPaths === false
+    && rvrBackupHealth.privacy?.containsRegistryContent === false;
+  assert.equal(state.rvrBackupHealthState, rvrHealthy ? 'healthy' : 'attention-required', `${label} live RVR health state`);
+  assert.equal(state.rvrBackupHealthStatus, rvrHealthy ? '正常' : '需要處理', `${label} live RVR health status`);
+  assert.equal(state.rvrBackupHealthStatusFail, !rvrHealthy, `${label} live RVR health tone`);
+  assert.notEqual(state.rvrBackupHealthCheckedAt, '-', `${label} live RVR checked time`);
+  assert.notEqual(state.rvrBackupHealthBackupAge, '-', `${label} live RVR backup age`);
+  assert.notEqual(state.rvrBackupHealthReceiptAge, '-', `${label} live RVR drill age`);
+  const expectedRvrTaskOk = rvrBackupHealth.backupTask
+    && rvrBackupHealth.backupTask.state !== 'Disabled'
+    && Number(rvrBackupHealth.backupTask.lastTaskResult) === 0;
+  assert.equal(state.rvrBackupHealthTask, expectedRvrTaskOk ? '就緒 / 成功' : (rvrBackupHealth.backupTask ? '需要處理' : '未檢查'), `${label} live RVR task state`);
+  const expectedRvrIssueCodes = Array.isArray(rvrBackupHealth.issueCodes) ? rvrBackupHealth.issueCodes : [];
+  assert.deepEqual(
+    state.rvrBackupHealthIssues.map(item => item.code),
+    expectedRvrIssueCodes.length ? expectedRvrIssueCodes : ['none'],
+    `${label} live RVR controlled issue codes`
+  );
+  ['RTB-', 'RTR-', 'RDR-', '.json', 'C:\\', 'G:\\'].forEach((forbidden) => {
+    assert.equal(state.rvrBackupHealthText.includes(forbidden), false, `${label} live RVR dashboard excludes ${forbidden}`);
+  });
   const attachmentStatus = expected.reportReadinessStatus;
   assert.equal(state.attachmentIntegrityStatus, attachmentStatus.attachmentIntegrityPass ? '通過' : `異常 ${attachmentStatus.attachmentIntegrityIssueCount || 1} 項`, `${label} live attachment integrity status`);
   assert.equal(state.attachmentIntegrityCount, `${attachmentStatus.attachmentIntegrityActual} / ${attachmentStatus.attachmentIntegrityRequired}`, `${label} live attachment integrity count`);
@@ -1713,6 +1800,25 @@ function assertDashboardState(state, label, expectedLive = null) {
     expectedGlobalGovernance.map((item) => ({ ...item, ok: true })),
     `${label} global governance gates rendered`
   );
+  assert.equal(state.rvrBackupHealthState, 'healthy', `${label} RVR backup health state`);
+  assert.equal(state.rvrBackupHealthStatus, '正常', `${label} RVR backup health status`);
+  assert.equal(state.rvrBackupHealthStatusFail, false, `${label} RVR backup health has no failure tone`);
+  assert.ok(state.rvrBackupHealthStatusHint.includes('正式清冊未被演練修改'), `${label} RVR backup health evidence hint`);
+  assert.notEqual(state.rvrBackupHealthCheckedAt, '-', `${label} RVR backup health checked time`);
+  assert.equal(state.rvrBackupHealthBackupAge, '2.0 小時', `${label} RVR backup age`);
+  assert.equal(state.rvrBackupHealthReceiptAge, '2.0 小時', `${label} RVR recovery drill age`);
+  assert.equal(state.rvrBackupHealthTask, '就緒 / 成功', `${label} RVR weekly task status`);
+  assert.ok(state.rvrBackupHealthTaskHint.includes('結果 0'), `${label} RVR weekly task result`);
+  assert.notEqual(state.rvrBackupHealthNextRun, '-', `${label} RVR next backup time`);
+  assert.deepEqual(state.rvrBackupHealthIssues, [{
+    code: 'none',
+    title: '證據完整',
+    text: '備份、復原演練、證據關聯與每週排程均通過。',
+    ok: true,
+  }], `${label} RVR healthy evidence summary`);
+  ['RTB-', 'RTR-', 'RDR-', '.json', 'C:\\', 'G:\\'].forEach((forbidden) => {
+    assert.equal(state.rvrBackupHealthText.includes(forbidden), false, `${label} RVR dashboard excludes ${forbidden}`);
+  });
   assert.equal(state.attachmentIntegrityStatus, '通過', `${label} attachment integrity status`);
   assert.equal(state.attachmentIntegrityStatusFail, false, `${label} attachment integrity status is not failed`);
   assert.equal(state.attachmentIntegrityCount, '34 / 34', `${label} attachment integrity count`);
@@ -1803,6 +1909,18 @@ function assertDashboardState(state, label, expectedLive = null) {
 }
 
 function assertAttachmentIntegrityFailureState(state, label) {
+  assert.equal(state.rvrBackupHealthState, 'attention-required', `${label} RVR backup attention state`);
+  assert.equal(state.rvrBackupHealthStatus, '需要處理', `${label} RVR backup attention status`);
+  assert.equal(state.rvrBackupHealthStatusFail, true, `${label} RVR backup attention tone`);
+  assert.equal(state.rvrBackupHealthTask, '需要處理', `${label} RVR failed weekly task status`);
+  assert.deepEqual(state.rvrBackupHealthIssues.map(item => item.code), [
+    'evidence-validation-failed',
+    'backup-task-last-run-failed',
+  ], `${label} RVR controlled issue codes`);
+  assert.ok(state.rvrBackupHealthIssues.every(item => item.ok === false), `${label} RVR issue cards use warning tone`);
+  ['RTB-', 'RTR-', 'RDR-', '.json', 'C:\\', 'G:\\'].forEach((forbidden) => {
+    assert.equal(state.rvrBackupHealthText.includes(forbidden), false, `${label} failed RVR dashboard excludes ${forbidden}`);
+  });
   assert.equal(state.horizontalOverflow, false, `${label} failure fixture horizontal overflow (${state.scrollWidth} > ${state.clientWidth})`);
   assert.equal(state.attachmentIntegrityStatus, '異常 2 項', `${label} failed attachment integrity status`);
   assert.equal(state.attachmentIntegrityStatusFail, true, `${label} failed attachment integrity status tone`);
@@ -1900,6 +2018,10 @@ function assertAttachmentIntegrityFailureState(state, label) {
 }
 
 function assertPublicAttachmentBoundaryState(state, label) {
+  assert.equal(state.rvrBackupHealthState, 'local-only', `${label} public dashboard marks RVR health local-only`);
+  assert.equal(state.rvrBackupHealthStatus, '僅限本機', `${label} public dashboard does not claim RVR health`);
+  assert.equal(state.rvrBackupHealthIssues.length, 0, `${label} public dashboard has no private RVR issue details`);
+  assert.ok(state.rvrBackupHealthText.includes('不發布備份位置、檔名、指紋或清冊內容'), `${label} public RVR privacy boundary visible`);
   assert.equal(state.attachmentClosureVisible, false, `${label} public status without local diagnostic hides closure governance`);
   assert.deepEqual(state.attachmentClosures, [], `${label} public status has no local closure records`);
   assert.equal(state.attachmentClosurePrintVisible, false, `${label} public status closure governance remains excluded from print media`);
@@ -1962,9 +2084,11 @@ async function main() {
       const preflightFixturePath = 'output/preflight/preflight-summary.json';
       const preflightHistoryFixturePath = 'output/preflight/preflight-history.json';
       const attachmentDiagnosticFixturePath = 'output/preflight/attachment-integrity-latest.json';
+      const rvrBackupHealthFixturePath = 'output/audit/rvr-backup-health-status.json';
       const tamperedDiagnosticFixturePath = 'output/preflight/history/fixture-tampered-release/rendered-delivery-evidence/attachment-integrity-diagnostic.json';
       const originalPreflightFixture = fixtures.get(preflightFixturePath);
       const originalPreflightHistoryFixture = fixtures.get(preflightHistoryFixturePath);
+      const originalRvrBackupHealthFixture = fixtures.get(rvrBackupHealthFixturePath);
       fixtures.set(preflightFixturePath, {
         ...originalPreflightFixture,
         runId: 'fixture-tampered-release',
@@ -1994,6 +2118,7 @@ async function main() {
         }), ...originalPreflightHistoryFixture.items],
       });
       fixtures.set(attachmentDiagnosticFixturePath, fixtureAttachmentFailureDiagnostic);
+      fixtures.set(rvrBackupHealthFixturePath, fixtureRvrBackupHealthFailure);
       fixtures.set(tamperedDiagnosticFixturePath, fixtureAttachmentFailureDiagnostic);
       for (const viewport of viewports) {
         await client.send('Emulation.setDeviceMetricsOverride', {
@@ -2014,6 +2139,7 @@ async function main() {
       fixtures.set(attachmentDiagnosticFixturePath, fixtureAttachmentDiagnostic);
       fixtures.delete(tamperedDiagnosticFixturePath);
       fixtures.set(attachmentDiagnosticFixturePath, null);
+      fixtures.set(rvrBackupHealthFixturePath, null);
       for (const viewport of viewports) {
         await client.send('Emulation.setDeviceMetricsOverride', {
           width: viewport.width,
@@ -2029,6 +2155,7 @@ async function main() {
         publicBoundaryStates.push({ viewport: viewport.key, state });
       }
       fixtures.set(attachmentDiagnosticFixturePath, fixtureAttachmentDiagnostic);
+      fixtures.set(rvrBackupHealthFixturePath, originalRvrBackupHealthFixture);
     }
     pageErrors.unsubscribe();
     await client.send('Browser.close').catch(() => {});

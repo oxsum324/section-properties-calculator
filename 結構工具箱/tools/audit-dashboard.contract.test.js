@@ -149,6 +149,7 @@ function assertHistoryManifestShape(manifest, label) {
 
 const dashboardPath = toolboxFile('audit-dashboard.html');
 const dashboard = readText(dashboardPath);
+const rvrHealthLauncher = readText(repoFile('開挖擋土支撐/check_receiver_trust_backup_health.ps1'));
 const dashboardScripts = [...dashboard.matchAll(/<script>([\s\S]*?)<\/script>/gi)];
 assert.ok(dashboardScripts.length > 0, 'dashboard inline scripts');
 dashboardScripts.forEach((match, index) => {
@@ -207,6 +208,22 @@ dashboardScripts.forEach((match, index) => {
   'traceabilityCatalogCoverage',
   'maturityGlobalGovernance',
   'Global Governance Gates',
+  'RVR 信任清冊備份健康',
+  'rvrBackupHealthStatus',
+  'rvrBackupHealthCheckedAt',
+  'rvrBackupHealthBackupAge',
+  'rvrBackupHealthReceiptAge',
+  'rvrBackupHealthTask',
+  'rvrBackupHealthNextRun',
+  'rvrBackupHealthIssues',
+  'renderRvrBackupHealth',
+  '../output/audit/rvr-backup-health-status.json',
+  'rvr-backup-health-status',
+  'dashboard-summary-privacy-invalid',
+  'containsPaths',
+  'containsRegistryContent',
+  '不發布備份位置、檔名、指紋或清冊內容',
+  '不代表 Google Drive 已完成遠端同步',
   'RC 正式附件完整性',
   'attachmentIntegrityStatus',
   'attachmentIntegrityCount',
@@ -344,6 +361,29 @@ dashboardScripts.forEach((match, index) => {
   'JSON hash',
   '來源'
 ].forEach(needle => assertIncludes(dashboard, needle, 'audit dashboard preflight history'));
+
+[
+  'DashboardStatusPath',
+  'rvr-backup-health-status.json',
+  'kind = "rvr-backup-health-status"',
+  'issueCodes = @($issueCodes)',
+  'scope = "local-only"',
+  'containsPaths = $false',
+  'containsRegistryContent = $false',
+].forEach(needle => assertIncludes(rvrHealthLauncher, needle, 'RVR dashboard health summary'));
+const rvrDashboardPayloadStart = rvrHealthLauncher.indexOf('$dashboardStatus =');
+const rvrDashboardPayloadEnd = rvrHealthLauncher.indexOf('try {', rvrDashboardPayloadStart);
+assert.ok(rvrDashboardPayloadStart >= 0 && rvrDashboardPayloadEnd > rvrDashboardPayloadStart, 'RVR dashboard payload source range');
+const rvrDashboardPayload = rvrHealthLauncher.slice(rvrDashboardPayloadStart, rvrDashboardPayloadEnd);
+[
+  'backupDirectory =',
+  'backupPath =',
+  'receiptPath =',
+  'backupFingerprint =',
+  'registryFingerprint =',
+  'receiptFingerprint =',
+  'issues =',
+].forEach(needle => assert.equal(rvrDashboardPayload.includes(needle), false, `RVR dashboard payload excludes ${needle}`));
 
 [
   ['/rc-beam', '../鋼筋混凝土/tools/beam.html', '鋼筋混凝土/tools/beam.html'],

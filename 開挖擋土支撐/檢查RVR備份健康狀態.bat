@@ -4,9 +4,9 @@ chcp 65001 >nul
 cd /d "%~dp0"
 where pwsh >nul 2>nul
 if not errorlevel 1 (
-  pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0check_receiver_trust_backup_health.ps1" %*
+  pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0check_receiver_trust_backup_health.ps1" -BackupTaskName "RVR信任清冊每週備份與復原演練" %*
 ) else (
-  powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0check_receiver_trust_backup_health.ps1" %*
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0check_receiver_trust_backup_health.ps1" -BackupTaskName "RVR信任清冊每週備份與復原演練" %*
 )
 if errorlevel 1 (
   echo.

@@ -114,4 +114,6 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -ShowAlert
 ```
 
+健康檢查另會在 repo 的 ignored `output/audit/rvr-backup-health-status.json` 寫入本機儀表板摘要。摘要只含健康狀態、檢查時間、備份／演練年齡、排程結果與受控問題代碼，不含磁碟路徑、備份檔名、RTB／RTR／RDR 指紋或信任清冊內容。平台巡檢儀表板在本機伺服器模式可讀取此摘要；公開站沒有這份本機檔案，只會顯示「僅限本機」，也不會把摘要誤作 Google Drive 已完成遠端同步的證明。
+
 本工具不代替組織的資訊安全制度、憑證機構或硬體安全模組。高風險案件宜將私鑰移至既有 HSM／智慧卡／受管金鑰服務，並保留金鑰啟用、輪替、撤銷與保管人交接紀錄。

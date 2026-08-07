@@ -762,6 +762,46 @@
     </div>
   </div>
 
+  <div class="card screen-only" id="rvrBackupHealthCard">
+    <h2>RVR 信任清冊備份健康</h2>
+    <p class="boundary-note"><strong>本機治理邊界：</strong>本區只讀取不含路徑、檔名、指紋或信任清冊內容的本機摘要，不會寫入計算書、列印或 PDF，也不代表 Google Drive 已完成遠端同步。</p>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">健康狀態</div>
+        <div class="kpi-value" id="rvrBackupHealthStatus">讀取中</div>
+        <div class="kpi-hint" id="rvrBackupHealthStatusHint">讀取每日健康檢查摘要。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">最近檢查</div>
+        <div class="kpi-value" id="rvrBackupHealthCheckedAt">讀取中</div>
+        <div class="kpi-hint">由本機每日排程更新。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">最新備份年齡</div>
+        <div class="kpi-value" id="rvrBackupHealthBackupAge">讀取中</div>
+        <div class="kpi-hint" id="rvrBackupHealthAgeHint">每週備份採 8 天健康門檻。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">復原演練年齡</div>
+        <div class="kpi-value" id="rvrBackupHealthReceiptAge">讀取中</div>
+        <div class="kpi-hint">必須與最新備份形成同一組可追溯證據。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">每週排程</div>
+        <div class="kpi-value" id="rvrBackupHealthTask">讀取中</div>
+        <div class="kpi-hint" id="rvrBackupHealthTaskHint">檢查最近結果與錯過次數。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">下次備份</div>
+        <div class="kpi-value" id="rvrBackupHealthNextRun">讀取中</div>
+        <div class="kpi-hint">時間由 Windows 工作排程器提供。</div>
+      </div>
+    </div>
+    <div class="coverage-totals" id="rvrBackupHealthIssues" aria-label="RVR Backup Health Issues">
+      <div class="history-empty">讀取 RVR 備份健康問題中。</div>
+    </div>
+  </div>
+
   <div class="card">
     <h2>交付前檢查歷程</h2>
     <div class="kpi-grid">
@@ -961,6 +1001,101 @@
     function setHint(id, text) {
       const node = document.getElementById(id);
       if (node) node.textContent = text;
+    }
+
+    function formatRvrHealthDate(value) {
+      const date = parseGeneratedAt(value);
+      if (!date) return '-';
+      return date.toLocaleString('zh-TW', { hour12: false });
+    }
+
+    function formatRvrHealthAge(value) {
+      const seconds = Number(value);
+      if (!Number.isFinite(seconds) || seconds < 0) return '-';
+      if (seconds < 3600) return `${Math.max(0, Math.round(seconds / 60))} 分`;
+      if (seconds < 86400) return `${(seconds / 3600).toFixed(seconds >= 36000 ? 0 : 1)} 小時`;
+      return `${(seconds / 86400).toFixed(1)} 天`;
+    }
+
+    function rvrBackupIssueText(code) {
+      const labels = {
+        'evidence-result-unreadable': '健康檢查結果無法解析',
+        'evidence-validation-failed': '備份或復原演練證據未通過驗證',
+        'backup-task-disabled': '每週備份排程已停用',
+        'backup-task-no-history': '每週備份排程尚無執行紀錄',
+        'backup-task-last-run-failed': '每週備份排程最近一次執行失敗',
+        'backup-task-unavailable': '找不到或無法讀取每週備份排程',
+        'dashboard-summary-privacy-invalid': '本機摘要未通過隱私邊界檢查',
+      };
+      return labels[String(code || '')] || '未分類問題，請查看本機詳細狀態';
+    }
+
+    function renderRvrBackupHealth(payload) {
+      const card = document.getElementById('rvrBackupHealthCard');
+      const issuesNode = document.getElementById('rvrBackupHealthIssues');
+      const validKind = payload && payload.schemaVersion === 1 && payload.kind === 'rvr-backup-health-status';
+      const privacySafe = validKind
+        && payload.privacy?.scope === 'local-only'
+        && payload.privacy?.containsPaths === false
+        && payload.privacy?.containsRegistryContent === false;
+      if (!validKind) {
+        if (card) card.dataset.rvrHealthState = 'local-only';
+        setKpiValue('rvrBackupHealthStatus', '僅限本機', 'warn');
+        setHint('rvrBackupHealthStatusHint', '本機排程尚未產生可讀摘要；公開站不提供此資料。');
+        setKpiValue('rvrBackupHealthCheckedAt', '無資料', 'warn');
+        setKpiValue('rvrBackupHealthBackupAge', '-', 'warn');
+        setKpiValue('rvrBackupHealthReceiptAge', '-', 'warn');
+        setKpiValue('rvrBackupHealthTask', '未讀取', 'warn');
+        setHint('rvrBackupHealthTaskHint', '請在有執行排程的本機環境查看。');
+        setKpiValue('rvrBackupHealthNextRun', '-', 'warn');
+        if (issuesNode) issuesNode.innerHTML = '<div class="history-empty">本區採本機摘要；不發布備份位置、檔名、指紋或清冊內容。</div>';
+        return;
+      }
+
+      const issueCodes = Array.isArray(payload.issueCodes) ? payload.issueCodes.filter(Boolean) : [];
+      if (!privacySafe && !issueCodes.includes('dashboard-summary-privacy-invalid')) {
+        issueCodes.push('dashboard-summary-privacy-invalid');
+      }
+      const healthy = payload.status === 'healthy'
+        && Number(payload.issueCount || 0) === 0
+        && issueCodes.length === 0
+        && payload.evidence?.status === 'backup-health-ok'
+        && payload.evidence?.productionRegistryUnchanged === true
+        && privacySafe;
+      if (card) card.dataset.rvrHealthState = healthy ? 'healthy' : 'attention-required';
+      setKpiValue('rvrBackupHealthStatus', healthy ? '正常' : '需要處理', healthy ? 'ok' : 'fail');
+      setHint(
+        'rvrBackupHealthStatusHint',
+        healthy
+          ? '最新備份與隔離復原演練證據有效，正式清冊未被演練修改。'
+          : `發現 ${Math.max(Number(payload.issueCount || 0), issueCodes.length, 1)} 項問題，請查看本機詳細狀態。`
+      );
+      setKpiValue('rvrBackupHealthCheckedAt', formatRvrHealthDate(payload.checkedAt), healthy ? 'ok' : 'fail');
+      setKpiValue('rvrBackupHealthBackupAge', formatRvrHealthAge(payload.evidence?.backupAgeSeconds), healthy ? 'ok' : 'fail');
+      setKpiValue('rvrBackupHealthReceiptAge', formatRvrHealthAge(payload.evidence?.receiptAgeSeconds), healthy ? 'ok' : 'fail');
+      setHint('rvrBackupHealthAgeHint', `目前門檻 ${Number(payload.maxAgeDays) || 8} 天；超過即要求處理。`);
+
+      const task = payload.backupTask;
+      const taskOk = task && task.state !== 'Disabled' && Number(task.lastTaskResult) === 0;
+      setKpiValue('rvrBackupHealthTask', task ? (taskOk ? '就緒 / 成功' : '需要處理') : '未檢查', taskOk ? 'ok' : 'warn');
+      setHint(
+        'rvrBackupHealthTaskHint',
+        task
+          ? `狀態 ${task.state || '-'}；結果 ${task.lastTaskResult ?? '-'}；錯過 ${Number(task.numberOfMissedRuns) || 0} 次。`
+          : '本次摘要未包含工作排程器狀態。'
+      );
+      setKpiValue('rvrBackupHealthNextRun', formatRvrHealthDate(task?.nextRunTime), taskOk ? 'ok' : 'warn');
+
+      if (issuesNode) {
+        issuesNode.innerHTML = issueCodes.length
+          ? issueCodes.map((code) => `
+            <div class="coverage-total warn" data-rvr-health-issue="${escapeAttr(code)}">
+              <strong>需要處理</strong>
+              <span>${escapeHtml(rvrBackupIssueText(code))}</span>
+            </div>
+          `).join('')
+          : '<div class="coverage-total ok" data-rvr-health-issue="none"><strong>證據完整</strong><span>備份、復原演練、證據關聯與每週排程均通過。</span></div>';
+      }
     }
 
     function isReleasePreflightRun(item) {
@@ -2316,6 +2451,12 @@
         } catch (error) {
           renderMaturityMatrix(null);
         }
+        try {
+          const rvrBackupHealth = await fetchJson('../output/audit/rvr-backup-health-status.json');
+          renderRvrBackupHealth(rvrBackupHealth);
+        } catch (error) {
+          renderRvrBackupHealth(null);
+        }
         const [publicStatusResult, localDiagnosticResult] = await Promise.allSettled([
           fetchJson('./assets/status/report-readiness-status.json'),
           fetchJson('../output/preflight/attachment-integrity-latest.json'),
@@ -2330,6 +2471,7 @@
         renderPreflightRecordLinks(null);
         renderPreflightPostChecks(null);
         renderMaturityMatrix(null);
+        renderRvrBackupHealth(null);
         renderAttachmentIntegrity(null);
         renderAttachmentIntegrityClosures([]);
       }

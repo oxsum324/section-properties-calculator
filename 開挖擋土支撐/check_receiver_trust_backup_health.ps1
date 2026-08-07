@@ -2,6 +2,7 @@ param(
   [string]$BackupDirectory,
   [string]$BackupTaskName,
   [int]$MaxAgeDays = 8,
+  [string]$DashboardStatusPath,
   [switch]$ShowAlert
 )
 
@@ -28,8 +29,21 @@ function Show-HealthAlert([string]$Message) {
   }
 }
 
+function Write-AtomicJsonFile([string]$Path, $Payload) {
+  $directory = Split-Path -Parent $Path
+  if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
+    New-Item -Path $directory -ItemType Directory | Out-Null
+  }
+  $temporaryPath = "$Path.$PID.tmp"
+  $Payload | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $temporaryPath -Encoding utf8
+  Move-Item -LiteralPath $temporaryPath -Destination $Path -Force
+}
+
 if (-not $BackupDirectory) {
   $BackupDirectory = Select-BackupDirectory
+}
+if (-not $DashboardStatusPath) {
+  $DashboardStatusPath = Join-Path (Split-Path -Parent $root) "output\audit\rvr-backup-health-status.json"
 }
 if ($MaxAgeDays -le 0) {
   throw "MaxAgeDays must be greater than zero."
@@ -44,6 +58,7 @@ if (-not $python) {
 }
 
 $issues = [System.Collections.Generic.List[string]]::new()
+$issueCodes = [System.Collections.Generic.List[string]]::new()
 $evidence = $null
 $taskStatus = $null
 
@@ -63,6 +78,7 @@ try {
       $evidence = $output | ConvertFrom-Json
     } catch {
       $issues.Add("The backup evidence check returned an unreadable result.")
+      $issueCodes.Add("evidence-result-unreadable")
     }
   } else {
     $detail = ($output -replace '\s+', ' ').Trim()
@@ -70,6 +86,7 @@ try {
       $detail = $Matches['message'].Trim()
     }
     $issues.Add("Backup or recovery-drill evidence failed validation: $detail")
+    $issueCodes.Add("evidence-validation-failed")
   }
 } finally {
   Pop-Location
@@ -89,14 +106,18 @@ if ($BackupTaskName) {
     }
     if ([string]$task.State -eq "Disabled") {
       $issues.Add("The weekly backup and recovery-drill task is disabled.")
+      $issueCodes.Add("backup-task-disabled")
     }
     if ($taskInfo.LastRunTime -le [datetime]::MinValue) {
       $issues.Add("The weekly backup and recovery-drill task has no run history.")
+      $issueCodes.Add("backup-task-no-history")
     } elseif ($taskInfo.LastTaskResult -ne 0) {
       $issues.Add("The weekly backup and recovery-drill task failed with code $($taskInfo.LastTaskResult).")
+      $issueCodes.Add("backup-task-last-run-failed")
     }
   } catch {
     $issues.Add("The weekly backup task cannot be found or read: $BackupTaskName.")
+    $issueCodes.Add("backup-task-unavailable")
   }
 }
 
@@ -112,9 +133,44 @@ $status = [ordered]@{
   issues = @($issues)
 }
 $statusPath = Join-Path $BackupDirectory "RVR-backup-health-latest.json"
-$temporaryPath = "$statusPath.tmp"
-$status | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $temporaryPath -Encoding utf8
-Move-Item -LiteralPath $temporaryPath -Destination $statusPath -Force
+Write-AtomicJsonFile -Path $statusPath -Payload $status
+
+$dashboardStatus = [ordered]@{
+  schemaVersion = 1
+  kind = "rvr-backup-health-status"
+  checkedAt = $status.checkedAt
+  status = $status.status
+  maxAgeDays = $MaxAgeDays
+  issueCount = $issues.Count
+  issueCodes = @($issueCodes)
+  evidence = if ($evidence) {
+    [ordered]@{
+      status = $evidence.status
+      backupAgeSeconds = $evidence.backupAgeSeconds
+      receiptAgeSeconds = $evidence.receiptAgeSeconds
+      productionRegistryUnchanged = $evidence.productionRegistryUnchanged
+    }
+  } else { $null }
+  backupTask = if ($taskStatus) {
+    [ordered]@{
+      state = $taskStatus.state
+      lastRunTime = $taskStatus.lastRunTime
+      lastTaskResult = $taskStatus.lastTaskResult
+      nextRunTime = $taskStatus.nextRunTime
+      numberOfMissedRuns = $taskStatus.numberOfMissedRuns
+    }
+  } else { $null }
+  privacy = [ordered]@{
+    scope = "local-only"
+    containsPaths = $false
+    containsRegistryContent = $false
+  }
+}
+try {
+  Write-AtomicJsonFile -Path $DashboardStatusPath -Payload $dashboardStatus
+} catch {
+  Write-Warning "Unable to publish the local dashboard health summary: $($_.Exception.Message)"
+}
 
 $json = $status | ConvertTo-Json -Depth 8
 Write-Output $json
