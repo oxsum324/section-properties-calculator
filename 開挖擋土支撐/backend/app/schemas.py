@@ -208,6 +208,8 @@ class ConstructionStageLoadAdoption(BaseModel):
     stage_label: str
     target_column_id: str
     load_t: float = Field(ge=0.0)
+    distribution_factor: float = Field(default=1.0, gt=0.0, le=1.0)
+    distribution_basis: str = Field(default="", max_length=120)
     apply_transfer_eccentricity: bool = False
     transfer_eccentricity_x_m: float = 0.0
     transfer_eccentricity_y_m: float = 0.0

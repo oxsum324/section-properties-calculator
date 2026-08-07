@@ -383,6 +383,110 @@ class CalculationTests(unittest.TestCase):
         self.assertEqual(check.status, "NG")
         self.assertIn("重複採用相同覆工板交接檔", check.details["message"])
 
+    def test_shared_stage_reaction_is_distributed_across_columns(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        columns = [item for item in project.columns if item.variant in {"composite_normal", "composite_crane"}]
+        for column in project.columns:
+            column.enabled = column in columns
+        columns[0].construction_stage_loads = [make_stage_adoption(
+            columns[0].column_id,
+            "構台滿載",
+            100.0,
+            distribution_factor=0.4,
+            distribution_basis="構台反力分配圖 S-05",
+        )]
+        columns[1].construction_stage_loads = [make_stage_adoption(
+            columns[1].column_id,
+            "構台滿載",
+            100.0,
+            distribution_factor=0.6,
+            distribution_basis="構台反力分配圖 S-05",
+        )]
+
+        checks = calculate_project(project).column_checks
+        by_label = {check.label: check for check in checks}
+
+        self.assertAlmostEqual(by_label[columns[0].title].inputs["Np"], 40.0, places=3)
+        self.assertAlmostEqual(by_label[columns[1].title].inputs["Np"], 60.0, places=3)
+        first_stage = by_label[columns[0].title].details["construction_stage_envelope"][1]
+        self.assertAlmostEqual(first_stage["source_Np"], 100.0, places=3)
+        self.assertAlmostEqual(first_stage["distribution_factor"], 0.4, places=6)
+        self.assertEqual(first_stage["distribution_basis"], "構台反力分配圖 S-05")
+
+    def test_shared_stage_reaction_fails_closed_when_total_is_not_100_percent(self) -> None:
+        for factors, expected in [((1.0, 1.0), "200.00%"), ((0.4, 0.5), "90.00%")]:
+            with self.subTest(factors=factors):
+                project = load_default_project().model_copy(deep=True)
+                columns = [item for item in project.columns if item.variant in {"composite_normal", "composite_crane"}]
+                for column in project.columns:
+                    column.enabled = column in columns
+                for column, factor in zip(columns, factors):
+                    column.construction_stage_loads = [make_stage_adoption(
+                        column.column_id,
+                        "構台滿載",
+                        100.0,
+                        distribution_factor=factor,
+                        distribution_basis="構台反力分配圖 S-05",
+                    )]
+
+                checks = calculate_project(project).column_checks
+
+                self.assertTrue(all(check.status == "NG" for check in checks))
+                self.assertTrue(all(expected in check.details["message"] for check in checks))
+
+    def test_shared_stage_reaction_requires_basis_and_matching_stage_label(self) -> None:
+        for second_label, second_basis, expected in [
+            ("構台滿載", "", "每一柱都必須填寫反力分配依據"),
+            ("不同階段", "構台反力分配圖 S-05", "施工階段名稱必須一致"),
+        ]:
+            with self.subTest(second_label=second_label, second_basis=second_basis):
+                project = load_default_project().model_copy(deep=True)
+                columns = [item for item in project.columns if item.variant in {"composite_normal", "composite_crane"}]
+                for column in project.columns:
+                    column.enabled = column in columns
+                columns[0].construction_stage_loads = [make_stage_adoption(
+                    columns[0].column_id,
+                    "構台滿載",
+                    100.0,
+                    distribution_factor=0.4,
+                    distribution_basis="構台反力分配圖 S-05",
+                )]
+                columns[1].construction_stage_loads = [make_stage_adoption(
+                    columns[1].column_id,
+                    second_label,
+                    100.0,
+                    distribution_factor=0.6,
+                    distribution_basis=second_basis,
+                )]
+
+                checks = calculate_project(project).column_checks
+
+                self.assertTrue(all(check.status == "NG" for check in checks))
+                self.assertTrue(all(expected in check.details["message"] for check in checks))
+
+    def test_disabled_column_does_not_complete_active_reaction_distribution(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        columns = [item for item in project.columns if item.variant in {"composite_normal", "composite_crane"}]
+        for column in project.columns:
+            column.enabled = column is columns[0]
+        columns[0].construction_stage_loads = [make_stage_adoption(
+            columns[0].column_id,
+            "構台滿載",
+            100.0,
+            distribution_factor=0.4,
+        )]
+        columns[1].construction_stage_loads = [make_stage_adoption(
+            columns[1].column_id,
+            "構台滿載",
+            100.0,
+            distribution_factor=0.6,
+        )]
+
+        check = calculate_project(project).column_checks[0]
+
+        self.assertEqual(check.status, "NG")
+        self.assertIn("40.00%", check.details["message"])
+
     def test_stage_transfer_eccentricity_adds_signed_moments_and_controls_envelope(self) -> None:
         project = load_default_project().model_copy(deep=True)
         for column in project.columns:

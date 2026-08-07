@@ -67,6 +67,8 @@ class ProjectStoreNormalizationTests(unittest.TestCase):
                 column.column_id,
                 "偏心吊裝",
                 40.0,
+                distribution_factor=0.4,
+                distribution_basis="構台反力分配圖 S-05",
                 eccentricity_x_m=0.75,
                 eccentricity_y_m=-0.25,
                 transfer_basis="施工配置圖 A-03",
@@ -77,6 +79,8 @@ class ProjectStoreNormalizationTests(unittest.TestCase):
             saved = next(item for item in reloaded.columns if item.column_id == column.column_id).construction_stage_loads[0]
 
             self.assertTrue(saved.apply_transfer_eccentricity)
+            self.assertAlmostEqual(saved.distribution_factor, 0.4)
+            self.assertEqual(saved.distribution_basis, "構台反力分配圖 S-05")
             self.assertAlmostEqual(saved.transfer_eccentricity_x_m, 0.75)
             self.assertAlmostEqual(saved.transfer_eccentricity_y_m, -0.25)
             self.assertEqual(saved.transfer_basis, "施工配置圖 A-03")

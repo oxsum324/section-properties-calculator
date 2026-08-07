@@ -161,6 +161,17 @@ function uniqueConstructionStageLabel(stages: ConstructionStageLoadAdoption[], r
   return `${base} (${suffix})`.slice(0, 80);
 }
 
+function constructionStageDistributionSummary(project: ProjectState, fingerprint: string): { count: number; total: number } {
+  const assignments = project.columns
+    .filter((column) => column.enabled)
+    .flatMap((column) => column.construction_stage_loads ?? [])
+    .filter((stage) => stage.source.handoff_fingerprint === fingerprint);
+  return {
+    count: assignments.length,
+    total: assignments.reduce((sum, stage) => sum + (stage.distribution_factor ?? 1), 0),
+  };
+}
+
 const columnNumericFields: Array<keyof ColumnScenarioInput> = [
   "foundation_size_x_m",
   "foundation_size_y_m",
@@ -770,6 +781,8 @@ function App() {
         stage_label: stageLabel,
         target_column_id: column.column_id,
         load_t: Number(record.load?.controlAxialLoadTf),
+        distribution_factor: 1,
+        distribution_basis: "",
         apply_transfer_eccentricity: false,
         transfer_eccentricity_x_m: 0,
         transfer_eccentricity_y_m: 0,
@@ -803,10 +816,11 @@ function App() {
     setError("");
   }
 
-  function updateConstructionStageTransfer(
+  function updateConstructionStageAdoption(
     columnIndex: number,
     stageIndex: number,
     patch: Partial<Pick<ConstructionStageLoadAdoption,
+      "distribution_factor" | "distribution_basis" |
       "apply_transfer_eccentricity" | "transfer_eccentricity_x_m" | "transfer_eccentricity_y_m" | "transfer_basis">>,
   ) {
     if (!project) return;
@@ -2901,7 +2915,7 @@ function App() {
                       <div className="info-card construction-stage-handoff-card">
                         <p className="info-title">施工構台荷重交接與階段包絡</p>
                         <p className="info-body">
-                          每份交接檔只套用到本共構柱（{column.title}，識別碼 {column.column_id}）。可匯入多個施工階段；覆工板來源不會自行判定開挖柱座標方向，如需考慮傳力偏心，請逐階段明確採用附加 X／Y 偏心。後端會計算 ΔMx = Np·Δex、ΔMy = Np·Δey，連同無構台荷重基準案逐案包絡。
+                          每份交接檔只套用到本共構柱（{column.title}，識別碼 {column.column_id}）。同一來源分配至多根啟用柱位時，各柱比例合計必須為 100%，且每柱均須填寫分配依據；本柱 Np 以來源控制軸力乘分配比例採用。覆工板來源不會自行判定開挖柱座標方向，如需考慮傳力偏心，請逐階段明確採用附加 X／Y 偏心。後端會計算 ΔMx = Np·Δex、ΔMy = Np·Δey，連同無構台荷重基準案逐案包絡。
                         </p>
                         <div className="upload-row">
                           <label className="file-action secondary">
@@ -2918,7 +2932,10 @@ function App() {
                           <p className="meta-line">尚未加入覆工板施工階段；計算時仍保留無構台荷重基準案。</p>
                         ) : (
                           <div className="construction-stage-list">
-                            {(column.construction_stage_loads ?? []).map((stage, stageIndex) => (
+                            {(column.construction_stage_loads ?? []).map((stage, stageIndex) => {
+                              const distribution = constructionStageDistributionSummary(project, stage.source.handoff_fingerprint);
+                              const distributionIsComplete = Math.abs(distribution.total - 1) <= 1e-6;
+                              return (
                               <div className="construction-stage-item" key={stage.stage_id}>
                                 <div className="construction-stage-item-head">
                                   <label>
@@ -2934,16 +2951,46 @@ function App() {
                                   </button>
                                 </div>
                                 <div className="meta-grid">
-                                  <MetaItem label="採用軸力 Np" value={`${fmt(stage.load_t)} tf`} />
+                                  <MetaItem label="來源控制軸力" value={`${fmt(stage.load_t)} tf`} />
+                                  <MetaItem label="本柱採用軸力 Np" value={`${fmt(stage.load_t * (stage.distribution_factor ?? 1))} tf`} />
                                   <MetaItem label="來源工具" value={`${stage.source.source_tool} ${stage.source.source_version}`.trim()} />
                                   <MetaItem label="來源計算指紋" value={stage.source.source_calculation_fingerprint} />
                                   <MetaItem label="交接指紋" value={stage.source.handoff_fingerprint} />
                                 </div>
+                                <div className="construction-stage-distribution-grid">
+                                  <label className="field-block">
+                                    <span>本柱反力分配比例 (%)</span>
+                                    <input
+                                      type="number"
+                                      min="0.000001"
+                                      max="100"
+                                      step="any"
+                                      value={(stage.distribution_factor ?? 1) * 100}
+                                      onChange={(event) => updateConstructionStageAdoption(index, stageIndex, {
+                                        distribution_factor: Number(event.target.value) / 100,
+                                      })}
+                                    />
+                                  </label>
+                                  <label className="field-block">
+                                    <span>反力分配依據{distribution.count > 1 ? "（必填）" : "（單柱可留空）"}</span>
+                                    <input
+                                      value={stage.distribution_basis ?? ""}
+                                      maxLength={120}
+                                      placeholder="例如：構台反力分配圖 S-05、依支承剛度分配"
+                                      onChange={(event) => updateConstructionStageAdoption(index, stageIndex, {
+                                        distribution_basis: event.target.value,
+                                      })}
+                                    />
+                                  </label>
+                                </div>
+                                <p className={`meta-line ${distributionIsComplete ? "" : "attention-line"}`}>
+                                  同一交接來源目前分配至 {distribution.count} 個啟用柱位，合計 {fmt(distribution.total * 100)}%；計算前必須等於 100%。
+                                </p>
                                 <label className="check-field construction-stage-transfer-toggle">
                                   <input
                                     type="checkbox"
                                     checked={stage.apply_transfer_eccentricity ?? false}
-                                    onChange={(event) => updateConstructionStageTransfer(index, stageIndex, {
+                                    onChange={(event) => updateConstructionStageAdoption(index, stageIndex, {
                                       apply_transfer_eccentricity: event.target.checked,
                                     })}
                                   />
@@ -2954,14 +3001,14 @@ function App() {
                                     <NumberField
                                       label="附加偏心 Δex (m，具正負號)"
                                       value={stage.transfer_eccentricity_x_m ?? 0}
-                                      onChange={(value) => updateConstructionStageTransfer(index, stageIndex, {
+                                      onChange={(value) => updateConstructionStageAdoption(index, stageIndex, {
                                         transfer_eccentricity_x_m: Number(value),
                                       })}
                                     />
                                     <NumberField
                                       label="附加偏心 Δey (m，具正負號)"
                                       value={stage.transfer_eccentricity_y_m ?? 0}
-                                      onChange={(value) => updateConstructionStageTransfer(index, stageIndex, {
+                                      onChange={(value) => updateConstructionStageAdoption(index, stageIndex, {
                                         transfer_eccentricity_y_m: Number(value),
                                       })}
                                     />
@@ -2971,7 +3018,7 @@ function App() {
                                         value={stage.transfer_basis ?? ""}
                                         maxLength={120}
                                         placeholder="例如：施工配置圖 A-03、設計者採用"
-                                        onChange={(event) => updateConstructionStageTransfer(index, stageIndex, {
+                                        onChange={(event) => updateConstructionStageAdoption(index, stageIndex, {
                                           transfer_basis: event.target.value,
                                         })}
                                       />
@@ -2979,7 +3026,8 @@ function App() {
                                   </div>
                                 )}
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -4684,6 +4732,8 @@ function normalizeConstructionStageColumns(columns: ColumnScenarioInput[]): Colu
 
     let constructionStageLoads = existingStages.map((stage) => ({
       ...stage,
+      distribution_factor: stage.distribution_factor ?? 1,
+      distribution_basis: stage.distribution_basis ?? "",
       apply_transfer_eccentricity: stage.apply_transfer_eccentricity ?? false,
       transfer_eccentricity_x_m: stage.transfer_eccentricity_x_m ?? 0,
       transfer_eccentricity_y_m: stage.transfer_eccentricity_y_m ?? 0,
@@ -4695,6 +4745,8 @@ function normalizeConstructionStageColumns(columns: ColumnScenarioInput[]): Colu
         stage_label: "舊案單一施工階段",
         target_column_id: columnId,
         load_t: column.construction_stage_load_t,
+        distribution_factor: 1,
+        distribution_basis: "",
         apply_transfer_eccentricity: false,
         transfer_eccentricity_x_m: 0,
         transfer_eccentricity_y_m: 0,

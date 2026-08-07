@@ -120,6 +120,8 @@ export type ConstructionStageLoadAdoption = {
   stage_label: string;
   target_column_id: string;
   load_t: number;
+  distribution_factor: number;
+  distribution_basis: string;
   apply_transfer_eccentricity: boolean;
   transfer_eccentricity_x_m: number;
   transfer_eccentricity_y_m: number;

@@ -1088,6 +1088,17 @@ button.ghost {
   border-top: 1px solid rgba(15, 118, 110, 0.14);
 }
 
+.construction-stage-distribution-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(260px, 1.3fr);
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgba(15, 118, 110, 0.14);
+  border-radius: 12px;
+  background: rgba(240, 253, 250, 0.7);
+}
+
 .construction-stage-transfer-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1100,6 +1111,7 @@ button.ghost {
 }
 
 @media (max-width: 720px) {
+  .construction-stage-distribution-grid,
   .construction-stage-transfer-grid {
     grid-template-columns: 1fr;
   }

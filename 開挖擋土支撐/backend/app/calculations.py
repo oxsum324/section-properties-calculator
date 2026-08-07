@@ -282,11 +282,12 @@ def calculate_project(project: ProjectState) -> CalculationResults:
             result = calculate_corner_brace(row, params)
             results.corner_brace_checks.append(result)
             results.summary.append(_summary("大角撐", row.level_label, row.section_name, result))
-    for column in project.columns:
+    distribution_errors = _construction_stage_distribution_errors(project)
+    for column_index, column in enumerate(project.columns):
         if not column.enabled:
             continue
         column.support_rows = [row.model_copy(deep=True) for row in synced_support_rows]
-        result = calculate_column_scenario(column, params)
+        result = calculate_column_scenario(column, params, distribution_errors.get(column_index, ""))
         results.column_checks.append(result)
         results.summary.append(_summary("柱構件", column.title, column.column_section_name, result))
     return results
@@ -738,7 +739,11 @@ def calculate_corner_brace(row: CornerBraceRow, params: BasicParameters) -> Chec
     )
 
 
-def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParameters) -> CheckResult:
+def calculate_column_scenario(
+    column: ColumnScenarioInput,
+    params: BasicParameters,
+    distribution_error: str = "",
+) -> CheckResult:
     inputs = {
         "型號": column.column_section_name,
         "基礎型式": column.foundation_type,
@@ -773,6 +778,14 @@ def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParamete
             column.title,
             "column_interaction",
             stage_error,
+            inputs,
+        )
+    if distribution_error:
+        return _incomplete_check(
+            "柱構件",
+            column.title,
+            "column_interaction",
+            distribution_error,
             inputs,
         )
     if len(stage_cases) > 1 and column.variant == "middle":
@@ -872,6 +885,9 @@ def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParamete
             "stage_id": item["stage_id"],
             "stage_label": item["stage_label"],
             "target_column_id": item["target_column_id"],
+            "source_Np": round(float(item.get("source_load_t", item["load_t"])), 3),
+            "distribution_factor": round(float(item.get("distribution_factor", 1.0)), 6),
+            "distribution_basis": str(item.get("distribution_basis", "")),
             "Np": round(float(item["load_t"]), 3),
             "N": round(float(item["total_n"]), 3),
             "PT": round(float(item["pt"]), 3),
@@ -907,6 +923,9 @@ def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParamete
             "N3": round(n3, 3),
             "N4": round(n4, 3),
             "Np": round(platform_load, 3),
+            "來源 Np": round(float(interaction_control.get("source_load_t", platform_load)), 3),
+            "反力分配比例": round(float(interaction_control.get("distribution_factor", 1.0)), 6),
+            "反力分配依據": str(interaction_control.get("distribution_basis", "")),
             "N": round(total_n, 3),
             "PT": round(pt, 3),
             "施工階段": interaction_control["stage_label"],
@@ -967,6 +986,9 @@ def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParamete
                     "stage_id": interaction_control["stage_id"],
                     "stage_label": interaction_control["stage_label"],
                     "Np": round(platform_load, 3),
+                    "source_Np": round(float(interaction_control.get("source_load_t", platform_load)), 3),
+                    "distribution_factor": round(float(interaction_control.get("distribution_factor", 1.0)), 6),
+                    "distribution_basis": str(interaction_control.get("distribution_basis", "")),
                     "N": round(total_n, 3),
                     "transfer_eccentricity_x_m": round(float(interaction_control.get("transfer_eccentricity_x_m", 0.0)), 4),
                     "transfer_eccentricity_y_m": round(float(interaction_control.get("transfer_eccentricity_y_m", 0.0)), 4),
@@ -990,7 +1012,10 @@ def _construction_stage_load_cases(column: ColumnScenarioInput) -> tuple[list[di
         "stage_id": "BASE",
         "stage_label": "無施工構台荷重基準案",
         "target_column_id": column.column_id or "LEGACY-COLUMN",
+        "source_load_t": 0.0,
         "load_t": 0.0,
+        "distribution_factor": 1.0,
+        "distribution_basis": "",
         "apply_transfer_eccentricity": False,
         "transfer_eccentricity_x_m": 0.0,
         "transfer_eccentricity_y_m": 0.0,
@@ -1009,7 +1034,10 @@ def _construction_stage_load_cases(column: ColumnScenarioInput) -> tuple[list[di
                 "stage_id": f"LEGACY-{source.handoff_fingerprint[4:]}",
                 "stage_label": "舊案單一施工階段",
                 "target_column_id": column.column_id or "LEGACY-COLUMN",
+                "source_load_t": column.construction_stage_load_t,
                 "load_t": column.construction_stage_load_t,
+                "distribution_factor": 1.0,
+                "distribution_basis": "",
                 "apply_transfer_eccentricity": False,
                 "transfer_eccentricity_x_m": 0.0,
                 "transfer_eccentricity_y_m": 0.0,
@@ -1045,6 +1073,8 @@ def _construction_stage_load_cases(column: ColumnScenarioInput) -> tuple[list[di
         valid, message = _validate_construction_stage_handoff(adoption.load_t, adoption.source)
         if not valid:
             return [baseline], f"施工階段「{stage_label}」：{message}"
+        if not math.isfinite(adoption.distribution_factor) or not 0.0 < adoption.distribution_factor <= 1.0:
+            return [baseline], f"施工階段「{stage_label}」反力分配比例必須大於 0 且不超過 100%。"
         if not math.isfinite(adoption.transfer_eccentricity_x_m) or not math.isfinite(adoption.transfer_eccentricity_y_m):
             return [baseline], f"施工階段「{stage_label}」附加偏心必須為有限數值。"
         has_transfer_eccentricity = (
@@ -1064,7 +1094,10 @@ def _construction_stage_load_cases(column: ColumnScenarioInput) -> tuple[list[di
             "stage_id": stage_id,
             "stage_label": stage_label,
             "target_column_id": adoption.target_column_id,
-            "load_t": adoption.load_t,
+            "source_load_t": adoption.load_t,
+            "load_t": adoption.load_t * adoption.distribution_factor,
+            "distribution_factor": adoption.distribution_factor,
+            "distribution_basis": adoption.distribution_basis.strip(),
             "apply_transfer_eccentricity": adoption.apply_transfer_eccentricity,
             "transfer_eccentricity_x_m": adoption.transfer_eccentricity_x_m,
             "transfer_eccentricity_y_m": adoption.transfer_eccentricity_y_m,
@@ -1072,6 +1105,61 @@ def _construction_stage_load_cases(column: ColumnScenarioInput) -> tuple[list[di
             "source": adoption.source,
         })
     return cases, ""
+
+
+def _construction_stage_distribution_errors(project: ProjectState) -> dict[int, str]:
+    """Validate that each verified decking reaction is distributed exactly once."""
+    groups: dict[str, list[tuple[int, str, float, str]]] = {}
+    for column_index, column in enumerate(project.columns):
+        if not column.enabled:
+            continue
+        if column.construction_stage_loads:
+            for adoption in column.construction_stage_loads:
+                fingerprint = adoption.source.handoff_fingerprint.strip().upper()
+                if not fingerprint:
+                    continue
+                groups.setdefault(fingerprint, []).append((
+                    column_index,
+                    adoption.stage_label.strip(),
+                    adoption.distribution_factor,
+                    adoption.distribution_basis.strip(),
+                ))
+        elif column.construction_stage_load_t > 0 and column.construction_stage_load_source:
+            fingerprint = column.construction_stage_load_source.handoff_fingerprint.strip().upper()
+            if fingerprint:
+                groups.setdefault(fingerprint, []).append((
+                    column_index,
+                    "舊案單一施工階段",
+                    1.0,
+                    "",
+                ))
+
+    errors: dict[int, str] = {}
+    for fingerprint, assignments in groups.items():
+        if len({column_index for column_index, _, _, _ in assignments}) != len(assignments):
+            message = f"交接指紋 {fingerprint} 含同柱重複採用，無法完成跨柱反力分配驗證。"
+            for column_index, _, _, _ in assignments:
+                errors.setdefault(column_index, message)
+            # The duplicate column's local validator will provide the more specific message.
+            continue
+        factors = [factor for _, _, factor, _ in assignments]
+        if any(not math.isfinite(factor) or not 0.0 < factor <= 1.0 for factor in factors):
+            message = f"交接指紋 {fingerprint} 的反力分配比例必須大於 0 且不超過 100%。"
+        else:
+            total = sum(factors)
+            if not math.isclose(total, 1.0, rel_tol=0.0, abs_tol=1e-6):
+                message = f"交接指紋 {fingerprint} 的跨柱反力分配合計為 {total * 100:.2f}%，必須等於 100%。"
+            elif len(assignments) > 1 and any(not basis for _, _, _, basis in assignments):
+                message = f"交接指紋 {fingerprint} 分配至多根柱時，每一柱都必須填寫反力分配依據。"
+            else:
+                labels = {label.casefold() for _, label, _, _ in assignments}
+                if len(assignments) > 1 and len(labels) > 1:
+                    message = f"交接指紋 {fingerprint} 分配至多根柱時，施工階段名稱必須一致。"
+                else:
+                    continue
+        for column_index, _, _, _ in assignments:
+            errors.setdefault(column_index, message)
+    return errors
 
 
 def cc_value(params: BasicParameters) -> float:

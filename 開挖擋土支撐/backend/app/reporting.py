@@ -2288,6 +2288,7 @@ def _column_detail_content(
     tension_control = controls.get("tension", {}) if isinstance(controls, dict) else {}
     formulas = [
         "各施工階段（含無構台荷重基準案）分別計算 N、PT、柱互制比、壓入比與拉拔比，再各自取最大值作為包絡控制。",
+        "本柱採用構台軸力 Np = 來源控制軸力 Np,source x 反力分配比例 eta_d；同一交接來源於各啟用柱位之 eta_d 合計須為 1.0。",
         "N = Np + N1 + N2 + N3 + N4",
         "PT = max(N3 - N4 - N2 - N1 - Np, 0)",
         "beta = ((Kh x B) / (4 x E x I))^(1/4)，l0 = 1 / beta",
@@ -2302,6 +2303,7 @@ def _column_detail_content(
         "壓入比 = N / Qc,allow，拉拔比 = PT / Qt,allow",
     ]
     substitutions = [
+        f"Np = {_fmt_short(interaction_control.get('source_Np'))} x {_fmt_short(interaction_control.get('distribution_factor'))} = {_fmt_short(inputs.get('Np'))} tf；反力分配依據 = {interaction_control.get('distribution_basis') or '單柱全數採用'}",
         f"N = {_fmt_short(inputs.get('Np'))} + {_fmt_short(inputs.get('N1'))} + {_fmt_short(inputs.get('N2'))} + {_fmt_short(inputs.get('N3'))} + {_fmt_short(inputs.get('N4'))} = {_fmt_short(inputs.get('N'))} tf",
         f"PT = max({_fmt_short(inputs.get('N3'))} - {_fmt_short(inputs.get('N4'))} - {_fmt_short(inputs.get('N2'))} - {_fmt_short(inputs.get('N1'))} - {_fmt_short(inputs.get('Np'))}, 0) = {_fmt_short(inputs.get('PT'))} tf",
         f"Ab = {_fmt_short(details.get('foundation_area_cm2'))} cm2，周長 U = {_fmt_short(details.get('foundation_perimeter_cm'))} cm，有效埋置深度 = {_fmt_short(details.get('effective_embedment_m'))} m",
@@ -2321,7 +2323,7 @@ def _column_detail_content(
     if isinstance(envelope, list) and len(envelope) > 1:
         substitutions.append("施工階段逐案包絡結果如下：")
         substitutions.extend(
-            f"{item.get('stage_label', '—')} [{item.get('stage_id', '—')}]：Np = {_fmt_short(item.get('Np'))} tf，Δex / Δey = {_fmt_short(item.get('transfer_eccentricity_x_m'))} / {_fmt_short(item.get('transfer_eccentricity_y_m'))} m，ΔMx / ΔMy = {_fmt_short(item.get('transfer_mx_tf_m'))} / {_fmt_short(item.get('transfer_my_tf_m'))} tf-m，Mx / My = {_fmt_short(item.get('Mx'))} / {_fmt_short(item.get('My'))} tf-m，N = {_fmt_short(item.get('N'))} tf，PT = {_fmt_short(item.get('PT'))} tf，柱互制比 = {_fmt_short(item.get('interaction_ratio'))}，壓入比 = {_fmt_short(item.get('compression_ratio'))}，拉拔比 = {_fmt_short(item.get('tension_ratio'))}"
+            f"{item.get('stage_label', '—')} [{item.get('stage_id', '—')}]：來源 Np = {_fmt_short(item.get('source_Np'))} tf，分配比例 = {_fmt_short(_numeric(item.get('distribution_factor')) * 100)}%，本柱 Np = {_fmt_short(item.get('Np'))} tf，分配依據 = {item.get('distribution_basis') or '單柱全數採用'}，Δex / Δey = {_fmt_short(item.get('transfer_eccentricity_x_m'))} / {_fmt_short(item.get('transfer_eccentricity_y_m'))} m，ΔMx / ΔMy = {_fmt_short(item.get('transfer_mx_tf_m'))} / {_fmt_short(item.get('transfer_my_tf_m'))} tf-m，Mx / My = {_fmt_short(item.get('Mx'))} / {_fmt_short(item.get('My'))} tf-m，N = {_fmt_short(item.get('N'))} tf，PT = {_fmt_short(item.get('PT'))} tf，柱互制比 = {_fmt_short(item.get('interaction_ratio'))}，壓入比 = {_fmt_short(item.get('compression_ratio'))}，拉拔比 = {_fmt_short(item.get('tension_ratio'))}"
             for item in envelope
             if isinstance(item, dict)
         )
@@ -2487,6 +2489,8 @@ def _input_parameter_lines(check: CheckResult) -> list[str]:
         ]
         if _numeric(inputs.get("Np")) > 0:
             lines.append(
+                f"來源控制軸力 = {_fmt_short(inputs.get('來源 Np'))} tf；反力分配比例 = {_fmt_short(_numeric(inputs.get('反力分配比例')) * 100)}%；"
+                f"本柱採用 Np = {_fmt_short(inputs.get('Np'))} tf；反力分配依據 = {inputs.get('反力分配依據') or '單柱全數採用'}；"
                 f"施工構台荷重來源 = {inputs.get('施工構台荷重來源', '—')} {inputs.get('來源工具版本', '')}；"
                 f"來源計算指紋 = {inputs.get('來源計算指紋', '—')}；交接指紋 = {inputs.get('交接指紋', '—')}；"
                 f"控制工況 = {inputs.get('來源控制工況', '—')}"
@@ -2497,7 +2501,9 @@ def _input_parameter_lines(check: CheckResult) -> list[str]:
                 if not isinstance(item, dict) or not item.get("handoff_fingerprint"):
                     continue
                 lines.append(
-                    f"階段來源「{item.get('stage_label', '—')}」：Np = {_fmt_short(item.get('Np'))} tf；"
+                    f"階段來源「{item.get('stage_label', '—')}」：來源 Np = {_fmt_short(item.get('source_Np'))} tf；"
+                    f"反力分配比例 = {_fmt_short(_numeric(item.get('distribution_factor')) * 100)}%；本柱採用 Np = {_fmt_short(item.get('Np'))} tf；"
+                    f"反力分配依據 = {item.get('distribution_basis') or '單柱全數採用'}；"
                     f"附加偏心 = {'已採用，Δex / Δey = ' + _fmt_short(item.get('transfer_eccentricity_x_m')) + ' / ' + _fmt_short(item.get('transfer_eccentricity_y_m')) + ' m，依據 = ' + str(item.get('transfer_basis', '—')) if item.get('apply_transfer_eccentricity') else '未採用'}；"
                     f"{item.get('source_tool', '—')} {item.get('source_version', '')}；"
                     f"來源計算指紋 = {item.get('source_calculation_fingerprint', '—')}；"

@@ -372,6 +372,32 @@ class ReportingTests(unittest.TestCase):
         self.assertIn(crane.source.handoff_fingerprint, combined_text)
         report_path.unlink(missing_ok=True)
 
+    def test_word_report_lists_source_reaction_distribution_and_adopted_load(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        columns = [item for item in project.columns if item.variant in {"composite_normal", "composite_crane"}]
+        for column in project.columns:
+            column.enabled = column in columns
+        for column, factor in zip(columns, (0.4, 0.6)):
+            column.construction_stage_loads = [make_stage_adoption(
+                column.column_id,
+                "構台滿載",
+                100.0,
+                distribution_factor=factor,
+                distribution_basis="構台反力分配圖 S-05",
+            )]
+        project.calculation_results = calculate_project(project)
+
+        report_path = build_word_report(project, concise_mode=False)
+        document = Document(str(report_path))
+        text = "\n".join(paragraph.text for paragraph in document.paragraphs)
+        table_text = "\n".join(cell.text for table in document.tables for row in table.rows for cell in row.cells)
+        combined_text = text + "\n" + table_text
+
+        self.assertIn("來源 Np = 100.00 tf，分配比例 = 40.00%，本柱 Np = 40.00 tf", combined_text)
+        self.assertIn("來源 Np = 100.00 tf，分配比例 = 60.00%，本柱 Np = 60.00 tf", combined_text)
+        self.assertIn("反力分配依據 = 構台反力分配圖 S-05", combined_text)
+        report_path.unlink(missing_ok=True)
+
     def test_word_report_hides_non_included_structural_modules(self) -> None:
         project = load_default_project().model_copy(deep=True)
         project.calculation_options.include_top_wales = False
