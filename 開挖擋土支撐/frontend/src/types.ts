@@ -392,7 +392,7 @@ export type RemovalTransferHandoff = {
     kind: "receiver-capacity-verification-receipt";
     fingerprintAlgorithm: "RVR-SHA256-canonical-json-first-20-uppercase";
     coverage: "all-ERT-transfers-required";
-    verifierIdentityAuthentication: "manual-review-required";
+    verifierIdentityAuthentication: "manual-review-required" | "manual-review-or-ed25519-trust-registry";
   };
   boundary: {
     requiresReceiverVerification: true;
@@ -438,7 +438,45 @@ export type ReceiverCapacityVerificationReceipt = {
     sourceToolDidNotAutoVerify: true;
     verifierIdentityRequiresManualReview: true;
   };
+  identitySignature?: {
+    schemaVersion: 1;
+    algorithm: "Ed25519";
+    keyId: string;
+    publicKeyBase64: string;
+    signedAt: string;
+    signatureBase64: string;
+  };
   receiptFingerprint: string;
+};
+
+export type ReceiverIdentityStatus =
+  | "manual-review-required"
+  | "valid-signature-untrusted-key"
+  | "valid-signature-revoked-key"
+  | "valid-signature-organization-mismatch"
+  | "trusted-signature-valid";
+
+export type ReceiverIdentityVerification = {
+  status: ReceiverIdentityStatus;
+  signaturePresent: boolean;
+  cryptographicValid: boolean;
+  trusted: boolean;
+  keyId: string | null;
+  signedAt?: string;
+  trustedOrganization?: string;
+  keyLabel?: string;
+  message: string;
+};
+
+export type ReceiverTrustKey = {
+  keyId: string;
+  algorithm: "Ed25519";
+  organization: string;
+  displayName: string;
+  publicKeyBase64: string;
+  status: "trusted" | "revoked";
+  registeredAt: string;
+  revokedAt: string | null;
 };
 
 export type RemovalTransferReceiptImportResponse = {
@@ -448,7 +486,8 @@ export type RemovalTransferReceiptImportResponse = {
   receiptValidation: {
     integrity: "valid";
     engineeringStatus: "passed" | "failed";
-    verifierIdentity: "manual-review-required";
+    verifierIdentity: ReceiverIdentityStatus;
+    identityVerification: ReceiverIdentityVerification;
   };
 };
 

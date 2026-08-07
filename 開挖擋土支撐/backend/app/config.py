@@ -22,6 +22,10 @@ class Settings:
         self.reference_overrides_path = Path(
             os.environ.get("STRUT_REFERENCE_OVERRIDES_PATH", default_reference_overrides)
         )
+        default_receiver_trust_registry = self.app_data_dir / "receiver_trust_registry.json"
+        self.receiver_trust_registry_path = Path(
+            os.environ.get("STRUT_RECEIVER_TRUST_REGISTRY_PATH", default_receiver_trust_registry)
+        )
         self.frontend_dist_dir = self.root_dir / "frontend" / "dist"
         self.frontend_dev_url = os.environ.get("STRUT_FRONTEND_DEV_URL", "http://127.0.0.1:5173")
         self.sample_analysis_files = [

@@ -7,6 +7,7 @@ import {
   RemovalTransferReceiptImportResponse,
   ReceiverVerificationAuthority,
   ReceiverVerificationResult,
+  ReceiverTrustKey,
   ReportPayload,
 } from "./types";
 
@@ -110,6 +111,19 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ handoff, receipt }),
     }),
+  listReceiverTrustKeys: () =>
+    request<{ schemaVersion: 1; keys: ReceiverTrustKey[] }>("/api/removal-transfer-trust-keys"),
+  registerReceiverTrustKey: (organization: string, displayName: string, publicKey: string) =>
+    request<{ key: ReceiverTrustKey; keys: ReceiverTrustKey[] }>("/api/removal-transfer-trust-keys", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organization, displayName, publicKey }),
+    }),
+  revokeReceiverTrustKey: (keyId: string) =>
+    request<{ key: ReceiverTrustKey; keys: ReceiverTrustKey[] }>(
+      `/api/removal-transfer-trust-keys/${encodeURIComponent(keyId)}/revoke`,
+      { method: "POST" },
+    ),
   generateReport: (projectId: string, concise = false) =>
     request<ReportPayload>(`/api/projects/${projectId}/report?concise=${concise ? "true" : "false"}`, {
       method: "POST",

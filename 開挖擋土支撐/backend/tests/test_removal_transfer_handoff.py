@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from copy import deepcopy
 import json
+import base64
 import unittest
+
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from backend.app.calculations import calculate_project
 from backend.app.removal_transfer_handoff import (
@@ -11,9 +15,12 @@ from backend.app.removal_transfer_handoff import (
     build_removal_transfer_handoff,
     build_receiver_verification_receipt,
     receiver_verification_receipt_fingerprint,
+    receiver_identity_key_id,
+    receiver_identity_signing_payload,
     same_removal_transfer_handoff_content,
     validate_removal_transfer_handoff,
     validate_receiver_verification_receipt,
+    verify_receiver_identity_signature,
 )
 from backend.app.reporting import calculation_fingerprint
 from backend.app.schemas import AnalysisForceCase
@@ -89,6 +96,23 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         }
         receipt["receiptFingerprint"] = receiver_verification_receipt_fingerprint(receipt)
         return receipt
+
+    def signed_receipt(self, receipt, *, signed_at: str = "2026-08-07T12:00:00Z"):
+        private_key = Ed25519PrivateKey.generate()
+        public_key = private_key.public_key().public_bytes(
+            serialization.Encoding.Raw,
+            serialization.PublicFormat.Raw,
+        )
+        signature = private_key.sign(receiver_identity_signing_payload(receipt, signed_at))
+        receipt["identitySignature"] = {
+            "schemaVersion": 1,
+            "algorithm": "Ed25519",
+            "keyId": receiver_identity_key_id(public_key),
+            "publicKeyBase64": base64.b64encode(public_key).decode("ascii"),
+            "signedAt": signed_at,
+            "signatureBase64": base64.b64encode(signature).decode("ascii"),
+        }
+        return receipt, public_key
 
     def test_builds_pending_receiver_verification_handoff(self) -> None:
         project = self.prepared_project()
@@ -167,6 +191,67 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         self.assertTrue(validated["boundary"]["verifierIdentityRequiresManualReview"])
         round_tripped = json.loads(json.dumps(receipt))
         self.assertEqual(validate_receiver_verification_receipt(round_tripped, handoff), receipt)
+
+    def test_unsigned_receipt_keeps_manual_identity_review(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt = self.receiver_receipt(handoff)
+
+        identity = verify_receiver_identity_signature(receipt)
+
+        self.assertEqual(identity["status"], "manual-review-required")
+        self.assertFalse(identity["signaturePresent"])
+
+    def test_valid_signature_is_untrusted_until_key_is_registered(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt, public_key = self.signed_receipt(self.receiver_receipt(handoff))
+
+        self.assertEqual(
+            receiver_verification_receipt_fingerprint(receipt),
+            receipt["receiptFingerprint"],
+        )
+        identity = verify_receiver_identity_signature(receipt)
+        self.assertEqual(identity["status"], "valid-signature-untrusted-key")
+        self.assertTrue(identity["cryptographicValid"])
+        trusted = verify_receiver_identity_signature(receipt, [{
+            "keyId": receiver_identity_key_id(public_key),
+            "organization": receipt["verificationAuthority"]["organization"],
+            "displayName": "接收端正式簽章",
+            "status": "trusted",
+        }])
+        self.assertEqual(trusted["status"], "trusted-signature-valid")
+        self.assertTrue(trusted["trusted"])
+
+    def test_rejects_invalid_identity_signature(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt, _ = self.signed_receipt(self.receiver_receipt(handoff))
+        receipt["identitySignature"]["signedAt"] = "2026-08-07T12:01:00Z"
+
+        with self.assertRaisesRegex(ValueError, "數位簽章驗證失敗"):
+            verify_receiver_identity_signature(receipt)
+
+    def test_valid_signature_does_not_trust_revoked_or_mismatched_key(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt, public_key = self.signed_receipt(self.receiver_receipt(handoff))
+        key = {
+            "keyId": receiver_identity_key_id(public_key),
+            "organization": receipt["verificationAuthority"]["organization"],
+            "displayName": "接收端正式簽章",
+            "status": "revoked",
+        }
+        self.assertEqual(
+            verify_receiver_identity_signature(receipt, [key])["status"],
+            "valid-signature-revoked-key",
+        )
+        key["status"] = "trusted"
+        key["organization"] = "其他單位"
+        self.assertEqual(
+            verify_receiver_identity_signature(receipt, [key])["status"],
+            "valid-signature-organization-mismatch",
+        )
 
     def test_builds_controlled_receiver_receipt_for_assistant(self) -> None:
         project = self.prepared_project()

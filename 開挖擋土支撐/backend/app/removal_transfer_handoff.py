@@ -2,12 +2,17 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import datetime, timezone
+import base64
+import binascii
 import hashlib
 import hmac
 import json
 import math
 import re
 from typing import Any, Iterable
+
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from .schemas import BraceRow, CheckResult, ProjectState, SupportRow
 
@@ -16,6 +21,7 @@ SCHEMA_VERSION = 1
 KIND = "excavation-removal-transfer-handoff"
 RECEIPT_KIND = "receiver-capacity-verification-receipt"
 RECEIPT_FINGERPRINT_PREFIX = "RVR"
+IDENTITY_SIGNATURE_CONTEXT = "receiver-verification-identity-signature-v1"
 TRANSFER_MODE_LABELS = {
     "outside_scope": "本構件檢核範圍外（另案檢核）",
     "floor": "移轉至樓版",
@@ -56,8 +62,116 @@ def _handoff_fingerprint(record: dict[str, Any]) -> str:
 
 
 def receiver_verification_receipt_fingerprint(record: dict[str, Any]) -> str:
-    unsigned = {key: value for key, value in record.items() if key != "receiptFingerprint"}
+    unsigned = {
+        key: value
+        for key, value in record.items()
+        if key not in {"receiptFingerprint", "identitySignature"}
+    }
     return _digest(RECEIPT_FINGERPRINT_PREFIX, unsigned)
+
+
+def receiver_identity_key_id(public_key_bytes: bytes) -> str:
+    if len(public_key_bytes) != 32:
+        raise ValueError("Ed25519 公鑰必須為 32 bytes。")
+    return f"RVK-{hashlib.sha256(public_key_bytes).hexdigest()[:20].upper()}"
+
+
+def receiver_identity_signing_payload(receipt: dict[str, Any], signed_at: str) -> bytes:
+    authority = receipt.get("verificationAuthority", {})
+    payload = {
+        "context": IDENTITY_SIGNATURE_CONTEXT,
+        "signedAt": signed_at,
+        "receiptFingerprint": str(receipt.get("receiptFingerprint", "")),
+        "handoffFingerprint": str(receipt.get("handoffFingerprint", "")),
+        "sourceCalculationFingerprint": str(receipt.get("sourceCalculationFingerprint", "")),
+        "organization": str(authority.get("organization", "")).strip(),
+    }
+    return _canonical_json(payload).encode("utf-8")
+
+
+def verify_receiver_identity_signature(
+    receipt: dict[str, Any],
+    trusted_keys: Iterable[dict[str, Any]] = (),
+) -> dict[str, Any]:
+    signature_record = receipt.get("identitySignature")
+    if signature_record is None:
+        return {
+            "status": "manual-review-required",
+            "signaturePresent": False,
+            "cryptographicValid": False,
+            "trusted": False,
+            "keyId": None,
+            "message": "RVR 內容完整，但未附數位簽章；回簽單位與人員身分仍須人工核對。",
+        }
+    if not isinstance(signature_record, dict):
+        raise ValueError("RVR 身分簽章格式不正確。")
+    if signature_record.get("schemaVersion") != 1 or signature_record.get("algorithm") != "Ed25519":
+        raise ValueError("RVR 身分簽章版本或演算法不受支援。")
+    signed_at = _required_text(signature_record.get("signedAt"), "簽章時間", max_length=40)
+    try:
+        datetime.fromisoformat(signed_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("RVR 身分簽章時間不是有效 ISO 8601 日期時間。") from exc
+    try:
+        public_key_bytes = base64.b64decode(
+            _required_text(signature_record.get("publicKeyBase64"), "簽章公鑰", max_length=80),
+            validate=True,
+        )
+        signature_bytes = base64.b64decode(
+            _required_text(signature_record.get("signatureBase64"), "簽章值", max_length=120),
+            validate=True,
+        )
+    except (binascii.Error, ValueError) as exc:
+        raise ValueError("RVR 身分簽章的公鑰或簽章值不是有效 Base64。") from exc
+    if len(public_key_bytes) != 32 or len(signature_bytes) != 64:
+        raise ValueError("RVR 身分簽章的 Ed25519 公鑰或簽章長度不正確。")
+    key_id = receiver_identity_key_id(public_key_bytes)
+    if not hmac.compare_digest(str(signature_record.get("keyId", "")), key_id):
+        raise ValueError("RVR 身分簽章的公鑰識別與實際公鑰不一致。")
+    try:
+        Ed25519PublicKey.from_public_bytes(public_key_bytes).verify(
+            signature_bytes,
+            receiver_identity_signing_payload(receipt, signed_at),
+        )
+    except InvalidSignature as exc:
+        raise ValueError("RVR 身分數位簽章驗證失敗，內容、簽章時間或簽章值可能已變更。") from exc
+
+    trusted_key = next((item for item in trusted_keys if item.get("keyId") == key_id), None)
+    base_result = {
+        "signaturePresent": True,
+        "cryptographicValid": True,
+        "trusted": False,
+        "keyId": key_id,
+        "signedAt": signed_at,
+    }
+    if trusted_key is None:
+        return {
+            **base_result,
+            "status": "valid-signature-untrusted-key",
+            "message": "數位簽章有效，但此公鑰尚未列入本機信任清冊；回簽身分仍須人工核對。",
+        }
+    if trusted_key.get("status") != "trusted":
+        return {
+            **base_result,
+            "status": "valid-signature-revoked-key",
+            "message": "數位簽章有效，但此公鑰已撤銷；不得視為受信任回簽。",
+        }
+    receipt_organization = str(receipt.get("verificationAuthority", {}).get("organization", "")).strip()
+    trusted_organization = str(trusted_key.get("organization", "")).strip()
+    if not hmac.compare_digest(trusted_organization.encode("utf-8"), receipt_organization.encode("utf-8")):
+        return {
+            **base_result,
+            "status": "valid-signature-organization-mismatch",
+            "message": "數位簽章有效，但 RVR 驗證單位與信任清冊登錄單位不一致。",
+        }
+    return {
+        **base_result,
+        "status": "trusted-signature-valid",
+        "trusted": True,
+        "trustedOrganization": trusted_key.get("organization"),
+        "keyLabel": trusted_key.get("displayName"),
+        "message": "RVR 內容完整，且回簽單位的受信任 Ed25519 數位簽章驗證通過。",
+    }
 
 
 def _transfer_id(transfer: dict[str, Any], calculation_fingerprint: str) -> str:
@@ -239,7 +353,7 @@ def build_removal_transfer_handoff(
             "kind": RECEIPT_KIND,
             "fingerprintAlgorithm": "RVR-SHA256-canonical-json-first-20-uppercase",
             "coverage": "all-ERT-transfers-required",
-            "verifierIdentityAuthentication": "manual-review-required",
+            "verifierIdentityAuthentication": "manual-review-or-ed25519-trust-registry",
         },
         "boundary": {
             "requiresReceiverVerification": True,
@@ -284,7 +398,10 @@ def validate_removal_transfer_handoff(record: dict[str, Any]) -> dict[str, Any]:
         receipt_contract.get("schemaVersion") != SCHEMA_VERSION
         or receipt_contract.get("kind") != RECEIPT_KIND
         or receipt_contract.get("coverage") != "all-ERT-transfers-required"
-        or receipt_contract.get("verifierIdentityAuthentication") != "manual-review-required"
+        or receipt_contract.get("verifierIdentityAuthentication") not in {
+            "manual-review-required",
+            "manual-review-or-ed25519-trust-registry",
+        }
     ):
         raise ValueError("拆撐承接構造交接檔缺少受控回簽契約。")
     return deepcopy(record)
@@ -323,7 +440,7 @@ def validate_receiver_verification_receipt(
     receipt: dict[str, Any],
     handoff: dict[str, Any],
 ) -> dict[str, Any]:
-    """Validate an external receiver result without authenticating the verifier identity."""
+    """Validate the receiver result content; identity trust is evaluated separately."""
     validated_handoff = validate_removal_transfer_handoff(handoff)
     if not isinstance(receipt, dict):
         raise ValueError("承接構造回簽格式不正確。")
@@ -472,7 +589,10 @@ __all__ = [
     "build_removal_transfer_handoff",
     "build_receiver_verification_receipt",
     "receiver_verification_receipt_fingerprint",
+    "receiver_identity_key_id",
+    "receiver_identity_signing_payload",
     "same_removal_transfer_handoff_content",
     "validate_removal_transfer_handoff",
     "validate_receiver_verification_receipt",
+    "verify_receiver_identity_signature",
 ]

@@ -18,6 +18,8 @@ import {
   ProjectListItem,
   ProjectState,
   ReceiverCapacityVerificationReceipt,
+  ReceiverIdentityVerification,
+  ReceiverTrustKey,
   ReceiverVerificationAuthority,
   ReceiverVerificationResult,
   ReferenceData,
@@ -246,6 +248,7 @@ function App() {
   const [generatedWordMode, setGeneratedWordMode] = useState<"detailed" | "concise" | null>(null);
   const [removalTransferHandoff, setRemovalTransferHandoff] = useState<RemovalTransferHandoff | null>(null);
   const [removalTransferReceipt, setRemovalTransferReceipt] = useState<ReceiverCapacityVerificationReceipt | null>(null);
+  const [removalTransferIdentityVerification, setRemovalTransferIdentityVerification] = useState<ReceiverIdentityVerification | null>(null);
   const [receiverAssistantHandoff, setReceiverAssistantHandoff] = useState<RemovalTransferHandoff | null>(null);
   const [receiverAssistantAuthority, setReceiverAssistantAuthority] = useState<ReceiverVerificationAuthority>({
     organization: "",
@@ -257,6 +260,9 @@ function App() {
   const [receiverCalculationConfirmed, setReceiverCalculationConfirmed] = useState(false);
   const [receiverIdentityAcknowledged, setReceiverIdentityAcknowledged] = useState(false);
   const [receiverAssistantReceipt, setReceiverAssistantReceipt] = useState<ReceiverCapacityVerificationReceipt | null>(null);
+  const [receiverAssistantIdentityVerification, setReceiverAssistantIdentityVerification] = useState<ReceiverIdentityVerification | null>(null);
+  const [receiverTrustKeys, setReceiverTrustKeys] = useState<ReceiverTrustKey[]>([]);
+  const [receiverTrustDraft, setReceiverTrustDraft] = useState({ organization: "", displayName: "", publicKey: "" });
   const [analysisSingleSide, setAnalysisSingleSide] = useState<AnalysisSourceSide>("top");
   const [componentTab, setComponentTab] = useState<ComponentTabKey>("support");
   const [advancedSettingsExpanded, setAdvancedSettingsExpanded] = useState(false);
@@ -297,6 +303,19 @@ function App() {
     receiverCalculationConfirmed,
     receiverIdentityAcknowledged,
   ]);
+
+  useEffect(() => {
+    if (activeStep !== STEP_RECEIPT) return;
+    let cancelled = false;
+    api.listReceiverTrustKeys()
+      .then((response) => {
+        if (!cancelled) setReceiverTrustKeys(response.keys);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+      });
+    return () => { cancelled = true; };
+  }, [activeStep]);
 
   useEffect(() => {
     void initialize();
@@ -573,6 +592,7 @@ function App() {
       applyProjectState(response.project);
       setRemovalTransferHandoff(response.handoff);
       setRemovalTransferReceipt(response.receipt);
+      setRemovalTransferIdentityVerification(response.receiptValidation.identityVerification);
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -587,6 +607,7 @@ function App() {
     setReceiverCalculationConfirmed(false);
     setReceiverIdentityAcknowledged(false);
     setReceiverAssistantReceipt(null);
+    setReceiverAssistantIdentityVerification(null);
   }
 
   function openReceiverAssistant(record?: RemovalTransferHandoff | null) {
@@ -626,6 +647,7 @@ function App() {
         receiverAssistantResults,
       );
       setReceiverAssistantReceipt(response.receipt);
+      setReceiverAssistantIdentityVerification(response.receiptValidation.identityVerification);
       downloadJsonFile(
         response.receipt,
         `承接構造回簽-${response.receipt.handoffFingerprint}-${response.receipt.receiptFingerprint}.json`,
@@ -649,6 +671,7 @@ function App() {
       setReceiverAssistantAuthority(response.receipt.verificationAuthority);
       setReceiverAssistantResults(response.receipt.results);
       setReceiverAssistantReceipt(response.receipt);
+      setReceiverAssistantIdentityVerification(response.receiptValidation.identityVerification);
       setReceiverCalculationConfirmed(true);
       setReceiverIdentityAcknowledged(true);
       setError("");
@@ -662,6 +685,54 @@ function App() {
   function updateReceiverAssistantAuthority(field: keyof ReceiverVerificationAuthority, value: string) {
     setReceiverAssistantAuthority((current) => ({ ...current, [field]: value }));
     setReceiverAssistantReceipt(null);
+    setReceiverAssistantIdentityVerification(null);
+  }
+
+  async function handleRegisterReceiverTrustKey() {
+    try {
+      setBusy("登錄受信任回簽公鑰");
+      const response = await api.registerReceiverTrustKey(
+        receiverTrustDraft.organization,
+        receiverTrustDraft.displayName,
+        receiverTrustDraft.publicKey,
+      );
+      setReceiverTrustKeys(response.keys);
+      setReceiverTrustDraft({ organization: "", displayName: "", publicKey: "" });
+      if (receiverAssistantHandoff && receiverAssistantReceipt) {
+        const validated = await api.validateReceiverVerificationReceipt(receiverAssistantHandoff, receiverAssistantReceipt);
+        setReceiverAssistantIdentityVerification(validated.receiptValidation.identityVerification);
+      }
+      if (activeRemovalTransferHandoff && activeRemovalTransferReceipt) {
+        const validated = await api.validateReceiverVerificationReceipt(activeRemovalTransferHandoff, activeRemovalTransferReceipt);
+        setRemovalTransferIdentityVerification(validated.receiptValidation.identityVerification);
+      }
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleRevokeReceiverTrustKey(keyId: string) {
+    try {
+      setBusy("撤銷受信任回簽公鑰");
+      const response = await api.revokeReceiverTrustKey(keyId);
+      setReceiverTrustKeys(response.keys);
+      if (receiverAssistantHandoff && receiverAssistantReceipt) {
+        const validated = await api.validateReceiverVerificationReceipt(receiverAssistantHandoff, receiverAssistantReceipt);
+        setReceiverAssistantIdentityVerification(validated.receiptValidation.identityVerification);
+      }
+      if (activeRemovalTransferHandoff && activeRemovalTransferReceipt) {
+        const validated = await api.validateReceiverVerificationReceipt(activeRemovalTransferHandoff, activeRemovalTransferReceipt);
+        setRemovalTransferIdentityVerification(validated.receiptValidation.identityVerification);
+      }
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
   }
 
   function updateReceiverAssistantResult(
@@ -3492,7 +3563,15 @@ function App() {
                     label="交接狀態"
                     value={activeRemovalTransferReceipt
                       ? activeRemovalTransferReceipt.summary.status === "passed"
-                        ? "接收端檢核通過／回簽人身分待核對"
+                        ? removalTransferIdentityVerification?.trusted
+                          ? "接收端檢核通過／受信任簽章通過"
+                          : removalTransferIdentityVerification?.status === "valid-signature-revoked-key"
+                            ? "接收端檢核通過／簽章公鑰已撤銷"
+                            : removalTransferIdentityVerification?.status === "valid-signature-organization-mismatch"
+                              ? "接收端檢核通過／簽章單位不符"
+                              : removalTransferIdentityVerification?.cryptographicValid
+                            ? "接收端檢核通過／簽章有效但公鑰待信任"
+                            : "接收端檢核通過／回簽人身分待核對"
                         : "接收端檢核未通過"
                       : "待承接構造驗證"}
                   />
@@ -3520,7 +3599,8 @@ function App() {
               )}
               {activeRemovalTransferReceipt && (
                 <p className="meta-line attention-line">
-                  RVR 指紋已通過完整性檢查；目前尚未使用數位簽章驗證回簽人身分，正式採用前仍須與回簽單位及正式檢核文件人工核對。
+                  {removalTransferIdentityVerification?.message
+                    ?? "RVR 指紋已通過完整性檢查；目前尚未使用數位簽章驗證回簽人身分，正式採用前仍須與回簽單位及正式檢核文件人工核對。"}
                 </p>
               )}
               <p className="meta-line">
@@ -3579,6 +3659,67 @@ function App() {
               <p className="meta-line attention-line">
                 RVR 只封裝接收端已完成的工程結果並檢查內容未遭竄改；容量、傳力路徑、荷重分配、偏心與載重組合仍須由接收端依正式模型及文件完成。
               </p>
+            </Panel>
+
+            <Panel
+              title="本機受信任回簽公鑰"
+              subtitle="只有經管理者核對後登錄的 Ed25519 公鑰，才能把有效簽章提升為「受信任簽章通過」；私人金鑰不會進入本工具。"
+            >
+              <div className="form-grid">
+                <Field
+                  label="公鑰所屬單位"
+                  value={receiverTrustDraft.organization}
+                  onChange={(value) => setReceiverTrustDraft((current) => ({ ...current, organization: value }))}
+                />
+                <Field
+                  label="金鑰名稱／用途"
+                  value={receiverTrustDraft.displayName}
+                  onChange={(value) => setReceiverTrustDraft((current) => ({ ...current, displayName: value }))}
+                />
+              </div>
+              <TextAreaField
+                label="Ed25519 公鑰（PEM 或 raw Base64）"
+                value={receiverTrustDraft.publicKey}
+                onChange={(value) => setReceiverTrustDraft((current) => ({ ...current, publicKey: value }))}
+              />
+              <div className="action-row">
+                <button
+                  className="secondary"
+                  type="button"
+                  disabled={!receiverTrustDraft.organization.trim() || !receiverTrustDraft.displayName.trim() || !receiverTrustDraft.publicKey.trim()}
+                  onClick={handleRegisterReceiverTrustKey}
+                >
+                  核對後登錄為本機信任公鑰
+                </button>
+              </div>
+              {receiverTrustKeys.length ? (
+                <div className="table-scroll-card">
+                  <table className="data-table compact">
+                    <thead><tr><th>單位／金鑰</th><th>Key ID</th><th>狀態</th><th>管理</th></tr></thead>
+                    <tbody>
+                      {receiverTrustKeys.map((key) => (
+                        <tr key={key.keyId}>
+                          <td><strong>{key.organization}</strong><br /><span className="table-muted">{key.displayName}</span></td>
+                          <td>{key.keyId}</td>
+                          <td>{key.status === "trusted" ? "受信任" : "已撤銷"}</td>
+                          <td>
+                            <button
+                              className="mini-action"
+                              type="button"
+                              disabled={key.status === "revoked"}
+                              onClick={() => handleRevokeReceiverTrustKey(key.keyId)}
+                            >
+                              撤銷
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="empty-state">本機尚未登錄受信任回簽公鑰；未簽或未知公鑰的 RVR 仍可檢查內容，但身分維持人工核對。</p>
+              )}
             </Panel>
 
             {receiverAssistantHandoff ? (
@@ -3719,14 +3860,23 @@ function App() {
                     <p className="meta-line">請完成回簽單位、每筆檢核結果及兩項確認；通過列的容量利用率不得大於 1。</p>
                   )}
                   {receiverAssistantReceipt && (
-                    <div className={`receiver-receipt-result ${receiverAssistantReceipt.summary.status === "passed" ? "ok" : "ng"}`}>
+                    <div className={`receiver-receipt-result ${receiverAssistantReceipt.summary.status === "passed" && receiverAssistantIdentityVerification?.status !== "valid-signature-revoked-key" && receiverAssistantIdentityVerification?.status !== "valid-signature-organization-mismatch" ? "ok" : "ng"}`}>
                       <strong>
                         {receiverAssistantReceipt.summary.status === "passed"
-                          ? "RVR 已建立：接收端結果通過／回簽人身分待核對"
+                          ? receiverAssistantIdentityVerification?.trusted
+                            ? "RVR 已驗證：接收端結果通過／受信任簽章通過"
+                            : receiverAssistantIdentityVerification?.status === "valid-signature-revoked-key"
+                              ? "RVR 身分驗證未通過：簽章公鑰已撤銷"
+                              : receiverAssistantIdentityVerification?.status === "valid-signature-organization-mismatch"
+                                ? "RVR 身分驗證未通過：簽章單位與登錄單位不符"
+                                : receiverAssistantIdentityVerification?.cryptographicValid
+                              ? "RVR 已驗證：接收端結果通過／簽章有效但公鑰尚未信任"
+                              : "RVR 已建立：接收端結果通過／回簽人身分待核對"
                           : "RVR 已建立：接收端結果包含未通過項目"}
                       </strong>
                       <span>{`RVR 指紋：${receiverAssistantReceipt.receiptFingerprint}`}</span>
                       <span>{`通過 ${receiverAssistantReceipt.summary.passed}／未通過 ${receiverAssistantReceipt.summary.failed}`}</span>
+                      {receiverAssistantIdentityVerification && <span>{receiverAssistantIdentityVerification.message}</span>}
                     </div>
                   )}
                 </Panel>

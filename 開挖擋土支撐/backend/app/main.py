@@ -21,7 +21,9 @@ from .removal_transfer_handoff import (
     same_removal_transfer_handoff_content,
     validate_removal_transfer_handoff,
     validate_receiver_verification_receipt,
+    verify_receiver_identity_signature,
 )
+from .receiver_trust_store import ReceiverTrustStore
 from .reporting import build_report, build_word_report, calculation_fingerprint
 from .schemas import (
     AnalysisImportResult,
@@ -48,6 +50,7 @@ from .workbook_loader import (
 
 settings = get_settings()
 store = ProjectStore()
+receiver_trust_store = ReceiverTrustStore()
 
 app = FastAPI(title="擋土支撐計算網頁工具", version="0.1.0")
 app.add_middleware(
@@ -62,6 +65,49 @@ app.add_middleware(
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+def _receipt_validation(receipt: dict[str, Any]) -> dict[str, Any]:
+    identity = verify_receiver_identity_signature(receipt, receiver_trust_store.list_keys())
+    return {
+        "integrity": "valid",
+        "engineeringStatus": receipt["summary"]["status"],
+        "verifierIdentity": identity["status"],
+        "identityVerification": identity,
+    }
+
+
+@app.get("/api/removal-transfer-trust-keys")
+def list_receiver_trust_keys() -> dict[str, Any]:
+    try:
+        keys = receiver_trust_store.list_keys()
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return {"schemaVersion": 1, "keys": keys}
+
+
+@app.post("/api/removal-transfer-trust-keys")
+def register_receiver_trust_key(request: dict[str, Any]) -> dict[str, Any]:
+    try:
+        record = receiver_trust_store.register_key(
+            str(request.get("organization", "")),
+            str(request.get("displayName", "")),
+            str(request.get("publicKey", "")),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"key": record, "keys": receiver_trust_store.list_keys()}
+
+
+@app.post("/api/removal-transfer-trust-keys/{key_id}/revoke")
+def revoke_receiver_trust_key(key_id: str) -> dict[str, Any]:
+    try:
+        record = receiver_trust_store.revoke_key(key_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="本機信任清冊找不到指定公鑰。") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return {"key": record, "keys": receiver_trust_store.list_keys()}
 
 
 @app.post("/api/removal-transfer-handoffs/validate")
@@ -88,11 +134,7 @@ def build_external_receiver_verification_receipt(
     return {
         "handoff": handoff,
         "receipt": receipt,
-        "receiptValidation": {
-            "integrity": "valid",
-            "engineeringStatus": receipt["summary"]["status"],
-            "verifierIdentity": "manual-review-required",
-        },
+        "receiptValidation": _receipt_validation(receipt),
     }
 
 
@@ -103,16 +145,13 @@ def validate_external_receiver_verification_receipt(
     try:
         handoff = validate_removal_transfer_handoff(request.handoff)
         receipt = validate_receiver_verification_receipt(request.receipt, handoff)
+        validation = _receipt_validation(receipt)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {
         "handoff": handoff,
         "receipt": receipt,
-        "receiptValidation": {
-            "integrity": "valid",
-            "engineeringStatus": receipt["summary"]["status"],
-            "verifierIdentity": "manual-review-required",
-        },
+        "receiptValidation": validation,
     }
 
 
@@ -699,6 +738,7 @@ async def import_removal_transfer_receipt(
         raise HTTPException(status_code=400, detail="本專案找不到回簽所指向的已發 ERH 交接版本。")
     try:
         receipt = validate_receiver_verification_receipt(payload, handoff)
+        validation = _receipt_validation(receipt)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     receipt_fingerprint = str(receipt["receiptFingerprint"])
@@ -717,11 +757,7 @@ async def import_removal_transfer_receipt(
         "project": project,
         "handoff": handoff,
         "receipt": receipt,
-        "receiptValidation": {
-            "integrity": "valid",
-            "engineeringStatus": receipt["summary"]["status"],
-            "verifierIdentity": "manual-review-required",
-        },
+        "receiptValidation": validation,
     }
 
 
