@@ -17,6 +17,7 @@ import {
   CornerBraceRow,
   ProjectListItem,
   ProjectState,
+  ReceiverCapacityVerificationReceipt,
   ReferenceData,
   RemovalTransferHandoff,
   RemovalTransferMode,
@@ -240,6 +241,7 @@ function App() {
   const [generatedPdfMode, setGeneratedPdfMode] = useState<"detailed" | "concise" | null>(null);
   const [generatedWordMode, setGeneratedWordMode] = useState<"detailed" | "concise" | null>(null);
   const [removalTransferHandoff, setRemovalTransferHandoff] = useState<RemovalTransferHandoff | null>(null);
+  const [removalTransferReceipt, setRemovalTransferReceipt] = useState<ReceiverCapacityVerificationReceipt | null>(null);
   const [analysisSingleSide, setAnalysisSingleSide] = useState<AnalysisSourceSide>("top");
   const [componentTab, setComponentTab] = useState<ComponentTabKey>("support");
   const [advancedSettingsExpanded, setAdvancedSettingsExpanded] = useState(false);
@@ -251,6 +253,14 @@ function App() {
   const [lastAutoSavedAt, setLastAutoSavedAt] = useState<string | null>(null);
   const [persistedProjectSnapshot, setPersistedProjectSnapshot] = useState("");
   const reportModeLabel = conciseReportMode ? "簡述版" : "詳細版";
+  const activeRemovalTransferHandoff = useMemo(
+    () => removalTransferHandoff ?? latestRemovalTransferHandoff(project),
+    [project?.removal_transfer_handoffs, removalTransferHandoff],
+  );
+  const activeRemovalTransferReceipt = useMemo(
+    () => removalTransferReceipt ?? latestRemovalTransferReceipt(project, activeRemovalTransferHandoff?.handoffFingerprint),
+    [project?.removal_transfer_verification_receipts, removalTransferReceipt, activeRemovalTransferHandoff?.handoffFingerprint],
+  );
 
   useEffect(() => {
     void initialize();
@@ -502,7 +512,31 @@ function App() {
         record,
         `${savedProject.metadata.id ?? "excavation"}-拆撐承接構造交接-${record.handoffFingerprint}.json`,
       );
+      const issuedHandoffs = [...(savedProject.removal_transfer_handoffs ?? [])];
+      if (!issuedHandoffs.some((item) => item.handoffFingerprint === record.handoffFingerprint)) {
+        issuedHandoffs.push(record);
+      }
+      setProject({ ...savedProject, removal_transfer_handoffs: issuedHandoffs });
       setRemovalTransferHandoff(record);
+      setRemovalTransferReceipt(null);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleImportRemovalTransferReceipt(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!project?.metadata.id || !file) return;
+    try {
+      setBusy("驗證承接構造回簽");
+      const response = await api.importRemovalTransferReceipt(project.metadata.id, file);
+      applyProjectState(response.project);
+      setRemovalTransferHandoff(response.handoff);
+      setRemovalTransferReceipt(response.receipt);
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -544,6 +578,7 @@ function App() {
     const synced = syncProjectGuardrails(nextProject);
     setProject(synced);
     setRemovalTransferHandoff(null);
+    setRemovalTransferReceipt(null);
     if (!synced.calculation_results) {
       setReportUrl("");
       setWordReportUrl("");
@@ -3256,6 +3291,16 @@ function App() {
                 >
                   匯出待驗證交接 JSON
                 </button>
+                <label className={`file-action secondary${activeRemovalTransferHandoff ? "" : " disabled"}`}>
+                  匯入承接構造回簽 JSON
+                  <input
+                    className="file-picker-input"
+                    type="file"
+                    accept=".json,application/json"
+                    disabled={!activeRemovalTransferHandoff}
+                    onChange={handleImportRemovalTransferReceipt}
+                  />
+                </label>
               </div>
               {!project.calculation_results && (
                 <p className="meta-line attention-line">請先完成最新計算，再建立與該計算指紋一致的交接檔。</p>
@@ -3263,13 +3308,42 @@ function App() {
               {project.calculation_results && removalTransferCandidateCount(project) === 0 && (
                 <p className="meta-line">目前沒有已確認拆撐處置且納入計算的支撐／斜撐列。</p>
               )}
-              {removalTransferHandoff && (
+              {activeRemovalTransferHandoff && (
                 <div className="meta-grid">
-                  <MetaItem label="交接狀態" value="待承接構造驗證" />
-                  <MetaItem label="交接列數" value={String(removalTransferHandoff.transfers.length)} />
-                  <MetaItem label="來源計算指紋" value={removalTransferHandoff.source.calculationFingerprint} />
-                  <MetaItem label="交接指紋" value={removalTransferHandoff.handoffFingerprint} />
+                  <MetaItem
+                    label="交接狀態"
+                    value={activeRemovalTransferReceipt
+                      ? activeRemovalTransferReceipt.summary.status === "passed"
+                        ? "接收端檢核通過／回簽人身分待核對"
+                        : "接收端檢核未通過"
+                      : "待承接構造驗證"}
+                  />
+                  <MetaItem label="交接列數" value={String(activeRemovalTransferHandoff.transfers.length)} />
+                  <MetaItem label="來源計算指紋" value={activeRemovalTransferHandoff.source.calculationFingerprint} />
+                  <MetaItem label="交接指紋" value={activeRemovalTransferHandoff.handoffFingerprint} />
+                  {activeRemovalTransferReceipt && (
+                    <>
+                      <MetaItem label="回簽指紋" value={activeRemovalTransferReceipt.receiptFingerprint} />
+                      <MetaItem
+                        label="接收端結果"
+                        value={`通過 ${activeRemovalTransferReceipt.summary.passed}／未通過 ${activeRemovalTransferReceipt.summary.failed}`}
+                      />
+                      <MetaItem
+                        label="回簽單位／人員"
+                        value={`${activeRemovalTransferReceipt.verificationAuthority.organization}／${activeRemovalTransferReceipt.verificationAuthority.verifierName}`}
+                      />
+                      <MetaItem
+                        label="正式文件編號"
+                        value={activeRemovalTransferReceipt.verificationAuthority.reportReference}
+                      />
+                    </>
+                  )}
                 </div>
+              )}
+              {activeRemovalTransferReceipt && (
+                <p className="meta-line attention-line">
+                  RVR 指紋已通過完整性檢查；目前尚未使用數位簽章驗證回簽人身分，正式採用前仍須與回簽單位及正式檢核文件人工核對。
+                </p>
               )}
               <p className="meta-line">
                 交接完成不等於承接構造合格；樓版、重撐、永久結構或其他接收端仍須核對實際傳力方向、荷重分配、偏心、載重組合與容量，並以相同交接指紋回簽驗證結果。
@@ -4575,6 +4649,21 @@ function downloadJsonFile(payload: unknown, filename: string): void {
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function latestRemovalTransferHandoff(project: ProjectState | null): RemovalTransferHandoff | null {
+  const handoffs = project?.removal_transfer_handoffs ?? [];
+  return handoffs.length ? handoffs[handoffs.length - 1] : null;
+}
+
+function latestRemovalTransferReceipt(
+  project: ProjectState | null,
+  handoffFingerprint?: string,
+): ReceiverCapacityVerificationReceipt | null {
+  if (!handoffFingerprint) return null;
+  const receipts = (project?.removal_transfer_verification_receipts ?? [])
+    .filter((receipt) => receipt.handoffFingerprint === handoffFingerprint);
+  return receipts.length ? receipts[receipts.length - 1] : null;
 }
 
 function removalTransferCandidateCount(project: ProjectState): number {

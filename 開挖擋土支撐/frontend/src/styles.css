@@ -1045,6 +1045,11 @@ button.ghost {
   cursor: pointer;
 }
 
+.file-action.secondary.disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .construction-stage-handoff-card {
   margin-top: 16px;
 }

@@ -75,7 +75,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '0.9.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.0.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -139,8 +139,12 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'receiver-capacity-verification-receipt',
   'def build_removal_transfer_handoff',
   'def validate_removal_transfer_handoff',
+  'def validate_receiver_verification_receipt',
+  'def receiver_verification_receipt_fingerprint',
+  'def same_removal_transfer_handoff_content',
   'ERH',
   'ERT',
+  'RVR',
   '"status": "pending"',
   '"autoApplied": False',
   '"autoVerified": False',
@@ -150,7 +154,11 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
 });
 [
   '/api/projects/{project_id}/removal-transfer-handoff',
+  '/api/projects/{project_id}/removal-transfer-receipts',
   'build_removal_transfer_handoff',
+  'validate_receiver_verification_receipt',
+  'removal_transfer_handoffs',
+  'removal_transfer_verification_receipts',
   'calculation_fingerprint(project)',
 ].forEach((needle) => {
   assert(main.includes(needle), `excavation removal transfer API keeps ${needle}`, needle);
@@ -158,8 +166,13 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
 [
   'generateRemovalTransferHandoff',
   'handleGenerateRemovalTransferHandoff',
+  'importRemovalTransferReceipt',
+  'handleImportRemovalTransferReceipt',
   '匯出待驗證交接 JSON',
+  '匯入承接構造回簽 JSON',
   '待承接構造驗證',
+  '接收端檢核通過／回簽人身分待核對',
+  'RVR 指紋已通過完整性檢查',
   '交接完成不等於承接構造合格',
 ].forEach((needle) => {
   assert(app.includes(needle) || api.includes(needle), `excavation removal transfer frontend keeps ${needle}`, needle);
@@ -169,8 +182,20 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'test_rejects_tampered_transfer_content',
   'test_outside_scope_handoff_keeps_receiver_identity_pending',
   'test_rejects_source_member_that_did_not_pass_calculation',
+  'test_validates_complete_external_receiver_receipt',
+  'test_rejects_tampered_receiver_receipt',
+  'test_rejects_incomplete_receiver_receipt',
+  'test_rejects_passed_receipt_with_over_capacity_ratio',
+  'test_reuses_handoff_when_only_issue_time_changes',
 ].forEach((needle) => {
   assert(removalTransferHandoffTests.includes(needle), `excavation removal transfer tests keep ${needle}`, needle);
+});
+[
+  'removal_transfer_handoffs',
+  'removal_transfer_verification_receipts',
+].forEach((needle) => {
+  assert(schemas.includes(needle), `excavation project schema keeps ${needle}`, needle);
+  assert(storeTests.includes(needle), `excavation project store tests keep ${needle}`, needle);
 });
 
 [

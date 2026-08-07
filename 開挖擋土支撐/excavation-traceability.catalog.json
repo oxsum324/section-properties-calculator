@@ -1,5 +1,5 @@
 {
-  "version": "0.9.0",
+  "version": "1.0.0",
   "family": "excavation-traceability",
   "description": "開挖擋土支撐服務型工具的規範語意追蹤表。每筆 trace 將分析檔匯入、輸入欄位、構件檢核、報表落點、測試證據與人工複核邊界對齊，避免只因 FastAPI / React 流程可產出 PDF 或 DOCX 就誤判為支撐系統檢核依據已完整可追溯。",
   "tools": [
@@ -42,12 +42,12 @@
         {
           "id": "excavation-removal-transfer-handoff",
           "clause": "拆撐來源需求至承接構造之專案交接與接收端驗證邊界",
-          "purpose": "將已完成來源構件檢核且已確認的拆撐處置輸出成具 ERH / ERT 指紋的 JSON；交接列只保存來源生命週期、控制軸力、構件設計軸力與指定承接對象，初始狀態固定為 pending，不將檔案建立或完整性驗證誤作承接構造容量合格。",
-          "inputs": ["ProjectState", "calculation_fingerprint", "source member check", "analysis lifecycle", "removal_transfer_mode", "removal_transfer_target", "removal_transfer_basis", "removal_transfer_confirmed"],
-          "calculation": ["build_removal_transfer_handoff", "validate_removal_transfer_handoff", "ERH package SHA-256", "ERT transfer SHA-256", "fail closed on NG source member", "pending receiver verification"],
-          "report": ["HTML 報表匯出頁之待承接構造驗證狀態", "拆撐承接構造交接 JSON", "來源計算指紋", "交接指紋", "交接列識別"],
-          "evidence": ["backend/app/removal_transfer_handoff.py", "backend/app/main.py", "backend/tests/test_removal_transfer_handoff.py", "frontend/src/App.tsx", "frontend/src/api.ts", "frontend/src/types.ts"],
-          "manualReview": ["接收端仍須由設計者或專案分析核對實際傳力方向、荷重分配、偏心、載重組合及承接構造容量；ERH / ERT 指紋只證明交接內容未遭變更，不是工程核可或容量驗證。"]
+          "purpose": "將已完成來源構件檢核且已確認的拆撐處置輸出成具 ERH / ERT 指紋的 JSON，並將已發交接版本保存於專案；接收端可用 receiver-capacity-verification-receipt 回傳逐列容量結果，來源端以 ERH / ERT / RVR 指紋、來源計算指紋、逐列完整涵蓋與彙整一致性驗證後保存，但不得把完整性驗證誤作回簽人身分已核可。",
+          "inputs": ["ProjectState", "calculation_fingerprint", "source member check", "analysis lifecycle", "removal_transfer_mode", "removal_transfer_target", "removal_transfer_basis", "removal_transfer_confirmed", "issued ERH handoff", "receiver receipt JSON", "verification authority", "adopted demand", "capacity utilization ratio", "receiver verification basis"],
+          "calculation": ["build_removal_transfer_handoff", "validate_removal_transfer_handoff", "validate_receiver_verification_receipt", "same_removal_transfer_handoff_content", "ERH package SHA-256", "ERT transfer SHA-256", "RVR receipt SHA-256", "fail closed on NG source member", "complete ERT receipt coverage", "pending receiver verification", "manual verifier identity review"],
+          "report": ["HTML 報表匯出頁之待承接構造驗證狀態", "拆撐承接構造交接 JSON", "承接構造回簽匯入狀態", "來源計算指紋", "交接指紋", "交接列識別", "回簽指紋", "接收端結果", "回簽單位與人員", "正式文件編號"],
+          "evidence": ["backend/app/removal_transfer_handoff.py", "backend/app/main.py", "backend/app/schemas.py", "backend/tests/test_removal_transfer_handoff.py", "backend/tests/test_project_store.py", "frontend/src/App.tsx", "frontend/src/api.ts", "frontend/src/types.ts"],
+          "manualReview": ["接收端仍須由設計者或專案分析核對實際傳力方向、荷重分配、偏心、載重組合及承接構造容量；ERH / ERT / RVR 指紋只證明內容未遭變更，未使用數位簽章時，回簽單位、人員與正式檢核文件仍須人工核對，不得僅憑匯入成功視為工程核可。"]
         }
       ]
     },

@@ -340,6 +340,8 @@ class ProjectState(BaseModel):
     corner_braces: list[CornerBraceRow] = Field(default_factory=list)
     columns: list[ColumnScenarioInput] = Field(default_factory=list)
     calculation_results: CalculationResults | None = None
+    removal_transfer_handoffs: list[dict[str, Any]] = Field(default_factory=list)
+    removal_transfer_verification_receipts: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ProjectListItem(BaseModel):

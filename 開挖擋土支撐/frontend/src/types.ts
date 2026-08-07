@@ -344,6 +344,8 @@ export type ProjectState = {
   corner_braces: CornerBraceRow[];
   columns: ColumnScenarioInput[];
   calculation_results?: CalculationResults | null;
+  removal_transfer_handoffs?: RemovalTransferHandoff[];
+  removal_transfer_verification_receipts?: ReceiverCapacityVerificationReceipt[];
 };
 
 export type RemovalTransferHandoff = {
@@ -385,6 +387,13 @@ export type RemovalTransferHandoff = {
     verified: 0;
     receiptKind: "receiver-capacity-verification-receipt";
   };
+  receiptContract: {
+    schemaVersion: 1;
+    kind: "receiver-capacity-verification-receipt";
+    fingerprintAlgorithm: "RVR-SHA256-canonical-json-first-20-uppercase";
+    coverage: "all-ERT-transfers-required";
+    verifierIdentityAuthentication: "manual-review-required";
+  };
   boundary: {
     requiresReceiverVerification: true;
     autoApplied: false;
@@ -392,6 +401,51 @@ export type RemovalTransferHandoff = {
     scope: string;
   };
   handoffFingerprint: string;
+};
+
+export type ReceiverCapacityVerificationReceipt = {
+  schemaVersion: 1;
+  kind: "receiver-capacity-verification-receipt";
+  issuedAt: string;
+  handoffFingerprint: string;
+  sourceCalculationFingerprint: string;
+  verificationAuthority: {
+    organization: string;
+    verifierName: string;
+    verifierRole: string;
+    reportReference: string;
+  };
+  results: Array<{
+    transferId: string;
+    status: "passed" | "failed";
+    receiverTarget: string;
+    adoptedDemandTf: number;
+    capacityUtilizationRatio: number;
+    verificationBasis: string;
+    conclusion: string;
+  }>;
+  summary: {
+    status: "passed" | "failed";
+    passed: number;
+    failed: number;
+  };
+  boundary: {
+    receiverCalculationCompleted: true;
+    sourceToolDidNotAutoVerify: true;
+    verifierIdentityRequiresManualReview: true;
+  };
+  receiptFingerprint: string;
+};
+
+export type RemovalTransferReceiptImportResponse = {
+  project: ProjectState;
+  handoff: RemovalTransferHandoff;
+  receipt: ReceiverCapacityVerificationReceipt;
+  receiptValidation: {
+    integrity: "valid";
+    engineeringStatus: "passed" | "failed";
+    verifierIdentity: "manual-review-required";
+  };
 };
 
 export type BootstrapPayload = {

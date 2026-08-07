@@ -4,6 +4,7 @@ import {
   ProjectState,
   ReferenceData,
   RemovalTransferHandoff,
+  RemovalTransferReceiptImportResponse,
   ReportPayload,
 } from "./types";
 
@@ -61,6 +62,14 @@ export const api = {
     request<ProjectState>(`/api/projects/${projectId}/calculate`, { method: "POST" }),
   generateRemovalTransferHandoff: (projectId: string) =>
     request<RemovalTransferHandoff>(`/api/projects/${projectId}/removal-transfer-handoff`, { method: "POST" }),
+  importRemovalTransferReceipt: (projectId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<RemovalTransferReceiptImportResponse>(
+      `/api/projects/${projectId}/removal-transfer-receipts`,
+      { method: "POST", body: form },
+    );
+  },
   generateReport: (projectId: string, concise = false) =>
     request<ReportPayload>(`/api/projects/${projectId}/report?concise=${concise ? "true" : "false"}`, {
       method: "POST",

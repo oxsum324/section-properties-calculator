@@ -5,9 +5,15 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
+from backend.app.calculations import calculate_project
 from backend.app.project_store import ProjectStore, _normalize_project_sources
-from backend.app.workbook_loader import load_default_project
+from backend.app.removal_transfer_handoff import (
+    build_removal_transfer_handoff,
+    receiver_verification_receipt_fingerprint,
+)
+from backend.app.reporting import calculation_fingerprint
 from backend.app.schemas import AnalysisForceCase
+from backend.app.workbook_loader import load_default_project
 from backend.tests.handoff_fixtures import make_stage_adoption
 
 
@@ -130,6 +136,85 @@ class ProjectStoreNormalizationTests(unittest.TestCase):
             self.assertEqual(saved.construction_step_label, "第一階開挖完成、第一層支撐作用")
             self.assertEqual(saved.analysis_mapping_basis, "施工順序表 CS-01")
             self.assertTrue(saved.analysis_mapping_confirmed)
+
+    def test_removal_transfer_handoff_and_receipt_history_survive_round_trip(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            store = ProjectStore.__new__(ProjectStore)
+            store.settings = SimpleNamespace(db_path=root / "projects.sqlite3", projects_dir=root / "projects")
+            store._init_db()
+            project = store.create_project("拆撐回簽保存測試")
+            row = project.top_supports[0]
+            row.force_source = "analysis_import"
+            row.analysis_stage_cases = [
+                AnalysisForceCase(stage_index=2, stage_label="第二階開挖", axial_force_t=row.axial_force_t)
+            ]
+            row.analysis_install_stage_index = 1
+            row.analysis_install_stage_label = "第一道支撐安裝"
+            row.analysis_control_stage_index = 2
+            row.analysis_control_stage_label = "第二階開挖"
+            row.analysis_removal_stage_index = 3
+            row.analysis_removal_stage_label = "第一道支撐拆除"
+            row.removal_transfer_mode = "floor"
+            row.removal_transfer_target = "B2F 樓版 S1 區"
+            row.removal_transfer_basis = "拆撐順序圖 CS-04"
+            row.removal_transfer_confirmed = True
+            row.construction_step_label = "第二階開挖完成"
+            row.analysis_mapping_basis = "施工順序圖 CS-02"
+            row.analysis_mapping_confirmed = True
+            project.calculation_results = calculate_project(project)
+            handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+            transfer = handoff["transfers"][0]
+            receipt = {
+                "schemaVersion": 1,
+                "kind": "receiver-capacity-verification-receipt",
+                "issuedAt": "2026-08-07T12:00:00Z",
+                "handoffFingerprint": handoff["handoffFingerprint"],
+                "sourceCalculationFingerprint": handoff["source"]["calculationFingerprint"],
+                "verificationAuthority": {
+                    "organization": "承接構造設計單位",
+                    "verifierName": "王工程師",
+                    "verifierRole": "結構設計覆核",
+                    "reportReference": "RV-STORE-01",
+                },
+                "results": [{
+                    "transferId": transfer["transferId"],
+                    "status": "passed",
+                    "receiverTarget": "B2F 樓版 S1 區",
+                    "adoptedDemandTf": transfer["sourceDemand"]["memberDesignAxialForceTf"],
+                    "capacityUtilizationRatio": 0.8,
+                    "verificationBasis": "承接構造分析模型 RV-STORE-01",
+                    "conclusion": "容量檢核通過",
+                }],
+                "summary": {"status": "passed", "passed": 1, "failed": 0},
+                "boundary": {
+                    "receiverCalculationCompleted": True,
+                    "sourceToolDidNotAutoVerify": True,
+                    "verifierIdentityRequiresManualReview": True,
+                },
+            }
+            receipt["receiptFingerprint"] = receiver_verification_receipt_fingerprint(receipt)
+            project.removal_transfer_handoffs = [handoff]
+            project.removal_transfer_verification_receipts = [receipt]
+
+            store.save_project(project)
+            reloaded = store.get_project(project.metadata.id or "")
+
+            self.assertEqual(reloaded.removal_transfer_handoffs[0]["handoffFingerprint"], handoff["handoffFingerprint"])
+            self.assertEqual(
+                reloaded.removal_transfer_verification_receipts[0]["receiptFingerprint"],
+                receipt["receiptFingerprint"],
+            )
+
+    def test_invalid_removal_transfer_history_is_removed_fail_closed(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        project.removal_transfer_handoffs = [{"handoffFingerprint": "ERH-FORGED"}]
+        project.removal_transfer_verification_receipts = [{"receiptFingerprint": "RVR-FORGED"}]
+
+        normalized = _normalize_project_sources(project)
+
+        self.assertEqual(normalized.removal_transfer_handoffs, [])
+        self.assertEqual(normalized.removal_transfer_verification_receipts, [])
 
 
 if __name__ == "__main__":

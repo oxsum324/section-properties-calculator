@@ -9,6 +9,10 @@ from datetime import datetime
 from pathlib import Path
 
 from .config import get_settings
+from .removal_transfer_handoff import (
+    validate_removal_transfer_handoff,
+    validate_receiver_verification_receipt,
+)
 from .schemas import ProjectListItem, ProjectState
 from .workbook_loader import load_default_project
 
@@ -43,6 +47,28 @@ def _normalize_project_sources(project: ProjectState) -> ProjectState:
             ):
                 project.bottom_analysis_source.mode = "import"
                 project.bottom_analysis_source.import_result = project.analysis_import.model_copy(deep=True)
+    valid_handoffs: list[dict] = []
+    handoffs_by_fingerprint: dict[str, dict] = {}
+    for record in project.removal_transfer_handoffs:
+        try:
+            validated = validate_removal_transfer_handoff(record)
+        except (TypeError, ValueError):
+            continue
+        valid_handoffs.append(validated)
+        handoffs_by_fingerprint[str(validated["handoffFingerprint"])] = validated
+    valid_receipts: list[dict] = []
+    for receipt in project.removal_transfer_verification_receipts:
+        if not isinstance(receipt, dict):
+            continue
+        handoff = handoffs_by_fingerprint.get(str(receipt.get("handoffFingerprint", "")))
+        if handoff is None:
+            continue
+        try:
+            valid_receipts.append(validate_receiver_verification_receipt(receipt, handoff))
+        except (TypeError, ValueError):
+            continue
+    project.removal_transfer_handoffs = valid_handoffs[-50:]
+    project.removal_transfer_verification_receipts = valid_receipts[-100:]
     return project
 
 

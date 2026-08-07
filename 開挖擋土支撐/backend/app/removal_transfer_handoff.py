@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import datetime, timezone
 import hashlib
+import hmac
 import json
 import math
 import re
@@ -14,6 +15,7 @@ from .schemas import BraceRow, CheckResult, ProjectState, SupportRow
 SCHEMA_VERSION = 1
 KIND = "excavation-removal-transfer-handoff"
 RECEIPT_KIND = "receiver-capacity-verification-receipt"
+RECEIPT_FINGERPRINT_PREFIX = "RVR"
 TRANSFER_MODE_LABELS = {
     "outside_scope": "本構件檢核範圍外（另案檢核）",
     "floor": "移轉至樓版",
@@ -31,7 +33,16 @@ _COLLECTIONS = (
 
 
 def _canonical_json(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    def normalize(item: Any) -> Any:
+        if isinstance(item, dict):
+            return {key: normalize(child) for key, child in item.items()}
+        if isinstance(item, list):
+            return [normalize(child) for child in item]
+        if isinstance(item, float) and math.isfinite(item) and item.is_integer():
+            return int(item)
+        return item
+
+    return json.dumps(normalize(value), ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
 
 
 def _digest(prefix: str, value: Any, length: int = 20) -> str:
@@ -42,6 +53,11 @@ def _digest(prefix: str, value: Any, length: int = 20) -> str:
 def _handoff_fingerprint(record: dict[str, Any]) -> str:
     unsigned = {key: value for key, value in record.items() if key != "handoffFingerprint"}
     return _digest("ERH", unsigned)
+
+
+def receiver_verification_receipt_fingerprint(record: dict[str, Any]) -> str:
+    unsigned = {key: value for key, value in record.items() if key != "receiptFingerprint"}
+    return _digest(RECEIPT_FINGERPRINT_PREFIX, unsigned)
 
 
 def _transfer_id(transfer: dict[str, Any], calculation_fingerprint: str) -> str:
@@ -218,6 +234,13 @@ def build_removal_transfer_handoff(
             "verified": 0,
             "receiptKind": RECEIPT_KIND,
         },
+        "receiptContract": {
+            "schemaVersion": SCHEMA_VERSION,
+            "kind": RECEIPT_KIND,
+            "fingerprintAlgorithm": "RVR-SHA256-canonical-json-first-20-uppercase",
+            "coverage": "all-ERT-transfers-required",
+            "verifierIdentityAuthentication": "manual-review-required",
+        },
         "boundary": {
             "requiresReceiverVerification": True,
             "autoApplied": False,
@@ -256,7 +279,137 @@ def validate_removal_transfer_handoff(record: dict[str, Any]) -> dict[str, Any]:
     boundary = record.get("boundary", {})
     if boundary.get("requiresReceiverVerification") is not True or boundary.get("autoApplied") is not False or boundary.get("autoVerified") is not False:
         raise ValueError("拆撐承接構造交接檔未保留接收端明確驗證邊界。")
+    receipt_contract = record.get("receiptContract", {})
+    if (
+        receipt_contract.get("schemaVersion") != SCHEMA_VERSION
+        or receipt_contract.get("kind") != RECEIPT_KIND
+        or receipt_contract.get("coverage") != "all-ERT-transfers-required"
+        or receipt_contract.get("verifierIdentityAuthentication") != "manual-review-required"
+    ):
+        raise ValueError("拆撐承接構造交接檔缺少受控回簽契約。")
     return deepcopy(record)
+
+
+def same_removal_transfer_handoff_content(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    """Compare issued handoffs without treating issuance time as engineering content."""
+    ignored = {"generatedAt", "handoffFingerprint"}
+    left_payload = {key: value for key, value in left.items() if key not in ignored}
+    right_payload = {key: value for key, value in right.items() if key not in ignored}
+    return hmac.compare_digest(
+        _canonical_json(left_payload).encode("utf-8"),
+        _canonical_json(right_payload).encode("utf-8"),
+    )
+
+
+def _required_text(value: Any, field_name: str, *, max_length: int = 240) -> str:
+    text = str(value or "").strip()
+    if not text:
+        raise ValueError(f"承接構造回簽缺少{field_name}。")
+    if len(text) > max_length:
+        raise ValueError(f"承接構造回簽的{field_name}過長。")
+    return text
+
+
+def _finite_nonnegative(value: Any, field_name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"承接構造回簽的{field_name}不是有效數值。")
+    number = float(value)
+    if not math.isfinite(number) or number < 0:
+        raise ValueError(f"承接構造回簽的{field_name}不是非負有限數值。")
+    return number
+
+
+def validate_receiver_verification_receipt(
+    receipt: dict[str, Any],
+    handoff: dict[str, Any],
+) -> dict[str, Any]:
+    """Validate an external receiver result without authenticating the verifier identity."""
+    validated_handoff = validate_removal_transfer_handoff(handoff)
+    if not isinstance(receipt, dict):
+        raise ValueError("承接構造回簽格式不正確。")
+    if receipt.get("schemaVersion") != SCHEMA_VERSION or receipt.get("kind") != RECEIPT_KIND:
+        raise ValueError("承接構造回簽版本或種類不受支援。")
+
+    fingerprint = str(receipt.get("receiptFingerprint", ""))
+    expected_fingerprint = receiver_verification_receipt_fingerprint(receipt)
+    if not re.fullmatch(r"RVR-[0-9A-F]{20}", fingerprint) or not hmac.compare_digest(
+        fingerprint,
+        expected_fingerprint,
+    ):
+        raise ValueError("承接構造回簽內容與回簽指紋不一致。")
+    if not hmac.compare_digest(
+        str(receipt.get("handoffFingerprint", "")),
+        str(validated_handoff["handoffFingerprint"]),
+    ):
+        raise ValueError("承接構造回簽所指向的 ERH 交接版本不存在或不一致。")
+    if not hmac.compare_digest(
+        str(receipt.get("sourceCalculationFingerprint", "")),
+        str(validated_handoff["source"]["calculationFingerprint"]),
+    ):
+        raise ValueError("承接構造回簽的來源計算指紋與 ERH 交接檔不一致。")
+
+    issued_at = _required_text(receipt.get("issuedAt"), "回簽時間", max_length=40)
+    try:
+        datetime.fromisoformat(issued_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("承接構造回簽時間不是有效 ISO 8601 日期時間。") from exc
+
+    authority = receipt.get("verificationAuthority")
+    if not isinstance(authority, dict):
+        raise ValueError("承接構造回簽缺少驗證單位與人員資料。")
+    _required_text(authority.get("organization"), "驗證單位", max_length=120)
+    _required_text(authority.get("verifierName"), "驗證人員", max_length=80)
+    _required_text(authority.get("verifierRole"), "驗證人員職責", max_length=80)
+    _required_text(authority.get("reportReference"), "正式檢核文件編號", max_length=160)
+
+    results = receipt.get("results")
+    if not isinstance(results, list) or not results:
+        raise ValueError("承接構造回簽沒有逐筆驗證結果。")
+    required_ids = {str(item["transferId"]) for item in validated_handoff["transfers"]}
+    received_ids: set[str] = set()
+    passed = 0
+    failed = 0
+    for result in results:
+        if not isinstance(result, dict):
+            raise ValueError("承接構造回簽包含格式不正確的逐筆結果。")
+        transfer_id = str(result.get("transferId", ""))
+        if transfer_id not in required_ids or transfer_id in received_ids:
+            raise ValueError("承接構造回簽的 ERT 交接列不存在、重複或不屬於指定 ERH。")
+        received_ids.add(transfer_id)
+        status = result.get("status")
+        if status not in {"passed", "failed"}:
+            raise ValueError("承接構造回簽逐筆狀態只允許 passed 或 failed。")
+        _required_text(result.get("receiverTarget"), "承接構造識別", max_length=160)
+        _required_text(result.get("verificationBasis"), "逐筆檢核依據")
+        _required_text(result.get("conclusion"), "逐筆檢核結論")
+        _finite_nonnegative(result.get("adoptedDemandTf"), "採用需求值")
+        ratio = _finite_nonnegative(result.get("capacityUtilizationRatio"), "容量利用率")
+        if status == "passed" and ratio > 1.0 + 1e-9:
+            raise ValueError("承接構造回簽將容量利用率大於 1 的結果標示為 passed。")
+        if status == "passed":
+            passed += 1
+        else:
+            failed += 1
+    if received_ids != required_ids:
+        raise ValueError("承接構造回簽未完整涵蓋指定 ERH 的全部 ERT 交接列。")
+
+    summary = receipt.get("summary")
+    expected_status = "passed" if failed == 0 else "failed"
+    if not isinstance(summary, dict) or summary.get("status") != expected_status:
+        raise ValueError("承接構造回簽彙整狀態與逐筆結果不一致。")
+    if summary.get("passed") != passed or summary.get("failed") != failed:
+        raise ValueError("承接構造回簽彙整筆數與逐筆結果不一致。")
+
+    boundary = receipt.get("boundary")
+    if not isinstance(boundary, dict):
+        raise ValueError("承接構造回簽缺少責任邊界。")
+    if (
+        boundary.get("receiverCalculationCompleted") is not True
+        or boundary.get("sourceToolDidNotAutoVerify") is not True
+        or boundary.get("verifierIdentityRequiresManualReview") is not True
+    ):
+        raise ValueError("承接構造回簽未保留接收端計算與回簽人身分核對邊界。")
+    return deepcopy(receipt)
 
 
 __all__ = [
@@ -264,5 +417,8 @@ __all__ = [
     "KIND",
     "RECEIPT_KIND",
     "build_removal_transfer_handoff",
+    "receiver_verification_receipt_fingerprint",
+    "same_removal_transfer_handoff_content",
     "validate_removal_transfer_handoff",
+    "validate_receiver_verification_receipt",
 ]

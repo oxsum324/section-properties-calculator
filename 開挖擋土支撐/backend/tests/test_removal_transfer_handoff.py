@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import json
 import unittest
 
 from backend.app.calculations import calculate_project
@@ -8,7 +9,10 @@ from backend.app.removal_transfer_handoff import (
     KIND,
     RECEIPT_KIND,
     build_removal_transfer_handoff,
+    receiver_verification_receipt_fingerprint,
+    same_removal_transfer_handoff_content,
     validate_removal_transfer_handoff,
+    validate_receiver_verification_receipt,
 )
 from backend.app.reporting import calculation_fingerprint
 from backend.app.schemas import AnalysisForceCase
@@ -42,6 +46,49 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         project.calculation_results = calculate_project(project)
         return project
 
+    def receiver_receipt(self, handoff, *, status: str = "passed"):
+        results = []
+        for transfer in handoff["transfers"]:
+            ratio = 0.82 if status == "passed" else 1.08
+            results.append(
+                {
+                    "transferId": transfer["transferId"],
+                    "status": status,
+                    "receiverTarget": transfer["receiver"]["target"] or "另案承接構造 RC-01",
+                    "adoptedDemandTf": transfer["sourceDemand"]["memberDesignAxialForceTf"],
+                    "capacityUtilizationRatio": ratio,
+                    "verificationBasis": "承接構造階段分析模型 RV-01",
+                    "conclusion": "容量及傳力路徑檢核通過" if status == "passed" else "容量檢核不通過",
+                }
+            )
+        failed = sum(item["status"] == "failed" for item in results)
+        receipt = {
+            "schemaVersion": 1,
+            "kind": RECEIPT_KIND,
+            "issuedAt": "2026-08-07T12:00:00Z",
+            "handoffFingerprint": handoff["handoffFingerprint"],
+            "sourceCalculationFingerprint": handoff["source"]["calculationFingerprint"],
+            "verificationAuthority": {
+                "organization": "承接構造設計單位",
+                "verifierName": "王工程師",
+                "verifierRole": "結構設計覆核",
+                "reportReference": "RV-01-20260807",
+            },
+            "results": results,
+            "summary": {
+                "status": "failed" if failed else "passed",
+                "passed": len(results) - failed,
+                "failed": failed,
+            },
+            "boundary": {
+                "receiverCalculationCompleted": True,
+                "sourceToolDidNotAutoVerify": True,
+                "verifierIdentityRequiresManualReview": True,
+            },
+        }
+        receipt["receiptFingerprint"] = receiver_verification_receipt_fingerprint(receipt)
+        return receipt
+
     def test_builds_pending_receiver_verification_handoff(self) -> None:
         project = self.prepared_project()
         fingerprint = calculation_fingerprint(project)
@@ -66,6 +113,7 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         self.assertEqual(transfer["verification"]["acceptedReceiptKind"], RECEIPT_KIND)
         self.assertTrue(record["boundary"]["requiresReceiverVerification"])
         self.assertFalse(record["boundary"]["autoVerified"])
+        self.assertEqual(validate_removal_transfer_handoff(json.loads(json.dumps(record))), record)
 
     def test_rejects_tampered_transfer_content(self) -> None:
         project = self.prepared_project()
@@ -105,6 +153,62 @@ class RemovalTransferHandoffTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "目前沒有已完成計算"):
             build_removal_transfer_handoff(project, calculation_fingerprint(project))
+
+    def test_validates_complete_external_receiver_receipt(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt = self.receiver_receipt(handoff)
+
+        validated = validate_receiver_verification_receipt(receipt, handoff)
+
+        self.assertRegex(validated["receiptFingerprint"], r"^RVR-[0-9A-F]{20}$")
+        self.assertEqual(validated["summary"]["status"], "passed")
+        self.assertTrue(validated["boundary"]["verifierIdentityRequiresManualReview"])
+        round_tripped = json.loads(json.dumps(receipt))
+        self.assertEqual(validate_receiver_verification_receipt(round_tripped, handoff), receipt)
+
+    def test_rejects_tampered_receiver_receipt(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt = self.receiver_receipt(handoff)
+        receipt["results"][0]["adoptedDemandTf"] += 1
+
+        with self.assertRaisesRegex(ValueError, "回簽內容與回簽指紋不一致"):
+            validate_receiver_verification_receipt(receipt, handoff)
+
+    def test_rejects_incomplete_receiver_receipt(self) -> None:
+        project = self.prepared_project()
+        second = deepcopy(project.top_supports[0])
+        second.level_label = "第二層"
+        project.top_supports.append(second)
+        project.calculation_results = calculate_project(project)
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt = self.receiver_receipt(handoff)
+        receipt["results"].pop()
+        receipt["summary"]["passed"] = 1
+        receipt["receiptFingerprint"] = receiver_verification_receipt_fingerprint(receipt)
+
+        with self.assertRaisesRegex(ValueError, "未完整涵蓋"):
+            validate_receiver_verification_receipt(receipt, handoff)
+
+    def test_rejects_passed_receipt_with_over_capacity_ratio(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt = self.receiver_receipt(handoff)
+        receipt["results"][0]["capacityUtilizationRatio"] = 1.01
+        receipt["receiptFingerprint"] = receiver_verification_receipt_fingerprint(receipt)
+
+        with self.assertRaisesRegex(ValueError, "利用率大於 1"):
+            validate_receiver_verification_receipt(receipt, handoff)
+
+    def test_reuses_handoff_when_only_issue_time_changes(self) -> None:
+        project = self.prepared_project()
+        fingerprint = calculation_fingerprint(project)
+        first = build_removal_transfer_handoff(project, fingerprint, generated_at="2026-08-07T10:00:00Z")
+        second = build_removal_transfer_handoff(project, fingerprint, generated_at="2026-08-07T11:00:00Z")
+
+        self.assertNotEqual(first["handoffFingerprint"], second["handoffFingerprint"])
+        self.assertTrue(same_removal_transfer_handoff_content(first, second))
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 from pathlib import Path
 from typing import Any, Literal
@@ -14,7 +15,12 @@ from .calculations import calculate_project
 from .config import get_settings
 from .parsers import parse_analysis_file
 from .project_store import ProjectStore
-from .removal_transfer_handoff import build_removal_transfer_handoff
+from .removal_transfer_handoff import (
+    build_removal_transfer_handoff,
+    same_removal_transfer_handoff_content,
+    validate_removal_transfer_handoff,
+    validate_receiver_verification_receipt,
+)
 from .reporting import build_report, build_word_report, calculation_fingerprint
 from .schemas import (
     AnalysisImportResult,
@@ -585,11 +591,83 @@ def generate_removal_transfer_handoff(project_id: str) -> dict[str, Any]:
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Project not found") from exc
     project.calculation_results = calculate_project(project)
-    project = store.save_project(project)
     try:
-        return build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        candidate = build_removal_transfer_handoff(project, calculation_fingerprint(project))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    handoffs = list(project.removal_transfer_handoffs)
+    latest_handoff_is_valid = False
+    if handoffs:
+        try:
+            validate_removal_transfer_handoff(handoffs[-1])
+            latest_handoff_is_valid = True
+        except ValueError:
+            latest_handoff_is_valid = False
+    if latest_handoff_is_valid and same_removal_transfer_handoff_content(handoffs[-1], candidate):
+        record = handoffs[-1]
+    else:
+        handoffs.append(candidate)
+        project.removal_transfer_handoffs = handoffs[-50:]
+        record = candidate
+    store.save_project(project)
+    return record
+
+
+@app.post("/api/projects/{project_id}/removal-transfer-receipts")
+async def import_removal_transfer_receipt(
+    project_id: str,
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    try:
+        project = store.get_project(project_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Project not found") from exc
+    data = await file.read()
+    if not data or len(data) > 1_000_000:
+        raise HTTPException(status_code=400, detail="承接構造回簽檔必須為 1 MB 以下的非空 JSON。")
+    try:
+        payload = json.loads(data.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail="承接構造回簽檔不是有效的 UTF-8 JSON。") from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="承接構造回簽最外層必須為 JSON 物件。")
+    handoff_fingerprint = str(payload.get("handoffFingerprint", ""))
+    handoff = next(
+        (
+            item
+            for item in reversed(project.removal_transfer_handoffs)
+            if str(item.get("handoffFingerprint", "")) == handoff_fingerprint
+        ),
+        None,
+    )
+    if handoff is None:
+        raise HTTPException(status_code=400, detail="本專案找不到回簽所指向的已發 ERH 交接版本。")
+    try:
+        receipt = validate_receiver_verification_receipt(payload, handoff)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    receipt_fingerprint = str(receipt["receiptFingerprint"])
+    if any(
+        str(item.get("receiptFingerprint", "")) == receipt_fingerprint
+        for item in project.removal_transfer_verification_receipts
+    ):
+        raise HTTPException(status_code=409, detail="本專案已匯入相同承接構造回簽。")
+    project.removal_transfer_verification_receipts = [
+        *project.removal_transfer_verification_receipts,
+        receipt,
+    ][-100:]
+    store.save_imported_file(project_id, f"removal-transfer-receipt-{receipt_fingerprint}.json", data)
+    project = store.save_project(project)
+    return {
+        "project": project,
+        "handoff": handoff,
+        "receipt": receipt,
+        "receiptValidation": {
+            "integrity": "valid",
+            "engineeringStatus": receipt["summary"]["status"],
+            "verifierIdentity": "manual-review-required",
+        },
+    }
 
 
 @app.post("/api/projects/{project_id}/report", response_model=ReportPayload)
