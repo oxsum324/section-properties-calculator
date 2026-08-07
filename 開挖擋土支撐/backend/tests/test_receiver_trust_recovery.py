@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from backend.app.receiver_trust_recovery import (
+    evaluate_receiver_trust_backup_directory,
     perform_receiver_trust_registry_recovery_drill,
     validate_receiver_trust_recovery_drill_receipt,
     validate_receiver_trust_registry_backup_file,
@@ -137,6 +138,66 @@ class ReceiverTrustRecoveryTests(unittest.TestCase):
             future["performedAt"] = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
             with self.assertRaisesRegex(ValueError, "不可晚於目前時間"):
                 validate_receiver_trust_recovery_drill_receipt(future)
+
+    def test_backup_health_accepts_a_current_matching_evidence_pair(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            store = self._registered_store(root / "receiver-trust.json")
+            backup_path, backup = write_receiver_trust_registry_backup(store, root / "evidence")
+            receipt_path, receipt = perform_receiver_trust_registry_recovery_drill(
+                backup_path,
+                root / "evidence",
+                production_registry_path=store.path,
+            )
+
+            result = evaluate_receiver_trust_backup_directory(root / "evidence", max_age_days=8)
+
+            self.assertEqual(result["status"], "backup-health-ok")
+            self.assertEqual(result["backupPath"], str(backup_path))
+            self.assertEqual(result["receiptPath"], str(receipt_path))
+            self.assertEqual(result["backupFingerprint"], backup["backupFingerprint"])
+            self.assertEqual(result["receiptFingerprint"], receipt["receiptFingerprint"])
+            self.assertTrue(result["productionRegistryUnchanged"])
+
+    def test_backup_health_rejects_a_new_backup_without_matching_drill(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            store = self._registered_store(root / "receiver-trust.json")
+            first_backup, _ = write_receiver_trust_registry_backup(store, root / "evidence")
+            perform_receiver_trust_registry_recovery_drill(
+                first_backup,
+                root / "evidence",
+                production_registry_path=store.path,
+            )
+            second_export = (datetime.now(timezone.utc) + timedelta(seconds=1)).isoformat().replace("+00:00", "Z")
+            write_receiver_trust_registry_backup(store, root / "evidence", exported_at=second_export)
+
+            with self.assertRaisesRegex(ValueError, "不是同一組可追溯證據"):
+                evaluate_receiver_trust_backup_directory(root / "evidence", max_age_days=8)
+
+    def test_backup_health_rejects_stale_drill_receipt(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            store = self._registered_store(root / "receiver-trust.json")
+            now = datetime.now(timezone.utc)
+            backup_path, _ = write_receiver_trust_registry_backup(
+                store,
+                root / "evidence",
+                exported_at=now.isoformat().replace("+00:00", "Z"),
+            )
+            perform_receiver_trust_registry_recovery_drill(
+                backup_path,
+                root / "evidence",
+                production_registry_path=store.path,
+                performed_at=(now - timedelta(days=9)).isoformat().replace("+00:00", "Z"),
+            )
+
+            with self.assertRaisesRegex(ValueError, "復原演練收據已超過 8 天"):
+                evaluate_receiver_trust_backup_directory(
+                    root / "evidence",
+                    max_age_days=8,
+                    now=now,
+                )
 
 
 if __name__ == "__main__":

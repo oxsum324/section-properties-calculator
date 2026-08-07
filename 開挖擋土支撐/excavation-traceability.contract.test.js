@@ -76,6 +76,7 @@ const receiverTrustBackup = readUtf8('backend/app/receiver_trust_backup.py');
 const receiverTrustRecovery = readUtf8('backend/app/receiver_trust_recovery.py');
 const receiverTrustBackupCli = readUtf8('backend/backup_receiver_trust_registry.py');
 const receiverTrustBackupLauncher = readUtf8('backup_receiver_trust_registry.ps1');
+const receiverTrustHealthLauncher = readUtf8('check_receiver_trust_backup_health.ps1');
 const receiverTrustStoreTests = readUtf8('backend/tests/test_receiver_trust_store.py');
 const receiverTrustRecoveryTests = readUtf8('backend/tests/test_receiver_trust_recovery.py');
 
@@ -329,6 +330,7 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'receiptFingerprint',
   'RDR-',
   '備份最長允許天數',
+  'backup-health-ok',
 ].forEach((needle) => {
   assert(receiverTrustRecovery.includes(needle), `excavation receiver trust recovery keeps ${needle}`, needle);
 });
@@ -339,6 +341,7 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'backup-cycle-passed',
   '--max-age-days',
   'productionRegistryUnchanged',
+  'evaluate_receiver_trust_backup_directory',
 ].forEach((needle) => {
   assert(receiverTrustBackupCli.includes(needle), `excavation receiver trust backup CLI keeps ${needle}`, needle);
 });
@@ -349,6 +352,15 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   '--max-age-days',
 ].forEach((needle) => {
   assert(receiverTrustBackupLauncher.includes(needle), `excavation receiver trust backup launcher keeps ${needle}`, needle);
+});
+[
+  'RVR-backup-health-latest.json',
+  'attention-required',
+  'Get-ScheduledTaskInfo',
+  'LastTaskResult',
+  'Show-HealthAlert',
+].forEach((needle) => {
+  assert(receiverTrustHealthLauncher.includes(needle), `excavation receiver trust health launcher keeps ${needle}`, needle);
 });
 [
   'test_validates_and_registers_proof_of_possession_enrollment',
@@ -368,6 +380,9 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'test_backup_cycle_restores_in_isolation_and_keeps_production_unchanged',
   'test_tampered_backup_cannot_create_drill_receipt',
   'test_backup_freshness_gate_rejects_stale_evidence',
+  'test_backup_health_accepts_a_current_matching_evidence_pair',
+  'test_backup_health_rejects_a_new_backup_without_matching_drill',
+  'test_backup_health_rejects_stale_drill_receipt',
   'test_existing_backup_is_never_overwritten_or_deleted',
   'test_drill_receipt_tampering_is_detected',
 ].forEach((needle) => {

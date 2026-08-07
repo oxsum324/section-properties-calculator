@@ -165,6 +165,67 @@ def validate_receiver_trust_recovery_drill_receipt(receipt: Any) -> dict[str, An
     return dict(receipt)
 
 
+def evaluate_receiver_trust_backup_directory(
+    directory: Path,
+    *,
+    max_age_days: int = 8,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    if max_age_days <= 0:
+        raise ValueError("備份健康檢查的最長允許天數必須大於 0。")
+    if not directory.is_dir():
+        raise ValueError("RVR 備份資料夾不存在或無法讀取。")
+
+    backup_paths = list(directory.glob("RVR-trust-registry-backup-*.json"))
+    receipt_paths = list(directory.glob("RVR-recovery-drill-*.json"))
+    if not backup_paths:
+        raise ValueError("RVR 備份資料夾內沒有信任清冊備份。")
+    if not receipt_paths:
+        raise ValueError("RVR 備份資料夾內沒有復原演練收據。")
+
+    latest_backup = max(backup_paths, key=lambda path: path.stat().st_mtime_ns)
+    latest_receipt = max(receipt_paths, key=lambda path: path.stat().st_mtime_ns)
+    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    validated_file = validate_receiver_trust_registry_backup_file(
+        latest_backup,
+        max_age_days=max_age_days,
+        now=current,
+    )
+    try:
+        receipt_payload = json.loads(latest_receipt.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("無法讀取最新的 RVR 復原演練收據。") from exc
+    receipt = validate_receiver_trust_recovery_drill_receipt(receipt_payload)
+    performed_at = _parse_time(receipt["performedAt"], "復原演練時間")
+    receipt_age_seconds = max(0.0, (current - performed_at).total_seconds())
+    if receipt_age_seconds > max_age_days * 86400:
+        raise ValueError(f"RVR 復原演練收據已超過 {max_age_days} 天的新鮮度門檻。")
+
+    backup = validated_file["backup"]
+    relationships = {
+        "backupFileName": receipt["backupFileName"] == latest_backup.name,
+        "backupFileSha256": receipt["backupFileSha256"] == validated_file["fileSha256"],
+        "backupFingerprint": receipt["backupFingerprint"] == backup["backupFingerprint"],
+        "registryFingerprint": receipt["registryFingerprint"] == backup["registry"]["registryFingerprint"],
+    }
+    if not all(relationships.values()):
+        raise ValueError("最新備份與最新復原演練收據不是同一組可追溯證據。")
+    if receipt["productionRegistryObserved"] is not True:
+        raise ValueError("最新復原演練沒有實際觀察正式信任清冊。")
+
+    return {
+        "status": "backup-health-ok",
+        "backupPath": str(latest_backup),
+        "receiptPath": str(latest_receipt),
+        "backupFingerprint": backup["backupFingerprint"],
+        "registryFingerprint": backup["registry"]["registryFingerprint"],
+        "receiptFingerprint": receipt["receiptFingerprint"],
+        "backupAgeSeconds": validated_file["ageSeconds"],
+        "receiptAgeSeconds": round(receipt_age_seconds, 3),
+        "productionRegistryUnchanged": receipt["productionRegistryUnchanged"],
+    }
+
+
 def perform_receiver_trust_registry_recovery_drill(
     backup_path: Path,
     receipt_directory: Path,
@@ -234,6 +295,7 @@ def perform_receiver_trust_registry_recovery_drill(
 
 __all__ = [
     "RECEIVER_TRUST_RECOVERY_DRILL_KIND",
+    "evaluate_receiver_trust_backup_directory",
     "perform_receiver_trust_registry_recovery_drill",
     "validate_receiver_trust_recovery_drill_receipt",
     "validate_receiver_trust_registry_backup_file",

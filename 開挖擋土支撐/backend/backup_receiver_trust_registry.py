@@ -7,6 +7,7 @@ from typing import Any
 
 from .app.config import get_settings
 from .app.receiver_trust_recovery import (
+    evaluate_receiver_trust_backup_directory,
     perform_receiver_trust_registry_recovery_drill,
     validate_receiver_trust_registry_backup_file,
     write_receiver_trust_registry_backup,
@@ -46,6 +47,10 @@ def main() -> int:
     cycle_parser.add_argument("--receipt-dir", type=Path)
     cycle_parser.add_argument("--max-age-days", type=int, default=30)
 
+    health_parser = subparsers.add_parser("health", help="驗證最新備份與復原演練收據是否完整且仍在期限內")
+    health_parser.add_argument("--backup-dir", required=True, type=Path)
+    health_parser.add_argument("--max-age-days", type=int, default=8)
+
     args = parser.parse_args()
     try:
         store = ReceiverTrustStore(args.registry)
@@ -84,7 +89,7 @@ def main() -> int:
                 "registryFingerprint": receipt["registryFingerprint"],
                 "productionRegistryUnchanged": receipt["productionRegistryUnchanged"],
             })
-        else:
+        elif args.command == "cycle":
             receipt_directory = args.receipt_dir or args.output_dir
             backup_path, backup = write_receiver_trust_registry_backup(store, args.output_dir)
             receipt_path, receipt = perform_receiver_trust_registry_recovery_drill(
@@ -102,6 +107,11 @@ def main() -> int:
                 "receiptFingerprint": receipt["receiptFingerprint"],
                 "productionRegistryUnchanged": receipt["productionRegistryUnchanged"],
             })
+        else:
+            _print_result(evaluate_receiver_trust_backup_directory(
+                args.backup_dir,
+                max_age_days=args.max_age_days,
+            ))
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
     return 0

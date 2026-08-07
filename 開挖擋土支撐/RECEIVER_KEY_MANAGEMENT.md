@@ -99,4 +99,19 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 
 建議把輸出目錄設在與正式清冊不同的受控磁碟、受管網路位置或組織既有備份系統，並由組織決定保存年限、存取權限、異地副本及定期抽驗。`RDR-...` 只證明該次備份曾在隔離暫存清冊成功復原且正式清冊未被該流程更動，不等於外部可信時間戳、異地副本存在證明或正式工程核可。
 
+### 備份健康監測
+
+Windows 使用者可雙擊 `檢查RVR備份健康狀態.bat`，或讓工作排程器執行 `check_receiver_trust_backup_health.ps1`。健康檢查會同時驗證最新 `RTB-...` 備份、最新 `RDR-...` 收據、兩者的檔名／SHA-256／指紋關聯、新鮮度，以及每週備份排程最近一次結果。任何一項不符都會寫入 `RVR-backup-health-latest.json`，並可用 `-ShowAlert` 顯示限時警示；檢查本身不會修改正式清冊、備份或演練收據。
+
+每週備份排程若為七天一次，健康檢查建議每天執行並把 `-MaxAgeDays` 設為 `8`，保留合理的登入與同步時間差：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File "C:\Path\開挖擋土支撐\check_receiver_trust_backup_health.ps1" `
+  -BackupDirectory "X:\受控備份\RVR信任清冊" `
+  -BackupTaskName "RVR信任清冊每週備份與復原演練" `
+  -MaxAgeDays 8 `
+  -ShowAlert
+```
+
 本工具不代替組織的資訊安全制度、憑證機構或硬體安全模組。高風險案件宜將私鑰移至既有 HSM／智慧卡／受管金鑰服務，並保留金鑰啟用、輪替、撤銷與保管人交接紀錄。
