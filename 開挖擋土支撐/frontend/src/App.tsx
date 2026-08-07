@@ -18,6 +18,7 @@ import {
   ProjectListItem,
   ProjectState,
   ReferenceData,
+  RemovalTransferMode,
   SectionProperty,
   SoilLayer,
   SupportRow,
@@ -644,8 +645,7 @@ function App() {
   function updateAnalysisMapping(
     key: "top_supports" | "bottom_supports" | "top_braces" | "bottom_braces",
     index: number,
-    patch: Partial<Pick<SupportRow,
-      "construction_step_label" | "analysis_mapping_basis" | "analysis_mapping_confirmed">>,
+    patch: AnalysisMappingPatch,
   ) {
     if (!project) return;
     const rows = [...project[key]] as Array<SupportRow | BraceRow>;
@@ -654,6 +654,16 @@ function App() {
     const next = { ...current, ...patch };
     if ("construction_step_label" in patch || "analysis_mapping_basis" in patch) {
       next.analysis_mapping_confirmed = false;
+    }
+    if (
+      "removal_transfer_mode" in patch ||
+      "removal_transfer_target" in patch ||
+      "removal_transfer_basis" in patch
+    ) {
+      next.removal_transfer_confirmed = false;
+    }
+    if (patch.removal_transfer_mode === "unassigned" || patch.removal_transfer_mode === "outside_scope") {
+      next.removal_transfer_target = "";
     }
     rows[index] = next;
     applyProjectState({ ...project, [key]: rows, calculation_results: null } as ProjectState);
@@ -3770,7 +3780,23 @@ function ManualSupportLoadTable(props: {
 }
 
 type AnalysisMappingPatch = Partial<Pick<SupportRow,
-  "construction_step_label" | "analysis_mapping_basis" | "analysis_mapping_confirmed">>;
+  | "construction_step_label"
+  | "analysis_mapping_basis"
+  | "analysis_mapping_confirmed"
+  | "removal_transfer_mode"
+  | "removal_transfer_target"
+  | "removal_transfer_basis"
+  | "removal_transfer_confirmed"
+>>;
+
+const removalTransferOptions: Array<{ value: RemovalTransferMode; label: string }> = [
+  { value: "unassigned", label: "尚未指定" },
+  { value: "outside_scope", label: "本構件檢核範圍外（另案檢核）" },
+  { value: "floor", label: "移轉至樓版" },
+  { value: "reshore", label: "移轉至重撐／回撐" },
+  { value: "permanent_structure", label: "移轉至永久結構" },
+  { value: "other", label: "其他人工指定處置" },
+];
 
 function AnalysisMappingEditor(props: {
   row: SupportRow | BraceRow;
@@ -3778,10 +3804,18 @@ function AnalysisMappingEditor(props: {
 }) {
   if (props.row.force_source !== "analysis_import") return null;
   const cases = props.row.analysis_stage_cases ?? [];
-  const complete = Boolean(
+  const mappingComplete = Boolean(
     props.row.analysis_mapping_confirmed &&
     props.row.construction_step_label?.trim() &&
     props.row.analysis_mapping_basis?.trim(),
+  );
+  const hasRemoval = props.row.analysis_removal_stage_index != null;
+  const transferMode = props.row.removal_transfer_mode ?? "unassigned";
+  const transferComplete = !hasRemoval || Boolean(
+    transferMode !== "unassigned" &&
+    props.row.removal_transfer_confirmed &&
+    props.row.removal_transfer_basis?.trim() &&
+    (transferMode === "outside_scope" || props.row.removal_transfer_target?.trim()),
   );
   return (
     <div className="analysis-stage-mapping-card">
@@ -3793,12 +3827,12 @@ function AnalysisMappingEditor(props: {
             ? ` → 拆撐 #${props.row.analysis_removal_stage_index} ${props.row.analysis_removal_stage_label || ""}`
             : " → 未辨識拆撐事件"}
         </strong>
-        <span className={`status-chip ${complete ? "ok" : "warn"}`}>{complete ? "已確認施工步驟對應" : "待確認施工步驟對應"}</span>
+        <span className={`status-chip ${mappingComplete ? "ok" : "warn"}`}>{mappingComplete ? "已確認施工步驟對應" : "待確認施工步驟對應"}</span>
       </div>
       <p className="meta-line">
         控制階段軸力候選：{cases.map((item) => `#${item.stage_index} ${item.stage_label} = ${fmt(item.axial_force_t)} tf`).join("；") || "缺少候選資料"}
       </p>
-      <p className="meta-line">拆撐後的樓版或重撐傳力不由匯入資料自動推定，須另依正式分析模型與施工順序確認。</p>
+      <p className="meta-line">拆撐後的傳力路徑不由匯入資料自動推定；以下只記錄人工採用的處置，承接構造仍須另依正式模型完成檢核。</p>
       <div className="analysis-stage-mapping-grid">
         <label className="field-block">
           <span>實際施工步驟（必填）</span>
@@ -3819,6 +3853,41 @@ function AnalysisMappingEditor(props: {
           />
         </label>
       </div>
+      {hasRemoval && (
+        <div className="analysis-stage-mapping-grid removal-transfer-grid">
+          <label className="field-block">
+            <span>拆撐後荷重處置（必選）</span>
+            <select
+              value={transferMode}
+              onChange={(event) => props.onChange({ removal_transfer_mode: event.target.value as RemovalTransferMode })}
+            >
+              {removalTransferOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+          {transferMode !== "unassigned" && transferMode !== "outside_scope" && (
+            <label className="field-block">
+              <span>承接構造／指定對象（必填）</span>
+              <input
+                value={props.row.removal_transfer_target ?? ""}
+                maxLength={120}
+                placeholder="例如：B2F 樓版 S1 區、第二道回撐 R2"
+                onChange={(event) => props.onChange({ removal_transfer_target: event.target.value })}
+              />
+            </label>
+          )}
+          {transferMode !== "unassigned" && (
+            <label className="field-block">
+              <span>拆撐處置依據（必填）</span>
+              <input
+                value={props.row.removal_transfer_basis ?? ""}
+                maxLength={160}
+                placeholder="例如：拆撐順序圖 CS-04、樓版施工階段分析 ST-12"
+                onChange={(event) => props.onChange({ removal_transfer_basis: event.target.value })}
+              />
+            </label>
+          )}
+        </div>
+      )}
       <label className="check-field analysis-stage-mapping-confirm">
         <input
           type="checkbox"
@@ -3827,6 +3896,18 @@ function AnalysisMappingEditor(props: {
         />
         <span>確認本列安裝、控制內力與拆撐時序，並與上述實際施工步驟相符</span>
       </label>
+      {hasRemoval && (
+        <label className="check-field analysis-stage-mapping-confirm">
+          <input
+            type="checkbox"
+            disabled={transferMode === "unassigned"}
+            checked={props.row.removal_transfer_confirmed ?? false}
+            onChange={(event) => props.onChange({ removal_transfer_confirmed: event.target.checked })}
+          />
+          <span>確認拆撐後荷重處置及承接構造的另案檢核邊界</span>
+          <span className={`status-chip ${transferComplete ? "ok" : "warn"}`}>{transferComplete ? "處置已確認" : "處置待確認"}</span>
+        </label>
+      )}
     </div>
   );
 }
@@ -5362,6 +5443,10 @@ function normalizedAnalysisMapping(row: SupportRow | BraceRow): AnalysisMappingP
     analysis_control_stage_label: row.analysis_control_stage_label ?? "",
     analysis_removal_stage_index: row.analysis_removal_stage_index ?? null,
     analysis_removal_stage_label: row.analysis_removal_stage_label ?? "",
+    removal_transfer_mode: row.removal_transfer_mode ?? "unassigned",
+    removal_transfer_target: row.removal_transfer_target ?? "",
+    removal_transfer_basis: row.removal_transfer_basis ?? "",
+    removal_transfer_confirmed: row.removal_transfer_confirmed ?? false,
     construction_step_label: row.construction_step_label ?? "",
     analysis_mapping_confirmed: row.analysis_mapping_confirmed ?? false,
     analysis_mapping_basis: row.analysis_mapping_basis ?? "",
@@ -5850,6 +5935,10 @@ function toCandidateSupportRow(
     analysis_control_stage_label: item.controlStageLabel,
     analysis_removal_stage_index: item.removalStageIndex,
     analysis_removal_stage_label: item.removalStageLabel,
+    removal_transfer_mode: "unassigned",
+    removal_transfer_target: "",
+    removal_transfer_basis: "",
+    removal_transfer_confirmed: false,
     construction_step_label: "",
     analysis_mapping_confirmed: false,
     analysis_mapping_basis: "",
@@ -5879,6 +5968,10 @@ function toCandidateBraceRow(
     analysis_control_stage_label: item.controlStageLabel,
     analysis_removal_stage_index: item.removalStageIndex,
     analysis_removal_stage_label: item.removalStageLabel,
+    removal_transfer_mode: "unassigned",
+    removal_transfer_target: "",
+    removal_transfer_basis: "",
+    removal_transfer_confirmed: false,
     construction_step_label: "",
     analysis_mapping_confirmed: false,
     analysis_mapping_basis: "",

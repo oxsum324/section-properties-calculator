@@ -92,6 +92,8 @@ class ImportFlowTests(unittest.TestCase):
             [11, 9, 9],
         )
         self.assertTrue(all(not row.analysis_mapping_confirmed for row in project.top_supports))
+        self.assertTrue(all(row.removal_transfer_mode == "unassigned" for row in project.top_supports))
+        self.assertTrue(all(not row.removal_transfer_confirmed for row in project.top_supports))
         self.assertTrue(any("忽略樓版" in warning for warning in parsed.warnings))
         self.assertTrue(any("拆撐" in warning for warning in parsed.warnings))
 

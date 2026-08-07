@@ -2108,11 +2108,19 @@ def _formula_detail_content(
 def _analysis_mapping_lines(inputs: dict[str, object]) -> list[str]:
     if inputs.get("內力來源") != "外部分析階段包絡":
         return []
-    return [
+    lines = [
         f"內力來源 = 外部分析階段包絡；分析安裝階段 = {inputs.get('分析安裝階段', '—')}；控制分析階段 = {inputs.get('控制分析階段', '—')}；分析拆撐階段 = {inputs.get('分析拆撐階段', '—')}",
         f"實際施工步驟 = {inputs.get('施工步驟', '—')}；對應依據 = {inputs.get('階段對應依據', '—')}",
         f"控制階段軸力候選（{_fmt_short(inputs.get('分析階段候選數'))} 案）= {inputs.get('分析階段內力', '—')}",
     ]
+    if inputs.get("拆撐後荷重處置") not in {"不適用", "未指定"}:
+        transfer_parts = [f"拆撐後荷重處置 = {inputs.get('拆撐後荷重處置', '—')}"]
+        transfer_target = inputs.get("拆撐後承接構造")
+        if transfer_target not in {None, "", "—"}:
+            transfer_parts.append(f"承接構造 = {transfer_target}")
+        transfer_parts.append(f"處置依據 = {inputs.get('拆撐處置依據', '—')}")
+        lines.append("；".join(transfer_parts))
+    return lines
 
 
 def _support_detail_content(

@@ -156,6 +156,12 @@ class SupportRow(BaseModel):
     analysis_control_stage_label: str = ""
     analysis_removal_stage_index: int | None = None
     analysis_removal_stage_label: str = ""
+    removal_transfer_mode: Literal[
+        "unassigned", "outside_scope", "floor", "reshore", "permanent_structure", "other"
+    ] = "unassigned"
+    removal_transfer_target: str = Field(default="", max_length=120)
+    removal_transfer_basis: str = Field(default="", max_length=160)
+    removal_transfer_confirmed: bool = False
     construction_step_label: str = Field(default="", max_length=120)
     analysis_mapping_confirmed: bool = False
     analysis_mapping_basis: str = Field(default="", max_length=160)
@@ -185,6 +191,12 @@ class BraceRow(BaseModel):
     analysis_control_stage_label: str = ""
     analysis_removal_stage_index: int | None = None
     analysis_removal_stage_label: str = ""
+    removal_transfer_mode: Literal[
+        "unassigned", "outside_scope", "floor", "reshore", "permanent_structure", "other"
+    ] = "unassigned"
+    removal_transfer_target: str = Field(default="", max_length=120)
+    removal_transfer_basis: str = Field(default="", max_length=160)
+    removal_transfer_confirmed: bool = False
     construction_step_label: str = Field(default="", max_length=120)
     analysis_mapping_confirmed: bool = False
     analysis_mapping_basis: str = Field(default="", max_length=160)

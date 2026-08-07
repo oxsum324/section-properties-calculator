@@ -52,6 +52,14 @@ export type AnalysisForceCase = {
   axial_force_t: number;
 };
 
+export type RemovalTransferMode =
+  | "unassigned"
+  | "outside_scope"
+  | "floor"
+  | "reshore"
+  | "permanent_structure"
+  | "other";
+
 export type SupportRow = {
   level_label: string;
   support_count: number;
@@ -67,6 +75,10 @@ export type SupportRow = {
   analysis_control_stage_label?: string;
   analysis_removal_stage_index?: number | null;
   analysis_removal_stage_label?: string;
+  removal_transfer_mode?: RemovalTransferMode;
+  removal_transfer_target?: string;
+  removal_transfer_basis?: string;
+  removal_transfer_confirmed?: boolean;
   construction_step_label?: string;
   analysis_mapping_confirmed?: boolean;
   analysis_mapping_basis?: string;
@@ -96,6 +108,10 @@ export type BraceRow = {
   analysis_control_stage_label?: string;
   analysis_removal_stage_index?: number | null;
   analysis_removal_stage_label?: string;
+  removal_transfer_mode?: RemovalTransferMode;
+  removal_transfer_target?: string;
+  removal_transfer_basis?: string;
+  removal_transfer_confirmed?: boolean;
   construction_step_label?: string;
   analysis_mapping_confirmed?: boolean;
   analysis_mapping_basis?: string;

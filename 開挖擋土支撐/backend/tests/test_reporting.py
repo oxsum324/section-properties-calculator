@@ -10,7 +10,13 @@ from docx import Document
 from pypdf import PdfReader
 
 from backend.app.calculations import calculate_project
-from backend.app.reporting import _concise_metric_text, build_report, build_word_report, calculation_fingerprint
+from backend.app.reporting import (
+    _analysis_mapping_lines,
+    _concise_metric_text,
+    build_report,
+    build_word_report,
+    calculation_fingerprint,
+)
 from backend.app.schemas import AnalysisForceCase
 from backend.app.workbook_loader import load_default_project
 from backend.tests.handoff_fixtures import make_stage_adoption, make_verified_handoff_source
@@ -413,6 +419,10 @@ class ReportingTests(unittest.TestCase):
         row.analysis_control_stage_label = "第二階開挖"
         row.analysis_removal_stage_index = 3
         row.analysis_removal_stage_label = "第一道支撐拆除"
+        row.removal_transfer_mode = "floor"
+        row.removal_transfer_target = "B2F 樓版 S1 區"
+        row.removal_transfer_basis = "拆撐順序圖 CS-04 與樓版階段分析 ST-12"
+        row.removal_transfer_confirmed = True
         row.construction_step_label = "第二階開挖完成、第二層支撐施作前"
         row.analysis_mapping_basis = "施工順序圖 CS-02 與分析階段表逐項核對"
         row.analysis_mapping_confirmed = True
@@ -427,11 +437,55 @@ class ReportingTests(unittest.TestCase):
         self.assertIn("控制分析階段 = #2 第二階開挖", combined_text)
         self.assertIn("分析安裝階段 = #1 第一道支撐安裝", combined_text)
         self.assertIn("分析拆撐階段 = #3 第一道支撐拆除", combined_text)
+        self.assertIn("拆撐後荷重處置 = 移轉至樓版", combined_text)
+        self.assertIn("承接構造 = B2F 樓版 S1 區", combined_text)
+        self.assertIn("處置依據 = 拆撐順序圖 CS-04 與樓版階段分析 ST-12", combined_text)
         self.assertIn("實際施工步驟 = 第二階開挖完成、第二層支撐施作前", combined_text)
         self.assertIn("對應依據 = 施工順序圖 CS-02 與分析階段表逐項核對", combined_text)
         self.assertIn("控制階段軸力候選（2 案）", combined_text)
         self.assertNotIn("尚未確認控制分析階段", combined_text)
+        self.assertNotIn("尚未指定拆撐後荷重處置", combined_text)
+        self.assertNotIn("處置待確認", combined_text)
         self.assertNotIn("請重新套用分析候選值", combined_text)
+        report_path.unlink(missing_ok=True)
+
+    def test_pdf_report_renders_confirmed_removal_transfer_disposition(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        row = project.top_supports[0]
+        row.force_source = "analysis_import"
+        row.analysis_stage_cases = [
+            AnalysisForceCase(stage_index=2, stage_label="第二階開挖", axial_force_t=row.axial_force_t),
+        ]
+        row.analysis_install_stage_index = 1
+        row.analysis_install_stage_label = "第一道支撐安裝"
+        row.analysis_control_stage_index = 2
+        row.analysis_control_stage_label = "第二階開挖"
+        row.analysis_removal_stage_index = 3
+        row.analysis_removal_stage_label = "第一道支撐拆除"
+        row.removal_transfer_mode = "outside_scope"
+        row.removal_transfer_basis = "拆撐順序圖 CS-04，承接構造另案檢核"
+        row.removal_transfer_confirmed = True
+        row.construction_step_label = "第二階開挖完成、第二層支撐施作前"
+        row.analysis_mapping_basis = "施工順序圖 CS-02 與分析階段表逐項核對"
+        row.analysis_mapping_confirmed = True
+        project.calculation_results = calculate_project(project)
+
+        report_path = build_report(project)
+        reader = PdfReader(str(report_path))
+        text = "\n".join(page.extract_text() or "" for page in reader.pages)
+        support_check = project.calculation_results.support_checks[0]
+        mapping_text = "\n".join(_analysis_mapping_lines(support_check.inputs))
+
+        # Exact Chinese content is asserted through the shared calculation inputs
+        # and the DOCX test above.  The PDF's embedded CJK font is not mapped
+        # reliably by pypdf, so keep this assertion to render evidence and a
+        # stable ASCII marker instead of coupling it to text-extraction details.
+        self.assertEqual(support_check.inputs["拆撐後荷重處置"], "本構件檢核範圍外（另案檢核）")
+        self.assertEqual(support_check.inputs["拆撐處置依據"], "拆撐順序圖 CS-04，承接構造另案檢核")
+        self.assertIn("拆撐後荷重處置 = 本構件檢核範圍外（另案檢核）", mapping_text)
+        self.assertNotIn("承接構造 = —", mapping_text)
+        self.assertGreaterEqual(len(reader.pages), 20)
+        self.assertIn("CS-04", text)
         report_path.unlink(missing_ok=True)
 
     def test_word_report_hides_non_included_structural_modules(self) -> None:
