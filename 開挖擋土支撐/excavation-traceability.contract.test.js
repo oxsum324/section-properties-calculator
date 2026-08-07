@@ -73,7 +73,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '0.6.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '0.7.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -150,7 +150,9 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
 [
   'force_source',
   'analysis_stage_cases',
+  'analysis_install_stage_index',
   'analysis_control_stage_index',
+  'analysis_removal_stage_index',
   'construction_step_label',
   'analysis_mapping_confirmed',
   'analysis_mapping_basis',
@@ -159,7 +161,9 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
 });
 [
   'def _validate_analysis_force_mapping',
-  '控制分析階段不是本列逐階段軸力包絡最大值',
+  '控制分析階段不是本列控制階段軸力包絡最大值',
+  '外部分析的控制內力階段早於支撐安裝階段',
+  '外部分析的拆撐階段未晚於控制內力階段',
   '尚未確認控制分析階段與實際施工步驟的對應',
   '目前採用內力與控制分析階段軸力不一致',
 ].forEach((needle) => {
@@ -169,7 +173,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'AnalysisMappingEditor',
   '實際施工步驟',
   '階段對應依據',
-  '確認本列控制分析階段與上述實際施工步驟相符',
+  '分析生命週期',
+  '確認本列安裝、控制內力與拆撐時序',
 ].forEach((needle) => {
   assert(app.includes(needle), `excavation frontend stage mapping keeps ${needle}`, needle);
 });

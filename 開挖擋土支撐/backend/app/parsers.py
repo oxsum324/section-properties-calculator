@@ -340,6 +340,7 @@ def _apply_o_but_force_summary(result: AnalysisImportResult, lines: list[str]) -
             continue
         event.load_t = butt_summary["controlling_load_t"]
         controlling_stages = butt_summary["controlling_stages"]
+        event.control_stage_indices = list(controlling_stages)
         if controlling_stages:
             stage_text = "、".join(f"#{stage_index}" for stage_index in controlling_stages)
             event.description = (

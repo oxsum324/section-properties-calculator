@@ -53,6 +53,10 @@ class ParserTests(unittest.TestCase):
             [round(event.load_t or 0.0, 1) for event in result.events if event.classification == "support"],
             [72.3, 99.5, 217.5],
         )
+        self.assertEqual(
+            [event.control_stage_indices for event in result.events if event.classification == "support"],
+            [[9, 10], [5], [7, 8]],
+        )
 
 
 if __name__ == "__main__":

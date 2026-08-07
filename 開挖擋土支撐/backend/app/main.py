@@ -102,6 +102,7 @@ def _side_label(side: Literal["top", "bottom"]) -> str:
 def _flatten_imported_struts(project_result: AnalysisImportResult) -> list[dict[str, Any]]:
     if project_result.events:
         rows: list[dict[str, Any]] = []
+        stage_labels = {stage.index: stage.label for stage in project_result.stages}
         for event in project_result.events:
             if event.classification not in {"support", "brace"}:
                 continue
@@ -113,10 +114,13 @@ def _flatten_imported_struts(project_result: AnalysisImportResult) -> list[dict[
                 or event.stiffness is None
             ):
                 continue
+            control_stage_indices = event.control_stage_indices or [event.stage_index]
             rows.append(
                 {
                     "stage_index": event.stage_index,
                     "stage_label": event.stage_label,
+                    "install_stage_index": event.stage_index,
+                    "install_stage_label": event.stage_label,
                     "index": event.butt_no or len(rows) + 1,
                     "classification": event.classification,
                     "depth_m": event.depth_m,
@@ -124,6 +128,14 @@ def _flatten_imported_struts(project_result: AnalysisImportResult) -> list[dict[
                     "angle_deg": event.angle_deg,
                     "load_t": event.load_t,
                     "stiffness": event.stiffness,
+                    "stage_cases": [
+                        {
+                            "stage_index": stage_index,
+                            "stage_label": stage_labels.get(stage_index, f"施工階段 {stage_index}"),
+                            "axial_force_t": round(float(event.load_t), 6),
+                        }
+                        for stage_index in control_stage_indices
+                    ],
                 }
             )
         if rows:
@@ -158,11 +170,12 @@ def _stage_force_case(row: dict[str, Any]) -> dict[str, Any]:
 
 def _merge_stage_force_cases(cases: list[dict[str, Any]], row: dict[str, Any]) -> list[dict[str, Any]]:
     merged = {(int(item["stage_index"]), str(item["stage_label"])): dict(item) for item in cases}
-    candidate = _stage_force_case(row)
-    key = (candidate["stage_index"], candidate["stage_label"])
-    existing = merged.get(key)
-    if existing is None or candidate["axial_force_t"] >= existing["axial_force_t"]:
-        merged[key] = candidate
+    candidates = row.get("stage_cases") or [_stage_force_case(row)]
+    for candidate in candidates:
+        key = (int(candidate["stage_index"]), str(candidate["stage_label"]))
+        existing = merged.get(key)
+        if existing is None or float(candidate["axial_force_t"]) >= float(existing["axial_force_t"]):
+            merged[key] = dict(candidate)
     return sorted(merged.values(), key=lambda item: (item["stage_index"], item["stage_label"]))
 
 
@@ -172,16 +185,25 @@ def _consolidate_imported_struts(rows: list[dict[str, Any]]) -> list[dict[str, A
         key = f"{row['classification']}-{row['index']}-{row['depth_m']:.2f}-{abs(row['angle_deg']):.1f}"
         existing = grouped.get(key)
         if existing is None:
-            grouped[key] = {**row, "stage_cases": [_stage_force_case(row)]}
+            grouped[key] = {**row, "stage_cases": row.get("stage_cases") or [_stage_force_case(row)]}
             continue
         stage_cases = _merge_stage_force_cases(existing.get("stage_cases", []), row)
+        install_candidates = [
+            (int(existing.get("install_stage_index", existing["stage_index"])), str(existing.get("install_stage_label", existing["stage_label"]))),
+            (int(row.get("install_stage_index", row["stage_index"])), str(row.get("install_stage_label", row["stage_label"]))),
+        ]
+        install_stage_index, install_stage_label = min(install_candidates, key=lambda item: item[0])
         if row["load_t"] >= existing["load_t"]:
             grouped[key] = {
                 **row,
                 "stage_cases": stage_cases,
+                "install_stage_index": install_stage_index,
+                "install_stage_label": install_stage_label,
             }
             continue
         existing["stage_cases"] = stage_cases
+        existing["install_stage_index"] = install_stage_index
+        existing["install_stage_label"] = install_stage_label
         existing["span_m"] = max(existing["span_m"], row["span_m"])
         existing["stiffness"] = max(existing["stiffness"], row["stiffness"])
     return sorted(
@@ -192,11 +214,20 @@ def _consolidate_imported_struts(rows: list[dict[str, Any]]) -> list[dict[str, A
 
 def _build_imported_assignments(project_result: AnalysisImportResult) -> list[dict[str, Any]]:
     consolidated = _consolidate_imported_struts(_flatten_imported_struts(project_result))
+    removal_by_butt = {
+        event.butt_no: event
+        for event in sorted(project_result.events, key=lambda item: item.stage_index)
+        if event.classification == "remove" and event.butt_no is not None
+    }
     assignments: list[dict[str, Any]] = []
     for row in consolidated:
         kind = row.get("classification")
         if kind not in {"support", "brace"}:
             continue
+        stage_cases = row.get("stage_cases", [_stage_force_case(row)])
+        maximum_force = max(float(item["axial_force_t"]) for item in stage_cases)
+        control = next(item for item in stage_cases if float(item["axial_force_t"]) == maximum_force)
+        removal = removal_by_butt.get(row["index"])
         assignments.append(
             {
                 "id": f"{kind}-{row['index']}-{row['depth_m']:.2f}-{len(assignments)}",
@@ -206,10 +237,14 @@ def _build_imported_assignments(project_result: AnalysisImportResult) -> list[di
                 "span_m": row["span_m"],
                 "angle_deg": row["angle_deg"],
                 "load_t": row["load_t"],
-                "control_stage_index": row["stage_index"],
-                "control_stage_label": row["stage_label"],
-                "stage_cases": row.get("stage_cases", [_stage_force_case(row)]),
-                "stage_labels": [item["stage_label"] for item in row.get("stage_cases", [])],
+                "install_stage_index": row.get("install_stage_index", row["stage_index"]),
+                "install_stage_label": row.get("install_stage_label", row["stage_label"]),
+                "control_stage_index": control["stage_index"],
+                "control_stage_label": control["stage_label"],
+                "removal_stage_index": removal.stage_index if removal else None,
+                "removal_stage_label": removal.stage_label if removal else "",
+                "stage_cases": stage_cases,
+                "stage_labels": [item["stage_label"] for item in stage_cases],
             }
         )
     return assignments
@@ -237,8 +272,12 @@ def _to_candidate_support_row(
         spacing_m=round(float(item["span_m"]), 3),
         force_source="analysis_import",
         analysis_stage_cases=item["stage_cases"],
+        analysis_install_stage_index=item["install_stage_index"],
+        analysis_install_stage_label=item["install_stage_label"],
         analysis_control_stage_index=item["control_stage_index"],
         analysis_control_stage_label=item["control_stage_label"],
+        analysis_removal_stage_index=item["removal_stage_index"],
+        analysis_removal_stage_label=item["removal_stage_label"],
         construction_step_label="",
         analysis_mapping_confirmed=False,
         analysis_mapping_basis="",
@@ -261,8 +300,12 @@ def _to_candidate_brace_row(
         tributary_line_load_tf_per_m=round(tributary_line_load, 3),
         force_source="analysis_import",
         analysis_stage_cases=item["stage_cases"],
+        analysis_install_stage_index=item["install_stage_index"],
+        analysis_install_stage_label=item["install_stage_label"],
         analysis_control_stage_index=item["control_stage_index"],
         analysis_control_stage_label=item["control_stage_label"],
+        analysis_removal_stage_index=item["removal_stage_index"],
+        analysis_removal_stage_label=item["removal_stage_label"],
         construction_step_label="",
         analysis_mapping_confirmed=False,
         analysis_mapping_basis="",

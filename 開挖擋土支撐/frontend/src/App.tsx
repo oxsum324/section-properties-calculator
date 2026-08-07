@@ -3786,12 +3786,19 @@ function AnalysisMappingEditor(props: {
   return (
     <div className="analysis-stage-mapping-card">
       <div className="analysis-stage-mapping-summary">
-        <strong>控制分析階段：#{props.row.analysis_control_stage_index ?? "—"} {props.row.analysis_control_stage_label || "—"}</strong>
+        <strong>
+          分析生命週期：安裝 #{props.row.analysis_install_stage_index ?? "—"} {props.row.analysis_install_stage_label || "—"}
+          {' → '}控制 #{props.row.analysis_control_stage_index ?? "—"} {props.row.analysis_control_stage_label || "—"}
+          {props.row.analysis_removal_stage_index
+            ? ` → 拆撐 #${props.row.analysis_removal_stage_index} ${props.row.analysis_removal_stage_label || ""}`
+            : " → 未辨識拆撐事件"}
+        </strong>
         <span className={`status-chip ${complete ? "ok" : "warn"}`}>{complete ? "已確認施工步驟對應" : "待確認施工步驟對應"}</span>
       </div>
       <p className="meta-line">
-        逐階段軸力：{cases.map((item) => `#${item.stage_index} ${item.stage_label} = ${fmt(item.axial_force_t)} tf`).join("；") || "缺少候選資料"}
+        控制階段軸力候選：{cases.map((item) => `#${item.stage_index} ${item.stage_label} = ${fmt(item.axial_force_t)} tf`).join("；") || "缺少候選資料"}
       </p>
+      <p className="meta-line">拆撐後的樓版或重撐傳力不由匯入資料自動推定，須另依正式分析模型與施工順序確認。</p>
       <div className="analysis-stage-mapping-grid">
         <label className="field-block">
           <span>實際施工步驟（必填）</span>
@@ -3818,7 +3825,7 @@ function AnalysisMappingEditor(props: {
           checked={props.row.analysis_mapping_confirmed ?? false}
           onChange={(event) => props.onChange({ analysis_mapping_confirmed: event.target.checked })}
         />
-        <span>確認本列控制分析階段與上述實際施工步驟相符</span>
+        <span>確認本列安裝、控制內力與拆撐時序，並與上述實際施工步驟相符</span>
       </label>
     </div>
   );
@@ -5337,16 +5344,24 @@ function isSameBraceRow(left: BraceRow, right: BraceRow): boolean {
 function normalizedAnalysisMapping(row: SupportRow | BraceRow): AnalysisMappingPatch & {
   force_source: "manual" | "analysis_import";
   analysis_stage_cases: AnalysisForceCase[];
+  analysis_install_stage_index: number | null;
+  analysis_install_stage_label: string;
   analysis_control_stage_index: number | null;
   analysis_control_stage_label: string;
+  analysis_removal_stage_index: number | null;
+  analysis_removal_stage_label: string;
 } {
   const cases = row.analysis_stage_cases ?? [];
   const forceSource = row.force_source ?? (cases.length > 0 ? "analysis_import" : "manual");
   return {
     force_source: forceSource,
     analysis_stage_cases: cases,
+    analysis_install_stage_index: row.analysis_install_stage_index ?? null,
+    analysis_install_stage_label: row.analysis_install_stage_label ?? "",
     analysis_control_stage_index: row.analysis_control_stage_index ?? null,
     analysis_control_stage_label: row.analysis_control_stage_label ?? "",
+    analysis_removal_stage_index: row.analysis_removal_stage_index ?? null,
+    analysis_removal_stage_label: row.analysis_removal_stage_label ?? "",
     construction_step_label: row.construction_step_label ?? "",
     analysis_mapping_confirmed: row.analysis_mapping_confirmed ?? false,
     analysis_mapping_basis: row.analysis_mapping_basis ?? "",
@@ -5369,6 +5384,8 @@ function isSameCornerBraceRow(left: CornerBraceRow, right: CornerBraceRow): bool
 type ImportedStrutRow = {
   stageIndex: number;
   stageLabel: string;
+  installStageIndex: number;
+  installStageLabel: string;
   index: number;
   classification: "support" | "brace";
   depth_m: number;
@@ -5376,6 +5393,7 @@ type ImportedStrutRow = {
   angle_deg: number;
   load_t: number;
   stiffness: number;
+  stageCases?: AnalysisForceCase[];
 };
 
 type ImportedIgnoredEventRow = {
@@ -5399,8 +5417,12 @@ type ImportedAssignment = {
   span_m: number;
   angle_deg: number;
   load_t: number;
+  installStageIndex: number;
+  installStageLabel: string;
   controlStageIndex: number;
   controlStageLabel: string;
+  removalStageIndex: number | null;
+  removalStageLabel: string;
   stageCases: AnalysisForceCase[];
   stageLabels: string[];
 };
@@ -5602,6 +5624,7 @@ function buildStageImportRows(analysisImport: AnalysisImportResult): StageImport
 
 function flattenImportedStruts(analysisImport: AnalysisImportResult): ImportedStrutRow[] {
   if (analysisImport.events.length > 0) {
+    const stageLabels = new Map(analysisImport.stages.map((stage) => [stage.index, stage.label]));
     const rows = analysisImport.events.flatMap((event) => {
       if (!isCandidateEvent(event)) return [];
       if (
@@ -5622,6 +5645,8 @@ function flattenImportedStruts(analysisImport: AnalysisImportResult): ImportedSt
         {
           stageIndex: event.stage_index,
           stageLabel: event.stage_label,
+          installStageIndex: event.stage_index,
+          installStageLabel: event.stage_label,
           index: event.butt_no ?? 0,
           classification: event.classification,
           depth_m: event.depth_m,
@@ -5629,6 +5654,13 @@ function flattenImportedStruts(analysisImport: AnalysisImportResult): ImportedSt
           angle_deg: event.angle_deg,
           load_t: event.load_t,
           stiffness: event.stiffness,
+          stageCases: (event.control_stage_indices?.length ? event.control_stage_indices : [event.stage_index]).map(
+            (stageIndex) => ({
+              stage_index: stageIndex,
+              stage_label: stageLabels.get(stageIndex) ?? `施工階段 ${stageIndex}`,
+              axial_force_t: Number(Number(event.load_t).toFixed(6)),
+            }),
+          ),
         },
       ];
     });
@@ -5638,6 +5670,8 @@ function flattenImportedStruts(analysisImport: AnalysisImportResult): ImportedSt
     stage.struts.map((strut) => ({
       stageIndex: stage.index,
       stageLabel: stage.label,
+      installStageIndex: stage.index,
+      installStageLabel: stage.label,
       index: strut.index,
       classification: isSupportCandidate(strut.angle_deg) ? "support" : "brace",
       depth_m: strut.depth_m,
@@ -5692,11 +5726,17 @@ function buildImportedAssignments(
   analysisImport: AnalysisImportResult,
 ): ImportedAssignment[] {
   const consolidated = consolidateImportedStruts(flattenImportedStruts(analysisImport));
+  const removals = new Map(
+    analysisImport.events
+      .filter((event) => event.classification === "remove" && event.butt_no != null)
+      .sort((left, right) => left.stage_index - right.stage_index)
+      .map((event) => [event.butt_no as number, event]),
+  );
   const supports = consolidated.filter((item) => isSupportCandidate(item.angle_deg));
   const braces = consolidated.filter((item) => isBraceCandidate(item.angle_deg));
   return [
-    ...assignCandidateRows(supports, "support"),
-    ...assignCandidateRows(braces, "brace"),
+    ...assignCandidateRows(supports, "support", removals),
+    ...assignCandidateRows(braces, "brace", removals),
   ];
 }
 
@@ -5712,10 +5752,12 @@ function stageForceCase(row: ImportedStrutRow): AnalysisForceCase {
 
 function mergeStageForceCases(cases: AnalysisForceCase[], row: ImportedStrutRow): AnalysisForceCase[] {
   const merged = new Map(cases.map((item) => [`${item.stage_index}\u0000${item.stage_label}`, { ...item }]));
-  const candidate = stageForceCase(row);
-  const key = `${candidate.stage_index}\u0000${candidate.stage_label}`;
-  const existing = merged.get(key);
-  if (!existing || candidate.axial_force_t >= existing.axial_force_t) merged.set(key, candidate);
+  const candidates = row.stageCases?.length ? row.stageCases : [stageForceCase(row)];
+  for (const candidate of candidates) {
+    const key = `${candidate.stage_index}\u0000${candidate.stage_label}`;
+    const existing = merged.get(key);
+    if (!existing || candidate.axial_force_t >= existing.axial_force_t) merged.set(key, candidate);
+  }
   return [...merged.values()].sort((left, right) =>
     left.stage_index - right.stage_index || left.stage_label.localeCompare(right.stage_label),
   );
@@ -5727,18 +5769,26 @@ function consolidateImportedStruts(rows: ImportedStrutRow[]): ConsolidatedImport
     const key = `${row.classification}-${row.index}-${row.depth_m.toFixed(2)}-${Math.abs(row.angle_deg).toFixed(1)}`;
     const existing = grouped.get(key);
     if (!existing) {
-      grouped.set(key, { ...row, stageCases: [stageForceCase(row)] });
+      grouped.set(key, { ...row, stageCases: row.stageCases?.length ? row.stageCases : [stageForceCase(row)] });
       continue;
     }
     const stageCases = mergeStageForceCases(existing.stageCases, row);
+    const install = [
+      { index: existing.installStageIndex, label: existing.installStageLabel },
+      { index: row.installStageIndex, label: row.installStageLabel },
+    ].sort((left, right) => left.index - right.index)[0];
     if (row.load_t >= existing.load_t) {
       grouped.set(key, {
         ...row,
         stageCases,
+        installStageIndex: install.index,
+        installStageLabel: install.label,
       });
       continue;
     }
     existing.stageCases = stageCases;
+    existing.installStageIndex = install.index;
+    existing.installStageLabel = install.label;
     existing.span_m = Math.max(existing.span_m, row.span_m);
     existing.stiffness = Math.max(existing.stiffness, row.stiffness);
   }
@@ -5751,20 +5801,30 @@ function consolidateImportedStruts(rows: ImportedStrutRow[]): ConsolidatedImport
 function assignCandidateRows(
   rows: ConsolidatedImportedStrut[],
   kind: "support" | "brace",
+  removals: Map<number, AnalysisEvent>,
 ): ImportedAssignment[] {
-  return rows.map((row, index) => ({
-    id: `${kind}-${row.index}-${row.depth_m.toFixed(2)}-${index}`,
-    kind,
-    levelLabel: String(index + 1),
-    depth_m: row.depth_m,
-    span_m: row.span_m,
-    angle_deg: row.angle_deg,
-    load_t: row.load_t,
-    controlStageIndex: row.stageIndex,
-    controlStageLabel: row.stageLabel,
-    stageCases: row.stageCases,
-    stageLabels: row.stageCases.map((item) => item.stage_label),
-  }));
+  return rows.map((row, index) => {
+    const maximumForce = Math.max(...row.stageCases.map((item) => item.axial_force_t));
+    const control = row.stageCases.find((item) => item.axial_force_t === maximumForce) ?? stageForceCase(row);
+    const removal = removals.get(row.index);
+    return {
+      id: `${kind}-${row.index}-${row.depth_m.toFixed(2)}-${index}`,
+      kind,
+      levelLabel: String(index + 1),
+      depth_m: row.depth_m,
+      span_m: row.span_m,
+      angle_deg: row.angle_deg,
+      load_t: row.load_t,
+      installStageIndex: row.installStageIndex,
+      installStageLabel: row.installStageLabel,
+      controlStageIndex: control.stage_index,
+      controlStageLabel: control.stage_label,
+      removalStageIndex: removal?.stage_index ?? null,
+      removalStageLabel: removal?.stage_label ?? "",
+      stageCases: row.stageCases,
+      stageLabels: row.stageCases.map((item) => item.stage_label),
+    };
+  });
 }
 
 function toCandidateSupportRow(
@@ -5784,8 +5844,12 @@ function toCandidateSupportRow(
     spacing_m: roundValue(item.span_m),
     force_source: "analysis_import",
     analysis_stage_cases: item.stageCases,
+    analysis_install_stage_index: item.installStageIndex,
+    analysis_install_stage_label: item.installStageLabel,
     analysis_control_stage_index: item.controlStageIndex,
     analysis_control_stage_label: item.controlStageLabel,
+    analysis_removal_stage_index: item.removalStageIndex,
+    analysis_removal_stage_label: item.removalStageLabel,
     construction_step_label: "",
     analysis_mapping_confirmed: false,
     analysis_mapping_basis: "",
@@ -5809,8 +5873,12 @@ function toCandidateBraceRow(
     tributary_line_load_tf_per_m: roundValue(tributaryLineLoad),
     force_source: "analysis_import",
     analysis_stage_cases: item.stageCases,
+    analysis_install_stage_index: item.installStageIndex,
+    analysis_install_stage_label: item.installStageLabel,
     analysis_control_stage_index: item.controlStageIndex,
     analysis_control_stage_label: item.controlStageLabel,
+    analysis_removal_stage_index: item.removalStageIndex,
+    analysis_removal_stage_label: item.removalStageLabel,
     construction_step_label: "",
     analysis_mapping_confirmed: false,
     analysis_mapping_basis: "",
@@ -6014,6 +6082,8 @@ function isAnalysisMappingComplete(row: SupportRow | BraceRow): boolean {
   if (row.force_source !== "analysis_import") return true;
   return Boolean(
     row.analysis_mapping_confirmed &&
+    row.analysis_install_stage_index != null &&
+    row.analysis_install_stage_label?.trim() &&
     row.construction_step_label?.trim() &&
     row.analysis_mapping_basis?.trim() &&
     (row.analysis_stage_cases?.length ?? 0) > 0,

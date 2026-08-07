@@ -61,8 +61,12 @@ export type SupportRow = {
   spacing_m: number;
   force_source?: "manual" | "analysis_import";
   analysis_stage_cases?: AnalysisForceCase[];
+  analysis_install_stage_index?: number | null;
+  analysis_install_stage_label?: string;
   analysis_control_stage_index?: number | null;
   analysis_control_stage_label?: string;
+  analysis_removal_stage_index?: number | null;
+  analysis_removal_stage_label?: string;
   construction_step_label?: string;
   analysis_mapping_confirmed?: boolean;
   analysis_mapping_basis?: string;
@@ -86,8 +90,12 @@ export type BraceRow = {
   tributary_line_load_tf_per_m: number;
   force_source?: "manual" | "analysis_import";
   analysis_stage_cases?: AnalysisForceCase[];
+  analysis_install_stage_index?: number | null;
+  analysis_install_stage_label?: string;
   analysis_control_stage_index?: number | null;
   analysis_control_stage_label?: string;
+  analysis_removal_stage_index?: number | null;
+  analysis_removal_stage_label?: string;
   construction_step_label?: string;
   analysis_mapping_confirmed?: boolean;
   analysis_mapping_basis?: string;
@@ -214,6 +222,7 @@ export type AnalysisEvent = {
   angle_deg?: number | null;
   load_t?: number | null;
   stiffness?: number | null;
+  control_stage_indices?: number[];
   description: string;
   included: boolean;
 };

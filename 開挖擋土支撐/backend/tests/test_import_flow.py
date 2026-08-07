@@ -43,6 +43,8 @@ class ImportFlowTests(unittest.TestCase):
         self.assertEqual(rows[0]["stage_index"], 2)
         self.assertEqual(rows[0]["stage_label"], "第二階開挖")
         self.assertEqual(rows[0]["load_t"], 80.0)
+        self.assertEqual(rows[0]["install_stage_index"], 1)
+        self.assertEqual(rows[0]["install_stage_label"], "第一階開挖")
         self.assertEqual(
             [(item["stage_index"], item["axial_force_t"]) for item in rows[0]["stage_cases"]],
             [(1, 40.0), (2, 80.0), (3, 60.0)],
@@ -73,6 +75,22 @@ class ImportFlowTests(unittest.TestCase):
         self.assertTrue(all(row.force_source == "analysis_import" for row in project.top_supports))
         self.assertTrue(all(row.analysis_stage_cases for row in project.top_supports))
         self.assertTrue(all(row.analysis_control_stage_index is not None for row in project.top_supports))
+        self.assertEqual(
+            [row.analysis_install_stage_index for row in project.top_supports],
+            [2, 4, 6],
+        )
+        self.assertEqual(
+            [[case.stage_index for case in row.analysis_stage_cases] for row in project.top_supports],
+            [[9, 10], [5], [7, 8]],
+        )
+        self.assertEqual(
+            [row.analysis_control_stage_index for row in project.top_supports],
+            [9, 5, 7],
+        )
+        self.assertEqual(
+            [row.analysis_removal_stage_index for row in project.top_supports],
+            [11, 9, 9],
+        )
         self.assertTrue(all(not row.analysis_mapping_confirmed for row in project.top_supports))
         self.assertTrue(any("忽略樓版" in warning for warning in parsed.warnings))
         self.assertTrue(any("拆撐" in warning for warning in parsed.warnings))

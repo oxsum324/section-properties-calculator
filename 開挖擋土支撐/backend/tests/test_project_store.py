@@ -98,8 +98,12 @@ class ProjectStoreNormalizationTests(unittest.TestCase):
             row.analysis_stage_cases = [
                 AnalysisForceCase(stage_index=1, stage_label="第一階開挖", axial_force_t=row.axial_force_t)
             ]
+            row.analysis_install_stage_index = 1
+            row.analysis_install_stage_label = "第一道支撐安裝"
             row.analysis_control_stage_index = 1
             row.analysis_control_stage_label = "第一階開挖"
+            row.analysis_removal_stage_index = 3
+            row.analysis_removal_stage_label = "第一道支撐拆除"
             row.construction_step_label = "第一階開挖完成、第一層支撐作用"
             row.analysis_mapping_basis = "施工順序表 CS-01"
             row.analysis_mapping_confirmed = True
@@ -110,7 +114,11 @@ class ProjectStoreNormalizationTests(unittest.TestCase):
 
             self.assertEqual(saved.force_source, "analysis_import")
             self.assertEqual(saved.analysis_stage_cases[0].stage_label, "第一階開挖")
+            self.assertEqual(saved.analysis_install_stage_index, 1)
+            self.assertEqual(saved.analysis_install_stage_label, "第一道支撐安裝")
             self.assertEqual(saved.analysis_control_stage_index, 1)
+            self.assertEqual(saved.analysis_removal_stage_index, 3)
+            self.assertEqual(saved.analysis_removal_stage_label, "第一道支撐拆除")
             self.assertEqual(saved.construction_step_label, "第一階開挖完成、第一層支撐作用")
             self.assertEqual(saved.analysis_mapping_basis, "施工順序表 CS-01")
             self.assertTrue(saved.analysis_mapping_confirmed)

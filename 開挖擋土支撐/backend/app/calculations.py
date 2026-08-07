@@ -297,9 +297,15 @@ def _analysis_mapping_inputs(row: object) -> dict[str, object]:
     if getattr(row, "force_source", "manual") != "analysis_import":
         return {}
     cases = list(getattr(row, "analysis_stage_cases", []))
+    install_index = getattr(row, "analysis_install_stage_index", None)
+    install_label = str(getattr(row, "analysis_install_stage_label", "")).strip()
+    removal_index = getattr(row, "analysis_removal_stage_index", None)
+    removal_label = str(getattr(row, "analysis_removal_stage_label", "")).strip()
     return {
         "內力來源": "外部分析階段包絡",
+        "分析安裝階段": f"#{install_index or '—'} {install_label}".strip(),
         "控制分析階段": f"#{getattr(row, 'analysis_control_stage_index', None) or '—'} {getattr(row, 'analysis_control_stage_label', '')}".strip(),
+        "分析拆撐階段": f"#{removal_index} {removal_label}".strip() if removal_index else "未辨識拆撐事件",
         "施工步驟": getattr(row, "construction_step_label", ""),
         "階段對應依據": getattr(row, "analysis_mapping_basis", ""),
         "分析階段候選數": len(cases),
@@ -320,7 +326,11 @@ def _validate_analysis_force_mapping(
         return None, ""
     cases = list(getattr(row, "analysis_stage_cases", []))
     if not cases:
-        return None, "外部分析內力缺少逐階段候選值，無法確認控制階段。"
+        return None, "外部分析內力缺少控制階段候選值，無法確認控制階段。"
+    install_index = getattr(row, "analysis_install_stage_index", None)
+    install_label = str(getattr(row, "analysis_install_stage_label", "")).strip()
+    if install_index is None or not install_label:
+        return None, "外部分析內力缺少支撐安裝階段；請重新匯入分析檔。"
     identities = [(case.stage_index, case.stage_label.strip().casefold()) for case in cases]
     if len(set(identities)) != len(identities):
         return None, "外部分析內力含重複的階段識別，無法建立唯一對應。"
@@ -331,11 +341,19 @@ def _validate_analysis_force_mapping(
         if case.stage_index == control_index and case.stage_label.strip() == control_label
     ]
     if len(controls) != 1:
-        return None, "控制分析階段與逐階段候選值不一致。"
+        return None, "控制分析階段與控制階段候選值不一致。"
+    if any(case.stage_index < install_index for case in cases):
+        return None, "外部分析的控制內力階段早於支撐安裝階段，時序不成立。"
     control = controls[0]
     maximum_force = max(float(case.axial_force_t) for case in cases)
     if not math.isclose(float(control.axial_force_t), maximum_force, rel_tol=0.0, abs_tol=1e-6):
-        return None, "控制分析階段不是本列逐階段軸力包絡最大值。"
+        return None, "控制分析階段不是本列控制階段軸力包絡最大值。"
+    removal_index = getattr(row, "analysis_removal_stage_index", None)
+    removal_label = str(getattr(row, "analysis_removal_stage_label", "")).strip()
+    if (removal_index is None) != (not removal_label):
+        return None, "外部分析的拆撐階段編號與名稱不完整。"
+    if removal_index is not None and removal_index <= max(case.stage_index for case in cases):
+        return None, "外部分析的拆撐階段未晚於控制內力階段，時序不成立。"
     if not math.isclose(
         adopted_axial_force_t,
         float(control.axial_force_t),

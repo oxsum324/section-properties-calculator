@@ -85,6 +85,7 @@ class AnalysisEvent(BaseModel):
     angle_deg: float | None = None
     load_t: float | None = None
     stiffness: float | None = None
+    control_stage_indices: list[int] = Field(default_factory=list, max_length=100)
     description: str = ""
     included: bool = False
 
@@ -149,8 +150,12 @@ class SupportRow(BaseModel):
     spacing_m: float
     force_source: Literal["manual", "analysis_import"] = "manual"
     analysis_stage_cases: list[AnalysisForceCase] = Field(default_factory=list, max_length=100)
+    analysis_install_stage_index: int | None = None
+    analysis_install_stage_label: str = ""
     analysis_control_stage_index: int | None = None
     analysis_control_stage_label: str = ""
+    analysis_removal_stage_index: int | None = None
+    analysis_removal_stage_label: str = ""
     construction_step_label: str = Field(default="", max_length=120)
     analysis_mapping_confirmed: bool = False
     analysis_mapping_basis: str = Field(default="", max_length=160)
@@ -174,8 +179,12 @@ class BraceRow(BaseModel):
     tributary_line_load_tf_per_m: float
     force_source: Literal["manual", "analysis_import"] = "manual"
     analysis_stage_cases: list[AnalysisForceCase] = Field(default_factory=list, max_length=100)
+    analysis_install_stage_index: int | None = None
+    analysis_install_stage_label: str = ""
     analysis_control_stage_index: int | None = None
     analysis_control_stage_label: str = ""
+    analysis_removal_stage_index: int | None = None
+    analysis_removal_stage_label: str = ""
     construction_step_label: str = Field(default="", max_length=120)
     analysis_mapping_confirmed: bool = False
     analysis_mapping_basis: str = Field(default="", max_length=160)

@@ -2109,8 +2109,9 @@ def _analysis_mapping_lines(inputs: dict[str, object]) -> list[str]:
     if inputs.get("內力來源") != "外部分析階段包絡":
         return []
     return [
-        f"內力來源 = 外部分析階段包絡；控制分析階段 = {inputs.get('控制分析階段', '—')}；實際施工步驟 = {inputs.get('施工步驟', '—')}；對應依據 = {inputs.get('階段對應依據', '—')}",
-        f"逐階段軸力候選（{_fmt_short(inputs.get('分析階段候選數'))} 案）= {inputs.get('分析階段內力', '—')}",
+        f"內力來源 = 外部分析階段包絡；分析安裝階段 = {inputs.get('分析安裝階段', '—')}；控制分析階段 = {inputs.get('控制分析階段', '—')}；分析拆撐階段 = {inputs.get('分析拆撐階段', '—')}",
+        f"實際施工步驟 = {inputs.get('施工步驟', '—')}；對應依據 = {inputs.get('階段對應依據', '—')}",
+        f"控制階段軸力候選（{_fmt_short(inputs.get('分析階段候選數'))} 案）= {inputs.get('分析階段內力', '—')}",
     ]
 
 

@@ -407,8 +407,12 @@ class ReportingTests(unittest.TestCase):
             AnalysisForceCase(stage_index=1, stage_label="第一階開挖", axial_force_t=row.axial_force_t - 10.0),
             AnalysisForceCase(stage_index=2, stage_label="第二階開挖", axial_force_t=row.axial_force_t),
         ]
+        row.analysis_install_stage_index = 1
+        row.analysis_install_stage_label = "第一道支撐安裝"
         row.analysis_control_stage_index = 2
         row.analysis_control_stage_label = "第二階開挖"
+        row.analysis_removal_stage_index = 3
+        row.analysis_removal_stage_label = "第一道支撐拆除"
         row.construction_step_label = "第二階開挖完成、第二層支撐施作前"
         row.analysis_mapping_basis = "施工順序圖 CS-02 與分析階段表逐項核對"
         row.analysis_mapping_confirmed = True
@@ -421,9 +425,11 @@ class ReportingTests(unittest.TestCase):
         combined_text = text + "\n" + table_text
 
         self.assertIn("控制分析階段 = #2 第二階開挖", combined_text)
+        self.assertIn("分析安裝階段 = #1 第一道支撐安裝", combined_text)
+        self.assertIn("分析拆撐階段 = #3 第一道支撐拆除", combined_text)
         self.assertIn("實際施工步驟 = 第二階開挖完成、第二層支撐施作前", combined_text)
         self.assertIn("對應依據 = 施工順序圖 CS-02 與分析階段表逐項核對", combined_text)
-        self.assertIn("逐階段軸力候選（2 案）", combined_text)
+        self.assertIn("控制階段軸力候選（2 案）", combined_text)
         self.assertNotIn("尚未確認控制分析階段", combined_text)
         self.assertNotIn("請重新套用分析候選值", combined_text)
         report_path.unlink(missing_ok=True)
