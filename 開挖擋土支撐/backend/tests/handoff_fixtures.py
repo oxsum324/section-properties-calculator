@@ -50,12 +50,25 @@ def make_verified_handoff_source(load_t: float = 64.32) -> ConstructionStageLoad
     )
 
 
-def make_stage_adoption(column_id: str, stage_label: str, load_t: float) -> ConstructionStageLoadAdoption:
+def make_stage_adoption(
+    column_id: str,
+    stage_label: str,
+    load_t: float,
+    *,
+    eccentricity_x_m: float = 0.0,
+    eccentricity_y_m: float = 0.0,
+    transfer_basis: str = "",
+) -> ConstructionStageLoadAdoption:
     source = make_verified_handoff_source(load_t)
+    apply_transfer_eccentricity = abs(eccentricity_x_m) > 1e-12 or abs(eccentricity_y_m) > 1e-12
     return ConstructionStageLoadAdoption(
         stage_id=f"STG-{source.handoff_fingerprint[4:]}",
         stage_label=stage_label,
         target_column_id=column_id,
         load_t=load_t,
+        apply_transfer_eccentricity=apply_transfer_eccentricity,
+        transfer_eccentricity_x_m=eccentricity_x_m,
+        transfer_eccentricity_y_m=eccentricity_y_m,
+        transfer_basis=transfer_basis,
         source=source,
     )

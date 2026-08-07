@@ -789,7 +789,7 @@ def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParamete
     n4 = section.unit_weight_kgf_per_m / 1000.0 * column.column_length_m
     e_x = column.eccentricity_x_m if column.eccentricity_x_m is not None else section.depth_cm / 200.0 + 0.2
     e_y = column.eccentricity_y_m
-    mx = n3 * e_x
+    base_mx = n3 * e_x
     pile_width_cm = column.pile_width_cm or section.flange_width_cm
     beta = ((column.kh_kg_per_cm3 * pile_width_cm) / (4.0 * params.e_tf_per_cm2 * 1000.0 * section.iy_cm4)) ** 0.25
     l0 = 1.0 / max(beta, 1e-8) / 100.0
@@ -801,7 +801,6 @@ def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParamete
     fby_allow = 0.75 * params.fy_tf_per_cm2 * params.alpha_column
     fex = 12.0 / 23.0 * math.pi**2 * params.e_tf_per_cm2 / max(klr_x**2, 1e-6)
     fey = 12.0 / 23.0 * math.pi**2 * params.e_tf_per_cm2 / max(klr_y**2, 1e-6)
-    fbx_value = mx * 100.0 / section.sx_cm3
     compression = _compression_breakdown(column, section)
     tension = _tension_breakdown(column, section)
     compression_capacity = compression["allowable_t"]
@@ -811,9 +810,15 @@ def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParamete
         platform_load = float(stage["load_t"])
         total_n = platform_load + n1 + n2 + n3 + n4
         pt = max(0.0, n3 - n4 - n2 - n1 - platform_load)
-        my = total_n * e_y
+        transfer_eccentricity_x_m = float(stage.get("transfer_eccentricity_x_m", 0.0))
+        transfer_eccentricity_y_m = float(stage.get("transfer_eccentricity_y_m", 0.0))
+        transfer_mx = platform_load * transfer_eccentricity_x_m
+        transfer_my = platform_load * transfer_eccentricity_y_m
+        mx = base_mx + transfer_mx
+        my = total_n * e_y + transfer_my
         fa_value = total_n / section.area_cm2
-        fby_value = my * 100.0 / section.sy_cm3 if section.sy_cm3 else 0.0
+        fbx_value = abs(mx) * 100.0 / section.sx_cm3
+        fby_value = abs(my) * 100.0 / section.sy_cm3 if section.sy_cm3 else 0.0
         ratio = interaction_ratio(
             params.fy_tf_per_cm2,
             fa_value,
@@ -831,8 +836,12 @@ def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParamete
             **stage,
             "total_n": total_n,
             "pt": pt,
+            "mx": mx,
             "my": my,
+            "transfer_mx": transfer_mx,
+            "transfer_my": transfer_my,
             "fa_value": fa_value,
+            "fbx_value": fbx_value,
             "fby_value": fby_value,
             "interaction_ratio": ratio,
             "compression_ratio": total_n / max(compression_capacity, 1e-6),
@@ -845,8 +854,10 @@ def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParamete
     platform_source = interaction_control.get("source")
     total_n = float(interaction_control["total_n"])
     pt = float(interaction_control["pt"])
+    mx = float(interaction_control["mx"])
     my = float(interaction_control["my"])
     fa_value = float(interaction_control["fa_value"])
+    fbx_value = float(interaction_control["fbx_value"])
     fby_value = float(interaction_control["fby_value"])
     ratio = float(interaction_control["interaction_ratio"])
     compression_ratio = float(compression_control["compression_ratio"])
@@ -864,6 +875,16 @@ def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParamete
             "Np": round(float(item["load_t"]), 3),
             "N": round(float(item["total_n"]), 3),
             "PT": round(float(item["pt"]), 3),
+            "apply_transfer_eccentricity": bool(item.get("apply_transfer_eccentricity", False)),
+            "transfer_eccentricity_x_m": round(float(item.get("transfer_eccentricity_x_m", 0.0)), 4),
+            "transfer_eccentricity_y_m": round(float(item.get("transfer_eccentricity_y_m", 0.0)), 4),
+            "transfer_basis": str(item.get("transfer_basis", "")),
+            "transfer_mx_tf_m": round(float(item["transfer_mx"]), 4),
+            "transfer_my_tf_m": round(float(item["transfer_my"]), 4),
+            "Mx": round(float(item["mx"]), 4),
+            "My": round(float(item["my"]), 4),
+            "fbx_value": round(float(item["fbx_value"]), 4),
+            "fby_value": round(float(item["fby_value"]), 4),
             "interaction_ratio": round(float(item["interaction_ratio"]), 4),
             "compression_ratio": round(float(item["compression_ratio"]), 4),
             "tension_ratio": round(float(item["tension_ratio"]), 4),
@@ -942,7 +963,20 @@ def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParamete
             "warnings": warnings,
             "construction_stage_envelope": stage_envelope,
             "construction_stage_controls": {
-                "interaction": {"stage_id": interaction_control["stage_id"], "stage_label": interaction_control["stage_label"], "Np": round(platform_load, 3), "N": round(total_n, 3), "ratio": round(ratio, 4)},
+                "interaction": {
+                    "stage_id": interaction_control["stage_id"],
+                    "stage_label": interaction_control["stage_label"],
+                    "Np": round(platform_load, 3),
+                    "N": round(total_n, 3),
+                    "transfer_eccentricity_x_m": round(float(interaction_control.get("transfer_eccentricity_x_m", 0.0)), 4),
+                    "transfer_eccentricity_y_m": round(float(interaction_control.get("transfer_eccentricity_y_m", 0.0)), 4),
+                    "transfer_mx_tf_m": round(float(interaction_control["transfer_mx"]), 4),
+                    "transfer_my_tf_m": round(float(interaction_control["transfer_my"]), 4),
+                    "transfer_basis": str(interaction_control.get("transfer_basis", "")),
+                    "Mx": round(mx, 4),
+                    "My": round(my, 4),
+                    "ratio": round(ratio, 4),
+                },
                 "compression": {"stage_id": compression_control["stage_id"], "stage_label": compression_control["stage_label"], "Np": round(float(compression_control["load_t"]), 3), "N": round(float(compression_control["total_n"]), 3), "ratio": round(compression_ratio, 4)},
                 "tension": {"stage_id": tension_control["stage_id"], "stage_label": tension_control["stage_label"], "Np": round(float(tension_control["load_t"]), 3), "PT": round(float(tension_control["pt"]), 3), "ratio": round(tension_ratio, 4)},
             },
@@ -957,6 +991,10 @@ def _construction_stage_load_cases(column: ColumnScenarioInput) -> tuple[list[di
         "stage_label": "無施工構台荷重基準案",
         "target_column_id": column.column_id or "LEGACY-COLUMN",
         "load_t": 0.0,
+        "apply_transfer_eccentricity": False,
+        "transfer_eccentricity_x_m": 0.0,
+        "transfer_eccentricity_y_m": 0.0,
+        "transfer_basis": "",
         "source": None,
     }
     adoptions = list(column.construction_stage_loads)
@@ -972,6 +1010,10 @@ def _construction_stage_load_cases(column: ColumnScenarioInput) -> tuple[list[di
                 "stage_label": "舊案單一施工階段",
                 "target_column_id": column.column_id or "LEGACY-COLUMN",
                 "load_t": column.construction_stage_load_t,
+                "apply_transfer_eccentricity": False,
+                "transfer_eccentricity_x_m": 0.0,
+                "transfer_eccentricity_y_m": 0.0,
+                "transfer_basis": "",
                 "source": source,
             },
         ], ""
@@ -1003,6 +1045,18 @@ def _construction_stage_load_cases(column: ColumnScenarioInput) -> tuple[list[di
         valid, message = _validate_construction_stage_handoff(adoption.load_t, adoption.source)
         if not valid:
             return [baseline], f"施工階段「{stage_label}」：{message}"
+        if not math.isfinite(adoption.transfer_eccentricity_x_m) or not math.isfinite(adoption.transfer_eccentricity_y_m):
+            return [baseline], f"施工階段「{stage_label}」附加偏心必須為有限數值。"
+        has_transfer_eccentricity = (
+            abs(adoption.transfer_eccentricity_x_m) > 1e-12
+            or abs(adoption.transfer_eccentricity_y_m) > 1e-12
+        )
+        if adoption.apply_transfer_eccentricity and not has_transfer_eccentricity:
+            return [baseline], f"施工階段「{stage_label}」已勾選採用附加偏心，但 X、Y 偏心均為 0。"
+        if not adoption.apply_transfer_eccentricity and has_transfer_eccentricity:
+            return [baseline], f"施工階段「{stage_label}」尚未明確勾選採用附加偏心。"
+        if adoption.apply_transfer_eccentricity and not adoption.transfer_basis.strip():
+            return [baseline], f"施工階段「{stage_label}」採用附加偏心時必須填寫採用依據。"
         seen_ids.add(stage_id)
         seen_labels.add(normalized_label)
         seen_fingerprints.add(fingerprint)
@@ -1011,6 +1065,10 @@ def _construction_stage_load_cases(column: ColumnScenarioInput) -> tuple[list[di
             "stage_label": stage_label,
             "target_column_id": adoption.target_column_id,
             "load_t": adoption.load_t,
+            "apply_transfer_eccentricity": adoption.apply_transfer_eccentricity,
+            "transfer_eccentricity_x_m": adoption.transfer_eccentricity_x_m,
+            "transfer_eccentricity_y_m": adoption.transfer_eccentricity_y_m,
+            "transfer_basis": adoption.transfer_basis.strip(),
             "source": adoption.source,
         })
     return cases, ""

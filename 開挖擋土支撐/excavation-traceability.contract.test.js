@@ -73,7 +73,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '0.3.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '0.4.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -124,10 +124,10 @@ for (const tool of catalog.tools || []) {
 assert(seenTraceIds.size >= 10, 'excavation traceability catalog trace volume', `traces=${seenTraceIds.size}`);
 assert(manualReviewCount >= 10, 'excavation traceability catalog manual review volume', `manualReview=${manualReviewCount}`);
 
-['construction_stage_load_t', 'construction_stage_load_source', 'construction_stage_loads', 'target_column_id', 'handoff_record', '_validate_construction_stage_handoff', '_construction_stage_load_cases', 'construction_stage_envelope', '"Np"', '缺少可追溯交接來源', '無施工構台荷重基準案'].forEach((needle) => {
+['construction_stage_load_t', 'construction_stage_load_source', 'construction_stage_loads', 'target_column_id', 'apply_transfer_eccentricity', 'transfer_eccentricity_x_m', 'transfer_eccentricity_y_m', 'transfer_basis', 'handoff_record', '_validate_construction_stage_handoff', '_construction_stage_load_cases', 'construction_stage_envelope', 'transfer_mx', 'transfer_my', '"Np"', '缺少可追溯交接來源', '無施工構台荷重基準案', '必須填寫採用依據'].forEach((needle) => {
   assert(calculations.includes(needle) || schemas.includes(needle), `excavation construction-stage calculation keeps ${needle}`, needle);
 });
-['validateConstructionStageHandoff', 'constructionStageHandoffFingerprint', 'normalizeConstructionStageColumns', '新增覆工板施工階段'].forEach((needle) => {
+['validateConstructionStageHandoff', 'constructionStageHandoffFingerprint', 'normalizeConstructionStageColumns', '新增覆工板施工階段', '明確採用本階段附加傳力偏心', 'ΔMx = Np·Δex'].forEach((needle) => {
   assert(app.includes(needle), `excavation frontend handoff keeps ${needle}`, needle);
 });
 assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation handoff producer schema is governed', 'construction-stage-decking-load-handoff');

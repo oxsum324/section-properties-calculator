@@ -339,7 +339,14 @@ class ReportingTests(unittest.TestCase):
         for column in project.columns:
             column.enabled = column.variant == "composite_crane"
         column = next(item for item in project.columns if item.variant == "composite_crane")
-        initial = make_stage_adoption(column.column_id, "構台初設", 40.0)
+        initial = make_stage_adoption(
+            column.column_id,
+            "構台初設",
+            40.0,
+            eccentricity_x_m=0.75,
+            eccentricity_y_m=-0.25,
+            transfer_basis="施工配置圖 A-03",
+        )
         crane = make_stage_adoption(column.column_id, "吊車作業", 80.0)
         column.construction_stage_load_t = 80.0
         column.construction_stage_load_source = crane.source
@@ -356,7 +363,10 @@ class ReportingTests(unittest.TestCase):
         self.assertIn("施工階段逐案包絡結果如下", combined_text)
         self.assertIn("構台初設", combined_text)
         self.assertIn("吊車作業", combined_text)
-        self.assertIn("柱交互作用控制階段 = 吊車作業", combined_text)
+        self.assertIn("ΔMx / ΔMy = 30.00 / -10.00 tf-m", combined_text)
+        self.assertIn("附加偏心 = 已採用", combined_text)
+        self.assertIn("施工配置圖 A-03", combined_text)
+        self.assertIn("柱交互作用控制階段 = 構台初設", combined_text)
         self.assertIn("拉拔力控制階段 = 無施工構台荷重基準案", combined_text)
         self.assertIn(initial.source.handoff_fingerprint, combined_text)
         self.assertIn(crane.source.handoff_fingerprint, combined_text)

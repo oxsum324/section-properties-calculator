@@ -1,5 +1,5 @@
 {
-  "version": "0.3.0",
+  "version": "0.4.0",
   "family": "excavation-traceability",
   "description": "開挖擋土支撐服務型工具的規範語意追蹤表。每筆 trace 將分析檔匯入、輸入欄位、構件檢核、報表落點、測試證據與人工複核邊界對齊，避免只因 FastAPI / React 流程可產出 PDF 或 DOCX 就誤判為支撐系統檢核依據已完整可追溯。",
   "tools": [
@@ -62,18 +62,18 @@
     {
       "key": "excavation-column-foundation",
       "label": "柱構件與基礎承載檢核",
-      "scope": "柱構件軸壓雙軸彎互制、Beta / l0 / KL/r、Np 與 N1-N4 控制軸力、覆工板施工階段荷重逐柱明確交接與多階段包絡，以及壓入 / 拉拔基礎承載估算。",
+      "scope": "柱構件軸壓雙軸彎互制、Beta / l0 / KL/r、Np 與 N1-N4 控制軸力、覆工板施工階段荷重逐柱明確交接、逐階段附加偏心衍生彎矩與多階段包絡，以及壓入 / 拉拔基礎承載估算。",
       "status": "covered",
       "traces": [
         {
           "id": "excavation-column-interaction",
           "clause": "鋼結構容許應力設計法規範及解說，第六章受壓構材、第八章組合力條文與既有 Excel 柱構件檢核流程",
-          "purpose": "柱構件需保留軸力組合、偏心、有效長度、Fex / Fey、Fa / Fbx / Fby 與互制式；共構柱採用覆工板 Np 時須以固定柱位 ID 逐階段明確匯入經重算驗證的交接檔，連同零施工構台荷重基準案逐案計算，並分別包絡柱互制、基礎壓入及拉拔控制階段。",
-          "inputs": ["column_id", "column_section_name", "Np", "N1", "N2", "N3", "N4", "construction_stage_load_t", "construction_stage_load_source", "construction_stage_loads", "stage_id", "stage_label", "target_column_id", "handoff_record", "Mx", "My", "beta_x", "beta_y", "l0_x", "l0_y", "K", "Fy", "E"],
-          "calculation": ["calculate_column_scenario", "_construction_stage_load_cases", "validateConstructionStageHandoff", "constructionStageHandoffFingerprint", "_validate_construction_stage_handoff", "backend SHA-256 replay", "無施工構台荷重基準案", "multi-stage envelope", "N = Np + N1 + N2 + N3 + N4", "classify_column_section", "allowable_axial_stress", "allowable_fbx", "allowable_fby", "interaction_ratio", "column_interaction"],
-          "report": ["柱構件檢核", "施工構台荷重 Np", "施工階段包絡", "柱互制控制階段", "基礎壓入控制階段", "基礎拉拔控制階段", "來源計算指紋", "交接指紋", "控制軸力", "KL/r", "Fa", "Fbx / Fby", "互制比", "計算細節"],
+          "purpose": "柱構件需保留軸力組合、偏心、有效長度、Fex / Fey、Fa / Fbx / Fby 與互制式；共構柱採用覆工板 Np 時須以固定柱位 ID 逐階段明確匯入經重算驗證的交接檔。覆工板來源不自行推定開挖柱座標；設計者可逐階段明確採用帶正負號的附加 X / Y 偏心與依據，後端推導 ΔMx / ΔMy，連同零施工構台荷重基準案逐案計算並分別包絡柱互制、基礎壓入及拉拔控制階段。",
+          "inputs": ["column_id", "column_section_name", "Np", "N1", "N2", "N3", "N4", "construction_stage_load_t", "construction_stage_load_source", "construction_stage_loads", "stage_id", "stage_label", "target_column_id", "apply_transfer_eccentricity", "transfer_eccentricity_x_m", "transfer_eccentricity_y_m", "transfer_basis", "handoff_record", "Mx", "My", "beta_x", "beta_y", "l0_x", "l0_y", "K", "Fy", "E"],
+          "calculation": ["calculate_column_scenario", "_construction_stage_load_cases", "validateConstructionStageHandoff", "constructionStageHandoffFingerprint", "_validate_construction_stage_handoff", "backend SHA-256 replay", "無施工構台荷重基準案", "ΔMx = Np x Δex(stage)", "ΔMy = Np x Δey(stage)", "signed moment combination", "multi-stage envelope", "N = Np + N1 + N2 + N3 + N4", "classify_column_section", "allowable_axial_stress", "allowable_fbx", "allowable_fby", "interaction_ratio", "column_interaction"],
+          "report": ["柱構件檢核", "施工構台荷重 Np", "施工階段包絡", "階段附加偏心", "偏心採用依據", "ΔMx / ΔMy", "Mx / My", "柱互制控制階段", "基礎壓入控制階段", "基礎拉拔控制階段", "來源計算指紋", "交接指紋", "控制軸力", "KL/r", "Fa", "Fbx / Fby", "互制比", "計算細節"],
           "evidence": ["backend/app/calculations.py", "backend/app/reporting.py", "backend/app/schemas.py", "backend/app/workbook_loader.py", "backend/tests/handoff_fixtures.py", "backend/tests/test_calculations.py", "backend/tests/test_reporting.py", "frontend/src/App.tsx", "../結構工具箱/tools/construction-stage-load-handoff.js", "../結構工具箱/tools/construction-stage-load-handoff.test.js"],
-          "manualReview": ["柱位 ID 只建立明確資料對應，不自行證明覆工板反力分配正確；柱端拘束、各施工階段有效長度、偏心與彎矩傳力、二階效應、局部屈曲、接頭、續接及分析內力組合仍須由正式模型、施工圖與設計者人工複核。"]
+          "manualReview": ["柱位 ID 只建立明確資料對應，不自行證明覆工板反力分配正確；階段附加偏心是設計者依施工配置明確採用的專案輸入，不是覆工板來源檔自動推定。多柱分配、座標正負方向、柱端拘束、各施工階段有效長度、支撐內力變化、二階效應、局部屈曲、接頭、續接及分析內力組合仍須由正式模型、施工圖與設計者人工複核。"]
         },
         {
           "id": "excavation-pile-compression-tension",

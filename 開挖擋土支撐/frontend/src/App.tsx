@@ -770,6 +770,10 @@ function App() {
         stage_label: stageLabel,
         target_column_id: column.column_id,
         load_t: Number(record.load?.controlAxialLoadTf),
+        apply_transfer_eccentricity: false,
+        transfer_eccentricity_x_m: 0,
+        transfer_eccentricity_y_m: 0,
+        transfer_basis: "",
         source,
       };
       const constructionStageLoads = [...currentStages, adoption];
@@ -794,6 +798,29 @@ function App() {
     const column = columns[columnIndex];
     const constructionStageLoads = [...(column.construction_stage_loads ?? [])];
     constructionStageLoads[stageIndex] = { ...constructionStageLoads[stageIndex], stage_label: value };
+    columns[columnIndex] = { ...column, construction_stage_loads: constructionStageLoads };
+    applyProjectState({ ...project, columns, calculation_results: null });
+    setError("");
+  }
+
+  function updateConstructionStageTransfer(
+    columnIndex: number,
+    stageIndex: number,
+    patch: Partial<Pick<ConstructionStageLoadAdoption,
+      "apply_transfer_eccentricity" | "transfer_eccentricity_x_m" | "transfer_eccentricity_y_m" | "transfer_basis">>,
+  ) {
+    if (!project) return;
+    const columns = [...project.columns];
+    const column = columns[columnIndex];
+    const constructionStageLoads = [...(column.construction_stage_loads ?? [])];
+    const current = constructionStageLoads[stageIndex];
+    const next = { ...current, ...patch };
+    if (patch.apply_transfer_eccentricity === false) {
+      next.transfer_eccentricity_x_m = 0;
+      next.transfer_eccentricity_y_m = 0;
+      next.transfer_basis = "";
+    }
+    constructionStageLoads[stageIndex] = next;
     columns[columnIndex] = { ...column, construction_stage_loads: constructionStageLoads };
     applyProjectState({ ...project, columns, calculation_results: null });
     setError("");
@@ -2874,7 +2901,7 @@ function App() {
                       <div className="info-card construction-stage-handoff-card">
                         <p className="info-title">施工構台荷重交接與階段包絡</p>
                         <p className="info-body">
-                          每份交接檔只套用到本共構柱（{column.title}，識別碼 {column.column_id}）。可匯入多個施工階段；後端會連同無構台荷重基準案逐案驗算，分別找出柱互制、壓入與拉拔控制階段。
+                          每份交接檔只套用到本共構柱（{column.title}，識別碼 {column.column_id}）。可匯入多個施工階段；覆工板來源不會自行判定開挖柱座標方向，如需考慮傳力偏心，請逐階段明確採用附加 X／Y 偏心。後端會計算 ΔMx = Np·Δex、ΔMy = Np·Δey，連同無構台荷重基準案逐案包絡。
                         </p>
                         <div className="upload-row">
                           <label className="file-action secondary">
@@ -2912,6 +2939,45 @@ function App() {
                                   <MetaItem label="來源計算指紋" value={stage.source.source_calculation_fingerprint} />
                                   <MetaItem label="交接指紋" value={stage.source.handoff_fingerprint} />
                                 </div>
+                                <label className="check-field construction-stage-transfer-toggle">
+                                  <input
+                                    type="checkbox"
+                                    checked={stage.apply_transfer_eccentricity ?? false}
+                                    onChange={(event) => updateConstructionStageTransfer(index, stageIndex, {
+                                      apply_transfer_eccentricity: event.target.checked,
+                                    })}
+                                  />
+                                  <span>明確採用本階段附加傳力偏心</span>
+                                </label>
+                                {stage.apply_transfer_eccentricity && (
+                                  <div className="construction-stage-transfer-grid">
+                                    <NumberField
+                                      label="附加偏心 Δex (m，具正負號)"
+                                      value={stage.transfer_eccentricity_x_m ?? 0}
+                                      onChange={(value) => updateConstructionStageTransfer(index, stageIndex, {
+                                        transfer_eccentricity_x_m: Number(value),
+                                      })}
+                                    />
+                                    <NumberField
+                                      label="附加偏心 Δey (m，具正負號)"
+                                      value={stage.transfer_eccentricity_y_m ?? 0}
+                                      onChange={(value) => updateConstructionStageTransfer(index, stageIndex, {
+                                        transfer_eccentricity_y_m: Number(value),
+                                      })}
+                                    />
+                                    <label className="field-block construction-stage-transfer-basis">
+                                      <span>偏心採用依據（必填）</span>
+                                      <input
+                                        value={stage.transfer_basis ?? ""}
+                                        maxLength={120}
+                                        placeholder="例如：施工配置圖 A-03、設計者採用"
+                                        onChange={(event) => updateConstructionStageTransfer(index, stageIndex, {
+                                          transfer_basis: event.target.value,
+                                        })}
+                                      />
+                                    </label>
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -4616,13 +4682,23 @@ function normalizeConstructionStageColumns(columns: ColumnScenarioInput[]): Colu
     if (usedColumnIds.has(columnId)) columnId = `${columnId}-${index + 1}`;
     usedColumnIds.add(columnId);
 
-    let constructionStageLoads = existingStages;
+    let constructionStageLoads = existingStages.map((stage) => ({
+      ...stage,
+      apply_transfer_eccentricity: stage.apply_transfer_eccentricity ?? false,
+      transfer_eccentricity_x_m: stage.transfer_eccentricity_x_m ?? 0,
+      transfer_eccentricity_y_m: stage.transfer_eccentricity_y_m ?? 0,
+      transfer_basis: stage.transfer_basis ?? "",
+    }));
     if (constructionStageLoads.length === 0 && column.construction_stage_load_t > 0 && column.construction_stage_load_source) {
       constructionStageLoads = [{
         stage_id: `STG-${column.construction_stage_load_source.handoff_fingerprint.slice(4)}`,
         stage_label: "舊案單一施工階段",
         target_column_id: columnId,
         load_t: column.construction_stage_load_t,
+        apply_transfer_eccentricity: false,
+        transfer_eccentricity_x_m: 0,
+        transfer_eccentricity_y_m: 0,
+        transfer_basis: "",
         source: column.construction_stage_load_source,
       }];
     }

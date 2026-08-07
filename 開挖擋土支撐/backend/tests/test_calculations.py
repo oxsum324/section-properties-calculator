@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import unittest
 
 from backend.app.calculations import (
@@ -381,6 +382,80 @@ class CalculationTests(unittest.TestCase):
 
         self.assertEqual(check.status, "NG")
         self.assertIn("重複採用相同覆工板交接檔", check.details["message"])
+
+    def test_stage_transfer_eccentricity_adds_signed_moments_and_controls_envelope(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        for column in project.columns:
+            column.enabled = column.variant == "composite_crane"
+        column = next(item for item in project.columns if item.variant == "composite_crane")
+        column.eccentricity_y_m = 0.0
+        eccentric = make_stage_adoption(
+            column.column_id,
+            "偏心吊裝",
+            40.0,
+            eccentricity_x_m=2.0,
+            eccentricity_y_m=-0.5,
+            transfer_basis="施工配置圖 A-03",
+        )
+        axial_only = make_stage_adoption(column.column_id, "滿載置中", 80.0)
+        column.construction_stage_loads = [eccentric, axial_only]
+
+        check = calculate_project(project).column_checks[0]
+        envelope = check.details["construction_stage_envelope"]
+        eccentric_result = next(item for item in envelope if item["stage_label"] == "偏心吊裝")
+
+        self.assertAlmostEqual(eccentric_result["transfer_mx_tf_m"], 80.0, places=3)
+        self.assertAlmostEqual(eccentric_result["transfer_my_tf_m"], -20.0, places=3)
+        self.assertEqual(eccentric_result["transfer_basis"], "施工配置圖 A-03")
+        self.assertGreater(eccentric_result["fbx_value"], 0.0)
+        self.assertGreater(eccentric_result["fby_value"], 0.0)
+        self.assertEqual(check.details["construction_stage_controls"]["interaction"]["stage_label"], "偏心吊裝")
+
+    def test_stage_transfer_eccentricity_requires_explicit_basis(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        for column in project.columns:
+            column.enabled = column.variant == "composite_normal"
+        column = next(item for item in project.columns if item.variant == "composite_normal")
+        column.construction_stage_loads = [make_stage_adoption(column.column_id, "缺依據", 40.0, eccentricity_x_m=1.0)]
+
+        check = calculate_project(project).column_checks[0]
+
+        self.assertEqual(check.status, "NG")
+        self.assertIn("必須填寫採用依據", check.details["message"])
+
+    def test_stage_transfer_eccentricity_cannot_hide_without_acceptance(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        for column in project.columns:
+            column.enabled = column.variant == "composite_normal"
+        column = next(item for item in project.columns if item.variant == "composite_normal")
+        adoption = make_stage_adoption(column.column_id, "未勾選", 40.0)
+        adoption.transfer_eccentricity_x_m = 1.0
+        column.construction_stage_loads = [adoption]
+
+        check = calculate_project(project).column_checks[0]
+
+        self.assertEqual(check.status, "NG")
+        self.assertIn("尚未明確勾選採用", check.details["message"])
+
+    def test_stage_transfer_eccentricity_rejects_nonfinite_value(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        for column in project.columns:
+            column.enabled = column.variant == "composite_normal"
+        column = next(item for item in project.columns if item.variant == "composite_normal")
+        adoption = make_stage_adoption(
+            column.column_id,
+            "非有限偏心",
+            40.0,
+            eccentricity_x_m=1.0,
+            transfer_basis="施工配置圖 A-03",
+        )
+        adoption.transfer_eccentricity_x_m = math.nan
+        column.construction_stage_loads = [adoption]
+
+        check = calculate_project(project).column_checks[0]
+
+        self.assertEqual(check.status, "NG")
+        self.assertIn("必須為有限數值", check.details["message"])
 
 
 if __name__ == "__main__":

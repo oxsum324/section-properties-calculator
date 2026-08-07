@@ -208,6 +208,10 @@ class ConstructionStageLoadAdoption(BaseModel):
     stage_label: str
     target_column_id: str
     load_t: float = Field(ge=0.0)
+    apply_transfer_eccentricity: bool = False
+    transfer_eccentricity_x_m: float = 0.0
+    transfer_eccentricity_y_m: float = 0.0
+    transfer_basis: str = Field(default="", max_length=120)
     source: ConstructionStageLoadSource
 
 

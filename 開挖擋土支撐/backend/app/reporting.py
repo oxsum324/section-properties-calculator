@@ -2294,7 +2294,7 @@ def _column_detail_content(
         "Cc = sqrt(2 x pi^2 x E / Fy)",
         "Fa 依 KL/r 與 Cc 之關係，按規範相應公式取值後乘以 alpha_p",
         "Fbx = 0.66 x Fy x alpha_p，Fby = 0.75 x Fy x alpha_p",
-        "Mx = N3 x ex，My = N x ey",
+        "Mx = N3 x ex + Np x Δex(stage)，My = N x ey + Np x Δey(stage)；未明確採用階段附加偏心時，Δex = Δey = 0。",
         "R = [fa/Fa + Cmx x fbx/{(1 - fa/Fex) x Fbx} + Cmy x fby/{(1 - fa/Fey) x Fby}] / psi <= 1.0",
         "Qskin = Σ(qs x Li x 周長)，Qb = qb x Ab",
         "Qc,allow = (Qskin + Qb) / FS壓入",
@@ -2311,7 +2311,7 @@ def _column_detail_content(
         f"beta = (({_fmt_short(details.get('kh_kg_per_cm3'))} x {_fmt_short(details.get('foundation_size_x_m'))} x 100) / (4 x {_fmt_short(basic.e_tf_per_cm2)} x {_fmt_short(details.get('section_iy_cm4'))}))^(1/4) = {_fmt_short(details.get('beta'))}，l0 = {_fmt_short(details.get('l0_m'))} m，未支撐長度 = {_fmt_short(details.get('unsupported_length_m'))} m",
         f"KL/rx = {_fmt_short(details.get('klr_x'))}，KL/ry = {_fmt_short(details.get('klr_y'))}",
         f"Fbx = 0.66 x {_fmt_short(basic.fy_tf_per_cm2)} x {_fmt_short(basic.alpha_column)} = {_fmt_short(details.get('fbx_allow'))} tf/cm2；Fby = 0.75 x {_fmt_short(basic.fy_tf_per_cm2)} x {_fmt_short(basic.alpha_column)} = {_fmt_short(details.get('fby_allow'))} tf/cm2",
-        f"ex = {_fmt_short(details.get('e_x_m'))} m，ey = {_fmt_short(details.get('e_y_m'))} m，Mx = {_fmt_short(details.get('mx_tf_m'))} tf-m，My = {_fmt_short(details.get('my_tf_m'))} tf-m",
+        f"柱共通 ex = {_fmt_short(details.get('e_x_m'))} m，ey = {_fmt_short(details.get('e_y_m'))} m；控制階段 Δex = {_fmt_short(interaction_control.get('transfer_eccentricity_x_m'))} m，Δey = {_fmt_short(interaction_control.get('transfer_eccentricity_y_m'))} m，ΔMx = {_fmt_short(interaction_control.get('transfer_mx_tf_m'))} tf-m，ΔMy = {_fmt_short(interaction_control.get('transfer_my_tf_m'))} tf-m，Mx = {_fmt_short(details.get('mx_tf_m'))} tf-m，My = {_fmt_short(details.get('my_tf_m'))} tf-m",
         f"fbx = {_fmt_short(details.get('fbx_value'))} tf/cm2，Fbx = {_fmt_short(details.get('fbx_allow'))} tf/cm2，Fex = {_fmt_short(details.get('fex'))} tf/cm2",
         f"fby = {_fmt_short(details.get('fby_value'))} tf/cm2，Fby = {_fmt_short(details.get('fby_allow'))} tf/cm2，Fey = {_fmt_short(details.get('fey'))} tf/cm2",
         f"Qskin(壓入) = {_fmt_short(details.get('compression_skin_t'))} tf，Qb = {_fmt_short(details.get('compression_tip_t'))} tf，Qc,allow = ({_fmt_short(details.get('compression_skin_t'))} + {_fmt_short(details.get('compression_tip_t'))}) / {_fmt_short(details.get('compression_fs'))} = {_fmt_short(details.get('compression_capacity_t'))} tf",
@@ -2321,7 +2321,7 @@ def _column_detail_content(
     if isinstance(envelope, list) and len(envelope) > 1:
         substitutions.append("施工階段逐案包絡結果如下：")
         substitutions.extend(
-            f"{item.get('stage_label', '—')} [{item.get('stage_id', '—')}]：Np = {_fmt_short(item.get('Np'))} tf，N = {_fmt_short(item.get('N'))} tf，PT = {_fmt_short(item.get('PT'))} tf，柱互制比 = {_fmt_short(item.get('interaction_ratio'))}，壓入比 = {_fmt_short(item.get('compression_ratio'))}，拉拔比 = {_fmt_short(item.get('tension_ratio'))}"
+            f"{item.get('stage_label', '—')} [{item.get('stage_id', '—')}]：Np = {_fmt_short(item.get('Np'))} tf，Δex / Δey = {_fmt_short(item.get('transfer_eccentricity_x_m'))} / {_fmt_short(item.get('transfer_eccentricity_y_m'))} m，ΔMx / ΔMy = {_fmt_short(item.get('transfer_mx_tf_m'))} / {_fmt_short(item.get('transfer_my_tf_m'))} tf-m，Mx / My = {_fmt_short(item.get('Mx'))} / {_fmt_short(item.get('My'))} tf-m，N = {_fmt_short(item.get('N'))} tf，PT = {_fmt_short(item.get('PT'))} tf，柱互制比 = {_fmt_short(item.get('interaction_ratio'))}，壓入比 = {_fmt_short(item.get('compression_ratio'))}，拉拔比 = {_fmt_short(item.get('tension_ratio'))}"
             for item in envelope
             if isinstance(item, dict)
         )
@@ -2498,6 +2498,7 @@ def _input_parameter_lines(check: CheckResult) -> list[str]:
                     continue
                 lines.append(
                     f"階段來源「{item.get('stage_label', '—')}」：Np = {_fmt_short(item.get('Np'))} tf；"
+                    f"附加偏心 = {'已採用，Δex / Δey = ' + _fmt_short(item.get('transfer_eccentricity_x_m')) + ' / ' + _fmt_short(item.get('transfer_eccentricity_y_m')) + ' m，依據 = ' + str(item.get('transfer_basis', '—')) if item.get('apply_transfer_eccentricity') else '未採用'}；"
                     f"{item.get('source_tool', '—')} {item.get('source_version', '')}；"
                     f"來源計算指紋 = {item.get('source_calculation_fingerprint', '—')}；"
                     f"交接指紋 = {item.get('handoff_fingerprint', '—')}；"
@@ -2538,6 +2539,7 @@ def _concise_metric_lines(check: CheckResult) -> list[str]:
         return [
             f"柱互制／壓入／拉拔控制階段 = {interaction_control.get('stage_label', '—')}／{compression_control.get('stage_label', '—')}／{tension_control.get('stage_label', '—')}",
             f"N / PT = {_fmt_short(check.inputs.get('N'))} / {_fmt_short(check.inputs.get('PT'))} tf",
+            f"Mx / My = {_fmt_short(interaction_control.get('Mx'))} / {_fmt_short(interaction_control.get('My'))} tf-m",
             f"fa / Fa = {_fmt_short(details.get('fa_value'))} / {_fmt_short(details.get('fa_allow'))} tf/cm2",
             f"Qc / Qt = {_fmt_short(details.get('compression_capacity_t'))} / {_fmt_short(details.get('tension_capacity_t'))} tf",
             f"壓入比 / 拉拔比 = {_fmt_short(details.get('compression_ratio'))} / {_fmt_short(details.get('tension_ratio'))}",

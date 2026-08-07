@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 from backend.app.project_store import ProjectStore, _normalize_project_sources
 from backend.app.workbook_loader import load_default_project
+from backend.tests.handoff_fixtures import make_stage_adoption
 
 
 class ProjectStoreNormalizationTests(unittest.TestCase):
@@ -53,6 +54,32 @@ class ProjectStoreNormalizationTests(unittest.TestCase):
 
             self.assertEqual(target.read_bytes(), b"report")
             self.assertEqual(target.name, "latest-report.docx")
+
+    def test_stage_transfer_eccentricity_survives_project_round_trip(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            store = ProjectStore.__new__(ProjectStore)
+            store.settings = SimpleNamespace(db_path=root / "projects.sqlite3", projects_dir=root / "projects")
+            store._init_db()
+            project = store.create_project("階段偏心保存測試")
+            column = next(item for item in project.columns if item.variant == "composite_normal")
+            column.construction_stage_loads = [make_stage_adoption(
+                column.column_id,
+                "偏心吊裝",
+                40.0,
+                eccentricity_x_m=0.75,
+                eccentricity_y_m=-0.25,
+                transfer_basis="施工配置圖 A-03",
+            )]
+
+            store.save_project(project)
+            reloaded = store.get_project(project.metadata.id or "")
+            saved = next(item for item in reloaded.columns if item.column_id == column.column_id).construction_stage_loads[0]
+
+            self.assertTrue(saved.apply_transfer_eccentricity)
+            self.assertAlmostEqual(saved.transfer_eccentricity_x_m, 0.75)
+            self.assertAlmostEqual(saved.transfer_eccentricity_y_m, -0.25)
+            self.assertEqual(saved.transfer_basis, "施工配置圖 A-03")
 
 
 if __name__ == "__main__":
