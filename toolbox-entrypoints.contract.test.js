@@ -382,7 +382,7 @@ const EXPECTED_GOVERNANCE_SOURCE_KEYS = {
     preflightKeys: ['decking-tools-contract', 'decking-traceability-contract', 'decking-report-contract']
   },
   'excavation-service': {
-    preflightKeys: ['excavation-launcher', 'excavation-traceability-contract', 'excavation-backend-quick', 'excavation-report-contract'],
+    preflightKeys: ['excavation-launcher', 'excavation-traceability-contract', 'excavation-backend-quick', 'excavation-report-contract', 'construction-stage-load-handoff'],
     fullPreflightKeys: ['excavation-backend', 'excavation-frontend']
   },
   'continuous-beam': {

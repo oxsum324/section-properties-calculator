@@ -63,6 +63,7 @@ const storeTests = readUtf8('backend/tests/test_project_store.py');
 const preflight = readUtf8('../preflight-tools.ps1');
 const home = readUtf8('../結構工具箱/assets/home/home.js');
 const reportContract = readUtf8('excavation-report.contract.test.js');
+const handoff = readUtf8('../結構工具箱/tools/construction-stage-load-handoff.js');
 
 const expectedTools = [
   'excavation-analysis-import',
@@ -72,7 +73,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '0.1.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '0.2.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -122,6 +123,14 @@ for (const tool of catalog.tools || []) {
 
 assert(seenTraceIds.size >= 10, 'excavation traceability catalog trace volume', `traces=${seenTraceIds.size}`);
 assert(manualReviewCount >= 10, 'excavation traceability catalog manual review volume', `manualReview=${manualReviewCount}`);
+
+['construction_stage_load_t', 'construction_stage_load_source', 'handoff_record', '_validate_construction_stage_handoff', '"Np"', '缺少可追溯交接來源'].forEach((needle) => {
+  assert(calculations.includes(needle) || schemas.includes(needle), `excavation construction-stage calculation keeps ${needle}`, needle);
+});
+['validateConstructionStageHandoff', 'constructionStageHandoffFingerprint', '匯入並套用覆工板交接檔'].forEach((needle) => {
+  assert(app.includes(needle), `excavation frontend handoff keeps ${needle}`, needle);
+});
+assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation handoff producer schema is governed', 'construction-stage-decking-load-handoff');
 
 [
   'parse_analysis_file',
@@ -281,8 +290,8 @@ assert(manualReviewCount >= 10, 'excavation traceability catalog manual review v
 assert(home.includes("'excavation-service': {"), 'excavation home governance keeps service source', 'excavation-service');
 assert(home.includes("label: 'Excavation service governance'"), 'excavation home governance keeps service label', 'Excavation service governance');
 assert(
-  home.includes("preflightKeys: ['excavation-launcher', 'excavation-traceability-contract', 'excavation-backend-quick', 'excavation-report-contract']"),
-  'excavation home governance includes report contract gate',
+  home.includes("preflightKeys: ['excavation-launcher', 'excavation-traceability-contract', 'excavation-backend-quick', 'excavation-report-contract', 'construction-stage-load-handoff']"),
+  'excavation home governance includes report and construction-stage handoff gates',
   'excavation-service'
 );
 assert(

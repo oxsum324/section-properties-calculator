@@ -2282,8 +2282,8 @@ def _column_detail_content(
     warnings = details.get("warnings", [])
     warning_text = _column_warning_summary(check, default="無額外註記")
     formulas = [
-        "N = N1 + N2 + N3 + N4",
-        "PT = max(N3 - N4 - N2 - N1, 0)",
+        "N = Np + N1 + N2 + N3 + N4",
+        "PT = max(N3 - N4 - N2 - N1 - Np, 0)",
         "beta = ((Kh x B) / (4 x E x I))^(1/4)，l0 = 1 / beta",
         "Cc = sqrt(2 x pi^2 x E / Fy)",
         "Fa 依 KL/r 與 Cc 之關係，按規範相應公式取值後乘以 alpha_p",
@@ -2296,8 +2296,8 @@ def _column_detail_content(
         "壓入比 = N / Qc,allow，拉拔比 = PT / Qt,allow",
     ]
     substitutions = [
-        f"N = {_fmt_short(inputs.get('N1'))} + {_fmt_short(inputs.get('N2'))} + {_fmt_short(inputs.get('N3'))} + {_fmt_short(inputs.get('N4'))} = {_fmt_short(inputs.get('N'))} tf",
-        f"PT = max({_fmt_short(inputs.get('N3'))} - {_fmt_short(inputs.get('N4'))} - {_fmt_short(inputs.get('N2'))} - {_fmt_short(inputs.get('N1'))}, 0) = {_fmt_short(inputs.get('PT'))} tf",
+        f"N = {_fmt_short(inputs.get('Np'))} + {_fmt_short(inputs.get('N1'))} + {_fmt_short(inputs.get('N2'))} + {_fmt_short(inputs.get('N3'))} + {_fmt_short(inputs.get('N4'))} = {_fmt_short(inputs.get('N'))} tf",
+        f"PT = max({_fmt_short(inputs.get('N3'))} - {_fmt_short(inputs.get('N4'))} - {_fmt_short(inputs.get('N2'))} - {_fmt_short(inputs.get('N1'))} - {_fmt_short(inputs.get('Np'))}, 0) = {_fmt_short(inputs.get('PT'))} tf",
         f"Ab = {_fmt_short(details.get('foundation_area_cm2'))} cm2，周長 U = {_fmt_short(details.get('foundation_perimeter_cm'))} cm，有效埋置深度 = {_fmt_short(details.get('effective_embedment_m'))} m",
         f"Cc = sqrt(2 x pi^2 x {_fmt_short(basic.e_tf_per_cm2)} / {_fmt_short(basic.fy_tf_per_cm2)}) = {_fmt_short(_cc_value(basic))}",
         f"fa = {_fmt_short(details.get('fa_value'))} tf/cm2",
@@ -2465,12 +2465,19 @@ def _input_parameter_lines(check: CheckResult) -> list[str]:
             f"La = {_fmt_short(inputs.get('長度 La'))} m，Na = {_fmt_short(inputs.get('軸力 Na'))} tf",
         ]
     if check.formula_id == "column_interaction":
-        return [
-            f"N1 = {_fmt_short(inputs.get('N1'))} tf，N2 = {_fmt_short(inputs.get('N2'))} tf，N3 = {_fmt_short(inputs.get('N3'))} tf，N4 = {_fmt_short(inputs.get('N4'))} tf",
+        lines = [
+            f"Np = {_fmt_short(inputs.get('Np'))} tf，N1 = {_fmt_short(inputs.get('N1'))} tf，N2 = {_fmt_short(inputs.get('N2'))} tf，N3 = {_fmt_short(inputs.get('N3'))} tf，N4 = {_fmt_short(inputs.get('N4'))} tf",
             f"N = {_fmt_short(inputs.get('N'))} tf，PT = {_fmt_short(inputs.get('PT'))} tf",
             f"基礎型式 = {inputs.get('基礎型式', '—')}，基礎形狀 = {inputs.get('基礎形狀', '—')}，Bx = {_fmt_short(inputs.get('基礎尺寸 Bx'))} m，By = {_fmt_short(inputs.get('基礎尺寸 By'))} m",
             f"埋置深度 = {_fmt_short(inputs.get('埋置深度'))} m，FS壓入 = {_fmt_short(inputs.get('FS壓入'))}，FS拉拔 = {_fmt_short(inputs.get('FS拉拔'))}，Kh = {_fmt_short(inputs.get('Kh'))}",
         ]
+        if _numeric(inputs.get("Np")) > 0:
+            lines.append(
+                f"施工構台荷重來源 = {inputs.get('施工構台荷重來源', '—')} {inputs.get('來源工具版本', '')}；"
+                f"來源計算指紋 = {inputs.get('來源計算指紋', '—')}；交接指紋 = {inputs.get('交接指紋', '—')}；"
+                f"控制工況 = {inputs.get('來源控制工況', '—')}"
+            )
+        return lines
     return _format_inputs_as_lines(inputs)
 
 

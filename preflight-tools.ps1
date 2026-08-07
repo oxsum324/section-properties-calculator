@@ -1204,6 +1204,11 @@ node 覆工板/decking-traceability.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$constructionStageLoadHandoffCommand = @'
+node 結構工具箱/tools/construction-stage-load-handoff.test.js
+exit $LASTEXITCODE
+'@
+
 $formalTraceabilityContractCommand = @'
 node 結構工具箱/tools/formal-traceability.contract.test.js
 exit $LASTEXITCODE
@@ -2240,6 +2245,13 @@ $checks = @(
     label = "Decking traceability catalog contract"
     workdir = $root
     command = $deckingTraceabilityContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "construction-stage-load-handoff"
+    label = "Decking to excavation construction-stage load handoff"
+    workdir = $root
+    command = $constructionStageLoadHandoffCommand
     slow = $false
   },
   [pscustomobject]@{

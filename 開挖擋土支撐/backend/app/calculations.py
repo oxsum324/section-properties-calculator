@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
 import math
+import re
 from datetime import datetime
 
 from .schemas import (
@@ -17,6 +21,57 @@ from .schemas import (
     WaleRow,
 )
 from .workbook_loader import find_section
+
+
+def _validate_construction_stage_handoff(load_t: float, source: object) -> tuple[bool, str]:
+    record = getattr(source, "handoff_record", None)
+    if not isinstance(record, dict) or not record:
+        return False, "施工構台荷重缺少可追溯交接來源或原始記錄，無法由後端重驗。"
+    fingerprint = str(record.get("handoffFingerprint") or "")
+    if not re.fullmatch(r"CSH-[0-9A-F]{20}", fingerprint):
+        return False, "施工構台荷重交接指紋格式不正確。"
+    unsigned = {key: value for key, value in record.items() if key != "handoffFingerprint"}
+    try:
+        canonical = json.dumps(unsigned, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    except (TypeError, ValueError):
+        return False, "施工構台荷重交接內容不是有效的封閉 JSON。"
+    expected = "CSH-" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:20].upper()
+    if not hmac.compare_digest(fingerprint, expected):
+        return False, "施工構台荷重交接內容與指紋不一致。"
+    record_source = record.get("source")
+    record_load = record.get("load")
+    boundary = record.get("boundary")
+    if record.get("schemaVersion") != 1 or record.get("kind") != "construction-stage-decking-load-handoff":
+        return False, "施工構台荷重交接版本或種類不受支援。"
+    if not isinstance(record_source, dict) or not isinstance(record_load, dict) or not isinstance(boundary, dict):
+        return False, "施工構台荷重交接欄位不完整。"
+    if record_load.get("target") != "excavation-composite-column" or record_load.get("unit") != "tf":
+        return False, "施工構台荷重交接目標或單位不受支援。"
+    record_load_t = record_load.get("controlAxialLoadTf")
+    if isinstance(record_load_t, bool) or not isinstance(record_load_t, (int, float)) or not math.isfinite(record_load_t):
+        return False, "施工構台荷重交接控制軸力不是有限數值。"
+    if not math.isclose(float(record_load_t), load_t, rel_tol=1e-9, abs_tol=1e-9):
+        return False, "施工構台荷重與交接檔控制軸力不一致。"
+    calculation_fingerprint = str(record_source.get("calculationFingerprint") or "")
+    if not re.fullmatch(r"CF-[0-9A-F]{16}", calculation_fingerprint):
+        return False, "施工構台荷重來源計算指紋不正確。"
+    controlling_cases = record_load.get("controllingCases")
+    if not isinstance(controlling_cases, list) or not controlling_cases or any(case not in {"Pu1", "Pu2", "Pu3"} for case in controlling_cases):
+        return False, "施工構台荷重控制工況不正確。"
+    if boundary.get("requiresExplicitAcceptance") is not True or boundary.get("autoApplied") is not False:
+        return False, "施工構台荷重交接未保留明確採用邊界。"
+    if (
+        getattr(source, "kind", "") != record.get("kind")
+        or getattr(source, "handoff_fingerprint", "") != fingerprint
+        or getattr(source, "source_tool", "") != str(record_source.get("toolName") or "")
+        or getattr(source, "source_version", "") != str(record_source.get("toolVersion") or "")
+        or getattr(source, "source_calculation_fingerprint", "") != calculation_fingerprint
+        or getattr(source, "source_project_name", "") != str(record_source.get("projectName") or "")
+        or getattr(source, "source_project_no", "") != str(record_source.get("projectNo") or "")
+        or getattr(source, "controlling_cases", []) != controlling_cases
+    ):
+        return False, "施工構台荷重來源摘要與原始交接記錄不一致。"
+    return True, ""
 
 
 def classify_beam_section(d: float, bf: float, tw: float, tf: float, fy: float) -> str:
@@ -711,12 +766,31 @@ def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParamete
             f"支撐層 {', '.join(invalid_support_rows)} 尚未選擇型鋼型號，請先完成支撐選型。",
             inputs,
         )
+    platform_load = column.construction_stage_load_t
+    platform_source = column.construction_stage_load_source
+    if platform_load > 0 and column.variant == "middle":
+        return _incomplete_check(
+            "柱構件",
+            column.title,
+            "column_interaction",
+            "施工構台荷重只能套用於共構柱情境。",
+            inputs,
+        )
+    handoff_valid, handoff_message = (True, "") if platform_load <= 0 else _validate_construction_stage_handoff(platform_load, platform_source)
+    if not handoff_valid:
+        return _incomplete_check(
+            "柱構件",
+            column.title,
+            "column_interaction",
+            handoff_message,
+            inputs,
+        )
     n1 = sum(params.surcharge_wl_tf_per_m * row.spacing_m * row.support_count for row in column.support_rows)
     n2 = sum(find_section(row.section_name).unit_weight_kgf_per_m / 1000.0 * row.support_count * row.spacing_m for row in column.support_rows)
     n3 = sum((row.axial_force_t + row.temp_force_t) / 100.0 * 4.0 for row in column.support_rows)
     n4 = section.unit_weight_kgf_per_m / 1000.0 * column.column_length_m
-    total_n = n1 + n2 + n3 + n4
-    pt = max(0.0, n3 - n4 - n2 - n1)
+    total_n = platform_load + n1 + n2 + n3 + n4
+    pt = max(0.0, n3 - n4 - n2 - n1 - platform_load)
     e_x = column.eccentricity_x_m if column.eccentricity_x_m is not None else section.depth_cm / 200.0 + 0.2
     e_y = column.eccentricity_y_m
     mx = n3 * e_x
@@ -769,8 +843,14 @@ def calculate_column_scenario(column: ColumnScenarioInput, params: BasicParamete
             "N2": round(n2, 3),
             "N3": round(n3, 3),
             "N4": round(n4, 3),
+            "Np": round(platform_load, 3),
             "N": round(total_n, 3),
             "PT": round(pt, 3),
+            "施工構台荷重來源": platform_source.source_tool if platform_source else "",
+            "來源工具版本": platform_source.source_version if platform_source else "",
+            "來源計算指紋": platform_source.source_calculation_fingerprint if platform_source else "",
+            "交接指紋": platform_source.handoff_fingerprint if platform_source else "",
+            "來源控制工況": ", ".join(platform_source.controlling_cases) if platform_source else "",
         },
         computed_value=round(ratio, 3),
         allowable_value=1.0,

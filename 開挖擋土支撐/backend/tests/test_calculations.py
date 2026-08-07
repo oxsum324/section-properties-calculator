@@ -15,6 +15,7 @@ from backend.app.calculations import (
 )
 from backend.app.schemas import BraceRow, WaleRow
 from backend.app.workbook_loader import load_default_project, load_reference_data
+from backend.tests.handoff_fixtures import make_verified_handoff_source
 
 
 class CalculationTests(unittest.TestCase):
@@ -257,6 +258,77 @@ class CalculationTests(unittest.TestCase):
 
         self.assertIn("compression_tip_t", detail)
         self.assertGreater(detail["compression_tip_t"], 0.0)
+
+    def test_verified_decking_handoff_load_is_added_to_composite_column(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        for column in project.columns:
+            column.enabled = column.variant == "composite_crane"
+        column = next(item for item in project.columns if item.variant == "composite_crane")
+        baseline = calculate_project(project).column_checks[0]
+        column.construction_stage_load_t = 64.32
+        column.construction_stage_load_source = make_verified_handoff_source(64.32)
+
+        check = calculate_project(project).column_checks[0]
+
+        self.assertAlmostEqual(check.inputs["Np"], 64.32, places=3)
+        self.assertAlmostEqual(check.inputs["N"] - baseline.inputs["N"], 64.32, places=3)
+        self.assertEqual(check.inputs["來源計算指紋"], "CF-0123456789ABCDEF")
+        self.assertRegex(check.inputs["交接指紋"], r"^CSH-[0-9A-F]{20}$")
+        self.assertEqual(check.inputs["來源控制工況"], "Pu1")
+
+    def test_construction_stage_load_fails_closed_without_handoff_source(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        for column in project.columns:
+            column.enabled = column.variant == "composite_crane"
+        column = next(item for item in project.columns if item.variant == "composite_crane")
+        column.construction_stage_load_t = 20.0
+
+        check = calculate_project(project).column_checks[0]
+
+        self.assertEqual(check.status, "NG")
+        self.assertEqual(check.controlling_condition, "資料未完整")
+        self.assertIn("缺少可追溯交接來源", check.details["message"])
+
+    def test_construction_stage_load_fails_closed_when_handoff_record_is_tampered(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        for column in project.columns:
+            column.enabled = column.variant == "composite_crane"
+        column = next(item for item in project.columns if item.variant == "composite_crane")
+        column.construction_stage_load_t = 64.32
+        source = make_verified_handoff_source(64.32)
+        source.handoff_record["load"]["controlAxialLoadTf"] = 65.0
+        column.construction_stage_load_source = source
+
+        check = calculate_project(project).column_checks[0]
+
+        self.assertEqual(check.status, "NG")
+        self.assertIn("內容與指紋不一致", check.details["message"])
+
+    def test_construction_stage_load_fails_closed_when_adopted_load_differs_from_record(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        for column in project.columns:
+            column.enabled = column.variant == "composite_crane"
+        column = next(item for item in project.columns if item.variant == "composite_crane")
+        column.construction_stage_load_t = 63.0
+        column.construction_stage_load_source = make_verified_handoff_source(64.32)
+
+        check = calculate_project(project).column_checks[0]
+
+        self.assertEqual(check.status, "NG")
+        self.assertIn("控制軸力不一致", check.details["message"])
+
+    def test_construction_stage_load_cannot_be_applied_to_middle_column(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        for column in project.columns:
+            column.enabled = column.variant == "middle"
+        column = next(item for item in project.columns if item.variant == "middle")
+        column.construction_stage_load_t = 20.0
+        column.construction_stage_load_source = make_verified_handoff_source(20.0)
+
+        check = calculate_project(project).column_checks[0]
+
+        self.assertEqual(check.status, "NG")
+        self.assertIn("只能套用於共構柱", check.details["message"])
 
 
 if __name__ == "__main__":

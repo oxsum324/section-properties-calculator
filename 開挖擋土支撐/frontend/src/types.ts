@@ -103,6 +103,18 @@ export type FoundationSoilLayer = {
   soil_type: "sand" | "clay" | "mixed";
 };
 
+export type ConstructionStageLoadSource = {
+  kind: "construction-stage-decking-load-handoff";
+  handoff_fingerprint: string;
+  source_tool: string;
+  source_version: string;
+  source_calculation_fingerprint: string;
+  source_project_name: string;
+  source_project_no: string;
+  controlling_cases: string[];
+  handoff_record: Record<string, unknown>;
+};
+
 export type ColumnScenarioInput = {
   title: string;
   variant: "middle" | "composite_normal" | "composite_crane";
@@ -122,6 +134,8 @@ export type ColumnScenarioInput = {
   embedment_length_cm: number;
   concrete_strength_kg_per_cm2: number;
   soil_layers: FoundationSoilLayer[];
+  construction_stage_load_t: number;
+  construction_stage_load_source?: ConstructionStageLoadSource | null;
   compression_fs: number;
   tension_fs: number;
   pile_unit_weight_t_per_m3: number;

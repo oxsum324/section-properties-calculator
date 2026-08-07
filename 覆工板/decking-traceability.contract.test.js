@@ -45,6 +45,8 @@ const report = readUtf8('report/gen_report.py');
 const fixture = readUtf8('test-fixtures/report-smoke.json');
 const replay = readUtf8('decking-result-replay.js');
 const sectionTable = readUtf8('shared/h-section-table.js');
+const handoff = readUtf8('../結構工具箱/tools/construction-stage-load-handoff.js');
+const handoffTest = readUtf8('../結構工具箱/tools/construction-stage-load-handoff.test.js');
 
 const expectedTools = [
   'decking-load-member-strength',
@@ -53,7 +55,7 @@ const expectedTools = [
   'decking-report-governance',
 ];
 
-assert(catalog.version === '0.1.0', 'decking traceability catalog version', catalog.version);
+assert(catalog.version === '0.2.0', 'decking traceability catalog version', catalog.version);
 assert(catalog.family === 'decking-traceability', 'decking traceability catalog family', catalog.family);
 assertString(catalog.description, 'decking traceability catalog description');
 assert(Array.isArray(catalog.tools), 'decking traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -167,6 +169,10 @@ assert(seenTraceIds.size >= 8, 'decking traceability catalog trace volume', `tra
   '"Qa"',
 ].forEach((needle) => {
   assert(fixture.includes(needle), `decking report fixture keeps ${needle}`, needle);
+});
+
+['replayDeckingExport', 'construction-stage-decking-load-handoff', 'Pu1', 'Pu2', 'Pu3', 'PuMax', 'CSH-'].forEach((needle) => {
+  assert(handoff.includes(needle) || handoffTest.includes(needle), `decking construction-stage handoff keeps ${needle}`, needle);
 });
 
 [

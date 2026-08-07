@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
   "family": "decking-traceability",
   "description": "覆工板系統計算工具的條文語意追蹤表。每筆 trace 將規範來源、輸入欄位、計算路線、報告落點、測試證據與人工複核邊界對齊，避免只因前端能匯出 JSON 或 Word 報表產生成功就誤判為施工臨設檢核依據已完整可追溯。",
   "tools": [
@@ -34,17 +34,17 @@
     {
       "key": "decking-column-load-path",
       "label": "大梁柱頂 Pu 與共構柱互制檢核",
-      "scope": "覆工大梁傳至共構柱的 Pu 三情境、軸壓與雙軸彎矩 AISC 交互式、KL/r、Fa、Fbx / Fby 與舊料折減。",
+      "scope": "覆工大梁傳至共構柱的 Pu 三情境、軸壓與雙軸彎矩 AISC 交互式、KL/r、Fa、Fbx / Fby、舊料折減，以及向開挖共構柱交接控制軸力的受控結果鏈。",
       "status": "covered",
       "traces": [
         {
           "id": "decking-girder-pu-transfer",
           "clause": "施工覆工系統支承反力與吊車支腿位置工程判讀",
-          "purpose": "覆工大梁需把 PC400 支座壓柱、吊車距柱 0.5 m 與相鄰跨支腿三種 Pu 情境分開列出，避免只把 Vmax 自動送入柱檢核。",
+          "purpose": "覆工大梁需把 PC400 支座壓柱、吊車距柱 0.5 m 與相鄰跨支腿三種 Pu 情境分開列出；向開挖共構柱交接前必須以目前覆工板核心重算三案與 PuMax 並核對計算指紋，避免手抄或竄改結果。",
           "inputs": ["g4_L", "g4_W2", "g4_Pcrane", "WT2", "Pu1", "Pu2", "Pu3", "autolink", "c_N", "b_P", "p_P"],
-          "calculation": ["Pu1 = Vmax", "Pu2 = 0.5 WT2 L + P(L-0.5)/L", "Pu3 = 0.5 WT2 L + 2P(L-4)/L", "PuMax", "autolinkPuToColumn"],
-          "report": ["柱頂軸力 Pu", "傳至共構柱之軸力 Pu（三情境）", "控制 PuMax", "Tab5 軸力 N"],
-          "evidence": ["index.html", "report/gen_report.py", "test-fixtures/report-smoke.json"],
+          "calculation": ["Pu1 = Vmax", "Pu2 = 0.5 WT2 L + P(L-0.5)/L", "Pu3 = 0.5 WT2 L + 2P(L-4)/L", "PuMax", "autolinkPuToColumn", "replayDeckingExport", "construction-stage-decking-load-handoff", "CSH fingerprint"],
+          "report": ["柱頂軸力 Pu", "傳至共構柱之軸力 Pu（三情境）", "控制 PuMax", "Tab5 軸力 N", "施工階段荷重交接檔"],
+          "evidence": ["index.html", "decking-result-replay.js", "report/gen_report.py", "test-fixtures/report-smoke.json", "../結構工具箱/tools/construction-stage-load-handoff.js", "../結構工具箱/tools/construction-stage-load-handoff.test.js"],
           "manualReview": ["支腿位置、支承反力分配、跨距配置、共構柱實際位置、連續梁效應與臨時支撐路徑須由施工圖、吊裝計畫或外部分析人工複核。"]
         },
         {

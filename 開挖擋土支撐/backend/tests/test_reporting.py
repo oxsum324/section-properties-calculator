@@ -12,6 +12,7 @@ from pypdf import PdfReader
 from backend.app.calculations import calculate_project
 from backend.app.reporting import _concise_metric_text, build_report, build_word_report, calculation_fingerprint
 from backend.app.workbook_loader import load_default_project
+from backend.tests.handoff_fixtures import make_verified_handoff_source
 
 
 CALCULATION_BOOK_CONTENT_BOUNDARY = json.loads(
@@ -310,6 +311,28 @@ class ReportingTests(unittest.TestCase):
         self.assertIn("附件編排方式", combined_text)
         self.assertIn("詳細版（逐筆列示完整驗算過程）", combined_text)
         self.assertIn("-detail-", report_path.name)
+
+    def test_word_report_preserves_verified_decking_handoff_trace(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        for column in project.columns:
+            column.enabled = column.variant == "composite_crane"
+        column = next(item for item in project.columns if item.variant == "composite_crane")
+        column.construction_stage_load_t = 64.32
+        column.construction_stage_load_source = make_verified_handoff_source(64.32)
+        project.calculation_results = calculate_project(project)
+
+        report_path = build_word_report(project, concise_mode=False)
+        document = Document(str(report_path))
+        text = "\n".join(paragraph.text for paragraph in document.paragraphs)
+        table_text = "\n".join(cell.text for table in document.tables for row in table.rows for cell in row.cells)
+        combined_text = text + "\n" + table_text
+
+        self.assertIn("Np = 64.32 tf", combined_text)
+        self.assertIn("覆工板系統計算工具 v1.0", combined_text)
+        self.assertIn("CF-0123456789ABCDEF", combined_text)
+        self.assertIn(column.construction_stage_load_source.handoff_fingerprint, combined_text)
+        self.assertIn("控制工況 = Pu1", combined_text)
+        report_path.unlink(missing_ok=True)
 
     def test_word_report_hides_non_included_structural_modules(self) -> None:
         project = load_default_project().model_copy(deep=True)

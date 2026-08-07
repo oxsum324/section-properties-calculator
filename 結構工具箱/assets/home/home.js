@@ -87,7 +87,7 @@
     },
     'excavation-service': {
       label: 'Excavation service governance',
-      preflightKeys: ['excavation-launcher', 'excavation-traceability-contract', 'excavation-backend-quick', 'excavation-report-contract'],
+      preflightKeys: ['excavation-launcher', 'excavation-traceability-contract', 'excavation-backend-quick', 'excavation-report-contract', 'construction-stage-load-handoff'],
       fullPreflightKeys: ['excavation-backend', 'excavation-frontend'],
       cardTag: 'PDF/DOCX 邊界'
     },

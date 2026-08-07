@@ -191,6 +191,18 @@ class FoundationSoilLayer(BaseModel):
     soil_type: Literal["sand", "clay", "mixed"] = "mixed"
 
 
+class ConstructionStageLoadSource(BaseModel):
+    kind: Literal["construction-stage-decking-load-handoff"] = "construction-stage-decking-load-handoff"
+    handoff_fingerprint: str = ""
+    source_tool: str = ""
+    source_version: str = ""
+    source_calculation_fingerprint: str = ""
+    source_project_name: str = ""
+    source_project_no: str = ""
+    controlling_cases: list[str] = Field(default_factory=list)
+    handoff_record: dict[str, Any] = Field(default_factory=dict)
+
+
 class ColumnScenarioInput(BaseModel):
     title: str
     variant: Literal["middle", "composite_normal", "composite_crane"] = "middle"
@@ -210,6 +222,8 @@ class ColumnScenarioInput(BaseModel):
     embedment_length_cm: float = 300.0
     concrete_strength_kg_per_cm2: float = 175.0
     soil_layers: list[FoundationSoilLayer] = Field(default_factory=list)
+    construction_stage_load_t: float = Field(default=0.0, ge=0.0)
+    construction_stage_load_source: ConstructionStageLoadSource | None = None
     compression_fs: float = 2.0
     tension_fs: float = 3.0
     pile_unit_weight_t_per_m3: float = 1.8

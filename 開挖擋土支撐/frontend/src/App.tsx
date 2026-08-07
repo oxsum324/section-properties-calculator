@@ -64,6 +64,78 @@ const foundationTypeOptions = ["鑽掘或引孔樁", "打入樁"] as const;
 const foundationShapeOptions = ["(直徑)", "(寬×長)"] as const;
 const wallTypeOptions = ["連續壁", "鋼板樁", "其他"] as const;
 
+type ConstructionStageHandoff = {
+  schemaVersion: number;
+  kind: string;
+  generatedAt?: string;
+  handoffFingerprint: string;
+  source?: {
+    toolId?: string;
+    toolName?: string;
+    toolVersion?: string;
+    projectName?: string;
+    projectNo?: string;
+    calculationFingerprint?: string;
+  };
+  load?: {
+    target?: string;
+    unit?: string;
+    controlAxialLoadTf?: number;
+    controllingCases?: string[];
+    cases?: Array<{ key?: string; label?: string; valueTf?: number }>;
+  };
+  boundary?: {
+    requiresExplicitAcceptance?: boolean;
+    autoApplied?: boolean;
+    scope?: string;
+  };
+};
+
+function canonicalizeHandoffValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalizeHandoffValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value as Record<string, unknown>)
+        .sort()
+        .map((key) => [key, canonicalizeHandoffValue((value as Record<string, unknown>)[key])]),
+    );
+  }
+  return value;
+}
+
+async function constructionStageHandoffFingerprint(record: ConstructionStageHandoff): Promise<string> {
+  const source = { ...record } as Partial<ConstructionStageHandoff>;
+  delete source.handoffFingerprint;
+  const bytes = new TextEncoder().encode(JSON.stringify(canonicalizeHandoffValue(source)));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const hex = Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, "0")).join("");
+  return `CSH-${hex.slice(0, 20).toUpperCase()}`;
+}
+
+async function validateConstructionStageHandoff(record: ConstructionStageHandoff): Promise<void> {
+  if (record.schemaVersion !== 1 || record.kind !== "construction-stage-decking-load-handoff") {
+    throw new Error("施工階段荷重交接檔版本或種類不受支援。");
+  }
+  if (record.load?.target !== "excavation-composite-column" || record.load?.unit !== "tf") {
+    throw new Error("施工階段荷重交接目標或單位不受支援。");
+  }
+  if (!Number.isFinite(record.load.controlAxialLoadTf) || Number(record.load.controlAxialLoadTf) <= 0) {
+    throw new Error("施工階段荷重交接檔缺少有效控制軸力。");
+  }
+  if (!/^CF-[0-9A-F]{16}$/.test(record.source?.calculationFingerprint ?? "")) {
+    throw new Error("施工階段荷重交接檔缺少有效來源計算指紋。");
+  }
+  if (!/^CSH-[0-9A-F]{20}$/.test(record.handoffFingerprint ?? "")) {
+    throw new Error("施工階段荷重交接指紋格式不正確。");
+  }
+  if (record.boundary?.requiresExplicitAcceptance !== true || record.boundary?.autoApplied !== false) {
+    throw new Error("施工階段荷重交接檔未保留明確採用邊界。");
+  }
+  if (record.handoffFingerprint !== await constructionStageHandoffFingerprint(record)) {
+    throw new Error("施工階段荷重交接內容與交接指紋不一致。");
+  }
+}
+
 const columnNumericFields: Array<keyof ColumnScenarioInput> = [
   "foundation_size_x_m",
   "foundation_size_y_m",
@@ -646,6 +718,46 @@ function App() {
     };
     columns[index] = next;
     applyProjectState({ ...project, columns, calculation_results: null });
+  }
+
+  async function importConstructionStageHandoff(index: number, event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!project || !file) return;
+    try {
+      const column = project.columns[index];
+      if (!column || column.variant === "middle") throw new Error("施工階段荷重只能套用至共構柱情境。");
+      const record = JSON.parse(await file.text()) as ConstructionStageHandoff;
+      await validateConstructionStageHandoff(record);
+      const columns = [...project.columns];
+      columns[index] = {
+        ...column,
+        construction_stage_load_t: Number(record.load?.controlAxialLoadTf),
+        construction_stage_load_source: {
+          kind: "construction-stage-decking-load-handoff",
+          handoff_fingerprint: record.handoffFingerprint,
+          source_tool: record.source?.toolName || "覆工板系統計算工具",
+          source_version: record.source?.toolVersion || "",
+          source_calculation_fingerprint: record.source?.calculationFingerprint || "",
+          source_project_name: record.source?.projectName || "",
+          source_project_no: record.source?.projectNo || "",
+          controlling_cases: Array.isArray(record.load?.controllingCases) ? [...record.load.controllingCases] : [],
+          handoff_record: JSON.parse(JSON.stringify(record)) as Record<string, unknown>,
+        },
+      };
+      applyProjectState({ ...project, columns, calculation_results: null });
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  function clearConstructionStageHandoff(index: number) {
+    if (!project) return;
+    const columns = [...project.columns];
+    columns[index] = { ...columns[index], construction_stage_load_t: 0, construction_stage_load_source: null };
+    applyProjectState({ ...project, columns, calculation_results: null });
+    setError("");
   }
 
   function addColumnScenario(variant: ColumnScenarioInput["variant"]) {
@@ -2700,6 +2812,36 @@ function App() {
                         onChange={(value) => updateColumn(index, "pile_unit_weight_t_per_m3", value)}
                       />
                     </div>
+                    {column.variant !== "middle" && (
+                      <div className="info-card construction-stage-handoff-card">
+                        <p className="info-title">施工構台荷重交接</p>
+                        <p className="info-body">
+                          只接受由覆工板目前計算核心重算驗證後產生的交接檔；選擇檔案即代表明確套用到本共構柱，不會影響其他情境。
+                        </p>
+                        <div className="upload-row">
+                          <label className="file-action secondary">
+                            匯入並套用覆工板交接檔
+                            <input
+                              className="file-picker-input"
+                              type="file"
+                              accept=".json,application/json"
+                              onChange={(event) => importConstructionStageHandoff(index, event)}
+                            />
+                          </label>
+                          {column.construction_stage_load_t > 0 && (
+                            <button className="ghost" type="button" onClick={() => clearConstructionStageHandoff(index)}>
+                              移除交接荷重
+                            </button>
+                          )}
+                        </div>
+                        <div className="meta-grid">
+                          <MetaItem label="採用軸力 Np" value={`${fmt(column.construction_stage_load_t || 0)} tf`} />
+                          <MetaItem label="來源工具" value={column.construction_stage_load_source?.source_tool || "尚未套用"} />
+                          <MetaItem label="來源計算指紋" value={column.construction_stage_load_source?.source_calculation_fingerprint || "—"} />
+                          <MetaItem label="交接指紋" value={column.construction_stage_load_source?.handoff_fingerprint || "—"} />
+                        </div>
+                      </div>
+                    )}
                     </>
                     )}
                   </fieldset>
@@ -5615,6 +5757,8 @@ function createColumnScenario(
     embedment_length_cm: 300.0,
     concrete_strength_kg_per_cm2: 175.0,
     soil_layers: toFoundationSoils(project.analysis_import.soils),
+    construction_stage_load_t: 0.0,
+    construction_stage_load_source: null,
     compression_fs: 2.0,
     tension_fs: 3.0,
     pile_unit_weight_t_per_m3: 1.8,
