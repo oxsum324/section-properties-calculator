@@ -331,6 +331,13 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'RDR-',
   '備份最長允許天數',
   'backup-health-ok',
+  'rvr-backup-health-transition',
+  'rvr-backup-health-history',
+  'record_receiver_trust_backup_health_transition',
+  'previousEventFingerprint',
+  'eventFingerprint',
+  'RBH-',
+  'RVR-backup-health-event-',
 ].forEach((needle) => {
   assert(receiverTrustRecovery.includes(needle), `excavation receiver trust recovery keeps ${needle}`, needle);
 });
@@ -342,6 +349,11 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   '--max-age-days',
   'productionRegistryUnchanged',
   'evaluate_receiver_trust_backup_directory',
+  'history_parser',
+  '--current-status',
+  '--history-dir',
+  '--dashboard-history',
+  'record_receiver_trust_backup_health_transition',
 ].forEach((needle) => {
   assert(receiverTrustBackupCli.includes(needle), `excavation receiver trust backup CLI keeps ${needle}`, needle);
 });
@@ -359,6 +371,8 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'Get-ScheduledTaskInfo',
   'LastTaskResult',
   'Show-HealthAlert',
+  'rvr-backup-health-history.json',
+  'history-record-failed',
 ].forEach((needle) => {
   assert(receiverTrustHealthLauncher.includes(needle), `excavation receiver trust health launcher keeps ${needle}`, needle);
 });
@@ -385,6 +399,10 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'test_backup_health_rejects_stale_drill_receipt',
   'test_existing_backup_is_never_overwritten_or_deleted',
   'test_drill_receipt_tampering_is_detected',
+  'test_health_history_records_only_state_or_issue_code_changes',
+  'test_health_history_records_attention_recovery',
+  'test_health_history_rejects_tampered_chain',
+  'test_dashboard_health_history_excludes_private_evidence',
 ].forEach((needle) => {
   assert(receiverTrustRecoveryTests.includes(needle), `excavation receiver trust recovery tests keep ${needle}`, needle);
 });

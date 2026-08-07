@@ -33,7 +33,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 
 離線維運可用 `開挖擋土支撐\backup_receiver_trust_registry.ps1 -Mode Cycle` 建立備份並在隔離暫存清冊執行真實復原，成功後產生 `RDR-...` 收據；該流程會比對正式清冊前後 SHA-256，不會修改正式清冊或自動清除歷史備份。
 
-`開挖擋土支撐\check_receiver_trust_backup_health.ps1` 可每日驗證最新備份、RDR 收據、兩者的可追溯關聯與每週排程結果，並把不含路徑、檔名、指紋或清冊內容的本機摘要寫入 ignored `output/audit/rvr-backup-health-status.json`。平台巡檢儀表板只在本機讀取這份摘要；公開站顯示「僅限本機」，不發布備份位置，也不把狀態視為 Google Drive 遠端同步證明。
+`開挖擋土支撐\check_receiver_trust_backup_health.ps1` 可每日驗證最新備份、RDR 收據、兩者的可追溯關聯與每週排程結果，並把不含路徑、檔名、指紋或清冊內容的本機摘要寫入 ignored `output/audit/rvr-backup-health-status.json`。狀態或問題代碼改變時，另在受控備份資料夾追加具 RBH 串鏈驗證的轉換紀錄；相同結果不重複新增。儀表板只讀 ignored `output/audit/rvr-backup-health-history.json` 的去識別歷程，公開站顯示「僅限本機」，不發布備份位置，也不把狀態視為 Google Drive 遠端同步證明。
 
 ## 正式工具與入口
 
@@ -41,7 +41,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [結構工具箱/index.html](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/index.html:1)
 - 平台巡檢儀表板：
   [結構工具箱/audit-dashboard.html](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/audit-dashboard.html:1)
-  可直接檢視平台 history、preflight latest / full / quick、近期異常趨勢、耗時、最慢檢查，以及本機 RVR 備份健康摘要，並固定提醒頁面診斷明細不會寫入計算書、列印或 PDF。計算書預設為可列印的 `文件狀態：內部審閱`；使用者勾選核可後改為 `文件狀態：正式附件` 並記錄核可時間與計算指紋。工程 NG 與文件核可是不同概念，計畫名稱、編號及設計人空白時可由主文承接。首頁的頁面專用總覽另會顯示最近一次正式放行的實際交付物渲染完成數，但公開快照不包含交付檔名或案件內容。
+  可直接檢視平台 history、preflight latest / full / quick、近期異常趨勢、耗時、最慢檢查，以及本機 RVR 備份健康摘要與異常／恢復轉換歷程，並固定提醒頁面診斷明細不會寫入計算書、列印或 PDF。計算書預設為可列印的 `文件狀態：內部審閱`；使用者勾選核可後改為 `文件狀態：正式附件` 並記錄核可時間與計算指紋。工程 NG 與文件核可是不同概念，計畫名稱、編號及設計人空白時可由主文承接。首頁的頁面專用總覽另會顯示最近一次正式放行的實際交付物渲染完成數，但公開快照不包含交付檔名或案件內容。
 - 鋼構正式規範工具：
   [鋼構工具/index.html](/C:/Users/USER/Desktop/AI/小工具製作/鋼構工具/index.html:1)
 - 鋼構正式頁 regression：

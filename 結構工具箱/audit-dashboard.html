@@ -166,6 +166,7 @@
     min-width: 1320px;
     font-size: 0.84em;
   }
+  .history-table.rvr-health-history-table { min-width: 760px; }
   .history-table th,
   .history-table td {
     border: 1px solid #e2e8f0;
@@ -800,6 +801,11 @@
     <div class="coverage-totals" id="rvrBackupHealthIssues" aria-label="RVR Backup Health Issues">
       <div class="history-empty">讀取 RVR 備份健康問題中。</div>
     </div>
+    <h3>異常／恢復歷程</h3>
+    <p class="section-note">只在健康狀態或問題種類改變時新增一筆；每日相同結果不重複列入。</p>
+    <div class="history-table-wrap" id="rvrBackupHealthHistoryWrap" aria-label="RVR Backup Health Transition History">
+      <div class="history-empty">讀取 RVR 備份健康轉換歷程中。</div>
+    </div>
   </div>
 
   <div class="card">
@@ -1025,6 +1031,7 @@
         'backup-task-no-history': '每週備份排程尚無執行紀錄',
         'backup-task-last-run-failed': '每週備份排程最近一次執行失敗',
         'backup-task-unavailable': '找不到或無法讀取每週備份排程',
+        'history-record-failed': '無法寫入防改寫的健康狀態轉換歷程',
         'dashboard-summary-privacy-invalid': '本機摘要未通過隱私邊界檢查',
       };
       return labels[String(code || '')] || '未分類問題，請查看本機詳細狀態';
@@ -1096,6 +1103,68 @@
           `).join('')
           : '<div class="coverage-total ok" data-rvr-health-issue="none"><strong>證據完整</strong><span>備份、復原演練、證據關聯與每週排程均通過。</span></div>';
       }
+    }
+
+    function rvrBackupHealthStateText(state) {
+      const labels = {
+        unobserved: '尚未觀察',
+        healthy: '正常',
+        'attention-required': '需要處理',
+      };
+      return labels[String(state || '')] || '未知';
+    }
+
+    function renderRvrBackupHealthHistory(payload) {
+      const wrap = document.getElementById('rvrBackupHealthHistoryWrap');
+      if (!wrap) return;
+      const privacySafe = payload
+        && payload.schemaVersion === 1
+        && payload.kind === 'rvr-backup-health-history'
+        && payload.privacy?.scope === 'local-only'
+        && payload.privacy?.containsPaths === false
+        && payload.privacy?.containsRegistryContent === false
+        && payload.privacy?.containsEvidenceFingerprints === false;
+      if (!privacySafe) {
+        wrap.innerHTML = '<div class="history-empty">本機尚無可讀取的去識別轉換歷程；公開站不提供此資料。</div>';
+        return;
+      }
+      const states = new Set(['unobserved', 'healthy', 'attention-required']);
+      const items = Array.isArray(payload.items) ? payload.items.filter((item) => (
+        item
+        && states.has(item.fromStatus)
+        && states.has(item.toStatus)
+        && Array.isArray(item.issueCodes)
+      )) : [];
+      if (!items.length) {
+        wrap.innerHTML = '<div class="history-empty">尚無健康狀態轉換紀錄。</div>';
+        return;
+      }
+      wrap.innerHTML = `
+        <table class="history-table rvr-health-history-table">
+          <thead>
+            <tr><th>觀察時間</th><th>狀態轉換</th><th>原因摘要</th><th>每週排程</th></tr>
+          </thead>
+          <tbody>
+            ${items.map((item) => {
+              const codes = item.issueCodes.filter((code) => typeof code === 'string');
+              const issueText = codes.length
+                ? codes.map((code) => rvrBackupIssueText(code)).join('；')
+                : '證據完整，無待處理問題';
+              const taskText = item.backupTaskState
+                ? `${item.backupTaskState} / 結果 ${item.backupTaskLastTaskResult ?? '-'}`
+                : '未檢查';
+              return `
+                <tr data-rvr-health-transition="${escapeAttr(`${item.fromStatus}:${item.toStatus}`)}">
+                  <td>${escapeHtml(formatRvrHealthDate(item.observedAt))}</td>
+                  <td>${escapeHtml(rvrBackupHealthStateText(item.fromStatus))} → ${escapeHtml(rvrBackupHealthStateText(item.toStatus))}</td>
+                  <td>${escapeHtml(issueText)}</td>
+                  <td>${escapeHtml(taskText)}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      `;
     }
 
     function isReleasePreflightRun(item) {
@@ -2457,6 +2526,12 @@
         } catch (error) {
           renderRvrBackupHealth(null);
         }
+        try {
+          const rvrBackupHealthHistory = await fetchJson('../output/audit/rvr-backup-health-history.json');
+          renderRvrBackupHealthHistory(rvrBackupHealthHistory);
+        } catch (error) {
+          renderRvrBackupHealthHistory(null);
+        }
         const [publicStatusResult, localDiagnosticResult] = await Promise.allSettled([
           fetchJson('./assets/status/report-readiness-status.json'),
           fetchJson('../output/preflight/attachment-integrity-latest.json'),
@@ -2472,6 +2547,7 @@
         renderPreflightPostChecks(null);
         renderMaturityMatrix(null);
         renderRvrBackupHealth(null);
+        renderRvrBackupHealthHistory(null);
         renderAttachmentIntegrity(null);
         renderAttachmentIntegrityClosures([]);
       }

@@ -9,6 +9,7 @@ from .app.config import get_settings
 from .app.receiver_trust_recovery import (
     evaluate_receiver_trust_backup_directory,
     perform_receiver_trust_registry_recovery_drill,
+    record_receiver_trust_backup_health_transition,
     validate_receiver_trust_registry_backup_file,
     write_receiver_trust_registry_backup,
 )
@@ -50,6 +51,12 @@ def main() -> int:
     health_parser = subparsers.add_parser("health", help="驗證最新備份與復原演練收據是否完整且仍在期限內")
     health_parser.add_argument("--backup-dir", required=True, type=Path)
     health_parser.add_argument("--max-age-days", type=int, default=8)
+
+    history_parser = subparsers.add_parser("history", help="僅在健康狀態或問題代碼改變時新增去識別轉換紀錄")
+    history_parser.add_argument("--current-status", required=True, type=Path)
+    history_parser.add_argument("--history-dir", required=True, type=Path)
+    history_parser.add_argument("--dashboard-history", required=True, type=Path)
+    history_parser.add_argument("--max-items", type=int, default=24)
 
     args = parser.parse_args()
     try:
@@ -107,10 +114,21 @@ def main() -> int:
                 "receiptFingerprint": receipt["receiptFingerprint"],
                 "productionRegistryUnchanged": receipt["productionRegistryUnchanged"],
             })
-        else:
+        elif args.command == "health":
             _print_result(evaluate_receiver_trust_backup_directory(
                 args.backup_dir,
                 max_age_days=args.max_age_days,
+            ))
+        else:
+            try:
+                current_status = json.loads(args.current_status.read_text(encoding="utf-8-sig"))
+            except (OSError, json.JSONDecodeError) as exc:
+                raise ValueError("無法讀取目前的備份健康摘要 JSON。") from exc
+            _print_result(record_receiver_trust_backup_health_transition(
+                current_status,
+                args.history_dir,
+                args.dashboard_history,
+                max_items=args.max_items,
             ))
     except (OSError, ValueError) as exc:
         parser.error(str(exc))

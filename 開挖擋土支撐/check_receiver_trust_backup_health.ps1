@@ -3,6 +3,7 @@ param(
   [string]$BackupTaskName,
   [int]$MaxAgeDays = 8,
   [string]$DashboardStatusPath,
+  [string]$DashboardHistoryPath,
   [switch]$ShowAlert
 )
 
@@ -44,6 +45,9 @@ if (-not $BackupDirectory) {
 }
 if (-not $DashboardStatusPath) {
   $DashboardStatusPath = Join-Path (Split-Path -Parent $root) "output\audit\rvr-backup-health-status.json"
+}
+if (-not $DashboardHistoryPath) {
+  $DashboardHistoryPath = Join-Path (Split-Path -Parent $root) "output\audit\rvr-backup-health-history.json"
 }
 if ($MaxAgeDays -le 0) {
   throw "MaxAgeDays must be greater than zero."
@@ -170,6 +174,41 @@ try {
   Write-AtomicJsonFile -Path $DashboardStatusPath -Payload $dashboardStatus
 } catch {
   Write-Warning "Unable to publish the local dashboard health summary: $($_.Exception.Message)"
+}
+
+Push-Location $root
+try {
+  $previousErrorActionPreference = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    $historyOutput = & $python.Source -m backend.backup_receiver_trust_registry history `
+      --current-status $DashboardStatusPath `
+      --history-dir $BackupDirectory `
+      --dashboard-history $DashboardHistoryPath `
+      --max-items 24 2>&1 | Out-String
+    $historyExitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+  }
+} finally {
+  Pop-Location
+}
+
+if ($historyExitCode -ne 0) {
+  $detail = ($historyOutput -replace '\s+', ' ').Trim()
+  if ($detail -match ': error: (?<message>.+)$') {
+    $detail = $Matches['message'].Trim()
+  }
+  $issues.Add("The append-only health transition history could not be recorded: $detail")
+  $issueCodes.Add("history-record-failed")
+  $healthy = $false
+  $status.status = "attention-required"
+  $status.issues = @($issues)
+  $dashboardStatus.status = "attention-required"
+  $dashboardStatus.issueCount = $issues.Count
+  $dashboardStatus.issueCodes = @($issueCodes)
+  Write-AtomicJsonFile -Path $statusPath -Payload $status
+  Write-AtomicJsonFile -Path $DashboardStatusPath -Payload $dashboardStatus
 }
 
 $json = $status | ConvertTo-Json -Depth 8

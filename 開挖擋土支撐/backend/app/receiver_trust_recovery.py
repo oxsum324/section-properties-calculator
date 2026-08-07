@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import tempfile
 from typing import Any
+from uuid import uuid4
 
 from .receiver_trust_backup import (
     build_receiver_trust_registry_backup,
@@ -17,6 +18,11 @@ from .receiver_trust_store import ReceiverTrustStore, _canonical_json_bytes
 
 
 RECEIVER_TRUST_RECOVERY_DRILL_KIND = "receiver-trust-registry-recovery-drill-receipt"
+RECEIVER_TRUST_BACKUP_HEALTH_TRANSITION_KIND = "rvr-backup-health-transition"
+RECEIVER_TRUST_BACKUP_HEALTH_STATUS_KIND = "rvr-backup-health-status"
+RECEIVER_TRUST_BACKUP_HEALTH_HISTORY_KIND = "rvr-backup-health-history"
+_HEALTH_STATES = {"healthy", "attention-required"}
+_HEALTH_EVENT_STATES = _HEALTH_STATES | {"unobserved"}
 
 
 def _now_iso() -> str:
@@ -47,6 +53,11 @@ def _receipt_fingerprint(receipt: dict[str, Any]) -> str:
     return "RDR-" + hashlib.sha256(_canonical_json_bytes(payload)).hexdigest()[:20].upper()
 
 
+def _health_event_fingerprint(event: dict[str, Any]) -> str:
+    payload = {key: value for key, value in event.items() if key != "eventFingerprint"}
+    return "RBH-" + hashlib.sha256(_canonical_json_bytes(payload)).hexdigest()[:20].upper()
+
+
 def _timestamp_token(value: str) -> str:
     parsed = _parse_time(value, "時間")
     return parsed.strftime("%Y%m%d-%H%M%S-%f")
@@ -64,6 +75,212 @@ def _write_json_exclusive(path: Path, payload: dict[str, Any]) -> None:
         if created:
             path.unlink(missing_ok=True)
         raise
+
+
+def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    try:
+        with temporary_path.open("x", encoding="utf-8", newline="\n") as stream:
+            json.dump(payload, stream, ensure_ascii=False, indent=2)
+            stream.write("\n")
+        temporary_path.replace(path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
+def _validate_health_issue_codes(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        raise ValueError("備份健康摘要的問題代碼必須是陣列。")
+    codes: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", item):
+            raise ValueError("備份健康摘要含有格式不正確的問題代碼。")
+        if item in codes:
+            raise ValueError("備份健康摘要的問題代碼不得重複。")
+        codes.append(item)
+    return sorted(codes)
+
+
+def validate_receiver_trust_backup_health_status(status: Any) -> dict[str, Any]:
+    if not isinstance(status, dict):
+        raise ValueError("備份健康摘要必須是 JSON 物件。")
+    if status.get("schemaVersion") != 1 or status.get("kind") != RECEIVER_TRUST_BACKUP_HEALTH_STATUS_KIND:
+        raise ValueError("備份健康摘要版本或種類不受支援。")
+    checked_at = _parse_time(status.get("checkedAt"), "備份健康檢查時間")
+    if checked_at > datetime.now(timezone.utc) + timedelta(minutes=5):
+        raise ValueError("備份健康檢查時間不可晚於目前時間。")
+    health_status = status.get("status")
+    if health_status not in _HEALTH_STATES:
+        raise ValueError("備份健康摘要的狀態不受支援。")
+    issue_codes = _validate_health_issue_codes(status.get("issueCodes"))
+    if status.get("issueCount") != len(issue_codes):
+        raise ValueError("備份健康摘要的問題數與問題代碼不一致。")
+    if health_status == "healthy" and issue_codes:
+        raise ValueError("正常的備份健康摘要不得含有問題代碼。")
+    if health_status == "attention-required" and not issue_codes:
+        raise ValueError("需要處理的備份健康摘要必須含有問題代碼。")
+    privacy = status.get("privacy")
+    if not isinstance(privacy, dict) or privacy.get("scope") != "local-only":
+        raise ValueError("備份健康摘要必須標示為僅限本機。")
+    if privacy.get("containsPaths") is not False or privacy.get("containsRegistryContent") is not False:
+        raise ValueError("備份健康摘要不得含有路徑或信任清冊內容。")
+    return dict(status)
+
+
+def validate_receiver_trust_backup_health_transition(event: Any) -> dict[str, Any]:
+    if not isinstance(event, dict):
+        raise ValueError("備份健康轉換紀錄必須是 JSON 物件。")
+    if event.get("schemaVersion") != 1 or event.get("kind") != RECEIVER_TRUST_BACKUP_HEALTH_TRANSITION_KIND:
+        raise ValueError("備份健康轉換紀錄版本或種類不受支援。")
+    observed_at = _parse_time(event.get("observedAt"), "備份健康轉換時間")
+    if observed_at > datetime.now(timezone.utc) + timedelta(minutes=5):
+        raise ValueError("備份健康轉換時間不可晚於目前時間。")
+    if event.get("fromStatus") not in _HEALTH_EVENT_STATES or event.get("toStatus") not in _HEALTH_STATES:
+        raise ValueError("備份健康轉換紀錄含有不受支援的狀態。")
+    issue_codes = _validate_health_issue_codes(event.get("issueCodes"))
+    if event.get("issueCount") != len(issue_codes):
+        raise ValueError("備份健康轉換紀錄的問題數與問題代碼不一致。")
+    if event.get("toStatus") == "healthy" and issue_codes:
+        raise ValueError("轉為正常的備份健康紀錄不得含有問題代碼。")
+    if event.get("toStatus") == "attention-required" and not issue_codes:
+        raise ValueError("轉為需要處理的備份健康紀錄必須含有問題代碼。")
+    for field in ("evidenceStatus", "backupTaskState"):
+        if event.get(field) is not None and not isinstance(event.get(field), str):
+            raise ValueError("備份健康轉換紀錄含有格式不正確的狀態欄位。")
+    if event.get("backupTaskLastTaskResult") is not None and not isinstance(event.get("backupTaskLastTaskResult"), int):
+        raise ValueError("備份健康轉換紀錄的排程結果格式不正確。")
+    previous = event.get("previousEventFingerprint")
+    if previous is not None and not re.fullmatch(r"RBH-[0-9A-F]{20}", str(previous)):
+        raise ValueError("備份健康轉換紀錄的前筆指紋格式不正確。")
+    if not re.fullmatch(r"RBH-[0-9A-F]{20}", str(event.get("eventFingerprint") or "")):
+        raise ValueError("備份健康轉換紀錄的指紋格式不正確。")
+    if event.get("eventFingerprint") != _health_event_fingerprint(event):
+        raise ValueError("備份健康轉換紀錄指紋驗證失敗。")
+    return dict(event)
+
+
+def _read_receiver_trust_backup_health_transitions(directory: Path) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    for path in directory.glob("RVR-backup-health-event-*.json") if directory.is_dir() else ():
+        try:
+            event = validate_receiver_trust_backup_health_transition(
+                json.loads(path.read_text(encoding="utf-8"))
+            )
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            raise ValueError(f"無法驗證備份健康轉換紀錄：{path.name}") from exc
+        if not path.name.endswith(f"-{event['eventFingerprint']}.json"):
+            raise ValueError(f"備份健康轉換紀錄檔名與指紋不一致：{path.name}")
+        events.append(event)
+    events.sort(key=lambda item: _parse_time(item["observedAt"], "備份健康轉換時間"))
+    previous: str | None = None
+    for event in events:
+        if event["previousEventFingerprint"] != previous:
+            raise ValueError("備份健康轉換紀錄的串鏈驗證失敗。")
+        previous = event["eventFingerprint"]
+    return events
+
+
+def _build_receiver_trust_backup_health_history(
+    events: list[dict[str, Any]],
+    *,
+    max_items: int,
+) -> dict[str, Any]:
+    if max_items <= 0:
+        raise ValueError("儀表板健康歷程筆數必須大於 0。")
+    items = [{
+        "observedAt": event["observedAt"],
+        "fromStatus": event["fromStatus"],
+        "toStatus": event["toStatus"],
+        "issueCount": event["issueCount"],
+        "issueCodes": event["issueCodes"],
+        "evidenceStatus": event["evidenceStatus"],
+        "backupTaskState": event["backupTaskState"],
+        "backupTaskLastTaskResult": event["backupTaskLastTaskResult"],
+    } for event in reversed(events[-max_items:])]
+    return {
+        "schemaVersion": 1,
+        "kind": RECEIVER_TRUST_BACKUP_HEALTH_HISTORY_KIND,
+        "generatedAt": _now_iso(),
+        "itemCount": len(items),
+        "items": items,
+        "privacy": {
+            "scope": "local-only",
+            "containsPaths": False,
+            "containsRegistryContent": False,
+            "containsEvidenceFingerprints": False,
+        },
+    }
+
+
+def record_receiver_trust_backup_health_transition(
+    status: Any,
+    history_directory: Path,
+    dashboard_history_path: Path,
+    *,
+    max_items: int = 24,
+) -> dict[str, Any]:
+    current = validate_receiver_trust_backup_health_status(status)
+    events = _read_receiver_trust_backup_health_transitions(history_directory)
+    issue_codes = _validate_health_issue_codes(current["issueCodes"])
+    latest = events[-1] if events else None
+    unchanged = bool(
+        latest
+        and latest["toStatus"] == current["status"]
+        and latest["issueCodes"] == issue_codes
+    )
+    event_path: Path | None = None
+    if not unchanged:
+        observed_at = current["checkedAt"]
+        if latest and _parse_time(observed_at, "備份健康檢查時間") <= _parse_time(
+            latest["observedAt"], "備份健康轉換時間"
+        ):
+            raise ValueError("新的備份健康轉換時間必須晚於既有紀錄。")
+        evidence = current.get("evidence") if isinstance(current.get("evidence"), dict) else {}
+        task = current.get("backupTask") if isinstance(current.get("backupTask"), dict) else {}
+        event: dict[str, Any] = {
+            "schemaVersion": 1,
+            "kind": RECEIVER_TRUST_BACKUP_HEALTH_TRANSITION_KIND,
+            "observedAt": observed_at,
+            "fromStatus": latest["toStatus"] if latest else "unobserved",
+            "toStatus": current["status"],
+            "issueCount": len(issue_codes),
+            "issueCodes": issue_codes,
+            "evidenceStatus": evidence.get("status") if isinstance(evidence.get("status"), str) else None,
+            "backupTaskState": task.get("state") if isinstance(task.get("state"), str) else None,
+            "backupTaskLastTaskResult": task.get("lastTaskResult") if isinstance(task.get("lastTaskResult"), int) else None,
+            "previousEventFingerprint": latest["eventFingerprint"] if latest else None,
+        }
+        event["eventFingerprint"] = _health_event_fingerprint(event)
+        event = validate_receiver_trust_backup_health_transition(event)
+        event_path = history_directory / (
+            f"RVR-backup-health-event-{_timestamp_token(observed_at)}-"
+            f"{event['eventFingerprint']}.json"
+        )
+        _write_json_exclusive(event_path, event)
+        try:
+            saved = validate_receiver_trust_backup_health_transition(
+                json.loads(event_path.read_text(encoding="utf-8"))
+            )
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            event_path.unlink(missing_ok=True)
+            raise ValueError("備份健康轉換紀錄落地後重新驗證失敗，已移除不完整檔案。") from exc
+        events.append(saved)
+    dashboard_history = _build_receiver_trust_backup_health_history(events, max_items=max_items)
+    try:
+        _write_json_atomic(dashboard_history_path, dashboard_history)
+    except Exception:
+        if event_path is not None:
+            event_path.unlink(missing_ok=True)
+        raise
+    return {
+        "status": "unchanged" if unchanged else "transition-recorded",
+        "eventPath": str(event_path) if event_path else None,
+        "eventFingerprint": events[-1]["eventFingerprint"] if events else None,
+        "dashboardHistoryPath": str(dashboard_history_path),
+        "transitionCount": len(events),
+        "dashboardItemCount": dashboard_history["itemCount"],
+    }
 
 
 def write_receiver_trust_registry_backup(
@@ -294,9 +511,15 @@ def perform_receiver_trust_registry_recovery_drill(
 
 
 __all__ = [
+    "RECEIVER_TRUST_BACKUP_HEALTH_HISTORY_KIND",
+    "RECEIVER_TRUST_BACKUP_HEALTH_STATUS_KIND",
+    "RECEIVER_TRUST_BACKUP_HEALTH_TRANSITION_KIND",
     "RECEIVER_TRUST_RECOVERY_DRILL_KIND",
     "evaluate_receiver_trust_backup_directory",
     "perform_receiver_trust_registry_recovery_drill",
+    "record_receiver_trust_backup_health_transition",
+    "validate_receiver_trust_backup_health_status",
+    "validate_receiver_trust_backup_health_transition",
     "validate_receiver_trust_recovery_drill_receipt",
     "validate_receiver_trust_registry_backup_file",
     "write_receiver_trust_registry_backup",

@@ -103,6 +103,8 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 
 Windows 使用者可雙擊 `檢查RVR備份健康狀態.bat`，或讓工作排程器執行 `check_receiver_trust_backup_health.ps1`。健康檢查會同時驗證最新 `RTB-...` 備份、最新 `RDR-...` 收據、兩者的檔名／SHA-256／指紋關聯、新鮮度，以及每週備份排程最近一次結果。任何一項不符都會寫入 `RVR-backup-health-latest.json`，並可用 `-ShowAlert` 顯示限時警示；檢查本身不會修改正式清冊、備份或演練收據。
 
+健康狀態或受控問題代碼改變時，備份資料夾會新增 `RVR-backup-health-event-...-RBH-....json`。每筆事件都含前筆事件指紋並重新驗證串鏈；同一狀態與同一組問題代碼的每日檢查只更新 latest，不重複新增事件。若歷程無法驗證或寫入，健康檢查會加入 `history-record-failed` 並以失敗代碼結束，避免無聲遺失異常／恢復紀錄。
+
 每週備份排程若為七天一次，健康檢查建議每天執行並把 `-MaxAgeDays` 設為 `8`，保留合理的登入與同步時間差：
 
 ```powershell
@@ -114,6 +116,6 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -ShowAlert
 ```
 
-健康檢查另會在 repo 的 ignored `output/audit/rvr-backup-health-status.json` 寫入本機儀表板摘要。摘要只含健康狀態、檢查時間、備份／演練年齡、排程結果與受控問題代碼，不含磁碟路徑、備份檔名、RTB／RTR／RDR 指紋或信任清冊內容。平台巡檢儀表板在本機伺服器模式可讀取此摘要；公開站沒有這份本機檔案，只會顯示「僅限本機」，也不會把摘要誤作 Google Drive 已完成遠端同步的證明。
+健康檢查另會在 repo 的 ignored `output/audit/rvr-backup-health-status.json` 與 `output/audit/rvr-backup-health-history.json` 寫入本機儀表板摘要。前者是目前狀態，後者最多保留最近 24 筆異常／恢復轉換；兩者只含健康狀態、檢查時間、備份／演練年齡、排程結果與受控問題代碼，不含磁碟路徑、備份檔名、RTB／RTR／RDR／RBH 指紋或信任清冊內容。平台巡檢儀表板在本機伺服器模式可讀取摘要；公開站沒有這些本機檔案，只會顯示「僅限本機」，也不會把摘要誤作 Google Drive 已完成遠端同步的證明。
 
 本工具不代替組織的資訊安全制度、憑證機構或硬體安全模組。高風險案件宜將私鑰移至既有 HSM／智慧卡／受管金鑰服務，並保留金鑰啟用、輪替、撤銷與保管人交接紀錄。
