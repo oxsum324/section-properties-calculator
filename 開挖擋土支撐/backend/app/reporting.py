@@ -2105,6 +2105,15 @@ def _formula_detail_content(
     return ["依本案既定檢核公式辦理。"], _format_inputs_as_lines(check.inputs), [_generic_result_line(check)]
 
 
+def _analysis_mapping_lines(inputs: dict[str, object]) -> list[str]:
+    if inputs.get("內力來源") != "外部分析階段包絡":
+        return []
+    return [
+        f"內力來源 = 外部分析階段包絡；控制分析階段 = {inputs.get('控制分析階段', '—')}；實際施工步驟 = {inputs.get('施工步驟', '—')}；對應依據 = {inputs.get('階段對應依據', '—')}",
+        f"逐階段軸力候選（{_fmt_short(inputs.get('分析階段候選數'))} 案）= {inputs.get('分析階段內力', '—')}",
+    ]
+
+
 def _support_detail_content(
     check: CheckResult,
     basic: BasicParameters,
@@ -2123,6 +2132,7 @@ def _support_detail_content(
         "R = [fa/Fa + Cm x fbx / {(1 - fa/Fex) x Fbx}] / psi <= 1.0",
     ]
     substitutions = [
+        *_analysis_mapping_lines(inputs),
         f"N = {_fmt_short(inputs.get('軸力 N1'))} + {_fmt_short(inputs.get('溫度荷重 N2'))} = {_fmt_short(details.get('total_force_t'))} tf",
         f"fa = {_fmt_short(details.get('total_force_t'))} / {_fmt_short(details.get('area_cm2'))} = {_fmt_short(details.get('axial_stress'))} tf/cm2",
         f"Cc = sqrt(2 x pi^2 x {_fmt_short(basic.e_tf_per_cm2)} / {_fmt_short(basic.fy_tf_per_cm2)}) = {_fmt_short(_cc_value(basic))}",
@@ -2208,6 +2218,7 @@ def _brace_detail_content(
         "R = [fa/Fa + Cm x fbx / {(1 - fa/Fex) x Fbx}] / psi <= 1.0",
     ]
     substitutions = [
+        *_analysis_mapping_lines(inputs),
         f"L3 = ({_fmt_short(inputs.get('L1'))} + {_fmt_short(inputs.get('L2'))}) / 2 = {_fmt_short(details.get('l3_m'))} m",
         f"Lb = {_fmt_short(inputs.get('L1'))} / cos({_fmt_short(inputs.get('θ'))}) = {_fmt_short(details.get('lb_m'))} m",
         f"N = {_fmt_short(inputs.get('Ww'))} x {_fmt_short(details.get('l3_m'))} / sin({_fmt_short(inputs.get('θ'))}) = {_fmt_short(details.get('axial_force_t'))} tf",
@@ -2466,6 +2477,7 @@ def _input_parameter_lines(check: CheckResult) -> list[str]:
     if check.formula_id == "support_interaction":
         return [
             f"N1 = {_fmt_short(inputs.get('軸力 N1'))} tf，N2 = {_fmt_short(inputs.get('溫度荷重 N2'))} tf，SL = {_fmt_short(inputs.get('水平間距 SL'))} m",
+            *_analysis_mapping_lines(inputs),
         ]
     if check.formula_id == "wale_bending_shear":
         return [
@@ -2474,6 +2486,7 @@ def _input_parameter_lines(check: CheckResult) -> list[str]:
     if check.formula_id == "brace_interaction":
         return [
             f"L1 = {_fmt_short(inputs.get('L1'))} m，L2 = {_fmt_short(inputs.get('L2'))} m，θ = {_fmt_short(inputs.get('θ'))} deg，Ww = {_fmt_short(inputs.get('Ww'))} tf/m",
+            *_analysis_mapping_lines(inputs),
         ]
     if check.formula_id == "corner_brace_interaction":
         return [

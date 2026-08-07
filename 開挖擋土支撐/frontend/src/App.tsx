@@ -1,7 +1,8 @@
-import { ChangeEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, Fragment, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import {
   AnalysisEvent,
+  AnalysisForceCase,
   AnalysisImportResult,
   AnalysisSideSource,
   AnalysisSourceMode,
@@ -628,9 +629,35 @@ function App() {
     const current = target[field];
     target[field] =
       typeof current === "number" ? (Number(value) as T[keyof T]) : (value as T[keyof T]);
+    if (
+      (key === "top_supports" || key === "bottom_supports" || key === "top_braces" || key === "bottom_braces") &&
+      target.force_source === "analysis_import" &&
+      ["axial_force_t", "spacing_m", "l1_m", "l2_m", "angle_deg", "tributary_line_load_tf_per_m"].includes(String(field))
+    ) {
+      (target as Record<string, unknown>).analysis_mapping_confirmed = false;
+    }
     list[index] = target;
     const nextProject = { ...project, [key]: list, calculation_results: null } as ProjectState;
     applyProjectState(isSupportKey(key) ? cascadeSupportEdit(project, nextProject, key, index) : nextProject);
+  }
+
+  function updateAnalysisMapping(
+    key: "top_supports" | "bottom_supports" | "top_braces" | "bottom_braces",
+    index: number,
+    patch: Partial<Pick<SupportRow,
+      "construction_step_label" | "analysis_mapping_basis" | "analysis_mapping_confirmed">>,
+  ) {
+    if (!project) return;
+    const rows = [...project[key]] as Array<SupportRow | BraceRow>;
+    const current = rows[index];
+    if (!current || current.force_source !== "analysis_import") return;
+    const next = { ...current, ...patch };
+    if ("construction_step_label" in patch || "analysis_mapping_basis" in patch) {
+      next.analysis_mapping_confirmed = false;
+    }
+    rows[index] = next;
+    applyProjectState({ ...project, [key]: rows, calculation_results: null } as ProjectState);
+    setError("");
   }
 
   function applySectionNameToAll(
@@ -2534,6 +2561,7 @@ function App() {
                       onAdd={() => addSupportRow("top_supports")}
                       onRemove={(index) => removeRow("top_supports", index)}
                       onChange={(index, field, value) => updateArrayRow<SupportRow>("top_supports", index, field, value)}
+                      onUpdateAnalysisMapping={(index, patch) => updateAnalysisMapping("top_supports", index, patch)}
                       onApplySectionToAll={(sectionName) => applySectionNameToAll("top_supports", sectionName)}
                     />
                   ) : (
@@ -2558,6 +2586,7 @@ function App() {
                       onAdd={() => addSupportRow("bottom_supports")}
                       onRemove={(index) => removeRow("bottom_supports", index)}
                       onChange={(index, field, value) => updateArrayRow<SupportRow>("bottom_supports", index, field, value)}
+                      onUpdateAnalysisMapping={(index, patch) => updateAnalysisMapping("bottom_supports", index, patch)}
                       onApplySectionToAll={(sectionName) => applySectionNameToAll("bottom_supports", sectionName)}
                     />
                   ) : (
@@ -2664,6 +2693,7 @@ function App() {
                       onAdd={() => addBraceRow("top_braces")}
                       onRemove={(index) => removeRow("top_braces", index)}
                       onChange={(index, field, value) => updateArrayRow<BraceRow>("top_braces", index, field, value)}
+                      onUpdateAnalysisMapping={(index, patch) => updateAnalysisMapping("top_braces", index, patch)}
                       onApplySectionToAll={(sectionName) => applySectionNameToAll("top_braces", sectionName)}
                     />
                   ) : (
@@ -2686,6 +2716,7 @@ function App() {
                       onAdd={() => addBraceRow("bottom_braces")}
                       onRemove={(index) => removeRow("bottom_braces", index)}
                       onChange={(index, field, value) => updateArrayRow<BraceRow>("bottom_braces", index, field, value)}
+                      onUpdateAnalysisMapping={(index, patch) => updateAnalysisMapping("bottom_braces", index, patch)}
                       onApplySectionToAll={(sectionName) => applySectionNameToAll("bottom_braces", sectionName)}
                     />
                   ) : (
@@ -3738,6 +3769,61 @@ function ManualSupportLoadTable(props: {
   );
 }
 
+type AnalysisMappingPatch = Partial<Pick<SupportRow,
+  "construction_step_label" | "analysis_mapping_basis" | "analysis_mapping_confirmed">>;
+
+function AnalysisMappingEditor(props: {
+  row: SupportRow | BraceRow;
+  onChange: (patch: AnalysisMappingPatch) => void;
+}) {
+  if (props.row.force_source !== "analysis_import") return null;
+  const cases = props.row.analysis_stage_cases ?? [];
+  const complete = Boolean(
+    props.row.analysis_mapping_confirmed &&
+    props.row.construction_step_label?.trim() &&
+    props.row.analysis_mapping_basis?.trim(),
+  );
+  return (
+    <div className="analysis-stage-mapping-card">
+      <div className="analysis-stage-mapping-summary">
+        <strong>控制分析階段：#{props.row.analysis_control_stage_index ?? "—"} {props.row.analysis_control_stage_label || "—"}</strong>
+        <span className={`status-chip ${complete ? "ok" : "warn"}`}>{complete ? "已確認施工步驟對應" : "待確認施工步驟對應"}</span>
+      </div>
+      <p className="meta-line">
+        逐階段軸力：{cases.map((item) => `#${item.stage_index} ${item.stage_label} = ${fmt(item.axial_force_t)} tf`).join("；") || "缺少候選資料"}
+      </p>
+      <div className="analysis-stage-mapping-grid">
+        <label className="field-block">
+          <span>實際施工步驟（必填）</span>
+          <input
+            value={props.row.construction_step_label ?? ""}
+            maxLength={120}
+            placeholder="例如：第三階開挖至 GL-10.0 m、第二層支撐施作完成"
+            onChange={(event) => props.onChange({ construction_step_label: event.target.value })}
+          />
+        </label>
+        <label className="field-block">
+          <span>階段對應依據（必填）</span>
+          <input
+            value={props.row.analysis_mapping_basis ?? ""}
+            maxLength={160}
+            placeholder="例如：施工程序圖 S-02 與分析模型 Stage 5 對照"
+            onChange={(event) => props.onChange({ analysis_mapping_basis: event.target.value })}
+          />
+        </label>
+      </div>
+      <label className="check-field analysis-stage-mapping-confirm">
+        <input
+          type="checkbox"
+          checked={props.row.analysis_mapping_confirmed ?? false}
+          onChange={(event) => props.onChange({ analysis_mapping_confirmed: event.target.checked })}
+        />
+        <span>確認本列控制分析階段與上述實際施工步驟相符</span>
+      </label>
+    </div>
+  );
+}
+
 function EditableSupportTable(props: {
   title: string;
   subtitle?: string;
@@ -3750,6 +3836,7 @@ function EditableSupportTable(props: {
   onAdd: () => void;
   onRemove: (index: number) => void;
   onChange: (index: number, field: keyof SupportRow, value: string) => void;
+  onUpdateAnalysisMapping: (index: number, patch: AnalysisMappingPatch) => void;
   onApplySectionToAll: (sectionName: string) => void;
 }) {
   const completion = rowCompletionSummary(props.rows, isSupportRowComplete);
@@ -3799,7 +3886,8 @@ function EditableSupportTable(props: {
             </thead>
             <tbody>
               {props.rows.map((row, index) => (
-                <tr key={`${props.title}-${index}`}>
+                <Fragment key={`${props.title}-${index}`}>
+                <tr>
                   <td><input value={row.level_label} onChange={(e) => props.onChange(index, "level_label", e.target.value)} /></td>
                   <td><input type="number" value={row.support_count} onChange={(e) => props.onChange(index, "support_count", e.target.value)} /></td>
                   <td>
@@ -3833,6 +3921,14 @@ function EditableSupportTable(props: {
                   <td><input type="number" step="any" value={row.spacing_m} onChange={(e) => props.onChange(index, "spacing_m", e.target.value)} /></td>
                   <td><button className="ghost" onClick={() => props.onRemove(index)}>刪除</button></td>
                 </tr>
+                {row.force_source === "analysis_import" && (
+                  <tr className="analysis-stage-mapping-row">
+                    <td colSpan={7}>
+                      <AnalysisMappingEditor row={row} onChange={(patch) => props.onUpdateAnalysisMapping(index, patch)} />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -3945,6 +4041,7 @@ function EditableBraceTable(props: {
   onAdd: () => void;
   onRemove: (index: number) => void;
   onChange: (index: number, field: keyof BraceRow, value: string) => void;
+  onUpdateAnalysisMapping: (index: number, patch: AnalysisMappingPatch) => void;
   onApplySectionToAll: (sectionName: string) => void;
 }) {
   const completion = rowCompletionSummary(props.rows, isBraceRowComplete);
@@ -3988,7 +4085,8 @@ function EditableBraceTable(props: {
           </thead>
           <tbody>
             {props.rows.map((row, index) => (
-              <tr key={`${props.title}-${index}`}>
+              <Fragment key={`${props.title}-${index}`}>
+              <tr>
                 <td><input value={row.level_label} onChange={(e) => props.onChange(index, "level_label", e.target.value)} /></td>
                 <td>
                   <div className="inline-field-stack">
@@ -4014,6 +4112,14 @@ function EditableBraceTable(props: {
                 <td><input type="number" step="any" value={row.tributary_line_load_tf_per_m} onChange={(e) => props.onChange(index, "tributary_line_load_tf_per_m", e.target.value)} /></td>
                 <td><button className="ghost" disabled={props.rows.length <= props.minimumRows} onClick={() => props.onRemove(index)}>刪除</button></td>
               </tr>
+              {row.force_source === "analysis_import" && (
+                <tr className="analysis-stage-mapping-row">
+                  <td colSpan={7}>
+                    <AnalysisMappingEditor row={row} onChange={(patch) => props.onUpdateAnalysisMapping(index, patch)} />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -4773,6 +4879,7 @@ function syncSupportRows(rows: SupportRow[], useDefaultTempForce: boolean): [Sup
   const nextRows = rows.map((row, index) => {
     const updated: SupportRow = {
       ...row,
+      ...normalizedAnalysisMapping(row),
       support_count: Math.max(row.support_count || 1, 1),
       temp_force_t: normalizeSupportTempForce(row.temp_force_t, index, useDefaultTempForce),
     };
@@ -4930,7 +5037,7 @@ function cascadeSupportEdit(
 
   const nextBraces = [...nextProject[braceKey]];
   const existingBrace = nextBraces[index];
-  if (existingBrace) {
+  if (existingBrace && existingBrace.force_source !== "analysis_import") {
     const updatedBrace: BraceRow = {
       ...existingBrace,
       level_label: shouldFollowLevelLabel(existingBrace.level_label, previousSeed.levelLabel)
@@ -5019,9 +5126,10 @@ function syncBraceRows(
   seeds: SupportSeed[],
   previousSeeds: SupportSeed[] = seeds,
 ): [BraceRow[], boolean] {
-  if (seeds.length === 0) return [rows, false];
-  const nextRows = [...rows];
-  let changed = false;
+  const normalizedRows: BraceRow[] = rows.map((row) => ({ ...row, ...normalizedAnalysisMapping(row) }));
+  let changed = normalizedRows.some((row, index) => !isSameBraceRow(row, rows[index]));
+  if (seeds.length === 0) return [changed ? normalizedRows : rows, changed];
+  const nextRows: BraceRow[] = [...normalizedRows];
   for (let index = 0; index < seeds.length; index += 1) {
     const seed = seeds[index];
     const previousSeed = previousSeeds[index] ?? seed;
@@ -5030,6 +5138,9 @@ function syncBraceRows(
     if (!existing) {
       nextRows.push(defaultRow);
       changed = true;
+      continue;
+    }
+    if (existing.force_source === "analysis_import") {
       continue;
     }
     const shouldRefreshTributaryLoad =
@@ -5195,7 +5306,8 @@ function isSameSupportRow(left: SupportRow, right: SupportRow): boolean {
     left.section_name === right.section_name &&
     left.axial_force_t === right.axial_force_t &&
     left.temp_force_t === right.temp_force_t &&
-    left.spacing_m === right.spacing_m
+    left.spacing_m === right.spacing_m &&
+    analysisMappingSignature(left) === analysisMappingSignature(right)
   );
 }
 
@@ -5217,8 +5329,32 @@ function isSameBraceRow(left: BraceRow, right: BraceRow): boolean {
     left.l1_m === right.l1_m &&
     left.l2_m === right.l2_m &&
     left.angle_deg === right.angle_deg &&
-    left.tributary_line_load_tf_per_m === right.tributary_line_load_tf_per_m
+    left.tributary_line_load_tf_per_m === right.tributary_line_load_tf_per_m &&
+    analysisMappingSignature(left) === analysisMappingSignature(right)
   );
+}
+
+function normalizedAnalysisMapping(row: SupportRow | BraceRow): AnalysisMappingPatch & {
+  force_source: "manual" | "analysis_import";
+  analysis_stage_cases: AnalysisForceCase[];
+  analysis_control_stage_index: number | null;
+  analysis_control_stage_label: string;
+} {
+  const cases = row.analysis_stage_cases ?? [];
+  const forceSource = row.force_source ?? (cases.length > 0 ? "analysis_import" : "manual");
+  return {
+    force_source: forceSource,
+    analysis_stage_cases: cases,
+    analysis_control_stage_index: row.analysis_control_stage_index ?? null,
+    analysis_control_stage_label: row.analysis_control_stage_label ?? "",
+    construction_step_label: row.construction_step_label ?? "",
+    analysis_mapping_confirmed: row.analysis_mapping_confirmed ?? false,
+    analysis_mapping_basis: row.analysis_mapping_basis ?? "",
+  };
+}
+
+function analysisMappingSignature(row: SupportRow | BraceRow): string {
+  return JSON.stringify(normalizedAnalysisMapping(row));
 }
 
 function isSameCornerBraceRow(left: CornerBraceRow, right: CornerBraceRow): boolean {
@@ -5263,6 +5399,9 @@ type ImportedAssignment = {
   span_m: number;
   angle_deg: number;
   load_t: number;
+  controlStageIndex: number;
+  controlStageLabel: string;
+  stageCases: AnalysisForceCase[];
   stageLabels: string[];
 };
 
@@ -5561,23 +5700,45 @@ function buildImportedAssignments(
   ];
 }
 
-function consolidateImportedStruts(rows: ImportedStrutRow[]): ImportedStrutRow[] {
-  const grouped = new Map<string, ImportedStrutRow>();
+type ConsolidatedImportedStrut = ImportedStrutRow & { stageCases: AnalysisForceCase[] };
+
+function stageForceCase(row: ImportedStrutRow): AnalysisForceCase {
+  return {
+    stage_index: row.stageIndex,
+    stage_label: row.stageLabel,
+    axial_force_t: Number(row.load_t.toFixed(6)),
+  };
+}
+
+function mergeStageForceCases(cases: AnalysisForceCase[], row: ImportedStrutRow): AnalysisForceCase[] {
+  const merged = new Map(cases.map((item) => [`${item.stage_index}\u0000${item.stage_label}`, { ...item }]));
+  const candidate = stageForceCase(row);
+  const key = `${candidate.stage_index}\u0000${candidate.stage_label}`;
+  const existing = merged.get(key);
+  if (!existing || candidate.axial_force_t >= existing.axial_force_t) merged.set(key, candidate);
+  return [...merged.values()].sort((left, right) =>
+    left.stage_index - right.stage_index || left.stage_label.localeCompare(right.stage_label),
+  );
+}
+
+function consolidateImportedStruts(rows: ImportedStrutRow[]): ConsolidatedImportedStrut[] {
+  const grouped = new Map<string, ConsolidatedImportedStrut>();
   for (const row of rows) {
     const key = `${row.classification}-${row.index}-${row.depth_m.toFixed(2)}-${Math.abs(row.angle_deg).toFixed(1)}`;
     const existing = grouped.get(key);
     if (!existing) {
-      grouped.set(key, { ...row });
+      grouped.set(key, { ...row, stageCases: [stageForceCase(row)] });
       continue;
     }
+    const stageCases = mergeStageForceCases(existing.stageCases, row);
     if (row.load_t >= existing.load_t) {
       grouped.set(key, {
         ...row,
-        stageLabel: mergeStageLabels(existing.stageLabel, row.stageLabel),
+        stageCases,
       });
       continue;
     }
-    existing.stageLabel = mergeStageLabels(existing.stageLabel, row.stageLabel);
+    existing.stageCases = stageCases;
     existing.span_m = Math.max(existing.span_m, row.span_m);
     existing.stiffness = Math.max(existing.stiffness, row.stiffness);
   }
@@ -5587,13 +5748,8 @@ function consolidateImportedStruts(rows: ImportedStrutRow[]): ImportedStrutRow[]
   );
 }
 
-function mergeStageLabels(left: string, right: string): string {
-  const labels = new Set([...left.split("、"), ...right.split("、")].filter(Boolean));
-  return [...labels].join("、");
-}
-
 function assignCandidateRows(
-  rows: ImportedStrutRow[],
+  rows: ConsolidatedImportedStrut[],
   kind: "support" | "brace",
 ): ImportedAssignment[] {
   return rows.map((row, index) => ({
@@ -5604,7 +5760,10 @@ function assignCandidateRows(
     span_m: row.span_m,
     angle_deg: row.angle_deg,
     load_t: row.load_t,
-    stageLabels: row.stageLabel.split("、").filter(Boolean),
+    controlStageIndex: row.stageIndex,
+    controlStageLabel: row.stageLabel,
+    stageCases: row.stageCases,
+    stageLabels: row.stageCases.map((item) => item.stage_label),
   }));
 }
 
@@ -5623,6 +5782,13 @@ function toCandidateSupportRow(
     temp_force_t:
       existingTempForce > 0 ? existingTempForce : normalizeSupportTempForce(0, index, useDefaultTempForce),
     spacing_m: roundValue(item.span_m),
+    force_source: "analysis_import",
+    analysis_stage_cases: item.stageCases,
+    analysis_control_stage_index: item.controlStageIndex,
+    analysis_control_stage_label: item.controlStageLabel,
+    construction_step_label: "",
+    analysis_mapping_confirmed: false,
+    analysis_mapping_basis: "",
   };
 }
 
@@ -5641,6 +5807,13 @@ function toCandidateBraceRow(
     l2_m: roundValue(baseLength),
     angle_deg: roundValue(item.angle_deg),
     tributary_line_load_tf_per_m: roundValue(tributaryLineLoad),
+    force_source: "analysis_import",
+    analysis_stage_cases: item.stageCases,
+    analysis_control_stage_index: item.controlStageIndex,
+    analysis_control_stage_label: item.controlStageLabel,
+    construction_step_label: "",
+    analysis_mapping_confirmed: false,
+    analysis_mapping_basis: "",
   };
 }
 
@@ -5826,7 +5999,7 @@ function hasPositiveValue(value: number | null | undefined): boolean {
 }
 
 function isSupportRowComplete(row: SupportRow): boolean {
-  return hasTextValue(row.level_label) && row.support_count > 0 && hasTextValue(row.section_name) && hasPositiveValue(row.spacing_m);
+  return hasTextValue(row.level_label) && row.support_count > 0 && hasTextValue(row.section_name) && hasPositiveValue(row.spacing_m) && isAnalysisMappingComplete(row);
 }
 
 function isWaleRowComplete(row: WaleRow): boolean {
@@ -5834,7 +6007,17 @@ function isWaleRowComplete(row: WaleRow): boolean {
 }
 
 function isBraceRowComplete(row: BraceRow): boolean {
-  return hasTextValue(row.level_label) && hasTextValue(row.section_name) && hasPositiveValue(row.l1_m) && hasPositiveValue(row.l2_m) && hasPositiveValue(row.angle_deg);
+  return hasTextValue(row.level_label) && hasTextValue(row.section_name) && hasPositiveValue(row.l1_m) && hasPositiveValue(row.l2_m) && hasPositiveValue(row.angle_deg) && isAnalysisMappingComplete(row);
+}
+
+function isAnalysisMappingComplete(row: SupportRow | BraceRow): boolean {
+  if (row.force_source !== "analysis_import") return true;
+  return Boolean(
+    row.analysis_mapping_confirmed &&
+    row.construction_step_label?.trim() &&
+    row.analysis_mapping_basis?.trim() &&
+    (row.analysis_stage_cases?.length ?? 0) > 0,
+  );
 }
 
 function isCornerBraceRowComplete(row: CornerBraceRow): boolean {

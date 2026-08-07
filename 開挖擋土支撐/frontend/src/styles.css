@@ -1049,6 +1049,54 @@ button.ghost {
   margin-top: 16px;
 }
 
+.analysis-stage-mapping-row td {
+  padding: 0 12px 14px;
+  background: rgba(248, 250, 252, 0.72);
+}
+
+.analysis-stage-mapping-card {
+  padding: 14px;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: 14px;
+  background: rgba(239, 246, 255, 0.78);
+}
+
+.analysis-stage-mapping-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.analysis-stage-mapping-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.analysis-stage-mapping-confirm {
+  margin-top: 12px;
+}
+
+.status-chip {
+  display: inline-flex;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.status-chip.ok {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.status-chip.warn {
+  color: #9a3412;
+  background: #ffedd5;
+}
+
 .construction-stage-list {
   display: grid;
   gap: 12px;
@@ -1111,6 +1159,15 @@ button.ghost {
 }
 
 @media (max-width: 720px) {
+  .analysis-stage-mapping-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .analysis-stage-mapping-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .construction-stage-distribution-grid,
   .construction-stage-transfer-grid {
     grid-template-columns: 1fr;

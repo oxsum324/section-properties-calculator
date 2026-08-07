@@ -134,6 +134,12 @@ class BasicParameters(BaseModel):
     wall_fc_kg_per_cm2: float = 245.0
 
 
+class AnalysisForceCase(BaseModel):
+    stage_index: int = Field(gt=0)
+    stage_label: str = Field(min_length=1, max_length=120)
+    axial_force_t: float
+
+
 class SupportRow(BaseModel):
     level_label: str
     support_count: int = 1
@@ -141,6 +147,13 @@ class SupportRow(BaseModel):
     axial_force_t: float
     temp_force_t: float
     spacing_m: float
+    force_source: Literal["manual", "analysis_import"] = "manual"
+    analysis_stage_cases: list[AnalysisForceCase] = Field(default_factory=list, max_length=100)
+    analysis_control_stage_index: int | None = None
+    analysis_control_stage_label: str = ""
+    construction_step_label: str = Field(default="", max_length=120)
+    analysis_mapping_confirmed: bool = False
+    analysis_mapping_basis: str = Field(default="", max_length=160)
 
 
 class WaleRow(BaseModel):
@@ -159,6 +172,13 @@ class BraceRow(BaseModel):
     l2_m: float
     angle_deg: float
     tributary_line_load_tf_per_m: float
+    force_source: Literal["manual", "analysis_import"] = "manual"
+    analysis_stage_cases: list[AnalysisForceCase] = Field(default_factory=list, max_length=100)
+    analysis_control_stage_index: int | None = None
+    analysis_control_stage_label: str = ""
+    construction_step_label: str = Field(default="", max_length=120)
+    analysis_mapping_confirmed: bool = False
+    analysis_mapping_basis: str = Field(default="", max_length=160)
 
 
 class CornerBraceRow(BaseModel):

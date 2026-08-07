@@ -1,5 +1,5 @@
 {
-  "version": "0.5.0",
+  "version": "0.6.0",
   "family": "excavation-traceability",
   "description": "開挖擋土支撐服務型工具的規範語意追蹤表。每筆 trace 將分析檔匯入、輸入欄位、構件檢核、報表落點、測試證據與人工複核邊界對齊，避免只因 FastAPI / React 流程可產出 PDF 或 DOCX 就誤判為支撐系統檢核依據已完整可追溯。",
   "tools": [
@@ -28,6 +28,16 @@
           "report": ["輸入基本資料", "分析匯入資訊", "上側 / 下側資料來源", "未套用事件提醒"],
           "evidence": ["backend/app/main.py", "backend/app/project_store.py", "frontend/src/App.tsx", "frontend/src/api.ts", "backend/tests/test_import_flow.py"],
           "manualReview": ["上下側支撐系統、橫擋、大角撐、構件斷面、未辨識事件與單側分析對另一側不適用的情況，需由設計者按施工圖與模型分側人工確認。"]
+        },
+        {
+          "id": "excavation-analysis-stage-construction-step-mapping",
+          "clause": "外部分析階段包絡與實際施工步驟之工程判讀及明確採用邊界",
+          "purpose": "匯入支撐或斜撐內力時保留逐階段候選值與唯一控制階段；採用者必須填寫實際施工步驟、對應依據並明確確認。未確認、控制階段不是最大包絡值，或採用內力與控制值不一致時，後端一律拒絕完成構件檢核。",
+          "inputs": ["force_source", "analysis_stage_cases", "analysis_control_stage_index", "analysis_control_stage_label", "construction_step_label", "analysis_mapping_basis", "analysis_mapping_confirmed", "adopted axial force"],
+          "calculation": ["_consolidate_imported_struts", "_merge_stage_force_cases", "_validate_analysis_force_mapping", "calculate_horizontal_support", "calculate_brace", "fail closed on unconfirmed or tampered mapping"],
+          "report": ["內力來源", "控制分析階段", "實際施工步驟", "對應依據", "逐階段軸力候選"],
+          "evidence": ["backend/app/main.py", "backend/app/schemas.py", "backend/app/calculations.py", "backend/app/reporting.py", "backend/tests/test_import_flow.py", "backend/tests/test_calculations.py", "backend/tests/test_reporting.py", "backend/tests/test_project_store.py", "frontend/src/App.tsx"],
+          "manualReview": ["工具可驗證候選值、最大控制值與採用內力的一致性，但外部分析階段是否確實對應現場施工步驟，仍須由設計者依分析模型、施工順序圖、支撐施作及拆撐時點人工複核。"]
         }
       ]
     },

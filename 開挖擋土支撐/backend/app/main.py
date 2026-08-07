@@ -148,9 +148,22 @@ def _flatten_imported_struts(project_result: AnalysisImportResult) -> list[dict[
     return rows
 
 
-def _merge_stage_labels(left: str, right: str) -> str:
-    labels = {label for label in [*left.split("、"), *right.split("、")] if label}
-    return "、".join(labels)
+def _stage_force_case(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "stage_index": int(row["stage_index"]),
+        "stage_label": str(row["stage_label"]),
+        "axial_force_t": round(float(row["load_t"]), 6),
+    }
+
+
+def _merge_stage_force_cases(cases: list[dict[str, Any]], row: dict[str, Any]) -> list[dict[str, Any]]:
+    merged = {(int(item["stage_index"]), str(item["stage_label"])): dict(item) for item in cases}
+    candidate = _stage_force_case(row)
+    key = (candidate["stage_index"], candidate["stage_label"])
+    existing = merged.get(key)
+    if existing is None or candidate["axial_force_t"] >= existing["axial_force_t"]:
+        merged[key] = candidate
+    return sorted(merged.values(), key=lambda item: (item["stage_index"], item["stage_label"]))
 
 
 def _consolidate_imported_struts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -159,15 +172,16 @@ def _consolidate_imported_struts(rows: list[dict[str, Any]]) -> list[dict[str, A
         key = f"{row['classification']}-{row['index']}-{row['depth_m']:.2f}-{abs(row['angle_deg']):.1f}"
         existing = grouped.get(key)
         if existing is None:
-            grouped[key] = dict(row)
+            grouped[key] = {**row, "stage_cases": [_stage_force_case(row)]}
             continue
+        stage_cases = _merge_stage_force_cases(existing.get("stage_cases", []), row)
         if row["load_t"] >= existing["load_t"]:
             grouped[key] = {
                 **row,
-                "stage_label": _merge_stage_labels(existing["stage_label"], row["stage_label"]),
+                "stage_cases": stage_cases,
             }
             continue
-        existing["stage_label"] = _merge_stage_labels(existing["stage_label"], row["stage_label"])
+        existing["stage_cases"] = stage_cases
         existing["span_m"] = max(existing["span_m"], row["span_m"])
         existing["stiffness"] = max(existing["stiffness"], row["stiffness"])
     return sorted(
@@ -192,7 +206,10 @@ def _build_imported_assignments(project_result: AnalysisImportResult) -> list[di
                 "span_m": row["span_m"],
                 "angle_deg": row["angle_deg"],
                 "load_t": row["load_t"],
-                "stage_labels": [label for label in row["stage_label"].split("、") if label],
+                "control_stage_index": row["stage_index"],
+                "control_stage_label": row["stage_label"],
+                "stage_cases": row.get("stage_cases", [_stage_force_case(row)]),
+                "stage_labels": [item["stage_label"] for item in row.get("stage_cases", [])],
             }
         )
     return assignments
@@ -218,6 +235,13 @@ def _to_candidate_support_row(
         axial_force_t=round(float(item["load_t"]), 3),
         temp_force_t=0.0,
         spacing_m=round(float(item["span_m"]), 3),
+        force_source="analysis_import",
+        analysis_stage_cases=item["stage_cases"],
+        analysis_control_stage_index=item["control_stage_index"],
+        analysis_control_stage_label=item["control_stage_label"],
+        construction_step_label="",
+        analysis_mapping_confirmed=False,
+        analysis_mapping_basis="",
     )
 
 
@@ -235,6 +259,13 @@ def _to_candidate_brace_row(
         l2_m=round(base_length, 3),
         angle_deg=round(float(item["angle_deg"]), 3),
         tributary_line_load_tf_per_m=round(tributary_line_load, 3),
+        force_source="analysis_import",
+        analysis_stage_cases=item["stage_cases"],
+        analysis_control_stage_index=item["control_stage_index"],
+        analysis_control_stage_label=item["control_stage_label"],
+        construction_step_label="",
+        analysis_mapping_confirmed=False,
+        analysis_mapping_basis="",
     )
 
 

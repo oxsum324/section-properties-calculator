@@ -293,6 +293,65 @@ def calculate_project(project: ProjectState) -> CalculationResults:
     return results
 
 
+def _analysis_mapping_inputs(row: object) -> dict[str, object]:
+    if getattr(row, "force_source", "manual") != "analysis_import":
+        return {}
+    cases = list(getattr(row, "analysis_stage_cases", []))
+    return {
+        "內力來源": "外部分析階段包絡",
+        "控制分析階段": f"#{getattr(row, 'analysis_control_stage_index', None) or '—'} {getattr(row, 'analysis_control_stage_label', '')}".strip(),
+        "施工步驟": getattr(row, "construction_step_label", ""),
+        "階段對應依據": getattr(row, "analysis_mapping_basis", ""),
+        "分析階段候選數": len(cases),
+        "分析階段內力": "；".join(
+            f"#{case.stage_index} {case.stage_label} = {case.axial_force_t:g} tf"
+            for case in cases
+        ),
+    }
+
+
+def _validate_analysis_force_mapping(
+    row: object,
+    adopted_axial_force_t: float,
+    *,
+    adopted_tolerance_t: float = 0.001,
+) -> tuple[object | None, str]:
+    if getattr(row, "force_source", "manual") != "analysis_import":
+        return None, ""
+    cases = list(getattr(row, "analysis_stage_cases", []))
+    if not cases:
+        return None, "外部分析內力缺少逐階段候選值，無法確認控制階段。"
+    identities = [(case.stage_index, case.stage_label.strip().casefold()) for case in cases]
+    if len(set(identities)) != len(identities):
+        return None, "外部分析內力含重複的階段識別，無法建立唯一對應。"
+    control_index = getattr(row, "analysis_control_stage_index", None)
+    control_label = str(getattr(row, "analysis_control_stage_label", "")).strip()
+    controls = [
+        case for case in cases
+        if case.stage_index == control_index and case.stage_label.strip() == control_label
+    ]
+    if len(controls) != 1:
+        return None, "控制分析階段與逐階段候選值不一致。"
+    control = controls[0]
+    maximum_force = max(float(case.axial_force_t) for case in cases)
+    if not math.isclose(float(control.axial_force_t), maximum_force, rel_tol=0.0, abs_tol=1e-6):
+        return None, "控制分析階段不是本列逐階段軸力包絡最大值。"
+    if not math.isclose(
+        adopted_axial_force_t,
+        float(control.axial_force_t),
+        rel_tol=0.0,
+        abs_tol=adopted_tolerance_t,
+    ):
+        return None, "目前採用內力與控制分析階段軸力不一致，請重新套用分析候選值。"
+    if not bool(getattr(row, "analysis_mapping_confirmed", False)):
+        return None, "尚未確認控制分析階段與實際施工步驟的對應。"
+    if not str(getattr(row, "construction_step_label", "")).strip():
+        return None, "採用外部分析內力時必須填寫實際施工步驟。"
+    if not str(getattr(row, "analysis_mapping_basis", "")).strip():
+        return None, "採用外部分析內力時必須填寫階段對應依據。"
+    return control, ""
+
+
 def calculate_horizontal_support(row: SupportRow, params: BasicParameters, module_name: str) -> CheckResult:
     label = _layer_label(row.level_label)
     inputs = {
@@ -300,10 +359,20 @@ def calculate_horizontal_support(row: SupportRow, params: BasicParameters, modul
         "溫度荷重 N2": row.temp_force_t,
         "水平間距 SL": row.spacing_m,
         "型號": row.section_name,
+        **_analysis_mapping_inputs(row),
     }
     section, invalid = _resolve_section(module_name, label, "support_interaction", row.section_name, inputs)
     if invalid:
         return invalid
+    _, mapping_error = _validate_analysis_force_mapping(row, row.axial_force_t)
+    if mapping_error:
+        return _incomplete_check(
+            module_name,
+            label,
+            "support_interaction",
+            mapping_error,
+            inputs,
+        )
     if row.spacing_m <= 0:
         return _incomplete_check(
             module_name,
@@ -520,6 +589,7 @@ def calculate_brace(row: BraceRow, params: BasicParameters, module_name: str) ->
         "θ": row.angle_deg,
         "Ww": row.tributary_line_load_tf_per_m,
         "型號": row.section_name,
+        **_analysis_mapping_inputs(row),
     }
     section, invalid = _resolve_section(module_name, label, "brace_interaction", row.section_name, inputs)
     if invalid:
@@ -543,6 +613,21 @@ def calculate_brace(row: BraceRow, params: BasicParameters, module_name: str) ->
     l3 = (row.l1_m + row.l2_m) / 2.0
     lb = round(row.l1_m / max(math.cos(math.radians(row.angle_deg)), 1e-6), 2)
     axial_force = row.tributary_line_load_tf_per_m * l3 / max(math.sin(math.radians(row.angle_deg)), 1e-6)
+    # Imported brace line load is stored to 0.001 tf/m, so the reconstructed
+    # axial force needs a small engineering-unit tolerance for round-trip use.
+    _, mapping_error = _validate_analysis_force_mapping(
+        row,
+        axial_force,
+        adopted_tolerance_t=0.05,
+    )
+    if mapping_error:
+        return _incomplete_check(
+            module_name,
+            label,
+            "brace_interaction",
+            mapping_error,
+            inputs,
+        )
     lc = min(
         20.0 * section.flange_width_cm / math.sqrt(params.fy_tf_per_cm2),
         1400.0

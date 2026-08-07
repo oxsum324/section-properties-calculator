@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 from backend.app.project_store import ProjectStore, _normalize_project_sources
 from backend.app.workbook_loader import load_default_project
+from backend.app.schemas import AnalysisForceCase
 from backend.tests.handoff_fixtures import make_stage_adoption
 
 
@@ -84,6 +85,35 @@ class ProjectStoreNormalizationTests(unittest.TestCase):
             self.assertAlmostEqual(saved.transfer_eccentricity_x_m, 0.75)
             self.assertAlmostEqual(saved.transfer_eccentricity_y_m, -0.25)
             self.assertEqual(saved.transfer_basis, "施工配置圖 A-03")
+
+    def test_analysis_stage_mapping_survives_project_round_trip(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            store = ProjectStore.__new__(ProjectStore)
+            store.settings = SimpleNamespace(db_path=root / "projects.sqlite3", projects_dir=root / "projects")
+            store._init_db()
+            project = store.create_project("分析階段對應保存測試")
+            row = project.top_supports[0]
+            row.force_source = "analysis_import"
+            row.analysis_stage_cases = [
+                AnalysisForceCase(stage_index=1, stage_label="第一階開挖", axial_force_t=row.axial_force_t)
+            ]
+            row.analysis_control_stage_index = 1
+            row.analysis_control_stage_label = "第一階開挖"
+            row.construction_step_label = "第一階開挖完成、第一層支撐作用"
+            row.analysis_mapping_basis = "施工順序表 CS-01"
+            row.analysis_mapping_confirmed = True
+
+            store.save_project(project)
+            reloaded = store.get_project(project.metadata.id or "")
+            saved = reloaded.top_supports[0]
+
+            self.assertEqual(saved.force_source, "analysis_import")
+            self.assertEqual(saved.analysis_stage_cases[0].stage_label, "第一階開挖")
+            self.assertEqual(saved.analysis_control_stage_index, 1)
+            self.assertEqual(saved.construction_step_label, "第一階開挖完成、第一層支撐作用")
+            self.assertEqual(saved.analysis_mapping_basis, "施工順序表 CS-01")
+            self.assertTrue(saved.analysis_mapping_confirmed)
 
 
 if __name__ == "__main__":

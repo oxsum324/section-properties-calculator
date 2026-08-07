@@ -11,6 +11,7 @@ from pypdf import PdfReader
 
 from backend.app.calculations import calculate_project
 from backend.app.reporting import _concise_metric_text, build_report, build_word_report, calculation_fingerprint
+from backend.app.schemas import AnalysisForceCase
 from backend.app.workbook_loader import load_default_project
 from backend.tests.handoff_fixtures import make_stage_adoption, make_verified_handoff_source
 
@@ -396,6 +397,35 @@ class ReportingTests(unittest.TestCase):
         self.assertIn("來源 Np = 100.00 tf，分配比例 = 40.00%，本柱 Np = 40.00 tf", combined_text)
         self.assertIn("來源 Np = 100.00 tf，分配比例 = 60.00%，本柱 Np = 60.00 tf", combined_text)
         self.assertIn("反力分配依據 = 構台反力分配圖 S-05", combined_text)
+        report_path.unlink(missing_ok=True)
+
+    def test_word_report_lists_adopted_analysis_stage_mapping_without_review_warning(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        row = project.top_supports[0]
+        row.force_source = "analysis_import"
+        row.analysis_stage_cases = [
+            AnalysisForceCase(stage_index=1, stage_label="第一階開挖", axial_force_t=row.axial_force_t - 10.0),
+            AnalysisForceCase(stage_index=2, stage_label="第二階開挖", axial_force_t=row.axial_force_t),
+        ]
+        row.analysis_control_stage_index = 2
+        row.analysis_control_stage_label = "第二階開挖"
+        row.construction_step_label = "第二階開挖完成、第二層支撐施作前"
+        row.analysis_mapping_basis = "施工順序圖 CS-02 與分析階段表逐項核對"
+        row.analysis_mapping_confirmed = True
+        project.calculation_results = calculate_project(project)
+
+        report_path = build_word_report(project, concise_mode=False)
+        document = Document(str(report_path))
+        text = "\n".join(paragraph.text for paragraph in document.paragraphs)
+        table_text = "\n".join(cell.text for table in document.tables for table_row in table.rows for cell in table_row.cells)
+        combined_text = text + "\n" + table_text
+
+        self.assertIn("控制分析階段 = #2 第二階開挖", combined_text)
+        self.assertIn("實際施工步驟 = 第二階開挖完成、第二層支撐施作前", combined_text)
+        self.assertIn("對應依據 = 施工順序圖 CS-02 與分析階段表逐項核對", combined_text)
+        self.assertIn("逐階段軸力候選（2 案）", combined_text)
+        self.assertNotIn("尚未確認控制分析階段", combined_text)
+        self.assertNotIn("請重新套用分析候選值", combined_text)
         report_path.unlink(missing_ok=True)
 
     def test_word_report_hides_non_included_structural_modules(self) -> None:

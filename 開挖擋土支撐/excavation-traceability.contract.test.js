@@ -73,7 +73,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '0.5.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '0.6.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -145,6 +145,33 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '"brace"',
 ].forEach((needle) => {
   assert(parsers.includes(needle), `excavation parser keeps ${needle}`, needle);
+});
+
+[
+  'force_source',
+  'analysis_stage_cases',
+  'analysis_control_stage_index',
+  'construction_step_label',
+  'analysis_mapping_confirmed',
+  'analysis_mapping_basis',
+].forEach((needle) => {
+  assert(schemas.includes(needle), `excavation stage mapping schema keeps ${needle}`, needle);
+});
+[
+  'def _validate_analysis_force_mapping',
+  '控制分析階段不是本列逐階段軸力包絡最大值',
+  '尚未確認控制分析階段與實際施工步驟的對應',
+  '目前採用內力與控制分析階段軸力不一致',
+].forEach((needle) => {
+  assert(calculations.includes(needle), `excavation stage mapping calculation keeps ${needle}`, needle);
+});
+[
+  'AnalysisMappingEditor',
+  '實際施工步驟',
+  '階段對應依據',
+  '確認本列控制分析階段與上述實際施工步驟相符',
+].forEach((needle) => {
+  assert(app.includes(needle), `excavation frontend stage mapping keeps ${needle}`, needle);
 });
 
 [

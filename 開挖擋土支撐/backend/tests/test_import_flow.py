@@ -8,15 +8,46 @@ from backend.app.parsers import parse_analysis_file
 from backend.app.workbook_loader import load_default_project
 
 if importlib.util.find_spec("fastapi"):
-    from backend.app.main import _annotate_import_result, _apply_import_to_side, _merge_analysis_sources
+    from backend.app.main import (
+        _annotate_import_result,
+        _apply_import_to_side,
+        _consolidate_imported_struts,
+        _merge_analysis_sources,
+    )
 else:
     _annotate_import_result = None
     _apply_import_to_side = None
+    _consolidate_imported_struts = None
     _merge_analysis_sources = None
 
 
 @unittest.skipUnless(importlib.util.find_spec("fastapi"), "fastapi not installed in current test runtime")
 class ImportFlowTests(unittest.TestCase):
+    def test_consolidation_preserves_all_stage_forces_and_unique_control(self) -> None:
+        base = {
+            "index": 1,
+            "classification": "support",
+            "depth_m": 3.5,
+            "span_m": 5.0,
+            "angle_deg": 0.0,
+            "stiffness": 1000.0,
+        }
+
+        rows = _consolidate_imported_struts([
+            {**base, "stage_index": 1, "stage_label": "第一階開挖", "load_t": 40.0},
+            {**base, "stage_index": 2, "stage_label": "第二階開挖", "load_t": 80.0},
+            {**base, "stage_index": 3, "stage_label": "第三階開挖", "load_t": 60.0},
+        ])
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["stage_index"], 2)
+        self.assertEqual(rows[0]["stage_label"], "第二階開挖")
+        self.assertEqual(rows[0]["load_t"], 80.0)
+        self.assertEqual(
+            [(item["stage_index"], item["axial_force_t"]) for item in rows[0]["stage_cases"]],
+            [(1, 40.0), (2, 80.0), (3, 60.0)],
+        )
+
     def test_apply_import_to_top_side_only_updates_top_rows(self) -> None:
         settings = get_settings()
         path = settings.root_dir / "1120105.o"
@@ -39,6 +70,10 @@ class ImportFlowTests(unittest.TestCase):
         )
         self.assertEqual(project.top_wales, [])
         self.assertEqual(project.bottom_supports, original_bottom_supports)
+        self.assertTrue(all(row.force_source == "analysis_import" for row in project.top_supports))
+        self.assertTrue(all(row.analysis_stage_cases for row in project.top_supports))
+        self.assertTrue(all(row.analysis_control_stage_index is not None for row in project.top_supports))
+        self.assertTrue(all(not row.analysis_mapping_confirmed for row in project.top_supports))
         self.assertTrue(any("忽略樓版" in warning for warning in parsed.warnings))
         self.assertTrue(any("拆撐" in warning for warning in parsed.warnings))
 

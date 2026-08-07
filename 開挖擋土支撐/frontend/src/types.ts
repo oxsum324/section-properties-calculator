@@ -46,6 +46,12 @@ export type BasicParameters = {
   wall_fc_kg_per_cm2: number;
 };
 
+export type AnalysisForceCase = {
+  stage_index: number;
+  stage_label: string;
+  axial_force_t: number;
+};
+
 export type SupportRow = {
   level_label: string;
   support_count: number;
@@ -53,6 +59,13 @@ export type SupportRow = {
   axial_force_t: number;
   temp_force_t: number;
   spacing_m: number;
+  force_source?: "manual" | "analysis_import";
+  analysis_stage_cases?: AnalysisForceCase[];
+  analysis_control_stage_index?: number | null;
+  analysis_control_stage_label?: string;
+  construction_step_label?: string;
+  analysis_mapping_confirmed?: boolean;
+  analysis_mapping_basis?: string;
 };
 
 export type WaleRow = {
@@ -71,6 +84,13 @@ export type BraceRow = {
   l2_m: number;
   angle_deg: number;
   tributary_line_load_tf_per_m: number;
+  force_source?: "manual" | "analysis_import";
+  analysis_stage_cases?: AnalysisForceCase[];
+  analysis_control_stage_index?: number | null;
+  analysis_control_stage_label?: string;
+  construction_step_label?: string;
+  analysis_mapping_confirmed?: boolean;
+  analysis_mapping_basis?: string;
 };
 
 export type CornerBraceRow = {

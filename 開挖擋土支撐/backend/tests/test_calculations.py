@@ -8,13 +8,14 @@ from backend.app.calculations import (
     allowable_fbx,
     allowable_fby,
     calculate_brace,
+    calculate_horizontal_support,
     calculate_wale,
     calculate_project,
     cc_value,
     classify_beam_section,
     classify_column_section,
 )
-from backend.app.schemas import BraceRow, WaleRow
+from backend.app.schemas import AnalysisForceCase, BraceRow, SupportRow, WaleRow
 from backend.app.workbook_loader import load_default_project, load_reference_data
 from backend.tests.handoff_fixtures import make_stage_adoption, make_verified_handoff_source
 
@@ -195,6 +196,105 @@ class CalculationTests(unittest.TestCase):
         self.assertEqual(result.allowable_value, 1.0)
         self.assertEqual(result.computed_value, result.utilization_ratio)
         self.assertEqual(result.details["section_depth_cm"], ref.sections[-1].depth_cm)
+
+    def test_imported_support_requires_confirmed_construction_step_mapping(self) -> None:
+        ref = load_reference_data()
+        row = SupportRow(
+            level_label="1",
+            section_name=ref.sections[-1].name,
+            axial_force_t=80.0,
+            temp_force_t=0.0,
+            spacing_m=5.0,
+            force_source="analysis_import",
+            analysis_stage_cases=[
+                AnalysisForceCase(stage_index=1, stage_label="開挖至第一層", axial_force_t=40.0),
+                AnalysisForceCase(stage_index=2, stage_label="開挖至第二層", axial_force_t=80.0),
+            ],
+            analysis_control_stage_index=2,
+            analysis_control_stage_label="開挖至第二層",
+        )
+
+        result = calculate_horizontal_support(row, ref.basic_defaults, "上層水平支撐")
+
+        self.assertEqual(result.status, "NG")
+        self.assertEqual(result.controlling_condition, "資料未完整")
+        self.assertIn("尚未確認", result.details["message"])
+
+    def test_confirmed_imported_support_keeps_control_stage_trace(self) -> None:
+        ref = load_reference_data()
+        row = SupportRow(
+            level_label="1",
+            section_name=ref.sections[-1].name,
+            axial_force_t=80.0,
+            temp_force_t=0.0,
+            spacing_m=5.0,
+            force_source="analysis_import",
+            analysis_stage_cases=[
+                AnalysisForceCase(stage_index=1, stage_label="開挖至第一層", axial_force_t=40.0),
+                AnalysisForceCase(stage_index=2, stage_label="開挖至第二層", axial_force_t=80.0),
+            ],
+            analysis_control_stage_index=2,
+            analysis_control_stage_label="開挖至第二層",
+            construction_step_label="第二階開挖完成、第二層支撐施作前",
+            analysis_mapping_confirmed=True,
+            analysis_mapping_basis="施工步驟圖 S-02 與分析階段表逐項核對",
+        )
+
+        result = calculate_horizontal_support(row, ref.basic_defaults, "上層水平支撐")
+
+        self.assertNotEqual(result.controlling_condition, "資料未完整")
+        self.assertEqual(result.inputs["控制分析階段"], "#2 開挖至第二層")
+        self.assertEqual(result.inputs["施工步驟"], "第二階開挖完成、第二層支撐施作前")
+        self.assertIn("#1 開挖至第一層 = 40 tf", result.inputs["分析階段內力"])
+
+    def test_imported_support_rejects_tampered_control_force(self) -> None:
+        ref = load_reference_data()
+        row = SupportRow(
+            level_label="1",
+            section_name=ref.sections[-1].name,
+            axial_force_t=79.0,
+            temp_force_t=0.0,
+            spacing_m=5.0,
+            force_source="analysis_import",
+            analysis_stage_cases=[AnalysisForceCase(stage_index=2, stage_label="控制階段", axial_force_t=80.0)],
+            analysis_control_stage_index=2,
+            analysis_control_stage_label="控制階段",
+            construction_step_label="第二階開挖",
+            analysis_mapping_confirmed=True,
+            analysis_mapping_basis="施工步驟表",
+        )
+
+        result = calculate_horizontal_support(row, ref.basic_defaults, "上層水平支撐")
+
+        self.assertEqual(result.status, "NG")
+        self.assertIn("採用內力", result.details["message"])
+
+    def test_confirmed_imported_brace_accepts_rounded_line_load(self) -> None:
+        ref = load_reference_data()
+        axial_force = 80.0
+        length_m = 5.0
+        angle_deg = 45.0
+        line_load = round(axial_force * math.sin(math.radians(angle_deg)) / length_m, 3)
+        row = BraceRow(
+            level_label="1",
+            section_name=ref.sections[-1].name,
+            l1_m=length_m,
+            l2_m=length_m,
+            angle_deg=angle_deg,
+            tributary_line_load_tf_per_m=line_load,
+            force_source="analysis_import",
+            analysis_stage_cases=[AnalysisForceCase(stage_index=3, stage_label="斜撐控制階段", axial_force_t=axial_force)],
+            analysis_control_stage_index=3,
+            analysis_control_stage_label="斜撐控制階段",
+            construction_step_label="第三階開挖、斜撐作用",
+            analysis_mapping_confirmed=True,
+            analysis_mapping_basis="分析模型階段 3 對照施工順序表",
+        )
+
+        result = calculate_brace(row, ref.basic_defaults, "上層斜撐")
+
+        self.assertNotEqual(result.controlling_condition, "資料未完整")
+        self.assertEqual(result.inputs["控制分析階段"], "#3 斜撐控制階段")
 
     def test_incomplete_optional_rows_return_ng_instead_of_raising(self) -> None:
         project = load_default_project().model_copy(deep=True)
