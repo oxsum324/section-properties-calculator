@@ -105,6 +105,24 @@ function copyRecord(record, inputDir, stagingDir, packageRoot) {
   };
 }
 
+function canonicalRenderEvidenceRecord(inputDir, relativeFile) {
+  const sourcePath = safeSourcePath(inputDir, relativeFile);
+  const payload = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
+  if (payload.kind !== Checker.CANONICAL_RENDER_EVIDENCE_KIND) {
+    throw new Error(`PDF 可見性證據格式不符：${relativeFile}`);
+  }
+  return {
+    file: relativeFile,
+    type: 'json',
+    sourceSha256: sha256File(sourcePath),
+    sourceTool: 'PDF canonical render evidence',
+    toolVersion: 'v1',
+    outputTime: String(payload.generatedAt || ''),
+    approvalTime: '',
+    fingerprints: [],
+  };
+}
+
 function addBuildBlock(report, code, message, files = []) {
   const issues = [...(report.issues || []), { level: 'error', code, message, files }];
   return {
@@ -286,7 +304,12 @@ function buildPackage(inputDir, options = {}) {
   }
 
   const formalRecords = report.attachments.filter(isFormalAttachment);
-  const traceabilityRecords = report.attachments.filter(record => String(record.type || '').toLowerCase() === 'json');
+  const ordinaryTraceabilityRecords = report.attachments.filter(record => String(record.type || '').toLowerCase() === 'json');
+  const canonicalEvidenceFiles = [...new Set(formalRecords
+    .map(record => record.visibilityEvidence?.status === 'verified' ? record.visibilityEvidence?.evidenceFile : '')
+    .filter(Boolean))];
+  const canonicalEvidenceRecords = canonicalEvidenceFiles.map(file => canonicalRenderEvidenceRecord(resolvedInput, file));
+  const traceabilityRecords = [...ordinaryTraceabilityRecords, ...canonicalEvidenceRecords];
   const unassignedRecords = report.attachments.filter(record => !isFormalAttachment(record) && String(record.type || '').toLowerCase() !== 'json');
   if (!formalRecords.length) {
     report = addBuildBlock(report, 'no-formal-attachments', '附件資料夾沒有明確標示「文件狀態：正式附件」的計算書；不建立空白正式附件包。');
@@ -318,7 +341,7 @@ function buildPackage(inputDir, options = {}) {
       formalAttachments,
       traceabilitySources,
       checkSummary: {
-        attachments: report.summary.attachments,
+        attachments: report.summary.attachments + canonicalEvidenceRecords.length,
         errors: report.summary.errors,
         warnings: report.summary.warnings,
         fingerprintLinks: report.fingerprintLinks.length,

@@ -24,7 +24,8 @@ from backend.app.removal_transfer_handoff import (
     build_source_capacity_evidence_verification,
     build_source_evidence_identity_signing_request,
 )
-from backend.app.reporting import build_word_report, calculation_fingerprint
+from backend.app.pdf_render_evidence import build_pdf_canonical_render_evidence
+from backend.app.reporting import build_report, calculation_fingerprint
 from backend.app.schemas import AnalysisForceCase
 from backend.app.workbook_loader import load_default_project
 from backend.sign_receiver_request import build_signature_response
@@ -192,12 +193,46 @@ class AttachmentPackageEvidenceChainDrillTests(unittest.TestCase):
             )
             _write_json(scv_path, scv)
 
-            generated_report = build_word_report(project, approved=True)
-            report_path = source_dir / "excavation-calculation-report.docx"
+            generated_pdf = build_report(project, concise_mode=True, approved=True)
+            generated_pdf_evidence = build_pdf_canonical_render_evidence(generated_pdf)
+            pdf_report_path = source_dir / generated_pdf.name
+            pdf_evidence_path = source_dir / generated_pdf_evidence.name
             try:
-                shutil.copy2(generated_report, report_path)
+                shutil.copy2(generated_pdf, pdf_report_path)
+                shutil.copy2(generated_pdf_evidence, pdf_evidence_path)
             finally:
-                generated_report.unlink(missing_ok=True)
+                generated_pdf.unlink(missing_ok=True)
+                generated_pdf_evidence.unlink(missing_ok=True)
+
+            original_pdf_evidence_text = pdf_evidence_path.read_text(encoding="utf-8")
+            tampered_pdf_evidence = json.loads(original_pdf_evidence_text)
+            tampered_pdf_evidence["pdf"]["visibleText"]["alignment"]["pages"][0]["ocrText"] += " OCR 證據遭改寫"
+            _write_json(pdf_evidence_path, tampered_pdf_evidence)
+            ocr_tamper_output = root / "ocr-tamper-check.json"
+            ocr_tamper_check = subprocess.run(
+                [
+                    "node",
+                    str(TOOLS_DIR / "attachment-package-check.js"),
+                    "--input",
+                    str(source_dir),
+                    "--project-no",
+                    PROJECT_NO,
+                    "--output",
+                    str(ocr_tamper_output),
+                ],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+            )
+            self.assertEqual(ocr_tamper_check.returncode, 1, ocr_tamper_check.stdout + ocr_tamper_check.stderr)
+            ocr_tamper_report = json.loads(ocr_tamper_output.read_text(encoding="utf-8"))
+            self.assertEqual(ocr_tamper_report["status"], "review")
+            pdf_record = next(item for item in ocr_tamper_report["attachments"] if item["file"] == pdf_report_path.name)
+            self.assertIn("ocr-alignment-page-1-ocr-sha256", pdf_record["visibilityEvidence"]["reasons"])
+            pdf_evidence_path.write_text(original_pdf_evidence_text, encoding="utf-8")
 
             build = subprocess.run(
                 [
@@ -232,9 +267,11 @@ class AttachmentPackageEvidenceChainDrillTests(unittest.TestCase):
             self.assertEqual(verify.returncode, 0, verify.stdout + verify.stderr)
             self.assertIn("證據鏈複驗 1 / 1 組", verify.stdout)
 
-            formal_report = package_dir / "01_正式附件" / report_path.name
+            formal_pdf = package_dir / "01_正式附件" / pdf_report_path.name
             internal_sources = package_dir / "99_內部追溯_勿附入主報告" / "來源資料"
-            self.assertTrue(formal_report.exists())
+            self.assertTrue(formal_pdf.exists())
+            self.assertFalse((package_dir / "01_正式附件" / pdf_evidence_path.name).exists())
+            self.assertTrue((internal_sources / pdf_evidence_path.name).exists())
             self.assertFalse((package_dir / "01_正式附件" / scv_path.name).exists())
             for source_path in (handoff_path, receipt_path, sev_path, trust_backup_path, scv_path):
                 self.assertTrue((internal_sources / source_path.name).exists())
@@ -244,7 +281,7 @@ class AttachmentPackageEvidenceChainDrillTests(unittest.TestCase):
             )
             self.assertEqual(manifest["projectNo"], PROJECT_NO)
             self.assertEqual(len(manifest["formalAttachments"]), 1)
-            self.assertEqual(len(manifest["traceabilitySources"]), 5)
+            self.assertEqual(len(manifest["traceabilitySources"]), 6)
 
             sev["verificationBasis"] = "內容在 SCV 建立後遭改寫"
             _write_json(sev_path, sev)

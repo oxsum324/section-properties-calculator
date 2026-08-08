@@ -501,3 +501,4 @@ class ReportPayload(BaseModel):
     report_kind: Literal["pdf", "docx"] = "pdf"
     document_status: Literal["internal-review", "formal-attachment"] = "internal-review"
     approval_time: str | None = None
+    canonical_evidence_url: str | None = None

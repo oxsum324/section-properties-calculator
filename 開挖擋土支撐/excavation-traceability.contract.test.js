@@ -47,6 +47,8 @@ const readme = readUtf8('README.md');
 const parsers = readUtf8('backend/app/parsers.py');
 const calculations = readUtf8('backend/app/calculations.py');
 const reporting = readUtf8('backend/app/reporting.py');
+const pdfRenderEvidence = readUtf8('backend/app/pdf_render_evidence.py');
+const backendRequirements = readUtf8('backend/requirements.txt');
 const schemas = readUtf8('backend/app/schemas.py');
 const main = readUtf8('backend/app/main.py');
 const config = readUtf8('backend/app/config.py');
@@ -78,6 +80,7 @@ const sourceEvidenceChainGuide = readUtf8('SOURCE_EVIDENCE_CHAIN_VERIFIER.md');
 const attachmentPackageCheck = readUtf8('../結構工具箱/tools/attachment-package-check.js');
 const attachmentPackageCheckTests = readUtf8('../結構工具箱/tools/attachment-package-check.test.js');
 const attachmentPackageBuildTests = readUtf8('../結構工具箱/tools/attachment-package-build.test.js');
+const attachmentPackageBuild = readUtf8('../結構工具箱/tools/attachment-package-build.js');
 const attachmentPackageVerify = readUtf8('../結構工具箱/tools/attachment-package-verify.js');
 const receiverKeyEnrollment = readUtf8('backend/app/receiver_key_enrollment.py');
 const receiverKeyManager = readUtf8('backend/manage_receiver_key.py');
@@ -99,7 +102,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.12.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.13.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -770,9 +773,39 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   '工程名稱、設計人員留空可由主文承接',
   '產出 PDF（',
   '產出 Word（',
+  '本次 PDF／正式組包可見性證據',
+  '儲存、產生 PDF 並逐頁驗證',
   'setReportApproved(false)',
 ].forEach((needle) => {
   assert(app.includes(needle), `excavation frontend keeps ${needle}`, needle);
+});
+
+[
+  'build_pdf_canonical_render_evidence',
+  'canonical_evidence_url',
+  '.canonical-render.evidence.json',
+].forEach((needle) => {
+  assert(main.includes(needle) || schemas.includes(needle), `excavation API keeps canonical PDF evidence token ${needle}`, needle);
+});
+
+[
+  'attachment-canonical-render-evidence.v1',
+  'rendered-page-ocr-text-layer-bigram-alignment',
+  'rapidocr-onnxruntime',
+  'minimumRequiredScore',
+  'textLayerSha256',
+  'ocrTextSha256',
+].forEach((needle) => {
+  assert(pdfRenderEvidence.includes(needle), `excavation PDF evidence generator keeps ${needle}`, needle);
+});
+['pypdf==', 'pypdfium2==', 'rapidocr-onnxruntime=='].forEach((needle) => {
+  assert(backendRequirements.includes(needle), `excavation backend pins PDF evidence dependency ${needle}`, needle);
+});
+[
+  'canonicalRenderEvidenceRecord',
+  '99_內部追溯_勿附入主報告',
+].forEach((needle) => {
+  assert(attachmentPackageBuild.includes(needle), `attachment package build keeps canonical evidence boundary ${needle}`, needle);
 });
 
 [
@@ -790,12 +823,14 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'build_receiver_verification_receipt',
   'build_source_capacity_evidence_verification',
   'build_source_evidence_chain_verification_receipt',
-  'build_word_report(project, approved=True)',
+  'build_pdf_canonical_render_evidence',
+  'ocr-alignment-page-1-ocr-sha256',
   'attachment-package-build.js',
   'attachment-package-verify.js',
   'scv-source-file-hash-mismatch',
   '01_正式附件',
   '99_內部追溯_勿附入主報告',
+  'len(manifest["formalAttachments"]), 1',
 ].forEach((needle) => {
   assert(attachmentEvidenceChainDrillTests.includes(needle), `excavation real attachment evidence-chain drill keeps ${needle}`, needle);
 });

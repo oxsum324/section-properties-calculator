@@ -732,4 +732,5 @@ export type ReportPayload = {
   report_kind: "pdf" | "docx";
   document_status: "internal-review" | "formal-attachment";
   approval_time?: string | null;
+  canonical_evidence_url?: string | null;
 };

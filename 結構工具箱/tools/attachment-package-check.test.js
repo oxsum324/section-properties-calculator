@@ -554,6 +554,59 @@ assert.equal(
   'verified',
   'traceable calculation-book evidence remains compatible with formal browser smoke output',
 );
+const ocrTextLayerText = traceableVisibleText;
+const ocrRenderedText = traceableVisibleText.replace('RC 梁設計計算書', 'RC梁設計計算書');
+const ocrScore = Checker.ocrAlignmentBigramDice(ocrTextLayerText, ocrRenderedText);
+const ocrEvidence = JSON.parse(JSON.stringify(traceableEvidence));
+ocrEvidence.renderer = 'pypdfium2-rapidocr';
+ocrEvidence.pdf.visibleText.source = 'rendered-page-ocr';
+ocrEvidence.pdf.visibleText.method = 'rendered-page-ocr-text-layer-bigram-alignment';
+ocrEvidence.pdf.visibleText.generatedInSamePrintSession = false;
+ocrEvidence.pdf.visibleText.derivedFromRenderedPages = true;
+ocrEvidence.pdf.visibleText.alignment = {
+  schemaVersion: 1,
+  engine: 'rapidocr-onnxruntime',
+  algorithm: 'normalized-alphanumeric-bigram-dice',
+  renderScale: 1.5,
+  minimumRequiredScore: 0.5,
+  pageCount: 1,
+  minimumPageScore: ocrScore,
+  averagePageScore: ocrScore,
+  pages: [{
+    page: 1,
+    textLayerText: ocrTextLayerText,
+    textLayerSha256: crypto.createHash('sha256').update(ocrTextLayerText, 'utf8').digest('hex'),
+    ocrText: ocrRenderedText,
+    ocrTextSha256: crypto.createHash('sha256').update(ocrRenderedText, 'utf8').digest('hex'),
+    score: ocrScore,
+  }],
+};
+assert.equal(
+  Checker.validateCanonicalRenderEvidence(ocrEvidence, { artifactName: 'beam.pdf', artifactSha256: canonicalEvidenceHash }).status,
+  'verified',
+  'per-page pixels, OCR and text-layer alignment can prove a native PDF canonical render',
+);
+const tamperedOcrEvidence = JSON.parse(JSON.stringify(ocrEvidence));
+tamperedOcrEvidence.pdf.visibleText.alignment.pages[0].ocrText += '竄改';
+const tamperedOcrResult = Checker.validateCanonicalRenderEvidence(tamperedOcrEvidence, { artifactName: 'beam.pdf', artifactSha256: canonicalEvidenceHash });
+assert.equal(tamperedOcrResult.status, 'review', 'OCR text tampering invalidates canonical PDF evidence');
+assert(tamperedOcrResult.reasons.includes('ocr-alignment-page-1-ocr-sha256'));
+const forgedOcrScoreEvidence = JSON.parse(JSON.stringify(ocrEvidence));
+forgedOcrScoreEvidence.pdf.visibleText.alignment.pages[0].score = 0.123456;
+const forgedOcrScoreResult = Checker.validateCanonicalRenderEvidence(forgedOcrScoreEvidence, { artifactName: 'beam.pdf', artifactSha256: canonicalEvidenceHash });
+assert.equal(forgedOcrScoreResult.status, 'review', 'checker recomputes OCR alignment instead of trusting its claimed score');
+assert(forgedOcrScoreResult.reasons.includes('ocr-alignment-page-1-score'));
+const weakOcrThresholdEvidence = JSON.parse(JSON.stringify(ocrEvidence));
+weakOcrThresholdEvidence.pdf.visibleText.alignment.minimumRequiredScore = 0.49;
+const weakOcrThresholdResult = Checker.validateCanonicalRenderEvidence(weakOcrThresholdEvidence, { artifactName: 'beam.pdf', artifactSha256: canonicalEvidenceHash });
+assert.equal(weakOcrThresholdResult.status, 'review', 'canonical evidence cannot weaken the minimum OCR threshold');
+assert(weakOcrThresholdResult.reasons.includes('ocr-alignment-threshold'));
+const mismatchedOcrVisibleTextEvidence = JSON.parse(JSON.stringify(ocrEvidence));
+mismatchedOcrVisibleTextEvidence.pdf.visibleText.alignment.pages[0].textLayerText += '不同內容';
+mismatchedOcrVisibleTextEvidence.pdf.visibleText.alignment.pages[0].textLayerSha256 = crypto.createHash('sha256').update(mismatchedOcrVisibleTextEvidence.pdf.visibleText.alignment.pages[0].textLayerText, 'utf8').digest('hex');
+const mismatchedOcrVisibleTextResult = Checker.validateCanonicalRenderEvidence(mismatchedOcrVisibleTextEvidence, { artifactName: 'beam.pdf', artifactSha256: canonicalEvidenceHash });
+assert.equal(mismatchedOcrVisibleTextResult.status, 'review', 'visible report text must equal the joined per-page PDF text layers');
+assert(mismatchedOcrVisibleTextResult.reasons.includes('ocr-alignment-visible-text'));
 const traceableSummaryText = traceableVisibleText.replace('RC 梁設計計算書', 'RC 梁計算摘要');
 assert.equal(Checker.detectCalculationContentProfile(traceableSummaryText), 'traceable-calculation-summary', 'summary title and complete traceability select the traceable summary profile');
 const traceableSummaryEvidence = JSON.parse(JSON.stringify(traceableEvidence));

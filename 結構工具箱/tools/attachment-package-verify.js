@@ -404,10 +404,12 @@ function validateRecord(record, role, index, report, seenPaths, schemaVersion) {
   if (typeof record.sha256 !== 'string' || !/^[0-9a-f]{64}$/i.test(record.sha256)) {
     addIssue(report, 'invalid-manifest-hash', `${packagedFile} 的 SHA-256 紀錄不正確。`, [packagedFile]);
   }
+  const canonicalRenderEvidence = role === 'traceability'
+    && String(packagedFile || '').toLowerCase().endsWith('.canonical-render.evidence.json');
   if (typeof record.sourceTool !== 'string' || !record.sourceTool.trim()
       || typeof record.toolVersion !== 'string' || !record.toolVersion.trim()
       || typeof record.outputTime !== 'string' || !record.outputTime.trim()
-      || !Array.isArray(record.fingerprints) || !record.fingerprints.length
+      || !Array.isArray(record.fingerprints) || (!canonicalRenderEvidence && !record.fingerprints.length)
       || record.fingerprints.some(value => typeof value !== 'string' || !value.trim())) {
     addIssue(report, 'invalid-traceability-record', `${packagedFile} 缺少產出工具、版本、輸出時間或計算指紋。`, [packagedFile]);
   }
@@ -488,6 +490,11 @@ function htmlDualSealEvidence(record = {}) {
   return null;
 }
 
+function isCanonicalRenderEvidenceItem(item = {}) {
+  return item.role === 'traceability'
+    && String(item.packagedFile || '').toLowerCase().endsWith('.canonical-render.evidence.json');
+}
+
 function verifyPackagedContent(packageDir, validItems, manifest, report) {
   if (manifest.schemaVersion < 3) return;
   const verifiedPaths = new Set(report.records
@@ -496,6 +503,7 @@ function verifyPackagedContent(packageDir, validItems, manifest, report) {
   const inspectedItems = [];
   validItems.forEach(item => {
     if (!verifiedPaths.has(item.packagedFile)) return;
+    if (isCanonicalRenderEvidenceItem(item)) return;
     const absolutePath = path.resolve(packageDir, ...item.packagedFile.split('/'));
     const inspectedRecord = Checker.inspectAttachment(absolutePath, packageDir);
     inspectedItems.push({ item, inspectedRecord });

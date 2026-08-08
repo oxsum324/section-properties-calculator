@@ -285,6 +285,7 @@ function App() {
   const [busy, setBusy] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [reportUrl, setReportUrl] = useState<string>("");
+  const [pdfEvidenceUrl, setPdfEvidenceUrl] = useState<string>("");
   const [wordReportUrl, setWordReportUrl] = useState<string>("");
   const [conciseReportMode, setConciseReportMode] = useState<boolean>(false);
   const [reportApproved, setReportApproved] = useState<boolean>(false);
@@ -567,6 +568,7 @@ function App() {
       await reloadListAndProject(created.metadata.id ?? undefined);
       setActiveStep(STEP_PROJECT);
       setReportUrl("");
+      setPdfEvidenceUrl("");
       setWordReportUrl("");
       setGeneratedPdfMode(null);
       setGeneratedWordMode(null);
@@ -586,6 +588,7 @@ function App() {
       const loaded = await api.getProject(projectId);
       applyPersistedProjectState(loaded);
       setReportUrl("");
+      setPdfEvidenceUrl("");
       setWordReportUrl("");
       setGeneratedPdfMode(null);
       setGeneratedWordMode(null);
@@ -660,11 +663,12 @@ function App() {
   async function handleGenerateReport() {
     if (!project?.metadata.id) return;
     try {
-      setBusy("儲存並產生 PDF");
+      setBusy(reportApproved ? "儲存、產生 PDF 並逐頁驗證" : "儲存並產生 PDF");
       const savedProject = await saveCurrentProjectState(project);
       const response = await api.generateReport(savedProject.metadata.id ?? project.metadata.id, conciseReportMode, reportApproved);
       applyPersistedProjectState(response.project);
       setReportUrl(cacheBustUrl(response.download_url));
+      setPdfEvidenceUrl(response.canonical_evidence_url ? cacheBustUrl(response.canonical_evidence_url) : "");
       setGeneratedPdfMode(response.report_mode);
       setGeneratedPdfDocumentStatus(response.document_status);
       setActiveStep(STEP_REPORT);
@@ -1284,6 +1288,7 @@ function App() {
     setRemovalTransferReceipt(null);
     if (!synced.calculation_results) {
       setReportUrl("");
+      setPdfEvidenceUrl("");
       setWordReportUrl("");
       setGeneratedPdfMode(null);
       setGeneratedWordMode(null);
@@ -1299,6 +1304,7 @@ function App() {
     setPersistedProjectSnapshot(serializeProjectState(synced));
     if (!synced.calculation_results) {
       setReportUrl("");
+      setPdfEvidenceUrl("");
       setWordReportUrl("");
       setGeneratedPdfMode(null);
       setGeneratedWordMode(null);
@@ -1311,6 +1317,7 @@ function App() {
   function setReportMode(nextConcise: boolean) {
     setConciseReportMode(nextConcise);
     setReportUrl("");
+    setPdfEvidenceUrl("");
     setWordReportUrl("");
     setGeneratedPdfMode(null);
     setGeneratedWordMode(null);
@@ -1321,6 +1328,7 @@ function App() {
   function setReportApproval(nextApproved: boolean) {
     setReportApproved(nextApproved);
     setReportUrl("");
+    setPdfEvidenceUrl("");
     setWordReportUrl("");
     setGeneratedPdfMode(null);
     setGeneratedWordMode(null);
@@ -1371,6 +1379,7 @@ function App() {
     if (!project) return;
     applyProjectState({ ...project, metadata: { ...project.metadata, [field]: value } });
     setReportUrl("");
+    setPdfEvidenceUrl("");
     setWordReportUrl("");
     setGeneratedPdfMode(null);
     setGeneratedWordMode(null);
@@ -4037,6 +4046,13 @@ function App() {
                       <em>{extractDownloadFilename(reportUrl)}</em>
                     </a>
                   )}
+                  {pdfEvidenceUrl && (
+                    <a className="generated-report-link" href={pdfEvidenceUrl} target="_blank" rel="noreferrer" download>
+                      <strong>本次 PDF／正式組包可見性證據</strong>
+                      <span>請與同次 PDF 放在同一組包來源資料夾</span>
+                      <em>{extractDownloadFilename(pdfEvidenceUrl)}</em>
+                    </a>
+                  )}
                   {wordReportUrl && (
                     <a className="generated-report-link" href={wordReportUrl} target="_blank" rel="noreferrer">
                       <strong>{`本次 Word／${generatedWordDocumentStatus === "formal-attachment" ? "正式附件" : "內部審閱"}`}</strong>
@@ -4047,7 +4063,7 @@ function App() {
                 </div>
               )}
               <p className="meta-line">
-                {`目前附件編排方式為${reportModeLabel}，文件身分為${reportDocumentStatusLabel}。Word 與 PDF 皆包含摘要、輸入基本資料、分析匯入結果、結果彙整與主要檢核內容；只有勾選核可後輸出的版本可由正式附件包自動放行。`}
+                {`目前附件編排方式為${reportModeLabel}，文件身分為${reportDocumentStatusLabel}。Word 與 PDF 皆包含摘要、輸入基本資料、分析匯入結果、結果彙整與主要檢核內容；核可 PDF 會逐頁建立像素、OCR 與文字層對齊證據，PDF 與該證據同放一個來源資料夾後才可由正式附件包自動放行。`}
               </p>
             </Panel>
             <Panel

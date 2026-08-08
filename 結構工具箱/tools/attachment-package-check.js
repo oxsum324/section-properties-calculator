@@ -782,6 +782,80 @@ function extractPdfText(filePath) {
   return run('pdftotext', ['-layout', filePath, '-'], `${path.basename(filePath)} PDF text`);
 }
 
+function normalizeOcrAlignmentText(value) {
+  return String(value || '').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+}
+
+function ocrAlignmentBigramDice(left, right) {
+  const bigrams = value => {
+    const characters = [...normalizeOcrAlignmentText(value)];
+    const result = new Set();
+    for (let index = 0; index < characters.length - 1; index += 1) {
+      result.add(`${characters[index]}${characters[index + 1]}`);
+    }
+    return result;
+  };
+  const leftBigrams = bigrams(left);
+  const rightBigrams = bigrams(right);
+  if (!leftBigrams.size && !rightBigrams.size) return 1;
+  if (!leftBigrams.size || !rightBigrams.size) return 0;
+  let intersection = 0;
+  for (const item of leftBigrams) {
+    if (rightBigrams.has(item)) intersection += 1;
+  }
+  return 2 * intersection / (leftBigrams.size + rightBigrams.size);
+}
+
+function validateRenderedPageOcrAlignment(visibleText, pdf) {
+  const reasons = [];
+  const alignment = visibleText?.alignment && typeof visibleText.alignment === 'object'
+    ? visibleText.alignment
+    : {};
+  const alignmentPages = Array.isArray(alignment.pages) ? alignment.pages : [];
+  const pageCount = Number(pdf?.pageCount);
+  if (alignment.schemaVersion !== 1) reasons.push('ocr-alignment-schema');
+  if (alignment.engine !== 'rapidocr-onnxruntime') reasons.push('ocr-alignment-engine');
+  if (alignment.algorithm !== 'normalized-alphanumeric-bigram-dice') reasons.push('ocr-alignment-algorithm');
+  if (!(Number(alignment.renderScale) >= 1.5)) reasons.push('ocr-alignment-render-scale');
+  if (!(Number(alignment.minimumRequiredScore) >= 0.5)) reasons.push('ocr-alignment-threshold');
+  if (!Number.isInteger(alignment.pageCount) || alignment.pageCount !== pageCount || alignmentPages.length !== pageCount) {
+    reasons.push('ocr-alignment-pages');
+  }
+  const textLayerPages = [];
+  const scores = [];
+  alignmentPages.forEach((record, index) => {
+    const expectedPage = index + 1;
+    const textLayerText = typeof record?.textLayerText === 'string' ? record.textLayerText : '';
+    const ocrText = typeof record?.ocrText === 'string' ? record.ocrText : '';
+    textLayerPages.push(textLayerText);
+    if (record?.page !== expectedPage) reasons.push(`ocr-alignment-page-${expectedPage}-number`);
+    const textLayerSha256 = crypto.createHash('sha256').update(textLayerText, 'utf8').digest('hex');
+    const ocrTextSha256 = crypto.createHash('sha256').update(ocrText, 'utf8').digest('hex');
+    if (textLayerSha256 !== String(record?.textLayerSha256 || '').toLowerCase()) {
+      reasons.push(`ocr-alignment-page-${expectedPage}-text-layer-sha256`);
+    }
+    if (ocrTextSha256 !== String(record?.ocrTextSha256 || '').toLowerCase()) {
+      reasons.push(`ocr-alignment-page-${expectedPage}-ocr-sha256`);
+    }
+    const score = ocrAlignmentBigramDice(textLayerText, ocrText);
+    scores.push(score);
+    if (Math.abs(score - Number(record?.score)) > 0.000001) {
+      reasons.push(`ocr-alignment-page-${expectedPage}-score`);
+    }
+    if (score < Number(alignment.minimumRequiredScore)) {
+      reasons.push(`ocr-alignment-page-${expectedPage}-below-threshold`);
+    }
+  });
+  if (textLayerPages.join('\f') !== String(visibleText?.text || '')) reasons.push('ocr-alignment-visible-text');
+  if (scores.length) {
+    const minimum = Math.min(...scores);
+    const average = scores.reduce((sum, value) => sum + value, 0) / scores.length;
+    if (Math.abs(minimum - Number(alignment.minimumPageScore)) > 0.000001) reasons.push('ocr-alignment-minimum-score');
+    if (Math.abs(average - Number(alignment.averagePageScore)) > 0.000001) reasons.push('ocr-alignment-average-score');
+  }
+  return unique(reasons);
+}
+
 function validateCanonicalRenderEvidence(evidence, expected = {}) {
   const reasons = [];
   const value = evidence && typeof evidence === 'object' ? evidence : {};
@@ -832,6 +906,9 @@ function validateCanonicalRenderEvidence(evidence, expected = {}) {
     && printVisibility.checks.includes('print-media')
     && printVisibility.checks.includes('text-range-client-rects');
   if ((!renderedPageText && !controlledPrintDom) || !String(visibleText.method || '').trim()) reasons.push('visible-text-method');
+  if (renderedPageText && visibleText.method === 'rendered-page-ocr-text-layer-bigram-alignment') {
+    reasons.push(...validateRenderedPageOcrAlignment(visibleText, pdf));
+  }
   const evidenceText = typeof visibleText.text === 'string' ? visibleText.text : '';
   if (!Number.isInteger(visibleText.textLength) || visibleText.textLength < 1 || evidenceText.length !== visibleText.textLength) reasons.push('visible-text-length');
   const evidenceTextSha256 = crypto.createHash('sha256').update(evidenceText, 'utf8').digest('hex');
@@ -858,13 +935,32 @@ function validateCanonicalRenderEvidence(evidence, expected = {}) {
   };
 }
 
-function loadPdfVisibilityEvidence(filePath, artifactSha256) {
+function loadPdfVisibilityEvidence(filePath, artifactSha256, rootDir = '') {
   const parsed = path.parse(filePath);
+  const candidateNames = [
+    `${parsed.name}.canonical-render.evidence.json`,
+    `${parsed.name}.evidence.json`,
+  ];
   const candidates = [
     path.join(parsed.dir, `${parsed.name}.canonical-render.evidence.json`),
     path.join(parsed.dir, `${parsed.name}.evidence.json`),
   ];
-  const evidencePath = candidates.find(candidate => fs.existsSync(candidate));
+  if (rootDir) {
+    candidateNames.forEach(name => candidates.push(
+      path.join(path.resolve(rootDir), '99_內部追溯_勿附入主報告', '來源資料', name),
+    ));
+  }
+  const existingCandidates = unique(candidates.map(candidate => path.resolve(candidate))).filter(candidate => fs.existsSync(candidate));
+  if (existingCandidates.length > 1) {
+    return {
+      status: 'review',
+      method: 'canonical-render-visible-text',
+      evidenceKind: '',
+      evidenceFile: '',
+      reasons: ['canonical-render-evidence-ambiguous'],
+    };
+  }
+  const evidencePath = existingCandidates[0];
   if (!evidencePath) {
     return {
       status: 'review',
@@ -1328,7 +1424,7 @@ function inspectAttachment(filePath, rootDir) {
     let canonicalContentBoundary = null;
     if (type === 'pdf') {
       const pdfText = extractPdfText(filePath);
-      const visibilityEvidence = loadPdfVisibilityEvidence(filePath, before.sha256);
+      const visibilityEvidence = loadPdfVisibilityEvidence(filePath, before.sha256, rootDir);
       text = pdfText;
       if (visibilityEvidence.status === 'verified') {
         const compatibility = canonicalPdfMetadataCompatibility(pdfText, visibilityEvidence.visibleText);
@@ -2026,4 +2122,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { CALCULATION_BOOK_CONTENT_BOUNDARY, CONTENT_GROUPS, CONTENT_PROFILES, CANONICAL_RENDER_EVIDENCE_KIND, RC_CONTENT_SEAL_SCOPE, RC_APPROVAL_SEAL_SCOPE, FORMAL_CONTENT_SEAL_SCOPE, FORMAL_APPROVAL_SEAL_SCOPE, ANCHOR_CONTENT_SEAL_SCOPE, ANCHOR_APPROVAL_SEAL_SCOPE, RC_CONTENT_SEAL_START, RC_CONTENT_SEAL_END, FORMAL_CONTENT_SEAL_START, FORMAL_CONTENT_SEAL_END, SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, CALCULATION_SUMMARY_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, decodeXmlEntities, extractHtmlText, extractHtmlVisibleContent, canonicalizeRcHtmlContentSeal, verifyRcHtmlContentSeal, isRcHtmlContentSealRequired, canonicalizeRcHtmlApprovalSeal, verifyRcHtmlApprovalSeal, isRcHtmlApprovalSealRequired, canonicalizeFormalHtmlContentSeal, verifyFormalHtmlContentSeal, canonicalizeFormalHtmlApprovalSeal, verifyFormalHtmlApprovalSeal, isFormalHtmlSealRequired, normalizeAnchorHtmlSealResult, verifyAnchorHtmlDualSeals, isAnchorHtmlSealRequired, hasDefinitelyHiddenStyle, hasAmbiguousVisibilityStyle, detectCalculationContentProfile, evaluateCalculationContent, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, validateCanonicalRenderEvidence, loadPdfVisibilityEvidence, collectDocxHiddenStyleIds, stripDocxHiddenText, parseSharedStrings, extractVisibleWorksheetText, resolveVisibleWorksheetEntries, extractXlsxVisibleContent, extractTextMetadata, excavationEvidenceMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzeExcavationEvidenceChains, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };
+module.exports = { CALCULATION_BOOK_CONTENT_BOUNDARY, CONTENT_GROUPS, CONTENT_PROFILES, CANONICAL_RENDER_EVIDENCE_KIND, RC_CONTENT_SEAL_SCOPE, RC_APPROVAL_SEAL_SCOPE, FORMAL_CONTENT_SEAL_SCOPE, FORMAL_APPROVAL_SEAL_SCOPE, ANCHOR_CONTENT_SEAL_SCOPE, ANCHOR_APPROVAL_SEAL_SCOPE, RC_CONTENT_SEAL_START, RC_CONTENT_SEAL_END, FORMAL_CONTENT_SEAL_START, FORMAL_CONTENT_SEAL_END, SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, CALCULATION_SUMMARY_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, decodeXmlEntities, extractHtmlText, extractHtmlVisibleContent, canonicalizeRcHtmlContentSeal, verifyRcHtmlContentSeal, isRcHtmlContentSealRequired, canonicalizeRcHtmlApprovalSeal, verifyRcHtmlApprovalSeal, isRcHtmlApprovalSealRequired, canonicalizeFormalHtmlContentSeal, verifyFormalHtmlContentSeal, canonicalizeFormalHtmlApprovalSeal, verifyFormalHtmlApprovalSeal, isFormalHtmlSealRequired, normalizeAnchorHtmlSealResult, verifyAnchorHtmlDualSeals, isAnchorHtmlSealRequired, hasDefinitelyHiddenStyle, hasAmbiguousVisibilityStyle, detectCalculationContentProfile, evaluateCalculationContent, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, normalizeOcrAlignmentText, ocrAlignmentBigramDice, validateRenderedPageOcrAlignment, validateCanonicalRenderEvidence, loadPdfVisibilityEvidence, collectDocxHiddenStyleIds, stripDocxHiddenText, parseSharedStrings, extractVisibleWorksheetText, resolveVisibleWorksheetEntries, extractXlsxVisibleContent, extractTextMetadata, excavationEvidenceMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzeExcavationEvidenceChains, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };
