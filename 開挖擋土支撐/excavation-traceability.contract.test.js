@@ -88,7 +88,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.5.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.6.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -169,6 +169,10 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'verifiedCapacityTf',
   'expected_ratio = adopted_demand / verified_capacity',
   '"capacityValueFromReceiverDocument": True',
+  'def _validated_capacity_evidence',
+  'per-ERT-document-metadata-and-sha256',
+  'capacityEvidenceFileNotEmbedded',
+  '承載力文件 SHA-256 格式不正確',
   'adopted-demand-divided-by-verified-capacity',
   '來源構件、生命週期、控制軸力',
 ].forEach((needle) => {
@@ -241,6 +245,11 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '容量利用率（需求／承載力，自動）',
   '結果與利用率會由後端自動判定',
   '舊版 RVR v1：容量利用率為接收端外部登錄值',
+  '承載力文件編號',
+  '證據檔 SHA-256',
+  'crypto.subtle.digest("SHA-256"',
+  '檔案只在瀏覽器本機計算雜湊，不會上傳或嵌入 RVR',
+  'RVR v3：需求／承載力閉環已逐列連結正式文件資料與 SHA-256',
 ].forEach((needle) => {
   assert(app.includes(needle) || api.includes(needle), `excavation removal transfer frontend keeps ${needle}`, needle);
 });
@@ -255,8 +264,12 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'test_rejects_passed_receipt_with_over_capacity_ratio',
   'test_keeps_legacy_v1_receipt_without_capacity_read_compatibility',
   'test_keeps_legacy_v3_handoff_with_v1_receipt_contract',
+  'test_keeps_legacy_v3_handoff_with_v2_receipt_contract',
+  'test_keeps_legacy_v2_receipt_without_document_evidence',
   'test_v2_rejects_capacity_ratio_mismatch',
   'test_v2_rejects_manual_status_override',
+  'test_v3_rejects_tampered_capacity_evidence_hash',
+  'test_v3_rejects_capacity_evidence_filename_path',
   'test_assistant_derives_failed_status_from_demand_and_capacity',
   'test_reuses_handoff_when_only_issue_time_changes',
   'test_builds_controlled_receiver_receipt_for_assistant',

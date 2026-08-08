@@ -25,6 +25,8 @@
 
 `identitySignature` 與 `receiptFingerprint` 均不納入 RVR 指紋運算，因此在既有 RVR 加入簽章不會改變其內容指紋。驗章前仍須先通過完整的 RVR、ERH 與 ERT 關聯驗證。
 
+RVR v3 的逐列承載力文件資料與 `fileSha256` 會納入 `receiptFingerprint`，因此後續數位簽章也會間接保護這些欄位不被改寫；但證據檔案本身不會嵌入 RVR 或簽署訊息。來源端仍須對實際收到的文件重新計算 SHA-256，確認與 RVR 所列值一致，並人工核對文件編號、版次、日期、頁碼及內容。
+
 ## 簽署訊息
 
 簽署端必須把下列物件以 UTF-8、鍵名排序、無多餘空白的 JSON 形式序列化，再以 Ed25519 對完整 bytes 簽署：

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import base64
 import binascii
 import hashlib
@@ -24,8 +24,8 @@ from .schemas import (
 
 
 HANDOFF_SCHEMA_VERSION = 3
-RECEIPT_SCHEMA_VERSION = 2
-SUPPORTED_RECEIPT_SCHEMA_VERSIONS = {1, RECEIPT_SCHEMA_VERSION}
+RECEIPT_SCHEMA_VERSION = 3
+SUPPORTED_RECEIPT_SCHEMA_VERSIONS = {1, 2, RECEIPT_SCHEMA_VERSION}
 SCHEMA_VERSION = HANDOFF_SCHEMA_VERSION
 KIND = "excavation-removal-transfer-handoff"
 RECEIPT_KIND = "receiver-capacity-verification-receipt"
@@ -533,6 +533,7 @@ def build_removal_transfer_handoff(
             "fingerprintAlgorithm": "RVR-SHA256-canonical-json-first-20-uppercase",
             "coverage": "all-ERT-transfers-required",
             "capacityCheck": "adopted-demand-divided-by-verified-capacity",
+            "capacityEvidence": "per-ERT-document-metadata-and-sha256",
             "verifierIdentityAuthentication": "manual-review-or-ed25519-trust-registry",
         },
         "boundary": {
@@ -625,10 +626,15 @@ def validate_removal_transfer_handoff(record: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ValueError("拆撐承接構造交接檔缺少受控回簽契約。")
     if (
-        receipt_schema_version == RECEIPT_SCHEMA_VERSION
+        receipt_schema_version in {2, RECEIPT_SCHEMA_VERSION}
         and receipt_contract.get("capacityCheck") != "adopted-demand-divided-by-verified-capacity"
     ):
         raise ValueError("拆撐承接構造交接檔缺少需求／承載力自動檢核契約。")
+    if (
+        receipt_schema_version == RECEIPT_SCHEMA_VERSION
+        and receipt_contract.get("capacityEvidence") != "per-ERT-document-metadata-and-sha256"
+    ):
+        raise ValueError("拆撐承接構造交接檔缺少逐列承載力文件證據契約。")
     return deepcopy(record)
 
 
@@ -659,6 +665,34 @@ def _finite_nonnegative(value: Any, field_name: str) -> float:
     if not math.isfinite(number) or number < 0:
         raise ValueError(f"承接構造回簽的{field_name}不是非負有限數值。")
     return number
+
+
+def _validated_capacity_evidence(value: Any) -> dict[str, str]:
+    if not isinstance(value, dict):
+        raise ValueError("承接構造回簽缺少逐列承載力文件證據。")
+    document_reference = _required_text(value.get("documentReference"), "承載力文件編號", max_length=160)
+    revision = _required_text(value.get("revision"), "承載力文件版次", max_length=40)
+    issued_date = _required_text(value.get("issuedDate"), "承載力文件日期", max_length=10)
+    try:
+        if date.fromisoformat(issued_date).isoformat() != issued_date:
+            raise ValueError
+    except ValueError as exc:
+        raise ValueError("承接構造回簽的承載力文件日期必須為 YYYY-MM-DD。") from exc
+    page_reference = _required_text(value.get("pageReference"), "承載力文件頁碼", max_length=80)
+    file_name = _required_text(value.get("fileName"), "承載力文件檔名", max_length=180)
+    if "/" in file_name or "\\" in file_name:
+        raise ValueError("承接構造回簽的承載力文件檔名不得包含路徑。")
+    file_sha256 = str(value.get("fileSha256", "")).strip().lower()
+    if not re.fullmatch(r"[0-9a-f]{64}", file_sha256):
+        raise ValueError("承接構造回簽的承載力文件 SHA-256 格式不正確。")
+    return {
+        "documentReference": document_reference,
+        "revision": revision,
+        "issuedDate": issued_date,
+        "pageReference": page_reference,
+        "fileName": file_name,
+        "fileSha256": file_sha256,
+    }
 
 
 def validate_receiver_verification_receipt(
@@ -736,7 +770,7 @@ def validate_receiver_verification_receipt(
             if adopted_demand + 1e-9 < minimum_demand:
                 raise ValueError("承接構造回簽採用需求不得小於 ERH 交接的承接設計需求。")
         ratio = _finite_nonnegative(result.get("capacityUtilizationRatio"), "容量利用率")
-        if receipt_schema_version == RECEIPT_SCHEMA_VERSION:
+        if receipt_schema_version in {2, RECEIPT_SCHEMA_VERSION}:
             verified_capacity = _finite_nonnegative(result.get("verifiedCapacityTf"), "核定承載力")
             if verified_capacity <= 0:
                 raise ValueError("承接構造回簽的核定承載力必須大於 0。")
@@ -748,6 +782,10 @@ def validate_receiver_verification_receipt(
                 raise ValueError("承接構造回簽狀態與需求／承載力自動判定不一致。")
         elif status == "passed" and ratio > 1.0 + 1e-9:
             raise ValueError("承接構造回簽將容量利用率大於 1 的結果標示為 passed。")
+        if receipt_schema_version == RECEIPT_SCHEMA_VERSION:
+            evidence = _validated_capacity_evidence(result.get("capacityEvidence"))
+            if evidence != result.get("capacityEvidence"):
+                raise ValueError("承接構造回簽的承載力文件證據欄位未正規化。")
         if status == "passed":
             passed += 1
         else:
@@ -772,10 +810,15 @@ def validate_receiver_verification_receipt(
     ):
         raise ValueError("承接構造回簽未保留接收端計算與回簽人身分核對邊界。")
     if (
-        receipt_schema_version == RECEIPT_SCHEMA_VERSION
+        receipt_schema_version in {2, RECEIPT_SCHEMA_VERSION}
         and boundary.get("capacityValueFromReceiverDocument") is not True
     ):
         raise ValueError("承接構造回簽未聲明核定承載力來自接收端正式檢核文件。")
+    if (
+        receipt_schema_version == RECEIPT_SCHEMA_VERSION
+        and boundary.get("capacityEvidenceFileNotEmbedded") is not True
+    ):
+        raise ValueError("承接構造回簽未保留承載力證據檔僅記錄雜湊、不嵌入檔案的邊界。")
     return deepcopy(receipt)
 
 
@@ -803,6 +846,7 @@ def build_receiver_verification_receipt(
         if verified_capacity <= 0:
             raise ValueError("承接構造回簽的核定承載力必須大於 0。")
         ratio = adopted_demand / verified_capacity
+        evidence = _validated_capacity_evidence(result.get("capacityEvidence"))
         controlled_results.append({
             "transferId": result.get("transferId", ""),
             "status": "passed" if ratio <= 1.0 + 1e-9 else "failed",
@@ -810,6 +854,7 @@ def build_receiver_verification_receipt(
             "adoptedDemandTf": adopted_demand,
             "verifiedCapacityTf": verified_capacity,
             "capacityUtilizationRatio": round(ratio, 6),
+            "capacityEvidence": evidence,
             "verificationBasis": result.get("verificationBasis", ""),
             "conclusion": result.get("conclusion", ""),
         })
@@ -833,6 +878,7 @@ def build_receiver_verification_receipt(
             "sourceToolDidNotAutoVerify": True,
             "verifierIdentityRequiresManualReview": True,
             "capacityValueFromReceiverDocument": True,
+            "capacityEvidenceFileNotEmbedded": True,
         },
     }
     receipt["receiptFingerprint"] = receiver_verification_receipt_fingerprint(receipt)

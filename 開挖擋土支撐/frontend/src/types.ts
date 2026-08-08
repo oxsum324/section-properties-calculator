@@ -403,11 +403,12 @@ export type RemovalTransferHandoff = {
     receiptKind: "receiver-capacity-verification-receipt";
   };
   receiptContract: {
-    schemaVersion: 1 | 2;
+    schemaVersion: 1 | 2 | 3;
     kind: "receiver-capacity-verification-receipt";
     fingerprintAlgorithm: "RVR-SHA256-canonical-json-first-20-uppercase";
     coverage: "all-ERT-transfers-required";
     capacityCheck?: "adopted-demand-divided-by-verified-capacity";
+    capacityEvidence?: "per-ERT-document-metadata-and-sha256";
     verifierIdentityAuthentication: "manual-review-required" | "manual-review-or-ed25519-trust-registry";
   };
   boundary: {
@@ -426,6 +427,15 @@ export type ReceiverVerificationAuthority = {
   reportReference: string;
 };
 
+export type ReceiverCapacityEvidence = {
+  documentReference: string;
+  revision: string;
+  issuedDate: string;
+  pageReference: string;
+  fileName: string;
+  fileSha256: string;
+};
+
 export type ReceiverVerificationResult = {
   transferId: string;
   status: "passed" | "failed";
@@ -433,12 +443,13 @@ export type ReceiverVerificationResult = {
   adoptedDemandTf: number;
   verifiedCapacityTf?: number;
   capacityUtilizationRatio: number;
+  capacityEvidence?: ReceiverCapacityEvidence;
   verificationBasis: string;
   conclusion: string;
 };
 
 export type ReceiverCapacityVerificationReceipt = {
-  schemaVersion: 1 | 2;
+  schemaVersion: 1 | 2 | 3;
   kind: "receiver-capacity-verification-receipt";
   issuedAt: string;
   handoffFingerprint: string;
@@ -455,6 +466,7 @@ export type ReceiverCapacityVerificationReceipt = {
     sourceToolDidNotAutoVerify: true;
     verifierIdentityRequiresManualReview: true;
     capacityValueFromReceiverDocument?: true;
+    capacityEvidenceFileNotEmbedded?: true;
   };
   identitySignature?: {
     schemaVersion: 1;

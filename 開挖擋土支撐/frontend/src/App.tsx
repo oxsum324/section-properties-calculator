@@ -346,6 +346,12 @@ function App() {
           ? "passed"
           : "failed"
       )
+      && Boolean(result.capacityEvidence?.documentReference.trim())
+      && Boolean(result.capacityEvidence?.revision.trim())
+      && /^\d{4}-\d{2}-\d{2}$/.test(result.capacityEvidence?.issuedDate ?? "")
+      && Boolean(result.capacityEvidence?.pageReference.trim())
+      && Boolean(result.capacityEvidence?.fileName.trim())
+      && /^[0-9a-f]{64}$/i.test(result.capacityEvidence?.fileSha256 ?? "")
     ));
   }, [
     receiverAssistantHandoff,
@@ -991,6 +997,65 @@ function App() {
       return next;
     });
     setReceiverAssistantReceipt(null);
+  }
+
+  function updateReceiverAssistantCapacityEvidence(
+    index: number,
+    field: keyof NonNullable<ReceiverVerificationResult["capacityEvidence"]>,
+    value: string,
+  ) {
+    setReceiverAssistantResults((current) => {
+      const next = [...current];
+      const result = { ...next[index] };
+      const evidence = {
+        documentReference: "",
+        revision: "",
+        issuedDate: "",
+        pageReference: "",
+        fileName: "",
+        fileSha256: "",
+        ...result.capacityEvidence,
+        [field]: field === "fileSha256" ? value.trim().toLowerCase() : value,
+      };
+      result.capacityEvidence = evidence;
+      next[index] = result;
+      return next;
+    });
+    setReceiverAssistantReceipt(null);
+  }
+
+  async function handleReceiverCapacityEvidenceFile(index: number, event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+      const fileSha256 = Array.from(new Uint8Array(digest))
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("");
+      setReceiverAssistantResults((current) => {
+        const next = [...current];
+        const result = { ...next[index] };
+        const evidence = {
+          documentReference: "",
+          revision: "",
+          issuedDate: "",
+          pageReference: "",
+          fileName: "",
+          fileSha256: "",
+          ...result.capacityEvidence,
+        };
+        evidence.fileName = file.name;
+        evidence.fileSha256 = fileSha256;
+        result.capacityEvidence = evidence;
+        next[index] = result;
+        return next;
+      });
+      setReceiverAssistantReceipt(null);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "無法計算承載力證據檔案 SHA-256。");
+    }
   }
 
   async function handleSaveReferenceData() {
@@ -4245,7 +4310,7 @@ function App() {
                   </div>
                 </Panel>
 
-                <Panel title="逐列承接構造結果" subtitle="每一個 ERT 必須且只能回簽一次；利用率由採用需求除以核定承載力自動計算，結果不得手動覆寫。">
+                <Panel title="逐列承接構造結果" subtitle="每一個 ERT 必須且只能回簽一次；利用率與結果由後端自動判定，核定承載力須逐列連結正式文件與 SHA-256。">
                   <div className="receiver-result-list">
                     {receiverAssistantResults.map((result, index) => {
                       const transfer = receiverAssistantHandoff.transfers[index];
@@ -4292,6 +4357,47 @@ function App() {
                               <span>容量利用率（需求／承載力，自動）</span>
                               <strong>{result.capacityUtilizationRatio > 0 ? fmt(result.capacityUtilizationRatio) : "—"}</strong>
                             </div>
+                            <Field
+                              label="承載力文件編號"
+                              value={result.capacityEvidence?.documentReference ?? ""}
+                              onChange={(value) => updateReceiverAssistantCapacityEvidence(index, "documentReference", value)}
+                            />
+                            <Field
+                              label="文件版次"
+                              value={result.capacityEvidence?.revision ?? ""}
+                              onChange={(value) => updateReceiverAssistantCapacityEvidence(index, "revision", value)}
+                            />
+                            <label className="field-block">
+                              <span>文件日期</span>
+                              <input
+                                type="date"
+                                value={result.capacityEvidence?.issuedDate ?? ""}
+                                onChange={(event) => updateReceiverAssistantCapacityEvidence(index, "issuedDate", event.target.value)}
+                              />
+                            </label>
+                            <Field
+                              label="頁碼／章節"
+                              value={result.capacityEvidence?.pageReference ?? ""}
+                              onChange={(value) => updateReceiverAssistantCapacityEvidence(index, "pageReference", value)}
+                            />
+                            <Field
+                              label="證據檔名"
+                              value={result.capacityEvidence?.fileName ?? ""}
+                              onChange={(value) => updateReceiverAssistantCapacityEvidence(index, "fileName", value)}
+                            />
+                            <Field
+                              label="證據檔 SHA-256"
+                              value={result.capacityEvidence?.fileSha256 ?? ""}
+                              onChange={(value) => updateReceiverAssistantCapacityEvidence(index, "fileSha256", value)}
+                            />
+                            <label className="field-block">
+                              <span>由本機檔案自動帶入檔名與 SHA-256</span>
+                              <input
+                                type="file"
+                                onChange={(event) => void handleReceiverCapacityEvidenceFile(index, event)}
+                              />
+                              <small>檔案只在瀏覽器本機計算雜湊，不會上傳或嵌入 RVR。</small>
+                            </label>
                             <TextAreaField
                               label="接收端檢核依據"
                               value={result.verificationBasis}
@@ -4345,7 +4451,7 @@ function App() {
                     </button>
                   </div>
                   {!receiverAssistantReady && (
-                    <p className="meta-line">請完成回簽單位、每筆採用需求、核定承載力、檢核依據、結論及兩項確認；結果與利用率會由後端自動判定。</p>
+                    <p className="meta-line">請完成回簽單位、每筆採用需求、核定承載力、文件證據、檢核依據、結論及兩項確認；結果與利用率會由後端自動判定。</p>
                   )}
                   {receiverAssistantReceipt && (
                     <div className={`receiver-receipt-result ${receiverAssistantReceipt.summary.status === "passed" && receiverAssistantIdentityVerification?.status !== "valid-signature-revoked-key" && receiverAssistantIdentityVerification?.status !== "valid-signature-organization-mismatch" ? "ok" : "ng"}`}>
@@ -4363,9 +4469,11 @@ function App() {
                           : "RVR 已建立：接收端結果包含未通過項目"}
                       </strong>
                       <span>
-                        {receiverAssistantReceipt.schemaVersion === 2
-                          ? "RVR v2：需求／核定承載力、利用率及自動判定已形成可核對閉環。"
-                          : "舊版 RVR v1：容量利用率為接收端外部登錄值，未形成需求／承載力自動閉環。"}
+                        {receiverAssistantReceipt.schemaVersion === 3
+                          ? "RVR v3：需求／承載力閉環已逐列連結正式文件資料與 SHA-256。"
+                          : receiverAssistantReceipt.schemaVersion === 2
+                            ? "舊版 RVR v2：需求／核定承載力已閉環，但尚未強制逐列文件 SHA-256。"
+                            : "舊版 RVR v1：容量利用率為接收端外部登錄值，未形成需求／承載力自動閉環。"}
                       </span>
                       <span>{`RVR 指紋：${receiverAssistantReceipt.receiptFingerprint}`}</span>
                       <span>{`通過 ${receiverAssistantReceipt.summary.passed}／未通過 ${receiverAssistantReceipt.summary.failed}`}</span>
@@ -5845,6 +5953,14 @@ function receiverResultDrafts(handoff: RemovalTransferHandoff): ReceiverVerifica
     adoptedDemandTf: handoffDesignDemandTf(transfer),
     verifiedCapacityTf: 0,
     capacityUtilizationRatio: 0,
+    capacityEvidence: {
+      documentReference: "",
+      revision: "",
+      issuedDate: "",
+      pageReference: "",
+      fileName: "",
+      fileSha256: "",
+    },
     verificationBasis: "",
     conclusion: "",
   }));
