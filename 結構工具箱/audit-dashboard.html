@@ -1032,6 +1032,7 @@
         'backup-task-last-run-failed': '每週備份排程最近一次執行失敗',
         'backup-task-unavailable': '找不到或無法讀取每週備份排程',
         'history-record-failed': '無法寫入防改寫的健康狀態轉換歷程',
+        'health-check-stale': '每日健康檢查摘要已過期',
         'dashboard-summary-privacy-invalid': '本機摘要未通過隱私邊界檢查',
       };
       return labels[String(code || '')] || '未分類問題，請查看本機詳細狀態';
@@ -1060,6 +1061,16 @@
       }
 
       const issueCodes = Array.isArray(payload.issueCodes) ? payload.issueCodes.filter(Boolean) : [];
+      const checkedAt = parseGeneratedAt(payload.checkedAt);
+      const configuredMaxAgeHours = Number(payload.statusMaxAgeHours);
+      const statusMaxAgeHours = Number.isFinite(configuredMaxAgeHours) && configuredMaxAgeHours > 0
+        ? configuredMaxAgeHours
+        : 36;
+      const statusAgeHours = checkedAt ? Math.max(0, (Date.now() - checkedAt.getTime()) / 3600000) : Infinity;
+      const statusFresh = Number.isFinite(statusAgeHours) && statusAgeHours <= statusMaxAgeHours;
+      if (!statusFresh && !issueCodes.includes('health-check-stale')) {
+        issueCodes.push('health-check-stale');
+      }
       if (!privacySafe && !issueCodes.includes('dashboard-summary-privacy-invalid')) {
         issueCodes.push('dashboard-summary-privacy-invalid');
       }
@@ -1068,12 +1079,15 @@
         && issueCodes.length === 0
         && payload.evidence?.status === 'backup-health-ok'
         && payload.evidence?.productionRegistryUnchanged === true
+        && statusFresh
         && privacySafe;
       if (card) card.dataset.rvrHealthState = healthy ? 'healthy' : 'attention-required';
       setKpiValue('rvrBackupHealthStatus', healthy ? '正常' : '需要處理', healthy ? 'ok' : 'fail');
       setHint(
         'rvrBackupHealthStatusHint',
-        healthy
+        !statusFresh
+          ? `最近一次健康摘要已超過 ${statusMaxAgeHours} 小時未更新，不能再視為目前正常；請檢查每日健康排程。`
+          : healthy
           ? '最新備份與隔離復原演練證據有效，正式清冊未被演練修改。'
           : `發現 ${Math.max(Number(payload.issueCount || 0), issueCodes.length, 1)} 項問題，請查看本機詳細狀態。`
       );
@@ -1083,11 +1097,14 @@
       setHint('rvrBackupHealthAgeHint', `目前門檻 ${Number(payload.maxAgeDays) || 8} 天；超過即要求處理。`);
 
       const task = payload.backupTask;
-      const taskOk = task && task.state !== 'Disabled' && Number(task.lastTaskResult) === 0;
-      setKpiValue('rvrBackupHealthTask', task ? (taskOk ? '就緒 / 成功' : '需要處理') : '未檢查', taskOk ? 'ok' : 'warn');
+      const taskReportedOk = task && task.state !== 'Disabled' && Number(task.lastTaskResult) === 0;
+      const taskOk = taskReportedOk && statusFresh;
+      setKpiValue('rvrBackupHealthTask', task ? (taskOk ? '就緒 / 成功' : (statusFresh ? '需要處理' : '摘要過期')) : '未檢查', taskOk ? 'ok' : 'warn');
       setHint(
         'rvrBackupHealthTaskHint',
-        task
+        task && !statusFresh
+          ? `摘要已超過 ${statusMaxAgeHours} 小時；請先確認每日健康排程恢復執行。`
+          : task
           ? `狀態 ${task.state || '-'}；結果 ${task.lastTaskResult ?? '-'}；錯過 ${Number(task.numberOfMissedRuns) || 0} 次。`
           : '本次摘要未包含工作排程器狀態。'
       );

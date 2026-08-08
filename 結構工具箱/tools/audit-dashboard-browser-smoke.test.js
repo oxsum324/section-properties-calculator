@@ -98,9 +98,10 @@ const fixtureAttachmentStatus = {
 const fixtureRvrBackupHealth = {
   schemaVersion: 1,
   kind: 'rvr-backup-health-status',
-  checkedAt: fixtureGeneratedAt,
+  checkedAt: new Date().toISOString(),
   status: 'healthy',
   maxAgeDays: 8,
+  statusMaxAgeHours: 36,
   issueCount: 0,
   issueCodes: [],
   evidence: {
@@ -121,6 +122,10 @@ const fixtureRvrBackupHealth = {
     containsPaths: false,
     containsRegistryContent: false,
   },
+};
+const fixtureRvrBackupHealthStale = {
+  ...fixtureRvrBackupHealth,
+  checkedAt: fixtureGeneratedAt,
 };
 const fixtureRvrBackupHealthFailure = {
   ...fixtureRvrBackupHealth,
@@ -1654,10 +1659,18 @@ function assertDashboardLiveState(state, label, expected) {
     assert.ok(rendered.value.includes(gate.key), `${label} live global governance preflight key ${gate.key}: ${rendered.value}`);
   }
   const rvrBackupHealth = expected.rvrBackupHealth;
+  const configuredRvrMaxAgeHours = Number(rvrBackupHealth.statusMaxAgeHours);
+  const rvrMaxAgeHours = Number.isFinite(configuredRvrMaxAgeHours) && configuredRvrMaxAgeHours > 0
+    ? configuredRvrMaxAgeHours
+    : 36;
+  const rvrCheckedAt = new Date(rvrBackupHealth.checkedAt);
+  const rvrStatusFresh = Number.isFinite(rvrCheckedAt.getTime())
+    && Math.max(0, (Date.now() - rvrCheckedAt.getTime()) / 3600000) <= rvrMaxAgeHours;
   const rvrHealthy = rvrBackupHealth.status === 'healthy'
     && Number(rvrBackupHealth.issueCount || 0) === 0
     && rvrBackupHealth.evidence?.status === 'backup-health-ok'
     && rvrBackupHealth.evidence?.productionRegistryUnchanged === true
+    && rvrStatusFresh
     && rvrBackupHealth.privacy?.scope === 'local-only'
     && rvrBackupHealth.privacy?.containsPaths === false
     && rvrBackupHealth.privacy?.containsRegistryContent === false;
@@ -1669,9 +1682,11 @@ function assertDashboardLiveState(state, label, expected) {
   assert.notEqual(state.rvrBackupHealthReceiptAge, '-', `${label} live RVR drill age`);
   const expectedRvrTaskOk = rvrBackupHealth.backupTask
     && rvrBackupHealth.backupTask.state !== 'Disabled'
-    && Number(rvrBackupHealth.backupTask.lastTaskResult) === 0;
-  assert.equal(state.rvrBackupHealthTask, expectedRvrTaskOk ? '就緒 / 成功' : (rvrBackupHealth.backupTask ? '需要處理' : '未檢查'), `${label} live RVR task state`);
-  const expectedRvrIssueCodes = Array.isArray(rvrBackupHealth.issueCodes) ? rvrBackupHealth.issueCodes : [];
+    && Number(rvrBackupHealth.backupTask.lastTaskResult) === 0
+    && rvrStatusFresh;
+  assert.equal(state.rvrBackupHealthTask, expectedRvrTaskOk ? '就緒 / 成功' : (rvrBackupHealth.backupTask ? (rvrStatusFresh ? '需要處理' : '摘要過期') : '未檢查'), `${label} live RVR task state`);
+  const expectedRvrIssueCodes = Array.isArray(rvrBackupHealth.issueCodes) ? [...rvrBackupHealth.issueCodes] : [];
+  if (!rvrStatusFresh && !expectedRvrIssueCodes.includes('health-check-stale')) expectedRvrIssueCodes.push('health-check-stale');
   assert.deepEqual(
     state.rvrBackupHealthIssues.map(item => item.code),
     expectedRvrIssueCodes.length ? expectedRvrIssueCodes : ['none'],
@@ -2092,6 +2107,18 @@ function assertAttachmentIntegrityFailureState(state, label) {
   }
 }
 
+function assertRvrStaleState(state, label) {
+  assert.equal(state.rvrBackupHealthState, 'attention-required', `${label} stale RVR state`);
+  assert.equal(state.rvrBackupHealthStatus, '需要處理', `${label} stale RVR status`);
+  assert.equal(state.rvrBackupHealthStatusFail, true, `${label} stale RVR tone`);
+  assert.ok(state.rvrBackupHealthStatusHint.includes('已超過 36 小時未更新'), `${label} stale RVR guidance`);
+  assert.equal(state.rvrBackupHealthTask, '摘要過期', `${label} stale RVR task state`);
+  assert.deepEqual(state.rvrBackupHealthIssues.map(item => item.code), ['health-check-stale'], `${label} stale RVR issue code`);
+  assert.equal(state.rvrBackupHealthIssues[0]?.ok, false, `${label} stale RVR warning tone`);
+  assert.ok(state.rvrBackupHealthIssues[0]?.text.includes('每日健康檢查摘要已過期'), `${label} stale RVR issue text`);
+  assert.equal(state.horizontalOverflow, false, `${label} stale RVR horizontal overflow (${state.scrollWidth} > ${state.clientWidth})`);
+}
+
 function assertPublicAttachmentBoundaryState(state, label) {
   assert.equal(state.rvrBackupHealthState, 'local-only', `${label} public dashboard marks RVR health local-only`);
   assert.equal(state.rvrBackupHealthStatus, '僅限本機', `${label} public dashboard does not claim RVR health`);
@@ -2156,6 +2183,7 @@ async function main() {
       states.push({ viewport: viewport.key, state });
     }
     const attachmentFailureStates = [];
+    const rvrStaleStates = [];
     const publicBoundaryStates = [];
     if (!liveOutputMode) {
       const preflightFixturePath = 'output/preflight/preflight-summary.json';
@@ -2218,6 +2246,21 @@ async function main() {
       fixtures.set(preflightHistoryFixturePath, originalPreflightHistoryFixture);
       fixtures.set(attachmentDiagnosticFixturePath, fixtureAttachmentDiagnostic);
       fixtures.delete(tamperedDiagnosticFixturePath);
+      fixtures.set(rvrBackupHealthFixturePath, fixtureRvrBackupHealthStale);
+      fixtures.set(rvrBackupHealthHistoryFixturePath, originalRvrBackupHealthHistoryFixture);
+      for (const viewport of viewports) {
+        await client.send('Emulation.setDeviceMetricsOverride', {
+          width: viewport.width,
+          height: viewport.height,
+          deviceScaleFactor: 1,
+          mobile: viewport.mobile,
+        }, sessionId);
+        const loaded = waitForEvent(client, sessionId, 'Page.loadEventFired', 15000);
+        await client.send('Page.navigate', { url: dashboardUrl }, sessionId);
+        await loaded;
+        const state = await waitForDashboardState(client, sessionId);
+        rvrStaleStates.push({ viewport: viewport.key, state });
+      }
       fixtures.set(attachmentDiagnosticFixturePath, null);
       fixtures.set(rvrBackupHealthFixturePath, null);
       fixtures.set(rvrBackupHealthHistoryFixturePath, null);
@@ -2251,6 +2294,9 @@ async function main() {
     for (const { viewport, state } of attachmentFailureStates) {
       assertAttachmentIntegrityFailureState(state, viewport);
     }
+    for (const { viewport, state } of rvrStaleStates) {
+      assertRvrStaleState(state, viewport);
+    }
     for (const { viewport, state } of publicBoundaryStates) {
       assertPublicAttachmentBoundaryState(state, viewport);
     }
@@ -2261,7 +2307,7 @@ async function main() {
       const historyRuns = Array.from(new Set(liveExpected.postChecks.map(check => String(check.historyLog || '').match(/history[\\/](\d{8}-\d{6})[\\/]/)?.[1]).filter(Boolean)));
       return ', liveRunId=' + liveExpected.summary.runId + ', livePostChecks=' + livePostChecksPassed + '/' + liveExpected.postChecks.length + ', liveHistoryPostChecks=' + (historyLatest.postChecksPassedCount ?? '-') + '/' + (historyLatest.postCheckCount ?? '-') + ', livePostCheckHistoryRuns=' + (historyRuns.join('|') || '-');
     })() : '';
-    console.log('audit dashboard browser smoke OK (mode=' + (liveOutputMode ? 'live-output' : 'fixture') + ', viewports=' + states.length + ', attachmentFailureViewports=' + attachmentFailureStates.length + ', publicBoundaryViewports=' + publicBoundaryStates.length + ', records=' + states[0].state.rows + ', latestLinks=' + states[0].state.latestLinks + ', historyLinks=' + states[0].state.historyLinks + ', modes=' + states[0].state.records.filter(record => record.mode).length + ', workdirs=' + states[0].state.records.filter(record => record.workdir).length + ', commandHashes=' + states[0].state.records.filter(record => record.commandHash).length + ', coverageTotals=' + states[0].state.coverageTotals.length + ', traceabilityCatalogs=' + states[0].state.traceabilityCatalogCoverage.length + ', freshnessChecked=' + (states[0].state.freshness ? 1 : 0) + ', maturityPreflightChecked=' + (states[0].state.maturityPreflightHint ? 1 : 0) + ', fixtureHits=' + requestAudit.fixtureHits.size + '/' + requiredFixturePaths.size + ', staticFiles=' + requestAudit.fileHits.size + liveMetrics + ')');
+    console.log('audit dashboard browser smoke OK (mode=' + (liveOutputMode ? 'live-output' : 'fixture') + ', viewports=' + states.length + ', attachmentFailureViewports=' + attachmentFailureStates.length + ', rvrStaleViewports=' + rvrStaleStates.length + ', publicBoundaryViewports=' + publicBoundaryStates.length + ', records=' + states[0].state.rows + ', latestLinks=' + states[0].state.latestLinks + ', historyLinks=' + states[0].state.historyLinks + ', modes=' + states[0].state.records.filter(record => record.mode).length + ', workdirs=' + states[0].state.records.filter(record => record.workdir).length + ', commandHashes=' + states[0].state.records.filter(record => record.commandHash).length + ', coverageTotals=' + states[0].state.coverageTotals.length + ', traceabilityCatalogs=' + states[0].state.traceabilityCatalogCoverage.length + ', freshnessChecked=' + (states[0].state.freshness ? 1 : 0) + ', maturityPreflightChecked=' + (states[0].state.maturityPreflightHint ? 1 : 0) + ', fixtureHits=' + requestAudit.fixtureHits.size + '/' + requiredFixturePaths.size + ', staticFiles=' + requestAudit.fileHits.size + liveMetrics + ')');
   } finally {
     if (client) client.close();
     if (edge && edge.exitCode === null) {

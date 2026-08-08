@@ -374,6 +374,8 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'Show-HealthAlert',
   'rvr-backup-health-history.json',
   'history-record-failed',
+  'DashboardStatusMaxAgeHours',
+  'statusMaxAgeHours = $DashboardStatusMaxAgeHours',
   'transition-recorded',
   '$historyTransition.toStatus -eq "attention-required"',
   '$historyTransition.fromStatus -eq "attention-required"',

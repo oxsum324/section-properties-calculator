@@ -2,6 +2,7 @@ param(
   [string]$BackupDirectory,
   [string]$BackupTaskName,
   [int]$MaxAgeDays = 8,
+  [int]$DashboardStatusMaxAgeHours = 36,
   [string]$DashboardStatusPath,
   [string]$DashboardHistoryPath,
   [switch]$ShowAlert
@@ -56,6 +57,9 @@ if (-not $DashboardHistoryPath) {
 }
 if ($MaxAgeDays -le 0) {
   throw "MaxAgeDays must be greater than zero."
+}
+if ($DashboardStatusMaxAgeHours -le 0) {
+  throw "DashboardStatusMaxAgeHours must be greater than zero."
 }
 if (-not (Test-Path -LiteralPath $BackupDirectory -PathType Container)) {
   throw "RVR backup directory does not exist: $BackupDirectory"
@@ -153,6 +157,7 @@ $dashboardStatus = [ordered]@{
   checkedAt = $status.checkedAt
   status = $status.status
   maxAgeDays = $MaxAgeDays
+  statusMaxAgeHours = $DashboardStatusMaxAgeHours
   issueCount = $issues.Count
   issueCodes = @($issueCodes)
   evidence = if ($evidence) {
