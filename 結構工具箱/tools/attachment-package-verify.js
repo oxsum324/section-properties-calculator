@@ -536,6 +536,10 @@ function verifyPackagedContent(packageDir, validItems, manifest, report) {
     inspectedItems.map(entry => entry.inspectedRecord),
     { projectNo: typeof manifest.projectNo === 'string' ? manifest.projectNo : '' },
   );
+  report.summary.evidenceChainExpected = inspectedItems.filter(entry => (
+    entry.inspectedRecord.evidenceChain?.kind === 'source-evidence-chain-verification-receipt'
+  )).length;
+  report.summary.evidenceChainVerified = contentReport.evidenceChainLinks?.length || 0;
   contentReport.issues.forEach(issue => {
     if (issue.level === 'warn') addWarning(report, issue.code, issue.message, issue.files);
     else addIssue(report, issue.code, issue.message, issue.files);
@@ -614,6 +618,8 @@ function verifyPackage(inputDir) {
       formalContentChecked: 0,
       htmlDualSealExpected: 0,
       htmlDualSealVerified: 0,
+      evidenceChainExpected: 0,
+      evidenceChainVerified: 0,
       errors: 0,
       warnings: 0,
     },
@@ -740,6 +746,9 @@ function formatSummary(report) {
   ];
   if (Number(report.summary.htmlDualSealExpected || 0) > 0) {
     lines.push(`HTML 雙封印複驗 ${report.summary.htmlDualSealVerified} / ${report.summary.htmlDualSealExpected} 份（只顯示完成數，不輸出封印值）。`);
+  }
+  if (Number(report.summary.evidenceChainExpected || 0) > 0) {
+    lines.push(`開挖 ERH／RVR／SEV／SCV 證據鏈複驗 ${report.summary.evidenceChainVerified} / ${report.summary.evidenceChainExpected} 組。`);
   }
   if (report.packageFingerprint) lines.push(`附件包指紋：${report.packageFingerprint}`);
   report.issues.forEach(issue => lines.push(`[${issue.level === 'warning' ? '提醒' : '阻擋'}] ${issue.message}`));

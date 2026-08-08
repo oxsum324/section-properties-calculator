@@ -1111,7 +1111,112 @@ function extractXlsxText(filePath) {
   return extractXlsxVisibleContent(filePath).text;
 }
 
+function excavationEvidenceMetadata(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const kind = String(value.kind || '').trim();
+  const schemaVersion = value.schemaVersion;
+  const version = Number.isSafeInteger(schemaVersion) && schemaVersion > 0 ? `v${schemaVersion}` : '';
+  const source = value.source && typeof value.source === 'object' ? value.source : {};
+  const links = value.links && typeof value.links === 'object' ? value.links : {};
+  const common = {
+    traceabilityRole: 'excavation-evidence-chain',
+    evidenceChain: { kind, schemaVersion },
+  };
+  if (kind === 'excavation-removal-transfer-handoff') {
+    const calculationFingerprint = String(source.calculationFingerprint || '').trim();
+    const handoffFingerprint = String(value.handoffFingerprint || '').trim();
+    return {
+      ...common,
+      projectName: cleanMetadataValue(source.projectName),
+      projectNo: cleanMetadataValue(source.projectNo),
+      designer: '',
+      sourceTool: '開挖擋土支撐證據鏈 ERH',
+      toolVersion: version,
+      outputTime: cleanMetadataValue(value.generatedAt),
+      approvalTime: '',
+      fingerprints: unique([calculationFingerprint, handoffFingerprint].filter(Boolean)),
+      evidenceChain: { ...common.evidenceChain, calculationFingerprint, handoffFingerprint },
+    };
+  }
+  if (kind === 'receiver-capacity-verification-receipt') {
+    const calculationFingerprint = String(value.sourceCalculationFingerprint || '').trim();
+    const handoffFingerprint = String(value.handoffFingerprint || '').trim();
+    const receiptFingerprint = String(value.receiptFingerprint || '').trim();
+    return {
+      ...common,
+      projectName: '', projectNo: '', designer: '',
+      sourceTool: '開挖擋土支撐證據鏈 RVR', toolVersion: version,
+      outputTime: cleanMetadataValue(value.issuedAt), approvalTime: '',
+      fingerprints: unique([calculationFingerprint, handoffFingerprint, receiptFingerprint].filter(Boolean)),
+      evidenceChain: {
+        ...common.evidenceChain, calculationFingerprint, handoffFingerprint, receiptFingerprint,
+        engineeringStatus: String(value.summary?.status || '').trim(),
+      },
+    };
+  }
+  if (kind === 'source-capacity-evidence-verification-record') {
+    const calculationFingerprint = String(value.sourceCalculationFingerprint || '').trim();
+    const handoffFingerprint = String(value.handoffFingerprint || '').trim();
+    const receiptFingerprint = String(value.receiptFingerprint || '').trim();
+    const verificationFingerprint = String(value.verificationFingerprint || '').trim();
+    return {
+      ...common,
+      projectName: '', projectNo: '', designer: '',
+      sourceTool: '開挖擋土支撐證據鏈 SEV', toolVersion: version,
+      outputTime: cleanMetadataValue(value.verifiedAt), approvalTime: '',
+      fingerprints: unique([calculationFingerprint, handoffFingerprint, receiptFingerprint, verificationFingerprint].filter(Boolean)),
+      evidenceChain: {
+        ...common.evidenceChain, calculationFingerprint, handoffFingerprint, receiptFingerprint, verificationFingerprint,
+      },
+    };
+  }
+  if (kind === 'source-evidence-chain-verification-receipt') {
+    const calculationFingerprint = String(links.sourceCalculationFingerprint || '').trim();
+    const handoffFingerprint = String(links.handoffFingerprint || '').trim();
+    const receiptFingerprint = String(links.receiptFingerprint || '').trim();
+    const sourceEvidenceVerificationFingerprint = String(links.sourceEvidenceVerificationFingerprint || '').trim();
+    const verificationFingerprint = String(value.verificationFingerprint || '').trim();
+    return {
+      ...common,
+      projectName: '', projectNo: '', designer: '',
+      sourceTool: '開挖擋土支撐證據鏈 SCV', toolVersion: version,
+      outputTime: cleanMetadataValue(value.verifiedAt), approvalTime: '',
+      fingerprints: unique([
+        calculationFingerprint, handoffFingerprint, receiptFingerprint,
+        sourceEvidenceVerificationFingerprint, verificationFingerprint,
+      ].filter(Boolean)),
+      evidenceChain: {
+        ...common.evidenceChain, calculationFingerprint, handoffFingerprint, receiptFingerprint,
+        sourceEvidenceVerificationFingerprint, verificationFingerprint,
+        sourceFiles: value.sourceFiles && typeof value.sourceFiles === 'object' ? value.sourceFiles : {},
+        trustRegistry: value.trustRegistry && typeof value.trustRegistry === 'object' ? value.trustRegistry : {},
+        rvrIdentityVerification: value.rvrIdentityVerification && typeof value.rvrIdentityVerification === 'object'
+          ? value.rvrIdentityVerification : {},
+        sevIdentityVerification: value.sevIdentityVerification && typeof value.sevIdentityVerification === 'object'
+          ? value.sevIdentityVerification : {},
+        summary: value.summary && typeof value.summary === 'object' ? value.summary : {},
+        boundary: value.boundary && typeof value.boundary === 'object' ? value.boundary : {},
+      },
+    };
+  }
+  if (kind === 'receiver-verification-trust-registry-backup') {
+    const backupFingerprint = String(value.backupFingerprint || '').trim();
+    const registryFingerprint = String(value.registry?.registryFingerprint || '').trim();
+    return {
+      ...common,
+      projectName: '', projectNo: '', designer: '',
+      sourceTool: 'RVR／SEV 公開信任清冊 RTB', toolVersion: version,
+      outputTime: cleanMetadataValue(value.exportedAt), approvalTime: '',
+      fingerprints: unique([backupFingerprint, registryFingerprint].filter(Boolean)),
+      evidenceChain: { ...common.evidenceChain, backupFingerprint, registryFingerprint },
+    };
+  }
+  return null;
+}
+
 function extractJsonMetadata(value) {
+  const nativeEvidence = excavationEvidenceMetadata(value);
+  if (nativeEvidence) return nativeEvidence;
   const fields = value && typeof value === 'object' ? value.fields || {} : {};
   const state = value && typeof value === 'object' ? value.state || {} : {};
   const fieldValue = (...ids) => {
@@ -1361,6 +1466,7 @@ function normalizedFingerprints(record) {
 }
 
 function fingerprintPairingKey(record) {
+  if (record?.traceabilityRole === 'excavation-evidence-chain') return '';
   const projectNo = String(record.projectNo || '').trim();
   const sourceTool = String(record.sourceTool || '').trim();
   const toolVersion = normalizeToolVersion(record.toolVersion);
@@ -1449,7 +1555,7 @@ function analyzeFingerprintRelationships(records, issues) {
 
 function findDuplicateFingerprints(records, issues) {
   const fingerprints = new Map();
-  records.forEach(record => normalizedFingerprints(record).forEach(fingerprint => {
+  records.filter(record => record?.traceabilityRole !== 'excavation-evidence-chain').forEach(record => normalizedFingerprints(record).forEach(fingerprint => {
     if (!fingerprints.has(fingerprint)) fingerprints.set(fingerprint, { sources: [], outputs: [] });
     const group = fingerprints.get(fingerprint);
     if (String(record.type || '').toLowerCase() === 'json') group.sources.push(record.file);
@@ -1463,6 +1569,196 @@ function findDuplicateFingerprints(records, issues) {
       issues.push(buildIssue('warn', 'duplicate-report-fingerprint', `計算指紋 ${fingerprint} 出現在多份輸出附件；確認是否重複附入同一計算結果。`, group.outputs));
     }
   });
+}
+
+function analyzeExcavationEvidenceChains(records, issues) {
+  const chainRecords = records.filter(record => record?.traceabilityRole === 'excavation-evidence-chain');
+  const scvRecords = chainRecords.filter(record => record.evidenceChain?.kind === 'source-evidence-chain-verification-receipt');
+  const links = [];
+  if (!chainRecords.length) return links;
+
+  const byBaseName = new Map();
+  chainRecords.forEach(record => {
+    const key = path.basename(String(record.file || '')).toLowerCase();
+    if (!byBaseName.has(key)) byBaseName.set(key, []);
+    byBaseName.get(key).push(record);
+  });
+  const referenced = new Map(chainRecords.map(record => [record, 0]));
+  const addChainIssue = (code, message, files = []) => issues.push(buildIssue('error', code, message, unique(files.filter(Boolean))));
+  const fingerprintFormatRules = {
+    'excavation-removal-transfer-handoff': [
+      ['calculationFingerprint', /^CF-[0-9A-F]{16}$/, '來源計算指紋'],
+      ['handoffFingerprint', /^ERH-[0-9A-F]{20}$/, 'ERH 指紋'],
+    ],
+    'receiver-capacity-verification-receipt': [
+      ['calculationFingerprint', /^CF-[0-9A-F]{16}$/, '來源計算指紋'],
+      ['handoffFingerprint', /^ERH-[0-9A-F]{20}$/, 'ERH 指紋'],
+      ['receiptFingerprint', /^RVR-[0-9A-F]{20}$/, 'RVR 指紋'],
+    ],
+    'source-capacity-evidence-verification-record': [
+      ['calculationFingerprint', /^CF-[0-9A-F]{16}$/, '來源計算指紋'],
+      ['handoffFingerprint', /^ERH-[0-9A-F]{20}$/, 'ERH 指紋'],
+      ['receiptFingerprint', /^RVR-[0-9A-F]{20}$/, 'RVR 指紋'],
+      ['verificationFingerprint', /^SEV-[0-9A-F]{20}$/, 'SEV 指紋'],
+    ],
+    'source-evidence-chain-verification-receipt': [
+      ['calculationFingerprint', /^CF-[0-9A-F]{16}$/, '來源計算指紋'],
+      ['handoffFingerprint', /^ERH-[0-9A-F]{20}$/, 'ERH 指紋'],
+      ['receiptFingerprint', /^RVR-[0-9A-F]{20}$/, 'RVR 指紋'],
+      ['sourceEvidenceVerificationFingerprint', /^SEV-[0-9A-F]{20}$/, 'SEV 指紋'],
+      ['verificationFingerprint', /^SCV-[0-9A-F]{20}$/, 'SCV 指紋'],
+    ],
+    'receiver-verification-trust-registry-backup': [
+      ['backupFingerprint', /^RTB-[0-9A-F]{20}$/, 'RTB 指紋'],
+      ['registryFingerprint', /^RTR-[0-9A-F]{20}$/, '信任清冊指紋'],
+    ],
+  };
+  const supportedSchemas = {
+    'excavation-removal-transfer-handoff': new Set([1, 2, 3]),
+    'receiver-capacity-verification-receipt': new Set([1, 2, 3]),
+    'source-capacity-evidence-verification-record': new Set([1]),
+    'source-evidence-chain-verification-receipt': new Set([1]),
+    'receiver-verification-trust-registry-backup': new Set([1]),
+  };
+  chainRecords.forEach(record => {
+    const chain = record.evidenceChain || {};
+    if (!supportedSchemas[chain.kind]?.has(chain.schemaVersion)) {
+      addChainIssue('excavation-evidence-schema-unsupported', `${record.file} 的證據種類或版本不受支援。`, [record.file]);
+    }
+    (fingerprintFormatRules[chain.kind] || []).forEach(([field, pattern, label]) => {
+      if (!pattern.test(String(chain[field] || ''))) {
+        addChainIssue('excavation-evidence-fingerprint-invalid', `${record.file} 的${label}格式不正確。`, [record.file]);
+      }
+    });
+  });
+  const resolveSource = (scv, role, expectedKind) => {
+    const summary = scv.evidenceChain?.sourceFiles?.[role];
+    const fileName = String(summary?.fileName || '').trim();
+    const expectedSha256 = String(summary?.fileSha256 || '').toLowerCase();
+    if (!fileName || !/^[0-9a-f]{64}$/.test(expectedSha256)) {
+      addChainIssue('scv-source-summary-invalid', `${scv.file} 的 ${role} 來源檔摘要不完整。`, [scv.file]);
+      return null;
+    }
+    const candidates = byBaseName.get(fileName.toLowerCase()) || [];
+    if (candidates.length !== 1) {
+      addChainIssue(
+        candidates.length ? 'scv-source-file-ambiguous' : 'scv-source-file-missing',
+        candidates.length
+          ? `${scv.file} 所列 ${fileName} 在附件來源中不唯一。`
+          : `${scv.file} 所列 ${fileName} 未與 SCV 一起歸檔。`,
+        [scv.file, ...candidates.map(item => item.file)],
+      );
+      return null;
+    }
+    const target = candidates[0];
+    if (String(target.sourceSha256 || '').toLowerCase() !== expectedSha256) {
+      addChainIssue('scv-source-file-hash-mismatch', `${fileName} 的 SHA-256 與 ${scv.file} 記錄不一致。`, [scv.file, target.file]);
+    }
+    if (target.evidenceChain?.kind !== expectedKind) {
+      addChainIssue('scv-source-kind-mismatch', `${fileName} 不是 ${role} 所要求的證據種類。`, [scv.file, target.file]);
+    }
+    referenced.set(target, (referenced.get(target) || 0) + 1);
+    return target;
+  };
+
+  scvRecords.forEach(scv => {
+    const handoff = resolveSource(scv, 'handoff', 'excavation-removal-transfer-handoff');
+    const receipt = resolveSource(scv, 'receipt', 'receiver-capacity-verification-receipt');
+    const sev = resolveSource(scv, 'sourceEvidenceVerification', 'source-capacity-evidence-verification-record');
+    const trustProvided = scv.evidenceChain?.trustRegistry?.provided === true;
+    const trust = trustProvided
+      ? resolveSource(scv, 'trustRegistryBackup', 'receiver-verification-trust-registry-backup')
+      : null;
+    referenced.set(scv, (referenced.get(scv) || 0) + 1);
+
+    const expectedLinks = [
+      [handoff, 'calculationFingerprint', scv.evidenceChain?.calculationFingerprint, '來源計算指紋'],
+      [handoff, 'handoffFingerprint', scv.evidenceChain?.handoffFingerprint, 'ERH 指紋'],
+      [receipt, 'handoffFingerprint', scv.evidenceChain?.handoffFingerprint, 'RVR 對 ERH 指紋'],
+      [receipt, 'receiptFingerprint', scv.evidenceChain?.receiptFingerprint, 'RVR 指紋'],
+      [receipt, 'calculationFingerprint', scv.evidenceChain?.calculationFingerprint, 'RVR 來源計算指紋'],
+      [sev, 'handoffFingerprint', scv.evidenceChain?.handoffFingerprint, 'SEV 對 ERH 指紋'],
+      [sev, 'receiptFingerprint', scv.evidenceChain?.receiptFingerprint, 'SEV 對 RVR 指紋'],
+      [sev, 'verificationFingerprint', scv.evidenceChain?.sourceEvidenceVerificationFingerprint, 'SEV 指紋'],
+      [sev, 'calculationFingerprint', scv.evidenceChain?.calculationFingerprint, 'SEV 來源計算指紋'],
+    ];
+    expectedLinks.forEach(([target, field, expected, label]) => {
+      if (target && String(target.evidenceChain?.[field] || '') !== String(expected || '')) {
+        addChainIssue('scv-fingerprint-link-mismatch', `${scv.file} 的${label}與 ${target.file} 不一致。`, [scv.file, target.file]);
+      }
+    });
+    if (trust && (
+      String(trust.evidenceChain?.backupFingerprint || '') !== String(scv.evidenceChain?.trustRegistry?.backupFingerprint || '')
+      || String(trust.evidenceChain?.registryFingerprint || '') !== String(scv.evidenceChain?.trustRegistry?.registryFingerprint || '')
+    )) {
+      addChainIssue('scv-trust-registry-link-mismatch', `${scv.file} 與 ${trust.file} 的 RTB／清冊指紋不一致。`, [scv.file, trust.file]);
+    }
+    const engineeringStatus = String(scv.evidenceChain?.summary?.engineeringStatus || '');
+    if (scv.evidenceChain?.summary?.chainStatus !== 'valid') {
+      addChainIssue('scv-chain-status-invalid', `${scv.file} 未聲明證據鏈完整性驗證通過。`, [scv.file]);
+    }
+    const boundary = scv.evidenceChain?.boundary || {};
+    if (boundary.receiptIsNotStandaloneProof !== true || boundary.requiresSourceFilesForRevalidation !== true
+      || boundary.doesNotRecalculateEngineeringCapacity !== true
+      || boundary.doesNotConstituteEngineeringApproval !== true) {
+      addChainIssue('scv-boundary-invalid', `${scv.file} 未保留來源檔重驗、非工程重算及非工程核可邊界。`, [scv.file]);
+    }
+    const expectedAdoption = engineeringStatus !== 'passed'
+      ? 'not-eligible-engineering-failed'
+      : scv.evidenceChain?.rvrIdentityVerification?.trusted === true
+        && scv.evidenceChain?.sevIdentityVerification?.trusted === true
+        ? 'eligible-trusted-identities'
+        : 'manual-identity-review-required';
+    if (String(scv.evidenceChain?.summary?.adoptionStatus || '') !== expectedAdoption) {
+      addChainIssue('scv-adoption-status-mismatch', `${scv.file} 的工程結果、身分信任與採用狀態不一致。`, [scv.file]);
+    }
+    if (expectedAdoption === 'eligible-trusted-identities' && !trustProvided) {
+      addChainIssue('scv-trusted-identities-without-registry', `${scv.file} 未附 RTB，卻聲明 RVR／SEV 身分均受信任。`, [scv.file]);
+    }
+    if (receipt && String(receipt.evidenceChain?.engineeringStatus || '') !== engineeringStatus) {
+      addChainIssue('scv-engineering-status-mismatch', `${scv.file} 的工程結果與 ${receipt.file} 不一致。`, [scv.file, receipt.file]);
+    }
+    if (handoff) {
+      [receipt, sev, scv, trust].filter(Boolean).forEach(record => {
+        record.projectName = record.projectName || handoff.projectName;
+        record.projectNo = record.projectNo || handoff.projectNo;
+      });
+    }
+    const linkedFiles = new Set([scv, handoff, receipt, sev, trust].filter(Boolean).map(record => record.file));
+    const chainHasErrors = issues.some(issue => issue.level === 'error'
+      && (issue.files || []).some(file => linkedFiles.has(file)));
+    if (handoff && receipt && sev && !chainHasErrors) {
+      links.push({
+        scvFile: scv.file,
+        handoffFile: handoff.file,
+        receiptFile: receipt.file,
+        sourceEvidenceVerificationFile: sev.file,
+        trustRegistryBackupFile: trust?.file || '',
+        calculationFingerprint: String(scv.evidenceChain?.calculationFingerprint || ''),
+        adoptionStatus: String(scv.evidenceChain?.summary?.adoptionStatus || ''),
+      });
+    }
+  });
+
+  chainRecords.forEach(record => {
+    const count = referenced.get(record) || 0;
+    if (count === 0) {
+      issues.push(buildIssue(
+        'warn',
+        'unlinked-excavation-evidence-record',
+        `${record.file} 是 ERH／RVR／SEV／RTB 證據，但沒有被同批 SCV 完整連結；請補入 SCV 或移出本次組包。`,
+        [record.file],
+      ));
+    } else if (count > 1 && record.evidenceChain?.kind !== 'source-evidence-chain-verification-receipt') {
+      issues.push(buildIssue(
+        'warn',
+        'multiply-linked-excavation-evidence-record',
+        `${record.file} 被 ${count} 份 SCV 重複引用；請確認是否混入重複驗證批次。`,
+        [record.file],
+      ));
+    }
+  });
+  return links;
 }
 
 
@@ -1595,6 +1891,7 @@ function analyzePackage(records, options = {}) {
     }
   });
   const readable = records.filter(record => !record.errors.length);
+  const evidenceChainLinks = analyzeExcavationEvidenceChains(readable, issues);
   findConflicts(readable, 'projectNo', '計畫編號', issues);
   findConflicts(readable, 'projectName', '計畫名稱', issues);
   findConflicts(readable, 'designer', '設計人員', issues);
@@ -1637,7 +1934,7 @@ function analyzePackage(records, options = {}) {
     kind: 'attachment-package-check.v1', generatedAt: new Date().toISOString(),
     status: errorCount ? 'blocked' : warningCount ? 'review' : 'ready',
     summary: { attachments: records.length, unsupported: unsupportedFiles.length, unsafeSourceEntries: unsafeSourceEntries.length, errors: errorCount, warnings: warningCount },
-    expectedProjectNo, attachments: records, fingerprintLinks, issues, unsafeSourceEntries,
+    expectedProjectNo, attachments: records, fingerprintLinks, evidenceChainLinks, issues, unsafeSourceEntries,
   };
 }
 
@@ -1668,6 +1965,7 @@ function formatSummary(report) {
   if (report.unsupportedFiles?.length) lines.push(`未檢查 ${report.unsupportedFiles.length} 個不支援檔案；附件狀態不得自動放行。`);
   if (report.unsafeSourceEntries?.length) lines.push(`已阻擋 ${report.unsafeSourceEntries.length} 個來源符號連結、junction 或特殊項目。`);
   if (report.fingerprintLinks?.length) lines.push(`來源資料與計算書已完成 ${report.fingerprintLinks.length} 組計算指紋配對。`);
+  if (report.evidenceChainLinks?.length) lines.push(`開挖 ERH／RVR／SEV／SCV 證據鏈已完成 ${report.evidenceChainLinks.length} 組檔案雜湊與指紋連結。`);
   report.attachments.forEach(record => {
     const documentClass = (record.draftDocumentNeedles || []).length
       ? '內部審閱'
@@ -1728,4 +2026,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { CALCULATION_BOOK_CONTENT_BOUNDARY, CONTENT_GROUPS, CONTENT_PROFILES, CANONICAL_RENDER_EVIDENCE_KIND, RC_CONTENT_SEAL_SCOPE, RC_APPROVAL_SEAL_SCOPE, FORMAL_CONTENT_SEAL_SCOPE, FORMAL_APPROVAL_SEAL_SCOPE, ANCHOR_CONTENT_SEAL_SCOPE, ANCHOR_APPROVAL_SEAL_SCOPE, RC_CONTENT_SEAL_START, RC_CONTENT_SEAL_END, FORMAL_CONTENT_SEAL_START, FORMAL_CONTENT_SEAL_END, SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, CALCULATION_SUMMARY_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, decodeXmlEntities, extractHtmlText, extractHtmlVisibleContent, canonicalizeRcHtmlContentSeal, verifyRcHtmlContentSeal, isRcHtmlContentSealRequired, canonicalizeRcHtmlApprovalSeal, verifyRcHtmlApprovalSeal, isRcHtmlApprovalSealRequired, canonicalizeFormalHtmlContentSeal, verifyFormalHtmlContentSeal, canonicalizeFormalHtmlApprovalSeal, verifyFormalHtmlApprovalSeal, isFormalHtmlSealRequired, normalizeAnchorHtmlSealResult, verifyAnchorHtmlDualSeals, isAnchorHtmlSealRequired, hasDefinitelyHiddenStyle, hasAmbiguousVisibilityStyle, detectCalculationContentProfile, evaluateCalculationContent, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, validateCanonicalRenderEvidence, loadPdfVisibilityEvidence, collectDocxHiddenStyleIds, stripDocxHiddenText, parseSharedStrings, extractVisibleWorksheetText, resolveVisibleWorksheetEntries, extractXlsxVisibleContent, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };
+module.exports = { CALCULATION_BOOK_CONTENT_BOUNDARY, CONTENT_GROUPS, CONTENT_PROFILES, CANONICAL_RENDER_EVIDENCE_KIND, RC_CONTENT_SEAL_SCOPE, RC_APPROVAL_SEAL_SCOPE, FORMAL_CONTENT_SEAL_SCOPE, FORMAL_APPROVAL_SEAL_SCOPE, ANCHOR_CONTENT_SEAL_SCOPE, ANCHOR_APPROVAL_SEAL_SCOPE, RC_CONTENT_SEAL_START, RC_CONTENT_SEAL_END, FORMAL_CONTENT_SEAL_START, FORMAL_CONTENT_SEAL_END, SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, CALCULATION_SUMMARY_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, decodeXmlEntities, extractHtmlText, extractHtmlVisibleContent, canonicalizeRcHtmlContentSeal, verifyRcHtmlContentSeal, isRcHtmlContentSealRequired, canonicalizeRcHtmlApprovalSeal, verifyRcHtmlApprovalSeal, isRcHtmlApprovalSealRequired, canonicalizeFormalHtmlContentSeal, verifyFormalHtmlContentSeal, canonicalizeFormalHtmlApprovalSeal, verifyFormalHtmlApprovalSeal, isFormalHtmlSealRequired, normalizeAnchorHtmlSealResult, verifyAnchorHtmlDualSeals, isAnchorHtmlSealRequired, hasDefinitelyHiddenStyle, hasAmbiguousVisibilityStyle, detectCalculationContentProfile, evaluateCalculationContent, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, validateCanonicalRenderEvidence, loadPdfVisibilityEvidence, collectDocxHiddenStyleIds, stripDocxHiddenText, parseSharedStrings, extractVisibleWorksheetText, resolveVisibleWorksheetEntries, extractXlsxVisibleContent, extractTextMetadata, excavationEvidenceMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzeExcavationEvidenceChains, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };

@@ -74,6 +74,10 @@ const sourceEvidenceChainVerifierTests = readUtf8('backend/tests/test_source_evi
 const sourceEvidenceChainLauncher = readUtf8('verify_source_evidence_chain.ps1');
 const sourceEvidenceChainBatch = readUtf8('驗證SEV證據鏈.bat');
 const sourceEvidenceChainGuide = readUtf8('SOURCE_EVIDENCE_CHAIN_VERIFIER.md');
+const attachmentPackageCheck = readUtf8('../結構工具箱/tools/attachment-package-check.js');
+const attachmentPackageCheckTests = readUtf8('../結構工具箱/tools/attachment-package-check.test.js');
+const attachmentPackageBuildTests = readUtf8('../結構工具箱/tools/attachment-package-build.test.js');
+const attachmentPackageVerify = readUtf8('../結構工具箱/tools/attachment-package-verify.js');
 const receiverKeyEnrollment = readUtf8('backend/app/receiver_key_enrollment.py');
 const receiverKeyManager = readUtf8('backend/manage_receiver_key.py');
 const receiverKeyLauncher = readUtf8('manage_receiver_key.ps1');
@@ -94,7 +98,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.10.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.11.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -411,8 +415,37 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '不啟動開挖擋土支撐服務',
   '不讀取私人金鑰',
   '不構成工程核可',
+  '99_內部追溯_勿附入主報告',
 ].forEach((needle) => {
   assert(sourceEvidenceChainGuide.includes(needle), `excavation evidence-chain guide keeps ${needle}`, needle);
+});
+[
+  'excavationEvidenceMetadata',
+  'analyzeExcavationEvidenceChains',
+  'scv-source-file-hash-mismatch',
+  'scv-fingerprint-link-mismatch',
+  'unlinked-excavation-evidence-record',
+  'evidenceChainLinks',
+].forEach((needle) => {
+  assert(attachmentPackageCheck.includes(needle), `attachment package check keeps excavation evidence-chain token ${needle}`, needle);
+});
+[
+  'complete SCV source set',
+  'unlinked-excavation-evidence-record',
+].forEach((needle) => {
+  assert(attachmentPackageCheckTests.includes(needle), `attachment package check tests keep ${needle}`, needle);
+});
+[
+  'complete ERH/RVR/SEV/SCV chain',
+  '99_內部追溯_勿附入主報告',
+].forEach((needle) => {
+  assert(attachmentPackageBuildTests.includes(needle), `attachment package build tests keep ${needle}`, needle);
+});
+[
+  'evidenceChainExpected',
+  'evidenceChainVerified',
+].forEach((needle) => {
+  assert(attachmentPackageVerify.includes(needle), `attachment package verifier keeps ${needle}`, needle);
 });
 [
   'receiver-verification-key-enrollment',

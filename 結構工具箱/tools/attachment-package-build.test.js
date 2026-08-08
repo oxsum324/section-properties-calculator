@@ -49,6 +49,70 @@ function sha256(filePath) {
   return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
 }
 
+function writeExcavationEvidenceChain(inputDir) {
+  const evidenceDir = path.join(inputDir, 'evidence');
+  fs.mkdirSync(evidenceDir, { recursive: true });
+  const handoffPath = path.join(evidenceDir, 'handoff.json');
+  const receiptPath = path.join(evidenceDir, 'receipt.json');
+  const sevPath = path.join(evidenceDir, 'sev.json');
+  const scvPath = path.join(evidenceDir, 'scv.json');
+  fs.writeFileSync(handoffPath, JSON.stringify({
+    schemaVersion: 3,
+    kind: 'excavation-removal-transfer-handoff',
+    generatedAt: '2026-07-21T12:30:00Z',
+    source: {
+      projectName: '', projectNo: 'PKG-001', calculationFingerprint: FINGERPRINT,
+    },
+    handoffFingerprint: 'ERH-1234ABCD5678EF901234',
+  }), 'utf8');
+  fs.writeFileSync(receiptPath, JSON.stringify({
+    schemaVersion: 3,
+    kind: 'receiver-capacity-verification-receipt',
+    issuedAt: '2026-07-21T12:35:00Z',
+    sourceCalculationFingerprint: FINGERPRINT,
+    handoffFingerprint: 'ERH-1234ABCD5678EF901234',
+    receiptFingerprint: 'RVR-1234ABCD5678EF901234',
+    summary: { status: 'passed' },
+  }), 'utf8');
+  fs.writeFileSync(sevPath, JSON.stringify({
+    schemaVersion: 1,
+    kind: 'source-capacity-evidence-verification-record',
+    verifiedAt: '2026-07-21T12:40:00Z',
+    sourceCalculationFingerprint: FINGERPRINT,
+    handoffFingerprint: 'ERH-1234ABCD5678EF901234',
+    receiptFingerprint: 'RVR-1234ABCD5678EF901234',
+    verificationFingerprint: 'SEV-1234ABCD5678EF901234',
+  }), 'utf8');
+  fs.writeFileSync(scvPath, JSON.stringify({
+    schemaVersion: 1,
+    kind: 'source-evidence-chain-verification-receipt',
+    verifiedAt: '2026-07-21T12:45:00Z',
+    links: {
+      sourceCalculationFingerprint: FINGERPRINT,
+      handoffFingerprint: 'ERH-1234ABCD5678EF901234',
+      receiptFingerprint: 'RVR-1234ABCD5678EF901234',
+      sourceEvidenceVerificationFingerprint: 'SEV-1234ABCD5678EF901234',
+    },
+    sourceFiles: {
+      handoff: { fileName: path.basename(handoffPath), fileSha256: sha256(handoffPath) },
+      receipt: { fileName: path.basename(receiptPath), fileSha256: sha256(receiptPath) },
+      sourceEvidenceVerification: { fileName: path.basename(sevPath), fileSha256: sha256(sevPath) },
+    },
+    trustRegistry: { provided: false },
+    rvrIdentityVerification: { trusted: false },
+    sevIdentityVerification: { trusted: false },
+    summary: { chainStatus: 'valid', engineeringStatus: 'passed', adoptionStatus: 'manual-identity-review-required' },
+    boundary: {
+      receiptIsNotStandaloneProof: true,
+      requiresSourceFilesForRevalidation: true,
+      doesNotRecalculateEngineeringCapacity: true,
+      doesNotConstituteEngineeringApproval: true,
+    },
+    verificationFingerprint: 'SCV-1234ABCD5678EF901234',
+  }), 'utf8');
+  return { handoffPath, receiptPath, sevPath, scvPath };
+}
+
 assert.equal(Builder.timestampToken(FIXED_NOW), '20260721-210000');
 assert.equal(Builder.defaultOutputDir('C:/case/attachments', FIXED_NOW), path.resolve('C:/case/attachments-正式附件包-20260721-210000'));
 assert.deepEqual(
@@ -116,6 +180,32 @@ try {
   assert.notEqual(Builder.packageFingerprintV3(changedBoundaryManifest), result.packageFingerprint, 'v3 fingerprint covers package boundary');
   assert.equal(manifestText.includes(tempRoot), false, 'internal manifest must not leak absolute local paths');
   assert.equal(fs.existsSync(path.join(readyOutput, Builder.FORMAL_ATTACHMENTS_DIR, 'source', 'beam.json')), false, 'source JSON is not placed in the formal attachment directory');
+
+  const chainInput = path.join(tempRoot, 'evidence-chain-input');
+  const chainOutput = path.join(tempRoot, 'evidence-chain-package');
+  fs.mkdirSync(chainInput, { recursive: true });
+  writeReport(chainInput, '文件狀態：正式附件');
+  writeExcavationEvidenceChain(chainInput);
+  const chainResult = Builder.buildPackage(chainInput, { output: chainOutput, projectNo: 'PKG-001', now: FIXED_NOW });
+  assert.equal(chainResult.status, 'ready', 'complete ERH/RVR/SEV/SCV chain can enter the internal traceability partition');
+  assert.equal(chainResult.formalAttachmentCount, 1);
+  assert.equal(chainResult.traceabilitySourceCount, 4);
+  assert.equal(chainResult.report.evidenceChainLinks.length, 1);
+  assert.equal(chainResult.selfVerification.status, 'ready', 'packaged evidence chain survives independent package reinspection');
+  assert.equal(chainResult.selfVerification.summary.expectedFiles, 5);
+  assert.equal(chainResult.selfVerification.summary.verifiedFiles, 5);
+  assert.equal(chainResult.selfVerification.summary.evidenceChainExpected, 1);
+  assert.equal(chainResult.selfVerification.summary.evidenceChainVerified, 1);
+  assert.equal(
+    fs.existsSync(path.join(chainOutput, Builder.FORMAL_ATTACHMENTS_DIR, 'evidence', 'scv.json')),
+    false,
+    'SCV governance evidence never enters the formal attachment directory',
+  );
+  assert.equal(
+    fs.existsSync(path.join(chainOutput, Builder.INTERNAL_TRACE_DIR, Builder.TRACE_SOURCES_DIR, 'evidence', 'scv.json')),
+    true,
+    'SCV is retained in the internal traceability partition',
+  );
 
   const cliOutput = path.join(tempRoot, 'cli-package');
   const cli = spawnSync(process.execPath, [

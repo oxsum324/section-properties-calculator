@@ -45,7 +45,7 @@ const fakeBuilder = {
       status: 'ready', built: true, outputDir: 'C:\\case\\正式附件包',
       formalAttachmentCount: 1, traceabilitySourceCount: 1,
       packageFingerprint: 'PKG-00112233445566778899AABB', report: fakeReport,
-      selfVerification: { summary: { htmlDualSealExpected: 1, htmlDualSealVerified: 1 } },
+      selfVerification: { summary: { htmlDualSealExpected: 1, htmlDualSealVerified: 1, evidenceChainExpected: 1, evidenceChainVerified: 1 } },
     };
   },
 };
@@ -53,7 +53,7 @@ const fakeVerifier = {
   verifyPackage() {
     return {
       status: 'ready', packageFingerprint: 'PKG-00112233445566778899AABB',
-      summary: { expectedFiles: 2, verifiedFiles: 2, htmlDualSealExpected: 1, htmlDualSealVerified: 1, errors: 0, warnings: 0 },
+      summary: { expectedFiles: 2, verifiedFiles: 2, htmlDualSealExpected: 1, htmlDualSealVerified: 1, evidenceChainExpected: 1, evidenceChainVerified: 1, errors: 0, warnings: 0 },
       records: [{
         packagedFile: '01_正式附件/正式計算書.html', role: 'formal', status: 'verified',
         htmlDualSeal: { family: 'anchor', contentStatus: 'verified', approvalStatus: 'verified' },
@@ -78,13 +78,17 @@ assert.equal(build.built, true);
 assert.equal(build.packageFingerprint, 'PKG-00112233445566778899AABB');
 assert.match(build.displayText, /發布前完整性與工程內容驗證：通過/);
 assert.match(build.displayText, /HTML 雙封印複驗 1 \/ 1 份/);
+assert.match(build.displayText, /開挖證據鏈複驗 1 \/ 1 組/);
 assert.equal(build.counts.htmlDualSealVerified, 1);
+assert.equal(build.counts.evidenceChainVerified, 1);
 
 const verify = Worker.runAction('verify', { input: toolsDir }, dependencies);
 assert.equal(verify.status, 'ready');
 assert.equal(verify.records[0].result, 'verified｜錨栓雙封印已驗證');
 assert.equal(verify.counts.htmlDualSealExpected, 1);
 assert.equal(verify.counts.htmlDualSealVerified, 1);
+assert.equal(verify.counts.evidenceChainExpected, 1);
+assert.equal(verify.counts.evidenceChainVerified, 1);
 assert.equal(verify.displayText, 'VERIFY:ready');
 
 const smoke = Worker.runAction('smoke');

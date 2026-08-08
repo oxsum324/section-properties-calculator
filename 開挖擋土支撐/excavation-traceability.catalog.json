@@ -1,5 +1,5 @@
 {
-  "version": "1.10.0",
+  "version": "1.11.0",
   "family": "excavation-traceability",
   "description": "開挖擋土支撐服務型工具的規範語意追蹤表。每筆 trace 將分析檔匯入、輸入欄位、構件檢核、報表落點、測試證據與人工複核邊界對齊，避免只因 FastAPI / React 流程可產出 PDF 或 DOCX 就誤判為支撐系統檢核依據已完整可追溯。",
   "tools": [
@@ -48,6 +48,16 @@
           "report": ["HTML 多承接分配編輯", "承接分配合計", "獨立接收端回簽助手", "拆撐承接構造交接 JSON", "分配比例", "分配後承接設計需求", "傳力方向", "接收端採用需求", "核定承載力", "自動容量利用率", "自動接收端結果", "承載力文件編號", "文件版次", "文件日期", "頁碼／章節", "證據檔名", "證據檔 SHA-256", "本機檔案雜湊", "來源端逐 ERT 實際證據檔比對", "實際 SHA-256", "檔名差異警示", "證據檔待逐列比對", "SEV 核驗指紋", "SEV 核驗單位與人員", "SEV 核驗時間", "SEV JSON 下載", "SEV SSR 離線簽署請求", "SEV 離線簽章回應匯入", "SEV Key ID", "SEV 本機信任狀態", "SCV 獨立證據鏈驗證收據", "SCV 工程結果與身分採用狀態", "承接構造 RVR 產生與檢查狀態", "承接構造回簽匯入狀態", "來源計算指紋", "交接指紋", "交接列識別", "回簽指紋", "回簽單位與人員"],
           "evidence": ["backend/app/removal_transfer_handoff.py", "backend/app/main.py", "backend/app/schemas.py", "backend/sign_receiver_request.py", "backend/verify_source_evidence_chain.py", "backend/tests/test_removal_transfer_handoff.py", "backend/tests/test_source_evidence_chain_verifier.py", "backend/tests/test_project_store.py", "frontend/src/App.tsx", "frontend/src/api.ts", "frontend/src/types.ts", "sign_receiver_request.ps1", "簽署SEV身分請求.bat", "verify_source_evidence_chain.ps1", "驗證SEV證據鏈.bat", "RECEIVER_IDENTITY_SIGNATURE.md", "SOURCE_EVIDENCE_CHAIN_VERIFIER.md"],
           "manualReview": ["接收端仍須由設計者或專案分析核對實際傳力方向、荷重分配、偏心、載重組合、承接構造容量及 RVR 所列文件定位與實際檔案；SHA-256、SEV 與 SCV 只識別特定檔案 bytes、驗證受控證據鏈並保存當時的核驗聲明，不證明文件內容正確或工程適用。SCV 不重新計算承接構造容量，也不構成工程核可；未提供公開 RTB、未簽署或 RVR／SEV 任一身分未達受信任狀態時仍須人工核對，工程結果失敗時不得因簽章升級為可採用。ERH / ERT / RVR / SEV / SCV 指紋只證明各自受控內容未遭變更，不得僅憑匯入、SEV 建立或 SCV 驗證成功視為工程核可。"]
+        },
+        {
+          "id": "excavation-evidence-chain-attachment-archive",
+          "clause": "正式附件組包工作流與內部追溯證據邊界",
+          "purpose": "附件包工作流原生識別 ERH、RVR、SEV、SCV 與選用 RTB，依 SCV 重驗來源檔名、SHA-256、種類、版本、交叉指紋、工程結果、身分採用狀態與邊界聲明。計算書留在正式附件區，治理 JSON 只進內部追溯區；關係檢查不得冒充 Python 受控內容重算或 Ed25519 簽章驗證。",
+          "inputs": ["formal calculation report", "ERH", "RVR", "SEV", "SCV", "optional RTB", "SCV sourceFiles", "file SHA-256", "fingerprint links", "chainStatus", "engineeringResultStatus", "identityAdoptionStatus", "boundary"],
+          "calculation": ["excavationEvidenceMetadata", "analyzeExcavationEvidenceChains", "attachment-package-check", "attachment-package-build", "attachment-package-verify", "SCV source filename and SHA-256 replay", "cross-fingerprint consistency", "fail closed on missing or inconsistent evidence"],
+          "report": ["附件來源檢查摘要", "開挖證據鏈完成數", "01_正式附件", "99_內部追溯_勿附入主報告/來源資料", "blocked / review issues"],
+          "evidence": ["../結構工具箱/tools/attachment-package-check.js", "../結構工具箱/tools/attachment-package-check.test.js", "../結構工具箱/tools/attachment-package-build.test.js", "../結構工具箱/tools/attachment-package-verify.js", "SOURCE_EVIDENCE_CHAIN_VERIFIER.md"],
+          "manualReview": ["附件包關係檢查只驗證歸檔檔案與 SCV 聲明的一致性，不重算承接構造容量、不重建 Python canonical fingerprints、不驗證 Ed25519 身分簽章，也不構成工程核可；採用前仍須執行獨立 Python 證據鏈驗證並依專案文件人工複核工程適用性。"]
         }
       ]
     },

@@ -88,6 +88,149 @@ assert.equal(singlePileSourceExtracted.designer, 'Codex QA');
 assert.equal(singlePileSourceExtracted.sourceTool, '單樁承載力設計器');
 assert.equal(singlePileSourceExtracted.toolVersion, 'v3.1');
 
+const chainHashes = {
+  handoff: '1'.repeat(64),
+  receipt: '2'.repeat(64),
+  sev: '3'.repeat(64),
+};
+const chainHandoff = Checker.extractJsonMetadata({
+  schemaVersion: 3,
+  kind: 'excavation-removal-transfer-handoff',
+  generatedAt: '2026-08-08T13:00:00Z',
+  source: {
+    projectName: '證據鏈測試案', projectNo: 'CHAIN-001', toolName: '開挖擋土支撐工具',
+    toolVersion: 'v0.1.0', calculationFingerprint: 'CF-1111222233334444',
+  },
+  handoffFingerprint: 'ERH-11112222333344445555',
+});
+const chainReceipt = Checker.extractJsonMetadata({
+  schemaVersion: 3,
+  kind: 'receiver-capacity-verification-receipt',
+  issuedAt: '2026-08-08T13:10:00Z',
+  sourceCalculationFingerprint: 'CF-1111222233334444',
+  handoffFingerprint: 'ERH-11112222333344445555',
+  receiptFingerprint: 'RVR-11112222333344445555',
+  summary: { status: 'passed' },
+});
+const chainSev = Checker.extractJsonMetadata({
+  schemaVersion: 1,
+  kind: 'source-capacity-evidence-verification-record',
+  verifiedAt: '2026-08-08T13:20:00Z',
+  sourceCalculationFingerprint: 'CF-1111222233334444',
+  handoffFingerprint: 'ERH-11112222333344445555',
+  receiptFingerprint: 'RVR-11112222333344445555',
+  verificationFingerprint: 'SEV-11112222333344445555',
+});
+const chainScv = Checker.extractJsonMetadata({
+  schemaVersion: 1,
+  kind: 'source-evidence-chain-verification-receipt',
+  verifiedAt: '2026-08-08T13:30:00Z',
+  links: {
+    sourceCalculationFingerprint: 'CF-1111222233334444',
+    handoffFingerprint: 'ERH-11112222333344445555',
+    receiptFingerprint: 'RVR-11112222333344445555',
+    sourceEvidenceVerificationFingerprint: 'SEV-11112222333344445555',
+  },
+  sourceFiles: {
+    handoff: { fileName: 'handoff.json', fileSha256: chainHashes.handoff },
+    receipt: { fileName: 'receipt.json', fileSha256: chainHashes.receipt },
+    sourceEvidenceVerification: { fileName: 'sev.json', fileSha256: chainHashes.sev },
+  },
+  trustRegistry: { provided: false },
+  rvrIdentityVerification: { trusted: false },
+  sevIdentityVerification: { trusted: false },
+  summary: { chainStatus: 'valid', engineeringStatus: 'passed', adoptionStatus: 'manual-identity-review-required' },
+  boundary: {
+    receiptIsNotStandaloneProof: true,
+    requiresSourceFilesForRevalidation: true,
+    doesNotRecalculateEngineeringCapacity: true,
+    doesNotConstituteEngineeringApproval: true,
+  },
+  verificationFingerprint: 'SCV-11112222333344445555',
+});
+const chainRecord = (file, sourceSha256, metadata) => ({
+  file, type: 'json', sourceSha256, errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [],
+  readyDocumentNeedles: [], fingerprints: [], ...metadata,
+});
+const completeExcavationEvidenceChain = [
+  chainRecord('handoff.json', chainHashes.handoff, chainHandoff),
+  chainRecord('receipt.json', chainHashes.receipt, chainReceipt),
+  chainRecord('sev.json', chainHashes.sev, chainSev),
+  chainRecord('scv.json', '4'.repeat(64), chainScv),
+];
+const completeEvidenceChainReport = Checker.analyzePackage(completeExcavationEvidenceChain);
+assert.equal(completeEvidenceChainReport.status, 'ready', 'a complete SCV source set is ready for internal traceability packaging');
+assert.equal(completeEvidenceChainReport.evidenceChainLinks.length, 1);
+assert.equal(completeEvidenceChainReport.attachments.find(record => record.file === 'receipt.json').projectNo, 'CHAIN-001');
+assert.equal(completeEvidenceChainReport.fingerprintLinks.length, 0, 'governance evidence does not impersonate the calculation source/report pair');
+assert.match(Checker.formatSummary(completeEvidenceChainReport), /證據鏈已完成 1 組檔案雜湊與指紋連結/);
+
+const trustBackupSha256 = '5'.repeat(64);
+const chainTrustBackup = Checker.extractJsonMetadata({
+  schemaVersion: 1,
+  kind: 'receiver-verification-trust-registry-backup',
+  exportedAt: '2026-08-08T13:25:00Z',
+  backupFingerprint: 'RTB-11112222333344445555',
+  registry: { registryFingerprint: 'RTR-11112222333344445555' },
+});
+const trustedChainScv = {
+  ...chainScv,
+  evidenceChain: {
+    ...chainScv.evidenceChain,
+    sourceFiles: {
+      ...chainScv.evidenceChain.sourceFiles,
+      trustRegistryBackup: { fileName: 'trust-backup.json', fileSha256: trustBackupSha256 },
+    },
+    trustRegistry: {
+      provided: true,
+      backupFingerprint: 'RTB-11112222333344445555',
+      registryFingerprint: 'RTR-11112222333344445555',
+    },
+    rvrIdentityVerification: { trusted: true },
+    sevIdentityVerification: { trusted: true },
+    summary: { ...chainScv.evidenceChain.summary, adoptionStatus: 'eligible-trusted-identities' },
+  },
+};
+const trustedEvidenceChain = [
+  chainRecord('handoff.json', chainHashes.handoff, chainHandoff),
+  chainRecord('receipt.json', chainHashes.receipt, chainReceipt),
+  chainRecord('sev.json', chainHashes.sev, chainSev),
+  chainRecord('trust-backup.json', trustBackupSha256, chainTrustBackup),
+  chainRecord('trusted-scv.json', '6'.repeat(64), trustedChainScv),
+];
+const trustedEvidenceChainReport = Checker.analyzePackage(trustedEvidenceChain);
+assert.equal(trustedEvidenceChainReport.status, 'ready', 'SCV with a matching RTB can preserve trusted-identity adoption');
+assert.equal(trustedEvidenceChainReport.evidenceChainLinks[0].trustRegistryBackupFile, 'trust-backup.json');
+
+const mismatchedTrustBackup = trustedEvidenceChain.map(record => ({
+  ...record,
+  evidenceChain: record.file === 'trust-backup.json'
+    ? { ...record.evidenceChain, backupFingerprint: 'RTB-99992222333344445555' }
+    : record.evidenceChain,
+}));
+const mismatchedTrustBackupReport = Checker.analyzePackage(mismatchedTrustBackup);
+assert.equal(mismatchedTrustBackupReport.status, 'blocked');
+assert(mismatchedTrustBackupReport.issues.some(issue => issue.code === 'scv-trust-registry-link-mismatch'));
+assert.equal(mismatchedTrustBackupReport.evidenceChainLinks.length, 0, 'a mismatched RTB is not counted as a verified chain');
+
+const changedChainSource = completeExcavationEvidenceChain.map(record => ({ ...record }));
+changedChainSource.find(record => record.file === 'sev.json').sourceSha256 = '9'.repeat(64);
+const changedChainSourceReport = Checker.analyzePackage(changedChainSource);
+assert.equal(changedChainSourceReport.status, 'blocked');
+assert(changedChainSourceReport.issues.some(issue => issue.code === 'scv-source-file-hash-mismatch'));
+assert.equal(changedChainSourceReport.evidenceChainLinks.length, 0, 'a changed source hash is not counted as a verified chain');
+
+const missingChainSourceReport = Checker.analyzePackage(
+  completeExcavationEvidenceChain.filter(record => record.file !== 'receipt.json'),
+);
+assert.equal(missingChainSourceReport.status, 'blocked');
+assert(missingChainSourceReport.issues.some(issue => issue.code === 'scv-source-file-missing'));
+assert.equal(missingChainSourceReport.evidenceChainLinks.length, 0, 'an incomplete source set is not counted as a verified chain');
+
+const orphanChainRecordReport = Checker.analyzePackage([completeExcavationEvidenceChain[0]]);
+assert.equal(orphanChainRecordReport.status, 'review');
+assert(orphanChainRecordReport.issues.some(issue => issue.code === 'unlinked-excavation-evidence-record'));
+
 const rcSourceReportPair = Checker.analyzePackage([
   {
     file: 'RC基礎專案.json', type: 'json', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: [],

@@ -67,6 +67,12 @@ function dualSealSummaryLine(summary = {}) {
   return `HTML 雙封印複驗 ${Number(summary.htmlDualSealVerified || 0)} / ${expected} 份（只顯示完成數，不輸出封印值）。`;
 }
 
+function evidenceChainSummaryLine(summary = {}) {
+  const expected = Number(summary.evidenceChainExpected || 0);
+  if (!expected) return '';
+  return `開挖證據鏈複驗 ${Number(summary.evidenceChainVerified || 0)} / ${expected} 組（只顯示完成數，不輸出證據指紋）。`;
+}
+
 function issueRecords(report = {}) {
   return (report.issues || []).map(issue => ({
     level: text(issue.level),
@@ -115,6 +121,7 @@ function buildResponse(result, checker = Checker) {
     lines.push(`附件包指紋：${result.packageFingerprint}`);
     lines.push('發布前完整性與工程內容驗證：通過。');
     lines.push(dualSealSummaryLine(result.selfVerification?.summary));
+    lines.push(evidenceChainSummaryLine(result.selfVerification?.summary));
   } else {
     lines.push('未建立正式附件包。');
   }
@@ -133,6 +140,8 @@ function buildResponse(result, checker = Checker) {
       fingerprintLinks: Number(report.fingerprintLinks?.length || 0),
       htmlDualSealExpected: Number(result.selfVerification?.summary?.htmlDualSealExpected || 0),
       htmlDualSealVerified: Number(result.selfVerification?.summary?.htmlDualSealVerified || 0),
+      evidenceChainExpected: Number(result.selfVerification?.summary?.evidenceChainExpected || 0),
+      evidenceChainVerified: Number(result.selfVerification?.summary?.evidenceChainVerified || 0),
     },
     records: checkRecords(report, checker),
     issues: issueRecords(report),
@@ -156,6 +165,8 @@ function verifyResponse(report, verifier = Verifier) {
       warnings: Number(report.summary?.warnings || 0),
       htmlDualSealExpected: Number(report.summary?.htmlDualSealExpected || 0),
       htmlDualSealVerified: Number(report.summary?.htmlDualSealVerified || 0),
+      evidenceChainExpected: Number(report.summary?.evidenceChainExpected || 0),
+      evidenceChainVerified: Number(report.summary?.evidenceChainVerified || 0),
     },
     records: verifyRecords(report),
     issues: issueRecords(report),
