@@ -88,7 +88,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.3.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.4.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -446,6 +446,8 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'removal_transfer_mode',
   'removal_transfer_target',
   'removal_transfer_direction',
+  'removal_transfer_share_percent',
+  'removal_transfer_additional_receivers',
   'removal_transfer_basis',
   'removal_transfer_confirmed',
   'construction_step_label',
@@ -476,6 +478,8 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   '確認本列安裝、控制內力與拆撐時序',
   '拆撐後荷重處置（必選）',
   '傳力方向／作用線（必填）',
+  '新增承接對象',
+  '承接分配合計',
   '確認拆撐後荷重處置、傳力方向及承接構造的另案檢核邊界',
 ].forEach((needle) => {
   assert(app.includes(needle), `excavation frontend stage mapping keeps ${needle}`, needle);

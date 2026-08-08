@@ -1,5 +1,5 @@
 {
-  "version": "1.3.0",
+  "version": "1.4.0",
   "family": "excavation-traceability",
   "description": "開挖擋土支撐服務型工具的規範語意追蹤表。每筆 trace 將分析檔匯入、輸入欄位、構件檢核、報表落點、測試證據與人工複核邊界對齊，避免只因 FastAPI / React 流程可產出 PDF 或 DOCX 就誤判為支撐系統檢核依據已完整可追溯。",
   "tools": [
@@ -33,7 +33,7 @@
           "id": "excavation-analysis-stage-construction-step-mapping",
           "clause": "外部分析階段包絡與實際施工步驟之工程判讀及明確採用邊界",
           "purpose": "匯入支撐或斜撐內力時分開保留安裝階段、控制內力階段候選及可辨識的拆撐階段，並逐階段重算構件需求比、取最不利需求比形成包絡；採用者必須填寫實際施工步驟、對應依據並明確確認。若已辨識拆撐事件，另須人工指定拆撐後荷重處置、承接構造或另案檢核邊界、正式依據及確認狀態。工具不從事件名稱推定傳力路徑；階段軸力為負值或非有限值、缺少安裝階段、時序倒置、未確認、未指定拆撐處置、控制階段不是最大包絡值，或採用內力與控制值不一致時，後端一律拒絕完成構件檢核。",
-          "inputs": ["force_source", "analysis_install_stage_index", "analysis_install_stage_label", "analysis_stage_cases", "analysis_control_stage_index", "analysis_control_stage_label", "analysis_removal_stage_index", "analysis_removal_stage_label", "removal_transfer_mode", "removal_transfer_target", "removal_transfer_direction", "removal_transfer_basis", "removal_transfer_confirmed", "construction_step_label", "analysis_mapping_basis", "analysis_mapping_confirmed", "adopted axial force"],
+          "inputs": ["force_source", "analysis_install_stage_index", "analysis_install_stage_label", "analysis_stage_cases", "analysis_control_stage_index", "analysis_control_stage_label", "analysis_removal_stage_index", "analysis_removal_stage_label", "removal_transfer_mode", "removal_transfer_target", "removal_transfer_direction", "removal_transfer_share_percent", "removal_transfer_additional_receivers", "removal_transfer_basis", "removal_transfer_confirmed", "construction_step_label", "analysis_mapping_basis", "analysis_mapping_confirmed", "adopted axial force"],
           "calculation": ["_consolidate_imported_struts", "_merge_stage_force_cases", "_validate_analysis_force_mapping", "_analysis_stage_envelope", "calculate_horizontal_support", "calculate_brace", "fail closed on unconfirmed or tampered mapping"],
           "report": ["內力來源", "分析安裝階段", "控制分析階段", "分析拆撐階段", "拆撐後荷重處置", "承接構造", "拆撐處置依據", "實際施工步驟", "對應依據", "控制階段軸力候選", "逐階段需求比包絡", "需求比控制階段"],
           "evidence": ["backend/app/main.py", "backend/app/schemas.py", "backend/app/calculations.py", "backend/app/reporting.py", "backend/tests/test_import_flow.py", "backend/tests/test_calculations.py", "backend/tests/test_reporting.py", "backend/tests/test_project_store.py", "frontend/src/App.tsx"],
@@ -42,10 +42,10 @@
         {
           "id": "excavation-removal-transfer-handoff",
           "clause": "拆撐來源需求至承接構造之專案交接與接收端驗證邊界",
-          "purpose": "將已完成來源構件檢核且已確認的拆撐處置輸出成具 ERH / ERT 指紋的 JSON；ERH v2 明確交接包含其他構件設計效應的承接設計需求與人工指定傳力方向，並將已發版本保存於專案。獨立接收端回簽助手可驗證 ERH、逐列登錄既有容量檢核結果並受控產生或檢查 receiver-capacity-verification-receipt；v2 回簽採用需求不得低於交接需求。來源端以 ERH / ERT / RVR 指紋、來源計算指紋、逐列完整涵蓋與彙整一致性驗證後保存，但不得把助手產出或完整性驗證誤作方向正確、容量通過或回簽人身分已核可。",
-          "inputs": ["ProjectState", "calculation_fingerprint", "source member check", "analysis lifecycle", "removal_transfer_mode", "removal_transfer_target", "removal_transfer_direction", "removal_transfer_basis", "removal_transfer_confirmed", "receiverTransferDemandTf", "issued ERH handoff", "receiver receipt JSON", "verification authority", "adopted demand", "capacity utilization ratio", "receiver verification basis"],
-          "calculation": ["build_removal_transfer_handoff", "build_receiver_verification_receipt", "validate_removal_transfer_handoff", "validate_receiver_verification_receipt", "same_removal_transfer_handoff_content", "ERH v1 read compatibility", "ERH v2 quantified transfer path", "receiver demand floor", "ERH package SHA-256", "ERT transfer SHA-256", "RVR receipt SHA-256", "fail closed on NG source member", "complete ERT receipt coverage", "controlled receipt fields", "pending receiver verification", "manual verifier identity review"],
-          "report": ["HTML 報表匯出頁之待承接構造驗證狀態", "獨立接收端回簽助手", "拆撐承接構造交接 JSON", "承接設計需求", "傳力方向", "承接構造 RVR 產生與檢查狀態", "承接構造回簽匯入狀態", "來源計算指紋", "交接指紋", "交接列識別", "回簽指紋", "接收端結果", "回簽單位與人員", "正式文件編號"],
+          "purpose": "將已完成來源構件檢核且已確認的拆撐處置輸出成具 ERH / ERT 指紋的 JSON；ERH v3 支援單一拆撐來源分配至多個承接構造，強制各筆比例大於 0%、合計 100% 且承接對象與方向不得重複，並依比例產生獨立 ERT 與分配後承接需求。獨立接收端回簽助手可逐 ERT 登錄既有容量檢核結果並受控產生或檢查 receiver-capacity-verification-receipt；回簽採用需求不得低於各 ERT 交接需求。來源端驗證 ERH / ERT / RVR 指紋、來源計算指紋、逐列完整涵蓋與彙整一致性，但不得把比例封閉、助手產出或完整性驗證誤作分配正確、容量通過或回簽人身分已核可。",
+          "inputs": ["ProjectState", "calculation_fingerprint", "source member check", "analysis lifecycle", "removal_transfer_mode", "removal_transfer_target", "removal_transfer_direction", "removal_transfer_share_percent", "removal_transfer_additional_receivers", "removal_transfer_basis", "removal_transfer_confirmed", "allocationSharePercent", "receiverTransferDemandTf", "issued ERH handoff", "receiver receipt JSON", "verification authority", "adopted demand", "capacity utilization ratio", "receiver verification basis"],
+          "calculation": ["normalized_removal_transfer_allocations", "build_removal_transfer_handoff", "build_receiver_verification_receipt", "validate_removal_transfer_handoff", "validate_receiver_verification_receipt", "same_removal_transfer_handoff_content", "ERH v1 and v2 read compatibility", "ERH v3 multi-receiver allocation", "100 percent allocation closure", "duplicate receiver path rejection", "receiver demand floor", "ERH package SHA-256", "ERT transfer SHA-256", "RVR receipt SHA-256", "fail closed on NG source member", "complete ERT receipt coverage", "controlled receipt fields", "pending receiver verification", "manual verifier identity review"],
+          "report": ["HTML 多承接分配編輯", "承接分配合計", "獨立接收端回簽助手", "拆撐承接構造交接 JSON", "分配比例", "分配後承接設計需求", "傳力方向", "承接構造 RVR 產生與檢查狀態", "承接構造回簽匯入狀態", "來源計算指紋", "交接指紋", "交接列識別", "回簽指紋", "接收端結果", "回簽單位與人員", "正式文件編號"],
           "evidence": ["backend/app/removal_transfer_handoff.py", "backend/app/main.py", "backend/app/schemas.py", "backend/tests/test_removal_transfer_handoff.py", "backend/tests/test_project_store.py", "frontend/src/App.tsx", "frontend/src/api.ts", "frontend/src/types.ts"],
           "manualReview": ["接收端仍須由設計者或專案分析核對實際傳力方向、荷重分配、偏心、載重組合及承接構造容量；ERH / ERT / RVR 指紋只證明內容未遭變更，未使用數位簽章時，回簽單位、人員與正式檢核文件仍須人工核對，不得僅憑匯入成功視為工程核可。"]
         }

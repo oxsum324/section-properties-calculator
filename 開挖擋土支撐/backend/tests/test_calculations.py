@@ -15,7 +15,13 @@ from backend.app.calculations import (
     classify_beam_section,
     classify_column_section,
 )
-from backend.app.schemas import AnalysisForceCase, BraceRow, SupportRow, WaleRow
+from backend.app.schemas import (
+    AnalysisForceCase,
+    BraceRow,
+    RemovalTransferReceiverAllocation,
+    SupportRow,
+    WaleRow,
+)
 from backend.app.workbook_loader import load_default_project, load_reference_data
 from backend.tests.handoff_fixtures import make_stage_adoption, make_verified_handoff_source
 
@@ -453,6 +459,46 @@ class CalculationTests(unittest.TestCase):
 
         self.assertEqual(result.controlling_condition, "資料未完整")
         self.assertIn("傳力方向", result.details["message"])
+
+    def test_imported_support_accepts_closed_multi_receiver_allocation(self) -> None:
+        ref = load_reference_data()
+        row = SupportRow(
+            level_label="1",
+            section_name=ref.sections[-1].name,
+            axial_force_t=80.0,
+            temp_force_t=20.0,
+            spacing_m=5.0,
+            force_source="analysis_import",
+            analysis_stage_cases=[AnalysisForceCase(stage_index=2, stage_label="控制階段", axial_force_t=80.0)],
+            analysis_install_stage_index=1,
+            analysis_install_stage_label="支撐安裝",
+            analysis_control_stage_index=2,
+            analysis_control_stage_label="控制階段",
+            analysis_removal_stage_index=3,
+            analysis_removal_stage_label="拆撐",
+            removal_transfer_mode="floor",
+            removal_transfer_target="B2F 樓版 S1 區",
+            removal_transfer_direction="樓版面內 X+",
+            removal_transfer_share_percent=60.0,
+            removal_transfer_additional_receivers=[RemovalTransferReceiverAllocation(
+                mode="reshore",
+                target="第二道回撐 R2",
+                direction="沿 R2 軸線",
+                share_percent=40.0,
+                basis="拆撐分流分析 TR-02",
+            )],
+            removal_transfer_basis="拆撐分流分析 TR-01",
+            removal_transfer_confirmed=True,
+            construction_step_label="第二階開挖",
+            analysis_mapping_confirmed=True,
+            analysis_mapping_basis="施工步驟表",
+        )
+
+        result = calculate_horizontal_support(row, ref.basic_defaults, "上層水平支撐")
+
+        self.assertNotEqual(result.controlling_condition, "資料未完整")
+        self.assertIn("B2F 樓版 S1 區｜60%｜60 tf｜樓版面內 X+", result.inputs["拆撐承接分配"])
+        self.assertIn("第二道回撐 R2｜40%｜40 tf｜沿 R2 軸線", result.inputs["拆撐承接分配"])
 
     def test_imported_support_requires_named_transfer_target(self) -> None:
         ref = load_reference_data()

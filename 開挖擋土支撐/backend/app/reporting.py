@@ -2120,6 +2120,7 @@ def _analysis_mapping_lines(inputs: dict[str, object]) -> list[str]:
             transfer_parts.append(f"承接構造 = {transfer_target}")
         transfer_parts.append(f"承接設計需求 = {inputs.get('拆撐承接設計需求', '—')}")
         transfer_parts.append(f"傳力方向 = {inputs.get('拆撐傳力方向', '—')}")
+        transfer_parts.append(f"承接分配 = {inputs.get('拆撐承接分配', '—')}")
         transfer_parts.append(f"處置依據 = {inputs.get('拆撐處置依據', '—')}")
         lines.append("；".join(transfer_parts))
     return lines

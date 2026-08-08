@@ -14,10 +14,16 @@ from typing import Any, Iterable
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
-from .schemas import BraceRow, CheckResult, ProjectState, SupportRow
+from .schemas import (
+    BraceRow,
+    CheckResult,
+    ProjectState,
+    SupportRow,
+    normalized_removal_transfer_allocations,
+)
 
 
-HANDOFF_SCHEMA_VERSION = 2
+HANDOFF_SCHEMA_VERSION = 3
 RECEIPT_SCHEMA_VERSION = 1
 SCHEMA_VERSION = HANDOFF_SCHEMA_VERSION
 KIND = "excavation-removal-transfer-handoff"
@@ -367,21 +373,25 @@ def _build_transfer(
     row_index: int,
     row: SupportRow | BraceRow,
     check: CheckResult,
+    allocation: dict[str, Any],
     calculation_fingerprint: str,
 ) -> dict[str, Any]:
     if check.status == "NG":
         raise ValueError(f"{module_name}第 {row_index + 1} 列尚未形成可交接的有效檢核結果。")
     if row.force_source != "analysis_import" or row.analysis_removal_stage_index is None:
         raise ValueError(f"{module_name}第 {row_index + 1} 列不是具拆撐階段的外部分析列。")
-    mode = row.removal_transfer_mode
+    mode = str(allocation["mode"])
     if mode not in TRANSFER_MODE_LABELS or not row.removal_transfer_confirmed:
         raise ValueError(f"{module_name}第 {row_index + 1} 列尚未確認拆撐後荷重處置。")
-    if not row.removal_transfer_basis.strip():
+    if not str(allocation["basis"]).strip():
         raise ValueError(f"{module_name}第 {row_index + 1} 列缺少拆撐處置依據。")
-    if not row.removal_transfer_direction.strip():
+    if not str(allocation["direction"]).strip():
         raise ValueError(f"{module_name}第 {row_index + 1} 列缺少傳力方向或作用線。")
-    if mode != "outside_scope" and not row.removal_transfer_target.strip():
+    if mode != "outside_scope" and not str(allocation["target"]).strip():
         raise ValueError(f"{module_name}第 {row_index + 1} 列缺少承接構造或指定對象。")
+    share_percent = float(allocation["share_percent"])
+    if not math.isfinite(share_percent) or share_percent <= 0 or share_percent > 100:
+        raise ValueError(f"{module_name}第 {row_index + 1} 列的承接分配比例不正確。")
 
     control = _control_case(row)
     axial_force = float(control.axial_force_t)
@@ -391,6 +401,7 @@ def _build_transfer(
         design_axial_force = float(check.details.get("total_force_t", axial_force))
     else:
         design_axial_force = float(check.details.get("axial_force_t", axial_force))
+    receiver_demand = design_axial_force * share_percent / 100.0
 
     transfer = {
         "sourceMember": {
@@ -422,7 +433,8 @@ def _build_transfer(
             "unit": "tf",
             "analysisControlAxialForceTf": round(axial_force, 6),
             "memberDesignAxialForceTf": round(design_axial_force, 6),
-            "receiverTransferDemandTf": round(design_axial_force, 6),
+            "receiverTransferDemandTf": round(receiver_demand, 6),
+            "allocationSharePercent": round(share_percent, 6),
             "analysisCases": [
                 {
                     "stageIndex": case.stage_index,
@@ -436,10 +448,10 @@ def _build_transfer(
         "receiver": {
             "mode": mode,
             "modeLabel": TRANSFER_MODE_LABELS[mode],
-            "target": row.removal_transfer_target.strip(),
-            "direction": row.removal_transfer_direction.strip(),
-            "dispositionBasis": row.removal_transfer_basis.strip(),
-            "receiverIdentityRequired": mode == "outside_scope" and not row.removal_transfer_target.strip(),
+            "target": str(allocation["target"]).strip(),
+            "direction": str(allocation["direction"]).strip(),
+            "dispositionBasis": str(allocation["basis"]).strip(),
+            "receiverIdentityRequired": mode == "outside_scope" and not str(allocation["target"]).strip(),
         },
         "sourceCheck": {
             "status": check.status,
@@ -471,8 +483,16 @@ def build_removal_transfer_handoff(
     for collection, member_type, side, module_name, row_index, row, check in _iter_rows_with_checks(project):
         if row.analysis_removal_stage_index is None:
             continue
-        transfers.append(
-            _build_transfer(
+        allocations = normalized_removal_transfer_allocations(row)
+        if not allocations:
+            raise ValueError(f"{module_name}第 {row_index + 1} 列缺少拆撐承接分配資料。")
+        total_share = sum(float(allocation["share_percent"]) for allocation in allocations)
+        if not math.isclose(total_share, 100.0, rel_tol=0.0, abs_tol=0.01):
+            raise ValueError(
+                f"{module_name}第 {row_index + 1} 列的拆撐承接分配比例合計必須為 100%，目前為 {total_share:g}%。"
+            )
+        for allocation in allocations:
+            transfers.append(_build_transfer(
                 collection=collection,
                 member_type=member_type,
                 side=side,
@@ -480,14 +500,14 @@ def build_removal_transfer_handoff(
                 row_index=row_index,
                 row=row,
                 check=check,
+                allocation=allocation,
                 calculation_fingerprint=calculation_fingerprint,
-            )
-        )
+            ))
     if not transfers:
         raise ValueError("目前沒有已完成計算且已確認拆撐處置的支撐或斜撐可建立交接檔。")
 
     record = {
-        "schemaVersion": SCHEMA_VERSION,
+        "schemaVersion": HANDOFF_SCHEMA_VERSION,
         "kind": KIND,
         "generatedAt": generated_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "source": {
@@ -530,7 +550,7 @@ def validate_removal_transfer_handoff(record: dict[str, Any]) -> dict[str, Any]:
     schema_version = record.get("schemaVersion")
     if (
         isinstance(schema_version, bool)
-        or schema_version not in {1, HANDOFF_SCHEMA_VERSION}
+        or schema_version not in {1, 2, HANDOFF_SCHEMA_VERSION}
         or record.get("kind") != KIND
     ):
         raise ValueError("拆撐承接構造交接檔版本或種類不受支援。")
@@ -544,22 +564,48 @@ def validate_removal_transfer_handoff(record: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("拆撐承接構造交接檔沒有可驗證的交接列。")
     source_fingerprint = str(record["source"]["calculationFingerprint"])
     seen_ids: set[str] = set()
+    allocation_groups: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
     for transfer in transfers:
         transfer_id = str(transfer.get("transferId", ""))
         unsigned = {key: value for key, value in transfer.items() if key != "transferId"}
         if transfer_id != _transfer_id(unsigned, source_fingerprint) or transfer_id in seen_ids:
             raise ValueError("拆撐承接構造交接列識別或內容不一致。")
         seen_ids.add(transfer_id)
-        if schema_version == HANDOFF_SCHEMA_VERSION:
+        if schema_version in {2, HANDOFF_SCHEMA_VERSION}:
             source_demand = transfer.get("sourceDemand", {})
             receiver = transfer.get("receiver", {})
             demand = source_demand.get("receiverTransferDemandTf")
             if isinstance(demand, bool) or not isinstance(demand, (int, float)) or not math.isfinite(demand) or demand < 0:
                 raise ValueError("拆撐交接列缺少非負有限的承接設計需求。")
             _required_text(receiver.get("direction"), "拆撐傳力方向", max_length=120)
+        if schema_version == HANDOFF_SCHEMA_VERSION:
+            share = source_demand.get("allocationSharePercent")
+            if isinstance(share, bool) or not isinstance(share, (int, float)) or not math.isfinite(share) or share <= 0 or share > 100:
+                raise ValueError("拆撐交接列缺少有效的承接分配比例。")
+            source_member = transfer.get("sourceMember", {})
+            group_key = (
+                str(source_member.get("collection", "")),
+                str(source_member.get("rowIndex", "")),
+                str(source_member.get("memberType", "")),
+            )
+            allocation_groups.setdefault(group_key, []).append(transfer)
         verification = transfer.get("verification", {})
         if verification.get("status") != "pending" or verification.get("required") is not True or verification.get("autoVerified") is not False:
             raise ValueError("未回簽的拆撐交接列必須維持待驗證，且不得自動標示完成。")
+    for group in allocation_groups.values():
+        total_share = sum(float(item["sourceDemand"]["allocationSharePercent"]) for item in group)
+        if not math.isclose(total_share, 100.0, rel_tol=0.0, abs_tol=0.01):
+            raise ValueError("同一拆撐來源的承接分配比例合計必須為 100%。")
+        identities = [
+            (
+                str(item["receiver"].get("mode", "")),
+                str(item["receiver"].get("target", "")).casefold(),
+                str(item["receiver"].get("direction", "")).casefold(),
+            )
+            for item in group
+        ]
+        if len(set(identities)) != len(identities):
+            raise ValueError("同一拆撐來源含重複的承接對象與傳力方向。")
     boundary = record.get("boundary", {})
     if boundary.get("requiresReceiverVerification") is not True or boundary.get("autoApplied") is not False or boundary.get("autoVerified") is not False:
         raise ValueError("拆撐承接構造交接檔未保留接收端明確驗證邊界。")
@@ -670,7 +716,7 @@ def validate_receiver_verification_receipt(
         _required_text(result.get("verificationBasis"), "逐筆檢核依據")
         _required_text(result.get("conclusion"), "逐筆檢核結論")
         adopted_demand = _finite_nonnegative(result.get("adoptedDemandTf"), "採用需求值")
-        if validated_handoff.get("schemaVersion") == HANDOFF_SCHEMA_VERSION:
+        if validated_handoff.get("schemaVersion") in {2, HANDOFF_SCHEMA_VERSION}:
             transfer = next(item for item in validated_handoff["transfers"] if item["transferId"] == transfer_id)
             minimum_demand = float(transfer["sourceDemand"]["receiverTransferDemandTf"])
             if adopted_demand + 1e-9 < minimum_demand:

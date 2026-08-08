@@ -31,6 +31,7 @@ import {
   ReferenceData,
   RemovalTransferHandoff,
   RemovalTransferMode,
+  RemovalTransferReceiverAllocation,
   SectionProperty,
   SoilLayer,
   SupportRow,
@@ -1146,12 +1147,18 @@ function App() {
       "removal_transfer_mode" in patch ||
       "removal_transfer_target" in patch ||
       "removal_transfer_direction" in patch ||
+      "removal_transfer_share_percent" in patch ||
+      "removal_transfer_additional_receivers" in patch ||
       "removal_transfer_basis" in patch
     ) {
       next.removal_transfer_confirmed = false;
     }
     if (patch.removal_transfer_mode === "unassigned" || patch.removal_transfer_mode === "outside_scope") {
       next.removal_transfer_target = "";
+    }
+    if (patch.removal_transfer_mode === "unassigned") {
+      next.removal_transfer_share_percent = 100;
+      next.removal_transfer_additional_receivers = [];
     }
     rows[index] = next;
     applyProjectState({ ...project, [key]: rows, calculation_results: null } as ProjectState);
@@ -4943,6 +4950,8 @@ type AnalysisMappingPatch = Partial<Pick<SupportRow,
   | "removal_transfer_mode"
   | "removal_transfer_target"
   | "removal_transfer_direction"
+  | "removal_transfer_share_percent"
+  | "removal_transfer_additional_receivers"
   | "removal_transfer_basis"
   | "removal_transfer_confirmed"
 >>;
@@ -4969,13 +4978,48 @@ function AnalysisMappingEditor(props: {
   );
   const hasRemoval = props.row.analysis_removal_stage_index != null;
   const transferMode = props.row.removal_transfer_mode ?? "unassigned";
+  const primaryShare = props.row.removal_transfer_share_percent ?? 100;
+  const additionalReceivers = props.row.removal_transfer_additional_receivers ?? [];
+  const allocationTotal = primaryShare + additionalReceivers.reduce((sum, item) => sum + Number(item.share_percent || 0), 0);
+  const allocationsComplete = additionalReceivers.every((item) => (
+    item.share_percent > 0 &&
+    item.share_percent <= 100 &&
+    item.direction.trim() &&
+    item.basis.trim() &&
+    (item.mode === "outside_scope" || item.target.trim())
+  ));
   const transferComplete = !hasRemoval || Boolean(
     transferMode !== "unassigned" &&
     props.row.removal_transfer_confirmed &&
     props.row.removal_transfer_basis?.trim() &&
     props.row.removal_transfer_direction?.trim() &&
+    primaryShare > 0 &&
+    allocationsComplete &&
+    Math.abs(allocationTotal - 100) <= 0.01 &&
     (transferMode === "outside_scope" || props.row.removal_transfer_target?.trim()),
   );
+  const updateAdditionalReceiver = (index: number, patch: Partial<RemovalTransferReceiverAllocation>) => {
+    const next = additionalReceivers.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item);
+    props.onChange({ removal_transfer_additional_receivers: next });
+  };
+  const addAdditionalReceiver = () => {
+    if (additionalReceivers.length >= 9) return;
+    const newShare = Math.max(Math.min(primaryShare / 2, 50), 0.001);
+    props.onChange({
+      removal_transfer_share_percent: Number((primaryShare - newShare).toFixed(3)),
+      removal_transfer_additional_receivers: [
+        ...additionalReceivers,
+        { mode: "floor", target: "", direction: "", share_percent: Number(newShare.toFixed(3)), basis: "" },
+      ],
+    });
+  };
+  const removeAdditionalReceiver = (index: number) => {
+    const removed = additionalReceivers[index];
+    props.onChange({
+      removal_transfer_share_percent: Math.min(100, primaryShare + Number(removed?.share_percent || 0)),
+      removal_transfer_additional_receivers: additionalReceivers.filter((_, itemIndex) => itemIndex !== index),
+    });
+  };
   return (
     <div className="analysis-stage-mapping-card">
       <div className="analysis-stage-mapping-summary">
@@ -5013,6 +5057,7 @@ function AnalysisMappingEditor(props: {
         </label>
       </div>
       {hasRemoval && (
+        <>
         <div className="analysis-stage-mapping-grid removal-transfer-grid">
           <label className="field-block">
             <span>拆撐後荷重處置（必選）</span>
@@ -5031,6 +5076,19 @@ function AnalysisMappingEditor(props: {
                 maxLength={120}
                 placeholder="例如：B2F 樓版 S1 區、第二道回撐 R2"
                 onChange={(event) => props.onChange({ removal_transfer_target: event.target.value })}
+              />
+            </label>
+          )}
+          {transferMode !== "unassigned" && (
+            <label className="field-block">
+              <span>主承接分配比例（%）</span>
+              <input
+                type="number"
+                min="0.001"
+                max="100"
+                step="0.001"
+                value={primaryShare}
+                onChange={(event) => props.onChange({ removal_transfer_share_percent: Number(event.target.value) })}
               />
             </label>
           )}
@@ -5057,6 +5115,54 @@ function AnalysisMappingEditor(props: {
             </label>
           )}
         </div>
+        {transferMode !== "unassigned" && (
+          <div className="removal-transfer-allocations">
+            <div className="analysis-stage-mapping-summary">
+              <strong>承接分配合計：{fmt(allocationTotal)}%</strong>
+              <span className={`status-chip ${Math.abs(allocationTotal - 100) <= 0.01 ? "ok" : "warn"}`}>
+                {Math.abs(allocationTotal - 100) <= 0.01 ? "合計 100%" : "合計須為 100%"}
+              </span>
+              <button type="button" className="ghost" disabled={additionalReceivers.length >= 9} onClick={addAdditionalReceiver}>
+                新增承接對象
+              </button>
+            </div>
+            {additionalReceivers.map((receiver, index) => (
+              <div className="analysis-stage-mapping-grid removal-transfer-grid" key={`receiver-${index}`}>
+                <label className="field-block">
+                  <span>承接處置</span>
+                  <select
+                    value={receiver.mode}
+                    onChange={(event) => updateAdditionalReceiver(index, { mode: event.target.value as RemovalTransferReceiverAllocation["mode"] })}
+                  >
+                    {removalTransferOptions.filter((option) => option.value !== "unassigned").map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                {receiver.mode !== "outside_scope" && (
+                  <label className="field-block">
+                    <span>承接構造／指定對象</span>
+                    <input value={receiver.target} maxLength={120} onChange={(event) => updateAdditionalReceiver(index, { target: event.target.value })} />
+                  </label>
+                )}
+                <label className="field-block">
+                  <span>傳力方向／作用線</span>
+                  <input value={receiver.direction} maxLength={120} onChange={(event) => updateAdditionalReceiver(index, { direction: event.target.value })} />
+                </label>
+                <label className="field-block">
+                  <span>分配比例（%）</span>
+                  <input type="number" min="0.001" max="100" step="0.001" value={receiver.share_percent} onChange={(event) => updateAdditionalReceiver(index, { share_percent: Number(event.target.value) })} />
+                </label>
+                <label className="field-block">
+                  <span>處置依據</span>
+                  <input value={receiver.basis} maxLength={160} onChange={(event) => updateAdditionalReceiver(index, { basis: event.target.value })} />
+                </label>
+                <button type="button" className="ghost" onClick={() => removeAdditionalReceiver(index)}>移除承接對象</button>
+              </div>
+            ))}
+          </div>
+        )}
+        </>
       )}
       <label className="check-field analysis-stage-mapping-confirm">
         <input
@@ -6690,6 +6796,8 @@ function normalizedAnalysisMapping(row: SupportRow | BraceRow): AnalysisMappingP
     removal_transfer_mode: row.removal_transfer_mode ?? "unassigned",
     removal_transfer_target: row.removal_transfer_target ?? "",
     removal_transfer_direction: row.removal_transfer_direction ?? "",
+    removal_transfer_share_percent: row.removal_transfer_share_percent ?? 100,
+    removal_transfer_additional_receivers: row.removal_transfer_additional_receivers ?? [],
     removal_transfer_basis: row.removal_transfer_basis ?? "",
     removal_transfer_confirmed: row.removal_transfer_confirmed ?? false,
     construction_step_label: row.construction_step_label ?? "",
@@ -7183,6 +7291,8 @@ function toCandidateSupportRow(
     removal_transfer_mode: "unassigned",
     removal_transfer_target: "",
     removal_transfer_direction: "",
+    removal_transfer_share_percent: 100,
+    removal_transfer_additional_receivers: [],
     removal_transfer_basis: "",
     removal_transfer_confirmed: false,
     construction_step_label: "",
@@ -7217,6 +7327,8 @@ function toCandidateBraceRow(
     removal_transfer_mode: "unassigned",
     removal_transfer_target: "",
     removal_transfer_direction: "",
+    removal_transfer_share_percent: 100,
+    removal_transfer_additional_receivers: [],
     removal_transfer_basis: "",
     removal_transfer_confirmed: false,
     construction_step_label: "",

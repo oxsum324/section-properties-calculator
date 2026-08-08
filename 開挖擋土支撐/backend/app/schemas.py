@@ -141,6 +141,39 @@ class AnalysisForceCase(BaseModel):
     axial_force_t: float
 
 
+class RemovalTransferReceiverAllocation(BaseModel):
+    mode: Literal["outside_scope", "floor", "reshore", "permanent_structure", "other"]
+    target: str = Field(default="", max_length=120)
+    direction: str = Field(default="", max_length=120)
+    share_percent: float = Field(default=0.0, ge=0, le=100)
+    basis: str = Field(default="", max_length=160)
+
+
+def normalized_removal_transfer_allocations(row: object) -> list[dict[str, Any]]:
+    mode = str(getattr(row, "removal_transfer_mode", "unassigned"))
+    if mode == "unassigned":
+        return []
+    allocations = [{
+        "mode": mode,
+        "target": str(getattr(row, "removal_transfer_target", "")).strip(),
+        "direction": str(getattr(row, "removal_transfer_direction", "")).strip(),
+        "share_percent": float(getattr(row, "removal_transfer_share_percent", 100.0)),
+        "basis": str(getattr(row, "removal_transfer_basis", "")).strip(),
+        "primary": True,
+    }]
+    for allocation in getattr(row, "removal_transfer_additional_receivers", []):
+        payload = allocation.model_dump() if hasattr(allocation, "model_dump") else dict(allocation)
+        allocations.append({
+            "mode": str(payload.get("mode", "")),
+            "target": str(payload.get("target", "")).strip(),
+            "direction": str(payload.get("direction", "")).strip(),
+            "share_percent": float(payload.get("share_percent", 0.0)),
+            "basis": str(payload.get("basis", "")).strip(),
+            "primary": False,
+        })
+    return allocations
+
+
 class SupportRow(BaseModel):
     level_label: str
     support_count: int = 1
@@ -161,6 +194,11 @@ class SupportRow(BaseModel):
     ] = "unassigned"
     removal_transfer_target: str = Field(default="", max_length=120)
     removal_transfer_direction: str = Field(default="", max_length=120)
+    removal_transfer_share_percent: float = Field(default=100.0, ge=0, le=100)
+    removal_transfer_additional_receivers: list[RemovalTransferReceiverAllocation] = Field(
+        default_factory=list,
+        max_length=9,
+    )
     removal_transfer_basis: str = Field(default="", max_length=160)
     removal_transfer_confirmed: bool = False
     construction_step_label: str = Field(default="", max_length=120)
@@ -197,6 +235,11 @@ class BraceRow(BaseModel):
     ] = "unassigned"
     removal_transfer_target: str = Field(default="", max_length=120)
     removal_transfer_direction: str = Field(default="", max_length=120)
+    removal_transfer_share_percent: float = Field(default=100.0, ge=0, le=100)
+    removal_transfer_additional_receivers: list[RemovalTransferReceiverAllocation] = Field(
+        default_factory=list,
+        max_length=9,
+    )
     removal_transfer_basis: str = Field(default="", max_length=160)
     removal_transfer_confirmed: bool = False
     construction_step_label: str = Field(default="", max_length=120)

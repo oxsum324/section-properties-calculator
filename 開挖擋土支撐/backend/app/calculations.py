@@ -20,6 +20,7 @@ from .schemas import (
     SummaryItem,
     SupportRow,
     WaleRow,
+    normalized_removal_transfer_allocations,
 )
 from .workbook_loader import find_section
 
@@ -303,6 +304,7 @@ def _analysis_mapping_inputs(row: object) -> dict[str, object]:
     removal_index = getattr(row, "analysis_removal_stage_index", None)
     removal_label = str(getattr(row, "analysis_removal_stage_label", "")).strip()
     transfer_mode = str(getattr(row, "removal_transfer_mode", "unassigned"))
+    transfer_allocations = normalized_removal_transfer_allocations(row)
     control_index = getattr(row, "analysis_control_stage_index", None)
     control_label = str(getattr(row, "analysis_control_stage_label", "")).strip()
     control_case = next(
@@ -331,6 +333,12 @@ def _analysis_mapping_inputs(row: object) -> dict[str, object]:
         "拆撐後承接構造": str(getattr(row, "removal_transfer_target", "")).strip() or "—",
         "拆撐傳力方向": str(getattr(row, "removal_transfer_direction", "")).strip() or "—",
         "拆撐承接設計需求": f"{receiver_demand:g} tf" if removal_index and receiver_demand is not None else "—",
+        "拆撐承接分配": "；".join(
+            f"{allocation['target'] or '另案承接'}｜{allocation['share_percent']:g}%"
+            f"｜{(receiver_demand or 0.0) * float(allocation['share_percent']) / 100.0:g} tf"
+            f"｜{allocation['direction']}"
+            for allocation in transfer_allocations
+        ) or "—",
         "拆撐處置依據": str(getattr(row, "removal_transfer_basis", "")).strip() or "—",
         "施工步驟": getattr(row, "construction_step_label", ""),
         "階段對應依據": getattr(row, "analysis_mapping_basis", ""),
@@ -398,7 +406,40 @@ def _validate_analysis_force_mapping(
             return None, "拆撐後荷重處置必須填寫正式分析、施工順序圖或專案文件依據。"
         if not transfer_confirmed:
             return None, "尚未確認拆撐後荷重處置及其承接構造檢核邊界。"
-    elif transfer_mode != "unassigned" or transfer_target or transfer_direction or transfer_basis or transfer_confirmed:
+        allocations = normalized_removal_transfer_allocations(row)
+        if not allocations:
+            return None, "拆撐後荷重處置缺少承接分配資料。"
+        allowed_modes = {"outside_scope", "floor", "reshore", "permanent_structure", "other"}
+        identities: set[tuple[str, str, str]] = set()
+        for allocation in allocations:
+            share = float(allocation["share_percent"])
+            if not math.isfinite(share) or share <= 0 or share > 100:
+                return None, "每一筆拆撐承接分配比例都必須大於 0% 且不超過 100%。"
+            if allocation["mode"] not in allowed_modes:
+                return None, "拆撐承接分配包含不支援的處置種類。"
+            if allocation["mode"] != "outside_scope" and not allocation["target"]:
+                return None, "每一筆拆撐承接分配都必須填寫承接構造或指定對象。"
+            if not allocation["direction"] or not allocation["basis"]:
+                return None, "每一筆拆撐承接分配都必須填寫傳力方向與處置依據。"
+            identity = (
+                str(allocation["mode"]),
+                str(allocation["target"]).casefold(),
+                str(allocation["direction"]).casefold(),
+            )
+            if identity in identities:
+                return None, "拆撐承接分配含重複的承接對象與傳力方向。"
+            identities.add(identity)
+        total_share = sum(float(allocation["share_percent"]) for allocation in allocations)
+        if not math.isclose(total_share, 100.0, rel_tol=0.0, abs_tol=0.01):
+            return None, f"拆撐承接分配比例合計必須為 100%，目前為 {total_share:g}%。"
+    elif (
+        transfer_mode != "unassigned"
+        or transfer_target
+        or transfer_direction
+        or transfer_basis
+        or transfer_confirmed
+        or bool(getattr(row, "removal_transfer_additional_receivers", []))
+    ):
         return None, "未辨識拆撐階段，不得保留拆撐後荷重處置資料。"
     if not math.isclose(
         adopted_axial_force_t,

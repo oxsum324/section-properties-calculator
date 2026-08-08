@@ -442,6 +442,7 @@ class ReportingTests(unittest.TestCase):
         self.assertIn("承接構造 = B2F 樓版 S1 區", combined_text)
         self.assertIn("承接設計需求 =", combined_text)
         self.assertIn("傳力方向 = 沿第一道支撐軸線向東", combined_text)
+        self.assertIn("承接分配 = B2F 樓版 S1 區｜100%", combined_text)
         self.assertIn("處置依據 = 拆撐順序圖 CS-04 與樓版階段分析 ST-12", combined_text)
         self.assertIn("實際施工步驟 = 第二階開挖完成、第二層支撐施作前", combined_text)
         self.assertIn("對應依據 = 施工順序圖 CS-02 與分析階段表逐項核對", combined_text)

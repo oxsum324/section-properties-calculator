@@ -70,7 +70,10 @@ class RemovalTransferHandoffTests(unittest.TestCase):
                     "transferId": transfer["transferId"],
                     "status": status,
                     "receiverTarget": transfer["receiver"]["target"] or "另案承接構造 RC-01",
-                    "adoptedDemandTf": transfer["sourceDemand"]["memberDesignAxialForceTf"],
+                    "adoptedDemandTf": transfer["sourceDemand"].get(
+                        "receiverTransferDemandTf",
+                        transfer["sourceDemand"]["memberDesignAxialForceTf"],
+                    ),
                     "capacityUtilizationRatio": ratio,
                     "verificationBasis": "承接構造階段分析模型 RV-01",
                     "conclusion": "容量及傳力路徑檢核通過" if status == "passed" else "容量檢核不通過",
@@ -132,7 +135,7 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         )
 
         self.assertEqual(record["kind"], KIND)
-        self.assertEqual(record["schemaVersion"], 2)
+        self.assertEqual(record["schemaVersion"], 3)
         self.assertEqual(record["receiptContract"]["schemaVersion"], 1)
         self.assertRegex(record["handoffFingerprint"], r"^ERH-[0-9A-F]{20}$")
         self.assertEqual(record["source"]["calculationFingerprint"], fingerprint)
@@ -160,6 +163,32 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "交接內容與交接指紋不一致"):
             validate_removal_transfer_handoff(changed)
 
+    def test_builds_two_ert_rows_for_closed_multi_receiver_allocation(self) -> None:
+        project = self.prepared_project()
+        row = project.top_supports[0]
+        row.removal_transfer_share_percent = 60.0
+        row.removal_transfer_additional_receivers = [{
+            "mode": "reshore",
+            "target": "第二道回撐 R2",
+            "direction": "沿 R2 軸線",
+            "share_percent": 40.0,
+            "basis": "拆撐分流分析 TR-02",
+        }]
+        project.calculation_results = calculate_project(project)
+
+        record = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+
+        self.assertEqual(len(record["transfers"]), 2)
+        self.assertEqual(
+            [item["sourceDemand"]["allocationSharePercent"] for item in record["transfers"]],
+            [60.0, 40.0],
+        )
+        self.assertEqual(
+            sum(item["sourceDemand"]["receiverTransferDemandTf"] for item in record["transfers"]),
+            106.0,
+        )
+        self.assertEqual(record["verificationSummary"]["required"], 2)
+
     def test_keeps_legacy_v1_handoff_read_compatibility(self) -> None:
         project = self.prepared_project()
         record = build_removal_transfer_handoff(project, calculation_fingerprint(project))
@@ -169,6 +198,20 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         for transfer in legacy["transfers"]:
             transfer["sourceDemand"].pop("receiverTransferDemandTf")
             transfer["receiver"].pop("direction")
+            unsigned = {key: value for key, value in transfer.items() if key != "transferId"}
+            transfer["transferId"] = _transfer_id(unsigned, source_fingerprint)
+        legacy["handoffFingerprint"] = _handoff_fingerprint(legacy)
+
+        self.assertEqual(validate_removal_transfer_handoff(legacy), legacy)
+
+    def test_keeps_legacy_v2_handoff_read_compatibility(self) -> None:
+        project = self.prepared_project()
+        record = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        legacy = deepcopy(record)
+        legacy["schemaVersion"] = 2
+        source_fingerprint = legacy["source"]["calculationFingerprint"]
+        for transfer in legacy["transfers"]:
+            transfer["sourceDemand"].pop("allocationSharePercent")
             unsigned = {key: value for key, value in transfer.items() if key != "transferId"}
             transfer["transferId"] = _transfer_id(unsigned, source_fingerprint)
         legacy["handoffFingerprint"] = _handoff_fingerprint(legacy)

@@ -60,6 +60,14 @@ export type RemovalTransferMode =
   | "permanent_structure"
   | "other";
 
+export type RemovalTransferReceiverAllocation = {
+  mode: Exclude<RemovalTransferMode, "unassigned">;
+  target: string;
+  direction: string;
+  share_percent: number;
+  basis: string;
+};
+
 export type SupportRow = {
   level_label: string;
   support_count: number;
@@ -78,6 +86,8 @@ export type SupportRow = {
   removal_transfer_mode?: RemovalTransferMode;
   removal_transfer_target?: string;
   removal_transfer_direction?: string;
+  removal_transfer_share_percent?: number;
+  removal_transfer_additional_receivers?: RemovalTransferReceiverAllocation[];
   removal_transfer_basis?: string;
   removal_transfer_confirmed?: boolean;
   construction_step_label?: string;
@@ -112,6 +122,8 @@ export type BraceRow = {
   removal_transfer_mode?: RemovalTransferMode;
   removal_transfer_target?: string;
   removal_transfer_direction?: string;
+  removal_transfer_share_percent?: number;
+  removal_transfer_additional_receivers?: RemovalTransferReceiverAllocation[];
   removal_transfer_basis?: string;
   removal_transfer_confirmed?: boolean;
   construction_step_label?: string;
@@ -351,7 +363,7 @@ export type ProjectState = {
 };
 
 export type RemovalTransferHandoff = {
-  schemaVersion: 1 | 2;
+  schemaVersion: 1 | 2 | 3;
   kind: "excavation-removal-transfer-handoff";
   generatedAt: string;
   source: {
