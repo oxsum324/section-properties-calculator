@@ -69,6 +69,11 @@ const removalTransferHandoffTests = readUtf8('backend/tests/test_removal_transfe
 const receiverOfflineSigner = readUtf8('backend/sign_receiver_request.py');
 const receiverSigningLauncher = readUtf8('sign_receiver_request.ps1');
 const sourceEvidenceSigningLauncher = readUtf8('簽署SEV身分請求.bat');
+const sourceEvidenceChainVerifier = readUtf8('backend/verify_source_evidence_chain.py');
+const sourceEvidenceChainVerifierTests = readUtf8('backend/tests/test_source_evidence_chain_verifier.py');
+const sourceEvidenceChainLauncher = readUtf8('verify_source_evidence_chain.ps1');
+const sourceEvidenceChainBatch = readUtf8('驗證SEV證據鏈.bat');
+const sourceEvidenceChainGuide = readUtf8('SOURCE_EVIDENCE_CHAIN_VERIFIER.md');
 const receiverKeyEnrollment = readUtf8('backend/app/receiver_key_enrollment.py');
 const receiverKeyManager = readUtf8('backend/manage_receiver_key.py');
 const receiverKeyLauncher = readUtf8('manage_receiver_key.ps1');
@@ -89,7 +94,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.9.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.10.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -355,6 +360,59 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'SEV identity signature response created',
 ].forEach((needle) => {
   assert(sourceEvidenceSigningLauncher.includes(needle), `excavation SEV signer launcher keeps ${needle}`, needle);
+});
+[
+  'source-evidence-chain-verification-receipt',
+  'def build_source_evidence_chain_verification_receipt',
+  'def validate_source_evidence_chain_verification_receipt',
+  'validate_receiver_trust_registry_backup',
+  'verify_receiver_identity_signature',
+  'verify_source_evidence_identity_signature',
+  'eligible-trusted-identities',
+  'manual-identity-review-required',
+  'not-eligible-engineering-failed',
+  'independentOfflineValidation',
+  'noProjectDatabaseRequired',
+  'noPrivateKeysRead',
+  'doesNotRecalculateEngineeringCapacity',
+  'doesNotConstituteEngineeringApproval',
+  'receiptIsNotStandaloneProof',
+  'requiresSourceFilesForRevalidation',
+].forEach((needle) => {
+  assert(sourceEvidenceChainVerifier.includes(needle), `excavation independent evidence-chain verifier keeps ${needle}`, needle);
+});
+[
+  'test_signed_chain_with_valid_public_backup_is_eligible',
+  'test_failed_receiver_engineering_result_is_not_eligible',
+  'test_tampered_trust_registry_summary_is_rejected',
+  'test_tampered_identity_result_is_rejected',
+  'test_source_file_summary_rejects_path_disclosure',
+  'test_cli_writes_independent_chain_receipt_without_database',
+].forEach((needle) => {
+  assert(sourceEvidenceChainVerifierTests.includes(needle), `excavation independent evidence-chain tests keep ${needle}`, needle);
+});
+[
+  'backend.verify_source_evidence_chain',
+  '--handoff',
+  '--receipt',
+  '--sev',
+  '--trust-backup',
+].forEach((needle) => {
+  assert(sourceEvidenceChainLauncher.includes(needle), `excavation evidence-chain launcher keeps ${needle}`, needle);
+});
+[
+  'verify_source_evidence_chain.ps1',
+  'SEV evidence-chain verification receipt created',
+].forEach((needle) => {
+  assert(sourceEvidenceChainBatch.includes(needle), `excavation evidence-chain batch keeps ${needle}`, needle);
+});
+[
+  'SCV 採用狀態',
+  '不啟動開挖擋土支撐服務',
+  '不讀取私人金鑰',
+  '不構成工程核可',
+].forEach((needle) => {
+  assert(sourceEvidenceChainGuide.includes(needle), `excavation evidence-chain guide keeps ${needle}`, needle);
 });
 [
   'receiver-verification-key-enrollment',

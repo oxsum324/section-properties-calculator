@@ -1,0 +1,30 @@
+# SEV 證據鏈獨立驗證器
+
+本驗證器供來源端、審查者或附件整理人員在不啟動開挖擋土支撐服務、也不讀取專案資料庫的情況下，獨立驗證同一批 ERH、RVR、SEV JSON 是否形成完整且未遭改寫的證據鏈。
+
+## Windows 操作
+
+1. 雙擊 `驗證SEV證據鏈.bat`。
+2. 依序選取 ERH 交接檔、RVR 回簽檔與 SEV 來源端核驗檔。
+3. 若持有由信任清冊管理者交付的公開 RTB 備份，選擇「是」並選取 RTB；沒有 RTB 時選擇「否」，仍可完成內容與數位簽章完整性驗證，但身分維持人工核對。
+4. 驗證成功後，程式會在 SEV 旁建立 `SCV-證據鏈驗證收據-SCV-....json`。
+
+也可直接執行：
+
+```powershell
+python -m backend.verify_source_evidence_chain --handoff <ERH.json> --receipt <RVR.json> --sev <SEV.json> --trust-backup <RTB.json>
+```
+
+`--trust-backup` 與 `--output` 均可省略。
+
+## SCV 採用狀態
+
+- `eligible-trusted-identities`：RVR 工程結果為通過，且 RVR、SEV 簽章皆能由所選 RTB 的未撤銷公鑰及登錄單位驗證。
+- `manual-identity-review-required`：證據鏈完整且工程結果通過，但缺少 RTB、簽章，或至少一方尚未達受信任身分狀態；仍須人工核對身分與採用決策。
+- `not-eligible-engineering-failed`：RVR 工程結果未通過，不得因簽章或檔案完整性而升級為可採用。
+
+## 責任邊界
+
+SCV 會驗證 ERH／RVR／SEV 的受控欄位、互相連結、指紋、逐列證據關係與既有工程結果；若提供 RTB，另驗證其公開信任清冊以及 RVR／SEV 簽章身分狀態。驗證器不讀取私人金鑰、不連線至專案資料庫、不重新計算承接構造容量，也不構成工程核可。RTB 僅含公開金鑰與信任事件，仍應由管理者透過受控管道交付。
+
+SCV 指紋是內容完整性識別，不是第三方憑證或 SCV 本身的數位簽章。歸檔時應保留 SCV 所列 SHA-256 對應的 ERH、RVR、SEV；若採用受信任身分結論，也應保留當次 RTB。正式複驗須以這些來源檔重新執行驗證器，不能只憑單獨一份 SCV 判定真實性。
