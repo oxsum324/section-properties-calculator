@@ -17,7 +17,9 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from .schemas import BraceRow, CheckResult, ProjectState, SupportRow
 
 
-SCHEMA_VERSION = 1
+HANDOFF_SCHEMA_VERSION = 2
+RECEIPT_SCHEMA_VERSION = 1
+SCHEMA_VERSION = HANDOFF_SCHEMA_VERSION
 KIND = "excavation-removal-transfer-handoff"
 RECEIPT_KIND = "receiver-capacity-verification-receipt"
 RECEIPT_FINGERPRINT_PREFIX = "RVR"
@@ -376,6 +378,8 @@ def _build_transfer(
         raise ValueError(f"{module_name}第 {row_index + 1} 列尚未確認拆撐後荷重處置。")
     if not row.removal_transfer_basis.strip():
         raise ValueError(f"{module_name}第 {row_index + 1} 列缺少拆撐處置依據。")
+    if not row.removal_transfer_direction.strip():
+        raise ValueError(f"{module_name}第 {row_index + 1} 列缺少傳力方向或作用線。")
     if mode != "outside_scope" and not row.removal_transfer_target.strip():
         raise ValueError(f"{module_name}第 {row_index + 1} 列缺少承接構造或指定對象。")
 
@@ -418,6 +422,7 @@ def _build_transfer(
             "unit": "tf",
             "analysisControlAxialForceTf": round(axial_force, 6),
             "memberDesignAxialForceTf": round(design_axial_force, 6),
+            "receiverTransferDemandTf": round(design_axial_force, 6),
             "analysisCases": [
                 {
                     "stageIndex": case.stage_index,
@@ -426,12 +431,13 @@ def _build_transfer(
                 }
                 for case in row.analysis_stage_cases
             ],
-            "basis": "外部分析控制階段軸力；承接構造之實際分配、方向、偏心及載重組合尚待驗證。",
+            "basis": "承接設計需求取來源構件設計軸力；承接構造之實際分配、偏心及載重組合仍待接收端驗證。",
         },
         "receiver": {
             "mode": mode,
             "modeLabel": TRANSFER_MODE_LABELS[mode],
             "target": row.removal_transfer_target.strip(),
+            "direction": row.removal_transfer_direction.strip(),
             "dispositionBasis": row.removal_transfer_basis.strip(),
             "receiverIdentityRequired": mode == "outside_scope" and not row.removal_transfer_target.strip(),
         },
@@ -501,7 +507,7 @@ def build_removal_transfer_handoff(
             "receiptKind": RECEIPT_KIND,
         },
         "receiptContract": {
-            "schemaVersion": SCHEMA_VERSION,
+            "schemaVersion": RECEIPT_SCHEMA_VERSION,
             "kind": RECEIPT_KIND,
             "fingerprintAlgorithm": "RVR-SHA256-canonical-json-first-20-uppercase",
             "coverage": "all-ERT-transfers-required",
@@ -511,7 +517,7 @@ def build_removal_transfer_handoff(
             "requiresReceiverVerification": True,
             "autoApplied": False,
             "autoVerified": False,
-            "scope": "本檔只交接拆撐來源構件、生命週期、控制軸力與人工採用之承接對象；不代表樓版、重撐、永久結構或其他承接構造已完成容量、傳力方向、分配、偏心或載重組合檢核。",
+            "scope": "本檔交接拆撐來源構件、生命週期、控制軸力、承接設計需求及人工採用的承接對象與傳力方向；不代表樓版、重撐、永久結構或其他承接構造已完成容量、方向正確性、分配、偏心或載重組合檢核。",
         },
     }
     record["handoffFingerprint"] = _handoff_fingerprint(record)
@@ -521,7 +527,12 @@ def build_removal_transfer_handoff(
 def validate_removal_transfer_handoff(record: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(record, dict):
         raise ValueError("拆撐承接構造交接檔格式不正確。")
-    if record.get("schemaVersion") != SCHEMA_VERSION or record.get("kind") != KIND:
+    schema_version = record.get("schemaVersion")
+    if (
+        isinstance(schema_version, bool)
+        or schema_version not in {1, HANDOFF_SCHEMA_VERSION}
+        or record.get("kind") != KIND
+    ):
         raise ValueError("拆撐承接構造交接檔版本或種類不受支援。")
     if not re.fullmatch(r"CF-[0-9A-F]{16}", str(record.get("source", {}).get("calculationFingerprint", ""))):
         raise ValueError("拆撐承接構造交接檔缺少有效來源計算指紋。")
@@ -539,6 +550,13 @@ def validate_removal_transfer_handoff(record: dict[str, Any]) -> dict[str, Any]:
         if transfer_id != _transfer_id(unsigned, source_fingerprint) or transfer_id in seen_ids:
             raise ValueError("拆撐承接構造交接列識別或內容不一致。")
         seen_ids.add(transfer_id)
+        if schema_version == HANDOFF_SCHEMA_VERSION:
+            source_demand = transfer.get("sourceDemand", {})
+            receiver = transfer.get("receiver", {})
+            demand = source_demand.get("receiverTransferDemandTf")
+            if isinstance(demand, bool) or not isinstance(demand, (int, float)) or not math.isfinite(demand) or demand < 0:
+                raise ValueError("拆撐交接列缺少非負有限的承接設計需求。")
+            _required_text(receiver.get("direction"), "拆撐傳力方向", max_length=120)
         verification = transfer.get("verification", {})
         if verification.get("status") != "pending" or verification.get("required") is not True or verification.get("autoVerified") is not False:
             raise ValueError("未回簽的拆撐交接列必須維持待驗證，且不得自動標示完成。")
@@ -547,7 +565,7 @@ def validate_removal_transfer_handoff(record: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("拆撐承接構造交接檔未保留接收端明確驗證邊界。")
     receipt_contract = record.get("receiptContract", {})
     if (
-        receipt_contract.get("schemaVersion") != SCHEMA_VERSION
+        receipt_contract.get("schemaVersion") != RECEIPT_SCHEMA_VERSION
         or receipt_contract.get("kind") != RECEIPT_KIND
         or receipt_contract.get("coverage") != "all-ERT-transfers-required"
         or receipt_contract.get("verifierIdentityAuthentication") not in {
@@ -596,7 +614,7 @@ def validate_receiver_verification_receipt(
     validated_handoff = validate_removal_transfer_handoff(handoff)
     if not isinstance(receipt, dict):
         raise ValueError("承接構造回簽格式不正確。")
-    if receipt.get("schemaVersion") != SCHEMA_VERSION or receipt.get("kind") != RECEIPT_KIND:
+    if receipt.get("schemaVersion") != RECEIPT_SCHEMA_VERSION or receipt.get("kind") != RECEIPT_KIND:
         raise ValueError("承接構造回簽版本或種類不受支援。")
 
     fingerprint = str(receipt.get("receiptFingerprint", ""))
@@ -651,7 +669,12 @@ def validate_receiver_verification_receipt(
         _required_text(result.get("receiverTarget"), "承接構造識別", max_length=160)
         _required_text(result.get("verificationBasis"), "逐筆檢核依據")
         _required_text(result.get("conclusion"), "逐筆檢核結論")
-        _finite_nonnegative(result.get("adoptedDemandTf"), "採用需求值")
+        adopted_demand = _finite_nonnegative(result.get("adoptedDemandTf"), "採用需求值")
+        if validated_handoff.get("schemaVersion") == HANDOFF_SCHEMA_VERSION:
+            transfer = next(item for item in validated_handoff["transfers"] if item["transferId"] == transfer_id)
+            minimum_demand = float(transfer["sourceDemand"]["receiverTransferDemandTf"])
+            if adopted_demand + 1e-9 < minimum_demand:
+                raise ValueError("承接構造回簽採用需求不得小於 ERH 交接的承接設計需求。")
         ratio = _finite_nonnegative(result.get("capacityUtilizationRatio"), "容量利用率")
         if status == "passed" and ratio > 1.0 + 1e-9:
             raise ValueError("承接構造回簽將容量利用率大於 1 的結果標示為 passed。")
@@ -712,7 +735,7 @@ def build_receiver_verification_receipt(
     passed = sum(result["status"] == "passed" for result in controlled_results)
     failed = sum(result["status"] == "failed" for result in controlled_results)
     receipt = {
-        "schemaVersion": SCHEMA_VERSION,
+        "schemaVersion": RECEIPT_SCHEMA_VERSION,
         "kind": RECEIPT_KIND,
         "issuedAt": issued_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "handoffFingerprint": validated_handoff["handoffFingerprint"],

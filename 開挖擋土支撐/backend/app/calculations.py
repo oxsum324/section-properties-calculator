@@ -303,6 +303,18 @@ def _analysis_mapping_inputs(row: object) -> dict[str, object]:
     removal_index = getattr(row, "analysis_removal_stage_index", None)
     removal_label = str(getattr(row, "analysis_removal_stage_label", "")).strip()
     transfer_mode = str(getattr(row, "removal_transfer_mode", "unassigned"))
+    control_index = getattr(row, "analysis_control_stage_index", None)
+    control_label = str(getattr(row, "analysis_control_stage_label", "")).strip()
+    control_case = next(
+        (
+            case for case in cases
+            if case.stage_index == control_index and case.stage_label.strip() == control_label
+        ),
+        None,
+    )
+    receiver_demand = None
+    if control_case is not None:
+        receiver_demand = float(control_case.axial_force_t) + float(getattr(row, "temp_force_t", 0.0))
     transfer_labels = {
         "outside_scope": "本構件檢核範圍外（另案檢核）",
         "floor": "移轉至樓版",
@@ -313,10 +325,12 @@ def _analysis_mapping_inputs(row: object) -> dict[str, object]:
     return {
         "內力來源": "外部分析階段包絡",
         "分析安裝階段": f"#{install_index or '—'} {install_label}".strip(),
-        "控制分析階段": f"#{getattr(row, 'analysis_control_stage_index', None) or '—'} {getattr(row, 'analysis_control_stage_label', '')}".strip(),
+        "控制分析階段": f"#{control_index or '—'} {control_label}".strip(),
         "分析拆撐階段": f"#{removal_index} {removal_label}".strip() if removal_index else "未辨識拆撐事件",
         "拆撐後荷重處置": transfer_labels.get(transfer_mode, "未指定") if removal_index else "不適用",
         "拆撐後承接構造": str(getattr(row, "removal_transfer_target", "")).strip() or "—",
+        "拆撐傳力方向": str(getattr(row, "removal_transfer_direction", "")).strip() or "—",
+        "拆撐承接設計需求": f"{receiver_demand:g} tf" if removal_index and receiver_demand is not None else "—",
         "拆撐處置依據": str(getattr(row, "removal_transfer_basis", "")).strip() or "—",
         "施工步驟": getattr(row, "construction_step_label", ""),
         "階段對應依據": getattr(row, "analysis_mapping_basis", ""),
@@ -370,6 +384,7 @@ def _validate_analysis_force_mapping(
         return None, "外部分析的拆撐階段未晚於控制內力階段，時序不成立。"
     transfer_mode = str(getattr(row, "removal_transfer_mode", "unassigned"))
     transfer_target = str(getattr(row, "removal_transfer_target", "")).strip()
+    transfer_direction = str(getattr(row, "removal_transfer_direction", "")).strip()
     transfer_basis = str(getattr(row, "removal_transfer_basis", "")).strip()
     transfer_confirmed = bool(getattr(row, "removal_transfer_confirmed", False))
     if removal_index is not None:
@@ -377,11 +392,13 @@ def _validate_analysis_force_mapping(
             return None, "已辨識拆撐階段，但尚未指定拆撐後荷重處置。"
         if transfer_mode != "outside_scope" and not transfer_target:
             return None, "拆撐後荷重處置必須填寫承接構造或指定對象。"
+        if not transfer_direction:
+            return None, "拆撐後荷重處置必須填寫傳力方向或作用線。"
         if not transfer_basis:
             return None, "拆撐後荷重處置必須填寫正式分析、施工順序圖或專案文件依據。"
         if not transfer_confirmed:
             return None, "尚未確認拆撐後荷重處置及其承接構造檢核邊界。"
-    elif transfer_mode != "unassigned" or transfer_target or transfer_basis or transfer_confirmed:
+    elif transfer_mode != "unassigned" or transfer_target or transfer_direction or transfer_basis or transfer_confirmed:
         return None, "未辨識拆撐階段，不得保留拆撐後荷重處置資料。"
     if not math.isclose(
         adopted_axial_force_t,

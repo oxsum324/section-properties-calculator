@@ -160,6 +160,7 @@ class SupportRow(BaseModel):
         "unassigned", "outside_scope", "floor", "reshore", "permanent_structure", "other"
     ] = "unassigned"
     removal_transfer_target: str = Field(default="", max_length=120)
+    removal_transfer_direction: str = Field(default="", max_length=120)
     removal_transfer_basis: str = Field(default="", max_length=160)
     removal_transfer_confirmed: bool = False
     construction_step_label: str = Field(default="", max_length=120)
@@ -195,6 +196,7 @@ class BraceRow(BaseModel):
         "unassigned", "outside_scope", "floor", "reshore", "permanent_structure", "other"
     ] = "unassigned"
     removal_transfer_target: str = Field(default="", max_length=120)
+    removal_transfer_direction: str = Field(default="", max_length=120)
     removal_transfer_basis: str = Field(default="", max_length=160)
     removal_transfer_confirmed: bool = False
     construction_step_label: str = Field(default="", max_length=120)

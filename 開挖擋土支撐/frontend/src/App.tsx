@@ -1145,6 +1145,7 @@ function App() {
     if (
       "removal_transfer_mode" in patch ||
       "removal_transfer_target" in patch ||
+      "removal_transfer_direction" in patch ||
       "removal_transfer_basis" in patch
     ) {
       next.removal_transfer_confirmed = false;
@@ -4234,8 +4235,9 @@ function App() {
                             <code>{result.transferId}</code>
                           </header>
                           <div className="receiver-source-summary">
-                            <span>{`來源設計軸力：${fmt(handoffDesignDemandTf(transfer), " tf")}`}</span>
+                            <span>{`承接設計需求：${fmt(handoffDesignDemandTf(transfer), " tf")}`}</span>
                             <span>{`原指定承接對象：${transfer.receiver.target || "待接收端明確指定"}`}</span>
+                            <span>{`傳力方向：${transfer.receiver.direction || "舊版交接檔未記錄"}`}</span>
                             <span>{`處置依據：${transfer.receiver.dispositionBasis || "—"}`}</span>
                           </div>
                           <div className="form-grid receiver-result-fields">
@@ -4940,6 +4942,7 @@ type AnalysisMappingPatch = Partial<Pick<SupportRow,
   | "analysis_mapping_confirmed"
   | "removal_transfer_mode"
   | "removal_transfer_target"
+  | "removal_transfer_direction"
   | "removal_transfer_basis"
   | "removal_transfer_confirmed"
 >>;
@@ -4970,6 +4973,7 @@ function AnalysisMappingEditor(props: {
     transferMode !== "unassigned" &&
     props.row.removal_transfer_confirmed &&
     props.row.removal_transfer_basis?.trim() &&
+    props.row.removal_transfer_direction?.trim() &&
     (transferMode === "outside_scope" || props.row.removal_transfer_target?.trim()),
   );
   return (
@@ -4987,7 +4991,7 @@ function AnalysisMappingEditor(props: {
       <p className="meta-line">
         控制階段軸力候選：{cases.map((item) => `#${item.stage_index} ${item.stage_label} = ${fmt(item.axial_force_t)} tf`).join("；") || "缺少候選資料"}
       </p>
-      <p className="meta-line">拆撐後的傳力路徑不由匯入資料自動推定；以下只記錄人工採用的處置，承接構造仍須另依正式模型完成檢核。</p>
+      <p className="meta-line">拆撐後的傳力路徑不由匯入資料自動推定；以下記錄承接對象、傳力方向與由來源構件設計軸力形成的承接需求，承接構造仍須另依正式模型完成分配、偏心、載重組合及容量檢核。</p>
       <div className="analysis-stage-mapping-grid">
         <label className="field-block">
           <span>實際施工步驟（必填）</span>
@@ -5032,6 +5036,17 @@ function AnalysisMappingEditor(props: {
           )}
           {transferMode !== "unassigned" && (
             <label className="field-block">
+              <span>傳力方向／作用線（必填）</span>
+              <input
+                value={props.row.removal_transfer_direction ?? ""}
+                maxLength={120}
+                placeholder="例如：沿支撐 S1 軸線向東、樓版面內 X+ 方向"
+                onChange={(event) => props.onChange({ removal_transfer_direction: event.target.value })}
+              />
+            </label>
+          )}
+          {transferMode !== "unassigned" && (
+            <label className="field-block">
               <span>拆撐處置依據（必填）</span>
               <input
                 value={props.row.removal_transfer_basis ?? ""}
@@ -5059,7 +5074,7 @@ function AnalysisMappingEditor(props: {
             checked={props.row.removal_transfer_confirmed ?? false}
             onChange={(event) => props.onChange({ removal_transfer_confirmed: event.target.checked })}
           />
-          <span>確認拆撐後荷重處置及承接構造的另案檢核邊界</span>
+          <span>確認拆撐後荷重處置、傳力方向及承接構造的另案檢核邊界</span>
           <span className={`status-chip ${transferComplete ? "ok" : "warn"}`}>{transferComplete ? "處置已確認" : "處置待確認"}</span>
         </label>
       )}
@@ -5675,7 +5690,11 @@ function downloadJsonFile(payload: unknown, filename: string): void {
 }
 
 function handoffDesignDemandTf(transfer: RemovalTransferHandoff["transfers"][number]): number {
-  const value = Number(transfer.sourceDemand.memberDesignAxialForceTf ?? 0);
+  const value = Number(
+    transfer.sourceDemand.receiverTransferDemandTf
+    ?? transfer.sourceDemand.memberDesignAxialForceTf
+    ?? 0,
+  );
   return Number.isFinite(value) ? value : 0;
 }
 
@@ -6670,6 +6689,7 @@ function normalizedAnalysisMapping(row: SupportRow | BraceRow): AnalysisMappingP
     analysis_removal_stage_label: row.analysis_removal_stage_label ?? "",
     removal_transfer_mode: row.removal_transfer_mode ?? "unassigned",
     removal_transfer_target: row.removal_transfer_target ?? "",
+    removal_transfer_direction: row.removal_transfer_direction ?? "",
     removal_transfer_basis: row.removal_transfer_basis ?? "",
     removal_transfer_confirmed: row.removal_transfer_confirmed ?? false,
     construction_step_label: row.construction_step_label ?? "",
@@ -7162,6 +7182,7 @@ function toCandidateSupportRow(
     analysis_removal_stage_label: item.removalStageLabel,
     removal_transfer_mode: "unassigned",
     removal_transfer_target: "",
+    removal_transfer_direction: "",
     removal_transfer_basis: "",
     removal_transfer_confirmed: false,
     construction_step_label: "",
@@ -7195,6 +7216,7 @@ function toCandidateBraceRow(
     analysis_removal_stage_label: item.removalStageLabel,
     removal_transfer_mode: "unassigned",
     removal_transfer_target: "",
+    removal_transfer_direction: "",
     removal_transfer_basis: "",
     removal_transfer_confirmed: false,
     construction_step_label: "",

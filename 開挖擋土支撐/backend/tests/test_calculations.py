@@ -409,6 +409,7 @@ class CalculationTests(unittest.TestCase):
             analysis_removal_stage_index=3,
             analysis_removal_stage_label="拆撐",
             removal_transfer_mode="outside_scope",
+            removal_transfer_direction="沿第一道支撐軸線向東",
             removal_transfer_basis="拆撐順序圖 CS-04，承接構造另案檢核",
             removal_transfer_confirmed=True,
             construction_step_label="第二階開挖",
@@ -420,6 +421,38 @@ class CalculationTests(unittest.TestCase):
 
         self.assertNotEqual(result.controlling_condition, "資料未完整")
         self.assertEqual(result.inputs["拆撐後荷重處置"], "本構件檢核範圍外（另案檢核）")
+        self.assertEqual(result.inputs["拆撐傳力方向"], "沿第一道支撐軸線向東")
+        self.assertEqual(result.inputs["拆撐承接設計需求"], "80 tf")
+
+    def test_imported_support_requires_transfer_direction(self) -> None:
+        ref = load_reference_data()
+        row = SupportRow(
+            level_label="1",
+            section_name=ref.sections[-1].name,
+            axial_force_t=80.0,
+            temp_force_t=0.0,
+            spacing_m=5.0,
+            force_source="analysis_import",
+            analysis_stage_cases=[AnalysisForceCase(stage_index=2, stage_label="控制階段", axial_force_t=80.0)],
+            analysis_install_stage_index=1,
+            analysis_install_stage_label="支撐安裝",
+            analysis_control_stage_index=2,
+            analysis_control_stage_label="控制階段",
+            analysis_removal_stage_index=3,
+            analysis_removal_stage_label="拆撐",
+            removal_transfer_mode="floor",
+            removal_transfer_target="B2F 樓版 S1 區",
+            removal_transfer_basis="拆撐順序圖 CS-04",
+            removal_transfer_confirmed=True,
+            construction_step_label="第二階開挖",
+            analysis_mapping_confirmed=True,
+            analysis_mapping_basis="施工步驟表",
+        )
+
+        result = calculate_horizontal_support(row, ref.basic_defaults, "上層水平支撐")
+
+        self.assertEqual(result.controlling_condition, "資料未完整")
+        self.assertIn("傳力方向", result.details["message"])
 
     def test_imported_support_requires_named_transfer_target(self) -> None:
         ref = load_reference_data()

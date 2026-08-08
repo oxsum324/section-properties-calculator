@@ -88,7 +88,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.2.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.3.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -445,6 +445,7 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'analysis_removal_stage_index',
   'removal_transfer_mode',
   'removal_transfer_target',
+  'removal_transfer_direction',
   'removal_transfer_basis',
   'removal_transfer_confirmed',
   'construction_step_label',
@@ -460,6 +461,7 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   '外部分析的拆撐階段未晚於控制內力階段',
   '尚未指定拆撐後荷重處置',
   '拆撐後荷重處置必須填寫承接構造或指定對象',
+  '拆撐後荷重處置必須填寫傳力方向或作用線',
   '尚未確認拆撐後荷重處置及其承接構造檢核邊界',
   '尚未確認控制分析階段與實際施工步驟的對應',
   '目前採用內力與控制分析階段軸力不一致',
@@ -473,7 +475,8 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   '分析生命週期',
   '確認本列安裝、控制內力與拆撐時序',
   '拆撐後荷重處置（必選）',
-  '確認拆撐後荷重處置及承接構造的另案檢核邊界',
+  '傳力方向／作用線（必填）',
+  '確認拆撐後荷重處置、傳力方向及承接構造的另案檢核邊界',
 ].forEach((needle) => {
   assert(app.includes(needle), `excavation frontend stage mapping keeps ${needle}`, needle);
 });

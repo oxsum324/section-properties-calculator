@@ -26,6 +26,7 @@ from backend.app.removal_transfer_handoff import (
     validate_receiver_verification_receipt,
     verify_receiver_identity_signature,
 )
+from backend.app.removal_transfer_handoff import _handoff_fingerprint, _transfer_id
 from backend.sign_receiver_request import build_signature_response
 from backend.app.reporting import calculation_fingerprint
 from backend.app.schemas import AnalysisForceCase
@@ -51,6 +52,7 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         row.analysis_removal_stage_label = "第一道支撐拆除"
         row.removal_transfer_mode = "floor"
         row.removal_transfer_target = "B2F 樓版 S1 區"
+        row.removal_transfer_direction = "沿第一道支撐軸線向東"
         row.removal_transfer_basis = "拆撐順序圖 CS-04"
         row.removal_transfer_confirmed = True
         row.construction_step_label = "第二階開挖完成"
@@ -130,6 +132,8 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         )
 
         self.assertEqual(record["kind"], KIND)
+        self.assertEqual(record["schemaVersion"], 2)
+        self.assertEqual(record["receiptContract"]["schemaVersion"], 1)
         self.assertRegex(record["handoffFingerprint"], r"^ERH-[0-9A-F]{20}$")
         self.assertEqual(record["source"]["calculationFingerprint"], fingerprint)
         self.assertEqual(len(record["transfers"]), 1)
@@ -138,7 +142,9 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         self.assertEqual(transfer["sourceMember"]["collection"], "top_supports")
         self.assertEqual(transfer["sourceDemand"]["analysisControlAxialForceTf"], 76.0)
         self.assertEqual(transfer["sourceDemand"]["memberDesignAxialForceTf"], 106.0)
+        self.assertEqual(transfer["sourceDemand"]["receiverTransferDemandTf"], 106.0)
         self.assertEqual(transfer["receiver"]["target"], "B2F 樓版 S1 區")
+        self.assertEqual(transfer["receiver"]["direction"], "沿第一道支撐軸線向東")
         self.assertEqual(transfer["verification"]["status"], "pending")
         self.assertEqual(transfer["verification"]["acceptedReceiptKind"], RECEIPT_KIND)
         self.assertTrue(record["boundary"]["requiresReceiverVerification"])
@@ -154,11 +160,27 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "交接內容與交接指紋不一致"):
             validate_removal_transfer_handoff(changed)
 
+    def test_keeps_legacy_v1_handoff_read_compatibility(self) -> None:
+        project = self.prepared_project()
+        record = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        legacy = deepcopy(record)
+        legacy["schemaVersion"] = 1
+        source_fingerprint = legacy["source"]["calculationFingerprint"]
+        for transfer in legacy["transfers"]:
+            transfer["sourceDemand"].pop("receiverTransferDemandTf")
+            transfer["receiver"].pop("direction")
+            unsigned = {key: value for key, value in transfer.items() if key != "transferId"}
+            transfer["transferId"] = _transfer_id(unsigned, source_fingerprint)
+        legacy["handoffFingerprint"] = _handoff_fingerprint(legacy)
+
+        self.assertEqual(validate_removal_transfer_handoff(legacy), legacy)
+
     def test_outside_scope_handoff_keeps_receiver_identity_pending(self) -> None:
         project = self.prepared_project()
         row = project.top_supports[0]
         row.removal_transfer_mode = "outside_scope"
         row.removal_transfer_target = ""
+        row.removal_transfer_direction = "沿第一道支撐軸線向東"
         row.removal_transfer_basis = "拆撐順序圖 CS-04，承接構造另案檢核"
         project.calculation_results = calculate_project(project)
 
@@ -196,6 +218,18 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         self.assertTrue(validated["boundary"]["verifierIdentityRequiresManualReview"])
         round_tripped = json.loads(json.dumps(receipt))
         self.assertEqual(validate_receiver_verification_receipt(round_tripped, handoff), receipt)
+
+    def test_rejects_receiver_demand_below_erh_transfer_demand(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt = self.receiver_receipt(handoff)
+        receipt["results"][0]["adoptedDemandTf"] = (
+            handoff["transfers"][0]["sourceDemand"]["receiverTransferDemandTf"] - 0.001
+        )
+        receipt["receiptFingerprint"] = receiver_verification_receipt_fingerprint(receipt)
+
+        with self.assertRaisesRegex(ValueError, "不得小於 ERH"):
+            validate_receiver_verification_receipt(receipt, handoff)
 
     def test_unsigned_receipt_keeps_manual_identity_review(self) -> None:
         project = self.prepared_project()

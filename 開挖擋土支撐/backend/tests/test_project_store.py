@@ -112,6 +112,7 @@ class ProjectStoreNormalizationTests(unittest.TestCase):
             row.analysis_removal_stage_label = "第一道支撐拆除"
             row.removal_transfer_mode = "floor"
             row.removal_transfer_target = "B2F 樓版 S1 區"
+            row.removal_transfer_direction = "沿第一道支撐軸線向東"
             row.removal_transfer_basis = "拆撐順序圖 CS-04"
             row.removal_transfer_confirmed = True
             row.construction_step_label = "第一階開挖完成、第一層支撐作用"
@@ -131,6 +132,7 @@ class ProjectStoreNormalizationTests(unittest.TestCase):
             self.assertEqual(saved.analysis_removal_stage_label, "第一道支撐拆除")
             self.assertEqual(saved.removal_transfer_mode, "floor")
             self.assertEqual(saved.removal_transfer_target, "B2F 樓版 S1 區")
+            self.assertEqual(saved.removal_transfer_direction, "沿第一道支撐軸線向東")
             self.assertEqual(saved.removal_transfer_basis, "拆撐順序圖 CS-04")
             self.assertTrue(saved.removal_transfer_confirmed)
             self.assertEqual(saved.construction_step_label, "第一階開挖完成、第一層支撐作用")
@@ -157,6 +159,7 @@ class ProjectStoreNormalizationTests(unittest.TestCase):
             row.analysis_removal_stage_label = "第一道支撐拆除"
             row.removal_transfer_mode = "floor"
             row.removal_transfer_target = "B2F 樓版 S1 區"
+            row.removal_transfer_direction = "沿第一道支撐軸線向東"
             row.removal_transfer_basis = "拆撐順序圖 CS-04"
             row.removal_transfer_confirmed = True
             row.construction_step_label = "第二階開挖完成"

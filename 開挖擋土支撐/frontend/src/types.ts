@@ -77,6 +77,7 @@ export type SupportRow = {
   analysis_removal_stage_label?: string;
   removal_transfer_mode?: RemovalTransferMode;
   removal_transfer_target?: string;
+  removal_transfer_direction?: string;
   removal_transfer_basis?: string;
   removal_transfer_confirmed?: boolean;
   construction_step_label?: string;
@@ -110,6 +111,7 @@ export type BraceRow = {
   analysis_removal_stage_label?: string;
   removal_transfer_mode?: RemovalTransferMode;
   removal_transfer_target?: string;
+  removal_transfer_direction?: string;
   removal_transfer_basis?: string;
   removal_transfer_confirmed?: boolean;
   construction_step_label?: string;
@@ -349,7 +351,7 @@ export type ProjectState = {
 };
 
 export type RemovalTransferHandoff = {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   kind: "excavation-removal-transfer-handoff";
   generatedAt: string;
   source: {
@@ -370,6 +372,7 @@ export type RemovalTransferHandoff = {
       mode: RemovalTransferMode;
       modeLabel: string;
       target: string;
+      direction?: string;
       dispositionBasis: string;
       receiverIdentityRequired: boolean;
     };

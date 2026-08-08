@@ -421,6 +421,7 @@ class ReportingTests(unittest.TestCase):
         row.analysis_removal_stage_label = "第一道支撐拆除"
         row.removal_transfer_mode = "floor"
         row.removal_transfer_target = "B2F 樓版 S1 區"
+        row.removal_transfer_direction = "沿第一道支撐軸線向東"
         row.removal_transfer_basis = "拆撐順序圖 CS-04 與樓版階段分析 ST-12"
         row.removal_transfer_confirmed = True
         row.construction_step_label = "第二階開挖完成、第二層支撐施作前"
@@ -439,6 +440,8 @@ class ReportingTests(unittest.TestCase):
         self.assertIn("分析拆撐階段 = #3 第一道支撐拆除", combined_text)
         self.assertIn("拆撐後荷重處置 = 移轉至樓版", combined_text)
         self.assertIn("承接構造 = B2F 樓版 S1 區", combined_text)
+        self.assertIn("承接設計需求 =", combined_text)
+        self.assertIn("傳力方向 = 沿第一道支撐軸線向東", combined_text)
         self.assertIn("處置依據 = 拆撐順序圖 CS-04 與樓版階段分析 ST-12", combined_text)
         self.assertIn("實際施工步驟 = 第二階開挖完成、第二層支撐施作前", combined_text)
         self.assertIn("對應依據 = 施工順序圖 CS-02 與分析階段表逐項核對", combined_text)
@@ -465,6 +468,7 @@ class ReportingTests(unittest.TestCase):
         row.analysis_removal_stage_index = 3
         row.analysis_removal_stage_label = "第一道支撐拆除"
         row.removal_transfer_mode = "outside_scope"
+        row.removal_transfer_direction = "沿第一道支撐軸線向東"
         row.removal_transfer_basis = "拆撐順序圖 CS-04，承接構造另案檢核"
         row.removal_transfer_confirmed = True
         row.construction_step_label = "第二階開挖完成、第二層支撐施作前"
