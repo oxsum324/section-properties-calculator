@@ -103,7 +103,7 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 
 Windows 使用者可雙擊 `檢查RVR備份健康狀態.bat`，或讓工作排程器執行 `check_receiver_trust_backup_health.ps1`。健康檢查會同時驗證最新 `RTB-...` 備份、最新 `RDR-...` 收據、兩者的檔名／SHA-256／指紋關聯、新鮮度，以及每週備份排程最近一次結果。任何一項不符都會寫入 `RVR-backup-health-latest.json`，並可用 `-ShowAlert` 顯示限時警示；檢查本身不會修改正式清冊、備份或演練收據。
 
-健康狀態或受控問題代碼改變時，備份資料夾會新增 `RVR-backup-health-event-...-RBH-....json`。每筆事件都含前筆事件指紋並重新驗證串鏈；同一狀態與同一組問題代碼的每日檢查只更新 latest，不重複新增事件。若歷程無法驗證或寫入，健康檢查會加入 `history-record-failed` 並以失敗代碼結束，避免無聲遺失異常／恢復紀錄。
+健康狀態或受控問題代碼改變時，備份資料夾會新增 `RVR-backup-health-event-...-RBH-....json`。每筆事件都含前筆事件指紋並重新驗證串鏈；同一狀態與同一組問題代碼的每日檢查只更新 latest，不重複新增事件。`-ShowAlert` 同步採轉換節流：首次異常或問題種類改變時顯示警示，從異常恢復正常時顯示恢復通知；相同異常仍讓排程回傳失敗，但不會每天重複彈窗。若歷程無法驗證或寫入，健康檢查會加入 `history-record-failed`、每次警示並以失敗代碼結束，避免節流掩蓋稽核故障。
 
 每週備份排程若為七天一次，健康檢查建議每天執行並把 `-MaxAgeDays` 設為 `8`，保留合理的登入與同步時間差：
 

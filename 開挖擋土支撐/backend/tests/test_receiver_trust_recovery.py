@@ -20,6 +20,7 @@ from backend.app.receiver_trust_recovery import (
     write_receiver_trust_registry_backup,
 )
 from backend.app.receiver_trust_store import ReceiverTrustStore
+from backend.backup_receiver_trust_registry import _sanitized_health_history_result
 
 
 class ReceiverTrustRecoveryTests(unittest.TestCase):
@@ -258,6 +259,18 @@ class ReceiverTrustRecoveryTests(unittest.TestCase):
             self.assertEqual(first["status"], "transition-recorded")
             self.assertEqual(duplicate["status"], "unchanged")
             self.assertEqual(changed["status"], "transition-recorded")
+            self.assertEqual(first["transition"]["fromStatus"], "unobserved")
+            self.assertEqual(first["transition"]["toStatus"], "healthy")
+            self.assertIsNone(duplicate["transition"])
+            self.assertEqual(changed["transition"]["fromStatus"], "healthy")
+            self.assertEqual(changed["transition"]["toStatus"], "attention-required")
+            self.assertEqual(changed["transition"]["issueCodes"], ["backup-task-last-run-failed"])
+            self.assertNotIn("eventFingerprint", changed["transition"])
+            cli_result = _sanitized_health_history_result(changed)
+            cli_text = json.dumps(cli_result, ensure_ascii=False)
+            self.assertNotIn("Path", cli_text)
+            self.assertNotIn("RBH-", cli_text)
+            self.assertNotIn(str(root), cli_text)
             self.assertEqual(len(list(history_dir.glob("RVR-backup-health-event-*.json"))), 2)
             history = json.loads(dashboard_path.read_text(encoding="utf-8"))
             self.assertEqual(history["itemCount"], 2)
@@ -284,6 +297,8 @@ class ReceiverTrustRecoveryTests(unittest.TestCase):
             )
 
             self.assertEqual(result["status"], "transition-recorded")
+            self.assertEqual(result["transition"]["fromStatus"], "attention-required")
+            self.assertEqual(result["transition"]["toStatus"], "healthy")
             history = json.loads((root / "dashboard.json").read_text(encoding="utf-8"))
             self.assertEqual(history["items"][0]["fromStatus"], "attention-required")
             self.assertEqual(history["items"][0]["toStatus"], "healthy")

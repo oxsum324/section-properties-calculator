@@ -354,6 +354,7 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   '--history-dir',
   '--dashboard-history',
   'record_receiver_trust_backup_health_transition',
+  '_sanitized_health_history_result',
 ].forEach((needle) => {
   assert(receiverTrustBackupCli.includes(needle), `excavation receiver trust backup CLI keeps ${needle}`, needle);
 });
@@ -373,6 +374,11 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'Show-HealthAlert',
   'rvr-backup-health-history.json',
   'history-record-failed',
+  'transition-recorded',
+  '$historyTransition.toStatus -eq "attention-required"',
+  '$historyTransition.fromStatus -eq "attention-required"',
+  'RVR backup health recovered',
+  '$ShowAlert -and $historyRecordFailed',
 ].forEach((needle) => {
   assert(receiverTrustHealthLauncher.includes(needle), `excavation receiver trust health launcher keeps ${needle}`, needle);
 });

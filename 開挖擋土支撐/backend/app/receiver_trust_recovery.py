@@ -230,6 +230,7 @@ def record_receiver_trust_backup_health_transition(
         and latest["issueCodes"] == issue_codes
     )
     event_path: Path | None = None
+    recorded_event: dict[str, Any] | None = None
     if not unchanged:
         observed_at = current["checkedAt"]
         if latest and _parse_time(observed_at, "備份健康檢查時間") <= _parse_time(
@@ -266,6 +267,7 @@ def record_receiver_trust_backup_health_transition(
             event_path.unlink(missing_ok=True)
             raise ValueError("備份健康轉換紀錄落地後重新驗證失敗，已移除不完整檔案。") from exc
         events.append(saved)
+        recorded_event = saved
     dashboard_history = _build_receiver_trust_backup_health_history(events, max_items=max_items)
     try:
         _write_json_atomic(dashboard_history_path, dashboard_history)
@@ -280,6 +282,12 @@ def record_receiver_trust_backup_health_transition(
         "dashboardHistoryPath": str(dashboard_history_path),
         "transitionCount": len(events),
         "dashboardItemCount": dashboard_history["itemCount"],
+        "transition": {
+            "observedAt": recorded_event["observedAt"],
+            "fromStatus": recorded_event["fromStatus"],
+            "toStatus": recorded_event["toStatus"],
+            "issueCodes": recorded_event["issueCodes"],
+        } if recorded_event else None,
     }
 
 

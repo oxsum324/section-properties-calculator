@@ -20,6 +20,15 @@ def _print_result(payload: dict[str, Any]) -> None:
     print(json.dumps(payload, ensure_ascii=False, indent=2))
 
 
+def _sanitized_health_history_result(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": payload["status"],
+        "transitionCount": payload["transitionCount"],
+        "dashboardItemCount": payload["dashboardItemCount"],
+        "transition": payload["transition"],
+    }
+
+
 def main() -> int:
     settings = get_settings()
     parser = argparse.ArgumentParser(description="備份、驗證並非破壞性演練 RVR 本機信任清冊。")
@@ -124,12 +133,13 @@ def main() -> int:
                 current_status = json.loads(args.current_status.read_text(encoding="utf-8-sig"))
             except (OSError, json.JSONDecodeError) as exc:
                 raise ValueError("無法讀取目前的備份健康摘要 JSON。") from exc
-            _print_result(record_receiver_trust_backup_health_transition(
+            result = record_receiver_trust_backup_health_transition(
                 current_status,
                 args.history_dir,
                 args.dashboard_history,
                 max_items=args.max_items,
-            ))
+            )
+            _print_result(_sanitized_health_history_result(result))
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
     return 0

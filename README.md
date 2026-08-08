@@ -33,7 +33,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 
 離線維運可用 `開挖擋土支撐\backup_receiver_trust_registry.ps1 -Mode Cycle` 建立備份並在隔離暫存清冊執行真實復原，成功後產生 `RDR-...` 收據；該流程會比對正式清冊前後 SHA-256，不會修改正式清冊或自動清除歷史備份。
 
-`開挖擋土支撐\check_receiver_trust_backup_health.ps1` 可每日驗證最新備份、RDR 收據、兩者的可追溯關聯與每週排程結果，並把不含路徑、檔名、指紋或清冊內容的本機摘要寫入 ignored `output/audit/rvr-backup-health-status.json`。狀態或問題代碼改變時，另在受控備份資料夾追加具 RBH 串鏈驗證的轉換紀錄；相同結果不重複新增。儀表板只讀 ignored `output/audit/rvr-backup-health-history.json` 的去識別歷程，公開站顯示「僅限本機」，不發布備份位置，也不把狀態視為 Google Drive 遠端同步證明。
+`開挖擋土支撐\check_receiver_trust_backup_health.ps1` 可每日驗證最新備份、RDR 收據、兩者的可追溯關聯與每週排程結果，並把不含路徑、檔名、指紋或清冊內容的本機摘要寫入 ignored `output/audit/rvr-backup-health-status.json`。狀態或問題代碼改變時，另在受控備份資料夾追加具 RBH 串鏈驗證的轉換紀錄；相同結果不重複新增。`-ShowAlert` 只在首次異常、問題種類改變或恢復正常時通知，相同異常仍回傳失敗但不每日重複彈窗；歷程寫入故障不套用節流。儀表板只讀 ignored `output/audit/rvr-backup-health-history.json` 的去識別歷程，公開站顯示「僅限本機」，不發布備份位置，也不把狀態視為 Google Drive 遠端同步證明。
 
 ## 正式工具與入口
 

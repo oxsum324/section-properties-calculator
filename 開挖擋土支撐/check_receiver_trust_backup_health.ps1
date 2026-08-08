@@ -21,10 +21,15 @@ function Select-BackupDirectory {
   return $dialog.SelectedPath
 }
 
-function Show-HealthAlert([string]$Message) {
+function Show-HealthAlert {
+  param(
+    [string]$Title,
+    [string]$Message,
+    [int]$Icon = 48
+  )
   try {
     $shell = New-Object -ComObject WScript.Shell
-    [void]$shell.Popup($Message, 120, "RVR backup requires attention", 48)
+    [void]$shell.Popup($Message, 120, $Title, $Icon)
   } catch {
     Write-Warning "Unable to display the RVR backup alert: $($_.Exception.Message)"
   }
@@ -65,6 +70,9 @@ $issues = [System.Collections.Generic.List[string]]::new()
 $issueCodes = [System.Collections.Generic.List[string]]::new()
 $evidence = $null
 $taskStatus = $null
+$historyResult = $null
+$historyTransition = $null
+$historyRecordFailed = $false
 
 Push-Location $root
 try {
@@ -194,6 +202,24 @@ try {
   Pop-Location
 }
 
+if ($historyExitCode -eq 0) {
+  try {
+    $historyResult = $historyOutput | ConvertFrom-Json
+    if ($historyResult.status -notin @("unchanged", "transition-recorded")) {
+      throw "The history recorder returned an unsupported status."
+    }
+    if ($historyResult.status -eq "transition-recorded") {
+      if (-not $historyResult.transition) {
+        throw "The history recorder did not return the recorded transition."
+      }
+      $historyTransition = $historyResult.transition
+    }
+  } catch {
+    $historyExitCode = 1
+    $historyOutput = "The history recorder returned an unreadable result: $($_.Exception.Message)"
+  }
+}
+
 if ($historyExitCode -ne 0) {
   $detail = ($historyOutput -replace '\s+', ' ').Trim()
   if ($detail -match ': error: (?<message>.+)$') {
@@ -201,6 +227,7 @@ if ($historyExitCode -ne 0) {
   }
   $issues.Add("The append-only health transition history could not be recorded: $detail")
   $issueCodes.Add("history-record-failed")
+  $historyRecordFailed = $true
   $healthy = $false
   $status.status = "attention-required"
   $status.issues = @($issues)
@@ -213,9 +240,26 @@ if ($historyExitCode -ne 0) {
 
 $json = $status | ConvertTo-Json -Depth 8
 Write-Output $json
+if ($ShowAlert -and $historyTransition) {
+  if ($historyTransition.toStatus -eq "attention-required") {
+    $transitionLabel = "$($historyTransition.fromStatus) -> $($historyTransition.toStatus)"
+    Show-HealthAlert `
+      -Title "RVR backup requires attention" `
+      -Message ((@("RVR backup health changed: $transitionLabel") + @($issues) + @("Status file: $statusPath")) -join [Environment]::NewLine) `
+      -Icon 48
+  } elseif ($historyTransition.fromStatus -eq "attention-required" -and $historyTransition.toStatus -eq "healthy") {
+    Show-HealthAlert `
+      -Title "RVR backup health recovered" `
+      -Message "RVR trust registry backup health returned to normal. No current issues remain." `
+      -Icon 64
+  }
+}
 if (-not $healthy) {
-  if ($ShowAlert) {
-    Show-HealthAlert ((@("RVR trust registry backup requires attention:") + @($issues) + @("Status file: $statusPath")) -join [Environment]::NewLine)
+  if ($ShowAlert -and $historyRecordFailed) {
+    Show-HealthAlert `
+      -Title "RVR backup requires attention" `
+      -Message ((@("RVR trust registry backup requires attention:") + @($issues) + @("Status file: $statusPath")) -join [Environment]::NewLine) `
+      -Icon 48
   }
   exit 1
 }
