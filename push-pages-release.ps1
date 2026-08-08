@@ -8,6 +8,8 @@ param(
   [int]$ManifestTimeoutSeconds = 300,
   [int]$DeploymentRecoverySeconds = 180,
   [int]$PollSeconds = 5,
+  [int]$PublicSmokeAttempts = 3,
+  [int]$PublicSmokeRetryDelaySeconds = 10,
   [switch]$ForceDeploy,
   [switch]$VerifyOnly,
   [switch]$AllowDirtyVerification,
@@ -68,6 +70,35 @@ function Invoke-ExternalJson {
     return $text | ConvertFrom-Json
   } catch {
     throw "$FilePath $($Arguments -join ' ') did not return valid JSON. $text"
+  }
+}
+
+function Invoke-PublicArtifactVerification {
+  param(
+    [string]$ScriptPath,
+    [string]$PagesUrl,
+    [string]$HeadSha,
+    [long]$RunId
+  )
+
+  $attemptsVariable = 'PAGES_HTTP_SMOKE_ATTEMPTS'
+  $delayVariable = 'PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS'
+  $previousAttempts = [Environment]::GetEnvironmentVariable($attemptsVariable, 'Process')
+  $previousDelay = [Environment]::GetEnvironmentVariable($delayVariable, 'Process')
+  try {
+    [Environment]::SetEnvironmentVariable($attemptsVariable, [string]$PublicSmokeAttempts, 'Process')
+    [Environment]::SetEnvironmentVariable($delayVariable, [string]$PublicSmokeRetryDelaySeconds, 'Process')
+    Invoke-ExternalText -FilePath $script:NodePath -Arguments @(
+      $ScriptPath,
+      '--base-url', $PagesUrl,
+      '--check-private-boundary',
+      '--expected-commit-sha', $HeadSha,
+      '--expected-run-id', ([string]$RunId),
+      '--expect-clean-source'
+    ) | Out-Null
+  } finally {
+    [Environment]::SetEnvironmentVariable($attemptsVariable, $previousAttempts, 'Process')
+    [Environment]::SetEnvironmentVariable($delayVariable, $previousDelay, 'Process')
   }
 }
 
@@ -410,7 +441,7 @@ function Dispatch-WorkflowRun {
   throw "The fallback workflow dispatch did not create a discoverable run for commit $HeadSha."
 }
 
-if ($PushRunWaitSeconds -lt 0 -or $RunTimeoutSeconds -le 0 -or $ManifestTimeoutSeconds -le 0 -or $DeploymentRecoverySeconds -le 0 -or $PollSeconds -le 0) {
+if ($PushRunWaitSeconds -lt 0 -or $RunTimeoutSeconds -le 0 -or $ManifestTimeoutSeconds -le 0 -or $DeploymentRecoverySeconds -le 0 -or $PollSeconds -le 0 -or $PublicSmokeAttempts -le 0 -or $PublicSmokeRetryDelaySeconds -lt 0) {
   throw 'Timeout values must be positive; PushRunWaitSeconds may be zero.'
 }
 if ($AllowDirtyVerification -and -not $VerifyOnly) {
@@ -571,15 +602,8 @@ $script:DeploymentRecoveryUsed = $false
 $runEvidence = Wait-RunJobsWithRecovery -RunId $runId -HeadSha $headSha
 $manifest = Wait-PublicManifest -PagesUrl $pagesUrl -HeadSha $headSha -RunId $runId
 $publicSmokeScript = Resolve-RepoToolScript -LeafName 'pages-live-smoke.js'
-Write-ProgressLine "Independently verifying every public artifact file from this workstation."
-Invoke-ExternalText -FilePath $script:NodePath -Arguments @(
-  $publicSmokeScript,
-  '--base-url', $pagesUrl,
-  '--check-private-boundary',
-  '--expected-commit-sha', $headSha,
-  '--expected-run-id', ([string]$runId),
-  '--expect-clean-source'
-) | Out-Null
+Write-ProgressLine "Independently verifying every public artifact file from this workstation (up to $PublicSmokeAttempts attempt(s), transient failures only)."
+Invoke-PublicArtifactVerification -ScriptPath $publicSmokeScript -PagesUrl $pagesUrl -HeadSha $headSha -RunId $runId
 
 $result = [ordered]@{
   schemaVersion = 1
@@ -604,6 +628,8 @@ $result = [ordered]@{
   pagesUrl = $pagesUrl
   pagesStatus = [string]$pagesInfo.status
   publicArtifactVerified = $true
+  publicArtifactVerificationMaxAttempts = $PublicSmokeAttempts
+  publicArtifactVerificationRetryDelaySeconds = $PublicSmokeRetryDelaySeconds
   deploymentManifest = [ordered]@{
     schemaVersion = $manifest.schemaVersion
     commitSha = [string]$manifest.commitSha

@@ -54,7 +54,7 @@ node .\結構工具箱\tools\tool-maturity-matrix.js --write --check
 git diff --check -- README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GROUPS.md CONTEXT.md docs/adr/0001-page-only-report-readiness.md ".github/workflows/pages-deploy.yml" ".github/workflows/pr-validation.yml" "run-pages-artifact-smoke.ps1" "push-pages-release.ps1" "push-pages-release.bat" "pages-release-governance.contract.test.js" "pr-validation.contract.test.js" "toolbox-entrypoints.contract.test.js" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/pages-live-browser-smoke.js" "結構工具箱/tools/run-pages-browser-smoke.sh" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/build-pages-clean-routes.js" "結構工具箱/tools/build-pages-deployment-manifest.js" "結構工具箱/tools/verify-pages-release-lineage.js" "結構工具箱/tools/tool-maturity-matrix.js" "結構工具箱/tools/report-disclosure.contract.test.js" "結構工具箱/tools/audit-dashboard-browser-smoke.test.js" "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json"
 ```
 
-`push-pages-release.ps1` 的成功不只依賴 Actions job 與 manifest 身分；一般推送、既有同 SHA 部署及 `-VerifyOnly` 都必須由目前工作站再次執行公開 `pages-live-smoke.js`，逐檔核對 v2 清冊與正式網址內容，並在結果回傳 `publicArtifactVerified=true`。工作站 HTTP 複驗失敗即維持失敗，不得只因遠端 workflow 已綠燈而略過。
+`push-pages-release.ps1` 的成功不只依賴 Actions job 與 manifest 身分；一般推送、既有同 SHA 部署及 `-VerifyOnly` 都必須由目前工作站再次執行公開 `pages-live-smoke.js`，逐檔核對 v2 清冊與正式網址內容，並在結果回傳 `publicArtifactVerified=true`。工作站預設最多進行 3 次、間隔 10 秒的完整複驗，僅由 smoke 對 5xx 或網路暫態錯誤啟用；非暫態錯誤立即失敗，暫態重試用盡後也維持失敗，不得只因遠端 workflow 已綠燈而略過。
 
 Windows 發布一律優先執行 `push-pages-release.bat`；此入口先找 PowerShell 7，再以 Windows PowerShell 5.1 後備。`push-pages-release.ps1` 必須維持 ASCII 來源路徑解析，不得重新加入會受 5.1 UTF-8 無 BOM 解碼影響的中文路徑字面值。
 

@@ -109,9 +109,13 @@ assert.ok(pushPagesRelease.includes('$failedSteps') && pushPagesRelease.includes
 assert.ok(pushPagesRelease.includes('pages-deployment.json?release_check=') && pushPagesRelease.includes('Test-ManifestIdentity'), 'Pages push wrapper verifies a cache-busted public deployment manifest');
 assert.ok(pushPagesRelease.includes('commitSha') && pushPagesRelease.includes('runId') && pushPagesRelease.includes('sourceDirty'), 'Pages push wrapper binds the manifest to commit, run, and clean source provenance');
 assert.ok(pushPagesRelease.includes("Resolve-RepoToolScript -LeafName 'pages-live-smoke.js'") && pushPagesRelease.includes('Independently verifying every public artifact file'), 'Pages push wrapper independently resolves and reruns the public HTTP artifact verifier');
+assert.ok(pushPagesRelease.includes('[int]$PublicSmokeAttempts = 3') && pushPagesRelease.includes('[int]$PublicSmokeRetryDelaySeconds = 10'), 'Pages push wrapper gives workstation artifact verification a bounded transient retry policy');
+assert.ok(pushPagesRelease.includes("$attemptsVariable = 'PAGES_HTTP_SMOKE_ATTEMPTS'") && pushPagesRelease.includes("$delayVariable = 'PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS'"), 'Pages push wrapper delegates retry eligibility to the governed HTTP smoke');
+assert.ok(pushPagesRelease.includes('function Invoke-PublicArtifactVerification') && pushPagesRelease.includes('finally {') && pushPagesRelease.includes("SetEnvironmentVariable($attemptsVariable, $previousAttempts, 'Process')"), 'Pages push wrapper restores process retry settings after verification');
 assert.ok(pushPagesRelease.includes("'--check-private-boundary'") && pushPagesRelease.includes("'--expected-commit-sha'") && pushPagesRelease.includes("'--expected-run-id'") && pushPagesRelease.includes("'--expect-clean-source'"), 'Pages push wrapper preserves full public provenance and boundary arguments');
 assert.ok(pushPagesRelease.indexOf('$manifest = Wait-PublicManifest') < pushPagesRelease.indexOf('Independently verifying every public artifact file'), 'workstation artifact verification runs after the matching public manifest is visible');
 assert.ok(pushPagesRelease.includes('publicArtifactVerified = $true') && pushPagesRelease.includes('schemaVersion = $manifest.schemaVersion') && pushPagesRelease.includes('fileCount = $manifest.fileCount') && pushPagesRelease.includes('totalBytes = $manifest.totalBytes'), 'Pages push wrapper reports independently verified artifact evidence');
+assert.ok(pushPagesRelease.includes('publicArtifactVerificationMaxAttempts = $PublicSmokeAttempts') && pushPagesRelease.includes('publicArtifactVerificationRetryDelaySeconds = $PublicSmokeRetryDelaySeconds'), 'Pages push wrapper reports its bounded workstation retry policy');
 assert.ok(pushPagesRelease.includes('verify-pages-release-lineage.js') && pushPagesRelease.includes('Verifying that HEAD only carries status snapshots'), 'Pages push wrapper blocks untested carrier changes before push');
 assert.equal(/[^\x00-\x7F]/.test(pushPagesRelease), false, 'Pages push wrapper avoids source-encoding-sensitive path literals under Windows PowerShell 5.1');
 assert.ok(pushPagesRelease.includes('AllowDirtyVerification is only valid with VerifyOnly and can never authorize a push or dispatch.'), 'dirty verification mode cannot authorize mutation');
@@ -120,7 +124,7 @@ assert.ok(pushPagesReleaseBatch.includes('where pwsh') && pushPagesReleaseBatch.
 assert.ok(pushPagesReleaseBatch.includes('powershell -NoProfile'), 'Pages release batch retains a Windows PowerShell 5.1 fallback');
 assert.ok(readme.includes('publicArtifactVerified=true') && readme.includes('工作站事後複驗'), 'README documents workstation artifact verification as a completion condition');
 assert.ok(toolBoundaries.includes('工作站再次呼叫 `pages-live-smoke.js`') && toolBoundaries.includes('全部公開檔案大小／SHA-256'), 'tool boundaries documents the independent workstation verifier');
-assert.ok(staging.includes('一般推送、既有同 SHA 部署及 `-VerifyOnly`') && staging.includes('工作站 HTTP 複驗失敗即維持失敗'), 'staging guide keeps workstation verification fail-closed');
+assert.ok(staging.includes('一般推送、既有同 SHA 部署及 `-VerifyOnly`') && staging.includes('預設最多進行 3 次') && staging.includes('非暫態錯誤立即失敗') && staging.includes('暫態重試用盡後也維持失敗'), 'staging guide keeps bounded transient retries fail-closed');
 
 {
   const orderedTokens = [
