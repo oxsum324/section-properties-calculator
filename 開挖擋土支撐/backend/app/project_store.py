@@ -12,6 +12,7 @@ from .config import get_settings
 from .removal_transfer_handoff import (
     validate_removal_transfer_handoff,
     validate_receiver_verification_receipt,
+    validate_source_capacity_evidence_verification,
 )
 from .schemas import ProjectListItem, ProjectState
 from .workbook_loader import load_default_project
@@ -57,6 +58,7 @@ def _normalize_project_sources(project: ProjectState) -> ProjectState:
         valid_handoffs.append(validated)
         handoffs_by_fingerprint[str(validated["handoffFingerprint"])] = validated
     valid_receipts: list[dict] = []
+    receipts_by_fingerprint: dict[str, dict] = {}
     for receipt in project.removal_transfer_verification_receipts:
         if not isinstance(receipt, dict):
             continue
@@ -64,11 +66,28 @@ def _normalize_project_sources(project: ProjectState) -> ProjectState:
         if handoff is None:
             continue
         try:
-            valid_receipts.append(validate_receiver_verification_receipt(receipt, handoff))
+            validated_receipt = validate_receiver_verification_receipt(receipt, handoff)
+            valid_receipts.append(validated_receipt)
+            receipts_by_fingerprint[str(validated_receipt["receiptFingerprint"])] = validated_receipt
+        except (TypeError, ValueError):
+            continue
+    valid_source_evidence_verifications: list[dict] = []
+    for record in project.source_capacity_evidence_verifications:
+        if not isinstance(record, dict):
+            continue
+        handoff = handoffs_by_fingerprint.get(str(record.get("handoffFingerprint", "")))
+        receipt = receipts_by_fingerprint.get(str(record.get("receiptFingerprint", "")))
+        if handoff is None or receipt is None:
+            continue
+        try:
+            valid_source_evidence_verifications.append(
+                validate_source_capacity_evidence_verification(record, handoff, receipt)
+            )
         except (TypeError, ValueError):
             continue
     project.removal_transfer_handoffs = valid_handoffs[-50:]
     project.removal_transfer_verification_receipts = valid_receipts[-100:]
+    project.source_capacity_evidence_verifications = valid_source_evidence_verifications[-100:]
     return project
 
 

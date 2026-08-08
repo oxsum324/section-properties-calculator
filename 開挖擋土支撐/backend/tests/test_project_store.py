@@ -9,6 +9,8 @@ from backend.app.calculations import calculate_project
 from backend.app.project_store import ProjectStore, _normalize_project_sources
 from backend.app.removal_transfer_handoff import (
     build_removal_transfer_handoff,
+    build_receiver_verification_receipt,
+    build_source_capacity_evidence_verification,
     receiver_verification_receipt_fingerprint,
 )
 from backend.app.reporting import calculation_fingerprint
@@ -197,8 +199,47 @@ class ProjectStoreNormalizationTests(unittest.TestCase):
                 },
             }
             receipt["receiptFingerprint"] = receiver_verification_receipt_fingerprint(receipt)
+            demand = transfer["sourceDemand"]["receiverTransferDemandTf"]
+            receipt_v3 = build_receiver_verification_receipt(
+                handoff,
+                receipt["verificationAuthority"],
+                [{
+                    "transferId": transfer["transferId"],
+                    "receiverTarget": "B2F 樓版 S1 區",
+                    "adoptedDemandTf": demand,
+                    "verifiedCapacityTf": demand / 0.8,
+                    "capacityEvidence": {
+                        "documentReference": "RV-STORE-03",
+                        "revision": "A",
+                        "issuedDate": "2026-08-08",
+                        "pageReference": "第 12 頁",
+                        "fileName": "receiver-capacity.pdf",
+                        "fileSha256": "a" * 64,
+                    },
+                    "verificationBasis": "承接構造分析模型 RV-STORE-03",
+                    "conclusion": "容量檢核通過",
+                }],
+                issued_at="2026-08-08T11:00:00Z",
+            )
+            source_verification = build_source_capacity_evidence_verification(
+                handoff,
+                receipt_v3,
+                {
+                    "organization": "來源端設計單位",
+                    "verifierName": "李工程師",
+                    "verifierRole": "設計覆核",
+                },
+                "逐列比對接收端正式檢核文件",
+                [{
+                    "transferId": transfer["transferId"],
+                    "selectedFileName": "receiver-capacity.pdf",
+                    "actualSha256": "a" * 64,
+                }],
+                verified_at="2026-08-08T12:00:00Z",
+            )
             project.removal_transfer_handoffs = [handoff]
-            project.removal_transfer_verification_receipts = [receipt]
+            project.removal_transfer_verification_receipts = [receipt, receipt_v3]
+            project.source_capacity_evidence_verifications = [source_verification]
 
             store.save_project(project)
             reloaded = store.get_project(project.metadata.id or "")
@@ -208,16 +249,22 @@ class ProjectStoreNormalizationTests(unittest.TestCase):
                 reloaded.removal_transfer_verification_receipts[0]["receiptFingerprint"],
                 receipt["receiptFingerprint"],
             )
+            self.assertEqual(
+                reloaded.source_capacity_evidence_verifications[0]["verificationFingerprint"],
+                source_verification["verificationFingerprint"],
+            )
 
     def test_invalid_removal_transfer_history_is_removed_fail_closed(self) -> None:
         project = load_default_project().model_copy(deep=True)
         project.removal_transfer_handoffs = [{"handoffFingerprint": "ERH-FORGED"}]
         project.removal_transfer_verification_receipts = [{"receiptFingerprint": "RVR-FORGED"}]
+        project.source_capacity_evidence_verifications = [{"verificationFingerprint": "SEV-FORGED"}]
 
         normalized = _normalize_project_sources(project)
 
         self.assertEqual(normalized.removal_transfer_handoffs, [])
         self.assertEqual(normalized.removal_transfer_verification_receipts, [])
+        self.assertEqual(normalized.source_capacity_evidence_verifications, [])
 
 
 if __name__ == "__main__":

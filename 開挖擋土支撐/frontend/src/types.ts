@@ -360,6 +360,7 @@ export type ProjectState = {
   calculation_results?: CalculationResults | null;
   removal_transfer_handoffs?: RemovalTransferHandoff[];
   removal_transfer_verification_receipts?: ReceiverCapacityVerificationReceipt[];
+  source_capacity_evidence_verifications?: SourceCapacityEvidenceVerification[];
 };
 
 export type RemovalTransferHandoff = {
@@ -477,6 +478,47 @@ export type ReceiverCapacityVerificationReceipt = {
     signatureBase64: string;
   };
   receiptFingerprint: string;
+};
+
+export type SourceCapacityEvidenceVerification = {
+  schemaVersion: 1;
+  kind: "source-capacity-evidence-verification-record";
+  verifiedAt: string;
+  handoffFingerprint: string;
+  receiptFingerprint: string;
+  sourceCalculationFingerprint: string;
+  verificationAuthority: {
+    organization: string;
+    verifierName: string;
+    verifierRole: string;
+  };
+  verificationBasis: string;
+  checks: Array<{
+    transferId: string;
+    documentReference: string;
+    revision: string;
+    issuedDate: string;
+    pageReference: string;
+    expectedFileName: string;
+    selectedFileName: string;
+    expectedSha256: string;
+    actualSha256: string;
+    sha256Matched: true;
+    fileNameMatched: boolean;
+  }>;
+  summary: {
+    status: "matched";
+    required: number;
+    matched: number;
+    fileNameDifferences: number;
+  };
+  boundary: {
+    hashesComputedInSourceBrowser: true;
+    evidenceFilesNotUploadedOrEmbedded: true;
+    byteIdentityOnly: true;
+    engineeringContentRequiresManualReview: true;
+  };
+  verificationFingerprint: string;
 };
 
 export type ReceiverIdentityStatus =
@@ -632,6 +674,11 @@ export type RemovalTransferReceiptImportResponse = {
     verifierIdentity: ReceiverIdentityStatus;
     identityVerification: ReceiverIdentityVerification;
   };
+};
+
+export type SourceCapacityEvidenceVerificationResponse = {
+  project: ProjectState;
+  record: SourceCapacityEvidenceVerification;
 };
 
 export type BootstrapPayload = {

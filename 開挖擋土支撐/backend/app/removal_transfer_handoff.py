@@ -30,6 +30,9 @@ SCHEMA_VERSION = HANDOFF_SCHEMA_VERSION
 KIND = "excavation-removal-transfer-handoff"
 RECEIPT_KIND = "receiver-capacity-verification-receipt"
 RECEIPT_FINGERPRINT_PREFIX = "RVR"
+SOURCE_EVIDENCE_VERIFICATION_SCHEMA_VERSION = 1
+SOURCE_EVIDENCE_VERIFICATION_KIND = "source-capacity-evidence-verification-record"
+SOURCE_EVIDENCE_VERIFICATION_FINGERPRINT_PREFIX = "SEV"
 IDENTITY_SIGNATURE_CONTEXT = "receiver-verification-identity-signature-v1"
 IDENTITY_SIGNING_REQUEST_KIND = "receiver-verification-identity-signing-request"
 IDENTITY_SIGNATURE_RESPONSE_KIND = "receiver-verification-identity-signature-response"
@@ -79,6 +82,11 @@ def receiver_verification_receipt_fingerprint(record: dict[str, Any]) -> str:
         if key not in {"receiptFingerprint", "identitySignature"}
     }
     return _digest(RECEIPT_FINGERPRINT_PREFIX, unsigned)
+
+
+def source_evidence_verification_fingerprint(record: dict[str, Any]) -> str:
+    unsigned = {key: value for key, value in record.items() if key != "verificationFingerprint"}
+    return _digest(SOURCE_EVIDENCE_VERIFICATION_FINGERPRINT_PREFIX, unsigned)
 
 
 def receiver_identity_key_id(public_key_bytes: bytes) -> str:
@@ -885,6 +893,182 @@ def build_receiver_verification_receipt(
     return validate_receiver_verification_receipt(receipt, validated_handoff)
 
 
+def validate_source_capacity_evidence_verification(
+    record: dict[str, Any],
+    handoff: dict[str, Any],
+    receipt: dict[str, Any],
+) -> dict[str, Any]:
+    validated_handoff = validate_removal_transfer_handoff(handoff)
+    validated_receipt = validate_receiver_verification_receipt(receipt, validated_handoff)
+    if validated_receipt.get("schemaVersion") != 3:
+        raise ValueError("只有 RVR v3 可建立來源端逐列證據核對紀錄。")
+    if not isinstance(record, dict):
+        raise ValueError("來源端證據核對紀錄格式不正確。")
+    if (
+        record.get("schemaVersion") != SOURCE_EVIDENCE_VERIFICATION_SCHEMA_VERSION
+        or record.get("kind") != SOURCE_EVIDENCE_VERIFICATION_KIND
+    ):
+        raise ValueError("來源端證據核對紀錄版本或種類不受支援。")
+    fingerprint = str(record.get("verificationFingerprint", ""))
+    if (
+        not re.fullmatch(r"SEV-[0-9A-F]{20}", fingerprint)
+        or not hmac.compare_digest(fingerprint, source_evidence_verification_fingerprint(record))
+    ):
+        raise ValueError("來源端證據核對紀錄內容與指紋不一致。")
+    if not hmac.compare_digest(str(record.get("handoffFingerprint", "")), validated_handoff["handoffFingerprint"]):
+        raise ValueError("來源端證據核對紀錄所指向的 ERH 不一致。")
+    if not hmac.compare_digest(str(record.get("receiptFingerprint", "")), validated_receipt["receiptFingerprint"]):
+        raise ValueError("來源端證據核對紀錄所指向的 RVR 不一致。")
+    if not hmac.compare_digest(
+        str(record.get("sourceCalculationFingerprint", "")),
+        validated_handoff["source"]["calculationFingerprint"],
+    ):
+        raise ValueError("來源端證據核對紀錄的來源計算指紋不一致。")
+    verified_at = _required_text(record.get("verifiedAt"), "來源端核對時間", max_length=40)
+    try:
+        datetime.fromisoformat(verified_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("來源端證據核對時間不是有效 ISO 8601 日期時間。") from exc
+    authority = record.get("verificationAuthority")
+    if not isinstance(authority, dict):
+        raise ValueError("來源端證據核對紀錄缺少核對單位與人員。")
+    _required_text(authority.get("organization"), "來源端核對單位", max_length=120)
+    _required_text(authority.get("verifierName"), "來源端核對人員", max_length=80)
+    _required_text(authority.get("verifierRole"), "來源端核對人員職責", max_length=80)
+    _required_text(record.get("verificationBasis"), "來源端核對依據")
+
+    checks = record.get("checks")
+    if not isinstance(checks, list) or not checks:
+        raise ValueError("來源端證據核對紀錄沒有逐筆比對結果。")
+    receipt_results = {str(item["transferId"]): item for item in validated_receipt["results"]}
+    seen_ids: set[str] = set()
+    file_name_differences = 0
+    for check in checks:
+        if not isinstance(check, dict):
+            raise ValueError("來源端證據核對紀錄包含格式不正確的逐筆結果。")
+        transfer_id = str(check.get("transferId", ""))
+        if transfer_id not in receipt_results or transfer_id in seen_ids:
+            raise ValueError("來源端證據核對紀錄的 ERT 不存在、重複或不屬於指定 RVR。")
+        seen_ids.add(transfer_id)
+        evidence = receipt_results[transfer_id]["capacityEvidence"]
+        controlled_fields = {
+            "documentReference": evidence["documentReference"],
+            "revision": evidence["revision"],
+            "issuedDate": evidence["issuedDate"],
+            "pageReference": evidence["pageReference"],
+            "expectedFileName": evidence["fileName"],
+            "expectedSha256": evidence["fileSha256"],
+        }
+        if any(check.get(key) != value for key, value in controlled_fields.items()):
+            raise ValueError("來源端證據核對紀錄的 RVR 文件受控欄位不一致。")
+        selected_file_name = _required_text(check.get("selectedFileName"), "來源端實際證據檔名", max_length=180)
+        if "/" in selected_file_name or "\\" in selected_file_name:
+            raise ValueError("來源端實際證據檔名不得包含路徑。")
+        expected_sha256 = str(evidence["fileSha256"])
+        actual_sha256 = str(check.get("actualSha256", "")).strip().lower()
+        if not re.fullmatch(r"[0-9a-f]{64}", actual_sha256):
+            raise ValueError("來源端實際證據檔 SHA-256 格式不正確。")
+        if actual_sha256 != expected_sha256 or check.get("sha256Matched") is not True:
+            raise ValueError("來源端實際證據檔 SHA-256 與 RVR 記錄值不相符。")
+        expected_file_name_match = selected_file_name == evidence["fileName"]
+        if check.get("fileNameMatched") is not expected_file_name_match:
+            raise ValueError("來源端證據核對紀錄的檔名比對狀態不一致。")
+        if not expected_file_name_match:
+            file_name_differences += 1
+    if seen_ids != set(receipt_results):
+        raise ValueError("來源端證據核對紀錄未完整涵蓋 RVR 的全部 ERT。")
+    summary = record.get("summary")
+    if (
+        not isinstance(summary, dict)
+        or summary.get("status") != "matched"
+        or summary.get("required") != len(receipt_results)
+        or summary.get("matched") != len(receipt_results)
+        or summary.get("fileNameDifferences") != file_name_differences
+    ):
+        raise ValueError("來源端證據核對紀錄彙整與逐筆結果不一致。")
+    boundary = record.get("boundary")
+    if (
+        not isinstance(boundary, dict)
+        or boundary.get("hashesComputedInSourceBrowser") is not True
+        or boundary.get("evidenceFilesNotUploadedOrEmbedded") is not True
+        or boundary.get("byteIdentityOnly") is not True
+        or boundary.get("engineeringContentRequiresManualReview") is not True
+    ):
+        raise ValueError("來源端證據核對紀錄未保留檔案與工程審查責任邊界。")
+    return deepcopy(record)
+
+
+def build_source_capacity_evidence_verification(
+    handoff: dict[str, Any],
+    receipt: dict[str, Any],
+    verification_authority: dict[str, Any],
+    verification_basis: str,
+    matches: list[dict[str, Any]],
+    *,
+    verified_at: str | None = None,
+) -> dict[str, Any]:
+    validated_handoff = validate_removal_transfer_handoff(handoff)
+    validated_receipt = validate_receiver_verification_receipt(receipt, validated_handoff)
+    if validated_receipt.get("schemaVersion") != 3:
+        raise ValueError("只有 RVR v3 可建立來源端逐列證據核對紀錄。")
+    results_by_id = {str(item["transferId"]): item for item in validated_receipt["results"]}
+    controlled_checks = []
+    for match in matches:
+        if not isinstance(match, dict):
+            continue
+        transfer_id = str(match.get("transferId", ""))
+        result = results_by_id.get(transfer_id)
+        if result is None:
+            controlled_checks.append({"transferId": transfer_id})
+            continue
+        evidence = result["capacityEvidence"]
+        selected_file_name = str(match.get("selectedFileName", "")).strip()
+        actual_sha256 = str(match.get("actualSha256", "")).strip().lower()
+        controlled_checks.append({
+            "transferId": transfer_id,
+            "documentReference": evidence["documentReference"],
+            "revision": evidence["revision"],
+            "issuedDate": evidence["issuedDate"],
+            "pageReference": evidence["pageReference"],
+            "expectedFileName": evidence["fileName"],
+            "selectedFileName": selected_file_name,
+            "expectedSha256": evidence["fileSha256"],
+            "actualSha256": actual_sha256,
+            "sha256Matched": actual_sha256 == evidence["fileSha256"],
+            "fileNameMatched": selected_file_name == evidence["fileName"],
+        })
+    file_name_differences = sum(check.get("fileNameMatched") is False for check in controlled_checks)
+    record = {
+        "schemaVersion": SOURCE_EVIDENCE_VERIFICATION_SCHEMA_VERSION,
+        "kind": SOURCE_EVIDENCE_VERIFICATION_KIND,
+        "verifiedAt": verified_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "handoffFingerprint": validated_handoff["handoffFingerprint"],
+        "receiptFingerprint": validated_receipt["receiptFingerprint"],
+        "sourceCalculationFingerprint": validated_handoff["source"]["calculationFingerprint"],
+        "verificationAuthority": {
+            "organization": verification_authority.get("organization", ""),
+            "verifierName": verification_authority.get("verifierName", ""),
+            "verifierRole": verification_authority.get("verifierRole", ""),
+        },
+        "verificationBasis": verification_basis,
+        "checks": controlled_checks,
+        "summary": {
+            "status": "matched",
+            "required": len(results_by_id),
+            "matched": len(controlled_checks),
+            "fileNameDifferences": file_name_differences,
+        },
+        "boundary": {
+            "hashesComputedInSourceBrowser": True,
+            "evidenceFilesNotUploadedOrEmbedded": True,
+            "byteIdentityOnly": True,
+            "engineeringContentRequiresManualReview": True,
+        },
+    }
+    record["verificationFingerprint"] = source_evidence_verification_fingerprint(record)
+    return validate_source_capacity_evidence_verification(record, validated_handoff, validated_receipt)
+
+
 __all__ = [
     "SCHEMA_VERSION",
     "KIND",
@@ -895,11 +1079,14 @@ __all__ = [
     "build_removal_transfer_handoff",
     "build_receiver_identity_signing_request",
     "build_receiver_verification_receipt",
+    "build_source_capacity_evidence_verification",
+    "source_evidence_verification_fingerprint",
     "receiver_verification_receipt_fingerprint",
     "receiver_identity_key_id",
     "receiver_identity_signing_payload",
     "same_removal_transfer_handoff_content",
     "validate_removal_transfer_handoff",
+    "validate_source_capacity_evidence_verification",
     "validate_receiver_identity_signing_request",
     "validate_receiver_verification_receipt",
     "verify_receiver_identity_signature",

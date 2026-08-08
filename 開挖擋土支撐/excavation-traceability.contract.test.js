@@ -88,7 +88,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.7.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.8.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -170,6 +170,12 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'expected_ratio = adopted_demand / verified_capacity',
   '"capacityValueFromReceiverDocument": True',
   'def _validated_capacity_evidence',
+  'source-capacity-evidence-verification-record',
+  'def build_source_capacity_evidence_verification',
+  'def validate_source_capacity_evidence_verification',
+  'def source_evidence_verification_fingerprint',
+  '來源端證據核對紀錄的 RVR 文件受控欄位不一致',
+  'SOURCE_EVIDENCE_VERIFICATION_FINGERPRINT_PREFIX',
   'per-ERT-document-metadata-and-sha256',
   'capacityEvidenceFileNotEmbedded',
   '承載力文件 SHA-256 格式不正確',
@@ -181,6 +187,7 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
 [
   '/api/projects/{project_id}/removal-transfer-handoff',
   '/api/projects/{project_id}/removal-transfer-receipts',
+  '/api/projects/{project_id}/source-capacity-evidence-verifications',
   '/api/removal-transfer-handoffs/validate',
   '/api/removal-transfer-receipts/build',
   '/api/removal-transfer-receipts/validate',
@@ -198,9 +205,18 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'validate_receiver_verification_receipt',
   'removal_transfer_handoffs',
   'removal_transfer_verification_receipts',
+  'source_capacity_evidence_verifications',
+  'BuildSourceEvidenceVerificationRequest',
   'calculation_fingerprint(project)',
 ].forEach((needle) => {
   assert(main.includes(needle), `excavation removal transfer API keeps ${needle}`, needle);
+});
+[
+  'source_capacity_evidence_verifications',
+  'validate_source_capacity_evidence_verification',
+  'receipts_by_fingerprint',
+].forEach((needle) => {
+  assert(projectStore.includes(needle), `excavation project store keeps ${needle}`, needle);
 });
 [
   'generateRemovalTransferHandoff',
@@ -253,10 +269,15 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'SourceCapacityEvidenceMatch',
   'handleSourceCapacityEvidenceFile',
   'sourceCapacityEvidenceAllMatched',
+  'sourceCapacityEvidenceSatisfied',
+  'createSourceCapacityEvidenceVerification',
+  'handleCreateSourceEvidenceVerification',
+  '建立、保存並下載 SEV',
+  'SEV 核驗指紋',
   'fileSha256Hex',
   '接收端結果通過／證據檔待逐列比對',
   'SHA-256 不相符，不得視為同一證據檔',
-  '頁面重載或切換 RVR 後須重新比對',
+  '只證明檔案位元相同，工程內容仍須人工審閱',
   '舊版 RVR v1／v2，沒有逐列承載力文件 SHA-256',
 ].forEach((needle) => {
   assert(app.includes(needle) || api.includes(needle), `excavation removal transfer frontend keeps ${needle}`, needle);
@@ -281,6 +302,10 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'test_assistant_derives_failed_status_from_demand_and_capacity',
   'test_reuses_handoff_when_only_issue_time_changes',
   'test_builds_controlled_receiver_receipt_for_assistant',
+  'test_builds_source_capacity_evidence_verification_record',
+  'test_rejects_source_evidence_record_when_actual_hash_differs',
+  'test_rejects_tampered_source_evidence_verification_record',
+  'test_rejects_source_evidence_record_with_rewritten_rvr_metadata',
   'test_assistant_rejects_missing_receiver_result',
   'test_builds_offline_signing_request_and_attaches_response',
   'test_rejects_tampered_signing_request_or_signature_response',

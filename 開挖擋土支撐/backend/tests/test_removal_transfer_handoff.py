@@ -17,13 +17,16 @@ from backend.app.removal_transfer_handoff import (
     build_removal_transfer_handoff,
     build_receiver_identity_signing_request,
     build_receiver_verification_receipt,
+    build_source_capacity_evidence_verification,
     receiver_verification_receipt_fingerprint,
+    source_evidence_verification_fingerprint,
     receiver_identity_key_id,
     receiver_identity_signing_payload,
     same_removal_transfer_handoff_content,
     validate_removal_transfer_handoff,
     validate_receiver_identity_signing_request,
     validate_receiver_verification_receipt,
+    validate_source_capacity_evidence_verification,
     verify_receiver_identity_signature,
 )
 from backend.app.removal_transfer_handoff import _handoff_fingerprint, _transfer_id
@@ -121,6 +124,16 @@ class RemovalTransferHandoffTests(unittest.TestCase):
             receipt["boundary"]["capacityEvidenceFileNotEmbedded"] = True
         receipt["receiptFingerprint"] = receiver_verification_receipt_fingerprint(receipt)
         return receipt
+
+    def source_evidence_matches(self, receipt):
+        return [
+            {
+                "transferId": result["transferId"],
+                "selectedFileName": result["capacityEvidence"]["fileName"],
+                "actualSha256": result["capacityEvidence"]["fileSha256"],
+            }
+            for result in receipt["results"]
+        ]
 
     def signed_receipt(self, receipt, *, signed_at: str = "2026-08-07T12:00:00Z"):
         private_key = Ed25519PrivateKey.generate()
@@ -593,6 +606,88 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         self.assertEqual(receipt["results"][0]["capacityUtilizationRatio"], 1.25)
         self.assertEqual(receipt["results"][0]["status"], "failed")
         self.assertEqual(receipt["summary"], {"status": "failed", "passed": 0, "failed": 1})
+
+    def test_builds_source_capacity_evidence_verification_record(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt = self.receiver_receipt(handoff, schema_version=3)
+
+        record = build_source_capacity_evidence_verification(
+            handoff,
+            receipt,
+            {
+                "organization": "來源端設計單位",
+                "verifierName": "李工程師",
+                "verifierRole": "設計覆核",
+            },
+            "逐列比對接收端正式檢核文件",
+            self.source_evidence_matches(receipt),
+            verified_at="2026-08-08T12:00:00Z",
+        )
+
+        self.assertRegex(record["verificationFingerprint"], r"^SEV-[0-9A-F]{20}$")
+        self.assertEqual(record["summary"], {
+            "status": "matched",
+            "required": 1,
+            "matched": 1,
+            "fileNameDifferences": 0,
+        })
+        self.assertTrue(record["boundary"]["byteIdentityOnly"])
+        self.assertEqual(record["checks"][0]["revision"], receipt["results"][0]["capacityEvidence"]["revision"])
+        self.assertEqual(record["checks"][0]["issuedDate"], receipt["results"][0]["capacityEvidence"]["issuedDate"])
+        self.assertEqual(
+            validate_source_capacity_evidence_verification(record, handoff, receipt),
+            record,
+        )
+
+    def test_rejects_source_evidence_record_when_actual_hash_differs(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt = self.receiver_receipt(handoff, schema_version=3)
+        matches = self.source_evidence_matches(receipt)
+        matches[0]["actualSha256"] = "b" * 64
+
+        with self.assertRaisesRegex(ValueError, "與 RVR 記錄值不相符"):
+            build_source_capacity_evidence_verification(
+                handoff,
+                receipt,
+                {"organization": "來源端", "verifierName": "李工程師", "verifierRole": "覆核"},
+                "文件比對",
+                matches,
+            )
+
+    def test_rejects_tampered_source_evidence_verification_record(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt = self.receiver_receipt(handoff, schema_version=3)
+        record = build_source_capacity_evidence_verification(
+            handoff,
+            receipt,
+            {"organization": "來源端", "verifierName": "李工程師", "verifierRole": "覆核"},
+            "文件比對",
+            self.source_evidence_matches(receipt),
+        )
+        record["checks"][0]["selectedFileName"] = "tampered.pdf"
+
+        with self.assertRaisesRegex(ValueError, "內容與指紋不一致"):
+            validate_source_capacity_evidence_verification(record, handoff, receipt)
+
+    def test_rejects_source_evidence_record_with_rewritten_rvr_metadata(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt = self.receiver_receipt(handoff, schema_version=3)
+        record = build_source_capacity_evidence_verification(
+            handoff,
+            receipt,
+            {"organization": "來源端", "verifierName": "李工程師", "verifierRole": "覆核"},
+            "文件比對",
+            self.source_evidence_matches(receipt),
+        )
+        record["checks"][0]["documentReference"] = "被改寫的文件"
+        record["verificationFingerprint"] = source_evidence_verification_fingerprint(record)
+
+        with self.assertRaisesRegex(ValueError, "RVR 文件受控欄位不一致"):
+            validate_source_capacity_evidence_verification(record, handoff, receipt)
 
     def test_reuses_handoff_when_only_issue_time_changes(self) -> None:
         project = self.prepared_project()

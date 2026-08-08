@@ -387,6 +387,7 @@ class ProjectState(BaseModel):
     calculation_results: CalculationResults | None = None
     removal_transfer_handoffs: list[dict[str, Any]] = Field(default_factory=list)
     removal_transfer_verification_receipts: list[dict[str, Any]] = Field(default_factory=list)
+    source_capacity_evidence_verifications: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ProjectListItem(BaseModel):
@@ -433,6 +434,15 @@ class BuildReceiverReceiptRequest(BaseModel):
 class ValidateReceiverReceiptRequest(BaseModel):
     handoff: dict[str, Any]
     receipt: dict[str, Any]
+
+
+class BuildSourceEvidenceVerificationRequest(BaseModel):
+    handoff_fingerprint: str = Field(min_length=1, max_length=40)
+    receipt_fingerprint: str = Field(min_length=1, max_length=40)
+    verification_authority: dict[str, Any]
+    verification_basis: str = Field(min_length=1, max_length=240)
+    matches: list[dict[str, Any]]
+    evidence_files_compared: Literal[True]
 
 
 class BuildReceiverSigningRequestRequest(BaseModel):

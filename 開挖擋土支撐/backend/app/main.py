@@ -20,6 +20,7 @@ from .removal_transfer_handoff import (
     build_removal_transfer_handoff,
     build_receiver_identity_signing_request,
     build_receiver_verification_receipt,
+    build_source_capacity_evidence_verification,
     same_removal_transfer_handoff_content,
     validate_removal_transfer_handoff,
     validate_receiver_verification_receipt,
@@ -41,6 +42,7 @@ from .schemas import (
     BraceRow,
     BuildReceiverReceiptRequest,
     BuildReceiverSigningRequestRequest,
+    BuildSourceEvidenceVerificationRequest,
     CreateProjectRequest,
     ProjectState,
     ReferenceData,
@@ -884,6 +886,55 @@ async def import_removal_transfer_receipt(
         "receipt": receipt,
         "receiptValidation": validation,
     }
+
+
+@app.post("/api/projects/{project_id}/source-capacity-evidence-verifications")
+def create_source_capacity_evidence_verification(
+    project_id: str,
+    request: BuildSourceEvidenceVerificationRequest,
+) -> dict[str, Any]:
+    try:
+        project = store.get_project(project_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Project not found") from exc
+    handoff = next(
+        (
+            item for item in reversed(project.removal_transfer_handoffs)
+            if str(item.get("handoffFingerprint", "")) == request.handoff_fingerprint
+        ),
+        None,
+    )
+    receipt = next(
+        (
+            item for item in reversed(project.removal_transfer_verification_receipts)
+            if str(item.get("receiptFingerprint", "")) == request.receipt_fingerprint
+        ),
+        None,
+    )
+    if handoff is None or receipt is None:
+        raise HTTPException(status_code=400, detail="本專案找不到 SEV 所指向的 ERH 或 RVR。")
+    try:
+        record = build_source_capacity_evidence_verification(
+            handoff,
+            receipt,
+            request.verification_authority,
+            request.verification_basis,
+            request.matches,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    fingerprint = str(record["verificationFingerprint"])
+    project.source_capacity_evidence_verifications = [
+        *project.source_capacity_evidence_verifications,
+        record,
+    ][-100:]
+    store.save_imported_file(
+        project_id,
+        f"source-capacity-evidence-verification-{fingerprint}.json",
+        (json.dumps(record, ensure_ascii=False, indent=2) + "\n").encode("utf-8"),
+    )
+    project = store.save_project(project)
+    return {"project": project, "record": record}
 
 
 @app.post("/api/projects/{project_id}/report", response_model=ReportPayload)

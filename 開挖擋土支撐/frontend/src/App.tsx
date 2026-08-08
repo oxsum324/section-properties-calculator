@@ -34,6 +34,7 @@ import {
   RemovalTransferReceiverAllocation,
   SectionProperty,
   SoilLayer,
+  SourceCapacityEvidenceVerification,
   SupportRow,
   SummaryItem,
   WaleRow,
@@ -291,6 +292,15 @@ function App() {
   const [removalTransferReceipt, setRemovalTransferReceipt] = useState<ReceiverCapacityVerificationReceipt | null>(null);
   const [removalTransferIdentityVerification, setRemovalTransferIdentityVerification] = useState<ReceiverIdentityVerification | null>(null);
   const [sourceCapacityEvidenceMatches, setSourceCapacityEvidenceMatches] = useState<Record<string, SourceCapacityEvidenceMatch>>({});
+  const [sourceEvidenceVerificationAuthority, setSourceEvidenceVerificationAuthority] = useState({
+    organization: "",
+    verifierName: "",
+    verifierRole: "",
+  });
+  const [sourceEvidenceVerificationBasis, setSourceEvidenceVerificationBasis] = useState(
+    "依 RVR v3 逐列比對來源端實際收到之承載力文件 SHA-256",
+  );
+  const [sourceEvidenceVerificationRecord, setSourceEvidenceVerificationRecord] = useState<SourceCapacityEvidenceVerification | null>(null);
   const [receiverAssistantHandoff, setReceiverAssistantHandoff] = useState<RemovalTransferHandoff | null>(null);
   const [receiverAssistantAuthority, setReceiverAssistantAuthority] = useState<ReceiverVerificationAuthority>({
     organization: "",
@@ -333,6 +343,11 @@ function App() {
     () => removalTransferReceipt ?? latestRemovalTransferReceipt(project, activeRemovalTransferHandoff?.handoffFingerprint),
     [project?.removal_transfer_verification_receipts, removalTransferReceipt, activeRemovalTransferHandoff?.handoffFingerprint],
   );
+  const activeSourceEvidenceVerification = useMemo(
+    () => sourceEvidenceVerificationRecord
+      ?? latestSourceCapacityEvidenceVerification(project, activeRemovalTransferReceipt?.receiptFingerprint),
+    [project?.source_capacity_evidence_verifications, sourceEvidenceVerificationRecord, activeRemovalTransferReceipt?.receiptFingerprint],
+  );
   const sourceCapacityEvidenceRequired = activeRemovalTransferReceipt?.schemaVersion === 3;
   const sourceCapacityEvidenceAllMatched = useMemo(() => {
     if (!sourceCapacityEvidenceRequired || !activeRemovalTransferReceipt?.results.length) return false;
@@ -340,6 +355,13 @@ function App() {
       (result) => sourceCapacityEvidenceMatches[result.transferId]?.matched === true,
     );
   }, [activeRemovalTransferReceipt, sourceCapacityEvidenceMatches, sourceCapacityEvidenceRequired]);
+  const sourceCapacityEvidenceHasMismatch = useMemo(
+    () => Object.values(sourceCapacityEvidenceMatches).some((match) => !match.matched),
+    [sourceCapacityEvidenceMatches],
+  );
+  const sourceCapacityEvidenceSatisfied = sourceCapacityEvidenceRequired
+    && !sourceCapacityEvidenceHasMismatch
+    && (sourceCapacityEvidenceAllMatched || Boolean(activeSourceEvidenceVerification));
   const receiverAssistantReady = useMemo(() => {
     if (!receiverAssistantHandoff || !receiverCalculationConfirmed || !receiverIdentityAcknowledged) return false;
     if (Object.values(receiverAssistantAuthority).some((value) => !value.trim())) return false;
@@ -396,6 +418,7 @@ function App() {
 
   useEffect(() => {
     setSourceCapacityEvidenceMatches({});
+    setSourceEvidenceVerificationRecord(null);
   }, [activeRemovalTransferReceipt?.receiptFingerprint]);
 
   useEffect(() => {
@@ -704,9 +727,48 @@ function App() {
           checkedAt: new Date().toISOString(),
         },
       }));
+      setSourceEvidenceVerificationRecord(null);
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "無法計算來源端證據檔 SHA-256。");
+    }
+  }
+
+  async function handleCreateSourceEvidenceVerification() {
+    if (!project?.metadata.id || !activeRemovalTransferHandoff || !activeRemovalTransferReceipt) return;
+    if (!sourceCapacityEvidenceAllMatched) {
+      setError("請先逐列選取來源端實際收到的證據檔，並確認所有 SHA-256 均相符。");
+      return;
+    }
+    try {
+      setBusy("建立來源端證據核驗紀錄");
+      const matches = activeRemovalTransferReceipt.results.map((result) => {
+        const match = sourceCapacityEvidenceMatches[result.transferId];
+        return {
+          transferId: result.transferId,
+          selectedFileName: match.selectedFileName,
+          actualSha256: match.actualSha256,
+        };
+      });
+      const response = await api.createSourceCapacityEvidenceVerification(
+        project.metadata.id,
+        activeRemovalTransferHandoff.handoffFingerprint,
+        activeRemovalTransferReceipt.receiptFingerprint,
+        sourceEvidenceVerificationAuthority,
+        sourceEvidenceVerificationBasis,
+        matches,
+      );
+      applyPersistedProjectState(response.project);
+      setSourceEvidenceVerificationRecord(response.record);
+      downloadJsonFile(
+        response.record,
+        `${project.metadata.id}-來源端證據核驗-${response.record.verificationFingerprint}.json`,
+      );
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
     }
   }
 
@@ -3920,7 +3982,7 @@ function App() {
                     label="交接狀態"
                     value={activeRemovalTransferReceipt
                       ? activeRemovalTransferReceipt.summary.status === "passed"
-                        ? sourceCapacityEvidenceRequired && !sourceCapacityEvidenceAllMatched
+                        ? sourceCapacityEvidenceRequired && !sourceCapacityEvidenceSatisfied
                           ? "接收端結果通過／證據檔待逐列比對"
                           : removalTransferIdentityVerification?.trusted
                             ? "接收端檢核通過／受信任簽章通過"
@@ -3955,8 +4017,8 @@ function App() {
                       <MetaItem
                         label="來源端證據檔比對"
                         value={sourceCapacityEvidenceRequired
-                          ? sourceCapacityEvidenceAllMatched
-                            ? `已相符 ${activeRemovalTransferReceipt.results.length}/${activeRemovalTransferReceipt.results.length}`
+                          ? activeSourceEvidenceVerification && !sourceCapacityEvidenceHasMismatch
+                            ? `已保存 SEV：${activeSourceEvidenceVerification.summary.matched}/${activeSourceEvidenceVerification.summary.required}`
                             : `已相符 ${activeRemovalTransferReceipt.results.filter((result) => sourceCapacityEvidenceMatches[result.transferId]?.matched).length}/${activeRemovalTransferReceipt.results.length}`
                           : "舊版 RVR 未提供逐列文件 SHA-256"}
                       />
@@ -4012,20 +4074,83 @@ function App() {
                   })}
                 </div>
               )}
+              {activeSourceEvidenceVerification && !sourceCapacityEvidenceHasMismatch && (
+                <div className="meta-grid">
+                  <MetaItem label="SEV 核驗指紋" value={activeSourceEvidenceVerification.verificationFingerprint} />
+                  <MetaItem
+                    label="核驗時間"
+                    value={new Date(activeSourceEvidenceVerification.verifiedAt).toLocaleString("zh-TW")}
+                  />
+                  <MetaItem
+                    label="核驗單位／人員"
+                    value={`${activeSourceEvidenceVerification.verificationAuthority.organization}／${activeSourceEvidenceVerification.verificationAuthority.verifierName}`}
+                  />
+                  <MetaItem label="核驗角色" value={activeSourceEvidenceVerification.verificationAuthority.verifierRole} />
+                  <MetaItem
+                    label="核驗結果"
+                    value={`SHA-256 相符 ${activeSourceEvidenceVerification.summary.matched}/${activeSourceEvidenceVerification.summary.required}`}
+                  />
+                  <MetaItem
+                    label="檔名差異"
+                    value={String(activeSourceEvidenceVerification.summary.fileNameDifferences)}
+                  />
+                </div>
+              )}
               {activeRemovalTransferReceipt && !sourceCapacityEvidenceRequired && (
                 <p className="meta-line attention-line">
                   此為舊版 RVR v1／v2，沒有逐列承載力文件 SHA-256，來源端無法在本頁完成實際證據檔自動比對。
                 </p>
               )}
-              {activeRemovalTransferReceipt && sourceCapacityEvidenceRequired && !sourceCapacityEvidenceAllMatched && (
+              {activeRemovalTransferReceipt && sourceCapacityEvidenceRequired && !sourceCapacityEvidenceSatisfied && (
                 <p className="meta-line attention-line">
-                  RVR 指紋已通過，但來源端實際證據檔尚未全數相符；目前不得把證據核對狀態視為完成。頁面重載或切換 RVR 後須重新比對。
+                  RVR 指紋已通過，但來源端實際證據檔尚未全數相符且未保存有效 SEV；目前不得把證據核對狀態視為完成。
                 </p>
               )}
               {activeRemovalTransferReceipt && sourceCapacityEvidenceAllMatched && (
                 <p className="meta-line">
-                  RVR v3 的逐列證據檔 SHA-256 已全部相符；仍須人工核對文件內容、頁碼、版次及工程適用性。
+                  RVR v3 的逐列證據檔 SHA-256 已全部相符；請填寫核驗責任資訊並建立 SEV，才會保存為可追溯的專案紀錄。
                 </p>
+              )}
+              {activeRemovalTransferReceipt && sourceCapacityEvidenceRequired && sourceCapacityEvidenceAllMatched && (
+                <div className="report-card">
+                  <h3>保存來源端證據核驗紀錄（SEV）</h3>
+                  <div className="form-grid">
+                    <Field
+                      label="核驗單位"
+                      value={sourceEvidenceVerificationAuthority.organization}
+                      onChange={(value) => setSourceEvidenceVerificationAuthority((current) => ({ ...current, organization: value }))}
+                    />
+                    <Field
+                      label="核驗人員"
+                      value={sourceEvidenceVerificationAuthority.verifierName}
+                      onChange={(value) => setSourceEvidenceVerificationAuthority((current) => ({ ...current, verifierName: value }))}
+                    />
+                    <Field
+                      label="核驗角色"
+                      value={sourceEvidenceVerificationAuthority.verifierRole}
+                      onChange={(value) => setSourceEvidenceVerificationAuthority((current) => ({ ...current, verifierRole: value }))}
+                    />
+                  </div>
+                  <TextAreaField
+                    label="核驗依據"
+                    value={sourceEvidenceVerificationBasis}
+                    onChange={setSourceEvidenceVerificationBasis}
+                  />
+                  <div className="action-row">
+                    <button
+                      type="button"
+                      onClick={() => void handleCreateSourceEvidenceVerification()}
+                      disabled={Boolean(busy)
+                        || Object.values(sourceEvidenceVerificationAuthority).some((value) => !value.trim())
+                        || !sourceEvidenceVerificationBasis.trim()}
+                    >
+                      建立、保存並下載 SEV
+                    </button>
+                  </div>
+                  <p className="meta-line">
+                    SEV 保存核驗人員、時間、ERH／RVR／計算指紋及逐列雜湊；證據檔本身不會上傳。SEV 只證明檔案位元相同，工程內容仍須人工審閱。
+                  </p>
+                </div>
               )}
               {activeRemovalTransferReceipt && (
                 <p className="meta-line attention-line">
@@ -6105,6 +6230,16 @@ function latestRemovalTransferReceipt(
   const receipts = (project?.removal_transfer_verification_receipts ?? [])
     .filter((receipt) => receipt.handoffFingerprint === handoffFingerprint);
   return receipts.length ? receipts[receipts.length - 1] : null;
+}
+
+function latestSourceCapacityEvidenceVerification(
+  project: ProjectState | null,
+  receiptFingerprint?: string,
+): SourceCapacityEvidenceVerification | null {
+  if (!receiptFingerprint) return null;
+  const records = (project?.source_capacity_evidence_verifications ?? [])
+    .filter((record) => record.receiptFingerprint === receiptFingerprint);
+  return records.length ? records[records.length - 1] : null;
 }
 
 function removalTransferCandidateCount(project: ProjectState): number {

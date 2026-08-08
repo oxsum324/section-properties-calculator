@@ -8,6 +8,7 @@ import {
   ReceiverCapacityVerificationReceipt,
   ReceiverVerificationAuthority,
   ReceiverVerificationResult,
+  SourceCapacityEvidenceVerificationResponse,
   ReceiverTrustKey,
   ReceiverTrustEvent,
   ReceiverRevocationReason,
@@ -88,6 +89,28 @@ export const api = {
       { method: "POST", body: form },
     );
   },
+  createSourceCapacityEvidenceVerification: (
+    projectId: string,
+    handoffFingerprint: string,
+    receiptFingerprint: string,
+    verificationAuthority: { organization: string; verifierName: string; verifierRole: string },
+    verificationBasis: string,
+    matches: Array<{ transferId: string; selectedFileName: string; actualSha256: string }>,
+  ) => request<SourceCapacityEvidenceVerificationResponse>(
+    `/api/projects/${projectId}/source-capacity-evidence-verifications`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        handoff_fingerprint: handoffFingerprint,
+        receipt_fingerprint: receiptFingerprint,
+        verification_authority: verificationAuthority,
+        verification_basis: verificationBasis,
+        matches,
+        evidence_files_compared: true,
+      }),
+    },
+  ),
   validateRemovalTransferHandoff: (handoff: RemovalTransferHandoff) =>
     request<RemovalTransferHandoff>("/api/removal-transfer-handoffs/validate", {
       method: "POST",
