@@ -286,6 +286,7 @@ function App() {
   const [error, setError] = useState<string>("");
   const [reportUrl, setReportUrl] = useState<string>("");
   const [pdfEvidenceUrl, setPdfEvidenceUrl] = useState<string>("");
+  const [pdfSourceBundleUrl, setPdfSourceBundleUrl] = useState<string>("");
   const [wordReportUrl, setWordReportUrl] = useState<string>("");
   const [conciseReportMode, setConciseReportMode] = useState<boolean>(false);
   const [reportApproved, setReportApproved] = useState<boolean>(false);
@@ -569,6 +570,7 @@ function App() {
       setActiveStep(STEP_PROJECT);
       setReportUrl("");
       setPdfEvidenceUrl("");
+      setPdfSourceBundleUrl("");
       setWordReportUrl("");
       setGeneratedPdfMode(null);
       setGeneratedWordMode(null);
@@ -589,6 +591,7 @@ function App() {
       applyPersistedProjectState(loaded);
       setReportUrl("");
       setPdfEvidenceUrl("");
+      setPdfSourceBundleUrl("");
       setWordReportUrl("");
       setGeneratedPdfMode(null);
       setGeneratedWordMode(null);
@@ -669,6 +672,7 @@ function App() {
       applyPersistedProjectState(response.project);
       setReportUrl(cacheBustUrl(response.download_url));
       setPdfEvidenceUrl(response.canonical_evidence_url ? cacheBustUrl(response.canonical_evidence_url) : "");
+      setPdfSourceBundleUrl(response.formal_source_bundle_url ? cacheBustUrl(response.formal_source_bundle_url) : "");
       setGeneratedPdfMode(response.report_mode);
       setGeneratedPdfDocumentStatus(response.document_status);
       setActiveStep(STEP_REPORT);
@@ -1289,6 +1293,7 @@ function App() {
     if (!synced.calculation_results) {
       setReportUrl("");
       setPdfEvidenceUrl("");
+      setPdfSourceBundleUrl("");
       setWordReportUrl("");
       setGeneratedPdfMode(null);
       setGeneratedWordMode(null);
@@ -1305,6 +1310,7 @@ function App() {
     if (!synced.calculation_results) {
       setReportUrl("");
       setPdfEvidenceUrl("");
+      setPdfSourceBundleUrl("");
       setWordReportUrl("");
       setGeneratedPdfMode(null);
       setGeneratedWordMode(null);
@@ -1318,6 +1324,7 @@ function App() {
     setConciseReportMode(nextConcise);
     setReportUrl("");
     setPdfEvidenceUrl("");
+    setPdfSourceBundleUrl("");
     setWordReportUrl("");
     setGeneratedPdfMode(null);
     setGeneratedWordMode(null);
@@ -1329,6 +1336,7 @@ function App() {
     setReportApproved(nextApproved);
     setReportUrl("");
     setPdfEvidenceUrl("");
+    setPdfSourceBundleUrl("");
     setWordReportUrl("");
     setGeneratedPdfMode(null);
     setGeneratedWordMode(null);
@@ -1380,6 +1388,7 @@ function App() {
     applyProjectState({ ...project, metadata: { ...project.metadata, [field]: value } });
     setReportUrl("");
     setPdfEvidenceUrl("");
+    setPdfSourceBundleUrl("");
     setWordReportUrl("");
     setGeneratedPdfMode(null);
     setGeneratedWordMode(null);
@@ -4046,10 +4055,17 @@ function App() {
                       <em>{extractDownloadFilename(reportUrl)}</em>
                     </a>
                   )}
+                  {pdfSourceBundleUrl && (
+                    <a className="generated-report-link" href={pdfSourceBundleUrl} target="_blank" rel="noreferrer" download>
+                      <strong>下載 PDF＋證據組包來源套件</strong>
+                      <span>單一 ZIP 搬運；解壓縮後交給正式附件包管理器</span>
+                      <em>{extractDownloadFilename(pdfSourceBundleUrl)}</em>
+                    </a>
+                  )}
                   {pdfEvidenceUrl && (
                     <a className="generated-report-link" href={pdfEvidenceUrl} target="_blank" rel="noreferrer" download>
                       <strong>本次 PDF／正式組包可見性證據</strong>
-                      <span>請與同次 PDF 放在同一組包來源資料夾</span>
+                      <span>個別證據備用下載；一般情況直接使用上方來源套件</span>
                       <em>{extractDownloadFilename(pdfEvidenceUrl)}</em>
                     </a>
                   )}
@@ -4063,7 +4079,7 @@ function App() {
                 </div>
               )}
               <p className="meta-line">
-                {`目前附件編排方式為${reportModeLabel}，文件身分為${reportDocumentStatusLabel}。Word 與 PDF 皆包含摘要、輸入基本資料、分析匯入結果、結果彙整與主要檢核內容；核可 PDF 會逐頁建立像素、OCR 與文字層對齊證據，PDF 與該證據同放一個來源資料夾後才可由正式附件包自動放行。`}
+                {`目前附件編排方式為${reportModeLabel}，文件身分為${reportDocumentStatusLabel}。Word 與 PDF 皆包含摘要、輸入基本資料、分析匯入結果、結果彙整與主要檢核內容；核可 PDF 會逐頁建立像素、OCR 與文字層對齊證據，並提供只含該 PDF 與證據的單一來源套件，解壓縮後即可交給正式附件包管理器。`}
               </p>
             </Panel>
             <Panel

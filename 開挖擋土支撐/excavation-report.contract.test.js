@@ -11,7 +11,13 @@ const releaseEvidenceDir = process.env.EXCAVATION_RENDERED_EVIDENCE_DIR
 
 const result = spawnSync(
   'python',
-  ['-m', 'unittest', 'backend.tests.test_reporting'],
+  [
+    '-m',
+    'unittest',
+    'backend.tests.test_reporting',
+    'backend.tests.test_pdf_render_evidence',
+    'backend.tests.test_report_delivery_api',
+  ],
   {
     cwd: toolRoot,
     stdio: 'inherit',

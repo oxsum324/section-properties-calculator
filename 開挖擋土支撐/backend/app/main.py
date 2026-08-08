@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse, Response
 from .calculations import calculate_project
 from .config import get_settings
 from .parsers import parse_analysis_file
-from .pdf_render_evidence import build_pdf_canonical_render_evidence
+from .pdf_render_evidence import build_pdf_canonical_render_evidence, build_pdf_formal_source_bundle
 from .project_store import ProjectStore
 from .removal_transfer_handoff import (
     attach_receiver_identity_signature,
@@ -1063,13 +1063,16 @@ def generate_report(project_id: str, concise: bool = False, approved: bool = Fal
     document_metadata = report_document_metadata(approved=approved, output_at=output_at)
     report_path = build_report(project, concise_mode=concise, approved=approved, output_at=output_at)
     evidence_path: Path | None = None
+    source_bundle_path: Path | None = None
     if approved:
         try:
             evidence_path = build_pdf_canonical_render_evidence(report_path)
+            source_bundle_path = build_pdf_formal_source_bundle(report_path, evidence_path)
         except Exception as exc:
             report_path.unlink(missing_ok=True)
             report_path.with_name(f"{report_path.stem}.canonical-render.evidence.json").unlink(missing_ok=True)
-            raise HTTPException(status_code=500, detail=f"正式 PDF 可見性證據建立失敗：{exc}") from exc
+            report_path.with_name(f"{report_path.stem}.formal-source.zip").unlink(missing_ok=True)
+            raise HTTPException(status_code=500, detail=f"正式 PDF 可見性證據或來源套件建立失敗：{exc}") from exc
     store.save_report(project_id, report_path)
     return ReportPayload(
         project=project,
@@ -1082,6 +1085,11 @@ def generate_report(project_id: str, concise: bool = False, approved: bool = Fal
         approval_time=document_metadata["approval_time"] or None,
         canonical_evidence_url=(
             f"/api/projects/{project_id}/report/files/{evidence_path.name}" if evidence_path is not None else None
+        ),
+        formal_source_bundle_url=(
+            f"/api/projects/{project_id}/report/files/{source_bundle_path.name}"
+            if source_bundle_path is not None
+            else None
         ),
     )
 
@@ -1154,6 +1162,8 @@ def download_generated_artifact(project_id: str, filename: str) -> FileResponse:
         media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     elif safe_name.endswith(".canonical-render.evidence.json"):
         media_type = "application/json"
+    elif safe_name.endswith(".formal-source.zip"):
+        media_type = "application/zip"
     else:
         raise HTTPException(status_code=404, detail="Report not found")
     return FileResponse(

@@ -733,4 +733,5 @@ export type ReportPayload = {
   document_status: "internal-review" | "formal-attachment";
   approval_time?: string | null;
   canonical_evidence_url?: string | null;
+  formal_source_bundle_url?: string | null;
 };

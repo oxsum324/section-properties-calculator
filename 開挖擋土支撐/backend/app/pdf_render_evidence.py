@@ -10,6 +10,7 @@ import tempfile
 import threading
 from typing import Any
 import unicodedata
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 import numpy as np
 from pypdf import PdfReader
@@ -22,6 +23,7 @@ OCR_ALIGNMENT_SCHEMA_VERSION = 1
 OCR_ALIGNMENT_METHOD = "rendered-page-ocr-text-layer-bigram-alignment"
 OCR_MINIMUM_PAGE_SCORE = 0.50
 OCR_RENDER_SCALE = 1.50
+FORMAL_SOURCE_BUNDLE_SUFFIX = ".formal-source.zip"
 
 _thread_local = threading.local()
 
@@ -219,3 +221,74 @@ def build_pdf_canonical_render_evidence(
         if temp_path is not None:
             temp_path.unlink(missing_ok=True)
     return evidence_path
+
+
+def _bundle_entry(name: str, content: bytes) -> tuple[ZipInfo, bytes]:
+    info = ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+    info.compress_type = ZIP_DEFLATED
+    info.create_system = 3
+    info.external_attr = 0o100644 << 16
+    return info, content
+
+
+def build_pdf_formal_source_bundle(pdf_path: Path, evidence_path: Path) -> Path:
+    """Build an atomic transport ZIP containing only one approved PDF and its evidence."""
+    pdf_path = Path(pdf_path).resolve()
+    evidence_path = Path(evidence_path).resolve()
+    if pdf_path.suffix.lower() != ".pdf" or not pdf_path.is_file():
+        raise ValueError("正式組包來源套件只接受既有 PDF")
+    expected_evidence_name = f"{pdf_path.stem}.canonical-render.evidence.json"
+    if evidence_path.parent != pdf_path.parent or evidence_path.name != expected_evidence_name or not evidence_path.is_file():
+        raise ValueError("PDF 與 canonical evidence 必須是同資料夾、同名配對")
+
+    pdf_stat = pdf_path.stat()
+    evidence_stat = evidence_path.stat()
+    pdf_bytes = pdf_path.read_bytes()
+    evidence_bytes = evidence_path.read_bytes()
+    evidence = json.loads(evidence_bytes.decode("utf-8"))
+    if evidence.get("kind") != CANONICAL_RENDER_EVIDENCE_KIND:
+        raise ValueError("canonical evidence 格式不符")
+    if evidence.get("artifact") != pdf_path.name:
+        raise ValueError("canonical evidence 對應的 PDF 檔名不符")
+    if str(evidence.get("artifactSha256", "")).lower() != _sha256_bytes(pdf_bytes):
+        raise ValueError("canonical evidence 對應的 PDF SHA-256 不符")
+
+    bundle_path = pdf_path.with_name(f"{pdf_path.stem}{FORMAL_SOURCE_BUNDLE_SUFFIX}")
+    if bundle_path.exists():
+        raise FileExistsError(f"正式組包來源套件已存在：{bundle_path.name}")
+    file_descriptor, temp_name = tempfile.mkstemp(
+        prefix=f".{bundle_path.name}.", suffix=".tmp", dir=bundle_path.parent
+    )
+    os.close(file_descriptor)
+    temp_path = Path(temp_name)
+    try:
+        with ZipFile(temp_path, mode="w") as archive:
+            for info, content in (
+                _bundle_entry(pdf_path.name, pdf_bytes),
+                _bundle_entry(evidence_path.name, evidence_bytes),
+            ):
+                archive.writestr(info, content)
+        with temp_path.open("r+b") as stream:
+            os.fsync(stream.fileno())
+        with ZipFile(temp_path) as archive:
+            if archive.namelist() != [pdf_path.name, evidence_path.name]:
+                raise RuntimeError("正式組包來源套件檔案清單不符")
+            if archive.read(pdf_path.name) != pdf_bytes or archive.read(evidence_path.name) != evidence_bytes:
+                raise RuntimeError("正式組包來源套件內容回讀不符")
+        if (
+            pdf_path.stat().st_size != pdf_stat.st_size
+            or pdf_path.stat().st_mtime_ns != pdf_stat.st_mtime_ns
+            or evidence_path.stat().st_size != evidence_stat.st_size
+            or evidence_path.stat().st_mtime_ns != evidence_stat.st_mtime_ns
+            or pdf_path.read_bytes() != pdf_bytes
+            or evidence_path.read_bytes() != evidence_bytes
+        ):
+            raise RuntimeError("PDF 或 canonical evidence 在建立來源套件期間發生變更")
+        if bundle_path.exists():
+            raise FileExistsError(f"正式組包來源套件已存在：{bundle_path.name}")
+        os.replace(temp_path, bundle_path)
+        temp_path = None
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+    return bundle_path

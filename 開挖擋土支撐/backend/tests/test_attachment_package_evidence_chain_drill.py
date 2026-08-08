@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from zipfile import ZipFile
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -24,7 +25,7 @@ from backend.app.removal_transfer_handoff import (
     build_source_capacity_evidence_verification,
     build_source_evidence_identity_signing_request,
 )
-from backend.app.pdf_render_evidence import build_pdf_canonical_render_evidence
+from backend.app.pdf_render_evidence import build_pdf_canonical_render_evidence, build_pdf_formal_source_bundle
 from backend.app.reporting import build_report, calculation_fingerprint
 from backend.app.schemas import AnalysisForceCase
 from backend.app.workbook_loader import load_default_project
@@ -195,14 +196,20 @@ class AttachmentPackageEvidenceChainDrillTests(unittest.TestCase):
 
             generated_pdf = build_report(project, concise_mode=True, approved=True)
             generated_pdf_evidence = build_pdf_canonical_render_evidence(generated_pdf)
+            generated_source_bundle = build_pdf_formal_source_bundle(generated_pdf, generated_pdf_evidence)
             pdf_report_path = source_dir / generated_pdf.name
             pdf_evidence_path = source_dir / generated_pdf_evidence.name
             try:
+                with ZipFile(generated_source_bundle) as archive:
+                    self.assertEqual(archive.namelist(), [generated_pdf.name, generated_pdf_evidence.name])
+                    self.assertEqual(archive.read(generated_pdf.name), generated_pdf.read_bytes())
+                    self.assertEqual(archive.read(generated_pdf_evidence.name), generated_pdf_evidence.read_bytes())
                 shutil.copy2(generated_pdf, pdf_report_path)
                 shutil.copy2(generated_pdf_evidence, pdf_evidence_path)
             finally:
                 generated_pdf.unlink(missing_ok=True)
                 generated_pdf_evidence.unlink(missing_ok=True)
+                generated_source_bundle.unlink(missing_ok=True)
 
             original_pdf_evidence_text = pdf_evidence_path.read_text(encoding="utf-8")
             tampered_pdf_evidence = json.loads(original_pdf_evidence_text)

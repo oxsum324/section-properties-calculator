@@ -502,3 +502,4 @@ class ReportPayload(BaseModel):
     document_status: Literal["internal-review", "formal-attachment"] = "internal-review"
     approval_time: str | None = None
     canonical_evidence_url: str | None = None
+    formal_source_bundle_url: str | None = None

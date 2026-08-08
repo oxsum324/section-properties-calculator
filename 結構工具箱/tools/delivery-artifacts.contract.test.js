@@ -105,12 +105,15 @@ const deckingReportContract = readText(repoFile('覆工板/decking-report.contra
 const deckingFixture = readText(repoFile('覆工板/test-fixtures/report-smoke.json'));
 const deckingReadme = readText(repoFile('覆工板/README.md'));
 const excavationReporting = readText(repoFile('開挖擋土支撐/backend/app/reporting.py'));
+const excavationPdfDelivery = readText(repoFile('開挖擋土支撐/backend/app/pdf_render_evidence.py'));
 const excavationSchemas = readText(repoFile('開挖擋土支撐/backend/app/schemas.py'));
 const excavationMain = readText(repoFile('開挖擋土支撐/backend/app/main.py'));
 const excavationStore = readText(repoFile('開挖擋土支撐/backend/app/project_store.py'));
 const excavationApp = readText(repoFile('開挖擋土支撐/frontend/src/App.tsx'));
 const excavationApi = readText(repoFile('開挖擋土支撐/frontend/src/api.ts'));
 const excavationReportingTests = readText(repoFile('開挖擋土支撐/backend/tests/test_reporting.py'));
+const excavationPdfDeliveryTests = readText(repoFile('開挖擋土支撐/backend/tests/test_pdf_render_evidence.py'));
+const excavationReportDeliveryApiTests = readText(repoFile('開挖擋土支撐/backend/tests/test_report_delivery_api.py'));
 const excavationStoreTests = readText(repoFile('開挖擋土支撐/backend/tests/test_project_store.py'));
 const excavationReportContract = readText(repoFile('開挖擋土支撐/excavation-report.contract.test.js'));
 const excavationReleaseArtifacts = readText(repoFile('開挖擋土支撐/backend/tests/release_report_artifacts.py'));
@@ -158,7 +161,7 @@ assertTraceEvidence(deckingCatalogPath, deckingReportTrace, ['JSON', 'Word', 're
 const excavationReportTrace = traceById(excavationCatalog, 'excavation-report-governance', 'excavation-pdf-word-report-parity');
 assertTraceEvidence(excavationCatalogPath, excavationReportTrace, ['PDF', 'DOCX', 'ProjectState']);
 const excavationDownloadTrace = traceById(excavationCatalog, 'excavation-report-governance', 'excavation-report-download-boundary');
-assertTraceEvidence(excavationCatalogPath, excavationDownloadTrace, ['latest', 'PDF', 'Word']);
+assertTraceEvidence(excavationCatalogPath, excavationDownloadTrace, ['latest', 'PDF', 'Word', 'ZIP']);
 const anchorReportTrace = traceById(anchorCatalog, 'anchor-strength', 'anchor-strength-tension-modes');
 [
   '鋼材拉力強度',
@@ -342,6 +345,8 @@ assertIncludesAny(
 [
   'class ReportPayload',
   'latest_download_url',
+  'canonical_evidence_url',
+  'formal_source_bundle_url',
   'report_mode',
   'report_kind',
   'Literal["pdf", "docx"]',
@@ -355,7 +360,16 @@ assertIncludesAny(
   'Path(filename).name',
   'Cache-Control',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/zip',
+  '.formal-source.zip',
 ].forEach(needle => assertIncludes(excavationMain, needle, `excavation API delivery boundary keeps ${needle}`));
+
+[
+  'def build_pdf_formal_source_bundle',
+  'FORMAL_SOURCE_BUNDLE_SUFFIX',
+  'PDF 與 canonical evidence 必須是同資料夾、同名配對',
+  '正式組包來源套件內容回讀不符',
+].forEach(needle => assertIncludes(excavationPdfDelivery, needle, `excavation PDF source bundle keeps ${needle}`));
 
 [
   'latest-report.pdf',
@@ -371,6 +385,8 @@ assertIncludesAny(
   '未勾選時為可列印的內部審閱文件',
   '產出 PDF（',
   '產出 Word（',
+  '下載 PDF＋證據組包來源套件',
+  '解壓縮後交給正式附件包管理器',
   '請先重新計算，再產出最新 Word / PDF。',
 ].forEach(needle => assertIncludes(excavationApp, needle, `excavation frontend delivery state keeps ${needle}`));
 
@@ -396,6 +412,18 @@ assertIncludesAny(
 ].forEach(needle => assertIncludes(excavationReportingTests, needle, `excavation reporting tests text extraction cover ${needle}`));
 
 [
+  'contains_only_exact_pdf_and_evidence_bytes',
+  'rejects_pdf_changed_after_evidence',
+  'never_overwrites_an_existing_transport_file',
+].forEach(needle => assertIncludes(excavationPdfDeliveryTests, needle, `excavation PDF source bundle tests cover ${needle}`));
+
+[
+  'approved_pdf_response_exposes_single_source_bundle',
+  'bundle_failure_removes_all_partial_formal_outputs',
+  'download_boundary_allows_only_named_formal_source_zip',
+].forEach(needle => assertIncludes(excavationReportDeliveryApiTests, needle, `excavation report delivery API tests cover ${needle}`));
+
+[
   'latest-report.docx',
   'test_save_report_copies_latest_report_to_project_folder',
 ].forEach(needle => assertIncludes(excavationStoreTests, needle, `excavation project store tests cover ${needle}`));
@@ -407,6 +435,8 @@ assertIncludesAny(
   'rendered-delivery-evidence',
   'excavation-formal',
   'backend.tests.release_report_artifacts',
+  'backend.tests.test_pdf_render_evidence',
+  'backend.tests.test_report_delivery_api',
 ].forEach(needle => assertIncludes(excavationReportContract, needle, `excavation report contract preserves durable release evidence ${needle}`));
 
 [
@@ -442,6 +472,8 @@ assertIncludesAny(
   '當輪正式放行',
   'excavation-formal',
   '最新下載',
+  '.formal-source.zip',
+  '不是正式附件包',
 ].forEach(needle => assertIncludes(excavationReadme, needle, `excavation README delivery boundary keeps ${needle}`));
 
 [
