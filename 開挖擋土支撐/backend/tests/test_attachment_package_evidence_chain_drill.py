@@ -204,6 +204,46 @@ class AttachmentPackageEvidenceChainDrillTests(unittest.TestCase):
                     self.assertEqual(archive.namelist(), [generated_pdf.name, generated_pdf_evidence.name])
                     self.assertEqual(archive.read(generated_pdf.name), generated_pdf.read_bytes())
                     self.assertEqual(archive.read(generated_pdf_evidence.name), generated_pdf_evidence.read_bytes())
+
+                zip_package_dir = root / "zip-direct-formal-package"
+                zip_manager_build = subprocess.run(
+                    [
+                        "node",
+                        str(TOOLS_DIR / "attachment-package-manager-worker.js"),
+                        "--action",
+                        "build",
+                        "--input",
+                        str(generated_source_bundle),
+                        "--output",
+                        str(zip_package_dir),
+                        "--project-no",
+                        PROJECT_NO,
+                    ],
+                    cwd=REPO_ROOT,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    check=False,
+                )
+                self.assertEqual(
+                    zip_manager_build.returncode,
+                    0,
+                    zip_manager_build.stdout + zip_manager_build.stderr,
+                )
+                zip_manager_payload = json.loads(zip_manager_build.stdout)
+                self.assertTrue(zip_manager_payload["built"])
+                self.assertEqual(zip_manager_payload["inputKind"], "formal-source-zip")
+                self.assertIn("隔離暫存區安全讀取", zip_manager_payload["displayText"])
+                self.assertTrue((zip_package_dir / "01_正式附件" / generated_pdf.name).is_file())
+                self.assertTrue(
+                    (
+                        zip_package_dir
+                        / "99_內部追溯_勿附入主報告"
+                        / "來源資料"
+                        / generated_pdf_evidence.name
+                    ).is_file()
+                )
                 shutil.copy2(generated_pdf, pdf_report_path)
                 shutil.copy2(generated_pdf_evidence, pdf_evidence_path)
             finally:

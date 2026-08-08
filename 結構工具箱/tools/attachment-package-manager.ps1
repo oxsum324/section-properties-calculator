@@ -95,6 +95,37 @@ function Select-Folder {
   }
 }
 
+function Select-FormalSourceZip {
+  param([string]$SelectedPath = '')
+  $dialog = New-Object System.Windows.Forms.OpenFileDialog
+  $dialog.Title = '選擇 PDF＋證據來源 ZIP'
+  $dialog.Filter = 'PDF＋證據來源 ZIP (*.formal-source.zip)|*.formal-source.zip'
+  $dialog.Multiselect = $false
+  $dialog.CheckFileExists = $true
+  if ($SelectedPath -and (Test-Path -LiteralPath $SelectedPath -PathType Leaf)) {
+    $dialog.FileName = $SelectedPath
+  } elseif ($SelectedPath) {
+    $parent = Split-Path -Parent $SelectedPath -ErrorAction SilentlyContinue
+    if ($parent -and (Test-Path -LiteralPath $parent -PathType Container)) { $dialog.InitialDirectory = $parent }
+  }
+  try {
+    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { return $dialog.FileName }
+    return ''
+  } finally {
+    $dialog.Dispose()
+  }
+}
+
+function Get-SourceBaseName {
+  param([string]$SourcePath = '')
+  if (-not $SourcePath.Trim()) { return '附件' }
+  $name = Split-Path $SourcePath.Trim() -Leaf
+  if ($name.EndsWith('.formal-source.zip', [System.StringComparison]::Ordinal)) {
+    return $name.Substring(0, $name.Length - '.formal-source.zip'.Length)
+  }
+  return $name
+}
+
 function Get-ResponseValue {
   param($Object, [string]$Name, $Fallback = '')
   if ($null -ne $Object -and $null -ne $Object.PSObject.Properties[$Name]) {
@@ -159,6 +190,7 @@ function Set-UiBusy {
   $script:BtnCheck.Enabled = -not $Busy
   $script:BtnVerify.Enabled = -not $Busy
   $script:BtnBrowseSource.Enabled = -not $Busy
+  $script:BtnBrowseSourceZip.Enabled = -not $Busy
   $script:BtnBrowseOutput.Enabled = -not $Busy
   $script:BtnBrowsePackage.Enabled = -not $Busy
   if ($Busy) { $script:BtnBuild.Enabled = $false }
@@ -218,14 +250,21 @@ function Add-FieldRow {
   return $textBox
 }
 
-$script:SourcePath = Add-FieldRow -Parent $sourceGroup -Label '附件來源資料夾' -Y 32
+$script:SourcePath = Add-FieldRow -Parent $sourceGroup -Label '來源資料夾或 ZIP' -Y 32
+$script:SourcePath.Width = 585
 if ($InitialMode -eq 'source' -and $InitialPath.Trim()) { $script:SourcePath.Text = $InitialPath.Trim() }
 $script:BtnBrowseSource = New-Object System.Windows.Forms.Button
-$script:BtnBrowseSource.Text = '選擇…'
-$script:BtnBrowseSource.Location = New-Object System.Drawing.Point(870, 30)
-$script:BtnBrowseSource.Size = New-Object System.Drawing.Size(105, 32)
+$script:BtnBrowseSource.Text = '選資料夾…'
+$script:BtnBrowseSource.Location = New-Object System.Drawing.Point(760, 30)
+$script:BtnBrowseSource.Size = New-Object System.Drawing.Size(100, 32)
 $script:BtnBrowseSource.Anchor = 'Top,Right'
 $sourceGroup.Controls.Add($script:BtnBrowseSource)
+$script:BtnBrowseSourceZip = New-Object System.Windows.Forms.Button
+$script:BtnBrowseSourceZip.Text = '選擇來源 ZIP…'
+$script:BtnBrowseSourceZip.Location = New-Object System.Drawing.Point(870, 30)
+$script:BtnBrowseSourceZip.Size = New-Object System.Drawing.Size(105, 32)
+$script:BtnBrowseSourceZip.Anchor = 'Top,Right'
+$sourceGroup.Controls.Add($script:BtnBrowseSourceZip)
 
 $script:ProjectNo = Add-FieldRow -Parent $sourceGroup -Label '計畫編號（選填）' -Y 72
 $script:ProjectNo.Width = 300
@@ -239,7 +278,7 @@ $script:BtnBrowseOutput.Anchor = 'Top,Right'
 $sourceGroup.Controls.Add($script:BtnBrowseOutput)
 
 $outputHint = New-Object System.Windows.Forms.Label
-$outputHint.Text = '留白時，會在附件來源旁建立含時間戳記的新資料夾；不會覆寫既有資料夾。'
+$outputHint.Text = '可直接選 PDF＋證據來源 ZIP；輸出留白時會在原來源旁建立新資料夾，且不覆寫既有內容。'
 $outputHint.Location = New-Object System.Drawing.Point(160, 143)
 $outputHint.Size = New-Object System.Drawing.Size(695, 20)
 $outputHint.ForeColor = [System.Drawing.Color]::FromArgb(100, 116, 139)
@@ -358,10 +397,15 @@ $script:BtnBrowseSource.Add_Click({
   if ($selected) { $script:SourcePath.Text = $selected }
 })
 
+$script:BtnBrowseSourceZip.Add_Click({
+  $selected = Select-FormalSourceZip -SelectedPath $script:SourcePath.Text
+  if ($selected) { $script:SourcePath.Text = $selected }
+})
+
 $script:BtnBrowseOutput.Add_Click({
   $selected = Select-Folder -Description '選擇正式附件包的輸出上層資料夾' -SelectedPath (Split-Path -Parent $script:OutputPath.Text -ErrorAction SilentlyContinue)
   if ($selected) {
-    $sourceName = if ($script:SourcePath.Text.Trim()) { Split-Path $script:SourcePath.Text.Trim() -Leaf } else { '附件' }
+    $sourceName = Get-SourceBaseName -SourcePath $script:SourcePath.Text
     $token = Get-Date -Format 'yyyyMMdd-HHmmss'
     $script:OutputPath.Text = Join-Path $selected "$sourceName-正式附件包-$token"
   }

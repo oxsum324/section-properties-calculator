@@ -95,7 +95,70 @@ const smoke = Worker.runAction('smoke');
 assert.equal(smoke.status, 'ready');
 assert.equal(Worker.exitCodeForResponse(smoke), 0);
 assert.throws(() => Worker.runAction('publish', { input: toolsDir }), /不支援的管理器動作/);
-assert.throws(() => Worker.runAction('check', { input: '' }), /尚未選擇資料夾/);
+assert.throws(() => Worker.runAction('check', { input: '' }), /尚未選擇附件來源/);
+
+const zipFixtureRoot = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'attachment-manager-zip-test-'));
+try {
+  const zipSource = path.join(zipFixtureRoot, 'source');
+  fs.mkdirSync(zipSource);
+  const pdfName = '核可計算書.pdf';
+  const evidenceName = '核可計算書.canonical-render.evidence.json';
+  fs.writeFileSync(path.join(zipSource, pdfName), '%PDF-1.7\nfixture\n', 'utf8');
+  fs.writeFileSync(path.join(zipSource, evidenceName), '{"kind":"fixture"}\n', 'utf8');
+  const bundlePath = path.join(zipFixtureRoot, '核可計算書.formal-source.zip');
+  const archive = childProcess.spawnSync('tar', ['-a', '-cf', bundlePath, '-C', zipSource, pdfName, evidenceName], { encoding: 'utf8' });
+  assert.equal(archive.status, 0, archive.stderr || archive.stdout);
+
+  let checkedTemp = '';
+  const zipChecker = {
+    ...fakeChecker,
+    checkPackage(input) {
+      checkedTemp = input;
+      assert.equal(fs.readFileSync(path.join(input, pdfName), 'utf8'), '%PDF-1.7\nfixture\n');
+      assert.equal(fs.readFileSync(path.join(input, evidenceName), 'utf8'), '{"kind":"fixture"}\n');
+      assert.deepEqual(fs.readdirSync(input).sort(), [evidenceName, pdfName].sort());
+      return fakeReport;
+    },
+  };
+  const zipCheck = Worker.runAction('check', { input: bundlePath }, { ...dependencies, Checker: zipChecker });
+  assert.equal(zipCheck.inputKind, 'formal-source-zip');
+  assert.match(zipCheck.displayText, /隔離暫存區安全讀取/);
+  assert.ok(checkedTemp && !fs.existsSync(checkedTemp), 'ZIP check always removes isolated temporary input');
+
+  let builtTemp = '';
+  let builtOptions;
+  const zipBuilder = {
+    defaultOutputDir(input) {
+      assert.equal(input, path.join(zipFixtureRoot, '核可計算書'));
+      return path.join(zipFixtureRoot, '核可計算書-正式附件包-test');
+    },
+    buildPackage(input, options) {
+      builtTemp = input;
+      builtOptions = options;
+      assert.deepEqual(fs.readdirSync(input).sort(), [evidenceName, pdfName].sort());
+      return fakeBuilder.buildPackage();
+    },
+  };
+  const zipBuild = Worker.runAction('build', { input: bundlePath }, { ...dependencies, Checker: zipChecker, Builder: zipBuilder });
+  assert.equal(zipBuild.built, true);
+  assert.equal(builtOptions.output, path.join(zipFixtureRoot, '核可計算書-正式附件包-test'));
+  assert.ok(builtTemp && !fs.existsSync(builtTemp), 'ZIP build always removes isolated temporary input');
+
+  assert.throws(() => Worker.runAction('verify', { input: bundlePath }, dependencies), /必須選擇資料夾/);
+  assert.throws(
+    () => Worker.validateBundleEntries(bundlePath, ['../核可計算書.pdf', evidenceName]),
+    /依序且只含根目錄兩檔/,
+  );
+  assert.throws(
+    () => Worker.validateBundleEntries(bundlePath, [pdfName, evidenceName, '多餘.txt']),
+    /依序且只含根目錄兩檔/,
+  );
+  const mismatchedBundle = path.join(zipFixtureRoot, '錯配名稱.formal-source.zip');
+  fs.copyFileSync(bundlePath, mismatchedBundle);
+  assert.throws(() => Worker.extractFormalSourceBundle(mismatchedBundle), /依序且只含根目錄兩檔/);
+} finally {
+  fs.rmSync(zipFixtureRoot, { recursive: true, force: true });
+}
 
 const cli = childProcess.spawnSync(process.execPath, [path.join(toolsDir, 'attachment-package-manager-worker.js'), '--action', 'smoke'], { encoding: 'utf8' });
 assert.equal(cli.status, 0, cli.stderr || cli.stdout);
@@ -109,10 +172,11 @@ assert.equal(JSON.parse(badCli.stdout).status, 'error');
 
 const managerPs = read('結構工具箱/tools/attachment-package-manager.ps1');
 [
-  'System.Windows.Forms', 'FolderBrowserDialog', 'attachment-package-manager-worker.js',
+  'System.Windows.Forms', 'FolderBrowserDialog', 'OpenFileDialog', 'attachment-package-manager-worker.js',
   "ValidateSet('smoke', 'check', 'build', 'verify')", '檢查附件來源', '建立正式附件包',
   '驗證附件包', '管理畫面與檢查結果僅供內部整理', 'workerExitCode',
   "[string]$InitialPath = ''", "[ValidateSet('source', 'verify')][string]$InitialMode = 'source'", '[switch]$AutoInspect',
+  'PDF＋證據來源 ZIP', '*.formal-source.zip', '選擇來源 ZIP…',
 ].forEach(needle => assert.ok(managerPs.includes(needle), `PowerShell manager includes ${needle}`));
 assert.ok(managerPs.charCodeAt(0) === 0xFEFF, 'PowerShell manager keeps UTF-8 BOM for Windows PowerShell 5.1');
 assert.doesNotMatch(managerPs, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'manager stays local and does not send case data over network');

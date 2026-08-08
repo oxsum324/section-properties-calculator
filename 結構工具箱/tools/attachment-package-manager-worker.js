@@ -1,12 +1,18 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const childProcess = require('child_process');
 const Checker = require('./attachment-package-check.js');
 const Builder = require('./attachment-package-build.js');
 const Verifier = require('./attachment-package-verify.js');
 
 const ACTIONS = new Set(['smoke', 'check', 'build', 'verify']);
+const FORMAL_SOURCE_BUNDLE_SUFFIX = '.formal-source.zip';
+const MAX_BUNDLE_BYTES = 320 * 1024 * 1024;
+const MAX_PDF_BYTES = 256 * 1024 * 1024;
+const MAX_EVIDENCE_BYTES = 64 * 1024 * 1024;
 
 function text(value) {
   return value === null || value === undefined ? '' : String(value).trim();
@@ -84,11 +90,148 @@ function issueRecords(report = {}) {
 
 function requireInput(options = {}) {
   const input = path.resolve(text(options.input));
-  if (!text(options.input)) throw new Error('尚未選擇資料夾。');
-  if (!fs.existsSync(input) || !fs.lstatSync(input).isDirectory()) {
-    throw new Error(`資料夾不存在：${input}`);
-  }
+  if (!text(options.input)) throw new Error('尚未選擇附件來源資料夾或 PDF＋證據來源 ZIP。');
+  if (!fs.existsSync(input)) throw new Error(`附件來源不存在：${input}`);
   return input;
+}
+
+function bundleStem(bundlePath) {
+  const name = path.basename(bundlePath);
+  if (!name.endsWith(FORMAL_SOURCE_BUNDLE_SUFFIX)) return '';
+  return name.slice(0, -FORMAL_SOURCE_BUNDLE_SUFFIX.length);
+}
+
+function expectedBundleEntries(bundlePath) {
+  const stem = bundleStem(bundlePath);
+  if (!stem || stem === '.' || stem === '..') {
+    throw new Error(`PDF＋證據來源 ZIP 檔名必須以 ${FORMAL_SOURCE_BUNDLE_SUFFIX} 結尾，且前方須有 PDF 名稱。`);
+  }
+  return [`${stem}.pdf`, `${stem}.canonical-render.evidence.json`];
+}
+
+function runTar(args, options = {}) {
+  const result = childProcess.spawnSync('tar', args, {
+    windowsHide: true,
+    encoding: options.encoding,
+    maxBuffer: options.maxBuffer,
+  });
+  if (result.error) throw new Error(`無法讀取 PDF＋證據來源 ZIP：${result.error.message || result.error}`);
+  if (result.status !== 0) {
+    const detail = Buffer.isBuffer(result.stderr) ? result.stderr.toString('utf8') : text(result.stderr);
+    throw new Error(`PDF＋證據來源 ZIP 無法讀取${detail ? `：${detail.trim()}` : '。'}`);
+  }
+  return result.stdout;
+}
+
+function listBundleEntries(bundlePath) {
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    'Add-Type -AssemblyName System.IO.Compression.FileSystem',
+    '$previous = [Console]::OutputEncoding',
+    'try {',
+    '  [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)',
+    '  $archive = [System.IO.Compression.ZipFile]::OpenRead($env:CODEX_FORMAL_SOURCE_ZIP)',
+    '  try {',
+    "    @($archive.Entries | ForEach-Object { [pscustomobject]@{ name = $_.FullName; length = $_.Length; compressedLength = $_.CompressedLength } }) | ConvertTo-Json -Compress",
+    '  } finally { $archive.Dispose() }',
+    '} finally { [Console]::OutputEncoding = $previous }',
+  ].join('\n');
+  const result = childProcess.spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+    windowsHide: true,
+    encoding: 'utf8',
+    maxBuffer: 256 * 1024,
+    env: { ...process.env, CODEX_FORMAL_SOURCE_ZIP: bundlePath },
+  });
+  if (result.error || result.status !== 0) {
+    const detail = text(result.stderr || result.error?.message || result.error);
+    throw new Error(`PDF＋證據來源 ZIP 中央目錄無法讀取${detail ? `：${detail}` : '。'}`);
+  }
+  try {
+    const parsed = JSON.parse(String(result.stdout || '').replace(/^\uFEFF/, '').trim() || '[]');
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch (error) {
+    throw new Error(`PDF＋證據來源 ZIP 中央目錄格式無法解析：${error.message || error}`);
+  }
+}
+
+function validateBundleEntries(bundlePath, entries) {
+  const expected = expectedBundleEntries(bundlePath);
+  const normalized = Array.isArray(entries)
+    ? entries.map(entry => typeof entry === 'string' ? { name: entry, length: 1 } : entry)
+    : [];
+  if (normalized.length !== expected.length
+    || normalized.some((entry, index) => entry?.name !== expected[index])) {
+    throw new Error(`PDF＋證據來源 ZIP 必須依序且只含根目錄兩檔：${expected.join('、')}。`);
+  }
+  const limits = [MAX_PDF_BYTES, MAX_EVIDENCE_BYTES];
+  normalized.forEach((entry, index) => {
+    const length = Number(entry.length);
+    if (!Number.isSafeInteger(length) || length <= 0 || length > limits[index]) {
+      throw new Error(`PDF＋證據來源 ZIP 檔案大小不允許：${expected[index]}`);
+    }
+  });
+  return expected;
+}
+
+function readBundleEntry(bundlePath, entry, maxBytes) {
+  const output = runTar(['-xOf', bundlePath, entry], { encoding: null, maxBuffer: maxBytes + 1 });
+  if (!Buffer.isBuffer(output)) throw new Error(`PDF＋證據來源 ZIP 無法回讀：${entry}`);
+  if (!output.length || output.length > maxBytes) {
+    throw new Error(`PDF＋證據來源 ZIP 檔案大小不允許：${entry}`);
+  }
+  return output;
+}
+
+function extractFormalSourceBundle(bundlePath) {
+  const stat = fs.lstatSync(bundlePath);
+  if (!stat.isFile()) throw new Error(`PDF＋證據來源 ZIP 不是一般檔案：${bundlePath}`);
+  if (!bundleStem(bundlePath)) throw new Error(`附件來源不是資料夾或 ${FORMAL_SOURCE_BUNDLE_SUFFIX}：${bundlePath}`);
+  if (!stat.size || stat.size > MAX_BUNDLE_BYTES) throw new Error('PDF＋證據來源 ZIP 檔案大小不允許。');
+
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'formal-source-'));
+  const tempDir = path.join(tempRoot, 'source');
+  const archiveCopy = path.join(tempRoot, 'source.zip');
+  try {
+    fs.mkdirSync(tempDir);
+    fs.copyFileSync(bundlePath, archiveCopy, fs.constants.COPYFILE_EXCL);
+    if (fs.statSync(archiveCopy).size !== stat.size) throw new Error('PDF＋證據來源 ZIP 複製期間發生變更。');
+    const entries = validateBundleEntries(bundlePath, listBundleEntries(archiveCopy));
+    const limits = [MAX_PDF_BYTES, MAX_EVIDENCE_BYTES];
+    entries.forEach((entry, index) => {
+      const bytes = readBundleEntry(archiveCopy, entry, limits[index]);
+      fs.writeFileSync(path.join(tempDir, entry), bytes, { flag: 'wx' });
+    });
+    const extracted = fs.readdirSync(tempDir).sort();
+    const expected = [...entries].sort();
+    if (JSON.stringify(extracted) !== JSON.stringify(expected)
+      || extracted.some(entry => !fs.lstatSync(path.join(tempDir, entry)).isFile())) {
+      throw new Error('PDF＋證據來源 ZIP 安全展開後的檔案清單不符。');
+    }
+    return { input: tempDir, cleanupRoot: tempRoot, originalInput: bundlePath, inputKind: 'formal-source-zip', stem: bundleStem(bundlePath) };
+  } catch (error) {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+function resolveInput(action, options = {}) {
+  const input = requireInput(options);
+  const stat = fs.lstatSync(input);
+  if (stat.isDirectory()) return { input, originalInput: input, inputKind: 'directory', stem: path.basename(input) };
+  if (action === 'verify') throw new Error('驗證既有正式附件包必須選擇資料夾，不接受來源 ZIP。');
+  return extractFormalSourceBundle(input);
+}
+
+function cleanupResolvedInput(resolved) {
+  if (resolved?.inputKind === 'formal-source-zip' && resolved.input) {
+    fs.rmSync(resolved.cleanupRoot || resolved.input, { recursive: true, force: true });
+  }
+}
+
+function sourceDisplayPrefix(resolved) {
+  return resolved?.inputKind === 'formal-source-zip'
+    ? '來源：PDF＋證據來源 ZIP（已在隔離暫存區安全讀取；ZIP 本身不是正式附件包）。\n'
+    : '';
 }
 
 function checkResponse(report, checker = Checker) {
@@ -195,16 +338,27 @@ function runAction(action, options = {}, dependencies = {}) {
     };
   }
 
-  const input = requireInput(options);
-  if (action === 'check') {
-    return checkResponse(checker.checkPackage(input, { projectNo: text(options.projectNo) }), checker);
+  const resolved = resolveInput(action, options);
+  try {
+    let response;
+    if (action === 'check') {
+      response = checkResponse(checker.checkPackage(resolved.input, { projectNo: text(options.projectNo) }), checker);
+    } else if (action === 'build') {
+      const buildOptions = { projectNo: text(options.projectNo) };
+      if (text(options.output)) buildOptions.output = path.resolve(text(options.output));
+      else if (resolved.inputKind === 'formal-source-zip') {
+        buildOptions.output = builder.defaultOutputDir(path.join(path.dirname(resolved.originalInput), resolved.stem));
+      }
+      response = buildResponse(builder.buildPackage(resolved.input, buildOptions), checker);
+    } else {
+      response = verifyResponse(verifier.verifyPackage(resolved.input), verifier);
+    }
+    response.inputKind = resolved.inputKind;
+    response.displayText = `${sourceDisplayPrefix(resolved)}${response.displayText}`;
+    return response;
+  } finally {
+    cleanupResolvedInput(resolved);
   }
-  if (action === 'build') {
-    const buildOptions = { projectNo: text(options.projectNo) };
-    if (text(options.output)) buildOptions.output = path.resolve(text(options.output));
-    return buildResponse(builder.buildPackage(input, buildOptions), checker);
-  }
-  return verifyResponse(verifier.verifyPackage(input), verifier);
 }
 
 function parseArgs(argv = []) {
@@ -225,7 +379,7 @@ function usageResponse() {
   return {
     action: 'help',
     status: 'ready',
-    usage: 'node attachment-package-manager-worker.js --action smoke|check|build|verify [--input <資料夾>] [--output <輸出資料夾>] [--project-no <計畫編號>]',
+    usage: 'node attachment-package-manager-worker.js --action smoke|check|build|verify [--input <資料夾或 .formal-source.zip>] [--output <輸出資料夾>] [--project-no <計畫編號>]',
   };
 }
 
@@ -269,6 +423,15 @@ module.exports = {
   dualSealSummaryLine,
   issueRecords,
   requireInput,
+  bundleStem,
+  expectedBundleEntries,
+  listBundleEntries,
+  validateBundleEntries,
+  readBundleEntry,
+  extractFormalSourceBundle,
+  resolveInput,
+  cleanupResolvedInput,
+  sourceDisplayPrefix,
   checkResponse,
   buildResponse,
   verifyResponse,

@@ -1,5 +1,5 @@
 {
-  "version": "1.14.0",
+  "version": "1.15.0",
   "family": "excavation-traceability",
   "description": "開挖擋土支撐服務型工具的規範語意追蹤表。每筆 trace 將分析檔匯入、輸入欄位、構件檢核、報表落點、測試證據與人工複核邊界對齊，避免只因 FastAPI / React 流程可產出 PDF 或 DOCX 就誤判為支撐系統檢核依據已完整可追溯。",
   "tools": [
@@ -126,11 +126,11 @@
         {
           "id": "excavation-pdf-word-report-parity",
           "clause": "擋土支撐檢核計算書交付治理、設計依據段落與 PDF / DOCX 報表一致性",
-          "purpose": "PDF 與 DOCX 需引用同一份 ProjectState 與公式來源文字；預設輸出為可列印的內部審閱，只有使用者明確勾選核可才標示正式附件並保存核可時間。工程名稱與設計人員可留空由主文承接，不因此判為不合格附件。核可 PDF 另逐頁建立像素、OCR 與文字層對齊證據，並原子建立只含該 PDF 與證據的單一 ZIP 搬運套件；證據與 ZIP 只供正式組包及複驗，不進入附件正文，ZIP 也不是正式附件包。正式放行另保存未含快取結果的 ProjectState，回讀後以目前後端核心重算，避免前端結果、PDF、Word 與附件包說法漂移。",
+          "purpose": "PDF 與 DOCX 需引用同一份 ProjectState 與公式來源文字；預設輸出為可列印的內部審閱，只有使用者明確勾選核可才標示正式附件並保存核可時間。工程名稱與設計人員可留空由主文承接，不因此判為不合格附件。核可 PDF 另逐頁建立像素、OCR 與文字層對齊證據，並原子建立只含該 PDF 與證據的單一 ZIP 搬運套件；正式附件包管理器可直接安全讀取 ZIP、驗證精確兩檔清單並於隔離暫存區組包，不需人工解壓。證據與 ZIP 不進入附件正文，ZIP 也不是正式附件包。正式放行另保存未含快取結果的 ProjectState，回讀後以目前後端核心重算，避免前端結果、PDF、Word 與附件包說法漂移。",
           "inputs": ["ProjectState", "ReportPayload", "concise_mode", "approved", "document_status", "approval_time", "calculation_results", "analysis_sources", "optional project metadata"],
-          "calculation": ["calculate_project", "ProjectState.model_validate_json", "calculation_fingerprint", "report_document_metadata", "build_report", "build_word_report", "build_pdf_canonical_render_evidence", "build_pdf_formal_source_bundle", "attachment-package-build", "attachment-package-verify", "_report_scope_lines", "_design_basis_lines", "_analysis_program_description", "_formula_source_text"],
+          "calculation": ["calculate_project", "ProjectState.model_validate_json", "calculation_fingerprint", "report_document_metadata", "build_report", "build_word_report", "build_pdf_canonical_render_evidence", "build_pdf_formal_source_bundle", "attachment-package-manager direct ZIP input", "attachment-package-build", "attachment-package-verify", "_report_scope_lines", "_design_basis_lines", "_analysis_program_description", "_formula_source_text"],
           "report": ["擋土支撐檢核計算書", "文件狀態：內部審閱", "文件狀態：正式附件", "產出工具", "工具版本", "輸出時間", "核可時間", "計算指紋", "設計依據", "結構分析使用之電腦程式", "構件檢核彙整", "計算明細附錄"],
-          "evidence": ["backend/app/reporting.py", "backend/app/pdf_render_evidence.py", "backend/app/schemas.py", "backend/tests/test_pdf_render_evidence.py", "backend/tests/test_report_delivery_api.py", "backend/tests/test_reporting.py", "backend/tests/test_attachment_package_evidence_chain_drill.py", "backend/tests/release_report_artifacts.py", "excavation-report.contract.test.js", "frontend/src/App.tsx", "frontend/src/api.ts", "../結構工具箱/tools/attachment-package-check.js", "../結構工具箱/tools/attachment-package-build.js", "../結構工具箱/tools/attachment-package-verify.js"],
+          "evidence": ["backend/app/reporting.py", "backend/app/pdf_render_evidence.py", "backend/app/schemas.py", "backend/tests/test_pdf_render_evidence.py", "backend/tests/test_report_delivery_api.py", "backend/tests/test_reporting.py", "backend/tests/test_attachment_package_evidence_chain_drill.py", "backend/tests/release_report_artifacts.py", "excavation-report.contract.test.js", "frontend/src/App.tsx", "frontend/src/api.ts", "../結構工具箱/tools/attachment-package-manager-worker.js", "../結構工具箱/tools/attachment-package-manager.contract.test.js", "../結構工具箱/tools/attachment-package-check.js", "../結構工具箱/tools/attachment-package-build.js", "../結構工具箱/tools/attachment-package-verify.js"],
           "manualReview": ["文件核可只決定附件身分，不代表工程結果通過或核可人身分已完成數位簽章。PDF / DOCX 與附件包只能證明工具輸出及歸檔關係一致；設計依據版本、圖說、分析模型、附件、專案指定值與送審文字仍須由設計者或審查者人工確認。"]
         },
         {

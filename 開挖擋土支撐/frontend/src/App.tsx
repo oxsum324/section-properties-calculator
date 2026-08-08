@@ -4058,7 +4058,7 @@ function App() {
                   {pdfSourceBundleUrl && (
                     <a className="generated-report-link" href={pdfSourceBundleUrl} target="_blank" rel="noreferrer" download>
                       <strong>下載 PDF＋證據組包來源套件</strong>
-                      <span>單一 ZIP 搬運；解壓縮後交給正式附件包管理器</span>
+                      <span>單一 ZIP 搬運；可直接交給正式附件包管理器</span>
                       <em>{extractDownloadFilename(pdfSourceBundleUrl)}</em>
                     </a>
                   )}
@@ -4079,7 +4079,7 @@ function App() {
                 </div>
               )}
               <p className="meta-line">
-                {`目前附件編排方式為${reportModeLabel}，文件身分為${reportDocumentStatusLabel}。Word 與 PDF 皆包含摘要、輸入基本資料、分析匯入結果、結果彙整與主要檢核內容；核可 PDF 會逐頁建立像素、OCR 與文字層對齊證據，並提供只含該 PDF 與證據的單一來源套件，解壓縮後即可交給正式附件包管理器。`}
+                {`目前附件編排方式為${reportModeLabel}，文件身分為${reportDocumentStatusLabel}。Word 與 PDF 皆包含摘要、輸入基本資料、分析匯入結果、結果彙整與主要檢核內容；核可 PDF 會逐頁建立像素、OCR 與文字層對齊證據，並提供只含該 PDF 與證據的單一來源套件，可直接交給正式附件包管理器安全讀取及組包。`}
               </p>
             </Panel>
             <Panel

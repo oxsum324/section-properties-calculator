@@ -104,7 +104,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.14.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.15.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -777,7 +777,7 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   '產出 Word（',
   '本次 PDF／正式組包可見性證據',
   '下載 PDF＋證據組包來源套件',
-  '解壓縮後交給正式附件包管理器',
+  '可直接交給正式附件包管理器',
   '儲存、產生 PDF 並逐頁驗證',
   'setReportApproved(false)',
 ].forEach((needle) => {
@@ -848,6 +848,9 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'build_source_evidence_chain_verification_receipt',
   'build_pdf_canonical_render_evidence',
   'build_pdf_formal_source_bundle',
+  'attachment-package-manager-worker.js',
+  'zip-direct-formal-package',
+  '"inputKind"',
   'ocr-alignment-page-1-ocr-sha256',
   'attachment-package-build.js',
   'attachment-package-verify.js',

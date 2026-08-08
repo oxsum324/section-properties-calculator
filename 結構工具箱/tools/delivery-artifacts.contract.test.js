@@ -386,7 +386,7 @@ assertIncludesAny(
   '產出 PDF（',
   '產出 Word（',
   '下載 PDF＋證據組包來源套件',
-  '解壓縮後交給正式附件包管理器',
+  '可直接交給正式附件包管理器',
   '請先重新計算，再產出最新 Word / PDF。',
 ].forEach(needle => assertIncludes(excavationApp, needle, `excavation frontend delivery state keeps ${needle}`));
 
