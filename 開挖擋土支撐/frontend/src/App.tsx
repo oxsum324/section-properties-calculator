@@ -69,6 +69,15 @@ const columnVariantOptions: Array<{
 type AnalysisSourceSide = "top" | "bottom";
 type AnalysisWorkflowMode = "single_manual" | "dual_manual" | "single_import" | "dual_import" | "mixed";
 type ComponentTabKey = "support" | "wale" | "brace" | "corner";
+type SourceCapacityEvidenceMatch = {
+  transferId: string;
+  selectedFileName: string;
+  actualSha256: string;
+  expectedSha256: string;
+  matched: boolean;
+  fileNameMatched: boolean;
+  checkedAt: string;
+};
 
 const ADVANCED_PARAMETER_DEFAULTS = {
   alpha_support: 1.25,
@@ -281,6 +290,7 @@ function App() {
   const [removalTransferHandoff, setRemovalTransferHandoff] = useState<RemovalTransferHandoff | null>(null);
   const [removalTransferReceipt, setRemovalTransferReceipt] = useState<ReceiverCapacityVerificationReceipt | null>(null);
   const [removalTransferIdentityVerification, setRemovalTransferIdentityVerification] = useState<ReceiverIdentityVerification | null>(null);
+  const [sourceCapacityEvidenceMatches, setSourceCapacityEvidenceMatches] = useState<Record<string, SourceCapacityEvidenceMatch>>({});
   const [receiverAssistantHandoff, setReceiverAssistantHandoff] = useState<RemovalTransferHandoff | null>(null);
   const [receiverAssistantAuthority, setReceiverAssistantAuthority] = useState<ReceiverVerificationAuthority>({
     organization: "",
@@ -323,6 +333,13 @@ function App() {
     () => removalTransferReceipt ?? latestRemovalTransferReceipt(project, activeRemovalTransferHandoff?.handoffFingerprint),
     [project?.removal_transfer_verification_receipts, removalTransferReceipt, activeRemovalTransferHandoff?.handoffFingerprint],
   );
+  const sourceCapacityEvidenceRequired = activeRemovalTransferReceipt?.schemaVersion === 3;
+  const sourceCapacityEvidenceAllMatched = useMemo(() => {
+    if (!sourceCapacityEvidenceRequired || !activeRemovalTransferReceipt?.results.length) return false;
+    return activeRemovalTransferReceipt.results.every(
+      (result) => sourceCapacityEvidenceMatches[result.transferId]?.matched === true,
+    );
+  }, [activeRemovalTransferReceipt, sourceCapacityEvidenceMatches, sourceCapacityEvidenceRequired]);
   const receiverAssistantReady = useMemo(() => {
     if (!receiverAssistantHandoff || !receiverCalculationConfirmed || !receiverIdentityAcknowledged) return false;
     if (Object.values(receiverAssistantAuthority).some((value) => !value.trim())) return false;
@@ -376,6 +393,10 @@ function App() {
       });
     return () => { cancelled = true; };
   }, [activeStep]);
+
+  useEffect(() => {
+    setSourceCapacityEvidenceMatches({});
+  }, [activeRemovalTransferReceipt?.receiptFingerprint]);
 
   useEffect(() => {
     void initialize();
@@ -658,6 +679,34 @@ function App() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy("");
+    }
+  }
+
+  async function handleSourceCapacityEvidenceFile(
+    result: ReceiverVerificationResult,
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !result.capacityEvidence) return;
+    try {
+      const actualSha256 = await fileSha256Hex(file);
+      const expectedSha256 = result.capacityEvidence.fileSha256.toLowerCase();
+      setSourceCapacityEvidenceMatches((current) => ({
+        ...current,
+        [result.transferId]: {
+          transferId: result.transferId,
+          selectedFileName: file.name,
+          actualSha256,
+          expectedSha256,
+          matched: actualSha256 === expectedSha256,
+          fileNameMatched: file.name === result.capacityEvidence?.fileName,
+          checkedAt: new Date().toISOString(),
+        },
+      }));
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "無法計算來源端證據檔 SHA-256。");
     }
   }
 
@@ -1029,10 +1078,7 @@ function App() {
     event.target.value = "";
     if (!file) return;
     try {
-      const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
-      const fileSha256 = Array.from(new Uint8Array(digest))
-        .map((byte) => byte.toString(16).padStart(2, "0"))
-        .join("");
+      const fileSha256 = await fileSha256Hex(file);
       setReceiverAssistantResults((current) => {
         const next = [...current];
         const result = { ...next[index] };
@@ -3874,15 +3920,17 @@ function App() {
                     label="交接狀態"
                     value={activeRemovalTransferReceipt
                       ? activeRemovalTransferReceipt.summary.status === "passed"
-                        ? removalTransferIdentityVerification?.trusted
-                          ? "接收端檢核通過／受信任簽章通過"
-                          : removalTransferIdentityVerification?.status === "valid-signature-revoked-key"
-                            ? "接收端檢核通過／簽章公鑰已撤銷"
-                            : removalTransferIdentityVerification?.status === "valid-signature-organization-mismatch"
-                              ? "接收端檢核通過／簽章單位不符"
-                              : removalTransferIdentityVerification?.cryptographicValid
-                            ? "接收端檢核通過／簽章有效但公鑰待信任"
-                            : "接收端檢核通過／回簽人身分待核對"
+                        ? sourceCapacityEvidenceRequired && !sourceCapacityEvidenceAllMatched
+                          ? "接收端結果通過／證據檔待逐列比對"
+                          : removalTransferIdentityVerification?.trusted
+                            ? "接收端檢核通過／受信任簽章通過"
+                            : removalTransferIdentityVerification?.status === "valid-signature-revoked-key"
+                              ? "接收端檢核通過／簽章公鑰已撤銷"
+                              : removalTransferIdentityVerification?.status === "valid-signature-organization-mismatch"
+                                ? "接收端檢核通過／簽章單位不符"
+                                : removalTransferIdentityVerification?.cryptographicValid
+                                  ? "接收端檢核通過／簽章有效但公鑰待信任"
+                                  : "接收端檢核通過／回簽人身分待核對"
                         : "接收端檢核未通過"
                       : "待承接構造驗證"}
                   />
@@ -3904,9 +3952,80 @@ function App() {
                         label="正式文件編號"
                         value={activeRemovalTransferReceipt.verificationAuthority.reportReference}
                       />
+                      <MetaItem
+                        label="來源端證據檔比對"
+                        value={sourceCapacityEvidenceRequired
+                          ? sourceCapacityEvidenceAllMatched
+                            ? `已相符 ${activeRemovalTransferReceipt.results.length}/${activeRemovalTransferReceipt.results.length}`
+                            : `已相符 ${activeRemovalTransferReceipt.results.filter((result) => sourceCapacityEvidenceMatches[result.transferId]?.matched).length}/${activeRemovalTransferReceipt.results.length}`
+                          : "舊版 RVR 未提供逐列文件 SHA-256"}
+                      />
                     </>
                   )}
                 </div>
+              )}
+              {activeRemovalTransferReceipt && sourceCapacityEvidenceRequired && (
+                <div className="receiver-result-list">
+                  {activeRemovalTransferReceipt.results.map((result, index) => {
+                    const evidence = result.capacityEvidence;
+                    const match = sourceCapacityEvidenceMatches[result.transferId];
+                    const transfer = activeRemovalTransferHandoff?.transfers.find(
+                      (item) => item.transferId === result.transferId,
+                    );
+                    return (
+                      <article className="receiver-result-card" key={`source-evidence-${result.transferId}`}>
+                        <header className="receiver-result-head">
+                          <div>
+                            <span>{`證據檔比對 ${index + 1}`}</span>
+                            <strong>{transfer ? handoffSourceMemberLabel(transfer) : result.receiverTarget}</strong>
+                          </div>
+                          <code>{result.transferId}</code>
+                        </header>
+                        <div className="receiver-source-summary">
+                          <span>{`文件：${evidence?.documentReference ?? "—"}／版次 ${evidence?.revision ?? "—"}／${evidence?.issuedDate ?? "—"}`}</span>
+                          <span>{`定位：${evidence?.pageReference ?? "—"}`}</span>
+                          <span>{`RVR 檔名：${evidence?.fileName ?? "—"}`}</span>
+                          <span>{`RVR SHA-256：${evidence?.fileSha256 ?? "—"}`}</span>
+                        </div>
+                        <label className="field-block">
+                          <span>選取來源端實際收到的證據檔</span>
+                          <input
+                            type="file"
+                            onChange={(event) => void handleSourceCapacityEvidenceFile(result, event)}
+                          />
+                          <small>只在本機重新計算 SHA-256；檔案不會上傳或保存。</small>
+                        </label>
+                        <div className={`receiver-receipt-result ${match?.matched ? "ok" : "ng"}`}>
+                          <strong>
+                            {!match
+                              ? "待比對"
+                              : match.matched
+                                ? match.fileNameMatched ? "SHA-256 與檔名均相符" : "SHA-256 相符，但檔名不同"
+                                : "SHA-256 不相符，不得視為同一證據檔"}
+                          </strong>
+                          {match && <span>{`實際檔名：${match.selectedFileName}`}</span>}
+                          {match && <span>{`實際 SHA-256：${match.actualSha256}`}</span>}
+                          {match && <span>{`比對時間：${new Date(match.checkedAt).toLocaleString("zh-TW")}`}</span>}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+              {activeRemovalTransferReceipt && !sourceCapacityEvidenceRequired && (
+                <p className="meta-line attention-line">
+                  此為舊版 RVR v1／v2，沒有逐列承載力文件 SHA-256，來源端無法在本頁完成實際證據檔自動比對。
+                </p>
+              )}
+              {activeRemovalTransferReceipt && sourceCapacityEvidenceRequired && !sourceCapacityEvidenceAllMatched && (
+                <p className="meta-line attention-line">
+                  RVR 指紋已通過，但來源端實際證據檔尚未全數相符；目前不得把證據核對狀態視為完成。頁面重載或切換 RVR 後須重新比對。
+                </p>
+              )}
+              {activeRemovalTransferReceipt && sourceCapacityEvidenceAllMatched && (
+                <p className="meta-line">
+                  RVR v3 的逐列證據檔 SHA-256 已全部相符；仍須人工核對文件內容、頁碼、版次及工程適用性。
+                </p>
               )}
               {activeRemovalTransferReceipt && (
                 <p className="meta-line attention-line">
@@ -5925,6 +6044,13 @@ function downloadJsonFile(payload: unknown, filename: string): void {
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+async function fileSha256Hex(file: File): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function handoffDesignDemandTf(transfer: RemovalTransferHandoff["transfers"][number]): number {

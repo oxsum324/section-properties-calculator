@@ -88,7 +88,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.6.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.7.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -250,6 +250,14 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'crypto.subtle.digest("SHA-256"',
   '檔案只在瀏覽器本機計算雜湊，不會上傳或嵌入 RVR',
   'RVR v3：需求／承載力閉環已逐列連結正式文件資料與 SHA-256',
+  'SourceCapacityEvidenceMatch',
+  'handleSourceCapacityEvidenceFile',
+  'sourceCapacityEvidenceAllMatched',
+  'fileSha256Hex',
+  '接收端結果通過／證據檔待逐列比對',
+  'SHA-256 不相符，不得視為同一證據檔',
+  '頁面重載或切換 RVR 後須重新比對',
+  '舊版 RVR v1／v2，沒有逐列承載力文件 SHA-256',
 ].forEach((needle) => {
   assert(app.includes(needle) || api.includes(needle), `excavation removal transfer frontend keeps ${needle}`, needle);
 });
