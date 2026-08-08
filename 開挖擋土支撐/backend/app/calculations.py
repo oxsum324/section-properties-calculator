@@ -5,6 +5,7 @@ import hmac
 import json
 import math
 import re
+from collections.abc import Callable
 from datetime import datetime
 
 from .schemas import (
@@ -338,6 +339,8 @@ def _validate_analysis_force_mapping(
     cases = list(getattr(row, "analysis_stage_cases", []))
     if not cases:
         return None, "外部分析內力缺少控制階段候選值，無法確認控制階段。"
+    if any(not math.isfinite(float(case.axial_force_t)) or float(case.axial_force_t) < 0 for case in cases):
+        return None, "外部分析階段軸力必須為有限且不小於 0 的壓力值。"
     install_index = getattr(row, "analysis_install_stage_index", None)
     install_label = str(getattr(row, "analysis_install_stage_label", "")).strip()
     if install_index is None or not install_label:
@@ -396,6 +399,35 @@ def _validate_analysis_force_mapping(
     return control, ""
 
 
+def _analysis_stage_envelope(
+    row: object,
+    ratio_for_force: Callable[[float], float],
+) -> dict[str, object]:
+    """Evaluate every imported construction stage instead of trusting force rank alone."""
+    if getattr(row, "force_source", "manual") != "analysis_import":
+        return {}
+    evaluated = [
+        (
+            int(case.stage_index),
+            str(case.stage_label),
+            float(case.axial_force_t),
+            float(ratio_for_force(float(case.axial_force_t))),
+        )
+        for case in getattr(row, "analysis_stage_cases", [])
+    ]
+    if not evaluated:
+        return {}
+    controlling = max(evaluated, key=lambda item: item[3])
+    return {
+        "analysis_stage_utilization_envelope": [
+            f"#{stage_index} {stage_label}: N={force_t:g} tf, R={ratio:.3f}"
+            for stage_index, stage_label, force_t, ratio in evaluated
+        ],
+        "analysis_utilization_controlling_stage": f"#{controlling[0]} {controlling[1]}",
+        "analysis_utilization_controlling_ratio": round(controlling[3], 6),
+    }
+
+
 def calculate_horizontal_support(row: SupportRow, params: BasicParameters, module_name: str) -> CheckResult:
     label = _layer_label(row.level_label)
     inputs = {
@@ -425,7 +457,6 @@ def calculate_horizontal_support(row: SupportRow, params: BasicParameters, modul
             "請輸入大於 0 的水平間距。",
             inputs,
         )
-    total_force = row.axial_force_t + row.temp_force_t
     lc = min(
         20.0 * section.flange_width_cm / math.sqrt(params.fy_tf_per_cm2),
         1400.0
@@ -435,58 +466,64 @@ def calculate_horizontal_support(row: SupportRow, params: BasicParameters, modul
         ),
     )
     klr = row.spacing_m * 100.0 / section.ry_cm
-    axial_stress = total_force / section.area_cm2
     fa_allow = allowable_axial_stress(
         klr,
         cc_value(params),
         params.e_tf_per_cm2,
         params.fy_tf_per_cm2,
     ) * params.alpha_support
-    section_class = classify_column_section(
-        section.depth_cm,
-        section.flange_width_cm,
-        section.web_thickness_cm,
-        section.flange_thickness_cm,
-        params.fy_tf_per_cm2,
-        axial_stress,
-    )
     line_load = section.unit_weight_kgf_per_m / 1000.0 + params.surcharge_wl_tf_per_m
     moment = line_load * row.spacing_m**2 / 8.0
     fbx_stress = moment * 100.0 / section.sx_cm3
     fby_stress = 0.0
-    fbx_allow = allowable_fbx(
-        section.depth_cm,
-        section.flange_width_cm,
-        section.web_thickness_cm,
-        section.flange_thickness_cm,
-        section.rt_cm,
-        row.spacing_m * 100.0,
-        lc,
-        1.0,
-        params.fy_tf_per_cm2,
-        section_class,
-    ) * params.alpha_support
-    fby_allow = allowable_fby(
-        section.flange_width_cm,
-        section.flange_thickness_cm,
-        params.fy_tf_per_cm2,
-        section_class,
-    ) * params.alpha_support
     fex = 12.0 / 23.0 * math.pi**2 * params.e_tf_per_cm2 / ((row.spacing_m * 100.0 / section.rx_cm) ** 2)
     fey = 12.0 / 23.0 * math.pi**2 * params.e_tf_per_cm2 / ((row.spacing_m * 100.0 / section.ry_cm) ** 2)
-    ratio = interaction_ratio(
-        params.fy_tf_per_cm2,
-        axial_stress,
-        fa_allow,
-        fbx_stress,
-        fbx_allow,
-        fby_stress,
-        fby_allow,
-        fex,
-        fey,
-        params.cm_factor,
-        params.cm_factor,
-    ) / params.psi_material
+    def evaluate_force(axial_force_t: float) -> tuple[float, float, str, float, float, float]:
+        total_force_t = axial_force_t + row.temp_force_t
+        stress = total_force_t / section.area_cm2
+        classification = classify_column_section(
+            section.depth_cm,
+            section.flange_width_cm,
+            section.web_thickness_cm,
+            section.flange_thickness_cm,
+            params.fy_tf_per_cm2,
+            stress,
+        )
+        allowable_fbx_value = allowable_fbx(
+            section.depth_cm,
+            section.flange_width_cm,
+            section.web_thickness_cm,
+            section.flange_thickness_cm,
+            section.rt_cm,
+            row.spacing_m * 100.0,
+            lc,
+            1.0,
+            params.fy_tf_per_cm2,
+            classification,
+        ) * params.alpha_support
+        allowable_fby_value = allowable_fby(
+            section.flange_width_cm,
+            section.flange_thickness_cm,
+            params.fy_tf_per_cm2,
+            classification,
+        ) * params.alpha_support
+        interaction = interaction_ratio(
+            params.fy_tf_per_cm2,
+            stress,
+            fa_allow,
+            fbx_stress,
+            allowable_fbx_value,
+            fby_stress,
+            allowable_fby_value,
+            fex,
+            fey,
+            params.cm_factor,
+            params.cm_factor,
+        ) / params.psi_material
+        return interaction, total_force_t, classification, stress, allowable_fbx_value, allowable_fby_value
+
+    ratio, total_force, section_class, axial_stress, fbx_allow, fby_allow = evaluate_force(row.axial_force_t)
+    stage_envelope = _analysis_stage_envelope(row, lambda force: evaluate_force(force)[0])
     status = _status_with_margin(ratio)
     return CheckResult(
         module_name=module_name,
@@ -514,6 +551,7 @@ def calculate_horizontal_support(row: SupportRow, params: BasicParameters, modul
             "fby_allow": round(fby_allow, 4),
             "fex": round(fex, 4),
             "fey": round(fey, 4),
+            **stage_envelope,
         },
     )
 
@@ -659,7 +697,7 @@ def calculate_brace(row: BraceRow, params: BasicParameters, module_name: str) ->
     axial_force = row.tributary_line_load_tf_per_m * l3 / max(math.sin(math.radians(row.angle_deg)), 1e-6)
     # Imported brace line load is stored to 0.001 tf/m, so the reconstructed
     # axial force needs a small engineering-unit tolerance for round-trip use.
-    _, mapping_error = _validate_analysis_force_mapping(
+    control_case, mapping_error = _validate_analysis_force_mapping(
         row,
         axial_force,
         adopted_tolerance_t=0.05,
@@ -672,6 +710,10 @@ def calculate_brace(row: BraceRow, params: BasicParameters, module_name: str) ->
             mapping_error,
             inputs,
         )
+    if control_case is not None:
+        # The imported stage force is authoritative; the line load is a rounded
+        # UI reconstruction and is only used to verify that mapping has not drifted.
+        axial_force = float(control_case.axial_force_t)
     lc = min(
         20.0 * section.flange_width_cm / math.sqrt(params.fy_tf_per_cm2),
         1400.0
@@ -681,58 +723,63 @@ def calculate_brace(row: BraceRow, params: BasicParameters, module_name: str) ->
         ),
     )
     klr = lb * 100.0 / section.ry_cm
-    fa_value = axial_force / section.area_cm2
     fa_allow = allowable_axial_stress(
         klr,
         cc_value(params),
         params.e_tf_per_cm2,
         params.fy_tf_per_cm2,
     ) * params.alpha_brace
-    section_class = classify_column_section(
-        section.depth_cm,
-        section.flange_width_cm,
-        section.web_thickness_cm,
-        section.flange_thickness_cm,
-        params.fy_tf_per_cm2,
-        fa_value,
-    )
     line_load = section.unit_weight_kgf_per_m / 1000.0
     moment = line_load * lb**2 / 8.0
     fbx_stress = moment * 100.0 / section.sx_cm3
-    fbx_allow = allowable_fbx(
-        section.depth_cm,
-        section.flange_width_cm,
-        section.web_thickness_cm,
-        section.flange_thickness_cm,
-        section.rt_cm,
-        lb * 100.0,
-        lc,
-        1.0,
-        params.fy_tf_per_cm2,
-        section_class,
-    ) * params.alpha_brace
     fby_stress = 0.0
-    fby_allow = allowable_fby(
-        section.flange_width_cm,
-        section.flange_thickness_cm,
-        params.fy_tf_per_cm2,
-        section_class,
-    ) * params.alpha_brace
     fex = 12.0 / 23.0 * math.pi**2 * params.e_tf_per_cm2 / ((lb * 100.0 / section.rx_cm) ** 2)
     fey = 12.0 / 23.0 * math.pi**2 * params.e_tf_per_cm2 / ((lb * 100.0 / section.ry_cm) ** 2)
-    ratio = interaction_ratio(
-        params.fy_tf_per_cm2,
-        fa_value,
-        fa_allow,
-        fbx_stress,
-        fbx_allow,
-        fby_stress,
-        fby_allow,
-        fex,
-        fey,
-        params.cm_factor,
-        params.cm_factor,
-    ) / params.psi_material
+    def evaluate_force(force_t: float) -> tuple[float, float, str, float, float]:
+        stress = force_t / section.area_cm2
+        classification = classify_column_section(
+            section.depth_cm,
+            section.flange_width_cm,
+            section.web_thickness_cm,
+            section.flange_thickness_cm,
+            params.fy_tf_per_cm2,
+            stress,
+        )
+        allowable_fbx_value = allowable_fbx(
+            section.depth_cm,
+            section.flange_width_cm,
+            section.web_thickness_cm,
+            section.flange_thickness_cm,
+            section.rt_cm,
+            lb * 100.0,
+            lc,
+            1.0,
+            params.fy_tf_per_cm2,
+            classification,
+        ) * params.alpha_brace
+        allowable_fby_value = allowable_fby(
+            section.flange_width_cm,
+            section.flange_thickness_cm,
+            params.fy_tf_per_cm2,
+            classification,
+        ) * params.alpha_brace
+        interaction = interaction_ratio(
+            params.fy_tf_per_cm2,
+            stress,
+            fa_allow,
+            fbx_stress,
+            allowable_fbx_value,
+            fby_stress,
+            allowable_fby_value,
+            fex,
+            fey,
+            params.cm_factor,
+            params.cm_factor,
+        ) / params.psi_material
+        return interaction, stress, classification, allowable_fbx_value, allowable_fby_value
+
+    ratio, fa_value, section_class, fbx_allow, fby_allow = evaluate_force(axial_force)
+    stage_envelope = _analysis_stage_envelope(row, lambda force: evaluate_force(force)[0])
     return CheckResult(
         module_name=module_name,
         label=label,
@@ -760,6 +807,7 @@ def calculate_brace(row: BraceRow, params: BasicParameters, module_name: str) ->
             "fby_allow": round(fby_allow, 4),
             "fex": round(fex, 4),
             "fey": round(fey, 4),
+            **stage_envelope,
         },
     )
 

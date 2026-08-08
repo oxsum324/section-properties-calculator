@@ -2123,6 +2123,19 @@ def _analysis_mapping_lines(inputs: dict[str, object]) -> list[str]:
     return lines
 
 
+def _analysis_stage_envelope_lines(details: dict[str, object]) -> list[str]:
+    envelope = details.get("analysis_stage_utilization_envelope")
+    if not isinstance(envelope, list) or not envelope:
+        return []
+    return [
+        "逐階段需求比包絡 = " + "；".join(str(item) for item in envelope),
+        "需求比控制階段 = "
+        + str(details.get("analysis_utilization_controlling_stage", "—"))
+        + "，R = "
+        + _fmt_short(details.get("analysis_utilization_controlling_ratio")),
+    ]
+
+
 def _support_detail_content(
     check: CheckResult,
     basic: BasicParameters,
@@ -2142,6 +2155,7 @@ def _support_detail_content(
     ]
     substitutions = [
         *_analysis_mapping_lines(inputs),
+        *_analysis_stage_envelope_lines(details),
         f"N = {_fmt_short(inputs.get('軸力 N1'))} + {_fmt_short(inputs.get('溫度荷重 N2'))} = {_fmt_short(details.get('total_force_t'))} tf",
         f"fa = {_fmt_short(details.get('total_force_t'))} / {_fmt_short(details.get('area_cm2'))} = {_fmt_short(details.get('axial_stress'))} tf/cm2",
         f"Cc = sqrt(2 x pi^2 x {_fmt_short(basic.e_tf_per_cm2)} / {_fmt_short(basic.fy_tf_per_cm2)}) = {_fmt_short(_cc_value(basic))}",
@@ -2228,6 +2242,7 @@ def _brace_detail_content(
     ]
     substitutions = [
         *_analysis_mapping_lines(inputs),
+        *_analysis_stage_envelope_lines(details),
         f"L3 = ({_fmt_short(inputs.get('L1'))} + {_fmt_short(inputs.get('L2'))}) / 2 = {_fmt_short(details.get('l3_m'))} m",
         f"Lb = {_fmt_short(inputs.get('L1'))} / cos({_fmt_short(inputs.get('θ'))}) = {_fmt_short(details.get('lb_m'))} m",
         f"N = {_fmt_short(inputs.get('Ww'))} x {_fmt_short(details.get('l3_m'))} / sin({_fmt_short(inputs.get('θ'))}) = {_fmt_short(details.get('axial_force_t'))} tf",

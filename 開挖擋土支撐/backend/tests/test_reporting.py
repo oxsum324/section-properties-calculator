@@ -443,6 +443,8 @@ class ReportingTests(unittest.TestCase):
         self.assertIn("實際施工步驟 = 第二階開挖完成、第二層支撐施作前", combined_text)
         self.assertIn("對應依據 = 施工順序圖 CS-02 與分析階段表逐項核對", combined_text)
         self.assertIn("控制階段軸力候選（2 案）", combined_text)
+        self.assertIn("逐階段需求比包絡 = #1 第一階開挖", combined_text)
+        self.assertIn("需求比控制階段 = #2 第二階開挖", combined_text)
         self.assertNotIn("尚未確認控制分析階段", combined_text)
         self.assertNotIn("尚未指定拆撐後荷重處置", combined_text)
         self.assertNotIn("處置待確認", combined_text)

@@ -250,6 +250,10 @@ class CalculationTests(unittest.TestCase):
         self.assertEqual(result.inputs["控制分析階段"], "#2 開挖至第二層")
         self.assertEqual(result.inputs["施工步驟"], "第二階開挖完成、第二層支撐施作前")
         self.assertIn("#1 開挖至第一層 = 40 tf", result.inputs["分析階段內力"])
+        self.assertEqual(len(result.details["analysis_stage_utilization_envelope"]), 2)
+        self.assertIn("#1 開挖至第一層: N=40 tf, R=", result.details["analysis_stage_utilization_envelope"][0])
+        self.assertEqual(result.details["analysis_utilization_controlling_stage"], "#2 開挖至第二層")
+        self.assertEqual(result.utilization_ratio, round(result.details["analysis_utilization_controlling_ratio"], 3))
 
     def test_imported_support_rejects_tampered_control_force(self) -> None:
         ref = load_reference_data()
@@ -289,7 +293,10 @@ class CalculationTests(unittest.TestCase):
             angle_deg=angle_deg,
             tributary_line_load_tf_per_m=line_load,
             force_source="analysis_import",
-            analysis_stage_cases=[AnalysisForceCase(stage_index=3, stage_label="斜撐控制階段", axial_force_t=axial_force)],
+            analysis_stage_cases=[
+                AnalysisForceCase(stage_index=2, stage_label="斜撐初始階段", axial_force_t=40.0),
+                AnalysisForceCase(stage_index=3, stage_label="斜撐控制階段", axial_force_t=axial_force),
+            ],
             analysis_install_stage_index=1,
             analysis_install_stage_label="斜撐安裝",
             analysis_control_stage_index=3,
@@ -303,6 +310,35 @@ class CalculationTests(unittest.TestCase):
 
         self.assertNotEqual(result.controlling_condition, "資料未完整")
         self.assertEqual(result.inputs["控制分析階段"], "#3 斜撐控制階段")
+        self.assertEqual(len(result.details["analysis_stage_utilization_envelope"]), 2)
+        self.assertEqual(result.details["analysis_utilization_controlling_stage"], "#3 斜撐控制階段")
+
+    def test_imported_support_rejects_negative_stage_force(self) -> None:
+        ref = load_reference_data()
+        row = SupportRow(
+            level_label="1",
+            section_name=ref.sections[-1].name,
+            axial_force_t=80.0,
+            temp_force_t=0.0,
+            spacing_m=5.0,
+            force_source="analysis_import",
+            analysis_stage_cases=[
+                AnalysisForceCase(stage_index=1, stage_label="符號錯誤階段", axial_force_t=-10.0),
+                AnalysisForceCase(stage_index=2, stage_label="控制階段", axial_force_t=80.0),
+            ],
+            analysis_install_stage_index=1,
+            analysis_install_stage_label="支撐安裝",
+            analysis_control_stage_index=2,
+            analysis_control_stage_label="控制階段",
+            construction_step_label="第二階開挖",
+            analysis_mapping_confirmed=True,
+            analysis_mapping_basis="施工步驟表",
+        )
+
+        result = calculate_horizontal_support(row, ref.basic_defaults, "上層水平支撐")
+
+        self.assertEqual(result.controlling_condition, "資料未完整")
+        self.assertIn("不小於 0", result.details["message"])
 
     def test_imported_support_rejects_removal_before_control_stage(self) -> None:
         ref = load_reference_data()
