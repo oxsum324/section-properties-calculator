@@ -112,10 +112,12 @@ assert.ok(pushPagesRelease.includes("Resolve-RepoToolScript -LeafName 'pages-liv
 assert.ok(pushPagesRelease.includes('[int]$PublicSmokeAttempts = 3') && pushPagesRelease.includes('[int]$PublicSmokeRetryDelaySeconds = 10'), 'Pages push wrapper gives workstation artifact verification a bounded transient retry policy');
 assert.ok(pushPagesRelease.includes("$attemptsVariable = 'PAGES_HTTP_SMOKE_ATTEMPTS'") && pushPagesRelease.includes("$delayVariable = 'PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS'"), 'Pages push wrapper delegates retry eligibility to the governed HTTP smoke');
 assert.ok(pushPagesRelease.includes('function Invoke-PublicArtifactVerification') && pushPagesRelease.includes('finally {') && pushPagesRelease.includes("SetEnvironmentVariable($attemptsVariable, $previousAttempts, 'Process')"), 'Pages push wrapper restores process retry settings after verification');
+assert.ok(pushPagesRelease.includes("'(?m)^pagesHttpSmokeAttemptCount=(\\d+)\\s*$'") && pushPagesRelease.includes('$attemptMatches.Count -ne 1') && pushPagesRelease.includes('$attemptCount -gt $PublicSmokeAttempts'), 'Pages push wrapper fail-closes on missing, duplicate, or out-of-range attempt evidence');
 assert.ok(pushPagesRelease.includes("'--check-private-boundary'") && pushPagesRelease.includes("'--expected-commit-sha'") && pushPagesRelease.includes("'--expected-run-id'") && pushPagesRelease.includes("'--expect-clean-source'"), 'Pages push wrapper preserves full public provenance and boundary arguments');
 assert.ok(pushPagesRelease.indexOf('$manifest = Wait-PublicManifest') < pushPagesRelease.indexOf('Independently verifying every public artifact file'), 'workstation artifact verification runs after the matching public manifest is visible');
 assert.ok(pushPagesRelease.includes('publicArtifactVerified = $true') && pushPagesRelease.includes('schemaVersion = $manifest.schemaVersion') && pushPagesRelease.includes('fileCount = $manifest.fileCount') && pushPagesRelease.includes('totalBytes = $manifest.totalBytes'), 'Pages push wrapper reports independently verified artifact evidence');
 assert.ok(pushPagesRelease.includes('publicArtifactVerificationMaxAttempts = $PublicSmokeAttempts') && pushPagesRelease.includes('publicArtifactVerificationRetryDelaySeconds = $PublicSmokeRetryDelaySeconds'), 'Pages push wrapper reports its bounded workstation retry policy');
+assert.ok(pushPagesRelease.includes('publicArtifactVerificationAttemptCount = $publicArtifactVerificationAttemptCount') && pushPagesRelease.includes('publicArtifactVerificationRetried = $publicArtifactVerificationAttemptCount -gt 1'), 'Pages push wrapper reports actual workstation verification attempts');
 assert.ok(pushPagesRelease.includes('verify-pages-release-lineage.js') && pushPagesRelease.includes('Verifying that HEAD only carries status snapshots'), 'Pages push wrapper blocks untested carrier changes before push');
 assert.equal(/[^\x00-\x7F]/.test(pushPagesRelease), false, 'Pages push wrapper avoids source-encoding-sensitive path literals under Windows PowerShell 5.1');
 assert.ok(pushPagesRelease.includes('AllowDirtyVerification is only valid with VerifyOnly and can never authorize a push or dispatch.'), 'dirty verification mode cannot authorize mutation');
@@ -123,8 +125,10 @@ assert.ok(pushPagesReleaseBatch.includes('push-pages-release.ps1') && pushPagesR
 assert.ok(pushPagesReleaseBatch.includes('where pwsh') && pushPagesReleaseBatch.includes('pwsh -NoProfile'), 'Pages release batch prefers PowerShell 7 when available');
 assert.ok(pushPagesReleaseBatch.includes('powershell -NoProfile'), 'Pages release batch retains a Windows PowerShell 5.1 fallback');
 assert.ok(readme.includes('publicArtifactVerified=true') && readme.includes('工作站事後複驗'), 'README documents workstation artifact verification as a completion condition');
+assert.ok(readme.includes('pagesHttpSmokeAttemptCount') && readme.includes('publicArtifactVerificationAttemptCount') && readme.includes('publicArtifactVerificationRetried'), 'README documents actual workstation verification attempt evidence');
 assert.ok(toolBoundaries.includes('工作站再次呼叫 `pages-live-smoke.js`') && toolBoundaries.includes('全部公開檔案大小／SHA-256'), 'tool boundaries documents the independent workstation verifier');
 assert.ok(staging.includes('一般推送、既有同 SHA 部署及 `-VerifyOnly`') && staging.includes('預設最多進行 3 次') && staging.includes('非暫態錯誤立即失敗') && staging.includes('暫態重試用盡後也維持失敗'), 'staging guide keeps bounded transient retries fail-closed');
+assert.ok(staging.includes('pagesHttpSmokeAttemptCount') && staging.includes('不超過 `PublicSmokeAttempts`') && staging.includes('缺少、重複或超界'), 'staging guide requires valid actual attempt evidence');
 
 {
   const orderedTokens = [
@@ -518,6 +522,14 @@ async function testPagesHttpRetryBoundary() {
     /persistent HTTP 503/,
   );
   assert.equal(attempts, 2, 'persistent transient failure remains blocked after one retry');
+
+  attempts = 0;
+  const counted = await PagesLiveSmoke.runWithAttemptCount(async () => {
+    attempts += 1;
+    if (attempts < 3) throw new PagesLiveSmoke.TransientPagesSmokeError('temporary HTTP 503');
+    return 'verified';
+  }, { attempts: 3, delayMs: 0, sleep: async () => {} });
+  assert.deepEqual(counted, { result: 'verified', attemptCount: 3 }, 'successful HTTP smoke reports the actual attempt count');
 }
 
 testPagesHttpRetryBoundary().then(() => {

@@ -56,6 +56,8 @@ git diff --check -- README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GR
 
 `push-pages-release.ps1` 的成功不只依賴 Actions job 與 manifest 身分；一般推送、既有同 SHA 部署及 `-VerifyOnly` 都必須由目前工作站再次執行公開 `pages-live-smoke.js`，逐檔核對 v2 清冊與正式網址內容，並在結果回傳 `publicArtifactVerified=true`。工作站預設最多進行 3 次、間隔 10 秒的完整複驗，僅由 smoke 對 5xx 或網路暫態錯誤啟用；非暫態錯誤立即失敗，暫態重試用盡後也維持失敗，不得只因遠端 workflow 已綠燈而略過。
 
+成功 smoke 必須輸出唯一的 `pagesHttpSmokeAttemptCount`；安全發布入口只接受大於 0 且不超過 `PublicSmokeAttempts` 的值，並回報 `publicArtifactVerificationAttemptCount` 與 `publicArtifactVerificationRetried`。缺少、重複或超界均視為工作站驗證失敗。
+
 Windows 發布一律優先執行 `push-pages-release.bat`；此入口先找 PowerShell 7，再以 Windows PowerShell 5.1 後備。`push-pages-release.ps1` 必須維持 ASCII 來源路徑解析，不得重新加入會受 5.1 UTF-8 無 BOM 解碼影響的中文路徑字面值。
 
 下次不要混入本包：

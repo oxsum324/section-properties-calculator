@@ -88,14 +88,23 @@ function Invoke-PublicArtifactVerification {
   try {
     [Environment]::SetEnvironmentVariable($attemptsVariable, [string]$PublicSmokeAttempts, 'Process')
     [Environment]::SetEnvironmentVariable($delayVariable, [string]$PublicSmokeRetryDelaySeconds, 'Process')
-    Invoke-ExternalText -FilePath $script:NodePath -Arguments @(
+    $verificationOutput = Invoke-ExternalText -FilePath $script:NodePath -Arguments @(
       $ScriptPath,
       '--base-url', $PagesUrl,
       '--check-private-boundary',
       '--expected-commit-sha', $HeadSha,
       '--expected-run-id', ([string]$RunId),
       '--expect-clean-source'
-    ) | Out-Null
+    )
+    $attemptMatches = [regex]::Matches($verificationOutput, '(?m)^pagesHttpSmokeAttemptCount=(\d+)\s*$')
+    if ($attemptMatches.Count -ne 1) {
+      throw 'Public artifact verification did not return exactly one attempt-count marker.'
+    }
+    $attemptCount = [int]$attemptMatches[0].Groups[1].Value
+    if ($attemptCount -le 0 -or $attemptCount -gt $PublicSmokeAttempts) {
+      throw "Public artifact verification returned invalid attempt count $attemptCount."
+    }
+    return $attemptCount
   } finally {
     [Environment]::SetEnvironmentVariable($attemptsVariable, $previousAttempts, 'Process')
     [Environment]::SetEnvironmentVariable($delayVariable, $previousDelay, 'Process')
@@ -603,7 +612,7 @@ $runEvidence = Wait-RunJobsWithRecovery -RunId $runId -HeadSha $headSha
 $manifest = Wait-PublicManifest -PagesUrl $pagesUrl -HeadSha $headSha -RunId $runId
 $publicSmokeScript = Resolve-RepoToolScript -LeafName 'pages-live-smoke.js'
 Write-ProgressLine "Independently verifying every public artifact file from this workstation (up to $PublicSmokeAttempts attempt(s), transient failures only)."
-Invoke-PublicArtifactVerification -ScriptPath $publicSmokeScript -PagesUrl $pagesUrl -HeadSha $headSha -RunId $runId
+$publicArtifactVerificationAttemptCount = Invoke-PublicArtifactVerification -ScriptPath $publicSmokeScript -PagesUrl $pagesUrl -HeadSha $headSha -RunId $runId
 
 $result = [ordered]@{
   schemaVersion = 1
@@ -628,6 +637,8 @@ $result = [ordered]@{
   pagesUrl = $pagesUrl
   pagesStatus = [string]$pagesInfo.status
   publicArtifactVerified = $true
+  publicArtifactVerificationAttemptCount = $publicArtifactVerificationAttemptCount
+  publicArtifactVerificationRetried = $publicArtifactVerificationAttemptCount -gt 1
   publicArtifactVerificationMaxAttempts = $PublicSmokeAttempts
   publicArtifactVerificationRetryDelaySeconds = $PublicSmokeRetryDelaySeconds
   deploymentManifest = [ordered]@{

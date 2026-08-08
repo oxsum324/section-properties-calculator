@@ -442,6 +442,15 @@ async function runWithTransientRetry(task, options = {}) {
   throw new Error('Pages HTTP smoke 未執行。');
 }
 
+async function runWithAttemptCount(task, options = {}) {
+  let attemptCount = 0;
+  const result = await runWithTransientRetry(async () => {
+    attemptCount += 1;
+    return task();
+  }, options);
+  return { result, attemptCount };
+}
+
 async function main() {
   const base = baseUrl();
   const deploymentManifest = await assertDeploymentManifest(base);
@@ -736,7 +745,7 @@ async function main() {
 async function runCli() {
   const attempts = environmentInteger('PAGES_HTTP_SMOKE_ATTEMPTS', 1, 1);
   const retryDelaySeconds = environmentInteger('PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS', 5, 0);
-  await runWithTransientRetry(main, {
+  const outcome = await runWithAttemptCount(main, {
     attempts,
     delayMs: retryDelaySeconds * 1000,
     onRetry(error, context) {
@@ -744,6 +753,8 @@ async function runCli() {
       console.error(`將於 ${retryDelaySeconds} 秒後完整重跑 HTTP smoke（attempt ${context.nextAttempt}/${context.attempts}）。`);
     },
   });
+  console.log(`pagesHttpSmokeAttemptCount=${outcome.attemptCount}`);
+  return outcome.attemptCount;
 }
 
 if (require.main === module) {
@@ -760,6 +771,7 @@ module.exports = {
   fetchResponse,
   environmentInteger,
   runWithTransientRetry,
+  runWithAttemptCount,
   validateManifestFileInventory,
   validatePublishedFileContent,
   assertPublishedArtifact,
