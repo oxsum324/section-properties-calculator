@@ -149,8 +149,8 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 1,
-    generatedAt: '2026-08-08',
-    releaseVerifiedAt: '2026-08-08',
+    generatedAt: '2026-08-09',
+    releaseVerifiedAt: '2026-08-09',
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
       '/beam-analysis': '2026-08-03',
@@ -195,7 +195,7 @@
       '/equipment-load': '2026-08-05',
       '/earth-pressure': '2026-08-05',
       '/decking': '2026-07-21',
-      '/excavation-support': '2026-08-08'
+      '/excavation-support': '2026-08-09'
     }
   };
 
