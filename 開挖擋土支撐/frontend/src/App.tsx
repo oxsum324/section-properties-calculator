@@ -287,8 +287,11 @@ function App() {
   const [reportUrl, setReportUrl] = useState<string>("");
   const [wordReportUrl, setWordReportUrl] = useState<string>("");
   const [conciseReportMode, setConciseReportMode] = useState<boolean>(false);
+  const [reportApproved, setReportApproved] = useState<boolean>(false);
   const [generatedPdfMode, setGeneratedPdfMode] = useState<"detailed" | "concise" | null>(null);
   const [generatedWordMode, setGeneratedWordMode] = useState<"detailed" | "concise" | null>(null);
+  const [generatedPdfDocumentStatus, setGeneratedPdfDocumentStatus] = useState<"internal-review" | "formal-attachment" | null>(null);
+  const [generatedWordDocumentStatus, setGeneratedWordDocumentStatus] = useState<"internal-review" | "formal-attachment" | null>(null);
   const [removalTransferHandoff, setRemovalTransferHandoff] = useState<RemovalTransferHandoff | null>(null);
   const [removalTransferReceipt, setRemovalTransferReceipt] = useState<ReceiverCapacityVerificationReceipt | null>(null);
   const [removalTransferIdentityVerification, setRemovalTransferIdentityVerification] = useState<ReceiverIdentityVerification | null>(null);
@@ -337,6 +340,7 @@ function App() {
   const [lastAutoSavedAt, setLastAutoSavedAt] = useState<string | null>(null);
   const [persistedProjectSnapshot, setPersistedProjectSnapshot] = useState("");
   const reportModeLabel = conciseReportMode ? "簡述版" : "詳細版";
+  const reportDocumentStatusLabel = reportApproved ? "正式附件" : "內部審閱";
   const activeRemovalTransferHandoff = useMemo(
     () => removalTransferHandoff ?? latestRemovalTransferHandoff(project),
     [project?.removal_transfer_handoffs, removalTransferHandoff],
@@ -566,6 +570,9 @@ function App() {
       setWordReportUrl("");
       setGeneratedPdfMode(null);
       setGeneratedWordMode(null);
+      setGeneratedPdfDocumentStatus(null);
+      setGeneratedWordDocumentStatus(null);
+      setReportApproved(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -582,6 +589,9 @@ function App() {
       setWordReportUrl("");
       setGeneratedPdfMode(null);
       setGeneratedWordMode(null);
+      setGeneratedPdfDocumentStatus(null);
+      setGeneratedWordDocumentStatus(null);
+      setReportApproved(false);
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -652,10 +662,11 @@ function App() {
     try {
       setBusy("儲存並產生 PDF");
       const savedProject = await saveCurrentProjectState(project);
-      const response = await api.generateReport(savedProject.metadata.id ?? project.metadata.id, conciseReportMode);
+      const response = await api.generateReport(savedProject.metadata.id ?? project.metadata.id, conciseReportMode, reportApproved);
       applyPersistedProjectState(response.project);
       setReportUrl(cacheBustUrl(response.download_url));
       setGeneratedPdfMode(response.report_mode);
+      setGeneratedPdfDocumentStatus(response.document_status);
       setActiveStep(STEP_REPORT);
       setError("");
     } catch (err) {
@@ -670,10 +681,11 @@ function App() {
     try {
       setBusy("儲存並產生 Word");
       const savedProject = await saveCurrentProjectState(project);
-      const response = await api.generateWordReport(savedProject.metadata.id ?? project.metadata.id, conciseReportMode);
+      const response = await api.generateWordReport(savedProject.metadata.id ?? project.metadata.id, conciseReportMode, reportApproved);
       applyPersistedProjectState(response.project);
       setWordReportUrl(cacheBustUrl(response.download_url));
       setGeneratedWordMode(response.report_mode);
+      setGeneratedWordDocumentStatus(response.document_status);
       setActiveStep(STEP_REPORT);
       setError("");
     } catch (err) {
@@ -1275,6 +1287,9 @@ function App() {
       setWordReportUrl("");
       setGeneratedPdfMode(null);
       setGeneratedWordMode(null);
+      setGeneratedPdfDocumentStatus(null);
+      setGeneratedWordDocumentStatus(null);
+      setReportApproved(false);
     }
   }
 
@@ -1287,6 +1302,9 @@ function App() {
       setWordReportUrl("");
       setGeneratedPdfMode(null);
       setGeneratedWordMode(null);
+      setGeneratedPdfDocumentStatus(null);
+      setGeneratedWordDocumentStatus(null);
+      setReportApproved(false);
     }
   }
 
@@ -1296,6 +1314,18 @@ function App() {
     setWordReportUrl("");
     setGeneratedPdfMode(null);
     setGeneratedWordMode(null);
+    setGeneratedPdfDocumentStatus(null);
+    setGeneratedWordDocumentStatus(null);
+  }
+
+  function setReportApproval(nextApproved: boolean) {
+    setReportApproved(nextApproved);
+    setReportUrl("");
+    setWordReportUrl("");
+    setGeneratedPdfMode(null);
+    setGeneratedWordMode(null);
+    setGeneratedPdfDocumentStatus(null);
+    setGeneratedWordDocumentStatus(null);
   }
 
   function jumpToStep(step: number, panelId?: string) {
@@ -1340,6 +1370,13 @@ function App() {
   function updateMetadata(field: keyof ProjectState["metadata"], value: string) {
     if (!project) return;
     applyProjectState({ ...project, metadata: { ...project.metadata, [field]: value } });
+    setReportUrl("");
+    setWordReportUrl("");
+    setGeneratedPdfMode(null);
+    setGeneratedWordMode(null);
+    setGeneratedPdfDocumentStatus(null);
+    setGeneratedWordDocumentStatus(null);
+    setReportApproved(false);
   }
 
   function updateBasic(field: keyof ProjectState["basic_parameters"], value: string) {
@@ -3959,7 +3996,7 @@ function App() {
 
         {activeStep === STEP_REPORT && (
           <section className="panel-grid">
-            <Panel title="報表匯出" subtitle="可產出 PDF 正式版與 Word 編修版，便於審查、整編及納入主文。">
+            <Panel title="報表匯出" subtitle="PDF 與 Word 均可輸出內部審閱或核可後正式附件；文件身分不影響列印。">
               <label className="check-field">
                 <input
                   type="checkbox"
@@ -3968,16 +4005,24 @@ function App() {
                 />
                 <span>簡述版：各節首筆詳算，其餘以關鍵值摘要列示</span>
               </label>
+              <label className="check-field">
+                <input
+                  type="checkbox"
+                  checked={reportApproved}
+                  onChange={(event) => setReportApproval(event.target.checked)}
+                />
+                <span>核可為正式附件；未勾選時為可列印的內部審閱文件</span>
+              </label>
               <div className="report-mode-card">
-                <strong>{`目前準備輸出：${reportModeLabel}`}</strong>
-                <span>切換附件編排方式後，系統會清除上一版下載連結，避免誤取舊檔。</span>
+                <strong>{`目前準備輸出：${reportModeLabel}／${reportDocumentStatusLabel}`}</strong>
+                <span>切換附件編排或核可狀態後，系統會清除上一版下載連結；工程名稱、設計人員留空可由主文承接，不會因此判為不合格附件。</span>
               </div>
               <div className="action-row">
                 <button className="primary" onClick={handleGenerateReport} disabled={!project.calculation_results}>
-                  {`產出 PDF 正式版（${reportModeLabel}）`}
+                  {`產出 PDF（${reportModeLabel}／${reportDocumentStatusLabel}）`}
                 </button>
                 <button className="secondary" onClick={handleGenerateWordReport} disabled={!project.calculation_results}>
-                  {`產出 Word 編修版（${reportModeLabel}）`}
+                  {`產出 Word（${reportModeLabel}／${reportDocumentStatusLabel}）`}
                 </button>
               </div>
                {!project.calculation_results && (
@@ -3987,14 +4032,14 @@ function App() {
                 <div className="generated-report-list">
                   {reportUrl && (
                     <a className="generated-report-link" href={reportUrl} target="_blank" rel="noreferrer">
-                      <strong>本次 PDF 正式版</strong>
+                      <strong>{`本次 PDF／${generatedPdfDocumentStatus === "formal-attachment" ? "正式附件" : "內部審閱"}`}</strong>
                       <span>{generatedPdfMode === "concise" ? "簡述版" : "詳細版"}</span>
                       <em>{extractDownloadFilename(reportUrl)}</em>
                     </a>
                   )}
                   {wordReportUrl && (
                     <a className="generated-report-link" href={wordReportUrl} target="_blank" rel="noreferrer">
-                      <strong>本次 Word 編修版</strong>
+                      <strong>{`本次 Word／${generatedWordDocumentStatus === "formal-attachment" ? "正式附件" : "內部審閱"}`}</strong>
                       <span>{generatedWordMode === "concise" ? "簡述版" : "詳細版"}</span>
                       <em>{extractDownloadFilename(wordReportUrl)}</em>
                     </a>
@@ -4002,7 +4047,7 @@ function App() {
                 </div>
               )}
               <p className="meta-line">
-                {`目前附件編排方式為${reportModeLabel}。Word 與 PDF 皆包含摘要、輸入基本資料、分析匯入結果、結果彙整與主要檢核內容；簡述版附件改採首筆詳算、後續摘要列示，詳細版則維持逐筆完整展開。`}
+                {`目前附件編排方式為${reportModeLabel}，文件身分為${reportDocumentStatusLabel}。Word 與 PDF 皆包含摘要、輸入基本資料、分析匯入結果、結果彙整與主要檢核內容；只有勾選核可後輸出的版本可由正式附件包自動放行。`}
               </p>
             </Panel>
             <Panel

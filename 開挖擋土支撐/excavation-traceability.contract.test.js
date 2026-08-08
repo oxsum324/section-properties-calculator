@@ -58,6 +58,7 @@ const parserTests = readUtf8('backend/tests/test_parsers.py');
 const importFlowTests = readUtf8('backend/tests/test_import_flow.py');
 const calculationTests = readUtf8('backend/tests/test_calculations.py');
 const reportingTests = readUtf8('backend/tests/test_reporting.py');
+const attachmentEvidenceChainDrillTests = readUtf8('backend/tests/test_attachment_package_evidence_chain_drill.py');
 const referenceTests = readUtf8('backend/tests/test_reference_data.py');
 const storeTests = readUtf8('backend/tests/test_project_store.py');
 const preflight = readUtf8('../preflight-tools.ps1');
@@ -98,7 +99,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.11.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.12.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -696,6 +697,9 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'wale_bending_shear',
   'column_interaction',
   'concise_mode',
+  'report_document_metadata',
+  '文件狀態：',
+  'REPORT_TOOL_VERSION',
 ].forEach((needle) => {
   assert(reporting.includes(needle), `excavation reporting keeps ${needle}`, needle);
 });
@@ -706,6 +710,8 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'class AnalysisImportResult',
   'class ColumnScenarioInput',
   'formula_id',
+  'document_status',
+  'approval_time',
 ].forEach((needle) => {
   assert(schemas.includes(needle), `excavation schemas keep ${needle}`, needle);
 });
@@ -719,6 +725,7 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'Path(filename).name',
   'Cache-Control',
   'latest-report.docx',
+  'approved: bool = False',
 ].forEach((needle) => {
   assert(main.includes(needle), `excavation API keeps ${needle}`, needle);
 });
@@ -758,8 +765,12 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'handleGenerateWordReport',
   '待判讀事件',
   '請先重新計算，再產出最新 Word / PDF。',
-  '產出 PDF 正式版',
-  '產出 Word 編修版',
+  '核可為正式附件',
+  '未勾選時為可列印的內部審閱文件',
+  '工程名稱、設計人員留空可由主文承接',
+  '產出 PDF（',
+  '產出 Word（',
+  'setReportApproved(false)',
 ].forEach((needle) => {
   assert(app.includes(needle), `excavation frontend keeps ${needle}`, needle);
 });
@@ -769,8 +780,24 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'generateWordReport',
   '/api/projects/${projectId}/report',
   '/api/projects/${projectId}/report/docx',
+  '&approved=${approved ? "true" : "false"}',
 ].forEach((needle) => {
   assert(api.includes(needle), `excavation API client keeps ${needle}`, needle);
+});
+
+[
+  'build_removal_transfer_handoff',
+  'build_receiver_verification_receipt',
+  'build_source_capacity_evidence_verification',
+  'build_source_evidence_chain_verification_receipt',
+  'build_word_report(project, approved=True)',
+  'attachment-package-build.js',
+  'attachment-package-verify.js',
+  'scv-source-file-hash-mismatch',
+  '01_正式附件',
+  '99_內部追溯_勿附入主報告',
+].forEach((needle) => {
+  assert(attachmentEvidenceChainDrillTests.includes(needle), `excavation real attachment evidence-chain drill keeps ${needle}`, needle);
 });
 
 [

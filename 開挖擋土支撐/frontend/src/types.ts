@@ -730,4 +730,6 @@ export type ReportPayload = {
   latest_download_url?: string | null;
   report_mode: "detailed" | "concise";
   report_kind: "pdf" | "docx";
+  document_status: "internal-review" | "formal-attachment";
+  approval_time?: string | null;
 };

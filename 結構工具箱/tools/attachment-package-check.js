@@ -59,7 +59,7 @@ const FIELD_LABELS = {
 };
 const METADATA_TERMINATORS = [
   ...Object.values(FIELD_LABELS).flat(),
-  '文件狀態', '核可資訊', '複核人員', '規範版本', '發行日期', '案例最後編修', '留痕時間', '留痕來源', '留痕 Hash',
+  '文件狀態', '委託單位', '校核人員', '工程位置', '核可資訊', '複核人員', '規範版本', '發行日期', '案例最後編修', '留痕時間', '留痕來源', '留痕 Hash',
   '案件計算版本', '本案計算版本', '版本狀態', '版本一致性',
   '整體判定', '正式判定', '控制組合', '控制模式', '製表日期', '計算書模式', '計算指紋',
 ];
@@ -711,8 +711,8 @@ function normalizeToolVersion(value) {
 function parseTraceDateTime(value) {
   const text = cleanMetadataValue(value);
   if (!text) return null;
-  const local = /^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:T|\s+)(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d{1,3})?$/.exec(text);
-  const zoned = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(?:Z|[+-]\d{2}:?\d{2})$/.exec(text);
+  const local = /^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:T|\s+)(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d{1,6})?$/.exec(text);
+  const zoned = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(?:Z|[+-]\d{2}:?\d{2})$/.exec(text);
   const match = local || zoned;
   if (match) {
     const parts = [match[1], match[2], match[3], match[4], match[5], match[6] || '0'].map(Number);

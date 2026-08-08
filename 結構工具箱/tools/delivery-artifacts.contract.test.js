@@ -367,8 +367,10 @@ assertIncludesAny(
 [
   'handleGenerateReport',
   'handleGenerateWordReport',
-  '產出 PDF 正式版',
-  '產出 Word 編修版',
+  '核可為正式附件',
+  '未勾選時為可列印的內部審閱文件',
+  '產出 PDF（',
+  '產出 Word（',
   '請先重新計算，再產出最新 Word / PDF。',
 ].forEach(needle => assertIncludes(excavationApp, needle, `excavation frontend delivery state keeps ${needle}`));
 
@@ -433,7 +435,7 @@ assertIncludesAny(
 ].forEach(needle => assertIncludes(excavationReleaseArtifacts, needle, `excavation durable release artifact generator keeps ${needle}`));
 
 [
-  'PDF 計算書與 Word 編修版輸出',
+  'PDF／Word 計算書輸出：預設為可列印的內部審閱，明確勾選核可後才標示為正式附件',
   'app_data',
   'Word/PDF 輸出',
   'PDF / DOCX 版面先以穩定輸出為優先',

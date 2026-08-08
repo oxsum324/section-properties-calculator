@@ -26,6 +26,7 @@ assert.equal(extracted.approvalTime, '2026/07/12 13:05:00');
 assert.deepEqual(extracted.fingerprints, ['CF-1234ABCD5678EF90']);
 assert.equal(Checker.isValidApprovalTime('2026/07/12 13:05:00'), true);
 assert.equal(Checker.isValidApprovalTime('2026-07-12T05:05:00.000Z'), true);
+assert.equal(Checker.isValidApprovalTime('2026-07-12T05:05:00.123456Z'), true);
 assert.equal(Checker.isValidApprovalTime('2026/02/30 13:05:00'), false);
 assert.equal(Checker.isValidApprovalTime('2026-02-30T05:05:00.000Z'), false);
 assert.equal(Checker.parseTraceDateTime('2026/07/12 13:05:00'), Checker.parseTraceDateTime('2026-07-12T05:05:00.000Z'));
@@ -34,6 +35,11 @@ assert.equal(htmlExtracted.projectName, '測試大樓');
 assert.equal(htmlExtracted.projectNo, 'PKG-001');
 assert.equal(htmlExtracted.toolVersion, 'v3.1');
 assert.equal(Checker.extractTextMetadata('設計人員 Codex QA 製表日期 2026/07/12 計算書模式 詳算式').designer, 'Codex QA');
+assert.equal(
+  Checker.extractTextMetadata('計畫編號 EXC-001 委託單位 — 校核人員 — 工程位置 — 產出工具 開挖擋土支撐計算書').projectNo,
+  'EXC-001',
+  'flattened Word table metadata stops before non-traceability labels',
+);
 assert.equal(Checker.extractTextMetadata('產出工具：建築物耐風設計 — 開放式建 築屋面風壓 工具版本：v1').sourceTool, '建築物耐風設計 — 開放式建築屋面風壓');
 assert.equal(
   Checker.extractTextMetadata('工具版本 f05d596 輸出時間 2026/07/17 08:00 目前工具版本 f05d596 版本狀態 與目前工具版本一致').toolVersion,

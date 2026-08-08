@@ -499,3 +499,5 @@ class ReportPayload(BaseModel):
     latest_download_url: str | None = None
     report_mode: Literal["detailed", "concise"] = "detailed"
     report_kind: Literal["pdf", "docx"] = "pdf"
+    document_status: Literal["internal-review", "formal-attachment"] = "internal-review"
+    approval_time: str | None = None

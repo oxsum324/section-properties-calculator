@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -106,9 +107,13 @@ class ReportingTests(unittest.TestCase):
         combined_text = self.default_word_artifact()["combined_text"]
 
         self.assertIn("擋土支撐檢核計算書", combined_text)
+        self.assertIn("文件狀態：內部審閱", combined_text)
         self.assertIn("工程名稱", combined_text)
         self.assertIn("工程位置", combined_text)
-        self.assertIn("報告日期", combined_text)
+        self.assertIn("產出工具\n開挖擋土支撐計算書", combined_text)
+        self.assertIn("工具版本\nv0.1.0", combined_text)
+        self.assertIn("輸出時間", combined_text)
+        self.assertNotIn("核可時間", combined_text)
         self.assertIn("計算指紋", combined_text)
         self.assertIn(calculation_fingerprint(self.default_word_artifact()["project"]), combined_text)
         self.assertIn("內容提要", combined_text)
@@ -149,7 +154,43 @@ class ReportingTests(unittest.TestCase):
         self.assertIn("計算指紋", text)
         self.assertIn(calculation_fingerprint(project), text)
         self.assertEqual(first_page_text.count("擋土支撐檢核計算書"), 1)
+        self.assertIn("文件狀態：內部審閱", first_page_text)
         report_path.unlink(missing_ok=True)
+
+    def test_approved_reports_are_formal_attachments_even_with_blank_optional_identity(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        project.metadata.name = ""
+        project.metadata.designer = ""
+        project.metadata.project_code = "EXC-APPROVED-001"
+        project.calculation_results = calculate_project(project)
+        output_at = datetime(2026, 8, 8, 15, 30, 0, tzinfo=timezone.utc)
+
+        word_path = build_word_report(project, approved=True, output_at=output_at)
+        pdf_path = build_report(project, approved=True, output_at=output_at)
+        try:
+            document = Document(str(word_path))
+            word_text = "\n".join(paragraph.text for paragraph in document.paragraphs)
+            word_table_text = "\n".join(
+                cell.text for table in document.tables for row in table.rows for cell in row.cells
+            )
+            combined_word_text = word_text + "\n" + word_table_text
+            pdf_text = "\n".join(page.extract_text() or "" for page in PdfReader(str(pdf_path)).pages)
+
+            for text in (combined_word_text, pdf_text):
+                self.assertIn("文件狀態：正式附件", text)
+                self.assertIn("產出工具", text)
+                self.assertIn("開挖擋土支撐計算書", text)
+                self.assertIn("工具版本", text)
+                self.assertIn("v0.1.0", text)
+                self.assertIn("輸出時間", text)
+                self.assertIn("2026-08-08T15:30:00+00:00", text)
+                self.assertIn("核可時間", text)
+                self.assertNotIn("文件狀態：內部審閱", text)
+            self.assertIn("本計算書係就『本案』", combined_word_text)
+            self.assertIn("計畫編號\nEXC-APPROVED-001", combined_word_text)
+        finally:
+            word_path.unlink(missing_ok=True)
+            pdf_path.unlink(missing_ok=True)
 
     def test_pdf_report_excludes_page_only_status_overview(self) -> None:
         project = load_default_project().model_copy(deep=True)

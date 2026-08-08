@@ -159,8 +159,8 @@ def main() -> int:
     generated_pdf: Path | None = None
     generated_docx: Path | None = None
     try:
-        generated_pdf = build_report(project, concise_mode=False)
-        generated_docx = build_word_report(project, concise_mode=False)
+        generated_pdf = build_report(project, concise_mode=False, approved=True)
+        generated_docx = build_word_report(project, concise_mode=False, approved=True)
 
         pdf_path = output_dir / "excavation-report.pdf"
         docx_path = output_dir / "excavation-report.docx"
@@ -218,6 +218,11 @@ def main() -> int:
         for needle in REQUIRED_REPORT_TEXT:
             require(needle in pdf_text, f"release PDF missing required text: {needle}")
             require(needle in docx_text, f"release DOCX missing required text: {needle}")
+        for needle in ("文件狀態：正式附件", "產出工具", "開挖擋土支撐計算書", "工具版本", "輸出時間", "核可時間"):
+            require(needle in pdf_text, f"release PDF missing formal document metadata: {needle}")
+            require(needle in docx_text, f"release DOCX missing formal document metadata: {needle}")
+        require("文件狀態：內部審閱" not in pdf_text, "release PDF must not retain internal-review status")
+        require("文件狀態：內部審閱" not in docx_text, "release DOCX must not retain internal-review status")
         for needle in PAGE_ONLY_REPORT_STATUS_NEEDLES:
             require(needle not in pdf_text, f"release PDF contains page-only text: {needle}")
             require(needle not in docx_text, f"release DOCX contains page-only text: {needle}")

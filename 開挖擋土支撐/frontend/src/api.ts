@@ -268,12 +268,12 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ handoff, receipt, signature_response: signatureResponse }),
     }),
-  generateReport: (projectId: string, concise = false) =>
-    request<ReportPayload>(`/api/projects/${projectId}/report?concise=${concise ? "true" : "false"}`, {
+  generateReport: (projectId: string, concise = false, approved = false) =>
+    request<ReportPayload>(`/api/projects/${projectId}/report?concise=${concise ? "true" : "false"}&approved=${approved ? "true" : "false"}`, {
       method: "POST",
     }),
-  generateWordReport: (projectId: string, concise = false) =>
-    request<ReportPayload>(`/api/projects/${projectId}/report/docx?concise=${concise ? "true" : "false"}`, {
+  generateWordReport: (projectId: string, concise = false, approved = false) =>
+    request<ReportPayload>(`/api/projects/${projectId}/report/docx?concise=${concise ? "true" : "false"}&approved=${approved ? "true" : "false"}`, {
       method: "POST",
     }),
 };

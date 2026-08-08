@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 from urllib.error import HTTPError, URLError
@@ -37,7 +38,7 @@ from .receiver_trust_backup import (
     preview_receiver_trust_registry_restore,
     restore_receiver_trust_registry_backup,
 )
-from .reporting import build_report, build_word_report, calculation_fingerprint
+from .reporting import build_report, build_word_report, calculation_fingerprint, report_document_metadata
 from .schemas import (
     AnalysisImportResult,
     AnalysisSideSource,
@@ -1049,7 +1050,7 @@ def validate_project_source_evidence_identity(
 
 
 @app.post("/api/projects/{project_id}/report", response_model=ReportPayload)
-def generate_report(project_id: str, concise: bool = False) -> ReportPayload:
+def generate_report(project_id: str, concise: bool = False, approved: bool = False) -> ReportPayload:
     try:
         project = store.get_project(project_id)
     except KeyError as exc:
@@ -1057,7 +1058,9 @@ def generate_report(project_id: str, concise: bool = False) -> ReportPayload:
     if project.calculation_results is None:
         project.calculation_results = calculate_project(project)
         project = store.save_project(project)
-    report_path = build_report(project, concise_mode=concise)
+    output_at = datetime.now().astimezone()
+    document_metadata = report_document_metadata(approved=approved, output_at=output_at)
+    report_path = build_report(project, concise_mode=concise, approved=approved, output_at=output_at)
     store.save_report(project_id, report_path)
     return ReportPayload(
         project=project,
@@ -1066,6 +1069,8 @@ def generate_report(project_id: str, concise: bool = False) -> ReportPayload:
         latest_download_url=f"/api/projects/{project_id}/report/latest?v={report_path.name}",
         report_mode="concise" if concise else "detailed",
         report_kind="pdf",
+        document_status=document_metadata["document_status"],
+        approval_time=document_metadata["approval_time"] or None,
     )
 
 
@@ -1083,7 +1088,7 @@ def download_latest_report(project_id: str) -> FileResponse:
 
 
 @app.post("/api/projects/{project_id}/report/docx", response_model=ReportPayload)
-def generate_word_report(project_id: str, concise: bool = False) -> ReportPayload:
+def generate_word_report(project_id: str, concise: bool = False, approved: bool = False) -> ReportPayload:
     try:
         project = store.get_project(project_id)
     except KeyError as exc:
@@ -1091,7 +1096,9 @@ def generate_word_report(project_id: str, concise: bool = False) -> ReportPayloa
     if project.calculation_results is None:
         project.calculation_results = calculate_project(project)
         project = store.save_project(project)
-    report_path = build_word_report(project, concise_mode=concise)
+    output_at = datetime.now().astimezone()
+    document_metadata = report_document_metadata(approved=approved, output_at=output_at)
+    report_path = build_word_report(project, concise_mode=concise, approved=approved, output_at=output_at)
     store.save_report(project_id, report_path, latest_name="latest-report.docx")
     return ReportPayload(
         project=project,
@@ -1100,6 +1107,8 @@ def generate_word_report(project_id: str, concise: bool = False) -> ReportPayloa
         latest_download_url=f"/api/projects/{project_id}/report/latest-docx?v={report_path.name}",
         report_mode="concise" if concise else "detailed",
         report_kind="docx",
+        document_status=document_metadata["document_status"],
+        approval_time=document_metadata["approval_time"] or None,
     )
 
 

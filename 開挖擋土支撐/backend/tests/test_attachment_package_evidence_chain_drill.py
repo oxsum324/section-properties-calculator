@@ -1,0 +1,280 @@
+from __future__ import annotations
+
+import base64
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+import unittest
+
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+from backend.app.calculations import calculate_project
+from backend.app.receiver_trust_backup import build_receiver_trust_registry_backup
+from backend.app.receiver_trust_store import ReceiverTrustStore
+from backend.app.removal_transfer_handoff import (
+    attach_receiver_identity_signature,
+    attach_source_evidence_identity_signature,
+    build_removal_transfer_handoff,
+    build_receiver_identity_signing_request,
+    build_receiver_verification_receipt,
+    build_source_capacity_evidence_verification,
+    build_source_evidence_identity_signing_request,
+)
+from backend.app.reporting import build_word_report, calculation_fingerprint
+from backend.app.schemas import AnalysisForceCase
+from backend.app.workbook_loader import load_default_project
+from backend.sign_receiver_request import build_signature_response
+from backend.verify_source_evidence_chain import build_source_evidence_chain_verification_receipt
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+TOOLS_DIR = REPO_ROOT / "結構工具箱" / "tools"
+PROJECT_NO = "EXC-DRILL-001"
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _write_json(path: Path, value: dict) -> None:
+    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _raw_public_key(private_key: Ed25519PrivateKey) -> bytes:
+    return private_key.public_key().public_bytes(
+        serialization.Encoding.Raw,
+        serialization.PublicFormat.Raw,
+    )
+
+
+def _completed_project():
+    project = load_default_project().model_copy(deep=True)
+    project.metadata.id = "attachment-evidence-chain-drill"
+    project.metadata.name = ""
+    project.metadata.project_code = PROJECT_NO
+    project.metadata.designer = ""
+    project.metadata.location = ""
+    row = project.top_supports[0]
+    row.force_source = "analysis_import"
+    row.analysis_stage_cases = [
+        AnalysisForceCase(stage_index=2, stage_label="第二階開挖", axial_force_t=row.axial_force_t),
+    ]
+    row.analysis_install_stage_index = 1
+    row.analysis_install_stage_label = "第一道支撐安裝"
+    row.analysis_control_stage_index = 2
+    row.analysis_control_stage_label = "第二階開挖"
+    row.analysis_removal_stage_index = 3
+    row.analysis_removal_stage_label = "第一道支撐拆除"
+    row.removal_transfer_mode = "floor"
+    row.removal_transfer_target = "B2F 樓版 S1 區"
+    row.removal_transfer_direction = "沿支撐軸線"
+    row.removal_transfer_basis = "匿名化拆撐順序圖 CS-04"
+    row.removal_transfer_confirmed = True
+    row.construction_step_label = "第二階開挖完成"
+    row.analysis_mapping_basis = "匿名化施工順序圖 CS-02"
+    row.analysis_mapping_confirmed = True
+    project.calculation_results = calculate_project(project)
+    return project
+
+
+class AttachmentPackageEvidenceChainDrillTests(unittest.TestCase):
+    def test_real_backend_chain_builds_and_reverifies_a_formal_v3_package(self) -> None:
+        project = _completed_project()
+        fingerprint = calculation_fingerprint(project)
+        handoff = build_removal_transfer_handoff(project, fingerprint)
+        transfer = handoff["transfers"][0]
+        demand = transfer["sourceDemand"]["receiverTransferDemandTf"]
+        receipt = build_receiver_verification_receipt(
+            handoff,
+            {
+                "organization": "匿名化承接構造設計單位",
+                "verifierName": "承接端覆核人",
+                "verifierRole": "結構設計覆核",
+                "reportReference": "ANON-RV-001",
+            },
+            [{
+                "transferId": transfer["transferId"],
+                "receiverTarget": transfer["receiver"]["target"],
+                "adoptedDemandTf": demand,
+                "verifiedCapacityTf": demand / 0.8,
+                "capacityEvidence": {
+                    "documentReference": "ANON-RV-001",
+                    "revision": "A",
+                    "issuedDate": "2026-08-08",
+                    "pageReference": "第 12 頁",
+                    "fileName": "receiver-capacity.pdf",
+                    "fileSha256": "a" * 64,
+                },
+                "verificationBasis": "匿名化承接構造正式分析",
+                "conclusion": "容量檢核完成",
+            }],
+        )
+        sev = build_source_capacity_evidence_verification(
+            handoff,
+            receipt,
+            {
+                "organization": "匿名化來源端設計單位",
+                "verifierName": "來源端覆核人",
+                "verifierRole": "設計覆核",
+            },
+            "逐列比對匿名化接收端正式文件",
+            [{
+                "transferId": transfer["transferId"],
+                "selectedFileName": "receiver-capacity.pdf",
+                "actualSha256": "a" * 64,
+            }],
+        )
+
+        receiver_key = Ed25519PrivateKey.generate()
+        source_key = Ed25519PrivateKey.generate()
+        receipt = attach_receiver_identity_signature(
+            receipt,
+            handoff,
+            build_signature_response(build_receiver_identity_signing_request(receipt, handoff), receiver_key),
+        )
+        sev = attach_source_evidence_identity_signature(
+            sev,
+            build_signature_response(build_source_evidence_identity_signing_request(sev), source_key),
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source_dir = root / "anonymous-case-source"
+            package_dir = root / "anonymous-case-package"
+            source_dir.mkdir()
+            trust_store = ReceiverTrustStore(root / "trust-registry.json")
+            trust_store.register_key(
+                "匿名化承接構造設計單位",
+                "RVR 簽章金鑰",
+                base64.b64encode(_raw_public_key(receiver_key)).decode("ascii"),
+                independent_verification_confirmed=True,
+            )
+            trust_store.register_key(
+                "匿名化來源端設計單位",
+                "SEV 簽章金鑰",
+                base64.b64encode(_raw_public_key(source_key)).decode("ascii"),
+                independent_verification_confirmed=True,
+            )
+            trust_backup = build_receiver_trust_registry_backup(trust_store)
+
+            handoff_path = source_dir / "handoff.json"
+            receipt_path = source_dir / "receipt.json"
+            sev_path = source_dir / "sev.json"
+            trust_backup_path = source_dir / "trust-backup.json"
+            scv_path = source_dir / "scv.json"
+            _write_json(handoff_path, handoff)
+            _write_json(receipt_path, receipt)
+            _write_json(sev_path, sev)
+            _write_json(trust_backup_path, trust_backup)
+
+            scv = build_source_evidence_chain_verification_receipt(
+                handoff,
+                receipt,
+                sev,
+                source_files={
+                    "handoff": {"fileName": handoff_path.name, "fileSha256": _sha256(handoff_path)},
+                    "receipt": {"fileName": receipt_path.name, "fileSha256": _sha256(receipt_path)},
+                    "sourceEvidenceVerification": {"fileName": sev_path.name, "fileSha256": _sha256(sev_path)},
+                    "trustRegistryBackup": {
+                        "fileName": trust_backup_path.name,
+                        "fileSha256": _sha256(trust_backup_path),
+                    },
+                },
+                trust_registry_backup=trust_backup,
+            )
+            _write_json(scv_path, scv)
+
+            generated_report = build_word_report(project, approved=True)
+            report_path = source_dir / "excavation-calculation-report.docx"
+            try:
+                shutil.copy2(generated_report, report_path)
+            finally:
+                generated_report.unlink(missing_ok=True)
+
+            build = subprocess.run(
+                [
+                    "node",
+                    str(TOOLS_DIR / "attachment-package-build.js"),
+                    "--input",
+                    str(source_dir),
+                    "--output",
+                    str(package_dir),
+                    "--project-no",
+                    PROJECT_NO,
+                ],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+            )
+            self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
+            self.assertTrue(package_dir.exists())
+
+            verify = subprocess.run(
+                ["node", str(TOOLS_DIR / "attachment-package-verify.js"), "--input", str(package_dir)],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+            )
+            self.assertEqual(verify.returncode, 0, verify.stdout + verify.stderr)
+            self.assertIn("證據鏈複驗 1 / 1 組", verify.stdout)
+
+            formal_report = package_dir / "01_正式附件" / report_path.name
+            internal_sources = package_dir / "99_內部追溯_勿附入主報告" / "來源資料"
+            self.assertTrue(formal_report.exists())
+            self.assertFalse((package_dir / "01_正式附件" / scv_path.name).exists())
+            for source_path in (handoff_path, receipt_path, sev_path, trust_backup_path, scv_path):
+                self.assertTrue((internal_sources / source_path.name).exists())
+
+            manifest = json.loads(
+                (package_dir / "99_內部追溯_勿附入主報告" / "附件包清單.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(manifest["projectNo"], PROJECT_NO)
+            self.assertEqual(len(manifest["formalAttachments"]), 1)
+            self.assertEqual(len(manifest["traceabilitySources"]), 5)
+
+            sev["verificationBasis"] = "內容在 SCV 建立後遭改寫"
+            _write_json(sev_path, sev)
+            check_output = root / "tamper-check.json"
+            tamper_check = subprocess.run(
+                [
+                    "node",
+                    str(TOOLS_DIR / "attachment-package-check.js"),
+                    "--input",
+                    str(source_dir),
+                    "--project-no",
+                    PROJECT_NO,
+                    "--output",
+                    str(check_output),
+                ],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+            )
+            self.assertEqual(tamper_check.returncode, 2, tamper_check.stdout + tamper_check.stderr)
+            tamper_report = json.loads(check_output.read_text(encoding="utf-8"))
+            self.assertEqual(tamper_report["status"], "blocked")
+            self.assertTrue(
+                any(issue["code"] == "scv-source-file-hash-mismatch" for issue in tamper_report["issues"])
+            )
+            self.assertEqual(tamper_report["evidenceChainLinks"], [])
+
+
+if __name__ == "__main__":
+    unittest.main()

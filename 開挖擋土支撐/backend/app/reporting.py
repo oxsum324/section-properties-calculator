@@ -29,6 +29,23 @@ from .config import get_settings
 from .schemas import BasicParameters, CheckResult, ProjectState, SummaryItem
 
 
+REPORT_TOOL_NAME = "開挖擋土支撐計算書"
+REPORT_TOOL_VERSION = "v0.1.0"
+
+
+def report_document_metadata(*, approved: bool = False, output_at: datetime | None = None) -> dict[str, str]:
+    timestamp = output_at or datetime.now().astimezone()
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.astimezone()
+    rendered_at = timestamp.isoformat(timespec="seconds")
+    return {
+        "document_status": "formal-attachment" if approved else "internal-review",
+        "document_status_label": "正式附件" if approved else "內部審閱",
+        "output_time": rendered_at,
+        "approval_time": rendered_at if approved else "",
+    }
+
+
 def calculation_fingerprint(project: ProjectState) -> str:
     """Return a stable short fingerprint for the calculated report payload."""
     if project.calculation_results is None:
@@ -39,11 +56,19 @@ def calculation_fingerprint(project: ProjectState) -> str:
     return f"CF-{digest}"
 
 
-def build_report(project: ProjectState, *, concise_mode: bool = False) -> Path:
+def build_report(
+    project: ProjectState,
+    *,
+    concise_mode: bool = False,
+    approved: bool = False,
+    output_at: datetime | None = None,
+) -> Path:
     settings = get_settings()
     registerFont(UnicodeCIDFont("STSong-Light"))
+    report_timestamp = output_at or datetime.now().astimezone()
+    document_metadata = report_document_metadata(approved=approved, output_at=report_timestamp)
     mode_slug = "concise" if concise_mode else "detail"
-    report_path = settings.reports_dir / f"{project.metadata.id or 'draft'}-{mode_slug}-{datetime.now():%Y%m%d%H%M%S%f}.pdf"
+    report_path = settings.reports_dir / f"{project.metadata.id or 'draft'}-{mode_slug}-{report_timestamp:%Y%m%d%H%M%S%f}.pdf"
     styles = getSampleStyleSheet()
     styles.add(
         ParagraphStyle(
@@ -96,8 +121,9 @@ def build_report(project: ProjectState, *, concise_mode: bool = False) -> Path:
     )
     elements = []
     elements.append(Paragraph("擋土支撐檢核計算書", styles["ZHTitle"]))
+    elements.append(Paragraph(f"文件狀態：{document_metadata['document_status_label']}", styles["ZHLead"]))
     elements.append(Spacer(1, 4 * mm))
-    meta_rows = _report_meta_rows(project)
+    meta_rows = _report_meta_rows(project, document_metadata=document_metadata)
     meta_table = Table(meta_rows, colWidths=[35 * mm, 145 * mm])
     meta_table.setStyle(
         TableStyle(
@@ -118,7 +144,7 @@ def build_report(project: ProjectState, *, concise_mode: bool = False) -> Path:
     elements.append(
         Paragraph(
             (
-                f"本計算書係就「{project.metadata.name}」之擋土支撐系統進行檢核，"
+                f"本計算書係就「{project.metadata.name or '本案'}」之擋土支撐系統進行檢核，"
                 f"{_analysis_source_narrative(project)}，"
                 "並依輸入之材料、土層與構件條件，完成支撐系統與柱構件之整體驗算。"
             ),
@@ -365,10 +391,18 @@ def build_report(project: ProjectState, *, concise_mode: bool = False) -> Path:
     return report_path
 
 
-def build_word_report(project: ProjectState, *, concise_mode: bool = False) -> Path:
+def build_word_report(
+    project: ProjectState,
+    *,
+    concise_mode: bool = False,
+    approved: bool = False,
+    output_at: datetime | None = None,
+) -> Path:
     settings = get_settings()
+    report_timestamp = output_at or datetime.now().astimezone()
+    document_metadata = report_document_metadata(approved=approved, output_at=report_timestamp)
     mode_slug = "concise" if concise_mode else "detail"
-    report_path = settings.reports_dir / f"{project.metadata.id or 'draft'}-{mode_slug}-{datetime.now():%Y%m%d%H%M%S%f}.docx"
+    report_path = settings.reports_dir / f"{project.metadata.id or 'draft'}-{mode_slug}-{report_timestamp:%Y%m%d%H%M%S%f}.docx"
     document = _new_word_document()
     _configure_document_styles(document)
     _configure_document_layout(document)
@@ -377,12 +411,12 @@ def build_word_report(project: ProjectState, *, concise_mode: bool = False) -> P
     basic = project.basic_parameters
     soils = _collect_word_soils(project)
 
-    _add_report_title_block(document, project)
+    _add_report_title_block(document, project, document_metadata=document_metadata)
     _add_main_heading(document, _main_section_title("摘要"))
     _add_body_paragraph(
         document,
         (
-            f"本計算書係就『{project.metadata.name}』之擋土支撐系統進行檢核，"
+            f"本計算書係就『{project.metadata.name or '本案'}』之擋土支撐系統進行檢核，"
             f"{_analysis_source_narrative(project)}，"
             "並依輸入之材料、土層與構件條件，完成支撐系統與柱構件之整體驗算。"
         ),
@@ -673,13 +707,28 @@ def _configure_document_header_footer(document: Document, project: ProjectState,
         _add_run(first_page_footer_paragraph, " 頁", size=8.2, color="64748B")
 
 
-def _add_report_title_block(document: Document, project: ProjectState) -> None:
+def _add_report_title_block(
+    document: Document,
+    project: ProjectState,
+    *,
+    document_metadata: dict[str, str],
+) -> None:
     title_paragraph = document.add_paragraph()
     title_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
     title_paragraph.paragraph_format.space_after = Pt(8)
     _add_run(title_paragraph, "擋土支撐檢核計算書", bold=True, size=18, color="0F172A")
 
-    _add_key_value_table(document, _report_meta_rows(project))
+    status_paragraph = document.add_paragraph()
+    status_paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    status_paragraph.paragraph_format.space_after = Pt(6)
+    _add_run(
+        status_paragraph,
+        f"文件狀態：{document_metadata['document_status_label']}",
+        bold=True,
+        size=10.5,
+        color="0F172A",
+    )
+    _add_key_value_table(document, _report_meta_rows(project, document_metadata=document_metadata))
     spacer = document.add_paragraph()
     spacer.paragraph_format.space_after = Pt(4)
 
@@ -915,16 +964,20 @@ def _main_section_title(title: str) -> str:
     return numbered_titles.get(title, title)
 
 
-def _report_meta_rows(project: ProjectState) -> list[list[str]]:
+def _report_meta_rows(project: ProjectState, *, document_metadata: dict[str, str]) -> list[list[str]]:
     rows = [
         ["工程名稱", project.metadata.name],
-        ["專案代號", project.metadata.project_code or "—"],
+        ["計畫編號", project.metadata.project_code or "—"],
         ["委託單位", project.metadata.client or "—"],
         ["設計人員", project.metadata.designer or "—"],
         ["校核人員", project.metadata.checker or "—"],
         ["工程位置", project.metadata.location or "—"],
-        ["報告日期", datetime.now().strftime("%Y-%m-%d %H:%M")],
+        ["產出工具", REPORT_TOOL_NAME],
+        ["工具版本", REPORT_TOOL_VERSION],
+        ["輸出時間", document_metadata["output_time"]],
     ]
+    if document_metadata["approval_time"]:
+        rows.append(["核可時間", document_metadata["approval_time"]])
     fingerprint = calculation_fingerprint(project)
     if fingerprint:
         rows.append(["計算指紋", fingerprint])
