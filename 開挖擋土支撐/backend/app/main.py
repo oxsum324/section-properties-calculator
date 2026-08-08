@@ -17,14 +17,18 @@ from .parsers import parse_analysis_file
 from .project_store import ProjectStore
 from .removal_transfer_handoff import (
     attach_receiver_identity_signature,
+    attach_source_evidence_identity_signature,
     build_removal_transfer_handoff,
     build_receiver_identity_signing_request,
     build_receiver_verification_receipt,
     build_source_capacity_evidence_verification,
+    build_source_evidence_identity_signing_request,
     same_removal_transfer_handoff_content,
     validate_removal_transfer_handoff,
     validate_receiver_verification_receipt,
+    validate_source_capacity_evidence_verification,
     verify_receiver_identity_signature,
+    verify_source_evidence_identity_signature,
 )
 from .receiver_trust_store import ReceiverTrustStore
 from .receiver_key_enrollment import validate_receiver_key_enrollment
@@ -38,11 +42,13 @@ from .schemas import (
     AnalysisImportResult,
     AnalysisSideSource,
     AttachReceiverSignatureRequest,
+    AttachSourceEvidenceSignatureRequest,
     BootstrapPayload,
     BraceRow,
     BuildReceiverReceiptRequest,
     BuildReceiverSigningRequestRequest,
     BuildSourceEvidenceVerificationRequest,
+    BuildSourceEvidenceSigningRequestRequest,
     CreateProjectRequest,
     ProjectState,
     ReferenceData,
@@ -90,6 +96,44 @@ def _receipt_validation(receipt: dict[str, Any]) -> dict[str, Any]:
         "verifierIdentity": identity["status"],
         "identityVerification": identity,
     }
+
+
+def _source_evidence_validation(record: dict[str, Any]) -> dict[str, Any]:
+    return verify_source_evidence_identity_signature(record, receiver_trust_store.list_keys())
+
+
+def _source_evidence_context(
+    project: ProjectState,
+    verification_fingerprint: str,
+) -> tuple[int, dict[str, Any], dict[str, Any], dict[str, Any]]:
+    record_index = next(
+        (
+            index for index, item in reversed(list(enumerate(project.source_capacity_evidence_verifications)))
+            if str(item.get("verificationFingerprint", "")) == verification_fingerprint
+        ),
+        None,
+    )
+    if record_index is None:
+        raise ValueError("本專案找不到指定的 SEV 核驗紀錄。")
+    record = project.source_capacity_evidence_verifications[record_index]
+    handoff = next(
+        (
+            item for item in reversed(project.removal_transfer_handoffs)
+            if str(item.get("handoffFingerprint", "")) == str(record.get("handoffFingerprint", ""))
+        ),
+        None,
+    )
+    receipt = next(
+        (
+            item for item in reversed(project.removal_transfer_verification_receipts)
+            if str(item.get("receiptFingerprint", "")) == str(record.get("receiptFingerprint", ""))
+        ),
+        None,
+    )
+    if handoff is None or receipt is None:
+        raise ValueError("SEV 所指向的 ERH 或 RVR 已不存在於本專案。")
+    validated_record = validate_source_capacity_evidence_verification(record, handoff, receipt)
+    return record_index, validated_record, handoff, receipt
 
 
 @app.get("/api/removal-transfer-trust-keys")
@@ -934,7 +978,74 @@ def create_source_capacity_evidence_verification(
         (json.dumps(record, ensure_ascii=False, indent=2) + "\n").encode("utf-8"),
     )
     project = store.save_project(project)
-    return {"project": project, "record": record}
+    return {
+        "project": project,
+        "record": record,
+        "identityVerification": _source_evidence_validation(record),
+    }
+
+
+@app.post("/api/projects/{project_id}/source-capacity-evidence-verifications/signing-request")
+def build_project_source_evidence_signing_request(
+    project_id: str,
+    request: BuildSourceEvidenceSigningRequestRequest,
+) -> dict[str, Any]:
+    try:
+        project = store.get_project(project_id)
+        _, record, _, _ = _source_evidence_context(project, request.verification_fingerprint)
+        signing_request = build_source_evidence_identity_signing_request(record)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Project not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"signingRequest": signing_request}
+
+
+@app.post("/api/projects/{project_id}/source-capacity-evidence-verifications/attach-signature")
+def attach_project_source_evidence_signature(
+    project_id: str,
+    request: AttachSourceEvidenceSignatureRequest,
+) -> dict[str, Any]:
+    try:
+        project = store.get_project(project_id)
+        record_index, record, handoff, receipt = _source_evidence_context(
+            project,
+            request.verification_fingerprint,
+        )
+        signed_record = attach_source_evidence_identity_signature(record, request.signature_response)
+        signed_record = validate_source_capacity_evidence_verification(signed_record, handoff, receipt)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Project not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    project.source_capacity_evidence_verifications[record_index] = signed_record
+    fingerprint = str(signed_record["verificationFingerprint"])
+    store.save_imported_file(
+        project_id,
+        f"source-capacity-evidence-verification-signed-{fingerprint}.json",
+        (json.dumps(signed_record, ensure_ascii=False, indent=2) + "\n").encode("utf-8"),
+    )
+    project = store.save_project(project)
+    return {
+        "project": project,
+        "record": signed_record,
+        "identityVerification": _source_evidence_validation(signed_record),
+    }
+
+
+@app.get("/api/projects/{project_id}/source-capacity-evidence-verifications/{verification_fingerprint}/validation")
+def validate_project_source_evidence_identity(
+    project_id: str,
+    verification_fingerprint: str,
+) -> dict[str, Any]:
+    try:
+        project = store.get_project(project_id)
+        _, record, _, _ = _source_evidence_context(project, verification_fingerprint)
+        return {"identityVerification": _source_evidence_validation(record)}
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Project not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/projects/{project_id}/report", response_model=ReportPayload)

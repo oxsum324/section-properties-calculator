@@ -22,14 +22,20 @@ function Select-OpenFile {
 }
 
 if (-not $RequestPath) {
-  $RequestPath = Select-OpenFile "Select the RVR identity signing request JSON" "JSON files (*.json)|*.json|All files (*.*)|*.*"
+  $RequestPath = Select-OpenFile "Select the RVR or SEV identity signing request JSON" "JSON files (*.json)|*.json|All files (*.*)|*.*"
 }
 if (-not $PrivateKeyPath) {
   $PrivateKeyPath = Select-OpenFile "Select an existing Ed25519 PEM private key" "PEM files (*.pem)|*.pem|All files (*.*)|*.*"
 }
 if (-not $OutputPath) {
   $request = Get-Item -LiteralPath $RequestPath
-  $OutputPath = Join-Path $request.DirectoryName ("RVR-identity-signature-response-" + $request.BaseName + ".json")
+  $requestPayload = Get-Content -Raw -LiteralPath $RequestPath | ConvertFrom-Json
+  $responsePrefix = if ($requestPayload.kind -eq "source-evidence-verification-identity-signing-request") {
+    "SEV-identity-signature-response-"
+  } else {
+    "RVR-identity-signature-response-"
+  }
+  $OutputPath = Join-Path $request.DirectoryName ($responsePrefix + $request.BaseName + ".json")
 }
 
 $python = Get-Command python -ErrorAction SilentlyContinue
@@ -46,7 +52,7 @@ try {
   if ($LASTEXITCODE -ne 0) {
     throw "Offline signing failed. Review the message above."
   }
-  Write-Host "Done. Import the signature response JSON into the receiver receipt assistant." -ForegroundColor Green
+  Write-Host "Done. Import the signature response JSON into the matching RVR or SEV screen." -ForegroundColor Green
 } finally {
   Pop-Location
 }

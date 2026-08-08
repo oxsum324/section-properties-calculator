@@ -234,7 +234,7 @@ class ReceiverTrustStore:
         revocation_confirmed: bool = False,
     ) -> dict[str, Any]:
         if revocation_confirmed is not True:
-            raise ValueError("撤銷前必須明確確認此動作不可復原，且既有 RVR 將不再視為受信任回簽。")
+            raise ValueError("撤銷前必須明確確認此動作不可復原，且既有 RVR／SEV 將不再視為受信任簽章。")
         reason_code = str(reason_code or "").strip()
         if reason_code not in RECEIVER_KEY_REVOCATION_REASONS:
             raise ValueError("撤銷原因分類不受支援。")

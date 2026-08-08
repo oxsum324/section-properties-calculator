@@ -68,6 +68,7 @@ const removalTransferHandoff = readUtf8('backend/app/removal_transfer_handoff.py
 const removalTransferHandoffTests = readUtf8('backend/tests/test_removal_transfer_handoff.py');
 const receiverOfflineSigner = readUtf8('backend/sign_receiver_request.py');
 const receiverSigningLauncher = readUtf8('sign_receiver_request.ps1');
+const sourceEvidenceSigningLauncher = readUtf8('簽署SEV身分請求.bat');
 const receiverKeyEnrollment = readUtf8('backend/app/receiver_key_enrollment.py');
 const receiverKeyManager = readUtf8('backend/manage_receiver_key.py');
 const receiverKeyLauncher = readUtf8('manage_receiver_key.ps1');
@@ -88,7 +89,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.8.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.9.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -174,6 +175,13 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'def build_source_capacity_evidence_verification',
   'def validate_source_capacity_evidence_verification',
   'def source_evidence_verification_fingerprint',
+  'def build_source_evidence_identity_signing_request',
+  'def validate_source_evidence_identity_signing_request',
+  'def attach_source_evidence_identity_signature',
+  'def verify_source_evidence_identity_signature',
+  'source-evidence-verification-identity-signing-request',
+  'source-evidence-verification-identity-signature-response',
+  'source-evidence-verification-identity-signature-v1',
   '來源端證據核對紀錄的 RVR 文件受控欄位不一致',
   'SOURCE_EVIDENCE_VERIFICATION_FINGERPRINT_PREFIX',
   'per-ERT-document-metadata-and-sha256',
@@ -188,6 +196,9 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '/api/projects/{project_id}/removal-transfer-handoff',
   '/api/projects/{project_id}/removal-transfer-receipts',
   '/api/projects/{project_id}/source-capacity-evidence-verifications',
+  '/api/projects/{project_id}/source-capacity-evidence-verifications/signing-request',
+  '/api/projects/{project_id}/source-capacity-evidence-verifications/attach-signature',
+  '/api/projects/{project_id}/source-capacity-evidence-verifications/{verification_fingerprint}/validation',
   '/api/removal-transfer-handoffs/validate',
   '/api/removal-transfer-receipts/build',
   '/api/removal-transfer-receipts/validate',
@@ -207,6 +218,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'removal_transfer_verification_receipts',
   'source_capacity_evidence_verifications',
   'BuildSourceEvidenceVerificationRequest',
+  'BuildSourceEvidenceSigningRequestRequest',
+  'AttachSourceEvidenceSignatureRequest',
   'calculation_fingerprint(project)',
 ].forEach((needle) => {
   assert(main.includes(needle), `excavation removal transfer API keeps ${needle}`, needle);
@@ -272,6 +285,11 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'sourceCapacityEvidenceSatisfied',
   'createSourceCapacityEvidenceVerification',
   'handleCreateSourceEvidenceVerification',
+  'handleDownloadSourceEvidenceSigningRequest',
+  'handleAttachSourceEvidenceSignature',
+  '下載 SEV 離線簽署請求',
+  '匯入 SEV 離線簽章回應',
+  'SEV 身分簽章',
   '建立、保存並下載 SEV',
   'SEV 核驗指紋',
   'fileSha256Hex',
@@ -306,6 +324,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'test_rejects_source_evidence_record_when_actual_hash_differs',
   'test_rejects_tampered_source_evidence_verification_record',
   'test_rejects_source_evidence_record_with_rewritten_rvr_metadata',
+  'test_builds_and_attaches_source_evidence_offline_signature',
+  'test_rejects_tampered_source_evidence_signing_request_and_signed_record',
   'test_assistant_rejects_missing_receiver_result',
   'test_builds_offline_signing_request_and_attaches_response',
   'test_rejects_tampered_signing_request_or_signature_response',
@@ -315,8 +335,10 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
 
 [
   'validate_receiver_identity_signing_request',
+  'validate_source_evidence_identity_signing_request',
   'Ed25519PrivateKey',
   'build_signature_response',
+  'SOURCE_EVIDENCE_SIGNATURE_RESPONSE_KIND',
   'signatureBase64',
 ].forEach((needle) => {
   assert(receiverOfflineSigner.includes(needle), `excavation offline receiver signer keeps ${needle}`, needle);
@@ -327,6 +349,12 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '--output',
 ].forEach((needle) => {
   assert(receiverSigningLauncher.includes(needle), `excavation receiver signer launcher keeps ${needle}`, needle);
+});
+[
+  'sign_receiver_request.ps1',
+  'SEV identity signature response created',
+].forEach((needle) => {
+  assert(sourceEvidenceSigningLauncher.includes(needle), `excavation SEV signer launcher keeps ${needle}`, needle);
 });
 [
   'receiver-verification-key-enrollment',

@@ -9,6 +9,8 @@ import {
   ReceiverVerificationAuthority,
   ReceiverVerificationResult,
   SourceCapacityEvidenceVerificationResponse,
+  SourceEvidenceIdentitySigningRequest,
+  SourceEvidenceIdentitySignatureResponse,
   ReceiverTrustKey,
   ReceiverTrustEvent,
   ReceiverRevocationReason,
@@ -16,6 +18,7 @@ import {
   ReceiverTrustRestorePreview,
   ReceiverIdentitySigningRequest,
   ReceiverIdentitySignatureResponse,
+  ReceiverIdentityVerification,
   ReceiverKeyEnrollment,
   ReportPayload,
 } from "./types";
@@ -111,6 +114,34 @@ export const api = {
       }),
     },
   ),
+  buildSourceEvidenceIdentitySigningRequest: (projectId: string, verificationFingerprint: string) =>
+    request<{ signingRequest: SourceEvidenceIdentitySigningRequest }>(
+      `/api/projects/${projectId}/source-capacity-evidence-verifications/signing-request`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verification_fingerprint: verificationFingerprint }),
+      },
+    ),
+  attachSourceEvidenceIdentitySignature: (
+    projectId: string,
+    verificationFingerprint: string,
+    signatureResponse: SourceEvidenceIdentitySignatureResponse,
+  ) => request<SourceCapacityEvidenceVerificationResponse>(
+    `/api/projects/${projectId}/source-capacity-evidence-verifications/attach-signature`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        verification_fingerprint: verificationFingerprint,
+        signature_response: signatureResponse,
+      }),
+    },
+  ),
+  validateSourceEvidenceIdentity: (projectId: string, verificationFingerprint: string) =>
+    request<{ identityVerification: ReceiverIdentityVerification }>(
+      `/api/projects/${projectId}/source-capacity-evidence-verifications/${verificationFingerprint}/validation`,
+    ),
   validateRemovalTransferHandoff: (handoff: RemovalTransferHandoff) =>
     request<RemovalTransferHandoff>("/api/removal-transfer-handoffs/validate", {
       method: "POST",

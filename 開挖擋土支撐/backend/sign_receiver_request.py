@@ -13,8 +13,11 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from .app.removal_transfer_handoff import (
     IDENTITY_SIGNATURE_RESPONSE_KIND,
+    SOURCE_EVIDENCE_SIGNATURE_RESPONSE_KIND,
+    SOURCE_EVIDENCE_SIGNING_REQUEST_KIND,
     receiver_identity_key_id,
     validate_receiver_identity_signing_request,
+    validate_source_evidence_identity_signing_request,
 )
 
 
@@ -22,7 +25,12 @@ def build_signature_response(
     signing_request: dict[str, Any],
     private_key: Ed25519PrivateKey,
 ) -> dict[str, Any]:
-    request = validate_receiver_identity_signing_request(signing_request)
+    if signing_request.get("kind") == SOURCE_EVIDENCE_SIGNING_REQUEST_KIND:
+        request = validate_source_evidence_identity_signing_request(signing_request)
+        response_kind = SOURCE_EVIDENCE_SIGNATURE_RESPONSE_KIND
+    else:
+        request = validate_receiver_identity_signing_request(signing_request)
+        response_kind = IDENTITY_SIGNATURE_RESPONSE_KIND
     payload = base64.b64decode(request["payloadBase64"], validate=True)
     public_key = private_key.public_key().public_bytes(
         serialization.Encoding.Raw,
@@ -31,7 +39,7 @@ def build_signature_response(
     signature = private_key.sign(payload)
     return {
         "schemaVersion": 1,
-        "kind": IDENTITY_SIGNATURE_RESPONSE_KIND,
+        "kind": response_kind,
         "signingRequest": request,
         "signature": {
             "algorithm": "Ed25519",
@@ -70,8 +78,8 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="離線簽署 RVR 回簽身分請求；不會修改或保存私人金鑰。")
-    parser.add_argument("--request", required=True, type=Path, help="網頁匯出的 RSR 簽署請求 JSON")
+    parser = argparse.ArgumentParser(description="離線簽署 RVR 或 SEV 身分請求；不會修改或保存私人金鑰。")
+    parser.add_argument("--request", required=True, type=Path, help="網頁匯出的 RSR／SSR 簽署請求 JSON")
     parser.add_argument("--private-key", required=True, type=Path, help="既有 Ed25519 PEM 私人金鑰")
     parser.add_argument("--output", type=Path, help="簽章回應 JSON；預設輸出在請求檔旁")
     parser.add_argument("--password-env", help="可選：存放加密私鑰密碼的環境變數名稱")
@@ -80,8 +88,9 @@ def main() -> int:
         request = _read_json(args.request)
         key = load_private_key(args.private_key, args.password_env)
         response = build_signature_response(request, key)
+        response_label = "SEV-身分簽章回應" if request.get("kind") == SOURCE_EVIDENCE_SIGNING_REQUEST_KIND else "RVR-身分簽章回應"
         output = args.output or args.request.with_name(
-            f"RVR-身分簽章回應-{request.get('requestFingerprint', 'unknown')}.json"
+            f"{response_label}-{request.get('requestFingerprint', 'unknown')}.json"
         )
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(response, ensure_ascii=False, indent=2), encoding="utf-8")

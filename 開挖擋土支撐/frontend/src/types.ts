@@ -518,6 +518,14 @@ export type SourceCapacityEvidenceVerification = {
     byteIdentityOnly: true;
     engineeringContentRequiresManualReview: true;
   };
+  identitySignature?: {
+    schemaVersion: 1;
+    algorithm: "Ed25519";
+    keyId: string;
+    publicKeyBase64: string;
+    signedAt: string;
+    signatureBase64: string;
+  };
   verificationFingerprint: string;
 };
 
@@ -664,6 +672,33 @@ export type ReceiverIdentitySignatureResponse = {
   };
 };
 
+export type SourceEvidenceIdentitySigningRequest = {
+  schemaVersion: 1;
+  kind: "source-evidence-verification-identity-signing-request";
+  algorithm: "Ed25519";
+  payloadEncoding: "base64";
+  signedAt: string;
+  verificationFingerprint: string;
+  handoffFingerprint: string;
+  receiptFingerprint: string;
+  sourceCalculationFingerprint: string;
+  organization: string;
+  payloadBase64: string;
+  requestFingerprint: string;
+};
+
+export type SourceEvidenceIdentitySignatureResponse = {
+  schemaVersion: 1;
+  kind: "source-evidence-verification-identity-signature-response";
+  signingRequest: SourceEvidenceIdentitySigningRequest;
+  signature: {
+    algorithm: "Ed25519";
+    keyId: string;
+    publicKeyBase64: string;
+    signatureBase64: string;
+  };
+};
+
 export type RemovalTransferReceiptImportResponse = {
   project: ProjectState;
   handoff: RemovalTransferHandoff;
@@ -679,6 +714,7 @@ export type RemovalTransferReceiptImportResponse = {
 export type SourceCapacityEvidenceVerificationResponse = {
   project: ProjectState;
   record: SourceCapacityEvidenceVerification;
+  identityVerification: ReceiverIdentityVerification;
 };
 
 export type BootstrapPayload = {

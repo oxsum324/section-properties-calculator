@@ -5,14 +5,19 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
 from backend.app.calculations import calculate_project
 from backend.app.project_store import ProjectStore, _normalize_project_sources
 from backend.app.removal_transfer_handoff import (
+    attach_source_evidence_identity_signature,
     build_removal_transfer_handoff,
     build_receiver_verification_receipt,
     build_source_capacity_evidence_verification,
+    build_source_evidence_identity_signing_request,
     receiver_verification_receipt_fingerprint,
 )
+from backend.sign_receiver_request import build_signature_response
 from backend.app.reporting import calculation_fingerprint
 from backend.app.schemas import AnalysisForceCase
 from backend.app.workbook_loader import load_default_project
@@ -237,6 +242,16 @@ class ProjectStoreNormalizationTests(unittest.TestCase):
                 }],
                 verified_at="2026-08-08T12:00:00Z",
             )
+            source_verification = attach_source_evidence_identity_signature(
+                source_verification,
+                build_signature_response(
+                    build_source_evidence_identity_signing_request(
+                        source_verification,
+                        signed_at="2026-08-08T12:05:00Z",
+                    ),
+                    Ed25519PrivateKey.generate(),
+                ),
+            )
             project.removal_transfer_handoffs = [handoff]
             project.removal_transfer_verification_receipts = [receipt, receipt_v3]
             project.source_capacity_evidence_verifications = [source_verification]
@@ -252,6 +267,10 @@ class ProjectStoreNormalizationTests(unittest.TestCase):
             self.assertEqual(
                 reloaded.source_capacity_evidence_verifications[0]["verificationFingerprint"],
                 source_verification["verificationFingerprint"],
+            )
+            self.assertEqual(
+                reloaded.source_capacity_evidence_verifications[0]["identitySignature"]["keyId"],
+                source_verification["identitySignature"]["keyId"],
             )
 
     def test_invalid_removal_transfer_history_is_removed_fail_closed(self) -> None:

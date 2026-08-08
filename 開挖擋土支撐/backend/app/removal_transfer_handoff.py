@@ -36,6 +36,9 @@ SOURCE_EVIDENCE_VERIFICATION_FINGERPRINT_PREFIX = "SEV"
 IDENTITY_SIGNATURE_CONTEXT = "receiver-verification-identity-signature-v1"
 IDENTITY_SIGNING_REQUEST_KIND = "receiver-verification-identity-signing-request"
 IDENTITY_SIGNATURE_RESPONSE_KIND = "receiver-verification-identity-signature-response"
+SOURCE_EVIDENCE_IDENTITY_SIGNATURE_CONTEXT = "source-evidence-verification-identity-signature-v1"
+SOURCE_EVIDENCE_SIGNING_REQUEST_KIND = "source-evidence-verification-identity-signing-request"
+SOURCE_EVIDENCE_SIGNATURE_RESPONSE_KIND = "source-evidence-verification-identity-signature-response"
 TRANSFER_MODE_LABELS = {
     "outside_scope": "本構件檢核範圍外（另案檢核）",
     "floor": "移轉至樓版",
@@ -85,7 +88,11 @@ def receiver_verification_receipt_fingerprint(record: dict[str, Any]) -> str:
 
 
 def source_evidence_verification_fingerprint(record: dict[str, Any]) -> str:
-    unsigned = {key: value for key, value in record.items() if key != "verificationFingerprint"}
+    unsigned = {
+        key: value
+        for key, value in record.items()
+        if key not in {"verificationFingerprint", "identitySignature"}
+    }
     return _digest(SOURCE_EVIDENCE_VERIFICATION_FINGERPRINT_PREFIX, unsigned)
 
 
@@ -340,6 +347,245 @@ def verify_receiver_identity_signature(
         "trustedOrganization": trusted_key.get("organization"),
         "keyLabel": trusted_key.get("displayName"),
         "message": "RVR 內容完整，且回簽單位的受信任 Ed25519 數位簽章驗證通過。",
+    }
+
+
+def _source_evidence_identity_signing_payload_from_fields(
+    *,
+    verification_fingerprint: str,
+    handoff_fingerprint: str,
+    receipt_fingerprint: str,
+    source_calculation_fingerprint: str,
+    organization: str,
+    signed_at: str,
+) -> bytes:
+    payload = {
+        "context": SOURCE_EVIDENCE_IDENTITY_SIGNATURE_CONTEXT,
+        "signedAt": signed_at,
+        "verificationFingerprint": verification_fingerprint,
+        "handoffFingerprint": handoff_fingerprint,
+        "receiptFingerprint": receipt_fingerprint,
+        "sourceCalculationFingerprint": source_calculation_fingerprint,
+        "organization": organization.strip(),
+    }
+    return _canonical_json(payload).encode("utf-8")
+
+
+def source_evidence_identity_signing_payload(record: dict[str, Any], signed_at: str) -> bytes:
+    authority = record.get("verificationAuthority", {})
+    return _source_evidence_identity_signing_payload_from_fields(
+        verification_fingerprint=str(record.get("verificationFingerprint", "")),
+        handoff_fingerprint=str(record.get("handoffFingerprint", "")),
+        receipt_fingerprint=str(record.get("receiptFingerprint", "")),
+        source_calculation_fingerprint=str(record.get("sourceCalculationFingerprint", "")),
+        organization=str(authority.get("organization", "")),
+        signed_at=signed_at,
+    )
+
+
+def _source_evidence_signing_request_fingerprint(request: dict[str, Any]) -> str:
+    unsigned = {key: value for key, value in request.items() if key != "requestFingerprint"}
+    return _digest("SSR", unsigned)
+
+
+def validate_source_evidence_identity_signing_request(
+    request: dict[str, Any],
+    record: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    if not isinstance(request, dict):
+        raise ValueError("SEV 身分簽署請求格式不正確。")
+    if request.get("schemaVersion") != 1 or request.get("kind") != SOURCE_EVIDENCE_SIGNING_REQUEST_KIND:
+        raise ValueError("SEV 身分簽署請求版本或種類不受支援。")
+    if request.get("algorithm") != "Ed25519" or request.get("payloadEncoding") != "base64":
+        raise ValueError("SEV 身分簽署請求演算法或訊息編碼不受支援。")
+    verification_fingerprint = str(request.get("verificationFingerprint", ""))
+    handoff_fingerprint = str(request.get("handoffFingerprint", ""))
+    receipt_fingerprint = str(request.get("receiptFingerprint", ""))
+    source_fingerprint = str(request.get("sourceCalculationFingerprint", ""))
+    if not re.fullmatch(r"SEV-[0-9A-F]{20}", verification_fingerprint):
+        raise ValueError("SEV 身分簽署請求缺少有效核驗指紋。")
+    if not re.fullmatch(r"ERH-[0-9A-F]{20}", handoff_fingerprint):
+        raise ValueError("SEV 身分簽署請求缺少有效交接指紋。")
+    if not re.fullmatch(r"RVR-[0-9A-F]{20}", receipt_fingerprint):
+        raise ValueError("SEV 身分簽署請求缺少有效回簽指紋。")
+    if not re.fullmatch(r"CF-[0-9A-F]{16}", source_fingerprint):
+        raise ValueError("SEV 身分簽署請求缺少有效來源計算指紋。")
+    organization = _required_text(request.get("organization"), "SEV 簽署請求單位", max_length=120)
+    signed_at = _required_text(request.get("signedAt"), "SEV 簽署請求時間", max_length=40)
+    try:
+        datetime.fromisoformat(signed_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("SEV 身分簽署請求時間不是有效 ISO 8601 日期時間。") from exc
+    expected_payload = _source_evidence_identity_signing_payload_from_fields(
+        verification_fingerprint=verification_fingerprint,
+        handoff_fingerprint=handoff_fingerprint,
+        receipt_fingerprint=receipt_fingerprint,
+        source_calculation_fingerprint=source_fingerprint,
+        organization=organization,
+        signed_at=signed_at,
+    )
+    try:
+        payload = base64.b64decode(
+            _required_text(request.get("payloadBase64"), "SEV 簽署訊息", max_length=1200),
+            validate=True,
+        )
+    except (binascii.Error, ValueError) as exc:
+        raise ValueError("SEV 身分簽署請求的訊息不是有效 Base64。") from exc
+    if not hmac.compare_digest(payload, expected_payload):
+        raise ValueError("SEV 身分簽署請求的欄位與實際簽署訊息不一致。")
+    request_fingerprint = str(request.get("requestFingerprint", ""))
+    if not re.fullmatch(r"SSR-[0-9A-F]{20}", request_fingerprint) or not hmac.compare_digest(
+        request_fingerprint,
+        _source_evidence_signing_request_fingerprint(request),
+    ):
+        raise ValueError("SEV 身分簽署請求內容與請求指紋不一致。")
+    if record is not None and (
+        verification_fingerprint != str(record.get("verificationFingerprint", ""))
+        or handoff_fingerprint != str(record.get("handoffFingerprint", ""))
+        or receipt_fingerprint != str(record.get("receiptFingerprint", ""))
+        or source_fingerprint != str(record.get("sourceCalculationFingerprint", ""))
+        or organization != str(record.get("verificationAuthority", {}).get("organization", "")).strip()
+    ):
+        raise ValueError("SEV 身分簽署請求與目前核驗紀錄不一致。")
+    return deepcopy(request)
+
+
+def build_source_evidence_identity_signing_request(
+    record: dict[str, Any],
+    *,
+    signed_at: str | None = None,
+) -> dict[str, Any]:
+    requested_at = signed_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    payload = source_evidence_identity_signing_payload(record, requested_at)
+    request = {
+        "schemaVersion": 1,
+        "kind": SOURCE_EVIDENCE_SIGNING_REQUEST_KIND,
+        "algorithm": "Ed25519",
+        "payloadEncoding": "base64",
+        "signedAt": requested_at,
+        "verificationFingerprint": record.get("verificationFingerprint"),
+        "handoffFingerprint": record.get("handoffFingerprint"),
+        "receiptFingerprint": record.get("receiptFingerprint"),
+        "sourceCalculationFingerprint": record.get("sourceCalculationFingerprint"),
+        "organization": str(record.get("verificationAuthority", {}).get("organization", "")).strip(),
+        "payloadBase64": base64.b64encode(payload).decode("ascii"),
+    }
+    request["requestFingerprint"] = _source_evidence_signing_request_fingerprint(request)
+    return validate_source_evidence_identity_signing_request(request, record)
+
+
+def attach_source_evidence_identity_signature(
+    record: dict[str, Any],
+    signature_response: dict[str, Any],
+) -> dict[str, Any]:
+    if not isinstance(signature_response, dict):
+        raise ValueError("SEV 身分簽章回應格式不正確。")
+    if (
+        signature_response.get("schemaVersion") != 1
+        or signature_response.get("kind") != SOURCE_EVIDENCE_SIGNATURE_RESPONSE_KIND
+    ):
+        raise ValueError("SEV 身分簽章回應版本或種類不受支援。")
+    signing_request = validate_source_evidence_identity_signing_request(
+        signature_response.get("signingRequest"),
+        record,
+    )
+    signature = signature_response.get("signature")
+    if not isinstance(signature, dict) or signature.get("algorithm") != "Ed25519":
+        raise ValueError("SEV 身分簽章回應缺少受支援的 Ed25519 簽章資料。")
+    signed_record = deepcopy(record)
+    signed_record["identitySignature"] = {
+        "schemaVersion": 1,
+        "algorithm": "Ed25519",
+        "keyId": signature.get("keyId"),
+        "publicKeyBase64": signature.get("publicKeyBase64"),
+        "signedAt": signing_request["signedAt"],
+        "signatureBase64": signature.get("signatureBase64"),
+    }
+    verify_source_evidence_identity_signature(signed_record)
+    return signed_record
+
+
+def verify_source_evidence_identity_signature(
+    record: dict[str, Any],
+    trusted_keys: Iterable[dict[str, Any]] = (),
+) -> dict[str, Any]:
+    signature_record = record.get("identitySignature")
+    if signature_record is None:
+        return {
+            "status": "manual-review-required",
+            "signaturePresent": False,
+            "cryptographicValid": False,
+            "trusted": False,
+            "keyId": None,
+            "message": "SEV 內容完整，但未附數位簽章；核驗單位與人員身分仍須人工核對。",
+        }
+    if not isinstance(signature_record, dict):
+        raise ValueError("SEV 身分簽章格式不正確。")
+    if signature_record.get("schemaVersion") != 1 or signature_record.get("algorithm") != "Ed25519":
+        raise ValueError("SEV 身分簽章版本或演算法不受支援。")
+    signed_at = _required_text(signature_record.get("signedAt"), "SEV 簽章時間", max_length=40)
+    try:
+        datetime.fromisoformat(signed_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("SEV 身分簽章時間不是有效 ISO 8601 日期時間。") from exc
+    try:
+        public_key_bytes = base64.b64decode(
+            _required_text(signature_record.get("publicKeyBase64"), "SEV 簽章公鑰", max_length=80),
+            validate=True,
+        )
+        signature_bytes = base64.b64decode(
+            _required_text(signature_record.get("signatureBase64"), "SEV 簽章值", max_length=120),
+            validate=True,
+        )
+    except (binascii.Error, ValueError) as exc:
+        raise ValueError("SEV 身分簽章的公鑰或簽章值不是有效 Base64。") from exc
+    if len(public_key_bytes) != 32 or len(signature_bytes) != 64:
+        raise ValueError("SEV 身分簽章的 Ed25519 公鑰或簽章長度不正確。")
+    key_id = receiver_identity_key_id(public_key_bytes)
+    if not hmac.compare_digest(str(signature_record.get("keyId", "")), key_id):
+        raise ValueError("SEV 身分簽章的公鑰識別與實際公鑰不一致。")
+    try:
+        Ed25519PublicKey.from_public_bytes(public_key_bytes).verify(
+            signature_bytes,
+            source_evidence_identity_signing_payload(record, signed_at),
+        )
+    except InvalidSignature as exc:
+        raise ValueError("SEV 身分數位簽章驗證失敗，內容、簽章時間或簽章值可能已變更。") from exc
+    trusted_key = next((item for item in trusted_keys if item.get("keyId") == key_id), None)
+    base_result = {
+        "signaturePresent": True,
+        "cryptographicValid": True,
+        "trusted": False,
+        "keyId": key_id,
+        "signedAt": signed_at,
+    }
+    if trusted_key is None:
+        return {
+            **base_result,
+            "status": "valid-signature-untrusted-key",
+            "message": "SEV 數位簽章有效，但此公鑰尚未列入本機信任清冊；核驗身分仍須人工核對。",
+        }
+    if trusted_key.get("status") != "trusted":
+        return {
+            **base_result,
+            "status": "valid-signature-revoked-key",
+            "message": "SEV 數位簽章有效，但此公鑰已撤銷；不得視為受信任核驗。",
+        }
+    record_organization = str(record.get("verificationAuthority", {}).get("organization", "")).strip()
+    trusted_organization = str(trusted_key.get("organization", "")).strip()
+    if not hmac.compare_digest(trusted_organization.encode("utf-8"), record_organization.encode("utf-8")):
+        return {
+            **base_result,
+            "status": "valid-signature-organization-mismatch",
+            "message": "SEV 數位簽章有效，但核驗單位與信任清冊登錄單位不一致。",
+        }
+    return {
+        **base_result,
+        "status": "trusted-signature-valid",
+        "trusted": True,
+        "trustedOrganization": trusted_key.get("organization"),
+        "keyLabel": trusted_key.get("displayName"),
+        "message": "SEV 內容完整，且核驗單位的受信任 Ed25519 數位簽章驗證通過。",
     }
 
 
@@ -995,6 +1241,8 @@ def validate_source_capacity_evidence_verification(
         or boundary.get("engineeringContentRequiresManualReview") is not True
     ):
         raise ValueError("來源端證據核對紀錄未保留檔案與工程審查責任邊界。")
+    if record.get("identitySignature") is not None:
+        verify_source_evidence_identity_signature(record)
     return deepcopy(record)
 
 
@@ -1076,18 +1324,23 @@ __all__ = [
     "IDENTITY_SIGNING_REQUEST_KIND",
     "IDENTITY_SIGNATURE_RESPONSE_KIND",
     "attach_receiver_identity_signature",
+    "attach_source_evidence_identity_signature",
     "build_removal_transfer_handoff",
     "build_receiver_identity_signing_request",
     "build_receiver_verification_receipt",
     "build_source_capacity_evidence_verification",
+    "build_source_evidence_identity_signing_request",
     "source_evidence_verification_fingerprint",
+    "source_evidence_identity_signing_payload",
     "receiver_verification_receipt_fingerprint",
     "receiver_identity_key_id",
     "receiver_identity_signing_payload",
     "same_removal_transfer_handoff_content",
     "validate_removal_transfer_handoff",
     "validate_source_capacity_evidence_verification",
+    "validate_source_evidence_identity_signing_request",
     "validate_receiver_identity_signing_request",
     "validate_receiver_verification_receipt",
     "verify_receiver_identity_signature",
+    "verify_source_evidence_identity_signature",
 ]

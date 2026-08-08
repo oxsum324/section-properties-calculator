@@ -445,6 +445,15 @@ class BuildSourceEvidenceVerificationRequest(BaseModel):
     evidence_files_compared: Literal[True]
 
 
+class BuildSourceEvidenceSigningRequestRequest(BaseModel):
+    verification_fingerprint: str = Field(pattern=r"^SEV-[0-9A-F]{20}$")
+
+
+class AttachSourceEvidenceSignatureRequest(BaseModel):
+    verification_fingerprint: str = Field(pattern=r"^SEV-[0-9A-F]{20}$")
+    signature_response: dict[str, Any]
+
+
 class BuildReceiverSigningRequestRequest(BaseModel):
     handoff: dict[str, Any]
     receipt: dict[str, Any]

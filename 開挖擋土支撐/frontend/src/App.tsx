@@ -35,6 +35,7 @@ import {
   SectionProperty,
   SoilLayer,
   SourceCapacityEvidenceVerification,
+  SourceEvidenceIdentitySignatureResponse,
   SupportRow,
   SummaryItem,
   WaleRow,
@@ -301,6 +302,7 @@ function App() {
     "依 RVR v3 逐列比對來源端實際收到之承載力文件 SHA-256",
   );
   const [sourceEvidenceVerificationRecord, setSourceEvidenceVerificationRecord] = useState<SourceCapacityEvidenceVerification | null>(null);
+  const [sourceEvidenceIdentityVerification, setSourceEvidenceIdentityVerification] = useState<ReceiverIdentityVerification | null>(null);
   const [receiverAssistantHandoff, setReceiverAssistantHandoff] = useState<RemovalTransferHandoff | null>(null);
   const [receiverAssistantAuthority, setReceiverAssistantAuthority] = useState<ReceiverVerificationAuthority>({
     organization: "",
@@ -419,7 +421,27 @@ function App() {
   useEffect(() => {
     setSourceCapacityEvidenceMatches({});
     setSourceEvidenceVerificationRecord(null);
+    setSourceEvidenceIdentityVerification(null);
   }, [activeRemovalTransferReceipt?.receiptFingerprint]);
+
+  useEffect(() => {
+    if (!project?.metadata.id || !activeSourceEvidenceVerification) {
+      setSourceEvidenceIdentityVerification(null);
+      return;
+    }
+    let cancelled = false;
+    api.validateSourceEvidenceIdentity(
+      project.metadata.id,
+      activeSourceEvidenceVerification.verificationFingerprint,
+    )
+      .then((response) => {
+        if (!cancelled) setSourceEvidenceIdentityVerification(response.identityVerification);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+      });
+    return () => { cancelled = true; };
+  }, [project?.metadata.id, activeSourceEvidenceVerification?.verificationFingerprint, receiverTrustKeys]);
 
   useEffect(() => {
     void initialize();
@@ -760,9 +782,57 @@ function App() {
       );
       applyPersistedProjectState(response.project);
       setSourceEvidenceVerificationRecord(response.record);
+      setSourceEvidenceIdentityVerification(response.identityVerification);
       downloadJsonFile(
         response.record,
         `${project.metadata.id}-來源端證據核驗-${response.record.verificationFingerprint}.json`,
+      );
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleDownloadSourceEvidenceSigningRequest() {
+    if (!project?.metadata.id || !activeSourceEvidenceVerification) return;
+    try {
+      setBusy("建立 SEV 身分簽署請求");
+      const response = await api.buildSourceEvidenceIdentitySigningRequest(
+        project.metadata.id,
+        activeSourceEvidenceVerification.verificationFingerprint,
+      );
+      downloadJsonFile(
+        response.signingRequest,
+        `SEV-身分簽署請求-${response.signingRequest.requestFingerprint}.json`,
+      );
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleAttachSourceEvidenceSignature(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!project?.metadata.id || !activeSourceEvidenceVerification || !file) return;
+    try {
+      setBusy("附加並驗證 SEV 身分簽章");
+      const parsed = JSON.parse(await file.text()) as SourceEvidenceIdentitySignatureResponse;
+      const response = await api.attachSourceEvidenceIdentitySignature(
+        project.metadata.id,
+        activeSourceEvidenceVerification.verificationFingerprint,
+        parsed,
+      );
+      applyPersistedProjectState(response.project);
+      setSourceEvidenceVerificationRecord(response.record);
+      setSourceEvidenceIdentityVerification(response.identityVerification);
+      downloadJsonFile(
+        response.record,
+        `${project.metadata.id}-來源端證據核驗-已簽署-${response.record.verificationFingerprint}.json`,
       );
       setError("");
     } catch (err) {
@@ -988,7 +1058,7 @@ function App() {
   async function handleRevokeReceiverTrustKey() {
     if (!receiverRevocationKeyId) return;
     if (!receiverRevocationDraft.confirmed) {
-      setError("撤銷前必須確認此動作不可復原，且既有 RVR 將不再視為受信任回簽。");
+      setError("撤銷前必須確認此動作不可復原，且既有 RVR／SEV 將不再視為受信任簽章。");
       return;
     }
     try {
@@ -4094,6 +4164,50 @@ function App() {
                     label="檔名差異"
                     value={String(activeSourceEvidenceVerification.summary.fileNameDifferences)}
                   />
+                  <MetaItem
+                    label="SEV 身分簽章"
+                    value={sourceEvidenceIdentityVerification?.trusted
+                      ? "受信任簽章通過"
+                      : sourceEvidenceIdentityVerification?.cryptographicValid
+                        ? "簽章有效／信任狀態待處理"
+                        : "未附數位簽章"}
+                  />
+                  <MetaItem
+                    label="SEV 簽章 Key ID"
+                    value={sourceEvidenceIdentityVerification?.keyId ?? "—"}
+                  />
+                </div>
+              )}
+              {activeSourceEvidenceVerification && !sourceCapacityEvidenceHasMismatch && (
+                <div className="report-card">
+                  <h3>SEV 離線身分簽章</h3>
+                  <p className={`meta-line ${sourceEvidenceIdentityVerification?.trusted ? "" : "attention-line"}`}>
+                    {sourceEvidenceIdentityVerification?.message
+                      ?? "正在向本機信任清冊核對 SEV 簽章狀態。"}
+                  </p>
+                  <div className="action-row">
+                    <button
+                      className="secondary"
+                      type="button"
+                      disabled={Boolean(busy)}
+                      onClick={() => void handleDownloadSourceEvidenceSigningRequest()}
+                    >
+                      {activeSourceEvidenceVerification.identitySignature
+                        ? "重新建立 SEV 離線簽署請求"
+                        : "下載 SEV 離線簽署請求"}
+                    </button>
+                    <label className="file-action secondary">
+                      匯入 SEV 離線簽章回應
+                      <input
+                        type="file"
+                        accept="application/json,.json"
+                        onChange={(event) => void handleAttachSourceEvidenceSignature(event)}
+                      />
+                    </label>
+                  </div>
+                  <p className="meta-line">
+                    離線簽署沿用 RVR 的 Ed25519 金鑰與本機信任清冊；私人金鑰不會送入網頁。簽章可確認 SEV 由對應金鑰簽署，但仍不取代工程內容審閱。
+                  </p>
                 </div>
               )}
               {activeRemovalTransferReceipt && !sourceCapacityEvidenceRequired && (
@@ -4217,8 +4331,8 @@ function App() {
             </Panel>
 
             <Panel
-              title="本機受信任回簽公鑰"
-              subtitle="只有經管理者核對後登錄的 Ed25519 公鑰，才能把有效簽章提升為「受信任簽章通過」；私人金鑰不會進入本工具。"
+              title="本機受信任 RVR／SEV 公鑰"
+              subtitle="同一清冊供 RVR 與 SEV 驗章；只有經管理者核對後登錄的 Ed25519 公鑰，才能把有效簽章提升為「受信任簽章通過」。私人金鑰不會進入本工具。"
             >
               <div className="action-row">
                 <label className="file-action secondary">
@@ -4312,13 +4426,13 @@ function App() {
                   </table>
                 </div>
               ) : (
-                <p className="empty-state">本機尚未登錄受信任回簽公鑰；未簽或未知公鑰的 RVR 仍可檢查內容，但身分維持人工核對。</p>
+                <p className="empty-state">本機尚未登錄受信任公鑰；未簽或未知公鑰的 RVR／SEV 仍可檢查內容，但身分維持人工核對。</p>
               )}
               {receiverRevocationKeyId && (
                 <div className="receiver-key-revocation-card">
                   <h4>撤銷金鑰：{receiverRevocationKeyId}</h4>
                   <p className="meta-line attention-line">
-                    撤銷是一次性生命週期事件，不提供復原或覆寫；歷史 RVR 仍可驗證簽章，但不再顯示為受信任回簽。
+                    撤銷是一次性生命週期事件，不提供復原或覆寫；歷史 RVR／SEV 仍可驗證簽章，但不再顯示為受信任。
                   </p>
                   <div className="form-grid">
                     <label className="field-block">

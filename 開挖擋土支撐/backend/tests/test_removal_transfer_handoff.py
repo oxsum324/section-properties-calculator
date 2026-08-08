@@ -14,10 +14,13 @@ from backend.app.removal_transfer_handoff import (
     KIND,
     RECEIPT_KIND,
     attach_receiver_identity_signature,
+    attach_source_evidence_identity_signature,
     build_removal_transfer_handoff,
     build_receiver_identity_signing_request,
     build_receiver_verification_receipt,
     build_source_capacity_evidence_verification,
+    build_source_evidence_identity_signing_request,
+    SOURCE_EVIDENCE_SIGNATURE_RESPONSE_KIND,
     receiver_verification_receipt_fingerprint,
     source_evidence_verification_fingerprint,
     receiver_identity_key_id,
@@ -27,7 +30,9 @@ from backend.app.removal_transfer_handoff import (
     validate_receiver_identity_signing_request,
     validate_receiver_verification_receipt,
     validate_source_capacity_evidence_verification,
+    validate_source_evidence_identity_signing_request,
     verify_receiver_identity_signature,
+    verify_source_evidence_identity_signature,
 )
 from backend.app.removal_transfer_handoff import _handoff_fingerprint, _transfer_id
 from backend.sign_receiver_request import build_signature_response
@@ -688,6 +693,72 @@ class RemovalTransferHandoffTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "RVR 文件受控欄位不一致"):
             validate_source_capacity_evidence_verification(record, handoff, receipt)
+
+    def test_builds_and_attaches_source_evidence_offline_signature(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt = self.receiver_receipt(handoff, schema_version=3)
+        record = build_source_capacity_evidence_verification(
+            handoff,
+            receipt,
+            {"organization": "來源端", "verifierName": "李工程師", "verifierRole": "覆核"},
+            "文件比對",
+            self.source_evidence_matches(receipt),
+        )
+        request = build_source_evidence_identity_signing_request(
+            record,
+            signed_at="2026-08-08T14:00:00Z",
+        )
+        private_key = Ed25519PrivateKey.generate()
+        response = build_signature_response(request, private_key)
+        signed_record = attach_source_evidence_identity_signature(record, response)
+
+        self.assertRegex(request["requestFingerprint"], r"^SSR-[0-9A-F]{20}$")
+        self.assertEqual(response["kind"], SOURCE_EVIDENCE_SIGNATURE_RESPONSE_KIND)
+        self.assertEqual(signed_record["verificationFingerprint"], record["verificationFingerprint"])
+        self.assertEqual(
+            verify_source_evidence_identity_signature(signed_record)["status"],
+            "valid-signature-untrusted-key",
+        )
+        public_key = private_key.public_key().public_bytes(
+            serialization.Encoding.Raw,
+            serialization.PublicFormat.Raw,
+        )
+        trusted_key = {
+            "keyId": receiver_identity_key_id(public_key),
+            "organization": "來源端",
+            "displayName": "來源端核驗金鑰",
+            "status": "trusted",
+        }
+        self.assertTrue(verify_source_evidence_identity_signature(signed_record, [trusted_key])["trusted"])
+        self.assertEqual(
+            validate_source_capacity_evidence_verification(signed_record, handoff, receipt),
+            signed_record,
+        )
+
+    def test_rejects_tampered_source_evidence_signing_request_and_signed_record(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt = self.receiver_receipt(handoff, schema_version=3)
+        record = build_source_capacity_evidence_verification(
+            handoff,
+            receipt,
+            {"organization": "來源端", "verifierName": "李工程師", "verifierRole": "覆核"},
+            "文件比對",
+            self.source_evidence_matches(receipt),
+        )
+        request = build_source_evidence_identity_signing_request(record)
+        tampered_request = deepcopy(request)
+        tampered_request["organization"] = "冒用單位"
+        with self.assertRaisesRegex(ValueError, "欄位與實際簽署訊息不一致"):
+            validate_source_evidence_identity_signing_request(tampered_request)
+
+        response = build_signature_response(request, Ed25519PrivateKey.generate())
+        signed_record = attach_source_evidence_identity_signature(record, response)
+        signed_record["verificationBasis"] = "遭改寫"
+        signed_record["verificationFingerprint"] = source_evidence_verification_fingerprint(signed_record)
+        with self.assertRaisesRegex(ValueError, "SEV 身分數位簽章驗證失敗"):
+            validate_source_capacity_evidence_verification(signed_record, handoff, receipt)
 
     def test_reuses_handoff_when_only_issue_time_changes(self) -> None:
         project = self.prepared_project()

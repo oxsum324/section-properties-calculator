@@ -1,6 +1,8 @@
-# RVR 回簽身分數位簽章合約
+# RVR／SEV 身分數位簽章合約
 
 本合約在既有 `receiver-capacity-verification-receipt`（RVR）內容完整性指紋之外，提供可選的 Ed25519 回簽身分驗證。未簽 RVR 保持相容，仍可驗證工程內容，但回簽身分必須人工核對。
+
+同一合約亦適用於 `source-capacity-evidence-verification-record`（SEV）。SEV 使用相同 Ed25519 金鑰格式與本機信任清冊，但以獨立的簽署內容、`SSR-` 請求指紋及簽章回應種類隔離，避免 RVR 簽章被重播成 SEV 簽章。未簽 SEV 仍可證明逐列檔案雜湊核對結果，但核驗身分必須人工核對。
 
 ## 信任狀態
 
@@ -23,7 +25,7 @@
 }
 ```
 
-`identitySignature` 與 `receiptFingerprint` 均不納入 RVR 指紋運算，因此在既有 RVR 加入簽章不會改變其內容指紋。驗章前仍須先通過完整的 RVR、ERH 與 ERT 關聯驗證。
+RVR 的 `identitySignature` 與 `receiptFingerprint`、SEV 的 `identitySignature` 與 `verificationFingerprint` 均彼此分離，因此加入或更新簽章不會改變原內容指紋。驗章前仍須先通過完整的 SEV／RVR／ERH／ERT 關聯與受控欄位驗證。
 
 RVR v3 的逐列承載力文件資料與 `fileSha256` 會納入 `receiptFingerprint`，因此後續數位簽章也會間接保護這些欄位不被改寫；但證據檔案本身不會嵌入 RVR 或簽署訊息。來源端仍須對實際收到的文件重新計算 SHA-256，確認與 RVR 所列值一致，並人工核對文件編號、版次、日期、頁碼及內容。
 
@@ -39,6 +41,20 @@ RVR v3 的逐列承載力文件資料與 `fileSha256` 會納入 `receiptFingerpr
   "receiptFingerprint": "<RVR fingerprint>",
   "signedAt": "<identitySignature.signedAt>",
   "sourceCalculationFingerprint": "<CF fingerprint>"
+}
+```
+
+SEV 使用另一個不可互換的簽署訊息：
+
+```json
+{
+  "context": "source-evidence-verification-identity-signature-v1",
+  "handoffFingerprint": "<ERH fingerprint>",
+  "organization": "<verificationAuthority.organization 去除首尾空白>",
+  "receiptFingerprint": "<RVR fingerprint>",
+  "signedAt": "<identitySignature.signedAt>",
+  "sourceCalculationFingerprint": "<CF fingerprint>",
+  "verificationFingerprint": "<SEV fingerprint>"
 }
 ```
 
@@ -65,6 +81,8 @@ RVR v3 的逐列承載力文件資料與 `fileSha256` 會納入 `receiptFingerpr
 ```powershell
 python -m backend.sign_receiver_request --request <RSR.json> --private-key <Ed25519-private-key.pem> --output <signature-response.json>
 ```
+
+SEV 操作不需命令列：在 SEV 區塊下載 `SSR-` 請求後，雙擊 `簽署SEV身分請求.bat`，依序選擇 SSR 與既有 Ed25519 PEM 私鑰，再回到原畫面匯入產出的 `source-evidence-verification-identity-signature-response` JSON。相同的 Python 指令也會依請求種類自動產生正確的 RVR 或 SEV 回應，且兩者都不包含私人金鑰或密碼。
 
 簽章回應會包含完整 RSR 與下列公開資料，不包含私人金鑰或密碼：
 
