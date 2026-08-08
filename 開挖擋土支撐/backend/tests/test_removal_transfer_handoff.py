@@ -61,27 +61,29 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         project.calculation_results = calculate_project(project)
         return project
 
-    def receiver_receipt(self, handoff, *, status: str = "passed"):
+    def receiver_receipt(self, handoff, *, status: str = "passed", schema_version: int = 1):
         results = []
         for transfer in handoff["transfers"]:
             ratio = 0.82 if status == "passed" else 1.08
-            results.append(
-                {
-                    "transferId": transfer["transferId"],
-                    "status": status,
-                    "receiverTarget": transfer["receiver"]["target"] or "另案承接構造 RC-01",
-                    "adoptedDemandTf": transfer["sourceDemand"].get(
-                        "receiverTransferDemandTf",
-                        transfer["sourceDemand"]["memberDesignAxialForceTf"],
-                    ),
-                    "capacityUtilizationRatio": ratio,
-                    "verificationBasis": "承接構造階段分析模型 RV-01",
-                    "conclusion": "容量及傳力路徑檢核通過" if status == "passed" else "容量檢核不通過",
-                }
+            adopted_demand = transfer["sourceDemand"].get(
+                "receiverTransferDemandTf",
+                transfer["sourceDemand"]["memberDesignAxialForceTf"],
             )
+            result = {
+                "transferId": transfer["transferId"],
+                "status": status,
+                "receiverTarget": transfer["receiver"]["target"] or "另案承接構造 RC-01",
+                "adoptedDemandTf": adopted_demand,
+                "capacityUtilizationRatio": ratio,
+                "verificationBasis": "承接構造階段分析模型 RV-01",
+                "conclusion": "容量及傳力路徑檢核通過" if status == "passed" else "容量檢核不通過",
+            }
+            if schema_version == 2:
+                result["verifiedCapacityTf"] = adopted_demand / ratio
+            results.append(result)
         failed = sum(item["status"] == "failed" for item in results)
         receipt = {
-            "schemaVersion": 1,
+            "schemaVersion": schema_version,
             "kind": RECEIPT_KIND,
             "issuedAt": "2026-08-07T12:00:00Z",
             "handoffFingerprint": handoff["handoffFingerprint"],
@@ -104,6 +106,8 @@ class RemovalTransferHandoffTests(unittest.TestCase):
                 "verifierIdentityRequiresManualReview": True,
             },
         }
+        if schema_version == 2:
+            receipt["boundary"]["capacityValueFromReceiverDocument"] = True
         receipt["receiptFingerprint"] = receiver_verification_receipt_fingerprint(receipt)
         return receipt
 
@@ -136,7 +140,11 @@ class RemovalTransferHandoffTests(unittest.TestCase):
 
         self.assertEqual(record["kind"], KIND)
         self.assertEqual(record["schemaVersion"], 3)
-        self.assertEqual(record["receiptContract"]["schemaVersion"], 1)
+        self.assertEqual(record["receiptContract"]["schemaVersion"], 2)
+        self.assertEqual(
+            record["receiptContract"]["capacityCheck"],
+            "adopted-demand-divided-by-verified-capacity",
+        )
         self.assertRegex(record["handoffFingerprint"], r"^ERH-[0-9A-F]{20}$")
         self.assertEqual(record["source"]["calculationFingerprint"], fingerprint)
         self.assertEqual(len(record["transfers"]), 1)
@@ -194,6 +202,8 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         record = build_removal_transfer_handoff(project, calculation_fingerprint(project))
         legacy = deepcopy(record)
         legacy["schemaVersion"] = 1
+        legacy["receiptContract"]["schemaVersion"] = 1
+        legacy["receiptContract"].pop("capacityCheck")
         source_fingerprint = legacy["source"]["calculationFingerprint"]
         for transfer in legacy["transfers"]:
             transfer["sourceDemand"].pop("receiverTransferDemandTf")
@@ -209,11 +219,23 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         record = build_removal_transfer_handoff(project, calculation_fingerprint(project))
         legacy = deepcopy(record)
         legacy["schemaVersion"] = 2
+        legacy["receiptContract"]["schemaVersion"] = 1
+        legacy["receiptContract"].pop("capacityCheck")
         source_fingerprint = legacy["source"]["calculationFingerprint"]
         for transfer in legacy["transfers"]:
             transfer["sourceDemand"].pop("allocationSharePercent")
             unsigned = {key: value for key, value in transfer.items() if key != "transferId"}
             transfer["transferId"] = _transfer_id(unsigned, source_fingerprint)
+        legacy["handoffFingerprint"] = _handoff_fingerprint(legacy)
+
+        self.assertEqual(validate_removal_transfer_handoff(legacy), legacy)
+
+    def test_keeps_legacy_v3_handoff_with_v1_receipt_contract(self) -> None:
+        project = self.prepared_project()
+        record = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        legacy = deepcopy(record)
+        legacy["receiptContract"]["schemaVersion"] = 1
+        legacy["receiptContract"].pop("capacityCheck")
         legacy["handoffFingerprint"] = _handoff_fingerprint(legacy)
 
         self.assertEqual(validate_removal_transfer_handoff(legacy), legacy)
@@ -261,6 +283,14 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         self.assertTrue(validated["boundary"]["verifierIdentityRequiresManualReview"])
         round_tripped = json.loads(json.dumps(receipt))
         self.assertEqual(validate_receiver_verification_receipt(round_tripped, handoff), receipt)
+
+    def test_keeps_legacy_v1_receipt_without_capacity_read_compatibility(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt = self.receiver_receipt(handoff, schema_version=1)
+
+        self.assertNotIn("verifiedCapacityTf", receipt["results"][0])
+        self.assertEqual(validate_receiver_verification_receipt(receipt, handoff), receipt)
 
     def test_rejects_receiver_demand_below_erh_transfer_demand(self) -> None:
         project = self.prepared_project()
@@ -384,7 +414,7 @@ class RemovalTransferHandoffTests(unittest.TestCase):
     def test_builds_controlled_receiver_receipt_for_assistant(self) -> None:
         project = self.prepared_project()
         handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
-        draft = self.receiver_receipt(handoff)
+        draft = self.receiver_receipt(handoff, schema_version=2)
         draft["verificationAuthority"]["untrustedField"] = "must not survive"
         draft["results"][0]["untrustedField"] = "must not survive"
 
@@ -396,6 +426,16 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         )
 
         self.assertEqual(receipt["summary"], {"status": "passed", "passed": 1, "failed": 0})
+        self.assertEqual(receipt["schemaVersion"], 2)
+        self.assertGreater(receipt["results"][0]["verifiedCapacityTf"], receipt["results"][0]["adoptedDemandTf"])
+        self.assertEqual(
+            receipt["results"][0]["capacityUtilizationRatio"],
+            round(
+                receipt["results"][0]["adoptedDemandTf"]
+                / receipt["results"][0]["verifiedCapacityTf"],
+                6,
+            ),
+        )
         self.assertNotIn("untrustedField", receipt["verificationAuthority"])
         self.assertNotIn("untrustedField", receipt["results"][0])
         self.assertTrue(receipt["boundary"]["receiverCalculationCompleted"])
@@ -412,7 +452,7 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         project.top_supports.append(second)
         project.calculation_results = calculate_project(project)
         handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
-        draft = self.receiver_receipt(handoff)
+        draft = self.receiver_receipt(handoff, schema_version=2)
         draft["results"].pop()
 
         with self.assertRaisesRegex(ValueError, "未完整涵蓋"):
@@ -455,6 +495,46 @@ class RemovalTransferHandoffTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "利用率大於 1"):
             validate_receiver_verification_receipt(receipt, handoff)
+
+    def test_v2_rejects_capacity_ratio_mismatch(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt = self.receiver_receipt(handoff, schema_version=2)
+        receipt["results"][0]["capacityUtilizationRatio"] = 0.5
+        receipt["receiptFingerprint"] = receiver_verification_receipt_fingerprint(receipt)
+
+        with self.assertRaisesRegex(ValueError, "需求／核定承載力不一致"):
+            validate_receiver_verification_receipt(receipt, handoff)
+
+    def test_v2_rejects_manual_status_override(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt = self.receiver_receipt(handoff, schema_version=2)
+        receipt["results"][0]["status"] = "failed"
+        receipt["summary"] = {"status": "failed", "passed": 0, "failed": 1}
+        receipt["receiptFingerprint"] = receiver_verification_receipt_fingerprint(receipt)
+
+        with self.assertRaisesRegex(ValueError, "自動判定不一致"):
+            validate_receiver_verification_receipt(receipt, handoff)
+
+    def test_assistant_derives_failed_status_from_demand_and_capacity(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        draft = self.receiver_receipt(handoff, schema_version=2)
+        adopted_demand = draft["results"][0]["adoptedDemandTf"]
+        draft["results"][0]["verifiedCapacityTf"] = adopted_demand / 1.25
+        draft["results"][0]["capacityUtilizationRatio"] = 0.1
+        draft["results"][0]["status"] = "passed"
+
+        receipt = build_receiver_verification_receipt(
+            handoff,
+            draft["verificationAuthority"],
+            draft["results"],
+        )
+
+        self.assertEqual(receipt["results"][0]["capacityUtilizationRatio"], 1.25)
+        self.assertEqual(receipt["results"][0]["status"], "failed")
+        self.assertEqual(receipt["summary"], {"status": "failed", "passed": 0, "failed": 1})
 
     def test_reuses_handoff_when_only_issue_time_changes(self) -> None:
         project = self.prepared_project()

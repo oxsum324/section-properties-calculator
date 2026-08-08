@@ -333,9 +333,19 @@ function App() {
       && result.conclusion.trim().length > 0
       && Number.isFinite(result.adoptedDemandTf)
       && result.adoptedDemandTf > 0
+      && Number.isFinite(result.verifiedCapacityTf)
+      && (result.verifiedCapacityTf ?? 0) > 0
       && Number.isFinite(result.capacityUtilizationRatio)
       && result.capacityUtilizationRatio > 0
-      && !(result.status === "passed" && result.capacityUtilizationRatio > 1)
+      && Math.abs(
+        result.capacityUtilizationRatio
+        - result.adoptedDemandTf / (result.verifiedCapacityTf ?? 1)
+      ) <= 0.000001
+      && result.status === (
+        result.adoptedDemandTf / (result.verifiedCapacityTf ?? 1) <= 1.000000001
+          ? "passed"
+          : "failed"
+      )
     ));
   }, [
     receiverAssistantHandoff,
@@ -965,10 +975,17 @@ function App() {
     setReceiverAssistantResults((current) => {
       const next = [...current];
       const result = { ...next[index] };
-      if (field === "adoptedDemandTf" || field === "capacityUtilizationRatio") {
+      if (field === "adoptedDemandTf" || field === "verifiedCapacityTf") {
         result[field] = Number(value);
       } else {
         result[field] = value as never;
+      }
+      if (field === "adoptedDemandTf" || field === "verifiedCapacityTf") {
+        const demand = Number(result.adoptedDemandTf);
+        const capacity = Number(result.verifiedCapacityTf ?? 0);
+        const ratio = demand > 0 && capacity > 0 ? demand / capacity : 0;
+        result.capacityUtilizationRatio = Number(ratio.toFixed(6));
+        result.status = ratio > 0 && ratio <= 1.000000001 ? "passed" : "failed";
       }
       next[index] = result;
       return next;
@@ -4228,7 +4245,7 @@ function App() {
                   </div>
                 </Panel>
 
-                <Panel title="逐列承接構造結果" subtitle="每一個 ERT 必須且只能回簽一次；利用率大於 1 的結果不得標示為通過。">
+                <Panel title="逐列承接構造結果" subtitle="每一個 ERT 必須且只能回簽一次；利用率由採用需求除以核定承載力自動計算，結果不得手動覆寫。">
                   <div className="receiver-result-list">
                     {receiverAssistantResults.map((result, index) => {
                       const transfer = receiverAssistantHandoff.transfers[index];
@@ -4248,16 +4265,14 @@ function App() {
                             <span>{`處置依據：${transfer.receiver.dispositionBasis || "—"}`}</span>
                           </div>
                           <div className="form-grid receiver-result-fields">
-                            <label className="field-block">
-                              <span>接收端結果</span>
-                              <select
-                                value={result.status}
-                                onChange={(event) => updateReceiverAssistantResult(index, "status", event.target.value)}
-                              >
-                                <option value="passed">通過</option>
-                                <option value="failed">未通過</option>
-                              </select>
-                            </label>
+                            <div className="field-block">
+                              <span>接收端結果（自動）</span>
+                              <strong>
+                                {(result.verifiedCapacityTf ?? 0) <= 0
+                                  ? "待輸入核定承載力"
+                                  : result.status === "passed" ? "通過" : "未通過"}
+                              </strong>
+                            </div>
                             <Field
                               label="實際承接構造識別"
                               value={result.receiverTarget}
@@ -4269,10 +4284,14 @@ function App() {
                               onChange={(value) => updateReceiverAssistantResult(index, "adoptedDemandTf", value)}
                             />
                             <NumberField
-                              label="容量利用率"
-                              value={result.capacityUtilizationRatio}
-                              onChange={(value) => updateReceiverAssistantResult(index, "capacityUtilizationRatio", value)}
+                              label="核定承載力（tf）"
+                              value={result.verifiedCapacityTf ?? 0}
+                              onChange={(value) => updateReceiverAssistantResult(index, "verifiedCapacityTf", value)}
                             />
+                            <div className="field-block">
+                              <span>容量利用率（需求／承載力，自動）</span>
+                              <strong>{result.capacityUtilizationRatio > 0 ? fmt(result.capacityUtilizationRatio) : "—"}</strong>
+                            </div>
                             <TextAreaField
                               label="接收端檢核依據"
                               value={result.verificationBasis}
@@ -4326,7 +4345,7 @@ function App() {
                     </button>
                   </div>
                   {!receiverAssistantReady && (
-                    <p className="meta-line">請完成回簽單位、每筆檢核結果及兩項確認；通過列的容量利用率不得大於 1。</p>
+                    <p className="meta-line">請完成回簽單位、每筆採用需求、核定承載力、檢核依據、結論及兩項確認；結果與利用率會由後端自動判定。</p>
                   )}
                   {receiverAssistantReceipt && (
                     <div className={`receiver-receipt-result ${receiverAssistantReceipt.summary.status === "passed" && receiverAssistantIdentityVerification?.status !== "valid-signature-revoked-key" && receiverAssistantIdentityVerification?.status !== "valid-signature-organization-mismatch" ? "ok" : "ng"}`}>
@@ -4343,6 +4362,11 @@ function App() {
                               : "RVR 已建立：接收端結果通過／回簽人身分待核對"
                           : "RVR 已建立：接收端結果包含未通過項目"}
                       </strong>
+                      <span>
+                        {receiverAssistantReceipt.schemaVersion === 2
+                          ? "RVR v2：需求／核定承載力、利用率及自動判定已形成可核對閉環。"
+                          : "舊版 RVR v1：容量利用率為接收端外部登錄值，未形成需求／承載力自動閉環。"}
+                      </span>
                       <span>{`RVR 指紋：${receiverAssistantReceipt.receiptFingerprint}`}</span>
                       <span>{`通過 ${receiverAssistantReceipt.summary.passed}／未通過 ${receiverAssistantReceipt.summary.failed}`}</span>
                       {receiverAssistantIdentityVerification && <span>{receiverAssistantIdentityVerification.message}</span>}
@@ -5816,9 +5840,10 @@ function handoffSourceMemberLabel(transfer: RemovalTransferHandoff["transfers"][
 function receiverResultDrafts(handoff: RemovalTransferHandoff): ReceiverVerificationResult[] {
   return handoff.transfers.map((transfer) => ({
     transferId: transfer.transferId,
-    status: "passed",
+    status: "failed",
     receiverTarget: transfer.receiver.target,
     adoptedDemandTf: handoffDesignDemandTf(transfer),
+    verifiedCapacityTf: 0,
     capacityUtilizationRatio: 0,
     verificationBasis: "",
     conclusion: "",

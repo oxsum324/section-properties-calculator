@@ -88,7 +88,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.4.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.5.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -165,6 +165,11 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '"status": "pending"',
   '"autoApplied": False',
   '"autoVerified": False',
+  'SUPPORTED_RECEIPT_SCHEMA_VERSIONS',
+  'verifiedCapacityTf',
+  'expected_ratio = adopted_demand / verified_capacity',
+  '"capacityValueFromReceiverDocument": True',
+  'adopted-demand-divided-by-verified-capacity',
   '來源構件、生命週期、控制軸力',
 ].forEach((needle) => {
   assert(removalTransferHandoff.includes(needle), `excavation removal transfer handoff keeps ${needle}`, needle);
@@ -232,6 +237,10 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '確認復原已驗證備份',
   '此備份不得復原',
   '交接完成不等於承接構造合格',
+  '核定承載力（tf）',
+  '容量利用率（需求／承載力，自動）',
+  '結果與利用率會由後端自動判定',
+  '舊版 RVR v1：容量利用率為接收端外部登錄值',
 ].forEach((needle) => {
   assert(app.includes(needle) || api.includes(needle), `excavation removal transfer frontend keeps ${needle}`, needle);
 });
@@ -244,6 +253,11 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'test_rejects_tampered_receiver_receipt',
   'test_rejects_incomplete_receiver_receipt',
   'test_rejects_passed_receipt_with_over_capacity_ratio',
+  'test_keeps_legacy_v1_receipt_without_capacity_read_compatibility',
+  'test_keeps_legacy_v3_handoff_with_v1_receipt_contract',
+  'test_v2_rejects_capacity_ratio_mismatch',
+  'test_v2_rejects_manual_status_override',
+  'test_assistant_derives_failed_status_from_demand_and_capacity',
   'test_reuses_handoff_when_only_issue_time_changes',
   'test_builds_controlled_receiver_receipt_for_assistant',
   'test_assistant_rejects_missing_receiver_result',
