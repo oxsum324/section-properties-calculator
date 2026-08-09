@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const childProcess = require('node:child_process');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const Worker = require('./attachment-governance-hub-worker.js');
 
@@ -21,17 +22,18 @@ const hubPs = fs.readFileSync(hubPath, 'utf8');
   '可新建產物', '永遠唯讀', '另建升級產物',
   '唯讀路徑辨識', '不代替正式核可',
   '只有計算書內明確核可才是正式附件', 'ProcessStartInfo', 'UseShellExecute',
-  '共用起始資料夾（可拖放）', '選擇並辨識…', '唯讀辨識建議', 'FolderBrowserDialog',
+  '起始資料夾／來源 ZIP（可拖放）', '選擇並辨識…', '選來源 ZIP…', '唯讀辨識建議',
+  'FolderBrowserDialog', 'OpenFileDialog', '*.formal-source.zip', 'Select-SharedFormalSourceZip',
   'AllowDrop', 'DataFormats]::FileDrop', 'DragDropEffects]::Copy', 'DragDropEffects]::None',
-  'Set-SharedPathAndRecommend', '一次只能拖入一個資料夾',
+  'Test-SharedInputPath', 'ReparsePoint', 'Set-SharedPathAndRecommend', '一次只能拖入一個資料夾或 .formal-source.zip',
   '[string]$InitialPath', 'ValueFromRemainingArguments', '[string[]]$AdditionalPath',
-  '$script:StartupPaths', '啟動時一次只能帶入一個資料夾', 'Add_Shown',
+  '$script:StartupPaths', '啟動時一次只能帶入一個資料夾或 .formal-source.zip', 'Add_Shown',
   'System.Windows.Forms.Timer', 'Start-PathAdvisor', 'Complete-PathAdvisor', 'Stop-PathAdvisor',
   '唯讀辨識進行中', '畫面可繼續操作', '停止辨識', 'Cancel-PathAdvisor',
   '已停止唯讀辨識', '重新辨識', '唯讀辨識超過 60 秒', 'Add_FormClosing',
   'Screen]::FromPoint', 'Cursor]::Position', "StartPosition = 'Manual'", 'AutoScrollMinSize', 'WM_VSCROLL', 'AttachmentHubNativeScroll', 'SmokeViewport',
   'KeyPreview', 'AcceptButton', 'Add_KeyDown', 'Keys]::L', 'Keys]::Escape', 'Invoke-HubKeyDown', 'KeyEventArgs', 'SelectNextControl',
-  'AccessibleName', 'AccessibleDescription', '案件或附件資料夾路徑',
+  'AccessibleName', 'AccessibleDescription', '案件資料夾或 PDF＋證據來源 ZIP 路徑',
   '-InitialPath', '-InitialMode', '-AutoInspect', 'attachment-governance-hub-worker.js',
   '建議｜開啟並唯讀檢查', '已帶入建議模式並執行唯讀檢查',
 ].forEach(needle => assert.ok(hubPs.includes(needle), `PowerShell hub includes ${needle}`));
@@ -47,10 +49,12 @@ assert.doesNotMatch(hubPs, /-Action\s+(?:check|build|verify|case|portfolio|inspe
 assert.match(hubPs, /\$script:AdvicePath -eq \$initialPath[\s\S]*?\$script:Advice\.recommendedTool -eq \$Target\.Id[\s\S]*?\$arguments \+= ' -AutoInspect'/, 'one-click read-only inspection requires a current matched recommendation and an explicit tool click');
 assert.doesNotMatch(hubPs, /-AutoInspect[\s\S]{0,300}BtnBuild|-AutoInspect[\s\S]{0,300}BtnExecute/, 'hub does not expose a one-click write path');
 const pathHandoff = hubPs.match(/function Set-SharedPathAndRecommend \{[\s\S]*?(?=\nfunction Select-SharedFolder)/)?.[0] || '';
-assert.match(pathHandoff, /Test-Path[\s\S]*?PathType Container[\s\S]*?Resolve-Path[\s\S]*?ProviderPath[\s\S]*?\$script:SharedPath\.Text[\s\S]*?Show-Recommendation/, 'selected or dropped path is validated, normalized to an absolute path, and sent only to the read-only advisor');
+assert.match(pathHandoff, /Test-SharedInputPath[\s\S]*?Resolve-Path[\s\S]*?ProviderPath[\s\S]*?\$script:SharedPath\.Text[\s\S]*?Show-Recommendation/, 'selected or dropped folder or controlled source ZIP is validated, normalized to an absolute path, and sent only to the read-only advisor');
 assert.doesNotMatch(pathHandoff, /Start-GovernedTool|ProcessStartInfo|-AutoInspect/, 'automatic advice never opens or runs a child tool');
 assert.match(hubPs, /ShowDialog\(\) -eq \[System\.Windows\.Forms\.DialogResult\]::OK[\s\S]*?Set-SharedPathAndRecommend -SelectedPath \$dialog\.SelectedPath/, 'folder selection immediately requests read-only advice');
-assert.match(hubPs, /\$folderDragDrop = \{[\s\S]*?\$paths\.Count -ne 1[\s\S]*?Set-SharedPathAndRecommend -SelectedPath/, 'drop accepts exactly one folder and requests the same read-only advice');
+assert.match(hubPs, /function Select-SharedFormalSourceZip \{[\s\S]*?OpenFileDialog[\s\S]*?\*\.formal-source\.zip[\s\S]*?Set-SharedPathAndRecommend -SelectedPath/, 'source ZIP selection is restricted to the controlled suffix and requests read-only advice');
+assert.match(hubPs, /\$folderDragEnter = \{[\s\S]*?\$paths\.Count -eq 1[\s\S]*?Test-SharedInputPath/, 'drag preview accepts only one governed folder or source ZIP');
+assert.match(hubPs, /\$folderDragDrop = \{[\s\S]*?\$paths\.Count -ne 1[\s\S]*?Set-SharedPathAndRecommend -SelectedPath/, 'drop accepts exactly one path and delegates governed validation to the common read-only handoff');
 const showRecommendation = hubPs.match(/function Show-Recommendation \{[\s\S]*?(?=\nfunction Start-GovernedTool)/)?.[0] || '';
 assert.match(showRecommendation, /Start-PathAdvisor -InputPath \$inputPath/, 'recommendation starts the advisor without blocking the UI thread');
 assert.doesNotMatch(showRecommendation, /ReadToEnd|WaitForExit/, 'recommendation UI path does not synchronously wait for the advisor');
@@ -85,6 +89,23 @@ const baseDeps = {
   Checker: { checkPackage() { return { status: 'ready', summary: { attachments: 0, unsupported: 0, unsafeSourceEntries: 0 } }; } },
 };
 function deps(overrides = {}) { return { ...baseDeps, ...overrides }; }
+
+const hubFixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'attachment-governance-hub-'));
+const sourceBundlePath = path.join(hubFixtureRoot, '核可計算書.formal-source.zip');
+const ordinaryFilePath = path.join(hubFixtureRoot, '一般檔案.txt');
+fs.writeFileSync(sourceBundlePath, 'PK\u0003\u0004contract fixture');
+fs.writeFileSync(ordinaryFilePath, 'not a governed input');
+process.on('exit', () => fs.rmSync(hubFixtureRoot, { recursive: true, force: true }));
+
+const sourceZipAdvice = Worker.advisePath(sourceBundlePath, baseDeps);
+assert.equal(sourceZipAdvice.recommendedTool, 'manager');
+assert.equal(sourceZipAdvice.recommendedMode, 'source');
+assert.equal(sourceZipAdvice.inputKind, 'formal-source-zip');
+assert.equal(sourceZipAdvice.readOnly, true);
+assert.equal(sourceZipAdvice.autoLaunched, false);
+assert.equal(Worker.physicalInput(sourceBundlePath).kind, 'formal-source-zip');
+assert.throws(() => Worker.physicalDirectory(sourceBundlePath), /只接受實體資料夾/);
+assert.throws(() => Worker.physicalInput(ordinaryFilePath), /只接受實體資料夾或 \.formal-source\.zip/);
 
 const workspaceAdvice = Worker.advisePath(toolsDir, deps({
   Flow: { ...baseDeps.Flow, detectInputKind() { return { kind: 'upgrade-workspace' }; } },
@@ -143,6 +164,17 @@ assert.equal(Worker.parseArgs(['--smoke-error']).smokeError, true);
 const workerCli = childProcess.spawnSync(process.execPath, [path.join(toolsDir, 'attachment-governance-hub-worker.js'), '--action', 'smoke'], { encoding: 'utf8' });
 assert.equal(workerCli.status, 0, workerCli.stderr || workerCli.stdout);
 assert.equal(JSON.parse(workerCli.stdout).autoLaunched, false);
+const sourceZipCli = childProcess.spawnSync(
+  process.execPath,
+  [path.join(toolsDir, 'attachment-governance-hub-worker.js'), '--action', 'advise', '--input', sourceBundlePath],
+  { encoding: 'utf8' },
+);
+assert.equal(sourceZipCli.status, 0, sourceZipCli.stderr || sourceZipCli.stdout);
+const sourceZipCliPayload = JSON.parse(sourceZipCli.stdout);
+assert.equal(sourceZipCliPayload.recommendedTool, 'manager');
+assert.equal(sourceZipCliPayload.recommendedMode, 'source');
+assert.equal(sourceZipCliPayload.inputKind, 'formal-source-zip');
+assert.equal(sourceZipCliPayload.autoLaunched, false);
 
 const targetLaunchers = [
   '啟動正式附件包管理器.bat',
@@ -222,7 +254,7 @@ const cancellationSmoke = childProcess.spawnSync(
   powershell,
   [
     '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', hubPath,
-    '-SmokeCancellation', '-AdvisorSmokeDelayMilliseconds', '2000', '-InitialPath', toolsDir,
+    '-SmokeCancellation', '-AdvisorSmokeDelayMilliseconds', '2000', '-InitialPath', sourceBundlePath,
   ],
   { encoding: 'utf8', timeout: 15000 },
 );

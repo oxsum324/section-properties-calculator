@@ -10,23 +10,34 @@ const Checker = require('./attachment-package-check.js');
 
 const ADVISOR_KIND = 'attachment-governance-path-advice.v1';
 const REPORT_LIKE_TYPES = new Set(['pdf', 'docx', 'xlsx', 'html', 'htm']);
+const FORMAL_SOURCE_BUNDLE_SUFFIX = '.formal-source.zip';
 
-function physicalDirectory(inputDir) {
-  const resolved = path.resolve(String(inputDir || '').trim());
-  if (!String(inputDir || '').trim()) throw new Error('尚未選擇要辨識的資料夾。');
-  if (!fs.existsSync(resolved)) throw new Error(`資料夾不存在：${resolved}`);
+function physicalInput(inputPath) {
+  const resolved = path.resolve(String(inputPath || '').trim());
+  if (!String(inputPath || '').trim()) throw new Error('尚未選擇要辨識的資料夾或 PDF＋證據來源 ZIP。');
+  if (!fs.existsSync(resolved)) throw new Error(`路徑不存在：${resolved}`);
   const stat = fs.lstatSync(resolved);
-  if (stat.isSymbolicLink() || !stat.isDirectory()) {
-    throw new Error(`只接受實體資料夾，不得為連結或其他特殊項目：${resolved}`);
+  if (stat.isSymbolicLink()) throw new Error(`不接受連結或其他特殊項目：${resolved}`);
+  if (stat.isDirectory()) return { path: resolved, kind: 'directory' };
+  if (stat.isFile() && path.basename(resolved).endsWith(FORMAL_SOURCE_BUNDLE_SUFFIX)) {
+    return { path: resolved, kind: 'formal-source-zip' };
   }
-  return resolved;
+  throw new Error(`只接受實體資料夾或 ${FORMAL_SOURCE_BUNDLE_SUFFIX}：${resolved}`);
 }
 
-function recommendation(inputDir, tool, mode, title, reason, evidence = []) {
+function physicalDirectory(inputDir) {
+  const input = physicalInput(inputDir);
+  if (input.kind !== 'directory') throw new Error(`只接受實體資料夾：${input.path}`);
+  return input.path;
+}
+
+function recommendation(inputPath, tool, mode, title, reason, evidence = [], inputKind = 'directory') {
   return {
     kind: ADVISOR_KIND,
     outcome: 'matched',
-    inputDir,
+    inputDir: inputPath,
+    inputPath,
+    inputKind,
     recommendedTool: tool,
     recommendedMode: mode,
     title,
@@ -56,7 +67,17 @@ function hasAttachmentSourceSignal(record) {
 
 function advisePath(inputDir, dependencies = {}) {
   const deps = { Flow, Assess, Root, Portfolio, Checker, ...dependencies };
-  const resolved = physicalDirectory(inputDir);
+  const input = physicalInput(inputDir);
+  const resolved = input.path;
+
+  if (input.kind === 'formal-source-zip') {
+    return recommendation(
+      resolved, 'manager', 'source', '建議使用：正式附件包管理器（來源 ZIP 模式）',
+      '此檔案是 PDF＋canonical evidence 的正式組包來源 ZIP；管理器會先安全檢查，再執行既有附件來源判定。',
+      ['輸入類型：PDF＋證據來源 ZIP', '自動動作：只執行唯讀來源檢查'],
+      input.kind,
+    );
+  }
 
   let detected = null;
   try { detected = deps.Flow.detectInputKind(resolved); } catch (_) { /* continue with other read-only recognizers */ }
@@ -129,6 +150,8 @@ function advisePath(inputDir, dependencies = {}) {
     kind: ADVISOR_KIND,
     outcome: 'unknown',
     inputDir: resolved,
+    inputPath: resolved,
+    inputKind: input.kind,
     recommendedTool: '',
     recommendedMode: '',
     title: '無法安全判斷建議工具',
@@ -171,7 +194,7 @@ function parseArgs(argv) {
 }
 
 function usage() {
-  return '用法：node attachment-governance-hub-worker.js --action smoke|advise [--input <資料夾>]';
+  return '用法：node attachment-governance-hub-worker.js --action smoke|advise [--input <資料夾或 .formal-source.zip>]';
 }
 
 function exitCodeForResponse(response) {
@@ -206,6 +229,8 @@ if (require.main === module) {
 
 module.exports = {
   ADVISOR_KIND,
+  FORMAL_SOURCE_BUNDLE_SUFFIX,
+  physicalInput,
   physicalDirectory,
   candidateCount,
   hasAttachmentSourceSignal,

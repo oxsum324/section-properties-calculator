@@ -71,7 +71,7 @@ $script:ToolTargets = @(
     Action = '開啟組包管理器'
     Badge = '可新建產物'
     Title = '我要整理新案或重產後的正式附件'
-    Description = '選擇已核可的計算書與追溯來源，先檢查一致性；只有 ready 才能另建 v3 正式附件包，並可再做事後驗證。'
+    Description = '選擇已核可的計算書與追溯來源資料夾，或直接帶入 PDF＋證據來源 ZIP；只有 ready 才能另建 v3 正式附件包。'
     Boundary = '權限邊界：檢查與驗證唯讀；只有你在管理器內明確執行「建立」時才會新建資料夾。'
     Color = [System.Drawing.Color]::FromArgb(239, 246, 255)
     Accent = [System.Drawing.Color]::FromArgb(37, 99, 235)
@@ -172,7 +172,7 @@ function Stop-PathAdvisor {
 function Start-PathAdvisor {
   param([string]$InputPath)
   $inputPath = [string]$InputPath
-  if (-not $inputPath) { throw '請先選擇或輸入共用起始資料夾。' }
+  if (-not $inputPath) { throw '請先選擇或輸入共用起始資料夾或 PDF＋證據來源 ZIP。' }
   if (-not (Test-Path -LiteralPath $script:WorkerPath -PathType Leaf)) { throw "找不到唯讀辨識核心：$script:WorkerPath" }
   Stop-PathAdvisor
   $injectFailure = $SmokeFailure -and -not $script:FailureSmokeErrorInjected
@@ -339,7 +339,7 @@ function Reset-Recommendation {
   $script:Advice = $null
   $script:AdvicePath = ''
   if ($script:RecommendationText) {
-    $script:RecommendationText.Text = '選擇或拖入單一資料夾後會自動辨識；手動輸入路徑時可按右側按鈕。'
+    $script:RecommendationText.Text = '選擇或拖入單一資料夾／.formal-source.zip 後會自動辨識；其他檔案仍會拒絕。'
     $script:RecommendationText.ForeColor = [System.Drawing.Color]::FromArgb(71, 85, 105)
   }
   Reset-ToolRecommendationButtons
@@ -389,19 +389,40 @@ function Start-GovernedTool {
   $startInfo.WorkingDirectory = $script:ToolDirectory
   $startInfo.UseShellExecute = $true
   [void][System.Diagnostics.Process]::Start($startInfo)
-  $handoff = if ($autoInspect) { '已帶入建議模式並執行唯讀檢查。' } elseif ($initialPath) { '已帶入共用起始資料夾，尚未執行檢查。' } else { '未指定起始資料夾。' }
+  $handoff = if ($autoInspect) { '已帶入建議模式並執行唯讀檢查。' } elseif ($initialPath) { '已帶入共用起始路徑，尚未執行檢查。' } else { '未指定起始路徑。' }
   $script:BottomStatus.Text = "已開啟：$($Target.Name)；$handoff"
+}
+
+function Test-SharedInputPath {
+  param([string]$CandidatePath)
+  $candidate = [string]$CandidatePath
+  if (-not $candidate.Trim()) { return $false }
+  try {
+    $item = Get-Item -LiteralPath $candidate.Trim() -Force -ErrorAction Stop
+    if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { return $false }
+    if ($item.PSIsContainer) { return $true }
+    return [bool]($item.Name.EndsWith('.formal-source.zip', [System.StringComparison]::Ordinal))
+  } catch {
+    return $false
+  }
+}
+
+function Get-SharedInputKind {
+  param([string]$CandidatePath)
+  if (Test-Path -LiteralPath $CandidatePath -PathType Container) { return '資料夾' }
+  return 'PDF＋證據來源 ZIP'
 }
 
 function Set-SharedPathAndRecommend {
   param([string]$SelectedPath)
   $candidate = [string]$SelectedPath
-  if (-not $candidate.Trim() -or -not (Test-Path -LiteralPath $candidate.Trim() -PathType Container)) {
-    throw '只接受單一現有資料夾；檔案或多重路徑不會帶入工作台。'
+  if (-not (Test-SharedInputPath -CandidatePath $candidate)) {
+    throw '只接受單一現有資料夾或 .formal-source.zip；其他檔案、多重路徑或特殊項目不會帶入工作台。'
   }
   $resolvedPath = (Resolve-Path -LiteralPath $candidate.Trim()).ProviderPath
   $script:SharedPath.Text = $resolvedPath
-  $script:BottomStatus.Text = '已帶入資料夾，正在執行唯讀辨識建議…'
+  $inputKind = Get-SharedInputKind -CandidatePath $resolvedPath
+  $script:BottomStatus.Text = "已帶入$inputKind，正在執行唯讀辨識建議…"
   Show-Recommendation
 }
 
@@ -415,6 +436,24 @@ function Select-SharedFolder {
   try {
     if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       Set-SharedPathAndRecommend -SelectedPath $dialog.SelectedPath
+    }
+  } finally {
+    $dialog.Dispose()
+  }
+}
+
+function Select-SharedFormalSourceZip {
+  $dialog = New-Object System.Windows.Forms.OpenFileDialog
+  $dialog.Title = '選擇 PDF＋證據來源 ZIP；選取後只執行唯讀辨識建議'
+  $dialog.Filter = 'PDF＋證據來源 ZIP (*.formal-source.zip)|*.formal-source.zip'
+  $dialog.Multiselect = $false
+  $dialog.CheckFileExists = $true
+  if ($script:SharedPath.Text.Trim() -and (Test-Path -LiteralPath $script:SharedPath.Text.Trim() -PathType Leaf)) {
+    $dialog.FileName = $script:SharedPath.Text.Trim()
+  }
+  try {
+    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+      Set-SharedPathAndRecommend -SelectedPath $dialog.FileName
     }
   } finally {
     $dialog.Dispose()
@@ -561,7 +600,7 @@ $header.Size = New-Object System.Drawing.Size(1040, 45)
 $script:ContentCanvas.Controls.Add($header)
 
 $subheader = New-Object System.Windows.Forms.Label
-$subheader.Text = '拖入或選擇資料夾只會提出唯讀建議；不自動開啟工具、不改判狀態，也不代替正式核可。鍵盤：Ctrl+L 路徑、Enter 辨識、Esc 停止。'
+$subheader.Text = '拖入資料夾或 .formal-source.zip 只會提出唯讀建議；不自動開啟工具、不建立附件包，也不代替正式核可。鍵盤：Ctrl+L 路徑、Enter 辨識、Esc 停止。'
 $subheader.Location = New-Object System.Drawing.Point(26, 66)
 $subheader.Size = New-Object System.Drawing.Size(1040, 28)
 $subheader.ForeColor = [System.Drawing.Color]::FromArgb(71, 85, 105)
@@ -578,24 +617,24 @@ $pathPanel.AllowDrop = $true
 $script:ContentCanvas.Controls.Add($pathPanel)
 
 $pathLabel = New-Object System.Windows.Forms.Label
-$pathLabel.Text = '共用起始資料夾（可拖放）'
+$pathLabel.Text = '起始資料夾／來源 ZIP（可拖放）'
 $pathLabel.Location = New-Object System.Drawing.Point(16, 18)
 $pathLabel.Size = New-Object System.Drawing.Size(200, 26)
 $pathPanel.Controls.Add($pathLabel)
 
 $script:SharedPath = New-Object System.Windows.Forms.TextBox
 $script:SharedPath.Location = New-Object System.Drawing.Point(215, 14)
-$script:SharedPath.Size = New-Object System.Drawing.Size(550, 30)
+$script:SharedPath.Size = New-Object System.Drawing.Size(415, 30)
 $script:SharedPath.Anchor = 'Top,Left,Right'
 $script:SharedPath.TabIndex = 0
-$script:SharedPath.AccessibleName = '案件或附件資料夾路徑'
-$script:SharedPath.AccessibleDescription = '輸入、貼上或拖入單一現有資料夾；辨識只讀取內容，不改變案件狀態。'
+$script:SharedPath.AccessibleName = '案件資料夾或 PDF＋證據來源 ZIP 路徑'
+$script:SharedPath.AccessibleDescription = '輸入、貼上或拖入單一現有資料夾或 .formal-source.zip；辨識只讀取內容，不改變案件狀態。'
 $script:SharedPath.AllowDrop = $true
 $pathPanel.Controls.Add($script:SharedPath)
 
 $browseShared = New-Object System.Windows.Forms.Button
 $browseShared.Text = '選擇並辨識…'
-$browseShared.Location = New-Object System.Drawing.Point(780, 12)
+$browseShared.Location = New-Object System.Drawing.Point(645, 12)
 $browseShared.Size = New-Object System.Drawing.Size(120, 34)
 $browseShared.Anchor = 'Top,Right'
 $browseShared.TabIndex = 1
@@ -606,12 +645,25 @@ $browseShared.Add_Click({
 })
 $pathPanel.Controls.Add($browseShared)
 
+$browseSourceZip = New-Object System.Windows.Forms.Button
+$browseSourceZip.Text = '選來源 ZIP…'
+$browseSourceZip.Location = New-Object System.Drawing.Point(780, 12)
+$browseSourceZip.Size = New-Object System.Drawing.Size(120, 34)
+$browseSourceZip.Anchor = 'Top,Right'
+$browseSourceZip.TabIndex = 2
+$browseSourceZip.AccessibleName = '選擇 PDF＋證據來源 ZIP 並唯讀辨識'
+$browseSourceZip.Add_Click({
+  try { Select-SharedFormalSourceZip }
+  catch { Show-LaunchError -ErrorRecord $_.Exception }
+})
+$pathPanel.Controls.Add($browseSourceZip)
+
 $script:BtnAdvise = New-Object System.Windows.Forms.Button
 $script:BtnAdvise.Text = '唯讀辨識建議'
 $script:BtnAdvise.Location = New-Object System.Drawing.Point(915, 12)
 $script:BtnAdvise.Size = New-Object System.Drawing.Size(120, 34)
 $script:BtnAdvise.Anchor = 'Top,Right'
-$script:BtnAdvise.TabIndex = 2
+$script:BtnAdvise.TabIndex = 3
 $script:BtnAdvise.AccessibleName = '唯讀辨識操作'
 $script:BtnAdvise.AccessibleDescription = '開始、停止或重新執行唯讀辨識；不會開啟子工具或改變案件狀態。'
 $script:BtnAdvise.Add_Click({
@@ -649,7 +701,7 @@ $script:MainForm.Add_KeyDown({
 })
 
 $script:RecommendationText = New-Object System.Windows.Forms.Label
-$script:RecommendationText.Text = '選擇或拖入單一資料夾後會自動辨識；手動輸入路徑時可按右側按鈕。'
+$script:RecommendationText.Text = '選擇或拖入單一資料夾／.formal-source.zip 後會自動辨識；其他檔案仍會拒絕。'
 $script:RecommendationText.Location = New-Object System.Drawing.Point(215, 56)
 $script:RecommendationText.Size = New-Object System.Drawing.Size(820, 42)
 $script:RecommendationText.Anchor = 'Top,Left,Right'
@@ -658,7 +710,7 @@ $pathPanel.Controls.Add($script:RecommendationText)
 
 $folderDragEnter = {
   $paths = @($_.Data.GetData([System.Windows.Forms.DataFormats]::FileDrop))
-  if ($paths.Count -eq 1 -and (Test-Path -LiteralPath ([string]$paths[0]) -PathType Container)) {
+  if ($paths.Count -eq 1 -and (Test-SharedInputPath -CandidatePath ([string]$paths[0]))) {
     $_.Effect = [System.Windows.Forms.DragDropEffects]::Copy
   } else {
     $_.Effect = [System.Windows.Forms.DragDropEffects]::None
@@ -667,7 +719,7 @@ $folderDragEnter = {
 $folderDragDrop = {
   try {
     $paths = @($_.Data.GetData([System.Windows.Forms.DataFormats]::FileDrop))
-    if ($paths.Count -ne 1) { throw '一次只能拖入一個資料夾。' }
+    if ($paths.Count -ne 1) { throw '一次只能拖入一個資料夾或 .formal-source.zip。' }
     Set-SharedPathAndRecommend -SelectedPath ([string]$paths[0])
   } catch {
     Show-LaunchError -ErrorRecord $_.Exception
@@ -731,7 +783,7 @@ $script:AdvisorTimer.Add_Tick({
       if ($SmokeTimeout -and $script:AdvisorProcess) { $script:TimeoutSmokeWorkerPid = $script:AdvisorProcess.Id }
       Stop-PathAdvisor
       if ($SmokeTimeout) { throw '唯讀辨識測試逾時，已停止背景程序。' }
-      throw '唯讀辨識超過 60 秒，已停止；請改選較小的案件或附件資料夾。'
+      throw '唯讀辨識超過 60 秒，已停止；請改選較小的案件／附件資料夾或來源 ZIP。'
     }
     Complete-PathAdvisor
     if ($SmokeFailure -and $script:FailureSmokeState -and -not $script:FailureSmokeResult -and -not $script:AdvisorProcess) {
@@ -850,11 +902,12 @@ public static class AttachmentHubNativeScroll {
         $focusMoved = $script:MainForm.SelectNextControl($currentFocus, $true, $true, $true, $true)
         [System.Windows.Forms.Application]::DoEvents()
         $tabStepsToTarget += 1
-        $focusedName = if ($script:SharedPath.Focused) { 'path' } elseif ($browseShared.Focused) { 'browse' } elseif ($script:BtnAdvise.Focused) { 'advise' } elseif ($script:ToolButtons['manager'].Focused) { 'manager' } elseif ($script:ToolButtons['viewer'].Focused) { 'viewer' } elseif ($script:ToolButtons['upgrade'].Focused) { 'upgrade' } else { 'other-or-none' }
+        $focusedName = if ($script:SharedPath.Focused) { 'path' } elseif ($browseShared.Focused) { 'browse' } elseif ($browseSourceZip.Focused) { 'browse-zip' } elseif ($script:BtnAdvise.Focused) { 'advise' } elseif ($script:ToolButtons['manager'].Focused) { 'manager' } elseif ($script:ToolButtons['viewer'].Focused) { 'viewer' } elseif ($script:ToolButtons['upgrade'].Focused) { 'upgrade' } else { 'other-or-none' }
         $focusTrace += $focusedName
         $currentFocus = switch ($focusedName) {
           'path' { $script:SharedPath }
           'browse' { $browseShared }
+          'browse-zip' { $browseSourceZip }
           'advise' { $script:BtnAdvise }
           'manager' { $script:ToolButtons['manager'] }
           'viewer' { $script:ToolButtons['viewer'] }
@@ -1137,7 +1190,7 @@ $script:MainForm.Add_Shown({
   }
   if ($script:StartupPaths.Count -eq 0) { return }
   try {
-    if ($script:StartupPaths.Count -ne 1) { throw '啟動時一次只能帶入一個資料夾。' }
+    if ($script:StartupPaths.Count -ne 1) { throw '啟動時一次只能帶入一個資料夾或 .formal-source.zip。' }
     Set-SharedPathAndRecommend -SelectedPath ([string]$script:StartupPaths[0])
     if ($SmokeCancellation) { $script:CancellationSmokeTimer.Start() }
     if ($SmokeLifecycle) { $script:LifecycleSmokeTimer.Start() }
