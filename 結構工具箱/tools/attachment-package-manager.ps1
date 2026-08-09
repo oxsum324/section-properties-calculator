@@ -7,6 +7,7 @@ param(
   [switch]$SmokeViewport,
   [switch]$SmokeDragDrop,
   [switch]$SmokeBuildResponsiveness,
+  [switch]$SmokeBuildRecoveryReceipt,
   [ValidateRange(0, 5000)][int]$WorkerSmokeDelayMilliseconds = 0,
   [string]$InitialPath = '',
   [ValidateSet('source', 'verify')][string]$InitialMode = 'source',
@@ -61,9 +62,16 @@ $script:BuildSmokeResult = $null
 $script:BuildSmokeFixtureRoot = ''
 $script:BuildHandoffRecoveryOutput = ''
 $script:BtnBuildHandoffVerify = $null
+$script:BuildRecoveryReceiptPath = ''
+$script:HandoffRecoveryReceiptPath = ''
+$script:ActiveRecoveryReceiptPath = ''
+$script:BuildRecoverySmokeTimer = $null
+$script:BuildRecoverySmokeResult = $null
+$script:BuildRecoverySmokeFixtureRoot = ''
+$script:BuildRecoverySmokeState = $null
 $script:ActiveMode = $InitialMode
 
-$dynamicSmokeCount = @(@($SmokeReadOnlyCancellation, $SmokeReadOnlyCompletion, $SmokeKeyboard, $SmokeViewport, $SmokeDragDrop, $SmokeBuildResponsiveness) | Where-Object { $_ }).Count
+$dynamicSmokeCount = @(@($SmokeReadOnlyCancellation, $SmokeReadOnlyCompletion, $SmokeKeyboard, $SmokeViewport, $SmokeDragDrop, $SmokeBuildResponsiveness, $SmokeBuildRecoveryReceipt) | Where-Object { $_ }).Count
 if ($Smoke -and $dynamicSmokeCount) { throw '一般 smoke 與背景動態 smoke 不得同時執行。' }
 if ($dynamicSmokeCount -gt 1) { throw '一次只能執行一種背景動態 smoke。' }
 
@@ -203,6 +211,7 @@ function Set-StatusAppearance {
 
 function Clear-BuildHandoffRecovery {
   $script:BuildHandoffRecoveryOutput = ''
+  $script:HandoffRecoveryReceiptPath = ''
   if ($script:BtnBuildHandoffVerify) {
     $script:BtnBuildHandoffVerify.Visible = $false
     $script:BtnBuildHandoffVerify.Enabled = $false
@@ -270,7 +279,7 @@ function Show-OperationError {
 }
 
 function Show-BuildResultHandoffUnknown {
-  param([System.Exception]$ErrorRecord, [string]$RequestedOutput, [string]$SourceSnapshot)
+  param([System.Exception]$ErrorRecord, [string]$RequestedOutput, [string]$SourceSnapshot, [string]$RecoveryReceiptPath = '')
   Set-StatusAppearance -Status 'review' -Title '正式附件包建立結果待確認'
   $script:StatusMeta.Text = '背景結果交接未完成；這不代表附件包建立失敗。請先驗證可能的輸出，不要直接重建。'
   $locationHint = if ($RequestedOutput) {
@@ -286,6 +295,7 @@ function Show-BuildResultHandoffUnknown {
     $script:PackagePath.Text = $RequestedOutput
     $script:BtnOpenOutput.Enabled = $true
     $script:BuildHandoffRecoveryOutput = $RequestedOutput
+    $script:HandoffRecoveryReceiptPath = $RecoveryReceiptPath
     $script:BtnBuildHandoffVerify.Visible = $true
     $script:BtnBuildHandoffVerify.Enabled = $true
     $script:StatusTitle.Width = 710
@@ -379,28 +389,208 @@ function New-BuildProgressPath {
   return [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), $name)
 }
 
-function Remove-ReadOnlyResultFile {
-  param([string]$ResultFile)
-  if (-not $ResultFile) { return }
-  $resolved = [System.IO.Path]::GetFullPath($ResultFile)
+function Test-ManagedBuildRecoveryReceiptPath {
+  param([string]$ReceiptPath)
+  if (-not $ReceiptPath) { return $false }
+  $resolved = [System.IO.Path]::GetFullPath($ReceiptPath)
   $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\')
   $parent = [System.IO.Path]::GetDirectoryName($resolved).TrimEnd('\')
   $name = [System.IO.Path]::GetFileName($resolved)
-  if ($parent -eq $tempRoot -and $name.StartsWith('attachment-package-manager-result-') -and $name.EndsWith('.json')) {
-    Remove-Item -LiteralPath $resolved -Force -ErrorAction SilentlyContinue
+  return $parent -eq $tempRoot -and $name -match '^attachment-package-manager-build-recovery-[0-9a-f]{32}\.json$'
+}
+
+function Test-ManagedReadOnlyResultPath {
+  param([string]$ResultFile)
+  if (-not $ResultFile) { return $false }
+  $resolved = [System.IO.Path]::GetFullPath($ResultFile)
+  $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\')
+  return [System.IO.Path]::GetDirectoryName($resolved).TrimEnd('\') -eq $tempRoot -and [System.IO.Path]::GetFileName($resolved) -match '^attachment-package-manager-result-[0-9]+-[0-9a-f]{32}\.json$'
+}
+
+function Test-ManagedBuildProgressPath {
+  param([string]$ProgressFile)
+  if (-not $ProgressFile) { return $false }
+  $resolved = [System.IO.Path]::GetFullPath($ProgressFile)
+  $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\')
+  return [System.IO.Path]::GetDirectoryName($resolved).TrimEnd('\') -eq $tempRoot -and [System.IO.Path]::GetFileName($resolved) -match '^attachment-package-manager-progress-[0-9]+-[0-9a-f]{32}\.jsonl$'
+}
+
+function Write-BuildRecoveryReceipt {
+  param([string]$ReceiptPath, $Receipt, [switch]$CreateNew)
+  if (-not (Test-ManagedBuildRecoveryReceiptPath -ReceiptPath $ReceiptPath)) { throw '拒絕寫入非受管的建立復原收據路徑。' }
+  $json = $Receipt | ConvertTo-Json -Depth 4
+  $encoding = New-Object System.Text.UTF8Encoding($false)
+  if ($CreateNew) {
+    $stream = New-Object System.IO.FileStream($ReceiptPath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+    try {
+      $bytes = $encoding.GetBytes("$json`n")
+      $stream.Write($bytes, 0, $bytes.Length)
+      $stream.Flush($true)
+    } finally {
+      $stream.Dispose()
+    }
+    return
   }
+  if (-not (Test-Path -LiteralPath $ReceiptPath -PathType Leaf)) { throw '待更新的建立復原收據不存在。' }
+  $updatePath = "$ReceiptPath.update-$PID-$([guid]::NewGuid().ToString('N')).tmp"
+  $backupPath = "$ReceiptPath.backup-$PID-$([guid]::NewGuid().ToString('N')).tmp"
+  try {
+    [System.IO.File]::WriteAllText($updatePath, "$json`n", $encoding)
+    [System.IO.File]::Replace($updatePath, $ReceiptPath, $backupPath, $true)
+  } finally {
+    Remove-Item -LiteralPath $updatePath -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue
+  }
+}
+
+function New-BuildRecoveryReceipt {
+  param([string]$SourcePath, [string]$OutputPath, [string]$ResultFile, [string]$ProgressFile)
+  $requestId = [guid]::NewGuid().ToString('N')
+  $createdAt = [DateTime]::UtcNow
+  $receiptPath = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "attachment-package-manager-build-recovery-$requestId.json")
+  $managerProcess = Get-Process -Id $PID
+  $receipt = [ordered]@{
+    schemaVersion = 1
+    kind = 'formal-attachment-build-recovery.v1'
+    requestId = $requestId
+    state = 'starting'
+    createdAtUtc = $createdAt.ToString('o')
+    expiresAtUtc = $createdAt.AddHours(24).ToString('o')
+    managerPid = $PID
+    managerStartedAtUtc = $managerProcess.StartTime.ToUniversalTime().ToString('o')
+    workerPid = 0
+    workerStartedAtUtc = ''
+    sourcePath = [System.IO.Path]::GetFullPath($SourcePath)
+    outputPath = [System.IO.Path]::GetFullPath($OutputPath)
+    resultFile = [System.IO.Path]::GetFullPath($ResultFile)
+    progressFile = [System.IO.Path]::GetFullPath($ProgressFile)
+  }
+  Write-BuildRecoveryReceipt -ReceiptPath $receiptPath -Receipt $receipt -CreateNew
+  return [pscustomobject]@{ path = $receiptPath; data = $receipt }
+}
+
+function Remove-BuildRecoveryReceipt {
+  param([string]$ReceiptPath, [switch]$CleanupArtifacts)
+  if (-not (Test-ManagedBuildRecoveryReceiptPath -ReceiptPath $ReceiptPath)) { return }
+  $receipt = $null
+  if ($CleanupArtifacts -and (Test-Path -LiteralPath $ReceiptPath -PathType Leaf)) {
+    try { $receipt = Get-Content -LiteralPath $ReceiptPath -Raw -Encoding UTF8 | ConvertFrom-Json } catch {}
+  }
+  Remove-Item -LiteralPath ([System.IO.Path]::GetFullPath($ReceiptPath)) -Force -ErrorAction SilentlyContinue
+  if ($receipt) {
+    $managerAlive = Test-ReceiptProcessAlive -ProcessId ([int](Get-ResponseValue $receipt 'managerPid' 0)) -StartedAtUtc ([string](Get-ResponseValue $receipt 'managerStartedAtUtc'))
+    $workerAlive = Test-ReceiptProcessAlive -ProcessId ([int](Get-ResponseValue $receipt 'workerPid' 0)) -StartedAtUtc ([string](Get-ResponseValue $receipt 'workerStartedAtUtc'))
+    if (-not $managerAlive -and -not $workerAlive) {
+      Remove-ReadOnlyResultFile -ResultFile ([string](Get-ResponseValue $receipt 'resultFile'))
+      Remove-BuildProgressFile -ProgressFile ([string](Get-ResponseValue $receipt 'progressFile'))
+      Remove-WorkerSourceTempRoots -WorkerPid ([int](Get-ResponseValue $receipt 'workerPid' 0))
+    }
+  }
+}
+
+function Set-BuildRecoveryReceiptState {
+  param([string]$ReceiptPath, [string]$State, [int]$WorkerPid = 0, [string]$WorkerStartedAtUtc = '')
+  if (-not (Test-ManagedBuildRecoveryReceiptPath -ReceiptPath $ReceiptPath) -or -not (Test-Path -LiteralPath $ReceiptPath -PathType Leaf)) { return }
+  $receipt = Get-Content -LiteralPath $ReceiptPath -Raw -Encoding UTF8 | ConvertFrom-Json
+  $receipt | Add-Member -NotePropertyName state -NotePropertyValue $State -Force
+  $receipt | Add-Member -NotePropertyName workerPid -NotePropertyValue $WorkerPid -Force
+  $receipt | Add-Member -NotePropertyName workerStartedAtUtc -NotePropertyValue $WorkerStartedAtUtc -Force
+  Write-BuildRecoveryReceipt -ReceiptPath $ReceiptPath -Receipt $receipt
+}
+
+function Test-ReceiptProcessAlive {
+  param([int]$ProcessId, [string]$StartedAtUtc)
+  if ($ProcessId -le 0) { return $false }
+  $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+  if (-not $process) { return $false }
+  if (-not $StartedAtUtc) { return $true }
+  try {
+    $expected = [DateTime]::Parse($StartedAtUtc).ToUniversalTime()
+    return [Math]::Abs(($process.StartTime.ToUniversalTime() - $expected).TotalSeconds) -lt 2
+  } catch {
+    return $true
+  }
+}
+
+function Get-EligibleBuildRecoveryReceipts {
+  param([string[]]$ReceiptPaths = @())
+  if (-not $ReceiptPaths.Count) {
+    $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+    $ReceiptPaths = @(Get-ChildItem -LiteralPath $tempRoot -File -Filter 'attachment-package-manager-build-recovery-*.json' -Force -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+  }
+  $eligible = @()
+  foreach ($receiptPath in @($ReceiptPaths)) {
+    if (-not (Test-ManagedBuildRecoveryReceiptPath -ReceiptPath $receiptPath)) { continue }
+    try {
+      $receiptItem = Get-Item -LiteralPath $receiptPath -Force -ErrorAction Stop
+      if (($receiptItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -or $receiptItem.Length -gt 32768) {
+        Remove-BuildRecoveryReceipt -ReceiptPath $receiptPath
+        continue
+      }
+      $receipt = Get-Content -LiteralPath $receiptPath -Raw -Encoding UTF8 | ConvertFrom-Json
+      $requestId = [string](Get-ResponseValue $receipt 'requestId')
+      $fileRequestId = ([System.IO.Path]::GetFileNameWithoutExtension($receiptPath) -replace '^attachment-package-manager-build-recovery-', '')
+      $sourcePath = [string](Get-ResponseValue $receipt 'sourcePath')
+      $outputPath = [string](Get-ResponseValue $receipt 'outputPath')
+      $resultFile = [string](Get-ResponseValue $receipt 'resultFile')
+      $progressFile = [string](Get-ResponseValue $receipt 'progressFile')
+      $state = [string](Get-ResponseValue $receipt 'state')
+      $createdAt = [DateTime]::Parse([string](Get-ResponseValue $receipt 'createdAtUtc')).ToUniversalTime()
+      $expiresAt = [DateTime]::Parse([string](Get-ResponseValue $receipt 'expiresAtUtc')).ToUniversalTime()
+      if ([int](Get-ResponseValue $receipt 'schemaVersion' 0) -ne 1 -or
+          [string](Get-ResponseValue $receipt 'kind') -ne 'formal-attachment-build-recovery.v1' -or
+          $requestId -notmatch '^[0-9a-f]{32}$' -or $requestId -ne $fileRequestId -or
+          @('starting', 'running', 'pending-verification') -notcontains $state -or
+          -not [System.IO.Path]::IsPathRooted($sourcePath) -or -not [System.IO.Path]::IsPathRooted($outputPath) -or
+          -not (Test-ManagedReadOnlyResultPath -ResultFile $resultFile) -or -not (Test-ManagedBuildProgressPath -ProgressFile $progressFile) -or
+          $createdAt -gt [DateTime]::UtcNow.AddMinutes(5) -or $expiresAt -le $createdAt -or ($expiresAt - $createdAt).TotalHours -gt 24.01) {
+        Remove-BuildRecoveryReceipt -ReceiptPath $receiptPath
+        continue
+      }
+      $managerAlive = Test-ReceiptProcessAlive -ProcessId ([int](Get-ResponseValue $receipt 'managerPid' 0)) -StartedAtUtc ([string](Get-ResponseValue $receipt 'managerStartedAtUtc'))
+      $workerAlive = Test-ReceiptProcessAlive -ProcessId ([int](Get-ResponseValue $receipt 'workerPid' 0)) -StartedAtUtc ([string](Get-ResponseValue $receipt 'workerStartedAtUtc'))
+      if ($managerAlive -or $workerAlive) { continue }
+      if ($expiresAt -le [DateTime]::UtcNow) {
+        Remove-BuildRecoveryReceipt -ReceiptPath $receiptPath -CleanupArtifacts
+        continue
+      }
+      if (Test-Path -LiteralPath $outputPath -PathType Container) {
+        $eligible += [pscustomobject]@{ path = $receiptPath; receipt = $receipt; outputPath = $outputPath; sourcePath = $sourcePath }
+      }
+    } catch {
+      Remove-BuildRecoveryReceipt -ReceiptPath $receiptPath
+      continue
+    }
+  }
+  return @($eligible)
+}
+
+function Restore-BuildRecoveryReceipt {
+  param([string[]]$ReceiptPaths = @())
+  $eligible = @(Get-EligibleBuildRecoveryReceipts -ReceiptPaths $ReceiptPaths)
+  if (-not $eligible.Count) { return $false }
+  if ($eligible.Count -gt 1) {
+    Set-StatusAppearance -Status 'review' -Title '有多筆建立結果待確認'
+    $script:StatusMeta.Text = '安全起見不自動挑選；請依下列精確路徑逐一使用「驗證附件包」。'
+    $script:DetailsBox.Text = ($eligible | ForEach-Object { $_.outputPath }) -join "`r`n"
+    $script:BottomStatus.Text = "狀態：$($eligible.Count) 筆待確認｜未自動選取或重建"
+    return $true
+  }
+  $candidate = $eligible[0]
+  Show-BuildResultHandoffUnknown -ErrorRecord ([System.InvalidOperationException]::new('已從上次異常中斷的本機短期收據還原精確預定輸出。')) -RequestedOutput $candidate.outputPath -SourceSnapshot $candidate.sourcePath -RecoveryReceiptPath $candidate.path
+  return $true
+}
+
+function Remove-ReadOnlyResultFile {
+  param([string]$ResultFile)
+  if (-not $ResultFile) { return }
+  if (Test-ManagedReadOnlyResultPath -ResultFile $ResultFile) { Remove-Item -LiteralPath ([System.IO.Path]::GetFullPath($ResultFile)) -Force -ErrorAction SilentlyContinue }
 }
 
 function Remove-BuildProgressFile {
   param([string]$ProgressFile)
   if (-not $ProgressFile) { return }
-  $resolved = [System.IO.Path]::GetFullPath($ProgressFile)
-  $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\')
-  $parent = [System.IO.Path]::GetDirectoryName($resolved).TrimEnd('\')
-  $name = [System.IO.Path]::GetFileName($resolved)
-  if ($parent -eq $tempRoot -and $name.StartsWith('attachment-package-manager-progress-') -and $name.EndsWith('.jsonl')) {
-    Remove-Item -LiteralPath $resolved -Force -ErrorAction SilentlyContinue
-  }
+  if (Test-ManagedBuildProgressPath -ProgressFile $ProgressFile) { Remove-Item -LiteralPath ([System.IO.Path]::GetFullPath($ProgressFile)) -Force -ErrorAction SilentlyContinue }
 }
 
 function Remove-WorkerSourceTempRoots {
@@ -540,19 +730,28 @@ function Start-BuildOperation {
   $startInfo.CreateNoWindow = $true
   $process = New-Object System.Diagnostics.Process
   $process.StartInfo = $startInfo
+  $receiptRecord = $null
   try {
+    $receiptRecord = New-BuildRecoveryReceipt -SourcePath $inputPath -OutputPath $outputPath -ResultFile $resultFile -ProgressFile $progressFile
     [void]$process.Start()
   } catch {
     $process.Dispose()
     Remove-ReadOnlyResultFile -ResultFile $resultFile
     Remove-BuildProgressFile -ProgressFile $progressFile
+    if ($receiptRecord) { Remove-BuildRecoveryReceipt -ReceiptPath $receiptRecord.path }
     throw
+  }
+  try {
+    Set-BuildRecoveryReceiptState -ReceiptPath $receiptRecord.path -State 'running' -WorkerPid $process.Id -WorkerStartedAtUtc $process.StartTime.ToUniversalTime().ToString('o')
+  } catch {
+    # 初始收據已持久化；更新失敗不得取消已啟動的原子建立。
   }
   $script:BuildProcess = $process
   $script:BuildResultFile = $resultFile
   $script:BuildProgressFile = $progressFile
   $script:BuildRequestedOutput = $outputPath
   $script:BuildSourceSnapshot = $inputPath
+  $script:BuildRecoveryReceiptPath = $receiptRecord.path
   $script:BuildStartedAt = Get-Date
   $script:BuildStatusLastElapsedSecond = -1
   $script:BuildPhase = 'preparing-source'
@@ -570,6 +769,7 @@ function Complete-BuildOperation {
   $progressFile = $script:BuildProgressFile
   $requestedOutput = $script:BuildRequestedOutput
   $sourceSnapshot = $script:BuildSourceSnapshot
+  $recoveryReceiptPath = $script:BuildRecoveryReceiptPath
   $workerPid = $process.Id
   $exitCode = $process.ExitCode
   $process.Dispose()
@@ -578,6 +778,7 @@ function Complete-BuildOperation {
   $script:BuildProgressFile = ''
   $script:BuildRequestedOutput = ''
   $script:BuildSourceSnapshot = ''
+  $script:BuildRecoveryReceiptPath = ''
   $script:BuildStartedAt = $null
   $script:BuildStatusLastElapsedSecond = -1
   $script:BuildPhase = 'preparing-source'
@@ -596,8 +797,15 @@ function Complete-BuildOperation {
       $script:PackagePath.Text = $script:LastOutputDirectory
       $script:BtnOpenOutput.Enabled = $true
     }
+    Remove-BuildRecoveryReceipt -ReceiptPath $recoveryReceiptPath
   } catch {
-    Show-BuildResultHandoffUnknown -ErrorRecord $_.Exception -RequestedOutput $requestedOutput -SourceSnapshot $sourceSnapshot
+    if ($requestedOutput -and (Test-Path -LiteralPath $requestedOutput -PathType Container)) {
+      try { Set-BuildRecoveryReceiptState -ReceiptPath $recoveryReceiptPath -State 'pending-verification' -WorkerPid 0 } catch {}
+      Show-BuildResultHandoffUnknown -ErrorRecord $_.Exception -RequestedOutput $requestedOutput -SourceSnapshot $sourceSnapshot -RecoveryReceiptPath $recoveryReceiptPath
+    } else {
+      Remove-BuildRecoveryReceipt -ReceiptPath $recoveryReceiptPath
+      Show-BuildResultHandoffUnknown -ErrorRecord $_.Exception -RequestedOutput $requestedOutput -SourceSnapshot $sourceSnapshot
+    }
   } finally {
     Remove-ReadOnlyResultFile -ResultFile $resultFile
     Remove-BuildProgressFile -ProgressFile $progressFile
@@ -685,6 +893,7 @@ function Complete-ReadOnlyOperation {
   $inputSnapshot = $script:ReadOnlyInput
   $projectNoSnapshot = $script:ReadOnlyProjectNo
   $resultFile = $script:ReadOnlyResultFile
+  $activeRecoveryReceiptPath = $script:ActiveRecoveryReceiptPath
   $workerPid = $process.Id
   $exitCode = $process.ExitCode
   $process.Dispose()
@@ -702,8 +911,26 @@ function Complete-ReadOnlyOperation {
     Assert-WorkerResponseEnvelope -Response $response -ExpectedAction $action -ExitCode $exitCode
     $response | Add-Member -NotePropertyName workerExitCode -NotePropertyValue $exitCode -Force
     if ($action -eq 'check') { Apply-CheckResponse -Response $response -InputSnapshot $inputSnapshot -ProjectNoSnapshot $projectNoSnapshot }
-    elseif ($script:PackagePath.Text.Trim() -eq $inputSnapshot) { Show-WorkerResponse $response }
+    elseif ($script:PackagePath.Text.Trim() -eq $inputSnapshot) {
+      if ($activeRecoveryReceiptPath -and $response.status -eq 'error') {
+        $script:ActiveRecoveryReceiptPath = ''
+        Show-BuildResultHandoffUnknown -ErrorRecord ([System.InvalidOperationException]::new([string](Get-ResponseValue $response 'displayText' '唯讀驗證未完成。'))) -RequestedOutput $inputSnapshot -RecoveryReceiptPath $activeRecoveryReceiptPath
+      } else {
+        Show-WorkerResponse $response
+        if ($activeRecoveryReceiptPath) {
+          Remove-BuildRecoveryReceipt -ReceiptPath $activeRecoveryReceiptPath -CleanupArtifacts
+          $script:ActiveRecoveryReceiptPath = ''
+        }
+      }
+    }
     else { $script:BottomStatus.Text = '附件包路徑已改變：已忽略過期驗證結果，請重新驗證。' }
+  } catch {
+    if ($activeRecoveryReceiptPath -and (Test-Path -LiteralPath $inputSnapshot -PathType Container)) {
+      $script:ActiveRecoveryReceiptPath = ''
+      Show-BuildResultHandoffUnknown -ErrorRecord $_.Exception -RequestedOutput $inputSnapshot -RecoveryReceiptPath $activeRecoveryReceiptPath
+    } else {
+      throw
+    }
   } finally {
     Remove-ReadOnlyResultFile -ResultFile $resultFile
     Remove-WorkerSourceTempRoots -WorkerPid $workerPid
@@ -713,7 +940,14 @@ function Complete-ReadOnlyOperation {
 function Cancel-ReadOnlyOperation {
   if (-not $script:ReadOnlyProcess) { return }
   $action = $script:ReadOnlyAction
+  $inputSnapshot = $script:ReadOnlyInput
+  $activeRecoveryReceiptPath = $script:ActiveRecoveryReceiptPath
   Stop-ReadOnlyOperation
+  if ($activeRecoveryReceiptPath -and $action -eq 'verify' -and (Test-Path -LiteralPath $inputSnapshot -PathType Container)) {
+    $script:ActiveRecoveryReceiptPath = ''
+    Show-BuildResultHandoffUnknown -ErrorRecord ([System.OperationCanceledException]::new('待確認輸出的唯讀驗證已停止；短期復原收據仍保留，可再次驗證。')) -RequestedOutput $inputSnapshot -RecoveryReceiptPath $activeRecoveryReceiptPath
+    return
+  }
   Set-StatusAppearance -Status 'review' -Title $(if ($action -eq 'check') { '已停止附件來源檢查' } else { '已停止正式附件包驗證' })
   $script:StatusMeta.Text = '背景唯讀工作已停止；未建立或修改案件資料。'
   $script:DetailsBox.Text = '可調整路徑後重新執行。背景程序、結果暫存檔與來源 ZIP 隔離暫存區均已清理。'
@@ -1165,15 +1399,20 @@ $script:BtnVerify.Add_Click({
     if ($script:ReadOnlyAction -eq 'verify') { Cancel-ReadOnlyOperation }
     return
   }
+  $verifyInput = $script:PackagePath.Text.Trim()
+  $matchingReceipts = @(Get-EligibleBuildRecoveryReceipts | Where-Object { $_.outputPath.Equals($verifyInput, [System.StringComparison]::OrdinalIgnoreCase) })
+  if ($matchingReceipts.Count -eq 1) { $script:ActiveRecoveryReceiptPath = $matchingReceipts[0].path }
   try {
-    Start-ReadOnlyOperation -Action verify -InputPath $script:PackagePath.Text
+    Start-ReadOnlyOperation -Action verify -InputPath $verifyInput
   } catch {
+    $script:ActiveRecoveryReceiptPath = ''
     Show-OperationError $_.Exception
   }
 })
 
 $script:BtnBuildHandoffVerify.Add_Click({
   $recoveryOutput = $script:BuildHandoffRecoveryOutput
+  $recoveryReceiptPath = $script:HandoffRecoveryReceiptPath
   if (-not $recoveryOutput -or -not (Test-Path -LiteralPath $recoveryOutput -PathType Container)) {
     Clear-BuildHandoffRecovery
     Show-OperationError ([System.InvalidOperationException]::new('待確認的預定輸出已不存在；請重新選擇候選附件包後執行唯讀驗證。'))
@@ -1182,9 +1421,15 @@ $script:BtnBuildHandoffVerify.Add_Click({
   Clear-BuildHandoffRecovery
   $script:PackagePath.Text = $recoveryOutput
   $script:ActiveMode = 'verify'
+  $script:ActiveRecoveryReceiptPath = $recoveryReceiptPath
   try {
     Start-ReadOnlyOperation -Action verify -InputPath $recoveryOutput
   } catch {
+    $script:ActiveRecoveryReceiptPath = ''
+    if ($recoveryReceiptPath) {
+      Show-BuildResultHandoffUnknown -ErrorRecord $_.Exception -RequestedOutput $recoveryOutput -RecoveryReceiptPath $recoveryReceiptPath
+      return
+    }
     Show-OperationError $_.Exception
   }
 })
@@ -1487,6 +1732,71 @@ if ($SmokeDragDrop) {
   })
 }
 
+if ($SmokeBuildRecoveryReceipt) {
+  $script:MainForm.Opacity = 0
+  $script:MainForm.ShowInTaskbar = $false
+  $script:BuildRecoverySmokeFixtureRoot = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "attachment-manager-recovery-smoke-$PID-$([guid]::NewGuid().ToString('N'))")
+  $sourceFolder = Join-Path $script:BuildRecoverySmokeFixtureRoot 'source'
+  $outputFolder = Join-Path $script:BuildRecoverySmokeFixtureRoot 'exact-published-output'
+  [void](New-Item -ItemType Directory -Path $sourceFolder -Force)
+  [void](New-Item -ItemType Directory -Path $outputFolder -Force)
+  $receiptRecord = New-BuildRecoveryReceipt -SourcePath $sourceFolder -OutputPath $outputFolder -ResultFile (New-ReadOnlyResultPath) -ProgressFile (New-BuildProgressPath)
+  $receiptRecord.data.managerPid = 0
+  $receiptRecord.data.managerStartedAtUtc = ''
+  $receiptRecord.data.workerPid = 0
+  $receiptRecord.data.workerStartedAtUtc = ''
+  $receiptRecord.data.state = 'pending-verification'
+  Write-BuildRecoveryReceipt -ReceiptPath $receiptRecord.path -Receipt $receiptRecord.data
+  $invalidReceipt = New-BuildRecoveryReceipt -SourcePath $sourceFolder -OutputPath $outputFolder -ResultFile (New-ReadOnlyResultPath) -ProgressFile (New-BuildProgressPath)
+  $invalidReceipt.data.schemaVersion = 99
+  $invalidReceipt.data.managerPid = 0
+  $invalidReceipt.data.managerStartedAtUtc = ''
+  Write-BuildRecoveryReceipt -ReceiptPath $invalidReceipt.path -Receipt $invalidReceipt.data
+  $expiredReceipt = New-BuildRecoveryReceipt -SourcePath $sourceFolder -OutputPath $outputFolder -ResultFile (New-ReadOnlyResultPath) -ProgressFile (New-BuildProgressPath)
+  $expiredReceipt.data.managerPid = 0
+  $expiredReceipt.data.managerStartedAtUtc = ''
+  $expiredReceipt.data.createdAtUtc = [DateTime]::UtcNow.AddHours(-25).ToString('o')
+  $expiredReceipt.data.expiresAtUtc = [DateTime]::UtcNow.AddHours(-1).ToString('o')
+  Write-BuildRecoveryReceipt -ReceiptPath $expiredReceipt.path -Receipt $expiredReceipt.data
+  $activeReceipt = New-BuildRecoveryReceipt -SourcePath $sourceFolder -OutputPath $outputFolder -ResultFile (New-ReadOnlyResultPath) -ProgressFile (New-BuildProgressPath)
+  $script:BuildRecoverySmokeState = [pscustomobject]@{
+    receiptPath = $receiptRecord.path
+    invalidReceiptPath = $invalidReceipt.path
+    expiredReceiptPath = $expiredReceipt.path
+    activeReceiptPath = $activeReceipt.path
+    receiptPaths = @($receiptRecord.path, $invalidReceipt.path, $expiredReceipt.path, $activeReceipt.path)
+    outputPath = $outputFolder
+    restored = $false
+    exactPathOffered = $false
+    verifyStarted = $false
+  }
+  $script:BuildRecoverySmokeTimer = New-Object System.Windows.Forms.Timer
+  $script:BuildRecoverySmokeTimer.Interval = 200
+  $script:BuildRecoverySmokeTimer.Add_Tick({
+    if ($script:ReadOnlyProcess) { return }
+    $state = $script:BuildRecoverySmokeState
+    $receiptRemoved = $state -and -not (Test-Path -LiteralPath $state.receiptPath)
+    $invalidReceiptRejected = $state -and -not (Test-Path -LiteralPath $state.invalidReceiptPath)
+    $expiredReceiptRemoved = $state -and -not (Test-Path -LiteralPath $state.expiredReceiptPath)
+    $activeReceiptIgnored = $state -and (Test-Path -LiteralPath $state.activeReceiptPath)
+    $script:BuildRecoverySmokeResult = [pscustomobject]@{
+      status = if ($state.restored -and $state.exactPathOffered -and $state.verifyStarted -and $receiptRemoved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
+      winFormsMessageLoop = $true
+      restartReceiptRestored = [bool]$state.restored
+      exactPathOffered = [bool]$state.exactPathOffered
+      readOnlyVerifyStarted = [bool]$state.verifyStarted
+      receiptRemovedAfterTrustedResult = [bool]$receiptRemoved
+      invalidReceiptRejected = [bool]$invalidReceiptRejected
+      expiredReceiptRemoved = [bool]$expiredReceiptRemoved
+      activeReceiptIgnored = [bool]$activeReceiptIgnored
+      buildProcessStarted = [bool]($null -ne $script:BuildProcess)
+      built = $false
+    }
+    $script:BuildRecoverySmokeTimer.Stop()
+    $script:MainForm.Close()
+  })
+}
+
 if ($SmokeBuildResponsiveness) {
   $script:MainForm.Opacity = 0
   $script:MainForm.ShowInTaskbar = $false
@@ -1524,11 +1834,12 @@ if ($SmokeBuildResponsiveness) {
       $workerExited = $state.workerPid -gt 0 -and -not (Get-Process -Id $state.workerPid -ErrorAction SilentlyContinue)
       $resultFileRemoved = -not (Test-Path -LiteralPath $state.resultFile)
       $progressFileRemoved = -not (Test-Path -LiteralPath $state.progressFile)
+      $recoveryReceiptRemoved = -not (Test-Path -LiteralPath $state.recoveryReceiptPath)
       $extraDirectories = @(Get-ChildItem -LiteralPath $script:BuildSmokeFixtureRoot -Directory -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne 'source' })
       $uiRecovered = -not $script:SourcePath.ReadOnly -and $script:BtnCheck.Enabled -and $script:BtnVerify.Enabled -and $script:BtnBuild.Text -eq '2. 建立正式附件包'
       $buildGrantCleared = -not $script:BtnBuild.Enabled -and -not $script:LastReadyInput -and -not $script:LastReadyProjectNo
       $script:BuildSmokeResult = [pscustomobject]@{
-        status = if ($state.uiTimerRanDuringBuild -and $state.closeBlocked -and $state.escapeBlocked -and $state.buildingActionVisible -and $state.phaseStatusSeen -and $state.elapsedStatusSeen -and $workerExited -and $resultFileRemoved -and $progressFileRemoved -and $uiRecovered -and $buildGrantCleared -and $extraDirectories.Count -eq 0) { 'pass' } else { 'fail' }
+        status = if ($state.uiTimerRanDuringBuild -and $state.closeBlocked -and $state.escapeBlocked -and $state.buildingActionVisible -and $state.phaseStatusSeen -and $state.elapsedStatusSeen -and $workerExited -and $resultFileRemoved -and $progressFileRemoved -and $recoveryReceiptRemoved -and $uiRecovered -and $buildGrantCleared -and $extraDirectories.Count -eq 0) { 'pass' } else { 'fail' }
         winFormsMessageLoop = $true
         uiResponsiveDuringBuild = [bool]$state.uiTimerRanDuringBuild
         closeBlockedDuringBuild = [bool]$state.closeBlocked
@@ -1539,6 +1850,7 @@ if ($SmokeBuildResponsiveness) {
         workerExited = [bool]$workerExited
         resultFileRemoved = [bool]$resultFileRemoved
         progressFileRemoved = [bool]$progressFileRemoved
+        recoveryReceiptRemoved = [bool]$recoveryReceiptRemoved
         uiRecovered = [bool]$uiRecovered
         buildGrantCleared = [bool]$buildGrantCleared
         noPackageCreated = [bool]($extraDirectories.Count -eq 0)
@@ -1557,6 +1869,17 @@ if ($SmokeBuildResponsiveness) {
 }
 
 $script:MainForm.Add_Shown({
+  if ($SmokeBuildRecoveryReceipt) {
+    $state = $script:BuildRecoverySmokeState
+    $state.restored = [bool](Restore-BuildRecoveryReceipt -ReceiptPaths $state.receiptPaths)
+    $state.exactPathOffered = [bool]($script:BtnBuildHandoffVerify.Visible -and $script:BtnBuildHandoffVerify.Enabled -and $script:BuildHandoffRecoveryOutput -eq $state.outputPath -and $script:HandoffRecoveryReceiptPath -eq $state.receiptPath)
+    if ($state.exactPathOffered) {
+      $script:BtnBuildHandoffVerify.PerformClick()
+      $state.verifyStarted = [bool]($script:ReadOnlyProcess -and $script:ReadOnlyAction -eq 'verify' -and $script:ReadOnlyInput -eq $state.outputPath -and $script:ActiveRecoveryReceiptPath -eq $state.receiptPath)
+    }
+    $script:BuildRecoverySmokeTimer.Start()
+    return
+  }
   if ($SmokeBuildResponsiveness) {
     $sourceFolder = Join-Path $script:BuildSmokeFixtureRoot 'source'
     $script:SourcePath.Text = $sourceFolder
@@ -1570,6 +1893,7 @@ $script:MainForm.Add_Shown({
         workerPid = $script:BuildProcess.Id
         resultFile = $script:BuildResultFile
         progressFile = $script:BuildProgressFile
+        recoveryReceiptPath = $script:BuildRecoveryReceiptPath
         interactionChecked = $false
         uiTimerRanDuringBuild = $false
         closeBlocked = $false
@@ -1626,6 +1950,7 @@ $script:MainForm.Add_Shown({
     } else { $script:MainForm.Close() }
     return
   }
+  if ((-not $AutoInspect -or -not $InitialPath.Trim()) -and (Restore-BuildRecoveryReceipt)) { return }
   if (-not $AutoInspect -or -not $InitialPath.Trim()) { return }
   if ($InitialMode -eq 'verify') { $script:BtnVerify.PerformClick() }
   else { $script:BtnCheck.PerformClick() }
@@ -1675,6 +2000,25 @@ if ($SmokeDragDrop) {
   }
   $script:DragDropSmokeResult | ConvertTo-Json -Depth 4 -Compress
   if ($script:DragDropSmokeResult.status -ne 'pass') { exit 3 }
+  exit 0
+}
+
+if ($SmokeBuildRecoveryReceipt) {
+  if (-not $script:BuildRecoverySmokeResult) {
+    $script:BuildRecoverySmokeResult = [pscustomobject]@{ status = 'fail'; message = '建立復原收據 smoke 未產生結果。'; built = $false }
+  }
+  if ($script:BuildRecoverySmokeState) {
+    foreach ($receiptPath in @($script:BuildRecoverySmokeState.receiptPaths)) { Remove-BuildRecoveryReceipt -ReceiptPath $receiptPath -CleanupArtifacts }
+  }
+  if ($script:BuildRecoverySmokeFixtureRoot) {
+    $resolvedFixture = [System.IO.Path]::GetFullPath($script:BuildRecoverySmokeFixtureRoot)
+    $tempPrefix = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\') + '\'
+    if ($resolvedFixture.StartsWith($tempPrefix, [System.StringComparison]::OrdinalIgnoreCase) -and [System.IO.Path]::GetFileName($resolvedFixture).StartsWith('attachment-manager-recovery-smoke-')) {
+      Remove-Item -LiteralPath $resolvedFixture -Recurse -Force -ErrorAction SilentlyContinue
+    }
+  }
+  $script:BuildRecoverySmokeResult | ConvertTo-Json -Depth 4 -Compress
+  if ($script:BuildRecoverySmokeResult.status -ne 'pass') { exit 3 }
   exit 0
 }
 

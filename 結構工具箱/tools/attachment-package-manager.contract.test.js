@@ -290,10 +290,28 @@ assert.equal(buildResponsivenessPayload.buildPhaseVisible, true);
 assert.equal(buildResponsivenessPayload.workerExited, true);
 assert.equal(buildResponsivenessPayload.resultFileRemoved, true);
 assert.equal(buildResponsivenessPayload.progressFileRemoved, true);
+assert.equal(buildResponsivenessPayload.recoveryReceiptRemoved, true);
 assert.equal(buildResponsivenessPayload.uiRecovered, true);
 assert.equal(buildResponsivenessPayload.buildGrantCleared, true);
 assert.equal(buildResponsivenessPayload.noPackageCreated, true);
 assert.equal(buildResponsivenessPayload.built, false);
+
+const buildRecoveryReceipt = childProcess.spawnSync('powershell.exe', [
+  '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', path.join(toolsDir, 'attachment-package-manager.ps1'),
+  '-SmokeBuildRecoveryReceipt',
+], { encoding: 'utf8', timeout: 20000 });
+assert.equal(buildRecoveryReceipt.status, 0, buildRecoveryReceipt.stderr || buildRecoveryReceipt.stdout);
+const buildRecoveryReceiptPayload = JSON.parse(buildRecoveryReceipt.stdout.trim().split(/\r?\n/).at(-1));
+assert.equal(buildRecoveryReceiptPayload.status, 'pass');
+assert.equal(buildRecoveryReceiptPayload.restartReceiptRestored, true);
+assert.equal(buildRecoveryReceiptPayload.exactPathOffered, true);
+assert.equal(buildRecoveryReceiptPayload.readOnlyVerifyStarted, true);
+assert.equal(buildRecoveryReceiptPayload.receiptRemovedAfterTrustedResult, true);
+assert.equal(buildRecoveryReceiptPayload.invalidReceiptRejected, true);
+assert.equal(buildRecoveryReceiptPayload.expiredReceiptRemoved, true);
+assert.equal(buildRecoveryReceiptPayload.activeReceiptIgnored, true);
+assert.equal(buildRecoveryReceiptPayload.buildProcessStarted, false);
+assert.equal(buildRecoveryReceiptPayload.built, false);
 
 const requestBase64 = Buffer.from(JSON.stringify({ action: 'smoke' }), 'utf8').toString('base64');
 const resultFile = path.join(os.tmpdir(), `${Worker.RESULT_FILE_PREFIX}${process.pid}-${Date.now()}${Worker.RESULT_FILE_SUFFIX}`);
@@ -370,8 +388,9 @@ assert.match(
   'AccessibleName', 'AccessibleDescription', 'TabIndex', 'SmokeKeyboard',
   'SmokeViewport', 'AutoScrollMinSize', 'ScrollControlIntoView', 'Screen]::FromPoint',
   'SmokeDragDrop', 'AllowDrop', 'DataFormats]::FileDrop', 'DragDropEffects]::Copy', 'DragDropEffects]::None',
-  'SmokeBuildResponsiveness', 'Start-BuildOperation', 'Complete-BuildOperation', 'BuildTimer',
+  'SmokeBuildResponsiveness', 'SmokeBuildRecoveryReceipt', 'Start-BuildOperation', 'Complete-BuildOperation', 'BuildTimer',
   'BuildProgressFile', 'New-BuildProgressPath', 'Remove-BuildProgressFile', '目前階段',
+  'formal-attachment-build-recovery.v1', 'New-BuildRecoveryReceipt', 'Restore-BuildRecoveryReceipt',
 ].forEach(needle => assert.ok(managerPs.includes(needle), `PowerShell manager includes ${needle}`));
 assert.ok(managerPs.charCodeAt(0) === 0xFEFF, 'PowerShell manager keeps UTF-8 BOM for Windows PowerShell 5.1');
 assert.doesNotMatch(managerPs, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'manager stays local and does not send case data over network');
@@ -407,6 +426,7 @@ assert.match(
 );
 const verifyHandler = managerPs.match(/\$script:BtnVerify\.Add_Click\(\{[\s\S]*?(?=\n\}\)\n\n\$script:BtnOpenOutput\.Add_Click)/)?.[0] || '';
 assert.match(verifyHandler, /Start-ReadOnlyOperation -Action verify/, 'package verification starts a non-blocking read-only worker');
+assert.match(verifyHandler, /Get-EligibleBuildRecoveryReceipts[\s\S]*?outputPath\.Equals\(\$verifyInput[\s\S]*?ActiveRecoveryReceiptPath = \$matchingReceipts\[0\]\.path[\s\S]*?Start-ReadOnlyOperation -Action verify/, 'manual verification clears a pending receipt only when its exact path uniquely matches');
 assert.doesNotMatch(verifyHandler, /Invoke-AttachmentWorker/, 'package verification never synchronously waits on the UI thread');
 const completeReadOnly = managerPs.match(/function Complete-ReadOnlyOperation \{[\s\S]*?(?=\nfunction Cancel-ReadOnlyOperation)/)?.[0] || '';
 assert.doesNotMatch(completeReadOnly, /ReadToEnd|WaitForExit/, 'normal read-only completion is timer-polled and never synchronously waits on the UI thread');
@@ -415,6 +435,7 @@ assert.match(buildHandler, /Start-BuildOperation/, 'formal package creation star
 assert.doesNotMatch(buildHandler, /Invoke-AttachmentWorker|Start-ReadOnlyOperation/, 'the UI never synchronously waits or mixes build into the cancellable read-only path');
 const startBuildOperation = managerPs.match(/function Start-BuildOperation \{[\s\S]*?(?=\nfunction Complete-BuildOperation)/)?.[0] || '';
 assert.match(startBuildOperation, /if \(-not \$outputPath\)[\s\S]*?缺少可追溯的預定輸出位置/, 'formal build cannot start without an exact output path captured for handoff recovery');
+assert.match(startBuildOperation, /New-BuildRecoveryReceipt[\s\S]*?\[void\]\$process\.Start\(\)[\s\S]*?Set-BuildRecoveryReceiptState[\s\S]*?BuildRecoveryReceiptPath = \$receiptRecord\.path/, 'a private recovery receipt is durably created before the worker starts and then bound to its pid');
 assert.match(startBuildOperation, /LastReadyInput -ne \$inputPath[\s\S]*?action = 'build'[\s\S]*?--request-base64[\s\S]*?--progress-file[\s\S]*?Set-BuildUiState -Running \$true[\s\S]*?Update-BuildProgressStatus[\s\S]*?BuildTimer\.Start\(\)/, 'background build revalidates the ready grant, uses managed result and progress IPC, locks inputs, publishes immediate progress, and timer-polls completion');
 assert.doesNotMatch(startBuildOperation, /WaitForExit|ReadToEnd|Invoke-AttachmentWorker/, 'starting a formal build never blocks the UI thread');
 const updateBuildProgress = managerPs.match(/function Update-BuildProgressStatus \{[\s\S]*?(?=\nfunction Start-BuildOperation)/)?.[0] || '';
@@ -453,18 +474,24 @@ const droppedPathHandoff = managerPs.match(/function Set-ManagerDroppedPath \{[\
 assert.match(droppedPathHandoff, /Paths\)\.Count -ne 1[\s\S]*?Test-ManagerDropPath[\s\S]*?Resolve-Path[\s\S]*?BtnCheck\.PerformClick\(\)[\s\S]*?BtnVerify\.PerformClick\(\)/, 'a drop accepts exactly one validated path and starts only the matching read-only action');
 assert.doesNotMatch(droppedPathHandoff, /BtnBuild|Invoke-AttachmentWorker|Action build/, 'drag-and-drop can never trigger formal package creation');
 assert.match(managerPs, /SmokeDragDrop[\s\S]*?OnDragEnter[\s\S]*?OnDragDrop[\s\S]*?sourceDropAccepted[\s\S]*?multiDropRejected[\s\S]*?ordinaryFileRejected[\s\S]*?verifyFolderAccepted[\s\S]*?sourceZipRejectedByVerify[\s\S]*?built = \$false/, 'dynamic drag smoke uses native WinForms events and proves accepted and rejected paths without building');
-assert.match(managerPs, /SmokeBuildResponsiveness[\s\S]*?uiResponsiveDuringBuild[\s\S]*?closeBlockedDuringBuild[\s\S]*?escapeBlockedDuringBuild[\s\S]*?buildingActionVisible[\s\S]*?buildPhaseVisible[\s\S]*?elapsedStatusVisible[\s\S]*?workerExited[\s\S]*?resultFileRemoved[\s\S]*?progressFileRemoved[\s\S]*?uiRecovered[\s\S]*?buildGrantCleared[\s\S]*?noPackageCreated[\s\S]*?built = \$false/, 'dynamic build smoke proves a responsive, phase-aware, observable but non-cancellable atomic build lifecycle without creating a package');
+assert.match(managerPs, /SmokeBuildResponsiveness[\s\S]*?uiResponsiveDuringBuild[\s\S]*?closeBlockedDuringBuild[\s\S]*?escapeBlockedDuringBuild[\s\S]*?buildingActionVisible[\s\S]*?buildPhaseVisible[\s\S]*?elapsedStatusVisible[\s\S]*?workerExited[\s\S]*?resultFileRemoved[\s\S]*?progressFileRemoved[\s\S]*?recoveryReceiptRemoved[\s\S]*?uiRecovered[\s\S]*?buildGrantCleared[\s\S]*?noPackageCreated[\s\S]*?built = \$false/, 'dynamic build smoke proves a responsive atomic build lifecycle and removes its recovery receipt after a trusted result without creating a package');
 assert.match(managerPs, /if \(\$SmokeBuildResponsiveness\)[\s\S]*?OutputPath\.Text = Join-Path \$script:BuildSmokeFixtureRoot 'planned-output-must-not-be-created'[\s\S]*?BtnBuild\.PerformClick\(\)/, 'dynamic build smoke supplies an exact planned output before the worker starts');
+assert.match(managerPs, /Get-EligibleBuildRecoveryReceipts[\s\S]*?expiresAtUtc[\s\S]*?Test-ReceiptProcessAlive[\s\S]*?Test-Path -LiteralPath \$outputPath -PathType Container/, 'startup recovery accepts only unexpired receipts whose recorded processes are no longer active and exact output exists');
+assert.match(managerPs, /Restore-BuildRecoveryReceipt[\s\S]*?eligible\.Count -gt 1[\s\S]*?安全起見不自動挑選[\s\S]*?Show-BuildResultHandoffUnknown[\s\S]*?RecoveryReceiptPath \$candidate\.path/, 'restart recovery never guesses among multiple receipts and binds a single exact candidate to the existing handoff UI');
+assert.match(managerPs, /SmokeBuildRecoveryReceipt[\s\S]*?restartReceiptRestored[\s\S]*?exactPathOffered[\s\S]*?readOnlyVerifyStarted[\s\S]*?receiptRemovedAfterTrustedResult[\s\S]*?invalidReceiptRejected[\s\S]*?expiredReceiptRemoved[\s\S]*?activeReceiptIgnored[\s\S]*?buildProcessStarted[\s\S]*?built = \$false/, 'dynamic restart smoke proves exact read-only restoration, rejects malformed/expired/active receipts, and removes the trusted candidate without building');
 assert.match(managerPs, /function Show-BuildResultHandoffUnknown[\s\S]*?這不代表附件包建立失敗[\s\S]*?先驗證輸出，不要直接重建/, 'missing or damaged final IPC is shown as an indeterminate handoff that requires verification, never as a failed build');
 const handoffRecoveryDisplay = managerPs.match(/function Show-BuildResultHandoffUnknown \{[\s\S]*?(?=\nfunction Assert-WorkerResponseEnvelope)/)?.[0] || '';
 assert.match(handoffRecoveryDisplay, /Test-Path -LiteralPath \$RequestedOutput -PathType Container[\s\S]*?PackagePath\.Text = \$RequestedOutput[\s\S]*?BuildHandoffRecoveryOutput = \$RequestedOutput[\s\S]*?BtnBuildHandoffVerify\.Visible = \$true[\s\S]*?BtnBuildHandoffVerify\.Enabled = \$true/, 'an exact existing planned output exposes one governed recovery action and pre-fills only that package path');
 const handoffRecoveryHandler = managerPs.match(/\$script:BtnBuildHandoffVerify\.Add_Click\(\{[\s\S]*?(?=\n\}\)\n\n\$script:BtnOpenOutput\.Add_Click)/)?.[0] || '';
 assert.match(handoffRecoveryHandler, /Test-Path -LiteralPath \$recoveryOutput -PathType Container[\s\S]*?Start-ReadOnlyOperation -Action verify -InputPath \$recoveryOutput/, 'the recovery action rechecks the exact existing output through the established read-only verifier');
+assert.match(handoffRecoveryHandler, /HandoffRecoveryReceiptPath[\s\S]*?ActiveRecoveryReceiptPath = \$recoveryReceiptPath[\s\S]*?Start-ReadOnlyOperation -Action verify/, 'receipt-backed recovery carries its private receipt only into the existing read-only verification lifecycle');
 assert.doesNotMatch(handoffRecoveryHandler, /Start-BuildOperation|action = 'build'|BtnBuild\.PerformClick|BtnBuild\.Enabled|核可/, 'handoff recovery cannot rebuild, modify, approve, or route into the write path');
 assert.match(managerPs, /BtnBuildHandoffVerify\.AccessibleDescription = '只呼叫既有附件包唯讀驗證，不會重新建立、修改或核可附件包。'/, 'assistive text preserves the recovery permission boundary');
 assert.match(managerPs, /function Assert-WorkerResponseEnvelope[\s\S]*?ready = 0; review = 1; blocked = 2; error = 3[\s\S]*?背景結果與程序退出狀態不一致/, 'result IPC must match the expected action, governed status and actual worker exit code before the UI applies it');
 assert.match(managerPs, /Complete-BuildOperation[\s\S]*?Assert-WorkerResponseEnvelope -Response \$response -ExpectedAction 'build' -ExitCode \$exitCode/, 'build completion validates the result envelope before showing success');
 assert.match(managerPs, /Complete-ReadOnlyOperation[\s\S]*?Assert-WorkerResponseEnvelope -Response \$response -ExpectedAction \$action -ExitCode \$exitCode/, 'read-only completion validates the result envelope before applying a grant or verification result');
+assert.match(completeReadOnly, /Assert-WorkerResponseEnvelope[\s\S]*?Show-WorkerResponse \$response[\s\S]*?Remove-BuildRecoveryReceipt -ReceiptPath \$activeRecoveryReceiptPath/, 'a recovery receipt is removed only after the verifier result envelope is trusted and applied');
+assert.match(completeReadOnly, /activeRecoveryReceiptPath -and \$response\.status -eq 'error'[\s\S]*?Show-BuildResultHandoffUnknown[\s\S]*?else \{[\s\S]*?Remove-BuildRecoveryReceipt/, 'a trusted transport error still preserves the receipt because it is not a verification conclusion');
 assert.match(
   managerPs,
   /\$sourceChanged = \{[\s\S]*?LastSuggestedOutput[\s\S]*?OutputPath\.Text\.Trim\(\) -eq \$script:LastSuggestedOutput[\s\S]*?LastSuggestedOutput = ''[\s\S]*?OutputPath\.Clear\(\)/,

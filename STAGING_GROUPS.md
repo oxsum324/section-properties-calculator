@@ -356,6 +356,8 @@ Replace anchor dialogs with in-app confirmations
 
 每次來源檢查 ready 時，唯讀 worker 必須為空白輸出欄位產生含時間與隨機識別碼的唯一預定路徑，且不得建立該資料夾；使用者既有輸出不得覆寫，正式 build 沒有確切輸出時必須拒絕啟動，核心仍須阻擋既有位置。結果待確認復原入口只能在該精確預定輸出仍為實體資料夾時顯示，必須把同一路徑交給既有 `Start-ReadOnlyOperation -Action verify`，並沿用可取消、逾時、結果封套與暫存清理。測試需固定它不含 build、建立、修改或核可路由；不得掃描或猜選最新資料夾。
 
+跨重啟復原收據必須在 build worker 啟動前以受管隨機檔名排他建立於目前使用者系統暫存區，固定 schema、request ID、24 小時期限、絕對來源／輸出、管理器與 worker PID／啟動時間及受管 IPC 路徑，worker 啟動後以同目錄原子替換更新。可信 build 結果或 `ready / review / blocked` 恢復 verify 結論後立即清除；交接異常且精確輸出存在時才保留。啟動掃描須拒絕非受管檔名、錯誤 schema、相對路徑、逾期或仍有原程序運作的收據；多筆不可猜選，取消、不可信封套或 `error` 驗證不得刪除。動態 WinForms smoke 必須證明跨重啟收據只形成精確唯讀驗證、不啟動 build，可信結果後收據已清除，且測試檔案完整清理。
+
 ## 首頁正式放行日期來源
 
 調整首頁狀態或 release 快照時，需一併 staging `結構工具箱/assets/home/home.js`、`toolbox-entrypoints.contract.test.js` 與三份治理文件。`HOME_TOOL_UPDATES` 不得保存人工 fallback 正式放行日；執行期只可接受 passing、非 quick、兩個 force 旗標成立、來源 commit 可辨識且乾淨的 tracked preflight snapshot。契約須固定未載入提示與正式快照導入路徑，避免 release 狀態提交跨日後產生首頁落後日期。
