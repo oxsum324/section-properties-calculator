@@ -234,6 +234,24 @@ const badCli = childProcess.spawnSync(process.execPath, [path.join(toolsDir, 'at
 assert.equal(badCli.status, 3);
 assert.equal(JSON.parse(badCli.stdout).status, 'error');
 
+const viewport = childProcess.spawnSync('powershell.exe', [
+  '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', path.join(toolsDir, 'attachment-package-manager.ps1'),
+  '-SmokeViewport',
+], { encoding: 'utf8', timeout: 15000 });
+assert.equal(viewport.status, 0, viewport.stderr || viewport.stdout);
+const viewportPayload = JSON.parse(viewport.stdout.trim().split(/\r?\n/).at(-1));
+assert.equal(viewportPayload.status, 'pass');
+assert.equal(viewportPayload.winFormsMessageLoop, true);
+assert.equal(viewportPayload.selectedScreenContainsWindow, true);
+assert.ok(viewportPayload.windowWidth <= 800);
+assert.ok(viewportPayload.windowHeight <= 640);
+assert.ok(viewportPayload.horizontalScroll > 0);
+assert.ok(viewportPayload.verticalScroll > 0);
+assert.equal(viewportPayload.rightBottomVisible, true);
+assert.equal(viewportPayload.statusFixedVisible, true);
+assert.equal(viewportPayload.operationRunning, false);
+assert.equal(viewportPayload.built, false);
+
 const requestBase64 = Buffer.from(JSON.stringify({ action: 'smoke' }), 'utf8').toString('base64');
 const resultFile = path.join(os.tmpdir(), `${Worker.RESULT_FILE_PREFIX}${process.pid}-${Date.now()}${Worker.RESULT_FILE_SUFFIX}`);
 try {
@@ -264,6 +282,7 @@ const managerPs = read('結構工具箱/tools/attachment-package-manager.ps1');
   '停止檢查', '停止驗證', '畫面仍可操作', '超過 5 分鐘', 'Add_FormClosing',
   'KeyPreview', 'Invoke-ManagerKeyDown', 'Ctrl+L 路徑', 'Enter 唯讀檢查', 'Esc 停止',
   'AccessibleName', 'AccessibleDescription', 'TabIndex', 'SmokeKeyboard',
+  'SmokeViewport', 'AutoScrollMinSize', 'ScrollControlIntoView', 'Screen]::FromPoint',
 ].forEach(needle => assert.ok(managerPs.includes(needle), `PowerShell manager includes ${needle}`));
 assert.ok(managerPs.charCodeAt(0) === 0xFEFF, 'PowerShell manager keeps UTF-8 BOM for Windows PowerShell 5.1');
 assert.doesNotMatch(managerPs, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'manager stays local and does not send case data over network');
@@ -317,6 +336,16 @@ assert.match(keyboardHandler, /Keys\]::Enter[\s\S]*?BtnVerify\.PerformClick\(\)[
 assert.doesNotMatch(keyboardHandler, /BtnBuild\.PerformClick|Invoke-AttachmentWorker|Start-ReadOnlyOperation -Action build/, 'keyboard routing can never trigger formal package creation');
 assert.match(managerPs, /BtnBuild\.AccessibleDescription = '唯一寫入動作；[\s\S]*?不由 Enter 快捷鍵觸發。'/, 'assistive text clearly identifies the sole write action and its explicit activation boundary');
 assert.match(managerPs, /SourcePath\.TabIndex = 0[\s\S]*?BtnCheck\.TabIndex = 6[\s\S]*?BtnBuild\.TabIndex = 7[\s\S]*?PackagePath\.TabIndex = 0[\s\S]*?BtnVerify\.TabIndex = 2/, 'source and verification controls expose deliberate tab order');
+const windowBoundsHelper = managerPs.match(/function Set-ManagerWindowBounds \{[\s\S]*?(?=\n\$script:MainForm =)/)?.[0] || '';
+assert.match(managerPs, /StartPosition = 'Manual'[\s\S]*?WindowWorkingArea = Set-ManagerWindowBounds/, 'manager uses explicit multi-screen placement instead of primary-screen centering');
+assert.match(windowBoundsHelper, /Screen\]::FromPoint\(\[System\.Windows\.Forms\.Cursor\]::Position\)[\s\S]*?workingArea[\s\S]*?MainForm\.Location/, 'manager centers and clamps itself to the screen containing the launch cursor');
+assert.match(windowBoundsHelper, /minimumWidth = \[Math\]::Min\(800,[\s\S]*?minimumHeight = \[Math\]::Min\(640,[\s\S]*?MinimumSize = New-Object System\.Drawing\.Size\(\$minimumWidth, \$minimumHeight\)/, 'minimum size remains bounded by an 800 by 640 working area');
+assert.match(managerPs, /ScrollViewport\.Dock = 'Fill'[\s\S]*?ScrollViewport\.AutoScroll = \$true[\s\S]*?ContentSurface\.Size = New-Object System\.Drawing\.Size\(1040, 784\)[\s\S]*?AutoScrollMinSize = \$script:ContentSurface\.Size/, 'fixed design surface is exposed through a bidirectional scrolling viewport');
+for (const control of ['$header', '$subheader', '$sourceGroup', '$verifyGroup', '$script:StatusPanel', '$script:ResultGrid', '$script:DetailsBox']) {
+  assert.ok(managerPs.includes(`$script:ContentSurface.Controls.Add(${control})`), `${control} stays inside the scrollable content surface`);
+}
+assert.match(managerPs, /MainForm\.Controls\.Add\(\$statusStrip\)[\s\S]*?statusStrip\.BringToFront\(\)/, 'status strip stays fixed outside the scrolling content surface');
+assert.match(managerPs, /SmokeViewport[\s\S]*?Size\(800, 640\)[\s\S]*?HorizontalScroll\.Value -gt 0[\s\S]*?VerticalScroll\.Value -gt 0[\s\S]*?rightBottomVisible[\s\S]*?statusFixedVisible/, 'dynamic viewport smoke proves both scroll axes, the bottom-right boundary, and fixed status visibility');
 assert.match(
   managerPs,
   /\$sourceChanged = \{[\s\S]*?LastSuggestedOutput[\s\S]*?OutputPath\.Text\.Trim\(\) -eq \$script:LastSuggestedOutput[\s\S]*?LastSuggestedOutput = ''[\s\S]*?OutputPath\.Clear\(\)/,

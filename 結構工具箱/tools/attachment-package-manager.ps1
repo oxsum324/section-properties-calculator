@@ -4,6 +4,7 @@ param(
   [switch]$SmokeReadOnlyCancellation,
   [switch]$SmokeReadOnlyCompletion,
   [switch]$SmokeKeyboard,
+  [switch]$SmokeViewport,
   [ValidateRange(0, 5000)][int]$WorkerSmokeDelayMilliseconds = 0,
   [string]$InitialPath = '',
   [ValidateSet('source', 'verify')][string]$InitialMode = 'source',
@@ -39,9 +40,11 @@ $script:CompletionSmokeResultFile = ''
 $script:KeyboardSmokeTimer = $null
 $script:KeyboardSmokeResult = $null
 $script:KeyboardSmokeState = $null
+$script:ViewportSmokeTimer = $null
+$script:ViewportSmokeResult = $null
 $script:ActiveMode = $InitialMode
 
-$dynamicSmokeCount = @(@($SmokeReadOnlyCancellation, $SmokeReadOnlyCompletion, $SmokeKeyboard) | Where-Object { $_ }).Count
+$dynamicSmokeCount = @(@($SmokeReadOnlyCancellation, $SmokeReadOnlyCompletion, $SmokeKeyboard, $SmokeViewport) | Where-Object { $_ }).Count
 if ($Smoke -and $dynamicSmokeCount) { throw '一般 smoke 與背景動態 smoke 不得同時執行。' }
 if ($dynamicSmokeCount -gt 1) { throw '一次只能執行一種背景動態 smoke。' }
 
@@ -442,6 +445,7 @@ function Invoke-ManagerKeyDown {
     $target = if ($script:ActiveMode -eq 'verify') { $script:PackagePath } else { $script:SourcePath }
     [void]$target.Focus()
     $target.SelectAll()
+    $script:ScrollViewport.ScrollControlIntoView($target)
     Set-ManagerKeyHandled -EventArgs $EventArgs
     return
   }
@@ -467,21 +471,49 @@ function Invoke-ManagerKeyDown {
   $script:BottomStatus.Text = 'Enter 只執行目前欄位的唯讀檢查；正式建立請明確點按「2. 建立正式附件包」。'
 }
 
+function Set-ManagerWindowBounds {
+  param([System.Drawing.Size]$PreferredSize = (New-Object System.Drawing.Size(1060, 850)))
+  $workingArea = [System.Windows.Forms.Screen]::FromPoint([System.Windows.Forms.Cursor]::Position).WorkingArea
+  $width = [Math]::Min($PreferredSize.Width, $workingArea.Width)
+  $height = [Math]::Min($PreferredSize.Height, $workingArea.Height)
+  $minimumWidth = [Math]::Min(800, $workingArea.Width)
+  $minimumHeight = [Math]::Min(640, $workingArea.Height)
+  $script:MainForm.MinimumSize = New-Object System.Drawing.Size($minimumWidth, $minimumHeight)
+  $script:MainForm.Size = New-Object System.Drawing.Size($width, $height)
+  $left = $workingArea.Left + [Math]::Max(0, [Math]::Floor(($workingArea.Width - $width) / 2))
+  $top = $workingArea.Top + [Math]::Max(0, [Math]::Floor(($workingArea.Height - $height) / 2))
+  $script:MainForm.Location = New-Object System.Drawing.Point($left, $top)
+  return $workingArea
+}
+
 $script:MainForm = New-Object System.Windows.Forms.Form
 $script:MainForm.Text = '正式附件包管理器'
-$script:MainForm.StartPosition = 'CenterScreen'
-$script:MainForm.Size = New-Object System.Drawing.Size(1060, 850)
-$script:MainForm.MinimumSize = New-Object System.Drawing.Size(980, 760)
+$script:MainForm.StartPosition = 'Manual'
 $script:MainForm.BackColor = [System.Drawing.Color]::FromArgb(244, 247, 250)
 $script:MainForm.Font = New-Object System.Drawing.Font('Microsoft JhengHei UI', 10)
 $script:MainForm.KeyPreview = $true
+$script:WindowWorkingArea = Set-ManagerWindowBounds
+
+$script:ScrollViewport = New-Object System.Windows.Forms.Panel
+$script:ScrollViewport.Dock = 'Fill'
+$script:ScrollViewport.AutoScroll = $true
+$script:ScrollViewport.BackColor = $script:MainForm.BackColor
+$script:MainForm.Controls.Add($script:ScrollViewport)
+
+$script:ContentSurface = New-Object System.Windows.Forms.Panel
+$script:ContentSurface.Location = New-Object System.Drawing.Point(0, 0)
+$script:ContentSurface.Size = New-Object System.Drawing.Size(1040, 784)
+$script:ContentSurface.BackColor = $script:MainForm.BackColor
+$script:ContentSurface.TabStop = $false
+$script:ScrollViewport.AutoScrollMinSize = $script:ContentSurface.Size
+$script:ScrollViewport.Controls.Add($script:ContentSurface)
 
 $header = New-Object System.Windows.Forms.Label
 $header.Text = '正式附件包管理器'
 $header.Font = New-Object System.Drawing.Font('Microsoft JhengHei UI', 22, [System.Drawing.FontStyle]::Bold)
 $header.Location = New-Object System.Drawing.Point(22, 16)
 $header.AutoSize = $true
-$script:MainForm.Controls.Add($header)
+$script:ContentSurface.Controls.Add($header)
 
 $subheader = New-Object System.Windows.Forms.Label
 $subheader.Text = '管理畫面與檢查結果僅供內部整理，不進主報告。鍵盤：Ctrl+L 路徑、Enter 唯讀檢查、Esc 停止。'
@@ -489,14 +521,14 @@ $subheader.Location = New-Object System.Drawing.Point(25, 62)
 $subheader.Size = New-Object System.Drawing.Size(980, 30)
 $subheader.TextAlign = 'MiddleLeft'
 $subheader.ForeColor = [System.Drawing.Color]::FromArgb(71, 85, 105)
-$script:MainForm.Controls.Add($subheader)
+$script:ContentSurface.Controls.Add($subheader)
 
 $sourceGroup = New-Object System.Windows.Forms.GroupBox
 $sourceGroup.Text = '一、檢查並建立正式附件包'
 $sourceGroup.Location = New-Object System.Drawing.Point(22, 104)
 $sourceGroup.Size = New-Object System.Drawing.Size(1000, 220)
 $sourceGroup.Anchor = 'Top,Left,Right'
-$script:MainForm.Controls.Add($sourceGroup)
+$script:ContentSurface.Controls.Add($sourceGroup)
 
 function Add-FieldRow {
   param($Parent, [string]$Label, [int]$Y)
@@ -572,7 +604,7 @@ $verifyGroup.Text = '二、驗證既有正式附件包'
 $verifyGroup.Location = New-Object System.Drawing.Point(22, 336)
 $verifyGroup.Size = New-Object System.Drawing.Size(1000, 92)
 $verifyGroup.Anchor = 'Top,Left,Right'
-$script:MainForm.Controls.Add($verifyGroup)
+$script:ContentSurface.Controls.Add($verifyGroup)
 
 $script:PackagePath = Add-FieldRow -Parent $verifyGroup -Label '正式附件包' -Y 34
 $script:PackagePath.Width = 590
@@ -595,7 +627,7 @@ $script:StatusPanel.Location = New-Object System.Drawing.Point(22, 442)
 $script:StatusPanel.Size = New-Object System.Drawing.Size(1000, 64)
 $script:StatusPanel.Anchor = 'Top,Left,Right'
 $script:StatusPanel.BackColor = [System.Drawing.Color]::FromArgb(237, 242, 247)
-$script:MainForm.Controls.Add($script:StatusPanel)
+$script:ContentSurface.Controls.Add($script:StatusPanel)
 
 $script:StatusTitle = New-Object System.Windows.Forms.Label
 $script:StatusTitle.Text = '請先選擇附件來源或正式附件包'
@@ -628,7 +660,7 @@ foreach ($column in @(
   $dataColumn.FillWeight = $column[2]
   [void]$script:ResultGrid.Columns.Add($dataColumn)
 }
-$script:MainForm.Controls.Add($script:ResultGrid)
+$script:ContentSurface.Controls.Add($script:ResultGrid)
 
 $script:DetailsBox = New-Object System.Windows.Forms.TextBox
 $script:DetailsBox.Location = New-Object System.Drawing.Point(22, 692)
@@ -639,13 +671,21 @@ $script:DetailsBox.ReadOnly = $true
 $script:DetailsBox.ScrollBars = 'Vertical'
 $script:DetailsBox.Font = New-Object System.Drawing.Font('Microsoft JhengHei UI', 9)
 $script:DetailsBox.Text = '檢查結果會顯示在這裡。只有 ready 狀態可建立正式附件包；review 與 blocked 不會建立輸出。'
-$script:MainForm.Controls.Add($script:DetailsBox)
+$script:ContentSurface.Controls.Add($script:DetailsBox)
+
+$script:LayoutProbe = New-Object System.Windows.Forms.Panel
+$script:LayoutProbe.Location = New-Object System.Drawing.Point(1020, 780)
+$script:LayoutProbe.Size = New-Object System.Drawing.Size(2, 2)
+$script:LayoutProbe.BackColor = $script:ContentSurface.BackColor
+$script:LayoutProbe.TabStop = $false
+$script:ContentSurface.Controls.Add($script:LayoutProbe)
 
 $statusStrip = New-Object System.Windows.Forms.StatusStrip
 $script:BottomStatus = New-Object System.Windows.Forms.ToolStripStatusLabel
 $script:BottomStatus.Text = '狀態：待命'
 [void]$statusStrip.Items.Add($script:BottomStatus)
 $script:MainForm.Controls.Add($statusStrip)
+$statusStrip.BringToFront()
 
 $sourceGroup.TabIndex = 0
 $verifyGroup.TabIndex = 1
@@ -941,7 +981,52 @@ if ($SmokeKeyboard) {
   })
 }
 
+if ($SmokeViewport) {
+  $script:MainForm.Opacity = 0
+  $script:MainForm.ShowInTaskbar = $false
+  $script:WindowWorkingArea = Set-ManagerWindowBounds -PreferredSize (New-Object System.Drawing.Size(800, 640))
+  $script:ViewportSmokeTimer = New-Object System.Windows.Forms.Timer
+  $script:ViewportSmokeTimer.Interval = 250
+  $script:ViewportSmokeTimer.Add_Tick({
+    $script:ViewportSmokeTimer.Stop()
+    try {
+      $script:ScrollViewport.AutoScrollPosition = New-Object System.Drawing.Point($script:ContentSurface.Width, $script:ContentSurface.Height)
+      [System.Windows.Forms.Application]::DoEvents()
+      $viewportOrigin = $script:ScrollViewport.PointToScreen([System.Drawing.Point]::Empty)
+      $viewportBounds = New-Object System.Drawing.Rectangle($viewportOrigin, $script:ScrollViewport.ClientSize)
+      $probeOrigin = $script:LayoutProbe.PointToScreen([System.Drawing.Point]::Empty)
+      $probeBounds = New-Object System.Drawing.Rectangle($probeOrigin, $script:LayoutProbe.Size)
+      $statusOrigin = $statusStrip.PointToScreen([System.Drawing.Point]::Empty)
+      $statusBounds = New-Object System.Drawing.Rectangle($statusOrigin, $statusStrip.Size)
+      $formBounds = $script:MainForm.Bounds
+      $rightBottomVisible = $viewportBounds.Contains($probeBounds)
+      $statusFixedVisible = $statusStrip.Parent -eq $script:MainForm -and $statusStrip.Visible -and $formBounds.Contains($statusBounds)
+      $script:ViewportSmokeResult = [pscustomobject]@{
+        status = if ($script:WindowWorkingArea.Contains($formBounds) -and $script:MainForm.Width -le 800 -and $script:MainForm.Height -le 640 -and $script:ScrollViewport.HorizontalScroll.Value -gt 0 -and $script:ScrollViewport.VerticalScroll.Value -gt 0 -and $rightBottomVisible -and $statusFixedVisible -and -not $script:ReadOnlyProcess -and -not $script:BtnBuild.Enabled) { 'pass' } else { 'fail' }
+        winFormsMessageLoop = $true
+        selectedScreenContainsWindow = [bool]$script:WindowWorkingArea.Contains($formBounds)
+        windowWidth = $script:MainForm.Width
+        windowHeight = $script:MainForm.Height
+        horizontalScroll = $script:ScrollViewport.HorizontalScroll.Value
+        verticalScroll = $script:ScrollViewport.VerticalScroll.Value
+        rightBottomVisible = $rightBottomVisible
+        statusFixedVisible = $statusFixedVisible
+        operationRunning = [bool]$script:ReadOnlyProcess
+        built = $false
+      }
+    } catch {
+      $script:ViewportSmokeResult = [pscustomobject]@{ status = 'fail'; message = $_.Exception.Message; built = $false }
+    } finally {
+      $script:MainForm.Close()
+    }
+  })
+}
+
 $script:MainForm.Add_Shown({
+  if ($SmokeViewport) {
+    $script:ViewportSmokeTimer.Start()
+    return
+  }
   if ($SmokeReadOnlyCancellation) {
     $script:BtnCheck.PerformClick()
     if ($script:ReadOnlyProcess) { $script:CancellationSmokeTimer.Start() }
@@ -1006,5 +1091,14 @@ if ($SmokeKeyboard) {
   }
   $script:KeyboardSmokeResult | ConvertTo-Json -Depth 4 -Compress
   if ($script:KeyboardSmokeResult.status -ne 'pass') { exit 3 }
+  exit 0
+}
+
+if ($SmokeViewport) {
+  if (-not $script:ViewportSmokeResult) {
+    $script:ViewportSmokeResult = [pscustomobject]@{ status = 'fail'; message = '小視窗 smoke 未產生結果。'; built = $false }
+  }
+  $script:ViewportSmokeResult | ConvertTo-Json -Depth 4 -Compress
+  if ($script:ViewportSmokeResult.status -ne 'pass') { exit 3 }
   exit 0
 }
