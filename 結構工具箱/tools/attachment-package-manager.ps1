@@ -62,6 +62,7 @@ $script:BuildSmokeResult = $null
 $script:BuildSmokeFixtureRoot = ''
 $script:BuildHandoffRecoveryOutput = ''
 $script:BtnBuildHandoffVerify = $null
+$script:BuildRecoveryCandidates = @()
 $script:BuildRecoveryReceiptPath = ''
 $script:HandoffRecoveryReceiptPath = ''
 $script:ActiveRecoveryReceiptPath = ''
@@ -212,7 +213,9 @@ function Set-StatusAppearance {
 function Clear-BuildHandoffRecovery {
   $script:BuildHandoffRecoveryOutput = ''
   $script:HandoffRecoveryReceiptPath = ''
+  $script:BuildRecoveryCandidates = @()
   if ($script:BtnBuildHandoffVerify) {
+    $script:BtnBuildHandoffVerify.Text = '唯讀驗證待確認輸出'
     $script:BtnBuildHandoffVerify.Visible = $false
     $script:BtnBuildHandoffVerify.Enabled = $false
   }
@@ -570,15 +573,120 @@ function Restore-BuildRecoveryReceipt {
   $eligible = @(Get-EligibleBuildRecoveryReceipts -ReceiptPaths $ReceiptPaths)
   if (-not $eligible.Count) { return $false }
   if ($eligible.Count -gt 1) {
+    $script:BuildRecoveryCandidates = @($eligible)
     Set-StatusAppearance -Status 'review' -Title '有多筆建立結果待確認'
-    $script:StatusMeta.Text = '安全起見不自動挑選；請依下列精確路徑逐一使用「驗證附件包」。'
+    $script:StatusMeta.Text = '未自動挑選任何項目；請開啟清單並明確選定一筆，再執行唯讀驗證。'
     $script:DetailsBox.Text = ($eligible | ForEach-Object { $_.outputPath }) -join "`r`n"
+    $script:BtnBuildHandoffVerify.Text = "選擇 $($eligible.Count) 筆待確認輸出"
+    $script:BtnBuildHandoffVerify.Visible = $true
+    $script:BtnBuildHandoffVerify.Enabled = $true
+    $script:StatusTitle.Width = 710
+    $script:StatusMeta.Width = 710
     $script:BottomStatus.Text = "狀態：$($eligible.Count) 筆待確認｜未自動選取或重建"
     return $true
   }
   $candidate = $eligible[0]
   Show-BuildResultHandoffUnknown -ErrorRecord ([System.InvalidOperationException]::new('已從上次異常中斷的本機短期收據還原精確預定輸出。')) -RequestedOutput $candidate.outputPath -SourceSnapshot $candidate.sourcePath -RecoveryReceiptPath $candidate.path
   return $true
+}
+
+function Select-BuildRecoveryReceipt {
+  param(
+    [Parameter(Mandatory = $true)][object[]]$Candidates,
+    [int]$SmokeSelectIndex = -1
+  )
+  if (-not $Candidates.Count) { return $null }
+
+  $dialog = New-Object System.Windows.Forms.Form
+  $dialog.Text = '選擇待確認的附件包輸出'
+  $dialog.StartPosition = 'CenterParent'
+  $dialog.ClientSize = New-Object System.Drawing.Size(900, 420)
+  $dialog.MinimizeBox = $false
+  $dialog.MaximizeBox = $false
+  $dialog.ShowInTaskbar = $false
+  $dialog.AutoScaleMode = 'Dpi'
+
+  $intro = New-Object System.Windows.Forms.Label
+  $intro.Text = '請依建立時間與精確輸出路徑選定一筆。此動作只會執行唯讀驗證，不會重建、修改或核可附件包。'
+  $intro.Location = New-Object System.Drawing.Point(16, 16)
+  $intro.Size = New-Object System.Drawing.Size(868, 42)
+  $intro.AccessibleName = '待確認輸出選擇說明'
+  $dialog.Controls.Add($intro)
+
+  $grid = New-Object System.Windows.Forms.DataGridView
+  $grid.Location = New-Object System.Drawing.Point(16, 64)
+  $grid.Size = New-Object System.Drawing.Size(868, 292)
+  $grid.Anchor = 'Top,Bottom,Left,Right'
+  $grid.ReadOnly = $true
+  $grid.AllowUserToAddRows = $false
+  $grid.AllowUserToDeleteRows = $false
+  $grid.AllowUserToResizeRows = $false
+  $grid.MultiSelect = $false
+  $grid.SelectionMode = 'FullRowSelect'
+  $grid.RowHeadersVisible = $false
+  $grid.AutoSizeColumnsMode = 'Fill'
+  $grid.AccessibleName = '待確認附件包輸出清單'
+  $grid.AccessibleDescription = '唯讀單選清單，初始不選取任何項目。'
+  [void]$grid.Columns.Add('createdAt', '建立時間')
+  [void]$grid.Columns.Add('outputPath', '精確輸出路徑')
+  $grid.Columns['createdAt'].FillWeight = 25
+  $grid.Columns['outputPath'].FillWeight = 75
+  foreach ($candidate in $Candidates) {
+    $createdAtText = [string](Get-ResponseValue $candidate.receipt 'createdAtUtc')
+    try { $createdAtText = ([DateTime]::Parse($createdAtText).ToLocalTime()).ToString('yyyy/MM/dd HH:mm:ss') } catch {}
+    $rowIndex = $grid.Rows.Add($createdAtText, $candidate.outputPath)
+    $grid.Rows[$rowIndex].Tag = $candidate
+  }
+  $dialog.Controls.Add($grid)
+
+  $verifyButton = New-Object System.Windows.Forms.Button
+  $verifyButton.Text = '唯讀驗證選取項目'
+  $verifyButton.Location = New-Object System.Drawing.Point(616, 372)
+  $verifyButton.Size = New-Object System.Drawing.Size(168, 34)
+  $verifyButton.Anchor = 'Bottom,Right'
+  $verifyButton.Enabled = $false
+  $verifyButton.AccessibleName = '唯讀驗證選取的附件包輸出'
+  $verifyButton.AccessibleDescription = '只有明確選取一列後才能執行；不會重建、修改或核可附件包。'
+  $dialog.Controls.Add($verifyButton)
+
+  $cancelButton = New-Object System.Windows.Forms.Button
+  $cancelButton.Text = '取消'
+  $cancelButton.Location = New-Object System.Drawing.Point(792, 372)
+  $cancelButton.Size = New-Object System.Drawing.Size(92, 34)
+  $cancelButton.Anchor = 'Bottom,Right'
+  $cancelButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+  $dialog.Controls.Add($cancelButton)
+  $dialog.CancelButton = $cancelButton
+
+  $grid.Add_SelectionChanged({
+    $verifyButton.Enabled = $grid.SelectedRows.Count -eq 1
+  })
+  $verifyButton.Add_Click({
+    if ($grid.SelectedRows.Count -ne 1) { return }
+    $dialog.Tag = $grid.SelectedRows[0].Tag
+    $dialog.DialogResult = [System.Windows.Forms.DialogResult]::OK
+    $dialog.Close()
+  })
+  $dialog.Add_Shown({
+    $grid.ClearSelection()
+    $grid.CurrentCell = $null
+    $verifyButton.Enabled = $false
+    if ($SmokeSelectIndex -eq -2) {
+      $cancelButton.PerformClick()
+    } elseif ($SmokeSelectIndex -ge 0 -and $SmokeSelectIndex -lt $grid.Rows.Count) {
+      $grid.Rows[$SmokeSelectIndex].Selected = $true
+      $grid.CurrentCell = $grid.Rows[$SmokeSelectIndex].Cells[0]
+      $verifyButton.PerformClick()
+    }
+  })
+
+  try {
+    $result = $dialog.ShowDialog($script:MainForm)
+    if ($result -eq [System.Windows.Forms.DialogResult]::OK) { return $dialog.Tag }
+    return $null
+  } finally {
+    $dialog.Dispose()
+  }
 }
 
 function Remove-ReadOnlyResultFile {
@@ -1411,8 +1519,15 @@ $script:BtnVerify.Add_Click({
 })
 
 $script:BtnBuildHandoffVerify.Add_Click({
-  $recoveryOutput = $script:BuildHandoffRecoveryOutput
-  $recoveryReceiptPath = $script:HandoffRecoveryReceiptPath
+  $recoveryCandidate = $null
+  if ($script:BuildRecoveryCandidates.Count -gt 1) {
+    $pickerArgs = @{ Candidates = @($script:BuildRecoveryCandidates) }
+    if ($SmokeBuildRecoveryReceipt) { $pickerArgs.SmokeSelectIndex = 1 }
+    $recoveryCandidate = Select-BuildRecoveryReceipt @pickerArgs
+    if (-not $recoveryCandidate) { return }
+  }
+  $recoveryOutput = if ($recoveryCandidate) { [string]$recoveryCandidate.outputPath } else { $script:BuildHandoffRecoveryOutput }
+  $recoveryReceiptPath = if ($recoveryCandidate) { [string]$recoveryCandidate.path } else { $script:HandoffRecoveryReceiptPath }
   if (-not $recoveryOutput -or -not (Test-Path -LiteralPath $recoveryOutput -PathType Container)) {
     Clear-BuildHandoffRecovery
     Show-OperationError ([System.InvalidOperationException]::new('待確認的預定輸出已不存在；請重新選擇候選附件包後執行唯讀驗證。'))
@@ -1424,6 +1539,9 @@ $script:BtnBuildHandoffVerify.Add_Click({
   $script:ActiveRecoveryReceiptPath = $recoveryReceiptPath
   try {
     Start-ReadOnlyOperation -Action verify -InputPath $recoveryOutput
+    if ($SmokeBuildRecoveryReceipt -and $script:BuildRecoverySmokeState) {
+      $script:BuildRecoverySmokeState.verifyStarted = [bool]($script:ReadOnlyProcess -and $script:ReadOnlyAction -eq 'verify' -and $script:ReadOnlyInput -eq $recoveryOutput -and $script:ActiveRecoveryReceiptPath -eq $recoveryReceiptPath)
+    }
   } catch {
     $script:ActiveRecoveryReceiptPath = ''
     if ($recoveryReceiptPath) {
@@ -1738,8 +1856,10 @@ if ($SmokeBuildRecoveryReceipt) {
   $script:BuildRecoverySmokeFixtureRoot = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "attachment-manager-recovery-smoke-$PID-$([guid]::NewGuid().ToString('N'))")
   $sourceFolder = Join-Path $script:BuildRecoverySmokeFixtureRoot 'source'
   $outputFolder = Join-Path $script:BuildRecoverySmokeFixtureRoot 'exact-published-output'
+  $secondOutputFolder = Join-Path $script:BuildRecoverySmokeFixtureRoot 'second-published-output'
   [void](New-Item -ItemType Directory -Path $sourceFolder -Force)
   [void](New-Item -ItemType Directory -Path $outputFolder -Force)
+  [void](New-Item -ItemType Directory -Path $secondOutputFolder -Force)
   $receiptRecord = New-BuildRecoveryReceipt -SourcePath $sourceFolder -OutputPath $outputFolder -ResultFile (New-ReadOnlyResultPath) -ProgressFile (New-BuildProgressPath)
   $receiptRecord.data.managerPid = 0
   $receiptRecord.data.managerStartedAtUtc = ''
@@ -1747,6 +1867,13 @@ if ($SmokeBuildRecoveryReceipt) {
   $receiptRecord.data.workerStartedAtUtc = ''
   $receiptRecord.data.state = 'pending-verification'
   Write-BuildRecoveryReceipt -ReceiptPath $receiptRecord.path -Receipt $receiptRecord.data
+  $secondReceiptRecord = New-BuildRecoveryReceipt -SourcePath $sourceFolder -OutputPath $secondOutputFolder -ResultFile (New-ReadOnlyResultPath) -ProgressFile (New-BuildProgressPath)
+  $secondReceiptRecord.data.managerPid = 0
+  $secondReceiptRecord.data.managerStartedAtUtc = ''
+  $secondReceiptRecord.data.workerPid = 0
+  $secondReceiptRecord.data.workerStartedAtUtc = ''
+  $secondReceiptRecord.data.state = 'pending-verification'
+  Write-BuildRecoveryReceipt -ReceiptPath $secondReceiptRecord.path -Receipt $secondReceiptRecord.data
   $invalidReceipt = New-BuildRecoveryReceipt -SourcePath $sourceFolder -OutputPath $outputFolder -ResultFile (New-ReadOnlyResultPath) -ProgressFile (New-BuildProgressPath)
   $invalidReceipt.data.schemaVersion = 99
   $invalidReceipt.data.managerPid = 0
@@ -1761,13 +1888,16 @@ if ($SmokeBuildRecoveryReceipt) {
   $activeReceipt = New-BuildRecoveryReceipt -SourcePath $sourceFolder -OutputPath $outputFolder -ResultFile (New-ReadOnlyResultPath) -ProgressFile (New-BuildProgressPath)
   $script:BuildRecoverySmokeState = [pscustomobject]@{
     receiptPath = $receiptRecord.path
+    selectedReceiptPath = $secondReceiptRecord.path
+    unselectedReceiptPath = $receiptRecord.path
     invalidReceiptPath = $invalidReceipt.path
     expiredReceiptPath = $expiredReceipt.path
     activeReceiptPath = $activeReceipt.path
-    receiptPaths = @($receiptRecord.path, $invalidReceipt.path, $expiredReceipt.path, $activeReceipt.path)
-    outputPath = $outputFolder
+    receiptPaths = @($receiptRecord.path, $secondReceiptRecord.path, $invalidReceipt.path, $expiredReceipt.path, $activeReceipt.path)
+    outputPath = $secondOutputFolder
     restored = $false
     exactPathOffered = $false
+    cancellationPreserved = $false
     verifyStarted = $false
   }
   $script:BuildRecoverySmokeTimer = New-Object System.Windows.Forms.Timer
@@ -1775,17 +1905,20 @@ if ($SmokeBuildRecoveryReceipt) {
   $script:BuildRecoverySmokeTimer.Add_Tick({
     if ($script:ReadOnlyProcess) { return }
     $state = $script:BuildRecoverySmokeState
-    $receiptRemoved = $state -and -not (Test-Path -LiteralPath $state.receiptPath)
+    $receiptRemoved = $state -and -not (Test-Path -LiteralPath $state.selectedReceiptPath)
+    $unselectedReceiptPreserved = $state -and (Test-Path -LiteralPath $state.unselectedReceiptPath)
     $invalidReceiptRejected = $state -and -not (Test-Path -LiteralPath $state.invalidReceiptPath)
     $expiredReceiptRemoved = $state -and -not (Test-Path -LiteralPath $state.expiredReceiptPath)
     $activeReceiptIgnored = $state -and (Test-Path -LiteralPath $state.activeReceiptPath)
     $script:BuildRecoverySmokeResult = [pscustomobject]@{
-      status = if ($state.restored -and $state.exactPathOffered -and $state.verifyStarted -and $receiptRemoved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
+      status = if ($state.restored -and $state.exactPathOffered -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
       winFormsMessageLoop = $true
       restartReceiptRestored = [bool]$state.restored
       exactPathOffered = [bool]$state.exactPathOffered
+      pickerCancellationPreservedAll = [bool]$state.cancellationPreserved
       readOnlyVerifyStarted = [bool]$state.verifyStarted
       receiptRemovedAfterTrustedResult = [bool]$receiptRemoved
+      unselectedReceiptPreserved = [bool]$unselectedReceiptPreserved
       invalidReceiptRejected = [bool]$invalidReceiptRejected
       expiredReceiptRemoved = [bool]$expiredReceiptRemoved
       activeReceiptIgnored = [bool]$activeReceiptIgnored
@@ -1872,10 +2005,12 @@ $script:MainForm.Add_Shown({
   if ($SmokeBuildRecoveryReceipt) {
     $state = $script:BuildRecoverySmokeState
     $state.restored = [bool](Restore-BuildRecoveryReceipt -ReceiptPaths $state.receiptPaths)
-    $state.exactPathOffered = [bool]($script:BtnBuildHandoffVerify.Visible -and $script:BtnBuildHandoffVerify.Enabled -and $script:BuildHandoffRecoveryOutput -eq $state.outputPath -and $script:HandoffRecoveryReceiptPath -eq $state.receiptPath)
+    $state.exactPathOffered = [bool]($script:BtnBuildHandoffVerify.Visible -and $script:BtnBuildHandoffVerify.Enabled -and $script:BuildRecoveryCandidates.Count -eq 2 -and -not $script:BuildHandoffRecoveryOutput -and -not $script:HandoffRecoveryReceiptPath)
     if ($state.exactPathOffered) {
+      $cancelledCandidate = Select-BuildRecoveryReceipt -Candidates @($script:BuildRecoveryCandidates) -SmokeSelectIndex -2
+      $state.cancellationPreserved = [bool](-not $cancelledCandidate -and (Test-Path -LiteralPath $state.selectedReceiptPath) -and (Test-Path -LiteralPath $state.unselectedReceiptPath) -and $script:BuildRecoveryCandidates.Count -eq 2)
       $script:BtnBuildHandoffVerify.PerformClick()
-      $state.verifyStarted = [bool]($script:ReadOnlyProcess -and $script:ReadOnlyAction -eq 'verify' -and $script:ReadOnlyInput -eq $state.outputPath -and $script:ActiveRecoveryReceiptPath -eq $state.receiptPath)
+      $state.verifyStarted = [bool]($state.verifyStarted -or ($script:ReadOnlyProcess -and $script:ReadOnlyAction -eq 'verify' -and $script:ReadOnlyInput -eq $state.outputPath -and $script:ActiveRecoveryReceiptPath -eq $state.selectedReceiptPath))
     }
     $script:BuildRecoverySmokeTimer.Start()
     return
