@@ -316,6 +316,8 @@ try {
 assert.deepEqual(Worker.parseRequestBase64(requestBase64), { action: 'smoke' });
 assert.throws(() => Worker.parseRequestBase64(Buffer.from('{"action":"smoke","write":true}').toString('base64')), /未知欄位/);
 assert.throws(() => Worker.resolveResultFile(path.join(repoRoot, `${Worker.RESULT_FILE_PREFIX}bad.json`)), /系統暫存區/);
+assert.equal(Worker.notifyProgress(() => {}, 'preparing-source'), true, 'a successful progress observation is acknowledged');
+assert.equal(Worker.notifyProgress(() => { throw new Error('simulated progress IPC failure'); }, 'preparing-source'), false, 'progress IPC failure never aborts the core action');
 assert.equal(Worker.parseArgs(['--smoke-delay-ms', '250']).smokeDelayMs, 250);
 assert.throws(() => Worker.parseArgs(['--smoke-delay-ms', '5001']), /0 至 5000/);
 

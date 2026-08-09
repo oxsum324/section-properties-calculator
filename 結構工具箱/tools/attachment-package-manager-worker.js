@@ -436,7 +436,7 @@ function runAction(action, options = {}, dependencies = {}) {
   }
 
   const onProgress = typeof dependencies.onProgress === 'function' ? dependencies.onProgress : () => {};
-  if (action === 'build') onProgress('preparing-source');
+  if (action === 'build') notifyProgress(onProgress, 'preparing-source');
   const resolved = resolveInput(action, options);
   try {
     sleepMilliseconds(options.smokeDelayMs);
@@ -462,6 +462,15 @@ function runAction(action, options = {}, dependencies = {}) {
     return response;
   } finally {
     cleanupResolvedInput(resolved);
+  }
+}
+
+function notifyProgress(onProgress, phase) {
+  try {
+    onProgress(phase);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -545,6 +554,7 @@ module.exports = {
   emitResponse,
   resolveProgressFile,
   emitProgress,
+  notifyProgress,
   firstFingerprint,
   documentState,
   checkRecords,

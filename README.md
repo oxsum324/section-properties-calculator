@@ -388,6 +388,10 @@ node 結構工具箱/tools/independent-engineering-benchmarks.js --write
 - [preflight-history.md](/C:/Users/USER/Desktop/AI/小工具製作/output/preflight/preflight-history.md:1)
 - [tool-maturity-matrix.md](/C:/Users/USER/Desktop/AI/小工具製作/output/audit/tool-maturity-matrix.md:1)
 
+## 正式附件包進度觀測邊界
+
+正式建立的階段事件只供旁路觀測。執行中若受管 JSONL 事件檔暫時無法寫入，畫面可停留在最後一個已驗證階段，但不得改變檢查、組包、發布或事後驗證的核心結果，尤其不得把已原子發布成功的附件包誤報成建立失敗。組包單元測試以每一階段都拋錯的故障注入，證明觀測通道失效仍可取得真實成功結果與已發布附件包。
+
 ## 巡檢閱讀方式
 
 - 若要直接看全平台巡檢狀態與各模組摘要預覽，優先開啟

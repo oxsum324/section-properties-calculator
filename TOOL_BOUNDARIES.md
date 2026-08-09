@@ -194,6 +194,10 @@ RC 梁、柱、板、牆、剪力牆、基礎與單樁的專案 JSON 維持來�
 - 反查或抽取資料：`_extracted/`、dump 文字檔、OLE/EMF/WMF 圖檔
 - 名稱剛好命中忽略規則的工具目錄，例如 `結構工具箱/tools/基礎/`；靜態工具應使用不被忽略的英文資料夾，如 `tools/foundation/`。
 
+## 正式附件包進度觀測邊界
+
+`attachment-package-build.js` 與 `attachment-package-manager-worker.js` 的建立階段 JSONL 只供本機 UI 旁路觀測。執行中寫入失敗不得中止或改寫 check / build / verify 結果；UI 可停留於最後已驗證階段，但不得把已原子發布成功的附件包誤報為失敗。輸入的事件檔路徑仍須在啟動核心動作前完成受管暫存區驗證，非法路徑維持失敗封閉。
+
 ## 提交前檢查順序
 
 1. `.\run-preflight-tools-quick.bat`

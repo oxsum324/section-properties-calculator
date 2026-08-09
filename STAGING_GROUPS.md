@@ -346,6 +346,10 @@ git add -- "結構工具箱/tools/anchor-html-seal-verifier.js" "結構工具箱
 Replace anchor dialogs with in-app confirmations
 ```
 
+## 正式附件包進度觀測
+
+調整 `attachment-package-build.js` 或 `attachment-package-manager-worker.js` 的建立階段事件時，需連同組包單元測試、管理器契約與三份治理文件 staging。階段事件只屬旁路觀測，任何執行中 IPC 寫入錯誤都不得中止或改寫核心結果；畫面可保留最後已驗證階段，但已成功發布的附件包不得因後續進度通知失敗而誤報失敗。測試必須至少涵蓋發布完成後的 `complete` 通知失敗。
+
 ## 下次提交前共同驗證
 
 ```powershell

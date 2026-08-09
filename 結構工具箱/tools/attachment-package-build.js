@@ -270,6 +270,15 @@ function publishStagingDirectory(stagingDir, outputDir, options = {}) {
   throw lastError;
 }
 
+function notifyProgress(onProgress, phase) {
+  try {
+    onProgress(phase);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function buildPackage(inputDir, options = {}) {
   const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => {};
   const UpgradeWorkspaceCheck = require('./attachment-package-upgrade-workspace-check.js');
@@ -281,7 +290,7 @@ function buildPackage(inputDir, options = {}) {
     )
     : defaultOutputDir(inputDir, options.now || new Date()));
   const { resolvedInput, resolvedOutput } = validateBuildPaths(inputDir, targetOutput);
-  onProgress('source-recheck');
+  notifyProgress(onProgress, 'source-recheck');
   if (upgradeWorkspaceRoot && isPathInside(upgradeWorkspaceRoot, resolvedOutput)) {
     throw new Error('由升級工作區建立的新 v3 正式附件包必須輸出在工作區外，不得混入內部待辦或新組包來源。');
   }
@@ -327,7 +336,7 @@ function buildPackage(inputDir, options = {}) {
     return { kind: 'formal-attachment-package-build.v1', status: report.status, built: false, outputDir: '', upgradeWorkspaceCheck, report };
   }
 
-  onProgress('staging');
+  notifyProgress(onProgress, 'staging');
   fs.mkdirSync(path.dirname(resolvedOutput), { recursive: true });
   const stagingDir = path.join(path.dirname(resolvedOutput), `.${path.basename(resolvedOutput)}.tmp-${process.pid}-${Date.now()}`);
   if (fs.existsSync(stagingDir)) throw new Error(`組包暫存位置已存在：${stagingDir}`);
@@ -365,14 +374,14 @@ function buildPackage(inputDir, options = {}) {
       'utf8',
     );
     const Verifier = require('./attachment-package-verify.js');
-    onProgress('self-verification');
+    notifyProgress(onProgress, 'self-verification');
     const verification = Verifier.verifyPackage(stagingDir);
     if (verification.status !== 'ready') {
       throw new Error(`正式附件包發布前完整性與工程內容驗證未通過：${summarizeVerificationFailure(verification)}`);
     }
-    onProgress('publishing');
+    notifyProgress(onProgress, 'publishing');
     publishStagingDirectory(stagingDir, resolvedOutput);
-    onProgress('complete');
+    notifyProgress(onProgress, 'complete');
     return {
       kind: 'formal-attachment-package-build.v1',
       status: 'ready',
@@ -469,6 +478,7 @@ module.exports = {
   portableVerificationResult,
   waitMilliseconds,
   publishStagingDirectory,
+  notifyProgress,
   buildPackage,
   parseArgs,
   usage,

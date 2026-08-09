@@ -135,11 +135,15 @@ try {
     output: readyOutput,
     projectNo: 'PKG-001',
     now: FIXED_NOW,
-    onProgress: phase => buildPhases.push(phase),
+    onProgress: phase => {
+      buildPhases.push(phase);
+      throw new Error('simulated progress IPC failure');
+    },
   });
   assert.deepEqual(buildPhases, ['source-recheck', 'staging', 'self-verification', 'publishing', 'complete']);
   assert.equal(result.status, 'ready');
   assert.equal(result.built, true);
+  assert.equal(fs.existsSync(readyOutput), true, 'progress observation failures never change a successfully published package result');
   assert.equal(result.formalAttachmentCount, 1);
   assert.equal(result.traceabilitySourceCount, 1);
   assert.match(result.packageFingerprint, /^PKG-[0-9A-F]{24}$/);
