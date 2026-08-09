@@ -3,6 +3,7 @@ param(
   [switch]$Smoke,
   [switch]$SmokeReadOnlyCancellation,
   [switch]$SmokeReadOnlyCompletion,
+  [switch]$SmokeKeyboard,
   [ValidateRange(0, 5000)][int]$WorkerSmokeDelayMilliseconds = 0,
   [string]$InitialPath = '',
   [ValidateSet('source', 'verify')][string]$InitialMode = 'source',
@@ -35,8 +36,12 @@ $script:CompletionSmokeTimer = $null
 $script:CompletionSmokeResult = $null
 $script:CompletionSmokeWorkerPid = 0
 $script:CompletionSmokeResultFile = ''
+$script:KeyboardSmokeTimer = $null
+$script:KeyboardSmokeResult = $null
+$script:KeyboardSmokeState = $null
+$script:ActiveMode = $InitialMode
 
-$dynamicSmokeCount = @(@($SmokeReadOnlyCancellation, $SmokeReadOnlyCompletion) | Where-Object { $_ }).Count
+$dynamicSmokeCount = @(@($SmokeReadOnlyCancellation, $SmokeReadOnlyCompletion, $SmokeKeyboard) | Where-Object { $_ }).Count
 if ($Smoke -and $dynamicSmokeCount) { throw '一般 smoke 與背景動態 smoke 不得同時執行。' }
 if ($dynamicSmokeCount -gt 1) { throw '一次只能執行一種背景動態 smoke。' }
 
@@ -330,7 +335,7 @@ function Start-ReadOnlyOperation {
   $startInfo = New-Object System.Diagnostics.ProcessStartInfo
   $startInfo.FileName = Get-NodePath
   $startInfo.Arguments = "`"$script:WorkerPath`" --request-base64 $requestBase64 --result-file `"$resultFile`""
-  if ($SmokeReadOnlyCancellation -and $WorkerSmokeDelayMilliseconds -gt 0) {
+  if (($SmokeReadOnlyCancellation -or $SmokeKeyboard) -and $WorkerSmokeDelayMilliseconds -gt 0) {
     $startInfo.Arguments += " --smoke-delay-ms $WorkerSmokeDelayMilliseconds"
   }
   $startInfo.WorkingDirectory = $script:ToolDirectory
@@ -425,6 +430,43 @@ function Cancel-ReadOnlyOperation {
   $script:BottomStatus.Text = '狀態：已安全停止唯讀工作'
 }
 
+function Set-ManagerKeyHandled {
+  param([System.Windows.Forms.KeyEventArgs]$EventArgs)
+  $EventArgs.Handled = $true
+  $EventArgs.SuppressKeyPress = $true
+}
+
+function Invoke-ManagerKeyDown {
+  param([System.Windows.Forms.KeyEventArgs]$EventArgs)
+  if ($EventArgs.Control -and $EventArgs.KeyCode -eq [System.Windows.Forms.Keys]::L) {
+    $target = if ($script:ActiveMode -eq 'verify') { $script:PackagePath } else { $script:SourcePath }
+    [void]$target.Focus()
+    $target.SelectAll()
+    Set-ManagerKeyHandled -EventArgs $EventArgs
+    return
+  }
+  if ($EventArgs.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
+    if ($script:ReadOnlyProcess) { Cancel-ReadOnlyOperation }
+    Set-ManagerKeyHandled -EventArgs $EventArgs
+    return
+  }
+  if ($EventArgs.KeyCode -ne [System.Windows.Forms.Keys]::Enter) { return }
+  Set-ManagerKeyHandled -EventArgs $EventArgs
+  if ($script:ReadOnlyProcess) { return }
+  $active = $script:MainForm.ActiveControl
+  if ($active -eq $script:PackagePath -or $active -eq $script:BtnVerify) {
+    $script:ActiveMode = 'verify'
+    $script:BtnVerify.PerformClick()
+    return
+  }
+  if ($active -eq $script:SourcePath -or $active -eq $script:ProjectNo -or $active -eq $script:OutputPath -or $active -eq $script:BtnCheck) {
+    $script:ActiveMode = 'source'
+    $script:BtnCheck.PerformClick()
+    return
+  }
+  $script:BottomStatus.Text = 'Enter 只執行目前欄位的唯讀檢查；正式建立請明確點按「2. 建立正式附件包」。'
+}
+
 $script:MainForm = New-Object System.Windows.Forms.Form
 $script:MainForm.Text = '正式附件包管理器'
 $script:MainForm.StartPosition = 'CenterScreen'
@@ -432,6 +474,7 @@ $script:MainForm.Size = New-Object System.Drawing.Size(1060, 850)
 $script:MainForm.MinimumSize = New-Object System.Drawing.Size(980, 760)
 $script:MainForm.BackColor = [System.Drawing.Color]::FromArgb(244, 247, 250)
 $script:MainForm.Font = New-Object System.Drawing.Font('Microsoft JhengHei UI', 10)
+$script:MainForm.KeyPreview = $true
 
 $header = New-Object System.Windows.Forms.Label
 $header.Text = '正式附件包管理器'
@@ -441,7 +484,7 @@ $header.AutoSize = $true
 $script:MainForm.Controls.Add($header)
 
 $subheader = New-Object System.Windows.Forms.Label
-$subheader.Text = '統一執行附件來源檢查、正式組包與事後驗證；管理畫面與檢查結果僅供內部整理，不會附入主報告。'
+$subheader.Text = '管理畫面與檢查結果僅供內部整理，不進主報告。鍵盤：Ctrl+L 路徑、Enter 唯讀檢查、Esc 停止。'
 $subheader.Location = New-Object System.Drawing.Point(25, 62)
 $subheader.Size = New-Object System.Drawing.Size(980, 30)
 $subheader.TextAlign = 'MiddleLeft'
@@ -604,6 +647,53 @@ $script:BottomStatus.Text = '狀態：待命'
 [void]$statusStrip.Items.Add($script:BottomStatus)
 $script:MainForm.Controls.Add($statusStrip)
 
+$sourceGroup.TabIndex = 0
+$verifyGroup.TabIndex = 1
+$script:StatusPanel.TabIndex = 2
+$script:StatusPanel.TabStop = $false
+$script:ResultGrid.TabIndex = 3
+$script:DetailsBox.TabIndex = 4
+$script:SourcePath.TabIndex = 0
+$script:SourcePath.AccessibleName = '附件來源路徑'
+$script:SourcePath.AccessibleDescription = '輸入或選擇附件來源資料夾或 PDF 加證據來源 ZIP；Ctrl+L 可聚焦。'
+$script:BtnBrowseSource.TabIndex = 1
+$script:BtnBrowseSource.AccessibleName = '選擇附件來源資料夾'
+$script:BtnBrowseSourceZip.TabIndex = 2
+$script:BtnBrowseSourceZip.AccessibleName = '選擇 PDF 加證據來源 ZIP'
+$script:ProjectNo.TabIndex = 3
+$script:ProjectNo.AccessibleName = '計畫編號，選填'
+$script:ProjectNo.AccessibleDescription = '可留空；只有來源存在唯一一致值且欄位空白時才會建議帶入。'
+$script:OutputPath.TabIndex = 4
+$script:OutputPath.AccessibleName = '正式附件包輸出位置，選填'
+$script:OutputPath.AccessibleDescription = '可留空使用安全預設；檢查不會建立這個資料夾。'
+$script:BtnBrowseOutput.TabIndex = 5
+$script:BtnBrowseOutput.AccessibleName = '選擇正式附件包輸出上層資料夾'
+$script:BtnCheck.TabIndex = 6
+$script:BtnCheck.AccessibleName = '檢查附件來源'
+$script:BtnCheck.AccessibleDescription = '唯讀背景檢查；進行中可再次按下或按 Esc 安全停止。'
+$script:BtnBuild.TabIndex = 7
+$script:BtnBuild.AccessibleName = '建立正式附件包'
+$script:BtnBuild.AccessibleDescription = '唯一寫入動作；通過檢查後仍須明確點按，不由 Enter 快捷鍵觸發。'
+$script:BtnOpenOutput.TabIndex = 8
+$script:BtnOpenOutput.AccessibleName = '開啟最近建立的正式附件包資料夾'
+$script:PackagePath.TabIndex = 0
+$script:PackagePath.AccessibleName = '既有正式附件包路徑'
+$script:PackagePath.AccessibleDescription = '輸入或選擇要唯讀驗證的正式附件包資料夾；Ctrl+L 可聚焦。'
+$script:BtnBrowsePackage.TabIndex = 1
+$script:BtnBrowsePackage.AccessibleName = '選擇既有正式附件包資料夾'
+$script:BtnVerify.TabIndex = 2
+$script:BtnVerify.AccessibleName = '驗證既有正式附件包'
+$script:BtnVerify.AccessibleDescription = '唯讀背景驗證；進行中可再次按下或按 Esc 安全停止。'
+$script:ResultGrid.AccessibleName = '附件檢查結果清單'
+$script:DetailsBox.AccessibleName = '附件檢查問題與處置說明'
+
+foreach ($control in @($script:SourcePath, $script:ProjectNo, $script:OutputPath, $script:BtnCheck)) {
+  $control.Add_Enter({ $script:ActiveMode = 'source' })
+}
+foreach ($control in @($script:PackagePath, $script:BtnVerify)) {
+  $control.Add_Enter({ $script:ActiveMode = 'verify' })
+}
+
 $invalidateBuild = {
   $script:BtnBuild.Enabled = $false
   $script:LastReadyInput = ''
@@ -732,6 +822,10 @@ $script:ReadOnlyTimer.Add_Tick({
 $script:MainForm.Add_FormClosing({
   Stop-ReadOnlyOperation
 })
+$script:MainForm.Add_KeyDown({
+  param($sender, $eventArgs)
+  Invoke-ManagerKeyDown -EventArgs $eventArgs
+})
 
 if ($SmokeReadOnlyCancellation) {
   $script:MainForm.Opacity = 0
@@ -805,6 +899,48 @@ if ($SmokeReadOnlyCompletion) {
   })
 }
 
+if ($SmokeKeyboard) {
+  $script:MainForm.Opacity = 0
+  $script:MainForm.ShowInTaskbar = $false
+  $script:KeyboardSmokeTimer = New-Object System.Windows.Forms.Timer
+  $script:KeyboardSmokeTimer.Interval = 300
+  $script:KeyboardSmokeTimer.Add_Tick({
+    $script:KeyboardSmokeTimer.Stop()
+    try {
+      $state = $script:KeyboardSmokeState
+      $runningActionVisible = $state.workerPid -gt 0 -and $script:BtnCheck.Text -eq '停止檢查'
+      $escapeEvent = New-Object System.Windows.Forms.KeyEventArgs([System.Windows.Forms.Keys]::Escape)
+      Invoke-ManagerKeyDown -EventArgs $escapeEvent
+      [System.Windows.Forms.Application]::DoEvents()
+      $workerExited = $state.workerPid -gt 0 -and -not (Get-Process -Id $state.workerPid -ErrorAction SilentlyContinue)
+      $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\')
+      $sourceTemps = @(Get-ChildItem -LiteralPath $tempRoot -Directory -Filter "formal-source-$($state.workerPid)-*" -Force -ErrorAction SilentlyContinue)
+      $script:BtnBuild.Enabled = $true
+      [void]$script:BtnBuild.Focus()
+      $buildEnter = New-Object System.Windows.Forms.KeyEventArgs([System.Windows.Forms.Keys]::Enter)
+      Invoke-ManagerKeyDown -EventArgs $buildEnter
+      $accessibleNamesPresent = [bool]($script:SourcePath.AccessibleName -and $script:BtnCheck.AccessibleName -and $script:BtnBuild.AccessibleDescription -like '唯一寫入動作*')
+      $script:KeyboardSmokeResult = [pscustomobject]@{
+        status = if ($state.ctrlLFocusedSource -and $state.ctrlLHandled -and $state.enterHandled -and $runningActionVisible -and $escapeEvent.Handled -and $escapeEvent.SuppressKeyPress -and $workerExited -and -not $script:ReadOnlyProcess -and -not (Test-Path -LiteralPath $state.resultFile) -and $sourceTemps.Count -eq 0 -and $buildEnter.Handled -and $buildEnter.SuppressKeyPress -and $script:BottomStatus.Text -like 'Enter 只執行*' -and $accessibleNamesPresent) { 'pass' } else { 'fail' }
+        winFormsMessageLoop = $true
+        ctrlLFocusedSource = [bool]$state.ctrlLFocusedSource
+        ctrlLHandled = [bool]$state.ctrlLHandled
+        enterStartedReadOnly = [bool]($state.enterHandled -and $runningActionVisible)
+        escapeStoppedWorker = [bool]($escapeEvent.Handled -and $workerExited)
+        resultFileRemoved = [bool](-not (Test-Path -LiteralPath $state.resultFile))
+        sourceTempRootsRemoved = [bool]($sourceTemps.Count -eq 0)
+        buildEnterSuppressed = [bool]($buildEnter.Handled -and $buildEnter.SuppressKeyPress -and $script:BottomStatus.Text -like 'Enter 只執行*')
+        accessibleNamesPresent = $accessibleNamesPresent
+        built = $false
+      }
+    } catch {
+      $script:KeyboardSmokeResult = [pscustomobject]@{ status = 'fail'; message = $_.Exception.Message; built = $false }
+    } finally {
+      $script:MainForm.Close()
+    }
+  })
+}
+
 $script:MainForm.Add_Shown({
   if ($SmokeReadOnlyCancellation) {
     $script:BtnCheck.PerformClick()
@@ -818,6 +954,24 @@ $script:MainForm.Add_Shown({
       $script:CompletionSmokeWorkerPid = $script:ReadOnlyProcess.Id
       $script:CompletionSmokeResultFile = $script:ReadOnlyResultFile
       $script:CompletionSmokeTimer.Start()
+    } else { $script:MainForm.Close() }
+    return
+  }
+  if ($SmokeKeyboard) {
+    $ctrlL = New-Object System.Windows.Forms.KeyEventArgs(([System.Windows.Forms.Keys]::Control -bor [System.Windows.Forms.Keys]::L))
+    Invoke-ManagerKeyDown -EventArgs $ctrlL
+    $focusedSource = $script:MainForm.ActiveControl -eq $script:SourcePath
+    $enter = New-Object System.Windows.Forms.KeyEventArgs([System.Windows.Forms.Keys]::Enter)
+    Invoke-ManagerKeyDown -EventArgs $enter
+    if ($script:ReadOnlyProcess) {
+      $script:KeyboardSmokeState = [pscustomobject]@{
+        ctrlLFocusedSource = $focusedSource
+        ctrlLHandled = [bool]($ctrlL.Handled -and $ctrlL.SuppressKeyPress)
+        enterHandled = [bool]($enter.Handled -and $enter.SuppressKeyPress)
+        workerPid = $script:ReadOnlyProcess.Id
+        resultFile = $script:ReadOnlyResultFile
+      }
+      $script:KeyboardSmokeTimer.Start()
     } else { $script:MainForm.Close() }
     return
   }
@@ -843,5 +997,14 @@ if ($SmokeReadOnlyCompletion) {
   }
   $script:CompletionSmokeResult | ConvertTo-Json -Depth 4 -Compress
   if ($script:CompletionSmokeResult.status -ne 'pass') { exit 3 }
+  exit 0
+}
+
+if ($SmokeKeyboard) {
+  if (-not $script:KeyboardSmokeResult) {
+    $script:KeyboardSmokeResult = [pscustomobject]@{ status = 'fail'; message = '鍵盤 smoke 未產生結果。'; built = $false }
+  }
+  $script:KeyboardSmokeResult | ConvertTo-Json -Depth 4 -Compress
+  if ($script:KeyboardSmokeResult.status -ne 'pass') { exit 3 }
   exit 0
 }

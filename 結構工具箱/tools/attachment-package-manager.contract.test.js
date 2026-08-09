@@ -202,6 +202,24 @@ try {
   assert.equal(completionPayload.operationCleared, true);
   assert.equal(completionPayload.buildStayedDisabled, true);
   assert.equal(completionPayload.built, false);
+
+  const keyboard = childProcess.spawnSync('powershell.exe', [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', path.join(toolsDir, 'attachment-package-manager.ps1'),
+    '-SmokeKeyboard', '-WorkerSmokeDelayMilliseconds', '2000', '-InitialPath', bundlePath,
+  ], { encoding: 'utf8', timeout: 15000 });
+  assert.equal(keyboard.status, 0, keyboard.stderr || keyboard.stdout);
+  const keyboardPayload = JSON.parse(keyboard.stdout.trim().split(/\r?\n/).at(-1));
+  assert.equal(keyboardPayload.status, 'pass');
+  assert.equal(keyboardPayload.winFormsMessageLoop, true);
+  assert.equal(keyboardPayload.ctrlLFocusedSource, true);
+  assert.equal(keyboardPayload.ctrlLHandled, true);
+  assert.equal(keyboardPayload.enterStartedReadOnly, true);
+  assert.equal(keyboardPayload.escapeStoppedWorker, true);
+  assert.equal(keyboardPayload.resultFileRemoved, true);
+  assert.equal(keyboardPayload.sourceTempRootsRemoved, true);
+  assert.equal(keyboardPayload.buildEnterSuppressed, true);
+  assert.equal(keyboardPayload.accessibleNamesPresent, true);
+  assert.equal(keyboardPayload.built, false);
 } finally {
   fs.rmSync(zipFixtureRoot, { recursive: true, force: true });
 }
@@ -244,6 +262,8 @@ const managerPs = read('結構工具箱/tools/attachment-package-manager.ps1');
   'System.Diagnostics.ProcessStartInfo', 'System.Windows.Forms.Timer', 'Start-ReadOnlyOperation',
   'Complete-ReadOnlyOperation', 'Stop-ReadOnlyOperation', 'Cancel-ReadOnlyOperation',
   '停止檢查', '停止驗證', '畫面仍可操作', '超過 5 分鐘', 'Add_FormClosing',
+  'KeyPreview', 'Invoke-ManagerKeyDown', 'Ctrl+L 路徑', 'Enter 唯讀檢查', 'Esc 停止',
+  'AccessibleName', 'AccessibleDescription', 'TabIndex', 'SmokeKeyboard',
 ].forEach(needle => assert.ok(managerPs.includes(needle), `PowerShell manager includes ${needle}`));
 assert.ok(managerPs.charCodeAt(0) === 0xFEFF, 'PowerShell manager keeps UTF-8 BOM for Windows PowerShell 5.1');
 assert.doesNotMatch(managerPs, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'manager stays local and does not send case data over network');
@@ -290,6 +310,13 @@ assert.match(managerPs, /taskkill\.exe \/PID \$workerPid \/T \/F[\s\S]*?WaitForE
 assert.match(managerPs, /Remove-WorkerSourceTempRoots[\s\S]*?formal-source-\$WorkerPid-[\s\S]*?Remove-Item -LiteralPath \$resolved -Recurse -Force/, 'parent cleanup is limited to the cancelled worker pid inside the system temp root');
 assert.match(managerPs, /ReadOnlyTimer\.Add_Tick\([\s\S]*?TotalSeconds -ge 300[\s\S]*?Stop-ReadOnlyOperation/, 'read-only workers have a bounded five-minute timeout');
 assert.match(managerPs, /MainForm\.Add_FormClosing\([\s\S]*?Stop-ReadOnlyOperation/, 'closing the manager always cleans a running read-only worker');
+const keyboardHandler = managerPs.match(/function Invoke-ManagerKeyDown \{[\s\S]*?(?=\n\$script:MainForm =)/)?.[0] || '';
+assert.match(keyboardHandler, /Control[\s\S]*?Keys\]::L[\s\S]*?SourcePath[\s\S]*?Focus\(\)/, 'Ctrl+L focuses the active mode path');
+assert.match(keyboardHandler, /Keys\]::Escape[\s\S]*?Cancel-ReadOnlyOperation/, 'Escape safely cancels only an active read-only worker');
+assert.match(keyboardHandler, /Keys\]::Enter[\s\S]*?BtnVerify\.PerformClick\(\)[\s\S]*?BtnCheck\.PerformClick\(\)/, 'Enter routes only to the current read-only check or verification action');
+assert.doesNotMatch(keyboardHandler, /BtnBuild\.PerformClick|Invoke-AttachmentWorker|Start-ReadOnlyOperation -Action build/, 'keyboard routing can never trigger formal package creation');
+assert.match(managerPs, /BtnBuild\.AccessibleDescription = '唯一寫入動作；[\s\S]*?不由 Enter 快捷鍵觸發。'/, 'assistive text clearly identifies the sole write action and its explicit activation boundary');
+assert.match(managerPs, /SourcePath\.TabIndex = 0[\s\S]*?BtnCheck\.TabIndex = 6[\s\S]*?BtnBuild\.TabIndex = 7[\s\S]*?PackagePath\.TabIndex = 0[\s\S]*?BtnVerify\.TabIndex = 2/, 'source and verification controls expose deliberate tab order');
 assert.match(
   managerPs,
   /\$sourceChanged = \{[\s\S]*?LastSuggestedOutput[\s\S]*?OutputPath\.Text\.Trim\(\) -eq \$script:LastSuggestedOutput[\s\S]*?LastSuggestedOutput = ''[\s\S]*?OutputPath\.Clear\(\)/,
