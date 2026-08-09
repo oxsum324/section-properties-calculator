@@ -6,6 +6,7 @@ param(
   [switch]$SmokeKeyboard,
   [switch]$SmokeViewport,
   [switch]$SmokeDragDrop,
+  [switch]$SmokeBuildResponsiveness,
   [ValidateRange(0, 5000)][int]$WorkerSmokeDelayMilliseconds = 0,
   [string]$InitialPath = '',
   [ValidateSet('source', 'verify')][string]$InitialMode = 'source',
@@ -45,9 +46,17 @@ $script:ViewportSmokeTimer = $null
 $script:ViewportSmokeResult = $null
 $script:DragDropSmokeTimer = $null
 $script:DragDropSmokeResult = $null
+$script:BuildProcess = $null
+$script:BuildResultFile = ''
+$script:BuildStartedAt = $null
+$script:BuildTimer = $null
+$script:BuildSmokeTimer = $null
+$script:BuildSmokeState = $null
+$script:BuildSmokeResult = $null
+$script:BuildSmokeFixtureRoot = ''
 $script:ActiveMode = $InitialMode
 
-$dynamicSmokeCount = @(@($SmokeReadOnlyCancellation, $SmokeReadOnlyCompletion, $SmokeKeyboard, $SmokeViewport, $SmokeDragDrop) | Where-Object { $_ }).Count
+$dynamicSmokeCount = @(@($SmokeReadOnlyCancellation, $SmokeReadOnlyCompletion, $SmokeKeyboard, $SmokeViewport, $SmokeDragDrop, $SmokeBuildResponsiveness) | Where-Object { $_ }).Count
 if ($Smoke -and $dynamicSmokeCount) { throw '一般 smoke 與背景動態 smoke 不得同時執行。' }
 if ($dynamicSmokeCount -gt 1) { throw '一次只能執行一種背景動態 smoke。' }
 
@@ -216,17 +225,22 @@ function Show-WorkerResponse {
   $script:BottomStatus.Text = "狀態：$status ｜ 核心退出碼：$([string](Get-ResponseValue $Response 'workerExitCode'))"
 }
 
-function Set-UiBusy {
-  param([bool]$Busy)
-  $script:MainForm.UseWaitCursor = $Busy
-  $script:BtnCheck.Enabled = -not $Busy
-  $script:BtnVerify.Enabled = -not $Busy
-  $script:BtnBrowseSource.Enabled = -not $Busy
-  $script:BtnBrowseSourceZip.Enabled = -not $Busy
-  $script:BtnBrowseOutput.Enabled = -not $Busy
-  $script:BtnBrowsePackage.Enabled = -not $Busy
-  if ($Busy) { $script:BtnBuild.Enabled = $false }
-  [System.Windows.Forms.Application]::DoEvents()
+function Set-BuildUiState {
+  param([bool]$Running)
+  $script:MainForm.UseWaitCursor = $false
+  $script:SourcePath.ReadOnly = $Running
+  $script:ProjectNo.ReadOnly = $Running
+  $script:OutputPath.ReadOnly = $Running
+  $script:PackagePath.ReadOnly = $Running
+  $script:BtnBrowseSource.Enabled = -not $Running
+  $script:BtnBrowseSourceZip.Enabled = -not $Running
+  $script:BtnBrowseOutput.Enabled = -not $Running
+  $script:BtnBrowsePackage.Enabled = -not $Running
+  $script:BtnCheck.Enabled = -not $Running
+  $script:BtnVerify.Enabled = -not $Running
+  $script:BtnBuild.Enabled = $false
+  $script:BtnBuild.Text = if ($Running) { '正在建立正式附件包…' } else { '2. 建立正式附件包' }
+  $script:BtnOpenOutput.Enabled = (-not $Running) -and $script:LastOutputDirectory -and (Test-Path -LiteralPath $script:LastOutputDirectory -PathType Container)
 }
 
 function Show-OperationError {
@@ -384,6 +398,81 @@ function Stop-ReadOnlyOperation {
   if ($script:BtnCheck) { Set-ReadOnlyUiState -Running $false }
 }
 
+function Start-BuildOperation {
+  if ($script:BuildProcess) { return }
+  $inputPath = $script:SourcePath.Text.Trim()
+  $projectNo = $script:ProjectNo.Text.Trim()
+  $outputPath = $script:OutputPath.Text.Trim()
+  if (-not $inputPath -or $script:LastReadyInput -ne $inputPath -or $script:LastReadyProjectNo -ne $projectNo) {
+    throw '附件來源或計畫編號已改變；請先重新執行唯讀檢查，再建立正式附件包。'
+  }
+  if (-not (Test-Path -LiteralPath $script:WorkerPath -PathType Leaf)) { throw "找不到附件包管理器核心：$script:WorkerPath" }
+  Stop-ReadOnlyOperation
+  $request = [ordered]@{ action = 'build'; input = $inputPath; output = $outputPath; projectNo = $projectNo }
+  $requestJson = $request | ConvertTo-Json -Compress
+  $requestBase64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($requestJson))
+  $resultFile = New-ReadOnlyResultPath
+  $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+  $startInfo.FileName = Get-NodePath
+  $startInfo.Arguments = "`"$script:WorkerPath`" --request-base64 $requestBase64 --result-file `"$resultFile`""
+  if ($SmokeBuildResponsiveness -and $WorkerSmokeDelayMilliseconds -gt 0) {
+    $startInfo.Arguments += " --smoke-delay-ms $WorkerSmokeDelayMilliseconds"
+  }
+  $startInfo.WorkingDirectory = $script:ToolDirectory
+  $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+  $process = New-Object System.Diagnostics.Process
+  $process.StartInfo = $startInfo
+  try {
+    [void]$process.Start()
+  } catch {
+    $process.Dispose()
+    Remove-ReadOnlyResultFile -ResultFile $resultFile
+    throw
+  }
+  $script:BuildProcess = $process
+  $script:BuildResultFile = $resultFile
+  $script:BuildStartedAt = Get-Date
+  Set-BuildUiState -Running $true
+  Set-StatusAppearance -Status 'review' -Title '正式附件包建立中'
+  $script:StatusMeta.Text = '背景原子建立執行中；畫面仍可回應，但為保護發布完整性不可取消或關閉。'
+  $script:DetailsBox.Text = '建立核心會再次完整檢查來源，再以暫存資料夾原子發布並執行事後驗證。完成前請保留本視窗開啟。'
+  $script:BottomStatus.Text = '狀態：正式建立進行中｜不可取消或關閉'
+  $script:BuildTimer.Start()
+}
+
+function Complete-BuildOperation {
+  $process = $script:BuildProcess
+  if (-not $process -or -not $process.HasExited) { return }
+  $resultFile = $script:BuildResultFile
+  $workerPid = $process.Id
+  $exitCode = $process.ExitCode
+  $process.Dispose()
+  $script:BuildProcess = $null
+  $script:BuildResultFile = ''
+  $script:BuildStartedAt = $null
+  $script:BuildTimer.Stop()
+  $script:LastReadyInput = ''
+  $script:LastReadyProjectNo = ''
+  Set-BuildUiState -Running $false
+  try {
+    if (-not (Test-Path -LiteralPath $resultFile -PathType Leaf)) { throw "附件包背景建立未回傳結果（exit=$exitCode）。" }
+    $response = Get-Content -LiteralPath $resultFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    $response | Add-Member -NotePropertyName workerExitCode -NotePropertyValue $exitCode -Force
+    Show-WorkerResponse $response
+    if ($response.built -and $response.outputDir) {
+      $script:LastOutputDirectory = [string]$response.outputDir
+      $script:PackagePath.Text = $script:LastOutputDirectory
+      $script:BtnOpenOutput.Enabled = $true
+    }
+  } catch {
+    Show-OperationError $_.Exception
+  } finally {
+    Remove-ReadOnlyResultFile -ResultFile $resultFile
+    Remove-WorkerSourceTempRoots -WorkerPid $workerPid
+  }
+}
+
 function Start-ReadOnlyOperation {
   param(
     [Parameter(Mandatory = $true)][ValidateSet('check', 'verify')][string]$Action,
@@ -514,13 +603,15 @@ function Invoke-ManagerKeyDown {
     return
   }
   if ($EventArgs.KeyCode -eq [System.Windows.Forms.Keys]::Escape) {
-    if ($script:ReadOnlyProcess) { Cancel-ReadOnlyOperation }
+    if ($script:BuildProcess) {
+      $script:BottomStatus.Text = '正式建立採原子發布，執行中不可取消；完成後即可關閉視窗。'
+    } elseif ($script:ReadOnlyProcess) { Cancel-ReadOnlyOperation }
     Set-ManagerKeyHandled -EventArgs $EventArgs
     return
   }
   if ($EventArgs.KeyCode -ne [System.Windows.Forms.Keys]::Enter) { return }
   Set-ManagerKeyHandled -EventArgs $EventArgs
-  if ($script:ReadOnlyProcess) { return }
+  if ($script:ReadOnlyProcess -or $script:BuildProcess) { return }
   $active = $script:MainForm.ActiveControl
   if ($active -eq $script:PackagePath -or $active -eq $script:BtnVerify) {
     $script:ActiveMode = 'verify'
@@ -777,7 +868,7 @@ $script:BtnCheck.AccessibleName = '檢查附件來源'
 $script:BtnCheck.AccessibleDescription = '唯讀背景檢查；進行中可再次按下或按 Esc 安全停止。'
 $script:BtnBuild.TabIndex = 7
 $script:BtnBuild.AccessibleName = '建立正式附件包'
-$script:BtnBuild.AccessibleDescription = '唯一寫入動作；通過檢查後仍須明確點按，不由 Enter 快捷鍵觸發。'
+$script:BtnBuild.AccessibleDescription = '唯一寫入動作；通過檢查後仍須明確點按，不由 Enter 快捷鍵觸發；建立中保持畫面可回應，但不可取消或關閉。'
 $script:BtnOpenOutput.TabIndex = 8
 $script:BtnOpenOutput.AccessibleName = '開啟最近建立的正式附件包資料夾'
 $script:PackagePath.TabIndex = 0
@@ -912,20 +1003,10 @@ $script:BtnCheck.Add_Click({
 })
 
 $script:BtnBuild.Add_Click({
-  Set-UiBusy $true
   try {
-    $response = Invoke-AttachmentWorker -Action build -InputDirectory $script:SourcePath.Text -OutputDirectory $script:OutputPath.Text -ProjectNo $script:ProjectNo.Text
-    Show-WorkerResponse $response
-    $script:BtnBuild.Enabled = $false
-    if ($response.built -and $response.outputDir) {
-      $script:LastOutputDirectory = [string]$response.outputDir
-      $script:PackagePath.Text = $script:LastOutputDirectory
-      $script:BtnOpenOutput.Enabled = $true
-    }
+    Start-BuildOperation
   } catch {
     Show-OperationError $_.Exception
-  } finally {
-    Set-UiBusy $false
   }
 })
 
@@ -968,7 +1049,23 @@ $script:ReadOnlyTimer.Add_Tick({
   }
 })
 
+$script:BuildTimer = New-Object System.Windows.Forms.Timer
+$script:BuildTimer.Interval = 150
+$script:BuildTimer.Add_Tick({
+  try {
+    Complete-BuildOperation
+  } catch {
+    Show-OperationError $_.Exception
+  }
+})
+
 $script:MainForm.Add_FormClosing({
+  param($sender, $eventArgs)
+  if ($script:BuildProcess) {
+    $eventArgs.Cancel = $true
+    $script:BottomStatus.Text = '正式建立採原子發布，執行中不可關閉；完成後即可離開。'
+    return
+  }
   Stop-ReadOnlyOperation
 })
 $script:MainForm.Add_KeyDown({
@@ -1215,7 +1312,94 @@ if ($SmokeDragDrop) {
   })
 }
 
+if ($SmokeBuildResponsiveness) {
+  $script:MainForm.Opacity = 0
+  $script:MainForm.ShowInTaskbar = $false
+  $script:BuildSmokeFixtureRoot = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "attachment-manager-build-smoke-$PID-$([guid]::NewGuid().ToString('N'))")
+  [void](New-Item -ItemType Directory -Path (Join-Path $script:BuildSmokeFixtureRoot 'source') -Force)
+  $script:BuildSmokeTimer = New-Object System.Windows.Forms.Timer
+  $script:BuildSmokeTimer.Interval = 200
+  $script:BuildSmokeTimer.Add_Tick({
+    try {
+      if ($script:BuildSmokeResult) {
+        if ($script:BuildProcess) { return }
+        $script:BuildSmokeTimer.Stop()
+        $script:MainForm.Close()
+        return
+      }
+      $state = $script:BuildSmokeState
+      if (-not $state) { throw '背景建立 smoke 未取得啟動狀態。' }
+      if (-not $state.interactionChecked) {
+        $state.uiTimerRanDuringBuild = [bool]($script:BuildProcess -and -not $script:BuildProcess.HasExited)
+        $visibleBeforeClose = [bool]$script:MainForm.Visible
+        $script:MainForm.Close()
+        [System.Windows.Forms.Application]::DoEvents()
+        $state.closeBlocked = [bool]($visibleBeforeClose -and $script:MainForm.Visible -and -not $script:MainForm.IsDisposed -and $script:BuildProcess)
+        $escapeEvent = New-Object System.Windows.Forms.KeyEventArgs([System.Windows.Forms.Keys]::Escape)
+        Invoke-ManagerKeyDown -EventArgs $escapeEvent
+        [System.Windows.Forms.Application]::DoEvents()
+        $state.escapeBlocked = [bool]($escapeEvent.Handled -and $escapeEvent.SuppressKeyPress -and $script:BuildProcess -and $script:BottomStatus.Text -like '正式建立採原子發布*')
+        $state.buildingActionVisible = [bool]($script:BtnBuild.Text -eq '正在建立正式附件包…' -and -not $script:BtnBuild.Enabled)
+        $state.interactionChecked = $true
+        return
+      }
+      if ($script:BuildProcess) { return }
+      $workerExited = $state.workerPid -gt 0 -and -not (Get-Process -Id $state.workerPid -ErrorAction SilentlyContinue)
+      $resultFileRemoved = -not (Test-Path -LiteralPath $state.resultFile)
+      $extraDirectories = @(Get-ChildItem -LiteralPath $script:BuildSmokeFixtureRoot -Directory -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne 'source' })
+      $uiRecovered = -not $script:SourcePath.ReadOnly -and $script:BtnCheck.Enabled -and $script:BtnVerify.Enabled -and $script:BtnBuild.Text -eq '2. 建立正式附件包'
+      $buildGrantCleared = -not $script:BtnBuild.Enabled -and -not $script:LastReadyInput -and -not $script:LastReadyProjectNo
+      $script:BuildSmokeResult = [pscustomobject]@{
+        status = if ($state.uiTimerRanDuringBuild -and $state.closeBlocked -and $state.escapeBlocked -and $state.buildingActionVisible -and $workerExited -and $resultFileRemoved -and $uiRecovered -and $buildGrantCleared -and $extraDirectories.Count -eq 0) { 'pass' } else { 'fail' }
+        winFormsMessageLoop = $true
+        uiResponsiveDuringBuild = [bool]$state.uiTimerRanDuringBuild
+        closeBlockedDuringBuild = [bool]$state.closeBlocked
+        escapeBlockedDuringBuild = [bool]$state.escapeBlocked
+        buildingActionVisible = [bool]$state.buildingActionVisible
+        workerExited = [bool]$workerExited
+        resultFileRemoved = [bool]$resultFileRemoved
+        uiRecovered = [bool]$uiRecovered
+        buildGrantCleared = [bool]$buildGrantCleared
+        noPackageCreated = [bool]($extraDirectories.Count -eq 0)
+        built = $false
+      }
+      $script:BuildSmokeTimer.Stop()
+      $script:MainForm.Close()
+    } catch {
+      $script:BuildSmokeResult = [pscustomobject]@{ status = 'fail'; message = $_.Exception.Message; built = $false }
+      if (-not $script:BuildProcess) {
+        $script:BuildSmokeTimer.Stop()
+        $script:MainForm.Close()
+      }
+    }
+  })
+}
+
 $script:MainForm.Add_Shown({
+  if ($SmokeBuildResponsiveness) {
+    $sourceFolder = Join-Path $script:BuildSmokeFixtureRoot 'source'
+    $script:SourcePath.Text = $sourceFolder
+    $script:LastReadyInput = $sourceFolder
+    $script:LastReadyProjectNo = ''
+    $script:BtnBuild.Enabled = $true
+    $script:BtnBuild.PerformClick()
+    if ($script:BuildProcess) {
+      $script:BuildSmokeState = [pscustomobject]@{
+        workerPid = $script:BuildProcess.Id
+        resultFile = $script:BuildResultFile
+        interactionChecked = $false
+        uiTimerRanDuringBuild = $false
+        closeBlocked = $false
+        escapeBlocked = $false
+        buildingActionVisible = $false
+      }
+      $script:BuildSmokeTimer.Start()
+    } else {
+      $script:BuildSmokeResult = [pscustomobject]@{ status = 'fail'; message = '背景建立程序未啟動。'; built = $false }
+      $script:MainForm.Close()
+    }
+    return
+  }
   if ($SmokeDragDrop) {
     $script:DragDropSmokeTimer.Start()
     return
@@ -1306,5 +1490,21 @@ if ($SmokeDragDrop) {
   }
   $script:DragDropSmokeResult | ConvertTo-Json -Depth 4 -Compress
   if ($script:DragDropSmokeResult.status -ne 'pass') { exit 3 }
+  exit 0
+}
+
+if ($SmokeBuildResponsiveness) {
+  if (-not $script:BuildSmokeResult) {
+    $script:BuildSmokeResult = [pscustomobject]@{ status = 'fail'; message = '背景建立回應性 smoke 未產生結果。'; built = $false }
+  }
+  if ($script:BuildSmokeFixtureRoot) {
+    $resolvedFixture = [System.IO.Path]::GetFullPath($script:BuildSmokeFixtureRoot)
+    $tempPrefix = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\') + '\'
+    if ($resolvedFixture.StartsWith($tempPrefix, [System.StringComparison]::OrdinalIgnoreCase) -and [System.IO.Path]::GetFileName($resolvedFixture).StartsWith('attachment-manager-build-smoke-')) {
+      Remove-Item -LiteralPath $resolvedFixture -Recurse -Force -ErrorAction SilentlyContinue
+    }
+  }
+  $script:BuildSmokeResult | ConvertTo-Json -Depth 4 -Compress
+  if ($script:BuildSmokeResult.status -ne 'pass') { exit 3 }
   exit 0
 }

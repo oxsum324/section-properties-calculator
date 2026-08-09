@@ -269,6 +269,25 @@ assert.equal(dragDropPayload.resultFilesRemoved, true);
 assert.equal(dragDropPayload.operationCleared, true);
 assert.equal(dragDropPayload.built, false);
 
+const buildResponsiveness = childProcess.spawnSync('powershell.exe', [
+  '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', path.join(toolsDir, 'attachment-package-manager.ps1'),
+  '-SmokeBuildResponsiveness', '-WorkerSmokeDelayMilliseconds', '2000',
+], { encoding: 'utf8', timeout: 20000 });
+assert.equal(buildResponsiveness.status, 0, buildResponsiveness.stderr || buildResponsiveness.stdout);
+const buildResponsivenessPayload = JSON.parse(buildResponsiveness.stdout.trim().split(/\r?\n/).at(-1));
+assert.equal(buildResponsivenessPayload.status, 'pass');
+assert.equal(buildResponsivenessPayload.winFormsMessageLoop, true);
+assert.equal(buildResponsivenessPayload.uiResponsiveDuringBuild, true);
+assert.equal(buildResponsivenessPayload.closeBlockedDuringBuild, true);
+assert.equal(buildResponsivenessPayload.escapeBlockedDuringBuild, true);
+assert.equal(buildResponsivenessPayload.buildingActionVisible, true);
+assert.equal(buildResponsivenessPayload.workerExited, true);
+assert.equal(buildResponsivenessPayload.resultFileRemoved, true);
+assert.equal(buildResponsivenessPayload.uiRecovered, true);
+assert.equal(buildResponsivenessPayload.buildGrantCleared, true);
+assert.equal(buildResponsivenessPayload.noPackageCreated, true);
+assert.equal(buildResponsivenessPayload.built, false);
+
 const requestBase64 = Buffer.from(JSON.stringify({ action: 'smoke' }), 'utf8').toString('base64');
 const resultFile = path.join(os.tmpdir(), `${Worker.RESULT_FILE_PREFIX}${process.pid}-${Date.now()}${Worker.RESULT_FILE_SUFFIX}`);
 try {
@@ -301,6 +320,7 @@ const managerPs = read('結構工具箱/tools/attachment-package-manager.ps1');
   'AccessibleName', 'AccessibleDescription', 'TabIndex', 'SmokeKeyboard',
   'SmokeViewport', 'AutoScrollMinSize', 'ScrollControlIntoView', 'Screen]::FromPoint',
   'SmokeDragDrop', 'AllowDrop', 'DataFormats]::FileDrop', 'DragDropEffects]::Copy', 'DragDropEffects]::None',
+  'SmokeBuildResponsiveness', 'Start-BuildOperation', 'Complete-BuildOperation', 'BuildTimer',
 ].forEach(needle => assert.ok(managerPs.includes(needle), `PowerShell manager includes ${needle}`));
 assert.ok(managerPs.charCodeAt(0) === 0xFEFF, 'PowerShell manager keeps UTF-8 BOM for Windows PowerShell 5.1');
 assert.doesNotMatch(managerPs, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'manager stays local and does not send case data over network');
@@ -340,19 +360,25 @@ assert.doesNotMatch(verifyHandler, /Invoke-AttachmentWorker/, 'package verificat
 const completeReadOnly = managerPs.match(/function Complete-ReadOnlyOperation \{[\s\S]*?(?=\nfunction Cancel-ReadOnlyOperation)/)?.[0] || '';
 assert.doesNotMatch(completeReadOnly, /ReadToEnd|WaitForExit/, 'normal read-only completion is timer-polled and never synchronously waits on the UI thread');
 const buildHandler = managerPs.match(/\$script:BtnBuild\.Add_Click\(\{[\s\S]*?(?=\n\}\)\n\n\$script:BtnVerify\.Add_Click)/)?.[0] || '';
-assert.match(buildHandler, /Invoke-AttachmentWorker -Action build/, 'formal package creation remains on the established atomic builder path');
-assert.doesNotMatch(buildHandler, /Start-ReadOnlyOperation/, 'the writable build action is never mixed into the cancellable read-only worker path');
+assert.match(buildHandler, /Start-BuildOperation/, 'formal package creation starts the dedicated background atomic build path');
+assert.doesNotMatch(buildHandler, /Invoke-AttachmentWorker|Start-ReadOnlyOperation/, 'the UI never synchronously waits or mixes build into the cancellable read-only path');
+const startBuildOperation = managerPs.match(/function Start-BuildOperation \{[\s\S]*?(?=\nfunction Complete-BuildOperation)/)?.[0] || '';
+assert.match(startBuildOperation, /LastReadyInput -ne \$inputPath[\s\S]*?action = 'build'[\s\S]*?--request-base64[\s\S]*?Set-BuildUiState -Running \$true[\s\S]*?BuildTimer\.Start\(\)/, 'background build revalidates the ready grant, uses managed IPC, locks inputs, and timer-polls completion');
+assert.doesNotMatch(startBuildOperation, /WaitForExit|ReadToEnd|Invoke-AttachmentWorker/, 'starting a formal build never blocks the UI thread');
+const completeBuildOperation = managerPs.match(/function Complete-BuildOperation \{[\s\S]*?(?=\nfunction Start-ReadOnlyOperation)/)?.[0] || '';
+assert.match(completeBuildOperation, /HasExited[\s\S]*?LastReadyInput = ''[\s\S]*?Set-BuildUiState -Running \$false[\s\S]*?Show-WorkerResponse[\s\S]*?Remove-ReadOnlyResultFile[\s\S]*?Remove-WorkerSourceTempRoots/, 'build completion clears the one-time grant, restores the UI, applies the core result, and cleans managed temp state');
 assert.match(managerPs, /Cancel-ReadOnlyOperation[\s\S]*?Stop-ReadOnlyOperation[\s\S]*?未建立或修改案件資料/, 'explicit cancellation terminates and cleans the read-only worker without widening authority');
 assert.match(managerPs, /taskkill\.exe \/PID \$workerPid \/T \/F[\s\S]*?WaitForExit\(2000\)/, 'cancellation stops the worker process tree before bounded cleanup');
 assert.match(managerPs, /Remove-WorkerSourceTempRoots[\s\S]*?formal-source-\$WorkerPid-[\s\S]*?Remove-Item -LiteralPath \$resolved -Recurse -Force/, 'parent cleanup is limited to the cancelled worker pid inside the system temp root');
 assert.match(managerPs, /ReadOnlyTimer\.Add_Tick\([\s\S]*?TotalSeconds -ge 300[\s\S]*?Stop-ReadOnlyOperation/, 'read-only workers have a bounded five-minute timeout');
-assert.match(managerPs, /MainForm\.Add_FormClosing\([\s\S]*?Stop-ReadOnlyOperation/, 'closing the manager always cleans a running read-only worker');
+assert.match(managerPs, /MainForm\.Add_FormClosing\([\s\S]*?BuildProcess[\s\S]*?eventArgs\.Cancel = \$true[\s\S]*?Stop-ReadOnlyOperation/, 'closing is blocked during atomic build and otherwise cleans a running read-only worker');
 const keyboardHandler = managerPs.match(/function Invoke-ManagerKeyDown \{[\s\S]*?(?=\n\$script:MainForm =)/)?.[0] || '';
 assert.match(keyboardHandler, /Control[\s\S]*?Keys\]::L[\s\S]*?SourcePath[\s\S]*?Focus\(\)/, 'Ctrl+L focuses the active mode path');
 assert.match(keyboardHandler, /Keys\]::Escape[\s\S]*?Cancel-ReadOnlyOperation/, 'Escape safely cancels only an active read-only worker');
+assert.match(keyboardHandler, /Keys\]::Escape[\s\S]*?BuildProcess[\s\S]*?不可取消[\s\S]*?Cancel-ReadOnlyOperation/, 'Escape preserves a running atomic build and only cancels read-only workers');
 assert.match(keyboardHandler, /Keys\]::Enter[\s\S]*?BtnVerify\.PerformClick\(\)[\s\S]*?BtnCheck\.PerformClick\(\)/, 'Enter routes only to the current read-only check or verification action');
 assert.doesNotMatch(keyboardHandler, /BtnBuild\.PerformClick|Invoke-AttachmentWorker|Start-ReadOnlyOperation -Action build/, 'keyboard routing can never trigger formal package creation');
-assert.match(managerPs, /BtnBuild\.AccessibleDescription = '唯一寫入動作；[\s\S]*?不由 Enter 快捷鍵觸發。'/, 'assistive text clearly identifies the sole write action and its explicit activation boundary');
+assert.match(managerPs, /BtnBuild\.AccessibleDescription = '唯一寫入動作；[\s\S]*?不由 Enter 快捷鍵觸發；建立中保持畫面可回應，但不可取消或關閉。'/, 'assistive text identifies the sole write action, explicit activation, and non-cancellable build boundary');
 assert.match(managerPs, /SourcePath\.TabIndex = 0[\s\S]*?BtnCheck\.TabIndex = 6[\s\S]*?BtnBuild\.TabIndex = 7[\s\S]*?PackagePath\.TabIndex = 0[\s\S]*?BtnVerify\.TabIndex = 2/, 'source and verification controls expose deliberate tab order');
 const windowBoundsHelper = managerPs.match(/function Set-ManagerWindowBounds \{[\s\S]*?(?=\n\$script:MainForm =)/)?.[0] || '';
 assert.match(managerPs, /StartPosition = 'Manual'[\s\S]*?WindowWorkingArea = Set-ManagerWindowBounds/, 'manager uses explicit multi-screen placement instead of primary-screen centering');
@@ -372,6 +398,7 @@ const droppedPathHandoff = managerPs.match(/function Set-ManagerDroppedPath \{[\
 assert.match(droppedPathHandoff, /Paths\)\.Count -ne 1[\s\S]*?Test-ManagerDropPath[\s\S]*?Resolve-Path[\s\S]*?BtnCheck\.PerformClick\(\)[\s\S]*?BtnVerify\.PerformClick\(\)/, 'a drop accepts exactly one validated path and starts only the matching read-only action');
 assert.doesNotMatch(droppedPathHandoff, /BtnBuild|Invoke-AttachmentWorker|Action build/, 'drag-and-drop can never trigger formal package creation');
 assert.match(managerPs, /SmokeDragDrop[\s\S]*?OnDragEnter[\s\S]*?OnDragDrop[\s\S]*?sourceDropAccepted[\s\S]*?multiDropRejected[\s\S]*?ordinaryFileRejected[\s\S]*?verifyFolderAccepted[\s\S]*?sourceZipRejectedByVerify[\s\S]*?built = \$false/, 'dynamic drag smoke uses native WinForms events and proves accepted and rejected paths without building');
+assert.match(managerPs, /SmokeBuildResponsiveness[\s\S]*?uiResponsiveDuringBuild[\s\S]*?closeBlockedDuringBuild[\s\S]*?escapeBlockedDuringBuild[\s\S]*?buildingActionVisible[\s\S]*?workerExited[\s\S]*?resultFileRemoved[\s\S]*?uiRecovered[\s\S]*?buildGrantCleared[\s\S]*?noPackageCreated[\s\S]*?built = \$false/, 'dynamic build smoke proves a responsive but non-cancellable atomic build lifecycle without creating a package');
 assert.match(
   managerPs,
   /\$sourceChanged = \{[\s\S]*?LastSuggestedOutput[\s\S]*?OutputPath\.Text\.Trim\(\) -eq \$script:LastSuggestedOutput[\s\S]*?LastSuggestedOutput = ''[\s\S]*?OutputPath\.Clear\(\)/,
@@ -389,8 +416,10 @@ assert.match(
 );
 assert.match(managerPs, /if \(\$InitialMode -eq 'source'[^\n]+\$script:SourcePath\.Text/, 'manager pre-fills source input only in source mode');
 assert.match(managerPs, /if \(\$InitialMode -eq 'verify'[^\n]+\$script:PackagePath\.Text/, 'manager pre-fills package input only in verify mode');
-assert.match(managerPs, /Add_Shown\(\{[\s\S]*?\$InitialMode -eq 'verify'[\s\S]*?\$script:BtnVerify\.PerformClick\(\)[\s\S]*?\$script:BtnCheck\.PerformClick\(\)[\s\S]*?\}\)/, 'explicit AutoInspect only triggers the read-only action for the selected mode');
-assert.doesNotMatch(managerPs.match(/Add_Shown\(\{[\s\S]*?\}\)/)?.[0] || '', /BtnBuild|build/, 'AutoInspect never triggers package creation');
+const shownHandler = managerPs.match(/Add_Shown\(\{[\s\S]*?\n\}\)/)?.[0] || '';
+const autoInspectTail = shownHandler.slice(shownHandler.lastIndexOf('if (-not $AutoInspect'));
+assert.match(autoInspectTail, /\$InitialMode -eq 'verify'[\s\S]*?\$script:BtnVerify\.PerformClick\(\)[\s\S]*?\$script:BtnCheck\.PerformClick\(\)/, 'explicit AutoInspect only triggers the read-only action for the selected mode');
+assert.doesNotMatch(autoInspectTail, /BtnBuild|Start-BuildOperation|action = 'build'/, 'AutoInspect never triggers package creation');
 
 const launcher = read('結構工具箱/tools/啟動正式附件包管理器.bat');
 assert.match(launcher, /powershell\s+-NoProfile\s+-ExecutionPolicy Bypass\s+-STA\s+-File/i);
