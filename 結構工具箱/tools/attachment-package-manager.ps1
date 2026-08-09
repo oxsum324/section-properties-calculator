@@ -48,8 +48,10 @@ $script:DragDropSmokeTimer = $null
 $script:DragDropSmokeResult = $null
 $script:BuildProcess = $null
 $script:BuildResultFile = ''
+$script:BuildProgressFile = ''
 $script:BuildStartedAt = $null
 $script:BuildStatusLastElapsedSecond = -1
+$script:BuildPhase = 'preparing-source'
 $script:BuildTimer = $null
 $script:BuildSmokeTimer = $null
 $script:BuildSmokeState = $null
@@ -318,6 +320,11 @@ function New-ReadOnlyResultPath {
   return [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), $name)
 }
 
+function New-BuildProgressPath {
+  $name = "attachment-package-manager-progress-$PID-$([guid]::NewGuid().ToString('N')).jsonl"
+  return [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), $name)
+}
+
 function Remove-ReadOnlyResultFile {
   param([string]$ResultFile)
   if (-not $ResultFile) { return }
@@ -326,6 +333,18 @@ function Remove-ReadOnlyResultFile {
   $parent = [System.IO.Path]::GetDirectoryName($resolved).TrimEnd('\')
   $name = [System.IO.Path]::GetFileName($resolved)
   if ($parent -eq $tempRoot -and $name.StartsWith('attachment-package-manager-result-') -and $name.EndsWith('.json')) {
+    Remove-Item -LiteralPath $resolved -Force -ErrorAction SilentlyContinue
+  }
+}
+
+function Remove-BuildProgressFile {
+  param([string]$ProgressFile)
+  if (-not $ProgressFile) { return }
+  $resolved = [System.IO.Path]::GetFullPath($ProgressFile)
+  $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\')
+  $parent = [System.IO.Path]::GetDirectoryName($resolved).TrimEnd('\')
+  $name = [System.IO.Path]::GetFileName($resolved)
+  if ($parent -eq $tempRoot -and $name.StartsWith('attachment-package-manager-progress-') -and $name.EndsWith('.jsonl')) {
     Remove-Item -LiteralPath $resolved -Force -ErrorAction SilentlyContinue
   }
 }
@@ -401,6 +420,20 @@ function Stop-ReadOnlyOperation {
 
 function Update-BuildProgressStatus {
   if (-not $script:BuildProcess -or -not $script:BuildStartedAt -or $script:BuildProcess.HasExited) { return }
+  if ($script:BuildProgressFile -and (Test-Path -LiteralPath $script:BuildProgressFile -PathType Leaf)) {
+    try {
+      $lastRecord = Get-Content -LiteralPath $script:BuildProgressFile -Encoding UTF8 -ErrorAction Stop | Select-Object -Last 1
+      if ($lastRecord) {
+        $progress = $lastRecord | ConvertFrom-Json -ErrorAction Stop
+        $allowedPhases = @('preparing-source', 'source-recheck', 'staging', 'self-verification', 'publishing', 'complete')
+        if ($progress.schemaVersion -eq 1 -and $allowedPhases -contains [string]$progress.phase) {
+          $script:BuildPhase = [string]$progress.phase
+        }
+      }
+    } catch {
+      # worker 可能正在附加下一筆短 JSONL；保留上一個已驗證階段，下一個 tick 再讀。
+    }
+  }
   $elapsedSeconds = [Math]::Max(0, [int][Math]::Floor(((Get-Date) - $script:BuildStartedAt).TotalSeconds))
   if ($elapsedSeconds -eq $script:BuildStatusLastElapsedSecond) { return }
   $script:BuildStatusLastElapsedSecond = $elapsedSeconds
@@ -410,8 +443,17 @@ function Update-BuildProgressStatus {
   } else {
     '{0:00}:{1:00}' -f $elapsed.Minutes, $elapsed.Seconds
   }
-  $script:StatusMeta.Text = "背景原子建立程序運作中｜已經過 $elapsedText｜為保護發布完整性不可取消或關閉。"
-  $script:BottomStatus.Text = "狀態：正式建立進行中｜已經過 $elapsedText｜不可取消或關閉"
+  $phaseLabels = @{
+    'preparing-source' = '準備與驗證附件來源'
+    'source-recheck' = '重新檢查附件來源'
+    'staging' = '建立原子暫存附件包'
+    'self-verification' = '發布前完整性與工程內容驗證'
+    'publishing' = '原子發布正式附件包'
+    'complete' = '完成發布並整理結果'
+  }
+  $phaseLabel = $phaseLabels[$script:BuildPhase]
+  $script:StatusMeta.Text = "背景原子建立程序運作中｜目前階段：$phaseLabel｜已經過 $elapsedText｜不可取消或關閉。"
+  $script:BottomStatus.Text = "狀態：正式建立進行中｜$phaseLabel｜已經過 $elapsedText｜不可取消或關閉"
 }
 
 function Start-BuildOperation {
@@ -428,9 +470,10 @@ function Start-BuildOperation {
   $requestJson = $request | ConvertTo-Json -Compress
   $requestBase64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($requestJson))
   $resultFile = New-ReadOnlyResultPath
+  $progressFile = New-BuildProgressPath
   $startInfo = New-Object System.Diagnostics.ProcessStartInfo
   $startInfo.FileName = Get-NodePath
-  $startInfo.Arguments = "`"$script:WorkerPath`" --request-base64 $requestBase64 --result-file `"$resultFile`""
+  $startInfo.Arguments = "`"$script:WorkerPath`" --request-base64 $requestBase64 --result-file `"$resultFile`" --progress-file `"$progressFile`""
   if ($SmokeBuildResponsiveness -and $WorkerSmokeDelayMilliseconds -gt 0) {
     $startInfo.Arguments += " --smoke-delay-ms $WorkerSmokeDelayMilliseconds"
   }
@@ -444,12 +487,15 @@ function Start-BuildOperation {
   } catch {
     $process.Dispose()
     Remove-ReadOnlyResultFile -ResultFile $resultFile
+    Remove-BuildProgressFile -ProgressFile $progressFile
     throw
   }
   $script:BuildProcess = $process
   $script:BuildResultFile = $resultFile
+  $script:BuildProgressFile = $progressFile
   $script:BuildStartedAt = Get-Date
   $script:BuildStatusLastElapsedSecond = -1
+  $script:BuildPhase = 'preparing-source'
   Set-BuildUiState -Running $true
   Set-StatusAppearance -Status 'review' -Title '正式附件包建立中'
   $script:DetailsBox.Text = '建立核心會再次完整檢查來源，再以暫存資料夾原子發布並執行事後驗證。完成前請保留本視窗開啟。'
@@ -461,13 +507,16 @@ function Complete-BuildOperation {
   $process = $script:BuildProcess
   if (-not $process -or -not $process.HasExited) { return }
   $resultFile = $script:BuildResultFile
+  $progressFile = $script:BuildProgressFile
   $workerPid = $process.Id
   $exitCode = $process.ExitCode
   $process.Dispose()
   $script:BuildProcess = $null
   $script:BuildResultFile = ''
+  $script:BuildProgressFile = ''
   $script:BuildStartedAt = $null
   $script:BuildStatusLastElapsedSecond = -1
+  $script:BuildPhase = 'preparing-source'
   $script:BuildTimer.Stop()
   $script:LastReadyInput = ''
   $script:LastReadyProjectNo = ''
@@ -486,6 +535,7 @@ function Complete-BuildOperation {
     Show-OperationError $_.Exception
   } finally {
     Remove-ReadOnlyResultFile -ResultFile $resultFile
+    Remove-BuildProgressFile -ProgressFile $progressFile
     Remove-WorkerSourceTempRoots -WorkerPid $workerPid
   }
 }
@@ -1354,7 +1404,8 @@ if ($SmokeBuildResponsiveness) {
       }
       $state = $script:BuildSmokeState
       if (-not $state) { throw '背景建立 smoke 未取得啟動狀態。' }
-      $state.elapsedStatusSeen = [bool]($state.elapsedStatusSeen -or ($script:StatusMeta.Text -match '程序運作中｜已經過 00:0[1-9]｜' -and $script:BottomStatus.Text -match '正式建立進行中｜已經過 00:0[1-9]｜不可取消或關閉'))
+      $state.phaseStatusSeen = [bool]($state.phaseStatusSeen -or ($script:StatusMeta.Text -match '目前階段：準備與驗證附件來源'))
+      $state.elapsedStatusSeen = [bool]($state.elapsedStatusSeen -or ($script:StatusMeta.Text -match '程序運作中｜.*已經過 00:0[1-9]｜' -and $script:BottomStatus.Text -match '正式建立進行中｜.*已經過 00:0[1-9]｜不可取消或關閉'))
       if (-not $state.interactionChecked) {
         $state.uiTimerRanDuringBuild = [bool]($script:BuildProcess -and -not $script:BuildProcess.HasExited)
         $visibleBeforeClose = [bool]$script:MainForm.Visible
@@ -1372,19 +1423,22 @@ if ($SmokeBuildResponsiveness) {
       if ($script:BuildProcess) { return }
       $workerExited = $state.workerPid -gt 0 -and -not (Get-Process -Id $state.workerPid -ErrorAction SilentlyContinue)
       $resultFileRemoved = -not (Test-Path -LiteralPath $state.resultFile)
+      $progressFileRemoved = -not (Test-Path -LiteralPath $state.progressFile)
       $extraDirectories = @(Get-ChildItem -LiteralPath $script:BuildSmokeFixtureRoot -Directory -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne 'source' })
       $uiRecovered = -not $script:SourcePath.ReadOnly -and $script:BtnCheck.Enabled -and $script:BtnVerify.Enabled -and $script:BtnBuild.Text -eq '2. 建立正式附件包'
       $buildGrantCleared = -not $script:BtnBuild.Enabled -and -not $script:LastReadyInput -and -not $script:LastReadyProjectNo
       $script:BuildSmokeResult = [pscustomobject]@{
-        status = if ($state.uiTimerRanDuringBuild -and $state.closeBlocked -and $state.escapeBlocked -and $state.buildingActionVisible -and $state.elapsedStatusSeen -and $workerExited -and $resultFileRemoved -and $uiRecovered -and $buildGrantCleared -and $extraDirectories.Count -eq 0) { 'pass' } else { 'fail' }
+        status = if ($state.uiTimerRanDuringBuild -and $state.closeBlocked -and $state.escapeBlocked -and $state.buildingActionVisible -and $state.phaseStatusSeen -and $state.elapsedStatusSeen -and $workerExited -and $resultFileRemoved -and $progressFileRemoved -and $uiRecovered -and $buildGrantCleared -and $extraDirectories.Count -eq 0) { 'pass' } else { 'fail' }
         winFormsMessageLoop = $true
         uiResponsiveDuringBuild = [bool]$state.uiTimerRanDuringBuild
         closeBlockedDuringBuild = [bool]$state.closeBlocked
         escapeBlockedDuringBuild = [bool]$state.escapeBlocked
         buildingActionVisible = [bool]$state.buildingActionVisible
+        buildPhaseVisible = [bool]$state.phaseStatusSeen
         elapsedStatusVisible = [bool]$state.elapsedStatusSeen
         workerExited = [bool]$workerExited
         resultFileRemoved = [bool]$resultFileRemoved
+        progressFileRemoved = [bool]$progressFileRemoved
         uiRecovered = [bool]$uiRecovered
         buildGrantCleared = [bool]$buildGrantCleared
         noPackageCreated = [bool]($extraDirectories.Count -eq 0)
@@ -1414,11 +1468,13 @@ $script:MainForm.Add_Shown({
       $script:BuildSmokeState = [pscustomobject]@{
         workerPid = $script:BuildProcess.Id
         resultFile = $script:BuildResultFile
+        progressFile = $script:BuildProgressFile
         interactionChecked = $false
         uiTimerRanDuringBuild = $false
         closeBlocked = $false
         escapeBlocked = $false
         buildingActionVisible = $false
+        phaseStatusSeen = $false
         elapsedStatusSeen = $false
       }
       $script:BuildSmokeTimer.Start()

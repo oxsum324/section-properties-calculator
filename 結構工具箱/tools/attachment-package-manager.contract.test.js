@@ -281,8 +281,10 @@ assert.equal(buildResponsivenessPayload.uiResponsiveDuringBuild, true);
 assert.equal(buildResponsivenessPayload.closeBlockedDuringBuild, true);
 assert.equal(buildResponsivenessPayload.escapeBlockedDuringBuild, true);
 assert.equal(buildResponsivenessPayload.buildingActionVisible, true);
+assert.equal(buildResponsivenessPayload.buildPhaseVisible, true);
 assert.equal(buildResponsivenessPayload.workerExited, true);
 assert.equal(buildResponsivenessPayload.resultFileRemoved, true);
+assert.equal(buildResponsivenessPayload.progressFileRemoved, true);
 assert.equal(buildResponsivenessPayload.uiRecovered, true);
 assert.equal(buildResponsivenessPayload.buildGrantCleared, true);
 assert.equal(buildResponsivenessPayload.noPackageCreated, true);
@@ -299,6 +301,17 @@ try {
   assert.equal(JSON.parse(fs.readFileSync(resultFile, 'utf8')).status, 'ready');
 } finally {
   fs.rmSync(resultFile, { force: true });
+}
+const progressFile = path.join(os.tmpdir(), `${Worker.PROGRESS_FILE_PREFIX}${process.pid}-${Date.now()}${Worker.PROGRESS_FILE_SUFFIX}`);
+try {
+  assert.equal(Worker.resolveProgressFile(progressFile), progressFile);
+  Worker.emitProgress(progressFile, 'preparing-source');
+  Worker.emitProgress(progressFile, 'source-recheck');
+  const phases = fs.readFileSync(progressFile, 'utf8').trim().split(/\r?\n/).map(line => JSON.parse(line).phase);
+  assert.deepEqual(phases, ['preparing-source', 'source-recheck']);
+  assert.throws(() => Worker.emitProgress(progressFile, 'unknown-phase'), /不支援的正式建立階段/);
+} finally {
+  fs.rmSync(progressFile, { force: true });
 }
 assert.deepEqual(Worker.parseRequestBase64(requestBase64), { action: 'smoke' });
 assert.throws(() => Worker.parseRequestBase64(Buffer.from('{"action":"smoke","write":true}').toString('base64')), /未知欄位/);
@@ -321,6 +334,7 @@ const managerPs = read('結構工具箱/tools/attachment-package-manager.ps1');
   'SmokeViewport', 'AutoScrollMinSize', 'ScrollControlIntoView', 'Screen]::FromPoint',
   'SmokeDragDrop', 'AllowDrop', 'DataFormats]::FileDrop', 'DragDropEffects]::Copy', 'DragDropEffects]::None',
   'SmokeBuildResponsiveness', 'Start-BuildOperation', 'Complete-BuildOperation', 'BuildTimer',
+  'BuildProgressFile', 'New-BuildProgressPath', 'Remove-BuildProgressFile', '目前階段',
 ].forEach(needle => assert.ok(managerPs.includes(needle), `PowerShell manager includes ${needle}`));
 assert.ok(managerPs.charCodeAt(0) === 0xFEFF, 'PowerShell manager keeps UTF-8 BOM for Windows PowerShell 5.1');
 assert.doesNotMatch(managerPs, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'manager stays local and does not send case data over network');
@@ -363,13 +377,13 @@ const buildHandler = managerPs.match(/\$script:BtnBuild\.Add_Click\(\{[\s\S]*?(?
 assert.match(buildHandler, /Start-BuildOperation/, 'formal package creation starts the dedicated background atomic build path');
 assert.doesNotMatch(buildHandler, /Invoke-AttachmentWorker|Start-ReadOnlyOperation/, 'the UI never synchronously waits or mixes build into the cancellable read-only path');
 const startBuildOperation = managerPs.match(/function Start-BuildOperation \{[\s\S]*?(?=\nfunction Complete-BuildOperation)/)?.[0] || '';
-assert.match(startBuildOperation, /LastReadyInput -ne \$inputPath[\s\S]*?action = 'build'[\s\S]*?--request-base64[\s\S]*?Set-BuildUiState -Running \$true[\s\S]*?Update-BuildProgressStatus[\s\S]*?BuildTimer\.Start\(\)/, 'background build revalidates the ready grant, uses managed IPC, locks inputs, publishes immediate progress, and timer-polls completion');
+assert.match(startBuildOperation, /LastReadyInput -ne \$inputPath[\s\S]*?action = 'build'[\s\S]*?--request-base64[\s\S]*?--progress-file[\s\S]*?Set-BuildUiState -Running \$true[\s\S]*?Update-BuildProgressStatus[\s\S]*?BuildTimer\.Start\(\)/, 'background build revalidates the ready grant, uses managed result and progress IPC, locks inputs, publishes immediate progress, and timer-polls completion');
 assert.doesNotMatch(startBuildOperation, /WaitForExit|ReadToEnd|Invoke-AttachmentWorker/, 'starting a formal build never blocks the UI thread');
 const updateBuildProgress = managerPs.match(/function Update-BuildProgressStatus \{[\s\S]*?(?=\nfunction Start-BuildOperation)/)?.[0] || '';
-assert.match(updateBuildProgress, /BuildProcess\.HasExited[\s\S]*?BuildStatusLastElapsedSecond[\s\S]*?TimeSpan\]::FromSeconds[\s\S]*?程序運作中｜已經過 \$elapsedText[\s\S]*?正式建立進行中｜已經過 \$elapsedText｜不可取消或關閉/, 'build progress reports a truthful elapsed clock and live process state without inventing percentage progress');
+assert.match(updateBuildProgress, /BuildProcess\.HasExited[\s\S]*?BuildProgressFile[\s\S]*?allowedPhases[\s\S]*?source-recheck[\s\S]*?self-verification[\s\S]*?publishing[\s\S]*?BuildStatusLastElapsedSecond[\s\S]*?TimeSpan\]::FromSeconds[\s\S]*?目前階段：\$phaseLabel｜已經過 \$elapsedText[\s\S]*?正式建立進行中｜\$phaseLabel｜已經過 \$elapsedText｜不可取消或關閉/, 'build progress reports only whitelisted core phases, a truthful elapsed clock, and live process state without inventing percentage progress');
 assert.doesNotMatch(updateBuildProgress, /percent|百分比|Kill|Stop-ReadOnlyOperation|Cancel/, 'build observability never invents completion progress or widens cancellation authority');
 const completeBuildOperation = managerPs.match(/function Complete-BuildOperation \{[\s\S]*?(?=\nfunction Start-ReadOnlyOperation)/)?.[0] || '';
-assert.match(completeBuildOperation, /HasExited[\s\S]*?LastReadyInput = ''[\s\S]*?Set-BuildUiState -Running \$false[\s\S]*?Show-WorkerResponse[\s\S]*?Remove-ReadOnlyResultFile[\s\S]*?Remove-WorkerSourceTempRoots/, 'build completion clears the one-time grant, restores the UI, applies the core result, and cleans managed temp state');
+assert.match(completeBuildOperation, /HasExited[\s\S]*?LastReadyInput = ''[\s\S]*?Set-BuildUiState -Running \$false[\s\S]*?Show-WorkerResponse[\s\S]*?Remove-ReadOnlyResultFile[\s\S]*?Remove-BuildProgressFile[\s\S]*?Remove-WorkerSourceTempRoots/, 'build completion clears the one-time grant, restores the UI, applies the core result, and cleans managed result, progress, and source temp state');
 assert.match(managerPs, /Cancel-ReadOnlyOperation[\s\S]*?Stop-ReadOnlyOperation[\s\S]*?未建立或修改案件資料/, 'explicit cancellation terminates and cleans the read-only worker without widening authority');
 assert.match(managerPs, /taskkill\.exe \/PID \$workerPid \/T \/F[\s\S]*?WaitForExit\(2000\)/, 'cancellation stops the worker process tree before bounded cleanup');
 assert.match(managerPs, /Remove-WorkerSourceTempRoots[\s\S]*?formal-source-\$WorkerPid-[\s\S]*?Remove-Item -LiteralPath \$resolved -Recurse -Force/, 'parent cleanup is limited to the cancelled worker pid inside the system temp root');
@@ -401,7 +415,7 @@ const droppedPathHandoff = managerPs.match(/function Set-ManagerDroppedPath \{[\
 assert.match(droppedPathHandoff, /Paths\)\.Count -ne 1[\s\S]*?Test-ManagerDropPath[\s\S]*?Resolve-Path[\s\S]*?BtnCheck\.PerformClick\(\)[\s\S]*?BtnVerify\.PerformClick\(\)/, 'a drop accepts exactly one validated path and starts only the matching read-only action');
 assert.doesNotMatch(droppedPathHandoff, /BtnBuild|Invoke-AttachmentWorker|Action build/, 'drag-and-drop can never trigger formal package creation');
 assert.match(managerPs, /SmokeDragDrop[\s\S]*?OnDragEnter[\s\S]*?OnDragDrop[\s\S]*?sourceDropAccepted[\s\S]*?multiDropRejected[\s\S]*?ordinaryFileRejected[\s\S]*?verifyFolderAccepted[\s\S]*?sourceZipRejectedByVerify[\s\S]*?built = \$false/, 'dynamic drag smoke uses native WinForms events and proves accepted and rejected paths without building');
-assert.match(managerPs, /SmokeBuildResponsiveness[\s\S]*?uiResponsiveDuringBuild[\s\S]*?closeBlockedDuringBuild[\s\S]*?escapeBlockedDuringBuild[\s\S]*?buildingActionVisible[\s\S]*?elapsedStatusVisible[\s\S]*?workerExited[\s\S]*?resultFileRemoved[\s\S]*?uiRecovered[\s\S]*?buildGrantCleared[\s\S]*?noPackageCreated[\s\S]*?built = \$false/, 'dynamic build smoke proves a responsive and observable but non-cancellable atomic build lifecycle without creating a package');
+assert.match(managerPs, /SmokeBuildResponsiveness[\s\S]*?uiResponsiveDuringBuild[\s\S]*?closeBlockedDuringBuild[\s\S]*?escapeBlockedDuringBuild[\s\S]*?buildingActionVisible[\s\S]*?buildPhaseVisible[\s\S]*?elapsedStatusVisible[\s\S]*?workerExited[\s\S]*?resultFileRemoved[\s\S]*?progressFileRemoved[\s\S]*?uiRecovered[\s\S]*?buildGrantCleared[\s\S]*?noPackageCreated[\s\S]*?built = \$false/, 'dynamic build smoke proves a responsive, phase-aware, observable but non-cancellable atomic build lifecycle without creating a package');
 assert.match(
   managerPs,
   /\$sourceChanged = \{[\s\S]*?LastSuggestedOutput[\s\S]*?OutputPath\.Text\.Trim\(\) -eq \$script:LastSuggestedOutput[\s\S]*?LastSuggestedOutput = ''[\s\S]*?OutputPath\.Clear\(\)/,

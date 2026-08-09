@@ -130,7 +130,14 @@ try {
   const sourcePath = writeSourceJson(readyInput);
   const reportPath = writeReport(readyInput, '文件狀態：正式附件');
 
-  const result = Builder.buildPackage(readyInput, { output: readyOutput, projectNo: 'PKG-001', now: FIXED_NOW });
+  const buildPhases = [];
+  const result = Builder.buildPackage(readyInput, {
+    output: readyOutput,
+    projectNo: 'PKG-001',
+    now: FIXED_NOW,
+    onProgress: phase => buildPhases.push(phase),
+  });
+  assert.deepEqual(buildPhases, ['source-recheck', 'staging', 'self-verification', 'publishing', 'complete']);
   assert.equal(result.status, 'ready');
   assert.equal(result.built, true);
   assert.equal(result.formalAttachmentCount, 1);

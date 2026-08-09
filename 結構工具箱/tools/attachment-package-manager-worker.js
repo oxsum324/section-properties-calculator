@@ -15,6 +15,9 @@ const MAX_PDF_BYTES = 256 * 1024 * 1024;
 const MAX_EVIDENCE_BYTES = 64 * 1024 * 1024;
 const RESULT_FILE_PREFIX = 'attachment-package-manager-result-';
 const RESULT_FILE_SUFFIX = '.json';
+const PROGRESS_FILE_PREFIX = 'attachment-package-manager-progress-';
+const PROGRESS_FILE_SUFFIX = '.jsonl';
+const BUILD_PHASES = new Set(['preparing-source', 'source-recheck', 'staging', 'self-verification', 'publishing', 'complete']);
 
 function text(value) {
   return value === null || value === undefined ? '' : String(value).trim();
@@ -66,6 +69,34 @@ function emitResponse(response, resultFile = '') {
     return;
   }
   fs.writeFileSync(resolveResultFile(resultFile), json, { encoding: 'utf8', flag: 'wx' });
+}
+
+function resolveProgressFile(value, options = {}) {
+  const requested = text(value);
+  if (!requested) return '';
+  const resolved = path.resolve(requested);
+  const tempRoot = path.resolve(os.tmpdir());
+  const name = path.basename(resolved);
+  if (path.dirname(resolved) !== tempRoot
+    || !name.startsWith(PROGRESS_FILE_PREFIX)
+    || !name.endsWith(PROGRESS_FILE_SUFFIX)
+    || name.length > 160) {
+    throw new Error('背景工作階段事件檔必須是系統暫存區內的受管 JSONL。');
+  }
+  if (fs.existsSync(resolved)) {
+    const stat = fs.lstatSync(resolved);
+    if (!options.allowExisting || !stat.isFile() || stat.isSymbolicLink()) {
+      throw new Error('背景工作階段事件檔已存在或不是一般檔案；拒絕使用。');
+    }
+  }
+  return resolved;
+}
+
+function emitProgress(progressFile, phase) {
+  if (!progressFile) return;
+  if (!BUILD_PHASES.has(phase)) throw new Error(`不支援的正式建立階段：${phase || '(空白)'}`);
+  const record = { schemaVersion: 1, phase, emittedAt: new Date().toISOString() };
+  fs.appendFileSync(resolveProgressFile(progressFile, { allowExisting: true }), `${JSON.stringify(record)}\n`, { encoding: 'utf8', flag: 'a' });
 }
 
 function firstFingerprint(record = {}) {
@@ -404,6 +435,8 @@ function runAction(action, options = {}, dependencies = {}) {
     };
   }
 
+  const onProgress = typeof dependencies.onProgress === 'function' ? dependencies.onProgress : () => {};
+  if (action === 'build') onProgress('preparing-source');
   const resolved = resolveInput(action, options);
   try {
     sleepMilliseconds(options.smokeDelayMs);
@@ -415,7 +448,7 @@ function runAction(action, options = {}, dependencies = {}) {
         response.suggestedOutputDir = text(builder.defaultOutputDir(outputSeed));
       }
     } else if (action === 'build') {
-      const buildOptions = { projectNo: text(options.projectNo) };
+      const buildOptions = { projectNo: text(options.projectNo), onProgress };
       if (text(options.output)) buildOptions.output = path.resolve(text(options.output));
       else if (resolved.inputKind === 'formal-source-zip') {
         buildOptions.output = builder.defaultOutputDir(path.join(path.dirname(resolved.originalInput), resolved.stem));
@@ -442,6 +475,7 @@ function parseArgs(argv = []) {
     else if (arg === '--project-no') options.projectNo = argv[++index];
     else if (arg === '--request-base64') options = { ...options, ...parseRequestBase64(argv[++index]) };
     else if (arg === '--result-file') options.resultFile = argv[++index];
+    else if (arg === '--progress-file') options.progressFile = argv[++index];
     else if (arg === '--smoke-delay-ms') options.smokeDelayMs = Number(argv[++index]);
     else if (arg === '--help' || arg === '-h') options.help = true;
     else throw new Error(`未知參數：${arg}`);
@@ -456,7 +490,7 @@ function usageResponse() {
   return {
     action: 'help',
     status: 'ready',
-    usage: 'node attachment-package-manager-worker.js --action smoke|check|build|verify [--input <資料夾或 .formal-source.zip>] [--output <輸出資料夾>] [--project-no <計畫編號>]',
+    usage: 'node attachment-package-manager-worker.js --action smoke|check|build|verify [--input <資料夾或 .formal-source.zip>] [--output <輸出資料夾>] [--project-no <計畫編號>] [--progress-file <受管 JSONL>]',
   };
 }
 
@@ -468,7 +502,10 @@ function exitCodeForResponse(response, checker = Checker) {
 function main(argv = process.argv.slice(2)) {
   try {
     const options = parseArgs(argv);
-    const response = options.help ? usageResponse() : runAction(text(options.action), options);
+    const progressFile = options.progressFile ? resolveProgressFile(options.progressFile) : '';
+    const response = options.help ? usageResponse() : runAction(text(options.action), options, {
+      onProgress: phase => emitProgress(progressFile, phase),
+    });
     emitResponse(response, options.resultFile);
     return exitCodeForResponse(response);
   } catch (error) {
@@ -498,11 +535,16 @@ module.exports = {
   ACTIONS,
   RESULT_FILE_PREFIX,
   RESULT_FILE_SUFFIX,
+  PROGRESS_FILE_PREFIX,
+  PROGRESS_FILE_SUFFIX,
+  BUILD_PHASES,
   text,
   sleepMilliseconds,
   parseRequestBase64,
   resolveResultFile,
   emitResponse,
+  resolveProgressFile,
+  emitProgress,
   firstFingerprint,
   documentState,
   checkRecords,
