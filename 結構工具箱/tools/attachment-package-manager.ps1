@@ -59,6 +59,8 @@ $script:BuildSmokeTimer = $null
 $script:BuildSmokeState = $null
 $script:BuildSmokeResult = $null
 $script:BuildSmokeFixtureRoot = ''
+$script:BuildHandoffRecoveryOutput = ''
+$script:BtnBuildHandoffVerify = $null
 $script:ActiveMode = $InitialMode
 
 $dynamicSmokeCount = @(@($SmokeReadOnlyCancellation, $SmokeReadOnlyCompletion, $SmokeKeyboard, $SmokeViewport, $SmokeDragDrop, $SmokeBuildResponsiveness) | Where-Object { $_ }).Count
@@ -199,8 +201,19 @@ function Set-StatusAppearance {
   }
 }
 
+function Clear-BuildHandoffRecovery {
+  $script:BuildHandoffRecoveryOutput = ''
+  if ($script:BtnBuildHandoffVerify) {
+    $script:BtnBuildHandoffVerify.Visible = $false
+    $script:BtnBuildHandoffVerify.Enabled = $false
+  }
+  if ($script:StatusTitle) { $script:StatusTitle.Width = 960 }
+  if ($script:StatusMeta) { $script:StatusMeta.Width = 960 }
+}
+
 function Show-WorkerResponse {
   param($Response)
+  Clear-BuildHandoffRecovery
   $status = [string](Get-ResponseValue $Response 'status' 'error')
   $title = [string](Get-ResponseValue $Response 'title' '附件包管理器未取得結果')
   Set-StatusAppearance -Status $status -Title $title
@@ -272,6 +285,11 @@ function Show-BuildResultHandoffUnknown {
     $script:LastOutputDirectory = $RequestedOutput
     $script:PackagePath.Text = $RequestedOutput
     $script:BtnOpenOutput.Enabled = $true
+    $script:BuildHandoffRecoveryOutput = $RequestedOutput
+    $script:BtnBuildHandoffVerify.Visible = $true
+    $script:BtnBuildHandoffVerify.Enabled = $true
+    $script:StatusTitle.Width = 710
+    $script:StatusMeta.Width = 710
   }
   $script:BottomStatus.Text = '狀態：建立結果待確認｜先驗證輸出，不要直接重建'
 }
@@ -494,6 +512,7 @@ function Update-BuildProgressStatus {
 
 function Start-BuildOperation {
   if ($script:BuildProcess) { return }
+  Clear-BuildHandoffRecovery
   $inputPath = $script:SourcePath.Text.Trim()
   $projectNo = $script:ProjectNo.Text.Trim()
   $outputPath = $script:OutputPath.Text.Trim()
@@ -592,6 +611,7 @@ function Start-ReadOnlyOperation {
   if (-not $InputPath.Trim()) {
     throw $(if ($Action -eq 'check') { '請先選擇附件來源資料夾或 PDF＋證據來源 ZIP。' } else { '請先選擇要驗證的正式附件包資料夾。' })
   }
+  Clear-BuildHandoffRecovery
   if (-not (Test-Path -LiteralPath $script:WorkerPath -PathType Leaf)) { throw "找不到附件包管理器核心：$script:WorkerPath" }
   Stop-ReadOnlyOperation
   $request = [ordered]@{ action = $Action; input = $InputPath.Trim(); projectNo = $ProjectNo.Trim() }
@@ -724,6 +744,10 @@ function Invoke-ManagerKeyDown {
   Set-ManagerKeyHandled -EventArgs $EventArgs
   if ($script:ReadOnlyProcess -or $script:BuildProcess) { return }
   $active = $script:MainForm.ActiveControl
+  if ($active -eq $script:BtnBuildHandoffVerify -and $script:BtnBuildHandoffVerify.Visible -and $script:BtnBuildHandoffVerify.Enabled) {
+    $script:BtnBuildHandoffVerify.PerformClick()
+    return
+  }
   if ($active -eq $script:PackagePath -or $active -eq $script:BtnVerify) {
     $script:ActiveMode = 'verify'
     $script:BtnVerify.PerformClick()
@@ -905,6 +929,14 @@ $script:StatusMeta = New-Object System.Windows.Forms.Label
 $script:StatusMeta.Location = New-Object System.Drawing.Point(17, 36)
 $script:StatusMeta.Size = New-Object System.Drawing.Size(960, 20)
 $script:StatusPanel.Controls.Add($script:StatusMeta)
+$script:BtnBuildHandoffVerify = New-Object System.Windows.Forms.Button
+$script:BtnBuildHandoffVerify.Text = '唯讀驗證待確認輸出'
+$script:BtnBuildHandoffVerify.Location = New-Object System.Drawing.Point(748, 14)
+$script:BtnBuildHandoffVerify.Size = New-Object System.Drawing.Size(230, 36)
+$script:BtnBuildHandoffVerify.Anchor = 'Top,Right'
+$script:BtnBuildHandoffVerify.Visible = $false
+$script:BtnBuildHandoffVerify.Enabled = $false
+$script:StatusPanel.Controls.Add($script:BtnBuildHandoffVerify)
 
 $script:ResultGrid = New-Object System.Windows.Forms.DataGridView
 $script:ResultGrid.Location = New-Object System.Drawing.Point(22, 518)
@@ -990,6 +1022,9 @@ $script:BtnBrowsePackage.AccessibleName = '選擇既有正式附件包資料夾'
 $script:BtnVerify.TabIndex = 2
 $script:BtnVerify.AccessibleName = '驗證既有正式附件包'
 $script:BtnVerify.AccessibleDescription = '唯讀背景驗證；進行中可再次按下或按 Esc 安全停止。'
+$script:BtnBuildHandoffVerify.TabIndex = 0
+$script:BtnBuildHandoffVerify.AccessibleName = '唯讀驗證建立結果待確認的輸出'
+$script:BtnBuildHandoffVerify.AccessibleDescription = '只呼叫既有附件包唯讀驗證，不會重新建立、修改或核可附件包。'
 $script:ResultGrid.AccessibleName = '附件檢查結果清單'
 $script:DetailsBox.AccessibleName = '附件檢查問題與處置說明'
 
@@ -1001,6 +1036,7 @@ foreach ($control in @($script:PackagePath, $script:BtnVerify)) {
 }
 
 $invalidateBuild = {
+  Clear-BuildHandoffRecovery
   $script:BtnBuild.Enabled = $false
   $script:LastReadyInput = ''
   $script:LastReadyProjectNo = ''
@@ -1128,6 +1164,23 @@ $script:BtnVerify.Add_Click({
   }
   try {
     Start-ReadOnlyOperation -Action verify -InputPath $script:PackagePath.Text
+  } catch {
+    Show-OperationError $_.Exception
+  }
+})
+
+$script:BtnBuildHandoffVerify.Add_Click({
+  $recoveryOutput = $script:BuildHandoffRecoveryOutput
+  if (-not $recoveryOutput -or -not (Test-Path -LiteralPath $recoveryOutput -PathType Container)) {
+    Clear-BuildHandoffRecovery
+    Show-OperationError ([System.InvalidOperationException]::new('待確認的預定輸出已不存在；請重新選擇候選附件包後執行唯讀驗證。'))
+    return
+  }
+  Clear-BuildHandoffRecovery
+  $script:PackagePath.Text = $recoveryOutput
+  $script:ActiveMode = 'verify'
+  try {
+    Start-ReadOnlyOperation -Action verify -InputPath $recoveryOutput
   } catch {
     Show-OperationError $_.Exception
   }

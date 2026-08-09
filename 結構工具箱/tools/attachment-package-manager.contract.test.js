@@ -355,6 +355,7 @@ assert.match(
   'System.Windows.Forms', 'FolderBrowserDialog', 'OpenFileDialog', 'attachment-package-manager-worker.js',
   "ValidateSet('smoke', 'check', 'build', 'verify')", '檢查附件來源', '建立正式附件包',
   '驗證附件包', '管理畫面與檢查結果僅供內部整理', 'workerExitCode',
+  '唯讀驗證待確認輸出', 'BuildHandoffRecoveryOutput', 'Clear-BuildHandoffRecovery',
   "[string]$InitialPath = ''", "[ValidateSet('source', 'verify')][string]$InitialMode = 'source'", '[switch]$AutoInspect',
   'PDF＋證據來源 ZIP', '*.formal-source.zip', '選擇來源 ZIP…',
   'System.Diagnostics.ProcessStartInfo', 'System.Windows.Forms.Timer', 'Start-ReadOnlyOperation',
@@ -448,6 +449,12 @@ assert.doesNotMatch(droppedPathHandoff, /BtnBuild|Invoke-AttachmentWorker|Action
 assert.match(managerPs, /SmokeDragDrop[\s\S]*?OnDragEnter[\s\S]*?OnDragDrop[\s\S]*?sourceDropAccepted[\s\S]*?multiDropRejected[\s\S]*?ordinaryFileRejected[\s\S]*?verifyFolderAccepted[\s\S]*?sourceZipRejectedByVerify[\s\S]*?built = \$false/, 'dynamic drag smoke uses native WinForms events and proves accepted and rejected paths without building');
 assert.match(managerPs, /SmokeBuildResponsiveness[\s\S]*?uiResponsiveDuringBuild[\s\S]*?closeBlockedDuringBuild[\s\S]*?escapeBlockedDuringBuild[\s\S]*?buildingActionVisible[\s\S]*?buildPhaseVisible[\s\S]*?elapsedStatusVisible[\s\S]*?workerExited[\s\S]*?resultFileRemoved[\s\S]*?progressFileRemoved[\s\S]*?uiRecovered[\s\S]*?buildGrantCleared[\s\S]*?noPackageCreated[\s\S]*?built = \$false/, 'dynamic build smoke proves a responsive, phase-aware, observable but non-cancellable atomic build lifecycle without creating a package');
 assert.match(managerPs, /function Show-BuildResultHandoffUnknown[\s\S]*?這不代表附件包建立失敗[\s\S]*?先驗證輸出，不要直接重建/, 'missing or damaged final IPC is shown as an indeterminate handoff that requires verification, never as a failed build');
+const handoffRecoveryDisplay = managerPs.match(/function Show-BuildResultHandoffUnknown \{[\s\S]*?(?=\nfunction Assert-WorkerResponseEnvelope)/)?.[0] || '';
+assert.match(handoffRecoveryDisplay, /Test-Path -LiteralPath \$RequestedOutput -PathType Container[\s\S]*?PackagePath\.Text = \$RequestedOutput[\s\S]*?BuildHandoffRecoveryOutput = \$RequestedOutput[\s\S]*?BtnBuildHandoffVerify\.Visible = \$true[\s\S]*?BtnBuildHandoffVerify\.Enabled = \$true/, 'an exact existing planned output exposes one governed recovery action and pre-fills only that package path');
+const handoffRecoveryHandler = managerPs.match(/\$script:BtnBuildHandoffVerify\.Add_Click\(\{[\s\S]*?(?=\n\}\)\n\n\$script:BtnOpenOutput\.Add_Click)/)?.[0] || '';
+assert.match(handoffRecoveryHandler, /Test-Path -LiteralPath \$recoveryOutput -PathType Container[\s\S]*?Start-ReadOnlyOperation -Action verify -InputPath \$recoveryOutput/, 'the recovery action rechecks the exact existing output through the established read-only verifier');
+assert.doesNotMatch(handoffRecoveryHandler, /Start-BuildOperation|action = 'build'|BtnBuild\.PerformClick|BtnBuild\.Enabled|核可/, 'handoff recovery cannot rebuild, modify, approve, or route into the write path');
+assert.match(managerPs, /BtnBuildHandoffVerify\.AccessibleDescription = '只呼叫既有附件包唯讀驗證，不會重新建立、修改或核可附件包。'/, 'assistive text preserves the recovery permission boundary');
 assert.match(managerPs, /function Assert-WorkerResponseEnvelope[\s\S]*?ready = 0; review = 1; blocked = 2; error = 3[\s\S]*?背景結果與程序退出狀態不一致/, 'result IPC must match the expected action, governed status and actual worker exit code before the UI applies it');
 assert.match(managerPs, /Complete-BuildOperation[\s\S]*?Assert-WorkerResponseEnvelope -Response \$response -ExpectedAction 'build' -ExitCode \$exitCode/, 'build completion validates the result envelope before showing success');
 assert.match(managerPs, /Complete-ReadOnlyOperation[\s\S]*?Assert-WorkerResponseEnvelope -Response \$response -ExpectedAction \$action -ExitCode \$exitCode/, 'read-only completion validates the result envelope before applying a grant or verification result');

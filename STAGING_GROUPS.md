@@ -354,6 +354,8 @@ Replace anchor dialogs with in-app confirmations
 
 套用結果前須再比對預期 action、封閉狀態與實際退出碼 0 / 1 / 2 / 3；任何錯配均拒絕，避免排他保留失敗時把預存內容誤認為本次 check / build / verify 結果。
 
+結果待確認復原入口只能在原先明確輸出仍為實體資料夾時顯示，必須把該精確路徑交給既有 `Start-ReadOnlyOperation -Action verify`，並沿用可取消、逾時、結果封套與暫存清理。測試需固定它不含 build、建立、修改或核可路由；未知輸出不得掃描或猜選最新資料夾。
+
 ## 首頁正式放行日期來源
 
 調整首頁狀態或 release 快照時，需一併 staging `結構工具箱/assets/home/home.js`、`toolbox-entrypoints.contract.test.js` 與三份治理文件。`HOME_TOOL_UPDATES` 不得保存人工 fallback 正式放行日；執行期只可接受 passing、非 quick、兩個 force 旗標成立、來源 commit 可辨識且乾淨的 tracked preflight snapshot。契約須固定未載入提示與正式快照導入路徑，避免 release 狀態提交跨日後產生首頁落後日期。
