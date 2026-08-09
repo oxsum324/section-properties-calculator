@@ -251,6 +251,7 @@ function checkResponse(report, checker = Checker) {
     outputDir: '',
     packageFingerprint: '',
     suggestedProjectNo: suggestedProjectNo(report),
+    suggestedOutputDir: '',
     counts: {
       attachments: Number(report.summary?.attachments || 0),
       errors: Number(report.summary?.errors || 0),
@@ -285,6 +286,7 @@ function buildResponse(result, checker = Checker) {
     outputDir: text(result.outputDir),
     packageFingerprint: text(result.packageFingerprint),
     suggestedProjectNo: suggestedProjectNo(report),
+    suggestedOutputDir: '',
     counts: {
       attachments: Number(report.summary?.attachments || 0),
       errors: Number(report.summary?.errors || 0),
@@ -311,6 +313,7 @@ function verifyResponse(report, verifier = Verifier) {
     outputDir: '',
     packageFingerprint: text(report.packageFingerprint),
     suggestedProjectNo: '',
+    suggestedOutputDir: '',
     counts: {
       attachments: Number(report.summary?.expectedFiles || 0),
       verified: Number(report.summary?.verifiedFiles || 0),
@@ -342,6 +345,7 @@ function runAction(action, options = {}, dependencies = {}) {
       outputDir: '',
       packageFingerprint: '',
       suggestedProjectNo: '',
+      suggestedOutputDir: '',
       counts: { modules: 3 },
       records: [],
       issues: [],
@@ -354,6 +358,10 @@ function runAction(action, options = {}, dependencies = {}) {
     let response;
     if (action === 'check') {
       response = checkResponse(checker.checkPackage(resolved.input, { projectNo: text(options.projectNo) }), checker);
+      if (response.status === 'ready' && resolved.inputKind === 'formal-source-zip') {
+        const outputSeed = path.join(path.dirname(resolved.originalInput), resolved.stem);
+        response.suggestedOutputDir = text(builder.defaultOutputDir(outputSeed));
+      }
     } else if (action === 'build') {
       const buildOptions = { projectNo: text(options.projectNo) };
       if (text(options.output)) buildOptions.output = path.resolve(text(options.output));
@@ -415,6 +423,7 @@ function main(argv = process.argv.slice(2)) {
       outputDir: '',
       packageFingerprint: '',
       suggestedProjectNo: '',
+      suggestedOutputDir: '',
       counts: {},
       records: [],
       issues: [{ level: 'error', code: 'manager-error', message: text(error?.message || error), files: [] }],

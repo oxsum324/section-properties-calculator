@@ -18,6 +18,7 @@ $script:WorkerPath = Join-Path $script:ToolDirectory 'attachment-package-manager
 $script:LastReadyInput = ''
 $script:LastReadyProjectNo = ''
 $script:LastOutputDirectory = ''
+$script:LastSuggestedOutput = ''
 
 function Get-NodePath {
   $command = Get-Command node.exe -ErrorAction SilentlyContinue
@@ -389,8 +390,21 @@ $invalidateBuild = {
   $script:LastReadyInput = ''
   $script:LastReadyProjectNo = ''
 }
-$script:SourcePath.Add_TextChanged($invalidateBuild)
+$sourceChanged = {
+  & $invalidateBuild
+  if ($script:LastSuggestedOutput -and $script:OutputPath.Text.Trim() -eq $script:LastSuggestedOutput) {
+    $script:LastSuggestedOutput = ''
+    $script:OutputPath.Clear()
+  }
+}
+$outputChanged = {
+  if ($script:LastSuggestedOutput -and $script:OutputPath.Text.Trim() -ne $script:LastSuggestedOutput) {
+    $script:LastSuggestedOutput = ''
+  }
+}
+$script:SourcePath.Add_TextChanged($sourceChanged)
 $script:ProjectNo.Add_TextChanged($invalidateBuild)
+$script:OutputPath.Add_TextChanged($outputChanged)
 
 $script:BtnBrowseSource.Add_Click({
   $selected = Select-Folder -Description '選擇包含計算書與來源 JSON 的附件資料夾' -SelectedPath $script:SourcePath.Text
@@ -407,6 +421,7 @@ $script:BtnBrowseOutput.Add_Click({
   if ($selected) {
     $sourceName = Get-SourceBaseName -SourcePath $script:SourcePath.Text
     $token = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $script:LastSuggestedOutput = ''
     $script:OutputPath.Text = Join-Path $selected "$sourceName-正式附件包-$token"
   }
 })
@@ -429,6 +444,12 @@ $script:BtnCheck.Add_Click({
       $script:DetailsBox.AppendText("`r`n已從來源帶入唯一計畫編號：$suggestedProjectNo；建立前仍會再次完整檢查。")
     }
     if ($response.status -eq 'ready' -and $response.canBuild) {
+      $suggestedOutputDir = [string](Get-ResponseValue $response 'suggestedOutputDir')
+      if (-not $script:OutputPath.Text.Trim() -and $suggestedOutputDir) {
+        $script:LastSuggestedOutput = $suggestedOutputDir
+        $script:OutputPath.Text = $suggestedOutputDir
+        $script:DetailsBox.AppendText("`r`n已顯示來源 ZIP 的預計輸出位置；尚未建立任何資料夾，建立前仍會檢查不覆寫。")
+      }
       $script:LastReadyInput = $script:SourcePath.Text.Trim()
       $script:LastReadyProjectNo = $script:ProjectNo.Text.Trim()
       $script:BtnBuild.Enabled = $true

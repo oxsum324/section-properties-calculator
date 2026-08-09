@@ -42,6 +42,7 @@ const fakeChecker = {
   isDocumentClassRequired(record) { return record.type !== 'json'; },
 };
 const fakeBuilder = {
+  defaultOutputDir(input) { return `${input}-正式附件包-suggested`; },
   buildPackage() {
     return {
       status: 'ready', built: true, outputDir: 'C:\\case\\正式附件包',
@@ -74,6 +75,7 @@ assert.equal(check.records.length, 2);
 assert.equal(check.records[0].state, '正式附件');
 assert.equal(check.records[1].role, '內部追溯來源');
 assert.equal(check.suggestedProjectNo, 'CASE-001');
+assert.equal(check.suggestedOutputDir, '', 'ordinary source folders keep the established safe implicit output default');
 assert.equal(check.displayText, 'CHECK:ready');
 assert.equal(Worker.suggestedProjectNo({ attachments: [{ projectNo: '' }, {}] }), '', 'blank project metadata stays optional');
 assert.equal(Worker.suggestedProjectNo({ attachments: [{ projectNo: 'A' }, { projectNo: 'B' }] }), '', 'conflicting project numbers are never guessed');
@@ -127,6 +129,7 @@ try {
   };
   const zipCheck = Worker.runAction('check', { input: bundlePath }, { ...dependencies, Checker: zipChecker });
   assert.equal(zipCheck.inputKind, 'formal-source-zip');
+  assert.equal(zipCheck.suggestedOutputDir, path.join(zipFixtureRoot, '核可計算書-正式附件包-suggested'));
   assert.match(zipCheck.displayText, /隔離暫存區安全讀取/);
   assert.ok(checkedTemp && !fs.existsSync(checkedTemp), 'ZIP check always removes isolated temporary input');
 
@@ -206,6 +209,26 @@ assert.match(
   sourceCheckHandler,
   /\$script:ProjectNo\.Text = \$suggestedProjectNo[\s\S]*?\$response\.status -eq 'ready'[\s\S]*?\$script:LastReadyInput = \$script:SourcePath\.Text\.Trim\(\)[\s\S]*?\$script:LastReadyProjectNo = \$script:ProjectNo\.Text\.Trim\(\)[\s\S]*?\$script:BtnBuild\.Enabled = \$true/,
   'the build grant is recreated only after the suggested value is applied and is bound to that current value',
+);
+assert.match(
+  sourceCheckHandler,
+  /\$response\.status -eq 'ready'[\s\S]*?if \(-not \$script:OutputPath\.Text\.Trim\(\) -and \$suggestedOutputDir\)[\s\S]*?\$script:LastSuggestedOutput = \$suggestedOutputDir[\s\S]*?\$script:OutputPath\.Text = \$suggestedOutputDir[\s\S]*?尚未建立任何資料夾/,
+  'a ready source ZIP fills only an empty output field and clearly remains a non-writing plan',
+);
+assert.match(
+  managerPs,
+  /\$sourceChanged = \{[\s\S]*?LastSuggestedOutput[\s\S]*?OutputPath\.Text\.Trim\(\) -eq \$script:LastSuggestedOutput[\s\S]*?LastSuggestedOutput = ''[\s\S]*?OutputPath\.Clear\(\)/,
+  'changing source clears a stale automatic output suggestion only when the field still matches it',
+);
+assert.match(
+  managerPs,
+  /\$outputChanged = \{[\s\S]*?OutputPath\.Text\.Trim\(\) -ne \$script:LastSuggestedOutput[\s\S]*?LastSuggestedOutput = ''/,
+  'editing the planned output converts it to a user choice that later source changes preserve',
+);
+assert.match(
+  managerPs,
+  /\$script:BtnBrowseOutput\.Add_Click\(\{[\s\S]*?if \(\$selected\)[\s\S]*?\$script:LastSuggestedOutput = ''[\s\S]*?\$script:OutputPath\.Text =/,
+  'an explicit output-folder selection is always preserved as a user choice even if its text matches a suggestion',
 );
 assert.match(managerPs, /if \(\$InitialMode -eq 'source'[^\n]+\$script:SourcePath\.Text/, 'manager pre-fills source input only in source mode');
 assert.match(managerPs, /if \(\$InitialMode -eq 'verify'[^\n]+\$script:PackagePath\.Text/, 'manager pre-fills package input only in verify mode');
