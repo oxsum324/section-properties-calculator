@@ -47,7 +47,7 @@ $specs = @(
     Kind = 'send-to'
     Label = '傳送到'
     Path = Join-Path $sendToFullPath '以附件工作台檢查.lnk'
-    Description = "$managedMarker：將單一資料夾交給唯讀辨識"
+    Description = "$managedMarker：將單一資料夾或 .formal-source.zip 交給唯讀辨識"
   },
   [pscustomobject]@{
     Kind = 'start-menu'
@@ -232,7 +232,7 @@ if ($Json) {
   } elseif ($Remove) {
     '已只處理本工具管理的捷徑；同名使用者捷徑會保留。'
   } else {
-    '桌面可直接開啟；案件資料夾可用右鍵「傳送到」進入唯讀辨識；也可按 Windows 鍵搜尋「案件附件工作台」。'
+    '桌面可直接開啟；單一案件資料夾或 .formal-source.zip 可用右鍵「傳送到 → 以附件工作台檢查」進入唯讀辨識；也可按 Windows 鍵搜尋「案件附件工作台」。'
   }
 }
 

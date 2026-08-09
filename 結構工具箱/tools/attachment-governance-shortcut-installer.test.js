@@ -81,6 +81,7 @@ assert.equal(installerSource.charCodeAt(0), 0xFEFF, 'installer keeps UTF-8 BOM f
 [
   'WScript.Shell', '啟動案件附件工作台.bat', '案件附件工作台.lnk', '以附件工作台檢查.lnk', "GetFolderPath('Programs')", 'start-menu',
   'Test-ShortcutManaged', 'Test-ShortcutCurrent', 'Test-ShortcutRemovable', 'Get-ShortcutInspection', 'Assert-ShortcutInstallable', 'Remove-ManagedShortcut', "operation = 'check'", "operation = 'remove'", "Arguments = ''", 'Move-Item', '已保留原檔',
+  '單一資料夾或 .formal-source.zip', '傳送到 → 以附件工作台檢查',
 ].forEach(needle => assert.ok(installerSource.includes(needle), `installer includes ${needle}`));
 assert.doesNotMatch(installerSource, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'installer stays local');
 
@@ -171,6 +172,9 @@ try {
     assert.equal(shortcut.Arguments, '');
     assert.match(shortcut.Description, /由小工具安裝器管理/);
   }
+  assert.match(shortcuts[1].Description, /單一資料夾或 \.formal-source\.zip/, 'SendTo shortcut advertises both governed input types');
+  assert.doesNotMatch(shortcuts[0].Description, /\.formal-source\.zip/, 'desktop shortcut remains a general launcher');
+  assert.doesNotMatch(shortcuts[2].Description, /\.formal-source\.zip/, 'start-menu shortcut remains a general launcher');
 
   const timestamps = shortcuts.map(shortcut => fs.statSync(shortcut.Path).mtimeMs);
   const second = runInstaller(desktopPath, sendToPath, programsPath);
