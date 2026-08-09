@@ -49,6 +49,7 @@ $script:DragDropSmokeResult = $null
 $script:BuildProcess = $null
 $script:BuildResultFile = ''
 $script:BuildStartedAt = $null
+$script:BuildStatusLastElapsedSecond = -1
 $script:BuildTimer = $null
 $script:BuildSmokeTimer = $null
 $script:BuildSmokeState = $null
@@ -398,6 +399,21 @@ function Stop-ReadOnlyOperation {
   if ($script:BtnCheck) { Set-ReadOnlyUiState -Running $false }
 }
 
+function Update-BuildProgressStatus {
+  if (-not $script:BuildProcess -or -not $script:BuildStartedAt -or $script:BuildProcess.HasExited) { return }
+  $elapsedSeconds = [Math]::Max(0, [int][Math]::Floor(((Get-Date) - $script:BuildStartedAt).TotalSeconds))
+  if ($elapsedSeconds -eq $script:BuildStatusLastElapsedSecond) { return }
+  $script:BuildStatusLastElapsedSecond = $elapsedSeconds
+  $elapsed = [TimeSpan]::FromSeconds($elapsedSeconds)
+  $elapsedText = if ($elapsed.TotalHours -ge 1) {
+    '{0:00}:{1:00}:{2:00}' -f [int][Math]::Floor($elapsed.TotalHours), $elapsed.Minutes, $elapsed.Seconds
+  } else {
+    '{0:00}:{1:00}' -f $elapsed.Minutes, $elapsed.Seconds
+  }
+  $script:StatusMeta.Text = "背景原子建立程序運作中｜已經過 $elapsedText｜為保護發布完整性不可取消或關閉。"
+  $script:BottomStatus.Text = "狀態：正式建立進行中｜已經過 $elapsedText｜不可取消或關閉"
+}
+
 function Start-BuildOperation {
   if ($script:BuildProcess) { return }
   $inputPath = $script:SourcePath.Text.Trim()
@@ -433,11 +449,11 @@ function Start-BuildOperation {
   $script:BuildProcess = $process
   $script:BuildResultFile = $resultFile
   $script:BuildStartedAt = Get-Date
+  $script:BuildStatusLastElapsedSecond = -1
   Set-BuildUiState -Running $true
   Set-StatusAppearance -Status 'review' -Title '正式附件包建立中'
-  $script:StatusMeta.Text = '背景原子建立執行中；畫面仍可回應，但為保護發布完整性不可取消或關閉。'
   $script:DetailsBox.Text = '建立核心會再次完整檢查來源，再以暫存資料夾原子發布並執行事後驗證。完成前請保留本視窗開啟。'
-  $script:BottomStatus.Text = '狀態：正式建立進行中｜不可取消或關閉'
+  Update-BuildProgressStatus
   $script:BuildTimer.Start()
 }
 
@@ -451,6 +467,7 @@ function Complete-BuildOperation {
   $script:BuildProcess = $null
   $script:BuildResultFile = ''
   $script:BuildStartedAt = $null
+  $script:BuildStatusLastElapsedSecond = -1
   $script:BuildTimer.Stop()
   $script:LastReadyInput = ''
   $script:LastReadyProjectNo = ''
@@ -1053,7 +1070,15 @@ $script:BuildTimer = New-Object System.Windows.Forms.Timer
 $script:BuildTimer.Interval = 150
 $script:BuildTimer.Add_Tick({
   try {
-    Complete-BuildOperation
+    if (-not $script:BuildProcess) {
+      $script:BuildTimer.Stop()
+      return
+    }
+    if ($script:BuildProcess.HasExited) {
+      Complete-BuildOperation
+      return
+    }
+    Update-BuildProgressStatus
   } catch {
     Show-OperationError $_.Exception
   }
@@ -1329,6 +1354,7 @@ if ($SmokeBuildResponsiveness) {
       }
       $state = $script:BuildSmokeState
       if (-not $state) { throw '背景建立 smoke 未取得啟動狀態。' }
+      $state.elapsedStatusSeen = [bool]($state.elapsedStatusSeen -or ($script:StatusMeta.Text -match '程序運作中｜已經過 00:0[1-9]｜' -and $script:BottomStatus.Text -match '正式建立進行中｜已經過 00:0[1-9]｜不可取消或關閉'))
       if (-not $state.interactionChecked) {
         $state.uiTimerRanDuringBuild = [bool]($script:BuildProcess -and -not $script:BuildProcess.HasExited)
         $visibleBeforeClose = [bool]$script:MainForm.Visible
@@ -1350,12 +1376,13 @@ if ($SmokeBuildResponsiveness) {
       $uiRecovered = -not $script:SourcePath.ReadOnly -and $script:BtnCheck.Enabled -and $script:BtnVerify.Enabled -and $script:BtnBuild.Text -eq '2. 建立正式附件包'
       $buildGrantCleared = -not $script:BtnBuild.Enabled -and -not $script:LastReadyInput -and -not $script:LastReadyProjectNo
       $script:BuildSmokeResult = [pscustomobject]@{
-        status = if ($state.uiTimerRanDuringBuild -and $state.closeBlocked -and $state.escapeBlocked -and $state.buildingActionVisible -and $workerExited -and $resultFileRemoved -and $uiRecovered -and $buildGrantCleared -and $extraDirectories.Count -eq 0) { 'pass' } else { 'fail' }
+        status = if ($state.uiTimerRanDuringBuild -and $state.closeBlocked -and $state.escapeBlocked -and $state.buildingActionVisible -and $state.elapsedStatusSeen -and $workerExited -and $resultFileRemoved -and $uiRecovered -and $buildGrantCleared -and $extraDirectories.Count -eq 0) { 'pass' } else { 'fail' }
         winFormsMessageLoop = $true
         uiResponsiveDuringBuild = [bool]$state.uiTimerRanDuringBuild
         closeBlockedDuringBuild = [bool]$state.closeBlocked
         escapeBlockedDuringBuild = [bool]$state.escapeBlocked
         buildingActionVisible = [bool]$state.buildingActionVisible
+        elapsedStatusVisible = [bool]$state.elapsedStatusSeen
         workerExited = [bool]$workerExited
         resultFileRemoved = [bool]$resultFileRemoved
         uiRecovered = [bool]$uiRecovered
@@ -1392,6 +1419,7 @@ $script:MainForm.Add_Shown({
         closeBlocked = $false
         escapeBlocked = $false
         buildingActionVisible = $false
+        elapsedStatusSeen = $false
       }
       $script:BuildSmokeTimer.Start()
     } else {
