@@ -198,6 +198,14 @@ RC 梁、柱、板、牆、剪力牆、基礎與單樁的專案 JSON 維持來�
 
 `attachment-package-build.js` 與 `attachment-package-manager-worker.js` 的建立階段 JSONL 只供本機 UI 旁路觀測。執行中寫入失敗不得中止或改寫 check / build / verify 結果；UI 可停留於最後已驗證階段，但不得把已原子發布成功的附件包誤報為失敗。輸入的事件檔路徑仍須在啟動核心動作前完成受管暫存區驗證，非法路徑維持失敗封閉。
 
+管理器最終結果 JSON 是套用核心結論的必要 IPC，不等同可忽略的階段事件。worker 須在啟動任何核心動作前於系統暫存區排他建立受管結果檔，並透過同一持有中的檔案描述元寫入與 fsync；保留失敗必須在零核心動作時退出，既有檔不得覆寫。最終 I/O 若仍無法形成可解析結果，GUI 只能回報「建立結果待確認」，不得宣稱附件包建立失敗或直接重建；明確輸出若已存在應帶入驗證欄，先由既有唯讀 verifier 判定。
+
+GUI 只可套用 action 與本次預期動作一致，且狀態和實際 worker 退出碼精確對應的結果；`ready / review / blocked / error` 固定對應 0 / 1 / 2 / 3。預存、錯配或無法解析的結果不得形成成功畫面、一次性組包權限或驗證結論。
+
+## 首頁正式放行日期來源
+
+首頁工具內容更新日與正式放行日是不同資料：逐工具日期留在 `HOME_TOOL_UPDATES`，正式放行日只由 tracked `preflight-summary.json` 在執行期提供。快照必須是 passing、非 quick、強制平台巡檢與慢測、來源 commit 可辨識且乾淨，否則卡片只引導查看上方交付前檢查狀態，不得顯示人工猜定日期。
+
 ## 提交前檢查順序
 
 1. `.\run-preflight-tools-quick.bat`

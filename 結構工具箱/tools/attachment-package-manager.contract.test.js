@@ -302,6 +302,19 @@ try {
 } finally {
   fs.rmSync(resultFile, { force: true });
 }
+const occupiedResultFile = path.join(os.tmpdir(), `${Worker.RESULT_FILE_PREFIX}${process.pid}-${Date.now()}-occupied${Worker.RESULT_FILE_SUFFIX}`);
+try {
+  fs.writeFileSync(occupiedResultFile, 'sentinel', 'utf8');
+  const startedAt = Date.now();
+  const rejectedCli = childProcess.spawnSync(process.execPath, [
+    path.join(toolsDir, 'attachment-package-manager-worker.js'), '--action', 'smoke', '--result-file', occupiedResultFile, '--smoke-delay-ms', '2000',
+  ], { encoding: 'utf8' });
+  assert.equal(rejectedCli.status, 3);
+  assert.ok(Date.now() - startedAt < 1500, 'an unavailable result channel is rejected before the core action or test delay starts');
+  assert.equal(fs.readFileSync(occupiedResultFile, 'utf8'), 'sentinel', 'result channel reservation never overwrites an existing file');
+} finally {
+  fs.rmSync(occupiedResultFile, { force: true });
+}
 const progressFile = path.join(os.tmpdir(), `${Worker.PROGRESS_FILE_PREFIX}${process.pid}-${Date.now()}${Worker.PROGRESS_FILE_SUFFIX}`);
 try {
   assert.equal(Worker.resolveProgressFile(progressFile), progressFile);
@@ -316,12 +329,28 @@ try {
 assert.deepEqual(Worker.parseRequestBase64(requestBase64), { action: 'smoke' });
 assert.throws(() => Worker.parseRequestBase64(Buffer.from('{"action":"smoke","write":true}').toString('base64')), /未知欄位/);
 assert.throws(() => Worker.resolveResultFile(path.join(repoRoot, `${Worker.RESULT_FILE_PREFIX}bad.json`)), /系統暫存區/);
+const reservedResultFile = path.join(os.tmpdir(), `${Worker.RESULT_FILE_PREFIX}${process.pid}-${Date.now()}-reserved${Worker.RESULT_FILE_SUFFIX}`);
+const reservation = Worker.reserveResultFile(reservedResultFile);
+try {
+  assert.ok(fs.existsSync(reservedResultFile), 'result IPC is exclusively reserved before a core action starts');
+  Worker.emitResponse({ status: 'ready' }, reservation);
+  assert.equal(JSON.parse(fs.readFileSync(reservedResultFile, 'utf8')).status, 'ready');
+} finally {
+  Worker.closeResultFile(reservation);
+  fs.rmSync(reservedResultFile, { force: true });
+}
 assert.equal(Worker.notifyProgress(() => {}, 'preparing-source'), true, 'a successful progress observation is acknowledged');
 assert.equal(Worker.notifyProgress(() => { throw new Error('simulated progress IPC failure'); }, 'preparing-source'), false, 'progress IPC failure never aborts the core action');
 assert.equal(Worker.parseArgs(['--smoke-delay-ms', '250']).smokeDelayMs, 250);
 assert.throws(() => Worker.parseArgs(['--smoke-delay-ms', '5001']), /0 至 5000/);
 
 const managerPs = read('結構工具箱/tools/attachment-package-manager.ps1');
+const managerWorker = read('結構工具箱/tools/attachment-package-manager-worker.js');
+assert.match(
+  managerWorker,
+  /function main[\s\S]*?reserveResultFile\(options\.resultFile\)[\s\S]*?runAction\([\s\S]*?emitResponse\(response, resultReservation \|\| ''\)[\s\S]*?closeResultFile\(resultReservation\)/,
+  'managed result IPC is exclusively reserved before any core action and durably emitted before release',
+);
 [
   'System.Windows.Forms', 'FolderBrowserDialog', 'OpenFileDialog', 'attachment-package-manager-worker.js',
   "ValidateSet('smoke', 'check', 'build', 'verify')", '檢查附件來源', '建立正式附件包',
@@ -418,6 +447,10 @@ assert.match(droppedPathHandoff, /Paths\)\.Count -ne 1[\s\S]*?Test-ManagerDropPa
 assert.doesNotMatch(droppedPathHandoff, /BtnBuild|Invoke-AttachmentWorker|Action build/, 'drag-and-drop can never trigger formal package creation');
 assert.match(managerPs, /SmokeDragDrop[\s\S]*?OnDragEnter[\s\S]*?OnDragDrop[\s\S]*?sourceDropAccepted[\s\S]*?multiDropRejected[\s\S]*?ordinaryFileRejected[\s\S]*?verifyFolderAccepted[\s\S]*?sourceZipRejectedByVerify[\s\S]*?built = \$false/, 'dynamic drag smoke uses native WinForms events and proves accepted and rejected paths without building');
 assert.match(managerPs, /SmokeBuildResponsiveness[\s\S]*?uiResponsiveDuringBuild[\s\S]*?closeBlockedDuringBuild[\s\S]*?escapeBlockedDuringBuild[\s\S]*?buildingActionVisible[\s\S]*?buildPhaseVisible[\s\S]*?elapsedStatusVisible[\s\S]*?workerExited[\s\S]*?resultFileRemoved[\s\S]*?progressFileRemoved[\s\S]*?uiRecovered[\s\S]*?buildGrantCleared[\s\S]*?noPackageCreated[\s\S]*?built = \$false/, 'dynamic build smoke proves a responsive, phase-aware, observable but non-cancellable atomic build lifecycle without creating a package');
+assert.match(managerPs, /function Show-BuildResultHandoffUnknown[\s\S]*?這不代表附件包建立失敗[\s\S]*?先驗證輸出，不要直接重建/, 'missing or damaged final IPC is shown as an indeterminate handoff that requires verification, never as a failed build');
+assert.match(managerPs, /function Assert-WorkerResponseEnvelope[\s\S]*?ready = 0; review = 1; blocked = 2; error = 3[\s\S]*?背景結果與程序退出狀態不一致/, 'result IPC must match the expected action, governed status and actual worker exit code before the UI applies it');
+assert.match(managerPs, /Complete-BuildOperation[\s\S]*?Assert-WorkerResponseEnvelope -Response \$response -ExpectedAction 'build' -ExitCode \$exitCode/, 'build completion validates the result envelope before showing success');
+assert.match(managerPs, /Complete-ReadOnlyOperation[\s\S]*?Assert-WorkerResponseEnvelope -Response \$response -ExpectedAction \$action -ExitCode \$exitCode/, 'read-only completion validates the result envelope before applying a grant or verification result');
 assert.match(
   managerPs,
   /\$sourceChanged = \{[\s\S]*?LastSuggestedOutput[\s\S]*?OutputPath\.Text\.Trim\(\) -eq \$script:LastSuggestedOutput[\s\S]*?LastSuggestedOutput = ''[\s\S]*?OutputPath\.Clear\(\)/,

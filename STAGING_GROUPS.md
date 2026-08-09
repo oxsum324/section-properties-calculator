@@ -350,6 +350,14 @@ Replace anchor dialogs with in-app confirmations
 
 調整 `attachment-package-build.js` 或 `attachment-package-manager-worker.js` 的建立階段事件時，需連同組包單元測試、管理器契約與三份治理文件 staging。階段事件只屬旁路觀測，任何執行中 IPC 寫入錯誤都不得中止或改寫核心結果；畫面可保留最後已驗證階段，但已成功發布的附件包不得因後續進度通知失敗而誤報失敗。測試必須至少涵蓋發布完成後的 `complete` 通知失敗。
 
+最終結果 IPC 必須在任何核心動作前排他保留，保留失敗時不得進入 check / build / verify；寫入須沿用已保留的檔案描述元並 fsync，避免完成後才遇到檔名競態。契約測試需用既有占用檔與延遲核心證明拒絕發生在動作前且不覆寫原檔。GUI 遇到缺漏或損壞結果時不得宣稱建立失敗，也不得直接授權重建；必須標成結果待確認，保留明確預定輸出並要求先執行唯讀附件包驗證。
+
+套用結果前須再比對預期 action、封閉狀態與實際退出碼 0 / 1 / 2 / 3；任何錯配均拒絕，避免排他保留失敗時把預存內容誤認為本次 check / build / verify 結果。
+
+## 首頁正式放行日期來源
+
+調整首頁狀態或 release 快照時，需一併 staging `結構工具箱/assets/home/home.js`、`toolbox-entrypoints.contract.test.js` 與三份治理文件。`HOME_TOOL_UPDATES` 不得保存人工 fallback 正式放行日；執行期只可接受 passing、非 quick、兩個 force 旗標成立、來源 commit 可辨識且乾淨的 tracked preflight snapshot。契約須固定未載入提示與正式快照導入路徑，避免 release 狀態提交跨日後產生首頁落後日期。
+
 ## 下次提交前共同驗證
 
 ```powershell

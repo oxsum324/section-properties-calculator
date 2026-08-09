@@ -148,9 +148,9 @@
   // 工具內容更新日與正式放行確認日是不同概念：前者逐入口維護，後者對齊
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
-    version: 1,
+    version: 2,
     generatedAt: '2026-08-09',
-    releaseVerifiedAt: '2026-08-09',
+    releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
       '/beam-analysis': '2026-08-03',
@@ -198,6 +198,25 @@
       '/excavation-support': '2026-08-09'
     }
   };
+
+  function releaseVerificationLabel() {
+    return HOME_TOOL_UPDATES.releaseVerifiedAt || '以上方交付前檢查狀態為準';
+  }
+
+  function applyTrackedReleaseVerifiedAt(payload) {
+    const mode = preflightModeMeta(payload);
+    const generatedDate = String(payload?.generatedAt || '').slice(0, 10);
+    if (!payload || payload.kind !== 'preflight-summary' || payload.pass !== true || mode?.key !== 'release' || !/^\d{4}-\d{2}-\d{2}$/.test(generatedDate)) {
+      return false;
+    }
+    HOME_TOOL_UPDATES.releaseVerifiedAt = generatedDate;
+    document.querySelectorAll('.tool-card[data-route-href]').forEach(card => {
+      const updated = card.querySelector('.tool-updated');
+      const updatedOn = HOME_TOOL_UPDATES.routes[card.dataset.routeHref];
+      if (updated && updatedOn) updated.title = `工具內容更新：${updatedOn}；最近正式放行確認：${releaseVerificationLabel()}`;
+    });
+    return true;
+  }
 
   const HOME_TOOL_UPDATE_DEPENDENCIES = {
     version: 1,
@@ -1078,7 +1097,7 @@
     updated.className = 'tool-updated';
     const updatedOn = HOME_TOOL_UPDATES.routes[tool.href];
     updated.textContent = `更新 ${updatedOn}`;
-    updated.title = `工具內容更新：${updatedOn}；最近正式放行確認：${HOME_TOOL_UPDATES.releaseVerifiedAt}`;
+    updated.title = `工具內容更新：${updatedOn}；最近正式放行確認：${releaseVerificationLabel()}`;
     badges.append(version, updated);
     titleRow.append(icon, title);
     head.append(titleRow, badges);
@@ -1401,6 +1420,7 @@
       const response = await fetch(cacheBustedHref(homeAssetHref('assets/status/preflight-summary.json')), { cache: 'no-store' });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
+      applyTrackedReleaseVerifiedAt(payload);
       renderStatus(
         document.getElementById('preflightStatus'),
         '交付前檢查',

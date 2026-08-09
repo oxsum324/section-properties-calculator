@@ -62,13 +62,31 @@ function resolveResultFile(value) {
   return resolved;
 }
 
-function emitResponse(response, resultFile = '') {
+function reserveResultFile(value) {
+  const resolved = resolveResultFile(value);
+  if (!resolved) return null;
+  const fd = fs.openSync(resolved, 'wx');
+  return { path: resolved, fd };
+}
+
+function closeResultFile(reservation) {
+  if (!reservation || !Number.isInteger(reservation.fd) || reservation.fd < 0) return;
+  try { fs.closeSync(reservation.fd); } catch { /* a durable response is not downgraded by close cleanup */ }
+  reservation.fd = -1;
+}
+
+function emitResponse(response, resultTarget = '') {
   const json = `${JSON.stringify(response)}\n`;
-  if (!resultFile) {
+  if (!resultTarget) {
     process.stdout.write(json);
     return;
   }
-  fs.writeFileSync(resolveResultFile(resultFile), json, { encoding: 'utf8', flag: 'wx' });
+  if (typeof resultTarget === 'object' && Number.isInteger(resultTarget.fd) && resultTarget.fd >= 0) {
+    fs.writeFileSync(resultTarget.fd, json, { encoding: 'utf8' });
+    fs.fsyncSync(resultTarget.fd);
+    return;
+  }
+  fs.writeFileSync(resolveResultFile(resultTarget), json, { encoding: 'utf8', flag: 'wx' });
 }
 
 function resolveProgressFile(value, options = {}) {
@@ -509,13 +527,19 @@ function exitCodeForResponse(response, checker = Checker) {
 }
 
 function main(argv = process.argv.slice(2)) {
+  let resultReservation = null;
+  let responseWriteAttempted = false;
   try {
     const options = parseArgs(argv);
+    resultReservation = options.resultFile ? reserveResultFile(options.resultFile) : null;
     const progressFile = options.progressFile ? resolveProgressFile(options.progressFile) : '';
     const response = options.help ? usageResponse() : runAction(text(options.action), options, {
       onProgress: phase => emitProgress(progressFile, phase),
     });
-    emitResponse(response, options.resultFile);
+    responseWriteAttempted = true;
+    emitResponse(response, resultReservation || '');
+    closeResultFile(resultReservation);
+    resultReservation = null;
     return exitCodeForResponse(response);
   } catch (error) {
     const response = {
@@ -533,9 +557,13 @@ function main(argv = process.argv.slice(2)) {
       issues: [{ level: 'error', code: 'manager-error', message: text(error?.message || error), files: [] }],
       displayText: text(error?.message || error),
     };
-    let resultFile = '';
-    try { resultFile = parseArgs(argv).resultFile || ''; } catch { /* fall back to stdout */ }
-    try { emitResponse(response, resultFile); } catch { process.stdout.write(`${JSON.stringify(response)}\n`); }
+    if (resultReservation && !responseWriteAttempted) {
+      try { emitResponse(response, resultReservation); } catch { process.stdout.write(`${JSON.stringify(response)}\n`); }
+    } else {
+      process.stdout.write(`${JSON.stringify(response)}\n`);
+    }
+    closeResultFile(resultReservation);
+    resultReservation = null;
     return Checker.CLI_ERROR_EXIT_CODE;
   }
 }
@@ -551,6 +579,8 @@ module.exports = {
   sleepMilliseconds,
   parseRequestBase64,
   resolveResultFile,
+  reserveResultFile,
+  closeResultFile,
   emitResponse,
   resolveProgressFile,
   emitProgress,

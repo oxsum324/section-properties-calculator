@@ -49,6 +49,8 @@ $script:DragDropSmokeResult = $null
 $script:BuildProcess = $null
 $script:BuildResultFile = ''
 $script:BuildProgressFile = ''
+$script:BuildRequestedOutput = ''
+$script:BuildSourceSnapshot = ''
 $script:BuildStartedAt = $null
 $script:BuildStatusLastElapsedSecond = -1
 $script:BuildPhase = 'preparing-source'
@@ -252,6 +254,40 @@ function Show-OperationError {
   $script:StatusMeta.Text = ''
   $script:DetailsBox.Text = $ErrorRecord.Message
   $script:BottomStatus.Text = '狀態：error'
+}
+
+function Show-BuildResultHandoffUnknown {
+  param([System.Exception]$ErrorRecord, [string]$RequestedOutput, [string]$SourceSnapshot)
+  Set-StatusAppearance -Status 'review' -Title '正式附件包建立結果待確認'
+  $script:StatusMeta.Text = '背景結果交接未完成；這不代表附件包建立失敗。請先驗證可能的輸出，不要直接重建。'
+  $locationHint = if ($RequestedOutput) {
+    "預定輸出：$RequestedOutput"
+  } elseif ($SourceSnapshot) {
+    "輸出位置未明確指定；請先檢查來源旁最新建立的正式附件包：$SourceSnapshot"
+  } else {
+    '輸出位置無法由目前畫面還原；請先檢查案件資料夾中的最新正式附件包。'
+  }
+  $script:DetailsBox.Text = "$($ErrorRecord.Message)`r`n$locationHint`r`n找到候選附件包後，請使用「驗證附件包」完成唯讀複驗；確認沒有新附件包後才能重新建立。"
+  if ($RequestedOutput -and (Test-Path -LiteralPath $RequestedOutput -PathType Container)) {
+    $script:LastOutputDirectory = $RequestedOutput
+    $script:PackagePath.Text = $RequestedOutput
+    $script:BtnOpenOutput.Enabled = $true
+  }
+  $script:BottomStatus.Text = '狀態：建立結果待確認｜先驗證輸出，不要直接重建'
+}
+
+function Assert-WorkerResponseEnvelope {
+  param($Response, [string]$ExpectedAction, [int]$ExitCode)
+  $status = [string](Get-ResponseValue $Response 'status')
+  $action = [string](Get-ResponseValue $Response 'action')
+  $expectedExitCodes = @{ ready = 0; review = 1; blocked = 2; error = 3 }
+  if (-not $expectedExitCodes.ContainsKey($status)) {
+    throw "背景結果含未知狀態：$status。"
+  }
+  $expectedActionValue = if ($status -eq 'error') { 'error' } else { $ExpectedAction }
+  if ($action -ne $expectedActionValue -or $ExitCode -ne [int]$expectedExitCodes[$status]) {
+    throw "背景結果與程序退出狀態不一致（action=$action, status=$status, exit=$ExitCode）；拒絕套用。"
+  }
 }
 
 function Show-DropRejected {
@@ -493,6 +529,8 @@ function Start-BuildOperation {
   $script:BuildProcess = $process
   $script:BuildResultFile = $resultFile
   $script:BuildProgressFile = $progressFile
+  $script:BuildRequestedOutput = $outputPath
+  $script:BuildSourceSnapshot = $inputPath
   $script:BuildStartedAt = Get-Date
   $script:BuildStatusLastElapsedSecond = -1
   $script:BuildPhase = 'preparing-source'
@@ -508,12 +546,16 @@ function Complete-BuildOperation {
   if (-not $process -or -not $process.HasExited) { return }
   $resultFile = $script:BuildResultFile
   $progressFile = $script:BuildProgressFile
+  $requestedOutput = $script:BuildRequestedOutput
+  $sourceSnapshot = $script:BuildSourceSnapshot
   $workerPid = $process.Id
   $exitCode = $process.ExitCode
   $process.Dispose()
   $script:BuildProcess = $null
   $script:BuildResultFile = ''
   $script:BuildProgressFile = ''
+  $script:BuildRequestedOutput = ''
+  $script:BuildSourceSnapshot = ''
   $script:BuildStartedAt = $null
   $script:BuildStatusLastElapsedSecond = -1
   $script:BuildPhase = 'preparing-source'
@@ -524,6 +566,7 @@ function Complete-BuildOperation {
   try {
     if (-not (Test-Path -LiteralPath $resultFile -PathType Leaf)) { throw "附件包背景建立未回傳結果（exit=$exitCode）。" }
     $response = Get-Content -LiteralPath $resultFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    Assert-WorkerResponseEnvelope -Response $response -ExpectedAction 'build' -ExitCode $exitCode
     $response | Add-Member -NotePropertyName workerExitCode -NotePropertyValue $exitCode -Force
     Show-WorkerResponse $response
     if ($response.built -and $response.outputDir) {
@@ -532,7 +575,7 @@ function Complete-BuildOperation {
       $script:BtnOpenOutput.Enabled = $true
     }
   } catch {
-    Show-OperationError $_.Exception
+    Show-BuildResultHandoffUnknown -ErrorRecord $_.Exception -RequestedOutput $requestedOutput -SourceSnapshot $sourceSnapshot
   } finally {
     Remove-ReadOnlyResultFile -ResultFile $resultFile
     Remove-BuildProgressFile -ProgressFile $progressFile
@@ -633,6 +676,7 @@ function Complete-ReadOnlyOperation {
   try {
     if (-not (Test-Path -LiteralPath $resultFile -PathType Leaf)) { throw "附件包管理器背景工作未回傳結果（exit=$exitCode）。" }
     $response = Get-Content -LiteralPath $resultFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    Assert-WorkerResponseEnvelope -Response $response -ExpectedAction $action -ExitCode $exitCode
     $response | Add-Member -NotePropertyName workerExitCode -NotePropertyValue $exitCode -Force
     if ($action -eq 'check') { Apply-CheckResponse -Response $response -InputSnapshot $inputSnapshot -ProjectNoSnapshot $projectNoSnapshot }
     elseif ($script:PackagePath.Text.Trim() -eq $inputSnapshot) { Show-WorkerResponse $response }

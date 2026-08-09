@@ -461,10 +461,10 @@ assert.ok(Array.isArray(vercel.rewrites), 'vercel rewrites array');
 assert.ok(Array.isArray(homeTools), 'home tools array');
 assert.ok(homeTools.length >= 40, 'home tool count should cover the governed platform');
 assert.equal(homeSource.includes('HOME_DATA_UPDATED'), false, 'home cards must not share one fallback update date');
-assert.equal(homeToolUpdates.version, 1, 'home tool update catalog version');
+assert.equal(homeToolUpdates.version, 2, 'home tool update catalog version');
 assert.equal(homeToolUpdateDependencies.version, 1, 'home tool update dependency catalog version');
 assertHomeDate(homeToolUpdates.generatedAt, 'HOME_TOOL_UPDATES generatedAt');
-assertHomeDate(homeToolUpdates.releaseVerifiedAt, 'HOME_TOOL_UPDATES releaseVerifiedAt');
+assert.equal(homeToolUpdates.releaseVerifiedAt, null, 'home release date is never a manually maintained fallback');
 assert.equal(typeof homeToolUpdates.source, 'string', 'home tool update catalog source');
 assert.ok(homeToolUpdates.source.includes('Git history'), 'home tool update catalog documents content date source');
 assert.ok(homeToolUpdates.source.includes('worktree changes'), 'home tool update catalog documents uncommitted content date source');
@@ -476,10 +476,9 @@ assert.match(preflightStatusSnapshot.sourceCommitSha, /^[0-9a-f]{40}$/i, 'tracke
 assert.equal(typeof preflightStatusSnapshot.sourceBranch, 'string', 'tracked homepage preflight snapshot identifies the tested branch');
 assert.equal(preflightStatusSnapshot.sourceDirty, false, 'tracked homepage preflight snapshot comes from a clean worktree');
 assert.equal(preflightStatusSnapshot.pass, true, 'tracked homepage preflight snapshot passed');
-const trackedReleaseDate = String(preflightStatusSnapshot.generatedAt || '').slice(0, 10);
-assertHomeDate(trackedReleaseDate, 'tracked homepage release date');
-assert.ok(homeToolUpdates.releaseVerifiedAt >= trackedReleaseDate, 'home release verification date must not predate tracked formal release');
-assert.ok(homeToolUpdates.generatedAt >= homeToolUpdates.releaseVerifiedAt, 'home tool update catalog must not predate release verification');
+assert.match(homeSource, /function applyTrackedReleaseVerifiedAt[\s\S]*?payload\.kind !== 'preflight-summary'[\s\S]*?mode\?\.key !== 'release'[\s\S]*?HOME_TOOL_UPDATES\.releaseVerifiedAt = generatedDate/, 'home release date is derived only from a passing tracked formal release snapshot');
+assert.match(homeSource, /fetch\(cacheBustedHref\(homeAssetHref\('assets\/status\/preflight-summary\.json'\)[\s\S]*?applyTrackedReleaseVerifiedAt\(payload\)[\s\S]*?renderStatus/, 'home applies the tracked release date before rendering the preflight status');
+assert.match(homeSource, /function releaseVerificationLabel[\s\S]*?以上方交付前檢查狀態為準/, 'home cards disclose the governed status source until a tracked release snapshot is loaded');
 assert.deepEqual(
   Object.keys(homeToolUpdates.routes || {}).sort(),
   homeTools.map(tool => tool.href).sort(),
