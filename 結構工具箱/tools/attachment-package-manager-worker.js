@@ -88,6 +88,13 @@ function issueRecords(report = {}) {
   }));
 }
 
+function suggestedProjectNo(report = {}) {
+  const values = [...new Set(
+    (report.attachments || []).map(record => text(record.projectNo)).filter(Boolean),
+  )];
+  return values.length === 1 ? values[0] : '';
+}
+
 function requireInput(options = {}) {
   const input = path.resolve(text(options.input));
   if (!text(options.input)) throw new Error('尚未選擇附件來源資料夾或 PDF＋證據來源 ZIP。');
@@ -243,6 +250,7 @@ function checkResponse(report, checker = Checker) {
     built: false,
     outputDir: '',
     packageFingerprint: '',
+    suggestedProjectNo: suggestedProjectNo(report),
     counts: {
       attachments: Number(report.summary?.attachments || 0),
       errors: Number(report.summary?.errors || 0),
@@ -276,6 +284,7 @@ function buildResponse(result, checker = Checker) {
     built: result.built === true,
     outputDir: text(result.outputDir),
     packageFingerprint: text(result.packageFingerprint),
+    suggestedProjectNo: suggestedProjectNo(report),
     counts: {
       attachments: Number(report.summary?.attachments || 0),
       errors: Number(report.summary?.errors || 0),
@@ -301,6 +310,7 @@ function verifyResponse(report, verifier = Verifier) {
     built: false,
     outputDir: '',
     packageFingerprint: text(report.packageFingerprint),
+    suggestedProjectNo: '',
     counts: {
       attachments: Number(report.summary?.expectedFiles || 0),
       verified: Number(report.summary?.verifiedFiles || 0),
@@ -331,6 +341,7 @@ function runAction(action, options = {}, dependencies = {}) {
       built: false,
       outputDir: '',
       packageFingerprint: '',
+      suggestedProjectNo: '',
       counts: { modules: 3 },
       records: [],
       issues: [],
@@ -403,6 +414,7 @@ function main(argv = process.argv.slice(2)) {
       built: false,
       outputDir: '',
       packageFingerprint: '',
+      suggestedProjectNo: '',
       counts: {},
       records: [],
       issues: [{ level: 'error', code: 'manager-error', message: text(error?.message || error), files: [] }],
@@ -422,6 +434,7 @@ module.exports = {
   verifyRecords,
   dualSealSummaryLine,
   issueRecords,
+  suggestedProjectNo,
   requireInput,
   bundleStem,
   expectedBundleEntries,

@@ -19,11 +19,13 @@ const fakeReport = {
   attachments: [
     {
       file: '正式計算書.pdf', type: 'pdf', sourceTool: '測試工具', toolVersion: 'v1.0',
+      projectNo: 'CASE-001',
       fingerprints: ['CF-0011223344556677'], readyDocumentNeedles: ['文件狀態：正式附件'],
       draftDocumentNeedles: [], errors: [], contentBoundary: { missingGroups: [] },
     },
     {
       file: '來源.json', type: 'json', sourceTool: '測試工具', toolVersion: 'v1.0',
+      projectNo: 'CASE-001',
       fingerprints: ['CF-0011223344556677'], readyDocumentNeedles: [], draftDocumentNeedles: [], errors: [],
     },
   ],
@@ -71,7 +73,10 @@ assert.equal(check.canBuild, true);
 assert.equal(check.records.length, 2);
 assert.equal(check.records[0].state, '正式附件');
 assert.equal(check.records[1].role, '內部追溯來源');
+assert.equal(check.suggestedProjectNo, 'CASE-001');
 assert.equal(check.displayText, 'CHECK:ready');
+assert.equal(Worker.suggestedProjectNo({ attachments: [{ projectNo: '' }, {}] }), '', 'blank project metadata stays optional');
+assert.equal(Worker.suggestedProjectNo({ attachments: [{ projectNo: 'A' }, { projectNo: 'B' }] }), '', 'conflicting project numbers are never guessed');
 
 const build = Worker.runAction('build', { input: toolsDir, output: path.join(repoRoot, 'never-created') }, dependencies);
 assert.equal(build.built, true);
@@ -185,6 +190,22 @@ assert.match(
   managerPs,
   /\$script:BtnCheck\.Add_Click\(\{\s+\$script:LastReadyInput = ''\s+\$script:LastReadyProjectNo = ''/s,
   'every new check clears the prior ready grant before the worker runs',
+);
+assert.match(
+  managerPs,
+  /if \(-not \$script:ProjectNo\.Text\.Trim\(\) -and \$suggestedProjectNo\)[\s\S]*?\$script:ProjectNo\.Text = \$suggestedProjectNo[\s\S]*?建立前仍會再次完整檢查/,
+  'manager only fills a unique detected project number into an empty field and discloses the rebuild check',
+);
+assert.doesNotMatch(
+  managerPs,
+  /if \(\$suggestedProjectNo\)\s*\{\s*\$script:ProjectNo\.Text =/,
+  'manager never overwrites a project number already entered by the user',
+);
+const sourceCheckHandler = managerPs.match(/\$script:BtnCheck\.Add_Click\(\{[\s\S]*?(?=\n\}\)\n\n\$script:BtnBuild\.Add_Click)/)?.[0] || '';
+assert.match(
+  sourceCheckHandler,
+  /\$script:ProjectNo\.Text = \$suggestedProjectNo[\s\S]*?\$response\.status -eq 'ready'[\s\S]*?\$script:LastReadyInput = \$script:SourcePath\.Text\.Trim\(\)[\s\S]*?\$script:LastReadyProjectNo = \$script:ProjectNo\.Text\.Trim\(\)[\s\S]*?\$script:BtnBuild\.Enabled = \$true/,
+  'the build grant is recreated only after the suggested value is applied and is bound to that current value',
 );
 assert.match(managerPs, /if \(\$InitialMode -eq 'source'[^\n]+\$script:SourcePath\.Text/, 'manager pre-fills source input only in source mode');
 assert.match(managerPs, /if \(\$InitialMode -eq 'verify'[^\n]+\$script:PackagePath\.Text/, 'manager pre-fills package input only in verify mode');

@@ -423,6 +423,11 @@ $script:BtnCheck.Add_Click({
   try {
     $response = Invoke-AttachmentWorker -Action check -InputDirectory $script:SourcePath.Text -ProjectNo $script:ProjectNo.Text
     Show-WorkerResponse $response
+    $suggestedProjectNo = [string](Get-ResponseValue $response 'suggestedProjectNo')
+    if (-not $script:ProjectNo.Text.Trim() -and $suggestedProjectNo) {
+      $script:ProjectNo.Text = $suggestedProjectNo
+      $script:DetailsBox.AppendText("`r`n已從來源帶入唯一計畫編號：$suggestedProjectNo；建立前仍會再次完整檢查。")
+    }
     if ($response.status -eq 'ready' -and $response.canBuild) {
       $script:LastReadyInput = $script:SourcePath.Text.Trim()
       $script:LastReadyProjectNo = $script:ProjectNo.Text.Trim()
