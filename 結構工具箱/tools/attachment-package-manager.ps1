@@ -519,6 +519,9 @@ function Start-BuildOperation {
   if (-not $inputPath -or $script:LastReadyInput -ne $inputPath -or $script:LastReadyProjectNo -ne $projectNo) {
     throw '附件來源或計畫編號已改變；請先重新執行唯讀檢查，再建立正式附件包。'
   }
+  if (-not $outputPath) {
+    throw '缺少可追溯的預定輸出位置；請重新執行唯讀檢查，或明確選擇輸出位置後再建立。'
+  }
   if (-not (Test-Path -LiteralPath $script:WorkerPath -PathType Leaf)) { throw "找不到附件包管理器核心：$script:WorkerPath" }
   Stop-ReadOnlyOperation
   $request = [ordered]@{ action = 'build'; input = $inputPath; output = $outputPath; projectNo = $projectNo }
@@ -667,7 +670,7 @@ function Apply-CheckResponse {
     if (-not $script:OutputPath.Text.Trim() -and $suggestedOutputDir) {
       $script:LastSuggestedOutput = $suggestedOutputDir
       $script:OutputPath.Text = $suggestedOutputDir
-      $script:DetailsBox.AppendText("`r`n已顯示來源 ZIP 的預計輸出位置；尚未建立任何資料夾，建立前仍會檢查不覆寫。")
+      $script:DetailsBox.AppendText("`r`n已產生本次建立專用的唯一預定輸出位置；尚未建立任何資料夾，建立前仍會檢查不覆寫。")
     }
     $script:LastReadyInput = $script:SourcePath.Text.Trim()
     $script:LastReadyProjectNo = $script:ProjectNo.Text.Trim()
@@ -1557,6 +1560,7 @@ $script:MainForm.Add_Shown({
   if ($SmokeBuildResponsiveness) {
     $sourceFolder = Join-Path $script:BuildSmokeFixtureRoot 'source'
     $script:SourcePath.Text = $sourceFolder
+    $script:OutputPath.Text = Join-Path $script:BuildSmokeFixtureRoot 'planned-output-must-not-be-created'
     $script:LastReadyInput = $sourceFolder
     $script:LastReadyProjectNo = ''
     $script:BtnBuild.Enabled = $true

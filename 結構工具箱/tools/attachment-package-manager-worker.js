@@ -461,9 +461,11 @@ function runAction(action, options = {}, dependencies = {}) {
     let response;
     if (action === 'check') {
       response = checkResponse(checker.checkPackage(resolved.input, { projectNo: text(options.projectNo) }), checker);
-      if (response.status === 'ready' && resolved.inputKind === 'formal-source-zip') {
-        const outputSeed = path.join(path.dirname(resolved.originalInput), resolved.stem);
-        response.suggestedOutputDir = text(builder.defaultOutputDir(outputSeed));
+      if (response.status === 'ready') {
+        const outputSeed = resolved.inputKind === 'formal-source-zip'
+          ? path.join(path.dirname(resolved.originalInput), resolved.stem)
+          : resolved.input;
+        response.suggestedOutputDir = text(builder.plannedOutputDir(outputSeed));
       }
     } else if (action === 'build') {
       const buildOptions = { projectNo: text(options.projectNo), onProgress };

@@ -31,6 +31,21 @@ function defaultOutputDir(inputDir, now = new Date()) {
   return path.join(path.dirname(resolvedInput), `${path.basename(resolvedInput)}-正式附件包-${timestampToken(now)}`);
 }
 
+function plannedOutputDir(inputDir, options = {}) {
+  const uniqueToken = String(options.uniqueToken || crypto.randomBytes(4).toString('hex')).toLowerCase();
+  if (!/^[0-9a-f]{8}$/.test(uniqueToken)) throw new Error('附件包預定輸出識別碼必須為 8 碼十六進位字元。');
+  const now = options.now || new Date();
+  const UpgradeWorkspaceCheck = require('./attachment-package-upgrade-workspace-check.js');
+  const upgradeWorkspaceRoot = UpgradeWorkspaceCheck.workspaceRootForPackageSource(inputDir);
+  const defaultDir = upgradeWorkspaceRoot
+    ? path.join(
+      path.dirname(upgradeWorkspaceRoot),
+      `${path.basename(upgradeWorkspaceRoot)}-v3正式附件包-${timestampToken(now)}`,
+    )
+    : defaultOutputDir(inputDir, now);
+  return `${defaultDir}-${uniqueToken}`;
+}
+
 function isPathInside(parentDir, candidatePath) {
   const relative = path.relative(path.resolve(parentDir), path.resolve(candidatePath));
   return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
@@ -461,6 +476,7 @@ module.exports = {
   PACKAGE_BOUNDARY_INSTRUCTION,
   timestampToken,
   defaultOutputDir,
+  plannedOutputDir,
   isPathInside,
   validateBuildPaths,
   isFormalAttachment,

@@ -44,6 +44,7 @@ const fakeChecker = {
 };
 const fakeBuilder = {
   defaultOutputDir(input) { return `${input}-正式附件包-suggested`; },
+  plannedOutputDir(input) { return `${input}-正式附件包-planned-1234abcd`; },
   buildPackage() {
     return {
       status: 'ready', built: true, outputDir: 'C:\\case\\正式附件包',
@@ -76,7 +77,7 @@ assert.equal(check.records.length, 2);
 assert.equal(check.records[0].state, '正式附件');
 assert.equal(check.records[1].role, '內部追溯來源');
 assert.equal(check.suggestedProjectNo, 'CASE-001');
-assert.equal(check.suggestedOutputDir, '', 'ordinary source folders keep the established safe implicit output default');
+assert.equal(check.suggestedOutputDir, `${toolsDir}-正式附件包-planned-1234abcd`, 'ordinary source folders receive an exact non-writing planned output before build');
 assert.equal(check.displayText, 'CHECK:ready');
 assert.equal(Worker.suggestedProjectNo({ attachments: [{ projectNo: '' }, {}] }), '', 'blank project metadata stays optional');
 assert.equal(Worker.suggestedProjectNo({ attachments: [{ projectNo: 'A' }, { projectNo: 'B' }] }), '', 'conflicting project numbers are never guessed');
@@ -130,7 +131,7 @@ try {
   };
   const zipCheck = Worker.runAction('check', { input: bundlePath }, { ...dependencies, Checker: zipChecker });
   assert.equal(zipCheck.inputKind, 'formal-source-zip');
-  assert.equal(zipCheck.suggestedOutputDir, path.join(zipFixtureRoot, '核可計算書-正式附件包-suggested'));
+  assert.equal(zipCheck.suggestedOutputDir, path.join(zipFixtureRoot, '核可計算書-正式附件包-planned-1234abcd'));
   assert.match(zipCheck.displayText, /隔離暫存區安全讀取/);
   assert.ok(path.basename(path.dirname(checkedTemp)).startsWith(`formal-source-${process.pid}-`), 'ZIP isolation roots carry the worker pid for bounded parent cleanup');
   assert.ok(checkedTemp && !fs.existsSync(checkedTemp), 'ZIP check always removes isolated temporary input');
@@ -138,6 +139,10 @@ try {
   let builtTemp = '';
   let builtOptions;
   const zipBuilder = {
+    plannedOutputDir(input) {
+      assert.equal(input, path.join(zipFixtureRoot, '核可計算書'));
+      return path.join(zipFixtureRoot, '核可計算書-正式附件包-planned-1234abcd');
+    },
     defaultOutputDir(input) {
       assert.equal(input, path.join(zipFixtureRoot, '核可計算書'));
       return path.join(zipFixtureRoot, '核可計算書-正式附件包-test');
@@ -397,8 +402,8 @@ assert.match(
 );
 assert.match(
   applyCheckResponse,
-  /\$Response\.status -eq 'ready'[\s\S]*?if \(-not \$script:OutputPath\.Text\.Trim\(\) -and \$suggestedOutputDir\)[\s\S]*?\$script:LastSuggestedOutput = \$suggestedOutputDir[\s\S]*?\$script:OutputPath\.Text = \$suggestedOutputDir[\s\S]*?尚未建立任何資料夾/,
-  'a ready source ZIP fills only an empty output field and clearly remains a non-writing plan',
+  /\$Response\.status -eq 'ready'[\s\S]*?if \(-not \$script:OutputPath\.Text\.Trim\(\) -and \$suggestedOutputDir\)[\s\S]*?\$script:LastSuggestedOutput = \$suggestedOutputDir[\s\S]*?\$script:OutputPath\.Text = \$suggestedOutputDir[\s\S]*?唯一預定輸出位置[\s\S]*?尚未建立任何資料夾/,
+  'every ready source fills only an empty output field with an exact unique non-writing plan',
 );
 const verifyHandler = managerPs.match(/\$script:BtnVerify\.Add_Click\(\{[\s\S]*?(?=\n\}\)\n\n\$script:BtnOpenOutput\.Add_Click)/)?.[0] || '';
 assert.match(verifyHandler, /Start-ReadOnlyOperation -Action verify/, 'package verification starts a non-blocking read-only worker');
@@ -409,6 +414,7 @@ const buildHandler = managerPs.match(/\$script:BtnBuild\.Add_Click\(\{[\s\S]*?(?
 assert.match(buildHandler, /Start-BuildOperation/, 'formal package creation starts the dedicated background atomic build path');
 assert.doesNotMatch(buildHandler, /Invoke-AttachmentWorker|Start-ReadOnlyOperation/, 'the UI never synchronously waits or mixes build into the cancellable read-only path');
 const startBuildOperation = managerPs.match(/function Start-BuildOperation \{[\s\S]*?(?=\nfunction Complete-BuildOperation)/)?.[0] || '';
+assert.match(startBuildOperation, /if \(-not \$outputPath\)[\s\S]*?缺少可追溯的預定輸出位置/, 'formal build cannot start without an exact output path captured for handoff recovery');
 assert.match(startBuildOperation, /LastReadyInput -ne \$inputPath[\s\S]*?action = 'build'[\s\S]*?--request-base64[\s\S]*?--progress-file[\s\S]*?Set-BuildUiState -Running \$true[\s\S]*?Update-BuildProgressStatus[\s\S]*?BuildTimer\.Start\(\)/, 'background build revalidates the ready grant, uses managed result and progress IPC, locks inputs, publishes immediate progress, and timer-polls completion');
 assert.doesNotMatch(startBuildOperation, /WaitForExit|ReadToEnd|Invoke-AttachmentWorker/, 'starting a formal build never blocks the UI thread');
 const updateBuildProgress = managerPs.match(/function Update-BuildProgressStatus \{[\s\S]*?(?=\nfunction Start-BuildOperation)/)?.[0] || '';
@@ -448,6 +454,7 @@ assert.match(droppedPathHandoff, /Paths\)\.Count -ne 1[\s\S]*?Test-ManagerDropPa
 assert.doesNotMatch(droppedPathHandoff, /BtnBuild|Invoke-AttachmentWorker|Action build/, 'drag-and-drop can never trigger formal package creation');
 assert.match(managerPs, /SmokeDragDrop[\s\S]*?OnDragEnter[\s\S]*?OnDragDrop[\s\S]*?sourceDropAccepted[\s\S]*?multiDropRejected[\s\S]*?ordinaryFileRejected[\s\S]*?verifyFolderAccepted[\s\S]*?sourceZipRejectedByVerify[\s\S]*?built = \$false/, 'dynamic drag smoke uses native WinForms events and proves accepted and rejected paths without building');
 assert.match(managerPs, /SmokeBuildResponsiveness[\s\S]*?uiResponsiveDuringBuild[\s\S]*?closeBlockedDuringBuild[\s\S]*?escapeBlockedDuringBuild[\s\S]*?buildingActionVisible[\s\S]*?buildPhaseVisible[\s\S]*?elapsedStatusVisible[\s\S]*?workerExited[\s\S]*?resultFileRemoved[\s\S]*?progressFileRemoved[\s\S]*?uiRecovered[\s\S]*?buildGrantCleared[\s\S]*?noPackageCreated[\s\S]*?built = \$false/, 'dynamic build smoke proves a responsive, phase-aware, observable but non-cancellable atomic build lifecycle without creating a package');
+assert.match(managerPs, /if \(\$SmokeBuildResponsiveness\)[\s\S]*?OutputPath\.Text = Join-Path \$script:BuildSmokeFixtureRoot 'planned-output-must-not-be-created'[\s\S]*?BtnBuild\.PerformClick\(\)/, 'dynamic build smoke supplies an exact planned output before the worker starts');
 assert.match(managerPs, /function Show-BuildResultHandoffUnknown[\s\S]*?這不代表附件包建立失敗[\s\S]*?先驗證輸出，不要直接重建/, 'missing or damaged final IPC is shown as an indeterminate handoff that requires verification, never as a failed build');
 const handoffRecoveryDisplay = managerPs.match(/function Show-BuildResultHandoffUnknown \{[\s\S]*?(?=\nfunction Assert-WorkerResponseEnvelope)/)?.[0] || '';
 assert.match(handoffRecoveryDisplay, /Test-Path -LiteralPath \$RequestedOutput -PathType Container[\s\S]*?PackagePath\.Text = \$RequestedOutput[\s\S]*?BuildHandoffRecoveryOutput = \$RequestedOutput[\s\S]*?BtnBuildHandoffVerify\.Visible = \$true[\s\S]*?BtnBuildHandoffVerify\.Enabled = \$true/, 'an exact existing planned output exposes one governed recovery action and pre-fills only that package path');

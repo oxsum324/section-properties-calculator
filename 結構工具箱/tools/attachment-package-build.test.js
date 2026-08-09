@@ -115,6 +115,21 @@ function writeExcavationEvidenceChain(inputDir) {
 
 assert.equal(Builder.timestampToken(FIXED_NOW), '20260721-210000');
 assert.equal(Builder.defaultOutputDir('C:/case/attachments', FIXED_NOW), path.resolve('C:/case/attachments-正式附件包-20260721-210000'));
+assert.equal(
+  Builder.plannedOutputDir('C:/case/attachments', { now: FIXED_NOW, uniqueToken: '12ab34cd' }),
+  `${path.resolve('C:/case/attachments-正式附件包-20260721-210000')}-12ab34cd`,
+  'planned output adds a stable unique identifier without creating the directory',
+);
+assert.equal(
+  Builder.plannedOutputDir('C:/case/升級工作區/01_新組包來源', { now: FIXED_NOW, uniqueToken: '12ab34cd' }),
+  path.resolve('C:/case/升級工作區-v3正式附件包-20260721-210000-12ab34cd'),
+  'planned output preserves the governed v3 naming and external location for upgrade workspaces',
+);
+assert.throws(
+  () => Builder.plannedOutputDir('C:/case/attachments', { now: FIXED_NOW, uniqueToken: '../unsafe' }),
+  /8 碼十六進位/,
+  'planned output rejects path-like or malformed identifiers',
+);
 assert.deepEqual(
   Builder.parseArgs(['--input', 'C:/case', '--output', 'C:/package', '--project-no', 'PKG-001']),
   { input: 'C:/case', output: 'C:/package', projectNo: 'PKG-001' },
