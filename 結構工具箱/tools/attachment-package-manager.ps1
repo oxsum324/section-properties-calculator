@@ -5,6 +5,7 @@ param(
   [switch]$SmokeReadOnlyCompletion,
   [switch]$SmokeKeyboard,
   [switch]$SmokeViewport,
+  [switch]$SmokeDragDrop,
   [ValidateRange(0, 5000)][int]$WorkerSmokeDelayMilliseconds = 0,
   [string]$InitialPath = '',
   [ValidateSet('source', 'verify')][string]$InitialMode = 'source',
@@ -42,9 +43,11 @@ $script:KeyboardSmokeResult = $null
 $script:KeyboardSmokeState = $null
 $script:ViewportSmokeTimer = $null
 $script:ViewportSmokeResult = $null
+$script:DragDropSmokeTimer = $null
+$script:DragDropSmokeResult = $null
 $script:ActiveMode = $InitialMode
 
-$dynamicSmokeCount = @(@($SmokeReadOnlyCancellation, $SmokeReadOnlyCompletion, $SmokeKeyboard, $SmokeViewport) | Where-Object { $_ }).Count
+$dynamicSmokeCount = @(@($SmokeReadOnlyCancellation, $SmokeReadOnlyCompletion, $SmokeKeyboard, $SmokeViewport, $SmokeDragDrop) | Where-Object { $_ }).Count
 if ($Smoke -and $dynamicSmokeCount) { throw '一般 smoke 與背景動態 smoke 不得同時執行。' }
 if ($dynamicSmokeCount -gt 1) { throw '一次只能執行一種背景動態 smoke。' }
 
@@ -234,6 +237,67 @@ function Show-OperationError {
   $script:BottomStatus.Text = '狀態：error'
 }
 
+function Show-DropRejected {
+  param([System.Exception]$ErrorRecord)
+  Set-StatusAppearance -Status 'review' -Title '拖放路徑未接受'
+  $script:StatusMeta.Text = '未變更目前路徑；未執行檢查、驗證或建立。'
+  $script:DetailsBox.Text = $ErrorRecord.Message
+  $script:BottomStatus.Text = '狀態：拖放未接受；未執行檢查或建立'
+}
+
+function Test-ManagerDropPath {
+  param(
+    [Parameter(Mandatory = $true)][ValidateSet('source', 'verify')][string]$Mode,
+    [string]$CandidatePath
+  )
+  $candidate = [string]$CandidatePath
+  if (-not $candidate.Trim()) { return $false }
+  try {
+    $item = Get-Item -LiteralPath $candidate.Trim() -Force -ErrorAction Stop
+    if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { return $false }
+    if ($Mode -eq 'verify') { return [bool]$item.PSIsContainer }
+    if ($item.PSIsContainer) { return $true }
+    return [bool]$item.Name.EndsWith('.formal-source.zip', [System.StringComparison]::Ordinal)
+  } catch {
+    return $false
+  }
+}
+
+function Get-ManagerDropPaths {
+  param([System.Windows.Forms.IDataObject]$Data)
+  if (-not $Data -or -not $Data.GetDataPresent([System.Windows.Forms.DataFormats]::FileDrop)) { return @() }
+  return @($Data.GetData([System.Windows.Forms.DataFormats]::FileDrop) | ForEach-Object { [string]$_ })
+}
+
+function Set-ManagerDroppedPath {
+  param(
+    [Parameter(Mandatory = $true)][ValidateSet('source', 'verify')][string]$Mode,
+    [string[]]$Paths
+  )
+  if (@($Paths).Count -ne 1) {
+    throw $(if ($Mode -eq 'source') { '來源區一次只能拖入一個資料夾或 .formal-source.zip。' } else { '驗證區一次只能拖入一個正式附件包資料夾；來源 ZIP 不可在此驗證。' })
+  }
+  $candidate = [string]$Paths[0]
+  if (-not (Test-ManagerDropPath -Mode $Mode -CandidatePath $candidate)) {
+    throw $(if ($Mode -eq 'source') { '來源區只接受單一現有實體資料夾或檔名精確以 .formal-source.zip 結尾的實體檔案；一般檔案、連結與特殊項目不會帶入。' } else { '驗證區只接受單一現有實體正式附件包資料夾；來源 ZIP、一般檔案、連結與特殊項目不會帶入。' })
+  }
+  $resolvedPath = (Resolve-Path -LiteralPath $candidate.Trim()).ProviderPath
+  if ($script:ReadOnlyProcess) { Cancel-ReadOnlyOperation }
+  $script:ActiveMode = $Mode
+  if ($Mode -eq 'source') {
+    $script:SourcePath.Text = $resolvedPath
+    [void]$script:SourcePath.Focus()
+    $script:ScrollViewport.ScrollControlIntoView($script:SourcePath)
+    $script:BtnCheck.PerformClick()
+  } else {
+    $script:PackagePath.Text = $resolvedPath
+    [void]$script:PackagePath.Focus()
+    $script:ScrollViewport.ScrollControlIntoView($script:PackagePath)
+    $script:BtnVerify.PerformClick()
+  }
+  return $resolvedPath
+}
+
 function New-ReadOnlyResultPath {
   $name = "attachment-package-manager-result-$PID-$([guid]::NewGuid().ToString('N')).json"
   return [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), $name)
@@ -338,7 +402,7 @@ function Start-ReadOnlyOperation {
   $startInfo = New-Object System.Diagnostics.ProcessStartInfo
   $startInfo.FileName = Get-NodePath
   $startInfo.Arguments = "`"$script:WorkerPath`" --request-base64 $requestBase64 --result-file `"$resultFile`""
-  if (($SmokeReadOnlyCancellation -or $SmokeKeyboard) -and $WorkerSmokeDelayMilliseconds -gt 0) {
+  if (($SmokeReadOnlyCancellation -or $SmokeKeyboard -or $SmokeDragDrop) -and $WorkerSmokeDelayMilliseconds -gt 0) {
     $startInfo.Arguments += " --smoke-delay-ms $WorkerSmokeDelayMilliseconds"
   }
   $startInfo.WorkingDirectory = $script:ToolDirectory
@@ -516,7 +580,7 @@ $header.AutoSize = $true
 $script:ContentSurface.Controls.Add($header)
 
 $subheader = New-Object System.Windows.Forms.Label
-$subheader.Text = '管理畫面與檢查結果僅供內部整理，不進主報告。鍵盤：Ctrl+L 路徑、Enter 唯讀檢查、Esc 停止。'
+$subheader.Text = '管理畫面與檢查結果僅供內部整理，不進主報告。可拖入對應區塊；Ctrl+L 路徑、Enter 唯讀檢查、Esc 停止。'
 $subheader.Location = New-Object System.Drawing.Point(25, 62)
 $subheader.Size = New-Object System.Drawing.Size(980, 30)
 $subheader.TextAlign = 'MiddleLeft'
@@ -573,7 +637,7 @@ $script:BtnBrowseOutput.Anchor = 'Top,Right'
 $sourceGroup.Controls.Add($script:BtnBrowseOutput)
 
 $outputHint = New-Object System.Windows.Forms.Label
-$outputHint.Text = '可直接選 PDF＋證據來源 ZIP；輸出留白時會在原來源旁建立新資料夾，且不覆寫既有內容。'
+$outputHint.Text = '可選擇或拖入資料夾／PDF＋證據來源 ZIP；拖入只自動唯讀檢查，不會建立附件包。'
 $outputHint.Location = New-Object System.Drawing.Point(160, 143)
 $outputHint.Size = New-Object System.Drawing.Size(695, 20)
 $outputHint.ForeColor = [System.Drawing.Color]::FromArgb(100, 116, 139)
@@ -695,7 +759,7 @@ $script:ResultGrid.TabIndex = 3
 $script:DetailsBox.TabIndex = 4
 $script:SourcePath.TabIndex = 0
 $script:SourcePath.AccessibleName = '附件來源路徑'
-$script:SourcePath.AccessibleDescription = '輸入或選擇附件來源資料夾或 PDF 加證據來源 ZIP；Ctrl+L 可聚焦。'
+$script:SourcePath.AccessibleDescription = '輸入、選擇或拖入單一實體附件來源資料夾或 PDF 加證據來源 ZIP；拖入只執行唯讀檢查，Ctrl+L 可聚焦。'
 $script:BtnBrowseSource.TabIndex = 1
 $script:BtnBrowseSource.AccessibleName = '選擇附件來源資料夾'
 $script:BtnBrowseSourceZip.TabIndex = 2
@@ -718,7 +782,7 @@ $script:BtnOpenOutput.TabIndex = 8
 $script:BtnOpenOutput.AccessibleName = '開啟最近建立的正式附件包資料夾'
 $script:PackagePath.TabIndex = 0
 $script:PackagePath.AccessibleName = '既有正式附件包路徑'
-$script:PackagePath.AccessibleDescription = '輸入或選擇要唯讀驗證的正式附件包資料夾；Ctrl+L 可聚焦。'
+$script:PackagePath.AccessibleDescription = '輸入、選擇或拖入單一實體正式附件包資料夾；來源 ZIP 不接受，拖入只執行唯讀驗證，Ctrl+L 可聚焦。'
 $script:BtnBrowsePackage.TabIndex = 1
 $script:BtnBrowsePackage.AccessibleName = '選擇既有正式附件包資料夾'
 $script:BtnVerify.TabIndex = 2
@@ -762,6 +826,51 @@ $script:OutputPath.Add_TextChanged($outputChanged)
 $script:PackagePath.Add_TextChanged({
   if ($script:ReadOnlyProcess -and $script:ReadOnlyAction -eq 'verify') { Cancel-ReadOnlyOperation }
 })
+
+$sourceGroup.AllowDrop = $true
+$script:SourcePath.AllowDrop = $true
+$verifyGroup.AllowDrop = $true
+$script:PackagePath.AllowDrop = $true
+$sourceDragEnter = {
+  $paths = @(Get-ManagerDropPaths -Data $_.Data)
+  if ($paths.Count -eq 1 -and (Test-ManagerDropPath -Mode source -CandidatePath ([string]$paths[0]))) {
+    $_.Effect = [System.Windows.Forms.DragDropEffects]::Copy
+  } else {
+    $_.Effect = [System.Windows.Forms.DragDropEffects]::None
+  }
+}
+$sourceDragDrop = {
+  try {
+    $paths = @(Get-ManagerDropPaths -Data $_.Data)
+    [void](Set-ManagerDroppedPath -Mode source -Paths $paths)
+  } catch {
+    Show-DropRejected -ErrorRecord $_.Exception
+  }
+}
+$verifyDragEnter = {
+  $paths = @(Get-ManagerDropPaths -Data $_.Data)
+  if ($paths.Count -eq 1 -and (Test-ManagerDropPath -Mode verify -CandidatePath ([string]$paths[0]))) {
+    $_.Effect = [System.Windows.Forms.DragDropEffects]::Copy
+  } else {
+    $_.Effect = [System.Windows.Forms.DragDropEffects]::None
+  }
+}
+$verifyDragDrop = {
+  try {
+    $paths = @(Get-ManagerDropPaths -Data $_.Data)
+    [void](Set-ManagerDroppedPath -Mode verify -Paths $paths)
+  } catch {
+    Show-DropRejected -ErrorRecord $_.Exception
+  }
+}
+foreach ($control in @($sourceGroup, $script:SourcePath)) {
+  $control.Add_DragEnter($sourceDragEnter)
+  $control.Add_DragDrop($sourceDragDrop)
+}
+foreach ($control in @($verifyGroup, $script:PackagePath)) {
+  $control.Add_DragEnter($verifyDragEnter)
+  $control.Add_DragDrop($verifyDragDrop)
+}
 
 $script:BtnBrowseSource.Add_Click({
   $selected = Select-Folder -Description '選擇包含計算書與來源 JSON 的附件資料夾' -SelectedPath $script:SourcePath.Text
@@ -1022,7 +1131,95 @@ if ($SmokeViewport) {
   })
 }
 
+if ($SmokeDragDrop) {
+  $script:MainForm.Opacity = 0
+  $script:MainForm.ShowInTaskbar = $false
+  $script:DragDropSmokeTimer = New-Object System.Windows.Forms.Timer
+  $script:DragDropSmokeTimer.Interval = 250
+  $script:DragDropSmokeTimer.Add_Tick({
+    $script:DragDropSmokeTimer.Stop()
+    $fixtureRoot = ''
+    try {
+      $fixtureRoot = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "attachment-manager-drop-smoke-$PID-$([guid]::NewGuid().ToString('N'))")
+      $sourceFolder = Join-Path $fixtureRoot 'source'
+      $packageFolder = Join-Path $fixtureRoot 'package'
+      $ordinaryFile = Join-Path $fixtureRoot '一般檔案.txt'
+      $sourceZip = Join-Path $fixtureRoot '來源.formal-source.zip'
+      [void](New-Item -ItemType Directory -Path $sourceFolder -Force)
+      [void](New-Item -ItemType Directory -Path $packageFolder -Force)
+      [System.IO.File]::WriteAllText($ordinaryFile, 'drag smoke', (New-Object System.Text.UTF8Encoding($false)))
+      [System.IO.File]::WriteAllText($sourceZip, 'drag smoke', (New-Object System.Text.UTF8Encoding($false)))
+
+      $flags = [System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::NonPublic
+      $onDragEnter = [System.Windows.Forms.Control].GetMethod('OnDragEnter', $flags)
+      $onDragDrop = [System.Windows.Forms.Control].GetMethod('OnDragDrop', $flags)
+      $invokeDrop = {
+        param($Control, [string[]]$Paths)
+        $data = New-Object System.Windows.Forms.DataObject
+        $data.SetData([System.Windows.Forms.DataFormats]::FileDrop, [string[]]$Paths)
+        $allowed = [System.Windows.Forms.DragDropEffects]::Copy
+        $enterArgs = New-Object System.Windows.Forms.DragEventArgs($data, 0, 0, 0, $allowed, [System.Windows.Forms.DragDropEffects]::None)
+        [void]$onDragEnter.Invoke($Control, [object[]]@($enterArgs.PSObject.BaseObject))
+        $dropArgs = New-Object System.Windows.Forms.DragEventArgs($data, 0, 0, 0, $allowed, $enterArgs.Effect)
+        [void]$onDragDrop.Invoke($Control, [object[]]@($dropArgs.PSObject.BaseObject))
+        return $enterArgs.Effect
+      }
+
+      $sourceEffect = & $invokeDrop $script:SourcePath @($sourceFolder)
+      [System.Windows.Forms.Application]::DoEvents()
+      $sourceWorkerPid = if ($script:ReadOnlyProcess) { $script:ReadOnlyProcess.Id } else { 0 }
+      $sourceResultFile = $script:ReadOnlyResultFile
+      $sourceReadOnlyStarted = $script:ReadOnlyAction -eq 'check' -and $sourceWorkerPid -gt 0 -and -not $script:BtnBuild.Enabled
+      Stop-ReadOnlyOperation
+
+      $multiEffect = & $invokeDrop $script:SourcePath @($sourceFolder, $packageFolder)
+      $multiRejected = $multiEffect -eq [System.Windows.Forms.DragDropEffects]::None -and $script:BottomStatus.Text -like '狀態：拖放未接受*'
+      $ordinaryEffect = & $invokeDrop $script:SourcePath @($ordinaryFile)
+      $ordinaryRejected = $ordinaryEffect -eq [System.Windows.Forms.DragDropEffects]::None -and $script:SourcePath.Text -eq $sourceFolder
+
+      $verifyEffect = & $invokeDrop $script:PackagePath @($packageFolder)
+      [System.Windows.Forms.Application]::DoEvents()
+      $verifyWorkerPid = if ($script:ReadOnlyProcess) { $script:ReadOnlyProcess.Id } else { 0 }
+      $verifyResultFile = $script:ReadOnlyResultFile
+      $verifyReadOnlyStarted = $script:ReadOnlyAction -eq 'verify' -and $verifyWorkerPid -gt 0 -and -not $script:BtnBuild.Enabled
+      Stop-ReadOnlyOperation
+
+      $zipVerifyEffect = & $invokeDrop $script:PackagePath @($sourceZip)
+      $zipVerifyRejected = $zipVerifyEffect -eq [System.Windows.Forms.DragDropEffects]::None -and $script:PackagePath.Text -eq $packageFolder -and $script:BottomStatus.Text -like '狀態：拖放未接受*'
+      $resultFilesRemoved = -not (Test-Path -LiteralPath $sourceResultFile) -and -not (Test-Path -LiteralPath $verifyResultFile)
+      $script:DragDropSmokeResult = [pscustomobject]@{
+        status = if ($sourceEffect -eq [System.Windows.Forms.DragDropEffects]::Copy -and $sourceReadOnlyStarted -and $multiRejected -and $ordinaryRejected -and $verifyEffect -eq [System.Windows.Forms.DragDropEffects]::Copy -and $verifyReadOnlyStarted -and $zipVerifyRejected -and $resultFilesRemoved -and -not $script:ReadOnlyProcess -and -not $script:BtnBuild.Enabled) { 'pass' } else { 'fail' }
+        winFormsMessageLoop = $true
+        sourceDropAccepted = [bool]($sourceEffect -eq [System.Windows.Forms.DragDropEffects]::Copy -and $sourceReadOnlyStarted)
+        multiDropRejected = [bool]$multiRejected
+        ordinaryFileRejected = [bool]$ordinaryRejected
+        verifyFolderAccepted = [bool]($verifyEffect -eq [System.Windows.Forms.DragDropEffects]::Copy -and $verifyReadOnlyStarted)
+        sourceZipRejectedByVerify = [bool]$zipVerifyRejected
+        resultFilesRemoved = [bool]$resultFilesRemoved
+        operationCleared = [bool](-not $script:ReadOnlyProcess)
+        built = $false
+      }
+    } catch {
+      $script:DragDropSmokeResult = [pscustomobject]@{ status = 'fail'; message = $_.Exception.Message; built = $false }
+    } finally {
+      Stop-ReadOnlyOperation
+      if ($fixtureRoot) {
+        $resolvedFixture = [System.IO.Path]::GetFullPath($fixtureRoot)
+        $tempPrefix = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\') + '\'
+        if ($resolvedFixture.StartsWith($tempPrefix, [System.StringComparison]::OrdinalIgnoreCase) -and [System.IO.Path]::GetFileName($resolvedFixture).StartsWith('attachment-manager-drop-smoke-')) {
+          Remove-Item -LiteralPath $resolvedFixture -Recurse -Force -ErrorAction SilentlyContinue
+        }
+      }
+      $script:MainForm.Close()
+    }
+  })
+}
+
 $script:MainForm.Add_Shown({
+  if ($SmokeDragDrop) {
+    $script:DragDropSmokeTimer.Start()
+    return
+  }
   if ($SmokeViewport) {
     $script:ViewportSmokeTimer.Start()
     return
@@ -1100,5 +1297,14 @@ if ($SmokeViewport) {
   }
   $script:ViewportSmokeResult | ConvertTo-Json -Depth 4 -Compress
   if ($script:ViewportSmokeResult.status -ne 'pass') { exit 3 }
+  exit 0
+}
+
+if ($SmokeDragDrop) {
+  if (-not $script:DragDropSmokeResult) {
+    $script:DragDropSmokeResult = [pscustomobject]@{ status = 'fail'; message = '拖放 smoke 未產生結果。'; built = $false }
+  }
+  $script:DragDropSmokeResult | ConvertTo-Json -Depth 4 -Compress
+  if ($script:DragDropSmokeResult.status -ne 'pass') { exit 3 }
   exit 0
 }

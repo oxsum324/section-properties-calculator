@@ -252,6 +252,23 @@ assert.equal(viewportPayload.statusFixedVisible, true);
 assert.equal(viewportPayload.operationRunning, false);
 assert.equal(viewportPayload.built, false);
 
+const dragDrop = childProcess.spawnSync('powershell.exe', [
+  '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', path.join(toolsDir, 'attachment-package-manager.ps1'),
+  '-SmokeDragDrop', '-WorkerSmokeDelayMilliseconds', '2000',
+], { encoding: 'utf8', timeout: 20000 });
+assert.equal(dragDrop.status, 0, dragDrop.stderr || dragDrop.stdout);
+const dragDropPayload = JSON.parse(dragDrop.stdout.trim().split(/\r?\n/).at(-1));
+assert.equal(dragDropPayload.status, 'pass');
+assert.equal(dragDropPayload.winFormsMessageLoop, true);
+assert.equal(dragDropPayload.sourceDropAccepted, true);
+assert.equal(dragDropPayload.multiDropRejected, true);
+assert.equal(dragDropPayload.ordinaryFileRejected, true);
+assert.equal(dragDropPayload.verifyFolderAccepted, true);
+assert.equal(dragDropPayload.sourceZipRejectedByVerify, true);
+assert.equal(dragDropPayload.resultFilesRemoved, true);
+assert.equal(dragDropPayload.operationCleared, true);
+assert.equal(dragDropPayload.built, false);
+
 const requestBase64 = Buffer.from(JSON.stringify({ action: 'smoke' }), 'utf8').toString('base64');
 const resultFile = path.join(os.tmpdir(), `${Worker.RESULT_FILE_PREFIX}${process.pid}-${Date.now()}${Worker.RESULT_FILE_SUFFIX}`);
 try {
@@ -283,6 +300,7 @@ const managerPs = read('結構工具箱/tools/attachment-package-manager.ps1');
   'KeyPreview', 'Invoke-ManagerKeyDown', 'Ctrl+L 路徑', 'Enter 唯讀檢查', 'Esc 停止',
   'AccessibleName', 'AccessibleDescription', 'TabIndex', 'SmokeKeyboard',
   'SmokeViewport', 'AutoScrollMinSize', 'ScrollControlIntoView', 'Screen]::FromPoint',
+  'SmokeDragDrop', 'AllowDrop', 'DataFormats]::FileDrop', 'DragDropEffects]::Copy', 'DragDropEffects]::None',
 ].forEach(needle => assert.ok(managerPs.includes(needle), `PowerShell manager includes ${needle}`));
 assert.ok(managerPs.charCodeAt(0) === 0xFEFF, 'PowerShell manager keeps UTF-8 BOM for Windows PowerShell 5.1');
 assert.doesNotMatch(managerPs, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'manager stays local and does not send case data over network');
@@ -346,6 +364,14 @@ for (const control of ['$header', '$subheader', '$sourceGroup', '$verifyGroup', 
 }
 assert.match(managerPs, /MainForm\.Controls\.Add\(\$statusStrip\)[\s\S]*?statusStrip\.BringToFront\(\)/, 'status strip stays fixed outside the scrolling content surface');
 assert.match(managerPs, /SmokeViewport[\s\S]*?Size\(800, 640\)[\s\S]*?HorizontalScroll\.Value -gt 0[\s\S]*?VerticalScroll\.Value -gt 0[\s\S]*?rightBottomVisible[\s\S]*?statusFixedVisible/, 'dynamic viewport smoke proves both scroll axes, the bottom-right boundary, and fixed status visibility');
+const dropPathValidator = managerPs.match(/function Test-ManagerDropPath \{[\s\S]*?(?=\nfunction Get-ManagerDropPaths)/)?.[0] || '';
+assert.match(dropPathValidator, /ReparsePoint[\s\S]*?Mode -eq 'verify'[\s\S]*?PSIsContainer[\s\S]*?\.formal-source\.zip[\s\S]*?StringComparison\]::Ordinal/, 'drag-and-drop accepts only physical source folders or exact source ZIPs and keeps verification folder-only');
+assert.match(managerPs, /sourceGroup\.AllowDrop = \$true[\s\S]*?SourcePath\.AllowDrop = \$true[\s\S]*?verifyGroup\.AllowDrop = \$true[\s\S]*?PackagePath\.AllowDrop = \$true/, 'both governed sections and path fields expose native Windows file drops');
+assert.match(managerPs, /\$sourceDragDrop = \{[\s\S]*?Set-ManagerDroppedPath -Mode source[\s\S]*?\$verifyDragDrop = \{[\s\S]*?Set-ManagerDroppedPath -Mode verify/, 'drop handlers delegate to the shared governed path handoff');
+const droppedPathHandoff = managerPs.match(/function Set-ManagerDroppedPath \{[\s\S]*?(?=\nfunction New-ReadOnlyResultPath)/)?.[0] || '';
+assert.match(droppedPathHandoff, /Paths\)\.Count -ne 1[\s\S]*?Test-ManagerDropPath[\s\S]*?Resolve-Path[\s\S]*?BtnCheck\.PerformClick\(\)[\s\S]*?BtnVerify\.PerformClick\(\)/, 'a drop accepts exactly one validated path and starts only the matching read-only action');
+assert.doesNotMatch(droppedPathHandoff, /BtnBuild|Invoke-AttachmentWorker|Action build/, 'drag-and-drop can never trigger formal package creation');
+assert.match(managerPs, /SmokeDragDrop[\s\S]*?OnDragEnter[\s\S]*?OnDragDrop[\s\S]*?sourceDropAccepted[\s\S]*?multiDropRejected[\s\S]*?ordinaryFileRejected[\s\S]*?verifyFolderAccepted[\s\S]*?sourceZipRejectedByVerify[\s\S]*?built = \$false/, 'dynamic drag smoke uses native WinForms events and proves accepted and rejected paths without building');
 assert.match(
   managerPs,
   /\$sourceChanged = \{[\s\S]*?LastSuggestedOutput[\s\S]*?OutputPath\.Text\.Trim\(\) -eq \$script:LastSuggestedOutput[\s\S]*?LastSuggestedOutput = ''[\s\S]*?OutputPath\.Clear\(\)/,
