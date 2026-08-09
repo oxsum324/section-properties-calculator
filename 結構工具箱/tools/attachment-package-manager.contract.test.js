@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const childProcess = require('node:child_process');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const Worker = require('./attachment-package-manager-worker.js');
 
@@ -104,7 +105,7 @@ assert.equal(Worker.exitCodeForResponse(smoke), 0);
 assert.throws(() => Worker.runAction('publish', { input: toolsDir }), /不支援的管理器動作/);
 assert.throws(() => Worker.runAction('check', { input: '' }), /尚未選擇附件來源/);
 
-const zipFixtureRoot = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'attachment-manager-zip-test-'));
+const zipFixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'attachment-manager-zip-test-'));
 try {
   const zipSource = path.join(zipFixtureRoot, 'source');
   fs.mkdirSync(zipSource);
@@ -131,6 +132,7 @@ try {
   assert.equal(zipCheck.inputKind, 'formal-source-zip');
   assert.equal(zipCheck.suggestedOutputDir, path.join(zipFixtureRoot, '核可計算書-正式附件包-suggested'));
   assert.match(zipCheck.displayText, /隔離暫存區安全讀取/);
+  assert.ok(path.basename(path.dirname(checkedTemp)).startsWith(`formal-source-${process.pid}-`), 'ZIP isolation roots carry the worker pid for bounded parent cleanup');
   assert.ok(checkedTemp && !fs.existsSync(checkedTemp), 'ZIP check always removes isolated temporary input');
 
   let builtTemp = '';
@@ -164,6 +166,42 @@ try {
   const mismatchedBundle = path.join(zipFixtureRoot, '錯配名稱.formal-source.zip');
   fs.copyFileSync(bundlePath, mismatchedBundle);
   assert.throws(() => Worker.extractFormalSourceBundle(mismatchedBundle), /依序且只含根目錄兩檔/);
+
+  const cancellation = childProcess.spawnSync('powershell.exe', [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', path.join(toolsDir, 'attachment-package-manager.ps1'),
+    '-SmokeReadOnlyCancellation', '-WorkerSmokeDelayMilliseconds', '2000', '-InitialPath', bundlePath,
+  ], { encoding: 'utf8', timeout: 15000 });
+  assert.equal(cancellation.status, 0, cancellation.stderr || cancellation.stdout);
+  const cancellationPayload = JSON.parse(cancellation.stdout.trim().split(/\r?\n/).at(-1));
+  assert.equal(cancellationPayload.status, 'pass');
+  assert.equal(cancellationPayload.winFormsMessageLoop, true);
+  assert.equal(cancellationPayload.runningActionVisible, true);
+  assert.equal(cancellationPayload.windowStayedOpen, true);
+  assert.ok(cancellationPayload.workerPid > 0);
+  assert.equal(cancellationPayload.workerExited, true);
+  assert.equal(cancellationPayload.resultFileRemoved, true);
+  assert.equal(cancellationPayload.sourceTempRootsRemoved, true);
+  assert.equal(cancellationPayload.operationCleared, true);
+  assert.equal(cancellationPayload.idleActionRestored, true);
+  assert.equal(cancellationPayload.cancellationMessageShown, true);
+  assert.equal(cancellationPayload.built, false);
+
+  const completion = childProcess.spawnSync('powershell.exe', [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', path.join(toolsDir, 'attachment-package-manager.ps1'),
+    '-SmokeReadOnlyCompletion', '-InitialPath', bundlePath,
+  ], { encoding: 'utf8', timeout: 30000 });
+  assert.equal(completion.status, 0, completion.stderr || completion.stdout);
+  const completionPayload = JSON.parse(completion.stdout.trim().split(/\r?\n/).at(-1));
+  assert.equal(completionPayload.status, 'pass');
+  assert.equal(completionPayload.winFormsMessageLoop, true);
+  assert.ok(completionPayload.workerPid > 0);
+  assert.equal(completionPayload.workerExited, true);
+  assert.equal(completionPayload.resultApplied, true);
+  assert.equal(completionPayload.resultFileRemoved, true);
+  assert.equal(completionPayload.sourceTempRootsRemoved, true);
+  assert.equal(completionPayload.operationCleared, true);
+  assert.equal(completionPayload.buildStayedDisabled, true);
+  assert.equal(completionPayload.built, false);
 } finally {
   fs.rmSync(zipFixtureRoot, { recursive: true, force: true });
 }
@@ -178,6 +216,24 @@ const badCli = childProcess.spawnSync(process.execPath, [path.join(toolsDir, 'at
 assert.equal(badCli.status, 3);
 assert.equal(JSON.parse(badCli.stdout).status, 'error');
 
+const requestBase64 = Buffer.from(JSON.stringify({ action: 'smoke' }), 'utf8').toString('base64');
+const resultFile = path.join(os.tmpdir(), `${Worker.RESULT_FILE_PREFIX}${process.pid}-${Date.now()}${Worker.RESULT_FILE_SUFFIX}`);
+try {
+  const backgroundCli = childProcess.spawnSync(process.execPath, [
+    path.join(toolsDir, 'attachment-package-manager-worker.js'), '--request-base64', requestBase64, '--result-file', resultFile,
+  ], { encoding: 'utf8' });
+  assert.equal(backgroundCli.status, 0, backgroundCli.stderr || backgroundCli.stdout);
+  assert.equal(backgroundCli.stdout, '', 'managed background IPC writes no case result to inherited stdout');
+  assert.equal(JSON.parse(fs.readFileSync(resultFile, 'utf8')).status, 'ready');
+} finally {
+  fs.rmSync(resultFile, { force: true });
+}
+assert.deepEqual(Worker.parseRequestBase64(requestBase64), { action: 'smoke' });
+assert.throws(() => Worker.parseRequestBase64(Buffer.from('{"action":"smoke","write":true}').toString('base64')), /未知欄位/);
+assert.throws(() => Worker.resolveResultFile(path.join(repoRoot, `${Worker.RESULT_FILE_PREFIX}bad.json`)), /系統暫存區/);
+assert.equal(Worker.parseArgs(['--smoke-delay-ms', '250']).smokeDelayMs, 250);
+assert.throws(() => Worker.parseArgs(['--smoke-delay-ms', '5001']), /0 至 5000/);
+
 const managerPs = read('結構工具箱/tools/attachment-package-manager.ps1');
 [
   'System.Windows.Forms', 'FolderBrowserDialog', 'OpenFileDialog', 'attachment-package-manager-worker.js',
@@ -185,13 +241,16 @@ const managerPs = read('結構工具箱/tools/attachment-package-manager.ps1');
   '驗證附件包', '管理畫面與檢查結果僅供內部整理', 'workerExitCode',
   "[string]$InitialPath = ''", "[ValidateSet('source', 'verify')][string]$InitialMode = 'source'", '[switch]$AutoInspect',
   'PDF＋證據來源 ZIP', '*.formal-source.zip', '選擇來源 ZIP…',
+  'System.Diagnostics.ProcessStartInfo', 'System.Windows.Forms.Timer', 'Start-ReadOnlyOperation',
+  'Complete-ReadOnlyOperation', 'Stop-ReadOnlyOperation', 'Cancel-ReadOnlyOperation',
+  '停止檢查', '停止驗證', '畫面仍可操作', '超過 5 分鐘', 'Add_FormClosing',
 ].forEach(needle => assert.ok(managerPs.includes(needle), `PowerShell manager includes ${needle}`));
 assert.ok(managerPs.charCodeAt(0) === 0xFEFF, 'PowerShell manager keeps UTF-8 BOM for Windows PowerShell 5.1');
 assert.doesNotMatch(managerPs, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'manager stays local and does not send case data over network');
 assert.match(managerPs, /\$previousOutputEncoding = \[Console\]::OutputEncoding[\s\S]*?UTF8Encoding\(\$false\)[\s\S]*?finally \{\s*\[Console\]::OutputEncoding = \$previousOutputEncoding/, 'manager decodes Node JSON as UTF-8 and restores the prior console encoding');
 assert.match(
   managerPs,
-  /\$script:BtnCheck\.Add_Click\(\{\s+\$script:LastReadyInput = ''\s+\$script:LastReadyProjectNo = ''/s,
+  /\$script:BtnCheck\.Add_Click\(\{[\s\S]*?\$script:LastReadyInput = ''[\s\S]*?\$script:LastReadyProjectNo = ''[\s\S]*?Start-ReadOnlyOperation -Action check/,
   'every new check clears the prior ready grant before the worker runs',
 );
 assert.match(
@@ -205,16 +264,32 @@ assert.doesNotMatch(
   'manager never overwrites a project number already entered by the user',
 );
 const sourceCheckHandler = managerPs.match(/\$script:BtnCheck\.Add_Click\(\{[\s\S]*?(?=\n\}\)\n\n\$script:BtnBuild\.Add_Click)/)?.[0] || '';
+const applyCheckResponse = managerPs.match(/function Apply-CheckResponse \{[\s\S]*?(?=\nfunction Complete-ReadOnlyOperation)/)?.[0] || '';
+assert.match(sourceCheckHandler, /Start-ReadOnlyOperation -Action check/, 'source checks start a non-blocking read-only worker');
+assert.doesNotMatch(sourceCheckHandler, /Invoke-AttachmentWorker/, 'source checks never synchronously wait on the UI thread');
 assert.match(
-  sourceCheckHandler,
-  /\$script:ProjectNo\.Text = \$suggestedProjectNo[\s\S]*?\$response\.status -eq 'ready'[\s\S]*?\$script:LastReadyInput = \$script:SourcePath\.Text\.Trim\(\)[\s\S]*?\$script:LastReadyProjectNo = \$script:ProjectNo\.Text\.Trim\(\)[\s\S]*?\$script:BtnBuild\.Enabled = \$true/,
+  applyCheckResponse,
+  /\$script:ProjectNo\.Text = \$suggestedProjectNo[\s\S]*?\$Response\.status -eq 'ready'[\s\S]*?\$script:LastReadyInput = \$script:SourcePath\.Text\.Trim\(\)[\s\S]*?\$script:LastReadyProjectNo = \$script:ProjectNo\.Text\.Trim\(\)[\s\S]*?\$script:BtnBuild\.Enabled = \$true/,
   'the build grant is recreated only after the suggested value is applied and is bound to that current value',
 );
 assert.match(
-  sourceCheckHandler,
-  /\$response\.status -eq 'ready'[\s\S]*?if \(-not \$script:OutputPath\.Text\.Trim\(\) -and \$suggestedOutputDir\)[\s\S]*?\$script:LastSuggestedOutput = \$suggestedOutputDir[\s\S]*?\$script:OutputPath\.Text = \$suggestedOutputDir[\s\S]*?尚未建立任何資料夾/,
+  applyCheckResponse,
+  /\$Response\.status -eq 'ready'[\s\S]*?if \(-not \$script:OutputPath\.Text\.Trim\(\) -and \$suggestedOutputDir\)[\s\S]*?\$script:LastSuggestedOutput = \$suggestedOutputDir[\s\S]*?\$script:OutputPath\.Text = \$suggestedOutputDir[\s\S]*?尚未建立任何資料夾/,
   'a ready source ZIP fills only an empty output field and clearly remains a non-writing plan',
 );
+const verifyHandler = managerPs.match(/\$script:BtnVerify\.Add_Click\(\{[\s\S]*?(?=\n\}\)\n\n\$script:BtnOpenOutput\.Add_Click)/)?.[0] || '';
+assert.match(verifyHandler, /Start-ReadOnlyOperation -Action verify/, 'package verification starts a non-blocking read-only worker');
+assert.doesNotMatch(verifyHandler, /Invoke-AttachmentWorker/, 'package verification never synchronously waits on the UI thread');
+const completeReadOnly = managerPs.match(/function Complete-ReadOnlyOperation \{[\s\S]*?(?=\nfunction Cancel-ReadOnlyOperation)/)?.[0] || '';
+assert.doesNotMatch(completeReadOnly, /ReadToEnd|WaitForExit/, 'normal read-only completion is timer-polled and never synchronously waits on the UI thread');
+const buildHandler = managerPs.match(/\$script:BtnBuild\.Add_Click\(\{[\s\S]*?(?=\n\}\)\n\n\$script:BtnVerify\.Add_Click)/)?.[0] || '';
+assert.match(buildHandler, /Invoke-AttachmentWorker -Action build/, 'formal package creation remains on the established atomic builder path');
+assert.doesNotMatch(buildHandler, /Start-ReadOnlyOperation/, 'the writable build action is never mixed into the cancellable read-only worker path');
+assert.match(managerPs, /Cancel-ReadOnlyOperation[\s\S]*?Stop-ReadOnlyOperation[\s\S]*?未建立或修改案件資料/, 'explicit cancellation terminates and cleans the read-only worker without widening authority');
+assert.match(managerPs, /taskkill\.exe \/PID \$workerPid \/T \/F[\s\S]*?WaitForExit\(2000\)/, 'cancellation stops the worker process tree before bounded cleanup');
+assert.match(managerPs, /Remove-WorkerSourceTempRoots[\s\S]*?formal-source-\$WorkerPid-[\s\S]*?Remove-Item -LiteralPath \$resolved -Recurse -Force/, 'parent cleanup is limited to the cancelled worker pid inside the system temp root');
+assert.match(managerPs, /ReadOnlyTimer\.Add_Tick\([\s\S]*?TotalSeconds -ge 300[\s\S]*?Stop-ReadOnlyOperation/, 'read-only workers have a bounded five-minute timeout');
+assert.match(managerPs, /MainForm\.Add_FormClosing\([\s\S]*?Stop-ReadOnlyOperation/, 'closing the manager always cleans a running read-only worker');
 assert.match(
   managerPs,
   /\$sourceChanged = \{[\s\S]*?LastSuggestedOutput[\s\S]*?OutputPath\.Text\.Trim\(\) -eq \$script:LastSuggestedOutput[\s\S]*?LastSuggestedOutput = ''[\s\S]*?OutputPath\.Clear\(\)/,

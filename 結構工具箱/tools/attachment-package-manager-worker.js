@@ -13,9 +13,59 @@ const FORMAL_SOURCE_BUNDLE_SUFFIX = '.formal-source.zip';
 const MAX_BUNDLE_BYTES = 320 * 1024 * 1024;
 const MAX_PDF_BYTES = 256 * 1024 * 1024;
 const MAX_EVIDENCE_BYTES = 64 * 1024 * 1024;
+const RESULT_FILE_PREFIX = 'attachment-package-manager-result-';
+const RESULT_FILE_SUFFIX = '.json';
 
 function text(value) {
   return value === null || value === undefined ? '' : String(value).trim();
+}
+
+function sleepMilliseconds(milliseconds) {
+  const duration = Number(milliseconds) || 0;
+  if (duration > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, duration);
+}
+
+function parseRequestBase64(value) {
+  const encoded = text(value);
+  if (!encoded || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded) || encoded.length % 4 !== 0) {
+    throw new Error('背景工作要求格式無效。');
+  }
+  let request;
+  try {
+    request = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'));
+  } catch {
+    throw new Error('背景工作要求無法解析。');
+  }
+  if (!request || Array.isArray(request) || typeof request !== 'object') throw new Error('背景工作要求必須是物件。');
+  const allowed = new Set(['action', 'input', 'output', 'projectNo']);
+  const unexpected = Object.keys(request).filter(key => !allowed.has(key));
+  if (unexpected.length) throw new Error(`背景工作要求含未知欄位：${unexpected.join('、')}`);
+  return request;
+}
+
+function resolveResultFile(value) {
+  const requested = text(value);
+  if (!requested) return '';
+  const resolved = path.resolve(requested);
+  const tempRoot = path.resolve(os.tmpdir());
+  const name = path.basename(resolved);
+  if (path.dirname(resolved) !== tempRoot
+    || !name.startsWith(RESULT_FILE_PREFIX)
+    || !name.endsWith(RESULT_FILE_SUFFIX)
+    || name.length > 160) {
+    throw new Error('背景工作結果檔必須是系統暫存區內的受管 JSON。');
+  }
+  if (fs.existsSync(resolved)) throw new Error('背景工作結果檔已存在；拒絕覆寫。');
+  return resolved;
+}
+
+function emitResponse(response, resultFile = '') {
+  const json = `${JSON.stringify(response)}\n`;
+  if (!resultFile) {
+    process.stdout.write(json);
+    return;
+  }
+  fs.writeFileSync(resolveResultFile(resultFile), json, { encoding: 'utf8', flag: 'wx' });
 }
 
 function firstFingerprint(record = {}) {
@@ -195,7 +245,7 @@ function extractFormalSourceBundle(bundlePath) {
   if (!bundleStem(bundlePath)) throw new Error(`附件來源不是資料夾或 ${FORMAL_SOURCE_BUNDLE_SUFFIX}：${bundlePath}`);
   if (!stat.size || stat.size > MAX_BUNDLE_BYTES) throw new Error('PDF＋證據來源 ZIP 檔案大小不允許。');
 
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'formal-source-'));
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), `formal-source-${process.pid}-`));
   const tempDir = path.join(tempRoot, 'source');
   const archiveCopy = path.join(tempRoot, 'source.zip');
   try {
@@ -336,6 +386,7 @@ function runAction(action, options = {}, dependencies = {}) {
   const verifier = dependencies.Verifier || Verifier;
   if (!ACTIONS.has(action)) throw new Error(`不支援的管理器動作：${action || '(空白)'}`);
   if (action === 'smoke') {
+    sleepMilliseconds(options.smokeDelayMs);
     return {
       action,
       status: 'ready',
@@ -355,6 +406,7 @@ function runAction(action, options = {}, dependencies = {}) {
 
   const resolved = resolveInput(action, options);
   try {
+    sleepMilliseconds(options.smokeDelayMs);
     let response;
     if (action === 'check') {
       response = checkResponse(checker.checkPackage(resolved.input, { projectNo: text(options.projectNo) }), checker);
@@ -381,15 +433,21 @@ function runAction(action, options = {}, dependencies = {}) {
 }
 
 function parseArgs(argv = []) {
-  const options = {};
+  let options = {};
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--action') options.action = argv[++index];
     else if (arg === '--input') options.input = argv[++index];
     else if (arg === '--output') options.output = argv[++index];
     else if (arg === '--project-no') options.projectNo = argv[++index];
+    else if (arg === '--request-base64') options = { ...options, ...parseRequestBase64(argv[++index]) };
+    else if (arg === '--result-file') options.resultFile = argv[++index];
+    else if (arg === '--smoke-delay-ms') options.smokeDelayMs = Number(argv[++index]);
     else if (arg === '--help' || arg === '-h') options.help = true;
     else throw new Error(`未知參數：${arg}`);
+  }
+  if (!Number.isFinite(Number(options.smokeDelayMs || 0)) || Number(options.smokeDelayMs || 0) < 0 || Number(options.smokeDelayMs || 0) > 5000) {
+    throw new Error('背景工作測試延遲必須介於 0 至 5000 毫秒。');
   }
   return options;
 }
@@ -411,7 +469,7 @@ function main(argv = process.argv.slice(2)) {
   try {
     const options = parseArgs(argv);
     const response = options.help ? usageResponse() : runAction(text(options.action), options);
-    process.stdout.write(`${JSON.stringify(response)}\n`);
+    emitResponse(response, options.resultFile);
     return exitCodeForResponse(response);
   } catch (error) {
     const response = {
@@ -429,14 +487,22 @@ function main(argv = process.argv.slice(2)) {
       issues: [{ level: 'error', code: 'manager-error', message: text(error?.message || error), files: [] }],
       displayText: text(error?.message || error),
     };
-    process.stdout.write(`${JSON.stringify(response)}\n`);
+    let resultFile = '';
+    try { resultFile = parseArgs(argv).resultFile || ''; } catch { /* fall back to stdout */ }
+    try { emitResponse(response, resultFile); } catch { process.stdout.write(`${JSON.stringify(response)}\n`); }
     return Checker.CLI_ERROR_EXIT_CODE;
   }
 }
 
 module.exports = {
   ACTIONS,
+  RESULT_FILE_PREFIX,
+  RESULT_FILE_SUFFIX,
   text,
+  sleepMilliseconds,
+  parseRequestBase64,
+  resolveResultFile,
+  emitResponse,
   firstFingerprint,
   documentState,
   checkRecords,
