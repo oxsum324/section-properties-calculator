@@ -629,11 +629,15 @@ function Update-BuildRecoveryPickerRows {
     $candidate = $row.Tag
     if (-not $candidate) { continue }
     $expiresAt = ([DateTime]$candidate.expiresAtUtc).ToUniversalTime()
-    $isCurrent = $expiresAt -gt $NowUtc.ToUniversalTime()
-    $row.Cells['status'].Value = if ($isCurrent) { Get-BuildRecoveryStatusLabel -State ([string]$candidate.state) } else { '已到期' }
+    $remaining = $expiresAt - $NowUtc.ToUniversalTime()
+    $isCurrent = $remaining.TotalSeconds -gt 0
+    $isUrgent = $isCurrent -and $remaining.TotalHours -le 2
+    $statusLabel = if ($isCurrent) { Get-BuildRecoveryStatusLabel -State ([string]$candidate.state) } else { '已到期' }
+    $row.Cells['status'].Value = if ($isUrgent) { "$statusLabel｜2 小時內到期" } else { $statusLabel }
     $row.Cells['expiresAt'].Value = "$($expiresAt.ToLocalTime().ToString('yyyy/MM/dd HH:mm:ss'))（$(Format-BuildRecoveryRemainingTime -ExpiresAtUtc $expiresAt -NowUtc $NowUtc)）"
     $row.Cells['status'].Tag = $isCurrent
     $row.DefaultCellStyle.ForeColor = if ($isCurrent) { [System.Drawing.SystemColors]::ControlText } else { [System.Drawing.SystemColors]::GrayText }
+    $row.DefaultCellStyle.BackColor = if ($isUrgent) { [System.Drawing.Color]::FromArgb(255, 247, 230) } else { [System.Drawing.SystemColors]::Window }
   }
 }
 
@@ -643,6 +647,7 @@ function Select-BuildRecoveryReceipt {
     [int]$SmokeSelectIndex = -1
   )
   if (-not $Candidates.Count) { return $null }
+  $orderedCandidates = @($Candidates | Sort-Object @{ Expression = { ([DateTime]$_.expiresAtUtc).ToUniversalTime() } }, @{ Expression = { ([DateTime]$_.createdAtUtc).ToUniversalTime() } }, @{ Expression = { [string]$_.outputPath } })
 
   $dialog = New-Object System.Windows.Forms.Form
   $dialog.Text = '待確認輸出唯讀總覽'
@@ -654,7 +659,7 @@ function Select-BuildRecoveryReceipt {
   $dialog.AutoScaleMode = 'Dpi'
 
   $intro = New-Object System.Windows.Forms.Label
-  $intro.Text = "$($Candidates.Count) 筆可驗證項目。請依狀態、建立時間、剩餘期限與精確輸出路徑選定一筆；不會重建、修改或核可附件包。"
+  $intro.Text = "$($Candidates.Count) 筆可驗證項目，已依最早到期優先排列；2 小時內到期會醒目標示。請明確選定一筆，不會重建、修改或核可附件包。"
   $intro.Location = New-Object System.Drawing.Point(16, 16)
   $intro.Size = New-Object System.Drawing.Size(868, 42)
   $intro.AccessibleName = '待確認輸出選擇說明'
@@ -682,7 +687,7 @@ function Select-BuildRecoveryReceipt {
   $grid.Columns['createdAt'].FillWeight = 20
   $grid.Columns['expiresAt'].FillWeight = 30
   $grid.Columns['outputPath'].FillWeight = 62
-  foreach ($candidate in $Candidates) {
+  foreach ($candidate in $orderedCandidates) {
     $createdAtText = ([DateTime]$candidate.createdAtUtc).ToLocalTime().ToString('yyyy/MM/dd HH:mm:ss')
     $rowIndex = $grid.Rows.Add('', $createdAtText, '', $candidate.outputPath)
     $grid.Rows[$rowIndex].Tag = $candidate
@@ -734,6 +739,8 @@ function Select-BuildRecoveryReceipt {
     if ($SmokeBuildRecoveryReceipt -and $script:BuildRecoverySmokeState) {
       $script:BuildRecoverySmokeState.overviewVisible = [bool]($grid.Columns.Contains('status') -and $grid.Columns.Contains('createdAt') -and $grid.Columns.Contains('expiresAt') -and $grid.Columns.Contains('outputPath') -and @($grid.Rows | Where-Object { $_.Cells['status'].Value -and $_.Cells['expiresAt'].Value -match '剩餘' }).Count -eq $Candidates.Count)
       $script:BuildRecoverySmokeState.initiallyUnselected = [bool]($grid.SelectedRows.Count -eq 0 -and -not $verifyButton.Enabled)
+      $script:BuildRecoverySmokeState.earliestExpiryFirst = [bool]($grid.Rows.Count -eq $Candidates.Count -and $grid.Rows[0].Tag.path.Equals($script:BuildRecoverySmokeState.selectedReceiptPath, [System.StringComparison]::OrdinalIgnoreCase))
+      $script:BuildRecoverySmokeState.urgentReceiptHighlighted = [bool]($grid.Rows[0].Cells['status'].Value -like '*2 小時內到期*' -and $grid.Rows[1].Cells['status'].Value -notlike '*2 小時內到期*')
     }
     if ($SmokeSelectIndex -eq -2) {
       $cancelButton.PerformClick()
@@ -1589,7 +1596,7 @@ $script:BtnBuildHandoffVerify.Add_Click({
   $recoveryCandidate = $null
   if ($restartCandidates.Count -gt 1) {
     $pickerArgs = @{ Candidates = @($restartCandidates) }
-    if ($SmokeBuildRecoveryReceipt) { $pickerArgs.SmokeSelectIndex = 1 }
+    if ($SmokeBuildRecoveryReceipt) { $pickerArgs.SmokeSelectIndex = 0 }
     $recoveryCandidate = Select-BuildRecoveryReceipt @pickerArgs
     if (-not $recoveryCandidate) { return }
   }
@@ -1944,6 +1951,7 @@ if ($SmokeBuildRecoveryReceipt) {
   $receiptRecord.data.workerPid = 0
   $receiptRecord.data.workerStartedAtUtc = ''
   $receiptRecord.data.state = 'pending-verification'
+  $receiptRecord.data.expiresAtUtc = [DateTime]::UtcNow.AddHours(8).ToString('o')
   Write-BuildRecoveryReceipt -ReceiptPath $receiptRecord.path -Receipt $receiptRecord.data
   $secondReceiptRecord = New-BuildRecoveryReceipt -SourcePath $sourceFolder -OutputPath $secondOutputFolder -ResultFile (New-ReadOnlyResultPath) -ProgressFile (New-BuildProgressPath)
   $secondReceiptRecord.data.managerPid = 0
@@ -1951,6 +1959,7 @@ if ($SmokeBuildRecoveryReceipt) {
   $secondReceiptRecord.data.workerPid = 0
   $secondReceiptRecord.data.workerStartedAtUtc = ''
   $secondReceiptRecord.data.state = 'pending-verification'
+  $secondReceiptRecord.data.expiresAtUtc = [DateTime]::UtcNow.AddHours(1).ToString('o')
   Write-BuildRecoveryReceipt -ReceiptPath $secondReceiptRecord.path -Receipt $secondReceiptRecord.data
   $invalidReceipt = New-BuildRecoveryReceipt -SourcePath $sourceFolder -OutputPath $outputFolder -ResultFile (New-ReadOnlyResultPath) -ProgressFile (New-BuildProgressPath)
   $invalidReceipt.data.schemaVersion = 99
@@ -1977,6 +1986,8 @@ if ($SmokeBuildRecoveryReceipt) {
     exactPathOffered = $false
     overviewVisible = $false
     initiallyUnselected = $false
+    earliestExpiryFirst = $false
+    urgentReceiptHighlighted = $false
     cancellationPreserved = $false
     verifyStarted = $false
   }
@@ -1991,12 +2002,14 @@ if ($SmokeBuildRecoveryReceipt) {
     $expiredReceiptRemoved = $state -and -not (Test-Path -LiteralPath $state.expiredReceiptPath)
     $activeReceiptIgnored = $state -and (Test-Path -LiteralPath $state.activeReceiptPath)
     $script:BuildRecoverySmokeResult = [pscustomobject]@{
-      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
+      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.earliestExpiryFirst -and $state.urgentReceiptHighlighted -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
       winFormsMessageLoop = $true
       restartReceiptRestored = [bool]$state.restored
       exactPathOffered = [bool]$state.exactPathOffered
       statusAndExpiryOverviewVisible = [bool]$state.overviewVisible
       pickerInitiallyUnselected = [bool]$state.initiallyUnselected
+      earliestExpiryFirst = [bool]$state.earliestExpiryFirst
+      urgentReceiptHighlighted = [bool]$state.urgentReceiptHighlighted
       pickerCancellationPreservedAll = [bool]$state.cancellationPreserved
       readOnlyVerifyStarted = [bool]$state.verifyStarted
       receiptRemovedAfterTrustedResult = [bool]$receiptRemoved
