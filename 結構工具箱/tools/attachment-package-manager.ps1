@@ -759,7 +759,7 @@ function Select-BuildRecoveryReceipt {
 
   $grid = New-Object System.Windows.Forms.DataGridView
   $grid.Location = New-Object System.Drawing.Point(16, 64)
-  $grid.Size = New-Object System.Drawing.Size(868, 292)
+  $grid.Size = New-Object System.Drawing.Size(868, 254)
   $grid.Anchor = 'Top,Bottom,Left,Right'
   $grid.ReadOnly = $true
   $grid.AllowUserToAddRows = $false
@@ -787,6 +787,18 @@ function Select-BuildRecoveryReceipt {
   }
   Update-BuildRecoveryPickerRows -Grid $grid
   $dialog.Controls.Add($grid)
+
+  $selectionStatus = New-Object System.Windows.Forms.Label
+  $selectionStatus.Text = '尚未選取項目。'
+  $selectionStatus.Location = New-Object System.Drawing.Point(16, 326)
+  $selectionStatus.Size = New-Object System.Drawing.Size(868, 28)
+  $selectionStatus.Anchor = 'Bottom,Left,Right'
+  $selectionStatus.ForeColor = [System.Drawing.SystemColors]::GrayText
+  $selectionStatus.AccessibleName = '待確認輸出選取狀態'
+  $selectionStatus.AccessibleDescription = '尚未選取項目；請選擇仍有效的待確認輸出。'
+  $selectionStatus.AccessibleRole = [System.Windows.Forms.AccessibleRole]::StatusBar
+  $selectionStatus.LiveSetting = [System.Windows.Forms.Automation.AutomationLiveSetting]::Assertive
+  $dialog.Controls.Add($selectionStatus)
 
   $openButton = New-Object System.Windows.Forms.Button
   $openButton.Text = '開啟選取資料夾'
@@ -827,14 +839,36 @@ function Select-BuildRecoveryReceipt {
   $dialog.Controls.Add($cancelButton)
   $dialog.CancelButton = $cancelButton
 
-  $expiryTimer = New-Object System.Windows.Forms.Timer
-  $expiryTimer.Interval = 30000
-  $expiryTimer.Add_Tick({
-    Update-BuildRecoveryPickerRows -Grid $grid
+  $refreshPickerState = {
+    param([DateTime]$NowUtc = [DateTime]::UtcNow)
+    $selectedRow = if ($grid.SelectedRows.Count -eq 1) { $grid.SelectedRows[0] } else { $null }
+    Update-BuildRecoveryPickerRows -Grid $grid -NowUtc $NowUtc
+    if ($selectedRow -and -not $selectedRow.Cells['status'].Tag) {
+      $grid.ClearSelection()
+      $grid.CurrentCell = $null
+      $openButton.Enabled = $false
+      $copyButton.Enabled = $false
+      $copyButton.Text = '複製精確路徑 (Ctrl+C)'
+      $verifyButton.Enabled = $false
+      $selectionStatus.Text = '選取項目已失效，已自動取消選取；請重新選擇仍有效的項目。'
+      $selectionStatus.AccessibleDescription = $selectionStatus.Text
+      $selectionStatus.ForeColor = [System.Drawing.Color]::FromArgb(192, 57, 43)
+      $selectionStatus.AccessibilityObject.RaiseLiveRegionChanged()
+      if ($SmokeBuildRecoveryReceipt -and $script:BuildRecoverySmokeState) {
+        $script:BuildRecoverySmokeState.multipleSelectionInvalidationAnnounced = $true
+      }
+      return
+    }
     $selectionEligible = [bool]($grid.SelectedRows.Count -eq 1 -and $grid.SelectedRows[0].Cells['status'].Tag)
     $openButton.Enabled = $selectionEligible
     $copyButton.Enabled = $selectionEligible
     $verifyButton.Enabled = $selectionEligible
+  }
+
+  $expiryTimer = New-Object System.Windows.Forms.Timer
+  $expiryTimer.Interval = 30000
+  $expiryTimer.Add_Tick({
+    & $refreshPickerState
   })
 
   $grid.Add_SelectionChanged({
@@ -843,6 +877,19 @@ function Select-BuildRecoveryReceipt {
     $copyButton.Enabled = $selectionEligible
     $copyButton.Text = '複製精確路徑 (Ctrl+C)'
     $verifyButton.Enabled = $selectionEligible
+    if ($selectionEligible) {
+      $selectionStatus.Text = '已選取有效項目；可開啟、複製精確路徑或執行唯讀驗證。'
+      $selectionStatus.AccessibleDescription = $selectionStatus.Text
+      $selectionStatus.ForeColor = [System.Drawing.SystemColors]::ControlText
+    } elseif ($grid.SelectedRows.Count -eq 1) {
+      $selectionStatus.Text = '此項目已失效；請選擇仍有效的項目。'
+      $selectionStatus.AccessibleDescription = $selectionStatus.Text
+      $selectionStatus.ForeColor = [System.Drawing.Color]::FromArgb(192, 57, 43)
+    } else {
+      $selectionStatus.Text = '尚未選取項目。'
+      $selectionStatus.AccessibleDescription = '尚未選取項目；請選擇仍有效的待確認輸出。'
+      $selectionStatus.ForeColor = [System.Drawing.SystemColors]::GrayText
+    }
   })
   $openButton.Add_Click({
     Update-BuildRecoveryPickerRows -Grid $grid
@@ -925,6 +972,13 @@ function Select-BuildRecoveryReceipt {
       $grid.Rows[0].Tag.expiresAtUtc = [DateTime]::UtcNow.AddMinutes(10)
       Update-BuildRecoveryPickerRows -Grid $grid
       $script:BuildRecoverySmokeState.criticalReceiptHighlighted = [bool]($grid.Rows[0].Cells['status'].Value -like '*30 分鐘內到期*' -and $grid.Rows[0].DefaultCellStyle.ForeColor.ToArgb() -eq [System.Drawing.Color]::FromArgb(192, 57, 43).ToArgb() -and $grid.Rows[0].DefaultCellStyle.BackColor.ToArgb() -eq [System.Drawing.Color]::FromArgb(251, 234, 234).ToArgb() -and $grid.AccessibleDescription -like '*2 小時內及 30 分鐘內到期*')
+      $grid.Rows[0].Tag.expiresAtUtc = $originalSmokeExpiry
+      Update-BuildRecoveryPickerRows -Grid $grid
+      $grid.Rows[0].Selected = $true
+      $grid.CurrentCell = $grid.Rows[0].Cells[0]
+      $grid.Rows[0].Tag.expiresAtUtc = [DateTime]::UtcNow.AddSeconds(-1)
+      & $refreshPickerState ([DateTime]::UtcNow)
+      $script:BuildRecoverySmokeState.multipleSelectionExpiryAutoCleared = [bool]($grid.SelectedRows.Count -eq 0 -and -not $grid.CurrentCell -and -not $openButton.Enabled -and -not $copyButton.Enabled -and -not $verifyButton.Enabled -and $selectionStatus.Text -like '*已自動取消選取*' -and $selectionStatus.AccessibleDescription -like '*已自動取消選取*' -and $selectionStatus.LiveSetting -eq [System.Windows.Forms.Automation.AutomationLiveSetting]::Assertive)
       $grid.Rows[0].Tag.expiresAtUtc = $originalSmokeExpiry
       Update-BuildRecoveryPickerRows -Grid $grid
       $script:BuildRecoverySmokeState.shortcutHintVisible = [bool]($intro.Text -like '*Ctrl+C*' -and $copyButton.Text -like '*Ctrl+C*')
@@ -2256,6 +2310,8 @@ if ($SmokeBuildRecoveryReceipt) {
     urgentReceiptHighlighted = $false
     criticalReceiptHighlighted = $false
     normalReceiptUnhighlighted = $false
+    multipleSelectionExpiryAutoCleared = $false
+    multipleSelectionInvalidationAnnounced = $false
     shortcutHintVisible = $false
     folderPreviewRequested = $false
     exactPathCopyRequested = $false
@@ -2290,7 +2346,7 @@ if ($SmokeBuildRecoveryReceipt) {
     $expiredReceiptRemoved = $state -and -not (Test-Path -LiteralPath $state.expiredReceiptPath)
     $activeReceiptIgnored = $state -and (Test-Path -LiteralPath $state.activeReceiptPath)
     $script:BuildRecoverySmokeResult = [pscustomobject]@{
-      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.earliestExpiryFirst -and $state.urgentReceiptHighlighted -and $state.criticalReceiptHighlighted -and $state.normalReceiptUnhighlighted -and $state.shortcutHintVisible -and $state.folderPreviewRequested -and $state.exactPathCopyRequested -and $state.exactPathKeyboardCopyRequested -and $state.exactPathKeyboardEventHandled -and $state.unselectedKeyboardCopyBlocked -and $state.singleHandoffCopyOffered -and $state.singleHandoffExpiryVisible -and $state.singleHandoffExpiryTimerRunning -and $state.singleHandoffUrgentTierVisible -and $state.singleHandoffCriticalTierVisible -and $state.singleHandoffNormalTierVisible -and $state.singleHandoffShortcutHintVisible -and $state.singleHandoffPathCopyRequested -and $state.singleHandoffKeyboardCopyRequested -and $state.singleHandoffKeyboardEventHandled -and $state.singleHandoffUnfocusedKeyboardCopyBlocked -and $state.singleHandoffExpiryAutoDisabled -and $state.sameSessionHandoffHasNoFalseExpiry -and $state.multipleSelectorRestoredAfterSingleCopy -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
+      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.earliestExpiryFirst -and $state.urgentReceiptHighlighted -and $state.criticalReceiptHighlighted -and $state.normalReceiptUnhighlighted -and $state.multipleSelectionExpiryAutoCleared -and $state.multipleSelectionInvalidationAnnounced -and $state.shortcutHintVisible -and $state.folderPreviewRequested -and $state.exactPathCopyRequested -and $state.exactPathKeyboardCopyRequested -and $state.exactPathKeyboardEventHandled -and $state.unselectedKeyboardCopyBlocked -and $state.singleHandoffCopyOffered -and $state.singleHandoffExpiryVisible -and $state.singleHandoffExpiryTimerRunning -and $state.singleHandoffUrgentTierVisible -and $state.singleHandoffCriticalTierVisible -and $state.singleHandoffNormalTierVisible -and $state.singleHandoffShortcutHintVisible -and $state.singleHandoffPathCopyRequested -and $state.singleHandoffKeyboardCopyRequested -and $state.singleHandoffKeyboardEventHandled -and $state.singleHandoffUnfocusedKeyboardCopyBlocked -and $state.singleHandoffExpiryAutoDisabled -and $state.sameSessionHandoffHasNoFalseExpiry -and $state.multipleSelectorRestoredAfterSingleCopy -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
       winFormsMessageLoop = $true
       restartReceiptRestored = [bool]$state.restored
       exactPathOffered = [bool]$state.exactPathOffered
@@ -2300,6 +2356,8 @@ if ($SmokeBuildRecoveryReceipt) {
       urgentReceiptHighlighted = [bool]$state.urgentReceiptHighlighted
       criticalReceiptHighlighted = [bool]$state.criticalReceiptHighlighted
       normalReceiptUnhighlighted = [bool]$state.normalReceiptUnhighlighted
+      multipleSelectionExpiryAutoCleared = [bool]$state.multipleSelectionExpiryAutoCleared
+      multipleSelectionInvalidationAnnounced = [bool]$state.multipleSelectionInvalidationAnnounced
       shortcutHintVisible = [bool]$state.shortcutHintVisible
       folderPreviewRequestedWithoutExternalLaunch = [bool]$state.folderPreviewRequested
       exactPathCopyRequestedWithoutClipboardWrite = [bool]$state.exactPathCopyRequested
