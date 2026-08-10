@@ -221,7 +221,7 @@ function Clear-BuildHandoffRecovery {
     $script:BtnBuildHandoffVerify.Enabled = $false
   }
   if ($script:BtnBuildHandoffCopy) {
-    $script:BtnBuildHandoffCopy.Text = '複製精確路徑'
+    $script:BtnBuildHandoffCopy.Text = '複製精確路徑 (Ctrl+C)'
     $script:BtnBuildHandoffCopy.Visible = $false
     $script:BtnBuildHandoffCopy.Enabled = $false
   }
@@ -308,11 +308,11 @@ function Show-BuildResultHandoffUnknown {
     $script:BtnBuildHandoffVerify.Text = '唯讀驗證待確認輸出'
     $script:BtnBuildHandoffVerify.Visible = $true
     $script:BtnBuildHandoffVerify.Enabled = $true
-    $script:BtnBuildHandoffCopy.Text = '複製精確路徑'
+    $script:BtnBuildHandoffCopy.Text = '複製精確路徑 (Ctrl+C)'
     $script:BtnBuildHandoffCopy.Visible = $true
     $script:BtnBuildHandoffCopy.Enabled = $true
-    $script:StatusTitle.Width = 560
-    $script:StatusMeta.Width = 560
+    $script:StatusTitle.Width = 530
+    $script:StatusMeta.Width = 530
   }
   $script:BottomStatus.Text = '狀態：建立結果待確認｜先驗證輸出，不要直接重建'
 }
@@ -1254,6 +1254,17 @@ function Set-ManagerKeyHandled {
 
 function Invoke-ManagerKeyDown {
   param([System.Windows.Forms.KeyEventArgs]$EventArgs)
+  if ($EventArgs.Control -and $EventArgs.KeyCode -eq [System.Windows.Forms.Keys]::C) {
+    $active = $script:MainForm.ActiveControl
+    if ($active -ne $script:BtnBuildHandoffCopy) { return }
+    Set-ManagerKeyHandled -EventArgs $EventArgs
+    if (-not $script:BtnBuildHandoffCopy.Visible -or -not $script:BtnBuildHandoffCopy.Enabled -or $script:ReadOnlyProcess -or $script:BuildProcess) { return }
+    if ($SmokeBuildRecoveryReceipt -and $script:BuildRecoverySmokeState) {
+      $script:BuildRecoverySmokeState.singleHandoffKeyboardCopyRequested = $true
+    }
+    $script:BtnBuildHandoffCopy.PerformClick()
+    return
+  }
   if ($EventArgs.Control -and $EventArgs.KeyCode -eq [System.Windows.Forms.Keys]::L) {
     $target = if ($script:ActiveMode -eq 'verify') { $script:PackagePath } else { $script:SourcePath }
     [void]$target.Focus()
@@ -1468,9 +1479,9 @@ $script:BtnBuildHandoffVerify.Enabled = $false
 $script:StatusPanel.Controls.Add($script:BtnBuildHandoffVerify)
 
 $script:BtnBuildHandoffCopy = New-Object System.Windows.Forms.Button
-$script:BtnBuildHandoffCopy.Text = '複製精確路徑'
-$script:BtnBuildHandoffCopy.Location = New-Object System.Drawing.Point(600, 14)
-$script:BtnBuildHandoffCopy.Size = New-Object System.Drawing.Size(140, 36)
+$script:BtnBuildHandoffCopy.Text = '複製精確路徑 (Ctrl+C)'
+$script:BtnBuildHandoffCopy.Location = New-Object System.Drawing.Point(570, 14)
+$script:BtnBuildHandoffCopy.Size = New-Object System.Drawing.Size(170, 36)
 $script:BtnBuildHandoffCopy.Anchor = 'Top,Right'
 $script:BtnBuildHandoffCopy.Visible = $false
 $script:BtnBuildHandoffCopy.Enabled = $false
@@ -1565,7 +1576,7 @@ $script:BtnBuildHandoffVerify.AccessibleName = '唯讀驗證建立結果待確�
 $script:BtnBuildHandoffVerify.AccessibleDescription = '只呼叫既有附件包唯讀驗證，不會重新建立、修改或核可附件包。'
 $script:BtnBuildHandoffCopy.TabIndex = 1
 $script:BtnBuildHandoffCopy.AccessibleName = '複製單筆待確認輸出的精確路徑'
-$script:BtnBuildHandoffCopy.AccessibleDescription = '只將仍有效且存在的單筆待確認輸出路徑複製到 Windows 剪貼簿，不驗證、不修改、不重建或核可附件包。'
+$script:BtnBuildHandoffCopy.AccessibleDescription = '按此按鈕或在焦點位於本按鈕時按 Ctrl+C，只將仍有效且存在的單筆待確認輸出路徑複製到 Windows 剪貼簿，不驗證、不修改、不重建或核可附件包。'
 $script:ResultGrid.AccessibleName = '附件檢查結果清單'
 $script:DetailsBox.AccessibleName = '附件檢查問題與處置說明'
 
@@ -1783,7 +1794,7 @@ $script:BtnBuildHandoffCopy.Add_Click({
   }
   try {
     [System.Windows.Forms.Clipboard]::SetText($recoveryOutput)
-    $script:BtnBuildHandoffCopy.Text = '已複製精確路徑'
+    $script:BtnBuildHandoffCopy.Text = '已複製 (Ctrl+C)'
   } catch {
     [void][System.Windows.Forms.MessageBox]::Show($script:MainForm, "無法複製單筆待確認輸出路徑：$($_.Exception.Message)", '複製路徑失敗', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
   }
@@ -2147,7 +2158,11 @@ if ($SmokeBuildRecoveryReceipt) {
     exactPathKeyboardEventHandled = $false
     unselectedKeyboardCopyBlocked = $false
     singleHandoffCopyOffered = $false
+    singleHandoffShortcutHintVisible = $false
     singleHandoffPathCopyRequested = $false
+    singleHandoffKeyboardCopyRequested = $false
+    singleHandoffKeyboardEventHandled = $false
+    singleHandoffUnfocusedKeyboardCopyBlocked = $false
     multipleSelectorRestoredAfterSingleCopy = $false
     cancellationPreserved = $false
     verifyStarted = $false
@@ -2163,7 +2178,7 @@ if ($SmokeBuildRecoveryReceipt) {
     $expiredReceiptRemoved = $state -and -not (Test-Path -LiteralPath $state.expiredReceiptPath)
     $activeReceiptIgnored = $state -and (Test-Path -LiteralPath $state.activeReceiptPath)
     $script:BuildRecoverySmokeResult = [pscustomobject]@{
-      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.earliestExpiryFirst -and $state.urgentReceiptHighlighted -and $state.shortcutHintVisible -and $state.folderPreviewRequested -and $state.exactPathCopyRequested -and $state.exactPathKeyboardCopyRequested -and $state.exactPathKeyboardEventHandled -and $state.unselectedKeyboardCopyBlocked -and $state.singleHandoffCopyOffered -and $state.singleHandoffPathCopyRequested -and $state.multipleSelectorRestoredAfterSingleCopy -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
+      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.earliestExpiryFirst -and $state.urgentReceiptHighlighted -and $state.shortcutHintVisible -and $state.folderPreviewRequested -and $state.exactPathCopyRequested -and $state.exactPathKeyboardCopyRequested -and $state.exactPathKeyboardEventHandled -and $state.unselectedKeyboardCopyBlocked -and $state.singleHandoffCopyOffered -and $state.singleHandoffShortcutHintVisible -and $state.singleHandoffPathCopyRequested -and $state.singleHandoffKeyboardCopyRequested -and $state.singleHandoffKeyboardEventHandled -and $state.singleHandoffUnfocusedKeyboardCopyBlocked -and $state.multipleSelectorRestoredAfterSingleCopy -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
       winFormsMessageLoop = $true
       restartReceiptRestored = [bool]$state.restored
       exactPathOffered = [bool]$state.exactPathOffered
@@ -2178,7 +2193,11 @@ if ($SmokeBuildRecoveryReceipt) {
       exactPathKeyboardEventHandled = [bool]$state.exactPathKeyboardEventHandled
       unselectedKeyboardCopyBlocked = [bool]$state.unselectedKeyboardCopyBlocked
       singleHandoffCopyOffered = [bool]$state.singleHandoffCopyOffered
+      singleHandoffShortcutHintVisible = [bool]$state.singleHandoffShortcutHintVisible
       singleHandoffPathCopyRequestedWithoutClipboardWrite = [bool]$state.singleHandoffPathCopyRequested
+      singleHandoffKeyboardCopyRequested = [bool]$state.singleHandoffKeyboardCopyRequested
+      singleHandoffKeyboardEventHandled = [bool]$state.singleHandoffKeyboardEventHandled
+      singleHandoffUnfocusedKeyboardCopyBlocked = [bool]$state.singleHandoffUnfocusedKeyboardCopyBlocked
       multipleSelectorRestoredAfterSingleCopy = [bool]$state.multipleSelectorRestoredAfterSingleCopy
       pickerCancellationPreservedAll = [bool]$state.cancellationPreserved
       readOnlyVerifyStarted = [bool]$state.verifyStarted
@@ -2274,7 +2293,17 @@ $script:MainForm.Add_Shown({
     if ($state.exactPathOffered) {
       Show-BuildResultHandoffUnknown -ErrorRecord ([System.InvalidOperationException]::new('單筆復原複製 smoke。')) -RequestedOutput $state.outputPath -RecoveryReceiptPath $state.selectedReceiptPath
       $state.singleHandoffCopyOffered = [bool]($script:BtnBuildHandoffCopy.Visible -and $script:BtnBuildHandoffCopy.Enabled -and $script:BuildHandoffRecoveryOutput -eq $state.outputPath -and $script:HandoffRecoveryReceiptPath -eq $state.selectedReceiptPath)
-      if ($state.singleHandoffCopyOffered) { $script:BtnBuildHandoffCopy.PerformClick() }
+      $state.singleHandoffShortcutHintVisible = [bool]($script:BtnBuildHandoffCopy.Text -like '*Ctrl+C*')
+      if ($state.singleHandoffCopyOffered) {
+        [void]$script:PackagePath.Focus()
+        $unfocusedCopyEvent = New-Object System.Windows.Forms.KeyEventArgs(([System.Windows.Forms.Keys]::Control -bor [System.Windows.Forms.Keys]::C))
+        Invoke-ManagerKeyDown -EventArgs $unfocusedCopyEvent
+        $state.singleHandoffUnfocusedKeyboardCopyBlocked = [bool](-not $unfocusedCopyEvent.Handled -and -not $unfocusedCopyEvent.SuppressKeyPress -and -not $state.singleHandoffPathCopyRequested)
+        [void]$script:BtnBuildHandoffCopy.Focus()
+        $singleCopyEvent = New-Object System.Windows.Forms.KeyEventArgs(([System.Windows.Forms.Keys]::Control -bor [System.Windows.Forms.Keys]::C))
+        Invoke-ManagerKeyDown -EventArgs $singleCopyEvent
+        $state.singleHandoffKeyboardEventHandled = [bool]($singleCopyEvent.Handled -and $singleCopyEvent.SuppressKeyPress)
+      }
       $state.multipleSelectorRestoredAfterSingleCopy = [bool](Restore-BuildRecoveryReceipt -ReceiptPaths $state.receiptPaths) -and $script:BuildRecoveryCandidates.Count -eq 2 -and $script:BtnBuildHandoffVerify.Visible -and $script:BtnBuildHandoffVerify.Enabled -and -not $script:BtnBuildHandoffCopy.Visible -and -not $script:BuildHandoffRecoveryOutput -and -not $script:HandoffRecoveryReceiptPath
       $cancelledCandidate = Select-BuildRecoveryReceipt -Candidates @($script:BuildRecoveryCandidates) -SmokeSelectIndex -2
       $state.cancellationPreserved = [bool](-not $cancelledCandidate -and (Test-Path -LiteralPath $state.selectedReceiptPath) -and (Test-Path -LiteralPath $state.unselectedReceiptPath) -and $script:BuildRecoveryCandidates.Count -eq 2)
