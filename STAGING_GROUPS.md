@@ -360,6 +360,8 @@ Replace anchor dialogs with in-app confirmations
 
 多筆復原總覽新增或調整精確路徑複製時，說明列與複製按鈕必須直接顯示 `Ctrl+C` 提示，並維持初始停用、明確單選、動作當下重查未逾期與資料夾存在性；一般模式只可將該精確路徑寫入 Windows 剪貼簿。清單 `Ctrl+C` 必須停用 DataGridView 原生整列複製並只轉交同一受控按鈕路由，無有效選取時仍須攔截且零寫入；動態 smoke 必須證明提示實際可見、攔截實際剪貼簿寫入、快捷鍵事件已處理，且不啟動 verifier、build、修改或核可。
 
+單筆復原收據在主畫面待確認狀態卡提供精確路徑複製時，必須與唯讀驗證分成獨立按鈕，點擊當下重讀受管收據並核對期限、精確輸出與資料夾存在性；無收據的同次交接僅可使用已鎖定且仍存在的預定輸出。失效時須清除復原動作並失敗封閉。動態 smoke 必須先證明單筆複製不寫剪貼簿，再還原多筆未選總覽並完成原有取消與驗證流程；複製處理器不得含 verify、build、修改或核可路由。
+
 ## 首頁正式放行日期來源
 
 調整首頁狀態或 release 快照時，需一併 staging `結構工具箱/assets/home/home.js`、`toolbox-entrypoints.contract.test.js` 與三份治理文件。`HOME_TOOL_UPDATES` 不得保存人工 fallback 正式放行日；執行期只可接受 passing、非 quick、兩個 force 旗標成立、來源 commit 可辨識且乾淨的 tracked preflight snapshot。契約須固定未載入提示與正式快照導入路徑，避免 release 狀態提交跨日後產生首頁落後日期。

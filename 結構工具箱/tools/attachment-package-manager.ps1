@@ -62,6 +62,7 @@ $script:BuildSmokeResult = $null
 $script:BuildSmokeFixtureRoot = ''
 $script:BuildHandoffRecoveryOutput = ''
 $script:BtnBuildHandoffVerify = $null
+$script:BtnBuildHandoffCopy = $null
 $script:BuildRecoveryCandidates = @()
 $script:BuildRecoveryReceiptPath = ''
 $script:HandoffRecoveryReceiptPath = ''
@@ -219,6 +220,11 @@ function Clear-BuildHandoffRecovery {
     $script:BtnBuildHandoffVerify.Visible = $false
     $script:BtnBuildHandoffVerify.Enabled = $false
   }
+  if ($script:BtnBuildHandoffCopy) {
+    $script:BtnBuildHandoffCopy.Text = '複製精確路徑'
+    $script:BtnBuildHandoffCopy.Visible = $false
+    $script:BtnBuildHandoffCopy.Enabled = $false
+  }
   if ($script:StatusTitle) { $script:StatusTitle.Width = 960 }
   if ($script:StatusMeta) { $script:StatusMeta.Width = 960 }
 }
@@ -299,10 +305,14 @@ function Show-BuildResultHandoffUnknown {
     $script:BtnOpenOutput.Enabled = $true
     $script:BuildHandoffRecoveryOutput = $RequestedOutput
     $script:HandoffRecoveryReceiptPath = $RecoveryReceiptPath
+    $script:BtnBuildHandoffVerify.Text = '唯讀驗證待確認輸出'
     $script:BtnBuildHandoffVerify.Visible = $true
     $script:BtnBuildHandoffVerify.Enabled = $true
-    $script:StatusTitle.Width = 710
-    $script:StatusMeta.Width = 710
+    $script:BtnBuildHandoffCopy.Text = '複製精確路徑'
+    $script:BtnBuildHandoffCopy.Visible = $true
+    $script:BtnBuildHandoffCopy.Enabled = $true
+    $script:StatusTitle.Width = 560
+    $script:StatusMeta.Width = 560
   }
   $script:BottomStatus.Text = '狀態：建立結果待確認｜先驗證輸出，不要直接重建'
 }
@@ -581,6 +591,8 @@ function Restore-BuildRecoveryReceipt {
   $eligible = @(Get-EligibleBuildRecoveryReceipts -ReceiptPaths $ReceiptPaths)
   if (-not $eligible.Count) { return $false }
   if ($eligible.Count -gt 1) {
+    $script:BuildHandoffRecoveryOutput = ''
+    $script:HandoffRecoveryReceiptPath = ''
     $script:BuildRecoveryCandidates = @($eligible)
     Set-StatusAppearance -Status 'review' -Title '有多筆建立結果待確認'
     $script:StatusMeta.Text = '未自動挑選任何項目；請開啟清單並明確選定一筆，再執行唯讀驗證。'
@@ -588,6 +600,8 @@ function Restore-BuildRecoveryReceipt {
     $script:BtnBuildHandoffVerify.Text = "選擇 $($eligible.Count) 筆待確認輸出"
     $script:BtnBuildHandoffVerify.Visible = $true
     $script:BtnBuildHandoffVerify.Enabled = $true
+    $script:BtnBuildHandoffCopy.Visible = $false
+    $script:BtnBuildHandoffCopy.Enabled = $false
     $script:StatusTitle.Width = 710
     $script:StatusMeta.Width = 710
     $script:BottomStatus.Text = "狀態：$($eligible.Count) 筆待確認｜未自動選取或重建"
@@ -1453,6 +1467,15 @@ $script:BtnBuildHandoffVerify.Visible = $false
 $script:BtnBuildHandoffVerify.Enabled = $false
 $script:StatusPanel.Controls.Add($script:BtnBuildHandoffVerify)
 
+$script:BtnBuildHandoffCopy = New-Object System.Windows.Forms.Button
+$script:BtnBuildHandoffCopy.Text = '複製精確路徑'
+$script:BtnBuildHandoffCopy.Location = New-Object System.Drawing.Point(600, 14)
+$script:BtnBuildHandoffCopy.Size = New-Object System.Drawing.Size(140, 36)
+$script:BtnBuildHandoffCopy.Anchor = 'Top,Right'
+$script:BtnBuildHandoffCopy.Visible = $false
+$script:BtnBuildHandoffCopy.Enabled = $false
+$script:StatusPanel.Controls.Add($script:BtnBuildHandoffCopy)
+
 $script:ResultGrid = New-Object System.Windows.Forms.DataGridView
 $script:ResultGrid.Location = New-Object System.Drawing.Point(22, 518)
 $script:ResultGrid.Size = New-Object System.Drawing.Size(1000, 162)
@@ -1540,6 +1563,9 @@ $script:BtnVerify.AccessibleDescription = '唯讀背景驗證；進行中可再�
 $script:BtnBuildHandoffVerify.TabIndex = 0
 $script:BtnBuildHandoffVerify.AccessibleName = '唯讀驗證建立結果待確認的輸出'
 $script:BtnBuildHandoffVerify.AccessibleDescription = '只呼叫既有附件包唯讀驗證，不會重新建立、修改或核可附件包。'
+$script:BtnBuildHandoffCopy.TabIndex = 1
+$script:BtnBuildHandoffCopy.AccessibleName = '複製單筆待確認輸出的精確路徑'
+$script:BtnBuildHandoffCopy.AccessibleDescription = '只將仍有效且存在的單筆待確認輸出路徑複製到 Windows 剪貼簿，不驗證、不修改、不重建或核可附件包。'
 $script:ResultGrid.AccessibleName = '附件檢查結果清單'
 $script:DetailsBox.AccessibleName = '附件檢查問題與處置說明'
 
@@ -1731,6 +1757,35 @@ $script:BtnBuildHandoffVerify.Add_Click({
       return
     }
     Show-OperationError $_.Exception
+  }
+})
+
+$script:BtnBuildHandoffCopy.Add_Click({
+  $recoveryOutput = [string]$script:BuildHandoffRecoveryOutput
+  $recoveryReceiptPath = [string]$script:HandoffRecoveryReceiptPath
+  if ($recoveryReceiptPath) {
+    $currentCandidates = @(Get-EligibleBuildRecoveryReceipts -ReceiptPaths @($recoveryReceiptPath) | Where-Object { $_.path.Equals($recoveryReceiptPath, [System.StringComparison]::OrdinalIgnoreCase) -and $_.outputPath.Equals($recoveryOutput, [System.StringComparison]::OrdinalIgnoreCase) })
+    if ($currentCandidates.Count -ne 1) {
+      Clear-BuildHandoffRecovery
+      Show-OperationError ([System.InvalidOperationException]::new('單筆短期收據已到期、失效或與輸出路徑不一致；未複製路徑，請重新開啟管理器取得目前狀態。'))
+      return
+    }
+    $recoveryOutput = [string]$currentCandidates[0].outputPath
+  }
+  if (-not $recoveryOutput -or -not (Test-Path -LiteralPath $recoveryOutput -PathType Container)) {
+    Clear-BuildHandoffRecovery
+    Show-OperationError ([System.InvalidOperationException]::new('單筆待確認的預定輸出已不存在；未複製任何路徑。'))
+    return
+  }
+  if ($SmokeBuildRecoveryReceipt -and $script:BuildRecoverySmokeState) {
+    $script:BuildRecoverySmokeState.singleHandoffPathCopyRequested = [bool]($recoveryOutput.Equals($script:BuildRecoverySmokeState.outputPath, [System.StringComparison]::OrdinalIgnoreCase))
+    return
+  }
+  try {
+    [System.Windows.Forms.Clipboard]::SetText($recoveryOutput)
+    $script:BtnBuildHandoffCopy.Text = '已複製精確路徑'
+  } catch {
+    [void][System.Windows.Forms.MessageBox]::Show($script:MainForm, "無法複製單筆待確認輸出路徑：$($_.Exception.Message)", '複製路徑失敗', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
   }
 })
 
@@ -2091,6 +2146,9 @@ if ($SmokeBuildRecoveryReceipt) {
     exactPathKeyboardCopyRequested = $false
     exactPathKeyboardEventHandled = $false
     unselectedKeyboardCopyBlocked = $false
+    singleHandoffCopyOffered = $false
+    singleHandoffPathCopyRequested = $false
+    multipleSelectorRestoredAfterSingleCopy = $false
     cancellationPreserved = $false
     verifyStarted = $false
   }
@@ -2105,7 +2163,7 @@ if ($SmokeBuildRecoveryReceipt) {
     $expiredReceiptRemoved = $state -and -not (Test-Path -LiteralPath $state.expiredReceiptPath)
     $activeReceiptIgnored = $state -and (Test-Path -LiteralPath $state.activeReceiptPath)
     $script:BuildRecoverySmokeResult = [pscustomobject]@{
-      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.earliestExpiryFirst -and $state.urgentReceiptHighlighted -and $state.shortcutHintVisible -and $state.folderPreviewRequested -and $state.exactPathCopyRequested -and $state.exactPathKeyboardCopyRequested -and $state.exactPathKeyboardEventHandled -and $state.unselectedKeyboardCopyBlocked -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
+      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.earliestExpiryFirst -and $state.urgentReceiptHighlighted -and $state.shortcutHintVisible -and $state.folderPreviewRequested -and $state.exactPathCopyRequested -and $state.exactPathKeyboardCopyRequested -and $state.exactPathKeyboardEventHandled -and $state.unselectedKeyboardCopyBlocked -and $state.singleHandoffCopyOffered -and $state.singleHandoffPathCopyRequested -and $state.multipleSelectorRestoredAfterSingleCopy -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
       winFormsMessageLoop = $true
       restartReceiptRestored = [bool]$state.restored
       exactPathOffered = [bool]$state.exactPathOffered
@@ -2119,6 +2177,9 @@ if ($SmokeBuildRecoveryReceipt) {
       exactPathKeyboardCopyRequested = [bool]$state.exactPathKeyboardCopyRequested
       exactPathKeyboardEventHandled = [bool]$state.exactPathKeyboardEventHandled
       unselectedKeyboardCopyBlocked = [bool]$state.unselectedKeyboardCopyBlocked
+      singleHandoffCopyOffered = [bool]$state.singleHandoffCopyOffered
+      singleHandoffPathCopyRequestedWithoutClipboardWrite = [bool]$state.singleHandoffPathCopyRequested
+      multipleSelectorRestoredAfterSingleCopy = [bool]$state.multipleSelectorRestoredAfterSingleCopy
       pickerCancellationPreservedAll = [bool]$state.cancellationPreserved
       readOnlyVerifyStarted = [bool]$state.verifyStarted
       receiptRemovedAfterTrustedResult = [bool]$receiptRemoved
@@ -2211,6 +2272,10 @@ $script:MainForm.Add_Shown({
     $state.restored = [bool](Restore-BuildRecoveryReceipt -ReceiptPaths $state.receiptPaths)
     $state.exactPathOffered = [bool]($script:BtnBuildHandoffVerify.Visible -and $script:BtnBuildHandoffVerify.Enabled -and $script:BuildRecoveryCandidates.Count -eq 2 -and -not $script:BuildHandoffRecoveryOutput -and -not $script:HandoffRecoveryReceiptPath)
     if ($state.exactPathOffered) {
+      Show-BuildResultHandoffUnknown -ErrorRecord ([System.InvalidOperationException]::new('單筆復原複製 smoke。')) -RequestedOutput $state.outputPath -RecoveryReceiptPath $state.selectedReceiptPath
+      $state.singleHandoffCopyOffered = [bool]($script:BtnBuildHandoffCopy.Visible -and $script:BtnBuildHandoffCopy.Enabled -and $script:BuildHandoffRecoveryOutput -eq $state.outputPath -and $script:HandoffRecoveryReceiptPath -eq $state.selectedReceiptPath)
+      if ($state.singleHandoffCopyOffered) { $script:BtnBuildHandoffCopy.PerformClick() }
+      $state.multipleSelectorRestoredAfterSingleCopy = [bool](Restore-BuildRecoveryReceipt -ReceiptPaths $state.receiptPaths) -and $script:BuildRecoveryCandidates.Count -eq 2 -and $script:BtnBuildHandoffVerify.Visible -and $script:BtnBuildHandoffVerify.Enabled -and -not $script:BtnBuildHandoffCopy.Visible -and -not $script:BuildHandoffRecoveryOutput -and -not $script:HandoffRecoveryReceiptPath
       $cancelledCandidate = Select-BuildRecoveryReceipt -Candidates @($script:BuildRecoveryCandidates) -SmokeSelectIndex -2
       $state.cancellationPreserved = [bool](-not $cancelledCandidate -and (Test-Path -LiteralPath $state.selectedReceiptPath) -and (Test-Path -LiteralPath $state.unselectedReceiptPath) -and $script:BuildRecoveryCandidates.Count -eq 2)
       $script:BtnBuildHandoffVerify.PerformClick()
