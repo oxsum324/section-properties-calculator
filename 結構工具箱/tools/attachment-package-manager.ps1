@@ -558,7 +558,15 @@ function Get-EligibleBuildRecoveryReceipts {
         continue
       }
       if (Test-Path -LiteralPath $outputPath -PathType Container) {
-        $eligible += [pscustomobject]@{ path = $receiptPath; receipt = $receipt; outputPath = $outputPath; sourcePath = $sourcePath }
+        $eligible += [pscustomobject]@{
+          path = $receiptPath
+          receipt = $receipt
+          outputPath = $outputPath
+          sourcePath = $sourcePath
+          state = $state
+          createdAtUtc = $createdAt
+          expiresAtUtc = $expiresAt
+        }
       }
     } catch {
       Remove-BuildRecoveryReceipt -ReceiptPath $receiptPath
@@ -586,8 +594,47 @@ function Restore-BuildRecoveryReceipt {
     return $true
   }
   $candidate = $eligible[0]
+  $script:BuildRecoveryCandidates = @($candidate)
   Show-BuildResultHandoffUnknown -ErrorRecord ([System.InvalidOperationException]::new('已從上次異常中斷的本機短期收據還原精確預定輸出。')) -RequestedOutput $candidate.outputPath -SourceSnapshot $candidate.sourcePath -RecoveryReceiptPath $candidate.path
   return $true
+}
+
+function Get-BuildRecoveryStatusLabel {
+  param([string]$State)
+  switch ($State) {
+    'starting' { return '啟動中斷後待確認' }
+    'running' { return '建立中斷後待確認' }
+    'pending-verification' { return '待唯讀驗證' }
+    default { return '狀態待確認' }
+  }
+}
+
+function Format-BuildRecoveryRemainingTime {
+  param([DateTime]$ExpiresAtUtc, [DateTime]$NowUtc = [DateTime]::UtcNow)
+  $remaining = $ExpiresAtUtc.ToUniversalTime() - $NowUtc.ToUniversalTime()
+  if ($remaining.TotalSeconds -le 0) { return '已到期' }
+  if ($remaining.TotalHours -ge 1) {
+    return "剩餘 $([Math]::Floor($remaining.TotalHours)) 小時 $($remaining.Minutes) 分"
+  }
+  if ($remaining.TotalMinutes -ge 1) { return "剩餘 $([Math]::Floor($remaining.TotalMinutes)) 分" }
+  return '剩餘不到 1 分鐘'
+}
+
+function Update-BuildRecoveryPickerRows {
+  param(
+    [Parameter(Mandatory = $true)][System.Windows.Forms.DataGridView]$Grid,
+    [DateTime]$NowUtc = [DateTime]::UtcNow
+  )
+  foreach ($row in @($Grid.Rows)) {
+    $candidate = $row.Tag
+    if (-not $candidate) { continue }
+    $expiresAt = ([DateTime]$candidate.expiresAtUtc).ToUniversalTime()
+    $isCurrent = $expiresAt -gt $NowUtc.ToUniversalTime()
+    $row.Cells['status'].Value = if ($isCurrent) { Get-BuildRecoveryStatusLabel -State ([string]$candidate.state) } else { '已到期' }
+    $row.Cells['expiresAt'].Value = "$($expiresAt.ToLocalTime().ToString('yyyy/MM/dd HH:mm:ss'))（$(Format-BuildRecoveryRemainingTime -ExpiresAtUtc $expiresAt -NowUtc $NowUtc)）"
+    $row.Cells['status'].Tag = $isCurrent
+    $row.DefaultCellStyle.ForeColor = if ($isCurrent) { [System.Drawing.SystemColors]::ControlText } else { [System.Drawing.SystemColors]::GrayText }
+  }
 }
 
 function Select-BuildRecoveryReceipt {
@@ -598,7 +645,7 @@ function Select-BuildRecoveryReceipt {
   if (-not $Candidates.Count) { return $null }
 
   $dialog = New-Object System.Windows.Forms.Form
-  $dialog.Text = '選擇待確認的附件包輸出'
+  $dialog.Text = '待確認輸出唯讀總覽'
   $dialog.StartPosition = 'CenterParent'
   $dialog.ClientSize = New-Object System.Drawing.Size(900, 420)
   $dialog.MinimizeBox = $false
@@ -607,7 +654,7 @@ function Select-BuildRecoveryReceipt {
   $dialog.AutoScaleMode = 'Dpi'
 
   $intro = New-Object System.Windows.Forms.Label
-  $intro.Text = '請依建立時間與精確輸出路徑選定一筆。此動作只會執行唯讀驗證，不會重建、修改或核可附件包。'
+  $intro.Text = "$($Candidates.Count) 筆可驗證項目。請依狀態、建立時間、剩餘期限與精確輸出路徑選定一筆；不會重建、修改或核可附件包。"
   $intro.Location = New-Object System.Drawing.Point(16, 16)
   $intro.Size = New-Object System.Drawing.Size(868, 42)
   $intro.AccessibleName = '待確認輸出選擇說明'
@@ -627,16 +674,20 @@ function Select-BuildRecoveryReceipt {
   $grid.AutoSizeColumnsMode = 'Fill'
   $grid.AccessibleName = '待確認附件包輸出清單'
   $grid.AccessibleDescription = '唯讀單選清單，初始不選取任何項目。'
+  [void]$grid.Columns.Add('status', '狀態')
   [void]$grid.Columns.Add('createdAt', '建立時間')
+  [void]$grid.Columns.Add('expiresAt', '有效至／剩餘期限')
   [void]$grid.Columns.Add('outputPath', '精確輸出路徑')
-  $grid.Columns['createdAt'].FillWeight = 25
-  $grid.Columns['outputPath'].FillWeight = 75
+  $grid.Columns['status'].FillWeight = 18
+  $grid.Columns['createdAt'].FillWeight = 20
+  $grid.Columns['expiresAt'].FillWeight = 30
+  $grid.Columns['outputPath'].FillWeight = 62
   foreach ($candidate in $Candidates) {
-    $createdAtText = [string](Get-ResponseValue $candidate.receipt 'createdAtUtc')
-    try { $createdAtText = ([DateTime]::Parse($createdAtText).ToLocalTime()).ToString('yyyy/MM/dd HH:mm:ss') } catch {}
-    $rowIndex = $grid.Rows.Add($createdAtText, $candidate.outputPath)
+    $createdAtText = ([DateTime]$candidate.createdAtUtc).ToLocalTime().ToString('yyyy/MM/dd HH:mm:ss')
+    $rowIndex = $grid.Rows.Add('', $createdAtText, '', $candidate.outputPath)
     $grid.Rows[$rowIndex].Tag = $candidate
   }
+  Update-BuildRecoveryPickerRows -Grid $grid
   $dialog.Controls.Add($grid)
 
   $verifyButton = New-Object System.Windows.Forms.Button
@@ -658,19 +709,32 @@ function Select-BuildRecoveryReceipt {
   $dialog.Controls.Add($cancelButton)
   $dialog.CancelButton = $cancelButton
 
+  $expiryTimer = New-Object System.Windows.Forms.Timer
+  $expiryTimer.Interval = 30000
+  $expiryTimer.Add_Tick({
+    Update-BuildRecoveryPickerRows -Grid $grid
+    $verifyButton.Enabled = [bool]($grid.SelectedRows.Count -eq 1 -and $grid.SelectedRows[0].Cells['status'].Tag)
+  })
+
   $grid.Add_SelectionChanged({
-    $verifyButton.Enabled = $grid.SelectedRows.Count -eq 1
+    $verifyButton.Enabled = [bool]($grid.SelectedRows.Count -eq 1 -and $grid.SelectedRows[0].Cells['status'].Tag)
   })
   $verifyButton.Add_Click({
-    if ($grid.SelectedRows.Count -ne 1) { return }
+    if ($grid.SelectedRows.Count -ne 1 -or -not $grid.SelectedRows[0].Cells['status'].Tag) { return }
     $dialog.Tag = $grid.SelectedRows[0].Tag
     $dialog.DialogResult = [System.Windows.Forms.DialogResult]::OK
     $dialog.Close()
   })
   $dialog.Add_Shown({
+    Update-BuildRecoveryPickerRows -Grid $grid
     $grid.ClearSelection()
     $grid.CurrentCell = $null
     $verifyButton.Enabled = $false
+    $expiryTimer.Start()
+    if ($SmokeBuildRecoveryReceipt -and $script:BuildRecoverySmokeState) {
+      $script:BuildRecoverySmokeState.overviewVisible = [bool]($grid.Columns.Contains('status') -and $grid.Columns.Contains('createdAt') -and $grid.Columns.Contains('expiresAt') -and $grid.Columns.Contains('outputPath') -and @($grid.Rows | Where-Object { $_.Cells['status'].Value -and $_.Cells['expiresAt'].Value -match '剩餘' }).Count -eq $Candidates.Count)
+      $script:BuildRecoverySmokeState.initiallyUnselected = [bool]($grid.SelectedRows.Count -eq 0 -and -not $verifyButton.Enabled)
+    }
     if ($SmokeSelectIndex -eq -2) {
       $cancelButton.PerformClick()
     } elseif ($SmokeSelectIndex -ge 0 -and $SmokeSelectIndex -lt $grid.Rows.Count) {
@@ -685,6 +749,8 @@ function Select-BuildRecoveryReceipt {
     if ($result -eq [System.Windows.Forms.DialogResult]::OK) { return $dialog.Tag }
     return $null
   } finally {
+    $expiryTimer.Stop()
+    $expiryTimer.Dispose()
     $dialog.Dispose()
   }
 }
@@ -1519,15 +1585,27 @@ $script:BtnVerify.Add_Click({
 })
 
 $script:BtnBuildHandoffVerify.Add_Click({
+  $restartCandidates = @($script:BuildRecoveryCandidates)
   $recoveryCandidate = $null
-  if ($script:BuildRecoveryCandidates.Count -gt 1) {
-    $pickerArgs = @{ Candidates = @($script:BuildRecoveryCandidates) }
+  if ($restartCandidates.Count -gt 1) {
+    $pickerArgs = @{ Candidates = @($restartCandidates) }
     if ($SmokeBuildRecoveryReceipt) { $pickerArgs.SmokeSelectIndex = 1 }
     $recoveryCandidate = Select-BuildRecoveryReceipt @pickerArgs
     if (-not $recoveryCandidate) { return }
   }
   $recoveryOutput = if ($recoveryCandidate) { [string]$recoveryCandidate.outputPath } else { $script:BuildHandoffRecoveryOutput }
   $recoveryReceiptPath = if ($recoveryCandidate) { [string]$recoveryCandidate.path } else { $script:HandoffRecoveryReceiptPath }
+  if ($restartCandidates.Count -gt 0 -and $recoveryReceiptPath) {
+    $currentCandidates = @(Get-EligibleBuildRecoveryReceipts -ReceiptPaths @($recoveryReceiptPath) | Where-Object { $_.path.Equals($recoveryReceiptPath, [System.StringComparison]::OrdinalIgnoreCase) -and $_.outputPath.Equals($recoveryOutput, [System.StringComparison]::OrdinalIgnoreCase) })
+    if ($currentCandidates.Count -ne 1) {
+      Clear-BuildHandoffRecovery
+      Show-OperationError ([System.InvalidOperationException]::new('選定的短期收據已到期、失效或與輸出路徑不一致；未執行驗證，請重新開啟管理器取得目前狀態。'))
+      return
+    }
+    $recoveryCandidate = $currentCandidates[0]
+    $recoveryOutput = [string]$recoveryCandidate.outputPath
+    $recoveryReceiptPath = [string]$recoveryCandidate.path
+  }
   if (-not $recoveryOutput -or -not (Test-Path -LiteralPath $recoveryOutput -PathType Container)) {
     Clear-BuildHandoffRecovery
     Show-OperationError ([System.InvalidOperationException]::new('待確認的預定輸出已不存在；請重新選擇候選附件包後執行唯讀驗證。'))
@@ -1897,6 +1975,8 @@ if ($SmokeBuildRecoveryReceipt) {
     outputPath = $secondOutputFolder
     restored = $false
     exactPathOffered = $false
+    overviewVisible = $false
+    initiallyUnselected = $false
     cancellationPreserved = $false
     verifyStarted = $false
   }
@@ -1911,10 +1991,12 @@ if ($SmokeBuildRecoveryReceipt) {
     $expiredReceiptRemoved = $state -and -not (Test-Path -LiteralPath $state.expiredReceiptPath)
     $activeReceiptIgnored = $state -and (Test-Path -LiteralPath $state.activeReceiptPath)
     $script:BuildRecoverySmokeResult = [pscustomobject]@{
-      status = if ($state.restored -and $state.exactPathOffered -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
+      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
       winFormsMessageLoop = $true
       restartReceiptRestored = [bool]$state.restored
       exactPathOffered = [bool]$state.exactPathOffered
+      statusAndExpiryOverviewVisible = [bool]$state.overviewVisible
+      pickerInitiallyUnselected = [bool]$state.initiallyUnselected
       pickerCancellationPreservedAll = [bool]$state.cancellationPreserved
       readOnlyVerifyStarted = [bool]$state.verifyStarted
       receiptRemovedAfterTrustedResult = [bool]$receiptRemoved
