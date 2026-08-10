@@ -699,13 +699,23 @@ function Select-BuildRecoveryReceipt {
 
   $openButton = New-Object System.Windows.Forms.Button
   $openButton.Text = '開啟選取資料夾'
-  $openButton.Location = New-Object System.Drawing.Point(432, 372)
-  $openButton.Size = New-Object System.Drawing.Size(176, 34)
+  $openButton.Location = New-Object System.Drawing.Point(264, 372)
+  $openButton.Size = New-Object System.Drawing.Size(160, 34)
   $openButton.Anchor = 'Bottom,Right'
   $openButton.Enabled = $false
   $openButton.AccessibleName = '開啟選取的附件包輸出資料夾'
   $openButton.AccessibleDescription = '只在 Windows 檔案總管開啟精確輸出位置，不驗證、不修改、不重建或核可附件包。'
   $dialog.Controls.Add($openButton)
+
+  $copyButton = New-Object System.Windows.Forms.Button
+  $copyButton.Text = '複製精確路徑'
+  $copyButton.Location = New-Object System.Drawing.Point(432, 372)
+  $copyButton.Size = New-Object System.Drawing.Size(176, 34)
+  $copyButton.Anchor = 'Bottom,Right'
+  $copyButton.Enabled = $false
+  $copyButton.AccessibleName = '複製選取的附件包精確輸出路徑'
+  $copyButton.AccessibleDescription = '只將仍有效且存在的精確輸出路徑複製到 Windows 剪貼簿，不驗證、不修改、不重建或核可附件包。'
+  $dialog.Controls.Add($copyButton)
 
   $verifyButton = New-Object System.Windows.Forms.Button
   $verifyButton.Text = '唯讀驗證選取項目'
@@ -732,21 +742,26 @@ function Select-BuildRecoveryReceipt {
     Update-BuildRecoveryPickerRows -Grid $grid
     $selectionEligible = [bool]($grid.SelectedRows.Count -eq 1 -and $grid.SelectedRows[0].Cells['status'].Tag)
     $openButton.Enabled = $selectionEligible
+    $copyButton.Enabled = $selectionEligible
     $verifyButton.Enabled = $selectionEligible
   })
 
   $grid.Add_SelectionChanged({
     $selectionEligible = [bool]($grid.SelectedRows.Count -eq 1 -and $grid.SelectedRows[0].Cells['status'].Tag)
     $openButton.Enabled = $selectionEligible
+    $copyButton.Enabled = $selectionEligible
+    $copyButton.Text = '複製精確路徑'
     $verifyButton.Enabled = $selectionEligible
   })
   $openButton.Add_Click({
+    Update-BuildRecoveryPickerRows -Grid $grid
     if ($grid.SelectedRows.Count -ne 1 -or -not $grid.SelectedRows[0].Cells['status'].Tag) { return }
     $candidate = $grid.SelectedRows[0].Tag
     $outputPath = [string]$candidate.outputPath
     if (-not (Test-Path -LiteralPath $outputPath -PathType Container)) {
       Update-BuildRecoveryPickerRows -Grid $grid
       $openButton.Enabled = $false
+      $copyButton.Enabled = $false
       $verifyButton.Enabled = $false
       return
     }
@@ -760,6 +775,29 @@ function Select-BuildRecoveryReceipt {
       [void][System.Windows.Forms.MessageBox]::Show($dialog, "無法開啟選取的輸出資料夾：$($_.Exception.Message)", '開啟資料夾失敗', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
     }
   })
+  $copyButton.Add_Click({
+    Update-BuildRecoveryPickerRows -Grid $grid
+    if ($grid.SelectedRows.Count -ne 1 -or -not $grid.SelectedRows[0].Cells['status'].Tag) { return }
+    $candidate = $grid.SelectedRows[0].Tag
+    $outputPath = [string]$candidate.outputPath
+    if (-not (Test-Path -LiteralPath $outputPath -PathType Container)) {
+      Update-BuildRecoveryPickerRows -Grid $grid
+      $openButton.Enabled = $false
+      $copyButton.Enabled = $false
+      $verifyButton.Enabled = $false
+      return
+    }
+    if ($SmokeBuildRecoveryReceipt -and $script:BuildRecoverySmokeState) {
+      $script:BuildRecoverySmokeState.exactPathCopyRequested = [bool]($outputPath.Equals($script:BuildRecoverySmokeState.outputPath, [System.StringComparison]::OrdinalIgnoreCase))
+      return
+    }
+    try {
+      [System.Windows.Forms.Clipboard]::SetText($outputPath)
+      $copyButton.Text = '已複製精確路徑'
+    } catch {
+      [void][System.Windows.Forms.MessageBox]::Show($dialog, "無法複製精確輸出路徑：$($_.Exception.Message)", '複製路徑失敗', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+    }
+  })
   $verifyButton.Add_Click({
     if ($grid.SelectedRows.Count -ne 1 -or -not $grid.SelectedRows[0].Cells['status'].Tag) { return }
     $dialog.Tag = $grid.SelectedRows[0].Tag
@@ -771,6 +809,7 @@ function Select-BuildRecoveryReceipt {
     $grid.ClearSelection()
     $grid.CurrentCell = $null
     $openButton.Enabled = $false
+    $copyButton.Enabled = $false
     $verifyButton.Enabled = $false
     $expiryTimer.Start()
     if ($SmokeBuildRecoveryReceipt -and $script:BuildRecoverySmokeState) {
@@ -785,6 +824,7 @@ function Select-BuildRecoveryReceipt {
       $grid.Rows[$SmokeSelectIndex].Selected = $true
       $grid.CurrentCell = $grid.Rows[$SmokeSelectIndex].Cells[0]
       $openButton.PerformClick()
+      $copyButton.PerformClick()
       $verifyButton.PerformClick()
     }
   })
@@ -2027,6 +2067,7 @@ if ($SmokeBuildRecoveryReceipt) {
     earliestExpiryFirst = $false
     urgentReceiptHighlighted = $false
     folderPreviewRequested = $false
+    exactPathCopyRequested = $false
     cancellationPreserved = $false
     verifyStarted = $false
   }
@@ -2041,7 +2082,7 @@ if ($SmokeBuildRecoveryReceipt) {
     $expiredReceiptRemoved = $state -and -not (Test-Path -LiteralPath $state.expiredReceiptPath)
     $activeReceiptIgnored = $state -and (Test-Path -LiteralPath $state.activeReceiptPath)
     $script:BuildRecoverySmokeResult = [pscustomobject]@{
-      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.earliestExpiryFirst -and $state.urgentReceiptHighlighted -and $state.folderPreviewRequested -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
+      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.earliestExpiryFirst -and $state.urgentReceiptHighlighted -and $state.folderPreviewRequested -and $state.exactPathCopyRequested -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
       winFormsMessageLoop = $true
       restartReceiptRestored = [bool]$state.restored
       exactPathOffered = [bool]$state.exactPathOffered
@@ -2050,6 +2091,7 @@ if ($SmokeBuildRecoveryReceipt) {
       earliestExpiryFirst = [bool]$state.earliestExpiryFirst
       urgentReceiptHighlighted = [bool]$state.urgentReceiptHighlighted
       folderPreviewRequestedWithoutExternalLaunch = [bool]$state.folderPreviewRequested
+      exactPathCopyRequestedWithoutClipboardWrite = [bool]$state.exactPathCopyRequested
       pickerCancellationPreservedAll = [bool]$state.cancellationPreserved
       readOnlyVerifyStarted = [bool]$state.verifyStarted
       receiptRemovedAfterTrustedResult = [bool]$receiptRemoved
