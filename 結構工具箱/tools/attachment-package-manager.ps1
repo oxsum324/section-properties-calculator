@@ -232,6 +232,7 @@ function Clear-BuildHandoffRecovery {
   if ($script:StatusTitle) { $script:StatusTitle.Width = 960 }
   if ($script:StatusMeta) {
     $script:StatusMeta.Width = 960
+    $script:StatusMeta.ForeColor = [System.Drawing.SystemColors]::ControlText
     $script:StatusMeta.AccessibleDescription = ''
   }
 }
@@ -684,9 +685,19 @@ function Update-SingleBuildHandoffExpiry {
     return $false
   }
   $remainingText = Format-BuildRecoveryRemainingTime -ExpiresAtUtc $expiresAt -NowUtc $NowUtc
+  $remaining = $expiresAt - $NowUtc.ToUniversalTime()
+  $urgencyLabel = if ($remaining.TotalMinutes -le 30) { '30 分鐘內到期' } elseif ($remaining.TotalHours -le 2) { '2 小時內到期' } else { '' }
+  $urgencyDescription = if ($urgencyLabel) { $urgencyLabel } else { '期限狀態一般' }
+  $script:StatusMeta.ForeColor = if ($remaining.TotalMinutes -le 30) {
+    [System.Drawing.Color]::FromArgb(192, 57, 43)
+  } elseif ($remaining.TotalHours -le 2) {
+    [System.Drawing.Color]::FromArgb(146, 64, 14)
+  } else {
+    [System.Drawing.SystemColors]::ControlText
+  }
   $localExpiry = $expiresAt.ToLocalTime().ToString('MM/dd HH:mm')
-  $script:StatusMeta.Text = "短期收據有效至 $localExpiry｜$remainingText"
-  $script:StatusMeta.AccessibleDescription = "單筆待確認輸出的短期復原收據有效至 $($expiresAt.ToLocalTime().ToString('yyyy/MM/dd HH:mm:ss'))，$remainingText。到期後複製與唯讀驗證會自動停用。"
+  $script:StatusMeta.Text = "短期收據有效至 $localExpiry｜$remainingText$(if ($urgencyLabel) { "｜$urgencyLabel" })"
+  $script:StatusMeta.AccessibleDescription = "單筆待確認輸出的短期復原收據有效至 $($expiresAt.ToLocalTime().ToString('yyyy/MM/dd HH:mm:ss'))，$remainingText；$urgencyDescription。到期後複製與唯讀驗證會自動停用。"
   return $true
 }
 
@@ -2236,6 +2247,9 @@ if ($SmokeBuildRecoveryReceipt) {
     singleHandoffCopyOffered = $false
     singleHandoffExpiryVisible = $false
     singleHandoffExpiryTimerRunning = $false
+    singleHandoffUrgentTierVisible = $false
+    singleHandoffCriticalTierVisible = $false
+    singleHandoffNormalTierVisible = $false
     singleHandoffShortcutHintVisible = $false
     singleHandoffPathCopyRequested = $false
     singleHandoffKeyboardCopyRequested = $false
@@ -2258,7 +2272,7 @@ if ($SmokeBuildRecoveryReceipt) {
     $expiredReceiptRemoved = $state -and -not (Test-Path -LiteralPath $state.expiredReceiptPath)
     $activeReceiptIgnored = $state -and (Test-Path -LiteralPath $state.activeReceiptPath)
     $script:BuildRecoverySmokeResult = [pscustomobject]@{
-      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.earliestExpiryFirst -and $state.urgentReceiptHighlighted -and $state.shortcutHintVisible -and $state.folderPreviewRequested -and $state.exactPathCopyRequested -and $state.exactPathKeyboardCopyRequested -and $state.exactPathKeyboardEventHandled -and $state.unselectedKeyboardCopyBlocked -and $state.singleHandoffCopyOffered -and $state.singleHandoffExpiryVisible -and $state.singleHandoffExpiryTimerRunning -and $state.singleHandoffShortcutHintVisible -and $state.singleHandoffPathCopyRequested -and $state.singleHandoffKeyboardCopyRequested -and $state.singleHandoffKeyboardEventHandled -and $state.singleHandoffUnfocusedKeyboardCopyBlocked -and $state.singleHandoffExpiryAutoDisabled -and $state.sameSessionHandoffHasNoFalseExpiry -and $state.multipleSelectorRestoredAfterSingleCopy -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
+      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.earliestExpiryFirst -and $state.urgentReceiptHighlighted -and $state.shortcutHintVisible -and $state.folderPreviewRequested -and $state.exactPathCopyRequested -and $state.exactPathKeyboardCopyRequested -and $state.exactPathKeyboardEventHandled -and $state.unselectedKeyboardCopyBlocked -and $state.singleHandoffCopyOffered -and $state.singleHandoffExpiryVisible -and $state.singleHandoffExpiryTimerRunning -and $state.singleHandoffUrgentTierVisible -and $state.singleHandoffCriticalTierVisible -and $state.singleHandoffNormalTierVisible -and $state.singleHandoffShortcutHintVisible -and $state.singleHandoffPathCopyRequested -and $state.singleHandoffKeyboardCopyRequested -and $state.singleHandoffKeyboardEventHandled -and $state.singleHandoffUnfocusedKeyboardCopyBlocked -and $state.singleHandoffExpiryAutoDisabled -and $state.sameSessionHandoffHasNoFalseExpiry -and $state.multipleSelectorRestoredAfterSingleCopy -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
       winFormsMessageLoop = $true
       restartReceiptRestored = [bool]$state.restored
       exactPathOffered = [bool]$state.exactPathOffered
@@ -2275,6 +2289,9 @@ if ($SmokeBuildRecoveryReceipt) {
       singleHandoffCopyOffered = [bool]$state.singleHandoffCopyOffered
       singleHandoffExpiryVisible = [bool]$state.singleHandoffExpiryVisible
       singleHandoffExpiryTimerRunning = [bool]$state.singleHandoffExpiryTimerRunning
+      singleHandoffUrgentTierVisible = [bool]$state.singleHandoffUrgentTierVisible
+      singleHandoffCriticalTierVisible = [bool]$state.singleHandoffCriticalTierVisible
+      singleHandoffNormalTierVisible = [bool]$state.singleHandoffNormalTierVisible
       singleHandoffShortcutHintVisible = [bool]$state.singleHandoffShortcutHintVisible
       singleHandoffPathCopyRequestedWithoutClipboardWrite = [bool]$state.singleHandoffPathCopyRequested
       singleHandoffKeyboardCopyRequested = [bool]$state.singleHandoffKeyboardCopyRequested
@@ -2379,6 +2396,7 @@ $script:MainForm.Add_Shown({
       $state.singleHandoffCopyOffered = [bool]($script:BtnBuildHandoffCopy.Visible -and $script:BtnBuildHandoffCopy.Enabled -and $script:BuildHandoffRecoveryOutput -eq $state.outputPath -and $script:HandoffRecoveryReceiptPath -eq $state.selectedReceiptPath)
       $state.singleHandoffExpiryVisible = [bool]($script:StatusMeta.Text -like '短期收據有效至*' -and $script:StatusMeta.Text -like '*剩餘*' -and $script:StatusMeta.AccessibleDescription -like '*到期後複製與唯讀驗證會自動停用*')
       $state.singleHandoffExpiryTimerRunning = [bool]$script:HandoffRecoveryTimer.Enabled
+      $state.singleHandoffUrgentTierVisible = [bool]($script:StatusMeta.Text -like '*2 小時內到期*' -and $script:StatusMeta.ForeColor.ToArgb() -eq [System.Drawing.Color]::FromArgb(146, 64, 14).ToArgb() -and $script:StatusMeta.AccessibleDescription -like '*2 小時內到期*')
       $state.singleHandoffShortcutHintVisible = [bool]($script:BtnBuildHandoffCopy.Text -like '*Ctrl+C*')
       if ($state.singleHandoffCopyOffered) {
         [void]$script:PackagePath.Focus()
@@ -2391,8 +2409,11 @@ $script:MainForm.Add_Shown({
         $state.singleHandoffKeyboardEventHandled = [bool]($singleCopyEvent.Handled -and $singleCopyEvent.SuppressKeyPress)
       }
       Show-BuildResultHandoffUnknown -ErrorRecord ([System.InvalidOperationException]::new('單筆復原到期 smoke。')) -RequestedOutput $state.timerExpiryOutputPath -RecoveryReceiptPath $state.timerExpiryReceiptPath
+      $state.singleHandoffCriticalTierVisible = [bool]($script:StatusMeta.Text -like '*30 分鐘內到期*' -and $script:StatusMeta.ForeColor.ToArgb() -eq [System.Drawing.Color]::FromArgb(192, 57, 43).ToArgb() -and $script:StatusMeta.AccessibleDescription -like '*30 分鐘內到期*')
       [void](Update-SingleBuildHandoffExpiry -NowUtc $state.timerExpiryAtUtc.AddSeconds(1))
       $state.singleHandoffExpiryAutoDisabled = [bool](-not $script:BtnBuildHandoffCopy.Visible -and -not $script:BtnBuildHandoffCopy.Enabled -and -not $script:BtnBuildHandoffVerify.Visible -and -not $script:BtnBuildHandoffVerify.Enabled -and -not $script:HandoffRecoveryTimer.Enabled -and $script:StatusMeta.Text -like '*已到期*' -and -not (Test-Path -LiteralPath $state.timerExpiryReceiptPath))
+      Show-BuildResultHandoffUnknown -ErrorRecord ([System.InvalidOperationException]::new('單筆復原一般期限 smoke。')) -RequestedOutput $outputFolder -RecoveryReceiptPath $state.unselectedReceiptPath
+      $state.singleHandoffNormalTierVisible = [bool]($script:StatusMeta.Text -notmatch '2 小時內到期|30 分鐘內到期' -and $script:StatusMeta.ForeColor.ToArgb() -eq [System.Drawing.SystemColors]::ControlText.ToArgb() -and $script:StatusMeta.AccessibleDescription -like '*期限狀態一般*')
       Show-BuildResultHandoffUnknown -ErrorRecord ([System.InvalidOperationException]::new('同次交接無收據 smoke。')) -RequestedOutput $state.outputPath
       $state.sameSessionHandoffHasNoFalseExpiry = [bool]($script:BtnBuildHandoffCopy.Visible -and $script:BtnBuildHandoffVerify.Visible -and -not $script:HandoffRecoveryReceiptPath -and -not $script:HandoffRecoveryExpiresAtUtc -and -not $script:HandoffRecoveryTimer.Enabled -and $script:StatusMeta.Text -notmatch '有效至|剩餘|已到期')
       $state.multipleSelectorRestoredAfterSingleCopy = [bool](Restore-BuildRecoveryReceipt -ReceiptPaths $state.receiptPaths) -and $script:BuildRecoveryCandidates.Count -eq 2 -and $script:BtnBuildHandoffVerify.Visible -and $script:BtnBuildHandoffVerify.Enabled -and -not $script:BtnBuildHandoffCopy.Visible -and -not $script:BuildHandoffRecoveryOutput -and -not $script:HandoffRecoveryReceiptPath
