@@ -631,12 +631,14 @@ function Update-BuildRecoveryPickerRows {
     $expiresAt = ([DateTime]$candidate.expiresAtUtc).ToUniversalTime()
     $remaining = $expiresAt - $NowUtc.ToUniversalTime()
     $isCurrent = $remaining.TotalSeconds -gt 0
-    $isUrgent = $isCurrent -and $remaining.TotalHours -le 2
-    $statusLabel = if ($isCurrent) { Get-BuildRecoveryStatusLabel -State ([string]$candidate.state) } else { '已到期' }
+    $outputExists = Test-Path -LiteralPath ([string]$candidate.outputPath) -PathType Container
+    $isEligible = $isCurrent -and $outputExists
+    $isUrgent = $isEligible -and $remaining.TotalHours -le 2
+    $statusLabel = if (-not $outputExists) { '輸出已不存在' } elseif ($isCurrent) { Get-BuildRecoveryStatusLabel -State ([string]$candidate.state) } else { '已到期' }
     $row.Cells['status'].Value = if ($isUrgent) { "$statusLabel｜2 小時內到期" } else { $statusLabel }
     $row.Cells['expiresAt'].Value = "$($expiresAt.ToLocalTime().ToString('yyyy/MM/dd HH:mm:ss'))（$(Format-BuildRecoveryRemainingTime -ExpiresAtUtc $expiresAt -NowUtc $NowUtc)）"
-    $row.Cells['status'].Tag = $isCurrent
-    $row.DefaultCellStyle.ForeColor = if ($isCurrent) { [System.Drawing.SystemColors]::ControlText } else { [System.Drawing.SystemColors]::GrayText }
+    $row.Cells['status'].Tag = $isEligible
+    $row.DefaultCellStyle.ForeColor = if ($isEligible) { [System.Drawing.SystemColors]::ControlText } else { [System.Drawing.SystemColors]::GrayText }
     $row.DefaultCellStyle.BackColor = if ($isUrgent) { [System.Drawing.Color]::FromArgb(255, 247, 230) } else { [System.Drawing.SystemColors]::Window }
   }
 }
@@ -695,6 +697,16 @@ function Select-BuildRecoveryReceipt {
   Update-BuildRecoveryPickerRows -Grid $grid
   $dialog.Controls.Add($grid)
 
+  $openButton = New-Object System.Windows.Forms.Button
+  $openButton.Text = '開啟選取資料夾'
+  $openButton.Location = New-Object System.Drawing.Point(432, 372)
+  $openButton.Size = New-Object System.Drawing.Size(176, 34)
+  $openButton.Anchor = 'Bottom,Right'
+  $openButton.Enabled = $false
+  $openButton.AccessibleName = '開啟選取的附件包輸出資料夾'
+  $openButton.AccessibleDescription = '只在 Windows 檔案總管開啟精確輸出位置，不驗證、不修改、不重建或核可附件包。'
+  $dialog.Controls.Add($openButton)
+
   $verifyButton = New-Object System.Windows.Forms.Button
   $verifyButton.Text = '唯讀驗證選取項目'
   $verifyButton.Location = New-Object System.Drawing.Point(616, 372)
@@ -718,11 +730,35 @@ function Select-BuildRecoveryReceipt {
   $expiryTimer.Interval = 30000
   $expiryTimer.Add_Tick({
     Update-BuildRecoveryPickerRows -Grid $grid
-    $verifyButton.Enabled = [bool]($grid.SelectedRows.Count -eq 1 -and $grid.SelectedRows[0].Cells['status'].Tag)
+    $selectionEligible = [bool]($grid.SelectedRows.Count -eq 1 -and $grid.SelectedRows[0].Cells['status'].Tag)
+    $openButton.Enabled = $selectionEligible
+    $verifyButton.Enabled = $selectionEligible
   })
 
   $grid.Add_SelectionChanged({
-    $verifyButton.Enabled = [bool]($grid.SelectedRows.Count -eq 1 -and $grid.SelectedRows[0].Cells['status'].Tag)
+    $selectionEligible = [bool]($grid.SelectedRows.Count -eq 1 -and $grid.SelectedRows[0].Cells['status'].Tag)
+    $openButton.Enabled = $selectionEligible
+    $verifyButton.Enabled = $selectionEligible
+  })
+  $openButton.Add_Click({
+    if ($grid.SelectedRows.Count -ne 1 -or -not $grid.SelectedRows[0].Cells['status'].Tag) { return }
+    $candidate = $grid.SelectedRows[0].Tag
+    $outputPath = [string]$candidate.outputPath
+    if (-not (Test-Path -LiteralPath $outputPath -PathType Container)) {
+      Update-BuildRecoveryPickerRows -Grid $grid
+      $openButton.Enabled = $false
+      $verifyButton.Enabled = $false
+      return
+    }
+    if ($SmokeBuildRecoveryReceipt -and $script:BuildRecoverySmokeState) {
+      $script:BuildRecoverySmokeState.folderPreviewRequested = [bool]($outputPath.Equals($script:BuildRecoverySmokeState.outputPath, [System.StringComparison]::OrdinalIgnoreCase))
+      return
+    }
+    try {
+      Start-Process -FilePath explorer.exe -ArgumentList @($outputPath)
+    } catch {
+      [void][System.Windows.Forms.MessageBox]::Show($dialog, "無法開啟選取的輸出資料夾：$($_.Exception.Message)", '開啟資料夾失敗', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+    }
   })
   $verifyButton.Add_Click({
     if ($grid.SelectedRows.Count -ne 1 -or -not $grid.SelectedRows[0].Cells['status'].Tag) { return }
@@ -734,6 +770,7 @@ function Select-BuildRecoveryReceipt {
     Update-BuildRecoveryPickerRows -Grid $grid
     $grid.ClearSelection()
     $grid.CurrentCell = $null
+    $openButton.Enabled = $false
     $verifyButton.Enabled = $false
     $expiryTimer.Start()
     if ($SmokeBuildRecoveryReceipt -and $script:BuildRecoverySmokeState) {
@@ -747,6 +784,7 @@ function Select-BuildRecoveryReceipt {
     } elseif ($SmokeSelectIndex -ge 0 -and $SmokeSelectIndex -lt $grid.Rows.Count) {
       $grid.Rows[$SmokeSelectIndex].Selected = $true
       $grid.CurrentCell = $grid.Rows[$SmokeSelectIndex].Cells[0]
+      $openButton.PerformClick()
       $verifyButton.PerformClick()
     }
   })
@@ -1988,6 +2026,7 @@ if ($SmokeBuildRecoveryReceipt) {
     initiallyUnselected = $false
     earliestExpiryFirst = $false
     urgentReceiptHighlighted = $false
+    folderPreviewRequested = $false
     cancellationPreserved = $false
     verifyStarted = $false
   }
@@ -2002,7 +2041,7 @@ if ($SmokeBuildRecoveryReceipt) {
     $expiredReceiptRemoved = $state -and -not (Test-Path -LiteralPath $state.expiredReceiptPath)
     $activeReceiptIgnored = $state -and (Test-Path -LiteralPath $state.activeReceiptPath)
     $script:BuildRecoverySmokeResult = [pscustomobject]@{
-      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.earliestExpiryFirst -and $state.urgentReceiptHighlighted -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
+      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.earliestExpiryFirst -and $state.urgentReceiptHighlighted -and $state.folderPreviewRequested -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
       winFormsMessageLoop = $true
       restartReceiptRestored = [bool]$state.restored
       exactPathOffered = [bool]$state.exactPathOffered
@@ -2010,6 +2049,7 @@ if ($SmokeBuildRecoveryReceipt) {
       pickerInitiallyUnselected = [bool]$state.initiallyUnselected
       earliestExpiryFirst = [bool]$state.earliestExpiryFirst
       urgentReceiptHighlighted = [bool]$state.urgentReceiptHighlighted
+      folderPreviewRequestedWithoutExternalLaunch = [bool]$state.folderPreviewRequested
       pickerCancellationPreservedAll = [bool]$state.cancellationPreserved
       readOnlyVerifyStarted = [bool]$state.verifyStarted
       receiptRemovedAfterTrustedResult = [bool]$receiptRemoved
