@@ -364,6 +364,8 @@ Replace anchor dialogs with in-app confirmations
 
 單筆復原收據在主畫面待確認狀態卡提供精確路徑複製時，必須與唯讀驗證分成獨立按鈕，點擊當下重讀受管收據並核對期限、精確輸出與資料夾存在性；無收據的同次交接僅可使用已鎖定且仍存在的預定輸出。失效時須清除復原動作並失敗封閉。動態 smoke 必須先證明單筆複製不寫剪貼簿，再還原多筆未選總覽並完成原有取消與驗證流程；複製處理器不得含 verify、build、修改或核可路由。
 
+單筆短期復原收據必須在主畫面狀態卡顯示本機有效至與剩餘時間，以 30 秒 UI timer 重讀精確收據並重查輸出資料夾；到期時須移除收據並自動隱藏、停用複製與唯讀驗證，提前失效或輸出不存在時亦須失敗封閉。無收據的同次交接不得顯示虛構期限或啟動計時器。動態 smoke 必須以獨立短期收據模擬到期，證明兩個動作自動停用、計時器停止、收據移除且原多筆流程仍可還原；到期刷新不得含 copy、verify、build、修改或核可路由。
+
 ## 首頁正式放行日期來源
 
 調整首頁狀態或 release 快照時，需一併 staging `結構工具箱/assets/home/home.js`、`toolbox-entrypoints.contract.test.js` 與三份治理文件。`HOME_TOOL_UPDATES` 不得保存人工 fallback 正式放行日；執行期只可接受 passing、非 quick、兩個 force 旗標成立、來源 commit 可辨識且乾淨的 tracked preflight snapshot。契約須固定未載入提示與正式快照導入路徑，避免 release 狀態提交跨日後產生首頁落後日期。
