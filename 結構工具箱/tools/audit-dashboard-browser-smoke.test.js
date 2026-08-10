@@ -302,6 +302,9 @@ function preflightHistoryItem(overrides = {}) {
     inProgress: false,
     incomplete: false,
     incompleteReason: '',
+    resolved: false,
+    resolvedByRunId: '',
+    resolvedAt: '',
     logFiles: [],
     failureCount: 1,
     failures: ['dashboard-fixture-failure'],
@@ -401,6 +404,8 @@ const fixtures = new Map(Object.entries({
       completedCount: 2,
       inProgressCount: 0,
       incompleteCount: 0,
+      resolvedIncompleteCount: 0,
+      unresolvedIncompleteCount: 0,
       latestRunId: 'fixture-full',
       latestState: 'completed',
       latestCompletedRunId: 'fixture-full',
@@ -806,10 +811,12 @@ const fixtures = new Map(Object.entries({
     records: preflightRecords,
   },
   'output/preflight/preflight-history.json': {
-    count: 4,
+    count: 5,
     completedCount: 4,
     inProgressCount: 0,
-    incompleteCount: 0,
+    incompleteCount: 1,
+    resolvedIncompleteCount: 1,
+    unresolvedIncompleteCount: 0,
     items: [
       preflightHistoryItem(),
       preflightHistoryItem({
@@ -844,6 +851,20 @@ const fixtures = new Map(Object.entries({
         slowReuseKeys: [],
       }),
       preflightHistoryItem({ runId: 'fixture-quick', quick: true, pass: true, failureCount: 0, failures: [], failedKeys: [], passedCount: 2 }),
+      preflightHistoryItem({
+        runId: 'fixture-interrupted',
+        generatedAt: '2026-06-21 08:00:00',
+        state: 'incomplete',
+        complete: false,
+        incomplete: true,
+        incompleteReason: 'missing-summary',
+        resolved: true,
+        resolvedByRunId: 'fixture-release',
+        resolvedAt: fixtureGeneratedAt,
+        failureCount: 1,
+        failures: ['missing-summary: run directory has no completed preflight summary'],
+        failedKeys: ['missing-summary'],
+      }),
     ],
   },
   '鋼構工具/output/audit/audit-status.json': statusFixture('steel-fixture', ['steel']),
@@ -1585,7 +1606,7 @@ function assertDashboardLiveState(state, label, expected) {
   } else {
     assert.equal(state.quickRunText, '無資料', `${label} live quick KPI fallback: ${state.quickRunText}`);
   }
-  ['F 完整檢查', 'Q 快速檢查', 'R 正式放行', '! 未完成 / 摘要異常'].forEach((needle) => {
+  ['F 完整檢查', 'Q 快速檢查', 'R 正式放行', 'C 歷史未完成（已收斂）', '! 待處理未完成 / 摘要異常'].forEach((needle) => {
     assert.ok(state.timelineLegendText.includes(needle), `${label} live timeline legend includes ${needle}: ${state.timelineLegendText}`);
   });
   ['報告閱讀狀態邊界', '頁面診斷明細只供公司內部整理', '文件狀態由核可勾選決定', '內部審閱與正式附件皆可列印'].forEach((needle) => {
@@ -1787,7 +1808,7 @@ function assertDashboardState(state, label, expectedLive = null) {
   assert.ok(state.latestRunText.includes('完整檢查'), `${label} latest KPI exposes full mode`);
   assert.ok(state.fullRunText.includes('異常') && state.fullRunText.includes('完整檢查'), `${label} full KPI reflects fixture failure`);
   assert.ok(state.quickRunText.includes('通過') && state.quickRunText.includes('快速檢查'), `${label} quick KPI reflects fixture quick pass`);
-  ['F 完整檢查', 'Q 快速檢查', 'R 正式放行', '! 未完成 / 摘要異常'].forEach((needle) => {
+  ['F 完整檢查', 'Q 快速檢查', 'R 正式放行', 'C 歷史未完成（已收斂）', '! 待處理未完成 / 摘要異常'].forEach((needle) => {
     assert.ok(state.timelineLegendText.includes(needle), `${label} timeline legend includes ${needle}: ${state.timelineLegendText}`);
   });
   ['報告閱讀狀態邊界', '頁面診斷明細只供公司內部整理', '文件狀態由核可勾選決定', '內部審閱與正式附件皆可列印'].forEach((needle) => {
@@ -1797,7 +1818,11 @@ function assertDashboardState(state, label, expectedLive = null) {
     state.preflightTimelineLabels.some((item) => item.text === 'R' && item.release && item.title.includes('正式放行 fixture-release')),
     `${label} release preflight timeline tick rendered: ${JSON.stringify(state.preflightTimelineLabels)}`
   );
-  assert.equal(state.failureText, '2 / 4', `${label} failure KPI count`);
+  assert.ok(
+    state.preflightTimelineLabels.some((item) => item.text === 'C' && item.title.includes('歷史未完成 fixture-interrupted') && item.title.includes('已收斂')),
+    `${label} resolved historical interruption timeline tick rendered: ${JSON.stringify(state.preflightTimelineLabels)}`
+  );
+  assert.equal(state.failureText, '2 / 5', `${label} unresolved failure KPI count`);
   assert.equal(state.hasHistoryTable, true, `${label} preflight history table rendered`);
   assert.equal(state.hasMaturityTable, true, `${label} maturity table rendered`);
   assert.ok(state.latestTime && state.latestTime !== '讀取中', `${label} overview latest timestamp rendered`);
@@ -1992,8 +2017,8 @@ function assertDashboardState(state, label, expectedLive = null) {
   assert.ok(state.platformMeta.includes('摘要 hash｜1234567890ab'), `${label} platform status card summary hash rendered: ${state.platformMeta.join(' | ')}`);
   assert.ok(state.platformMeta.includes('JSON hash｜abcdef012345'), `${label} platform status card JSON hash rendered: ${state.platformMeta.join(' | ')}`);
   assert.deepEqual(state.platformHistoryHashes, ['abcdef012345'], `${label} platform history summary hash rendered`);
-  assert.deepEqual(state.preflightHistoryHashes, ['abcdef012345', 'abcdef012345', 'abcdef012345', 'abcdef012345'], `${label} preflight history summary hash rendered`);
-  assert.deepEqual(state.preflightPostChecks, ['2 / 2', '2 / 2', '2 / 2', '2 / 2'], `${label} preflight post checks rendered`);
+  assert.deepEqual(state.preflightHistoryHashes, ['abcdef012345', 'abcdef012345', 'abcdef012345', 'abcdef012345', 'abcdef012345'], `${label} preflight history summary hash rendered`);
+  assert.deepEqual(state.preflightPostChecks, ['2 / 2', '2 / 2', '2 / 2', '2 / 2', '2 / 2'], `${label} preflight post checks rendered`);
   assert.ok(state.loadedAt.includes('頁面更新'), `${label} loaded timestamp rendered`);
 }
 

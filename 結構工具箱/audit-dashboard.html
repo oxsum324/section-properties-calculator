@@ -827,9 +827,9 @@
         <div class="kpi-hint" id="preflightQuickHint">quick preflight 適合小改後快速確認。</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">近期異常</div>
+        <div class="kpi-label">目前待處理異常</div>
         <div class="kpi-value" id="preflightFailureStatus">讀取中</div>
-        <div class="kpi-hint" id="preflightFailureHint">統計目前 history manifest 保留的異常 run。</div>
+        <div class="kpi-hint" id="preflightFailureHint">歷史中斷仍保留，但由後續正式放行收斂者不列為待處理。</div>
       </div>
     </div>
     <div class="run-timeline" id="preflightTimeline" aria-label="最近 preflight run 趨勢">
@@ -839,7 +839,8 @@
       <span><code>F</code> 完整檢查</span>
       <span><code>Q</code> 快速檢查</span>
       <span><code>R</code> 正式放行</span>
-      <span><code>!</code> 未完成 / 摘要異常</span>
+      <span><code>C</code> 歷史未完成（已收斂）</span>
+      <span><code>!</code> 待處理未完成 / 摘要異常</span>
     </div>
     <div class="history-table-wrap" id="preflightHistoryWrap">
       <div class="history-empty">讀取最近 preflight 歷程中。</div>
@@ -1196,6 +1197,7 @@
     }
 
     function preflightModeText(item) {
+      if (item && item.incomplete === true && item.resolved === true) return '歷史未完成';
       if (item && item.complete === false) return '未完成';
       if (isReleasePreflightRun(item)) return '正式放行';
       return item && item.quick ? '快速檢查' : '完整檢查';
@@ -1204,6 +1206,7 @@
     function preflightStatusText(item) {
       if (!item) return '無資料';
       if (item.inProgress === true) return '進行中';
+      if (item.incomplete === true && item.resolved === true) return '歷史未完成（已收斂）';
       if (item.incomplete === true) return `未完成 ${item.failureCount || 1} 項`;
       if (item.state === 'invalid-summary') return '摘要異常';
       return item.pass ? '通過' : `異常 ${item.failureCount || 0} 項`;
@@ -1213,6 +1216,7 @@
       if (!item) return '無資料';
       if (item.inProgress === true) return '進行中';
       if (item.incomplete === true) {
+        if (item.resolved === true) return '未完成（已收斂）';
         if (item.state === 'invalid-summary') return '摘要異常';
         return '未完成';
       }
@@ -1222,11 +1226,15 @@
     function preflightTone(item) {
       if (!item) return 'warn';
       if (item.inProgress === true) return 'warn';
+      if (item.incomplete === true && item.resolved === true) return 'ok';
       return item.pass ? 'ok' : 'fail';
     }
 
     function preflightEvidenceText(item) {
       if (!item) return '目前尚無可判讀的 preflight 證據。';
+      if (item.incomplete === true && item.resolved === true) {
+        return `本筆歷史中斷已由後續正式放行 ${item.resolvedByRunId || '-'} 收斂，不再列為目前待處理異常。`;
+      }
       if (item.pass !== true) {
         if (item.quick) return '快速檢查發現異常，不能作為正式交付證據。';
         return '本輪仍有異常，修正後才可作為正式交付證據。';
@@ -1243,7 +1251,13 @@
     }
 
     function isAbnormalPreflightRun(item) {
-      return Boolean(item && item.pass !== true && item.inProgress !== true);
+      return Boolean(item && item.pass !== true && item.inProgress !== true && item.resolved !== true);
+    }
+
+    function formatPreflightResolution(item) {
+      if (!item || item.resolved !== true) return '';
+      const resolvedAt = item.resolvedAt ? `（${item.resolvedAt}）` : '';
+      return `已由後續正式放行 ${item.resolvedByRunId || '-'}${resolvedAt} 收斂`;
     }
 
     function formatSeconds(value) {
@@ -1494,14 +1508,16 @@
       const latestQuick = items.find((item) => item && item.quick === true);
       const failedRuns = items.filter(isAbnormalPreflightRun);
       const incompleteRuns = items.filter((item) => item && item.incomplete === true);
+      const resolvedIncompleteRuns = incompleteRuns.filter((item) => item.resolved === true);
+      const unresolvedIncompleteRuns = incompleteRuns.filter((item) => item.resolved !== true);
 
       renderRunKpi(latest, 'preflightLatestStatus', 'preflightLatestHint', '目前尚無 preflight 紀錄。');
       renderRunKpi(latestFull, 'preflightFullStatus', 'preflightFullHint', '目前尚未讀到 full preflight 紀錄。');
       renderRunKpi(latestQuick, 'preflightQuickStatus', 'preflightQuickHint', '目前尚未讀到 quick preflight 紀錄。');
       setKpiValue('preflightFailureStatus', `${failedRuns.length} / ${items.length}`, failedRuns.length ? 'fail' : 'ok');
       setHint('preflightFailureHint', failedRuns.length
-        ? `最近異常 run：${failedRuns[0].runId || '-'}，狀態 ${preflightStateText(failedRuns[0])}，失敗 key：${formatFailedKeys(failedRuns[0])}；未完成 run ${incompleteRuns.length} 筆。`
-        : `目前保留的 ${items.length} 筆 preflight history 皆為通過。`);
+        ? `最近待處理異常 run：${failedRuns[0].runId || '-'}，狀態 ${preflightStateText(failedRuns[0])}，失敗 key：${formatFailedKeys(failedRuns[0])}；歷史未完成 ${incompleteRuns.length} 筆，其中已收斂 ${resolvedIncompleteRuns.length} 筆、仍待處理 ${unresolvedIncompleteRuns.length} 筆。`
+        : `目前沒有待處理異常；保留 ${items.length} 筆歷程，歷史未完成 ${incompleteRuns.length} 筆，其中已由後續正式放行收斂 ${resolvedIncompleteRuns.length} 筆。`);
 
       timeline.innerHTML = items.slice(0, 20).reverse().map((item) => {
         const mode = preflightModeText(item);
@@ -1509,14 +1525,15 @@
         const statusClass = preflightTone(item);
         const releaseRun = isReleasePreflightRun(item);
         const modeClass = releaseRun ? 'release' : (item.quick ? 'quick' : 'full');
-        const glyph = item.complete === false ? '!' : (releaseRun ? 'R' : (item.quick ? 'Q' : 'F'));
+        const glyph = item.incomplete === true && item.resolved === true ? 'C' : (item.complete === false ? '!' : (releaseRun ? 'R' : (item.quick ? 'Q' : 'F')));
         return `<span class="run-tick ${statusClass} ${modeClass}" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}">${escapeHtml(glyph)}</span>`;
       }).join('');
 
       const rows = items.slice(0, 8).map((item) => {
         const summaryHref = deriveHistoryUrl('../output/preflight/preflight-summary.md', item.summaryPath || '');
-        const statusClass = item.pass ? 'history-pass' : 'history-fail';
+        const statusClass = item.pass || item.resolved === true ? 'history-pass' : 'history-fail';
         const failures = Array.isArray(item.failures) && item.failures.length ? item.failures.join('; ') : `失敗 key：${formatFailedKeys(item)}`;
+        const resolution = formatPreflightResolution(item);
         const summaryHash = formatCommandHash(item.summaryJsonHash || item.summaryHash || item.sourceHash || '');
         const postChecks = formatPostChecks(item);
         return `
@@ -1534,7 +1551,7 @@
             <td><code>${escapeHtml(formatCommandHash(item.sourceCommitSha || ''))}</code><br>${escapeHtml(item.sourceBranch || '-')} / ${escapeHtml(item.sourceDirty === false ? '乾淨' : '有變更')}</td>
             <td><code>${escapeHtml(summaryHash)}</code></td>
             <td>${escapeHtml(postChecks)}</td>
-            <td>${escapeHtml(failures)}</td>
+            <td>${escapeHtml(resolution ? `${resolution}；原始紀錄：${failures}` : failures)}</td>
             <td>
               <div class="history-links">
                 ${summaryHref ? `<a href="${escapeAttr(summaryHref)}" target="_blank" rel="noreferrer">摘要</a>` : ''}
@@ -1925,8 +1942,13 @@
         }
       }
       if (preflightHintNode) {
+        const historyHealth = payload.preflightHistoryHealth || {};
+        const incompleteCount = Number(historyHealth.incompleteCount || 0);
+        const resolvedIncompleteCount = Number(historyHealth.resolvedIncompleteCount || 0);
+        const unresolvedIncompleteCount = Number(historyHealth.unresolvedIncompleteCount || 0);
+        const historyHealthText = `歷程未完成 ${incompleteCount} 筆，已收斂 ${resolvedIncompleteCount} 筆，仍待處理 ${unresolvedIncompleteCount} 筆`;
         preflightHintNode.textContent = payload.latestPreflight
-          ? `${preflightModeText(payload.latestPreflight)} runId ${payload.latestPreflight.runId || '-'}，時間 ${payload.latestPreflight.generatedAt || '-'}，通過 ${formatPassedChecks(payload.latestPreflight)}，耗時 ${formatSeconds(payload.latestPreflight.totalSeconds)}，平台 audit ${formatPlatformAuditMode(payload.latestPreflight)}，慢測重用 ${formatSlowReuse(payload.latestPreflight)}，最慢 ${formatSlowest(payload.latestPreflight)}，${preflightEvidenceText(payload.latestPreflight)}${formatPreflightSource(payload.latestPreflight)}。`
+          ? `${preflightModeText(payload.latestPreflight)} runId ${payload.latestPreflight.runId || '-'}，時間 ${payload.latestPreflight.generatedAt || '-'}，通過 ${formatPassedChecks(payload.latestPreflight)}，耗時 ${formatSeconds(payload.latestPreflight.totalSeconds)}，平台 audit ${formatPlatformAuditMode(payload.latestPreflight)}，慢測重用 ${formatSlowReuse(payload.latestPreflight)}，最慢 ${formatSlowest(payload.latestPreflight)}；${historyHealthText}。${preflightEvidenceText(payload.latestPreflight)}${formatPreflightSource(payload.latestPreflight)}。`
           : '目前尚未讀到 preflight-summary.json。';
       }
 

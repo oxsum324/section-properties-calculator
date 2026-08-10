@@ -963,6 +963,35 @@ function Update-PreflightHistoryManifest {
   $completedCount = @($historyItems | Where-Object { $_.complete }).Count
   $inProgressCount = @($historyItems | Where-Object { $_.inProgress }).Count
   $incompleteCount = @($historyItems | Where-Object { $_.incomplete }).Count
+  $successfulReleaseRuns = @($historyItems | Where-Object {
+    $_.complete -and
+    $_.pass -and
+    (-not $_.quick) -and
+    $_.forcePlatformAudit -and
+    $_.forceSlowChecks -and
+    (-not $_.sourceDirty) -and
+    ([string]$_.sourceCommitSha -match '^[0-9a-fA-F]{40}$')
+  })
+
+  foreach ($item in $historyItems) {
+    $item | Add-Member -NotePropertyName resolved -NotePropertyValue $false -Force
+    $item | Add-Member -NotePropertyName resolvedByRunId -NotePropertyValue "" -Force
+    $item | Add-Member -NotePropertyName resolvedAt -NotePropertyValue "" -Force
+    if (-not $item.incomplete) {
+      continue
+    }
+    $resolutionRun = @($successfulReleaseRuns | Where-Object {
+      [string]::CompareOrdinal([string]$_.runId, [string]$item.runId) -gt 0
+    } | Sort-Object -Property runId -Descending | Select-Object -First 1)
+    if ($resolutionRun.Count -gt 0) {
+      $item.resolved = $true
+      $item.resolvedByRunId = [string]$resolutionRun[0].runId
+      $item.resolvedAt = [string]$resolutionRun[0].generatedAt
+    }
+  }
+
+  $resolvedIncompleteCount = @($historyItems | Where-Object { $_.incomplete -and $_.resolved }).Count
+  $unresolvedIncompleteCount = @($historyItems | Where-Object { $_.incomplete -and (-not $_.resolved) }).Count
 
   $historyLines.Add("# Tool Preflight History")
   $historyLines.Add("")
@@ -972,9 +1001,11 @@ function Update-PreflightHistoryManifest {
   $historyLines.Add("- completedCount: $completedCount")
   $historyLines.Add("- inProgressCount: $inProgressCount")
   $historyLines.Add("- incompleteCount: $incompleteCount")
+  $historyLines.Add("- resolvedIncompleteCount: $resolvedIncompleteCount")
+  $historyLines.Add("- unresolvedIncompleteCount: $unresolvedIncompleteCount")
   $historyLines.Add("")
-  $historyLines.Add("| runId | state | generatedAt | quick | source commit | branch | dirty | pass | failures | failed keys | passed / checks | duration(s) | platform audit | slow reuse | slow reuse keys | slowest | summary | summary json | summary hash | post checks | summary json hash |")
-  $historyLines.Add("|---|---|---|---:|---|---|---:|---:|---:|---|---:|---:|---|---:|---|---|---|---|---|---|---|")
+  $historyLines.Add("| runId | state | resolution | generatedAt | quick | source commit | branch | dirty | pass | failures | failed keys | passed / checks | duration(s) | platform audit | slow reuse | slow reuse keys | slowest | summary | summary json | summary hash | post checks | summary json hash |")
+  $historyLines.Add("|---|---|---|---|---:|---|---|---:|---:|---:|---|---:|---:|---|---:|---|---|---|---|---|---|---|")
   foreach ($item in $historyItems) {
     $platformMode = if ($item.platformAuditMode) { $item.platformAuditMode } else { "-" }
     $failedKeyText = Format-HistoryMarkdownListCell @($item.failedKeys)
@@ -986,7 +1017,8 @@ function Update-PreflightHistoryManifest {
     $postCheckText = if ($item.postCheckCount -gt 0) { "$($item.postChecksPassedCount) / $($item.postCheckCount)" } else { "-" }
     $sourceCommitText = if ($item.sourceCommitSha) { ([string]$item.sourceCommitSha).Substring(0, [Math]::Min(12, ([string]$item.sourceCommitSha).Length)) } else { "-" }
     $sourceBranchText = if ($item.sourceBranch) { Format-HistoryMarkdownCell $item.sourceBranch } else { "-" }
-    $historyLines.Add("| $($item.runId) | $($item.state) | $($item.generatedAt) | $($item.quick) | $sourceCommitText | $sourceBranchText | $($item.sourceDirty) | $($item.pass) | $($item.failureCount) | $failedKeyText | $($item.passedCount) / $($item.recordsCount) | $($item.totalSeconds) | $platformMode | $($item.slowReuseCount) | $slowReuseKeyText | $($item.slowestText) | $summaryPathText | $summaryJsonPathText | $summaryHashText | $postCheckText | $summaryJsonHashText |")
+    $resolutionText = if ($item.resolved) { "resolved by $($item.resolvedByRunId)" } elseif ($item.incomplete) { "unresolved" } else { "-" }
+    $historyLines.Add("| $($item.runId) | $($item.state) | $resolutionText | $($item.generatedAt) | $($item.quick) | $sourceCommitText | $sourceBranchText | $($item.sourceDirty) | $($item.pass) | $($item.failureCount) | $failedKeyText | $($item.passedCount) / $($item.recordsCount) | $($item.totalSeconds) | $platformMode | $($item.slowReuseCount) | $slowReuseKeyText | $($item.slowestText) | $summaryPathText | $summaryJsonPathText | $summaryHashText | $postCheckText | $summaryJsonHashText |")
   }
 
   [ordered]@{
@@ -996,6 +1028,8 @@ function Update-PreflightHistoryManifest {
     completedCount = $completedCount
     inProgressCount = $inProgressCount
     incompleteCount = $incompleteCount
+    resolvedIncompleteCount = $resolvedIncompleteCount
+    unresolvedIncompleteCount = $unresolvedIncompleteCount
     items = @($historyItems.ToArray())
   } | ForEach-Object { Write-JsonFile -Path $historyManifestPath -Value $_ -Depth 8 }
   Write-TextFile -Path $historyMarkdownPath -Value $historyLines
