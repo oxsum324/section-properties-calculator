@@ -715,12 +715,21 @@ function Update-BuildRecoveryPickerRows {
     $outputExists = Test-Path -LiteralPath ([string]$candidate.outputPath) -PathType Container
     $isEligible = $isCurrent -and $outputExists
     $isUrgent = $isEligible -and $remaining.TotalHours -le 2
+    $isCritical = $isEligible -and $remaining.TotalMinutes -le 30
     $statusLabel = if (-not $outputExists) { '輸出已不存在' } elseif ($isCurrent) { Get-BuildRecoveryStatusLabel -State ([string]$candidate.state) } else { '已到期' }
-    $row.Cells['status'].Value = if ($isUrgent) { "$statusLabel｜2 小時內到期" } else { $statusLabel }
+    $row.Cells['status'].Value = if ($isCritical) { "$statusLabel｜30 分鐘內到期" } elseif ($isUrgent) { "$statusLabel｜2 小時內到期" } else { $statusLabel }
     $row.Cells['expiresAt'].Value = "$($expiresAt.ToLocalTime().ToString('yyyy/MM/dd HH:mm:ss'))（$(Format-BuildRecoveryRemainingTime -ExpiresAtUtc $expiresAt -NowUtc $NowUtc)）"
     $row.Cells['status'].Tag = $isEligible
-    $row.DefaultCellStyle.ForeColor = if ($isEligible) { [System.Drawing.SystemColors]::ControlText } else { [System.Drawing.SystemColors]::GrayText }
-    $row.DefaultCellStyle.BackColor = if ($isUrgent) { [System.Drawing.Color]::FromArgb(255, 247, 230) } else { [System.Drawing.SystemColors]::Window }
+    $row.DefaultCellStyle.ForeColor = if (-not $isEligible) {
+      [System.Drawing.SystemColors]::GrayText
+    } elseif ($isCritical) {
+      [System.Drawing.Color]::FromArgb(192, 57, 43)
+    } elseif ($isUrgent) {
+      [System.Drawing.Color]::FromArgb(146, 64, 14)
+    } else {
+      [System.Drawing.SystemColors]::ControlText
+    }
+    $row.DefaultCellStyle.BackColor = if ($isCritical) { [System.Drawing.Color]::FromArgb(251, 234, 234) } elseif ($isUrgent) { [System.Drawing.Color]::FromArgb(255, 247, 230) } else { [System.Drawing.SystemColors]::Window }
   }
 }
 
@@ -742,7 +751,7 @@ function Select-BuildRecoveryReceipt {
   $dialog.AutoScaleMode = 'Dpi'
 
   $intro = New-Object System.Windows.Forms.Label
-  $intro.Text = "$($Candidates.Count) 筆可驗證項目，已依最早到期優先排列；2 小時內到期會醒目標示。請明確選定一筆；可按 Ctrl+C 複製精確路徑，不會重建、修改或核可附件包。"
+  $intro.Text = "$($Candidates.Count) 筆可驗證項目，已依最早到期優先排列；2 小時內深橙、30 分鐘內紅色並有明文提示。請明確選定一筆；可按 Ctrl+C 複製精確路徑。"
   $intro.Location = New-Object System.Drawing.Point(16, 16)
   $intro.Size = New-Object System.Drawing.Size(868, 42)
   $intro.AccessibleName = '待確認輸出選擇說明'
@@ -762,7 +771,7 @@ function Select-BuildRecoveryReceipt {
   $grid.RowHeadersVisible = $false
   $grid.AutoSizeColumnsMode = 'Fill'
   $grid.AccessibleName = '待確認附件包輸出清單'
-  $grid.AccessibleDescription = '唯讀單選清單，初始不選取任何項目；Ctrl+C 只複製有效選取項目的精確輸出路徑。'
+  $grid.AccessibleDescription = '唯讀單選清單，初始不選取任何項目；2 小時內及 30 分鐘內到期會在狀態欄顯示明文提示，Ctrl+C 只複製有效選取項目的精確輸出路徑。'
   [void]$grid.Columns.Add('status', '狀態')
   [void]$grid.Columns.Add('createdAt', '建立時間')
   [void]$grid.Columns.Add('expiresAt', '有效至／剩餘期限')
@@ -910,7 +919,14 @@ function Select-BuildRecoveryReceipt {
       $script:BuildRecoverySmokeState.overviewVisible = [bool]($grid.Columns.Contains('status') -and $grid.Columns.Contains('createdAt') -and $grid.Columns.Contains('expiresAt') -and $grid.Columns.Contains('outputPath') -and @($grid.Rows | Where-Object { $_.Cells['status'].Value -and $_.Cells['expiresAt'].Value -match '剩餘' }).Count -eq $Candidates.Count)
       $script:BuildRecoverySmokeState.initiallyUnselected = [bool]($grid.SelectedRows.Count -eq 0 -and -not $verifyButton.Enabled)
       $script:BuildRecoverySmokeState.earliestExpiryFirst = [bool]($grid.Rows.Count -eq $Candidates.Count -and $grid.Rows[0].Tag.path.Equals($script:BuildRecoverySmokeState.selectedReceiptPath, [System.StringComparison]::OrdinalIgnoreCase))
-      $script:BuildRecoverySmokeState.urgentReceiptHighlighted = [bool]($grid.Rows[0].Cells['status'].Value -like '*2 小時內到期*' -and $grid.Rows[1].Cells['status'].Value -notlike '*2 小時內到期*')
+      $script:BuildRecoverySmokeState.urgentReceiptHighlighted = [bool]($grid.Rows[0].Cells['status'].Value -like '*2 小時內到期*' -and $grid.Rows[0].DefaultCellStyle.ForeColor.ToArgb() -eq [System.Drawing.Color]::FromArgb(146, 64, 14).ToArgb() -and $grid.Rows[0].DefaultCellStyle.BackColor.ToArgb() -eq [System.Drawing.Color]::FromArgb(255, 247, 230).ToArgb())
+      $script:BuildRecoverySmokeState.normalReceiptUnhighlighted = [bool]($grid.Rows[1].Cells['status'].Value -notmatch '2 小時內到期|30 分鐘內到期' -and $grid.Rows[1].DefaultCellStyle.ForeColor.ToArgb() -eq [System.Drawing.SystemColors]::ControlText.ToArgb() -and $grid.Rows[1].DefaultCellStyle.BackColor.ToArgb() -eq [System.Drawing.SystemColors]::Window.ToArgb())
+      $originalSmokeExpiry = $grid.Rows[0].Tag.expiresAtUtc
+      $grid.Rows[0].Tag.expiresAtUtc = [DateTime]::UtcNow.AddMinutes(10)
+      Update-BuildRecoveryPickerRows -Grid $grid
+      $script:BuildRecoverySmokeState.criticalReceiptHighlighted = [bool]($grid.Rows[0].Cells['status'].Value -like '*30 分鐘內到期*' -and $grid.Rows[0].DefaultCellStyle.ForeColor.ToArgb() -eq [System.Drawing.Color]::FromArgb(192, 57, 43).ToArgb() -and $grid.Rows[0].DefaultCellStyle.BackColor.ToArgb() -eq [System.Drawing.Color]::FromArgb(251, 234, 234).ToArgb() -and $grid.AccessibleDescription -like '*2 小時內及 30 分鐘內到期*')
+      $grid.Rows[0].Tag.expiresAtUtc = $originalSmokeExpiry
+      Update-BuildRecoveryPickerRows -Grid $grid
       $script:BuildRecoverySmokeState.shortcutHintVisible = [bool]($intro.Text -like '*Ctrl+C*' -and $copyButton.Text -like '*Ctrl+C*')
       $unselectedCopyKeyEvent = New-Object System.Windows.Forms.KeyEventArgs ([System.Windows.Forms.Keys]::Control -bor [System.Windows.Forms.Keys]::C)
       & $copyKeyHandler $grid $unselectedCopyKeyEvent
@@ -2238,6 +2254,8 @@ if ($SmokeBuildRecoveryReceipt) {
     initiallyUnselected = $false
     earliestExpiryFirst = $false
     urgentReceiptHighlighted = $false
+    criticalReceiptHighlighted = $false
+    normalReceiptUnhighlighted = $false
     shortcutHintVisible = $false
     folderPreviewRequested = $false
     exactPathCopyRequested = $false
@@ -2272,7 +2290,7 @@ if ($SmokeBuildRecoveryReceipt) {
     $expiredReceiptRemoved = $state -and -not (Test-Path -LiteralPath $state.expiredReceiptPath)
     $activeReceiptIgnored = $state -and (Test-Path -LiteralPath $state.activeReceiptPath)
     $script:BuildRecoverySmokeResult = [pscustomobject]@{
-      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.earliestExpiryFirst -and $state.urgentReceiptHighlighted -and $state.shortcutHintVisible -and $state.folderPreviewRequested -and $state.exactPathCopyRequested -and $state.exactPathKeyboardCopyRequested -and $state.exactPathKeyboardEventHandled -and $state.unselectedKeyboardCopyBlocked -and $state.singleHandoffCopyOffered -and $state.singleHandoffExpiryVisible -and $state.singleHandoffExpiryTimerRunning -and $state.singleHandoffUrgentTierVisible -and $state.singleHandoffCriticalTierVisible -and $state.singleHandoffNormalTierVisible -and $state.singleHandoffShortcutHintVisible -and $state.singleHandoffPathCopyRequested -and $state.singleHandoffKeyboardCopyRequested -and $state.singleHandoffKeyboardEventHandled -and $state.singleHandoffUnfocusedKeyboardCopyBlocked -and $state.singleHandoffExpiryAutoDisabled -and $state.sameSessionHandoffHasNoFalseExpiry -and $state.multipleSelectorRestoredAfterSingleCopy -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
+      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.earliestExpiryFirst -and $state.urgentReceiptHighlighted -and $state.criticalReceiptHighlighted -and $state.normalReceiptUnhighlighted -and $state.shortcutHintVisible -and $state.folderPreviewRequested -and $state.exactPathCopyRequested -and $state.exactPathKeyboardCopyRequested -and $state.exactPathKeyboardEventHandled -and $state.unselectedKeyboardCopyBlocked -and $state.singleHandoffCopyOffered -and $state.singleHandoffExpiryVisible -and $state.singleHandoffExpiryTimerRunning -and $state.singleHandoffUrgentTierVisible -and $state.singleHandoffCriticalTierVisible -and $state.singleHandoffNormalTierVisible -and $state.singleHandoffShortcutHintVisible -and $state.singleHandoffPathCopyRequested -and $state.singleHandoffKeyboardCopyRequested -and $state.singleHandoffKeyboardEventHandled -and $state.singleHandoffUnfocusedKeyboardCopyBlocked -and $state.singleHandoffExpiryAutoDisabled -and $state.sameSessionHandoffHasNoFalseExpiry -and $state.multipleSelectorRestoredAfterSingleCopy -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
       winFormsMessageLoop = $true
       restartReceiptRestored = [bool]$state.restored
       exactPathOffered = [bool]$state.exactPathOffered
@@ -2280,6 +2298,8 @@ if ($SmokeBuildRecoveryReceipt) {
       pickerInitiallyUnselected = [bool]$state.initiallyUnselected
       earliestExpiryFirst = [bool]$state.earliestExpiryFirst
       urgentReceiptHighlighted = [bool]$state.urgentReceiptHighlighted
+      criticalReceiptHighlighted = [bool]$state.criticalReceiptHighlighted
+      normalReceiptUnhighlighted = [bool]$state.normalReceiptUnhighlighted
       shortcutHintVisible = [bool]$state.shortcutHintVisible
       folderPreviewRequestedWithoutExternalLaunch = [bool]$state.folderPreviewRequested
       exactPathCopyRequestedWithoutClipboardWrite = [bool]$state.exactPathCopyRequested
