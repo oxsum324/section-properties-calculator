@@ -1,8 +1,8 @@
 {
   "snapshotVersion": 1,
   "kind": "platform-status",
-  "generatedAt": "2026-08-10 14:35:17",
-  "runId": "20260810-143517",
+  "generatedAt": "2026-08-10 16:03:59",
+  "runId": "20260810-160359",
   "pass": true,
   "failureCount": 0,
   "source": "component-status-refresh",
@@ -12,5 +12,5 @@
     "core"
   ],
   "sourcePath": "output/audit/platform-status.json",
-  "sourceHash": "703d41f22d2478c88864f551762446b8f1d4c54c8d5e0bcc67bb2d808ba8e72a"
+  "sourceHash": "783aa604158239aac1b397576b7848f0f5935d0f10db7a1ee361551389d7d6ff"
 }
