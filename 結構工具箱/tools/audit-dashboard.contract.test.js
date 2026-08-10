@@ -369,8 +369,11 @@ dashboardScripts.forEach((match, index) => {
   'payload.lastSummaryJsonHash',
   'item.summaryJsonHash || item.summaryHash',
   '目前待處理異常',
+  '歷史異常（已收斂）',
   '歷史未完成（已收斂）',
   'formatPreflightResolution',
+  'resolvedAbnormalCount',
+  'unresolvedAbnormalCount',
   'resolvedIncompleteCount',
   'unresolvedIncompleteCount',
   '<th>摘要 hash</th>',
@@ -456,6 +459,9 @@ const preflightTools = readText(repoFile('preflight-tools.ps1'));
   'incompleteCount = $incompleteCount',
   'resolvedIncompleteCount = $resolvedIncompleteCount',
   'unresolvedIncompleteCount = $unresolvedIncompleteCount',
+  'abnormalCount = $abnormalCount',
+  'resolvedAbnormalCount = $resolvedAbnormalCount',
+  'unresolvedAbnormalCount = $unresolvedAbnormalCount',
   'resolvedByRunId',
   'resolvedAt',
   'successfulReleaseRuns',
@@ -705,12 +711,20 @@ if (fs.existsSync(preflightHistoryPath)) {
   assert.equal(Number.isInteger(preflightHistory.incompleteCount), true, 'preflight history incompleteCount integer');
   assert.equal(Number.isInteger(preflightHistory.resolvedIncompleteCount), true, 'preflight history resolvedIncompleteCount integer');
   assert.equal(Number.isInteger(preflightHistory.unresolvedIncompleteCount), true, 'preflight history unresolvedIncompleteCount integer');
+  assert.equal(Number.isInteger(preflightHistory.abnormalCount), true, 'preflight history abnormalCount integer');
+  assert.equal(Number.isInteger(preflightHistory.resolvedAbnormalCount), true, 'preflight history resolvedAbnormalCount integer');
+  assert.equal(Number.isInteger(preflightHistory.unresolvedAbnormalCount), true, 'preflight history unresolvedAbnormalCount integer');
   assert.equal(preflightHistory.completedCount, preflightHistory.items.filter(item => item.complete !== false).length, 'preflight history completedCount matches items');
   assert.equal(preflightHistory.inProgressCount, preflightHistory.items.filter(item => item.inProgress === true).length, 'preflight history inProgressCount matches items');
   assert.equal(preflightHistory.incompleteCount, preflightHistory.items.filter(item => item.incomplete === true).length, 'preflight history incompleteCount matches items');
   assert.equal(preflightHistory.resolvedIncompleteCount, preflightHistory.items.filter(item => item.incomplete === true && item.resolved === true).length, 'preflight history resolvedIncompleteCount matches items');
   assert.equal(preflightHistory.unresolvedIncompleteCount, preflightHistory.items.filter(item => item.incomplete === true && item.resolved !== true).length, 'preflight history unresolvedIncompleteCount matches items');
   assert.equal(preflightHistory.resolvedIncompleteCount + preflightHistory.unresolvedIncompleteCount, preflightHistory.incompleteCount, 'preflight history resolution counts reconcile');
+  assert.equal(preflightHistory.abnormalCount, preflightHistory.items.filter(item => item.pass !== true && item.inProgress !== true).length, 'preflight history abnormalCount matches items');
+  assert.equal(preflightHistory.resolvedAbnormalCount, preflightHistory.items.filter(item => item.pass !== true && item.inProgress !== true && item.resolved === true).length, 'preflight history resolvedAbnormalCount matches items');
+  assert.equal(preflightHistory.unresolvedAbnormalCount, preflightHistory.items.filter(item => item.pass !== true && item.inProgress !== true && item.resolved !== true).length, 'preflight history unresolvedAbnormalCount matches items');
+  assert.equal(preflightHistory.resolvedAbnormalCount + preflightHistory.unresolvedAbnormalCount, preflightHistory.abnormalCount, 'preflight history abnormal resolution counts reconcile');
+  assert.ok(preflightHistory.resolvedAbnormalCount >= preflightHistory.resolvedIncompleteCount, 'preflight history resolved abnormal count covers resolved incomplete subset');
   for (const [index, item] of preflightHistory.items.entries()) {
     assert.equal(typeof item.state, 'string', `preflight history item ${index} state string`);
     assert.equal(typeof item.complete, 'boolean', `preflight history item ${index} complete boolean`);
@@ -720,17 +734,19 @@ if (fs.existsSync(preflightHistoryPath)) {
     assert.equal(typeof item.resolved, 'boolean', `preflight history item ${index} resolved boolean`);
     assert.equal(typeof item.resolvedByRunId, 'string', `preflight history item ${index} resolvedByRunId string`);
     assert.equal(typeof item.resolvedAt, 'string', `preflight history item ${index} resolvedAt string`);
+    if (item.resolved) {
+      assert.equal(item.pass, false, `preflight history item ${index} resolved item preserves original failure`);
+      assert.equal(item.inProgress, false, `preflight history item ${index} resolved item is not in progress`);
+      assert.match(item.resolvedByRunId, /^\d{8}-\d{6}$/, `preflight history item ${index} resolvedByRunId`);
+      assert.ok(item.resolvedByRunId > item.runId, `preflight history item ${index} resolved by later run`);
+      assert.ok(item.resolvedAt, `preflight history item ${index} resolvedAt`);
+    }
     if (item.complete === false) {
       assert.ok(['in-progress', 'incomplete', 'invalid-summary'].includes(item.state), `preflight history item ${index} incomplete state`);
       assert.ok(Array.isArray(item.logFiles), `preflight history item ${index} logFiles array`);
       if (item.incomplete === true) {
         assert.ok(item.incompleteReason, `preflight history item ${index} incomplete reason`);
         assert.deepEqual(item.failedKeys, [item.incompleteReason], `preflight history item ${index} incomplete failedKeys`);
-        if (item.resolved) {
-          assert.match(item.resolvedByRunId, /^\d{8}-\d{6}$/, `preflight history item ${index} resolvedByRunId`);
-          assert.ok(item.resolvedByRunId > item.runId, `preflight history item ${index} resolved by later run`);
-          assert.ok(item.resolvedAt, `preflight history item ${index} resolvedAt`);
-        }
       }
     }
     assert.equal(Number.isInteger(item.postCheckCount), true, `preflight history item ${index} postCheckCount integer`);
@@ -1109,6 +1125,10 @@ if (fs.existsSync(maturityMatrixPath)) {
     assert.equal(Number.isInteger(matrix.preflightHistoryHealth.resolvedIncompleteCount), true, 'maturity preflightHistoryHealth resolvedIncompleteCount integer');
     assert.equal(Number.isInteger(matrix.preflightHistoryHealth.unresolvedIncompleteCount), true, 'maturity preflightHistoryHealth unresolvedIncompleteCount integer');
     assert.equal(matrix.preflightHistoryHealth.resolvedIncompleteCount + matrix.preflightHistoryHealth.unresolvedIncompleteCount, matrix.preflightHistoryHealth.incompleteCount, 'maturity preflightHistoryHealth resolution counts reconcile');
+    assert.equal(Number.isInteger(matrix.preflightHistoryHealth.abnormalCount), true, 'maturity preflightHistoryHealth abnormalCount integer');
+    assert.equal(Number.isInteger(matrix.preflightHistoryHealth.resolvedAbnormalCount), true, 'maturity preflightHistoryHealth resolvedAbnormalCount integer');
+    assert.equal(Number.isInteger(matrix.preflightHistoryHealth.unresolvedAbnormalCount), true, 'maturity preflightHistoryHealth unresolvedAbnormalCount integer');
+    assert.equal(matrix.preflightHistoryHealth.resolvedAbnormalCount + matrix.preflightHistoryHealth.unresolvedAbnormalCount, matrix.preflightHistoryHealth.abnormalCount, 'maturity preflightHistoryHealth abnormal resolution counts reconcile');
     assert.equal(typeof matrix.preflightHistoryHealth.latestState, 'string', 'maturity preflightHistoryHealth latestState string');
   }
   if (maturityFresh) {

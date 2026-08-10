@@ -865,6 +865,9 @@ function loadSourceState() {
   const incompletePreflightItems = preflightHistoryItems.filter(item => item && item.incomplete === true);
   const resolvedIncompletePreflightItems = incompletePreflightItems.filter(item => item.resolved === true);
   const unresolvedIncompletePreflightItems = incompletePreflightItems.filter(item => item.resolved !== true);
+  const abnormalPreflightItems = preflightHistoryItems.filter(item => item && item.pass !== true && item.inProgress !== true);
+  const resolvedAbnormalPreflightItems = abnormalPreflightItems.filter(item => item.resolved === true);
+  const unresolvedAbnormalPreflightItems = abnormalPreflightItems.filter(item => item.resolved !== true);
   const latestFullPreflightSource = findLatestPreflightHistorySummary(
     summary => summary && summary.quick === false,
     preflightHistoryItems
@@ -942,6 +945,15 @@ function loadSourceState() {
       unresolvedIncompleteCount: Number.isInteger(preflightHistory?.unresolvedIncompleteCount)
         ? preflightHistory.unresolvedIncompleteCount
         : unresolvedIncompletePreflightItems.length,
+      abnormalCount: Number.isInteger(preflightHistory?.abnormalCount)
+        ? preflightHistory.abnormalCount
+        : abnormalPreflightItems.length,
+      resolvedAbnormalCount: Number.isInteger(preflightHistory?.resolvedAbnormalCount)
+        ? preflightHistory.resolvedAbnormalCount
+        : resolvedAbnormalPreflightItems.length,
+      unresolvedAbnormalCount: Number.isInteger(preflightHistory?.unresolvedAbnormalCount)
+        ? preflightHistory.unresolvedAbnormalCount
+        : unresolvedAbnormalPreflightItems.length,
       latestRunId: preflightHistory?.items?.[0]?.runId || '',
       latestState: preflightHistory?.items?.[0]?.state || '',
       latestCompletedRunId: completedPreflightItems[0]?.runId || '',
@@ -1191,6 +1203,9 @@ function summarize(rows, preflightSummary, preflightSummarySource = null, source
       incompleteCount: 0,
       resolvedIncompleteCount: 0,
       unresolvedIncompleteCount: 0,
+      abnormalCount: 0,
+      resolvedAbnormalCount: 0,
+      unresolvedAbnormalCount: 0,
       latestRunId: '',
       latestState: '',
       latestCompletedRunId: '',
@@ -1277,7 +1292,7 @@ function buildMarkdown(payload) {
     `- pageOnlyBoundary: complete=${entrypoint.pageOnlyBoundaryComplete || 0}/${entrypoint.pageOnlyBoundaryRequired || 0}, issues=${entrypoint.pageOnlyBoundaryIssueCount || 0}`,
     `- globalGovernance: complete=${payload.globalGovernance?.passed || 0}/${payload.globalGovernance?.required || 0}, issues=${payload.globalGovernance?.issueCount || 0}`,
     `- independentEngineeringBenchmarks: pilot=${payload.independentBenchmarkCoverage?.summary?.pilotVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.pilotRequired || 0}, formalPortfolio=${payload.independentBenchmarkCoverage?.summary?.independentlyVerifiedRoutes || 0}/${payload.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes || 0}, issues=${payload.independentBenchmarkCoverage?.summary?.issueCount || 0}`,
-    `- preflightHistoryHealth: completed=${payload.preflightHistoryHealth?.completedCount || 0}/${payload.preflightHistoryHealth?.count || 0}, incomplete=${payload.preflightHistoryHealth?.incompleteCount || 0}, resolvedIncomplete=${payload.preflightHistoryHealth?.resolvedIncompleteCount || 0}, unresolvedIncomplete=${payload.preflightHistoryHealth?.unresolvedIncompleteCount || 0}, inProgress=${payload.preflightHistoryHealth?.inProgressCount || 0}, latestState=${payload.preflightHistoryHealth?.latestState || '-'}`,
+    `- preflightHistoryHealth: completed=${payload.preflightHistoryHealth?.completedCount || 0}/${payload.preflightHistoryHealth?.count || 0}, abnormal=${payload.preflightHistoryHealth?.abnormalCount || 0}, resolvedAbnormal=${payload.preflightHistoryHealth?.resolvedAbnormalCount || 0}, unresolvedAbnormal=${payload.preflightHistoryHealth?.unresolvedAbnormalCount || 0}, incomplete=${payload.preflightHistoryHealth?.incompleteCount || 0}, resolvedIncomplete=${payload.preflightHistoryHealth?.resolvedIncompleteCount || 0}, unresolvedIncomplete=${payload.preflightHistoryHealth?.unresolvedIncompleteCount || 0}, inProgress=${payload.preflightHistoryHealth?.inProgressCount || 0}, latestState=${payload.preflightHistoryHealth?.latestState || '-'}`,
     payload.latestPreflight
       ? `- latestPreflight: ${payload.latestPreflight.runId}, pass=${payload.latestPreflight.pass}, quick=${payload.latestPreflight.quick}, commit=${(payload.latestPreflight.sourceCommitSha || '').slice(0, 12) || '-'}, branch=${payload.latestPreflight.sourceBranch || '-'}, dirty=${payload.latestPreflight.sourceDirty}, source=${payload.latestPreflight.sourcePath || '-'}, hash=${(payload.latestPreflight.sourceHash || '').slice(0, 12) || '-'}`
       : '- latestPreflight: unavailable',
@@ -2623,6 +2638,18 @@ function checkMatrix(payload, markdown, options = {}) {
     payload.preflightHistoryHealth.resolvedIncompleteCount + payload.preflightHistoryHealth.unresolvedIncompleteCount,
     payload.preflightHistoryHealth.incompleteCount,
     'tool maturity matrix preflightHistoryHealth resolution counts reconcile'
+  );
+  assert.equal(Number.isInteger(payload.preflightHistoryHealth.abnormalCount), true, 'tool maturity matrix preflightHistoryHealth abnormalCount integer');
+  assert.equal(Number.isInteger(payload.preflightHistoryHealth.resolvedAbnormalCount), true, 'tool maturity matrix preflightHistoryHealth resolvedAbnormalCount integer');
+  assert.equal(Number.isInteger(payload.preflightHistoryHealth.unresolvedAbnormalCount), true, 'tool maturity matrix preflightHistoryHealth unresolvedAbnormalCount integer');
+  assert.equal(
+    payload.preflightHistoryHealth.resolvedAbnormalCount + payload.preflightHistoryHealth.unresolvedAbnormalCount,
+    payload.preflightHistoryHealth.abnormalCount,
+    'tool maturity matrix preflightHistoryHealth abnormal resolution counts reconcile'
+  );
+  assert.ok(
+    payload.preflightHistoryHealth.resolvedAbnormalCount >= payload.preflightHistoryHealth.resolvedIncompleteCount,
+    'tool maturity matrix resolved abnormal count covers resolved incomplete subset'
   );
   assert.equal(typeof payload.preflightHistoryHealth.latestState, 'string', 'tool maturity matrix preflightHistoryHealth latestState string');
   assert.ok(markdown.includes('preflightHistoryHealth:'), 'tool maturity matrix markdown exposes preflight history health');

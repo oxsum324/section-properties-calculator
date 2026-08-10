@@ -977,7 +977,8 @@ function Update-PreflightHistoryManifest {
     $item | Add-Member -NotePropertyName resolved -NotePropertyValue $false -Force
     $item | Add-Member -NotePropertyName resolvedByRunId -NotePropertyValue "" -Force
     $item | Add-Member -NotePropertyName resolvedAt -NotePropertyValue "" -Force
-    if (-not $item.incomplete) {
+    $itemIsAbnormal = ((-not $item.pass) -and (-not $item.inProgress))
+    if (-not $itemIsAbnormal) {
       continue
     }
     $resolutionRun = @($successfulReleaseRuns | Where-Object {
@@ -992,6 +993,9 @@ function Update-PreflightHistoryManifest {
 
   $resolvedIncompleteCount = @($historyItems | Where-Object { $_.incomplete -and $_.resolved }).Count
   $unresolvedIncompleteCount = @($historyItems | Where-Object { $_.incomplete -and (-not $_.resolved) }).Count
+  $abnormalCount = @($historyItems | Where-Object { (-not $_.pass) -and (-not $_.inProgress) }).Count
+  $resolvedAbnormalCount = @($historyItems | Where-Object { (-not $_.pass) -and (-not $_.inProgress) -and $_.resolved }).Count
+  $unresolvedAbnormalCount = @($historyItems | Where-Object { (-not $_.pass) -and (-not $_.inProgress) -and (-not $_.resolved) }).Count
 
   $historyLines.Add("# Tool Preflight History")
   $historyLines.Add("")
@@ -1003,6 +1007,9 @@ function Update-PreflightHistoryManifest {
   $historyLines.Add("- incompleteCount: $incompleteCount")
   $historyLines.Add("- resolvedIncompleteCount: $resolvedIncompleteCount")
   $historyLines.Add("- unresolvedIncompleteCount: $unresolvedIncompleteCount")
+  $historyLines.Add("- abnormalCount: $abnormalCount")
+  $historyLines.Add("- resolvedAbnormalCount: $resolvedAbnormalCount")
+  $historyLines.Add("- unresolvedAbnormalCount: $unresolvedAbnormalCount")
   $historyLines.Add("")
   $historyLines.Add("| runId | state | resolution | generatedAt | quick | source commit | branch | dirty | pass | failures | failed keys | passed / checks | duration(s) | platform audit | slow reuse | slow reuse keys | slowest | summary | summary json | summary hash | post checks | summary json hash |")
   $historyLines.Add("|---|---|---|---|---:|---|---|---:|---:|---:|---|---:|---:|---|---:|---|---|---|---|---|---|---|")
@@ -1030,6 +1037,9 @@ function Update-PreflightHistoryManifest {
     incompleteCount = $incompleteCount
     resolvedIncompleteCount = $resolvedIncompleteCount
     unresolvedIncompleteCount = $unresolvedIncompleteCount
+    abnormalCount = $abnormalCount
+    resolvedAbnormalCount = $resolvedAbnormalCount
+    unresolvedAbnormalCount = $unresolvedAbnormalCount
     items = @($historyItems.ToArray())
   } | ForEach-Object { Write-JsonFile -Path $historyManifestPath -Value $_ -Depth 8 }
   Write-TextFile -Path $historyMarkdownPath -Value $historyLines

@@ -388,7 +388,7 @@ node 結構工具箱/tools/independent-engineering-benchmarks.js --write
 - [preflight-history.md](/C:/Users/USER/Desktop/AI/小工具製作/output/preflight/preflight-history.md:1)
 - [tool-maturity-matrix.md](/C:/Users/USER/Desktop/AI/小工具製作/output/audit/tool-maturity-matrix.md:1)
 
-Preflight 歷程會保留中斷或摘要缺漏的原始事實，但另行區分 `resolvedIncompleteCount` 與 `unresolvedIncompleteCount`。只有具可辨識 commit、乾淨來源、強制平台巡檢及慢測的後續成功正式放行，才能把較早的未完成紀錄標為「已收斂」；原紀錄不刪除，儀表板也不再把已收斂紀錄誤列為目前待處理異常。
+Preflight 歷程會保留失敗、中斷或摘要缺漏的原始事實，並以 `abnormalCount`、`resolvedAbnormalCount` 與 `unresolvedAbnormalCount` 區分歷史異常和目前風險；未完成紀錄另保留 `resolvedIncompleteCount`／`unresolvedIncompleteCount` 子統計。只有具可辨識 commit、乾淨來源、強制平台巡檢及慢測的後續成功正式放行，才能把較早異常標為「已收斂」；原紀錄、失敗 key 與原因不刪除，儀表板也不再把已收斂紀錄誤列為目前待處理異常。
 
 ## 正式附件包進度觀測邊界
 

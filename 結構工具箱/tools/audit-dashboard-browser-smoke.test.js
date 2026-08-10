@@ -406,6 +406,9 @@ const fixtures = new Map(Object.entries({
       incompleteCount: 0,
       resolvedIncompleteCount: 0,
       unresolvedIncompleteCount: 0,
+      abnormalCount: 0,
+      resolvedAbnormalCount: 0,
+      unresolvedAbnormalCount: 0,
       latestRunId: 'fixture-full',
       latestState: 'completed',
       latestCompletedRunId: 'fixture-full',
@@ -817,6 +820,9 @@ const fixtures = new Map(Object.entries({
     incompleteCount: 1,
     resolvedIncompleteCount: 1,
     unresolvedIncompleteCount: 0,
+    abnormalCount: 3,
+    resolvedAbnormalCount: 2,
+    unresolvedAbnormalCount: 1,
     items: [
       preflightHistoryItem(),
       preflightHistoryItem({
@@ -849,6 +855,9 @@ const fixtures = new Map(Object.entries({
         platformAuditReused: false,
         slowReuseCount: 0,
         slowReuseKeys: [],
+        resolved: true,
+        resolvedByRunId: 'fixture-release',
+        resolvedAt: fixtureGeneratedAt,
       }),
       preflightHistoryItem({ runId: 'fixture-quick', quick: true, pass: true, failureCount: 0, failures: [], failedKeys: [], passedCount: 2 }),
       preflightHistoryItem({
@@ -1606,7 +1615,7 @@ function assertDashboardLiveState(state, label, expected) {
   } else {
     assert.equal(state.quickRunText, '無資料', `${label} live quick KPI fallback: ${state.quickRunText}`);
   }
-  ['F 完整檢查', 'Q 快速檢查', 'R 正式放行', 'C 歷史未完成（已收斂）', '! 待處理未完成 / 摘要異常'].forEach((needle) => {
+  ['F 完整檢查', 'Q 快速檢查', 'R 正式放行', 'C 歷史異常（已收斂）', '! 待處理未完成 / 摘要異常'].forEach((needle) => {
     assert.ok(state.timelineLegendText.includes(needle), `${label} live timeline legend includes ${needle}: ${state.timelineLegendText}`);
   });
   ['報告閱讀狀態邊界', '頁面診斷明細只供公司內部整理', '文件狀態由核可勾選決定', '內部審閱與正式附件皆可列印'].forEach((needle) => {
@@ -1808,7 +1817,7 @@ function assertDashboardState(state, label, expectedLive = null) {
   assert.ok(state.latestRunText.includes('完整檢查'), `${label} latest KPI exposes full mode`);
   assert.ok(state.fullRunText.includes('異常') && state.fullRunText.includes('完整檢查'), `${label} full KPI reflects fixture failure`);
   assert.ok(state.quickRunText.includes('通過') && state.quickRunText.includes('快速檢查'), `${label} quick KPI reflects fixture quick pass`);
-  ['F 完整檢查', 'Q 快速檢查', 'R 正式放行', 'C 歷史未完成（已收斂）', '! 待處理未完成 / 摘要異常'].forEach((needle) => {
+  ['F 完整檢查', 'Q 快速檢查', 'R 正式放行', 'C 歷史異常（已收斂）', '! 待處理未完成 / 摘要異常'].forEach((needle) => {
     assert.ok(state.timelineLegendText.includes(needle), `${label} timeline legend includes ${needle}: ${state.timelineLegendText}`);
   });
   ['報告閱讀狀態邊界', '頁面診斷明細只供公司內部整理', '文件狀態由核可勾選決定', '內部審閱與正式附件皆可列印'].forEach((needle) => {
@@ -1822,7 +1831,11 @@ function assertDashboardState(state, label, expectedLive = null) {
     state.preflightTimelineLabels.some((item) => item.text === 'C' && item.title.includes('歷史未完成 fixture-interrupted') && item.title.includes('已收斂')),
     `${label} resolved historical interruption timeline tick rendered: ${JSON.stringify(state.preflightTimelineLabels)}`
   );
-  assert.equal(state.failureText, '2 / 5', `${label} unresolved failure KPI count`);
+  assert.ok(
+    state.preflightTimelineLabels.some((item) => item.text === 'C' && item.title.includes('fixture-attachment-failure') && item.title.includes('歷史失敗（已收斂）')),
+    `${label} resolved historical failed run timeline tick rendered: ${JSON.stringify(state.preflightTimelineLabels)}`
+  );
+  assert.equal(state.failureText, '1 / 5', `${label} unresolved failure KPI count`);
   assert.equal(state.hasHistoryTable, true, `${label} preflight history table rendered`);
   assert.equal(state.hasMaturityTable, true, `${label} maturity table rendered`);
   assert.ok(state.latestTime && state.latestTime !== '讀取中', `${label} overview latest timestamp rendered`);
