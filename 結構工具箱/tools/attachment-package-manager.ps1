@@ -677,10 +677,11 @@ function Select-BuildRecoveryReceipt {
   $grid.AllowUserToResizeRows = $false
   $grid.MultiSelect = $false
   $grid.SelectionMode = 'FullRowSelect'
+  $grid.ClipboardCopyMode = [System.Windows.Forms.DataGridViewClipboardCopyMode]::Disable
   $grid.RowHeadersVisible = $false
   $grid.AutoSizeColumnsMode = 'Fill'
   $grid.AccessibleName = '待確認附件包輸出清單'
-  $grid.AccessibleDescription = '唯讀單選清單，初始不選取任何項目。'
+  $grid.AccessibleDescription = '唯讀單選清單，初始不選取任何項目；Ctrl+C 只複製有效選取項目的精確輸出路徑。'
   [void]$grid.Columns.Add('status', '狀態')
   [void]$grid.Columns.Add('createdAt', '建立時間')
   [void]$grid.Columns.Add('expiresAt', '有效至／剩餘期限')
@@ -714,7 +715,7 @@ function Select-BuildRecoveryReceipt {
   $copyButton.Anchor = 'Bottom,Right'
   $copyButton.Enabled = $false
   $copyButton.AccessibleName = '複製選取的附件包精確輸出路徑'
-  $copyButton.AccessibleDescription = '只將仍有效且存在的精確輸出路徑複製到 Windows 剪貼簿，不驗證、不修改、不重建或核可附件包。'
+  $copyButton.AccessibleDescription = '按此按鈕或在清單按 Ctrl+C，只將仍有效且存在的精確輸出路徑複製到 Windows 剪貼簿，不驗證、不修改、不重建或核可附件包。'
   $dialog.Controls.Add($copyButton)
 
   $verifyButton = New-Object System.Windows.Forms.Button
@@ -798,6 +799,18 @@ function Select-BuildRecoveryReceipt {
       [void][System.Windows.Forms.MessageBox]::Show($dialog, "無法複製精確輸出路徑：$($_.Exception.Message)", '複製路徑失敗', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
     }
   })
+  $copyKeyHandler = {
+    param($sender, $eventArgs)
+    if (-not ($eventArgs.Control -and $eventArgs.KeyCode -eq [System.Windows.Forms.Keys]::C)) { return }
+    $eventArgs.SuppressKeyPress = $true
+    $eventArgs.Handled = $true
+    if (-not $copyButton.Enabled) { return }
+    if ($SmokeBuildRecoveryReceipt -and $script:BuildRecoverySmokeState) {
+      $script:BuildRecoverySmokeState.exactPathKeyboardCopyRequested = $true
+    }
+    $copyButton.PerformClick()
+  }
+  $grid.Add_KeyDown($copyKeyHandler)
   $verifyButton.Add_Click({
     if ($grid.SelectedRows.Count -ne 1 -or -not $grid.SelectedRows[0].Cells['status'].Tag) { return }
     $dialog.Tag = $grid.SelectedRows[0].Tag
@@ -817,6 +830,9 @@ function Select-BuildRecoveryReceipt {
       $script:BuildRecoverySmokeState.initiallyUnselected = [bool]($grid.SelectedRows.Count -eq 0 -and -not $verifyButton.Enabled)
       $script:BuildRecoverySmokeState.earliestExpiryFirst = [bool]($grid.Rows.Count -eq $Candidates.Count -and $grid.Rows[0].Tag.path.Equals($script:BuildRecoverySmokeState.selectedReceiptPath, [System.StringComparison]::OrdinalIgnoreCase))
       $script:BuildRecoverySmokeState.urgentReceiptHighlighted = [bool]($grid.Rows[0].Cells['status'].Value -like '*2 小時內到期*' -and $grid.Rows[1].Cells['status'].Value -notlike '*2 小時內到期*')
+      $unselectedCopyKeyEvent = New-Object System.Windows.Forms.KeyEventArgs ([System.Windows.Forms.Keys]::Control -bor [System.Windows.Forms.Keys]::C)
+      & $copyKeyHandler $grid $unselectedCopyKeyEvent
+      $script:BuildRecoverySmokeState.unselectedKeyboardCopyBlocked = [bool]($unselectedCopyKeyEvent.Handled -and $unselectedCopyKeyEvent.SuppressKeyPress -and -not $script:BuildRecoverySmokeState.exactPathCopyRequested -and -not $script:BuildRecoverySmokeState.exactPathKeyboardCopyRequested)
     }
     if ($SmokeSelectIndex -eq -2) {
       $cancelButton.PerformClick()
@@ -824,7 +840,9 @@ function Select-BuildRecoveryReceipt {
       $grid.Rows[$SmokeSelectIndex].Selected = $true
       $grid.CurrentCell = $grid.Rows[$SmokeSelectIndex].Cells[0]
       $openButton.PerformClick()
-      $copyButton.PerformClick()
+      $copyKeyEvent = New-Object System.Windows.Forms.KeyEventArgs ([System.Windows.Forms.Keys]::Control -bor [System.Windows.Forms.Keys]::C)
+      & $copyKeyHandler $grid $copyKeyEvent
+      $script:BuildRecoverySmokeState.exactPathKeyboardEventHandled = [bool]($copyKeyEvent.Handled -and $copyKeyEvent.SuppressKeyPress)
       $verifyButton.PerformClick()
     }
   })
@@ -2068,6 +2086,9 @@ if ($SmokeBuildRecoveryReceipt) {
     urgentReceiptHighlighted = $false
     folderPreviewRequested = $false
     exactPathCopyRequested = $false
+    exactPathKeyboardCopyRequested = $false
+    exactPathKeyboardEventHandled = $false
+    unselectedKeyboardCopyBlocked = $false
     cancellationPreserved = $false
     verifyStarted = $false
   }
@@ -2082,7 +2103,7 @@ if ($SmokeBuildRecoveryReceipt) {
     $expiredReceiptRemoved = $state -and -not (Test-Path -LiteralPath $state.expiredReceiptPath)
     $activeReceiptIgnored = $state -and (Test-Path -LiteralPath $state.activeReceiptPath)
     $script:BuildRecoverySmokeResult = [pscustomobject]@{
-      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.earliestExpiryFirst -and $state.urgentReceiptHighlighted -and $state.folderPreviewRequested -and $state.exactPathCopyRequested -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
+      status = if ($state.restored -and $state.exactPathOffered -and $state.overviewVisible -and $state.initiallyUnselected -and $state.earliestExpiryFirst -and $state.urgentReceiptHighlighted -and $state.folderPreviewRequested -and $state.exactPathCopyRequested -and $state.exactPathKeyboardCopyRequested -and $state.exactPathKeyboardEventHandled -and $state.unselectedKeyboardCopyBlocked -and $state.cancellationPreserved -and $state.verifyStarted -and $receiptRemoved -and $unselectedReceiptPreserved -and $invalidReceiptRejected -and $expiredReceiptRemoved -and $activeReceiptIgnored -and -not $script:ActiveRecoveryReceiptPath -and -not $script:BuildProcess) { 'pass' } else { 'fail' }
       winFormsMessageLoop = $true
       restartReceiptRestored = [bool]$state.restored
       exactPathOffered = [bool]$state.exactPathOffered
@@ -2092,6 +2113,9 @@ if ($SmokeBuildRecoveryReceipt) {
       urgentReceiptHighlighted = [bool]$state.urgentReceiptHighlighted
       folderPreviewRequestedWithoutExternalLaunch = [bool]$state.folderPreviewRequested
       exactPathCopyRequestedWithoutClipboardWrite = [bool]$state.exactPathCopyRequested
+      exactPathKeyboardCopyRequested = [bool]$state.exactPathKeyboardCopyRequested
+      exactPathKeyboardEventHandled = [bool]$state.exactPathKeyboardEventHandled
+      unselectedKeyboardCopyBlocked = [bool]$state.unselectedKeyboardCopyBlocked
       pickerCancellationPreservedAll = [bool]$state.cancellationPreserved
       readOnlyVerifyStarted = [bool]$state.verifyStarted
       receiptRemovedAfterTrustedResult = [bool]$receiptRemoved
