@@ -765,6 +765,9 @@ export type ReceiverOperatorAuditEvent = {
     | "operator-password-reset"
     | "operator-password-changed"
     | "operator-governance-backup-exported"
+    | "operator-backup-disposition-requested"
+    | "operator-backup-disposition-approved"
+    | "operator-backup-disposition-completed"
     | "operator-governance-restored";
   actorOperatorId: string;
   actorUsername: string;
@@ -786,7 +789,7 @@ export type ReceiverOperatorAuditSummary = {
 };
 
 export type ReceiverOperatorGovernanceBackup = {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   kind: "receiver-operator-governance-encrypted-backup";
   exportedAt: string;
   encryption: {
@@ -803,6 +806,7 @@ export type ReceiverOperatorGovernanceBackup = {
     operatorCount: number;
     activeAdminCount: number;
     rotationClaimCount: number;
+    backupDispositionClaimCount?: number;
     auditEventCount: number;
     snapshotFingerprint: string;
   };
@@ -818,6 +822,8 @@ export type ReceiverOperatorGovernanceRestorePreview = {
   backupAuditEventCount: number;
   currentRotationClaimCount: number;
   backupRotationClaimCount: number;
+  currentBackupDispositionClaimCount: number;
+  backupDispositionClaimCount: number;
   addedUsernames: string[];
   removedUsernames: string[];
   accountChanges: Array<{
@@ -860,6 +866,7 @@ export type ReceiverOperatorManagedBackup = {
   operatorCount: number;
   activeAdminCount: number;
   auditEventCount: number;
+  backupDispositionClaimCount: number;
   expired: boolean;
   status: "active" | "expired";
 };
@@ -895,6 +902,65 @@ export type ReceiverOperatorRecoveryDrillReceipt = {
   receiptFileName?: string;
 };
 
+export type ReceiverOperatorBackupDispositionRequest = {
+  requestFingerprint: string;
+  backupFingerprint: string;
+  snapshotFingerprint: string;
+  managedFileName: string;
+  managedFileSha256: string;
+  exportedAt: string;
+  retentionUntil: string;
+  requestedByOperatorId: string;
+  requestedAt: string;
+  expiresAt: string;
+  caseReference: string;
+  basis: string;
+  state: "pending" | "removal-in-progress" | "completed" | "expired" | "blocked";
+  approvedByOperatorId: string | null;
+  approvedAt: string | null;
+  completionOperatorId: string | null;
+  completedAt: string | null;
+  receiptFingerprint: string | null;
+  completionEventFingerprint: string | null;
+};
+
+export type ReceiverOperatorBackupDispositionReceipt = {
+  schemaVersion: 1;
+  kind: "receiver-operator-governance-backup-disposition-receipt";
+  completedAt: string;
+  requestFingerprint: string;
+  backupFingerprint: string;
+  snapshotFingerprint: string;
+  managedFileName: string;
+  managedFileSha256: string;
+  exportedAt: string;
+  retentionUntil: string;
+  requestedByOperatorId: string;
+  requestedAt: string;
+  expiresAt: string;
+  approvedByOperatorId: string;
+  approvedAt: string;
+  completionOperatorId: string;
+  caseReferenceSha256: string;
+  basisSha256: string;
+  disposition: {
+    trigger: "explicit-two-person-approved-expired-backup-disposition";
+    managedFileAbsentAfterDisposition: true;
+    automaticExpiryDeletion: false;
+    ordinaryFilesystemEntryRemovalOnly: true;
+    secureEraseGuaranteed: false;
+    otherCopiesMayRemain: true;
+  };
+  privacy: {
+    containsPassphrase: false;
+    containsPassword: false;
+    containsUsername: false;
+    containsServerPath: false;
+  };
+  receiptFingerprint: string;
+  receiptFileName?: string;
+};
+
 export type ReceiverOperatorRecoveryInventory = {
   generatedAt: string;
   scope: "local-server-only";
@@ -902,6 +968,9 @@ export type ReceiverOperatorRecoveryInventory = {
   drillReceipts: ReceiverOperatorRecoveryDrillReceipt[];
   invalidBackupFiles: Array<{ fileName: string; error: string }>;
   invalidDrillFiles: Array<{ fileName: string; error: string }>;
+  backupDispositionRequests: ReceiverOperatorBackupDispositionRequest[];
+  backupDispositionReceipts: ReceiverOperatorBackupDispositionReceipt[];
+  invalidBackupDispositionFiles: Array<{ fileName: string; error: string }>;
   health: {
     status: "healthy" | "attention-required";
     issueCount: number;
@@ -912,8 +981,11 @@ export type ReceiverOperatorRecoveryInventory = {
   };
   retentionBoundary: {
     automaticDeletion: false;
+    explicitTwoPersonDispositionRequired: true;
+    approvedDispositionUsesOrdinaryFilesystemEntryRemoval: true;
     secureEraseGuaranteed: false;
     expiredFilesRequireStorageAdministratorDisposition: true;
+    otherCopiesMayRemain: true;
   };
 };
 

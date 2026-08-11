@@ -120,7 +120,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.28.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.29.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -709,6 +709,14 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'receiver_operator_maintenance',
   'operator-governance-restored',
   'operator-governance-backup-exported',
+  'receiver_backup_disposition_claims',
+  'operator-backup-disposition-requested',
+  'operator-backup-disposition-approved',
+  'operator-backup-disposition-completed',
+  'create_backup_disposition_request',
+  'prepare_backup_disposition_approval',
+  'reserve_backup_disposition_completion',
+  'complete_backup_disposition',
   'expected_current_snapshot',
 ].forEach((needle) => {
   assert(receiverOperatorAuth.includes(needle), `excavation receiver operator auth keeps ${needle}`, needle);
@@ -726,6 +734,7 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '/api/receiver-operator-governance-backups/restore',
   '/api/receiver-operator-governance-backups/inventory',
   '/api/receiver-operator-governance-backups/drill',
+  '/api/receiver-operator-governance-backups/disposition-requests',
   '/roles',
   '/status',
   '/password-reset',
@@ -754,6 +763,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'restoreReceiverOperatorGovernanceBackup',
   'listReceiverOperatorGovernanceRecoveryInventory',
   'drillReceiverOperatorGovernanceBackup',
+  'requestReceiverOperatorBackupDisposition',
+  'approveReceiverOperatorBackupDisposition',
 ].forEach((needle) => {
   assert(api.includes(needle), `excavation frontend receiver auth keeps ${needle}`, needle);
 });
@@ -784,6 +795,7 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
 });
 [
   'test_encrypted_backup_hides_credentials_accounts_and_runtime_sessions',
+  'test_legacy_v1_backup_remains_readable_after_disposition_claim_upgrade',
   'test_wrong_passphrase_and_ciphertext_tampering_fail_closed',
   'test_restore_requires_backup_admin_credential_safeguards_current_state_and_revokes_sessions',
   'test_failed_transaction_rolls_back_data_sessions_and_maintenance_unlock',
@@ -795,13 +807,24 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
 });
 [
   'receiver-operator-governance-recovery-drill-receipt',
+  'receiver-operator-governance-backup-disposition-receipt',
   'write_managed_receiver_operator_governance_backup',
   'list_receiver_operator_governance_recovery_inventory',
   'perform_receiver_operator_governance_recovery_drill',
+  'request_receiver_operator_backup_disposition',
+  'approve_receiver_operator_backup_disposition',
+  'validate_receiver_operator_backup_disposition_receipt',
   'isolated-temporary-sqlite',
   'productionGovernanceUnchangedDuringDrill',
   'secureEraseGuaranteed',
   'latest-backup-not-drilled',
+  'explicit-two-person-approved-expired-backup-disposition',
+  'ordinaryFilesystemEntryRemovalOnly',
+  'otherCopiesMayRemain',
+  'caseReferenceSha256',
+  'basisSha256',
+  'RBR-',
+  'RBD-',
   'ROD-',
 ].forEach((needle) => {
   assert(receiverOperatorRecovery.includes(needle), `excavation receiver operator recovery keeps ${needle}`, needle);
@@ -812,14 +835,22 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'test_inventory_marks_expiry_and_surfaces_invalid_files',
   'test_failed_drill_writes_no_receipt_and_tampered_receipt_is_rejected',
   'test_http_managed_export_inventory_and_drill_require_admin_csrf',
+  'test_expired_backup_disposition_requires_different_reviewer_and_writes_receipt',
+  'test_disposition_claim_is_preserved_by_governance_backup_and_tampering_is_rejected',
+  'test_interrupted_disposition_can_resume_without_duplicate_receipt',
+  'test_http_disposition_requires_csrf_roles_and_different_operator',
 ].forEach((needle) => {
   assert(receiverOperatorRecoveryTests.includes(needle), `excavation receiver operator recovery tests keep ${needle}`, needle);
 });
 [
   '受管制備份與復原演練清冊',
+  '提出雙人處置申請',
+  '第二人覆核到期備份處置',
+  '覆核通過、移除受管制副本並產生 RBD 收據',
+  '一般檔案系統項目移除，不是安全抹除',
   '執行隔離復原演練（不改正式資料）',
-  '不宣稱可在 SSD 或同步磁碟上安全抹除',
-  '演練收據不保存加密密碼、帳號、登入密碼或伺服器路徑',
+  '其他副本仍可能存在',
+  '演練與處置收據不保存加密密碼、登入密碼、帳號名稱或伺服器路徑',
 ].forEach((needle) => {
   assert(app.includes(needle), `excavation operator recovery UI keeps ${needle}`, needle);
 });
@@ -827,6 +858,8 @@ assert(config.includes('STRUT_DB_PATH'), 'excavation database path supports isol
 [
   'RequestReceiverKeyRotationCompletionRequest',
   'ApproveReceiverKeyRotationCompletionRequest',
+  'RequestReceiverOperatorBackupDispositionRequest',
+  'ApproveReceiverOperatorBackupDispositionRequest',
   '/rotation-requests',
   '/approve',
 ].forEach((needle) => {

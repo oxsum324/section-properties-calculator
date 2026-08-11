@@ -110,8 +110,25 @@ def _encrypt_snapshot(
         not item["disabled"] and "receiver-key-admin" in item["roles"]
         for item in snapshot["operators"]
     )
+    snapshot_schema_version = snapshot["schemaVersion"]
+    summary: dict[str, Any] = {
+        "operatorCount": len(snapshot["operators"]),
+        "activeAdminCount": active_admin_count,
+        "rotationClaimCount": len(snapshot["rotationClaims"]),
+        "auditEventCount": len(snapshot["auditEvents"]),
+        "snapshotFingerprint": receiver_operator_snapshot_fingerprint(snapshot),
+    }
+    if snapshot_schema_version == 2:
+        summary["backupDispositionClaimCount"] = len(snapshot["backupDispositionClaims"])
+        summary = {
+            key: summary[key]
+            for key in (
+                "operatorCount", "activeAdminCount", "rotationClaimCount",
+                "backupDispositionClaimCount", "auditEventCount", "snapshotFingerprint",
+            )
+        }
     backup: dict[str, Any] = {
-        "schemaVersion": 1,
+        "schemaVersion": snapshot_schema_version,
         "kind": RECEIVER_OPERATOR_BACKUP_KIND,
         "exportedAt": _parse_exported_at(exported_at),
         "encryption": {
@@ -124,13 +141,7 @@ def _encrypt_snapshot(
             "saltBase64": base64.b64encode(salt).decode("ascii"),
             "nonceBase64": base64.b64encode(nonce).decode("ascii"),
         },
-        "summary": {
-            "operatorCount": len(snapshot["operators"]),
-            "activeAdminCount": active_admin_count,
-            "rotationClaimCount": len(snapshot["rotationClaims"]),
-            "auditEventCount": len(snapshot["auditEvents"]),
-            "snapshotFingerprint": receiver_operator_snapshot_fingerprint(snapshot),
-        },
+        "summary": summary,
     }
     key = _derive_key(passphrase, salt, n=_KDF_N, r=_KDF_R, p=_KDF_P)
     ciphertext = AESGCM(key).encrypt(nonce, _canonical_json_bytes(snapshot), _backup_aad(backup))
@@ -155,7 +166,8 @@ def build_receiver_operator_governance_backup(
 def validate_receiver_operator_backup_envelope(backup: Any) -> dict[str, Any]:
     if not isinstance(backup, dict):
         raise ValueError("操作員治理備份必須是 JSON 物件。")
-    if backup.get("schemaVersion") != 1 or backup.get("kind") != RECEIVER_OPERATOR_BACKUP_KIND:
+    schema_version = backup.get("schemaVersion")
+    if schema_version not in {1, 2} or backup.get("kind") != RECEIVER_OPERATOR_BACKUP_KIND:
         raise ValueError("操作員治理備份版本或種類不受支援。")
     exported_at = _parse_exported_at(backup.get("exportedAt"))
     encryption = backup.get("encryption")
@@ -179,7 +191,10 @@ def validate_receiver_operator_backup_envelope(backup: Any) -> dict[str, Any]:
     if not isinstance(summary, dict):
         raise ValueError("操作員治理備份缺少安全摘要。")
     normalized_summary: dict[str, Any] = {}
-    for field in ("operatorCount", "activeAdminCount", "rotationClaimCount", "auditEventCount"):
+    count_fields = ["operatorCount", "activeAdminCount", "rotationClaimCount", "auditEventCount"]
+    if schema_version == 2:
+        count_fields.insert(3, "backupDispositionClaimCount")
+    for field in count_fields:
         value = summary.get(field)
         if not isinstance(value, int) or isinstance(value, bool) or value < 0:
             raise ValueError(f"操作員治理備份的 {field} 不正確。")
@@ -189,7 +204,7 @@ def validate_receiver_operator_backup_envelope(backup: Any) -> dict[str, Any]:
         raise ValueError("操作員治理備份的快照指紋格式不正確。")
     normalized_summary["snapshotFingerprint"] = snapshot_fingerprint
     normalized = {
-        "schemaVersion": 1,
+        "schemaVersion": schema_version,
         "kind": RECEIVER_OPERATOR_BACKUP_KIND,
         "exportedAt": exported_at,
         "encryption": {
@@ -237,6 +252,8 @@ def decrypt_receiver_operator_governance_backup(
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("操作員治理備份解密後不是有效 JSON。") from exc
     snapshot = ReceiverOperatorStore.validate_governance_snapshot(snapshot)
+    if normalized["schemaVersion"] != snapshot["schemaVersion"]:
+        raise ValueError("操作員治理備份的外層版本與加密快照版本不一致。")
     summary = normalized["summary"]
     expected_summary = {
         "operatorCount": len(snapshot["operators"]),
@@ -248,6 +265,17 @@ def decrypt_receiver_operator_governance_backup(
         "auditEventCount": len(snapshot["auditEvents"]),
         "snapshotFingerprint": receiver_operator_snapshot_fingerprint(snapshot),
     }
+    if normalized["schemaVersion"] == 2:
+        expected_summary["backupDispositionClaimCount"] = len(
+            snapshot["backupDispositionClaims"]
+        )
+        expected_summary = {
+            key: expected_summary[key]
+            for key in (
+                "operatorCount", "activeAdminCount", "rotationClaimCount",
+                "backupDispositionClaimCount", "auditEventCount", "snapshotFingerprint",
+            )
+        }
     if summary != expected_summary:
         raise ValueError("操作員治理備份的外層摘要與加密快照不一致。")
     return normalized, snapshot
@@ -301,6 +329,7 @@ def _build_restore_preview(
             for event in current_events
         )
         and not current_snapshot["rotationClaims"]
+        and not current_snapshot.get("backupDispositionClaims", [])
     )
     blocking_reasons: list[str] = []
     if current_fingerprint == backup_fingerprint:
@@ -317,6 +346,12 @@ def _build_restore_preview(
             "backupAuditEventCount": len(backup_events),
             "currentRotationClaimCount": len(current_snapshot["rotationClaims"]),
             "backupRotationClaimCount": len(backup_snapshot["rotationClaims"]),
+            "currentBackupDispositionClaimCount": len(
+                current_snapshot.get("backupDispositionClaims", [])
+            ),
+            "backupDispositionClaimCount": len(
+                backup_snapshot.get("backupDispositionClaims", [])
+            ),
             "addedUsernames": sorted(
                 backup_operators[key]["username"] for key in set(backup_operators) - set(current_operators)
             ),

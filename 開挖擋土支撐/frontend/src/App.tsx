@@ -52,6 +52,7 @@ import {
   ReceiverOperatorGovernanceBackup,
   ReceiverOperatorGovernanceRestorePreview,
   ReceiverOperatorGovernanceRestoreResult,
+  ReceiverOperatorBackupDispositionReceipt,
   ReceiverOperatorRecoveryDrillReceipt,
   ReceiverOperatorRecoveryInventory,
   ReceiverOperatorRole,
@@ -202,6 +203,16 @@ const emptyReceiverOperatorBackupDraft = {
   retainServerCopy: false,
   retentionDays: 30,
 };
+const emptyReceiverOperatorBackupDispositionDraft = {
+  backupFingerprint: "",
+  caseReference: "",
+  basis: "依組織備份媒體保存與到期處置程序辦理。",
+  confirmed: false,
+};
+const emptyReceiverOperatorBackupDispositionApprovalDraft = {
+  requestFingerprint: "",
+  confirmed: false,
+};
 const emptyReceiverOperatorAuditSummary: ReceiverOperatorAuditSummary = {
   events: [],
   chainValid: true,
@@ -241,6 +252,9 @@ function receiverOperatorAuditEventLabel(eventType: ReceiverOperatorAuditEvent["
     "operator-password-reset": "管理員重設密碼",
     "operator-password-changed": "本人變更密碼",
     "operator-governance-backup-exported": "匯出操作員治理備份",
+    "operator-backup-disposition-requested": "提出到期備份處置",
+    "operator-backup-disposition-approved": "第二人覆核到期備份處置",
+    "operator-backup-disposition-completed": "完成到期備份處置",
     "operator-governance-restored": "復原操作員治理快照",
   }[eventType] ?? eventType;
 }
@@ -259,8 +273,9 @@ function receiverOperatorAuditDetail(event: ReceiverOperatorAuditEvent): string 
     return roles.map(roleLabel).join("、") || "—";
   }
   const blocked = Number(event.details.blockedPendingRotationClaims ?? 0);
+  const blockedDisposition = Number(event.details.blockedPendingBackupDispositionClaims ?? 0);
   const revoked = Number(event.details.revokedSessions ?? 0);
-  if (event.eventType === "operator-disabled") return `撤銷工作階段 ${revoked}；阻斷待審申請 ${blocked}`;
+  if (event.eventType === "operator-disabled") return `撤銷工作階段 ${revoked}；阻斷輪替申請 ${blocked}；阻斷備份處置申請 ${blockedDisposition}`;
   if (event.eventType === "operator-password-reset" || event.eventType === "operator-password-changed") {
     return `撤銷工作階段 ${revoked}`;
   }
@@ -273,6 +288,15 @@ function receiverOperatorAuditDetail(event: ReceiverOperatorAuditEvent): string 
   if (event.eventType === "operator-governance-restored") {
     const fingerprint = String(event.details.backupFingerprint ?? "—");
     return `備份 ${fingerprint}；撤銷工作階段 ${revoked}`;
+  }
+  if (event.eventType === "operator-backup-disposition-requested") {
+    return `申請 ${String(event.details.requestFingerprint ?? "—")}；備份 ${String(event.details.backupFingerprint ?? "—")}；案件 ${String(event.details.caseReference ?? "—")}`;
+  }
+  if (event.eventType === "operator-backup-disposition-approved") {
+    return `申請 ${String(event.details.requestFingerprint ?? "—")}；已授權一般檔案移除，非安全抹除`;
+  }
+  if (event.eventType === "operator-backup-disposition-completed") {
+    return `申請 ${String(event.details.requestFingerprint ?? "—")}；收據 ${String(event.details.receiptFingerprint ?? "—")}`;
   }
   return "—";
 }
@@ -565,6 +589,13 @@ function App() {
   const [receiverOperatorRestoreOutcome, setReceiverOperatorRestoreOutcome] = useState<ReceiverOperatorGovernanceRestoreResult | null>(null);
   const [receiverOperatorRecoveryInventory, setReceiverOperatorRecoveryInventory] = useState<ReceiverOperatorRecoveryInventory | null>(null);
   const [receiverOperatorDrillOutcome, setReceiverOperatorDrillOutcome] = useState<ReceiverOperatorRecoveryDrillReceipt | null>(null);
+  const [receiverOperatorBackupDispositionDraft, setReceiverOperatorBackupDispositionDraft] = useState(
+    emptyReceiverOperatorBackupDispositionDraft,
+  );
+  const [receiverOperatorBackupDispositionApprovalDraft, setReceiverOperatorBackupDispositionApprovalDraft] = useState(
+    emptyReceiverOperatorBackupDispositionApprovalDraft,
+  );
+  const [receiverOperatorBackupDispositionOutcome, setReceiverOperatorBackupDispositionOutcome] = useState<ReceiverOperatorBackupDispositionReceipt | null>(null);
   const [receiverTrustDraft, setReceiverTrustDraft] = useState({ organization: "", displayName: "", publicKey: "" });
   const [receiverTrustEnrollment, setReceiverTrustEnrollment] = useState<ReceiverKeyEnrollment | null>(null);
   const [receiverTrustVerificationConfirmed, setReceiverTrustVerificationConfirmed] = useState(false);
@@ -1509,6 +1540,9 @@ function App() {
       setReceiverOperatorRestoreOutcome(null);
       setReceiverOperatorRecoveryInventory(null);
       setReceiverOperatorDrillOutcome(null);
+      setReceiverOperatorBackupDispositionDraft(emptyReceiverOperatorBackupDispositionDraft);
+      setReceiverOperatorBackupDispositionApprovalDraft(emptyReceiverOperatorBackupDispositionApprovalDraft);
+      setReceiverOperatorBackupDispositionOutcome(null);
       cancelReceiverKeyRotationCompletion();
       cancelReceiverKeyRotationApproval();
       cancelReceiverTrustKeyRevocation();
@@ -1640,6 +1674,9 @@ function App() {
       setReceiverOperatorRestoreOutcome(null);
       setReceiverOperatorRecoveryInventory(null);
       setReceiverOperatorDrillOutcome(null);
+      setReceiverOperatorBackupDispositionDraft(emptyReceiverOperatorBackupDispositionDraft);
+      setReceiverOperatorBackupDispositionApprovalDraft(emptyReceiverOperatorBackupDispositionApprovalDraft);
+      setReceiverOperatorBackupDispositionOutcome(null);
       cancelReceiverKeyRotationCompletion();
       cancelReceiverKeyRotationApproval();
       cancelReceiverTrustKeyRevocation();
@@ -1767,6 +1804,96 @@ function App() {
     }
   }
 
+  function startReceiverOperatorBackupDisposition(backupFingerprint: string) {
+    setReceiverOperatorBackupDispositionDraft({
+      ...emptyReceiverOperatorBackupDispositionDraft,
+      backupFingerprint,
+    });
+    setReceiverOperatorBackupDispositionApprovalDraft(
+      emptyReceiverOperatorBackupDispositionApprovalDraft,
+    );
+    setReceiverOperatorBackupDispositionOutcome(null);
+  }
+
+  async function handleRequestReceiverOperatorBackupDisposition() {
+    if (!receiverCanRequestRotation) {
+      setError("提出到期備份處置需要已登入且具輪替申請人角色的不同責任帳號。");
+      return;
+    }
+    if (
+      !receiverOperatorBackupDispositionDraft.backupFingerprint
+      || !receiverOperatorBackupDispositionDraft.caseReference.trim()
+      || !receiverOperatorBackupDispositionDraft.basis.trim()
+      || !receiverOperatorBackupDispositionDraft.confirmed
+    ) {
+      setError("請填寫處置案件編號與依據，並確認交由不同帳號第二人覆核。");
+      return;
+    }
+    try {
+      setBusy("提出到期備份雙人處置申請");
+      const response = await api.requestReceiverOperatorBackupDisposition(
+        receiverOperatorBackupDispositionDraft.backupFingerprint,
+        receiverOperatorBackupDispositionDraft.caseReference,
+        receiverOperatorBackupDispositionDraft.basis,
+      );
+      setReceiverOperatorRecoveryInventory(response.inventory);
+      setReceiverOperatorAuditSummary(await api.listReceiverOperatorAuditEvents());
+      setReceiverOperatorBackupDispositionDraft(emptyReceiverOperatorBackupDispositionDraft);
+      setReceiverOperatorBackupDispositionOutcome(null);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  function startReceiverOperatorBackupDispositionApproval(requestFingerprint: string) {
+    setReceiverOperatorBackupDispositionApprovalDraft({
+      requestFingerprint,
+      confirmed: false,
+    });
+    setReceiverOperatorBackupDispositionDraft(emptyReceiverOperatorBackupDispositionDraft);
+    setReceiverOperatorBackupDispositionOutcome(null);
+  }
+
+  async function handleApproveReceiverOperatorBackupDisposition() {
+    const claim = receiverOperatorRecoveryInventory?.backupDispositionRequests.find(
+      (item) => item.requestFingerprint
+        === receiverOperatorBackupDispositionApprovalDraft.requestFingerprint,
+    );
+    if (!claim) return;
+    if (!receiverCanApproveRotation) {
+      setError("第二人覆核到期備份處置需要輪替覆核人角色。");
+      return;
+    }
+    if (claim.requestedByOperatorId === receiverOperatorAuth.operator?.id) {
+      setError("目前登入帳號就是申請帳號；請改由不同覆核帳號登入。");
+      return;
+    }
+    if (!receiverOperatorBackupDispositionApprovalDraft.confirmed) {
+      setError("覆核前必須確認一般檔案移除與非安全抹除邊界。");
+      return;
+    }
+    try {
+      setBusy("第二人覆核並移除到期受管制備份");
+      const response = await api.approveReceiverOperatorBackupDisposition(
+        claim.requestFingerprint,
+      );
+      setReceiverOperatorRecoveryInventory(response.inventory);
+      setReceiverOperatorAuditSummary(await api.listReceiverOperatorAuditEvents());
+      setReceiverOperatorBackupDispositionApprovalDraft(
+        emptyReceiverOperatorBackupDispositionApprovalDraft,
+      );
+      setReceiverOperatorBackupDispositionOutcome(response.receipt);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
   async function handleRestoreReceiverOperatorGovernanceBackup() {
     if (!receiverOperatorBackup || !receiverOperatorRestorePreview) return;
     if (!receiverCanAdministerKeys) {
@@ -1774,7 +1901,7 @@ function App() {
       return;
     }
     if (!receiverOperatorRestoreConfirmed) {
-      setError("復原前必須確認完整置換帳號、角色、輪替 claim 與稽核鏈，並撤銷全部工作階段。");
+      setError("復原前必須確認完整置換帳號、角色、輪替 claim、備份處置 claim 與稽核鏈，並撤銷全部工作階段。");
       return;
     }
     if (!receiverOperatorBackupDraft.recoveryUsername.trim() || !receiverOperatorBackupDraft.recoveryPassword) {
@@ -1802,6 +1929,9 @@ function App() {
       setReceiverOperatorRestoreConfirmed(false);
       setReceiverOperatorRecoveryInventory(null);
       setReceiverOperatorDrillOutcome(null);
+      setReceiverOperatorBackupDispositionDraft(emptyReceiverOperatorBackupDispositionDraft);
+      setReceiverOperatorBackupDispositionApprovalDraft(emptyReceiverOperatorBackupDispositionApprovalDraft);
+      setReceiverOperatorBackupDispositionOutcome(null);
       cancelReceiverKeyRotationCompletion();
       cancelReceiverKeyRotationApproval();
       cancelReceiverTrustKeyRevocation();
@@ -6039,7 +6169,7 @@ function App() {
                       <div className="receiver-key-rotation-card">
                         <h4>操作員治理加密備份與災難復原</h4>
                         <p className="meta-line attention-line">
-                          備份會把帳號、角色、加鹽密碼驗證值、輪替 claim 與稽核鏈封裝在 AES-256-GCM 密文內；不含明文密碼、登入工作階段或登入失敗紀錄。加密密碼不會儲存在系統，遺失後無法復原；備份檔仍屬高度敏感資料，應離線管制保存。
+                          備份會把帳號、角色、加鹽密碼驗證值、輪替 claim、到期備份處置 claim 與稽核鏈封裝在 AES-256-GCM 密文內；不含明文密碼、登入工作階段或登入失敗紀錄。加密密碼不會儲存在系統，遺失後無法復原；備份檔仍屬高度敏感資料，應離線管制保存。
                         </p>
                         <div className="form-grid">
                           <label className="field-block">
@@ -6143,7 +6273,7 @@ function App() {
                           匯入前先輸入該檔案的加密密碼。系統只會解密驗證並顯示差異，不會立即覆寫資料。
                         </p>
                         <p className="meta-line attention-line">
-                          保存期限是治理提醒，不會自動刪除檔案，也不宣稱可在 SSD 或同步磁碟上安全抹除；到期副本須由儲存管理者依組織媒體處置規定處理。演練收據不保存加密密碼、帳號、登入密碼或伺服器路徑。
+                          保存期限不會觸發自動刪除。到期副本須由申請人提出案件與依據，再由不同登入帳號覆核後，才會從受管制目錄做一般檔案移除並留下 RBD 收據；此流程不宣稱可在 SSD、同步磁碟、備份或快照上安全抹除，其他副本仍可能存在。演練與處置收據不保存加密密碼、登入密碼、帳號名稱或伺服器路徑。
                         </p>
                         {receiverOperatorRecoveryInventory && (
                           <div className="receiver-key-rotation-card">
@@ -6171,6 +6301,10 @@ function App() {
                                 value={String(receiverOperatorRecoveryInventory.drillReceipts.length)}
                               />
                               <MetaItem
+                                label="到期處置收據"
+                                value={String(receiverOperatorRecoveryInventory.backupDispositionReceipts.length)}
+                              />
+                              <MetaItem
                                 label="演練期限"
                                 value={`${receiverOperatorRecoveryInventory.health.drillMaxAgeDays} 天`}
                               />
@@ -6188,18 +6322,200 @@ function App() {
                             {receiverOperatorRecoveryInventory.managedBackups.length > 0 && (
                               <div className="table-wrap">
                                 <table>
-                                  <thead><tr><th>備份／狀態</th><th>產出與保存期限</th><th>內容摘要</th><th>檔案 SHA-256</th></tr></thead>
+                                  <thead><tr><th>備份／狀態</th><th>產出與保存期限</th><th>內容摘要</th><th>檔案 SHA-256</th><th>到期處置</th></tr></thead>
                                   <tbody>
-                                    {receiverOperatorRecoveryInventory.managedBackups.map((item) => (
-                                      <tr key={item.fileName}>
-                                        <td><strong>{item.backupFingerprint}</strong><br />{item.expired ? "已到期" : "保存中"}</td>
-                                        <td>{item.exportedAt}<br />保存至 {item.retentionUntil}</td>
-                                        <td>帳號 {item.operatorCount}；啟用管理員 {item.activeAdminCount}；稽核事件 {item.auditEventCount}</td>
-                                        <td>{item.fileSha256}</td>
+                                    {receiverOperatorRecoveryInventory.managedBackups.map((item) => {
+                                      const claim = receiverOperatorRecoveryInventory.backupDispositionRequests.find(
+                                        (candidate) => candidate.backupFingerprint === item.backupFingerprint
+                                          && ["pending", "removal-in-progress", "completed"].includes(candidate.state),
+                                      );
+                                      return (
+                                        <tr key={item.fileName}>
+                                          <td><strong>{item.backupFingerprint}</strong><br />{item.expired ? "已到期" : "保存中"}</td>
+                                          <td>{item.exportedAt}<br />保存至 {item.retentionUntil}</td>
+                                          <td>帳號 {item.operatorCount}；啟用管理員 {item.activeAdminCount}；稽核事件 {item.auditEventCount}；處置 claim {item.backupDispositionClaimCount}</td>
+                                          <td>{item.fileSha256}</td>
+                                          <td>
+                                            {!item.expired && "未到期"}
+                                            {item.expired && claim && (
+                                              <><strong>{claim.requestFingerprint}</strong><br />{
+                                                claim.state === "pending" ? "待第二人覆核"
+                                                  : claim.state === "removal-in-progress" ? "已核准，待完成"
+                                                    : "已完成但檔案仍存在"
+                                              }</>
+                                            )}
+                                            {item.expired && !claim && (
+                                              <button
+                                                className="secondary"
+                                                type="button"
+                                                disabled={!receiverCanRequestRotation}
+                                                onClick={() => startReceiverOperatorBackupDisposition(item.backupFingerprint)}
+                                              >
+                                                提出雙人處置申請
+                                              </button>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                            {receiverOperatorBackupDispositionDraft.backupFingerprint && (
+                              <div className="receiver-key-rotation-card">
+                                <h4>提出到期備份處置申請</h4>
+                                <p className="meta-line">
+                                  本步驟只建立 72 小時有效的 RBR 申請，不會移除檔案；須由不同登入帳號第二人覆核後才會執行一般檔案移除。
+                                </p>
+                                <div className="meta-grid">
+                                  <MetaItem label="到期備份" value={receiverOperatorBackupDispositionDraft.backupFingerprint} />
+                                  <MetaItem
+                                    label="目前申請帳號"
+                                    value={receiverOperatorAuth.operator
+                                      ? `${receiverOperatorAuth.operator.displayName}｜${receiverOperatorAuth.operator.username}`
+                                      : "未登入"}
+                                  />
+                                </div>
+                                <div className="form-grid compact-form-grid">
+                                  <label><span>案件／變更編號（必填）</span><input
+                                    value={receiverOperatorBackupDispositionDraft.caseReference}
+                                    onChange={(event) => setReceiverOperatorBackupDispositionDraft((current) => ({ ...current, caseReference: event.target.value }))}
+                                  /></label>
+                                  <label className="span-2"><span>處置依據（必填）</span><textarea
+                                    value={receiverOperatorBackupDispositionDraft.basis}
+                                    onChange={(event) => setReceiverOperatorBackupDispositionDraft((current) => ({ ...current, basis: event.target.value }))}
+                                  /></label>
+                                </div>
+                                <label className="check-row">
+                                  <input
+                                    type="checkbox"
+                                    checked={receiverOperatorBackupDispositionDraft.confirmed}
+                                    onChange={(event) => setReceiverOperatorBackupDispositionDraft((current) => ({ ...current, confirmed: event.target.checked }))}
+                                  />
+                                  <span>我確認此副本已到期，提交不同帳號於 72 小時內覆核；此申請本身不會刪除檔案。</span>
+                                </label>
+                                <div className="action-row">
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      !receiverCanRequestRotation
+                                      || !receiverOperatorBackupDispositionDraft.caseReference.trim()
+                                      || !receiverOperatorBackupDispositionDraft.basis.trim()
+                                      || !receiverOperatorBackupDispositionDraft.confirmed
+                                    }
+                                    onClick={() => void handleRequestReceiverOperatorBackupDisposition()}
+                                  >建立 72 小時雙人處置申請</button>
+                                  <button
+                                    className="secondary"
+                                    type="button"
+                                    onClick={() => setReceiverOperatorBackupDispositionDraft(emptyReceiverOperatorBackupDispositionDraft)}
+                                  >取消</button>
+                                </div>
+                              </div>
+                            )}
+                            {receiverOperatorRecoveryInventory.backupDispositionRequests.length > 0 && (
+                              <div className="table-wrap">
+                                <table>
+                                  <thead><tr><th>申請／備份</th><th>案件與依據</th><th>申請與期限</th><th>狀態</th><th>覆核</th></tr></thead>
+                                  <tbody>
+                                    {receiverOperatorRecoveryInventory.backupDispositionRequests.map((claim) => {
+                                      const sameOperator = claim.requestedByOperatorId === receiverOperatorAuth.operator?.id;
+                                      const reservedByAnother = Boolean(
+                                        claim.completionOperatorId
+                                        && claim.completionOperatorId !== receiverOperatorAuth.operator?.id,
+                                      );
+                                      return <tr key={claim.requestFingerprint}>
+                                        <td><strong>{claim.requestFingerprint}</strong><br />{claim.backupFingerprint}</td>
+                                        <td>{claim.caseReference}<br /><span className="table-muted">{claim.basis}</span></td>
+                                        <td>{claim.requestedAt}<br />至 {claim.expiresAt}</td>
+                                        <td>{
+                                          claim.state === "pending" ? "待第二人覆核"
+                                            : claim.state === "removal-in-progress" ? "已核准，處置待結案"
+                                              : claim.state === "completed" ? "已完成"
+                                                : claim.state === "expired" ? "申請逾期"
+                                                  : "申請已阻擋"
+                                        }{claim.receiptFingerprint && <><br /><strong>{claim.receiptFingerprint}</strong></>}</td>
+                                        <td>{["pending", "removal-in-progress"].includes(claim.state) ? (
+                                          <button
+                                            className="secondary"
+                                            type="button"
+                                            disabled={!receiverCanApproveRotation || sameOperator || reservedByAnother}
+                                            onClick={() => startReceiverOperatorBackupDispositionApproval(claim.requestFingerprint)}
+                                          >{claim.state === "pending" ? "第二人覆核" : "續辦中斷處置"}</button>
+                                        ) : "—"}</td>
+                                      </tr>;
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                            {receiverOperatorBackupDispositionApprovalDraft.requestFingerprint && (() => {
+                              const claim = receiverOperatorRecoveryInventory.backupDispositionRequests.find(
+                                (item) => item.requestFingerprint === receiverOperatorBackupDispositionApprovalDraft.requestFingerprint,
+                              );
+                              const sameOperator = claim?.requestedByOperatorId === receiverOperatorAuth.operator?.id;
+                              return claim ? <div className="receiver-key-rotation-card">
+                                <h4>第二人覆核到期備份處置</h4>
+                                <p className="meta-line attention-line">
+                                  覆核通過後，系統會從受管制目錄移除該密文檔並留下 RBD 收據。這只是一般檔案系統項目移除，不是安全抹除；同步端、備份、快照或儲存媒體殘留仍須依組織程序另行處理。
+                                </p>
+                                <div className="meta-grid">
+                                  <MetaItem label="申請指紋" value={claim.requestFingerprint} />
+                                  <MetaItem label="備份指紋" value={claim.backupFingerprint} />
+                                  <MetaItem label="申請帳號 ID" value={claim.requestedByOperatorId} />
+                                  <MetaItem label="目前覆核帳號" value={receiverOperatorAuth.operator ? `${receiverOperatorAuth.operator.displayName}｜${receiverOperatorAuth.operator.username}` : "未登入"} />
+                                </div>
+                                {sameOperator && <p className="meta-line attention-line">目前登入帳號就是申請帳號，後端禁止自行覆核。</p>}
+                                <label className="check-row">
+                                  <input
+                                    type="checkbox"
+                                    checked={receiverOperatorBackupDispositionApprovalDraft.confirmed}
+                                    onChange={(event) => setReceiverOperatorBackupDispositionApprovalDraft((current) => ({ ...current, confirmed: event.target.checked }))}
+                                  />
+                                  <span>我已核對申請指紋、案件依據、保存期限與檔案 SHA-256，並理解此操作不保證安全抹除或其他副本同步刪除。</span>
+                                </label>
+                                <div className="action-row">
+                                  <button
+                                    type="button"
+                                    disabled={!receiverCanApproveRotation || sameOperator || !receiverOperatorBackupDispositionApprovalDraft.confirmed}
+                                    onClick={() => void handleApproveReceiverOperatorBackupDisposition()}
+                                  >覆核通過、移除受管制副本並產生 RBD 收據</button>
+                                  <button
+                                    className="secondary"
+                                    type="button"
+                                    onClick={() => setReceiverOperatorBackupDispositionApprovalDraft(emptyReceiverOperatorBackupDispositionApprovalDraft)}
+                                  >取消</button>
+                                </div>
+                              </div> : null;
+                            })()}
+                            {receiverOperatorRecoveryInventory.backupDispositionReceipts.length > 0 && (
+                              <div className="table-wrap">
+                                <table>
+                                  <thead><tr><th>完成時間</th><th>申請／備份</th><th>案件</th><th>處置邊界</th><th>收據指紋</th></tr></thead>
+                                  <tbody>
+                                    {receiverOperatorRecoveryInventory.backupDispositionReceipts.map((receipt) => (
+                                      <tr key={receipt.receiptFingerprint}>
+                                        <td>{receipt.completedAt}</td>
+                                        <td>{receipt.requestFingerprint}<br />{receipt.backupFingerprint}</td>
+                                        <td>案件雜湊 {receipt.caseReferenceSha256}<br /><span className="table-muted">依據雜湊 {receipt.basisSha256}</span></td>
+                                        <td>受管制目錄已無該檔；一般檔案移除，非安全抹除，其他副本可能仍存在</td>
+                                        <td>{receipt.receiptFingerprint}</td>
                                       </tr>
                                     ))}
                                   </tbody>
                                 </table>
+                              </div>
+                            )}
+                            {receiverOperatorBackupDispositionOutcome && (
+                              <div className="success-line">
+                                <strong>到期備份雙人處置已完成</strong>
+                                <div className="meta-grid">
+                                  <MetaItem label="申請指紋" value={receiverOperatorBackupDispositionOutcome.requestFingerprint} />
+                                  <MetaItem label="備份指紋" value={receiverOperatorBackupDispositionOutcome.backupFingerprint} />
+                                  <MetaItem label="處置收據" value={receiverOperatorBackupDispositionOutcome.receiptFingerprint} />
+                                  <MetaItem label="處置語意" value="一般檔案移除；非安全抹除" />
+                                </div>
                               </div>
                             )}
                             {receiverOperatorRecoveryInventory.drillReceipts.length > 0 && (
@@ -6248,6 +6564,10 @@ function App() {
                                 value={`${receiverOperatorRestorePreview.currentRotationClaimCount} → ${receiverOperatorRestorePreview.backupRotationClaimCount}`}
                               />
                               <MetaItem
+                                label="備份處置 claim 數（目前 → 備份）"
+                                value={`${receiverOperatorRestorePreview.currentBackupDispositionClaimCount} → ${receiverOperatorRestorePreview.backupDispositionClaimCount}`}
+                              />
+                              <MetaItem
                                 label="備份內啟用管理員"
                                 value={receiverOperatorRestorePreview.backupActiveAdminUsernames.join("、") || "無"}
                               />
@@ -6291,7 +6611,7 @@ function App() {
                               </div>
                             )}
                             <p className="meta-line attention-line">
-                              復原採完整置換並撤銷全部工作階段。既有有效資料庫只接受延續目前稽核鏈的備份；只有全新建立、尚未使用的單一啟動管理員環境可作災難復原例外。
+                              復原採完整置換帳號、角色、輪替 claim、備份處置 claim 與稽核鏈，並撤銷全部工作階段。既有有效資料庫只接受延續目前稽核鏈的備份；只有全新建立、尚未使用的單一啟動管理員環境可作災難復原例外。
                             </p>
                             <div className="form-grid">
                               <Field

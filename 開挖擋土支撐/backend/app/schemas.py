@@ -599,6 +599,17 @@ class DrillReceiverOperatorGovernanceBackupRequest(BaseModel):
     recovery_password: str = Field(min_length=1, max_length=256)
 
 
+class RequestReceiverOperatorBackupDispositionRequest(BaseModel):
+    backup_fingerprint: str = Field(pattern=r"^ROB-[0-9A-F]{20}$")
+    case_reference: str = Field(min_length=1, max_length=120)
+    basis: str = Field(min_length=1, max_length=500)
+    request_confirmed: Literal[True]
+
+
+class ApproveReceiverOperatorBackupDispositionRequest(BaseModel):
+    approval_confirmed: Literal[True]
+
+
 class RestoreReceiverTrustRegistryRequest(BaseModel):
     backup: dict[str, Any]
     restore_confirmed: Literal[True]

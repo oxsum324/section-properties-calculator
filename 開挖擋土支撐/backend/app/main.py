@@ -45,8 +45,10 @@ from .receiver_operator_backup import (
     restore_receiver_operator_governance_backup,
 )
 from .receiver_operator_recovery import (
+    approve_receiver_operator_backup_disposition,
     list_receiver_operator_governance_recovery_inventory,
     perform_receiver_operator_governance_recovery_drill,
+    request_receiver_operator_backup_disposition,
     write_managed_receiver_operator_governance_backup,
 )
 from .receiver_capacity import calculate_reshore_member_capacity
@@ -72,6 +74,7 @@ from .schemas import (
     BuildSourceEvidenceVerificationRequest,
     BuildSourceEvidenceSigningRequestRequest,
     ApproveReceiverKeyRotationCompletionRequest,
+    ApproveReceiverOperatorBackupDispositionRequest,
     CompleteReceiverKeyRotationRequest,
     CreateReceiverOperatorRequest,
     CreateProjectRequest,
@@ -80,6 +83,7 @@ from .schemas import (
     ProjectState,
     ReferenceData,
     RequestReceiverKeyRotationCompletionRequest,
+    RequestReceiverOperatorBackupDispositionRequest,
     ReceiverOperatorBootstrapRequest,
     ReceiverOperatorLoginRequest,
     ResetReceiverOperatorPasswordRequest,
@@ -386,6 +390,70 @@ def list_receiver_operator_governance_backup_inventory(request: Request) -> dict
         return list_receiver_operator_governance_recovery_inventory(receiver_operator_store)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post("/api/receiver-operator-governance-backups/disposition-requests")
+def request_receiver_operator_governance_backup_disposition(
+    payload: RequestReceiverOperatorBackupDispositionRequest,
+    request: Request,
+) -> dict[str, Any]:
+    actor = _receiver_operator(
+        request,
+        required_role="receiver-key-requester",
+        require_csrf=True,
+    )
+    try:
+        result = request_receiver_operator_backup_disposition(
+            receiver_operator_store,
+            payload.backup_fingerprint,
+            actor_operator_id=actor["id"],
+            case_reference=payload.case_reference,
+            basis=payload.basis,
+            request_confirmed=payload.request_confirmed,
+        )
+        return {
+            **result,
+            "inventory": list_receiver_operator_governance_recovery_inventory(
+                receiver_operator_store
+            ),
+        }
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post(
+    "/api/receiver-operator-governance-backups/disposition-requests/"
+    "{request_fingerprint}/approve"
+)
+def approve_receiver_operator_governance_backup_disposition(
+    request_fingerprint: str,
+    payload: ApproveReceiverOperatorBackupDispositionRequest,
+    request: Request,
+) -> dict[str, Any]:
+    actor = _receiver_operator(
+        request,
+        required_role="receiver-key-approver",
+        require_csrf=True,
+    )
+    try:
+        result = approve_receiver_operator_backup_disposition(
+            receiver_operator_store,
+            request_fingerprint,
+            actor_operator_id=actor["id"],
+            approval_confirmed=payload.approval_confirmed,
+        )
+        return {
+            **result,
+            "inventory": list_receiver_operator_governance_recovery_inventory(
+                receiver_operator_store
+            ),
+        }
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/receiver-operator-governance-backups/validate")

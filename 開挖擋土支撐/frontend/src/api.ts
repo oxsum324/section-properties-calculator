@@ -22,6 +22,8 @@ import {
   ReceiverOperatorGovernanceBackup,
   ReceiverOperatorGovernanceRestorePreview,
   ReceiverOperatorGovernanceRestoreResult,
+  ReceiverOperatorBackupDispositionRequest,
+  ReceiverOperatorBackupDispositionReceipt,
   ReceiverOperatorManagedBackup,
   ReceiverOperatorRecoveryDrillReceipt,
   ReceiverOperatorRecoveryInventory,
@@ -176,6 +178,44 @@ export const api = {
     request<ReceiverOperatorRecoveryInventory>(
       "/api/receiver-operator-governance-backups/inventory",
     ),
+  requestReceiverOperatorBackupDisposition: (
+    backupFingerprint: string,
+    caseReference: string,
+    basis: string,
+  ) => request<{
+    request: ReceiverOperatorBackupDispositionRequest;
+    auditEventFingerprint: string;
+    inventory: ReceiverOperatorRecoveryInventory;
+  }>("/api/receiver-operator-governance-backups/disposition-requests", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      backup_fingerprint: backupFingerprint,
+      case_reference: caseReference,
+      basis,
+      request_confirmed: true,
+    }),
+  }),
+  approveReceiverOperatorBackupDisposition: (
+    requestFingerprint: string,
+  ) => request<{
+    request: ReceiverOperatorBackupDispositionRequest;
+    receipt: ReceiverOperatorBackupDispositionReceipt;
+    receiptFileName: string;
+    managedFileRemovedDuringCall: boolean;
+    completionRecoveredAfterInterruption: boolean;
+    approvalAuditEventFingerprint: string | null;
+    completionAuditEventFingerprint: string;
+    inventory: ReceiverOperatorRecoveryInventory;
+  }>(
+    "/api/receiver-operator-governance-backups/disposition-requests/"
+      + `${encodeURIComponent(requestFingerprint)}/approve`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ approval_confirmed: true }),
+    },
+  ),
   validateReceiverOperatorGovernanceBackup: (
     backup: ReceiverOperatorGovernanceBackup,
     passphrase: string,

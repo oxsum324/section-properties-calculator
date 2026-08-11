@@ -35,6 +35,11 @@ _SCRYPT_DKLEN = 32
 _OPERATOR_ID_PATTERN = re.compile(r"^ROP-[A-F0-9]{20}$")
 _AUDIT_EVENT_ID_PATTERN = re.compile(r"^ROA-[A-F0-9]{20}$")
 _AUDIT_FINGERPRINT_PATTERN = re.compile(r"^ROE-[A-F0-9]{20}$")
+_BACKUP_DISPOSITION_REQUEST_PATTERN = re.compile(r"^RBR-[A-F0-9]{20}$")
+_BACKUP_DISPOSITION_RECEIPT_PATTERN = re.compile(r"^RBD-[A-F0-9]{20}$")
+_BACKUP_FINGERPRINT_PATTERN = re.compile(r"^ROB-[A-F0-9]{20}$")
+_SNAPSHOT_FINGERPRINT_PATTERN = re.compile(r"^ROG-[A-F0-9]{20}$")
+_FILE_SHA256_PATTERN = re.compile(r"^SHA256-[A-F0-9]{64}$")
 _AUDIT_EVENT_TYPES = {
     "operator-bootstrap-created",
     "operator-created",
@@ -44,6 +49,9 @@ _AUDIT_EVENT_TYPES = {
     "operator-password-reset",
     "operator-password-changed",
     "operator-governance-backup-exported",
+    "operator-backup-disposition-requested",
+    "operator-backup-disposition-approved",
+    "operator-backup-disposition-completed",
     "operator-governance-restored",
 }
 RECEIVER_OPERATOR_GOVERNANCE_SNAPSHOT_KIND = "receiver-operator-governance-snapshot"
@@ -142,6 +150,16 @@ def _require_snapshot_string(value: Any, *, field: str, max_length: int = 500) -
     return text
 
 
+def _backup_disposition_request_fingerprint(payload: dict[str, Any]) -> str:
+    canonical = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return "RBR-" + hashlib.sha256(canonical).hexdigest()[:20].upper()
+
+
 class ReceiverOperatorStore:
     def __init__(self, db_path: Path | None = None) -> None:
         self.db_path = db_path or get_settings().db_path
@@ -207,6 +225,36 @@ class ReceiverOperatorStore:
                 CREATE UNIQUE INDEX IF NOT EXISTS receiver_rotation_one_pending_per_new_key
                     ON receiver_rotation_claims(new_key_id)
                     WHERE state = 'pending';
+                CREATE TABLE IF NOT EXISTS receiver_backup_disposition_claims (
+                    request_fingerprint TEXT PRIMARY KEY,
+                    backup_fingerprint TEXT NOT NULL,
+                    snapshot_fingerprint TEXT NOT NULL,
+                    managed_file_name TEXT NOT NULL,
+                    managed_file_sha256 TEXT NOT NULL,
+                    exported_at TEXT NOT NULL,
+                    retention_until TEXT NOT NULL,
+                    requested_by_operator_id TEXT NOT NULL REFERENCES receiver_operators(id),
+                    requested_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    case_reference TEXT NOT NULL,
+                    basis TEXT NOT NULL,
+                    state TEXT NOT NULL CHECK (
+                        state IN ('pending', 'removal-in-progress', 'completed', 'expired', 'blocked')
+                    ),
+                    approved_by_operator_id TEXT REFERENCES receiver_operators(id),
+                    approved_at TEXT,
+                    completion_operator_id TEXT REFERENCES receiver_operators(id),
+                    completed_at TEXT,
+                    receipt_fingerprint TEXT UNIQUE,
+                    completion_event_fingerprint TEXT UNIQUE,
+                    CHECK (
+                        approved_by_operator_id IS NULL
+                        OR approved_by_operator_id <> requested_by_operator_id
+                    )
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS receiver_backup_disposition_one_open_per_backup
+                    ON receiver_backup_disposition_claims(backup_fingerprint)
+                    WHERE state IN ('pending', 'removal-in-progress');
                 CREATE TABLE IF NOT EXISTS receiver_operator_audit_events (
                     sequence_no INTEGER PRIMARY KEY AUTOINCREMENT,
                     event_id TEXT NOT NULL UNIQUE,
@@ -394,6 +442,25 @@ class ReceiverOperatorStore:
         return row
 
     @classmethod
+    def _require_active_role(
+        cls,
+        connection: sqlite3.Connection,
+        operator_id: str,
+        role: str,
+    ) -> sqlite3.Row:
+        operator = cls._require_operator(connection, operator_id)
+        has_role = connection.execute(
+            """
+            SELECT 1 FROM receiver_operator_roles
+            WHERE operator_id = ? AND role = ?
+            """,
+            (operator_id, role),
+        ).fetchone()
+        if operator["disabled"] or has_role is None:
+            raise PermissionError("操作帳號未啟用或缺少執行此操作所需的角色。")
+        return operator
+
+    @classmethod
     def _require_active_admin(cls, connection: sqlite3.Connection, operator_id: str) -> sqlite3.Row:
         operator = cls._require_operator(connection, operator_id)
         has_admin_role = connection.execute(
@@ -523,6 +590,7 @@ class ReceiverOperatorStore:
             ):
                 raise ValueError("不得移除最後一位啟用中管理員的管理角色。")
             blocked_claim_count = 0
+            blocked_disposition_count = 0
             if (
                 "receiver-key-requester" in current["roles"]
                 and "receiver-key-requester" not in roles
@@ -536,6 +604,15 @@ class ReceiverOperatorStore:
                     (target_operator_id,),
                 )
                 blocked_claim_count = cursor.rowcount
+                cursor = connection.execute(
+                    """
+                    UPDATE receiver_backup_disposition_claims
+                    SET state = 'blocked'
+                    WHERE requested_by_operator_id = ? AND state = 'pending'
+                    """,
+                    (target_operator_id,),
+                )
+                blocked_disposition_count = cursor.rowcount
             connection.execute(
                 "DELETE FROM receiver_operator_roles WHERE operator_id = ?",
                 (target_operator_id,),
@@ -554,6 +631,7 @@ class ReceiverOperatorStore:
                     "previousRoles": current["roles"],
                     "roles": updated["roles"],
                     "blockedPendingRotationClaims": blocked_claim_count,
+                    "blockedPendingBackupDispositionClaims": blocked_disposition_count,
                 },
             )
             connection.commit()
@@ -587,6 +665,7 @@ class ReceiverOperatorStore:
             )
             revoked_session_count = 0
             blocked_claim_count = 0
+            blocked_disposition_count = 0
             if disabled:
                 cursor = connection.execute(
                     "DELETE FROM receiver_operator_sessions WHERE operator_id = ?",
@@ -602,6 +681,15 @@ class ReceiverOperatorStore:
                     (target_operator_id,),
                 )
                 blocked_claim_count = cursor.rowcount
+                cursor = connection.execute(
+                    """
+                    UPDATE receiver_backup_disposition_claims
+                    SET state = 'blocked'
+                    WHERE requested_by_operator_id = ? AND state = 'pending'
+                    """,
+                    (target_operator_id,),
+                )
+                blocked_disposition_count = cursor.rowcount
             updated_row = self._require_operator(connection, target_operator_id)
             updated = self._operator_public(connection, updated_row)
             self._record_audit_event(
@@ -613,6 +701,7 @@ class ReceiverOperatorStore:
                     "disabled": bool(disabled),
                     "revokedSessions": revoked_session_count,
                     "blockedPendingRotationClaims": blocked_claim_count,
+                    "blockedPendingBackupDispositionClaims": blocked_disposition_count,
                 },
             )
             connection.commit()
@@ -868,8 +957,9 @@ class ReceiverOperatorStore:
     def validate_governance_snapshot(cls, snapshot: Any) -> dict[str, Any]:
         if not isinstance(snapshot, dict):
             raise ValueError("操作員治理快照必須是 JSON 物件。")
+        schema_version = snapshot.get("schemaVersion")
         if (
-            snapshot.get("schemaVersion") != 1
+            schema_version not in {1, 2}
             or snapshot.get("kind") != RECEIVER_OPERATOR_GOVERNANCE_SNAPSHOT_KIND
         ):
             raise ValueError("操作員治理快照版本或種類不受支援。")
@@ -995,6 +1085,192 @@ class ReceiverOperatorStore:
             )
             request_fingerprints.add(request_fingerprint)
 
+        raw_disposition_claims = (
+            snapshot.get("backupDispositionClaims")
+            if schema_version == 2
+            else []
+        )
+        if not isinstance(raw_disposition_claims, list):
+            raise ValueError("操作員治理快照的備份處置 claim 格式不正確。")
+        disposition_claims: list[dict[str, Any]] = []
+        disposition_request_fingerprints: set[str] = set()
+        disposition_receipt_fingerprints: set[str] = set()
+        disposition_completion_events: set[str] = set()
+        open_backup_fingerprints: set[str] = set()
+        for raw in raw_disposition_claims:
+            if not isinstance(raw, dict):
+                raise ValueError("操作員治理快照含有格式不正確的備份處置 claim。")
+            backup_fingerprint = _require_snapshot_string(
+                raw.get("backupFingerprint"), field="backupFingerprint", max_length=24
+            )
+            snapshot_fingerprint = _require_snapshot_string(
+                raw.get("snapshotFingerprint"), field="snapshotFingerprint", max_length=24
+            )
+            managed_file_name = _require_snapshot_string(
+                raw.get("managedFileName"), field="managedFileName", max_length=240
+            )
+            managed_file_sha256 = _require_snapshot_string(
+                raw.get("managedFileSha256"), field="managedFileSha256", max_length=71
+            )
+            if (
+                not _BACKUP_FINGERPRINT_PATTERN.fullmatch(backup_fingerprint)
+                or not _SNAPSHOT_FINGERPRINT_PATTERN.fullmatch(snapshot_fingerprint)
+                or not _FILE_SHA256_PATTERN.fullmatch(managed_file_sha256)
+                or Path(managed_file_name).name != managed_file_name
+                or not managed_file_name.endswith(".json")
+            ):
+                raise ValueError("操作員治理快照的備份處置檔案識別資料不正確。")
+            requested_by = _require_snapshot_string(
+                raw.get("requestedByOperatorId"), field="requestedByOperatorId", max_length=24
+            )
+            approved_by = raw.get("approvedByOperatorId")
+            completion_operator_id = raw.get("completionOperatorId")
+            if approved_by is not None:
+                approved_by = _require_snapshot_string(
+                    approved_by, field="approvedByOperatorId", max_length=24
+                )
+            if completion_operator_id is not None:
+                completion_operator_id = _require_snapshot_string(
+                    completion_operator_id, field="completionOperatorId", max_length=24
+                )
+            referenced_ids = {
+                value
+                for value in (requested_by, approved_by, completion_operator_id)
+                if value is not None
+            }
+            if not referenced_ids.issubset(operator_ids):
+                raise ValueError("操作員治理快照的備份處置 claim 引用不存在的操作員。")
+            if approved_by is not None and approved_by == requested_by:
+                raise ValueError("操作員治理快照的備份處置申請人與覆核人不得相同。")
+            exported_at = _iso(
+                _parse_time(_require_snapshot_string(raw.get("exportedAt"), field="exportedAt"))
+            )
+            retention_until = _iso(
+                _parse_time(
+                    _require_snapshot_string(raw.get("retentionUntil"), field="retentionUntil")
+                )
+            )
+            requested_at = _iso(
+                _parse_time(_require_snapshot_string(raw.get("requestedAt"), field="requestedAt"))
+            )
+            expires_at = _iso(
+                _parse_time(_require_snapshot_string(raw.get("expiresAt"), field="expiresAt"))
+            )
+            if not (
+                _parse_time(exported_at) < _parse_time(retention_until) <= _parse_time(requested_at)
+                < _parse_time(expires_at)
+            ):
+                raise ValueError("操作員治理快照的備份處置時間順序不正確。")
+            case_reference = _require_snapshot_string(
+                raw.get("caseReference"), field="caseReference", max_length=120
+            )
+            basis = _require_snapshot_string(raw.get("basis"), field="basis", max_length=500)
+            request_payload = {
+                "backupFingerprint": backup_fingerprint,
+                "snapshotFingerprint": snapshot_fingerprint,
+                "managedFileName": managed_file_name,
+                "managedFileSha256": managed_file_sha256,
+                "exportedAt": exported_at,
+                "retentionUntil": retention_until,
+                "requestedByOperatorId": requested_by,
+                "requestedAt": requested_at,
+                "expiresAt": expires_at,
+                "caseReference": case_reference,
+                "basis": basis,
+            }
+            request_fingerprint = _require_snapshot_string(
+                raw.get("requestFingerprint"), field="requestFingerprint", max_length=24
+            )
+            if (
+                not _BACKUP_DISPOSITION_REQUEST_PATTERN.fullmatch(request_fingerprint)
+                or request_fingerprint in disposition_request_fingerprints
+                or request_fingerprint != _backup_disposition_request_fingerprint(request_payload)
+            ):
+                raise ValueError("操作員治理快照的備份處置申請指紋不正確或重複。")
+            state = _require_snapshot_string(
+                raw.get("state"), field="backupDispositionClaim.state", max_length=24
+            )
+            if state not in {
+                "pending", "removal-in-progress", "completed", "expired", "blocked"
+            }:
+                raise ValueError("操作員治理快照的備份處置 claim 狀態不受支援。")
+            if state in {"pending", "removal-in-progress"}:
+                if backup_fingerprint in open_backup_fingerprints:
+                    raise ValueError("操作員治理快照同一備份含有多筆未結案處置 claim。")
+                open_backup_fingerprints.add(backup_fingerprint)
+            approved_at = raw.get("approvedAt")
+            completed_at = raw.get("completedAt")
+            receipt_fingerprint = raw.get("receiptFingerprint")
+            completion_event = raw.get("completionEventFingerprint")
+            if approved_at is not None:
+                approved_at = _iso(
+                    _parse_time(_require_snapshot_string(approved_at, field="approvedAt"))
+                )
+            if completed_at is not None:
+                completed_at = _iso(
+                    _parse_time(_require_snapshot_string(completed_at, field="completedAt"))
+                )
+            if receipt_fingerprint is not None:
+                receipt_fingerprint = _require_snapshot_string(
+                    receipt_fingerprint, field="receiptFingerprint", max_length=24
+                )
+                if (
+                    not _BACKUP_DISPOSITION_RECEIPT_PATTERN.fullmatch(receipt_fingerprint)
+                    or receipt_fingerprint in disposition_receipt_fingerprints
+                ):
+                    raise ValueError("操作員治理快照的備份處置收據指紋不正確或重複。")
+                disposition_receipt_fingerprints.add(receipt_fingerprint)
+            if completion_event is not None:
+                completion_event = _require_snapshot_string(
+                    completion_event, field="completionEventFingerprint", max_length=24
+                )
+                if (
+                    not _AUDIT_FINGERPRINT_PATTERN.fullmatch(completion_event)
+                    or completion_event in disposition_completion_events
+                ):
+                    raise ValueError("操作員治理快照的備份處置完成事件指紋不正確或重複。")
+                disposition_completion_events.add(completion_event)
+            approval_values = (approved_by, approved_at)
+            reservation_values = (completion_operator_id, completed_at, receipt_fingerprint)
+            if state in {"pending", "expired", "blocked"} and any(
+                value is not None for value in (*approval_values, *reservation_values, completion_event)
+            ):
+                raise ValueError("未覆核的備份處置 claim 不得含有覆核或完成資訊。")
+            if state == "removal-in-progress":
+                if any(value is None for value in approval_values):
+                    raise ValueError("執行中的備份處置 claim 缺少第二人覆核資訊。")
+                reserved = [value is not None for value in reservation_values]
+                if any(reserved) and not all(reserved):
+                    raise ValueError("執行中的備份處置 claim 完成收據保留資訊不完整。")
+                if completion_event is not None:
+                    raise ValueError("尚未完成的備份處置 claim 不得含有完成事件。")
+            if state == "completed" and any(
+                value is None for value in (*approval_values, *reservation_values, completion_event)
+            ):
+                raise ValueError("已完成的備份處置 claim 缺少覆核、收據或事件資訊。")
+            if approved_at is not None and not (
+                _parse_time(requested_at) <= _parse_time(approved_at) <= _parse_time(expires_at)
+            ):
+                raise ValueError("操作員治理快照的備份處置覆核時間不正確。")
+            if completed_at is not None and (
+                approved_at is None or _parse_time(completed_at) < _parse_time(approved_at)
+            ):
+                raise ValueError("操作員治理快照的備份處置完成時間不正確。")
+            disposition_claims.append(
+                {
+                    "requestFingerprint": request_fingerprint,
+                    **request_payload,
+                    "state": state,
+                    "approvedByOperatorId": approved_by,
+                    "approvedAt": approved_at,
+                    "completionOperatorId": completion_operator_id,
+                    "completedAt": completed_at,
+                    "receiptFingerprint": receipt_fingerprint,
+                    "completionEventFingerprint": completion_event,
+                }
+            )
+            disposition_request_fingerprints.add(request_fingerprint)
+
         events = cls._validate_audit_event_list(snapshot.get("auditEvents"), operator_ids=operator_ids)
         if not events or events[0]["eventType"] != "operator-bootstrap-created":
             raise ValueError("操作員治理快照缺少首位管理員建立事件。")
@@ -1005,11 +1281,57 @@ class ReceiverOperatorStore:
         }
         if created_operator_ids != operator_ids:
             raise ValueError("操作員治理快照的帳號與建立事件無法一一對應。")
+        events_by_fingerprint = {event["eventFingerprint"]: event for event in events}
+        for claim in disposition_claims:
+            request_events = [
+                event
+                for event in events
+                if event["eventType"] == "operator-backup-disposition-requested"
+                and event["details"].get("requestFingerprint") == claim["requestFingerprint"]
+                and event["details"].get("backupFingerprint") == claim["backupFingerprint"]
+                and event["actorOperatorId"] == claim["requestedByOperatorId"]
+            ]
+            if len(request_events) != 1:
+                raise ValueError("操作員治理快照的備份處置 claim 缺少唯一申請稽核事件。")
+            if claim["state"] in {"removal-in-progress", "completed"}:
+                approval_events = [
+                    event
+                    for event in events
+                    if event["eventType"] == "operator-backup-disposition-approved"
+                    and event["details"].get("requestFingerprint") == claim["requestFingerprint"]
+                    and event["actorOperatorId"] == claim["approvedByOperatorId"]
+                ]
+                if len(approval_events) != 1:
+                    raise ValueError("操作員治理快照的備份處置 claim 缺少唯一第二人覆核事件。")
+            if claim["state"] == "completed":
+                completion_event = events_by_fingerprint.get(
+                    claim["completionEventFingerprint"]
+                )
+                if (
+                    completion_event is None
+                    or completion_event["eventType"] != "operator-backup-disposition-completed"
+                    or completion_event["details"].get("requestFingerprint")
+                    != claim["requestFingerprint"]
+                    or completion_event["details"].get("receiptFingerprint")
+                    != claim["receiptFingerprint"]
+                    or completion_event["actorOperatorId"] != claim["completionOperatorId"]
+                ):
+                    raise ValueError("操作員治理快照的備份處置完成事件與 claim 不一致。")
         return {
-            "schemaVersion": 1,
+            "schemaVersion": schema_version,
             "kind": RECEIVER_OPERATOR_GOVERNANCE_SNAPSHOT_KIND,
             "operators": sorted(operators, key=lambda item: item["username"].casefold()),
             "rotationClaims": sorted(claims, key=lambda item: item["requestedAt"]),
+            **(
+                {
+                    "backupDispositionClaims": sorted(
+                        disposition_claims,
+                        key=lambda item: item["requestedAt"],
+                    )
+                }
+                if schema_version == 2
+                else {}
+            ),
             "auditEvents": events,
         }
 
@@ -1048,6 +1370,33 @@ class ReceiverOperatorStore:
             }
             for row in claim_rows
         ]
+        disposition_rows = connection.execute(
+            "SELECT * FROM receiver_backup_disposition_claims ORDER BY requested_at"
+        ).fetchall()
+        disposition_claims = [
+            {
+                "requestFingerprint": row["request_fingerprint"],
+                "backupFingerprint": row["backup_fingerprint"],
+                "snapshotFingerprint": row["snapshot_fingerprint"],
+                "managedFileName": row["managed_file_name"],
+                "managedFileSha256": row["managed_file_sha256"],
+                "exportedAt": row["exported_at"],
+                "retentionUntil": row["retention_until"],
+                "requestedByOperatorId": row["requested_by_operator_id"],
+                "requestedAt": row["requested_at"],
+                "expiresAt": row["expires_at"],
+                "caseReference": row["case_reference"],
+                "basis": row["basis"],
+                "state": row["state"],
+                "approvedByOperatorId": row["approved_by_operator_id"],
+                "approvedAt": row["approved_at"],
+                "completionOperatorId": row["completion_operator_id"],
+                "completedAt": row["completed_at"],
+                "receiptFingerprint": row["receipt_fingerprint"],
+                "completionEventFingerprint": row["completion_event_fingerprint"],
+            }
+            for row in disposition_rows
+        ]
         audit_rows = connection.execute(
             "SELECT * FROM receiver_operator_audit_events ORDER BY sequence_no"
         ).fetchall()
@@ -1057,10 +1406,11 @@ class ReceiverOperatorStore:
         ]
         return self.validate_governance_snapshot(
             {
-                "schemaVersion": 1,
+                "schemaVersion": 2,
                 "kind": RECEIVER_OPERATOR_GOVERNANCE_SNAPSHOT_KIND,
                 "operators": operators,
                 "rotationClaims": claims,
+                "backupDispositionClaims": disposition_claims,
                 "auditEvents": events,
             }
         )
@@ -1127,6 +1477,7 @@ class ReceiverOperatorStore:
             )
             connection.execute("DELETE FROM receiver_operator_sessions")
             connection.execute("DELETE FROM receiver_login_attempts")
+            connection.execute("DELETE FROM receiver_backup_disposition_claims")
             connection.execute("DELETE FROM receiver_rotation_claims")
             connection.execute("DELETE FROM receiver_operator_roles")
             connection.execute("DELETE FROM receiver_operator_audit_events")
@@ -1167,6 +1518,31 @@ class ReceiverOperatorStore:
                         claim["requestFingerprint"], claim["newKeyId"], claim["oldKeyId"],
                         claim["requestedByOperatorId"], claim["requestedAt"], claim["expiresAt"],
                         claim["state"], claim["approvedByOperatorId"], claim["approvedAt"],
+                        claim["completionEventFingerprint"],
+                    ),
+                )
+            for claim in validated.get("backupDispositionClaims", []):
+                connection.execute(
+                    """
+                    INSERT INTO receiver_backup_disposition_claims (
+                        request_fingerprint, backup_fingerprint, snapshot_fingerprint,
+                        managed_file_name, managed_file_sha256, exported_at, retention_until,
+                        requested_by_operator_id, requested_at, expires_at,
+                        case_reference, basis, state,
+                        approved_by_operator_id, approved_at,
+                        completion_operator_id, completed_at, receipt_fingerprint,
+                        completion_event_fingerprint
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        claim["requestFingerprint"], claim["backupFingerprint"],
+                        claim["snapshotFingerprint"], claim["managedFileName"],
+                        claim["managedFileSha256"], claim["exportedAt"],
+                        claim["retentionUntil"], claim["requestedByOperatorId"],
+                        claim["requestedAt"], claim["expiresAt"], claim["caseReference"],
+                        claim["basis"], claim["state"], claim["approvedByOperatorId"],
+                        claim["approvedAt"], claim["completionOperatorId"],
+                        claim["completedAt"], claim["receiptFingerprint"],
                         claim["completionEventFingerprint"],
                     ),
                 )
@@ -1492,6 +1868,365 @@ class ReceiverOperatorStore:
                 "SELECT * FROM receiver_rotation_claims ORDER BY requested_at"
             ).fetchall()
         return [dict(row) for row in rows]
+
+    @staticmethod
+    def _backup_disposition_claim_public(row: sqlite3.Row | dict[str, Any]) -> dict[str, Any]:
+        return {
+            "requestFingerprint": row["request_fingerprint"],
+            "backupFingerprint": row["backup_fingerprint"],
+            "snapshotFingerprint": row["snapshot_fingerprint"],
+            "managedFileName": row["managed_file_name"],
+            "managedFileSha256": row["managed_file_sha256"],
+            "exportedAt": row["exported_at"],
+            "retentionUntil": row["retention_until"],
+            "requestedByOperatorId": row["requested_by_operator_id"],
+            "requestedAt": row["requested_at"],
+            "expiresAt": row["expires_at"],
+            "caseReference": row["case_reference"],
+            "basis": row["basis"],
+            "state": row["state"],
+            "approvedByOperatorId": row["approved_by_operator_id"],
+            "approvedAt": row["approved_at"],
+            "completionOperatorId": row["completion_operator_id"],
+            "completedAt": row["completed_at"],
+            "receiptFingerprint": row["receipt_fingerprint"],
+            "completionEventFingerprint": row["completion_event_fingerprint"],
+        }
+
+    def create_backup_disposition_request(
+        self,
+        operator_id: str,
+        backup_item: dict[str, Any],
+        *,
+        case_reference: str,
+        basis: str,
+        request_confirmed: bool,
+    ) -> dict[str, Any]:
+        if request_confirmed is not True:
+            raise ValueError("提出到期備份處置申請前必須明確確認。")
+        case_reference = str(case_reference or "").strip()
+        basis = str(basis or "").strip()
+        if not case_reference or len(case_reference) > 120:
+            raise ValueError("到期備份處置案件／變更編號須為 1 至 120 個字元。")
+        if not basis or len(basis) > 500:
+            raise ValueError("到期備份處置依據須為 1 至 500 個字元。")
+        now = _utc_now()
+        requested_at = _iso(now)
+        expires_at = _iso(now + timedelta(hours=72))
+        request_payload = {
+            "backupFingerprint": backup_item["backupFingerprint"],
+            "snapshotFingerprint": backup_item["snapshotFingerprint"],
+            "managedFileName": backup_item["fileName"],
+            "managedFileSha256": backup_item["fileSha256"],
+            "exportedAt": backup_item["exportedAt"],
+            "retentionUntil": backup_item["retentionUntil"],
+            "requestedByOperatorId": operator_id,
+            "requestedAt": requested_at,
+            "expiresAt": expires_at,
+            "caseReference": case_reference,
+            "basis": basis,
+        }
+        request_fingerprint = _backup_disposition_request_fingerprint(request_payload)
+        with closing(self._connect()) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self._require_active_role(connection, operator_id, "receiver-key-requester")
+            connection.execute(
+                """
+                UPDATE receiver_backup_disposition_claims
+                SET state = 'expired'
+                WHERE state = 'pending' AND expires_at <= ?
+                """,
+                (requested_at,),
+            )
+            active = connection.execute(
+                """
+                SELECT request_fingerprint
+                FROM receiver_backup_disposition_claims
+                WHERE backup_fingerprint = ?
+                  AND state IN ('pending', 'removal-in-progress')
+                """,
+                (backup_item["backupFingerprint"],),
+            ).fetchone()
+            if active:
+                raise ValueError(
+                    f"此到期備份已有未結案處置申請 {active['request_fingerprint']}。"
+                )
+            connection.execute(
+                """
+                INSERT INTO receiver_backup_disposition_claims (
+                    request_fingerprint, backup_fingerprint, snapshot_fingerprint,
+                    managed_file_name, managed_file_sha256, exported_at, retention_until,
+                    requested_by_operator_id, requested_at, expires_at,
+                    case_reference, basis, state
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+                """,
+                (
+                    request_fingerprint,
+                    request_payload["backupFingerprint"],
+                    request_payload["snapshotFingerprint"],
+                    request_payload["managedFileName"],
+                    request_payload["managedFileSha256"],
+                    request_payload["exportedAt"],
+                    request_payload["retentionUntil"],
+                    operator_id,
+                    requested_at,
+                    expires_at,
+                    case_reference,
+                    basis,
+                ),
+            )
+            event = self._record_audit_event(
+                connection,
+                event_type="operator-backup-disposition-requested",
+                actor_operator_id=operator_id,
+                target_operator_id=operator_id,
+                details={
+                    "requestFingerprint": request_fingerprint,
+                    "backupFingerprint": request_payload["backupFingerprint"],
+                    "managedFileSha256": request_payload["managedFileSha256"],
+                    "retentionUntil": request_payload["retentionUntil"],
+                    "caseReference": case_reference,
+                    "basis": basis,
+                    "expiresAt": expires_at,
+                    "automaticExpiryDeletion": False,
+                    "secureEraseGuaranteed": False,
+                },
+            )
+            row = connection.execute(
+                "SELECT * FROM receiver_backup_disposition_claims WHERE request_fingerprint = ?",
+                (request_fingerprint,),
+            ).fetchone()
+            connection.commit()
+        return {
+            "request": self._backup_disposition_claim_public(row),
+            "auditEventFingerprint": event["eventFingerprint"],
+        }
+
+    def prepare_backup_disposition_approval(
+        self,
+        operator_id: str,
+        request_fingerprint: str,
+        *,
+        approval_confirmed: bool,
+    ) -> dict[str, Any]:
+        if approval_confirmed is not True:
+            raise ValueError("第二人覆核到期備份處置前必須明確確認。")
+        approval_event: dict[str, Any] | None = None
+        with closing(self._connect()) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self._require_active_role(connection, operator_id, "receiver-key-approver")
+            row = connection.execute(
+                "SELECT * FROM receiver_backup_disposition_claims WHERE request_fingerprint = ?",
+                (request_fingerprint,),
+            ).fetchone()
+            if row is None:
+                raise ValueError("找不到指定的到期備份處置申請。")
+            if row["state"] == "completed":
+                raise ValueError("此到期備份處置申請已完成，不得重複覆核。")
+            if row["state"] == "pending":
+                if _parse_time(row["expires_at"]) <= _utc_now():
+                    connection.execute(
+                        """
+                        UPDATE receiver_backup_disposition_claims
+                        SET state = 'expired'
+                        WHERE request_fingerprint = ? AND state = 'pending'
+                        """,
+                        (request_fingerprint,),
+                    )
+                    connection.commit()
+                    raise ValueError("此到期備份處置申請已逾 72 小時，請重新提出。")
+                if row["requested_by_operator_id"] == operator_id:
+                    raise ValueError("到期備份處置覆核帳號必須與申請帳號不同。")
+                approved_at = _iso(_utc_now())
+                connection.execute(
+                    """
+                    UPDATE receiver_backup_disposition_claims
+                    SET state = 'removal-in-progress', approved_by_operator_id = ?, approved_at = ?
+                    WHERE request_fingerprint = ? AND state = 'pending'
+                    """,
+                    (operator_id, approved_at, request_fingerprint),
+                )
+                approval_event = self._record_audit_event(
+                    connection,
+                    event_type="operator-backup-disposition-approved",
+                    actor_operator_id=operator_id,
+                    target_operator_id=row["requested_by_operator_id"],
+                    details={
+                        "requestFingerprint": request_fingerprint,
+                        "backupFingerprint": row["backup_fingerprint"],
+                        "caseReference": row["case_reference"],
+                        "ordinaryFilesystemRemovalAuthorized": True,
+                        "secureEraseGuaranteed": False,
+                    },
+                )
+            elif row["state"] != "removal-in-progress":
+                raise ValueError("此到期備份處置申請已非待覆核狀態。")
+            elif row["requested_by_operator_id"] == operator_id:
+                raise ValueError("到期備份處置執行帳號不得是原申請帳號。")
+            row = connection.execute(
+                "SELECT * FROM receiver_backup_disposition_claims WHERE request_fingerprint = ?",
+                (request_fingerprint,),
+            ).fetchone()
+            connection.commit()
+        return {
+            "claim": self._backup_disposition_claim_public(row),
+            "approvalAuditEventFingerprint": (
+                approval_event["eventFingerprint"] if approval_event else None
+            ),
+        }
+
+    def reserve_backup_disposition_completion(
+        self,
+        operator_id: str,
+        request_fingerprint: str,
+    ) -> dict[str, Any]:
+        with closing(self._connect()) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self._require_active_role(connection, operator_id, "receiver-key-approver")
+            row = connection.execute(
+                "SELECT * FROM receiver_backup_disposition_claims WHERE request_fingerprint = ?",
+                (request_fingerprint,),
+            ).fetchone()
+            if row is None or row["state"] != "removal-in-progress":
+                raise ValueError("到期備份處置不是可完成的執行中狀態。")
+            if row["requested_by_operator_id"] == operator_id:
+                raise ValueError("到期備份處置完成帳號不得是原申請帳號。")
+            if (
+                row["completion_operator_id"] is not None
+                and row["completion_operator_id"] != operator_id
+            ):
+                raise ValueError("到期備份處置已由另一覆核帳號保留完成資訊。")
+            if row["completion_operator_id"] is None:
+                connection.execute(
+                    """
+                    UPDATE receiver_backup_disposition_claims
+                    SET completion_operator_id = ?, completed_at = ?
+                    WHERE request_fingerprint = ? AND state = 'removal-in-progress'
+                    """,
+                    (operator_id, _iso(_utc_now()), request_fingerprint),
+                )
+            row = connection.execute(
+                "SELECT * FROM receiver_backup_disposition_claims WHERE request_fingerprint = ?",
+                (request_fingerprint,),
+            ).fetchone()
+            connection.commit()
+        return self._backup_disposition_claim_public(row)
+
+    def reserve_backup_disposition_receipt(
+        self,
+        request_fingerprint: str,
+        *,
+        completion_operator_id: str,
+        completed_at: str,
+        receipt_fingerprint: str,
+    ) -> dict[str, Any]:
+        with closing(self._connect()) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT * FROM receiver_backup_disposition_claims WHERE request_fingerprint = ?",
+                (request_fingerprint,),
+            ).fetchone()
+            if row is None or row["state"] != "removal-in-progress":
+                raise ValueError("到期備份處置不是可保留收據的執行中狀態。")
+            if (
+                row["completion_operator_id"] != completion_operator_id
+                or row["completed_at"] != completed_at
+            ):
+                raise ValueError("到期備份處置完成保留資訊已變更。")
+            if row["receipt_fingerprint"] not in {None, receipt_fingerprint}:
+                raise ValueError("到期備份處置已保留不同的收據指紋。")
+            connection.execute(
+                """
+                UPDATE receiver_backup_disposition_claims
+                SET receipt_fingerprint = ?
+                WHERE request_fingerprint = ? AND state = 'removal-in-progress'
+                """,
+                (receipt_fingerprint, request_fingerprint),
+            )
+            row = connection.execute(
+                "SELECT * FROM receiver_backup_disposition_claims WHERE request_fingerprint = ?",
+                (request_fingerprint,),
+            ).fetchone()
+            connection.commit()
+        return self._backup_disposition_claim_public(row)
+
+    def complete_backup_disposition(
+        self,
+        operator_id: str,
+        request_fingerprint: str,
+    ) -> dict[str, Any]:
+        with closing(self._connect()) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self._require_active_role(connection, operator_id, "receiver-key-approver")
+            row = connection.execute(
+                "SELECT * FROM receiver_backup_disposition_claims WHERE request_fingerprint = ?",
+                (request_fingerprint,),
+            ).fetchone()
+            if row is None or row["state"] != "removal-in-progress":
+                raise ValueError("到期備份處置不是可結案的執行中狀態。")
+            if row["requested_by_operator_id"] == operator_id:
+                raise ValueError("到期備份處置結案帳號不得是原申請帳號。")
+            if row["completion_operator_id"] != operator_id:
+                raise ValueError("到期備份處置必須由保留完成資訊的覆核帳號結案。")
+            if any(
+                row[field] is None
+                for field in (
+                    "approved_by_operator_id", "approved_at", "completion_operator_id",
+                    "completed_at", "receipt_fingerprint",
+                )
+            ):
+                raise ValueError("到期備份處置缺少覆核或收據保留資訊。")
+            event = self._record_audit_event(
+                connection,
+                event_type="operator-backup-disposition-completed",
+                actor_operator_id=operator_id,
+                target_operator_id=row["requested_by_operator_id"],
+                details={
+                    "requestFingerprint": request_fingerprint,
+                    "backupFingerprint": row["backup_fingerprint"],
+                    "receiptFingerprint": row["receipt_fingerprint"],
+                    "managedFileRemoved": True,
+                    "automaticExpiryDeletion": False,
+                    "secureEraseGuaranteed": False,
+                    "otherCopiesMayRemain": True,
+                },
+            )
+            cursor = connection.execute(
+                """
+                UPDATE receiver_backup_disposition_claims
+                SET state = 'completed', completion_event_fingerprint = ?
+                WHERE request_fingerprint = ? AND state = 'removal-in-progress'
+                """,
+                (event["eventFingerprint"], request_fingerprint),
+            )
+            if cursor.rowcount != 1:
+                raise ValueError("到期備份處置狀態已變更，未完成結案。")
+            row = connection.execute(
+                "SELECT * FROM receiver_backup_disposition_claims WHERE request_fingerprint = ?",
+                (request_fingerprint,),
+            ).fetchone()
+            connection.commit()
+        return {
+            "claim": self._backup_disposition_claim_public(row),
+            "completionAuditEventFingerprint": event["eventFingerprint"],
+        }
+
+    def backup_disposition_claims(self) -> list[dict[str, Any]]:
+        with closing(self._connect()) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                """
+                UPDATE receiver_backup_disposition_claims
+                SET state = 'expired'
+                WHERE state = 'pending' AND expires_at <= ?
+                """,
+                (_iso(_utc_now()),),
+            )
+            rows = connection.execute(
+                "SELECT * FROM receiver_backup_disposition_claims ORDER BY requested_at DESC"
+            ).fetchall()
+            connection.commit()
+        return [self._backup_disposition_claim_public(row) for row in rows]
 
 
 def operator_role_label(role: str) -> str:

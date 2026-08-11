@@ -25,6 +25,32 @@ PASSPHRASE = "Governance-Backup-Phrase-2026!"
 
 
 class ReceiverOperatorBackupTests(unittest.TestCase):
+    def test_legacy_v1_backup_remains_readable_after_disposition_claim_upgrade(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = ReceiverOperatorStore(Path(directory) / "operators.sqlite3")
+            store.bootstrap("legacy-admin", "舊版備份管理員", "Legacy-Strong-2026!")
+            current = store.governance_snapshot()
+            legacy_snapshot = {
+                "schemaVersion": 1,
+                "kind": current["kind"],
+                "operators": current["operators"],
+                "rotationClaims": current["rotationClaims"],
+                "auditEvents": current["auditEvents"],
+            }
+            legacy_backup = backup_module._encrypt_snapshot(
+                legacy_snapshot,
+                PASSPHRASE,
+                exported_at="2026-08-01T00:00:00Z",
+            )
+            self.assertEqual(legacy_backup["schemaVersion"], 1)
+            self.assertNotIn("backupDispositionClaimCount", legacy_backup["summary"])
+            _, decrypted = decrypt_receiver_operator_governance_backup(
+                legacy_backup,
+                PASSPHRASE,
+            )
+            self.assertEqual(decrypted["schemaVersion"], 1)
+            self.assertNotIn("backupDispositionClaims", decrypted)
+
     def test_encrypted_backup_hides_credentials_accounts_and_runtime_sessions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             store = ReceiverOperatorStore(Path(directory) / "operators.sqlite3")
