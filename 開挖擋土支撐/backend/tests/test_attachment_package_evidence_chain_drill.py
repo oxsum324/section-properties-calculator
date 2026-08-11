@@ -14,6 +14,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from backend.app.calculations import calculate_project
+from backend.app.receiver_capacity import calculate_reshore_member_capacity
 from backend.app.receiver_trust_backup import build_receiver_trust_registry_backup
 from backend.app.receiver_trust_store import ReceiverTrustStore
 from backend.app.removal_transfer_handoff import (
@@ -27,7 +28,7 @@ from backend.app.removal_transfer_handoff import (
 )
 from backend.app.pdf_render_evidence import build_pdf_canonical_render_evidence, build_pdf_formal_source_bundle
 from backend.app.reporting import build_report, calculation_fingerprint
-from backend.app.schemas import AnalysisForceCase
+from backend.app.schemas import AnalysisForceCase, ReshoreMemberCapacityInput
 from backend.app.workbook_loader import load_default_project
 from backend.sign_receiver_request import build_signature_response
 from backend.verify_source_evidence_chain import build_source_evidence_chain_verification_receipt
@@ -75,8 +76,8 @@ def _completed_project():
     row.analysis_control_stage_label = "第二階開挖"
     row.analysis_removal_stage_index = 3
     row.analysis_removal_stage_label = "第一道支撐拆除"
-    row.removal_transfer_mode = "floor"
-    row.removal_transfer_target = "B2F 樓版 S1 區"
+    row.removal_transfer_mode = "reshore"
+    row.removal_transfer_target = "B2F R1 重撐群"
     row.removal_transfer_direction = "沿支撐軸線"
     row.removal_transfer_basis = "匿名化拆撐順序圖 CS-04"
     row.removal_transfer_confirmed = True
@@ -94,66 +95,33 @@ class AttachmentPackageEvidenceChainDrillTests(unittest.TestCase):
         handoff = build_removal_transfer_handoff(project, fingerprint)
         transfer = handoff["transfers"][0]
         demand = transfer["sourceDemand"]["receiverTransferDemandTf"]
-        receipt = build_receiver_verification_receipt(
+        rsc = calculate_reshore_member_capacity(
             handoff,
-            {
-                "organization": "匿名化承接構造設計單位",
-                "verifierName": "承接端覆核人",
-                "verifierRole": "結構設計覆核",
-                "reportReference": "ANON-RV-001",
-            },
-            [{
-                "transferId": transfer["transferId"],
-                "receiverTarget": transfer["receiver"]["target"],
-                "adoptedDemandTf": demand,
-                "verifiedCapacityTf": demand / 0.8,
-                "capacityEvidence": {
-                    "documentReference": "ANON-RV-001",
-                    "revision": "A",
-                    "issuedDate": "2026-08-08",
-                    "pageReference": "第 12 頁",
-                    "fileName": "receiver-capacity.pdf",
-                    "fileSha256": "a" * 64,
-                },
-                "verificationScope": {
-                    "analysisModelReference": "承接構造正式分析模型 RV-01",
-                    "governingLoadCombination": "拆撐階段 LC-RM-01",
-                    "directionAndDistributionBasis": "依施工順序圖及模型反力分配",
-                    "eccentricityAndSecondaryEffectBasis": "依節點偏心與二階分析結果",
-                    "checkedLimitStates": ["axial", "shear", "connection"],
-                    "otherChecksStatus": "passed",
-                },
-                "verificationBasis": "匿名化承接構造正式分析",
-                "conclusion": "容量檢核完成",
-            }],
+            transfer["transferId"],
+            ReshoreMemberCapacityInput(
+                section_name="RH300X300X10X15",
+                member_count=2,
+                unbraced_length_x_m=3.0,
+                unbraced_length_y_m=3.0,
+                effective_length_factor_kx=1.0,
+                effective_length_factor_ky=1.0,
+                fy_tf_per_cm2=2.5,
+                e_tf_per_cm2=2040.0,
+                allowable_stress_increase_factor=1.0,
+                imbalance_factor=1.1,
+                additional_axial_load_tf_per_member=1.0,
+                governing_load_combination="拆撐階段 LC-RM-01",
+                effective_length_basis="上下端依施工詳圖視為鉸接，Kx=Ky=1.0",
+                load_distribution_basis="兩支平均分配並以 1.10 不均勻係數放大",
+                additional_load_basis="單支自重及預壓附加軸力 1.0 tf",
+                pure_axial_no_eccentricity_confirmed=True,
+            ),
+            generated_at="2026-08-11T09:00:00Z",
         )
-        sev = build_source_capacity_evidence_verification(
-            handoff,
-            receipt,
-            {
-                "organization": "匿名化來源端設計單位",
-                "verifierName": "來源端覆核人",
-                "verifierRole": "設計覆核",
-            },
-            "逐列比對匿名化接收端正式文件",
-            [{
-                "transferId": transfer["transferId"],
-                "selectedFileName": "receiver-capacity.pdf",
-                "actualSha256": "a" * 64,
-            }],
-        )
+        self.assertEqual(rsc["calculation"]["results"]["status"], "passed")
 
         receiver_key = Ed25519PrivateKey.generate()
         source_key = Ed25519PrivateKey.generate()
-        receipt = attach_receiver_identity_signature(
-            receipt,
-            handoff,
-            build_signature_response(build_receiver_identity_signing_request(receipt, handoff), receiver_key),
-        )
-        sev = attach_source_evidence_identity_signature(
-            sev,
-            build_signature_response(build_source_evidence_identity_signing_request(sev), source_key),
-        )
 
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -174,6 +142,98 @@ class AttachmentPackageEvidenceChainDrillTests(unittest.TestCase):
                 independent_verification_confirmed=True,
             )
             trust_backup = build_receiver_trust_registry_backup(trust_store)
+
+            # RVR controls this exact receiver document by file name and SHA-256. It is
+            # intentionally outside the source-side attachment input: the formal package
+            # keeps the calculation report in 01 and governance JSON in 99, while the
+            # receiver document remains a separately exchanged evidence file checked by SEV.
+            receiver_capacity_path = root / "receiver-capacity-formal.json"
+            receiver_capacity_fingerprint = (
+                "CF-" + rsc["calculation"]["calculationFingerprint"].split("-", 1)[1][:16]
+            )
+            formal_receiver_capacity = {
+                "schemaVersion": 1,
+                "kind": "receiver-capacity-formal-check-record",
+                "projectNo": PROJECT_NO,
+                "tool": {
+                    "id": "excavation-reshore-receiver-check",
+                    "name": "重撐承接構造正式檢核",
+                    "version": "v1.0",
+                },
+                "outputTime": "2026-08-11T09:30:00Z",
+                "calculationFingerprint": receiver_capacity_fingerprint,
+                "documentReference": "ANON-RV-001",
+                "revision": "A",
+                "issuedDate": "2026-08-11",
+                "reshoreMemberCapacity": rsc["calculation"],
+                "supplementalChecks": {
+                    "connection": "passed",
+                    "topAndBottomBearing": "passed",
+                    "baseAndFoundation": "passed",
+                    "constructionSequenceAndPreload": "passed",
+                    "basis": "匿名化接頭、承壓、基礎及施工程序正式檢核附件",
+                },
+            }
+            _write_json(receiver_capacity_path, formal_receiver_capacity)
+            receiver_capacity_sha256 = _sha256(receiver_capacity_path)
+            verified_capacity = rsc["calculation"]["results"]["adoptableTransferCapacityTf"]
+            receipt = build_receiver_verification_receipt(
+                handoff,
+                {
+                    "organization": "匿名化承接構造設計單位",
+                    "verifierName": "承接端覆核人",
+                    "verifierRole": "結構設計覆核",
+                    "reportReference": "ANON-RV-001",
+                },
+                [{
+                    "transferId": transfer["transferId"],
+                    "receiverTarget": transfer["receiver"]["target"],
+                    "adoptedDemandTf": demand,
+                    "verifiedCapacityTf": verified_capacity,
+                    "capacityEvidence": {
+                        "documentReference": "ANON-RV-001",
+                        "revision": "A",
+                        "issuedDate": "2026-08-11",
+                        "pageReference": "JSON 全文",
+                        "fileName": receiver_capacity_path.name,
+                        "fileSha256": receiver_capacity_sha256,
+                    },
+                    "verificationScope": {
+                        "analysisModelReference": rsc["calculation"]["calculationFingerprint"],
+                        "governingLoadCombination": "拆撐階段 LC-RM-01",
+                        "directionAndDistributionBasis": "兩支平均分配並以 1.10 不均勻係數放大",
+                        "eccentricityAndSecondaryEffectBasis": "純軸壓無偏心；另依正式施工詳圖確認",
+                        "checkedLimitStates": ["axial", "stability", "connection", "foundation"],
+                        "otherChecksStatus": "passed",
+                    },
+                    "verificationBasis": "RSC 純軸壓實算及匿名化補充正式檢核",
+                    "conclusion": "H 型鋼重撐容量與補充查核均完成",
+                }],
+            )
+            sev = build_source_capacity_evidence_verification(
+                handoff,
+                receipt,
+                {
+                    "organization": "匿名化來源端設計單位",
+                    "verifierName": "來源端覆核人",
+                    "verifierRole": "設計覆核",
+                },
+                "逐列比對匿名化接收端正式文件",
+                [{
+                    "transferId": transfer["transferId"],
+                    "selectedFileName": receiver_capacity_path.name,
+                    "actualSha256": receiver_capacity_sha256,
+                }],
+            )
+            receipt = attach_receiver_identity_signature(
+                receipt,
+                handoff,
+                build_signature_response(build_receiver_identity_signing_request(receipt, handoff), receiver_key),
+            )
+            sev = attach_source_evidence_identity_signature(
+                sev,
+                build_signature_response(build_source_evidence_identity_signing_request(sev), source_key),
+            )
 
             handoff_path = source_dir / "handoff.json"
             receipt_path = source_dir / "receipt.json"

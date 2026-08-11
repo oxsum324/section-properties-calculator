@@ -1384,6 +1384,60 @@ button.danger-button {
   grid-column: span 2;
 }
 
+.reshore-capacity-panel {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid rgba(14, 116, 144, 0.24);
+  border-radius: 16px;
+  background: rgba(236, 254, 255, 0.7);
+}
+
+.reshore-capacity-panel > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reshore-capacity-panel > header div {
+  display: grid;
+  gap: 4px;
+}
+
+.reshore-capacity-panel > header span,
+.reshore-capacity-result span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.reshore-applicability-check {
+  align-items: flex-start;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.reshore-capacity-result {
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+  border-radius: 14px;
+}
+
+.reshore-capacity-result.ok {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.reshore-capacity-result.ng {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
 .receiver-limit-state-fieldset {
   grid-column: span 2;
   margin: 0;

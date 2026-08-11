@@ -471,6 +471,71 @@ export type ReceiverVerificationResult = {
   conclusion: string;
 };
 
+export type ReshoreMemberCapacityInput = {
+  section_name: string;
+  member_count: number;
+  unbraced_length_x_m: number;
+  unbraced_length_y_m: number;
+  effective_length_factor_kx: number;
+  effective_length_factor_ky: number;
+  fy_tf_per_cm2: number;
+  e_tf_per_cm2: number;
+  allowable_stress_increase_factor: 1 | 1.25;
+  imbalance_factor: number;
+  additional_axial_load_tf_per_member: number;
+  governing_load_combination: string;
+  effective_length_basis: string;
+  load_distribution_basis: string;
+  additional_load_basis: string;
+  stress_increase_basis: string;
+  pure_axial_no_eccentricity_confirmed: boolean;
+};
+
+export type ReshoreMemberCapacityCalculationResponse = {
+  calculation: {
+    schemaVersion: 1;
+    kind: "excavation-reshore-member-capacity-calculation";
+    generatedAt: string;
+    calculationFingerprint: string;
+    results: {
+      status: "passed" | "failed";
+      controllingAxis: "X" | "Y";
+      klrX: number;
+      klrY: number;
+      klrMax: number;
+      cc: number;
+      baseAllowableAxialStressTfPerCm2: number;
+      adjustedAllowableAxialStressTfPerCm2: number;
+      perMemberCapacityTf: number;
+      transferDemandPerMemberTf: number;
+      totalDemandPerMemberTf: number;
+      nominalTransferCapacityTf: number;
+      adoptableTransferCapacityTf: number;
+      memberTotalUtilizationRatio: number | null;
+      capacityUtilizationRatio: number | null;
+      flangeSlendernessRatio: number;
+      flangeSlendernessLimit: number;
+      webSlendernessRatio: number;
+      webSlendernessLimit: number;
+      checks: {
+        memberSlenderness: "passed" | "failed";
+        localSlenderness: "passed" | "failed";
+        axialCapacity: "passed" | "failed";
+      };
+    };
+    verificationScope: {
+      checkedLimitStates: ReceiverLimitState[];
+      uncoveredChecks: string[];
+      otherChecksStatus: "failed";
+    };
+  };
+  evidence: ReceiverCapacityEvidence & {
+    mediaType: "application/json";
+    contentEncoding: "base64";
+    contentBase64: string;
+  };
+};
+
 export type ReceiverCapacityVerificationReceipt = {
   schemaVersion: 1 | 2 | 3 | 4;
   kind: "receiver-capacity-verification-receipt";

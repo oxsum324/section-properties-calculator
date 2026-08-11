@@ -33,6 +33,7 @@ from .removal_transfer_handoff import (
     verify_source_evidence_identity_signature,
 )
 from .receiver_trust_store import ReceiverTrustStore
+from .receiver_capacity import calculate_reshore_member_capacity
 from .receiver_key_enrollment import validate_receiver_key_enrollment
 from .receiver_trust_backup import (
     build_receiver_trust_registry_backup,
@@ -48,6 +49,7 @@ from .schemas import (
     BootstrapPayload,
     BraceRow,
     BuildReceiverReceiptRequest,
+    CalculateReshoreMemberCapacityRequest,
     BuildReceiverSigningRequestRequest,
     BuildSourceEvidenceVerificationRequest,
     BuildSourceEvidenceSigningRequestRequest,
@@ -275,6 +277,20 @@ def build_external_receiver_verification_receipt(
         "receipt": receipt,
         "receiptValidation": _receipt_validation(receipt),
     }
+
+
+@app.post("/api/removal-transfer/reshore-member-capacity")
+def calculate_external_reshore_member_capacity(
+    request: CalculateReshoreMemberCapacityRequest,
+) -> dict[str, Any]:
+    try:
+        return calculate_reshore_member_capacity(
+            request.handoff,
+            request.transfer_id,
+            request.calculation_input,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/removal-transfer-receipts/validate")

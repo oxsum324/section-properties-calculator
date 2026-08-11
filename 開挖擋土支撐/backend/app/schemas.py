@@ -437,6 +437,32 @@ class ValidateReceiverReceiptRequest(BaseModel):
     receipt: dict[str, Any]
 
 
+class ReshoreMemberCapacityInput(BaseModel):
+    section_name: str = Field(min_length=1, max_length=80)
+    member_count: int = Field(ge=1, le=100, strict=True)
+    unbraced_length_x_m: float = Field(gt=0, le=20)
+    unbraced_length_y_m: float = Field(gt=0, le=20)
+    effective_length_factor_kx: float = Field(ge=0.5, le=3)
+    effective_length_factor_ky: float = Field(ge=0.5, le=3)
+    fy_tf_per_cm2: float = Field(gt=0, le=10)
+    e_tf_per_cm2: float = Field(gt=0, le=10000)
+    allowable_stress_increase_factor: Literal[1.0, 1.25] = 1.0
+    imbalance_factor: float = Field(ge=1, le=2)
+    additional_axial_load_tf_per_member: float = Field(ge=0, le=1000)
+    governing_load_combination: str = Field(min_length=1, max_length=240)
+    effective_length_basis: str = Field(min_length=1, max_length=240)
+    load_distribution_basis: str = Field(min_length=1, max_length=240)
+    additional_load_basis: str = Field(default="", max_length=240)
+    stress_increase_basis: str = Field(default="", max_length=240)
+    pure_axial_no_eccentricity_confirmed: Literal[True]
+
+
+class CalculateReshoreMemberCapacityRequest(BaseModel):
+    handoff: dict[str, Any]
+    transfer_id: str = Field(pattern=r"^ERT-[0-9A-F]{20}$")
+    calculation_input: ReshoreMemberCapacityInput
+
+
 class BuildSourceEvidenceVerificationRequest(BaseModel):
     handoff_fingerprint: str = Field(min_length=1, max_length=40)
     receipt_fingerprint: str = Field(min_length=1, max_length=40)

@@ -265,6 +265,7 @@
         '開挖擋土支撐/backend/app/reporting.py',
         '開挖擋土支撐/backend/app/schemas.py',
         '開挖擋土支撐/backend/app/removal_transfer_handoff.py',
+        '開挖擋土支撐/backend/app/receiver_capacity.py',
         '開挖擋土支撐/backend/app/receiver_trust_backup.py',
         '開挖擋土支撐/backend/app/receiver_trust_recovery.py'
       ]
@@ -832,11 +833,11 @@
       categories: ['temporary'],
       state: 'service',
       governance: 'excavation-service',
-      output: '支撐構件檢核、PDF/DOCX 報表與案件資料庫',
-      summary: 'FastAPI + React + SQLite 工作流，匯入分析檔、構件檢核與 PDF/DOCX 報表。',
-      fit: '支撐、橫擋、斜撐、大角撐與分析輸出匯入。',
-      limit: '需先啟動前後端服務。',
-      capabilities: ['本機服務', 'PDF/DOCX']
+      output: '支撐構件檢核、重撐軸壓承接、PDF/DOCX 報表與案件資料庫',
+      summary: 'FastAPI + React + SQLite 工作流，匯入分析檔、構件檢核、受限 H 型鋼重撐軸壓實算與 PDF/DOCX 報表。',
+      fit: '支撐、橫擋、斜撐、大角撐、分析輸出匯入與 ERH 重撐承接。',
+      limit: '需先啟動本機前後端服務；重撐實算不含接頭、承壓、基礎／樓版與施工程序。',
+      capabilities: ['本機服務', 'PDF/DOCX', 'RSC 證據鏈']
     }
   ];
 

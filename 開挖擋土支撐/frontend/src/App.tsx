@@ -29,6 +29,8 @@ import {
   ReceiverTrustRestorePreview,
   ReceiverVerificationAuthority,
   ReceiverVerificationResult,
+  ReshoreMemberCapacityCalculationResponse,
+  ReshoreMemberCapacityInput,
   ReferenceData,
   RemovalTransferHandoff,
   RemovalTransferMode,
@@ -328,6 +330,8 @@ function App() {
     reportReference: "",
   });
   const [receiverAssistantResults, setReceiverAssistantResults] = useState<ReceiverVerificationResult[]>([]);
+  const [reshoreCapacityDrafts, setReshoreCapacityDrafts] = useState<Record<string, ReshoreMemberCapacityInput>>({});
+  const [reshoreCapacityCalculations, setReshoreCapacityCalculations] = useState<Record<string, ReshoreMemberCapacityCalculationResponse>>({});
   const [receiverCalculationConfirmed, setReceiverCalculationConfirmed] = useState(false);
   const [receiverIdentityAcknowledged, setReceiverIdentityAcknowledged] = useState(false);
   const [receiverAssistantReceipt, setReceiverAssistantReceipt] = useState<ReceiverCapacityVerificationReceipt | null>(null);
@@ -412,6 +416,10 @@ function App() {
       && Boolean(result.verificationScope?.eccentricityAndSecondaryEffectBasis.trim())
       && (result.verificationScope?.checkedLimitStates.length ?? 0) > 0
       && ["passed", "failed"].includes(result.verificationScope?.otherChecksStatus ?? "")
+      && !(
+        result.verificationScope?.otherChecksStatus === "passed"
+        && /^RSC-[0-9A-F]{20}$/.test(result.capacityEvidence?.documentReference ?? "")
+      )
       && result.status === (
         result.adoptedDemandTf / (result.verifiedCapacityTf ?? 1) <= 1.000000001
         && result.verificationScope?.otherChecksStatus === "passed"
@@ -884,6 +892,8 @@ function App() {
   function loadReceiverAssistantHandoff(record: RemovalTransferHandoff) {
     setReceiverAssistantHandoff(record);
     setReceiverAssistantResults(receiverResultDrafts(record));
+    setReshoreCapacityDrafts(receiverCapacityDrafts(record, bootstrap?.reference_data));
+    setReshoreCapacityCalculations({});
     setReceiverCalculationConfirmed(false);
     setReceiverIdentityAcknowledged(false);
     setReceiverAssistantReceipt(null);
@@ -1012,6 +1022,107 @@ function App() {
     setReceiverAssistantAuthority((current) => ({ ...current, [field]: value }));
     setReceiverAssistantReceipt(null);
     setReceiverAssistantIdentityVerification(null);
+  }
+
+  function updateReshoreCapacityDraft(
+    transferId: string,
+    field: keyof ReshoreMemberCapacityInput,
+    value: string | boolean,
+  ) {
+    setReshoreCapacityDrafts((current) => {
+      const draft = current[transferId];
+      if (!draft) return current;
+      const numericFields: Array<keyof ReshoreMemberCapacityInput> = [
+        "member_count",
+        "unbraced_length_x_m",
+        "unbraced_length_y_m",
+        "effective_length_factor_kx",
+        "effective_length_factor_ky",
+        "fy_tf_per_cm2",
+        "e_tf_per_cm2",
+        "allowable_stress_increase_factor",
+        "imbalance_factor",
+        "additional_axial_load_tf_per_member",
+      ];
+      const nextValue = numericFields.includes(field)
+        ? Number(value)
+        : value;
+      return { ...current, [transferId]: { ...draft, [field]: nextValue } };
+    });
+    setReshoreCapacityCalculations((current) => {
+      if (!current[transferId]) return current;
+      const next = { ...current };
+      delete next[transferId];
+      return next;
+    });
+    setReceiverAssistantReceipt(null);
+  }
+
+  async function handleCalculateReshoreMemberCapacity(index: number) {
+    if (!receiverAssistantHandoff) return;
+    const transfer = receiverAssistantHandoff.transfers[index];
+    const draft = reshoreCapacityDrafts[transfer.transferId];
+    if (!draft) return;
+    try {
+      setBusy("計算重撐／回撐 H 型鋼軸壓容量");
+      const response = await api.calculateReshoreMemberCapacity(
+        receiverAssistantHandoff,
+        transfer.transferId,
+        draft,
+      );
+      downloadBase64File(
+        response.evidence.contentBase64,
+        response.evidence.fileName,
+        response.evidence.mediaType,
+      );
+      setReshoreCapacityCalculations((current) => ({
+        ...current,
+        [transfer.transferId]: response,
+      }));
+      setReceiverAssistantResults((current) => {
+        const next = [...current];
+        const result = { ...next[index] };
+        const capacity = response.calculation.results.adoptableTransferCapacityTf;
+        const demand = result.adoptedDemandTf;
+        result.verifiedCapacityTf = capacity;
+        result.capacityUtilizationRatio = capacity > 0
+          ? Number((demand / capacity).toFixed(6))
+          : 0;
+        result.status = "failed";
+        result.capacityEvidence = {
+          documentReference: response.evidence.documentReference,
+          revision: response.evidence.revision,
+          issuedDate: response.evidence.issuedDate,
+          pageReference: response.evidence.pageReference,
+          fileName: response.evidence.fileName,
+          fileSha256: response.evidence.fileSha256,
+        };
+        result.verificationScope = {
+          analysisModelReference: response.calculation.calculationFingerprint,
+          governingLoadCombination: draft.governing_load_combination.trim(),
+          directionAndDistributionBasis: draft.load_distribution_basis.trim(),
+          eccentricityAndSecondaryEffectBasis: "本模組限純軸壓；已確認無偏心。任何偏心或二次效應須另案檢核。",
+          checkedLimitStates: ["axial", "stability"],
+          otherChecksStatus: "failed",
+        };
+        result.verificationBasis = [
+          "鋼構造建築物鋼結構設計技術規範第四章及第六章",
+          `H 型鋼純軸壓計算 ${response.calculation.calculationFingerprint}`,
+          `有效長度依據：${draft.effective_length_basis.trim()}`,
+        ].join("；");
+        result.conclusion = response.calculation.results.status === "passed"
+          ? "H 型鋼構件之純軸壓、整體長細比及局部細長檢核通過；接頭、承壓、基礎／樓版與施工程序尚須另行完成。"
+          : "H 型鋼構件之純軸壓或穩定適用性檢核未通過，不得採用本次容量。";
+        next[index] = result;
+        return next;
+      });
+      setReceiverAssistantReceipt(null);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
   }
 
   async function handleRegisterReceiverTrustKey() {
@@ -4844,6 +4955,139 @@ function App() {
                             <span>{`傳力方向：${transfer.receiver.direction || "舊版交接檔未記錄"}`}</span>
                             <span>{`處置依據：${transfer.receiver.dispositionBasis || "—"}`}</span>
                           </div>
+                          {transfer.receiver.mode === "reshore" && reshoreCapacityDrafts[result.transferId] && (() => {
+                            const draft = reshoreCapacityDrafts[result.transferId];
+                            const calculation = reshoreCapacityCalculations[result.transferId]?.calculation;
+                            return (
+                              <section className="reshore-capacity-panel">
+                                <header>
+                                  <div>
+                                    <strong>重撐／回撐 H 型鋼純軸壓容量</strong>
+                                    <span>限無偏心軸壓構件；本區不檢核接頭、承壓、基礎／樓版或施工程序。</span>
+                                  </div>
+                                  <span className="status-badge">特定承接實算</span>
+                                </header>
+                                <div className="form-grid receiver-result-fields">
+                                  <label className="field-block">
+                                    <span>H 型鋼斷面</span>
+                                    <select
+                                      value={draft.section_name}
+                                      onChange={(event) => updateReshoreCapacityDraft(result.transferId, "section_name", event.target.value)}
+                                    >
+                                      {(bootstrap?.reference_data.sections ?? []).map((section) => (
+                                        <option key={section.name} value={section.name}>{section.name}</option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                  <NumberField
+                                    label="共同承接支數"
+                                    value={draft.member_count}
+                                    onChange={(value) => updateReshoreCapacityDraft(result.transferId, "member_count", value)}
+                                  />
+                                  <NumberField
+                                    label="X 向未側撐長度（m）"
+                                    value={draft.unbraced_length_x_m}
+                                    onChange={(value) => updateReshoreCapacityDraft(result.transferId, "unbraced_length_x_m", value)}
+                                  />
+                                  <NumberField
+                                    label="Y 向未側撐長度（m）"
+                                    value={draft.unbraced_length_y_m}
+                                    onChange={(value) => updateReshoreCapacityDraft(result.transferId, "unbraced_length_y_m", value)}
+                                  />
+                                  <NumberField
+                                    label="X 向有效長度係數 Kx"
+                                    value={draft.effective_length_factor_kx}
+                                    onChange={(value) => updateReshoreCapacityDraft(result.transferId, "effective_length_factor_kx", value)}
+                                  />
+                                  <NumberField
+                                    label="Y 向有效長度係數 Ky"
+                                    value={draft.effective_length_factor_ky}
+                                    onChange={(value) => updateReshoreCapacityDraft(result.transferId, "effective_length_factor_ky", value)}
+                                  />
+                                  <NumberField
+                                    label="材料降伏強度 Fy（tf/cm²）"
+                                    value={draft.fy_tf_per_cm2}
+                                    onChange={(value) => updateReshoreCapacityDraft(result.transferId, "fy_tf_per_cm2", value)}
+                                  />
+                                  <NumberField
+                                    label="彈性模數 E（tf/cm²）"
+                                    value={draft.e_tf_per_cm2}
+                                    onChange={(value) => updateReshoreCapacityDraft(result.transferId, "e_tf_per_cm2", value)}
+                                  />
+                                  <label className="field-block">
+                                    <span>容許應力提高係數</span>
+                                    <select
+                                      value={draft.allowable_stress_increase_factor}
+                                      onChange={(event) => updateReshoreCapacityDraft(result.transferId, "allowable_stress_increase_factor", event.target.value)}
+                                    >
+                                      <option value={1}>1.00</option>
+                                      <option value={1.25}>1.25（須填依據）</option>
+                                    </select>
+                                  </label>
+                                  <NumberField
+                                    label="支數不均勻係數"
+                                    value={draft.imbalance_factor}
+                                    onChange={(value) => updateReshoreCapacityDraft(result.transferId, "imbalance_factor", value)}
+                                  />
+                                  <NumberField
+                                    label="另加單支軸力（tf）"
+                                    value={draft.additional_axial_load_tf_per_member}
+                                    onChange={(value) => updateReshoreCapacityDraft(result.transferId, "additional_axial_load_tf_per_member", value)}
+                                  />
+                                  <Field
+                                    label="控制載重組合"
+                                    value={draft.governing_load_combination}
+                                    onChange={(value) => updateReshoreCapacityDraft(result.transferId, "governing_load_combination", value)}
+                                  />
+                                  <TextAreaField
+                                    label="有效長度 K 與側向支撐依據"
+                                    value={draft.effective_length_basis}
+                                    onChange={(value) => updateReshoreCapacityDraft(result.transferId, "effective_length_basis", value)}
+                                  />
+                                  <TextAreaField
+                                    label="共同支數、傳力方向與分配依據"
+                                    value={draft.load_distribution_basis}
+                                    onChange={(value) => updateReshoreCapacityDraft(result.transferId, "load_distribution_basis", value)}
+                                  />
+                                  <TextAreaField
+                                    label="另加軸力來源（另加值大於 0 時必填）"
+                                    value={draft.additional_load_basis}
+                                    onChange={(value) => updateReshoreCapacityDraft(result.transferId, "additional_load_basis", value)}
+                                  />
+                                  <TextAreaField
+                                    label="1.25 提高係數依據（採 1.25 時必填）"
+                                    value={draft.stress_increase_basis}
+                                    onChange={(value) => updateReshoreCapacityDraft(result.transferId, "stress_increase_basis", value)}
+                                  />
+                                </div>
+                                <label className="check-field reshore-applicability-check">
+                                  <input
+                                    type="checkbox"
+                                    checked={draft.pure_axial_no_eccentricity_confirmed}
+                                    onChange={(event) => updateReshoreCapacityDraft(
+                                      result.transferId,
+                                      "pure_axial_no_eccentricity_confirmed",
+                                      event.target.checked,
+                                    )}
+                                  />
+                                  <span>確認本構件為無偏心純軸壓；若有偏心、彎矩或二次效應，不採用此模組。</span>
+                                </label>
+                                <div className="action-row">
+                                  <button type="button" onClick={() => void handleCalculateReshoreMemberCapacity(index)}>
+                                    計算、下載證據並回填軸壓結果
+                                  </button>
+                                </div>
+                                {calculation && (
+                                  <div className={`reshore-capacity-result ${calculation.results.status === "passed" ? "ok" : "ng"}`}>
+                                    <strong>{calculation.results.status === "passed" ? "純軸壓與穩定檢核通過" : "純軸壓或穩定適用性未通過"}</strong>
+                                    <span>{`控制軸：${calculation.results.controllingAxis}；KL/r = ${fmt(calculation.results.klrMax)}；單支容量 = ${fmt(calculation.results.perMemberCapacityTf, " tf")}`}</span>
+                                    <span>{`可採用移轉容量 = ${fmt(calculation.results.adoptableTransferCapacityTf, " tf")}；利用率 = ${calculation.results.capacityUtilizationRatio == null ? "—" : fmt(calculation.results.capacityUtilizationRatio)}`}</span>
+                                    <span>軸壓證據已下載並回填；其他未涵蓋查核仍維持「尚未完成」。若要整列通過，須以涵蓋全部查核的正式文件取代本 RSC 證據。</span>
+                                  </div>
+                                )}
+                              </section>
+                            );
+                          })()}
                           <div className="form-grid receiver-result-fields">
                             <div className="field-block">
                               <span>接收端結果（自動）</span>
@@ -6489,6 +6733,19 @@ function downloadJsonFile(payload: unknown, filename: string): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
+function downloadBase64File(contentBase64: string, filename: string, mediaType: string): void {
+  const binary = window.atob(contentBase64);
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  const url = URL.createObjectURL(new Blob([bytes], { type: mediaType }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 async function fileSha256Hex(file: File): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
   return Array.from(new Uint8Array(digest))
@@ -6541,6 +6798,43 @@ function receiverResultDrafts(handoff: RemovalTransferHandoff): ReceiverVerifica
     verificationBasis: "",
     conclusion: "",
   }));
+}
+
+function receiverCapacityDrafts(
+  handoff: RemovalTransferHandoff,
+  referenceData?: ReferenceData,
+): Record<string, ReshoreMemberCapacityInput> {
+  const defaultSection = referenceData?.sections[0]?.name ?? "";
+  const basic = referenceData?.basic_defaults;
+  return Object.fromEntries(
+    handoff.transfers
+      .filter((transfer) => transfer.receiver.mode === "reshore")
+      .map((transfer) => [
+        transfer.transferId,
+        {
+          section_name: defaultSection,
+          member_count: 1,
+          unbraced_length_x_m: 3,
+          unbraced_length_y_m: 3,
+          effective_length_factor_kx: 1,
+          effective_length_factor_ky: 1,
+          fy_tf_per_cm2: basic?.fy_tf_per_cm2 ?? 2.5,
+          e_tf_per_cm2: basic?.e_tf_per_cm2 ?? 2040,
+          allowable_stress_increase_factor: 1,
+          imbalance_factor: 1,
+          additional_axial_load_tf_per_member: 0,
+          governing_load_combination: "",
+          effective_length_basis: "",
+          load_distribution_basis: [
+            transfer.receiver.direction,
+            transfer.receiver.dispositionBasis,
+          ].filter(Boolean).join("；"),
+          additional_load_basis: "",
+          stress_increase_basis: "",
+          pure_axial_no_eccentricity_confirmed: false,
+        } satisfies ReshoreMemberCapacityInput,
+      ]),
+  );
 }
 
 function latestRemovalTransferHandoff(project: ProjectState | null): RemovalTransferHandoff | null {

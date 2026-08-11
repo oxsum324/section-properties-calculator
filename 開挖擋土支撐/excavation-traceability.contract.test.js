@@ -70,6 +70,8 @@ const home = readUtf8('../結構工具箱/assets/home/home.js');
 const reportContract = readUtf8('excavation-report.contract.test.js');
 const handoff = readUtf8('../結構工具箱/tools/construction-stage-load-handoff.js');
 const removalTransferHandoff = readUtf8('backend/app/removal_transfer_handoff.py');
+const receiverCapacity = readUtf8('backend/app/receiver_capacity.py');
+const receiverCapacityTests = readUtf8('backend/tests/test_receiver_capacity.py');
 const removalTransferHandoffTests = readUtf8('backend/tests/test_removal_transfer_handoff.py');
 const receiverOfflineSigner = readUtf8('backend/sign_receiver_request.py');
 const receiverSigningLauncher = readUtf8('sign_receiver_request.ps1');
@@ -104,7 +106,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.17.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.18.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -213,6 +215,32 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   assert(removalTransferHandoff.includes(needle), `excavation removal transfer handoff keeps ${needle}`, needle);
 });
 [
+  'excavation-reshore-member-capacity-calculation',
+  'calculate_reshore_member_capacity',
+  'allowable_axial_stress',
+  'KL/r <= 200',
+  'bf/(2tf) <= 25/sqrt(Fy)',
+  '(d-2tf)/tw <= 68/sqrt(Fy)',
+  'adoptableTransferCapacityTf',
+  'pureAxialNoEccentricityOnly',
+  'doesNotAutoApproveReceiverReceipt',
+  'requiresSeparateOtherChecks',
+  'otherChecksStatus',
+  'contentBase64',
+  'fileSha256',
+].forEach((needle) => {
+  assert(receiverCapacity.includes(needle), `excavation reshore capacity keeps ${needle}`, needle);
+});
+[
+  'test_golden_short_column_capacity_and_evidence',
+  'test_long_column_uses_euler_branch_and_fails_slenderness',
+  'test_local_slenderness_failure_is_not_adoptable',
+  'test_rejects_non_reshore_transfer',
+  'test_rejects_tampered_handoff',
+].forEach((needle) => {
+  assert(receiverCapacityTests.includes(needle), `excavation reshore capacity tests keep ${needle}`, needle);
+});
+[
   '/api/projects/{project_id}/removal-transfer-handoff',
   '/api/projects/{project_id}/removal-transfer-receipts',
   '/api/projects/{project_id}/source-capacity-evidence-verifications',
@@ -224,6 +252,7 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '/api/removal-transfer-receipts/validate',
   '/api/removal-transfer-receipts/signing-request',
   '/api/removal-transfer-receipts/attach-signature',
+  '/api/removal-transfer/reshore-member-capacity',
   '/api/removal-transfer-trust-keys/enrollments/validate',
   '/api/removal-transfer-trust-keys/enrollments/register',
   '/api/removal-transfer-trust-keys/{key_id}/revoke',
@@ -238,6 +267,7 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'removal_transfer_verification_receipts',
   'source_capacity_evidence_verifications',
   'BuildSourceEvidenceVerificationRequest',
+  'CalculateReshoreMemberCapacityRequest',
   'BuildSourceEvidenceSigningRequestRequest',
   'AttachSourceEvidenceSignatureRequest',
   'calculation_fingerprint(project)',
@@ -261,6 +291,7 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'validateReceiverVerificationReceipt',
   'handleImportReceiverAssistantHandoff',
   'handleBuildReceiverAssistantReceipt',
+  'handleCalculateReshoreMemberCapacity',
   'handleValidateReceiverAssistantReceipt',
   'handleDownloadReceiverIdentitySigningRequest',
   'handleAttachReceiverIdentitySignature',
@@ -291,6 +322,9 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '此備份不得復原',
   '交接完成不等於承接構造合格',
   '核定承載力（tf）',
+  '重撐／回撐 H 型鋼純軸壓容量',
+  '計算、下載證據並回填軸壓結果',
+  '若要整列通過，須以涵蓋全部查核的正式文件取代本 RSC 證據',
   '容量利用率（需求／承載力，自動）',
   '結果與利用率會由後端自動判定',
   '舊版 RVR v1：容量利用率為接收端外部登錄值',

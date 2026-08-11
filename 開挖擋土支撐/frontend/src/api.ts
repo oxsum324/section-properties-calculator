@@ -8,6 +8,8 @@ import {
   ReceiverCapacityVerificationReceipt,
   ReceiverVerificationAuthority,
   ReceiverVerificationResult,
+  ReshoreMemberCapacityCalculationResponse,
+  ReshoreMemberCapacityInput,
   SourceCapacityEvidenceVerificationResponse,
   SourceEvidenceIdentitySigningRequest,
   SourceEvidenceIdentitySignatureResponse,
@@ -173,6 +175,22 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ handoff, receipt }),
     }),
+  calculateReshoreMemberCapacity: (
+    handoff: RemovalTransferHandoff,
+    transferId: string,
+    calculationInput: ReshoreMemberCapacityInput,
+  ) => request<ReshoreMemberCapacityCalculationResponse>(
+    "/api/removal-transfer/reshore-member-capacity",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        handoff,
+        transfer_id: transferId,
+        calculation_input: calculationInput,
+      }),
+    },
+  ),
   listReceiverTrustKeys: () =>
     request<{ schemaVersion: 1; keys: ReceiverTrustKey[]; events: ReceiverTrustEvent[] }>("/api/removal-transfer-trust-keys"),
   registerReceiverTrustKey: (organization: string, displayName: string, publicKey: string) =>
