@@ -106,6 +106,29 @@ class RemovalTransferHandoffTests(unittest.TestCase):
                     "checkedLimitStates": ["axial", "shear", "connection"],
                     "otherChecksStatus": status,
                 }
+            if schema_version >= 5:
+                result["supplementalChecks"] = [
+                    {
+                        "checkId": check_id,
+                        "status": status,
+                        "basis": f"{label}正式檢核章節",
+                        "evidence": {
+                            "documentReference": f"RV-01-{check_id}",
+                            "revision": "A",
+                            "issuedDate": "2026-08-07",
+                            "pageReference": f"{label}章節",
+                            "fileName": f"receiver-{check_id}.pdf",
+                            "fileSha256": f"{index:x}" * 64,
+                        },
+                    }
+                    for index, (check_id, label) in enumerate((
+                        ("connection", "接頭與接合"),
+                        ("bearing", "端部與局部承壓"),
+                        ("receiving-structure", "基礎、樓版或承接主體"),
+                        ("bracing-and-effective-length", "側向支撐與有效長度條件"),
+                        ("construction-sequence-and-preload", "施工順序、預載與卸載控制"),
+                    ), start=1)
+                ]
             results.append(result)
         failed = sum(item["status"] == "failed" for item in results)
         receipt = {
@@ -138,18 +161,34 @@ class RemovalTransferHandoffTests(unittest.TestCase):
             receipt["boundary"]["capacityEvidenceFileNotEmbedded"] = True
         if schema_version >= 4:
             receipt["boundary"]["verificationScopeStructured"] = True
+        if schema_version >= 5:
+            receipt["boundary"].update({
+                "supplementalChecksStructured": True,
+                "supplementalEvidenceFilesNotEmbedded": True,
+                "otherChecksStatusDerived": True,
+            })
         receipt["receiptFingerprint"] = receiver_verification_receipt_fingerprint(receipt)
         return receipt
 
     def source_evidence_matches(self, receipt):
-        return [
-            {
+        matches = []
+        for result in receipt["results"]:
+            matches.append({
                 "transferId": result["transferId"],
+                "evidenceKey": "capacity",
                 "selectedFileName": result["capacityEvidence"]["fileName"],
                 "actualSha256": result["capacityEvidence"]["fileSha256"],
-            }
-            for result in receipt["results"]
-        ]
+            })
+            for check in result.get("supplementalChecks", []):
+                if "evidence" not in check:
+                    continue
+                matches.append({
+                    "transferId": result["transferId"],
+                    "evidenceKey": check["checkId"],
+                    "selectedFileName": check["evidence"]["fileName"],
+                    "actualSha256": check["evidence"]["fileSha256"],
+                })
+        return matches
 
     def signed_receipt(self, receipt, *, signed_at: str = "2026-08-07T12:00:00Z"):
         private_key = Ed25519PrivateKey.generate()
@@ -180,7 +219,7 @@ class RemovalTransferHandoffTests(unittest.TestCase):
 
         self.assertEqual(record["kind"], KIND)
         self.assertEqual(record["schemaVersion"], 4)
-        self.assertEqual(record["receiptContract"]["schemaVersion"], 4)
+        self.assertEqual(record["receiptContract"]["schemaVersion"], 5)
         self.assertEqual(
             record["receiptContract"]["verificationScope"],
             "per-ERT-structured-model-combination-load-path-eccentricity-and-limit-states",
@@ -483,7 +522,7 @@ class RemovalTransferHandoffTests(unittest.TestCase):
     def test_builds_controlled_receiver_receipt_for_assistant(self) -> None:
         project = self.prepared_project()
         handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
-        draft = self.receiver_receipt(handoff, schema_version=4)
+        draft = self.receiver_receipt(handoff, schema_version=5)
         draft["verificationAuthority"]["untrustedField"] = "must not survive"
         draft["results"][0]["untrustedField"] = "must not survive"
 
@@ -495,7 +534,7 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         )
 
         self.assertEqual(receipt["summary"], {"status": "passed", "passed": 1, "failed": 0})
-        self.assertEqual(receipt["schemaVersion"], 4)
+        self.assertEqual(receipt["schemaVersion"], 5)
         self.assertGreater(receipt["results"][0]["verifiedCapacityTf"], receipt["results"][0]["adoptedDemandTf"])
         self.assertEqual(
             receipt["results"][0]["capacityUtilizationRatio"],
@@ -524,7 +563,7 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         project.top_supports.append(second)
         project.calculation_results = calculate_project(project)
         handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
-        draft = self.receiver_receipt(handoff, schema_version=4)
+        draft = self.receiver_receipt(handoff, schema_version=5)
         draft["results"].pop()
 
         with self.assertRaisesRegex(ValueError, "未完整涵蓋"):
@@ -534,11 +573,87 @@ class RemovalTransferHandoffTests(unittest.TestCase):
                 draft["results"],
             )
 
-    def test_v4_other_checks_failure_controls_overall_result(self) -> None:
+    def test_v5_requires_evidence_for_each_passed_supplemental_check(self) -> None:
         project = self.prepared_project()
         handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
-        draft = self.receiver_receipt(handoff, schema_version=4)
-        draft["results"][0]["verificationScope"]["otherChecksStatus"] = "failed"
+        draft = self.receiver_receipt(handoff, schema_version=5)
+        del draft["results"][0]["supplementalChecks"][0]["evidence"]
+
+        with self.assertRaisesRegex(ValueError, "標示通過時必須連結證據檔"):
+            build_receiver_verification_receipt(
+                handoff,
+                draft["verificationAuthority"],
+                draft["results"],
+            )
+
+    def test_v5_derives_other_checks_status_and_sev_v2_covers_every_file(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        draft = self.receiver_receipt(handoff, schema_version=5)
+        receipt = build_receiver_verification_receipt(
+            handoff,
+            draft["verificationAuthority"],
+            draft["results"],
+        )
+
+        self.assertEqual(receipt["schemaVersion"], 5)
+        self.assertEqual(receipt["results"][0]["verificationScope"]["otherChecksStatus"], "passed")
+        record = build_source_capacity_evidence_verification(
+            handoff,
+            receipt,
+            {"organization": "來源端", "verifierName": "李工程師", "verifierRole": "覆核"},
+            "逐檔比對 RVR v5 引用證據",
+            self.source_evidence_matches(receipt),
+        )
+        self.assertEqual(record["schemaVersion"], 2)
+        self.assertEqual(record["summary"]["required"], 6)
+        self.assertEqual({check["evidenceKey"] for check in record["checks"]}, {
+            "capacity",
+            "connection",
+            "bearing",
+            "receiving-structure",
+            "bracing-and-effective-length",
+            "construction-sequence-and-preload",
+        })
+
+    def test_v5_rejects_rsc_file_reused_as_supplemental_pass_evidence(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        draft = self.receiver_receipt(handoff, schema_version=5)
+        capacity = draft["results"][0]["capacityEvidence"]
+        capacity["documentReference"] = "RSC-1234567890ABCDEF1234"
+        draft["results"][0]["supplementalChecks"][0]["evidence"]["fileSha256"] = capacity["fileSha256"]
+
+        with self.assertRaisesRegex(ValueError, "RSC 純軸壓證據不得重複"):
+            build_receiver_verification_receipt(
+                handoff,
+                draft["verificationAuthority"],
+                draft["results"],
+            )
+
+    def test_v5_rejects_legacy_sev_v1_partial_evidence_coverage(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        draft = self.receiver_receipt(handoff, schema_version=5)
+        receipt = build_receiver_verification_receipt(handoff, draft["verificationAuthority"], draft["results"])
+        record = build_source_capacity_evidence_verification(
+            handoff,
+            receipt,
+            {"organization": "來源端", "verifierName": "李工程師", "verifierRole": "覆核"},
+            "逐檔比對",
+            self.source_evidence_matches(receipt),
+        )
+        record["schemaVersion"] = 1
+        record["verificationFingerprint"] = source_evidence_verification_fingerprint(record)
+
+        with self.assertRaisesRegex(ValueError, "RVR v5 必須使用 SEV v2"):
+            validate_source_capacity_evidence_verification(record, handoff, receipt)
+
+    def test_v5_supplemental_check_failure_controls_overall_result(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        draft = self.receiver_receipt(handoff, schema_version=5)
+        draft["results"][0]["supplementalChecks"][0]["status"] = "failed"
 
         receipt = build_receiver_verification_receipt(
             handoff,
@@ -554,7 +669,7 @@ class RemovalTransferHandoffTests(unittest.TestCase):
     def test_v4_rejects_missing_structured_verification_scope(self) -> None:
         project = self.prepared_project()
         handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
-        draft = self.receiver_receipt(handoff, schema_version=4)
+        draft = self.receiver_receipt(handoff, schema_version=5)
         del draft["results"][0]["verificationScope"]
 
         with self.assertRaisesRegex(ValueError, "缺少逐列驗算範圍"):
@@ -642,7 +757,7 @@ class RemovalTransferHandoffTests(unittest.TestCase):
     def test_assistant_derives_failed_status_from_demand_and_capacity(self) -> None:
         project = self.prepared_project()
         handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
-        draft = self.receiver_receipt(handoff, schema_version=4)
+        draft = self.receiver_receipt(handoff, schema_version=5)
         adopted_demand = draft["results"][0]["adoptedDemandTf"]
         draft["results"][0]["verifiedCapacityTf"] = adopted_demand / 1.25
         draft["results"][0]["capacityUtilizationRatio"] = 0.1
@@ -706,6 +821,30 @@ class RemovalTransferHandoffTests(unittest.TestCase):
                 "文件比對",
                 matches,
             )
+
+    def test_keeps_legacy_sev_v1_read_compatibility_for_pre_v5_receipt(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        receipt = self.receiver_receipt(handoff, schema_version=3)
+        record = build_source_capacity_evidence_verification(
+            handoff,
+            receipt,
+            {"organization": "來源端", "verifierName": "李工程師", "verifierRole": "覆核"},
+            "文件比對",
+            self.source_evidence_matches(receipt),
+        )
+        record["schemaVersion"] = 1
+        for check in record["checks"]:
+            check.pop("evidenceKey")
+            check.pop("evidenceRole")
+            check.pop("checkLabel")
+        record["boundary"].pop("allReferencedEvidenceFilesCompared")
+        record["verificationFingerprint"] = source_evidence_verification_fingerprint(record)
+
+        self.assertEqual(
+            validate_source_capacity_evidence_verification(record, handoff, receipt),
+            record,
+        )
 
     def test_rejects_tampered_source_evidence_verification_record(self) -> None:
         project = self.prepared_project()

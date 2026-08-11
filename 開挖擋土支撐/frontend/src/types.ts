@@ -405,13 +405,14 @@ export type RemovalTransferHandoff = {
     receiptKind: "receiver-capacity-verification-receipt";
   };
   receiptContract: {
-    schemaVersion: 1 | 2 | 3 | 4;
+    schemaVersion: 1 | 2 | 3 | 4 | 5;
     kind: "receiver-capacity-verification-receipt";
     fingerprintAlgorithm: "RVR-SHA256-canonical-json-first-20-uppercase";
     coverage: "all-ERT-transfers-required";
     capacityCheck?: "adopted-demand-divided-by-verified-capacity";
     capacityEvidence?: "per-ERT-document-metadata-and-sha256";
     verificationScope?: "per-ERT-structured-model-combination-load-path-eccentricity-and-limit-states";
+    supplementalEvidence?: "per-ERT-five-check-status-basis-and-document-sha256";
     verifierIdentityAuthentication: "manual-review-required" | "manual-review-or-ed25519-trust-registry";
   };
   boundary: {
@@ -458,6 +459,20 @@ export type ReceiverVerificationScope = {
   otherChecksStatus: "passed" | "failed";
 };
 
+export type ReceiverSupplementalCheckId =
+  | "connection"
+  | "bearing"
+  | "receiving-structure"
+  | "bracing-and-effective-length"
+  | "construction-sequence-and-preload";
+
+export type ReceiverSupplementalCheck = {
+  checkId: ReceiverSupplementalCheckId;
+  status: "passed" | "failed" | "not-applicable";
+  basis: string;
+  evidence?: ReceiverCapacityEvidence;
+};
+
 export type ReceiverVerificationResult = {
   transferId: string;
   status: "passed" | "failed";
@@ -467,6 +482,7 @@ export type ReceiverVerificationResult = {
   capacityUtilizationRatio: number;
   capacityEvidence?: ReceiverCapacityEvidence;
   verificationScope?: ReceiverVerificationScope;
+  supplementalChecks?: ReceiverSupplementalCheck[];
   verificationBasis: string;
   conclusion: string;
 };
@@ -537,7 +553,7 @@ export type ReshoreMemberCapacityCalculationResponse = {
 };
 
 export type ReceiverCapacityVerificationReceipt = {
-  schemaVersion: 1 | 2 | 3 | 4;
+  schemaVersion: 1 | 2 | 3 | 4 | 5;
   kind: "receiver-capacity-verification-receipt";
   issuedAt: string;
   handoffFingerprint: string;
@@ -556,6 +572,9 @@ export type ReceiverCapacityVerificationReceipt = {
     capacityValueFromReceiverDocument?: true;
     capacityEvidenceFileNotEmbedded?: true;
     verificationScopeStructured?: true;
+    supplementalChecksStructured?: true;
+    supplementalEvidenceFilesNotEmbedded?: true;
+    otherChecksStatusDerived?: true;
   };
   identitySignature?: {
     schemaVersion: 1;
@@ -569,7 +588,7 @@ export type ReceiverCapacityVerificationReceipt = {
 };
 
 export type SourceCapacityEvidenceVerification = {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   kind: "source-capacity-evidence-verification-record";
   verifiedAt: string;
   handoffFingerprint: string;
@@ -583,6 +602,9 @@ export type SourceCapacityEvidenceVerification = {
   verificationBasis: string;
   checks: Array<{
     transferId: string;
+    evidenceKey?: string;
+    evidenceRole?: "capacity" | "supplemental";
+    checkLabel?: string;
     documentReference: string;
     revision: string;
     issuedDate: string;
@@ -605,6 +627,7 @@ export type SourceCapacityEvidenceVerification = {
     evidenceFilesNotUploadedOrEmbedded: true;
     byteIdentityOnly: true;
     engineeringContentRequiresManualReview: true;
+    allReferencedEvidenceFilesCompared?: true;
   };
   identitySignature?: {
     schemaVersion: 1;

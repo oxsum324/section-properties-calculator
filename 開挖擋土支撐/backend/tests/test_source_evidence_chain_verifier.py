@@ -91,6 +91,30 @@ def _prepared_chain(*, receiver_passed: bool = True):
                 "checkedLimitStates": ["axial", "shear", "connection"],
                 "otherChecksStatus": "passed",
             },
+            "supplementalChecks": [
+                {
+                    "checkId": "connection",
+                    "status": "passed",
+                    "basis": "接頭檢核由同一正式文件涵蓋。",
+                    "evidence": {
+                        "documentReference": "RV-CHAIN-01",
+                        "revision": "A",
+                        "issuedDate": "2026-08-08",
+                        "pageReference": "第 13 頁",
+                        "fileName": "receiver-capacity.pdf",
+                        "fileSha256": "a" * 64,
+                    },
+                },
+                *[
+                    {"checkId": check_id, "status": "not-applicable", "basis": "本測試僅驗證證據鏈機制。"}
+                    for check_id in (
+                        "bearing",
+                        "receiving-structure",
+                        "bracing-and-effective-length",
+                        "construction-sequence-and-preload",
+                    )
+                ],
+            ],
             "verificationBasis": "承接構造正式分析",
             "conclusion": "容量檢核完成",
         }],
@@ -100,11 +124,15 @@ def _prepared_chain(*, receiver_passed: bool = True):
         receipt,
         {"organization": "來源端設計單位", "verifierName": "李工程師", "verifierRole": "設計覆核"},
         "逐列比對接收端正式文件",
-        [{
-            "transferId": transfer["transferId"],
-            "selectedFileName": "receiver-capacity.pdf",
-            "actualSha256": "a" * 64,
-        }],
+        [
+            {
+                "transferId": transfer["transferId"],
+                "evidenceKey": evidence_key,
+                "selectedFileName": "receiver-capacity.pdf",
+                "actualSha256": "a" * 64,
+            }
+            for evidence_key in ("capacity", "connection")
+        ],
     )
     return handoff, receipt, sev
 

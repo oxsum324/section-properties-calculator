@@ -89,7 +89,7 @@ def _completed_project():
 
 
 class AttachmentPackageEvidenceChainDrillTests(unittest.TestCase):
-    def test_real_backend_chain_builds_and_reverifies_a_formal_v4_package(self) -> None:
+    def test_real_backend_chain_builds_and_reverifies_a_formal_v5_package(self) -> None:
         project = _completed_project()
         fingerprint = calculation_fingerprint(project)
         handoff = build_removal_transfer_handoff(project, fingerprint)
@@ -206,6 +206,28 @@ class AttachmentPackageEvidenceChainDrillTests(unittest.TestCase):
                         "checkedLimitStates": ["axial", "stability", "connection", "foundation"],
                         "otherChecksStatus": "passed",
                     },
+                    "supplementalChecks": [
+                        {
+                            "checkId": check_id,
+                            "status": "passed",
+                            "basis": f"ANON-RV-001 之{label}正式檢核",
+                            "evidence": {
+                                "documentReference": "ANON-RV-001",
+                                "revision": "A",
+                                "issuedDate": "2026-08-11",
+                                "pageReference": "JSON supplementalChecks",
+                                "fileName": receiver_capacity_path.name,
+                                "fileSha256": receiver_capacity_sha256,
+                            },
+                        }
+                        for check_id, label in (
+                            ("connection", "接頭與接合"),
+                            ("bearing", "端部與局部承壓"),
+                            ("receiving-structure", "基礎與承接主體"),
+                            ("bracing-and-effective-length", "側向支撐與有效長度"),
+                            ("construction-sequence-and-preload", "施工順序與預載"),
+                        )
+                    ],
                     "verificationBasis": "RSC 純軸壓實算及匿名化補充正式檢核",
                     "conclusion": "H 型鋼重撐容量與補充查核均完成",
                 }],
@@ -219,11 +241,22 @@ class AttachmentPackageEvidenceChainDrillTests(unittest.TestCase):
                     "verifierRole": "設計覆核",
                 },
                 "逐列比對匿名化接收端正式文件",
-                [{
-                    "transferId": transfer["transferId"],
-                    "selectedFileName": receiver_capacity_path.name,
-                    "actualSha256": receiver_capacity_sha256,
-                }],
+                [
+                    {
+                        "transferId": transfer["transferId"],
+                        "evidenceKey": evidence_key,
+                        "selectedFileName": receiver_capacity_path.name,
+                        "actualSha256": receiver_capacity_sha256,
+                    }
+                    for evidence_key in (
+                        "capacity",
+                        "connection",
+                        "bearing",
+                        "receiving-structure",
+                        "bracing-and-effective-length",
+                        "construction-sequence-and-preload",
+                    )
+                ],
             )
             receipt = attach_receiver_identity_signature(
                 receipt,

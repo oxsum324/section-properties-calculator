@@ -229,6 +229,30 @@ class ProjectStoreNormalizationTests(unittest.TestCase):
                         "checkedLimitStates": ["axial", "shear", "connection"],
                         "otherChecksStatus": "passed",
                     },
+                    "supplementalChecks": [
+                        {
+                            "checkId": "connection",
+                            "status": "passed",
+                            "basis": "接頭檢核由同一正式文件涵蓋。",
+                            "evidence": {
+                                "documentReference": "RV-STORE-03",
+                                "revision": "A",
+                                "issuedDate": "2026-08-08",
+                                "pageReference": "第 13 頁",
+                                "fileName": "receiver-capacity.pdf",
+                                "fileSha256": "a" * 64,
+                            },
+                        },
+                        *[
+                            {"checkId": check_id, "status": "not-applicable", "basis": "本測試僅驗證保存往返。"}
+                            for check_id in (
+                                "bearing",
+                                "receiving-structure",
+                                "bracing-and-effective-length",
+                                "construction-sequence-and-preload",
+                            )
+                        ],
+                    ],
                     "verificationBasis": "承接構造分析模型 RV-STORE-03",
                     "conclusion": "容量檢核通過",
                 }],
@@ -243,11 +267,15 @@ class ProjectStoreNormalizationTests(unittest.TestCase):
                     "verifierRole": "設計覆核",
                 },
                 "逐列比對接收端正式檢核文件",
-                [{
-                    "transferId": transfer["transferId"],
-                    "selectedFileName": "receiver-capacity.pdf",
-                    "actualSha256": "a" * 64,
-                }],
+                [
+                    {
+                        "transferId": transfer["transferId"],
+                        "evidenceKey": evidence_key,
+                        "selectedFileName": "receiver-capacity.pdf",
+                        "actualSha256": "a" * 64,
+                    }
+                    for evidence_key in ("capacity", "connection")
+                ],
                 verified_at="2026-08-08T12:00:00Z",
             )
             source_verification = attach_source_evidence_identity_signature(

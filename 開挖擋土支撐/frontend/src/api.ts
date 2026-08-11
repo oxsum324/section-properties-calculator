@@ -100,7 +100,7 @@ export const api = {
     receiptFingerprint: string,
     verificationAuthority: { organization: string; verifierName: string; verifierRole: string },
     verificationBasis: string,
-    matches: Array<{ transferId: string; selectedFileName: string; actualSha256: string }>,
+    matches: Array<{ transferId: string; evidenceKey: string; selectedFileName: string; actualSha256: string }>,
   ) => request<SourceCapacityEvidenceVerificationResponse>(
     `/api/projects/${projectId}/source-capacity-evidence-verifications`,
     {

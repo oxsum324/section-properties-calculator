@@ -106,7 +106,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.18.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.19.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -324,7 +324,7 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '核定承載力（tf）',
   '重撐／回撐 H 型鋼純軸壓容量',
   '計算、下載證據並回填軸壓結果',
-  '若要整列通過，須以涵蓋全部查核的正式文件取代本 RSC 證據',
+  '若要整列通過，須在五類補充查核中逐項附上正式文件',
   '容量利用率（需求／承載力，自動）',
   '結果與利用率會由後端自動判定',
   '舊版 RVR v1：容量利用率為接收端外部登錄值',
@@ -332,12 +332,16 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '證據檔 SHA-256',
   'crypto.subtle.digest("SHA-256"',
   '檔案只在瀏覽器本機計算雜湊，不會上傳或嵌入 RVR',
-  'RVR v4：已逐列記錄正式模型、控制組合、傳力與偏心依據、極限狀態及其他檢核結果',
+  'RVR v5：已逐列記錄五類補充查核的狀態、依據及證據檔 SHA-256',
   '正式分析模型／計算書識別',
   '控制載重組合',
   '傳力方向與分配依據',
   '偏心與二次效應依據',
-  '除上述 tf 容量比外之其他檢核彙整',
+  '五類補充查核彙整（自動）',
+  '五類補充查核與文件證據',
+  '此欄由下方五類查核自動推導，不能手動覆寫',
+  'RSC 不會被當成其他查核的證據',
+  'evidenceKey',
   'SourceCapacityEvidenceMatch',
   'handleSourceCapacityEvidenceFile',
   'sourceCapacityEvidenceAllMatched',
@@ -368,7 +372,12 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'test_validates_complete_external_receiver_receipt',
   'test_rejects_tampered_receiver_receipt',
   'test_rejects_incomplete_receiver_receipt',
-  'test_v4_other_checks_failure_controls_overall_result',
+  'test_v5_supplemental_check_failure_controls_overall_result',
+  'test_v5_requires_evidence_for_each_passed_supplemental_check',
+  'test_v5_derives_other_checks_status_and_sev_v2_covers_every_file',
+  'test_v5_rejects_rsc_file_reused_as_supplemental_pass_evidence',
+  'test_keeps_legacy_sev_v1_read_compatibility_for_pre_v5_receipt',
+  'test_v5_rejects_legacy_sev_v1_partial_evidence_coverage',
   'test_v4_rejects_missing_structured_verification_scope',
   'test_rejects_passed_receipt_with_over_capacity_ratio',
   'test_keeps_legacy_v1_receipt_without_capacity_read_compatibility',

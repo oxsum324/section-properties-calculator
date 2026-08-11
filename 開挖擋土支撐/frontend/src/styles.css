@@ -1384,6 +1384,22 @@ button.danger-button {
   grid-column: span 2;
 }
 
+.receiver-supplemental-checks {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 12px;
+  padding-top: 8px;
+}
+
+.receiver-supplemental-checks h4 {
+  margin: 0;
+}
+
+.receiver-supplemental-checks .receiver-result-card {
+  border-color: rgba(37, 99, 235, 0.18);
+  background: rgba(248, 250, 252, 0.9);
+}
+
 .reshore-capacity-panel {
   display: grid;
   gap: 14px;
@@ -1506,7 +1522,8 @@ button.danger-button {
   }
 
   .receiver-result-fields .text-area-field,
-  .receiver-limit-state-fieldset {
+  .receiver-limit-state-fieldset,
+  .receiver-supplemental-checks {
     grid-column: auto;
   }
 }

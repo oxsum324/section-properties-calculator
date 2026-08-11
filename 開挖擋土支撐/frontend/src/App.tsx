@@ -17,11 +17,14 @@ import {
   CornerBraceRow,
   ProjectListItem,
   ProjectState,
+  ReceiverCapacityEvidence,
   ReceiverCapacityVerificationReceipt,
   ReceiverIdentityVerification,
   ReceiverIdentitySignatureResponse,
   ReceiverKeyEnrollment,
   ReceiverLimitState,
+  ReceiverSupplementalCheck,
+  ReceiverSupplementalCheckId,
   ReceiverRevocationReason,
   ReceiverTrustEvent,
   ReceiverTrustKey,
@@ -73,6 +76,14 @@ const receiverLimitStateOptions: Array<{ value: ReceiverLimitState; label: strin
   { value: "other", label: "其他" },
 ];
 
+const receiverSupplementalCheckOptions: Array<{ value: ReceiverSupplementalCheckId; label: string }> = [
+  { value: "connection", label: "接頭與接合" },
+  { value: "bearing", label: "端部與局部承壓" },
+  { value: "receiving-structure", label: "基礎、樓版或承接主體" },
+  { value: "bracing-and-effective-length", label: "側向支撐與有效長度條件" },
+  { value: "construction-sequence-and-preload", label: "施工順序、預載與卸載控制" },
+];
+
 const columnVariantOptions: Array<{
   value: ColumnScenarioInput["variant"];
   label: string;
@@ -87,6 +98,7 @@ type AnalysisWorkflowMode = "single_manual" | "dual_manual" | "single_import" | 
 type ComponentTabKey = "support" | "wale" | "brace" | "corner";
 type SourceCapacityEvidenceMatch = {
   transferId: string;
+  evidenceKey: string;
   selectedFileName: string;
   actualSha256: string;
   expectedSha256: string;
@@ -373,12 +385,16 @@ function App() {
     [project?.source_capacity_evidence_verifications, sourceEvidenceVerificationRecord, activeRemovalTransferReceipt?.receiptFingerprint],
   );
   const sourceCapacityEvidenceRequired = (activeRemovalTransferReceipt?.schemaVersion ?? 0) >= 3;
+  const activeReceiptEvidenceItems = useMemo(
+    () => activeRemovalTransferReceipt ? receiptEvidenceItems(activeRemovalTransferReceipt) : [],
+    [activeRemovalTransferReceipt],
+  );
   const sourceCapacityEvidenceAllMatched = useMemo(() => {
-    if (!sourceCapacityEvidenceRequired || !activeRemovalTransferReceipt?.results.length) return false;
-    return activeRemovalTransferReceipt.results.every(
-      (result) => sourceCapacityEvidenceMatches[result.transferId]?.matched === true,
+    if (!sourceCapacityEvidenceRequired || !activeReceiptEvidenceItems.length) return false;
+    return activeReceiptEvidenceItems.every(
+      (item) => sourceCapacityEvidenceMatches[sourceEvidenceMatchKey(item.result.transferId, item.evidenceKey)]?.matched === true,
     );
-  }, [activeRemovalTransferReceipt, sourceCapacityEvidenceMatches, sourceCapacityEvidenceRequired]);
+  }, [activeReceiptEvidenceItems, sourceCapacityEvidenceMatches, sourceCapacityEvidenceRequired]);
   const sourceCapacityEvidenceHasMismatch = useMemo(
     () => Object.values(sourceCapacityEvidenceMatches).some((match) => !match.matched),
     [sourceCapacityEvidenceMatches],
@@ -404,18 +420,27 @@ function App() {
         result.capacityUtilizationRatio
         - result.adoptedDemandTf / (result.verifiedCapacityTf ?? 1)
       ) <= 0.000001
-      && Boolean(result.capacityEvidence?.documentReference.trim())
-      && Boolean(result.capacityEvidence?.revision.trim())
-      && /^\d{4}-\d{2}-\d{2}$/.test(result.capacityEvidence?.issuedDate ?? "")
-      && Boolean(result.capacityEvidence?.pageReference.trim())
-      && Boolean(result.capacityEvidence?.fileName.trim())
-      && /^[0-9a-f]{64}$/i.test(result.capacityEvidence?.fileSha256 ?? "")
+      && receiverEvidenceComplete(result.capacityEvidence)
       && Boolean(result.verificationScope?.analysisModelReference.trim())
       && Boolean(result.verificationScope?.governingLoadCombination.trim())
       && Boolean(result.verificationScope?.directionAndDistributionBasis.trim())
       && Boolean(result.verificationScope?.eccentricityAndSecondaryEffectBasis.trim())
       && (result.verificationScope?.checkedLimitStates.length ?? 0) > 0
       && ["passed", "failed"].includes(result.verificationScope?.otherChecksStatus ?? "")
+      && result.supplementalChecks?.length === receiverSupplementalCheckOptions.length
+      && receiverSupplementalCheckOptions.every((option) => {
+        const check = result.supplementalChecks?.find((item) => item.checkId === option.value);
+        if (!check?.basis.trim()) return false;
+        if (check.status === "passed") return receiverEvidenceComplete(check.evidence);
+        if (check.status === "failed") return !check.evidence || receiverEvidenceComplete(check.evidence);
+        return check.status === "not-applicable" && !check.evidence;
+      })
+      && result.verificationScope?.otherChecksStatus === (
+        result.supplementalChecks?.some((check) => check.status === "passed")
+        && !result.supplementalChecks?.some((check) => check.status === "failed")
+          ? "passed"
+          : "failed"
+      )
       && !(
         result.verificationScope?.otherChecksStatus === "passed"
         && /^RSC-[0-9A-F]{20}$/.test(result.capacityEvidence?.documentReference ?? "")
@@ -776,23 +801,26 @@ function App() {
 
   async function handleSourceCapacityEvidenceFile(
     result: ReceiverVerificationResult,
+    evidenceKey: string,
+    evidence: ReceiverCapacityEvidence,
     event: ChangeEvent<HTMLInputElement>,
   ) {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file || !result.capacityEvidence) return;
+    if (!file) return;
     try {
       const actualSha256 = await fileSha256Hex(file);
-      const expectedSha256 = result.capacityEvidence.fileSha256.toLowerCase();
+      const expectedSha256 = evidence.fileSha256.toLowerCase();
       setSourceCapacityEvidenceMatches((current) => ({
         ...current,
-        [result.transferId]: {
+        [sourceEvidenceMatchKey(result.transferId, evidenceKey)]: {
           transferId: result.transferId,
+          evidenceKey,
           selectedFileName: file.name,
           actualSha256,
           expectedSha256,
           matched: actualSha256 === expectedSha256,
-          fileNameMatched: file.name === result.capacityEvidence?.fileName,
+          fileNameMatched: file.name === evidence.fileName,
           checkedAt: new Date().toISOString(),
         },
       }));
@@ -811,10 +839,11 @@ function App() {
     }
     try {
       setBusy("建立來源端證據核驗紀錄");
-      const matches = activeRemovalTransferReceipt.results.map((result) => {
-        const match = sourceCapacityEvidenceMatches[result.transferId];
+      const matches = activeReceiptEvidenceItems.map(({ result, evidenceKey }) => {
+        const match = sourceCapacityEvidenceMatches[sourceEvidenceMatchKey(result.transferId, evidenceKey)];
         return {
           transferId: result.transferId,
+          evidenceKey,
           selectedFileName: match.selectedFileName,
           actualSha256: match.actualSha256,
         };
@@ -1105,6 +1134,7 @@ function App() {
           checkedLimitStates: ["axial", "stability"],
           otherChecksStatus: "failed",
         };
+        result.supplementalChecks = emptySupplementalChecks();
         result.verificationBasis = [
           "鋼構造建築物鋼結構設計技術規範第四章及第六章",
           `H 型鋼純軸壓計算 ${response.calculation.calculationFingerprint}`,
@@ -1444,6 +1474,112 @@ function App() {
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "無法計算承載力證據檔案 SHA-256。");
+    }
+  }
+
+  function updateReceiverSupplementalCheck(
+    resultIndex: number,
+    checkId: ReceiverSupplementalCheckId,
+    field: "status" | "basis",
+    value: string,
+  ) {
+    setReceiverAssistantResults((current) => {
+      const next = [...current];
+      const result = { ...next[resultIndex] };
+      const checks = (result.supplementalChecks ?? emptySupplementalChecks()).map((check) => {
+        if (check.checkId !== checkId) return check;
+        const updated: ReceiverSupplementalCheck = {
+          ...check,
+          [field]: value,
+        } as ReceiverSupplementalCheck;
+        if (field === "status" && value === "passed" && !updated.evidence) {
+          updated.evidence = {
+            documentReference: "",
+            revision: "",
+            issuedDate: "",
+            pageReference: "",
+            fileName: "",
+            fileSha256: "",
+          };
+        }
+        if (field === "status" && value === "not-applicable") delete updated.evidence;
+        if (field === "status" && value === "failed") delete updated.evidence;
+        return updated;
+      });
+      const otherChecksStatus = checks.some((check) => check.status === "passed")
+        && !checks.some((check) => check.status === "failed")
+        ? "passed"
+        : "failed";
+      result.supplementalChecks = checks;
+      result.verificationScope = {
+        analysisModelReference: "",
+        governingLoadCombination: "",
+        directionAndDistributionBasis: "",
+        eccentricityAndSecondaryEffectBasis: "",
+        checkedLimitStates: [],
+        ...result.verificationScope,
+        otherChecksStatus,
+      };
+      const ratio = result.adoptedDemandTf / (result.verifiedCapacityTf ?? 0);
+      result.status = Number.isFinite(ratio)
+        && (result.verifiedCapacityTf ?? 0) > 0
+        && ratio <= 1.000000001
+        && otherChecksStatus === "passed"
+        ? "passed"
+        : "failed";
+      next[resultIndex] = result;
+      return next;
+    });
+    setReceiverAssistantReceipt(null);
+  }
+
+  function updateReceiverSupplementalEvidence(
+    resultIndex: number,
+    checkId: ReceiverSupplementalCheckId,
+    field: keyof ReceiverCapacityEvidence,
+    value: string,
+  ) {
+    setReceiverAssistantResults((current) => {
+      const next = [...current];
+      const result = { ...next[resultIndex] };
+      result.supplementalChecks = (result.supplementalChecks ?? emptySupplementalChecks()).map((check) => (
+        check.checkId === checkId
+          ? {
+              ...check,
+              evidence: {
+                documentReference: "",
+                revision: "",
+                issuedDate: "",
+                pageReference: "",
+                fileName: "",
+                fileSha256: "",
+                ...check.evidence,
+                [field]: field === "fileSha256" ? value.trim().toLowerCase() : value,
+              },
+            }
+          : check
+      ));
+      next[resultIndex] = result;
+      return next;
+    });
+    setReceiverAssistantReceipt(null);
+  }
+
+  async function handleReceiverSupplementalEvidenceFile(
+    resultIndex: number,
+    checkId: ReceiverSupplementalCheckId,
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const fileSha256 = await fileSha256Hex(file);
+      updateReceiverSupplementalEvidence(resultIndex, checkId, "fileName", file.name);
+      updateReceiverSupplementalEvidence(resultIndex, checkId, "fileSha256", fileSha256);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "無法計算補充證據檔案 SHA-256。");
     }
   }
 
@@ -4357,7 +4493,7 @@ function App() {
                         value={sourceCapacityEvidenceRequired
                           ? activeSourceEvidenceVerification && !sourceCapacityEvidenceHasMismatch
                             ? `已保存 SEV：${activeSourceEvidenceVerification.summary.matched}/${activeSourceEvidenceVerification.summary.required}`
-                            : `已相符 ${activeRemovalTransferReceipt.results.filter((result) => sourceCapacityEvidenceMatches[result.transferId]?.matched).length}/${activeRemovalTransferReceipt.results.length}`
+                            : `已相符 ${activeReceiptEvidenceItems.filter((item) => sourceCapacityEvidenceMatches[sourceEvidenceMatchKey(item.result.transferId, item.evidenceKey)]?.matched).length}/${activeReceiptEvidenceItems.length}`
                           : "舊版 RVR 未提供逐列文件 SHA-256"}
                       />
                     </>
@@ -4366,17 +4502,16 @@ function App() {
               )}
               {activeRemovalTransferReceipt && sourceCapacityEvidenceRequired && (
                 <div className="receiver-result-list">
-                  {activeRemovalTransferReceipt.results.map((result, index) => {
-                    const evidence = result.capacityEvidence;
-                    const match = sourceCapacityEvidenceMatches[result.transferId];
+                  {activeReceiptEvidenceItems.map(({ result, evidenceKey, label, evidence }, index) => {
+                    const match = sourceCapacityEvidenceMatches[sourceEvidenceMatchKey(result.transferId, evidenceKey)];
                     const transfer = activeRemovalTransferHandoff?.transfers.find(
                       (item) => item.transferId === result.transferId,
                     );
                     return (
-                      <article className="receiver-result-card" key={`source-evidence-${result.transferId}`}>
+                      <article className="receiver-result-card" key={`source-evidence-${result.transferId}-${evidenceKey}`}>
                         <header className="receiver-result-head">
                           <div>
-                            <span>{`證據檔比對 ${index + 1}`}</span>
+                            <span>{`證據檔比對 ${index + 1}／${label}`}</span>
                             <strong>{transfer ? handoffSourceMemberLabel(transfer) : result.receiverTarget}</strong>
                           </div>
                           <code>{result.transferId}</code>
@@ -4391,7 +4526,7 @@ function App() {
                           <span>選取來源端實際收到的證據檔</span>
                           <input
                             type="file"
-                            onChange={(event) => void handleSourceCapacityEvidenceFile(result, event)}
+                            onChange={(event) => void handleSourceCapacityEvidenceFile(result, evidenceKey, evidence, event)}
                           />
                           <small>只在本機重新計算 SHA-256；檔案不會上傳或保存。</small>
                         </label>
@@ -4490,7 +4625,7 @@ function App() {
               )}
               {activeRemovalTransferReceipt && sourceCapacityEvidenceAllMatched && (
                 <p className="meta-line">
-                  RVR v3 以上版本的逐列證據檔 SHA-256 已全部相符；請填寫核驗責任資訊並建立 SEV，才會保存為可追溯的專案紀錄。
+                  RVR 引用的全部證據檔 SHA-256 已相符；請填寫核驗責任資訊並建立 SEV，才會保存為可追溯的專案紀錄。
                 </p>
               )}
               {activeRemovalTransferReceipt && sourceCapacityEvidenceRequired && sourceCapacityEvidenceAllMatched && (
@@ -5082,7 +5217,7 @@ function App() {
                                     <strong>{calculation.results.status === "passed" ? "純軸壓與穩定檢核通過" : "純軸壓或穩定適用性未通過"}</strong>
                                     <span>{`控制軸：${calculation.results.controllingAxis}；KL/r = ${fmt(calculation.results.klrMax)}；單支容量 = ${fmt(calculation.results.perMemberCapacityTf, " tf")}`}</span>
                                     <span>{`可採用移轉容量 = ${fmt(calculation.results.adoptableTransferCapacityTf, " tf")}；利用率 = ${calculation.results.capacityUtilizationRatio == null ? "—" : fmt(calculation.results.capacityUtilizationRatio)}`}</span>
-                                    <span>軸壓證據已下載並回填；其他未涵蓋查核仍維持「尚未完成」。若要整列通過，須以涵蓋全部查核的正式文件取代本 RSC 證據。</span>
+                                    <span>軸壓證據已下載並回填；其他未涵蓋查核仍維持「尚未完成」。若要整列通過，須在五類補充查核中逐項附上正式文件，RSC 不會被當成其他查核的證據。</span>
                                   </div>
                                 )}
                               </section>
@@ -5151,16 +5286,11 @@ function App() {
                                 ))}
                               </div>
                             </fieldset>
-                            <label className="field-block">
-                              <span>除上述 tf 容量比外之其他檢核彙整</span>
-                              <select
-                                value={result.verificationScope?.otherChecksStatus ?? "failed"}
-                                onChange={(event) => updateReceiverAssistantVerificationScope(index, "otherChecksStatus", event.target.value)}
-                              >
-                                <option value="failed">未通過／尚未完成</option>
-                                <option value="passed">全部通過</option>
-                              </select>
-                            </label>
+                            <div className="field-block">
+                              <span>五類補充查核彙整（自動）</span>
+                              <strong>{result.verificationScope?.otherChecksStatus === "passed" ? "全部通過／不適用" : "含未通過／尚未完成"}</strong>
+                              <small>此欄由下方五類查核自動推導，不能手動覆寫。</small>
+                            </div>
                             <Field
                               label="承載力文件編號"
                               value={result.capacityEvidence?.documentReference ?? ""}
@@ -5202,6 +5332,53 @@ function App() {
                               />
                               <small>檔案只在瀏覽器本機計算雜湊，不會上傳或嵌入 RVR。</small>
                             </label>
+                            <section className="receiver-supplemental-checks">
+                              <h4>五類補充查核與文件證據</h4>
+                              <p className="meta-line">每類均須明列通過、未通過或不適用及其依據；標示通過時必須選取實際證據檔並完成文件資料。</p>
+                              {(result.supplementalChecks ?? emptySupplementalChecks()).map((check) => {
+                                const label = receiverSupplementalCheckOptions.find((option) => option.value === check.checkId)?.label ?? check.checkId;
+                                return (
+                                  <article className="receiver-result-card" key={`${result.transferId}-${check.checkId}`}>
+                                    <div className="form-grid">
+                                      <label className="field-block">
+                                        <span>{label}</span>
+                                        <select
+                                          value={check.status}
+                                          onChange={(event) => updateReceiverSupplementalCheck(index, check.checkId, "status", event.target.value)}
+                                        >
+                                          <option value="failed">未通過／尚未完成</option>
+                                          <option value="passed">通過</option>
+                                          <option value="not-applicable">不適用</option>
+                                        </select>
+                                      </label>
+                                      <TextAreaField
+                                        label={`${label}查核依據`}
+                                        value={check.basis}
+                                        onChange={(value) => updateReceiverSupplementalCheck(index, check.checkId, "basis", value)}
+                                      />
+                                      {check.status === "passed" && (
+                                        <>
+                                          <Field label="文件編號" value={check.evidence?.documentReference ?? ""} onChange={(value) => updateReceiverSupplementalEvidence(index, check.checkId, "documentReference", value)} />
+                                          <Field label="文件版次" value={check.evidence?.revision ?? ""} onChange={(value) => updateReceiverSupplementalEvidence(index, check.checkId, "revision", value)} />
+                                          <label className="field-block">
+                                            <span>文件日期</span>
+                                            <input type="date" value={check.evidence?.issuedDate ?? ""} onChange={(event) => updateReceiverSupplementalEvidence(index, check.checkId, "issuedDate", event.target.value)} />
+                                          </label>
+                                          <Field label="頁碼／章節" value={check.evidence?.pageReference ?? ""} onChange={(value) => updateReceiverSupplementalEvidence(index, check.checkId, "pageReference", value)} />
+                                          <Field label="證據檔名" value={check.evidence?.fileName ?? ""} onChange={(value) => updateReceiverSupplementalEvidence(index, check.checkId, "fileName", value)} />
+                                          <Field label="證據檔 SHA-256" value={check.evidence?.fileSha256 ?? ""} onChange={(value) => updateReceiverSupplementalEvidence(index, check.checkId, "fileSha256", value)} />
+                                          <label className="field-block">
+                                            <span>由本機檔案帶入檔名與 SHA-256</span>
+                                            <input type="file" onChange={(event) => void handleReceiverSupplementalEvidenceFile(index, check.checkId, event)} />
+                                            <small>檔案只在本機計算雜湊；不會上傳或嵌入 RVR。</small>
+                                          </label>
+                                        </>
+                                      )}
+                                    </div>
+                                  </article>
+                                );
+                              })}
+                            </section>
                             <TextAreaField
                               label="接收端檢核依據"
                               value={result.verificationBasis}
@@ -5230,7 +5407,7 @@ function App() {
                           setReceiverAssistantReceipt(null);
                         }}
                       />
-                      <span>我確認每一列已記錄正式模型、控制載重組合、傳力與分配、偏心／二次效應及已檢核極限狀態，且內容與正式檢核文件一致。</span>
+                      <span>我確認每一列已記錄正式模型、控制載重組合、傳力與分配、偏心／二次效應、已檢核極限狀態及五類補充查核，且內容與正式檢核文件一致。</span>
                     </label>
                     <label className="check-field">
                       <input
@@ -5273,8 +5450,10 @@ function App() {
                           : "RVR 已建立：接收端結果包含未通過項目"}
                       </strong>
                       <span>
-                        {receiverAssistantReceipt.schemaVersion === 4
-                          ? "RVR v4：已逐列記錄正式模型、控制組合、傳力與偏心依據、極限狀態及其他檢核結果，並連結承載力文件 SHA-256。"
+                        {receiverAssistantReceipt.schemaVersion === 5
+                          ? "RVR v5：已逐列記錄五類補充查核的狀態、依據及證據檔 SHA-256；彙整狀態由後端自動推導。"
+                          : receiverAssistantReceipt.schemaVersion === 4
+                          ? "舊版 RVR v4：已逐列記錄正式模型、控制組合、傳力與偏心依據、極限狀態及其他檢核結果，但補充查核尚未逐檔結構化。"
                           : receiverAssistantReceipt.schemaVersion === 3
                           ? "舊版 RVR v3：需求／承載力閉環已逐列連結正式文件資料與 SHA-256，但尚未結構化記錄完整驗算範圍。"
                           : receiverAssistantReceipt.schemaVersion === 2
@@ -6771,6 +6950,55 @@ function handoffSourceMemberLabel(transfer: RemovalTransferHandoff["transfers"][
   return parts.join("／") || "未命名來源構件";
 }
 
+function receiptEvidenceItems(receipt: ReceiverCapacityVerificationReceipt) {
+  return receipt.results.flatMap((result) => {
+    const items: Array<{
+      result: ReceiverVerificationResult;
+      evidenceKey: string;
+      label: string;
+      evidence: ReceiverCapacityEvidence;
+    }> = [];
+    if (result.capacityEvidence) {
+      items.push({
+        result,
+        evidenceKey: "capacity",
+        label: "核定承載力",
+        evidence: result.capacityEvidence,
+      });
+    }
+    if (receipt.schemaVersion >= 5) {
+      result.supplementalChecks?.forEach((check) => {
+        if (!check.evidence) return;
+        const label = receiverSupplementalCheckOptions.find((option) => option.value === check.checkId)?.label
+          ?? check.checkId;
+        items.push({ result, evidenceKey: check.checkId, label, evidence: check.evidence });
+      });
+    }
+    return items;
+  });
+}
+
+function receiverEvidenceComplete(evidence?: ReceiverCapacityEvidence): boolean {
+  return Boolean(evidence?.documentReference.trim())
+    && Boolean(evidence?.revision.trim())
+    && /^\d{4}-\d{2}-\d{2}$/.test(evidence?.issuedDate ?? "")
+    && Boolean(evidence?.pageReference.trim())
+    && Boolean(evidence?.fileName.trim())
+    && /^[0-9a-f]{64}$/i.test(evidence?.fileSha256 ?? "");
+}
+
+function sourceEvidenceMatchKey(transferId: string, evidenceKey: string): string {
+  return `${transferId}::${evidenceKey}`;
+}
+
+function emptySupplementalChecks(): ReceiverSupplementalCheck[] {
+  return receiverSupplementalCheckOptions.map((option) => ({
+    checkId: option.value,
+    status: "failed",
+    basis: "尚未完成正式查核。",
+  }));
+}
+
 function receiverResultDrafts(handoff: RemovalTransferHandoff): ReceiverVerificationResult[] {
   return handoff.transfers.map((transfer) => ({
     transferId: transfer.transferId,
@@ -6795,6 +7023,7 @@ function receiverResultDrafts(handoff: RemovalTransferHandoff): ReceiverVerifica
       checkedLimitStates: [],
       otherChecksStatus: "failed",
     },
+    supplementalChecks: emptySupplementalChecks(),
     verificationBasis: "",
     conclusion: "",
   }));

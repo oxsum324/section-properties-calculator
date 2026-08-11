@@ -24,13 +24,14 @@ from .schemas import (
 
 
 HANDOFF_SCHEMA_VERSION = 4
-RECEIPT_SCHEMA_VERSION = 4
-SUPPORTED_RECEIPT_SCHEMA_VERSIONS = {1, 2, 3, RECEIPT_SCHEMA_VERSION}
+RECEIPT_SCHEMA_VERSION = 5
+SUPPORTED_RECEIPT_SCHEMA_VERSIONS = {1, 2, 3, 4, RECEIPT_SCHEMA_VERSION}
 SCHEMA_VERSION = HANDOFF_SCHEMA_VERSION
 KIND = "excavation-removal-transfer-handoff"
 RECEIPT_KIND = "receiver-capacity-verification-receipt"
 RECEIPT_FINGERPRINT_PREFIX = "RVR"
-SOURCE_EVIDENCE_VERIFICATION_SCHEMA_VERSION = 1
+SOURCE_EVIDENCE_VERIFICATION_SCHEMA_VERSION = 2
+SUPPORTED_SOURCE_EVIDENCE_VERIFICATION_SCHEMA_VERSIONS = {1, SOURCE_EVIDENCE_VERIFICATION_SCHEMA_VERSION}
 SOURCE_EVIDENCE_VERIFICATION_KIND = "source-capacity-evidence-verification-record"
 SOURCE_EVIDENCE_VERIFICATION_FINGERPRINT_PREFIX = "SEV"
 IDENTITY_SIGNATURE_CONTEXT = "receiver-verification-identity-signature-v1"
@@ -55,6 +56,13 @@ RECEIVER_LIMIT_STATES = {
     "connection": "連接",
     "foundation": "基礎",
     "other": "其他",
+}
+RECEIVER_SUPPLEMENTAL_CHECKS = {
+    "connection": "接頭與接合",
+    "bearing": "端部與局部承壓",
+    "receiving-structure": "基礎、樓版或承接主體",
+    "bracing-and-effective-length": "側向支撐與有效長度條件",
+    "construction-sequence-and-preload": "施工順序、預載與卸載控制",
 }
 
 _COLLECTIONS = (
@@ -799,6 +807,7 @@ def build_removal_transfer_handoff(
             "capacityCheck": "adopted-demand-divided-by-verified-capacity",
             "capacityEvidence": "per-ERT-document-metadata-and-sha256",
             "verificationScope": "per-ERT-structured-model-combination-load-path-eccentricity-and-limit-states",
+            "supplementalEvidence": "per-ERT-five-check-status-basis-and-document-sha256",
             "verifierIdentityAuthentication": "manual-review-or-ed25519-trust-registry",
         },
         "boundary": {
@@ -906,6 +915,12 @@ def validate_removal_transfer_handoff(record: dict[str, Any]) -> dict[str, Any]:
         != "per-ERT-structured-model-combination-load-path-eccentricity-and-limit-states"
     ):
         raise ValueError("拆撐承接構造交接檔缺少逐列承接構造驗算範圍契約。")
+    if (
+        receipt_schema_version >= 5
+        and receipt_contract.get("supplementalEvidence")
+        != "per-ERT-five-check-status-basis-and-document-sha256"
+    ):
+        raise ValueError("拆撐承接構造交接檔缺少五類補充查核與文件證據契約。")
     return deepcopy(record)
 
 
@@ -991,6 +1006,42 @@ def _validated_receiver_verification_scope(value: Any) -> dict[str, Any]:
         "checkedLimitStates": normalized_limit_states,
         "otherChecksStatus": other_checks_status,
     }
+
+
+def _validated_receiver_supplemental_checks(value: Any) -> tuple[list[dict[str, Any]], str]:
+    if not isinstance(value, list) or len(value) != len(RECEIVER_SUPPLEMENTAL_CHECKS):
+        raise ValueError("承接構造回簽必須逐列完整記錄五類補充查核。")
+    by_id: dict[str, dict[str, Any]] = {}
+    for item in value:
+        if not isinstance(item, dict):
+            raise ValueError("承接構造回簽的補充查核格式不正確。")
+        check_id = str(item.get("checkId", ""))
+        if check_id not in RECEIVER_SUPPLEMENTAL_CHECKS or check_id in by_id:
+            raise ValueError("承接構造回簽的補充查核種類不存在或重複。")
+        status = item.get("status")
+        if status not in {"passed", "failed", "not-applicable"}:
+            raise ValueError("承接構造回簽的補充查核狀態不受支援。")
+        basis = _required_text(item.get("basis"), f"{RECEIVER_SUPPLEMENTAL_CHECKS[check_id]}查核依據", max_length=500)
+        raw_evidence = item.get("evidence")
+        evidence = _validated_capacity_evidence(raw_evidence) if raw_evidence is not None else None
+        if status == "passed" and evidence is None:
+            raise ValueError(f"承接構造回簽的{RECEIVER_SUPPLEMENTAL_CHECKS[check_id]}標示通過時必須連結證據檔。")
+        if status == "not-applicable" and evidence is not None:
+            raise ValueError(f"承接構造回簽的{RECEIVER_SUPPLEMENTAL_CHECKS[check_id]}標示不適用時不得連結證據檔。")
+        controlled = {"checkId": check_id, "status": status, "basis": basis}
+        if evidence is not None:
+            controlled["evidence"] = evidence
+        by_id[check_id] = controlled
+    if set(by_id) != set(RECEIVER_SUPPLEMENTAL_CHECKS):
+        raise ValueError("承接構造回簽未完整涵蓋五類補充查核。")
+    normalized = [by_id[check_id] for check_id in RECEIVER_SUPPLEMENTAL_CHECKS]
+    derived_status = (
+        "passed"
+        if any(item["status"] == "passed" for item in normalized)
+        and not any(item["status"] == "failed" for item in normalized)
+        else "failed"
+    )
+    return normalized, derived_status
 
 
 def validate_receiver_verification_receipt(
@@ -1080,6 +1131,14 @@ def validate_receiver_verification_receipt(
                 scope = _validated_receiver_verification_scope(result.get("verificationScope"))
                 if scope != result.get("verificationScope"):
                     raise ValueError("承接構造回簽的逐列驗算範圍欄位未正規化。")
+            if receipt_schema_version >= 5:
+                supplemental_checks, derived_other_checks_status = _validated_receiver_supplemental_checks(
+                    result.get("supplementalChecks")
+                )
+                if supplemental_checks != result.get("supplementalChecks"):
+                    raise ValueError("承接構造回簽的五類補充查核欄位未正規化。")
+                if scope is None or scope["otherChecksStatus"] != derived_other_checks_status:
+                    raise ValueError("承接構造回簽的其他檢核彙整狀態與五類補充查核不一致。")
             other_checks_passed = scope is None or scope["otherChecksStatus"] == "passed"
             expected_result_status = "passed" if expected_ratio <= 1.0 + 1e-9 and other_checks_passed else "failed"
             if status != expected_result_status:
@@ -1090,6 +1149,16 @@ def validate_receiver_verification_receipt(
             evidence = _validated_capacity_evidence(result.get("capacityEvidence"))
             if evidence != result.get("capacityEvidence"):
                 raise ValueError("承接構造回簽的承載力文件證據欄位未正規化。")
+            if (
+                receipt_schema_version >= 5
+                and re.fullmatch(r"RSC-[0-9A-F]{20}", evidence["documentReference"])
+                and any(
+                    check["status"] == "passed"
+                    and check.get("evidence", {}).get("fileSha256") == evidence["fileSha256"]
+                    for check in supplemental_checks
+                )
+            ):
+                raise ValueError("RSC 純軸壓證據不得重複作為五類補充查核的通過證據。")
         if status == "passed":
             passed += 1
         else:
@@ -1128,6 +1197,15 @@ def validate_receiver_verification_receipt(
         and boundary.get("verificationScopeStructured") is not True
     ):
         raise ValueError("承接構造回簽未聲明逐列驗算範圍已結構化記錄。")
+    if (
+        receipt_schema_version >= 5
+        and (
+            boundary.get("supplementalChecksStructured") is not True
+            or boundary.get("supplementalEvidenceFilesNotEmbedded") is not True
+            or boundary.get("otherChecksStatusDerived") is not True
+        )
+    ):
+        raise ValueError("承接構造回簽未保留五類補充查核、逐檔雜湊及自動彙整邊界。")
     return deepcopy(receipt)
 
 
@@ -1157,6 +1235,10 @@ def build_receiver_verification_receipt(
         ratio = adopted_demand / verified_capacity
         evidence = _validated_capacity_evidence(result.get("capacityEvidence"))
         scope = _validated_receiver_verification_scope(result.get("verificationScope"))
+        supplemental_checks, derived_other_checks_status = _validated_receiver_supplemental_checks(
+            result.get("supplementalChecks")
+        )
+        scope["otherChecksStatus"] = derived_other_checks_status
         controlled_results.append({
             "transferId": result.get("transferId", ""),
             "status": "passed" if ratio <= 1.0 + 1e-9 and scope["otherChecksStatus"] == "passed" else "failed",
@@ -1166,6 +1248,7 @@ def build_receiver_verification_receipt(
             "capacityUtilizationRatio": round(ratio, 6),
             "capacityEvidence": evidence,
             "verificationScope": scope,
+            "supplementalChecks": supplemental_checks,
             "verificationBasis": result.get("verificationBasis", ""),
             "conclusion": result.get("conclusion", ""),
         })
@@ -1191,10 +1274,39 @@ def build_receiver_verification_receipt(
             "capacityValueFromReceiverDocument": True,
             "capacityEvidenceFileNotEmbedded": True,
             "verificationScopeStructured": True,
+            "supplementalChecksStructured": True,
+            "supplementalEvidenceFilesNotEmbedded": True,
+            "otherChecksStatusDerived": True,
         },
     }
     receipt["receiptFingerprint"] = receiver_verification_receipt_fingerprint(receipt)
     return validate_receiver_verification_receipt(receipt, validated_handoff)
+
+
+def _receipt_evidence_entries(receipt: dict[str, Any]) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for result in receipt["results"]:
+        transfer_id = str(result["transferId"])
+        entries.append({
+            "transferId": transfer_id,
+            "evidenceKey": "capacity",
+            "evidenceRole": "capacity",
+            "checkLabel": "核定承載力",
+            "evidence": result["capacityEvidence"],
+        })
+        if receipt.get("schemaVersion", 1) >= 5:
+            for check in result["supplementalChecks"]:
+                evidence = check.get("evidence")
+                if evidence is None:
+                    continue
+                entries.append({
+                    "transferId": transfer_id,
+                    "evidenceKey": check["checkId"],
+                    "evidenceRole": "supplemental",
+                    "checkLabel": RECEIVER_SUPPLEMENTAL_CHECKS[check["checkId"]],
+                    "evidence": evidence,
+                })
+    return entries
 
 
 def validate_source_capacity_evidence_verification(
@@ -1208,11 +1320,15 @@ def validate_source_capacity_evidence_verification(
         raise ValueError("只有 RVR v3 以上版本可建立來源端逐列證據核對紀錄。")
     if not isinstance(record, dict):
         raise ValueError("來源端證據核對紀錄格式不正確。")
+    sev_schema_version = record.get("schemaVersion")
     if (
-        record.get("schemaVersion") != SOURCE_EVIDENCE_VERIFICATION_SCHEMA_VERSION
+        isinstance(sev_schema_version, bool)
+        or sev_schema_version not in SUPPORTED_SOURCE_EVIDENCE_VERIFICATION_SCHEMA_VERSIONS
         or record.get("kind") != SOURCE_EVIDENCE_VERIFICATION_KIND
     ):
         raise ValueError("來源端證據核對紀錄版本或種類不受支援。")
+    if validated_receipt.get("schemaVersion", 1) >= 5 and sev_schema_version < 2:
+        raise ValueError("RVR v5 必須使用 SEV v2 逐檔核對全部引用證據。")
     fingerprint = str(record.get("verificationFingerprint", ""))
     if (
         not re.fullmatch(r"SEV-[0-9A-F]{20}", fingerprint)
@@ -1244,17 +1360,26 @@ def validate_source_capacity_evidence_verification(
     checks = record.get("checks")
     if not isinstance(checks, list) or not checks:
         raise ValueError("來源端證據核對紀錄沒有逐筆比對結果。")
-    receipt_results = {str(item["transferId"]): item for item in validated_receipt["results"]}
-    seen_ids: set[str] = set()
+    expected_entries = _receipt_evidence_entries(validated_receipt)
+    if sev_schema_version == 1:
+        expected_entries = [entry for entry in expected_entries if entry["evidenceKey"] == "capacity"]
+    expected_by_key = {
+        (entry["transferId"], entry["evidenceKey"]): entry
+        for entry in expected_entries
+    }
+    seen_keys: set[tuple[str, str]] = set()
     file_name_differences = 0
     for check in checks:
         if not isinstance(check, dict):
             raise ValueError("來源端證據核對紀錄包含格式不正確的逐筆結果。")
         transfer_id = str(check.get("transferId", ""))
-        if transfer_id not in receipt_results or transfer_id in seen_ids:
-            raise ValueError("來源端證據核對紀錄的 ERT 不存在、重複或不屬於指定 RVR。")
-        seen_ids.add(transfer_id)
-        evidence = receipt_results[transfer_id]["capacityEvidence"]
+        evidence_key = "capacity" if sev_schema_version == 1 else str(check.get("evidenceKey", ""))
+        entry_key = (transfer_id, evidence_key)
+        entry = expected_by_key.get(entry_key)
+        if entry is None or entry_key in seen_keys:
+            raise ValueError("來源端證據核對紀錄的證據項目不存在、重複或不屬於指定 RVR。")
+        seen_keys.add(entry_key)
+        evidence = entry["evidence"]
         controlled_fields = {
             "documentReference": evidence["documentReference"],
             "revision": evidence["revision"],
@@ -1263,6 +1388,12 @@ def validate_source_capacity_evidence_verification(
             "expectedFileName": evidence["fileName"],
             "expectedSha256": evidence["fileSha256"],
         }
+        if sev_schema_version >= 2:
+            controlled_fields.update({
+                "evidenceKey": evidence_key,
+                "evidenceRole": entry["evidenceRole"],
+                "checkLabel": entry["checkLabel"],
+            })
         if any(check.get(key) != value for key, value in controlled_fields.items()):
             raise ValueError("來源端證據核對紀錄的 RVR 文件受控欄位不一致。")
         selected_file_name = _required_text(check.get("selectedFileName"), "來源端實際證據檔名", max_length=180)
@@ -1279,14 +1410,14 @@ def validate_source_capacity_evidence_verification(
             raise ValueError("來源端證據核對紀錄的檔名比對狀態不一致。")
         if not expected_file_name_match:
             file_name_differences += 1
-    if seen_ids != set(receipt_results):
-        raise ValueError("來源端證據核對紀錄未完整涵蓋 RVR 的全部 ERT。")
+    if seen_keys != set(expected_by_key):
+        raise ValueError("來源端證據核對紀錄未完整涵蓋 RVR 引用的全部證據檔。")
     summary = record.get("summary")
     if (
         not isinstance(summary, dict)
         or summary.get("status") != "matched"
-        or summary.get("required") != len(receipt_results)
-        or summary.get("matched") != len(receipt_results)
+        or summary.get("required") != len(expected_by_key)
+        or summary.get("matched") != len(expected_by_key)
         or summary.get("fileNameDifferences") != file_name_differences
     ):
         raise ValueError("來源端證據核對紀錄彙整與逐筆結果不一致。")
@@ -1299,6 +1430,8 @@ def validate_source_capacity_evidence_verification(
         or boundary.get("engineeringContentRequiresManualReview") is not True
     ):
         raise ValueError("來源端證據核對紀錄未保留檔案與工程審查責任邊界。")
+    if sev_schema_version >= 2 and boundary.get("allReferencedEvidenceFilesCompared") is not True:
+        raise ValueError("來源端證據核對紀錄未聲明已逐檔比對 RVR 引用的全部證據。")
     if record.get("identitySignature") is not None:
         verify_source_evidence_identity_signature(record)
     return deepcopy(record)
@@ -1317,21 +1450,29 @@ def build_source_capacity_evidence_verification(
     validated_receipt = validate_receiver_verification_receipt(receipt, validated_handoff)
     if validated_receipt.get("schemaVersion", 1) < 3:
         raise ValueError("只有 RVR v3 以上版本可建立來源端逐列證據核對紀錄。")
-    results_by_id = {str(item["transferId"]): item for item in validated_receipt["results"]}
+    evidence_entries = _receipt_evidence_entries(validated_receipt)
+    entries_by_key = {
+        (entry["transferId"], entry["evidenceKey"]): entry
+        for entry in evidence_entries
+    }
     controlled_checks = []
     for match in matches:
         if not isinstance(match, dict):
             continue
         transfer_id = str(match.get("transferId", ""))
-        result = results_by_id.get(transfer_id)
-        if result is None:
-            controlled_checks.append({"transferId": transfer_id})
+        evidence_key = str(match.get("evidenceKey", "capacity"))
+        entry = entries_by_key.get((transfer_id, evidence_key))
+        if entry is None:
+            controlled_checks.append({"transferId": transfer_id, "evidenceKey": evidence_key})
             continue
-        evidence = result["capacityEvidence"]
+        evidence = entry["evidence"]
         selected_file_name = str(match.get("selectedFileName", "")).strip()
         actual_sha256 = str(match.get("actualSha256", "")).strip().lower()
         controlled_checks.append({
             "transferId": transfer_id,
+            "evidenceKey": evidence_key,
+            "evidenceRole": entry["evidenceRole"],
+            "checkLabel": entry["checkLabel"],
             "documentReference": evidence["documentReference"],
             "revision": evidence["revision"],
             "issuedDate": evidence["issuedDate"],
@@ -1360,7 +1501,7 @@ def build_source_capacity_evidence_verification(
         "checks": controlled_checks,
         "summary": {
             "status": "matched",
-            "required": len(results_by_id),
+            "required": len(entries_by_key),
             "matched": len(controlled_checks),
             "fileNameDifferences": file_name_differences,
         },
@@ -1369,6 +1510,7 @@ def build_source_capacity_evidence_verification(
             "evidenceFilesNotUploadedOrEmbedded": True,
             "byteIdentityOnly": True,
             "engineeringContentRequiresManualReview": True,
+            "allReferencedEvidenceFilesCompared": True,
         },
     }
     record["verificationFingerprint"] = source_evidence_verification_fingerprint(record)
