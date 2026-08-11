@@ -241,6 +241,30 @@ export const api = {
         }),
       },
     ),
+  completeReceiverKeyRotation: (
+    newKeyId: string,
+    rotation: {
+      reason: string;
+      handledBy: string;
+      incidentReference: string;
+    },
+  ) =>
+    request<{
+      newKey: ReceiverTrustKey;
+      revokedKey: ReceiverTrustKey;
+      event: ReceiverTrustEvent;
+      keys: ReceiverTrustKey[];
+      events: ReceiverTrustEvent[];
+    }>(`/api/removal-transfer-trust-keys/${encodeURIComponent(newKeyId)}/complete-rotation`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reason: rotation.reason,
+        handled_by: rotation.handledBy,
+        incident_reference: rotation.incidentReference,
+        rotation_confirmed: true,
+      }),
+    }),
   exportReceiverTrustRegistryBackup: () =>
     request<{ backup: ReceiverTrustRegistryBackup }>(
       "/api/removal-transfer-trust-registry/backups/export",

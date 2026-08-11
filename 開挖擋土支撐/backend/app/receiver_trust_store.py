@@ -91,6 +91,35 @@ class ReceiverTrustStore:
             _required_text(key.get("displayName"), "金鑰名稱", 200)
             if key.get("status") not in {"trusted", "revoked"}:
                 raise ValueError("本機回簽公鑰狀態不受支援。")
+        keys_by_id = {item["keyId"]: item for item in normalized_keys}
+        for key in normalized_keys:
+            replacement = key.get("replacesKeyId")
+            if replacement is not None:
+                previous = keys_by_id.get(replacement)
+                if previous is None or replacement == key["keyId"]:
+                    raise ValueError("本機回簽公鑰輪替關聯指向無效的舊 Key ID。")
+                if previous.get("organization") != key.get("organization"):
+                    raise ValueError("本機回簽公鑰輪替關聯的新舊單位不一致。")
+            completed_at = key.get("rotationCompletedAt")
+            completion_event = key.get("rotationCompletionEventFingerprint")
+            if (completed_at is None) != (completion_event is None):
+                raise ValueError("本機回簽公鑰的輪替完成資料不完整。")
+            if completed_at is not None:
+                if replacement is None:
+                    raise ValueError("本機回簽公鑰缺少輪替舊 Key ID，不得標記為輪替完成。")
+                _required_text(completed_at, "輪替完成時間", 64)
+                _required_text(completion_event, "輪替完成事件指紋", 24)
+        for key in normalized_keys:
+            replacement_key_id = key.get("replacedByKeyId")
+            if replacement_key_id is None:
+                continue
+            replacement_key = keys_by_id.get(replacement_key_id)
+            if replacement_key is None or replacement_key.get("replacesKeyId") != key["keyId"]:
+                raise ValueError("本機回簽公鑰的輪替雙向關聯不一致。")
+            if key.get("status") != "revoked" or key.get("revocationReasonCode") != "superseded-after-rotation":
+                raise ValueError("舊金鑰尚未以輪替完成原因撤銷，不得標記為已被取代。")
+            if replacement_key.get("rotationCompletionEventFingerprint") != key.get("revocationEventFingerprint"):
+                raise ValueError("本機回簽公鑰的輪替完成事件指紋不一致。")
         cls._validate_event_chain(normalized_events)
         cls._validate_key_event_consistency(normalized_keys, normalized_events)
         return {"keys": normalized_keys, "events": normalized_events}
@@ -158,6 +187,19 @@ class ReceiverTrustStore:
                 raise ValueError("RKE 宣告的被取代金鑰尚未存在於本機信任清冊。")
             if str(previous.get("organization", "")).strip() != validated["organization"]:
                 raise ValueError("RKE 新舊金鑰的登錄單位不一致。")
+            if previous.get("status") != "trusted":
+                raise ValueError("RKE 宣告的被取代金鑰已非受信任狀態，不得再建立輪替關聯。")
+            active_replacement = next(
+                (
+                    item for item in keys
+                    if item.get("replacesKeyId") == replacement and item.get("status") == "trusted"
+                ),
+                None,
+            )
+            if active_replacement is not None:
+                raise ValueError(
+                    f"被取代金鑰已有待完成輪替的新金鑰 {active_replacement.get('keyId')}。"
+                )
         return self._register_key(
             validated["organization"],
             validated["displayName"],
@@ -238,6 +280,8 @@ class ReceiverTrustStore:
         reason_code = str(reason_code or "").strip()
         if reason_code not in RECEIVER_KEY_REVOCATION_REASONS:
             raise ValueError("撤銷原因分類不受支援。")
+        if reason_code == "superseded-after-rotation":
+            raise ValueError("輪替完成必須由專用流程指定新金鑰，不得以一般撤銷取代。")
         reason = _required_text(reason, "撤銷原因說明", 500)
         handled_by = _required_text(handled_by, "處理者", 120)
         incident_reference = str(incident_reference or "").strip()
@@ -273,6 +317,69 @@ class ReceiverTrustStore:
         self._write(keys, events)
         return dict(target)
 
+    def complete_rotation(
+        self,
+        new_key_id: str,
+        *,
+        reason: str,
+        handled_by: str,
+        incident_reference: str,
+        rotation_confirmed: bool = False,
+    ) -> dict[str, Any]:
+        if rotation_confirmed is not True:
+            raise ValueError("完成輪替前必須明確確認新金鑰已啟用，且舊金鑰將不可復原地撤銷。")
+        reason = _required_text(reason, "輪替完成與切換摘要", 500)
+        handled_by = _required_text(handled_by, "輪替處理者", 120)
+        incident_reference = _required_text(incident_reference, "輪替案件或變更編號", 160)
+
+        registry = self._read_registry()
+        keys = registry["keys"]
+        events = registry["events"]
+        new_key = next((item for item in keys if item.get("keyId") == new_key_id), None)
+        if new_key is None:
+            raise KeyError(new_key_id)
+        old_key_id = str(new_key.get("replacesKeyId") or "").strip()
+        if not old_key_id:
+            raise ValueError("指定的新金鑰並非輪替 RKE，缺少 replacesKeyId。")
+        old_key = next((item for item in keys if item.get("keyId") == old_key_id), None)
+        if old_key is None:
+            raise ValueError("輪替關聯的舊金鑰不存在於本機信任清冊。")
+        if new_key.get("status") != "trusted":
+            raise ValueError("新金鑰已非受信任狀態，不得用於完成輪替。")
+        if old_key.get("status") != "trusted":
+            raise ValueError("舊金鑰已撤銷，不得重複完成輪替或覆寫原撤銷紀錄。")
+        if str(old_key.get("organization", "")).strip() != str(new_key.get("organization", "")).strip():
+            raise ValueError("輪替新舊金鑰的登錄單位不一致。")
+
+        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        old_key["status"] = "revoked"
+        old_key["revokedAt"] = now
+        old_key["revocationReasonCode"] = "superseded-after-rotation"
+        old_key["revocationReason"] = reason
+        old_key["revokedBy"] = handled_by
+        old_key["revocationReference"] = incident_reference
+        old_key["replacedByKeyId"] = new_key_id
+        event = self._append_event(
+            events,
+            key_id=old_key_id,
+            event_type="key-revoked",
+            effective_at=now,
+            actor=handled_by,
+            reason_code="superseded-after-rotation",
+            reason=reason,
+            incident_reference=incident_reference,
+            related_key_id=new_key_id,
+        )
+        old_key["revocationEventFingerprint"] = event["eventFingerprint"]
+        new_key["rotationCompletedAt"] = now
+        new_key["rotationCompletionEventFingerprint"] = event["eventFingerprint"]
+        self._write(keys, events)
+        return {
+            "newKey": dict(new_key),
+            "revokedKey": dict(old_key),
+            "event": dict(event),
+        }
+
     @staticmethod
     def _event_fingerprint(event: dict[str, Any]) -> str:
         payload = {key: value for key, value in event.items() if key != "eventFingerprint"}
@@ -287,6 +394,9 @@ class ReceiverTrustStore:
                 raise ValueError("本機回簽公鑰事件清冊版本不受支援。")
             if event.get("eventType") not in {"key-registered", "key-revoked"}:
                 raise ValueError("本機回簽公鑰事件類型不受支援。")
+            related_key_id = event.get("relatedKeyId")
+            if related_key_id is not None and not isinstance(related_key_id, str):
+                raise ValueError("本機回簽公鑰事件的關聯 Key ID 格式不正確。")
             if event.get("previousEventFingerprint") != previous:
                 raise ValueError("本機回簽公鑰事件清冊的串接順序不一致。")
             expected = cls._event_fingerprint(event)
@@ -308,6 +418,8 @@ class ReceiverTrustStore:
             target = keys_by_id.get(event.get("keyId"))
             if target is None:
                 raise ValueError("本機回簽公鑰事件清冊指向不存在的 Key ID。")
+            if event.get("relatedKeyId") is not None and event.get("eventType") != "key-revoked":
+                raise ValueError("只有撤銷事件可包含輪替關聯 Key ID。")
             if event.get("eventType") != "key-revoked":
                 continue
             if target.get("status") != "revoked":
@@ -323,10 +435,31 @@ class ReceiverTrustStore:
             }
             if any(target.get(field) != value for field, value in expected_fields.items()):
                 raise ValueError("本機回簽公鑰的撤銷資料與事件清冊不一致。")
+            related_key_id = event.get("relatedKeyId")
+            if related_key_id is not None:
+                replacement = keys_by_id.get(related_key_id)
+                if (
+                    event.get("reasonCode") != "superseded-after-rotation"
+                    or replacement is None
+                    or replacement.get("replacesKeyId") != target.get("keyId")
+                    or target.get("replacedByKeyId") != related_key_id
+                    or replacement.get("rotationCompletionEventFingerprint") != event.get("eventFingerprint")
+                ):
+                    raise ValueError("本機回簽公鑰的輪替完成事件關聯不一致。")
         for key in keys:
             fingerprint = key.get("revocationEventFingerprint")
             if fingerprint and fingerprint not in events_by_fingerprint:
                 raise ValueError("本機回簽公鑰引用的撤銷事件不存在。")
+            completion_fingerprint = key.get("rotationCompletionEventFingerprint")
+            if completion_fingerprint:
+                completion_event = events_by_fingerprint.get(completion_fingerprint)
+                if (
+                    completion_event is None
+                    or completion_event.get("eventType") != "key-revoked"
+                    or completion_event.get("keyId") != key.get("replacesKeyId")
+                    or completion_event.get("relatedKeyId") != key.get("keyId")
+                ):
+                    raise ValueError("本機回簽公鑰引用的輪替完成事件不一致。")
 
     def _append_event(
         self,
@@ -339,6 +472,7 @@ class ReceiverTrustStore:
         reason_code: str,
         reason: str,
         incident_reference: str,
+        related_key_id: str | None = None,
     ) -> dict[str, Any]:
         event = {
             "schemaVersion": 1,
@@ -353,6 +487,8 @@ class ReceiverTrustStore:
             "incidentReference": incident_reference or None,
             "previousEventFingerprint": events[-1]["eventFingerprint"] if events else None,
         }
+        if related_key_id is not None:
+            event["relatedKeyId"] = related_key_id
         event["eventFingerprint"] = self._event_fingerprint(event)
         events.append(event)
         return event

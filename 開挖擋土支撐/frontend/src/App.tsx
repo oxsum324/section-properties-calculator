@@ -144,7 +144,6 @@ const receiverRevocationReasonOptions: Array<{ value: ReceiverRevocationReason; 
   { value: "lost-key-or-password", label: "私鑰或密碼遺失" },
   { value: "custodian-change", label: "保管人異動" },
   { value: "organization-change", label: "組織或單位異動" },
-  { value: "superseded-after-rotation", label: "輪替完成後停用舊金鑰" },
   { value: "retired", label: "一般除役" },
   { value: "other", label: "其他" },
 ];
@@ -157,10 +156,37 @@ const emptyReceiverRevocationDraft = {
   confirmed: false,
 };
 
+const emptyReceiverRotationDraft = {
+  reason: "新金鑰已完成測試簽署與使用端切換，輪替完成後停用舊金鑰。",
+  handledBy: "",
+  incidentReference: "",
+  confirmed: false,
+};
+
 function receiverTrustEventReasonLabel(value: ReceiverTrustEvent["reasonCode"]): string {
   if (value === "new-registration") return "新金鑰登錄";
   if (value === "rotation-registration") return "輪替金鑰登錄";
+  if (value === "superseded-after-rotation") return "輪替完成後停用舊金鑰";
   return receiverRevocationReasonOptions.find((option) => option.value === value)?.label ?? value;
+}
+
+function receiverKeyRotationStatus(
+  key: ReceiverTrustKey,
+  keys: ReceiverTrustKey[],
+): { label: string; tone: "pending" | "completed" | "attention"; oldKey: ReceiverTrustKey | null } | null {
+  if (!key.replacesKeyId) return null;
+  const oldKey = keys.find((item) => item.keyId === key.replacesKeyId) ?? null;
+  if (key.status === "revoked") return { label: "輪替新金鑰已撤銷，需重新規劃", tone: "attention", oldKey };
+  if (!oldKey) return { label: "找不到輪替舊金鑰，禁止完成", tone: "attention", oldKey };
+  if (oldKey.status === "trusted") return { label: "輪替待完成：新舊金鑰仍同時受信任", tone: "pending", oldKey };
+  if (
+    oldKey.revocationReasonCode === "superseded-after-rotation"
+    && oldKey.replacedByKeyId === key.keyId
+    && key.rotationCompletionEventFingerprint === oldKey.revocationEventFingerprint
+  ) {
+    return { label: "輪替已完成：舊金鑰已受控撤銷", tone: "completed", oldKey };
+  }
+  return { label: "舊金鑰已另案撤銷，輪替關聯需人工複核", tone: "attention", oldKey };
 }
 
 function receiverTemplatePublisherStatusLabel(status: ReceiverEvidenceTemplatePublisherStatus): string {
@@ -385,6 +411,8 @@ function App() {
   const [receiverTrustVerificationConfirmed, setReceiverTrustVerificationConfirmed] = useState(false);
   const [receiverRevocationKeyId, setReceiverRevocationKeyId] = useState<string | null>(null);
   const [receiverRevocationDraft, setReceiverRevocationDraft] = useState(emptyReceiverRevocationDraft);
+  const [receiverRotationKeyId, setReceiverRotationKeyId] = useState<string | null>(null);
+  const [receiverRotationDraft, setReceiverRotationDraft] = useState(emptyReceiverRotationDraft);
   const [receiverTrustBackup, setReceiverTrustBackup] = useState<ReceiverTrustRegistryBackup | null>(null);
   const [receiverTrustRestorePreview, setReceiverTrustRestorePreview] = useState<ReceiverTrustRestorePreview | null>(null);
   const [receiverTrustRestoreConfirmed, setReceiverTrustRestoreConfirmed] = useState(false);
@@ -1221,6 +1249,7 @@ function App() {
       setReceiverTrustDraft({ organization: "", displayName: "", publicKey: "" });
       setReceiverTrustEnrollment(null);
       setReceiverTrustVerificationConfirmed(false);
+      cancelReceiverKeyRotationCompletion();
       setReceiverTrustBackup(null);
       setReceiverTrustRestorePreview(null);
       setReceiverTrustRestoreConfirmed(false);
@@ -1275,6 +1304,8 @@ function App() {
   function beginReceiverTrustKeyRevocation(keyId: string) {
     setReceiverRevocationKeyId(keyId);
     setReceiverRevocationDraft(emptyReceiverRevocationDraft);
+    setReceiverRotationKeyId(null);
+    setReceiverRotationDraft(emptyReceiverRotationDraft);
   }
 
   function cancelReceiverTrustKeyRevocation() {
@@ -1294,6 +1325,49 @@ function App() {
       setReceiverTrustKeys(response.keys);
       setReceiverTrustEvents(response.events);
       cancelReceiverTrustKeyRevocation();
+      setReceiverTrustBackup(null);
+      setReceiverTrustRestorePreview(null);
+      setReceiverTrustRestoreConfirmed(false);
+      setReceiverTrustRestoreOutcome(null);
+      if (receiverAssistantHandoff && receiverAssistantReceipt) {
+        const validated = await api.validateReceiverVerificationReceipt(receiverAssistantHandoff, receiverAssistantReceipt);
+        setReceiverAssistantIdentityVerification(validated.receiptValidation.identityVerification);
+      }
+      if (activeRemovalTransferHandoff && activeRemovalTransferReceipt) {
+        const validated = await api.validateReceiverVerificationReceipt(activeRemovalTransferHandoff, activeRemovalTransferReceipt);
+        setRemovalTransferIdentityVerification(validated.receiptValidation.identityVerification);
+      }
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  function beginReceiverKeyRotationCompletion(newKeyId: string) {
+    setReceiverRotationKeyId(newKeyId);
+    setReceiverRotationDraft(emptyReceiverRotationDraft);
+    cancelReceiverTrustKeyRevocation();
+  }
+
+  function cancelReceiverKeyRotationCompletion() {
+    setReceiverRotationKeyId(null);
+    setReceiverRotationDraft(emptyReceiverRotationDraft);
+  }
+
+  async function handleCompleteReceiverKeyRotation() {
+    if (!receiverRotationKeyId) return;
+    if (!receiverRotationDraft.confirmed) {
+      setError("完成輪替前必須確認新金鑰已啟用，並了解舊金鑰將不可復原地撤銷。");
+      return;
+    }
+    try {
+      setBusy("完成受信任公鑰輪替");
+      const response = await api.completeReceiverKeyRotation(receiverRotationKeyId, receiverRotationDraft);
+      setReceiverTrustKeys(response.keys);
+      setReceiverTrustEvents(response.events);
+      cancelReceiverKeyRotationCompletion();
       setReceiverTrustBackup(null);
       setReceiverTrustRestorePreview(null);
       setReceiverTrustRestoreConfirmed(false);
@@ -5044,23 +5118,29 @@ function App() {
                 </button>
               </div>
               {receiverTrustKeys.length ? (
+                <>
+                <p className="meta-line table-scroll-hint">窄螢幕可在表格內左右滑動，查看完整 Key ID、狀態與管理動作。</p>
                 <div className="table-scroll-card">
-                  <table className="data-table compact">
+                  <table className="data-table compact receiver-trust-key-table">
                     <thead><tr><th>單位／金鑰</th><th>Key ID</th><th>狀態</th><th>管理</th></tr></thead>
                     <tbody>
-                      {receiverTrustKeys.map((key) => (
+                      {receiverTrustKeys.map((key) => {
+                        const rotation = receiverKeyRotationStatus(key, receiverTrustKeys);
+                        return (
                         <tr key={key.keyId}>
                           <td>
                             <strong>{key.organization}</strong><br />
                             <span className="table-muted">{key.displayName}</span>
                             {key.registrationMethod === "enrollment-package" && <><br /><span className="table-muted">RKE 持有證明已驗證</span></>}
                             {key.replacesKeyId && <><br /><span className="table-muted">取代：{key.replacesKeyId}</span></>}
+                            {key.replacedByKeyId && <><br /><span className="table-muted">已由：{key.replacedByKeyId} 取代</span></>}
                           </td>
                           <td>{key.keyId}</td>
                           <td>
                             {key.status === "trusted" ? "受信任" : "已撤銷"}
                             {key.revokedAt && <><br /><span className="table-muted">{key.revokedAt}</span></>}
                             {key.revocationReasonCode && <><br /><span className="table-muted">{receiverTrustEventReasonLabel(key.revocationReasonCode)}</span></>}
+                            {rotation && <><br /><span className={`receiver-key-rotation-status ${rotation.tone}`}>{rotation.label}</span></>}
                           </td>
                           <td>
                             <button
@@ -5071,15 +5151,88 @@ function App() {
                             >
                               填寫撤銷紀錄
                             </button>
+                            {rotation?.tone === "pending" && (
+                              <button
+                                className="mini-action"
+                                type="button"
+                                onClick={() => beginReceiverKeyRotationCompletion(key.keyId)}
+                              >
+                                完成輪替
+                              </button>
+                            )}
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
+                </>
               ) : (
                 <p className="empty-state">本機尚未登錄受信任公鑰；未簽或未知公鑰的 RVR／SEV 仍可檢查內容，但身分維持人工核對。</p>
               )}
+              {receiverRotationKeyId && (() => {
+                const newKey = receiverTrustKeys.find((key) => key.keyId === receiverRotationKeyId) ?? null;
+                const oldKey = newKey?.replacesKeyId
+                  ? receiverTrustKeys.find((key) => key.keyId === newKey.replacesKeyId) ?? null
+                  : null;
+                return (
+                  <div className="receiver-key-rotation-card">
+                    <h4>完成金鑰輪替</h4>
+                    <p className="meta-line attention-line">
+                      此動作只會在新舊金鑰的 RKE 關聯、單位與受信任狀態全部一致時，撤銷對應的舊金鑰。登錄新金鑰不會自動執行此步驟。
+                    </p>
+                    <div className="meta-grid">
+                      <MetaItem label="新金鑰" value={newKey ? `${newKey.displayName}｜${newKey.keyId}` : "找不到"} />
+                      <MetaItem label="將撤銷的舊金鑰" value={oldKey ? `${oldKey.displayName}｜${oldKey.keyId}` : "找不到"} />
+                      <MetaItem label="所屬單位" value={newKey?.organization || "—"} />
+                    </div>
+                    <div className="form-grid">
+                      <Field
+                        label="實際處理者／管理者"
+                        value={receiverRotationDraft.handledBy}
+                        onChange={(value) => setReceiverRotationDraft((current) => ({ ...current, handledBy: value, confirmed: false }))}
+                      />
+                      <Field
+                        label="輪替案件／變更編號（必填）"
+                        value={receiverRotationDraft.incidentReference}
+                        onChange={(value) => setReceiverRotationDraft((current) => ({ ...current, incidentReference: value, confirmed: false }))}
+                      />
+                    </div>
+                    <TextAreaField
+                      label="新金鑰啟用、測試簽署與使用端切換摘要"
+                      value={receiverRotationDraft.reason}
+                      onChange={(value) => setReceiverRotationDraft((current) => ({ ...current, reason: value, confirmed: false }))}
+                    />
+                    <label className="check-field">
+                      <input
+                        type="checkbox"
+                        checked={receiverRotationDraft.confirmed}
+                        onChange={(event) => setReceiverRotationDraft((current) => ({ ...current, confirmed: event.target.checked }))}
+                      />
+                      <span>我確認新金鑰已完成測試簽署與使用端切換，並了解舊金鑰將以「輪替完成」不可復原地撤銷。</span>
+                    </label>
+                    <div className="action-row">
+                      <button
+                        className="danger-button"
+                        type="button"
+                        disabled={
+                          !receiverRotationDraft.confirmed
+                          || !receiverRotationDraft.reason.trim()
+                          || !receiverRotationDraft.handledBy.trim()
+                          || !receiverRotationDraft.incidentReference.trim()
+                          || !newKey
+                          || !oldKey
+                        }
+                        onClick={handleCompleteReceiverKeyRotation}
+                      >
+                        確認切換完成並撤銷舊金鑰
+                      </button>
+                      <button className="ghost" type="button" onClick={cancelReceiverKeyRotationCompletion}>取消</button>
+                    </div>
+                  </div>
+                );
+              })()}
               {receiverRevocationKeyId && (
                 <div className="receiver-key-revocation-card">
                   <h4>撤銷金鑰：{receiverRevocationKeyId}</h4>
@@ -5144,8 +5297,10 @@ function App() {
                 登錄與撤銷事件依序串接指紋；此紀錄用於本機稽核，不代表外部時間戳或憑證機構背書。
               </p>
               {receiverTrustEvents.length ? (
+                <>
+                <p className="meta-line table-scroll-hint">窄螢幕可在表格內左右滑動，查看完整依據與事件指紋。</p>
                 <div className="table-scroll-card">
-                  <table className="data-table compact">
+                  <table className="data-table compact receiver-trust-event-table">
                     <thead><tr><th>時間／事件</th><th>Key ID</th><th>處理者／依據</th><th>事件指紋</th></tr></thead>
                     <tbody>
                       {[...receiverTrustEvents].reverse().map((event) => (
@@ -5167,6 +5322,7 @@ function App() {
                     </tbody>
                   </table>
                 </div>
+                </>
               ) : (
                 <p className="empty-state">舊版清冊尚無生命週期事件；下一次登錄或撤銷後將開始建立串接紀錄。</p>
               )}

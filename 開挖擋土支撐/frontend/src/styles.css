@@ -1034,6 +1034,64 @@ button.danger-button {
   background: rgba(240, 249, 255, 0.9);
 }
 
+.mini-action + .mini-action {
+  margin-top: 6px;
+}
+
+.receiver-key-rotation-status {
+  display: inline-block;
+  margin-top: 4px;
+  font-weight: 700;
+}
+
+.receiver-key-rotation-status.pending {
+  color: #b45309;
+}
+
+.receiver-key-rotation-status.completed {
+  color: #047857;
+}
+
+.receiver-key-rotation-status.attention {
+  color: #b91c1c;
+}
+
+.receiver-key-rotation-card {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid rgba(217, 119, 6, 0.32);
+  border-radius: 16px;
+  background: rgba(255, 251, 235, 0.82);
+}
+
+.receiver-key-rotation-card h4,
+.receiver-key-rotation-card .action-row {
+  margin: 0;
+}
+
+.receiver-trust-key-table {
+  min-width: 760px;
+}
+
+.receiver-trust-event-table {
+  min-width: 920px;
+}
+
+.receiver-trust-key-table th:nth-child(2),
+.receiver-trust-key-table td:nth-child(2),
+.receiver-trust-event-table th:nth-child(2),
+.receiver-trust-event-table td:nth-child(2),
+.receiver-trust-event-table th:last-child,
+.receiver-trust-event-table td:last-child {
+  white-space: nowrap;
+}
+
+.table-scroll-hint {
+  display: none;
+}
+
 .receiver-key-revocation-card {
   display: grid;
   gap: 12px;
@@ -1964,5 +2022,12 @@ button.danger-button {
   .floating-top-button {
     right: 16px;
     bottom: 16px;
+  }
+
+  .table-scroll-hint {
+    display: block;
+    margin: 8px 0 6px;
+    color: var(--accent);
+    font-weight: 700;
   }
 }

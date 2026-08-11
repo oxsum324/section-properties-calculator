@@ -54,6 +54,7 @@ from .schemas import (
     BuildReceiverSigningRequestRequest,
     BuildSourceEvidenceVerificationRequest,
     BuildSourceEvidenceSigningRequestRequest,
+    CompleteReceiverKeyRotationRequest,
     CreateProjectRequest,
     ProjectState,
     ReferenceData,
@@ -213,9 +214,33 @@ def revoke_receiver_trust_key(
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="本機信任清冊找不到指定公鑰。") from exc
     except ValueError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {
         "key": record,
+        "keys": receiver_trust_store.list_keys(),
+        "events": receiver_trust_store.list_events(),
+    }
+
+
+@app.post("/api/removal-transfer-trust-keys/{new_key_id}/complete-rotation")
+def complete_receiver_key_rotation(
+    new_key_id: str,
+    request: CompleteReceiverKeyRotationRequest,
+) -> dict[str, Any]:
+    try:
+        completed = receiver_trust_store.complete_rotation(
+            new_key_id,
+            reason=request.reason,
+            handled_by=request.handled_by,
+            incident_reference=request.incident_reference,
+            rotation_confirmed=request.rotation_confirmed,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="本機信任清冊找不到指定的輪替新金鑰。") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        **completed,
         "keys": receiver_trust_store.list_keys(),
         "events": receiver_trust_store.list_events(),
     }

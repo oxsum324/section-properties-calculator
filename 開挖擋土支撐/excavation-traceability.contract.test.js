@@ -90,6 +90,7 @@ const receiverKeyEnrollment = readUtf8('backend/app/receiver_key_enrollment.py')
 const receiverKeyManager = readUtf8('backend/manage_receiver_key.py');
 const receiverKeyLauncher = readUtf8('manage_receiver_key.ps1');
 const receiverTrustStore = readUtf8('backend/app/receiver_trust_store.py');
+const receiverKeyManagementGuide = readUtf8('RECEIVER_KEY_MANAGEMENT.md');
 const receiverTrustBackup = readUtf8('backend/app/receiver_trust_backup.py');
 const receiverTrustRecovery = readUtf8('backend/app/receiver_trust_recovery.py');
 const receiverTrustBackupCli = readUtf8('backend/backup_receiver_trust_registry.py');
@@ -113,7 +114,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.22.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.23.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -321,6 +322,9 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '撤銷原因與處理摘要',
   '確認撤銷並寫入事件清冊',
   '金鑰生命週期事件清冊',
+  'handleCompleteReceiverKeyRotation',
+  '輪替待完成：新舊金鑰仍同時受信任',
+  '確認切換完成並撤銷舊金鑰',
   'handleDownloadReceiverTrustRegistryBackup',
   'handleImportReceiverTrustRegistryBackup',
   'handleRestoreReceiverTrustRegistryBackup',
@@ -655,8 +659,31 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'revocationReasonCode',
   'revocationEventFingerprint',
   '既有撤銷原因與事件記錄不可覆寫',
+  'complete_rotation',
+  'replacedByKeyId',
+  'rotationCompletionEventFingerprint',
+  'relatedKeyId',
+  '輪替完成必須由專用流程',
 ].forEach((needle) => {
   assert(receiverTrustStore.includes(needle), `excavation receiver trust store keeps ${needle}`, needle);
+});
+[
+  'CompleteReceiverKeyRotationRequest',
+  '/complete-rotation',
+].forEach((needle) => {
+  assert(schemas.includes(needle) || main.includes(needle), `excavation receiver key rotation API keeps ${needle}`, needle);
+});
+assert(
+  api.includes('completeReceiverKeyRotation'),
+  'excavation frontend exposes receiver key rotation completion API',
+  'completeReceiverKeyRotation',
+);
+[
+  '登錄新金鑰不會自動撤銷舊金鑰',
+  '輪替案件或變更編號',
+  '完成輪替',
+].forEach((needle) => {
+  assert(receiverKeyManagementGuide.includes(needle), `excavation receiver key rotation guide keeps ${needle}`, needle);
 });
 [
   'receiver-verification-trust-registry-backup',

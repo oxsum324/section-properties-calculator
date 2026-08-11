@@ -671,8 +671,11 @@ export type ReceiverTrustKey = {
   registrationMethod?: "manual" | "enrollment-package";
   enrollmentFingerprint?: string | null;
   replacesKeyId?: string | null;
+  replacedByKeyId?: string | null;
   proofOfPossessionVerified?: boolean;
   independentVerificationConfirmedAt?: string;
+  rotationCompletedAt?: string;
+  rotationCompletionEventFingerprint?: string;
   revocationReasonCode?: ReceiverRevocationReason;
   revocationReason?: string;
   revokedBy?: string;
@@ -701,6 +704,7 @@ export type ReceiverTrustEvent = {
   reasonCode: ReceiverRevocationReason | "new-registration" | "rotation-registration";
   reason: string;
   incidentReference: string | null;
+  relatedKeyId?: string;
   previousEventFingerprint: string | null;
   eventFingerprint: string;
 };

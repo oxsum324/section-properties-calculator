@@ -1,5 +1,5 @@
 {
-  "version": "1.22.0",
+  "version": "1.23.0",
   "family": "excavation-traceability",
   "description": "開挖擋土支撐服務型工具的規範語意追蹤表。每筆 trace 將分析檔匯入、輸入欄位、構件檢核、報表落點、測試證據與人工複核邊界對齊，避免只因 FastAPI / React 流程可產出 PDF 或 DOCX 就誤判為支撐系統檢核依據已完整可追溯。",
   "tools": [
@@ -48,6 +48,16 @@
           "report": ["HTML 多承接分配編輯", "承接分配合計", "獨立接收端回簽助手", "受控補充證據範本庫", "範本內容版號", "待核准／已核准／已過期", "本機審核人", "有效期限", "修訂紀錄", "儲存為範本／新修訂", "撤銷核准", "套用本機範本", "套用至全部同類列", "補充證據範本庫 JSON 匯入與匯出", "外部核准降級提示", "範本不含檔名與 SHA-256 提示", "拆撐承接構造交接 JSON", "分配比例", "分配後承接設計需求", "傳力方向", "接收端採用需求", "核定承載力", "自動容量利用率", "自動接收端結果", "正式分析模型／計算書識別", "控制載重組合", "傳力方向與分配依據", "偏心與二次效應依據", "已檢核極限狀態", "其他檢核彙整", "承載力文件編號", "文件版次", "文件日期", "頁碼／章節", "證據檔名", "證據檔 SHA-256", "本機檔案雜湊", "來源端逐 ERT 實際證據檔比對", "實際 SHA-256", "檔名差異警示", "證據檔待逐列比對", "SEV 核驗指紋", "SEV 核驗單位與人員", "SEV 核驗時間", "SEV JSON 下載", "SEV SSR 離線簽署請求", "SEV 離線簽章回應匯入", "SEV Key ID", "SEV 本機信任狀態", "SCV 獨立證據鏈驗證收據", "SCV 工程結果與身分採用狀態", "承接構造 RVR 產生與檢查狀態", "承接構造回簽匯入狀態", "來源計算指紋", "交接指紋", "交接列識別", "回簽指紋", "回簽單位與人員"],
           "evidence": ["backend/app/removal_transfer_handoff.py", "backend/app/main.py", "backend/app/schemas.py", "backend/sign_receiver_request.py", "backend/verify_source_evidence_chain.py", "backend/tests/test_removal_transfer_handoff.py", "backend/tests/test_source_evidence_chain_verifier.py", "backend/tests/test_project_store.py", "frontend/src/App.tsx", "frontend/src/api.ts", "frontend/src/types.ts", "frontend/src/receiverEvidenceTemplates.ts", "receiver-evidence-templates.test.js", "sign_receiver_request.ps1", "簽署SEV身分請求.bat", "verify_source_evidence_chain.ps1", "驗證SEV證據鏈.bat", "RECEIVER_IDENTITY_SIGNATURE.md", "RECEIVER_EVIDENCE_TEMPLATES.md", "SOURCE_EVIDENCE_CHAIN_VERIFIER.md"],
           "manualReview": ["接收端仍須由設計者或專案分析核對 RVR v5 所列正式模型、載重組合、實際傳力方向、荷重分配、偏心、二次效應、各極限狀態、五類補充查核、承接構造容量及文件定位與實際檔案；結構化記錄不代表工具已重算或複核其內容。補充證據範本只重用描述性欄位；本機核准與有效期限只控制範本能否套用，不是數位簽章或組織身分證明，也不證明文件仍為最新版或適用於目前案件。外部匯入必須重新核准，套用後必須重新選取本案實際檔案。SHA-256、SEV 與 SCV 只識別特定檔案 bytes、驗證受控證據鏈並保存當時的核驗聲明，不證明文件內容正確或工程適用。SCV 不重新計算承接構造容量，也不構成工程核可；未提供公開 RTB、未簽署或 RVR／SEV 任一身分未達受信任狀態時仍須人工核對，工程結果失敗時不得因範本或簽章升級為可採用。ERH / ERT / RVR / SEV / SCV 指紋只證明各自受控內容未遭變更，不得僅憑範本套用、匯入、SEV 建立或 SCV 驗證成功視為工程核可。"]
+        },
+        {
+          "id": "excavation-receiver-key-rotation-completion",
+          "clause": "RVR／SEV 組織 Ed25519 公鑰之分階段輪替治理流程、舊金鑰撤銷與本機稽核關聯",
+          "purpose": "新 RKE 登錄時只建立 replacesKeyId 關聯，不自動撤銷舊金鑰。管理者必須在新金鑰完成測試簽署與使用端切換後，另行填寫處理者、變更編號與切換摘要並明確確認。後端只能對同單位、相互關聯且當下均受信任的新舊金鑰完成輪替，一次寫入舊金鑰撤銷、雙向 Key ID 關聯與事件指紋。",
+          "inputs": ["validated RKE with replacesKeyId", "trusted new key", "trusted linked old key", "same organization", "rotation handler", "required change reference", "cutover summary", "explicit irreversible confirmation"],
+          "calculation": ["ReceiverTrustStore.complete_rotation", "single active replacement guard", "generic superseded revocation rejection", "same-organization verification", "linked old-key lookup", "atomic registry write", "replacedByKeyId", "rotationCompletionEventFingerprint", "relatedKeyId event binding", "event-chain and backup consistency validation"],
+          "report": ["輪替待完成", "輪替已完成", "舊金鑰另案撤銷待複核", "完成輪替", "新舊 Key ID", "輪替案件／變更編號", "切換摘要", "不可復原確認"],
+          "evidence": ["backend/app/receiver_trust_store.py", "backend/app/schemas.py", "backend/app/main.py", "backend/tests/test_receiver_trust_store.py", "frontend/src/App.tsx", "frontend/src/api.ts", "frontend/src/types.ts", "RECEIVER_KEY_MANAGEMENT.md"],
+          "manualReview": ["輪替關聯與完成事件只證明本機管理者曾依該變更編號宣告切換完成；管理者仍須人工複核所有簽署端、案件與異地清冊的實際切換狀態，工具不能自動證明已全部完成。登錄新金鑰不得自動撤銷舊金鑰；異常或外洩事件仍應使用一般緊急撤銷並保留獨立事故紀錄。"]
         },
         {
           "id": "excavation-receiver-evidence-template-publishing",

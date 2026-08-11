@@ -6,10 +6,13 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fastapi.testclient import TestClient
 
+from backend.app import main as main_module
 from backend.app.receiver_trust_store import ReceiverTrustStore
 from backend.app.receiver_trust_backup import (
     build_receiver_trust_registry_backup,
@@ -213,6 +216,130 @@ class ReceiverTrustStoreTests(unittest.TestCase):
             self.assertEqual(new_record["replacesKeyId"], old["keyId"])
             self.assertEqual(records[0]["status"], "trusted")
             self.assertEqual(records[1]["status"], "trusted")
+
+    def test_complete_rotation_revokes_only_linked_old_key_and_persists_bidirectional_audit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = ReceiverTrustStore(Path(directory) / "receiver-trust.json")
+            old = build_receiver_key_enrollment(Ed25519PrivateKey.generate(), "接收端單位", "舊章")
+            store.register_enrollment(old, True)
+            new = build_receiver_key_enrollment(
+                Ed25519PrivateKey.generate(),
+                "接收端單位",
+                "新章",
+                replaces_key_id=old["keyId"],
+            )
+            store.register_enrollment(new, True)
+
+            with self.assertRaisesRegex(ValueError, "明確確認"):
+                store.complete_rotation(
+                    new["keyId"],
+                    reason="新金鑰已完成測試簽署。",
+                    handled_by="王管理者",
+                    incident_reference="KEY-2026-001",
+                )
+
+            completed = store.complete_rotation(
+                new["keyId"],
+                reason="新金鑰已完成測試簽署與接收端切換。",
+                handled_by="王管理者",
+                incident_reference="KEY-2026-001",
+                rotation_confirmed=True,
+            )
+            records = {item["keyId"]: item for item in store.list_keys()}
+            events = store.list_events()
+
+            self.assertEqual(completed["newKey"]["keyId"], new["keyId"])
+            self.assertEqual(completed["revokedKey"]["keyId"], old["keyId"])
+            self.assertEqual(records[old["keyId"]]["status"], "revoked")
+            self.assertEqual(records[old["keyId"]]["replacedByKeyId"], new["keyId"])
+            self.assertEqual(records[new["keyId"]]["status"], "trusted")
+            self.assertEqual(
+                records[new["keyId"]]["rotationCompletionEventFingerprint"],
+                records[old["keyId"]]["revocationEventFingerprint"],
+            )
+            self.assertEqual(events[-1]["reasonCode"], "superseded-after-rotation")
+            self.assertEqual(events[-1]["relatedKeyId"], new["keyId"])
+            self.assertEqual(ReceiverTrustStore.validate_snapshot(store.list_keys(), events)["keys"], store.list_keys())
+
+            backup = build_receiver_trust_registry_backup(store)
+            validated_backup = validate_receiver_trust_registry_backup(backup)
+            backed_up_records = {
+                item["keyId"]: item for item in validated_backup["registry"]["keys"]
+            }
+            self.assertEqual(
+                backed_up_records[new["keyId"]]["rotationCompletionEventFingerprint"],
+                records[new["keyId"]]["rotationCompletionEventFingerprint"],
+            )
+            self.assertEqual(backed_up_records[old["keyId"]]["replacedByKeyId"], new["keyId"])
+
+            with self.assertRaisesRegex(ValueError, "已撤銷"):
+                store.complete_rotation(
+                    new["keyId"],
+                    reason="不得重複。",
+                    handled_by="王管理者",
+                    incident_reference="KEY-2026-001",
+                    rotation_confirmed=True,
+                )
+
+    def test_rotation_rejects_parallel_replacement_and_generic_completion_reason(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = ReceiverTrustStore(Path(directory) / "receiver-trust.json")
+            old = build_receiver_key_enrollment(Ed25519PrivateKey.generate(), "接收端單位", "舊章")
+            store.register_enrollment(old, True)
+            first = build_receiver_key_enrollment(
+                Ed25519PrivateKey.generate(),
+                "接收端單位",
+                "新章 A",
+                replaces_key_id=old["keyId"],
+            )
+            store.register_enrollment(first, True)
+            second = build_receiver_key_enrollment(
+                Ed25519PrivateKey.generate(),
+                "接收端單位",
+                "新章 B",
+                replaces_key_id=old["keyId"],
+            )
+            with self.assertRaisesRegex(ValueError, "待完成輪替"):
+                store.register_enrollment(second, True)
+            with self.assertRaisesRegex(ValueError, "專用流程"):
+                store.revoke_key(
+                    old["keyId"],
+                    reason_code="superseded-after-rotation",
+                    reason="不得繞過輪替完成流程。",
+                    handled_by="王管理者",
+                    incident_reference="KEY-2026-002",
+                    revocation_confirmed=True,
+                )
+
+    def test_complete_rotation_api_returns_updated_registry(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = ReceiverTrustStore(Path(directory) / "receiver-trust.json")
+            old = build_receiver_key_enrollment(Ed25519PrivateKey.generate(), "接收端單位", "舊章")
+            store.register_enrollment(old, True)
+            new = build_receiver_key_enrollment(
+                Ed25519PrivateKey.generate(),
+                "接收端單位",
+                "新章",
+                replaces_key_id=old["keyId"],
+            )
+            store.register_enrollment(new, True)
+            with patch.object(main_module, "receiver_trust_store", store):
+                response = TestClient(main_module.app).post(
+                    f"/api/removal-transfer-trust-keys/{new['keyId']}/complete-rotation",
+                    json={
+                        "reason": "新金鑰已完成簽署測試與使用端切換。",
+                        "handled_by": "王管理者",
+                        "incident_reference": "KEY-2026-003",
+                        "rotation_confirmed": True,
+                    },
+                )
+
+            self.assertEqual(response.status_code, 200, response.text)
+            payload = response.json()
+            self.assertEqual(payload["newKey"]["keyId"], new["keyId"])
+            self.assertEqual(payload["revokedKey"]["keyId"], old["keyId"])
+            self.assertEqual(payload["revokedKey"]["status"], "revoked")
+            self.assertEqual(len(payload["events"]), 3)
 
     def test_creates_encrypted_private_key_and_public_only_enrollment(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

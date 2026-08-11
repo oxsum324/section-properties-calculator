@@ -514,6 +514,13 @@ class RevokeReceiverTrustKeyRequest(BaseModel):
     revocation_confirmed: Literal[True]
 
 
+class CompleteReceiverKeyRotationRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
+    handled_by: str = Field(min_length=1, max_length=120)
+    incident_reference: str = Field(min_length=1, max_length=160)
+    rotation_confirmed: Literal[True]
+
+
 class RestoreReceiverTrustRegistryRequest(BaseModel):
     backup: dict[str, Any]
     restore_confirmed: Literal[True]
