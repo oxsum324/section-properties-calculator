@@ -707,6 +707,8 @@ export type ReceiverTrustEvent = {
   incidentReference: string | null;
   relatedKeyId?: string;
   actorRole?: string;
+  actorId?: string;
+  authenticationMethod?: "local-password-session";
   expiresAt?: string;
   approvalRequestFingerprint?: string;
   previousEventFingerprint: string | null;
@@ -722,13 +724,42 @@ export type ReceiverRotationRequest = {
   expiresAt: string;
   requestedBy: string;
   requesterRole: string;
+  requestedByOperatorId: string | null;
   reason: string;
   incidentReference: string;
   status: "pending" | "expired" | "blocked" | "completed";
   approvedAt: string | null;
   approvedBy: string | null;
   approverRole: string | null;
+  approvedByOperatorId: string | null;
+  identityAssurance: "authenticated-local-account" | "procedural-declaration";
+  authorizationState: "tracked" | "legacy-procedural" | "missing-claim";
+  authorizationClaimState?: "pending" | "completed" | "expired" | "blocked";
   completionEventFingerprint: string | null;
+};
+
+export type ReceiverOperatorRole =
+  | "receiver-key-admin"
+  | "receiver-key-requester"
+  | "receiver-key-approver";
+
+export type ReceiverOperator = {
+  id: string;
+  username: string;
+  displayName: string;
+  roles: ReceiverOperatorRole[];
+  disabled: boolean;
+  createdAt: string;
+  identityAssurance: "authenticated-local-account";
+};
+
+export type ReceiverOperatorAuthState = {
+  bootstrapRequired: boolean;
+  authenticated: boolean;
+  operator: ReceiverOperator | null;
+  csrfToken?: string;
+  expiresAt?: string;
+  assuranceBoundary?: string;
 };
 
 export type ReceiverTrustRegistryBackup = {

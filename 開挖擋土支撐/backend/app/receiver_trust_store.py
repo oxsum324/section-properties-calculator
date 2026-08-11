@@ -190,16 +190,28 @@ class ReceiverTrustStore:
         display_name: str,
         public_key: str,
         independent_verification_confirmed: bool = False,
+        *,
+        registered_by: str | None = None,
+        registered_by_operator_id: str | None = None,
     ) -> dict[str, Any]:
         if independent_verification_confirmed is not True:
             raise ValueError("登錄信任公鑰前，必須明確確認已透過獨立管道核對單位與 Key ID。")
-        return self._register_key(organization, display_name, public_key)
+        return self._register_key(
+            organization,
+            display_name,
+            public_key,
+            registered_by=registered_by,
+            registered_by_operator_id=registered_by_operator_id,
+        )
 
     @_synchronized
     def register_enrollment(
         self,
         enrollment: dict[str, Any],
         independent_verification_confirmed: bool = False,
+        *,
+        registered_by: str | None = None,
+        registered_by_operator_id: str | None = None,
     ) -> dict[str, Any]:
         if independent_verification_confirmed is not True:
             raise ValueError("登錄 RKE 公鑰包前，必須明確確認已透過獨立管道核對單位與 Key ID。")
@@ -233,6 +245,8 @@ class ReceiverTrustStore:
             enrollment_fingerprint=validated["packageFingerprint"],
             replaces_key_id=replacement,
             proof_of_possession_verified=True,
+            registered_by=registered_by,
+            registered_by_operator_id=registered_by_operator_id,
         )
 
     def _register_key(
@@ -244,6 +258,8 @@ class ReceiverTrustStore:
         enrollment_fingerprint: str | None = None,
         replaces_key_id: str | None = None,
         proof_of_possession_verified: bool = False,
+        registered_by: str | None = None,
+        registered_by_operator_id: str | None = None,
     ) -> dict[str, Any]:
         organization = organization.strip()
         display_name = display_name.strip()
@@ -279,7 +295,10 @@ class ReceiverTrustStore:
             key_id=key_id,
             event_type="key-registered",
             effective_at=now,
-            actor="本機信任清冊管理者",
+            actor=registered_by or "本機信任清冊管理者",
+            actor_role="接收端金鑰管理員" if registered_by_operator_id else None,
+            actor_id=registered_by_operator_id,
+            authentication_method="local-password-session" if registered_by_operator_id else None,
             reason_code="rotation-registration" if replaces_key_id else "new-registration",
             reason=(
                 "RKE 持有證明與組織身分經獨立管道核對後登錄。"
@@ -299,6 +318,7 @@ class ReceiverTrustStore:
         reason_code: str,
         reason: str,
         handled_by: str,
+        handled_by_operator_id: str | None = None,
         incident_reference: str = "",
         revocation_confirmed: bool = False,
     ) -> dict[str, Any]:
@@ -336,6 +356,8 @@ class ReceiverTrustStore:
             event_type="key-revoked",
             effective_at=now,
             actor=handled_by,
+            actor_id=handled_by_operator_id,
+            authentication_method="local-password-session" if handled_by_operator_id else None,
             reason_code=reason_code,
             reason=reason,
             incident_reference=incident_reference,
@@ -352,6 +374,7 @@ class ReceiverTrustStore:
         reason: str,
         requested_by: str,
         requester_role: str,
+        requested_by_operator_id: str | None = None,
         incident_reference: str,
         request_confirmed: bool = False,
     ) -> dict[str, Any]:
@@ -385,6 +408,8 @@ class ReceiverTrustStore:
             effective_at=now,
             actor=requested_by,
             actor_role=requester_role,
+            actor_id=requested_by_operator_id,
+            authentication_method="local-password-session" if requested_by_operator_id else None,
             reason_code="rotation-completion-request",
             reason=reason,
             incident_reference=incident_reference,
@@ -401,6 +426,7 @@ class ReceiverTrustStore:
         *,
         approved_by: str,
         approver_role: str,
+        approved_by_operator_id: str | None = None,
         approval_confirmed: bool = False,
     ) -> dict[str, Any]:
         if approval_confirmed is not True:
@@ -429,7 +455,12 @@ class ReceiverTrustStore:
             raise ValueError("此輪替完成申請已逾 72 小時有效期限，請重新提出申請。")
         if summary["status"] != "pending":
             raise ValueError("輪替新舊金鑰狀態已變更，此申請不得執行。")
-        if approved_by.casefold() == str(request_event.get("actor", "")).strip().casefold():
+        requester_operator_id = str(request_event.get("actorId") or "").strip()
+        if requester_operator_id and not approved_by_operator_id:
+            raise ValueError("此輪替申請須由已登入且具覆核角色的帳號完成。")
+        if requester_operator_id and requester_operator_id == approved_by_operator_id:
+            raise ValueError("輪替覆核帳號必須與申請帳號不同。")
+        if not requester_operator_id and approved_by.casefold() == str(request_event.get("actor", "")).strip().casefold():
             raise ValueError("輪替覆核人必須與申請人不同。")
 
         new_key, old_key = self._linked_trusted_rotation_keys(keys, str(request_event.get("keyId", "")))
@@ -453,6 +484,8 @@ class ReceiverTrustStore:
             effective_at=now,
             actor=approved_by,
             actor_role=approver_role,
+            actor_id=approved_by_operator_id,
+            authentication_method="local-password-session" if approved_by_operator_id else None,
             reason_code="superseded-after-rotation",
             reason=reason,
             incident_reference=incident_reference,
@@ -546,12 +579,19 @@ class ReceiverTrustStore:
             "expiresAt": request_event.get("expiresAt"),
             "requestedBy": request_event.get("actor"),
             "requesterRole": request_event.get("actorRole"),
+            "requestedByOperatorId": request_event.get("actorId"),
             "reason": request_event.get("reason"),
             "incidentReference": request_event.get("incidentReference"),
             "status": status,
             "approvedAt": completion.get("effectiveAt") if completion else None,
             "approvedBy": completion.get("actor") if completion else None,
             "approverRole": completion.get("actorRole") if completion else None,
+            "approvedByOperatorId": completion.get("actorId") if completion else None,
+            "identityAssurance": (
+                "authenticated-local-account"
+                if request_event.get("actorId")
+                else "procedural-declaration"
+            ),
             "completionEventFingerprint": completion.get("eventFingerprint") if completion else None,
         }
 
@@ -609,6 +649,14 @@ class ReceiverTrustStore:
                     or not related_key_id
                 ):
                     raise ValueError("輪替覆核申請只能綁定輪替完成的舊金鑰撤銷事件。")
+            actor_id = event.get("actorId")
+            authentication_method = event.get("authenticationMethod")
+            if actor_id is not None:
+                _required_text(actor_id, "接收端操作帳號識別碼", 64)
+                if authentication_method != "local-password-session":
+                    raise ValueError("接收端操作帳號事件缺少正確的登入驗證方式。")
+            elif authentication_method is not None:
+                raise ValueError("接收端操作事件不得只有驗證方式而缺少帳號識別碼。")
             if event.get("previousEventFingerprint") != previous:
                 raise ValueError("本機回簽公鑰事件清冊的串接順序不一致。")
             expected = cls._event_fingerprint(event)
@@ -722,6 +770,8 @@ class ReceiverTrustStore:
         incident_reference: str,
         related_key_id: str | None = None,
         actor_role: str | None = None,
+        actor_id: str | None = None,
+        authentication_method: str | None = None,
         expires_at: str | None = None,
         approval_request_fingerprint: str | None = None,
     ) -> dict[str, Any]:
@@ -742,6 +792,10 @@ class ReceiverTrustStore:
             event["relatedKeyId"] = related_key_id
         if actor_role is not None:
             event["actorRole"] = actor_role
+        if actor_id is not None:
+            event["actorId"] = actor_id
+        if authentication_method is not None:
+            event["authenticationMethod"] = authentication_method
         if expires_at is not None:
             event["expiresAt"] = expires_at
         if approval_request_fingerprint is not None:

@@ -45,6 +45,9 @@ import {
   ReceiverSupplementalCheckId,
   ReceiverRevocationReason,
   ReceiverRotationRequest,
+  ReceiverOperator,
+  ReceiverOperatorAuthState,
+  ReceiverOperatorRole,
   ReceiverTrustEvent,
   ReceiverTrustKey,
   ReceiverTrustRegistryBackup,
@@ -152,24 +155,34 @@ const receiverRevocationReasonOptions: Array<{ value: ReceiverRevocationReason; 
 const emptyReceiverRevocationDraft = {
   reasonCode: "suspected-compromise" as ReceiverRevocationReason,
   reason: "",
-  handledBy: "",
   incidentReference: "",
   confirmed: false,
 };
 
 const emptyReceiverRotationDraft = {
   reason: "新金鑰已完成測試簽署與使用端切換，輪替完成後停用舊金鑰。",
-  requestedBy: "",
-  requesterRole: "",
   incidentReference: "",
   confirmed: false,
 };
 
 const emptyReceiverRotationApprovalDraft = {
-  approvedBy: "",
-  approverRole: "",
   confirmed: false,
 };
+
+const emptyReceiverOperatorLoginDraft = { username: "", password: "" };
+const emptyReceiverOperatorBootstrapDraft = { username: "", displayName: "", password: "" };
+const emptyReceiverOperatorCreateDraft = {
+  username: "",
+  displayName: "",
+  password: "",
+  roles: [] as ReceiverOperatorRole[],
+};
+
+const receiverOperatorRoleOptions: Array<{ value: ReceiverOperatorRole; label: string }> = [
+  { value: "receiver-key-admin", label: "接收端金鑰管理員" },
+  { value: "receiver-key-requester", label: "輪替申請人" },
+  { value: "receiver-key-approver", label: "輪替覆核人" },
+];
 
 function receiverTrustEventReasonLabel(value: ReceiverTrustEvent["reasonCode"]): string {
   if (value === "new-registration") return "新金鑰登錄";
@@ -433,6 +446,16 @@ function App() {
   const [receiverTrustKeys, setReceiverTrustKeys] = useState<ReceiverTrustKey[]>([]);
   const [receiverTrustEvents, setReceiverTrustEvents] = useState<ReceiverTrustEvent[]>([]);
   const [receiverRotationRequests, setReceiverRotationRequests] = useState<ReceiverRotationRequest[]>([]);
+  const [receiverOperatorAuth, setReceiverOperatorAuth] = useState<ReceiverOperatorAuthState>({
+    bootstrapRequired: false,
+    authenticated: false,
+    operator: null,
+  });
+  const [receiverOperatorAuthLoaded, setReceiverOperatorAuthLoaded] = useState(false);
+  const [receiverOperatorLoginDraft, setReceiverOperatorLoginDraft] = useState(emptyReceiverOperatorLoginDraft);
+  const [receiverOperatorBootstrapDraft, setReceiverOperatorBootstrapDraft] = useState(emptyReceiverOperatorBootstrapDraft);
+  const [receiverOperators, setReceiverOperators] = useState<ReceiverOperator[]>([]);
+  const [receiverOperatorCreateDraft, setReceiverOperatorCreateDraft] = useState(emptyReceiverOperatorCreateDraft);
   const [receiverTrustDraft, setReceiverTrustDraft] = useState({ organization: "", displayName: "", publicKey: "" });
   const [receiverTrustEnrollment, setReceiverTrustEnrollment] = useState<ReceiverKeyEnrollment | null>(null);
   const [receiverTrustVerificationConfirmed, setReceiverTrustVerificationConfirmed] = useState(false);
@@ -458,6 +481,10 @@ function App() {
   const [persistedProjectSnapshot, setPersistedProjectSnapshot] = useState("");
   const reportModeLabel = conciseReportMode ? "簡述版" : "詳細版";
   const reportDocumentStatusLabel = reportApproved ? "正式附件" : "內部審閱";
+  const receiverOperatorRoles = receiverOperatorAuth.operator?.roles ?? [];
+  const receiverCanAdministerKeys = receiverOperatorRoles.includes("receiver-key-admin");
+  const receiverCanRequestRotation = receiverOperatorRoles.includes("receiver-key-requester");
+  const receiverCanApproveRotation = receiverOperatorRoles.includes("receiver-key-approver");
   const activeRemovalTransferHandoff = useMemo(
     () => removalTransferHandoff ?? latestRemovalTransferHandoff(project),
     [project?.removal_transfer_handoffs, removalTransferHandoff],
@@ -550,16 +577,27 @@ function App() {
   useEffect(() => {
     if (activeStep !== STEP_RECEIPT) return;
     let cancelled = false;
-    api.listReceiverTrustKeys()
-      .then((response) => {
+    Promise.all([api.listReceiverTrustKeys(), api.getReceiverOperatorSession()])
+      .then(async ([response, auth]) => {
         if (!cancelled) {
           setReceiverTrustKeys(response.keys);
           setReceiverTrustEvents(response.events);
           setReceiverRotationRequests(response.rotationRequests);
+          setReceiverOperatorAuth(auth);
+          setReceiverOperatorAuthLoaded(true);
+          if (auth.operator?.roles.includes("receiver-key-admin")) {
+            const operators = await api.listReceiverOperators();
+            if (!cancelled) setReceiverOperators(operators.operators);
+          } else {
+            setReceiverOperators([]);
+          }
         }
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) {
+          setReceiverOperatorAuthLoaded(true);
+          setError(err instanceof Error ? err.message : String(err));
+        }
       });
     return () => { cancelled = true; };
   }, [activeStep]);
@@ -1260,7 +1298,103 @@ function App() {
     }
   }
 
+  async function applyReceiverOperatorAuth(auth: ReceiverOperatorAuthState) {
+    setReceiverOperatorAuth(auth);
+    setReceiverOperatorAuthLoaded(true);
+    if (auth.operator?.roles.includes("receiver-key-admin")) {
+      const response = await api.listReceiverOperators();
+      setReceiverOperators(response.operators);
+    } else {
+      setReceiverOperators([]);
+    }
+  }
+
+  async function handleBootstrapReceiverOperator() {
+    try {
+      setBusy("建立首位接收端金鑰管理員");
+      const auth = await api.bootstrapReceiverOperator(
+        receiverOperatorBootstrapDraft.username,
+        receiverOperatorBootstrapDraft.displayName,
+        receiverOperatorBootstrapDraft.password,
+      );
+      await applyReceiverOperatorAuth(auth);
+      setReceiverOperatorBootstrapDraft(emptyReceiverOperatorBootstrapDraft);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleLoginReceiverOperator() {
+    try {
+      setBusy("登入接收端金鑰管理");
+      const auth = await api.loginReceiverOperator(
+        receiverOperatorLoginDraft.username,
+        receiverOperatorLoginDraft.password,
+      );
+      await applyReceiverOperatorAuth(auth);
+      setReceiverOperatorLoginDraft(emptyReceiverOperatorLoginDraft);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleLogoutReceiverOperator() {
+    try {
+      setBusy("登出接收端金鑰管理");
+      await api.logoutReceiverOperator();
+      setReceiverOperatorAuth({ bootstrapRequired: false, authenticated: false, operator: null });
+      setReceiverOperators([]);
+      setReceiverOperatorCreateDraft(emptyReceiverOperatorCreateDraft);
+      cancelReceiverKeyRotationCompletion();
+      cancelReceiverKeyRotationApproval();
+      cancelReceiverTrustKeyRevocation();
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  function toggleReceiverOperatorRole(role: ReceiverOperatorRole) {
+    setReceiverOperatorCreateDraft((current) => ({
+      ...current,
+      roles: current.roles.includes(role)
+        ? current.roles.filter((item) => item !== role)
+        : [...current.roles, role],
+    }));
+  }
+
+  async function handleCreateReceiverOperator() {
+    try {
+      setBusy("建立接收端操作帳號");
+      const response = await api.createReceiverOperator(
+        receiverOperatorCreateDraft.username,
+        receiverOperatorCreateDraft.displayName,
+        receiverOperatorCreateDraft.password,
+        receiverOperatorCreateDraft.roles,
+      );
+      setReceiverOperators(response.operators);
+      setReceiverOperatorCreateDraft(emptyReceiverOperatorCreateDraft);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
   async function handleRegisterReceiverTrustKey() {
+    if (!receiverCanAdministerKeys) {
+      setError("此操作需要已登入且具接收端金鑰管理員角色的帳號。");
+      return;
+    }
     if (!receiverTrustVerificationConfirmed) {
       setError("登錄前請先確認已透過獨立管道核對單位與 Key ID。");
       return;
@@ -1348,6 +1482,10 @@ function App() {
 
   async function handleRevokeReceiverTrustKey() {
     if (!receiverRevocationKeyId) return;
+    if (!receiverCanAdministerKeys) {
+      setError("撤銷金鑰需要已登入且具接收端金鑰管理員角色的帳號。");
+      return;
+    }
     if (!receiverRevocationDraft.confirmed) {
       setError("撤銷前必須確認此動作不可復原，且既有 RVR／SEV 將不再視為受信任簽章。");
       return;
@@ -1394,6 +1532,10 @@ function App() {
 
   async function handleRequestReceiverKeyRotationCompletion() {
     if (!receiverRotationKeyId) return;
+    if (!receiverCanRequestRotation) {
+      setError("提出輪替申請需要已登入且具輪替申請人角色的帳號。");
+      return;
+    }
     if (!receiverRotationDraft.confirmed) {
       setError("提出輪替完成申請前，必須確認新金鑰已完成測試簽署與使用端切換。");
       return;
@@ -1431,6 +1573,10 @@ function App() {
 
   async function handleApproveReceiverKeyRotationCompletion() {
     if (!receiverRotationApprovalRequestFingerprint) return;
+    if (!receiverCanApproveRotation) {
+      setError("輪替覆核需要已登入且具輪替覆核人角色的帳號。");
+      return;
+    }
     if (!receiverRotationApprovalDraft.confirmed) {
       setError("第二人覆核前必須確認申請內容、切換證據與不可復原撤銷結果。");
       return;
@@ -1439,7 +1585,6 @@ function App() {
       setBusy("覆核並完成受信任公鑰輪替");
       const response = await api.approveReceiverKeyRotationCompletion(
         receiverRotationApprovalRequestFingerprint,
-        receiverRotationApprovalDraft,
       );
       setReceiverTrustKeys(response.keys);
       setReceiverTrustEvents(response.events);
@@ -1466,6 +1611,10 @@ function App() {
   }
 
   async function handleDownloadReceiverTrustRegistryBackup() {
+    if (!receiverCanAdministerKeys) {
+      setError("信任清冊備份需要已登入且具接收端金鑰管理員角色的帳號。");
+      return;
+    }
     try {
       setBusy("建立信任清冊備份");
       const response = await api.exportReceiverTrustRegistryBackup();
@@ -1485,6 +1634,10 @@ function App() {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
+    if (!receiverCanAdministerKeys) {
+      setError("信任清冊復原預覽需要已登入且具接收端金鑰管理員角色的帳號。");
+      return;
+    }
     try {
       setBusy("驗證信任清冊備份並建立復原預覽");
       const parsed = JSON.parse(await file.text()) as ReceiverTrustRegistryBackup;
@@ -1507,6 +1660,10 @@ function App() {
 
   async function handleRestoreReceiverTrustRegistryBackup() {
     if (!receiverTrustBackup || !receiverTrustRestorePreview) return;
+    if (!receiverCanAdministerKeys) {
+      setError("信任清冊復原需要已登入且具接收端金鑰管理員角色的帳號。");
+      return;
+    }
     if (!receiverTrustRestoreConfirmed) {
       setError("復原前必須確認以已驗證備份取代目前本機信任清冊。");
       return;
@@ -5135,6 +5292,176 @@ function App() {
             </Panel>
 
             <Panel
+              title="接收端金鑰管理登入"
+              subtitle="金鑰登錄、撤銷、輪替申請、第二人覆核與清冊復原均由後端依登入帳號及角色授權，不再採用自行填寫的姓名。"
+            >
+              {!receiverOperatorAuthLoaded ? (
+                <p className="empty-state">正在讀取本機登入狀態。</p>
+              ) : receiverOperatorAuth.bootstrapRequired ? (
+                <div className="receiver-key-rotation-card">
+                  <h4>首次設定首位管理員</h4>
+                  <p className="meta-line attention-line">
+                    首位管理員只能由本機連線建立，並同時取得金鑰管理、輪替申請與輪替覆核角色。建立後不得再次使用首次設定入口。
+                  </p>
+                  <div className="form-grid">
+                    <Field
+                      label="登入帳號"
+                      value={receiverOperatorBootstrapDraft.username}
+                      onChange={(value) => setReceiverOperatorBootstrapDraft((current) => ({ ...current, username: value }))}
+                    />
+                    <Field
+                      label="顯示姓名"
+                      value={receiverOperatorBootstrapDraft.displayName}
+                      onChange={(value) => setReceiverOperatorBootstrapDraft((current) => ({ ...current, displayName: value }))}
+                    />
+                    <label className="field-block">
+                      <span>管理員密碼</span>
+                      <input
+                        type="password"
+                        autoComplete="new-password"
+                        value={receiverOperatorBootstrapDraft.password}
+                        onChange={(event) => setReceiverOperatorBootstrapDraft((current) => ({ ...current, password: event.target.value }))}
+                      />
+                    </label>
+                  </div>
+                  <p className="meta-line">密碼至少 12 字元，並須包含大寫、小寫、數字、符號其中三類；資料庫只保存 scrypt 雜湊。</p>
+                  <button
+                    type="button"
+                    disabled={
+                      receiverOperatorBootstrapDraft.username.trim().length < 3
+                      || !receiverOperatorBootstrapDraft.displayName.trim()
+                      || receiverOperatorBootstrapDraft.password.length < 12
+                    }
+                    onClick={() => void handleBootstrapReceiverOperator()}
+                  >
+                    建立首位管理員並登入
+                  </button>
+                </div>
+              ) : !receiverOperatorAuth.authenticated || !receiverOperatorAuth.operator ? (
+                <div className="receiver-key-rotation-card">
+                  <h4>登入後才能變更信任清冊</h4>
+                  <div className="form-grid">
+                    <Field
+                      label="登入帳號"
+                      value={receiverOperatorLoginDraft.username}
+                      onChange={(value) => setReceiverOperatorLoginDraft((current) => ({ ...current, username: value }))}
+                    />
+                    <label className="field-block">
+                      <span>密碼</span>
+                      <input
+                        type="password"
+                        autoComplete="current-password"
+                        value={receiverOperatorLoginDraft.password}
+                        onChange={(event) => setReceiverOperatorLoginDraft((current) => ({ ...current, password: event.target.value }))}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") void handleLoginReceiverOperator();
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!receiverOperatorLoginDraft.username.trim() || !receiverOperatorLoginDraft.password}
+                    onClick={() => void handleLoginReceiverOperator()}
+                  >
+                    登入金鑰管理
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="meta-grid">
+                    <MetaItem label="登入帳號" value={receiverOperatorAuth.operator.username} />
+                    <MetaItem label="顯示姓名" value={receiverOperatorAuth.operator.displayName} />
+                    <MetaItem
+                      label="角色"
+                      value={receiverOperatorAuth.operator.roles
+                        .map((role) => receiverOperatorRoleOptions.find((option) => option.value === role)?.label ?? role)
+                        .join("、")}
+                    />
+                    <MetaItem label="工作階段到期" value={receiverOperatorAuth.expiresAt ?? "—"} />
+                  </div>
+                  <div className="action-row">
+                    <button className="secondary" type="button" onClick={() => void handleLogoutReceiverOperator()}>
+                      登出金鑰管理
+                    </button>
+                  </div>
+                  {receiverCanAdministerKeys && (
+                    <div className="receiver-key-rotation-card">
+                      <h4>建立分權操作帳號</h4>
+                      <p className="meta-line">
+                        建議把輪替申請與覆核角色分配給不同帳號。後端會以不可自行填寫的帳號 ID 判斷兩人是否相同。
+                      </p>
+                      <div className="form-grid">
+                        <Field
+                          label="新登入帳號"
+                          value={receiverOperatorCreateDraft.username}
+                          onChange={(value) => setReceiverOperatorCreateDraft((current) => ({ ...current, username: value }))}
+                        />
+                        <Field
+                          label="顯示姓名"
+                          value={receiverOperatorCreateDraft.displayName}
+                          onChange={(value) => setReceiverOperatorCreateDraft((current) => ({ ...current, displayName: value }))}
+                        />
+                        <label className="field-block">
+                          <span>初始密碼</span>
+                          <input
+                            type="password"
+                            autoComplete="new-password"
+                            value={receiverOperatorCreateDraft.password}
+                            onChange={(event) => setReceiverOperatorCreateDraft((current) => ({ ...current, password: event.target.value }))}
+                          />
+                        </label>
+                      </div>
+                      <div className="check-grid">
+                        {receiverOperatorRoleOptions.map((option) => (
+                          <label className="check-field" key={option.value}>
+                            <input
+                              type="checkbox"
+                              checked={receiverOperatorCreateDraft.roles.includes(option.value)}
+                              onChange={() => toggleReceiverOperatorRole(option.value)}
+                            />
+                            <span>{option.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={
+                          receiverOperatorCreateDraft.username.trim().length < 3
+                          || !receiverOperatorCreateDraft.displayName.trim()
+                          || receiverOperatorCreateDraft.password.length < 12
+                          || !receiverOperatorCreateDraft.roles.length
+                        }
+                        onClick={() => void handleCreateReceiverOperator()}
+                      >
+                        建立操作帳號
+                      </button>
+                      {receiverOperators.length > 0 && (
+                        <div className="table-wrap">
+                          <table>
+                            <thead><tr><th>帳號／姓名</th><th>角色</th><th>建立時間</th></tr></thead>
+                            <tbody>
+                              {receiverOperators.map((operator) => (
+                                <tr key={operator.id}>
+                                  <td><strong>{operator.username}</strong><br />{operator.displayName}</td>
+                                  <td>{operator.roles.map((role) => receiverOperatorRoleOptions.find((option) => option.value === role)?.label ?? role).join("、")}</td>
+                                  <td>{operator.createdAt}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+              <p className="meta-line attention-line">
+                本機登入可驗證同一服務資料庫中的帳號與角色，並以 HttpOnly 工作階段及 CSRF 保護變更；它仍不等於外部組織目錄、自然人身分或公司授權已由第三方驗證。正式組織應再與既有身分或簽核制度對接。
+              </p>
+            </Panel>
+
+            <Panel
               title="本機受信任 RVR／SEV 公鑰"
               subtitle="同一清冊供 RVR 與 SEV 驗章；只有經管理者核對後登錄的 Ed25519 公鑰，才能把有效簽章提升為「受信任簽章通過」。私人金鑰不會進入本工具。"
             >
@@ -5145,6 +5472,7 @@ function App() {
                     className="file-picker-input"
                     type="file"
                     accept=".json,application/json"
+                    disabled={!receiverCanAdministerKeys}
                     onChange={handleImportReceiverKeyEnrollment}
                   />
                 </label>
@@ -5189,7 +5517,7 @@ function App() {
                 <button
                   className="secondary"
                   type="button"
-                  disabled={!receiverTrustVerificationConfirmed || !receiverTrustDraft.organization.trim() || !receiverTrustDraft.displayName.trim() || !receiverTrustDraft.publicKey.trim()}
+                  disabled={!receiverCanAdministerKeys || !receiverTrustVerificationConfirmed || !receiverTrustDraft.organization.trim() || !receiverTrustDraft.displayName.trim() || !receiverTrustDraft.publicKey.trim()}
                   onClick={handleRegisterReceiverTrustKey}
                 >
                   {receiverTrustEnrollment ? "確認並登錄已驗證 RKE 公鑰" : "核對後登錄為本機信任公鑰"}
@@ -5227,7 +5555,7 @@ function App() {
                             <button
                               className="mini-action"
                               type="button"
-                              disabled={key.status === "revoked"}
+                              disabled={key.status === "revoked" || !receiverCanAdministerKeys}
                               onClick={() => beginReceiverTrustKeyRevocation(key.keyId)}
                             >
                               填寫撤銷紀錄
@@ -5236,6 +5564,7 @@ function App() {
                               <button
                                 className="mini-action"
                                 type="button"
+                                disabled={!receiverCanRequestRotation}
                                 onClick={() => beginReceiverKeyRotationCompletion(key.keyId)}
                               >
                                 提出輪替完成申請
@@ -5267,18 +5596,14 @@ function App() {
                       <MetaItem label="新金鑰" value={newKey ? `${newKey.displayName}｜${newKey.keyId}` : "找不到"} />
                       <MetaItem label="將撤銷的舊金鑰" value={oldKey ? `${oldKey.displayName}｜${oldKey.keyId}` : "找不到"} />
                       <MetaItem label="所屬單位" value={newKey?.organization || "—"} />
+                      <MetaItem
+                        label="登入申請帳號"
+                        value={receiverOperatorAuth.operator
+                          ? `${receiverOperatorAuth.operator.displayName}｜${receiverOperatorAuth.operator.username}`
+                          : "尚未登入"}
+                      />
                     </div>
                     <div className="form-grid">
-                      <Field
-                        label="輪替申請人"
-                        value={receiverRotationDraft.requestedBy}
-                        onChange={(value) => setReceiverRotationDraft((current) => ({ ...current, requestedBy: value, confirmed: false }))}
-                      />
-                      <Field
-                        label="申請人職責"
-                        value={receiverRotationDraft.requesterRole}
-                        onChange={(value) => setReceiverRotationDraft((current) => ({ ...current, requesterRole: value, confirmed: false }))}
-                      />
                       <Field
                         label="輪替案件／變更編號（必填）"
                         value={receiverRotationDraft.incidentReference}
@@ -5305,9 +5630,8 @@ function App() {
                         disabled={
                           !receiverRotationDraft.confirmed
                           || !receiverRotationDraft.reason.trim()
-                          || !receiverRotationDraft.requestedBy.trim()
-                          || !receiverRotationDraft.requesterRole.trim()
                           || !receiverRotationDraft.incidentReference.trim()
+                          || !receiverCanRequestRotation
                           || !newKey
                           || !oldKey
                         }
@@ -5322,7 +5646,7 @@ function App() {
               })()}
               <h4>輪替雙人覆核申請</h4>
               <p className="meta-line">
-                申請與覆核分成兩筆不可覆寫的事件，覆核人不得與申請人同名，且申請 72 小時後失效。姓名與職責是程序性聲明；本工具目前沒有帳號登入或身分提供者，不應把它宣稱為已驗證的角色權限。疑似外洩、確認外洩或私鑰遺失仍應立即使用一般撤銷，不等待輪替覆核。
+                申請與覆核分成兩筆不可覆寫的事件，後端以登入帳號 ID 而非顯示姓名判斷兩人是否相同，並以 SQLite 交易鎖與唯一待審約束避免跨程序重複完成；申請 72 小時後失效。本機帳號驗證仍不等於外部組織身分或公司授權已獲第三方驗證。疑似外洩、確認外洩或私鑰遺失仍應立即使用一般撤銷，不等待輪替覆核。
               </p>
               {receiverRotationRequests.length ? (
                 <>
@@ -5346,6 +5670,11 @@ function App() {
                             </td>
                             <td>
                               {item.requestedBy}｜{item.requesterRole}<br />
+                              <span className="table-muted">
+                                {item.identityAssurance === "authenticated-local-account"
+                                  ? `本機登入帳號：${item.requestedByOperatorId}｜交易：${item.authorizationState === "tracked" ? "已追蹤" : "缺少 SQLite 申請紀錄"}`
+                                  : "舊版程序性姓名聲明"}
+                              </span><br />
                               <span className="table-muted">{item.reason}</span><br />
                               <span className="table-muted">依據：{item.incidentReference}</span>
                               {item.approvedBy && <><br /><span className="table-muted">覆核：{item.approvedBy}｜{item.approverRole}</span></>}
@@ -5353,7 +5682,17 @@ function App() {
                             <td>
                               {item.requestFingerprint}
                               {item.status === "pending" && (
-                                <><br /><button className="mini-action" type="button" onClick={() => beginReceiverKeyRotationApproval(item.requestFingerprint)}>第二人覆核</button></>
+                                <><br /><button
+                                  className="mini-action"
+                                  type="button"
+                                  disabled={
+                                    !receiverCanApproveRotation
+                                    || item.identityAssurance !== "authenticated-local-account"
+                                    || item.authorizationState !== "tracked"
+                                    || item.requestedByOperatorId === receiverOperatorAuth.operator?.id
+                                  }
+                                  onClick={() => beginReceiverKeyRotationApproval(item.requestFingerprint)}
+                                >第二人覆核</button></>
                               )}
                             </td>
                           </tr>
@@ -5369,11 +5708,13 @@ function App() {
                 const rotationRequest = receiverRotationRequests.find(
                   (item) => item.requestFingerprint === receiverRotationApprovalRequestFingerprint,
                 ) ?? null;
-                const samePerson = Boolean(
+                const sameOperator = Boolean(
                   rotationRequest
-                  && receiverRotationApprovalDraft.approvedBy.trim().toLocaleLowerCase()
-                    === rotationRequest.requestedBy.trim().toLocaleLowerCase(),
+                  && receiverOperatorAuth.operator
+                  && rotationRequest.requestedByOperatorId === receiverOperatorAuth.operator.id,
                 );
+                const authenticatedRequest = rotationRequest?.identityAssurance === "authenticated-local-account"
+                  && rotationRequest.authorizationState === "tracked";
                 return (
                   <div className="receiver-key-rotation-card">
                     <h4>第二人覆核輪替完成申請</h4>
@@ -5383,22 +5724,18 @@ function App() {
                     <div className="meta-grid">
                       <MetaItem label="申請指紋" value={rotationRequest?.requestFingerprint || "找不到"} />
                       <MetaItem label="申請人／職責" value={rotationRequest ? `${rotationRequest.requestedBy}｜${rotationRequest.requesterRole}` : "找不到"} />
+                      <MetaItem label="申請帳號 ID" value={rotationRequest?.requestedByOperatorId || "舊版申請未保存"} />
+                      <MetaItem
+                        label="目前覆核帳號"
+                        value={receiverOperatorAuth.operator
+                          ? `${receiverOperatorAuth.operator.displayName}｜${receiverOperatorAuth.operator.username}`
+                          : "尚未登入"}
+                      />
                       <MetaItem label="變更編號" value={rotationRequest?.incidentReference || "—"} />
                       <MetaItem label="覆核期限" value={rotationRequest?.expiresAt || "—"} />
                     </div>
-                    <div className="form-grid">
-                      <Field
-                        label="第二位覆核人"
-                        value={receiverRotationApprovalDraft.approvedBy}
-                        onChange={(value) => setReceiverRotationApprovalDraft((current) => ({ ...current, approvedBy: value, confirmed: false }))}
-                      />
-                      <Field
-                        label="覆核人職責"
-                        value={receiverRotationApprovalDraft.approverRole}
-                        onChange={(value) => setReceiverRotationApprovalDraft((current) => ({ ...current, approverRole: value, confirmed: false }))}
-                      />
-                    </div>
-                    {samePerson && <p className="meta-line attention-line">覆核人不得與申請人相同。</p>}
+                    {!authenticatedRequest && <p className="meta-line attention-line">此申請沒有可同時驗證的登入帳號 ID 與 SQLite 交易紀錄，不得以角色權限完成；請於期限失效後重新提出。</p>}
+                    {sameOperator && <p className="meta-line attention-line">目前登入帳號就是申請帳號，後端禁止自行覆核。</p>}
                     <label className="check-field">
                       <input
                         type="checkbox"
@@ -5415,9 +5752,9 @@ function App() {
                           !rotationRequest
                           || rotationRequest.status !== "pending"
                           || !receiverRotationApprovalDraft.confirmed
-                          || !receiverRotationApprovalDraft.approvedBy.trim()
-                          || !receiverRotationApprovalDraft.approverRole.trim()
-                          || samePerson
+                          || !receiverCanApproveRotation
+                          || !authenticatedRequest
+                          || sameOperator
                         }
                         onClick={handleApproveReceiverKeyRotationCompletion}
                       >
@@ -5434,6 +5771,14 @@ function App() {
                   <p className="meta-line attention-line">
                     撤銷是一次性生命週期事件，不提供復原或覆寫；歷史 RVR／SEV 仍可驗證簽章，但不再顯示為受信任。
                   </p>
+                  <div className="meta-grid">
+                    <MetaItem
+                      label="登入處理帳號"
+                      value={receiverOperatorAuth.operator
+                        ? `${receiverOperatorAuth.operator.displayName}｜${receiverOperatorAuth.operator.username}`
+                        : "尚未登入"}
+                    />
+                  </div>
                   <div className="form-grid">
                     <label className="field-block">
                       <span>撤銷原因分類</span>
@@ -5450,11 +5795,6 @@ function App() {
                         ))}
                       </select>
                     </label>
-                    <Field
-                      label="處理者／管理者"
-                      value={receiverRevocationDraft.handledBy}
-                      onChange={(value) => setReceiverRevocationDraft((current) => ({ ...current, handledBy: value, confirmed: false }))}
-                    />
                     <Field
                       label="事故、案件或變更編號（選填）"
                       value={receiverRevocationDraft.incidentReference}
@@ -5478,7 +5818,7 @@ function App() {
                     <button
                       className="danger-button"
                       type="button"
-                      disabled={!receiverRevocationDraft.confirmed || !receiverRevocationDraft.reason.trim() || !receiverRevocationDraft.handledBy.trim()}
+                      disabled={!receiverCanAdministerKeys || !receiverRevocationDraft.confirmed || !receiverRevocationDraft.reason.trim()}
                       onClick={handleRevokeReceiverTrustKey}
                     >
                       確認撤銷並寫入事件清冊
@@ -5508,6 +5848,7 @@ function App() {
                           <td>{event.keyId}</td>
                           <td>
                             {event.actor}{event.actorRole ? `｜${event.actorRole}` : ""}<br />
+                            {event.actorId && <><span className="table-muted">登入帳號 ID：{event.actorId}</span><br /></>}
                             <span className="table-muted">{event.reason}</span>
                             {event.incidentReference && <><br /><span className="table-muted">依據：{event.incidentReference}</span></>}
                             {event.expiresAt && <><br /><span className="table-muted">覆核期限：{event.expiresAt}</span></>}
@@ -5531,7 +5872,7 @@ function App() {
                   </p>
                 </div>
                 <div className="action-row">
-                  <button className="ghost" type="button" onClick={handleDownloadReceiverTrustRegistryBackup}>
+                  <button className="ghost" type="button" disabled={!receiverCanAdministerKeys} onClick={handleDownloadReceiverTrustRegistryBackup}>
                     下載目前信任清冊備份
                   </button>
                   <label className="file-action secondary">
@@ -5540,6 +5881,7 @@ function App() {
                       className="file-picker-input"
                       type="file"
                       accept="application/json,.json"
+                      disabled={!receiverCanAdministerKeys}
                       onChange={handleImportReceiverTrustRegistryBackup}
                     />
                   </label>
@@ -5603,6 +5945,7 @@ function App() {
                           <input
                             type="checkbox"
                             checked={receiverTrustRestoreConfirmed}
+                            disabled={!receiverCanAdministerKeys}
                             onChange={(event) => setReceiverTrustRestoreConfirmed(event.target.checked)}
                           />
                           <span>我確認以此已驗證備份取代目前本機信任清冊；系統會先保留復原前副本。</span>
@@ -5610,7 +5953,7 @@ function App() {
                         <button
                           className="danger-button"
                           type="button"
-                          disabled={!receiverTrustRestoreConfirmed}
+                          disabled={!receiverCanAdministerKeys || !receiverTrustRestoreConfirmed}
                           onClick={handleRestoreReceiverTrustRegistryBackup}
                         >
                           確認復原已驗證備份

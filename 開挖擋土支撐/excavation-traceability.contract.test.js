@@ -90,6 +90,7 @@ const receiverKeyEnrollment = readUtf8('backend/app/receiver_key_enrollment.py')
 const receiverKeyManager = readUtf8('backend/manage_receiver_key.py');
 const receiverKeyLauncher = readUtf8('manage_receiver_key.ps1');
 const receiverTrustStore = readUtf8('backend/app/receiver_trust_store.py');
+const receiverOperatorAuth = readUtf8('backend/app/receiver_operator_auth.py');
 const receiverKeyManagementGuide = readUtf8('RECEIVER_KEY_MANAGEMENT.md');
 const receiverTrustBackup = readUtf8('backend/app/receiver_trust_backup.py');
 const receiverTrustRecovery = readUtf8('backend/app/receiver_trust_recovery.py');
@@ -97,6 +98,7 @@ const receiverTrustBackupCli = readUtf8('backend/backup_receiver_trust_registry.
 const receiverTrustBackupLauncher = readUtf8('backup_receiver_trust_registry.ps1');
 const receiverTrustHealthLauncher = readUtf8('check_receiver_trust_backup_health.ps1');
 const receiverTrustStoreTests = readUtf8('backend/tests/test_receiver_trust_store.py');
+const receiverOperatorAuthTests = readUtf8('backend/tests/test_receiver_operator_auth.py');
 const receiverTrustRecoveryTests = readUtf8('backend/tests/test_receiver_trust_recovery.py');
 const receiverEvidenceTemplates = readUtf8('frontend/src/receiverEvidenceTemplates.ts');
 const receiverEvidenceTemplateTests = readUtf8('receiver-evidence-templates.test.js');
@@ -114,7 +116,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.24.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.25.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -327,7 +329,9 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '輪替申請待第二人覆核：新舊金鑰仍同時受信任',
   '建立 72 小時雙人覆核申請',
   '覆核通過並撤銷舊金鑰',
-  '本工具目前沒有帳號登入或身分提供者',
+  '本機登入可驗證同一服務資料庫中的帳號與角色',
+  'SQLite 交易鎖與唯一待審約束',
+  '此申請沒有可同時驗證的登入帳號 ID 與 SQLite 交易紀錄',
   'handleDownloadReceiverTrustRegistryBackup',
   'handleImportReceiverTrustRegistryBackup',
   'handleRestoreReceiverTrustRegistryBackup',
@@ -680,6 +684,55 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   assert(receiverTrustStore.includes(needle), `excavation receiver trust store keeps ${needle}`, needle);
 });
 [
+  'class ReceiverOperatorStore',
+  'hashlib.scrypt',
+  'RECEIVER_SESSION_COOKIE',
+  'LOGIN_FAILURE_LIMIT = 5',
+  'BEGIN IMMEDIATE',
+  'receiver_rotation_one_pending_per_new_key',
+  "approved_by_operator_id <> requested_by_operator_id",
+  'receiver-key-admin',
+  'receiver-key-requester',
+  'receiver-key-approver',
+].forEach((needle) => {
+  assert(receiverOperatorAuth.includes(needle), `excavation receiver operator auth keeps ${needle}`, needle);
+});
+[
+  '/api/receiver-operator-auth/session',
+  '/api/receiver-operator-auth/bootstrap',
+  '/api/receiver-operator-auth/login',
+  '/api/receiver-operator-auth/logout',
+  '/api/receiver-operators',
+  'required_role="receiver-key-requester"',
+  'required_role="receiver-key-approver"',
+  'authorizationState',
+  'missing-claim',
+  'allow_origins=settings.cors_origins',
+].forEach((needle) => {
+  assert(main.includes(needle), `excavation receiver operator API keeps ${needle}`, needle);
+});
+[
+  'X-CSRF-Token',
+  'credentials: "same-origin"',
+  'getReceiverOperatorSession',
+  'bootstrapReceiverOperator',
+  'loginReceiverOperator',
+  'createReceiverOperator',
+].forEach((needle) => {
+  assert(api.includes(needle), `excavation frontend receiver auth keeps ${needle}`, needle);
+});
+[
+  'test_http_boundary_requires_session_csrf_role_and_restricts_cors',
+  'test_bootstrap_hashes_password_and_creates_csrf_protected_session',
+  'test_authenticated_event_without_sqlite_claim_is_visible_but_cannot_be_approved',
+  'test_roles_are_enforced_and_login_is_rate_limited',
+  'test_bootstrap_and_pending_rotation_claims_are_unique_across_store_instances',
+  'test_parallel_database_approvals_allow_one_completion',
+].forEach((needle) => {
+  assert(receiverOperatorAuthTests.includes(needle), `excavation receiver operator tests keep ${needle}`, needle);
+});
+assert(config.includes('STRUT_DB_PATH'), 'excavation database path supports isolated verification', 'STRUT_DB_PATH');
+[
   'RequestReceiverKeyRotationCompletionRequest',
   'ApproveReceiverKeyRotationCompletionRequest',
   '/rotation-requests',
@@ -696,8 +749,10 @@ assert(
   '登錄新金鑰不會自動撤銷舊金鑰',
   '輪替案件或變更編號',
   '72 小時期限',
-  '不同姓名的第二位人員',
-  '不是可信身分驗證',
+  'operator ID 不同',
+  '不是外部組織目錄、自然人身分或公司授權',
+  'JSON 事件清冊與 SQLite claim 分屬兩個檔案',
+  'STRUT_DB_PATH',
   '不應等待 72 小時雙人輪替覆核',
 ].forEach((needle) => {
   assert(receiverKeyManagementGuide.includes(needle), `excavation receiver key rotation guide keeps ${needle}`, needle);

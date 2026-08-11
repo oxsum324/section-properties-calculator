@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 
 from backend.app import main as main_module
 from backend.app.receiver_trust_store import ReceiverTrustStore
+from backend.app.receiver_operator_auth import ReceiverOperatorStore
 from backend.app.receiver_trust_backup import (
     build_receiver_trust_registry_backup,
     preview_receiver_trust_registry_restore,
@@ -373,6 +374,7 @@ class ReceiverTrustStoreTests(unittest.TestCase):
     def test_two_person_rotation_api_returns_pending_then_completed_registry(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             store = ReceiverTrustStore(Path(directory) / "receiver-trust.json")
+            operator_store = ReceiverOperatorStore(Path(directory) / "operators.sqlite3")
             old = build_receiver_key_enrollment(Ed25519PrivateKey.generate(), "接收端單位", "舊章")
             store.register_enrollment(old, True)
             new = build_receiver_key_enrollment(
@@ -382,30 +384,63 @@ class ReceiverTrustStoreTests(unittest.TestCase):
                 replaces_key_id=old["keyId"],
             )
             store.register_enrollment(new, True)
-            with patch.object(main_module, "receiver_trust_store", store):
+            with (
+                patch.object(main_module, "receiver_trust_store", store),
+                patch.object(main_module, "receiver_operator_store", operator_store),
+            ):
                 client = TestClient(main_module.app)
+                bootstrap = client.post(
+                    "/api/receiver-operator-auth/bootstrap",
+                    json={
+                        "username": "rotation-admin",
+                        "display_name": "王管理者",
+                        "password": "Correct-Horse-2026!",
+                    },
+                )
+                self.assertEqual(bootstrap.status_code, 200, bootstrap.text)
+                admin_csrf = bootstrap.json()["csrfToken"]
+                created = client.post(
+                    "/api/receiver-operators",
+                    headers={"X-CSRF-Token": admin_csrf},
+                    json={
+                        "username": "rotation-reviewer",
+                        "display_name": "李覆核者",
+                        "password": "Reviewer-Secure-2026!",
+                        "roles": ["receiver-key-approver"],
+                    },
+                )
+                self.assertEqual(created.status_code, 200, created.text)
                 requested = client.post(
                     f"/api/removal-transfer-trust-keys/{new['keyId']}/rotation-requests",
+                    headers={"X-CSRF-Token": admin_csrf},
                     json={
                         "reason": "新金鑰已完成簽署測試與使用端切換。",
-                        "requested_by": "王管理者",
-                        "requester_role": "金鑰保管人",
                         "incident_reference": "KEY-2026-003",
                         "request_confirmed": True,
                     },
                 )
                 self.assertEqual(requested.status_code, 200, requested.text)
                 request_fingerprint = requested.json()["request"]["requestFingerprint"]
-                response = client.post(
+                same_operator = client.post(
                     f"/api/removal-transfer-trust-key-rotation-requests/{request_fingerprint}/approve",
-                    json={
-                        "approved_by": "李覆核者",
-                        "approver_role": "資安覆核",
-                        "approval_confirmed": True,
-                    },
+                    headers={"X-CSRF-Token": admin_csrf},
+                    json={"approval_confirmed": True},
+                )
+                reviewer_client = TestClient(main_module.app)
+                login = reviewer_client.post(
+                    "/api/receiver-operator-auth/login",
+                    json={"username": "rotation-reviewer", "password": "Reviewer-Secure-2026!"},
+                )
+                self.assertEqual(login.status_code, 200, login.text)
+                reviewer_csrf = login.json()["csrfToken"]
+                response = reviewer_client.post(
+                    f"/api/removal-transfer-trust-key-rotation-requests/{request_fingerprint}/approve",
+                    headers={"X-CSRF-Token": reviewer_csrf},
+                    json={"approval_confirmed": True},
                 )
                 legacy = client.post(
                     f"/api/removal-transfer-trust-keys/{new['keyId']}/complete-rotation",
+                    headers={"X-CSRF-Token": admin_csrf},
                     json={
                         "reason": "不得繞過。",
                         "handled_by": "王管理者",
@@ -414,6 +449,7 @@ class ReceiverTrustStoreTests(unittest.TestCase):
                     },
                 )
 
+            self.assertEqual(same_operator.status_code, 400, same_operator.text)
             self.assertEqual(response.status_code, 200, response.text)
             self.assertEqual(legacy.status_code, 409, legacy.text)
             payload = response.json()
@@ -422,6 +458,11 @@ class ReceiverTrustStoreTests(unittest.TestCase):
             self.assertEqual(payload["revokedKey"]["status"], "revoked")
             self.assertEqual(len(payload["events"]), 4)
             self.assertEqual(payload["rotationRequests"][0]["status"], "completed")
+            self.assertEqual(payload["rotationRequests"][0]["identityAssurance"], "authenticated-local-account")
+            self.assertNotEqual(
+                payload["rotationRequests"][0]["requestedByOperatorId"],
+                payload["rotationRequests"][0]["approvedByOperatorId"],
+            )
 
     def test_rotation_request_expires_before_second_person_approval(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

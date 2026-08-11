@@ -16,6 +16,9 @@ import {
   ReceiverTrustKey,
   ReceiverTrustEvent,
   ReceiverRotationRequest,
+  ReceiverOperator,
+  ReceiverOperatorAuthState,
+  ReceiverOperatorRole,
   ReceiverRevocationReason,
   ReceiverTrustRegistryBackup,
   ReceiverTrustRestorePreview,
@@ -27,12 +30,27 @@ import {
 } from "./types";
 import type { ReceiverEvidenceTemplatePublisherVerification } from "./receiverEvidenceTemplates";
 
+let receiverCsrfToken = typeof sessionStorage === "undefined"
+  ? ""
+  : sessionStorage.getItem("receiver-operator-csrf") ?? "";
+
+function saveReceiverCsrfToken(value?: string) {
+  receiverCsrfToken = value ?? "";
+  if (typeof sessionStorage === "undefined") return;
+  if (receiverCsrfToken) sessionStorage.setItem("receiver-operator-csrf", receiverCsrfToken);
+  else sessionStorage.removeItem("receiver-operator-csrf");
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  const method = (init?.method ?? "GET").toUpperCase();
+  const headers = new Headers(init?.headers);
+  if (!["GET", "HEAD", "OPTIONS"].includes(method) && receiverCsrfToken) {
+    headers.set("X-CSRF-Token", receiverCsrfToken);
+  }
   const response = await fetch(url, {
-    headers: {
-      ...(init?.headers ?? {}),
-    },
     ...init,
+    credentials: "same-origin",
+    headers,
   });
   if (!response.ok) {
     const text = await response.text();
@@ -48,7 +66,43 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function receiverAuthRequest(url: string, init?: RequestInit): Promise<ReceiverOperatorAuthState> {
+  const result = await request<ReceiverOperatorAuthState>(url, init);
+  saveReceiverCsrfToken(result.csrfToken);
+  return result;
+}
+
 export const api = {
+  getReceiverOperatorSession: () =>
+    receiverAuthRequest("/api/receiver-operator-auth/session"),
+  bootstrapReceiverOperator: (username: string, displayName: string, password: string) =>
+    receiverAuthRequest("/api/receiver-operator-auth/bootstrap", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, display_name: displayName, password }),
+    }),
+  loginReceiverOperator: (username: string, password: string) =>
+    receiverAuthRequest("/api/receiver-operator-auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    }),
+  logoutReceiverOperator: async () => {
+    const result = await request<{ loggedOut: true }>("/api/receiver-operator-auth/logout", { method: "POST" });
+    saveReceiverCsrfToken();
+    return result;
+  },
+  listReceiverOperators: () => request<{ operators: ReceiverOperator[] }>("/api/receiver-operators"),
+  createReceiverOperator: (
+    username: string,
+    displayName: string,
+    password: string,
+    roles: ReceiverOperatorRole[],
+  ) => request<{ operator: ReceiverOperator; operators: ReceiverOperator[] }>("/api/receiver-operators", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, display_name: displayName, password, roles }),
+  }),
   bootstrap: () => request<BootstrapPayload>("/api/bootstrap"),
   getReferenceData: () => request<ReferenceData>("/api/reference-data"),
   saveReferenceData: (referenceData: ReferenceData) =>
@@ -224,7 +278,6 @@ export const api = {
     revocation: {
       reasonCode: ReceiverRevocationReason;
       reason: string;
-      handledBy: string;
       incidentReference: string;
     },
   ) =>
@@ -236,7 +289,6 @@ export const api = {
         body: JSON.stringify({
           reason_code: revocation.reasonCode,
           reason: revocation.reason,
-          handled_by: revocation.handledBy,
           incident_reference: revocation.incidentReference,
           revocation_confirmed: true,
         }),
@@ -246,8 +298,6 @@ export const api = {
     newKeyId: string,
     rotation: {
       reason: string;
-      requestedBy: string;
-      requesterRole: string;
       incidentReference: string;
     },
   ) =>
@@ -261,15 +311,12 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         reason: rotation.reason,
-        requested_by: rotation.requestedBy,
-        requester_role: rotation.requesterRole,
         incident_reference: rotation.incidentReference,
         request_confirmed: true,
       }),
     }),
   approveReceiverKeyRotationCompletion: (
     requestFingerprint: string,
-    approval: { approvedBy: string; approverRole: string },
   ) =>
     request<{
       newKey: ReceiverTrustKey;
@@ -282,11 +329,7 @@ export const api = {
     }>(`/api/removal-transfer-trust-key-rotation-requests/${encodeURIComponent(requestFingerprint)}/approve`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        approved_by: approval.approvedBy,
-        approver_role: approval.approverRole,
-        approval_confirmed: true,
-      }),
+      body: JSON.stringify({ approval_confirmed: true }),
     }),
   exportReceiverTrustRegistryBackup: () =>
     request<{ backup: ReceiverTrustRegistryBackup }>(

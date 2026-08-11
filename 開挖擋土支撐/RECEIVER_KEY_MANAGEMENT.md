@@ -33,6 +33,14 @@ RKE（`receiver-verification-key-enrollment`）包含組織名稱、Key ID、公
 
 持有證明只證明建立 RKE 的人持有對應私鑰，不能單獨證明其代表該組織。管理者仍須以電話、正式函件、既有憑證或其他獨立管道核對組織與 Key ID，並在畫面勾選確認後才能加入信任清冊。
 
+## 本機帳號與角色
+
+第一次開啟接收端金鑰治理區時，須由 localhost 建立第一個管理帳號。第一個帳號同時取得 `receiver-key-admin`、`receiver-key-requester`、`receiver-key-approver` 三種角色；之後由管理員建立用途分離的帳號。密碼須為 12 至 256 個字元，包含大寫、小寫、數字、符號中的至少三類，且不得包含登入帳號；資料庫只保存隨機鹽值與 scrypt 雜湊。
+
+登入採 12 小時 HttpOnly、SameSite=Strict 工作階段 cookie，變更操作另須通過 CSRF token。相同帳號在 15 分鐘內連續失敗 5 次會鎖定 5 分鐘。API 只允許設定的 localhost 前端來源，不使用萬用 CORS。`receiver-key-admin` 可登錄、撤銷、備份與復原信任清冊及建立帳號；`receiver-key-requester` 可提出輪替；`receiver-key-approver` 可覆核，但同一 operator ID 不得覆核自己的申請。
+
+這是同一服務資料庫內的本機帳號與角色驗證，不是外部組織目錄、自然人身分或公司授權的第三方證明。正式組織應由既有身分／簽核制度決定誰可取得帳號及角色，並保存帳號交付、停用與權限調整紀錄。測試或隔離部署可用 `STRUT_DB_PATH` 指向專用 SQLite 檔；正式資料庫不應與測試共用。
+
 ## 金鑰輪替
 
 建立新金鑰時以 `--replaces-key-id RVK-...` 指定舊金鑰。來源端匯入後會保存新舊 Key ID 的輪替關聯，但登錄新金鑰不會自動撤銷舊金鑰，避免尚未完成切換的案件立即失效。同一舊 Key ID 同時只允許一把待完成輪替的受信任新金鑰，避免多條輪替路徑互相衝突。
@@ -43,11 +51,11 @@ RKE（`receiver-verification-key-enrollment`）包含組織名稱、Key ID、公
 2. 來源端獨立核對並登錄新金鑰。
 3. 以新金鑰完成一筆測試簽署並確認為「受信任簽章通過」。
 4. 確認所有簽署端、案件與維運程序均已切換後，在新金鑰的「輪替待申請」狀態按「提出輪替完成申請」。
-5. 第一位人員填寫申請人、申請人職責、輪替案件或變更編號、新金鑰啟用／測試簽署／使用端切換摘要，並確認本步驟只提出申請、不撤銷舊金鑰。清冊會新增具 `RVE-...` 指紋與 72 小時期限的 `rotation-completion-requested` 事件。
-6. 由不同姓名的第二位人員開啟「第二人覆核」，核對申請指紋、切換證據與變更依據，填寫覆核人及職責並明確確認不可復原撤銷。相同姓名、逾期、已使用或金鑰狀態已改變的申請一律拒絕。
-7. 後端會再檢查新舊 Key ID 的 RKE 關聯、單位與當前受信任狀態；全部一致時才會在同一次清冊寫入中撤銷正確的舊金鑰，並保存 `rotationApprovalRequestFingerprint`、事件 `approvalRequestFingerprint`、`replacedByKeyId`、`rotationCompletionEventFingerprint` 與 `relatedKeyId` 的申請／覆核／新舊金鑰雙向追溯。同一服務程序內以鎖確保平行覆核只能成功一次。
+5. 由具 `receiver-key-requester` 角色的登入帳號填寫輪替案件或變更編號、新金鑰啟用／測試簽署／使用端切換摘要，並確認本步驟只提出申請、不撤銷舊金鑰。清冊會新增具 `RVE-...` 指紋與 72 小時期限的 `rotation-completion-requested` 事件，並保存該帳號不可變的 operator ID。
+6. 由另一個具 `receiver-key-approver` 角色、operator ID 不同的登入帳號開啟「第二人覆核」，核對申請指紋、切換證據與變更依據，再明確確認不可復原撤銷。自己覆核、逾期、已使用、缺少 SQLite claim 或金鑰狀態已改變的申請一律拒絕。
+7. 後端會再檢查新舊 Key ID 的 RKE 關聯、單位與當前受信任狀態；全部一致時才會在同一次清冊寫入中撤銷正確的舊金鑰，並保存 `rotationApprovalRequestFingerprint`、事件 `approvalRequestFingerprint`、`replacedByKeyId`、`rotationCompletionEventFingerprint` 與 `relatedKeyId` 的申請／覆核／新舊金鑰雙向追溯。SQLite 採 `BEGIN IMMEDIATE`、每把新金鑰僅一筆 pending 的部分唯一索引，以及覆核 operator ID 不得等於申請 operator ID 的資料庫 CHECK；多程序同時覆核只能成功一次。
 
-兩個不同姓名與職責欄位提供的是程序性職責分離，不是可信身分驗證。本工具目前沒有帳號登入、組織目錄或身分提供者，無法證明填寫者確為不同自然人或具備所填職責；正式程序仍須依組織既有案件、資安或簽核系統核對。若未來改為多程序或多主機服務，還必須加入跨程序交易鎖或資料庫唯一約束，不能只依賴目前的單一服務程序鎖。
+本機帳號比自由填寫姓名更能落實角色及異人分離，但仍無法自行證明兩個帳號必然由兩位不同自然人持有，也無法證明公司授權。正式程序仍須依組織既有案件、資安或簽核系統核對。JSON 事件清冊與 SQLite claim 分屬兩個檔案，並非跨檔單一原子交易；若程序在兩次寫入間中斷，清單會把缺少 claim 的待覆核事件標示為不可核可，須先稽核事件鏈與資料庫，再於原申請失效後重新提出，不得繞過角色授權直接完成。
 
 若舊金鑰在切換前疑似外洩、遺失或已不安全，不應等待 72 小時雙人輪替覆核，也不應為了完成一般輪替而延後撤銷；應立即使用一般撤銷流程選取實際事故原因。此時既有輪替申請會改為受阻，新金鑰標示「舊金鑰已另案撤銷，輪替關聯需人工複核」，不會偽裝成標準切換完成。
 

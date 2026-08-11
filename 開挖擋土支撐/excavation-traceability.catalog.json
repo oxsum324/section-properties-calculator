@@ -1,5 +1,5 @@
 {
-  "version": "1.24.0",
+  "version": "1.25.0",
   "family": "excavation-traceability",
   "description": "開挖擋土支撐服務型工具的規範語意追蹤表。每筆 trace 將分析檔匯入、輸入欄位、構件檢核、報表落點、測試證據與人工複核邊界對齊，避免只因 FastAPI / React 流程可產出 PDF 或 DOCX 就誤判為支撐系統檢核依據已完整可追溯。",
   "tools": [
@@ -52,12 +52,12 @@
         {
           "id": "excavation-receiver-key-rotation-completion",
           "clause": "RVR／SEV 組織 Ed25519 公鑰之分階段輪替治理流程、舊金鑰撤銷與本機稽核關聯",
-          "purpose": "新 RKE 登錄時只建立 replacesKeyId 關聯，不自動撤銷舊金鑰。第一人確認新金鑰測試簽署與使用端切換後，只能提出具 RVE 指紋與 72 小時期限的輪替完成申請；第二位不同姓名的人員另行覆核申請指紋、變更編號與切換摘要後，後端才可對同單位、相互關聯且當下均受信任的新舊金鑰完成輪替，一次寫入舊金鑰撤銷、申請／覆核關聯、雙向 Key ID 與事件指紋。",
-          "inputs": ["validated RKE with replacesKeyId", "trusted new key", "trusted linked old key", "same organization", "requester name and declared duty", "required change reference", "cutover summary", "72-hour request fingerprint", "different approver name and declared duty", "explicit irreversible approval confirmation"],
-          "calculation": ["ReceiverTrustStore.request_rotation_completion", "ReceiverTrustStore.approve_rotation_completion", "single active replacement and pending request guards", "72-hour expiry", "requester and approver name separation", "generic and legacy direct completion rejection", "same-organization verification", "linked old-key lookup", "single-process RLock serialization", "atomic registry write", "rotationApprovalRequestFingerprint", "replacedByKeyId", "rotationCompletionEventFingerprint", "relatedKeyId and approvalRequestFingerprint event binding", "event-chain and backup consistency validation"],
-          "report": ["輪替待申請", "輪替申請待第二人覆核", "輪替申請已逾期", "輪替已完成", "輪替雙人覆核申請表", "申請指紋", "申請人／職責", "第二位覆核人", "新舊 Key ID", "輪替案件／變更編號", "切換摘要", "不可復原確認"],
-          "evidence": ["backend/app/receiver_trust_store.py", "backend/app/schemas.py", "backend/app/main.py", "backend/tests/test_receiver_trust_store.py", "frontend/src/App.tsx", "frontend/src/api.ts", "frontend/src/types.ts", "RECEIVER_KEY_MANAGEMENT.md"],
-          "manualReview": ["兩階段事件只證明本機曾記錄兩個不同姓名及其職責聲明，不代表工具已驗證帳號、組織身分或實際角色權限；目前沒有登入或身分提供者。管理者仍須人工複核所有簽署端、案件與異地清冊的實際切換狀態，並依組織既有程序核對申請人與覆核人。單一服務程序內以鎖避免平行覆核互相覆寫；若未來改為多程序或多主機部署，必須另加跨程序交易鎖或資料庫唯一約束。異常、外洩或遺失事件不得等待 72 小時輪替覆核，仍應使用一般緊急撤銷並保留獨立事故紀錄。"]
+          "purpose": "新 RKE 登錄時只建立 replacesKeyId 關聯，不自動撤銷舊金鑰。第一個具輪替申請角色的本機登入帳號確認新金鑰測試簽署與使用端切換後，只能提出具 RVE 指紋與 72 小時期限的輪替完成申請；第二個具覆核角色且 operator ID 不同的登入帳號另行覆核，後端才可對同單位、相互關聯且當下均受信任的新舊金鑰完成輪替。SQLite 以交易鎖、部分唯一索引與異人 CHECK 約束跨程序申請／覆核；事件清冊保存顯示姓名、不可變 operator ID、申請／覆核關聯、雙向 Key ID 與事件指紋。",
+          "inputs": ["validated RKE with replacesKeyId", "trusted new key", "trusted linked old key", "same organization", "authenticated local requester operator ID and receiver-key-requester role", "required change reference", "cutover summary", "72-hour request fingerprint", "different authenticated local approver operator ID and receiver-key-approver role", "explicit irreversible approval confirmation"],
+          "calculation": ["ReceiverOperatorStore bootstrap and local password session", "scrypt password hashing", "HttpOnly SameSite Strict session cookie", "CSRF token verification", "login rate limiting", "ReceiverTrustStore.request_rotation_completion", "ReceiverTrustStore.approve_rotation_completion", "SQLite BEGIN IMMEDIATE transaction", "partial unique pending-request index", "database requester-approver inequality CHECK", "single active replacement and pending request guards", "72-hour expiry", "requester and approver operator ID separation", "generic and legacy direct completion rejection", "same-organization verification", "linked old-key lookup", "single-process RLock serialization", "atomic registry write", "missing SQLite claim fail closed", "rotationApprovalRequestFingerprint", "replacedByKeyId", "rotationCompletionEventFingerprint", "relatedKeyId and approvalRequestFingerprint event binding", "event-chain and backup consistency validation", "localhost CORS allowlist"],
+          "report": ["本機帳號首次設定／登入／登出", "接收端金鑰管理員／輪替申請人／輪替覆核人", "輪替待申請", "輪替申請待第二人覆核", "輪替申請已逾期", "輪替已完成", "輪替雙人覆核申請表", "申請指紋", "登入帳號顯示姓名與 operator ID", "新舊 Key ID", "輪替案件／變更編號", "切換摘要", "SQLite 交易追蹤狀態", "不可復原確認", "本機登入不等於外部組織身分提示"],
+          "evidence": ["backend/app/receiver_operator_auth.py", "backend/app/receiver_trust_store.py", "backend/app/config.py", "backend/app/schemas.py", "backend/app/main.py", "backend/tests/test_receiver_operator_auth.py", "backend/tests/test_receiver_trust_store.py", "frontend/src/App.tsx", "frontend/src/api.ts", "frontend/src/types.ts", "RECEIVER_KEY_MANAGEMENT.md", "RECEIVER_IDENTITY_SIGNATURE.md"],
+          "manualReview": ["本機登入可驗證同一服務資料庫中的帳號、角色與工作階段，但不代表外部組織目錄、自然人身分或公司授權已由第三方驗證；正式組織仍須依既有身分或簽核制度建立帳號及核對權限。公開 RTB 備份刻意不含帳號、密碼、工作階段或 SQLite 輪替 claim；還原後缺少對應 claim 的待覆核事件必須失敗關閉並重新提出。JSON 事件清冊與 SQLite claim 分屬兩個檔案，不能宣稱跨檔單一原子交易；若寫入中斷或狀態矛盾，應依事件鏈與資料庫人工複核後復原，不得直接核可。異常、外洩或遺失事件不得等待 72 小時輪替覆核，仍應使用一般緊急撤銷並保留獨立事故紀錄。"]
         },
         {
           "id": "excavation-receiver-evidence-template-publishing",

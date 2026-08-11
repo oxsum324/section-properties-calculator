@@ -523,16 +523,37 @@ class CompleteReceiverKeyRotationRequest(BaseModel):
 
 class RequestReceiverKeyRotationCompletionRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=500)
-    requested_by: str = Field(min_length=1, max_length=120)
-    requester_role: str = Field(min_length=1, max_length=120)
     incident_reference: str = Field(min_length=1, max_length=160)
     request_confirmed: Literal[True]
 
 
 class ApproveReceiverKeyRotationCompletionRequest(BaseModel):
-    approved_by: str = Field(min_length=1, max_length=120)
-    approver_role: str = Field(min_length=1, max_length=120)
     approval_confirmed: Literal[True]
+
+
+class ReceiverOperatorBootstrapRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=40)
+    display_name: str = Field(min_length=1, max_length=120)
+    password: str = Field(min_length=12, max_length=256)
+
+
+class ReceiverOperatorLoginRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=40)
+    password: str = Field(min_length=1, max_length=256)
+
+
+ReceiverOperatorRole = Literal[
+    "receiver-key-admin",
+    "receiver-key-requester",
+    "receiver-key-approver",
+]
+
+
+class CreateReceiverOperatorRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=40)
+    display_name: str = Field(min_length=1, max_length=120)
+    password: str = Field(min_length=12, max_length=256)
+    roles: list[ReceiverOperatorRole] = Field(min_length=1)
 
 
 class RestoreReceiverTrustRegistryRequest(BaseModel):

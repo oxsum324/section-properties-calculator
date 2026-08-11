@@ -33,6 +33,12 @@ from .removal_transfer_handoff import (
     verify_source_evidence_identity_signature,
 )
 from .receiver_trust_store import ReceiverTrustStore
+from .receiver_operator_auth import (
+    RECEIVER_SESSION_COOKIE,
+    RECEIVER_SESSION_HOURS,
+    ReceiverOperatorStore,
+    operator_role_label,
+)
 from .receiver_capacity import calculate_reshore_member_capacity
 from .receiver_evidence_template_package import validate_receiver_evidence_template_publisher_package
 from .receiver_key_enrollment import validate_receiver_key_enrollment
@@ -56,10 +62,13 @@ from .schemas import (
     BuildSourceEvidenceSigningRequestRequest,
     ApproveReceiverKeyRotationCompletionRequest,
     CompleteReceiverKeyRotationRequest,
+    CreateReceiverOperatorRequest,
     CreateProjectRequest,
     ProjectState,
     ReferenceData,
     RequestReceiverKeyRotationCompletionRequest,
+    ReceiverOperatorBootstrapRequest,
+    ReceiverOperatorLoginRequest,
     ReportPayload,
     RegisterReceiverEnrollmentRequest,
     RestoreReceiverTrustRegistryRequest,
@@ -80,11 +89,12 @@ from .workbook_loader import (
 settings = get_settings()
 store = ProjectStore()
 receiver_trust_store = ReceiverTrustStore()
+receiver_operator_store = ReceiverOperatorStore()
 
 app = FastAPI(title="擋土支撐計算網頁工具", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins + ["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -94,6 +104,130 @@ app.add_middleware(
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+def _set_receiver_session_cookie(response: Response, token: str, request: Request) -> None:
+    response.set_cookie(
+        RECEIVER_SESSION_COOKIE,
+        token,
+        max_age=RECEIVER_SESSION_HOURS * 60 * 60,
+        httponly=True,
+        secure=request.url.scheme == "https",
+        samesite="strict",
+        path="/",
+    )
+
+
+def _receiver_operator(
+    request: Request,
+    *,
+    required_role: str | None = None,
+    require_csrf: bool = False,
+) -> dict[str, Any]:
+    try:
+        session = receiver_operator_store.require_session(
+            request.cookies.get(RECEIVER_SESSION_COOKIE),
+            required_role=required_role,
+            csrf_token=(request.headers.get("x-csrf-token") or "") if require_csrf else None,
+        )
+    except PermissionError as exc:
+        status_code = 401 if "請先登入" in str(exc) else 403
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+    return session["operator"]
+
+
+def _receiver_auth_response(operator: dict[str, Any], session: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "bootstrapRequired": False,
+        "authenticated": True,
+        "operator": operator,
+        "csrfToken": session["csrfToken"],
+        "expiresAt": session["expiresAt"],
+        "assuranceBoundary": (
+            "本機密碼登入可驗證同一服務資料庫中的帳號與角色；"
+            "不等於外部組織目錄、自然人身分或公司授權已獲第三方驗證。"
+        ),
+    }
+
+
+@app.get("/api/receiver-operator-auth/session")
+def receiver_operator_session(request: Request) -> dict[str, Any]:
+    bootstrap_required = receiver_operator_store.bootstrap_required()
+    if bootstrap_required:
+        return {"bootstrapRequired": True, "authenticated": False, "operator": None}
+    session = receiver_operator_store.get_session(
+        request.cookies.get(RECEIVER_SESSION_COOKIE),
+        rotate_csrf=True,
+    )
+    if session is None:
+        return {"bootstrapRequired": False, "authenticated": False, "operator": None}
+    return _receiver_auth_response(session["operator"], session)
+
+
+@app.post("/api/receiver-operator-auth/bootstrap")
+def bootstrap_receiver_operator(
+    payload: ReceiverOperatorBootstrapRequest,
+    request: Request,
+    response: Response,
+) -> dict[str, Any]:
+    client_host = request.client.host if request.client else ""
+    if client_host not in {"127.0.0.1", "::1", "testclient"}:
+        raise HTTPException(status_code=403, detail="首位管理員只能由本機連線建立。")
+    try:
+        operator = receiver_operator_store.bootstrap(
+            payload.username,
+            payload.display_name,
+            payload.password,
+        )
+        session = receiver_operator_store.create_session(operator["id"])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _set_receiver_session_cookie(response, session["sessionToken"], request)
+    return _receiver_auth_response(operator, session)
+
+
+@app.post("/api/receiver-operator-auth/login")
+def login_receiver_operator(
+    payload: ReceiverOperatorLoginRequest,
+    request: Request,
+    response: Response,
+) -> dict[str, Any]:
+    try:
+        operator = receiver_operator_store.authenticate(payload.username, payload.password)
+        session = receiver_operator_store.create_session(operator["id"])
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    _set_receiver_session_cookie(response, session["sessionToken"], request)
+    return _receiver_auth_response(operator, session)
+
+
+@app.post("/api/receiver-operator-auth/logout")
+def logout_receiver_operator(request: Request, response: Response) -> dict[str, bool]:
+    _receiver_operator(request, require_csrf=True)
+    receiver_operator_store.delete_session(request.cookies.get(RECEIVER_SESSION_COOKIE))
+    response.delete_cookie(RECEIVER_SESSION_COOKIE, path="/", samesite="strict")
+    return {"loggedOut": True}
+
+
+@app.get("/api/receiver-operators")
+def list_receiver_operators(request: Request) -> dict[str, Any]:
+    _receiver_operator(request, required_role="receiver-key-admin")
+    return {"operators": receiver_operator_store.list_operators()}
+
+
+@app.post("/api/receiver-operators")
+def create_receiver_operator(payload: CreateReceiverOperatorRequest, request: Request) -> dict[str, Any]:
+    _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
+    try:
+        operator = receiver_operator_store.create_operator(
+            payload.username,
+            payload.display_name,
+            payload.password,
+            list(payload.roles),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"operator": operator, "operators": receiver_operator_store.list_operators()}
 
 
 def _receipt_validation(receipt: dict[str, Any]) -> dict[str, Any]:
@@ -144,25 +278,46 @@ def _source_evidence_context(
     return record_index, validated_record, handoff, receipt
 
 
+def _receiver_rotation_requests() -> list[dict[str, Any]]:
+    claims = {
+        item["request_fingerprint"]: item
+        for item in receiver_operator_store.rotation_claims()
+    }
+    summaries = receiver_trust_store.list_rotation_requests()
+    for summary in summaries:
+        claim = claims.get(summary["requestFingerprint"])
+        if summary.get("identityAssurance") != "authenticated-local-account":
+            summary["authorizationState"] = "legacy-procedural"
+        elif claim is None:
+            summary["authorizationState"] = "missing-claim"
+        else:
+            summary["authorizationState"] = "tracked"
+            summary["authorizationClaimState"] = claim["state"]
+    return summaries
+
+
 @app.get("/api/removal-transfer-trust-keys")
 def list_receiver_trust_keys() -> dict[str, Any]:
     try:
         keys = receiver_trust_store.list_keys()
         events = receiver_trust_store.list_events()
-        rotation_requests = receiver_trust_store.list_rotation_requests()
+        rotation_requests = _receiver_rotation_requests()
     except ValueError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return {"schemaVersion": 1, "keys": keys, "events": events, "rotationRequests": rotation_requests}
 
 
 @app.post("/api/removal-transfer-trust-keys")
-def register_receiver_trust_key(request: dict[str, Any]) -> dict[str, Any]:
+def register_receiver_trust_key(payload: dict[str, Any], request: Request) -> dict[str, Any]:
+    operator = _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
     try:
         record = receiver_trust_store.register_key(
-            str(request.get("organization", "")),
-            str(request.get("displayName", "")),
-            str(request.get("publicKey", "")),
-            request.get("independentVerificationConfirmed") is True,
+            str(payload.get("organization", "")),
+            str(payload.get("displayName", "")),
+            str(payload.get("publicKey", "")),
+            payload.get("independentVerificationConfirmed") is True,
+            registered_by=operator["displayName"],
+            registered_by_operator_id=operator["id"],
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -170,7 +325,7 @@ def register_receiver_trust_key(request: dict[str, Any]) -> dict[str, Any]:
         "key": record,
         "keys": receiver_trust_store.list_keys(),
         "events": receiver_trust_store.list_events(),
-        "rotationRequests": receiver_trust_store.list_rotation_requests(),
+        "rotationRequests": _receiver_rotation_requests(),
     }
 
 
@@ -185,12 +340,16 @@ def validate_receiver_trust_key_enrollment(enrollment: dict[str, Any]) -> dict[s
 
 @app.post("/api/removal-transfer-trust-keys/enrollments/register")
 def register_receiver_trust_key_enrollment(
-    request: RegisterReceiverEnrollmentRequest,
+    payload: RegisterReceiverEnrollmentRequest,
+    request: Request,
 ) -> dict[str, Any]:
+    operator = _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
     try:
         record = receiver_trust_store.register_enrollment(
-            request.enrollment,
-            request.independent_verification_confirmed,
+            payload.enrollment,
+            payload.independent_verification_confirmed,
+            registered_by=operator["displayName"],
+            registered_by_operator_id=operator["id"],
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -198,23 +357,26 @@ def register_receiver_trust_key_enrollment(
         "key": record,
         "keys": receiver_trust_store.list_keys(),
         "events": receiver_trust_store.list_events(),
-        "rotationRequests": receiver_trust_store.list_rotation_requests(),
+        "rotationRequests": _receiver_rotation_requests(),
     }
 
 
 @app.post("/api/removal-transfer-trust-keys/{key_id}/revoke")
 def revoke_receiver_trust_key(
     key_id: str,
-    request: RevokeReceiverTrustKeyRequest,
+    payload: RevokeReceiverTrustKeyRequest,
+    request: Request,
 ) -> dict[str, Any]:
+    operator = _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
     try:
         record = receiver_trust_store.revoke_key(
             key_id,
-            reason_code=request.reason_code,
-            reason=request.reason,
-            handled_by=request.handled_by,
-            incident_reference=request.incident_reference,
-            revocation_confirmed=request.revocation_confirmed,
+            reason_code=payload.reason_code,
+            reason=payload.reason,
+            handled_by=operator["displayName"],
+            handled_by_operator_id=operator["id"],
+            incident_reference=payload.incident_reference,
+            revocation_confirmed=payload.revocation_confirmed,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="本機信任清冊找不到指定公鑰。") from exc
@@ -224,24 +386,29 @@ def revoke_receiver_trust_key(
         "key": record,
         "keys": receiver_trust_store.list_keys(),
         "events": receiver_trust_store.list_events(),
-        "rotationRequests": receiver_trust_store.list_rotation_requests(),
+        "rotationRequests": _receiver_rotation_requests(),
     }
 
 
 @app.post("/api/removal-transfer-trust-keys/{new_key_id}/rotation-requests")
 def request_receiver_key_rotation_completion(
     new_key_id: str,
-    request: RequestReceiverKeyRotationCompletionRequest,
+    payload: RequestReceiverKeyRotationCompletionRequest,
+    request: Request,
 ) -> dict[str, Any]:
+    operator = _receiver_operator(request, required_role="receiver-key-requester", require_csrf=True)
     try:
-        rotation_request = receiver_trust_store.request_rotation_completion(
-            new_key_id,
-            reason=request.reason,
-            requested_by=request.requested_by,
-            requester_role=request.requester_role,
-            incident_reference=request.incident_reference,
-            request_confirmed=request.request_confirmed,
-        )
+        with receiver_operator_store.rotation_request_transaction(operator["id"], new_key_id) as connection:
+            rotation_request = receiver_trust_store.request_rotation_completion(
+                new_key_id,
+                reason=payload.reason,
+                requested_by=operator["displayName"],
+                requester_role=operator_role_label("receiver-key-requester"),
+                requested_by_operator_id=operator["id"],
+                incident_reference=payload.incident_reference,
+                request_confirmed=payload.request_confirmed,
+            )
+            receiver_operator_store.record_rotation_request(connection, rotation_request, operator["id"])
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="本機信任清冊找不到指定的輪替新金鑰。") from exc
     except ValueError as exc:
@@ -250,22 +417,35 @@ def request_receiver_key_rotation_completion(
         "request": rotation_request,
         "keys": receiver_trust_store.list_keys(),
         "events": receiver_trust_store.list_events(),
-        "rotationRequests": receiver_trust_store.list_rotation_requests(),
+        "rotationRequests": _receiver_rotation_requests(),
     }
 
 
 @app.post("/api/removal-transfer-trust-key-rotation-requests/{request_fingerprint}/approve")
 def approve_receiver_key_rotation_completion(
     request_fingerprint: str,
-    request: ApproveReceiverKeyRotationCompletionRequest,
+    payload: ApproveReceiverKeyRotationCompletionRequest,
+    request: Request,
 ) -> dict[str, Any]:
+    operator = _receiver_operator(request, required_role="receiver-key-approver", require_csrf=True)
     try:
-        completed = receiver_trust_store.approve_rotation_completion(
-            request_fingerprint,
-            approved_by=request.approved_by,
-            approver_role=request.approver_role,
-            approval_confirmed=request.approval_confirmed,
-        )
+        with receiver_operator_store.rotation_approval_transaction(
+            operator["id"], request_fingerprint
+        ) as (connection, _claim):
+            completed = receiver_trust_store.approve_rotation_completion(
+                request_fingerprint,
+                approved_by=operator["displayName"],
+                approver_role=operator_role_label("receiver-key-approver"),
+                approved_by_operator_id=operator["id"],
+                approval_confirmed=payload.approval_confirmed,
+            )
+            receiver_operator_store.record_rotation_approval(
+                connection,
+                request_fingerprint,
+                operator["id"],
+                completed["event"]["eventFingerprint"],
+                completed["event"]["effectiveAt"],
+            )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="本機信任清冊找不到指定的輪替覆核申請。") from exc
     except ValueError as exc:
@@ -274,22 +454,24 @@ def approve_receiver_key_rotation_completion(
         **completed,
         "keys": receiver_trust_store.list_keys(),
         "events": receiver_trust_store.list_events(),
-        "rotationRequests": receiver_trust_store.list_rotation_requests(),
+        "rotationRequests": _receiver_rotation_requests(),
     }
 
 
 @app.post("/api/removal-transfer-trust-keys/{new_key_id}/complete-rotation")
 def complete_receiver_key_rotation(
     new_key_id: str,
-    request: CompleteReceiverKeyRotationRequest,
+    payload: CompleteReceiverKeyRotationRequest,
+    request: Request,
 ) -> dict[str, Any]:
+    _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
     try:
         completed = receiver_trust_store.complete_rotation(
             new_key_id,
-            reason=request.reason,
-            handled_by=request.handled_by,
-            incident_reference=request.incident_reference,
-            rotation_confirmed=request.rotation_confirmed,
+            reason=payload.reason,
+            handled_by=payload.handled_by,
+            incident_reference=payload.incident_reference,
+            rotation_confirmed=payload.rotation_confirmed,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="本機信任清冊找不到指定的輪替新金鑰。") from exc
@@ -303,7 +485,8 @@ def complete_receiver_key_rotation(
 
 
 @app.post("/api/removal-transfer-trust-registry/backups/export")
-def export_receiver_trust_registry_backup() -> dict[str, Any]:
+def export_receiver_trust_registry_backup(request: Request) -> dict[str, Any]:
+    _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
     try:
         backup = build_receiver_trust_registry_backup(receiver_trust_store)
     except ValueError as exc:
@@ -312,7 +495,8 @@ def export_receiver_trust_registry_backup() -> dict[str, Any]:
 
 
 @app.post("/api/removal-transfer-trust-registry/backups/validate")
-def validate_receiver_trust_registry_backup(backup: dict[str, Any]) -> dict[str, Any]:
+def validate_receiver_trust_registry_backup(backup: dict[str, Any], request: Request) -> dict[str, Any]:
+    _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
     try:
         return preview_receiver_trust_registry_restore(receiver_trust_store, backup)
     except ValueError as exc:
@@ -321,17 +505,19 @@ def validate_receiver_trust_registry_backup(backup: dict[str, Any]) -> dict[str,
 
 @app.post("/api/removal-transfer-trust-registry/backups/restore")
 def restore_receiver_trust_registry(
-    request: RestoreReceiverTrustRegistryRequest,
+    payload: RestoreReceiverTrustRegistryRequest,
+    request: Request,
 ) -> dict[str, Any]:
+    _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
     try:
         restored = restore_receiver_trust_registry_backup(
             receiver_trust_store,
-            request.backup,
-            restore_confirmed=request.restore_confirmed,
+            payload.backup,
+            restore_confirmed=payload.restore_confirmed,
         )
         return {
             **restored,
-            "rotationRequests": receiver_trust_store.list_rotation_requests(),
+            "rotationRequests": _receiver_rotation_requests(),
         }
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

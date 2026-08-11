@@ -11,7 +11,8 @@ class Settings:
         self.app_data_dir = self.root_dir / "app_data"
         self.projects_dir = self.app_data_dir / "projects"
         self.reports_dir = self.app_data_dir / "reports"
-        self.db_path = self.app_data_dir / "projects.db"
+        default_db = self.app_data_dir / "projects.db"
+        self.db_path = Path(os.environ.get("STRUT_DB_PATH", default_db))
         default_workbook = self.root_dir / "2_開挖擋土支撐-v95000.xlsm"
         self.workbook_path = Path(os.environ.get("STRUT_WORKBOOK_PATH", default_workbook))
         default_word_template = self.root_dir / "一般(分析+擋土+支撐).docx"
