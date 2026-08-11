@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import binascii
 from contextlib import closing, contextmanager
 from datetime import datetime, timedelta, timezone
 import hashlib
@@ -30,6 +32,21 @@ _SCRYPT_N = 2**14
 _SCRYPT_R = 8
 _SCRYPT_P = 1
 _SCRYPT_DKLEN = 32
+_OPERATOR_ID_PATTERN = re.compile(r"^ROP-[A-F0-9]{20}$")
+_AUDIT_EVENT_ID_PATTERN = re.compile(r"^ROA-[A-F0-9]{20}$")
+_AUDIT_FINGERPRINT_PATTERN = re.compile(r"^ROE-[A-F0-9]{20}$")
+_AUDIT_EVENT_TYPES = {
+    "operator-bootstrap-created",
+    "operator-created",
+    "operator-roles-changed",
+    "operator-disabled",
+    "operator-enabled",
+    "operator-password-reset",
+    "operator-password-changed",
+    "operator-governance-backup-exported",
+    "operator-governance-restored",
+}
+RECEIVER_OPERATOR_GOVERNANCE_SNAPSHOT_KIND = "receiver-operator-governance-snapshot"
 
 
 def _utc_now() -> datetime:
@@ -105,6 +122,24 @@ def _validate_roles(values: Any) -> list[str]:
     if invalid:
         raise ValueError(f"不支援的角色：{', '.join(sorted(invalid))}。")
     return roles
+
+
+def _decode_backup_bytes(value: Any, *, field: str, expected_length: int) -> bytes:
+    text = str(value or "").strip()
+    try:
+        decoded = base64.b64decode(text, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise ValueError(f"操作員治理快照的 {field} 不是有效 Base64。") from exc
+    if len(decoded) != expected_length:
+        raise ValueError(f"操作員治理快照的 {field} 長度不正確。")
+    return decoded
+
+
+def _require_snapshot_string(value: Any, *, field: str, max_length: int = 500) -> str:
+    text = str(value or "").strip()
+    if not text or len(text) > max_length:
+        raise ValueError(f"操作員治理快照的 {field} 不正確。")
+    return text
 
 
 class ReceiverOperatorStore:
@@ -190,13 +225,30 @@ class ReceiverOperatorStore:
                 CREATE UNIQUE INDEX IF NOT EXISTS receiver_operator_audit_single_successor
                     ON receiver_operator_audit_events(previous_event_fingerprint)
                     WHERE previous_event_fingerprint IS NOT NULL;
-                CREATE TRIGGER IF NOT EXISTS receiver_operator_audit_no_update
+                CREATE TABLE IF NOT EXISTS receiver_operator_maintenance (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    restore_authorized INTEGER NOT NULL DEFAULT 0
+                        CHECK (restore_authorized IN (0, 1))
+                );
+                INSERT OR IGNORE INTO receiver_operator_maintenance (id, restore_authorized)
+                    VALUES (1, 0);
+                DROP TRIGGER IF EXISTS receiver_operator_audit_no_update;
+                DROP TRIGGER IF EXISTS receiver_operator_audit_no_delete;
+                CREATE TRIGGER receiver_operator_audit_no_update
                     BEFORE UPDATE ON receiver_operator_audit_events
+                    WHEN COALESCE(
+                        (SELECT restore_authorized FROM receiver_operator_maintenance WHERE id = 1),
+                        0
+                    ) = 0
                     BEGIN
                         SELECT RAISE(ABORT, 'receiver operator audit events are append-only');
                     END;
-                CREATE TRIGGER IF NOT EXISTS receiver_operator_audit_no_delete
+                CREATE TRIGGER receiver_operator_audit_no_delete
                     BEFORE DELETE ON receiver_operator_audit_events
+                    WHEN COALESCE(
+                        (SELECT restore_authorized FROM receiver_operator_maintenance WHERE id = 1),
+                        0
+                    ) = 0
                     BEGIN
                         SELECT RAISE(ABORT, 'receiver operator audit events are append-only');
                     END;
@@ -676,17 +728,70 @@ class ReceiverOperatorStore:
             "previousEventFingerprint": row["previous_event_fingerprint"],
         }
 
-    def list_audit_events(self) -> dict[str, Any]:
-        with closing(self._connect()) as connection:
-            rows = connection.execute(
-                "SELECT * FROM receiver_operator_audit_events ORDER BY sequence_no"
-            ).fetchall()
+    @staticmethod
+    def _validate_audit_event_list(
+        values: Any,
+        *,
+        operator_ids: set[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        if not isinstance(values, list):
+            raise ValueError("操作員治理快照的稽核事件格式不正確。")
         previous_fingerprint = None
+        seen_event_ids: set[str] = set()
+        seen_fingerprints: set[str] = set()
         events: list[dict[str, Any]] = []
-        for row in rows:
-            payload = self._audit_event_payload(row)
-            if payload["previousEventFingerprint"] != previous_fingerprint:
-                raise ValueError("操作帳號稽核鏈前後指紋不一致，請停止管理操作並人工稽核。")
+        for raw in values:
+            if not isinstance(raw, dict):
+                raise ValueError("操作員治理快照含有格式不正確的稽核事件。")
+            event_id = _require_snapshot_string(raw.get("eventId"), field="eventId", max_length=24)
+            event_type = _require_snapshot_string(raw.get("eventType"), field="eventType", max_length=80)
+            actor_operator_id = _require_snapshot_string(
+                raw.get("actorOperatorId"), field="actorOperatorId", max_length=24
+            )
+            target_operator_id = _require_snapshot_string(
+                raw.get("targetOperatorId"), field="targetOperatorId", max_length=24
+            )
+            if not _AUDIT_EVENT_ID_PATTERN.fullmatch(event_id) or event_id in seen_event_ids:
+                raise ValueError("操作員治理快照的稽核事件 ID 不正確或重複。")
+            if event_type not in _AUDIT_EVENT_TYPES:
+                raise ValueError(f"操作員治理快照含有不支援的稽核事件：{event_type}。")
+            if operator_ids is not None and (
+                actor_operator_id not in operator_ids or target_operator_id not in operator_ids
+            ):
+                raise ValueError("操作員治理快照的稽核事件引用不存在的操作員。")
+            actor_username = _validate_username(raw.get("actorUsername"))
+            target_username = _validate_username(raw.get("targetUsername"))
+            actor_display_name = _validate_display_name(raw.get("actorDisplayName"))
+            target_display_name = _validate_display_name(raw.get("targetDisplayName"))
+            occurred_at = _iso(_parse_time(_require_snapshot_string(raw.get("occurredAt"), field="occurredAt")))
+            details = raw.get("details")
+            if not isinstance(details, dict):
+                raise ValueError("操作員治理快照的稽核事件 details 格式不正確。")
+            details = json.loads(
+                json.dumps(details, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            )
+            previous = raw.get("previousEventFingerprint")
+            if previous is not None:
+                previous = _require_snapshot_string(
+                    previous,
+                    field="previousEventFingerprint",
+                    max_length=24,
+                )
+            if previous != previous_fingerprint:
+                raise ValueError("操作帳號稽核鏈前後指紋不一致，請停止復原並人工稽核。")
+            payload = {
+                "eventId": event_id,
+                "eventType": event_type,
+                "actorOperatorId": actor_operator_id,
+                "actorUsername": actor_username,
+                "actorDisplayName": actor_display_name,
+                "targetOperatorId": target_operator_id,
+                "targetUsername": target_username,
+                "targetDisplayName": target_display_name,
+                "occurredAt": occurred_at,
+                "details": details,
+                "previousEventFingerprint": previous,
+            }
             expected = "ROE-" + hashlib.sha256(
                 json.dumps(
                     payload,
@@ -695,16 +800,394 @@ class ReceiverOperatorStore:
                     separators=(",", ":"),
                 ).encode("utf-8")
             ).hexdigest()[:20].upper()
-            if not hmac.compare_digest(expected, row["event_fingerprint"]):
-                raise ValueError("操作帳號稽核事件內容指紋不一致，請停止管理操作並人工稽核。")
-            event = {**payload, "eventFingerprint": row["event_fingerprint"]}
-            events.append(event)
-            previous_fingerprint = row["event_fingerprint"]
+            event_fingerprint = _require_snapshot_string(
+                raw.get("eventFingerprint"), field="eventFingerprint", max_length=24
+            )
+            if (
+                not _AUDIT_FINGERPRINT_PATTERN.fullmatch(event_fingerprint)
+                or event_fingerprint in seen_fingerprints
+                or not hmac.compare_digest(expected, event_fingerprint)
+            ):
+                raise ValueError("操作帳號稽核事件內容指紋不一致，請停止復原並人工稽核。")
+            events.append({**payload, "eventFingerprint": event_fingerprint})
+            seen_event_ids.add(event_id)
+            seen_fingerprints.add(event_fingerprint)
+            previous_fingerprint = event_fingerprint
+        return events
+
+    def list_audit_events(self) -> dict[str, Any]:
+        with closing(self._connect()) as connection:
+            rows = connection.execute(
+                "SELECT * FROM receiver_operator_audit_events ORDER BY sequence_no"
+            ).fetchall()
+        events = self._validate_audit_event_list(
+            [
+                {**self._audit_event_payload(row), "eventFingerprint": row["event_fingerprint"]}
+                for row in rows
+            ]
+        )
         return {
             "events": list(reversed(events)),
             "chainValid": True,
             "eventCount": len(events),
-            "headFingerprint": previous_fingerprint,
+            "headFingerprint": events[-1]["eventFingerprint"] if events else None,
+        }
+
+    def record_governance_backup_export(self, actor_operator_id: str) -> dict[str, Any]:
+        with closing(self._connect()) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self._require_active_admin(connection, actor_operator_id)
+            event = self._record_audit_event(
+                connection,
+                event_type="operator-governance-backup-exported",
+                actor_operator_id=actor_operator_id,
+                target_operator_id=actor_operator_id,
+                details={"backupExportRequestId": "RBE-" + secrets.token_hex(10).upper()},
+            )
+            connection.commit()
+        return event
+
+    @classmethod
+    def validate_governance_snapshot(cls, snapshot: Any) -> dict[str, Any]:
+        if not isinstance(snapshot, dict):
+            raise ValueError("操作員治理快照必須是 JSON 物件。")
+        if (
+            snapshot.get("schemaVersion") != 1
+            or snapshot.get("kind") != RECEIVER_OPERATOR_GOVERNANCE_SNAPSHOT_KIND
+        ):
+            raise ValueError("操作員治理快照版本或種類不受支援。")
+        raw_operators = snapshot.get("operators")
+        if not isinstance(raw_operators, list) or not raw_operators:
+            raise ValueError("操作員治理快照至少須包含一個操作帳號。")
+        operators: list[dict[str, Any]] = []
+        operator_ids: set[str] = set()
+        usernames: set[str] = set()
+        enabled_admin_count = 0
+        for raw in raw_operators:
+            if not isinstance(raw, dict):
+                raise ValueError("操作員治理快照含有格式不正確的帳號。")
+            operator_id = _require_snapshot_string(raw.get("id"), field="operator.id", max_length=24)
+            if not _OPERATOR_ID_PATTERN.fullmatch(operator_id) or operator_id in operator_ids:
+                raise ValueError("操作員治理快照的操作員 ID 不正確或重複。")
+            username = _validate_username(raw.get("username"))
+            if username.casefold() in usernames:
+                raise ValueError("操作員治理快照含有重複的登入帳號。")
+            display_name = _validate_display_name(raw.get("displayName"))
+            roles = _validate_roles(raw.get("roles"))
+            disabled = raw.get("disabled")
+            password_reset_required = raw.get("passwordResetRequired")
+            if not isinstance(disabled, bool) or not isinstance(password_reset_required, bool):
+                raise ValueError("操作員治理快照的帳號狀態格式不正確。")
+            created_at = _iso(_parse_time(_require_snapshot_string(raw.get("createdAt"), field="createdAt")))
+            salt = _decode_backup_bytes(
+                raw.get("passwordSaltBase64"), field="passwordSaltBase64", expected_length=16
+            )
+            password_hash = _decode_backup_bytes(
+                raw.get("passwordHashBase64"), field="passwordHashBase64", expected_length=_SCRYPT_DKLEN
+            )
+            if not disabled and "receiver-key-admin" in roles:
+                enabled_admin_count += 1
+            operators.append(
+                {
+                    "id": operator_id,
+                    "username": username,
+                    "displayName": display_name,
+                    "roles": roles,
+                    "disabled": disabled,
+                    "passwordResetRequired": password_reset_required,
+                    "createdAt": created_at,
+                    "passwordSaltBase64": base64.b64encode(salt).decode("ascii"),
+                    "passwordHashBase64": base64.b64encode(password_hash).decode("ascii"),
+                }
+            )
+            operator_ids.add(operator_id)
+            usernames.add(username.casefold())
+        if enabled_admin_count < 1:
+            raise ValueError("操作員治理快照沒有啟用中的管理員，復原後將無法治理。")
+
+        raw_claims = snapshot.get("rotationClaims")
+        if not isinstance(raw_claims, list):
+            raise ValueError("操作員治理快照的輪替 claim 格式不正確。")
+        claims: list[dict[str, Any]] = []
+        request_fingerprints: set[str] = set()
+        completion_fingerprints: set[str] = set()
+        pending_key_ids: set[str] = set()
+        for raw in raw_claims:
+            if not isinstance(raw, dict):
+                raise ValueError("操作員治理快照含有格式不正確的輪替 claim。")
+            request_fingerprint = _require_snapshot_string(
+                raw.get("requestFingerprint"), field="requestFingerprint", max_length=120
+            )
+            if request_fingerprint in request_fingerprints:
+                raise ValueError("操作員治理快照含有重複的輪替申請指紋。")
+            requested_by = _require_snapshot_string(
+                raw.get("requestedByOperatorId"), field="requestedByOperatorId", max_length=24
+            )
+            approved_by = raw.get("approvedByOperatorId")
+            if approved_by is not None:
+                approved_by = _require_snapshot_string(
+                    approved_by, field="approvedByOperatorId", max_length=24
+                )
+            if requested_by not in operator_ids or (approved_by is not None and approved_by not in operator_ids):
+                raise ValueError("操作員治理快照的輪替 claim 引用不存在的操作員。")
+            if approved_by is not None and approved_by == requested_by:
+                raise ValueError("操作員治理快照的輪替申請人與覆核人不得相同。")
+            state = _require_snapshot_string(raw.get("state"), field="rotationClaim.state", max_length=20)
+            if state not in {"pending", "completed", "expired", "blocked"}:
+                raise ValueError("操作員治理快照的輪替 claim 狀態不受支援。")
+            new_key_id = _require_snapshot_string(raw.get("newKeyId"), field="newKeyId", max_length=200)
+            old_key_id = _require_snapshot_string(raw.get("oldKeyId"), field="oldKeyId", max_length=200)
+            if state == "pending":
+                if new_key_id in pending_key_ids:
+                    raise ValueError("操作員治理快照同一新金鑰含有多筆待審 claim。")
+                pending_key_ids.add(new_key_id)
+            requested_at = _iso(
+                _parse_time(_require_snapshot_string(raw.get("requestedAt"), field="requestedAt"))
+            )
+            expires_at = _iso(
+                _parse_time(_require_snapshot_string(raw.get("expiresAt"), field="expiresAt"))
+            )
+            approved_at = raw.get("approvedAt")
+            if approved_at is not None:
+                approved_at = _iso(_parse_time(_require_snapshot_string(approved_at, field="approvedAt")))
+            completion = raw.get("completionEventFingerprint")
+            if completion is not None:
+                completion = _require_snapshot_string(
+                    completion, field="completionEventFingerprint", max_length=120
+                )
+                if completion in completion_fingerprints:
+                    raise ValueError("操作員治理快照含有重複的輪替完成事件指紋。")
+                completion_fingerprints.add(completion)
+            if state == "completed" and (approved_by is None or approved_at is None or completion is None):
+                raise ValueError("已完成的輪替 claim 缺少覆核資訊。")
+            if state != "completed" and any(value is not None for value in (approved_by, approved_at, completion)):
+                raise ValueError("未完成的輪替 claim 不得含有覆核完成資訊。")
+            claims.append(
+                {
+                    "requestFingerprint": request_fingerprint,
+                    "newKeyId": new_key_id,
+                    "oldKeyId": old_key_id,
+                    "requestedByOperatorId": requested_by,
+                    "requestedAt": requested_at,
+                    "expiresAt": expires_at,
+                    "state": state,
+                    "approvedByOperatorId": approved_by,
+                    "approvedAt": approved_at,
+                    "completionEventFingerprint": completion,
+                }
+            )
+            request_fingerprints.add(request_fingerprint)
+
+        events = cls._validate_audit_event_list(snapshot.get("auditEvents"), operator_ids=operator_ids)
+        if not events or events[0]["eventType"] != "operator-bootstrap-created":
+            raise ValueError("操作員治理快照缺少首位管理員建立事件。")
+        created_operator_ids = {
+            event["targetOperatorId"]
+            for event in events
+            if event["eventType"] in {"operator-bootstrap-created", "operator-created"}
+        }
+        if created_operator_ids != operator_ids:
+            raise ValueError("操作員治理快照的帳號與建立事件無法一一對應。")
+        return {
+            "schemaVersion": 1,
+            "kind": RECEIVER_OPERATOR_GOVERNANCE_SNAPSHOT_KIND,
+            "operators": sorted(operators, key=lambda item: item["username"].casefold()),
+            "rotationClaims": sorted(claims, key=lambda item: item["requestedAt"]),
+            "auditEvents": events,
+        }
+
+    def _governance_snapshot(self, connection: sqlite3.Connection) -> dict[str, Any]:
+        operator_rows = connection.execute(
+            "SELECT * FROM receiver_operators ORDER BY username COLLATE NOCASE"
+        ).fetchall()
+        operators = []
+        for row in operator_rows:
+            public = self._operator_public(connection, row)
+            operators.append(
+                {
+                    **{key: public[key] for key in (
+                        "id", "username", "displayName", "roles", "disabled",
+                        "passwordResetRequired", "createdAt",
+                    )},
+                    "passwordSaltBase64": base64.b64encode(bytes(row["password_salt"])).decode("ascii"),
+                    "passwordHashBase64": base64.b64encode(bytes(row["password_hash"])).decode("ascii"),
+                }
+            )
+        claim_rows = connection.execute(
+            "SELECT * FROM receiver_rotation_claims ORDER BY requested_at"
+        ).fetchall()
+        claims = [
+            {
+                "requestFingerprint": row["request_fingerprint"],
+                "newKeyId": row["new_key_id"],
+                "oldKeyId": row["old_key_id"],
+                "requestedByOperatorId": row["requested_by_operator_id"],
+                "requestedAt": row["requested_at"],
+                "expiresAt": row["expires_at"],
+                "state": row["state"],
+                "approvedByOperatorId": row["approved_by_operator_id"],
+                "approvedAt": row["approved_at"],
+                "completionEventFingerprint": row["completion_event_fingerprint"],
+            }
+            for row in claim_rows
+        ]
+        audit_rows = connection.execute(
+            "SELECT * FROM receiver_operator_audit_events ORDER BY sequence_no"
+        ).fetchall()
+        events = [
+            {**self._audit_event_payload(row), "eventFingerprint": row["event_fingerprint"]}
+            for row in audit_rows
+        ]
+        return self.validate_governance_snapshot(
+            {
+                "schemaVersion": 1,
+                "kind": RECEIVER_OPERATOR_GOVERNANCE_SNAPSHOT_KIND,
+                "operators": operators,
+                "rotationClaims": claims,
+                "auditEvents": events,
+            }
+        )
+
+    def governance_snapshot(self) -> dict[str, Any]:
+        with closing(self._connect()) as connection:
+            return self._governance_snapshot(connection)
+
+    @classmethod
+    def verify_governance_snapshot_admin(
+        cls,
+        snapshot: Any,
+        username: str,
+        password: str,
+    ) -> str:
+        validated = cls.validate_governance_snapshot(snapshot)
+        try:
+            username = _validate_username(username)
+        except ValueError:
+            cls._dummy_password_check(str(password or ""))
+            raise ValueError("備份內管理員帳號或密碼不正確。")
+        operator = next(
+            (item for item in validated["operators"] if item["username"].casefold() == username.casefold()),
+            None,
+        )
+        if operator is None:
+            cls._dummy_password_check(str(password or ""))
+            raise ValueError("備份內管理員帳號或密碼不正確。")
+        salt = base64.b64decode(operator["passwordSaltBase64"])
+        expected = base64.b64decode(operator["passwordHashBase64"])
+        candidate = _password_hash(str(password or "")[:256], salt)
+        if (
+            operator["disabled"]
+            or "receiver-key-admin" not in operator["roles"]
+            or not hmac.compare_digest(candidate, expected)
+        ):
+            raise ValueError("備份內管理員帳號或密碼不正確。")
+        return operator["id"]
+
+    def replace_governance_snapshot(
+        self,
+        snapshot: Any,
+        *,
+        current_actor_operator_id: str,
+        recovery_operator_id: str,
+        restore_details: dict[str, Any],
+        expected_current_snapshot: Any,
+    ) -> dict[str, Any]:
+        validated = self.validate_governance_snapshot(snapshot)
+        expected_current = self.validate_governance_snapshot(expected_current_snapshot)
+        restored_ids = {item["id"] for item in validated["operators"]}
+        if recovery_operator_id not in restored_ids:
+            raise ValueError("指定的備份內復原管理員不存在。")
+        with closing(self._connect()) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            if self._governance_snapshot(connection) != expected_current:
+                raise ValueError("操作員治理資料在預覽後已變更，請重新匯入備份並確認差異。")
+            self._require_active_admin(connection, current_actor_operator_id)
+            connection.execute(
+                "UPDATE receiver_operator_maintenance SET restore_authorized = 1 WHERE id = 1"
+            )
+            session_count = int(
+                connection.execute("SELECT COUNT(*) FROM receiver_operator_sessions").fetchone()[0]
+            )
+            connection.execute("DELETE FROM receiver_operator_sessions")
+            connection.execute("DELETE FROM receiver_login_attempts")
+            connection.execute("DELETE FROM receiver_rotation_claims")
+            connection.execute("DELETE FROM receiver_operator_roles")
+            connection.execute("DELETE FROM receiver_operator_audit_events")
+            connection.execute("DELETE FROM receiver_operators")
+            for operator in validated["operators"]:
+                connection.execute(
+                    """
+                    INSERT INTO receiver_operators (
+                        id, username, display_name, password_salt, password_hash,
+                        disabled, password_reset_required, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        operator["id"],
+                        operator["username"],
+                        operator["displayName"],
+                        base64.b64decode(operator["passwordSaltBase64"]),
+                        base64.b64decode(operator["passwordHashBase64"]),
+                        1 if operator["disabled"] else 0,
+                        1 if operator["passwordResetRequired"] else 0,
+                        operator["createdAt"],
+                    ),
+                )
+                connection.executemany(
+                    "INSERT INTO receiver_operator_roles (operator_id, role) VALUES (?, ?)",
+                    [(operator["id"], role) for role in operator["roles"]],
+                )
+            for claim in validated["rotationClaims"]:
+                connection.execute(
+                    """
+                    INSERT INTO receiver_rotation_claims (
+                        request_fingerprint, new_key_id, old_key_id,
+                        requested_by_operator_id, requested_at, expires_at, state,
+                        approved_by_operator_id, approved_at, completion_event_fingerprint
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        claim["requestFingerprint"], claim["newKeyId"], claim["oldKeyId"],
+                        claim["requestedByOperatorId"], claim["requestedAt"], claim["expiresAt"],
+                        claim["state"], claim["approvedByOperatorId"], claim["approvedAt"],
+                        claim["completionEventFingerprint"],
+                    ),
+                )
+            for event in validated["auditEvents"]:
+                connection.execute(
+                    """
+                    INSERT INTO receiver_operator_audit_events (
+                        event_id, event_type,
+                        actor_operator_id, actor_username, actor_display_name,
+                        target_operator_id, target_username, target_display_name,
+                        occurred_at, details_json, previous_event_fingerprint, event_fingerprint
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        event["eventId"], event["eventType"],
+                        event["actorOperatorId"], event["actorUsername"], event["actorDisplayName"],
+                        event["targetOperatorId"], event["targetUsername"], event["targetDisplayName"],
+                        event["occurredAt"],
+                        json.dumps(event["details"], ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+                        event["previousEventFingerprint"], event["eventFingerprint"],
+                    ),
+                )
+            restore_event = self._record_audit_event(
+                connection,
+                event_type="operator-governance-restored",
+                actor_operator_id=recovery_operator_id,
+                target_operator_id=recovery_operator_id,
+                details={**restore_details, "revokedSessions": session_count},
+            )
+            connection.execute(
+                "UPDATE receiver_operator_maintenance SET restore_authorized = 0 WHERE id = 1"
+            )
+            connection.commit()
+        restored = self.governance_snapshot()
+        return {
+            "snapshot": restored,
+            "restoreEvent": restore_event,
+            "revokedSessions": session_count,
         }
 
     @staticmethod

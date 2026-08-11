@@ -47,6 +47,13 @@ class ReceiverOperatorStoreTests(unittest.TestCase):
             operator = store.bootstrap("migrated-admin", "既有資料庫管理員", "Migration-Secure-2026!")
             self.assertFalse(operator["passwordResetRequired"])
             self.assertTrue(store.list_audit_events()["chainValid"])
+            with closing(sqlite3.connect(db_path)) as connection:
+                maintenance = connection.execute(
+                    "SELECT restore_authorized FROM receiver_operator_maintenance WHERE id = 1"
+                ).fetchone()[0]
+                self.assertEqual(maintenance, 0)
+                with self.assertRaisesRegex(sqlite3.IntegrityError, "append-only"):
+                    connection.execute("DELETE FROM receiver_operator_audit_events")
 
     def test_http_boundary_requires_session_csrf_role_and_restricts_cors(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

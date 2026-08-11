@@ -573,6 +573,23 @@ class ChangeReceiverOperatorPasswordRequest(BaseModel):
     new_password: str = Field(min_length=12, max_length=256)
 
 
+class ExportReceiverOperatorGovernanceBackupRequest(BaseModel):
+    passphrase: str = Field(min_length=16, max_length=256)
+
+
+class ValidateReceiverOperatorGovernanceBackupRequest(BaseModel):
+    backup: dict[str, Any]
+    passphrase: str = Field(min_length=16, max_length=256)
+
+
+class RestoreReceiverOperatorGovernanceBackupRequest(BaseModel):
+    backup: dict[str, Any]
+    passphrase: str = Field(min_length=16, max_length=256)
+    recovery_username: str = Field(min_length=3, max_length=40)
+    recovery_password: str = Field(min_length=1, max_length=256)
+    restore_confirmed: Literal[True]
+
+
 class RestoreReceiverTrustRegistryRequest(BaseModel):
     backup: dict[str, Any]
     restore_confirmed: Literal[True]

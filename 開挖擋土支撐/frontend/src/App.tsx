@@ -49,6 +49,9 @@ import {
   ReceiverOperatorAuditEvent,
   ReceiverOperatorAuditSummary,
   ReceiverOperatorAuthState,
+  ReceiverOperatorGovernanceBackup,
+  ReceiverOperatorGovernanceRestorePreview,
+  ReceiverOperatorGovernanceRestoreResult,
   ReceiverOperatorRole,
   ReceiverTrustEvent,
   ReceiverTrustKey,
@@ -189,6 +192,12 @@ const emptyReceiverOperatorPasswordChangeDraft = {
   newPassword: "",
   confirmPassword: "",
 };
+const emptyReceiverOperatorBackupDraft = {
+  passphrase: "",
+  confirmPassphrase: "",
+  recoveryUsername: "",
+  recoveryPassword: "",
+};
 const emptyReceiverOperatorAuditSummary: ReceiverOperatorAuditSummary = {
   events: [],
   chainValid: true,
@@ -202,6 +211,22 @@ const receiverOperatorRoleOptions: Array<{ value: ReceiverOperatorRole; label: s
   { value: "receiver-key-approver", label: "輪替覆核人" },
 ];
 
+function receiverOperatorRoleLabels(roles: ReceiverOperatorRole[]): string {
+  return roles
+    .map((role) => receiverOperatorRoleOptions.find((option) => option.value === role)?.label ?? role)
+    .join("、") || "—";
+}
+
+function receiverOperatorStatusLabel(
+  status: "enabled" | "disabled" | "password-reset-required",
+): string {
+  return {
+    enabled: "啟用",
+    disabled: "已停用",
+    "password-reset-required": "待變更臨時密碼",
+  }[status];
+}
+
 function receiverOperatorAuditEventLabel(eventType: ReceiverOperatorAuditEvent["eventType"]): string {
   return {
     "operator-bootstrap-created": "建立首位管理員",
@@ -211,6 +236,8 @@ function receiverOperatorAuditEventLabel(eventType: ReceiverOperatorAuditEvent["
     "operator-enabled": "重新啟用帳號",
     "operator-password-reset": "管理員重設密碼",
     "operator-password-changed": "本人變更密碼",
+    "operator-governance-backup-exported": "匯出操作員治理備份",
+    "operator-governance-restored": "復原操作員治理快照",
   }[eventType] ?? eventType;
 }
 
@@ -232,6 +259,13 @@ function receiverOperatorAuditDetail(event: ReceiverOperatorAuditEvent): string 
   if (event.eventType === "operator-disabled") return `撤銷工作階段 ${revoked}；阻斷待審申請 ${blocked}`;
   if (event.eventType === "operator-password-reset" || event.eventType === "operator-password-changed") {
     return `撤銷工作階段 ${revoked}`;
+  }
+  if (event.eventType === "operator-governance-backup-exported") {
+    return `匯出請求 ${String(event.details.backupExportRequestId ?? "—")}`;
+  }
+  if (event.eventType === "operator-governance-restored") {
+    const fingerprint = String(event.details.backupFingerprint ?? "—");
+    return `備份 ${fingerprint}；撤銷工作階段 ${revoked}`;
   }
   return "—";
 }
@@ -515,6 +549,13 @@ function App() {
   const [receiverOperatorAuditSummary, setReceiverOperatorAuditSummary] = useState(
     emptyReceiverOperatorAuditSummary,
   );
+  const [receiverOperatorBackupDraft, setReceiverOperatorBackupDraft] = useState(
+    emptyReceiverOperatorBackupDraft,
+  );
+  const [receiverOperatorBackup, setReceiverOperatorBackup] = useState<ReceiverOperatorGovernanceBackup | null>(null);
+  const [receiverOperatorRestorePreview, setReceiverOperatorRestorePreview] = useState<ReceiverOperatorGovernanceRestorePreview | null>(null);
+  const [receiverOperatorRestoreConfirmed, setReceiverOperatorRestoreConfirmed] = useState(false);
+  const [receiverOperatorRestoreOutcome, setReceiverOperatorRestoreOutcome] = useState<ReceiverOperatorGovernanceRestoreResult | null>(null);
   const [receiverTrustDraft, setReceiverTrustDraft] = useState({ organization: "", displayName: "", publicKey: "" });
   const [receiverTrustEnrollment, setReceiverTrustEnrollment] = useState<ReceiverKeyEnrollment | null>(null);
   const [receiverTrustVerificationConfirmed, setReceiverTrustVerificationConfirmed] = useState(false);
@@ -1444,6 +1485,11 @@ function App() {
       setReceiverOperatorManageDraft(emptyReceiverOperatorManageDraft);
       setReceiverOperatorPasswordChangeDraft(emptyReceiverOperatorPasswordChangeDraft);
       setReceiverOperatorAuditSummary(emptyReceiverOperatorAuditSummary);
+      setReceiverOperatorBackupDraft(emptyReceiverOperatorBackupDraft);
+      setReceiverOperatorBackup(null);
+      setReceiverOperatorRestorePreview(null);
+      setReceiverOperatorRestoreConfirmed(false);
+      setReceiverOperatorRestoreOutcome(null);
       cancelReceiverKeyRotationCompletion();
       cancelReceiverKeyRotationApproval();
       cancelReceiverTrustKeyRevocation();
@@ -1568,6 +1614,137 @@ function App() {
       setReceiverOperatorManageDraft(emptyReceiverOperatorManageDraft);
       setReceiverOperatorPasswordChangeDraft(emptyReceiverOperatorPasswordChangeDraft);
       setReceiverOperatorAuditSummary(emptyReceiverOperatorAuditSummary);
+      setReceiverOperatorBackupDraft(emptyReceiverOperatorBackupDraft);
+      setReceiverOperatorBackup(null);
+      setReceiverOperatorRestorePreview(null);
+      setReceiverOperatorRestoreConfirmed(false);
+      setReceiverOperatorRestoreOutcome(null);
+      cancelReceiverKeyRotationCompletion();
+      cancelReceiverKeyRotationApproval();
+      cancelReceiverTrustKeyRevocation();
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleDownloadReceiverOperatorGovernanceBackup() {
+    if (!receiverCanAdministerKeys) {
+      setError("操作員治理備份需要已登入且具接收端金鑰管理員角色的帳號。");
+      return;
+    }
+    if (receiverOperatorBackupDraft.passphrase.length < 16) {
+      setError("操作員治理備份密碼至少須為 16 個字元。");
+      return;
+    }
+    if (receiverOperatorBackupDraft.passphrase !== receiverOperatorBackupDraft.confirmPassphrase) {
+      setError("治理備份密碼與確認密碼不一致。");
+      return;
+    }
+    try {
+      setBusy("建立操作員治理加密備份");
+      const response = await api.exportReceiverOperatorGovernanceBackup(
+        receiverOperatorBackupDraft.passphrase,
+      );
+      downloadJsonFile(
+        response.backup,
+        `RVR-操作員治理加密備份-${response.backup.summary.snapshotFingerprint}-${response.backup.backupFingerprint}.json`,
+      );
+      await refreshReceiverOperatorGovernance();
+      setReceiverOperatorBackupDraft(emptyReceiverOperatorBackupDraft);
+      setReceiverOperatorBackup(null);
+      setReceiverOperatorRestorePreview(null);
+      setReceiverOperatorRestoreConfirmed(false);
+      setReceiverOperatorRestoreOutcome(null);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleImportReceiverOperatorGovernanceBackup(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!receiverCanAdministerKeys) {
+      setError("操作員治理復原預覽需要已登入且具接收端金鑰管理員角色的帳號。");
+      return;
+    }
+    if (receiverOperatorBackupDraft.passphrase.length < 16) {
+      setError("請先輸入這份治理備份的 16 字元以上加密密碼，再選取檔案。");
+      return;
+    }
+    try {
+      setBusy("解密並驗證操作員治理備份");
+      const parsed = JSON.parse(await file.text()) as ReceiverOperatorGovernanceBackup;
+      const response = await api.validateReceiverOperatorGovernanceBackup(
+        parsed,
+        receiverOperatorBackupDraft.passphrase,
+      );
+      setReceiverOperatorBackup(parsed);
+      setReceiverOperatorRestorePreview(response.preview);
+      setReceiverOperatorBackupDraft((current) => ({
+        ...current,
+        confirmPassphrase: "",
+        recoveryUsername: "",
+        recoveryPassword: "",
+      }));
+      setReceiverOperatorRestoreConfirmed(false);
+      setReceiverOperatorRestoreOutcome(null);
+      setError("");
+    } catch (err) {
+      setReceiverOperatorBackup(null);
+      setReceiverOperatorRestorePreview(null);
+      setReceiverOperatorRestoreConfirmed(false);
+      setReceiverOperatorRestoreOutcome(null);
+      setReceiverOperatorBackupDraft((current) => ({
+        ...current,
+        recoveryUsername: "",
+        recoveryPassword: "",
+      }));
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleRestoreReceiverOperatorGovernanceBackup() {
+    if (!receiverOperatorBackup || !receiverOperatorRestorePreview) return;
+    if (!receiverCanAdministerKeys) {
+      setError("操作員治理復原需要已登入且具接收端金鑰管理員角色的帳號。");
+      return;
+    }
+    if (!receiverOperatorRestoreConfirmed) {
+      setError("復原前必須確認完整置換帳號、角色、輪替 claim 與稽核鏈，並撤銷全部工作階段。");
+      return;
+    }
+    if (!receiverOperatorBackupDraft.recoveryUsername.trim() || !receiverOperatorBackupDraft.recoveryPassword) {
+      setError("請輸入備份內一個啟用中管理員的帳號與密碼，以避免復原後無法登入。");
+      return;
+    }
+    try {
+      setBusy("復原操作員治理加密備份");
+      const response = await api.restoreReceiverOperatorGovernanceBackup(
+        receiverOperatorBackup,
+        receiverOperatorBackupDraft.passphrase,
+        receiverOperatorBackupDraft.recoveryUsername,
+        receiverOperatorBackupDraft.recoveryPassword,
+      );
+      setReceiverOperatorRestoreOutcome(response);
+      setReceiverOperatorAuth({ bootstrapRequired: false, authenticated: false, operator: null });
+      setReceiverOperators([]);
+      setReceiverOperatorCreateDraft(emptyReceiverOperatorCreateDraft);
+      setReceiverOperatorManageDraft(emptyReceiverOperatorManageDraft);
+      setReceiverOperatorPasswordChangeDraft(emptyReceiverOperatorPasswordChangeDraft);
+      setReceiverOperatorAuditSummary(emptyReceiverOperatorAuditSummary);
+      setReceiverOperatorBackupDraft(emptyReceiverOperatorBackupDraft);
+      setReceiverOperatorBackup(null);
+      setReceiverOperatorRestorePreview(null);
+      setReceiverOperatorRestoreConfirmed(false);
       cancelReceiverKeyRotationCompletion();
       cancelReceiverKeyRotationApproval();
       cancelReceiverTrustKeyRevocation();
@@ -5802,9 +5979,221 @@ function App() {
                           </div>
                         )}
                       </div>
+                      <div className="receiver-key-rotation-card">
+                        <h4>操作員治理加密備份與災難復原</h4>
+                        <p className="meta-line attention-line">
+                          備份會把帳號、角色、加鹽密碼驗證值、輪替 claim 與稽核鏈封裝在 AES-256-GCM 密文內；不含明文密碼、登入工作階段或登入失敗紀錄。加密密碼不會儲存在系統，遺失後無法復原；備份檔仍屬高度敏感資料，應離線管制保存。
+                        </p>
+                        <div className="form-grid">
+                          <label className="field-block">
+                            <span>備份加密密碼（至少 16 字元）</span>
+                            <input
+                              type="password"
+                              autoComplete="new-password"
+                              value={receiverOperatorBackupDraft.passphrase}
+                              onChange={(event) => {
+                                setReceiverOperatorBackupDraft((current) => ({
+                                  ...current,
+                                  passphrase: event.target.value,
+                                  recoveryUsername: "",
+                                  recoveryPassword: "",
+                                }));
+                                setReceiverOperatorBackup(null);
+                                setReceiverOperatorRestorePreview(null);
+                                setReceiverOperatorRestoreConfirmed(false);
+                              }}
+                            />
+                          </label>
+                          <label className="field-block">
+                            <span>再次輸入備份加密密碼（匯出用）</span>
+                            <input
+                              type="password"
+                              autoComplete="new-password"
+                              value={receiverOperatorBackupDraft.confirmPassphrase}
+                              onChange={(event) => setReceiverOperatorBackupDraft((current) => ({
+                                ...current,
+                                confirmPassphrase: event.target.value,
+                              }))}
+                            />
+                          </label>
+                          <button
+                            className="secondary"
+                            type="button"
+                            disabled={!receiverOperatorBackupDraft.passphrase && !receiverOperatorBackup}
+                            onClick={() => {
+                              setReceiverOperatorBackupDraft(emptyReceiverOperatorBackupDraft);
+                              setReceiverOperatorBackup(null);
+                              setReceiverOperatorRestorePreview(null);
+                              setReceiverOperatorRestoreConfirmed(false);
+                              setReceiverOperatorRestoreOutcome(null);
+                              setError("");
+                            }}
+                          >
+                            清除備份密碼與匯入資料
+                          </button>
+                        </div>
+                        <div className="action-row">
+                          <button
+                            type="button"
+                            disabled={
+                              receiverOperatorBackupDraft.passphrase.length < 16
+                              || receiverOperatorBackupDraft.passphrase !== receiverOperatorBackupDraft.confirmPassphrase
+                            }
+                            onClick={() => void handleDownloadReceiverOperatorGovernanceBackup()}
+                          >
+                            下載加密治理備份
+                          </button>
+                          <label className="file-action secondary">
+                            匯入備份並預覽差異
+                            <input
+                              className="file-picker-input"
+                              type="file"
+                              accept=".json,application/json"
+                              disabled={receiverOperatorBackupDraft.passphrase.length < 16}
+                              onChange={(event) => void handleImportReceiverOperatorGovernanceBackup(event)}
+                            />
+                          </label>
+                        </div>
+                        <p className="meta-line">
+                          匯入前先輸入該檔案的加密密碼。系統只會解密驗證並顯示差異，不會立即覆寫資料。
+                        </p>
+                        {receiverOperatorRestorePreview && receiverOperatorBackup && (
+                          <div className="receiver-key-rotation-card">
+                            <h4>復原差異預覽</h4>
+                            <div className="meta-grid">
+                              <MetaItem label="備份產出時間" value={receiverOperatorBackup.exportedAt} />
+                              <MetaItem label="備份檔指紋" value={receiverOperatorBackup.backupFingerprint} />
+                              <MetaItem
+                                label="目前資料庫狀態"
+                                value={receiverOperatorRestorePreview.currentStatus === "fresh-recovery-bootstrap" ? "全新復原環境" : "既有有效治理資料"}
+                              />
+                              <MetaItem
+                                label="復原判定"
+                                value={receiverOperatorRestorePreview.restoreAllowed ? "允許復原" : "禁止復原"}
+                              />
+                              <MetaItem
+                                label="帳號數（目前 → 備份）"
+                                value={`${receiverOperatorRestorePreview.currentOperatorCount} → ${receiverOperatorRestorePreview.backupOperatorCount}`}
+                              />
+                              <MetaItem
+                                label="稽核事件數（目前 → 備份）"
+                                value={`${receiverOperatorRestorePreview.currentAuditEventCount} → ${receiverOperatorRestorePreview.backupAuditEventCount}`}
+                              />
+                              <MetaItem
+                                label="輪替 claim 數（目前 → 備份）"
+                                value={`${receiverOperatorRestorePreview.currentRotationClaimCount} → ${receiverOperatorRestorePreview.backupRotationClaimCount}`}
+                              />
+                              <MetaItem
+                                label="備份內啟用管理員"
+                                value={receiverOperatorRestorePreview.backupActiveAdminUsernames.join("、") || "無"}
+                              />
+                              <MetaItem label="目前快照指紋" value={receiverOperatorRestorePreview.currentSnapshotFingerprint} />
+                              <MetaItem label="備份快照指紋" value={receiverOperatorRestorePreview.backupSnapshotFingerprint} />
+                            </div>
+                            {receiverOperatorRestorePreview.blockingReasons.length > 0 && (
+                              <div className="attention-line">
+                                <strong>禁止復原原因：</strong>
+                                <ul>
+                                  {receiverOperatorRestorePreview.blockingReasons.map((reason) => (
+                                    <li key={reason}>{reason}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            <div className="meta-grid">
+                              <MetaItem
+                                label="備份新增帳號"
+                                value={receiverOperatorRestorePreview.addedUsernames.join("、") || "無"}
+                              />
+                              <MetaItem
+                                label="備份移除帳號"
+                                value={receiverOperatorRestorePreview.removedUsernames.join("、") || "無"}
+                              />
+                            </div>
+                            {receiverOperatorRestorePreview.accountChanges.length > 0 && (
+                              <div className="table-wrap">
+                                <table>
+                                  <thead><tr><th>帳號</th><th>角色變更</th><th>狀態變更</th></tr></thead>
+                                  <tbody>
+                                    {receiverOperatorRestorePreview.accountChanges.map((change) => (
+                                      <tr key={change.username}>
+                                        <td>{change.username}</td>
+                                        <td>{receiverOperatorRoleLabels(change.currentRoles)} → {receiverOperatorRoleLabels(change.backupRoles)}</td>
+                                        <td>{receiverOperatorStatusLabel(change.currentStatus)} → {receiverOperatorStatusLabel(change.backupStatus)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                            <p className="meta-line attention-line">
+                              復原採完整置換並撤銷全部工作階段。既有有效資料庫只接受延續目前稽核鏈的備份；只有全新建立、尚未使用的單一啟動管理員環境可作災難復原例外。
+                            </p>
+                            <div className="form-grid">
+                              <Field
+                                label="備份內啟用管理員帳號"
+                                value={receiverOperatorBackupDraft.recoveryUsername}
+                                onChange={(value) => setReceiverOperatorBackupDraft((current) => ({
+                                  ...current,
+                                  recoveryUsername: value,
+                                }))}
+                              />
+                              <label className="field-block">
+                                <span>該管理員在備份中的密碼</span>
+                                <input
+                                  type="password"
+                                  autoComplete="current-password"
+                                  value={receiverOperatorBackupDraft.recoveryPassword}
+                                  onChange={(event) => setReceiverOperatorBackupDraft((current) => ({
+                                    ...current,
+                                    recoveryPassword: event.target.value,
+                                  }))}
+                                />
+                              </label>
+                            </div>
+                            <label className="check-field attention-line">
+                              <input
+                                type="checkbox"
+                                checked={receiverOperatorRestoreConfirmed}
+                                onChange={(event) => setReceiverOperatorRestoreConfirmed(event.target.checked)}
+                              />
+                              <span>我確認完整置換治理資料、撤銷全部工作階段，並在復原後使用備份內帳號重新登入。</span>
+                            </label>
+                            <button
+                              className="danger"
+                              type="button"
+                              disabled={
+                                !receiverOperatorRestorePreview.restoreAllowed
+                                || !receiverOperatorRestoreConfirmed
+                                || !receiverOperatorBackupDraft.recoveryUsername.trim()
+                                || !receiverOperatorBackupDraft.recoveryPassword
+                              }
+                              onClick={() => void handleRestoreReceiverOperatorGovernanceBackup()}
+                            >
+                              執行治理資料災難復原
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </>
+              )}
+              {receiverOperatorRestoreOutcome && (
+                <div className="receiver-key-rotation-card">
+                  <h4>治理資料復原完成，已撤銷全部工作階段</h4>
+                  <div className="meta-grid">
+                    <MetaItem label="復原備份指紋" value={receiverOperatorRestoreOutcome.backupFingerprint} />
+                    <MetaItem label="復原後治理快照指紋" value={receiverOperatorRestoreOutcome.restoredSnapshotFingerprint} />
+                    <MetaItem label="復原事件指紋" value={receiverOperatorRestoreOutcome.restoreEventFingerprint} />
+                    <MetaItem label="復原前保全檔" value={receiverOperatorRestoreOutcome.safeguardFileName} />
+                    <MetaItem label="保全備份指紋" value={receiverOperatorRestoreOutcome.safeguardBackupFingerprint} />
+                    <MetaItem label="撤銷工作階段" value={String(receiverOperatorRestoreOutcome.revokedSessions)} />
+                  </div>
+                  <p className="meta-line attention-line">
+                    請使用備份內的啟用管理員帳號重新登入。復原前保全檔使用同一組加密密碼，僅顯示檔名而不揭露伺服器路徑。
+                  </p>
+                </div>
               )}
               <p className="meta-line attention-line">
                 本機登入可驗證同一服務資料庫中的帳號與角色，並以 HttpOnly 工作階段及 CSRF 保護變更；它仍不等於外部組織目錄、自然人身分或公司授權已由第三方驗證。正式組織應再與既有身分或簽核制度對接。

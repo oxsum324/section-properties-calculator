@@ -1,5 +1,5 @@
 {
-  "version": "1.26.0",
+  "version": "1.27.0",
   "family": "excavation-traceability",
   "description": "開挖擋土支撐服務型工具的規範語意追蹤表。每筆 trace 將分析檔匯入、輸入欄位、構件檢核、報表落點、測試證據與人工複核邊界對齊，避免只因 FastAPI / React 流程可產出 PDF 或 DOCX 就誤判為支撐系統檢核依據已完整可追溯。",
   "tools": [
@@ -58,6 +58,16 @@
           "report": ["本機帳號首次設定／登入／登出", "接收端金鑰管理員／輪替申請人／輪替覆核人", "帳號啟用／停用／待變更臨時密碼", "角色異動", "本人密碼變更", "管理員密碼重設", "帳號治理稽核鏈狀態與 ROE 指紋", "輪替待申請", "輪替申請待第二人覆核", "輪替申請已逾期", "輪替已完成", "輪替雙人覆核申請表", "申請指紋", "登入帳號顯示姓名與 operator ID", "新舊 Key ID", "輪替案件／變更編號", "切換摘要", "SQLite 交易追蹤狀態", "不可復原確認", "本機登入不等於外部組織身分提示"],
           "evidence": ["backend/app/receiver_operator_auth.py", "backend/app/receiver_trust_store.py", "backend/app/config.py", "backend/app/schemas.py", "backend/app/main.py", "backend/tests/test_receiver_operator_auth.py", "backend/tests/test_receiver_trust_store.py", "frontend/src/App.tsx", "frontend/src/api.ts", "frontend/src/types.ts", "RECEIVER_KEY_MANAGEMENT.md", "RECEIVER_IDENTITY_SIGNATURE.md"],
           "manualReview": ["本機登入可驗證同一服務資料庫中的帳號、角色與工作階段，但不代表外部組織目錄、自然人身分或公司授權已由第三方驗證；正式組織仍須依既有身分或簽核制度建立帳號、交付臨時密碼、定期複核權限並保護 SQLite 備份。帳號治理稽核鏈只涵蓋此功能啟用後的操作，且不是外部可信時間戳；具有整個資料庫重建權限者仍可能另建新資料庫。公開 RTB 備份刻意不含帳號、密碼、工作階段、帳號治理稽核鏈或 SQLite 輪替 claim；還原後缺少對應 claim 的待覆核事件必須失敗關閉並重新提出。JSON 事件清冊與 SQLite claim 分屬兩個檔案，不能宣稱跨檔單一原子交易；若寫入中斷或狀態矛盾，應依事件鏈與資料庫人工複核後復原，不得直接核可。異常、外洩或遺失事件不得等待 72 小時輪替覆核，仍應使用一般緊急撤銷並保留獨立事故紀錄。"]
+        },
+        {
+          "id": "excavation-receiver-operator-governance-recovery",
+          "clause": "接收端操作員帳號、角色、輪替 claim 與稽核鏈之機密備份、差異預覽及災難復原邊界",
+          "purpose": "管理員可將完整操作員治理快照以 scrypt 衍生金鑰及 AES-256-GCM 封裝為 ROB／ROG 雙指紋加密備份。外層只揭露時間、筆數、加密參數及指紋；帳號、顯示名稱、加鹽密碼驗證值、角色、狀態、輪替 claim 與稽核事件只存在密文內。登入工作階段與登入失敗紀錄固定排除。匯入只解密驗證並預覽帳號、角色、狀態及筆數差異；復原須同時具備目前啟用管理員工作階段與 CSRF、備份密碼、備份內啟用管理員帳密及明確完整置換確認。既有有效資料庫只接受目前稽核鏈的向前延伸；全新單一啟動管理員資料庫才可作災難復原例外。覆寫前以同密碼建立不覆寫的加密 pre-restore 保全檔，並在 BEGIN IMMEDIATE 交易內重驗預覽時現況未變、完整置換治理資料、撤銷所有工作階段、清除登入失敗紀錄及追加復原稽核事件。",
+          "inputs": ["authenticated current receiver-key-admin session", "CSRF token", "16 to 256 character backup passphrase", "encrypted governance backup JSON", "backup active administrator username and password", "explicit full-replacement confirmation"],
+          "calculation": ["strict governance snapshot validation", "canonical JSON", "scrypt N=32768 r=8 p=1", "AES-256-GCM with authenticated outer metadata", "ROG snapshot fingerprint", "ROB envelope fingerprint", "append-only operator-governance-backup-exported audit event", "encrypted pre-restore safeguard", "audit-chain forward-extension rule", "fresh recovery bootstrap exception", "backup administrator credential verification", "BEGIN IMMEDIATE compare-and-replace", "preview-to-commit concurrency rejection", "session revocation", "login-attempt reset", "append-only operator-governance-restored audit event", "transaction rollback and maintenance-lock reset"],
+          "report": ["下載加密治理備份", "匯入備份並預覽差異", "目前與備份帳號／稽核事件／輪替 claim 筆數", "新增與移除帳號", "角色與狀態變更", "備份內啟用管理員", "復原允許／禁止原因", "完整置換與工作階段撤銷確認", "復原備份／快照／事件指紋", "復原前保全檔名與指紋"],
+          "evidence": ["backend/app/receiver_operator_auth.py", "backend/app/receiver_operator_backup.py", "backend/app/schemas.py", "backend/app/main.py", "backend/tests/test_receiver_operator_auth.py", "backend/tests/test_receiver_operator_backup.py", "frontend/src/App.tsx", "frontend/src/api.ts", "frontend/src/types.ts", "RECEIVER_KEY_MANAGEMENT.md"],
+          "manualReview": ["加密備份含可供離線密碼猜測的加鹽驗證值，仍須視為高度敏感資料，與密碼分開保存並由組織決定存取、異地副本、保存年限與定期復原演練。遺失密碼即無法解密。應在完成預覽後人工複核帳號差異與備份內可登入管理員，再於復原後重新登入並核對 ROE 稽核鏈及輪替 claim。pre-restore 檔只保存在服務資料庫旁的本機資料夾，不是異地備份。應用層 trigger、加密與鏈結指紋不能阻止具有資料庫或檔案系統管理權限者直接改寫、替換或刪除資料，也不是外部可信時間戳、組織身分證明或工程核可。治理備份與復原狀態只留在 HTML 管理工作區，不得進入 PDF／DOCX 正式計算書或公開 Pages 資產。"]
         },
         {
           "id": "excavation-receiver-evidence-template-publishing",

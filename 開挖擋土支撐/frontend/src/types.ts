@@ -763,7 +763,9 @@ export type ReceiverOperatorAuditEvent = {
     | "operator-disabled"
     | "operator-enabled"
     | "operator-password-reset"
-    | "operator-password-changed";
+    | "operator-password-changed"
+    | "operator-governance-backup-exported"
+    | "operator-governance-restored";
   actorOperatorId: string;
   actorUsername: string;
   actorDisplayName: string;
@@ -781,6 +783,70 @@ export type ReceiverOperatorAuditSummary = {
   chainValid: true;
   eventCount: number;
   headFingerprint: string | null;
+};
+
+export type ReceiverOperatorGovernanceBackup = {
+  schemaVersion: 1;
+  kind: "receiver-operator-governance-encrypted-backup";
+  exportedAt: string;
+  encryption: {
+    algorithm: "AES-256-GCM";
+    kdf: "scrypt";
+    n: number;
+    r: number;
+    p: number;
+    keyLength: 32;
+    saltBase64: string;
+    nonceBase64: string;
+  };
+  summary: {
+    operatorCount: number;
+    activeAdminCount: number;
+    rotationClaimCount: number;
+    auditEventCount: number;
+    snapshotFingerprint: string;
+  };
+  ciphertextBase64: string;
+  backupFingerprint: string;
+};
+
+export type ReceiverOperatorGovernanceRestorePreview = {
+  currentStatus: "valid" | "fresh-recovery-bootstrap";
+  currentOperatorCount: number;
+  backupOperatorCount: number;
+  currentAuditEventCount: number;
+  backupAuditEventCount: number;
+  currentRotationClaimCount: number;
+  backupRotationClaimCount: number;
+  addedUsernames: string[];
+  removedUsernames: string[];
+  accountChanges: Array<{
+    username: string;
+    currentRoles: ReceiverOperatorRole[];
+    backupRoles: ReceiverOperatorRole[];
+    currentStatus: "enabled" | "disabled" | "password-reset-required";
+    backupStatus: "enabled" | "disabled" | "password-reset-required";
+  }>;
+  backupActiveAdminUsernames: string[];
+  currentSnapshotFingerprint: string;
+  backupSnapshotFingerprint: string;
+  wouldReplace: boolean;
+  restoreAllowed: boolean;
+  blockingReasons: string[];
+  sessionsWillBeRevoked: true;
+};
+
+export type ReceiverOperatorGovernanceRestoreResult = {
+  restored: true;
+  loggedOut: true;
+  backupFingerprint: string;
+  backupSnapshotFingerprint: string;
+  restoredSnapshotFingerprint: string;
+  restoreEventFingerprint: string;
+  safeguardFileName: string;
+  safeguardBackupFingerprint: string;
+  revokedSessions: number;
+  preview: ReceiverOperatorGovernanceRestorePreview;
 };
 
 export type ReceiverOperatorAuthState = {

@@ -39,6 +39,11 @@ from .receiver_operator_auth import (
     ReceiverOperatorStore,
     operator_role_label,
 )
+from .receiver_operator_backup import (
+    build_receiver_operator_governance_backup,
+    preview_receiver_operator_governance_restore,
+    restore_receiver_operator_governance_backup,
+)
 from .receiver_capacity import calculate_reshore_member_capacity
 from .receiver_evidence_template_package import validate_receiver_evidence_template_publisher_package
 from .receiver_key_enrollment import validate_receiver_key_enrollment
@@ -65,6 +70,7 @@ from .schemas import (
     CompleteReceiverKeyRotationRequest,
     CreateReceiverOperatorRequest,
     CreateProjectRequest,
+    ExportReceiverOperatorGovernanceBackupRequest,
     ProjectState,
     ReferenceData,
     RequestReceiverKeyRotationCompletionRequest,
@@ -74,6 +80,7 @@ from .schemas import (
     ReportPayload,
     RegisterReceiverEnrollmentRequest,
     RestoreReceiverTrustRegistryRequest,
+    RestoreReceiverOperatorGovernanceBackupRequest,
     RevokeReceiverTrustKeyRequest,
     SaveReferenceDataRequest,
     SaveProjectRequest,
@@ -81,6 +88,7 @@ from .schemas import (
     SetReceiverOperatorStatusRequest,
     SupportRow,
     UpdateReceiverOperatorRolesRequest,
+    ValidateReceiverOperatorGovernanceBackupRequest,
     ValidateReceiverReceiptRequest,
 )
 from .workbook_loader import (
@@ -329,6 +337,64 @@ def list_receiver_operator_audit_events(request: Request) -> dict[str, Any]:
         return receiver_operator_store.list_audit_events()
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post("/api/receiver-operator-governance-backups/export")
+def export_receiver_operator_governance_backup(
+    payload: ExportReceiverOperatorGovernanceBackupRequest,
+    request: Request,
+) -> dict[str, Any]:
+    actor = _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
+    try:
+        audit_event = receiver_operator_store.record_governance_backup_export(actor["id"])
+        backup = build_receiver_operator_governance_backup(
+            receiver_operator_store,
+            payload.passphrase,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"backup": backup, "auditEventFingerprint": audit_event["eventFingerprint"]}
+
+
+@app.post("/api/receiver-operator-governance-backups/validate")
+def validate_receiver_operator_governance_backup(
+    payload: ValidateReceiverOperatorGovernanceBackupRequest,
+    request: Request,
+) -> dict[str, Any]:
+    _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
+    try:
+        return preview_receiver_operator_governance_restore(
+            receiver_operator_store,
+            payload.backup,
+            payload.passphrase,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/receiver-operator-governance-backups/restore")
+def restore_receiver_operator_governance(
+    payload: RestoreReceiverOperatorGovernanceBackupRequest,
+    request: Request,
+    response: Response,
+) -> dict[str, Any]:
+    actor = _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
+    try:
+        restored = restore_receiver_operator_governance_backup(
+            receiver_operator_store,
+            payload.backup,
+            payload.passphrase,
+            current_actor_operator_id=actor["id"],
+            recovery_username=payload.recovery_username,
+            recovery_password=payload.recovery_password,
+            restore_confirmed=payload.restore_confirmed,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    response.delete_cookie(RECEIVER_SESSION_COOKIE, path="/", samesite="strict")
+    return restored
 
 
 def _receipt_validation(receipt: dict[str, Any]) -> dict[str, Any]:

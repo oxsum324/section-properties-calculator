@@ -19,6 +19,9 @@ import {
   ReceiverOperator,
   ReceiverOperatorAuditSummary,
   ReceiverOperatorAuthState,
+  ReceiverOperatorGovernanceBackup,
+  ReceiverOperatorGovernanceRestorePreview,
+  ReceiverOperatorGovernanceRestoreResult,
   ReceiverOperatorRole,
   ReceiverRevocationReason,
   ReceiverTrustRegistryBackup,
@@ -145,6 +148,49 @@ export const api = {
   },
   listReceiverOperatorAuditEvents: () =>
     request<ReceiverOperatorAuditSummary>("/api/receiver-operator-audit-events"),
+  exportReceiverOperatorGovernanceBackup: (passphrase: string) =>
+    request<{ backup: ReceiverOperatorGovernanceBackup; auditEventFingerprint: string }>(
+      "/api/receiver-operator-governance-backups/export",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ passphrase }),
+      },
+    ),
+  validateReceiverOperatorGovernanceBackup: (
+    backup: ReceiverOperatorGovernanceBackup,
+    passphrase: string,
+  ) => request<{
+    backupFingerprint: string;
+    preview: ReceiverOperatorGovernanceRestorePreview;
+  }>("/api/receiver-operator-governance-backups/validate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ backup, passphrase }),
+  }),
+  restoreReceiverOperatorGovernanceBackup: async (
+    backup: ReceiverOperatorGovernanceBackup,
+    passphrase: string,
+    recoveryUsername: string,
+    recoveryPassword: string,
+  ) => {
+    const result = await request<ReceiverOperatorGovernanceRestoreResult>(
+      "/api/receiver-operator-governance-backups/restore",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          backup,
+          passphrase,
+          recovery_username: recoveryUsername,
+          recovery_password: recoveryPassword,
+          restore_confirmed: true,
+        }),
+      },
+    );
+    saveReceiverCsrfToken();
+    return result;
+  },
   bootstrap: () => request<BootstrapPayload>("/api/bootstrap"),
   getReferenceData: () => request<ReferenceData>("/api/reference-data"),
   saveReferenceData: (referenceData: ReferenceData) =>

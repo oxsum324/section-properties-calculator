@@ -91,6 +91,7 @@ const receiverKeyManager = readUtf8('backend/manage_receiver_key.py');
 const receiverKeyLauncher = readUtf8('manage_receiver_key.ps1');
 const receiverTrustStore = readUtf8('backend/app/receiver_trust_store.py');
 const receiverOperatorAuth = readUtf8('backend/app/receiver_operator_auth.py');
+const receiverOperatorBackup = readUtf8('backend/app/receiver_operator_backup.py');
 const receiverKeyManagementGuide = readUtf8('RECEIVER_KEY_MANAGEMENT.md');
 const receiverTrustBackup = readUtf8('backend/app/receiver_trust_backup.py');
 const receiverTrustRecovery = readUtf8('backend/app/receiver_trust_recovery.py');
@@ -99,6 +100,7 @@ const receiverTrustBackupLauncher = readUtf8('backup_receiver_trust_registry.ps1
 const receiverTrustHealthLauncher = readUtf8('check_receiver_trust_backup_health.ps1');
 const receiverTrustStoreTests = readUtf8('backend/tests/test_receiver_trust_store.py');
 const receiverOperatorAuthTests = readUtf8('backend/tests/test_receiver_operator_auth.py');
+const receiverOperatorBackupTests = readUtf8('backend/tests/test_receiver_operator_backup.py');
 const receiverTrustRecoveryTests = readUtf8('backend/tests/test_receiver_trust_recovery.py');
 const receiverEvidenceTemplates = readUtf8('frontend/src/receiverEvidenceTemplates.ts');
 const receiverEvidenceTemplateTests = readUtf8('receiver-evidence-templates.test.js');
@@ -116,7 +118,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.26.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.27.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -702,6 +704,10 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'operator-password-reset',
   'operator-password-changed',
   'blockedPendingRotationClaims',
+  'receiver_operator_maintenance',
+  'operator-governance-restored',
+  'operator-governance-backup-exported',
+  'expected_current_snapshot',
 ].forEach((needle) => {
   assert(receiverOperatorAuth.includes(needle), `excavation receiver operator auth keeps ${needle}`, needle);
 });
@@ -713,6 +719,9 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '/api/receiver-operators',
   '/api/receiver-operator-auth/change-password',
   '/api/receiver-operator-audit-events',
+  '/api/receiver-operator-governance-backups/export',
+  '/api/receiver-operator-governance-backups/validate',
+  '/api/receiver-operator-governance-backups/restore',
   '/roles',
   '/status',
   '/password-reset',
@@ -736,6 +745,9 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'resetReceiverOperatorPassword',
   'changeReceiverOperatorPassword',
   'listReceiverOperatorAuditEvents',
+  'exportReceiverOperatorGovernanceBackup',
+  'validateReceiverOperatorGovernanceBackup',
+  'restoreReceiverOperatorGovernanceBackup',
 ].forEach((needle) => {
   assert(api.includes(needle), `excavation frontend receiver auth keeps ${needle}`, needle);
 });
@@ -750,6 +762,30 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'test_http_password_reset_requires_change_before_admin_actions',
 ].forEach((needle) => {
   assert(receiverOperatorAuthTests.includes(needle), `excavation receiver operator tests keep ${needle}`, needle);
+});
+[
+  'RECEIVER_OPERATOR_BACKUP_KIND',
+  'AESGCM',
+  'Scrypt',
+  '_KDF_N = 2**15',
+  'receiver_operator_snapshot_fingerprint',
+  'preview_receiver_operator_governance_restore',
+  'restore_receiver_operator_governance_backup',
+  'receiver_operator_governance_backups',
+  'secrets.token_hex(4)',
+].forEach((needle) => {
+  assert(receiverOperatorBackup.includes(needle), `excavation receiver operator backup keeps ${needle}`, needle);
+});
+[
+  'test_encrypted_backup_hides_credentials_accounts_and_runtime_sessions',
+  'test_wrong_passphrase_and_ciphertext_tampering_fail_closed',
+  'test_restore_requires_backup_admin_credential_safeguards_current_state_and_revokes_sessions',
+  'test_failed_transaction_rolls_back_data_sessions_and_maintenance_unlock',
+  'test_restore_aborts_when_governance_changes_after_preview',
+  'test_restore_rejects_history_rollback_and_identical_snapshot',
+  'test_http_backup_restore_requires_admin_csrf_and_logs_out_restored_session',
+].forEach((needle) => {
+  assert(receiverOperatorBackupTests.includes(needle), `excavation receiver operator backup tests keep ${needle}`, needle);
 });
 assert(config.includes('STRUT_DB_PATH'), 'excavation database path supports isolated verification', 'STRUT_DB_PATH');
 [
