@@ -22,6 +22,7 @@ const {
   mergeReceiverEvidenceTemplates,
   parseReceiverEvidenceTemplateLibrary,
   prepareImportedReceiverEvidenceTemplates,
+  prepareSignedImportedReceiverEvidenceTemplates,
   receiverEvidenceTemplateAvailability,
   reviseReceiverEvidenceTemplate,
   revokeReceiverEvidenceTemplateApproval,
@@ -120,10 +121,12 @@ assert.equal(revoked.governance.status, 'draft');
 assert.equal(revoked.governance.revision, 1, 'approval revocation does not change content revision');
 
 const library = buildReceiverEvidenceTemplateLibrary([approved], reviewedAt);
-assert.equal(library.schemaVersion, 2);
+assert.equal(library.schemaVersion, 3);
 assert.equal(library.boundary.evidenceFileSha256Excluded, true);
 assert.equal(library.boundary.governanceRequiredBeforeApply, true);
 assert.equal(library.boundary.importedApprovalRequiresLocalReview, true);
+assert.equal(library.boundary.publisherProvenanceIsInformational, true);
+assert.equal(library.boundary.localApprovalStillRequiredAfterImport, true);
 assert.deepEqual(parseReceiverEvidenceTemplateLibrary(JSON.parse(JSON.stringify(library))), [approved]);
 
 const imported = prepareImportedReceiverEvidenceTemplates(parseReceiverEvidenceTemplateLibrary(library));
@@ -133,6 +136,56 @@ assert.throws(
   () => applyReceiverEvidenceTemplate({ checkId: 'connection', status: 'failed', basis: '待查核' }, imported[0], '2026-08-11'),
   /待本機核准/,
 );
+
+const publisherVerification = {
+  status: 'trusted-signature-valid',
+  signaturePresent: true,
+  cryptographicValid: true,
+  trusted: true,
+  keyId: `RVK-${'1'.repeat(20)}`,
+  signedAt: '2026-08-11T09:00:00.123456Z',
+  organization: '測試工程顧問有限公司',
+  displayName: '範本發布金鑰',
+  libraryFingerprint: `ETL-${'2'.repeat(20)}`,
+  packageFingerprint: `ETP-${'3'.repeat(20)}`,
+  trustedOrganization: '測試工程顧問有限公司',
+  keyLabel: '測試發布者',
+  message: '簽章有效，且發布金鑰受本機信任。',
+};
+const signedImported = prepareSignedImportedReceiverEvidenceTemplates([approved], publisherVerification, revisedAt);
+assert.equal(signedImported[0].governance.status, 'draft', 'trusted publisher signature cannot bypass local approval');
+assert.equal(signedImported[0].publisher.statusAtImport, 'trusted-signature-valid');
+assert.equal(signedImported[0].publisher.trustedAtImport, true);
+assert.equal(signedImported[0].publisher.verificationScope, 'import-time-only');
+assert.equal(signedImported[0].publisher.signedAt, '2026-08-11T09:00:00.123Z', 'Python microsecond timestamp is normalized for browser storage');
+assert.throws(
+  () => applyReceiverEvidenceTemplate({ checkId: 'connection', status: 'failed', basis: '待查核' }, signedImported[0], '2026-08-11'),
+  /待本機核准/,
+);
+assert.equal(
+  prepareImportedReceiverEvidenceTemplates(signedImported)[0].publisher,
+  undefined,
+  'plain JSON import must discard publisher provenance',
+);
+const revisedSignedImport = reviseReceiverEvidenceTemplate(signedImported[0], {
+  ...check,
+  basis: '依接頭計算書第 6 節重新檢核。',
+}, signedImported[0].name, '2026-08-11T11:00:00.000Z');
+assert.equal(revisedSignedImport.publisher, undefined, 'content revision must clear publisher provenance');
+
+const legacyGovernedLibrary = {
+  ...library,
+  schemaVersion: 2,
+  boundary: {
+    descriptiveFieldsOnly: true,
+    evidenceFileNameExcluded: true,
+    evidenceFileSha256Excluded: true,
+    actualEvidenceFileRequiredAfterApply: true,
+    governanceRequiredBeforeApply: true,
+    importedApprovalRequiresLocalReview: true,
+  },
+};
+assert.deepEqual(parseReceiverEvidenceTemplateLibrary(legacyGovernedLibrary), [approved]);
 
 const legacyLibrary = {
   schemaVersion: 1,
@@ -175,6 +228,24 @@ assert.throws(
 assert.throws(
   () => validateReceiverEvidenceTemplate({
     ...draft,
+    publisher: {
+      packageFingerprint: `ETP-${'3'.repeat(20)}`,
+      libraryFingerprint: `ETL-${'2'.repeat(20)}`,
+      organization: '測試工程顧問有限公司',
+      displayName: '偽造來源',
+      keyId: `RVK-${'1'.repeat(20)}`,
+      signedAt: reviewedAt,
+      verifiedAt: revisedAt,
+      statusAtImport: 'valid-signature-untrusted-key',
+      trustedAtImport: true,
+      verificationScope: 'import-time-only',
+    },
+  }),
+  /信任狀態與簽章分類不一致/,
+);
+assert.throws(
+  () => validateReceiverEvidenceTemplate({
+    ...draft,
     governance: { ...draft.governance, trustedSignature: 'forged' },
   }),
   /不允許的欄位/,
@@ -211,4 +282,4 @@ assert.throws(
   /不是有效日期/,
 );
 
-console.log('receiver evidence templates v2 governance OK');
+console.log('receiver evidence templates v3 signed publisher governance OK');

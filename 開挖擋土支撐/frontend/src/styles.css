@@ -1401,6 +1401,9 @@ button.danger-button {
 }
 
 .receiver-template-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 10px;
 }
 
@@ -1472,6 +1475,31 @@ button.danger-button {
   display: grid;
   flex: 0 1 470px;
   gap: 10px;
+}
+
+.receiver-template-publisher {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(180, 83, 9, 0.24);
+  border-radius: 12px;
+  background: rgba(255, 247, 237, 0.78);
+}
+
+.receiver-template-publisher.trusted {
+  border-color: rgba(22, 163, 74, 0.24);
+  background: rgba(240, 253, 244, 0.82);
+}
+
+.receiver-template-publisher code {
+  width: fit-content;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.receiver-template-publisher small {
+  line-height: 1.45;
 }
 
 .receiver-template-review-fields {
@@ -1658,8 +1686,18 @@ button.danger-button {
     flex-direction: column;
   }
 
+  .receiver-template-card-main,
+  .receiver-template-governance {
+    flex: none;
+  }
+
   .receiver-template-card .action-row,
   .receiver-template-card button {
+    width: 100%;
+  }
+
+  .receiver-template-toolbar > * {
+    flex: 1 1 100%;
     width: 100%;
   }
 

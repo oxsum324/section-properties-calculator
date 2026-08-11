@@ -4,12 +4,15 @@ import {
   applyReceiverEvidenceTemplate,
   approveReceiverEvidenceTemplate,
   buildReceiverEvidenceTemplateLibrary,
+  LEGACY_GOVERNED_RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY,
   LEGACY_RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY,
   mergeReceiverEvidenceTemplates,
   parseReceiverEvidenceTemplateLibrary,
   prepareImportedReceiverEvidenceTemplates,
+  prepareSignedImportedReceiverEvidenceTemplates,
   RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY,
   ReceiverEvidenceTemplate,
+  ReceiverEvidenceTemplatePublisherStatus,
   receiverEvidenceTemplateAvailability,
   reviseReceiverEvidenceTemplate,
   revokeReceiverEvidenceTemplateApproval,
@@ -158,6 +161,13 @@ function receiverTrustEventReasonLabel(value: ReceiverTrustEvent["reasonCode"]):
   if (value === "new-registration") return "新金鑰登錄";
   if (value === "rotation-registration") return "輪替金鑰登錄";
   return receiverRevocationReasonOptions.find((option) => option.value === value)?.label ?? value;
+}
+
+function receiverTemplatePublisherStatusLabel(status: ReceiverEvidenceTemplatePublisherStatus): string {
+  if (status === "trusted-signature-valid") return "匯入時受信任簽章";
+  if (status === "valid-signature-revoked-key") return "匯入時金鑰已撤銷";
+  if (status === "valid-signature-organization-mismatch") return "匯入時單位不符";
+  return "匯入時簽章有效但未登錄";
 }
 
 type ConstructionStageHandoff = {
@@ -1795,6 +1805,30 @@ function App() {
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "無法匯入補充證據範本。");
+    }
+  }
+
+  async function handleImportSignedReceiverEvidenceTemplates(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      if (file.size > 1024 * 1024) throw new Error("組織簽章補充證據範本封包不得超過 1 MB。");
+      const validated = await api.validateReceiverEvidenceTemplatePublisherPackage(
+        JSON.parse(await file.text()),
+      );
+      const incoming = prepareSignedImportedReceiverEvidenceTemplates(
+        parseReceiverEvidenceTemplateLibrary(validated.package.library),
+        validated.publisherVerification,
+        new Date().toISOString(),
+      );
+      setReceiverEvidenceTemplates((current) => mergeReceiverEvidenceTemplates(current, incoming));
+      setReceiverEvidenceTemplateNotice(
+        `已驗證並匯入 ${incoming.length} 筆組織簽章範本：${validated.publisherVerification.message}`,
+      );
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "無法驗證或匯入組織簽章補充證據範本封包。");
     }
   }
 
@@ -5308,9 +5342,18 @@ function App() {
                         onChange={(event) => void handleImportReceiverEvidenceTemplates(event)}
                       />
                     </label>
+                    <label className="file-action secondary">
+                      匯入組織簽章包
+                      <input
+                        className="file-picker-input"
+                        type="file"
+                        accept="application/json,.json"
+                        onChange={(event) => void handleImportSignedReceiverEvidenceTemplates(event)}
+                      />
+                    </label>
                   </div>
                   <p className="meta-line">
-                    範本只保存在目前瀏覽器，也可匯出後移轉；外部核准匯入時一律降級為待本機重新核准。範本不是正式檢核證據，不會寫入 RVR，實際檔案仍由 RVR v5 與 SEV v2 逐檔核對。
+                    範本只保存在目前瀏覽器，也可匯出後移轉；一般 JSON 或組織簽章包匯入時，外部核准一律降級為待本機重新核准。組織簽章只驗證發布來源與封包完整性，不等於工程內容正確或本機核准。範本不會寫入 RVR，實際檔案仍由 RVR v5 與 SEV v2 逐檔核對。
                   </p>
                   {receiverEvidenceTemplateNotice && <p className="receiver-template-notice">{receiverEvidenceTemplateNotice}</p>}
                   {receiverEvidenceTemplates.length ? (
@@ -5336,6 +5379,15 @@ function App() {
                               <small>{availability.reason}</small>
                               {template.governance.status === "approved" && (
                                 <small>{`審核人：${template.governance.reviewedBy}｜核准：${fmtDateTime(template.governance.reviewedAt)}`}</small>
+                              )}
+                              {template.publisher && (
+                                <div className={`receiver-template-publisher ${template.publisher.trustedAtImport ? "trusted" : "attention"}`}>
+                                  <strong>{receiverTemplatePublisherStatusLabel(template.publisher.statusAtImport)}</strong>
+                                  <span>{`${template.publisher.organization}｜${template.publisher.displayName}`}</span>
+                                  <code>{template.publisher.keyId}</code>
+                                  <small>{`封包 ${template.publisher.packageFingerprint}｜驗證：${fmtDateTime(template.publisher.verifiedAt)}`}</small>
+                                  <small>此為匯入當下的來源驗證紀錄；金鑰狀態可能日後變更，本機核准仍是套用前必要關卡。</small>
+                                </div>
                               )}
                               <details className="receiver-template-history">
                                 <summary>{`修訂紀錄（${template.governance.changeLog.length}）`}</summary>
@@ -7383,7 +7435,11 @@ function emptySupplementalChecks(): ReceiverSupplementalCheck[] {
 
 function loadReceiverEvidenceTemplates(): ReceiverEvidenceTemplate[] {
   if (typeof localStorage === "undefined") return [];
-  for (const storageKey of [RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY, LEGACY_RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY]) {
+  for (const storageKey of [
+    RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY,
+    LEGACY_GOVERNED_RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY,
+    LEGACY_RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY,
+  ]) {
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw) return parseReceiverEvidenceTemplateLibrary(JSON.parse(raw));

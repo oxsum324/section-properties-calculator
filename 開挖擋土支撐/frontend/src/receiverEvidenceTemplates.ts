@@ -4,14 +4,16 @@ import type {
   ReceiverSupplementalCheckId,
 } from "./types";
 
-export const RECEIVER_EVIDENCE_TEMPLATE_LIBRARY_SCHEMA_VERSION = 2 as const;
+export const RECEIVER_EVIDENCE_TEMPLATE_LIBRARY_SCHEMA_VERSION = 3 as const;
 export const RECEIVER_EVIDENCE_TEMPLATE_LIBRARY_KIND = "receiver-supplemental-evidence-template-library" as const;
-export const RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY = "excavation.receiverSupplementalEvidenceTemplates.v2";
+export const RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY = "excavation.receiverSupplementalEvidenceTemplates.v3";
+export const LEGACY_GOVERNED_RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY = "excavation.receiverSupplementalEvidenceTemplates.v2";
 export const LEGACY_RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY = "excavation.receiverSupplementalEvidenceTemplates.v1";
 export const MAX_RECEIVER_EVIDENCE_TEMPLATES = 100;
 export const MAX_RECEIVER_EVIDENCE_TEMPLATE_CHANGE_LOG = 50;
 
 const LEGACY_SCHEMA_VERSION = 1;
+const LEGACY_GOVERNED_SCHEMA_VERSION = 2;
 const SUPPLEMENTAL_CHECK_IDS: ReceiverSupplementalCheckId[] = [
   "connection",
   "bearing",
@@ -49,6 +51,41 @@ export type ReceiverEvidenceTemplateGovernance = {
   changeLog: ReceiverEvidenceTemplateChange[];
 };
 
+export type ReceiverEvidenceTemplatePublisherStatus =
+  | "valid-signature-untrusted-key"
+  | "valid-signature-revoked-key"
+  | "valid-signature-organization-mismatch"
+  | "trusted-signature-valid";
+
+export type ReceiverEvidenceTemplatePublisherVerification = {
+  status: ReceiverEvidenceTemplatePublisherStatus;
+  signaturePresent: true;
+  cryptographicValid: true;
+  trusted: boolean;
+  keyId: string;
+  signedAt: string;
+  organization: string;
+  displayName: string;
+  libraryFingerprint: string;
+  packageFingerprint: string;
+  trustedOrganization?: string;
+  keyLabel?: string;
+  message: string;
+};
+
+export type ReceiverEvidenceTemplatePublisherProvenance = {
+  packageFingerprint: string;
+  libraryFingerprint: string;
+  organization: string;
+  displayName: string;
+  keyId: string;
+  signedAt: string;
+  verifiedAt: string;
+  statusAtImport: ReceiverEvidenceTemplatePublisherStatus;
+  trustedAtImport: boolean;
+  verificationScope: "import-time-only";
+};
+
 export type ReceiverEvidenceTemplate = {
   templateId: string;
   name: string;
@@ -56,6 +93,7 @@ export type ReceiverEvidenceTemplate = {
   basis: string;
   evidence: ReceiverEvidenceTemplateMetadata;
   governance: ReceiverEvidenceTemplateGovernance;
+  publisher?: ReceiverEvidenceTemplatePublisherProvenance;
   createdAt: string;
   updatedAt: string;
 };
@@ -71,6 +109,8 @@ export type ReceiverEvidenceTemplateLibrary = {
     actualEvidenceFileRequiredAfterApply: true;
     governanceRequiredBeforeApply: true;
     importedApprovalRequiresLocalReview: true;
+    publisherProvenanceIsInformational: true;
+    localApprovalStillRequiredAfterImport: true;
   };
   templates: ReceiverEvidenceTemplate[];
 };
@@ -132,10 +172,10 @@ function optionalIsoDate(value: unknown, label: string): string {
 function isoDateTime(value: unknown, label: string): string {
   const text = requiredText(value, label);
   const parsed = new Date(text);
-  if (Number.isNaN(parsed.getTime()) || parsed.toISOString() !== text) {
+  if (Number.isNaN(parsed.getTime()) || !/(?:Z|[+-]\d{2}:\d{2})$/i.test(text)) {
     throw new Error(`${label}不是有效 ISO 8601 日期時間。`);
   }
-  return text;
+  return parsed.toISOString();
 }
 
 function optionalIsoDateTime(value: unknown, label: string): string {
@@ -205,7 +245,53 @@ function validateGovernance(value: unknown): ReceiverEvidenceTemplateGovernance 
   };
 }
 
-function validateTemplateCore(source: Record<string, unknown>): Omit<ReceiverEvidenceTemplate, "governance"> {
+function validatePublisherProvenance(value: unknown): ReceiverEvidenceTemplatePublisherProvenance {
+  const source = record(value, "範本發布來源");
+  allowedKeys(source, [
+    "packageFingerprint",
+    "libraryFingerprint",
+    "organization",
+    "displayName",
+    "keyId",
+    "signedAt",
+    "verifiedAt",
+    "statusAtImport",
+    "trustedAtImport",
+    "verificationScope",
+  ], "範本發布來源");
+  const packageFingerprint = requiredText(source.packageFingerprint, "發布封包指紋", 24);
+  const libraryFingerprint = requiredText(source.libraryFingerprint, "範本庫指紋", 24);
+  const keyId = requiredText(source.keyId, "發布金鑰識別", 24);
+  if (!/^ETP-[0-9A-F]{20}$/.test(packageFingerprint)) throw new Error("範本發布封包指紋格式不正確。");
+  if (!/^ETL-[0-9A-F]{20}$/.test(libraryFingerprint)) throw new Error("範本庫指紋格式不正確。");
+  if (!/^RVK-[0-9A-F]{20}$/.test(keyId)) throw new Error("範本發布金鑰識別格式不正確。");
+  const statusAtImport = source.statusAtImport;
+  if (![
+    "valid-signature-untrusted-key",
+    "valid-signature-revoked-key",
+    "valid-signature-organization-mismatch",
+    "trusted-signature-valid",
+  ].includes(String(statusAtImport))) throw new Error("範本發布來源狀態不受支援。");
+  if (typeof source.trustedAtImport !== "boolean") throw new Error("範本發布來源信任狀態格式不正確。");
+  if (source.trustedAtImport !== (statusAtImport === "trusted-signature-valid")) {
+    throw new Error("範本發布來源信任狀態與簽章分類不一致。");
+  }
+  if (source.verificationScope !== "import-time-only") throw new Error("範本發布來源只能記錄匯入當下的驗證狀態。");
+  return {
+    packageFingerprint,
+    libraryFingerprint,
+    organization: requiredText(source.organization, "範本發布單位", 200),
+    displayName: requiredText(source.displayName, "範本發布金鑰名稱", 200),
+    keyId,
+    signedAt: isoDateTime(source.signedAt, "範本發布簽章時間"),
+    verifiedAt: isoDateTime(source.verifiedAt, "範本發布來源驗證時間"),
+    statusAtImport: statusAtImport as ReceiverEvidenceTemplatePublisherStatus,
+    trustedAtImport: source.trustedAtImport,
+    verificationScope: "import-time-only",
+  };
+}
+
+function validateTemplateCore(source: Record<string, unknown>): Omit<ReceiverEvidenceTemplate, "governance" | "publisher"> {
   const evidence = record(source.evidence, "範本文件資料");
   if ("fileName" in evidence || "fileSha256" in evidence) {
     throw new Error("補充證據範本不得保存證據檔名或 SHA-256；套用後須重新選取實際檔案。");
@@ -229,14 +315,15 @@ function validateTemplateCore(source: Record<string, unknown>): Omit<ReceiverEvi
 
 export function validateReceiverEvidenceTemplate(value: unknown): ReceiverEvidenceTemplate {
   const source = record(value, "補充證據範本");
-  allowedKeys(source, ["templateId", "name", "checkId", "basis", "evidence", "governance", "createdAt", "updatedAt"], "補充證據範本");
+  allowedKeys(source, ["templateId", "name", "checkId", "basis", "evidence", "governance", "publisher", "createdAt", "updatedAt"], "補充證據範本");
   const core = validateTemplateCore(source);
   if (core.createdAt > core.updatedAt) throw new Error("範本更新時間不得早於建立時間。");
   const governance = validateGovernance(source.governance);
   if (governance.changeLog.some((entry) => entry.recordedAt < core.createdAt || entry.recordedAt > core.updatedAt)) {
     throw new Error("範本修訂紀錄時間必須落在建立與更新時間之間。");
   }
-  return { ...core, governance };
+  const publisher = source.publisher === undefined ? undefined : validatePublisherProvenance(source.publisher);
+  return publisher ? { ...core, governance, publisher } : { ...core, governance };
 }
 
 function legacyTemplate(value: unknown): ReceiverEvidenceTemplate {
@@ -320,6 +407,7 @@ export function reviseReceiverEvidenceTemplate(
   return validateReceiverEvidenceTemplate({
     ...validated,
     ...snapshot,
+    publisher: undefined,
     governance: {
       status: "draft",
       revision,
@@ -421,6 +509,8 @@ export function buildReceiverEvidenceTemplateLibrary(
       actualEvidenceFileRequiredAfterApply: true,
       governanceRequiredBeforeApply: true,
       importedApprovalRequiresLocalReview: true,
+      publisherProvenanceIsInformational: true,
+      localApprovalStillRequiredAfterImport: true,
     },
     templates: templates.map(validateReceiverEvidenceTemplate),
   };
@@ -453,6 +543,18 @@ export function parseReceiverEvidenceTemplateLibrary(value: unknown): ReceiverEv
       "actualEvidenceFileRequiredAfterApply",
       "governanceRequiredBeforeApply",
       "importedApprovalRequiresLocalReview",
+      "publisherProvenanceIsInformational",
+      "localApprovalStillRequiredAfterImport",
+    ]);
+    templates = (source.templates as unknown[]).map(validateReceiverEvidenceTemplate);
+  } else if (source.schemaVersion === LEGACY_GOVERNED_SCHEMA_VERSION) {
+    validateLibraryHeader(source, [
+      "descriptiveFieldsOnly",
+      "evidenceFileNameExcluded",
+      "evidenceFileSha256Excluded",
+      "actualEvidenceFileRequiredAfterApply",
+      "governanceRequiredBeforeApply",
+      "importedApprovalRequiresLocalReview",
     ]);
     templates = (source.templates as unknown[]).map(validateReceiverEvidenceTemplate);
   } else if (source.schemaVersion === LEGACY_SCHEMA_VERSION) {
@@ -477,7 +579,31 @@ export function prepareImportedReceiverEvidenceTemplates(
 ): ReceiverEvidenceTemplate[] {
   return templates.map((template) => {
     const validated = validateReceiverEvidenceTemplate(template);
-    if (validated.governance.status === "draft") return validated;
+    const { publisher: _discardedPublisher, ...withoutPublisher } = validated;
+    return validateReceiverEvidenceTemplate({
+      ...withoutPublisher,
+      governance: {
+        ...validated.governance,
+        status: "draft",
+        reviewedBy: "",
+        reviewedAt: "",
+        validUntil: "",
+      },
+    });
+  });
+}
+
+export function prepareSignedImportedReceiverEvidenceTemplates(
+  templates: ReceiverEvidenceTemplate[],
+  verification: ReceiverEvidenceTemplatePublisherVerification,
+  verifiedAt: string,
+): ReceiverEvidenceTemplate[] {
+  if (verification.signaturePresent !== true || verification.cryptographicValid !== true) {
+    throw new Error("組織範本封包未通過數位簽章驗證。");
+  }
+  const timestamp = isoDateTime(verifiedAt, "範本發布來源驗證時間");
+  return templates.map((template) => {
+    const validated = validateReceiverEvidenceTemplate(template);
     return validateReceiverEvidenceTemplate({
       ...validated,
       governance: {
@@ -486,6 +612,18 @@ export function prepareImportedReceiverEvidenceTemplates(
         reviewedBy: "",
         reviewedAt: "",
         validUntil: "",
+      },
+      publisher: {
+        packageFingerprint: verification.packageFingerprint,
+        libraryFingerprint: verification.libraryFingerprint,
+        organization: verification.organization,
+        displayName: verification.displayName,
+        keyId: verification.keyId,
+        signedAt: verification.signedAt,
+        verifiedAt: timestamp,
+        statusAtImport: verification.status,
+        trustedAtImport: verification.trusted,
+        verificationScope: "import-time-only",
       },
     });
   });

@@ -100,6 +100,10 @@ const receiverTrustRecoveryTests = readUtf8('backend/tests/test_receiver_trust_r
 const receiverEvidenceTemplates = readUtf8('frontend/src/receiverEvidenceTemplates.ts');
 const receiverEvidenceTemplateTests = readUtf8('receiver-evidence-templates.test.js');
 const receiverEvidenceTemplateGuide = readUtf8('RECEIVER_EVIDENCE_TEMPLATES.md');
+const receiverEvidenceTemplatePackage = readUtf8('backend/app/receiver_evidence_template_package.py');
+const receiverEvidenceTemplateSigner = readUtf8('backend/sign_receiver_evidence_templates.py');
+const receiverEvidenceTemplatePackageTests = readUtf8('backend/tests/test_receiver_evidence_template_package.py');
+const receiverEvidenceTemplateSigningLauncher = readUtf8('sign_receiver_evidence_templates.ps1');
 
 const expectedTools = [
   'excavation-analysis-import',
@@ -109,7 +113,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.21.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.22.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -251,6 +255,7 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '/api/projects/{project_id}/source-capacity-evidence-verifications/attach-signature',
   '/api/projects/{project_id}/source-capacity-evidence-verifications/{verification_fingerprint}/validation',
   '/api/removal-transfer-handoffs/validate',
+  '/api/removal-transfer-evidence-template-packages/validate',
   '/api/removal-transfer-receipts/build',
   '/api/removal-transfer-receipts/validate',
   '/api/removal-transfer-receipts/signing-request',
@@ -347,6 +352,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '受控補充證據範本庫',
   '匯出全部範本',
   '匯入範本庫 JSON',
+  '匯入組織簽章包',
+  '此為匯入當下的來源驗證紀錄',
   '套用至全部同類列',
   '儲存為範本／新修訂',
   '套用本機範本',
@@ -386,6 +393,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'actualEvidenceFileRequiredAfterApply: true',
   'governanceRequiredBeforeApply: true',
   'importedApprovalRequiresLocalReview: true',
+  'publisherProvenanceIsInformational: true',
+  'localApprovalStillRequiredAfterImport: true',
   'MAX_RECEIVER_EVIDENCE_TEMPLATES = 100',
   'MAX_RECEIVER_EVIDENCE_TEMPLATE_CHANGE_LOG = 50',
   '不得保存證據檔名或 SHA-256',
@@ -396,6 +405,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'revokeReceiverEvidenceTemplateApproval',
   'receiverEvidenceTemplateAvailability',
   'prepareImportedReceiverEvidenceTemplates',
+  'prepareSignedImportedReceiverEvidenceTemplates',
+  'verificationScope: "import-time-only"',
   'parseReceiverEvidenceTemplateLibrary',
   'mergeReceiverEvidenceTemplates',
 ].forEach((needle) => {
@@ -409,7 +420,10 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'content revision must revoke approval',
   'external approval cannot become local trust',
   'saving unchanged content must not create a false revision',
-  'receiver evidence templates v2 governance OK',
+  'trusted publisher signature cannot bypass local approval',
+  'plain JSON import must discard publisher provenance',
+  'content revision must clear publisher provenance',
+  'receiver evidence templates v3 signed publisher governance OK',
 ].forEach((needle) => {
   assert(receiverEvidenceTemplateTests.includes(needle), `receiver evidence template tests keep ${needle}`, needle);
 });
@@ -420,10 +434,48 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '只有經本機核准且尚未過期的範本可以套用',
   '外部檔案即使聲稱已核准，匯入後仍一律降級',
   '內容修訂會自動升版並撤銷核准',
-  '不是數位簽章或組織身分證明',
+  '發布者簽章只證明對應私鑰簽署了該範本庫',
+  '匯入當下',
+  '簽署補充證據範本包.bat',
   '不會寫入來源專案、PDF、DOCX、ERH、RVR、SEV 或 SCV',
 ].forEach((needle) => {
   assert(receiverEvidenceTemplateGuide.includes(needle), `receiver evidence template guide keeps ${needle}`, needle);
+});
+[
+  'receiver-evidence-template-publisher-package',
+  'receiver-evidence-template-publisher-package-v1',
+  'valid-signature-untrusted-key',
+  'valid-signature-revoked-key',
+  'valid-signature-organization-mismatch',
+  'trusted-signature-valid',
+  'ETL-',
+  'ETP-',
+  'fileName',
+  'fileSha256',
+].forEach((needle) => {
+  assert(receiverEvidenceTemplatePackage.includes(needle), `receiver template publisher package keeps ${needle}`, needle);
+});
+[
+  'load_private_key',
+  'build_receiver_evidence_template_publisher_package',
+  '--organization',
+  '--display-name',
+].forEach((needle) => {
+  assert(receiverEvidenceTemplateSigner.includes(needle), `receiver template publisher signer keeps ${needle}`, needle);
+});
+[
+  'test_api_uses_local_trust_registry_and_rejects_tampering',
+  'test_classifies_trusted_revoked_and_mismatched_keys',
+  'test_rejects_evidence_filename_or_hash_anywhere_in_templates',
+  'test_accepts_schema_v3_boundary_but_never_treats_signature_as_local_approval',
+].forEach((needle) => {
+  assert(receiverEvidenceTemplatePackageTests.includes(needle), `receiver template publisher tests keep ${needle}`, needle);
+});
+[
+  'backend.sign_receiver_evidence_templates',
+  'Ed25519 PEM private key',
+].forEach((needle) => {
+  assert(receiverEvidenceTemplateSigningLauncher.includes(needle), `receiver template publisher launcher keeps ${needle}`, needle);
 });
 [
   'test_builds_pending_receiver_verification_handoff',

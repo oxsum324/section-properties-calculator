@@ -34,6 +34,7 @@ from .removal_transfer_handoff import (
 )
 from .receiver_trust_store import ReceiverTrustStore
 from .receiver_capacity import calculate_reshore_member_capacity
+from .receiver_evidence_template_package import validate_receiver_evidence_template_publisher_package
 from .receiver_key_enrollment import validate_receiver_key_enrollment
 from .receiver_trust_backup import (
     build_receiver_trust_registry_backup,
@@ -246,6 +247,17 @@ def restore_receiver_trust_registry(
             receiver_trust_store,
             request.backup,
             restore_confirmed=request.restore_confirmed,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/removal-transfer-evidence-template-packages/validate")
+def validate_receiver_evidence_template_package(package: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return validate_receiver_evidence_template_publisher_package(
+            package,
+            receiver_trust_store.list_keys(),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

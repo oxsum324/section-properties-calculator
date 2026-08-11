@@ -24,6 +24,7 @@ import {
   ReceiverKeyEnrollment,
   ReportPayload,
 } from "./types";
+import type { ReceiverEvidenceTemplatePublisherVerification } from "./receiverEvidenceTemplates";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -266,6 +267,21 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ backup, restore_confirmed: true }),
+    }),
+  validateReceiverEvidenceTemplatePublisherPackage: (publisherPackage: unknown) =>
+    request<{
+      package: {
+        schemaVersion: 1;
+        kind: "receiver-evidence-template-publisher-package";
+        libraryFingerprint: string;
+        library: unknown;
+        packageFingerprint: string;
+      };
+      publisherVerification: ReceiverEvidenceTemplatePublisherVerification;
+    }>("/api/removal-transfer-evidence-template-packages/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(publisherPackage),
     }),
   buildReceiverIdentitySigningRequest: (
     handoff: RemovalTransferHandoff,
