@@ -109,7 +109,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.20.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.21.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -344,12 +344,17 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '五類補充查核與文件證據',
   '此欄由下方五類查核自動推導，不能手動覆寫',
   'RSC 不會被當成其他查核的證據',
-  '本機補充證據範本庫',
+  '受控補充證據範本庫',
   '匯出全部範本',
   '匯入範本庫 JSON',
   '套用至全部同類列',
-  '儲存為範本',
+  '儲存為範本／新修訂',
   '套用本機範本',
+  '本機審核人',
+  '有效期限',
+  '修訂紀錄',
+  '撤銷核准',
+  '外部核准一律降級',
   '請重新選取本案實際證據檔',
   'evidenceKey',
   'SourceCapacityEvidenceMatch',
@@ -379,10 +384,18 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'evidenceFileNameExcluded: true',
   'evidenceFileSha256Excluded: true',
   'actualEvidenceFileRequiredAfterApply: true',
+  'governanceRequiredBeforeApply: true',
+  'importedApprovalRequiresLocalReview: true',
   'MAX_RECEIVER_EVIDENCE_TEMPLATES = 100',
+  'MAX_RECEIVER_EVIDENCE_TEMPLATE_CHANGE_LOG = 50',
   '不得保存證據檔名或 SHA-256',
   'fileName: ""',
   'fileSha256: ""',
+  'reviseReceiverEvidenceTemplate',
+  'approveReceiverEvidenceTemplate',
+  'revokeReceiverEvidenceTemplateApproval',
+  'receiverEvidenceTemplateAvailability',
+  'prepareImportedReceiverEvidenceTemplates',
   'parseReceiverEvidenceTemplateLibrary',
   'mergeReceiverEvidenceTemplates',
 ].forEach((needle) => {
@@ -393,7 +406,10 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'template must not persist evidence SHA-256',
   'applying a template requires a fresh evidence file selection',
   'applying a template cannot reuse a prior evidence hash',
-  'receiver evidence templates OK',
+  'content revision must revoke approval',
+  'external approval cannot become local trust',
+  'saving unchanged content must not create a false revision',
+  'receiver evidence templates v2 governance OK',
 ].forEach((needle) => {
   assert(receiverEvidenceTemplateTests.includes(needle), `receiver evidence template tests keep ${needle}`, needle);
 });
@@ -401,6 +417,10 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '範本明確不保存證據檔名及 SHA-256',
   '套用範本後',
   '重新選取本案實際文件',
+  '只有經本機核准且尚未過期的範本可以套用',
+  '外部檔案即使聲稱已核准，匯入後仍一律降級',
+  '內容修訂會自動升版並撤銷核准',
+  '不是數位簽章或組織身分證明',
   '不會寫入來源專案、PDF、DOCX、ERH、RVR、SEV 或 SCV',
 ].forEach((needle) => {
   assert(receiverEvidenceTemplateGuide.includes(needle), `receiver evidence template guide keeps ${needle}`, needle);

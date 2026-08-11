@@ -2,11 +2,17 @@ import { ChangeEvent, Fragment, ReactNode, useEffect, useMemo, useRef, useState 
 import { api } from "./api";
 import {
   applyReceiverEvidenceTemplate,
+  approveReceiverEvidenceTemplate,
   buildReceiverEvidenceTemplateLibrary,
+  LEGACY_RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY,
   mergeReceiverEvidenceTemplates,
   parseReceiverEvidenceTemplateLibrary,
+  prepareImportedReceiverEvidenceTemplates,
   RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY,
   ReceiverEvidenceTemplate,
+  receiverEvidenceTemplateAvailability,
+  reviseReceiverEvidenceTemplate,
+  revokeReceiverEvidenceTemplateApproval,
   templateFromSupplementalCheck,
 } from "./receiverEvidenceTemplates";
 import {
@@ -353,6 +359,8 @@ function App() {
   const [receiverAssistantResults, setReceiverAssistantResults] = useState<ReceiverVerificationResult[]>([]);
   const [receiverEvidenceTemplates, setReceiverEvidenceTemplates] = useState<ReceiverEvidenceTemplate[]>(loadReceiverEvidenceTemplates);
   const [receiverEvidenceTemplateNotice, setReceiverEvidenceTemplateNotice] = useState("");
+  const [receiverEvidenceTemplateBindings, setReceiverEvidenceTemplateBindings] = useState<Record<string, string>>({});
+  const [receiverEvidenceTemplateReviewDrafts, setReceiverEvidenceTemplateReviewDrafts] = useState<Record<string, { reviewedBy: string; validUntil: string }>>({});
   const receiverEvidenceTemplatesPersisted = useRef(false);
   const [reshoreCapacityDrafts, setReshoreCapacityDrafts] = useState<Record<string, ReshoreMemberCapacityInput>>({});
   const [reshoreCapacityCalculations, setReshoreCapacityCalculations] = useState<Record<string, ReshoreMemberCapacityCalculationResponse>>({});
@@ -948,6 +956,7 @@ function App() {
   function loadReceiverAssistantHandoff(record: RemovalTransferHandoff) {
     setReceiverAssistantHandoff(record);
     setReceiverAssistantResults(receiverResultDrafts(record));
+    setReceiverEvidenceTemplateBindings({});
     setReshoreCapacityDrafts(receiverCapacityDrafts(record, bootstrap?.reference_data));
     setReshoreCapacityCalculations({});
     setReceiverCalculationConfirmed(false);
@@ -1016,6 +1025,7 @@ function App() {
       const response = await api.validateReceiverVerificationReceipt(receiverAssistantHandoff, parsed);
       setReceiverAssistantAuthority(response.receipt.verificationAuthority);
       setReceiverAssistantResults(response.receipt.results);
+      setReceiverEvidenceTemplateBindings({});
       setReceiverAssistantReceipt(response.receipt);
       setReceiverAssistantIdentityVerification(response.receiptValidation.identityVerification);
       setReceiverCalculationConfirmed(true);
@@ -1612,28 +1622,39 @@ function App() {
 
   function handleSaveReceiverEvidenceTemplate(resultIndex: number, checkId: ReceiverSupplementalCheckId) {
     try {
-      const check = receiverAssistantResults[resultIndex]?.supplementalChecks?.find((item) => item.checkId === checkId);
+      const result = receiverAssistantResults[resultIndex];
+      const check = result?.supplementalChecks?.find((item) => item.checkId === checkId);
       if (!check) throw new Error("找不到要儲存的補充查核。");
-      const existing = receiverEvidenceTemplates.find((template) => (
-        template.checkId === checkId
-        && template.evidence.documentReference === check.evidence?.documentReference.trim()
-        && template.evidence.revision === check.evidence?.revision.trim()
-        && template.evidence.issuedDate === check.evidence?.issuedDate.trim()
-        && template.evidence.pageReference === check.evidence?.pageReference.trim()
-      ));
+      const bindingKey = receiverEvidenceTemplateBindingKey(result.transferId, checkId);
+      const boundTemplateId = receiverEvidenceTemplateBindings[bindingKey];
+      const existing = receiverEvidenceTemplates.find((template) => template.templateId === boundTemplateId)
+        ?? receiverEvidenceTemplates.find((template) => (
+          template.checkId === checkId
+          && template.evidence.documentReference === check.evidence?.documentReference.trim()
+          && template.evidence.revision === check.evidence?.revision.trim()
+          && template.evidence.issuedDate === check.evidence?.issuedDate.trim()
+          && template.evidence.pageReference === check.evidence?.pageReference.trim()
+        ));
       const timestamp = new Date().toISOString();
       const label = receiverSupplementalCheckOptions.find((option) => option.value === checkId)?.label ?? checkId;
       const documentReference = check.evidence?.documentReference.trim() ?? "";
       const revision = check.evidence?.revision.trim() ?? "";
-      const template = templateFromSupplementalCheck(
-        check,
-        existing?.templateId ?? `RET-${crypto.randomUUID()}`,
-        `${label}｜${documentReference}｜${revision}`,
-        timestamp,
-        existing?.createdAt,
+      const name = `${label}｜${documentReference}｜${revision}`;
+      const template = existing
+        ? reviseReceiverEvidenceTemplate(existing, check, name, timestamp)
+        : templateFromSupplementalCheck(check, `RET-${crypto.randomUUID()}`, name, timestamp);
+      setReceiverEvidenceTemplates((current) => mergeReceiverEvidenceTemplates(current, [template]));
+      setReceiverEvidenceTemplateBindings((current) => ({ ...current, [bindingKey]: template.templateId }));
+      const unchanged = existing
+        && existing.governance.revision === template.governance.revision
+        && existing.updatedAt === template.updatedAt;
+      setReceiverEvidenceTemplateNotice(
+        unchanged
+          ? `範本內容沒有變更：${template.name}`
+          : existing
+            ? `已建立第 ${template.governance.revision} 版並撤銷舊核准：${template.name}`
+            : `已儲存待核准範本：${template.name}`,
       );
-      setReceiverEvidenceTemplates(mergeReceiverEvidenceTemplates(receiverEvidenceTemplates, [template]));
-      setReceiverEvidenceTemplateNotice(existing ? `已更新範本：${template.name}` : `已儲存範本：${template.name}`);
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "無法儲存補充證據範本。");
@@ -1652,8 +1673,13 @@ function App() {
       setReceiverAssistantResults((current) => current.map((result, index) => (
         index === resultIndex ? applyTemplateToReceiverResult(result, template) : result
       )));
+      const result = receiverAssistantResults[resultIndex];
+      if (result) {
+        const bindingKey = receiverEvidenceTemplateBindingKey(result.transferId, checkId);
+        setReceiverEvidenceTemplateBindings((current) => ({ ...current, [bindingKey]: template.templateId }));
+      }
       setReceiverAssistantReceipt(null);
-      setReceiverEvidenceTemplateNotice(`已套用範本：${template.name}；請重新選取本案實際證據檔。`);
+      setReceiverEvidenceTemplateNotice(`已套用核准範本 v${template.governance.revision}：${template.name}；請重新選取本案實際證據檔。`);
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "無法套用補充證據範本。");
@@ -1665,8 +1691,15 @@ function App() {
       const template = receiverEvidenceTemplates.find((item) => item.templateId === templateId);
       if (!template) throw new Error("找不到選取的補充證據範本。");
       setReceiverAssistantResults((current) => current.map((result) => applyTemplateToReceiverResult(result, template)));
+      setReceiverEvidenceTemplateBindings((current) => {
+        const next = { ...current };
+        receiverAssistantResults.forEach((result) => {
+          next[receiverEvidenceTemplateBindingKey(result.transferId, template.checkId)] = template.templateId;
+        });
+        return next;
+      });
       setReceiverAssistantReceipt(null);
-      setReceiverEvidenceTemplateNotice(`已將範本套用至全部同類交接列：${template.name}；各列仍須重新選取實際證據檔。`);
+      setReceiverEvidenceTemplateNotice(`已將核准範本 v${template.governance.revision} 套用至全部同類交接列：${template.name}；各列仍須重新選取實際證據檔。`);
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "無法批次套用補充證據範本。");
@@ -1676,8 +1709,61 @@ function App() {
   function handleDeleteReceiverEvidenceTemplate(templateId: string) {
     const template = receiverEvidenceTemplates.find((item) => item.templateId === templateId);
     setReceiverEvidenceTemplates((current) => current.filter((item) => item.templateId !== templateId));
+    setReceiverEvidenceTemplateBindings((current) => Object.fromEntries(
+      Object.entries(current).filter(([, boundTemplateId]) => boundTemplateId !== templateId),
+    ));
+    setReceiverEvidenceTemplateReviewDrafts((current) => Object.fromEntries(
+      Object.entries(current).filter(([key]) => key !== templateId),
+    ));
     setReceiverEvidenceTemplateNotice(template ? `已刪除範本：${template.name}` : "範本已刪除。");
     setError("");
+  }
+
+  function updateReceiverEvidenceTemplateReviewDraft(
+    templateId: string,
+    field: "reviewedBy" | "validUntil",
+    value: string,
+    fallbackReviewedBy = "",
+  ) {
+    setReceiverEvidenceTemplateReviewDrafts((current) => {
+      const previous = current[templateId] ?? { reviewedBy: fallbackReviewedBy, validUntil: "" };
+      return { ...current, [templateId]: { ...previous, [field]: value } };
+    });
+  }
+
+  function handleApproveReceiverEvidenceTemplate(templateId: string) {
+    try {
+      const template = receiverEvidenceTemplates.find((item) => item.templateId === templateId);
+      if (!template) throw new Error("找不到要核准的補充證據範本。");
+      const review = receiverEvidenceTemplateReviewDrafts[templateId] ?? { reviewedBy: "", validUntil: "" };
+      const approved = approveReceiverEvidenceTemplate(
+        template,
+        review.reviewedBy,
+        new Date().toISOString(),
+        review.validUntil,
+      );
+      setReceiverEvidenceTemplates((current) => mergeReceiverEvidenceTemplates(current, [approved]));
+      setReceiverEvidenceTemplateReviewDrafts((current) => Object.fromEntries(
+        Object.entries(current).filter(([key]) => key !== templateId),
+      ));
+      setReceiverEvidenceTemplateNotice(`已核准範本 v${approved.governance.revision}：${approved.name}，有效至 ${approved.governance.validUntil}。`);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "無法核准補充證據範本。");
+    }
+  }
+
+  function handleRevokeReceiverEvidenceTemplateApproval(templateId: string) {
+    try {
+      const template = receiverEvidenceTemplates.find((item) => item.templateId === templateId);
+      if (!template) throw new Error("找不到要撤銷核准的補充證據範本。");
+      const revoked = revokeReceiverEvidenceTemplateApproval(template, new Date().toISOString());
+      setReceiverEvidenceTemplates((current) => mergeReceiverEvidenceTemplates(current, [revoked]));
+      setReceiverEvidenceTemplateNotice(`已撤銷範本核准：${revoked.name}；重新核准前不得套用。`);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "無法撤銷補充證據範本核准。");
+    }
   }
 
   function handleExportReceiverEvidenceTemplates() {
@@ -1688,7 +1774,7 @@ function App() {
         buildReceiverEvidenceTemplateLibrary(receiverEvidenceTemplates, timestamp),
         `補充證據範本庫-${timestamp.slice(0, 10)}.json`,
       );
-      setReceiverEvidenceTemplateNotice(`已匯出 ${receiverEvidenceTemplates.length} 筆範本；檔案不含證據檔名或 SHA-256。`);
+      setReceiverEvidenceTemplateNotice(`已匯出 ${receiverEvidenceTemplates.length} 筆受控範本及修訂紀錄；檔案不含證據檔名或 SHA-256。`);
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "無法匯出補充證據範本。");
@@ -1701,9 +1787,11 @@ function App() {
     if (!file) return;
     try {
       if (file.size > 1024 * 1024) throw new Error("補充證據範本庫不得超過 1 MB。");
-      const incoming = parseReceiverEvidenceTemplateLibrary(JSON.parse(await file.text()));
-      setReceiverEvidenceTemplates(mergeReceiverEvidenceTemplates(receiverEvidenceTemplates, incoming));
-      setReceiverEvidenceTemplateNotice(`已從 ${file.name} 匯入 ${incoming.length} 筆範本；套用時仍須重新選取證據檔。`);
+      const incoming = prepareImportedReceiverEvidenceTemplates(
+        parseReceiverEvidenceTemplateLibrary(JSON.parse(await file.text())),
+      );
+      setReceiverEvidenceTemplates((current) => mergeReceiverEvidenceTemplates(current, incoming));
+      setReceiverEvidenceTemplateNotice(`已從 ${file.name} 匯入 ${incoming.length} 筆範本；外部核准一律降級，須由本機重新核准後才能套用。`);
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "無法匯入補充證據範本。");
@@ -5199,8 +5287,8 @@ function App() {
                 </Panel>
 
                 <Panel
-                  title="本機補充證據範本庫"
-                  subtitle="重用五類查核的文字與文件受控欄位；範本不保存證據檔名或 SHA-256，套用後仍須逐案選取實際檔案。"
+                  title="受控補充證據範本庫"
+                  subtitle="範本須經本機核准且在有效期限內才可套用；內容修訂會自動升版並撤銷既有核准。"
                 >
                   <div className="action-row receiver-template-toolbar">
                     <button
@@ -5222,34 +5310,111 @@ function App() {
                     </label>
                   </div>
                   <p className="meta-line">
-                    範本只保存在目前瀏覽器，也可匯出後移轉至另一台電腦。它不是正式檢核證據，不會寫入 RVR；實際檔案仍由 RVR v5 與 SEV v2 逐檔核對。
+                    範本只保存在目前瀏覽器，也可匯出後移轉；外部核准匯入時一律降級為待本機重新核准。範本不是正式檢核證據，不會寫入 RVR，實際檔案仍由 RVR v5 與 SEV v2 逐檔核對。
                   </p>
                   {receiverEvidenceTemplateNotice && <p className="receiver-template-notice">{receiverEvidenceTemplateNotice}</p>}
                   {receiverEvidenceTemplates.length ? (
                     <div className="receiver-template-list">
                       {receiverEvidenceTemplates.map((template) => {
                         const label = receiverSupplementalCheckOptions.find((option) => option.value === template.checkId)?.label ?? template.checkId;
+                        const availability = receiverEvidenceTemplateAvailability(template, localIsoDate());
+                        const reviewDraft = receiverEvidenceTemplateReviewDrafts[template.templateId] ?? {
+                          reviewedBy: availability.status === "expired" ? template.governance.reviewedBy : "",
+                          validUntil: "",
+                        };
                         return (
                           <article className="receiver-template-card" key={template.templateId}>
-                            <div>
-                              <span>{label}</span>
+                            <div className="receiver-template-card-main">
+                              <div className="receiver-template-card-heading">
+                                <span>{label}</span>
+                                <span className={`receiver-template-status ${availability.status}`}>
+                                  {availability.status === "approved" ? "已核准" : availability.status === "expired" ? "已過期" : "待核准"}
+                                </span>
+                              </div>
                               <strong>{template.name}</strong>
-                              <small>{`${template.evidence.documentReference}｜${template.evidence.revision}｜${template.evidence.issuedDate}｜${template.evidence.pageReference}`}</small>
+                              <small>{`範本 v${template.governance.revision}｜${template.evidence.documentReference}｜${template.evidence.revision}｜${template.evidence.issuedDate}｜${template.evidence.pageReference}`}</small>
+                              <small>{availability.reason}</small>
+                              {template.governance.status === "approved" && (
+                                <small>{`審核人：${template.governance.reviewedBy}｜核准：${fmtDateTime(template.governance.reviewedAt)}`}</small>
+                              )}
+                              <details className="receiver-template-history">
+                                <summary>{`修訂紀錄（${template.governance.changeLog.length}）`}</summary>
+                                <ol>
+                                  {[...template.governance.changeLog].reverse().map((entry) => (
+                                    <li key={`${template.templateId}-${entry.revision}`}>
+                                      <strong>{`v${entry.revision}`}</strong>
+                                      <span>{entry.changedFields.join("、")}</span>
+                                      <small>{fmtDateTime(entry.recordedAt)}</small>
+                                    </li>
+                                  ))}
+                                </ol>
+                              </details>
                             </div>
-                            <div className="action-row">
-                              <button className="secondary" type="button" onClick={() => handleApplyReceiverEvidenceTemplateToAll(template.templateId)}>
-                                套用至全部同類列
-                              </button>
-                              <button className="ghost" type="button" onClick={() => handleDeleteReceiverEvidenceTemplate(template.templateId)}>
-                                刪除
-                              </button>
+                            <div className="receiver-template-governance">
+                              {!availability.usable && (
+                                <div className="receiver-template-review-fields">
+                                  <label className="field-block">
+                                    <span>本機審核人</span>
+                                    <input
+                                      value={reviewDraft.reviewedBy}
+                                      onChange={(event) => updateReceiverEvidenceTemplateReviewDraft(
+                                        template.templateId,
+                                        "reviewedBy",
+                                        event.target.value,
+                                        availability.status === "expired" ? template.governance.reviewedBy : "",
+                                      )}
+                                    />
+                                  </label>
+                                  <label className="field-block">
+                                    <span>有效期限</span>
+                                    <input
+                                      type="date"
+                                      min={localIsoDate()}
+                                      value={reviewDraft.validUntil}
+                                      onChange={(event) => updateReceiverEvidenceTemplateReviewDraft(
+                                        template.templateId,
+                                        "validUntil",
+                                        event.target.value,
+                                        availability.status === "expired" ? template.governance.reviewedBy : "",
+                                      )}
+                                    />
+                                  </label>
+                                </div>
+                              )}
+                              <div className="action-row">
+                                {availability.usable ? (
+                                  <button className="ghost" type="button" onClick={() => handleRevokeReceiverEvidenceTemplateApproval(template.templateId)}>
+                                    撤銷核准
+                                  </button>
+                                ) : (
+                                  <button
+                                    className="secondary"
+                                    type="button"
+                                    disabled={!reviewDraft.reviewedBy.trim() || !reviewDraft.validUntil}
+                                    onClick={() => handleApproveReceiverEvidenceTemplate(template.templateId)}
+                                  >
+                                    {availability.status === "expired" ? "重新核准" : "核准此範本"}
+                                  </button>
+                                )}
+                                <button
+                                  className="secondary"
+                                  type="button"
+                                  disabled={!availability.usable}
+                                  onClick={() => handleApplyReceiverEvidenceTemplateToAll(template.templateId)}
+                                >
+                                  套用至全部同類列
+                                </button>
+                                <button className="ghost" type="button" onClick={() => handleDeleteReceiverEvidenceTemplate(template.templateId)}>
+                                  刪除
+                                </button>
+                              </div>
                             </div>
                           </article>
                         );
                       })}
                     </div>
                   ) : (
-                    <p className="empty-state">尚無範本。先在下方將某類查核標示為通過、填妥依據與文件資料，再按「儲存為範本」。</p>
+                    <p className="empty-state">尚無範本。先在下方將某類查核標示為通過、填妥依據與文件資料，再建立待核准範本。</p>
                   )}
                 </Panel>
 
@@ -5519,6 +5684,8 @@ function App() {
                               <p className="meta-line">每類均須明列通過、未通過或不適用及其依據；標示通過時必須選取實際證據檔並完成文件資料。</p>
                               {(result.supplementalChecks ?? emptySupplementalChecks()).map((check) => {
                                 const label = receiverSupplementalCheckOptions.find((option) => option.value === check.checkId)?.label ?? check.checkId;
+                                const matchingTemplates = receiverEvidenceTemplates.filter((template) => template.checkId === check.checkId);
+                                const usableTemplates = matchingTemplates.filter((template) => receiverEvidenceTemplateAvailability(template, localIsoDate()).usable);
                                 return (
                                   <article className="receiver-result-card" key={`${result.transferId}-${check.checkId}`}>
                                     <div className="form-grid">
@@ -5542,31 +5709,34 @@ function App() {
                                         <span>套用本機範本</span>
                                         <select
                                           value=""
-                                          disabled={!receiverEvidenceTemplates.some((template) => template.checkId === check.checkId)}
+                                          disabled={!usableTemplates.length}
                                           onChange={(event) => handleApplyReceiverEvidenceTemplate(index, check.checkId, event.target.value)}
                                         >
                                           <option value="">
-                                            {receiverEvidenceTemplates.some((template) => template.checkId === check.checkId)
-                                              ? "選擇範本…"
-                                              : "尚無此類範本"}
+                                            {usableTemplates.length ? "選擇已核准範本…" : matchingTemplates.length ? "此類範本尚未核准或已過期" : "尚無此類範本"}
                                           </option>
-                                          {receiverEvidenceTemplates
-                                            .filter((template) => template.checkId === check.checkId)
-                                            .map((template) => <option value={template.templateId} key={template.templateId}>{template.name}</option>)}
+                                          {matchingTemplates.map((template) => {
+                                            const availability = receiverEvidenceTemplateAvailability(template, localIsoDate());
+                                            return (
+                                              <option value={template.templateId} key={template.templateId} disabled={!availability.usable}>
+                                                {`${template.name}｜v${template.governance.revision}｜${availability.reason}`}
+                                              </option>
+                                            );
+                                          })}
                                         </select>
-                                        <small>套用只帶入查核依據及文件編號、版次、日期與頁碼。</small>
+                                        <small>只有本機已核准且未過期的範本可用；套用只帶入查核依據及文件受控欄位。</small>
                                       </label>
                                       <div className="field-block receiver-template-save">
                                         <span>重用目前資料</span>
                                         <button
                                           className="secondary"
                                           type="button"
-                                          disabled={check.status !== "passed"}
+                                          disabled={!receiverEvidenceTemplateDraftComplete(check)}
                                           onClick={() => handleSaveReceiverEvidenceTemplate(index, check.checkId)}
                                         >
-                                          儲存為範本
+                                          儲存為範本／新修訂
                                         </button>
-                                        <small>檔名及 SHA-256 不會存入範本。</small>
+                                        <small>內容有變更時自動升版並撤銷核准；檔名及 SHA-256 永不存入。</small>
                                       </div>
                                       {check.status === "passed" && (
                                         <>
@@ -7213,13 +7383,35 @@ function emptySupplementalChecks(): ReceiverSupplementalCheck[] {
 
 function loadReceiverEvidenceTemplates(): ReceiverEvidenceTemplate[] {
   if (typeof localStorage === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY);
-    if (!raw) return [];
-    return parseReceiverEvidenceTemplateLibrary(JSON.parse(raw));
-  } catch {
-    return [];
+  for (const storageKey of [RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY, LEGACY_RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY]) {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) return parseReceiverEvidenceTemplateLibrary(JSON.parse(raw));
+    } catch {
+      // Invalid local data is ignored but not overwritten until the user changes the library.
+    }
   }
+  return [];
+}
+
+function localIsoDate(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function receiverEvidenceTemplateBindingKey(transferId: string, checkId: ReceiverSupplementalCheckId): string {
+  return `${transferId}::${checkId}`;
+}
+
+function receiverEvidenceTemplateDraftComplete(check: ReceiverSupplementalCheck): boolean {
+  return check.status === "passed"
+    && Boolean(check.basis.trim())
+    && Boolean(check.evidence?.documentReference.trim())
+    && Boolean(check.evidence?.revision.trim())
+    && Boolean(check.evidence?.issuedDate.trim())
+    && Boolean(check.evidence?.pageReference.trim());
 }
 
 function applyTemplateToReceiverResult(
