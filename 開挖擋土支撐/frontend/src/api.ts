@@ -17,6 +17,7 @@ import {
   ReceiverTrustEvent,
   ReceiverRotationRequest,
   ReceiverOperator,
+  ReceiverOperatorAuditSummary,
   ReceiverOperatorAuthState,
   ReceiverOperatorRole,
   ReceiverRevocationReason,
@@ -103,6 +104,47 @@ export const api = {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, display_name: displayName, password, roles }),
   }),
+  updateReceiverOperatorRoles: (operatorId: string, roles: ReceiverOperatorRole[]) =>
+    request<{ operator: ReceiverOperator; operators: ReceiverOperator[] }>(
+      `/api/receiver-operators/${encodeURIComponent(operatorId)}/roles`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roles }),
+      },
+    ),
+  setReceiverOperatorDisabled: (operatorId: string, disabled: boolean) =>
+    request<{ operator: ReceiverOperator; operators: ReceiverOperator[] }>(
+      `/api/receiver-operators/${encodeURIComponent(operatorId)}/status`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ disabled }),
+      },
+    ),
+  resetReceiverOperatorPassword: (operatorId: string, newPassword: string) =>
+    request<{ operator: ReceiverOperator; operators: ReceiverOperator[] }>(
+      `/api/receiver-operators/${encodeURIComponent(operatorId)}/password-reset`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ new_password: newPassword }),
+      },
+    ),
+  changeReceiverOperatorPassword: async (currentPassword: string, newPassword: string) => {
+    const result = await request<{ passwordChanged: true; loggedOut: true }>(
+      "/api/receiver-operator-auth/change-password",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+      },
+    );
+    saveReceiverCsrfToken();
+    return result;
+  },
+  listReceiverOperatorAuditEvents: () =>
+    request<ReceiverOperatorAuditSummary>("/api/receiver-operator-audit-events"),
   bootstrap: () => request<BootstrapPayload>("/api/bootstrap"),
   getReferenceData: () => request<ReferenceData>("/api/reference-data"),
   saveReferenceData: (referenceData: ReferenceData) =>

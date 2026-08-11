@@ -749,8 +749,38 @@ export type ReceiverOperator = {
   displayName: string;
   roles: ReceiverOperatorRole[];
   disabled: boolean;
+  passwordResetRequired: boolean;
   createdAt: string;
   identityAssurance: "authenticated-local-account";
+};
+
+export type ReceiverOperatorAuditEvent = {
+  eventId: string;
+  eventType:
+    | "operator-bootstrap-created"
+    | "operator-created"
+    | "operator-roles-changed"
+    | "operator-disabled"
+    | "operator-enabled"
+    | "operator-password-reset"
+    | "operator-password-changed";
+  actorOperatorId: string;
+  actorUsername: string;
+  actorDisplayName: string;
+  targetOperatorId: string;
+  targetUsername: string;
+  targetDisplayName: string;
+  occurredAt: string;
+  details: Record<string, unknown>;
+  previousEventFingerprint: string | null;
+  eventFingerprint: string;
+};
+
+export type ReceiverOperatorAuditSummary = {
+  events: ReceiverOperatorAuditEvent[];
+  chainValid: true;
+  eventCount: number;
+  headFingerprint: string | null;
 };
 
 export type ReceiverOperatorAuthState = {

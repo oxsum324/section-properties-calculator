@@ -116,7 +116,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.25.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.26.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -694,6 +694,14 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'receiver-key-admin',
   'receiver-key-requester',
   'receiver-key-approver',
+  'password_reset_required',
+  'receiver_operator_audit_events',
+  'receiver_operator_audit_no_update',
+  'receiver_operator_audit_no_delete',
+  'operator-roles-changed',
+  'operator-password-reset',
+  'operator-password-changed',
+  'blockedPendingRotationClaims',
 ].forEach((needle) => {
   assert(receiverOperatorAuth.includes(needle), `excavation receiver operator auth keeps ${needle}`, needle);
 });
@@ -703,6 +711,11 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '/api/receiver-operator-auth/login',
   '/api/receiver-operator-auth/logout',
   '/api/receiver-operators',
+  '/api/receiver-operator-auth/change-password',
+  '/api/receiver-operator-audit-events',
+  '/roles',
+  '/status',
+  '/password-reset',
   'required_role="receiver-key-requester"',
   'required_role="receiver-key-approver"',
   'authorizationState',
@@ -718,6 +731,11 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'bootstrapReceiverOperator',
   'loginReceiverOperator',
   'createReceiverOperator',
+  'updateReceiverOperatorRoles',
+  'setReceiverOperatorDisabled',
+  'resetReceiverOperatorPassword',
+  'changeReceiverOperatorPassword',
+  'listReceiverOperatorAuditEvents',
 ].forEach((needle) => {
   assert(api.includes(needle), `excavation frontend receiver auth keeps ${needle}`, needle);
 });
@@ -728,6 +746,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'test_roles_are_enforced_and_login_is_rate_limited',
   'test_bootstrap_and_pending_rotation_claims_are_unique_across_store_instances',
   'test_parallel_database_approvals_allow_one_completion',
+  'test_account_lifecycle_revokes_access_blocks_pending_claims_and_keeps_audit_chain',
+  'test_http_password_reset_requires_change_before_admin_actions',
 ].forEach((needle) => {
   assert(receiverOperatorAuthTests.includes(needle), `excavation receiver operator tests keep ${needle}`, needle);
 });
@@ -754,6 +774,9 @@ assert(
   'JSON 事件清冊與 SQLite claim 分屬兩個檔案',
   'STRUT_DB_PATH',
   '不應等待 72 小時雙人輪替覆核',
+  '不得自行停用、改角色或由管理入口重設自己的密碼',
+  '須變更臨時密碼',
+  '禁止事件更新／刪除',
 ].forEach((needle) => {
   assert(receiverKeyManagementGuide.includes(needle), `excavation receiver key rotation guide keeps ${needle}`, needle);
 });

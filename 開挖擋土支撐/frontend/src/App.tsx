@@ -46,6 +46,8 @@ import {
   ReceiverRevocationReason,
   ReceiverRotationRequest,
   ReceiverOperator,
+  ReceiverOperatorAuditEvent,
+  ReceiverOperatorAuditSummary,
   ReceiverOperatorAuthState,
   ReceiverOperatorRole,
   ReceiverTrustEvent,
@@ -177,12 +179,62 @@ const emptyReceiverOperatorCreateDraft = {
   password: "",
   roles: [] as ReceiverOperatorRole[],
 };
+const emptyReceiverOperatorManageDraft = {
+  operatorId: "",
+  roles: [] as ReceiverOperatorRole[],
+  temporaryPassword: "",
+};
+const emptyReceiverOperatorPasswordChangeDraft = {
+  currentPassword: "",
+  newPassword: "",
+  confirmPassword: "",
+};
+const emptyReceiverOperatorAuditSummary: ReceiverOperatorAuditSummary = {
+  events: [],
+  chainValid: true,
+  eventCount: 0,
+  headFingerprint: null,
+};
 
 const receiverOperatorRoleOptions: Array<{ value: ReceiverOperatorRole; label: string }> = [
   { value: "receiver-key-admin", label: "接收端金鑰管理員" },
   { value: "receiver-key-requester", label: "輪替申請人" },
   { value: "receiver-key-approver", label: "輪替覆核人" },
 ];
+
+function receiverOperatorAuditEventLabel(eventType: ReceiverOperatorAuditEvent["eventType"]): string {
+  return {
+    "operator-bootstrap-created": "建立首位管理員",
+    "operator-created": "建立操作帳號",
+    "operator-roles-changed": "變更帳號角色",
+    "operator-disabled": "停用帳號",
+    "operator-enabled": "重新啟用帳號",
+    "operator-password-reset": "管理員重設密碼",
+    "operator-password-changed": "本人變更密碼",
+  }[eventType] ?? eventType;
+}
+
+function receiverOperatorAuditDetail(event: ReceiverOperatorAuditEvent): string {
+  const roles = Array.isArray(event.details.roles) ? event.details.roles : [];
+  const previousRoles = Array.isArray(event.details.previousRoles) ? event.details.previousRoles : [];
+  const roleLabel = (role: unknown) => {
+    const value = String(role);
+    return receiverOperatorRoleOptions.find((option) => option.value === value)?.label ?? value;
+  };
+  if (event.eventType === "operator-roles-changed") {
+    return `${previousRoles.map(roleLabel).join("、") || "—"} → ${roles.map(roleLabel).join("、") || "—"}`;
+  }
+  if (event.eventType === "operator-created" || event.eventType === "operator-bootstrap-created") {
+    return roles.map(roleLabel).join("、") || "—";
+  }
+  const blocked = Number(event.details.blockedPendingRotationClaims ?? 0);
+  const revoked = Number(event.details.revokedSessions ?? 0);
+  if (event.eventType === "operator-disabled") return `撤銷工作階段 ${revoked}；阻斷待審申請 ${blocked}`;
+  if (event.eventType === "operator-password-reset" || event.eventType === "operator-password-changed") {
+    return `撤銷工作階段 ${revoked}`;
+  }
+  return "—";
+}
 
 function receiverTrustEventReasonLabel(value: ReceiverTrustEvent["reasonCode"]): string {
   if (value === "new-registration") return "新金鑰登錄";
@@ -456,6 +508,13 @@ function App() {
   const [receiverOperatorBootstrapDraft, setReceiverOperatorBootstrapDraft] = useState(emptyReceiverOperatorBootstrapDraft);
   const [receiverOperators, setReceiverOperators] = useState<ReceiverOperator[]>([]);
   const [receiverOperatorCreateDraft, setReceiverOperatorCreateDraft] = useState(emptyReceiverOperatorCreateDraft);
+  const [receiverOperatorManageDraft, setReceiverOperatorManageDraft] = useState(emptyReceiverOperatorManageDraft);
+  const [receiverOperatorPasswordChangeDraft, setReceiverOperatorPasswordChangeDraft] = useState(
+    emptyReceiverOperatorPasswordChangeDraft,
+  );
+  const [receiverOperatorAuditSummary, setReceiverOperatorAuditSummary] = useState(
+    emptyReceiverOperatorAuditSummary,
+  );
   const [receiverTrustDraft, setReceiverTrustDraft] = useState({ organization: "", displayName: "", publicKey: "" });
   const [receiverTrustEnrollment, setReceiverTrustEnrollment] = useState<ReceiverKeyEnrollment | null>(null);
   const [receiverTrustVerificationConfirmed, setReceiverTrustVerificationConfirmed] = useState(false);
@@ -482,9 +541,13 @@ function App() {
   const reportModeLabel = conciseReportMode ? "簡述版" : "詳細版";
   const reportDocumentStatusLabel = reportApproved ? "正式附件" : "內部審閱";
   const receiverOperatorRoles = receiverOperatorAuth.operator?.roles ?? [];
-  const receiverCanAdministerKeys = receiverOperatorRoles.includes("receiver-key-admin");
-  const receiverCanRequestRotation = receiverOperatorRoles.includes("receiver-key-requester");
-  const receiverCanApproveRotation = receiverOperatorRoles.includes("receiver-key-approver");
+  const receiverPasswordResetRequired = Boolean(receiverOperatorAuth.operator?.passwordResetRequired);
+  const receiverCanAdministerKeys = !receiverPasswordResetRequired && receiverOperatorRoles.includes("receiver-key-admin");
+  const receiverCanRequestRotation = !receiverPasswordResetRequired && receiverOperatorRoles.includes("receiver-key-requester");
+  const receiverCanApproveRotation = !receiverPasswordResetRequired && receiverOperatorRoles.includes("receiver-key-approver");
+  const managedReceiverOperator = receiverOperators.find(
+    (operator) => operator.id === receiverOperatorManageDraft.operatorId,
+  ) ?? null;
   const activeRemovalTransferHandoff = useMemo(
     () => removalTransferHandoff ?? latestRemovalTransferHandoff(project),
     [project?.removal_transfer_handoffs, removalTransferHandoff],
@@ -585,11 +648,18 @@ function App() {
           setReceiverRotationRequests(response.rotationRequests);
           setReceiverOperatorAuth(auth);
           setReceiverOperatorAuthLoaded(true);
-          if (auth.operator?.roles.includes("receiver-key-admin")) {
-            const operators = await api.listReceiverOperators();
-            if (!cancelled) setReceiverOperators(operators.operators);
+          if (auth.operator?.roles.includes("receiver-key-admin") && !auth.operator.passwordResetRequired) {
+            const [operators, audit] = await Promise.all([
+              api.listReceiverOperators(),
+              api.listReceiverOperatorAuditEvents(),
+            ]);
+            if (!cancelled) {
+              setReceiverOperators(operators.operators);
+              setReceiverOperatorAuditSummary(audit);
+            }
           } else {
             setReceiverOperators([]);
+            setReceiverOperatorAuditSummary(emptyReceiverOperatorAuditSummary);
           }
         }
       })
@@ -1301,12 +1371,32 @@ function App() {
   async function applyReceiverOperatorAuth(auth: ReceiverOperatorAuthState) {
     setReceiverOperatorAuth(auth);
     setReceiverOperatorAuthLoaded(true);
-    if (auth.operator?.roles.includes("receiver-key-admin")) {
-      const response = await api.listReceiverOperators();
+    if (auth.operator?.roles.includes("receiver-key-admin") && !auth.operator.passwordResetRequired) {
+      const [response, audit] = await Promise.all([
+        api.listReceiverOperators(),
+        api.listReceiverOperatorAuditEvents(),
+      ]);
       setReceiverOperators(response.operators);
+      setReceiverOperatorAuditSummary(audit);
     } else {
       setReceiverOperators([]);
+      setReceiverOperatorAuditSummary(emptyReceiverOperatorAuditSummary);
     }
+  }
+
+  async function refreshReceiverOperatorGovernance() {
+    const [operators, audit] = await Promise.all([
+      api.listReceiverOperators(),
+      api.listReceiverOperatorAuditEvents(),
+    ]);
+    setReceiverOperators(operators.operators);
+    setReceiverOperatorAuditSummary(audit);
+    setReceiverOperatorManageDraft((current) => {
+      const selected = operators.operators.find((operator) => operator.id === current.operatorId);
+      return selected
+        ? { ...current, roles: [...selected.roles], temporaryPassword: "" }
+        : emptyReceiverOperatorManageDraft;
+    });
   }
 
   async function handleBootstrapReceiverOperator() {
@@ -1351,6 +1441,9 @@ function App() {
       setReceiverOperatorAuth({ bootstrapRequired: false, authenticated: false, operator: null });
       setReceiverOperators([]);
       setReceiverOperatorCreateDraft(emptyReceiverOperatorCreateDraft);
+      setReceiverOperatorManageDraft(emptyReceiverOperatorManageDraft);
+      setReceiverOperatorPasswordChangeDraft(emptyReceiverOperatorPasswordChangeDraft);
+      setReceiverOperatorAuditSummary(emptyReceiverOperatorAuditSummary);
       cancelReceiverKeyRotationCompletion();
       cancelReceiverKeyRotationApproval();
       cancelReceiverTrustKeyRevocation();
@@ -1382,6 +1475,102 @@ function App() {
       );
       setReceiverOperators(response.operators);
       setReceiverOperatorCreateDraft(emptyReceiverOperatorCreateDraft);
+      setReceiverOperatorAuditSummary(await api.listReceiverOperatorAuditEvents());
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  function selectReceiverOperator(operator: ReceiverOperator) {
+    setReceiverOperatorManageDraft({
+      operatorId: operator.id,
+      roles: [...operator.roles],
+      temporaryPassword: "",
+    });
+  }
+
+  function toggleManagedReceiverOperatorRole(role: ReceiverOperatorRole) {
+    setReceiverOperatorManageDraft((current) => ({
+      ...current,
+      roles: current.roles.includes(role)
+        ? current.roles.filter((item) => item !== role)
+        : [...current.roles, role],
+    }));
+  }
+
+  async function handleUpdateReceiverOperatorRoles() {
+    if (!managedReceiverOperator) return;
+    try {
+      setBusy("變更操作帳號角色");
+      await api.updateReceiverOperatorRoles(
+        managedReceiverOperator.id,
+        receiverOperatorManageDraft.roles,
+      );
+      await refreshReceiverOperatorGovernance();
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleSetReceiverOperatorDisabled(disabled: boolean) {
+    if (!managedReceiverOperator) return;
+    try {
+      setBusy(disabled ? "停用操作帳號" : "重新啟用操作帳號");
+      await api.setReceiverOperatorDisabled(managedReceiverOperator.id, disabled);
+      await refreshReceiverOperatorGovernance();
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleResetReceiverOperatorPassword() {
+    if (!managedReceiverOperator) return;
+    try {
+      setBusy("重設操作帳號密碼");
+      await api.resetReceiverOperatorPassword(
+        managedReceiverOperator.id,
+        receiverOperatorManageDraft.temporaryPassword,
+      );
+      await refreshReceiverOperatorGovernance();
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleChangeReceiverOperatorPassword() {
+    if (
+      receiverOperatorPasswordChangeDraft.newPassword
+      !== receiverOperatorPasswordChangeDraft.confirmPassword
+    ) {
+      setError("新密碼與確認密碼不一致。");
+      return;
+    }
+    try {
+      setBusy("變更登入密碼");
+      await api.changeReceiverOperatorPassword(
+        receiverOperatorPasswordChangeDraft.currentPassword,
+        receiverOperatorPasswordChangeDraft.newPassword,
+      );
+      setReceiverOperatorAuth({ bootstrapRequired: false, authenticated: false, operator: null });
+      setReceiverOperators([]);
+      setReceiverOperatorManageDraft(emptyReceiverOperatorManageDraft);
+      setReceiverOperatorPasswordChangeDraft(emptyReceiverOperatorPasswordChangeDraft);
+      setReceiverOperatorAuditSummary(emptyReceiverOperatorAuditSummary);
+      cancelReceiverKeyRotationCompletion();
+      cancelReceiverKeyRotationApproval();
+      cancelReceiverTrustKeyRevocation();
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -5385,6 +5574,64 @@ function App() {
                       登出金鑰管理
                     </button>
                   </div>
+                  <div className="receiver-key-rotation-card">
+                    <h4>{receiverPasswordResetRequired ? "必須先變更臨時密碼" : "變更本人密碼"}</h4>
+                    <p className={`meta-line${receiverPasswordResetRequired ? " attention-line" : ""}`}>
+                      {receiverPasswordResetRequired
+                        ? "管理員已重設此帳號密碼。在完成本人密碼變更前，所有金鑰管理、輪替申請與覆核權限均暫停。"
+                        : "變更成功會撤銷此帳號全部工作階段並登出，須使用新密碼重新登入。"}
+                    </p>
+                    <div className="form-grid">
+                      <label className="field-block">
+                        <span>目前密碼</span>
+                        <input
+                          type="password"
+                          autoComplete="current-password"
+                          value={receiverOperatorPasswordChangeDraft.currentPassword}
+                          onChange={(event) => setReceiverOperatorPasswordChangeDraft((current) => ({
+                            ...current,
+                            currentPassword: event.target.value,
+                          }))}
+                        />
+                      </label>
+                      <label className="field-block">
+                        <span>新密碼</span>
+                        <input
+                          type="password"
+                          autoComplete="new-password"
+                          value={receiverOperatorPasswordChangeDraft.newPassword}
+                          onChange={(event) => setReceiverOperatorPasswordChangeDraft((current) => ({
+                            ...current,
+                            newPassword: event.target.value,
+                          }))}
+                        />
+                      </label>
+                      <label className="field-block">
+                        <span>再次輸入新密碼</span>
+                        <input
+                          type="password"
+                          autoComplete="new-password"
+                          value={receiverOperatorPasswordChangeDraft.confirmPassword}
+                          onChange={(event) => setReceiverOperatorPasswordChangeDraft((current) => ({
+                            ...current,
+                            confirmPassword: event.target.value,
+                          }))}
+                        />
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={
+                        !receiverOperatorPasswordChangeDraft.currentPassword
+                        || receiverOperatorPasswordChangeDraft.newPassword.length < 12
+                        || receiverOperatorPasswordChangeDraft.newPassword
+                          !== receiverOperatorPasswordChangeDraft.confirmPassword
+                      }
+                      onClick={() => void handleChangeReceiverOperatorPassword()}
+                    >
+                      變更密碼並登出全部工作階段
+                    </button>
+                  </div>
                   {receiverCanAdministerKeys && (
                     <div className="receiver-key-rotation-card">
                       <h4>建立分權操作帳號</h4>
@@ -5439,19 +5686,122 @@ function App() {
                       {receiverOperators.length > 0 && (
                         <div className="table-wrap">
                           <table>
-                            <thead><tr><th>帳號／姓名</th><th>角色</th><th>建立時間</th></tr></thead>
+                            <thead><tr><th>帳號／姓名</th><th>狀態</th><th>角色</th><th>建立時間</th><th>管理</th></tr></thead>
                             <tbody>
                               {receiverOperators.map((operator) => (
                                 <tr key={operator.id}>
                                   <td><strong>{operator.username}</strong><br />{operator.displayName}</td>
+                                  <td>
+                                    {operator.disabled ? "已停用" : operator.passwordResetRequired ? "待變更臨時密碼" : "啟用"}
+                                  </td>
                                   <td>{operator.roles.map((role) => receiverOperatorRoleOptions.find((option) => option.value === role)?.label ?? role).join("、")}</td>
                                   <td>{operator.createdAt}</td>
+                                  <td>
+                                    <button
+                                      className="ghost"
+                                      type="button"
+                                      disabled={operator.id === receiverOperatorAuth.operator?.id}
+                                      onClick={() => selectReceiverOperator(operator)}
+                                    >
+                                      {operator.id === receiverOperatorAuth.operator?.id ? "目前帳號" : "選取管理"}
+                                    </button>
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>
                           </table>
                         </div>
                       )}
+                      {managedReceiverOperator && (
+                        <div className="receiver-key-rotation-card">
+                          <h4>管理帳號：{managedReceiverOperator.displayName}（{managedReceiverOperator.username}）</h4>
+                          <p className="meta-line">
+                            角色撤除與停用會立即生效；撤除輪替申請角色或停用帳號時，該帳號尚未完成的輪替申請會轉為 blocked。
+                          </p>
+                          <div className="check-grid">
+                            {receiverOperatorRoleOptions.map((option) => (
+                              <label className="check-field" key={`manage-${option.value}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={receiverOperatorManageDraft.roles.includes(option.value)}
+                                  onChange={() => toggleManagedReceiverOperatorRole(option.value)}
+                                />
+                                <span>{option.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                          <div className="action-row">
+                            <button
+                              type="button"
+                              disabled={!receiverOperatorManageDraft.roles.length}
+                              onClick={() => void handleUpdateReceiverOperatorRoles()}
+                            >
+                              儲存角色變更
+                            </button>
+                            <button
+                              className={managedReceiverOperator.disabled ? "secondary" : "danger"}
+                              type="button"
+                              onClick={() => void handleSetReceiverOperatorDisabled(!managedReceiverOperator.disabled)}
+                            >
+                              {managedReceiverOperator.disabled ? "重新啟用帳號" : "停用帳號"}
+                            </button>
+                          </div>
+                          <div className="form-grid">
+                            <label className="field-block">
+                              <span>管理員指定的臨時密碼</span>
+                              <input
+                                type="password"
+                                autoComplete="new-password"
+                                value={receiverOperatorManageDraft.temporaryPassword}
+                                onChange={(event) => setReceiverOperatorManageDraft((current) => ({
+                                  ...current,
+                                  temporaryPassword: event.target.value,
+                                }))}
+                              />
+                            </label>
+                          </div>
+                          <p className="meta-line">
+                            重設後會撤銷該帳號全部工作階段；使用者以臨時密碼登入後，只能先設定自己的新密碼。
+                          </p>
+                          <button
+                            className="secondary"
+                            type="button"
+                            disabled={receiverOperatorManageDraft.temporaryPassword.length < 12}
+                            onClick={() => void handleResetReceiverOperatorPassword()}
+                          >
+                            重設密碼並撤銷工作階段
+                          </button>
+                        </div>
+                      )}
+                      <div className="receiver-key-rotation-card">
+                        <h4>帳號治理稽核鏈</h4>
+                        <div className="meta-grid">
+                          <MetaItem label="鏈結驗證" value={receiverOperatorAuditSummary.chainValid ? "通過" : "未通過"} />
+                          <MetaItem label="事件數" value={String(receiverOperatorAuditSummary.eventCount)} />
+                          <MetaItem label="最新指紋" value={receiverOperatorAuditSummary.headFingerprint ?? "尚無事件"} />
+                        </div>
+                        <p className="meta-line">
+                          稽核事件在 SQLite 中禁止更新與刪除，並以前一事件指紋串接；本區只記錄此版本啟用後的帳號治理操作。
+                        </p>
+                        {receiverOperatorAuditSummary.events.length > 0 && (
+                          <div className="table-wrap">
+                            <table>
+                              <thead><tr><th>時間／事件</th><th>操作人</th><th>目標帳號</th><th>摘要</th><th>事件指紋</th></tr></thead>
+                              <tbody>
+                                {receiverOperatorAuditSummary.events.map((event) => (
+                                  <tr key={event.eventId}>
+                                    <td>{event.occurredAt}<br /><strong>{receiverOperatorAuditEventLabel(event.eventType)}</strong></td>
+                                    <td>{event.actorDisplayName}<br />{event.actorUsername}</td>
+                                    <td>{event.targetDisplayName}<br />{event.targetUsername}</td>
+                                    <td>{receiverOperatorAuditDetail(event)}</td>
+                                    <td>{event.eventFingerprint}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </>

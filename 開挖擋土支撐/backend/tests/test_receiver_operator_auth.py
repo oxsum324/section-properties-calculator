@@ -18,6 +18,36 @@ from backend.app.receiver_trust_store import ReceiverTrustStore
 
 
 class ReceiverOperatorStoreTests(unittest.TestCase):
+    def test_existing_operator_database_adds_password_reset_column_without_rebuild(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            db_path = Path(directory) / "operators.sqlite3"
+            with closing(sqlite3.connect(db_path)) as connection:
+                connection.execute(
+                    """
+                    CREATE TABLE receiver_operators (
+                        id TEXT PRIMARY KEY,
+                        username TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                        display_name TEXT NOT NULL,
+                        password_salt BLOB NOT NULL,
+                        password_hash BLOB NOT NULL,
+                        disabled INTEGER NOT NULL DEFAULT 0 CHECK (disabled IN (0, 1)),
+                        created_at TEXT NOT NULL
+                    )
+                    """
+                )
+                connection.commit()
+
+            store = ReceiverOperatorStore(db_path)
+            with closing(sqlite3.connect(db_path)) as connection:
+                columns = {
+                    row[1]
+                    for row in connection.execute("PRAGMA table_info(receiver_operators)").fetchall()
+                }
+            self.assertIn("password_reset_required", columns)
+            operator = store.bootstrap("migrated-admin", "既有資料庫管理員", "Migration-Secure-2026!")
+            self.assertFalse(operator["passwordResetRequired"])
+            self.assertTrue(store.list_audit_events()["chainValid"])
+
     def test_http_boundary_requires_session_csrf_role_and_restricts_cors(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -160,6 +190,7 @@ class ReceiverOperatorStoreTests(unittest.TestCase):
                 "李覆核者",
                 "Independent-Secure-2026!",
                 ["receiver-key-approver"],
+                actor_operator_id=requester["id"],
             )
             old = build_receiver_key_enrollment(Ed25519PrivateKey.generate(), "接收端單位", "舊章")
             trust_store.register_enrollment(old, True)
@@ -207,12 +238,13 @@ class ReceiverOperatorStoreTests(unittest.TestCase):
     def test_roles_are_enforced_and_login_is_rate_limited(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             store = ReceiverOperatorStore(Path(directory) / "operators.sqlite3")
-            store.bootstrap("trust-admin", "王管理者", "Correct-Horse-2026!")
+            admin = store.bootstrap("trust-admin", "王管理者", "Correct-Horse-2026!")
             reviewer = store.create_operator(
                 "trust-reviewer",
                 "李覆核者",
                 "Reviewer-Secure-2026!",
                 ["receiver-key-approver"],
+                actor_operator_id=admin["id"],
             )
             session = store.create_session(reviewer["id"])
             with self.assertRaisesRegex(PermissionError, "角色"):
@@ -268,12 +300,14 @@ class ReceiverOperatorStoreTests(unittest.TestCase):
                 "李覆核者",
                 "Independent-One-2026!",
                 ["receiver-key-approver"],
+                actor_operator_id=requester["id"],
             )
             second_reviewer = store.create_operator(
                 "reviewer-two",
                 "陳覆核者",
                 "Independent-Two-2026!",
                 ["receiver-key-approver"],
+                actor_operator_id=requester["id"],
             )
             summary = {
                 "requestFingerprint": "RVE-22222222222222222222",
@@ -316,6 +350,219 @@ class ReceiverOperatorStoreTests(unittest.TestCase):
                 claims[0]["approved_by_operator_id"],
                 {first_reviewer["id"], second_reviewer["id"]},
             )
+
+    def test_account_lifecycle_revokes_access_blocks_pending_claims_and_keeps_audit_chain(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            db_path = Path(directory) / "operators.sqlite3"
+            store = ReceiverOperatorStore(db_path)
+            admin = store.bootstrap("trust-admin", "王管理者", "Correct-Horse-2026!")
+            backup_admin = store.create_operator(
+                "backup-admin",
+                "李備援管理者",
+                "Independent-Backup-2026!",
+                ["receiver-key-admin"],
+                actor_operator_id=admin["id"],
+            )
+            requester = store.create_operator(
+                "rotation-user",
+                "陳申請人",
+                "Requester-Start-2026!",
+                ["receiver-key-requester"],
+                actor_operator_id=admin["id"],
+            )
+            old_session = store.create_session(requester["id"])
+            summary = {
+                "requestFingerprint": "RVE-33333333333333333333",
+                "newKeyId": "RVK-NEW-LIFECYCLE",
+                "oldKeyId": "RVK-OLD-LIFECYCLE",
+                "requestedAt": "2026-08-11T00:00:00Z",
+                "expiresAt": "2099-08-14T00:00:00Z",
+            }
+            with store.rotation_request_transaction(requester["id"], summary["newKeyId"]) as connection:
+                store.record_rotation_request(connection, summary, requester["id"])
+
+            updated = store.update_roles(
+                requester["id"],
+                ["receiver-key-approver"],
+                actor_operator_id=admin["id"],
+            )
+            self.assertEqual(updated["roles"], ["receiver-key-approver"])
+            self.assertEqual(store.rotation_claims()[0]["state"], "blocked")
+            with self.assertRaisesRegex(PermissionError, "角色"):
+                store.require_session(
+                    old_session["sessionToken"],
+                    required_role="receiver-key-requester",
+                    csrf_token=old_session["csrfToken"],
+                )
+
+            reset = store.reset_password(
+                requester["id"],
+                "Temporary-Reset-2026!",
+                actor_operator_id=admin["id"],
+            )
+            self.assertTrue(reset["passwordResetRequired"])
+            self.assertIsNone(store.get_session(old_session["sessionToken"]))
+            authenticated = store.authenticate("rotation-user", "Temporary-Reset-2026!")
+            self.assertTrue(authenticated["passwordResetRequired"])
+            reset_session = store.create_session(requester["id"])
+            with self.assertRaisesRegex(PermissionError, "必須先變更"):
+                store.require_session(
+                    reset_session["sessionToken"],
+                    required_role="receiver-key-approver",
+                    csrf_token=reset_session["csrfToken"],
+                )
+            store.require_session(
+                reset_session["sessionToken"],
+                csrf_token=reset_session["csrfToken"],
+                allow_password_reset=True,
+            )
+            changed = store.change_password(
+                requester["id"],
+                "Temporary-Reset-2026!",
+                "Permanent-Changed-2026!",
+            )
+            self.assertFalse(changed["passwordResetRequired"])
+            self.assertIsNone(store.get_session(reset_session["sessionToken"]))
+            with self.assertRaisesRegex(ValueError, "帳號或密碼"):
+                store.authenticate("rotation-user", "Temporary-Reset-2026!")
+            store.authenticate("rotation-user", "Permanent-Changed-2026!")
+
+            active_session = store.create_session(requester["id"])
+            disabled = store.set_disabled(
+                requester["id"],
+                True,
+                actor_operator_id=admin["id"],
+            )
+            self.assertTrue(disabled["disabled"])
+            self.assertIsNone(store.get_session(active_session["sessionToken"]))
+            with self.assertRaisesRegex(ValueError, "帳號或密碼"):
+                store.authenticate("rotation-user", "Permanent-Changed-2026!")
+            enabled = store.set_disabled(
+                requester["id"],
+                False,
+                actor_operator_id=admin["id"],
+            )
+            self.assertFalse(enabled["disabled"])
+            store.authenticate("rotation-user", "Permanent-Changed-2026!")
+
+            with self.assertRaisesRegex(ValueError, "不得自行變更角色"):
+                store.update_roles(
+                    admin["id"],
+                    ["receiver-key-admin"],
+                    actor_operator_id=admin["id"],
+                )
+            with self.assertRaisesRegex(ValueError, "不得自行停用"):
+                store.set_disabled(admin["id"], True, actor_operator_id=admin["id"])
+            with self.assertRaisesRegex(ValueError, "不得由重設入口"):
+                store.reset_password(
+                    admin["id"],
+                    "Admin-Reset-Blocked-2026!",
+                    actor_operator_id=admin["id"],
+                )
+
+            store.set_disabled(
+                backup_admin["id"],
+                True,
+                actor_operator_id=admin["id"],
+            )
+            with self.assertRaisesRegex(PermissionError, "啟用中的"):
+                store.create_operator(
+                    "blocked-create",
+                    "不得建立",
+                    "Blocked-Create-2026!",
+                    ["receiver-key-admin"],
+                    actor_operator_id=backup_admin["id"],
+                )
+
+            audit = store.list_audit_events()
+            self.assertTrue(audit["chainValid"])
+            self.assertGreaterEqual(audit["eventCount"], 9)
+            event_types = {event["eventType"] for event in audit["events"]}
+            self.assertTrue(
+                {
+                    "operator-bootstrap-created",
+                    "operator-created",
+                    "operator-roles-changed",
+                    "operator-password-reset",
+                    "operator-password-changed",
+                    "operator-disabled",
+                    "operator-enabled",
+                }.issubset(event_types)
+            )
+            with closing(sqlite3.connect(db_path)) as connection:
+                with self.assertRaises(sqlite3.IntegrityError):
+                    connection.execute(
+                        "UPDATE receiver_operator_audit_events SET event_type = 'tampered' WHERE sequence_no = 1"
+                    )
+                with self.assertRaises(sqlite3.IntegrityError):
+                    connection.execute("DELETE FROM receiver_operator_audit_events WHERE sequence_no = 1")
+
+    def test_http_password_reset_requires_change_before_admin_actions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            operator_store = ReceiverOperatorStore(Path(directory) / "operators.sqlite3")
+            with patch.object(main_module, "receiver_operator_store", operator_store):
+                primary = TestClient(main_module.app)
+                bootstrap = primary.post(
+                    "/api/receiver-operator-auth/bootstrap",
+                    json={
+                        "username": "primary-admin",
+                        "display_name": "主要管理者",
+                        "password": "Primary-Secure-2026!",
+                    },
+                )
+                self.assertEqual(bootstrap.status_code, 200, bootstrap.text)
+                csrf = bootstrap.json()["csrfToken"]
+                created = primary.post(
+                    "/api/receiver-operators",
+                    headers={"X-CSRF-Token": csrf},
+                    json={
+                        "username": "managed-admin",
+                        "display_name": "受管管理者",
+                        "password": "Independent-Admin-2026!",
+                        "roles": ["receiver-key-admin"],
+                    },
+                )
+                self.assertEqual(created.status_code, 200, created.text)
+                target = created.json()["operator"]
+                reset = primary.post(
+                    f"/api/receiver-operators/{target['id']}/password-reset",
+                    headers={"X-CSRF-Token": csrf},
+                    json={"new_password": "Temporary-Access-2026!"},
+                )
+                self.assertEqual(reset.status_code, 200, reset.text)
+                self.assertTrue(reset.json()["operator"]["passwordResetRequired"])
+
+                managed = TestClient(main_module.app)
+                login = managed.post(
+                    "/api/receiver-operator-auth/login",
+                    json={"username": "managed-admin", "password": "Temporary-Access-2026!"},
+                )
+                self.assertEqual(login.status_code, 200, login.text)
+                self.assertTrue(login.json()["operator"]["passwordResetRequired"])
+                managed_csrf = login.json()["csrfToken"]
+                blocked = managed.get("/api/receiver-operators")
+                self.assertEqual(blocked.status_code, 403, blocked.text)
+                changed = managed.post(
+                    "/api/receiver-operator-auth/change-password",
+                    headers={"X-CSRF-Token": managed_csrf},
+                    json={
+                        "current_password": "Temporary-Access-2026!",
+                        "new_password": "Permanent-Access-2026!",
+                    },
+                )
+                self.assertEqual(changed.status_code, 200, changed.text)
+                self.assertTrue(changed.json()["loggedOut"])
+                relogin = managed.post(
+                    "/api/receiver-operator-auth/login",
+                    json={"username": "managed-admin", "password": "Permanent-Access-2026!"},
+                )
+                self.assertEqual(relogin.status_code, 200, relogin.text)
+                self.assertFalse(relogin.json()["operator"]["passwordResetRequired"])
+
+                audit = primary.get("/api/receiver-operator-audit-events")
+                self.assertEqual(audit.status_code, 200, audit.text)
+                self.assertTrue(audit.json()["chainValid"])
+                self.assertGreaterEqual(audit.json()["eventCount"], 4)
 
 
 if __name__ == "__main__":

@@ -57,6 +57,7 @@ from .schemas import (
     BraceRow,
     BuildReceiverReceiptRequest,
     CalculateReshoreMemberCapacityRequest,
+    ChangeReceiverOperatorPasswordRequest,
     BuildReceiverSigningRequestRequest,
     BuildSourceEvidenceVerificationRequest,
     BuildSourceEvidenceSigningRequestRequest,
@@ -69,6 +70,7 @@ from .schemas import (
     RequestReceiverKeyRotationCompletionRequest,
     ReceiverOperatorBootstrapRequest,
     ReceiverOperatorLoginRequest,
+    ResetReceiverOperatorPasswordRequest,
     ReportPayload,
     RegisterReceiverEnrollmentRequest,
     RestoreReceiverTrustRegistryRequest,
@@ -76,7 +78,9 @@ from .schemas import (
     SaveReferenceDataRequest,
     SaveProjectRequest,
     SaveProjectResponse,
+    SetReceiverOperatorStatusRequest,
     SupportRow,
+    UpdateReceiverOperatorRolesRequest,
     ValidateReceiverReceiptRequest,
 )
 from .workbook_loader import (
@@ -123,12 +127,14 @@ def _receiver_operator(
     *,
     required_role: str | None = None,
     require_csrf: bool = False,
+    allow_password_reset: bool = False,
 ) -> dict[str, Any]:
     try:
         session = receiver_operator_store.require_session(
             request.cookies.get(RECEIVER_SESSION_COOKIE),
             required_role=required_role,
             csrf_token=(request.headers.get("x-csrf-token") or "") if require_csrf else None,
+            allow_password_reset=allow_password_reset,
         )
     except PermissionError as exc:
         status_code = 401 if "請先登入" in str(exc) else 403
@@ -180,6 +186,8 @@ def bootstrap_receiver_operator(
             payload.password,
         )
         session = receiver_operator_store.create_session(operator["id"])
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     _set_receiver_session_cookie(response, session["sessionToken"], request)
@@ -203,7 +211,7 @@ def login_receiver_operator(
 
 @app.post("/api/receiver-operator-auth/logout")
 def logout_receiver_operator(request: Request, response: Response) -> dict[str, bool]:
-    _receiver_operator(request, require_csrf=True)
+    _receiver_operator(request, require_csrf=True, allow_password_reset=True)
     receiver_operator_store.delete_session(request.cookies.get(RECEIVER_SESSION_COOKIE))
     response.delete_cookie(RECEIVER_SESSION_COOKIE, path="/", samesite="strict")
     return {"loggedOut": True}
@@ -217,17 +225,110 @@ def list_receiver_operators(request: Request) -> dict[str, Any]:
 
 @app.post("/api/receiver-operators")
 def create_receiver_operator(payload: CreateReceiverOperatorRequest, request: Request) -> dict[str, Any]:
-    _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
+    actor = _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
     try:
         operator = receiver_operator_store.create_operator(
             payload.username,
             payload.display_name,
             payload.password,
             list(payload.roles),
+            actor_operator_id=actor["id"],
         )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"operator": operator, "operators": receiver_operator_store.list_operators()}
+
+
+@app.patch("/api/receiver-operators/{operator_id}/roles")
+def update_receiver_operator_roles(
+    operator_id: str,
+    payload: UpdateReceiverOperatorRolesRequest,
+    request: Request,
+) -> dict[str, Any]:
+    actor = _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
+    try:
+        operator = receiver_operator_store.update_roles(
+            operator_id,
+            list(payload.roles),
+            actor_operator_id=actor["id"],
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"operator": operator, "operators": receiver_operator_store.list_operators()}
+
+
+@app.patch("/api/receiver-operators/{operator_id}/status")
+def set_receiver_operator_status(
+    operator_id: str,
+    payload: SetReceiverOperatorStatusRequest,
+    request: Request,
+) -> dict[str, Any]:
+    actor = _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
+    try:
+        operator = receiver_operator_store.set_disabled(
+            operator_id,
+            payload.disabled,
+            actor_operator_id=actor["id"],
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"operator": operator, "operators": receiver_operator_store.list_operators()}
+
+
+@app.post("/api/receiver-operators/{operator_id}/password-reset")
+def reset_receiver_operator_password(
+    operator_id: str,
+    payload: ResetReceiverOperatorPasswordRequest,
+    request: Request,
+) -> dict[str, Any]:
+    actor = _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
+    try:
+        operator = receiver_operator_store.reset_password(
+            operator_id,
+            payload.new_password,
+            actor_operator_id=actor["id"],
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"operator": operator, "operators": receiver_operator_store.list_operators()}
+
+
+@app.post("/api/receiver-operator-auth/change-password")
+def change_receiver_operator_password(
+    payload: ChangeReceiverOperatorPasswordRequest,
+    request: Request,
+    response: Response,
+) -> dict[str, bool]:
+    actor = _receiver_operator(request, require_csrf=True, allow_password_reset=True)
+    try:
+        receiver_operator_store.change_password(
+            actor["id"],
+            payload.current_password,
+            payload.new_password,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    response.delete_cookie(RECEIVER_SESSION_COOKIE, path="/", samesite="strict")
+    return {"passwordChanged": True, "loggedOut": True}
+
+
+@app.get("/api/receiver-operator-audit-events")
+def list_receiver_operator_audit_events(request: Request) -> dict[str, Any]:
+    _receiver_operator(request, required_role="receiver-key-admin")
+    try:
+        return receiver_operator_store.list_audit_events()
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 def _receipt_validation(receipt: dict[str, Any]) -> dict[str, Any]:

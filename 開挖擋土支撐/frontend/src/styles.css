@@ -1058,12 +1058,32 @@ button.danger-button {
 
 .receiver-key-rotation-card {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   margin: 16px 0;
   padding: 16px;
   border: 1px solid rgba(217, 119, 6, 0.32);
   border-radius: 16px;
   background: rgba(255, 251, 235, 0.82);
+}
+
+.receiver-key-rotation-card > * {
+  min-width: 0;
+}
+
+.receiver-key-rotation-card .table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: 12px;
+}
+
+.receiver-key-rotation-card .table-wrap table {
+  width: 100%;
+  min-width: 640px;
+}
+
+.receiver-key-rotation-card .meta-card strong {
+  overflow-wrap: anywhere;
 }
 
 .receiver-key-rotation-card h4,
@@ -1150,6 +1170,20 @@ button.danger-button {
 }
 
 @media (max-width: 720px) {
+  .receiver-key-rotation-card .form-grid,
+  .receiver-key-rotation-card .meta-grid,
+  .receiver-key-rotation-card .check-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .receiver-key-rotation-card .action-row {
+    align-items: stretch;
+  }
+
+  .receiver-key-rotation-card .action-row > * {
+    width: 100%;
+  }
+
   .receiver-trust-diff-grid {
     grid-template-columns: 1fr;
   }
