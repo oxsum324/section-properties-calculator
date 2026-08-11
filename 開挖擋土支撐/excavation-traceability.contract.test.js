@@ -97,6 +97,9 @@ const receiverTrustBackupLauncher = readUtf8('backup_receiver_trust_registry.ps1
 const receiverTrustHealthLauncher = readUtf8('check_receiver_trust_backup_health.ps1');
 const receiverTrustStoreTests = readUtf8('backend/tests/test_receiver_trust_store.py');
 const receiverTrustRecoveryTests = readUtf8('backend/tests/test_receiver_trust_recovery.py');
+const receiverEvidenceTemplates = readUtf8('frontend/src/receiverEvidenceTemplates.ts');
+const receiverEvidenceTemplateTests = readUtf8('receiver-evidence-templates.test.js');
+const receiverEvidenceTemplateGuide = readUtf8('RECEIVER_EVIDENCE_TEMPLATES.md');
 
 const expectedTools = [
   'excavation-analysis-import',
@@ -106,7 +109,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.19.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.20.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -341,6 +344,13 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '五類補充查核與文件證據',
   '此欄由下方五類查核自動推導，不能手動覆寫',
   'RSC 不會被當成其他查核的證據',
+  '本機補充證據範本庫',
+  '匯出全部範本',
+  '匯入範本庫 JSON',
+  '套用至全部同類列',
+  '儲存為範本',
+  '套用本機範本',
+  '請重新選取本案實際證據檔',
   'evidenceKey',
   'SourceCapacityEvidenceMatch',
   'handleSourceCapacityEvidenceFile',
@@ -363,6 +373,37 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '舊版 RVR v1／v2，沒有逐列承載力文件 SHA-256',
 ].forEach((needle) => {
   assert(app.includes(needle) || api.includes(needle), `excavation removal transfer frontend keeps ${needle}`, needle);
+});
+[
+  'receiver-supplemental-evidence-template-library',
+  'evidenceFileNameExcluded: true',
+  'evidenceFileSha256Excluded: true',
+  'actualEvidenceFileRequiredAfterApply: true',
+  'MAX_RECEIVER_EVIDENCE_TEMPLATES = 100',
+  '不得保存證據檔名或 SHA-256',
+  'fileName: ""',
+  'fileSha256: ""',
+  'parseReceiverEvidenceTemplateLibrary',
+  'mergeReceiverEvidenceTemplates',
+].forEach((needle) => {
+  assert(receiverEvidenceTemplates.includes(needle), `receiver evidence template contract keeps ${needle}`, needle);
+});
+[
+  'template must not persist evidence fileName',
+  'template must not persist evidence SHA-256',
+  'applying a template requires a fresh evidence file selection',
+  'applying a template cannot reuse a prior evidence hash',
+  'receiver evidence templates OK',
+].forEach((needle) => {
+  assert(receiverEvidenceTemplateTests.includes(needle), `receiver evidence template tests keep ${needle}`, needle);
+});
+[
+  '範本明確不保存證據檔名及 SHA-256',
+  '套用範本後',
+  '重新選取本案實際文件',
+  '不會寫入來源專案、PDF、DOCX、ERH、RVR、SEV 或 SCV',
+].forEach((needle) => {
+  assert(receiverEvidenceTemplateGuide.includes(needle), `receiver evidence template guide keeps ${needle}`, needle);
 });
 [
   'test_builds_pending_receiver_verification_handoff',
@@ -944,6 +985,11 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
 ].forEach((needle) => {
   assert(preflight.includes(needle), `excavation preflight keeps existing gate ${needle}`, needle);
 });
+assert(
+  preflight.includes('node 開挖擋土支撐/receiver-evidence-templates.test.js'),
+  'excavation traceability gate runs receiver evidence template behavior tests',
+  'receiver-evidence-templates.test.js'
+);
 
 [
   'backend.tests.test_reporting',
@@ -968,6 +1014,7 @@ assert(
 assert(readme.includes('excavation-traceability.catalog.json'), 'excavation README documents traceability catalog path', 'README.md');
 assert(readme.includes('規範語意追蹤'), 'excavation README documents traceability purpose', 'README.md');
 assert(readme.includes('excavation-report.contract.test.js'), 'excavation README documents report contract path', 'README.md');
+assert(readme.includes('RECEIVER_EVIDENCE_TEMPLATES.md'), 'excavation README documents receiver evidence templates', 'README.md');
 
 if (failed) {
   console.error(`\n${failed} excavation traceability contract checks failed.`);

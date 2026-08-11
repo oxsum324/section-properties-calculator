@@ -1,6 +1,15 @@
 import { ChangeEvent, Fragment, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import {
+  applyReceiverEvidenceTemplate,
+  buildReceiverEvidenceTemplateLibrary,
+  mergeReceiverEvidenceTemplates,
+  parseReceiverEvidenceTemplateLibrary,
+  RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY,
+  ReceiverEvidenceTemplate,
+  templateFromSupplementalCheck,
+} from "./receiverEvidenceTemplates";
+import {
   AnalysisEvent,
   AnalysisForceCase,
   AnalysisImportResult,
@@ -342,6 +351,9 @@ function App() {
     reportReference: "",
   });
   const [receiverAssistantResults, setReceiverAssistantResults] = useState<ReceiverVerificationResult[]>([]);
+  const [receiverEvidenceTemplates, setReceiverEvidenceTemplates] = useState<ReceiverEvidenceTemplate[]>(loadReceiverEvidenceTemplates);
+  const [receiverEvidenceTemplateNotice, setReceiverEvidenceTemplateNotice] = useState("");
+  const receiverEvidenceTemplatesPersisted = useRef(false);
   const [reshoreCapacityDrafts, setReshoreCapacityDrafts] = useState<Record<string, ReshoreMemberCapacityInput>>({});
   const [reshoreCapacityCalculations, setReshoreCapacityCalculations] = useState<Record<string, ReshoreMemberCapacityCalculationResponse>>({});
   const [receiverCalculationConfirmed, setReceiverCalculationConfirmed] = useState(false);
@@ -475,6 +487,21 @@ function App() {
       });
     return () => { cancelled = true; };
   }, [activeStep]);
+
+  useEffect(() => {
+    if (!receiverEvidenceTemplatesPersisted.current) {
+      receiverEvidenceTemplatesPersisted.current = true;
+      return;
+    }
+    try {
+      localStorage.setItem(
+        RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY,
+        JSON.stringify(buildReceiverEvidenceTemplateLibrary(receiverEvidenceTemplates, new Date().toISOString())),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? `無法保存補充證據範本：${err.message}` : "無法保存補充證據範本。");
+    }
+  }, [receiverEvidenceTemplates]);
 
   useEffect(() => {
     setSourceCapacityEvidenceMatches({});
@@ -1580,6 +1607,106 @@ function App() {
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "無法計算補充證據檔案 SHA-256。");
+    }
+  }
+
+  function handleSaveReceiverEvidenceTemplate(resultIndex: number, checkId: ReceiverSupplementalCheckId) {
+    try {
+      const check = receiverAssistantResults[resultIndex]?.supplementalChecks?.find((item) => item.checkId === checkId);
+      if (!check) throw new Error("找不到要儲存的補充查核。");
+      const existing = receiverEvidenceTemplates.find((template) => (
+        template.checkId === checkId
+        && template.evidence.documentReference === check.evidence?.documentReference.trim()
+        && template.evidence.revision === check.evidence?.revision.trim()
+        && template.evidence.issuedDate === check.evidence?.issuedDate.trim()
+        && template.evidence.pageReference === check.evidence?.pageReference.trim()
+      ));
+      const timestamp = new Date().toISOString();
+      const label = receiverSupplementalCheckOptions.find((option) => option.value === checkId)?.label ?? checkId;
+      const documentReference = check.evidence?.documentReference.trim() ?? "";
+      const revision = check.evidence?.revision.trim() ?? "";
+      const template = templateFromSupplementalCheck(
+        check,
+        existing?.templateId ?? `RET-${crypto.randomUUID()}`,
+        `${label}｜${documentReference}｜${revision}`,
+        timestamp,
+        existing?.createdAt,
+      );
+      setReceiverEvidenceTemplates(mergeReceiverEvidenceTemplates(receiverEvidenceTemplates, [template]));
+      setReceiverEvidenceTemplateNotice(existing ? `已更新範本：${template.name}` : `已儲存範本：${template.name}`);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "無法儲存補充證據範本。");
+    }
+  }
+
+  function handleApplyReceiverEvidenceTemplate(
+    resultIndex: number,
+    checkId: ReceiverSupplementalCheckId,
+    templateId: string,
+  ) {
+    if (!templateId) return;
+    try {
+      const template = receiverEvidenceTemplates.find((item) => item.templateId === templateId);
+      if (!template) throw new Error("找不到選取的補充證據範本。");
+      setReceiverAssistantResults((current) => current.map((result, index) => (
+        index === resultIndex ? applyTemplateToReceiverResult(result, template) : result
+      )));
+      setReceiverAssistantReceipt(null);
+      setReceiverEvidenceTemplateNotice(`已套用範本：${template.name}；請重新選取本案實際證據檔。`);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "無法套用補充證據範本。");
+    }
+  }
+
+  function handleApplyReceiverEvidenceTemplateToAll(templateId: string) {
+    try {
+      const template = receiverEvidenceTemplates.find((item) => item.templateId === templateId);
+      if (!template) throw new Error("找不到選取的補充證據範本。");
+      setReceiverAssistantResults((current) => current.map((result) => applyTemplateToReceiverResult(result, template)));
+      setReceiverAssistantReceipt(null);
+      setReceiverEvidenceTemplateNotice(`已將範本套用至全部同類交接列：${template.name}；各列仍須重新選取實際證據檔。`);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "無法批次套用補充證據範本。");
+    }
+  }
+
+  function handleDeleteReceiverEvidenceTemplate(templateId: string) {
+    const template = receiverEvidenceTemplates.find((item) => item.templateId === templateId);
+    setReceiverEvidenceTemplates((current) => current.filter((item) => item.templateId !== templateId));
+    setReceiverEvidenceTemplateNotice(template ? `已刪除範本：${template.name}` : "範本已刪除。");
+    setError("");
+  }
+
+  function handleExportReceiverEvidenceTemplates() {
+    try {
+      if (!receiverEvidenceTemplates.length) throw new Error("目前沒有可匯出的補充證據範本。");
+      const timestamp = new Date().toISOString();
+      downloadJsonFile(
+        buildReceiverEvidenceTemplateLibrary(receiverEvidenceTemplates, timestamp),
+        `補充證據範本庫-${timestamp.slice(0, 10)}.json`,
+      );
+      setReceiverEvidenceTemplateNotice(`已匯出 ${receiverEvidenceTemplates.length} 筆範本；檔案不含證據檔名或 SHA-256。`);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "無法匯出補充證據範本。");
+    }
+  }
+
+  async function handleImportReceiverEvidenceTemplates(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      if (file.size > 1024 * 1024) throw new Error("補充證據範本庫不得超過 1 MB。");
+      const incoming = parseReceiverEvidenceTemplateLibrary(JSON.parse(await file.text()));
+      setReceiverEvidenceTemplates(mergeReceiverEvidenceTemplates(receiverEvidenceTemplates, incoming));
+      setReceiverEvidenceTemplateNotice(`已從 ${file.name} 匯入 ${incoming.length} 筆範本；套用時仍須重新選取證據檔。`);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "無法匯入補充證據範本。");
     }
   }
 
@@ -5071,6 +5198,61 @@ function App() {
                   </div>
                 </Panel>
 
+                <Panel
+                  title="本機補充證據範本庫"
+                  subtitle="重用五類查核的文字與文件受控欄位；範本不保存證據檔名或 SHA-256，套用後仍須逐案選取實際檔案。"
+                >
+                  <div className="action-row receiver-template-toolbar">
+                    <button
+                      className="secondary"
+                      type="button"
+                      disabled={!receiverEvidenceTemplates.length}
+                      onClick={handleExportReceiverEvidenceTemplates}
+                    >
+                      匯出全部範本
+                    </button>
+                    <label className="file-action secondary">
+                      匯入範本庫 JSON
+                      <input
+                        className="file-picker-input"
+                        type="file"
+                        accept="application/json,.json"
+                        onChange={(event) => void handleImportReceiverEvidenceTemplates(event)}
+                      />
+                    </label>
+                  </div>
+                  <p className="meta-line">
+                    範本只保存在目前瀏覽器，也可匯出後移轉至另一台電腦。它不是正式檢核證據，不會寫入 RVR；實際檔案仍由 RVR v5 與 SEV v2 逐檔核對。
+                  </p>
+                  {receiverEvidenceTemplateNotice && <p className="receiver-template-notice">{receiverEvidenceTemplateNotice}</p>}
+                  {receiverEvidenceTemplates.length ? (
+                    <div className="receiver-template-list">
+                      {receiverEvidenceTemplates.map((template) => {
+                        const label = receiverSupplementalCheckOptions.find((option) => option.value === template.checkId)?.label ?? template.checkId;
+                        return (
+                          <article className="receiver-template-card" key={template.templateId}>
+                            <div>
+                              <span>{label}</span>
+                              <strong>{template.name}</strong>
+                              <small>{`${template.evidence.documentReference}｜${template.evidence.revision}｜${template.evidence.issuedDate}｜${template.evidence.pageReference}`}</small>
+                            </div>
+                            <div className="action-row">
+                              <button className="secondary" type="button" onClick={() => handleApplyReceiverEvidenceTemplateToAll(template.templateId)}>
+                                套用至全部同類列
+                              </button>
+                              <button className="ghost" type="button" onClick={() => handleDeleteReceiverEvidenceTemplate(template.templateId)}>
+                                刪除
+                              </button>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="empty-state">尚無範本。先在下方將某類查核標示為通過、填妥依據與文件資料，再按「儲存為範本」。</p>
+                  )}
+                </Panel>
+
                 <Panel title="逐列承接構造結果" subtitle="每一個 ERT 必須且只能回簽一次；利用率與結果由後端自動判定，核定承載力須逐列連結正式文件與 SHA-256。">
                   <div className="receiver-result-list">
                     {receiverAssistantResults.map((result, index) => {
@@ -5356,6 +5538,36 @@ function App() {
                                         value={check.basis}
                                         onChange={(value) => updateReceiverSupplementalCheck(index, check.checkId, "basis", value)}
                                       />
+                                      <label className="field-block receiver-template-picker">
+                                        <span>套用本機範本</span>
+                                        <select
+                                          value=""
+                                          disabled={!receiverEvidenceTemplates.some((template) => template.checkId === check.checkId)}
+                                          onChange={(event) => handleApplyReceiverEvidenceTemplate(index, check.checkId, event.target.value)}
+                                        >
+                                          <option value="">
+                                            {receiverEvidenceTemplates.some((template) => template.checkId === check.checkId)
+                                              ? "選擇範本…"
+                                              : "尚無此類範本"}
+                                          </option>
+                                          {receiverEvidenceTemplates
+                                            .filter((template) => template.checkId === check.checkId)
+                                            .map((template) => <option value={template.templateId} key={template.templateId}>{template.name}</option>)}
+                                        </select>
+                                        <small>套用只帶入查核依據及文件編號、版次、日期與頁碼。</small>
+                                      </label>
+                                      <div className="field-block receiver-template-save">
+                                        <span>重用目前資料</span>
+                                        <button
+                                          className="secondary"
+                                          type="button"
+                                          disabled={check.status !== "passed"}
+                                          onClick={() => handleSaveReceiverEvidenceTemplate(index, check.checkId)}
+                                        >
+                                          儲存為範本
+                                        </button>
+                                        <small>檔名及 SHA-256 不會存入範本。</small>
+                                      </div>
                                       {check.status === "passed" && (
                                         <>
                                           <Field label="文件編號" value={check.evidence?.documentReference ?? ""} onChange={(value) => updateReceiverSupplementalEvidence(index, check.checkId, "documentReference", value)} />
@@ -6997,6 +7209,50 @@ function emptySupplementalChecks(): ReceiverSupplementalCheck[] {
     status: "failed",
     basis: "尚未完成正式查核。",
   }));
+}
+
+function loadReceiverEvidenceTemplates(): ReceiverEvidenceTemplate[] {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(RECEIVER_EVIDENCE_TEMPLATE_STORAGE_KEY);
+    if (!raw) return [];
+    return parseReceiverEvidenceTemplateLibrary(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+function applyTemplateToReceiverResult(
+  result: ReceiverVerificationResult,
+  template: ReceiverEvidenceTemplate,
+): ReceiverVerificationResult {
+  const checks = (result.supplementalChecks ?? emptySupplementalChecks()).map((check) => (
+    check.checkId === template.checkId ? applyReceiverEvidenceTemplate(check, template) : check
+  ));
+  const otherChecksStatus = checks.some((check) => check.status === "passed")
+    && !checks.some((check) => check.status === "failed")
+    ? "passed"
+    : "failed";
+  const ratio = result.adoptedDemandTf / (result.verifiedCapacityTf ?? 0);
+  return {
+    ...result,
+    status: Number.isFinite(ratio)
+      && (result.verifiedCapacityTf ?? 0) > 0
+      && ratio <= 1.000000001
+      && otherChecksStatus === "passed"
+      ? "passed"
+      : "failed",
+    supplementalChecks: checks,
+    verificationScope: {
+      analysisModelReference: "",
+      governingLoadCombination: "",
+      directionAndDistributionBasis: "",
+      eccentricityAndSecondaryEffectBasis: "",
+      checkedLimitStates: [],
+      ...result.verificationScope,
+      otherChecksStatus,
+    },
+  };
 }
 
 function receiverResultDrafts(handoff: RemovalTransferHandoff): ReceiverVerificationResult[] {

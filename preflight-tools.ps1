@@ -1490,6 +1490,8 @@ exit $LASTEXITCODE
 
 $excavationTraceabilityContractCommand = @'
 node 開挖擋土支撐/excavation-traceability.contract.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node 開挖擋土支撐/receiver-evidence-templates.test.js
 exit $LASTEXITCODE
 '@
 
