@@ -22,6 +22,9 @@ import {
   ReceiverOperatorGovernanceBackup,
   ReceiverOperatorGovernanceRestorePreview,
   ReceiverOperatorGovernanceRestoreResult,
+  ReceiverOperatorManagedBackup,
+  ReceiverOperatorRecoveryDrillReceipt,
+  ReceiverOperatorRecoveryInventory,
   ReceiverOperatorRole,
   ReceiverRevocationReason,
   ReceiverTrustRegistryBackup,
@@ -148,14 +151,30 @@ export const api = {
   },
   listReceiverOperatorAuditEvents: () =>
     request<ReceiverOperatorAuditSummary>("/api/receiver-operator-audit-events"),
-  exportReceiverOperatorGovernanceBackup: (passphrase: string) =>
-    request<{ backup: ReceiverOperatorGovernanceBackup; auditEventFingerprint: string }>(
+  exportReceiverOperatorGovernanceBackup: (
+    passphrase: string,
+    retainServerCopy: boolean,
+    retentionDays: number,
+  ) =>
+    request<{
+      backup: ReceiverOperatorGovernanceBackup;
+      auditEventFingerprint: string;
+      managedBackup: ReceiverOperatorManagedBackup | null;
+    }>(
       "/api/receiver-operator-governance-backups/export",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ passphrase }),
+        body: JSON.stringify({
+          passphrase,
+          retain_server_copy: retainServerCopy,
+          retention_days: retentionDays,
+        }),
       },
+    ),
+  listReceiverOperatorGovernanceRecoveryInventory: () =>
+    request<ReceiverOperatorRecoveryInventory>(
+      "/api/receiver-operator-governance-backups/inventory",
     ),
   validateReceiverOperatorGovernanceBackup: (
     backup: ReceiverOperatorGovernanceBackup,
@@ -191,6 +210,28 @@ export const api = {
     saveReceiverCsrfToken();
     return result;
   },
+  drillReceiverOperatorGovernanceBackup: (
+    backup: ReceiverOperatorGovernanceBackup,
+    passphrase: string,
+    recoveryUsername: string,
+    recoveryPassword: string,
+  ) => request<{
+    receipt: ReceiverOperatorRecoveryDrillReceipt;
+    receiptFileName: string;
+    inventory: ReceiverOperatorRecoveryInventory;
+  }>(
+    "/api/receiver-operator-governance-backups/drill",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        backup,
+        passphrase,
+        recovery_username: recoveryUsername,
+        recovery_password: recoveryPassword,
+      }),
+    },
+  ),
   bootstrap: () => request<BootstrapPayload>("/api/bootstrap"),
   getReferenceData: () => request<ReferenceData>("/api/reference-data"),
   saveReferenceData: (referenceData: ReferenceData) =>

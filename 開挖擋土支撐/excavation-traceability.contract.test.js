@@ -92,6 +92,7 @@ const receiverKeyLauncher = readUtf8('manage_receiver_key.ps1');
 const receiverTrustStore = readUtf8('backend/app/receiver_trust_store.py');
 const receiverOperatorAuth = readUtf8('backend/app/receiver_operator_auth.py');
 const receiverOperatorBackup = readUtf8('backend/app/receiver_operator_backup.py');
+const receiverOperatorRecovery = readUtf8('backend/app/receiver_operator_recovery.py');
 const receiverKeyManagementGuide = readUtf8('RECEIVER_KEY_MANAGEMENT.md');
 const receiverTrustBackup = readUtf8('backend/app/receiver_trust_backup.py');
 const receiverTrustRecovery = readUtf8('backend/app/receiver_trust_recovery.py');
@@ -101,6 +102,7 @@ const receiverTrustHealthLauncher = readUtf8('check_receiver_trust_backup_health
 const receiverTrustStoreTests = readUtf8('backend/tests/test_receiver_trust_store.py');
 const receiverOperatorAuthTests = readUtf8('backend/tests/test_receiver_operator_auth.py');
 const receiverOperatorBackupTests = readUtf8('backend/tests/test_receiver_operator_backup.py');
+const receiverOperatorRecoveryTests = readUtf8('backend/tests/test_receiver_operator_recovery.py');
 const receiverTrustRecoveryTests = readUtf8('backend/tests/test_receiver_trust_recovery.py');
 const receiverEvidenceTemplates = readUtf8('frontend/src/receiverEvidenceTemplates.ts');
 const receiverEvidenceTemplateTests = readUtf8('receiver-evidence-templates.test.js');
@@ -118,7 +120,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.27.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.28.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -722,6 +724,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '/api/receiver-operator-governance-backups/export',
   '/api/receiver-operator-governance-backups/validate',
   '/api/receiver-operator-governance-backups/restore',
+  '/api/receiver-operator-governance-backups/inventory',
+  '/api/receiver-operator-governance-backups/drill',
   '/roles',
   '/status',
   '/password-reset',
@@ -748,6 +752,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'exportReceiverOperatorGovernanceBackup',
   'validateReceiverOperatorGovernanceBackup',
   'restoreReceiverOperatorGovernanceBackup',
+  'listReceiverOperatorGovernanceRecoveryInventory',
+  'drillReceiverOperatorGovernanceBackup',
 ].forEach((needle) => {
   assert(api.includes(needle), `excavation frontend receiver auth keeps ${needle}`, needle);
 });
@@ -786,6 +792,36 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'test_http_backup_restore_requires_admin_csrf_and_logs_out_restored_session',
 ].forEach((needle) => {
   assert(receiverOperatorBackupTests.includes(needle), `excavation receiver operator backup tests keep ${needle}`, needle);
+});
+[
+  'receiver-operator-governance-recovery-drill-receipt',
+  'write_managed_receiver_operator_governance_backup',
+  'list_receiver_operator_governance_recovery_inventory',
+  'perform_receiver_operator_governance_recovery_drill',
+  'isolated-temporary-sqlite',
+  'productionGovernanceUnchangedDuringDrill',
+  'secureEraseGuaranteed',
+  'latest-backup-not-drilled',
+  'ROD-',
+].forEach((needle) => {
+  assert(receiverOperatorRecovery.includes(needle), `excavation receiver operator recovery keeps ${needle}`, needle);
+});
+[
+  'test_managed_backup_inventory_tracks_retention_without_exposing_secrets',
+  'test_isolated_drill_uses_real_restore_login_and_keeps_production_unchanged',
+  'test_inventory_marks_expiry_and_surfaces_invalid_files',
+  'test_failed_drill_writes_no_receipt_and_tampered_receipt_is_rejected',
+  'test_http_managed_export_inventory_and_drill_require_admin_csrf',
+].forEach((needle) => {
+  assert(receiverOperatorRecoveryTests.includes(needle), `excavation receiver operator recovery tests keep ${needle}`, needle);
+});
+[
+  '受管制備份與復原演練清冊',
+  '執行隔離復原演練（不改正式資料）',
+  '不宣稱可在 SSD 或同步磁碟上安全抹除',
+  '演練收據不保存加密密碼、帳號、登入密碼或伺服器路徑',
+].forEach((needle) => {
+  assert(app.includes(needle), `excavation operator recovery UI keeps ${needle}`, needle);
 });
 assert(config.includes('STRUT_DB_PATH'), 'excavation database path supports isolated verification', 'STRUT_DB_PATH');
 [

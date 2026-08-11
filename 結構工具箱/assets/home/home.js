@@ -268,6 +268,7 @@
         '開挖擋土支撐/backend/app/receiver_capacity.py',
         '開挖擋土支撐/backend/app/receiver_operator_auth.py',
         '開挖擋土支撐/backend/app/receiver_operator_backup.py',
+        '開挖擋土支撐/backend/app/receiver_operator_recovery.py',
         '開挖擋土支撐/backend/app/receiver_trust_backup.py',
         '開挖擋土支撐/backend/app/receiver_trust_recovery.py'
       ]

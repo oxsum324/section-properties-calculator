@@ -849,6 +849,74 @@ export type ReceiverOperatorGovernanceRestoreResult = {
   preview: ReceiverOperatorGovernanceRestorePreview;
 };
 
+export type ReceiverOperatorManagedBackup = {
+  fileName: string;
+  backupFingerprint: string;
+  snapshotFingerprint: string;
+  exportedAt: string;
+  retentionDays: number;
+  retentionUntil: string;
+  fileSha256: string;
+  operatorCount: number;
+  activeAdminCount: number;
+  auditEventCount: number;
+  expired: boolean;
+  status: "active" | "expired";
+};
+
+export type ReceiverOperatorRecoveryDrillReceipt = {
+  schemaVersion: 1;
+  kind: "receiver-operator-governance-recovery-drill-receipt";
+  performedAt: string;
+  backupFingerprint: string;
+  backupSnapshotFingerprint: string;
+  operatorCount: number;
+  activeAdminCount: number;
+  auditEventCount: number;
+  backupEnvelopeValidated: true;
+  encryptedSnapshotDecrypted: true;
+  backupAdminAuthenticated: true;
+  restoreTarget: "isolated-temporary-sqlite";
+  isolatedRestoreCompleted: true;
+  isolatedRestoreEventFingerprint: string;
+  isolatedRestoredSnapshotFingerprint: string;
+  restoredAuditChainValid: true;
+  productionSnapshotFingerprintBefore: string;
+  productionSnapshotFingerprintAfter: string;
+  productionGovernanceUnchangedDuringDrill: true;
+  result: "passed";
+  privacy: {
+    containsPassphrase: false;
+    containsPassword: false;
+    containsUsername: false;
+    containsServerPath: false;
+  };
+  receiptFingerprint: string;
+  receiptFileName?: string;
+};
+
+export type ReceiverOperatorRecoveryInventory = {
+  generatedAt: string;
+  scope: "local-server-only";
+  managedBackups: ReceiverOperatorManagedBackup[];
+  drillReceipts: ReceiverOperatorRecoveryDrillReceipt[];
+  invalidBackupFiles: Array<{ fileName: string; error: string }>;
+  invalidDrillFiles: Array<{ fileName: string; error: string }>;
+  health: {
+    status: "healthy" | "attention-required";
+    issueCount: number;
+    issues: Array<{ code: string; message: string }>;
+    drillMaxAgeDays: number;
+    latestActiveBackupFingerprint: string | null;
+    latestMatchingDrillReceiptFingerprint: string | null;
+  };
+  retentionBoundary: {
+    automaticDeletion: false;
+    secureEraseGuaranteed: false;
+    expiredFilesRequireStorageAdministratorDisposition: true;
+  };
+};
+
 export type ReceiverOperatorAuthState = {
   bootstrapRequired: boolean;
   authenticated: boolean;

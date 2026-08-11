@@ -52,6 +52,8 @@ import {
   ReceiverOperatorGovernanceBackup,
   ReceiverOperatorGovernanceRestorePreview,
   ReceiverOperatorGovernanceRestoreResult,
+  ReceiverOperatorRecoveryDrillReceipt,
+  ReceiverOperatorRecoveryInventory,
   ReceiverOperatorRole,
   ReceiverTrustEvent,
   ReceiverTrustKey,
@@ -197,6 +199,8 @@ const emptyReceiverOperatorBackupDraft = {
   confirmPassphrase: "",
   recoveryUsername: "",
   recoveryPassword: "",
+  retainServerCopy: false,
+  retentionDays: 30,
 };
 const emptyReceiverOperatorAuditSummary: ReceiverOperatorAuditSummary = {
   events: [],
@@ -261,7 +265,10 @@ function receiverOperatorAuditDetail(event: ReceiverOperatorAuditEvent): string 
     return `撤銷工作階段 ${revoked}`;
   }
   if (event.eventType === "operator-governance-backup-exported") {
-    return `匯出請求 ${String(event.details.backupExportRequestId ?? "—")}`;
+    const retention = event.details.managedCopyRequested === true
+      ? `；保留受管制本機副本 ${String(event.details.retentionDays ?? "—")} 天`
+      : "；未保留伺服器副本";
+    return `匯出請求 ${String(event.details.backupExportRequestId ?? "—")}${retention}`;
   }
   if (event.eventType === "operator-governance-restored") {
     const fingerprint = String(event.details.backupFingerprint ?? "—");
@@ -556,6 +563,8 @@ function App() {
   const [receiverOperatorRestorePreview, setReceiverOperatorRestorePreview] = useState<ReceiverOperatorGovernanceRestorePreview | null>(null);
   const [receiverOperatorRestoreConfirmed, setReceiverOperatorRestoreConfirmed] = useState(false);
   const [receiverOperatorRestoreOutcome, setReceiverOperatorRestoreOutcome] = useState<ReceiverOperatorGovernanceRestoreResult | null>(null);
+  const [receiverOperatorRecoveryInventory, setReceiverOperatorRecoveryInventory] = useState<ReceiverOperatorRecoveryInventory | null>(null);
+  const [receiverOperatorDrillOutcome, setReceiverOperatorDrillOutcome] = useState<ReceiverOperatorRecoveryDrillReceipt | null>(null);
   const [receiverTrustDraft, setReceiverTrustDraft] = useState({ organization: "", displayName: "", publicKey: "" });
   const [receiverTrustEnrollment, setReceiverTrustEnrollment] = useState<ReceiverKeyEnrollment | null>(null);
   const [receiverTrustVerificationConfirmed, setReceiverTrustVerificationConfirmed] = useState(false);
@@ -690,17 +699,20 @@ function App() {
           setReceiverOperatorAuth(auth);
           setReceiverOperatorAuthLoaded(true);
           if (auth.operator?.roles.includes("receiver-key-admin") && !auth.operator.passwordResetRequired) {
-            const [operators, audit] = await Promise.all([
+            const [operators, audit, inventory] = await Promise.all([
               api.listReceiverOperators(),
               api.listReceiverOperatorAuditEvents(),
+              api.listReceiverOperatorGovernanceRecoveryInventory(),
             ]);
             if (!cancelled) {
               setReceiverOperators(operators.operators);
               setReceiverOperatorAuditSummary(audit);
+              setReceiverOperatorRecoveryInventory(inventory);
             }
           } else {
             setReceiverOperators([]);
             setReceiverOperatorAuditSummary(emptyReceiverOperatorAuditSummary);
+            setReceiverOperatorRecoveryInventory(null);
           }
         }
       })
@@ -1413,25 +1425,30 @@ function App() {
     setReceiverOperatorAuth(auth);
     setReceiverOperatorAuthLoaded(true);
     if (auth.operator?.roles.includes("receiver-key-admin") && !auth.operator.passwordResetRequired) {
-      const [response, audit] = await Promise.all([
+      const [response, audit, inventory] = await Promise.all([
         api.listReceiverOperators(),
         api.listReceiverOperatorAuditEvents(),
+        api.listReceiverOperatorGovernanceRecoveryInventory(),
       ]);
       setReceiverOperators(response.operators);
       setReceiverOperatorAuditSummary(audit);
+      setReceiverOperatorRecoveryInventory(inventory);
     } else {
       setReceiverOperators([]);
       setReceiverOperatorAuditSummary(emptyReceiverOperatorAuditSummary);
+      setReceiverOperatorRecoveryInventory(null);
     }
   }
 
   async function refreshReceiverOperatorGovernance() {
-    const [operators, audit] = await Promise.all([
+    const [operators, audit, inventory] = await Promise.all([
       api.listReceiverOperators(),
       api.listReceiverOperatorAuditEvents(),
+      api.listReceiverOperatorGovernanceRecoveryInventory(),
     ]);
     setReceiverOperators(operators.operators);
     setReceiverOperatorAuditSummary(audit);
+    setReceiverOperatorRecoveryInventory(inventory);
     setReceiverOperatorManageDraft((current) => {
       const selected = operators.operators.find((operator) => operator.id === current.operatorId);
       return selected
@@ -1490,6 +1507,8 @@ function App() {
       setReceiverOperatorRestorePreview(null);
       setReceiverOperatorRestoreConfirmed(false);
       setReceiverOperatorRestoreOutcome(null);
+      setReceiverOperatorRecoveryInventory(null);
+      setReceiverOperatorDrillOutcome(null);
       cancelReceiverKeyRotationCompletion();
       cancelReceiverKeyRotationApproval();
       cancelReceiverTrustKeyRevocation();
@@ -1619,6 +1638,8 @@ function App() {
       setReceiverOperatorRestorePreview(null);
       setReceiverOperatorRestoreConfirmed(false);
       setReceiverOperatorRestoreOutcome(null);
+      setReceiverOperatorRecoveryInventory(null);
+      setReceiverOperatorDrillOutcome(null);
       cancelReceiverKeyRotationCompletion();
       cancelReceiverKeyRotationApproval();
       cancelReceiverTrustKeyRevocation();
@@ -1647,6 +1668,8 @@ function App() {
       setBusy("建立操作員治理加密備份");
       const response = await api.exportReceiverOperatorGovernanceBackup(
         receiverOperatorBackupDraft.passphrase,
+        receiverOperatorBackupDraft.retainServerCopy,
+        receiverOperatorBackupDraft.retentionDays,
       );
       downloadJsonFile(
         response.backup,
@@ -1658,6 +1681,7 @@ function App() {
       setReceiverOperatorRestorePreview(null);
       setReceiverOperatorRestoreConfirmed(false);
       setReceiverOperatorRestoreOutcome(null);
+      setReceiverOperatorDrillOutcome(null);
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -1695,17 +1719,48 @@ function App() {
       }));
       setReceiverOperatorRestoreConfirmed(false);
       setReceiverOperatorRestoreOutcome(null);
+      setReceiverOperatorDrillOutcome(null);
       setError("");
     } catch (err) {
       setReceiverOperatorBackup(null);
       setReceiverOperatorRestorePreview(null);
       setReceiverOperatorRestoreConfirmed(false);
       setReceiverOperatorRestoreOutcome(null);
+      setReceiverOperatorDrillOutcome(null);
       setReceiverOperatorBackupDraft((current) => ({
         ...current,
         recoveryUsername: "",
         recoveryPassword: "",
       }));
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleDrillReceiverOperatorGovernanceBackup() {
+    if (!receiverOperatorBackup || !receiverOperatorRestorePreview) return;
+    if (!receiverCanAdministerKeys) {
+      setError("操作員治理復原演練需要已登入且具接收端金鑰管理員角色的帳號。");
+      return;
+    }
+    if (!receiverOperatorBackupDraft.recoveryUsername.trim() || !receiverOperatorBackupDraft.recoveryPassword) {
+      setError("隔離復原演練需要備份內一個啟用中管理員的帳號與密碼，以實際驗證復原後登入。");
+      return;
+    }
+    try {
+      setBusy("執行操作員治理隔離復原演練");
+      const response = await api.drillReceiverOperatorGovernanceBackup(
+        receiverOperatorBackup,
+        receiverOperatorBackupDraft.passphrase,
+        receiverOperatorBackupDraft.recoveryUsername,
+        receiverOperatorBackupDraft.recoveryPassword,
+      );
+      setReceiverOperatorDrillOutcome(response.receipt);
+      setReceiverOperatorRecoveryInventory(response.inventory);
+      setError("");
+    } catch (err) {
+      setReceiverOperatorDrillOutcome(null);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy("");
@@ -1745,6 +1800,8 @@ function App() {
       setReceiverOperatorBackup(null);
       setReceiverOperatorRestorePreview(null);
       setReceiverOperatorRestoreConfirmed(false);
+      setReceiverOperatorRecoveryInventory(null);
+      setReceiverOperatorDrillOutcome(null);
       cancelReceiverKeyRotationCompletion();
       cancelReceiverKeyRotationApproval();
       cancelReceiverTrustKeyRevocation();
@@ -6001,6 +6058,7 @@ function App() {
                                 setReceiverOperatorBackup(null);
                                 setReceiverOperatorRestorePreview(null);
                                 setReceiverOperatorRestoreConfirmed(false);
+                                setReceiverOperatorDrillOutcome(null);
                               }}
                             />
                           </label>
@@ -6016,6 +6074,32 @@ function App() {
                               }))}
                             />
                           </label>
+                          <label className="check-field">
+                            <input
+                              type="checkbox"
+                              checked={receiverOperatorBackupDraft.retainServerCopy}
+                              onChange={(event) => setReceiverOperatorBackupDraft((current) => ({
+                                ...current,
+                                retainServerCopy: event.target.checked,
+                              }))}
+                            />
+                            <span>下載時另存一份受管制本機加密副本，納入保存期限與復原演練清冊。</span>
+                          </label>
+                          {receiverOperatorBackupDraft.retainServerCopy && (
+                            <label className="field-block">
+                              <span>受管制本機副本保存天數（1–365）</span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={365}
+                                value={receiverOperatorBackupDraft.retentionDays}
+                                onChange={(event) => setReceiverOperatorBackupDraft((current) => ({
+                                  ...current,
+                                  retentionDays: Math.min(365, Math.max(1, Number(event.target.value) || 1)),
+                                }))}
+                              />
+                            </label>
+                          )}
                           <button
                             className="secondary"
                             type="button"
@@ -6026,6 +6110,7 @@ function App() {
                               setReceiverOperatorRestorePreview(null);
                               setReceiverOperatorRestoreConfirmed(false);
                               setReceiverOperatorRestoreOutcome(null);
+                              setReceiverOperatorDrillOutcome(null);
                               setError("");
                             }}
                           >
@@ -6057,6 +6142,85 @@ function App() {
                         <p className="meta-line">
                           匯入前先輸入該檔案的加密密碼。系統只會解密驗證並顯示差異，不會立即覆寫資料。
                         </p>
+                        <p className="meta-line attention-line">
+                          保存期限是治理提醒，不會自動刪除檔案，也不宣稱可在 SSD 或同步磁碟上安全抹除；到期副本須由儲存管理者依組織媒體處置規定處理。演練收據不保存加密密碼、帳號、登入密碼或伺服器路徑。
+                        </p>
+                        {receiverOperatorRecoveryInventory && (
+                          <div className="receiver-key-rotation-card">
+                            <div className="action-row">
+                              <h4>受管制備份與復原演練清冊</h4>
+                              <button
+                                className="secondary"
+                                type="button"
+                                onClick={() => void refreshReceiverOperatorGovernance()}
+                              >
+                                重新整理清冊
+                              </button>
+                            </div>
+                            <div className="meta-grid">
+                              <MetaItem
+                                label="治理健康"
+                                value={receiverOperatorRecoveryInventory.health.status === "healthy" ? "正常" : "需要處理"}
+                              />
+                              <MetaItem
+                                label="受管制備份"
+                                value={String(receiverOperatorRecoveryInventory.managedBackups.length)}
+                              />
+                              <MetaItem
+                                label="復原演練收據"
+                                value={String(receiverOperatorRecoveryInventory.drillReceipts.length)}
+                              />
+                              <MetaItem
+                                label="演練期限"
+                                value={`${receiverOperatorRecoveryInventory.health.drillMaxAgeDays} 天`}
+                              />
+                            </div>
+                            {receiverOperatorRecoveryInventory.health.issues.length > 0 && (
+                              <div className="attention-line">
+                                <strong>待處理事項：</strong>
+                                <ul>
+                                  {receiverOperatorRecoveryInventory.health.issues.map((issue) => (
+                                    <li key={issue.code}>{issue.message}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {receiverOperatorRecoveryInventory.managedBackups.length > 0 && (
+                              <div className="table-wrap">
+                                <table>
+                                  <thead><tr><th>備份／狀態</th><th>產出與保存期限</th><th>內容摘要</th><th>檔案 SHA-256</th></tr></thead>
+                                  <tbody>
+                                    {receiverOperatorRecoveryInventory.managedBackups.map((item) => (
+                                      <tr key={item.fileName}>
+                                        <td><strong>{item.backupFingerprint}</strong><br />{item.expired ? "已到期" : "保存中"}</td>
+                                        <td>{item.exportedAt}<br />保存至 {item.retentionUntil}</td>
+                                        <td>帳號 {item.operatorCount}；啟用管理員 {item.activeAdminCount}；稽核事件 {item.auditEventCount}</td>
+                                        <td>{item.fileSha256}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                            {receiverOperatorRecoveryInventory.drillReceipts.length > 0 && (
+                              <div className="table-wrap">
+                                <table>
+                                  <thead><tr><th>演練時間</th><th>備份</th><th>結果</th><th>收據指紋</th></tr></thead>
+                                  <tbody>
+                                    {receiverOperatorRecoveryInventory.drillReceipts.map((receipt) => (
+                                      <tr key={receipt.receiptFingerprint}>
+                                        <td>{receipt.performedAt}</td>
+                                        <td>{receipt.backupFingerprint}</td>
+                                        <td>隔離復原、備份管理員登入及稽核鏈均通過；正式治理資料未變更</td>
+                                        <td>{receipt.receiptFingerprint}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        )}
                         {receiverOperatorRestorePreview && receiverOperatorBackup && (
                           <div className="receiver-key-rotation-card">
                             <h4>復原差異預覽</h4>
@@ -6133,10 +6297,13 @@ function App() {
                               <Field
                                 label="備份內啟用管理員帳號"
                                 value={receiverOperatorBackupDraft.recoveryUsername}
-                                onChange={(value) => setReceiverOperatorBackupDraft((current) => ({
-                                  ...current,
-                                  recoveryUsername: value,
-                                }))}
+                                onChange={(value) => {
+                                  setReceiverOperatorBackupDraft((current) => ({
+                                    ...current,
+                                    recoveryUsername: value,
+                                  }));
+                                  setReceiverOperatorDrillOutcome(null);
+                                }}
                               />
                               <label className="field-block">
                                 <span>該管理員在備份中的密碼</span>
@@ -6144,13 +6311,40 @@ function App() {
                                   type="password"
                                   autoComplete="current-password"
                                   value={receiverOperatorBackupDraft.recoveryPassword}
-                                  onChange={(event) => setReceiverOperatorBackupDraft((current) => ({
-                                    ...current,
-                                    recoveryPassword: event.target.value,
-                                  }))}
+                                  onChange={(event) => {
+                                    setReceiverOperatorBackupDraft((current) => ({
+                                      ...current,
+                                      recoveryPassword: event.target.value,
+                                    }));
+                                    setReceiverOperatorDrillOutcome(null);
+                                  }}
                                 />
                               </label>
                             </div>
+                            <div className="action-row">
+                              <button
+                                className="secondary"
+                                type="button"
+                                disabled={
+                                  !receiverOperatorBackupDraft.recoveryUsername.trim()
+                                  || !receiverOperatorBackupDraft.recoveryPassword
+                                }
+                                onClick={() => void handleDrillReceiverOperatorGovernanceBackup()}
+                              >
+                                執行隔離復原演練（不改正式資料）
+                              </button>
+                            </div>
+                            {receiverOperatorDrillOutcome && (
+                              <div className="success-line">
+                                <strong>隔離復原演練通過</strong>
+                                <div className="meta-grid">
+                                  <MetaItem label="演練收據" value={receiverOperatorDrillOutcome.receiptFingerprint} />
+                                  <MetaItem label="備份指紋" value={receiverOperatorDrillOutcome.backupFingerprint} />
+                                  <MetaItem label="隔離復原事件" value={receiverOperatorDrillOutcome.isolatedRestoreEventFingerprint} />
+                                  <MetaItem label="正式治理資料" value="演練期間未變更" />
+                                </div>
+                              </div>
+                            )}
                             <label className="check-field attention-line">
                               <input
                                 type="checkbox"

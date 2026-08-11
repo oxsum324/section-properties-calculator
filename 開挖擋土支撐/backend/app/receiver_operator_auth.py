@@ -833,7 +833,24 @@ class ReceiverOperatorStore:
             "headFingerprint": events[-1]["eventFingerprint"] if events else None,
         }
 
-    def record_governance_backup_export(self, actor_operator_id: str) -> dict[str, Any]:
+    def record_governance_backup_export(
+        self,
+        actor_operator_id: str,
+        *,
+        retain_server_copy: bool = False,
+        retention_days: int | None = None,
+    ) -> dict[str, Any]:
+        if retain_server_copy:
+            if not isinstance(retention_days, int) or isinstance(retention_days, bool):
+                raise ValueError("受管制本機備份必須指定保存天數。")
+            if retention_days < 1 or retention_days > 365:
+                raise ValueError("受管制本機備份保存天數須為 1 至 365 天。")
+        details: dict[str, Any] = {
+            "backupExportRequestId": "RBE-" + secrets.token_hex(10).upper(),
+            "managedCopyRequested": retain_server_copy,
+        }
+        if retain_server_copy:
+            details["retentionDays"] = retention_days
         with closing(self._connect()) as connection:
             connection.execute("BEGIN IMMEDIATE")
             self._require_active_admin(connection, actor_operator_id)
@@ -842,7 +859,7 @@ class ReceiverOperatorStore:
                 event_type="operator-governance-backup-exported",
                 actor_operator_id=actor_operator_id,
                 target_operator_id=actor_operator_id,
-                details={"backupExportRequestId": "RBE-" + secrets.token_hex(10).upper()},
+                details=details,
             )
             connection.commit()
         return event

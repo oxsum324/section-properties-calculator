@@ -44,6 +44,11 @@ from .receiver_operator_backup import (
     preview_receiver_operator_governance_restore,
     restore_receiver_operator_governance_backup,
 )
+from .receiver_operator_recovery import (
+    list_receiver_operator_governance_recovery_inventory,
+    perform_receiver_operator_governance_recovery_drill,
+    write_managed_receiver_operator_governance_backup,
+)
 from .receiver_capacity import calculate_reshore_member_capacity
 from .receiver_evidence_template_package import validate_receiver_evidence_template_publisher_package
 from .receiver_key_enrollment import validate_receiver_key_enrollment
@@ -70,6 +75,7 @@ from .schemas import (
     CompleteReceiverKeyRotationRequest,
     CreateReceiverOperatorRequest,
     CreateProjectRequest,
+    DrillReceiverOperatorGovernanceBackupRequest,
     ExportReceiverOperatorGovernanceBackupRequest,
     ProjectState,
     ReferenceData,
@@ -346,14 +352,40 @@ def export_receiver_operator_governance_backup(
 ) -> dict[str, Any]:
     actor = _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
     try:
-        audit_event = receiver_operator_store.record_governance_backup_export(actor["id"])
+        audit_event = receiver_operator_store.record_governance_backup_export(
+            actor["id"],
+            retain_server_copy=payload.retain_server_copy,
+            retention_days=payload.retention_days if payload.retain_server_copy else None,
+        )
         backup = build_receiver_operator_governance_backup(
             receiver_operator_store,
             payload.passphrase,
         )
+        managed_backup = (
+            write_managed_receiver_operator_governance_backup(
+                receiver_operator_store,
+                backup,
+                retention_days=payload.retention_days,
+            )
+            if payload.retain_server_copy
+            else None
+        )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return {"backup": backup, "auditEventFingerprint": audit_event["eventFingerprint"]}
+    return {
+        "backup": backup,
+        "auditEventFingerprint": audit_event["eventFingerprint"],
+        "managedBackup": managed_backup,
+    }
+
+
+@app.get("/api/receiver-operator-governance-backups/inventory")
+def list_receiver_operator_governance_backup_inventory(request: Request) -> dict[str, Any]:
+    _receiver_operator(request, required_role="receiver-key-admin")
+    try:
+        return list_receiver_operator_governance_recovery_inventory(receiver_operator_store)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @app.post("/api/receiver-operator-governance-backups/validate")
@@ -395,6 +427,30 @@ def restore_receiver_operator_governance(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     response.delete_cookie(RECEIVER_SESSION_COOKIE, path="/", samesite="strict")
     return restored
+
+
+@app.post("/api/receiver-operator-governance-backups/drill")
+def drill_receiver_operator_governance_backup(
+    payload: DrillReceiverOperatorGovernanceBackupRequest,
+    request: Request,
+) -> dict[str, Any]:
+    _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
+    try:
+        result = perform_receiver_operator_governance_recovery_drill(
+            receiver_operator_store,
+            payload.backup,
+            payload.passphrase,
+            recovery_username=payload.recovery_username,
+            recovery_password=payload.recovery_password,
+        )
+        return {
+            **result,
+            "inventory": list_receiver_operator_governance_recovery_inventory(
+                receiver_operator_store
+            ),
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def _receipt_validation(receipt: dict[str, Any]) -> dict[str, Any]:

@@ -575,6 +575,8 @@ class ChangeReceiverOperatorPasswordRequest(BaseModel):
 
 class ExportReceiverOperatorGovernanceBackupRequest(BaseModel):
     passphrase: str = Field(min_length=16, max_length=256)
+    retain_server_copy: bool = False
+    retention_days: int = Field(default=30, ge=1, le=365, strict=True)
 
 
 class ValidateReceiverOperatorGovernanceBackupRequest(BaseModel):
@@ -588,6 +590,13 @@ class RestoreReceiverOperatorGovernanceBackupRequest(BaseModel):
     recovery_username: str = Field(min_length=3, max_length=40)
     recovery_password: str = Field(min_length=1, max_length=256)
     restore_confirmed: Literal[True]
+
+
+class DrillReceiverOperatorGovernanceBackupRequest(BaseModel):
+    backup: dict[str, Any]
+    passphrase: str = Field(min_length=16, max_length=256)
+    recovery_username: str = Field(min_length=3, max_length=40)
+    recovery_password: str = Field(min_length=1, max_length=256)
 
 
 class RestoreReceiverTrustRegistryRequest(BaseModel):
