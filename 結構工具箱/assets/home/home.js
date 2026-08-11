@@ -149,7 +149,7 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 2,
-    generatedAt: '2026-08-09',
+    generatedAt: '2026-08-11',
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
@@ -195,7 +195,7 @@
       '/equipment-load': '2026-08-05',
       '/earth-pressure': '2026-08-05',
       '/decking': '2026-07-21',
-      '/excavation-support': '2026-08-09'
+      '/excavation-support': '2026-08-11'
     }
   };
 
@@ -257,7 +257,16 @@
       '/foundation-local': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/equipment-load': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/earth-pressure': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
-      '/excavation-support': ['開挖擋土支撐/frontend/src/App.tsx', '開挖擋土支撐/backend/app/receiver_trust_backup.py', '開挖擋土支撐/backend/app/receiver_trust_recovery.py']
+      '/excavation-support': [
+        '開挖擋土支撐/frontend/src/App.tsx',
+        '開挖擋土支撐/backend/app/parsers.py',
+        '開挖擋土支撐/backend/app/main.py',
+        '開挖擋土支撐/backend/app/calculations.py',
+        '開挖擋土支撐/backend/app/reporting.py',
+        '開挖擋土支撐/backend/app/schemas.py',
+        '開挖擋土支撐/backend/app/receiver_trust_backup.py',
+        '開挖擋土支撐/backend/app/receiver_trust_recovery.py'
+      ]
     }
   };
 
