@@ -253,6 +253,7 @@ export type AnalysisEvent = {
   load_t?: number | null;
   stiffness?: number | null;
   control_stage_indices?: number[];
+  stage_force_cases?: AnalysisForceCase[];
   description: string;
   included: boolean;
 };

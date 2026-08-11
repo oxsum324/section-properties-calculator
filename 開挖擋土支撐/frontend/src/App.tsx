@@ -5600,7 +5600,7 @@ function AnalysisMappingEditor(props: {
         <span className={`status-chip ${mappingComplete ? "ok" : "warn"}`}>{mappingComplete ? "已確認施工步驟對應" : "待確認施工步驟對應"}</span>
       </div>
       <p className="meta-line">
-        控制階段軸力候選：{cases.map((item) => `#${item.stage_index} ${item.stage_label} = ${fmt(item.axial_force_t)} tf`).join("；") || "缺少候選資料"}
+        施工階段軸力時序：{cases.map((item) => `#${item.stage_index} ${item.stage_label} = ${fmt(item.axial_force_t)} tf`).join("；") || "缺少時序資料"}
       </p>
       <p className="meta-line">拆撐後的傳力路徑不由匯入資料自動推定；以下記錄承接對象、傳力方向與由來源構件設計軸力形成的承接需求，承接構造仍須另依正式模型完成分配、偏心、載重組合及容量檢核。</p>
       <div className="analysis-stage-mapping-grid">
@@ -7685,13 +7685,15 @@ function flattenImportedStruts(analysisImport: AnalysisImportResult): ImportedSt
           angle_deg: event.angle_deg,
           load_t: event.load_t,
           stiffness: event.stiffness,
-          stageCases: (event.control_stage_indices?.length ? event.control_stage_indices : [event.stage_index]).map(
-            (stageIndex) => ({
-              stage_index: stageIndex,
-              stage_label: stageLabels.get(stageIndex) ?? `施工階段 ${stageIndex}`,
-              axial_force_t: Number(Number(event.load_t).toFixed(6)),
-            }),
-          ),
+          stageCases: event.stage_force_cases?.length
+            ? event.stage_force_cases
+            : (event.control_stage_indices?.length ? event.control_stage_indices : [event.stage_index]).map(
+                (stageIndex) => ({
+                  stage_index: stageIndex,
+                  stage_label: stageLabels.get(stageIndex) ?? `施工階段 ${stageIndex}`,
+                  axial_force_t: Number(Number(event.load_t).toFixed(6)),
+                }),
+              ),
         },
       ];
     });

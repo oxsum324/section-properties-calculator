@@ -81,7 +81,15 @@ class ImportFlowTests(unittest.TestCase):
         )
         self.assertEqual(
             [[case.stage_index for case in row.analysis_stage_cases] for row in project.top_supports],
-            [[9, 10], [5], [7, 8]],
+            [[2, 3, 4, 5, 6, 7, 8, 9, 10], [4, 5, 6, 7, 8], [6, 7, 8]],
+        )
+        self.assertEqual(
+            [[round(case.axial_force_t, 1) for case in row.analysis_stage_cases] for row in project.top_supports],
+            [
+                [50.0, 58.7, 56.1, 52.0, 54.4, 52.1, 52.1, 72.3, 72.3],
+                [70.0, 99.5, 85.0, 80.7, 80.7],
+                [160.0, 217.5, 217.5],
+            ],
         )
         self.assertEqual(
             [row.analysis_control_stage_index for row in project.top_supports],

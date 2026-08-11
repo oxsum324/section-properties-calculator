@@ -57,6 +57,15 @@ class ParserTests(unittest.TestCase):
             [event.control_stage_indices for event in result.events if event.classification == "support"],
             [[9, 10], [5], [7, 8]],
         )
+        support_events = [event for event in result.events if event.classification == "support"]
+        self.assertEqual(
+            [(case.stage_index, round(case.axial_force_t, 1)) for case in support_events[0].stage_force_cases],
+            [(2, 50.0), (3, 58.7), (4, 56.1), (5, 52.0), (6, 54.4), (7, 52.1), (8, 52.1), (9, 72.3), (10, 72.3)],
+        )
+        self.assertEqual(
+            [len(event.stage_force_cases) for event in support_events],
+            [9, 5, 3],
+        )
 
 
 if __name__ == "__main__":

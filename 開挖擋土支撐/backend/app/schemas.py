@@ -75,6 +75,12 @@ class AnalysisStrut(BaseModel):
     stiffness: float
 
 
+class AnalysisForceCase(BaseModel):
+    stage_index: int = Field(gt=0)
+    stage_label: str = Field(min_length=1, max_length=120)
+    axial_force_t: float
+
+
 class AnalysisEvent(BaseModel):
     stage_index: int
     stage_label: str
@@ -86,6 +92,7 @@ class AnalysisEvent(BaseModel):
     load_t: float | None = None
     stiffness: float | None = None
     control_stage_indices: list[int] = Field(default_factory=list, max_length=100)
+    stage_force_cases: list[AnalysisForceCase] = Field(default_factory=list, max_length=100)
     description: str = ""
     included: bool = False
 
@@ -133,12 +140,6 @@ class BasicParameters(BaseModel):
     wall_type: str = "連續壁"
     wall_thickness_cm: float = 100.0
     wall_fc_kg_per_cm2: float = 245.0
-
-
-class AnalysisForceCase(BaseModel):
-    stage_index: int = Field(gt=0)
-    stage_label: str = Field(min_length=1, max_length=120)
-    axial_force_t: float
 
 
 class RemovalTransferReceiverAllocation(BaseModel):

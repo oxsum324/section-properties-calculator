@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .schemas import AnalysisEvent, AnalysisImportResult, AnalysisStage, AnalysisStrut, SoilLayer
+from .schemas import AnalysisEvent, AnalysisForceCase, AnalysisImportResult, AnalysisStage, AnalysisStrut, SoilLayer
 
 
 _FLOAT = r"[-+]?\d+(?:\.\d+)?"
@@ -341,6 +341,10 @@ def _apply_o_but_force_summary(result: AnalysisImportResult, lines: list[str]) -
         event.load_t = butt_summary["controlling_load_t"]
         controlling_stages = butt_summary["controlling_stages"]
         event.control_stage_indices = list(controlling_stages)
+        event.stage_force_cases = [
+            AnalysisForceCase(**item)
+            for item in butt_summary["stage_force_cases"]
+        ]
         if controlling_stages:
             stage_text = "、".join(f"#{stage_index}" for stage_index in controlling_stages)
             event.description = (
@@ -359,7 +363,7 @@ def _apply_o_but_force_summary(result: AnalysisImportResult, lines: list[str]) -
 def _parse_o_but_force_summary(
     lines: list[str],
     stage_count: int,
-) -> dict[int, dict[str, float | list[int]]]:
+) -> dict[int, dict[str, float | list[int] | list[dict[str, float | int | str]]]]:
     header_index = next(
         (
             index
@@ -371,7 +375,7 @@ def _parse_o_but_force_summary(
     if header_index is None:
         return {}
 
-    summary: dict[int, dict[str, float | list[int]]] = {}
+    summary: dict[int, dict[str, float | list[int] | list[dict[str, float | int | str]]]] = {}
     row_pattern = re.compile(r"^NO\.\s*(\d+)\s+(.+)$")
     for line in lines[header_index + 1 :]:
         stripped = line.strip()
@@ -407,9 +411,19 @@ def _parse_o_but_force_summary(
             for index, value in enumerate(stage_values)
             if value is not None and abs(abs(value) - controlling_load) < 1e-6
         ]
+        stage_force_cases = [
+            {
+                "stage_index": index + 1,
+                "stage_label": f"施工階段 {index + 1}",
+                "axial_force_t": abs(value),
+            }
+            for index, value in enumerate(stage_values)
+            if value is not None
+        ]
         summary[butt_no] = {
             "controlling_load_t": controlling_load,
             "controlling_stages": controlling_stages,
+            "stage_force_cases": stage_force_cases,
         }
     return summary
 

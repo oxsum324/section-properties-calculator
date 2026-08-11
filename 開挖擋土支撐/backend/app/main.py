@@ -389,6 +389,7 @@ def _flatten_imported_struts(project_result: AnalysisImportResult) -> list[dict[
             ):
                 continue
             control_stage_indices = event.control_stage_indices or [event.stage_index]
+            stage_force_cases = [item.model_dump() for item in event.stage_force_cases]
             rows.append(
                 {
                     "stage_index": event.stage_index,
@@ -402,7 +403,7 @@ def _flatten_imported_struts(project_result: AnalysisImportResult) -> list[dict[
                     "angle_deg": event.angle_deg,
                     "load_t": event.load_t,
                     "stiffness": event.stiffness,
-                    "stage_cases": [
+                    "stage_cases": stage_force_cases or [
                         {
                             "stage_index": stage_index,
                             "stage_label": stage_labels.get(stage_index, f"施工階段 {stage_index}"),

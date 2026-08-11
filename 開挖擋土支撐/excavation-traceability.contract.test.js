@@ -104,7 +104,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.15.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.16.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -613,6 +613,7 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'def _parse_o_file',
   'def _classify_setup_event',
   'def _apply_o_but_force_summary',
+  'stage_force_cases',
   '未辨識副檔名',
   '"floor"',
   '"remove"',
@@ -625,6 +626,7 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
 [
   'force_source',
   'analysis_stage_cases',
+  'stage_force_cases',
   'analysis_install_stage_index',
   'analysis_control_stage_index',
   'analysis_removal_stage_index',
@@ -657,6 +659,7 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
 });
 [
   'AnalysisMappingEditor',
+  '施工階段軸力時序',
   '實際施工步驟',
   '階段對應依據',
   '分析生命週期',

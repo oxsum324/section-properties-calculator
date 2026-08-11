@@ -342,7 +342,7 @@ def _analysis_mapping_inputs(row: object) -> dict[str, object]:
         "拆撐處置依據": str(getattr(row, "removal_transfer_basis", "")).strip() or "—",
         "施工步驟": getattr(row, "construction_step_label", ""),
         "階段對應依據": getattr(row, "analysis_mapping_basis", ""),
-        "分析階段候選數": len(cases),
+        "分析階段時序數": len(cases),
         "分析階段內力": "；".join(
             f"#{case.stage_index} {case.stage_label} = {case.axial_force_t:g} tf"
             for case in cases
@@ -360,7 +360,7 @@ def _validate_analysis_force_mapping(
         return None, ""
     cases = list(getattr(row, "analysis_stage_cases", []))
     if not cases:
-        return None, "外部分析內力缺少控制階段候選值，無法確認控制階段。"
+        return None, "外部分析內力缺少施工階段時序值，無法確認控制階段。"
     if any(not math.isfinite(float(case.axial_force_t)) or float(case.axial_force_t) < 0 for case in cases):
         return None, "外部分析階段軸力必須為有限且不小於 0 的壓力值。"
     install_index = getattr(row, "analysis_install_stage_index", None)
