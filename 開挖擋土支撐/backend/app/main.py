@@ -54,10 +54,12 @@ from .schemas import (
     BuildReceiverSigningRequestRequest,
     BuildSourceEvidenceVerificationRequest,
     BuildSourceEvidenceSigningRequestRequest,
+    ApproveReceiverKeyRotationCompletionRequest,
     CompleteReceiverKeyRotationRequest,
     CreateProjectRequest,
     ProjectState,
     ReferenceData,
+    RequestReceiverKeyRotationCompletionRequest,
     ReportPayload,
     RegisterReceiverEnrollmentRequest,
     RestoreReceiverTrustRegistryRequest,
@@ -147,9 +149,10 @@ def list_receiver_trust_keys() -> dict[str, Any]:
     try:
         keys = receiver_trust_store.list_keys()
         events = receiver_trust_store.list_events()
+        rotation_requests = receiver_trust_store.list_rotation_requests()
     except ValueError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    return {"schemaVersion": 1, "keys": keys, "events": events}
+    return {"schemaVersion": 1, "keys": keys, "events": events, "rotationRequests": rotation_requests}
 
 
 @app.post("/api/removal-transfer-trust-keys")
@@ -167,6 +170,7 @@ def register_receiver_trust_key(request: dict[str, Any]) -> dict[str, Any]:
         "key": record,
         "keys": receiver_trust_store.list_keys(),
         "events": receiver_trust_store.list_events(),
+        "rotationRequests": receiver_trust_store.list_rotation_requests(),
     }
 
 
@@ -194,6 +198,7 @@ def register_receiver_trust_key_enrollment(
         "key": record,
         "keys": receiver_trust_store.list_keys(),
         "events": receiver_trust_store.list_events(),
+        "rotationRequests": receiver_trust_store.list_rotation_requests(),
     }
 
 
@@ -219,6 +224,57 @@ def revoke_receiver_trust_key(
         "key": record,
         "keys": receiver_trust_store.list_keys(),
         "events": receiver_trust_store.list_events(),
+        "rotationRequests": receiver_trust_store.list_rotation_requests(),
+    }
+
+
+@app.post("/api/removal-transfer-trust-keys/{new_key_id}/rotation-requests")
+def request_receiver_key_rotation_completion(
+    new_key_id: str,
+    request: RequestReceiverKeyRotationCompletionRequest,
+) -> dict[str, Any]:
+    try:
+        rotation_request = receiver_trust_store.request_rotation_completion(
+            new_key_id,
+            reason=request.reason,
+            requested_by=request.requested_by,
+            requester_role=request.requester_role,
+            incident_reference=request.incident_reference,
+            request_confirmed=request.request_confirmed,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="本機信任清冊找不到指定的輪替新金鑰。") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "request": rotation_request,
+        "keys": receiver_trust_store.list_keys(),
+        "events": receiver_trust_store.list_events(),
+        "rotationRequests": receiver_trust_store.list_rotation_requests(),
+    }
+
+
+@app.post("/api/removal-transfer-trust-key-rotation-requests/{request_fingerprint}/approve")
+def approve_receiver_key_rotation_completion(
+    request_fingerprint: str,
+    request: ApproveReceiverKeyRotationCompletionRequest,
+) -> dict[str, Any]:
+    try:
+        completed = receiver_trust_store.approve_rotation_completion(
+            request_fingerprint,
+            approved_by=request.approved_by,
+            approver_role=request.approver_role,
+            approval_confirmed=request.approval_confirmed,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="本機信任清冊找不到指定的輪替覆核申請。") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        **completed,
+        "keys": receiver_trust_store.list_keys(),
+        "events": receiver_trust_store.list_events(),
+        "rotationRequests": receiver_trust_store.list_rotation_requests(),
     }
 
 
@@ -238,7 +294,7 @@ def complete_receiver_key_rotation(
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="本機信任清冊找不到指定的輪替新金鑰。") from exc
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {
         **completed,
         "keys": receiver_trust_store.list_keys(),
@@ -268,11 +324,15 @@ def restore_receiver_trust_registry(
     request: RestoreReceiverTrustRegistryRequest,
 ) -> dict[str, Any]:
     try:
-        return restore_receiver_trust_registry_backup(
+        restored = restore_receiver_trust_registry_backup(
             receiver_trust_store,
             request.backup,
             restore_confirmed=request.restore_confirmed,
         )
+        return {
+            **restored,
+            "rotationRequests": receiver_trust_store.list_rotation_requests(),
+        }
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

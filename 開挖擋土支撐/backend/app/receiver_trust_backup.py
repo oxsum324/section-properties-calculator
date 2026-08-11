@@ -182,6 +182,10 @@ def preview_receiver_trust_registry_restore(
                 "revokedBy",
                 "revocationReference",
                 "revocationEventFingerprint",
+                "replacedByKeyId",
+                "rotationCompletedAt",
+                "rotationCompletionEventFingerprint",
+                "rotationApprovalRequestFingerprint",
             }
             if any(current_key.get(field) != backup_key.get(field) for field in stable_fields):
                 blocking_reasons.append(f"備份改寫既有金鑰 {key_id} 的登錄資料。")

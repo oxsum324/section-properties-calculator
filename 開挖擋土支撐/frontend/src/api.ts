@@ -15,6 +15,7 @@ import {
   SourceEvidenceIdentitySignatureResponse,
   ReceiverTrustKey,
   ReceiverTrustEvent,
+  ReceiverRotationRequest,
   ReceiverRevocationReason,
   ReceiverTrustRegistryBackup,
   ReceiverTrustRestorePreview,
@@ -193,9 +194,9 @@ export const api = {
     },
   ),
   listReceiverTrustKeys: () =>
-    request<{ schemaVersion: 1; keys: ReceiverTrustKey[]; events: ReceiverTrustEvent[] }>("/api/removal-transfer-trust-keys"),
+    request<{ schemaVersion: 1; keys: ReceiverTrustKey[]; events: ReceiverTrustEvent[]; rotationRequests: ReceiverRotationRequest[] }>("/api/removal-transfer-trust-keys"),
   registerReceiverTrustKey: (organization: string, displayName: string, publicKey: string) =>
-    request<{ key: ReceiverTrustKey; keys: ReceiverTrustKey[]; events: ReceiverTrustEvent[] }>("/api/removal-transfer-trust-keys", {
+    request<{ key: ReceiverTrustKey; keys: ReceiverTrustKey[]; events: ReceiverTrustEvent[]; rotationRequests: ReceiverRotationRequest[] }>("/api/removal-transfer-trust-keys", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ organization, displayName, publicKey, independentVerificationConfirmed: true }),
@@ -210,7 +211,7 @@ export const api = {
       },
     ),
   registerReceiverKeyEnrollment: (enrollment: ReceiverKeyEnrollment) =>
-    request<{ key: ReceiverTrustKey; keys: ReceiverTrustKey[]; events: ReceiverTrustEvent[] }>(
+    request<{ key: ReceiverTrustKey; keys: ReceiverTrustKey[]; events: ReceiverTrustEvent[]; rotationRequests: ReceiverRotationRequest[] }>(
       "/api/removal-transfer-trust-keys/enrollments/register",
       {
         method: "POST",
@@ -227,7 +228,7 @@ export const api = {
       incidentReference: string;
     },
   ) =>
-    request<{ key: ReceiverTrustKey; keys: ReceiverTrustKey[]; events: ReceiverTrustEvent[] }>(
+    request<{ key: ReceiverTrustKey; keys: ReceiverTrustKey[]; events: ReceiverTrustEvent[]; rotationRequests: ReceiverRotationRequest[] }>(
       `/api/removal-transfer-trust-keys/${encodeURIComponent(keyId)}/revoke`,
       {
         method: "POST",
@@ -241,28 +242,50 @@ export const api = {
         }),
       },
     ),
-  completeReceiverKeyRotation: (
+  requestReceiverKeyRotationCompletion: (
     newKeyId: string,
     rotation: {
       reason: string;
-      handledBy: string;
+      requestedBy: string;
+      requesterRole: string;
       incidentReference: string;
     },
+  ) =>
+    request<{
+      request: ReceiverRotationRequest;
+      keys: ReceiverTrustKey[];
+      events: ReceiverTrustEvent[];
+      rotationRequests: ReceiverRotationRequest[];
+    }>(`/api/removal-transfer-trust-keys/${encodeURIComponent(newKeyId)}/rotation-requests`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reason: rotation.reason,
+        requested_by: rotation.requestedBy,
+        requester_role: rotation.requesterRole,
+        incident_reference: rotation.incidentReference,
+        request_confirmed: true,
+      }),
+    }),
+  approveReceiverKeyRotationCompletion: (
+    requestFingerprint: string,
+    approval: { approvedBy: string; approverRole: string },
   ) =>
     request<{
       newKey: ReceiverTrustKey;
       revokedKey: ReceiverTrustKey;
       event: ReceiverTrustEvent;
+      request: ReceiverRotationRequest;
       keys: ReceiverTrustKey[];
       events: ReceiverTrustEvent[];
-    }>(`/api/removal-transfer-trust-keys/${encodeURIComponent(newKeyId)}/complete-rotation`, {
+      rotationRequests: ReceiverRotationRequest[];
+    }>(`/api/removal-transfer-trust-key-rotation-requests/${encodeURIComponent(requestFingerprint)}/approve`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        reason: rotation.reason,
-        handled_by: rotation.handledBy,
-        incident_reference: rotation.incidentReference,
-        rotation_confirmed: true,
+        approved_by: approval.approvedBy,
+        approver_role: approval.approverRole,
+        approval_confirmed: true,
       }),
     }),
   exportReceiverTrustRegistryBackup: () =>
@@ -283,6 +306,7 @@ export const api = {
     request<{
       keys: ReceiverTrustKey[];
       events: ReceiverTrustEvent[];
+      rotationRequests: ReceiverRotationRequest[];
       safeguardPath: string | null;
       registryFingerprint: string;
       backupFingerprint: string;

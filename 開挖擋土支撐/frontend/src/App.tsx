@@ -44,6 +44,7 @@ import {
   ReceiverSupplementalCheck,
   ReceiverSupplementalCheckId,
   ReceiverRevocationReason,
+  ReceiverRotationRequest,
   ReceiverTrustEvent,
   ReceiverTrustKey,
   ReceiverTrustRegistryBackup,
@@ -158,14 +159,22 @@ const emptyReceiverRevocationDraft = {
 
 const emptyReceiverRotationDraft = {
   reason: "新金鑰已完成測試簽署與使用端切換，輪替完成後停用舊金鑰。",
-  handledBy: "",
+  requestedBy: "",
+  requesterRole: "",
   incidentReference: "",
+  confirmed: false,
+};
+
+const emptyReceiverRotationApprovalDraft = {
+  approvedBy: "",
+  approverRole: "",
   confirmed: false,
 };
 
 function receiverTrustEventReasonLabel(value: ReceiverTrustEvent["reasonCode"]): string {
   if (value === "new-registration") return "新金鑰登錄";
   if (value === "rotation-registration") return "輪替金鑰登錄";
+  if (value === "rotation-completion-request") return "輪替完成申請";
   if (value === "superseded-after-rotation") return "輪替完成後停用舊金鑰";
   return receiverRevocationReasonOptions.find((option) => option.value === value)?.label ?? value;
 }
@@ -173,12 +182,22 @@ function receiverTrustEventReasonLabel(value: ReceiverTrustEvent["reasonCode"]):
 function receiverKeyRotationStatus(
   key: ReceiverTrustKey,
   keys: ReceiverTrustKey[],
+  requests: ReceiverRotationRequest[],
 ): { label: string; tone: "pending" | "completed" | "attention"; oldKey: ReceiverTrustKey | null } | null {
   if (!key.replacesKeyId) return null;
   const oldKey = keys.find((item) => item.keyId === key.replacesKeyId) ?? null;
   if (key.status === "revoked") return { label: "輪替新金鑰已撤銷，需重新規劃", tone: "attention", oldKey };
   if (!oldKey) return { label: "找不到輪替舊金鑰，禁止完成", tone: "attention", oldKey };
-  if (oldKey.status === "trusted") return { label: "輪替待完成：新舊金鑰仍同時受信任", tone: "pending", oldKey };
+  if (oldKey.status === "trusted") {
+    const latestRequest = [...requests].reverse().find((item) => item.newKeyId === key.keyId);
+    if (latestRequest?.status === "pending") {
+      return { label: "輪替申請待第二人覆核：新舊金鑰仍同時受信任", tone: "pending", oldKey };
+    }
+    if (latestRequest?.status === "expired") {
+      return { label: "輪替申請已逾期：需重新提出", tone: "attention", oldKey };
+    }
+    return { label: "輪替待申請：新舊金鑰仍同時受信任", tone: "pending", oldKey };
+  }
   if (
     oldKey.revocationReasonCode === "superseded-after-rotation"
     && oldKey.replacedByKeyId === key.keyId
@@ -187,6 +206,13 @@ function receiverKeyRotationStatus(
     return { label: "輪替已完成：舊金鑰已受控撤銷", tone: "completed", oldKey };
   }
   return { label: "舊金鑰已另案撤銷，輪替關聯需人工複核", tone: "attention", oldKey };
+}
+
+function receiverRotationRequestStatusLabel(status: ReceiverRotationRequest["status"]): string {
+  if (status === "pending") return "等待第二人覆核";
+  if (status === "completed") return "已覆核完成";
+  if (status === "expired") return "已逾 72 小時期限";
+  return "金鑰狀態已變更，禁止執行";
 }
 
 function receiverTemplatePublisherStatusLabel(status: ReceiverEvidenceTemplatePublisherStatus): string {
@@ -406,6 +432,7 @@ function App() {
   const [receiverAssistantIdentityVerification, setReceiverAssistantIdentityVerification] = useState<ReceiverIdentityVerification | null>(null);
   const [receiverTrustKeys, setReceiverTrustKeys] = useState<ReceiverTrustKey[]>([]);
   const [receiverTrustEvents, setReceiverTrustEvents] = useState<ReceiverTrustEvent[]>([]);
+  const [receiverRotationRequests, setReceiverRotationRequests] = useState<ReceiverRotationRequest[]>([]);
   const [receiverTrustDraft, setReceiverTrustDraft] = useState({ organization: "", displayName: "", publicKey: "" });
   const [receiverTrustEnrollment, setReceiverTrustEnrollment] = useState<ReceiverKeyEnrollment | null>(null);
   const [receiverTrustVerificationConfirmed, setReceiverTrustVerificationConfirmed] = useState(false);
@@ -413,6 +440,8 @@ function App() {
   const [receiverRevocationDraft, setReceiverRevocationDraft] = useState(emptyReceiverRevocationDraft);
   const [receiverRotationKeyId, setReceiverRotationKeyId] = useState<string | null>(null);
   const [receiverRotationDraft, setReceiverRotationDraft] = useState(emptyReceiverRotationDraft);
+  const [receiverRotationApprovalRequestFingerprint, setReceiverRotationApprovalRequestFingerprint] = useState<string | null>(null);
+  const [receiverRotationApprovalDraft, setReceiverRotationApprovalDraft] = useState(emptyReceiverRotationApprovalDraft);
   const [receiverTrustBackup, setReceiverTrustBackup] = useState<ReceiverTrustRegistryBackup | null>(null);
   const [receiverTrustRestorePreview, setReceiverTrustRestorePreview] = useState<ReceiverTrustRestorePreview | null>(null);
   const [receiverTrustRestoreConfirmed, setReceiverTrustRestoreConfirmed] = useState(false);
@@ -526,6 +555,7 @@ function App() {
         if (!cancelled) {
           setReceiverTrustKeys(response.keys);
           setReceiverTrustEvents(response.events);
+          setReceiverRotationRequests(response.rotationRequests);
         }
       })
       .catch((err) => {
@@ -1246,6 +1276,7 @@ function App() {
           );
       setReceiverTrustKeys(response.keys);
       setReceiverTrustEvents(response.events);
+      setReceiverRotationRequests(response.rotationRequests);
       setReceiverTrustDraft({ organization: "", displayName: "", publicKey: "" });
       setReceiverTrustEnrollment(null);
       setReceiverTrustVerificationConfirmed(false);
@@ -1306,6 +1337,8 @@ function App() {
     setReceiverRevocationDraft(emptyReceiverRevocationDraft);
     setReceiverRotationKeyId(null);
     setReceiverRotationDraft(emptyReceiverRotationDraft);
+    setReceiverRotationApprovalRequestFingerprint(null);
+    setReceiverRotationApprovalDraft(emptyReceiverRotationApprovalDraft);
   }
 
   function cancelReceiverTrustKeyRevocation() {
@@ -1324,6 +1357,7 @@ function App() {
       const response = await api.revokeReceiverTrustKey(receiverRevocationKeyId, receiverRevocationDraft);
       setReceiverTrustKeys(response.keys);
       setReceiverTrustEvents(response.events);
+      setReceiverRotationRequests(response.rotationRequests);
       cancelReceiverTrustKeyRevocation();
       setReceiverTrustBackup(null);
       setReceiverTrustRestorePreview(null);
@@ -1348,6 +1382,8 @@ function App() {
   function beginReceiverKeyRotationCompletion(newKeyId: string) {
     setReceiverRotationKeyId(newKeyId);
     setReceiverRotationDraft(emptyReceiverRotationDraft);
+    setReceiverRotationApprovalRequestFingerprint(null);
+    setReceiverRotationApprovalDraft(emptyReceiverRotationApprovalDraft);
     cancelReceiverTrustKeyRevocation();
   }
 
@@ -1356,18 +1392,59 @@ function App() {
     setReceiverRotationDraft(emptyReceiverRotationDraft);
   }
 
-  async function handleCompleteReceiverKeyRotation() {
+  async function handleRequestReceiverKeyRotationCompletion() {
     if (!receiverRotationKeyId) return;
     if (!receiverRotationDraft.confirmed) {
-      setError("完成輪替前必須確認新金鑰已啟用，並了解舊金鑰將不可復原地撤銷。");
+      setError("提出輪替完成申請前，必須確認新金鑰已完成測試簽署與使用端切換。");
       return;
     }
     try {
-      setBusy("完成受信任公鑰輪替");
-      const response = await api.completeReceiverKeyRotation(receiverRotationKeyId, receiverRotationDraft);
+      setBusy("提出受信任公鑰輪替申請");
+      const response = await api.requestReceiverKeyRotationCompletion(receiverRotationKeyId, receiverRotationDraft);
       setReceiverTrustKeys(response.keys);
       setReceiverTrustEvents(response.events);
+      setReceiverRotationRequests(response.rotationRequests);
       cancelReceiverKeyRotationCompletion();
+      setReceiverTrustBackup(null);
+      setReceiverTrustRestorePreview(null);
+      setReceiverTrustRestoreConfirmed(false);
+      setReceiverTrustRestoreOutcome(null);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  function beginReceiverKeyRotationApproval(requestFingerprint: string) {
+    setReceiverRotationApprovalRequestFingerprint(requestFingerprint);
+    setReceiverRotationApprovalDraft(emptyReceiverRotationApprovalDraft);
+    cancelReceiverKeyRotationCompletion();
+    cancelReceiverTrustKeyRevocation();
+  }
+
+  function cancelReceiverKeyRotationApproval() {
+    setReceiverRotationApprovalRequestFingerprint(null);
+    setReceiverRotationApprovalDraft(emptyReceiverRotationApprovalDraft);
+  }
+
+  async function handleApproveReceiverKeyRotationCompletion() {
+    if (!receiverRotationApprovalRequestFingerprint) return;
+    if (!receiverRotationApprovalDraft.confirmed) {
+      setError("第二人覆核前必須確認申請內容、切換證據與不可復原撤銷結果。");
+      return;
+    }
+    try {
+      setBusy("覆核並完成受信任公鑰輪替");
+      const response = await api.approveReceiverKeyRotationCompletion(
+        receiverRotationApprovalRequestFingerprint,
+        receiverRotationApprovalDraft,
+      );
+      setReceiverTrustKeys(response.keys);
+      setReceiverTrustEvents(response.events);
+      setReceiverRotationRequests(response.rotationRequests);
+      cancelReceiverKeyRotationApproval();
       setReceiverTrustBackup(null);
       setReceiverTrustRestorePreview(null);
       setReceiverTrustRestoreConfirmed(false);
@@ -1439,6 +1516,7 @@ function App() {
       const response = await api.restoreReceiverTrustRegistryBackup(receiverTrustBackup);
       setReceiverTrustKeys(response.keys);
       setReceiverTrustEvents(response.events);
+      setReceiverRotationRequests(response.rotationRequests);
       setReceiverTrustRestoreOutcome({
         registryFingerprint: response.registryFingerprint,
         safeguardPath: response.safeguardPath,
@@ -5125,7 +5203,10 @@ function App() {
                     <thead><tr><th>單位／金鑰</th><th>Key ID</th><th>狀態</th><th>管理</th></tr></thead>
                     <tbody>
                       {receiverTrustKeys.map((key) => {
-                        const rotation = receiverKeyRotationStatus(key, receiverTrustKeys);
+                        const rotation = receiverKeyRotationStatus(key, receiverTrustKeys, receiverRotationRequests);
+                        const hasPendingRequest = receiverRotationRequests.some(
+                          (item) => item.newKeyId === key.keyId && item.status === "pending",
+                        );
                         return (
                         <tr key={key.keyId}>
                           <td>
@@ -5151,13 +5232,13 @@ function App() {
                             >
                               填寫撤銷紀錄
                             </button>
-                            {rotation?.tone === "pending" && (
+                            {rotation?.oldKey?.status === "trusted" && !hasPendingRequest && (
                               <button
                                 className="mini-action"
                                 type="button"
                                 onClick={() => beginReceiverKeyRotationCompletion(key.keyId)}
                               >
-                                完成輪替
+                                提出輪替完成申請
                               </button>
                             )}
                           </td>
@@ -5178,9 +5259,9 @@ function App() {
                   : null;
                 return (
                   <div className="receiver-key-rotation-card">
-                    <h4>完成金鑰輪替</h4>
+                    <h4>提出金鑰輪替完成申請</h4>
                     <p className="meta-line attention-line">
-                      此動作只會在新舊金鑰的 RKE 關聯、單位與受信任狀態全部一致時，撤銷對應的舊金鑰。登錄新金鑰不會自動執行此步驟。
+                      此步驟只建立具 RVE 指紋、72 小時期限與切換依據的申請，不會撤銷舊金鑰。必須由不同人員另行覆核後才會完成輪替。
                     </p>
                     <div className="meta-grid">
                       <MetaItem label="新金鑰" value={newKey ? `${newKey.displayName}｜${newKey.keyId}` : "找不到"} />
@@ -5189,9 +5270,14 @@ function App() {
                     </div>
                     <div className="form-grid">
                       <Field
-                        label="實際處理者／管理者"
-                        value={receiverRotationDraft.handledBy}
-                        onChange={(value) => setReceiverRotationDraft((current) => ({ ...current, handledBy: value, confirmed: false }))}
+                        label="輪替申請人"
+                        value={receiverRotationDraft.requestedBy}
+                        onChange={(value) => setReceiverRotationDraft((current) => ({ ...current, requestedBy: value, confirmed: false }))}
+                      />
+                      <Field
+                        label="申請人職責"
+                        value={receiverRotationDraft.requesterRole}
+                        onChange={(value) => setReceiverRotationDraft((current) => ({ ...current, requesterRole: value, confirmed: false }))}
                       />
                       <Field
                         label="輪替案件／變更編號（必填）"
@@ -5210,7 +5296,7 @@ function App() {
                         checked={receiverRotationDraft.confirmed}
                         onChange={(event) => setReceiverRotationDraft((current) => ({ ...current, confirmed: event.target.checked }))}
                       />
-                      <span>我確認新金鑰已完成測試簽署與使用端切換，並了解舊金鑰將以「輪替完成」不可復原地撤銷。</span>
+                      <span>我確認新金鑰已完成測試簽署與使用端切換，並提交予不同人員在 72 小時內覆核；本步驟尚不撤銷舊金鑰。</span>
                     </label>
                     <div className="action-row">
                       <button
@@ -5219,16 +5305,125 @@ function App() {
                         disabled={
                           !receiverRotationDraft.confirmed
                           || !receiverRotationDraft.reason.trim()
-                          || !receiverRotationDraft.handledBy.trim()
+                          || !receiverRotationDraft.requestedBy.trim()
+                          || !receiverRotationDraft.requesterRole.trim()
                           || !receiverRotationDraft.incidentReference.trim()
                           || !newKey
                           || !oldKey
                         }
-                        onClick={handleCompleteReceiverKeyRotation}
+                        onClick={handleRequestReceiverKeyRotationCompletion}
                       >
-                        確認切換完成並撤銷舊金鑰
+                        建立 72 小時雙人覆核申請
                       </button>
                       <button className="ghost" type="button" onClick={cancelReceiverKeyRotationCompletion}>取消</button>
+                    </div>
+                  </div>
+                );
+              })()}
+              <h4>輪替雙人覆核申請</h4>
+              <p className="meta-line">
+                申請與覆核分成兩筆不可覆寫的事件，覆核人不得與申請人同名，且申請 72 小時後失效。姓名與職責是程序性聲明；本工具目前沒有帳號登入或身分提供者，不應把它宣稱為已驗證的角色權限。疑似外洩、確認外洩或私鑰遺失仍應立即使用一般撤銷，不等待輪替覆核。
+              </p>
+              {receiverRotationRequests.length ? (
+                <>
+                  <p className="meta-line table-scroll-hint">窄螢幕可在表格內左右滑動，查看完整申請指紋與覆核狀態。</p>
+                  <div className="table-scroll-card">
+                    <table className="data-table compact receiver-trust-event-table">
+                      <thead><tr><th>狀態／期限</th><th>新舊 Key ID</th><th>申請人／依據</th><th>申請指紋／管理</th></tr></thead>
+                      <tbody>
+                        {[...receiverRotationRequests].reverse().map((item) => (
+                          <tr key={item.requestFingerprint}>
+                            <td>
+                              <strong className={`receiver-key-rotation-status ${item.status === "completed" ? "completed" : item.status === "pending" ? "pending" : "attention"}`}>
+                                {receiverRotationRequestStatusLabel(item.status)}
+                              </strong><br />
+                              <span className="table-muted">提出：{item.requestedAt}</span><br />
+                              <span className="table-muted">期限：{item.expiresAt}</span>
+                            </td>
+                            <td>
+                              新：{item.newKeyId}<br />
+                              <span className="table-muted">舊：{item.oldKeyId}</span>
+                            </td>
+                            <td>
+                              {item.requestedBy}｜{item.requesterRole}<br />
+                              <span className="table-muted">{item.reason}</span><br />
+                              <span className="table-muted">依據：{item.incidentReference}</span>
+                              {item.approvedBy && <><br /><span className="table-muted">覆核：{item.approvedBy}｜{item.approverRole}</span></>}
+                            </td>
+                            <td>
+                              {item.requestFingerprint}
+                              {item.status === "pending" && (
+                                <><br /><button className="mini-action" type="button" onClick={() => beginReceiverKeyRotationApproval(item.requestFingerprint)}>第二人覆核</button></>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <p className="empty-state">目前沒有輪替完成申請。</p>
+              )}
+              {receiverRotationApprovalRequestFingerprint && (() => {
+                const rotationRequest = receiverRotationRequests.find(
+                  (item) => item.requestFingerprint === receiverRotationApprovalRequestFingerprint,
+                ) ?? null;
+                const samePerson = Boolean(
+                  rotationRequest
+                  && receiverRotationApprovalDraft.approvedBy.trim().toLocaleLowerCase()
+                    === rotationRequest.requestedBy.trim().toLocaleLowerCase(),
+                );
+                return (
+                  <div className="receiver-key-rotation-card">
+                    <h4>第二人覆核輪替完成申請</h4>
+                    <p className="meta-line attention-line">
+                      請由未參與本次申請的人員核對新金鑰測試簽署、所有使用端切換、申請指紋與變更依據。覆核通過後才會不可復原地撤銷申請所指向的舊金鑰。
+                    </p>
+                    <div className="meta-grid">
+                      <MetaItem label="申請指紋" value={rotationRequest?.requestFingerprint || "找不到"} />
+                      <MetaItem label="申請人／職責" value={rotationRequest ? `${rotationRequest.requestedBy}｜${rotationRequest.requesterRole}` : "找不到"} />
+                      <MetaItem label="變更編號" value={rotationRequest?.incidentReference || "—"} />
+                      <MetaItem label="覆核期限" value={rotationRequest?.expiresAt || "—"} />
+                    </div>
+                    <div className="form-grid">
+                      <Field
+                        label="第二位覆核人"
+                        value={receiverRotationApprovalDraft.approvedBy}
+                        onChange={(value) => setReceiverRotationApprovalDraft((current) => ({ ...current, approvedBy: value, confirmed: false }))}
+                      />
+                      <Field
+                        label="覆核人職責"
+                        value={receiverRotationApprovalDraft.approverRole}
+                        onChange={(value) => setReceiverRotationApprovalDraft((current) => ({ ...current, approverRole: value, confirmed: false }))}
+                      />
+                    </div>
+                    {samePerson && <p className="meta-line attention-line">覆核人不得與申請人相同。</p>}
+                    <label className="check-field">
+                      <input
+                        type="checkbox"
+                        checked={receiverRotationApprovalDraft.confirmed}
+                        onChange={(event) => setReceiverRotationApprovalDraft((current) => ({ ...current, confirmed: event.target.checked }))}
+                      />
+                      <span>我已核對申請指紋、切換證據與變更依據，確認由不同人員提出，並了解舊金鑰撤銷不可復原。</span>
+                    </label>
+                    <div className="action-row">
+                      <button
+                        className="danger-button"
+                        type="button"
+                        disabled={
+                          !rotationRequest
+                          || rotationRequest.status !== "pending"
+                          || !receiverRotationApprovalDraft.confirmed
+                          || !receiverRotationApprovalDraft.approvedBy.trim()
+                          || !receiverRotationApprovalDraft.approverRole.trim()
+                          || samePerson
+                        }
+                        onClick={handleApproveReceiverKeyRotationCompletion}
+                      >
+                        覆核通過並撤銷舊金鑰
+                      </button>
+                      <button className="ghost" type="button" onClick={cancelReceiverKeyRotationApproval}>取消</button>
                     </div>
                   </div>
                 );
@@ -5306,15 +5501,17 @@ function App() {
                       {[...receiverTrustEvents].reverse().map((event) => (
                         <tr key={event.eventFingerprint}>
                           <td>
-                            <strong>{event.eventType === "key-revoked" ? "撤銷" : "登錄"}</strong><br />
+                            <strong>{event.eventType === "key-revoked" ? "撤銷" : event.eventType === "rotation-completion-requested" ? "輪替申請" : "登錄"}</strong><br />
                             <span className="table-muted">{event.effectiveAt}</span><br />
                             <span className="table-muted">{receiverTrustEventReasonLabel(event.reasonCode)}</span>
                           </td>
                           <td>{event.keyId}</td>
                           <td>
-                            {event.actor}<br />
+                            {event.actor}{event.actorRole ? `｜${event.actorRole}` : ""}<br />
                             <span className="table-muted">{event.reason}</span>
                             {event.incidentReference && <><br /><span className="table-muted">依據：{event.incidentReference}</span></>}
+                            {event.expiresAt && <><br /><span className="table-muted">覆核期限：{event.expiresAt}</span></>}
+                            {event.approvalRequestFingerprint && <><br /><span className="table-muted">申請：{event.approvalRequestFingerprint}</span></>}
                           </td>
                           <td>{event.eventFingerprint}</td>
                         </tr>

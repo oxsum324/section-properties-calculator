@@ -676,6 +676,7 @@ export type ReceiverTrustKey = {
   independentVerificationConfirmedAt?: string;
   rotationCompletedAt?: string;
   rotationCompletionEventFingerprint?: string;
+  rotationApprovalRequestFingerprint?: string;
   revocationReasonCode?: ReceiverRevocationReason;
   revocationReason?: string;
   revokedBy?: string;
@@ -696,17 +697,38 @@ export type ReceiverRevocationReason =
 export type ReceiverTrustEvent = {
   schemaVersion: 1;
   kind: "receiver-verification-key-event";
-  eventType: "key-registered" | "key-revoked";
+  eventType: "key-registered" | "key-revoked" | "rotation-completion-requested";
   keyId: string;
   effectiveAt: string;
   recordedAt: string;
   actor: string;
-  reasonCode: ReceiverRevocationReason | "new-registration" | "rotation-registration";
+  reasonCode: ReceiverRevocationReason | "new-registration" | "rotation-registration" | "rotation-completion-request";
   reason: string;
   incidentReference: string | null;
   relatedKeyId?: string;
+  actorRole?: string;
+  expiresAt?: string;
+  approvalRequestFingerprint?: string;
   previousEventFingerprint: string | null;
   eventFingerprint: string;
+};
+
+export type ReceiverRotationRequest = {
+  requestFingerprint: string;
+  newKeyId: string;
+  oldKeyId: string;
+  organization: string;
+  requestedAt: string;
+  expiresAt: string;
+  requestedBy: string;
+  requesterRole: string;
+  reason: string;
+  incidentReference: string;
+  status: "pending" | "expired" | "blocked" | "completed";
+  approvedAt: string | null;
+  approvedBy: string | null;
+  approverRole: string | null;
+  completionEventFingerprint: string | null;
 };
 
 export type ReceiverTrustRegistryBackup = {

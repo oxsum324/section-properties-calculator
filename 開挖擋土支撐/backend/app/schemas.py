@@ -521,6 +521,20 @@ class CompleteReceiverKeyRotationRequest(BaseModel):
     rotation_confirmed: Literal[True]
 
 
+class RequestReceiverKeyRotationCompletionRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
+    requested_by: str = Field(min_length=1, max_length=120)
+    requester_role: str = Field(min_length=1, max_length=120)
+    incident_reference: str = Field(min_length=1, max_length=160)
+    request_confirmed: Literal[True]
+
+
+class ApproveReceiverKeyRotationCompletionRequest(BaseModel):
+    approved_by: str = Field(min_length=1, max_length=120)
+    approver_role: str = Field(min_length=1, max_length=120)
+    approval_confirmed: Literal[True]
+
+
 class RestoreReceiverTrustRegistryRequest(BaseModel):
     backup: dict[str, Any]
     restore_confirmed: Literal[True]
