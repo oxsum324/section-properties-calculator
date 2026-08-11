@@ -132,7 +132,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.31.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.32.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -893,6 +893,14 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '第二人覆核輪替完成及到期備份處置',
   'operator ID 必須與申請者不同',
   '本矩陣只供 HTML 操作頁核對，不會寫入 PDF／DOCX 計算書',
+  'receiverOperatorEffectivePermissions',
+  '目前登入帳號有效權限',
+  '依後端工作階段回傳的穩定角色 ID 與臨時密碼狀態即時計算',
+  'state === "active" ? "有效" : state === "suspended" ? "暫停" : "未授權"',
+  '此帳號已配置的角色目前全部暫停',
+  '後端仍禁止覆核自己提出的申請',
+  '身分保證邊界：',
+  '本摘要只供 HTML 操作頁核對，不取代後端逐項授權，也不會寫入 PDF／DOCX 計算書',
   '兩種角色同時適用於金鑰輪替及到期備份處置',
   '受管制備份與復原演練清冊',
   '提出雙人處置申請',
@@ -938,6 +946,10 @@ assert(
   '治理覆核人',
   '同時適用於金鑰輪替及到期備份處置',
   '唯讀治理權限矩陣',
+  '目前帳號有效權限摘要',
+  '後端工作階段',
+  '有效／暫停／未授權',
+  '禁止覆核自己提出的申請',
   '管理員角色不會自動取得治理申請或治理覆核權限',
   '不會寫入 PDF／DOCX 計算書',
 ].forEach((needle) => {
@@ -945,10 +957,13 @@ assert(
 });
 assert(
   !reporting.includes('治理權限矩陣')
+    && !reporting.includes('目前登入帳號有效權限')
+    && !reporting.includes('有效權限摘要')
+    && !reporting.includes('receiver-key-admin')
     && !reporting.includes('receiver-key-requester')
     && !reporting.includes('receiver-key-approver'),
-  'excavation calculation reports exclude operator governance permission matrix',
-  'reporting.py excludes operator governance role content',
+  'excavation calculation reports exclude operator governance permission matrix and current-session summary',
+  'reporting.py excludes operator governance role and effective-permission content',
 );
 [
   'receiver-verification-trust-registry-backup',

@@ -1097,6 +1097,89 @@ button.danger-button {
   overflow-wrap: anywhere;
 }
 
+.receiver-effective-permissions {
+  border-color: rgba(14, 116, 144, 0.28);
+  background: rgba(240, 249, 255, 0.82);
+}
+
+.receiver-effective-permission-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.receiver-effective-permission {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.receiver-effective-permission > span:last-child {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.receiver-effective-permission > span:last-child > span,
+.receiver-effective-permission code {
+  overflow-wrap: anywhere;
+}
+
+.receiver-effective-permission > span:last-child > span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.receiver-effective-permission-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.receiver-effective-permission.active .receiver-effective-permission-state {
+  color: #047857;
+  border-color: rgba(4, 120, 87, 0.26);
+  background: rgba(209, 250, 229, 0.82);
+}
+
+.receiver-effective-permission.suspended .receiver-effective-permission-state {
+  color: #b45309;
+  border-color: rgba(217, 119, 6, 0.28);
+  background: rgba(254, 243, 199, 0.9);
+}
+
+.receiver-effective-permission.not-assigned {
+  background: rgba(248, 250, 252, 0.72);
+}
+
+.receiver-effective-permission.not-assigned .receiver-effective-permission-state {
+  color: #475569;
+  border-color: rgba(100, 116, 139, 0.24);
+  background: rgba(226, 232, 240, 0.76);
+}
+
+@media (max-width: 960px) {
+  .receiver-effective-permission-list {
+    grid-template-columns: 1fr;
+  }
+}
+
 .receiver-key-rotation-card .meta-card strong {
   overflow-wrap: anywhere;
 }

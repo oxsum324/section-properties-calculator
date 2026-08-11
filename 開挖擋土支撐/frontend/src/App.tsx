@@ -658,6 +658,23 @@ function App() {
   const receiverCanAdministerKeys = !receiverPasswordResetRequired && receiverOperatorRoles.includes("receiver-key-admin");
   const receiverCanRequestRotation = !receiverPasswordResetRequired && receiverOperatorRoles.includes("receiver-key-requester");
   const receiverCanApproveRotation = !receiverPasswordResetRequired && receiverOperatorRoles.includes("receiver-key-approver");
+  const receiverOperatorEffectivePermissions = receiverOperatorGovernancePermissionRows.map((row) => {
+    const assigned = receiverOperatorRoles.includes(row.role);
+    const state = !assigned ? "not-assigned" : receiverPasswordResetRequired ? "suspended" : "active";
+    return {
+      role: row.role,
+      title: receiverOperatorRoleLabel(row.role),
+      scope: row.role === "receiver-key-admin"
+        ? "公鑰登錄／撤銷、帳號與角色、信任清冊、治理備份／復原／演練"
+        : row.role === "receiver-key-requester"
+          ? "提出金鑰輪替完成及到期備份處置申請"
+          : "以不同 operator ID 第二人覆核輪替完成及到期備份處置",
+      state,
+      stateLabel: state === "active" ? "有效" : state === "suspended" ? "暫停" : "未授權",
+    };
+  });
+  const receiverHasRequestAndApprovalRoles = receiverOperatorRoles.includes("receiver-key-requester")
+    && receiverOperatorRoles.includes("receiver-key-approver");
   const managedReceiverOperator = receiverOperators.find(
     (operator) => operator.id === receiverOperatorManageDraft.operatorId,
   ) ?? null;
@@ -5998,6 +6015,47 @@ function App() {
                     />
                     <MetaItem label="工作階段到期" value={receiverOperatorAuth.expiresAt ?? "—"} />
                   </div>
+                  <section
+                    className="receiver-key-rotation-card receiver-effective-permissions"
+                    aria-label="目前登入帳號有效權限摘要"
+                  >
+                    <h4>目前登入帳號有效權限</h4>
+                    <p className="meta-line">
+                      依後端工作階段回傳的穩定角色 ID 與臨時密碼狀態即時計算；不是依畫面按鈕或顯示姓名推測。
+                    </p>
+                    <ul className="receiver-effective-permission-list">
+                      {receiverOperatorEffectivePermissions.map((permission) => (
+                        <li
+                          key={`effective-${permission.role}`}
+                          className={`receiver-effective-permission ${permission.state}`}
+                        >
+                          <span className="receiver-effective-permission-state">{permission.stateLabel}</span>
+                          <span>
+                            <strong>{permission.title}</strong>
+                            <span>{permission.scope}</span>
+                            <code>{permission.role}</code>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {receiverPasswordResetRequired && (
+                      <p className="meta-line attention-line">
+                        此帳號已配置的角色目前全部暫停；完成本人密碼變更並重新登入後，才會重新取得相應權限。
+                      </p>
+                    )}
+                    {receiverHasRequestAndApprovalRoles && (
+                      <p className="meta-line attention-line">
+                        此帳號同時具治理申請與覆核角色，但後端仍禁止覆核自己提出的申請；實際雙人流程必須由不同 operator ID 的帳號完成。
+                      </p>
+                    )}
+                    <p className="meta-line">
+                      身分保證邊界：{receiverOperatorAuth.assuranceBoundary
+                        ?? "本機帳號與角色不等於外部組織目錄、自然人身分或公司授權已獲第三方驗證。"}
+                    </p>
+                    <p className="meta-line">
+                      本摘要只供 HTML 操作頁核對，不取代後端逐項授權，也不會寫入 PDF／DOCX 計算書。
+                    </p>
+                  </section>
                   <div className="action-row">
                     <button className="secondary" type="button" onClick={() => void handleLogoutReceiverOperator()}>
                       登出金鑰管理
