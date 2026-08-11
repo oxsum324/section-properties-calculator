@@ -1082,6 +1082,21 @@ button.danger-button {
   min-width: 640px;
 }
 
+.receiver-governance-permission-matrix .table-wrap table {
+  min-width: 800px;
+  table-layout: fixed;
+}
+
+.receiver-governance-permission-matrix tbody th,
+.receiver-governance-permission-matrix td {
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.receiver-governance-permission-matrix code {
+  overflow-wrap: anywhere;
+}
+
 .receiver-key-rotation-card .meta-card strong {
   overflow-wrap: anywhere;
 }

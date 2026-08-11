@@ -226,10 +226,42 @@ const receiverOperatorRoleOptions: Array<{ value: ReceiverOperatorRole; label: s
   { value: "receiver-key-approver", label: "治理覆核人" },
 ];
 
+const receiverOperatorGovernancePermissionRows: Array<{
+  role: ReceiverOperatorRole;
+  administration: string;
+  request: string;
+  approval: string;
+  control: string;
+}> = [
+  {
+    role: "receiver-key-admin",
+    administration: "可：公鑰登錄／撤銷、帳號與角色管理、清冊及治理備份／復原／演練",
+    request: "須另授治理申請人角色",
+    approval: "須另授治理覆核人角色",
+    control: "不得自行停用、改角色或由管理入口重設自己的密碼；不得停用最後一位啟用管理員。",
+  },
+  {
+    role: "receiver-key-requester",
+    administration: "不可",
+    request: "可：提出金鑰輪替完成及到期備份處置申請",
+    approval: "不可覆核自己的申請",
+    control: "只提出申請；不撤銷舊金鑰、不移除備份，申請有效期為 72 小時。",
+  },
+  {
+    role: "receiver-key-approver",
+    administration: "不可",
+    request: "不可",
+    approval: "可：第二人覆核輪替完成及到期備份處置",
+    control: "operator ID 必須與申請者不同；備份處置只做一般檔案項目移除，不代表安全抹除。",
+  },
+];
+
+function receiverOperatorRoleLabel(role: ReceiverOperatorRole): string {
+  return receiverOperatorRoleOptions.find((option) => option.value === role)?.label ?? role;
+}
+
 function receiverOperatorRoleLabels(roles: ReceiverOperatorRole[]): string {
-  return roles
-    .map((role) => receiverOperatorRoleOptions.find((option) => option.value === role)?.label ?? role)
-    .join("、") || "—";
+  return roles.map(receiverOperatorRoleLabel).join("、") || "—";
 }
 
 function receiverOperatorStatusLabel(
@@ -5848,6 +5880,39 @@ function App() {
               title="接收端金鑰管理登入"
               subtitle="金鑰登錄、撤銷、治理申請、第二人覆核與清冊復原均由後端依登入帳號及角色授權，不再採用自行填寫的姓名。"
             >
+              <div className="receiver-key-rotation-card receiver-governance-permission-matrix">
+                <h4>治理權限矩陣（唯讀）</h4>
+                <p className="meta-line">
+                  下表說明每一角色單獨授權時的權限；角色可以疊加，但管理員角色不會自動取得治理申請或治理覆核權限。所有變更操作仍須由啟用中的登入帳號通過 CSRF 驗證；待變更臨時密碼期間全部暫停。
+                </p>
+                <div className="table-wrap">
+                  <table aria-label="接收端治理權限矩陣">
+                    <thead>
+                      <tr>
+                        <th scope="col">角色／穩定 ID</th>
+                        <th scope="col">公鑰、帳號與備份治理</th>
+                        <th scope="col">提出治理申請</th>
+                        <th scope="col">第二人覆核</th>
+                        <th scope="col">核心控制</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {receiverOperatorGovernancePermissionRows.map((row) => (
+                        <tr key={`permission-${row.role}`}>
+                          <th scope="row"><strong>{receiverOperatorRoleLabel(row.role)}</strong><br /><code>{row.role}</code></th>
+                          <td>{row.administration}</td>
+                          <td>{row.request}</td>
+                          <td>{row.approval}</td>
+                          <td>{row.control}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="meta-line">
+                  本矩陣只供 HTML 操作頁核對，不會寫入 PDF／DOCX 計算書，也不取代後端逐項授權檢查。
+                </p>
+              </div>
               {!receiverOperatorAuthLoaded ? (
                 <p className="empty-state">正在讀取本機登入狀態。</p>
               ) : receiverOperatorAuth.bootstrapRequired ? (

@@ -41,6 +41,18 @@ function readUtf8(relativePath) {
   return fs.readFileSync(localPath(relativePath), 'utf8');
 }
 
+function assertPythonFunctionRole(source, functionName, role) {
+  const marker = `def ${functionName}(`;
+  const start = source.indexOf(marker);
+  const nextRoute = start >= 0 ? source.indexOf('\n\n@app.', start + marker.length) : -1;
+  const body = start >= 0 ? source.slice(start, nextRoute >= 0 ? nextRoute : source.length) : '';
+  assert(
+    start >= 0 && body.includes(`required_role="${role}"`),
+    `excavation ${functionName} requires ${role}`,
+    marker,
+  );
+}
+
 const catalogText = fs.readFileSync(catalogPath, 'utf8');
 const catalog = JSON.parse(catalogText);
 const readme = readUtf8('README.md');
@@ -120,7 +132,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.30.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.31.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -749,6 +761,33 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   assert(main.includes(needle), `excavation receiver operator API keeps ${needle}`, needle);
 });
 [
+  'list_receiver_operators',
+  'create_receiver_operator',
+  'update_receiver_operator_roles',
+  'set_receiver_operator_status',
+  'reset_receiver_operator_password',
+  'list_receiver_operator_audit_events',
+  'export_receiver_operator_governance_backup',
+  'list_receiver_operator_governance_backup_inventory',
+  'validate_receiver_operator_governance_backup',
+  'restore_receiver_operator_governance',
+  'drill_receiver_operator_governance_backup',
+  'register_receiver_trust_key',
+  'register_receiver_trust_key_enrollment',
+  'revoke_receiver_trust_key',
+  'export_receiver_trust_registry_backup',
+  'validate_receiver_trust_registry_backup',
+  'restore_receiver_trust_registry',
+].forEach((functionName) => assertPythonFunctionRole(main, functionName, 'receiver-key-admin'));
+[
+  'request_receiver_key_rotation_completion',
+  'request_receiver_operator_governance_backup_disposition',
+].forEach((functionName) => assertPythonFunctionRole(main, functionName, 'receiver-key-requester'));
+[
+  'approve_receiver_key_rotation_completion',
+  'approve_receiver_operator_governance_backup_disposition',
+].forEach((functionName) => assertPythonFunctionRole(main, functionName, 'receiver-key-approver'));
+[
   'X-CSRF-Token',
   'credentials: "same-origin"',
   'getReceiverOperatorSession',
@@ -845,8 +884,15 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   assert(receiverOperatorRecoveryTests.includes(needle), `excavation receiver operator recovery tests keep ${needle}`, needle);
 });
 [
+  'receiverOperatorGovernancePermissionRows',
   '{ value: "receiver-key-requester", label: "治理申請人" }',
   '{ value: "receiver-key-approver", label: "治理覆核人" }',
+  '治理權限矩陣（唯讀）',
+  '管理員角色不會自動取得治理申請或治理覆核權限',
+  '提出金鑰輪替完成及到期備份處置申請',
+  '第二人覆核輪替完成及到期備份處置',
+  'operator ID 必須與申請者不同',
+  '本矩陣只供 HTML 操作頁核對，不會寫入 PDF／DOCX 計算書',
   '兩種角色同時適用於金鑰輪替及到期備份處置',
   '受管制備份與復原演練清冊',
   '提出雙人處置申請',
@@ -891,9 +937,19 @@ assert(
   '治理申請人',
   '治理覆核人',
   '同時適用於金鑰輪替及到期備份處置',
+  '唯讀治理權限矩陣',
+  '管理員角色不會自動取得治理申請或治理覆核權限',
+  '不會寫入 PDF／DOCX 計算書',
 ].forEach((needle) => {
   assert(receiverKeyManagementGuide.includes(needle), `excavation receiver key rotation guide keeps ${needle}`, needle);
 });
+assert(
+  !reporting.includes('治理權限矩陣')
+    && !reporting.includes('receiver-key-requester')
+    && !reporting.includes('receiver-key-approver'),
+  'excavation calculation reports exclude operator governance permission matrix',
+  'reporting.py excludes operator governance role content',
+);
 [
   'receiver-verification-trust-registry-backup',
   'registryFingerprint',
