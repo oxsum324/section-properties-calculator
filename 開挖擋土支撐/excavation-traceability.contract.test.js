@@ -120,7 +120,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.29.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.30.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -718,6 +718,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'reserve_backup_disposition_completion',
   'complete_backup_disposition',
   'expected_current_snapshot',
+  '"receiver-key-requester": "治理申請人"',
+  '"receiver-key-approver": "治理覆核人"',
 ].forEach((needle) => {
   assert(receiverOperatorAuth.includes(needle), `excavation receiver operator auth keeps ${needle}`, needle);
 });
@@ -843,6 +845,9 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   assert(receiverOperatorRecoveryTests.includes(needle), `excavation receiver operator recovery tests keep ${needle}`, needle);
 });
 [
+  '{ value: "receiver-key-requester", label: "治理申請人" }',
+  '{ value: "receiver-key-approver", label: "治理覆核人" }',
+  '兩種角色同時適用於金鑰輪替及到期備份處置',
   '受管制備份與復原演練清冊',
   '提出雙人處置申請',
   '第二人覆核到期備份處置',
@@ -882,6 +887,10 @@ assert(
   '不得自行停用、改角色或由管理入口重設自己的密碼',
   '須變更臨時密碼',
   '禁止事件更新／刪除',
+  '角色 ID 維持不變',
+  '治理申請人',
+  '治理覆核人',
+  '同時適用於金鑰輪替及到期備份處置',
 ].forEach((needle) => {
   assert(receiverKeyManagementGuide.includes(needle), `excavation receiver key rotation guide keeps ${needle}`, needle);
 });

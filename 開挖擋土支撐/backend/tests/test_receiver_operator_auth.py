@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 
 from backend.app import main as main_module
 from backend.app.receiver_key_enrollment import build_receiver_key_enrollment
-from backend.app.receiver_operator_auth import ReceiverOperatorStore
+from backend.app.receiver_operator_auth import ReceiverOperatorStore, operator_role_label
 from backend.app.receiver_trust_store import ReceiverTrustStore
 
 
@@ -156,6 +156,9 @@ class ReceiverOperatorStoreTests(unittest.TestCase):
                 set(operator["roles"]),
                 {"receiver-key-admin", "receiver-key-requester", "receiver-key-approver"},
             )
+            self.assertEqual(operator_role_label("receiver-key-admin"), "接收端金鑰管理員")
+            self.assertEqual(operator_role_label("receiver-key-requester"), "治理申請人")
+            self.assertEqual(operator_role_label("receiver-key-approver"), "治理覆核人")
             with self.assertRaisesRegex(ValueError, "不得再次建立"):
                 store.bootstrap("other-admin", "第二管理者", "Another-Secure-2026!")
 
@@ -212,7 +215,7 @@ class ReceiverOperatorStoreTests(unittest.TestCase):
                 new["keyId"],
                 reason="切換完成。",
                 requested_by=requester["displayName"],
-                requester_role="輪替申請人",
+                requester_role="治理申請人",
                 requested_by_operator_id=requester["id"],
                 incident_reference="KEY-MISSING-CLAIM-001",
                 request_confirmed=True,

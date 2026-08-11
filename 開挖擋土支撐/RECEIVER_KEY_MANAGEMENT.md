@@ -35,15 +35,15 @@ RKE（`receiver-verification-key-enrollment`）包含組織名稱、Key ID、公
 
 ## 本機帳號與角色
 
-第一次開啟接收端金鑰治理區時，須由 localhost 建立第一個管理帳號。第一個帳號同時取得 `receiver-key-admin`、`receiver-key-requester`、`receiver-key-approver` 三種角色；之後由管理員建立用途分離的帳號。密碼須為 12 至 256 個字元，包含大寫、小寫、數字、符號中的至少三類，且不得包含登入帳號；資料庫只保存隨機鹽值與 scrypt 雜湊。
+第一次開啟接收端金鑰治理區時，須由 localhost 建立第一個管理帳號。第一個帳號同時取得 `receiver-key-admin`、`receiver-key-requester`、`receiver-key-approver` 三種角色；之後由管理員建立用途分離的帳號。為相容既有帳號、備份及權限資料，角色 ID 維持不變；HTML 將後兩者分別顯示為「治理申請人」與「治理覆核人」，同時適用於金鑰輪替及到期備份處置，不應解讀為只負責單一流程。密碼須為 12 至 256 個字元，包含大寫、小寫、數字、符號中的至少三類，且不得包含登入帳號；資料庫只保存隨機鹽值與 scrypt 雜湊。
 
-登入採 12 小時 HttpOnly、SameSite=Strict 工作階段 cookie，變更操作另須通過 CSRF token。相同帳號在 15 分鐘內連續失敗 5 次會鎖定 5 分鐘。API 只允許設定的 localhost 前端來源，不使用萬用 CORS。`receiver-key-admin` 可登錄、撤銷、備份與復原信任清冊、建立帳號，以及管理其他帳號的角色、啟用狀態與臨時密碼；`receiver-key-requester` 可提出輪替；`receiver-key-approver` 可覆核，但同一 operator ID 不得覆核自己的申請。
+登入採 12 小時 HttpOnly、SameSite=Strict 工作階段 cookie，變更操作另須通過 CSRF token。相同帳號在 15 分鐘內連續失敗 5 次會鎖定 5 分鐘。API 只允許設定的 localhost 前端來源，不使用萬用 CORS。`receiver-key-admin` 可登錄、撤銷、備份與復原信任清冊、建立帳號，以及管理其他帳號的角色、啟用狀態與臨時密碼；治理申請人（`receiver-key-requester`）可提出金鑰輪替與到期備份處置申請；治理覆核人（`receiver-key-approver`）可覆核，但同一 operator ID 不得覆核自己的申請。
 
 帳號治理採以下失敗關閉規則：
 
 - 管理員不得自行停用、改角色或由管理入口重設自己的密碼；須由另一位啟用中的管理員執行，避免單一工作階段自行改寫其授權證據。
 - 不得停用最後一位啟用中的管理員，也不得移除其管理角色。
-- 停用帳號會立即撤銷其所有工作階段；停用或撤除 `receiver-key-requester` 角色時，該帳號尚未完成的輪替 claim 同步轉為 `blocked`，不得再覆核完成。
+- 停用帳號會立即撤銷其所有工作階段；停用或撤除治理申請人（`receiver-key-requester`）角色時，該帳號尚未完成的輪替或到期備份處置 claim 同步轉為 `blocked`，不得再覆核完成。
 - 管理員重設密碼會撤銷該帳號全部工作階段並標記「須變更臨時密碼」。該帳號登入後只可登出或變更本人密碼，完成後再次撤銷全部工作階段，再以新密碼登入。
 - 首次建立、建立帳號、角色異動、停用／啟用、管理員密碼重設及本人密碼變更均寫入 `ROA-...`／`ROE-...` 稽核事件。SQLite trigger 禁止事件更新／刪除，並以前一事件指紋形成鏈結；這只提供本機竄改線索，不是外部可信時間戳，也不能阻止具有整個資料庫重建權限的人另建新資料庫。
 
@@ -64,7 +64,7 @@ RKE（`receiver-verification-key-enrollment`）包含組織名稱、Key ID、公
 
 下載時可由管理員明確勾選另存一份受管制本機加密副本，保存期間限 1 至 365 天。副本位於服務資料庫旁的 `receiver_operator_governance_backups/managed`，以不覆寫同名檔及作業系統可用的限制權限建立。HTML 清冊不顯示伺服器路徑，且每次讀取都重新驗證加密封包、檔名所載匯出／到期時間、ROB 指紋及檔案 SHA-256；無有效副本、檔案損壞、最新有效副本未演練或對應演練超過 30 天時，健康狀態改為「需要處理」。
 
-保存期限本身只是一項治理提醒，不會觸發自動刪除，也不得解讀為可在 SSD、雲端同步磁碟、快照或其他備份媒體上安全抹除。到期副本須由具 `receiver-key-requester` 角色的登入帳號填寫案件／變更編號與處置依據，建立 72 小時有效的 `RBR-...` claim；申請本身不改檔。之後只能由不同 operator ID 且具 `receiver-key-approver` 角色的帳號覆核。後端以 SQLite 唯一未結案約束避免同一 ROB 並行申請，並將申請、覆核與完成分別追加至 ROE 鏈。
+保存期限本身只是一項治理提醒，不會觸發自動刪除，也不得解讀為可在 SSD、雲端同步磁碟、快照或其他備份媒體上安全抹除。到期副本須由治理申請人（`receiver-key-requester`）填寫案件／變更編號與處置依據，建立 72 小時有效的 `RBR-...` claim；申請本身不改檔。之後只能由不同 operator ID 的治理覆核人（`receiver-key-approver`）覆核。後端以 SQLite 唯一未結案約束避免同一 ROB 並行申請，並將申請、覆核與完成分別追加至 ROE 鏈。
 
 覆核通過後，後端會重新核對受管制檔名、ROB／ROG、SHA-256、匯出時間與保存期限，才從 `managed` 目錄做一般檔案項目移除，並以不覆寫方式產生 `RBD-...` 收據。完整案件與依據只留在受控 SQLite claim／ROE 鏈；RBD 只保留它們各自的 SHA-256，以及申請／覆核／完成 operator ID 與檔案指紋，避免自由文字誤帶帳號、密碼或路徑時破壞收據的隱私邊界。收據不含帳號名稱、登入密碼、備份加密密碼或伺服器路徑。若在移除、收據落地與 SQLite 結案之間中斷，claim 維持 `removal-in-progress`；已保留完成資訊時只能由同一覆核帳號續辦，避免產生不同收據。RBD 只證明該受管制目錄在結案時已無指定檔案，且明確記錄 `automaticExpiryDeletion=false`、`ordinaryFilesystemEntryRemovalOnly=true`、`secureEraseGuaranteed=false` 與 `otherCopiesMayRemain=true`。同步端、歷史備份、檔案系統快照及媒體殘留仍須由儲存管理者依組織程序處理；若需要保留法律、事故或維運證據，應在提出刪除申請前完成凍結與受控移轉。受管制本機副本仍不等於異地備份。
 
@@ -91,8 +91,8 @@ RKE（`receiver-verification-key-enrollment`）包含組織名稱、Key ID、公
 2. 來源端獨立核對並登錄新金鑰。
 3. 以新金鑰完成一筆測試簽署並確認為「受信任簽章通過」。
 4. 確認所有簽署端、案件與維運程序均已切換後，在新金鑰的「輪替待申請」狀態按「提出輪替完成申請」。
-5. 由具 `receiver-key-requester` 角色的登入帳號填寫輪替案件或變更編號、新金鑰啟用／測試簽署／使用端切換摘要，並確認本步驟只提出申請、不撤銷舊金鑰。清冊會新增具 `RVE-...` 指紋與 72 小時期限的 `rotation-completion-requested` 事件，並保存該帳號不可變的 operator ID。
-6. 由另一個具 `receiver-key-approver` 角色、operator ID 不同的登入帳號開啟「第二人覆核」，核對申請指紋、切換證據與變更依據，再明確確認不可復原撤銷。自己覆核、逾期、已使用、缺少 SQLite claim 或金鑰狀態已改變的申請一律拒絕。
+5. 由治理申請人（`receiver-key-requester`）填寫輪替案件或變更編號、新金鑰啟用／測試簽署／使用端切換摘要，並確認本步驟只提出申請、不撤銷舊金鑰。清冊會新增具 `RVE-...` 指紋與 72 小時期限的 `rotation-completion-requested` 事件，並保存該帳號不可變的 operator ID。
+6. 由另一個 operator ID 不同的治理覆核人（`receiver-key-approver`）開啟「第二人覆核」，核對申請指紋、切換證據與變更依據，再明確確認不可復原撤銷。自己覆核、逾期、已使用、缺少 SQLite claim 或金鑰狀態已改變的申請一律拒絕。
 7. 後端會再檢查新舊 Key ID 的 RKE 關聯、單位與當前受信任狀態；全部一致時才會在同一次清冊寫入中撤銷正確的舊金鑰，並保存 `rotationApprovalRequestFingerprint`、事件 `approvalRequestFingerprint`、`replacedByKeyId`、`rotationCompletionEventFingerprint` 與 `relatedKeyId` 的申請／覆核／新舊金鑰雙向追溯。SQLite 採 `BEGIN IMMEDIATE`、每把新金鑰僅一筆 pending 的部分唯一索引，以及覆核 operator ID 不得等於申請 operator ID 的資料庫 CHECK；多程序同時覆核只能成功一次。
 
 本機帳號比自由填寫姓名更能落實角色及異人分離，但仍無法自行證明兩個帳號必然由兩位不同自然人持有，也無法證明公司授權。正式程序仍須依組織既有案件、資安或簽核系統核對。JSON 事件清冊與 SQLite claim 分屬兩個檔案，並非跨檔單一原子交易；若程序在兩次寫入間中斷，清單會把缺少 claim 的待覆核事件標示為不可核可，須先稽核事件鏈與資料庫，再於原申請失效後重新提出，不得繞過角色授權直接完成。

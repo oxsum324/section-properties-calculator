@@ -2232,6 +2232,6 @@ class ReceiverOperatorStore:
 def operator_role_label(role: str) -> str:
     return {
         "receiver-key-admin": "接收端金鑰管理員",
-        "receiver-key-requester": "輪替申請人",
-        "receiver-key-approver": "輪替覆核人",
+        "receiver-key-requester": "治理申請人",
+        "receiver-key-approver": "治理覆核人",
     }.get(role, role)

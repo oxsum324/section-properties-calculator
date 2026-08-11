@@ -222,8 +222,8 @@ const emptyReceiverOperatorAuditSummary: ReceiverOperatorAuditSummary = {
 
 const receiverOperatorRoleOptions: Array<{ value: ReceiverOperatorRole; label: string }> = [
   { value: "receiver-key-admin", label: "接收端金鑰管理員" },
-  { value: "receiver-key-requester", label: "輪替申請人" },
-  { value: "receiver-key-approver", label: "輪替覆核人" },
+  { value: "receiver-key-requester", label: "治理申請人" },
+  { value: "receiver-key-approver", label: "治理覆核人" },
 ];
 
 function receiverOperatorRoleLabels(roles: ReceiverOperatorRole[]): string {
@@ -1817,7 +1817,7 @@ function App() {
 
   async function handleRequestReceiverOperatorBackupDisposition() {
     if (!receiverCanRequestRotation) {
-      setError("提出到期備份處置需要已登入且具輪替申請人角色的不同責任帳號。");
+      setError("提出到期備份處置需要已登入且具治理申請人角色的不同責任帳號。");
       return;
     }
     if (
@@ -1864,7 +1864,7 @@ function App() {
     );
     if (!claim) return;
     if (!receiverCanApproveRotation) {
-      setError("第二人覆核到期備份處置需要輪替覆核人角色。");
+      setError("第二人覆核到期備份處置需要治理覆核人角色。");
       return;
     }
     if (claim.requestedByOperatorId === receiverOperatorAuth.operator?.id) {
@@ -2086,7 +2086,7 @@ function App() {
   async function handleRequestReceiverKeyRotationCompletion() {
     if (!receiverRotationKeyId) return;
     if (!receiverCanRequestRotation) {
-      setError("提出輪替申請需要已登入且具輪替申請人角色的帳號。");
+      setError("提出輪替申請需要已登入且具治理申請人角色的帳號。");
       return;
     }
     if (!receiverRotationDraft.confirmed) {
@@ -2127,7 +2127,7 @@ function App() {
   async function handleApproveReceiverKeyRotationCompletion() {
     if (!receiverRotationApprovalRequestFingerprint) return;
     if (!receiverCanApproveRotation) {
-      setError("輪替覆核需要已登入且具輪替覆核人角色的帳號。");
+      setError("輪替覆核需要已登入且具治理覆核人角色的帳號。");
       return;
     }
     if (!receiverRotationApprovalDraft.confirmed) {
@@ -5846,7 +5846,7 @@ function App() {
 
             <Panel
               title="接收端金鑰管理登入"
-              subtitle="金鑰登錄、撤銷、輪替申請、第二人覆核與清冊復原均由後端依登入帳號及角色授權，不再採用自行填寫的姓名。"
+              subtitle="金鑰登錄、撤銷、治理申請、第二人覆核與清冊復原均由後端依登入帳號及角色授權，不再採用自行填寫的姓名。"
             >
               {!receiverOperatorAuthLoaded ? (
                 <p className="empty-state">正在讀取本機登入狀態。</p>
@@ -5854,7 +5854,7 @@ function App() {
                 <div className="receiver-key-rotation-card">
                   <h4>首次設定首位管理員</h4>
                   <p className="meta-line attention-line">
-                    首位管理員只能由本機連線建立，並同時取得金鑰管理、輪替申請與輪替覆核角色。建立後不得再次使用首次設定入口。
+                    首位管理員只能由本機連線建立，並同時取得金鑰管理、治理申請與治理覆核角色。建立後不得再次使用首次設定入口。
                   </p>
                   <div className="form-grid">
                     <Field
@@ -5942,7 +5942,7 @@ function App() {
                     <h4>{receiverPasswordResetRequired ? "必須先變更臨時密碼" : "變更本人密碼"}</h4>
                     <p className={`meta-line${receiverPasswordResetRequired ? " attention-line" : ""}`}>
                       {receiverPasswordResetRequired
-                        ? "管理員已重設此帳號密碼。在完成本人密碼變更前，所有金鑰管理、輪替申請與覆核權限均暫停。"
+                        ? "管理員已重設此帳號密碼。在完成本人密碼變更前，所有金鑰管理、治理申請與覆核權限均暫停。"
                         : "變更成功會撤銷此帳號全部工作階段並登出，須使用新密碼重新登入。"}
                     </p>
                     <div className="form-grid">
@@ -6000,7 +6000,7 @@ function App() {
                     <div className="receiver-key-rotation-card">
                       <h4>建立分權操作帳號</h4>
                       <p className="meta-line">
-                        建議把輪替申請與覆核角色分配給不同帳號。後端會以不可自行填寫的帳號 ID 判斷兩人是否相同。
+                        建議把治理申請與治理覆核角色分配給不同帳號。兩種角色同時適用於金鑰輪替及到期備份處置，後端會以不可自行填寫的帳號 ID 判斷兩人是否相同。
                       </p>
                       <div className="form-grid">
                         <Field
@@ -6080,7 +6080,7 @@ function App() {
                         <div className="receiver-key-rotation-card">
                           <h4>管理帳號：{managedReceiverOperator.displayName}（{managedReceiverOperator.username}）</h4>
                           <p className="meta-line">
-                            角色撤除與停用會立即生效；撤除輪替申請角色或停用帳號時，該帳號尚未完成的輪替申請會轉為 blocked。
+                            角色撤除與停用會立即生效；撤除治理申請角色或停用帳號時，該帳號尚未完成的輪替申請與到期備份處置申請會轉為 blocked。
                           </p>
                           <div className="check-grid">
                             {receiverOperatorRoleOptions.map((option) => (
