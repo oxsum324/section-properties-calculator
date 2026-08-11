@@ -88,7 +88,7 @@ def _completed_project():
 
 
 class AttachmentPackageEvidenceChainDrillTests(unittest.TestCase):
-    def test_real_backend_chain_builds_and_reverifies_a_formal_v3_package(self) -> None:
+    def test_real_backend_chain_builds_and_reverifies_a_formal_v4_package(self) -> None:
         project = _completed_project()
         fingerprint = calculation_fingerprint(project)
         handoff = build_removal_transfer_handoff(project, fingerprint)
@@ -114,6 +114,14 @@ class AttachmentPackageEvidenceChainDrillTests(unittest.TestCase):
                     "pageReference": "第 12 頁",
                     "fileName": "receiver-capacity.pdf",
                     "fileSha256": "a" * 64,
+                },
+                "verificationScope": {
+                    "analysisModelReference": "承接構造正式分析模型 RV-01",
+                    "governingLoadCombination": "拆撐階段 LC-RM-01",
+                    "directionAndDistributionBasis": "依施工順序圖及模型反力分配",
+                    "eccentricityAndSecondaryEffectBasis": "依節點偏心與二階分析結果",
+                    "checkedLimitStates": ["axial", "shear", "connection"],
+                    "otherChecksStatus": "passed",
                 },
                 "verificationBasis": "匿名化承接構造正式分析",
                 "conclusion": "容量檢核完成",

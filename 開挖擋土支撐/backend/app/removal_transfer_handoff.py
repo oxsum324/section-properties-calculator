@@ -23,9 +23,9 @@ from .schemas import (
 )
 
 
-HANDOFF_SCHEMA_VERSION = 3
-RECEIPT_SCHEMA_VERSION = 3
-SUPPORTED_RECEIPT_SCHEMA_VERSIONS = {1, 2, RECEIPT_SCHEMA_VERSION}
+HANDOFF_SCHEMA_VERSION = 4
+RECEIPT_SCHEMA_VERSION = 4
+SUPPORTED_RECEIPT_SCHEMA_VERSIONS = {1, 2, 3, RECEIPT_SCHEMA_VERSION}
 SCHEMA_VERSION = HANDOFF_SCHEMA_VERSION
 KIND = "excavation-removal-transfer-handoff"
 RECEIPT_KIND = "receiver-capacity-verification-receipt"
@@ -45,6 +45,16 @@ TRANSFER_MODE_LABELS = {
     "reshore": "移轉至重撐／回撐",
     "permanent_structure": "移轉至永久結構",
     "other": "其他人工指定處置",
+}
+RECEIVER_LIMIT_STATES = {
+    "axial": "軸力／拉壓",
+    "shear": "剪力",
+    "bending": "彎曲",
+    "stability": "挫屈／穩定",
+    "punching": "沖切",
+    "connection": "連接",
+    "foundation": "基礎",
+    "other": "其他",
 }
 
 _COLLECTIONS = (
@@ -788,6 +798,7 @@ def build_removal_transfer_handoff(
             "coverage": "all-ERT-transfers-required",
             "capacityCheck": "adopted-demand-divided-by-verified-capacity",
             "capacityEvidence": "per-ERT-document-metadata-and-sha256",
+            "verificationScope": "per-ERT-structured-model-combination-load-path-eccentricity-and-limit-states",
             "verifierIdentityAuthentication": "manual-review-or-ed25519-trust-registry",
         },
         "boundary": {
@@ -807,7 +818,7 @@ def validate_removal_transfer_handoff(record: dict[str, Any]) -> dict[str, Any]:
     schema_version = record.get("schemaVersion")
     if (
         isinstance(schema_version, bool)
-        or schema_version not in {1, 2, HANDOFF_SCHEMA_VERSION}
+        or schema_version not in {1, 2, 3, HANDOFF_SCHEMA_VERSION}
         or record.get("kind") != KIND
     ):
         raise ValueError("拆撐承接構造交接檔版本或種類不受支援。")
@@ -828,14 +839,14 @@ def validate_removal_transfer_handoff(record: dict[str, Any]) -> dict[str, Any]:
         if transfer_id != _transfer_id(unsigned, source_fingerprint) or transfer_id in seen_ids:
             raise ValueError("拆撐承接構造交接列識別或內容不一致。")
         seen_ids.add(transfer_id)
-        if schema_version in {2, HANDOFF_SCHEMA_VERSION}:
+        if schema_version >= 2:
             source_demand = transfer.get("sourceDemand", {})
             receiver = transfer.get("receiver", {})
             demand = source_demand.get("receiverTransferDemandTf")
             if isinstance(demand, bool) or not isinstance(demand, (int, float)) or not math.isfinite(demand) or demand < 0:
                 raise ValueError("拆撐交接列缺少非負有限的承接設計需求。")
             _required_text(receiver.get("direction"), "拆撐傳力方向", max_length=120)
-        if schema_version == HANDOFF_SCHEMA_VERSION:
+        if schema_version >= 3:
             share = source_demand.get("allocationSharePercent")
             if isinstance(share, bool) or not isinstance(share, (int, float)) or not math.isfinite(share) or share <= 0 or share > 100:
                 raise ValueError("拆撐交接列缺少有效的承接分配比例。")
@@ -880,15 +891,21 @@ def validate_removal_transfer_handoff(record: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ValueError("拆撐承接構造交接檔缺少受控回簽契約。")
     if (
-        receipt_schema_version in {2, RECEIPT_SCHEMA_VERSION}
+        receipt_schema_version >= 2
         and receipt_contract.get("capacityCheck") != "adopted-demand-divided-by-verified-capacity"
     ):
         raise ValueError("拆撐承接構造交接檔缺少需求／承載力自動檢核契約。")
     if (
-        receipt_schema_version == RECEIPT_SCHEMA_VERSION
+        receipt_schema_version >= 3
         and receipt_contract.get("capacityEvidence") != "per-ERT-document-metadata-and-sha256"
     ):
         raise ValueError("拆撐承接構造交接檔缺少逐列承載力文件證據契約。")
+    if (
+        receipt_schema_version >= 4
+        and receipt_contract.get("verificationScope")
+        != "per-ERT-structured-model-combination-load-path-eccentricity-and-limit-states"
+    ):
+        raise ValueError("拆撐承接構造交接檔缺少逐列承接構造驗算範圍契約。")
     return deepcopy(record)
 
 
@@ -946,6 +963,33 @@ def _validated_capacity_evidence(value: Any) -> dict[str, str]:
         "pageReference": page_reference,
         "fileName": file_name,
         "fileSha256": file_sha256,
+    }
+
+
+def _validated_receiver_verification_scope(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError("承接構造回簽缺少逐列驗算範圍。")
+    limit_states = value.get("checkedLimitStates")
+    if not isinstance(limit_states, list) or not limit_states or len(limit_states) > len(RECEIVER_LIMIT_STATES):
+        raise ValueError("承接構造回簽必須逐列指定至少一項已檢核極限狀態。")
+    normalized_limit_states: list[str] = []
+    for item in limit_states:
+        key = _required_text(item, "已檢核極限狀態", max_length=40)
+        if key not in RECEIVER_LIMIT_STATES:
+            raise ValueError("承接構造回簽含不受支援的極限狀態。")
+        if key in normalized_limit_states:
+            raise ValueError("承接構造回簽的已檢核極限狀態不得重複。")
+        normalized_limit_states.append(key)
+    other_checks_status = value.get("otherChecksStatus")
+    if other_checks_status not in {"passed", "failed"}:
+        raise ValueError("承接構造回簽必須逐列記錄其他檢核的彙整結果。")
+    return {
+        "analysisModelReference": _required_text(value.get("analysisModelReference"), "正式分析模型", max_length=160),
+        "governingLoadCombination": _required_text(value.get("governingLoadCombination"), "控制載重組合", max_length=240),
+        "directionAndDistributionBasis": _required_text(value.get("directionAndDistributionBasis"), "傳力方向與分配依據", max_length=500),
+        "eccentricityAndSecondaryEffectBasis": _required_text(value.get("eccentricityAndSecondaryEffectBasis"), "偏心與二次效應依據", max_length=500),
+        "checkedLimitStates": normalized_limit_states,
+        "otherChecksStatus": other_checks_status,
     }
 
 
@@ -1018,25 +1062,31 @@ def validate_receiver_verification_receipt(
         _required_text(result.get("verificationBasis"), "逐筆檢核依據")
         _required_text(result.get("conclusion"), "逐筆檢核結論")
         adopted_demand = _finite_nonnegative(result.get("adoptedDemandTf"), "採用需求值")
-        if validated_handoff.get("schemaVersion") in {2, HANDOFF_SCHEMA_VERSION}:
+        if validated_handoff.get("schemaVersion", 1) >= 2:
             transfer = next(item for item in validated_handoff["transfers"] if item["transferId"] == transfer_id)
             minimum_demand = float(transfer["sourceDemand"]["receiverTransferDemandTf"])
             if adopted_demand + 1e-9 < minimum_demand:
                 raise ValueError("承接構造回簽採用需求不得小於 ERH 交接的承接設計需求。")
         ratio = _finite_nonnegative(result.get("capacityUtilizationRatio"), "容量利用率")
-        if receipt_schema_version in {2, RECEIPT_SCHEMA_VERSION}:
+        if receipt_schema_version >= 2:
             verified_capacity = _finite_nonnegative(result.get("verifiedCapacityTf"), "核定承載力")
             if verified_capacity <= 0:
                 raise ValueError("承接構造回簽的核定承載力必須大於 0。")
             expected_ratio = adopted_demand / verified_capacity
             if not math.isclose(ratio, expected_ratio, rel_tol=5e-7, abs_tol=5e-7):
                 raise ValueError("承接構造回簽的容量利用率與採用需求／核定承載力不一致。")
-            expected_result_status = "passed" if expected_ratio <= 1.0 + 1e-9 else "failed"
+            scope = None
+            if receipt_schema_version >= 4:
+                scope = _validated_receiver_verification_scope(result.get("verificationScope"))
+                if scope != result.get("verificationScope"):
+                    raise ValueError("承接構造回簽的逐列驗算範圍欄位未正規化。")
+            other_checks_passed = scope is None or scope["otherChecksStatus"] == "passed"
+            expected_result_status = "passed" if expected_ratio <= 1.0 + 1e-9 and other_checks_passed else "failed"
             if status != expected_result_status:
                 raise ValueError("承接構造回簽狀態與需求／承載力自動判定不一致。")
         elif status == "passed" and ratio > 1.0 + 1e-9:
             raise ValueError("承接構造回簽將容量利用率大於 1 的結果標示為 passed。")
-        if receipt_schema_version == RECEIPT_SCHEMA_VERSION:
+        if receipt_schema_version >= 3:
             evidence = _validated_capacity_evidence(result.get("capacityEvidence"))
             if evidence != result.get("capacityEvidence"):
                 raise ValueError("承接構造回簽的承載力文件證據欄位未正規化。")
@@ -1064,15 +1114,20 @@ def validate_receiver_verification_receipt(
     ):
         raise ValueError("承接構造回簽未保留接收端計算與回簽人身分核對邊界。")
     if (
-        receipt_schema_version in {2, RECEIPT_SCHEMA_VERSION}
+        receipt_schema_version >= 2
         and boundary.get("capacityValueFromReceiverDocument") is not True
     ):
         raise ValueError("承接構造回簽未聲明核定承載力來自接收端正式檢核文件。")
     if (
-        receipt_schema_version == RECEIPT_SCHEMA_VERSION
+        receipt_schema_version >= 3
         and boundary.get("capacityEvidenceFileNotEmbedded") is not True
     ):
         raise ValueError("承接構造回簽未保留承載力證據檔僅記錄雜湊、不嵌入檔案的邊界。")
+    if (
+        receipt_schema_version >= 4
+        and boundary.get("verificationScopeStructured") is not True
+    ):
+        raise ValueError("承接構造回簽未聲明逐列驗算範圍已結構化記錄。")
     return deepcopy(receipt)
 
 
@@ -1101,14 +1156,16 @@ def build_receiver_verification_receipt(
             raise ValueError("承接構造回簽的核定承載力必須大於 0。")
         ratio = adopted_demand / verified_capacity
         evidence = _validated_capacity_evidence(result.get("capacityEvidence"))
+        scope = _validated_receiver_verification_scope(result.get("verificationScope"))
         controlled_results.append({
             "transferId": result.get("transferId", ""),
-            "status": "passed" if ratio <= 1.0 + 1e-9 else "failed",
+            "status": "passed" if ratio <= 1.0 + 1e-9 and scope["otherChecksStatus"] == "passed" else "failed",
             "receiverTarget": result.get("receiverTarget", ""),
             "adoptedDemandTf": adopted_demand,
             "verifiedCapacityTf": verified_capacity,
             "capacityUtilizationRatio": round(ratio, 6),
             "capacityEvidence": evidence,
+            "verificationScope": scope,
             "verificationBasis": result.get("verificationBasis", ""),
             "conclusion": result.get("conclusion", ""),
         })
@@ -1133,6 +1190,7 @@ def build_receiver_verification_receipt(
             "verifierIdentityRequiresManualReview": True,
             "capacityValueFromReceiverDocument": True,
             "capacityEvidenceFileNotEmbedded": True,
+            "verificationScopeStructured": True,
         },
     }
     receipt["receiptFingerprint"] = receiver_verification_receipt_fingerprint(receipt)
@@ -1146,8 +1204,8 @@ def validate_source_capacity_evidence_verification(
 ) -> dict[str, Any]:
     validated_handoff = validate_removal_transfer_handoff(handoff)
     validated_receipt = validate_receiver_verification_receipt(receipt, validated_handoff)
-    if validated_receipt.get("schemaVersion") != 3:
-        raise ValueError("只有 RVR v3 可建立來源端逐列證據核對紀錄。")
+    if validated_receipt.get("schemaVersion", 1) < 3:
+        raise ValueError("只有 RVR v3 以上版本可建立來源端逐列證據核對紀錄。")
     if not isinstance(record, dict):
         raise ValueError("來源端證據核對紀錄格式不正確。")
     if (
@@ -1257,8 +1315,8 @@ def build_source_capacity_evidence_verification(
 ) -> dict[str, Any]:
     validated_handoff = validate_removal_transfer_handoff(handoff)
     validated_receipt = validate_receiver_verification_receipt(receipt, validated_handoff)
-    if validated_receipt.get("schemaVersion") != 3:
-        raise ValueError("只有 RVR v3 可建立來源端逐列證據核對紀錄。")
+    if validated_receipt.get("schemaVersion", 1) < 3:
+        raise ValueError("只有 RVR v3 以上版本可建立來源端逐列證據核對紀錄。")
     results_by_id = {str(item["transferId"]): item for item in validated_receipt["results"]}
     controlled_checks = []
     for match in matches:

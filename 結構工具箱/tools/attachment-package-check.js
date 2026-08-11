@@ -1710,8 +1710,8 @@ function analyzeExcavationEvidenceChains(records, issues) {
     ],
   };
   const supportedSchemas = {
-    'excavation-removal-transfer-handoff': new Set([1, 2, 3]),
-    'receiver-capacity-verification-receipt': new Set([1, 2, 3]),
+    'excavation-removal-transfer-handoff': new Set([1, 2, 3, 4]),
+    'receiver-capacity-verification-receipt': new Set([1, 2, 3, 4]),
     'source-capacity-evidence-verification-record': new Set([1]),
     'source-evidence-chain-verification-receipt': new Set([1]),
     'receiver-verification-trust-registry-backup': new Set([1]),

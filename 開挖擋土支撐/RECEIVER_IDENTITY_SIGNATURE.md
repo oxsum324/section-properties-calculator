@@ -27,7 +27,7 @@
 
 RVR 的 `identitySignature` 與 `receiptFingerprint`、SEV 的 `identitySignature` 與 `verificationFingerprint` 均彼此分離，因此加入或更新簽章不會改變原內容指紋。驗章前仍須先通過完整的 SEV／RVR／ERH／ERT 關聯與受控欄位驗證。
 
-RVR v3 的逐列承載力文件資料與 `fileSha256` 會納入 `receiptFingerprint`，因此後續數位簽章也會間接保護這些欄位不被改寫；但證據檔案本身不會嵌入 RVR 或簽署訊息。來源端仍須對實際收到的文件重新計算 SHA-256，確認與 RVR 所列值一致，並人工核對文件編號、版次、日期、頁碼及內容。
+RVR v3 以上版本的逐列承載力文件資料與 `fileSha256` 會納入 `receiptFingerprint`；RVR v4 的正式模型、控制載重組合、傳力與分配、偏心與二次效應、已檢核極限狀態及其他檢核彙整也一併受指紋與後續簽章保護。但證據檔案本身不會嵌入 RVR 或簽署訊息，結構化欄位也不表示工具已重算工程內容。來源端仍須對實際收到的文件重新計算 SHA-256，確認與 RVR 所列值一致，並人工核對文件編號、版次、日期、頁碼、驗算範圍及內容。
 
 ## 簽署訊息
 

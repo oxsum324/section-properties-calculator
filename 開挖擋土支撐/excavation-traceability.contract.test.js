@@ -104,7 +104,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.16.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.17.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -200,6 +200,11 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '來源端證據核對紀錄的 RVR 文件受控欄位不一致',
   'SOURCE_EVIDENCE_VERIFICATION_FINGERPRINT_PREFIX',
   'per-ERT-document-metadata-and-sha256',
+  'per-ERT-structured-model-combination-load-path-eccentricity-and-limit-states',
+  'def _validated_receiver_verification_scope',
+  'checkedLimitStates',
+  'otherChecksStatus',
+  'verificationScopeStructured',
   'capacityEvidenceFileNotEmbedded',
   '承載力文件 SHA-256 格式不正確',
   'adopted-demand-divided-by-verified-capacity',
@@ -293,11 +298,17 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '證據檔 SHA-256',
   'crypto.subtle.digest("SHA-256"',
   '檔案只在瀏覽器本機計算雜湊，不會上傳或嵌入 RVR',
-  'RVR v3：需求／承載力閉環已逐列連結正式文件資料與 SHA-256',
+  'RVR v4：已逐列記錄正式模型、控制組合、傳力與偏心依據、極限狀態及其他檢核結果',
+  '正式分析模型／計算書識別',
+  '控制載重組合',
+  '傳力方向與分配依據',
+  '偏心與二次效應依據',
+  '除上述 tf 容量比外之其他檢核彙整',
   'SourceCapacityEvidenceMatch',
   'handleSourceCapacityEvidenceFile',
   'sourceCapacityEvidenceAllMatched',
   'sourceCapacityEvidenceSatisfied',
+  '(activeRemovalTransferReceipt?.schemaVersion ?? 0) >= 3',
   'createSourceCapacityEvidenceVerification',
   'handleCreateSourceEvidenceVerification',
   'handleDownloadSourceEvidenceSigningRequest',
@@ -323,6 +334,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'test_validates_complete_external_receiver_receipt',
   'test_rejects_tampered_receiver_receipt',
   'test_rejects_incomplete_receiver_receipt',
+  'test_v4_other_checks_failure_controls_overall_result',
+  'test_v4_rejects_missing_structured_verification_scope',
   'test_rejects_passed_receipt_with_over_capacity_ratio',
   'test_keeps_legacy_v1_receipt_without_capacity_read_compatibility',
   'test_keeps_legacy_v3_handoff_with_v1_receipt_contract',

@@ -1384,6 +1384,32 @@ button.danger-button {
   grid-column: span 2;
 }
 
+.receiver-limit-state-fieldset {
+  grid-column: span 2;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(15, 118, 110, 0.16);
+  border-radius: 14px;
+  background: rgba(240, 253, 250, 0.56);
+}
+
+.receiver-limit-state-fieldset legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.receiver-limit-state-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px 12px;
+}
+
+.receiver-limit-state-grid .check-field {
+  margin: 0;
+}
+
 .receiver-confirmation-list .check-field {
   align-items: flex-start;
   margin-bottom: 0;
@@ -1425,7 +1451,8 @@ button.danger-button {
     max-width: 100%;
   }
 
-  .receiver-result-fields .text-area-field {
+  .receiver-result-fields .text-area-field,
+  .receiver-limit-state-fieldset {
     grid-column: auto;
   }
 }

@@ -88,7 +88,7 @@ class RemovalTransferHandoffTests(unittest.TestCase):
             }
             if schema_version >= 2:
                 result["verifiedCapacityTf"] = adopted_demand / ratio
-            if schema_version == 3:
+            if schema_version >= 3:
                 result["capacityEvidence"] = {
                     "documentReference": "RV-01-20260807",
                     "revision": "A",
@@ -96,6 +96,15 @@ class RemovalTransferHandoffTests(unittest.TestCase):
                     "pageReference": "第 12 頁／4.2 節",
                     "fileName": "receiver-capacity-report.pdf",
                     "fileSha256": "a" * 64,
+                }
+            if schema_version >= 4:
+                result["verificationScope"] = {
+                    "analysisModelReference": "承接構造階段分析模型 RV-01",
+                    "governingLoadCombination": "拆撐階段 LC-RM-01",
+                    "directionAndDistributionBasis": "依施工順序圖沿第一道支撐軸線分配",
+                    "eccentricityAndSecondaryEffectBasis": "依模型節點偏心及二階分析結果",
+                    "checkedLimitStates": ["axial", "shear", "connection"],
+                    "otherChecksStatus": status,
                 }
             results.append(result)
         failed = sum(item["status"] == "failed" for item in results)
@@ -125,8 +134,10 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         }
         if schema_version >= 2:
             receipt["boundary"]["capacityValueFromReceiverDocument"] = True
-        if schema_version == 3:
+        if schema_version >= 3:
             receipt["boundary"]["capacityEvidenceFileNotEmbedded"] = True
+        if schema_version >= 4:
+            receipt["boundary"]["verificationScopeStructured"] = True
         receipt["receiptFingerprint"] = receiver_verification_receipt_fingerprint(receipt)
         return receipt
 
@@ -168,8 +179,12 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         )
 
         self.assertEqual(record["kind"], KIND)
-        self.assertEqual(record["schemaVersion"], 3)
-        self.assertEqual(record["receiptContract"]["schemaVersion"], 3)
+        self.assertEqual(record["schemaVersion"], 4)
+        self.assertEqual(record["receiptContract"]["schemaVersion"], 4)
+        self.assertEqual(
+            record["receiptContract"]["verificationScope"],
+            "per-ERT-structured-model-combination-load-path-eccentricity-and-limit-states",
+        )
         self.assertEqual(
             record["receiptContract"]["capacityCheck"],
             "adopted-demand-divided-by-verified-capacity",
@@ -468,7 +483,7 @@ class RemovalTransferHandoffTests(unittest.TestCase):
     def test_builds_controlled_receiver_receipt_for_assistant(self) -> None:
         project = self.prepared_project()
         handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
-        draft = self.receiver_receipt(handoff, schema_version=3)
+        draft = self.receiver_receipt(handoff, schema_version=4)
         draft["verificationAuthority"]["untrustedField"] = "must not survive"
         draft["results"][0]["untrustedField"] = "must not survive"
 
@@ -480,7 +495,7 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         )
 
         self.assertEqual(receipt["summary"], {"status": "passed", "passed": 1, "failed": 0})
-        self.assertEqual(receipt["schemaVersion"], 3)
+        self.assertEqual(receipt["schemaVersion"], 4)
         self.assertGreater(receipt["results"][0]["verifiedCapacityTf"], receipt["results"][0]["adoptedDemandTf"])
         self.assertEqual(
             receipt["results"][0]["capacityUtilizationRatio"],
@@ -495,6 +510,7 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         self.assertTrue(receipt["boundary"]["receiverCalculationCompleted"])
         self.assertTrue(receipt["boundary"]["capacityEvidenceFileNotEmbedded"])
         self.assertEqual(receipt["results"][0]["capacityEvidence"]["fileSha256"], "a" * 64)
+        self.assertEqual(receipt["results"][0]["verificationScope"]["otherChecksStatus"], "passed")
         self.assertRegex(receipt["receiptFingerprint"], r"^RVR-[0-9A-F]{20}$")
         self.assertEqual(
             validate_receiver_verification_receipt(json.loads(json.dumps(receipt)), handoff),
@@ -508,10 +524,40 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         project.top_supports.append(second)
         project.calculation_results = calculate_project(project)
         handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
-        draft = self.receiver_receipt(handoff, schema_version=3)
+        draft = self.receiver_receipt(handoff, schema_version=4)
         draft["results"].pop()
 
         with self.assertRaisesRegex(ValueError, "未完整涵蓋"):
+            build_receiver_verification_receipt(
+                handoff,
+                draft["verificationAuthority"],
+                draft["results"],
+            )
+
+    def test_v4_other_checks_failure_controls_overall_result(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        draft = self.receiver_receipt(handoff, schema_version=4)
+        draft["results"][0]["verificationScope"]["otherChecksStatus"] = "failed"
+
+        receipt = build_receiver_verification_receipt(
+            handoff,
+            draft["verificationAuthority"],
+            draft["results"],
+            issued_at="2026-08-07T12:00:00Z",
+        )
+
+        self.assertLess(receipt["results"][0]["capacityUtilizationRatio"], 1.0)
+        self.assertEqual(receipt["results"][0]["status"], "failed")
+        self.assertEqual(receipt["summary"], {"status": "failed", "passed": 0, "failed": 1})
+
+    def test_v4_rejects_missing_structured_verification_scope(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        draft = self.receiver_receipt(handoff, schema_version=4)
+        del draft["results"][0]["verificationScope"]
+
+        with self.assertRaisesRegex(ValueError, "缺少逐列驗算範圍"):
             build_receiver_verification_receipt(
                 handoff,
                 draft["verificationAuthority"],
@@ -596,7 +642,7 @@ class RemovalTransferHandoffTests(unittest.TestCase):
     def test_assistant_derives_failed_status_from_demand_and_capacity(self) -> None:
         project = self.prepared_project()
         handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
-        draft = self.receiver_receipt(handoff, schema_version=3)
+        draft = self.receiver_receipt(handoff, schema_version=4)
         adopted_demand = draft["results"][0]["adoptedDemandTf"]
         draft["results"][0]["verifiedCapacityTf"] = adopted_demand / 1.25
         draft["results"][0]["capacityUtilizationRatio"] = 0.1

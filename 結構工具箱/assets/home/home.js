@@ -264,6 +264,7 @@
         '開挖擋土支撐/backend/app/calculations.py',
         '開挖擋土支撐/backend/app/reporting.py',
         '開挖擋土支撐/backend/app/schemas.py',
+        '開挖擋土支撐/backend/app/removal_transfer_handoff.py',
         '開挖擋土支撐/backend/app/receiver_trust_backup.py',
         '開挖擋土支撐/backend/app/receiver_trust_recovery.py'
       ]

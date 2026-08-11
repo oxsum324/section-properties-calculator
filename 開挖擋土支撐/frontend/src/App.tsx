@@ -21,6 +21,7 @@ import {
   ReceiverIdentityVerification,
   ReceiverIdentitySignatureResponse,
   ReceiverKeyEnrollment,
+  ReceiverLimitState,
   ReceiverRevocationReason,
   ReceiverTrustEvent,
   ReceiverTrustKey,
@@ -57,6 +58,17 @@ const steps = [
   "檢核結果",
   "報表匯出",
   "接收端回簽助手",
+];
+
+const receiverLimitStateOptions: Array<{ value: ReceiverLimitState; label: string }> = [
+  { value: "axial", label: "軸力／拉壓" },
+  { value: "shear", label: "剪力" },
+  { value: "bending", label: "彎曲" },
+  { value: "stability", label: "挫屈／穩定" },
+  { value: "punching", label: "沖切" },
+  { value: "connection", label: "連接" },
+  { value: "foundation", label: "基礎" },
+  { value: "other", label: "其他" },
 ];
 
 const columnVariantOptions: Array<{
@@ -304,7 +316,7 @@ function App() {
     verifierRole: "",
   });
   const [sourceEvidenceVerificationBasis, setSourceEvidenceVerificationBasis] = useState(
-    "依 RVR v3 逐列比對來源端實際收到之承載力文件 SHA-256",
+    "依 RVR v3 以上版本逐列比對來源端實際收到之承載力文件 SHA-256",
   );
   const [sourceEvidenceVerificationRecord, setSourceEvidenceVerificationRecord] = useState<SourceCapacityEvidenceVerification | null>(null);
   const [sourceEvidenceIdentityVerification, setSourceEvidenceIdentityVerification] = useState<ReceiverIdentityVerification | null>(null);
@@ -356,7 +368,7 @@ function App() {
       ?? latestSourceCapacityEvidenceVerification(project, activeRemovalTransferReceipt?.receiptFingerprint),
     [project?.source_capacity_evidence_verifications, sourceEvidenceVerificationRecord, activeRemovalTransferReceipt?.receiptFingerprint],
   );
-  const sourceCapacityEvidenceRequired = activeRemovalTransferReceipt?.schemaVersion === 3;
+  const sourceCapacityEvidenceRequired = (activeRemovalTransferReceipt?.schemaVersion ?? 0) >= 3;
   const sourceCapacityEvidenceAllMatched = useMemo(() => {
     if (!sourceCapacityEvidenceRequired || !activeRemovalTransferReceipt?.results.length) return false;
     return activeRemovalTransferReceipt.results.every(
@@ -388,17 +400,24 @@ function App() {
         result.capacityUtilizationRatio
         - result.adoptedDemandTf / (result.verifiedCapacityTf ?? 1)
       ) <= 0.000001
-      && result.status === (
-        result.adoptedDemandTf / (result.verifiedCapacityTf ?? 1) <= 1.000000001
-          ? "passed"
-          : "failed"
-      )
       && Boolean(result.capacityEvidence?.documentReference.trim())
       && Boolean(result.capacityEvidence?.revision.trim())
       && /^\d{4}-\d{2}-\d{2}$/.test(result.capacityEvidence?.issuedDate ?? "")
       && Boolean(result.capacityEvidence?.pageReference.trim())
       && Boolean(result.capacityEvidence?.fileName.trim())
       && /^[0-9a-f]{64}$/i.test(result.capacityEvidence?.fileSha256 ?? "")
+      && Boolean(result.verificationScope?.analysisModelReference.trim())
+      && Boolean(result.verificationScope?.governingLoadCombination.trim())
+      && Boolean(result.verificationScope?.directionAndDistributionBasis.trim())
+      && Boolean(result.verificationScope?.eccentricityAndSecondaryEffectBasis.trim())
+      && (result.verificationScope?.checkedLimitStates.length ?? 0) > 0
+      && ["passed", "failed"].includes(result.verificationScope?.otherChecksStatus ?? "")
+      && result.status === (
+        result.adoptedDemandTf / (result.verifiedCapacityTf ?? 1) <= 1.000000001
+        && result.verificationScope?.otherChecksStatus === "passed"
+          ? "passed"
+          : "failed"
+      )
     ));
   }, [
     receiverAssistantHandoff,
@@ -1192,8 +1211,69 @@ function App() {
         const capacity = Number(result.verifiedCapacityTf ?? 0);
         const ratio = demand > 0 && capacity > 0 ? demand / capacity : 0;
         result.capacityUtilizationRatio = Number(ratio.toFixed(6));
-        result.status = ratio > 0 && ratio <= 1.000000001 ? "passed" : "failed";
+        result.status = demand >= 0
+          && capacity > 0
+          && ratio <= 1.000000001
+          && result.verificationScope?.otherChecksStatus === "passed"
+          ? "passed"
+          : "failed";
       }
+      next[index] = result;
+      return next;
+    });
+    setReceiverAssistantReceipt(null);
+  }
+
+  function updateReceiverAssistantVerificationScope(
+    index: number,
+    field: "analysisModelReference" | "governingLoadCombination" | "directionAndDistributionBasis" | "eccentricityAndSecondaryEffectBasis" | "otherChecksStatus",
+    value: string,
+  ) {
+    setReceiverAssistantResults((current) => {
+      const next = [...current];
+      const result = { ...next[index] };
+      const scope = {
+        analysisModelReference: "",
+        governingLoadCombination: "",
+        directionAndDistributionBasis: "",
+        eccentricityAndSecondaryEffectBasis: "",
+        checkedLimitStates: [] as ReceiverLimitState[],
+        otherChecksStatus: "failed" as "passed" | "failed",
+        ...result.verificationScope,
+        [field]: value,
+      };
+      result.verificationScope = scope;
+      const ratio = result.adoptedDemandTf / (result.verifiedCapacityTf ?? 0);
+      result.status = Number.isFinite(ratio)
+        && result.adoptedDemandTf >= 0
+        && (result.verifiedCapacityTf ?? 0) > 0
+        && ratio <= 1.000000001
+        && scope.otherChecksStatus === "passed"
+        ? "passed"
+        : "failed";
+      next[index] = result;
+      return next;
+    });
+    setReceiverAssistantReceipt(null);
+  }
+
+  function toggleReceiverAssistantLimitState(index: number, limitState: ReceiverLimitState) {
+    setReceiverAssistantResults((current) => {
+      const next = [...current];
+      const result = { ...next[index] };
+      const currentStates = result.verificationScope?.checkedLimitStates ?? [];
+      const checkedLimitStates = currentStates.includes(limitState)
+        ? currentStates.filter((item) => item !== limitState)
+        : [...currentStates, limitState];
+      result.verificationScope = {
+        analysisModelReference: "",
+        governingLoadCombination: "",
+        directionAndDistributionBasis: "",
+        eccentricityAndSecondaryEffectBasis: "",
+        otherChecksStatus: "failed",
+        ...result.verificationScope,
+        checkedLimitStates,
+      };
       next[index] = result;
       return next;
     });
@@ -4299,7 +4379,7 @@ function App() {
               )}
               {activeRemovalTransferReceipt && sourceCapacityEvidenceAllMatched && (
                 <p className="meta-line">
-                  RVR v3 的逐列證據檔 SHA-256 已全部相符；請填寫核驗責任資訊並建立 SEV，才會保存為可追溯的專案紀錄。
+                  RVR v3 以上版本的逐列證據檔 SHA-256 已全部相符；請填寫核驗責任資訊並建立 SEV，才會保存為可追溯的專案紀錄。
                 </p>
               )}
               {activeRemovalTransferReceipt && sourceCapacityEvidenceRequired && sourceCapacityEvidenceAllMatched && (
@@ -4793,6 +4873,51 @@ function App() {
                               <strong>{result.capacityUtilizationRatio > 0 ? fmt(result.capacityUtilizationRatio) : "—"}</strong>
                             </div>
                             <Field
+                              label="正式分析模型／計算書識別"
+                              value={result.verificationScope?.analysisModelReference ?? ""}
+                              onChange={(value) => updateReceiverAssistantVerificationScope(index, "analysisModelReference", value)}
+                            />
+                            <Field
+                              label="控制載重組合"
+                              value={result.verificationScope?.governingLoadCombination ?? ""}
+                              onChange={(value) => updateReceiverAssistantVerificationScope(index, "governingLoadCombination", value)}
+                            />
+                            <TextAreaField
+                              label="傳力方向與分配依據"
+                              value={result.verificationScope?.directionAndDistributionBasis ?? ""}
+                              onChange={(value) => updateReceiverAssistantVerificationScope(index, "directionAndDistributionBasis", value)}
+                            />
+                            <TextAreaField
+                              label="偏心與二次效應依據"
+                              value={result.verificationScope?.eccentricityAndSecondaryEffectBasis ?? ""}
+                              onChange={(value) => updateReceiverAssistantVerificationScope(index, "eccentricityAndSecondaryEffectBasis", value)}
+                            />
+                            <fieldset className="field-block receiver-limit-state-fieldset">
+                              <legend>已完成檢核的極限狀態（至少一項）</legend>
+                              <div className="receiver-limit-state-grid">
+                                {receiverLimitStateOptions.map((option) => (
+                                  <label className="check-field" key={option.value}>
+                                    <input
+                                      type="checkbox"
+                                      checked={result.verificationScope?.checkedLimitStates.includes(option.value) ?? false}
+                                      onChange={() => toggleReceiverAssistantLimitState(index, option.value)}
+                                    />
+                                    <span>{option.label}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </fieldset>
+                            <label className="field-block">
+                              <span>除上述 tf 容量比外之其他檢核彙整</span>
+                              <select
+                                value={result.verificationScope?.otherChecksStatus ?? "failed"}
+                                onChange={(event) => updateReceiverAssistantVerificationScope(index, "otherChecksStatus", event.target.value)}
+                              >
+                                <option value="failed">未通過／尚未完成</option>
+                                <option value="passed">全部通過</option>
+                              </select>
+                            </label>
+                            <Field
                               label="承載力文件編號"
                               value={result.capacityEvidence?.documentReference ?? ""}
                               onChange={(value) => updateReceiverAssistantCapacityEvidence(index, "documentReference", value)}
@@ -4861,7 +4986,7 @@ function App() {
                           setReceiverAssistantReceipt(null);
                         }}
                       />
-                      <span>我確認接收端已完成容量、傳力路徑、分配、偏心及載重組合檢核。</span>
+                      <span>我確認每一列已記錄正式模型、控制載重組合、傳力與分配、偏心／二次效應及已檢核極限狀態，且內容與正式檢核文件一致。</span>
                     </label>
                     <label className="check-field">
                       <input
@@ -4904,8 +5029,10 @@ function App() {
                           : "RVR 已建立：接收端結果包含未通過項目"}
                       </strong>
                       <span>
-                        {receiverAssistantReceipt.schemaVersion === 3
-                          ? "RVR v3：需求／承載力閉環已逐列連結正式文件資料與 SHA-256。"
+                        {receiverAssistantReceipt.schemaVersion === 4
+                          ? "RVR v4：已逐列記錄正式模型、控制組合、傳力與偏心依據、極限狀態及其他檢核結果，並連結承載力文件 SHA-256。"
+                          : receiverAssistantReceipt.schemaVersion === 3
+                          ? "舊版 RVR v3：需求／承載力閉環已逐列連結正式文件資料與 SHA-256，但尚未結構化記錄完整驗算範圍。"
                           : receiverAssistantReceipt.schemaVersion === 2
                             ? "舊版 RVR v2：需求／核定承載力已閉環，但尚未強制逐列文件 SHA-256。"
                             : "舊版 RVR v1：容量利用率為接收端外部登錄值，未形成需求／承載力自動閉環。"}
@@ -6402,6 +6529,14 @@ function receiverResultDrafts(handoff: RemovalTransferHandoff): ReceiverVerifica
       pageReference: "",
       fileName: "",
       fileSha256: "",
+    },
+    verificationScope: {
+      analysisModelReference: "",
+      governingLoadCombination: "",
+      directionAndDistributionBasis: "",
+      eccentricityAndSecondaryEffectBasis: "",
+      checkedLimitStates: [],
+      otherChecksStatus: "failed",
     },
     verificationBasis: "",
     conclusion: "",
