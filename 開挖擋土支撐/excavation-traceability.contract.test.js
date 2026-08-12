@@ -188,7 +188,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.46.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.46.1', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -1989,7 +1989,6 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
 [
   '2_開挖擋土支撐-v95000.xlsm',
   'STRUT_WORKBOOK_PATH',
-  'STRUT_WORD_TEMPLATE_PATH',
 ].forEach((needle) => {
   assert(config.includes(needle), `excavation config keeps ${needle}`, needle);
 });

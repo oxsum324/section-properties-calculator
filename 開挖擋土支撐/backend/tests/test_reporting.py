@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 import unittest
 from datetime import datetime, timezone
@@ -104,7 +105,20 @@ class ReportingTests(unittest.TestCase):
                 archive_names = archive.namelist()
                 document_xml = archive.read("word/document.xml").decode("utf-8")
                 footer_files = [name for name in archive.namelist() if name.startswith("word/footer")]
+                header_files = [name for name in archive.namelist() if name.startswith("word/header")]
                 footer_xml = "\n".join(archive.read(name).decode("utf-8") for name in footer_files)
+                media_files = [name for name in archive_names if name.startswith("word/media/")]
+                media_hashes = {
+                    hashlib.sha256(archive.read(name)).hexdigest()
+                    for name in media_files
+                }
+            template_path = Path(__file__).resolve().parents[2] / "一般(分析+擋土+支撐).docx"
+            with ZipFile(template_path) as template_archive:
+                template_media_hashes = {
+                    hashlib.sha256(template_archive.read(name)).hexdigest()
+                    for name in template_archive.namelist()
+                    if name.startswith("word/media/")
+                }
             cls._default_word_artifact = {
                 "project": project,
                 "path": report_path,
@@ -122,7 +136,19 @@ class ReportingTests(unittest.TestCase):
                 "section_heading_count": len(re.findall(r"[一二三四五六七八九十]+、", combined_text)),
                 "page_break_count": document_xml.count('w:type="page"'),
                 "drawing_count": document_xml.count("<w:drawing"),
-                "media_count": len([name for name in archive_names if name.startswith("word/media/")]),
+                "media_count": len(media_files),
+                "header_part_count": len(header_files),
+                "footer_part_count": len(footer_files),
+                "inherited_template_media_count": len(media_hashes & template_media_hashes),
+                "heading_one_count": sum(1 for paragraph in document.paragraphs if paragraph.style.name == "Heading 1"),
+                "heading_two_count": sum(1 for paragraph in document.paragraphs if paragraph.style.name == "Heading 2"),
+                "numbered_heading_count": sum(
+                    1
+                    for paragraph in document.paragraphs
+                    if paragraph.style.name in {"Heading 1", "Heading 2"}
+                    and paragraph._p.pPr is not None
+                    and paragraph._p.pPr.numPr is not None
+                ),
             }
         return cls._default_word_artifact
 
@@ -144,6 +170,20 @@ class ReportingTests(unittest.TestCase):
         self.assertGreaterEqual(artifact["page_break_count"], 2)
         self.assertGreaterEqual(artifact["drawing_count"], 1)
         self.assertGreaterEqual(artifact["media_count"], 1)
+        self.assertEqual(artifact["media_count"], artifact["drawing_count"])
+        self.assertEqual(artifact["inherited_template_media_count"], 0)
+        self.assertLessEqual(artifact["header_part_count"], 2)
+        self.assertLessEqual(artifact["footer_part_count"], 2)
+        self.assertGreaterEqual(artifact["heading_one_count"], 8)
+        self.assertGreaterEqual(artifact["heading_two_count"], 8)
+        self.assertEqual(artifact["numbered_heading_count"], 0)
+
+    def test_word_report_has_no_legacy_numbering_or_package_residue(self) -> None:
+        artifact = self.default_word_artifact()
+
+        for repeated_heading in ("一、一、", "二、二、", "三、三、", "四、四、", "五、五、", "六、六、"):
+            self.assertNotIn(repeated_heading, artifact["combined_text"])
+        self.assertLess(artifact["path"].stat().st_size, 750_000)
 
     def test_word_report_includes_cover_title_and_project_metadata(self) -> None:
         combined_text = self.default_word_artifact()["combined_text"]

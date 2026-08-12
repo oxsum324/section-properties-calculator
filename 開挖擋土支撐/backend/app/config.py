@@ -15,10 +15,6 @@ class Settings:
         self.db_path = Path(os.environ.get("STRUT_DB_PATH", default_db))
         default_workbook = self.root_dir / "2_開挖擋土支撐-v95000.xlsm"
         self.workbook_path = Path(os.environ.get("STRUT_WORKBOOK_PATH", default_workbook))
-        default_word_template = self.root_dir / "一般(分析+擋土+支撐).docx"
-        self.word_template_path = Path(
-            os.environ.get("STRUT_WORD_TEMPLATE_PATH", default_word_template)
-        )
         default_reference_overrides = self.app_data_dir / "reference_overrides.json"
         self.reference_overrides_path = Path(
             os.environ.get("STRUT_REFERENCE_OVERRIDES_PATH", default_reference_overrides)

@@ -606,27 +606,10 @@ def build_word_report(
 
 
 def _new_word_document() -> Document:
-    settings = get_settings()
-    if settings.word_template_path.exists():
-        document = Document(str(settings.word_template_path))
-        _clear_document_body(document)
-        _clear_headers_and_footers(document)
-        return document
+    # The legacy calculation book remains a visual reference only. Loading it as
+    # the package base retains old headers, footers, relationships and project
+    # media even after the visible body is cleared.
     return Document()
-
-
-def _clear_document_body(document: Document) -> None:
-    body = document._element.body
-    for child in list(body):
-        if child.tag != qn("w:sectPr"):
-            body.remove(child)
-
-
-def _clear_headers_and_footers(document: Document) -> None:
-    for section in document.sections:
-        for part in (section.header, section.footer, section.first_page_header, section.first_page_footer):
-            for paragraph in part.paragraphs:
-                paragraph.text = ""
 
 
 def _configure_document_styles(document: Document) -> None:
@@ -636,6 +619,26 @@ def _configure_document_styles(document: Document) -> None:
     _set_style_east_asia_font(normal_style, "Microsoft JhengHei")
     normal_style.paragraph_format.space_after = Pt(4)
     normal_style.paragraph_format.line_spacing = 1.28
+
+    heading_one = document.styles["Heading 1"]
+    heading_one.font.name = "Microsoft JhengHei"
+    heading_one.font.size = Pt(14)
+    heading_one.font.bold = True
+    heading_one.font.color.rgb = RGBColor.from_string("0F4C81")
+    _set_style_east_asia_font(heading_one, "Microsoft JhengHei")
+    heading_one.paragraph_format.space_before = Pt(12)
+    heading_one.paragraph_format.space_after = Pt(5)
+    heading_one.paragraph_format.keep_with_next = True
+
+    heading_two = document.styles["Heading 2"]
+    heading_two.font.name = "Microsoft JhengHei"
+    heading_two.font.size = Pt(11)
+    heading_two.font.bold = True
+    heading_two.font.color.rgb = RGBColor.from_string("0F172A")
+    _set_style_east_asia_font(heading_two, "Microsoft JhengHei")
+    heading_two.paragraph_format.space_before = Pt(6)
+    heading_two.paragraph_format.space_after = Pt(2)
+    heading_two.paragraph_format.keep_with_next = True
 
 
 def _configure_document_layout(document: Document) -> None:
@@ -743,31 +746,14 @@ def _add_run(paragraph, text: str, *, bold: bool = False, size: float = 10, colo
         run.font.color.rgb = RGBColor.from_string(color)
 
 
-def _add_heading(document: Document, text: str) -> None:
-    paragraph = document.add_paragraph()
-    paragraph.paragraph_format.space_before = Pt(12)
-    paragraph.paragraph_format.space_after = Pt(5)
+def _add_main_heading(document: Document, text: str) -> None:
+    paragraph = document.add_paragraph(style="Heading 1")
     _add_run(paragraph, text, bold=True, size=14, color="0F4C81")
 
 
-def _add_main_heading(document: Document, text: str) -> None:
-    if _style_exists(document, "階層1"):
-        paragraph = document.add_paragraph(style="階層1")
-        paragraph.paragraph_format.space_before = Pt(12)
-        paragraph.paragraph_format.space_after = Pt(5)
-        _add_run(paragraph, text, bold=True, size=14, color="000000")
-        return
-    _add_heading(document, text)
-
-
 def _add_subheading(document: Document, text: str) -> None:
-    if _style_exists(document, "標題二"):
-        paragraph = document.add_paragraph(style="標題二")
-        paragraph.paragraph_format.space_before = Pt(6)
-        paragraph.paragraph_format.space_after = Pt(2)
-        _add_run(paragraph, text, bold=True, size=11)
-        return
-    _add_body_paragraph(document, text)
+    paragraph = document.add_paragraph(style="Heading 2")
+    _add_run(paragraph, text, bold=True, size=11, color="0F172A")
 
 
 def _add_body_paragraph(document: Document, text: str) -> None:
