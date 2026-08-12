@@ -1174,8 +1174,103 @@ button.danger-button {
   background: rgba(226, 232, 240, 0.76);
 }
 
+.receiver-governance-health {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid rgba(14, 116, 144, 0.28);
+  border-radius: 12px;
+  background: rgba(240, 249, 255, 0.82);
+}
+
+.receiver-governance-health.complete {
+  border-color: rgba(4, 120, 87, 0.3);
+  background: rgba(236, 253, 245, 0.82);
+}
+
+.receiver-governance-health.overlap {
+  border-color: rgba(217, 119, 6, 0.3);
+  background: rgba(255, 251, 235, 0.88);
+}
+
+.receiver-governance-health.attention {
+  border-color: rgba(185, 28, 28, 0.3);
+  background: rgba(254, 242, 242, 0.86);
+}
+
+.receiver-governance-health-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.receiver-governance-health-heading > div {
+  display: grid;
+  gap: 4px;
+}
+
+.receiver-governance-health-kicker {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.receiver-governance-health-heading strong {
+  font-size: 18px;
+}
+
+.receiver-governance-health-badge {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.receiver-governance-health-badge.complete {
+  color: #047857;
+}
+
+.receiver-governance-health-badge.overlap {
+  color: #b45309;
+}
+
+.receiver-governance-health-badge.attention {
+  color: #b91c1c;
+}
+
+.receiver-governance-health-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.receiver-governance-health-grid > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(100, 116, 139, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.receiver-governance-health-grid span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.receiver-governance-health-grid strong {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 960px) {
-  .receiver-effective-permission-list {
+  .receiver-effective-permission-list,
+  .receiver-governance-health-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -2154,6 +2249,26 @@ button.danger-button {
   .floating-top-button {
     right: 16px;
     bottom: 16px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 0;
+  }
+
+  .floating-top-button::before {
+    content: "↑";
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  .receiver-governance-health-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .receiver-governance-health-badge {
+    align-self: flex-start;
   }
 
   .table-scroll-hint {

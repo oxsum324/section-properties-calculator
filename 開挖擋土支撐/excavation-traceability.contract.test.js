@@ -132,7 +132,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.32.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.33.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -901,6 +901,20 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '後端仍禁止覆核自己提出的申請',
   '身分保證邊界：',
   '本摘要只供 HTML 操作頁核對，不取代後端逐項授權，也不會寫入 PDF／DOCX 計算書',
+  'deriveReceiverGovernanceSeparationHealth',
+  '治理分權健康摘要',
+  '分權完整',
+  '可執行但角色重疊',
+  '需要處理',
+  '不同帳號雙人流程',
+  '專責角色分離',
+  '目前不可覆核',
+  '目前沒有待覆核 claim；此狀態不代表曾有案件且已完成覆核',
+  '!operator.disabled && !operator.passwordResetRequired',
+  'approver.id !== request.requestedByOperatorId',
+  'request.authorizationClaimState !== "pending"',
+  '每次實際申請或覆核仍由後端重新驗證',
+  '本摘要只供 HTML 管理頁核對，不會寫入 PDF／DOCX 計算書',
   '兩種角色同時適用於金鑰輪替及到期備份處置',
   '受管制備份與復原演練清冊',
   '提出雙人處置申請',
@@ -947,6 +961,11 @@ assert(
   '同時適用於金鑰輪替及到期備份處置',
   '唯讀治理權限矩陣',
   '目前帳號有效權限摘要',
+  '治理分權健康摘要',
+  '分權完整',
+  '可執行但角色重疊',
+  '不同 operator ID',
+  '待覆核 claim',
   '後端工作階段',
   '有效／暫停／未授權',
   '禁止覆核自己提出的申請',
@@ -959,11 +978,13 @@ assert(
   !reporting.includes('治理權限矩陣')
     && !reporting.includes('目前登入帳號有效權限')
     && !reporting.includes('有效權限摘要')
+    && !reporting.includes('治理分權健康摘要')
+    && !reporting.includes('專責角色分離')
     && !reporting.includes('receiver-key-admin')
     && !reporting.includes('receiver-key-requester')
     && !reporting.includes('receiver-key-approver'),
-  'excavation calculation reports exclude operator governance permission matrix and current-session summary',
-  'reporting.py excludes operator governance role and effective-permission content',
+  'excavation calculation reports exclude operator governance permission and separation-health summaries',
+  'reporting.py excludes operator governance role, effective-permission, and separation-health content',
 );
 [
   'receiver-verification-trust-registry-backup',
