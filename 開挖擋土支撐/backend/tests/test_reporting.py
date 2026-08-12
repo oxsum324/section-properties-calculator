@@ -31,6 +31,14 @@ PAGE_ONLY_REPORT_STATUS_NEEDLES = tuple(dict.fromkeys(
     for category in CALCULATION_BOOK_CONTENT_BOUNDARY["forbiddenCategories"].values()
     for needle in category
 ))
+GOVERNANCE_TIMESTAMP_NEEDLES = (
+    "RFC 3161",
+    "GAM-治理檢核可信時間",
+    "GTS-RFC3161時間戳請求",
+    "GTV-治理檢核可信時間",
+    "TSA-trust-anchor.pem",
+    "timestamped-governance-evidence-manifest",
+)
 
 
 class ReportingTests(unittest.TestCase):
@@ -123,7 +131,7 @@ class ReportingTests(unittest.TestCase):
     def test_word_report_excludes_page_only_status_overview(self) -> None:
         combined_text = self.default_word_artifact()["combined_text"]
 
-        for needle in PAGE_ONLY_REPORT_STATUS_NEEDLES:
+        for needle in PAGE_ONLY_REPORT_STATUS_NEEDLES + GOVERNANCE_TIMESTAMP_NEEDLES:
             self.assertNotIn(needle, combined_text)
 
     def test_pdf_report_uses_formal_section_structure(self) -> None:
@@ -200,7 +208,7 @@ class ReportingTests(unittest.TestCase):
         reader = PdfReader(str(report_path))
         text = "\n".join(page.extract_text() or "" for page in reader.pages)
 
-        for needle in PAGE_ONLY_REPORT_STATUS_NEEDLES:
+        for needle in PAGE_ONLY_REPORT_STATUS_NEEDLES + GOVERNANCE_TIMESTAMP_NEEDLES:
             self.assertNotIn(needle, text)
         report_path.unlink(missing_ok=True)
 

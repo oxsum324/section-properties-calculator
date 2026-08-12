@@ -111,6 +111,13 @@ const receiverGovernanceCheckpointVerifier = readUtf8('backend/verify_receiver_g
 const receiverGovernanceCheckpointVerifierLauncher = readUtf8('verify_receiver_governance_checkpoint.ps1');
 const receiverGovernanceCheckpointVerifierBatch = readUtf8('驗證治理健康檢核點.bat');
 const receiverGovernanceCheckpointVerifierGuide = readUtf8('GOVERNANCE_CHECKPOINT_VERIFIER.md');
+const receiverGovernanceTimestamp = readUtf8('backend/receiver_governance_timestamp.py');
+const receiverGovernanceTimestampTests = readUtf8('backend/tests/test_receiver_governance_timestamp.py');
+const receiverGovernanceTimestampLauncher = readUtf8('receiver_governance_timestamp.ps1');
+const receiverGovernanceTimestampPrepareBatch = readUtf8('建立治理檢核可信時間請求.bat');
+const receiverGovernanceTimestampFinalizeBatch = readUtf8('完成治理檢核可信時間證據包.bat');
+const receiverGovernanceTimestampVerifyBatch = readUtf8('驗證治理檢核可信時間證據包.bat');
+const receiverGovernanceTimestampGuide = readUtf8('GOVERNANCE_CHECKPOINT_TRUSTED_TIMESTAMP.md');
 const receiverKeyManagementGuide = readUtf8('RECEIVER_KEY_MANAGEMENT.md');
 const receiverTrustBackup = readUtf8('backend/app/receiver_trust_backup.py');
 const receiverTrustRecovery = readUtf8('backend/app/receiver_trust_recovery.py');
@@ -141,7 +148,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.38.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.39.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -1058,6 +1065,71 @@ assert(receiverGovernanceCheckpointVerifierBatch.includes('verify_receiver_gover
   'RFC 3161',
 ].forEach((needle) => {
   assert(receiverGovernanceCheckpointVerifierGuide.includes(needle), `excavation governance checkpoint verifier guide keeps ${needle}`, needle);
+});
+[
+  'receiver-governance-checkpoint-rfc3161-archive-manifest',
+  'receiver-governance-checkpoint-rfc3161-verification-receipt',
+  'receiver-governance-checkpoint-rfc3161-archive-v1',
+  'def build_archive_manifest',
+  'def validate_archive_manifest',
+  'def prepare_timestamp_request',
+  'def finalize_timestamp_package',
+  'def verify_timestamp_package',
+  'timestampBindsManifestAndReferencedFileHashes',
+  'timestampEstablishesExistenceByGenTimeOnlyWhenTsaTrustAndPolicyAreAccepted',
+  'tsaTrustAnchorIsUserSelected',
+  'tsaRevocationStatusNotEstablished',
+  'noPrivateKeysAcceptedOrRetained',
+  'privateKeyMaterialRejected',
+  'doesNotVerifyExternalStorage',
+  'doesNotConstituteEngineeringApproval',
+  'formalCalculationAttachment',
+  'GAM-',
+  'GTV-',
+  '"ts", "-query"',
+  '"ts", "-verify", "-queryfile"',
+  '"ts", "-verify", "-data"',
+  'TemporaryDirectory(prefix="ghc-rfc3161-")',
+  'def _assert_closed_directory',
+  '重複可攜式檔名或子資料夾',
+].forEach((needle) => {
+  assert(receiverGovernanceTimestamp.includes(needle), `excavation RFC 3161 governance timestamp keeps ${needle}`, needle);
+});
+[
+  'backend.receiver_governance_timestamp',
+  '--openssl',
+  'prepare',
+  'finalize',
+  'verify',
+  '--verification-receipt',
+  '--timestamp-response',
+  '--trust-anchor',
+].forEach((needle) => {
+  assert(receiverGovernanceTimestampLauncher.includes(needle), `excavation RFC 3161 launcher keeps ${needle}`, needle);
+});
+assert(receiverGovernanceTimestampPrepareBatch.includes('-Mode Prepare'), 'excavation RFC 3161 prepare batch selects prepare mode', '-Mode Prepare');
+assert(receiverGovernanceTimestampFinalizeBatch.includes('-Mode Finalize'), 'excavation RFC 3161 finalize batch selects finalize mode', '-Mode Finalize');
+assert(receiverGovernanceTimestampVerifyBatch.includes('-Mode Verify'), 'excavation RFC 3161 verify batch selects verify mode', '-Mode Verify');
+[
+  '本工具不內建或暗中呼叫任何 TSA',
+  '查詢 nonce',
+  'GAM 實際 bytes',
+  '本工具不查詢 OCSP／CRL',
+  '不證明內容在該時間已完成工程核可',
+  '不證明檔案已存入異地',
+  '不得進入 PDF／DOCX 計算書',
+].forEach((needle) => {
+  assert(receiverGovernanceTimestampGuide.includes(needle), `excavation RFC 3161 guide keeps ${needle}`, needle);
+});
+[
+  'test_prepare_revalidates_gcv_and_builds_closed_sha256_nonce_query',
+  'test_real_rfc3161_round_trip_and_complete_package_reverification',
+  'test_unrelated_query_response_and_wrong_trust_anchor_fail_closed',
+  'must-not-be-created.sqlite3',
+  'mixed-private-material.pem',
+  'extra.txt',
+].forEach((needle) => {
+  assert(receiverGovernanceTimestampTests.includes(needle), `excavation RFC 3161 tests keep ${needle}`, needle);
 });
 [
   'test_health_progresses_from_attention_to_overlap_to_complete',

@@ -65,6 +65,8 @@ GHC 的數位簽章可防止不知道私鑰者偽造既有檢核點，但 `signe
 
 外部保存後不應要求原服務仍可啟動才能驗證。`驗證治理健康檢核點.bat` 可在另一台已安裝後端 Python 套件的 Windows 電腦上獨立讀取 GHC；可選 RTB 只用來判斷該公開清冊在 `exportedAt` 快照中的金鑰信任／撤銷狀態，不能反推金鑰在可自陳的 `signedAt` 已受信任；可選目前 GHE 用來比較相同、延伸、落後或分叉。工具不連接專案資料庫、不讀私人金鑰，產生的 `GCV-...` 只是一份重新驗證收據，必須連同實際 GHC、RTB、GHE 來源檔保存並可重跑，不能單獨取代來源證據。詳細操作與邊界見 `GOVERNANCE_CHECKPOINT_VERIFIER.md`。
 
+需要第三方時間證據時，可由 `建立治理檢核可信時間請求.bat` 把已重驗 GCV 與全部來源封裝成 GAM，並產生帶 nonce、要求 TSA 憑證的 SHA-256 RFC 3161 查詢；本工具不自行選擇或連線 TSA。收到外部回應後，`完成治理檢核可信時間證據包.bat` 會用組織明確選取的信任根驗證查詢 nonce、GAM 實際 bytes 與憑證鏈，建立可由 `驗證治理檢核可信時間證據包.bat` 唯讀重跑的 GTV。TSA `genTime` 只在採用者接受該 TSA、信任根與 policy identifier 時證明 GAM 所綁內容最遲於該時已存在；工具不查 OCSP／CRL，也不證明異地保存、工程核可或正式附件資格。詳見 `GOVERNANCE_CHECKPOINT_TRUSTED_TIMESTAMP.md`。
+
 GHR 歷程表不包含密碼資料。新版 `receiver-operator-governance-encrypted-backup` v3 會把完整 GHR 歷程與 v2 帳號治理快照一起放入 AES-256-GCM 密文，讓整個 SQLite 遺失時可在通過解密、鏈驗證與復原規則後重建正式歷程；v1／v2 舊版備份仍可讀取，但沒有來源 GHR，只會保留復原目標的本機鏈。GHE 仍是可獨立保管與重新驗證的歷程證據，不會由管理頁合併回正式鏈；GHE 與本機 v3 備份都不等於異地備援，仍需由組織另行配置受控保存與外部錨定。
 
 帳號治理採以下失敗關閉規則：
