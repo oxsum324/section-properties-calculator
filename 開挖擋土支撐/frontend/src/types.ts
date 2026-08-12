@@ -829,6 +829,61 @@ export type ReceiverGovernanceHealthHistory = {
   observations: ReceiverGovernanceHealthObservation[];
 };
 
+export type ReceiverGovernanceCheckpointSigningRequest = {
+  schemaVersion: 1;
+  kind: "receiver-governance-health-checkpoint-signing-request";
+  algorithm: "Ed25519";
+  payloadEncoding: "base64";
+  signedAt: string;
+  exportFingerprint: string;
+  observationCount: number;
+  headFingerprint: string | null;
+  payloadBase64: string;
+  requestFingerprint: string;
+};
+
+export type ReceiverGovernanceCheckpointValidation = {
+  valid: true;
+  acceptedForCurrentState: boolean;
+  acceptanceMessage: string;
+  currentSnapshotRecorded: boolean;
+  checkpointFingerprint: string;
+  exportFingerprint: string;
+  requestFingerprint: string;
+  signature: {
+    cryptographicValid: true;
+    keyId: string;
+    signedAt: string;
+    status:
+      | "trusted-signature-valid"
+      | "valid-signature-untrusted-key"
+      | "valid-signature-revoked-key";
+    trusted: boolean;
+    trustedOrganization?: string;
+    keyLabel?: string;
+    message: string;
+  };
+  comparison: {
+    relation:
+      | "current-matches-checkpoint"
+      | "current-extends-checkpoint"
+      | "current-behind-checkpoint"
+      | "current-diverged-from-checkpoint";
+    relationLabel: string;
+    checkpointObservationCount: number;
+    checkpointHeadFingerprint: string | null;
+    currentObservationCount: number;
+    currentHeadFingerprint: string | null;
+  };
+  boundary: {
+    portableExternalRecord: true;
+    externalStorageVerified: false;
+    externalTimestamp: false;
+    digitalSignature: true;
+    formalCalculationAttachment: false;
+  };
+};
+
 export type ReceiverOperatorAuditEvent = {
   eventId: string;
   eventType:

@@ -22,7 +22,7 @@ function Select-OpenFile {
 }
 
 if (-not $RequestPath) {
-  $RequestPath = Select-OpenFile "Select the RVR or SEV identity signing request JSON" "JSON files (*.json)|*.json|All files (*.*)|*.*"
+  $RequestPath = Select-OpenFile "Select the RVR, SEV, or governance checkpoint signing request JSON" "JSON files (*.json)|*.json|All files (*.*)|*.*"
 }
 if (-not $PrivateKeyPath) {
   $PrivateKeyPath = Select-OpenFile "Select an existing Ed25519 PEM private key" "PEM files (*.pem)|*.pem|All files (*.*)|*.*"
@@ -30,7 +30,9 @@ if (-not $PrivateKeyPath) {
 if (-not $OutputPath) {
   $request = Get-Item -LiteralPath $RequestPath
   $requestPayload = Get-Content -Raw -LiteralPath $RequestPath | ConvertFrom-Json
-  $responsePrefix = if ($requestPayload.kind -eq "source-evidence-verification-identity-signing-request") {
+  $responsePrefix = if ($requestPayload.kind -eq "receiver-governance-health-checkpoint-signing-request") {
+    "governance-health-signed-checkpoint-"
+  } elseif ($requestPayload.kind -eq "source-evidence-verification-identity-signing-request") {
     "SEV-identity-signature-response-"
   } else {
     "RVR-identity-signature-response-"
@@ -52,7 +54,7 @@ try {
   if ($LASTEXITCODE -ne 0) {
     throw "Offline signing failed. Review the message above."
   }
-  Write-Host "Done. Import the signature response JSON into the matching RVR or SEV screen." -ForegroundColor Green
+  Write-Host "Done. Import the signed JSON into the matching RVR, SEV, or governance checkpoint screen." -ForegroundColor Green
 } finally {
   Pop-Location
 }

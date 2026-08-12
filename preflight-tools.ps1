@@ -2120,7 +2120,16 @@ foreach ($needle in $launcherNeedles) {
     exit 1
   }
 }
-$startNeedles = @('Test-HealthEndpoint', 'uvicorn', '--port', '8000', 'html-mode-backend.pid')
+$startNeedles = @(
+  'Test-HealthEndpoint',
+  'Resolve-BackendPython',
+  'STRUT_PYTHON',
+  'rapidocr_onnxruntime',
+  'uvicorn',
+  '--port',
+  '8000',
+  'html-mode-backend.pid'
+)
 foreach ($needle in $startNeedles) {
   if ($startScript -notlike "*$needle*") {
     Write-Error "excavation start script smoke missing: $needle"

@@ -19,6 +19,8 @@ import {
   ReceiverOperator,
   ReceiverGovernanceHealthSnapshot,
   ReceiverGovernanceHealthHistory,
+  ReceiverGovernanceCheckpointSigningRequest,
+  ReceiverGovernanceCheckpointValidation,
   ReceiverOperatorAuditSummary,
   ReceiverOperatorAuthState,
   ReceiverOperatorGovernanceBackup,
@@ -121,6 +123,19 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(exported),
     }),
+  exportReceiverGovernanceCheckpointSigningRequest: () =>
+    request<{ signingRequest: ReceiverGovernanceCheckpointSigningRequest }>(
+      "/api/receiver-governance-health/history/checkpoint-signing-request",
+    ),
+  validateReceiverGovernanceCheckpoint: (checkpoint: unknown) =>
+    request<ReceiverGovernanceCheckpointValidation>(
+      "/api/receiver-governance-health/history/checkpoint/validate",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(checkpoint),
+      },
+    ),
   recordReceiverGovernanceHealthObservation: () =>
     request<{ health: ReceiverGovernanceHealthSnapshot }>(
       "/api/receiver-governance-health/observations",

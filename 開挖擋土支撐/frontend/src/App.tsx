@@ -48,6 +48,7 @@ import {
   ReceiverOperator,
   ReceiverGovernanceHealthSnapshot,
   ReceiverGovernanceHealthHistory,
+  ReceiverGovernanceCheckpointValidation,
   ReceiverOperatorAuditEvent,
   ReceiverOperatorAuditSummary,
   ReceiverOperatorAuthState,
@@ -677,6 +678,7 @@ function App() {
     observationCount: number;
     headFingerprint: string | null;
   } | null>(null);
+  const [receiverGovernanceCheckpointValidation, setReceiverGovernanceCheckpointValidation] = useState<ReceiverGovernanceCheckpointValidation | null>(null);
   const [receiverOperatorCreateDraft, setReceiverOperatorCreateDraft] = useState(emptyReceiverOperatorCreateDraft);
   const [receiverOperatorManageDraft, setReceiverOperatorManageDraft] = useState(emptyReceiverOperatorManageDraft);
   const [receiverOperatorPasswordChangeDraft, setReceiverOperatorPasswordChangeDraft] = useState(
@@ -1700,6 +1702,42 @@ function App() {
     }
   }
 
+  async function handleExportReceiverGovernanceCheckpointSigningRequest() {
+    try {
+      setBusy("建立治理健康檢核點簽署請求");
+      const response = await api.exportReceiverGovernanceCheckpointSigningRequest();
+      downloadJsonFile(
+        response.signingRequest,
+        `治理健康檢核點簽署請求-${response.signingRequest.requestFingerprint}.json`,
+      );
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleValidateReceiverGovernanceCheckpoint(
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      setBusy("驗證治理健康簽章檢核點");
+      const parsed = JSON.parse(await file.text()) as unknown;
+      const result = await api.validateReceiverGovernanceCheckpoint(parsed);
+      setReceiverGovernanceCheckpointValidation(result);
+      setError("");
+    } catch (err) {
+      setReceiverGovernanceCheckpointValidation(null);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
   async function handleBootstrapReceiverOperator() {
     try {
       setBusy("建立首位接收端金鑰管理員");
@@ -1748,6 +1786,7 @@ function App() {
       setReceiverGovernanceHealth(null);
       setReceiverGovernanceHealthHistory(emptyReceiverGovernanceHealthHistory);
       setReceiverGovernanceHealthValidation(null);
+      setReceiverGovernanceCheckpointValidation(null);
       setReceiverOperatorBackupDraft(emptyReceiverOperatorBackupDraft);
       setReceiverOperatorBackup(null);
       setReceiverOperatorRestorePreview(null);
@@ -1885,6 +1924,7 @@ function App() {
       setReceiverGovernanceHealth(null);
       setReceiverGovernanceHealthHistory(emptyReceiverGovernanceHealthHistory);
       setReceiverGovernanceHealthValidation(null);
+      setReceiverGovernanceCheckpointValidation(null);
       setReceiverOperatorBackupDraft(emptyReceiverOperatorBackupDraft);
       setReceiverOperatorBackup(null);
       setReceiverOperatorRestorePreview(null);
@@ -2144,6 +2184,7 @@ function App() {
       setReceiverGovernanceHealth(null);
       setReceiverGovernanceHealthHistory(emptyReceiverGovernanceHealthHistory);
       setReceiverGovernanceHealthValidation(null);
+      setReceiverGovernanceCheckpointValidation(null);
       setReceiverOperatorBackupDraft(emptyReceiverOperatorBackupDraft);
       setReceiverOperatorBackup(null);
       setReceiverOperatorRestorePreview(null);
@@ -6404,12 +6445,49 @@ function App() {
                                   onChange={(event) => void handleValidateReceiverGovernanceHealthHistory(event)}
                                 />
                               </label>
+                              <button
+                                type="button"
+                                className="secondary"
+                                disabled={Boolean(busy)}
+                                onClick={handleExportReceiverGovernanceCheckpointSigningRequest}
+                              >
+                                下載外部簽章請求
+                              </button>
+                              <label className={`file-action secondary${busy ? " disabled" : ""}`}>
+                                匯入簽章檢核點
+                                <input
+                                  className="file-picker-input"
+                                  type="file"
+                                  accept=".json,application/json"
+                                  disabled={Boolean(busy)}
+                                  onChange={(event) => void handleValidateReceiverGovernanceCheckpoint(event)}
+                                />
+                              </label>
                             </div>
                             {receiverGovernanceHealthValidation && (
                               <p className="meta-line receiver-governance-history-valid">
                                 <strong>匯入歷程驗證通過</strong>
                                 {`｜${receiverGovernanceHealthValidation.observationCount} 筆｜${receiverGovernanceHealthValidation.exportFingerprint}｜鏈首 ${receiverGovernanceHealthValidation.headFingerprint ?? "—"}`}
                               </p>
+                            )}
+                            {receiverGovernanceCheckpointValidation && (
+                              <div className={`receiver-governance-checkpoint-result ${receiverGovernanceCheckpointValidation.acceptedForCurrentState ? "accepted" : "rejected"}`}>
+                                <strong>
+                                  {receiverGovernanceCheckpointValidation.acceptedForCurrentState
+                                    ? "外部簽章檢核點可錨定目前歷程"
+                                    : "外部簽章檢核點不得視為目前歷程錨點"}
+                                </strong>
+                                <span>{receiverGovernanceCheckpointValidation.comparison.relationLabel}</span>
+                                <span>{receiverGovernanceCheckpointValidation.signature.message}</span>
+                                {receiverGovernanceCheckpointValidation.acceptanceMessage !==
+                                  receiverGovernanceCheckpointValidation.signature.message && (
+                                  <span>{receiverGovernanceCheckpointValidation.acceptanceMessage}</span>
+                                )}
+                                <code>{receiverGovernanceCheckpointValidation.checkpointFingerprint}</code>
+                                <small>
+                                  {`檢核點 ${receiverGovernanceCheckpointValidation.comparison.checkpointObservationCount} 筆／目前 ${receiverGovernanceCheckpointValidation.comparison.currentObservationCount} 筆；Key ID ${receiverGovernanceCheckpointValidation.signature.keyId}`}
+                                </small>
+                              </div>
                             )}
                             <ol>
                               {[...receiverGovernanceHealthHistory.observations]
@@ -6432,7 +6510,10 @@ function App() {
                               <p className="meta-line">畫面只列最近 10 筆；後端仍驗證完整收據鏈。</p>
                             )}
                             <p className="meta-line">
-                              收據鏈禁止由應用程式更新或刪除，但不是外部時間戳、數位簽章或資料庫檔案遭管理權限置換時的第三方證明。
+                              一般歷程 JSON 只有應用層鏈與整包指紋，不是外部時間戳、數位簽章或高權限置換防護。若需抵抗資料庫與備份被一併置換，請下載簽署請求，以組織既有 Ed25519 私鑰在離線環境簽署，再把簽章檢核點保存至本機之外、由組織控制的文件或紀錄系統。
+                            </p>
+                            <p className="meta-line">
+                              簽章檢核點可驗證內容、公鑰信任狀態及目前歷程是否相同、延伸、落後或分叉；簽署時間仍不是第三方外部時間戳，本工具也無法證明檔案確已移出本機。
                             </p>
                           </details>
                         )}

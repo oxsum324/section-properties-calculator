@@ -1,4 +1,4 @@
-# RVR／SEV 身分數位簽章合約
+# RVR／SEV 身分與治理健康檢核點數位簽章合約
 
 本合約在既有 `receiver-capacity-verification-receipt`（RVR）內容完整性指紋之外，提供可選的 Ed25519 回簽身分驗證。未簽 RVR 保持相容，仍可驗證工程內容，但回簽身分必須人工核對。
 
@@ -83,8 +83,10 @@ SEV 使用另一個不可互換的簽署訊息：
 命令列環境也可直接執行：
 
 ```powershell
-python -m backend.sign_receiver_request --request <RSR.json> --private-key <Ed25519-private-key.pem> --output <signature-response.json>
+python -m backend.sign_receiver_request --request <RSR、SSR 或 GCR.json> --private-key <Ed25519-private-key.pem> --output <signature-response-or-checkpoint.json>
 ```
+
+同一離線簽署器也接受管理頁匯出的治理健康 `GCR-...` 請求；Windows 可直接執行 `簽署治理健康檢核點.bat`。輸出為 `GHC-...` 簽章檢核點，應保存於接收端服務主機之外，再由管理頁匯入驗證目前 GHR 是否相同、延伸、落後或分叉。GHC 使用獨立的簽章 context，不會與 RSR／SSR 混用；它不是 RVR／SEV 工程身分核可、正式計算附件或第三方時間戳。
 
 SEV 操作不需命令列：在 SEV 區塊下載 `SSR-` 請求後，雙擊 `簽署SEV身分請求.bat`，依序選擇 SSR 與既有 Ed25519 PEM 私鑰，再回到原畫面匯入產出的 `source-evidence-verification-identity-signature-response` JSON。相同的 Python 指令也會依請求種類自動產生正確的 RVR 或 SEV 回應，且兩者都不包含私人金鑰或密碼。
 

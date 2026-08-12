@@ -57,6 +57,10 @@ from .receiver_governance_health import (
     build_receiver_governance_health_snapshot,
     validate_receiver_governance_health_history_export,
 )
+from .receiver_governance_checkpoint import (
+    build_receiver_governance_checkpoint_signing_request,
+    verify_receiver_governance_checkpoint_against_current,
+)
 from .receiver_capacity import calculate_reshore_member_capacity
 from .receiver_evidence_template_package import validate_receiver_evidence_template_publisher_package
 from .receiver_key_enrollment import validate_receiver_key_enrollment
@@ -340,6 +344,47 @@ def validate_receiver_governance_health_history(
             "headFingerprint": validated["history"]["headFingerprint"],
             "boundary": validated["boundary"],
         }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/receiver-governance-health/history/checkpoint-signing-request")
+def export_receiver_governance_health_checkpoint_signing_request(
+    request: Request,
+) -> dict[str, Any]:
+    _receiver_operator(request, required_role="receiver-key-admin")
+    try:
+        health = _receiver_governance_health_response()
+        if not health["history"]["currentSnapshotRecorded"]:
+            raise ValueError("目前來源已變動但尚未寫入治理健康歷程，請先記錄目前快照。")
+        history = receiver_operator_store.governance_health_history()
+        if history["observationCount"] == 0:
+            raise ValueError("治理健康歷程尚無收據，請先記錄目前快照再建立檢核點。")
+        return {
+            "signingRequest": build_receiver_governance_checkpoint_signing_request(history)
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post("/api/receiver-governance-health/history/checkpoint/validate")
+def validate_receiver_governance_health_checkpoint(
+    checkpoint: dict[str, Any],
+    request: Request,
+) -> dict[str, Any]:
+    _receiver_operator(
+        request,
+        required_role="receiver-key-admin",
+        require_csrf=True,
+    )
+    try:
+        health = _receiver_governance_health_response()
+        return verify_receiver_governance_checkpoint_against_current(
+            checkpoint,
+            receiver_operator_store.governance_health_history(),
+            receiver_trust_store.list_keys(),
+            current_snapshot_recorded=health["history"]["currentSnapshotRecorded"],
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

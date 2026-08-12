@@ -16,9 +16,20 @@ $frontendPidPath = Join-Path $pidDir "html-mode-frontend.pid"
 $backendLog = Join-Path $logDir "html-mode-backend.log"
 $backendErrLog = Join-Path $logDir "html-mode-backend.err.log"
 $backendPidPath = Join-Path $pidDir "html-mode-backend.pid"
-$python = "C:\Users\USER\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
 $url = "http://127.0.0.1:8000"
 $frontendUrl = "http://127.0.0.1:5173"
+$requiredPythonModules = @(
+  "fastapi",
+  "uvicorn",
+  "openpyxl",
+  "reportlab",
+  "oletools",
+  "multipart",
+  "cryptography",
+  "pypdf",
+  "pypdfium2",
+  "rapidocr_onnxruntime"
+)
 
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 New-Item -ItemType Directory -Path $pidDir -Force | Out-Null
@@ -56,9 +67,79 @@ function Stop-TrackedProcess($pidPath) {
   Remove-Item -Path $pidPath -Force -ErrorAction SilentlyContinue
 }
 
-if (-not (Test-Path $python)) {
-  throw "Python runtime not found: $python"
+function Resolve-PythonExecutable($candidate) {
+  if ([string]::IsNullOrWhiteSpace($candidate)) {
+    return $null
+  }
+  if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+    return (Resolve-Path -LiteralPath $candidate).Path
+  }
+  $command = Get-Command $candidate -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($command) {
+    return $command.Source
+  }
+  return $null
 }
+
+function Test-PythonRuntime($executable) {
+  $moduleList = ($requiredPythonModules | ForEach-Object { "'$_'" }) -join ","
+  $probe = "import importlib.util,sys; missing=[m for m in [$moduleList] if importlib.util.find_spec(m) is None]; print(','.join(missing)); sys.exit(1 if missing else 0)"
+  $probeOutput = & $executable -c $probe 2>&1
+  if ($LASTEXITCODE -eq 0) {
+    return $true
+  }
+  $script:pythonProbeFailures += "${executable}: missing or unusable modules [$($probeOutput -join ', ')]"
+  return $false
+}
+
+function Resolve-BackendPython {
+  if (-not [string]::IsNullOrWhiteSpace($env:STRUT_PYTHON)) {
+    $explicitExecutable = Resolve-PythonExecutable $env:STRUT_PYTHON
+    if (-not $explicitExecutable) {
+      throw "STRUT_PYTHON does not point to an available Python runtime: $env:STRUT_PYTHON"
+    }
+    $script:pythonProbeFailures = @()
+    if (Test-PythonRuntime $explicitExecutable) {
+      return $explicitExecutable
+    }
+    throw "STRUT_PYTHON cannot load all backend requirements. $($script:pythonProbeFailures -join '; ')"
+  }
+
+  $candidates = @(
+    (Join-Path $root ".venv\Scripts\python.exe"),
+    "python.exe"
+  )
+  if (-not [string]::IsNullOrWhiteSpace($env:USERPROFILE)) {
+    $candidates += (Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe")
+  }
+
+  $script:pythonProbeFailures = @()
+  $visited = @{}
+  foreach ($candidate in $candidates) {
+    $executable = Resolve-PythonExecutable $candidate
+    if (-not $executable) {
+      continue
+    }
+    $key = $executable.ToLowerInvariant()
+    if ($visited.ContainsKey($key)) {
+      continue
+    }
+    $visited[$key] = $true
+    if (Test-PythonRuntime $executable) {
+      return $executable
+    }
+  }
+
+  $details = if ($script:pythonProbeFailures.Count -gt 0) {
+    "`nChecked runtimes:`n - " + ($script:pythonProbeFailures -join "`n - ")
+  } else {
+    ""
+  }
+  throw "No usable Python runtime was found. Install backend requirements with 'python -m pip install -r backend\requirements.txt', or set STRUT_PYTHON to a compatible python.exe.$details"
+}
+
+$python = Resolve-BackendPython
+Write-Host "Using Python runtime: $python"
 
 $useFrontendDevServer = $false
 if (-not $SkipBuild) {
