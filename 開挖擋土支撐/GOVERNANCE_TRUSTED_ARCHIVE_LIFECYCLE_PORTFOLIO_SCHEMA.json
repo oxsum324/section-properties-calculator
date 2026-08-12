@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/governance-external-archive-lifecycle-portfolio-snapshot.v1.schema.json",
+  "title": "External archive lifecycle portfolio snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "kind", "snapshotContext", "assessedAt", "source", "discovery", "summary", "chains", "invalidPackages", "issues", "boundary", "portfolioFingerprint"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "kind": { "const": "governance-external-archive-lifecycle-portfolio-snapshot" },
+    "snapshotContext": { "const": "governance-external-archive-lifecycle-portfolio-snapshot-v1" },
+    "assessedAt": { "type": "string", "format": "date-time" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rootName", "maxScanDepth", "upcomingReminderDays", "sourceStableDuringScan"],
+      "properties": {
+        "rootName": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "maxScanDepth": { "type": "integer", "minimum": 1, "maximum": 12 },
+        "upcomingReminderDays": { "type": "integer", "minimum": 0, "maximum": 366 },
+        "sourceStableDuringScan": { "type": "boolean" }
+      }
+    },
+    "discovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scannedDirectoryCount", "candidatePackageCount", "validPackageCount", "invalidPackageCount", "duplicateCopyCount"],
+      "properties": {
+        "scannedDirectoryCount": { "type": "integer", "minimum": 1 },
+        "candidatePackageCount": { "type": "integer", "minimum": 0 },
+        "validPackageCount": { "type": "integer", "minimum": 0 },
+        "invalidPackageCount": { "type": "integer", "minimum": 0 },
+        "duplicateCopyCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["portfolioStatus", "attentionStatus", "chainCount", "currentCount", "upcomingCount", "reviewDueCount", "blockedCount", "invalidPackageCount", "errorIssueCount"],
+      "properties": {
+        "portfolioStatus": { "enum": ["current", "review-due", "blocked"] },
+        "attentionStatus": { "enum": ["current", "upcoming", "review-due", "blocked"] },
+        "chainCount": { "type": "integer", "minimum": 0 },
+        "currentCount": { "type": "integer", "minimum": 0 },
+        "upcomingCount": { "type": "integer", "minimum": 0 },
+        "reviewDueCount": { "type": "integer", "minimum": 0 },
+        "blockedCount": { "type": "integer", "minimum": 0 },
+        "invalidPackageCount": { "type": "integer", "minimum": 0 },
+        "errorIssueCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "chains": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/chain" }
+    },
+    "invalidPackages": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/invalidPackage" }
+    },
+    "issues": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/issue" }
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["readOnlySourceScan", "everySelectedCheckpointWasFullyReverified", "invalidPackagesCannotBeMaskedByOlderValidPackages", "sameTimeConflictingLatestCheckpointsBlockSelection", "duplicateCheckpointCopiesAreDeduplicated", "upcomingIsReminderOnlyAndDoesNotRewriteCheckpointStatus", "snapshotIntegrityDoesNotProveCurrentRepositoryState", "currentStateRequiresFreshSourceRescan", "providerStatusRemainsAttestationNotIndependentObservation", "doesNotConstituteEngineeringApproval", "formalCalculationAttachment", "pagesPublication"],
+      "properties": {
+        "readOnlySourceScan": { "const": true },
+        "everySelectedCheckpointWasFullyReverified": { "const": true },
+        "invalidPackagesCannotBeMaskedByOlderValidPackages": { "const": true },
+        "sameTimeConflictingLatestCheckpointsBlockSelection": { "const": true },
+        "duplicateCheckpointCopiesAreDeduplicated": { "const": true },
+        "upcomingIsReminderOnlyAndDoesNotRewriteCheckpointStatus": { "const": true },
+        "snapshotIntegrityDoesNotProveCurrentRepositoryState": { "const": true },
+        "currentStateRequiresFreshSourceRescan": { "const": true },
+        "providerStatusRemainsAttestationNotIndependentObservation": { "const": true },
+        "doesNotConstituteEngineeringApproval": { "const": true },
+        "formalCalculationAttachment": { "const": false },
+        "pagesPublication": { "const": false }
+      }
+    },
+    "portfolioFingerprint": { "type": "string", "pattern": "^GSP-[0-9A-F]{20}$" }
+  },
+  "$defs": {
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^(?![A-Za-z]:)(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["providerOrganization", "repositoryId", "archiveObjectId", "versionId"],
+      "properties": {
+        "providerOrganization": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "repositoryId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "archiveObjectId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "versionId": { "type": "string", "minLength": 1, "maxLength": 200 }
+      }
+    },
+    "archiveObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fileName", "fileSha256", "fileSizeBytes", "mediaType", "zipProfile"],
+      "properties": {
+        "fileName": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "fileSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "fileSizeBytes": { "type": "integer", "minimum": 1 },
+        "mediaType": { "const": "application/zip" },
+        "zipProfile": { "const": "closed-flat-zip-stored-v1" }
+      }
+    },
+    "selected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["caseName", "packageRelativePath", "checkpointFingerprint", "statusFingerprint", "observedAt", "verifiedAt", "nextReviewDueAt", "retentionUntil", "retentionWarningDays"],
+      "properties": {
+        "caseName": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "packageRelativePath": { "$ref": "#/$defs/relativePath" },
+        "checkpointFingerprint": { "type": "string", "pattern": "^GSC-[0-9A-F]{20}$" },
+        "statusFingerprint": { "type": "string", "pattern": "^GSR-[0-9A-F]{20}$" },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "verifiedAt": { "type": "string", "format": "date-time" },
+        "nextReviewDueAt": { "type": "string", "format": "date-time" },
+        "retentionUntil": { "type": "string", "format": "date-time" },
+        "retentionWarningDays": { "type": "integer", "minimum": 0, "maximum": 3660 }
+      }
+    },
+    "superseded": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["caseName", "packageRelativePath", "checkpointFingerprint", "observedAt", "verifiedAt"],
+      "properties": {
+        "caseName": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "packageRelativePath": { "$ref": "#/$defs/relativePath" },
+        "checkpointFingerprint": { "type": "string", "pattern": "^GSC-[0-9A-F]{20}$" },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "verifiedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "duplicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checkpointFingerprint", "selectedPackageRelativePath", "duplicatePackageRelativePaths"],
+      "properties": {
+        "checkpointFingerprint": { "type": "string", "pattern": "^GSC-[0-9A-F]{20}$" },
+        "selectedPackageRelativePath": { "$ref": "#/$defs/relativePath" },
+        "duplicatePackageRelativePaths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/relativePath" }
+        }
+      }
+    },
+    "chain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chainId", "identity", "archiveObject", "legalHoldRequired", "selected", "lifecycleStatus", "checkpointLifecycleStatus", "attentionStatus", "reasons", "secondsUntilReview", "secondsUntilRetention", "superseded", "duplicateCopies"],
+      "properties": {
+        "chainId": { "type": "string", "pattern": "^GSL-[0-9A-F]{20}$" },
+        "identity": { "$ref": "#/$defs/identity" },
+        "archiveObject": { "$ref": "#/$defs/archiveObject" },
+        "legalHoldRequired": { "type": "boolean" },
+        "selected": { "$ref": "#/$defs/selected" },
+        "lifecycleStatus": { "enum": ["current", "review-due", "blocked"] },
+        "checkpointLifecycleStatus": { "enum": ["current", "review-due", "blocked"] },
+        "attentionStatus": { "enum": ["current", "upcoming", "review-due", "blocked"] },
+        "reasons": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 100 } },
+        "secondsUntilReview": { "type": "integer" },
+        "secondsUntilRetention": { "type": "integer" },
+        "superseded": { "type": "array", "items": { "$ref": "#/$defs/superseded" } },
+        "duplicateCopies": { "type": "array", "items": { "$ref": "#/$defs/duplicate" } }
+      }
+    },
+    "invalidPackage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["caseName", "packageRelativePath", "packageGuardSha256", "errorCode", "message"],
+      "properties": {
+        "caseName": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "packageRelativePath": { "$ref": "#/$defs/relativePath" },
+        "packageGuardSha256": { "type": "string", "pattern": "^(?:|[0-9a-f]{64})$" },
+        "errorCode": { "const": "gsc-package-verification-failed" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "code", "message", "entries"],
+      "properties": {
+        "level": { "enum": ["error", "warning", "info"] },
+        "code": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "message": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "entries": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/relativePath" } }
+      }
+    }
+  }
+}

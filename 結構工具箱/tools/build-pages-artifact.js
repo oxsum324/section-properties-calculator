@@ -62,6 +62,10 @@ const PRIVATE_DIRECTORY_NAMES = new Set([
   'node_modules',
 ]);
 
+const PRIVATE_GENERATED_DIRECTORY_PREFIXES = [
+  'GSP-外部歸檔生命週期總覽-',
+];
+
 const PRIVATE_BASENAMES = new Set([
   'package.json',
   'package-lock.json',
@@ -114,6 +118,9 @@ function classifyPublishedPath(candidate) {
   }
   if (parts.slice(0, -1).some(part => PRIVATE_DIRECTORY_NAMES.has(part))) {
     return { publish: false, reason: 'private-directory' };
+  }
+  if (parts.some(part => PRIVATE_GENERATED_DIRECTORY_PREFIXES.some(prefix => part.startsWith(prefix)))) {
+    return { publish: false, reason: 'private-generated-evidence' };
   }
 
   const basename = parts.at(-1);
@@ -262,6 +269,7 @@ if (require.main === module) {
 module.exports = {
   PRIVATE_FILES,
   PRIVATE_PREFIXES,
+  PRIVATE_GENERATED_DIRECTORY_PREFIXES,
   classifyPublishedPath,
   gitCandidates,
   stagePagesArtifact,

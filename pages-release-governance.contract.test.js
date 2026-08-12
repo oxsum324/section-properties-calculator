@@ -167,6 +167,9 @@ assert.ok(
     fs.writeFileSync(path.join(fixtureRepo, 'secret.test.js'), 'throw new Error("private");\n', 'utf8');
     fs.mkdirSync(path.join(fixtureRepo, 'dev_tools'), { recursive: true });
     fs.writeFileSync(path.join(fixtureRepo, 'dev_tools', 'secret.html'), '<p>private</p>\n', 'utf8');
+    const privateGsp = path.join(fixtureRepo, '案件', 'GSP-外部歸檔生命週期總覽-GSP-00000000000000000000', 'overview.html');
+    fs.mkdirSync(path.dirname(privateGsp), { recursive: true });
+    fs.writeFileSync(privateGsp, '<p>private GSP</p>\n', 'utf8');
     const privateBuilder = path.join(fixtureRepo, '結構工具箱', 'tools', 'build-pages-artifact.js');
     fs.mkdirSync(path.dirname(privateBuilder), { recursive: true });
     fs.writeFileSync(privateBuilder, 'module.exports = {};\n', 'utf8');
@@ -183,7 +186,7 @@ assert.ok(
     assert.equal(result.missingCount, 1, 'artifact builder omits tracked working-tree deletions');
     assert.equal(fs.readFileSync(path.join(fixtureSite, 'keep.html'), 'utf8'), '<p>working change</p>\n', 'artifact builder applies Git clean filters to tracked changes');
     assert.equal(fs.readFileSync(path.join(fixtureSite, 'new-page.html'), 'utf8'), '<p>new page</p>\n', 'artifact builder applies Git clean filters to new published files');
-    for (const privatePath of ['README.md', 'secret.test.js', 'dev_tools/secret.html', '結構工具箱/tools/build-pages-artifact.js', 'ignored.html', 'deleted.html']) {
+    for (const privatePath of ['README.md', 'secret.test.js', 'dev_tools/secret.html', '案件/GSP-外部歸檔生命週期總覽-GSP-00000000000000000000/overview.html', '結構工具箱/tools/build-pages-artifact.js', 'ignored.html', 'deleted.html']) {
       assert.equal(fs.existsSync(path.join(fixtureSite, ...privatePath.split('/'))), false, `artifact builder excludes ${privatePath}`);
     }
   } finally {

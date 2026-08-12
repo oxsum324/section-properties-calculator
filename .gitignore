@@ -97,5 +97,6 @@ _參考資料/
 # 巡檢輸出與本機測試產物
 output/
 **/output/
+GSP-外部歸檔生命週期總覽-*/
 **/.playwright-cli/
 *.rar

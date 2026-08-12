@@ -75,8 +75,21 @@ def assert_json_schema(test: unittest.TestCase, value: object, schema: dict, roo
         test.assertIsInstance(value, int)
         test.assertNotIsInstance(value, bool)
         test.assertGreaterEqual(value, schema.get("minimum", value))
+        test.assertLessEqual(value, schema.get("maximum", value))
     elif expected_type == "boolean":
         test.assertIsInstance(value, bool)
+    elif expected_type == "array":
+        test.assertIsInstance(value, list)
+        assert isinstance(value, list)
+        test.assertGreaterEqual(len(value), schema.get("minItems", 0))
+        test.assertLessEqual(len(value), schema.get("maxItems", len(value)))
+        if schema.get("uniqueItems"):
+            canonical = [json.dumps(item, ensure_ascii=False, sort_keys=True, separators=(",", ":")) for item in value]
+            test.assertEqual(len(canonical), len(set(canonical)))
+        item_schema = schema.get("items")
+        if isinstance(item_schema, dict):
+            for item in value:
+                assert_json_schema(test, item, item_schema, root)
 
 
 class ReceiverGovernanceArchiveTests(unittest.TestCase):

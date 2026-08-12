@@ -1,5 +1,5 @@
 {
-  "version": "1.41.0",
+  "version": "1.42.0",
   "family": "excavation-traceability",
   "description": "開挖擋土支撐服務型工具的規範語意追蹤表。每筆 trace 將分析檔匯入、輸入欄位、構件檢核、報表落點、測試證據與人工複核邊界對齊，避免只因 FastAPI / React 流程可產出 PDF 或 DOCX 就誤判為支撐系統檢核依據已完整可追溯。",
   "tools": [
@@ -78,6 +78,16 @@
           "report": ["GSR 保存端週期狀態收據（不得作為正式計算附件）", "GSC 外部歸檔生命週期檢查點（不得作為正式計算附件）", "目前狀態 current／review-due／blocked", "下次重驗期限與保留期限預警", "外部物件／不可變版本／觀察方法／稽核事件 ID", "現行保存端公開金鑰核定依據與證據檔 SHA-256"],
           "evidence": ["backend/receiver_governance_archive_lifecycle.py", "backend/tests/test_receiver_governance_archive_lifecycle.py", "receiver_governance_archive_lifecycle.ps1", "簽發外部歸檔週期狀態收據.bat", "建立外部歸檔生命週期檢查點.bat", "驗證外部歸檔生命週期檢查點.bat", "GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE.md", "GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_SCHEMA.json", "backend/tests/test_reporting.py"],
           "manualReview": ["GSR 是保存端對其重新查詢結果的簽章證言；簽發程式本身不連線保存庫，案件端也不獨立觀察保存端 API、稽核事件或內部控制是否真實，仍須依供應者紀錄人工複核。保存端金鑰輪替、撤銷、組織歸屬與核定文件效力仍須由案件外正式程序確認。current 只表示尚未超過本 GSC 的重驗與期限門檻，不取代組織保存政策、契約、legal hold 解除、事故處理或移轉程序。review-due 與 blocked 不改寫歷史證據，但不得繼續主張目前保存有效。GSR／GSC 都不是工程內容正確、正式核可或計算附件資格。"]
+        },
+        {
+          "id": "excavation-governance-external-archive-lifecycle-portfolio",
+          "clause": "多案件 GSC 完整重驗、最新有效鏈選取、到期提醒、來源穩定性與歷史快照邊界",
+          "purpose": "從實體案件來源樹逐包完整重驗 GSC，再依保存端、保存庫、物件與不可變版本分鏈；同指紋複本去重，較舊有效檢查點保留為歷史。總覽在 GSC 原始 current／review-due／blocked 之外提供 upcoming 預先提醒，但不改寫 GSC 結論。相同最新觀察時間衝突、同一版本對應不同 GAP、任何無效候選包、掃描上限、不安全連結或來源異動均失敗關閉。可選 GSP 封閉 JSON／HTML 快照只保存當時總覽，自我驗證不重新讀取 GSC，也不得冒充目前狀態。",
+          "inputs": ["physical multi-case source root", "complete GSC package directories", "optional deterministic as-of time", "upcoming reminder days 0 to 366", "maximum scan depth 1 to 12", "separate controlled GSP output root", "optional OpenSSL path"],
+          "calculation": ["physical root and no symlink or junction traversal", "bounded recursive discovery", "complete verify_lifecycle_checkpoint_package replay for every candidate", "per-file SHA-256 source guards", "provider repository object version chain identity", "same checkpoint fingerprint duplicate-copy deduplication", "latest observedAt selection", "superseded valid checkpoint history", "ambiguous equal latest observation fail closed", "same version different GAP summary fail closed", "invalid candidate cannot be masked by valid older checkpoint", "source discovery and bytes stability recheck", "current upcoming review-due blocked attention classification", "GSP canonical fingerprint", "deterministic standalone HTML", "exact two-file closed snapshot", "no overwrite and publication rollback", "snapshot self-verification without current-state claim", "CLI exit codes 0 1 2 3"],
+          "report": ["GSP 多案件外部歸檔生命週期 JSON／HTML 內部治理總覽（不得作為正式計算附件）", "目前有效／即將重驗／應立即重驗／阻擋計數", "逐鏈保存端／保存庫／物件／版本／觀察時間／下次重驗／保留期限", "較舊有效 GSC 與重複複本位置", "無效候選包與來源穩定性問題", "GSP 指紋與目前狀態須重新掃描提醒"],
+          "evidence": ["backend/receiver_governance_archive_lifecycle_portfolio.py", "backend/tests/test_receiver_governance_archive_lifecycle_portfolio.py", "receiver_governance_archive_lifecycle_portfolio.ps1", "檢查多案件外部歸檔生命週期.bat", "建立多案件外部歸檔生命週期總覽快照.bat", "驗證多案件外部歸檔生命週期總覽快照.bat", "GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_PORTFOLIO.md", "GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_PORTFOLIO_SCHEMA.json", "backend/tests/test_reporting.py", "../.gitignore", "../結構工具箱/tools/build-pages-artifact.js", "../結構工具箱/tools/pages-live-smoke.js", "../pages-release-governance.contract.test.js"],
+          "manualReview": ["GSP 只彙整已取得的 GSC，不會登入外部保存庫、確認供應者 API 或稽核事件真實性、續期保留鎖、處理 legal hold、撤銷保存端金鑰或完成保存移轉。upcoming 是排程提醒，不是 GSC 狀態改寫。GSP 自我驗證只能證明當時 JSON／HTML 未改，現在仍有效必須重新完整掃描來源 GSC。案件根目錄選擇、重複複本是否應保留、衝突與無效包處理、組織保存程序及對外證明效力，仍須由紀錄管理與案件負責人人工複核。GSP 不是工程內容正確、正式核可、法律保存完成或計算附件資格。"]
         },
         {
           "id": "excavation-receiver-operator-governance-recovery",

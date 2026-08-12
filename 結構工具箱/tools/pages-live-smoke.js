@@ -113,6 +113,8 @@ const PRIVATE_PATHS = [
   '開挖擋土支撐/backend/app/main.py',
   '開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_SCHEMA.json',
   '開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_SCHEMA.json',
+  '開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_PORTFOLIO_SCHEMA.json',
+  'GSP-外部歸檔生命週期總覽-GSP-00000000000000000000/GSP-外部歸檔生命週期總覽-GSP-00000000000000000000.html',
   '開挖擋土支撐/frontend/package.json',
   '開挖擋土支撐/frontend/src/App.tsx',
   '開挖擋土支撐/frontend/dist/index.html',

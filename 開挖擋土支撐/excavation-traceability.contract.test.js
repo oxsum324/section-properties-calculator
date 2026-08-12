@@ -134,8 +134,17 @@ const receiverGovernanceArchiveLifecycleFinalizeBatch = readUtf8('建立外部�
 const receiverGovernanceArchiveLifecycleVerifyBatch = readUtf8('驗證外部歸檔生命週期檢查點.bat');
 const receiverGovernanceArchiveLifecycleGuide = readUtf8('GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE.md');
 const receiverGovernanceArchiveLifecycleSchema = JSON.parse(readUtf8('GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_SCHEMA.json'));
+const receiverGovernanceArchiveLifecyclePortfolio = readUtf8('backend/receiver_governance_archive_lifecycle_portfolio.py');
+const receiverGovernanceArchiveLifecyclePortfolioTests = readUtf8('backend/tests/test_receiver_governance_archive_lifecycle_portfolio.py');
+const receiverGovernanceArchiveLifecyclePortfolioLauncher = readUtf8('receiver_governance_archive_lifecycle_portfolio.ps1');
+const receiverGovernanceArchiveLifecyclePortfolioScanBatch = readUtf8('檢查多案件外部歸檔生命週期.bat');
+const receiverGovernanceArchiveLifecyclePortfolioPublishBatch = readUtf8('建立多案件外部歸檔生命週期總覽快照.bat');
+const receiverGovernanceArchiveLifecyclePortfolioVerifyBatch = readUtf8('驗證多案件外部歸檔生命週期總覽快照.bat');
+const receiverGovernanceArchiveLifecyclePortfolioGuide = readUtf8('GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_PORTFOLIO.md');
+const receiverGovernanceArchiveLifecyclePortfolioSchema = JSON.parse(readUtf8('GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_PORTFOLIO_SCHEMA.json'));
 const pagesArtifactBuilder = require('../結構工具箱/tools/build-pages-artifact.js');
 const pagesLiveSmoke = readUtf8('../結構工具箱/tools/pages-live-smoke.js');
+const rootGitignore = readUtf8('../.gitignore');
 const receiverKeyManagementGuide = readUtf8('RECEIVER_KEY_MANAGEMENT.md');
 const receiverTrustBackup = readUtf8('backend/app/receiver_trust_backup.py');
 const receiverTrustRecovery = readUtf8('backend/app/receiver_trust_recovery.py');
@@ -166,7 +175,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.41.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.42.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -1304,6 +1313,80 @@ assert(
 assert(
   pagesLiveSmoke.includes("'開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_SCHEMA.json'"),
   'excavation archive lifecycle schema has a live private-boundary probe',
+  'HTTP status must not be 200',
+);
+[
+  'verify_lifecycle_checkpoint_package',
+  'invalidPackagesCannotBeMaskedByOlderValidPackages',
+  'sameTimeConflictingLatestCheckpointsBlockSelection',
+  'duplicateCheckpointCopiesAreDeduplicated',
+  'periodic-review-upcoming',
+  'retention-expiry-upcoming',
+  'source-changed-during-scan',
+  'not-assessed-requires-fresh-rescan',
+  'GSP-',
+].forEach((needle) => {
+  assert(receiverGovernanceArchiveLifecyclePortfolio.includes(needle), `excavation lifecycle portfolio keeps ${needle}`, needle);
+});
+[
+  'backend.receiver_governance_archive_lifecycle_portfolio',
+  'Scan',
+  'Publish',
+  'VerifySnapshot',
+  'UpcomingDays',
+  'MaxDepth',
+  'Start-Process -FilePath $result.htmlPath',
+].forEach((needle) => {
+  assert(receiverGovernanceArchiveLifecyclePortfolioLauncher.includes(needle), `excavation lifecycle portfolio launcher keeps ${needle}`, needle);
+});
+assert(receiverGovernanceArchiveLifecyclePortfolioScanBatch.includes('-Mode Scan'), 'excavation lifecycle portfolio scan batch selects Scan', '-Mode Scan');
+assert(receiverGovernanceArchiveLifecyclePortfolioPublishBatch.includes('-Mode Publish'), 'excavation lifecycle portfolio publish batch selects Publish', '-Mode Publish');
+assert(receiverGovernanceArchiveLifecyclePortfolioVerifyBatch.includes('-Mode VerifySnapshot'), 'excavation lifecycle portfolio verify batch selects VerifySnapshot', '-Mode VerifySnapshot');
+[
+  'test_current_upcoming_review_blocked_duplicate_and_cli_exit_codes',
+  'test_invalid_package_ambiguity_and_source_change_fail_closed',
+  'test_closed_snapshot_html_tamper_extra_file_and_publish_rollback',
+  'test_snapshot_validator_boundary_and_html_escape',
+  'returncode, 2',
+  'late-before-publish.txt',
+  'extra.txt',
+].forEach((needle) => {
+  assert(receiverGovernanceArchiveLifecyclePortfolioTests.includes(needle), `excavation lifecycle portfolio tests keep ${needle}`, needle);
+});
+[
+  '完整重驗所有 GSC',
+  '有效舊包不得掩蓋',
+  'upcoming',
+  '不會重新讀取來源 GSC',
+  '不得進入 PDF／DOCX 計算書',
+  '工具程式庫內都會拒絕發布',
+].forEach((needle) => {
+  assert(receiverGovernanceArchiveLifecyclePortfolioGuide.includes(needle), `excavation lifecycle portfolio guide keeps ${needle}`, needle);
+});
+assert(receiverGovernanceArchiveLifecyclePortfolioSchema.$schema === 'https://json-schema.org/draft/2020-12/schema', 'excavation lifecycle portfolio schema draft', receiverGovernanceArchiveLifecyclePortfolioSchema.$schema);
+assert(receiverGovernanceArchiveLifecyclePortfolioSchema.properties.kind.const === 'governance-external-archive-lifecycle-portfolio-snapshot', 'excavation lifecycle portfolio schema keeps GSP kind', receiverGovernanceArchiveLifecyclePortfolioSchema.properties.kind.const);
+assert(receiverGovernanceArchiveLifecyclePortfolioSchema.properties.boundary.properties.formalCalculationAttachment.const === false, 'excavation lifecycle portfolio schema excludes formal attachment', 'false');
+assert(receiverGovernanceArchiveLifecyclePortfolioSchema.properties.boundary.properties.pagesPublication.const === false, 'excavation lifecycle portfolio schema excludes Pages', 'false');
+assert(receiverGovernanceArchiveLifecyclePortfolio.includes('TOOL_REPOSITORY_ROOT'), 'excavation lifecycle portfolio rejects repository-local output', 'TOOL_REPOSITORY_ROOT');
+assert(rootGitignore.includes('GSP-外部歸檔生命週期總覽-*/'), 'excavation lifecycle portfolio snapshots are gitignored', 'GSP-外部歸檔生命週期總覽-*/');
+assert(
+  JSON.stringify(pagesArtifactBuilder.classifyPublishedPath('開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_PORTFOLIO_SCHEMA.json')) === JSON.stringify({ publish: false, reason: 'private-source-file' }),
+  'excavation lifecycle portfolio schema is excluded from Pages artifacts',
+  'private-source-file',
+);
+assert(
+  pagesLiveSmoke.includes("'開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_PORTFOLIO_SCHEMA.json'"),
+  'excavation lifecycle portfolio schema has a live private-boundary probe',
+  'HTTP status must not be 200',
+);
+assert(
+  JSON.stringify(pagesArtifactBuilder.classifyPublishedPath('案件/GSP-外部歸檔生命週期總覽-GSP-00000000000000000000/GSP-外部歸檔生命週期總覽-GSP-00000000000000000000.html')) === JSON.stringify({ publish: false, reason: 'private-generated-evidence' }),
+  'excavation lifecycle portfolio generated HTML is excluded from Pages artifacts',
+  'private-generated-evidence',
+);
+assert(
+  pagesLiveSmoke.includes("'GSP-外部歸檔生命週期總覽-GSP-00000000000000000000/GSP-外部歸檔生命週期總覽-GSP-00000000000000000000.html'"),
+  'excavation lifecycle portfolio generated HTML has a live private-boundary probe',
   'HTTP status must not be 200',
 );
 [

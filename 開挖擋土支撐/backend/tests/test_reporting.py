@@ -50,6 +50,11 @@ GOVERNANCE_TIMESTAMP_NEEDLES = (
     "periodic-review-due",
     "retention-renewal-window",
     "GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_SCHEMA.json",
+    "GSP-外部歸檔生命週期總覽",
+    "governance-external-archive-lifecycle-portfolio-snapshot",
+    "periodic-review-upcoming",
+    "retention-expiry-upcoming",
+    "GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_PORTFOLIO_SCHEMA.json",
 )
 
 
