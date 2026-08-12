@@ -2766,6 +2766,7 @@ $checks = @(
     command = 'python -m unittest discover -s backend\tests'
     slow = $true
     cache = $excavationBackendCache
+    timeoutSeconds = 300
   },
   [pscustomobject]@{
     key = "excavation-frontend"
