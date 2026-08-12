@@ -1275,6 +1275,92 @@ button.danger-button {
   background: rgba(255, 255, 255, 0.66);
 }
 
+.receiver-governance-history-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(15, 118, 110, 0.24);
+  border-radius: 8px;
+  background: rgba(240, 253, 250, 0.78);
+}
+
+.receiver-governance-history-state.drift {
+  border-color: rgba(185, 28, 28, 0.28);
+  background: rgba(254, 242, 242, 0.8);
+}
+
+.receiver-governance-history-state > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.receiver-governance-history-state span {
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.receiver-governance-health-history {
+  padding: 10px 12px;
+  border: 1px solid rgba(100, 116, 139, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.receiver-governance-health-history summary {
+  color: var(--accent);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.receiver-governance-history-actions {
+  margin-top: 10px;
+}
+
+.receiver-governance-history-valid {
+  padding: 8px 10px;
+  border: 1px solid rgba(15, 118, 110, 0.24);
+  border-radius: 7px;
+  background: rgba(240, 253, 250, 0.8);
+  overflow-wrap: anywhere;
+}
+
+.receiver-governance-health-history ol {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding-left: 24px;
+}
+
+.receiver-governance-health-history li {
+  padding: 8px 10px;
+  border: 1px solid rgba(100, 116, 139, 0.16);
+  border-radius: 7px;
+  background: rgba(248, 250, 252, 0.76);
+}
+
+.receiver-governance-health-history li > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.receiver-governance-health-history time,
+.receiver-governance-health-history li > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.receiver-governance-health-history li > span,
+.receiver-governance-health-history li > code {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
 .receiver-governance-unreviewable {
   padding: 10px 12px;
   border: 1px solid rgba(185, 28, 28, 0.24);
@@ -2321,6 +2407,12 @@ button.danger-button {
 
   .receiver-governance-health-trace-grid code + span {
     margin-top: 7px;
+  }
+
+  .receiver-governance-history-state,
+  .receiver-governance-health-history li > div {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .table-scroll-hint {

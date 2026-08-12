@@ -789,6 +789,44 @@ export type ReceiverGovernanceHealthSnapshot = {
     crossStoreAtomic: false;
     authorizationRevalidatedPerOperation: true;
   };
+  history: {
+    chainValid: true;
+    observationCount: number;
+    headFingerprint: string | null;
+    currentSnapshotRecorded: boolean;
+    latestObservation: ReceiverGovernanceHealthObservation | null;
+  };
+};
+
+export type ReceiverGovernanceHealthObservation = {
+  sequenceNo: number;
+  observationId: string;
+  observedAt: string;
+  changeType: string;
+  actorOperatorId: string | null;
+  fromStatus: "complete" | "overlap" | "attention" | null;
+  toStatus: "complete" | "overlap" | "attention";
+  healthFingerprint: string;
+  operatorGovernanceSnapshotFingerprint: string;
+  trustRegistryFingerprint: string;
+  operatorAuditHeadFingerprint: string | null;
+  summary: {
+    activeRequesterCount: number;
+    activeApproverCount: number;
+    pendingClaimCount: number;
+    unreviewablePendingCount: number;
+  };
+  previousReceiptFingerprint: string | null;
+  receiptFingerprint: string;
+};
+
+export type ReceiverGovernanceHealthHistory = {
+  schemaVersion: 1;
+  kind: "receiver-governance-health-history";
+  chainValid: true;
+  observationCount: number;
+  headFingerprint: string | null;
+  observations: ReceiverGovernanceHealthObservation[];
 };
 
 export type ReceiverOperatorAuditEvent = {

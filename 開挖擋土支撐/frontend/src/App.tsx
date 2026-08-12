@@ -47,6 +47,7 @@ import {
   ReceiverRotationRequest,
   ReceiverOperator,
   ReceiverGovernanceHealthSnapshot,
+  ReceiverGovernanceHealthHistory,
   ReceiverOperatorAuditEvent,
   ReceiverOperatorAuditSummary,
   ReceiverOperatorAuthState,
@@ -220,6 +221,14 @@ const emptyReceiverOperatorAuditSummary: ReceiverOperatorAuditSummary = {
   eventCount: 0,
   headFingerprint: null,
 };
+const emptyReceiverGovernanceHealthHistory: ReceiverGovernanceHealthHistory = {
+  schemaVersion: 1,
+  kind: "receiver-governance-health-history",
+  chainValid: true,
+  observationCount: 0,
+  headFingerprint: null,
+  observations: [],
+};
 
 const receiverOperatorRoleOptions: Array<{ value: ReceiverOperatorRole; label: string }> = [
   { value: "receiver-key-admin", label: "接收端金鑰管理員" },
@@ -274,6 +283,39 @@ function receiverGovernanceHealthReasonLabel(code: string): string {
     "no-distinct-active-approver": "目前沒有不同 operator ID 的有效覆核人",
     "missing-or-nonpending-trust-registry-event": "SQLite claim 缺少對應的待覆核信任清冊事件",
   }[code] ?? code;
+}
+
+function receiverGovernanceHealthStatusLabel(status: "complete" | "overlap" | "attention" | null): string {
+  if (status === null) return "首次觀測";
+  return {
+    complete: "分權完整",
+    overlap: "可執行但角色重疊",
+    attention: "需要處理",
+  }[status];
+}
+
+function receiverGovernanceHealthChangeLabel(changeType: string): string {
+  return {
+    "operator-bootstrap": "建立首位管理員",
+    "admin-login-observation": "管理員登入時觀測",
+    "operator-created": "建立操作帳號",
+    "operator-roles-changed": "調整帳號角色",
+    "operator-status-changed": "調整帳號狀態",
+    "operator-password-reset": "重設帳號密碼",
+    "operator-password-changed": "帳號完成密碼變更",
+    "operator-governance-backup-exported": "匯出治理備份",
+    "operator-governance-restored": "復原治理備份",
+    "backup-disposition-requested": "提出備份處置申請",
+    "backup-disposition-completed": "完成備份處置",
+    "trust-key-registered": "登錄接收端公鑰",
+    "trust-key-enrollment-registered": "登錄公鑰註冊包",
+    "trust-key-revoked": "撤銷接收端公鑰",
+    "rotation-completion-requested": "提出輪替完成申請",
+    "rotation-completion-approved": "完成輪替第二人覆核",
+    "legacy-key-rotation-completed": "舊式輪替完成",
+    "trust-registry-restored": "復原信任清冊",
+    "manual-current-snapshot-observation": "人工確認目前快照",
+  }[changeType] ?? changeType;
 }
 
 function receiverOperatorStatusLabel(
@@ -617,6 +659,14 @@ function App() {
   const [receiverOperatorBootstrapDraft, setReceiverOperatorBootstrapDraft] = useState(emptyReceiverOperatorBootstrapDraft);
   const [receiverOperators, setReceiverOperators] = useState<ReceiverOperator[]>([]);
   const [receiverGovernanceHealth, setReceiverGovernanceHealth] = useState<ReceiverGovernanceHealthSnapshot | null>(null);
+  const [receiverGovernanceHealthHistory, setReceiverGovernanceHealthHistory] = useState(
+    emptyReceiverGovernanceHealthHistory,
+  );
+  const [receiverGovernanceHealthValidation, setReceiverGovernanceHealthValidation] = useState<{
+    exportFingerprint: string;
+    observationCount: number;
+    headFingerprint: string | null;
+  } | null>(null);
   const [receiverOperatorCreateDraft, setReceiverOperatorCreateDraft] = useState(emptyReceiverOperatorCreateDraft);
   const [receiverOperatorManageDraft, setReceiverOperatorManageDraft] = useState(emptyReceiverOperatorManageDraft);
   const [receiverOperatorPasswordChangeDraft, setReceiverOperatorPasswordChangeDraft] = useState(
@@ -800,23 +850,26 @@ function App() {
           setReceiverOperatorAuth(auth);
           setReceiverOperatorAuthLoaded(true);
           if (auth.operator?.roles.includes("receiver-key-admin") && !auth.operator.passwordResetRequired) {
-            const [operators, audit, inventory, health] = await Promise.all([
+            const [operators, audit, inventory, health, healthHistory] = await Promise.all([
               api.listReceiverOperators(),
               api.listReceiverOperatorAuditEvents(),
               api.listReceiverOperatorGovernanceRecoveryInventory(),
               api.getReceiverGovernanceHealth(),
+              api.getReceiverGovernanceHealthHistory(),
             ]);
             if (!cancelled) {
               setReceiverOperators(operators.operators);
               setReceiverOperatorAuditSummary(audit);
               setReceiverOperatorRecoveryInventory(inventory);
               setReceiverGovernanceHealth(health);
+              setReceiverGovernanceHealthHistory(healthHistory);
             }
           } else {
             setReceiverOperators([]);
             setReceiverOperatorAuditSummary(emptyReceiverOperatorAuditSummary);
             setReceiverOperatorRecoveryInventory(null);
             setReceiverGovernanceHealth(null);
+            setReceiverGovernanceHealthHistory(emptyReceiverGovernanceHealthHistory);
           }
         }
       })
@@ -1529,35 +1582,40 @@ function App() {
     setReceiverOperatorAuth(auth);
     setReceiverOperatorAuthLoaded(true);
     if (auth.operator?.roles.includes("receiver-key-admin") && !auth.operator.passwordResetRequired) {
-      const [response, audit, inventory, health] = await Promise.all([
+      const [response, audit, inventory, health, healthHistory] = await Promise.all([
         api.listReceiverOperators(),
         api.listReceiverOperatorAuditEvents(),
         api.listReceiverOperatorGovernanceRecoveryInventory(),
         api.getReceiverGovernanceHealth(),
+        api.getReceiverGovernanceHealthHistory(),
       ]);
       setReceiverOperators(response.operators);
       setReceiverOperatorAuditSummary(audit);
       setReceiverOperatorRecoveryInventory(inventory);
       setReceiverGovernanceHealth(health);
+      setReceiverGovernanceHealthHistory(healthHistory);
     } else {
       setReceiverOperators([]);
       setReceiverOperatorAuditSummary(emptyReceiverOperatorAuditSummary);
       setReceiverOperatorRecoveryInventory(null);
       setReceiverGovernanceHealth(null);
+      setReceiverGovernanceHealthHistory(emptyReceiverGovernanceHealthHistory);
     }
   }
 
   async function refreshReceiverOperatorGovernance() {
-    const [operators, audit, inventory, health] = await Promise.all([
+    const [operators, audit, inventory, health, healthHistory] = await Promise.all([
       api.listReceiverOperators(),
       api.listReceiverOperatorAuditEvents(),
       api.listReceiverOperatorGovernanceRecoveryInventory(),
       api.getReceiverGovernanceHealth(),
+      api.getReceiverGovernanceHealthHistory(),
     ]);
     setReceiverOperators(operators.operators);
     setReceiverOperatorAuditSummary(audit);
     setReceiverOperatorRecoveryInventory(inventory);
     setReceiverGovernanceHealth(health);
+    setReceiverGovernanceHealthHistory(healthHistory);
     setReceiverOperatorManageDraft((current) => {
       const selected = operators.operators.find((operator) => operator.id === current.operatorId);
       return selected
@@ -1569,9 +1627,66 @@ function App() {
   async function refreshReceiverGovernanceHealthIfAdmin() {
     if (!receiverCanAdministerKeys) return;
     try {
-      setReceiverGovernanceHealth(await api.getReceiverGovernanceHealth());
+      const [health, history] = await Promise.all([
+        api.getReceiverGovernanceHealth(),
+        api.getReceiverGovernanceHealthHistory(),
+      ]);
+      setReceiverGovernanceHealth(health);
+      setReceiverGovernanceHealthHistory(history);
     } catch {
       setReceiverGovernanceHealth(null);
+      setReceiverGovernanceHealthHistory(emptyReceiverGovernanceHealthHistory);
+    }
+  }
+
+  async function handleRecordReceiverGovernanceHealthObservation() {
+    try {
+      setBusy("記錄治理健康快照");
+      const result = await api.recordReceiverGovernanceHealthObservation();
+      const history = await api.getReceiverGovernanceHealthHistory();
+      setReceiverGovernanceHealth(result.health);
+      setReceiverGovernanceHealthHistory(history);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleExportReceiverGovernanceHealthHistory() {
+    try {
+      setBusy("匯出治理健康歷程");
+      const exported = await api.exportReceiverGovernanceHealthHistory();
+      downloadJsonFile(
+        exported,
+        `receiver-governance-health-history-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
+      );
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleValidateReceiverGovernanceHealthHistory(
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      setBusy("驗證治理健康歷程");
+      const parsed = JSON.parse(await file.text()) as unknown;
+      const result = await api.validateReceiverGovernanceHealthHistory(parsed);
+      setReceiverGovernanceHealthValidation(result);
+      setError("");
+    } catch (err) {
+      setReceiverGovernanceHealthValidation(null);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
     }
   }
 
@@ -1620,6 +1735,9 @@ function App() {
       setReceiverOperatorManageDraft(emptyReceiverOperatorManageDraft);
       setReceiverOperatorPasswordChangeDraft(emptyReceiverOperatorPasswordChangeDraft);
       setReceiverOperatorAuditSummary(emptyReceiverOperatorAuditSummary);
+      setReceiverGovernanceHealth(null);
+      setReceiverGovernanceHealthHistory(emptyReceiverGovernanceHealthHistory);
+      setReceiverGovernanceHealthValidation(null);
       setReceiverOperatorBackupDraft(emptyReceiverOperatorBackupDraft);
       setReceiverOperatorBackup(null);
       setReceiverOperatorRestorePreview(null);
@@ -1754,6 +1872,9 @@ function App() {
       setReceiverOperatorManageDraft(emptyReceiverOperatorManageDraft);
       setReceiverOperatorPasswordChangeDraft(emptyReceiverOperatorPasswordChangeDraft);
       setReceiverOperatorAuditSummary(emptyReceiverOperatorAuditSummary);
+      setReceiverGovernanceHealth(null);
+      setReceiverGovernanceHealthHistory(emptyReceiverGovernanceHealthHistory);
+      setReceiverGovernanceHealthValidation(null);
       setReceiverOperatorBackupDraft(emptyReceiverOperatorBackupDraft);
       setReceiverOperatorBackup(null);
       setReceiverOperatorRestorePreview(null);
@@ -2010,6 +2131,9 @@ function App() {
       setReceiverOperatorManageDraft(emptyReceiverOperatorManageDraft);
       setReceiverOperatorPasswordChangeDraft(emptyReceiverOperatorPasswordChangeDraft);
       setReceiverOperatorAuditSummary(emptyReceiverOperatorAuditSummary);
+      setReceiverGovernanceHealth(null);
+      setReceiverGovernanceHealthHistory(emptyReceiverGovernanceHealthHistory);
+      setReceiverGovernanceHealthValidation(null);
       setReceiverOperatorBackupDraft(emptyReceiverOperatorBackupDraft);
       setReceiverOperatorBackup(null);
       setReceiverOperatorRestorePreview(null);
@@ -6210,6 +6334,30 @@ function App() {
                           本摘要由後端依受驗證帳號治理快照、信任清冊與 claim 狀態計算；停用或待變更臨時密碼的帳號不列為有效人力。每次實際申請或覆核仍由後端重新驗證。
                         </p>
                         {receiverGovernanceHealth && (
+                          <div className={`receiver-governance-history-state ${receiverGovernanceHealth.history.currentSnapshotRecorded ? "recorded" : "drift"}`}>
+                            <div>
+                              <strong>
+                                {receiverGovernanceHealth.history.currentSnapshotRecorded
+                                  ? "目前快照已寫入歷程鏈"
+                                  : "來源已變動，尚未形成目前快照收據"}
+                              </strong>
+                              <span>
+                                {`已驗證 ${receiverGovernanceHealth.history.observationCount} 筆收據；鏈首 ${receiverGovernanceHealth.history.headFingerprint ?? "—"}`}
+                              </span>
+                            </div>
+                            {!receiverGovernanceHealth.history.currentSnapshotRecorded && (
+                              <button
+                                type="button"
+                                className="secondary"
+                                disabled={Boolean(busy)}
+                                onClick={handleRecordReceiverGovernanceHealthObservation}
+                              >
+                                記錄目前快照
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {receiverGovernanceHealth && (
                           <details className="receiver-governance-health-trace">
                             <summary>快照追溯與一致性邊界</summary>
                             <div className="receiver-governance-health-trace-grid">
@@ -6224,8 +6372,62 @@ function App() {
                             </p>
                           </details>
                         )}
+                        {receiverGovernanceHealthHistory.observationCount > 0 && (
+                          <details className="receiver-governance-health-history">
+                            <summary>{`治理健康狀態歷程（${receiverGovernanceHealthHistory.observationCount} 筆）`}</summary>
+                            <div className="button-row receiver-governance-history-actions">
+                              <button
+                                type="button"
+                                className="secondary"
+                                disabled={Boolean(busy)}
+                                onClick={handleExportReceiverGovernanceHealthHistory}
+                              >
+                                下載完整歷程 JSON
+                              </button>
+                              <label className="file-action secondary">
+                                匯入並驗證歷程 JSON
+                                <input
+                                  className="file-picker-input"
+                                  type="file"
+                                  accept=".json,application/json"
+                                  disabled={Boolean(busy)}
+                                  onChange={(event) => void handleValidateReceiverGovernanceHealthHistory(event)}
+                                />
+                              </label>
+                            </div>
+                            {receiverGovernanceHealthValidation && (
+                              <p className="meta-line receiver-governance-history-valid">
+                                <strong>匯入歷程驗證通過</strong>
+                                {`｜${receiverGovernanceHealthValidation.observationCount} 筆｜${receiverGovernanceHealthValidation.exportFingerprint}｜鏈首 ${receiverGovernanceHealthValidation.headFingerprint ?? "—"}`}
+                              </p>
+                            )}
+                            <ol>
+                              {[...receiverGovernanceHealthHistory.observations]
+                                .reverse()
+                                .slice(0, 10)
+                                .map((observation) => (
+                                  <li key={observation.receiptFingerprint}>
+                                    <div>
+                                      <strong>{receiverGovernanceHealthChangeLabel(observation.changeType)}</strong>
+                                      <time>{observation.observedAt}</time>
+                                    </div>
+                                    <span>
+                                      {`${receiverGovernanceHealthStatusLabel(observation.fromStatus)} → ${receiverGovernanceHealthStatusLabel(observation.toStatus)}`}
+                                    </span>
+                                    <code>{observation.receiptFingerprint}</code>
+                                  </li>
+                                ))}
+                            </ol>
+                            {receiverGovernanceHealthHistory.observationCount > 10 && (
+                              <p className="meta-line">畫面只列最近 10 筆；後端仍驗證完整收據鏈。</p>
+                            )}
+                            <p className="meta-line">
+                              收據鏈禁止由應用程式更新或刪除，但不是外部時間戳、數位簽章或資料庫檔案遭管理權限置換時的第三方證明。
+                            </p>
+                          </details>
+                        )}
                         <p className="meta-line">
-                          本摘要只供 HTML 管理頁核對，不會寫入 PDF／DOCX 計算書。
+                          本摘要與狀態歷程只供 HTML 管理頁核對，不會寫入 PDF／DOCX 計算書。
                         </p>
                       </section>
                       <div className="form-grid">

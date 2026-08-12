@@ -1,5 +1,7 @@
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
+import sqlite3
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -8,7 +10,11 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi.testclient import TestClient
 
 from backend.app import main as main_module
-from backend.app.receiver_governance_health import build_receiver_governance_health_snapshot
+from backend.app.receiver_governance_health import (
+    build_receiver_governance_health_history_export,
+    build_receiver_governance_health_snapshot,
+    validate_receiver_governance_health_history_export,
+)
 from backend.app.receiver_key_enrollment import build_receiver_key_enrollment
 from backend.app.receiver_operator_auth import ReceiverOperatorStore
 from backend.app.receiver_trust_store import ReceiverTrustStore
@@ -82,6 +88,93 @@ class ReceiverGovernanceHealthTests(unittest.TestCase):
                 complete["consistencyBoundary"]["authorizationRevalidatedPerOperation"]
             )
 
+    def test_append_only_history_chains_state_transitions_and_deduplicates(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store, trust = self.stores(directory)
+            admin = store.bootstrap("root-admin", "管理員", "Strong-Secure-2026!")
+            attention = build_receiver_governance_health_snapshot(
+                store, trust, generated_at=FIXED_NOW
+            )
+            first = store.record_governance_health_observation(
+                attention,
+                change_type="operator-bootstrap",
+                actor_operator_id=admin["id"],
+            )
+            duplicate = store.record_governance_health_observation(
+                attention,
+                change_type="manual-current-snapshot-observation",
+                actor_operator_id=admin["id"],
+            )
+            self.assertTrue(first["appended"])
+            self.assertFalse(duplicate["appended"])
+            self.assertEqual(first["receiptFingerprint"], duplicate["receiptFingerprint"])
+
+            requester = store.create_operator(
+                "requester-one",
+                "專責申請人",
+                "Requester-Secure-2026!",
+                ["receiver-key-requester"],
+                actor_operator_id=admin["id"],
+            )
+            overlap = build_receiver_governance_health_snapshot(
+                store, trust, generated_at=FIXED_NOW
+            )
+            second = store.record_governance_health_observation(
+                overlap,
+                change_type="operator-created",
+                actor_operator_id=admin["id"],
+            )
+            self.assertEqual(requester["username"], "requester-one")
+            self.assertEqual(second["fromStatus"], "attention")
+            self.assertEqual(second["toStatus"], "overlap")
+            self.assertEqual(
+                second["previousReceiptFingerprint"], first["receiptFingerprint"]
+            )
+            history = store.governance_health_history()
+            self.assertTrue(history["chainValid"])
+            self.assertEqual(history["observationCount"], 2)
+            self.assertEqual(history["headFingerprint"], second["receiptFingerprint"])
+            self.assertNotIn("username", str(history).casefold())
+            self.assertNotIn("password", str(history).casefold())
+            reloaded = ReceiverOperatorStore(store.db_path).governance_health_history()
+            self.assertEqual(reloaded, history)
+            exported = build_receiver_governance_health_history_export(
+                history,
+                exported_at=FIXED_NOW,
+            )
+            self.assertRegex(exported["exportFingerprint"], r"^GHE-[0-9A-F]{20}$")
+            self.assertFalse(exported["boundary"]["formalCalculationAttachment"])
+            self.assertFalse(exported["boundary"]["digitalSignature"])
+            self.assertEqual(
+                validate_receiver_governance_health_history_export(exported),
+                exported,
+            )
+            tampered = {
+                **exported,
+                "history": {
+                    **exported["history"],
+                    "observationCount": 999,
+                },
+            }
+            with self.assertRaisesRegex(ValueError, "筆數或鏈首"):
+                validate_receiver_governance_health_history_export(tampered)
+
+            with closing(store._connect()) as connection:
+                with self.assertRaisesRegex(
+                    sqlite3.IntegrityError,
+                    "append-only",
+                ):
+                    connection.execute(
+                        "UPDATE receiver_governance_health_observations SET to_status = 'complete'"
+                    )
+                with self.assertRaisesRegex(
+                    sqlite3.IntegrityError,
+                    "append-only",
+                ):
+                    connection.execute(
+                        "DELETE FROM receiver_governance_health_observations"
+                    )
+
     def test_health_excludes_disabled_and_password_reset_accounts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             store, trust = self.stores(directory)
@@ -114,6 +207,41 @@ class ReceiverGovernanceHealthTests(unittest.TestCase):
             self.assertEqual(health["activeApproverCount"], 1)
             self.assertFalse(health["distinctPairAvailable"])
             self.assertEqual(health["status"], "attention")
+
+    def test_local_governance_restore_preserves_existing_health_history(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store, trust = self.stores(directory)
+            admin = store.bootstrap("root-admin", "管理員", "Strong-Secure-2026!")
+            health = build_receiver_governance_health_snapshot(
+                store, trust, generated_at=FIXED_NOW
+            )
+            first = store.record_governance_health_observation(
+                health,
+                change_type="operator-bootstrap",
+                actor_operator_id=admin["id"],
+            )
+            snapshot = store.governance_snapshot()
+            store.replace_governance_snapshot(
+                snapshot,
+                current_actor_operator_id=admin["id"],
+                recovery_operator_id=admin["id"],
+                restore_details={"testRestore": True},
+                expected_current_snapshot=snapshot,
+            )
+            preserved = store.governance_health_history()
+            self.assertEqual(preserved["observationCount"], 1)
+            self.assertEqual(preserved["headFingerprint"], first["receiptFingerprint"])
+
+            post_restore_health = build_receiver_governance_health_snapshot(
+                store, trust, generated_at=FIXED_NOW
+            )
+            second = store.record_governance_health_observation(
+                post_restore_health,
+                change_type="operator-governance-restored",
+                actor_operator_id=admin["id"],
+            )
+            self.assertEqual(second["previousReceiptFingerprint"], first["receiptFingerprint"])
+            self.assertEqual(store.governance_health_history()["observationCount"], 2)
 
     def test_orphaned_pending_sqlite_claim_fails_closed_and_fingerprint_is_stable(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -262,6 +390,46 @@ class ReceiverGovernanceHealthTests(unittest.TestCase):
                 for secret in ("password", "salt", "username", "displayname"):
                     self.assertNotIn(secret, serialized)
                 self.assertEqual(payload["kind"], "receiver-governance-separation-health")
+                self.assertTrue(payload["history"]["chainValid"])
+                self.assertTrue(payload["history"]["currentSnapshotRecorded"])
+                self.assertEqual(
+                    admin_client.get("/api/receiver-governance-health").status_code,
+                    200,
+                )
+                history = admin_client.get("/api/receiver-governance-health/history")
+                self.assertEqual(history.status_code, 200, history.text)
+                self.assertEqual(history.json()["observationCount"], 1)
+                self.assertEqual(
+                    admin_client.get(
+                        "/api/receiver-governance-health/history"
+                    ).json()["observationCount"],
+                    1,
+                )
+                exported = admin_client.get(
+                    "/api/receiver-governance-health/history/export"
+                )
+                self.assertEqual(exported.status_code, 200, exported.text)
+                self.assertRegex(
+                    exported.json()["exportFingerprint"],
+                    r"^GHE-[0-9A-F]{20}$",
+                )
+                validated = admin_client.post(
+                    "/api/receiver-governance-health/history/validate",
+                    json=exported.json(),
+                    headers={"X-CSRF-Token": login.json()["csrfToken"]},
+                )
+                self.assertEqual(validated.status_code, 200, validated.text)
+                self.assertTrue(validated.json()["valid"])
+                self.assertEqual(
+                    requester_client.get("/api/receiver-governance-health/history").status_code,
+                    403,
+                )
+                self.assertEqual(
+                    requester_client.get(
+                        "/api/receiver-governance-health/history/export"
+                    ).status_code,
+                    403,
+                )
 
 
 if __name__ == "__main__":

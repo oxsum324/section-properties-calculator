@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 from datetime import datetime
 from pathlib import Path
@@ -51,7 +52,11 @@ from .receiver_operator_recovery import (
     request_receiver_operator_backup_disposition,
     write_managed_receiver_operator_governance_backup,
 )
-from .receiver_governance_health import build_receiver_governance_health_snapshot
+from .receiver_governance_health import (
+    build_receiver_governance_health_history_export,
+    build_receiver_governance_health_snapshot,
+    validate_receiver_governance_health_history_export,
+)
 from .receiver_capacity import calculate_reshore_member_capacity
 from .receiver_evidence_template_package import validate_receiver_evidence_template_publisher_package
 from .receiver_key_enrollment import validate_receiver_key_enrollment
@@ -113,6 +118,7 @@ settings = get_settings()
 store = ProjectStore()
 receiver_trust_store = ReceiverTrustStore()
 receiver_operator_store = ReceiverOperatorStore()
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="擋土支撐計算網頁工具", version="0.1.0")
 app.add_middleware(
@@ -175,6 +181,47 @@ def _receiver_auth_response(operator: dict[str, Any], session: dict[str, Any]) -
     }
 
 
+def _capture_receiver_governance_health(
+    change_type: str,
+    actor_operator_id: str | None,
+) -> dict[str, Any] | None:
+    try:
+        health = build_receiver_governance_health_snapshot(
+            receiver_operator_store,
+            receiver_trust_store,
+        )
+        return receiver_operator_store.record_governance_health_observation(
+            health,
+            change_type=change_type,
+            actor_operator_id=actor_operator_id,
+        )
+    except (OSError, ValueError) as exc:
+        logger.error("Receiver governance health observation failed: %s", exc)
+        return None
+
+
+def _receiver_governance_health_response() -> dict[str, Any]:
+    health = build_receiver_governance_health_snapshot(
+        receiver_operator_store,
+        receiver_trust_store,
+    )
+    history = receiver_operator_store.governance_health_history()
+    latest = history["observations"][-1] if history["observations"] else None
+    return {
+        **health,
+        "history": {
+            "chainValid": history["chainValid"],
+            "observationCount": history["observationCount"],
+            "headFingerprint": history["headFingerprint"],
+            "currentSnapshotRecorded": (
+                latest is not None
+                and latest["healthFingerprint"] == health["healthFingerprint"]
+            ),
+            "latestObservation": latest,
+        },
+    }
+
+
 @app.get("/api/receiver-operator-auth/session")
 def receiver_operator_session(request: Request) -> dict[str, Any]:
     bootstrap_required = receiver_operator_store.bootstrap_required()
@@ -210,6 +257,7 @@ def bootstrap_receiver_operator(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     _set_receiver_session_cookie(response, session["sessionToken"], request)
+    _capture_receiver_governance_health("operator-bootstrap", operator["id"])
     return _receiver_auth_response(operator, session)
 
 
@@ -225,6 +273,8 @@ def login_receiver_operator(
     except ValueError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
     _set_receiver_session_cookie(response, session["sessionToken"], request)
+    if "receiver-key-admin" in operator["roles"]:
+        _capture_receiver_governance_health("admin-login-observation", operator["id"])
     return _receiver_auth_response(operator, session)
 
 
@@ -246,12 +296,73 @@ def list_receiver_operators(request: Request) -> dict[str, Any]:
 def get_receiver_governance_health(request: Request) -> dict[str, Any]:
     _receiver_operator(request, required_role="receiver-key-admin")
     try:
-        return build_receiver_governance_health_snapshot(
-            receiver_operator_store,
-            receiver_trust_store,
+        return _receiver_governance_health_response()
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.get("/api/receiver-governance-health/history")
+def get_receiver_governance_health_history(request: Request) -> dict[str, Any]:
+    _receiver_operator(request, required_role="receiver-key-admin")
+    try:
+        return receiver_operator_store.governance_health_history()
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.get("/api/receiver-governance-health/history/export")
+def export_receiver_governance_health_history(request: Request) -> dict[str, Any]:
+    _receiver_operator(request, required_role="receiver-key-admin")
+    try:
+        return build_receiver_governance_health_history_export(
+            receiver_operator_store.governance_health_history()
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post("/api/receiver-governance-health/history/validate")
+def validate_receiver_governance_health_history(
+    exported: dict[str, Any],
+    request: Request,
+) -> dict[str, Any]:
+    _receiver_operator(
+        request,
+        required_role="receiver-key-admin",
+        require_csrf=True,
+    )
+    try:
+        validated = validate_receiver_governance_health_history_export(exported)
+        return {
+            "valid": True,
+            "exportFingerprint": validated["exportFingerprint"],
+            "observationCount": validated["history"]["observationCount"],
+            "headFingerprint": validated["history"]["headFingerprint"],
+            "boundary": validated["boundary"],
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/receiver-governance-health/observations")
+def record_receiver_governance_health_observation(
+    request: Request,
+) -> dict[str, Any]:
+    actor = _receiver_operator(
+        request,
+        required_role="receiver-key-admin",
+        require_csrf=True,
+    )
+    observation = _capture_receiver_governance_health(
+        "manual-current-snapshot-observation",
+        actor["id"],
+    )
+    if observation is None:
+        raise HTTPException(status_code=409, detail="目前無法寫入治理健康歷程收據。")
+    return {
+        "observation": observation,
+        "health": _receiver_governance_health_response(),
+    }
 
 
 @app.post("/api/receiver-operators")
@@ -269,6 +380,7 @@ def create_receiver_operator(payload: CreateReceiverOperatorRequest, request: Re
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _capture_receiver_governance_health("operator-created", actor["id"])
     return {"operator": operator, "operators": receiver_operator_store.list_operators()}
 
 
@@ -289,6 +401,7 @@ def update_receiver_operator_roles(
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _capture_receiver_governance_health("operator-roles-changed", actor["id"])
     return {"operator": operator, "operators": receiver_operator_store.list_operators()}
 
 
@@ -309,6 +422,7 @@ def set_receiver_operator_status(
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _capture_receiver_governance_health("operator-status-changed", actor["id"])
     return {"operator": operator, "operators": receiver_operator_store.list_operators()}
 
 
@@ -329,6 +443,7 @@ def reset_receiver_operator_password(
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _capture_receiver_governance_health("operator-password-reset", actor["id"])
     return {"operator": operator, "operators": receiver_operator_store.list_operators()}
 
 
@@ -349,6 +464,7 @@ def change_receiver_operator_password(
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _capture_receiver_governance_health("operator-password-changed", actor["id"])
     response.delete_cookie(RECEIVER_SESSION_COOKIE, path="/", samesite="strict")
     return {"passwordChanged": True, "loggedOut": True}
 
@@ -389,6 +505,7 @@ def export_receiver_operator_governance_backup(
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    _capture_receiver_governance_health("operator-governance-backup-exported", actor["id"])
     return {
         "backup": backup,
         "auditEventFingerprint": audit_event["eventFingerprint"],
@@ -424,12 +541,14 @@ def request_receiver_operator_governance_backup_disposition(
             basis=payload.basis,
             request_confirmed=payload.request_confirmed,
         )
-        return {
+        response_payload = {
             **result,
             "inventory": list_receiver_operator_governance_recovery_inventory(
                 receiver_operator_store
             ),
         }
+        _capture_receiver_governance_health("backup-disposition-requested", actor["id"])
+        return response_payload
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
@@ -457,12 +576,14 @@ def approve_receiver_operator_governance_backup_disposition(
             actor_operator_id=actor["id"],
             approval_confirmed=payload.approval_confirmed,
         )
-        return {
+        response_payload = {
             **result,
             "inventory": list_receiver_operator_governance_recovery_inventory(
                 receiver_operator_store
             ),
         }
+        _capture_receiver_governance_health("backup-disposition-completed", actor["id"])
+        return response_payload
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
@@ -507,6 +628,7 @@ def restore_receiver_operator_governance(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     response.delete_cookie(RECEIVER_SESSION_COOKIE, path="/", samesite="strict")
+    _capture_receiver_governance_health("operator-governance-restored", actor["id"])
     return restored
 
 
@@ -625,6 +747,7 @@ def register_receiver_trust_key(payload: dict[str, Any], request: Request) -> di
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _capture_receiver_governance_health("trust-key-registered", operator["id"])
     return {
         "key": record,
         "keys": receiver_trust_store.list_keys(),
@@ -657,6 +780,7 @@ def register_receiver_trust_key_enrollment(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _capture_receiver_governance_health("trust-key-enrollment-registered", operator["id"])
     return {
         "key": record,
         "keys": receiver_trust_store.list_keys(),
@@ -686,6 +810,7 @@ def revoke_receiver_trust_key(
         raise HTTPException(status_code=404, detail="本機信任清冊找不到指定公鑰。") from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _capture_receiver_governance_health("trust-key-revoked", operator["id"])
     return {
         "key": record,
         "keys": receiver_trust_store.list_keys(),
@@ -717,6 +842,7 @@ def request_receiver_key_rotation_completion(
         raise HTTPException(status_code=404, detail="本機信任清冊找不到指定的輪替新金鑰。") from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _capture_receiver_governance_health("rotation-completion-requested", operator["id"])
     return {
         "request": rotation_request,
         "keys": receiver_trust_store.list_keys(),
@@ -754,6 +880,7 @@ def approve_receiver_key_rotation_completion(
         raise HTTPException(status_code=404, detail="本機信任清冊找不到指定的輪替覆核申請。") from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _capture_receiver_governance_health("rotation-completion-approved", operator["id"])
     return {
         **completed,
         "keys": receiver_trust_store.list_keys(),
@@ -768,7 +895,7 @@ def complete_receiver_key_rotation(
     payload: CompleteReceiverKeyRotationRequest,
     request: Request,
 ) -> dict[str, Any]:
-    _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
+    operator = _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
     try:
         completed = receiver_trust_store.complete_rotation(
             new_key_id,
@@ -781,6 +908,7 @@ def complete_receiver_key_rotation(
         raise HTTPException(status_code=404, detail="本機信任清冊找不到指定的輪替新金鑰。") from exc
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    _capture_receiver_governance_health("legacy-key-rotation-completed", operator["id"])
     return {
         **completed,
         "keys": receiver_trust_store.list_keys(),
@@ -812,17 +940,19 @@ def restore_receiver_trust_registry(
     payload: RestoreReceiverTrustRegistryRequest,
     request: Request,
 ) -> dict[str, Any]:
-    _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
+    operator = _receiver_operator(request, required_role="receiver-key-admin", require_csrf=True)
     try:
         restored = restore_receiver_trust_registry_backup(
             receiver_trust_store,
             payload.backup,
             restore_confirmed=payload.restore_confirmed,
         )
-        return {
+        response_payload = {
             **restored,
             "rotationRequests": _receiver_rotation_requests(),
         }
+        _capture_receiver_governance_health("trust-registry-restored", operator["id"])
+        return response_payload
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

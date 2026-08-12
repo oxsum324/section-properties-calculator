@@ -134,7 +134,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.34.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.35.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -916,7 +916,14 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '兩者不是跨儲存體原子交易',
   '目前不可覆核案件',
   '每次實際申請或覆核仍由後端重新驗證',
-  '本摘要只供 HTML 管理頁核對，不會寫入 PDF／DOCX 計算書',
+  '本摘要與狀態歷程只供 HTML 管理頁核對，不會寫入 PDF／DOCX 計算書',
+  '目前快照已寫入歷程鏈',
+  '來源已變動，尚未形成目前快照收據',
+  '治理健康狀態歷程',
+  '下載完整歷程 JSON',
+  '匯入並驗證歷程 JSON',
+  '匯入歷程驗證通過',
+  '不是外部時間戳、數位簽章',
   '兩種角色同時適用於金鑰輪替及到期備份處置',
   '受管制備份與復原演練清冊',
   '提出雙人處置申請',
@@ -940,6 +947,9 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'missing-or-nonpending-trust-registry-event',
   'no-distinct-active-approver',
   'RGH-',
+  'build_receiver_governance_health_history_export',
+  'validate_receiver_governance_health_history_export',
+  'GHE-',
   '分權完整',
   '可執行但角色重疊',
   '需要處理',
@@ -951,12 +961,30 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'test_health_excludes_disabled_and_password_reset_accounts',
   'test_orphaned_pending_sqlite_claim_fails_closed_and_fingerprint_is_stable',
   'test_pending_trust_event_without_sqlite_claim_fails_closed',
+  'test_append_only_history_chains_state_transitions_and_deduplicates',
+  'test_local_governance_restore_preserves_existing_health_history',
   'test_http_health_endpoint_is_admin_only_and_returns_no_credentials',
 ].forEach((needle) => {
   assert(receiverGovernanceHealthTests.includes(needle), `excavation governance health tests keep ${needle}`, needle);
 });
 assert(main.includes('/api/receiver-governance-health'), 'excavation governance health API is present', '/api/receiver-governance-health');
+assert(main.includes('/api/receiver-governance-health/history'), 'excavation governance health history API is present', '/api/receiver-governance-health/history');
+assert(main.includes('/api/receiver-governance-health/observations'), 'excavation explicit health observation API is present', '/api/receiver-governance-health/observations');
+assert(main.includes('/api/receiver-governance-health/history/validate'), 'excavation governance health history validator API is present', '/api/receiver-governance-health/history/validate');
 assert(api.includes('getReceiverGovernanceHealth'), 'excavation frontend reads backend governance health snapshot', 'getReceiverGovernanceHealth');
+assert(api.includes('getReceiverGovernanceHealthHistory'), 'excavation frontend reads verified governance health history', 'getReceiverGovernanceHealthHistory');
+assert(api.includes('validateReceiverGovernanceHealthHistory'), 'excavation frontend validates exported governance health history', 'validateReceiverGovernanceHealthHistory');
+[
+  'receiver_governance_health_observations',
+  'receiver_governance_health_no_update',
+  'receiver_governance_health_no_delete',
+  'receiver_governance_health_single_successor',
+  'record_governance_health_observation',
+  'governance_health_history',
+  'GHR-',
+].forEach((needle) => {
+  assert(receiverOperatorAuth.includes(needle), `excavation governance health history store keeps ${needle}`, needle);
+});
 assert(!app.includes('deriveReceiverGovernanceSeparationHealth'), 'excavation frontend does not duplicate governance health authority', 'deriveReceiverGovernanceSeparationHealth excluded');
 assert(config.includes('STRUT_DB_PATH'), 'excavation database path supports isolated verification', 'STRUT_DB_PATH');
 [
@@ -1010,6 +1038,9 @@ assert(
     && !reporting.includes('目前登入帳號有效權限')
     && !reporting.includes('有效權限摘要')
     && !reporting.includes('治理分權健康摘要')
+    && !reporting.includes('治理健康狀態歷程')
+    && !reporting.includes('GHR-')
+    && !reporting.includes('GHE-')
     && !reporting.includes('專責角色分離')
     && !reporting.includes('receiver-key-admin')
     && !reporting.includes('receiver-key-requester')

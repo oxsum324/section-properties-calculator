@@ -18,6 +18,7 @@ import {
   ReceiverRotationRequest,
   ReceiverOperator,
   ReceiverGovernanceHealthSnapshot,
+  ReceiverGovernanceHealthHistory,
   ReceiverOperatorAuditSummary,
   ReceiverOperatorAuthState,
   ReceiverOperatorGovernanceBackup,
@@ -105,6 +106,26 @@ export const api = {
   listReceiverOperators: () => request<{ operators: ReceiverOperator[] }>("/api/receiver-operators"),
   getReceiverGovernanceHealth: () =>
     request<ReceiverGovernanceHealthSnapshot>("/api/receiver-governance-health"),
+  getReceiverGovernanceHealthHistory: () =>
+    request<ReceiverGovernanceHealthHistory>("/api/receiver-governance-health/history"),
+  exportReceiverGovernanceHealthHistory: () =>
+    request<Record<string, unknown>>("/api/receiver-governance-health/history/export"),
+  validateReceiverGovernanceHealthHistory: (exported: unknown) =>
+    request<{
+      valid: true;
+      exportFingerprint: string;
+      observationCount: number;
+      headFingerprint: string | null;
+    }>("/api/receiver-governance-health/history/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(exported),
+    }),
+  recordReceiverGovernanceHealthObservation: () =>
+    request<{ health: ReceiverGovernanceHealthSnapshot }>(
+      "/api/receiver-governance-health/observations",
+      { method: "POST" },
+    ),
   createReceiverOperator: (
     username: string,
     displayName: string,

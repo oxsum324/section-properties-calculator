@@ -39,6 +39,11 @@ _BACKUP_DISPOSITION_REQUEST_PATTERN = re.compile(r"^RBR-[A-F0-9]{20}$")
 _BACKUP_DISPOSITION_RECEIPT_PATTERN = re.compile(r"^RBD-[A-F0-9]{20}$")
 _BACKUP_FINGERPRINT_PATTERN = re.compile(r"^ROB-[A-F0-9]{20}$")
 _SNAPSHOT_FINGERPRINT_PATTERN = re.compile(r"^ROG-[A-F0-9]{20}$")
+_GOVERNANCE_HEALTH_FINGERPRINT_PATTERN = re.compile(r"^RGH-[A-F0-9]{20}$")
+_TRUST_REGISTRY_FINGERPRINT_PATTERN = re.compile(r"^RTR-[A-F0-9]{20}$")
+_GOVERNANCE_HEALTH_RECEIPT_ID_PATTERN = re.compile(r"^GHO-[A-F0-9]{20}$")
+_GOVERNANCE_HEALTH_RECEIPT_FINGERPRINT_PATTERN = re.compile(r"^GHR-[A-F0-9]{20}$")
+_GOVERNANCE_HEALTH_CHANGE_TYPE_PATTERN = re.compile(r"^[a-z0-9-]{3,80}$")
 _FILE_SHA256_PATTERN = re.compile(r"^SHA256-[A-F0-9]{64}$")
 _AUDIT_EVENT_TYPES = {
     "operator-bootstrap-created",
@@ -280,6 +285,25 @@ class ReceiverOperatorStore:
                 );
                 INSERT OR IGNORE INTO receiver_operator_maintenance (id, restore_authorized)
                     VALUES (1, 0);
+                CREATE TABLE IF NOT EXISTS receiver_governance_health_observations (
+                    sequence_no INTEGER PRIMARY KEY,
+                    observation_id TEXT NOT NULL UNIQUE,
+                    observed_at TEXT NOT NULL,
+                    change_type TEXT NOT NULL,
+                    actor_operator_id TEXT,
+                    from_status TEXT,
+                    to_status TEXT NOT NULL,
+                    health_fingerprint TEXT NOT NULL,
+                    operator_snapshot_fingerprint TEXT NOT NULL,
+                    trust_registry_fingerprint TEXT NOT NULL,
+                    operator_audit_head_fingerprint TEXT,
+                    summary_json TEXT NOT NULL,
+                    previous_receipt_fingerprint TEXT,
+                    receipt_fingerprint TEXT NOT NULL UNIQUE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS receiver_governance_health_single_successor
+                    ON receiver_governance_health_observations(previous_receipt_fingerprint)
+                    WHERE previous_receipt_fingerprint IS NOT NULL;
                 DROP TRIGGER IF EXISTS receiver_operator_audit_no_update;
                 DROP TRIGGER IF EXISTS receiver_operator_audit_no_delete;
                 CREATE TRIGGER receiver_operator_audit_no_update
@@ -299,6 +323,18 @@ class ReceiverOperatorStore:
                     ) = 0
                     BEGIN
                         SELECT RAISE(ABORT, 'receiver operator audit events are append-only');
+                    END;
+                DROP TRIGGER IF EXISTS receiver_governance_health_no_update;
+                DROP TRIGGER IF EXISTS receiver_governance_health_no_delete;
+                CREATE TRIGGER receiver_governance_health_no_update
+                    BEFORE UPDATE ON receiver_governance_health_observations
+                    BEGIN
+                        SELECT RAISE(ABORT, 'receiver governance health observations are append-only');
+                    END;
+                CREATE TRIGGER receiver_governance_health_no_delete
+                    BEFORE DELETE ON receiver_governance_health_observations
+                    BEGIN
+                        SELECT RAISE(ABORT, 'receiver governance health observations are append-only');
                     END;
                 """
             )
@@ -1421,6 +1457,254 @@ class ReceiverOperatorStore:
             snapshot = self._governance_snapshot(connection)
             connection.commit()
             return snapshot
+
+    @staticmethod
+    def _governance_health_observation_payload(row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "sequenceNo": int(row["sequence_no"]),
+            "observationId": row["observation_id"],
+            "observedAt": row["observed_at"],
+            "changeType": row["change_type"],
+            "actorOperatorId": row["actor_operator_id"],
+            "fromStatus": row["from_status"],
+            "toStatus": row["to_status"],
+            "healthFingerprint": row["health_fingerprint"],
+            "operatorGovernanceSnapshotFingerprint": row["operator_snapshot_fingerprint"],
+            "trustRegistryFingerprint": row["trust_registry_fingerprint"],
+            "operatorAuditHeadFingerprint": row["operator_audit_head_fingerprint"],
+            "summary": json.loads(row["summary_json"]),
+            "previousReceiptFingerprint": row["previous_receipt_fingerprint"],
+        }
+
+    @staticmethod
+    def _governance_health_receipt_fingerprint(payload: dict[str, Any]) -> str:
+        canonical = json.dumps(
+            payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return "GHR-" + hashlib.sha256(canonical).hexdigest()[:20].upper()
+
+    @classmethod
+    def _validate_governance_health_observations(
+        cls,
+        observations: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        validated: list[dict[str, Any]] = []
+        previous_fingerprint: str | None = None
+        for expected_sequence, raw in enumerate(observations, start=1):
+            expected_keys = {
+                "sequenceNo", "observationId", "observedAt", "changeType",
+                "actorOperatorId", "fromStatus", "toStatus", "healthFingerprint",
+                "operatorGovernanceSnapshotFingerprint", "trustRegistryFingerprint",
+                "operatorAuditHeadFingerprint", "summary", "previousReceiptFingerprint",
+                "receiptFingerprint",
+            }
+            if not isinstance(raw, dict) or set(raw) != expected_keys:
+                raise ValueError("治理健康歷程收據欄位不完整或含有未識別欄位。")
+            payload = {key: raw.get(key) for key in (
+                "sequenceNo", "observationId", "observedAt", "changeType",
+                "actorOperatorId", "fromStatus", "toStatus", "healthFingerprint",
+                "operatorGovernanceSnapshotFingerprint", "trustRegistryFingerprint",
+                "operatorAuditHeadFingerprint", "summary", "previousReceiptFingerprint",
+            )}
+            if payload["sequenceNo"] != expected_sequence:
+                raise ValueError("治理健康歷程序號不連續。")
+            if not _GOVERNANCE_HEALTH_RECEIPT_ID_PATTERN.fullmatch(str(payload["observationId"] or "")):
+                raise ValueError("治理健康歷程觀測 ID 格式不正確。")
+            _parse_time(str(payload["observedAt"] or ""))
+            if not _GOVERNANCE_HEALTH_CHANGE_TYPE_PATTERN.fullmatch(str(payload["changeType"] or "")):
+                raise ValueError("治理健康歷程異動種類格式不正確。")
+            actor_id = payload["actorOperatorId"]
+            if actor_id is not None and not _OPERATOR_ID_PATTERN.fullmatch(str(actor_id)):
+                raise ValueError("治理健康歷程操作員 ID 格式不正確。")
+            if payload["fromStatus"] not in {None, "attention", "overlap", "complete"}:
+                raise ValueError("治理健康歷程前一狀態不正確。")
+            if payload["toStatus"] not in {"attention", "overlap", "complete"}:
+                raise ValueError("治理健康歷程目前狀態不正確。")
+            if not _GOVERNANCE_HEALTH_FINGERPRINT_PATTERN.fullmatch(str(payload["healthFingerprint"] or "")):
+                raise ValueError("治理健康歷程健康指紋格式不正確。")
+            if not _SNAPSHOT_FINGERPRINT_PATTERN.fullmatch(
+                str(payload["operatorGovernanceSnapshotFingerprint"] or "")
+            ):
+                raise ValueError("治理健康歷程帳號快照指紋格式不正確。")
+            if not _TRUST_REGISTRY_FINGERPRINT_PATTERN.fullmatch(str(payload["trustRegistryFingerprint"] or "")):
+                raise ValueError("治理健康歷程信任清冊指紋格式不正確。")
+            audit_head = payload["operatorAuditHeadFingerprint"]
+            if audit_head is not None and not _AUDIT_FINGERPRINT_PATTERN.fullmatch(str(audit_head)):
+                raise ValueError("治理健康歷程稽核鏈首格式不正確。")
+            summary = payload["summary"]
+            if not isinstance(summary, dict) or set(summary) != {
+                "activeRequesterCount", "activeApproverCount", "pendingClaimCount",
+                "unreviewablePendingCount",
+            } or any(not isinstance(value, int) or isinstance(value, bool) or value < 0 for value in summary.values()):
+                raise ValueError("治理健康歷程摘要格式不正確。")
+            if payload["previousReceiptFingerprint"] != previous_fingerprint:
+                raise ValueError("治理健康歷程前序收據指紋不連續。")
+            if expected_sequence == 1 and payload["fromStatus"] is not None:
+                raise ValueError("治理健康歷程首筆觀測不得宣稱前一狀態。")
+            if expected_sequence > 1:
+                previous = validated[-1]
+                if payload["fromStatus"] != previous["toStatus"]:
+                    raise ValueError("治理健康歷程前後狀態不連續。")
+                if _parse_time(str(payload["observedAt"])) < _parse_time(
+                    str(previous["observedAt"])
+                ):
+                    raise ValueError("治理健康歷程觀測時間逆序。")
+            receipt_fingerprint = str(raw.get("receiptFingerprint") or "")
+            if (
+                not _GOVERNANCE_HEALTH_RECEIPT_FINGERPRINT_PATTERN.fullmatch(receipt_fingerprint)
+                or receipt_fingerprint != cls._governance_health_receipt_fingerprint(payload)
+            ):
+                raise ValueError("治理健康歷程收據指紋驗證失敗。")
+            validated.append({**payload, "receiptFingerprint": receipt_fingerprint})
+            previous_fingerprint = receipt_fingerprint
+        return validated
+
+    @classmethod
+    def validate_governance_health_history(cls, history: Any) -> dict[str, Any]:
+        if not isinstance(history, dict) or set(history) != {
+            "schemaVersion", "kind", "chainValid", "observationCount",
+            "headFingerprint", "observations",
+        }:
+            raise ValueError("治理健康歷程格式不正確或含有未識別欄位。")
+        if (
+            history.get("schemaVersion") != 1
+            or history.get("kind") != "receiver-governance-health-history"
+            or history.get("chainValid") is not True
+            or not isinstance(history.get("observations"), list)
+        ):
+            raise ValueError("治理健康歷程版本、種類或鏈狀態不受支援。")
+        observations = cls._validate_governance_health_observations(
+            history["observations"]
+        )
+        expected_head = observations[-1]["receiptFingerprint"] if observations else None
+        if (
+            history.get("observationCount") != len(observations)
+            or history.get("headFingerprint") != expected_head
+        ):
+            raise ValueError("治理健康歷程筆數或鏈首與收據內容不一致。")
+        return {
+            "schemaVersion": 1,
+            "kind": "receiver-governance-health-history",
+            "chainValid": True,
+            "observationCount": len(observations),
+            "headFingerprint": expected_head,
+            "observations": observations,
+        }
+
+    def record_governance_health_observation(
+        self,
+        health: Any,
+        *,
+        change_type: str,
+        actor_operator_id: str | None,
+    ) -> dict[str, Any]:
+        if not isinstance(health, dict) or health.get("kind") != "receiver-governance-separation-health":
+            raise ValueError("治理健康觀測來源格式不正確。")
+        change_type = str(change_type or "").strip()
+        if not _GOVERNANCE_HEALTH_CHANGE_TYPE_PATTERN.fullmatch(change_type):
+            raise ValueError("治理健康觀測異動種類格式不正確。")
+        if actor_operator_id is not None and not _OPERATOR_ID_PATTERN.fullmatch(actor_operator_id):
+            raise ValueError("治理健康觀測操作員 ID 格式不正確。")
+        sources = health.get("sources")
+        if not isinstance(sources, dict):
+            raise ValueError("治理健康觀測缺少來源指紋。")
+        summary = {
+            "activeRequesterCount": health.get("activeRequesterCount"),
+            "activeApproverCount": health.get("activeApproverCount"),
+            "pendingClaimCount": (
+                health.get("pendingRotationCount", 0)
+                + health.get("pendingBackupDispositionCount", 0)
+            ),
+            "unreviewablePendingCount": health.get("unreviewablePendingCount"),
+        }
+        with closing(self._connect()) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            rows = connection.execute(
+                "SELECT * FROM receiver_governance_health_observations ORDER BY sequence_no"
+            ).fetchall()
+            current = self._validate_governance_health_observations([
+                {
+                    **self._governance_health_observation_payload(row),
+                    "receiptFingerprint": row["receipt_fingerprint"],
+                }
+                for row in rows
+            ])
+            latest = current[-1] if current else None
+            if latest is not None and latest["healthFingerprint"] == health.get("healthFingerprint"):
+                connection.commit()
+                return {**latest, "appended": False}
+            payload = {
+                "sequenceNo": len(current) + 1,
+                "observationId": "GHO-" + uuid.uuid4().hex[:20].upper(),
+                "observedAt": _iso(_utc_now()),
+                "changeType": change_type,
+                "actorOperatorId": actor_operator_id,
+                "fromStatus": latest["toStatus"] if latest else None,
+                "toStatus": health.get("status"),
+                "healthFingerprint": health.get("healthFingerprint"),
+                "operatorGovernanceSnapshotFingerprint": sources.get(
+                    "operatorGovernanceSnapshotFingerprint"
+                ),
+                "trustRegistryFingerprint": sources.get("trustRegistryFingerprint"),
+                "operatorAuditHeadFingerprint": sources.get("operatorAuditHeadFingerprint"),
+                "summary": summary,
+                "previousReceiptFingerprint": latest["receiptFingerprint"] if latest else None,
+            }
+            validated = self._validate_governance_health_observations([
+                *current,
+                {
+                    **payload,
+                    "receiptFingerprint": self._governance_health_receipt_fingerprint(payload),
+                },
+            ])[-1]
+            connection.execute(
+                """
+                INSERT INTO receiver_governance_health_observations (
+                    sequence_no, observation_id, observed_at, change_type, actor_operator_id,
+                    from_status, to_status, health_fingerprint,
+                    operator_snapshot_fingerprint, trust_registry_fingerprint,
+                    operator_audit_head_fingerprint, summary_json,
+                    previous_receipt_fingerprint, receipt_fingerprint
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    validated["sequenceNo"], validated["observationId"], validated["observedAt"],
+                    validated["changeType"], validated["actorOperatorId"],
+                    validated["fromStatus"], validated["toStatus"],
+                    validated["healthFingerprint"],
+                    validated["operatorGovernanceSnapshotFingerprint"],
+                    validated["trustRegistryFingerprint"],
+                    validated["operatorAuditHeadFingerprint"],
+                    json.dumps(validated["summary"], ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+                    validated["previousReceiptFingerprint"], validated["receiptFingerprint"],
+                ),
+            )
+            connection.commit()
+            return {**validated, "appended": True}
+
+    def governance_health_history(self) -> dict[str, Any]:
+        with closing(self._connect()) as connection:
+            rows = connection.execute(
+                "SELECT * FROM receiver_governance_health_observations ORDER BY sequence_no"
+            ).fetchall()
+        observations = self._validate_governance_health_observations([
+            {
+                **self._governance_health_observation_payload(row),
+                "receiptFingerprint": row["receipt_fingerprint"],
+            }
+            for row in rows
+        ])
+        return self.validate_governance_health_history({
+            "schemaVersion": 1,
+            "kind": "receiver-governance-health-history",
+            "chainValid": True,
+            "observationCount": len(observations),
+            "headFingerprint": observations[-1]["receiptFingerprint"] if observations else None,
+            "observations": observations,
+        })
 
     @classmethod
     def verify_governance_snapshot_admin(

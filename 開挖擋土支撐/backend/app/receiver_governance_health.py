@@ -39,6 +39,71 @@ def _health_fingerprint(payload: dict[str, Any]) -> str:
     return "RGH-" + hashlib.sha256(_canonical_json_bytes(payload)).hexdigest()[:20].upper()
 
 
+def build_receiver_governance_health_history_export(
+    history: dict[str, Any],
+    *,
+    exported_at: datetime | None = None,
+) -> dict[str, Any]:
+    history = ReceiverOperatorStore.validate_governance_health_history(history)
+    payload = {
+        "schemaVersion": 1,
+        "kind": "receiver-governance-health-history-export",
+        "exportedAt": _iso(exported_at or datetime.now(timezone.utc)),
+        "history": history,
+        "boundary": {
+            "applicationAppendOnlyChain": True,
+            "externalTimestamp": False,
+            "digitalSignature": False,
+            "formalCalculationAttachment": False,
+        },
+    }
+    return {
+        **payload,
+        "exportFingerprint": (
+            "GHE-" + hashlib.sha256(_canonical_json_bytes(payload)).hexdigest()[:20].upper()
+        ),
+    }
+
+
+def validate_receiver_governance_health_history_export(exported: Any) -> dict[str, Any]:
+    if not isinstance(exported, dict) or set(exported) != {
+        "schemaVersion", "kind", "exportedAt", "history", "boundary",
+        "exportFingerprint",
+    }:
+        raise ValueError("治理健康歷程匯出檔格式不正確或含有未識別欄位。")
+    if (
+        exported.get("schemaVersion") != 1
+        or exported.get("kind") != "receiver-governance-health-history-export"
+    ):
+        raise ValueError("治理健康歷程匯出檔版本或種類不受支援。")
+    exported_at = _iso(_parse_time(exported.get("exportedAt")))
+    history = ReceiverOperatorStore.validate_governance_health_history(
+        exported.get("history")
+    )
+    boundary = exported.get("boundary")
+    expected_boundary = {
+        "applicationAppendOnlyChain": True,
+        "externalTimestamp": False,
+        "digitalSignature": False,
+        "formalCalculationAttachment": False,
+    }
+    if boundary != expected_boundary:
+        raise ValueError("治理健康歷程匯出檔的證據邊界不正確。")
+    payload = {
+        "schemaVersion": 1,
+        "kind": "receiver-governance-health-history-export",
+        "exportedAt": exported_at,
+        "history": history,
+        "boundary": expected_boundary,
+    }
+    expected_fingerprint = (
+        "GHE-" + hashlib.sha256(_canonical_json_bytes(payload)).hexdigest()[:20].upper()
+    )
+    if exported.get("exportFingerprint") != expected_fingerprint:
+        raise ValueError("治理健康歷程匯出檔的整包指紋驗證失敗。")
+    return {**payload, "exportFingerprint": expected_fingerprint}
+
+
 def build_receiver_governance_health_snapshot(
     operator_store: ReceiverOperatorStore,
     trust_store: ReceiverTrustStore,
@@ -213,4 +278,8 @@ def build_receiver_governance_health_snapshot(
     }
 
 
-__all__ = ["build_receiver_governance_health_snapshot"]
+__all__ = [
+    "build_receiver_governance_health_history_export",
+    "build_receiver_governance_health_snapshot",
+    "validate_receiver_governance_health_history_export",
+]
