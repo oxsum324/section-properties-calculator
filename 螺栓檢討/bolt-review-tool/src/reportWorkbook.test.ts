@@ -199,6 +199,17 @@ describe('reportWorkbook', () => {
         from: { row: 1, column: 1 },
         to: { row: 1, column: worksheet!.columnCount },
       })
+      expect(worksheet!.pageSetup, `${sheetName} print setup`).toMatchObject({
+        paperSize: 9,
+        orientation: worksheet!.columnCount >= 7 ? 'landscape' : 'portrait',
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+        printArea: `A1:${String.fromCharCode(64 + worksheet!.columnCount)}${worksheet!.rowCount}`,
+        printTitlesRow: '1:1',
+        showGridLines: false,
+        horizontalCentered: true,
+      })
     }
 
     expect(workbook.getWorksheet('Summary')!.rowCount).toBeGreaterThanOrEqual(20)

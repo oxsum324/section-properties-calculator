@@ -1549,7 +1549,25 @@ function buildHomepagePlatformStatus(payload) {
   };
 }
 
+function currentPreflightRunSource() {
+  const raw = String(process.env.PREFLIGHT_RUN_DIR || '').trim();
+  if (!raw) return null;
+  const runDir = path.resolve(raw);
+  const relative = path.relative(preflightHistoryDir, runDir);
+  if (!relative || relative.startsWith(`..${path.sep}`) || relative === '..' || path.isAbsolute(relative) || relative.includes(path.sep)) return null;
+  const runId = path.basename(runDir);
+  if (!/^\d{8}-\d{6}$/.test(runId)) return null;
+  const filePath = path.join(runDir, 'preflight-summary.json');
+  const payload = tryReadJsonIfExists(filePath);
+  if (!payload || String(payload.runId || '') !== runId) return null;
+  return { payload, filePath, sourcePath: displayPath(filePath), runDir };
+}
+
 function resolveHomepagePreflightSource() {
+  const currentRun = currentPreflightRunSource();
+  if (currentRun && currentRun.payload.quick === false && currentRun.payload.pass === true) {
+    return currentRun;
+  }
   const latestSummary = readJsonIfExists(preflightSummarySourcePath);
   if (latestSummary && latestSummary.quick === false && latestSummary.pass === true) {
     const runId = String(latestSummary.runId || '').trim();
@@ -1659,6 +1677,7 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const anchorHtmlDualSealDeclared = Number(evidence?.schemaVersion) >= 21;
   const docxPackageIntegrityDeclared = Number(evidence?.schemaVersion) >= 22;
   const xlsxPackageIntegrityDeclared = Number(evidence?.schemaVersion) >= 23;
+  const xlsxPrintVisualDeclared = Number(evidence?.schemaVersion) >= 24;
   return Boolean(
     evidence
     && evidence.kind === 'release-rendered-delivery-evidence'
@@ -1719,6 +1738,26 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       && Array.isArray(evidence.xlsxPackageIntegrity.records)
       && evidence.xlsxPackageIntegrity.records.length === 1
       && evidence.xlsxPackageIntegrity.records.every(record => record?.pass === true && record?.issueCount === 0 && record?.sheetCount === record?.visibleSheetCount && record?.formulaCount === record?.cachedFormulaCount)
+    ))
+    && (!xlsxPrintVisualDeclared || (
+      evidence.xlsxPrintVisual?.scope === 'formal-xlsx-microsoft-excel-pdf-visual-print'
+      && evidence.xlsxPrintVisual.required === 1
+      && evidence.xlsxPrintVisual.complete === 1
+      && evidence.xlsxPrintVisual.sheetRequired === 9
+      && evidence.xlsxPrintVisual.sheetComplete === 9
+      && evidence.xlsxPrintVisual.issueCount === 0
+      && evidence.xlsxPrintVisual.pass === true
+      && Array.isArray(evidence.xlsxPrintVisual.records)
+      && evidence.xlsxPrintVisual.records.length === 1
+      && evidence.xlsxPrintVisual.records.every(record => record?.pass === true
+        && record?.issueCount === 0
+        && record?.renderer === 'microsoft-excel-export-as-fixed-format'
+        && record?.sheetCount === 9
+        && record?.sheetComplete === 9
+        && record?.pageCount >= 9
+        && record?.verticalPageBreakCount === 0
+        && /^[0-9a-f]{64}$/i.test(String(record?.workbookSha256 || ''))
+        && /^[0-9a-f]{64}$/i.test(String(record?.artifactSetSha256 || '')))
     ))
     && (!resultReconciliationDeclared || (
       evidence.formalResultReconciliation?.scope === 'formal-golden-result-to-report-fingerprint'
@@ -1864,12 +1903,21 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
 }
 
 function resolveRenderedDeliveryEvidenceSource() {
+  const currentRun = currentPreflightRunSource();
+  const currentRunEvidencePath = currentRun
+    ? path.join(currentRun.runDir, 'rendered-delivery-evidence', renderedDeliveryEvidenceSummaryName)
+    : '';
+  const currentRunEvidence = currentRun && isRenderedDeliveryRelease(currentRun.payload)
+    ? tryReadJsonIfExists(currentRunEvidencePath)
+    : null;
   const latestReleaseSummary = readJsonIfExists(preflightSummarySourcePath);
   const latestReleaseEvidence = isRenderedDeliveryRelease(latestReleaseSummary)
     ? tryReadJsonIfExists(renderedDeliveryEvidencePathForRun(latestReleaseSummary.runId))
     : null;
   const history = readJsonIfExists(preflightHistorySourcePath);
-  const releaseSource = isCompleteRenderedDeliveryEvidence(latestReleaseEvidence, latestReleaseSummary?.runId)
+  const releaseSource = isCompleteRenderedDeliveryEvidence(currentRunEvidence, currentRun?.payload?.runId)
+    ? { ...currentRun, evidencePath: currentRunEvidencePath }
+    : isCompleteRenderedDeliveryEvidence(latestReleaseEvidence, latestReleaseSummary?.runId)
     ? { payload: latestReleaseSummary }
     : findLatestPreflightHistorySummary(
       summary => {
@@ -1881,7 +1929,7 @@ function resolveRenderedDeliveryEvidenceSource() {
     );
   if (!releaseSource) return null;
 
-  const filePath = renderedDeliveryEvidencePathForRun(releaseSource.payload.runId);
+  const filePath = releaseSource.evidencePath || renderedDeliveryEvidencePathForRun(releaseSource.payload.runId);
   const evidence = readJsonIfExists(filePath);
   const familyCounts = new Map();
   for (const record of Array.isArray(evidence?.records) ? evidence.records : []) {
@@ -2088,6 +2136,25 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     : xlsxPackageIntegrity.pass === true
       ? Math.max(0, xlsxPackageIntegrityRequired - xlsxPackageIntegrityComplete)
       : Math.max(1, compactNumber(xlsxPackageIntegrity.issueCount) || xlsxPackageIntegrityRequired - xlsxPackageIntegrityComplete);
+  const xlsxPrintVisual = renderedDeliveryPayload?.xlsxPrintVisual;
+  const xlsxPrintVisualDeclared = Boolean(
+    Number(renderedDeliveryPayload?.schemaVersion) >= 24
+    && xlsxPrintVisual
+    && xlsxPrintVisual.scope === 'formal-xlsx-microsoft-excel-pdf-visual-print'
+    && Number.isInteger(xlsxPrintVisual.required)
+    && Number.isInteger(xlsxPrintVisual.complete)
+    && Number.isInteger(xlsxPrintVisual.sheetRequired)
+    && Number.isInteger(xlsxPrintVisual.sheetComplete)
+  );
+  const xlsxPrintVisualRequired = xlsxPrintVisualDeclared ? compactNumber(xlsxPrintVisual.required) : 0;
+  const xlsxPrintVisualComplete = xlsxPrintVisualDeclared ? compactNumber(xlsxPrintVisual.complete) : 0;
+  const xlsxPrintVisualSheetRequired = xlsxPrintVisualDeclared ? compactNumber(xlsxPrintVisual.sheetRequired) : 0;
+  const xlsxPrintVisualSheetComplete = xlsxPrintVisualDeclared ? compactNumber(xlsxPrintVisual.sheetComplete) : 0;
+  const xlsxPrintVisualIssueCount = !xlsxPrintVisualDeclared
+    ? 0
+    : xlsxPrintVisual.pass === true
+      ? Math.max(0, xlsxPrintVisualRequired - xlsxPrintVisualComplete, xlsxPrintVisualSheetRequired - xlsxPrintVisualSheetComplete)
+      : Math.max(1, compactNumber(xlsxPrintVisual.issueCount) || xlsxPrintVisualRequired - xlsxPrintVisualComplete || xlsxPrintVisualSheetRequired - xlsxPrintVisualSheetComplete);
   const formalResultReconciliation = renderedDeliveryPayload?.formalResultReconciliation;
   const formalResultReconciliationDeclared = Boolean(
     Number(renderedDeliveryPayload?.schemaVersion) >= 4
@@ -2359,6 +2426,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     ...(deliveryFileIntegrityDeclared ? [`正式交付檔案完整性：${deliveryFileIntegrityBreakdown.map(item => `${item.label} ${item.verified} / ${item.required}`).join('、')}；合計 ${deliveryFileIntegrityVerified} / ${deliveryFileIntegrityRequired}。公開狀態只提供類別、數量與通過狀態，不公開檔名、逐檔雜湊或完整性集合。`] : []),
     ...(docxPackageIntegrityDeclared ? [`正式 Word 附件乾淨封裝：石材、錨栓、覆工板與開挖擋土支撐共 ${docxPackageIntegrityComplete} / ${docxPackageIntegrityRequired} 份 DOCX 已確認沒有未引用媒體或頁首頁尾、實際批註、未接受修訂、外掛範本、外部圖片、嵌入物件、巨集或非預期 custom XML。公開狀態只顯示完成數，不公開檔名、封裝清冊或逐檔細節。`] : []),
     ...(xlsxPackageIntegrityDeclared ? [`正式 Excel 附件乾淨封裝：錨栓檢討 ${xlsxPackageIntegrityComplete} / ${xlsxPackageIntegrityRequired} 份 XLSX 已確認工作表全數可見、公式具快取結果，且沒有外部關聯／公式／連線、公式錯誤、隱藏資料、批註、嵌入物件、巨集、孤兒媒體或非預期 custom XML。公開狀態只顯示完成數，不公開檔名、工作表清冊、公式或逐檔細節。`] : []),
+    ...(xlsxPrintVisualDeclared ? [`正式 Excel 列印成品：錨栓檢討 ${xlsxPrintVisualComplete} / ${xlsxPrintVisualRequired} 份 XLSX、${xlsxPrintVisualSheetComplete} / ${xlsxPrintVisualSheetRequired} 張工作表已由 Microsoft Excel 以原始列印設定逐張輸出 PDF，確認 A4、寬表橫向、單頁寬、續頁重複表頭、可讀文字、非空白頁、無頁緣裁切及無橫向溢出頁。公開狀態只顯示完成數，不公開工作表名稱、列印 PDF、逐頁指標或雜湊。`] : []),
     ...(formalResultReconciliationDeclared ? [`正式計算書結果鏈：風力／地震正式工具 ${formalResultReconciliationComplete} / ${formalResultReconciliationRequired} 已先完成 golden case 精確結果重算，再以同一計算狀態的指紋產生正式附件。公開狀態只顯示完成數，不公開案例輸入、預期數值、案例雜湊或計算指紋。`] : []),
     ...(rcResultReconciliationDeclared ? [`RC 正式計算書結果鏈：梁、柱、板、牆、剪力牆、基礎、單樁${expandedRcResultReconciliationDeclared ? '與梁／柱補強' : ''}共 ${rcResultReconciliationComplete} / ${rcResultReconciliationRequired} 組瀏覽器回歸案例已完成來源資料重現，再核對 PDF 與正式 HTML 的同一計算指紋。公開狀態只顯示完成數，不公開案例資料、來源快照雜湊或計算指紋。`] : []),
     ...(rcSourceReportPackageDeclared ? [`RC 來源／正式 HTML 組包：梁、柱、板、牆、剪力牆、基礎與單樁共 ${rcSourceReportPackageComplete} / ${rcSourceReportPackageRequired} 組真實專案 JSON 已與核可後 HTML 通過附件檢查器，並驗證唯一來源／報告配對。公開狀態只顯示完成數，不公開案件資料、檔名、工具版本或計算指紋。`] : []),
@@ -2392,8 +2460,8 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     kind: 'report-readiness-status',
     generatedAt: String(matrixPayload.generatedAt || ''),
     runId: String(preflightStatus?.runId || matrixPayload.latestPreflight?.runId || ''),
-    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && docxPackageIntegrityIssueCount === 0 && xlsxPackageIntegrityIssueCount === 0 && formalResultReconciliationIssueCount === 0 && formalHtmlContentSealIssueCount === 0 && formalHtmlApprovalSealIssueCount === 0 && steelHtmlContentSealIssueCount === 0 && steelHtmlApprovalSealIssueCount === 0 && anchorHtmlContentSealIssueCount === 0 && anchorHtmlApprovalSealIssueCount === 0 && rcResultReconciliationIssueCount === 0 && rcSourceReportPackageIssueCount === 0 && rcStandaloneFormalHtmlPrintIssueCount === 0 && rcFormalHtmlContentSealIssueCount === 0 && rcFormalHtmlApprovalSealIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
-    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + docxPackageIntegrityIssueCount + xlsxPackageIntegrityIssueCount + formalResultReconciliationIssueCount + formalHtmlContentSealIssueCount + formalHtmlApprovalSealIssueCount + steelHtmlContentSealIssueCount + steelHtmlApprovalSealIssueCount + anchorHtmlContentSealIssueCount + anchorHtmlApprovalSealIssueCount + rcResultReconciliationIssueCount + rcSourceReportPackageIssueCount + rcStandaloneFormalHtmlPrintIssueCount + rcFormalHtmlContentSealIssueCount + rcFormalHtmlApprovalSealIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
+    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && docxPackageIntegrityIssueCount === 0 && xlsxPackageIntegrityIssueCount === 0 && xlsxPrintVisualIssueCount === 0 && formalResultReconciliationIssueCount === 0 && formalHtmlContentSealIssueCount === 0 && formalHtmlApprovalSealIssueCount === 0 && steelHtmlContentSealIssueCount === 0 && steelHtmlApprovalSealIssueCount === 0 && anchorHtmlContentSealIssueCount === 0 && anchorHtmlApprovalSealIssueCount === 0 && rcResultReconciliationIssueCount === 0 && rcSourceReportPackageIssueCount === 0 && rcStandaloneFormalHtmlPrintIssueCount === 0 && rcFormalHtmlContentSealIssueCount === 0 && rcFormalHtmlApprovalSealIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
+    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + docxPackageIntegrityIssueCount + xlsxPackageIntegrityIssueCount + xlsxPrintVisualIssueCount + formalResultReconciliationIssueCount + formalHtmlContentSealIssueCount + formalHtmlApprovalSealIssueCount + steelHtmlContentSealIssueCount + steelHtmlApprovalSealIssueCount + anchorHtmlContentSealIssueCount + anchorHtmlApprovalSealIssueCount + rcResultReconciliationIssueCount + rcSourceReportPackageIssueCount + rcStandaloneFormalHtmlPrintIssueCount + rcFormalHtmlContentSealIssueCount + rcFormalHtmlApprovalSealIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
@@ -2450,6 +2518,17 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       xlsxPackageIntegrityPass: xlsxPackageIntegrity.pass === true
         && xlsxPackageIntegrityComplete === xlsxPackageIntegrityRequired
         && xlsxPackageIntegrityIssueCount === 0,
+    } : {}),
+    ...(xlsxPrintVisualDeclared ? {
+      xlsxPrintVisualRequired,
+      xlsxPrintVisualComplete,
+      xlsxPrintVisualSheetRequired,
+      xlsxPrintVisualSheetComplete,
+      xlsxPrintVisualIssueCount,
+      xlsxPrintVisualPass: xlsxPrintVisual.pass === true
+        && xlsxPrintVisualComplete === xlsxPrintVisualRequired
+        && xlsxPrintVisualSheetComplete === xlsxPrintVisualSheetRequired
+        && xlsxPrintVisualIssueCount === 0,
     } : {}),
     ...(formalResultReconciliationDeclared ? {
       formalResultReconciliationRequired,
@@ -3077,6 +3156,17 @@ function checkMatrix(payload, markdown, options = {}) {
     assert.equal(Object.prototype.hasOwnProperty.call(homepageReportReadinessStatus, 'xlsxPackageIntegrityRecords'), false, 'homepage report readiness omits private XLSX package records');
     assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('正式 Excel 附件乾淨封裝'), 'homepage report readiness explains formal XLSX package integrity');
     assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('不公開檔名、工作表清冊、公式或逐檔細節'), 'homepage report readiness keeps XLSX package details private');
+  }
+  if (Number.isInteger(homepageReportReadinessStatus.xlsxPrintVisualRequired)) {
+    assert.equal(homepageReportReadinessStatus.xlsxPrintVisualRequired, 1, 'homepage report readiness expects 1 formal XLSX Office print check');
+    assert.equal(homepageReportReadinessStatus.xlsxPrintVisualComplete, homepageReportReadinessStatus.xlsxPrintVisualRequired, 'homepage report readiness completes the formal XLSX Office print check');
+    assert.equal(homepageReportReadinessStatus.xlsxPrintVisualSheetRequired, 9, 'homepage report readiness expects 9 formal XLSX worksheet print checks');
+    assert.equal(homepageReportReadinessStatus.xlsxPrintVisualSheetComplete, homepageReportReadinessStatus.xlsxPrintVisualSheetRequired, 'homepage report readiness completes every XLSX worksheet print check');
+    assert.equal(homepageReportReadinessStatus.xlsxPrintVisualIssueCount, 0, 'homepage report readiness XLSX Office print issues empty');
+    assert.equal(homepageReportReadinessStatus.xlsxPrintVisualPass, true, 'homepage report readiness XLSX Office print checks pass');
+    assert.equal(Object.prototype.hasOwnProperty.call(homepageReportReadinessStatus, 'xlsxPrintVisualRecords'), false, 'homepage report readiness omits private XLSX Office print records');
+    assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('正式 Excel 列印成品'), 'homepage report readiness explains formal XLSX Office print visual integrity');
+    assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('不公開工作表名稱、列印 PDF、逐頁指標或雜湊'), 'homepage report readiness keeps XLSX Office print evidence private');
   }
   assert.equal(homepageReportReadinessStatus.runId, homepagePreflightStatus.runId, 'homepage report readiness runId matches preflight status runId');
   assert.equal(homepageReportReadinessStatus.preflightStatusSourcePath, homepagePreflightStatus.sourcePath, 'homepage report readiness names preflight status source');

@@ -62,6 +62,35 @@ const stoneAutoWordArtifact = readText('石材固定/auto_word_artifact_test.py'
 const anchorReportArtifacts = readText('螺栓檢討/bolt-review-tool/tests/reportArtifacts.test.ts');
 const anchorReportHtmlSeal = readText('螺栓檢討/bolt-review-tool/src/reportHtmlSeal.ts');
 const anchorHtmlSealVerifier = readText('結構工具箱/tools/anchor-html-seal-verifier.js');
+const xlsxPrintExporter = readText('結構工具箱/tools/xlsx-print-export.py');
+const xlsxPrintVisual = readText('結構工具箱/tools/xlsx-print-visual.js');
+const anchorWorkbook = readText('螺栓檢討/bolt-review-tool/src/reportWorkbook.ts');
+
+[
+  'node 結構工具箱/tools/xlsx-print-visual.test.js',
+  'node 結構工具箱/tools/rendered-delivery-evidence.contract.test.js',
+].forEach(needle => assertIncludes(preflight, needle, `preflight preserves XLSX Office print visual gate ${needle}`));
+[
+  'DispatchEx("Excel.Application")',
+  'UpdateLinks=0',
+  'ReadOnly=True',
+  'AutomationSecurity',
+  'ExportAsFixedFormat',
+].forEach(needle => assertIncludes(xlsxPrintExporter, needle, `XLSX print exporter preserves controlled Office boundary ${needle}`));
+[
+  'validatePdfFile',
+  'verifyPrintMetadata',
+  'not-a4',
+  'horizontal-overflow-pages',
+  'artifactSetSha256',
+].forEach(needle => assertIncludes(xlsxPrintVisual, needle, `XLSX print visual gate preserves ${needle}`));
+[
+  "paperSize: 9",
+  "orientation: isWideTable ? 'landscape' : 'portrait'",
+  'fitToWidth: 1',
+  'fitToHeight: 0',
+  "printTitlesRow: '1:1'",
+].forEach(needle => assertIncludes(anchorWorkbook, needle, `anchor workbook preserves printable XLSX setting ${needle}`));
 
 [
   'htmlDualSealEvidence',
@@ -312,7 +341,7 @@ for (const { name, source } of rcReportVisualSources) {
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 23',
+  'schemaVersion: 24',
   'canonicalArtifactIntegrity',
   'docxPackageIntegrity',
   "scope: 'formal-docx-clean-ooxml-package'",
@@ -320,6 +349,9 @@ for (const { name, source } of rcReportVisualSources) {
   'xlsxPackageIntegrity',
   "scope: 'formal-xlsx-clean-ooxml-package-and-formula-cache'",
   'xlsxPackageIntegrity=',
+  'xlsxPrintVisual',
+  "scope: 'formal-xlsx-microsoft-excel-pdf-visual-print'",
+  'xlsxPrintVisual=',
   "scope: 'canonical-rendered-pdf-evidence'",
   'required: 60',
   'canonicalIntegrity=',
@@ -419,6 +451,7 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'anchorHtmlDualSealDeclared',
   'docxPackageIntegrityDeclared',
   'xlsxPackageIntegrityDeclared',
+  'xlsxPrintVisualDeclared',
   'steelResultReconciliationDeclared',
   'stoneResultReconciliationDeclared',
   'anchorResultReconciliationDeclared',
@@ -431,6 +464,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'evidence.docxPackageIntegrity.required === 4',
   "evidence.xlsxPackageIntegrity?.scope === 'formal-xlsx-clean-ooxml-package-and-formula-cache'",
   'evidence.xlsxPackageIntegrity.required === 1',
+  "evidence.xlsxPrintVisual?.scope === 'formal-xlsx-microsoft-excel-pdf-visual-print'",
+  'evidence.xlsxPrintVisual.sheetRequired === 9',
   "evidence.formalResultReconciliation?.scope === 'formal-golden-result-to-report-fingerprint'",
   'evidence.formalResultReconciliation.required === 14',
   "'rc-source-replay-to-report-fingerprint'",
@@ -505,6 +540,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   '正式 Word 附件乾淨封裝',
   'xlsxPackageIntegrityRequired',
   '正式 Excel 附件乾淨封裝',
+  'xlsxPrintVisualRequired',
+  '正式 Excel 列印成品',
   'steelResultReconciliationRequired',
   '鋼構正式計算書結果鏈',
   'stoneResultReconciliationRequired',
@@ -656,6 +693,9 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   assertIncludes(source, 'Schema v23', `${label} documents formal XLSX clean package release evidence schema`);
   assertIncludes(source, '1/1', `${label} documents formal XLSX package required count`);
   assertIncludes(source, '外部公式', `${label} documents formal XLSX hidden and external package boundary`);
+  assertIncludes(source, 'Schema v24', `${label} documents formal XLSX Office print visual release evidence schema`);
+  assertIncludes(source, '9/9', `${label} documents formal XLSX worksheet print visual count`);
+  assertIncludes(source, 'Microsoft Excel', `${label} documents formal XLSX Office print renderer`);
   assertIncludes(source, '風力／地震', `${label} documents formal-tool HTML dual seal family`);
   assertIncludes(source, '鋼構', `${label} documents steel formal HTML dual seal family`);
   assertIncludes(source, '錨栓', `${label} documents anchor formal HTML dual seal family`);

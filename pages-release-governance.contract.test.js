@@ -342,7 +342,7 @@ assert.ok(pagesWorkflow.includes('- name: Verify tested release lineage') && pag
 assert.ok(pagesWorkflow.indexOf('- name: Verify tested release lineage') < pagesWorkflow.indexOf('- name: Stage static site'), 'Pages release lineage gate runs before artifact staging');
 assert.equal(pagesWorkflow.includes('rsync -a'), false, 'Pages workflow does not keep a second rsync exclusion policy');
 assert.ok(artifactBuilder.includes("'output'") && artifactBuilder.includes("'.md'") && artifactBuilder.includes("'.ps1'"), 'shared artifact builder excludes generated output, docs, and scripts');
-assert.ok(artifactBuilder.includes('attachment-package-check.js') && artifactBuilder.includes('rendered-delivery-evidence.js') && artifactBuilder.includes('docx-package-integrity.js') && artifactBuilder.includes('xlsx-package-integrity.js'), 'shared artifact builder excludes delivery governance helpers');
+assert.ok(artifactBuilder.includes('attachment-package-check.js') && artifactBuilder.includes('rendered-delivery-evidence.js') && artifactBuilder.includes('docx-package-integrity.js') && artifactBuilder.includes('xlsx-package-integrity.js') && artifactBuilder.includes('xlsx-print-export.py') && artifactBuilder.includes('xlsx-print-visual.js'), 'shared artifact builder excludes delivery governance helpers');
 assert.ok(artifactBuilder.includes('PRIVATE_GENERATED_FILE_PREFIXES') && artifactBuilder.includes('GSM-外部歸檔生命週期監測-latest') && artifactBuilder.includes('GSM-外部歸檔生命週期監測事件-'), 'shared artifact builder excludes copied GSM monitor state and events');
 assert.ok(artifactBuilder.includes('verify-pages-release-lineage.js'), 'shared artifact builder excludes the release lineage verifier');
 assert.ok(artifactBuilder.includes('GIT_INDEX_FILE') && artifactBuilder.includes("core.autocrlf=false") && artifactBuilder.includes("core.eol=lf"), 'shared artifact builder uses an isolated normalized Git index');
@@ -390,6 +390,9 @@ assert.ok(pagesSmoke.includes('結構工具箱/tools/docx-package-integrity.js')
 assert.ok(pagesSmoke.includes('結構工具箱/tools/docx-package-integrity.test.js'), 'Pages smoke blocks DOCX package integrity fixture publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/xlsx-package-integrity.js'), 'Pages smoke blocks XLSX package integrity helper publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/xlsx-package-integrity.test.js'), 'Pages smoke blocks XLSX package integrity fixture publication');
+assert.ok(pagesSmoke.includes('結構工具箱/tools/xlsx-print-export.py'), 'Pages smoke blocks XLSX Office print exporter publication');
+assert.ok(pagesSmoke.includes('結構工具箱/tools/xlsx-print-visual.js'), 'Pages smoke blocks XLSX Office print visual helper publication');
+assert.ok(pagesSmoke.includes('結構工具箱/tools/xlsx-print-visual.test.js'), 'Pages smoke blocks XLSX Office print visual fixture publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/pages-live-browser-smoke.js'), 'Pages smoke blocks browser smoke source publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/run-pages-browser-smoke.sh'), 'Pages smoke blocks browser smoke runner publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/build-pages-artifact.js'), 'Pages smoke blocks shared artifact builder publication');

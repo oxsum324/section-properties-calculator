@@ -8,6 +8,7 @@ const AttachmentPackageChecker = require('./attachment-package-check');
 const AnchorHtmlSealVerifier = require('./anchor-html-seal-verifier');
 const { inspectDocxPackage } = require('./docx-package-integrity');
 const { inspectXlsxPackage } = require('./xlsx-package-integrity');
+const { runXlsxPrintVisualAudit } = require('./xlsx-print-visual');
 const { verifyHtmlArtifact } = require('../../dev_tools/html-attachment-integrity');
 const { captureArtifactIntegrity } = require('../../鋼筋混凝土/tools/report-screenshot-quality');
 const {
@@ -1918,6 +1919,11 @@ assert.ok(anchorDocxText.includes('文件狀態：正式附件'), 'anchor DOCX a
 assert.ok(/設計人員\s*王設計/.test(anchorDocxText) && /複核人員\s*李複核/.test(anchorDocxText), 'anchor DOCX artifact includes designer and checker');
 assertCalculationContentProfile(anchorDocxText, 'traceable-calculation-book', 'anchor DOCX artifact');
 
+const anchorForbiddenNeedles = [...DEFAULT_FORBIDDEN,
+  '本工具計算結果僅供工程判讀、方案比較與報表整理輔助',
+  '使用邊界 / 簽證責任',
+];
+
 assert.equal(fs.readFileSync(anchorWorkbookPath).subarray(0, 2).toString('ascii'), 'PK', 'anchor report artifact has XLSX ZIP signature');
 const anchorWorkbookEntries = readZipEntries(anchorWorkbookPath, 'anchor XLSX');
 assert.ok(anchorWorkbookEntries.has('xl/workbook.xml'), 'anchor XLSX contains xl/workbook.xml');
@@ -1926,6 +1932,27 @@ assert.equal(anchorXlsxPackageIntegrity.sheetCount, 9, 'anchor XLSX clean-packag
 assert.equal(anchorXlsxPackageIntegrity.visibleSheetCount, anchorXlsxPackageIntegrity.sheetCount, 'anchor XLSX clean-package gate keeps every report sheet visible');
 assert.ok(anchorXlsxPackageIntegrity.formulaCount > 0, 'anchor XLSX clean-package gate covers formula-backed recalculation cells');
 assert.equal(anchorXlsxPackageIntegrity.cachedFormulaCount, anchorXlsxPackageIntegrity.formulaCount, 'anchor XLSX formula-backed cells all include cached results');
+const anchorXlsxPrintVisual = runXlsxPrintVisualAudit({
+  key: 'anchor-review',
+  label: 'anchor XLSX',
+  workbookPath: anchorWorkbookPath,
+  outputDir: path.join(anchorEvidenceDir, 'xlsx-print-visual'),
+  forbiddenNeedles: anchorForbiddenNeedles,
+  expectedSheets: [
+    { name: 'Summary', minTextLength: 300, requiredNeedles: ['項目', '案例名稱', '文件狀態', '正式附件'], repeatHeaderNeedle: '項目' },
+    { name: 'LoadCases', minTextLength: 80, requiredNeedles: ['組合', '控制組合', '控制DCR'], repeatHeaderNeedle: '組合' },
+    { name: 'Results', minTextLength: 800, requiredNeedles: ['組合', '檢核模式', '條文', 'DCR重算'], repeatHeaderNeedle: '組合' },
+    { name: 'Dimensions', minTextLength: 250, requiredNeedles: ['組合', '項目', '需求值', '實際值'], repeatHeaderNeedle: '組合' },
+    { name: 'Factors', minTextLength: 500, requiredNeedles: ['組合', '檢核模式', '符號', '標籤'], repeatHeaderNeedle: '組合' },
+    { name: 'Candidates', minTextLength: 70, requiredNeedles: ['產品', '族群', '控制DCR'], repeatHeaderNeedle: '產品' },
+    { name: 'Layouts', minTextLength: 90, requiredNeedles: ['配置', '錨栓數', '控制DCR'], repeatHeaderNeedle: '配置' },
+    { name: 'Evidence', minTextLength: 20, requiredNeedles: ['欄位', '目前值', '已核對'], repeatHeaderNeedle: '欄位' },
+    { name: 'AuditTrail', minTextLength: 80, requiredNeedles: ['時間', '來源', 'Hash', '控制DCR'], repeatHeaderNeedle: '時間' },
+  ],
+});
+assert.equal(anchorXlsxPrintVisual.sheetCount, 9, 'anchor XLSX Office print visual gate covers all 9 sheets');
+assert.equal(anchorXlsxPrintVisual.sheetComplete, anchorXlsxPrintVisual.sheetCount, 'anchor XLSX Office print visual gate validates every sheet');
+assert.equal(anchorXlsxPrintVisual.verticalPageBreakCount, 0, 'anchor XLSX Office print visual gate has no horizontal overflow pages');
 const anchorWorkbookXml = anchorWorkbookEntries.get('xl/workbook.xml').toString('utf8');
 for (const sheet of ['Summary', 'LoadCases', 'Results', 'Dimensions', 'Factors', 'Candidates', 'Evidence', 'Layouts', 'AuditTrail']) {
   assert.ok(anchorWorkbookXml.includes(`name="${sheet}"`), `anchor XLSX contains ${sheet} sheet`);
@@ -1945,10 +1972,6 @@ assert.ok(anchorWorkbookText.includes('複核人員') && anchorWorkbookText.incl
 assertCalculationContentProfile(anchorWorkbookText, 'traceable-calculation-book', 'anchor XLSX artifact');
 assert.equal(anchorEvidence.documentState, 'ready', 'anchor summary records ready document state');
 
-const anchorForbiddenNeedles = [...DEFAULT_FORBIDDEN,
-  '本工具計算結果僅供工程判讀、方案比較與報表整理輔助',
-  '使用邊界 / 簽證責任',
-];
 for (const needle of anchorForbiddenNeedles) {
   assert.equal(anchorHtmlText.includes(needle), false, `anchor HTML excludes page-only status: ${needle}`);
   assert.equal(anchorDocxText.includes(needle), false, `anchor DOCX excludes page-only status: ${needle}`);
@@ -2650,8 +2673,23 @@ assert.equal(new Set(xlsxPackageIntegrityRecords.map(record => record.key)).size
 assert.equal(xlsxPackageIntegrity.complete, xlsxPackageIntegrity.required, 'release rendered evidence verifies the formal XLSX package');
 assert.equal(xlsxPackageIntegrity.issueCount, 0, 'release rendered evidence formal XLSX package contains no hidden, external, active, or formula-cache contamination');
 assert.equal(xlsxPackageIntegrity.pass, true, 'release rendered evidence passes formal XLSX package integrity');
+const xlsxPrintVisual = {
+  schemaVersion: 1,
+  scope: 'formal-xlsx-microsoft-excel-pdf-visual-print',
+  required: 1,
+  complete: anchorXlsxPrintVisual.pass ? 1 : 0,
+  sheetRequired: 9,
+  sheetComplete: anchorXlsxPrintVisual.sheetComplete,
+  issueCount: anchorXlsxPrintVisual.issueCount,
+  pass: anchorXlsxPrintVisual.pass && anchorXlsxPrintVisual.sheetComplete === 9,
+  records: [anchorXlsxPrintVisual],
+};
+assert.equal(xlsxPrintVisual.complete, xlsxPrintVisual.required, 'release rendered evidence verifies the formal XLSX Office print artifact');
+assert.equal(xlsxPrintVisual.sheetComplete, xlsxPrintVisual.sheetRequired, 'release rendered evidence verifies every XLSX worksheet PDF');
+assert.equal(xlsxPrintVisual.issueCount, 0, 'release rendered evidence formal XLSX Office print has no clipping, blank-page, or overflow issues');
+assert.equal(xlsxPrintVisual.pass, true, 'release rendered evidence passes formal XLSX Office print visual integrity');
 const aggregate = {
-  schemaVersion: 23,
+  schemaVersion: 24,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),
@@ -2660,13 +2698,14 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && docxPackageIntegrity.pass && xlsxPackageIntegrity.pass && formalResultReconciliation.pass && formalHtmlContentSeal.pass && formalHtmlApprovalSeal.pass && steelHtmlContentSeal.pass && steelHtmlApprovalSeal.pass && anchorHtmlContentSeal.pass && anchorHtmlApprovalSeal.pass && localQuickResultReconciliation.pass && rcResultReconciliation.pass && rcSourceReportPackage.pass && rcStandaloneFormalHtmlPrint.pass && rcFormalHtmlContentSeal.pass && rcFormalHtmlApprovalSeal.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && docxPackageIntegrity.pass && xlsxPackageIntegrity.pass && xlsxPrintVisual.pass && formalResultReconciliation.pass && formalHtmlContentSeal.pass && formalHtmlApprovalSeal.pass && steelHtmlContentSeal.pass && steelHtmlApprovalSeal.pass && anchorHtmlContentSeal.pass && anchorHtmlApprovalSeal.pass && localQuickResultReconciliation.pass && rcResultReconciliation.pass && rcSourceReportPackage.pass && rcStandaloneFormalHtmlPrint.pass && rcFormalHtmlContentSeal.pass && rcFormalHtmlApprovalSeal.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
   attachmentIntegrity,
   mixedArtifactIntegrity,
   rcVisualArtifactIntegrity,
   canonicalArtifactIntegrity,
   docxPackageIntegrity,
   xlsxPackageIntegrity,
+  xlsxPrintVisual,
   formalResultReconciliation,
   formalHtmlContentSeal,
   formalHtmlApprovalSeal,
@@ -2691,4 +2730,4 @@ const aggregate = {
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, docxPackageIntegrity=${docxPackageIntegrity.complete}/${docxPackageIntegrity.required}, xlsxPackageIntegrity=${xlsxPackageIntegrity.complete}/${xlsxPackageIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, formalHtmlContentSeal=${formalHtmlContentSeal.complete}/${formalHtmlContentSeal.required}, formalHtmlApprovalSeal=${formalHtmlApprovalSeal.complete}/${formalHtmlApprovalSeal.required}, steelHtmlContentSeal=${steelHtmlContentSeal.complete}/${steelHtmlContentSeal.required}, steelHtmlApprovalSeal=${steelHtmlApprovalSeal.complete}/${steelHtmlApprovalSeal.required}, anchorHtmlContentSeal=${anchorHtmlContentSeal.complete}/${anchorHtmlContentSeal.required}, anchorHtmlApprovalSeal=${anchorHtmlApprovalSeal.complete}/${anchorHtmlApprovalSeal.required}, localQuickResultReconciliation=${localQuickResultReconciliation.complete}/${localQuickResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, rcSourceReportPackage=${rcSourceReportPackage.complete}/${rcSourceReportPackage.required}, rcStandaloneFormalHtmlPrint=${rcStandaloneFormalHtmlPrint.complete}/${rcStandaloneFormalHtmlPrint.required}, rcFormalHtmlContentSeal=${rcFormalHtmlContentSeal.complete}/${rcFormalHtmlContentSeal.required}, rcFormalHtmlApprovalSeal=${rcFormalHtmlApprovalSeal.complete}/${rcFormalHtmlApprovalSeal.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, docxPackageIntegrity=${docxPackageIntegrity.complete}/${docxPackageIntegrity.required}, xlsxPackageIntegrity=${xlsxPackageIntegrity.complete}/${xlsxPackageIntegrity.required}, xlsxPrintVisual=${xlsxPrintVisual.complete}/${xlsxPrintVisual.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, formalHtmlContentSeal=${formalHtmlContentSeal.complete}/${formalHtmlContentSeal.required}, formalHtmlApprovalSeal=${formalHtmlApprovalSeal.complete}/${formalHtmlApprovalSeal.required}, steelHtmlContentSeal=${steelHtmlContentSeal.complete}/${steelHtmlContentSeal.required}, steelHtmlApprovalSeal=${steelHtmlApprovalSeal.complete}/${steelHtmlApprovalSeal.required}, anchorHtmlContentSeal=${anchorHtmlContentSeal.complete}/${anchorHtmlContentSeal.required}, anchorHtmlApprovalSeal=${anchorHtmlApprovalSeal.complete}/${anchorHtmlApprovalSeal.required}, localQuickResultReconciliation=${localQuickResultReconciliation.complete}/${localQuickResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, rcSourceReportPackage=${rcSourceReportPackage.complete}/${rcSourceReportPackage.required}, rcStandaloneFormalHtmlPrint=${rcStandaloneFormalHtmlPrint.complete}/${rcStandaloneFormalHtmlPrint.required}, rcFormalHtmlContentSeal=${rcFormalHtmlContentSeal.complete}/${rcFormalHtmlContentSeal.required}, rcFormalHtmlApprovalSeal=${rcFormalHtmlApprovalSeal.complete}/${rcFormalHtmlApprovalSeal.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);

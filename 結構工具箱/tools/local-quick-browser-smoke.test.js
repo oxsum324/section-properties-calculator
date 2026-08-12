@@ -1562,6 +1562,9 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload) {
     );
     assert.ok(state.reportReadinessStatusMeta.includes('Word 乾淨封裝 4 / 4'), `${label} new home report readiness DOCX package integrity metric`);
     assert.ok(state.reportReadinessStatusMeta.includes('Excel 乾淨封裝 1 / 1'), `${label} new home report readiness XLSX package integrity metric`);
+    if (Number.isInteger(state.reportReadinessStatus.xlsxPrintVisualSheetRequired)) {
+      assert.ok(state.reportReadinessStatusMeta.includes('Excel 列印成品 9 / 9'), `${label} new home report readiness XLSX Office print visual metric`);
+    }
     assert.ok(state.reportReadinessStatusText.includes('風力 / 地震正式工具') && state.reportReadinessStatusText.includes('局部快算'), `${label} new home report text scope`);
   }
   assert.ok(state.rcBeamMeta.includes('報告邊界'), `${label} new home RC beam exposes report boundary chip`);

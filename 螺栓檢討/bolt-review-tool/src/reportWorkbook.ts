@@ -188,6 +188,41 @@ function getColumnLetter(columnNumber: number) {
   return columnName
 }
 
+function configureWorksheetPrint(worksheet: ExcelJS.Worksheet) {
+  const lastColumn = getColumnLetter(Math.max(1, worksheet.columnCount))
+  const lastRow = Math.max(1, worksheet.rowCount)
+  const isWideTable = worksheet.columnCount >= 7
+
+  worksheet.pageSetup = {
+    paperSize: 9,
+    orientation: isWideTable ? 'landscape' : 'portrait',
+    fitToPage: true,
+    fitToWidth: 1,
+    // 0 means automatic page height: keep one page wide without shrinking a
+    // long engineering table into unreadable text.
+    fitToHeight: 0,
+    pageOrder: 'downThenOver',
+    blackAndWhite: false,
+    draft: false,
+    cellComments: 'None',
+    errors: 'displayed',
+    showRowColHeaders: false,
+    showGridLines: false,
+    horizontalCentered: true,
+    verticalCentered: false,
+    printArea: `A1:${lastColumn}${lastRow}`,
+    printTitlesRow: '1:1',
+    margins: {
+      left: 0.35,
+      right: 0.35,
+      top: 0.5,
+      bottom: 0.5,
+      header: 0.2,
+      footer: 0.2,
+    },
+  }
+}
+
 function autosizeWorksheet(worksheet: ExcelJS.Worksheet, rows: WorkbookRow[]) {
   const headers = rows.length > 0 ? Object.keys(rows[0]) : []
   worksheet.columns = headers.map((header) => ({
@@ -367,6 +402,7 @@ function appendSheet(
   const worksheet = workbook.addWorksheet(name)
   autosizeWorksheet(worksheet, rows)
   styleWorksheet(worksheet, rows, options)
+  configureWorksheetPrint(worksheet)
 }
 
 export function buildSummaryRows(params: ReportArtifactParams): ReportTableRow[] {

@@ -50,6 +50,9 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/tools/docx-package-integrity.test.js',
   '結構工具箱/tools/xlsx-package-integrity.js',
   '結構工具箱/tools/xlsx-package-integrity.test.js',
+  '結構工具箱/tools/xlsx-print-export.py',
+  '結構工具箱/tools/xlsx-print-visual.js',
+  '結構工具箱/tools/xlsx-print-visual.test.js',
 ]);
 
 const PRIVATE_PREFIXES = [

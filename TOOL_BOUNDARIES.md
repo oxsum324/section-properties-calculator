@@ -159,6 +159,8 @@ Schema v22 新增正式 Word 附件乾淨封裝：`結構工具箱/tools/docx-pa
 
 Schema v23 新增正式 Excel 附件乾淨封裝：`結構工具箱/tools/xlsx-package-integrity.js` 依 OOXML 關聯、工作簿清冊與 worksheet 儲存格驗證錨栓當輪 XLSX，`結構工具箱/tools/xlsx-package-integrity.test.js` 固定驗證乾淨公式正例及隱藏／外部／主動內容污染反例，正式放行要求 `1/1`。外部關聯、外部公式或連線、公式錯誤／缺少快取結果、隱藏工作表／活頁簿視窗／名稱／列／欄、批註、嵌入物件、ActiveX、巨集、孤兒 worksheet／媒體／圖形及非預期 custom XML 均須失敗關閉；正常內部公式、凍結標題、篩選器、樣式及列印設定可接受。詳細工作表、公式與零件清冊只留在私人 release 證據；Pages 只公開完成數。
 
+Schema v24 新增正式 Excel 列印成品：`結構工具箱/tools/xlsx-print-export.py` 使用獨立 Microsoft Excel 程序，在停用外部連結更新、巨集與事件的狀態下唯讀逐張輸出實際 XLSX；`結構工具箱/tools/xlsx-print-visual.js` 不信任產製器摘要，會重新核對來源與 PDF 雜湊、A4、橫直向、單頁寬、自動頁高、列印範圍、續頁表頭、文字層、頁面像素與裁切，`結構工具箱/tools/xlsx-print-visual.test.js` 固定驗證安全列印設定正例與 Letter／缺表頭／橫向溢出等反例。錨栓當輪活頁簿須 `1/1`、工作表 `9/9`，且橫向溢出頁為零。產製器必須先把設定寫入使用者收到的 XLSX，稽核器不得另存修改版冒充原交付品；Office 摘要、工作表名稱、PDF、逐頁指標與雜湊均不得發布至 Pages。
+
 錨栓雙封印亦屬日常案件組包的必要語意檢查，不只存在 release 證據。`attachment-package-check.js` 必須以獨立檢查器重算正式 HTML 的內容與核可封印；舊版缺封印為 review，封印或 scope 不符為 blocked。v3 事後驗證會重新解析包內附件並套用相同判定，因此同步改寫附件、檔案雜湊、清單與附件包指紋仍不得掩蓋正文或核可資料竄改。
 
 v3 事後驗證的正向證據必須保存於記憶體回傳結果：摘要只顯示 HTML 雙封印完成數／應驗數，逐份紀錄只顯示 `anchor`、`rc` 或 `formal` 家族及內容／核可封印的 `verified`／異常狀態，不得輸出封印值、scope 或正規化正文。正式附件包管理器只能呈現這份既有自我驗證證據，不得另行改判；所有顯示仍屬內部交付確認，不得寫入附件包或計算書。
