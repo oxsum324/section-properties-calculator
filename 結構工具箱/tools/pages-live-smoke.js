@@ -581,6 +581,7 @@ async function main() {
   );
   assert.ok(reportReadinessStatus.deliveryFileIntegrityBreakdown.every(item => item.pass && item.issueCount === 0), 'report readiness delivery integrity groups pass');
   const deliveryFileIntegrityJson = JSON.stringify(reportReadinessStatus.deliveryFileIntegrityBreakdown);
+  const reportReadinessJson = JSON.stringify(reportReadinessStatus);
   assert.equal(/sha256|artifact|filename|bytes/i.test(deliveryFileIntegrityJson), false, 'report readiness redacted delivery integrity omits private artifact evidence');
   assert.equal(/canonicalArtifactIntegrity|rcVisualArtifactIntegrity|mixedArtifactIntegrity/.test(JSON.stringify(reportReadinessStatus)), false, 'report readiness does not publish private aggregate property names');
   assert.equal(reportReadinessStatus.docxPackageIntegrityRequired, 4, 'report readiness expects 4 formal DOCX package checks');
@@ -592,7 +593,6 @@ async function main() {
   assert.equal(reportReadinessStatus.formalResultReconciliationComplete, reportReadinessStatus.formalResultReconciliationRequired, 'report readiness completes every formal result reconciliation');
   assert.equal(reportReadinessStatus.formalResultReconciliationIssueCount, 0, 'report readiness formal result reconciliation issues empty');
   assert.equal(reportReadinessStatus.formalResultReconciliationPass, true, 'report readiness formal result reconciliation passes');
-  const reportReadinessJson = JSON.stringify(reportReadinessStatus);
   assert.equal(reportReadinessJson.includes('"formalResultReconciliation":'), false, 'report readiness omits the private reconciliation aggregate');
   assert.equal(/formal-golden-result-to-report-fingerprint|goldenCase|calculationFingerprint/.test(reportReadinessJson), false, 'report readiness omits private reconciliation scope, case identity and fingerprints');
   assert.equal(reportReadinessStatus.rcResultReconciliationRequired, 34, 'report readiness expects 34 RC design and retrofit result reconciliations');
