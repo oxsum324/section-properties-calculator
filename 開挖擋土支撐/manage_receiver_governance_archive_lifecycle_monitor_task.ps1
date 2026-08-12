@@ -16,6 +16,8 @@
   [string]$DashboardStatusPath,
   [string]$DashboardHistoryPath,
   [string]$DashboardTaskStatusPath,
+  [ValidatePattern("^GMI-[0-9A-F]{20}$")]
+  [string]$ConfirmedConfigurationFingerprint,
   [Nullable[int]]$CurrentMonitorExitCode,
   [switch]$NoAlert
 )
@@ -51,6 +53,37 @@ function Test-PathInside([string]$Parent, [string]$Candidate) {
   $parentFull = [IO.Path]::GetFullPath($Parent).TrimEnd('\') + '\'
   $candidateFull = [IO.Path]::GetFullPath($Candidate).TrimEnd('\') + '\'
   return $candidateFull.StartsWith($parentFull, [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Get-ConfigurationFingerprint {
+  param(
+    [string]$ResolvedSourceRoot,
+    [string]$ResolvedStateDirectory,
+    [string]$ResolvedOpenSslPath
+  )
+  $payload = [ordered]@{
+    schemaVersion = 1
+    taskName = $TaskName
+    sourceRoot = $ResolvedSourceRoot
+    stateDirectory = $ResolvedStateDirectory
+    dailyAt = $DailyAt
+    upcomingDays = $UpcomingDays
+    maxDepth = $MaxDepth
+    maxAgeHours = $MaxAgeHours
+    openSslPath = if ($ResolvedOpenSslPath) { $ResolvedOpenSslPath } else { $null }
+    dashboardStatusPath = [IO.Path]::GetFullPath($DashboardStatusPath)
+    dashboardHistoryPath = [IO.Path]::GetFullPath($DashboardHistoryPath)
+    dashboardTaskStatusPath = [IO.Path]::GetFullPath($DashboardTaskStatusPath)
+    alertsEnabled = -not [bool]$NoAlert
+  }
+  $bytes = [Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Compress))
+  $sha = [Security.Cryptography.SHA256]::Create()
+  try {
+    $hex = ([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-', '')
+  } finally {
+    $sha.Dispose()
+  }
+  return "GMI-$($hex.Substring(0, 20))"
 }
 
 function Write-AtomicJsonFile([string]$Path, $Payload) {
@@ -117,6 +150,11 @@ if ($Mode -in @("Install", "Preview")) {
   $toolRepository = Split-Path -Parent $root
   if ((Test-PathInside $SourceRoot $StateDirectory) -or (Test-PathInside $StateDirectory $SourceRoot)) { throw "StateDirectory must be completely separate from SourceRoot." }
   if (Test-PathInside $toolRepository $StateDirectory) { throw "StateDirectory must not be inside the tool repository." }
+  $resolvedOpenSslPath = if ($OpenSslPath) { [IO.Path]::GetFullPath($OpenSslPath) } else { $null }
+  $configurationFingerprint = Get-ConfigurationFingerprint -ResolvedSourceRoot $SourceRoot -ResolvedStateDirectory $StateDirectory -ResolvedOpenSslPath $resolvedOpenSslPath
+  if ($Mode -eq "Install" -and -not [string]::Equals($ConfirmedConfigurationFingerprint, $configurationFingerprint, [StringComparison]::Ordinal)) {
+    throw "Install requires the exact configuration fingerprint returned by Preview. Review the draft and explicitly confirm the unchanged configuration before registration."
+  }
 
   $runArgs = @(
     "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
@@ -265,6 +303,13 @@ if ($Mode -eq "Preview") {
   $snapshot["preview"] = $true
   $snapshot["installed"] = $false
   $snapshot["state"] = "Preview"
+  $snapshot["configurationFingerprint"] = $configurationFingerprint
+  $snapshot["confirmationRequired"] = $true
+  $snapshot["previewSideEffects"] = [ordered]@{
+    sourceScanExecuted = $false
+    monitorStateWritten = $false
+    taskRegistered = $false
+  }
 }
 
 $expectedStateDirectoryMatches = $true

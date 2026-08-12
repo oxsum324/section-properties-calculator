@@ -4,11 +4,20 @@
 
 ## 日常入口
 
-- `安裝多案件外部歸檔生命週期每日監測.bat`：選擇 GSC 案件群根目錄與完全分離的專用狀態資料夾，先實際執行一次完整掃描，成功後才建立目前 Windows 使用者的每日 09:00 工作排程。
+- `安裝多案件外部歸檔生命週期每日監測.bat`：啟動案件導入精靈。選擇 GSC 案件群根目錄與完全分離的專用狀態資料夾後，先做唯讀完整預掃並顯示去識別計數、排程時間、提醒設定與 `GMI-...` 設定指紋。預覽不寫入 GSM 狀態、不註冊排程；必須勾選核可方塊，才會用同一設定指紋重新完整掃描並建立目前 Windows 使用者的每日 09:00 工作排程。取消或關閉視窗均不建立排程。
 - `檢查多案件外部歸檔生命週期監測排程.bat`：檢查排程是否存在、啟用、仍指向目前工具，以及最近執行資訊。若從排程參數可安全取得狀態資料夾，也會驗證 GSM 狀態、事件鏈與預設 36 小時新鮮度。
 - `移除多案件外部歸檔生命週期每日監測.bat`：只移除工作排程，不刪除狀態資料夾、事件或任何 GSC。
 
 排程採目前登入帳號的互動權杖、有限權限、`StartWhenAvailable` 與 `IgnoreNew`：電腦休眠錯過時間後可補跑；上一輪尚未完成時不重疊啟動。動作固定安裝當下 Windows PowerShell 與目前監測腳本的絕對路徑，Status 會重新核對，避免以同名程式或相似參數冒充。通知必須有互動登入工作階段才可顯示，監測與事件記錄本身不依賴通知成功。
+
+## 案件導入草稿與核可
+
+案件導入不是正式附件核可。它只表示使用者核對了本機監測來源、狀態資料夾與排程設定，並同意建立維運排程。精靈分成兩個不可混用的階段：
+
+1. `Preview` 先由工作排程管理器驗證實體路徑、來源／狀態分離及有限權限排程定義，再直接從來源做一次唯讀 GSC 完整重驗。畫面只顯示狀態與數量，不把案件名稱、絕對路徑或證據指紋寫入預覽 JSON。
+2. `Install` 必須攜帶 Preview 對完整設定產生的 `GMI-...` 指紋。時間、路徑、提醒、掃描深度、新鮮度或輸出位置任一項改變，指紋即不相符，安裝會在來源寫入與排程註冊前失敗。
+
+畫面的「核可並安裝」預設停用，只有勾選「我已核對來源、狀態資料夾與排程設定」才可執行。取消結果固定回報 `taskInstalled=false` 與 `monitorStateWritten=false`；若已完成預覽才取消，`sourceScanExecuted=true` 會如實保留唯讀掃描已發生的事實。唯讀預掃若顯示無 GSC、無效包、應重驗或 blocked，仍須先回到案件資料確認；核可方塊不能把異常資料改成合格，也不能把內部治理排程變成計算書附件核可。
 
 ## 狀態與通知節流
 
@@ -73,18 +82,18 @@ powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass `
   -MaxAgeHours 36
 ```
 
-若需改時間或無桌面警示，可直接執行管理入口：
+若需改時間、無桌面警示或以受控腳本導入，先取得導入草稿：
 
 ```powershell
-.\manage_receiver_governance_archive_lifecycle_monitor_task.ps1 `
-  -Mode Install `
+.\onboard_receiver_governance_archive_lifecycle_monitor.ps1 `
+  -Mode Preview `
   -SourceRoot "D:\案件群" `
   -StateDirectory "E:\受控治理監測\案件群-GSM" `
   -DailyAt "07:30" `
   -NoAlert
 ```
 
-維護或自動測試可把 `-Mode Install` 改為 `-Mode Preview`。Preview 會建立並檢查同一份 ScheduledTask 定義，但不執行來源掃描、不註冊工作，也不修改狀態資料夾。
+確認輸出的唯讀掃描摘要與 `configurationFingerprint` 後，再以完全相同的參數執行 `-Mode Install -ConfirmedConfigurationFingerprint "GMI-..."`。安裝入口會重做預覽；若任何設定已改變，拒絕註冊。底層 `manage_receiver_governance_archive_lifecycle_monitor_task.ps1 -Mode Preview` 只建立並檢查 ScheduledTask 草稿，不掃描來源、不註冊工作、不修改狀態資料夾；直接呼叫其 `Install` 同樣必須提供該 Preview 的設定指紋，不能繞過確認。
 
 `-AsOf` 僅供測試或稽核重演；正式排程不設定該參數，必須使用實際執行時間判斷期限與新鮮度。
 

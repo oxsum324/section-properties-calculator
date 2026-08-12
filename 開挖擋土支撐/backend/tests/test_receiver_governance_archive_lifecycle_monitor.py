@@ -272,7 +272,96 @@ class ReceiverGovernanceArchiveLifecycleMonitorTests(unittest.TestCase):
             self.assertTrue(preview_result["preview"])
             self.assertFalse(preview_result["installed"])
             self.assertTrue(preview_result["configurationMatchesCurrentTool"])
+            self.assertRegex(preview_result["configurationFingerprint"], r"^GMI-[0-9A-F]{20}$")
+            self.assertTrue(preview_result["confirmationRequired"])
+            self.assertEqual(preview_result["previewSideEffects"], {
+                "sourceScanExecuted": False,
+                "monitorStateWritten": False,
+                "taskRegistered": False,
+            })
             self.assertFalse(preview_task_dashboard_path.exists())
+            repeated_preview = subprocess.run(
+                [
+                    "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(task_manager),
+                    "-Mode", "Preview", "-TaskName", "Codex-GSM-monitor-preview",
+                    "-SourceRoot", str(self.source), "-StateDirectory", str(self.state),
+                    "-DailyAt", "07:30", "-OpenSslPath", str(self.openssl), "-NoAlert",
+                    "-DashboardStatusPath", str(windows_dashboard_status),
+                    "-DashboardHistoryPath", str(windows_dashboard_history),
+                    "-DashboardTaskStatusPath", str(preview_task_dashboard_path),
+                ],
+                cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, encoding="utf-8", check=False,
+            )
+            self.assertEqual(repeated_preview.returncode, 0, repeated_preview.stderr + repeated_preview.stdout)
+            self.assertEqual(json.loads(repeated_preview.stdout)["configurationFingerprint"], preview_result["configurationFingerprint"])
+            changed_preview = subprocess.run(
+                [
+                    "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(task_manager),
+                    "-Mode", "Preview", "-TaskName", "Codex-GSM-monitor-preview",
+                    "-SourceRoot", str(self.source), "-StateDirectory", str(self.state),
+                    "-DailyAt", "07:31", "-OpenSslPath", str(self.openssl), "-NoAlert",
+                    "-DashboardStatusPath", str(windows_dashboard_status),
+                    "-DashboardHistoryPath", str(windows_dashboard_history),
+                    "-DashboardTaskStatusPath", str(preview_task_dashboard_path),
+                ],
+                cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, encoding="utf-8", check=False,
+            )
+            self.assertEqual(changed_preview.returncode, 0, changed_preview.stderr + changed_preview.stdout)
+            self.assertNotEqual(json.loads(changed_preview.stdout)["configurationFingerprint"], preview_result["configurationFingerprint"])
+            rejected_install = subprocess.run(
+                [
+                    "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(task_manager),
+                    "-Mode", "Install", "-TaskName", "Codex-GSM-monitor-install-reject",
+                    "-SourceRoot", str(self.source), "-StateDirectory", str(self.state),
+                    "-DailyAt", "07:30", "-OpenSslPath", str(self.openssl), "-NoAlert",
+                    "-DashboardStatusPath", str(windows_dashboard_status),
+                    "-DashboardHistoryPath", str(windows_dashboard_history),
+                    "-DashboardTaskStatusPath", str(preview_task_dashboard_path),
+                ],
+                cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, encoding="utf-8", check=False,
+            )
+            self.assertEqual(rejected_install.returncode, 1)
+            self.assertIn("exact configuration fingerprint returned by Preview", rejected_install.stderr + rejected_install.stdout)
+
+            onboarding = Path(__file__).resolve().parents[2] / "onboard_receiver_governance_archive_lifecycle_monitor.ps1"
+            state_entries_before = sorted(path.name for path in self.state.iterdir())
+            onboarding_preview = subprocess.run(
+                [
+                    "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(onboarding),
+                    "-Mode", "Preview", "-TaskName", "Codex-GSM-onboarding-preview",
+                    "-SourceRoot", str(self.source), "-StateDirectory", str(self.state),
+                    "-DailyAt", "07:30", "-OpenSslPath", str(self.openssl), "-NoAlert",
+                    "-DashboardStatusPath", str(windows_dashboard_status),
+                    "-DashboardHistoryPath", str(windows_dashboard_history),
+                    "-DashboardTaskStatusPath", str(preview_task_dashboard_path),
+                ],
+                cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, encoding="utf-8", check=False,
+            )
+            self.assertEqual(onboarding_preview.returncode, 0, onboarding_preview.stderr + onboarding_preview.stdout)
+            onboarding_result = json.loads(onboarding_preview.stdout)
+            self.assertEqual(onboarding_result["kind"], "governance-external-archive-lifecycle-monitor-onboarding-preview")
+            self.assertEqual(onboarding_result["outcome"], "preview-ready")
+            self.assertFalse(onboarding_result["taskInstalled"])
+            self.assertTrue(onboarding_result["previewSideEffects"]["readOnlySourceScanExecuted"])
+            self.assertFalse(onboarding_result["previewSideEffects"]["monitorStateWritten"])
+            self.assertFalse(onboarding_result["previewSideEffects"]["taskRegistered"])
+            self.assertGreaterEqual(onboarding_result["scan"]["candidatePackageCount"], 1)
+            self.assertNotIn(str(self.source), json.dumps(onboarding_result, ensure_ascii=False))
+            self.assertNotIn(str(self.state), json.dumps(onboarding_result, ensure_ascii=False))
+            self.assertEqual(sorted(path.name for path in self.state.iterdir()), state_entries_before)
+            onboarding_cancel = subprocess.run(
+                [
+                    "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(onboarding),
+                    "-Mode", "Cancel",
+                ],
+                cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, encoding="utf-8", check=False,
+            )
+            self.assertEqual(onboarding_cancel.returncode, 0, onboarding_cancel.stderr + onboarding_cancel.stdout)
+            cancelled_result = json.loads(onboarding_cancel.stdout)
+            self.assertEqual(cancelled_result["outcome"], "cancelled")
+            self.assertFalse(cancelled_result["taskInstalled"])
+            self.assertFalse(cancelled_result["sourceScanExecuted"])
+            self.assertFalse(cancelled_result["monitorStateWritten"])
             rejected_preview = subprocess.run(
                 [
                     "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(task_manager),

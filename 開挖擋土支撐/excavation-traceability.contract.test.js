@@ -146,6 +146,7 @@ const receiverGovernanceArchiveLifecycleMonitor = readUtf8('backend/receiver_gov
 const receiverGovernanceArchiveLifecycleMonitorTests = readUtf8('backend/tests/test_receiver_governance_archive_lifecycle_monitor.py');
 const receiverGovernanceArchiveLifecycleMonitorLauncher = readUtf8('receiver_governance_archive_lifecycle_monitor.ps1');
 const receiverGovernanceArchiveLifecycleMonitorTaskManager = readUtf8('manage_receiver_governance_archive_lifecycle_monitor_task.ps1');
+const receiverGovernanceArchiveLifecycleMonitorOnboarding = readUtf8('onboard_receiver_governance_archive_lifecycle_monitor.ps1');
 const receiverGovernanceArchiveLifecycleMonitorInstallBatch = readUtf8('安裝多案件外部歸檔生命週期每日監測.bat');
 const receiverGovernanceArchiveLifecycleMonitorStatusBatch = readUtf8('檢查多案件外部歸檔生命週期監測排程.bat');
 const receiverGovernanceArchiveLifecycleMonitorRemoveBatch = readUtf8('移除多案件外部歸檔生命週期每日監測.bat');
@@ -185,7 +186,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.44.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.45.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -1459,10 +1460,37 @@ assert(receiverGovernanceArchiveLifecycleMonitorLauncher.includes('status = "unt
   'Dashboard output directory chain must be physical.',
   'containsTaskName = $false',
   'monitorStateFresh',
+  'ConfirmedConfigurationFingerprint',
+  'Get-ConfigurationFingerprint',
+  'Install requires the exact configuration fingerprint returned by Preview.',
+  'confirmationRequired',
+  'sourceScanExecuted = $false',
+  'monitorStateWritten = $false',
+  'taskRegistered = $false',
 ].forEach((needle) => {
   assert(receiverGovernanceArchiveLifecycleMonitorTaskManager.includes(needle), `excavation lifecycle monitor task manager keeps ${needle}`, needle);
 });
-assert(receiverGovernanceArchiveLifecycleMonitorInstallBatch.includes('-Mode Install'), 'excavation lifecycle monitor install batch selects Install', '-Mode Install');
+[
+  '[ValidateSet("Interactive", "Preview", "Install", "Cancel")]',
+  'governance-external-archive-lifecycle-monitor-onboarding-preview',
+  'Invoke-ReadOnlyPortfolioScan',
+  'readOnlySourceScanExecuted = $true',
+  'Install requires explicit confirmation of the exact onboarding preview fingerprint.',
+  '我已核對來源、狀態資料夾與排程設定',
+  '$install.Enabled = $false',
+  '$confirm.Add_CheckedChanged',
+  '取消，不建立',
+  'New-CancelledResult([bool]$SourceScanExecuted = $false)',
+  'New-CancelledResult $true',
+  'containsPaths = $false',
+  'formalCalculationAttachment = $false',
+  'pagesPublication = $false',
+].forEach((needle) => {
+  assert(receiverGovernanceArchiveLifecycleMonitorOnboarding.includes(needle), `excavation lifecycle monitor onboarding keeps ${needle}`, needle);
+});
+assert(receiverGovernanceArchiveLifecycleMonitorInstallBatch.includes('onboard_receiver_governance_archive_lifecycle_monitor.ps1'), 'excavation lifecycle monitor install batch delegates to onboarding wizard', 'onboarding wizard');
+assert(receiverGovernanceArchiveLifecycleMonitorInstallBatch.includes('-Mode Interactive'), 'excavation lifecycle monitor install batch starts preview-first interactive mode', '-Mode Interactive');
+assert(!receiverGovernanceArchiveLifecycleMonitorInstallBatch.includes('-Mode Install'), 'excavation lifecycle monitor install batch cannot bypass explicit onboarding confirmation', 'no direct Install');
 assert(receiverGovernanceArchiveLifecycleMonitorStatusBatch.includes('-Mode Status'), 'excavation lifecycle monitor status batch selects Status', '-Mode Status');
 assert(receiverGovernanceArchiveLifecycleMonitorRemoveBatch.includes('-Mode Remove'), 'excavation lifecycle monitor remove batch selects Remove', '-Mode Remove');
 [receiverGovernanceArchiveLifecycleMonitorInstallBatch, receiverGovernanceArchiveLifecycleMonitorStatusBatch, receiverGovernanceArchiveLifecycleMonitorRemoveBatch].forEach((source, index) => {
@@ -1529,6 +1557,16 @@ assert(
   pagesLiveSmoke.includes("'開挖擋土支撐/manage_receiver_governance_archive_lifecycle_monitor_task.ps1'"),
   'excavation lifecycle monitor task manager has a live private-boundary probe',
   'HTTP status must not be 200',
+);
+assert(
+  pagesLiveSmoke.includes("'開挖擋土支撐/onboard_receiver_governance_archive_lifecycle_monitor.ps1'"),
+  'excavation lifecycle monitor onboarding wizard has a live private-boundary probe',
+  'HTTP status must not be 200',
+);
+assert(
+  JSON.stringify(pagesArtifactBuilder.classifyPublishedPath('開挖擋土支撐/onboard_receiver_governance_archive_lifecycle_monitor.ps1')) === JSON.stringify({ publish: false, reason: 'private-source-file' }),
+  'excavation lifecycle monitor onboarding wizard is excluded from Pages artifacts',
+  'private-source-file',
 );
 [
   'test_health_progresses_from_attention_to_overlap_to_complete',
