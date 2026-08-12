@@ -329,6 +329,10 @@ assertIncludes(audit, 'Beam regression and report visual smoke', 'audit runs bea
 assertIncludes(audit, 'Foundation regression and report visual smoke', 'audit runs foundation regression and report visual smoke');
 assertIncludes(audit, 'Column regression and report visual smoke', 'audit runs column regression and report visual smoke');
 assertIncludes(audit, 'Wall regression and report visual smoke', 'audit runs wall regression and report visual smoke');
+assertIncludes(audit, "-match 'net::ERR_NO_BUFFER_SPACE'", 'audit retries only the known browser buffer exhaustion signal');
+assertIncludes(audit, '$transientRetryCount -lt 1', 'audit bounds browser buffer exhaustion retry to one attempt');
+assertIncludes(audit, 'Start-Sleep -Seconds 60', 'audit cools down before the bounded browser retry');
+assertIncludes(audit, '.transient-attempt-', 'audit preserves the first transient failure log');
 assertIncludes(audit, 'Slab regression and report visual smoke', 'audit runs slab regression and report visual smoke');
 assertIncludes(audit, 'Single pile regression and report visual smoke', 'audit runs single pile regression and report visual smoke');
 assertIncludes(audit, 'RC index menu browser smoke', 'audit runs index menu browser smoke');

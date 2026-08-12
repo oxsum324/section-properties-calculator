@@ -1,4 +1,4 @@
-param(
+﻿param(
   [switch]$Quiet,
   [switch]$Loop,
   [int]$IntervalSeconds = 60,
@@ -135,38 +135,51 @@ function Invoke-AuditCommand {
     )
     [System.IO.File]::WriteAllText($scriptPath, ($scriptLines -join [Environment]::NewLine) + [Environment]::NewLine, [System.Text.Encoding]::Unicode)
 
-    $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
-    $processInfo.FileName = "powershell"
-    $processInfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`""
-    $processInfo.WorkingDirectory = $Workdir
-    $processInfo.UseShellExecute = $false
-    $processInfo.RedirectStandardOutput = $true
-    $processInfo.RedirectStandardError = $true
-    $processInfo.CreateNoWindow = $true
+    $transientRetryCount = 0
+    while ($true) {
+      $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
+      $processInfo.FileName = "powershell"
+      $processInfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`""
+      $processInfo.WorkingDirectory = $Workdir
+      $processInfo.UseShellExecute = $false
+      $processInfo.RedirectStandardOutput = $true
+      $processInfo.RedirectStandardError = $true
+      $processInfo.CreateNoWindow = $true
 
-    $process = [System.Diagnostics.Process]::Start($processInfo)
-    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
-    $stderrTask = $process.StandardError.ReadToEndAsync()
-    $timedOut = $false
-    $timeoutMs = [Math]::Max(1, $TimeoutSeconds) * 1000
-    if (-not $process.WaitForExit($timeoutMs)) {
-      $timedOut = $true
-      try {
-        taskkill.exe /PID $process.Id /T /F | Out-Null
-      } catch {
-        try { $process.Kill() } catch {}
+      $process = [System.Diagnostics.Process]::Start($processInfo)
+      $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+      $stderrTask = $process.StandardError.ReadToEndAsync()
+      $timedOut = $false
+      $timeoutMs = [Math]::Max(1, $TimeoutSeconds) * 1000
+      if (-not $process.WaitForExit($timeoutMs)) {
+        $timedOut = $true
+        try {
+          taskkill.exe /PID $process.Id /T /F | Out-Null
+        } catch {
+          try { $process.Kill() } catch {}
+        }
+        try { [void]$process.WaitForExit(5000) } catch {}
       }
-      try { [void]$process.WaitForExit(5000) } catch {}
+      [void]$stdoutTask.Wait(5000)
+      [void]$stderrTask.Wait(5000)
+      $exitCode = if ($timedOut) { 124 } else { $process.ExitCode }
+      $stdout = if ($stdoutTask.IsCompleted) { [string]$stdoutTask.Result } else { "`n[rc-audit] stdout read timed out after process termination.`n" }
+      $stderr = if ($stderrTask.IsCompleted) { [string]$stderrTask.Result } else { "`n[rc-audit] stderr read timed out after process termination.`n" }
+      if ($timedOut) {
+        $stderr = $stderr + "`n[rc-audit] command timed out after $TimeoutSeconds seconds; process tree was terminated. script=$scriptPath`n"
+      }
+      $process.Dispose()
+
+      $attemptOutput = @($stdout, $stderr) -join [Environment]::NewLine
+      $canRetryNoBufferSpace = -not $timedOut -and $exitCode -ne 0 -and $attemptOutput -match 'net::ERR_NO_BUFFER_SPACE' -and $transientRetryCount -lt 1
+      if (-not $canRetryNoBufferSpace) { break }
+
+      $transientRetryCount += 1
+      $attemptLog = Join-Path $RunDir "$safeLabel.transient-attempt-$transientRetryCount.txt"
+      [System.IO.File]::WriteAllText($attemptLog, $attemptOutput, [System.Text.UTF8Encoding]::new($false))
+      Write-Status "[rc-audit] transient browser buffer exhaustion in $Label; retrying once after 60 seconds. attemptLog=$attemptLog" "DarkYellow"
+      Start-Sleep -Seconds 60
     }
-    [void]$stdoutTask.Wait(5000)
-    [void]$stderrTask.Wait(5000)
-    $exitCode = if ($timedOut) { 124 } else { $process.ExitCode }
-    $stdout = if ($stdoutTask.IsCompleted) { [string]$stdoutTask.Result } else { "`n[rc-audit] stdout read timed out after process termination.`n" }
-    $stderr = if ($stderrTask.IsCompleted) { [string]$stderrTask.Result } else { "`n[rc-audit] stderr read timed out after process termination.`n" }
-    if ($timedOut) {
-      $stderr = $stderr + "`n[rc-audit] command timed out after $TimeoutSeconds seconds; process tree was terminated. script=$scriptPath`n"
-    }
-    $process.Dispose()
 
     [System.IO.File]::WriteAllText($stdoutPath, $stdout, [System.Text.UTF8Encoding]::new($false))
     [System.IO.File]::WriteAllText($stderrPath, $stderr, [System.Text.UTF8Encoding]::new($false))
@@ -176,6 +189,7 @@ function Invoke-AuditCommand {
 
     $summaryLines.Add("- ${Label}: log=$latestLog")
     $summaryLines.Add("  exitCode=$exitCode")
+    if ($transientRetryCount -gt 0) { $summaryLines.Add("  transientRetryCount=$transientRetryCount (net::ERR_NO_BUFFER_SPACE)") }
     $auditRecords.Add([pscustomobject]@{
       label = $Label
       log = $latestLog

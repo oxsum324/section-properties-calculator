@@ -243,6 +243,8 @@ node .\tools\rc-project-fingerprint.contract.test.js
 
 ## 維護品質門檻
 
+- 完整 audit 的單一子 gate 若且唯若精確回報 Chromium `net::ERR_NO_BUFFER_SPACE`，會保存首次失敗 log、冷卻 60 秒並完整重跑一次；其他錯誤不重試，第二次仍失敗即停止，不能把重試視為通過或省略任何案例。
+
 新增或重構共用計算核心時，應同時完成：
 
 - 純函式 shared module，不直接依賴 DOM。
