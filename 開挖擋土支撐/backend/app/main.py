@@ -490,6 +490,12 @@ def export_receiver_operator_governance_backup(
             retain_server_copy=payload.retain_server_copy,
             retention_days=payload.retention_days if payload.retain_server_copy else None,
         )
+        observation = _capture_receiver_governance_health(
+            "operator-governance-backup-exported",
+            actor["id"],
+        )
+        if observation is None:
+            raise ValueError("無法在加密備份前記錄目前治理健康快照。")
         backup = build_receiver_operator_governance_backup(
             receiver_operator_store,
             payload.passphrase,
@@ -505,7 +511,6 @@ def export_receiver_operator_governance_backup(
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    _capture_receiver_governance_health("operator-governance-backup-exported", actor["id"])
     return {
         "backup": backup,
         "auditEventFingerprint": audit_event["eventFingerprint"],
@@ -628,7 +633,20 @@ def restore_receiver_operator_governance(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     response.delete_cookie(RECEIVER_SESSION_COOKIE, path="/", samesite="strict")
-    _capture_receiver_governance_health("operator-governance-restored", actor["id"])
+    post_restore_observation = _capture_receiver_governance_health(
+        "operator-governance-restored",
+        restored["recoveryOperatorId"],
+    )
+    restored_history = receiver_operator_store.governance_health_history()
+    restored.update({
+        "postRestoreObservationFingerprint": (
+            post_restore_observation["receiptFingerprint"]
+            if post_restore_observation is not None
+            else None
+        ),
+        "restoredHealthObservationCount": restored_history["observationCount"],
+        "restoredHealthHeadFingerprint": restored_history["headFingerprint"],
+    })
     return restored
 
 

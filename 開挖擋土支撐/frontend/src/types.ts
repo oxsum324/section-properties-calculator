@@ -864,7 +864,7 @@ export type ReceiverOperatorAuditSummary = {
 };
 
 export type ReceiverOperatorGovernanceBackup = {
-  schemaVersion: 1 | 2;
+  schemaVersion: 1 | 2 | 3;
   kind: "receiver-operator-governance-encrypted-backup";
   exportedAt: string;
   encryption: {
@@ -884,6 +884,8 @@ export type ReceiverOperatorGovernanceBackup = {
     backupDispositionClaimCount?: number;
     auditEventCount: number;
     snapshotFingerprint: string;
+    governanceHealthObservationCount?: number;
+    governanceHealthHeadFingerprint?: string | null;
   };
   ciphertextBase64: string;
   backupFingerprint: string;
@@ -899,6 +901,17 @@ export type ReceiverOperatorGovernanceRestorePreview = {
   backupRotationClaimCount: number;
   currentBackupDispositionClaimCount: number;
   backupDispositionClaimCount: number;
+  historyIncludedInBackup: boolean;
+  currentHealthObservationCount: number;
+  backupHealthObservationCount: number;
+  currentHealthHeadFingerprint: string | null;
+  backupHealthHeadFingerprint: string | null;
+  healthHistoryAction:
+    | "replace-from-backup"
+    | "extend-from-backup"
+    | "already-current"
+    | "preserve-local-legacy-backup"
+    | "blocked-nonextending-backup";
   addedUsernames: string[];
   removedUsernames: string[];
   accountChanges: Array<{
@@ -924,6 +937,12 @@ export type ReceiverOperatorGovernanceRestoreResult = {
   backupSnapshotFingerprint: string;
   restoredSnapshotFingerprint: string;
   restoreEventFingerprint: string;
+  recoveryOperatorId: string;
+  historyIncludedInBackup: boolean;
+  historyRestoredFromBackup: boolean;
+  restoredHealthObservationCount: number;
+  restoredHealthHeadFingerprint: string | null;
+  postRestoreObservationFingerprint: string | null;
   safeguardFileName: string;
   safeguardBackupFingerprint: string;
   revokedSessions: number;
@@ -931,6 +950,7 @@ export type ReceiverOperatorGovernanceRestoreResult = {
 };
 
 export type ReceiverOperatorManagedBackup = {
+  backupSchemaVersion: 1 | 2 | 3;
   fileName: string;
   backupFingerprint: string;
   snapshotFingerprint: string;
@@ -942,12 +962,15 @@ export type ReceiverOperatorManagedBackup = {
   activeAdminCount: number;
   auditEventCount: number;
   backupDispositionClaimCount: number;
+  governanceHealthObservationCount: number;
+  governanceHealthHeadFingerprint: string | null;
+  governanceHealthHistoryIncluded: boolean;
   expired: boolean;
   status: "active" | "expired";
 };
 
 export type ReceiverOperatorRecoveryDrillReceipt = {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   kind: "receiver-operator-governance-recovery-drill-receipt";
   performedAt: string;
   backupFingerprint: string;
@@ -955,6 +978,10 @@ export type ReceiverOperatorRecoveryDrillReceipt = {
   operatorCount: number;
   activeAdminCount: number;
   auditEventCount: number;
+  backupSchemaVersion?: 1 | 2 | 3;
+  governanceHealthHistoryIncluded?: boolean;
+  backupHealthObservationCount?: number;
+  backupHealthHeadFingerprint?: string | null;
   backupEnvelopeValidated: true;
   encryptedSnapshotDecrypted: true;
   backupAdminAuthenticated: true;
@@ -963,6 +990,9 @@ export type ReceiverOperatorRecoveryDrillReceipt = {
   isolatedRestoreEventFingerprint: string;
   isolatedRestoredSnapshotFingerprint: string;
   restoredAuditChainValid: true;
+  isolatedRestoredHealthHistoryValid?: true;
+  isolatedRestoredHealthObservationCount?: number;
+  isolatedRestoredHealthHeadFingerprint?: string | null;
   productionSnapshotFingerprintBefore: string;
   productionSnapshotFingerprintAfter: string;
   productionGovernanceUnchangedDuringDrill: true;

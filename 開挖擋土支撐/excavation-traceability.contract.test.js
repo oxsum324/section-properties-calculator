@@ -134,7 +134,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.35.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.36.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -829,6 +829,12 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'Scrypt',
   '_KDF_N = 2**15',
   'receiver_operator_snapshot_fingerprint',
+  'RECEIVER_OPERATOR_BACKUP_PAYLOAD_KIND',
+  'backup_schema_version = 3 if history is not None',
+  'governanceHealthObservationCount',
+  'governanceHealthHeadFingerprint',
+  '_decrypt_receiver_operator_governance_backup_payload',
+  '備份 GHR 歷程不是目前健康收據鏈的相同內容或向前延伸',
   'preview_receiver_operator_governance_restore',
   'restore_receiver_operator_governance_backup',
   'receiver_operator_governance_backups',
@@ -845,6 +851,11 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'test_restore_aborts_when_governance_changes_after_preview',
   'test_restore_rejects_history_rollback_and_identical_snapshot',
   'test_http_backup_restore_requires_admin_csrf_and_logs_out_restored_session',
+  'test_v3_backup_encrypts_governance_health_history_and_binds_summary',
+  'test_v3_restore_recovers_history_and_safeguards_replaced_local_chain',
+  'test_v3_restore_accepts_history_forward_extension_and_rejects_rollback',
+  'test_v3_restore_aborts_if_health_history_changes_after_preview',
+  'test_legacy_v2_restore_preserves_local_health_history',
 ].forEach((needle) => {
   assert(receiverOperatorBackupTests.includes(needle), `excavation receiver operator backup tests keep ${needle}`, needle);
 });
@@ -859,8 +870,14 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'validate_receiver_operator_backup_disposition_receipt',
   'isolated-temporary-sqlite',
   'productionGovernanceUnchangedDuringDrill',
+  'governanceHealthHistoryIncluded',
+  'isolatedRestoredHealthHistoryValid',
+  'isolatedRestoredHealthObservationCount',
+  'isolatedRestoredHealthHeadFingerprint',
   'secureEraseGuaranteed',
   'latest-backup-not-drilled',
+  'latest-backup-missing-governance-health-history',
+  'latest-drill-missing-governance-health-history-proof',
   'explicit-two-person-approved-expired-backup-disposition',
   'ordinaryFilesystemEntryRemovalOnly',
   'otherCopiesMayRemain',
@@ -874,6 +891,7 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
 });
 [
   'test_managed_backup_inventory_tracks_retention_without_exposing_secrets',
+  'test_legacy_managed_backup_is_not_healthy_without_ghr_coverage',
   'test_isolated_drill_uses_real_restore_login_and_keeps_production_unchanged',
   'test_inventory_marks_expiry_and_surfaces_invalid_files',
   'test_failed_drill_writes_no_receipt_and_tampered_receipt_is_rejected',
@@ -933,6 +951,11 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '執行隔離復原演練（不改正式資料）',
   '其他副本仍可能存在',
   '演練與處置收據不保存加密密碼、登入密碼、帳號名稱或伺服器路徑',
+  'v3 備份會把帳號、角色、加鹽密碼驗證值',
+  'GHR 歷程數（目前 → 備份）',
+  'GHR 復原方式',
+  '舊版備份未涵蓋 GHR 歷程',
+  '復原後狀態收據',
 ].forEach((needle) => {
   assert(app.includes(needle), `excavation operator recovery UI keeps ${needle}`, needle);
 });
@@ -1030,6 +1053,9 @@ assert(
   '禁止覆核自己提出的申請',
   '管理員角色不會自動取得治理申請或治理覆核權限',
   '不會寫入 PDF／DOCX 計算書',
+  '加密封包為 schema v3 並納入 GHR',
+  'ROE 稽核鏈及 v3 GHR 歷程都與目前相同或向前延伸',
+  'v1／v2 則保留本機 GHR',
 ].forEach((needle) => {
   assert(receiverKeyManagementGuide.includes(needle), `excavation receiver key rotation guide keeps ${needle}`, needle);
 });

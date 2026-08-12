@@ -140,6 +140,15 @@ def write_managed_receiver_operator_governance_backup(
         "retentionDays": retention_days,
         "retentionUntil": retention_until.isoformat().replace("+00:00", "Z"),
         "fileSha256": _file_sha256(path),
+        "backupSchemaVersion": normalized["schemaVersion"],
+        "governanceHealthObservationCount": normalized["summary"].get(
+            "governanceHealthObservationCount",
+            0,
+        ),
+        "governanceHealthHeadFingerprint": normalized["summary"].get(
+            "governanceHealthHeadFingerprint"
+        ),
+        "governanceHealthHistoryIncluded": normalized["schemaVersion"] == 3,
         "status": "active",
     }
 
@@ -174,9 +183,18 @@ def _managed_backup_item(path: Path, *, now: datetime) -> dict[str, Any]:
         "retentionDays": retention_days,
         "retentionUntil": retention_until.isoformat().replace("+00:00", "Z"),
         "fileSha256": _file_sha256(path),
+        "backupSchemaVersion": normalized["schemaVersion"],
         "operatorCount": normalized["summary"]["operatorCount"],
         "activeAdminCount": normalized["summary"]["activeAdminCount"],
         "auditEventCount": normalized["summary"]["auditEventCount"],
+        "governanceHealthObservationCount": normalized["summary"].get(
+            "governanceHealthObservationCount",
+            0,
+        ),
+        "governanceHealthHeadFingerprint": normalized["summary"].get(
+            "governanceHealthHeadFingerprint"
+        ),
+        "governanceHealthHistoryIncluded": normalized["schemaVersion"] == 3,
         "backupDispositionClaimCount": normalized["summary"].get(
             "backupDispositionClaimCount",
             0,
@@ -195,7 +213,7 @@ def validate_receiver_operator_recovery_drill_receipt(receipt: Any) -> dict[str,
     if not isinstance(receipt, dict):
         raise ValueError("操作員治理復原演練收據必須是 JSON 物件。")
     if (
-        receipt.get("schemaVersion") != 1
+        receipt.get("schemaVersion") not in {1, 2}
         or receipt.get("kind") != RECEIVER_OPERATOR_RECOVERY_DRILL_KIND
     ):
         raise ValueError("操作員治理復原演練收據版本或種類不受支援。")
@@ -220,6 +238,43 @@ def validate_receiver_operator_recovery_drill_receipt(receipt: Any) -> dict[str,
         value = receipt.get(field)
         if not isinstance(value, int) or isinstance(value, bool) or value < 0:
             raise ValueError(f"操作員治理復原演練收據的 {field} 不正確。")
+    if receipt["schemaVersion"] == 2:
+        backup_schema_version = receipt.get("backupSchemaVersion")
+        if backup_schema_version not in {1, 2, 3}:
+            raise ValueError("操作員治理復原演練收據的備份版本不正確。")
+        history_included = receipt.get("governanceHealthHistoryIncluded")
+        if not isinstance(history_included, bool) or history_included != (
+            backup_schema_version == 3
+        ):
+            raise ValueError("操作員治理復原演練收據的歷程涵蓋狀態不正確。")
+        for field in (
+            "backupHealthObservationCount",
+            "isolatedRestoredHealthObservationCount",
+        ):
+            value = receipt.get(field)
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise ValueError(f"操作員治理復原演練收據的 {field} 不正確。")
+        for field, count_field in (
+            ("backupHealthHeadFingerprint", "backupHealthObservationCount"),
+            (
+                "isolatedRestoredHealthHeadFingerprint",
+                "isolatedRestoredHealthObservationCount",
+            ),
+        ):
+            fingerprint = receipt.get(field)
+            count = receipt[count_field]
+            if count == 0:
+                if fingerprint is not None:
+                    raise ValueError("空白治理健康歷程不得宣稱鏈首。")
+            elif not re.fullmatch(r"GHR-[0-9A-F]{20}", str(fingerprint or "")):
+                raise ValueError("操作員治理復原演練收據的 GHR 鏈首格式不正確。")
+        if history_included and (
+            receipt["backupHealthObservationCount"]
+            != receipt["isolatedRestoredHealthObservationCount"]
+            or receipt["backupHealthHeadFingerprint"]
+            != receipt["isolatedRestoredHealthHeadFingerprint"]
+        ):
+            raise ValueError("隔離復原後的治理健康歷程與備份不一致。")
     required_true = (
         "backupEnvelopeValidated",
         "encryptedSnapshotDecrypted",
@@ -228,6 +283,8 @@ def validate_receiver_operator_recovery_drill_receipt(receipt: Any) -> dict[str,
         "restoredAuditChainValid",
         "productionGovernanceUnchangedDuringDrill",
     )
+    if receipt.get("schemaVersion") == 2:
+        required_true = (*required_true, "isolatedRestoredHealthHistoryValid")
     if any(receipt.get(field) is not True for field in required_true):
         raise ValueError("操作員治理復原演練沒有完成全部必要驗證。")
     if receipt.get("restoreTarget") != "isolated-temporary-sqlite":
@@ -286,6 +343,9 @@ def perform_receiver_operator_governance_recovery_drill(
             raise ValueError("隔離復原後的操作員治理稽核鏈驗證失敗。")
         if restored["restoreEventFingerprint"] != audit["events"][0]["eventFingerprint"]:
             raise ValueError("隔離復原事件指紋與稽核鏈不一致。")
+        restored_health_history = temporary_store.governance_health_history()
+        if restored_health_history["chainValid"] is not True:
+            raise ValueError("隔離復原後的治理健康歷程鏈驗證失敗。")
     after_snapshot = store.governance_snapshot()
     after_fingerprint = receiver_operator_snapshot_fingerprint(after_snapshot)
     if before_snapshot != after_snapshot or before_fingerprint != after_fingerprint:
@@ -293,7 +353,7 @@ def perform_receiver_operator_governance_recovery_drill(
     performed_at = performed_at or _now_iso()
     _parse_time(performed_at, "操作員治理復原演練時間")
     receipt: dict[str, Any] = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "kind": RECEIVER_OPERATOR_RECOVERY_DRILL_KIND,
         "performedAt": performed_at,
         "backupFingerprint": normalized["backupFingerprint"],
@@ -301,6 +361,15 @@ def perform_receiver_operator_governance_recovery_drill(
         "operatorCount": normalized["summary"]["operatorCount"],
         "activeAdminCount": normalized["summary"]["activeAdminCount"],
         "auditEventCount": normalized["summary"]["auditEventCount"],
+        "backupSchemaVersion": normalized["schemaVersion"],
+        "governanceHealthHistoryIncluded": normalized["schemaVersion"] == 3,
+        "backupHealthObservationCount": normalized["summary"].get(
+            "governanceHealthObservationCount",
+            0,
+        ),
+        "backupHealthHeadFingerprint": normalized["summary"].get(
+            "governanceHealthHeadFingerprint"
+        ),
         "backupEnvelopeValidated": True,
         "encryptedSnapshotDecrypted": True,
         "backupAdminAuthenticated": True,
@@ -309,6 +378,13 @@ def perform_receiver_operator_governance_recovery_drill(
         "isolatedRestoreEventFingerprint": restored["restoreEventFingerprint"],
         "isolatedRestoredSnapshotFingerprint": restored["restoredSnapshotFingerprint"],
         "restoredAuditChainValid": True,
+        "isolatedRestoredHealthHistoryValid": True,
+        "isolatedRestoredHealthObservationCount": restored_health_history[
+            "observationCount"
+        ],
+        "isolatedRestoredHealthHeadFingerprint": restored_health_history[
+            "headFingerprint"
+        ],
         "productionSnapshotFingerprintBefore": before_fingerprint,
         "productionSnapshotFingerprintAfter": after_fingerprint,
         "productionGovernanceUnchangedDuringDrill": True,
@@ -645,6 +721,11 @@ def list_receiver_operator_governance_recovery_inventory(
     elif not active_items:
         issues.append({"code": "all-managed-backups-expired", "message": "所有受管制本機治理備份均已超過保存期限。"})
     latest_active = active_items[0] if active_items else None
+    if latest_active and not latest_active["governanceHealthHistoryIncluded"]:
+        issues.append({
+            "code": "latest-backup-missing-governance-health-history",
+            "message": "最新有效受管制備份是 v1／v2，未涵蓋 GHR 歷程；請建立並演練新版 v3 備份。",
+        })
     latest_drill = next(
         (
             item for item in drills
@@ -655,6 +736,18 @@ def list_receiver_operator_governance_recovery_inventory(
     if latest_active and latest_drill is None:
         issues.append({"code": "latest-backup-not-drilled", "message": "最新有效受管制備份尚未完成隔離復原演練。"})
     elif latest_drill is not None:
+        if latest_active and latest_active["governanceHealthHistoryIncluded"] and (
+            latest_drill.get("schemaVersion") != 2
+            or latest_drill.get("governanceHealthHistoryIncluded") is not True
+            or latest_drill.get("backupHealthObservationCount")
+            != latest_active["governanceHealthObservationCount"]
+            or latest_drill.get("backupHealthHeadFingerprint")
+            != latest_active["governanceHealthHeadFingerprint"]
+        ):
+            issues.append({
+                "code": "latest-drill-missing-governance-health-history-proof",
+                "message": "最新 v3 備份的演練收據未證明 GHR 筆數與鏈首一致，請重新執行隔離復原演練。",
+            })
         drill_age = (current - _parse_time(latest_drill["performedAt"], "復原演練時間")).total_seconds()
         if drill_age > drill_max_age_days * 86400:
             issues.append({"code": "latest-drill-overdue", "message": f"最新有效備份的復原演練已超過 {drill_max_age_days} 天。"})

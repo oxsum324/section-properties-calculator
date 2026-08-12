@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 from typing import Any
 
@@ -18,6 +19,7 @@ from .receiver_operator_auth import ReceiverOperatorStore
 
 
 RECEIVER_OPERATOR_BACKUP_KIND = "receiver-operator-governance-encrypted-backup"
+RECEIVER_OPERATOR_BACKUP_PAYLOAD_KIND = "receiver-operator-governance-backup-payload"
 _KDF_N = 2**15
 _KDF_R = 8
 _KDF_P = 1
@@ -101,8 +103,14 @@ def _encrypt_snapshot(
     passphrase: str,
     *,
     exported_at: str,
+    health_history: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     snapshot = ReceiverOperatorStore.validate_governance_snapshot(snapshot)
+    history = (
+        ReceiverOperatorStore.validate_governance_health_history(health_history)
+        if health_history is not None
+        else None
+    )
     passphrase = _validate_passphrase(passphrase)
     salt = secrets.token_bytes(16)
     nonce = secrets.token_bytes(12)
@@ -111,6 +119,7 @@ def _encrypt_snapshot(
         for item in snapshot["operators"]
     )
     snapshot_schema_version = snapshot["schemaVersion"]
+    backup_schema_version = 3 if history is not None else snapshot_schema_version
     summary: dict[str, Any] = {
         "operatorCount": len(snapshot["operators"]),
         "activeAdminCount": active_admin_count,
@@ -127,8 +136,19 @@ def _encrypt_snapshot(
                 "backupDispositionClaimCount", "auditEventCount", "snapshotFingerprint",
             )
         }
+    if backup_schema_version == 3:
+        summary["governanceHealthObservationCount"] = history["observationCount"]
+        summary["governanceHealthHeadFingerprint"] = history["headFingerprint"]
+        summary = {
+            key: summary[key]
+            for key in (
+                "operatorCount", "activeAdminCount", "rotationClaimCount",
+                "backupDispositionClaimCount", "auditEventCount", "snapshotFingerprint",
+                "governanceHealthObservationCount", "governanceHealthHeadFingerprint",
+            )
+        }
     backup: dict[str, Any] = {
-        "schemaVersion": snapshot_schema_version,
+        "schemaVersion": backup_schema_version,
         "kind": RECEIVER_OPERATOR_BACKUP_KIND,
         "exportedAt": _parse_exported_at(exported_at),
         "encryption": {
@@ -143,8 +163,20 @@ def _encrypt_snapshot(
         },
         "summary": summary,
     }
+    encrypted_payload: dict[str, Any] = snapshot
+    if history is not None:
+        encrypted_payload = {
+            "schemaVersion": 1,
+            "kind": RECEIVER_OPERATOR_BACKUP_PAYLOAD_KIND,
+            "governanceSnapshot": snapshot,
+            "governanceHealthHistory": history,
+        }
     key = _derive_key(passphrase, salt, n=_KDF_N, r=_KDF_R, p=_KDF_P)
-    ciphertext = AESGCM(key).encrypt(nonce, _canonical_json_bytes(snapshot), _backup_aad(backup))
+    ciphertext = AESGCM(key).encrypt(
+        nonce,
+        _canonical_json_bytes(encrypted_payload),
+        _backup_aad(backup),
+    )
     backup["ciphertextBase64"] = base64.b64encode(ciphertext).decode("ascii")
     backup["backupFingerprint"] = _backup_fingerprint(backup)
     return validate_receiver_operator_backup_envelope(backup)
@@ -160,6 +192,7 @@ def build_receiver_operator_governance_backup(
         store.governance_snapshot(),
         passphrase,
         exported_at=exported_at or _now_iso(),
+        health_history=store.governance_health_history(),
     )
 
 
@@ -167,7 +200,7 @@ def validate_receiver_operator_backup_envelope(backup: Any) -> dict[str, Any]:
     if not isinstance(backup, dict):
         raise ValueError("操作員治理備份必須是 JSON 物件。")
     schema_version = backup.get("schemaVersion")
-    if schema_version not in {1, 2} or backup.get("kind") != RECEIVER_OPERATOR_BACKUP_KIND:
+    if schema_version not in {1, 2, 3} or backup.get("kind") != RECEIVER_OPERATOR_BACKUP_KIND:
         raise ValueError("操作員治理備份版本或種類不受支援。")
     exported_at = _parse_exported_at(backup.get("exportedAt"))
     encryption = backup.get("encryption")
@@ -192,7 +225,7 @@ def validate_receiver_operator_backup_envelope(backup: Any) -> dict[str, Any]:
         raise ValueError("操作員治理備份缺少安全摘要。")
     normalized_summary: dict[str, Any] = {}
     count_fields = ["operatorCount", "activeAdminCount", "rotationClaimCount", "auditEventCount"]
-    if schema_version == 2:
+    if schema_version in {2, 3}:
         count_fields.insert(3, "backupDispositionClaimCount")
     for field in count_fields:
         value = summary.get(field)
@@ -203,6 +236,25 @@ def validate_receiver_operator_backup_envelope(backup: Any) -> dict[str, Any]:
     if not snapshot_fingerprint.startswith("ROG-") or len(snapshot_fingerprint) != 24:
         raise ValueError("操作員治理備份的快照指紋格式不正確。")
     normalized_summary["snapshotFingerprint"] = snapshot_fingerprint
+    if schema_version == 3:
+        observation_count = summary.get("governanceHealthObservationCount")
+        if (
+            not isinstance(observation_count, int)
+            or isinstance(observation_count, bool)
+            or observation_count < 0
+        ):
+            raise ValueError("操作員治理備份的 governanceHealthObservationCount 不正確。")
+        history_head = summary.get("governanceHealthHeadFingerprint")
+        if observation_count == 0:
+            if history_head is not None:
+                raise ValueError("空白治理健康歷程不得宣稱鏈首。")
+        elif (
+            not isinstance(history_head, str)
+            or re.fullmatch(r"GHR-[0-9A-F]{20}", history_head) is None
+        ):
+            raise ValueError("操作員治理備份的治理健康歷程鏈首格式不正確。")
+        normalized_summary["governanceHealthObservationCount"] = observation_count
+        normalized_summary["governanceHealthHeadFingerprint"] = history_head
     normalized = {
         "schemaVersion": schema_version,
         "kind": RECEIVER_OPERATOR_BACKUP_KIND,
@@ -226,10 +278,10 @@ def validate_receiver_operator_backup_envelope(backup: Any) -> dict[str, Any]:
     return normalized
 
 
-def decrypt_receiver_operator_governance_backup(
+def _decrypt_receiver_operator_governance_backup_payload(
     backup: Any,
     passphrase: str,
-) -> tuple[dict[str, Any], dict[str, Any]]:
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any] | None]:
     normalized = validate_receiver_operator_backup_envelope(backup)
     passphrase = _validate_passphrase(passphrase)
     encryption = normalized["encryption"]
@@ -248,12 +300,32 @@ def decrypt_receiver_operator_governance_backup(
     except InvalidTag as exc:
         raise ValueError("操作員治理備份密碼不正確或密文已遭竄改。") from exc
     try:
-        snapshot = json.loads(plaintext.decode("utf-8"))
+        decrypted = json.loads(plaintext.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("操作員治理備份解密後不是有效 JSON。") from exc
-    snapshot = ReceiverOperatorStore.validate_governance_snapshot(snapshot)
-    if normalized["schemaVersion"] != snapshot["schemaVersion"]:
-        raise ValueError("操作員治理備份的外層版本與加密快照版本不一致。")
+    history: dict[str, Any] | None = None
+    if normalized["schemaVersion"] == 3:
+        if (
+            not isinstance(decrypted, dict)
+            or set(decrypted) != {
+                "schemaVersion", "kind", "governanceSnapshot", "governanceHealthHistory",
+            }
+            or decrypted.get("schemaVersion") != 1
+            or decrypted.get("kind") != RECEIVER_OPERATOR_BACKUP_PAYLOAD_KIND
+        ):
+            raise ValueError("操作員治理備份 v3 的加密內容格式不正確。")
+        snapshot = ReceiverOperatorStore.validate_governance_snapshot(
+            decrypted.get("governanceSnapshot")
+        )
+        if snapshot["schemaVersion"] != 2:
+            raise ValueError("操作員治理備份 v3 必須包含 v2 帳號治理快照。")
+        history = ReceiverOperatorStore.validate_governance_health_history(
+            decrypted.get("governanceHealthHistory")
+        )
+    else:
+        snapshot = ReceiverOperatorStore.validate_governance_snapshot(decrypted)
+        if normalized["schemaVersion"] != snapshot["schemaVersion"]:
+            raise ValueError("操作員治理備份的外層版本與加密快照版本不一致。")
     summary = normalized["summary"]
     expected_summary = {
         "operatorCount": len(snapshot["operators"]),
@@ -265,7 +337,7 @@ def decrypt_receiver_operator_governance_backup(
         "auditEventCount": len(snapshot["auditEvents"]),
         "snapshotFingerprint": receiver_operator_snapshot_fingerprint(snapshot),
     }
-    if normalized["schemaVersion"] == 2:
+    if normalized["schemaVersion"] in {2, 3}:
         expected_summary["backupDispositionClaimCount"] = len(
             snapshot["backupDispositionClaims"]
         )
@@ -276,8 +348,30 @@ def decrypt_receiver_operator_governance_backup(
                 "backupDispositionClaimCount", "auditEventCount", "snapshotFingerprint",
             )
         }
+    if normalized["schemaVersion"] == 3:
+        expected_summary["governanceHealthObservationCount"] = history["observationCount"]
+        expected_summary["governanceHealthHeadFingerprint"] = history["headFingerprint"]
+        expected_summary = {
+            key: expected_summary[key]
+            for key in (
+                "operatorCount", "activeAdminCount", "rotationClaimCount",
+                "backupDispositionClaimCount", "auditEventCount", "snapshotFingerprint",
+                "governanceHealthObservationCount", "governanceHealthHeadFingerprint",
+            )
+        }
     if summary != expected_summary:
         raise ValueError("操作員治理備份的外層摘要與加密快照不一致。")
+    return normalized, snapshot, history
+
+
+def decrypt_receiver_operator_governance_backup(
+    backup: Any,
+    passphrase: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    normalized, snapshot, _history = _decrypt_receiver_operator_governance_backup_payload(
+        backup,
+        passphrase,
+    )
     return normalized, snapshot
 
 
@@ -285,6 +379,8 @@ def _build_restore_preview(
     normalized: dict[str, Any],
     backup_snapshot: dict[str, Any],
     current_snapshot: dict[str, Any],
+    backup_health_history: dict[str, Any] | None,
+    current_health_history: dict[str, Any],
 ) -> dict[str, Any]:
     current_fingerprint = receiver_operator_snapshot_fingerprint(current_snapshot)
     backup_fingerprint = normalized["summary"]["snapshotFingerprint"]
@@ -330,12 +426,55 @@ def _build_restore_preview(
         )
         and not current_snapshot["rotationClaims"]
         and not current_snapshot.get("backupDispositionClaims", [])
+        and (
+            current_health_history["observationCount"] == 0
+            or all(
+                observation["changeType"] in {
+                    "operator-bootstrap",
+                    "admin-login-observation",
+                    "operator-governance-backup-exported",
+                }
+                and observation["actorOperatorId"]
+                == current_snapshot["operators"][0]["id"]
+                for observation in current_health_history["observations"]
+            )
+        )
     )
     blocking_reasons: list[str] = []
-    if current_fingerprint == backup_fingerprint:
+    current_observations = current_health_history["observations"]
+    backup_observations = (
+        backup_health_history["observations"]
+        if backup_health_history is not None
+        else None
+    )
+    history_changes = (
+        backup_observations is not None
+        and backup_observations != current_observations
+    )
+    history_is_forward_extension = (
+        backup_observations is not None
+        and backup_observations[: len(current_observations)] == current_observations
+    )
+    if current_fingerprint == backup_fingerprint and not history_changes:
         blocking_reasons.append("備份與目前治理資料完全相同，不需要復原。")
     elif not fresh_recovery_bootstrap and backup_events[: len(current_events)] != current_events:
         blocking_reasons.append("備份稽核鏈不是目前治理歷程的向前延伸，不得回退或改寫既有事件。")
+    if (
+        backup_health_history is not None
+        and not fresh_recovery_bootstrap
+        and not history_is_forward_extension
+    ):
+        blocking_reasons.append("備份 GHR 歷程不是目前健康收據鏈的相同內容或向前延伸，不得回退或分叉。")
+    if backup_health_history is None:
+        history_action = "preserve-local-legacy-backup"
+    elif not history_changes:
+        history_action = "already-current"
+    elif fresh_recovery_bootstrap:
+        history_action = "replace-from-backup"
+    elif not history_is_forward_extension:
+        history_action = "blocked-nonextending-backup"
+    elif history_changes:
+        history_action = "extend-from-backup"
     return {
         "backupFingerprint": normalized["backupFingerprint"],
         "preview": {
@@ -352,6 +491,20 @@ def _build_restore_preview(
             "backupDispositionClaimCount": len(
                 backup_snapshot.get("backupDispositionClaims", [])
             ),
+            "historyIncludedInBackup": backup_health_history is not None,
+            "currentHealthObservationCount": current_health_history["observationCount"],
+            "backupHealthObservationCount": (
+                backup_health_history["observationCount"]
+                if backup_health_history is not None
+                else 0
+            ),
+            "currentHealthHeadFingerprint": current_health_history["headFingerprint"],
+            "backupHealthHeadFingerprint": (
+                backup_health_history["headFingerprint"]
+                if backup_health_history is not None
+                else None
+            ),
+            "healthHistoryAction": history_action,
             "addedUsernames": sorted(
                 backup_operators[key]["username"] for key in set(backup_operators) - set(current_operators)
             ),
@@ -366,7 +519,7 @@ def _build_restore_preview(
             ),
             "currentSnapshotFingerprint": current_fingerprint,
             "backupSnapshotFingerprint": backup_fingerprint,
-            "wouldReplace": current_fingerprint != backup_fingerprint,
+            "wouldReplace": current_fingerprint != backup_fingerprint or history_changes,
             "restoreAllowed": not blocking_reasons,
             "blockingReasons": blocking_reasons,
             "sessionsWillBeRevoked": True,
@@ -379,16 +532,30 @@ def preview_receiver_operator_governance_restore(
     backup: Any,
     passphrase: str,
 ) -> dict[str, Any]:
-    normalized, backup_snapshot = decrypt_receiver_operator_governance_backup(backup, passphrase)
-    return _build_restore_preview(normalized, backup_snapshot, store.governance_snapshot())
+    normalized, backup_snapshot, backup_history = (
+        _decrypt_receiver_operator_governance_backup_payload(backup, passphrase)
+    )
+    return _build_restore_preview(
+        normalized,
+        backup_snapshot,
+        store.governance_snapshot(),
+        backup_history,
+        store.governance_health_history(),
+    )
 
 
 def _write_safeguard_backup(
     store: ReceiverOperatorStore,
     passphrase: str,
     snapshot: dict[str, Any],
+    health_history: dict[str, Any],
 ) -> tuple[str, str]:
-    safeguard = _encrypt_snapshot(snapshot, passphrase, exported_at=_now_iso())
+    safeguard = _encrypt_snapshot(
+        snapshot,
+        passphrase,
+        exported_at=_now_iso(),
+        health_history=health_history,
+    )
     directory = store.db_path.parent / "receiver_operator_governance_backups"
     directory.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -418,9 +585,18 @@ def restore_receiver_operator_governance_backup(
 ) -> dict[str, Any]:
     if restore_confirmed is not True:
         raise ValueError("復原操作必須明確確認。")
-    normalized, backup_snapshot = decrypt_receiver_operator_governance_backup(backup, passphrase)
+    normalized, backup_snapshot, backup_health_history = (
+        _decrypt_receiver_operator_governance_backup_payload(backup, passphrase)
+    )
     current_snapshot = store.governance_snapshot()
-    preview_result = _build_restore_preview(normalized, backup_snapshot, current_snapshot)
+    current_health_history = store.governance_health_history()
+    preview_result = _build_restore_preview(
+        normalized,
+        backup_snapshot,
+        current_snapshot,
+        backup_health_history,
+        current_health_history,
+    )
     if not preview_result["preview"]["restoreAllowed"]:
         raise ValueError("此操作員治理備份不得復原：" + " ".join(preview_result["preview"]["blockingReasons"]))
     recovery_operator_id = store.verify_governance_snapshot_admin(
@@ -432,12 +608,17 @@ def restore_receiver_operator_governance_backup(
         store,
         passphrase,
         current_snapshot,
+        current_health_history,
     )
     restored = store.replace_governance_snapshot(
         backup_snapshot,
         current_actor_operator_id=current_actor_operator_id,
         recovery_operator_id=recovery_operator_id,
         expected_current_snapshot=current_snapshot,
+        replacement_health_history=backup_health_history,
+        expected_current_health_history=(
+            current_health_history if backup_health_history is not None else None
+        ),
         restore_details={
             "backupFingerprint": normalized["backupFingerprint"],
             "backupSnapshotFingerprint": normalized["summary"]["snapshotFingerprint"],
@@ -448,6 +629,7 @@ def restore_receiver_operator_governance_backup(
         },
     )
     restored_fingerprint = receiver_operator_snapshot_fingerprint(restored["snapshot"])
+    restored_history = store.governance_health_history()
     return {
         "restored": True,
         "loggedOut": True,
@@ -455,6 +637,11 @@ def restore_receiver_operator_governance_backup(
         "backupSnapshotFingerprint": normalized["summary"]["snapshotFingerprint"],
         "restoredSnapshotFingerprint": restored_fingerprint,
         "restoreEventFingerprint": restored["restoreEvent"]["eventFingerprint"],
+        "recoveryOperatorId": recovery_operator_id,
+        "historyIncludedInBackup": backup_health_history is not None,
+        "historyRestoredFromBackup": backup_health_history is not None,
+        "restoredHealthObservationCount": restored_history["observationCount"],
+        "restoredHealthHeadFingerprint": restored_history["headFingerprint"],
         "safeguardFileName": safeguard_filename,
         "safeguardBackupFingerprint": safeguard_fingerprint,
         "revokedSessions": restored["revokedSessions"],

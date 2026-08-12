@@ -318,6 +318,16 @@ function receiverGovernanceHealthChangeLabel(changeType: string): string {
   }[changeType] ?? changeType;
 }
 
+function receiverGovernanceHealthRestoreActionLabel(action: string): string {
+  return {
+    "replace-from-backup": "全新環境：以備份歷程取代啟動歷程",
+    "extend-from-backup": "既有環境：以備份向前延伸歷程",
+    "already-current": "備份歷程已與目前鏈一致",
+    "preserve-local-legacy-backup": "舊版備份未含歷程：保留本機鏈",
+    "blocked-nonextending-backup": "備份歷程回退或分叉：禁止復原",
+  }[action] ?? action;
+}
+
 function receiverOperatorStatusLabel(
   status: "enabled" | "disabled" | "password-reset-required",
 ): string {
@@ -2109,7 +2119,7 @@ function App() {
       return;
     }
     if (!receiverOperatorRestoreConfirmed) {
-      setError("復原前必須確認完整置換帳號、角色、輪替 claim、備份處置 claim 與稽核鏈，並撤銷全部工作階段。");
+      setError("復原前必須確認完整置換帳號、角色、輪替 claim、備份處置 claim、稽核鏈及新版備份內的 GHR 歷程，並撤銷全部工作階段。");
       return;
     }
     if (!receiverOperatorBackupDraft.recoveryUsername.trim() || !receiverOperatorBackupDraft.recoveryPassword) {
@@ -6597,7 +6607,7 @@ function App() {
                       <div className="receiver-key-rotation-card">
                         <h4>操作員治理加密備份與災難復原</h4>
                         <p className="meta-line attention-line">
-                          備份會把帳號、角色、加鹽密碼驗證值、輪替 claim、到期備份處置 claim 與稽核鏈封裝在 AES-256-GCM 密文內；不含明文密碼、登入工作階段或登入失敗紀錄。加密密碼不會儲存在系統，遺失後無法復原；備份檔仍屬高度敏感資料，應離線管制保存。
+                          v3 備份會把帳號、角色、加鹽密碼驗證值、輪替 claim、到期備份處置 claim、ROE 稽核鏈與完整 GHR 治理健康歷程封裝在 AES-256-GCM 密文內；不含明文密碼、登入工作階段或登入失敗紀錄。加密密碼不會儲存在系統，遺失後無法復原；備份檔仍屬高度敏感資料，應離線管制保存。
                         </p>
                         <div className="form-grid">
                           <label className="field-block">
@@ -6759,9 +6769,14 @@ function App() {
                                       );
                                       return (
                                         <tr key={item.fileName}>
-                                          <td><strong>{item.backupFingerprint}</strong><br />{item.expired ? "已到期" : "保存中"}</td>
+                                          <td><strong>{item.backupFingerprint}</strong><br />v{item.backupSchemaVersion}｜{item.expired ? "已到期" : "保存中"}</td>
                                           <td>{item.exportedAt}<br />保存至 {item.retentionUntil}</td>
-                                          <td>帳號 {item.operatorCount}；啟用管理員 {item.activeAdminCount}；稽核事件 {item.auditEventCount}；處置 claim {item.backupDispositionClaimCount}</td>
+                                          <td>
+                                            帳號 {item.operatorCount}；啟用管理員 {item.activeAdminCount}；稽核事件 {item.auditEventCount}；處置 claim {item.backupDispositionClaimCount}<br />
+                                            {item.governanceHealthHistoryIncluded
+                                              ? `GHR 歷程 ${item.governanceHealthObservationCount} 筆｜${item.governanceHealthHeadFingerprint ?? "空鏈"}`
+                                              : "舊版備份未涵蓋 GHR 歷程"}
+                                          </td>
                                           <td>{item.fileSha256}</td>
                                           <td>
                                             {!item.expired && "未到期"}
@@ -6970,6 +6985,7 @@ function App() {
                             <h4>復原差異預覽</h4>
                             <div className="meta-grid">
                               <MetaItem label="備份產出時間" value={receiverOperatorBackup.exportedAt} />
+                              <MetaItem label="備份格式" value={`v${receiverOperatorBackup.schemaVersion}`} />
                               <MetaItem label="備份檔指紋" value={receiverOperatorBackup.backupFingerprint} />
                               <MetaItem
                                 label="目前資料庫狀態"
@@ -6994,6 +7010,22 @@ function App() {
                               <MetaItem
                                 label="備份處置 claim 數（目前 → 備份）"
                                 value={`${receiverOperatorRestorePreview.currentBackupDispositionClaimCount} → ${receiverOperatorRestorePreview.backupDispositionClaimCount}`}
+                              />
+                              <MetaItem
+                                label="GHR 歷程數（目前 → 備份）"
+                                value={`${receiverOperatorRestorePreview.currentHealthObservationCount} → ${receiverOperatorRestorePreview.backupHealthObservationCount}`}
+                              />
+                              <MetaItem
+                                label="GHR 復原方式"
+                                value={receiverGovernanceHealthRestoreActionLabel(receiverOperatorRestorePreview.healthHistoryAction)}
+                              />
+                              <MetaItem
+                                label="目前 GHR 鏈首"
+                                value={receiverOperatorRestorePreview.currentHealthHeadFingerprint ?? "空鏈"}
+                              />
+                              <MetaItem
+                                label="備份 GHR 鏈首"
+                                value={receiverOperatorRestorePreview.backupHealthHeadFingerprint ?? "未包含／空鏈"}
                               />
                               <MetaItem
                                 label="備份內啟用管理員"
@@ -7039,8 +7071,13 @@ function App() {
                               </div>
                             )}
                             <p className="meta-line attention-line">
-                              復原採完整置換帳號、角色、輪替 claim、備份處置 claim 與稽核鏈，並撤銷全部工作階段。既有有效資料庫只接受延續目前稽核鏈的備份；只有全新建立、尚未使用的單一啟動管理員環境可作災難復原例外。
+                              復原採完整置換帳號、角色、輪替 claim、備份處置 claim、稽核鏈與 v3 備份內的 GHR 歷程，並撤銷全部工作階段。既有有效資料庫只接受同時延續目前 ROE 與 GHR 鏈的備份；只有全新建立、尚未使用的單一啟動管理員環境可作災難復原例外。v1／v2 舊版備份沒有 GHR，復原時只保留本機歷程，不得宣稱已恢復來源歷程。
                             </p>
+                            {!receiverOperatorRestorePreview.historyIncludedInBackup && (
+                              <p className="meta-line attention-line">
+                                這是 v1／v2 舊版備份，密文內沒有 GHR 歷程。可相容復原帳號治理資料，但無法補回來源資料庫遺失的健康歷程；建議改用最新 v3 備份。
+                              </p>
+                            )}
                             <div className="form-grid">
                               <Field
                                 label="備份內啟用管理員帳號"
@@ -7089,6 +7126,12 @@ function App() {
                                   <MetaItem label="演練收據" value={receiverOperatorDrillOutcome.receiptFingerprint} />
                                   <MetaItem label="備份指紋" value={receiverOperatorDrillOutcome.backupFingerprint} />
                                   <MetaItem label="隔離復原事件" value={receiverOperatorDrillOutcome.isolatedRestoreEventFingerprint} />
+                                  <MetaItem
+                                    label="GHR 歷程演練"
+                                    value={receiverOperatorDrillOutcome.governanceHealthHistoryIncluded
+                                      ? `${receiverOperatorDrillOutcome.isolatedRestoredHealthObservationCount ?? 0} 筆，鏈首一致`
+                                      : "舊版備份未涵蓋"}
+                                  />
                                   <MetaItem label="正式治理資料" value="演練期間未變更" />
                                 </div>
                               </div>
@@ -7099,7 +7142,7 @@ function App() {
                                 checked={receiverOperatorRestoreConfirmed}
                                 onChange={(event) => setReceiverOperatorRestoreConfirmed(event.target.checked)}
                               />
-                              <span>我確認完整置換治理資料、撤銷全部工作階段，並在復原後使用備份內帳號重新登入。</span>
+                              <span>我確認完整置換治理資料及新版備份內的 GHR 歷程、撤銷全部工作階段，並在復原後使用備份內帳號重新登入。</span>
                             </label>
                             <button
                               className="danger"
@@ -7128,6 +7171,16 @@ function App() {
                     <MetaItem label="復原備份指紋" value={receiverOperatorRestoreOutcome.backupFingerprint} />
                     <MetaItem label="復原後治理快照指紋" value={receiverOperatorRestoreOutcome.restoredSnapshotFingerprint} />
                     <MetaItem label="復原事件指紋" value={receiverOperatorRestoreOutcome.restoreEventFingerprint} />
+                    <MetaItem
+                      label="復原 GHR 歷程"
+                      value={receiverOperatorRestoreOutcome.historyRestoredFromBackup
+                        ? `${receiverOperatorRestoreOutcome.restoredHealthObservationCount} 筆｜${receiverOperatorRestoreOutcome.restoredHealthHeadFingerprint ?? "空鏈"}`
+                        : "舊版備份未含歷程；已保留本機鏈"}
+                    />
+                    <MetaItem
+                      label="復原後狀態收據"
+                      value={receiverOperatorRestoreOutcome.postRestoreObservationFingerprint ?? "未能追加，請重新登入檢查來源漂移"}
+                    />
                     <MetaItem label="復原前保全檔" value={receiverOperatorRestoreOutcome.safeguardFileName} />
                     <MetaItem label="保全備份指紋" value={receiverOperatorRestoreOutcome.safeguardBackupFingerprint} />
                     <MetaItem label="撤銷工作階段" value={String(receiverOperatorRestoreOutcome.revokedSessions)} />

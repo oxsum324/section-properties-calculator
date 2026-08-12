@@ -328,11 +328,19 @@ class ReceiverOperatorStore:
                 DROP TRIGGER IF EXISTS receiver_governance_health_no_delete;
                 CREATE TRIGGER receiver_governance_health_no_update
                     BEFORE UPDATE ON receiver_governance_health_observations
+                    WHEN COALESCE(
+                        (SELECT restore_authorized FROM receiver_operator_maintenance WHERE id = 1),
+                        0
+                    ) = 0
                     BEGIN
                         SELECT RAISE(ABORT, 'receiver governance health observations are append-only');
                     END;
                 CREATE TRIGGER receiver_governance_health_no_delete
                     BEFORE DELETE ON receiver_governance_health_observations
+                    WHEN COALESCE(
+                        (SELECT restore_authorized FROM receiver_operator_maintenance WHERE id = 1),
+                        0
+                    ) = 0
                     BEGIN
                         SELECT RAISE(ABORT, 'receiver governance health observations are append-only');
                     END;
@@ -1685,11 +1693,13 @@ class ReceiverOperatorStore:
             connection.commit()
             return {**validated, "appended": True}
 
-    def governance_health_history(self) -> dict[str, Any]:
-        with closing(self._connect()) as connection:
-            rows = connection.execute(
-                "SELECT * FROM receiver_governance_health_observations ORDER BY sequence_no"
-            ).fetchall()
+    def _governance_health_history(
+        self,
+        connection: sqlite3.Connection,
+    ) -> dict[str, Any]:
+        rows = connection.execute(
+            "SELECT * FROM receiver_governance_health_observations ORDER BY sequence_no"
+        ).fetchall()
         observations = self._validate_governance_health_observations([
             {
                 **self._governance_health_observation_payload(row),
@@ -1705,6 +1715,10 @@ class ReceiverOperatorStore:
             "headFingerprint": observations[-1]["receiptFingerprint"] if observations else None,
             "observations": observations,
         })
+
+    def governance_health_history(self) -> dict[str, Any]:
+        with closing(self._connect()) as connection:
+            return self._governance_health_history(connection)
 
     @classmethod
     def verify_governance_snapshot_admin(
@@ -1745,9 +1759,23 @@ class ReceiverOperatorStore:
         recovery_operator_id: str,
         restore_details: dict[str, Any],
         expected_current_snapshot: Any,
+        replacement_health_history: Any | None = None,
+        expected_current_health_history: Any | None = None,
     ) -> dict[str, Any]:
         validated = self.validate_governance_snapshot(snapshot)
         expected_current = self.validate_governance_snapshot(expected_current_snapshot)
+        replacement_history = (
+            self.validate_governance_health_history(replacement_health_history)
+            if replacement_health_history is not None
+            else None
+        )
+        expected_history = (
+            self.validate_governance_health_history(expected_current_health_history)
+            if expected_current_health_history is not None
+            else None
+        )
+        if (replacement_history is None) != (expected_history is None):
+            raise ValueError("治理健康歷程置換與預覽現況必須同時提供。")
         restored_ids = {item["id"] for item in validated["operators"]}
         if recovery_operator_id not in restored_ids:
             raise ValueError("指定的備份內復原管理員不存在。")
@@ -1755,6 +1783,11 @@ class ReceiverOperatorStore:
             connection.execute("BEGIN IMMEDIATE")
             if self._governance_snapshot(connection) != expected_current:
                 raise ValueError("操作員治理資料在預覽後已變更，請重新匯入備份並確認差異。")
+            if (
+                expected_history is not None
+                and self._governance_health_history(connection) != expected_history
+            ):
+                raise ValueError("治理健康歷程在預覽後已變更，請重新匯入備份並確認差異。")
             self._require_active_admin(connection, current_actor_operator_id)
             connection.execute(
                 "UPDATE receiver_operator_maintenance SET restore_authorized = 1 WHERE id = 1"
@@ -1769,6 +1802,8 @@ class ReceiverOperatorStore:
             connection.execute("DELETE FROM receiver_operator_roles")
             connection.execute("DELETE FROM receiver_operator_audit_events")
             connection.execute("DELETE FROM receiver_operators")
+            if replacement_history is not None:
+                connection.execute("DELETE FROM receiver_governance_health_observations")
             for operator in validated["operators"]:
                 connection.execute(
                     """
@@ -1852,6 +1887,36 @@ class ReceiverOperatorStore:
                         event["previousEventFingerprint"], event["eventFingerprint"],
                     ),
                 )
+            if replacement_history is not None:
+                for observation in replacement_history["observations"]:
+                    connection.execute(
+                        """
+                        INSERT INTO receiver_governance_health_observations (
+                            sequence_no, observation_id, observed_at, change_type,
+                            actor_operator_id, from_status, to_status, health_fingerprint,
+                            operator_snapshot_fingerprint, trust_registry_fingerprint,
+                            operator_audit_head_fingerprint, summary_json,
+                            previous_receipt_fingerprint, receipt_fingerprint
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            observation["sequenceNo"], observation["observationId"],
+                            observation["observedAt"], observation["changeType"],
+                            observation["actorOperatorId"], observation["fromStatus"],
+                            observation["toStatus"], observation["healthFingerprint"],
+                            observation["operatorGovernanceSnapshotFingerprint"],
+                            observation["trustRegistryFingerprint"],
+                            observation["operatorAuditHeadFingerprint"],
+                            json.dumps(
+                                observation["summary"],
+                                ensure_ascii=False,
+                                sort_keys=True,
+                                separators=(",", ":"),
+                            ),
+                            observation["previousReceiptFingerprint"],
+                            observation["receiptFingerprint"],
+                        ),
+                    )
             restore_event = self._record_audit_event(
                 connection,
                 event_type="operator-governance-restored",
@@ -1868,6 +1933,11 @@ class ReceiverOperatorStore:
             "snapshot": restored,
             "restoreEvent": restore_event,
             "revokedSessions": session_count,
+            "restoredHealthHistory": (
+                self.governance_health_history()
+                if replacement_history is not None
+                else None
+            ),
         }
 
     @staticmethod

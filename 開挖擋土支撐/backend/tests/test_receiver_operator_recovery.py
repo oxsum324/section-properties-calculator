@@ -11,6 +11,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from backend.app import main as main_module
+from backend.app import receiver_operator_backup as backup_module
 from backend.app.receiver_operator_auth import ReceiverOperatorStore
 from backend.app.receiver_operator_backup import build_receiver_operator_governance_backup
 from backend.app.receiver_operator_recovery import (
@@ -67,6 +68,9 @@ class ReceiverOperatorRecoveryLifecycleTests(unittest.TestCase):
             self.assertEqual(len(inventory["managedBackups"]), 1)
             self.assertEqual(inventory["managedBackups"][0]["retentionDays"], 45)
             self.assertEqual(inventory["managedBackups"][0]["status"], "active")
+            self.assertTrue(
+                inventory["managedBackups"][0]["governanceHealthHistoryIncluded"]
+            )
             self.assertEqual(inventory["health"]["status"], "attention-required")
             self.assertIn(
                 "latest-backup-not-drilled",
@@ -74,6 +78,31 @@ class ReceiverOperatorRecoveryLifecycleTests(unittest.TestCase):
             )
             self.assertFalse(inventory["retentionBoundary"]["automaticDeletion"])
             self.assertFalse(inventory["retentionBoundary"]["secureEraseGuaranteed"])
+
+    def test_legacy_managed_backup_is_not_healthy_without_ghr_coverage(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = ReceiverOperatorStore(Path(directory) / "operators.sqlite3")
+            store.bootstrap("legacy-admin", "舊版管理員", "Legacy-Strong-2026!")
+            legacy = backup_module._encrypt_snapshot(
+                store.governance_snapshot(),
+                PASSPHRASE,
+                exported_at="2026-08-01T00:00:00Z",
+            )
+            self.assertEqual(legacy["schemaVersion"], 2)
+            write_managed_receiver_operator_governance_backup(
+                store,
+                legacy,
+                retention_days=365,
+            )
+            inventory = list_receiver_operator_governance_recovery_inventory(
+                store,
+                now=datetime(2026, 8, 2, tzinfo=timezone.utc),
+            )
+            self.assertEqual(inventory["health"]["status"], "attention-required")
+            self.assertIn(
+                "latest-backup-missing-governance-health-history",
+                {issue["code"] for issue in inventory["health"]["issues"]},
+            )
 
     def test_isolated_drill_uses_real_restore_login_and_keeps_production_unchanged(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -103,6 +132,8 @@ class ReceiverOperatorRecoveryLifecycleTests(unittest.TestCase):
             self.assertTrue(receipt["backupAdminAuthenticated"])
             self.assertTrue(receipt["isolatedRestoreCompleted"])
             self.assertTrue(receipt["restoredAuditChainValid"])
+            self.assertTrue(receipt["isolatedRestoredHealthHistoryValid"])
+            self.assertTrue(receipt["governanceHealthHistoryIncluded"])
             self.assertTrue(receipt["productionGovernanceUnchangedDuringDrill"])
             receipt_path = root / "receiver_operator_governance_drills" / result["receiptFileName"]
             receipt_text = receipt_path.read_text(encoding="utf-8")
@@ -345,7 +376,7 @@ class ReceiverOperatorRecoveryLifecycleTests(unittest.TestCase):
             self.assertEqual(len(snapshot["backupDispositionClaims"]), 1)
             self.assertEqual(snapshot["backupDispositionClaims"][0]["state"], "completed")
             governance_backup = build_receiver_operator_governance_backup(store, PASSPHRASE)
-            self.assertEqual(governance_backup["schemaVersion"], 2)
+            self.assertEqual(governance_backup["schemaVersion"], 3)
             self.assertEqual(
                 governance_backup["summary"]["backupDispositionClaimCount"],
                 1,
