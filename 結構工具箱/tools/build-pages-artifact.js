@@ -69,6 +69,8 @@ const PRIVATE_BASENAMES = new Set([
 ]);
 
 const PRIVATE_SUFFIXES = [
+  '.schema.json',
+  '_schema.json',
   '.contract.test.js',
   '.test.js',
   '.pyc',

@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/schemas/governance-trusted-archive-v1.json",
+  "title": "Governance trusted timestamp external archive exchange v1",
+  "oneOf": [
+    { "$ref": "#/$defs/archiveRequest" },
+    { "$ref": "#/$defs/providerReceipt" }
+  ],
+  "$defs": {
+    "archiveObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fileName", "fileSha256", "fileSizeBytes", "mediaType", "zipProfile"],
+      "properties": {
+        "fileName": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "fileSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "fileSizeBytes": { "type": "integer", "minimum": 1 },
+        "mediaType": { "const": "application/zip" },
+        "zipProfile": { "const": "closed-flat-zip-stored-v1" }
+      }
+    },
+    "archiveRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "kind", "requestContext", "requestId", "createdAt", "source", "archiveObject", "requirements", "requiredReceiptFields", "boundary", "requestFingerprint"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "kind": { "const": "governance-trusted-timestamp-external-archive-request" },
+        "requestContext": { "const": "governance-trusted-timestamp-external-archive-request-v1" },
+        "requestId": { "type": "string", "pattern": "^GADR-[0-9A-F]{32}$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["gtvVerificationFingerprint", "gtvVerifiedAt", "timestampGenTime", "timestampPolicyIdentifier"],
+          "properties": {
+            "gtvVerificationFingerprint": { "type": "string", "pattern": "^GTV-[0-9A-F]{20}$" },
+            "gtvVerifiedAt": { "type": "string", "format": "date-time" },
+            "timestampGenTime": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "timestampPolicyIdentifier": { "type": "string", "pattern": "^[A-Za-z0-9_.:/@+\\-]{1,200}$" }
+          }
+        },
+        "archiveObject": { "$ref": "#/$defs/archiveObject" },
+        "requirements": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["providerOrganization", "repositoryId", "storageStatus", "immutabilityMode", "retentionPolicyId", "retentionUntil", "legalHoldRequired"],
+          "properties": {
+            "providerOrganization": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "repositoryId": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,200}$" },
+            "storageStatus": { "const": "stored" },
+            "immutabilityMode": { "enum": ["worm-compliance", "worm-governance", "retention-lock"] },
+            "retentionPolicyId": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,200}$" },
+            "retentionUntil": { "type": "string", "format": "date-time" },
+            "legalHoldRequired": { "type": "boolean" }
+          }
+        },
+        "requiredReceiptFields": {
+          "const": [
+            "provider organization and repository identifier",
+            "archive object and immutable version identifiers",
+            "stored status and stored time",
+            "immutability mode and retention-until time",
+            "legal-hold status",
+            "exact archive object SHA-256 and byte size",
+            "Ed25519 provider signature"
+          ]
+        },
+        "boundary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["requiresExternalArchiveProviderAction", "doesNotUploadOrSubmitToExternalArchive", "requestCreationDoesNotProveExternalStorage", "versioningOrLocalCopyAloneDoesNotSatisfyWorm", "requiresProviderSignedReceipt", "requiresExplicitProviderKeyApproval", "doesNotConstituteEngineeringApproval", "formalCalculationAttachment"],
+          "properties": {
+            "requiresExternalArchiveProviderAction": { "const": true },
+            "doesNotUploadOrSubmitToExternalArchive": { "const": true },
+            "requestCreationDoesNotProveExternalStorage": { "const": true },
+            "versioningOrLocalCopyAloneDoesNotSatisfyWorm": { "const": true },
+            "requiresProviderSignedReceipt": { "const": true },
+            "requiresExplicitProviderKeyApproval": { "const": true },
+            "doesNotConstituteEngineeringApproval": { "const": true },
+            "formalCalculationAttachment": { "const": false }
+          }
+        },
+        "requestFingerprint": { "type": "string", "pattern": "^GAD-[0-9A-F]{20}$" }
+      }
+    },
+    "providerReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "kind", "receiptContext", "requestFingerprint", "requestId", "archiveObject", "provider", "storage", "signature", "receiptFingerprint"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "kind": { "const": "governance-trusted-timestamp-external-archive-provider-receipt" },
+        "receiptContext": { "const": "governance-trusted-timestamp-external-archive-provider-receipt-v1" },
+        "requestFingerprint": { "type": "string", "pattern": "^GAD-[0-9A-F]{20}$" },
+        "requestId": { "type": "string", "pattern": "^GADR-[0-9A-F]{32}$" },
+        "archiveObject": { "$ref": "#/$defs/archiveObject" },
+        "provider": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["organization", "repositoryId", "archiveObjectId", "versionId"],
+          "properties": {
+            "organization": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "repositoryId": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,200}$" },
+            "archiveObjectId": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,200}$" },
+            "versionId": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,200}$" }
+          }
+        },
+        "storage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "storedAt", "immutabilityMode", "retentionPolicyId", "retentionUntil", "legalHoldStatus"],
+          "properties": {
+            "status": { "const": "stored" },
+            "storedAt": { "type": "string", "format": "date-time" },
+            "immutabilityMode": { "enum": ["worm-compliance", "worm-governance", "retention-lock"] },
+            "retentionPolicyId": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,200}$" },
+            "retentionUntil": { "type": "string", "format": "date-time" },
+            "legalHoldStatus": { "enum": ["active", "not-active", "not-supported"] }
+          }
+        },
+        "signature": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schemaVersion", "algorithm", "keyId", "signedAt", "value"],
+          "properties": {
+            "schemaVersion": { "const": 1 },
+            "algorithm": { "const": "Ed25519" },
+            "keyId": { "type": "string", "pattern": "^AKI-[0-9A-F]{20}$" },
+            "signedAt": { "type": "string", "format": "date-time" },
+            "value": { "type": "string", "pattern": "^[A-Za-z0-9+/]{86}==$" }
+          }
+        },
+        "receiptFingerprint": { "type": "string", "pattern": "^GAR-[0-9A-F]{20}$" }
+      }
+    }
+  }
+}

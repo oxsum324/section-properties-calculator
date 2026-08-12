@@ -111,6 +111,7 @@ const PRIVATE_PATHS = [
   '石材固定/tests/golden/case_01_standard_safe.json',
   '石材固定/註冊快速啟動.reg',
   '開挖擋土支撐/backend/app/main.py',
+  '開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_SCHEMA.json',
   '開挖擋土支撐/frontend/package.json',
   '開挖擋土支撐/frontend/src/App.tsx',
   '開挖擋土支撐/frontend/dist/index.html',

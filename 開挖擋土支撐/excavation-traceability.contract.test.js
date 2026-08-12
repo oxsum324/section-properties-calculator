@@ -118,6 +118,16 @@ const receiverGovernanceTimestampPrepareBatch = readUtf8('建立治理檢核可�
 const receiverGovernanceTimestampFinalizeBatch = readUtf8('完成治理檢核可信時間證據包.bat');
 const receiverGovernanceTimestampVerifyBatch = readUtf8('驗證治理檢核可信時間證據包.bat');
 const receiverGovernanceTimestampGuide = readUtf8('GOVERNANCE_CHECKPOINT_TRUSTED_TIMESTAMP.md');
+const receiverGovernanceArchive = readUtf8('backend/receiver_governance_archive.py');
+const receiverGovernanceArchiveTests = readUtf8('backend/tests/test_receiver_governance_archive.py');
+const receiverGovernanceArchiveLauncher = readUtf8('receiver_governance_archive.ps1');
+const receiverGovernanceArchivePrepareBatch = readUtf8('建立治理可信時間外部歸檔請求.bat');
+const receiverGovernanceArchiveFinalizeBatch = readUtf8('完成治理可信時間外部歸檔證據包.bat');
+const receiverGovernanceArchiveVerifyBatch = readUtf8('驗證治理可信時間外部歸檔證據包.bat');
+const receiverGovernanceArchiveGuide = readUtf8('GOVERNANCE_TRUSTED_ARCHIVE.md');
+const receiverGovernanceArchiveSchema = JSON.parse(readUtf8('GOVERNANCE_TRUSTED_ARCHIVE_SCHEMA.json'));
+const pagesArtifactBuilder = require('../結構工具箱/tools/build-pages-artifact.js');
+const pagesLiveSmoke = readUtf8('../結構工具箱/tools/pages-live-smoke.js');
 const receiverKeyManagementGuide = readUtf8('RECEIVER_KEY_MANAGEMENT.md');
 const receiverTrustBackup = readUtf8('backend/app/receiver_trust_backup.py');
 const receiverTrustRecovery = readUtf8('backend/app/receiver_trust_recovery.py');
@@ -148,7 +158,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.39.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.40.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -1131,6 +1141,88 @@ assert(receiverGovernanceTimestampVerifyBatch.includes('-Mode Verify'), 'excavat
 ].forEach((needle) => {
   assert(receiverGovernanceTimestampTests.includes(needle), `excavation RFC 3161 tests keep ${needle}`, needle);
 });
+[
+  'governance-trusted-timestamp-external-archive-request',
+  'governance-trusted-timestamp-external-archive-provider-receipt',
+  'governance-trusted-timestamp-external-archive-verification-receipt',
+  'closed-flat-zip-stored-v1',
+  'def prepare_archive_request',
+  'def issue_archive_provider_receipt',
+  'def finalize_archive_verification_package',
+  'def verify_archive_verification_package',
+  'providerSignedReceiptIsAttestationNotIndependentObservation',
+  'doesNotQueryCurrentExternalRepositoryState',
+  'providerKeyApprovalEvidenceContentIsNotInterpreted',
+  'requiresExplicitProviderKeyApproval',
+  'versioningOrLocalCopyAloneDoesNotSatisfyWorm',
+  'noPrivateKeyCredentialInputsAcceptedByFinalizeOrVerify',
+  'recognizablePrivateKeyFilesAndPemMaterialRejected',
+  'formalCalculationAttachment',
+  'worm-compliance',
+  'worm-governance',
+  'retention-lock',
+  'GAD-',
+  'GAP-',
+  'GAR-',
+  'GAV-',
+  'zipfile.ZIP_STORED',
+  'GAP 不得包含 ZIP comment 或尾隨資料',
+  '核定證據必須是獨立文件',
+  'Ed25519PublicKey',
+].forEach((needle) => {
+  assert(receiverGovernanceArchive.includes(needle), `excavation external archive receipt keeps ${needle}`, needle);
+});
+[
+  'backend.receiver_governance_archive',
+  '--openssl',
+  'prepare',
+  'finalize',
+  'verify',
+  '--gtv-package',
+  '--retention-policy-id',
+  '--provider-receipt',
+  '--provider-public-key',
+  '--provider-key-approval-evidence',
+  '--provider-key-approval-basis',
+].forEach((needle) => {
+  assert(receiverGovernanceArchiveLauncher.includes(needle), `excavation external archive launcher keeps ${needle}`, needle);
+});
+assert(receiverGovernanceArchivePrepareBatch.includes('-Mode Prepare'), 'excavation external archive prepare batch selects prepare mode', '-Mode Prepare');
+assert(receiverGovernanceArchiveFinalizeBatch.includes('-Mode Finalize'), 'excavation external archive finalize batch selects finalize mode', '-Mode Finalize');
+assert(receiverGovernanceArchiveVerifyBatch.includes('-Mode Verify'), 'excavation external archive verify batch selects verify mode', '-Mode Verify');
+[
+  'test_real_gtv_archive_round_trip_and_independent_reverification',
+  'test_policy_shortfall_wrong_key_and_signature_tampering_fail_closed',
+  'test_compressed_zip_private_material_and_missing_openssl_are_rejected',
+  'must-not-be-created.sqlite3',
+  'extra.txt',
+  'wrong-public.pem',
+].forEach((needle) => {
+  assert(receiverGovernanceArchiveTests.includes(needle), `excavation external archive tests keep ${needle}`, needle);
+});
+[
+  '不會自行上傳',
+  '實際入庫後',
+  '版本控制、備份、唯讀檔案',
+  '不會獨立觀察物件目前是否仍存在',
+  '不得進入 PDF／DOCX 計算書',
+].forEach((needle) => {
+  assert(receiverGovernanceArchiveGuide.includes(needle), `excavation external archive guide keeps ${needle}`, needle);
+});
+assert(receiverGovernanceArchiveSchema.$schema === 'https://json-schema.org/draft/2020-12/schema', 'excavation external archive schema draft', receiverGovernanceArchiveSchema.$schema);
+assert(receiverGovernanceArchiveSchema.$defs.archiveRequest.properties.kind.const === 'governance-trusted-timestamp-external-archive-request', 'excavation external archive schema keeps GAD kind', receiverGovernanceArchiveSchema.$defs.archiveRequest.properties.kind.const);
+assert(receiverGovernanceArchiveSchema.$defs.providerReceipt.properties.kind.const === 'governance-trusted-timestamp-external-archive-provider-receipt', 'excavation external archive schema keeps GAR kind', receiverGovernanceArchiveSchema.$defs.providerReceipt.properties.kind.const);
+assert(receiverGovernanceArchiveSchema.$defs.providerReceipt.properties.signature.properties.algorithm.const === 'Ed25519', 'excavation external archive schema keeps Ed25519 signature', 'Ed25519');
+assert(
+  JSON.stringify(pagesArtifactBuilder.classifyPublishedPath('開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_SCHEMA.json')) === JSON.stringify({ publish: false, reason: 'private-source-file' }),
+  'excavation external archive schema is excluded from Pages artifacts',
+  'private-source-file',
+);
+assert(
+  pagesLiveSmoke.includes("'開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_SCHEMA.json'"),
+  'excavation external archive schema has a live private-boundary probe',
+  'HTTP status must not be 200',
+);
 [
   'test_health_progresses_from_attention_to_overlap_to_complete',
   'test_health_excludes_disabled_and_password_reset_accounts',

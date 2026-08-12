@@ -38,6 +38,13 @@ GOVERNANCE_TIMESTAMP_NEEDLES = (
     "GTV-治理檢核可信時間",
     "TSA-trust-anchor.pem",
     "timestamped-governance-evidence-manifest",
+    "GAD-外部歸檔請求",
+    "GAP-治理可信時間封存物件",
+    "GAR-外部歸檔簽章收據",
+    "GAV-外部歸檔驗證",
+    "provider-signed-attestation-valid",
+    "providerKeyApprovalEvidence",
+    "GOVERNANCE_TRUSTED_ARCHIVE_SCHEMA.json",
 )
 
 

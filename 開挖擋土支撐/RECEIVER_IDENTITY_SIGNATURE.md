@@ -88,6 +88,8 @@ python -m backend.sign_receiver_request --request <RSR、SSR 或 GCR.json> --pri
 
 同一離線簽署器也接受管理頁匯出的治理健康 `GCR-...` 請求；Windows 可直接執行 `簽署治理健康檢核點.bat`。輸出為 `GHC-...` 簽章檢核點，應保存於接收端服務主機之外，再由管理頁匯入驗證目前 GHR 是否相同、延伸、落後或分叉。外部保存位置也可執行 `驗證治理健康檢核點.bat`，不啟動服務或讀取專案資料庫；搭配公開 RTB 與目前 GHE 會產生綁定來源 SHA-256 的 `GCV-...` 重新驗證收據。GCV 不能脫離來源檔單獨使用。若組織另採 RFC 3161 TSA，可由 GAM／GTS／GTV 流程將 GCV 與來源綁定到外部 TSA `genTime`；工具不自行選擇 TSA，且不查 OCSP／CRL。GHC 使用獨立的簽章 context，不會與 RSR／SSR 混用；GHC／GCV／GAM／GTS／GTV 都不是 RVR／SEV 工程身分核可或正式計算附件，沒有通過 GTV 的 GHC／GCV 也不是第三方時間戳。
 
+GTV 可再以 GAD／GAP 交給外部 DMS／WORM 保存端，並由保存端以另一把獨立 Ed25519 金鑰簽發 GAR；案件端核對該保存端金鑰後才建立 GAV。保存端收據簽章 context 與 RSR／SSR／GCR 均不同，不能交叉替代；GAD／GAP／GAR／GAV 也不得進入正式計算附件。詳細契約見 `GOVERNANCE_TRUSTED_ARCHIVE.md`。
+
 SEV 操作不需命令列：在 SEV 區塊下載 `SSR-` 請求後，雙擊 `簽署SEV身分請求.bat`，依序選擇 SSR 與既有 Ed25519 PEM 私鑰，再回到原畫面匯入產出的 `source-evidence-verification-identity-signature-response` JSON。相同的 Python 指令也會依請求種類自動產生正確的 RVR 或 SEV 回應，且兩者都不包含私人金鑰或密碼。
 
 簽章回應會包含完整 RSR 與下列公開資料，不包含私人金鑰或密碼：
