@@ -69,6 +69,8 @@ GHC 的數位簽章可防止不知道私鑰者偽造既有檢核點，但 `signe
 
 需要外部保存端對實際入庫與保留鎖簽署負責時，可在 GTV 後建立 GAD／GAP，並要求指定 DMS／WORM 保存端回傳具物件 ID、不可變版本 ID、模式、期限及 legal hold 的 Ed25519 GAR。案件端只以組織獨立核定的公開金鑰建立 GAV；期限不足、模式不符、未啟用必要 legal hold、錯誤金鑰或內容竄改均失敗關閉。GAV 仍是保存端證言，不是保存庫現況的即時查詢，也不等於工程核可。詳見 `GOVERNANCE_TRUSTED_ARCHIVE.md`。
 
+長期保存狀態以 GSR／GSC 週期重驗。保存端可用已輪替的現行 Ed25519 金鑰簽發 GSR，但案件端必須明確選取該公開金鑰，另附與原 GAV 來源檔及私人金鑰材料不同的當期核定證據；舊 GAR 金鑰的核定不會自動延伸到新 GSR 金鑰。詳見 `GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE.md`。
+
 GHR 歷程表不包含密碼資料。新版 `receiver-operator-governance-encrypted-backup` v3 會把完整 GHR 歷程與 v2 帳號治理快照一起放入 AES-256-GCM 密文，讓整個 SQLite 遺失時可在通過解密、鏈驗證與復原規則後重建正式歷程；v1／v2 舊版備份仍可讀取，但沒有來源 GHR，只會保留復原目標的本機鏈。GHE 仍是可獨立保管與重新驗證的歷程證據，不會由管理頁合併回正式鏈；GHE 與本機 v3 備份都不等於異地備援，仍需由組織另行配置受控保存與外部錨定。
 
 帳號治理採以下失敗關閉規則：

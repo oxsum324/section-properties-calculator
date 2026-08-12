@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/governance-trusted-archive-lifecycle-v1.schema.json",
+  "title": "Governance trusted external archive lifecycle exchange v1",
+  "oneOf": [
+    { "$ref": "#/$defs/providerStatus" },
+    { "$ref": "#/$defs/lifecycleCheckpoint" }
+  ],
+  "$defs": {
+    "fileSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fileName", "fileSha256", "fileSizeBytes"],
+      "properties": {
+        "fileName": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "fileSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "fileSizeBytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "archiveObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fileName", "fileSha256", "fileSizeBytes", "mediaType", "zipProfile"],
+      "properties": {
+        "fileName": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "fileSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "fileSizeBytes": { "type": "integer", "minimum": 1 },
+        "mediaType": { "const": "application/zip" },
+        "zipProfile": { "const": "closed-flat-zip-stored-v1" }
+      }
+    },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["organization", "repositoryId", "archiveObjectId", "versionId"],
+      "properties": {
+        "organization": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "repositoryId": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,200}$" },
+        "archiveObjectId": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,200}$" },
+        "versionId": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,200}$" }
+      }
+    },
+    "observedObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fileSha256", "fileSizeBytes"],
+      "properties": {
+        "fileSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "fileSizeBytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observedAt", "objectStatus", "contentHashStatus", "observedObject", "immutabilityStatus", "immutabilityMode", "retentionPolicyId", "retentionUntil", "legalHoldStatus", "observationMethod", "observationReference"],
+      "properties": {
+        "observedAt": { "type": "string", "format": "date-time" },
+        "objectStatus": { "enum": ["present", "missing", "inaccessible"] },
+        "contentHashStatus": { "enum": ["matched", "mismatched", "not-verified"] },
+        "observedObject": {
+          "oneOf": [
+            { "$ref": "#/$defs/observedObject" },
+            { "type": "null" }
+          ]
+        },
+        "immutabilityStatus": { "enum": ["active", "not-active", "unknown"] },
+        "immutabilityMode": { "enum": ["worm-compliance", "worm-governance", "retention-lock"] },
+        "retentionPolicyId": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,200}$" },
+        "retentionUntil": { "type": "string", "format": "date-time" },
+        "legalHoldStatus": { "enum": ["active", "not-active", "not-supported"] },
+        "observationMethod": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,200}$" },
+        "observationReference": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,200}$" }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "keyId", "signedAt", "value"],
+      "properties": {
+        "algorithm": { "const": "Ed25519" },
+        "keyId": { "type": "string", "pattern": "^AKI-[0-9A-F]{20}$" },
+        "signedAt": { "type": "string", "format": "date-time" },
+        "value": { "type": "string", "minLength": 88, "maxLength": 88 }
+      }
+    },
+    "providerStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "kind", "statusContext", "source", "provider", "observation", "signature", "statusFingerprint"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "kind": { "const": "governance-trusted-timestamp-external-archive-lifecycle-provider-status" },
+        "statusContext": { "const": "governance-trusted-timestamp-external-archive-lifecycle-provider-status-v1" },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["requestFingerprint", "receiptFingerprint", "archiveObject"],
+          "properties": {
+            "requestFingerprint": { "type": "string", "pattern": "^GAD-[0-9A-F]{20}$" },
+            "receiptFingerprint": { "type": "string", "pattern": "^GAR-[0-9A-F]{20}$" },
+            "archiveObject": { "$ref": "#/$defs/archiveObject" }
+          }
+        },
+        "provider": { "$ref": "#/$defs/provider" },
+        "observation": { "$ref": "#/$defs/observation" },
+        "signature": { "$ref": "#/$defs/signature" },
+        "statusFingerprint": { "type": "string", "pattern": "^GSR-[0-9A-F]{20}$" }
+      }
+    },
+    "lifecycleCheckpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "kind", "checkpointContext", "verifiedAt", "sourceFiles", "source", "archive", "observation", "policy", "summary", "providerKeyApprovalBasis", "boundary", "checkpointFingerprint"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "kind": { "const": "governance-trusted-timestamp-external-archive-lifecycle-checkpoint" },
+        "checkpointContext": { "const": "governance-trusted-timestamp-external-archive-lifecycle-checkpoint-v1" },
+        "verifiedAt": { "type": "string", "format": "date-time" },
+        "sourceFiles": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["gavPackage", "providerStatusReceipt", "providerPublicKey", "providerKeyApprovalEvidence"],
+          "properties": {
+            "gavPackage": { "$ref": "#/$defs/fileSummary" },
+            "providerStatusReceipt": { "$ref": "#/$defs/fileSummary" },
+            "providerPublicKey": { "$ref": "#/$defs/fileSummary" },
+            "providerKeyApprovalEvidence": { "$ref": "#/$defs/fileSummary" }
+          }
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["gavVerificationFingerprint", "requestFingerprint", "receiptFingerprint", "statusFingerprint", "archiveObject"],
+          "properties": {
+            "gavVerificationFingerprint": { "type": "string", "pattern": "^GAV-[0-9A-F]{20}$" },
+            "requestFingerprint": { "type": "string", "pattern": "^GAD-[0-9A-F]{20}$" },
+            "receiptFingerprint": { "type": "string", "pattern": "^GAR-[0-9A-F]{20}$" },
+            "statusFingerprint": { "type": "string", "pattern": "^GSR-[0-9A-F]{20}$" },
+            "archiveObject": { "$ref": "#/$defs/archiveObject" }
+          }
+        },
+        "archive": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["providerOrganization", "repositoryId", "archiveObjectId", "versionId", "initialStoredAt", "legalHoldRequired"],
+          "properties": {
+            "providerOrganization": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "repositoryId": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,200}$" },
+            "archiveObjectId": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,200}$" },
+            "versionId": { "type": "string", "pattern": "^[A-Za-z0-9._:/@+\\-]{1,200}$" },
+            "initialStoredAt": { "type": "string", "format": "date-time" },
+            "legalHoldRequired": { "type": "boolean" }
+          }
+        },
+        "observation": { "$ref": "#/$defs/observation" },
+        "policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reviewIntervalDays", "maximumObservationAgeHours", "retentionWarningDays", "nextReviewDueAt"],
+          "properties": {
+            "reviewIntervalDays": { "type": "integer", "minimum": 1 },
+            "maximumObservationAgeHours": { "type": "integer", "minimum": 1 },
+            "retentionWarningDays": { "type": "integer", "minimum": 0 },
+            "nextReviewDueAt": { "type": "string", "format": "date-time" }
+          }
+        },
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["integrityStatus", "originalArchiveEvidenceStatus", "providerSignatureStatus", "objectStatus", "immutabilityStatus", "retentionStatus", "legalHoldStatus"],
+          "properties": {
+            "integrityStatus": { "const": "valid" },
+            "originalArchiveEvidenceStatus": { "const": "valid" },
+            "providerSignatureStatus": { "const": "valid-explicitly-selected-key" },
+            "objectStatus": { "const": "present-hash-matched" },
+            "immutabilityStatus": { "const": "active" },
+            "retentionStatus": { "const": "satisfied-through-next-review" },
+            "legalHoldStatus": { "enum": ["satisfied", "not-required"] }
+          }
+        },
+        "providerKeyApprovalBasis": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "boundary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "providerStatusRequiresActualRepositoryObservation",
+            "providerSignedStatusIsAttestationNotIndependentObservation",
+            "checkpointDoesNotQueryExternalRepository",
+            "checkpointDoesNotProveProviderOperationalControls",
+            "standaloneCheckpointJsonIsNotCompleteEvidence",
+            "packageVerificationRequiredForGovernedCurrentAssessment",
+            "historicalIntegrityRemainsVerifiableAfterReviewDue",
+            "reviewDueDoesNotInvalidateHistoricalSignatureEvidence",
+            "providerPublicKeyWasExplicitlySelected",
+            "providerKeyRotationRequiresNewIndependentApprovalEvidence",
+            "providerKeyApprovalEvidenceContentIsNotInterpreted",
+            "noPrivateKeyCredentialInputsAcceptedByFinalizeOrVerify",
+            "recognizablePrivateKeyFilesAndPemMaterialRejected",
+            "doesNotConstituteEngineeringApproval",
+            "formalCalculationAttachment"
+          ],
+          "properties": {
+            "providerStatusRequiresActualRepositoryObservation": { "const": true },
+            "providerSignedStatusIsAttestationNotIndependentObservation": { "const": true },
+            "checkpointDoesNotQueryExternalRepository": { "const": true },
+            "checkpointDoesNotProveProviderOperationalControls": { "const": true },
+            "standaloneCheckpointJsonIsNotCompleteEvidence": { "const": true },
+            "packageVerificationRequiredForGovernedCurrentAssessment": { "const": true },
+            "historicalIntegrityRemainsVerifiableAfterReviewDue": { "const": true },
+            "reviewDueDoesNotInvalidateHistoricalSignatureEvidence": { "const": true },
+            "providerPublicKeyWasExplicitlySelected": { "const": true },
+            "providerKeyRotationRequiresNewIndependentApprovalEvidence": { "const": true },
+            "providerKeyApprovalEvidenceContentIsNotInterpreted": { "const": true },
+            "noPrivateKeyCredentialInputsAcceptedByFinalizeOrVerify": { "const": true },
+            "recognizablePrivateKeyFilesAndPemMaterialRejected": { "const": true },
+            "doesNotConstituteEngineeringApproval": { "const": true },
+            "formalCalculationAttachment": { "const": false }
+          }
+        },
+        "checkpointFingerprint": { "type": "string", "pattern": "^GSC-[0-9A-F]{20}$" }
+      }
+    }
+  }
+}

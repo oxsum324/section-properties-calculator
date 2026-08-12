@@ -45,6 +45,11 @@ GOVERNANCE_TIMESTAMP_NEEDLES = (
     "provider-signed-attestation-valid",
     "providerKeyApprovalEvidence",
     "GOVERNANCE_TRUSTED_ARCHIVE_SCHEMA.json",
+    "GSR-外部歸檔週期狀態",
+    "GSC-外部歸檔生命週期檢查點",
+    "periodic-review-due",
+    "retention-renewal-window",
+    "GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_SCHEMA.json",
 )
 
 

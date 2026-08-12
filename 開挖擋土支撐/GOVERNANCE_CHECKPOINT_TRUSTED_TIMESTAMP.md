@@ -58,6 +58,8 @@ GAM 的 `createdAt` 與 GTV 的 `verifiedAt` 都是本機時間，不是可信�
 
 若組織需要保存端對實際入庫、物件／版本 ID、保留鎖與 legal hold 簽署負責，可接續執行 `建立治理可信時間外部歸檔請求.bat`、取得外部保存端 GAR 後執行 `完成治理可信時間外部歸檔證據包.bat`。GAD／GAP／GAR／GAV 的交換契約與證明限制見 `GOVERNANCE_TRUSTED_ARCHIVE.md`。
 
+GAV 只證明初始入庫回覆與當時保存條件；長期案件應由保存端定期重新觀察同一物件與版本並簽發 GSR，再由案件端建立 GSC。GSC 到期後仍可驗證歷史完整性，但不能當作目前保存狀態仍有效；週期契約見 `GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE.md`。
+
 ## 計算書邊界
 
 GAM、GTS、TSA 回應、TSA 憑證與 GTV 都是治理證據，不是工程計算內容，不得進入 PDF／DOCX 計算書、正式附件包或公開 Pages。它們可與案件主文分開保存在內部歸檔或稽核區；計算書仍只保留採用輸入、計算過程、規範依據、工程結果與核可狀態。

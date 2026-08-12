@@ -112,6 +112,7 @@ const PRIVATE_PATHS = [
   '石材固定/註冊快速啟動.reg',
   '開挖擋土支撐/backend/app/main.py',
   '開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_SCHEMA.json',
+  '開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_SCHEMA.json',
   '開挖擋土支撐/frontend/package.json',
   '開挖擋土支撐/frontend/src/App.tsx',
   '開挖擋土支撐/frontend/dist/index.html',

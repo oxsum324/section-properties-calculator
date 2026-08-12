@@ -1,5 +1,5 @@
 {
-  "version": "1.40.0",
+  "version": "1.41.0",
   "family": "excavation-traceability",
   "description": "開挖擋土支撐服務型工具的規範語意追蹤表。每筆 trace 將分析檔匯入、輸入欄位、構件檢核、報表落點、測試證據與人工複核邊界對齊，避免只因 FastAPI / React 流程可產出 PDF 或 DOCX 就誤判為支撐系統檢核依據已完整可追溯。",
   "tools": [
@@ -68,6 +68,16 @@
           "report": ["GAD／GAP 外部歸檔請求包（不得作為正式計算附件）", "GAR 外部保存端簽章收據（不得作為正式計算附件）", "GAV 完整外部歸檔驗證證據包（不得作為正式計算附件）", "保存端／保存庫／物件 ID／不可變版本 ID", "入庫時間／不可變模式／保存政策 ID／保留期限／legal hold", "保存端公開金鑰核定依據與證據檔 SHA-256"],
           "evidence": ["backend/receiver_governance_archive.py", "backend/tests/test_receiver_governance_archive.py", "receiver_governance_archive.ps1", "建立治理可信時間外部歸檔請求.bat", "完成治理可信時間外部歸檔證據包.bat", "驗證治理可信時間外部歸檔證據包.bat", "GOVERNANCE_TRUSTED_ARCHIVE.md", "GOVERNANCE_TRUSTED_ARCHIVE_SCHEMA.json", "backend/tests/test_reporting.py"],
           "manualReview": ["GAR 是外部保存端對實際入庫與保存條件的密碼學簽章證言；工具不即時查詢外部保存庫，不能獨立證明物件目前仍存在、確實位於異地、供應者內部控制持續有效或保留鎖未被合法管理程序變更。保存端公開金鑰的組織歸屬、核定、輪替與撤銷必須由案件外的正式程序確認；GAV 內的核定依據只是追溯欄位。專案仍須依組織政策人工複核、定期抽查、續期或移轉保存。GAD／GAP／GAR／GAV 都是治理證據，不是工程內容正確、正式核可或計算附件資格。"]
+        },
+        {
+          "id": "excavation-governance-external-archive-lifecycle",
+          "clause": "外部 DMS／WORM 物件週期重驗、保存端現況簽章、期限預警與歷史證據邊界",
+          "purpose": "長期案件不能只把初始 GAR／GAV 當成永久現況證明。外部保存端須先在自身保存庫重新觀察同一物件與不可變版本、GAP SHA-256／bytes、不可變鎖、保留政策、期限及 legal hold，再以現行 Ed25519 金鑰簽發 GSR；案件端完整重驗原 GAV，以組織另行核定的現行公開金鑰驗章，只有保存條件涵蓋下一次重驗才建立封閉 GSC。重驗將歷史完整性與目前狀態分離為 current、review-due、blocked；工具不自行查詢保存庫，也不把過期的歷史簽章冒充目前保存有效。",
+          "inputs": ["complete original GAV package", "original GAD and GAR", "provider-observed archive object SHA-256 and byte size", "provider observation time method and audit reference", "current object and content-hash status", "current immutability status and mode", "current retention policy ID and retention-until time", "current legal-hold status", "provider-signed GSR JSON", "explicitly selected current provider Ed25519 public key", "current provider key approval evidence file and basis", "review interval days", "maximum observation age hours", "retention warning days", "optional deterministic as-of time"],
+          "calculation": ["strict GSR closed-field validation", "GSR canonical Ed25519 signature context", "provider key rotation with new explicit approval evidence", "same GAV GAD GAR provider repository object and version binding", "present object and exact GAP SHA-256 byte-size match", "active immutability and exact mode policy match", "retention non-regression and coverage through next review", "required active legal-hold check", "observation freshness limit", "closed flat ZIP_STORED original GAV package", "complete nested GAV revalidation", "GSC five-file package fingerprint", "current review-due blocked lifecycle assessment", "historical integrity preserved after review due", "CLI exit codes 0 1 2 3", "duplicate JSON field portable filename compression encryption symlink and trailing-data rejection", "private-key material rejection", "source mutation and extra-file rejection", "no overwrite and failure cleanup"],
+          "report": ["GSR 保存端週期狀態收據（不得作為正式計算附件）", "GSC 外部歸檔生命週期檢查點（不得作為正式計算附件）", "目前狀態 current／review-due／blocked", "下次重驗期限與保留期限預警", "外部物件／不可變版本／觀察方法／稽核事件 ID", "現行保存端公開金鑰核定依據與證據檔 SHA-256"],
+          "evidence": ["backend/receiver_governance_archive_lifecycle.py", "backend/tests/test_receiver_governance_archive_lifecycle.py", "receiver_governance_archive_lifecycle.ps1", "簽發外部歸檔週期狀態收據.bat", "建立外部歸檔生命週期檢查點.bat", "驗證外部歸檔生命週期檢查點.bat", "GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE.md", "GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_SCHEMA.json", "backend/tests/test_reporting.py"],
+          "manualReview": ["GSR 是保存端對其重新查詢結果的簽章證言；簽發程式本身不連線保存庫，案件端也不獨立觀察保存端 API、稽核事件或內部控制是否真實，仍須依供應者紀錄人工複核。保存端金鑰輪替、撤銷、組織歸屬與核定文件效力仍須由案件外正式程序確認。current 只表示尚未超過本 GSC 的重驗與期限門檻，不取代組織保存政策、契約、legal hold 解除、事故處理或移轉程序。review-due 與 blocked 不改寫歷史證據，但不得繼續主張目前保存有效。GSR／GSC 都不是工程內容正確、正式核可或計算附件資格。"]
         },
         {
           "id": "excavation-receiver-operator-governance-recovery",

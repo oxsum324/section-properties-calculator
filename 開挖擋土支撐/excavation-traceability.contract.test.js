@@ -126,6 +126,14 @@ const receiverGovernanceArchiveFinalizeBatch = readUtf8('完成治理可信時�
 const receiverGovernanceArchiveVerifyBatch = readUtf8('驗證治理可信時間外部歸檔證據包.bat');
 const receiverGovernanceArchiveGuide = readUtf8('GOVERNANCE_TRUSTED_ARCHIVE.md');
 const receiverGovernanceArchiveSchema = JSON.parse(readUtf8('GOVERNANCE_TRUSTED_ARCHIVE_SCHEMA.json'));
+const receiverGovernanceArchiveLifecycle = readUtf8('backend/receiver_governance_archive_lifecycle.py');
+const receiverGovernanceArchiveLifecycleTests = readUtf8('backend/tests/test_receiver_governance_archive_lifecycle.py');
+const receiverGovernanceArchiveLifecycleLauncher = readUtf8('receiver_governance_archive_lifecycle.ps1');
+const receiverGovernanceArchiveLifecycleIssueBatch = readUtf8('簽發外部歸檔週期狀態收據.bat');
+const receiverGovernanceArchiveLifecycleFinalizeBatch = readUtf8('建立外部歸檔生命週期檢查點.bat');
+const receiverGovernanceArchiveLifecycleVerifyBatch = readUtf8('驗證外部歸檔生命週期檢查點.bat');
+const receiverGovernanceArchiveLifecycleGuide = readUtf8('GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE.md');
+const receiverGovernanceArchiveLifecycleSchema = JSON.parse(readUtf8('GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_SCHEMA.json'));
 const pagesArtifactBuilder = require('../結構工具箱/tools/build-pages-artifact.js');
 const pagesLiveSmoke = readUtf8('../結構工具箱/tools/pages-live-smoke.js');
 const receiverKeyManagementGuide = readUtf8('RECEIVER_KEY_MANAGEMENT.md');
@@ -158,7 +166,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.40.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.41.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -1221,6 +1229,81 @@ assert(
 assert(
   pagesLiveSmoke.includes("'開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_SCHEMA.json'"),
   'excavation external archive schema has a live private-boundary probe',
+  'HTTP status must not be 200',
+);
+[
+  'def issue_lifecycle_provider_status',
+  'def finalize_lifecycle_checkpoint_package',
+  'def verify_lifecycle_checkpoint_package',
+  'def assess_lifecycle_checkpoint',
+  'providerStatusRequiresActualRepositoryObservation',
+  'providerSignedStatusIsAttestationNotIndependentObservation',
+  'standaloneCheckpointJsonIsNotCompleteEvidence',
+  'packageVerificationRequiredForGovernedCurrentAssessment',
+  'historicalIntegrityRemainsVerifiableAfterReviewDue',
+  'providerKeyRotationRequiresNewIndependentApprovalEvidence',
+  'noPrivateKeyCredentialInputsAcceptedByFinalizeOrVerify',
+  'formalCalculationAttachment',
+  'current',
+  'review-due',
+  'blocked',
+  'retention-expired',
+  'periodic-review-due',
+  'retention-renewal-window',
+  'GSR-',
+  'GSC-',
+  'zipfile.ZIP_STORED',
+].forEach((needle) => {
+  assert(receiverGovernanceArchiveLifecycle.includes(needle), `excavation archive lifecycle keeps ${needle}`, needle);
+});
+[
+  'backend.receiver_governance_archive_lifecycle',
+  'issue-status',
+  'finalize-checkpoint',
+  'verify-checkpoint',
+  '--review-interval-days',
+  '--maximum-observation-age-hours',
+  '--retention-warning-days',
+].forEach((needle) => {
+  assert(receiverGovernanceArchiveLifecycleLauncher.includes(needle), `excavation archive lifecycle launcher keeps ${needle}`, needle);
+});
+assert(receiverGovernanceArchiveLifecycleIssueBatch.includes('-Mode IssueStatus'), 'excavation lifecycle issue batch selects IssueStatus', '-Mode IssueStatus');
+assert(receiverGovernanceArchiveLifecycleFinalizeBatch.includes('-Mode Finalize'), 'excavation lifecycle finalize batch selects Finalize', '-Mode Finalize');
+assert(receiverGovernanceArchiveLifecycleVerifyBatch.includes('-Mode Verify'), 'excavation lifecycle verify batch selects Verify', '-Mode Verify');
+[
+  'test_rotated_key_round_trip_schema_windows_and_lifecycle_exit_codes',
+  'test_negative_or_stale_provider_status_fails_closed',
+  'test_wrong_key_private_material_tamper_and_hostile_zip_are_rejected',
+  'returncode, 2',
+  'returncode, 3',
+  'unexpected.txt',
+  'ZIP_DEFLATED',
+].forEach((needle) => {
+  assert(receiverGovernanceArchiveLifecycleTests.includes(needle), `excavation archive lifecycle tests keep ${needle}`, needle);
+});
+[
+  '實際重新查詢',
+  '歷史完整性',
+  'current',
+  'review-due',
+  'blocked',
+  '金鑰輪替',
+  '不得進入 PDF／DOCX 計算書',
+].forEach((needle) => {
+  assert(receiverGovernanceArchiveLifecycleGuide.includes(needle), `excavation archive lifecycle guide keeps ${needle}`, needle);
+});
+assert(receiverGovernanceArchiveLifecycleSchema.$schema === 'https://json-schema.org/draft/2020-12/schema', 'excavation archive lifecycle schema draft', receiverGovernanceArchiveLifecycleSchema.$schema);
+assert(receiverGovernanceArchiveLifecycleSchema.$defs.providerStatus.properties.kind.const === 'governance-trusted-timestamp-external-archive-lifecycle-provider-status', 'excavation archive lifecycle schema keeps GSR kind', receiverGovernanceArchiveLifecycleSchema.$defs.providerStatus.properties.kind.const);
+assert(receiverGovernanceArchiveLifecycleSchema.$defs.lifecycleCheckpoint.properties.kind.const === 'governance-trusted-timestamp-external-archive-lifecycle-checkpoint', 'excavation archive lifecycle schema keeps GSC kind', receiverGovernanceArchiveLifecycleSchema.$defs.lifecycleCheckpoint.properties.kind.const);
+assert(receiverGovernanceArchiveLifecycleSchema.$defs.signature.properties.algorithm.const === 'Ed25519', 'excavation archive lifecycle schema keeps Ed25519 signature', 'Ed25519');
+assert(
+  JSON.stringify(pagesArtifactBuilder.classifyPublishedPath('開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_SCHEMA.json')) === JSON.stringify({ publish: false, reason: 'private-source-file' }),
+  'excavation archive lifecycle schema is excluded from Pages artifacts',
+  'private-source-file',
+);
+assert(
+  pagesLiveSmoke.includes("'開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_SCHEMA.json'"),
+  'excavation archive lifecycle schema has a live private-boundary probe',
   'HTTP status must not be 200',
 );
 [

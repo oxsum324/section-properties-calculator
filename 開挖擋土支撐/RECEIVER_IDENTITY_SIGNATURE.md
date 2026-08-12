@@ -90,6 +90,8 @@ python -m backend.sign_receiver_request --request <RSR、SSR 或 GCR.json> --pri
 
 GTV 可再以 GAD／GAP 交給外部 DMS／WORM 保存端，並由保存端以另一把獨立 Ed25519 金鑰簽發 GAR；案件端核對該保存端金鑰後才建立 GAV。保存端收據簽章 context 與 RSR／SSR／GCR 均不同，不能交叉替代；GAD／GAP／GAR／GAV 也不得進入正式計算附件。詳細契約見 `GOVERNANCE_TRUSTED_ARCHIVE.md`。
 
+後續 GSR 使用獨立的生命週期狀態簽章 context；即使保存端金鑰已輪替，也只能在案件端重新明確選取現行公開金鑰並保存當期核定證據後建立 GSC。這不表示與 GAR、RSR、SSR 或 GCR 共用信任，也不構成工程身分、內容或附件核可。詳細契約見 `GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE.md`。
+
 SEV 操作不需命令列：在 SEV 區塊下載 `SSR-` 請求後，雙擊 `簽署SEV身分請求.bat`，依序選擇 SSR 與既有 Ed25519 PEM 私鑰，再回到原畫面匯入產出的 `source-evidence-verification-identity-signature-response` JSON。相同的 Python 指令也會依請求種類自動產生正確的 RVR 或 SEV 回應，且兩者都不包含私人金鑰或密碼。
 
 簽章回應會包含完整 RSR 與下列公開資料，不包含私人金鑰或密碼：
