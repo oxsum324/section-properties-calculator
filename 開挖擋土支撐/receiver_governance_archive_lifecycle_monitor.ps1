@@ -1,4 +1,4 @@
-param(
+﻿param(
   [ValidateSet("Run", "VerifyState")]
   [string]$Mode = "Run",
   [string]$SourceRoot,
@@ -10,6 +10,14 @@ param(
   [int]$MaxDepth = 12,
   [ValidateRange(1, 8784)]
   [int]$MaxAgeHours = 36,
+  [ValidateRange(1, 8784)]
+  [int]$DashboardStatusMaxAgeHours = 36,
+  [ValidateRange(1, 100)]
+  [int]$DashboardHistoryMaxItems = 24,
+  [string]$DashboardStatusPath,
+  [string]$DashboardHistoryPath,
+  [string]$DashboardTaskStatusPath,
+  [string]$TaskName,
   [string]$AsOf,
   [string]$OpenSslPath,
   [switch]$ShowAlert
@@ -30,6 +38,43 @@ function Show-MonitorAlert {
   } catch {
     Write-Warning "Unable to display the lifecycle monitor alert: $($_.Exception.Message)"
   }
+}
+
+function Write-AtomicJsonFile([string]$Path, $Payload) {
+  $Path = [IO.Path]::GetFullPath($Path)
+  $directory = Split-Path -Parent $Path
+  $current = [IO.DirectoryInfo]::new([IO.Path]::GetFullPath($directory))
+  while ($null -ne $current) {
+    if ($current.Exists -and (($current.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)) { throw "Dashboard output directory chain must be physical." }
+    $current = $current.Parent
+  }
+  if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
+    New-Item -Path $directory -ItemType Directory | Out-Null
+  }
+  $item = Get-Item -LiteralPath $directory -Force
+  if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Dashboard output directory must be physical." }
+  if (Test-Path -LiteralPath $Path) {
+    $outputItem = Get-Item -LiteralPath $Path -Force
+    if ($outputItem.PSIsContainer -or (($outputItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)) { throw "Dashboard output must be a physical file." }
+  }
+  $temporaryPath = "$Path.$PID.tmp"
+  try {
+    $json = $Payload | ConvertTo-Json -Depth 8
+    [IO.File]::WriteAllText($temporaryPath, $json + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
+    Move-Item -LiteralPath $temporaryPath -Destination $Path -Force
+  } finally {
+    Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+  }
+}
+
+if (-not $DashboardStatusPath) {
+  $DashboardStatusPath = Join-Path (Split-Path -Parent $root) "output\audit\gsm-lifecycle-monitor-status.json"
+}
+if (-not $DashboardHistoryPath) {
+  $DashboardHistoryPath = Join-Path (Split-Path -Parent $root) "output\audit\gsm-lifecycle-monitor-history.json"
+}
+if (-not $DashboardTaskStatusPath) {
+  $DashboardTaskStatusPath = Join-Path (Split-Path -Parent $root) "output\audit\gsm-lifecycle-monitor-task-status.json"
 }
 
 $python = Get-Command python -ErrorAction SilentlyContinue
@@ -54,7 +99,11 @@ if ($Mode -eq "Run") {
     "--source-root", $SourceRoot,
     "--state-dir", $StateDirectory,
     "--upcoming-days", "$UpcomingDays",
-    "--max-depth", "$MaxDepth"
+    "--max-depth", "$MaxDepth",
+    "--dashboard-status-output", $DashboardStatusPath,
+    "--dashboard-history-output", $DashboardHistoryPath,
+    "--dashboard-status-max-age-hours", "$DashboardStatusMaxAgeHours",
+    "--dashboard-history-max-items", "$DashboardHistoryMaxItems"
   )
   if ($AsOf) { $arguments += @("--as-of", $AsOf) }
 } else {
@@ -84,6 +133,30 @@ try {
 $text = ($lines | ForEach-Object { "$_" }) -join [Environment]::NewLine
 if ($text) { [Console]::Out.WriteLine($text) }
 if ($exitCode -notin @(0, 2, 3)) {
+  if ($Mode -eq "Run") {
+    try {
+      Write-AtomicJsonFile -Path $DashboardStatusPath -Payload ([ordered]@{
+        schemaVersion = 1
+        kind = "governance-external-archive-lifecycle-monitor-dashboard-status"
+        generatedAt = [datetimeoffset]::Now.ToString("o")
+        checkedAt = $null
+        status = "untrusted"
+        attentionStatus = $null
+        statusMaxAgeHours = $DashboardStatusMaxAgeHours
+        ageSeconds = 0
+        eventCount = 0
+        summary = $null
+        issueCodes = @("monitor-operation-failed")
+        privacy = [ordered]@{
+          scope = "local-only"
+          containsPaths = $false
+          containsCaseIdentifiers = $false
+          containsEvidenceFingerprints = $false
+          containsArchiveMetadata = $false
+        }
+      })
+    } catch {}
+  }
   if ($ShowAlert) {
     $detail = $text
     if ($detail.Length -gt 1200) { $detail = $detail.Substring(0, 1200) + "..." }
@@ -95,6 +168,27 @@ if ($exitCode -notin @(0, 2, 3)) {
 }
 $result = $null
 try { $result = $text | ConvertFrom-Json } catch { throw "The lifecycle monitor returned unreadable JSON." }
+
+if ($Mode -eq "Run" -and $TaskName) {
+  $taskManager = Join-Path $root "manage_receiver_governance_archive_lifecycle_monitor_task.ps1"
+  $powershellExecutable = (Get-Command powershell.exe -CommandType Application -ErrorAction SilentlyContinue).Source
+  if ($powershellExecutable -and (Test-Path -LiteralPath $taskManager -PathType Leaf)) {
+    $taskArguments = @(
+      "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+      "-File", $taskManager,
+      "-Mode", "Status",
+      "-TaskName", $TaskName,
+      "-MaxAgeHours", "$DashboardStatusMaxAgeHours",
+      "-CurrentMonitorExitCode", "$exitCode",
+      "-DashboardStatusPath", $DashboardStatusPath,
+      "-DashboardHistoryPath", $DashboardHistoryPath,
+      "-DashboardTaskStatusPath", $DashboardTaskStatusPath
+    )
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try { @(& $powershellExecutable @taskArguments 2>&1) | Out-Null } finally { $ErrorActionPreference = $previousErrorActionPreference }
+  }
+}
 
 if ($Mode -eq "Run" -and $ShowAlert -and $result.notification.shouldNotify) {
   $summary = $result.monitor.signal.summary

@@ -808,6 +808,61 @@
     </div>
   </div>
 
+  <div class="card screen-only" id="gsmLifecycleMonitorCard">
+    <h2>GSC 多案件外部歸檔生命週期監測</h2>
+    <p class="boundary-note"><strong>本機治理邊界：</strong>本區只讀取去識別彙總與 Windows 排程健康摘要；不發布案件名稱、路徑、保存端資料或任何 GSC／GSP／GSM／GME 指紋，不會寫入計算書、列印、PDF 或公開站。</p>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">整體健康</div>
+        <div class="kpi-value" id="gsmMonitorHealth">讀取中</div>
+        <div class="kpi-hint" id="gsmMonitorHealthHint">同時檢查來源重掃結果、摘要新鮮度與 Windows 排程。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">最近完整重驗</div>
+        <div class="kpi-value" id="gsmMonitorCheckedAt">讀取中</div>
+        <div class="kpi-hint" id="gsmMonitorCheckedAtHint">舊摘要不能推定目前保存狀態。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Windows 每日排程</div>
+        <div class="kpi-value" id="gsmMonitorTask">讀取中</div>
+        <div class="kpi-hint" id="gsmMonitorTaskHint">檢查安裝、啟用、設定漂移與最近結果。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">下次執行</div>
+        <div class="kpi-value" id="gsmMonitorNextRun">讀取中</div>
+        <div class="kpi-hint">時間由 Windows 工作排程器提供。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">鏈總數 / 目前有效</div>
+        <div class="kpi-value" id="gsmMonitorCurrentCount">讀取中</div>
+        <div class="kpi-hint">只顯示彙總數，不顯示案件識別資訊。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">即將重驗</div>
+        <div class="kpi-value" id="gsmMonitorUpcomingCount">讀取中</div>
+        <div class="kpi-hint">提醒安排重驗，不改寫 GSC 狀態。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">應重驗 / 阻擋</div>
+        <div class="kpi-value" id="gsmMonitorAttentionCount">讀取中</div>
+        <div class="kpi-hint">包含 review-due 與 blocked 鏈。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">無效包 / 掃描錯誤</div>
+        <div class="kpi-value" id="gsmMonitorInvalidCount">讀取中</div>
+        <div class="kpi-hint">任何一項均要求處理。</div>
+      </div>
+    </div>
+    <div class="coverage-totals" id="gsmMonitorIssues" aria-label="GSC Lifecycle Monitor Issues">
+      <div class="history-empty">讀取生命週期監測問題中。</div>
+    </div>
+    <h3>狀態轉換歷程</h3>
+    <p class="section-note">只顯示去識別的狀態與計數轉換；案件層待辦仍留在受控本機狀態資料夾。</p>
+    <div class="history-table-wrap" id="gsmMonitorHistoryWrap" aria-label="GSC Lifecycle Monitor Transition History">
+      <div class="history-empty">讀取生命週期監測轉換歷程中。</div>
+    </div>
+  </div>
+
   <div class="card">
     <h2>交付前檢查歷程</h2>
     <div class="kpi-grid">
@@ -1183,6 +1238,146 @@
           </tbody>
         </table>
       `;
+    }
+
+    function gsmMonitorStateText(state) {
+      const labels = {
+        unobserved: '尚未觀察',
+        current: '目前有效',
+        upcoming: '即將重驗',
+        'review-due': '應立即重驗',
+        blocked: '阻擋',
+      };
+      return labels[String(state || '')] || '未知';
+    }
+
+    function gsmMonitorIssueText(code) {
+      const labels = {
+        'monitor-upcoming': '有外部歸檔鏈即將到達重驗期限',
+        'monitor-review-due': '有外部歸檔鏈已到重驗期限',
+        'monitor-blocked': '有外部歸檔鏈處於阻擋狀態',
+        'monitor-invalid-package': '來源中存在無法驗證的 GSC 包',
+        'monitor-scan-error': '完整來源掃描發現阻擋問題',
+        'monitor-state-stale': '完整重驗摘要已過期',
+        'monitor-operation-failed': '最近一次監測無法產生可信目前狀態',
+        'task-not-installed': '尚未安裝每日監測排程',
+        'task-disabled': '每日監測排程已停用',
+        'task-configuration-drift': '排程動作或安全設定與目前工具不一致',
+        'task-last-run-failed': '每日監測排程最近一次執行失敗',
+        'task-missed-runs': 'Windows 工作排程器記錄到錯過執行',
+        'monitor-state-unavailable': '排程無法驗證本機監測狀態',
+        'dashboard-status-stale': '去識別監測摘要已超過新鮮度門檻',
+        'dashboard-task-status-stale': '去識別排程摘要已超過新鮮度門檻',
+        'dashboard-summary-privacy-invalid': '本機摘要未通過隱私邊界檢查',
+      };
+      return labels[String(code || '')] || '未分類問題，請執行本機排程狀態檢查';
+    }
+
+    function isGsmDashboardPrivacySafe(privacy) {
+      return privacy?.scope === 'local-only'
+        && privacy?.containsPaths === false
+        && privacy?.containsCaseIdentifiers === false
+        && privacy?.containsEvidenceFingerprints === false;
+    }
+
+    function renderGsmLifecycleMonitor(statusPayload, historyPayload, taskPayload) {
+      const card = document.getElementById('gsmLifecycleMonitorCard');
+      const issuesNode = document.getElementById('gsmMonitorIssues');
+      const historyWrap = document.getElementById('gsmMonitorHistoryWrap');
+      const validStatus = statusPayload
+        && statusPayload.schemaVersion === 1
+        && statusPayload.kind === 'governance-external-archive-lifecycle-monitor-dashboard-status';
+      const validHistory = historyPayload
+        && historyPayload.schemaVersion === 1
+        && historyPayload.kind === 'governance-external-archive-lifecycle-monitor-dashboard-history';
+      const validTask = taskPayload
+        && taskPayload.schemaVersion === 1
+        && taskPayload.kind === 'governance-external-archive-lifecycle-monitor-task-dashboard-status';
+      if (!validStatus && !validTask) {
+        if (card) card.dataset.gsmMonitorState = 'local-only';
+        setKpiValue('gsmMonitorHealth', '僅限本機', 'warn');
+        setHint('gsmMonitorHealthHint', '本機排程尚未產生可讀摘要；公開站不提供案件監測狀態。');
+        setKpiValue('gsmMonitorCheckedAt', '無資料', 'warn');
+        setHint('gsmMonitorCheckedAtHint', '請在有安裝排程的本機環境查看。');
+        setKpiValue('gsmMonitorTask', '未讀取', 'warn');
+        setHint('gsmMonitorTaskHint', '不發布排程名稱、案件路徑或狀態資料夾。');
+        setKpiValue('gsmMonitorNextRun', '-', 'warn');
+        ['gsmMonitorCurrentCount', 'gsmMonitorUpcomingCount', 'gsmMonitorAttentionCount', 'gsmMonitorInvalidCount'].forEach((id) => setKpiValue(id, '-', 'warn'));
+        if (issuesNode) issuesNode.innerHTML = '<div class="history-empty">本區只讀取本機去識別彙總；不發布案件名稱、路徑、保存端資料或證據指紋。</div>';
+        if (historyWrap) historyWrap.innerHTML = '<div class="history-empty">本機尚無可讀取的去識別轉換歷程；公開站不提供此資料。</div>';
+        return;
+      }
+
+      const issueCodes = [];
+      for (const source of [statusPayload?.issueCodes, taskPayload?.issueCodes]) {
+        if (Array.isArray(source)) {
+          for (const code of source) if (typeof code === 'string' && !issueCodes.includes(code)) issueCodes.push(code);
+        }
+      }
+      const statusMaxAgeHours = Number(statusPayload?.statusMaxAgeHours) > 0 ? Number(statusPayload.statusMaxAgeHours) : 36;
+      const taskMaxAgeHours = Number(taskPayload?.statusMaxAgeHours) > 0 ? Number(taskPayload.statusMaxAgeHours) : 36;
+      const statusGeneratedAt = parseGeneratedAt(statusPayload?.generatedAt);
+      const taskCheckedAt = parseGeneratedAt(taskPayload?.checkedAt);
+      const statusFresh = validStatus && statusGeneratedAt && (Date.now() - statusGeneratedAt.getTime()) / 3600000 <= statusMaxAgeHours;
+      const taskFresh = validTask && taskCheckedAt && (Date.now() - taskCheckedAt.getTime()) / 3600000 <= taskMaxAgeHours;
+      if (validStatus && !statusFresh && !issueCodes.includes('dashboard-status-stale')) issueCodes.push('dashboard-status-stale');
+      if (validTask && !taskFresh && !issueCodes.includes('dashboard-task-status-stale')) issueCodes.push('dashboard-task-status-stale');
+      const privacySafe = (!validStatus || (isGsmDashboardPrivacySafe(statusPayload.privacy) && statusPayload.privacy?.containsArchiveMetadata === false))
+        && (!validHistory || (isGsmDashboardPrivacySafe(historyPayload.privacy) && historyPayload.privacy?.containsArchiveMetadata === false))
+        && (!validTask || (isGsmDashboardPrivacySafe(taskPayload.privacy) && taskPayload.privacy?.containsTaskName === false));
+      if (!privacySafe && !issueCodes.includes('dashboard-summary-privacy-invalid')) issueCodes.push('dashboard-summary-privacy-invalid');
+
+      const summary = validStatus && statusPayload.status !== 'untrusted' ? statusPayload.summary : null;
+      const statusTrusted = validStatus && statusFresh && statusPayload.status === 'trusted' && summary;
+      const taskHealthy = validTask
+        && taskFresh
+        && taskPayload.installed === true
+        && taskPayload.enabled === true
+        && taskPayload.configurationMatchesCurrentTool === true
+        && taskPayload.monitorStateFresh === true
+        && [0, 2, 3].includes(Number(taskPayload.reportedRunExitCode ?? taskPayload.lastTaskResult));
+      const healthy = Boolean(statusTrusted && statusPayload.attentionStatus === 'current' && taskHealthy && issueCodes.length === 0 && privacySafe);
+      if (card) card.dataset.gsmMonitorState = healthy ? 'healthy' : 'attention-required';
+      setKpiValue('gsmMonitorHealth', healthy ? '正常' : '需要處理', healthy ? 'ok' : 'fail');
+      setHint(
+        'gsmMonitorHealthHint',
+        healthy
+          ? '每日排程、完整來源重驗、狀態鏈與摘要新鮮度皆正常。'
+          : statusPayload?.status === 'untrusted'
+          ? '最近一次監測無法產生可信目前狀態；不得沿用舊數字。'
+          : `發現 ${Math.max(issueCodes.length, 1)} 項治理問題；請執行本機排程狀態檢查。`
+      );
+      setKpiValue('gsmMonitorCheckedAt', statusPayload?.checkedAt ? formatRvrHealthDate(statusPayload.checkedAt) : '不可信', statusTrusted ? 'ok' : 'fail');
+      setHint('gsmMonitorCheckedAtHint', validStatus ? `摘要年齡 ${formatRvrHealthAge(statusPayload.ageSeconds)}；門檻 ${statusMaxAgeHours} 小時。` : '沒有可信的完整重驗摘要。');
+      setKpiValue('gsmMonitorTask', taskHealthy ? '就緒 / 成功' : (validTask && !taskFresh ? '摘要過期' : validTask && !taskPayload.installed ? '未安裝' : '需要處理'), taskHealthy ? 'ok' : 'fail');
+      setHint(
+        'gsmMonitorTaskHint',
+        validTask
+          ? `狀態 ${taskPayload.state || '-'}；最近結果 ${taskPayload.reportedRunExitCode ?? taskPayload.lastTaskResult ?? '-'}；錯過 ${Number(taskPayload.missedRunCount) || 0} 次。`
+          : '尚無去識別排程狀態摘要。'
+      );
+      setKpiValue('gsmMonitorNextRun', formatRvrHealthDate(taskPayload?.nextRunTime), taskHealthy ? 'ok' : 'warn');
+      setKpiValue('gsmMonitorCurrentCount', summary ? `${summary.chainCount} / ${summary.currentCount}` : '-', statusTrusted ? 'ok' : 'fail');
+      setKpiValue('gsmMonitorUpcomingCount', summary ? String(summary.upcomingCount) : '-', summary && summary.upcomingCount === 0 ? 'ok' : 'warn');
+      setKpiValue('gsmMonitorAttentionCount', summary ? `${summary.reviewDueCount} / ${summary.blockedCount}` : '-', summary && summary.reviewDueCount === 0 && summary.blockedCount === 0 ? 'ok' : 'fail');
+      setKpiValue('gsmMonitorInvalidCount', summary ? `${summary.invalidPackageCount} / ${summary.errorIssueCount}` : '-', summary && summary.invalidPackageCount === 0 && summary.errorIssueCount === 0 ? 'ok' : 'fail');
+
+      if (issuesNode) {
+        issuesNode.innerHTML = issueCodes.length
+          ? issueCodes.map((code) => `<div class="coverage-total warn" data-gsm-monitor-issue="${escapeAttr(code)}"><strong>需要處理</strong><span>${escapeHtml(gsmMonitorIssueText(code))}</span></div>`).join('')
+          : '<div class="coverage-total ok" data-gsm-monitor-issue="none"><strong>監測正常</strong><span>來源完整重驗、事件鏈、摘要新鮮度與每日排程均通過。</span></div>';
+      }
+
+      if (!historyWrap) return;
+      const states = new Set(['unobserved', 'current', 'upcoming', 'review-due', 'blocked']);
+      const items = validHistory && privacySafe && Array.isArray(historyPayload.items)
+        ? historyPayload.items.filter((item) => item && states.has(item.fromAttentionStatus) && states.has(item.toAttentionStatus) && item.summary)
+        : [];
+      historyWrap.innerHTML = items.length ? `
+        <table class="history-table rvr-health-history-table">
+          <thead><tr><th>觀察時間</th><th>狀態轉換</th><th>鏈總數</th><th>即將 / 應重驗 / 阻擋</th><th>無效包 / 錯誤</th></tr></thead>
+          <tbody>${items.map((item) => `<tr data-gsm-monitor-transition="${escapeAttr(`${item.fromAttentionStatus}:${item.toAttentionStatus}`)}"><td>${escapeHtml(formatRvrHealthDate(item.observedAt))}</td><td>${escapeHtml(gsmMonitorStateText(item.fromAttentionStatus))} → ${escapeHtml(gsmMonitorStateText(item.toAttentionStatus))}</td><td>${escapeHtml(item.summary.chainCount)}</td><td>${escapeHtml(`${item.summary.upcomingCount} / ${item.summary.reviewDueCount} / ${item.summary.blockedCount}`)}</td><td>${escapeHtml(`${item.summary.invalidPackageCount} / ${item.summary.errorIssueCount}`)}</td></tr>`).join('')}</tbody>
+        </table>` : '<div class="history-empty">本機尚無可讀取的去識別轉換歷程；公開站不提供此資料。</div>';
     }
 
     function isReleasePreflightRun(item) {
@@ -2578,6 +2773,16 @@
         } catch (error) {
           renderRvrBackupHealthHistory(null);
         }
+        const [gsmStatusResult, gsmHistoryResult, gsmTaskResult] = await Promise.allSettled([
+          fetchJson('../output/audit/gsm-lifecycle-monitor-status.json'),
+          fetchJson('../output/audit/gsm-lifecycle-monitor-history.json'),
+          fetchJson('../output/audit/gsm-lifecycle-monitor-task-status.json'),
+        ]);
+        renderGsmLifecycleMonitor(
+          gsmStatusResult.status === 'fulfilled' ? gsmStatusResult.value : null,
+          gsmHistoryResult.status === 'fulfilled' ? gsmHistoryResult.value : null,
+          gsmTaskResult.status === 'fulfilled' ? gsmTaskResult.value : null,
+        );
         const [publicStatusResult, localDiagnosticResult] = await Promise.allSettled([
           fetchJson('./assets/status/report-readiness-status.json'),
           fetchJson('../output/preflight/attachment-integrity-latest.json'),
@@ -2594,6 +2799,7 @@
         renderMaturityMatrix(null);
         renderRvrBackupHealth(null);
         renderRvrBackupHealthHistory(null);
+        renderGsmLifecycleMonitor(null, null, null);
         renderAttachmentIntegrity(null);
         renderAttachmentIntegrityClosures([]);
       }

@@ -1,4 +1,4 @@
-param(
+﻿param(
   [ValidateSet("Install", "Preview", "Status", "Remove")]
   [string]$Mode = "Status",
   [string]$TaskName = "GSC lifecycle portfolio daily monitor",
@@ -13,6 +13,10 @@ param(
   [ValidateRange(1, 8784)]
   [int]$MaxAgeHours = 36,
   [string]$OpenSslPath,
+  [string]$DashboardStatusPath,
+  [string]$DashboardHistoryPath,
+  [string]$DashboardTaskStatusPath,
+  [Nullable[int]]$CurrentMonitorExitCode,
   [switch]$NoAlert
 )
 
@@ -26,6 +30,16 @@ $initialMonitorAttentionStatus = $null
 $initialMonitorNotificationKind = $null
 $previewTask = $null
 
+if (-not $DashboardStatusPath) {
+  $DashboardStatusPath = Join-Path (Split-Path -Parent $root) "output\audit\gsm-lifecycle-monitor-status.json"
+}
+if (-not $DashboardHistoryPath) {
+  $DashboardHistoryPath = Join-Path (Split-Path -Parent $root) "output\audit\gsm-lifecycle-monitor-history.json"
+}
+if (-not $DashboardTaskStatusPath) {
+  $DashboardTaskStatusPath = Join-Path (Split-Path -Parent $root) "output\audit\gsm-lifecycle-monitor-task-status.json"
+}
+
 if ([string]::IsNullOrWhiteSpace($TaskName)) { throw "TaskName must not be blank." }
 
 function Quote-TaskArgument([string]$Value) {
@@ -37,6 +51,33 @@ function Test-PathInside([string]$Parent, [string]$Candidate) {
   $parentFull = [IO.Path]::GetFullPath($Parent).TrimEnd('\') + '\'
   $candidateFull = [IO.Path]::GetFullPath($Candidate).TrimEnd('\') + '\'
   return $candidateFull.StartsWith($parentFull, [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Write-AtomicJsonFile([string]$Path, $Payload) {
+  $Path = [IO.Path]::GetFullPath($Path)
+  $directory = Split-Path -Parent $Path
+  $current = [IO.DirectoryInfo]::new([IO.Path]::GetFullPath($directory))
+  while ($null -ne $current) {
+    if ($current.Exists -and (($current.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)) { throw "Dashboard output directory chain must be physical." }
+    $current = $current.Parent
+  }
+  if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
+    New-Item -Path $directory -ItemType Directory | Out-Null
+  }
+  $item = Get-Item -LiteralPath $directory -Force
+  if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Dashboard output directory must be physical." }
+  if (Test-Path -LiteralPath $Path) {
+    $outputItem = Get-Item -LiteralPath $Path -Force
+    if ($outputItem.PSIsContainer -or (($outputItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)) { throw "Dashboard output must be a physical file." }
+  }
+  $temporaryPath = "$Path.$PID.tmp"
+  try {
+    $json = $Payload | ConvertTo-Json -Depth 8
+    [IO.File]::WriteAllText($temporaryPath, $json + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
+    Move-Item -LiteralPath $temporaryPath -Destination $Path -Force
+  } finally {
+    Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+  }
 }
 
 function Get-TaskSnapshot {
@@ -84,7 +125,12 @@ if ($Mode -in @("Install", "Preview")) {
     "-SourceRoot", (Quote-TaskArgument ([IO.Path]::GetFullPath($SourceRoot))),
     "-StateDirectory", (Quote-TaskArgument ([IO.Path]::GetFullPath($StateDirectory))),
     "-UpcomingDays", "$UpcomingDays",
-    "-MaxDepth", "$MaxDepth"
+    "-MaxDepth", "$MaxDepth",
+    "-DashboardStatusMaxAgeHours", "$MaxAgeHours",
+    "-DashboardStatusPath", (Quote-TaskArgument ([IO.Path]::GetFullPath($DashboardStatusPath))),
+    "-DashboardHistoryPath", (Quote-TaskArgument ([IO.Path]::GetFullPath($DashboardHistoryPath))),
+    "-DashboardTaskStatusPath", (Quote-TaskArgument ([IO.Path]::GetFullPath($DashboardTaskStatusPath))),
+    "-TaskName", (Quote-TaskArgument $TaskName)
   )
   if ($OpenSslPath) { $runArgs += @("-OpenSslPath", (Quote-TaskArgument ([IO.Path]::GetFullPath($OpenSslPath)))) }
   if (-not $NoAlert) { $runArgs += "-ShowAlert" }
@@ -98,7 +144,12 @@ if ($Mode -in @("Install", "Preview")) {
       "-SourceRoot", $SourceRoot,
       "-StateDirectory", $StateDirectory,
       "-UpcomingDays", "$UpcomingDays",
-      "-MaxDepth", "$MaxDepth"
+      "-MaxDepth", "$MaxDepth",
+      "-DashboardStatusMaxAgeHours", "$MaxAgeHours",
+      "-DashboardStatusPath", $DashboardStatusPath,
+      "-DashboardHistoryPath", $DashboardHistoryPath,
+      "-DashboardTaskStatusPath", $DashboardTaskStatusPath,
+      "-TaskName", $TaskName
     )
     if ($OpenSslPath) { $initialArguments += @("-OpenSslPath", $OpenSslPath) }
     if (-not $NoAlert) { $initialArguments += "-ShowAlert" }
@@ -153,6 +204,11 @@ if ($taskObject -and @($taskObject.Actions).Count -eq 1) {
   $executableMatches = $false
   try { $executableMatches = [IO.Path]::GetFullPath([string]$taskAction.Execute) -eq $expectedPowerShell } catch { $executableMatches = $false }
   $fileArgumentPattern = '(?i)(?:^|\s)-File\s+"' + [regex]::Escape($expectedScript) + '"(?:\s|$)'
+  $taskNameArgumentPattern = '(?i)(?:^|\s)-TaskName\s+"' + [regex]::Escape($TaskName) + '"(?:\s|$)'
+  $dashboardStatusArgumentPattern = '(?i)(?:^|\s)-DashboardStatusPath\s+"' + [regex]::Escape([IO.Path]::GetFullPath($DashboardStatusPath)) + '"(?:\s|$)'
+  $dashboardHistoryArgumentPattern = '(?i)(?:^|\s)-DashboardHistoryPath\s+"' + [regex]::Escape([IO.Path]::GetFullPath($DashboardHistoryPath)) + '"(?:\s|$)'
+  $dashboardTaskArgumentPattern = '(?i)(?:^|\s)-DashboardTaskStatusPath\s+"' + [regex]::Escape([IO.Path]::GetFullPath($DashboardTaskStatusPath)) + '"(?:\s|$)'
+  $dashboardMaxAgeArgumentPattern = '(?i)(?:^|\s)-DashboardStatusMaxAgeHours\s+' + [regex]::Escape([string]$MaxAgeHours) + '(?:\s|$)'
   $sourceMatch = [regex]::Match($taskArgumentText, '(?i)(?:^|\s)-SourceRoot\s+"(?<source>[^"]+)"')
   $stateMatch = [regex]::Match($taskArgumentText, '(?i)(?:^|\s)-StateDirectory\s+"(?<state>[^"]+)"')
   $pathPolicyMatches = $false
@@ -179,6 +235,11 @@ if ($taskObject -and @($taskObject.Actions).Count -eq 1) {
     $executableMatches -and `
     $taskArgumentText -match $fileArgumentPattern -and `
     $taskArgumentText -match '(?i)(?:^|\s)-Mode\s+Run(?:\s|$)' -and `
+    $taskArgumentText -match $taskNameArgumentPattern -and `
+    $taskArgumentText -match $dashboardStatusArgumentPattern -and `
+    $taskArgumentText -match $dashboardHistoryArgumentPattern -and `
+    $taskArgumentText -match $dashboardTaskArgumentPattern -and `
+    $taskArgumentText -match $dashboardMaxAgeArgumentPattern -and `
     $sourceMatch.Success -and $stateMatch.Success -and $pathPolicyMatches -and `
     $workingDirectoryMatches
 }
@@ -222,6 +283,50 @@ if ($Mode -eq "Status" -and $taskObject -and $effectiveStateDirectory) {
     $snapshot["monitorStateExitCode"] = 1
     $snapshot["monitorStateResult"] = $null
   }
+}
+
+if ($Mode -ne "Preview") {
+  $dashboardIssueCodes = [System.Collections.Generic.List[string]]::new()
+  if (-not $snapshot.installed) { $dashboardIssueCodes.Add("task-not-installed") }
+  if ($snapshot.installed -and -not $snapshot.enabled) { $dashboardIssueCodes.Add("task-disabled") }
+  if ($snapshot.installed -and -not $snapshot.configurationMatchesCurrentTool) { $dashboardIssueCodes.Add("task-configuration-drift") }
+  $effectiveResult = if ($null -ne $CurrentMonitorExitCode) { [int]$CurrentMonitorExitCode } elseif ($taskInfo -and $taskInfo.LastRunTime -gt [datetime]::MinValue) { [int]$taskInfo.LastTaskResult } else { $null }
+  if ($null -ne $effectiveResult -and $effectiveResult -notin @(0, 2, 3)) { $dashboardIssueCodes.Add("task-last-run-failed") }
+  $missedRunCount = if ($null -ne $snapshot.missedRunCount) { [int]$snapshot.missedRunCount } else { 0 }
+  if ($snapshot.installed -and $missedRunCount -gt 0) { $dashboardIssueCodes.Add("task-missed-runs") }
+  $monitorStateFresh = $snapshot.installed -and $snapshot.Contains('monitorStateResult') -and $snapshot.monitorStateResult -and $snapshot.monitorStateResult.freshnessStatus -eq "fresh"
+  if ($snapshot.installed -and -not $monitorStateFresh) {
+    if ($snapshot.Contains('monitorStateResult') -and $snapshot.monitorStateResult -and $snapshot.monitorStateResult.freshnessStatus -eq "stale") {
+      $dashboardIssueCodes.Add("monitor-state-stale")
+    } else {
+      $dashboardIssueCodes.Add("monitor-state-unavailable")
+    }
+  }
+  $dashboardTaskStatus = [ordered]@{
+    schemaVersion = 1
+    kind = "governance-external-archive-lifecycle-monitor-task-dashboard-status"
+    checkedAt = [datetimeoffset]::Now.ToString("o")
+    statusMaxAgeHours = $MaxAgeHours
+    installed = [bool]$snapshot.installed
+    enabled = [bool]$snapshot.enabled
+    configurationMatchesCurrentTool = [bool]$snapshot.configurationMatchesCurrentTool
+    state = [string]$snapshot.state
+    lastRunTime = $snapshot.lastRunTime
+    lastTaskResult = $snapshot.lastTaskResult
+    nextRunTime = $snapshot.nextRunTime
+    missedRunCount = $snapshot.missedRunCount
+    reportedRunExitCode = if ($null -ne $CurrentMonitorExitCode) { [int]$CurrentMonitorExitCode } else { $null }
+    monitorStateFresh = [bool]$monitorStateFresh
+    issueCodes = @($dashboardIssueCodes)
+    privacy = [ordered]@{
+      scope = "local-only"
+      containsPaths = $false
+      containsTaskName = $false
+      containsCaseIdentifiers = $false
+      containsEvidenceFingerprints = $false
+    }
+  }
+  Write-AtomicJsonFile -Path $DashboardTaskStatusPath -Payload $dashboardTaskStatus
 }
 
 $snapshot | ConvertTo-Json -Depth 5

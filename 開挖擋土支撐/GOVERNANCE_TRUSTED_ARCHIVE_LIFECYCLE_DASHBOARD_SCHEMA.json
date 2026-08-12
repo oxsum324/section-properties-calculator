@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/governance-trusted-archive-lifecycle-dashboard.schema.json",
+  "title": "GSC lifecycle monitor local dashboard summaries",
+  "oneOf": [
+    { "$ref": "#/$defs/status" },
+    { "$ref": "#/$defs/history" },
+    { "$ref": "#/$defs/task" }
+  ],
+  "$defs": {
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "containsPaths", "containsCaseIdentifiers", "containsEvidenceFingerprints"],
+      "properties": {
+        "scope": { "const": "local-only" },
+        "containsPaths": { "const": false },
+        "containsCaseIdentifiers": { "const": false },
+        "containsEvidenceFingerprints": { "const": false },
+        "containsArchiveMetadata": { "const": false },
+        "containsTaskName": { "const": false }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chainCount", "currentCount", "upcomingCount", "reviewDueCount", "blockedCount", "invalidPackageCount", "errorIssueCount"],
+      "properties": {
+        "chainCount": { "type": "integer", "minimum": 0 },
+        "currentCount": { "type": "integer", "minimum": 0 },
+        "upcomingCount": { "type": "integer", "minimum": 0 },
+        "reviewDueCount": { "type": "integer", "minimum": 0 },
+        "blockedCount": { "type": "integer", "minimum": 0 },
+        "invalidPackageCount": { "type": "integer", "minimum": 0 },
+        "errorIssueCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "eventSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chainCount", "upcomingCount", "reviewDueCount", "blockedCount", "invalidPackageCount", "errorIssueCount"],
+      "properties": {
+        "chainCount": { "type": "integer", "minimum": 0 },
+        "upcomingCount": { "type": "integer", "minimum": 0 },
+        "reviewDueCount": { "type": "integer", "minimum": 0 },
+        "blockedCount": { "type": "integer", "minimum": 0 },
+        "invalidPackageCount": { "type": "integer", "minimum": 0 },
+        "errorIssueCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "kind", "generatedAt", "checkedAt", "status", "attentionStatus", "statusMaxAgeHours", "ageSeconds", "eventCount", "summary", "issueCodes", "privacy"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "kind": { "const": "governance-external-archive-lifecycle-monitor-dashboard-status" },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "checkedAt": { "type": ["string", "null"], "format": "date-time" },
+        "status": { "enum": ["trusted", "stale", "untrusted"] },
+        "attentionStatus": { "type": ["string", "null"], "enum": ["current", "upcoming", "review-due", "blocked", null] },
+        "statusMaxAgeHours": { "type": "integer", "minimum": 1, "maximum": 8784 },
+        "ageSeconds": { "type": "integer", "minimum": 0 },
+        "eventCount": { "type": "integer", "minimum": 0 },
+        "summary": { "oneOf": [{ "$ref": "#/$defs/summary" }, { "type": "null" }] },
+        "issueCodes": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" } },
+        "privacy": { "allOf": [{ "$ref": "#/$defs/privacy" }], "required": ["scope", "containsPaths", "containsCaseIdentifiers", "containsEvidenceFingerprints", "containsArchiveMetadata"] }
+      }
+    },
+    "history": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "kind", "generatedAt", "itemCount", "items", "privacy"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "kind": { "const": "governance-external-archive-lifecycle-monitor-dashboard-history" },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "itemCount": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "items": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["observedAt", "fromAttentionStatus", "toAttentionStatus", "notificationKind", "summary"],
+            "properties": {
+              "observedAt": { "type": "string", "format": "date-time" },
+              "fromAttentionStatus": { "enum": ["unobserved", "current", "upcoming", "review-due", "blocked"] },
+              "toAttentionStatus": { "enum": ["current", "upcoming", "review-due", "blocked"] },
+              "notificationKind": { "enum": ["baseline-current", "baseline-attention", "attention-change", "recovered", "inventory-change"] },
+              "summary": { "$ref": "#/$defs/eventSummary" }
+            }
+          }
+        },
+        "privacy": { "allOf": [{ "$ref": "#/$defs/privacy" }], "required": ["scope", "containsPaths", "containsCaseIdentifiers", "containsEvidenceFingerprints", "containsArchiveMetadata"] }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "kind", "checkedAt", "statusMaxAgeHours", "installed", "enabled", "configurationMatchesCurrentTool", "state", "lastRunTime", "lastTaskResult", "nextRunTime", "missedRunCount", "reportedRunExitCode", "monitorStateFresh", "issueCodes", "privacy"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "kind": { "const": "governance-external-archive-lifecycle-monitor-task-dashboard-status" },
+        "checkedAt": { "type": "string", "format": "date-time" },
+        "statusMaxAgeHours": { "type": "integer", "minimum": 1, "maximum": 8784 },
+        "installed": { "type": "boolean" },
+        "enabled": { "type": "boolean" },
+        "configurationMatchesCurrentTool": { "type": "boolean" },
+        "state": { "type": "string", "maxLength": 40 },
+        "lastRunTime": { "type": ["string", "null"], "format": "date-time" },
+        "lastTaskResult": { "type": ["integer", "null"] },
+        "nextRunTime": { "type": ["string", "null"], "format": "date-time" },
+        "missedRunCount": { "type": ["integer", "null"], "minimum": 0 },
+        "reportedRunExitCode": { "type": ["integer", "null"] },
+        "monitorStateFresh": { "type": "boolean" },
+        "issueCodes": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" } },
+        "privacy": { "allOf": [{ "$ref": "#/$defs/privacy" }], "required": ["scope", "containsPaths", "containsTaskName", "containsCaseIdentifiers", "containsEvidenceFingerprints"] }
+      }
+    }
+  }
+}

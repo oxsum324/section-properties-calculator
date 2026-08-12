@@ -151,6 +151,7 @@ const receiverGovernanceArchiveLifecycleMonitorStatusBatch = readUtf8('檢查多
 const receiverGovernanceArchiveLifecycleMonitorRemoveBatch = readUtf8('移除多案件外部歸檔生命週期每日監測.bat');
 const receiverGovernanceArchiveLifecycleMonitorGuide = readUtf8('GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_MONITOR.md');
 const receiverGovernanceArchiveLifecycleMonitorSchema = JSON.parse(readUtf8('GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_MONITOR_SCHEMA.json'));
+const receiverGovernanceArchiveLifecycleDashboardSchema = JSON.parse(readUtf8('GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_DASHBOARD_SCHEMA.json'));
 const pagesArtifactBuilder = require('../結構工具箱/tools/build-pages-artifact.js');
 const pagesLiveSmoke = readUtf8('../結構工具箱/tools/pages-live-smoke.js');
 const rootGitignore = readUtf8('../.gitignore');
@@ -184,7 +185,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.43.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.44.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -1409,6 +1410,10 @@ assert(
   'def verify_monitor_state_directory',
   '另一個 GSM',
   'not-assessed-requires-monitor-run',
+  'def build_dashboard_summaries',
+  'def write_dashboard_summaries',
+  'containsCaseIdentifiers',
+  'containsArchiveMetadata',
 ].forEach((needle) => {
   assert(receiverGovernanceArchiveLifecycleMonitor.includes(needle), `excavation lifecycle monitor keeps ${needle}`, needle);
 });
@@ -1421,12 +1426,16 @@ assert(
   'simulated latest failure',
   '孤兒狀態',
   'latest 狀態遺失',
+  'dashboard_status',
+  'monitor-operation-failed',
 ].forEach((needle) => {
   assert(receiverGovernanceArchiveLifecycleMonitorTests.includes(needle), `excavation lifecycle monitor tests keep ${needle}`, needle);
 });
 assert(receiverGovernanceArchiveLifecycleMonitorLauncher.includes('[ValidateSet("Run", "VerifyState")]'), 'excavation lifecycle monitor launcher keeps explicit modes', 'Run VerifyState');
 assert(receiverGovernanceArchiveLifecycleMonitorLauncher.includes('$result.notification.shouldNotify'), 'excavation lifecycle monitor launcher throttles desktop alerts', 'notification.shouldNotify');
 assert(receiverGovernanceArchiveLifecycleMonitorLauncher.includes('This operational or integrity failure is not alert-throttled.'), 'excavation lifecycle monitor launcher never throttles untrusted operational failures', 'not alert-throttled');
+assert(receiverGovernanceArchiveLifecycleMonitorLauncher.includes('gsm-lifecycle-monitor-status.json'), 'excavation lifecycle monitor launcher publishes local dashboard status', 'gsm dashboard status');
+assert(receiverGovernanceArchiveLifecycleMonitorLauncher.includes('status = "untrusted"'), 'excavation lifecycle monitor launcher invalidates dashboard status on operational failure', 'untrusted');
 [
   'New-ScheduledTaskPrincipal',
   'Get-Command powershell.exe -CommandType Application',
@@ -1445,6 +1454,11 @@ assert(receiverGovernanceArchiveLifecycleMonitorLauncher.includes('This operatio
   'StateDirectory must be completely separate from SourceRoot',
   'StateDirectory must not be inside the tool repository',
   'MaxAgeHours',
+  'DashboardTaskStatusPath',
+  'dashboardMaxAgeArgumentPattern',
+  'Dashboard output directory chain must be physical.',
+  'containsTaskName = $false',
+  'monitorStateFresh',
 ].forEach((needle) => {
   assert(receiverGovernanceArchiveLifecycleMonitorTaskManager.includes(needle), `excavation lifecycle monitor task manager keeps ${needle}`, needle);
 });
@@ -1466,11 +1480,19 @@ assert(receiverGovernanceArchiveLifecycleMonitorSchema.$schema === 'https://json
 assert(receiverGovernanceArchiveLifecycleMonitorSchema.properties.kind.const === 'governance-external-archive-lifecycle-monitor-state', 'excavation lifecycle monitor schema keeps GSM kind', receiverGovernanceArchiveLifecycleMonitorSchema.properties.kind.const);
 assert(receiverGovernanceArchiveLifecycleMonitorSchema.properties.boundary.properties.formalCalculationAttachment.const === false, 'excavation lifecycle monitor schema excludes formal attachment', 'false');
 assert(receiverGovernanceArchiveLifecycleMonitorSchema.properties.boundary.properties.pagesPublication.const === false, 'excavation lifecycle monitor schema excludes Pages', 'false');
+assert(receiverGovernanceArchiveLifecycleDashboardSchema.$schema === 'https://json-schema.org/draft/2020-12/schema', 'excavation lifecycle dashboard schema draft', receiverGovernanceArchiveLifecycleDashboardSchema.$schema);
+assert(receiverGovernanceArchiveLifecycleDashboardSchema.$defs.status.properties.kind.const === 'governance-external-archive-lifecycle-monitor-dashboard-status', 'excavation lifecycle dashboard schema keeps status kind', 'dashboard status');
+assert(receiverGovernanceArchiveLifecycleDashboardSchema.$defs.task.properties.privacy.allOf.length === 1, 'excavation lifecycle dashboard task schema keeps privacy contract', 'privacy');
 assert(rootGitignore.includes('GSM-外部歸檔生命週期監測-latest.json'), 'excavation lifecycle monitor latest state is gitignored', 'GSM latest');
 assert(rootGitignore.includes('GSM-外部歸檔生命週期監測事件-*.json'), 'excavation lifecycle monitor events are gitignored', 'GSM events');
 assert(
   JSON.stringify(pagesArtifactBuilder.classifyPublishedPath('開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_MONITOR_SCHEMA.json')) === JSON.stringify({ publish: false, reason: 'private-source-file' }),
   'excavation lifecycle monitor schema is excluded from Pages artifacts',
+  'private-source-file',
+);
+assert(
+  JSON.stringify(pagesArtifactBuilder.classifyPublishedPath('開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_DASHBOARD_SCHEMA.json')) === JSON.stringify({ publish: false, reason: 'private-source-file' }),
+  'excavation lifecycle dashboard schema is excluded from Pages artifacts',
   'private-source-file',
 );
 assert(
@@ -1486,6 +1508,11 @@ assert(
 assert(
   pagesLiveSmoke.includes("'開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_MONITOR_SCHEMA.json'"),
   'excavation lifecycle monitor schema has a live private-boundary probe',
+  'HTTP status must not be 200',
+);
+assert(
+  pagesLiveSmoke.includes("'開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_DASHBOARD_SCHEMA.json'"),
+  'excavation lifecycle dashboard schema has a live private-boundary probe',
   'HTTP status must not be 200',
 );
 assert(

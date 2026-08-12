@@ -43,6 +43,16 @@
 
 交換 Schema 位於 `GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_MONITOR_SCHEMA.json`。Schema 不能取代 Python 的語意數量重算、指紋、事件鏈、檔名、連結與競態驗證。
 
+## 本機稽核儀表板
+
+每次排程另在 repo 的 ignored `output/audit/` 原子更新三份去識別摘要：
+
+- `gsm-lifecycle-monitor-status.json`：完整重驗時間、新鮮度、信任狀態與 current／upcoming／review-due／blocked／無效包／掃描錯誤計數。
+- `gsm-lifecycle-monitor-history.json`：最近 24 筆去識別狀態與計數轉換。
+- `gsm-lifecycle-monitor-task-status.json`：排程安裝、啟用、設定一致、最近結果、錯過次數與下次執行時間。
+
+三份摘要不含案件名稱、來源／狀態路徑、排程名稱、保存端資料或 GSC／GSP／GSM／GME 指紋，並受 `GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_DASHBOARD_SCHEMA.json` 封閉欄位契約限制。平台巡檢儀表板只在本機 HTTP 模式讀取；公開站缺少摘要時固定顯示「僅限本機」，不推測目前狀態。摘要或排程狀態超過 36 小時即失敗可見；當次監測發生執行或完整性錯誤時，status 立即改成 `untrusted` 且清空舊案件計數，不能沿用先前正常數字。
+
 ## 非互動命令
 
 ```powershell
@@ -86,3 +96,4 @@ powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass `
 - 狀態完整性與事件鏈是本機防誤改線索，不是外部可信時間戳或防止高權限人員重建整個資料夾的證明。
 - upcoming 是預先安排重驗的提醒，不改寫 GSC current；review-due／blocked 也不改寫歷史證據。
 - GSM、GME、排程資訊及通知不得進入 PDF／DOCX 計算書、正式附件包或公開 Pages，也不構成工程核可、正式附件核可或法律保存完成。
+- 去識別 dashboard 摘要只是本機維運檢視，不是案件清冊、外部保存現況證明或遠端監控服務；案件層處置仍須回到受控 GSM 狀態資料夾。

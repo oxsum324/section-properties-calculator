@@ -10,6 +10,11 @@ const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
 const repoRoot = path.resolve(toolboxRoot, '..');
 const liveOutputMode = process.argv.includes('--live-output');
+const OPTIONAL_GSM_DASHBOARD_PATHS = Object.freeze([
+  'output/audit/gsm-lifecycle-monitor-status.json',
+  'output/audit/gsm-lifecycle-monitor-history.json',
+  'output/audit/gsm-lifecycle-monitor-task-status.json',
+]);
 
 const EDGE_CANDIDATES = [
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
@@ -186,6 +191,92 @@ const fixtureRvrBackupHealthFailureHistory = {
   ...fixtureRvrBackupHealthHistory,
   itemCount: 2,
   items: [fixtureRvrBackupHealthHistory.items[1], fixtureRvrBackupHealthHistory.items[2]],
+};
+const fixtureGsmMonitorStatus = {
+  schemaVersion: 1,
+  kind: 'governance-external-archive-lifecycle-monitor-dashboard-status',
+  generatedAt: new Date().toISOString(),
+  checkedAt: new Date(Date.now() - 7200000).toISOString(),
+  status: 'trusted',
+  attentionStatus: 'current',
+  statusMaxAgeHours: 36,
+  ageSeconds: 7200,
+  eventCount: 3,
+  summary: {
+    chainCount: 4,
+    currentCount: 4,
+    upcomingCount: 0,
+    reviewDueCount: 0,
+    blockedCount: 0,
+    invalidPackageCount: 0,
+    errorIssueCount: 0,
+  },
+  issueCodes: [],
+  privacy: {
+    scope: 'local-only', containsPaths: false, containsCaseIdentifiers: false,
+    containsEvidenceFingerprints: false, containsArchiveMetadata: false,
+  },
+};
+const fixtureGsmMonitorStale = {
+  ...fixtureGsmMonitorStatus,
+  generatedAt: fixtureGeneratedAt,
+  checkedAt: fixtureGeneratedAt,
+  status: 'stale',
+  issueCodes: ['monitor-state-stale'],
+};
+const fixtureGsmMonitorFailure = {
+  ...fixtureGsmMonitorStatus,
+  status: 'untrusted',
+  checkedAt: null,
+  attentionStatus: null,
+  ageSeconds: 0,
+  eventCount: 0,
+  summary: null,
+  issueCodes: ['monitor-operation-failed'],
+};
+const fixtureGsmMonitorHistory = {
+  schemaVersion: 1,
+  kind: 'governance-external-archive-lifecycle-monitor-dashboard-history',
+  generatedAt: new Date().toISOString(),
+  itemCount: 3,
+  items: [
+    { observedAt: '2026-08-12T20:00:00+08:00', fromAttentionStatus: 'review-due', toAttentionStatus: 'current', notificationKind: 'recovered', summary: { chainCount: 4, upcomingCount: 0, reviewDueCount: 0, blockedCount: 0, invalidPackageCount: 0, errorIssueCount: 0 } },
+    { observedAt: '2026-08-12T19:00:00+08:00', fromAttentionStatus: 'upcoming', toAttentionStatus: 'review-due', notificationKind: 'attention-change', summary: { chainCount: 4, upcomingCount: 0, reviewDueCount: 1, blockedCount: 0, invalidPackageCount: 0, errorIssueCount: 0 } },
+    { observedAt: '2026-08-12T18:00:00+08:00', fromAttentionStatus: 'unobserved', toAttentionStatus: 'upcoming', notificationKind: 'baseline-attention', summary: { chainCount: 4, upcomingCount: 1, reviewDueCount: 0, blockedCount: 0, invalidPackageCount: 0, errorIssueCount: 0 } },
+  ],
+  privacy: {
+    scope: 'local-only', containsPaths: false, containsCaseIdentifiers: false,
+    containsEvidenceFingerprints: false, containsArchiveMetadata: false,
+  },
+};
+const fixtureGsmMonitorTask = {
+  schemaVersion: 1,
+  kind: 'governance-external-archive-lifecycle-monitor-task-dashboard-status',
+  checkedAt: new Date().toISOString(),
+  statusMaxAgeHours: 36,
+  installed: true,
+  enabled: true,
+  configurationMatchesCurrentTool: true,
+  state: 'Ready',
+  lastRunTime: new Date(Date.now() - 7200000).toISOString(),
+  lastTaskResult: 0,
+  nextRunTime: new Date(Date.now() + 79200000).toISOString(),
+  missedRunCount: 0,
+  reportedRunExitCode: 0,
+  monitorStateFresh: true,
+  issueCodes: [],
+  privacy: {
+    scope: 'local-only', containsPaths: false, containsTaskName: false,
+    containsCaseIdentifiers: false, containsEvidenceFingerprints: false,
+  },
+};
+const fixtureGsmMonitorTaskFailure = {
+  ...fixtureGsmMonitorTask,
+  configurationMatchesCurrentTool: false,
+  lastTaskResult: 1,
+  reportedRunExitCode: 1,
+  monitorStateFresh: false,
+  issueCodes: ['task-configuration-drift', 'task-last-run-failed', 'monitor-state-unavailable'],
 };
 const fixtureAttachmentFailureGroups = fixtureAttachmentGroups.map((group) => {
   const artifacts = group.artifacts.map(artifact => ({ ...artifact }));
@@ -372,6 +463,9 @@ const fixtures = new Map(Object.entries({
   '結構工具箱/assets/status/report-readiness-status.json': fixtureAttachmentStatus,
   'output/audit/rvr-backup-health-status.json': fixtureRvrBackupHealth,
   'output/audit/rvr-backup-health-history.json': fixtureRvrBackupHealthHistory,
+  'output/audit/gsm-lifecycle-monitor-status.json': fixtureGsmMonitorStatus,
+  'output/audit/gsm-lifecycle-monitor-history.json': fixtureGsmMonitorHistory,
+  'output/audit/gsm-lifecycle-monitor-task-status.json': fixtureGsmMonitorTask,
   'output/preflight/attachment-integrity-latest.json': fixtureAttachmentDiagnostic,
   'output/preflight/history/fixture-release/rendered-delivery-evidence/attachment-integrity-diagnostic.json': fixtureAttachmentDiagnostic,
   'output/preflight/history/fixture-attachment-failure/rendered-delivery-evidence/attachment-integrity-diagnostic.json': fixtureAttachmentClosureFailureDiagnostic,
@@ -905,7 +999,9 @@ function isOutputRequest(relativePath) {
 
 function assertRequestAudit(audit, options = {}) {
   const fixtureMode = options.fixtureMode !== false;
-  assert.deepEqual(audit.missing, [], `missing dashboard fixture/static requests: ${audit.missing.join(', ')}`);
+  const optionalLocalPaths = new Set(OPTIONAL_GSM_DASHBOARD_PATHS);
+  const unexpectedMissing = fixtureMode ? audit.missing : audit.missing.filter((item) => !optionalLocalPaths.has(item));
+  assert.deepEqual(unexpectedMissing, [], `missing dashboard fixture/static requests: ${unexpectedMissing.join(', ')}`);
   assert.ok(audit.fileHits.has('結構工具箱/audit-dashboard.html'), 'dashboard HTML served from workspace');
   if (fixtureMode) {
     assert.deepEqual(audit.unexpectedOutputRequests, [], `unexpected non-fixture output requests: ${audit.unexpectedOutputRequests.join(', ')}`);
@@ -934,6 +1030,9 @@ function assertRequestAudit(audit, options = {}) {
   for (const livePath of requiredLiveOutputPaths) {
     assert.ok(audit.fileHits.has(livePath), `live dashboard requested ${livePath}`);
   }
+  for (const optionalPath of optionalLocalPaths) {
+    assert.ok(audit.fileHits.has(optionalPath) || audit.missing.includes(optionalPath), `live dashboard requested optional ${optionalPath}`);
+  }
 }
 
 function repoFile(relativePath) {
@@ -942,6 +1041,10 @@ function repoFile(relativePath) {
 
 function readJsonFile(relativePath) {
   return JSON.parse(fs.readFileSync(repoFile(relativePath), 'utf8').replace(/^\uFEFF/, ''));
+}
+
+function readOptionalJsonFile(relativePath) {
+  return fs.existsSync(repoFile(relativePath)) ? readJsonFile(relativePath) : null;
 }
 
 function readTextFile(relativePath) {
@@ -967,6 +1070,9 @@ function loadLiveExpected() {
     matrix: readJsonFile('output/audit/tool-maturity-matrix.json'),
     rvrBackupHealth: readJsonFile('output/audit/rvr-backup-health-status.json'),
     rvrBackupHealthHistory: readJsonFile('output/audit/rvr-backup-health-history.json'),
+    gsmMonitorStatus: readOptionalJsonFile('output/audit/gsm-lifecycle-monitor-status.json'),
+    gsmMonitorHistory: readOptionalJsonFile('output/audit/gsm-lifecycle-monitor-history.json'),
+    gsmMonitorTask: readOptionalJsonFile('output/audit/gsm-lifecycle-monitor-task-status.json'),
     postChecks: normalizePostChecksPayload(readJsonFile('output/preflight/post-checks.json')),
     platformStatus: readJsonFile('output/audit/platform-status.json'),
     reportReadinessStatus: readJsonFile('結構工具箱/assets/status/report-readiness-status.json'),
@@ -1239,8 +1345,9 @@ function waitForEvent(client, sessionId, method, timeoutMs = 10000) {
   });
 }
 
-function collectPageErrors(client, sessionId) {
+function collectPageErrors(client, sessionId, { allowedOptional404Paths = [] } = {}) {
   const errors = [];
+  const allowed404 = new Set(allowedOptional404Paths);
   const unsubscribe = client.on(message => {
     if (message.sessionId !== sessionId) return;
     if (message.method === 'Runtime.exceptionThrown') {
@@ -1254,6 +1361,15 @@ function collectPageErrors(client, sessionId) {
     if (message.method === 'Log.entryAdded' && message.params.entry?.level === 'error') {
       const entry = message.params.entry || {};
       if ((entry.url || '').endsWith('/favicon.ico')) return;
+      if (entry.text === 'Failed to load resource: the server responded with a status of 404 (Not Found)' && entry.url) {
+        try {
+          const resourceUrl = new URL(entry.url);
+          const relativePath = decodeURIComponent(resourceUrl.pathname).replace(/^\/+/, '');
+          if (resourceUrl.hostname === '127.0.0.1' && allowed404.has(relativePath)) return;
+        } catch (_err) {
+          // Keep malformed resource errors visible below.
+        }
+      }
       errors.push([entry.text || 'Log error', entry.url || ''].filter(Boolean).join(' @ '));
     }
     if (message.method === 'Page.javascriptDialogOpening') {
@@ -1392,6 +1508,31 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         })),
         rvrBackupHealthHistoryText: document.getElementById('rvrBackupHealthHistoryWrap')?.textContent?.replace(/\s+/g, ' ').trim() || '',
         rvrBackupHealthText: document.getElementById('rvrBackupHealthCard')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+        gsmMonitorState: document.getElementById('gsmLifecycleMonitorCard')?.dataset.gsmMonitorState || '',
+        gsmMonitorHealth: document.getElementById('gsmMonitorHealth')?.textContent?.trim() || '',
+        gsmMonitorHealthFail: document.getElementById('gsmMonitorHealth')?.classList.contains('fail') || false,
+        gsmMonitorHealthHint: document.getElementById('gsmMonitorHealthHint')?.textContent?.trim() || '',
+        gsmMonitorCheckedAt: document.getElementById('gsmMonitorCheckedAt')?.textContent?.trim() || '',
+        gsmMonitorTask: document.getElementById('gsmMonitorTask')?.textContent?.trim() || '',
+        gsmMonitorTaskHint: document.getElementById('gsmMonitorTaskHint')?.textContent?.trim() || '',
+        gsmMonitorNextRun: document.getElementById('gsmMonitorNextRun')?.textContent?.trim() || '',
+        gsmMonitorCurrentCount: document.getElementById('gsmMonitorCurrentCount')?.textContent?.trim() || '',
+        gsmMonitorUpcomingCount: document.getElementById('gsmMonitorUpcomingCount')?.textContent?.trim() || '',
+        gsmMonitorAttentionCount: document.getElementById('gsmMonitorAttentionCount')?.textContent?.trim() || '',
+        gsmMonitorInvalidCount: document.getElementById('gsmMonitorInvalidCount')?.textContent?.trim() || '',
+        gsmMonitorIssues: Array.from(document.querySelectorAll('#gsmMonitorIssues [data-gsm-monitor-issue]')).map((node) => ({
+          code: node.getAttribute('data-gsm-monitor-issue') || '',
+          title: node.querySelector('strong')?.textContent?.trim() || '',
+          text: node.querySelector('span')?.textContent?.trim() || '',
+          ok: node.classList.contains('ok'),
+        })),
+        gsmMonitorTransitions: Array.from(document.querySelectorAll('#gsmMonitorHistoryWrap [data-gsm-monitor-transition]')).map((row) => ({
+          transition: row.getAttribute('data-gsm-monitor-transition') || '',
+          stateText: row.querySelector('td:nth-child(2)')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+          counts: row.querySelector('td:nth-child(4)')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+        })),
+        gsmMonitorHistoryText: document.getElementById('gsmMonitorHistoryWrap')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+        gsmMonitorText: document.getElementById('gsmLifecycleMonitorCard')?.textContent?.replace(/\s+/g, ' ').trim() || '',
         attachmentIntegrityStatus: document.getElementById('attachmentIntegrityStatus')?.textContent?.trim() || '',
         attachmentIntegrityStatusFail: document.getElementById('attachmentIntegrityStatus')?.classList.contains('fail') || false,
         attachmentIntegrityStatusHint: document.getElementById('attachmentIntegrityStatusHint')?.textContent?.trim() || '',
@@ -1519,6 +1660,10 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
       !lastState.rvrBackupHealthStatus.includes('讀取中') &&
       lastState.rvrBackupHealthHistoryText &&
       !lastState.rvrBackupHealthHistoryText.includes('讀取 RVR') &&
+      lastState.gsmMonitorHealth &&
+      !lastState.gsmMonitorHealth.includes('讀取中') &&
+      lastState.gsmMonitorHistoryText &&
+      !lastState.gsmMonitorHistoryText.includes('讀取生命週期') &&
       lastState.freshness &&
       lastState.maturityPreflightHint.includes(expectedPreflightHint) &&
       (!expectedLive || Object.values(lastState.summaryPreviews || {}).every(value => value && !value.includes('讀取中') && !value.includes('讀取失敗'))) &&
@@ -1729,6 +1874,19 @@ function assertDashboardLiveState(state, label, expected) {
   );
   ['RTB-', 'RTR-', 'RDR-', 'RBH-', '.json', 'C:\\', 'G:\\'].forEach((forbidden) => {
     assert.equal(state.rvrBackupHealthText.includes(forbidden), false, `${label} live RVR dashboard excludes ${forbidden}`);
+  });
+  if (!expected.gsmMonitorStatus && !expected.gsmMonitorTask) {
+    assert.equal(state.gsmMonitorState, 'local-only', `${label} live GSM remains local-only when summaries are absent`);
+    assert.equal(state.gsmMonitorHealth, '僅限本機', `${label} live GSM does not infer current state`);
+    assert.deepEqual(state.gsmMonitorIssues, [], `${label} live GSM exposes no private issue detail`);
+    assert.deepEqual(state.gsmMonitorTransitions, [], `${label} live GSM exposes no private transition detail`);
+  } else {
+    assert.ok(['healthy', 'attention-required'].includes(state.gsmMonitorState), `${label} live GSM controlled health state`);
+    assert.notEqual(state.gsmMonitorHealth, '讀取中', `${label} live GSM health rendered`);
+    assert.notEqual(state.gsmMonitorTask, '讀取中', `${label} live GSM task rendered`);
+  }
+  ['GSC-', 'GSP-', 'GSM-', 'GME-', '.json', 'C:\\', 'G:\\', '案件甲'].forEach((forbidden) => {
+    assert.equal(state.gsmMonitorText.includes(forbidden), false, `${label} live GSM dashboard excludes ${forbidden}`);
   });
   const attachmentStatus = expected.reportReadinessStatus;
   assert.equal(state.attachmentIntegrityStatus, attachmentStatus.attachmentIntegrityPass ? '通過' : `異常 ${attachmentStatus.attachmentIntegrityIssueCount || 1} 項`, `${label} live attachment integrity status`);
@@ -1946,6 +2104,33 @@ function assertDashboardState(state, label, expectedLive = null) {
   ['RTB-', 'RTR-', 'RDR-', 'RBH-', '.json', 'C:\\', 'G:\\'].forEach((forbidden) => {
     assert.equal(state.rvrBackupHealthText.includes(forbidden), false, `${label} RVR dashboard excludes ${forbidden}`);
   });
+  assert.equal(state.gsmMonitorState, 'healthy', `${label} GSM monitor health state`);
+  assert.equal(state.gsmMonitorHealth, '正常', `${label} GSM monitor health`);
+  assert.equal(state.gsmMonitorHealthFail, false, `${label} GSM monitor healthy tone`);
+  assert.ok(state.gsmMonitorHealthHint.includes('完整來源重驗'), `${label} GSM monitor health evidence`);
+  assert.notEqual(state.gsmMonitorCheckedAt, '無資料', `${label} GSM monitor checked time`);
+  assert.equal(state.gsmMonitorTask, '就緒 / 成功', `${label} GSM task health`);
+  assert.ok(state.gsmMonitorTaskHint.includes('最近結果 0'), `${label} GSM task result`);
+  assert.notEqual(state.gsmMonitorNextRun, '-', `${label} GSM next run`);
+  assert.equal(state.gsmMonitorCurrentCount, '4 / 4', `${label} GSM current count`);
+  assert.equal(state.gsmMonitorUpcomingCount, '0', `${label} GSM upcoming count`);
+  assert.equal(state.gsmMonitorAttentionCount, '0 / 0', `${label} GSM attention count`);
+  assert.equal(state.gsmMonitorInvalidCount, '0 / 0', `${label} GSM invalid count`);
+  assert.deepEqual(state.gsmMonitorIssues, [{
+    code: 'none',
+    title: '監測正常',
+    text: '來源完整重驗、事件鏈、摘要新鮮度與每日排程均通過。',
+    ok: true,
+  }], `${label} GSM healthy summary`);
+  assert.deepEqual(state.gsmMonitorTransitions.map(item => item.transition), [
+    'review-due:current',
+    'upcoming:review-due',
+    'unobserved:upcoming',
+  ], `${label} GSM transition history`);
+  assert.ok(state.gsmMonitorTransitions[0].stateText.includes('應立即重驗 → 目前有效'), `${label} GSM recovery transition`);
+  ['GSC-', 'GSP-', 'GSM-', 'GME-', '.json', 'C:\\', 'G:\\', '案件甲'].forEach((forbidden) => {
+    assert.equal(state.gsmMonitorText.includes(forbidden), false, `${label} GSM dashboard excludes ${forbidden}`);
+  });
   assert.equal(state.attachmentIntegrityStatus, '通過', `${label} attachment integrity status`);
   assert.equal(state.attachmentIntegrityStatusFail, false, `${label} attachment integrity status is not failed`);
   assert.equal(state.attachmentIntegrityCount, '34 / 34', `${label} attachment integrity count`);
@@ -2036,6 +2221,20 @@ function assertDashboardState(state, label, expectedLive = null) {
 }
 
 function assertAttachmentIntegrityFailureState(state, label) {
+  assert.equal(state.gsmMonitorState, 'attention-required', `${label} failed GSM state`);
+  assert.equal(state.gsmMonitorHealth, '需要處理', `${label} failed GSM health`);
+  assert.equal(state.gsmMonitorHealthFail, true, `${label} failed GSM tone`);
+  assert.ok(state.gsmMonitorHealthHint.includes('無法產生可信目前狀態'), `${label} failed GSM does not reuse old state`);
+  assert.equal(state.gsmMonitorCurrentCount, '-', `${label} failed GSM suppresses old counts`);
+  assert.deepEqual(state.gsmMonitorIssues.map(item => item.code), [
+    'monitor-operation-failed',
+    'task-configuration-drift',
+    'task-last-run-failed',
+    'monitor-state-unavailable',
+  ], `${label} failed GSM controlled issues`);
+  ['GSC-', 'GSP-', 'GSM-', 'GME-', '.json', 'C:\\', 'G:\\', '案件甲'].forEach((forbidden) => {
+    assert.equal(state.gsmMonitorText.includes(forbidden), false, `${label} failed GSM excludes ${forbidden}`);
+  });
   assert.equal(state.rvrBackupHealthState, 'attention-required', `${label} RVR backup attention state`);
   assert.equal(state.rvrBackupHealthStatus, '需要處理', `${label} RVR backup attention status`);
   assert.equal(state.rvrBackupHealthStatusFail, true, `${label} RVR backup attention tone`);
@@ -2146,6 +2345,10 @@ function assertAttachmentIntegrityFailureState(state, label) {
 }
 
 function assertRvrStaleState(state, label) {
+  assert.equal(state.gsmMonitorState, 'attention-required', `${label} stale GSM state`);
+  assert.equal(state.gsmMonitorHealth, '需要處理', `${label} stale GSM health`);
+  assert.ok(state.gsmMonitorIssues.map(item => item.code).includes('monitor-state-stale'), `${label} stale GSM issue`);
+  assert.ok(state.gsmMonitorIssues.map(item => item.code).includes('dashboard-status-stale'), `${label} stale GSM dashboard freshness issue`);
   assert.equal(state.rvrBackupHealthState, 'attention-required', `${label} stale RVR state`);
   assert.equal(state.rvrBackupHealthStatus, '需要處理', `${label} stale RVR status`);
   assert.equal(state.rvrBackupHealthStatusFail, true, `${label} stale RVR tone`);
@@ -2158,6 +2361,12 @@ function assertRvrStaleState(state, label) {
 }
 
 function assertPublicAttachmentBoundaryState(state, label) {
+  assert.equal(state.gsmMonitorState, 'local-only', `${label} public dashboard marks GSM local-only`);
+  assert.equal(state.gsmMonitorHealth, '僅限本機', `${label} public dashboard does not claim GSM health`);
+  assert.deepEqual(state.gsmMonitorIssues, [], `${label} public dashboard has no GSM issue details`);
+  assert.deepEqual(state.gsmMonitorTransitions, [], `${label} public dashboard has no GSM transition details`);
+  assert.ok(state.gsmMonitorHistoryText.includes('公開站不提供此資料'), `${label} public GSM history remains local-only`);
+  assert.ok(state.gsmMonitorText.includes('不發布案件名稱、路徑、保存端資料或證據指紋'), `${label} public GSM privacy boundary visible`);
   assert.equal(state.rvrBackupHealthState, 'local-only', `${label} public dashboard marks RVR health local-only`);
   assert.equal(state.rvrBackupHealthStatus, '僅限本機', `${label} public dashboard does not claim RVR health`);
   assert.equal(state.rvrBackupHealthIssues.length, 0, `${label} public dashboard has no private RVR issue details`);
@@ -2203,7 +2412,9 @@ async function main() {
     await client.send('Network.enable', {}, sessionId);
     await client.send('Network.setCacheDisabled', { cacheDisabled: true }, sessionId);
 
-    const pageErrors = collectPageErrors(client, sessionId);
+    const pageErrors = collectPageErrors(client, sessionId, {
+      allowedOptional404Paths: liveOutputMode ? OPTIONAL_GSM_DASHBOARD_PATHS : [],
+    });
     const dashboardUrl = `http://127.0.0.1:${serverPort}/${encodeURI('結構工具箱/audit-dashboard.html')}`;
     const states = [];
     for (const viewport of viewports) {
@@ -2229,11 +2440,17 @@ async function main() {
       const attachmentDiagnosticFixturePath = 'output/preflight/attachment-integrity-latest.json';
       const rvrBackupHealthFixturePath = 'output/audit/rvr-backup-health-status.json';
       const rvrBackupHealthHistoryFixturePath = 'output/audit/rvr-backup-health-history.json';
+      const gsmMonitorStatusFixturePath = 'output/audit/gsm-lifecycle-monitor-status.json';
+      const gsmMonitorHistoryFixturePath = 'output/audit/gsm-lifecycle-monitor-history.json';
+      const gsmMonitorTaskFixturePath = 'output/audit/gsm-lifecycle-monitor-task-status.json';
       const tamperedDiagnosticFixturePath = 'output/preflight/history/fixture-tampered-release/rendered-delivery-evidence/attachment-integrity-diagnostic.json';
       const originalPreflightFixture = fixtures.get(preflightFixturePath);
       const originalPreflightHistoryFixture = fixtures.get(preflightHistoryFixturePath);
       const originalRvrBackupHealthFixture = fixtures.get(rvrBackupHealthFixturePath);
       const originalRvrBackupHealthHistoryFixture = fixtures.get(rvrBackupHealthHistoryFixturePath);
+      const originalGsmMonitorStatusFixture = fixtures.get(gsmMonitorStatusFixturePath);
+      const originalGsmMonitorHistoryFixture = fixtures.get(gsmMonitorHistoryFixturePath);
+      const originalGsmMonitorTaskFixture = fixtures.get(gsmMonitorTaskFixturePath);
       fixtures.set(preflightFixturePath, {
         ...originalPreflightFixture,
         runId: 'fixture-tampered-release',
@@ -2265,6 +2482,9 @@ async function main() {
       fixtures.set(attachmentDiagnosticFixturePath, fixtureAttachmentFailureDiagnostic);
       fixtures.set(rvrBackupHealthFixturePath, fixtureRvrBackupHealthFailure);
       fixtures.set(rvrBackupHealthHistoryFixturePath, fixtureRvrBackupHealthFailureHistory);
+      fixtures.set(gsmMonitorStatusFixturePath, fixtureGsmMonitorFailure);
+      fixtures.set(gsmMonitorHistoryFixturePath, fixtureGsmMonitorHistory);
+      fixtures.set(gsmMonitorTaskFixturePath, fixtureGsmMonitorTaskFailure);
       fixtures.set(tamperedDiagnosticFixturePath, fixtureAttachmentFailureDiagnostic);
       for (const viewport of viewports) {
         await client.send('Emulation.setDeviceMetricsOverride', {
@@ -2286,6 +2506,9 @@ async function main() {
       fixtures.delete(tamperedDiagnosticFixturePath);
       fixtures.set(rvrBackupHealthFixturePath, fixtureRvrBackupHealthStale);
       fixtures.set(rvrBackupHealthHistoryFixturePath, originalRvrBackupHealthHistoryFixture);
+      fixtures.set(gsmMonitorStatusFixturePath, fixtureGsmMonitorStale);
+      fixtures.set(gsmMonitorHistoryFixturePath, originalGsmMonitorHistoryFixture);
+      fixtures.set(gsmMonitorTaskFixturePath, originalGsmMonitorTaskFixture);
       for (const viewport of viewports) {
         await client.send('Emulation.setDeviceMetricsOverride', {
           width: viewport.width,
@@ -2302,6 +2525,9 @@ async function main() {
       fixtures.set(attachmentDiagnosticFixturePath, null);
       fixtures.set(rvrBackupHealthFixturePath, null);
       fixtures.set(rvrBackupHealthHistoryFixturePath, null);
+      fixtures.set(gsmMonitorStatusFixturePath, null);
+      fixtures.set(gsmMonitorHistoryFixturePath, null);
+      fixtures.set(gsmMonitorTaskFixturePath, null);
       for (const viewport of viewports) {
         await client.send('Emulation.setDeviceMetricsOverride', {
           width: viewport.width,
@@ -2319,6 +2545,9 @@ async function main() {
       fixtures.set(attachmentDiagnosticFixturePath, fixtureAttachmentDiagnostic);
       fixtures.set(rvrBackupHealthFixturePath, originalRvrBackupHealthFixture);
       fixtures.set(rvrBackupHealthHistoryFixturePath, originalRvrBackupHealthHistoryFixture);
+      fixtures.set(gsmMonitorStatusFixturePath, originalGsmMonitorStatusFixture);
+      fixtures.set(gsmMonitorHistoryFixturePath, originalGsmMonitorHistoryFixture);
+      fixtures.set(gsmMonitorTaskFixturePath, originalGsmMonitorTaskFixture);
     }
     pageErrors.unsubscribe();
     await client.send('Browser.close').catch(() => {});

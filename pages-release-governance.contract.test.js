@@ -175,6 +175,13 @@ assert.ok(
     const privateGsmEvent = path.join(fixtureRepo, '案件', 'events', 'GSM-外部歸檔生命週期監測事件-000001-GME-00000000000000000000.json');
     fs.mkdirSync(path.dirname(privateGsmEvent), { recursive: true });
     fs.writeFileSync(privateGsmEvent, '{"private":"GSM event"}\n', 'utf8');
+    const privateDashboardSchema = path.join(fixtureRepo, '案件', 'GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_DASHBOARD_SCHEMA.json');
+    fs.writeFileSync(privateDashboardSchema, '{"private":"dashboard schema"}\n', 'utf8');
+    const privateDashboardOutput = path.join(fixtureRepo, 'output', 'audit');
+    fs.mkdirSync(privateDashboardOutput, { recursive: true });
+    for (const filename of ['gsm-lifecycle-monitor-status.json', 'gsm-lifecycle-monitor-history.json', 'gsm-lifecycle-monitor-task-status.json']) {
+      fs.writeFileSync(path.join(privateDashboardOutput, filename), '{"private":"local dashboard state"}\n', 'utf8');
+    }
     const privateBuilder = path.join(fixtureRepo, '結構工具箱', 'tools', 'build-pages-artifact.js');
     fs.mkdirSync(path.dirname(privateBuilder), { recursive: true });
     fs.writeFileSync(privateBuilder, 'module.exports = {};\n', 'utf8');
@@ -191,7 +198,7 @@ assert.ok(
     assert.equal(result.missingCount, 1, 'artifact builder omits tracked working-tree deletions');
     assert.equal(fs.readFileSync(path.join(fixtureSite, 'keep.html'), 'utf8'), '<p>working change</p>\n', 'artifact builder applies Git clean filters to tracked changes');
     assert.equal(fs.readFileSync(path.join(fixtureSite, 'new-page.html'), 'utf8'), '<p>new page</p>\n', 'artifact builder applies Git clean filters to new published files');
-    for (const privatePath of ['README.md', 'secret.test.js', 'dev_tools/secret.html', '案件/GSP-外部歸檔生命週期總覽-GSP-00000000000000000000/overview.html', '案件/GSM-外部歸檔生命週期監測-latest.json', '案件/events/GSM-外部歸檔生命週期監測事件-000001-GME-00000000000000000000.json', '結構工具箱/tools/build-pages-artifact.js', 'ignored.html', 'deleted.html']) {
+    for (const privatePath of ['README.md', 'secret.test.js', 'dev_tools/secret.html', '案件/GSP-外部歸檔生命週期總覽-GSP-00000000000000000000/overview.html', '案件/GSM-外部歸檔生命週期監測-latest.json', '案件/events/GSM-外部歸檔生命週期監測事件-000001-GME-00000000000000000000.json', '案件/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_DASHBOARD_SCHEMA.json', 'output/audit/gsm-lifecycle-monitor-status.json', 'output/audit/gsm-lifecycle-monitor-history.json', 'output/audit/gsm-lifecycle-monitor-task-status.json', '結構工具箱/tools/build-pages-artifact.js', 'ignored.html', 'deleted.html']) {
       assert.equal(fs.existsSync(path.join(fixtureSite, ...privatePath.split('/'))), false, `artifact builder excludes ${privatePath}`);
     }
   } finally {

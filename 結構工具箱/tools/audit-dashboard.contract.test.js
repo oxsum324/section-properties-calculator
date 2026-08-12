@@ -150,6 +150,9 @@ function assertHistoryManifestShape(manifest, label) {
 const dashboardPath = toolboxFile('audit-dashboard.html');
 const dashboard = readText(dashboardPath);
 const rvrHealthLauncher = readText(repoFile('開挖擋土支撐/check_receiver_trust_backup_health.ps1'));
+const gsmMonitorLauncher = readText(repoFile('開挖擋土支撐/receiver_governance_archive_lifecycle_monitor.ps1'));
+const gsmMonitorTaskManager = readText(repoFile('開挖擋土支撐/manage_receiver_governance_archive_lifecycle_monitor_task.ps1'));
+const gsmMonitorDashboardSchema = readJson(repoFile('開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_DASHBOARD_SCHEMA.json'));
 const dashboardScripts = [...dashboard.matchAll(/<script>([\s\S]*?)<\/script>/gi)];
 assert.ok(dashboardScripts.length > 0, 'dashboard inline scripts');
 dashboardScripts.forEach((match, index) => {
@@ -236,6 +239,29 @@ dashboardScripts.forEach((match, index) => {
   'containsEvidenceFingerprints',
   '不發布備份位置、檔名、指紋或清冊內容',
   '不代表 Google Drive 已完成遠端同步',
+  'GSC 多案件外部歸檔生命週期監測',
+  'gsmMonitorHealth',
+  'gsmMonitorCheckedAt',
+  'gsmMonitorTask',
+  'gsmMonitorNextRun',
+  'gsmMonitorCurrentCount',
+  'gsmMonitorUpcomingCount',
+  'gsmMonitorAttentionCount',
+  'gsmMonitorInvalidCount',
+  'gsmMonitorIssues',
+  'gsmMonitorHistoryWrap',
+  'renderGsmLifecycleMonitor',
+  '../output/audit/gsm-lifecycle-monitor-status.json',
+  '../output/audit/gsm-lifecycle-monitor-history.json',
+  '../output/audit/gsm-lifecycle-monitor-task-status.json',
+  'governance-external-archive-lifecycle-monitor-dashboard-status',
+  'governance-external-archive-lifecycle-monitor-dashboard-history',
+  'governance-external-archive-lifecycle-monitor-task-dashboard-status',
+  'monitor-operation-failed',
+  'dashboard-status-stale',
+  'containsCaseIdentifiers',
+  'containsArchiveMetadata',
+  '不發布案件名稱、路徑、保存端資料或任何 GSC／GSP／GSM／GME 指紋',
   'RC 正式附件完整性',
   'attachmentIntegrityStatus',
   'attachmentIntegrityCount',
@@ -396,6 +422,35 @@ dashboardScripts.forEach((match, index) => {
   'containsPaths = $false',
   'containsRegistryContent = $false',
 ].forEach(needle => assertIncludes(rvrHealthLauncher, needle, 'RVR dashboard health summary'));
+
+[
+  'DashboardStatusPath',
+  'DashboardHistoryPath',
+  'DashboardTaskStatusPath',
+  'gsm-lifecycle-monitor-status.json',
+  'gsm-lifecycle-monitor-history.json',
+  'gsm-lifecycle-monitor-task-status.json',
+  'status = "untrusted"',
+  'containsPaths = $false',
+  'containsCaseIdentifiers = $false',
+  'containsEvidenceFingerprints = $false',
+  'containsArchiveMetadata = $false',
+].forEach(needle => assertIncludes(gsmMonitorLauncher, needle, 'GSM dashboard status publisher'));
+[
+  'configurationMatchesCurrentTool',
+  'monitorStateFresh',
+  'CurrentMonitorExitCode',
+  'task-not-installed',
+  'task-configuration-drift',
+  'dashboardMaxAgeArgumentPattern',
+  'Dashboard output directory chain must be physical.',
+  'containsTaskName = $false',
+  'containsPaths = $false',
+].forEach(needle => assertIncludes(gsmMonitorTaskManager, needle, 'GSM dashboard task publisher'));
+assert.equal(gsmMonitorDashboardSchema.$schema, 'https://json-schema.org/draft/2020-12/schema', 'GSM dashboard schema draft');
+assert.equal(gsmMonitorDashboardSchema.$defs.status.additionalProperties, false, 'GSM dashboard status closed fields');
+assert.equal(gsmMonitorDashboardSchema.$defs.history.additionalProperties, false, 'GSM dashboard history closed fields');
+assert.equal(gsmMonitorDashboardSchema.$defs.task.additionalProperties, false, 'GSM dashboard task closed fields');
 const rvrDashboardPayloadStart = rvrHealthLauncher.indexOf('$dashboardStatus =');
 const rvrDashboardPayloadEnd = rvrHealthLauncher.indexOf('try {', rvrDashboardPayloadStart);
 assert.ok(rvrDashboardPayloadStart >= 0 && rvrDashboardPayloadEnd > rvrDashboardPayloadStart, 'RVR dashboard payload source range');

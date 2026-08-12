@@ -59,6 +59,13 @@ GOVERNANCE_TIMESTAMP_NEEDLES = (
     "GME-外部歸檔生命週期監測事件",
     "governance-external-archive-lifecycle-monitor-state",
     "GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_MONITOR_SCHEMA.json",
+    "governance-external-archive-lifecycle-monitor-dashboard-status",
+    "governance-external-archive-lifecycle-monitor-dashboard-history",
+    "governance-external-archive-lifecycle-monitor-task-dashboard-status",
+    "GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_DASHBOARD_SCHEMA.json",
+    "gsm-lifecycle-monitor-status.json",
+    "gsm-lifecycle-monitor-history.json",
+    "gsm-lifecycle-monitor-task-status.json",
 )
 
 

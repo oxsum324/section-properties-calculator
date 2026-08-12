@@ -115,6 +115,7 @@ const PRIVATE_PATHS = [
   '開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_SCHEMA.json',
   '開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_PORTFOLIO_SCHEMA.json',
   '開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_MONITOR_SCHEMA.json',
+  '開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_DASHBOARD_SCHEMA.json',
   '開挖擋土支撐/manage_receiver_governance_archive_lifecycle_monitor_task.ps1',
   'GSM-外部歸檔生命週期監測-latest.json',
   'events/GSM-外部歸檔生命週期監測事件-000001-GME-00000000000000000000.json',

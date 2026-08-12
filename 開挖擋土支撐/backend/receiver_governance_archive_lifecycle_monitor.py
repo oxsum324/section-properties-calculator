@@ -30,6 +30,8 @@ MONITOR_KIND = "governance-external-archive-lifecycle-monitor-state"
 MONITOR_CONTEXT = "governance-external-archive-lifecycle-monitor-state-v1"
 SIGNAL_KIND = "governance-external-archive-lifecycle-monitor-signal"
 EVENT_KIND = "governance-external-archive-lifecycle-monitor-event"
+DASHBOARD_STATUS_KIND = "governance-external-archive-lifecycle-monitor-dashboard-status"
+DASHBOARD_HISTORY_KIND = "governance-external-archive-lifecycle-monitor-dashboard-history"
 EVENT_DIRECTORY_NAME = "events"
 LATEST_FILE_NAME = "GSM-外部歸檔生命週期監測-latest.json"
 LOCK_FILE_NAME = ".GSM-monitor.lock"
@@ -49,6 +51,13 @@ MONITOR_BOUNDARY = {
     "doesNotConstituteEngineeringApproval": True,
     "formalCalculationAttachment": False,
     "pagesPublication": False,
+}
+DASHBOARD_PRIVACY = {
+    "scope": "local-only",
+    "containsPaths": False,
+    "containsCaseIdentifiers": False,
+    "containsEvidenceFingerprints": False,
+    "containsArchiveMetadata": False,
 }
 
 
@@ -693,6 +702,233 @@ def verify_monitor_state_directory(
         }
 
 
+def _dashboard_issue_codes(status: str, summary: dict[str, Any] | None) -> list[str]:
+    if status == "untrusted":
+        return ["monitor-operation-failed"]
+    if summary is None:
+        raise ValueError("GSM 儀表板摘要缺少計數。")
+    codes: list[str] = []
+    if summary["upcomingCount"]:
+        codes.append("monitor-upcoming")
+    if summary["reviewDueCount"]:
+        codes.append("monitor-review-due")
+    if summary["blockedCount"]:
+        codes.append("monitor-blocked")
+    if summary["invalidPackageCount"]:
+        codes.append("monitor-invalid-package")
+    if summary["errorIssueCount"]:
+        codes.append("monitor-scan-error")
+    if status == "stale":
+        codes.append("monitor-state-stale")
+    return codes
+
+
+def validate_dashboard_status(value: Any) -> dict[str, Any]:
+    record = _require_exact(
+        value,
+        {"schemaVersion", "kind", "generatedAt", "checkedAt", "status", "attentionStatus", "statusMaxAgeHours", "ageSeconds", "eventCount", "summary", "issueCodes", "privacy"},
+        "GSM 儀表板狀態",
+    )
+    if record["schemaVersion"] != 1 or record["kind"] != DASHBOARD_STATUS_KIND:
+        raise ValueError("GSM 儀表板狀態版本或種類不受支援。")
+    _iso(record["generatedAt"], "GSM 儀表板產生時間")
+    if record["status"] not in {"trusted", "stale", "untrusted"}:
+        raise ValueError("GSM 儀表板信任狀態不受支援。")
+    _require_integer(record["statusMaxAgeHours"], "GSM 儀表板新鮮度時數", 1, 24 * 366)
+    _require_integer(record["ageSeconds"], "GSM 儀表板狀態年齡", 0)
+    _require_integer(record["eventCount"], "GSM 儀表板事件數", 0, MAX_EVENT_COUNT)
+    if record["status"] == "untrusted":
+        if record["checkedAt"] is not None or record["attentionStatus"] is not None or record["summary"] is not None:
+            raise ValueError("不可信 GSM 儀表板狀態不得保留舊案件狀態或計數。")
+    else:
+        generated = datetime.fromisoformat(record["generatedAt"].replace("Z", "+00:00")).astimezone(timezone.utc)
+        checked_at = _iso(record["checkedAt"], "GSM 儀表板檢查時間")
+        checked = datetime.fromisoformat(checked_at.replace("Z", "+00:00")).astimezone(timezone.utc)
+        expected_age_seconds = max(0, int((generated - checked).total_seconds()))
+        if record["ageSeconds"] != expected_age_seconds:
+            raise ValueError("GSM 儀表板狀態年齡與產生、檢查時間不一致。")
+        expected_status = "trusted" if expected_age_seconds <= record["statusMaxAgeHours"] * 3600 else "stale"
+        if record["status"] != expected_status:
+            raise ValueError("GSM 儀表板信任狀態與新鮮度不一致。")
+        if record["attentionStatus"] not in ATTENTION_STATUSES:
+            raise ValueError("GSM 儀表板注意狀態不受支援。")
+        summary = _require_exact(
+            record["summary"],
+            {"chainCount", "currentCount", "upcomingCount", "reviewDueCount", "blockedCount", "invalidPackageCount", "errorIssueCount"},
+            "GSM 儀表板計數",
+        )
+        for field in summary:
+            _require_integer(summary[field], f"GSM 儀表板 {field}", 0)
+        if summary["chainCount"] != summary["currentCount"] + summary["reviewDueCount"] + summary["blockedCount"]:
+            raise ValueError("GSM 儀表板鏈計數不一致。")
+        expected_attention = (
+            "blocked" if summary["blockedCount"] or summary["invalidPackageCount"] or summary["errorIssueCount"]
+            else "review-due" if summary["reviewDueCount"]
+            else "upcoming" if summary["upcomingCount"]
+            else "current"
+        )
+        if record["attentionStatus"] != expected_attention:
+            raise ValueError("GSM 儀表板注意狀態與計數不一致。")
+    if not isinstance(record["issueCodes"], list) or record["issueCodes"] != _dashboard_issue_codes(record["status"], record["summary"]):
+        raise ValueError("GSM 儀表板問題代碼與狀態不一致。")
+    if record["privacy"] != DASHBOARD_PRIVACY:
+        raise ValueError("GSM 儀表板隱私邊界不符合契約。")
+    return record
+
+
+def validate_dashboard_history(value: Any) -> dict[str, Any]:
+    record = _require_exact(value, {"schemaVersion", "kind", "generatedAt", "itemCount", "items", "privacy"}, "GSM 儀表板歷程")
+    if record["schemaVersion"] != 1 or record["kind"] != DASHBOARD_HISTORY_KIND:
+        raise ValueError("GSM 儀表板歷程版本或種類不受支援。")
+    _iso(record["generatedAt"], "GSM 儀表板歷程產生時間")
+    if not isinstance(record["items"], list) or len(record["items"]) > 100:
+        raise ValueError("GSM 儀表板歷程清單格式不正確。")
+    _require_integer(record["itemCount"], "GSM 儀表板歷程筆數", 0, 100)
+    if record["itemCount"] != len(record["items"]):
+        raise ValueError("GSM 儀表板歷程筆數不一致。")
+    previous_time: datetime | None = None
+    for item in record["items"]:
+        entry = _require_exact(item, {"observedAt", "fromAttentionStatus", "toAttentionStatus", "notificationKind", "summary"}, "GSM 儀表板歷程項目")
+        observed = datetime.fromisoformat(_iso(entry["observedAt"], "GSM 儀表板歷程時間").replace("Z", "+00:00")).astimezone(timezone.utc)
+        if previous_time is not None and observed >= previous_time:
+            raise ValueError("GSM 儀表板歷程必須由新到舊排序。")
+        previous_time = observed
+        if entry["fromAttentionStatus"] not in ATTENTION_STATUSES | {"unobserved"} or entry["toAttentionStatus"] not in ATTENTION_STATUSES:
+            raise ValueError("GSM 儀表板歷程狀態不受支援。")
+        if entry["notificationKind"] not in NOTIFICATION_KINDS - {"unchanged"}:
+            raise ValueError("GSM 儀表板歷程通知種類不受支援。")
+        summary = _require_exact(entry["summary"], {"chainCount", "upcomingCount", "reviewDueCount", "blockedCount", "invalidPackageCount", "errorIssueCount"}, "GSM 儀表板歷程計數")
+        for field in summary:
+            _require_integer(summary[field], f"GSM 儀表板歷程 {field}", 0)
+        if summary["reviewDueCount"] + summary["blockedCount"] > summary["chainCount"]:
+            raise ValueError("GSM 儀表板歷程鏈計數不一致。")
+        if summary["upcomingCount"] > summary["chainCount"]:
+            raise ValueError("GSM 儀表板歷程即將到期計數不一致。")
+    if record["privacy"] != DASHBOARD_PRIVACY:
+        raise ValueError("GSM 儀表板歷程隱私邊界不符合契約。")
+    return record
+
+
+def _dashboard_output_path(path: Path, label: str) -> Path:
+    output = Path(path)
+    parent = output.parent
+    existing_parent = parent
+    while not existing_parent.exists() and existing_parent != existing_parent.parent:
+        existing_parent = existing_parent.parent
+    if not existing_parent.exists() or existing_parent.is_symlink() or not existing_parent.is_dir() or not _same_path(existing_parent, existing_parent.resolve(strict=True)):
+        raise ValueError(f"{label}既有上層必須是實體資料夾。")
+    parent.mkdir(parents=True, exist_ok=True)
+    if parent.is_symlink() or not parent.is_dir() or not _same_path(parent, parent.resolve(strict=True)):
+        raise ValueError(f"{label}資料夾必須是實體資料夾。")
+    if output.exists():
+        if output.is_symlink() or not output.is_file() or output.stat().st_nlink != 1:
+            raise ValueError(f"{label}必須是實體一般檔案。")
+    return output
+
+
+def build_dashboard_summaries(
+    state_directory: Path,
+    *,
+    as_of: str | None = None,
+    max_age_hours: int = 36,
+    max_items: int = 24,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    if not isinstance(max_age_hours, int) or isinstance(max_age_hours, bool) or not 1 <= max_age_hours <= 24 * 366:
+        raise ValueError("GSM 儀表板新鮮度時數必須為 1 至 8784。")
+    if not isinstance(max_items, int) or isinstance(max_items, bool) or not 1 <= max_items <= 100:
+        raise ValueError("GSM 儀表板歷程筆數必須為 1 至 100。")
+    state = _physical_directory(state_directory, "GSM 監測狀態資料夾")
+    _state_root_entries_are_safe(state)
+    with _state_lock(state):
+        _state_root_entries_are_safe(state)
+        events = read_monitor_events(state)
+        if not events:
+            raise ValueError("GSM 監測狀態資料夾沒有事件鏈。")
+        latest = _validate_latest_against_events(state, events)
+        if latest is None:
+            raise ValueError("GSM latest 狀態不存在。")
+        generated_at = _iso(as_of or _now_iso(), "GSM 儀表板時間")
+        current = datetime.fromisoformat(generated_at.replace("Z", "+00:00")).astimezone(timezone.utc)
+        checked = datetime.fromisoformat(latest["checkedAt"].replace("Z", "+00:00")).astimezone(timezone.utc)
+        age_seconds = int((current - checked).total_seconds())
+        if age_seconds < -300:
+            raise ValueError("GSM latest 檢查時間不可晚於儀表板時間。")
+        status = "trusted" if age_seconds <= max_age_hours * 3600 else "stale"
+        source_summary = latest["signal"]["summary"]
+        summary = {key: source_summary[key] for key in ("chainCount", "currentCount", "upcomingCount", "reviewDueCount", "blockedCount", "invalidPackageCount", "errorIssueCount")}
+        dashboard_status = validate_dashboard_status({
+            "schemaVersion": 1,
+            "kind": DASHBOARD_STATUS_KIND,
+            "generatedAt": generated_at,
+            "checkedAt": latest["checkedAt"],
+            "status": status,
+            "attentionStatus": source_summary["attentionStatus"],
+            "statusMaxAgeHours": max_age_hours,
+            "ageSeconds": max(0, age_seconds),
+            "eventCount": len(events),
+            "summary": summary,
+            "issueCodes": _dashboard_issue_codes(status, summary),
+            "privacy": DASHBOARD_PRIVACY,
+        })
+        history_items = [{
+            "observedAt": event["recordedAt"],
+            "fromAttentionStatus": event["fromAttentionStatus"],
+            "toAttentionStatus": event["toAttentionStatus"],
+            "notificationKind": event["notification"]["kind"],
+            "summary": dict(event["summary"]),
+        } for event in reversed(events[-max_items:])]
+        dashboard_history = validate_dashboard_history({
+            "schemaVersion": 1,
+            "kind": DASHBOARD_HISTORY_KIND,
+            "generatedAt": generated_at,
+            "itemCount": len(history_items),
+            "items": history_items,
+            "privacy": DASHBOARD_PRIVACY,
+        })
+    return dashboard_status, dashboard_history
+
+
+def write_dashboard_summaries(
+    state_directory: Path,
+    status_path: Path,
+    history_path: Path,
+    *,
+    as_of: str | None = None,
+    max_age_hours: int = 36,
+    max_items: int = 24,
+) -> dict[str, Any]:
+    status_output = _dashboard_output_path(status_path, "GSM 儀表板狀態輸出")
+    history_output = _dashboard_output_path(history_path, "GSM 儀表板歷程輸出")
+    if _same_path(status_output, history_output):
+        raise ValueError("GSM 儀表板狀態與歷程輸出不得是同一檔案。")
+    status, history = build_dashboard_summaries(state_directory, as_of=as_of, max_age_hours=max_age_hours, max_items=max_items)
+    previous = {
+        status_output: status_output.read_bytes() if status_output.exists() else None,
+        history_output: history_output.read_bytes() if history_output.exists() else None,
+    }
+    try:
+        _write_atomic_json(history_output, history)
+        _write_atomic_json(status_output, status)
+    except Exception:
+        for output, content in previous.items():
+            if content is None:
+                output.unlink(missing_ok=True)
+            else:
+                temporary = output.with_name(f".{output.name}.{secrets.token_hex(8)}.rollback.tmp")
+                try:
+                    with temporary.open("xb") as stream:
+                        stream.write(content)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                    temporary.replace(output)
+                finally:
+                    temporary.unlink(missing_ok=True)
+        raise
+    saved_status = validate_dashboard_status(_read_json_file(status_output, "GSM 儀表板狀態輸出"))
+    saved_history = validate_dashboard_history(_read_json_file(history_output, "GSM 儀表板歷程輸出"))
+    return {"status": saved_status, "history": saved_history, "statusPath": str(status_output), "historyPath": str(history_output)}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="排程完整重驗 GSC，並只在狀態訊號改變時追加 GSM 事件。")
     parser.add_argument("--openssl", type=Path, help="可選：OpenSSL 可執行檔路徑")
@@ -703,6 +939,10 @@ def main() -> int:
     run.add_argument("--as-of")
     run.add_argument("--upcoming-days", type=int, default=30)
     run.add_argument("--max-depth", type=int, default=MAX_SCAN_DEPTH)
+    run.add_argument("--dashboard-status-output", type=Path)
+    run.add_argument("--dashboard-history-output", type=Path)
+    run.add_argument("--dashboard-status-max-age-hours", type=int, default=36)
+    run.add_argument("--dashboard-history-max-items", type=int, default=24)
     verify = commands.add_parser("verify-state", help="只驗證既有 GSM 狀態、事件鏈與新鮮度；不重掃來源")
     verify.add_argument("--state-dir", required=True, type=Path)
     verify.add_argument("--as-of")
@@ -711,6 +951,21 @@ def main() -> int:
     try:
         if args.command == "run":
             result = run_monitor(args.source_root, args.state_dir, openssl_path=args.openssl, as_of=args.as_of, upcoming_days=args.upcoming_days, max_depth=args.max_depth)
+            if bool(args.dashboard_status_output) != bool(args.dashboard_history_output):
+                raise ValueError("GSM 儀表板狀態與歷程輸出必須同時指定。")
+            if args.dashboard_status_output:
+                dashboard = write_dashboard_summaries(
+                    args.state_dir,
+                    args.dashboard_status_output,
+                    args.dashboard_history_output,
+                    as_of=args.as_of,
+                    max_age_hours=args.dashboard_status_max_age_hours,
+                    max_items=args.dashboard_history_max_items,
+                )
+                result["dashboard"] = {
+                    "status": dashboard["status"]["status"],
+                    "historyItemCount": dashboard["history"]["itemCount"],
+                }
             exit_code = int(result["exitCode"])
         else:
             result = verify_monitor_state_directory(args.state_dir, as_of=args.as_of, max_age_hours=args.max_age_hours)

@@ -18,12 +18,16 @@ from backend.receiver_governance_archive_lifecycle import finalize_lifecycle_che
 from backend.receiver_governance_archive_lifecycle_monitor import (
     LATEST_FILE_NAME,
     _state_lock,
+    build_dashboard_summaries,
     build_monitor_signal,
     monitor_state_fingerprint,
     read_monitor_events,
     run_monitor,
+    validate_dashboard_history,
+    validate_dashboard_status,
     validate_monitor_state,
     verify_monitor_state_directory,
+    write_dashboard_summaries,
 )
 from backend.receiver_governance_archive_lifecycle_portfolio import PACKAGE_PREFIX, portfolio_fingerprint, scan_portfolio
 from backend.tests import test_receiver_governance_archive as archive_tests
@@ -138,6 +142,8 @@ class ReceiverGovernanceArchiveLifecycleMonitorTests(unittest.TestCase):
         self.assertEqual(baseline["eventCount"], 1)
         schema_path = Path(__file__).resolve().parents[2] / "GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_MONITOR_SCHEMA.json"
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        dashboard_schema_path = Path(__file__).resolve().parents[2] / "GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_DASHBOARD_SCHEMA.json"
+        dashboard_schema = json.loads(dashboard_schema_path.read_text(encoding="utf-8"))
         archive_tests.assert_json_schema(self, baseline["monitor"], schema, schema)
 
         unchanged = self.monitor_run("2026-09-03T00:00:00Z")
@@ -174,25 +180,66 @@ class ReceiverGovernanceArchiveLifecycleMonitorTests(unittest.TestCase):
         events = read_monitor_events(self.state)
         self.assertEqual([item["sequence"] for item in events], [1, 2, 3, 4])
 
+        dashboard_status, dashboard_history = build_dashboard_summaries(
+            self.state, as_of="2026-12-03T12:00:00Z", max_age_hours=36, max_items=3,
+        )
+        self.assertEqual(dashboard_status["status"], "trusted")
+        self.assertEqual(dashboard_status["attentionStatus"], "current")
+        self.assertEqual(dashboard_status["summary"]["chainCount"], 1)
+        self.assertEqual(dashboard_history["itemCount"], 3)
+        self.assertEqual(dashboard_history["items"][0]["notificationKind"], "recovered")
+        archive_tests.assert_json_schema(self, dashboard_status, dashboard_schema, dashboard_schema)
+        archive_tests.assert_json_schema(self, dashboard_history, dashboard_schema, dashboard_schema)
+        private_text = json.dumps({"status": dashboard_status, "history": dashboard_history}, ensure_ascii=False)
+        for forbidden in ("案件甲", str(self.source), str(self.state), "GSC-", "GME-", "GSM-", "GSP-"):
+            self.assertNotIn(forbidden, private_text)
+        stale_status, _ = build_dashboard_summaries(self.state, as_of="2026-12-05T00:00:01Z")
+        self.assertEqual(stale_status["status"], "stale")
+        self.assertIn("monitor-state-stale", stale_status["issueCodes"])
+        dashboard_status_path = self.case / "dashboard" / "gsm-status.json"
+        dashboard_history_path = self.case / "dashboard" / "gsm-history.json"
+        written = write_dashboard_summaries(
+            self.state, dashboard_status_path, dashboard_history_path, as_of="2026-12-03T12:00:00Z",
+        )
+        self.assertEqual(validate_dashboard_status(json.loads(dashboard_status_path.read_text(encoding="utf-8"))), written["status"])
+        self.assertEqual(validate_dashboard_history(json.loads(dashboard_history_path.read_text(encoding="utf-8"))), written["history"])
+        tampered_dashboard_status = deepcopy(dashboard_status)
+        tampered_dashboard_status["ageSeconds"] += 1
+        with self.assertRaisesRegex(ValueError, "年齡"):
+            validate_dashboard_status(tampered_dashboard_status)
+        tampered_dashboard_history = deepcopy(dashboard_history)
+        tampered_dashboard_history["items"][0]["summary"]["upcomingCount"] = 2
+        with self.assertRaisesRegex(ValueError, "即將到期計數"):
+            validate_dashboard_history(tampered_dashboard_history)
+
         if os.name == "nt":
             launcher = Path(__file__).resolve().parents[2] / "receiver_governance_archive_lifecycle_monitor.ps1"
+            windows_dashboard_status = self.case / "windows-dashboard-status.json"
+            windows_dashboard_history = self.case / "windows-dashboard-history.json"
             powershell = subprocess.run(
                 [
                     "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(launcher),
                     "-Mode", "Run", "-SourceRoot", str(self.source), "-StateDirectory", str(self.state),
                     "-AsOf", "2026-12-04T00:00:00Z", "-OpenSslPath", str(self.openssl),
+                    "-DashboardStatusPath", str(windows_dashboard_status),
+                    "-DashboardHistoryPath", str(windows_dashboard_history),
                 ],
                 cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, encoding="utf-8", check=False,
             )
             self.assertEqual(powershell.returncode, 0, powershell.stderr + powershell.stdout)
             result = json.loads(powershell.stdout)
             self.assertEqual(result["status"], "unchanged")
+            self.assertEqual(result["dashboard"]["status"], "trusted")
+            self.assertTrue(windows_dashboard_status.is_file())
+            self.assertTrue(windows_dashboard_history.is_file())
 
             task_manager = Path(__file__).resolve().parents[2] / "manage_receiver_governance_archive_lifecycle_monitor_task.ps1"
+            task_dashboard_path = self.case / "task-dashboard.json"
             task_status = subprocess.run(
                 [
                     "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(task_manager),
                     "-Mode", "Status", "-TaskName", "Codex-GSM-monitor-test-task-that-must-not-exist",
+                    "-DashboardTaskStatusPath", str(task_dashboard_path),
                 ],
                 cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, encoding="utf-8", check=False,
             )
@@ -200,13 +247,23 @@ class ReceiverGovernanceArchiveLifecycleMonitorTests(unittest.TestCase):
             status_result = json.loads(task_status.stdout)
             self.assertFalse(status_result["installed"])
             self.assertEqual(status_result["state"], "NotInstalled")
+            task_dashboard = json.loads(task_dashboard_path.read_text(encoding="utf-8"))
+            self.assertEqual(task_dashboard["kind"], "governance-external-archive-lifecycle-monitor-task-dashboard-status")
+            self.assertEqual(task_dashboard["issueCodes"], ["task-not-installed"])
+            archive_tests.assert_json_schema(self, task_dashboard, dashboard_schema, dashboard_schema)
+            self.assertNotIn("taskName", task_dashboard)
+            self.assertNotIn(str(self.case), json.dumps(task_dashboard, ensure_ascii=False))
 
+            preview_task_dashboard_path = self.case / "preview-task-dashboard.json"
             preview = subprocess.run(
                 [
                     "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(task_manager),
                     "-Mode", "Preview", "-TaskName", "Codex-GSM-monitor-preview",
                     "-SourceRoot", str(self.source), "-StateDirectory", str(self.state),
                     "-DailyAt", "07:30", "-OpenSslPath", str(self.openssl), "-NoAlert",
+                    "-DashboardStatusPath", str(windows_dashboard_status),
+                    "-DashboardHistoryPath", str(windows_dashboard_history),
+                    "-DashboardTaskStatusPath", str(preview_task_dashboard_path),
                 ],
                 cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, encoding="utf-8", check=False,
             )
@@ -215,6 +272,7 @@ class ReceiverGovernanceArchiveLifecycleMonitorTests(unittest.TestCase):
             self.assertTrue(preview_result["preview"])
             self.assertFalse(preview_result["installed"])
             self.assertTrue(preview_result["configurationMatchesCurrentTool"])
+            self.assertFalse(preview_task_dashboard_path.exists())
             rejected_preview = subprocess.run(
                 [
                     "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(task_manager),
@@ -230,11 +288,17 @@ class ReceiverGovernanceArchiveLifecycleMonitorTests(unittest.TestCase):
                     "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(launcher),
                     "-Mode", "Run", "-SourceRoot", str(self.case / "missing-source"),
                     "-StateDirectory", str(self.state), "-OpenSslPath", str(self.openssl),
+                    "-DashboardStatusPath", str(windows_dashboard_status),
+                    "-DashboardHistoryPath", str(windows_dashboard_history),
                 ],
                 cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, encoding="utf-8", check=False,
             )
             self.assertEqual(missing_source.returncode, 1)
             self.assertIn("could not produce a trusted current state", missing_source.stderr + missing_source.stdout)
+            failure_dashboard = json.loads(windows_dashboard_status.read_text(encoding="utf-8"))
+            self.assertEqual(failure_dashboard["status"], "untrusted")
+            self.assertIsNone(failure_dashboard["summary"])
+            self.assertEqual(failure_dashboard["issueCodes"], ["monitor-operation-failed"])
 
     def test_baseline_attention_tamper_unknown_entry_and_staleness(self) -> None:
         attention = self.monitor_run("2026-11-15T00:00:00Z")
