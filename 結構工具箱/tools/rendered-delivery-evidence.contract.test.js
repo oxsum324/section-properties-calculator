@@ -6,6 +6,7 @@ const vm = require('vm');
 const { inflateRawSync } = require('zlib');
 const AttachmentPackageChecker = require('./attachment-package-check');
 const AnchorHtmlSealVerifier = require('./anchor-html-seal-verifier');
+const { inspectDocxPackage } = require('./docx-package-integrity');
 const { verifyHtmlArtifact } = require('../../dev_tools/html-attachment-integrity');
 const { captureArtifactIntegrity } = require('../../鋼筋混凝土/tools/report-screenshot-quality');
 const {
@@ -1176,6 +1177,29 @@ function decodeXmlText(xml) {
     .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(Number.parseInt(code, 16)));
 }
 
+function verifyCleanDocxPackage(entries, key, label) {
+  const result = inspectDocxPackage(entries, { label });
+  assert.equal(
+    result.pass,
+    true,
+    `${label} has a clean OOXML package: ${result.issues.map(item => `${item.code}:${item.part}`).join(', ')}`
+  );
+  docxPackageIntegrityRecords.push({
+    key,
+    pass: result.pass,
+    issueCount: result.issueCount,
+    partCount: result.partCount,
+    relationshipCount: result.relationshipCount,
+    mediaCount: result.mediaCount,
+    referencedMediaCount: result.referencedMediaCount,
+    headerCount: result.headerCount,
+    referencedHeaderCount: result.referencedHeaderCount,
+    footerCount: result.footerCount,
+    referencedFooterCount: result.referencedFooterCount,
+  });
+  return result;
+}
+
 function decodeHtmlText(html) {
   return decodeXmlText(
     html
@@ -1598,6 +1622,7 @@ const stoneResultReconciliationRecords = [];
 const anchorResultReconciliationRecords = [];
 const deckingResultReconciliationRecords = [];
 const excavationResultReconciliationRecords = [];
+const docxPackageIntegrityRecords = [];
 
 for (const family of ['formal-tools', 'local-quick-tools', 'steel-formal']) {
   const tools = inventory.tools.filter(tool => tool.family === family);
@@ -1735,6 +1760,8 @@ const stonePdf = validatePdfFile(stonePdfPath, {
 });
 assert.ok(fs.existsSync(stoneDocxPath), 'stone current-run rendered evidence includes DOCX');
 assert.equal(fs.readFileSync(stoneDocxPath).subarray(0, 2).toString('ascii'), 'PK', 'stone report artifact has DOCX ZIP signature');
+const stoneDocxEntries = readZipEntries(stoneDocxPath, 'stone DOCX');
+verifyCleanDocxPackage(stoneDocxEntries, 'stone-fixing', 'stone DOCX');
 assert.ok(fs.existsSync(stoneAuditPath), 'stone current-run rendered evidence includes audit JSON');
 const stoneAudit = readJson(stoneAuditPath);
 assert.equal(stoneAudit.mode, 'auto_word', 'stone rendered evidence audit records the formal export path');
@@ -1848,6 +1875,7 @@ assertCalculationContentProfile(anchorBlockedHtmlText, 'traceable-calculation-bo
 assert.equal(fs.readFileSync(anchorDocxPath).subarray(0, 2).toString('ascii'), 'PK', 'anchor report artifact has DOCX ZIP signature');
 const anchorDocxEntries = readZipEntries(anchorDocxPath, 'anchor DOCX');
 assert.ok(anchorDocxEntries.has('word/document.xml'), 'anchor DOCX contains word/document.xml');
+verifyCleanDocxPackage(anchorDocxEntries, 'anchor-review', 'anchor DOCX');
 const anchorDocxTextEntries = [...anchorDocxEntries.entries()]
   .filter(([name]) => name === 'word/document.xml' || /^word\/footer\d+\.xml$/.test(name));
 assert.ok(
@@ -1951,6 +1979,7 @@ assert.ok(
 assert.equal(fs.readFileSync(deckingDocxPath).subarray(0, 2).toString('ascii'), 'PK', 'decking report artifact has DOCX ZIP signature');
 const deckingDocxEntries = readZipEntries(deckingDocxPath, 'decking DOCX');
 assert.ok(deckingDocxEntries.has('word/document.xml'), 'decking DOCX contains word/document.xml');
+verifyCleanDocxPackage(deckingDocxEntries, 'decking-report', 'decking DOCX');
 const deckingDocumentXml = deckingDocxEntries.get('word/document.xml').toString('utf8');
 const deckingRawText = deckingDocumentXml.replace(/<[^>]+>/g, '');
 const deckingDocxText = decodeXmlText(deckingDocumentXml);
@@ -2160,6 +2189,7 @@ const excavationPdf = validatePdfFile(excavationPdfPath, {
 });
 const excavationDocxEntries = readZipEntries(excavationDocxPath, 'excavation DOCX');
 assert.ok(excavationDocxEntries.has('word/document.xml'), 'excavation DOCX contains word/document.xml');
+verifyCleanDocxPackage(excavationDocxEntries, 'excavation-report', 'excavation DOCX');
 const excavationDocumentXml = excavationDocxEntries.get('word/document.xml').toString('utf8');
 const excavationDocumentRawText = excavationDocumentXml.replace(/<[^>]+>/g, '');
 const excavationDocxText = decodeXmlText(excavationDocumentXml);
@@ -2564,8 +2594,21 @@ assert.equal(attachmentIntegrity.actual, attachmentIntegrity.required, 'release 
 assert.equal(attachmentIntegrity.verified, attachmentIntegrity.required, 'release rendered evidence verifies every RC HTML attachment');
 assert.equal(attachmentIntegrity.issueCount, 0, 'release rendered evidence has no RC HTML attachment integrity issue');
 assert.equal(attachmentIntegrity.pass, true, 'release rendered evidence passes RC HTML attachment integrity');
+const docxPackageIntegrity = {
+  schemaVersion: 1,
+  scope: 'formal-docx-clean-ooxml-package',
+  required: 4,
+  complete: docxPackageIntegrityRecords.length,
+  issueCount: docxPackageIntegrityRecords.reduce((sum, record) => sum + record.issueCount, 0),
+  pass: docxPackageIntegrityRecords.length === 4 && docxPackageIntegrityRecords.every(record => record.pass),
+  records: docxPackageIntegrityRecords,
+};
+assert.equal(new Set(docxPackageIntegrityRecords.map(record => record.key)).size, docxPackageIntegrityRecords.length, 'release rendered evidence DOCX package identities are unique');
+assert.equal(docxPackageIntegrity.complete, docxPackageIntegrity.required, 'release rendered evidence verifies all 4 formal DOCX packages');
+assert.equal(docxPackageIntegrity.issueCount, 0, 'release rendered evidence formal DOCX packages contain no hidden package contamination');
+assert.equal(docxPackageIntegrity.pass, true, 'release rendered evidence passes formal DOCX package integrity');
 const aggregate = {
-  schemaVersion: 21,
+  schemaVersion: 22,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),
@@ -2574,11 +2617,12 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && formalResultReconciliation.pass && formalHtmlContentSeal.pass && formalHtmlApprovalSeal.pass && steelHtmlContentSeal.pass && steelHtmlApprovalSeal.pass && anchorHtmlContentSeal.pass && anchorHtmlApprovalSeal.pass && localQuickResultReconciliation.pass && rcResultReconciliation.pass && rcSourceReportPackage.pass && rcStandaloneFormalHtmlPrint.pass && rcFormalHtmlContentSeal.pass && rcFormalHtmlApprovalSeal.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && docxPackageIntegrity.pass && formalResultReconciliation.pass && formalHtmlContentSeal.pass && formalHtmlApprovalSeal.pass && steelHtmlContentSeal.pass && steelHtmlApprovalSeal.pass && anchorHtmlContentSeal.pass && anchorHtmlApprovalSeal.pass && localQuickResultReconciliation.pass && rcResultReconciliation.pass && rcSourceReportPackage.pass && rcStandaloneFormalHtmlPrint.pass && rcFormalHtmlContentSeal.pass && rcFormalHtmlApprovalSeal.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
   attachmentIntegrity,
   mixedArtifactIntegrity,
   rcVisualArtifactIntegrity,
   canonicalArtifactIntegrity,
+  docxPackageIntegrity,
   formalResultReconciliation,
   formalHtmlContentSeal,
   formalHtmlApprovalSeal,
@@ -2603,4 +2647,4 @@ const aggregate = {
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, formalHtmlContentSeal=${formalHtmlContentSeal.complete}/${formalHtmlContentSeal.required}, formalHtmlApprovalSeal=${formalHtmlApprovalSeal.complete}/${formalHtmlApprovalSeal.required}, steelHtmlContentSeal=${steelHtmlContentSeal.complete}/${steelHtmlContentSeal.required}, steelHtmlApprovalSeal=${steelHtmlApprovalSeal.complete}/${steelHtmlApprovalSeal.required}, anchorHtmlContentSeal=${anchorHtmlContentSeal.complete}/${anchorHtmlContentSeal.required}, anchorHtmlApprovalSeal=${anchorHtmlApprovalSeal.complete}/${anchorHtmlApprovalSeal.required}, localQuickResultReconciliation=${localQuickResultReconciliation.complete}/${localQuickResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, rcSourceReportPackage=${rcSourceReportPackage.complete}/${rcSourceReportPackage.required}, rcStandaloneFormalHtmlPrint=${rcStandaloneFormalHtmlPrint.complete}/${rcStandaloneFormalHtmlPrint.required}, rcFormalHtmlContentSeal=${rcFormalHtmlContentSeal.complete}/${rcFormalHtmlContentSeal.required}, rcFormalHtmlApprovalSeal=${rcFormalHtmlApprovalSeal.complete}/${rcFormalHtmlApprovalSeal.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, docxPackageIntegrity=${docxPackageIntegrity.complete}/${docxPackageIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, formalHtmlContentSeal=${formalHtmlContentSeal.complete}/${formalHtmlContentSeal.required}, formalHtmlApprovalSeal=${formalHtmlApprovalSeal.complete}/${formalHtmlApprovalSeal.required}, steelHtmlContentSeal=${steelHtmlContentSeal.complete}/${steelHtmlContentSeal.required}, steelHtmlApprovalSeal=${steelHtmlApprovalSeal.complete}/${steelHtmlApprovalSeal.required}, anchorHtmlContentSeal=${anchorHtmlContentSeal.complete}/${anchorHtmlContentSeal.required}, anchorHtmlApprovalSeal=${anchorHtmlApprovalSeal.complete}/${anchorHtmlApprovalSeal.required}, localQuickResultReconciliation=${localQuickResultReconciliation.complete}/${localQuickResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, rcSourceReportPackage=${rcSourceReportPackage.complete}/${rcSourceReportPackage.required}, rcStandaloneFormalHtmlPrint=${rcStandaloneFormalHtmlPrint.complete}/${rcStandaloneFormalHtmlPrint.required}, rcFormalHtmlContentSeal=${rcFormalHtmlContentSeal.complete}/${rcFormalHtmlContentSeal.required}, rcFormalHtmlApprovalSeal=${rcFormalHtmlApprovalSeal.complete}/${rcFormalHtmlApprovalSeal.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);

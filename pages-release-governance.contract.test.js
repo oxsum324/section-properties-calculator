@@ -342,7 +342,7 @@ assert.ok(pagesWorkflow.includes('- name: Verify tested release lineage') && pag
 assert.ok(pagesWorkflow.indexOf('- name: Verify tested release lineage') < pagesWorkflow.indexOf('- name: Stage static site'), 'Pages release lineage gate runs before artifact staging');
 assert.equal(pagesWorkflow.includes('rsync -a'), false, 'Pages workflow does not keep a second rsync exclusion policy');
 assert.ok(artifactBuilder.includes("'output'") && artifactBuilder.includes("'.md'") && artifactBuilder.includes("'.ps1'"), 'shared artifact builder excludes generated output, docs, and scripts');
-assert.ok(artifactBuilder.includes('attachment-package-check.js') && artifactBuilder.includes('rendered-delivery-evidence.js'), 'shared artifact builder excludes delivery governance helpers');
+assert.ok(artifactBuilder.includes('attachment-package-check.js') && artifactBuilder.includes('rendered-delivery-evidence.js') && artifactBuilder.includes('docx-package-integrity.js'), 'shared artifact builder excludes delivery governance helpers');
 assert.ok(artifactBuilder.includes('PRIVATE_GENERATED_FILE_PREFIXES') && artifactBuilder.includes('GSM-外部歸檔生命週期監測-latest') && artifactBuilder.includes('GSM-外部歸檔生命週期監測事件-'), 'shared artifact builder excludes copied GSM monitor state and events');
 assert.ok(artifactBuilder.includes('verify-pages-release-lineage.js'), 'shared artifact builder excludes the release lineage verifier');
 assert.ok(artifactBuilder.includes('GIT_INDEX_FILE') && artifactBuilder.includes("core.autocrlf=false") && artifactBuilder.includes("core.eol=lf"), 'shared artifact builder uses an isolated normalized Git index');
@@ -386,6 +386,8 @@ assert.ok(pagesSmoke.includes('docs/adr/0001-page-only-report-readiness.md'), 'P
 assert.ok(pagesSmoke.includes('結構工具箱/tools/attachment-package-check.js'), 'Pages smoke blocks attachment package checker publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/rendered-delivery-evidence.js'), 'Pages smoke blocks rendered delivery evidence helper publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/rendered-delivery-evidence.inventory.json'), 'Pages smoke blocks rendered delivery evidence inventory publication');
+assert.ok(pagesSmoke.includes('結構工具箱/tools/docx-package-integrity.js'), 'Pages smoke blocks DOCX package integrity helper publication');
+assert.ok(pagesSmoke.includes('結構工具箱/tools/docx-package-integrity.test.js'), 'Pages smoke blocks DOCX package integrity fixture publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/pages-live-browser-smoke.js'), 'Pages smoke blocks browser smoke source publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/run-pages-browser-smoke.sh'), 'Pages smoke blocks browser smoke runner publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/build-pages-artifact.js'), 'Pages smoke blocks shared artifact builder publication');

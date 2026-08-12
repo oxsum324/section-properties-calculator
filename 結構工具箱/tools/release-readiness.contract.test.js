@@ -312,8 +312,11 @@ for (const { name, source } of rcReportVisualSources) {
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 21',
+  'schemaVersion: 22',
   'canonicalArtifactIntegrity',
+  'docxPackageIntegrity',
+  "scope: 'formal-docx-clean-ooxml-package'",
+  'docxPackageIntegrity=',
   "scope: 'canonical-rendered-pdf-evidence'",
   'required: 60',
   'canonicalIntegrity=',
@@ -411,6 +414,7 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'formalHtmlDualSealDeclared',
   'steelHtmlDualSealDeclared',
   'anchorHtmlDualSealDeclared',
+  'docxPackageIntegrityDeclared',
   'steelResultReconciliationDeclared',
   'stoneResultReconciliationDeclared',
   'anchorResultReconciliationDeclared',
@@ -419,6 +423,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'localQuickResultReconciliationDeclared',
   "evidence.canonicalArtifactIntegrity?.scope === 'canonical-rendered-pdf-evidence'",
   'evidence.canonicalArtifactIntegrity.required === 60',
+  "evidence.docxPackageIntegrity?.scope === 'formal-docx-clean-ooxml-package'",
+  'evidence.docxPackageIntegrity.required === 4',
   "evidence.formalResultReconciliation?.scope === 'formal-golden-result-to-report-fingerprint'",
   'evidence.formalResultReconciliation.required === 14',
   "'rc-source-replay-to-report-fingerprint'",
@@ -489,6 +495,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'anchorHtmlContentSealRequired',
   'anchorHtmlApprovalSealRequired',
   '錨栓正式 HTML 雙封印',
+  'docxPackageIntegrityRequired',
+  '正式 Word 附件乾淨封裝',
   'steelResultReconciliationRequired',
   '鋼構正式計算書結果鏈',
   'stoneResultReconciliationRequired',
@@ -634,6 +642,9 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   assertIncludes(source, 'Schema v19', `${label} documents formal-tool HTML dual seal release evidence schema`);
   assertIncludes(source, 'Schema v20', `${label} documents steel formal HTML dual seal release evidence schema`);
   assertIncludes(source, 'Schema v21', `${label} documents anchor formal HTML dual seal release evidence schema`);
+  assertIncludes(source, 'Schema v22', `${label} documents formal DOCX clean package release evidence schema`);
+  assertIncludes(source, '4/4', `${label} documents formal DOCX package required count`);
+  assertIncludes(source, '未引用媒體', `${label} documents formal DOCX hidden-package boundary`);
   assertIncludes(source, '風力／地震', `${label} documents formal-tool HTML dual seal family`);
   assertIncludes(source, '鋼構', `${label} documents steel formal HTML dual seal family`);
   assertIncludes(source, '錨栓', `${label} documents anchor formal HTML dual seal family`);

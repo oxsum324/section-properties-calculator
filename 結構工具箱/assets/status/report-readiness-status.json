@@ -1,7 +1,7 @@
 {
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-08-12T20:12:24.578Z",
+  "generatedAt": "2026-08-12T20:39:11.072Z",
   "runId": "20260813-034114",
   "pass": true,
   "failureCount": 0,
@@ -14,6 +14,7 @@
     "正式計算書可讀文字抽檢：17 / 17 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 2 / 2。本項確認輸出可讀文字、頁面診斷明細排除，以及內部審閱／正式附件核可狀態。",
     "正式放行實際交付物渲染佐證：31 / 31 個首頁正式工具已完成，涵蓋 8 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20260813-034114。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
     "正式交付檔案完整性：正式 PDF 與渲染證據 60 / 60、RC PDF / PNG 成品 66 / 66、混合格式附件 13 / 13；合計 139 / 139。公開狀態只提供類別、數量與通過狀態，不公開檔名、逐檔雜湊或完整性集合。",
+    "正式 Word 附件乾淨封裝：石材、錨栓、覆工板與開挖擋土支撐共 4 / 4 份 DOCX 已確認沒有未引用媒體或頁首頁尾、實際批註、未接受修訂、外掛範本、外部圖片、嵌入物件、巨集或非預期 custom XML。公開狀態只顯示完成數，不公開檔名、封裝清冊或逐檔細節。",
     "正式計算書結果鏈：風力／地震正式工具 14 / 14 已先完成 golden case 精確結果重算，再以同一計算狀態的指紋產生正式附件。公開狀態只顯示完成數，不公開案例輸入、預期數值、案例雜湊或計算指紋。",
     "RC 正式計算書結果鏈：梁、柱、板、牆、剪力牆、基礎、單樁與梁／柱補強共 34 / 34 組瀏覽器回歸案例已完成來源資料重現，再核對 PDF 與正式 HTML 的同一計算指紋。公開狀態只顯示完成數，不公開案例資料、來源快照雜湊或計算指紋。",
     "RC 來源／正式 HTML 組包：梁、柱、板、牆、剪力牆、基礎與單樁共 32 / 32 組真實專案 JSON 已與核可後 HTML 通過附件檢查器，並驗證唯一來源／報告配對。公開狀態只顯示完成數，不公開案件資料、檔名、工具版本或計算指紋。",
@@ -117,7 +118,7 @@
   ],
   "renderedDeliveryEvidenceSummary": "最新正式放行實際交付物渲染：首頁正式工具 31 / 31；補充報告 / 服務成品 2 / 2。",
   "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260813-034114/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
-  "renderedDeliveryEvidenceSourceHash": "fd37d15b3adccccb856e28ab39b0cff60d1640fde5f0219695fb0331a40b3236",
+  "renderedDeliveryEvidenceSourceHash": "dee6b3faa76261484112438e3303f4c25fba869a17e577a64b49d4182eb597ee",
   "deliveryFileIntegrityRequired": 139,
   "deliveryFileIntegrityVerified": 139,
   "deliveryFileIntegrityIssueCount": 0,
@@ -148,6 +149,10 @@
       "pass": true
     }
   ],
+  "docxPackageIntegrityRequired": 4,
+  "docxPackageIntegrityComplete": 4,
+  "docxPackageIntegrityIssueCount": 0,
+  "docxPackageIntegrityPass": true,
   "formalResultReconciliationRequired": 14,
   "formalResultReconciliationComplete": 14,
   "formalResultReconciliationIssueCount": 0,
@@ -349,5 +354,5 @@
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
   "preflightStatusSourcePath": "output/preflight/history/20260813-034114/preflight-summary.json",
-  "sourceHash": "f50395c56e868c2aaad5dbe55469f0f1510741cd0cc3d88eff9f47746481e548"
+  "sourceHash": "03e77b9b2aefb2469ed5dab3be1effe074e16fe00dfc19d04e7e2e579d8e0f57"
 }

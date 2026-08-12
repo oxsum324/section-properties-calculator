@@ -1657,6 +1657,7 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const formalHtmlDualSealDeclared = Number(evidence?.schemaVersion) >= 19;
   const steelHtmlDualSealDeclared = Number(evidence?.schemaVersion) >= 20;
   const anchorHtmlDualSealDeclared = Number(evidence?.schemaVersion) >= 21;
+  const docxPackageIntegrityDeclared = Number(evidence?.schemaVersion) >= 22;
   return Boolean(
     evidence
     && evidence.kind === 'release-rendered-delivery-evidence'
@@ -1697,6 +1698,16 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       && evidence.canonicalArtifactIntegrity.issueCount === 0
       && evidence.canonicalArtifactIntegrity.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.canonicalArtifactIntegrity.setSha256 || ''))
+    ))
+    && (!docxPackageIntegrityDeclared || (
+      evidence.docxPackageIntegrity?.scope === 'formal-docx-clean-ooxml-package'
+      && evidence.docxPackageIntegrity.required === 4
+      && evidence.docxPackageIntegrity.complete === 4
+      && evidence.docxPackageIntegrity.issueCount === 0
+      && evidence.docxPackageIntegrity.pass === true
+      && Array.isArray(evidence.docxPackageIntegrity.records)
+      && evidence.docxPackageIntegrity.records.length === 4
+      && evidence.docxPackageIntegrity.records.every(record => record?.pass === true && record?.issueCount === 0)
     ))
     && (!resultReconciliationDeclared || (
       evidence.formalResultReconciliation?.scope === 'formal-golden-result-to-report-fingerprint'
@@ -2036,6 +2047,21 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     && deliveryFileIntegrityVerified === deliveryFileIntegrityRequired
     && deliveryFileIntegrityIssueCount === 0
     && deliveryFileIntegrityBreakdown.every(item => item.pass);
+  const docxPackageIntegrity = renderedDeliveryPayload?.docxPackageIntegrity;
+  const docxPackageIntegrityDeclared = Boolean(
+    Number(renderedDeliveryPayload?.schemaVersion) >= 22
+    && docxPackageIntegrity
+    && docxPackageIntegrity.scope === 'formal-docx-clean-ooxml-package'
+    && Number.isInteger(docxPackageIntegrity.required)
+    && Number.isInteger(docxPackageIntegrity.complete)
+  );
+  const docxPackageIntegrityRequired = docxPackageIntegrityDeclared ? compactNumber(docxPackageIntegrity.required) : 0;
+  const docxPackageIntegrityComplete = docxPackageIntegrityDeclared ? compactNumber(docxPackageIntegrity.complete) : 0;
+  const docxPackageIntegrityIssueCount = !docxPackageIntegrityDeclared
+    ? 0
+    : docxPackageIntegrity.pass === true
+      ? Math.max(0, docxPackageIntegrityRequired - docxPackageIntegrityComplete)
+      : Math.max(1, compactNumber(docxPackageIntegrity.issueCount) || docxPackageIntegrityRequired - docxPackageIntegrityComplete);
   const formalResultReconciliation = renderedDeliveryPayload?.formalResultReconciliation;
   const formalResultReconciliationDeclared = Boolean(
     Number(renderedDeliveryPayload?.schemaVersion) >= 4
@@ -2305,6 +2331,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     `正式計算書可讀文字抽檢：${reportTextSmokeComplete} / ${reportTextSmokeRequired} 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 ${reportTextSmokeEvidence.evidenceComplete} / ${reportTextSmokeEvidence.evidenceRequired}。本項確認輸出可讀文字、頁面診斷明細排除，以及內部審閱／正式附件核可狀態。`,
     `正式放行實際交付物渲染佐證：${renderedDeliveryComplete} / ${renderedDeliveryRequired} 個首頁正式工具已完成，涵蓋 ${renderedDeliveryFamilies.length} 個工具家族${supplementalDeliveryDeclared ? `；另有 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired} 個矩陣外報告 / 服務成品，涵蓋 ${supplementalDeliveryFamilies.length} 個補充家族` : ''}；證據來自 release ${String(renderedDeliveryPayload?.runId || '-')}。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。`,
     ...(deliveryFileIntegrityDeclared ? [`正式交付檔案完整性：${deliveryFileIntegrityBreakdown.map(item => `${item.label} ${item.verified} / ${item.required}`).join('、')}；合計 ${deliveryFileIntegrityVerified} / ${deliveryFileIntegrityRequired}。公開狀態只提供類別、數量與通過狀態，不公開檔名、逐檔雜湊或完整性集合。`] : []),
+    ...(docxPackageIntegrityDeclared ? [`正式 Word 附件乾淨封裝：石材、錨栓、覆工板與開挖擋土支撐共 ${docxPackageIntegrityComplete} / ${docxPackageIntegrityRequired} 份 DOCX 已確認沒有未引用媒體或頁首頁尾、實際批註、未接受修訂、外掛範本、外部圖片、嵌入物件、巨集或非預期 custom XML。公開狀態只顯示完成數，不公開檔名、封裝清冊或逐檔細節。`] : []),
     ...(formalResultReconciliationDeclared ? [`正式計算書結果鏈：風力／地震正式工具 ${formalResultReconciliationComplete} / ${formalResultReconciliationRequired} 已先完成 golden case 精確結果重算，再以同一計算狀態的指紋產生正式附件。公開狀態只顯示完成數，不公開案例輸入、預期數值、案例雜湊或計算指紋。`] : []),
     ...(rcResultReconciliationDeclared ? [`RC 正式計算書結果鏈：梁、柱、板、牆、剪力牆、基礎、單樁${expandedRcResultReconciliationDeclared ? '與梁／柱補強' : ''}共 ${rcResultReconciliationComplete} / ${rcResultReconciliationRequired} 組瀏覽器回歸案例已完成來源資料重現，再核對 PDF 與正式 HTML 的同一計算指紋。公開狀態只顯示完成數，不公開案例資料、來源快照雜湊或計算指紋。`] : []),
     ...(rcSourceReportPackageDeclared ? [`RC 來源／正式 HTML 組包：梁、柱、板、牆、剪力牆、基礎與單樁共 ${rcSourceReportPackageComplete} / ${rcSourceReportPackageRequired} 組真實專案 JSON 已與核可後 HTML 通過附件檢查器，並驗證唯一來源／報告配對。公開狀態只顯示完成數，不公開案件資料、檔名、工具版本或計算指紋。`] : []),
@@ -2338,8 +2365,8 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     kind: 'report-readiness-status',
     generatedAt: String(matrixPayload.generatedAt || ''),
     runId: String(preflightStatus?.runId || matrixPayload.latestPreflight?.runId || ''),
-    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && formalResultReconciliationIssueCount === 0 && formalHtmlContentSealIssueCount === 0 && formalHtmlApprovalSealIssueCount === 0 && steelHtmlContentSealIssueCount === 0 && steelHtmlApprovalSealIssueCount === 0 && anchorHtmlContentSealIssueCount === 0 && anchorHtmlApprovalSealIssueCount === 0 && rcResultReconciliationIssueCount === 0 && rcSourceReportPackageIssueCount === 0 && rcStandaloneFormalHtmlPrintIssueCount === 0 && rcFormalHtmlContentSealIssueCount === 0 && rcFormalHtmlApprovalSealIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
-    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + formalResultReconciliationIssueCount + formalHtmlContentSealIssueCount + formalHtmlApprovalSealIssueCount + steelHtmlContentSealIssueCount + steelHtmlApprovalSealIssueCount + anchorHtmlContentSealIssueCount + anchorHtmlApprovalSealIssueCount + rcResultReconciliationIssueCount + rcSourceReportPackageIssueCount + rcStandaloneFormalHtmlPrintIssueCount + rcFormalHtmlContentSealIssueCount + rcFormalHtmlApprovalSealIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
+    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && docxPackageIntegrityIssueCount === 0 && formalResultReconciliationIssueCount === 0 && formalHtmlContentSealIssueCount === 0 && formalHtmlApprovalSealIssueCount === 0 && steelHtmlContentSealIssueCount === 0 && steelHtmlApprovalSealIssueCount === 0 && anchorHtmlContentSealIssueCount === 0 && anchorHtmlApprovalSealIssueCount === 0 && rcResultReconciliationIssueCount === 0 && rcSourceReportPackageIssueCount === 0 && rcStandaloneFormalHtmlPrintIssueCount === 0 && rcFormalHtmlContentSealIssueCount === 0 && rcFormalHtmlApprovalSealIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
+    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + docxPackageIntegrityIssueCount + formalResultReconciliationIssueCount + formalHtmlContentSealIssueCount + formalHtmlApprovalSealIssueCount + steelHtmlContentSealIssueCount + steelHtmlApprovalSealIssueCount + anchorHtmlContentSealIssueCount + anchorHtmlApprovalSealIssueCount + rcResultReconciliationIssueCount + rcSourceReportPackageIssueCount + rcStandaloneFormalHtmlPrintIssueCount + rcFormalHtmlContentSealIssueCount + rcFormalHtmlApprovalSealIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
@@ -2380,6 +2407,14 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       deliveryFileIntegrityIssueCount,
       deliveryFileIntegrityPass,
       deliveryFileIntegrityBreakdown,
+    } : {}),
+    ...(docxPackageIntegrityDeclared ? {
+      docxPackageIntegrityRequired,
+      docxPackageIntegrityComplete,
+      docxPackageIntegrityIssueCount,
+      docxPackageIntegrityPass: docxPackageIntegrity.pass === true
+        && docxPackageIntegrityComplete === docxPackageIntegrityRequired
+        && docxPackageIntegrityIssueCount === 0,
     } : {}),
     ...(formalResultReconciliationDeclared ? {
       formalResultReconciliationRequired,
@@ -2989,6 +3024,15 @@ function checkMatrix(payload, markdown, options = {}) {
       assert.equal(Object.prototype.hasOwnProperty.call(group, 'artifacts'), false, `homepage report readiness omits attachment artifact list: ${group.title}`);
     }
     assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('RC 正式附件 HTML 完整性'), 'homepage report readiness details include RC HTML attachment integrity');
+  }
+  if (Number.isInteger(homepageReportReadinessStatus.docxPackageIntegrityRequired)) {
+    assert.equal(homepageReportReadinessStatus.docxPackageIntegrityRequired, 4, 'homepage report readiness expects 4 formal DOCX package checks');
+    assert.equal(homepageReportReadinessStatus.docxPackageIntegrityComplete, homepageReportReadinessStatus.docxPackageIntegrityRequired, 'homepage report readiness completes every formal DOCX package check');
+    assert.equal(homepageReportReadinessStatus.docxPackageIntegrityIssueCount, 0, 'homepage report readiness DOCX package issues empty');
+    assert.equal(homepageReportReadinessStatus.docxPackageIntegrityPass, true, 'homepage report readiness DOCX package checks pass');
+    assert.equal(Object.prototype.hasOwnProperty.call(homepageReportReadinessStatus, 'docxPackageIntegrityRecords'), false, 'homepage report readiness omits private DOCX package records');
+    assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('正式 Word 附件乾淨封裝'), 'homepage report readiness explains formal DOCX package integrity');
+    assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('不公開檔名、封裝清冊或逐檔細節'), 'homepage report readiness keeps DOCX package details private');
   }
   assert.equal(homepageReportReadinessStatus.runId, homepagePreflightStatus.runId, 'homepage report readiness runId matches preflight status runId');
   assert.equal(homepageReportReadinessStatus.preflightStatusSourcePath, homepagePreflightStatus.sourcePath, 'homepage report readiness names preflight status source');

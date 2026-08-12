@@ -155,6 +155,8 @@ node excavation-report.contract.test.js
 
 上述當輪正式放行的私密結果鏈與成品統一保存在 ignored 的 `rendered-delivery-evidence/excavation-formal/`，不發布到 Pages。
 
+平台共通 OOXML gate 另會確認原始 DOCX 與 latest download 副本都是乾淨封裝：實際引用的圖面與頁首頁尾可保留，未引用舊媒體／頁首頁尾、批註、未接受修訂、外掛範本、外部圖片、嵌入物件、巨集或非預期 custom XML 會阻擋 release。這項內部證據不寫入 PDF／DOCX 正文。
+
 ## 目前實作重點
 
 - 參考資料直接讀取 `2_開挖擋土支撐-v95000.xlsm` 的型鋼、螺栓與預設案例

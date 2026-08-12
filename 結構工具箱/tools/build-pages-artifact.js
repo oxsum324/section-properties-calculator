@@ -46,6 +46,8 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/tools/attachment-case-governance-workspace.js',
   '結構工具箱/tools/rendered-delivery-evidence.js',
   '結構工具箱/tools/rendered-delivery-evidence.inventory.json',
+  '結構工具箱/tools/docx-package-integrity.js',
+  '結構工具箱/tools/docx-package-integrity.test.js',
 ]);
 
 const PRIVATE_PREFIXES = [

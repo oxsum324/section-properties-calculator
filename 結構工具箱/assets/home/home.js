@@ -1311,6 +1311,9 @@
       Number.isInteger(payload.deliveryFileIntegrityRequired) && payload.deliveryFileIntegrityRequired > 0
         ? ratio('成品檔案完整性', payload.deliveryFileIntegrityVerified, payload.deliveryFileIntegrityRequired, payload.deliveryFileIntegrityIssueCount)
         : null,
+      Number.isInteger(payload.docxPackageIntegrityRequired) && payload.docxPackageIntegrityRequired > 0
+        ? ratio('Word 乾淨封裝', payload.docxPackageIntegrityComplete, payload.docxPackageIntegrityRequired, payload.docxPackageIntegrityIssueCount)
+        : null,
       Number.isInteger(payload.formalResultReconciliationRequired) && payload.formalResultReconciliationRequired > 0
         ? ratio('數值結果鏈', payload.formalResultReconciliationComplete, payload.formalResultReconciliationRequired, payload.formalResultReconciliationIssueCount)
         : null,

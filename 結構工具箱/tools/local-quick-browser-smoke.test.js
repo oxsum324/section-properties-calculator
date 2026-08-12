@@ -1560,6 +1560,7 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload) {
       ['成品檔案完整性 137 / 137', '成品檔案完整性 139 / 139'].some(metric => state.reportReadinessStatusMeta.includes(metric)),
       `${label} new home report readiness delivery file integrity metric`
     );
+    assert.ok(state.reportReadinessStatusMeta.includes('Word 乾淨封裝 4 / 4'), `${label} new home report readiness DOCX package integrity metric`);
     assert.ok(state.reportReadinessStatusText.includes('風力 / 地震正式工具') && state.reportReadinessStatusText.includes('局部快算'), `${label} new home report text scope`);
   }
   assert.ok(state.rcBeamMeta.includes('報告邊界'), `${label} new home RC beam exposes report boundary chip`);
