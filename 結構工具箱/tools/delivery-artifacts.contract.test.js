@@ -468,7 +468,7 @@ assertIncludesAny(
   'PDF／Word 計算書輸出：預設為可列印的內部審閱，明確勾選核可後才標示為正式附件',
   'app_data',
   'Word/PDF 輸出',
-  'PDF / DOCX 版面先以穩定輸出為優先',
+  '既有 Word 計算書只作版型參考，不作新 DOCX 的封裝底稿',
   '當輪正式放行',
   'excavation-formal',
   '最新下載',
