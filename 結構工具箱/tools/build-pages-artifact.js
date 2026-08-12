@@ -66,6 +66,11 @@ const PRIVATE_GENERATED_DIRECTORY_PREFIXES = [
   'GSP-外部歸檔生命週期總覽-',
 ];
 
+const PRIVATE_GENERATED_FILE_PREFIXES = [
+  'GSM-外部歸檔生命週期監測-latest',
+  'GSM-外部歸檔生命週期監測事件-',
+];
+
 const PRIVATE_BASENAMES = new Set([
   'package.json',
   'package-lock.json',
@@ -124,6 +129,9 @@ function classifyPublishedPath(candidate) {
   }
 
   const basename = parts.at(-1);
+  if (PRIVATE_GENERATED_FILE_PREFIXES.some(prefix => basename.startsWith(prefix))) {
+    return { publish: false, reason: 'private-generated-evidence' };
+  }
   const lower = basename.toLowerCase();
   if (PRIVATE_BASENAMES.has(lower) || lower.startsWith('vite.config.')) {
     return { publish: false, reason: 'private-package-file' };
@@ -270,6 +278,7 @@ module.exports = {
   PRIVATE_FILES,
   PRIVATE_PREFIXES,
   PRIVATE_GENERATED_DIRECTORY_PREFIXES,
+  PRIVATE_GENERATED_FILE_PREFIXES,
   classifyPublishedPath,
   gitCandidates,
   stagePagesArtifact,

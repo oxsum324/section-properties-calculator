@@ -142,6 +142,15 @@ const receiverGovernanceArchiveLifecyclePortfolioPublishBatch = readUtf8('建立
 const receiverGovernanceArchiveLifecyclePortfolioVerifyBatch = readUtf8('驗證多案件外部歸檔生命週期總覽快照.bat');
 const receiverGovernanceArchiveLifecyclePortfolioGuide = readUtf8('GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_PORTFOLIO.md');
 const receiverGovernanceArchiveLifecyclePortfolioSchema = JSON.parse(readUtf8('GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_PORTFOLIO_SCHEMA.json'));
+const receiverGovernanceArchiveLifecycleMonitor = readUtf8('backend/receiver_governance_archive_lifecycle_monitor.py');
+const receiverGovernanceArchiveLifecycleMonitorTests = readUtf8('backend/tests/test_receiver_governance_archive_lifecycle_monitor.py');
+const receiverGovernanceArchiveLifecycleMonitorLauncher = readUtf8('receiver_governance_archive_lifecycle_monitor.ps1');
+const receiverGovernanceArchiveLifecycleMonitorTaskManager = readUtf8('manage_receiver_governance_archive_lifecycle_monitor_task.ps1');
+const receiverGovernanceArchiveLifecycleMonitorInstallBatch = readUtf8('安裝多案件外部歸檔生命週期每日監測.bat');
+const receiverGovernanceArchiveLifecycleMonitorStatusBatch = readUtf8('檢查多案件外部歸檔生命週期監測排程.bat');
+const receiverGovernanceArchiveLifecycleMonitorRemoveBatch = readUtf8('移除多案件外部歸檔生命週期每日監測.bat');
+const receiverGovernanceArchiveLifecycleMonitorGuide = readUtf8('GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_MONITOR.md');
+const receiverGovernanceArchiveLifecycleMonitorSchema = JSON.parse(readUtf8('GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_MONITOR_SCHEMA.json'));
 const pagesArtifactBuilder = require('../結構工具箱/tools/build-pages-artifact.js');
 const pagesLiveSmoke = readUtf8('../結構工具箱/tools/pages-live-smoke.js');
 const rootGitignore = readUtf8('../.gitignore');
@@ -175,7 +184,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.42.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.43.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -1387,6 +1396,111 @@ assert(
 assert(
   pagesLiveSmoke.includes("'GSP-外部歸檔生命週期總覽-GSP-00000000000000000000/GSP-外部歸檔生命週期總覽-GSP-00000000000000000000.html'"),
   'excavation lifecycle portfolio generated HTML has a live private-boundary probe',
+  'HTTP status must not be 200',
+);
+[
+  'MONITOR_KIND',
+  'SIGNAL_KIND',
+  'EVENT_KIND',
+  'sameSignalDoesNotRepeatEventOrAlert',
+  'alertOnlyOnAttentionChangeOrRecovery',
+  'def run_monitor',
+  'def _validate_latest_against_events',
+  'def verify_monitor_state_directory',
+  '另一個 GSM',
+  'not-assessed-requires-monitor-run',
+].forEach((needle) => {
+  assert(receiverGovernanceArchiveLifecycleMonitor.includes(needle), `excavation lifecycle monitor keeps ${needle}`, needle);
+});
+[
+  'test_transition_dedup_attention_recovery_and_windows_entrypoint',
+  'test_baseline_attention_tamper_unknown_entry_and_staleness',
+  'test_event_tamper_lock_overlap_repository_and_rollback',
+  'test_current_inventory_change_records_event_without_alert',
+  'test_signal_and_state_semantic_tamper',
+  'simulated latest failure',
+  '孤兒狀態',
+  'latest 狀態遺失',
+].forEach((needle) => {
+  assert(receiverGovernanceArchiveLifecycleMonitorTests.includes(needle), `excavation lifecycle monitor tests keep ${needle}`, needle);
+});
+assert(receiverGovernanceArchiveLifecycleMonitorLauncher.includes('[ValidateSet("Run", "VerifyState")]'), 'excavation lifecycle monitor launcher keeps explicit modes', 'Run VerifyState');
+assert(receiverGovernanceArchiveLifecycleMonitorLauncher.includes('$result.notification.shouldNotify'), 'excavation lifecycle monitor launcher throttles desktop alerts', 'notification.shouldNotify');
+assert(receiverGovernanceArchiveLifecycleMonitorLauncher.includes('This operational or integrity failure is not alert-throttled.'), 'excavation lifecycle monitor launcher never throttles untrusted operational failures', 'not alert-throttled');
+[
+  'New-ScheduledTaskPrincipal',
+  'Get-Command powershell.exe -CommandType Application',
+  '[regex]::Escape($expectedScript)',
+  '[ValidateSet("Install", "Preview", "Status", "Remove")]',
+  '-LogonType Interactive',
+  '-RunLevel Limited',
+  '-StartWhenAvailable',
+  '-MultipleInstances IgnoreNew',
+  'New-TimeSpan -Hours 2',
+  'Register-ScheduledTask',
+  'Unregister-ScheduledTask',
+  'actionMatchesCurrentTool',
+  'scheduleMatchesMonitorPolicy',
+  'configurationMatchesCurrentTool',
+  'StateDirectory must be completely separate from SourceRoot',
+  'StateDirectory must not be inside the tool repository',
+  'MaxAgeHours',
+].forEach((needle) => {
+  assert(receiverGovernanceArchiveLifecycleMonitorTaskManager.includes(needle), `excavation lifecycle monitor task manager keeps ${needle}`, needle);
+});
+assert(receiverGovernanceArchiveLifecycleMonitorInstallBatch.includes('-Mode Install'), 'excavation lifecycle monitor install batch selects Install', '-Mode Install');
+assert(receiverGovernanceArchiveLifecycleMonitorStatusBatch.includes('-Mode Status'), 'excavation lifecycle monitor status batch selects Status', '-Mode Status');
+assert(receiverGovernanceArchiveLifecycleMonitorRemoveBatch.includes('-Mode Remove'), 'excavation lifecycle monitor remove batch selects Remove', '-Mode Remove');
+[receiverGovernanceArchiveLifecycleMonitorInstallBatch, receiverGovernanceArchiveLifecycleMonitorStatusBatch, receiverGovernanceArchiveLifecycleMonitorRemoveBatch].forEach((source, index) => {
+  assert(source.includes('%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'), `excavation lifecycle monitor batch ${index + 1} pins Windows PowerShell`, 'SystemRoot PowerShell');
+});
+[
+  '相同訊號只更新 latest',
+  '36 小時新鮮度',
+  '不刪除狀態資料夾',
+  '不得進入 PDF／DOCX 計算書',
+].forEach((needle) => {
+  assert(receiverGovernanceArchiveLifecycleMonitorGuide.includes(needle), `excavation lifecycle monitor guide keeps ${needle}`, needle);
+});
+assert(receiverGovernanceArchiveLifecycleMonitorSchema.$schema === 'https://json-schema.org/draft/2020-12/schema', 'excavation lifecycle monitor schema draft', receiverGovernanceArchiveLifecycleMonitorSchema.$schema);
+assert(receiverGovernanceArchiveLifecycleMonitorSchema.properties.kind.const === 'governance-external-archive-lifecycle-monitor-state', 'excavation lifecycle monitor schema keeps GSM kind', receiverGovernanceArchiveLifecycleMonitorSchema.properties.kind.const);
+assert(receiverGovernanceArchiveLifecycleMonitorSchema.properties.boundary.properties.formalCalculationAttachment.const === false, 'excavation lifecycle monitor schema excludes formal attachment', 'false');
+assert(receiverGovernanceArchiveLifecycleMonitorSchema.properties.boundary.properties.pagesPublication.const === false, 'excavation lifecycle monitor schema excludes Pages', 'false');
+assert(rootGitignore.includes('GSM-外部歸檔生命週期監測-latest.json'), 'excavation lifecycle monitor latest state is gitignored', 'GSM latest');
+assert(rootGitignore.includes('GSM-外部歸檔生命週期監測事件-*.json'), 'excavation lifecycle monitor events are gitignored', 'GSM events');
+assert(
+  JSON.stringify(pagesArtifactBuilder.classifyPublishedPath('開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_MONITOR_SCHEMA.json')) === JSON.stringify({ publish: false, reason: 'private-source-file' }),
+  'excavation lifecycle monitor schema is excluded from Pages artifacts',
+  'private-source-file',
+);
+assert(
+  JSON.stringify(pagesArtifactBuilder.classifyPublishedPath('GSM-外部歸檔生命週期監測-latest.json')) === JSON.stringify({ publish: false, reason: 'private-generated-evidence' }),
+  'excavation lifecycle monitor generated latest state is excluded from Pages artifacts',
+  'private-generated-evidence',
+);
+assert(
+  JSON.stringify(pagesArtifactBuilder.classifyPublishedPath('events/GSM-外部歸檔生命週期監測事件-000001-GME-00000000000000000000.json')) === JSON.stringify({ publish: false, reason: 'private-generated-evidence' }),
+  'excavation lifecycle monitor generated event is excluded from Pages artifacts',
+  'private-generated-evidence',
+);
+assert(
+  pagesLiveSmoke.includes("'開挖擋土支撐/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_MONITOR_SCHEMA.json'"),
+  'excavation lifecycle monitor schema has a live private-boundary probe',
+  'HTTP status must not be 200',
+);
+assert(
+  pagesLiveSmoke.includes("'GSM-外部歸檔生命週期監測-latest.json'"),
+  'excavation lifecycle monitor latest state has a live private-boundary probe',
+  'HTTP status must not be 200',
+);
+assert(
+  pagesLiveSmoke.includes("'events/GSM-外部歸檔生命週期監測事件-000001-GME-00000000000000000000.json'"),
+  'excavation lifecycle monitor event has a live private-boundary probe',
+  'HTTP status must not be 200',
+);
+assert(
+  pagesLiveSmoke.includes("'開挖擋土支撐/manage_receiver_governance_archive_lifecycle_monitor_task.ps1'"),
+  'excavation lifecycle monitor task manager has a live private-boundary probe',
   'HTTP status must not be 200',
 );
 [

@@ -170,6 +170,11 @@ assert.ok(
     const privateGsp = path.join(fixtureRepo, '案件', 'GSP-外部歸檔生命週期總覽-GSP-00000000000000000000', 'overview.html');
     fs.mkdirSync(path.dirname(privateGsp), { recursive: true });
     fs.writeFileSync(privateGsp, '<p>private GSP</p>\n', 'utf8');
+    const privateGsmLatest = path.join(fixtureRepo, '案件', 'GSM-外部歸檔生命週期監測-latest.json');
+    fs.writeFileSync(privateGsmLatest, '{"private":"GSM latest"}\n', 'utf8');
+    const privateGsmEvent = path.join(fixtureRepo, '案件', 'events', 'GSM-外部歸檔生命週期監測事件-000001-GME-00000000000000000000.json');
+    fs.mkdirSync(path.dirname(privateGsmEvent), { recursive: true });
+    fs.writeFileSync(privateGsmEvent, '{"private":"GSM event"}\n', 'utf8');
     const privateBuilder = path.join(fixtureRepo, '結構工具箱', 'tools', 'build-pages-artifact.js');
     fs.mkdirSync(path.dirname(privateBuilder), { recursive: true });
     fs.writeFileSync(privateBuilder, 'module.exports = {};\n', 'utf8');
@@ -186,7 +191,7 @@ assert.ok(
     assert.equal(result.missingCount, 1, 'artifact builder omits tracked working-tree deletions');
     assert.equal(fs.readFileSync(path.join(fixtureSite, 'keep.html'), 'utf8'), '<p>working change</p>\n', 'artifact builder applies Git clean filters to tracked changes');
     assert.equal(fs.readFileSync(path.join(fixtureSite, 'new-page.html'), 'utf8'), '<p>new page</p>\n', 'artifact builder applies Git clean filters to new published files');
-    for (const privatePath of ['README.md', 'secret.test.js', 'dev_tools/secret.html', '案件/GSP-外部歸檔生命週期總覽-GSP-00000000000000000000/overview.html', '結構工具箱/tools/build-pages-artifact.js', 'ignored.html', 'deleted.html']) {
+    for (const privatePath of ['README.md', 'secret.test.js', 'dev_tools/secret.html', '案件/GSP-外部歸檔生命週期總覽-GSP-00000000000000000000/overview.html', '案件/GSM-外部歸檔生命週期監測-latest.json', '案件/events/GSM-外部歸檔生命週期監測事件-000001-GME-00000000000000000000.json', '結構工具箱/tools/build-pages-artifact.js', 'ignored.html', 'deleted.html']) {
       assert.equal(fs.existsSync(path.join(fixtureSite, ...privatePath.split('/'))), false, `artifact builder excludes ${privatePath}`);
     }
   } finally {
@@ -331,6 +336,7 @@ assert.ok(pagesWorkflow.indexOf('- name: Verify tested release lineage') < pages
 assert.equal(pagesWorkflow.includes('rsync -a'), false, 'Pages workflow does not keep a second rsync exclusion policy');
 assert.ok(artifactBuilder.includes("'output'") && artifactBuilder.includes("'.md'") && artifactBuilder.includes("'.ps1'"), 'shared artifact builder excludes generated output, docs, and scripts');
 assert.ok(artifactBuilder.includes('attachment-package-check.js') && artifactBuilder.includes('rendered-delivery-evidence.js'), 'shared artifact builder excludes delivery governance helpers');
+assert.ok(artifactBuilder.includes('PRIVATE_GENERATED_FILE_PREFIXES') && artifactBuilder.includes('GSM-外部歸檔生命週期監測-latest') && artifactBuilder.includes('GSM-外部歸檔生命週期監測事件-'), 'shared artifact builder excludes copied GSM monitor state and events');
 assert.ok(artifactBuilder.includes('verify-pages-release-lineage.js'), 'shared artifact builder excludes the release lineage verifier');
 assert.ok(artifactBuilder.includes('GIT_INDEX_FILE') && artifactBuilder.includes("core.autocrlf=false") && artifactBuilder.includes("core.eol=lf"), 'shared artifact builder uses an isolated normalized Git index');
 assert.ok(artifactBuilder.includes("'--cached', '--others', '--exclude-standard'") && artifactBuilder.includes("'--pathspec-from-file=-'"), 'shared artifact builder stages tracked and non-ignored working files');
@@ -376,6 +382,7 @@ assert.ok(pagesSmoke.includes('結構工具箱/tools/rendered-delivery-evidence.
 assert.ok(pagesSmoke.includes('結構工具箱/tools/pages-live-browser-smoke.js'), 'Pages smoke blocks browser smoke source publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/run-pages-browser-smoke.sh'), 'Pages smoke blocks browser smoke runner publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/build-pages-artifact.js'), 'Pages smoke blocks shared artifact builder publication');
+assert.ok(pagesSmoke.includes('GSM-外部歸檔生命週期監測-latest.json') && pagesSmoke.includes('GSM-外部歸檔生命週期監測事件-000001-GME-00000000000000000000.json'), 'Pages smoke blocks GSM monitor state and event publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/build-pages-deployment-manifest.js'), 'Pages smoke blocks deployment manifest builder publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/verify-pages-release-lineage.js'), 'Pages smoke blocks release lineage verifier publication');
 assert.ok(pagesSmoke.includes("liveUrl(base, 'pages-deployment.json')") && pagesSmoke.includes('deployed Pages commit matches the requested source commit'), 'Pages smoke validates the public deployment manifest and expected commit');

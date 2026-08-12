@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/schemas/governance-trusted-archive-lifecycle-monitor-state-v1.json",
+  "title": "GSM external archive lifecycle monitor state",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "kind", "stateContext", "checkedAt", "portfolioFingerprint", "signal", "event", "notification", "boundary", "monitorFingerprint"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "kind": { "const": "governance-external-archive-lifecycle-monitor-state" },
+    "stateContext": { "const": "governance-external-archive-lifecycle-monitor-state-v1" },
+    "checkedAt": { "type": "string", "format": "date-time" },
+    "portfolioFingerprint": { "type": "string", "pattern": "^GSP-[0-9A-F]{20}$" },
+    "signal": { "$ref": "#/$defs/signal" },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "latestFingerprint"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "latestFingerprint": { "type": "string", "pattern": "^GME-[0-9A-F]{20}$" }
+      }
+    },
+    "notification": { "$ref": "#/$defs/notification" },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["localGovernanceOnly", "readOnlySourceScan", "sameSignalDoesNotRepeatEventOrAlert", "alertOnlyOnAttentionChangeOrRecovery", "stateVerificationDoesNotRescanSource", "currentSourceStateRequiresMonitorRun", "doesNotModifyCheckpointOrArchive", "doesNotConstituteEngineeringApproval", "formalCalculationAttachment", "pagesPublication"],
+      "properties": {
+        "localGovernanceOnly": { "const": true },
+        "readOnlySourceScan": { "const": true },
+        "sameSignalDoesNotRepeatEventOrAlert": { "const": true },
+        "alertOnlyOnAttentionChangeOrRecovery": { "const": true },
+        "stateVerificationDoesNotRescanSource": { "const": true },
+        "currentSourceStateRequiresMonitorRun": { "const": true },
+        "doesNotModifyCheckpointOrArchive": { "const": true },
+        "doesNotConstituteEngineeringApproval": { "const": true },
+        "formalCalculationAttachment": { "const": false },
+        "pagesPublication": { "const": false }
+      }
+    },
+    "monitorFingerprint": { "type": "string", "pattern": "^GSM-[0-9A-F]{20}$" }
+  },
+  "$defs": {
+    "status": { "enum": ["current", "upcoming", "review-due", "blocked"] },
+    "reasonList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }
+    },
+    "notification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shouldNotify", "kind"],
+      "properties": {
+        "shouldNotify": { "type": "boolean" },
+        "kind": { "enum": ["baseline-current", "baseline-attention", "unchanged", "attention-change", "recovered", "inventory-change"] }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["portfolioStatus", "attentionStatus", "chainCount", "currentCount", "upcomingCount", "reviewDueCount", "blockedCount", "invalidPackageCount", "errorIssueCount"],
+      "properties": {
+        "portfolioStatus": { "enum": ["current", "review-due", "blocked"] },
+        "attentionStatus": { "$ref": "#/$defs/status" },
+        "chainCount": { "type": "integer", "minimum": 0 },
+        "currentCount": { "type": "integer", "minimum": 0 },
+        "upcomingCount": { "type": "integer", "minimum": 0 },
+        "reviewDueCount": { "type": "integer", "minimum": 0 },
+        "blockedCount": { "type": "integer", "minimum": 0 },
+        "invalidPackageCount": { "type": "integer", "minimum": 0 },
+        "errorIssueCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "chain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chainId", "caseName", "packageRelativePath", "checkpointFingerprint", "observedAt", "nextReviewDueAt", "retentionUntil", "lifecycleStatus", "attentionStatus", "reasons"],
+      "properties": {
+        "chainId": { "type": "string", "pattern": "^GSL-[0-9A-F]{20}$" },
+        "caseName": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "packageRelativePath": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "checkpointFingerprint": { "type": "string", "pattern": "^GSC-[0-9A-F]{20}$" },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "nextReviewDueAt": { "type": "string", "format": "date-time" },
+        "retentionUntil": { "type": "string", "format": "date-time" },
+        "lifecycleStatus": { "enum": ["current", "review-due", "blocked"] },
+        "attentionStatus": { "$ref": "#/$defs/status" },
+        "reasons": { "$ref": "#/$defs/reasonList" }
+      }
+    },
+    "invalidPackage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["caseName", "packageRelativePath", "errorCode", "message"],
+      "properties": {
+        "caseName": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "packageRelativePath": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "errorCode": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 2000 }
+      }
+    },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "code", "message", "entries"],
+      "properties": {
+        "level": { "enum": ["error", "warning"] },
+        "code": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "entries": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 4096 } }
+      }
+    },
+    "signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "kind", "source", "summary", "chains", "invalidPackages", "issues", "signalFingerprint"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "kind": { "const": "governance-external-archive-lifecycle-monitor-signal" },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rootName", "maxScanDepth", "upcomingReminderDays"],
+          "properties": {
+            "rootName": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "maxScanDepth": { "type": "integer", "minimum": 1, "maximum": 12 },
+            "upcomingReminderDays": { "type": "integer", "minimum": 0, "maximum": 366 }
+          }
+        },
+        "summary": { "$ref": "#/$defs/summary" },
+        "chains": { "type": "array", "items": { "$ref": "#/$defs/chain" } },
+        "invalidPackages": { "type": "array", "items": { "$ref": "#/$defs/invalidPackage" } },
+        "issues": { "type": "array", "items": { "$ref": "#/$defs/issue" } },
+        "signalFingerprint": { "type": "string", "pattern": "^GMS-[0-9A-F]{20}$" }
+      }
+    }
+  }
+}

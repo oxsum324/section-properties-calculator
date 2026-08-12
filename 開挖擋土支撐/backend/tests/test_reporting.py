@@ -55,6 +55,10 @@ GOVERNANCE_TIMESTAMP_NEEDLES = (
     "periodic-review-upcoming",
     "retention-expiry-upcoming",
     "GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_PORTFOLIO_SCHEMA.json",
+    "GSM-外部歸檔生命週期監測",
+    "GME-外部歸檔生命週期監測事件",
+    "governance-external-archive-lifecycle-monitor-state",
+    "GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_MONITOR_SCHEMA.json",
 )
 
 

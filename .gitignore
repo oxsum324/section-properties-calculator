@@ -98,5 +98,7 @@ _參考資料/
 output/
 **/output/
 GSP-外部歸檔生命週期總覽-*/
+GSM-外部歸檔生命週期監測-latest.json
+GSM-外部歸檔生命週期監測事件-*.json
 **/.playwright-cli/
 *.rar
