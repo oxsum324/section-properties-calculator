@@ -1465,6 +1465,8 @@ exit $LASTEXITCODE
 $renderedDeliveryEvidenceContractCommand = @'
 node 結構工具箱/tools/docx-package-integrity.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node 結構工具箱/tools/xlsx-package-integrity.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node 結構工具箱/tools/rendered-delivery-evidence.contract.test.js
 $renderedDeliveryExitCode = $LASTEXITCODE
 node dev_tools/attachment-integrity-diagnostic.js

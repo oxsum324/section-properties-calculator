@@ -157,6 +157,8 @@ Schema v21 將相同邊界擴及錨栓正式 HTML：核可方塊與核可撤銷�
 
 Schema v22 新增正式 Word 附件乾淨封裝：`結構工具箱/tools/docx-package-integrity.js` 依 OOXML 關聯從可見文件零件驗證石材、錨栓、覆工板與開挖擋土支撐當輪 DOCX，`結構工具箱/tools/docx-package-integrity.test.js` 固定驗證乾淨正例與污染反例，正式放行要求 `4/4`。未引用媒體或頁首頁尾、實際批註／批註錨點、未接受修訂、外掛範本、外部圖片、嵌入物件、ActiveX、巨集及非預期 custom XML 均須失敗關閉；合法超連結、空白 comments 零件與 python-docx 空白書目容器可接受。詳細零件清冊只留在私人 release 證據；Pages 只公開完成數，不得公開檔名、封裝清冊或逐檔細節。
 
+Schema v23 新增正式 Excel 附件乾淨封裝：`結構工具箱/tools/xlsx-package-integrity.js` 依 OOXML 關聯、工作簿清冊與 worksheet 儲存格驗證錨栓當輪 XLSX，`結構工具箱/tools/xlsx-package-integrity.test.js` 固定驗證乾淨公式正例及隱藏／外部／主動內容污染反例，正式放行要求 `1/1`。外部關聯、外部公式或連線、公式錯誤／缺少快取結果、隱藏工作表／活頁簿視窗／名稱／列／欄、批註、嵌入物件、ActiveX、巨集、孤兒 worksheet／媒體／圖形及非預期 custom XML 均須失敗關閉；正常內部公式、凍結標題、篩選器、樣式及列印設定可接受。詳細工作表、公式與零件清冊只留在私人 release 證據；Pages 只公開完成數。
+
 錨栓雙封印亦屬日常案件組包的必要語意檢查，不只存在 release 證據。`attachment-package-check.js` 必須以獨立檢查器重算正式 HTML 的內容與核可封印；舊版缺封印為 review，封印或 scope 不符為 blocked。v3 事後驗證會重新解析包內附件並套用相同判定，因此同步改寫附件、檔案雜湊、清單與附件包指紋仍不得掩蓋正文或核可資料竄改。
 
 v3 事後驗證的正向證據必須保存於記憶體回傳結果：摘要只顯示 HTML 雙封印完成數／應驗數，逐份紀錄只顯示 `anchor`、`rc` 或 `formal` 家族及內容／核可封印的 `verified`／異常狀態，不得輸出封印值、scope 或正規化正文。正式附件包管理器只能呈現這份既有自我驗證證據，不得另行改判；所有顯示仍屬內部交付確認，不得寫入附件包或計算書。

@@ -312,11 +312,14 @@ for (const { name, source } of rcReportVisualSources) {
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 22',
+  'schemaVersion: 23',
   'canonicalArtifactIntegrity',
   'docxPackageIntegrity',
   "scope: 'formal-docx-clean-ooxml-package'",
   'docxPackageIntegrity=',
+  'xlsxPackageIntegrity',
+  "scope: 'formal-xlsx-clean-ooxml-package-and-formula-cache'",
+  'xlsxPackageIntegrity=',
   "scope: 'canonical-rendered-pdf-evidence'",
   'required: 60',
   'canonicalIntegrity=',
@@ -415,6 +418,7 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'steelHtmlDualSealDeclared',
   'anchorHtmlDualSealDeclared',
   'docxPackageIntegrityDeclared',
+  'xlsxPackageIntegrityDeclared',
   'steelResultReconciliationDeclared',
   'stoneResultReconciliationDeclared',
   'anchorResultReconciliationDeclared',
@@ -425,6 +429,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'evidence.canonicalArtifactIntegrity.required === 60',
   "evidence.docxPackageIntegrity?.scope === 'formal-docx-clean-ooxml-package'",
   'evidence.docxPackageIntegrity.required === 4',
+  "evidence.xlsxPackageIntegrity?.scope === 'formal-xlsx-clean-ooxml-package-and-formula-cache'",
+  'evidence.xlsxPackageIntegrity.required === 1',
   "evidence.formalResultReconciliation?.scope === 'formal-golden-result-to-report-fingerprint'",
   'evidence.formalResultReconciliation.required === 14',
   "'rc-source-replay-to-report-fingerprint'",
@@ -497,6 +503,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   '錨栓正式 HTML 雙封印',
   'docxPackageIntegrityRequired',
   '正式 Word 附件乾淨封裝',
+  'xlsxPackageIntegrityRequired',
+  '正式 Excel 附件乾淨封裝',
   'steelResultReconciliationRequired',
   '鋼構正式計算書結果鏈',
   'stoneResultReconciliationRequired',
@@ -645,6 +653,9 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   assertIncludes(source, 'Schema v22', `${label} documents formal DOCX clean package release evidence schema`);
   assertIncludes(source, '4/4', `${label} documents formal DOCX package required count`);
   assertIncludes(source, '未引用媒體', `${label} documents formal DOCX hidden-package boundary`);
+  assertIncludes(source, 'Schema v23', `${label} documents formal XLSX clean package release evidence schema`);
+  assertIncludes(source, '1/1', `${label} documents formal XLSX package required count`);
+  assertIncludes(source, '外部公式', `${label} documents formal XLSX hidden and external package boundary`);
   assertIncludes(source, '風力／地震', `${label} documents formal-tool HTML dual seal family`);
   assertIncludes(source, '鋼構', `${label} documents steel formal HTML dual seal family`);
   assertIncludes(source, '錨栓', `${label} documents anchor formal HTML dual seal family`);

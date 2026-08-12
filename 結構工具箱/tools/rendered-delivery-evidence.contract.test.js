@@ -7,6 +7,7 @@ const { inflateRawSync } = require('zlib');
 const AttachmentPackageChecker = require('./attachment-package-check');
 const AnchorHtmlSealVerifier = require('./anchor-html-seal-verifier');
 const { inspectDocxPackage } = require('./docx-package-integrity');
+const { inspectXlsxPackage } = require('./xlsx-package-integrity');
 const { verifyHtmlArtifact } = require('../../dev_tools/html-attachment-integrity');
 const { captureArtifactIntegrity } = require('../../鋼筋混凝土/tools/report-screenshot-quality');
 const {
@@ -1200,6 +1201,29 @@ function verifyCleanDocxPackage(entries, key, label) {
   return result;
 }
 
+function verifyCleanXlsxPackage(entries, key, label) {
+  const result = inspectXlsxPackage(entries, { label });
+  assert.equal(
+    result.pass,
+    true,
+    `${label} has a clean OOXML package: ${result.issues.map(item => `${item.code}:${item.part}`).join(', ')}`
+  );
+  xlsxPackageIntegrityRecords.push({
+    key,
+    pass: result.pass,
+    issueCount: result.issueCount,
+    partCount: result.partCount,
+    relationshipCount: result.relationshipCount,
+    sheetCount: result.sheetCount,
+    visibleSheetCount: result.visibleSheetCount,
+    formulaCount: result.formulaCount,
+    cachedFormulaCount: result.cachedFormulaCount,
+    mediaCount: result.mediaCount,
+    referencedMediaCount: result.referencedMediaCount,
+  });
+  return result;
+}
+
 function decodeHtmlText(html) {
   return decodeXmlText(
     html
@@ -1623,6 +1647,7 @@ const anchorResultReconciliationRecords = [];
 const deckingResultReconciliationRecords = [];
 const excavationResultReconciliationRecords = [];
 const docxPackageIntegrityRecords = [];
+const xlsxPackageIntegrityRecords = [];
 
 for (const family of ['formal-tools', 'local-quick-tools', 'steel-formal']) {
   const tools = inventory.tools.filter(tool => tool.family === family);
@@ -1896,6 +1921,11 @@ assertCalculationContentProfile(anchorDocxText, 'traceable-calculation-book', 'a
 assert.equal(fs.readFileSync(anchorWorkbookPath).subarray(0, 2).toString('ascii'), 'PK', 'anchor report artifact has XLSX ZIP signature');
 const anchorWorkbookEntries = readZipEntries(anchorWorkbookPath, 'anchor XLSX');
 assert.ok(anchorWorkbookEntries.has('xl/workbook.xml'), 'anchor XLSX contains xl/workbook.xml');
+const anchorXlsxPackageIntegrity = verifyCleanXlsxPackage(anchorWorkbookEntries, 'anchor-review', 'anchor XLSX');
+assert.equal(anchorXlsxPackageIntegrity.sheetCount, 9, 'anchor XLSX clean-package gate covers all 9 report sheets');
+assert.equal(anchorXlsxPackageIntegrity.visibleSheetCount, anchorXlsxPackageIntegrity.sheetCount, 'anchor XLSX clean-package gate keeps every report sheet visible');
+assert.ok(anchorXlsxPackageIntegrity.formulaCount > 0, 'anchor XLSX clean-package gate covers formula-backed recalculation cells');
+assert.equal(anchorXlsxPackageIntegrity.cachedFormulaCount, anchorXlsxPackageIntegrity.formulaCount, 'anchor XLSX formula-backed cells all include cached results');
 const anchorWorkbookXml = anchorWorkbookEntries.get('xl/workbook.xml').toString('utf8');
 for (const sheet of ['Summary', 'LoadCases', 'Results', 'Dimensions', 'Factors', 'Candidates', 'Evidence', 'Layouts', 'AuditTrail']) {
   assert.ok(anchorWorkbookXml.includes(`name="${sheet}"`), `anchor XLSX contains ${sheet} sheet`);
@@ -2607,8 +2637,21 @@ assert.equal(new Set(docxPackageIntegrityRecords.map(record => record.key)).size
 assert.equal(docxPackageIntegrity.complete, docxPackageIntegrity.required, 'release rendered evidence verifies all 4 formal DOCX packages');
 assert.equal(docxPackageIntegrity.issueCount, 0, 'release rendered evidence formal DOCX packages contain no hidden package contamination');
 assert.equal(docxPackageIntegrity.pass, true, 'release rendered evidence passes formal DOCX package integrity');
+const xlsxPackageIntegrity = {
+  schemaVersion: 1,
+  scope: 'formal-xlsx-clean-ooxml-package-and-formula-cache',
+  required: 1,
+  complete: xlsxPackageIntegrityRecords.length,
+  issueCount: xlsxPackageIntegrityRecords.reduce((sum, record) => sum + record.issueCount, 0),
+  pass: xlsxPackageIntegrityRecords.length === 1 && xlsxPackageIntegrityRecords.every(record => record.pass),
+  records: xlsxPackageIntegrityRecords,
+};
+assert.equal(new Set(xlsxPackageIntegrityRecords.map(record => record.key)).size, xlsxPackageIntegrityRecords.length, 'release rendered evidence XLSX package identities are unique');
+assert.equal(xlsxPackageIntegrity.complete, xlsxPackageIntegrity.required, 'release rendered evidence verifies the formal XLSX package');
+assert.equal(xlsxPackageIntegrity.issueCount, 0, 'release rendered evidence formal XLSX package contains no hidden, external, active, or formula-cache contamination');
+assert.equal(xlsxPackageIntegrity.pass, true, 'release rendered evidence passes formal XLSX package integrity');
 const aggregate = {
-  schemaVersion: 22,
+  schemaVersion: 23,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),
@@ -2617,12 +2660,13 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && docxPackageIntegrity.pass && formalResultReconciliation.pass && formalHtmlContentSeal.pass && formalHtmlApprovalSeal.pass && steelHtmlContentSeal.pass && steelHtmlApprovalSeal.pass && anchorHtmlContentSeal.pass && anchorHtmlApprovalSeal.pass && localQuickResultReconciliation.pass && rcResultReconciliation.pass && rcSourceReportPackage.pass && rcStandaloneFormalHtmlPrint.pass && rcFormalHtmlContentSeal.pass && rcFormalHtmlApprovalSeal.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && docxPackageIntegrity.pass && xlsxPackageIntegrity.pass && formalResultReconciliation.pass && formalHtmlContentSeal.pass && formalHtmlApprovalSeal.pass && steelHtmlContentSeal.pass && steelHtmlApprovalSeal.pass && anchorHtmlContentSeal.pass && anchorHtmlApprovalSeal.pass && localQuickResultReconciliation.pass && rcResultReconciliation.pass && rcSourceReportPackage.pass && rcStandaloneFormalHtmlPrint.pass && rcFormalHtmlContentSeal.pass && rcFormalHtmlApprovalSeal.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
   attachmentIntegrity,
   mixedArtifactIntegrity,
   rcVisualArtifactIntegrity,
   canonicalArtifactIntegrity,
   docxPackageIntegrity,
+  xlsxPackageIntegrity,
   formalResultReconciliation,
   formalHtmlContentSeal,
   formalHtmlApprovalSeal,
@@ -2647,4 +2691,4 @@ const aggregate = {
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, docxPackageIntegrity=${docxPackageIntegrity.complete}/${docxPackageIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, formalHtmlContentSeal=${formalHtmlContentSeal.complete}/${formalHtmlContentSeal.required}, formalHtmlApprovalSeal=${formalHtmlApprovalSeal.complete}/${formalHtmlApprovalSeal.required}, steelHtmlContentSeal=${steelHtmlContentSeal.complete}/${steelHtmlContentSeal.required}, steelHtmlApprovalSeal=${steelHtmlApprovalSeal.complete}/${steelHtmlApprovalSeal.required}, anchorHtmlContentSeal=${anchorHtmlContentSeal.complete}/${anchorHtmlContentSeal.required}, anchorHtmlApprovalSeal=${anchorHtmlApprovalSeal.complete}/${anchorHtmlApprovalSeal.required}, localQuickResultReconciliation=${localQuickResultReconciliation.complete}/${localQuickResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, rcSourceReportPackage=${rcSourceReportPackage.complete}/${rcSourceReportPackage.required}, rcStandaloneFormalHtmlPrint=${rcStandaloneFormalHtmlPrint.complete}/${rcStandaloneFormalHtmlPrint.required}, rcFormalHtmlContentSeal=${rcFormalHtmlContentSeal.complete}/${rcFormalHtmlContentSeal.required}, rcFormalHtmlApprovalSeal=${rcFormalHtmlApprovalSeal.complete}/${rcFormalHtmlApprovalSeal.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, docxPackageIntegrity=${docxPackageIntegrity.complete}/${docxPackageIntegrity.required}, xlsxPackageIntegrity=${xlsxPackageIntegrity.complete}/${xlsxPackageIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, formalHtmlContentSeal=${formalHtmlContentSeal.complete}/${formalHtmlContentSeal.required}, formalHtmlApprovalSeal=${formalHtmlApprovalSeal.complete}/${formalHtmlApprovalSeal.required}, steelHtmlContentSeal=${steelHtmlContentSeal.complete}/${steelHtmlContentSeal.required}, steelHtmlApprovalSeal=${steelHtmlApprovalSeal.complete}/${steelHtmlApprovalSeal.required}, anchorHtmlContentSeal=${anchorHtmlContentSeal.complete}/${anchorHtmlContentSeal.required}, anchorHtmlApprovalSeal=${anchorHtmlApprovalSeal.complete}/${anchorHtmlApprovalSeal.required}, localQuickResultReconciliation=${localQuickResultReconciliation.complete}/${localQuickResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, rcSourceReportPackage=${rcSourceReportPackage.complete}/${rcSourceReportPackage.required}, rcStandaloneFormalHtmlPrint=${rcStandaloneFormalHtmlPrint.complete}/${rcStandaloneFormalHtmlPrint.required}, rcFormalHtmlContentSeal=${rcFormalHtmlContentSeal.complete}/${rcFormalHtmlContentSeal.required}, rcFormalHtmlApprovalSeal=${rcFormalHtmlApprovalSeal.complete}/${rcFormalHtmlApprovalSeal.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);

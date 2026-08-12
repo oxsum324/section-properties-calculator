@@ -103,6 +103,8 @@ const PRIVATE_PATHS = [
   '結構工具箱/tools/rendered-delivery-evidence.inventory.json',
   '結構工具箱/tools/docx-package-integrity.js',
   '結構工具箱/tools/docx-package-integrity.test.js',
+  '結構工具箱/tools/xlsx-package-integrity.js',
+  '結構工具箱/tools/xlsx-package-integrity.test.js',
   '結構工具箱/tools/attachment-integrity-diagnostic.js',
   'dev_tools/attachment-integrity-diagnostic.js',
   '石材固定/dev_tools/baseline_capture.html',
@@ -589,6 +591,11 @@ async function main() {
   assert.equal(reportReadinessStatus.docxPackageIntegrityIssueCount, 0, 'report readiness formal DOCX package issues empty');
   assert.equal(reportReadinessStatus.docxPackageIntegrityPass, true, 'report readiness formal DOCX package checks pass');
   assert.equal(reportReadinessJson.includes('"docxPackageIntegrityRecords"'), false, 'report readiness omits private DOCX package records');
+  assert.equal(reportReadinessStatus.xlsxPackageIntegrityRequired, 1, 'report readiness expects 1 formal XLSX package check');
+  assert.equal(reportReadinessStatus.xlsxPackageIntegrityComplete, reportReadinessStatus.xlsxPackageIntegrityRequired, 'report readiness completes the formal XLSX package check');
+  assert.equal(reportReadinessStatus.xlsxPackageIntegrityIssueCount, 0, 'report readiness formal XLSX package issues empty');
+  assert.equal(reportReadinessStatus.xlsxPackageIntegrityPass, true, 'report readiness formal XLSX package check passes');
+  assert.equal(reportReadinessJson.includes('"xlsxPackageIntegrityRecords"'), false, 'report readiness omits private XLSX package records');
   assert.equal(reportReadinessStatus.formalResultReconciliationRequired, 14, 'report readiness expects 14 formal result reconciliations');
   assert.equal(reportReadinessStatus.formalResultReconciliationComplete, reportReadinessStatus.formalResultReconciliationRequired, 'report readiness completes every formal result reconciliation');
   assert.equal(reportReadinessStatus.formalResultReconciliationIssueCount, 0, 'report readiness formal result reconciliation issues empty');
@@ -727,6 +734,8 @@ async function main() {
   assert.ok(reportReadinessStatus.details.join(' ').includes('不公開檔名、逐檔雜湊或完整性集合'), 'report readiness status explains the private evidence boundary');
   assert.ok(reportReadinessStatus.details.join(' ').includes('正式 Word 附件乾淨封裝'), 'report readiness status exposes formal DOCX package integrity');
   assert.ok(reportReadinessStatus.details.join(' ').includes('不公開檔名、封裝清冊或逐檔細節'), 'report readiness status keeps DOCX package details private');
+  assert.ok(reportReadinessStatus.details.join(' ').includes('正式 Excel 附件乾淨封裝'), 'report readiness status exposes formal XLSX package integrity');
+  assert.ok(reportReadinessStatus.details.join(' ').includes('不公開檔名、工作表清冊、公式或逐檔細節'), 'report readiness status keeps XLSX package details private');
   assert.ok(reportReadinessStatus.details.join(' ').includes('正式計算書結果鏈'), 'report readiness status exposes formal result reconciliation count');
   assert.ok(reportReadinessStatus.details.join(' ').includes('不公開案例輸入、預期數值、案例雜湊或計算指紋'), 'report readiness status explains reconciliation privacy boundary');
   assert.ok(reportReadinessStatus.details.join(' ').includes('RC 正式計算書結果鏈'), 'report readiness status exposes RC result reconciliation count');

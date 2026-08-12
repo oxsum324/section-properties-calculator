@@ -22,6 +22,8 @@
 
 `src/anchorTraceabilityCatalog.test.ts` 會檢查 catalog 結構、證據檔存在、README 說明，以及核心原始碼仍保留 17.6、17.7、17.8、17.9、17.10、22.8.3 與補強鋼筋路線。repo 根層級的 `螺栓檢討/anchor-traceability.contract.test.js` 另會檢查平台 preflight、首頁 governance 與 staging / boundary 文件是否同步，讓 `anchor-traceability-contract` 成為獨立可追溯 gate；`螺栓檢討/anchor-report.contract.test.js` 則把報告匯出與附件閱讀狀態、`reportDocumentState` 文件分類、`backup.test.ts` 案例重現，以及 `tests/reportArtifacts.test.ts` 的實體產物測試收斂成平台層報告邊界 gate。正式 release 會把同一案例序列化的 HTML、DOCX、XLSX 留在當輪 `anchor-formal`，再由總閘門解析 HTML、DOCX / XLSX ZIP 內容與工作表清冊，不以通過日誌取代成品。新增計算路徑、報告段落、workbook/docx 邊界、正式產物留存或人工判斷邊界時，需同步更新 catalog 與 contract test。
 
+正式 release 的 XLSX 另由 `結構工具箱/tools/xlsx-package-integrity.js` 驗證乾淨封裝與公式快取：9 張工作表必須全數可見，內部 DCR 重算公式必須有快取結果；外部關聯、外部公式／連線、公式錯誤、隱藏資料、批註、嵌入物件、巨集、孤兒媒體及非預期 custom XML 會阻擋放行。這些檢查只存在 release 與頁面閱讀狀態，不寫入 workbook 工作表。
+
 同一總閘門會以共通 OOXML 規則檢查 DOCX 封裝：空白 comments 零件可接受，但實際批註／正文錨點、未接受修訂、未引用媒體或頁首頁尾、外掛範本、外部圖片、嵌入物件、巨集及非預期 custom XML 都會阻擋 release。封裝明細只留內部證據，不會加入附件正文。
 
 HTML 工作頁的產報前檢查只供操作判讀，不會整張搬入計算書。HTML、DOCX、XLSX 新輸出一律預設為可列印的「內部審閱」；勾選「本計算內容已完成審閱，核可作為正式附件」後，三種輸出都標示「正式附件」並記錄核可時間。三種下載檔名共用「計算書名稱_文件狀態_計算指紋」格式，使檔案離開工具後仍可直接辨識身分與對應留痕；同一計算內容的三種格式共用指紋，匯出格式、案件顯示名稱、設計／複核欄位、核可時間及儲存時間不改變計算指紋。DOCX 採瀏覽器相容的 Blob 序列化路徑，實際下載不得依賴 Node 專用 `nodebuffer`。計畫名稱、案號、公司、設計人、複核人及發行日期可留空，空白列省略並由主文承接。工程檢核不符仍如實列入計算書，但不會自動形成 DRAFT；文件核可也不代表工程結果 PASS。計算內容變更時既有核可會自動撤銷；新增匯出留痕或更新衍生結果快照不會撤銷核可。

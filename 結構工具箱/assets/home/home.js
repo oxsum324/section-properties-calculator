@@ -1314,6 +1314,9 @@
       Number.isInteger(payload.docxPackageIntegrityRequired) && payload.docxPackageIntegrityRequired > 0
         ? ratio('Word 乾淨封裝', payload.docxPackageIntegrityComplete, payload.docxPackageIntegrityRequired, payload.docxPackageIntegrityIssueCount)
         : null,
+      Number.isInteger(payload.xlsxPackageIntegrityRequired) && payload.xlsxPackageIntegrityRequired > 0
+        ? ratio('Excel 乾淨封裝', payload.xlsxPackageIntegrityComplete, payload.xlsxPackageIntegrityRequired, payload.xlsxPackageIntegrityIssueCount)
+        : null,
       Number.isInteger(payload.formalResultReconciliationRequired) && payload.formalResultReconciliationRequired > 0
         ? ratio('數值結果鏈', payload.formalResultReconciliationComplete, payload.formalResultReconciliationRequired, payload.formalResultReconciliationIssueCount)
         : null,
