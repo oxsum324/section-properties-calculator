@@ -51,6 +51,7 @@ from .receiver_operator_recovery import (
     request_receiver_operator_backup_disposition,
     write_managed_receiver_operator_governance_backup,
 )
+from .receiver_governance_health import build_receiver_governance_health_snapshot
 from .receiver_capacity import calculate_reshore_member_capacity
 from .receiver_evidence_template_package import validate_receiver_evidence_template_publisher_package
 from .receiver_key_enrollment import validate_receiver_key_enrollment
@@ -239,6 +240,18 @@ def logout_receiver_operator(request: Request, response: Response) -> dict[str, 
 def list_receiver_operators(request: Request) -> dict[str, Any]:
     _receiver_operator(request, required_role="receiver-key-admin")
     return {"operators": receiver_operator_store.list_operators()}
+
+
+@app.get("/api/receiver-governance-health")
+def get_receiver_governance_health(request: Request) -> dict[str, Any]:
+    _receiver_operator(request, required_role="receiver-key-admin")
+    try:
+        return build_receiver_governance_health_snapshot(
+            receiver_operator_store,
+            receiver_trust_store,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @app.post("/api/receiver-operators")

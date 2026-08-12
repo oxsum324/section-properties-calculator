@@ -46,6 +46,7 @@ import {
   ReceiverRevocationReason,
   ReceiverRotationRequest,
   ReceiverOperator,
+  ReceiverGovernanceHealthSnapshot,
   ReceiverOperatorAuditEvent,
   ReceiverOperatorAuditSummary,
   ReceiverOperatorAuthState,
@@ -264,6 +265,17 @@ function receiverOperatorRoleLabels(roles: ReceiverOperatorRole[]): string {
   return roles.map(receiverOperatorRoleLabel).join("、") || "—";
 }
 
+function receiverGovernanceHealthReasonLabel(code: string): string {
+  return {
+    "legacy-procedural-identity": "舊式程序聲明，缺少登入帳號身分",
+    "missing-sqlite-claim": "信任清冊事件缺少 SQLite 授權 claim",
+    "sqlite-claim-not-pending": "SQLite claim 已非待覆核狀態",
+    "requester-id-mismatch": "信任清冊與 SQLite 的申請者 ID 不一致",
+    "no-distinct-active-approver": "目前沒有不同 operator ID 的有效覆核人",
+    "missing-or-nonpending-trust-registry-event": "SQLite claim 缺少對應的待覆核信任清冊事件",
+  }[code] ?? code;
+}
+
 function receiverOperatorStatusLabel(
   status: "enabled" | "disabled" | "password-reset-required",
 ): string {
@@ -272,86 +284,6 @@ function receiverOperatorStatusLabel(
     disabled: "已停用",
     "password-reset-required": "待變更臨時密碼",
   }[status];
-}
-
-type ReceiverGovernanceSeparationHealth = {
-  status: "complete" | "overlap" | "attention";
-  statusLabel: string;
-  activeRequesterCount: number;
-  activeApproverCount: number;
-  distinctPairAvailable: boolean;
-  dedicatedPairAvailable: boolean;
-  pendingRotationCount: number;
-  pendingBackupDispositionCount: number;
-  unreviewablePendingCount: number;
-  nextAction: string;
-};
-
-function deriveReceiverGovernanceSeparationHealth(
-  operators: ReceiverOperator[],
-  rotationRequests: ReceiverRotationRequest[],
-  recoveryInventory: ReceiverOperatorRecoveryInventory | null,
-): ReceiverGovernanceSeparationHealth {
-  const activeOperators = operators.filter(
-    (operator) => !operator.disabled && !operator.passwordResetRequired,
-  );
-  const activeRequesters = activeOperators.filter(
-    (operator) => operator.roles.includes("receiver-key-requester"),
-  );
-  const activeApprovers = activeOperators.filter(
-    (operator) => operator.roles.includes("receiver-key-approver"),
-  );
-  const distinctPairAvailable = activeRequesters.some(
-    (requester) => activeApprovers.some((approver) => approver.id !== requester.id),
-  );
-  const dedicatedRequesters = activeRequesters.filter(
-    (operator) => !operator.roles.includes("receiver-key-approver"),
-  );
-  const dedicatedApprovers = activeApprovers.filter(
-    (operator) => !operator.roles.includes("receiver-key-requester"),
-  );
-  const dedicatedPairAvailable = dedicatedRequesters.some(
-    (requester) => dedicatedApprovers.some((approver) => approver.id !== requester.id),
-  );
-  const pendingRotationRequests = rotationRequests.filter((request) => request.status === "pending");
-  const pendingBackupDispositionRequests = recoveryInventory?.backupDispositionRequests.filter(
-    (request) => request.state === "pending",
-  ) ?? [];
-  const rotationRequestsWithoutReviewer = pendingRotationRequests.filter(
-    (request) => request.authorizationState !== "tracked"
-      || request.authorizationClaimState !== "pending"
-      || !request.requestedByOperatorId
-      || !activeApprovers.some((approver) => approver.id !== request.requestedByOperatorId),
-  );
-  const backupRequestsWithoutReviewer = pendingBackupDispositionRequests.filter(
-    (request) => !activeApprovers.some((approver) => approver.id !== request.requestedByOperatorId),
-  );
-  const unreviewablePendingCount = rotationRequestsWithoutReviewer.length + backupRequestsWithoutReviewer.length;
-  const status = !distinctPairAvailable || unreviewablePendingCount > 0
-    ? "attention"
-    : dedicatedPairAvailable
-      ? "complete"
-      : "overlap";
-  const nextAction = !distinctPairAvailable
-    ? "建立或啟用 operator ID 不同的治理申請人與治理覆核人帳號。"
-    : unreviewablePendingCount > 0
-      ? "補足不同 operator ID 的有效覆核人；若輪替 claim 已非 tracked／pending，停止覆核並重新提出申請。"
-      : !dedicatedPairAvailable
-        ? "目前流程可執行；建議再配置申請與覆核角色不重疊的專責帳號。"
-        : "維持專責申請與覆核帳號，並於停用、重設密碼或調整角色後重新確認。";
-
-  return {
-    status,
-    statusLabel: status === "complete" ? "分權完整" : status === "overlap" ? "可執行但角色重疊" : "需要處理",
-    activeRequesterCount: activeRequesters.length,
-    activeApproverCount: activeApprovers.length,
-    distinctPairAvailable,
-    dedicatedPairAvailable,
-    pendingRotationCount: pendingRotationRequests.length,
-    pendingBackupDispositionCount: pendingBackupDispositionRequests.length,
-    unreviewablePendingCount,
-    nextAction,
-  };
 }
 
 function receiverOperatorAuditEventLabel(eventType: ReceiverOperatorAuditEvent["eventType"]): string {
@@ -684,6 +616,7 @@ function App() {
   const [receiverOperatorLoginDraft, setReceiverOperatorLoginDraft] = useState(emptyReceiverOperatorLoginDraft);
   const [receiverOperatorBootstrapDraft, setReceiverOperatorBootstrapDraft] = useState(emptyReceiverOperatorBootstrapDraft);
   const [receiverOperators, setReceiverOperators] = useState<ReceiverOperator[]>([]);
+  const [receiverGovernanceHealth, setReceiverGovernanceHealth] = useState<ReceiverGovernanceHealthSnapshot | null>(null);
   const [receiverOperatorCreateDraft, setReceiverOperatorCreateDraft] = useState(emptyReceiverOperatorCreateDraft);
   const [receiverOperatorManageDraft, setReceiverOperatorManageDraft] = useState(emptyReceiverOperatorManageDraft);
   const [receiverOperatorPasswordChangeDraft, setReceiverOperatorPasswordChangeDraft] = useState(
@@ -755,11 +688,14 @@ function App() {
   });
   const receiverHasRequestAndApprovalRoles = receiverOperatorRoles.includes("receiver-key-requester")
     && receiverOperatorRoles.includes("receiver-key-approver");
-  const receiverGovernanceSeparationHealth = deriveReceiverGovernanceSeparationHealth(
-    receiverOperators,
-    receiverRotationRequests,
-    receiverOperatorRecoveryInventory,
-  );
+  const receiverGovernanceHealthNextAction = receiverGovernanceHealth
+    ? {
+        "establish-distinct-operators": "建立或啟用 operator ID 不同的治理申請人與治理覆核人帳號。",
+        "restore-claim-reviewability": "補足不同 operator ID 的有效覆核人；若輪替 claim 已非 tracked／pending，停止覆核並重新提出申請。",
+        "separate-dedicated-roles": "目前流程可執行；建議再配置申請與覆核角色不重疊的專責帳號。",
+        "maintain-separation": "維持專責申請與覆核帳號，並於停用、重設密碼或調整角色後重新確認。",
+      }[receiverGovernanceHealth.nextActionCode]
+    : "重新整理後端治理健康快照；在快照可驗證前，不得宣稱分權完整。";
   const managedReceiverOperator = receiverOperators.find(
     (operator) => operator.id === receiverOperatorManageDraft.operatorId,
   ) ?? null;
@@ -864,20 +800,23 @@ function App() {
           setReceiverOperatorAuth(auth);
           setReceiverOperatorAuthLoaded(true);
           if (auth.operator?.roles.includes("receiver-key-admin") && !auth.operator.passwordResetRequired) {
-            const [operators, audit, inventory] = await Promise.all([
+            const [operators, audit, inventory, health] = await Promise.all([
               api.listReceiverOperators(),
               api.listReceiverOperatorAuditEvents(),
               api.listReceiverOperatorGovernanceRecoveryInventory(),
+              api.getReceiverGovernanceHealth(),
             ]);
             if (!cancelled) {
               setReceiverOperators(operators.operators);
               setReceiverOperatorAuditSummary(audit);
               setReceiverOperatorRecoveryInventory(inventory);
+              setReceiverGovernanceHealth(health);
             }
           } else {
             setReceiverOperators([]);
             setReceiverOperatorAuditSummary(emptyReceiverOperatorAuditSummary);
             setReceiverOperatorRecoveryInventory(null);
+            setReceiverGovernanceHealth(null);
           }
         }
       })
@@ -1590,36 +1529,50 @@ function App() {
     setReceiverOperatorAuth(auth);
     setReceiverOperatorAuthLoaded(true);
     if (auth.operator?.roles.includes("receiver-key-admin") && !auth.operator.passwordResetRequired) {
-      const [response, audit, inventory] = await Promise.all([
+      const [response, audit, inventory, health] = await Promise.all([
         api.listReceiverOperators(),
         api.listReceiverOperatorAuditEvents(),
         api.listReceiverOperatorGovernanceRecoveryInventory(),
+        api.getReceiverGovernanceHealth(),
       ]);
       setReceiverOperators(response.operators);
       setReceiverOperatorAuditSummary(audit);
       setReceiverOperatorRecoveryInventory(inventory);
+      setReceiverGovernanceHealth(health);
     } else {
       setReceiverOperators([]);
       setReceiverOperatorAuditSummary(emptyReceiverOperatorAuditSummary);
       setReceiverOperatorRecoveryInventory(null);
+      setReceiverGovernanceHealth(null);
     }
   }
 
   async function refreshReceiverOperatorGovernance() {
-    const [operators, audit, inventory] = await Promise.all([
+    const [operators, audit, inventory, health] = await Promise.all([
       api.listReceiverOperators(),
       api.listReceiverOperatorAuditEvents(),
       api.listReceiverOperatorGovernanceRecoveryInventory(),
+      api.getReceiverGovernanceHealth(),
     ]);
     setReceiverOperators(operators.operators);
     setReceiverOperatorAuditSummary(audit);
     setReceiverOperatorRecoveryInventory(inventory);
+    setReceiverGovernanceHealth(health);
     setReceiverOperatorManageDraft((current) => {
       const selected = operators.operators.find((operator) => operator.id === current.operatorId);
       return selected
         ? { ...current, roles: [...selected.roles], temporaryPassword: "" }
         : emptyReceiverOperatorManageDraft;
     });
+  }
+
+  async function refreshReceiverGovernanceHealthIfAdmin() {
+    if (!receiverCanAdministerKeys) return;
+    try {
+      setReceiverGovernanceHealth(await api.getReceiverGovernanceHealth());
+    } catch {
+      setReceiverGovernanceHealth(null);
+    }
   }
 
   async function handleBootstrapReceiverOperator() {
@@ -2098,6 +2051,7 @@ function App() {
       setReceiverTrustKeys(response.keys);
       setReceiverTrustEvents(response.events);
       setReceiverRotationRequests(response.rotationRequests);
+      await refreshReceiverGovernanceHealthIfAdmin();
       setReceiverTrustDraft({ organization: "", displayName: "", publicKey: "" });
       setReceiverTrustEnrollment(null);
       setReceiverTrustVerificationConfirmed(false);
@@ -2183,6 +2137,7 @@ function App() {
       setReceiverTrustKeys(response.keys);
       setReceiverTrustEvents(response.events);
       setReceiverRotationRequests(response.rotationRequests);
+      await refreshReceiverGovernanceHealthIfAdmin();
       cancelReceiverTrustKeyRevocation();
       setReceiverTrustBackup(null);
       setReceiverTrustRestorePreview(null);
@@ -2233,6 +2188,7 @@ function App() {
       setReceiverTrustKeys(response.keys);
       setReceiverTrustEvents(response.events);
       setReceiverRotationRequests(response.rotationRequests);
+      await refreshReceiverGovernanceHealthIfAdmin();
       cancelReceiverKeyRotationCompletion();
       setReceiverTrustBackup(null);
       setReceiverTrustRestorePreview(null);
@@ -2276,6 +2232,7 @@ function App() {
       setReceiverTrustKeys(response.keys);
       setReceiverTrustEvents(response.events);
       setReceiverRotationRequests(response.rotationRequests);
+      await refreshReceiverGovernanceHealthIfAdmin();
       cancelReceiverKeyRotationApproval();
       setReceiverTrustBackup(null);
       setReceiverTrustRestorePreview(null);
@@ -2361,6 +2318,7 @@ function App() {
       setReceiverTrustKeys(response.keys);
       setReceiverTrustEvents(response.events);
       setReceiverRotationRequests(response.rotationRequests);
+      await refreshReceiverGovernanceHealthIfAdmin();
       setReceiverTrustRestoreOutcome({
         registryFingerprint: response.registryFingerprint,
         safeguardPath: response.safeguardPath,
@@ -6211,33 +6169,61 @@ function App() {
                         建議把治理申請與治理覆核角色分配給不同帳號。兩種角色同時適用於金鑰輪替及到期備份處置，後端會以不可自行填寫的帳號 ID 判斷兩人是否相同。
                       </p>
                       <section
-                        className={`receiver-governance-health ${receiverGovernanceSeparationHealth.status}`}
+                        className={`receiver-governance-health ${receiverGovernanceHealth?.status ?? "attention"}`}
                         aria-label="治理分權健康摘要"
                       >
                         <div className="receiver-governance-health-heading">
                           <div>
                             <span className="receiver-governance-health-kicker">治理分權健康摘要</span>
-                            <strong>{receiverGovernanceSeparationHealth.statusLabel}</strong>
+                            <strong>{receiverGovernanceHealth?.statusLabel ?? "快照無法確認"}</strong>
                           </div>
-                          <span className={`receiver-governance-health-badge ${receiverGovernanceSeparationHealth.status}`}>
-                            {receiverGovernanceSeparationHealth.statusLabel}
+                          <span className={`receiver-governance-health-badge ${receiverGovernanceHealth?.status ?? "attention"}`}>
+                            {receiverGovernanceHealth?.statusLabel ?? "無法確認"}
                           </span>
                         </div>
                         <div className="receiver-governance-health-grid">
-                          <div><span>有效申請人</span><strong>{receiverGovernanceSeparationHealth.activeRequesterCount} 個帳號</strong></div>
-                          <div><span>有效覆核人</span><strong>{receiverGovernanceSeparationHealth.activeApproverCount} 個帳號</strong></div>
-                          <div><span>不同帳號雙人流程</span><strong>{receiverGovernanceSeparationHealth.distinctPairAvailable ? "可執行" : "不可執行"}</strong></div>
-                          <div><span>專責角色分離</span><strong>{receiverGovernanceSeparationHealth.dedicatedPairAvailable ? "已建立" : "尚未建立"}</strong></div>
-                          <div><span>待覆核 claim</span><strong>{receiverGovernanceSeparationHealth.pendingRotationCount + receiverGovernanceSeparationHealth.pendingBackupDispositionCount} 件</strong></div>
-                          <div><span>目前不可覆核</span><strong>{receiverGovernanceSeparationHealth.unreviewablePendingCount} 件</strong></div>
+                          <div><span>有效申請人</span><strong>{receiverGovernanceHealth ? `${receiverGovernanceHealth.activeRequesterCount} 個帳號` : "—"}</strong></div>
+                          <div><span>有效覆核人</span><strong>{receiverGovernanceHealth ? `${receiverGovernanceHealth.activeApproverCount} 個帳號` : "—"}</strong></div>
+                          <div><span>不同帳號雙人流程</span><strong>{receiverGovernanceHealth ? receiverGovernanceHealth.distinctPairAvailable ? "可執行" : "不可執行" : "無法確認"}</strong></div>
+                          <div><span>專責角色分離</span><strong>{receiverGovernanceHealth ? receiverGovernanceHealth.dedicatedPairAvailable ? "已建立" : "尚未建立" : "無法確認"}</strong></div>
+                          <div><span>待覆核 claim</span><strong>{receiverGovernanceHealth ? `${receiverGovernanceHealth.pendingRotationCount + receiverGovernanceHealth.pendingBackupDispositionCount} 件` : "—"}</strong></div>
+                          <div><span>目前不可覆核</span><strong>{receiverGovernanceHealth ? `${receiverGovernanceHealth.unreviewablePendingCount} 件` : "—"}</strong></div>
                         </div>
-                        {receiverGovernanceSeparationHealth.pendingRotationCount + receiverGovernanceSeparationHealth.pendingBackupDispositionCount === 0 && (
+                        {receiverGovernanceHealth && receiverGovernanceHealth.pendingRotationCount + receiverGovernanceHealth.pendingBackupDispositionCount === 0 && (
                           <p className="meta-line">目前沒有待覆核 claim；此狀態不代表曾有案件且已完成覆核。</p>
                         )}
-                        <p className="meta-line"><strong>下一步：</strong>{receiverGovernanceSeparationHealth.nextAction}</p>
+                        {receiverGovernanceHealth && receiverGovernanceHealth.unreviewablePendingClaims.length > 0 && (
+                          <div className="receiver-governance-unreviewable">
+                            <strong>目前不可覆核案件</strong>
+                            <ul>
+                              {receiverGovernanceHealth.unreviewablePendingClaims.map((claim) => (
+                                <li key={`${claim.claimType}-${claim.requestFingerprint}`}>
+                                  <code>{claim.requestFingerprint}</code>
+                                  <span>{claim.reasonCodes.map(receiverGovernanceHealthReasonLabel).join("；")}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        <p className="meta-line"><strong>下一步：</strong>{receiverGovernanceHealthNextAction}</p>
                         <p className="meta-line">
-                          依後端管理清單與 claim 狀態即時計算；停用或待變更臨時密碼的帳號不列為有效人力。這是唯讀操作快照，每次實際申請或覆核仍由後端重新驗證。
+                          本摘要由後端依受驗證帳號治理快照、信任清冊與 claim 狀態計算；停用或待變更臨時密碼的帳號不列為有效人力。每次實際申請或覆核仍由後端重新驗證。
                         </p>
+                        {receiverGovernanceHealth && (
+                          <details className="receiver-governance-health-trace">
+                            <summary>快照追溯與一致性邊界</summary>
+                            <div className="receiver-governance-health-trace-grid">
+                              <span>產生時間</span><code>{receiverGovernanceHealth.generatedAt}</code>
+                              <span>健康摘要指紋</span><code>{receiverGovernanceHealth.healthFingerprint}</code>
+                              <span>帳號治理快照</span><code>{receiverGovernanceHealth.sources.operatorGovernanceSnapshotFingerprint}</code>
+                              <span>信任清冊快照</span><code>{receiverGovernanceHealth.sources.trustRegistryFingerprint}</code>
+                              <span>ROE 鏈首</span><code>{receiverGovernanceHealth.sources.operatorAuditHeadFingerprint ?? "—"}</code>
+                            </div>
+                            <p className="meta-line">
+                              SQLite 帳號、角色與 claim 為單一讀取交易；JSON 信任清冊為另一份受驗證快照，兩者不是跨儲存體原子交易。健康指紋綁定兩份來源與判定結果，不是外部時間戳或授權憑證。
+                            </p>
+                          </details>
+                        )}
                         <p className="meta-line">
                           本摘要只供 HTML 管理頁核對，不會寫入 PDF／DOCX 計算書。
                         </p>

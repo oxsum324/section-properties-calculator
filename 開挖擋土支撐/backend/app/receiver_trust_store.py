@@ -70,6 +70,20 @@ class ReceiverTrustStore:
         registry = self._read_registry()
         return self._rotation_request_summaries(registry["keys"], registry["events"])
 
+    @classmethod
+    def rotation_requests_from_snapshot(
+        cls,
+        snapshot: dict[str, Any],
+        *,
+        now: datetime | None = None,
+    ) -> list[dict[str, Any]]:
+        validated = cls.validate_snapshot(snapshot.get("keys"), snapshot.get("events", []))
+        return cls._rotation_request_summaries(
+            validated["keys"],
+            validated["events"],
+            now=now,
+        )
+
     def snapshot(self) -> dict[str, list[dict[str, Any]]]:
         return deepcopy(self._read_registry())
 
@@ -546,6 +560,8 @@ class ReceiverTrustStore:
         request_event: dict[str, Any],
         keys: list[dict[str, Any]],
         events: list[dict[str, Any]],
+        *,
+        now: datetime | None = None,
     ) -> dict[str, Any]:
         request_fingerprint = str(request_event.get("eventFingerprint", ""))
         completion = next(
@@ -558,7 +574,7 @@ class ReceiverTrustStore:
         expires_at = cls._parse_event_time(request_event.get("expiresAt"), "輪替覆核申請期限")
         if completion is not None:
             status = "completed"
-        elif datetime.now(timezone.utc) > expires_at:
+        elif (now or datetime.now(timezone.utc)).astimezone(timezone.utc) > expires_at:
             status = "expired"
         elif (
             new_key is None
@@ -600,9 +616,11 @@ class ReceiverTrustStore:
         cls,
         keys: list[dict[str, Any]],
         events: list[dict[str, Any]],
+        *,
+        now: datetime | None = None,
     ) -> list[dict[str, Any]]:
         return [
-            cls._rotation_request_summary(event, keys, events)
+            cls._rotation_request_summary(event, keys, events, now=now)
             for event in events
             if event.get("eventType") == "rotation-completion-requested"
         ]

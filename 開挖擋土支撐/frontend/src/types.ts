@@ -754,6 +754,43 @@ export type ReceiverOperator = {
   identityAssurance: "authenticated-local-account";
 };
 
+export type ReceiverGovernanceHealthSnapshot = {
+  schemaVersion: 1;
+  kind: "receiver-governance-separation-health";
+  generatedAt: string;
+  healthFingerprint: string;
+  status: "complete" | "overlap" | "attention";
+  statusLabel: string;
+  nextActionCode:
+    | "establish-distinct-operators"
+    | "restore-claim-reviewability"
+    | "separate-dedicated-roles"
+    | "maintain-separation";
+  activeRequesterCount: number;
+  activeApproverCount: number;
+  distinctPairAvailable: boolean;
+  dedicatedPairAvailable: boolean;
+  pendingRotationCount: number;
+  pendingBackupDispositionCount: number;
+  unreviewablePendingCount: number;
+  unreviewablePendingClaims: Array<{
+    claimType: "receiver-key-rotation" | "operator-backup-disposition";
+    requestFingerprint: string;
+    reasonCodes: string[];
+  }>;
+  sources: {
+    operatorGovernanceSnapshotFingerprint: string;
+    trustRegistryFingerprint: string;
+    operatorAuditHeadFingerprint: string | null;
+  };
+  consistencyBoundary: {
+    operatorDatabaseSnapshot: "single-sqlite-read-transaction";
+    trustRegistrySnapshot: "single-validated-json-snapshot";
+    crossStoreAtomic: false;
+    authorizationRevalidatedPerOperation: true;
+  };
+};
+
 export type ReceiverOperatorAuditEvent = {
   eventId: string;
   eventType:

@@ -1417,7 +1417,10 @@ class ReceiverOperatorStore:
 
     def governance_snapshot(self) -> dict[str, Any]:
         with closing(self._connect()) as connection:
-            return self._governance_snapshot(connection)
+            connection.execute("BEGIN")
+            snapshot = self._governance_snapshot(connection)
+            connection.commit()
+            return snapshot
 
     @classmethod
     def verify_governance_snapshot_admin(

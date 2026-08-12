@@ -105,6 +105,7 @@ const receiverTrustStore = readUtf8('backend/app/receiver_trust_store.py');
 const receiverOperatorAuth = readUtf8('backend/app/receiver_operator_auth.py');
 const receiverOperatorBackup = readUtf8('backend/app/receiver_operator_backup.py');
 const receiverOperatorRecovery = readUtf8('backend/app/receiver_operator_recovery.py');
+const receiverGovernanceHealth = readUtf8('backend/app/receiver_governance_health.py');
 const receiverKeyManagementGuide = readUtf8('RECEIVER_KEY_MANAGEMENT.md');
 const receiverTrustBackup = readUtf8('backend/app/receiver_trust_backup.py');
 const receiverTrustRecovery = readUtf8('backend/app/receiver_trust_recovery.py');
@@ -115,6 +116,7 @@ const receiverTrustStoreTests = readUtf8('backend/tests/test_receiver_trust_stor
 const receiverOperatorAuthTests = readUtf8('backend/tests/test_receiver_operator_auth.py');
 const receiverOperatorBackupTests = readUtf8('backend/tests/test_receiver_operator_backup.py');
 const receiverOperatorRecoveryTests = readUtf8('backend/tests/test_receiver_operator_recovery.py');
+const receiverGovernanceHealthTests = readUtf8('backend/tests/test_receiver_governance_health.py');
 const receiverTrustRecoveryTests = readUtf8('backend/tests/test_receiver_trust_recovery.py');
 const receiverEvidenceTemplates = readUtf8('frontend/src/receiverEvidenceTemplates.ts');
 const receiverEvidenceTemplateTests = readUtf8('receiver-evidence-templates.test.js');
@@ -132,7 +134,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.33.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.34.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -901,18 +903,18 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '後端仍禁止覆核自己提出的申請',
   '身分保證邊界：',
   '本摘要只供 HTML 操作頁核對，不取代後端逐項授權，也不會寫入 PDF／DOCX 計算書',
-  'deriveReceiverGovernanceSeparationHealth',
   '治理分權健康摘要',
-  '分權完整',
-  '可執行但角色重疊',
-  '需要處理',
   '不同帳號雙人流程',
   '專責角色分離',
   '目前不可覆核',
   '目前沒有待覆核 claim；此狀態不代表曾有案件且已完成覆核',
-  '!operator.disabled && !operator.passwordResetRequired',
-  'approver.id !== request.requestedByOperatorId',
-  'request.authorizationClaimState !== "pending"',
+  '本摘要由後端依受驗證帳號治理快照、信任清冊與 claim 狀態計算',
+  '快照追溯與一致性邊界',
+  'healthFingerprint',
+  'operatorGovernanceSnapshotFingerprint',
+  'trustRegistryFingerprint',
+  '兩者不是跨儲存體原子交易',
+  '目前不可覆核案件',
   '每次實際申請或覆核仍由後端重新驗證',
   '本摘要只供 HTML 管理頁核對，不會寫入 PDF／DOCX 計算書',
   '兩種角色同時適用於金鑰輪替及到期備份處置',
@@ -927,6 +929,35 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
 ].forEach((needle) => {
   assert(app.includes(needle), `excavation operator recovery UI keeps ${needle}`, needle);
 });
+[
+  'build_receiver_governance_health_snapshot',
+  'single-sqlite-read-transaction',
+  'single-validated-json-snapshot',
+  '"crossStoreAtomic": False',
+  'authorizationRevalidatedPerOperation',
+  'receiver_operator_snapshot_fingerprint',
+  'receiver_trust_registry_fingerprint',
+  'missing-or-nonpending-trust-registry-event',
+  'no-distinct-active-approver',
+  'RGH-',
+  '分權完整',
+  '可執行但角色重疊',
+  '需要處理',
+].forEach((needle) => {
+  assert(receiverGovernanceHealth.includes(needle), `excavation governance health backend keeps ${needle}`, needle);
+});
+[
+  'test_health_progresses_from_attention_to_overlap_to_complete',
+  'test_health_excludes_disabled_and_password_reset_accounts',
+  'test_orphaned_pending_sqlite_claim_fails_closed_and_fingerprint_is_stable',
+  'test_pending_trust_event_without_sqlite_claim_fails_closed',
+  'test_http_health_endpoint_is_admin_only_and_returns_no_credentials',
+].forEach((needle) => {
+  assert(receiverGovernanceHealthTests.includes(needle), `excavation governance health tests keep ${needle}`, needle);
+});
+assert(main.includes('/api/receiver-governance-health'), 'excavation governance health API is present', '/api/receiver-governance-health');
+assert(api.includes('getReceiverGovernanceHealth'), 'excavation frontend reads backend governance health snapshot', 'getReceiverGovernanceHealth');
+assert(!app.includes('deriveReceiverGovernanceSeparationHealth'), 'excavation frontend does not duplicate governance health authority', 'deriveReceiverGovernanceSeparationHealth excluded');
 assert(config.includes('STRUT_DB_PATH'), 'excavation database path supports isolated verification', 'STRUT_DB_PATH');
 [
   'RequestReceiverKeyRotationCompletionRequest',

@@ -17,6 +17,7 @@ import {
   ReceiverTrustEvent,
   ReceiverRotationRequest,
   ReceiverOperator,
+  ReceiverGovernanceHealthSnapshot,
   ReceiverOperatorAuditSummary,
   ReceiverOperatorAuthState,
   ReceiverOperatorGovernanceBackup,
@@ -102,6 +103,8 @@ export const api = {
     return result;
   },
   listReceiverOperators: () => request<{ operators: ReceiverOperator[] }>("/api/receiver-operators"),
+  getReceiverGovernanceHealth: () =>
+    request<ReceiverGovernanceHealthSnapshot>("/api/receiver-governance-health"),
   createReceiverOperator: (
     username: string,
     displayName: string,
