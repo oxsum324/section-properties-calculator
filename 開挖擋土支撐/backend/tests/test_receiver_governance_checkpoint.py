@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives import serialization
 from fastapi.testclient import TestClient
 
 from backend.app import main as main_module
@@ -181,6 +182,63 @@ class ReceiverGovernanceCheckpointTests(unittest.TestCase):
             )
             self.assertFalse(revoked["acceptedForCurrentState"])
             self.assertEqual(revoked["signature"]["status"], "valid-signature-revoked-key")
+
+    def test_key_id_match_without_exact_public_key_match_is_not_trusted(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store, trust = self.stores(directory)
+            history, _ = self.history_with_one_observation(store, trust)
+            key = Ed25519PrivateKey.generate()
+            checkpoint = self.signed_checkpoint(history, key)
+            enrollment = build_receiver_key_enrollment(
+                Ed25519PrivateKey.generate(),
+                "治理單位",
+                "不同完整公鑰",
+            )
+            collision_like_record = {
+                "keyId": checkpoint["signature"]["keyId"],
+                "publicKeyBase64": enrollment["publicKeyBase64"],
+                "organization": "治理單位",
+                "displayName": "Key ID 相同但完整公鑰不同",
+                "status": "trusted",
+            }
+
+            validated = validate_receiver_governance_signed_checkpoint(
+                checkpoint,
+                [collision_like_record],
+            )
+
+            self.assertFalse(validated["signature"]["trusted"])
+            self.assertEqual(
+                validated["signature"]["status"],
+                "valid-signature-untrusted-key",
+            )
+            self.assertIn("完整公鑰", validated["signature"]["message"])
+
+    def test_same_public_key_in_pem_representation_remains_trusted(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store, trust = self.stores(directory)
+            history, _ = self.history_with_one_observation(store, trust)
+            key = Ed25519PrivateKey.generate()
+            checkpoint = self.signed_checkpoint(history, key)
+            pem_public_key = key.public_key().public_bytes(
+                serialization.Encoding.PEM,
+                serialization.PublicFormat.SubjectPublicKeyInfo,
+            ).decode("ascii")
+            trusted_record = {
+                "keyId": checkpoint["signature"]["keyId"],
+                "publicKeyBase64": pem_public_key,
+                "organization": "治理單位",
+                "displayName": "PEM 表示的同一公鑰",
+                "status": "trusted",
+            }
+
+            validated = validate_receiver_governance_signed_checkpoint(
+                checkpoint,
+                [trusted_record],
+            )
+
+            self.assertTrue(validated["signature"]["trusted"])
+            self.assertEqual(validated["signature"]["status"], "trusted-signature-valid")
 
     def test_checkpoint_api_is_admin_only_and_compares_current_history(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

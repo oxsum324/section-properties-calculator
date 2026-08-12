@@ -86,7 +86,7 @@ SEV 使用另一個不可互換的簽署訊息：
 python -m backend.sign_receiver_request --request <RSR、SSR 或 GCR.json> --private-key <Ed25519-private-key.pem> --output <signature-response-or-checkpoint.json>
 ```
 
-同一離線簽署器也接受管理頁匯出的治理健康 `GCR-...` 請求；Windows 可直接執行 `簽署治理健康檢核點.bat`。輸出為 `GHC-...` 簽章檢核點，應保存於接收端服務主機之外，再由管理頁匯入驗證目前 GHR 是否相同、延伸、落後或分叉。GHC 使用獨立的簽章 context，不會與 RSR／SSR 混用；它不是 RVR／SEV 工程身分核可、正式計算附件或第三方時間戳。
+同一離線簽署器也接受管理頁匯出的治理健康 `GCR-...` 請求；Windows 可直接執行 `簽署治理健康檢核點.bat`。輸出為 `GHC-...` 簽章檢核點，應保存於接收端服務主機之外，再由管理頁匯入驗證目前 GHR 是否相同、延伸、落後或分叉。外部保存位置也可執行 `驗證治理健康檢核點.bat`，不啟動服務或讀取專案資料庫；搭配公開 RTB 與目前 GHE 會產生綁定來源 SHA-256 的 `GCV-...` 重新驗證收據。GCV 不能脫離來源檔單獨使用。GHC 使用獨立的簽章 context，不會與 RSR／SSR 混用；GHC／GCV 都不是 RVR／SEV 工程身分核可、正式計算附件或第三方時間戳。
 
 SEV 操作不需命令列：在 SEV 區塊下載 `SSR-` 請求後，雙擊 `簽署SEV身分請求.bat`，依序選擇 SSR 與既有 Ed25519 PEM 私鑰，再回到原畫面匯入產出的 `source-evidence-verification-identity-signature-response` JSON。相同的 Python 指令也會依請求種類自動產生正確的 RVR 或 SEV 回應，且兩者都不包含私人金鑰或密碼。
 

@@ -107,6 +107,10 @@ const receiverOperatorBackup = readUtf8('backend/app/receiver_operator_backup.py
 const receiverOperatorRecovery = readUtf8('backend/app/receiver_operator_recovery.py');
 const receiverGovernanceHealth = readUtf8('backend/app/receiver_governance_health.py');
 const receiverGovernanceCheckpoint = readUtf8('backend/app/receiver_governance_checkpoint.py');
+const receiverGovernanceCheckpointVerifier = readUtf8('backend/verify_receiver_governance_checkpoint.py');
+const receiverGovernanceCheckpointVerifierLauncher = readUtf8('verify_receiver_governance_checkpoint.ps1');
+const receiverGovernanceCheckpointVerifierBatch = readUtf8('驗證治理健康檢核點.bat');
+const receiverGovernanceCheckpointVerifierGuide = readUtf8('GOVERNANCE_CHECKPOINT_VERIFIER.md');
 const receiverKeyManagementGuide = readUtf8('RECEIVER_KEY_MANAGEMENT.md');
 const receiverTrustBackup = readUtf8('backend/app/receiver_trust_backup.py');
 const receiverTrustRecovery = readUtf8('backend/app/receiver_trust_recovery.py');
@@ -119,6 +123,7 @@ const receiverOperatorBackupTests = readUtf8('backend/tests/test_receiver_operat
 const receiverOperatorRecoveryTests = readUtf8('backend/tests/test_receiver_operator_recovery.py');
 const receiverGovernanceHealthTests = readUtf8('backend/tests/test_receiver_governance_health.py');
 const receiverGovernanceCheckpointTests = readUtf8('backend/tests/test_receiver_governance_checkpoint.py');
+const receiverGovernanceCheckpointVerifierTests = readUtf8('backend/tests/test_receiver_governance_checkpoint_verifier.py');
 const receiverTrustRecoveryTests = readUtf8('backend/tests/test_receiver_trust_recovery.py');
 const receiverEvidenceTemplates = readUtf8('frontend/src/receiverEvidenceTemplates.ts');
 const receiverEvidenceTemplateTests = readUtf8('receiver-evidence-templates.test.js');
@@ -136,7 +141,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.37.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.38.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -1002,8 +1007,57 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'GHC',
   'externalStorageVerified',
   'formalCalculationAttachment',
+  'Key ID 對應的完整公鑰與信任清冊不一致',
 ].forEach((needle) => {
   assert(receiverGovernanceCheckpoint.includes(needle), `excavation governance signed checkpoint keeps ${needle}`, needle);
+});
+[
+  'receiver-governance-checkpoint-verification-receipt',
+  'def build_receiver_governance_checkpoint_verification_receipt',
+  'def validate_receiver_governance_checkpoint_verification_receipt',
+  'validate_receiver_governance_signed_checkpoint',
+  'validate_receiver_trust_registry_backup',
+  'validate_receiver_governance_health_history_export',
+  'compare_receiver_governance_checkpoint_history',
+  'independentOfflineValidation',
+  'noServiceRequired',
+  'noProjectDatabaseRequired',
+  'noPrivateKeysRead',
+  'doesNotVerifyExternalStorage',
+  'doesNotProvideExternalTimestamp',
+  'trustRegistrySnapshotDoesNotProveTrustAtSignedAt',
+  'verificationReceiptIsNotStandaloneProof',
+  'requiresSourceFilesForRevalidation',
+  'formalCalculationAttachment',
+  'trusted-anchor-for-provided-history',
+  'not-anchor-for-provided-history',
+  'def _read_json_with_summary',
+  'GCV 輸出路徑不得覆寫任何來源檔案',
+  'GCV 輸出檔已存在',
+  'GCV-',
+].forEach((needle) => {
+  assert(receiverGovernanceCheckpointVerifier.includes(needle), `excavation independent governance checkpoint verifier keeps ${needle}`, needle);
+});
+[
+  '-m',
+  'backend.verify_receiver_governance_checkpoint',
+  '--checkpoint',
+  '--trust-backup',
+  '--current-history',
+].forEach((needle) => {
+  assert(receiverGovernanceCheckpointVerifierLauncher.includes(needle), `excavation governance checkpoint verifier launcher keeps ${needle}`, needle);
+});
+assert(receiverGovernanceCheckpointVerifierBatch.includes('verify_receiver_governance_checkpoint.ps1'), 'excavation governance checkpoint verifier batch invokes PowerShell launcher', 'verify_receiver_governance_checkpoint.ps1');
+[
+  '不啟動開挖擋土支撐服務',
+  '不連接專案資料庫',
+  '不讀取私人金鑰',
+  'GCV 是重新驗證結果，不是可脫離來源檔使用的單獨證明',
+  '使用同一份 bytes 解析內容並計算 SHA-256',
+  '不能反推它在自陳簽署時間已受信任',
+  'RFC 3161',
+].forEach((needle) => {
+  assert(receiverGovernanceCheckpointVerifierGuide.includes(needle), `excavation governance checkpoint verifier guide keeps ${needle}`, needle);
 });
 [
   'test_health_progresses_from_attention_to_overlap_to_complete',
@@ -1021,9 +1075,21 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'test_trusted_checkpoint_accepts_same_or_extended_history',
   'test_checkpoint_detects_rollback_and_divergence',
   'test_revoked_or_untrusted_key_does_not_anchor_current_state',
+  'test_key_id_match_without_exact_public_key_match_is_not_trusted',
+  'test_same_public_key_in_pem_representation_remains_trusted',
   'test_checkpoint_api_is_admin_only_and_compares_current_history',
 ].forEach((needle) => {
   assert(receiverGovernanceCheckpointTests.includes(needle), `excavation governance checkpoint tests keep ${needle}`, needle);
+});
+[
+  'test_integrity_only_receipt_is_valid_but_does_not_establish_trust_or_history',
+  'test_empty_but_valid_history_checkpoint_remains_independently_verifiable',
+  'test_trusted_backup_and_same_or_extended_ghe_establish_provided_history_anchor',
+  'test_rollback_and_divergence_are_not_accepted_for_provided_history',
+  'test_revoked_key_and_tampered_receipt_fail_closed',
+  'test_cli_verifies_without_service_or_project_database',
+].forEach((needle) => {
+  assert(receiverGovernanceCheckpointVerifierTests.includes(needle), `excavation governance checkpoint verifier tests keep ${needle}`, needle);
 });
 assert(main.includes('/api/receiver-governance-health'), 'excavation governance health API is present', '/api/receiver-governance-health');
 assert(main.includes('/api/receiver-governance-health/history'), 'excavation governance health history API is present', '/api/receiver-governance-health/history');
@@ -1110,6 +1176,7 @@ assert(
     && !reporting.includes('GHE-')
     && !reporting.includes('GCR-')
     && !reporting.includes('GHC-')
+    && !reporting.includes('GCV-')
     && !reporting.includes('專責角色分離')
     && !reporting.includes('receiver-key-admin')
     && !reporting.includes('receiver-key-requester')

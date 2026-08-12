@@ -10,7 +10,8 @@ import json
 import re
 from typing import Any, Iterable
 
-from cryptography.exceptions import InvalidSignature
+from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from .receiver_governance_health import (
@@ -173,6 +174,7 @@ def build_receiver_governance_signed_checkpoint(
 def _signature_trust_result(
     *,
     key_id: str,
+    public_key_bytes: bytes,
     trusted_keys: Iterable[dict[str, Any]],
 ) -> dict[str, Any]:
     trusted_key = next((item for item in trusted_keys if item.get("keyId") == key_id), None)
@@ -181,6 +183,31 @@ def _signature_trust_result(
             "status": "valid-signature-untrusted-key",
             "trusted": False,
             "message": "檢核點數位簽章有效，但此公鑰尚未列入目前信任清冊。",
+        }
+    trusted_public_key_text = str(trusted_key.get("publicKeyBase64", "")).strip()
+    try:
+        if trusted_public_key_text.startswith("-----BEGIN"):
+            trusted_public_key = serialization.load_pem_public_key(
+                trusted_public_key_text.encode("ascii")
+            )
+            if not isinstance(trusted_public_key, Ed25519PublicKey):
+                raise ValueError("not Ed25519")
+            trusted_public_key_bytes = trusted_public_key.public_bytes(
+                serialization.Encoding.Raw,
+                serialization.PublicFormat.Raw,
+            )
+        else:
+            trusted_public_key_bytes = base64.b64decode(
+                trusted_public_key_text,
+                validate=True,
+            )
+    except (ValueError, TypeError, UnicodeEncodeError, binascii.Error, UnsupportedAlgorithm):
+        trusted_public_key_bytes = b""
+    if not hmac.compare_digest(trusted_public_key_bytes, public_key_bytes):
+        return {
+            "status": "valid-signature-untrusted-key",
+            "trusted": False,
+            "message": "檢核點數位簽章有效，但 Key ID 對應的完整公鑰與信任清冊不一致。",
         }
     if trusted_key.get("status") != "trusted":
         return {
@@ -245,7 +272,11 @@ def validate_receiver_governance_signed_checkpoint(
     ):
         raise ValueError("治理健康簽章檢核點整包指紋驗證失敗。")
     payload = json.loads(base64.b64decode(request["payloadBase64"], validate=True).decode("utf-8"))
-    trust = _signature_trust_result(key_id=key_id, trusted_keys=trusted_keys)
+    trust = _signature_trust_result(
+        key_id=key_id,
+        public_key_bytes=public_key_bytes,
+        trusted_keys=trusted_keys,
+    )
     return {
         "checkpoint": deepcopy(checkpoint),
         "historyExport": payload["historyExport"],

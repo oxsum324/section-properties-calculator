@@ -179,4 +179,4 @@ node excavation-report.contract.test.js
 
 GHR 歷程除了可用 GHE 獨立匯出核驗，也已納入新版 v3 操作員治理加密備份，可在隔離演練或災難復原時重建正式鏈。GHE 仍只供獨立核驗，不能由管理頁合併回正式鏈；v3 本機受管制副本也不等於異地備援，仍須另行配置受控離線或異地保存。
 
-若需要在本機資料庫與 v3 備份之外留下不可由同一組檔案一起改寫的錨點，先於管理頁下載 `receiver-governance-health-checkpoint-signing-request`，在持有私鑰的離線電腦執行 `簽署治理健康檢核點.bat`，再將產生的 `receiver-governance-health-signed-checkpoint` JSON 保存到組織的文件管理、不可變儲存或其他獨立紀錄系統。日後由管理頁匯入時，後端會驗證 Ed25519、Key ID、目前信任／撤銷狀態、`GCR-...`／`GHC-...` 指紋與 GHR 前綴關係。檔案留在同一台電腦並不構成外部保存；`signedAt` 是簽署請求內的自陳時間，不是 RFC 3161 或第三方可信時間戳。
+若需要在本機資料庫與 v3 備份之外留下不可由同一組檔案一起改寫的錨點，先於管理頁下載 `receiver-governance-health-checkpoint-signing-request`，在持有私鑰的離線電腦執行 `簽署治理健康檢核點.bat`，再將產生的 `receiver-governance-health-signed-checkpoint` JSON 保存到組織的文件管理、不可變儲存或其他獨立紀錄系統。日後可由管理頁匯入，或在不啟動服務、不讀專案資料庫與私人金鑰的電腦執行 `驗證治理健康檢核點.bat`；選配公開 RTB 與目前 GHE 後，獨立驗證器會驗證 Ed25519、Key ID、RTB 快照中的信任／撤銷狀態、`GCR-...`／`GHC-...` 指紋與歷程相同／延伸／落後／分叉關係，並產生不可脫離來源檔使用的 `GCV-...` 收據。檔案留在同一台電腦並不構成外部保存；`signedAt` 是簽署請求內的自陳時間，不是 RFC 3161 或第三方可信時間戳。詳見 `GOVERNANCE_CHECKPOINT_VERIFIER.md`。
