@@ -254,6 +254,19 @@ class ReceiverGovernanceArchiveLifecycleMonitorTests(unittest.TestCase):
             self.assertNotIn("taskName", task_dashboard)
             self.assertNotIn(str(self.case), json.dumps(task_dashboard, ensure_ascii=False))
 
+            no_write_dashboard_path = self.case / "task-dashboard-no-write.json"
+            no_write_dashboard_path.write_text('{"sentinel":true}\n', encoding="utf-8")
+            no_write_status = subprocess.run(
+                [
+                    "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(task_manager),
+                    "-Mode", "Status", "-TaskName", "Codex-GSM-monitor-test-task-that-must-not-exist",
+                    "-DashboardTaskStatusPath", str(no_write_dashboard_path), "-NoDashboardWrite",
+                ],
+                cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, encoding="utf-8", check=False,
+            )
+            self.assertEqual(no_write_status.returncode, 3, no_write_status.stderr + no_write_status.stdout)
+            self.assertEqual(no_write_dashboard_path.read_text(encoding="utf-8"), '{"sentinel":true}\n')
+
             preview_task_dashboard_path = self.case / "preview-task-dashboard.json"
             preview = subprocess.run(
                 [
@@ -432,6 +445,57 @@ class ReceiverGovernanceArchiveLifecycleMonitorTests(unittest.TestCase):
         shutil.copy2(next((empty_state / "events").glob("*.json")), missing_latest_events)
         with self.assertRaisesRegex(ValueError, "latest 狀態遺失"):
             run_monitor(empty_source, missing_latest_state, openssl_path=self.openssl, as_of="2026-11-16T00:00:00Z")
+
+    def test_management_center_smoke_refresh_and_empty_snapshot_boundary(self) -> None:
+        service_root = Path(__file__).resolve().parents[2]
+        repository_root = service_root.parent
+        center = service_root / "receiver_governance_archive_lifecycle_monitor_center.ps1"
+        smoke_directory = repository_root / "output" / "playwright"
+        smoke_directory.mkdir(parents=True, exist_ok=True)
+        smoke_path = smoke_directory / f"gsm-monitor-center-test-{os.getpid()}.png"
+        smoke_path.unlink(missing_ok=True)
+        try:
+            smoke = subprocess.run(
+                [
+                    "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(center),
+                    "-Mode", "Smoke", "-SmokeOutputPath", str(smoke_path),
+                ],
+                cwd=repository_root, capture_output=True, text=True, encoding="utf-8", check=False,
+            )
+            self.assertEqual(smoke.returncode, 0, smoke.stderr + smoke.stdout)
+            smoke_result = json.loads(smoke.stdout)
+            self.assertEqual(smoke_result["status"], "ok")
+            self.assertEqual(smoke_result["taskCount"], 3)
+            self.assertTrue(smoke_result["refreshEventVerified"])
+            self.assertFalse(smoke_result["actionsEnabled"])
+            self.assertTrue(smoke_path.is_file())
+            self.assertGreater(smoke_path.stat().st_size, 10_000)
+
+            snapshot = subprocess.run(
+                [
+                    "powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(center),
+                    "-Mode", "Snapshot", "-TaskNameFilter", f"Codex-GSM-center-none-{os.getpid()}-*",
+                ],
+                cwd=repository_root, capture_output=True, text=True, encoding="utf-8", check=False,
+            )
+            self.assertEqual(snapshot.returncode, 0, snapshot.stderr + snapshot.stdout)
+            snapshot_result = json.loads(snapshot.stdout)
+            self.assertEqual(snapshot_result["taskCount"], 0)
+            self.assertEqual(snapshot_result["items"], [])
+            self.assertEqual(snapshot_result["boundary"], {
+                "localOnly": True,
+                "containsPaths": True,
+                "containsTaskNames": True,
+                "containsCaseIdentifiers": True,
+                "taskInventoryReadOnly": True,
+                "sourceScanExecuted": False,
+                "statusStateVerificationReadOnly": True,
+                "formalCalculationAttachment": False,
+                "pagesPublication": False,
+                "persistedByDefault": False,
+            })
+        finally:
+            smoke_path.unlink(missing_ok=True)
 
     def test_event_tamper_lock_overlap_repository_and_rollback(self) -> None:
         self.monitor_run("2026-09-02T00:00:00Z")

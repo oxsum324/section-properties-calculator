@@ -19,6 +19,7 @@
   [ValidatePattern("^GMI-[0-9A-F]{20}$")]
   [string]$ConfirmedConfigurationFingerprint,
   [Nullable[int]]$CurrentMonitorExitCode,
+  [switch]$NoDashboardWrite,
   [switch]$NoAlert
 )
 
@@ -330,7 +331,7 @@ if ($Mode -eq "Status" -and $taskObject -and $effectiveStateDirectory) {
   }
 }
 
-if ($Mode -ne "Preview") {
+if ($Mode -ne "Preview" -and -not $NoDashboardWrite) {
   $dashboardIssueCodes = [System.Collections.Generic.List[string]]::new()
   if (-not $snapshot.installed) { $dashboardIssueCodes.Add("task-not-installed") }
   if ($snapshot.installed -and -not $snapshot.enabled) { $dashboardIssueCodes.Add("task-disabled") }

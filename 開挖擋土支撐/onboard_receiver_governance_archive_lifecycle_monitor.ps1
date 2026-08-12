@@ -296,15 +296,19 @@ if ($Mode -eq "Install") {
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-$SourceRoot = Select-Folder "選擇包含案件 GSC 證據包的實體根目錄（這一步不會建立排程）" $false
 if (-not $SourceRoot) {
-  Write-OnboardingJson (New-CancelledResult)
-  exit 0
+  $SourceRoot = Select-Folder "選擇包含案件 GSC 證據包的實體根目錄（這一步不會建立排程）" $false
+  if (-not $SourceRoot) {
+    Write-OnboardingJson (New-CancelledResult)
+    exit 0
+  }
 }
-$StateDirectory = Select-Folder "選擇與案件樹及工具程式庫完全分離的本機 GSM 狀態資料夾" $true
 if (-not $StateDirectory) {
-  Write-OnboardingJson (New-CancelledResult)
-  exit 0
+  $StateDirectory = Select-Folder "選擇與案件樹及工具程式庫完全分離的本機 GSM 狀態資料夾" $true
+  if (-not $StateDirectory) {
+    Write-OnboardingJson (New-CancelledResult)
+    exit 0
+  }
 }
 $preview = Get-OnboardingPreview
 if (-not (Confirm-InteractiveInstall $preview)) {
