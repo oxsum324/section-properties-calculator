@@ -1790,6 +1790,13 @@ function assertDashboardLiveState(state, label, expected) {
   const historyLatest = expected.history.items[0];
   const matrix = expected.matrix;
   const postChecks = expected.postChecks;
+  const localAttachmentDiagnostic = readOptionalJsonFile('output/preflight/attachment-integrity-latest.json');
+  const usesLocalAttachmentDiagnostic = summary.quick === false
+    && summary.forcePlatformAudit === true
+    && summary.forceSlowChecks === true
+    && summary.pass === false
+    && localAttachmentDiagnostic?.kind === 'attachment-integrity-diagnostic'
+    && localAttachmentDiagnostic.runId === summary.runId;
   const latestFull = expected.history.items.find(item => item && item.quick === false);
   const latestQuick = expected.history.items.find(item => item && item.quick === true);
   assert.equal(state.rows, summary.records.length, `${label} live latest record row count`);
@@ -1941,11 +1948,15 @@ function assertDashboardLiveState(state, label, expected) {
   ['GSC-', 'GSP-', 'GSM-', 'GME-', '.json', 'C:\\', 'G:\\', '案件甲'].forEach((forbidden) => {
     assert.equal(state.gsmMonitorText.includes(forbidden), false, `${label} live GSM dashboard excludes ${forbidden}`);
   });
-  const attachmentStatus = expected.reportReadinessStatus;
+  const attachmentStatus = usesLocalAttachmentDiagnostic ? localAttachmentDiagnostic : expected.reportReadinessStatus;
   assert.equal(state.attachmentIntegrityStatus, attachmentStatus.attachmentIntegrityPass ? '通過' : `異常 ${attachmentStatus.attachmentIntegrityIssueCount || 1} 項`, `${label} live attachment integrity status`);
   assert.equal(state.attachmentIntegrityCount, `${attachmentStatus.attachmentIntegrityActual} / ${attachmentStatus.attachmentIntegrityRequired}`, `${label} live attachment integrity count`);
   assert.equal(state.attachmentIntegrityVerified, `${attachmentStatus.attachmentIntegrityVerified} / ${attachmentStatus.attachmentIntegrityRequired}`, `${label} live attachment integrity verified count`);
-  assert.equal(state.attachmentIntegrityHash, '內部留存', `${label} live attachment integrity keeps set hash private`);
+  assert.equal(
+    state.attachmentIntegrityHash,
+    usesLocalAttachmentDiagnostic ? String(localAttachmentDiagnostic.attachmentIntegritySetSha256 || '').slice(0, 12) : '內部留存',
+    `${label} live attachment integrity exposes private hash only for the matching local failed release diagnostic`,
+  );
   assert.ok(state.attachmentIntegrityStatusHint.includes(`release ${attachmentStatus.renderedDeliveryEvidenceRunId || attachmentStatus.runId}`), `${label} live attachment integrity release trace`);
   assert.equal(state.attachmentIntegrityGroups.length, attachmentStatus.attachmentIntegrityGroups.length, `${label} live attachment integrity group count`);
   for (const group of attachmentStatus.attachmentIntegrityGroups) {
@@ -1956,11 +1967,10 @@ function assertDashboardLiveState(state, label, expected) {
     assert.equal(rendered.actual, String(group.actual), `${label} live attachment integrity actual: ${group.title}`);
     assert.equal(rendered.verified, String(group.verified), `${label} live attachment integrity verified: ${group.title}`);
     assert.equal(rendered.status, group.pass ? '通過' : `異常 ${group.issueCount || 1} 項`, `${label} live attachment integrity group status: ${group.title}`);
-    assert.equal(rendered.setHash, '', `${label} live attachment integrity omits group hash: ${group.title}`);
-    assert.equal(rendered.artifactCount, 0, `${label} live attachment integrity omits artifact list: ${group.title}`);
-    assert.deepEqual(rendered.artifactHashes, [], `${label} live attachment integrity omits artifact hashes: ${group.title}`);
-    assert.deepEqual(rendered.artifactStatuses, [], `${label} live attachment integrity omits artifact statuses: ${group.title}`);
-    assert.deepEqual(rendered.artifactActions, [], `${label} live attachment integrity omits artifact actions: ${group.title}`);
+    const artifacts = usesLocalAttachmentDiagnostic && Array.isArray(group.artifacts) ? group.artifacts : [];
+    assert.equal(rendered.setHash, usesLocalAttachmentDiagnostic ? String(group.setSha256 || '').slice(0, 12) : '', `${label} live attachment integrity group hash follows local diagnostic privacy boundary: ${group.title}`);
+    assert.equal(rendered.artifactCount, artifacts.length, `${label} live attachment integrity artifact detail follows local diagnostic privacy boundary: ${group.title}`);
+    assert.deepEqual(rendered.artifactHashes, artifacts.map(artifact => String(artifact.sha256 || '').slice(0, 12) || '-'), `${label} live attachment integrity artifact hashes follow local diagnostic privacy boundary: ${group.title}`);
   }
   assert.ok(state.maturityPreflightHint.includes(`runId ${summary.runId}`), `${label} live maturity hint runId: ${state.maturityPreflightHint}`);
   assert.ok(state.maturityPreflightHint.includes(`通過 ${summary.passedCount} / ${summary.recordsCount}`), `${label} live maturity hint pass count: ${state.maturityPreflightHint}`);

@@ -1563,13 +1563,34 @@ function currentPreflightRunSource() {
   return { payload, filePath, sourcePath: displayPath(filePath), runDir };
 }
 
+function isCompleteFormalPreflight(payload) {
+  return Boolean(
+    payload
+    && payload.quick === false
+    && payload.forcePlatformAudit === true
+    && payload.forceSlowChecks === true
+    && payload.sourceDirty === false
+    && payload.pass === true
+    && Number.isInteger(payload.recordsCount)
+    && payload.recordsCount > 0
+    && payload.passedCount === payload.recordsCount
+    && Number.isInteger(payload.postCheckCount)
+    && payload.postCheckCount > 0
+    && payload.postChecksPassedCount === payload.postCheckCount
+    && Array.isArray(payload.postCheckFailures)
+    && payload.postCheckFailures.length === 0
+    && /^\d{8}-\d{6}$/.test(String(payload.runId || ''))
+    && /^[0-9a-f]{40}$/i.test(String(payload.sourceCommitSha || ''))
+  );
+}
+
 function resolveHomepagePreflightSource() {
   const currentRun = currentPreflightRunSource();
-  if (currentRun && currentRun.payload.quick === false && currentRun.payload.pass === true) {
+  if (currentRun && isCompleteFormalPreflight(currentRun.payload)) {
     return currentRun;
   }
   const latestSummary = readJsonIfExists(preflightSummarySourcePath);
-  if (latestSummary && latestSummary.quick === false && latestSummary.pass === true) {
+  if (latestSummary && isCompleteFormalPreflight(latestSummary)) {
     const runId = String(latestSummary.runId || '').trim();
     const historySummaryPath = runId
       ? path.join(preflightHistoryDir, runId, 'preflight-summary.json')
@@ -1585,7 +1606,7 @@ function resolveHomepagePreflightSource() {
   }
   const history = readJsonIfExists(preflightHistorySourcePath);
   const latestFull = findLatestPreflightHistorySummary(
-    summary => summary && summary.quick === false && summary.pass === true,
+    summary => isCompleteFormalPreflight(summary),
     history?.items
   );
   if (latestFull) {

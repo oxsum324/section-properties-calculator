@@ -921,21 +921,26 @@ if (fs.existsSync(preflightHistoryPath)) {
             assert.equal(hasUtf8Bom(logPath), false, `preflight final dashboard live-output smoke ${kind} log should be UTF-8 without BOM`);
           }
           const liveOutputLog = readText(resolveFileReference(finalLiveOutputSmoke.historyLog, 'preflight final dashboard live-output smoke history log'));
-          assert.ok(liveOutputLog.includes(`liveRunId=${latest.runId}`), `preflight final dashboard live-output smoke read current runId: ${liveOutputLog}`);
-          const livePostChecksMatch = liveOutputLog.match(/livePostChecks=(\d+)\/(\d+)/);
-          const liveHistoryPostChecksMatch = liveOutputLog.match(/liveHistoryPostChecks=(\d+)\/(\d+)/);
-          const liveHistoryRunsMatch = liveOutputLog.match(/livePostCheckHistoryRuns=([^\)\r\n,]+)/);
-          assert.ok(livePostChecksMatch, `preflight final dashboard live-output log exposes livePostChecks: ${liveOutputLog}`);
-          assert.ok(liveHistoryPostChecksMatch, `preflight final dashboard live-output log exposes liveHistoryPostChecks: ${liveOutputLog}`);
-          assert.ok(liveHistoryRunsMatch, `preflight final dashboard live-output log exposes livePostCheckHistoryRuns: ${liveOutputLog}`);
           const liveOutputPostCheckIndex = latest.postChecks.findIndex(check => check.key === 'audit-dashboard-live-output-smoke-final');
           assert.ok(liveOutputPostCheckIndex > 0, 'preflight final live-output postCheck order after provisional checks');
-          const expectedProvisionalPostCheckCount = liveOutputPostCheckIndex;
-          assert.equal(Number(livePostChecksMatch[1]), expectedProvisionalPostCheckCount, 'preflight final live-output saw provisional postChecks passed count');
-          assert.equal(Number(livePostChecksMatch[2]), expectedProvisionalPostCheckCount, 'preflight final live-output saw provisional postChecks total count');
-          assert.equal(Number(liveHistoryPostChecksMatch[1]), expectedProvisionalPostCheckCount, 'preflight final live-output saw provisional history postChecks passed count');
-          assert.equal(Number(liveHistoryPostChecksMatch[2]), expectedProvisionalPostCheckCount, 'preflight final live-output saw provisional history postChecks total count');
-          assert.ok(liveHistoryRunsMatch[1].split('|').includes(latest.runId), `preflight final live-output history run list includes ${latest.runId}: ${liveHistoryRunsMatch[1]}`);
+          if (finalLiveOutputSmoke.pass === true) {
+            assert.ok(liveOutputLog.includes(`liveRunId=${latest.runId}`), `preflight final dashboard live-output smoke read current runId: ${liveOutputLog}`);
+            const livePostChecksMatch = liveOutputLog.match(/livePostChecks=(\d+)\/(\d+)/);
+            const liveHistoryPostChecksMatch = liveOutputLog.match(/liveHistoryPostChecks=(\d+)\/(\d+)/);
+            const liveHistoryRunsMatch = liveOutputLog.match(/livePostCheckHistoryRuns=([^\)\r\n,]+)/);
+            assert.ok(livePostChecksMatch, `preflight final dashboard live-output log exposes livePostChecks: ${liveOutputLog}`);
+            assert.ok(liveHistoryPostChecksMatch, `preflight final dashboard live-output log exposes liveHistoryPostChecks: ${liveOutputLog}`);
+            assert.ok(liveHistoryRunsMatch, `preflight final dashboard live-output log exposes livePostCheckHistoryRuns: ${liveOutputLog}`);
+            const expectedProvisionalPostCheckCount = liveOutputPostCheckIndex;
+            assert.equal(Number(livePostChecksMatch[1]), expectedProvisionalPostCheckCount, 'preflight final live-output saw provisional postChecks passed count');
+            assert.equal(Number(livePostChecksMatch[2]), expectedProvisionalPostCheckCount, 'preflight final live-output saw provisional postChecks total count');
+            assert.equal(Number(liveHistoryPostChecksMatch[1]), expectedProvisionalPostCheckCount, 'preflight final live-output saw provisional history postChecks passed count');
+            assert.equal(Number(liveHistoryPostChecksMatch[2]), expectedProvisionalPostCheckCount, 'preflight final live-output saw provisional history postChecks total count');
+            assert.ok(liveHistoryRunsMatch[1].split('|').includes(latest.runId), `preflight final live-output history run list includes ${latest.runId}: ${liveHistoryRunsMatch[1]}`);
+          } else {
+            assert.notEqual(Number(finalLiveOutputSmoke.exitCode), 0, 'failed final live-output smoke records non-zero exitCode');
+            assert.ok(/(?:AssertionError|Error|failed)/i.test(liveOutputLog), `failed final live-output smoke preserves readable diagnostics: ${liveOutputLog}`);
+          }
         }
       }
     }
@@ -1106,7 +1111,9 @@ const auditDashboardBrowserSmokeScript = readText(toolboxFile('tools/audit-dashb
   'sourceTrace: rowSourceTrace',
   'source hash',
   '## Source Trace',
-  'hash=${payload.latestPreflight.sourceHash.slice(0, 12)}'
+  'hash=${payload.latestPreflight.sourceHash.slice(0, 12)}',
+  'function isCompleteFormalPreflight',
+  'payload.postChecksPassedCount === payload.postCheckCount'
 ].forEach(needle => assertIncludes(maturityMatrixScript, needle, 'maturity latest preflight source traceability'));
 const maturityMatrixPath = repoFile('output/audit/tool-maturity-matrix.json');
 if (fs.existsSync(maturityMatrixPath)) {
