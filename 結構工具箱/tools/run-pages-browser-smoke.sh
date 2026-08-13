@@ -4,7 +4,8 @@ set -euo pipefail
 
 base_url="${1:?usage: run-pages-browser-smoke.sh <base-url> [session-name]}"
 session="${2:-pages-browser-smoke}"
-playwright_package='@playwright/cli@0.1.17'
+playwright_cli_version="${PAGES_PLAYWRIGHT_CLI_VERSION:-0.1.17}"
+playwright_package="@playwright/cli@${playwright_cli_version}"
 browser_smoke_source='結構工具箱/tools/pages-live-browser-smoke.js'
 attempts="${PAGES_BROWSER_SMOKE_ATTEMPTS:-1}"
 retry_delay_seconds="${PAGES_BROWSER_SMOKE_RETRY_DELAY_SECONDS:-5}"

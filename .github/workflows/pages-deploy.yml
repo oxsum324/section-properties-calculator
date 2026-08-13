@@ -12,6 +12,9 @@ permissions:
   pages: write
   id-token: write
 
+env:
+  PAGES_PLAYWRIGHT_CLI_VERSION: 0.1.17
+
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -32,6 +35,13 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24
+
+      - name: Restore Playwright browser cache
+        id: playwright-browser-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ runner.arch }}-pages-playwright-${{ env.PAGES_PLAYWRIGHT_CLI_VERSION }}-chromium-v1
 
       - name: Verify clean source checkout
         run: test -z "$(git status --porcelain --untracked-files=all)"
@@ -135,6 +145,13 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24
+
+      - name: Restore Playwright browser cache
+        id: playwright-browser-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ runner.arch }}-pages-playwright-${{ env.PAGES_PLAYWRIGHT_CLI_VERSION }}-chromium-v1
 
       - name: Run live Pages smoke
         env:

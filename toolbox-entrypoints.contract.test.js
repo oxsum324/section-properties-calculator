@@ -887,11 +887,17 @@ assert.ok(readme.includes('sourceDirty: false') && readme.includes('sourceDirty:
 assert.ok(boundaries.includes('sourceDirty: false') && boundaries.includes('sourceDirty: true'), 'TOOL_BOUNDARIES documents clean and dirty source provenance');
 assert.ok(staging.includes('git status --porcelain --untracked-files=all') && staging.includes('sourceDirty: false'), 'STAGING_GROUPS documents clean source evidence');
 assert.equal((pagesDeployWorkflow.match(/bash "結構工具箱\/tools\/run-pages-browser-smoke\.sh"/g) || []).length, 2, 'Pages deploy workflow reuses browser smoke before and after deploy');
+assert.equal((pagesDeployWorkflow.match(/uses: actions\/cache@v5/g) || []).length, 2, 'Pages deploy workflow restores the Playwright browser cache in both browser jobs');
+assert.equal((pagesDeployWorkflow.match(/path: ~\/\.cache\/ms-playwright/g) || []).length, 2, 'Pages deploy workflow caches the canonical Playwright browser path twice');
+assert.equal((pagesDeployWorkflow.match(/runner\.os }}-\${{ runner\.arch }}-pages-playwright-\${{ env\.PAGES_PLAYWRIGHT_CLI_VERSION }}-chromium-v1/g) || []).length, 2, 'Pages deploy workflow uses a platform- and version-bound browser cache key');
+assert.ok(pagesDeployWorkflow.includes('PAGES_PLAYWRIGHT_CLI_VERSION: 0.1.17') && pagesBrowserRunner.includes('PAGES_PLAYWRIGHT_CLI_VERSION:-0.1.17'), 'Pages deploy workflow and runner share one pinned Playwright CLI version');
+assert.ok(readme.includes('actions/cache@v5') && readme.includes('~/.cache/ms-playwright') && readme.includes('cache hit'), 'README documents Playwright browser cache reuse without weakening validation');
+assert.ok(boundaries.includes('actions/cache@v5') && boundaries.includes('~/.cache/ms-playwright') && boundaries.includes('install-browser chromium'), 'TOOL_BOUNDARIES keeps the browser cache fail-closed contract');
 assert.ok(pagesDeployWorkflow.includes('PAGES_BROWSER_SMOKE_ATTEMPTS: 2') && pagesDeployWorkflow.includes('PAGES_BROWSER_SMOKE_RETRY_DELAY_SECONDS: 5'), 'Pages deploy workflow bounds live browser transient retries');
 assert.ok(pagesDeployWorkflow.includes('PAGES_HTTP_SMOKE_ATTEMPTS: 2') && pagesDeployWorkflow.includes('PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS: 5'), 'Pages deploy workflow bounds live HTTP transient retries');
 assert.ok(pagesLiveSmoke.includes('response.status >= 500 && response.status <= 599') && pagesLiveSmoke.includes('runWithTransientRetry'), 'Pages live HTTP smoke treats 5xx as retryable failures through a bounded wrapper');
 assert.ok(pagesBrowserRunner.includes('install-browser chromium') && pagesBrowserRunner.includes('value.isError'), 'Pages browser runner installs Chromium and fails on CLI JSON errors');
-assert.ok(pagesBrowserRunner.includes("@playwright/cli@0.1.17") && pagesBrowserRunner.includes("terser@5.49.0"), 'Pages browser runner pins browser dependencies');
+assert.ok(pagesBrowserRunner.includes('playwright_package="@playwright/cli@${playwright_cli_version}"') && pagesBrowserRunner.includes("terser@5.49.0"), 'Pages browser runner pins browser dependencies');
 assert.ok(pagesBrowserRunner.includes('trap cleanup EXIT') && pagesBrowserRunner.includes('pages-live-browser-smoke.js'), 'Pages browser runner cleans up and invokes the shared source');
 assert.ok(pagesBrowserRunner.includes('status(?: of)? 5') && pagesBrowserRunner.includes('ERR_(?:TIMED_OUT|CONNECTION_RESET'), 'Pages browser runner only retries transient 5xx and network failures');
 assert.ok(pagesBrowserRunner.includes('"$attempt" -lt "$attempts"') && pagesBrowserRunner.includes('throw new Error(value.error)'), 'Pages browser runner fails non-transient or persistent issues');
