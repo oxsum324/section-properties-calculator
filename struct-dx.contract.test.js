@@ -21,6 +21,8 @@ for (const page of pages) {
   assert(!html.includes('alert('), `${page} uses inline feedback`, page);
   assert(html.includes('id="actionStatus"'), `${page} has action status outlet`, 'actionStatus');
   assert(html.includes('function setActionStatus'), `${page} has action status helper`, 'setActionStatus');
+  assert(!/fonts\.(?:googleapis|gstatic)\.com/i.test(html), `${page} avoids runtime font services`, 'no remote Google Fonts');
+  assert(html.includes('Cascadia Mono') && html.includes('Microsoft JhengHei'), `${page} has offline Windows font fallbacks`, 'Cascadia Mono / Microsoft JhengHei');
 }
 
 console.log('\nAll struct.dx frontend contract checks passed.');

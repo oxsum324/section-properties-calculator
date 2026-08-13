@@ -168,9 +168,20 @@ try {
   if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($BrowserCode)) {
     throw "pages-live-browser-smoke.js minification failed with exit code $LASTEXITCODE"
   }
-  $BrowserCodeBase64 = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($BrowserCode))
-  $BrowserDecoder = "function d(s){var a='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/',o='',i=0,n=0;for(;i!==s.length;i+=4){n=a.indexOf(s[i])*262144+a.indexOf(s[i+1])*4096+(s[i+2]==='='?0:a.indexOf(s[i+2])*64)+(s[i+3]==='='?0:a.indexOf(s[i+3]));o+=String.fromCharCode(Math.floor(n/65536),Math.floor(n/256)-256*Math.floor(n/65536),n-256*Math.floor(n/256));if(s[i+3]==='=')o=o.slice(0,-1);if(s[i+2]==='=')o=o.slice(0,-1)}return o}"
-  $BrowserBootstrap = "async function(page){$BrowserDecoder;return await(eval(d('$BrowserCodeBase64')))(page)}"
+  $BrowserCodeBytes = [Text.Encoding]::ASCII.GetBytes($BrowserCode)
+  $CompressedCodeStream = New-Object IO.MemoryStream
+  try {
+    $GzipStream = New-Object IO.Compression.GZipStream($CompressedCodeStream, [IO.Compression.CompressionMode]::Compress, $true)
+    try {
+      $GzipStream.Write($BrowserCodeBytes, 0, $BrowserCodeBytes.Length)
+    } finally {
+      $GzipStream.Dispose()
+    }
+    $BrowserCodeBase64 = [Convert]::ToBase64String($CompressedCodeStream.ToArray())
+  } finally {
+    $CompressedCodeStream.Dispose()
+  }
+  $BrowserBootstrap = "async function(page){let c=await page.evaluate(async s=>{let a=Uint8Array.from(atob(s),c=>c.charCodeAt(0)),r=new Response(new Blob([a]).stream().pipeThrough(new DecompressionStream('gzip')));return r.text()},'$BrowserCodeBase64');return await(eval(c))(page)}"
   if ($BrowserBootstrap.Length -ge 7500) {
     throw "pages-live-browser-smoke.js Windows bootstrap is too long: $($BrowserBootstrap.Length) characters"
   }

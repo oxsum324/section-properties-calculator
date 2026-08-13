@@ -123,7 +123,12 @@ async page => {
           stonePreview: stonePreview
             ? { clientWidth: stonePreview.clientWidth, scrollWidth: stonePreview.scrollWidth }
             : null,
-          auditScope: document.body?.dataset.auditScope || ''
+          auditScope: document.body?.dataset.auditScope || '',
+          dashboardTitles: [...document.querySelectorAll('.status-card .status-title')].map(node => node.textContent.trim()),
+          dashboardBadges: [...document.querySelectorAll('.status-card .status-badge')].map(node => node.textContent.trim()),
+          dashboardMeta: [...document.querySelectorAll('.status-card .status-meta')].map(node => node.textContent.replace(/\s+/g, ' ').trim()),
+          dashboardPreviews: [...document.querySelectorAll('.summary-card pre')].map(node => node.textContent.trim()),
+          localDiagnosticSectionsVisible: [...document.querySelectorAll('.local-diagnostic-section')].filter(node => node.getClientRects().length > 0).map(node => node.id)
         };
       }, route);
 
@@ -169,6 +174,13 @@ async page => {
           try { return decodeURIComponent(value).includes('/output/'); } catch { return value.includes('/output/'); }
         });
         if (state.auditScope !== 'public') routeIssues.push(`invalid audit scope: ${state.auditScope}`);
+        const expectedTitles = ['正式 release 總覽', '鋼構正式附件證據', 'RC 正式附件證據', '風震與跨家族交付證據'];
+        if (JSON.stringify(state.dashboardTitles) !== JSON.stringify(expectedTitles)) routeIssues.push(`invalid public evidence titles: ${JSON.stringify(state.dashboardTitles)}`);
+        if (state.dashboardBadges.length !== 4 || state.dashboardBadges.some(value => value !== '公開證據完整')) routeIssues.push(`incomplete public evidence badges: ${JSON.stringify(state.dashboardBadges)}`);
+        const requiredMeta = ['正式檢查｜82 / 82', '結果鏈｜5 / 5', '獨立列印｜34 / 34', '檔案完整性｜139 / 139'];
+        if (requiredMeta.some((value, index) => !state.dashboardMeta[index]?.includes(value))) routeIssues.push(`invalid public evidence counts: ${JSON.stringify(state.dashboardMeta)}`);
+        if (state.dashboardPreviews.length !== 4 || state.dashboardPreviews.some(value => !value.includes('僅限本機工作區'))) routeIssues.push(`invalid public evidence privacy boundaries: ${JSON.stringify(state.dashboardPreviews)}`);
+        if (state.localDiagnosticSectionsVisible.length) routeIssues.push(`local diagnostic sections remain visible: ${JSON.stringify(state.localDiagnosticSectionsVisible)}`);
         if (privateOutputRequests.length) routeIssues.push(`private output requests: ${JSON.stringify(privateOutputRequests)}`);
       }
 

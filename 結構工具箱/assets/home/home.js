@@ -155,7 +155,7 @@
     routes: {
       '/beam-analysis': '2026-08-03',
       '/frame-analysis': '2026-08-03',
-      '/struct-dx': '2026-07-19',
+      '/struct-dx': '2026-08-13',
       '/section': '2026-08-03',
       '/composite-section': '2026-08-03',
       '/rc-beam': '2026-08-05',

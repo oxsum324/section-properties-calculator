@@ -585,6 +585,9 @@ assert.ok(pagesBrowserSmoke.includes('horizontal overflow') && pagesBrowserSmoke
 assert.ok(pagesBrowserSmoke.includes('localArtifactPreview') && pagesBrowserSmoke.includes('127.0.0.1:8765/status'), 'Pages browser smoke narrows local artifact service exceptions');
 assert.ok(pagesBrowserSmoke.includes("'?audit_scope=local'") && pagesBrowserSmoke.includes("state.auditScope !== 'public'"), 'Pages browser smoke proves external scope override cannot expose local diagnostics');
 assert.ok(pagesBrowserSmoke.includes('privateOutputRequests') && pagesBrowserSmoke.includes("decodeURIComponent(value).includes('/output/')"), 'Pages browser smoke proves the public dashboard makes zero private output requests');
+assert.ok(pagesBrowserSmoke.includes("['正式 release 總覽', '鋼構正式附件證據', 'RC 正式附件證據', '風震與跨家族交付證據']") && pagesBrowserSmoke.includes("value !== '公開證據完整'"), 'Pages browser smoke verifies distinct complete public evidence dimensions');
+assert.ok(pagesBrowserSmoke.includes("'正式檢查｜82 / 82'") && pagesBrowserSmoke.includes("'檔案完整性｜139 / 139'"), 'Pages browser smoke verifies public evidence counts');
+assert.ok(pagesBrowserSmoke.includes('localDiagnosticSectionsVisible') && pagesBrowserSmoke.includes('local diagnostic sections remain visible'), 'Pages browser smoke verifies public reading density excludes local diagnostics');
 assert.ok(toolBoundaries.includes('只有正式 live') && toolBoundaries.includes('HTTP smoke') && toolBoundaries.includes('HTTP 5xx'), 'tool boundaries documents the live-only transient retry boundary');
 assert.ok(staging.includes('HTTP smoke') && staging.includes('完整重跑最多一次') && staging.includes('第二次持續失敗仍阻擋'), 'staging guide documents the bounded live retry rule');
 
@@ -593,6 +596,7 @@ assert.ok(artifactSmoke.includes('$ArtifactBuilder') && artifactSmoke.includes('
 assert.equal(artifactSmoke.includes('robocopy'), false, 'local artifact smoke does not keep a second robocopy exclusion policy');
 assert.ok(artifactSmoke.includes('pages-live-smoke.js'), 'local artifact smoke reuses Pages smoke');
 assert.ok(artifactSmoke.includes('pages-live-browser-smoke.js'), 'local artifact smoke reuses Pages browser smoke');
+assert.ok(artifactSmoke.includes('IO.Compression.GZipStream') && artifactSmoke.includes("page.evaluate(async s=>") && artifactSmoke.includes("new DecompressionStream('gzip')"), 'local artifact smoke transports the full browser program within the Windows command-line limit');
 assert.ok(artifactSmoke.includes('$DeploymentManifestBuilder') && artifactSmoke.includes('--expected-commit-sha $CommitSha'), 'local artifact smoke builds and verifies deployment provenance');
 assert.ok(artifactSmoke.includes('$SourceDirty') && artifactSmoke.includes('--source-dirty $SourceDirty.ToString().ToLowerInvariant()'), 'local artifact smoke records dirty source state honestly');
 assert.ok(artifactSmoke.includes('$PagesSmokeRuntimeManifest') && artifactSmoke.includes('$ExpectedRuntime.dependencies') && artifactSmoke.includes('version mismatch'), 'local artifact smoke verifies installed browser CLI and minifier versions against the shared manifest');

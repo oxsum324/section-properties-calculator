@@ -106,6 +106,35 @@ const fixtureAttachmentStatus = {
   attachmentIntegrityIssueCount: 0,
   attachmentIntegrityPass: true,
   attachmentIntegrityGroups: fixtureAttachmentPublicGroups,
+  steelResultReconciliationRequired: 5,
+  steelResultReconciliationComplete: 5,
+  steelResultReconciliationPass: true,
+  steelHtmlContentSealRequired: 5,
+  steelHtmlContentSealComplete: 5,
+  steelHtmlContentSealPass: true,
+  steelHtmlApprovalSealRequired: 5,
+  steelHtmlApprovalSealComplete: 5,
+  steelHtmlApprovalSealPass: true,
+  rcResultReconciliationRequired: 34,
+  rcResultReconciliationComplete: 34,
+  rcResultReconciliationPass: true,
+  rcStandaloneFormalHtmlPrintRequired: 34,
+  rcStandaloneFormalHtmlPrintComplete: 34,
+  rcStandaloneFormalHtmlPrintPass: true,
+  rcSourceReportPackageRequired: 32,
+  rcSourceReportPackageComplete: 32,
+  rcSourceReportPackagePass: true,
+  formalResultReconciliationRequired: 14,
+  formalResultReconciliationComplete: 14,
+  formalResultReconciliationPass: true,
+  localQuickResultReconciliationRequired: 3,
+  localQuickResultReconciliationComplete: 3,
+  localQuickResultReconciliationPass: true,
+  renderedDeliveryEvidenceRequired: 31,
+  renderedDeliveryEvidenceComplete: 31,
+  deliveryFileIntegrityRequired: 139,
+  deliveryFileIntegrityVerified: 139,
+  deliveryFileIntegrityPass: true,
 };
 const fixturePublicPreflightStatus = {
   snapshotVersion: 1,
@@ -1518,6 +1547,7 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
           const node = document.getElementById('localDetailLinks');
           return !!node && !node.hidden && node.getClientRects().length > 0;
         })(),
+        localDiagnosticSectionsVisible: Array.from(document.querySelectorAll('.local-diagnostic-section')).filter(node => node.getClientRects().length > 0).map(node => node.id),
         rows: rows.length,
         latestLinks: latestLinks.length,
         historyLinks: historyLinks.length,
@@ -1706,7 +1736,7 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         && lastState.attachmentIntegrityGroups.length === fixtureAttachmentPublicGroups.length
         && lastState.rvrBackupHealthStatus === '僅限本機'
         && lastState.gsmMonitorHealth === '僅限本機'
-        && Object.values(lastState.summaryPreviews || {}).every(value => value.includes('公開站不提供私人巡檢摘要'))
+        && Object.values(lastState.summaryPreviews || {}).every(value => value.includes('僅限本機工作區'))
         && lastState.loadedAt.includes('頁面更新')
       ) return lastState;
     } else if (
@@ -2451,9 +2481,15 @@ function assertRvrStaleState(state, label) {
 function assertPublicAttachmentBoundaryState(state, label) {
   assert.equal(state.auditScope, 'public', `${label} public dashboard enters public data scope`);
   assert.equal(state.localDetailLinksVisible, false, `${label} public dashboard hides private output links`);
+  assert.deepEqual(state.localDiagnosticSectionsVisible, [], `${label} public dashboard removes empty local diagnostic sections from reading flow`);
   assert.ok(state.dataScopeNote.includes('不請求或公開本機 output'), `${label} public dashboard explains the private-data request boundary`);
-  assert.ok(state.statusCards.every(card => card.badge === '正式 release 通過'), `${label} public cards use tracked release evidence instead of private fetch failures`);
-  assert.ok(Object.values(state.summaryPreviews).every(text => text.includes('公開站不提供私人巡檢摘要')), `${label} public summary previews are explicit local-only boundaries`);
+  assert.deepEqual(state.statusCards.map(card => card.title), ['正式 release 總覽', '鋼構正式附件證據', 'RC 正式附件證據', '風震與跨家族交付證據'], `${label} public cards expose distinct evidence dimensions`);
+  assert.ok(state.statusCards.every(card => card.badge === '公開證據完整'), `${label} public cards require complete tracked evidence instead of repeating one platform badge`);
+  assert.ok(state.statusCards[0].meta.includes('正式檢查｜82 / 82') && state.statusCards[0].meta.includes('後置檢查｜3 / 3'), `${label} public release overview exposes formal gate counts`);
+  assert.ok(state.statusCards[1].meta.includes('結果鏈｜5 / 5') && state.statusCards[1].meta.includes('內容封印｜5 / 5') && state.statusCards[1].meta.includes('核可封印｜5 / 5'), `${label} public steel evidence uses tracked readiness counts`);
+  assert.ok(state.statusCards[2].meta.includes('結果鏈｜34 / 34') && state.statusCards[2].meta.includes('獨立列印｜34 / 34') && state.statusCards[2].meta.includes('來源／報告組包｜32 / 32'), `${label} public RC evidence uses tracked readiness counts`);
+  assert.ok(state.statusCards[3].meta.includes('風震結果鏈｜14 / 14') && state.statusCards[3].meta.includes('局部快算｜3 / 3') && state.statusCards[3].meta.includes('渲染交付｜31 / 31') && state.statusCards[3].meta.includes('檔案完整性｜139 / 139'), `${label} public cross-family evidence uses tracked readiness counts`);
+  assert.ok(Object.values(state.summaryPreviews).every(text => text.includes('僅限本機工作區')), `${label} public summary previews retain explicit local-only details boundary`);
   assert.equal(state.gsmMonitorState, 'local-only', `${label} public dashboard marks GSM local-only`);
   assert.equal(state.gsmMonitorHealth, '僅限本機', `${label} public dashboard does not claim GSM health`);
   assert.deepEqual(state.gsmMonitorIssues, [], `${label} public dashboard has no GSM issue details`);
@@ -2471,6 +2507,21 @@ function assertPublicAttachmentBoundaryState(state, label) {
   assert.equal(state.attachmentClosurePrintVisible, false, `${label} public status closure governance remains excluded from print media`);
   assert.equal(state.attachmentRemediationVisible, false, `${label} public status hides local remediation controls`);
   assert.equal(state.attachmentIntegrityStatus, '通過', `${label} public status still renders released attachment evidence`);
+}
+
+function assertPublicEvidenceFailureState(state, label) {
+  assert.equal(state.auditScope, 'public', `${label} incomplete evidence remains in public scope`);
+  assert.equal(state.localDetailLinksVisible, false, `${label} incomplete evidence does not expose private links`);
+  assert.deepEqual(state.localDiagnosticSectionsVisible, [], `${label} incomplete evidence does not restore local diagnostic sections`);
+  assert.deepEqual(state.statusCards.map(card => card.badge), ['公開證據完整', '公開證據不足', '公開證據完整', '公開證據完整'], `${label} only the incomplete steel evidence dimension fails closed`);
+  assert.ok(state.statusCards[1].meta.includes('核可封印｜4 / 5'), `${label} incomplete steel approval seal count is visible`);
+  assert.ok(state.summaryPreviews.steel.includes('HTML 核可封印：4 / 5'), `${label} steel public preview exposes the incomplete count`);
+}
+
+function assertPublicEvidenceTypeFailureState(state, label) {
+  assert.equal(state.auditScope, 'public', `${label} type-invalid evidence remains in public scope`);
+  assert.deepEqual(state.statusCards.map(card => card.badge), ['公開證據完整', '公開證據不足', '公開證據完整', '公開證據完整'], `${label} string completion count fails closed`);
+  assert.ok(state.statusCards[1].meta.includes('核可封印｜5 / 5'), `${label} type-invalid count remains transparent in display`);
 }
 
 function assertDeploymentMismatchState(state, label) {
@@ -2535,6 +2586,8 @@ async function main() {
     const attachmentFailureStates = [];
     const rvrStaleStates = [];
     const publicBoundaryStates = [];
+    const publicEvidenceFailureStates = [];
+    const publicEvidenceTypeFailureStates = [];
     const deploymentMismatchStates = [];
     if (!liveOutputMode) {
       const preflightFixturePath = 'output/preflight/preflight-summary.json';
@@ -2669,6 +2722,47 @@ async function main() {
       }
       const publicRequests = requestAudit.requests.slice(publicRequestStart);
       assert.deepEqual(publicRequests.filter(isOutputRequest), [], `public dashboard must not request private output paths: ${publicRequests.filter(isOutputRequest).join(', ')}`);
+      const publicReadinessFixturePath = '結構工具箱/assets/status/report-readiness-status.json';
+      const originalPublicReadinessFixture = fixtures.get(publicReadinessFixturePath);
+      fixtures.set(publicReadinessFixturePath, {
+        ...originalPublicReadinessFixture,
+        steelHtmlApprovalSealComplete: 4,
+      });
+      const incompleteRequestStart = requestAudit.requests.length;
+      for (const viewport of viewports) {
+        await client.send('Emulation.setDeviceMetricsOverride', {
+          width: viewport.width,
+          height: viewport.height,
+          deviceScaleFactor: 1,
+          mobile: viewport.mobile,
+        }, sessionId);
+        const loaded = waitForEvent(client, sessionId, 'Page.loadEventFired', 15000);
+        await client.send('Page.navigate', { url: publicDashboardUrl }, sessionId);
+        await loaded;
+        publicEvidenceFailureStates.push({ viewport: viewport.key, state: await waitForDashboardState(client, sessionId) });
+      }
+      const incompleteRequests = requestAudit.requests.slice(incompleteRequestStart);
+      assert.deepEqual(incompleteRequests.filter(isOutputRequest), [], `incomplete public evidence must not fall back to private output: ${incompleteRequests.filter(isOutputRequest).join(', ')}`);
+      fixtures.set(publicReadinessFixturePath, {
+        ...originalPublicReadinessFixture,
+        steelHtmlApprovalSealComplete: '5',
+      });
+      const typeFailureRequestStart = requestAudit.requests.length;
+      for (const viewport of viewports) {
+        await client.send('Emulation.setDeviceMetricsOverride', {
+          width: viewport.width,
+          height: viewport.height,
+          deviceScaleFactor: 1,
+          mobile: viewport.mobile,
+        }, sessionId);
+        const loaded = waitForEvent(client, sessionId, 'Page.loadEventFired', 15000);
+        await client.send('Page.navigate', { url: publicDashboardUrl }, sessionId);
+        await loaded;
+        publicEvidenceTypeFailureStates.push({ viewport: viewport.key, state: await waitForDashboardState(client, sessionId) });
+      }
+      const typeFailureRequests = requestAudit.requests.slice(typeFailureRequestStart);
+      assert.deepEqual(typeFailureRequests.filter(isOutputRequest), [], `type-invalid public evidence must not fall back to private output: ${typeFailureRequests.filter(isOutputRequest).join(', ')}`);
+      fixtures.set(publicReadinessFixturePath, originalPublicReadinessFixture);
       fixtures.set(attachmentDiagnosticFixturePath, fixtureAttachmentDiagnostic);
       fixtures.set(rvrBackupHealthFixturePath, originalRvrBackupHealthFixture);
       fixtures.set(rvrBackupHealthHistoryFixturePath, originalRvrBackupHealthHistoryFixture);
@@ -2694,6 +2788,12 @@ async function main() {
     for (const { viewport, state } of publicBoundaryStates) {
       assertPublicAttachmentBoundaryState(state, viewport);
     }
+    for (const { viewport, state } of publicEvidenceFailureStates) {
+      assertPublicEvidenceFailureState(state, viewport);
+    }
+    for (const { viewport, state } of publicEvidenceTypeFailureStates) {
+      assertPublicEvidenceTypeFailureState(state, viewport);
+    }
     for (const { viewport, state } of deploymentMismatchStates) {
       assertDeploymentMismatchState(state, viewport);
     }
@@ -2704,7 +2804,7 @@ async function main() {
       const historyRuns = Array.from(new Set(liveExpected.postChecks.map(check => String(check.historyLog || '').match(/history[\\/](\d{8}-\d{6})[\\/]/)?.[1]).filter(Boolean)));
       return ', liveRunId=' + liveExpected.summary.runId + ', livePostChecks=' + livePostChecksPassed + '/' + liveExpected.postChecks.length + ', liveHistoryPostChecks=' + (historyLatest.postChecksPassedCount ?? '-') + '/' + (historyLatest.postCheckCount ?? '-') + ', livePostCheckHistoryRuns=' + (historyRuns.join('|') || '-');
     })() : '';
-    console.log('audit dashboard browser smoke OK (mode=' + (liveOutputMode ? 'live-output' : 'fixture') + ', viewports=' + states.length + ', attachmentFailureViewports=' + attachmentFailureStates.length + ', rvrStaleViewports=' + rvrStaleStates.length + ', publicBoundaryViewports=' + publicBoundaryStates.length + ', deploymentMismatchViewports=' + deploymentMismatchStates.length + ', records=' + states[0].state.rows + ', latestLinks=' + states[0].state.latestLinks + ', historyLinks=' + states[0].state.historyLinks + ', modes=' + states[0].state.records.filter(record => record.mode).length + ', workdirs=' + states[0].state.records.filter(record => record.workdir).length + ', commandHashes=' + states[0].state.records.filter(record => record.commandHash).length + ', coverageTotals=' + states[0].state.coverageTotals.length + ', traceabilityCatalogs=' + states[0].state.traceabilityCatalogCoverage.length + ', freshnessChecked=' + (states[0].state.freshness ? 1 : 0) + ', maturityPreflightChecked=' + (states[0].state.maturityPreflightHint ? 1 : 0) + ', fixtureHits=' + requestAudit.fixtureHits.size + '/' + requiredFixturePaths.size + ', staticFiles=' + requestAudit.fileHits.size + liveMetrics + ')');
+    console.log('audit dashboard browser smoke OK (mode=' + (liveOutputMode ? 'live-output' : 'fixture') + ', viewports=' + states.length + ', attachmentFailureViewports=' + attachmentFailureStates.length + ', rvrStaleViewports=' + rvrStaleStates.length + ', publicBoundaryViewports=' + publicBoundaryStates.length + ', publicEvidenceFailureViewports=' + publicEvidenceFailureStates.length + ', publicEvidenceTypeFailureViewports=' + publicEvidenceTypeFailureStates.length + ', deploymentMismatchViewports=' + deploymentMismatchStates.length + ', records=' + states[0].state.rows + ', latestLinks=' + states[0].state.latestLinks + ', historyLinks=' + states[0].state.historyLinks + ', modes=' + states[0].state.records.filter(record => record.mode).length + ', workdirs=' + states[0].state.records.filter(record => record.workdir).length + ', commandHashes=' + states[0].state.records.filter(record => record.commandHash).length + ', coverageTotals=' + states[0].state.coverageTotals.length + ', traceabilityCatalogs=' + states[0].state.traceabilityCatalogCoverage.length + ', freshnessChecked=' + (states[0].state.freshness ? 1 : 0) + ', maturityPreflightChecked=' + (states[0].state.maturityPreflightHint ? 1 : 0) + ', fixtureHits=' + requestAudit.fixtureHits.size + '/' + requiredFixturePaths.size + ', staticFiles=' + requestAudit.fileHits.size + liveMetrics + ')');
   } finally {
     if (client) client.close();
     if (edge && edge.exitCode === null) {

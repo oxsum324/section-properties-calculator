@@ -814,6 +814,9 @@ assert.ok(pagesLiveBrowserSmoke.includes("page.on('pageerror'") && pagesLiveBrow
 assert.ok(pagesLiveBrowserSmoke.includes("route === '/rc-pile'") && pagesLiveBrowserSmoke.includes("route === '/wind-cc'") && pagesLiveBrowserSmoke.includes("route === '/stone-fixing'"), 'Pages browser smoke keeps high-risk route regressions');
 assert.ok(pagesLiveBrowserSmoke.includes("'?audit_scope=local'") && pagesLiveBrowserSmoke.includes("state.auditScope !== 'public'"), 'Pages browser smoke locks the external dashboard scope override');
 assert.ok(pagesLiveBrowserSmoke.includes('privateOutputRequests') && pagesLiveBrowserSmoke.includes("decodeURIComponent(value).includes('/output/')"), 'Pages browser smoke rejects public dashboard private output requests');
+assert.ok(pagesLiveBrowserSmoke.includes("['正式 release 總覽', '鋼構正式附件證據', 'RC 正式附件證據', '風震與跨家族交付證據']") && pagesLiveBrowserSmoke.includes("value !== '公開證據完整'"), 'Pages browser smoke locks distinct complete public evidence dimensions');
+assert.ok(pagesLiveBrowserSmoke.includes("'正式檢查｜82 / 82'") && pagesLiveBrowserSmoke.includes("'檔案完整性｜139 / 139'"), 'Pages browser smoke locks public evidence counts');
+assert.ok(pagesLiveBrowserSmoke.includes('localDiagnosticSectionsVisible') && pagesLiveBrowserSmoke.includes('local diagnostic sections remain visible'), 'Pages browser smoke locks public reading density');
 assert.ok(pagesLiveSmoke.includes('石材固定/dev_tools/baseline_capture.html'), 'Pages live smoke blocks stone dev tools publication');
 assert.ok(pagesLiveSmoke.includes('石材固定/server.py'), 'Pages live smoke blocks stone backend helper publication');
 assert.ok(pagesLiveSmoke.includes('開挖擋土支撐/backend/app/main.py'), 'Pages live smoke blocks excavation backend publication');
@@ -855,6 +858,7 @@ assert.ok(pagesArtifactBuilder.includes("'螺栓檢討/bolt-review-tool/'") && p
 assert.ok(pagesArtifactBuilder.includes("'.md'") && pagesArtifactBuilder.includes("'.ps1'") && pagesArtifactBuilder.includes("'.test.js'"), 'shared Pages artifact builder owns private file exclusions');
 assert.ok(pagesArtifactSmoke.includes('pages-live-smoke.js'), 'local Pages artifact smoke calls shared live smoke');
 assert.ok(pagesArtifactSmoke.includes('pages-live-browser-smoke.js'), 'local Pages artifact smoke calls shared browser smoke');
+assert.ok(pagesArtifactSmoke.includes('IO.Compression.GZipStream') && pagesArtifactSmoke.includes("page.evaluate(async s=>") && pagesArtifactSmoke.includes("new DecompressionStream('gzip')"), 'local Pages artifact smoke compresses the full browser program for Windows transport');
 assert.ok(pagesArtifactSmoke.includes('$DeploymentManifestBuilder') && pagesArtifactSmoke.includes('--expected-run-id $LocalRunId'), 'local Pages artifact smoke builds and verifies deployment provenance');
 assert.ok(pagesArtifactSmoke.includes('$PagesSmokeRuntimeManifest') && pagesArtifactSmoke.includes('$ExpectedRuntime.dependencies') && pagesArtifactSmoke.includes('version mismatch'), 'local Pages artifact smoke verifies browser dependencies against the shared manifest');
 assert.ok(pagesArtifactSmoke.includes('$BrowserResult.isError'), 'local Pages artifact smoke checks CLI JSON error state');
