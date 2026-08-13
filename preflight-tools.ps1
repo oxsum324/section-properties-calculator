@@ -13,6 +13,30 @@ $outputDir = Join-Path $root "output\preflight"
 $historyDir = Join-Path $outputDir "history"
 $slowStatusDir = Join-Path $outputDir "slow-check-status"
 $slowStatusMaxAgeHours = 24
+$isReleaseMode = (-not $Quick) -and [bool]$ForcePlatformAudit -and [bool]$ForceSlowChecks
+$releaseLockScript = Join-Path $root "結構工具箱\tools\release-preflight-lock.ps1"
+$releaseMutex = $null
+$releaseMutexAcquired = $false
+
+. $releaseLockScript
+
+if ($isReleaseMode) {
+  $releaseLockState = Enter-ReleasePreflightLock -WorkspaceRoot $root
+  $releaseMutex = $releaseLockState.Mutex
+  $releaseMutexAcquired = $true
+}
+
+function Close-ReleasePreflightLock {
+  Exit-ReleasePreflightLock -Mutex $script:releaseMutex -Acquired $script:releaseMutexAcquired
+  $script:releaseMutexAcquired = $false
+  $script:releaseMutex = $null
+}
+
+trap {
+  Close-ReleasePreflightLock
+  [Console]::Error.WriteLine($_.Exception.Message)
+  exit 1
+}
 
 if (-not (Test-Path $outputDir)) {
   New-Item -Path $outputDir -ItemType Directory | Out-Null
@@ -53,7 +77,6 @@ if ($LASTEXITCODE -eq 0) {
   $sourceDirty = $sourceStatusOutput.Count -gt 0
 }
 
-$isReleaseMode = (-not $Quick) -and [bool]$ForcePlatformAudit -and [bool]$ForceSlowChecks
 if ($isReleaseMode -and ($sourceCommitSha -notmatch '^[0-9a-f]{40}$' -or -not $sourceStateAvailable)) {
   throw "Release preflight requires an identifiable Git source commit and worktree state. Run it from a Git checkout."
 }
@@ -1453,6 +1476,8 @@ exit $LASTEXITCODE
 '@
 
 $releaseReadinessContractCommand = @'
+node 結構工具箱/tools/release-preflight-lock.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node 結構工具箱/tools/release-readiness.contract.test.js
 exit $LASTEXITCODE
 '@
@@ -3251,10 +3276,12 @@ Update-PreflightHistoryManifest
 if ($overallPass) {
   Write-Status "Tool preflight completed cleanly. runId=$runStamp" "Green" -Force
   Write-Status "Summary: $summaryPath" "DarkGreen" -Force
+  Close-ReleasePreflightLock
   exit 0
 }
 
 Write-Status "Tool preflight found issues. runId=$runStamp" "Red" -Force
 Write-Status ("Failures: " + ($failures -join "; ")) "Red" -Force
 Write-Status "Summary: $summaryPath" "DarkRed" -Force
+Close-ReleasePreflightLock
 exit 1

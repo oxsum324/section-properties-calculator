@@ -399,6 +399,7 @@ assert.ok(pagesSmoke.includes('結構工具箱/tools/build-pages-artifact.js'), 
 assert.ok(pagesSmoke.includes('GSM-外部歸檔生命週期監測-latest.json') && pagesSmoke.includes('GSM-外部歸檔生命週期監測事件-000001-GME-00000000000000000000.json'), 'Pages smoke blocks GSM monitor state and event publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/build-pages-deployment-manifest.js'), 'Pages smoke blocks deployment manifest builder publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/verify-pages-release-lineage.js'), 'Pages smoke blocks release lineage verifier publication');
+assert.ok(artifactBuilder.includes('結構工具箱/tools/release-preflight-lock.ps1') && artifactBuilder.includes('結構工具箱/tools/release-preflight-lock.test.js'), 'Pages artifact builder explicitly keeps release singleton lock and its fixture private');
 assert.ok(pagesSmoke.includes("liveUrl(base, 'pages-deployment.json')") && pagesSmoke.includes('deployed Pages commit matches the requested source commit'), 'Pages smoke validates the public deployment manifest and expected commit');
 assert.ok(pagesSmoke.includes('deployed Pages runId matches the current workflow run') && pagesSmoke.includes('sha256-tree-v1'), 'Pages smoke validates workflow run and tree digest metadata');
 assert.ok(pagesSmoke.includes('validateManifestFileInventory') && pagesSmoke.includes('inventory tree digest'), 'Pages smoke recomputes the closed file inventory digest');

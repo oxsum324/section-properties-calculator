@@ -30,6 +30,7 @@ function assertIncludes(text, needle, label) {
 
 const releaseWrapper = readText('run-preflight-tools-release.bat');
 const preflight = readText('preflight-tools.ps1');
+const releasePreflightLock = readText('結構工具箱/tools/release-preflight-lock.ps1');
 const maturityMatrix = readText('結構工具箱/tools/tool-maturity-matrix.js');
 const dashboard = readText('結構工具箱/audit-dashboard.html');
 const dashboardContract = readText('結構工具箱/tools/audit-dashboard.contract.test.js');
@@ -146,6 +147,24 @@ const anchorWorkbookSeal = readText('螺栓檢討/bolt-review-tool/src/reportWor
 ].forEach(needle => assertIncludes(releaseWrapper, needle, `release wrapper keeps ${needle}`));
 assert(!releaseWrapper.includes('-Quick'), 'release wrapper does not run quick mode', 'run-preflight-tools-release.bat');
 assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through arbitrary arguments', 'prevents -Quick override');
+[
+  'Enter-ReleasePreflightLock',
+  'Get-ReleasePreflightMutexName',
+  'Local\\StructuralToolsReleasePreflight-',
+  'WaitOne(0)',
+  'AbandonedMutexException',
+  'Another formal release preflight is already running for this workspace',
+].forEach(needle => assertIncludes(releasePreflightLock, needle, `release singleton lock preserves ${needle}`));
+[
+  '$isReleaseMode',
+  '(-not $Quick) -and [bool]$ForcePlatformAudit -and [bool]$ForceSlowChecks',
+  'release-preflight-lock.ps1',
+  'Enter-ReleasePreflightLock -WorkspaceRoot $root',
+  'function Close-ReleasePreflightLock',
+  'trap {',
+  'Close-ReleasePreflightLock',
+  'node 結構工具箱/tools/release-preflight-lock.test.js',
+].forEach(needle => assertIncludes(preflight, needle, `preflight preserves release singleton wiring ${needle}`));
 
 [
   '[switch]$ForcePlatformAudit',
