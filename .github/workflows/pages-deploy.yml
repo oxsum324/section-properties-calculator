@@ -32,8 +32,13 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: .github/pages-smoke/package-lock.json
+
+      - name: Restore npm content cache
+        id: npm-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-${{ runner.arch }}-pages-npm-${{ hashFiles('.github/pages-smoke/package-lock.json') }}
 
       - name: Restore Playwright browser cache
         id: playwright-browser-cache
@@ -43,8 +48,16 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-pages-playwright-${{ hashFiles('.github/pages-smoke/package-lock.json') }}-chromium-v1
 
       - name: Install pinned Pages smoke runtime
+        id: runtime-install
         working-directory: .github/pages-smoke
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: |
+          set +e
+          started_ms=$(date +%s%3N)
+          npm ci --ignore-scripts --no-audit --no-fund
+          exit_code=$?
+          duration_ms=$(($(date +%s%3N) - started_ms))
+          echo "duration_ms=$duration_ms" >> "$GITHUB_OUTPUT"
+          exit "$exit_code"
 
       - name: Verify clean source checkout
         run: test -z "$(git status --porcelain --untracked-files=all)"
@@ -71,6 +84,10 @@ jobs:
             --run-attempt "$GITHUB_RUN_ATTEMPT"
 
       - name: Verify staged Pages artifact
+        id: staged-smoke
+        env:
+          PAGES_HTTP_SMOKE_RESULT_FILE: ${{ runner.temp }}/pages-http-smoke-result.json
+          PAGES_BROWSER_SMOKE_RESULT_FILE: ${{ runner.temp }}/pages-browser-smoke-result.json
         run: |
           set -euo pipefail
           base_url="http://127.0.0.1:4173/"
@@ -124,6 +141,22 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
+      - name: Publish build CI evidence
+        if: always()
+        env:
+          PAGES_CI_JOB: build
+          PAGES_CI_JOB_STATUS: ${{ job.status }}
+          PAGES_RUNTIME_LOCK_DIGEST: ${{ hashFiles('.github/pages-smoke/package-lock.json') }}
+          PAGES_NPM_CACHE_HIT: ${{ steps.npm-cache.outputs.cache-hit }}
+          PAGES_BROWSER_CACHE_HIT: ${{ steps.playwright-browser-cache.outputs.cache-hit }}
+          PAGES_RUNTIME_INSTALL_OUTCOME: ${{ steps.runtime-install.outcome }}
+          PAGES_RUNTIME_INSTALL_DURATION_MS: ${{ steps.runtime-install.outputs.duration_ms }}
+          PAGES_HTTP_SMOKE_OUTCOME: ${{ steps.staged-smoke.outcome }}
+          PAGES_BROWSER_SMOKE_OUTCOME: ${{ steps.staged-smoke.outcome }}
+          PAGES_HTTP_SMOKE_RESULT_FILE: ${{ runner.temp }}/pages-http-smoke-result.json
+          PAGES_BROWSER_SMOKE_RESULT_FILE: ${{ runner.temp }}/pages-browser-smoke-result.json
+        run: node .github/pages-smoke/write-ci-summary.js
+
   deploy:
     runs-on: ubuntu-latest
     needs: build
@@ -148,8 +181,13 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: .github/pages-smoke/package-lock.json
+
+      - name: Restore npm content cache
+        id: npm-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-${{ runner.arch }}-pages-npm-${{ hashFiles('.github/pages-smoke/package-lock.json') }}
 
       - name: Restore Playwright browser cache
         id: playwright-browser-cache
@@ -159,10 +197,19 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-pages-playwright-${{ hashFiles('.github/pages-smoke/package-lock.json') }}-chromium-v1
 
       - name: Install pinned Pages smoke runtime
+        id: runtime-install
         working-directory: .github/pages-smoke
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: |
+          set +e
+          started_ms=$(date +%s%3N)
+          npm ci --ignore-scripts --no-audit --no-fund
+          exit_code=$?
+          duration_ms=$(($(date +%s%3N) - started_ms))
+          echo "duration_ms=$duration_ms" >> "$GITHUB_OUTPUT"
+          exit "$exit_code"
 
       - name: Run live Pages smoke
+        id: live-http-smoke
         env:
           PAGES_BASE_URL: ${{ needs.deploy.outputs.page_url }}
           PAGES_EXPECTED_COMMIT_SHA: ${{ github.sha }}
@@ -170,11 +217,30 @@ jobs:
           PAGES_EXPECT_CLEAN_SOURCE: 1
           PAGES_HTTP_SMOKE_ATTEMPTS: 2
           PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS: 5
+          PAGES_HTTP_SMOKE_RESULT_FILE: ${{ runner.temp }}/pages-http-smoke-result.json
         run: node "結構工具箱/tools/pages-live-smoke.js" --check-private-boundary
 
       - name: Run live Pages browser smoke
+        id: live-browser-smoke
         env:
           PAGES_BASE_URL: ${{ needs.deploy.outputs.page_url }}
           PAGES_BROWSER_SMOKE_ATTEMPTS: 2
           PAGES_BROWSER_SMOKE_RETRY_DELAY_SECONDS: 5
+          PAGES_BROWSER_SMOKE_RESULT_FILE: ${{ runner.temp }}/pages-browser-smoke-result.json
         run: bash "結構工具箱/tools/run-pages-browser-smoke.sh" "$PAGES_BASE_URL" "pages-live-browser"
+
+      - name: Publish live CI evidence
+        if: always()
+        env:
+          PAGES_CI_JOB: live-smoke
+          PAGES_CI_JOB_STATUS: ${{ job.status }}
+          PAGES_RUNTIME_LOCK_DIGEST: ${{ hashFiles('.github/pages-smoke/package-lock.json') }}
+          PAGES_NPM_CACHE_HIT: ${{ steps.npm-cache.outputs.cache-hit }}
+          PAGES_BROWSER_CACHE_HIT: ${{ steps.playwright-browser-cache.outputs.cache-hit }}
+          PAGES_RUNTIME_INSTALL_OUTCOME: ${{ steps.runtime-install.outcome }}
+          PAGES_RUNTIME_INSTALL_DURATION_MS: ${{ steps.runtime-install.outputs.duration_ms }}
+          PAGES_HTTP_SMOKE_OUTCOME: ${{ steps.live-http-smoke.outcome }}
+          PAGES_BROWSER_SMOKE_OUTCOME: ${{ steps.live-browser-smoke.outcome }}
+          PAGES_HTTP_SMOKE_RESULT_FILE: ${{ runner.temp }}/pages-http-smoke-result.json
+          PAGES_BROWSER_SMOKE_RESULT_FILE: ${{ runner.temp }}/pages-browser-smoke-result.json
+        run: node .github/pages-smoke/write-ci-summary.js

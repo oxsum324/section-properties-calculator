@@ -1,5 +1,7 @@
 const assert = require('assert');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 const DEFAULT_BASE_URL = 'https://oxsum324.github.io/section-properties-calculator/';
 const TRANSIENT_NETWORK_ERROR_CODES = new Set([
@@ -140,6 +142,7 @@ const PRIVATE_PATHS = [
   '覆工板/dump_xls.py',
   '.github/pages-smoke/package.json',
   '.github/pages-smoke/package-lock.json',
+  '.github/pages-smoke/write-ci-summary.js',
   '.github/workflows/pages-deploy.yml'
 ];
 
@@ -467,11 +470,25 @@ async function runWithTransientRetry(task, options = {}) {
 
 async function runWithAttemptCount(task, options = {}) {
   let attemptCount = 0;
-  const result = await runWithTransientRetry(async () => {
-    attemptCount += 1;
-    return task();
-  }, options);
-  return { result, attemptCount };
+  try {
+    const result = await runWithTransientRetry(async () => {
+      attemptCount += 1;
+      return task();
+    }, options);
+    return { result, attemptCount };
+  } catch (error) {
+    error.pagesHttpSmokeAttemptCount = attemptCount;
+    throw error;
+  }
+}
+
+function writeHttpSmokeResult(filePath, payload) {
+  if (!filePath) return;
+  const target = path.resolve(filePath);
+  const temporary = `${target}.${process.pid}.tmp`;
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(temporary, `${JSON.stringify(payload)}\n`, 'utf8');
+  fs.renameSync(temporary, target);
 }
 
 async function main() {
@@ -797,21 +814,44 @@ async function main() {
   console.log(`deployment commit=${deploymentManifest.commitSha}, run=${deploymentManifest.runId}, dirty=${deploymentManifest.sourceDirty}, files=${deploymentManifest.fileCount}, digest=${deploymentManifest.artifactDigest}`);
   console.log(`home routes checked=${cleanRouteCounts.total} (generated=${cleanRouteCounts.generated}, direct=${cleanRouteCounts.direct})`);
   console.log(`platform runId=${platformStatus.runId}, preflight runId=${preflightStatus.runId}, reportReadiness runId=${reportReadinessStatus.runId}`);
+  return { fileCount: deploymentManifest.fileCount, routeCount: cleanRouteCounts.total };
 }
 
 async function runCli() {
+  const startedAt = Date.now();
   const attempts = environmentInteger('PAGES_HTTP_SMOKE_ATTEMPTS', 1, 1);
   const retryDelaySeconds = environmentInteger('PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS', 5, 0);
-  const outcome = await runWithAttemptCount(main, {
-    attempts,
-    delayMs: retryDelaySeconds * 1000,
-    onRetry(error, context) {
-      console.error(`Pages HTTP smoke attempt ${context.attempt}/${context.attempts} 遇到暫態錯誤：${error.message || error}`);
-      console.error(`將於 ${retryDelaySeconds} 秒後完整重跑 HTTP smoke（attempt ${context.nextAttempt}/${context.attempts}）。`);
-    },
-  });
-  console.log(`pagesHttpSmokeAttemptCount=${outcome.attemptCount}`);
-  return outcome.attemptCount;
+  const resultFile = process.env.PAGES_HTTP_SMOKE_RESULT_FILE;
+  try {
+    const outcome = await runWithAttemptCount(main, {
+      attempts,
+      delayMs: retryDelaySeconds * 1000,
+      onRetry(error, context) {
+        console.error(`Pages HTTP smoke attempt ${context.attempt}/${context.attempts} 遇到暫態錯誤：${error.message || error}`);
+        console.error(`將於 ${retryDelaySeconds} 秒後完整重跑 HTTP smoke（attempt ${context.nextAttempt}/${context.attempts}）。`);
+      },
+    });
+    writeHttpSmokeResult(resultFile, {
+      schemaVersion: 1,
+      kind: 'pages-http-smoke',
+      status: 'passed',
+      durationMs: Date.now() - startedAt,
+      attemptCount: outcome.attemptCount,
+      fileCount: outcome.result.fileCount,
+      routeCount: outcome.result.routeCount,
+    });
+    console.log(`pagesHttpSmokeAttemptCount=${outcome.attemptCount}`);
+    return outcome.attemptCount;
+  } catch (error) {
+    writeHttpSmokeResult(resultFile, {
+      schemaVersion: 1,
+      kind: 'pages-http-smoke',
+      status: 'failed',
+      durationMs: Date.now() - startedAt,
+      attemptCount: Math.max(1, Number(error.pagesHttpSmokeAttemptCount) || 1),
+    });
+    throw error;
+  }
 }
 
 if (require.main === module) {
@@ -829,6 +869,7 @@ module.exports = {
   environmentInteger,
   runWithTransientRetry,
   runWithAttemptCount,
+  writeHttpSmokeResult,
   validateManifestFileInventory,
   validatePublishedFileContent,
   assertPublishedArtifact,

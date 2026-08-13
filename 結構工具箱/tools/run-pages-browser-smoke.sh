@@ -13,6 +13,10 @@ terser_cli="$runtime_dir/node_modules/terser/bin/terser"
 browser_smoke_source='結構工具箱/tools/pages-live-browser-smoke.js'
 attempts="${PAGES_BROWSER_SMOKE_ATTEMPTS:-1}"
 retry_delay_seconds="${PAGES_BROWSER_SMOKE_RETRY_DELAY_SECONDS:-5}"
+result_file="${PAGES_BROWSER_SMOKE_RESULT_FILE:-}"
+started_ms="$(date +%s%3N)"
+attempt_count=0
+result_written=false
 
 if ! [[ "$attempts" =~ ^[1-9][0-9]*$ ]]; then
   echo "PAGES_BROWSER_SMOKE_ATTEMPTS must be a positive integer" >&2
@@ -22,6 +26,51 @@ if ! [[ "$retry_delay_seconds" =~ ^[0-9]+$ ]]; then
   echo "PAGES_BROWSER_SMOKE_RETRY_DELAY_SECONDS must be a non-negative integer" >&2
   exit 2
 fi
+
+write_result() {
+  local status="$1"
+  local cli_json="${2:-}"
+  local duration_ms="$(($(date +%s%3N) - started_ms))"
+  if [[ -z "$result_file" ]]; then
+    result_written=true
+    return
+  fi
+  node - "$result_file" "$status" "$duration_ms" "$attempt_count" "$cli_json" <<'NODE'
+const fs = require('node:fs');
+const path = require('node:path');
+const [targetValue, status, durationValue, attemptValue, cliJson] = process.argv.slice(2);
+const target = path.resolve(targetValue);
+const payload = {
+  schemaVersion: 1,
+  kind: 'pages-browser-smoke',
+  status,
+  durationMs: Number(durationValue),
+  attemptCount: Math.max(1, Number(attemptValue) || 1),
+};
+if (status === 'passed') {
+  const response = JSON.parse(cliJson);
+  const result = typeof response.result === 'string' ? JSON.parse(response.result) : response.result;
+  payload.routes = result.routes;
+  payload.checks = result.checks;
+  payload.issues = result.issues;
+}
+fs.mkdirSync(path.dirname(target), { recursive: true });
+const temporary = `${target}.${process.pid}.tmp`;
+fs.writeFileSync(temporary, `${JSON.stringify(payload)}\n`, 'utf8');
+fs.renameSync(temporary, target);
+NODE
+  result_written=true
+}
+
+cleanup() {
+  local exit_code=$?
+  if [[ "$result_written" != true ]]; then
+    write_result failed || true
+  fi
+  node "$playwright_cli" "-s=$session" close >/dev/null 2>&1 || true
+  return "$exit_code"
+}
+trap cleanup EXIT
 
 node - "$runtime_manifest" "$playwright_manifest" "$terser_manifest" <<'NODE'
 const fs = require('node:fs');
@@ -38,11 +87,6 @@ if (runtime.dependencies?.terser !== terser.version) {
 }
 NODE
 
-cleanup() {
-  node "$playwright_cli" "-s=$session" close >/dev/null 2>&1 || true
-}
-trap cleanup EXIT
-
 node "$playwright_cli" install-browser chromium
 
 open_json="$(node "$playwright_cli" --json "-s=$session" open "$base_url")"
@@ -53,9 +97,12 @@ code="${code%;}"
 test -n "$code"
 
 for ((attempt = 1; attempt <= attempts; attempt += 1)); do
+  attempt_count="$attempt"
   result_json="$(node "$playwright_cli" --json "-s=$session" run-code "$code")"
   if node -e 'const value=JSON.parse(process.argv[1]);process.exit(value.isError?1:0)' "$result_json"; then
+    write_result passed "$result_json"
     node -e 'const value=JSON.parse(process.argv[1]);const result=typeof value.result==="string"?value.result:JSON.stringify(value.result);console.log(`Pages browser smoke passed: ${result}`)' "$result_json"
+    echo "pagesBrowserSmokeAttemptCount=$attempt_count"
     exit 0
   fi
 

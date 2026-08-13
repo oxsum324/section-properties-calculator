@@ -28,6 +28,7 @@ const adr = readText('docs/adr/0001-page-only-report-readiness.md');
 const pagesWorkflow = readText('.github/workflows/pages-deploy.yml');
 const pagesSmokeRuntime = readJson('.github/pages-smoke/package.json');
 const pagesSmokeLock = readJson('.github/pages-smoke/package-lock.json');
+const pagesCiSummary = require('./.github/pages-smoke/write-ci-summary.js');
 const pagesSmoke = readText('結構工具箱/tools/pages-live-smoke.js');
 const pagesBrowserSmoke = readText('結構工具箱/tools/pages-live-browser-smoke.js');
 const pagesBrowserRunner = readText('結構工具箱/tools/run-pages-browser-smoke.sh');
@@ -362,10 +363,12 @@ assert.ok(pagesWorkflow.includes('--expected-commit-sha "$GITHUB_SHA"') && pages
 assert.ok(pagesWorkflow.includes('--expect-clean-source') && pagesWorkflow.includes('PAGES_EXPECT_CLEAN_SOURCE: 1'), 'Pages staged and live smoke reject dirty deployment provenance');
 assert.ok(pagesWorkflow.includes('PAGES_EXPECTED_COMMIT_SHA: ${{ github.sha }}') && pagesWorkflow.includes('PAGES_EXPECTED_RUN_ID: ${{ github.run_id }}'), 'Pages live smoke verifies the deployed commit and run identity');
 assert.equal((pagesWorkflow.match(/bash "結構工具箱\/tools\/run-pages-browser-smoke\.sh"/g) || []).length, 2, 'Pages workflow reuses the browser runner before and after deploy');
-assert.equal((pagesWorkflow.match(/uses: actions\/cache@v5/g) || []).length, 2, 'Pages workflow restores the Playwright browser cache in build and live jobs');
+assert.equal((pagesWorkflow.match(/uses: actions\/cache@v5/g) || []).length, 4, 'Pages workflow restores explicit npm and Playwright caches in build and live jobs');
 assert.equal((pagesWorkflow.match(/path: ~\/\.cache\/ms-playwright/g) || []).length, 2, 'Pages workflow caches the canonical Linux Playwright browser directory in both browser jobs');
 assert.equal((pagesWorkflow.match(/runner\.os }}-\${{ runner\.arch }}-pages-playwright-\${{ hashFiles\('\.github\/pages-smoke\/package-lock\.json'\) }}-chromium-v1/g) || []).length, 2, 'Pages browser cache key binds OS, architecture, lockfile digest, and browser family');
-assert.equal((pagesWorkflow.match(/cache-dependency-path: \.github\/pages-smoke\/package-lock\.json/g) || []).length, 2, 'Pages workflow caches the npm content store from the private smoke lockfile in both jobs');
+assert.equal((pagesWorkflow.match(/path: ~\/\.npm/g) || []).length, 2, 'Pages workflow caches the npm content store explicitly in both jobs');
+assert.equal((pagesWorkflow.match(/runner\.os }}-\${{ runner\.arch }}-pages-npm-\${{ hashFiles\('\.github\/pages-smoke\/package-lock\.json'\) }}/g) || []).length, 2, 'Pages npm cache key binds OS, architecture, and the complete lockfile digest');
+assert.equal(pagesWorkflow.includes('cache-dependency-path:'), false, 'Pages workflow does not hide npm cache evidence behind setup-node');
 assert.equal((pagesWorkflow.match(/npm ci --ignore-scripts --no-audit --no-fund/g) || []).length, 2, 'Pages workflow installs the exact lockfile runtime without lifecycle scripts in both jobs');
 assert.deepEqual(pagesSmokeRuntime.dependencies, { '@playwright/cli': '0.1.17', terser: '5.49.0' }, 'Pages smoke runtime pins direct browser dependencies exactly');
 assert.equal(pagesSmokeLock.lockfileVersion, 3, 'Pages smoke runtime uses npm lockfile v3');
@@ -376,6 +379,43 @@ for (const name of ['node_modules/@playwright/cli', 'node_modules/playwright', '
 }
 assert.ok(pagesBrowserRunner.includes('node_modules/@playwright/cli/playwright-cli.js') && pagesBrowserRunner.includes('node_modules/terser/bin/terser'), 'Pages browser runner executes only the lockfile-installed local CLIs');
 assert.equal(pagesBrowserRunner.includes('npx '), false, 'Pages browser runner does not resolve floating npx packages at runtime');
+assert.equal((pagesWorkflow.match(/if: always\(\)/g) || []).length, 2, 'Pages build and live jobs always publish their CI evidence summary');
+assert.equal((pagesWorkflow.match(/run: node \.github\/pages-smoke\/write-ci-summary\.js/g) || []).length, 2, 'Pages workflow uses one summary implementation for staged and live evidence');
+assert.ok(pagesWorkflow.indexOf('- name: Upload GitHub Pages artifact') < pagesWorkflow.indexOf('- name: Publish build CI evidence'), 'Pages build summary runs after archive upload so job status covers the complete build');
+assert.equal((pagesWorkflow.match(/PAGES_NPM_CACHE_HIT: \${{ steps\.npm-cache\.outputs\.cache-hit }}/g) || []).length, 2, 'Pages summaries consume the explicit npm cache hit output');
+assert.equal((pagesWorkflow.match(/PAGES_BROWSER_CACHE_HIT: \${{ steps\.playwright-browser-cache\.outputs\.cache-hit }}/g) || []).length, 2, 'Pages summaries consume the explicit browser cache hit output');
+assert.equal((pagesWorkflow.match(/PAGES_RUNTIME_INSTALL_DURATION_MS: \${{ steps\.runtime-install\.outputs\.duration_ms }}/g) || []).length, 2, 'Pages summaries receive measured lockfile install durations');
+assert.equal((pagesWorkflow.match(/PAGES_HTTP_SMOKE_RESULT_FILE:/g) || []).length, 4, 'Pages HTTP smoke and both summaries share private result file locations');
+assert.equal((pagesWorkflow.match(/PAGES_BROWSER_SMOKE_RESULT_FILE:/g) || []).length, 4, 'Pages browser smoke and both summaries share private result file locations');
+assert.ok(pagesBrowserRunner.includes("kind: 'pages-browser-smoke'") && pagesBrowserRunner.includes('write_result failed') && pagesBrowserRunner.includes('write_result passed') && pagesBrowserRunner.includes('durationMs') && pagesBrowserRunner.includes('attemptCount'), 'Pages browser runner records success or failure timing and attempt evidence');
+assert.ok(pagesSmoke.includes("kind: 'pages-http-smoke'") && pagesSmoke.includes("status: 'failed'") && pagesSmoke.includes('durationMs') && pagesSmoke.includes('attemptCount'), 'Pages HTTP smoke records success or failure timing and attempt evidence');
+assert.ok(pagesSmoke.includes("'.github/pages-smoke/write-ci-summary.js'"), 'Pages private-boundary probe covers the CI summary source');
+assert.ok(readme.includes('GitHub Actions job summary') && readme.includes('不進 Pages artifact 或計算書'), 'README documents CI evidence visibility and report boundary');
+assert.ok(toolBoundaries.includes('summary source') && toolBoundaries.includes('不得猜測') && toolBoundaries.includes('不得進入 Pages、計算書或正式附件'), 'TOOL_BOUNDARIES fail-closes summary evidence and keeps it private');
+{
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'pages-ci-summary-contract-'));
+  try {
+    const httpPath = path.join(fixture, 'http.json');
+    const browserPath = path.join(fixture, 'browser.json');
+    fs.writeFileSync(httpPath, JSON.stringify({ schemaVersion: 1, kind: 'pages-http-smoke', status: 'passed', durationMs: 1234, attemptCount: 1, fileCount: 318, routeCount: 43 }));
+    fs.writeFileSync(browserPath, JSON.stringify({ schemaVersion: 1, kind: 'pages-browser-smoke', status: 'passed', durationMs: 5678, attemptCount: 1, routes: 43, checks: 86, issues: 0 }));
+    const summary = pagesCiSummary.buildSummary({
+      PAGES_CI_JOB: 'fixture', PAGES_CI_JOB_STATUS: 'success', GITHUB_SHA: 'a'.repeat(40),
+      PAGES_RUNTIME_LOCK_DIGEST: 'b'.repeat(64), PAGES_NPM_CACHE_HIT: 'true', PAGES_BROWSER_CACHE_HIT: 'false',
+      PAGES_RUNTIME_INSTALL_OUTCOME: 'success', PAGES_RUNTIME_INSTALL_DURATION_MS: '987',
+      PAGES_HTTP_SMOKE_RESULT_FILE: httpPath, PAGES_BROWSER_SMOKE_RESULT_FILE: browserPath,
+    });
+    assert.ok(summary.includes('exact hit') && summary.includes('miss'), 'Pages CI summary distinguishes exact cache hits from misses');
+    assert.ok(summary.includes('318 files; 43 routes') && summary.includes('86 checks; 0 issues'), 'Pages CI summary exposes bounded smoke evidence');
+    assert.ok(summary.includes('1.2 s') && summary.includes('5.7 s') && summary.includes('987 ms'), 'Pages CI summary formats measured stage durations');
+    const missing = pagesCiSummary.buildSummary({ PAGES_CI_JOB: 'fixture', PAGES_CI_JOB_STATUS: 'failure' });
+    assert.ok(missing.includes('evidence not produced') && missing.includes('not recorded'), 'Pages CI summary explicitly reports missing evidence without inference');
+    fs.writeFileSync(httpPath, JSON.stringify({ schemaVersion: 2, kind: 'pages-http-smoke', status: 'passed', durationMs: 1, attemptCount: 1 }));
+    assert.throws(() => pagesCiSummary.buildSummary({ PAGES_HTTP_SMOKE_RESULT_FILE: httpPath }), /Unexpected pages-http-smoke evidence schema/, 'Pages CI summary rejects unknown result schemas');
+  } finally {
+    fs.rmSync(fixture, { recursive: true, force: true });
+  }
+}
 assert.ok(readme.includes('actions/cache@v5') && readme.includes('~/.cache/ms-playwright') && readme.includes('cache hit'), 'README documents the cross-job Playwright cache and validation boundary');
 assert.ok(toolBoundaries.includes('actions/cache@v5') && toolBoundaries.includes('~/.cache/ms-playwright') && toolBoundaries.includes('install-browser chromium'), 'TOOL_BOUNDARIES requires cache restore without skipping browser validation');
 assert.ok(staging.includes('pages-release-governance.contract.test.js') && staging.includes('.github/workflows/pages-deploy.yml') && staging.includes('run-pages-browser-smoke.sh'), 'STAGING_GROUPS keeps the Pages cache workflow, runner, and contract together');
