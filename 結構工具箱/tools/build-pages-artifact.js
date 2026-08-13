@@ -57,6 +57,8 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/tools/xlsx-print-visual.test.js',
   '結構工具箱/tools/xlsx-seal-verifier.js',
   '結構工具箱/tools/xlsx-seal-verifier.test.js',
+  '.github/pages-smoke/build-performance-trend.js',
+  '.github/pages-smoke/build-performance-trend.test.js',
 ]);
 
 const PRIVATE_PREFIXES = [

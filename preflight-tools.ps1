@@ -1512,6 +1512,8 @@ exit $LASTEXITCODE
 '@
 
 $pagesReleaseGovernanceContractCommand = @'
+node .github/pages-smoke/build-performance-trend.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node pages-release-governance.contract.test.js
 exit $LASTEXITCODE
 '@

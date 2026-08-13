@@ -138,7 +138,7 @@ function Get-RunEvidence {
     'api', "repos/$script:RepoName/actions/runs/$RunId/jobs?per_page=100"
   )
   $jobs = @($jobsPayload.jobs)
-  $expectedNames = @('build', 'deploy', 'live-smoke')
+  $expectedNames = @('build', 'deploy', 'live-smoke', 'performance-trend')
 
   $failedJobs = @($jobs | Where-Object {
     $_.status -eq 'completed' -and $_.conclusion -ne 'success'

@@ -284,3 +284,82 @@ jobs:
           PAGES_CI_JOB_STATUS: ${{ job.status }}
           PAGES_CI_EVIDENCE_FILE: ${{ runner.temp }}/pages-ci-evidence/live-smoke.json
         run: node .github/pages-smoke/write-ci-summary.js
+
+  performance-trend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+      - build
+      - live-smoke
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Download current build evidence
+        uses: actions/download-artifact@v8
+        with:
+          name: pages-ci-evidence-build
+          path: ${{ runner.temp }}/pages-ci-trend-input/${{ github.run_id }}
+
+      - name: Download current live evidence
+        uses: actions/download-artifact@v8
+        with:
+          name: pages-ci-evidence-live-smoke
+          path: ${{ runner.temp }}/pages-ci-trend-input/${{ github.run_id }}
+
+      - name: Download previous successful Pages evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pages-ci-trend-input"
+          gh run list \
+            --workflow pages-deploy.yml \
+            --status success \
+            --limit 20 \
+            --json databaseId \
+            --jq '.[].databaseId' | while read -r run_id; do
+              [[ -n "$run_id" && "$run_id" != "$GITHUB_RUN_ID" ]] || continue
+              artifact_names=$(gh api --paginate "repos/$GH_REPO/actions/runs/$run_id/artifacts" --jq '.artifacts[] | select(.expired == false) | .name')
+              build_count=$(grep -cx 'pages-ci-evidence-build' <<<"$artifact_names" || true)
+              live_count=$(grep -cx 'pages-ci-evidence-live-smoke' <<<"$artifact_names" || true)
+              if [[ "$build_count" -eq 0 && "$live_count" -eq 0 ]]; then
+                continue
+              fi
+              if [[ "$build_count" -ne 1 || "$live_count" -ne 1 ]]; then
+                echo "Run $run_id has incomplete or duplicate Pages CI evidence artifacts." >&2
+                exit 1
+              fi
+              run_root="$RUNNER_TEMP/pages-ci-trend-input/$run_id"
+              mkdir -p "$run_root"
+              gh run download "$run_id" -n pages-ci-evidence-build -D "$run_root"
+              gh run download "$run_id" -n pages-ci-evidence-live-smoke -D "$run_root"
+            done
+
+      - name: Prepare Pages CI performance trend
+        env:
+          PAGES_CI_TREND_ACTION: prepare
+          PAGES_CI_TREND_INPUT_DIR: ${{ runner.temp }}/pages-ci-trend-input
+          PAGES_CI_TREND_FILE: ${{ runner.temp }}/pages-ci-performance-trend/pages-ci-performance-trend.json
+          PAGES_CI_TREND_MAX_RUNS: 20
+        run: node .github/pages-smoke/build-performance-trend.js
+
+      - name: Upload Pages CI performance trend
+        uses: actions/upload-artifact@v6
+        with:
+          name: pages-ci-performance-trend
+          path: ${{ runner.temp }}/pages-ci-performance-trend/pages-ci-performance-trend.json
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Publish Pages CI performance trend
+        env:
+          PAGES_CI_TREND_ACTION: summary
+          PAGES_CI_TREND_FILE: ${{ runner.temp }}/pages-ci-performance-trend/pages-ci-performance-trend.json
+        run: node .github/pages-smoke/build-performance-trend.js

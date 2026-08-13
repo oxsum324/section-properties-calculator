@@ -144,6 +144,8 @@ const PRIVATE_PATHS = [
   '.github/pages-smoke/package-lock.json',
   '.github/pages-smoke/performance-budget.json',
   '.github/pages-smoke/write-ci-summary.js',
+  '.github/pages-smoke/build-performance-trend.js',
+  '.github/pages-smoke/build-performance-trend.test.js',
   '.github/workflows/pages-deploy.yml'
 ];
 
