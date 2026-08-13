@@ -28,6 +28,7 @@ const adr = readText('docs/adr/0001-page-only-report-readiness.md');
 const pagesWorkflow = readText('.github/workflows/pages-deploy.yml');
 const pagesSmokeRuntime = readJson('.github/pages-smoke/package.json');
 const pagesSmokeLock = readJson('.github/pages-smoke/package-lock.json');
+const pagesPerformanceBudget = readJson('.github/pages-smoke/performance-budget.json');
 const pagesCiSummary = require('./.github/pages-smoke/write-ci-summary.js');
 const pagesSmoke = readText('結構工具箱/tools/pages-live-smoke.js');
 const pagesBrowserSmoke = readText('結構工具箱/tools/pages-live-browser-smoke.js');
@@ -379,39 +380,85 @@ for (const name of ['node_modules/@playwright/cli', 'node_modules/playwright', '
 }
 assert.ok(pagesBrowserRunner.includes('node_modules/@playwright/cli/playwright-cli.js') && pagesBrowserRunner.includes('node_modules/terser/bin/terser'), 'Pages browser runner executes only the lockfile-installed local CLIs');
 assert.equal(pagesBrowserRunner.includes('npx '), false, 'Pages browser runner does not resolve floating npx packages at runtime');
-assert.equal((pagesWorkflow.match(/if: always\(\)/g) || []).length, 2, 'Pages build and live jobs always publish their CI evidence summary');
-assert.equal((pagesWorkflow.match(/run: node \.github\/pages-smoke\/write-ci-summary\.js/g) || []).length, 2, 'Pages workflow uses one summary implementation for staged and live evidence');
+assert.equal((pagesWorkflow.match(/if: always\(\)/g) || []).length, 6, 'Pages build and live jobs always prepare, upload, and summarize CI evidence');
+assert.equal((pagesWorkflow.match(/run: node \.github\/pages-smoke\/write-ci-summary\.js/g) || []).length, 4, 'Pages workflow uses one implementation to prepare and summarize staged and live evidence');
 assert.ok(pagesWorkflow.indexOf('- name: Upload GitHub Pages artifact') < pagesWorkflow.indexOf('- name: Publish build CI evidence'), 'Pages build summary runs after archive upload so job status covers the complete build');
 assert.equal((pagesWorkflow.match(/PAGES_NPM_CACHE_HIT: \${{ steps\.npm-cache\.outputs\.cache-hit }}/g) || []).length, 2, 'Pages summaries consume the explicit npm cache hit output');
 assert.equal((pagesWorkflow.match(/PAGES_BROWSER_CACHE_HIT: \${{ steps\.playwright-browser-cache\.outputs\.cache-hit }}/g) || []).length, 2, 'Pages summaries consume the explicit browser cache hit output');
 assert.equal((pagesWorkflow.match(/PAGES_RUNTIME_INSTALL_DURATION_MS: \${{ steps\.runtime-install\.outputs\.duration_ms }}/g) || []).length, 2, 'Pages summaries receive measured lockfile install durations');
 assert.equal((pagesWorkflow.match(/PAGES_HTTP_SMOKE_RESULT_FILE:/g) || []).length, 4, 'Pages HTTP smoke and both summaries share private result file locations');
 assert.equal((pagesWorkflow.match(/PAGES_BROWSER_SMOKE_RESULT_FILE:/g) || []).length, 4, 'Pages browser smoke and both summaries share private result file locations');
+assert.equal((pagesWorkflow.match(/PAGES_CI_ACTION: prepare/g) || []).length, 2, 'Pages workflow prepares one governed evidence receipt per browser job');
+assert.equal((pagesWorkflow.match(/PAGES_CI_ACTION: summary/g) || []).length, 2, 'Pages workflow summarizes only prepared evidence receipts');
+assert.equal((pagesWorkflow.match(/PAGES_CI_PERFORMANCE_BUDGET_FILE: \.github\/pages-smoke\/performance-budget\.json/g) || []).length, 2, 'Pages evidence uses the same versioned performance budget in both jobs');
+assert.equal((pagesWorkflow.match(/name: pages-ci-evidence-(?:build|live-smoke)/g) || []).length, 2, 'Pages workflow gives staged and live evidence unique artifact names');
+assert.equal((pagesWorkflow.match(/retention-days: 14/g) || []).length, 2, 'Pages CI evidence artifacts are retained for fourteen days');
+assert.equal((pagesWorkflow.match(/if-no-files-found: error/g) || []).length, 3, 'Pages site and both CI evidence uploads fail closed on missing files');
+assert.ok(pagesWorkflow.indexOf('- name: Upload build CI evidence') < pagesWorkflow.indexOf('- name: Publish build CI evidence'), 'Pages build summary job status includes its evidence upload outcome');
+assert.ok(pagesWorkflow.indexOf('- name: Upload live CI evidence') < pagesWorkflow.indexOf('- name: Publish live CI evidence'), 'Pages live summary job status includes its evidence upload outcome');
 assert.ok(pagesBrowserRunner.includes("kind: 'pages-browser-smoke'") && pagesBrowserRunner.includes('write_result failed') && pagesBrowserRunner.includes('write_result passed') && pagesBrowserRunner.includes('durationMs') && pagesBrowserRunner.includes('attemptCount'), 'Pages browser runner records success or failure timing and attempt evidence');
 assert.ok(pagesSmoke.includes("kind: 'pages-http-smoke'") && pagesSmoke.includes("status: 'failed'") && pagesSmoke.includes('durationMs') && pagesSmoke.includes('attemptCount'), 'Pages HTTP smoke records success or failure timing and attempt evidence');
 assert.ok(pagesSmoke.includes("'.github/pages-smoke/write-ci-summary.js'"), 'Pages private-boundary probe covers the CI summary source');
-assert.ok(readme.includes('GitHub Actions job summary') && readme.includes('不進 Pages artifact 或計算書'), 'README documents CI evidence visibility and report boundary');
-assert.ok(toolBoundaries.includes('summary source') && toolBoundaries.includes('不得猜測') && toolBoundaries.includes('不得進入 Pages、計算書或正式附件'), 'TOOL_BOUNDARIES fail-closes summary evidence and keeps it private');
+assert.ok(pagesSmoke.includes("'.github/pages-smoke/performance-budget.json'"), 'Pages private-boundary probe covers the CI performance budget');
+assert.ok(readme.includes('GitHub Actions job summary') && readme.includes('不進 Pages artifact、計算書或正式附件'), 'README documents CI evidence visibility and report boundary');
+assert.ok(toolBoundaries.includes('封閉 v1 JSON') && toolBoundaries.includes('上傳失敗不得忽略') && toolBoundaries.includes('不得進入 Pages、計算書或正式附件'), 'TOOL_BOUNDARIES fail-closes summary evidence and keeps it private');
+assert.equal(pagesPerformanceBudget.schemaVersion, 1, 'Pages performance budget uses schema v1');
+assert.equal(pagesPerformanceBudget.kind, 'pages-ci-performance-budget');
+assert.equal(pagesPerformanceBudget.mode, 'warning-only', 'Pages performance budget cannot block deployment');
+assert.equal(pagesPerformanceBudget.basis.sourceCommit, '14cddc1a820b01b45c402d487a016386058532cb');
+assert.deepEqual(pagesPerformanceBudget.basis.sampleRunIds, ['31683313569', '31683809298', '31683817481'], 'Pages performance budget preserves three same-commit warm-cache samples');
+assert.deepEqual(pagesPerformanceBudget.thresholdsMs, { runtimeInstall: 8000, httpSmoke: 90000, browserSmoke: 180000 }, 'Pages performance thresholds retain material headroom over observations');
 {
   const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'pages-ci-summary-contract-'));
   try {
     const httpPath = path.join(fixture, 'http.json');
     const browserPath = path.join(fixture, 'browser.json');
+    const budgetPath = path.join(fixture, 'budget.json');
+    const evidencePath = path.join(fixture, 'evidence.json');
     fs.writeFileSync(httpPath, JSON.stringify({ schemaVersion: 1, kind: 'pages-http-smoke', status: 'passed', durationMs: 1234, attemptCount: 1, fileCount: 318, routeCount: 43 }));
     fs.writeFileSync(browserPath, JSON.stringify({ schemaVersion: 1, kind: 'pages-browser-smoke', status: 'passed', durationMs: 5678, attemptCount: 1, routes: 43, checks: 86, issues: 0 }));
-    const summary = pagesCiSummary.buildSummary({
-      PAGES_CI_JOB: 'fixture', PAGES_CI_JOB_STATUS: 'success', GITHUB_SHA: 'a'.repeat(40),
+    fs.writeFileSync(budgetPath, JSON.stringify(pagesPerformanceBudget));
+    const environment = {
+      PAGES_CI_JOB: 'fixture', GITHUB_SHA: 'a'.repeat(40), GITHUB_RUN_ID: '123', GITHUB_RUN_ATTEMPT: '2',
       PAGES_RUNTIME_LOCK_DIGEST: 'b'.repeat(64), PAGES_NPM_CACHE_HIT: 'true', PAGES_BROWSER_CACHE_HIT: 'false',
       PAGES_RUNTIME_INSTALL_OUTCOME: 'success', PAGES_RUNTIME_INSTALL_DURATION_MS: '987',
       PAGES_HTTP_SMOKE_RESULT_FILE: httpPath, PAGES_BROWSER_SMOKE_RESULT_FILE: browserPath,
-    });
+      PAGES_CI_PERFORMANCE_BUDGET_FILE: budgetPath, PAGES_CI_EVIDENCE_FILE: evidencePath,
+    };
+    const evidence = pagesCiSummary.buildEvidence(environment);
+    const summary = pagesCiSummary.buildSummary(evidence, 'success');
     assert.ok(summary.includes('exact hit') && summary.includes('miss'), 'Pages CI summary distinguishes exact cache hits from misses');
     assert.ok(summary.includes('318 files; 43 routes') && summary.includes('86 checks; 0 issues'), 'Pages CI summary exposes bounded smoke evidence');
     assert.ok(summary.includes('1.2 s') && summary.includes('5.7 s') && summary.includes('987 ms'), 'Pages CI summary formats measured stage durations');
-    const missing = pagesCiSummary.buildSummary({ PAGES_CI_JOB: 'fixture', PAGES_CI_JOB_STATUS: 'failure' });
-    assert.ok(missing.includes('evidence not produced') && missing.includes('not recorded'), 'Pages CI summary explicitly reports missing evidence without inference');
+    assert.equal(evidence.performanceBudget.withinBudget, true, 'Pages CI evidence records an in-budget result');
+    assert.deepEqual(evidence.performanceBudget.warnings, []);
+    assert.equal(evidence.cache.npmContent, 'exact-hit');
+    assert.equal(evidence.cache.playwrightBrowser, 'miss');
+    assert.equal(Object.prototype.hasOwnProperty.call(evidence, 'jobStatus'), false, 'Prepared evidence does not freeze the pre-upload job status');
+    pagesCiSummary.prepareEvidence(environment);
+    assert.deepEqual(pagesCiSummary.readEvidence(evidencePath), evidence, 'Prepared Pages CI evidence round-trips through the closed receipt');
+    fs.writeFileSync(evidencePath, JSON.stringify({ ...evidence, unexpected: true }));
+    assert.throws(() => pagesCiSummary.readEvidence(evidencePath), /Unexpected Pages CI evidence fields/, 'Pages CI evidence rejects undeclared fields');
+    pagesCiSummary.prepareEvidence(environment);
+    const slowEnvironment = { ...environment, PAGES_RUNTIME_INSTALL_DURATION_MS: '8001' };
+    fs.writeFileSync(httpPath, JSON.stringify({ schemaVersion: 1, kind: 'pages-http-smoke', status: 'passed', durationMs: 90001, attemptCount: 1, fileCount: 318, routeCount: 43 }));
+    fs.writeFileSync(browserPath, JSON.stringify({ schemaVersion: 1, kind: 'pages-browser-smoke', status: 'passed', durationMs: 180001, attemptCount: 1, routes: 43, checks: 86, issues: 0 }));
+    const slowEvidence = pagesCiSummary.buildEvidence(slowEnvironment);
+    assert.equal(slowEvidence.performanceBudget.withinBudget, false, 'Pages CI evidence records performance warnings without changing smoke success');
+    assert.deepEqual(slowEvidence.performanceBudget.warnings.map(item => item.signal), ['runtimeInstall', 'httpSmoke', 'browserSmoke']);
+    assert.ok(pagesCiSummary.buildSummary(slowEvidence, 'success').includes('3 warning(s)'), 'Pages CI summary renders all non-blocking warnings');
+    const missing = pagesCiSummary.buildEvidence({ ...environment, PAGES_HTTP_SMOKE_RESULT_FILE: '', PAGES_BROWSER_SMOKE_RESULT_FILE: '' });
+    assert.equal(missing.httpSmoke.status, 'not-run', 'Pages CI evidence explicitly records absent HTTP evidence');
+    assert.equal(missing.browserSmoke.status, 'not-run', 'Pages CI evidence explicitly records absent browser evidence');
     fs.writeFileSync(httpPath, JSON.stringify({ schemaVersion: 2, kind: 'pages-http-smoke', status: 'passed', durationMs: 1, attemptCount: 1 }));
-    assert.throws(() => pagesCiSummary.buildSummary({ PAGES_HTTP_SMOKE_RESULT_FILE: httpPath }), /Unexpected pages-http-smoke evidence schema/, 'Pages CI summary rejects unknown result schemas');
+    assert.throws(() => pagesCiSummary.buildEvidence(environment), /Unexpected pages-http-smoke evidence schema/, 'Pages CI evidence rejects unknown result schemas');
+    const invalidBudget = { ...pagesPerformanceBudget, mode: 'blocking' };
+    fs.writeFileSync(budgetPath, JSON.stringify(invalidBudget));
+    assert.throws(() => pagesCiSummary.buildEvidence(environment), /Unexpected Pages CI performance budget schema/, 'Pages CI evidence rejects a blocking performance policy');
+    const duplicateRunBudget = JSON.parse(JSON.stringify(pagesPerformanceBudget));
+    duplicateRunBudget.basis.sampleRunIds[2] = duplicateRunBudget.basis.sampleRunIds[1];
+    fs.writeFileSync(budgetPath, JSON.stringify(duplicateRunBudget));
+    assert.throws(() => pagesCiSummary.buildEvidence(environment), /unique numeric IDs/, 'Pages CI evidence rejects duplicate baseline samples');
   } finally {
     fs.rmSync(fixture, { recursive: true, force: true });
   }

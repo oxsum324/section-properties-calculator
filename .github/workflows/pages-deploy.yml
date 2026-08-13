@@ -141,11 +141,11 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-      - name: Publish build CI evidence
+      - name: Prepare build CI evidence
         if: always()
         env:
+          PAGES_CI_ACTION: prepare
           PAGES_CI_JOB: build
-          PAGES_CI_JOB_STATUS: ${{ job.status }}
           PAGES_RUNTIME_LOCK_DIGEST: ${{ hashFiles('.github/pages-smoke/package-lock.json') }}
           PAGES_NPM_CACHE_HIT: ${{ steps.npm-cache.outputs.cache-hit }}
           PAGES_BROWSER_CACHE_HIT: ${{ steps.playwright-browser-cache.outputs.cache-hit }}
@@ -155,6 +155,26 @@ jobs:
           PAGES_BROWSER_SMOKE_OUTCOME: ${{ steps.staged-smoke.outcome }}
           PAGES_HTTP_SMOKE_RESULT_FILE: ${{ runner.temp }}/pages-http-smoke-result.json
           PAGES_BROWSER_SMOKE_RESULT_FILE: ${{ runner.temp }}/pages-browser-smoke-result.json
+          PAGES_CI_PERFORMANCE_BUDGET_FILE: .github/pages-smoke/performance-budget.json
+          PAGES_CI_EVIDENCE_FILE: ${{ runner.temp }}/pages-ci-evidence/build.json
+        run: node .github/pages-smoke/write-ci-summary.js
+
+      - name: Upload build CI evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: pages-ci-evidence-build
+          path: ${{ runner.temp }}/pages-ci-evidence/build.json
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Publish build CI evidence
+        if: always()
+        env:
+          PAGES_CI_ACTION: summary
+          PAGES_CI_JOB: build
+          PAGES_CI_JOB_STATUS: ${{ job.status }}
+          PAGES_CI_EVIDENCE_FILE: ${{ runner.temp }}/pages-ci-evidence/build.json
         run: node .github/pages-smoke/write-ci-summary.js
 
   deploy:
@@ -229,11 +249,11 @@ jobs:
           PAGES_BROWSER_SMOKE_RESULT_FILE: ${{ runner.temp }}/pages-browser-smoke-result.json
         run: bash "結構工具箱/tools/run-pages-browser-smoke.sh" "$PAGES_BASE_URL" "pages-live-browser"
 
-      - name: Publish live CI evidence
+      - name: Prepare live CI evidence
         if: always()
         env:
+          PAGES_CI_ACTION: prepare
           PAGES_CI_JOB: live-smoke
-          PAGES_CI_JOB_STATUS: ${{ job.status }}
           PAGES_RUNTIME_LOCK_DIGEST: ${{ hashFiles('.github/pages-smoke/package-lock.json') }}
           PAGES_NPM_CACHE_HIT: ${{ steps.npm-cache.outputs.cache-hit }}
           PAGES_BROWSER_CACHE_HIT: ${{ steps.playwright-browser-cache.outputs.cache-hit }}
@@ -243,4 +263,24 @@ jobs:
           PAGES_BROWSER_SMOKE_OUTCOME: ${{ steps.live-browser-smoke.outcome }}
           PAGES_HTTP_SMOKE_RESULT_FILE: ${{ runner.temp }}/pages-http-smoke-result.json
           PAGES_BROWSER_SMOKE_RESULT_FILE: ${{ runner.temp }}/pages-browser-smoke-result.json
+          PAGES_CI_PERFORMANCE_BUDGET_FILE: .github/pages-smoke/performance-budget.json
+          PAGES_CI_EVIDENCE_FILE: ${{ runner.temp }}/pages-ci-evidence/live-smoke.json
+        run: node .github/pages-smoke/write-ci-summary.js
+
+      - name: Upload live CI evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: pages-ci-evidence-live-smoke
+          path: ${{ runner.temp }}/pages-ci-evidence/live-smoke.json
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Publish live CI evidence
+        if: always()
+        env:
+          PAGES_CI_ACTION: summary
+          PAGES_CI_JOB: live-smoke
+          PAGES_CI_JOB_STATUS: ${{ job.status }}
+          PAGES_CI_EVIDENCE_FILE: ${{ runner.temp }}/pages-ci-evidence/live-smoke.json
         run: node .github/pages-smoke/write-ci-summary.js

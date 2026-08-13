@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "kind": "pages-ci-performance-budget",
+  "mode": "warning-only",
+  "basis": {
+    "sampleType": "same-commit warm-cache workflow_dispatch",
+    "sourceCommit": "14cddc1a820b01b45c402d487a016386058532cb",
+    "sampleRunIds": [
+      "31683313569",
+      "31683809298",
+      "31683817481"
+    ],
+    "observedJobSeconds": {
+      "build": [97, 97, 100],
+      "live-smoke": [94, 135, 96]
+    },
+    "observedStepSeconds": {
+      "runtimeInstall": [2, 2, 3, 2, 1, 2],
+      "stagedHttpAndBrowserSmoke": [77, 72, 77],
+      "liveHttpSmoke": [4, 24, 4],
+      "liveBrowserSmoke": [76, 88, 77]
+    },
+    "observedRuntimeInstallMs": [2081, 1828, 2646, 2133, 903, 1808]
+  },
+  "thresholdsMs": {
+    "runtimeInstall": 8000,
+    "httpSmoke": 90000,
+    "browserSmoke": 180000
+  }
+}

@@ -142,6 +142,7 @@ const PRIVATE_PATHS = [
   '覆工板/dump_xls.py',
   '.github/pages-smoke/package.json',
   '.github/pages-smoke/package-lock.json',
+  '.github/pages-smoke/performance-budget.json',
   '.github/pages-smoke/write-ci-summary.js',
   '.github/workflows/pages-deploy.yml'
 ];
