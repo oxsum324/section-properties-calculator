@@ -26,8 +26,8 @@
 ```powershell
 git add -- CONTEXT.md docs/adr/0001-page-only-report-readiness.md
 git add -- ".github/workflows/pages-deploy.yml" ".github/pages-smoke/package.json" ".github/pages-smoke/package-lock.json" ".github/pages-smoke/performance-budget.json" ".github/pages-smoke/write-ci-summary.js" ".github/pages-smoke/build-performance-trend.js" ".github/pages-smoke/build-performance-trend.test.js" ".github/workflows/pr-validation.yml" "run-pages-artifact-smoke.ps1" "push-pages-release.ps1" "push-pages-release.bat" "run-preflight-tools-ci.bat" "pages-release-governance.contract.test.js" "pr-validation.contract.test.js"
-git add -- "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/pages-live-browser-smoke.js" "結構工具箱/tools/run-pages-browser-smoke.sh" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/build-pages-clean-routes.js" "結構工具箱/tools/build-pages-deployment-manifest.js" "結構工具箱/tools/verify-pages-release-lineage.js" "結構工具箱/tools/tool-maturity-matrix.js"
-git add -- "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json"
+git add -- "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/pages-live-browser-smoke.js" "結構工具箱/tools/run-pages-browser-smoke.sh" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/build-pages-clean-routes.js" "結構工具箱/tools/build-pages-deployment-manifest.js" "結構工具箱/tools/verify-pages-release-lineage.js" "結構工具箱/tools/tool-maturity-matrix.js" "結構工具箱/tools/public-evidence-schema.test.js"
+git add -- "結構工具箱/assets/status/public-evidence-schema.js" "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json"
 ```
 
 下次同類變更需要人工 hunk review，或改隨後續「報告邊界 / 跨家族 contract」包一起 staging：

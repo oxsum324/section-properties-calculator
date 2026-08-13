@@ -93,12 +93,15 @@ const fixtureAttachmentPublicGroups = fixtureAttachmentGroups.map(({
   ...group
 }) => group);
 const fixtureAttachmentStatus = {
+  publicEvidenceSchemaVersion: 1,
   snapshotVersion: 1,
   kind: 'report-readiness-status',
   generatedAt: fixtureGeneratedAt,
   runId: fixtureReleaseRunId,
   pass: true,
   failureCount: 0,
+  sourcePath: 'output/audit/tool-maturity-matrix.json',
+  sourceHash: 'd'.repeat(64),
   renderedDeliveryEvidenceRunId: 'fixture-release',
   attachmentIntegrityRequired: 34,
   attachmentIntegrityActual: 34,
@@ -137,6 +140,7 @@ const fixtureAttachmentStatus = {
   deliveryFileIntegrityPass: true,
 };
 const fixturePublicPreflightStatus = {
+  publicEvidenceSchemaVersion: 1,
   snapshotVersion: 1,
   kind: 'preflight-summary',
   generatedAt: fixtureGeneratedAt,
@@ -149,10 +153,26 @@ const fixturePublicPreflightStatus = {
   sourceDirty: false,
   pass: true,
   failureCount: 0,
+  failedKeys: [],
   recordsCount: 82,
   passedCount: 82,
   postCheckCount: 3,
   postChecksPassedCount: 3,
+  postCheckFailures: [],
+  sourcePath: 'output/preflight/history/20260621-213000/preflight-summary.json',
+  sourceHash: 'e'.repeat(64),
+};
+const fixturePublicPlatformStatus = {
+  publicEvidenceSchemaVersion: 1,
+  snapshotVersion: 1,
+  kind: 'platform-status',
+  generatedAt: fixtureGeneratedAt,
+  runId: fixtureReleaseRunId,
+  pass: true,
+  failureCount: 0,
+  modules: ['steel', 'rc', 'core'],
+  sourcePath: 'output/audit/platform-status.json',
+  sourceHash: 'f'.repeat(64),
 };
 const fixtureDeploymentManifest = {
   schemaVersion: 3,
@@ -164,9 +184,16 @@ const fixtureDeploymentManifest = {
   runId: '123456789',
   runAttempt: 1,
   releaseEvidence: {
+    schemaVersion: 1,
     runId: fixtureReleaseRunId,
     generatedAt: fixtureGeneratedAt,
     sourceCommitSha: fixtureTestedSourceSha,
+    dimensions: [
+      { id: 'release', pass: true },
+      { id: 'steel', pass: true },
+      { id: 'rc', pass: true },
+      { id: 'delivery', pass: true },
+    ],
   },
 };
 const fixtureRvrBackupHealth = {
@@ -529,6 +556,7 @@ function preflightHistoryItem(overrides = {}) {
 }
 
 const fixtures = new Map(Object.entries({
+  '結構工具箱/assets/status/platform-status.json': fixturePublicPlatformStatus,
   '結構工具箱/assets/status/report-readiness-status.json': fixtureAttachmentStatus,
   '結構工具箱/assets/status/preflight-summary.json': fixturePublicPreflightStatus,
   'pages-deployment.json': fixtureDeploymentManifest,
@@ -2521,7 +2549,7 @@ function assertPublicEvidenceFailureState(state, label) {
 function assertPublicEvidenceTypeFailureState(state, label) {
   assert.equal(state.auditScope, 'public', `${label} type-invalid evidence remains in public scope`);
   assert.deepEqual(state.statusCards.map(card => card.badge), ['公開證據完整', '公開證據不足', '公開證據完整', '公開證據完整'], `${label} string completion count fails closed`);
-  assert.ok(state.statusCards[1].meta.includes('核可封印｜5 / 5'), `${label} type-invalid count remains transparent in display`);
+  assert.ok(state.statusCards[1].meta.includes('核可封印｜— / —'), `${label} type-invalid count is visibly unavailable rather than rendered as valid coverage`);
 }
 
 function assertDeploymentMismatchState(state, label) {

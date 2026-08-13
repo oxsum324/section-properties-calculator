@@ -149,6 +149,7 @@ function assertHistoryManifestShape(manifest, label) {
 
 const dashboardPath = toolboxFile('audit-dashboard.html');
 const dashboard = readText(dashboardPath);
+const publicEvidenceSchemaSource = readText(toolboxFile('assets/status/public-evidence-schema.js'));
 const rvrHealthLauncher = readText(repoFile('開挖擋土支撐/check_receiver_trust_backup_health.ps1'));
 const gsmMonitorLauncher = readText(repoFile('開挖擋土支撐/receiver_governance_archive_lifecycle_monitor.ps1'));
 const gsmMonitorTaskManager = readText(repoFile('開挖擋土支撐/manage_receiver_governance_archive_lifecycle_monitor_task.ps1'));
@@ -387,19 +388,17 @@ dashboardScripts.forEach((match, index) => {
   'resolveDataScope',
   'applyDataScope',
   'renderPublicStatusCard',
-  'coveragePair',
+  'publicCoverageText',
   'buildPublicEvidence',
-  "Number.isInteger(preflight?.recordsCount)",
-  "/^[0-9a-f]{40}$/i.test(String(preflight?.sourceCommitSha || ''))",
+  'PublicEvidenceSchema',
+  'validatePublicEvidenceBundle',
+  'public-evidence-schema.js',
   'renderPublicResources',
   "dataScope.scope === 'public'",
   '正式 release 總覽',
   '鋼構正式附件證據',
   'RC 正式附件證據',
   '風震與跨家族交付證據',
-  'steelResultReconciliationRequired',
-  'rcStandaloneFormalHtmlPrintRequired',
-  'deliveryFileIntegrityVerified',
   '僅限本機工作區',
   'local-diagnostic-section',
   'body[data-audit-scope="public"]',
@@ -446,6 +445,14 @@ dashboardScripts.forEach((match, index) => {
   'JSON hash',
   '來源'
 ].forEach(needle => assertIncludes(dashboard, needle, 'audit dashboard preflight history'));
+
+[
+  'steelResultReconciliationRequired',
+  'rcStandaloneFormalHtmlPrintRequired',
+  'deliveryFileIntegrityVerified',
+  'publicEvidenceSchemaVersion',
+  'readiness.releaseAlignment',
+].forEach(needle => assertIncludes(publicEvidenceSchemaSource, needle, 'shared public evidence schema'));
 
 [
   'DashboardStatusPath',

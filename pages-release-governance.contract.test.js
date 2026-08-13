@@ -304,7 +304,20 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
     fs.mkdirSync(path.join(fixtureRoot, '結構工具箱', 'assets', 'status'), { recursive: true });
     fs.writeFileSync(path.join(fixtureRoot, 'index.html'), '<!doctype html><title>fixture</title>', 'utf8');
     fs.writeFileSync(path.join(fixtureRoot, 'assets', 'app.js'), 'console.log("fixture");', 'utf8');
+    fs.writeFileSync(path.join(fixtureRoot, '結構工具箱', 'assets', 'status', 'platform-status.json'), JSON.stringify({
+      publicEvidenceSchemaVersion: 1,
+      snapshotVersion: 1,
+      kind: 'platform-status',
+      generatedAt: '2026-07-19 00:00:00',
+      runId: '20260719-000000',
+      pass: true,
+      failureCount: 0,
+      modules: ['steel', 'rc', 'core'],
+      sourcePath: 'output/audit/platform-status.json',
+      sourceHash: 'a'.repeat(64),
+    }), 'utf8');
     fs.writeFileSync(path.join(fixtureRoot, '結構工具箱', 'assets', 'status', 'preflight-summary.json'), JSON.stringify({
+      publicEvidenceSchemaVersion: 1,
       snapshotVersion: 1,
       kind: 'preflight-summary',
       generatedAt: '2026-07-19 00:00:00',
@@ -315,18 +328,55 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
       sourceDirty: false,
       pass: true,
       failureCount: 0,
+      failedKeys: [],
       recordsCount: 82,
       passedCount: 82,
       postCheckCount: 3,
       postChecksPassedCount: 3,
+      postCheckFailures: [],
       sourceCommitSha: 'c'.repeat(40),
+      sourcePath: 'output/preflight/history/20260719-000000/preflight-summary.json',
+      sourceHash: 'b'.repeat(64),
     }), 'utf8');
     fs.writeFileSync(path.join(fixtureRoot, '結構工具箱', 'assets', 'status', 'report-readiness-status.json'), JSON.stringify({
+      publicEvidenceSchemaVersion: 1,
       snapshotVersion: 1,
       kind: 'report-readiness-status',
+      generatedAt: '2026-07-19 00:00:00',
       runId: '20260719-000000',
       pass: true,
       failureCount: 0,
+      sourcePath: 'output/audit/tool-maturity-matrix.json',
+      sourceHash: 'd'.repeat(64),
+      steelResultReconciliationRequired: 5,
+      steelResultReconciliationComplete: 5,
+      steelResultReconciliationPass: true,
+      steelHtmlContentSealRequired: 5,
+      steelHtmlContentSealComplete: 5,
+      steelHtmlContentSealPass: true,
+      steelHtmlApprovalSealRequired: 5,
+      steelHtmlApprovalSealComplete: 5,
+      steelHtmlApprovalSealPass: true,
+      rcResultReconciliationRequired: 34,
+      rcResultReconciliationComplete: 34,
+      rcResultReconciliationPass: true,
+      rcStandaloneFormalHtmlPrintRequired: 34,
+      rcStandaloneFormalHtmlPrintComplete: 34,
+      rcStandaloneFormalHtmlPrintPass: true,
+      rcSourceReportPackageRequired: 32,
+      rcSourceReportPackageComplete: 32,
+      rcSourceReportPackagePass: true,
+      formalResultReconciliationRequired: 14,
+      formalResultReconciliationComplete: 14,
+      formalResultReconciliationPass: true,
+      localQuickResultReconciliationRequired: 3,
+      localQuickResultReconciliationComplete: 3,
+      localQuickResultReconciliationPass: true,
+      renderedDeliveryEvidenceRequired: 31,
+      renderedDeliveryEvidenceComplete: 31,
+      deliveryFileIntegrityRequired: 139,
+      deliveryFileIntegrityVerified: 139,
+      deliveryFileIntegrityPass: true,
     }), 'utf8');
     fs.writeFileSync(path.join(fixtureRoot, '.nojekyll'), '', 'utf8');
     const { buildDeploymentManifest } = require(deploymentManifestBuilderPath);
@@ -342,9 +392,20 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
     const first = buildDeploymentManifest(options);
     const second = buildDeploymentManifest({ ...options, generatedAt: '2026-07-19T00:01:00.000Z' });
     assert.equal(first.schemaVersion, 3, 'deployment manifest uses the release-bound closed file-inventory schema');
-    assert.equal(first.fileCount, 4, 'deployment manifest includes public release snapshots while excluding hidden files and itself');
-    assert.deepEqual(first.files.map(file => file.path), ['assets/app.js', 'index.html', '結構工具箱/assets/status/preflight-summary.json', '結構工具箱/assets/status/report-readiness-status.json'], 'deployment manifest publishes the complete ordinal file inventory');
-    assert.deepEqual(first.releaseEvidence, { runId: '20260719-000000', generatedAt: '2026-07-19 00:00:00', sourceCommitSha: 'c'.repeat(40) }, 'deployment manifest binds formal release identity');
+    assert.equal(first.fileCount, 5, 'deployment manifest includes all three public release snapshots while excluding hidden files and itself');
+    assert.deepEqual(first.files.map(file => file.path), ['assets/app.js', 'index.html', '結構工具箱/assets/status/platform-status.json', '結構工具箱/assets/status/preflight-summary.json', '結構工具箱/assets/status/report-readiness-status.json'], 'deployment manifest publishes the complete ordinal file inventory');
+    assert.deepEqual(first.releaseEvidence, {
+      schemaVersion: 1,
+      runId: '20260719-000000',
+      generatedAt: '2026-07-19 00:00:00',
+      sourceCommitSha: 'c'.repeat(40),
+      dimensions: [
+        { id: 'release', pass: true },
+        { id: 'steel', pass: true },
+        { id: 'rc', pass: true },
+        { id: 'delivery', pass: true },
+      ],
+    }, 'deployment manifest binds formal release identity and all public evidence dimensions');
     PagesLiveSmoke.validateDeploymentReleaseEvidence(first.releaseEvidence);
     assert.equal(first.files.reduce((sum, file) => sum + file.bytes, 0), first.totalBytes, 'deployment manifest file inventory reproduces total bytes');
     PagesLiveSmoke.validateManifestFileInventory(first);
@@ -370,12 +431,12 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
     const preflightPath = path.join(fixtureRoot, '結構工具箱', 'assets', 'status', 'preflight-summary.json');
     const preflightFixture = JSON.parse(fs.readFileSync(preflightPath, 'utf8'));
     fs.writeFileSync(preflightPath, JSON.stringify({ ...preflightFixture, quick: true }), 'utf8');
-    assert.throws(() => buildDeploymentManifest(options), /not complete formal release evidence/, 'deployment manifest rejects quick evidence');
+    assert.throws(() => buildDeploymentManifest(options), /public evidence bundle failed schema.*preflight\.formalRelease/, 'deployment manifest rejects quick evidence');
     fs.writeFileSync(preflightPath, JSON.stringify(preflightFixture), 'utf8');
     const readinessPath = path.join(fixtureRoot, '結構工具箱', 'assets', 'status', 'report-readiness-status.json');
     const readinessFixture = JSON.parse(fs.readFileSync(readinessPath, 'utf8'));
     fs.writeFileSync(readinessPath, JSON.stringify({ ...readinessFixture, runId: '20260719-000001' }), 'utf8');
-    assert.throws(() => buildDeploymentManifest(options), /does not match the formal release run/, 'deployment manifest rejects mismatched report readiness evidence');
+    assert.throws(() => buildDeploymentManifest(options), /public evidence bundle failed schema.*readiness\.releaseAlignment/, 'deployment manifest rejects mismatched report readiness evidence');
   } finally {
     fs.rmSync(fixtureRoot, { recursive: true, force: true });
   }

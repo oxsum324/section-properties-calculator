@@ -2,6 +2,7 @@ const assert = require('assert');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const publicEvidenceSchema = require('../assets/status/public-evidence-schema.js');
 
 const DEFAULT_BASE_URL = 'https://oxsum324.github.io/section-properties-calculator/';
 const TRANSIENT_NETWORK_ERROR_CODES = new Set([
@@ -282,11 +283,18 @@ function validateManifestFileInventory(manifest) {
 
 function validateDeploymentReleaseEvidence(releaseEvidence) {
   assert.ok(releaseEvidence && typeof releaseEvidence === 'object' && !Array.isArray(releaseEvidence), 'Pages deployment manifest releaseEvidence object');
-  assert.deepEqual(Object.keys(releaseEvidence).sort(), ['generatedAt', 'runId', 'sourceCommitSha'], 'Pages deployment manifest releaseEvidence closed schema');
+  assert.deepEqual(Object.keys(releaseEvidence).sort(), ['dimensions', 'generatedAt', 'runId', 'schemaVersion', 'sourceCommitSha'], 'Pages deployment manifest releaseEvidence closed schema');
+  assert.equal(releaseEvidence.schemaVersion, 1, 'Pages deployment manifest public evidence schema version');
   assert.match(releaseEvidence.runId, /^\d{8}-\d{6}$/, 'Pages deployment manifest releaseEvidence runId');
   assert.match(releaseEvidence.generatedAt, /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}/, 'Pages deployment manifest releaseEvidence generatedAt');
   assert.ok(Number.isFinite(Date.parse(releaseEvidence.generatedAt.replace(' ', 'T'))), 'Pages deployment manifest releaseEvidence generatedAt parseable');
   assert.match(releaseEvidence.sourceCommitSha, /^[0-9a-f]{40}$/i, 'Pages deployment manifest releaseEvidence sourceCommitSha');
+  assert.deepEqual(releaseEvidence.dimensions, [
+    { id: 'release', pass: true },
+    { id: 'steel', pass: true },
+    { id: 'rc', pass: true },
+    { id: 'delivery', pass: true },
+  ], 'Pages deployment manifest binds all four complete public evidence dimensions');
 }
 
 function artifactFileUrl(base, relativePath, runId) {
@@ -358,6 +366,7 @@ async function assertDeploymentManifest(base) {
 }
 
 function assertStatusPayload(payload, label) {
+  assert.equal(payload.publicEvidenceSchemaVersion, 1, `${label} publicEvidenceSchemaVersion`);
   assert.equal(payload.snapshotVersion, 1, `${label} snapshotVersion`);
   assert.equal(typeof payload.kind, 'string', `${label} kind`);
   assert.equal(typeof payload.generatedAt, 'string', `${label} generatedAt`);
@@ -581,6 +590,13 @@ async function main() {
   assert.equal(reportReadinessStatus.label, '報告閱讀狀態總覽', 'report readiness status label');
   assert.equal(reportReadinessStatus.pass, true, 'report readiness status pass');
   assert.equal(reportReadinessStatus.runId, deploymentManifest.releaseEvidence.runId, 'report readiness run matches deployment release evidence');
+  const publicEvidenceValidation = publicEvidenceSchema.validatePublicEvidenceBundle({
+    platformStatus,
+    preflightStatus,
+    reportReadinessStatus,
+  });
+  assert.equal(publicEvidenceValidation.pass, true, `published status bundle satisfies public evidence schema v${publicEvidenceSchema.SCHEMA_VERSION}: ${publicEvidenceValidation.errors.join(', ')}`);
+  assert.deepEqual(publicEvidenceValidation.dimensions, deploymentManifest.releaseEvidence.dimensions, 'deployment manifest dimensions match independently revalidated public snapshots');
   assert.equal(Number.isInteger(reportReadinessStatus.pageOnlyBoundaryRequired), true, 'report readiness required integer');
   assert.equal(reportReadinessStatus.pageOnlyBoundaryComplete, reportReadinessStatus.pageOnlyBoundaryRequired, 'report readiness status fully covered');
   assert.equal(reportReadinessStatus.pageOnlyBoundaryIssueCount, 0, 'report readiness status issues empty');

@@ -953,6 +953,7 @@
   </div>
 </div>
 
+<script src="./assets/status/public-evidence-schema.js"></script>
 <script>
   (function () {
     let autoRefreshTimer = null;
@@ -2700,12 +2701,21 @@
       freshnessHintNode.textContent = `正式 release ${preflight.runId} 約 ${ageDays} 日前；受測來源 ${shortSha(preflight.sourceCommitSha)}。時間是重驗提醒，不會取代身分對齊。`;
 
       const releaseEvidence = manifest?.releaseEvidence;
+      const expectedEvidenceDimensions = window.PublicEvidenceSchema?.DIMENSION_IDS || [];
+      const manifestEvidenceDimensionsValid = Array.isArray(releaseEvidence?.dimensions)
+        && releaseEvidence.dimensions.length === expectedEvidenceDimensions.length
+        && expectedEvidenceDimensions.every((id, index) => (
+          releaseEvidence.dimensions[index]?.id === id
+          && releaseEvidence.dimensions[index]?.pass === true
+        ));
       const manifestValid = manifest?.schemaVersion === 3
         && manifest?.kind === 'pages-deployment'
         && /^[0-9a-f]{40}$/i.test(String(manifest.commitSha || ''))
         && manifest.sourceDirty === false
         && Boolean(String(manifest.runId || ''))
         && releaseEvidence
+        && releaseEvidence.schemaVersion === window.PublicEvidenceSchema?.SCHEMA_VERSION
+        && manifestEvidenceDimensionsValid
         && String(releaseEvidence.runId || '') === String(preflight.runId || '')
         && String(releaseEvidence.generatedAt || '') === String(preflight.generatedAt || '')
         && String(releaseEvidence.sourceCommitSha || '').toLowerCase() === String(preflight.sourceCommitSha || '').toLowerCase()
@@ -2843,13 +2853,10 @@
       `;
     }
 
-    function coveragePair(payload, requiredKey, completeKey, passKey) {
-      const required = payload?.[requiredKey];
-      const complete = payload?.[completeKey];
-      const declaredPass = passKey ? payload?.[passKey] === true : true;
-      const valid = Number.isInteger(required) && required > 0
-        && Number.isInteger(complete) && complete >= 0 && complete <= required;
-      return { required, complete, valid, pass: valid && complete === required && declaredPass };
+    function publicCoverageText(metric) {
+      const complete = Number.isInteger(metric?.complete) ? metric.complete : '—';
+      const required = Number.isInteger(metric?.required) ? metric.required : '—';
+      return `${complete} / ${required}`;
     }
 
     function renderPublicStatusCard(node, evidence) {
@@ -2879,78 +2886,47 @@
     }
 
     function buildPublicEvidence(platformStatus, preflight, readiness) {
-      const preflightValid = Boolean(
-        preflight?.snapshotVersion === 1
-        && preflight?.kind === 'preflight-summary'
-        && preflight?.quick === false
-        && preflight?.forcePlatformAudit === true
-        && preflight?.forceSlowChecks === true
-        && preflight?.sourceDirty === false
-        && preflight?.pass === true
-        && String(preflight?.runId || '').length > 0
-        && /^[0-9a-f]{40}$/i.test(String(preflight?.sourceCommitSha || ''))
-        && preflight?.failureCount === 0
-        && Number.isInteger(preflight?.recordsCount)
-        && preflight.recordsCount > 0
-        && preflight?.passedCount === preflight.recordsCount
-        && Number.isInteger(preflight?.postCheckCount)
-        && preflight.postCheckCount > 0
-        && preflight?.postChecksPassedCount === preflight.postCheckCount
-      );
-      const platformValid = Boolean(
-        platformStatus?.snapshotVersion === 1
-        && platformStatus?.kind === 'platform-status'
-        && platformStatus?.pass === true
-        && platformStatus?.failureCount === 0
-        && ['steel', 'rc', 'core'].every((key) => platformStatus?.modules?.includes(key))
-      );
-      const readinessValid = Boolean(
-        readiness?.snapshotVersion === 1
-        && readiness?.kind === 'report-readiness-status'
-        && readiness?.pass === true
-        && readiness?.failureCount === 0
-        && String(readiness?.runId || '') === String(preflight?.runId || '')
-      );
-      const steelResult = coveragePair(readiness, 'steelResultReconciliationRequired', 'steelResultReconciliationComplete', 'steelResultReconciliationPass');
-      const steelContentSeal = coveragePair(readiness, 'steelHtmlContentSealRequired', 'steelHtmlContentSealComplete', 'steelHtmlContentSealPass');
-      const steelApprovalSeal = coveragePair(readiness, 'steelHtmlApprovalSealRequired', 'steelHtmlApprovalSealComplete', 'steelHtmlApprovalSealPass');
-      const rcResult = coveragePair(readiness, 'rcResultReconciliationRequired', 'rcResultReconciliationComplete', 'rcResultReconciliationPass');
-      const rcPrint = coveragePair(readiness, 'rcStandaloneFormalHtmlPrintRequired', 'rcStandaloneFormalHtmlPrintComplete', 'rcStandaloneFormalHtmlPrintPass');
-      const rcPackage = coveragePair(readiness, 'rcSourceReportPackageRequired', 'rcSourceReportPackageComplete', 'rcSourceReportPackagePass');
-      const formalResult = coveragePair(readiness, 'formalResultReconciliationRequired', 'formalResultReconciliationComplete', 'formalResultReconciliationPass');
-      const localQuickResult = coveragePair(readiness, 'localQuickResultReconciliationRequired', 'localQuickResultReconciliationComplete', 'localQuickResultReconciliationPass');
-      const rendered = coveragePair(readiness, 'renderedDeliveryEvidenceRequired', 'renderedDeliveryEvidenceComplete');
-      const delivery = coveragePair(readiness, 'deliveryFileIntegrityRequired', 'deliveryFileIntegrityVerified', 'deliveryFileIntegrityPass');
+      const validation = window.PublicEvidenceSchema?.validatePublicEvidenceBundle({
+        platformStatus,
+        preflightStatus: preflight,
+        reportReadinessStatus: readiness,
+      }) || { dimensions: [], metrics: {} };
+      const dimensionPass = id => validation.dimensions.find(item => item.id === id)?.pass === true;
+      const {
+        steelResult = {}, steelContentSeal = {}, steelApprovalSeal = {},
+        rcResult = {}, rcPrint = {}, rcPackage = {}, formalResult = {},
+        localQuickResult = {}, rendered = {}, delivery = {},
+      } = validation.metrics;
       const runId = preflight?.runId || '-';
       const generatedAt = preflight?.generatedAt || readiness?.generatedAt || '-';
       return [
         {
           title: '正式 release 總覽',
-          pass: preflightValid && platformValid,
+          pass: dimensionPass('release'),
           summary: '正式放行、全平台巡檢與 release 後置檢查的公開身分摘要。',
           meta: [`release｜${runId}`, `正式檢查｜${preflight?.passedCount ?? '-'} / ${preflight?.recordsCount ?? '-'}`, `後置檢查｜${preflight?.postChecksPassedCount ?? '-'} / ${preflight?.postCheckCount ?? '-'}`, `時間｜${generatedAt}`],
           preview: `正式 release ${runId}\n全平台模組：steel / rc / core\n正式檢查：${preflight?.passedCount ?? '-'} / ${preflight?.recordsCount ?? '-'}\n後置檢查：${preflight?.postChecksPassedCount ?? '-'} / ${preflight?.postCheckCount ?? '-'}\n細項、歷程與 log 僅限本機工作區。`,
         },
         {
           title: '鋼構正式附件證據',
-          pass: readinessValid && steelResult.pass && steelContentSeal.pass && steelApprovalSeal.pass,
+          pass: dimensionPass('steel'),
           summary: '鋼構結果重算及正式 HTML 內容／核可雙封印的公開完成數。',
-          meta: [`結果鏈｜${steelResult.complete || 0} / ${steelResult.required || 0}`, `內容封印｜${steelContentSeal.complete || 0} / ${steelContentSeal.required || 0}`, `核可封印｜${steelApprovalSeal.complete || 0} / ${steelApprovalSeal.required || 0}`],
-          preview: `鋼構正式計算書結果鏈：${steelResult.complete || 0} / ${steelResult.required || 0}\nHTML 內容封印：${steelContentSeal.complete || 0} / ${steelContentSeal.required || 0}\nHTML 核可封印：${steelApprovalSeal.complete || 0} / ${steelApprovalSeal.required || 0}\n案件、輸入、指紋與封印值僅限本機工作區。`,
+          meta: [`結果鏈｜${publicCoverageText(steelResult)}`, `內容封印｜${publicCoverageText(steelContentSeal)}`, `核可封印｜${publicCoverageText(steelApprovalSeal)}`],
+          preview: `鋼構正式計算書結果鏈：${publicCoverageText(steelResult)}\nHTML 內容封印：${publicCoverageText(steelContentSeal)}\nHTML 核可封印：${publicCoverageText(steelApprovalSeal)}\n案件、輸入、指紋與封印值僅限本機工作區。`,
         },
         {
           title: 'RC 正式附件證據',
-          pass: readinessValid && rcResult.pass && rcPrint.pass && rcPackage.pass,
+          pass: dimensionPass('rc'),
           summary: 'RC 結果重現、核可 HTML 獨立列印及來源／報告配對的公開完成數。',
-          meta: [`結果鏈｜${rcResult.complete || 0} / ${rcResult.required || 0}`, `獨立列印｜${rcPrint.complete || 0} / ${rcPrint.required || 0}`, `來源／報告組包｜${rcPackage.complete || 0} / ${rcPackage.required || 0}`],
-          preview: `RC 正式計算書結果鏈：${rcResult.complete || 0} / ${rcResult.required || 0}\n核可 HTML 獨立列印：${rcPrint.complete || 0} / ${rcPrint.required || 0}\n來源／正式 HTML 組包：${rcPackage.complete || 0} / ${rcPackage.required || 0}\n案件、來源資料與逐檔證據僅限本機工作區。`,
+          meta: [`結果鏈｜${publicCoverageText(rcResult)}`, `獨立列印｜${publicCoverageText(rcPrint)}`, `來源／報告組包｜${publicCoverageText(rcPackage)}`],
+          preview: `RC 正式計算書結果鏈：${publicCoverageText(rcResult)}\n核可 HTML 獨立列印：${publicCoverageText(rcPrint)}\n來源／正式 HTML 組包：${publicCoverageText(rcPackage)}\n案件、來源資料與逐檔證據僅限本機工作區。`,
         },
         {
           title: '風震與跨家族交付證據',
-          pass: readinessValid && formalResult.pass && localQuickResult.pass && rendered.pass && delivery.pass,
+          pass: dimensionPass('delivery'),
           summary: '風震、局部快算、實際交付物渲染及檔案完整性的公開完成數。',
-          meta: [`風震結果鏈｜${formalResult.complete || 0} / ${formalResult.required || 0}`, `局部快算｜${localQuickResult.complete || 0} / ${localQuickResult.required || 0}`, `渲染交付｜${rendered.complete || 0} / ${rendered.required || 0}`, `檔案完整性｜${delivery.complete || 0} / ${delivery.required || 0}`],
-          preview: `風力／地震結果鏈：${formalResult.complete || 0} / ${formalResult.required || 0}\n局部快算結果鏈：${localQuickResult.complete || 0} / ${localQuickResult.required || 0}\n實際交付物渲染：${rendered.complete || 0} / ${rendered.required || 0}\n交付檔案完整性：${delivery.complete || 0} / ${delivery.required || 0}\n逐檔清冊、雜湊與工程資料僅限本機工作區。`,
+          meta: [`風震結果鏈｜${publicCoverageText(formalResult)}`, `局部快算｜${publicCoverageText(localQuickResult)}`, `渲染交付｜${publicCoverageText(rendered)}`, `檔案完整性｜${publicCoverageText(delivery)}`],
+          preview: `風力／地震結果鏈：${publicCoverageText(formalResult)}\n局部快算結果鏈：${publicCoverageText(localQuickResult)}\n實際交付物渲染：${publicCoverageText(rendered)}\n交付檔案完整性：${publicCoverageText(delivery)}\n逐檔清冊、雜湊與工程資料僅限本機工作區。`,
         },
       ];
     }

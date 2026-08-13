@@ -3,6 +3,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const path = require('path');
 const { runBenchmarks } = require('./independent-engineering-benchmarks.js');
+const publicEvidenceSchema = require('../assets/status/public-evidence-schema.js');
 
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
@@ -1536,6 +1537,7 @@ function compactNumber(value) {
 function buildHomepagePlatformStatus(payload) {
   if (!payload) return null;
   return {
+    publicEvidenceSchemaVersion: publicEvidenceSchema.SCHEMA_VERSION,
     snapshotVersion: 1,
     kind: 'platform-status',
     generatedAt: String(payload.generatedAt || ''),
@@ -1622,6 +1624,7 @@ function resolveHomepagePreflightSource() {
 function buildHomepagePreflightStatus(payload, sourceFilePath, sourcePath) {
   if (!payload) return null;
   return {
+    publicEvidenceSchemaVersion: publicEvidenceSchema.SCHEMA_VERSION,
     snapshotVersion: 1,
     kind: 'preflight-summary',
     generatedAt: String(payload.generatedAt || ''),
@@ -2517,6 +2520,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
   const independentBenchmarkIssueCount = compactNumber(independentBenchmarkSummary.issueCount);
   details.push(`獨立工程基準：${independentBenchmarkVerified} / ${independentBenchmarkEligible} 個正式工具已具獨立封閉算例。既有重播、結果鏈與家族治理證據仍屬不同證據層級，不取代設計者複核。`);
   return {
+    publicEvidenceSchemaVersion: publicEvidenceSchema.SCHEMA_VERSION,
     snapshotVersion: 1,
     kind: 'report-readiness-status',
     generatedAt: String(matrixPayload.generatedAt || ''),
@@ -2784,6 +2788,12 @@ function writeHomepageStatusSnapshots(matrixPayload = null, matrixSourceHash = '
   const preflightStatus = buildHomepagePreflightStatus(preflightSource.payload, preflightSource.filePath, preflightSource.sourcePath);
   const renderedDeliveryEvidence = resolveRenderedDeliveryEvidenceSource();
   const reportReadinessStatus = buildHomepageReportReadinessStatus(matrixPayload, matrixSourceHash || sourceHashIfExists(jsonOutputPath), preflightStatus, preflightSource.payload, renderedDeliveryEvidence);
+  const publicEvidenceResult = publicEvidenceSchema.validatePublicEvidenceBundle({
+    platformStatus,
+    preflightStatus,
+    reportReadinessStatus,
+  });
+  assert.equal(publicEvidenceResult.pass, true, `homepage public evidence schema v${publicEvidenceSchema.SCHEMA_VERSION}: ${publicEvidenceResult.errors.join(', ')}`);
   fs.mkdirSync(homepageStatusDir, { recursive: true });
   if (platformStatus) {
     fs.writeFileSync(homepagePlatformStatusPath, `${JSON.stringify(platformStatus, null, 2)}\n`, 'utf8');
@@ -2813,6 +2823,7 @@ function displayPath(filePath) {
 function assertHomepageStatusSnapshot(filePath, expectedKind, expectedSourcePath, sourcePath, options = {}) {
   assert.ok(fileExists(filePath), `homepage status snapshot exists: ${displayPath(filePath)}`);
   const payload = readJson(filePath);
+  assert.equal(payload.publicEvidenceSchemaVersion, publicEvidenceSchema.SCHEMA_VERSION, `${expectedKind} public evidence schema version`);
   assert.equal(payload.snapshotVersion, 1, `${expectedKind} snapshot version`);
   assert.equal(payload.kind, expectedKind, `${expectedKind} snapshot kind`);
   assert.equal(typeof payload.generatedAt, 'string', `${expectedKind} generatedAt string`);

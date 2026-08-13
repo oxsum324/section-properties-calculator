@@ -1482,6 +1482,11 @@ node 結構工具箱/tools/release-readiness.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$publicEvidenceSchemaContractCommand = @'
+node 結構工具箱/tools/public-evidence-schema.test.js
+exit $LASTEXITCODE
+'@
+
 $independentEngineeringBenchmarksCommand = @'
 node 結構工具箱/tools/independent-engineering-benchmarks.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -2609,6 +2614,13 @@ $checks = @(
     label = "Release readiness governance contract"
     workdir = $root
     command = $releaseReadinessContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "public-evidence-schema-contract"
+    label = "Versioned public evidence schema contract"
+    workdir = $root
+    command = $publicEvidenceSchemaContractCommand
     slow = $false
   },
   [pscustomobject]@{

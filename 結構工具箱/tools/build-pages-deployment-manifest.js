@@ -1,10 +1,12 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const publicEvidenceSchema = require('../assets/status/public-evidence-schema.js');
 
 const MANIFEST_FILE = 'pages-deployment.json';
 const PREFLIGHT_STATUS_FILE = '結構工具箱/assets/status/preflight-summary.json';
 const REPORT_READINESS_STATUS_FILE = '結構工具箱/assets/status/report-readiness-status.json';
+const PLATFORM_STATUS_FILE = '結構工具箱/assets/status/platform-status.json';
 
 function argValue(name) {
   const index = process.argv.indexOf(name);
@@ -79,35 +81,24 @@ function readJsonFile(siteRoot, relativePath) {
 }
 
 function releaseEvidenceIdentity(siteRoot) {
+  const platformStatus = readJsonFile(siteRoot, PLATFORM_STATUS_FILE);
   const preflight = readJsonFile(siteRoot, PREFLIGHT_STATUS_FILE);
   const reportReadiness = readJsonFile(siteRoot, REPORT_READINESS_STATUS_FILE);
-  const generatedAt = String(preflight.generatedAt || '');
-  const sourceCommitSha = String(preflight.sourceCommitSha || '').toLowerCase();
-  const runId = String(preflight.runId || '');
-  const generatedAtMs = Date.parse(generatedAt.replace(' ', 'T'));
-  const formalRelease = preflight.snapshotVersion === 1
-    && preflight.kind === 'preflight-summary'
-    && preflight.quick === false
-    && preflight.forcePlatformAudit === true
-    && preflight.forceSlowChecks === true
-    && preflight.sourceDirty === false
-    && preflight.pass === true
-    && preflight.failureCount === 0
-    && Number.isInteger(preflight.recordsCount)
-    && preflight.recordsCount > 0
-    && preflight.passedCount === preflight.recordsCount
-    && Number.isInteger(preflight.postCheckCount)
-    && preflight.postCheckCount > 0
-    && preflight.postChecksPassedCount === preflight.postCheckCount
-    && /^\d{8}-\d{6}$/.test(runId)
-    && /^[0-9a-f]{40}$/.test(sourceCommitSha)
-    && Number.isFinite(generatedAtMs);
-  if (!formalRelease) throw new Error('published preflight status is not complete formal release evidence');
-  if (reportReadiness.snapshotVersion !== 1 || reportReadiness.kind !== 'report-readiness-status' || reportReadiness.pass !== true ||
-      Number(reportReadiness.failureCount) !== 0 || String(reportReadiness.runId || '') !== runId) {
-    throw new Error('published report readiness status does not match the formal release run');
+  const validation = publicEvidenceSchema.validatePublicEvidenceBundle({
+    platformStatus,
+    preflightStatus: preflight,
+    reportReadinessStatus: reportReadiness,
+  });
+  if (!validation.pass) {
+    throw new Error(`published public evidence bundle failed schema v${publicEvidenceSchema.SCHEMA_VERSION}: ${validation.errors.join(', ')}`);
   }
-  return { runId, generatedAt, sourceCommitSha };
+  return {
+    schemaVersion: validation.schemaVersion,
+    runId: validation.identity.runId,
+    generatedAt: validation.identity.generatedAt,
+    sourceCommitSha: validation.identity.sourceCommitSha,
+    dimensions: validation.dimensions,
+  };
 }
 
 function buildDeploymentManifest(options) {
@@ -178,6 +169,7 @@ module.exports = {
   MANIFEST_FILE,
   PREFLIGHT_STATUS_FILE,
   REPORT_READINESS_STATUS_FILE,
+  PLATFORM_STATUS_FILE,
   artifactIdentity,
   releaseEvidenceIdentity,
   buildDeploymentManifest,
