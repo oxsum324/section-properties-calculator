@@ -634,6 +634,16 @@
         <div class="kpi-value" id="kpiFreshness">讀取中</div>
         <div class="kpi-hint" id="kpiFreshnessHint">依最新巡檢距今的時間差判讀是否需要重新執行。</div>
       </div>
+      <div class="kpi-card">
+        <div class="kpi-label">正式放行證據</div>
+        <div class="kpi-value" id="kpiReleaseFreshness">讀取中</div>
+        <div class="kpi-hint" id="kpiReleaseFreshnessHint">只依 tracked 正式 release 快照判讀，不受較新的單項巡檢掩蓋。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">公開部署對齊</div>
+        <div class="kpi-value" id="kpiDeploymentAlignment">讀取中</div>
+        <div class="kpi-hint" id="kpiDeploymentAlignmentHint">核對 deployment carrier、release run 與受測來源。</div>
+      </div>
     </div>
   </div>
 
@@ -2553,9 +2563,100 @@
 
     function parseGeneratedAt(value) {
       if (!value) return null;
-      const isoLike = String(value).replace(' ', 'T');
+      const text = String(value).trim();
+      const isoLike = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)
+        ? `${text.replace(' ', 'T')}+08:00`
+        : text.replace(' ', 'T');
       const parsed = new Date(isoLike);
       return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    function shortSha(value) {
+      const normalized = String(value || '').toLowerCase();
+      return /^[0-9a-f]{40}$/.test(normalized) ? normalized.slice(0, 12) : '-';
+    }
+
+    function isFormalReleaseSnapshot(payload) {
+      return Boolean(
+        payload
+        && payload.snapshotVersion === 1
+        && payload.kind === 'preflight-summary'
+        && payload.quick === false
+        && payload.forcePlatformAudit === true
+        && payload.forceSlowChecks === true
+        && payload.sourceDirty === false
+        && payload.pass === true
+        && Number(payload.failureCount) === 0
+        && Number(payload.recordsCount) > 0
+        && Number(payload.passedCount) === Number(payload.recordsCount)
+        && Number(payload.postCheckCount) > 0
+        && Number(payload.postChecksPassedCount) === Number(payload.postCheckCount)
+        && /^\d{8}-\d{6}$/.test(String(payload.runId || ''))
+        && /^[0-9a-f]{40}$/i.test(String(payload.sourceCommitSha || ''))
+        && parseGeneratedAt(payload.generatedAt)
+      );
+    }
+
+    function renderReleaseTrust(preflight, reportReadiness, manifest) {
+      const freshnessNode = document.getElementById('kpiReleaseFreshness');
+      const freshnessHintNode = document.getElementById('kpiReleaseFreshnessHint');
+      const alignmentNode = document.getElementById('kpiDeploymentAlignment');
+      const alignmentHintNode = document.getElementById('kpiDeploymentAlignmentHint');
+      if (!freshnessNode || !freshnessHintNode || !alignmentNode || !alignmentHintNode) return;
+
+      if (!isFormalReleaseSnapshot(preflight)) {
+        freshnessNode.textContent = '無正式證據';
+        freshnessNode.className = 'kpi-value fail';
+        freshnessHintNode.textContent = '公開 preflight 快照不是完整、乾淨且全數通過的正式 release。';
+        alignmentNode.textContent = '無法證明';
+        alignmentNode.className = 'kpi-value fail';
+        alignmentHintNode.textContent = '缺少可信正式 release 身分，不能宣稱公開部署已對齊。';
+        return;
+      }
+
+      const releaseDate = parseGeneratedAt(preflight.generatedAt);
+      const ageHours = Math.max(0, (Date.now() - releaseDate.getTime()) / 3600000);
+      const ageDays = Math.floor(ageHours / 24);
+      if (ageHours <= 168) {
+        freshnessNode.textContent = '7 日內';
+        freshnessNode.className = 'kpi-value ok';
+      } else if (ageHours <= 720) {
+        freshnessNode.textContent = '30 日內';
+        freshnessNode.className = 'kpi-value warn';
+      } else {
+        freshnessNode.textContent = '建議重驗';
+        freshnessNode.className = 'kpi-value warn';
+      }
+      freshnessHintNode.textContent = `正式 release ${preflight.runId} 約 ${ageDays} 日前；受測來源 ${shortSha(preflight.sourceCommitSha)}。時間是重驗提醒，不會取代身分對齊。`;
+
+      const releaseEvidence = manifest?.releaseEvidence;
+      const manifestValid = manifest?.schemaVersion === 3
+        && manifest?.kind === 'pages-deployment'
+        && /^[0-9a-f]{40}$/i.test(String(manifest.commitSha || ''))
+        && manifest.sourceDirty === false
+        && Boolean(String(manifest.runId || ''))
+        && releaseEvidence
+        && String(releaseEvidence.runId || '') === String(preflight.runId || '')
+        && String(releaseEvidence.generatedAt || '') === String(preflight.generatedAt || '')
+        && String(releaseEvidence.sourceCommitSha || '').toLowerCase() === String(preflight.sourceCommitSha || '').toLowerCase()
+        && reportReadiness?.snapshotVersion === 1
+        && reportReadiness?.kind === 'report-readiness-status'
+        && reportReadiness?.pass === true
+        && Number(reportReadiness?.failureCount) === 0
+        && String(reportReadiness?.runId || '') === String(preflight.runId || '');
+      if (!manifest) {
+        alignmentNode.textContent = '未部署證據';
+        alignmentNode.className = 'kpi-value warn';
+        alignmentHintNode.textContent = `本機可讀正式 release ${preflight.runId}，但目前網址沒有 deployment manifest；不宣稱公開部署已對齊。`;
+      } else if (!manifestValid) {
+        alignmentNode.textContent = '未對齊';
+        alignmentNode.className = 'kpi-value fail';
+        alignmentHintNode.textContent = 'deployment manifest、正式 preflight 或報告就緒快照身分不一致，請重新正式 release 與部署。';
+      } else {
+        alignmentNode.textContent = '已對齊';
+        alignmentNode.className = 'kpi-value ok';
+        alignmentHintNode.textContent = `carrier ${shortSha(manifest.commitSha)}｜Actions run ${manifest.runId}｜release ${preflight.runId}｜tested ${shortSha(preflight.sourceCommitSha)}。`;
+      }
     }
 
     function updateOverview() {
@@ -2783,12 +2884,17 @@
           gsmHistoryResult.status === 'fulfilled' ? gsmHistoryResult.value : null,
           gsmTaskResult.status === 'fulfilled' ? gsmTaskResult.value : null,
         );
-        const [publicStatusResult, localDiagnosticResult] = await Promise.allSettled([
+        const [publicStatusResult, publicPreflightResult, deploymentManifestResult, localDiagnosticResult] = await Promise.allSettled([
           fetchJson('./assets/status/report-readiness-status.json'),
+          fetchJson('./assets/status/preflight-summary.json'),
+          fetchJson('../pages-deployment.json'),
           fetchJson('../output/preflight/attachment-integrity-latest.json'),
         ]);
         const reportReadinessStatus = publicStatusResult.status === 'fulfilled' ? publicStatusResult.value : null;
+        const publicPreflightStatus = publicPreflightResult.status === 'fulfilled' ? publicPreflightResult.value : null;
+        const deploymentManifest = deploymentManifestResult.status === 'fulfilled' ? deploymentManifestResult.value : null;
         const localAttachmentDiagnostic = localDiagnosticResult.status === 'fulfilled' ? localDiagnosticResult.value : null;
+        renderReleaseTrust(publicPreflightStatus, reportReadinessStatus, deploymentManifest);
         renderAttachmentIntegrity(selectAttachmentIntegrityPayload(reportReadinessStatus, localAttachmentDiagnostic, latestPreflightSummary));
         await loadAttachmentIntegrityClosures(preflightHistoryManifest, localAttachmentDiagnostic);
       } else {
@@ -2802,6 +2908,7 @@
         renderGsmLifecycleMonitor(null, null, null);
         renderAttachmentIntegrity(null);
         renderAttachmentIntegrityClosures([]);
+        renderReleaseTrust(null, null, null);
       }
       updateLoadedAtLabel();
       scheduleAutoRefresh();

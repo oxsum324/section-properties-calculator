@@ -414,6 +414,7 @@ const pagesLiveBrowserSmoke = readText(path.join(toolboxRoot, 'tools/pages-live-
 const pagesBrowserRunner = readText(path.join(toolboxRoot, 'tools/run-pages-browser-smoke.sh'));
 const pagesArtifactBuilder = readText(path.join(toolboxRoot, 'tools/build-pages-artifact.js'));
 const pagesDeploymentManifestBuilder = readText(path.join(toolboxRoot, 'tools/build-pages-deployment-manifest.js'));
+const auditDashboard = readText(path.join(toolboxRoot, 'audit-dashboard.html'));
 const pagesCleanRouteBuilderPath = path.join(toolboxRoot, 'tools/build-pages-clean-routes.js');
 const pagesCleanRouteBuilder = readText(pagesCleanRouteBuilderPath);
 const pagesDeployWorkflow = readText(path.join(repoRoot, '.github/workflows/pages-deploy.yml'));
@@ -805,6 +806,9 @@ assert.ok(pagesLiveSmoke.includes('結構工具箱/tools/build-pages-artifact.js
 assert.ok(pagesLiveSmoke.includes('結構工具箱/tools/build-pages-deployment-manifest.js'), 'Pages live smoke blocks deployment manifest builder publication');
 assert.ok(pagesLiveSmoke.includes("liveUrl(base, 'pages-deployment.json')") && pagesLiveSmoke.includes('deployed Pages commit matches the requested source commit'), 'Pages live smoke verifies the deployed commit manifest');
 assert.ok(pagesLiveSmoke.includes('manifest.fileCount > 0') && !pagesLiveSmoke.includes('manifest.fileCount >= 300'), 'Pages live smoke accepts the canonical clean artifact without a local-worktree file-count assumption');
+assert.ok(pagesLiveSmoke.includes('deployment release run matches public preflight status') && pagesLiveSmoke.includes('deployment tested source matches public preflight status'), 'Pages live smoke binds the deployed artifact to the formal release evidence');
+assert.ok(pagesDeploymentManifestBuilder.includes('schemaVersion: 3') && pagesDeploymentManifestBuilder.includes('releaseEvidenceIdentity') && pagesDeploymentManifestBuilder.includes('report readiness status does not match the formal release run'), 'Pages manifest schema v3 binds complete formal release evidence');
+assert.ok(auditDashboard.includes('kpiReleaseFreshness') && auditDashboard.includes('kpiDeploymentAlignment') && auditDashboard.includes('未對齊'), 'audit dashboard separates release freshness from deployment alignment');
 assert.ok(pagesLiveBrowserSmoke.includes("{ key: 'desktop', width: 1280, height: 800 }") && pagesLiveBrowserSmoke.includes("{ key: 'mobile', width: 390, height: 844 }"), 'Pages browser smoke covers desktop and mobile viewports');
 assert.ok(pagesLiveBrowserSmoke.includes("page.on('pageerror'") && pagesLiveBrowserSmoke.includes("page.on('requestfailed'") && pagesLiveBrowserSmoke.includes('horizontal overflow'), 'Pages browser smoke checks runtime, network, and overflow failures');
 assert.ok(pagesLiveBrowserSmoke.includes("route === '/rc-pile'") && pagesLiveBrowserSmoke.includes("route === '/wind-cc'") && pagesLiveBrowserSmoke.includes("route === '/stone-fixing'"), 'Pages browser smoke keeps high-risk route regressions');
@@ -829,6 +833,7 @@ assert.ok(pushPagesRelease.includes("'run', 'rerun', ([string]$RunId), '--failed
 assert.ok(pushPagesRelease.includes("$expectedNames = @('build', 'deploy', 'live-smoke', 'performance-trend')") && pushPagesRelease.includes('TopLevelStale'), 'safe Pages release wrapper uses required deployment and trend job evidence even when aggregate status is stale');
 assert.ok(pushPagesRelease.includes('JobStatusStale') && pushPagesRelease.includes('allStepsSuccessful') && pushPagesRelease.includes('$failedSteps'), 'safe Pages release wrapper requires successful steps before accepting a stale job aggregate');
 assert.ok(pushPagesRelease.includes('pages-deployment.json?release_check=') && pushPagesRelease.includes('sourceDirty'), 'safe Pages release wrapper verifies cache-busted public provenance');
+assert.ok(pushPagesRelease.includes('[int]$Manifest.schemaVersion -ne 3') && pushPagesRelease.includes('$Manifest.releaseEvidence.sourceCommitSha') && pushPagesRelease.includes('-ExpectedSourceSha $testedSourceSha'), 'safe Pages release wrapper rejects legacy, incomplete, or parent-mismatched release provenance');
 assert.ok(pushPagesReleaseBatch.includes('push-pages-release.ps1'), 'safe Pages batch invokes the governed PowerShell entrypoint');
 assert.ok(pushPagesReleaseBatch.includes('where pwsh') && pushPagesReleaseBatch.includes('pwsh -NoProfile'), 'safe Pages batch prefers PowerShell 7 for Unicode-safe execution');
 assert.ok(pushPagesReleaseBatch.includes('powershell -NoProfile'), 'safe Pages batch retains a Windows PowerShell fallback');

@@ -15,6 +15,10 @@ const OPTIONAL_GSM_DASHBOARD_PATHS = Object.freeze([
   'output/audit/gsm-lifecycle-monitor-history.json',
   'output/audit/gsm-lifecycle-monitor-task-status.json',
 ]);
+const OPTIONAL_LOCAL_DASHBOARD_PATHS = Object.freeze([
+  ...OPTIONAL_GSM_DASHBOARD_PATHS,
+  'pages-deployment.json',
+]);
 
 const EDGE_CANDIDATES = [
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
@@ -27,6 +31,9 @@ const viewports = [
 ];
 
 const fixtureGeneratedAt = '2026-06-21T21:30:00+08:00';
+const fixtureReleaseRunId = '20260621-213000';
+const fixtureTestedSourceSha = 'a'.repeat(40);
+const fixtureCarrierSha = 'b'.repeat(40);
 const fixtureRoot = 'C:/repo';
 const expectedCoverageTotals = [
   { key: 'reportModes', label: '報告模式', value: '1 / 1' },
@@ -89,7 +96,7 @@ const fixtureAttachmentStatus = {
   snapshotVersion: 1,
   kind: 'report-readiness-status',
   generatedAt: fixtureGeneratedAt,
-  runId: 'fixture-full',
+  runId: fixtureReleaseRunId,
   pass: true,
   failureCount: 0,
   renderedDeliveryEvidenceRunId: 'fixture-release',
@@ -99,6 +106,39 @@ const fixtureAttachmentStatus = {
   attachmentIntegrityIssueCount: 0,
   attachmentIntegrityPass: true,
   attachmentIntegrityGroups: fixtureAttachmentPublicGroups,
+};
+const fixturePublicPreflightStatus = {
+  snapshotVersion: 1,
+  kind: 'preflight-summary',
+  generatedAt: fixtureGeneratedAt,
+  runId: fixtureReleaseRunId,
+  quick: false,
+  forcePlatformAudit: true,
+  forceSlowChecks: true,
+  sourceCommitSha: fixtureTestedSourceSha,
+  sourceBranch: 'master',
+  sourceDirty: false,
+  pass: true,
+  failureCount: 0,
+  recordsCount: 82,
+  passedCount: 82,
+  postCheckCount: 3,
+  postChecksPassedCount: 3,
+};
+const fixtureDeploymentManifest = {
+  schemaVersion: 3,
+  kind: 'pages-deployment',
+  generatedAt: fixtureGeneratedAt,
+  commitSha: fixtureCarrierSha,
+  sourceRef: 'refs/heads/master',
+  sourceDirty: false,
+  runId: '123456789',
+  runAttempt: 1,
+  releaseEvidence: {
+    runId: fixtureReleaseRunId,
+    generatedAt: fixtureGeneratedAt,
+    sourceCommitSha: fixtureTestedSourceSha,
+  },
 };
 const fixtureRvrBackupHealth = {
   schemaVersion: 1,
@@ -461,6 +501,8 @@ function preflightHistoryItem(overrides = {}) {
 
 const fixtures = new Map(Object.entries({
   '結構工具箱/assets/status/report-readiness-status.json': fixtureAttachmentStatus,
+  '結構工具箱/assets/status/preflight-summary.json': fixturePublicPreflightStatus,
+  'pages-deployment.json': fixtureDeploymentManifest,
   'output/audit/rvr-backup-health-status.json': fixtureRvrBackupHealth,
   'output/audit/rvr-backup-health-history.json': fixtureRvrBackupHealthHistory,
   'output/audit/gsm-lifecycle-monitor-status.json': fixtureGsmMonitorStatus,
@@ -999,7 +1041,7 @@ function isOutputRequest(relativePath) {
 
 function assertRequestAudit(audit, options = {}) {
   const fixtureMode = options.fixtureMode !== false;
-  const optionalLocalPaths = new Set(OPTIONAL_GSM_DASHBOARD_PATHS);
+  const optionalLocalPaths = new Set(OPTIONAL_LOCAL_DASHBOARD_PATHS);
   const unexpectedMissing = fixtureMode ? audit.missing : audit.missing.filter((item) => !optionalLocalPaths.has(item));
   assert.deepEqual(unexpectedMissing, [], `missing dashboard fixture/static requests: ${unexpectedMissing.join(', ')}`);
   assert.ok(audit.fileHits.has('結構工具箱/audit-dashboard.html'), 'dashboard HTML served from workspace');
@@ -1564,6 +1606,11 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         latestTime: document.getElementById('kpiLatestTime')?.textContent?.trim() || '',
         freshness: document.getElementById('kpiFreshness')?.textContent?.trim() || '',
         freshnessHint: document.getElementById('kpiFreshnessHint')?.textContent?.trim() || '',
+        releaseFreshness: document.getElementById('kpiReleaseFreshness')?.textContent?.trim() || '',
+        releaseFreshnessHint: document.getElementById('kpiReleaseFreshnessHint')?.textContent?.trim() || '',
+        deploymentAlignment: document.getElementById('kpiDeploymentAlignment')?.textContent?.trim() || '',
+        deploymentAlignmentFail: document.getElementById('kpiDeploymentAlignment')?.classList.contains('fail') || false,
+        deploymentAlignmentHint: document.getElementById('kpiDeploymentAlignmentHint')?.textContent?.trim() || '',
         maturityPreflightText: document.getElementById('maturityPreflight')?.textContent?.trim() || '',
         maturityPreflightHint: document.getElementById('maturityPreflightHint')?.textContent?.trim() || '',
         maturityEntrypointCoverage: document.getElementById('maturityEntrypointCoverage')?.textContent?.trim() || '',
@@ -1665,6 +1712,8 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
       lastState.gsmMonitorHistoryText &&
       !lastState.gsmMonitorHistoryText.includes('讀取生命週期') &&
       lastState.freshness &&
+      lastState.releaseFreshness &&
+      lastState.deploymentAlignment &&
       lastState.maturityPreflightHint.includes(expectedPreflightHint) &&
       (!expectedLive || Object.values(lastState.summaryPreviews || {}).every(value => value && !value.includes('讀取中') && !value.includes('讀取失敗'))) &&
       lastState.loadedAt.includes('頁面更新')
@@ -1747,6 +1796,10 @@ function assertDashboardLiveState(state, label, expected) {
   assert.equal(state.latestLinks, summary.records.length, `${label} live latest log link count`);
   assert.equal(state.historyLinks, summary.records.length, `${label} live history log link count`);
   assert.equal(state.horizontalOverflow, false, `${label} live horizontal overflow (${state.scrollWidth} > ${state.clientWidth})`);
+  assert.ok(['7 日內', '30 日內', '建議重驗'].includes(state.releaseFreshness), `${label} live formal release freshness rendered: ${state.releaseFreshness}`);
+  assert.ok(state.releaseFreshnessHint.includes(`正式 release ${expected.reportReadinessStatus.runId}`), `${label} live release identity rendered: ${state.releaseFreshnessHint}`);
+  assert.equal(state.deploymentAlignment, '未部署證據', `${label} local live-output does not claim public deployment alignment`);
+  assert.equal(state.deploymentAlignmentFail, false, `${label} local missing deployment evidence uses warning tone`);
   assert.deepEqual(state.records.map(record => record.key), summary.records.map(record => record.key), `${label} live latest record key order`);
   assert.ok(state.latestRunText.includes(summary.pass ? '通過' : '異常'), `${label} live latest KPI status: ${state.latestRunText}`);
   assert.ok(state.latestRunText.includes(summary.quick ? '快速檢查' : '完整檢查') || state.latestRunText.includes('正式放行'), `${label} live latest KPI mode: ${state.latestRunText}`);
@@ -1999,6 +2052,13 @@ function assertDashboardState(state, label, expectedLive = null) {
   assert.ok(state.latestTime && state.latestTime !== '讀取中', `${label} overview latest timestamp rendered`);
   assert.ok(['新鮮', '可接受', '偏舊', '無法判讀'].includes(state.freshness), `${label} overview freshness rendered: ${state.freshness}`);
   assert.ok(state.freshnessHint && state.freshnessHint !== '讀取中', `${label} overview freshness hint rendered`);
+  assert.ok(['7 日內', '30 日內', '建議重驗'].includes(state.releaseFreshness), `${label} formal release freshness rendered: ${state.releaseFreshness}`);
+  assert.ok(state.releaseFreshnessHint.includes(`正式 release ${fixtureReleaseRunId}`), `${label} release freshness uses tracked release snapshot: ${state.releaseFreshnessHint}`);
+  assert.equal(state.deploymentAlignment, '已對齊', `${label} deployment alignment rendered`);
+  assert.equal(state.deploymentAlignmentFail, false, `${label} aligned deployment uses success tone`);
+  [`carrier ${fixtureCarrierSha.slice(0, 12)}`, 'Actions run 123456789', `release ${fixtureReleaseRunId}`, `tested ${fixtureTestedSourceSha.slice(0, 12)}`].forEach((needle) => {
+    assert.ok(state.deploymentAlignmentHint.includes(needle), `${label} deployment alignment includes ${needle}: ${state.deploymentAlignmentHint}`);
+  });
   assert.ok(state.maturityPreflightText.includes('異常') && state.maturityPreflightText.includes('完整檢查'), `${label} maturity latest preflight status rendered: ${state.maturityPreflightText}`);
   assert.equal(state.maturityEntrypointCoverage, '1 / 3', `${label} maturity entrypoint coverage rendered`);
   ['首頁 3 個入口', '成熟度矩陣 1 個', '其他 audit governance 1 個', '非正式 / 工作流 1 個', '未納管正式入口 0 個'].forEach((needle) => {
@@ -2380,6 +2440,13 @@ function assertPublicAttachmentBoundaryState(state, label) {
   assert.equal(state.attachmentIntegrityStatus, '通過', `${label} public status still renders released attachment evidence`);
 }
 
+function assertDeploymentMismatchState(state, label) {
+  assert.equal(state.deploymentAlignment, '未對齊', `${label} mismatched deployment is not trusted`);
+  assert.equal(state.deploymentAlignmentFail, true, `${label} mismatched deployment uses failure tone`);
+  assert.ok(state.deploymentAlignmentHint.includes('身分不一致'), `${label} mismatch guidance is explicit`);
+  assert.ok(['7 日內', '30 日內', '建議重驗'].includes(state.releaseFreshness), `${label} release age remains independently visible`);
+}
+
 async function main() {
   assert.ok(fs.existsSync(repoFile('結構工具箱/audit-dashboard.html')), 'dashboard HTML exists');
   const edgePath = EDGE_CANDIDATES.find(candidate => fs.existsSync(candidate));
@@ -2413,7 +2480,7 @@ async function main() {
     await client.send('Network.setCacheDisabled', { cacheDisabled: true }, sessionId);
 
     const pageErrors = collectPageErrors(client, sessionId, {
-      allowedOptional404Paths: liveOutputMode ? OPTIONAL_GSM_DASHBOARD_PATHS : [],
+      allowedOptional404Paths: liveOutputMode ? OPTIONAL_LOCAL_DASHBOARD_PATHS : [],
     });
     const dashboardUrl = `http://127.0.0.1:${serverPort}/${encodeURI('結構工具箱/audit-dashboard.html')}`;
     const states = [];
@@ -2434,6 +2501,7 @@ async function main() {
     const attachmentFailureStates = [];
     const rvrStaleStates = [];
     const publicBoundaryStates = [];
+    const deploymentMismatchStates = [];
     if (!liveOutputMode) {
       const preflightFixturePath = 'output/preflight/preflight-summary.json';
       const preflightHistoryFixturePath = 'output/preflight/preflight-history.json';
@@ -2451,6 +2519,28 @@ async function main() {
       const originalGsmMonitorStatusFixture = fixtures.get(gsmMonitorStatusFixturePath);
       const originalGsmMonitorHistoryFixture = fixtures.get(gsmMonitorHistoryFixturePath);
       const originalGsmMonitorTaskFixture = fixtures.get(gsmMonitorTaskFixturePath);
+      const deploymentManifestFixturePath = 'pages-deployment.json';
+      const originalDeploymentManifestFixture = fixtures.get(deploymentManifestFixturePath);
+      fixtures.set(deploymentManifestFixturePath, {
+        ...originalDeploymentManifestFixture,
+        releaseEvidence: {
+          ...originalDeploymentManifestFixture.releaseEvidence,
+          sourceCommitSha: 'c'.repeat(40),
+        },
+      });
+      for (const viewport of viewports) {
+        await client.send('Emulation.setDeviceMetricsOverride', {
+          width: viewport.width,
+          height: viewport.height,
+          deviceScaleFactor: 1,
+          mobile: viewport.mobile,
+        }, sessionId);
+        const loaded = waitForEvent(client, sessionId, 'Page.loadEventFired', 15000);
+        await client.send('Page.navigate', { url: dashboardUrl }, sessionId);
+        await loaded;
+        deploymentMismatchStates.push({ viewport: viewport.key, state: await waitForDashboardState(client, sessionId) });
+      }
+      fixtures.set(deploymentManifestFixturePath, originalDeploymentManifestFixture);
       fixtures.set(preflightFixturePath, {
         ...originalPreflightFixture,
         runId: 'fixture-tampered-release',
@@ -2567,6 +2657,9 @@ async function main() {
     for (const { viewport, state } of publicBoundaryStates) {
       assertPublicAttachmentBoundaryState(state, viewport);
     }
+    for (const { viewport, state } of deploymentMismatchStates) {
+      assertDeploymentMismatchState(state, viewport);
+    }
 
     const liveMetrics = liveExpected ? (() => {
       const livePostChecksPassed = liveExpected.postChecks.filter(check => check.pass === true).length;
@@ -2574,7 +2667,7 @@ async function main() {
       const historyRuns = Array.from(new Set(liveExpected.postChecks.map(check => String(check.historyLog || '').match(/history[\\/](\d{8}-\d{6})[\\/]/)?.[1]).filter(Boolean)));
       return ', liveRunId=' + liveExpected.summary.runId + ', livePostChecks=' + livePostChecksPassed + '/' + liveExpected.postChecks.length + ', liveHistoryPostChecks=' + (historyLatest.postChecksPassedCount ?? '-') + '/' + (historyLatest.postCheckCount ?? '-') + ', livePostCheckHistoryRuns=' + (historyRuns.join('|') || '-');
     })() : '';
-    console.log('audit dashboard browser smoke OK (mode=' + (liveOutputMode ? 'live-output' : 'fixture') + ', viewports=' + states.length + ', attachmentFailureViewports=' + attachmentFailureStates.length + ', rvrStaleViewports=' + rvrStaleStates.length + ', publicBoundaryViewports=' + publicBoundaryStates.length + ', records=' + states[0].state.rows + ', latestLinks=' + states[0].state.latestLinks + ', historyLinks=' + states[0].state.historyLinks + ', modes=' + states[0].state.records.filter(record => record.mode).length + ', workdirs=' + states[0].state.records.filter(record => record.workdir).length + ', commandHashes=' + states[0].state.records.filter(record => record.commandHash).length + ', coverageTotals=' + states[0].state.coverageTotals.length + ', traceabilityCatalogs=' + states[0].state.traceabilityCatalogCoverage.length + ', freshnessChecked=' + (states[0].state.freshness ? 1 : 0) + ', maturityPreflightChecked=' + (states[0].state.maturityPreflightHint ? 1 : 0) + ', fixtureHits=' + requestAudit.fixtureHits.size + '/' + requiredFixturePaths.size + ', staticFiles=' + requestAudit.fileHits.size + liveMetrics + ')');
+    console.log('audit dashboard browser smoke OK (mode=' + (liveOutputMode ? 'live-output' : 'fixture') + ', viewports=' + states.length + ', attachmentFailureViewports=' + attachmentFailureStates.length + ', rvrStaleViewports=' + rvrStaleStates.length + ', publicBoundaryViewports=' + publicBoundaryStates.length + ', deploymentMismatchViewports=' + deploymentMismatchStates.length + ', records=' + states[0].state.rows + ', latestLinks=' + states[0].state.latestLinks + ', historyLinks=' + states[0].state.historyLinks + ', modes=' + states[0].state.records.filter(record => record.mode).length + ', workdirs=' + states[0].state.records.filter(record => record.workdir).length + ', commandHashes=' + states[0].state.records.filter(record => record.commandHash).length + ', coverageTotals=' + states[0].state.coverageTotals.length + ', traceabilityCatalogs=' + states[0].state.traceabilityCatalogCoverage.length + ', freshnessChecked=' + (states[0].state.freshness ? 1 : 0) + ', maturityPreflightChecked=' + (states[0].state.maturityPreflightHint ? 1 : 0) + ', fixtureHits=' + requestAudit.fixtureHits.size + '/' + requiredFixturePaths.size + ', staticFiles=' + requestAudit.fileHits.size + liveMetrics + ')');
   } finally {
     if (client) client.close();
     if (edge && edge.exitCode === null) {

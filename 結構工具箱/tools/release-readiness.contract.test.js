@@ -665,6 +665,16 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   "releaseRun ? 'release'",
   "releaseRun ? 'R'",
   '來源 commit 可辨識、啟動時工作樹乾淨',
+  'kpiReleaseFreshness',
+  'kpiDeploymentAlignment',
+  'renderReleaseTrust',
+  '7 日內',
+  '30 日內',
+  '建議重驗',
+  '未部署證據',
+  '未對齊',
+  '已對齊',
+  "manifest?.schemaVersion === 3",
 ].forEach(needle => assertIncludes(dashboard, needle, `dashboard exposes release readiness ${needle}`));
 
 [
@@ -695,6 +705,12 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'R',
   'rendered-delivery-evidence',
   '實際交付物渲染佐證',
+  'fixtureReleaseRunId',
+  'deploymentMismatchViewports',
+  'kpiDeploymentAlignment',
+  '未部署證據',
+  '未對齊',
+  '已對齊',
 ].forEach(needle => assertIncludes(dashboardBrowserSmoke, needle, `dashboard browser smoke preserves release readiness ${needle}`));
 
 [

@@ -57,6 +57,8 @@ git diff --check -- README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GR
 
 `push-pages-release.ps1` 的成功不只依賴 Actions job 與 manifest 身分；一般推送、既有同 SHA 部署及 `-VerifyOnly` 都必須由目前工作站再次執行公開 `pages-live-smoke.js`，逐檔核對 v2 清冊與正式網址內容，並在結果回傳 `publicArtifactVerified=true`。工作站預設最多進行 3 次、間隔 10 秒的完整複驗，僅由 smoke 對 5xx 或網路暫態錯誤啟用；非暫態錯誤立即失敗，暫態重試用盡後也維持失敗，不得只因遠端 workflow 已綠燈而略過。
 
+上述逐檔清冊現由 schema v3 延續並增列 `releaseEvidence`。Pages provenance 變更必須同批 staging `結構工具箱/audit-dashboard.html`、dashboard contract / browser smoke、deployment manifest builder、HTTP smoke、safe push wrapper、release governance contract 與三份治理文件。builder 必須從實際發布的 tracked preflight / report-readiness 快照驗證正式 release 條件並綁定 release runId、產生時間與受測來源 SHA；公開 smoke 再核對 manifest 與兩份快照。dashboard 必須分開顯示一般巡檢與正式 release 新鮮度，7 日／30 日只作重驗提醒；缺 manifest 顯示「未部署證據」，身分不一致顯示紅色「未對齊」。
+
 成功 smoke 必須輸出唯一的 `pagesHttpSmokeAttemptCount`；安全發布入口只接受大於 0 且不超過 `PublicSmokeAttempts` 的值，並回報 `publicArtifactVerificationAttemptCount` 與 `publicArtifactVerificationRetried`。缺少、重複或超界均視為工作站驗證失敗。
 
 Pages CI 效能趨勢固定使用私有 `performance-trend` job：當輪 build／live 收據必須完整成對，歷史只取成功 run 中同樣成對的 14 天 artifact。只有四個 exact cache hit 的同 lock digest 樣本可進最近 20 輪序列；冷快取當輪要列出排除原因，不能誤判部署失敗。trend v1 必須逐輪保存 build／live 的 runtime、HTTP、browser 六個毫秒值，並能重算 nearest-rank P50／P95；不足 3 輪顯示 `collecting`，不得假裝具備成熟統計。趨勢來源、測試、JSON、摘要與歷史收據均為私有 CI 治理，不得發布至 Pages 或放入計算書／正式附件。
@@ -382,6 +384,8 @@ Replace anchor dialogs with in-app confirmations
 ## 首頁正式放行日期來源
 
 調整首頁狀態或 release 快照時，需一併 staging `結構工具箱/assets/home/home.js`、`toolbox-entrypoints.contract.test.js` 與三份治理文件。`HOME_TOOL_UPDATES` 不得保存人工 fallback 正式放行日；執行期只可接受 passing、非 quick、兩個 force 旗標成立、來源 commit 可辨識且乾淨的 tracked preflight snapshot。契約須固定未載入提示與正式快照導入路徑，避免 release 狀態提交跨日後產生首頁落後日期。
+
+正式 release 新鮮度不得沿用四類一般巡檢的最新時間。dashboard 只能以 tracked 正式 preflight 快照計算 7 日／30 日提醒，並透過 schema v3 `pages-deployment.json` 核對 carrier commit、Actions run、release run 與 tested source；年齡屬提示，身分對齊才是公開部署可信度的必要條件。
 
 ## 下次提交前共同驗證
 

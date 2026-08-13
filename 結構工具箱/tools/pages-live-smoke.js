@@ -280,6 +280,15 @@ function validateManifestFileInventory(manifest) {
   assert.equal(treeHash.digest('hex'), manifest.artifactDigest, 'Pages deployment manifest inventory tree digest');
 }
 
+function validateDeploymentReleaseEvidence(releaseEvidence) {
+  assert.ok(releaseEvidence && typeof releaseEvidence === 'object' && !Array.isArray(releaseEvidence), 'Pages deployment manifest releaseEvidence object');
+  assert.deepEqual(Object.keys(releaseEvidence).sort(), ['generatedAt', 'runId', 'sourceCommitSha'], 'Pages deployment manifest releaseEvidence closed schema');
+  assert.match(releaseEvidence.runId, /^\d{8}-\d{6}$/, 'Pages deployment manifest releaseEvidence runId');
+  assert.match(releaseEvidence.generatedAt, /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}/, 'Pages deployment manifest releaseEvidence generatedAt');
+  assert.ok(Number.isFinite(Date.parse(releaseEvidence.generatedAt.replace(' ', 'T'))), 'Pages deployment manifest releaseEvidence generatedAt parseable');
+  assert.match(releaseEvidence.sourceCommitSha, /^[0-9a-f]{40}$/i, 'Pages deployment manifest releaseEvidence sourceCommitSha');
+}
+
 function artifactFileUrl(base, relativePath, runId) {
   const encodedPath = relativePath.split('/').map(segment => encodeURIComponent(segment)).join('/');
   const url = new URL(encodedPath, base);
@@ -313,7 +322,7 @@ async function assertPublishedArtifact(base, manifest) {
 
 async function assertDeploymentManifest(base) {
   const manifest = await fetchJson(liveUrl(base, 'pages-deployment.json'));
-  assert.equal(manifest.schemaVersion, 2, 'Pages deployment manifest schemaVersion');
+  assert.equal(manifest.schemaVersion, 3, 'Pages deployment manifest schemaVersion');
   assert.equal(manifest.kind, 'pages-deployment', 'Pages deployment manifest kind');
   assert.match(manifest.generatedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/, 'Pages deployment manifest generatedAt');
   assert.match(manifest.commitSha, /^[0-9a-f]{40}$/i, 'Pages deployment manifest commitSha');
@@ -324,6 +333,7 @@ async function assertDeploymentManifest(base) {
   assert.ok(manifest.runId, 'Pages deployment manifest runId populated');
   assert.equal(Number.isInteger(manifest.runAttempt), true, 'Pages deployment manifest runAttempt integer');
   assert.ok(manifest.runAttempt >= 1, 'Pages deployment manifest runAttempt positive');
+  validateDeploymentReleaseEvidence(manifest.releaseEvidence);
   assert.equal(manifest.artifactDigestAlgorithm, 'sha256-tree-v1', 'Pages deployment manifest digest algorithm');
   assert.match(manifest.artifactDigest, /^[0-9a-f]{64}$/i, 'Pages deployment manifest artifactDigest');
   assert.equal(Number.isInteger(manifest.fileCount), true, 'Pages deployment manifest fileCount integer');
@@ -559,6 +569,9 @@ async function main() {
   assert.equal(Number.isInteger(preflightStatus.recordsCount), true, 'preflight recordsCount integer');
   assert.equal(preflightStatus.recordsCount, preflightStatus.passedCount, 'preflight records all passed');
   assert.equal(preflightStatus.postCheckCount, preflightStatus.postChecksPassedCount, 'preflight post-checks all passed');
+  assert.equal(deploymentManifest.releaseEvidence.runId, preflightStatus.runId, 'deployment release run matches public preflight status');
+  assert.equal(deploymentManifest.releaseEvidence.generatedAt, preflightStatus.generatedAt, 'deployment release timestamp matches public preflight status');
+  assert.equal(deploymentManifest.releaseEvidence.sourceCommitSha.toLowerCase(), preflightStatus.sourceCommitSha.toLowerCase(), 'deployment tested source matches public preflight status');
 
   const reportReadinessStatus = await fetchJson(reportReadinessStatusUrl);
   assertStatusPayload(reportReadinessStatus, 'report readiness status');
@@ -567,6 +580,7 @@ async function main() {
   assert.equal(reportReadinessStatus.badge, '頁面專用', 'report readiness status badge');
   assert.equal(reportReadinessStatus.label, '報告閱讀狀態總覽', 'report readiness status label');
   assert.equal(reportReadinessStatus.pass, true, 'report readiness status pass');
+  assert.equal(reportReadinessStatus.runId, deploymentManifest.releaseEvidence.runId, 'report readiness run matches deployment release evidence');
   assert.equal(Number.isInteger(reportReadinessStatus.pageOnlyBoundaryRequired), true, 'report readiness required integer');
   assert.equal(reportReadinessStatus.pageOnlyBoundaryComplete, reportReadinessStatus.pageOnlyBoundaryRequired, 'report readiness status fully covered');
   assert.equal(reportReadinessStatus.pageOnlyBoundaryIssueCount, 0, 'report readiness status issues empty');
@@ -874,6 +888,7 @@ module.exports = {
   runWithAttemptCount,
   writeHttpSmokeResult,
   validateManifestFileInventory,
+  validateDeploymentReleaseEvidence,
   validatePublishedFileContent,
   assertPublishedArtifact,
   main,

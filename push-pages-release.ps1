@@ -358,13 +358,20 @@ function Test-ManifestIdentity {
   param(
     [object]$Manifest,
     [string]$HeadSha,
-    [string]$RunId
+    [string]$RunId,
+    [string]$ExpectedSourceSha
   )
 
   if (-not $Manifest) { return $false }
+  if ([int]$Manifest.schemaVersion -ne 3) { return $false }
   if (([string]$Manifest.commitSha).ToLowerInvariant() -ne $HeadSha.ToLowerInvariant()) { return $false }
   if ([string]$Manifest.runId -ne [string]$RunId) { return $false }
   if ($Manifest.sourceDirty -isnot [bool] -or [bool]$Manifest.sourceDirty) { return $false }
+  if (-not $Manifest.releaseEvidence) { return $false }
+  if ([string]$Manifest.releaseEvidence.runId -notmatch '^\d{8}-\d{6}$') { return $false }
+  if ([string]$Manifest.releaseEvidence.sourceCommitSha -notmatch '^[0-9a-fA-F]{40}$') { return $false }
+  if (([string]$Manifest.releaseEvidence.sourceCommitSha).ToLowerInvariant() -ne $ExpectedSourceSha.ToLowerInvariant()) { return $false }
+  if ([string]::IsNullOrWhiteSpace([string]$Manifest.releaseEvidence.generatedAt)) { return $false }
   return $true
 }
 
@@ -372,13 +379,14 @@ function Wait-PublicManifest {
   param(
     [string]$PagesUrl,
     [string]$HeadSha,
-    [long]$RunId
+    [long]$RunId,
+    [string]$ExpectedSourceSha
   )
 
   $deadline = (Get-Date).AddSeconds($ManifestTimeoutSeconds)
   while ((Get-Date) -lt $deadline) {
     $manifest = Get-PublicManifest -PagesUrl $PagesUrl
-    if (Test-ManifestIdentity -Manifest $manifest -HeadSha $HeadSha -RunId ([string]$RunId)) {
+    if (Test-ManifestIdentity -Manifest $manifest -HeadSha $HeadSha -RunId ([string]$RunId) -ExpectedSourceSha $ExpectedSourceSha) {
       Write-ProgressLine "Public deployment manifest matches commit $HeadSha and run $RunId."
       return $manifest
     }
@@ -520,6 +528,10 @@ $headSha = (Invoke-ExternalText -FilePath $script:GitPath -Arguments @('rev-pars
 if ($headSha -notmatch '^[0-9a-f]{40}$') {
   throw "Could not resolve a full Git HEAD SHA. Received: $headSha"
 }
+$testedSourceSha = (Invoke-ExternalText -FilePath $script:GitPath -Arguments @('rev-parse', "$headSha^")).Trim().ToLowerInvariant()
+if ($testedSourceSha -notmatch '^[0-9a-f]{40}$') {
+  throw "Could not resolve the tested parent source SHA for HEAD $headSha. Received: $testedSourceSha"
+}
 
 $lineageScript = Resolve-RepoToolScript -LeafName 'verify-pages-release-lineage.js'
 Write-ProgressLine "Verifying that HEAD only carries status snapshots for its tested parent commit."
@@ -536,11 +548,9 @@ if (-not $pagesUrl) { throw 'The repository does not expose a GitHub Pages URL.'
 
 if ($VerifyOnly) {
   $currentManifest = Get-PublicManifest -PagesUrl $pagesUrl
-  if (-not $currentManifest -or ([string]$currentManifest.commitSha).ToLowerInvariant() -ne $headSha) {
-    throw "The public Pages manifest does not match local HEAD $headSha."
-  }
-  if ($currentManifest.sourceDirty -isnot [bool] -or [bool]$currentManifest.sourceDirty) {
-    throw 'The public Pages manifest does not prove sourceDirty=false.'
+  $currentRunId = if ($currentManifest) { [string]$currentManifest.runId } else { '' }
+  if (-not (Test-ManifestIdentity -Manifest $currentManifest -HeadSha $headSha -RunId $currentRunId -ExpectedSourceSha $testedSourceSha)) {
+    throw "The public Pages manifest does not match local carrier HEAD $headSha and tested source $testedSourceSha."
   }
   $selectedRun = [pscustomobject]@{
     databaseId = [long]([string]$currentManifest.runId)
@@ -609,7 +619,7 @@ if ($runId -le 0) { throw 'Could not resolve a valid Pages workflow run ID.' }
 Write-ProgressLine "Tracking run $runId."
 $script:DeploymentRecoveryUsed = $false
 $runEvidence = Wait-RunJobsWithRecovery -RunId $runId -HeadSha $headSha
-$manifest = Wait-PublicManifest -PagesUrl $pagesUrl -HeadSha $headSha -RunId $runId
+$manifest = Wait-PublicManifest -PagesUrl $pagesUrl -HeadSha $headSha -RunId $runId -ExpectedSourceSha $testedSourceSha
 $publicSmokeScript = Resolve-RepoToolScript -LeafName 'pages-live-smoke.js'
 Write-ProgressLine "Independently verifying every public artifact file from this workstation (up to $PublicSmokeAttempts attempt(s), transient failures only)."
 $publicArtifactVerificationAttemptCount = Invoke-PublicArtifactVerification -ScriptPath $publicSmokeScript -PagesUrl $pagesUrl -HeadSha $headSha -RunId $runId
@@ -647,6 +657,11 @@ $result = [ordered]@{
     runId = [string]$manifest.runId
     runAttempt = $manifest.runAttempt
     sourceDirty = [bool]$manifest.sourceDirty
+    releaseEvidence = [ordered]@{
+      runId = [string]$manifest.releaseEvidence.runId
+      generatedAt = [string]$manifest.releaseEvidence.generatedAt
+      sourceCommitSha = [string]$manifest.releaseEvidence.sourceCommitSha
+    }
     artifactDigest = [string]$manifest.artifactDigest
     fileCount = $manifest.fileCount
     totalBytes = $manifest.totalBytes

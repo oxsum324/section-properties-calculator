@@ -3,6 +3,8 @@ const fs = require('fs');
 const path = require('path');
 
 const MANIFEST_FILE = 'pages-deployment.json';
+const PREFLIGHT_STATUS_FILE = '結構工具箱/assets/status/preflight-summary.json';
+const REPORT_READINESS_STATUS_FILE = '結構工具箱/assets/status/report-readiness-status.json';
 
 function argValue(name) {
   const index = process.argv.indexOf(name);
@@ -68,6 +70,46 @@ function artifactIdentity(siteRoot) {
   };
 }
 
+function readJsonFile(siteRoot, relativePath) {
+  const filePath = path.join(siteRoot, ...relativePath.split('/'));
+  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+    throw new Error(`required Pages release status is missing: ${relativePath}`);
+  }
+  return JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
+}
+
+function releaseEvidenceIdentity(siteRoot) {
+  const preflight = readJsonFile(siteRoot, PREFLIGHT_STATUS_FILE);
+  const reportReadiness = readJsonFile(siteRoot, REPORT_READINESS_STATUS_FILE);
+  const generatedAt = String(preflight.generatedAt || '');
+  const sourceCommitSha = String(preflight.sourceCommitSha || '').toLowerCase();
+  const runId = String(preflight.runId || '');
+  const generatedAtMs = Date.parse(generatedAt.replace(' ', 'T'));
+  const formalRelease = preflight.snapshotVersion === 1
+    && preflight.kind === 'preflight-summary'
+    && preflight.quick === false
+    && preflight.forcePlatformAudit === true
+    && preflight.forceSlowChecks === true
+    && preflight.sourceDirty === false
+    && preflight.pass === true
+    && preflight.failureCount === 0
+    && Number.isInteger(preflight.recordsCount)
+    && preflight.recordsCount > 0
+    && preflight.passedCount === preflight.recordsCount
+    && Number.isInteger(preflight.postCheckCount)
+    && preflight.postCheckCount > 0
+    && preflight.postChecksPassedCount === preflight.postCheckCount
+    && /^\d{8}-\d{6}$/.test(runId)
+    && /^[0-9a-f]{40}$/.test(sourceCommitSha)
+    && Number.isFinite(generatedAtMs);
+  if (!formalRelease) throw new Error('published preflight status is not complete formal release evidence');
+  if (reportReadiness.snapshotVersion !== 1 || reportReadiness.kind !== 'report-readiness-status' || reportReadiness.pass !== true ||
+      Number(reportReadiness.failureCount) !== 0 || String(reportReadiness.runId || '') !== runId) {
+    throw new Error('published report readiness status does not match the formal release run');
+  }
+  return { runId, generatedAt, sourceCommitSha };
+}
+
 function buildDeploymentManifest(options) {
   const siteRoot = path.resolve(options.siteRoot);
   if (!fs.existsSync(siteRoot) || !fs.statSync(siteRoot).isDirectory()) {
@@ -85,9 +127,10 @@ function buildDeploymentManifest(options) {
   if (!Number.isInteger(runAttempt) || runAttempt < 1) throw new Error('runAttempt must be a positive integer');
   if (typeof sourceDirty !== 'boolean') throw new Error('sourceDirty must be a boolean');
 
+  const releaseEvidence = releaseEvidenceIdentity(siteRoot);
   const identity = artifactIdentity(siteRoot);
   const manifest = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     kind: 'pages-deployment',
     generatedAt: options.generatedAt || new Date().toISOString(),
     commitSha,
@@ -95,6 +138,7 @@ function buildDeploymentManifest(options) {
     sourceDirty,
     runId,
     runAttempt,
+    releaseEvidence,
     artifactDigestAlgorithm: identity.algorithm,
     artifactDigest: identity.digest,
     fileCount: identity.fileCount,
@@ -132,6 +176,9 @@ if (require.main === module) {
 
 module.exports = {
   MANIFEST_FILE,
+  PREFLIGHT_STATUS_FILE,
+  REPORT_READINESS_STATUS_FILE,
   artifactIdentity,
+  releaseEvidenceIdentity,
   buildDeploymentManifest,
 };

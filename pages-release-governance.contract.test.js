@@ -86,9 +86,12 @@ assert.ok(toolBoundaries.includes('pages-release-governance.contract.test.js'), 
 assert.ok(toolBoundaries.includes('CONTEXT.md') && toolBoundaries.includes('docs/adr/'), 'tool boundaries keeps page-only docs out of Pages artifact');
 assert.ok(toolBoundaries.includes('output/') && toolBoundaries.includes('.claude') && toolBoundaries.includes('node_modules'), 'tool boundaries documents local artifact exclusions');
 assert.ok(toolBoundaries.includes('--allow-local-output') && toolBoundaries.includes('不得用在公開站 smoke'), 'tool boundaries limits local-output allowance');
-assert.ok(readme.includes('v2 manifest') && readme.includes('逐檔下載整個公開 artifact'), 'README documents complete deployed artifact verification');
+assert.ok(readme.includes('v3 manifest') && readme.includes('正式 release runId') && readme.includes('逐檔下載整個公開 artifact'), 'README documents release-bound complete deployed artifact verification');
+assert.ok(readme.includes('一般巡檢新鮮度與正式放行證據拆開') && readme.includes('未對齊'), 'README documents release freshness and deployment alignment semantics');
 assert.ok(toolBoundaries.includes('封閉 v2 清冊') && toolBoundaries.includes('核對 HTTP 200、位元組數及 SHA-256'), 'tool boundaries documents closed file inventory verification');
 assert.ok(staging.includes('v2 `pages-deployment.json`') && staging.includes('最多 8 個並行請求逐檔下載整個公開 artifact'), 'staging guide keeps complete artifact verification in the release package');
+assert.ok(toolBoundaries.includes('Pages deployment manifest 現採 schema v3') && toolBoundaries.includes('未部署證據') && toolBoundaries.includes('未對齊'), 'tool boundaries documents release-bound deployment trust');
+assert.ok(staging.includes('schema v3 延續並增列 `releaseEvidence`') && staging.includes('7 日／30 日只作重驗提醒'), 'staging guide keeps release freshness and alignment changes together');
 
 assert.ok(preflightTools.includes('pagesReleaseGovernanceContractCommand'), 'preflight defines A0 governance contract command');
 assert.ok(preflightTools.includes('node .github/pages-smoke/build-performance-trend.test.js'), 'preflight runs the closed performance trend contract');
@@ -298,8 +301,33 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
   const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pages-deployment-manifest-contract-'));
   try {
     fs.mkdirSync(path.join(fixtureRoot, 'assets'), { recursive: true });
+    fs.mkdirSync(path.join(fixtureRoot, '結構工具箱', 'assets', 'status'), { recursive: true });
     fs.writeFileSync(path.join(fixtureRoot, 'index.html'), '<!doctype html><title>fixture</title>', 'utf8');
     fs.writeFileSync(path.join(fixtureRoot, 'assets', 'app.js'), 'console.log("fixture");', 'utf8');
+    fs.writeFileSync(path.join(fixtureRoot, '結構工具箱', 'assets', 'status', 'preflight-summary.json'), JSON.stringify({
+      snapshotVersion: 1,
+      kind: 'preflight-summary',
+      generatedAt: '2026-07-19 00:00:00',
+      runId: '20260719-000000',
+      quick: false,
+      forcePlatformAudit: true,
+      forceSlowChecks: true,
+      sourceDirty: false,
+      pass: true,
+      failureCount: 0,
+      recordsCount: 82,
+      passedCount: 82,
+      postCheckCount: 3,
+      postChecksPassedCount: 3,
+      sourceCommitSha: 'c'.repeat(40),
+    }), 'utf8');
+    fs.writeFileSync(path.join(fixtureRoot, '結構工具箱', 'assets', 'status', 'report-readiness-status.json'), JSON.stringify({
+      snapshotVersion: 1,
+      kind: 'report-readiness-status',
+      runId: '20260719-000000',
+      pass: true,
+      failureCount: 0,
+    }), 'utf8');
     fs.writeFileSync(path.join(fixtureRoot, '.nojekyll'), '', 'utf8');
     const { buildDeploymentManifest } = require(deploymentManifestBuilderPath);
     const options = {
@@ -313,9 +341,11 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
     };
     const first = buildDeploymentManifest(options);
     const second = buildDeploymentManifest({ ...options, generatedAt: '2026-07-19T00:01:00.000Z' });
-    assert.equal(first.schemaVersion, 2, 'deployment manifest uses the closed file-inventory schema');
-    assert.equal(first.fileCount, 2, 'deployment manifest excludes hidden files and itself from the published tree digest');
-    assert.deepEqual(first.files.map(file => file.path), ['assets/app.js', 'index.html'], 'deployment manifest publishes the complete ordinal file inventory');
+    assert.equal(first.schemaVersion, 3, 'deployment manifest uses the release-bound closed file-inventory schema');
+    assert.equal(first.fileCount, 4, 'deployment manifest includes public release snapshots while excluding hidden files and itself');
+    assert.deepEqual(first.files.map(file => file.path), ['assets/app.js', 'index.html', '結構工具箱/assets/status/preflight-summary.json', '結構工具箱/assets/status/report-readiness-status.json'], 'deployment manifest publishes the complete ordinal file inventory');
+    assert.deepEqual(first.releaseEvidence, { runId: '20260719-000000', generatedAt: '2026-07-19 00:00:00', sourceCommitSha: 'c'.repeat(40) }, 'deployment manifest binds formal release identity');
+    PagesLiveSmoke.validateDeploymentReleaseEvidence(first.releaseEvidence);
     assert.equal(first.files.reduce((sum, file) => sum + file.bytes, 0), first.totalBytes, 'deployment manifest file inventory reproduces total bytes');
     PagesLiveSmoke.validateManifestFileInventory(first);
     assert.equal(first.artifactDigest, second.artifactDigest, 'deployment manifest tree digest is deterministic across regeneration');
@@ -337,6 +367,15 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
       /deployed (?:byte count|SHA-256)/,
       'deployed artifact verification rejects changed public bytes',
     );
+    const preflightPath = path.join(fixtureRoot, '結構工具箱', 'assets', 'status', 'preflight-summary.json');
+    const preflightFixture = JSON.parse(fs.readFileSync(preflightPath, 'utf8'));
+    fs.writeFileSync(preflightPath, JSON.stringify({ ...preflightFixture, quick: true }), 'utf8');
+    assert.throws(() => buildDeploymentManifest(options), /not complete formal release evidence/, 'deployment manifest rejects quick evidence');
+    fs.writeFileSync(preflightPath, JSON.stringify(preflightFixture), 'utf8');
+    const readinessPath = path.join(fixtureRoot, '結構工具箱', 'assets', 'status', 'report-readiness-status.json');
+    const readinessFixture = JSON.parse(fs.readFileSync(readinessPath, 'utf8'));
+    fs.writeFileSync(readinessPath, JSON.stringify({ ...readinessFixture, runId: '20260719-000001' }), 'utf8');
+    assert.throws(() => buildDeploymentManifest(options), /does not match the formal release run/, 'deployment manifest rejects mismatched report readiness evidence');
   } finally {
     fs.rmSync(fixtureRoot, { recursive: true, force: true });
   }
@@ -533,7 +572,9 @@ assert.ok(toolBoundaries.includes('sourceDirty: false') && toolBoundaries.includ
 assert.ok(staging.includes('git status --porcelain --untracked-files=all') && staging.includes('sourceDirty: false'), 'staging guide documents the clean checkout requirement');
 assert.ok(deploymentManifestBuilder.includes("algorithm: 'sha256-tree-v1'") && deploymentManifestBuilder.includes("entry.name.startsWith('.')"), 'deployment manifest builder hashes the published non-hidden tree');
 assert.ok(deploymentManifestBuilder.includes("relativePath === MANIFEST_FILE") && deploymentManifestBuilder.includes("files.sort"), 'deployment manifest builder excludes itself and uses stable path ordering');
-assert.ok(deploymentManifestBuilder.includes('schemaVersion: 2') && deploymentManifestBuilder.includes('files: identity.files'), 'deployment manifest publishes the complete closed file inventory');
+assert.ok(deploymentManifestBuilder.includes('schemaVersion: 3') && deploymentManifestBuilder.includes('releaseEvidence') && deploymentManifestBuilder.includes('files: identity.files'), 'deployment manifest publishes release identity and the complete closed file inventory');
+assert.ok(pagesSmoke.includes('deployment release run matches public preflight status') && pagesSmoke.includes('deployment tested source matches public preflight status'), 'Pages smoke binds deployment, release run, and tested source');
+assert.ok(pushPagesRelease.includes('[int]$Manifest.schemaVersion -ne 3') && pushPagesRelease.includes('$Manifest.releaseEvidence.sourceCommitSha') && pushPagesRelease.includes('-ExpectedSourceSha $testedSourceSha'), 'safe push rejects legacy, incomplete, or parent-mismatched deployment provenance');
 
 assert.ok(pagesBrowserSmoke.includes("{ key: 'desktop', width: 1280, height: 800 }") && pagesBrowserSmoke.includes("{ key: 'mobile', width: 390, height: 844 }"), 'Pages browser smoke covers desktop and mobile viewports');
 assert.ok(pagesBrowserSmoke.includes("sessionStorage.getItem(storageKey)") && pagesBrowserSmoke.includes("sessionStorage.setItem(storageKey, candidateBase)"), 'Pages browser smoke preserves the deployment base across bounded retries');

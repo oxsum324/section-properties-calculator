@@ -233,6 +233,8 @@ GUI 只可套用 action 與本次預期動作一致，且狀態和實際 worker 
 
 首頁工具內容更新日與正式放行日是不同資料：逐工具日期留在 `HOME_TOOL_UPDATES`，正式放行日只由 tracked `preflight-summary.json` 在執行期提供。快照必須是 passing、非 quick、強制平台巡檢與慢測、來源 commit 可辨識且乾淨，否則卡片只引導查看上方交付前檢查狀態，不得顯示人工猜定日期。
 
+Pages deployment manifest 現採 schema v3。前表所稱 v2 封閉逐檔清冊仍完整保留，並新增 `releaseEvidence`，直接綁定實際發布之 tracked `preflight-summary.json` 的正式 release runId、產生時間與受測來源 SHA；同時要求 `report-readiness-status.json` 通過且 runId 一致。不是 full run、未強制平台巡檢或慢測、來源不乾淨、checks / post-checks 未全數通過，或兩份公開快照身分不一致時，artifact 建置必須失敗封閉。巡檢儀表板的「一般巡檢新鮮度」與「正式放行證據」分開顯示；7 日與 30 日門檻只提供重驗提醒，不改寫既有 release 身分。公開 manifest 缺少時只顯示「未部署證據」；carrier、Actions run、release run 或 tested source 任一不一致時顯示紅色「未對齊」，不得用較新的單項巡檢掩蓋。
+
 ## 提交前檢查順序
 
 1. `.\run-preflight-tools-quick.bat`
