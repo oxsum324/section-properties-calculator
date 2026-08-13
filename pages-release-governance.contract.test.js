@@ -305,7 +305,7 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
     fs.writeFileSync(path.join(fixtureRoot, 'index.html'), '<!doctype html><title>fixture</title>', 'utf8');
     fs.writeFileSync(path.join(fixtureRoot, 'assets', 'app.js'), 'console.log("fixture");', 'utf8');
     fs.writeFileSync(path.join(fixtureRoot, '結構工具箱', 'assets', 'status', 'platform-status.json'), JSON.stringify({
-      publicEvidenceSchemaVersion: 1,
+      publicEvidenceSchemaVersion: 2,
       snapshotVersion: 1,
       kind: 'platform-status',
       generatedAt: '2026-07-19 00:00:00',
@@ -317,7 +317,7 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
       sourceHash: 'a'.repeat(64),
     }), 'utf8');
     fs.writeFileSync(path.join(fixtureRoot, '結構工具箱', 'assets', 'status', 'preflight-summary.json'), JSON.stringify({
-      publicEvidenceSchemaVersion: 1,
+      publicEvidenceSchemaVersion: 2,
       snapshotVersion: 1,
       kind: 'preflight-summary',
       generatedAt: '2026-07-19 00:00:00',
@@ -337,9 +337,26 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
       sourceCommitSha: 'c'.repeat(40),
       sourcePath: 'output/preflight/history/20260719-000000/preflight-summary.json',
       sourceHash: 'b'.repeat(64),
+      releaseHistory: {
+        schemaVersion: 1,
+        limit: 8,
+        entries: [{
+          runId: '20260719-000000',
+          generatedAt: '2026-07-19 00:00:00',
+          sourceCommitSha: 'c'.repeat(40),
+          records: { passed: 82, required: 82 },
+          postChecks: { passed: 3, required: 3 },
+          dimensions: ['release', 'steel', 'rc', 'delivery'].map(id => ({ id, pass: true })),
+          metrics: [
+            ['steelResult', 5], ['steelContentSeal', 5], ['steelApprovalSeal', 5],
+            ['rcResult', 34], ['rcPrint', 34], ['rcPackage', 32],
+            ['formalResult', 14], ['localQuickResult', 3], ['rendered', 31], ['delivery', 139],
+          ].map(([id, required]) => ({ id, complete: required, required })),
+        }],
+      },
     }), 'utf8');
     fs.writeFileSync(path.join(fixtureRoot, '結構工具箱', 'assets', 'status', 'report-readiness-status.json'), JSON.stringify({
-      publicEvidenceSchemaVersion: 1,
+      publicEvidenceSchemaVersion: 2,
       snapshotVersion: 1,
       kind: 'report-readiness-status',
       generatedAt: '2026-07-19 00:00:00',
@@ -395,7 +412,7 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
     assert.equal(first.fileCount, 5, 'deployment manifest includes all three public release snapshots while excluding hidden files and itself');
     assert.deepEqual(first.files.map(file => file.path), ['assets/app.js', 'index.html', '結構工具箱/assets/status/platform-status.json', '結構工具箱/assets/status/preflight-summary.json', '結構工具箱/assets/status/report-readiness-status.json'], 'deployment manifest publishes the complete ordinal file inventory');
     assert.deepEqual(first.releaseEvidence, {
-      schemaVersion: 1,
+      schemaVersion: 2,
       runId: '20260719-000000',
       generatedAt: '2026-07-19 00:00:00',
       sourceCommitSha: 'c'.repeat(40),
@@ -405,6 +422,12 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
         { id: 'rc', pass: true },
         { id: 'delivery', pass: true },
       ],
+      releaseHistory: {
+        schemaVersion: 1,
+        retainedCount: 1,
+        oldestRunId: '20260719-000000',
+        latestRunId: '20260719-000000',
+      },
     }, 'deployment manifest binds formal release identity and all public evidence dimensions');
     PagesLiveSmoke.validateDeploymentReleaseEvidence(first.releaseEvidence);
     assert.equal(first.files.reduce((sum, file) => sum + file.bytes, 0), first.totalBytes, 'deployment manifest file inventory reproduces total bytes');
@@ -648,6 +671,8 @@ assert.ok(pagesBrowserSmoke.includes("'?audit_scope=local'") && pagesBrowserSmok
 assert.ok(pagesBrowserSmoke.includes('privateOutputRequests') && pagesBrowserSmoke.includes("decodeURIComponent(value).includes('/output/')"), 'Pages browser smoke proves the public dashboard makes zero private output requests');
 assert.ok(pagesBrowserSmoke.includes("['正式 release 總覽', '鋼構正式附件證據', 'RC 正式附件證據', '風震與跨家族交付證據']") && pagesBrowserSmoke.includes("value !== '公開證據完整'"), 'Pages browser smoke verifies distinct complete public evidence dimensions');
 assert.ok(pagesBrowserSmoke.includes("[0, '正式檢查']") && pagesBrowserSmoke.includes("[3, '檔案完整性']") && pagesBrowserSmoke.includes("match[1] === match[2]"), 'Pages browser smoke verifies positive complete public evidence counts without freezing the evolving preflight total');
+assert.ok(pagesBrowserSmoke.includes('publicReleaseHistory') && pagesBrowserSmoke.includes('public release history leaks private implementation details'), 'Pages browser smoke verifies the public release history without private implementation leakage');
+assert.ok(deploymentManifestBuilder.includes('retainedCount') && deploymentManifestBuilder.includes('oldestRunId') && deploymentManifestBuilder.includes('latestRunId'), 'deployment manifest binds the independently validated public release history range');
 assert.ok(pagesBrowserSmoke.includes('localDiagnosticSectionsVisible') && pagesBrowserSmoke.includes('local diagnostic sections remain visible'), 'Pages browser smoke verifies public reading density excludes local diagnostics');
 assert.ok(toolBoundaries.includes('只有正式 live') && toolBoundaries.includes('HTTP smoke') && toolBoundaries.includes('HTTP 5xx'), 'tool boundaries documents the live-only transient retry boundary');
 assert.ok(staging.includes('HTTP smoke') && staging.includes('完整重跑最多一次') && staging.includes('第二次持續失敗仍阻擋'), 'staging guide documents the bounded live retry rule');

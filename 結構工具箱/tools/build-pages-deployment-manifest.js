@@ -98,6 +98,12 @@ function releaseEvidenceIdentity(siteRoot) {
     generatedAt: validation.identity.generatedAt,
     sourceCommitSha: validation.identity.sourceCommitSha,
     dimensions: validation.dimensions,
+    releaseHistory: {
+      schemaVersion: validation.releaseHistory.schemaVersion,
+      retainedCount: validation.releaseHistory.entries.length,
+      oldestRunId: validation.releaseHistory.entries[0].runId,
+      latestRunId: validation.releaseHistory.entries.at(-1).runId,
+    },
   };
 }
 

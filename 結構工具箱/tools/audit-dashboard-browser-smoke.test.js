@@ -93,7 +93,7 @@ const fixtureAttachmentPublicGroups = fixtureAttachmentGroups.map(({
   ...group
 }) => group);
 const fixtureAttachmentStatus = {
-  publicEvidenceSchemaVersion: 1,
+  publicEvidenceSchemaVersion: 2,
   snapshotVersion: 1,
   kind: 'report-readiness-status',
   generatedAt: fixtureGeneratedAt,
@@ -140,7 +140,7 @@ const fixtureAttachmentStatus = {
   deliveryFileIntegrityPass: true,
 };
 const fixturePublicPreflightStatus = {
-  publicEvidenceSchemaVersion: 1,
+  publicEvidenceSchemaVersion: 2,
   snapshotVersion: 1,
   kind: 'preflight-summary',
   generatedAt: fixtureGeneratedAt,
@@ -162,8 +162,26 @@ const fixturePublicPreflightStatus = {
   sourcePath: 'output/preflight/history/20260621-213000/preflight-summary.json',
   sourceHash: 'e'.repeat(64),
 };
+const fixtureMetricPairs = [
+  ['steelResult', 5], ['steelContentSeal', 5], ['steelApprovalSeal', 5],
+  ['rcResult', 34], ['rcPrint', 34], ['rcPackage', 32],
+  ['formalResult', 14], ['localQuickResult', 3], ['rendered', 31], ['delivery', 139],
+];
+fixturePublicPreflightStatus.releaseHistory = {
+  schemaVersion: 1,
+  limit: 8,
+  entries: [{
+    runId: fixtureReleaseRunId,
+    generatedAt: fixtureGeneratedAt,
+    sourceCommitSha: fixtureTestedSourceSha,
+    records: { passed: 82, required: 82 },
+    postChecks: { passed: 3, required: 3 },
+    dimensions: ['release', 'steel', 'rc', 'delivery'].map(id => ({ id, pass: true })),
+    metrics: fixtureMetricPairs.map(([id, required]) => ({ id, complete: required, required })),
+  }],
+};
 const fixturePublicPlatformStatus = {
-  publicEvidenceSchemaVersion: 1,
+  publicEvidenceSchemaVersion: 2,
   snapshotVersion: 1,
   kind: 'platform-status',
   generatedAt: fixtureGeneratedAt,
@@ -184,7 +202,7 @@ const fixtureDeploymentManifest = {
   runId: '123456789',
   runAttempt: 1,
   releaseEvidence: {
-    schemaVersion: 1,
+    schemaVersion: 2,
     runId: fixtureReleaseRunId,
     generatedAt: fixtureGeneratedAt,
     sourceCommitSha: fixtureTestedSourceSha,
@@ -194,6 +212,12 @@ const fixtureDeploymentManifest = {
       { id: 'rc', pass: true },
       { id: 'delivery', pass: true },
     ],
+    releaseHistory: {
+      schemaVersion: 1,
+      retainedCount: 1,
+      oldestRunId: fixtureReleaseRunId,
+      latestRunId: fixtureReleaseRunId,
+    },
   },
 };
 const fixtureRvrBackupHealth = {
@@ -1729,6 +1753,10 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
           rc: document.getElementById('rcSummaryPreview')?.textContent?.trim() || '',
           core: document.getElementById('coreSummaryPreview')?.textContent?.trim() || '',
         },
+        publicReleaseHistory: {
+          rows: Array.from(document.querySelectorAll('#publicReleaseHistoryWrap tbody tr')).map(row => row.textContent.replace(/\s+/g, ' ').trim()),
+          text: document.getElementById('publicReleaseHistoryWrap')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+        },
         latestPostCheckRows: Array.from(document.querySelectorAll('#preflightPostChecksWrap tbody tr')).map((row) => ({
           key: row.querySelector('td:nth-child(1)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
           label: row.querySelector('td:nth-child(2)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
@@ -2518,6 +2546,9 @@ function assertPublicAttachmentBoundaryState(state, label) {
   assert.ok(state.statusCards[2].meta.includes('結果鏈｜34 / 34') && state.statusCards[2].meta.includes('獨立列印｜34 / 34') && state.statusCards[2].meta.includes('來源／報告組包｜32 / 32'), `${label} public RC evidence uses tracked readiness counts`);
   assert.ok(state.statusCards[3].meta.includes('風震結果鏈｜14 / 14') && state.statusCards[3].meta.includes('局部快算｜3 / 3') && state.statusCards[3].meta.includes('渲染交付｜31 / 31') && state.statusCards[3].meta.includes('檔案完整性｜139 / 139'), `${label} public cross-family evidence uses tracked readiness counts`);
   assert.ok(Object.values(state.summaryPreviews).every(text => text.includes('僅限本機工作區')), `${label} public summary previews retain explicit local-only details boundary`);
+  assert.equal(state.publicReleaseHistory.rows.length, 1, `${label} public release history renders the retained release`);
+  assert.ok(state.publicReleaseHistory.text.includes(fixtureReleaseRunId) && state.publicReleaseHistory.text.includes('82 / 82'), `${label} public release history exposes the formal gate summary`);
+  assert.equal(/output\/|sourcePath|sourceHash|C:\\/.test(state.publicReleaseHistory.text), false, `${label} public release history omits private paths and implementation fields`);
   assert.equal(state.gsmMonitorState, 'local-only', `${label} public dashboard marks GSM local-only`);
   assert.equal(state.gsmMonitorHealth, '僅限本機', `${label} public dashboard does not claim GSM health`);
   assert.deepEqual(state.gsmMonitorIssues, [], `${label} public dashboard has no GSM issue details`);

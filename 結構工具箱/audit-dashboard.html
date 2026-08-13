@@ -776,6 +776,14 @@
     </div>
   </div>
 
+  <div class="card" id="publicReleaseHistoryCard">
+    <h2>正式 release 公開歷程</h2>
+    <p class="section-note">只保留最近 8 次通過完整公開證據契約的正式 release；顯示門檻與完成數，不公開案件、輸入、逐檔清冊、雜湊或本機路徑。</p>
+    <div class="history-table-wrap" id="publicReleaseHistoryWrap" aria-label="正式 release 公開歷程">
+      <div class="history-empty">讀取公開 release 歷程中。</div>
+    </div>
+  </div>
+
   <div class="card screen-only local-diagnostic-section" id="rvrBackupHealthCard">
     <h2>RVR 信任清冊備份健康</h2>
     <p class="boundary-note"><strong>本機治理邊界：</strong>本區只讀取不含路徑、檔名、指紋或信任清冊內容的本機摘要，不會寫入計算書、列印或 PDF，也不代表 Google Drive 已完成遠端同步。</p>
@@ -2708,6 +2716,13 @@
           releaseEvidence.dimensions[index]?.id === id
           && releaseEvidence.dimensions[index]?.pass === true
         ));
+      const manifestReleaseHistoryValid = releaseEvidence?.releaseHistory
+        && releaseEvidence.releaseHistory.schemaVersion === window.PublicEvidenceSchema?.RELEASE_HISTORY_SCHEMA_VERSION
+        && Number.isInteger(releaseEvidence.releaseHistory.retainedCount)
+        && releaseEvidence.releaseHistory.retainedCount > 0
+        && releaseEvidence.releaseHistory.retainedCount <= window.PublicEvidenceSchema?.RELEASE_HISTORY_LIMIT
+        && /^\d{8}-\d{6}$/.test(String(releaseEvidence.releaseHistory.oldestRunId || ''))
+        && String(releaseEvidence.releaseHistory.latestRunId || '') === String(preflight.runId || '');
       const manifestValid = manifest?.schemaVersion === 3
         && manifest?.kind === 'pages-deployment'
         && /^[0-9a-f]{40}$/i.test(String(manifest.commitSha || ''))
@@ -2716,6 +2731,7 @@
         && releaseEvidence
         && releaseEvidence.schemaVersion === window.PublicEvidenceSchema?.SCHEMA_VERSION
         && manifestEvidenceDimensionsValid
+        && manifestReleaseHistoryValid
         && String(releaseEvidence.runId || '') === String(preflight.runId || '')
         && String(releaseEvidence.generatedAt || '') === String(preflight.generatedAt || '')
         && String(releaseEvidence.sourceCommitSha || '').toLowerCase() === String(preflight.sourceCommitSha || '').toLowerCase()
@@ -2931,8 +2947,45 @@
       ];
     }
 
+    function renderPublicReleaseHistory(validation) {
+      const node = document.getElementById('publicReleaseHistoryWrap');
+      if (!node) return;
+      const entries = validation?.pass === true && Array.isArray(validation.releaseHistory?.entries)
+        ? validation.releaseHistory.entries.slice().reverse()
+        : [];
+      if (!entries.length) {
+        node.innerHTML = '<div class="history-empty">公開 release 歷程缺失或未通過版本化契約；不會改讀私人 output 補值。</div>';
+        return;
+      }
+      const metric = (entry, id) => entry.metrics.find(item => item.id === id) || {};
+      const rows = entries.map((entry, index) => {
+        const previous = entries[index + 1] || null;
+        const gateDelta = previous ? entry.records.required - previous.records.required : 0;
+        const gateText = previous ? `${gateDelta >= 0 ? '+' : ''}${gateDelta}` : '基準';
+        const steel = metric(entry, 'steelResult');
+        const rc = metric(entry, 'rcResult');
+        const delivery = metric(entry, 'delivery');
+        return `<tr>
+          <td><strong>${escapeHtml(entry.runId)}</strong><br><span class="history-note">${escapeHtml(entry.generatedAt)}</span></td>
+          <td>${entry.records.passed} / ${entry.records.required}<br><span class="history-note">門檻變化 ${gateText}</span></td>
+          <td>${entry.postChecks.passed} / ${entry.postChecks.required}</td>
+          <td>鋼構 ${steel.complete} / ${steel.required}<br>RC ${rc.complete} / ${rc.required}<br>交付 ${delivery.complete} / ${delivery.required}</td>
+          <td>${escapeHtml(shortSha(entry.sourceCommitSha))}</td>
+        </tr>`;
+      }).join('');
+      node.innerHTML = `<table>
+        <thead><tr><th>release</th><th>正式門檻</th><th>後置門檻</th><th>代表性完成數</th><th>受測來源</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    }
+
     function renderPublicResources(platformStatus, preflight, readiness) {
       statusCache.clear();
+      const validation = window.PublicEvidenceSchema?.validatePublicEvidenceBundle({
+        platformStatus,
+        preflightStatus: preflight,
+        reportReadinessStatus: readiness,
+      }) || null;
       const evidenceItems = buildPublicEvidence(platformStatus, preflight, readiness);
       resources.forEach((resource, index) => {
         const cardNode = document.getElementById(resource.cardId);
@@ -2942,6 +2995,7 @@
         renderPublicStatusCard(cardNode, evidence);
         if (summaryNode) summaryNode.textContent = evidence?.preview || '公開證據摘要缺失；不會改由私人 output 推測。';
       });
+      renderPublicReleaseHistory(validation);
       updateOverview();
     }
 

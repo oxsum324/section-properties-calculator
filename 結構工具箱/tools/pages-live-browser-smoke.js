@@ -128,6 +128,13 @@ async page => {
           dashboardBadges: [...document.querySelectorAll('.status-card .status-badge')].map(node => node.textContent.trim()),
           dashboardMeta: [...document.querySelectorAll('.status-card .status-meta')].map(node => node.textContent.replace(/\s+/g, ' ').trim()),
           dashboardPreviews: [...document.querySelectorAll('.summary-card pre')].map(node => node.textContent.trim()),
+          publicReleaseHistory: (() => {
+            const node = document.getElementById('publicReleaseHistoryWrap');
+            return node ? {
+              rowCount: node.querySelectorAll('tbody tr').length,
+              text: node.textContent.replace(/\s+/g, ' ').trim(),
+            } : null;
+          })(),
           localDiagnosticSectionsVisible: [...document.querySelectorAll('.local-diagnostic-section')].filter(node => node.getClientRects().length > 0).map(node => node.id)
         };
       }, route);
@@ -190,6 +197,8 @@ async page => {
         ];
         if (requiredMeta.some(([index, label]) => !completeCount(state.dashboardMeta[index], label))) routeIssues.push(`invalid public evidence counts: ${JSON.stringify(state.dashboardMeta)}`);
         if (state.dashboardPreviews.length !== 4 || state.dashboardPreviews.some(value => !value.includes('僅限本機工作區'))) routeIssues.push(`invalid public evidence privacy boundaries: ${JSON.stringify(state.dashboardPreviews)}`);
+        if (!state.publicReleaseHistory || state.publicReleaseHistory.rowCount < 1 || !state.publicReleaseHistory.text.includes('正式門檻') || !state.publicReleaseHistory.text.includes('受測來源')) routeIssues.push(`invalid public release history: ${JSON.stringify(state.publicReleaseHistory)}`);
+        if (/C:\\|Users\\|output\/preflight\/history|sourcePath|sourceHash/i.test(state.publicReleaseHistory?.text || '')) routeIssues.push('public release history leaks private implementation details');
         if (state.localDiagnosticSectionsVisible.length) routeIssues.push(`local diagnostic sections remain visible: ${JSON.stringify(state.localDiagnosticSectionsVisible)}`);
         if (privateOutputRequests.length) routeIssues.push(`private output requests: ${JSON.stringify(privateOutputRequests)}`);
       }

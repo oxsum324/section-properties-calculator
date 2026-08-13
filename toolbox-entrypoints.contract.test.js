@@ -816,6 +816,8 @@ assert.ok(pagesLiveBrowserSmoke.includes("'?audit_scope=local'") && pagesLiveBro
 assert.ok(pagesLiveBrowserSmoke.includes('privateOutputRequests') && pagesLiveBrowserSmoke.includes("decodeURIComponent(value).includes('/output/')"), 'Pages browser smoke rejects public dashboard private output requests');
 assert.ok(pagesLiveBrowserSmoke.includes("['正式 release 總覽', '鋼構正式附件證據', 'RC 正式附件證據', '風震與跨家族交付證據']") && pagesLiveBrowserSmoke.includes("value !== '公開證據完整'"), 'Pages browser smoke locks distinct complete public evidence dimensions');
 assert.ok(pagesLiveBrowserSmoke.includes("[0, '正式檢查']") && pagesLiveBrowserSmoke.includes("[3, '檔案完整性']") && pagesLiveBrowserSmoke.includes("match[1] === match[2]"), 'Pages browser smoke locks positive complete public evidence counts without a stale fixed gate total');
+assert.ok(pagesLiveBrowserSmoke.includes('publicReleaseHistory') && pagesLiveBrowserSmoke.includes('public release history leaks private implementation details'), 'Pages browser smoke locks the bounded public release history and privacy boundary');
+assert.ok(pagesDeploymentManifestBuilder.includes('retainedCount') && pagesDeploymentManifestBuilder.includes('oldestRunId') && pagesDeploymentManifestBuilder.includes('latestRunId'), 'Pages manifest binds the validated public release history range');
 assert.ok(pagesLiveBrowserSmoke.includes('localDiagnosticSectionsVisible') && pagesLiveBrowserSmoke.includes('local diagnostic sections remain visible'), 'Pages browser smoke locks public reading density');
 assert.ok(pagesLiveSmoke.includes('石材固定/dev_tools/baseline_capture.html'), 'Pages live smoke blocks stone dev tools publication');
 assert.ok(pagesLiveSmoke.includes('石材固定/server.py'), 'Pages live smoke blocks stone backend helper publication');

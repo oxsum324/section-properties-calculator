@@ -283,8 +283,8 @@ function validateManifestFileInventory(manifest) {
 
 function validateDeploymentReleaseEvidence(releaseEvidence) {
   assert.ok(releaseEvidence && typeof releaseEvidence === 'object' && !Array.isArray(releaseEvidence), 'Pages deployment manifest releaseEvidence object');
-  assert.deepEqual(Object.keys(releaseEvidence).sort(), ['dimensions', 'generatedAt', 'runId', 'schemaVersion', 'sourceCommitSha'], 'Pages deployment manifest releaseEvidence closed schema');
-  assert.equal(releaseEvidence.schemaVersion, 1, 'Pages deployment manifest public evidence schema version');
+  assert.deepEqual(Object.keys(releaseEvidence).sort(), ['dimensions', 'generatedAt', 'releaseHistory', 'runId', 'schemaVersion', 'sourceCommitSha'], 'Pages deployment manifest releaseEvidence closed schema');
+  assert.equal(releaseEvidence.schemaVersion, publicEvidenceSchema.SCHEMA_VERSION, 'Pages deployment manifest public evidence schema version');
   assert.match(releaseEvidence.runId, /^\d{8}-\d{6}$/, 'Pages deployment manifest releaseEvidence runId');
   assert.match(releaseEvidence.generatedAt, /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}/, 'Pages deployment manifest releaseEvidence generatedAt');
   assert.ok(Number.isFinite(Date.parse(releaseEvidence.generatedAt.replace(' ', 'T'))), 'Pages deployment manifest releaseEvidence generatedAt parseable');
@@ -295,6 +295,13 @@ function validateDeploymentReleaseEvidence(releaseEvidence) {
     { id: 'rc', pass: true },
     { id: 'delivery', pass: true },
   ], 'Pages deployment manifest binds all four complete public evidence dimensions');
+  assert.deepEqual(Object.keys(releaseEvidence.releaseHistory || {}).sort(), ['latestRunId', 'oldestRunId', 'retainedCount', 'schemaVersion'], 'Pages deployment manifest release history closed schema');
+  assert.equal(releaseEvidence.releaseHistory.schemaVersion, publicEvidenceSchema.RELEASE_HISTORY_SCHEMA_VERSION, 'Pages deployment manifest release history schema version');
+  assert.ok(Number.isInteger(releaseEvidence.releaseHistory.retainedCount)
+    && releaseEvidence.releaseHistory.retainedCount > 0
+    && releaseEvidence.releaseHistory.retainedCount <= publicEvidenceSchema.RELEASE_HISTORY_LIMIT, 'Pages deployment manifest release history count is bounded');
+  assert.match(releaseEvidence.releaseHistory.oldestRunId, /^\d{8}-\d{6}$/, 'Pages deployment manifest oldest retained release runId');
+  assert.equal(releaseEvidence.releaseHistory.latestRunId, releaseEvidence.runId, 'Pages deployment manifest release history ends at current release');
 }
 
 function artifactFileUrl(base, relativePath, runId) {
@@ -366,7 +373,7 @@ async function assertDeploymentManifest(base) {
 }
 
 function assertStatusPayload(payload, label) {
-  assert.equal(payload.publicEvidenceSchemaVersion, 1, `${label} publicEvidenceSchemaVersion`);
+  assert.equal(payload.publicEvidenceSchemaVersion, publicEvidenceSchema.SCHEMA_VERSION, `${label} publicEvidenceSchemaVersion`);
   assert.equal(payload.snapshotVersion, 1, `${label} snapshotVersion`);
   assert.equal(typeof payload.kind, 'string', `${label} kind`);
   assert.equal(typeof payload.generatedAt, 'string', `${label} generatedAt`);
@@ -597,6 +604,8 @@ async function main() {
   });
   assert.equal(publicEvidenceValidation.pass, true, `published status bundle satisfies public evidence schema v${publicEvidenceSchema.SCHEMA_VERSION}: ${publicEvidenceValidation.errors.join(', ')}`);
   assert.deepEqual(publicEvidenceValidation.dimensions, deploymentManifest.releaseEvidence.dimensions, 'deployment manifest dimensions match independently revalidated public snapshots');
+  assert.equal(publicEvidenceValidation.releaseHistory.entries.length, deploymentManifest.releaseEvidence.releaseHistory.retainedCount, 'deployment manifest release history count matches independently revalidated public snapshots');
+  assert.equal(publicEvidenceValidation.releaseHistory.entries[0].runId, deploymentManifest.releaseEvidence.releaseHistory.oldestRunId, 'deployment manifest oldest release matches independently revalidated public snapshots');
   assert.equal(Number.isInteger(reportReadinessStatus.pageOnlyBoundaryRequired), true, 'report readiness required integer');
   assert.equal(reportReadinessStatus.pageOnlyBoundaryComplete, reportReadinessStatus.pageOnlyBoundaryRequired, 'report readiness status fully covered');
   assert.equal(reportReadinessStatus.pageOnlyBoundaryIssueCount, 0, 'report readiness status issues empty');

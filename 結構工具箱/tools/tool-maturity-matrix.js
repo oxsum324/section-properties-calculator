@@ -1654,6 +1654,49 @@ function buildHomepagePreflightStatus(payload, sourceFilePath, sourcePath) {
   };
 }
 
+function readGitStatusSnapshot(commitSha, relativePath) {
+  try {
+    const raw = require('child_process').execFileSync(
+      'git', ['show', `${commitSha}:${relativePath}`],
+      { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+    );
+    return JSON.parse(raw.replace(/^\uFEFF/, ''));
+  } catch (_) {
+    return null;
+  }
+}
+
+function readRetainedPublicEvidenceBundles(limit = publicEvidenceSchema.RELEASE_HISTORY_LIMIT) {
+  let commits = [];
+  try {
+    commits = require('child_process').execFileSync(
+      'git', ['log', '--format=%H', '--', '結構工具箱/assets/status/preflight-summary.json'],
+      { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+    ).split(/\r?\n/).filter(Boolean);
+  } catch (_) {
+    return [];
+  }
+  const bundles = [];
+  const seenRunIds = new Set();
+  for (const commitSha of commits) {
+    const bundle = {
+      platformStatus: readGitStatusSnapshot(commitSha, '結構工具箱/assets/status/platform-status.json'),
+      preflightStatus: readGitStatusSnapshot(commitSha, '結構工具箱/assets/status/preflight-summary.json'),
+      reportReadinessStatus: readGitStatusSnapshot(commitSha, '結構工具箱/assets/status/report-readiness-status.json'),
+    };
+    const runId = String(bundle.preflightStatus?.runId || '');
+    if (!/^\d{8}-\d{6}$/.test(runId) || seenRunIds.has(runId)) continue;
+    if (bundle.reportReadinessStatus?.runId !== runId) continue;
+    bundles.push(bundle);
+    seenRunIds.add(runId);
+    if (bundles.length >= limit) break;
+  }
+  if (process.env.DEBUG_PUBLIC_RELEASE_HISTORY === '1') {
+    console.error(`retained public releases: ${bundles.map(bundle => bundle.preflightStatus.runId).join(', ') || '(none)'}`);
+  }
+  return bundles.reverse();
+}
+
 function isRenderedDeliveryRelease(payload) {
   return Boolean(
     payload
@@ -2783,16 +2826,25 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
 }
 
 function writeHomepageStatusSnapshots(matrixPayload = null, matrixSourceHash = '') {
+  const previousBundle = {
+    platformStatus: tryReadJsonIfExists(homepagePlatformStatusPath),
+    preflightStatus: tryReadJsonIfExists(homepagePreflightStatusPath),
+    reportReadinessStatus: tryReadJsonIfExists(homepageReportReadinessStatusPath),
+  };
   const platformStatus = buildHomepagePlatformStatus(readJsonIfExists(platformStatusSourcePath));
   const preflightSource = resolveHomepagePreflightSource();
   const preflightStatus = buildHomepagePreflightStatus(preflightSource.payload, preflightSource.filePath, preflightSource.sourcePath);
   const renderedDeliveryEvidence = resolveRenderedDeliveryEvidenceSource();
   const reportReadinessStatus = buildHomepageReportReadinessStatus(matrixPayload, matrixSourceHash || sourceHashIfExists(jsonOutputPath), preflightStatus, preflightSource.payload, renderedDeliveryEvidence);
-  const publicEvidenceResult = publicEvidenceSchema.validatePublicEvidenceBundle({
+  const currentBundle = {
     platformStatus,
     preflightStatus,
     reportReadinessStatus,
-  });
+  };
+  const retainedBundles = readRetainedPublicEvidenceBundles();
+  retainedBundles.push(previousBundle);
+  preflightStatus.releaseHistory = publicEvidenceSchema.buildReleaseHistory(retainedBundles, currentBundle);
+  const publicEvidenceResult = publicEvidenceSchema.validatePublicEvidenceBundle(currentBundle);
   assert.equal(publicEvidenceResult.pass, true, `homepage public evidence schema v${publicEvidenceSchema.SCHEMA_VERSION}: ${publicEvidenceResult.errors.join(', ')}`);
   fs.mkdirSync(homepageStatusDir, { recursive: true });
   if (platformStatus) {

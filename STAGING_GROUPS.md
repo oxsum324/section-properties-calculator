@@ -61,6 +61,8 @@ git diff --check -- README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GR
 
 dashboard 公開／本機資料範圍變更也屬 A0 同包。有效 v3 manifest 必須使公開頁只讀 manifest 與三份 tracked status，禁止發出任何 `output/` 請求並隱藏私人摘要連結；四張公開卡片必須各自以 tracked 結構化欄位驗證正式 release、鋼構、RC、風震／跨家族交付完成數，不得複製同一 platform pass 或以文案推定。localhost 只有明確 `?audit_scope=local` 才啟用完整診斷。`audit-dashboard-browser-smoke.test.js` 應以 request audit 同時證明本機資料仍完整、公開桌面與手機皆零 private-output 請求，並核對四個證據面向及完成數；不能只忽略 404 console 訊息。
 
+公開證據 Schema v2／歷史變更同樣屬 A0 同包。`preflight-summary.json` 只可在既有三快照 lineage 內保存最近 8 次正式 release 摘要；每筆必須含受測 commit、全數通過的正式／後置門檻、四面向與十組完成數，按 runId／時間遞增並以目前 release 為終點。舊資料只從 Git 中可重驗的三快照成套回填，重複 carrier 去重；不得推測不完整舊值或加入案件、輸入、逐檔清冊、來源路徑、私密雜湊。Dashboard、manifest、HTTP／browser smoke、schema 負向測試及三份治理文件必須一起 staging。
+
 成功 smoke 必須輸出唯一的 `pagesHttpSmokeAttemptCount`；安全發布入口只接受大於 0 且不超過 `PublicSmokeAttempts` 的值，並回報 `publicArtifactVerificationAttemptCount` 與 `publicArtifactVerificationRetried`。缺少、重複或超界均視為工作站驗證失敗。
 
 Pages CI 效能趨勢固定使用私有 `performance-trend` job：當輪 build／live 收據必須完整成對，歷史只取成功 run 中同樣成對的 14 天 artifact。只有四個 exact cache hit 的同 lock digest 樣本可進最近 20 輪序列；冷快取當輪要列出排除原因，不能誤判部署失敗。trend v1 必須逐輪保存 build／live 的 runtime、HTTP、browser 六個毫秒值，並能重算 nearest-rank P50／P95；不足 3 輪顯示 `collecting`，不得假裝具備成熟統計。趨勢來源、測試、JSON、摘要與歷史收據均為私有 CI 治理，不得發布至 Pages 或放入計算書／正式附件。

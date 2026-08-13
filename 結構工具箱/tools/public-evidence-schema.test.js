@@ -13,16 +13,25 @@ const bundle = {
 };
 const clone = value => JSON.parse(JSON.stringify(value));
 
-assert.equal(schema.SCHEMA_VERSION, 1, 'public evidence schema version is explicit');
+assert.equal(schema.SCHEMA_VERSION, 2, 'public evidence schema version is explicit');
+assert.equal(schema.RELEASE_HISTORY_SCHEMA_VERSION, 1, 'release history schema version is explicit');
+assert.equal(schema.RELEASE_HISTORY_LIMIT, 8, 'release history retention is bounded');
 assert.deepEqual(schema.DIMENSION_IDS, ['release', 'steel', 'rc', 'delivery'], 'public evidence dimensions are stable');
+assert.equal(schema.METRIC_IDS.length, 10, 'release history retains every public completion metric');
 
 const valid = schema.validatePublicEvidenceBundle(bundle);
 assert.equal(valid.valid, true, `tracked bundle satisfies schema: ${valid.errors.join(', ')}`);
 assert.equal(valid.pass, true, 'tracked bundle proves all public evidence dimensions');
 assert.deepEqual(valid.dimensions.map(item => item.pass), [true, true, true, true], 'all four dimensions pass');
+assert.equal(valid.releaseHistory.entries.length >= 1, true, 'tracked bundle exposes at least the current formal release');
+assert.equal(valid.releaseHistory.entries.at(-1).runId, bundle.preflightStatus.runId, 'release history ends at the current public release');
+
+const rebuiltHistory = schema.buildReleaseHistory([], bundle);
+assert.equal(rebuiltHistory.entries.length, 1, 'history builder can seed a bounded chain from the current release');
+assert.equal(rebuiltHistory.entries[0].runId, bundle.preflightStatus.runId, 'seeded history identifies the current release');
 
 const wrongVersion = clone(bundle);
-wrongVersion.preflightStatus.publicEvidenceSchemaVersion = 2;
+wrongVersion.preflightStatus.publicEvidenceSchemaVersion = 3;
 assert.equal(schema.validatePublicEvidenceBundle(wrongVersion).pass, false, 'unknown producer schema version fails closed');
 
 const stringCount = clone(bundle);
@@ -45,4 +54,22 @@ const leakedPath = clone(bundle);
 leakedPath.platformStatus.sourcePath = 'C:\\private\\platform-status.json';
 assert.equal(schema.validatePublicEvidenceBundle(leakedPath).pass, false, 'absolute Windows source path is rejected');
 
-console.log(`public evidence schema OK (v${schema.SCHEMA_VERSION}, dimensions=${schema.DIMENSION_IDS.length}, negativeCases=5)`);
+const missingHistory = clone(bundle);
+delete missingHistory.preflightStatus.releaseHistory;
+assert.equal(schema.validatePublicEvidenceBundle(missingHistory).pass, false, 'schema v2 without release history fails closed');
+
+const staleLatest = clone(bundle);
+staleLatest.preflightStatus.releaseHistory.entries.pop();
+assert.equal(schema.validatePublicEvidenceBundle(staleLatest).pass, false, 'history that omits the current release fails closed');
+
+const reversedHistory = clone(bundle);
+reversedHistory.preflightStatus.releaseHistory.entries.reverse();
+if (reversedHistory.preflightStatus.releaseHistory.entries.length > 1) {
+  assert.equal(schema.validatePublicEvidenceBundle(reversedHistory).pass, false, 'release history must remain chronological');
+}
+
+const leakedHistoryField = clone(bundle);
+leakedHistoryField.preflightStatus.releaseHistory.entries[0].sourcePath = 'output/private.json';
+assert.equal(schema.validatePublicEvidenceBundle(leakedHistoryField).pass, false, 'release history rejects undeclared or private fields');
+
+console.log(`public evidence schema OK (v${schema.SCHEMA_VERSION}, history=${valid.releaseHistory.entries.length}/${schema.RELEASE_HISTORY_LIMIT}, dimensions=${schema.DIMENSION_IDS.length}, negativeCases=9)`);
