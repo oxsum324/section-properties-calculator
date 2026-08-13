@@ -1320,6 +1320,9 @@
       Number.isInteger(payload.xlsxPrintVisualSheetRequired) && payload.xlsxPrintVisualSheetRequired > 0
         ? ratio('Excel 列印成品', payload.xlsxPrintVisualSheetComplete, payload.xlsxPrintVisualSheetRequired, payload.xlsxPrintVisualIssueCount)
         : null,
+      Number.isInteger(payload.xlsxContentSealRequired) && payload.xlsxContentSealRequired > 0
+        ? ratio('Excel 雙封印', payload.xlsxContentSealComplete + payload.xlsxApprovalSealComplete, payload.xlsxContentSealRequired + payload.xlsxApprovalSealRequired, payload.xlsxDualSealIssueCount)
+        : null,
       Number.isInteger(payload.formalResultReconciliationRequired) && payload.formalResultReconciliationRequired > 0
         ? ratio('數值結果鏈', payload.formalResultReconciliationComplete, payload.formalResultReconciliationRequired, payload.formalResultReconciliationIssueCount)
         : null,

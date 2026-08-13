@@ -503,6 +503,41 @@ assert.equal(tamperedAnchorContentPackage.issues.find(issue => issue.code === 'a
 const tamperedAnchorApprovalPackage = Checker.analyzePackage([{ ...sealedAnchorHtmlRecord, anchorApprovalSeal: tamperedAnchorApprovalSeals.approval }]);
 assert.equal(tamperedAnchorApprovalPackage.status, 'blocked', 'anchor formal HTML whose approval metadata changed is blocked');
 assert.equal(tamperedAnchorApprovalPackage.issues.find(issue => issue.code === 'anchor-html-approval-seal-invalid')?.level, 'error');
+const verifiedAnchorXlsxSeal = { status: 'verified', scope: Checker.ANCHOR_XLSX_CONTENT_SEAL_SCOPE, reasons: [] };
+const verifiedAnchorXlsxApprovalSeal = { status: 'verified', scope: Checker.ANCHOR_XLSX_APPROVAL_SEAL_SCOPE, reasons: [] };
+const sealedAnchorXlsxRecord = {
+  ...reportRecord,
+  file: 'anchor-formal.xlsx',
+  type: 'xlsx',
+  sourceTool: '錨栓檢討工具',
+  xlsxContentSeal: verifiedAnchorXlsxSeal,
+  xlsxApprovalSeal: verifiedAnchorXlsxApprovalSeal,
+};
+assert.equal(Checker.isAnchorXlsxSealRequired(sealedAnchorXlsxRecord), true);
+assert.equal(Checker.analyzePackage([sealedAnchorXlsxRecord]).status, 'ready', 'verified anchor XLSX dual seals preserve formal readiness');
+const unsealedAnchorXlsxPackage = Checker.analyzePackage([{
+  ...sealedAnchorXlsxRecord,
+  file: 'anchor-formal-legacy.xlsx',
+  xlsxContentSeal: { status: 'missing', scope: '', reasons: ['seal-missing'] },
+  xlsxApprovalSeal: { status: 'missing', scope: '', reasons: ['seal-missing'] },
+}]);
+assert.equal(unsealedAnchorXlsxPackage.status, 'review', 'legacy anchor XLSX without dual seals requires manual review');
+assert(unsealedAnchorXlsxPackage.issues.some(issue => issue.code === 'anchor-xlsx-content-seal-missing'));
+assert(unsealedAnchorXlsxPackage.issues.some(issue => issue.code === 'anchor-xlsx-approval-seal-missing'));
+const tamperedAnchorXlsxContentPackage = Checker.analyzePackage([{
+  ...sealedAnchorXlsxRecord,
+  file: 'anchor-formal-content-tampered.xlsx',
+  xlsxContentSeal: { status: 'failed', scope: Checker.ANCHOR_XLSX_CONTENT_SEAL_SCOPE, reasons: ['content-sha256-mismatch'] },
+}]);
+assert.equal(tamperedAnchorXlsxContentPackage.status, 'blocked', 'anchor XLSX whose calculation content changed is blocked');
+assert.equal(tamperedAnchorXlsxContentPackage.issues.find(issue => issue.code === 'anchor-xlsx-content-seal-invalid')?.level, 'error');
+const tamperedAnchorXlsxApprovalPackage = Checker.analyzePackage([{
+  ...sealedAnchorXlsxRecord,
+  file: 'anchor-formal-approval-tampered.xlsx',
+  xlsxApprovalSeal: { status: 'failed', scope: Checker.ANCHOR_XLSX_APPROVAL_SEAL_SCOPE, reasons: ['approval-sha256-mismatch'] },
+}]);
+assert.equal(tamperedAnchorXlsxApprovalPackage.status, 'blocked', 'anchor XLSX whose approval metadata changed is blocked');
+assert.equal(tamperedAnchorXlsxApprovalPackage.issues.find(issue => issue.code === 'anchor-xlsx-approval-seal-invalid')?.level, 'error');
 const whiteOnWhitePackage = Checker.analyzePackage([{ ...reportRecord, file: 'white-on-white.html', type: 'html', visibilityEvidence: { status: 'review', method: 'html-static-print-visibility', reasons: whiteOnWhiteHtml.visibilityIssues } }]);
 assert.equal(whiteOnWhitePackage.status, 'review', 'white-on-white HTML cannot automatically pass as a formal attachment');
 assert(whiteOnWhitePackage.issues.some(issue => issue.code === 'visibility-boundary-review'));

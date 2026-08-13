@@ -108,6 +108,8 @@ const PRIVATE_PATHS = [
   '結構工具箱/tools/xlsx-print-export.py',
   '結構工具箱/tools/xlsx-print-visual.js',
   '結構工具箱/tools/xlsx-print-visual.test.js',
+  '結構工具箱/tools/xlsx-seal-verifier.js',
+  '結構工具箱/tools/xlsx-seal-verifier.test.js',
   '結構工具箱/tools/attachment-integrity-diagnostic.js',
   'dev_tools/attachment-integrity-diagnostic.js',
   '石材固定/dev_tools/baseline_capture.html',
@@ -606,6 +608,14 @@ async function main() {
   assert.equal(reportReadinessStatus.xlsxPrintVisualIssueCount, 0, 'report readiness formal XLSX Office print issues empty');
   assert.equal(reportReadinessStatus.xlsxPrintVisualPass, true, 'report readiness formal XLSX Office print check passes');
   assert.equal(reportReadinessJson.includes('"xlsxPrintVisualRecords"'), false, 'report readiness omits private XLSX Office print records');
+  assert.equal(reportReadinessStatus.xlsxContentSealRequired, 1, 'report readiness expects 1 formal XLSX content seal');
+  assert.equal(reportReadinessStatus.xlsxContentSealComplete, reportReadinessStatus.xlsxContentSealRequired, 'report readiness completes the formal XLSX content seal');
+  assert.equal(reportReadinessStatus.xlsxApprovalSealRequired, 1, 'report readiness expects 1 formal XLSX approval seal');
+  assert.equal(reportReadinessStatus.xlsxApprovalSealComplete, reportReadinessStatus.xlsxApprovalSealRequired, 'report readiness completes the formal XLSX approval seal');
+  assert.equal(reportReadinessStatus.xlsxDualSealIssueCount, 0, 'report readiness formal XLSX dual seal issues empty');
+  assert.equal(reportReadinessStatus.xlsxDualSealPass, true, 'report readiness formal XLSX dual seals pass');
+  assert.equal(reportReadinessJson.includes('"xlsxDualSealRecords"'), false, 'report readiness omits private XLSX dual seal records');
+  assert.equal(/anchor-xlsx-calculation-book-(?:content|approval)-v1|"(?:content|approval)Sha256"/.test(reportReadinessJson), false, 'report readiness omits XLSX seal scopes and values');
   assert.equal(reportReadinessStatus.formalResultReconciliationRequired, 14, 'report readiness expects 14 formal result reconciliations');
   assert.equal(reportReadinessStatus.formalResultReconciliationComplete, reportReadinessStatus.formalResultReconciliationRequired, 'report readiness completes every formal result reconciliation');
   assert.equal(reportReadinessStatus.formalResultReconciliationIssueCount, 0, 'report readiness formal result reconciliation issues empty');
@@ -748,6 +758,9 @@ async function main() {
   assert.ok(reportReadinessStatus.details.join(' ').includes('不公開檔名、工作表清冊、公式或逐檔細節'), 'report readiness status keeps XLSX package details private');
   assert.ok(reportReadinessStatus.details.join(' ').includes('正式 Excel 列印成品'), 'report readiness status exposes formal XLSX Office print visual integrity');
   assert.ok(reportReadinessStatus.details.join(' ').includes('不公開工作表名稱、列印 PDF、逐頁指標或雜湊'), 'report readiness status keeps XLSX Office print evidence private');
+  assert.ok(reportReadinessStatus.details.join(' ').includes('正式 Excel 雙封印'), 'report readiness status exposes formal XLSX dual seal integrity');
+  assert.ok(reportReadinessStatus.details.join(' ').includes('不是核可人身分的數位簽章'), 'report readiness status explains XLSX seal identity boundary');
+  assert.ok(reportReadinessStatus.details.join(' ').includes('不公開封印值、工作表內容或竄改樣本'), 'report readiness status keeps XLSX seal evidence private');
   assert.ok(reportReadinessStatus.details.join(' ').includes('正式計算書結果鏈'), 'report readiness status exposes formal result reconciliation count');
   assert.ok(reportReadinessStatus.details.join(' ').includes('不公開案例輸入、預期數值、案例雜湊或計算指紋'), 'report readiness status explains reconciliation privacy boundary');
   assert.ok(reportReadinessStatus.details.join(' ').includes('RC 正式計算書結果鏈'), 'report readiness status exposes RC result reconciliation count');

@@ -16,6 +16,12 @@ import {
 import { CURRENT_CALC_ENGINE_VERSION, ENGINEERING_USE_DISCLAIMER, REPORT_SOURCE_TOOL } from './appMeta'
 import { getEvaluationFieldStates } from './evaluationCatalog'
 import { buildReportWorkbook, serializeReportWorkbook } from './reportWorkbook'
+import {
+  ANCHOR_XLSX_APPROVAL_SEAL_SCOPE,
+  ANCHOR_XLSX_CONTENT_SEAL_SCOPE,
+  ANCHOR_XLSX_SEAL_LABELS,
+  buildAnchorWorkbookSealValues,
+} from './reportWorkbookSeal'
 import { normalizeUnitPreferences } from './units'
 
 const CORE_WORKBOOK_SHEETS = [
@@ -249,7 +255,15 @@ describe('reportWorkbook', () => {
     expect(summaryRows.some((row) => row.項目 === '產出工具' && row.值 === REPORT_SOURCE_TOOL)).toBe(true)
     expect(summaryRows.some((row) => row.項目 === '工具版本' && row.值 === CURRENT_CALC_ENGINE_VERSION)).toBe(true)
     expect(summaryRows.some((row) => row.項目 === '輸出時間' && row.值)).toBe(true)
+    expect(summaryRows.find((row) => row.項目 === '輸出時間')?.值).toMatch(/^\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}$/)
     expect(summaryRows.some((row) => row.項目 === '計算指紋' && String(row.值).startsWith('CF-'))).toBe(true)
+    expect(summaryRows).toEqual(expect.arrayContaining([
+      { 項目: ANCHOR_XLSX_SEAL_LABELS.contentScope, 值: ANCHOR_XLSX_CONTENT_SEAL_SCOPE },
+      { 項目: ANCHOR_XLSX_SEAL_LABELS.approvalScope, 值: ANCHOR_XLSX_APPROVAL_SEAL_SCOPE },
+    ]))
+    expect(summaryRows.find((row) => row.項目 === ANCHOR_XLSX_SEAL_LABELS.contentSha256)?.值).toMatch(/^[0-9a-f]{64}$/)
+    expect(summaryRows.find((row) => row.項目 === ANCHOR_XLSX_SEAL_LABELS.approvalSha256)?.值).toMatch(/^[0-9a-f]{64}$/)
+    expect(summaryRows.find((row) => row.項目 === ANCHOR_XLSX_SEAL_LABELS.note)?.值).toContain('非核可人身分之數位簽章')
     expect(summaryRows.some((row) => row.項目 === '使用邊界 / 簽證責任')).toBe(false)
     const text = workbookText(workbook)
     expect(text.length).toBeGreaterThan(2_000)
@@ -266,6 +280,25 @@ describe('reportWorkbook', () => {
       fgColor: { argb: 'FF0F5461' },
     })
     expect(summarySheet!.getRow(2).getCell(1).font).toMatchObject({ bold: true })
+  })
+
+  it('changes the content and approval seals independently', () => {
+    const contentChanged = buildReportWorkbook(buildParams())
+    const originalContentSeal = String(contentChanged.getWorksheet('Summary')!.getColumn(2).values.find((value) => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value)))
+    contentChanged.getWorksheet('Results')!.getCell('F2').value = 999
+    const changedContentSeal = buildAnchorWorkbookSealValues(contentChanged)
+    expect(changedContentSeal.contentSha256).not.toBe(originalContentSeal)
+
+    const approvalChanged = buildReportWorkbook(buildParams())
+    const summary = approvalChanged.getWorksheet('Summary')!
+    const sealRows = worksheetToObjects(approvalChanged, 'Summary')
+    const originalContent = sealRows.find((row) => row.項目 === ANCHOR_XLSX_SEAL_LABELS.contentSha256)!.值
+    const originalApproval = sealRows.find((row) => row.項目 === ANCHOR_XLSX_SEAL_LABELS.approvalSha256)!.值
+    const statusRow = summary.getColumn(1).values.findIndex((value) => value === '文件狀態')
+    summary.getRow(statusRow).getCell(2).value = '內部審閱'
+    const changedApprovalSeal = buildAnchorWorkbookSealValues(approvalChanged)
+    expect(changedApprovalSeal.contentSha256).toBe(originalContent)
+    expect(changedApprovalSeal.approvalSha256).not.toBe(originalApproval)
   })
 
   it('includes candidate and layout comparison content in dedicated sheets', async () => {

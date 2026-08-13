@@ -64,9 +64,12 @@ const anchorReportHtmlSeal = readText('螺栓檢討/bolt-review-tool/src/reportH
 const anchorHtmlSealVerifier = readText('結構工具箱/tools/anchor-html-seal-verifier.js');
 const xlsxPrintExporter = readText('結構工具箱/tools/xlsx-print-export.py');
 const xlsxPrintVisual = readText('結構工具箱/tools/xlsx-print-visual.js');
+const xlsxSealVerifier = readText('結構工具箱/tools/xlsx-seal-verifier.js');
 const anchorWorkbook = readText('螺栓檢討/bolt-review-tool/src/reportWorkbook.ts');
+const anchorWorkbookSeal = readText('螺栓檢討/bolt-review-tool/src/reportWorkbookSeal.ts');
 
 [
+  'node 結構工具箱/tools/xlsx-seal-verifier.test.js',
   'node 結構工具箱/tools/xlsx-print-visual.test.js',
   'node 結構工具箱/tools/rendered-delivery-evidence.contract.test.js',
 ].forEach(needle => assertIncludes(preflight, needle, `preflight preserves XLSX Office print visual gate ${needle}`));
@@ -91,6 +94,20 @@ const anchorWorkbook = readText('螺栓檢討/bolt-review-tool/src/reportWorkboo
   'fitToHeight: 0',
   "printTitlesRow: '1:1'",
 ].forEach(needle => assertIncludes(anchorWorkbook, needle, `anchor workbook preserves printable XLSX setting ${needle}`));
+[
+  'anchor-xlsx-calculation-book-content-v1',
+  'anchor-xlsx-calculation-book-approval-v1',
+  'content-sha256-mismatch',
+  'approval-sha256-mismatch',
+  'canonicalContent',
+  'canonicalApproval',
+].forEach(needle => assertIncludes(xlsxSealVerifier, needle, `independent XLSX seal verifier preserves ${needle}`));
+[
+  'appendAnchorWorkbookSealRows',
+  'XLSX 內容 SHA-256',
+  'XLSX 核可 SHA-256',
+  '非核可人身分之數位簽章',
+].forEach(needle => assertIncludes(anchorWorkbookSeal, needle, `anchor workbook seal producer preserves ${needle}`));
 
 [
   'htmlDualSealEvidence',
@@ -341,7 +358,7 @@ for (const { name, source } of rcReportVisualSources) {
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 24',
+  'schemaVersion: 25',
   'canonicalArtifactIntegrity',
   'docxPackageIntegrity',
   "scope: 'formal-docx-clean-ooxml-package'",
@@ -352,6 +369,10 @@ for (const { name, source } of rcReportVisualSources) {
   'xlsxPrintVisual',
   "scope: 'formal-xlsx-microsoft-excel-pdf-visual-print'",
   'xlsxPrintVisual=',
+  'xlsxDualSeal',
+  "scope: 'formal-anchor-xlsx-content-and-approval-dual-seal'",
+  'xlsxContentSeal=',
+  'xlsxApprovalSeal=',
   "scope: 'canonical-rendered-pdf-evidence'",
   'required: 60',
   'canonicalIntegrity=',
@@ -452,6 +473,7 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'docxPackageIntegrityDeclared',
   'xlsxPackageIntegrityDeclared',
   'xlsxPrintVisualDeclared',
+  'xlsxDualSealDeclared',
   'steelResultReconciliationDeclared',
   'stoneResultReconciliationDeclared',
   'anchorResultReconciliationDeclared',
@@ -466,6 +488,9 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'evidence.xlsxPackageIntegrity.required === 1',
   "evidence.xlsxPrintVisual?.scope === 'formal-xlsx-microsoft-excel-pdf-visual-print'",
   'evidence.xlsxPrintVisual.sheetRequired === 9',
+  "evidence.xlsxDualSeal?.scope === 'formal-anchor-xlsx-content-and-approval-dual-seal'",
+  'evidence.xlsxDualSeal.contentRequired === 1',
+  'evidence.xlsxDualSeal.approvalRequired === 1',
   "evidence.formalResultReconciliation?.scope === 'formal-golden-result-to-report-fingerprint'",
   'evidence.formalResultReconciliation.required === 14',
   "'rc-source-replay-to-report-fingerprint'",
@@ -542,6 +567,9 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   '正式 Excel 附件乾淨封裝',
   'xlsxPrintVisualRequired',
   '正式 Excel 列印成品',
+  'xlsxContentSealRequired',
+  'xlsxApprovalSealRequired',
+  '正式 Excel 雙封印',
   'steelResultReconciliationRequired',
   '鋼構正式計算書結果鏈',
   'stoneResultReconciliationRequired',
@@ -696,6 +724,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   assertIncludes(source, 'Schema v24', `${label} documents formal XLSX Office print visual release evidence schema`);
   assertIncludes(source, '9/9', `${label} documents formal XLSX worksheet print visual count`);
   assertIncludes(source, 'Microsoft Excel', `${label} documents formal XLSX Office print renderer`);
+  assertIncludes(source, 'Schema v25', `${label} documents formal XLSX dual seal release evidence schema`);
+  assertIncludes(source, 'XLSX', `${label} documents formal XLSX dual seal family`);
   assertIncludes(source, '風力／地震', `${label} documents formal-tool HTML dual seal family`);
   assertIncludes(source, '鋼構', `${label} documents steel formal HTML dual seal family`);
   assertIncludes(source, '錨栓', `${label} documents anchor formal HTML dual seal family`);

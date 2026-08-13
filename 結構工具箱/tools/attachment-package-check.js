@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const AnchorHtmlSealVerifier = require('./anchor-html-seal-verifier.js');
+const AnchorXlsxSealVerifier = require('./xlsx-seal-verifier.js');
 
 const {
   CALCULATION_BOOK_CONTENT_BOUNDARY,
@@ -31,6 +32,8 @@ const FORMAL_CONTENT_SEAL_SCOPE = 'formal-calculation-book-content-v1';
 const FORMAL_APPROVAL_SEAL_SCOPE = 'formal-calculation-book-approval-v1';
 const ANCHOR_CONTENT_SEAL_SCOPE = AnchorHtmlSealVerifier.ANCHOR_CONTENT_SEAL_SCOPE;
 const ANCHOR_APPROVAL_SEAL_SCOPE = AnchorHtmlSealVerifier.ANCHOR_APPROVAL_SEAL_SCOPE;
+const ANCHOR_XLSX_CONTENT_SEAL_SCOPE = AnchorXlsxSealVerifier.CONTENT_SCOPE;
+const ANCHOR_XLSX_APPROVAL_SEAL_SCOPE = AnchorXlsxSealVerifier.APPROVAL_SCOPE;
 const RC_CONTENT_SEAL_START = '<!--rc-content-seal:start-->';
 const RC_CONTENT_SEAL_END = '<!--rc-content-seal:end-->';
 const FORMAL_CONTENT_SEAL_START = '<!--formal-content-seal:start-->';
@@ -349,6 +352,13 @@ function isAnchorHtmlSealRequired(record) {
   return record?.anchorReportSealCandidate === true
     || record?.anchorContentSeal?.scope === ANCHOR_CONTENT_SEAL_SCOPE
     || record?.anchorApprovalSeal?.scope === ANCHOR_APPROVAL_SEAL_SCOPE
+    || String(record?.sourceTool || '').trim() === '錨栓檢討工具';
+}
+
+function isAnchorXlsxSealRequired(record) {
+  if (String(record?.type || '').toLowerCase() !== 'xlsx') return false;
+  return record?.xlsxContentSeal?.scope === ANCHOR_XLSX_CONTENT_SEAL_SCOPE
+    || record?.xlsxApprovalSeal?.scope === ANCHOR_XLSX_APPROVAL_SEAL_SCOPE
     || String(record?.sourceTool || '').trim() === '錨栓檢討工具';
 }
 
@@ -1414,7 +1424,7 @@ function inspectAttachment(filePath, rootDir) {
     file: path.relative(rootDir, filePath) || path.basename(filePath), type, size: 0, sourceSha256: '',
     textLength: 0, projectName: '', projectNo: '', designer: '', sourceTool: '', toolVersion: '', outputTime: '', approvalTime: '',
     fingerprints: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: [],
-    reportDocumentNeedles: [], calculationSummaryNeedles: [], documentClassRequired: false, contentBoundary: null, visibilityEvidence: null, contentSeal: null, approvalSeal: null, formalContentSeal: null, formalApprovalSeal: null, formalReportSealCandidate: false, anchorContentSeal: null, anchorApprovalSeal: null, anchorReportSealCandidate: false, errors: [],
+    reportDocumentNeedles: [], calculationSummaryNeedles: [], documentClassRequired: false, contentBoundary: null, visibilityEvidence: null, contentSeal: null, approvalSeal: null, formalContentSeal: null, formalApprovalSeal: null, formalReportSealCandidate: false, anchorContentSeal: null, anchorApprovalSeal: null, anchorReportSealCandidate: false, xlsxContentSeal: null, xlsxApprovalSeal: null, errors: [],
   };
   try {
     const before = fileSnapshot(filePath);
@@ -1444,6 +1454,17 @@ function inspectAttachment(filePath, rootDir) {
     } else if (type === 'xlsx') {
       const visibleContent = extractXlsxVisibleContent(filePath);
       text = visibleContent.text;
+      const xlsxEntryNames = readArchiveEntries(filePath).filter(entry =>
+        entry === 'xl/workbook.xml'
+        || entry === 'xl/_rels/workbook.xml.rels'
+        || entry === 'xl/sharedStrings.xml'
+        || /^xl\/worksheets\/[^/]+\.xml$/i.test(entry)
+      );
+      const xlsxSeals = AnchorXlsxSealVerifier.verifyAnchorXlsxSeals(new Map(
+        xlsxEntryNames.map(entry => [entry, Buffer.from(readArchiveEntry(filePath, entry), 'utf8')])
+      ));
+      record.xlsxContentSeal = xlsxSeals.content;
+      record.xlsxApprovalSeal = xlsxSeals.approval;
       record.visibilityEvidence = visibleContent.visibilityIssues.length
         ? { status: 'review', method: 'xlsx-openxml-visible-cells', reasons: visibleContent.visibilityIssues }
         : { status: 'bounded', method: 'xlsx-openxml-visible-cells', reasons: [] };
@@ -1970,6 +1991,18 @@ function analyzePackage(records, options = {}) {
         issues.push(buildIssue('error', 'anchor-html-approval-seal-invalid', `${record.file} 的錨栓核可狀態、核可時間或文件識別與下載時 SHA-256 封印不一致（${(record.anchorApprovalSeal.reasons || ['unknown']).join('、')}）；不得作為正式附件，請回原工具重新輸出。`, [record.file]));
       }
     }
+    if ((record.readyDocumentNeedles || []).length && isAnchorXlsxSealRequired(record)) {
+      if (!record.xlsxContentSeal || record.xlsxContentSeal.status === 'missing') {
+        issues.push(buildIssue('warn', 'anchor-xlsx-content-seal-missing', `${record.file} 是錨栓正式 XLSX，但沒有可重算的 SHA-256 內容封印；可能是舊版輸出，需人工確認後再決定是否沿用。`, [record.file]));
+      } else if (record.xlsxContentSeal.status !== 'verified') {
+        issues.push(buildIssue('error', 'anchor-xlsx-content-seal-invalid', `${record.file} 的錨栓 XLSX 計算內容或公式與輸出時 SHA-256 封印不一致（${(record.xlsxContentSeal.reasons || ['unknown']).join('、')}）；不得作為正式附件，請回原工具重新輸出。`, [record.file]));
+      }
+      if (!record.xlsxApprovalSeal || record.xlsxApprovalSeal.status === 'missing') {
+        issues.push(buildIssue('warn', 'anchor-xlsx-approval-seal-missing', `${record.file} 是錨栓正式 XLSX，但沒有可重算的 SHA-256 核可封印；可能是舊版輸出，需人工複核核可狀態後再決定是否沿用。`, [record.file]));
+      } else if (record.xlsxApprovalSeal.status !== 'verified') {
+        issues.push(buildIssue('error', 'anchor-xlsx-approval-seal-invalid', `${record.file} 的錨栓 XLSX 核可狀態、核可時間、計算指紋或內容封印與輸出時 SHA-256 封印不一致（${(record.xlsxApprovalSeal.reasons || ['unknown']).join('、')}）；不得作為正式附件，請回原工具重新輸出。`, [record.file]));
+      }
+    }
     if ((record.draftDocumentNeedles || []).length) {
       issues.push(buildIssue('error', 'internal-review-document', `${record.file} 的文件狀態仍為內部審閱：${record.draftDocumentNeedles.join('、')}；請在計算書預覽完成核可後再納入正式附件組包。`, [record.file]));
     } else if (isDocumentClassRequired(record) && !(record.readyDocumentNeedles || []).length) {
@@ -2122,4 +2155,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { CALCULATION_BOOK_CONTENT_BOUNDARY, CONTENT_GROUPS, CONTENT_PROFILES, CANONICAL_RENDER_EVIDENCE_KIND, RC_CONTENT_SEAL_SCOPE, RC_APPROVAL_SEAL_SCOPE, FORMAL_CONTENT_SEAL_SCOPE, FORMAL_APPROVAL_SEAL_SCOPE, ANCHOR_CONTENT_SEAL_SCOPE, ANCHOR_APPROVAL_SEAL_SCOPE, RC_CONTENT_SEAL_START, RC_CONTENT_SEAL_END, FORMAL_CONTENT_SEAL_START, FORMAL_CONTENT_SEAL_END, SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, CALCULATION_SUMMARY_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, decodeXmlEntities, extractHtmlText, extractHtmlVisibleContent, canonicalizeRcHtmlContentSeal, verifyRcHtmlContentSeal, isRcHtmlContentSealRequired, canonicalizeRcHtmlApprovalSeal, verifyRcHtmlApprovalSeal, isRcHtmlApprovalSealRequired, canonicalizeFormalHtmlContentSeal, verifyFormalHtmlContentSeal, canonicalizeFormalHtmlApprovalSeal, verifyFormalHtmlApprovalSeal, isFormalHtmlSealRequired, normalizeAnchorHtmlSealResult, verifyAnchorHtmlDualSeals, isAnchorHtmlSealRequired, hasDefinitelyHiddenStyle, hasAmbiguousVisibilityStyle, detectCalculationContentProfile, evaluateCalculationContent, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, normalizeOcrAlignmentText, ocrAlignmentBigramDice, validateRenderedPageOcrAlignment, validateCanonicalRenderEvidence, loadPdfVisibilityEvidence, collectDocxHiddenStyleIds, stripDocxHiddenText, parseSharedStrings, extractVisibleWorksheetText, resolveVisibleWorksheetEntries, extractXlsxVisibleContent, extractTextMetadata, excavationEvidenceMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzeExcavationEvidenceChains, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };
+module.exports = { CALCULATION_BOOK_CONTENT_BOUNDARY, CONTENT_GROUPS, CONTENT_PROFILES, CANONICAL_RENDER_EVIDENCE_KIND, RC_CONTENT_SEAL_SCOPE, RC_APPROVAL_SEAL_SCOPE, FORMAL_CONTENT_SEAL_SCOPE, FORMAL_APPROVAL_SEAL_SCOPE, ANCHOR_CONTENT_SEAL_SCOPE, ANCHOR_APPROVAL_SEAL_SCOPE, ANCHOR_XLSX_CONTENT_SEAL_SCOPE, ANCHOR_XLSX_APPROVAL_SEAL_SCOPE, RC_CONTENT_SEAL_START, RC_CONTENT_SEAL_END, FORMAL_CONTENT_SEAL_START, FORMAL_CONTENT_SEAL_END, SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, CALCULATION_SUMMARY_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, decodeXmlEntities, extractHtmlText, extractHtmlVisibleContent, canonicalizeRcHtmlContentSeal, verifyRcHtmlContentSeal, isRcHtmlContentSealRequired, canonicalizeRcHtmlApprovalSeal, verifyRcHtmlApprovalSeal, isRcHtmlApprovalSealRequired, canonicalizeFormalHtmlContentSeal, verifyFormalHtmlContentSeal, canonicalizeFormalHtmlApprovalSeal, verifyFormalHtmlApprovalSeal, isFormalHtmlSealRequired, normalizeAnchorHtmlSealResult, verifyAnchorHtmlDualSeals, isAnchorHtmlSealRequired, isAnchorXlsxSealRequired, hasDefinitelyHiddenStyle, hasAmbiguousVisibilityStyle, detectCalculationContentProfile, evaluateCalculationContent, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, normalizeOcrAlignmentText, ocrAlignmentBigramDice, validateRenderedPageOcrAlignment, validateCanonicalRenderEvidence, loadPdfVisibilityEvidence, collectDocxHiddenStyleIds, stripDocxHiddenText, parseSharedStrings, extractVisibleWorksheetText, resolveVisibleWorksheetEntries, extractXlsxVisibleContent, extractTextMetadata, excavationEvidenceMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzeExcavationEvidenceChains, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };

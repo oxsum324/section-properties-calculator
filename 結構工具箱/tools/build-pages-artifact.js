@@ -53,6 +53,8 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/tools/xlsx-print-export.py',
   '結構工具箱/tools/xlsx-print-visual.js',
   '結構工具箱/tools/xlsx-print-visual.test.js',
+  '結構工具箱/tools/xlsx-seal-verifier.js',
+  '結構工具箱/tools/xlsx-seal-verifier.test.js',
 ]);
 
 const PRIVATE_PREFIXES = [

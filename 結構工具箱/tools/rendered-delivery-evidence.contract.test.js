@@ -9,6 +9,7 @@ const AnchorHtmlSealVerifier = require('./anchor-html-seal-verifier');
 const { inspectDocxPackage } = require('./docx-package-integrity');
 const { inspectXlsxPackage } = require('./xlsx-package-integrity');
 const { runXlsxPrintVisualAudit } = require('./xlsx-print-visual');
+const AnchorXlsxSealVerifier = require('./xlsx-seal-verifier');
 const { verifyHtmlArtifact } = require('../../dev_tools/html-attachment-integrity');
 const { captureArtifactIntegrity } = require('../../鋼筋混凝土/tools/report-screenshot-quality');
 const {
@@ -1928,6 +1929,30 @@ assert.equal(fs.readFileSync(anchorWorkbookPath).subarray(0, 2).toString('ascii'
 const anchorWorkbookEntries = readZipEntries(anchorWorkbookPath, 'anchor XLSX');
 assert.ok(anchorWorkbookEntries.has('xl/workbook.xml'), 'anchor XLSX contains xl/workbook.xml');
 const anchorXlsxPackageIntegrity = verifyCleanXlsxPackage(anchorWorkbookEntries, 'anchor-review', 'anchor XLSX');
+const anchorXlsxDualSealVerification = AnchorXlsxSealVerifier.verifyAnchorXlsxSeals(anchorWorkbookEntries);
+assert.equal(anchorXlsxDualSealVerification.content.status, 'verified', 'anchor XLSX content seal verifies from actual OOXML');
+assert.equal(anchorXlsxDualSealVerification.approval.status, 'verified', 'anchor XLSX approval seal verifies from actual OOXML');
+const anchorXlsxSharedStringsEntry = 'xl/sharedStrings.xml';
+assert.ok(anchorWorkbookEntries.has(anchorXlsxSharedStringsEntry), 'anchor XLSX dual seal evidence has shared strings');
+const anchorXlsxContentTamperedEntries = new Map(anchorWorkbookEntries);
+const anchorXlsxSharedStrings = anchorWorkbookEntries.get(anchorXlsxSharedStringsEntry).toString('utf8');
+assert.ok(anchorXlsxSharedStrings.includes('鋼材拉力強度'), 'anchor XLSX content tamper target exists');
+anchorXlsxContentTamperedEntries.set(
+  anchorXlsxSharedStringsEntry,
+  Buffer.from(anchorXlsxSharedStrings.replace('鋼材拉力強度', '鋼材拉力強度（遭修改）')),
+);
+const anchorXlsxContentTamperVerification = AnchorXlsxSealVerifier.verifyAnchorXlsxSeals(anchorXlsxContentTamperedEntries);
+assert.equal(anchorXlsxContentTamperVerification.content.status, 'failed', 'anchor XLSX content seal detects changed calculation content');
+assert.equal(anchorXlsxContentTamperVerification.approval.status, 'verified', 'anchor XLSX content tamper does not forge approval metadata');
+const anchorXlsxApprovalTamperedEntries = new Map(anchorWorkbookEntries);
+assert.ok(anchorXlsxSharedStrings.includes('正式附件'), 'anchor XLSX approval tamper target exists');
+anchorXlsxApprovalTamperedEntries.set(
+  anchorXlsxSharedStringsEntry,
+  Buffer.from(anchorXlsxSharedStrings.replace('正式附件', '正式附件（遭修改）')),
+);
+const anchorXlsxApprovalTamperVerification = AnchorXlsxSealVerifier.verifyAnchorXlsxSeals(anchorXlsxApprovalTamperedEntries);
+assert.equal(anchorXlsxApprovalTamperVerification.content.status, 'verified', 'anchor XLSX approval metadata is excluded from the content seal');
+assert.equal(anchorXlsxApprovalTamperVerification.approval.status, 'failed', 'anchor XLSX approval seal detects changed approval metadata');
 assert.equal(anchorXlsxPackageIntegrity.sheetCount, 9, 'anchor XLSX clean-package gate covers all 9 report sheets');
 assert.equal(anchorXlsxPackageIntegrity.visibleSheetCount, anchorXlsxPackageIntegrity.sheetCount, 'anchor XLSX clean-package gate keeps every report sheet visible');
 assert.ok(anchorXlsxPackageIntegrity.formulaCount > 0, 'anchor XLSX clean-package gate covers formula-backed recalculation cells');
@@ -2688,8 +2713,41 @@ assert.equal(xlsxPrintVisual.complete, xlsxPrintVisual.required, 'release render
 assert.equal(xlsxPrintVisual.sheetComplete, xlsxPrintVisual.sheetRequired, 'release rendered evidence verifies every XLSX worksheet PDF');
 assert.equal(xlsxPrintVisual.issueCount, 0, 'release rendered evidence formal XLSX Office print has no clipping, blank-page, or overflow issues');
 assert.equal(xlsxPrintVisual.pass, true, 'release rendered evidence passes formal XLSX Office print visual integrity');
+const xlsxDualSealRecord = {
+  key: 'anchor-review',
+  contentSealScope: anchorXlsxDualSealVerification.content.scope,
+  contentSealStatus: anchorXlsxDualSealVerification.content.status,
+  contentSha256: anchorXlsxDualSealVerification.content.actualSha256,
+  approvalSealScope: anchorXlsxDualSealVerification.approval.scope,
+  approvalSealStatus: anchorXlsxDualSealVerification.approval.status,
+  approvalSha256: anchorXlsxDualSealVerification.approval.actualSha256,
+  contentTamperDetectionStatus: anchorXlsxContentTamperVerification.content.status,
+  contentTamperApprovalStatus: anchorXlsxContentTamperVerification.approval.status,
+  approvalTamperContentStatus: anchorXlsxApprovalTamperVerification.content.status,
+  approvalTamperDetectionStatus: anchorXlsxApprovalTamperVerification.approval.status,
+};
+const xlsxDualSealStatusesPass = xlsxDualSealRecord.contentSealStatus === 'verified'
+  && xlsxDualSealRecord.approvalSealStatus === 'verified'
+  && xlsxDualSealRecord.contentTamperDetectionStatus === 'failed'
+  && xlsxDualSealRecord.contentTamperApprovalStatus === 'verified'
+  && xlsxDualSealRecord.approvalTamperContentStatus === 'verified'
+  && xlsxDualSealRecord.approvalTamperDetectionStatus === 'failed';
+const xlsxDualSeal = {
+  schemaVersion: 1,
+  scope: 'formal-anchor-xlsx-content-and-approval-dual-seal',
+  contentRequired: 1,
+  contentComplete: anchorXlsxDualSealVerification.content.status === 'verified' ? 1 : 0,
+  approvalRequired: 1,
+  approvalComplete: anchorXlsxDualSealVerification.approval.status === 'verified' ? 1 : 0,
+  issueCount: xlsxDualSealStatusesPass ? 0 : 1,
+  pass: xlsxDualSealStatusesPass,
+  records: [xlsxDualSealRecord],
+};
+assert.equal(xlsxDualSeal.contentComplete, xlsxDualSeal.contentRequired, 'release verifies the formal XLSX content seal');
+assert.equal(xlsxDualSeal.approvalComplete, xlsxDualSeal.approvalRequired, 'release verifies the formal XLSX approval seal');
+assert.equal(xlsxDualSeal.pass, true, 'release passes formal XLSX dual seal integrity');
 const aggregate = {
-  schemaVersion: 24,
+  schemaVersion: 25,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),
@@ -2698,7 +2756,7 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && docxPackageIntegrity.pass && xlsxPackageIntegrity.pass && xlsxPrintVisual.pass && formalResultReconciliation.pass && formalHtmlContentSeal.pass && formalHtmlApprovalSeal.pass && steelHtmlContentSeal.pass && steelHtmlApprovalSeal.pass && anchorHtmlContentSeal.pass && anchorHtmlApprovalSeal.pass && localQuickResultReconciliation.pass && rcResultReconciliation.pass && rcSourceReportPackage.pass && rcStandaloneFormalHtmlPrint.pass && rcFormalHtmlContentSeal.pass && rcFormalHtmlApprovalSeal.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && docxPackageIntegrity.pass && xlsxPackageIntegrity.pass && xlsxPrintVisual.pass && xlsxDualSeal.pass && formalResultReconciliation.pass && formalHtmlContentSeal.pass && formalHtmlApprovalSeal.pass && steelHtmlContentSeal.pass && steelHtmlApprovalSeal.pass && anchorHtmlContentSeal.pass && anchorHtmlApprovalSeal.pass && localQuickResultReconciliation.pass && rcResultReconciliation.pass && rcSourceReportPackage.pass && rcStandaloneFormalHtmlPrint.pass && rcFormalHtmlContentSeal.pass && rcFormalHtmlApprovalSeal.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
   attachmentIntegrity,
   mixedArtifactIntegrity,
   rcVisualArtifactIntegrity,
@@ -2706,6 +2764,7 @@ const aggregate = {
   docxPackageIntegrity,
   xlsxPackageIntegrity,
   xlsxPrintVisual,
+  xlsxDualSeal,
   formalResultReconciliation,
   formalHtmlContentSeal,
   formalHtmlApprovalSeal,
@@ -2730,4 +2789,4 @@ const aggregate = {
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, docxPackageIntegrity=${docxPackageIntegrity.complete}/${docxPackageIntegrity.required}, xlsxPackageIntegrity=${xlsxPackageIntegrity.complete}/${xlsxPackageIntegrity.required}, xlsxPrintVisual=${xlsxPrintVisual.complete}/${xlsxPrintVisual.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, formalHtmlContentSeal=${formalHtmlContentSeal.complete}/${formalHtmlContentSeal.required}, formalHtmlApprovalSeal=${formalHtmlApprovalSeal.complete}/${formalHtmlApprovalSeal.required}, steelHtmlContentSeal=${steelHtmlContentSeal.complete}/${steelHtmlContentSeal.required}, steelHtmlApprovalSeal=${steelHtmlApprovalSeal.complete}/${steelHtmlApprovalSeal.required}, anchorHtmlContentSeal=${anchorHtmlContentSeal.complete}/${anchorHtmlContentSeal.required}, anchorHtmlApprovalSeal=${anchorHtmlApprovalSeal.complete}/${anchorHtmlApprovalSeal.required}, localQuickResultReconciliation=${localQuickResultReconciliation.complete}/${localQuickResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, rcSourceReportPackage=${rcSourceReportPackage.complete}/${rcSourceReportPackage.required}, rcStandaloneFormalHtmlPrint=${rcStandaloneFormalHtmlPrint.complete}/${rcStandaloneFormalHtmlPrint.required}, rcFormalHtmlContentSeal=${rcFormalHtmlContentSeal.complete}/${rcFormalHtmlContentSeal.required}, rcFormalHtmlApprovalSeal=${rcFormalHtmlApprovalSeal.complete}/${rcFormalHtmlApprovalSeal.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, docxPackageIntegrity=${docxPackageIntegrity.complete}/${docxPackageIntegrity.required}, xlsxPackageIntegrity=${xlsxPackageIntegrity.complete}/${xlsxPackageIntegrity.required}, xlsxPrintVisual=${xlsxPrintVisual.complete}/${xlsxPrintVisual.required}, xlsxContentSeal=${xlsxDualSeal.contentComplete}/${xlsxDualSeal.contentRequired}, xlsxApprovalSeal=${xlsxDualSeal.approvalComplete}/${xlsxDualSeal.approvalRequired}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, formalHtmlContentSeal=${formalHtmlContentSeal.complete}/${formalHtmlContentSeal.required}, formalHtmlApprovalSeal=${formalHtmlApprovalSeal.complete}/${formalHtmlApprovalSeal.required}, steelHtmlContentSeal=${steelHtmlContentSeal.complete}/${steelHtmlContentSeal.required}, steelHtmlApprovalSeal=${steelHtmlApprovalSeal.complete}/${steelHtmlApprovalSeal.required}, anchorHtmlContentSeal=${anchorHtmlContentSeal.complete}/${anchorHtmlContentSeal.required}, anchorHtmlApprovalSeal=${anchorHtmlApprovalSeal.complete}/${anchorHtmlApprovalSeal.required}, localQuickResultReconciliation=${localQuickResultReconciliation.complete}/${localQuickResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, rcSourceReportPackage=${rcSourceReportPackage.complete}/${rcSourceReportPackage.required}, rcStandaloneFormalHtmlPrint=${rcStandaloneFormalHtmlPrint.complete}/${rcStandaloneFormalHtmlPrint.required}, rcFormalHtmlContentSeal=${rcFormalHtmlContentSeal.complete}/${rcFormalHtmlContentSeal.required}, rcFormalHtmlApprovalSeal=${rcFormalHtmlApprovalSeal.complete}/${rcFormalHtmlApprovalSeal.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);

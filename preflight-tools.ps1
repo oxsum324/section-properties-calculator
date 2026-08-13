@@ -1304,6 +1304,8 @@ exit $LASTEXITCODE
 '@
 
 $attachmentPackageCheckCommandLines = @(
+  'node 結構工具箱/tools/xlsx-seal-verifier.test.js'
+  'if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
   'node 結構工具箱/tools/attachment-package-check.test.js'
   'if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
 )

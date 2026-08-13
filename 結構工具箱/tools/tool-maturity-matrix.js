@@ -1678,6 +1678,7 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const docxPackageIntegrityDeclared = Number(evidence?.schemaVersion) >= 22;
   const xlsxPackageIntegrityDeclared = Number(evidence?.schemaVersion) >= 23;
   const xlsxPrintVisualDeclared = Number(evidence?.schemaVersion) >= 24;
+  const xlsxDualSealDeclared = Number(evidence?.schemaVersion) >= 25;
   return Boolean(
     evidence
     && evidence.kind === 'release-rendered-delivery-evidence'
@@ -1758,6 +1759,25 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
         && record?.verticalPageBreakCount === 0
         && /^[0-9a-f]{64}$/i.test(String(record?.workbookSha256 || ''))
         && /^[0-9a-f]{64}$/i.test(String(record?.artifactSetSha256 || '')))
+    ))
+    && (!xlsxDualSealDeclared || (
+      evidence.xlsxDualSeal?.scope === 'formal-anchor-xlsx-content-and-approval-dual-seal'
+      && evidence.xlsxDualSeal.contentRequired === 1
+      && evidence.xlsxDualSeal.contentComplete === 1
+      && evidence.xlsxDualSeal.approvalRequired === 1
+      && evidence.xlsxDualSeal.approvalComplete === 1
+      && evidence.xlsxDualSeal.issueCount === 0
+      && evidence.xlsxDualSeal.pass === true
+      && Array.isArray(evidence.xlsxDualSeal.records)
+      && evidence.xlsxDualSeal.records.length === 1
+      && evidence.xlsxDualSeal.records.every(record => record?.contentSealStatus === 'verified'
+        && record?.approvalSealStatus === 'verified'
+        && record?.contentTamperDetectionStatus === 'failed'
+        && record?.contentTamperApprovalStatus === 'verified'
+        && record?.approvalTamperContentStatus === 'verified'
+        && record?.approvalTamperDetectionStatus === 'failed'
+        && /^[0-9a-f]{64}$/i.test(String(record?.contentSha256 || ''))
+        && /^[0-9a-f]{64}$/i.test(String(record?.approvalSha256 || '')))
     ))
     && (!resultReconciliationDeclared || (
       evidence.formalResultReconciliation?.scope === 'formal-golden-result-to-report-fingerprint'
@@ -2155,6 +2175,25 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     : xlsxPrintVisual.pass === true
       ? Math.max(0, xlsxPrintVisualRequired - xlsxPrintVisualComplete, xlsxPrintVisualSheetRequired - xlsxPrintVisualSheetComplete)
       : Math.max(1, compactNumber(xlsxPrintVisual.issueCount) || xlsxPrintVisualRequired - xlsxPrintVisualComplete || xlsxPrintVisualSheetRequired - xlsxPrintVisualSheetComplete);
+  const xlsxDualSeal = renderedDeliveryPayload?.xlsxDualSeal;
+  const xlsxDualSealDeclared = Boolean(
+    Number(renderedDeliveryPayload?.schemaVersion) >= 25
+    && xlsxDualSeal
+    && xlsxDualSeal.scope === 'formal-anchor-xlsx-content-and-approval-dual-seal'
+    && Number.isInteger(xlsxDualSeal.contentRequired)
+    && Number.isInteger(xlsxDualSeal.contentComplete)
+    && Number.isInteger(xlsxDualSeal.approvalRequired)
+    && Number.isInteger(xlsxDualSeal.approvalComplete)
+  );
+  const xlsxContentSealRequired = xlsxDualSealDeclared ? compactNumber(xlsxDualSeal.contentRequired) : 0;
+  const xlsxContentSealComplete = xlsxDualSealDeclared ? compactNumber(xlsxDualSeal.contentComplete) : 0;
+  const xlsxApprovalSealRequired = xlsxDualSealDeclared ? compactNumber(xlsxDualSeal.approvalRequired) : 0;
+  const xlsxApprovalSealComplete = xlsxDualSealDeclared ? compactNumber(xlsxDualSeal.approvalComplete) : 0;
+  const xlsxDualSealIssueCount = !xlsxDualSealDeclared
+    ? 0
+    : xlsxDualSeal.pass === true
+      ? Math.max(0, xlsxContentSealRequired - xlsxContentSealComplete, xlsxApprovalSealRequired - xlsxApprovalSealComplete)
+      : Math.max(1, compactNumber(xlsxDualSeal.issueCount) || xlsxContentSealRequired - xlsxContentSealComplete || xlsxApprovalSealRequired - xlsxApprovalSealComplete);
   const formalResultReconciliation = renderedDeliveryPayload?.formalResultReconciliation;
   const formalResultReconciliationDeclared = Boolean(
     Number(renderedDeliveryPayload?.schemaVersion) >= 4
@@ -2427,6 +2466,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     ...(docxPackageIntegrityDeclared ? [`正式 Word 附件乾淨封裝：石材、錨栓、覆工板與開挖擋土支撐共 ${docxPackageIntegrityComplete} / ${docxPackageIntegrityRequired} 份 DOCX 已確認沒有未引用媒體或頁首頁尾、實際批註、未接受修訂、外掛範本、外部圖片、嵌入物件、巨集或非預期 custom XML。公開狀態只顯示完成數，不公開檔名、封裝清冊或逐檔細節。`] : []),
     ...(xlsxPackageIntegrityDeclared ? [`正式 Excel 附件乾淨封裝：錨栓檢討 ${xlsxPackageIntegrityComplete} / ${xlsxPackageIntegrityRequired} 份 XLSX 已確認工作表全數可見、公式具快取結果，且沒有外部關聯／公式／連線、公式錯誤、隱藏資料、批註、嵌入物件、巨集、孤兒媒體或非預期 custom XML。公開狀態只顯示完成數，不公開檔名、工作表清冊、公式或逐檔細節。`] : []),
     ...(xlsxPrintVisualDeclared ? [`正式 Excel 列印成品：錨栓檢討 ${xlsxPrintVisualComplete} / ${xlsxPrintVisualRequired} 份 XLSX、${xlsxPrintVisualSheetComplete} / ${xlsxPrintVisualSheetRequired} 張工作表已由 Microsoft Excel 以原始列印設定逐張輸出 PDF，確認 A4、寬表橫向、單頁寬、續頁重複表頭、可讀文字、非空白頁、無頁緣裁切及無橫向溢出頁。公開狀態只顯示完成數，不公開工作表名稱、列印 PDF、逐頁指標或雜湊。`] : []),
+    ...(xlsxDualSealDeclared ? [`正式 Excel 雙封印：錨栓檢討 ${xlsxContentSealComplete} / ${xlsxContentSealRequired} 份內容封印與 ${xlsxApprovalSealComplete} / ${xlsxApprovalSealRequired} 份核可封印已從實際 XLSX 的可見儲存格、公式與快取結果獨立重算；計算內容、公式、文件狀態、核可時間、計算指紋或工具身分變更會被辨識。此封印是 SHA-256 防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數，不公開封印值、工作表內容或竄改樣本。`] : []),
     ...(formalResultReconciliationDeclared ? [`正式計算書結果鏈：風力／地震正式工具 ${formalResultReconciliationComplete} / ${formalResultReconciliationRequired} 已先完成 golden case 精確結果重算，再以同一計算狀態的指紋產生正式附件。公開狀態只顯示完成數，不公開案例輸入、預期數值、案例雜湊或計算指紋。`] : []),
     ...(rcResultReconciliationDeclared ? [`RC 正式計算書結果鏈：梁、柱、板、牆、剪力牆、基礎、單樁${expandedRcResultReconciliationDeclared ? '與梁／柱補強' : ''}共 ${rcResultReconciliationComplete} / ${rcResultReconciliationRequired} 組瀏覽器回歸案例已完成來源資料重現，再核對 PDF 與正式 HTML 的同一計算指紋。公開狀態只顯示完成數，不公開案例資料、來源快照雜湊或計算指紋。`] : []),
     ...(rcSourceReportPackageDeclared ? [`RC 來源／正式 HTML 組包：梁、柱、板、牆、剪力牆、基礎與單樁共 ${rcSourceReportPackageComplete} / ${rcSourceReportPackageRequired} 組真實專案 JSON 已與核可後 HTML 通過附件檢查器，並驗證唯一來源／報告配對。公開狀態只顯示完成數，不公開案件資料、檔名、工具版本或計算指紋。`] : []),
@@ -2460,8 +2500,8 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     kind: 'report-readiness-status',
     generatedAt: String(matrixPayload.generatedAt || ''),
     runId: String(preflightStatus?.runId || matrixPayload.latestPreflight?.runId || ''),
-    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && docxPackageIntegrityIssueCount === 0 && xlsxPackageIntegrityIssueCount === 0 && xlsxPrintVisualIssueCount === 0 && formalResultReconciliationIssueCount === 0 && formalHtmlContentSealIssueCount === 0 && formalHtmlApprovalSealIssueCount === 0 && steelHtmlContentSealIssueCount === 0 && steelHtmlApprovalSealIssueCount === 0 && anchorHtmlContentSealIssueCount === 0 && anchorHtmlApprovalSealIssueCount === 0 && rcResultReconciliationIssueCount === 0 && rcSourceReportPackageIssueCount === 0 && rcStandaloneFormalHtmlPrintIssueCount === 0 && rcFormalHtmlContentSealIssueCount === 0 && rcFormalHtmlApprovalSealIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
-    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + docxPackageIntegrityIssueCount + xlsxPackageIntegrityIssueCount + xlsxPrintVisualIssueCount + formalResultReconciliationIssueCount + formalHtmlContentSealIssueCount + formalHtmlApprovalSealIssueCount + steelHtmlContentSealIssueCount + steelHtmlApprovalSealIssueCount + anchorHtmlContentSealIssueCount + anchorHtmlApprovalSealIssueCount + rcResultReconciliationIssueCount + rcSourceReportPackageIssueCount + rcStandaloneFormalHtmlPrintIssueCount + rcFormalHtmlContentSealIssueCount + rcFormalHtmlApprovalSealIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
+    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && docxPackageIntegrityIssueCount === 0 && xlsxPackageIntegrityIssueCount === 0 && xlsxPrintVisualIssueCount === 0 && xlsxDualSealIssueCount === 0 && formalResultReconciliationIssueCount === 0 && formalHtmlContentSealIssueCount === 0 && formalHtmlApprovalSealIssueCount === 0 && steelHtmlContentSealIssueCount === 0 && steelHtmlApprovalSealIssueCount === 0 && anchorHtmlContentSealIssueCount === 0 && anchorHtmlApprovalSealIssueCount === 0 && rcResultReconciliationIssueCount === 0 && rcSourceReportPackageIssueCount === 0 && rcStandaloneFormalHtmlPrintIssueCount === 0 && rcFormalHtmlContentSealIssueCount === 0 && rcFormalHtmlApprovalSealIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
+    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + docxPackageIntegrityIssueCount + xlsxPackageIntegrityIssueCount + xlsxPrintVisualIssueCount + xlsxDualSealIssueCount + formalResultReconciliationIssueCount + formalHtmlContentSealIssueCount + formalHtmlApprovalSealIssueCount + steelHtmlContentSealIssueCount + steelHtmlApprovalSealIssueCount + anchorHtmlContentSealIssueCount + anchorHtmlApprovalSealIssueCount + rcResultReconciliationIssueCount + rcSourceReportPackageIssueCount + rcStandaloneFormalHtmlPrintIssueCount + rcFormalHtmlContentSealIssueCount + rcFormalHtmlApprovalSealIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
@@ -2529,6 +2569,17 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
         && xlsxPrintVisualComplete === xlsxPrintVisualRequired
         && xlsxPrintVisualSheetComplete === xlsxPrintVisualSheetRequired
         && xlsxPrintVisualIssueCount === 0,
+    } : {}),
+    ...(xlsxDualSealDeclared ? {
+      xlsxContentSealRequired,
+      xlsxContentSealComplete,
+      xlsxApprovalSealRequired,
+      xlsxApprovalSealComplete,
+      xlsxDualSealIssueCount,
+      xlsxDualSealPass: xlsxDualSeal.pass === true
+        && xlsxContentSealComplete === xlsxContentSealRequired
+        && xlsxApprovalSealComplete === xlsxApprovalSealRequired
+        && xlsxDualSealIssueCount === 0,
     } : {}),
     ...(formalResultReconciliationDeclared ? {
       formalResultReconciliationRequired,
@@ -3167,6 +3218,17 @@ function checkMatrix(payload, markdown, options = {}) {
     assert.equal(Object.prototype.hasOwnProperty.call(homepageReportReadinessStatus, 'xlsxPrintVisualRecords'), false, 'homepage report readiness omits private XLSX Office print records');
     assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('正式 Excel 列印成品'), 'homepage report readiness explains formal XLSX Office print visual integrity');
     assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('不公開工作表名稱、列印 PDF、逐頁指標或雜湊'), 'homepage report readiness keeps XLSX Office print evidence private');
+  }
+  if (Number.isInteger(homepageReportReadinessStatus.xlsxContentSealRequired)) {
+    assert.equal(homepageReportReadinessStatus.xlsxContentSealRequired, 1, 'homepage report readiness expects 1 formal XLSX content seal');
+    assert.equal(homepageReportReadinessStatus.xlsxContentSealComplete, homepageReportReadinessStatus.xlsxContentSealRequired, 'homepage report readiness completes the XLSX content seal');
+    assert.equal(homepageReportReadinessStatus.xlsxApprovalSealRequired, 1, 'homepage report readiness expects 1 formal XLSX approval seal');
+    assert.equal(homepageReportReadinessStatus.xlsxApprovalSealComplete, homepageReportReadinessStatus.xlsxApprovalSealRequired, 'homepage report readiness completes the XLSX approval seal');
+    assert.equal(homepageReportReadinessStatus.xlsxDualSealIssueCount, 0, 'homepage report readiness XLSX dual seal issues empty');
+    assert.equal(homepageReportReadinessStatus.xlsxDualSealPass, true, 'homepage report readiness XLSX dual seals pass');
+    assert.equal(Object.prototype.hasOwnProperty.call(homepageReportReadinessStatus, 'xlsxDualSealRecords'), false, 'homepage report readiness omits private XLSX dual seal records');
+    assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('正式 Excel 雙封印'), 'homepage report readiness explains formal XLSX dual seal integrity');
+    assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('不公開封印值、工作表內容或竄改樣本'), 'homepage report readiness keeps XLSX dual seal evidence private');
   }
   assert.equal(homepageReportReadinessStatus.runId, homepagePreflightStatus.runId, 'homepage report readiness runId matches preflight status runId');
   assert.equal(homepageReportReadinessStatus.preflightStatusSourcePath, homepagePreflightStatus.sourcePath, 'homepage report readiness names preflight status source');

@@ -12,8 +12,12 @@ import type {
   UnitPreferences,
 } from './domain'
 import type { ReportArtifactParams } from './reportExport'
-import { buildReportDocumentState } from './reportDocumentState'
+import {
+  buildReportDocumentState,
+  formatReportDocumentDateTime,
+} from './reportDocumentState'
 import { REPORT_TIMESTAMP_LABELS } from './reportTimestamps'
+import { appendAnchorWorkbookSealRows } from './reportWorkbookSeal'
 import { getUnitSymbol, toDisplayValue } from './units'
 
 type WorkbookRow = Record<string, string | number | boolean | null>
@@ -39,22 +43,7 @@ function formatNumber(value: number, digits = 3) {
 }
 
 function formatDateTime(value?: string) {
-  if (!value) {
-    return ''
-  }
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return value
-  }
-
-  return parsed.toLocaleString('zh-TW', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatReportDocumentDateTime(value)
 }
 
 function statusLabel(status: ReviewStatus) {
@@ -707,6 +696,33 @@ export function buildReportWorkbook(params: ReportArtifactParams) {
     appendSheet(workbook, 'AuditTrail', auditRows, {
       highlightDcrHeaders: ['控制DCR', '最大數值DCR'],
     })
+  }
+
+  const summarySheet = workbook.getWorksheet('Summary')
+  appendAnchorWorkbookSealRows(workbook)
+  if (summarySheet) {
+    const sealStartRow = summarySheet.rowCount - 4
+    for (let rowNumber = sealStartRow; rowNumber <= summarySheet.rowCount; rowNumber += 1) {
+      const row = summarySheet.getRow(rowNumber)
+      row.getCell(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: workbookColors.summaryFill },
+      }
+      row.getCell(1).font = { bold: true }
+      row.eachCell((cell) => {
+        cell.alignment = { vertical: 'top', wrapText: true }
+        cell.border = {
+          top: { style: 'thin', color: { argb: workbookColors.bodyBorder } },
+          left: { style: 'thin', color: { argb: workbookColors.bodyBorder } },
+          bottom: { style: 'thin', color: { argb: workbookColors.bodyBorder } },
+          right: { style: 'thin', color: { argb: workbookColors.bodyBorder } },
+        }
+      })
+    }
+    summarySheet.getColumn(1).width = Math.max(summarySheet.getColumn(1).width || 0, 24)
+    summarySheet.getColumn(2).width = Math.max(summarySheet.getColumn(2).width || 0, 48)
+    configureWorksheetPrint(summarySheet)
   }
 
   return workbook
