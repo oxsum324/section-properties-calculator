@@ -1498,7 +1498,7 @@ function assertHomeState(state, tools, label) {
   assert.equal(state.horizontalOverflow, false, `${label} home horizontal overflow`);
 }
 
-function assertNewHomeState(state, tools, label, preflightStatusPayload) {
+function assertNewHomeState(state, tools, label, preflightStatusPayload, reportReadinessPayload) {
   assert.equal(state.title, '結構工具箱', `${label} new home title`);
   assert.ok(state.hasHomeApp, `${label} new home app shell`);
   assert.ok(state.hasToolGrid, `${label} new home tool grid`);
@@ -1562,7 +1562,7 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload) {
     );
     assert.ok(state.reportReadinessStatusMeta.includes('Word 乾淨封裝 4 / 4'), `${label} new home report readiness DOCX package integrity metric`);
     assert.ok(state.reportReadinessStatusMeta.includes('Excel 乾淨封裝 1 / 1'), `${label} new home report readiness XLSX package integrity metric`);
-    if (Number.isInteger(state.reportReadinessStatus.xlsxPrintVisualSheetRequired)) {
+    if (Number.isInteger(reportReadinessPayload.xlsxPrintVisualSheetRequired)) {
       assert.ok(state.reportReadinessStatusMeta.includes('Excel 列印成品 9 / 9'), `${label} new home report readiness XLSX Office print visual metric`);
     }
     assert.ok(state.reportReadinessStatusText.includes('風力 / 地震正式工具') && state.reportReadinessStatusText.includes('局部快算'), `${label} new home report text scope`);
@@ -2455,6 +2455,7 @@ async function main() {
   const renderedEvidenceRecords = [];
   const directPrintRecords = [];
   const preflightStatusPayload = readJson('assets/status/preflight-summary.json');
+  const reportReadinessPayload = readJson('assets/status/report-readiness-status.json');
   const vercelConfig = readRootJson('vercel.json');
   const edgePath = EDGE_CANDIDATES.find(candidate => fs.existsSync(candidate));
   assert.ok(edgePath, `Microsoft Edge not found in: ${EDGE_CANDIDATES.join(', ')}`);
@@ -2678,7 +2679,7 @@ async function main() {
         const label = `${viewport.key} ${newHomeCase.key}`;
         const home = await navigateAndInspect(client, sessionId, newHomeCase.url, viewport, newHomeExpression(manifest.tools));
         assert.deepEqual(home.errors, [], `${label} console errors: ${home.errors.join(' | ')}`);
-        assertNewHomeState(home.state, manifest.tools, label, preflightStatusPayload);
+        assertNewHomeState(home.state, manifest.tools, label, preflightStatusPayload, reportReadinessPayload);
       }
 
       for (const validationCase of legacyInlineValidationCases) {

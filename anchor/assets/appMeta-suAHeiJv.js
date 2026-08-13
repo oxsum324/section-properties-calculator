@@ -1,1 +1,0 @@
-var e=`a07a145`,t=`2026-08-04T22:35:13.223Z`,n=`錨栓檢討工具`,r=`本工具計算結果僅供工程判讀、方案比較與報表整理輔助；正式設計、審查與簽證仍應由執業技師依現行規範、原始資料與完整工程判斷負責。`;function i(e){return e?.trim()||`a07a145`}function a(t){let n=i(t);return{projectVersion:n,runtimeVersion:e,mismatch:n!==e}}export{a,n as i,e as n,i as o,r,t};
