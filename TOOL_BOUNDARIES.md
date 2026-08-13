@@ -235,6 +235,8 @@ GUI 只可套用 action 與本次預期動作一致，且狀態和實際 worker 
 
 Pages deployment manifest 現採 schema v3。前表所稱 v2 封閉逐檔清冊仍完整保留，並新增 `releaseEvidence`，直接綁定實際發布之 tracked `preflight-summary.json` 的正式 release runId、產生時間與受測來源 SHA；同時要求 `report-readiness-status.json` 通過且 runId 一致。不是 full run、未強制平台巡檢或慢測、來源不乾淨、checks / post-checks 未全數通過，或兩份公開快照身分不一致時，artifact 建置必須失敗封閉。巡檢儀表板的「一般巡檢新鮮度」與「正式放行證據」分開顯示；7 日與 30 日門檻只提供重驗提醒，不改寫既有 release 身分。公開 manifest 缺少時只顯示「未部署證據」；carrier、Actions run、release run 或 tested source 任一不一致時顯示紅色「未對齊」，不得用較新的單項巡檢掩蓋。
 
+有效 schema v3 deployment manifest 同時是 dashboard 的公開資料範圍界線；資料範圍與部署信任不可混為一談，staging manifest 的 `sourceDirty` 只要是合法布林仍屬公開 artifact，dirty 狀態另由部署信任卡揭露及 gate 判定。公開模式只讀 manifest 與 `assets/status/` 三份 tracked 摘要，不請求 Git ignored `output/`、歷程、log、本機附件診斷、RVR 或 GSM 狀態；私人摘要與連結明示僅限本機，不得因私人檔 404 顯示為工程巡檢異常。只有 localhost 可用 `?audit_scope=local` 進入完整本機診斷；外部網域即使帶相同 query 仍維持公開模式。dashboard 專用 browser smoke 必須證明本機診斷、公開摘要與隱藏私人連結未退化；共用 Pages browser smoke 則在 staged artifact 與正式網址的桌面／手機驗證公開 scope 與零 private-output 請求，正式網址另故意附加 local query，證明外部覆寫無效。
+
 ## 提交前檢查順序
 
 1. `.\run-preflight-tools-quick.bat`

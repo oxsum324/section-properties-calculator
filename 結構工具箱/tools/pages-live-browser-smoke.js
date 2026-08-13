@@ -25,6 +25,8 @@ async page => {
   if (routes.length < 40 || new Set(routes).size !== routes.length) {
     throw new Error(`invalid homepage route inventory: total=${routes.length}, unique=${new Set(routes).size}`);
   }
+  const homeRouteCount = routes.length;
+  routes.push('/audit-dashboard');
 
   const issues = [];
   const localArtifactPreview = /^http:\/\/127\.0\.0\.1:\d+\/$/.test(base);
@@ -43,6 +45,7 @@ async page => {
       const pageErrors = [];
       const failedRequests = [];
       const failedResponses = [];
+      const requests = [];
       const onConsole = message => {
         const location = message.location()?.url || '';
         if (message.type() === 'error' && !ignoredUrl(location) && !ignoredUrl(message.text())) {
@@ -50,6 +53,7 @@ async page => {
         }
       };
       const onPageError = error => pageErrors.push(error.message);
+      const onRequest = request => requests.push(request.url());
       const onRequestFailed = request => {
         if (!ignoredUrl(request.url())) {
           failedRequests.push({ url: request.url(), error: request.failure()?.errorText || '' });
@@ -63,17 +67,27 @@ async page => {
 
       page.on('console', onConsole);
       page.on('pageerror', onPageError);
+      page.on('request', onRequest);
       page.on('requestfailed', onRequestFailed);
       page.on('response', onResponse);
 
       let navigationStatus = 0;
       let navigationError = '';
+      const isDashboard = route === '/audit-dashboard';
+      const overrideProbe = isDashboard && !localArtifactPreview ? '?audit_scope=local' : '';
+      const targetUrl = isDashboard
+        ? `${base}%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/audit-dashboard.html${overrideProbe}`
+        : `${base}${route.slice(1)}/`;
       try {
-        const response = await page.goto(`${base}${route.slice(1)}/`, {
+        const response = await page.goto(targetUrl, {
           waitUntil: 'networkidle',
           timeout: 30000
         });
         navigationStatus = response?.status() || 0;
+        if (isDashboard) {
+          await page.waitForFunction(() => document.body?.dataset.auditScope === 'public' &&
+            document.getElementById('loadedAt')?.textContent !== '尚未載入', null, { timeout: 30000 });
+        }
         await page.waitForTimeout(150);
       } catch (error) {
         navigationError = error.message;
@@ -108,12 +122,14 @@ async page => {
             : null,
           stonePreview: stonePreview
             ? { clientWidth: stonePreview.clientWidth, scrollWidth: stonePreview.scrollWidth }
-            : null
+            : null,
+          auditScope: document.body?.dataset.auditScope || ''
         };
       }, route);
 
       page.off('console', onConsole);
       page.off('pageerror', onPageError);
+      page.off('request', onRequest);
       page.off('requestfailed', onRequestFailed);
       page.off('response', onResponse);
 
@@ -148,6 +164,13 @@ async page => {
       if (route === '/stone-fixing' && viewport.key === 'mobile' && !containedStonePreview) {
         routeIssues.push(`stone A4 preview is not contained by its local scroll region: ${JSON.stringify({ rootOverflowX: state.rootOverflowX, preview: state.stonePreview })}`);
       }
+      if (isDashboard) {
+        const privateOutputRequests = requests.filter(value => {
+          try { return decodeURIComponent(value).includes('/output/'); } catch { return value.includes('/output/'); }
+        });
+        if (state.auditScope !== 'public') routeIssues.push(`invalid audit scope: ${state.auditScope}`);
+        if (privateOutputRequests.length) routeIssues.push(`private output requests: ${JSON.stringify(privateOutputRequests)}`);
+      }
 
       if (routeIssues.length) {
         issues.push({ viewport: viewport.key, route, finalUrl: page.url(), issues: routeIssues });
@@ -160,7 +183,7 @@ async page => {
   }
 
   return {
-    routes: routes.length,
+    routes: homeRouteCount,
     viewports: viewports.map(viewport => viewport.key),
     checks: routes.length * viewports.length,
     issues: 0

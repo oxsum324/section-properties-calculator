@@ -588,11 +588,11 @@
 <div class="container">
   <div class="card">
     <h2>使用說明</h2>
-    <div class="hero-note">
+    <div class="hero-note" id="dataScopeNote">
       本頁會直接讀取各層巡檢的 `audit-status.json` 與 `audit-summary.md`。若以本機伺服器或部署站開啟，
       可即時看到最近一輪巡檢結果；若直接以 `file://` 開啟，狀態讀取會受瀏覽器限制。
     </div>
-    <div class="toolbar">
+    <div class="toolbar" id="localDetailLinks">
       <button id="refreshButton" class="primary" type="button">重新讀取巡檢狀態</button>
       <a href="../output/audit/platform-summary.md" target="_blank" rel="noreferrer">開啟平台總摘要</a>
       <a href="../鋼構工具/output/audit/audit-summary.md" target="_blank" rel="noreferrer">開啟鋼構摘要</a>
@@ -987,6 +987,47 @@
 
     function isHttpMode() {
       return /^https?:$/i.test(window.location.protocol);
+    }
+
+    function requestedAuditScope() {
+      const value = new URLSearchParams(window.location.search).get('audit_scope');
+      const localHost = /^(?:localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname);
+      return localHost && value === 'local' ? 'local' : '';
+    }
+
+    function isDeploymentManifest(payload) {
+      return Boolean(
+        payload
+        && payload.schemaVersion === 3
+        && payload.kind === 'pages-deployment'
+        && /^[0-9a-f]{40}$/i.test(String(payload.commitSha || ''))
+        && typeof payload.sourceDirty === 'boolean'
+        && payload.releaseEvidence
+      );
+    }
+
+    async function resolveDataScope() {
+      let manifest = null;
+      try {
+        manifest = await fetchJson('../pages-deployment.json');
+      } catch (error) {
+        manifest = null;
+      }
+      if (requestedAuditScope() === 'local') return { scope: 'local', manifest };
+      return isDeploymentManifest(manifest)
+        ? { scope: 'public', manifest }
+        : { scope: 'local', manifest: null };
+    }
+
+    function applyDataScope(scope) {
+      document.body.dataset.auditScope = scope;
+      const localLinks = document.getElementById('localDetailLinks');
+      if (localLinks) localLinks.hidden = scope === 'public';
+      const note = document.getElementById('dataScopeNote');
+      if (!note) return;
+      note.textContent = scope === 'public'
+        ? '目前為公開摘要模式：只讀取部署清冊與 tracked 正式 release 快照，不請求或公開本機 output、歷程、log、診斷 hash 與監測資料。詳細巡檢僅能在本機工作區查看。'
+        : '目前為本機診斷模式：可讀取各層 audit-status、摘要、歷程、log 與失敗診斷；這些私人資料不會發布至公開站或計算書。';
     }
 
     function escapeHtml(text) {
@@ -2773,6 +2814,46 @@
       `;
     }
 
+    function renderPublicStatusCard(node, payload, label) {
+      if (!node) return;
+      if (!payload) {
+        node.innerHTML = `
+          <div class="status-head">
+            <span class="status-title">${escapeHtml(label)}</span>
+            <span class="status-badge warn">公開摘要缺失</span>
+          </div>
+          <div class="status-summary">目前未取得 tracked 全平台正式 release 摘要；詳細狀態不會改由私人 output 推測。</div>
+        `;
+        return;
+      }
+      const badgeTone = payload.pass ? 'ok' : 'fail';
+      const badgeText = payload.pass ? '正式 release 通過' : `正式 release 異常 ${payload.failureCount || 0} 項`;
+      node.innerHTML = `
+        <div class="status-head">
+          <span class="status-title">${escapeHtml(label)}</span>
+          <span class="status-badge ${badgeTone}">${escapeHtml(badgeText)}</span>
+        </div>
+        <div class="status-summary">依 tracked 全平台公開快照顯示；個別模組摘要、歷程與 log 僅限本機。</div>
+        <div class="status-meta">
+          <span>${escapeHtml(`時間｜${payload.generatedAt || '-'}`)}</span>
+          <span>${escapeHtml(`runId｜${payload.runId || '-'}`)}</span>
+          <span>${escapeHtml(`範圍｜${Array.isArray(payload.modules) ? payload.modules.join(' / ') : '全平台'}`)}</span>
+        </div>
+      `;
+    }
+
+    function renderPublicResources(platformStatus) {
+      statusCache.clear();
+      for (const resource of resources) {
+        const cardNode = document.getElementById(resource.cardId);
+        const summaryNode = document.getElementById(resource.summaryId);
+        if (platformStatus) statusCache.set(resource.cardId, platformStatus);
+        renderPublicStatusCard(cardNode, platformStatus, resource.label);
+        if (summaryNode) summaryNode.textContent = '公開站不提供私人巡檢摘要、歷程或 log；請以正式 release 公開快照與上方部署對齊狀態判讀。';
+      }
+      updateOverview();
+    }
+
     async function fetchText(url) {
       const response = await fetch(`${url}?ts=${Date.now()}`, { cache: 'no-store' });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -2828,8 +2909,36 @@
     }
 
     async function loadAll() {
-      await Promise.all(resources.map(loadResource));
       if (isHttpMode()) {
+        const dataScope = await resolveDataScope();
+        applyDataScope(dataScope.scope);
+        if (dataScope.scope === 'public') {
+          const [platformStatusResult, reportStatusResult, preflightStatusResult] = await Promise.allSettled([
+            fetchJson('./assets/status/platform-status.json'),
+            fetchJson('./assets/status/report-readiness-status.json'),
+            fetchJson('./assets/status/preflight-summary.json'),
+          ]);
+          const platformStatus = platformStatusResult.status === 'fulfilled' ? platformStatusResult.value : null;
+          const reportReadinessStatus = reportStatusResult.status === 'fulfilled' ? reportStatusResult.value : null;
+          const publicPreflightStatus = preflightStatusResult.status === 'fulfilled' ? preflightStatusResult.value : null;
+          renderPublicResources(platformStatus);
+          renderHistory(null);
+          renderPreflightHistory(null);
+          renderPreflightRecordLinks(null);
+          renderPreflightPostChecks(null);
+          renderMaturityMatrix(null);
+          renderRvrBackupHealth(null);
+          renderRvrBackupHealthHistory(null);
+          renderGsmLifecycleMonitor(null, null, null);
+          renderReleaseTrust(publicPreflightStatus, reportReadinessStatus, dataScope.manifest);
+          renderAttachmentIntegrity(reportReadinessStatus);
+          renderAttachmentIntegrityClosures([]);
+          updateLoadedAtLabel();
+          scheduleAutoRefresh();
+          return;
+        }
+
+        await Promise.all(resources.map(loadResource));
         let latestPreflightSummary = null;
         let preflightHistoryManifest = null;
         try {
@@ -2884,20 +2993,19 @@
           gsmHistoryResult.status === 'fulfilled' ? gsmHistoryResult.value : null,
           gsmTaskResult.status === 'fulfilled' ? gsmTaskResult.value : null,
         );
-        const [publicStatusResult, publicPreflightResult, deploymentManifestResult, localDiagnosticResult] = await Promise.allSettled([
+        const [publicStatusResult, publicPreflightResult, localDiagnosticResult] = await Promise.allSettled([
           fetchJson('./assets/status/report-readiness-status.json'),
           fetchJson('./assets/status/preflight-summary.json'),
-          fetchJson('../pages-deployment.json'),
           fetchJson('../output/preflight/attachment-integrity-latest.json'),
         ]);
         const reportReadinessStatus = publicStatusResult.status === 'fulfilled' ? publicStatusResult.value : null;
         const publicPreflightStatus = publicPreflightResult.status === 'fulfilled' ? publicPreflightResult.value : null;
-        const deploymentManifest = deploymentManifestResult.status === 'fulfilled' ? deploymentManifestResult.value : null;
         const localAttachmentDiagnostic = localDiagnosticResult.status === 'fulfilled' ? localDiagnosticResult.value : null;
-        renderReleaseTrust(publicPreflightStatus, reportReadinessStatus, deploymentManifest);
+        renderReleaseTrust(publicPreflightStatus, reportReadinessStatus, dataScope.manifest);
         renderAttachmentIntegrity(selectAttachmentIntegrityPayload(reportReadinessStatus, localAttachmentDiagnostic, latestPreflightSummary));
         await loadAttachmentIntegrityClosures(preflightHistoryManifest, localAttachmentDiagnostic);
       } else {
+        applyDataScope('file');
         renderHistory(null);
         renderPreflightHistory(null);
         renderPreflightRecordLinks(null);

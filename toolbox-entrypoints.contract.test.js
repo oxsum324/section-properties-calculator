@@ -812,6 +812,8 @@ assert.ok(auditDashboard.includes('kpiReleaseFreshness') && auditDashboard.inclu
 assert.ok(pagesLiveBrowserSmoke.includes("{ key: 'desktop', width: 1280, height: 800 }") && pagesLiveBrowserSmoke.includes("{ key: 'mobile', width: 390, height: 844 }"), 'Pages browser smoke covers desktop and mobile viewports');
 assert.ok(pagesLiveBrowserSmoke.includes("page.on('pageerror'") && pagesLiveBrowserSmoke.includes("page.on('requestfailed'") && pagesLiveBrowserSmoke.includes('horizontal overflow'), 'Pages browser smoke checks runtime, network, and overflow failures');
 assert.ok(pagesLiveBrowserSmoke.includes("route === '/rc-pile'") && pagesLiveBrowserSmoke.includes("route === '/wind-cc'") && pagesLiveBrowserSmoke.includes("route === '/stone-fixing'"), 'Pages browser smoke keeps high-risk route regressions');
+assert.ok(pagesLiveBrowserSmoke.includes("'?audit_scope=local'") && pagesLiveBrowserSmoke.includes("state.auditScope !== 'public'"), 'Pages browser smoke locks the external dashboard scope override');
+assert.ok(pagesLiveBrowserSmoke.includes('privateOutputRequests') && pagesLiveBrowserSmoke.includes("decodeURIComponent(value).includes('/output/')"), 'Pages browser smoke rejects public dashboard private output requests');
 assert.ok(pagesLiveSmoke.includes('石材固定/dev_tools/baseline_capture.html'), 'Pages live smoke blocks stone dev tools publication');
 assert.ok(pagesLiveSmoke.includes('石材固定/server.py'), 'Pages live smoke blocks stone backend helper publication');
 assert.ok(pagesLiveSmoke.includes('開挖擋土支撐/backend/app/main.py'), 'Pages live smoke blocks excavation backend publication');

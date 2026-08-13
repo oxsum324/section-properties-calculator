@@ -583,6 +583,8 @@ assert.ok(pagesBrowserSmoke.includes('routes.length < 40') && pagesBrowserSmoke.
 assert.ok(pagesBrowserSmoke.includes("page.on('pageerror'") && pagesBrowserSmoke.includes("page.on('requestfailed'") && pagesBrowserSmoke.includes("page.on('response'"), 'Pages browser smoke captures runtime and network failures');
 assert.ok(pagesBrowserSmoke.includes('horizontal overflow') && pagesBrowserSmoke.includes("route === '/rc-pile'") && pagesBrowserSmoke.includes("route === '/wind-cc'") && pagesBrowserSmoke.includes("route === '/stone-fixing'"), 'Pages browser smoke covers overflow and high-risk route regressions');
 assert.ok(pagesBrowserSmoke.includes('localArtifactPreview') && pagesBrowserSmoke.includes('127.0.0.1:8765/status'), 'Pages browser smoke narrows local artifact service exceptions');
+assert.ok(pagesBrowserSmoke.includes("'?audit_scope=local'") && pagesBrowserSmoke.includes("state.auditScope !== 'public'"), 'Pages browser smoke proves external scope override cannot expose local diagnostics');
+assert.ok(pagesBrowserSmoke.includes('privateOutputRequests') && pagesBrowserSmoke.includes("decodeURIComponent(value).includes('/output/')"), 'Pages browser smoke proves the public dashboard makes zero private output requests');
 assert.ok(toolBoundaries.includes('只有正式 live') && toolBoundaries.includes('HTTP smoke') && toolBoundaries.includes('HTTP 5xx'), 'tool boundaries documents the live-only transient retry boundary');
 assert.ok(staging.includes('HTTP smoke') && staging.includes('完整重跑最多一次') && staging.includes('第二次持續失敗仍阻擋'), 'staging guide documents the bounded live retry rule');
 

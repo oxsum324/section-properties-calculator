@@ -1027,6 +1027,7 @@ function createRequestAudit() {
     fileHits: new Set(),
     missing: [],
     unexpectedOutputRequests: [],
+    requests: [],
   };
 }
 
@@ -1167,6 +1168,7 @@ function startStaticServer(port, audit, options = {}) {
   const server = http.createServer((req, res) => {
     const requestUrl = new URL(req.url || '/', `http://127.0.0.1:${port}`);
     const relativePath = normalizeRequestPath(requestUrl.pathname) || '結構工具箱/audit-dashboard.html';
+    if (audit) audit.requests.push(relativePath);
 
     if (fixtureMode && fixtures.has(relativePath)) {
       incrementFixtureHit(audit, relativePath);
@@ -1510,6 +1512,12 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         };
       });
       return {
+        auditScope: document.body.dataset.auditScope || '',
+        dataScopeNote: document.getElementById('dataScopeNote')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+        localDetailLinksVisible: (() => {
+          const node = document.getElementById('localDetailLinks');
+          return !!node && !node.hidden && node.getClientRects().length > 0;
+        })(),
         rows: rows.length,
         latestLinks: latestLinks.length,
         historyLinks: historyLinks.length,
@@ -1691,7 +1699,17 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
     const expectedPreflightHint = expectedLive
       ? `通過 ${expectedLive.summary.passedCount} / ${expectedLive.summary.recordsCount}`
       : '通過 1 / 2';
-    if (
+    if (lastState.auditScope === 'public') {
+      if (
+        lastState.releaseFreshness
+        && lastState.deploymentAlignment
+        && lastState.attachmentIntegrityGroups.length === fixtureAttachmentPublicGroups.length
+        && lastState.rvrBackupHealthStatus === '僅限本機'
+        && lastState.gsmMonitorHealth === '僅限本機'
+        && Object.values(lastState.summaryPreviews || {}).every(value => value.includes('公開站不提供私人巡檢摘要'))
+        && lastState.loadedAt.includes('頁面更新')
+      ) return lastState;
+    } else if (
       lastState.rows === expectedRows &&
       lastState.latestLinks === expectedRows &&
       lastState.historyLinks === expectedRows &&
@@ -2431,6 +2449,11 @@ function assertRvrStaleState(state, label) {
 }
 
 function assertPublicAttachmentBoundaryState(state, label) {
+  assert.equal(state.auditScope, 'public', `${label} public dashboard enters public data scope`);
+  assert.equal(state.localDetailLinksVisible, false, `${label} public dashboard hides private output links`);
+  assert.ok(state.dataScopeNote.includes('不請求或公開本機 output'), `${label} public dashboard explains the private-data request boundary`);
+  assert.ok(state.statusCards.every(card => card.badge === '正式 release 通過'), `${label} public cards use tracked release evidence instead of private fetch failures`);
+  assert.ok(Object.values(state.summaryPreviews).every(text => text.includes('公開站不提供私人巡檢摘要')), `${label} public summary previews are explicit local-only boundaries`);
   assert.equal(state.gsmMonitorState, 'local-only', `${label} public dashboard marks GSM local-only`);
   assert.equal(state.gsmMonitorHealth, '僅限本機', `${label} public dashboard does not claim GSM health`);
   assert.deepEqual(state.gsmMonitorIssues, [], `${label} public dashboard has no GSM issue details`);
@@ -2492,7 +2515,8 @@ async function main() {
     const pageErrors = collectPageErrors(client, sessionId, {
       allowedOptional404Paths: liveOutputMode ? OPTIONAL_LOCAL_DASHBOARD_PATHS : [],
     });
-    const dashboardUrl = `http://127.0.0.1:${serverPort}/${encodeURI('結構工具箱/audit-dashboard.html')}`;
+    const publicDashboardUrl = `http://127.0.0.1:${serverPort}/${encodeURI('結構工具箱/audit-dashboard.html')}`;
+    const dashboardUrl = `${publicDashboardUrl}?audit_scope=local`;
     const states = [];
     for (const viewport of viewports) {
       await client.send('Emulation.setDeviceMetricsOverride', {
@@ -2628,6 +2652,7 @@ async function main() {
       fixtures.set(gsmMonitorStatusFixturePath, null);
       fixtures.set(gsmMonitorHistoryFixturePath, null);
       fixtures.set(gsmMonitorTaskFixturePath, null);
+      const publicRequestStart = requestAudit.requests.length;
       for (const viewport of viewports) {
         await client.send('Emulation.setDeviceMetricsOverride', {
           width: viewport.width,
@@ -2636,12 +2661,14 @@ async function main() {
           mobile: viewport.mobile,
         }, sessionId);
         const loaded = waitForEvent(client, sessionId, 'Page.loadEventFired', 15000);
-        await client.send('Page.navigate', { url: dashboardUrl }, sessionId);
+        await client.send('Page.navigate', { url: publicDashboardUrl }, sessionId);
         await loaded;
         const state = await waitForDashboardState(client, sessionId);
         state.attachmentClosurePrintVisible = await inspectAttachmentClosurePrint(client, sessionId);
         publicBoundaryStates.push({ viewport: viewport.key, state });
       }
+      const publicRequests = requestAudit.requests.slice(publicRequestStart);
+      assert.deepEqual(publicRequests.filter(isOutputRequest), [], `public dashboard must not request private output paths: ${publicRequests.filter(isOutputRequest).join(', ')}`);
       fixtures.set(attachmentDiagnosticFixturePath, fixtureAttachmentDiagnostic);
       fixtures.set(rvrBackupHealthFixturePath, originalRvrBackupHealthFixture);
       fixtures.set(rvrBackupHealthHistoryFixturePath, originalRvrBackupHealthHistoryFixture);

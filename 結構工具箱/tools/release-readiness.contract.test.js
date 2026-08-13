@@ -711,6 +711,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'fixtureReleaseRunId',
   'deploymentMismatchViewports',
   'kpiDeploymentAlignment',
+  'publicRequests.filter(isOutputRequest)',
+  'public dashboard hides private output links',
   '未部署證據',
   '未對齊',
   '已對齊',
