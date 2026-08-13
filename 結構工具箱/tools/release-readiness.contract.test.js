@@ -165,6 +165,10 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'Close-ReleasePreflightLock',
   'node 結構工具箱/tools/release-preflight-lock.test.js',
 ].forEach(needle => assertIncludes(preflight, needle, `preflight preserves release singleton wiring ${needle}`));
+assert(
+  preflight.indexOf('function Close-ReleasePreflightLock') < preflight.indexOf('Enter-ReleasePreflightLock -WorkspaceRoot $root'),
+  'preflight defines its cleanup function before lock acquisition can fail',
+);
 
 [
   '[switch]$ForcePlatformAudit',

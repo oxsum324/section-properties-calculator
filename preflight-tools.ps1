@@ -20,16 +20,16 @@ $releaseMutexAcquired = $false
 
 . $releaseLockScript
 
-if ($isReleaseMode) {
-  $releaseLockState = Enter-ReleasePreflightLock -WorkspaceRoot $root
-  $releaseMutex = $releaseLockState.Mutex
-  $releaseMutexAcquired = $true
-}
-
 function Close-ReleasePreflightLock {
   Exit-ReleasePreflightLock -Mutex $script:releaseMutex -Acquired $script:releaseMutexAcquired
   $script:releaseMutexAcquired = $false
   $script:releaseMutex = $null
+}
+
+if ($isReleaseMode) {
+  $releaseLockState = Enter-ReleasePreflightLock -WorkspaceRoot $root
+  $releaseMutex = $releaseLockState.Mutex
+  $releaseMutexAcquired = $true
 }
 
 trap {
