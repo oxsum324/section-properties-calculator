@@ -64,7 +64,9 @@ function waitForExit(child) {
 }
 
 (async () => {
-  const workspace = path.resolve(__dirname, '..', '..');
+  // Use a dedicated lock key so this contract can run from inside a formal
+  // preflight that already owns the real workspace lock.
+  const workspace = path.resolve(__dirname, '..', '..', '.release-lock-contract-fixture');
   const alternateWorkspace = `${workspace}-independent-lock-test`;
 
   const first = run(workspace);
