@@ -1,0 +1,10 @@
+{
+  "name": "structural-tools-pages-smoke-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pinned private runtime for the GitHub Pages browser smoke.",
+  "dependencies": {
+    "@playwright/cli": "0.1.17",
+    "terser": "5.49.0"
+  }
+}

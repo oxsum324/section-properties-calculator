@@ -50,19 +50,35 @@ $Node = Get-Command node.exe -ErrorAction SilentlyContinue
 if (-not $Node) {
   $Node = Get-Command node -ErrorAction SilentlyContinue
 }
-$Npx = Get-Command npx.ps1 -ErrorAction SilentlyContinue
-if (-not $Npx) {
-  $Npx = Get-Command npx -ErrorAction SilentlyContinue
-}
-if (-not $Npx) {
-  throw 'npx is required to run the staged Pages browser smoke.'
-}
 if (-not $Node) {
   throw 'node is required to run the staged Pages browser smoke.'
 }
-$NpxCli = Join-Path (Split-Path -Parent $Npx.Source) 'node_modules\npm\bin\npx-cli.js'
-if (-not (Test-Path -LiteralPath $NpxCli)) {
-  throw "Could not resolve npx-cli.js beside $($Npx.Source)."
+$Npm = Get-Command npm.cmd -ErrorAction SilentlyContinue
+if (-not $Npm) {
+  $Npm = Get-Command npm -ErrorAction SilentlyContinue
+}
+if (-not $Npm) {
+  throw 'npm is required to install the pinned Pages smoke runtime.'
+}
+$PagesSmokeRuntime = Join-Path $RepoRoot '.github\pages-smoke'
+$PagesSmokeRuntimeManifest = Join-Path $PagesSmokeRuntime 'package.json'
+$PlaywrightManifest = Join-Path $PagesSmokeRuntime 'node_modules\@playwright\cli\package.json'
+$PlaywrightCli = Join-Path $PagesSmokeRuntime 'node_modules\@playwright\cli\playwright-cli.js'
+$TerserManifest = Join-Path $PagesSmokeRuntime 'node_modules\terser\package.json'
+$TerserCli = Join-Path $PagesSmokeRuntime 'node_modules\terser\bin\terser'
+
+& $Npm.Source ci --ignore-scripts --no-audit --no-fund --prefix $PagesSmokeRuntime
+if ($LASTEXITCODE -ne 0) {
+  throw "Pinned Pages smoke runtime installation failed with exit code $LASTEXITCODE"
+}
+$ExpectedRuntime = Get-Content -Raw -LiteralPath $PagesSmokeRuntimeManifest | ConvertFrom-Json
+$InstalledPlaywright = Get-Content -Raw -LiteralPath $PlaywrightManifest | ConvertFrom-Json
+$InstalledTerser = Get-Content -Raw -LiteralPath $TerserManifest | ConvertFrom-Json
+if ($ExpectedRuntime.dependencies.'@playwright/cli' -ne $InstalledPlaywright.version) {
+  throw "Pages smoke Playwright version mismatch: expected $($ExpectedRuntime.dependencies.'@playwright/cli'), installed $($InstalledPlaywright.version)"
+}
+if ($ExpectedRuntime.dependencies.terser -ne $InstalledTerser.version) {
+  throw "Pages smoke Terser version mismatch: expected $($ExpectedRuntime.dependencies.terser), installed $($InstalledTerser.version)"
 }
 
 $Stamp = Get-Date -Format 'yyyyMMddHHmmss'
@@ -138,7 +154,7 @@ try {
     throw "pages-live-smoke.js failed with exit code $LASTEXITCODE"
   }
 
-  $OpenRaw = (& $Node.Source $NpxCli --yes --package '@playwright/cli@0.1.17' playwright-cli --json "-s=$BrowserSession" open $BaseUrl | Out-String)
+  $OpenRaw = (& $Node.Source $PlaywrightCli --json "-s=$BrowserSession" open $BaseUrl | Out-String)
   if ($LASTEXITCODE -ne 0) {
     throw "Playwright CLI open failed with exit code $LASTEXITCODE"
   }
@@ -148,7 +164,7 @@ try {
   }
   $BrowserOpened = $true
 
-  $BrowserCode = ((& $Node.Source $NpxCli --yes 'terser@5.49.0' $BrowserSmokeScript.FullName --compress 'side_effects=false' --mangle --format 'ascii_only=true') -join "`n").TrimEnd().TrimEnd(';')
+  $BrowserCode = ((& $Node.Source $TerserCli $BrowserSmokeScript.FullName --compress 'side_effects=false' --mangle --format 'ascii_only=true') -join "`n").TrimEnd().TrimEnd(';')
   if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($BrowserCode)) {
     throw "pages-live-browser-smoke.js minification failed with exit code $LASTEXITCODE"
   }
@@ -158,7 +174,7 @@ try {
   if ($BrowserBootstrap.Length -ge 7500) {
     throw "pages-live-browser-smoke.js Windows bootstrap is too long: $($BrowserBootstrap.Length) characters"
   }
-  $BrowserRaw = (& $Node.Source $NpxCli --yes --package '@playwright/cli@0.1.17' playwright-cli --json "-s=$BrowserSession" run-code $BrowserBootstrap | Out-String)
+  $BrowserRaw = (& $Node.Source $PlaywrightCli --json "-s=$BrowserSession" run-code $BrowserBootstrap | Out-String)
   $BrowserExitCode = $LASTEXITCODE
   if ($BrowserExitCode -ne 0) {
     throw "Playwright CLI browser smoke failed with exit code $BrowserExitCode`n$($BrowserRaw.Trim())"
@@ -172,7 +188,7 @@ try {
 }
 finally {
   if ($BrowserOpened) {
-    & $Node.Source $NpxCli --yes --package '@playwright/cli@0.1.17' playwright-cli "-s=$BrowserSession" close 2>$null | Out-Null
+    & $Node.Source $PlaywrightCli "-s=$BrowserSession" close 2>$null | Out-Null
   }
   if ($Server -and -not $Server.HasExited) {
     Stop-Process -Id $Server.Id -Force

@@ -417,6 +417,8 @@ const pagesDeploymentManifestBuilder = readText(path.join(toolboxRoot, 'tools/bu
 const pagesCleanRouteBuilderPath = path.join(toolboxRoot, 'tools/build-pages-clean-routes.js');
 const pagesCleanRouteBuilder = readText(pagesCleanRouteBuilderPath);
 const pagesDeployWorkflow = readText(path.join(repoRoot, '.github/workflows/pages-deploy.yml'));
+const pagesSmokeRuntime = readJson('.github/pages-smoke/package.json');
+const pagesSmokeLock = readJson('.github/pages-smoke/package-lock.json');
 const pagesArtifactSmoke = readText(path.join(repoRoot, 'run-pages-artifact-smoke.ps1'));
 const pushPagesRelease = readText(path.join(repoRoot, 'push-pages-release.ps1'));
 const pushPagesReleaseBatch = readText(path.join(repoRoot, 'push-pages-release.bat'));
@@ -832,7 +834,9 @@ assert.equal(/[^\x00-\x7F]/.test(pushPagesRelease), false, 'safe Pages PowerShel
 assert.ok(pagesArtifactSmoke.includes('GetTempPath'), 'local Pages artifact smoke stages into temp');
 assert.ok(pagesArtifactSmoke.includes('$ArtifactBuilder') && pagesArtifactSmoke.includes('--repo-root $RepoRoot --site-root $SiteRoot'), 'local Pages artifact smoke uses the shared Git-inventory builder');
 assert.equal(pagesArtifactSmoke.includes('robocopy'), false, 'local Pages artifact smoke has no duplicate robocopy exclusion policy');
-assert.ok(pagesArtifactSmoke.includes("node_modules\\npm\\bin\\npx-cli.js"), 'local Pages artifact smoke bypasses Windows npx wrapper argument rewriting');
+assert.ok(pagesArtifactSmoke.includes('npm.cmd') && pagesArtifactSmoke.includes('ci --ignore-scripts --no-audit --no-fund --prefix $PagesSmokeRuntime'), 'local Pages artifact smoke installs the same pinned private runtime without lifecycle scripts');
+assert.ok(pagesArtifactSmoke.includes('node_modules\\@playwright\\cli\\playwright-cli.js') && pagesArtifactSmoke.includes('node_modules\\terser\\bin\\terser'), 'local Pages artifact smoke executes the same lockfile-installed local CLIs');
+assert.equal(pagesArtifactSmoke.includes('npx-cli.js'), false, 'local Pages artifact smoke no longer resolves npx packages at runtime');
 assert.ok(pagesArtifactSmoke.includes("--format 'ascii_only=true'") && pagesArtifactSmoke.includes('$BrowserCodeBase64') && pagesArtifactSmoke.includes('$BrowserBootstrap'), 'local Pages artifact smoke carries browser code through a Windows-safe ASCII/Base64 argument');
 assert.ok(pagesArtifactSmoke.includes('$BrowserRaw.Trim()'), 'local Pages artifact smoke preserves Playwright CLI diagnostics on non-zero exit');
 assert.ok(pagesArtifactBuilder.includes("'--cached', '--others', '--exclude-standard'") && pagesArtifactBuilder.includes('GIT_INDEX_FILE'), 'shared Pages artifact builder uses Git inventory and an isolated index');
@@ -843,7 +847,7 @@ assert.ok(pagesArtifactBuilder.includes("'.md'") && pagesArtifactBuilder.include
 assert.ok(pagesArtifactSmoke.includes('pages-live-smoke.js'), 'local Pages artifact smoke calls shared live smoke');
 assert.ok(pagesArtifactSmoke.includes('pages-live-browser-smoke.js'), 'local Pages artifact smoke calls shared browser smoke');
 assert.ok(pagesArtifactSmoke.includes('$DeploymentManifestBuilder') && pagesArtifactSmoke.includes('--expected-run-id $LocalRunId'), 'local Pages artifact smoke builds and verifies deployment provenance');
-assert.ok(pagesArtifactSmoke.includes("@playwright/cli@0.1.17") && pagesArtifactSmoke.includes("terser@5.49.0"), 'local Pages artifact smoke pins browser dependencies');
+assert.ok(pagesArtifactSmoke.includes('$PagesSmokeRuntimeManifest') && pagesArtifactSmoke.includes('$ExpectedRuntime.dependencies') && pagesArtifactSmoke.includes('version mismatch'), 'local Pages artifact smoke verifies browser dependencies against the shared manifest');
 assert.ok(pagesArtifactSmoke.includes('$BrowserResult.isError'), 'local Pages artifact smoke checks CLI JSON error state');
 assert.ok(pagesArtifactSmoke.includes('build-pages-clean-routes.js'), 'local Pages artifact smoke builds clean routes');
 assert.ok(pagesArtifactSmoke.includes('--check-private-boundary'), 'local Pages artifact smoke verifies private boundary');
@@ -889,15 +893,23 @@ assert.ok(staging.includes('git status --porcelain --untracked-files=all') && st
 assert.equal((pagesDeployWorkflow.match(/bash "結構工具箱\/tools\/run-pages-browser-smoke\.sh"/g) || []).length, 2, 'Pages deploy workflow reuses browser smoke before and after deploy');
 assert.equal((pagesDeployWorkflow.match(/uses: actions\/cache@v5/g) || []).length, 2, 'Pages deploy workflow restores the Playwright browser cache in both browser jobs');
 assert.equal((pagesDeployWorkflow.match(/path: ~\/\.cache\/ms-playwright/g) || []).length, 2, 'Pages deploy workflow caches the canonical Playwright browser path twice');
-assert.equal((pagesDeployWorkflow.match(/runner\.os }}-\${{ runner\.arch }}-pages-playwright-\${{ env\.PAGES_PLAYWRIGHT_CLI_VERSION }}-chromium-v1/g) || []).length, 2, 'Pages deploy workflow uses a platform- and version-bound browser cache key');
-assert.ok(pagesDeployWorkflow.includes('PAGES_PLAYWRIGHT_CLI_VERSION: 0.1.17') && pagesBrowserRunner.includes('PAGES_PLAYWRIGHT_CLI_VERSION:-0.1.17'), 'Pages deploy workflow and runner share one pinned Playwright CLI version');
+assert.equal((pagesDeployWorkflow.match(/runner\.os }}-\${{ runner\.arch }}-pages-playwright-\${{ hashFiles\('\.github\/pages-smoke\/package-lock\.json'\) }}-chromium-v1/g) || []).length, 2, 'Pages deploy workflow uses a platform- and lockfile-bound browser cache key');
+assert.equal((pagesDeployWorkflow.match(/cache-dependency-path: \.github\/pages-smoke\/package-lock\.json/g) || []).length, 2, 'Pages deploy workflow caches npm content from the smoke lockfile twice');
+assert.equal((pagesDeployWorkflow.match(/npm ci --ignore-scripts --no-audit --no-fund/g) || []).length, 2, 'Pages deploy workflow installs the exact private runtime without lifecycle scripts twice');
+assert.deepEqual(pagesSmokeRuntime.dependencies, { '@playwright/cli': '0.1.17', terser: '5.49.0' }, 'Pages smoke package pins its direct runtime dependencies');
+assert.equal(pagesSmokeLock.packages['node_modules/@playwright/cli'].version, '0.1.17');
+assert.equal(pagesSmokeLock.packages['node_modules/terser'].version, '5.49.0');
+for (const name of ['node_modules/@playwright/cli', 'node_modules/playwright', 'node_modules/playwright-core', 'node_modules/terser']) {
+  assert.match(pagesSmokeLock.packages[name].integrity, /^sha512-/, `Pages smoke lock preserves registry integrity for ${name}`);
+}
 assert.ok(readme.includes('actions/cache@v5') && readme.includes('~/.cache/ms-playwright') && readme.includes('cache hit'), 'README documents Playwright browser cache reuse without weakening validation');
 assert.ok(boundaries.includes('actions/cache@v5') && boundaries.includes('~/.cache/ms-playwright') && boundaries.includes('install-browser chromium'), 'TOOL_BOUNDARIES keeps the browser cache fail-closed contract');
 assert.ok(pagesDeployWorkflow.includes('PAGES_BROWSER_SMOKE_ATTEMPTS: 2') && pagesDeployWorkflow.includes('PAGES_BROWSER_SMOKE_RETRY_DELAY_SECONDS: 5'), 'Pages deploy workflow bounds live browser transient retries');
 assert.ok(pagesDeployWorkflow.includes('PAGES_HTTP_SMOKE_ATTEMPTS: 2') && pagesDeployWorkflow.includes('PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS: 5'), 'Pages deploy workflow bounds live HTTP transient retries');
 assert.ok(pagesLiveSmoke.includes('response.status >= 500 && response.status <= 599') && pagesLiveSmoke.includes('runWithTransientRetry'), 'Pages live HTTP smoke treats 5xx as retryable failures through a bounded wrapper');
 assert.ok(pagesBrowserRunner.includes('install-browser chromium') && pagesBrowserRunner.includes('value.isError'), 'Pages browser runner installs Chromium and fails on CLI JSON errors');
-assert.ok(pagesBrowserRunner.includes('playwright_package="@playwright/cli@${playwright_cli_version}"') && pagesBrowserRunner.includes("terser@5.49.0"), 'Pages browser runner pins browser dependencies');
+assert.ok(pagesBrowserRunner.includes('node_modules/@playwright/cli/playwright-cli.js') && pagesBrowserRunner.includes('node_modules/terser/bin/terser') && pagesBrowserRunner.includes('version mismatch'), 'Pages browser runner verifies and executes lockfile-installed browser dependencies');
+assert.equal(pagesBrowserRunner.includes('npx '), false, 'Pages browser runner has no floating npx resolution');
 assert.ok(pagesBrowserRunner.includes('trap cleanup EXIT') && pagesBrowserRunner.includes('pages-live-browser-smoke.js'), 'Pages browser runner cleans up and invokes the shared source');
 assert.ok(pagesBrowserRunner.includes('status(?: of)? 5') && pagesBrowserRunner.includes('ERR_(?:TIMED_OUT|CONNECTION_RESET'), 'Pages browser runner only retries transient 5xx and network failures');
 assert.ok(pagesBrowserRunner.includes('"$attempt" -lt "$attempts"') && pagesBrowserRunner.includes('throw new Error(value.error)'), 'Pages browser runner fails non-transient or persistent issues');

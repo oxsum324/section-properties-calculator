@@ -26,6 +26,8 @@ const preflightTools = readText('preflight-tools.ps1');
 const context = readText('CONTEXT.md');
 const adr = readText('docs/adr/0001-page-only-report-readiness.md');
 const pagesWorkflow = readText('.github/workflows/pages-deploy.yml');
+const pagesSmokeRuntime = readJson('.github/pages-smoke/package.json');
+const pagesSmokeLock = readJson('.github/pages-smoke/package-lock.json');
 const pagesSmoke = readText('結構工具箱/tools/pages-live-smoke.js');
 const pagesBrowserSmoke = readText('結構工具箱/tools/pages-live-browser-smoke.js');
 const pagesBrowserRunner = readText('結構工具箱/tools/run-pages-browser-smoke.sh');
@@ -362,8 +364,18 @@ assert.ok(pagesWorkflow.includes('PAGES_EXPECTED_COMMIT_SHA: ${{ github.sha }}')
 assert.equal((pagesWorkflow.match(/bash "結構工具箱\/tools\/run-pages-browser-smoke\.sh"/g) || []).length, 2, 'Pages workflow reuses the browser runner before and after deploy');
 assert.equal((pagesWorkflow.match(/uses: actions\/cache@v5/g) || []).length, 2, 'Pages workflow restores the Playwright browser cache in build and live jobs');
 assert.equal((pagesWorkflow.match(/path: ~\/\.cache\/ms-playwright/g) || []).length, 2, 'Pages workflow caches the canonical Linux Playwright browser directory in both browser jobs');
-assert.equal((pagesWorkflow.match(/runner\.os }}-\${{ runner\.arch }}-pages-playwright-\${{ env\.PAGES_PLAYWRIGHT_CLI_VERSION }}-chromium-v1/g) || []).length, 2, 'Pages browser cache key binds OS, architecture, CLI version, and browser family');
-assert.ok(pagesWorkflow.includes('PAGES_PLAYWRIGHT_CLI_VERSION: 0.1.17') && pagesBrowserRunner.includes('PAGES_PLAYWRIGHT_CLI_VERSION:-0.1.17'), 'Pages workflow and browser runner share the pinned Playwright CLI version');
+assert.equal((pagesWorkflow.match(/runner\.os }}-\${{ runner\.arch }}-pages-playwright-\${{ hashFiles\('\.github\/pages-smoke\/package-lock\.json'\) }}-chromium-v1/g) || []).length, 2, 'Pages browser cache key binds OS, architecture, lockfile digest, and browser family');
+assert.equal((pagesWorkflow.match(/cache-dependency-path: \.github\/pages-smoke\/package-lock\.json/g) || []).length, 2, 'Pages workflow caches the npm content store from the private smoke lockfile in both jobs');
+assert.equal((pagesWorkflow.match(/npm ci --ignore-scripts --no-audit --no-fund/g) || []).length, 2, 'Pages workflow installs the exact lockfile runtime without lifecycle scripts in both jobs');
+assert.deepEqual(pagesSmokeRuntime.dependencies, { '@playwright/cli': '0.1.17', terser: '5.49.0' }, 'Pages smoke runtime pins direct browser dependencies exactly');
+assert.equal(pagesSmokeLock.lockfileVersion, 3, 'Pages smoke runtime uses npm lockfile v3');
+assert.equal(pagesSmokeLock.packages['node_modules/@playwright/cli'].version, '0.1.17');
+assert.equal(pagesSmokeLock.packages['node_modules/terser'].version, '5.49.0');
+for (const name of ['node_modules/@playwright/cli', 'node_modules/playwright', 'node_modules/playwright-core', 'node_modules/terser']) {
+  assert.match(pagesSmokeLock.packages[name].integrity, /^sha512-/, `Pages smoke lock preserves registry integrity for ${name}`);
+}
+assert.ok(pagesBrowserRunner.includes('node_modules/@playwright/cli/playwright-cli.js') && pagesBrowserRunner.includes('node_modules/terser/bin/terser'), 'Pages browser runner executes only the lockfile-installed local CLIs');
+assert.equal(pagesBrowserRunner.includes('npx '), false, 'Pages browser runner does not resolve floating npx packages at runtime');
 assert.ok(readme.includes('actions/cache@v5') && readme.includes('~/.cache/ms-playwright') && readme.includes('cache hit'), 'README documents the cross-job Playwright cache and validation boundary');
 assert.ok(toolBoundaries.includes('actions/cache@v5') && toolBoundaries.includes('~/.cache/ms-playwright') && toolBoundaries.includes('install-browser chromium'), 'TOOL_BOUNDARIES requires cache restore without skipping browser validation');
 assert.ok(staging.includes('pages-release-governance.contract.test.js') && staging.includes('.github/workflows/pages-deploy.yml') && staging.includes('run-pages-browser-smoke.sh'), 'STAGING_GROUPS keeps the Pages cache workflow, runner, and contract together');
@@ -371,8 +383,8 @@ assert.ok(pagesWorkflow.includes('PAGES_BROWSER_SMOKE_ATTEMPTS: 2') && pagesWork
 assert.ok(pagesWorkflow.includes('PAGES_HTTP_SMOKE_ATTEMPTS: 2') && pagesWorkflow.includes('PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS: 5'), 'Pages live HTTP smoke allows one bounded transient retry');
 assert.ok(pagesSmoke.includes('response.status >= 500 && response.status <= 599') && pagesSmoke.includes('runWithTransientRetry'), 'Pages HTTP smoke classifies 5xx and runs through the bounded retry wrapper');
 assert.ok(pagesSmoke.includes("environmentInteger('PAGES_HTTP_SMOKE_ATTEMPTS', 1, 1)") && pagesSmoke.includes("environmentInteger('PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS', 5, 0)"), 'Pages HTTP smoke defaults staged and local runs to one attempt');
-assert.ok(pagesBrowserRunner.includes('playwright_package="@playwright/cli@${playwright_cli_version}"') && pagesBrowserRunner.includes('install-browser chromium'), 'Pages browser runner installs or validates the pinned Chromium runtime after cache restore');
-assert.ok(pagesBrowserRunner.includes("terser@5.49.0") && pagesBrowserRunner.includes('pages-live-browser-smoke.js'), 'Pages browser runner invokes the reusable browser smoke source');
+assert.ok(pagesBrowserRunner.includes('runtime.dependencies') && pagesBrowserRunner.includes('version mismatch') && pagesBrowserRunner.includes('install-browser chromium'), 'Pages browser runner verifies installed versions before Chromium validation');
+assert.ok(pagesBrowserRunner.includes('terser_cli') && pagesBrowserRunner.includes('pages-live-browser-smoke.js'), 'Pages browser runner invokes the reusable browser smoke source through pinned Terser');
 assert.ok(pagesBrowserRunner.includes('value.isError') && pagesBrowserRunner.includes('trap cleanup EXIT'), 'Pages browser runner fails on CLI JSON errors and always closes its session');
 assert.ok(pagesBrowserRunner.includes('status(?: of)? 5') && pagesBrowserRunner.includes('ERR_(?:TIMED_OUT|CONNECTION_RESET'), 'Pages browser runner narrows retry eligibility to transient 5xx and network failures');
 assert.ok(pagesBrowserRunner.includes('"$attempt" -lt "$attempts"') && pagesBrowserRunner.includes('throw new Error(value.error)'), 'Pages browser runner bounds retries and fails persistent or non-transient errors');
@@ -439,7 +451,7 @@ assert.ok(artifactSmoke.includes('pages-live-smoke.js'), 'local artifact smoke r
 assert.ok(artifactSmoke.includes('pages-live-browser-smoke.js'), 'local artifact smoke reuses Pages browser smoke');
 assert.ok(artifactSmoke.includes('$DeploymentManifestBuilder') && artifactSmoke.includes('--expected-commit-sha $CommitSha'), 'local artifact smoke builds and verifies deployment provenance');
 assert.ok(artifactSmoke.includes('$SourceDirty') && artifactSmoke.includes('--source-dirty $SourceDirty.ToString().ToLowerInvariant()'), 'local artifact smoke records dirty source state honestly');
-assert.ok(artifactSmoke.includes("@playwright/cli@0.1.17") && artifactSmoke.includes("terser@5.49.0"), 'local artifact smoke pins the browser CLI and minifier');
+assert.ok(artifactSmoke.includes('$PagesSmokeRuntimeManifest') && artifactSmoke.includes('$ExpectedRuntime.dependencies') && artifactSmoke.includes('version mismatch'), 'local artifact smoke verifies installed browser CLI and minifier versions against the shared manifest');
 assert.ok(artifactSmoke.includes('ConvertFrom-Json') && artifactSmoke.includes('$BrowserResult.isError'), 'local artifact smoke fails on Playwright CLI JSON errors');
 assert.ok(artifactSmoke.includes('--check-private-boundary'), 'local artifact smoke keeps private-boundary check');
 assert.equal(artifactSmoke.includes('--allow-local-output'), false, 'local artifact smoke must not allow repo-root output');

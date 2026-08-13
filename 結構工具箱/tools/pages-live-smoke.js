@@ -138,6 +138,8 @@ const PRIVATE_PATHS = [
   '螺栓檢討/bolt-review-tool/package.json',
   '螺栓檢討/bolt-review-tool/src/App.tsx',
   '覆工板/dump_xls.py',
+  '.github/pages-smoke/package.json',
+  '.github/pages-smoke/package-lock.json',
   '.github/workflows/pages-deploy.yml'
 ];
 
