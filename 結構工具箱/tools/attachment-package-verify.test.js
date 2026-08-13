@@ -8,6 +8,7 @@ const { spawnSync } = require('child_process');
 const Builder = require('./attachment-package-build.js');
 const Checker = require('./attachment-package-check.js');
 const Verifier = require('./attachment-package-verify.js');
+const XlsxSealVerifier = require('./xlsx-seal-verifier.js');
 
 const FINGERPRINT = 'CF-1234ABCD5678EF90';
 const FIXED_NOW = new Date('2026-07-21T14:10:00.000Z');
@@ -91,6 +92,95 @@ function createAnchorPackage(tempRoot, name) {
     projectNo: 'PKG-VERIFY-001',
     now: FIXED_NOW,
   });
+  assert.equal(result.status, 'ready');
+  return outputDir;
+}
+
+function xmlEscape(value) {
+  return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function anchorXlsxEntries({ result = 12.5, status = '正式附件', contentSha = '0'.repeat(64), approvalSha = '0'.repeat(64) } = {}) {
+  const strings = [
+    '項目', '值', '文件狀態', status, '內部審閱', '核可資訊', '核可時間：2026/07/21 22:05:00',
+    '計畫編號', 'PKG-VERIFY-001', '產出工具', '錨栓檢討工具', '工具版本', 'v1.0',
+    '輸出時間', '2026/07/21 22:00:00', '計算指紋', FINGERPRINT,
+    '採用輸入與單位', '混凝土 280 kgf/cm²；彎矩 12.5 tf·m', '計算內容', 'φMn = 18.2 tf·m',
+    '檢核結論', 'DCR = 0.69；檢核結果：通過', '控制DCR',
+    XlsxSealVerifier.LABELS.contentScope, XlsxSealVerifier.CONTENT_SCOPE,
+    XlsxSealVerifier.LABELS.contentSha256, contentSha,
+    XlsxSealVerifier.LABELS.approvalScope, XlsxSealVerifier.APPROVAL_SCOPE,
+    XlsxSealVerifier.LABELS.approvalSha256, approvalSha,
+    XlsxSealVerifier.LABELS.note, 'SHA-256 防竄改證據，非核可人身分之數位簽章', '檢核模式', 'DCR',
+  ];
+  const index = value => strings.indexOf(value);
+  const row = (number, label, value, numeric = false) => `<row r="${number}"><c r="A${number}" t="s"><v>${index(label)}</v></c><c r="B${number}"${numeric ? '' : ' t="s"'}><v>${numeric ? value : index(value)}</v></c></row>`;
+  const summaryRows = [
+    row(1, '項目', '值'), row(2, '文件狀態', status), row(3, '核可資訊', '核可時間：2026/07/21 22:05:00'),
+    row(4, '計畫編號', 'PKG-VERIFY-001'), row(5, '產出工具', '錨栓檢討工具'), row(6, '工具版本', 'v1.0'),
+    row(7, '輸出時間', '2026/07/21 22:00:00'), row(8, '計算指紋', FINGERPRINT),
+    row(9, '採用輸入與單位', '混凝土 280 kgf/cm²；彎矩 12.5 tf·m'), row(10, '計算內容', 'φMn = 18.2 tf·m'),
+    row(11, '檢核結論', 'DCR = 0.69；檢核結果：通過'), row(12, '控制DCR', 0.69, true),
+    row(13, XlsxSealVerifier.LABELS.contentScope, XlsxSealVerifier.CONTENT_SCOPE),
+    row(14, XlsxSealVerifier.LABELS.contentSha256, contentSha),
+    row(15, XlsxSealVerifier.LABELS.approvalScope, XlsxSealVerifier.APPROVAL_SCOPE),
+    row(16, XlsxSealVerifier.LABELS.approvalSha256, approvalSha),
+    row(17, XlsxSealVerifier.LABELS.note, 'SHA-256 防竄改證據，非核可人身分之數位簽章'),
+  ];
+  return new Map([
+    ['xl/sharedStrings.xml', Buffer.from(`<sst>${strings.map(value => `<si><t>${xmlEscape(value)}</t></si>`).join('')}</sst>`, 'utf8')],
+    ['xl/workbook.xml', Buffer.from('<workbook xmlns:r="r"><sheets><sheet name="Summary" r:id="rId1"/><sheet name="Results" r:id="rId2"/></sheets></workbook>', 'utf8')],
+    ['xl/_rels/workbook.xml.rels', Buffer.from('<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Target="worksheets/sheet2.xml"/></Relationships>', 'utf8')],
+    ['xl/worksheets/sheet1.xml', Buffer.from(`<worksheet><sheetData>${summaryRows.join('')}</sheetData></worksheet>`, 'utf8')],
+    ['xl/worksheets/sheet2.xml', Buffer.from(`<worksheet><sheetData><row r="1"><c r="A1" t="s"><v>${index('檢核模式')}</v></c><c r="B1" t="s"><v>${index('DCR')}</v></c></row><row r="2"><c r="A2" t="s"><v>${index('控制DCR')}</v></c><c r="B2"><f>IFERROR(10/8,&quot;&quot;)</f><v>${result}</v></c></row></sheetData></worksheet>`, 'utf8')],
+  ]);
+}
+
+function sealedAnchorXlsxEntries() {
+  const placeholder = anchorXlsxEntries();
+  const parsed = XlsxSealVerifier.parsedWorkbook(placeholder);
+  const contentSha = XlsxSealVerifier.sha256Text(XlsxSealVerifier.canonicalContent(parsed));
+  const fields = new Map(parsed.find(sheet => sheet.name === 'Summary').rows.map(row => {
+    const values = row.cells.map(cell => String(cell.value ?? ''));
+    return [values[0] || '', values[1] || ''];
+  }));
+  const approvalSha = XlsxSealVerifier.sha256Text(XlsxSealVerifier.canonicalApproval(fields, contentSha));
+  return anchorXlsxEntries({ contentSha, approvalSha });
+}
+
+function writeXlsx(filePath, entries) {
+  const archiveRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'anchor-xlsx-fixture-'));
+  const zipPath = `${filePath}.zip`;
+  try {
+    entries.forEach((bytes, name) => {
+      if (name.endsWith('/')) return;
+      const target = path.join(archiveRoot, ...name.split('/'));
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, bytes);
+    });
+    fs.rmSync(zipPath, { force: true });
+    const archived = spawnSync('tar', ['-a', '-c', '-f', zipPath, '-C', archiveRoot, 'xl'], { encoding: 'utf8' });
+    assert.equal(archived.status, 0, archived.stderr || archived.stdout);
+    fs.rmSync(filePath, { force: true });
+    fs.renameSync(zipPath, filePath);
+  } finally {
+    fs.rmSync(zipPath, { force: true });
+    fs.rmSync(archiveRoot, { recursive: true, force: true });
+  }
+}
+
+function createAnchorXlsxPackage(tempRoot, name) {
+  const inputDir = path.join(tempRoot, `${name}-input`);
+  const outputDir = path.join(tempRoot, `${name}-package`);
+  fs.mkdirSync(path.join(inputDir, 'source'), { recursive: true });
+  fs.mkdirSync(path.join(inputDir, 'reports'), { recursive: true });
+  fs.writeFileSync(path.join(inputDir, 'source', 'anchor.json'), JSON.stringify({
+    schema: 'tool-project-storage.v1',
+    tool: { id: 'anchor-review', name: '錨栓檢討工具', version: 'v1.0' },
+    project: { no: 'PKG-VERIFY-001' }, calculationFingerprint: FINGERPRINT, savedAt: '2026/07/21 22:00:00',
+  }), 'utf8');
+  writeXlsx(path.join(inputDir, 'reports', 'anchor.xlsx'), sealedAnchorXlsxEntries());
+  const result = Builder.buildPackage(inputDir, { output: outputDir, projectNo: 'PKG-VERIFY-001', now: FIXED_NOW });
   assert.equal(result.status, 'ready');
   return outputDir;
 }
@@ -221,6 +311,59 @@ try {
   assert.equal(hasIssue(forgedAnchorApprovalReport, 'package-fingerprint-mismatch'), false);
   assert.equal(forgedAnchorApprovalReport.summary.htmlDualSealExpected, 1);
   assert.equal(forgedAnchorApprovalReport.summary.htmlDualSealVerified, 0);
+
+  const readyAnchorXlsxPackage = createAnchorXlsxPackage(tempRoot, 'ready-anchor-xlsx');
+  const readyAnchorXlsxReport = Verifier.verifyPackage(readyAnchorXlsxPackage);
+  assert.equal(readyAnchorXlsxReport.status, 'ready', 'sealed anchor formal XLSX survives package build and post-package verification');
+  assert.equal(readyAnchorXlsxReport.summary.xlsxDualSealExpected, 1);
+  assert.equal(readyAnchorXlsxReport.summary.xlsxDualSealVerified, 1);
+  const readyAnchorXlsxRecord = readyAnchorXlsxReport.records.find(record => record.role === 'formal');
+  assert.deepEqual(
+    readyAnchorXlsxRecord.xlsxDualSeal,
+    { family: 'anchor', contentStatus: 'verified', approvalStatus: 'verified' },
+  );
+  assert.match(Verifier.formatSummary(readyAnchorXlsxReport), /XLSX 雙封印複驗 1 \/ 1 份/);
+  assert.doesNotMatch(
+    JSON.stringify(readyAnchorXlsxRecord),
+    /expectedSha256|actualSha256|anchor-xlsx-calculation-book-(?:content|approval)-v1/i,
+    'package verification evidence exposes only XLSX seal family and status',
+  );
+
+  const forgedAnchorXlsxContentPackage = createAnchorXlsxPackage(tempRoot, 'forged-anchor-xlsx-content');
+  const forgedAnchorXlsxContentManifest = readManifest(forgedAnchorXlsxContentPackage);
+  const forgedAnchorXlsxContentPath = path.join(forgedAnchorXlsxContentPackage, ...forgedAnchorXlsxContentManifest.formalAttachments[0].packagedFile.split('/'));
+  const forgedAnchorXlsxContentEntries = XlsxSealVerifier.readZipEntries(forgedAnchorXlsxContentPath);
+  forgedAnchorXlsxContentEntries.set(
+    'xl/worksheets/sheet2.xml',
+    Buffer.from(forgedAnchorXlsxContentEntries.get('xl/worksheets/sheet2.xml').toString('utf8').replace('<v>12.5</v>', '<v>13.5</v>'), 'utf8'),
+  );
+  writeXlsx(forgedAnchorXlsxContentPath, forgedAnchorXlsxContentEntries);
+  refreshV3PackageIntegrity(forgedAnchorXlsxContentPackage, forgedAnchorXlsxContentManifest);
+  const forgedAnchorXlsxContentReport = Verifier.verifyPackage(forgedAnchorXlsxContentPackage);
+  assert.equal(forgedAnchorXlsxContentReport.status, 'blocked', 'self-consistent package hashes cannot hide changed XLSX calculation content');
+  assert.equal(hasIssue(forgedAnchorXlsxContentReport, 'anchor-xlsx-content-seal-invalid'), true);
+  assert.equal(hasIssue(forgedAnchorXlsxContentReport, 'hash-mismatch'), false);
+  assert.equal(hasIssue(forgedAnchorXlsxContentReport, 'package-fingerprint-mismatch'), false);
+  assert.equal(forgedAnchorXlsxContentReport.summary.xlsxDualSealExpected, 1);
+  assert.equal(forgedAnchorXlsxContentReport.summary.xlsxDualSealVerified, 0);
+
+  const forgedAnchorXlsxApprovalPackage = createAnchorXlsxPackage(tempRoot, 'forged-anchor-xlsx-approval');
+  const forgedAnchorXlsxApprovalManifest = readManifest(forgedAnchorXlsxApprovalPackage);
+  const forgedAnchorXlsxApprovalPath = path.join(forgedAnchorXlsxApprovalPackage, ...forgedAnchorXlsxApprovalManifest.formalAttachments[0].packagedFile.split('/'));
+  const forgedAnchorXlsxApprovalEntries = XlsxSealVerifier.readZipEntries(forgedAnchorXlsxApprovalPath);
+  forgedAnchorXlsxApprovalEntries.set(
+    'xl/sharedStrings.xml',
+    Buffer.from(forgedAnchorXlsxApprovalEntries.get('xl/sharedStrings.xml').toString('utf8').replace('核可時間：2026/07/21 22:05:00', '核可時間：2000/01/01 00:00:00'), 'utf8'),
+  );
+  writeXlsx(forgedAnchorXlsxApprovalPath, forgedAnchorXlsxApprovalEntries);
+  refreshV3PackageIntegrity(forgedAnchorXlsxApprovalPackage, forgedAnchorXlsxApprovalManifest);
+  const forgedAnchorXlsxApprovalReport = Verifier.verifyPackage(forgedAnchorXlsxApprovalPackage);
+  assert.equal(forgedAnchorXlsxApprovalReport.status, 'blocked', 'self-consistent package hashes cannot hide changed XLSX approval metadata');
+  assert.equal(hasIssue(forgedAnchorXlsxApprovalReport, 'anchor-xlsx-approval-seal-invalid'), true);
+  assert.equal(hasIssue(forgedAnchorXlsxApprovalReport, 'hash-mismatch'), false);
+  assert.equal(hasIssue(forgedAnchorXlsxApprovalReport, 'package-fingerprint-mismatch'), false);
+  assert.equal(forgedAnchorXlsxApprovalReport.summary.xlsxDualSealExpected, 1);
+  assert.equal(forgedAnchorXlsxApprovalReport.summary.xlsxDualSealVerified, 0);
   assert.equal(
     Verifier.samePackageRoot(
       Verifier.packageRootIdentity(readyPackage),

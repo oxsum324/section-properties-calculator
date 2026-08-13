@@ -490,6 +490,15 @@ function htmlDualSealEvidence(record = {}) {
   return null;
 }
 
+function xlsxDualSealEvidence(record = {}) {
+  if (!Checker.isAnchorXlsxSealRequired(record)) return null;
+  return {
+    family: 'anchor',
+    contentStatus: record.xlsxContentSeal?.status || 'missing',
+    approvalStatus: record.xlsxApprovalSeal?.status || 'missing',
+  };
+}
+
 function isCanonicalRenderEvidenceItem(item = {}) {
   return item.role === 'traceability'
     && String(item.packagedFile || '').toLowerCase().endsWith('.canonical-render.evidence.json');
@@ -520,6 +529,8 @@ function verifyPackagedContent(packageDir, validItems, manifest, report) {
         : null;
       const dualSeal = item.role === 'formal' ? htmlDualSealEvidence(inspectedRecord) : null;
       if (dualSeal) verification.htmlDualSeal = dualSeal;
+      const xlsxDualSeal = item.role === 'formal' ? xlsxDualSealEvidence(inspectedRecord) : null;
+      if (xlsxDualSeal) verification.xlsxDualSeal = xlsxDualSeal;
     }
     const mismatches = manifestContentMetadataMismatches(item, inspectedRecord, manifest.schemaVersion);
     if (mismatches.length) {
@@ -537,6 +548,11 @@ function verifyPackagedContent(packageDir, validItems, manifest, report) {
   const dualSealEvidence = report.records.map(record => record.htmlDualSeal).filter(Boolean);
   report.summary.htmlDualSealExpected = dualSealEvidence.length;
   report.summary.htmlDualSealVerified = dualSealEvidence.filter(seal => (
+    seal.contentStatus === 'verified' && seal.approvalStatus === 'verified'
+  )).length;
+  const xlsxDualSealEvidenceRecords = report.records.map(record => record.xlsxDualSeal).filter(Boolean);
+  report.summary.xlsxDualSealExpected = xlsxDualSealEvidenceRecords.length;
+  report.summary.xlsxDualSealVerified = xlsxDualSealEvidenceRecords.filter(seal => (
     seal.contentStatus === 'verified' && seal.approvalStatus === 'verified'
   )).length;
   if (!inspectedItems.length) return;
@@ -626,6 +642,8 @@ function verifyPackage(inputDir) {
       formalContentChecked: 0,
       htmlDualSealExpected: 0,
       htmlDualSealVerified: 0,
+      xlsxDualSealExpected: 0,
+      xlsxDualSealVerified: 0,
       evidenceChainExpected: 0,
       evidenceChainVerified: 0,
       errors: 0,
@@ -755,6 +773,9 @@ function formatSummary(report) {
   if (Number(report.summary.htmlDualSealExpected || 0) > 0) {
     lines.push(`HTML 雙封印複驗 ${report.summary.htmlDualSealVerified} / ${report.summary.htmlDualSealExpected} 份（只顯示完成數，不輸出封印值）。`);
   }
+  if (Number(report.summary.xlsxDualSealExpected || 0) > 0) {
+    lines.push(`XLSX 雙封印複驗 ${report.summary.xlsxDualSealVerified} / ${report.summary.xlsxDualSealExpected} 份（只顯示完成數，不輸出封印值）。`);
+  }
   if (Number(report.summary.evidenceChainExpected || 0) > 0) {
     lines.push(`開挖 ERH／RVR／SEV／SCV 證據鏈複驗 ${report.summary.evidenceChainVerified} / ${report.summary.evidenceChainExpected} 組。`);
   }
@@ -826,6 +847,7 @@ module.exports = {
   comparableFingerprints,
   manifestContentMetadataMismatches,
   htmlDualSealEvidence,
+  xlsxDualSealEvidence,
   verifyPackagedContent,
   summarizeIssues,
   verifyPackage,

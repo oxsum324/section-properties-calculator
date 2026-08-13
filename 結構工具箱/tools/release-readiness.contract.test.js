@@ -113,12 +113,18 @@ const anchorWorkbookSeal = readText('螺栓檢討/bolt-review-tool/src/reportWor
   'htmlDualSealEvidence',
   'htmlDualSealExpected',
   'htmlDualSealVerified',
+  'xlsxDualSealEvidence',
+  'xlsxDualSealExpected',
+  'xlsxDualSealVerified',
   '只顯示完成數，不輸出封印值',
 ].forEach(needle => assertIncludes(attachmentPackageVerifier, needle, `attachment verifier preserves private dual seal evidence ${needle}`));
 [
   'dualSealSummaryLine',
+  'xlsxDualSealSummaryLine',
   'htmlDualSealExpected',
   'htmlDualSealVerified',
+  'xlsxDualSealExpected',
+  'xlsxDualSealVerified',
   "anchor: '錨栓'",
   '雙封印',
 ].forEach(needle => assertIncludes(attachmentPackageManagerWorker, needle, `attachment manager exposes dual seal verification ${needle}`));
@@ -128,6 +134,7 @@ const anchorWorkbookSeal = readText('螺栓檢討/bolt-review-tool/src/reportWor
   ['TOOL_BOUNDARIES', boundaries],
 ].forEach(([label, source]) => {
   assertIncludes(source, 'HTML 雙封印', `${label} documents daily package dual seal evidence`);
+  assertIncludes(source, 'XLSX 雙封印', `${label} documents daily package XLSX dual seal evidence`);
   assertIncludes(source, '封印值', `${label} keeps daily package seal values private`);
 });
 

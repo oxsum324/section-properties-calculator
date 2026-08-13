@@ -150,9 +150,13 @@ function checkRecords(report = {}, checker = Checker) {
 function verifyRecords(report = {}) {
   return (report.records || []).map(record => {
     const familyLabels = { anchor: '錨栓', rc: 'RC', formal: '共用正式 HTML' };
-    const seal = record.htmlDualSeal;
-    const sealResult = seal
-      ? `${familyLabels[seal.family] || 'HTML'}雙封印${seal.contentStatus === 'verified' && seal.approvalStatus === 'verified' ? '已驗證' : '異常'}`
+    const htmlSeal = record.htmlDualSeal;
+    const htmlSealResult = htmlSeal
+      ? `${familyLabels[htmlSeal.family] || 'HTML'}雙封印${htmlSeal.contentStatus === 'verified' && htmlSeal.approvalStatus === 'verified' ? '已驗證' : '異常'}`
+      : '';
+    const xlsxSeal = record.xlsxDualSeal;
+    const xlsxSealResult = xlsxSeal
+      ? `錨栓 XLSX 雙封印${xlsxSeal.contentStatus === 'verified' && xlsxSeal.approvalStatus === 'verified' ? '已驗證' : '異常'}`
       : '';
     return {
       file: text(record.packagedFile || record.file),
@@ -161,7 +165,7 @@ function verifyRecords(report = {}) {
       tool: text(record.sourceTool),
       version: text(record.toolVersion),
       fingerprint: firstFingerprint(record),
-      result: [text(record.status), sealResult].filter(Boolean).join('｜'),
+      result: [text(record.status), htmlSealResult, xlsxSealResult].filter(Boolean).join('｜'),
     };
   });
 }
@@ -170,6 +174,12 @@ function dualSealSummaryLine(summary = {}) {
   const expected = Number(summary.htmlDualSealExpected || 0);
   if (!expected) return '';
   return `HTML 雙封印複驗 ${Number(summary.htmlDualSealVerified || 0)} / ${expected} 份（只顯示完成數，不輸出封印值）。`;
+}
+
+function xlsxDualSealSummaryLine(summary = {}) {
+  const expected = Number(summary.xlsxDualSealExpected || 0);
+  if (!expected) return '';
+  return `XLSX 雙封印複驗 ${Number(summary.xlsxDualSealVerified || 0)} / ${expected} 份（只顯示完成數，不輸出封印值）。`;
 }
 
 function evidenceChainSummaryLine(summary = {}) {
@@ -372,6 +382,7 @@ function buildResponse(result, checker = Checker) {
     lines.push(`附件包指紋：${result.packageFingerprint}`);
     lines.push('發布前完整性與工程內容驗證：通過。');
     lines.push(dualSealSummaryLine(result.selfVerification?.summary));
+    lines.push(xlsxDualSealSummaryLine(result.selfVerification?.summary));
     lines.push(evidenceChainSummaryLine(result.selfVerification?.summary));
   } else {
     lines.push('未建立正式附件包。');
@@ -393,6 +404,8 @@ function buildResponse(result, checker = Checker) {
       fingerprintLinks: Number(report.fingerprintLinks?.length || 0),
       htmlDualSealExpected: Number(result.selfVerification?.summary?.htmlDualSealExpected || 0),
       htmlDualSealVerified: Number(result.selfVerification?.summary?.htmlDualSealVerified || 0),
+      xlsxDualSealExpected: Number(result.selfVerification?.summary?.xlsxDualSealExpected || 0),
+      xlsxDualSealVerified: Number(result.selfVerification?.summary?.xlsxDualSealVerified || 0),
       evidenceChainExpected: Number(result.selfVerification?.summary?.evidenceChainExpected || 0),
       evidenceChainVerified: Number(result.selfVerification?.summary?.evidenceChainVerified || 0),
     },
@@ -420,6 +433,8 @@ function verifyResponse(report, verifier = Verifier) {
       warnings: Number(report.summary?.warnings || 0),
       htmlDualSealExpected: Number(report.summary?.htmlDualSealExpected || 0),
       htmlDualSealVerified: Number(report.summary?.htmlDualSealVerified || 0),
+      xlsxDualSealExpected: Number(report.summary?.xlsxDualSealExpected || 0),
+      xlsxDualSealVerified: Number(report.summary?.xlsxDualSealVerified || 0),
       evidenceChainExpected: Number(report.summary?.evidenceChainExpected || 0),
       evidenceChainVerified: Number(report.summary?.evidenceChainVerified || 0),
     },
@@ -592,6 +607,7 @@ module.exports = {
   checkRecords,
   verifyRecords,
   dualSealSummaryLine,
+  xlsxDualSealSummaryLine,
   issueRecords,
   suggestedProjectNo,
   requireInput,
