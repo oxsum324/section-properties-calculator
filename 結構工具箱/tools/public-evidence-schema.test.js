@@ -45,4 +45,4 @@ const leakedPath = clone(bundle);
 leakedPath.platformStatus.sourcePath = 'C:\\private\\platform-status.json';
 assert.equal(schema.validatePublicEvidenceBundle(leakedPath).pass, false, 'absolute Windows source path is rejected');
 
-console.log(`public evidence schema OK (v${schema.SCHEMA_VERSION}, dimensions=${schema.DIMENSION_IDS.length}, negativeCases=4)`);
+console.log(`public evidence schema OK (v${schema.SCHEMA_VERSION}, dimensions=${schema.DIMENSION_IDS.length}, negativeCases=5)`);

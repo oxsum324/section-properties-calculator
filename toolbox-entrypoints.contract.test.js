@@ -815,7 +815,7 @@ assert.ok(pagesLiveBrowserSmoke.includes("route === '/rc-pile'") && pagesLiveBro
 assert.ok(pagesLiveBrowserSmoke.includes("'?audit_scope=local'") && pagesLiveBrowserSmoke.includes("state.auditScope !== 'public'"), 'Pages browser smoke locks the external dashboard scope override');
 assert.ok(pagesLiveBrowserSmoke.includes('privateOutputRequests') && pagesLiveBrowserSmoke.includes("decodeURIComponent(value).includes('/output/')"), 'Pages browser smoke rejects public dashboard private output requests');
 assert.ok(pagesLiveBrowserSmoke.includes("['正式 release 總覽', '鋼構正式附件證據', 'RC 正式附件證據', '風震與跨家族交付證據']") && pagesLiveBrowserSmoke.includes("value !== '公開證據完整'"), 'Pages browser smoke locks distinct complete public evidence dimensions');
-assert.ok(pagesLiveBrowserSmoke.includes("'正式檢查｜82 / 82'") && pagesLiveBrowserSmoke.includes("'檔案完整性｜139 / 139'"), 'Pages browser smoke locks public evidence counts');
+assert.ok(pagesLiveBrowserSmoke.includes("[0, '正式檢查']") && pagesLiveBrowserSmoke.includes("[3, '檔案完整性']") && pagesLiveBrowserSmoke.includes("match[1] === match[2]"), 'Pages browser smoke locks positive complete public evidence counts without a stale fixed gate total');
 assert.ok(pagesLiveBrowserSmoke.includes('localDiagnosticSectionsVisible') && pagesLiveBrowserSmoke.includes('local diagnostic sections remain visible'), 'Pages browser smoke locks public reading density');
 assert.ok(pagesLiveSmoke.includes('石材固定/dev_tools/baseline_capture.html'), 'Pages live smoke blocks stone dev tools publication');
 assert.ok(pagesLiveSmoke.includes('石材固定/server.py'), 'Pages live smoke blocks stone backend helper publication');

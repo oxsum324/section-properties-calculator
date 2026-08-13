@@ -177,8 +177,18 @@ async page => {
         const expectedTitles = ['正式 release 總覽', '鋼構正式附件證據', 'RC 正式附件證據', '風震與跨家族交付證據'];
         if (JSON.stringify(state.dashboardTitles) !== JSON.stringify(expectedTitles)) routeIssues.push(`invalid public evidence titles: ${JSON.stringify(state.dashboardTitles)}`);
         if (state.dashboardBadges.length !== 4 || state.dashboardBadges.some(value => value !== '公開證據完整')) routeIssues.push(`incomplete public evidence badges: ${JSON.stringify(state.dashboardBadges)}`);
-        const requiredMeta = ['正式檢查｜82 / 82', '結果鏈｜5 / 5', '獨立列印｜34 / 34', '檔案完整性｜139 / 139'];
-        if (requiredMeta.some((value, index) => !state.dashboardMeta[index]?.includes(value))) routeIssues.push(`invalid public evidence counts: ${JSON.stringify(state.dashboardMeta)}`);
+        const completeCount = (meta, label) => {
+          const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const match = String(meta || '').match(new RegExp(`${escapedLabel}｜(\\d+) \\/ (\\d+)`));
+          return Boolean(match) && Number(match[1]) > 0 && match[1] === match[2];
+        };
+        const requiredMeta = [
+          [0, '正式檢查'],
+          [1, '結果鏈'],
+          [2, '獨立列印'],
+          [3, '檔案完整性'],
+        ];
+        if (requiredMeta.some(([index, label]) => !completeCount(state.dashboardMeta[index], label))) routeIssues.push(`invalid public evidence counts: ${JSON.stringify(state.dashboardMeta)}`);
         if (state.dashboardPreviews.length !== 4 || state.dashboardPreviews.some(value => !value.includes('僅限本機工作區'))) routeIssues.push(`invalid public evidence privacy boundaries: ${JSON.stringify(state.dashboardPreviews)}`);
         if (state.localDiagnosticSectionsVisible.length) routeIssues.push(`local diagnostic sections remain visible: ${JSON.stringify(state.localDiagnosticSectionsVisible)}`);
         if (privateOutputRequests.length) routeIssues.push(`private output requests: ${JSON.stringify(privateOutputRequests)}`);
