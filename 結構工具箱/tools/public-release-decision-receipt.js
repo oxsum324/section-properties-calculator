@@ -254,6 +254,38 @@ function resetPath(repoRoot, runId) {
   return path.join(repoRoot, ...HISTORY_DIR.split('/'), runId, RESET_FILE);
 }
 
+function validateDecisionHistoryEntries(entries) {
+  if (!Array.isArray(entries)) throw new Error('release decision history entries must be an array');
+  entries.forEach((entry, index) => {
+    if (!isObject(entry) || !isObject(entry.decision) || (entry.reset !== null && !isObject(entry.reset))) {
+      throw new Error(`invalid release decision history entry at index ${index}`);
+    }
+    const decision = entry.decision;
+    const validation = validateDecisionReceipt(decision);
+    if (!validation.pass) throw new Error(`invalid release decision receipt ${decision.runId || index}: ${validation.errors.join(', ')}`);
+    if (entry.reset !== null) {
+      const resetValidation = validateResetReceipt(entry.reset, decision);
+      if (!resetValidation.pass) throw new Error(`invalid authorization reset receipt ${decision.runId}: ${resetValidation.errors.join(', ')}`);
+      if (decision.authorization.state !== 'used') throw new Error(`unexpected authorization reset receipt for ${decision.runId}`);
+    }
+    const previous = index > 0 ? entries[index - 1].decision : null;
+    if (previous && decision.runId <= previous.runId) throw new Error(`release decision receipt order mismatch: ${decision.runId}`);
+    const expected = previous
+      ? { receiptId: previous.receiptId, receiptSha256: digestObject(previous) }
+      : { receiptId: '', receiptSha256: '' };
+    if (stableJson(decision.previousReceipt) !== stableJson(expected)) {
+      throw new Error(`release decision receipt chain mismatch: ${decision.runId}`);
+    }
+  });
+  const pendingRunIds = entries
+    .filter(entry => entry.decision.authorization.state === 'used' && !entry.reset)
+    .map(entry => entry.decision.runId);
+  if (pendingRunIds.length > 1 || (pendingRunIds.length === 1 && entries.at(-1)?.decision.runId !== pendingRunIds[0])) {
+    throw new Error(`unresolved authorization reset before a later decision receipt: ${pendingRunIds.join(', ')}`);
+  }
+  return { entries, pendingRunIds };
+}
+
 function loadDecisionHistory(repoRoot) {
   const historyRoot = path.join(repoRoot, ...HISTORY_DIR.split('/'));
   if (!fs.existsSync(historyRoot)) return { entries: [], pendingRunIds: [] };
@@ -276,22 +308,7 @@ function loadDecisionHistory(repoRoot) {
     }
     entries.push({ decision, reset, filePath, resetFile });
   }
-  entries.forEach((entry, index) => {
-    const previous = index > 0 ? entries[index - 1].decision : null;
-    const expected = previous
-      ? { receiptId: previous.receiptId, receiptSha256: digestObject(previous) }
-      : { receiptId: '', receiptSha256: '' };
-    if (stableJson(entry.decision.previousReceipt) !== stableJson(expected)) {
-      throw new Error(`release decision receipt chain mismatch: ${entry.decision.runId}`);
-    }
-  });
-  const pendingRunIds = entries
-    .filter(entry => entry.decision.authorization.state === 'used' && !entry.reset)
-    .map(entry => entry.decision.runId);
-  if (pendingRunIds.length > 1 || (pendingRunIds.length === 1 && entries.at(-1)?.decision.runId !== pendingRunIds[0])) {
-    throw new Error(`unresolved authorization reset before a later decision receipt: ${pendingRunIds.join(', ')}`);
-  }
-  return { entries, pendingRunIds };
+  return validateDecisionHistoryEntries(entries);
 }
 
 function validateDecisionHistoryAnchor(repoRoot, history = loadDecisionHistory(repoRoot)) {
@@ -553,6 +570,7 @@ module.exports = {
   anchorForDecision,
   validateDecisionReceipt,
   validateResetReceipt,
+  validateDecisionHistoryEntries,
   loadDecisionHistory,
   validateDecisionHistoryAnchor,
   buildDecisionReceipt,

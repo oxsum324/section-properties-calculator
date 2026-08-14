@@ -19,6 +19,8 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/tools/public-release-change-assistant.test.js',
   '結構工具箱/tools/public-release-decision-receipt.js',
   '結構工具箱/tools/public-release-decision-receipt.test.js',
+  '結構工具箱/tools/public-release-decision-backup.js',
+  '結構工具箱/tools/public-release-decision-backup.test.js',
   '結構工具箱/tools/release-preflight-lock.ps1',
   '結構工具箱/tools/release-preflight-lock.test.js',
   '結構工具箱/tools/attachment-package-check.js',

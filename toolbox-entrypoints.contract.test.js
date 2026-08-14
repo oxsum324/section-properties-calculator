@@ -810,6 +810,7 @@ assert.ok(pagesLiveSmoke.includes('deployment release run matches public preflig
 assert.ok(pagesDeploymentManifestBuilder.includes('schemaVersion: 3') && pagesDeploymentManifestBuilder.includes('releaseEvidenceIdentity') && pagesDeploymentManifestBuilder.includes('validatePublicEvidenceBundle') && pagesDeploymentManifestBuilder.includes('published public evidence bundle failed schema'), 'Pages manifest schema v3 binds the shared complete public evidence contract');
 assert.ok(pagesArtifactBuilder.includes('結構工具箱/tools/public-release-change-assistant.js') && pagesLiveSmoke.includes('結構工具箱/tools/public-release-change-assistant.js'), 'Pages artifact and live smoke keep the release authorization assistant private');
 assert.ok(pagesArtifactBuilder.includes('結構工具箱/tools/public-release-decision-receipt.js') && pagesLiveSmoke.includes('結構工具箱/tools/public-release-decision-receipt.js'), 'Pages artifact and live smoke keep private decision receipt tooling unpublished');
+assert.ok(pagesArtifactBuilder.includes('結構工具箱/tools/public-release-decision-backup.js') && pagesLiveSmoke.includes('結構工具箱/tools/public-release-decision-backup.js'), 'Pages artifact and live smoke keep private decision backup tooling unpublished');
 assert.ok(pagesLiveSmoke.includes('.github/public-release-decision-anchor.json') && pagesLiveSmoke.includes('.github/public-release-reduction-authorization.json'), 'Pages live smoke keeps private release decision and authorization config unpublished');
 assert.ok(auditDashboard.includes('kpiReleaseFreshness') && auditDashboard.includes('kpiDeploymentAlignment') && auditDashboard.includes('未對齊'), 'audit dashboard separates release freshness from deployment alignment');
 assert.ok(pagesLiveBrowserSmoke.includes("{ key: 'desktop', width: 1280, height: 800 }") && pagesLiveBrowserSmoke.includes("{ key: 'mobile', width: 390, height: 844 }"), 'Pages browser smoke covers desktop and mobile viewports');
@@ -825,10 +826,13 @@ assert.ok(pagesDeploymentManifestBuilder.includes('changePolicyVersion') && page
 assert.ok(preflight.includes('public-release-change-governance') && preflight.includes('public-release-change-governance.test.js'), 'preflight records the public threshold regression governance gate');
 assert.ok(preflight.includes('public-release-change-assistant.test.js'), 'public threshold governance gate runs the preview and authorization assistant contract');
 assert.ok(preflight.includes('public-release-decision-receipt.test.js') && preflight.includes('public-release-decision-receipt.js'), 'formal preflight validates and writes the private release decision receipt');
+assert.ok(preflight.includes('public-release-decision-backup.test.js') && preflight.includes('public-release-decision-backup.js'), 'formal preflight validates and exports the private portable decision backup');
 assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-change-assistant.js')), 'read-only public threshold change assistant exists');
 assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-change-assistant.test.js')), 'public threshold change assistant contract exists');
 assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-receipt.js')), 'private release decision receipt generator exists');
 assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-receipt.test.js')), 'private release decision receipt contract exists');
+assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-backup.js')), 'private release decision backup tool exists');
+assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-backup.test.js')), 'private release decision backup contract exists');
 assert.ok(fs.existsSync(path.join(repoRoot, '.github', 'public-release-reduction-authorization.json')), 'one-time public threshold reduction authorization config exists');
 assert.ok(pagesLiveBrowserSmoke.includes('localDiagnosticSectionsVisible') && pagesLiveBrowserSmoke.includes('local diagnostic sections remain visible'), 'Pages browser smoke locks public reading density');
 assert.ok(pagesLiveSmoke.includes('石材固定/dev_tools/baseline_capture.html'), 'Pages live smoke blocks stone dev tools publication');

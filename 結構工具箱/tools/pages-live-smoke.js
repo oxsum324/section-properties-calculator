@@ -64,6 +64,8 @@ const PRIVATE_PATHS = [
   '結構工具箱/tools/public-release-change-assistant.test.js',
   '結構工具箱/tools/public-release-decision-receipt.js',
   '結構工具箱/tools/public-release-decision-receipt.test.js',
+  '結構工具箱/tools/public-release-decision-backup.js',
+  '結構工具箱/tools/public-release-decision-backup.test.js',
   '結構工具箱/tools/attachment-package-check.js',
   '結構工具箱/tools/attachment-package-build.js',
   '結構工具箱/tools/attachment-package-verify.js',

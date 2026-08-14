@@ -1493,6 +1493,8 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node 結構工具箱/tools/public-release-change-assistant.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node 結構工具箱/tools/public-release-decision-receipt.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node 結構工具箱/tools/public-release-decision-backup.test.js
 exit $LASTEXITCODE
 '@
 
@@ -3319,6 +3321,23 @@ if ($overallPass -and $isReleaseMode) {
     [System.IO.File]::AppendAllText($summaryPath, "- Release decision receipt: pass=False, exitCode=$($decisionReceiptProc.ExitCode), log=$decisionReceiptStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
     [System.IO.File]::AppendAllText($historySummaryPath, "- Release decision receipt: pass=False, exitCode=$($decisionReceiptProc.ExitCode), log=$decisionReceiptStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
     Update-PreflightHistoryManifest
+  } else {
+    $decisionBackupScript = Join-Path $root "結構工具箱\tools\public-release-decision-backup.js"
+    $decisionBackupStdout = Join-Path $runDir "public-release-decision-backup.stdout.txt"
+    $decisionBackupStderr = Join-Path $runDir "public-release-decision-backup.stderr.txt"
+    $decisionBackupProc = Start-Process -FilePath node -ArgumentList @($decisionBackupScript, "--export", "--json") -WorkingDirectory $root -RedirectStandardOutput $decisionBackupStdout -RedirectStandardError $decisionBackupStderr -PassThru -Wait -WindowStyle Hidden
+    if ($decisionBackupProc.ExitCode -ne 0) {
+      $overallPass = $false
+      $failures.Add("public-release-decision-backup: exitCode=$($decisionBackupProc.ExitCode), log=$decisionBackupStderr")
+      $payload["pass"] = $overallPass
+      $payload["failureCount"] = $failures.Count
+      $payload["failures"] = @($failures.ToArray())
+      Write-JsonFile -Path $summaryJsonPath -Value $payload -Depth 6
+      Write-JsonFile -Path $historySummaryJsonPath -Value $payload -Depth 6
+      [System.IO.File]::AppendAllText($summaryPath, "- Release decision backup: pass=False, exitCode=$($decisionBackupProc.ExitCode), log=$decisionBackupStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
+      [System.IO.File]::AppendAllText($historySummaryPath, "- Release decision backup: pass=False, exitCode=$($decisionBackupProc.ExitCode), log=$decisionBackupStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
+      Update-PreflightHistoryManifest
+    }
   }
 }
 
