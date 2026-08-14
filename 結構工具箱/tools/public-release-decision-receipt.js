@@ -336,6 +336,21 @@ function replaceAnchor(anchorPath, next) {
   }
 }
 
+function isFormalPreflightForRelease(preflight, release) {
+  return preflight?.quick === false
+    && preflight.forcePlatformAudit === true
+    && preflight.forceSlowChecks === true
+    && preflight.pass === true
+    && preflight.failureCount === 0
+    && preflight.sourceDirty === false
+    && preflight.runId === release?.runId
+    && preflight.sourceCommitSha === release?.sourceCommitSha
+    && preflight.recordsCount === release?.records?.required
+    && preflight.passedCount === release?.records?.required
+    && preflight.postCheckCount === release?.postChecks?.required
+    && preflight.postChecksPassedCount === release?.postChecks?.required;
+}
+
 function buildDecisionReceipt(repoRoot) {
   const bundle = statusBundle(repoRoot);
   const bundleValidation = schema.validatePublicEvidenceBundle(bundle);
@@ -344,17 +359,7 @@ function buildDecisionReceipt(repoRoot) {
   const previous = bundleValidation.releaseHistory.entries.at(-2) || null;
   const preflightPath = path.join(repoRoot, ...PREFLIGHT_FILE.split('/'));
   const preflight = readJson(preflightPath, 'formal preflight summary');
-  const formal = preflight.quick === false
-    && preflight.forcePlatformAudit === true
-    && preflight.forceSlowChecks === true
-    && preflight.pass === true
-    && preflight.sourceDirty === false
-    && preflight.runId === latest.runId
-    && preflight.sourceCommitSha === latest.sourceCommitSha
-    && preflight.recordsCount === latest.records.required
-    && preflight.passedCount === latest.records.required
-    && preflight.postCheckCount === latest.postChecks.required
-    && preflight.postChecksPassedCount === latest.postChecks.required;
+  const formal = isFormalPreflightForRelease(preflight, latest);
   if (!formal) throw new Error('decision receipt requires the same complete clean formal preflight represented by tracked public evidence');
   const renderedPath = path.join(repoRoot, ...HISTORY_DIR.split('/'), latest.runId, 'rendered-delivery-evidence', RENDERED_EVIDENCE_NAME);
   const rendered = readJson(renderedPath, 'rendered delivery evidence');
@@ -573,6 +578,7 @@ module.exports = {
   validateDecisionHistoryEntries,
   loadDecisionHistory,
   validateDecisionHistoryAnchor,
+  isFormalPreflightForRelease,
   buildDecisionReceipt,
   writeDecisionReceipt,
   prepareAuthorizationResetReceipt,

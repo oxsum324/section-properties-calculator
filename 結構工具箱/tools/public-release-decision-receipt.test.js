@@ -46,6 +46,9 @@ const baseEvidence = {
   pass: true,
 };
 const inactive = receipts.inactiveAuthorization();
+assert.equal(receipts.isFormalPreflightForRelease(basePreflight, baselineRelease), true, 'complete clean formal preflight matches its tracked public release');
+assert.equal(receipts.isFormalPreflightForRelease({ ...basePreflight, pass: false, failureCount: 1 }, baselineRelease), false, 'failed latest preflight cannot represent the tracked public release');
+assert.equal(receipts.isFormalPreflightForRelease({ ...basePreflight, postChecksPassedCount: basePreflight.postCheckCount - 1 }, baselineRelease), false, 'partial post-check evidence cannot represent the tracked public release');
 
 function writeBundle(root, bundle) {
   writeJson(path.join(root, '結構工具箱', 'assets', 'status', 'platform-status.json'), bundle.platformStatus);
@@ -117,7 +120,7 @@ if (hasLiveDecisionContext) {
     'rendered-delivery-evidence',
     'rendered-delivery-evidence-summary.json',
   );
-  if (fs.existsSync(liveEvidencePath)) {
+  if (receipts.isFormalPreflightForRelease(livePreflight, baselineRelease) && fs.existsSync(liveEvidencePath)) {
     const preview = receipts.buildDecisionReceipt(repoRoot);
     assert.equal(preview.authorization.state, 'not-required', 'current unchanged release needs no authorization in its private decision receipt');
     assert.equal(preview.reset.state, 'not-applicable', 'no-authorization receipt has no reset lifecycle');
