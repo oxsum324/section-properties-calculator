@@ -28,6 +28,7 @@ const preflight = fs.readFileSync(path.join(repoRoot, 'preflight-tools.ps1'), 'u
   'New-ScheduledTaskPrincipal',
   '-LogonType Interactive -RunLevel Limited',
   'Initial external backup health verification failed; scheduled task was not installed.',
+  '& $runner | Out-Null',
   'Unregister-ScheduledTask -TaskName $taskName -Confirm:$false',
   'configurationValid = Test-ManagedTaskConfiguration',
   '[int64]$info.LastTaskResult -ne 267011',
@@ -39,6 +40,7 @@ const preflight = fs.readFileSync(path.join(repoRoot, 'preflight-tools.ps1'), 'u
 ].forEach(needle => assert.ok(manager.includes(needle), `task manager preserves ${needle}`));
 
 assert.ok(manager.indexOf('& $runner') < manager.indexOf('Register-ScheduledTask'), 'installation validates real backup health before task registration');
+assert.equal((manager.match(/& \$runner \| Out-Null/g) || []).length, 1, 'installation suppresses the health payload so manager output stays one JSON document');
 assert.equal(/-UserId\s+['"]?SYSTEM|RunLevel\s+Highest/i.test(manager), false, 'health task never requests system identity or elevation');
 assert.ok(preflight.includes('public-release-decision-backup-task.test.js'), 'preflight includes the scheduled health contract');
 

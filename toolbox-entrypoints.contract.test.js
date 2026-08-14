@@ -813,6 +813,8 @@ assert.ok(pagesArtifactBuilder.includes('結構工具箱/tools/public-release-de
 assert.ok(pagesArtifactBuilder.includes('結構工具箱/tools/public-release-decision-backup.js') && pagesLiveSmoke.includes('結構工具箱/tools/public-release-decision-backup.js'), 'Pages artifact and live smoke keep private decision backup tooling unpublished');
 assert.ok(pagesArtifactBuilder.includes('結構工具箱/tools/public-release-decision-backup-health.js') && pagesLiveSmoke.includes('結構工具箱/tools/public-release-decision-backup-health.js'), 'Pages artifact and live smoke keep private decision backup health tooling unpublished');
 assert.ok(pagesArtifactBuilder.includes('結構工具箱/tools/manage-public-release-decision-backup-health-task.ps1') && pagesLiveSmoke.includes('結構工具箱/tools/manage-public-release-decision-backup-health-task.ps1'), 'Pages artifact and live smoke keep private backup health scheduling unpublished');
+assert.ok(pagesArtifactBuilder.includes('結構工具箱/tools/public-release-decision-restore-drill.js') && pagesLiveSmoke.includes('結構工具箱/tools/public-release-decision-restore-drill.js'), 'Pages artifact and live smoke keep isolated restore drill tooling unpublished');
+assert.ok(pagesArtifactBuilder.includes('結構工具箱/tools/manage-public-release-decision-restore-drill-task.ps1') && pagesLiveSmoke.includes('結構工具箱/tools/manage-public-release-decision-restore-drill-task.ps1'), 'Pages artifact and live smoke keep private restore drill scheduling unpublished');
 assert.ok(pagesLiveSmoke.includes('.github/public-release-decision-anchor.json') && pagesLiveSmoke.includes('.github/public-release-reduction-authorization.json'), 'Pages live smoke keeps private release decision and authorization config unpublished');
 assert.ok(auditDashboard.includes('kpiReleaseFreshness') && auditDashboard.includes('kpiDeploymentAlignment') && auditDashboard.includes('未對齊'), 'audit dashboard separates release freshness from deployment alignment');
 assert.ok(pagesLiveBrowserSmoke.includes("{ key: 'desktop', width: 1280, height: 800 }") && pagesLiveBrowserSmoke.includes("{ key: 'mobile', width: 390, height: 844 }"), 'Pages browser smoke covers desktop and mobile viewports');
@@ -831,6 +833,8 @@ assert.ok(preflight.includes('public-release-decision-receipt.test.js') && prefl
 assert.ok(preflight.includes('public-release-decision-backup.test.js') && preflight.includes('public-release-decision-backup.js'), 'formal preflight validates and exports the private portable decision backup');
 assert.ok(preflight.includes('public-release-decision-backup-health.test.js') && preflight.includes('public-release-decision-backup-health.js'), 'formal preflight validates private backup mirror health after export');
 assert.ok(preflight.includes('public-release-decision-backup-task.test.js'), 'preflight validates the private daily backup health task contract');
+assert.ok(preflight.includes('public-release-decision-restore-drill.test.js') && preflight.includes('public-release-decision-restore-drill.js'), 'formal preflight performs a real isolated restore drill after backup health succeeds');
+assert.ok(preflight.includes('public-release-decision-restore-drill-task.test.js'), 'preflight validates the private weekly restore drill task contract');
 assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-change-assistant.js')), 'read-only public threshold change assistant exists');
 assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-change-assistant.test.js')), 'public threshold change assistant contract exists');
 assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-receipt.js')), 'private release decision receipt generator exists');
@@ -839,6 +843,9 @@ assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-
 assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-backup.test.js')), 'private release decision backup contract exists');
 assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-backup-health.js')), 'private release decision backup health tool exists');
 assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-backup-health.test.js')), 'private release decision backup health contract exists');
+assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-restore-drill.js')), 'private release decision isolated restore drill exists');
+assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'public-release-decision-restore-drill.test.js')), 'private release decision isolated restore drill contract exists');
+assert.ok(fs.existsSync(path.join(repoRoot, '結構工具箱', 'tools', 'manage-public-release-decision-restore-drill-task.ps1')), 'private weekly restore drill task manager exists');
 assert.ok(fs.existsSync(path.join(repoRoot, '.github', 'public-release-reduction-authorization.json')), 'one-time public threshold reduction authorization config exists');
 assert.ok(pagesLiveBrowserSmoke.includes('localDiagnosticSectionsVisible') && pagesLiveBrowserSmoke.includes('local diagnostic sections remain visible'), 'Pages browser smoke locks public reading density');
 assert.ok(pagesLiveSmoke.includes('石材固定/dev_tools/baseline_capture.html'), 'Pages live smoke blocks stone dev tools publication');
