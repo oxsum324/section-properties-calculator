@@ -85,7 +85,7 @@ const GLOBAL_GOVERNANCE_GATES = [
     key: 'public-release-change-governance',
     label: '公開門檻退化治理',
     contract: '結構工具箱/tools/public-release-change-governance.test.js',
-    scope: '正式檢查、後置檢查與 10 項公開完成數的逐次變化；任何縮減均需一次性精確授權與公開理由',
+    scope: '正式檢查、後置檢查與 10 項公開完成數的逐次變化；唯讀助手先預覽差異，任何縮減才可寫入一次性精確授權與公開理由，且僅能由已發布歷程安全重設',
     catalogFamilies: [],
     minCatalogs: 0
   },
@@ -3412,20 +3412,31 @@ function checkMatrix(payload, markdown, options = {}) {
   }
 }
 
-const matrix = buildMatrix();
-const preserveHomepageStatus = hasArg('--preserve-homepage-status');
-if (hasArg('--write')) {
-  writeMatrix(matrix, { preserveHomepageStatus });
-}
-if (hasArg('--check')) {
-  checkMatrix(matrix.payload, matrix.markdown, { preserveHomepageStatus });
-}
+function main() {
+  const matrix = buildMatrix();
+  const preserveHomepageStatus = hasArg('--preserve-homepage-status');
+  if (hasArg('--write')) {
+    writeMatrix(matrix, { preserveHomepageStatus });
+  }
+  if (hasArg('--check')) {
+    checkMatrix(matrix.payload, matrix.markdown, { preserveHomepageStatus });
+  }
 
-console.log(`tool maturity matrix OK (${matrix.payload.rows.length} tools, governed=${matrix.payload.totals.governed}, maturing=${matrix.payload.totals.maturing})`);
-if (hasArg('--write')) {
-  console.log(`wrote ${displayPath(jsonOutputPath)}`);
-  console.log(`wrote ${displayPath(markdownOutputPath)}`);
-  if (preserveHomepageStatus) {
-    console.log('preserved homepage status snapshots');
+  console.log(`tool maturity matrix OK (${matrix.payload.rows.length} tools, governed=${matrix.payload.totals.governed}, maturing=${matrix.payload.totals.maturing})`);
+  if (hasArg('--write')) {
+    console.log(`wrote ${displayPath(jsonOutputPath)}`);
+    console.log(`wrote ${displayPath(markdownOutputPath)}`);
+    if (preserveHomepageStatus) {
+      console.log('preserved homepage status snapshots');
+    }
   }
 }
+
+if (require.main === module) main();
+
+module.exports = {
+  buildMatrix,
+  buildHomepagePreflightStatus,
+  buildHomepageReportReadinessStatus,
+  resolveRenderedDeliveryEvidenceSource,
+};

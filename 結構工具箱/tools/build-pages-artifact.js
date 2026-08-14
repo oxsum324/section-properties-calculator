@@ -15,6 +15,8 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/tools/build-pages-clean-routes.js',
   '結構工具箱/tools/build-pages-deployment-manifest.js',
   '結構工具箱/tools/verify-pages-release-lineage.js',
+  '結構工具箱/tools/public-release-change-assistant.js',
+  '結構工具箱/tools/public-release-change-assistant.test.js',
   '結構工具箱/tools/release-preflight-lock.ps1',
   '結構工具箱/tools/release-preflight-lock.test.js',
   '結構工具箱/tools/attachment-package-check.js',

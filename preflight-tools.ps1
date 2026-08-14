@@ -1489,6 +1489,8 @@ exit $LASTEXITCODE
 
 $publicReleaseChangeGovernanceCommand = @'
 node 結構工具箱/tools/public-release-change-governance.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node 結構工具箱/tools/public-release-change-assistant.test.js
 exit $LASTEXITCODE
 '@
 
