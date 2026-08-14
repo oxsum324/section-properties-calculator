@@ -235,6 +235,8 @@ const repoRoot = path.resolve(__dirname, '..', '..');
 const preflight = fs.readFileSync(path.join(repoRoot, 'preflight-tools.ps1'), 'utf8');
 assert.ok(preflight.includes('public-release-decision-backup.test.js'), 'preflight includes the portable backup contract');
 assert.ok(preflight.indexOf('$decisionReceiptScript') < preflight.indexOf('$decisionBackupScript'), 'formal release exports only after the decision receipt is complete');
-assert.ok(preflight.includes('PUBLIC_RELEASE_DECISION_BACKUP_DIR') === false, 'preflight inherits the optional private backup directory without publishing or hard-coding it');
+assert.ok(preflight.includes("GetEnvironmentVariable('PUBLIC_RELEASE_DECISION_BACKUP_DIR', 'User')"), 'formal preflight imports the optional private mirror from the current user when the parent process predates that setting');
+assert.ok(preflight.includes('$env:PUBLIC_RELEASE_DECISION_BACKUP_DIR = $userDecisionBackupDirectory'), 'formal preflight passes the private mirror setting only through the child-process environment');
+assert.equal(preflight.includes('結構工具箱私有治理備份'), false, 'formal preflight never hard-codes the private mirror path');
 
 console.log('public release decision backup OK (export=5, restore=5, reset=1, rollback=2, tamperGuards=7)');
