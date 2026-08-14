@@ -138,7 +138,7 @@ const traceCatalog = JSON.parse(readText(traceCatalogPath));
 const directPrintBoundaryPath = assertFile(manifest.shared.directPrintBoundaryStylesheet);
 const directPrintBoundary = readText(directPrintBoundaryPath);
 
-assert.equal(manifest.version, '0.3.0', 'formal tools manifest version');
+assert.equal(manifest.version, '0.4.0', 'formal tools manifest version');
 assert.equal(manifest.shared.sourceReportFingerprintRequired, true, 'formal source JSON and report fingerprint link required');
 assert.equal(manifest.shared.caseReplayValidationRequired, true, 'formal case JSON requires exact validated replay');
 assert.equal(manifest.family, 'formal-tools', 'formal tools manifest family');
@@ -152,6 +152,8 @@ assert.equal(manifest.shared.documentStateRequired, true, 'formal document state
 assert.equal(manifest.shared.readyDocumentClass, 'formal-attachment', 'formal approved document class');
 assert.equal(manifest.shared.readyDocumentLabel, '文件狀態：正式附件', 'formal approved document label');
 assert.equal(manifest.shared.internalReviewLabel, '文件狀態：內部審閱', 'formal internal-review document label');
+assert.equal(manifest.shared.approvalSealScope, 'formal-calculation-book-approval-v2', 'formal approval seal scope');
+assert.deepEqual(manifest.shared.optionalApprovalFields, ['核可人', '核可依據'], 'formal optional approval fields');
 assert.ok(manifest.shared.directPrintBoundaryNeedles.length >= 3, 'formal direct-print boundary wording');
 assertIncludes(
   directPrintBoundary,

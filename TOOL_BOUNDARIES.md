@@ -83,7 +83,7 @@
 | `結構工具箱/tools/local-quick-output-consistency.test.js` | 納入 | 局部快算跨輸出一致性 regression；以 manifest + golden cases 驗證 core result、JSON payload、summary/checks、schema、provenance 與 HTML 匯出/report metadata 的工具身份一致。 |
 | `結構工具箱/tools/local-quick-browser-smoke.test.js` | 納入 | 局部快算 Edge/CDP 瀏覽器 smoke；檢查乾淨路由、響應式版面、JSON round-trip、詳算式與簡易結果計算書、空白案件欄位省略、預設內部審閱、正式附件核可、輸入變更撤銷核可、page-only wording 排除、script / console error 與橫向溢出。正式放行另由來源 JSON 回讀後逐值比對全部輸入與結果，保存來源／重播雜湊，並核對詳細 PDF 沿用同一計算指紋及成品 SHA-256。 |
 | `鋼筋混凝土/tools/beam-report-visual.test.js`、`鋼筋混凝土/tools/beam-report-visual.contract.test.js` | 納入 | RC 梁報告瀏覽器成品與契約檢查；正式放行高負載下的報告 popup 最長等待 60 秒，避免把瀏覽器排程延遲誤判成計算或附件失敗，逾時仍須阻擋放行。 |
-| `結構工具箱/tools/formal-tools.manifest.json`、`結構工具箱/core/ui/report.js`、`結構工具箱/core/wind-report.js`、`結構工具箱/core/direct-print-boundary.css` | 納入 | 風力 / 地震正式工具清冊、共用計算書核可模型與工作頁直接列印邊界；集中記錄 14 個正式頁的路由、報表、JSON、示意圖、pilot golden cases、regression 期望、內部審閱／正式附件狀態、輸入變更撤銷核可，以及來源 JSON 與計算書共用追溯指紋的契約。 |
+| `結構工具箱/tools/formal-tools.manifest.json`、`結構工具箱/core/ui/report.js`、`結構工具箱/core/wind-report.js`、`結構工具箱/core/direct-print-boundary.css` | 納入 | 風力 / 地震正式工具清冊、共用計算書核可模型與工作頁直接列印邊界；集中記錄 14 個正式頁的路由、報表、JSON、示意圖、pilot golden cases、regression 期望、內部審閱／正式附件狀態、輸入變更撤銷核可，以及來源 JSON 與計算書共用追溯指紋的契約。核可人與核可依據維持選填，留空不降低附件身分；填寫後只進入精簡頁尾及核可封印，輸入控制不進列印。 |
 | `結構工具箱/tools/formal-tools.run.js` | 納入 | 正式工具 manifest runner；由清冊呼叫共同契約與正式頁 Edge 瀏覽器 smoke。工具成熟度矩陣由 `preflight-tools.ps1` 在主檢查 summary 寫出後統一重產與檢查，避免新增 governance key 時讀到舊 summary。 |
 | `結構工具箱/tools/formal-tools.contract.test.js` | 納入 | 正式工具共同契約測試；集中確認 14 個正式工具檔案、首頁入口、乾淨路由、文件邊界、報表分流、示意圖角色、HTML 彈窗型計算書可讀文字、正式追溯欄位與 golden case 欄位，並要求每個計算書 renderer 套用共用內部審閱／正式附件核可狀態、每個工作頁載入共用直接列印封鎖 CSS、body class、邊界通知及一致文字。案件 JSON 匯入另須共用完全相同的 schema／工具／版本驗證、重算指紋斷言與失敗回復，不得跨版本盡量套用。 |
 | `結構工具箱/tools/formal-traceability.catalog.json`、`結構工具箱/tools/formal-traceability.contract.test.js` | 納入 | 風力 / 地震正式工具的條文語意追蹤 catalog 與契約測試；集中確認 14 個正式頁的規範來源、輸入、計算路線、報告落點、golden case 與人工複核邊界，並由 formal runner 與平台 preflight 直接執行。 |
@@ -152,7 +152,7 @@ Schema v16 再把 RC 核可 HTML 的獨立可列印性提升為 release aggregat
 
 Schema v17 再把 RC 正式 HTML 計算內容封印提升為 release aggregate 閘門：34 份核可 HTML 必須對標題、追溯欄位、輸入、公式、結果、圖像資料及頁尾建立 SHA-256 內容封印，並由獨立重開的瀏覽器及附件檢查器各自重算一致。封印不符或封印範圍損壞一律 blocked；舊版正式 HTML 缺少封印時只可進入人工確認，不得自動 ready。內容封印是下載後內容一致性證據，不是核可人身分的數位簽章，也不能取代來源 JSON、計算指紋或核可時間檢查。Pages 只可公開「RC HTML 內容封印」required／complete／issue／pass，不得公開逐檔封印、scope、records、案例或檔名。
 
-Schema v18 再把 RC 正式 HTML 核可封印提升為獨立 release aggregate 閘門：34 份核可 HTML 必須以另一組 SHA-256 綁定文件狀態、核可時間、計算指紋、報告／檔案標題與內容封印，並由瀏覽器及附件檢查器分別重算。核可資料或標題異動一律 blocked；舊版正式 HTML 缺少核可封印只可進入人工複核。核可封印只證明下載後核可紀錄未變，不是核可人身分的數位簽章。Pages 只可公開「RC HTML 核可封印」required／complete／issue／pass，不得公開逐檔封印、scope、records、案例或檔名。
+Schema v18 再把 RC 正式 HTML 核可封印提升為獨立 release aggregate 閘門：34 份核可 HTML 必須以另一組 SHA-256 綁定文件狀態、核可時間、計算指紋、報告／檔案標題與內容封印，並由瀏覽器及附件檢查器分別重算。現行 RC／共用正式 HTML 核可封印 v2 另綁定選填核可人與核可依據；空白值不構成缺件，填寫後的異動一律 blocked，既有 v1 封印仍依原欄位順序驗證相容。核可資料或標題異動一律 blocked；舊版正式 HTML 缺少核可封印只可進入人工複核。核可封印只證明下載後核可紀錄未變，不是核可人身分的數位簽章。Pages 只可公開「RC HTML 核可封印」required／complete／issue／pass，不得公開逐檔封印、scope、records、案例或檔名。
 
 Schema v19 將雙封印邊界擴及 14 項風力／地震正式計算書：文件狀態控制與封印來源留在計算正文邊界之外，標題、追溯欄位、採用輸入、公式、結果、圖說與頁尾納入內容封印；核可封印另綁定文件狀態、核可時間、計算指紋、文件標題及內容封印。正式放行必須保存實際下載 HTML，重驗檔案 bytes／SHA-256、內容封印、核可封印，以及內容／核可兩種獨立竄改攔截。舊版缺封印轉人工複核，封印不符 blocked。Pages 只可公開兩組 `14/14` 完成數，不得公開下載檔名、scope、records 或逐檔雜湊。
 

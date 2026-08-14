@@ -104,7 +104,7 @@ const inlineValidationCases = {
 
 function assertFormalToolCoverage() {
   assert.equal(formalManifest.family, 'formal-tools', 'formal browser smoke manifest family');
-  assert.equal(formalManifest.version, '0.3.0', 'formal browser smoke manifest version');
+  assert.equal(formalManifest.version, '0.4.0', 'formal browser smoke manifest version');
   assert.ok(Array.isArray(formalManifest.tools), 'formal browser smoke manifest tools');
   assert.ok(Array.isArray(requiredFormalRoutes), 'formal browser smoke manifest required routes');
   const coveredRoutes = new Set(formalManifest.tools.map(tool => tool.route));
@@ -1095,6 +1095,8 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
     await waitForPopupReady(client, popupSessionId, popupLabel);
     const state = await evaluate(client, popupSessionId, `(() => {
       const approval = document.getElementById('repAttachmentApproval');
+      const approvedByInput = document.getElementById('repAttachmentApprovedBy');
+      const approvalBasisInput = document.getElementById('repAttachmentApprovalBasis');
       const downloadButton = document.getElementById('repDownloadCurrentHtml');
       const downloadControl = Boolean(downloadButton)
         && /下載目前版本 HTML/.test(downloadButton.textContent || '');
@@ -1114,6 +1116,14 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       const initialStatusText = (status()?.textContent || '').replace(/\\s+/g, ' ').trim();
       const initialCalculationFingerprint = calculationFingerprint();
       const initialDocumentTitle = document.title || '';
+      if (approvedByInput) {
+        approvedByInput.value = '正式工具複核人';
+        approvedByInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      if (approvalBasisInput) {
+        approvalBasisInput.value = '正式工具複核紀錄 QA-01';
+        approvalBasisInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
       if (approval) {
         approval.checked = true;
         approval.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1121,6 +1131,8 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       const approvedDocumentClass = status()?.dataset.documentClass || '';
       const approvedStatusText = (status()?.textContent || '').replace(/\\s+/g, ' ').trim();
       const approvedAt = status()?.dataset.approvedAt || '';
+      const approvedBy = status()?.dataset.approvedBy || '';
+      const approvalBasis = status()?.dataset.approvalBasis || '';
       const approvedCalculationFingerprint = calculationFingerprint();
       const approvedCheckboxAttribute = Boolean(approval?.hasAttribute('checked'));
       const approvedDocumentTitle = document.title || '';
@@ -1158,6 +1170,7 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
         documentClass: initialDocumentClass,
         documentStateText: initialStatusText,
         approvalControl: Boolean(approval),
+        approvalMetaControl: Boolean(approvedByInput && approvalBasisInput),
         downloadControl,
         serializerAvailable,
         initialDocumentTitle,
@@ -1168,6 +1181,8 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
         internalCheckboxAttribute,
         approvedStatusText,
         approvedAt,
+        approvedBy,
+        approvalBasis,
         initialCalculationFingerprint,
         approvedCalculationFingerprint,
         approvedHtml,
@@ -1193,6 +1208,7 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       documentClass: state.documentClass,
       documentStateText: state.documentStateText,
       approvalControl: state.approvalControl,
+      approvalMetaControl: state.approvalMetaControl,
       downloadControl: state.downloadControl,
       serializerAvailable: state.serializerAvailable,
       initialDocumentTitle: state.initialDocumentTitle,
@@ -1203,6 +1219,8 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       internalCheckboxAttribute: state.internalCheckboxAttribute,
       approvedStatusText: state.approvedStatusText,
       approvedAt: state.approvedAt,
+      approvedBy: state.approvedBy,
+      approvalBasis: state.approvalBasis,
       initialCalculationFingerprint: state.initialCalculationFingerprint,
       approvedCalculationFingerprint: state.approvedCalculationFingerprint,
       approvedHtml: state.approvedHtml,
@@ -2232,6 +2250,7 @@ function assertPopupDocumentStateMatchesPage(state, tool, label) {
   const internalReviewLabel = formalManifest.shared.internalReviewLabel || '文件狀態：內部審閱';
   assert.ok(['ready', 'review', 'blocked'].includes(state.readinessLevel), `${label} ${tool.key} exposes page readiness`);
   assert.equal(state.approvalControl, true, `${label} ${tool.key} popup exposes explicit approval checkbox`);
+  assert.equal(state.approvalMetaControl, true, `${label} ${tool.key} popup exposes optional approver and approval basis controls`);
   assert.equal(state.downloadControl, true, `${label} ${tool.key} popup exposes current-state HTML download`);
   assert.equal(state.serializerAvailable, true, `${label} ${tool.key} popup exposes reusable report serialization`);
   assert.equal(state.documentState, 'internal-review', `${label} ${tool.key} popup defaults to printable internal review`);
@@ -2241,6 +2260,9 @@ function assertPopupDocumentStateMatchesPage(state, tool, label) {
   assert.equal(state.approvedCheckboxAttribute, true, `${label} ${tool.key} approval synchronizes the checked attribute`);
   assert.equal(state.internalCheckboxAttribute, false, `${label} ${tool.key} returning to internal review removes the checked attribute`);
   assert.ok(state.approvedStatusText.includes(readyDocumentLabel) && state.approvedStatusText.includes('核可時間'), `${label} ${tool.key} formal attachment records approval time`);
+  assert.equal(state.approvedBy, '正式工具複核人', `${label} ${tool.key} formal attachment records the optional approver`);
+  assert.equal(state.approvalBasis, '正式工具複核紀錄 QA-01', `${label} ${tool.key} formal attachment records the optional approval basis`);
+  assert.ok(state.approvedStatusText.includes('核可人：正式工具複核人') && state.approvedStatusText.includes('核可依據：正式工具複核紀錄 QA-01'), `${label} ${tool.key} formal footer exposes supplied approval metadata`);
   assert.ok(Number.isFinite(Date.parse(state.approvedAt || '')), `${label} ${tool.key} formal attachment exposes a machine-readable approval time`);
   assert.match(state.initialCalculationFingerprint || '', /^CF-[0-9A-F]{16}$/, `${label} ${tool.key} internal-review report exposes a calculation fingerprint`);
   assert.ok(state.initialDocumentTitle.includes('內部審閱') && state.initialDocumentTitle.includes(state.initialCalculationFingerprint), `${label} ${tool.key} internal-review PDF default title carries document state and fingerprint`);
@@ -2251,6 +2273,7 @@ function assertPopupDocumentStateMatchesPage(state, tool, label) {
   assert.ok(state.approvedHtml, `${label} ${tool.key} captures rehydratable approved HTML before returning to internal review`);
   assert.match(state.approvedHtml, /<span\b[^>]*class=["'][^"']*rep-attachment-approval-source[^"']*["'][^>]*data-initial-approved=["']true["']/i, `${label} ${tool.key} serialized approval source remains formally approved`);
   assert.ok(state.approvedHtml.includes(`data-approved-at="${state.approvedAt}"`), `${label} ${tool.key} serialized approval source preserves approval time`);
+  assert.ok(state.approvedHtml.includes('data-approved-by="正式工具複核人"') && state.approvedHtml.includes('data-approval-basis="正式工具複核紀錄 QA-01"'), `${label} ${tool.key} serialized approval source preserves optional approval metadata`);
   assert.ok(state.approvedHtml.includes(state.approvedCalculationFingerprint), `${label} ${tool.key} approved HTML preserves the same calculation fingerprint`);
   assert.match(state.approvedHtml, /<title>[^<]*正式附件[^<]*CF-[0-9A-F]{16}[^<]*<\/title>/i, `${label} ${tool.key} saved formal HTML preserves the traceable artifact title`);
   assert.match(state.approvedHtml, /data-report-title=["'][^"']*計算書[^"']*["']/i, `${label} ${tool.key} saved formal HTML preserves the stable base report title`);
@@ -2261,7 +2284,7 @@ function assertPopupDocumentStateMatchesPage(state, tool, label) {
   const savedVisibleText = AttachmentPackageChecker.extractHtmlVisibleContent(state.approvedHtml).text;
   assert.equal(savedStatusCount, 1, `${label} ${tool.key} saved formal HTML preserves exactly one static document-state line`);
   assert.ok(savedVisibleText.includes(readyDocumentLabel) && savedVisibleText.includes('核可時間') && savedVisibleText.includes(state.approvedCalculationFingerprint), `${label} ${tool.key} attachment checker can read formal status, approval time, and fingerprint without running scripts`);
-  assert.doesNotMatch(state.approvedHtml, /class=["'][^"']*(?:rep-approval-control|rep-download-control)[^"']*["']/i, `${label} ${tool.key} saved formal HTML removes interactive controls`);
+  assert.doesNotMatch(state.approvedHtml, /class=["'][^"']*(?:rep-approval-control|rep-approval-meta-control|rep-download-control)[^"']*["']/i, `${label} ${tool.key} saved formal HTML removes interactive controls`);
   assert.doesNotMatch(state.approvedHtml, /<body\b[^>]*data-document-class=/i, `${label} ${tool.key} approved HTML must rehydrate its document class from the serialized approval source`);
   verifyApprovedHtmlDualSeals(state.approvedHtml, `${label} ${tool.key}`);
   assert.equal(state.bodyText.includes('DRAFT／非正式附件'), false, `${label} ${tool.key} popup has no DRAFT banner regardless of engineering readiness`);

@@ -173,7 +173,7 @@ assert.deepEqual(
 );
 assert.deepEqual(
   findPdfUncontextualPageStarts(
-    summarizePdfLayoutPages(`前頁內容\f項目 採用值\nCb 1\f3. 合力偏心與中央核\n公式內容\f材料\n混凝土 fc'\f檢核項 公式 代入值 結果 OK?\n檢核列\fP-M 互制曲線 (繞 Y 軸)\n曲線圖\fP-M 互制曲線（灰虛＝原 RC；藍＝Pn-Mn；綠＝φPn-φMn；紅●＝需求點）\n曲線圖\f外力\nPu 200 tf\f撓曲檢核 (負彎矩 Mu，頂拉) −\n檢核列\f檢核對比 (使用者輸入 vs. 反算需求)\n對比內容\f內力分析 (各方向、各位置)\n分析內容\f板厚最小值檢核 (規範 8.3.1.2(b) (0.2 < α_fm ≤ 2.0))\n檢核內容\f溫度收縮筋檢核 (規範 24.4.3)\n檢核內容\f撓曲鋼筋設計\n設計內容\f剪力初估\n初估內容\f鋼筋細節\n細節內容\f載重 (φPn / φVn)\n載重內容\f配筋 ＆ 詳細規定\n規定內容\f面外 P-Δ ＆ SBE 延伸\n延伸內容\f面內撓曲 P-M (規範 18.7.5)\n互制內容\f土壓 / 偏心 / 抗滑\n穩定內容\f代表柱控制\n控制內容\f設計建議 (反算)\nAst 需求\f條文對照 ＆ 方法分級\n功能 分級 條文\fℓ\n4. 握裹／搭接說明\f`),
+    summarizePdfLayoutPages(`前頁內容\f項目 採用值\nCb 1\f3. 合力偏心與中央核\n公式內容\f材料\n混凝土 fc'\f檢核項 公式 代入值 結果 OK?\n檢核列\fP-M 互制曲線 (繞 Y 軸)\n曲線圖\fP-M 互制曲線（灰虛＝原 RC；藍＝Pn-Mn；綠＝φPn-φMn；紅●＝需求點）\n曲線圖\f純彎能力（P=0 參考）\n能力表\f外力\nPu 200 tf\f撓曲檢核 (負彎矩 Mu，頂拉) −\n檢核列\f檢核對比 (使用者輸入 vs. 反算需求)\n對比內容\f內力分析 (各方向、各位置)\n分析內容\f板厚最小值檢核 (規範 8.3.1.2(b) (0.2 < α_fm ≤ 2.0))\n檢核內容\f溫度收縮筋檢核 (規範 24.4.3)\n檢核內容\f撓曲鋼筋設計\n設計內容\f剪力初估\n初估內容\f鋼筋細節\n細節內容\f載重 (φPn / φVn)\n載重內容\f配筋 ＆ 詳細規定\n規定內容\f面外 P-Δ ＆ SBE 延伸\n延伸內容\f面內撓曲 P-M (規範 18.7.5)\n互制內容\f土壓 / 偏心 / 抗滑\n穩定內容\f代表柱控制\n控制內容\f設計建議 (反算)\nAst 需求\f條文對照 ＆ 方法分級\n功能 分級 條文\fℓ\n4. 握裹／搭接說明\f`),
     ['項目 採用值', '3. 合力偏心與中央核']
   ),
   [],
@@ -1388,7 +1388,7 @@ const rcResultReconciliationFixture = {
     contentSealScope: 'rc-calculation-book-content-v1',
     contentSealSha256: 'd'.repeat(64),
     approvalSealStatus: 'verified',
-    approvalSealScope: 'rc-calculation-book-approval-v1',
+    approvalSealScope: 'rc-calculation-book-approval-v2',
     approvalSealSha256: 'e'.repeat(64),
     sourceReportPackage: {
       status: 'ready',

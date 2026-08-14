@@ -358,8 +358,8 @@ assert.match(sharedReportHtml, /window\.serializeReportDocumentHtml\s*=\s*serial
 assert.match(localReportHtml, /window\.serializeReportDocumentHtml\s*=\s*serializeCurrentReportHtml/, "steel local report generator should serialize the current approval state for download");
 assert.match(sharedReportHtml, /var status\s*=\s*document\.querySelector\('\.rep-document-status-line'\)/, "shared report generator should reuse the statically saved document-state line");
 assert.match(localReportHtml, /var status\s*=\s*document\.querySelector\('\.rep-document-status-line'\)/, "steel local report generator should reuse the statically saved document-state line");
-assert.match(sharedReportHtml, /root\.querySelectorAll\('\.rep-approval-control, \.rep-download-control'\)/, "shared report generator should preserve static state while removing interactive controls");
-assert.match(localReportHtml, /root\.querySelectorAll\('\.rep-approval-control, \.rep-download-control'\)/, "steel local report generator should preserve static state while removing interactive controls");
+assert.match(sharedReportHtml, /root\.querySelectorAll\('\.rep-approval-control, \.rep-approval-meta-control, \.rep-download-control'\)/, "shared report generator should preserve static state while removing interactive controls");
+assert.match(localReportHtml, /root\.querySelectorAll\('\.rep-approval-control, \.rep-approval-meta-control, \.rep-download-control'\)/, "steel local report generator should preserve static state while removing interactive controls");
 assert.match(sharedReportHtml, /document\.title\s*=\s*buildArtifactBaseName\(checkbox\.checked\s*\?\s*'正式附件'\s*:\s*'內部審閱'\)/, "shared report generator should align the PDF default title with document state and fingerprint");
 assert.match(localReportHtml, /document\.title\s*=\s*buildArtifactBaseName\(checkbox\.checked\s*\?\s*'正式附件'\s*:\s*'內部審閱'\)/, "steel local report generator should align the PDF default title with document state and fingerprint");
 assert.match(sharedReportHtml, /文件狀態：內部審閱/, "shared report generator should default every newly generated report to internal review");

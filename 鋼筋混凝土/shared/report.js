@@ -252,30 +252,39 @@ function getReportSourceTrace(cfg) {
 
 const RC_ATTACHMENT_APPROVAL_REPORT_CSS = `
 .rep-attachment-approval-source, .rep-content-seal-source, .rep-approval-seal-source { display:none !important; }
+.rep-toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:6px; }
+.rep-toolbar .rep-window-status { flex:1 0 100%; }
 .rep-approval-control { display:inline-flex; align-items:center; gap:6px; margin-right:10px; padding:7px 10px;
   border:1px solid #94a3b8; border-radius:4px; background:#fff; color:#1f2937; font-size:12px; cursor:pointer; }
 .rep-approval-control input { width:16px; height:16px; margin:0; accent-color:#166534; }
+.rep-approval-meta-control { display:inline-flex; align-items:center; gap:6px; margin-right:10px; color:#334155; font-size:12px; }
+.rep-approval-meta-control label { display:inline-flex; align-items:center; gap:4px; }
+.rep-approval-meta-control input { width:118px; min-width:0; padding:6px 7px; border:1px solid #94a3b8; border-radius:4px; font:inherit; }
+.rep-approval-meta-control input[data-approval-field="basis"] { width:180px; }
 .rep-document-status-line { display:block; margin-bottom:3mm; color:#4b5563; font-weight:600; }
 .rep-content-integrity-status { display:block; margin-top:6px; color:#166534; font-size:12px; font-weight:700; }
 .rep-content-integrity-status[data-integrity-status="failed"] { color:#b91c1c; }
 .rep-content-integrity-status[data-integrity-status="unsealed"] { color:#92400e; }
 .rep-content-integrity-alert { display:block; margin:0 0 8mm; padding:4mm; border:2px solid #b91c1c;
   color:#991b1b; background:#fef2f2; font-weight:800; }
+.rep-footer-separator { display:block; height:4mm; }
 .rep-footer-copyright { display:block; }
 .rep-footer { break-inside:avoid-page; page-break-inside:avoid; }
 .rep-document-status-line[data-document-class="formal-attachment"] { color:#14532d; }
-@media print { .rep-approval-control, .rep-content-integrity-status { display:none !important; } }`;
+@media print { .rep-toolbar, .rep-approval-control, .rep-approval-meta-control, .rep-content-integrity-status { display:none !important; } }`;
 
 function buildRcAttachmentApprovalReport(options = {}) {
   const approved = options.approved === true;
   const fingerprint = String(options.calculationFingerprint || '').trim();
   const approvedAt = String(options.approvedAt || '').trim();
+  const approvedBy = String(options.approvedBy || '').trim();
+  const approvalBasis = String(options.approvalBasis || '').trim();
   const esc = s => (s === null || s === undefined ? '' : String(s))
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   return `<style data-formal-document-state-style>${RC_ATTACHMENT_APPROVAL_REPORT_CSS}</style>
-    <span class="rep-attachment-approval-source" data-initial-approved="${approved ? 'true' : 'false'}" data-calculation-fingerprint="${esc(fingerprint)}" data-approved-at="${esc(approvedAt)}" aria-hidden="true"></span>
+    <span class="rep-attachment-approval-source" data-initial-approved="${approved ? 'true' : 'false'}" data-calculation-fingerprint="${esc(fingerprint)}" data-approved-at="${esc(approvedAt)}" data-approved-by="${esc(approvedBy)}" data-approval-basis="${esc(approvalBasis)}" aria-hidden="true"></span>
     <span class="rep-content-seal-source" data-content-seal-scope="rc-calculation-book-content-v1" data-content-sha256="" aria-hidden="true"></span>
-    <span class="rep-approval-seal-source" data-approval-seal-scope="rc-calculation-book-approval-v1" data-approval-sha256="" aria-hidden="true"></span>
+    <span class="rep-approval-seal-source" data-approval-seal-scope="rc-calculation-book-approval-v2" data-approval-sha256="" aria-hidden="true"></span>
     <script data-attachment-approval-script>
     (function () {
       var CONTENT_SEAL_START = '<!--rc-content-seal:start-->';
@@ -299,14 +308,18 @@ function buildRcAttachmentApprovalReport(options = {}) {
         var statusSource = statuses[0];
         function clean(value) { return String(value || '').replace(/\\s+/g, ' ').trim(); }
         return JSON.stringify({
-          scope:'rc-calculation-book-approval-v1',
+          scope:'rc-calculation-book-approval-v2',
           reportTitle:clean(approvalSource.dataset.reportTitle),
           calculationFingerprint:clean(approvalSource.dataset.calculationFingerprint),
           sourceApproved:clean(approvalSource.dataset.initialApproved),
           sourceApprovedAt:clean(approvalSource.dataset.approvedAt),
+          sourceApprovedBy:clean(approvalSource.dataset.approvedBy),
+          sourceApprovalBasis:clean(approvalSource.dataset.approvalBasis),
           documentClass:clean(statusSource.dataset.documentClass),
           statusApproved:clean(statusSource.dataset.approved),
           statusApprovedAt:clean(statusSource.dataset.approvedAt),
+          statusApprovedBy:clean(statusSource.dataset.approvedBy),
+          statusApprovalBasis:clean(statusSource.dataset.approvalBasis),
           statusText:clean(statusSource.textContent),
           documentTitle:clean(titles[0].textContent),
           contentSha256:clean(contentSeals[0].dataset.contentSha256).toLowerCase()
@@ -406,6 +419,34 @@ function buildRcAttachmentApprovalReport(options = {}) {
           toolbar.insertBefore(label, toolbar.firstChild);
         }
         if (!checkbox) return;
+        var approvalMetaControl = document.querySelector('.rep-approval-meta-control');
+        var approvedByInput = document.getElementById('repAttachmentApprovedBy');
+        var approvalBasisInput = document.getElementById('repAttachmentApprovalBasis');
+        if (!approvalMetaControl && toolbar) {
+          approvalMetaControl = document.createElement('span');
+          approvalMetaControl.className = 'rep-approval-meta-control';
+          var approvedByLabel = document.createElement('label');
+          approvedByLabel.appendChild(document.createTextNode('核可人（選填）'));
+          approvedByInput = document.createElement('input');
+          approvedByInput.type = 'text';
+          approvedByInput.id = 'repAttachmentApprovedBy';
+          approvedByInput.maxLength = 80;
+          approvedByInput.dataset.approvalField = 'approvedBy';
+          approvedByInput.setAttribute('aria-label', '核可人，選填');
+          approvedByLabel.appendChild(approvedByInput);
+          var approvalBasisLabel = document.createElement('label');
+          approvalBasisLabel.appendChild(document.createTextNode('核可依據（選填）'));
+          approvalBasisInput = document.createElement('input');
+          approvalBasisInput.type = 'text';
+          approvalBasisInput.id = 'repAttachmentApprovalBasis';
+          approvalBasisInput.maxLength = 160;
+          approvalBasisInput.dataset.approvalField = 'basis';
+          approvalBasisInput.setAttribute('aria-label', '核可依據，選填');
+          approvalBasisLabel.appendChild(approvalBasisInput);
+          approvalMetaControl.appendChild(approvedByLabel);
+          approvalMetaControl.appendChild(approvalBasisLabel);
+          toolbar.insertBefore(approvalMetaControl, label.nextSibling);
+        }
         function refreshIntegrityAlert() {
           var contentFailed = document.body.dataset.contentIntegrity === 'failed';
           var approvalFailed = document.body.dataset.approvalIntegrity === 'failed';
@@ -485,7 +526,7 @@ function buildRcAttachmentApprovalReport(options = {}) {
           if (!root) return '';
           var savedSource = root.querySelector('.rep-attachment-approval-source');
           if (savedSource) savedSource.removeAttribute('data-initialized');
-          root.querySelectorAll('.rep-approval-control, .rep-download-control').forEach(function (node) {
+          root.querySelectorAll('.rep-approval-control, .rep-approval-meta-control, .rep-download-control').forEach(function (node) {
             node.remove();
           });
           Array.from(root.querySelectorAll('.rep-document-status-line')).slice(1).forEach(function (node) {
@@ -528,7 +569,7 @@ function buildRcAttachmentApprovalReport(options = {}) {
           link.click();
           link.remove();
           setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-          showDownloadStatus('已下載' + documentLabel + ' HTML；檔案保留核可狀態、核可時間、計算指紋與獨立 SHA-256 內容／核可封印。');
+          showDownloadStatus('已下載' + documentLabel + ' HTML；檔案保留核可狀態、時間、選填核可紀錄、計算指紋與獨立 SHA-256 內容／核可封印。');
         }
         window.serializeReportDocumentHtml = serializeCurrentReportHtml;
         window.downloadReportHtml = downloadCurrentReportHtml;
@@ -549,6 +590,8 @@ function buildRcAttachmentApprovalReport(options = {}) {
         }
         checkbox.checked = source.dataset.initialApproved === 'true';
         var approvedAtValue = source.dataset.approvedAt || '';
+        if (approvedByInput) approvedByInput.value = source.dataset.approvedBy || '';
+        if (approvalBasisInput) approvalBasisInput.value = source.dataset.approvalBasis || '';
         function formatApprovedAt(value) {
           var d = new Date(value);
           return Number.isFinite(d.getTime()) ? d.toLocaleString('zh-TW', { timeZone:'Asia/Taipei', hour12:false }) : value;
@@ -558,20 +601,28 @@ function buildRcAttachmentApprovalReport(options = {}) {
           if (!checkbox.checked) approvedAtValue = '';
           source.dataset.initialApproved = checkbox.checked ? 'true' : 'false';
           source.dataset.approvedAt = approvedAtValue;
+          source.dataset.approvedBy = approvedByInput ? approvedByInput.value.replace(/\s+/g, ' ').trim() : '';
+          source.dataset.approvalBasis = approvalBasisInput ? approvalBasisInput.value.replace(/\s+/g, ' ').trim() : '';
           if (checkbox.checked) checkbox.setAttribute('checked', 'checked');
           else checkbox.removeAttribute('checked');
           var parts = checkbox.checked
             ? ['文件狀態：正式附件', approvedAtValue ? '核可時間：' + formatApprovedAt(approvedAtValue) : '']
             : ['文件狀態：內部審閱'];
+          if (checkbox.checked && source.dataset.approvedBy) parts.push('核可人：' + source.dataset.approvedBy);
+          if (checkbox.checked && source.dataset.approvalBasis) parts.push('核可依據：' + source.dataset.approvalBasis);
           if (fingerprint) parts.push('計算指紋：' + fingerprint);
           status.textContent = parts.filter(Boolean).join('｜');
           status.dataset.documentClass = checkbox.checked ? 'formal-attachment' : 'internal-review';
           status.dataset.approved = checkbox.checked ? 'true' : 'false';
           status.dataset.approvedAt = approvedAtValue;
+          status.dataset.approvedBy = checkbox.checked ? source.dataset.approvedBy : '';
+          status.dataset.approvalBasis = checkbox.checked ? source.dataset.approvalBasis : '';
           document.body.dataset.documentClass = status.dataset.documentClass;
           document.title = buildArtifactBaseName(checkbox.checked ? '正式附件' : '內部審閱');
         }
         checkbox.addEventListener('change', updateStatus);
+        if (approvedByInput) approvedByInput.addEventListener('input', updateStatus);
+        if (approvalBasisInput) approvalBasisInput.addEventListener('input', updateStatus);
         updateStatus();
         window.verifyReportContentSeal = verifySavedContentSeal;
         window.verifyReportApprovalSeal = verifySavedApprovalSeal;
@@ -612,7 +663,9 @@ function openReport(cfg) {
   const approvalHtml = buildRcAttachmentApprovalReport({
     approved,
     calculationFingerprint,
-    approvedAt: initialApproval.approvedAt
+    approvedAt: initialApproval.approvedAt,
+    approvedBy: initialApproval.approvedBy,
+    approvalBasis: initialApproval.approvalBasis
   });
 
   const esc = s => (s===null||s===undefined?'':String(s))
@@ -703,8 +756,12 @@ function openReport(cfg) {
   const initialDocumentStatusParts = approved
     ? ['文件狀態：正式附件', initialApprovedAt ? `核可時間：${initialApprovedAt}` : '']
     : ['文件狀態：內部審閱'];
+  const initialApprovedBy = String(initialApproval.approvedBy || '').trim();
+  const initialApprovalBasis = String(initialApproval.approvalBasis || '').trim();
+  if (approved && initialApprovedBy) initialDocumentStatusParts.push(`核可人：${initialApprovedBy}`);
+  if (approved && initialApprovalBasis) initialDocumentStatusParts.push(`核可依據：${initialApprovalBasis}`);
   initialDocumentStatusParts.push(`計算指紋：${calculationFingerprint}`);
-  const initialDocumentStatusHtml = `<span class="rep-document-status-line" data-document-class="${esc(documentClass.key)}" data-approved="${approved ? 'true' : 'false'}" data-approved-at="${esc(initialApprovedAt)}">${esc(initialDocumentStatusParts.filter(Boolean).join('｜'))}</span>`;
+  const initialDocumentStatusHtml = `<span class="rep-document-status-line" data-document-class="${esc(documentClass.key)}" data-approved="${approved ? 'true' : 'false'}" data-approved-at="${esc(initialApprovedAt)}" data-approved-by="${esc(approved ? initialApprovedBy : '')}" data-approval-basis="${esc(approved ? initialApprovalBasis : '')}">${esc(initialDocumentStatusParts.filter(Boolean).join('｜'))}</span>`;
 
   const html = `<!doctype html>
 <html lang="zh-TW">
@@ -821,7 +878,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   ${stepsHtml}
   ${summaryHtml}
 
-  <div class="rep-footer"><span class="rep-footer-copyright">版權所有 弘一工程顧問有限公司</span></div>
+  <div class="rep-footer"><div class="rep-footer-separator" aria-hidden="true"></div><div class="rep-footer-copyright">版權所有 弘一工程顧問有限公司</div></div>
 </div>
 <!--rc-content-seal:end-->
 </div>

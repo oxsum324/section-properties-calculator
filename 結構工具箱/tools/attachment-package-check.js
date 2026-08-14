@@ -28,9 +28,11 @@ const DRAFT_DOCUMENT_NEEDLES = [
 const READY_DOCUMENT_CLASS_LABEL = '文件狀態：正式附件';
 const CANONICAL_RENDER_EVIDENCE_KIND = 'attachment-canonical-render-evidence.v1';
 const RC_CONTENT_SEAL_SCOPE = 'rc-calculation-book-content-v1';
-const RC_APPROVAL_SEAL_SCOPE = 'rc-calculation-book-approval-v1';
+const RC_APPROVAL_SEAL_SCOPE = 'rc-calculation-book-approval-v2';
+const RC_APPROVAL_SEAL_SCOPES = new Set(['rc-calculation-book-approval-v1', RC_APPROVAL_SEAL_SCOPE]);
 const FORMAL_CONTENT_SEAL_SCOPE = 'formal-calculation-book-content-v1';
-const FORMAL_APPROVAL_SEAL_SCOPE = 'formal-calculation-book-approval-v1';
+const FORMAL_APPROVAL_SEAL_SCOPE = 'formal-calculation-book-approval-v2';
+const FORMAL_APPROVAL_SEAL_SCOPES = new Set(['formal-calculation-book-approval-v1', FORMAL_APPROVAL_SEAL_SCOPE]);
 const ANCHOR_CONTENT_SEAL_SCOPE = AnchorHtmlSealVerifier.ANCHOR_CONTENT_SEAL_SCOPE;
 const ANCHOR_APPROVAL_SEAL_SCOPE = AnchorHtmlSealVerifier.ANCHOR_APPROVAL_SEAL_SCOPE;
 const ANCHOR_XLSX_CONTENT_SEAL_SCOPE = AnchorXlsxSealVerifier.CONTENT_SCOPE;
@@ -60,6 +62,8 @@ const FIELD_LABELS = {
   toolVersion: ['目前工具版本', '工具版本', '頁面版本'],
   outputTime: ['輸出時間', '報表生成時間'],
   approvalTime: ['正式附件核可時間', '核可時間'],
+  approvedBy: ['核可人'],
+  approvalBasis: ['核可依據'],
 };
 const METADATA_TERMINATORS = [
   ...Object.values(FIELD_LABELS).flat(),
@@ -187,14 +191,17 @@ function canonicalizeRcHtmlApprovalSeal(html) {
   const sourceMatches = [...markup.matchAll(/<span\b(?=[^>]*\brep-attachment-approval-source\b)[^>]*>[\s\S]*?<\/span>/gi)];
   const statusMatches = [...markup.matchAll(/<span\b(?=[^>]*\brep-document-status-line\b)[^>]*>([\s\S]*?)<\/span>/gi)];
   const contentSealMatches = [...markup.matchAll(/<span\b(?=[^>]*\brep-content-seal-source\b)[^>]*>[\s\S]*?<\/span>/gi)];
+  const approvalSealMatches = [...markup.matchAll(/<span\b(?=[^>]*\brep-approval-seal-source\b)[^>]*>[\s\S]*?<\/span>/gi)];
   const titleMatches = [...markup.matchAll(/<title\b[^>]*>([\s\S]*?)<\/title>/gi)];
-  if (sourceMatches.length !== 1 || statusMatches.length !== 1 || contentSealMatches.length !== 1 || titleMatches.length !== 1) return '';
+  if (sourceMatches.length !== 1 || statusMatches.length !== 1 || contentSealMatches.length !== 1 || approvalSealMatches.length !== 1 || titleMatches.length !== 1) return '';
   const sourceAttributes = parseMarkupAttributes(sourceMatches[0][0].replace(/>[\s\S]*$/, '>'));
   const statusAttributes = parseMarkupAttributes(statusMatches[0][0].replace(/>[\s\S]*$/, '>'));
   const contentSealAttributes = parseMarkupAttributes(contentSealMatches[0][0].replace(/>[\s\S]*$/, '>'));
+  const approvalSealAttributes = parseMarkupAttributes(approvalSealMatches[0][0].replace(/>[\s\S]*$/, '>'));
   const clean = input => normalizeText(decodeXmlEntities(input));
-  return JSON.stringify({
-    scope: RC_APPROVAL_SEAL_SCOPE,
+  const scope = clean(approvalSealAttributes['data-approval-seal-scope']);
+  const payload = {
+    scope,
     reportTitle: clean(sourceAttributes['data-report-title']),
     calculationFingerprint: clean(sourceAttributes['data-calculation-fingerprint']),
     sourceApproved: clean(sourceAttributes['data-initial-approved']),
@@ -205,7 +212,32 @@ function canonicalizeRcHtmlApprovalSeal(html) {
     statusText: normalizeText(statusMatches[0][1]),
     documentTitle: normalizeText(titleMatches[0][1]),
     contentSha256: clean(contentSealAttributes['data-content-sha256']).toLowerCase(),
-  });
+  };
+  if (scope === RC_APPROVAL_SEAL_SCOPE) {
+    payload.sourceApprovedBy = clean(sourceAttributes['data-approved-by']);
+    payload.sourceApprovalBasis = clean(sourceAttributes['data-approval-basis']);
+    payload.statusApprovedBy = clean(statusAttributes['data-approved-by']);
+    payload.statusApprovalBasis = clean(statusAttributes['data-approval-basis']);
+    const ordered = {
+      scope: payload.scope,
+      reportTitle: payload.reportTitle,
+      calculationFingerprint: payload.calculationFingerprint,
+      sourceApproved: payload.sourceApproved,
+      sourceApprovedAt: payload.sourceApprovedAt,
+      sourceApprovedBy: payload.sourceApprovedBy,
+      sourceApprovalBasis: payload.sourceApprovalBasis,
+      documentClass: payload.documentClass,
+      statusApproved: payload.statusApproved,
+      statusApprovedAt: payload.statusApprovedAt,
+      statusApprovedBy: payload.statusApprovedBy,
+      statusApprovalBasis: payload.statusApprovalBasis,
+      statusText: payload.statusText,
+      documentTitle: payload.documentTitle,
+      contentSha256: payload.contentSha256,
+    };
+    return JSON.stringify(ordered);
+  }
+  return JSON.stringify(payload);
 }
 
 function verifyRcHtmlApprovalSeal(html) {
@@ -217,7 +249,7 @@ function verifyRcHtmlApprovalSeal(html) {
   const expectedSha256 = String(attributes['data-approval-sha256'] || '').trim().toLowerCase();
   const canonicalPayload = canonicalizeRcHtmlApprovalSeal(value);
   const reasons = [];
-  if (scope !== RC_APPROVAL_SEAL_SCOPE) reasons.push('seal-scope');
+  if (!RC_APPROVAL_SEAL_SCOPES.has(scope)) reasons.push('seal-scope');
   if (!/^[0-9a-f]{64}$/.test(expectedSha256)) reasons.push('seal-sha256');
   if (!canonicalPayload) reasons.push('approval-payload');
   const actualSha256 = canonicalPayload
@@ -235,7 +267,7 @@ function verifyRcHtmlApprovalSeal(html) {
 
 function isRcHtmlApprovalSealRequired(record) {
   if (!['html', 'htm'].includes(String(record?.type || '').toLowerCase())) return false;
-  if (record?.approvalSeal?.scope === RC_APPROVAL_SEAL_SCOPE) return true;
+  if (RC_APPROVAL_SEAL_SCOPES.has(record?.approvalSeal?.scope)) return true;
   return isRcHtmlContentSealRequired(record);
 }
 
@@ -277,15 +309,18 @@ function canonicalizeFormalHtmlApprovalSeal(html) {
   const sourceMatches = [...markup.matchAll(/<span\b(?=[^>]*\brep-attachment-approval-source\b)[^>]*>[\s\S]*?<\/span>/gi)];
   const statusMatches = [...markup.matchAll(/<span\b(?=[^>]*\brep-document-status-line\b)[^>]*>([\s\S]*?)<\/span>/gi)];
   const contentSealMatches = [...markup.matchAll(/<span\b(?=[^>]*\brep-formal-content-seal-source\b)[^>]*>[\s\S]*?<\/span>/gi)];
+  const approvalSealMatches = [...markup.matchAll(/<span\b(?=[^>]*\brep-formal-approval-seal-source\b)[^>]*>[\s\S]*?<\/span>/gi)];
   const headMarkup = markup.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] || '';
   const titleMatches = [...headMarkup.matchAll(/<title\b[^>]*>([\s\S]*?)<\/title>/gi)];
-  if (sourceMatches.length !== 1 || statusMatches.length !== 1 || contentSealMatches.length !== 1 || titleMatches.length !== 1) return '';
+  if (sourceMatches.length !== 1 || statusMatches.length !== 1 || contentSealMatches.length !== 1 || approvalSealMatches.length !== 1 || titleMatches.length !== 1) return '';
   const sourceAttributes = parseMarkupAttributes(sourceMatches[0][0].replace(/>[\s\S]*$/, '>'));
   const statusAttributes = parseMarkupAttributes(statusMatches[0][0].replace(/>[\s\S]*$/, '>'));
   const contentSealAttributes = parseMarkupAttributes(contentSealMatches[0][0].replace(/>[\s\S]*$/, '>'));
+  const approvalSealAttributes = parseMarkupAttributes(approvalSealMatches[0][0].replace(/>[\s\S]*$/, '>'));
   const clean = input => normalizeText(decodeXmlEntities(input));
-  return JSON.stringify({
-    scope: FORMAL_APPROVAL_SEAL_SCOPE,
+  const scope = clean(approvalSealAttributes['data-approval-seal-scope']);
+  const payload = {
+    scope,
     reportTitle: clean(sourceAttributes['data-report-title']),
     calculationFingerprint: clean(sourceAttributes['data-calculation-fingerprint']),
     sourceApproved: clean(sourceAttributes['data-initial-approved']),
@@ -296,7 +331,32 @@ function canonicalizeFormalHtmlApprovalSeal(html) {
     statusText: normalizeText(statusMatches[0][1]),
     documentTitle: normalizeText(titleMatches[0][1]),
     contentSha256: clean(contentSealAttributes['data-content-sha256']).toLowerCase(),
-  });
+  };
+  if (scope === FORMAL_APPROVAL_SEAL_SCOPE) {
+    payload.sourceApprovedBy = clean(sourceAttributes['data-approved-by']);
+    payload.sourceApprovalBasis = clean(sourceAttributes['data-approval-basis']);
+    payload.statusApprovedBy = clean(statusAttributes['data-approved-by']);
+    payload.statusApprovalBasis = clean(statusAttributes['data-approval-basis']);
+    const ordered = {
+      scope: payload.scope,
+      reportTitle: payload.reportTitle,
+      calculationFingerprint: payload.calculationFingerprint,
+      sourceApproved: payload.sourceApproved,
+      sourceApprovedAt: payload.sourceApprovedAt,
+      sourceApprovedBy: payload.sourceApprovedBy,
+      sourceApprovalBasis: payload.sourceApprovalBasis,
+      documentClass: payload.documentClass,
+      statusApproved: payload.statusApproved,
+      statusApprovedAt: payload.statusApprovedAt,
+      statusApprovedBy: payload.statusApprovedBy,
+      statusApprovalBasis: payload.statusApprovalBasis,
+      statusText: payload.statusText,
+      documentTitle: payload.documentTitle,
+      contentSha256: payload.contentSha256,
+    };
+    return JSON.stringify(ordered);
+  }
+  return JSON.stringify(payload);
 }
 
 function verifyFormalHtmlApprovalSeal(html) {
@@ -308,7 +368,7 @@ function verifyFormalHtmlApprovalSeal(html) {
   const expectedSha256 = String(attributes['data-approval-sha256'] || '').trim().toLowerCase();
   const canonicalPayload = canonicalizeFormalHtmlApprovalSeal(value);
   const reasons = [];
-  if (scope !== FORMAL_APPROVAL_SEAL_SCOPE) reasons.push('seal-scope');
+  if (!FORMAL_APPROVAL_SEAL_SCOPES.has(scope)) reasons.push('seal-scope');
   if (!/^[0-9a-f]{64}$/.test(expectedSha256)) reasons.push('seal-sha256');
   if (!canonicalPayload) reasons.push('approval-payload');
   const actualSha256 = canonicalPayload
@@ -322,7 +382,7 @@ function isFormalHtmlSealRequired(record) {
   if (!['html', 'htm'].includes(String(record?.type || '').toLowerCase())) return false;
   return record?.formalReportSealCandidate === true
     || record?.formalContentSeal?.scope === FORMAL_CONTENT_SEAL_SCOPE
-    || record?.formalApprovalSeal?.scope === FORMAL_APPROVAL_SEAL_SCOPE;
+    || FORMAL_APPROVAL_SEAL_SCOPES.has(record?.formalApprovalSeal?.scope);
 }
 
 function normalizeAnchorHtmlSealResult(result, expectedScope) {
@@ -1387,6 +1447,8 @@ function extractTextMetadata(text) {
     toolVersion: normalizeToolVersion(extractLabelValue(normalized, FIELD_LABELS.toolVersion)),
     outputTime: extractLabelValue(normalized, FIELD_LABELS.outputTime),
     approvalTime: extractLabelValue(normalized, FIELD_LABELS.approvalTime),
+    approvedBy: extractLabelValue(normalized, FIELD_LABELS.approvedBy),
+    approvalBasis: extractLabelValue(normalized, FIELD_LABELS.approvalBasis),
     fingerprints: unique((normalized.match(/CF-[0-9A-F]{16}/gi) || []).map(item => item.toUpperCase())),
   };
 }
@@ -1423,7 +1485,7 @@ function inspectAttachment(filePath, rootDir) {
   const type = path.extname(filePath).toLowerCase().slice(1) || 'unknown';
   const record = {
     file: path.relative(rootDir, filePath) || path.basename(filePath), type, size: 0, sourceSha256: '',
-    textLength: 0, projectName: '', projectNo: '', designer: '', sourceTool: '', toolVersion: '', outputTime: '', approvalTime: '',
+    textLength: 0, projectName: '', projectNo: '', designer: '', sourceTool: '', toolVersion: '', outputTime: '', approvalTime: '', approvedBy: '', approvalBasis: '',
     fingerprints: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: [],
     reportDocumentNeedles: [], calculationSummaryNeedles: [], documentClassRequired: false, contentBoundary: null, visibilityEvidence: null, contentSeal: null, approvalSeal: null, formalContentSeal: null, formalApprovalSeal: null, formalReportSealCandidate: false, anchorContentSeal: null, anchorApprovalSeal: null, anchorReportSealCandidate: false, xlsxContentSeal: null, xlsxApprovalSeal: null, errors: [],
   };

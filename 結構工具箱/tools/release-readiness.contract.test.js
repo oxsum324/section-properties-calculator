@@ -239,7 +239,11 @@ assert(
 ].forEach(needle => assertIncludes(formalBrowserSmoke, needle, `formal browser smoke preserves rendered evidence ${needle}`));
 [
   'formal-calculation-book-content-v1',
-  'formal-calculation-book-approval-v1',
+  'formal-calculation-book-approval-v2',
+  '核可人（選填）',
+  '核可依據（選填）',
+  'data-approved-by',
+  'data-approval-basis',
   'verifyReportContentSeal',
   'verifyReportApprovalSeal',
   '內容完整性異常',
@@ -323,7 +327,11 @@ for (const { name, source } of rcReportVisualSources) {
   '非數位簽章',
 ].forEach(needle => assertIncludes(rcSharedReport, needle, `RC shared report preserves HTML content seal ${needle}`));
 [
-  'rc-calculation-book-approval-v1',
+  'rc-calculation-book-approval-v2',
+  '核可人（選填）',
+  '核可依據（選填）',
+  'data-approved-by',
+  'data-approval-basis',
   'verifyReportApprovalSeal',
   '核可完整性異常',
 ].forEach(needle => assertIncludes(rcSharedReport, needle, `RC shared report preserves HTML approval seal ${needle}`));

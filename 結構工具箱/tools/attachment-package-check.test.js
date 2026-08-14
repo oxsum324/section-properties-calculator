@@ -342,10 +342,10 @@ const unparsedVariableBackgroundHtml = Checker.extractHtmlVisibleContent('<div s
 assert.equal(unparsedVariableBackgroundHtml.text, 'CSS 變數診斷內容');
 assert.deepEqual(unparsedVariableBackgroundHtml.visibilityIssues, ['inline div']);
 
-const sealedContentBlock = `${Checker.RC_CONTENT_SEAL_START}<div class="rep-sealed-content"><h1>梁設計計算書</h1><span class="rep-document-status-line" data-document-class="formal-attachment" data-approved="true" data-approved-at="2026-08-04T14:30:00.000Z">文件狀態：正式附件｜核可時間：2026/08/04 22:30:00｜計算指紋：CF-1234ABCD5678EF90</span>${COMPLETE_CALCULATION_CONTENT}</div>${Checker.RC_CONTENT_SEAL_END}`;
+const sealedContentBlock = `${Checker.RC_CONTENT_SEAL_START}<div class="rep-sealed-content"><h1>梁設計計算書</h1><span class="rep-document-status-line" data-document-class="formal-attachment" data-approved="true" data-approved-at="2026-08-04T14:30:00.000Z" data-approved-by="王工程師" data-approval-basis="內部複核單 RV-01">文件狀態：正式附件｜核可時間：2026/08/04 22:30:00｜核可人：王工程師｜核可依據：內部複核單 RV-01｜計算指紋：CF-1234ABCD5678EF90</span>${COMPLETE_CALCULATION_CONTENT}</div>${Checker.RC_CONTENT_SEAL_END}`;
 const sealedContentCanonical = Checker.canonicalizeRcHtmlContentSeal(sealedContentBlock);
 const sealedContentSha256 = crypto.createHash('sha256').update(sealedContentCanonical, 'utf8').digest('hex');
-const approvalSource = '<span class="rep-attachment-approval-source" data-initial-approved="true" data-calculation-fingerprint="CF-1234ABCD5678EF90" data-approved-at="2026-08-04T14:30:00.000Z" data-report-title="梁設計計算書" aria-hidden="true"></span>';
+const approvalSource = '<span class="rep-attachment-approval-source" data-initial-approved="true" data-calculation-fingerprint="CF-1234ABCD5678EF90" data-approved-at="2026-08-04T14:30:00.000Z" data-approved-by="王工程師" data-approval-basis="內部複核單 RV-01" data-report-title="梁設計計算書" aria-hidden="true"></span>';
 const contentSealSource = `<span class="rep-content-seal-source" data-content-seal-scope="${Checker.RC_CONTENT_SEAL_SCOPE}" data-content-sha256="${sealedContentSha256}" aria-hidden="true"></span>`;
 const approvalSealPlaceholder = `<span class="rep-approval-seal-source" data-approval-seal-scope="${Checker.RC_APPROVAL_SEAL_SCOPE}" data-approval-sha256="" aria-hidden="true"></span>`;
 const approvalFixtureBase = `<html><head><title>梁設計計算書_正式附件_CF-1234ABCD5678EF90</title></head><body>${approvalSource}${contentSealSource}${approvalSealPlaceholder}${sealedContentBlock}</body></html>`;
@@ -359,18 +359,43 @@ assert.equal(verifiedRcSeal.expectedSha256, verifiedRcSeal.actualSha256);
 assert.equal(verifiedRcApprovalSeal.status, 'verified', 'RC HTML approval seal independently binds status, time, title, fingerprint and content seal');
 assert.equal(verifiedRcApprovalSeal.expectedSha256, verifiedRcApprovalSeal.actualSha256);
 assert.equal(Checker.verifyRcHtmlApprovalSeal(sealedRcHtml.replace('2026-08-04T14:30:00.000Z', '2000-01-01T00:00:00.000Z')).status, 'failed', 'editing approval metadata invalidates the approval seal');
+assert.equal(Checker.verifyRcHtmlApprovalSeal(sealedRcHtml.replaceAll('王工程師', '未授權人員')).status, 'failed', 'editing the optional RC approver invalidates the approval seal');
+assert.equal(Checker.verifyRcHtmlApprovalSeal(sealedRcHtml.replaceAll('內部複核單 RV-01', '未知依據')).status, 'failed', 'editing the optional RC approval basis invalidates the approval seal');
 assert.equal(Checker.verifyRcHtmlApprovalSeal(sealedRcHtml.replace('梁設計計算書_正式附件', '異動後標題_正式附件')).status, 'failed', 'editing the saved document title invalidates the approval seal');
 assert.equal(Checker.verifyRcHtmlApprovalSeal(sealedRcHtml.replace(/<span class="rep-approval-seal-source"[^>]*><\/span>/, '')).status, 'missing', 'legacy HTML without an approval seal remains distinguishable');
+const blankRcSealedContentBlock = sealedContentBlock
+  .replaceAll(' data-approved-by="王工程師"', ' data-approved-by=""')
+  .replaceAll(' data-approval-basis="內部複核單 RV-01"', ' data-approval-basis=""')
+  .replace('｜核可人：王工程師｜核可依據：內部複核單 RV-01', '');
+const blankRcContentSha256 = crypto.createHash('sha256').update(Checker.canonicalizeRcHtmlContentSeal(blankRcSealedContentBlock), 'utf8').digest('hex');
+const blankRcApprovalSource = approvalSource
+  .replace('data-approved-by="王工程師"', 'data-approved-by=""')
+  .replace('data-approval-basis="內部複核單 RV-01"', 'data-approval-basis=""');
+const blankRcApprovalBase = `<html><head><title>梁設計計算書_正式附件_CF-1234ABCD5678EF90</title></head><body>${blankRcApprovalSource}${contentSealSource.replace(sealedContentSha256, blankRcContentSha256)}${approvalSealPlaceholder}${blankRcSealedContentBlock}</body></html>`;
+const blankRcApprovalSha256 = crypto.createHash('sha256').update(Checker.canonicalizeRcHtmlApprovalSeal(blankRcApprovalBase), 'utf8').digest('hex');
+const blankSealedRcHtml = blankRcApprovalBase.replace('data-approval-sha256=""', `data-approval-sha256="${blankRcApprovalSha256}"`);
+const verifiedBlankRcContentSeal = Checker.verifyRcHtmlContentSeal(blankSealedRcHtml);
+const verifiedBlankRcApprovalSeal = Checker.verifyRcHtmlApprovalSeal(blankSealedRcHtml);
+assert.equal(verifiedBlankRcContentSeal.status, 'verified', 'blank optional RC approval fields preserve the content seal');
+assert.equal(verifiedBlankRcApprovalSeal.status, 'verified', 'blank optional RC approver and basis preserve formal approval');
+const legacyRcApprovalBase = approvalFixtureBase
+  .replace(Checker.RC_APPROVAL_SEAL_SCOPE, 'rc-calculation-book-approval-v1')
+  .replace(/ data-approved-by="[^"]*"/g, '')
+  .replace(/ data-approval-basis="[^"]*"/g, '')
+  .replace('｜核可人：王工程師｜核可依據：內部複核單 RV-01', '');
+const legacyRcApprovalSha256 = crypto.createHash('sha256').update(Checker.canonicalizeRcHtmlApprovalSeal(legacyRcApprovalBase), 'utf8').digest('hex');
+const legacySealedRcHtml = legacyRcApprovalBase.replace('data-approval-sha256=""', `data-approval-sha256="${legacyRcApprovalSha256}"`);
+assert.equal(Checker.verifyRcHtmlApprovalSeal(legacySealedRcHtml).status, 'verified', 'existing RC approval v1 seals remain verifiable');
 const tamperedRcSeal = Checker.verifyRcHtmlContentSeal(sealedRcHtml.replace('φMn=18.2', 'φMn=99.9'));
 assert.equal(tamperedRcSeal.status, 'failed', 'editing a visible calculation value invalidates the RC HTML content seal');
 assert(tamperedRcSeal.reasons.includes('content-sha256-mismatch'));
 assert.equal(Checker.verifyRcHtmlContentSeal(sealedRcHtml.replace(Checker.RC_CONTENT_SEAL_START, '')).status, 'failed', 'removing the sealed boundary fails verification');
 assert.equal(Checker.verifyRcHtmlContentSeal(COMPLETE_CALCULATION_CONTENT).status, 'missing', 'legacy HTML without a content seal remains distinguishable');
 
-const formalSealedContentBlock = `${Checker.FORMAL_CONTENT_SEAL_START}<div class="rep-sealed-content"><h1>風力計算書</h1><span class="rep-document-status-line" data-document-class="formal-attachment" data-approved="true" data-approved-at="2026-08-05T01:30:00.000Z">文件狀態：正式附件｜核可時間：2026/08/05 09:30:00｜計算指紋：CF-ABCDEF1234567890</span><svg><title>工程圖說明</title></svg>${COMPLETE_CALCULATION_CONTENT}</div>${Checker.FORMAL_CONTENT_SEAL_END}`;
+const formalSealedContentBlock = `${Checker.FORMAL_CONTENT_SEAL_START}<div class="rep-sealed-content"><h1>風力計算書</h1><span class="rep-document-status-line" data-document-class="formal-attachment" data-approved="true" data-approved-at="2026-08-05T01:30:00.000Z" data-approved-by="林技師" data-approval-basis="設計複核紀錄 DR-02">文件狀態：正式附件｜核可時間：2026/08/05 09:30:00｜核可人：林技師｜核可依據：設計複核紀錄 DR-02｜計算指紋：CF-ABCDEF1234567890</span><svg><title>工程圖說明</title></svg>${COMPLETE_CALCULATION_CONTENT}</div>${Checker.FORMAL_CONTENT_SEAL_END}`;
 const formalContentCanonical = Checker.canonicalizeFormalHtmlContentSeal(formalSealedContentBlock);
 const formalContentSha256 = crypto.createHash('sha256').update(formalContentCanonical, 'utf8').digest('hex');
-const formalApprovalSource = '<span class="rep-attachment-approval-source" data-initial-approved="true" data-calculation-fingerprint="CF-ABCDEF1234567890" data-approved-at="2026-08-05T01:30:00.000Z" data-report-title="風力計算書" aria-hidden="true"></span>';
+const formalApprovalSource = '<span class="rep-attachment-approval-source" data-initial-approved="true" data-calculation-fingerprint="CF-ABCDEF1234567890" data-approved-at="2026-08-05T01:30:00.000Z" data-approved-by="林技師" data-approval-basis="設計複核紀錄 DR-02" data-report-title="風力計算書" aria-hidden="true"></span>';
 const formalContentSealSource = `<span class="rep-formal-content-seal-source" data-content-seal-scope="${Checker.FORMAL_CONTENT_SEAL_SCOPE}" data-content-sha256="${formalContentSha256}" aria-hidden="true"></span>`;
 const formalApprovalSealPlaceholder = `<span class="rep-formal-approval-seal-source" data-approval-seal-scope="${Checker.FORMAL_APPROVAL_SEAL_SCOPE}" data-approval-sha256="" aria-hidden="true"></span>`;
 const formalApprovalFixtureBase = `<html><head><title>風力計算書_正式附件_CF-ABCDEF1234567890</title></head><body>${formalApprovalSource}${formalContentSealSource}${formalApprovalSealPlaceholder}<script data-attachment-approval-script>void 0;</script>${formalSealedContentBlock}</body></html>`;
@@ -388,7 +413,32 @@ assert.equal(tamperedFormalContentSeal.status, 'failed', 'editing shared formal 
 assert(tamperedFormalContentSeal.reasons.includes('content-sha256-mismatch'));
 const tamperedFormalApprovalSeal = Checker.verifyFormalHtmlApprovalSeal(sealedFormalHtml.replace('2026-08-05T01:30:00.000Z', '2000-01-01T00:00:00.000Z'));
 assert.equal(tamperedFormalApprovalSeal.status, 'failed', 'editing shared formal approval metadata invalidates its approval seal');
+assert.equal(Checker.verifyFormalHtmlApprovalSeal(sealedFormalHtml.replaceAll('林技師', '未授權人員')).status, 'failed', 'editing the optional formal approver invalidates the approval seal');
+assert.equal(Checker.verifyFormalHtmlApprovalSeal(sealedFormalHtml.replaceAll('設計複核紀錄 DR-02', '未知依據')).status, 'failed', 'editing the optional formal approval basis invalidates the approval seal');
 assert.equal(Checker.verifyFormalHtmlApprovalSeal(sealedFormalHtml.replace(/<span class="rep-formal-approval-seal-source"[^>]*><\/span>/, '')).status, 'missing', 'legacy shared formal HTML remains distinguishable');
+const blankFormalSealedContentBlock = formalSealedContentBlock
+  .replaceAll(' data-approved-by="林技師"', ' data-approved-by=""')
+  .replaceAll(' data-approval-basis="設計複核紀錄 DR-02"', ' data-approval-basis=""')
+  .replace('｜核可人：林技師｜核可依據：設計複核紀錄 DR-02', '');
+const blankFormalContentSha256 = crypto.createHash('sha256').update(Checker.canonicalizeFormalHtmlContentSeal(blankFormalSealedContentBlock), 'utf8').digest('hex');
+const blankFormalApprovalSource = formalApprovalSource
+  .replace('data-approved-by="林技師"', 'data-approved-by=""')
+  .replace('data-approval-basis="設計複核紀錄 DR-02"', 'data-approval-basis=""');
+const blankFormalApprovalBase = `<html><head><title>風力計算書_正式附件_CF-ABCDEF1234567890</title></head><body>${blankFormalApprovalSource}${formalContentSealSource.replace(formalContentSha256, blankFormalContentSha256)}${formalApprovalSealPlaceholder}<script data-attachment-approval-script>void 0;</script>${blankFormalSealedContentBlock}</body></html>`;
+const blankFormalApprovalSha256 = crypto.createHash('sha256').update(Checker.canonicalizeFormalHtmlApprovalSeal(blankFormalApprovalBase), 'utf8').digest('hex');
+const blankSealedFormalHtml = blankFormalApprovalBase.replace('data-approval-sha256=""', `data-approval-sha256="${blankFormalApprovalSha256}"`);
+const verifiedBlankFormalContentSeal = Checker.verifyFormalHtmlContentSeal(blankSealedFormalHtml);
+const verifiedBlankFormalApprovalSeal = Checker.verifyFormalHtmlApprovalSeal(blankSealedFormalHtml);
+assert.equal(verifiedBlankFormalContentSeal.status, 'verified', 'blank optional shared-formal approval fields preserve the content seal');
+assert.equal(verifiedBlankFormalApprovalSeal.status, 'verified', 'blank optional shared-formal approver and basis preserve formal approval');
+const legacyFormalApprovalBase = formalApprovalFixtureBase
+  .replace(Checker.FORMAL_APPROVAL_SEAL_SCOPE, 'formal-calculation-book-approval-v1')
+  .replace(/ data-approved-by="[^"]*"/g, '')
+  .replace(/ data-approval-basis="[^"]*"/g, '')
+  .replace('｜核可人：林技師｜核可依據：設計複核紀錄 DR-02', '');
+const legacyFormalApprovalSha256 = crypto.createHash('sha256').update(Checker.canonicalizeFormalHtmlApprovalSeal(legacyFormalApprovalBase), 'utf8').digest('hex');
+const legacySealedFormalHtml = legacyFormalApprovalBase.replace('data-approval-sha256=""', `data-approval-sha256="${legacyFormalApprovalSha256}"`);
+assert.equal(Checker.verifyFormalHtmlApprovalSeal(legacySealedFormalHtml).status, 'verified', 'existing formal approval v1 seals remain verifiable');
 
 const anchorContentBlock = `<!--anchor-content-seal:start--><main><h1>錨栓檢討報告</h1><section><h2>文件追溯與版本</h2><div>產出工具：錨栓檢討工具</div><div>工具版本：v1.0</div><div>輸出時間：2026/08/05 16:00:00</div><div>計算指紋：CF-5678ABCD1234EF90</div></section>${COMPLETE_CALCULATION_CONTENT}</main><!--anchor-content-seal:end-->`;
 const anchorContentPlaceholder = `<span class="anchor-content-seal-source" data-content-seal-scope="${Checker.ANCHOR_CONTENT_SEAL_SCOPE}" data-content-sha256="" hidden></span>`;
@@ -415,7 +465,11 @@ const sealFixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rc-html-content-se
 try {
   const sealFixturePath = path.join(sealFixtureDir, 'rc-formal.html');
   fs.writeFileSync(sealFixturePath, sealedRcHtml, 'utf8');
-  assert.equal(Checker.inspectAttachment(sealFixturePath, sealFixtureDir).contentSeal?.status, 'verified', 'HTML inspection recomputes the RC content seal');
+  const inspectedSealedRcHtml = Checker.inspectAttachment(sealFixturePath, sealFixtureDir);
+  assert.equal(inspectedSealedRcHtml.contentSeal?.status, 'verified', 'HTML inspection recomputes the RC content seal');
+  assert.equal(inspectedSealedRcHtml.approvalTime, '2026/08/04 22:30:00', 'optional approval metadata does not contaminate the parsed approval time');
+  assert.equal(inspectedSealedRcHtml.approvedBy, '王工程師', 'HTML inspection extracts the optional approver independently');
+  assert.equal(inspectedSealedRcHtml.approvalBasis, '內部複核單 RV-01', 'HTML inspection extracts the optional approval basis independently');
   fs.writeFileSync(sealFixturePath, sealedRcHtml.replace('DCR=0.69', 'DCR=1.69'), 'utf8');
   assert.equal(Checker.inspectAttachment(sealFixturePath, sealFixtureDir).contentSeal?.status, 'failed', 'HTML inspection records a changed calculation body');
 } finally {
@@ -452,6 +506,13 @@ const sealedHtmlRecord = {
 assert.equal(Checker.isRcHtmlApprovalSealRequired(sealedHtmlRecord), true);
 assert.equal(Checker.isRcHtmlContentSealRequired(sealedHtmlRecord), true);
 assert.equal(Checker.analyzePackage([sealedHtmlRecord]).status, 'ready', 'verified RC HTML content seal preserves formal readiness');
+const blankApprovalHtmlRecord = {
+  ...sealedHtmlRecord,
+  file: 'beam-formal-blank-approval-fields.html',
+  contentSeal: verifiedBlankRcContentSeal,
+  approvalSeal: verifiedBlankRcApprovalSeal,
+};
+assert.equal(Checker.analyzePackage([blankApprovalHtmlRecord]).status, 'ready', 'blank optional approver and basis do not downgrade a formally approved attachment');
 const unsealedRcApprovalPackage = Checker.analyzePackage([{ ...sealedHtmlRecord, file: 'beam-legacy-approval.html', approvalSeal: { status: 'missing', scope: '', reasons: ['seal-source-missing'] } }]);
 assert.equal(unsealedRcApprovalPackage.status, 'review', 'legacy RC formal HTML without an approval seal cannot pass automatically');
 assert(unsealedRcApprovalPackage.issues.some(issue => issue.code === 'rc-html-approval-seal-missing'));

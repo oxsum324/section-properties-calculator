@@ -200,7 +200,7 @@ function looksLikeContinuationContext(line) {
   const tableHeaderTokenCount = tableHeaderTokens.filter(token => normalized.includes(token)).length;
   return /^[①-⑳]/.test(normalized)
     || /^第\s*\d+(?:\.\d+)*\s*節/.test(normalized)
-    || /^(?:P-M\s*互制曲線|面內撓曲|撓曲檢核|檢核對比|內力分析|設計建議|需求對比)/.test(normalized)
+    || /^(?:P-M\s*互制曲線|純彎能力|面內撓曲|撓曲檢核|檢核對比|內力分析|設計建議|需求對比)/.test(normalized)
     || tableHeaderTokenCount >= 2
     || /(?:表|資料|條件|內容|明細|結果|備註|說明|檢核|計算|輸出|需求|材料|規範|規定|配筋|耐震|分析|分級|方法|設計|初估|細節|鋼筋|載重|延伸|抗滑|控制|矩陣|方案|圖|曲線|外力)$/.test(headingCandidate);
 }

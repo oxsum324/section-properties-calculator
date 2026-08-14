@@ -278,8 +278,18 @@ function assertSourceReportPackagePair(sourceSnapshot, approvedHtml, label, asse
 async function assertPortableFormalHtml(report, label, assert, options = {}) {
   const state = await report.evaluate(async () => {
     const approval = document.getElementById('repAttachmentApproval');
+    const approvedByInput = document.getElementById('repAttachmentApprovedBy');
+    const approvalBasisInput = document.getElementById('repAttachmentApprovalBasis');
     const downloadButton = document.getElementById('repDownloadCurrentHtml');
     const serializerAvailable = typeof serializeReportDocumentHtml === 'function';
+    if (approvedByInput) {
+      approvedByInput.value = 'RC 複核人';
+      approvedByInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (approvalBasisInput) {
+      approvalBasisInput.value = 'RC 複核紀錄 QA-01';
+      approvalBasisInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
     if (approval) {
       approval.checked = true;
       approval.dispatchEvent(new Event('change', { bubbles: true }));
@@ -304,9 +314,12 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
 
     return {
       approvalControl: Boolean(approval),
+      approvalMetaControl: Boolean(approvedByInput && approvalBasisInput),
       downloadControl: Boolean(downloadButton),
       serializerAvailable,
       approvedAt: source?.dataset.approvedAt || status?.dataset.approvedAt || '',
+      approvedBy: source?.dataset.approvedBy || status?.dataset.approvedBy || '',
+      approvalBasis: source?.dataset.approvalBasis || status?.dataset.approvalBasis || '',
       calculationFingerprint: source?.dataset.calculationFingerprint || '',
       reportTitle: source?.dataset.reportTitle || '',
       approvedDocumentTitle,
@@ -329,13 +342,19 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
     'data-approved-at="2000-01-01T00:00:00.000Z"',
   );
   const tamperedApprovalSeal = AttachmentPackageChecker.verifyRcHtmlApprovalSeal(tamperedApprovalHtml);
+  const tamperedApproverSeal = AttachmentPackageChecker.verifyRcHtmlApprovalSeal(
+    state.approvedHtml.replaceAll('RC 複核人', '未授權人員'),
+  );
   const savedStatusCount = (state.approvedHtml.match(/<span\b[^>]*class=["'][^"']*rep-document-status-line[^"']*["'][^>]*data-document-class=/gi) || []).length;
   const savedTitle = state.approvedHtml.match(/<title>([^<]*)<\/title>/i)?.[1] || '';
   const summary = {
     approvalControl: state.approvalControl,
+    approvalMetaControl: state.approvalMetaControl,
     downloadControl: state.downloadControl,
     serializerAvailable: state.serializerAvailable,
     approvedAt: state.approvedAt,
+    approvedBy: state.approvedBy,
+    approvalBasis: state.approvalBasis,
     calculationFingerprint: state.calculationFingerprint,
     reportTitle: state.reportTitle,
     approvedDocumentTitle: state.approvedDocumentTitle,
@@ -351,16 +370,17 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
   };
   const detail = JSON.stringify(summary);
 
-  assert(state.approvalControl && state.downloadControl && state.serializerAvailable, `${label} exposes approval and current-state HTML download`, detail);
+  assert(state.approvalControl && state.approvalMetaControl && state.downloadControl && state.serializerAvailable, `${label} exposes approval, optional approval metadata, and current-state HTML download`, detail);
   assert(Number.isFinite(Date.parse(state.approvedAt)), `${label} formal HTML records machine-readable approval time`, state.approvedAt);
+  assert(state.approvedBy === 'RC 複核人' && state.approvalBasis === 'RC 複核紀錄 QA-01', `${label} formal HTML records optional approver and approval basis`, detail);
   assert(/^CF-[0-9A-F]{16}$/.test(state.calculationFingerprint), `${label} formal HTML keeps calculation fingerprint`, state.calculationFingerprint);
   assert(state.reportTitle.includes('計算書'), `${label} formal HTML keeps stable calculation-book title`, state.reportTitle);
   assert(state.approvedDocumentTitle.includes('正式附件') && state.approvedDocumentTitle.includes(state.calculationFingerprint), `${label} approved title carries document state and fingerprint`, state.approvedDocumentTitle);
   assert(state.downloadedFileName === `${state.approvedDocumentTitle}.html`, `${label} downloaded filename matches approved title`, state.downloadedFileName);
   assert(savedTitle === state.approvedDocumentTitle, `${label} saved HTML title matches downloaded filename`, `${savedTitle} -> ${state.downloadedFileName}`);
-  assert(savedStatusCount === 1 && visibleText.includes('文件狀態：正式附件') && visibleText.includes('核可時間') && visibleText.includes(state.calculationFingerprint), `${label} attachment checker reads one static formal state line`, detail);
-  assert(/data-initial-approved=["']true["']/i.test(state.approvedHtml) && state.approvedHtml.includes(`data-approved-at="${state.approvedAt}"`), `${label} saved HTML preserves approval provenance`, detail);
-  assert(!/class=["'][^"']*(?:rep-approval-control|rep-download-control)[^"']*["']/i.test(state.approvedHtml), `${label} saved HTML excludes transient controls`, detail);
+  assert(savedStatusCount === 1 && visibleText.includes('文件狀態：正式附件') && visibleText.includes('核可時間') && visibleText.includes('核可人：RC 複核人') && visibleText.includes('核可依據：RC 複核紀錄 QA-01') && visibleText.includes(state.calculationFingerprint), `${label} attachment checker reads one static formal state line`, detail);
+  assert(/data-initial-approved=["']true["']/i.test(state.approvedHtml) && state.approvedHtml.includes(`data-approved-at="${state.approvedAt}"`) && state.approvedHtml.includes('data-approved-by="RC 複核人"') && state.approvedHtml.includes('data-approval-basis="RC 複核紀錄 QA-01"'), `${label} saved HTML preserves approval provenance`, detail);
+  assert(!/class=["'][^"']*(?:rep-approval-control|rep-approval-meta-control|rep-download-control)[^"']*["']/i.test(state.approvedHtml), `${label} saved HTML excludes transient controls`, detail);
   assert(!/<body\b[^>]*data-document-class=/i.test(state.approvedHtml), `${label} saved HTML rehydrates document class from static source`, detail);
   assert(
     contentSeal.status === 'verified'
@@ -387,6 +407,11 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
       && AttachmentPackageChecker.verifyRcHtmlContentSeal(tamperedApprovalHtml).status === 'verified',
     `${label} changed approval metadata invalidates only the approval seal`,
     JSON.stringify(tamperedApprovalSeal),
+  );
+  assert(
+    tamperedApproverSeal.status === 'failed' && tamperedApproverSeal.reasons.includes('approval-sha256-mismatch'),
+    `${label} changed optional approver invalidates the approval seal`,
+    JSON.stringify(tamperedApproverSeal),
   );
 
   let htmlArtifact = '';
