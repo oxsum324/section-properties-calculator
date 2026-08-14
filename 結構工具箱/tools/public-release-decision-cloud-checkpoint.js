@@ -11,7 +11,8 @@ const OBSERVATION_KIND = 'public-release-decision-cloud-observation';
 const CHECKPOINT_SCHEMA_VERSION = 1;
 const CHECKPOINT_KIND = 'public-release-decision-cloud-checkpoint';
 const LEGACY_VERIFICATION_SCHEMA_VERSION = 1;
-const VERIFICATION_SCHEMA_VERSION = 2;
+const HASH_ONLY_VERIFICATION_SCHEMA_VERSION = 2;
+const VERIFICATION_SCHEMA_VERSION = 3;
 const VERIFICATION_KIND = 'public-release-decision-cloud-verification';
 const HEALTH_SCHEMA_VERSION = 1;
 const HEALTH_KIND = 'public-release-decision-cloud-checkpoint-health';
@@ -157,18 +158,23 @@ function validateProviderVerification(value) {
   const errors = [];
   const add = (pass, label) => { if (!pass) errors.push(label); };
   const version = value?.schemaVersion;
-  const supportedVersion = version === LEGACY_VERIFICATION_SCHEMA_VERSION || version === VERIFICATION_SCHEMA_VERSION;
+  const supportedVersion = [LEGACY_VERIFICATION_SCHEMA_VERSION, HASH_ONLY_VERIFICATION_SCHEMA_VERSION, VERIFICATION_SCHEMA_VERSION].includes(version);
   add(hasExactKeys(value, ['schemaVersion', 'kind', 'provider', 'observedAt', 'checkpoint', 'verificationId']), 'verification.shape');
   add(supportedVersion && value?.kind === VERIFICATION_KIND, 'verification.identity');
   add(value?.provider === PROVIDER, 'verification.provider');
   add(Number.isFinite(Date.parse(String(value?.observedAt || ''))), 'verification.observedAt');
   const checkpointKeys = version === VERIFICATION_SCHEMA_VERSION
-    ? ['fileName', 'byteLength', 'contentSha256', 'providerFileId', 'createdAt', 'modifiedAt']
-    : ['fileName', 'byteLength', 'providerFileId', 'createdAt', 'modifiedAt'];
+    ? ['fileName', 'byteLength', 'contentSha256', 'contentReadback', 'providerFileId', 'createdAt', 'modifiedAt']
+    : version === HASH_ONLY_VERIFICATION_SCHEMA_VERSION
+      ? ['fileName', 'byteLength', 'contentSha256', 'providerFileId', 'createdAt', 'modifiedAt']
+      : ['fileName', 'byteLength', 'providerFileId', 'createdAt', 'modifiedAt'];
   add(supportedVersion && hasExactKeys(value?.checkpoint, checkpointKeys), 'verification.checkpoint.shape');
   add(CHECKPOINT_FILE_PATTERN.test(String(value?.checkpoint?.fileName || '')), 'verification.checkpoint.fileName');
   add(Number.isInteger(value?.checkpoint?.byteLength) && value.checkpoint.byteLength > 0, 'verification.checkpoint.byteLength');
-  if (version === VERIFICATION_SCHEMA_VERSION) add(/^[0-9a-f]{64}$/.test(String(value?.checkpoint?.contentSha256 || '')), 'verification.checkpoint.contentSha256');
+  if (version === HASH_ONLY_VERIFICATION_SCHEMA_VERSION || version === VERIFICATION_SCHEMA_VERSION) {
+    add(/^[0-9a-f]{64}$/.test(String(value?.checkpoint?.contentSha256 || '')), 'verification.checkpoint.contentSha256');
+  }
+  if (version === VERIFICATION_SCHEMA_VERSION) add(value?.checkpoint?.contentReadback === 'provider-download', 'verification.checkpoint.contentReadback');
   add(/^[A-Za-z0-9_-]{10,200}$/.test(String(value?.checkpoint?.providerFileId || '')), 'verification.checkpoint.providerFileId');
   add(Number.isFinite(Date.parse(String(value?.checkpoint?.createdAt || ''))), 'verification.checkpoint.createdAt');
   add(Number.isFinite(Date.parse(String(value?.checkpoint?.modifiedAt || ''))), 'verification.checkpoint.modifiedAt');
@@ -382,8 +388,19 @@ function recordProviderVerification(repoRoot, options = {}) {
   if (!Number.isInteger(maximumAgeHours) || maximumAgeHours < 1 || maximumAgeHours > 168) throw new Error('maximumObservationAgeHours must be an integer from 1 to 168');
   const verification = loadProviderVerification(options.verificationFile);
   if (verification.schemaVersion !== VERIFICATION_SCHEMA_VERSION) {
-    throw new Error('new cloud provider verification requires a raw content SHA-256 readback');
+    throw new Error('new cloud provider verification requires schema v3 raw provider download evidence');
   }
+  if (!options.providerContentFile) throw new Error('providerContentFile is required for schema v3 verification');
+  const providerContentPath = path.resolve(options.providerContentFile);
+  const providerContentStat = fs.lstatSync(providerContentPath);
+  if (!providerContentStat.isFile() || providerContentStat.isSymbolicLink()) throw new Error('provider content readback must be a regular file');
+  const resolvedExternalDirectory = path.resolve(externalDirectory);
+  const providerRelativeToExternal = path.relative(resolvedExternalDirectory, providerContentPath);
+  if (!providerRelativeToExternal || (!providerRelativeToExternal.startsWith(`..${path.sep}`) && providerRelativeToExternal !== '..' && !path.isAbsolute(providerRelativeToExternal))) {
+    throw new Error('provider content readback must be independent of the mounted external cloud directory');
+  }
+  const providerContentByteLength = providerContentStat.size;
+  const providerContentSha256 = fileDigest(providerContentPath);
   const observedMs = Date.parse(verification.observedAt);
   const nowMs = now.getTime();
   const errors = [];
@@ -391,6 +408,8 @@ function recordProviderVerification(repoRoot, options = {}) {
   if (nowMs - observedMs > maximumAgeHours * 3600000) errors.push('verification is too old');
   if (Date.parse(verification.checkpoint.createdAt) > observedMs + 5 * 60000
     || Date.parse(verification.checkpoint.modifiedAt) > observedMs + 5 * 60000) errors.push('remote checkpoint timestamp is after the verification');
+  if (providerContentByteLength !== verification.checkpoint.byteLength) errors.push('provider content byte length mismatch');
+  if (providerContentSha256 !== verification.checkpoint.contentSha256) errors.push('provider content SHA-256 mismatch');
   let history;
   try { history = loadCheckpointHistory(path.join(path.resolve(externalDirectory), DEFAULT_CLOUD_DIRECTORY)); }
   catch (error) { throw new Error(`cloud checkpoint provider verification source is invalid: ${error.message}`); }
@@ -644,7 +663,7 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
     if (['--prepare', '--confirm', '--check', '--write', '--json', '--require-external', '--accept-new-tip'].includes(token)) options[token.slice(2)] = true;
-    else if (['--repo-root', '--observation-file', '--verification-file', '--staging-directory', '--verification-directory', '--status-file', '--maximum-age-days', '--maximum-observation-age-hours'].includes(token)) {
+    else if (['--repo-root', '--observation-file', '--verification-file', '--provider-content-file', '--staging-directory', '--verification-directory', '--status-file', '--maximum-age-days', '--maximum-observation-age-hours'].includes(token)) {
       if (!argv[index + 1] || argv[index + 1].startsWith('--')) throw new Error(`${token} requires a value`);
       options[token.slice(2)] = argv[++index];
     } else throw new Error(`unknown argument: ${token}`);
@@ -678,6 +697,7 @@ function main() {
   if (options.confirm) {
     const result = recordProviderVerification(repoRoot, {
       verificationFile: options['verification-file'],
+      providerContentFile: options['provider-content-file'],
       verificationDirectory: options['verification-directory'],
       maximumObservationAgeHours: options['maximum-observation-age-hours'] === undefined ? DEFAULT_MAXIMUM_OBSERVATION_AGE_HOURS : Number(options['maximum-observation-age-hours']),
     });
@@ -717,6 +737,7 @@ module.exports = {
   CHECKPOINT_SCHEMA_VERSION,
   CHECKPOINT_KIND,
   LEGACY_VERIFICATION_SCHEMA_VERSION,
+  HASH_ONLY_VERIFICATION_SCHEMA_VERSION,
   VERIFICATION_SCHEMA_VERSION,
   VERIFICATION_KIND,
   HEALTH_SCHEMA_VERSION,
