@@ -1487,6 +1487,11 @@ node 結構工具箱/tools/public-evidence-schema.test.js
 exit $LASTEXITCODE
 '@
 
+$publicReleaseChangeGovernanceCommand = @'
+node 結構工具箱/tools/public-release-change-governance.test.js
+exit $LASTEXITCODE
+'@
+
 $independentEngineeringBenchmarksCommand = @'
 node 結構工具箱/tools/independent-engineering-benchmarks.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -2621,6 +2626,13 @@ $checks = @(
     label = "Versioned public evidence schema contract"
     workdir = $root
     command = $publicEvidenceSchemaContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "public-release-change-governance"
+    label = "Public release threshold regression governance"
+    workdir = $root
+    command = $publicReleaseChangeGovernanceCommand
     slow = $false
   },
   [pscustomobject]@{

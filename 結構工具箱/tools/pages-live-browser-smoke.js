@@ -197,7 +197,7 @@ async page => {
         ];
         if (requiredMeta.some(([index, label]) => !completeCount(state.dashboardMeta[index], label))) routeIssues.push(`invalid public evidence counts: ${JSON.stringify(state.dashboardMeta)}`);
         if (state.dashboardPreviews.length !== 4 || state.dashboardPreviews.some(value => !value.includes('僅限本機工作區'))) routeIssues.push(`invalid public evidence privacy boundaries: ${JSON.stringify(state.dashboardPreviews)}`);
-        if (!state.publicReleaseHistory || state.publicReleaseHistory.rowCount < 1 || !state.publicReleaseHistory.text.includes('正式門檻') || !state.publicReleaseHistory.text.includes('受測來源')) routeIssues.push(`invalid public release history: ${JSON.stringify(state.publicReleaseHistory)}`);
+        if (!state.publicReleaseHistory || state.publicReleaseHistory.rowCount < 1 || !state.publicReleaseHistory.text.includes('正式門檻') || !state.publicReleaseHistory.text.includes('受測來源') || !/(基準|門檻維持|門檻提升|範圍縮減|增減並存)/.test(state.publicReleaseHistory.text)) routeIssues.push(`invalid public release history: ${JSON.stringify(state.publicReleaseHistory)}`);
         if (/C:\\|Users\\|output\/preflight\/history|sourcePath|sourceHash/i.test(state.publicReleaseHistory?.text || '')) routeIssues.push('public release history leaks private implementation details');
         if (state.localDiagnosticSectionsVisible.length) routeIssues.push(`local diagnostic sections remain visible: ${JSON.stringify(state.localDiagnosticSectionsVisible)}`);
         if (privateOutputRequests.length) routeIssues.push(`private output requests: ${JSON.stringify(privateOutputRequests)}`);

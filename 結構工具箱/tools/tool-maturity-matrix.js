@@ -15,6 +15,7 @@ const homepageStatusDir = path.join(toolboxRoot, 'assets', 'status');
 const homepagePlatformStatusPath = path.join(homepageStatusDir, 'platform-status.json');
 const homepagePreflightStatusPath = path.join(homepageStatusDir, 'preflight-summary.json');
 const homepageReportReadinessStatusPath = path.join(homepageStatusDir, 'report-readiness-status.json');
+const publicReleaseReductionAuthorizationPath = path.join(repoRoot, '.github', 'public-release-reduction-authorization.json');
 const platformStatusSourcePath = path.join(repoRoot, 'output', 'audit', 'platform-status.json');
 const preflightSummarySourcePath = path.join(repoRoot, 'output', 'preflight', 'preflight-summary.json');
 const preflightHistorySourcePath = path.join(repoRoot, 'output', 'preflight', 'preflight-history.json');
@@ -77,6 +78,14 @@ const GLOBAL_GOVERNANCE_GATES = [
     label: '正式放行證據',
     contract: '結構工具箱/tools/release-readiness.contract.test.js',
     scope: 'release wrapper、force flags、慢測重用揭露與 dashboard 放行模式顯示',
+    catalogFamilies: [],
+    minCatalogs: 0
+  },
+  {
+    key: 'public-release-change-governance',
+    label: '公開門檻退化治理',
+    contract: '結構工具箱/tools/public-release-change-governance.test.js',
+    scope: '正式檢查、後置檢查與 10 項公開完成數的逐次變化；任何縮減均需一次性精確授權與公開理由',
     catalogFamilies: [],
     minCatalogs: 0
   },
@@ -2843,7 +2852,9 @@ function writeHomepageStatusSnapshots(matrixPayload = null, matrixSourceHash = '
   };
   const retainedBundles = readRetainedPublicEvidenceBundles();
   retainedBundles.push(previousBundle);
-  preflightStatus.releaseHistory = publicEvidenceSchema.buildReleaseHistory(retainedBundles, currentBundle);
+  const reductionAuthorization = readJsonIfExists(publicReleaseReductionAuthorizationPath);
+  assert.ok(reductionAuthorization, 'public release reduction authorization config is required');
+  preflightStatus.releaseHistory = publicEvidenceSchema.buildReleaseHistory(retainedBundles, currentBundle, reductionAuthorization);
   const publicEvidenceResult = publicEvidenceSchema.validatePublicEvidenceBundle(currentBundle);
   assert.equal(publicEvidenceResult.pass, true, `homepage public evidence schema v${publicEvidenceSchema.SCHEMA_VERSION}: ${publicEvidenceResult.errors.join(', ')}`);
   fs.mkdirSync(homepageStatusDir, { recursive: true });

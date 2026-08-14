@@ -59,6 +59,7 @@ const expectedGlobalGovernance = [
   { key: 'report-disclosure-contract', label: '跨家族報告揭露', value: '通過；runId fixture-full；7 catalogs；required formal-traceability, rc-traceability, steel-traceability, anchor-traceability, stone-traceability, decking-traceability, excavation-traceability；report-disclosure-contract' },
   { key: 'delivery-artifacts-contract', label: '交付物一致性', value: '通過；runId fixture-full；3 catalogs；required stone-traceability, decking-traceability, excavation-traceability；delivery-artifacts-contract' },
   { key: 'release-readiness-contract', label: '正式放行證據', value: '通過；runId fixture-full；0 catalogs；release-readiness-contract' },
+  { key: 'public-release-change-governance', label: '公開門檻退化治理', value: '通過；runId fixture-full；0 catalogs；public-release-change-governance' },
   { key: 'rendered-delivery-evidence', label: '實際交付物渲染佐證', value: '通過；runId fixture-full；0 catalogs；rendered-delivery-evidence' },
 ];
 const fixtureAttachmentCounts = [
@@ -93,7 +94,7 @@ const fixtureAttachmentPublicGroups = fixtureAttachmentGroups.map(({
   ...group
 }) => group);
 const fixtureAttachmentStatus = {
-  publicEvidenceSchemaVersion: 2,
+  publicEvidenceSchemaVersion: 3,
   snapshotVersion: 1,
   kind: 'report-readiness-status',
   generatedAt: fixtureGeneratedAt,
@@ -140,7 +141,7 @@ const fixtureAttachmentStatus = {
   deliveryFileIntegrityPass: true,
 };
 const fixturePublicPreflightStatus = {
-  publicEvidenceSchemaVersion: 2,
+  publicEvidenceSchemaVersion: 3,
   snapshotVersion: 1,
   kind: 'preflight-summary',
   generatedAt: fixtureGeneratedAt,
@@ -168,7 +169,7 @@ const fixtureMetricPairs = [
   ['formalResult', 14], ['localQuickResult', 3], ['rendered', 31], ['delivery', 139],
 ];
 fixturePublicPreflightStatus.releaseHistory = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   limit: 8,
   entries: [{
     runId: fixtureReleaseRunId,
@@ -178,10 +179,18 @@ fixturePublicPreflightStatus.releaseHistory = {
     postChecks: { passed: 3, required: 3 },
     dimensions: ['release', 'steel', 'rc', 'delivery'].map(id => ({ id, pass: true })),
     metrics: fixtureMetricPairs.map(([id, required]) => ({ id, complete: required, required })),
+    change: {
+      policyVersion: 1,
+      classification: 'baseline',
+      increases: [],
+      reductions: [],
+      reasonCode: '',
+      reason: '',
+    },
   }],
 };
 const fixturePublicPlatformStatus = {
-  publicEvidenceSchemaVersion: 2,
+  publicEvidenceSchemaVersion: 3,
   snapshotVersion: 1,
   kind: 'platform-status',
   generatedAt: fixtureGeneratedAt,
@@ -202,7 +211,7 @@ const fixtureDeploymentManifest = {
   runId: '123456789',
   runAttempt: 1,
   releaseEvidence: {
-    schemaVersion: 2,
+    schemaVersion: 3,
     runId: fixtureReleaseRunId,
     generatedAt: fixtureGeneratedAt,
     sourceCommitSha: fixtureTestedSourceSha,
@@ -213,10 +222,13 @@ const fixtureDeploymentManifest = {
       { id: 'delivery', pass: true },
     ],
     releaseHistory: {
-      schemaVersion: 1,
+      schemaVersion: 2,
+      changePolicyVersion: 1,
       retainedCount: 1,
       oldestRunId: fixtureReleaseRunId,
       latestRunId: fixtureReleaseRunId,
+      latestClassification: 'baseline',
+      latestReductionCount: 0,
     },
   },
 };
@@ -759,8 +771,8 @@ const fixtures = new Map(Object.entries({
       },
     ],
     globalGovernance: {
-      required: 4,
-      passed: 4,
+      required: 5,
+      passed: 5,
       issueCount: 0,
       gates: [
         {
@@ -828,6 +840,22 @@ const fixtures = new Map(Object.entries({
           runId: 'fixture-full',
           quick: false,
           seconds: 0.3,
+          exitCode: 0,
+          coveredCatalogs: 0,
+          requiredCatalogFamilies: [],
+          catalogFamilies: [],
+          missingCatalogFamilies: [],
+          issues: [],
+        },
+        {
+          key: 'public-release-change-governance',
+          label: '公開門檻退化治理',
+          contract: '結構工具箱/tools/public-release-change-governance.test.js',
+          scope: 'fixture public threshold change governance',
+          pass: true,
+          runId: 'fixture-full',
+          quick: false,
+          seconds: 0.2,
           exitCode: 0,
           coveredCatalogs: 0,
           requiredCatalogFamilies: [],
@@ -2548,6 +2576,7 @@ function assertPublicAttachmentBoundaryState(state, label) {
   assert.ok(Object.values(state.summaryPreviews).every(text => text.includes('僅限本機工作區')), `${label} public summary previews retain explicit local-only details boundary`);
   assert.equal(state.publicReleaseHistory.rows.length, 1, `${label} public release history renders the retained release`);
   assert.ok(state.publicReleaseHistory.text.includes(fixtureReleaseRunId) && state.publicReleaseHistory.text.includes('82 / 82'), `${label} public release history exposes the formal gate summary`);
+  assert.ok(state.publicReleaseHistory.text.includes('基準') && state.publicReleaseHistory.text.includes('提升 0、縮減 0'), `${label} public release history exposes the derived threshold classification`);
   assert.equal(/output\/|sourcePath|sourceHash|C:\\/.test(state.publicReleaseHistory.text), false, `${label} public release history omits private paths and implementation fields`);
   assert.equal(state.gsmMonitorState, 'local-only', `${label} public dashboard marks GSM local-only`);
   assert.equal(state.gsmMonitorHealth, '僅限本機', `${label} public dashboard does not claim GSM health`);

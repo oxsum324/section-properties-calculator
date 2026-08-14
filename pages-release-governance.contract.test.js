@@ -305,7 +305,7 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
     fs.writeFileSync(path.join(fixtureRoot, 'index.html'), '<!doctype html><title>fixture</title>', 'utf8');
     fs.writeFileSync(path.join(fixtureRoot, 'assets', 'app.js'), 'console.log("fixture");', 'utf8');
     fs.writeFileSync(path.join(fixtureRoot, '結構工具箱', 'assets', 'status', 'platform-status.json'), JSON.stringify({
-      publicEvidenceSchemaVersion: 2,
+      publicEvidenceSchemaVersion: 3,
       snapshotVersion: 1,
       kind: 'platform-status',
       generatedAt: '2026-07-19 00:00:00',
@@ -317,7 +317,7 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
       sourceHash: 'a'.repeat(64),
     }), 'utf8');
     fs.writeFileSync(path.join(fixtureRoot, '結構工具箱', 'assets', 'status', 'preflight-summary.json'), JSON.stringify({
-      publicEvidenceSchemaVersion: 2,
+      publicEvidenceSchemaVersion: 3,
       snapshotVersion: 1,
       kind: 'preflight-summary',
       generatedAt: '2026-07-19 00:00:00',
@@ -338,7 +338,7 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
       sourcePath: 'output/preflight/history/20260719-000000/preflight-summary.json',
       sourceHash: 'b'.repeat(64),
       releaseHistory: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         limit: 8,
         entries: [{
           runId: '20260719-000000',
@@ -352,11 +352,19 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
             ['rcResult', 34], ['rcPrint', 34], ['rcPackage', 32],
             ['formalResult', 14], ['localQuickResult', 3], ['rendered', 31], ['delivery', 139],
           ].map(([id, required]) => ({ id, complete: required, required })),
+          change: {
+            policyVersion: 1,
+            classification: 'baseline',
+            increases: [],
+            reductions: [],
+            reasonCode: '',
+            reason: '',
+          },
         }],
       },
     }), 'utf8');
     fs.writeFileSync(path.join(fixtureRoot, '結構工具箱', 'assets', 'status', 'report-readiness-status.json'), JSON.stringify({
-      publicEvidenceSchemaVersion: 2,
+      publicEvidenceSchemaVersion: 3,
       snapshotVersion: 1,
       kind: 'report-readiness-status',
       generatedAt: '2026-07-19 00:00:00',
@@ -412,7 +420,7 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
     assert.equal(first.fileCount, 5, 'deployment manifest includes all three public release snapshots while excluding hidden files and itself');
     assert.deepEqual(first.files.map(file => file.path), ['assets/app.js', 'index.html', '結構工具箱/assets/status/platform-status.json', '結構工具箱/assets/status/preflight-summary.json', '結構工具箱/assets/status/report-readiness-status.json'], 'deployment manifest publishes the complete ordinal file inventory');
     assert.deepEqual(first.releaseEvidence, {
-      schemaVersion: 2,
+      schemaVersion: 3,
       runId: '20260719-000000',
       generatedAt: '2026-07-19 00:00:00',
       sourceCommitSha: 'c'.repeat(40),
@@ -423,10 +431,13 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
         { id: 'delivery', pass: true },
       ],
       releaseHistory: {
-        schemaVersion: 1,
+        schemaVersion: 2,
+        changePolicyVersion: 1,
         retainedCount: 1,
         oldestRunId: '20260719-000000',
         latestRunId: '20260719-000000',
+        latestClassification: 'baseline',
+        latestReductionCount: 0,
       },
     }, 'deployment manifest binds formal release identity and all public evidence dimensions');
     PagesLiveSmoke.validateDeploymentReleaseEvidence(first.releaseEvidence);
@@ -673,6 +684,7 @@ assert.ok(pagesBrowserSmoke.includes("['正式 release 總覽', '鋼構正式附
 assert.ok(pagesBrowserSmoke.includes("[0, '正式檢查']") && pagesBrowserSmoke.includes("[3, '檔案完整性']") && pagesBrowserSmoke.includes("match[1] === match[2]"), 'Pages browser smoke verifies positive complete public evidence counts without freezing the evolving preflight total');
 assert.ok(pagesBrowserSmoke.includes('publicReleaseHistory') && pagesBrowserSmoke.includes('public release history leaks private implementation details'), 'Pages browser smoke verifies the public release history without private implementation leakage');
 assert.ok(deploymentManifestBuilder.includes('retainedCount') && deploymentManifestBuilder.includes('oldestRunId') && deploymentManifestBuilder.includes('latestRunId'), 'deployment manifest binds the independently validated public release history range');
+assert.ok(deploymentManifestBuilder.includes('changePolicyVersion') && deploymentManifestBuilder.includes('latestClassification') && deploymentManifestBuilder.includes('latestReductionCount'), 'deployment manifest binds the latest governed public threshold change');
 assert.ok(pagesBrowserSmoke.includes('localDiagnosticSectionsVisible') && pagesBrowserSmoke.includes('local diagnostic sections remain visible'), 'Pages browser smoke verifies public reading density excludes local diagnostics');
 assert.ok(toolBoundaries.includes('只有正式 live') && toolBoundaries.includes('HTTP smoke') && toolBoundaries.includes('HTTP 5xx'), 'tool boundaries documents the live-only transient retry boundary');
 assert.ok(staging.includes('HTTP smoke') && staging.includes('完整重跑最多一次') && staging.includes('第二次持續失敗仍阻擋'), 'staging guide documents the bounded live retry rule');

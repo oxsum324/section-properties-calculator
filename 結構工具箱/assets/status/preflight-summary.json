@@ -1,5 +1,5 @@
 {
-  "publicEvidenceSchemaVersion": 2,
+  "publicEvidenceSchemaVersion": 3,
   "snapshotVersion": 1,
   "kind": "preflight-summary",
   "generatedAt": "2026-08-14 12:23:56",
@@ -27,7 +27,7 @@
   "sourcePath": "output/preflight/history/20260814-115136/preflight-summary.json",
   "sourceHash": "28e832ba83ed9e941aa758f657b8398ca759b3bc116ba387d20263acb28ea4ed",
   "releaseHistory": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "limit": 8,
     "entries": [
       {
@@ -111,7 +111,15 @@
             "complete": 139,
             "required": 139
           }
-        ]
+        ],
+        "change": {
+          "policyVersion": 1,
+          "classification": "baseline",
+          "increases": [],
+          "reductions": [],
+          "reasonCode": "",
+          "reason": ""
+        }
       },
       {
         "runId": "20260814-003126",
@@ -194,7 +202,21 @@
             "complete": 139,
             "required": 139
           }
-        ]
+        ],
+        "change": {
+          "policyVersion": 1,
+          "classification": "expanded",
+          "increases": [
+            {
+              "id": "records",
+              "from": 82,
+              "to": 83
+            }
+          ],
+          "reductions": [],
+          "reasonCode": "",
+          "reason": ""
+        }
       },
       {
         "runId": "20260814-011241",
@@ -277,7 +299,15 @@
             "complete": 139,
             "required": 139
           }
-        ]
+        ],
+        "change": {
+          "policyVersion": 1,
+          "classification": "unchanged",
+          "increases": [],
+          "reductions": [],
+          "reasonCode": "",
+          "reason": ""
+        }
       },
       {
         "runId": "20260814-115136",
@@ -360,7 +390,15 @@
             "complete": 139,
             "required": 139
           }
-        ]
+        ],
+        "change": {
+          "policyVersion": 1,
+          "classification": "unchanged",
+          "increases": [],
+          "reductions": [],
+          "reasonCode": "",
+          "reason": ""
+        }
       }
     ]
   }

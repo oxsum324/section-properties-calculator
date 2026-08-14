@@ -92,6 +92,7 @@ function releaseEvidenceIdentity(siteRoot) {
   if (!validation.pass) {
     throw new Error(`published public evidence bundle failed schema v${publicEvidenceSchema.SCHEMA_VERSION}: ${validation.errors.join(', ')}`);
   }
+  const latestHistoryEntry = validation.releaseHistory.entries.at(-1);
   return {
     schemaVersion: validation.schemaVersion,
     runId: validation.identity.runId,
@@ -100,9 +101,12 @@ function releaseEvidenceIdentity(siteRoot) {
     dimensions: validation.dimensions,
     releaseHistory: {
       schemaVersion: validation.releaseHistory.schemaVersion,
+      changePolicyVersion: publicEvidenceSchema.CHANGE_POLICY_VERSION,
       retainedCount: validation.releaseHistory.entries.length,
       oldestRunId: validation.releaseHistory.entries[0].runId,
-      latestRunId: validation.releaseHistory.entries.at(-1).runId,
+      latestRunId: latestHistoryEntry.runId,
+      latestClassification: latestHistoryEntry.change.classification,
+      latestReductionCount: latestHistoryEntry.change.reductions.length,
     },
   };
 }

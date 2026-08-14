@@ -295,13 +295,16 @@ function validateDeploymentReleaseEvidence(releaseEvidence) {
     { id: 'rc', pass: true },
     { id: 'delivery', pass: true },
   ], 'Pages deployment manifest binds all four complete public evidence dimensions');
-  assert.deepEqual(Object.keys(releaseEvidence.releaseHistory || {}).sort(), ['latestRunId', 'oldestRunId', 'retainedCount', 'schemaVersion'], 'Pages deployment manifest release history closed schema');
+  assert.deepEqual(Object.keys(releaseEvidence.releaseHistory || {}).sort(), ['changePolicyVersion', 'latestClassification', 'latestReductionCount', 'latestRunId', 'oldestRunId', 'retainedCount', 'schemaVersion'], 'Pages deployment manifest release history closed schema');
   assert.equal(releaseEvidence.releaseHistory.schemaVersion, publicEvidenceSchema.RELEASE_HISTORY_SCHEMA_VERSION, 'Pages deployment manifest release history schema version');
+  assert.equal(releaseEvidence.releaseHistory.changePolicyVersion, publicEvidenceSchema.CHANGE_POLICY_VERSION, 'Pages deployment manifest release change policy version');
   assert.ok(Number.isInteger(releaseEvidence.releaseHistory.retainedCount)
     && releaseEvidence.releaseHistory.retainedCount > 0
     && releaseEvidence.releaseHistory.retainedCount <= publicEvidenceSchema.RELEASE_HISTORY_LIMIT, 'Pages deployment manifest release history count is bounded');
   assert.match(releaseEvidence.releaseHistory.oldestRunId, /^\d{8}-\d{6}$/, 'Pages deployment manifest oldest retained release runId');
   assert.equal(releaseEvidence.releaseHistory.latestRunId, releaseEvidence.runId, 'Pages deployment manifest release history ends at current release');
+  assert.ok(publicEvidenceSchema.CHANGE_CLASSIFICATIONS.includes(releaseEvidence.releaseHistory.latestClassification), 'Pages deployment manifest release change classification');
+  assert.ok(Number.isInteger(releaseEvidence.releaseHistory.latestReductionCount) && releaseEvidence.releaseHistory.latestReductionCount >= 0, 'Pages deployment manifest release reduction count');
 }
 
 function artifactFileUrl(base, relativePath, runId) {
@@ -606,6 +609,8 @@ async function main() {
   assert.deepEqual(publicEvidenceValidation.dimensions, deploymentManifest.releaseEvidence.dimensions, 'deployment manifest dimensions match independently revalidated public snapshots');
   assert.equal(publicEvidenceValidation.releaseHistory.entries.length, deploymentManifest.releaseEvidence.releaseHistory.retainedCount, 'deployment manifest release history count matches independently revalidated public snapshots');
   assert.equal(publicEvidenceValidation.releaseHistory.entries[0].runId, deploymentManifest.releaseEvidence.releaseHistory.oldestRunId, 'deployment manifest oldest release matches independently revalidated public snapshots');
+  assert.equal(publicEvidenceValidation.releaseHistory.entries.at(-1).change.classification, deploymentManifest.releaseEvidence.releaseHistory.latestClassification, 'deployment manifest latest threshold classification matches independently revalidated public snapshots');
+  assert.equal(publicEvidenceValidation.releaseHistory.entries.at(-1).change.reductions.length, deploymentManifest.releaseEvidence.releaseHistory.latestReductionCount, 'deployment manifest latest reduction count matches independently revalidated public snapshots');
   assert.equal(Number.isInteger(reportReadinessStatus.pageOnlyBoundaryRequired), true, 'report readiness required integer');
   assert.equal(reportReadinessStatus.pageOnlyBoundaryComplete, reportReadinessStatus.pageOnlyBoundaryRequired, 'report readiness status fully covered');
   assert.equal(reportReadinessStatus.pageOnlyBoundaryIssueCount, 0, 'report readiness status issues empty');

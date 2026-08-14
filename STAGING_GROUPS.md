@@ -26,8 +26,8 @@
 ```powershell
 git add -- CONTEXT.md docs/adr/0001-page-only-report-readiness.md
 git add -- ".github/workflows/pages-deploy.yml" ".github/pages-smoke/package.json" ".github/pages-smoke/package-lock.json" ".github/pages-smoke/performance-budget.json" ".github/pages-smoke/write-ci-summary.js" ".github/pages-smoke/build-performance-trend.js" ".github/pages-smoke/build-performance-trend.test.js" ".github/workflows/pr-validation.yml" "run-pages-artifact-smoke.ps1" "push-pages-release.ps1" "push-pages-release.bat" "run-preflight-tools-ci.bat" "pages-release-governance.contract.test.js" "pr-validation.contract.test.js"
-git add -- "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/pages-live-browser-smoke.js" "結構工具箱/tools/run-pages-browser-smoke.sh" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/build-pages-clean-routes.js" "結構工具箱/tools/build-pages-deployment-manifest.js" "結構工具箱/tools/verify-pages-release-lineage.js" "結構工具箱/tools/tool-maturity-matrix.js" "結構工具箱/tools/public-evidence-schema.test.js"
-git add -- "結構工具箱/assets/status/public-evidence-schema.js" "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json"
+git add -- "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/pages-live-browser-smoke.js" "結構工具箱/tools/run-pages-browser-smoke.sh" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/build-pages-clean-routes.js" "結構工具箱/tools/build-pages-deployment-manifest.js" "結構工具箱/tools/verify-pages-release-lineage.js" "結構工具箱/tools/tool-maturity-matrix.js" "結構工具箱/tools/public-evidence-schema.test.js" "結構工具箱/tools/public-release-change-governance.test.js"
+git add -- ".github/public-release-reduction-authorization.json" "結構工具箱/assets/status/public-evidence-schema.js" "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json"
 ```
 
 下次同類變更需要人工 hunk review，或改隨後續「報告邊界 / 跨家族 contract」包一起 staging：
@@ -57,7 +57,7 @@ git diff --check -- README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GR
 
 `push-pages-release.ps1` 的成功不只依賴 Actions job 與 manifest 身分；一般推送、既有同 SHA 部署及 `-VerifyOnly` 都必須由目前工作站再次執行公開 `pages-live-smoke.js`，逐檔核對 v2 清冊與正式網址內容，並在結果回傳 `publicArtifactVerified=true`。工作站預設最多進行 3 次、間隔 10 秒的完整複驗，僅由 smoke 對 5xx 或網路暫態錯誤啟用；非暫態錯誤立即失敗，暫態重試用盡後也維持失敗，不得只因遠端 workflow 已綠燈而略過。
 
-上述逐檔清冊現由 schema v3 延續並增列 `releaseEvidence`。Pages provenance 變更必須同批 staging `結構工具箱/audit-dashboard.html`、dashboard contract / browser smoke、deployment manifest builder、HTTP smoke、safe push wrapper、release governance contract 與三份治理文件。builder 必須從實際發布的 tracked preflight / report-readiness 快照驗證正式 release 條件並綁定 release runId、產生時間與受測來源 SHA；公開 smoke 再核對 manifest 與兩份快照。dashboard 必須分開顯示一般巡檢與正式 release 新鮮度，7 日／30 日只作重驗提醒；缺 manifest 顯示「未部署證據」，身分不一致顯示紅色「未對齊」。
+上述逐檔清冊現由 schema v3 延續並增列 `releaseEvidence`。Pages provenance 變更必須同批 staging `結構工具箱/audit-dashboard.html`、dashboard contract / browser smoke、deployment manifest builder、HTTP smoke、safe push wrapper、release governance contract 與三份治理文件。builder 必須從實際發布的 tracked preflight / report-readiness 快照驗證正式 release 條件並綁定 release runId、產生時間與受測來源 SHA；公開 smoke 再核對 manifest 與兩份快照。公開證據 schema v3／歷程 v2 另以 12 個 required counter 比較相鄰 release；縮減必須同批 staging 一次性 `.github/public-release-reduction-authorization.json`，精確列出上一個 runId、全部縮減欄位／前後值與可公開理由，未使用或過期授權均阻擋。完成該輪後下一個來源提交應重設為 inactive。dashboard 必須分開顯示一般巡檢與正式 release 新鮮度，並揭露門檻基準、維持、提升、縮減或混合分類；7 日／30 日只作重驗提醒，缺 manifest 顯示「未部署證據」，身分不一致顯示紅色「未對齊」。
 
 dashboard 公開／本機資料範圍變更也屬 A0 同包。有效 v3 manifest 必須使公開頁只讀 manifest 與三份 tracked status，禁止發出任何 `output/` 請求並隱藏私人摘要連結；四張公開卡片必須各自以 tracked 結構化欄位驗證正式 release、鋼構、RC、風震／跨家族交付完成數，不得複製同一 platform pass 或以文案推定。localhost 只有明確 `?audit_scope=local` 才啟用完整診斷。`audit-dashboard-browser-smoke.test.js` 應以 request audit 同時證明本機資料仍完整、公開桌面與手機皆零 private-output 請求，並核對四個證據面向及完成數；不能只忽略 404 console 訊息。
 

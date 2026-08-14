@@ -2709,6 +2709,9 @@
       freshnessHintNode.textContent = `正式 release ${preflight.runId} 約 ${ageDays} 日前；受測來源 ${shortSha(preflight.sourceCommitSha)}。時間是重驗提醒，不會取代身分對齊。`;
 
       const releaseEvidence = manifest?.releaseEvidence;
+      const latestPublicChange = Array.isArray(preflight?.releaseHistory?.entries)
+        ? preflight.releaseHistory.entries.at(-1)?.change
+        : null;
       const expectedEvidenceDimensions = window.PublicEvidenceSchema?.DIMENSION_IDS || [];
       const manifestEvidenceDimensionsValid = Array.isArray(releaseEvidence?.dimensions)
         && releaseEvidence.dimensions.length === expectedEvidenceDimensions.length
@@ -2718,11 +2721,17 @@
         ));
       const manifestReleaseHistoryValid = releaseEvidence?.releaseHistory
         && releaseEvidence.releaseHistory.schemaVersion === window.PublicEvidenceSchema?.RELEASE_HISTORY_SCHEMA_VERSION
+        && releaseEvidence.releaseHistory.changePolicyVersion === window.PublicEvidenceSchema?.CHANGE_POLICY_VERSION
         && Number.isInteger(releaseEvidence.releaseHistory.retainedCount)
         && releaseEvidence.releaseHistory.retainedCount > 0
         && releaseEvidence.releaseHistory.retainedCount <= window.PublicEvidenceSchema?.RELEASE_HISTORY_LIMIT
         && /^\d{8}-\d{6}$/.test(String(releaseEvidence.releaseHistory.oldestRunId || ''))
-        && String(releaseEvidence.releaseHistory.latestRunId || '') === String(preflight.runId || '');
+        && String(releaseEvidence.releaseHistory.latestRunId || '') === String(preflight.runId || '')
+        && window.PublicEvidenceSchema?.CHANGE_CLASSIFICATIONS?.includes(releaseEvidence.releaseHistory.latestClassification)
+        && Number.isInteger(releaseEvidence.releaseHistory.latestReductionCount)
+        && releaseEvidence.releaseHistory.latestReductionCount >= 0
+        && releaseEvidence.releaseHistory.latestClassification === latestPublicChange?.classification
+        && releaseEvidence.releaseHistory.latestReductionCount === latestPublicChange?.reductions?.length;
       const manifestValid = manifest?.schemaVersion === 3
         && manifest?.kind === 'pages-deployment'
         && /^[0-9a-f]{40}$/i.test(String(manifest.commitSha || ''))
@@ -2958,16 +2967,34 @@
         return;
       }
       const metric = (entry, id) => entry.metrics.find(item => item.id === id) || {};
+      const classificationLabels = {
+        baseline: '基準',
+        unchanged: '門檻維持',
+        expanded: '門檻提升',
+        reduced: '範圍縮減',
+        mixed: '增減並存',
+      };
+      const reasonLabels = {
+        'scope-change': '範圍調整',
+        'gate-consolidation': '門檻整併',
+        'tool-retirement': '工具退場',
+        'metric-correction': '指標更正',
+      };
       const rows = entries.map((entry, index) => {
-        const previous = entries[index + 1] || null;
-        const gateDelta = previous ? entry.records.required - previous.records.required : 0;
-        const gateText = previous ? `${gateDelta >= 0 ? '+' : ''}${gateDelta}` : '基準';
+        const change = entry.change || {};
+        const increaseCount = Array.isArray(change.increases) ? change.increases.length : 0;
+        const reductionCount = Array.isArray(change.reductions) ? change.reductions.length : 0;
+        const changeText = classificationLabels[change.classification] || '未分類';
+        const changeDetail = `${changeText}｜提升 ${increaseCount}、縮減 ${reductionCount}`;
+        const reductionReason = reductionCount > 0
+          ? `<br><span class="history-note">${escapeHtml(reasonLabels[change.reasonCode] || change.reasonCode)}｜${escapeHtml(change.reason)}</span>`
+          : '';
         const steel = metric(entry, 'steelResult');
         const rc = metric(entry, 'rcResult');
         const delivery = metric(entry, 'delivery');
         return `<tr>
           <td><strong>${escapeHtml(entry.runId)}</strong><br><span class="history-note">${escapeHtml(entry.generatedAt)}</span></td>
-          <td>${entry.records.passed} / ${entry.records.required}<br><span class="history-note">門檻變化 ${gateText}</span></td>
+          <td>${entry.records.passed} / ${entry.records.required}<br><span class="history-note">${escapeHtml(changeDetail)}</span>${reductionReason}</td>
           <td>${entry.postChecks.passed} / ${entry.postChecks.required}</td>
           <td>鋼構 ${steel.complete} / ${steel.required}<br>RC ${rc.complete} / ${rc.required}<br>交付 ${delivery.complete} / ${delivery.required}</td>
           <td>${escapeHtml(shortSha(entry.sourceCommitSha))}</td>

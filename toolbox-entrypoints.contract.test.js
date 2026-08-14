@@ -818,6 +818,9 @@ assert.ok(pagesLiveBrowserSmoke.includes("['正式 release 總覽', '鋼構正�
 assert.ok(pagesLiveBrowserSmoke.includes("[0, '正式檢查']") && pagesLiveBrowserSmoke.includes("[3, '檔案完整性']") && pagesLiveBrowserSmoke.includes("match[1] === match[2]"), 'Pages browser smoke locks positive complete public evidence counts without a stale fixed gate total');
 assert.ok(pagesLiveBrowserSmoke.includes('publicReleaseHistory') && pagesLiveBrowserSmoke.includes('public release history leaks private implementation details'), 'Pages browser smoke locks the bounded public release history and privacy boundary');
 assert.ok(pagesDeploymentManifestBuilder.includes('retainedCount') && pagesDeploymentManifestBuilder.includes('oldestRunId') && pagesDeploymentManifestBuilder.includes('latestRunId'), 'Pages manifest binds the validated public release history range');
+assert.ok(pagesDeploymentManifestBuilder.includes('changePolicyVersion') && pagesDeploymentManifestBuilder.includes('latestClassification') && pagesDeploymentManifestBuilder.includes('latestReductionCount'), 'Pages manifest binds the latest governed public threshold change');
+assert.ok(preflight.includes('public-release-change-governance') && preflight.includes('public-release-change-governance.test.js'), 'preflight records the public threshold regression governance gate');
+assert.ok(fs.existsSync(path.join(repoRoot, '.github', 'public-release-reduction-authorization.json')), 'one-time public threshold reduction authorization config exists');
 assert.ok(pagesLiveBrowserSmoke.includes('localDiagnosticSectionsVisible') && pagesLiveBrowserSmoke.includes('local diagnostic sections remain visible'), 'Pages browser smoke locks public reading density');
 assert.ok(pagesLiveSmoke.includes('石材固定/dev_tools/baseline_capture.html'), 'Pages live smoke blocks stone dev tools publication');
 assert.ok(pagesLiveSmoke.includes('石材固定/server.py'), 'Pages live smoke blocks stone backend helper publication');
