@@ -1502,6 +1502,8 @@ node 結構工具箱/tools/public-release-decision-backup-task.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node 結構工具箱/tools/public-release-decision-restore-drill.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node 結構工具箱/tools/public-release-decision-restore-drill-health.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node 結構工具箱/tools/public-release-decision-restore-drill-task.test.js
 exit $LASTEXITCODE
 '@
@@ -3377,6 +3379,23 @@ if ($overallPass -and $isReleaseMode) {
           [System.IO.File]::AppendAllText($summaryPath, "- Release decision restore drill: pass=False, exitCode=$($decisionRestoreDrillProc.ExitCode), log=$decisionRestoreDrillStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
           [System.IO.File]::AppendAllText($historySummaryPath, "- Release decision restore drill: pass=False, exitCode=$($decisionRestoreDrillProc.ExitCode), log=$decisionRestoreDrillStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
           Update-PreflightHistoryManifest
+        } else {
+          $decisionRestoreDrillHealthScript = Join-Path $root "結構工具箱\tools\public-release-decision-restore-drill-health.js"
+          $decisionRestoreDrillHealthStdout = Join-Path $runDir "public-release-decision-restore-drill-health.stdout.txt"
+          $decisionRestoreDrillHealthStderr = Join-Path $runDir "public-release-decision-restore-drill-health.stderr.txt"
+          $decisionRestoreDrillHealthProc = Start-Process -FilePath node -ArgumentList @($decisionRestoreDrillHealthScript, "--write", "--json") -WorkingDirectory $root -RedirectStandardOutput $decisionRestoreDrillHealthStdout -RedirectStandardError $decisionRestoreDrillHealthStderr -PassThru -Wait -WindowStyle Hidden
+          if ($decisionRestoreDrillHealthProc.ExitCode -ne 0) {
+            $overallPass = $false
+            $failures.Add("public-release-decision-restore-drill-health: exitCode=$($decisionRestoreDrillHealthProc.ExitCode), log=$decisionRestoreDrillHealthStderr")
+            $payload["pass"] = $overallPass
+            $payload["failureCount"] = $failures.Count
+            $payload["failures"] = @($failures.ToArray())
+            Write-JsonFile -Path $summaryJsonPath -Value $payload -Depth 6
+            Write-JsonFile -Path $historySummaryJsonPath -Value $payload -Depth 6
+            [System.IO.File]::AppendAllText($summaryPath, "- Release decision restore drill health: pass=False, exitCode=$($decisionRestoreDrillHealthProc.ExitCode), log=$decisionRestoreDrillHealthStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
+            [System.IO.File]::AppendAllText($historySummaryPath, "- Release decision restore drill health: pass=False, exitCode=$($decisionRestoreDrillHealthProc.ExitCode), log=$decisionRestoreDrillHealthStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
+            Update-PreflightHistoryManifest
+          }
         }
       }
     }

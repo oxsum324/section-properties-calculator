@@ -14,7 +14,9 @@ const preflight = fs.readFileSync(path.join(repoRoot, 'preflight-tools.ps1'), 'u
   'Test-Path -LiteralPath $externalDirectory -PathType Container',
   '$env:PUBLIC_RELEASE_DECISION_BACKUP_DIR = $externalDirectory',
   'public-release-decision-restore-drill.js',
+  'public-release-decision-restore-drill-health.js',
   '--write --require-external --json --repo-root $repoRoot',
+  'if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }',
   'exit $LASTEXITCODE',
 ].forEach(needle => assert.ok(runner.includes(needle), `weekly runner preserves ${needle}`));
 
@@ -49,4 +51,4 @@ assert.equal((manager.match(/& \$runner \| Out-Null/g) || []).length, 1, 'instal
 assert.equal(/-UserId\s+['"]?SYSTEM|RunLevel\s+Highest/i.test(manager), false, 'restore drill task never requests system identity or elevation');
 assert.ok(preflight.includes('public-release-decision-restore-drill-task.test.js'), 'preflight includes weekly drill task contract');
 
-console.log('public release decision restore drill task OK (runner=6, manager=22, guards=3)');
+console.log('public release decision restore drill task OK (runner=8, manager=22, guards=3)');

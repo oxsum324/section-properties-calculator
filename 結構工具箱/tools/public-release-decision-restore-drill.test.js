@@ -89,6 +89,10 @@ try {
   const privateReceipt = JSON.parse(fs.readFileSync(localReceiptPath, 'utf8'));
   assert.equal(drill.validateReceipt(privateReceipt).pass, true, 'private restore drill receipt validates as a closed schema');
   assert.equal(drill.validateReceipt({ ...privateReceipt, undeclared: true }).pass, false, 'private receipt rejects undeclared fields');
+  const privateHistory = drill.loadReceiptHistory(path.join(localDirectory, drill.DRILL_DIRECTORY));
+  const privateAnchor = JSON.parse(fs.readFileSync(path.join(root, ...drill.DEFAULT_ANCHOR_FILE.split('/')), 'utf8'));
+  assert.equal(drill.validateReceiptAnchor(privateAnchor).pass, true, 'private restore drill tip anchor validates as a closed schema');
+  assert.deepEqual(privateAnchor, drill.anchorForReceiptHistory(privateHistory), 'private tip anchor binds the complete receipt history tip and count');
 
   const statusPath = drill.writeStatus(root, passed.status);
   const statusText = fs.readFileSync(statusPath, 'utf8');
@@ -200,6 +204,86 @@ try {
   assert.equal(drillFiles(mirrorFailurePair.localDirectory).length, 0, 'receipt transaction rollback removes the new local receipt');
   assert.equal(drillFiles(mirrorFailurePair.externalDirectory).length, 0, 'receipt transaction rollback leaves no external receipt');
 
+  const anchorFailureRoot = tempRoot('decision-restore-anchor-rollback-');
+  const anchorFailurePair = initializePair(anchorFailureRoot, '2099-01-01T02:02:15Z');
+  const anchorFailure = drill.runRestoreDrill(anchorFailureRoot, {
+    externalDirectory: anchorFailurePair.externalDirectory,
+    requireExternal: true,
+    temporaryParent,
+    now: new Date('2099-01-02T03:04:14Z'),
+    hooks: { beforeAnchorWrite: () => { throw new Error('simulated private anchor failure'); } },
+  });
+  assert.equal(anchorFailure.pass, false, 'private tip anchor failure blocks a partial drill receipt');
+  assert.deepEqual(anchorFailure.status.issueCodes, ['receipt-anchor-write-failed'], 'anchor transaction failure has a stable issue code');
+  assert.equal(drillFiles(anchorFailurePair.localDirectory).length, 0, 'anchor failure rolls back the new local receipt');
+  assert.equal(drillFiles(anchorFailurePair.externalDirectory).length, 0, 'anchor failure rolls back the new external receipt');
+  assert.equal(fs.existsSync(path.join(anchorFailureRoot, ...drill.DEFAULT_ANCHOR_FILE.split('/'))), false, 'anchor failure leaves no false private tip anchor');
+
+  const postAnchorFailureRoot = tempRoot('decision-restore-post-anchor-rollback-');
+  const postAnchorFailurePair = initializePair(postAnchorFailureRoot, '2099-01-01T02:02:16Z');
+  const firstAnchored = drill.runRestoreDrill(postAnchorFailureRoot, {
+    externalDirectory: postAnchorFailurePair.externalDirectory,
+    requireExternal: true,
+    temporaryParent,
+    now: new Date('2099-01-02T03:04:15Z'),
+  });
+  assert.equal(firstAnchored.pass, true, 'fixture initializes an existing private tip anchor');
+  drill.writeStatus(postAnchorFailureRoot, firstAnchored.status);
+  const existingAnchorPath = path.join(postAnchorFailureRoot, ...drill.DEFAULT_ANCHOR_FILE.split('/'));
+  const existingAnchorBytes = fs.readFileSync(existingAnchorPath);
+  const postAnchorFailure = drill.runRestoreDrill(postAnchorFailureRoot, {
+    externalDirectory: postAnchorFailurePair.externalDirectory,
+    requireExternal: true,
+    temporaryParent,
+    now: new Date('2099-01-03T03:04:15Z'),
+    hooks: { afterAnchorWrite: () => { throw new Error('simulated post-anchor verification failure'); } },
+  });
+  assert.equal(postAnchorFailure.pass, false, 'post-anchor verification failure rolls back the whole append');
+  assert.deepEqual(postAnchorFailure.status.issueCodes, ['receipt-history-invalid'], 'post-anchor verification failure has a stable issue code');
+  assert.equal(drillFiles(postAnchorFailurePair.localDirectory).length, 1, 'post-anchor failure retains only the prior local receipt');
+  assert.equal(drillFiles(postAnchorFailurePair.externalDirectory).length, 1, 'post-anchor failure retains only the prior external receipt');
+  assert.deepEqual(fs.readFileSync(existingAnchorPath), existingAnchorBytes, 'post-anchor failure restores the exact prior anchor bytes');
+
+  const legacyRoot = tempRoot('decision-restore-legacy-migration-');
+  const legacyPair = initializePair(legacyRoot, '2099-01-01T02:02:02Z');
+  const { sequence: ignoredSequence, previousReceipt: ignoredPrevious, receiptId: ignoredId, ...currentCore } = passed.receipt;
+  const legacyCore = { ...currentCore, schemaVersion: drill.LEGACY_DRILL_SCHEMA_VERSION };
+  const legacyReceipt = { ...legacyCore, receiptId: `PDR-${receipts.digestObject(legacyCore).slice(0, 24).toUpperCase()}` };
+  const legacyFileName = `public-release-decision-restore-drill-20990102-030405-${legacyReceipt.receiptId}.json`;
+  for (const directory of [legacyPair.localDirectory, legacyPair.externalDirectory]) {
+    writeJson(path.join(directory, drill.DRILL_DIRECTORY, legacyFileName), legacyReceipt);
+  }
+  const migrated = drill.runRestoreDrill(legacyRoot, {
+    externalDirectory: legacyPair.externalDirectory,
+    requireExternal: true,
+    temporaryParent,
+    now: new Date('2099-01-03T03:04:05Z'),
+  });
+  assert.equal(migrated.pass, true, 'legacy schema v1 history migrates by appending a chained schema v2 receipt');
+  assert.equal(migrated.receipt.schemaVersion, drill.DRILL_SCHEMA_VERSION, 'new receipt uses the chained schema');
+  assert.equal(migrated.receipt.sequence, 2, 'first chained receipt continues after the legacy history count');
+  assert.equal(migrated.receipt.previousReceipt.receiptId, legacyReceipt.receiptId, 'first chained receipt binds the legacy history tip');
+  const migratedHistory = drill.loadReceiptHistory(path.join(legacyPair.localDirectory, drill.DRILL_DIRECTORY));
+  assert.equal(migratedHistory.legacyCount, 1, 'migrated history retains the legacy receipt');
+  assert.equal(migratedHistory.currentCount, 1, 'migrated history adds one chained receipt');
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(path.join(legacyRoot, ...drill.DEFAULT_ANCHOR_FILE.split('/')), 'utf8')),
+    drill.anchorForReceiptHistory(migratedHistory),
+    'legacy migration initializes the private tip anchor at the new chained receipt',
+  );
+  drill.writeStatus(legacyRoot, migrated.status);
+  for (const directory of [legacyPair.localDirectory, legacyPair.externalDirectory]) {
+    fs.rmSync(path.join(directory, drill.DRILL_DIRECTORY, legacyFileName));
+  }
+  const deletedLegacy = drill.runRestoreDrill(legacyRoot, {
+    externalDirectory: legacyPair.externalDirectory,
+    requireExternal: true,
+    temporaryParent,
+    now: new Date('2099-01-04T03:04:05Z'),
+  });
+  assert.equal(deletedLegacy.pass, false, 'two-sided deletion inside a chained history is blocked');
+  assert.deepEqual(deletedLegacy.status.issueCodes, ['receipt-history-invalid'], 'interior history deletion has a stable issue code');
+
   assert.throws(() => drill.writeStatus(root, passed.status, '..\\outside.json'), /inside the repository/, 'status cannot escape the repository');
   assert.throws(() => drill.parseArgs(['--unknown']), /unknown argument/, 'unknown CLI arguments fail closed');
 } finally {
@@ -211,4 +295,4 @@ const preflight = fs.readFileSync(path.join(repoRoot, 'preflight-tools.ps1'), 'u
 assert.ok(preflight.includes('public-release-decision-restore-drill.test.js'), 'preflight includes isolated restore drill contract');
 assert.ok(preflight.indexOf('$decisionBackupHealthScript') < preflight.indexOf('$decisionRestoreDrillScript'), 'formal release drills only after backup health succeeds');
 
-console.log('public release decision restore drill OK (passed=2, failures=7, privacy=2, rollback=1, guards=4)');
+console.log('public release decision restore drill OK (passed=4, failures=10, privacy=2, rollback=3, migration=1, guards=4)');

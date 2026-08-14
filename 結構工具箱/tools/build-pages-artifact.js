@@ -28,6 +28,8 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/tools/manage-public-release-decision-backup-health-task.ps1',
   '結構工具箱/tools/public-release-decision-restore-drill.js',
   '結構工具箱/tools/public-release-decision-restore-drill.test.js',
+  '結構工具箱/tools/public-release-decision-restore-drill-health.js',
+  '結構工具箱/tools/public-release-decision-restore-drill-health.test.js',
   '結構工具箱/tools/public-release-decision-restore-drill-task.test.js',
   '結構工具箱/tools/run-public-release-decision-restore-drill.ps1',
   '結構工具箱/tools/manage-public-release-decision-restore-drill-task.ps1',

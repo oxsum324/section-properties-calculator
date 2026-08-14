@@ -6,12 +6,18 @@ const receipts = require('./public-release-decision-receipt.js');
 const backups = require('./public-release-decision-backup.js');
 const health = require('./public-release-decision-backup-health.js');
 
-const DRILL_SCHEMA_VERSION = 1;
+const LEGACY_DRILL_SCHEMA_VERSION = 1;
+const DRILL_SCHEMA_VERSION = 2;
+const STATUS_SCHEMA_VERSION = 2;
+const ANCHOR_SCHEMA_VERSION = 1;
 const DRILL_KIND = 'public-release-decision-restore-drill-receipt';
 const STATUS_KIND = 'public-release-decision-restore-drill-status';
+const ANCHOR_KIND = 'public-release-decision-restore-drill-anchor';
 const DEFAULT_STATUS_FILE = 'output/audit/public-release-decision-restore-drill.json';
+const DEFAULT_ANCHOR_FILE = 'output/audit/public-release-decision-restore-drill-anchor.json';
 const DRILL_DIRECTORY = 'restore-drills';
 const ISOLATION_PREFIX = 'public-release-decision-restore-drill-';
+const DRILL_FILE_PATTERN = /^public-release-decision-restore-drill-\d{8}-\d{6}-(PDR-[0-9A-F]{24})\.json$/;
 const ISSUE_CODES = new Set([
   'external-backup-not-configured',
   'external-backup-matches-local-directory',
@@ -21,6 +27,11 @@ const ISSUE_CODES = new Set([
   'isolation-cleanup-failed',
   'source-repository-changed',
   'receipt-mirror-write-failed',
+  'receipt-history-invalid',
+  'receipt-history-mismatch',
+  'receipt-history-rollback',
+  'receipt-history-anchor-mismatch',
+  'receipt-anchor-write-failed',
 ]);
 
 class DrillError extends Error {
@@ -158,11 +169,16 @@ function receiptId(core) {
   return `PDR-${receipts.digestObject(core).slice(0, 24).toUpperCase()}`;
 }
 
-function buildReceipt(completedAt, selection, sourceState, restoreResult) {
+function buildReceipt(completedAt, selection, sourceState, restoreResult, receiptHistory) {
+  const previous = receiptHistory.entries.at(-1)?.receipt || null;
   const core = {
     schemaVersion: DRILL_SCHEMA_VERSION,
     kind: DRILL_KIND,
     completedAt,
+    sequence: receiptHistory.entries.length + 1,
+    previousReceipt: previous
+      ? { receiptId: previous.receiptId, receiptSha256: receipts.digestObject(previous) }
+      : { receiptId: '', receiptSha256: '' },
     source: {
       mode: selection.mode,
       backupId: selection.selected.backup.backupId,
@@ -194,10 +210,22 @@ function buildReceipt(completedAt, selection, sourceState, restoreResult) {
 function validateReceipt(value) {
   const errors = [];
   const add = (pass, label) => { if (!pass) errors.push(label); };
-  add(hasExactKeys(value, ['schemaVersion', 'kind', 'completedAt', 'source', 'chain', 'restore', 'receiptId']), 'receipt.shape');
-  add(value?.schemaVersion === DRILL_SCHEMA_VERSION, 'receipt.schemaVersion');
+  const legacy = value?.schemaVersion === LEGACY_DRILL_SCHEMA_VERSION;
+  const current = value?.schemaVersion === DRILL_SCHEMA_VERSION;
+  const expectedKeys = legacy
+    ? ['schemaVersion', 'kind', 'completedAt', 'source', 'chain', 'restore', 'receiptId']
+    : ['schemaVersion', 'kind', 'completedAt', 'sequence', 'previousReceipt', 'source', 'chain', 'restore', 'receiptId'];
+  add(hasExactKeys(value, expectedKeys), 'receipt.shape');
+  add(legacy || current, 'receipt.schemaVersion');
   add(value?.kind === DRILL_KIND, 'receipt.kind');
   add(Number.isFinite(Date.parse(String(value?.completedAt || ''))), 'receipt.completedAt');
+  if (current) {
+    add(Number.isInteger(value?.sequence) && value.sequence > 0, 'receipt.sequence');
+    add(hasExactKeys(value?.previousReceipt, ['receiptId', 'receiptSha256']), 'receipt.previousReceipt.shape');
+    const first = value?.sequence === 1;
+    add(first ? value?.previousReceipt?.receiptId === '' : /^PDR-[0-9A-F]{24}$/.test(String(value?.previousReceipt?.receiptId || '')), 'receipt.previousReceipt.receiptId');
+    add(first ? value?.previousReceipt?.receiptSha256 === '' : /^[0-9a-f]{64}$/.test(String(value?.previousReceipt?.receiptSha256 || '')), 'receipt.previousReceipt.receiptSha256');
+  }
   add(hasExactKeys(value?.source, ['mode', 'backupId', 'backupSha256']), 'receipt.source.shape');
   add(['external-mirror', 'local-default'].includes(value?.source?.mode), 'receipt.source.mode');
   add(/^PRB-[0-9A-F]{24}$/.test(String(value?.source?.backupId || '')), 'receipt.source.backupId');
@@ -221,6 +249,189 @@ function validateReceipt(value) {
     add(value.receiptId === receiptId(core), 'receipt.receiptId');
   }
   return { pass: errors.length === 0, errors };
+}
+
+function loadReceiptHistory(directory, options = {}) {
+  const target = path.resolve(directory);
+  if (!fs.existsSync(target)) {
+    if (options.allowMissing) return { directory: target, entries: [], legacyCount: 0, currentCount: 0 };
+    throw new DrillError('receipt-history-invalid', 'restore drill receipt directory is missing');
+  }
+  const stat = fs.lstatSync(target);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new DrillError('receipt-history-invalid', 'restore drill receipt directory must be a regular directory');
+  const entries = fs.readdirSync(target)
+    .filter(name => name.toLowerCase().endsWith('.json'))
+    .map(name => {
+      const match = name.match(DRILL_FILE_PATTERN);
+      if (!match) throw new DrillError('receipt-history-invalid', 'restore drill receipt filename is invalid');
+      const filePath = path.join(target, name);
+      const fileStat = fs.lstatSync(filePath);
+      if (!fileStat.isFile() || fileStat.isSymbolicLink()) throw new DrillError('receipt-history-invalid', 'restore drill receipt must be a regular file');
+      let receipt;
+      try {
+        receipt = JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
+      } catch {
+        throw new DrillError('receipt-history-invalid', 'restore drill receipt JSON is invalid');
+      }
+      const validation = validateReceipt(receipt);
+      if (!validation.pass || receipt.receiptId !== match[1]) throw new DrillError('receipt-history-invalid', 'restore drill receipt content or filename does not validate');
+      return { name, filePath, receipt, fileSha256: sha256File(filePath) };
+    })
+    .sort((left, right) => Date.parse(left.receipt.completedAt) - Date.parse(right.receipt.completedAt) || left.receipt.receiptId.localeCompare(right.receipt.receiptId));
+  const ids = new Set();
+  let currentStarted = false;
+  entries.forEach((entry, index) => {
+    const value = entry.receipt;
+    if (ids.has(value.receiptId)) throw new DrillError('receipt-history-invalid', 'restore drill history repeats a receipt ID');
+    ids.add(value.receiptId);
+    if (value.schemaVersion === LEGACY_DRILL_SCHEMA_VERSION) {
+      if (currentStarted) throw new DrillError('receipt-history-invalid', 'legacy restore drill receipt appears after the chained history began');
+      return;
+    }
+    currentStarted = true;
+    if (value.sequence !== index + 1) throw new DrillError('receipt-history-invalid', 'restore drill sequence is not contiguous');
+    const previous = entries[index - 1]?.receipt || null;
+    const expectedPrevious = previous
+      ? { receiptId: previous.receiptId, receiptSha256: receipts.digestObject(previous) }
+      : { receiptId: '', receiptSha256: '' };
+    if (receipts.stableJson(value.previousReceipt) !== receipts.stableJson(expectedPrevious)) {
+      throw new DrillError('receipt-history-invalid', 'restore drill receipt does not chain to the prior receipt');
+    }
+  });
+  return {
+    directory: target,
+    entries,
+    legacyCount: entries.filter(entry => entry.receipt.schemaVersion === LEGACY_DRILL_SCHEMA_VERSION).length,
+    currentCount: entries.filter(entry => entry.receipt.schemaVersion === DRILL_SCHEMA_VERSION).length,
+  };
+}
+
+function historiesMatch(left, right) {
+  if (left.entries.length !== right.entries.length) return false;
+  return left.entries.every((entry, index) => {
+    const candidate = right.entries[index];
+    return entry.name === candidate.name
+      && entry.fileSha256 === candidate.fileSha256
+      && receipts.stableJson(entry.receipt) === receipts.stableJson(candidate.receipt);
+  });
+}
+
+function anchorForReceiptHistory(history) {
+  const tip = history.entries.at(-1)?.receipt || null;
+  return {
+    schemaVersion: ANCHOR_SCHEMA_VERSION,
+    kind: ANCHOR_KIND,
+    receiptCount: history.entries.length,
+    receiptId: tip?.receiptId || '',
+    receiptSha256: tip ? receipts.digestObject(tip) : '',
+  };
+}
+
+function validateReceiptAnchor(value) {
+  const errors = [];
+  const add = (pass, label) => { if (!pass) errors.push(label); };
+  add(hasExactKeys(value, ['schemaVersion', 'kind', 'receiptCount', 'receiptId', 'receiptSha256']), 'anchor.shape');
+  add(value?.schemaVersion === ANCHOR_SCHEMA_VERSION && value?.kind === ANCHOR_KIND, 'anchor.identity');
+  add(Number.isInteger(value?.receiptCount) && value.receiptCount >= 0, 'anchor.receiptCount');
+  const inactive = value?.receiptCount === 0;
+  add(inactive ? value?.receiptId === '' : /^PDR-[0-9A-F]{24}$/.test(String(value?.receiptId || '')), 'anchor.receiptId');
+  add(inactive ? value?.receiptSha256 === '' : /^[0-9a-f]{64}$/.test(String(value?.receiptSha256 || '')), 'anchor.receiptSha256');
+  return { pass: errors.length === 0, errors };
+}
+
+function loadReceiptAnchor(repoRoot, history) {
+  const target = path.join(repoRoot, ...DEFAULT_ANCHOR_FILE.split('/'));
+  if (!fs.existsSync(target)) {
+    if (history.currentCount === 0) return { initialized: false, target, anchor: anchorForReceiptHistory(history) };
+    throw new DrillError('receipt-history-anchor-mismatch', 'chained restore drill history has no private tip anchor');
+  }
+  try {
+    const stat = fs.lstatSync(target);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('anchor must be a regular file');
+    const anchor = JSON.parse(fs.readFileSync(target, 'utf8').replace(/^\uFEFF/, ''));
+    const validation = validateReceiptAnchor(anchor);
+    if (!validation.pass) throw new Error(validation.errors.join(', '));
+    const expected = anchorForReceiptHistory(history);
+    if (receipts.stableJson(anchor) !== receipts.stableJson(expected)) throw new Error('anchor does not match history tip');
+    return { initialized: true, target, anchor };
+  } catch (error) {
+    if (error instanceof DrillError) throw error;
+    throw new DrillError('receipt-history-anchor-mismatch', `restore drill private tip anchor is invalid: ${error.message}`);
+  }
+}
+
+function replaceReceiptAnchor(repoRoot, value, hooks = {}) {
+  const validation = validateReceiptAnchor(value);
+  if (!validation.pass) throw new DrillError('receipt-anchor-write-failed', `new restore drill anchor is invalid: ${validation.errors.join(', ')}`);
+  const target = path.join(repoRoot, ...DEFAULT_ANCHOR_FILE.split('/'));
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  const previousExists = fs.existsSync(target);
+  const previousBytes = previousExists ? fs.readFileSync(target) : null;
+  const replaceBytes = bytes => {
+    const temporary = `${target}.${process.pid}.${Date.now()}.tmp`;
+    const displaced = `${target}.${process.pid}.${Date.now()}.bak`;
+    fs.writeFileSync(temporary, bytes, { flag: 'wx' });
+    let displacedExisting = false;
+    try {
+      if (fs.existsSync(target)) {
+        fs.renameSync(target, displaced);
+        displacedExisting = true;
+      }
+      fs.renameSync(temporary, target);
+      if (displacedExisting) {
+        try { fs.rmSync(displaced, { force: true }); }
+        catch { /* the committed anchor remains authoritative; a stale private backup is not a transaction failure */ }
+      }
+    } catch (error) {
+      fs.rmSync(temporary, { force: true });
+      if (displacedExisting && !fs.existsSync(target)) fs.renameSync(displaced, target);
+      else fs.rmSync(displaced, { force: true });
+      throw error;
+    }
+  };
+  try {
+    if (typeof hooks.beforeAnchorWrite === 'function') hooks.beforeAnchorWrite({ target, value });
+    replaceBytes(`${JSON.stringify(value, null, 2)}\n`);
+  } catch (error) {
+    throw new DrillError('receipt-anchor-write-failed', `restore drill private tip anchor write failed: ${error.message}`);
+  }
+  return {
+    target,
+    rollback() {
+      if (previousExists) replaceBytes(previousBytes);
+      else fs.rmSync(target, { force: true });
+    },
+  };
+}
+
+function readStatusCheckpoint(repoRoot) {
+  const target = path.join(repoRoot, ...DEFAULT_STATUS_FILE.split('/'));
+  if (!fs.existsSync(target)) return 0;
+  try {
+    const status = JSON.parse(fs.readFileSync(target, 'utf8').replace(/^\uFEFF/, ''));
+    if (status?.schemaVersion === 1 && status?.kind === STATUS_KIND) return 0;
+    const validation = validateStatus(status);
+    if (!validation.pass) throw new Error(validation.errors.join(', '));
+    return status.receipts.checkpointReceiptCount;
+  } catch {
+    throw new DrillError('receipt-history-invalid', 'restore drill status checkpoint is invalid');
+  }
+}
+
+function loadMirroredReceiptHistory(repoRoot, selection, options = {}) {
+  const local = loadReceiptHistory(path.join(selection.localDirectory, DRILL_DIRECTORY), { allowMissing: true });
+  const external = selection.externalDirectory
+    ? loadReceiptHistory(path.join(selection.externalDirectory, DRILL_DIRECTORY), { allowMissing: true })
+    : { directory: '', entries: [], legacyCount: 0, currentCount: 0 };
+  if (selection.externalDirectory && !historiesMatch(local, external)) {
+    throw new DrillError('receipt-history-mismatch', 'local and external restore drill histories differ');
+  }
+  const checkpointCount = readStatusCheckpoint(repoRoot);
+  if (checkpointCount > local.entries.length) {
+    throw new DrillError('receipt-history-rollback', 'restore drill history is shorter than its prior monotonic checkpoint');
+  }
+  const anchorState = options.skipAnchor ? null : loadReceiptAnchor(repoRoot, local);
+  return { local, external, checkpointCount, anchorState };
 }
 
 function writeNewJson(filePath, value) {
@@ -260,7 +471,7 @@ function writeReceiptTransaction(selection, receipt, hooks = {}) {
 function statusFor(sourceState, completedAt, fields = {}) {
   const issueCodes = fields.issueCode ? [fields.issueCode] : [];
   return {
-    schemaVersion: DRILL_SCHEMA_VERSION,
+    schemaVersion: STATUS_SCHEMA_VERSION,
     kind: STATUS_KIND,
     checkedAt: completedAt,
     status: issueCodes.length ? 'failed' : 'passed',
@@ -285,6 +496,10 @@ function statusFor(sourceState, completedAt, fields = {}) {
       localWritten: Boolean(fields.localWritten),
       externalWritten: Boolean(fields.externalWritten),
       mirrorPairWritten: Boolean(fields.localWritten && fields.externalWritten),
+      previousReceiptCount: Number.isInteger(fields.previousReceiptCount) ? fields.previousReceiptCount : 0,
+      historyReceiptCount: Number.isInteger(fields.historyReceiptCount) ? fields.historyReceiptCount : 0,
+      checkpointReceiptCount: Number.isInteger(fields.checkpointReceiptCount) ? fields.checkpointReceiptCount : 0,
+      appendVerified: Boolean(fields.appendVerified),
     },
     issueCodes,
   };
@@ -294,7 +509,7 @@ function validateStatus(value) {
   const errors = [];
   const add = (pass, label) => { if (!pass) errors.push(label); };
   add(hasExactKeys(value, ['schemaVersion', 'kind', 'checkedAt', 'status', 'sourceMode', 'current', 'restore', 'receipts', 'issueCodes']), 'status.shape');
-  add(value?.schemaVersion === DRILL_SCHEMA_VERSION && value?.kind === STATUS_KIND, 'status.identity');
+  add(value?.schemaVersion === STATUS_SCHEMA_VERSION && value?.kind === STATUS_KIND, 'status.identity');
   add(Number.isFinite(Date.parse(String(value?.checkedAt || ''))), 'status.checkedAt');
   add(['passed', 'failed'].includes(value?.status), 'status.status');
   add(['external-mirror', 'local-default', 'unavailable'].includes(value?.sourceMode), 'status.sourceMode');
@@ -306,8 +521,11 @@ function validateStatus(value) {
   for (const key of ['attempted', 'completed', 'anchorValidated', 'sourceUnchanged', 'cleanupCompleted']) add(typeof value?.restore?.[key] === 'boolean', `status.restore.${key}`);
   for (const key of ['restoredReceiptCount', 'addedDecisionCount', 'addedResetCount']) add(Number.isInteger(value?.restore?.[key]) && value.restore[key] >= 0, `status.restore.${key}`);
   add(['', 'tracked-anchor-bootstrap', 'forward-extension', 'identical'].includes(value?.restore?.classification), 'status.restore.classification');
-  add(hasExactKeys(value?.receipts, ['localWritten', 'externalWritten', 'mirrorPairWritten']), 'status.receipts.shape');
+  add(hasExactKeys(value?.receipts, ['localWritten', 'externalWritten', 'mirrorPairWritten', 'previousReceiptCount', 'historyReceiptCount', 'checkpointReceiptCount', 'appendVerified']), 'status.receipts.shape');
   for (const key of ['localWritten', 'externalWritten', 'mirrorPairWritten']) add(typeof value?.receipts?.[key] === 'boolean', `status.receipts.${key}`);
+  for (const key of ['previousReceiptCount', 'historyReceiptCount', 'checkpointReceiptCount']) add(Number.isInteger(value?.receipts?.[key]) && value.receipts[key] >= 0, `status.receipts.${key}`);
+  add(typeof value?.receipts?.appendVerified === 'boolean', 'status.receipts.appendVerified');
+  add((value?.receipts?.previousReceiptCount || 0) <= (value?.receipts?.historyReceiptCount || 0), 'status.receipts.countRange');
   add(value?.receipts?.mirrorPairWritten === Boolean(value?.receipts?.localWritten && value?.receipts?.externalWritten), 'status.receipts.mirrorSemantics');
   add(Array.isArray(value?.issueCodes) && value.issueCodes.every(code => ISSUE_CODES.has(code)) && new Set(value.issueCodes).size === value.issueCodes.length, 'status.issueCodes');
   add(value?.status === (value?.issueCodes?.length ? 'failed' : 'passed'), 'status.statusSemantics');
@@ -317,6 +535,8 @@ function validateStatus(value) {
     add(value.restore.anchorValidated && value.restore.sourceUnchanged && value.restore.cleanupCompleted, 'status.pass.proofs');
     add(value.receipts.localWritten, 'status.pass.receipt');
     add(value.sourceMode !== 'external-mirror' || value.receipts.mirrorPairWritten, 'status.pass.externalReceipt');
+    add(value.receipts.appendVerified && value.receipts.historyReceiptCount === value.receipts.previousReceiptCount + 1, 'status.pass.historyAppend');
+    add(value.receipts.checkpointReceiptCount === value.receipts.historyReceiptCount, 'status.pass.checkpoint');
   }
   return { pass: errors.length === 0, errors };
 }
@@ -343,7 +563,10 @@ function runRestoreDrill(repoRoot, options = {}) {
   const temporaryParent = path.resolve(options.temporaryParent || os.tmpdir());
   const hooks = options.hooks || {};
   const sourceState = currentSourceState(root);
+  let priorCheckpointCount = 0;
+  try { priorCheckpointCount = readStatusCheckpoint(root); } catch { /* the governed load below reports the invalid checkpoint */ }
   let selection;
+  let receiptHistory = null;
   let isolatedRoot = '';
   let restoreResult = null;
   let restoreCompleted = false;
@@ -352,6 +575,7 @@ function runRestoreDrill(repoRoot, options = {}) {
   let issue = null;
   try {
     selection = selectCurrentBackup(root, sourceState, options);
+    receiptHistory = loadMirroredReceiptHistory(root, selection);
     if (!fs.existsSync(temporaryParent) || !fs.lstatSync(temporaryParent).isDirectory()) {
       throw new DrillError('backup-directory-unavailable', 'temporary isolation parent is unavailable');
     }
@@ -396,12 +620,16 @@ function runRestoreDrill(repoRoot, options = {}) {
       anchorValidated,
       sourceUnchanged,
       cleanupCompleted,
+      previousReceiptCount: receiptHistory?.local.entries.length || 0,
+      historyReceiptCount: receiptHistory?.local.entries.length || 0,
+      checkpointReceiptCount: Math.max(priorCheckpointCount, receiptHistory?.local.entries.length || 0),
     });
     const validation = validateStatus(status);
     if (!validation.pass) throw new Error(`generated failed restore drill status is invalid: ${validation.errors.join(', ')}`);
     return { pass: false, status, error: issue };
   }
-  const receipt = buildReceipt(completedAt, selection, sourceState, restoreResult);
+  const previousReceiptCount = receiptHistory.local.entries.length;
+  const receipt = buildReceipt(completedAt, selection, sourceState, restoreResult, receiptHistory.local);
   let targets;
   try {
     targets = writeReceiptTransaction(selection, receipt, hooks);
@@ -415,8 +643,46 @@ function runRestoreDrill(repoRoot, options = {}) {
       anchorValidated,
       sourceUnchanged,
       cleanupCompleted,
+      previousReceiptCount,
+      historyReceiptCount: previousReceiptCount,
+      checkpointReceiptCount: Math.max(priorCheckpointCount, previousReceiptCount),
     });
     return { pass: false, status, error };
+  }
+  let verifiedHistory;
+  let anchorReplacement = null;
+  try {
+    verifiedHistory = loadMirroredReceiptHistory(root, selection, { skipAnchor: true });
+    const latest = verifiedHistory.local.entries.at(-1)?.receipt;
+    if (verifiedHistory.local.entries.length !== previousReceiptCount + 1 || latest?.receiptId !== receipt.receiptId) {
+      throw new DrillError('receipt-history-invalid', 'restore drill receipt append did not become the validated history tip');
+    }
+    anchorReplacement = replaceReceiptAnchor(root, anchorForReceiptHistory(verifiedHistory.local), hooks);
+    if (typeof hooks.afterAnchorWrite === 'function') hooks.afterAnchorWrite({ target: anchorReplacement.target, receipt });
+    verifiedHistory = loadMirroredReceiptHistory(root, selection);
+  } catch (error) {
+    targets.reverse().forEach(target => fs.rmSync(target, { force: true }));
+    let transactionError = error;
+    if (anchorReplacement) {
+      try { anchorReplacement.rollback(); }
+      catch (rollbackError) {
+        transactionError = new DrillError('receipt-anchor-write-failed', `restore drill anchor rollback failed: ${rollbackError.message}`);
+      }
+    }
+    const issueCode = transactionError instanceof DrillError ? transactionError.code : 'receipt-history-invalid';
+    const status = statusFor(sourceState, completedAt, {
+      issueCode,
+      sourceMode: selection.mode,
+      restoreResult,
+      restoreCompleted,
+      anchorValidated,
+      sourceUnchanged,
+      cleanupCompleted,
+      previousReceiptCount,
+      historyReceiptCount: previousReceiptCount,
+      checkpointReceiptCount: Math.max(priorCheckpointCount, previousReceiptCount),
+    });
+    return { pass: false, status, error: transactionError };
   }
   const status = statusFor(sourceState, completedAt, {
     sourceMode: selection.mode,
@@ -427,6 +693,10 @@ function runRestoreDrill(repoRoot, options = {}) {
     cleanupCompleted,
     localWritten: targets.length >= 1,
     externalWritten: targets.length >= 2,
+    previousReceiptCount,
+    historyReceiptCount: verifiedHistory.local.entries.length,
+    checkpointReceiptCount: verifiedHistory.local.entries.length,
+    appendVerified: true,
   });
   const validation = validateStatus(status);
   if (!validation.pass) throw new Error(`generated restore drill status is invalid: ${validation.errors.join(', ')}`);
@@ -466,14 +736,28 @@ if (require.main === module) {
 }
 
 module.exports = {
+  LEGACY_DRILL_SCHEMA_VERSION,
   DRILL_SCHEMA_VERSION,
+  STATUS_SCHEMA_VERSION,
+  ANCHOR_SCHEMA_VERSION,
   DRILL_KIND,
   STATUS_KIND,
+  ANCHOR_KIND,
   DEFAULT_STATUS_FILE,
+  DEFAULT_ANCHOR_FILE,
   DRILL_DIRECTORY,
+  DRILL_FILE_PATTERN,
   ISSUE_CODES,
   sourceFileFingerprint,
   validateReceipt,
+  loadReceiptHistory,
+  historiesMatch,
+  anchorForReceiptHistory,
+  validateReceiptAnchor,
+  loadReceiptAnchor,
+  replaceReceiptAnchor,
+  readStatusCheckpoint,
+  loadMirroredReceiptHistory,
   validateStatus,
   writeStatus,
   runRestoreDrill,
