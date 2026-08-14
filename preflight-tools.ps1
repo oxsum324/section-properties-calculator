@@ -3319,6 +3319,12 @@ Update-PreflightHistoryManifest
 
 $decisionReceiptScript = Join-Path $root "結構工具箱\tools\public-release-decision-receipt.js"
 if ($overallPass -and $isReleaseMode) {
+  if ([string]::IsNullOrWhiteSpace($env:PUBLIC_RELEASE_DECISION_BACKUP_DIR)) {
+    $userDecisionBackupDirectory = [Environment]::GetEnvironmentVariable('PUBLIC_RELEASE_DECISION_BACKUP_DIR', 'User')
+    if (-not [string]::IsNullOrWhiteSpace($userDecisionBackupDirectory)) {
+      $env:PUBLIC_RELEASE_DECISION_BACKUP_DIR = $userDecisionBackupDirectory
+    }
+  }
   $decisionReceiptStdout = Join-Path $runDir "public-release-decision-receipt.stdout.txt"
   $decisionReceiptStderr = Join-Path $runDir "public-release-decision-receipt.stderr.txt"
   $decisionReceiptProc = Start-Process -FilePath node -ArgumentList @($decisionReceiptScript, "--write", "--json") -WorkingDirectory $root -RedirectStandardOutput $decisionReceiptStdout -RedirectStandardError $decisionReceiptStderr -PassThru -Wait -WindowStyle Hidden
