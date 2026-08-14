@@ -1,5 +1,8 @@
 {
   "schemaVersion": 1,
   "kind": "public-release-decision-anchor",
-  "active": false
+  "active": true,
+  "runId": "20260814-153338",
+  "receiptId": "PRD-921276B9C0BDAC283AC15623",
+  "receiptSha256": "9f920033f333a46c2b088d759a30a9ac7be1efbe871d3001c9d423ca884c5fb8"
 }
