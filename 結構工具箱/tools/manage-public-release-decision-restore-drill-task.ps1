@@ -83,7 +83,7 @@ if ($Action -eq 'Install') {
   $trigger = New-ScheduledTaskTrigger -Weekly -WeeksInterval 1 -DaysOfWeek $WeeklyDay -At $startAt
   $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
   $principal = New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited
-  Register-ScheduledTask -TaskName $taskName -Action $taskAction -Trigger $trigger -Settings $settings -Principal $principal -Description 'Restores the current private release decision backup in an isolated temporary workspace and records a private drill receipt.' -Force | Out-Null
+  Register-ScheduledTask -TaskName $taskName -Action $taskAction -Trigger $trigger -Settings $settings -Principal $principal -Description 'Runs an isolated private restore drill, records its receipt, and verifies the current provider-confirmed cloud checkpoint.' -Force | Out-Null
 }
 
 $task = Get-ManagedTask

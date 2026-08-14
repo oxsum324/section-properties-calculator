@@ -77,7 +77,7 @@ if ($Action -eq 'Install') {
   $trigger = New-ScheduledTaskTrigger -Daily -At $startAt
   $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
   $principal = New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited
-  Register-ScheduledTask -TaskName $taskName -Action $taskAction -Trigger $trigger -Settings $settings -Principal $principal -Description 'Validates private release decision backup mirrors, chained restore drill history, and drill freshness without publishing private details.' -Force | Out-Null
+  Register-ScheduledTask -TaskName $taskName -Action $taskAction -Trigger $trigger -Settings $settings -Principal $principal -Description 'Validates private backup mirrors, restore drill history, and fresh provider-confirmed cloud checkpoints without publishing private details.' -Force | Out-Null
 }
 
 $task = Get-ManagedTask

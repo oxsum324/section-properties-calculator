@@ -1504,6 +1504,8 @@ node 結構工具箱/tools/public-release-decision-restore-drill.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node 結構工具箱/tools/public-release-decision-restore-drill-health.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node 結構工具箱/tools/public-release-decision-cloud-checkpoint.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node 結構工具箱/tools/public-release-decision-restore-drill-task.test.js
 exit $LASTEXITCODE
 '@
