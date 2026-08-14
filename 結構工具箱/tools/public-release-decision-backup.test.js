@@ -209,7 +209,19 @@ try {
     encoding: 'utf8',
     env: { ...process.env, PUBLIC_RELEASE_DECISION_BACKUP_DIR: environmentBackupDir },
   }));
-  assert.equal(path.dirname(environmentExport.target), environmentBackupDir, 'private environment setting redirects automatic backup without entering repository config');
+  assert.equal(environmentExport.mirrorCount, 1, 'private environment setting adds one external mirror without replacing the local backup');
+  assert.equal(environmentExport.targets.some(target => path.dirname(target) === environmentBackupDir), true, 'private environment setting mirrors to the external directory without entering repository config');
+  assert.equal(environmentExport.targets.some(target => path.dirname(target) === path.join(sourceRoot, ...backups.DEFAULT_BACKUP_DIR.split('/'))), true, 'automatic export preserves its ignored local copy');
+
+  const mirrorRollbackDir = path.join(sourceRoot, 'mirror-rollback');
+  assert.throws(
+    () => backups.exportBackup(sourceRoot, path.join(sourceRoot, 'primary-rollback'), '2099-01-03T06:06:06Z', [mirrorRollbackDir], {
+      beforeWrite: ({ index }) => { if (index === 1) throw new Error('simulated mirror failure'); },
+    }),
+    /mirror transaction rolled back/,
+    'mirror failure rolls back the whole newly exported backup set',
+  );
+  assert.equal(fs.readdirSync(path.join(sourceRoot, 'primary-rollback')).length, 0, 'mirror rollback removes the primary copy created in the failed transaction');
   const cliPreview = JSON.parse(childProcess.execFileSync(process.execPath, [cli, '--restore', cliTarget, '--repo-root', oneRoot, '--json'], { encoding: 'utf8' }));
   assert.equal(cliPreview.action, 'restore-preview', 'CLI restore defaults to preview');
   assert.throws(() => backups.parseArgs(['--export', '--verify', 'x.json']), /exactly one/, 'CLI actions are mutually exclusive');
@@ -225,4 +237,4 @@ assert.ok(preflight.includes('public-release-decision-backup.test.js'), 'preflig
 assert.ok(preflight.indexOf('$decisionReceiptScript') < preflight.indexOf('$decisionBackupScript'), 'formal release exports only after the decision receipt is complete');
 assert.ok(preflight.includes('PUBLIC_RELEASE_DECISION_BACKUP_DIR') === false, 'preflight inherits the optional private backup directory without publishing or hard-coding it');
 
-console.log('public release decision backup OK (export=4, restore=5, reset=1, rollback=1, tamperGuards=7)');
+console.log('public release decision backup OK (export=5, restore=5, reset=1, rollback=2, tamperGuards=7)');

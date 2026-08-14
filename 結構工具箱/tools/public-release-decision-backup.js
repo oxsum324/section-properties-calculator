@@ -105,13 +105,36 @@ function writeNewJson(filePath, value) {
   }
 }
 
-function exportBackup(repoRoot, outputDir = path.join(repoRoot, ...DEFAULT_BACKUP_DIR.split('/')), exportedAt) {
+function exportBackup(repoRoot, outputDir = path.join(repoRoot, ...DEFAULT_BACKUP_DIR.split('/')), exportedAt, mirrorDirs = [], hooks = {}) {
   const backup = buildBackup(repoRoot, exportedAt);
-  const directory = path.resolve(outputDir);
-  fs.mkdirSync(directory, { recursive: true });
-  const target = path.join(directory, `public-release-decision-backup-${backup.chain.latestRunId}-${backup.backupId}.json`);
-  writeNewJson(target, backup);
-  return { changed: true, target, backup };
+  const directories = [outputDir, ...mirrorDirs].map(value => path.resolve(value));
+  const uniqueDirectories = [];
+  const seen = new Set();
+  directories.forEach(directory => {
+    const key = process.platform === 'win32' ? directory.toLowerCase() : directory;
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueDirectories.push(directory);
+    }
+  });
+  const fileName = `public-release-decision-backup-${backup.chain.latestRunId}-${backup.backupId}.json`;
+  uniqueDirectories.forEach(directory => fs.mkdirSync(directory, { recursive: true }));
+  const targets = uniqueDirectories.map(directory => path.join(directory, fileName));
+  targets.forEach(target => {
+    if (fs.existsSync(target)) throw new Error(`append-only file already exists: ${target}`);
+  });
+  const written = [];
+  try {
+    targets.forEach((target, index) => {
+      if (typeof hooks.beforeWrite === 'function') hooks.beforeWrite({ index, target, targets: targets.slice() });
+      writeNewJson(target, backup);
+      written.push(target);
+    });
+  } catch (error) {
+    written.reverse().forEach(target => fs.rmSync(target, { force: true }));
+    throw new Error(`release decision backup mirror transaction rolled back: ${error.message}`);
+  }
+  return { changed: true, target: targets[0], targets, mirrorCount: Math.max(0, targets.length - 1), backup };
 }
 
 function loadBackup(backupPath) {
@@ -248,9 +271,12 @@ function main() {
   const repoRoot = path.resolve(options['repo-root'] || path.resolve(__dirname, '..', '..'));
   let output;
   if (options.export) {
-    const configuredDirectory = options['output-dir'] || process.env.PUBLIC_RELEASE_DECISION_BACKUP_DIR || '';
-    const directory = configuredDirectory ? path.resolve(configuredDirectory) : path.join(repoRoot, ...DEFAULT_BACKUP_DIR.split('/'));
-    const result = exportBackup(repoRoot, directory);
+    const localDirectory = path.join(repoRoot, ...DEFAULT_BACKUP_DIR.split('/'));
+    const explicitDirectory = options['output-dir'] ? path.resolve(options['output-dir']) : '';
+    const externalDirectory = process.env.PUBLIC_RELEASE_DECISION_BACKUP_DIR ? path.resolve(process.env.PUBLIC_RELEASE_DECISION_BACKUP_DIR) : '';
+    const result = explicitDirectory
+      ? exportBackup(repoRoot, explicitDirectory)
+      : exportBackup(repoRoot, localDirectory, undefined, externalDirectory ? [externalDirectory] : []);
     output = {
       schemaVersion: 1,
       kind: 'public-release-decision-backup-result',
@@ -260,6 +286,8 @@ function main() {
       receiptCount: result.backup.chain.receiptCount,
       latestRunId: result.backup.chain.latestRunId,
       target: result.target,
+      targets: result.targets,
+      mirrorCount: result.mirrorCount,
     };
   } else {
     const loaded = loadBackup(options.verify || options.restore);

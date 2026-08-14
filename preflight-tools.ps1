@@ -1495,6 +1495,10 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node 結構工具箱/tools/public-release-decision-receipt.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node 結構工具箱/tools/public-release-decision-backup.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node 結構工具箱/tools/public-release-decision-backup-health.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node 結構工具箱/tools/public-release-decision-backup-task.test.js
 exit $LASTEXITCODE
 '@
 
@@ -3337,6 +3341,23 @@ if ($overallPass -and $isReleaseMode) {
       [System.IO.File]::AppendAllText($summaryPath, "- Release decision backup: pass=False, exitCode=$($decisionBackupProc.ExitCode), log=$decisionBackupStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
       [System.IO.File]::AppendAllText($historySummaryPath, "- Release decision backup: pass=False, exitCode=$($decisionBackupProc.ExitCode), log=$decisionBackupStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
       Update-PreflightHistoryManifest
+    } else {
+      $decisionBackupHealthScript = Join-Path $root "結構工具箱\tools\public-release-decision-backup-health.js"
+      $decisionBackupHealthStdout = Join-Path $runDir "public-release-decision-backup-health.stdout.txt"
+      $decisionBackupHealthStderr = Join-Path $runDir "public-release-decision-backup-health.stderr.txt"
+      $decisionBackupHealthProc = Start-Process -FilePath node -ArgumentList @($decisionBackupHealthScript, "--write", "--json") -WorkingDirectory $root -RedirectStandardOutput $decisionBackupHealthStdout -RedirectStandardError $decisionBackupHealthStderr -PassThru -Wait -WindowStyle Hidden
+      if ($decisionBackupHealthProc.ExitCode -ne 0) {
+        $overallPass = $false
+        $failures.Add("public-release-decision-backup-health: exitCode=$($decisionBackupHealthProc.ExitCode), log=$decisionBackupHealthStderr")
+        $payload["pass"] = $overallPass
+        $payload["failureCount"] = $failures.Count
+        $payload["failures"] = @($failures.ToArray())
+        Write-JsonFile -Path $summaryJsonPath -Value $payload -Depth 6
+        Write-JsonFile -Path $historySummaryJsonPath -Value $payload -Depth 6
+        [System.IO.File]::AppendAllText($summaryPath, "- Release decision backup health: pass=False, exitCode=$($decisionBackupHealthProc.ExitCode), log=$decisionBackupHealthStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
+        [System.IO.File]::AppendAllText($historySummaryPath, "- Release decision backup health: pass=False, exitCode=$($decisionBackupHealthProc.ExitCode), log=$decisionBackupHealthStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
+        Update-PreflightHistoryManifest
+      }
     }
   }
 }

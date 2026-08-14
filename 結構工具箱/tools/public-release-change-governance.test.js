@@ -44,7 +44,17 @@ legacyBundle.preflightStatus.releaseHistory.schemaVersion = 1;
 legacyBundle.preflightStatus.releaseHistory.entries.forEach(entry => { delete entry.change; });
 const migratedCurrent = bundleFor('20260815-120000', '2026-08-15T12:00:00+08:00');
 const migratedHistory = schema.buildReleaseHistory(legacyBundle, migratedCurrent, trackedAuthorization);
-assert.equal(migratedHistory.entries.length, legacyBundle.preflightStatus.releaseHistory.entries.length + 1, 'valid schema v1 history migrates without losing retained releases');
+assert.equal(
+  migratedHistory.entries.length,
+  Math.min(schema.RELEASE_HISTORY_LIMIT, legacyBundle.preflightStatus.releaseHistory.entries.length + 1),
+  'valid schema v1 history migrates while preserving the bounded retention limit',
+);
+assert.equal(migratedHistory.entries.at(-1).runId, migratedCurrent.preflightStatus.runId, 'migration retains the new current release at the bounded history tip');
+assert.deepEqual(
+  migratedHistory.entries.slice(0, -1).map(entry => entry.runId),
+  legacyBundle.preflightStatus.releaseHistory.entries.slice(-(schema.RELEASE_HISTORY_LIMIT - 1)).map(entry => entry.runId),
+  'migration preserves the newest legacy suffix that fits beside the current release',
+);
 assert.equal(migratedHistory.entries[0].change.classification, 'baseline', 'migrated history recomputes its bounded comparison baseline');
 
 const previous = bundleFor('20260814-120000', '2026-08-14T12:00:00+08:00');
