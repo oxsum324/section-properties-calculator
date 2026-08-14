@@ -104,7 +104,7 @@ const inlineValidationCases = {
 
 function assertFormalToolCoverage() {
   assert.equal(formalManifest.family, 'formal-tools', 'formal browser smoke manifest family');
-  assert.equal(formalManifest.version, '0.4.0', 'formal browser smoke manifest version');
+  assert.equal(formalManifest.version, '0.4.1', 'formal browser smoke manifest version');
   assert.ok(Array.isArray(formalManifest.tools), 'formal browser smoke manifest tools');
   assert.ok(Array.isArray(requiredFormalRoutes), 'formal browser smoke manifest required routes');
   const coveredRoutes = new Set(formalManifest.tools.map(tool => tool.route));
@@ -1149,6 +1149,25 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
           HTMLAnchorElement.prototype.click = originalAnchorClick;
         }
       }
+      const approvalMetaHintText = (document.getElementById('repApprovalMetaHint')?.textContent || '').replace(/\\s+/g, ' ').trim();
+      if (approvalBasisInput) {
+        approvalBasisInput.value = '正式工具複核紀錄 QA-02';
+        approvalBasisInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      const metadataEditDocumentClass = status()?.dataset.documentClass || '';
+      const metadataEditApprovedAt = status()?.dataset.approvedAt || '';
+      const metadataEditCheckboxAttribute = Boolean(approval?.hasAttribute('checked'));
+      const metadataEditStatusText = (status()?.textContent || '').replace(/\\s+/g, ' ').trim();
+      const metadataEditMessage = (document.getElementById('repWindowStatus')?.textContent || '').replace(/\\s+/g, ' ').trim();
+      const metadataEditHintText = (document.getElementById('repApprovalMetaHint')?.textContent || '').replace(/\\s+/g, ' ').trim();
+      if (approval) {
+        approval.checked = true;
+        approval.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      const reapprovedDocumentClass = status()?.dataset.documentClass || '';
+      const reapprovedAt = status()?.dataset.approvedAt || '';
+      const reapprovedCheckboxAttribute = Boolean(approval?.hasAttribute('checked'));
+      const reapprovedStatusText = (status()?.textContent || '').replace(/\\s+/g, ' ').trim();
       if (approval) {
         approval.checked = false;
         approval.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1171,6 +1190,7 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
         documentStateText: initialStatusText,
         approvalControl: Boolean(approval),
         approvalMetaControl: Boolean(approvedByInput && approvalBasisInput),
+        approvalMetaHintText,
         downloadControl,
         serializerAvailable,
         initialDocumentTitle,
@@ -1183,6 +1203,16 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
         approvedAt,
         approvedBy,
         approvalBasis,
+        metadataEditDocumentClass,
+        metadataEditApprovedAt,
+        metadataEditCheckboxAttribute,
+        metadataEditStatusText,
+        metadataEditMessage,
+        metadataEditHintText,
+        reapprovedDocumentClass,
+        reapprovedAt,
+        reapprovedCheckboxAttribute,
+        reapprovedStatusText,
         initialCalculationFingerprint,
         approvedCalculationFingerprint,
         approvedHtml,
@@ -1209,6 +1239,7 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       documentStateText: state.documentStateText,
       approvalControl: state.approvalControl,
       approvalMetaControl: state.approvalMetaControl,
+      approvalMetaHintText: state.approvalMetaHintText,
       downloadControl: state.downloadControl,
       serializerAvailable: state.serializerAvailable,
       initialDocumentTitle: state.initialDocumentTitle,
@@ -1221,6 +1252,16 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       approvedAt: state.approvedAt,
       approvedBy: state.approvedBy,
       approvalBasis: state.approvalBasis,
+      metadataEditDocumentClass: state.metadataEditDocumentClass,
+      metadataEditApprovedAt: state.metadataEditApprovedAt,
+      metadataEditCheckboxAttribute: state.metadataEditCheckboxAttribute,
+      metadataEditStatusText: state.metadataEditStatusText,
+      metadataEditMessage: state.metadataEditMessage,
+      metadataEditHintText: state.metadataEditHintText,
+      reapprovedDocumentClass: state.reapprovedDocumentClass,
+      reapprovedAt: state.reapprovedAt,
+      reapprovedCheckboxAttribute: state.reapprovedCheckboxAttribute,
+      reapprovedStatusText: state.reapprovedStatusText,
       initialCalculationFingerprint: state.initialCalculationFingerprint,
       approvedCalculationFingerprint: state.approvedCalculationFingerprint,
       approvedHtml: state.approvedHtml,
@@ -2251,6 +2292,7 @@ function assertPopupDocumentStateMatchesPage(state, tool, label) {
   assert.ok(['ready', 'review', 'blocked'].includes(state.readinessLevel), `${label} ${tool.key} exposes page readiness`);
   assert.equal(state.approvalControl, true, `${label} ${tool.key} popup exposes explicit approval checkbox`);
   assert.equal(state.approvalMetaControl, true, `${label} ${tool.key} popup exposes optional approver and approval basis controls`);
+  assert.ok(state.approvalMetaHintText.includes('修改上述紀錄會撤銷正式核可') && state.approvalMetaHintText.includes('重新勾選'), `${label} ${tool.key} explains approval metadata revocation before editing`);
   assert.equal(state.downloadControl, true, `${label} ${tool.key} popup exposes current-state HTML download`);
   assert.equal(state.serializerAvailable, true, `${label} ${tool.key} popup exposes reusable report serialization`);
   assert.equal(state.documentState, 'internal-review', `${label} ${tool.key} popup defaults to printable internal review`);
@@ -2264,6 +2306,15 @@ function assertPopupDocumentStateMatchesPage(state, tool, label) {
   assert.equal(state.approvalBasis, '正式工具複核紀錄 QA-01', `${label} ${tool.key} formal attachment records the optional approval basis`);
   assert.ok(state.approvedStatusText.includes('核可人：正式工具複核人') && state.approvedStatusText.includes('核可依據：正式工具複核紀錄 QA-01'), `${label} ${tool.key} formal footer exposes supplied approval metadata`);
   assert.ok(Number.isFinite(Date.parse(state.approvedAt || '')), `${label} ${tool.key} formal attachment exposes a machine-readable approval time`);
+  assert.equal(state.metadataEditDocumentClass, 'internal-review', `${label} ${tool.key} changing approval metadata revokes formal attachment status`);
+  assert.equal(state.metadataEditApprovedAt, '', `${label} ${tool.key} changing approval metadata clears the prior approval time`);
+  assert.equal(state.metadataEditCheckboxAttribute, false, `${label} ${tool.key} changing approval metadata clears the approval checkbox state`);
+  assert.ok(state.metadataEditStatusText.includes(internalReviewLabel), `${label} ${tool.key} changing approval metadata restores the internal-review footer`);
+  assert.ok(state.metadataEditHintText.includes('正式核可已撤銷') && state.metadataEditHintText.includes('重新勾選'), `${label} ${tool.key} persistently explains why approval was revoked`);
+  assert.equal(state.reapprovedDocumentClass, 'formal-attachment', `${label} ${tool.key} explicit reapproval restores formal attachment status`);
+  assert.ok(Number.isFinite(Date.parse(state.reapprovedAt || '')), `${label} ${tool.key} explicit reapproval creates a new machine-readable approval time`);
+  assert.equal(state.reapprovedCheckboxAttribute, true, `${label} ${tool.key} explicit reapproval restores the checkbox state`);
+  assert.ok(state.reapprovedStatusText.includes(readyDocumentLabel) && state.reapprovedStatusText.includes('核可依據：正式工具複核紀錄 QA-02'), `${label} ${tool.key} reapproval adopts the changed approval record`);
   assert.match(state.initialCalculationFingerprint || '', /^CF-[0-9A-F]{16}$/, `${label} ${tool.key} internal-review report exposes a calculation fingerprint`);
   assert.ok(state.initialDocumentTitle.includes('內部審閱') && state.initialDocumentTitle.includes(state.initialCalculationFingerprint), `${label} ${tool.key} internal-review PDF default title carries document state and fingerprint`);
   assert.equal(state.approvedCalculationFingerprint, state.initialCalculationFingerprint, `${label} ${tool.key} approval preserves the calculation fingerprint`);

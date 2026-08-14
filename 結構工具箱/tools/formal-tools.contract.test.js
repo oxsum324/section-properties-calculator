@@ -138,7 +138,7 @@ const traceCatalog = JSON.parse(readText(traceCatalogPath));
 const directPrintBoundaryPath = assertFile(manifest.shared.directPrintBoundaryStylesheet);
 const directPrintBoundary = readText(directPrintBoundaryPath);
 
-assert.equal(manifest.version, '0.4.0', 'formal tools manifest version');
+assert.equal(manifest.version, '0.4.1', 'formal tools manifest version');
 assert.equal(manifest.shared.sourceReportFingerprintRequired, true, 'formal source JSON and report fingerprint link required');
 assert.equal(manifest.shared.caseReplayValidationRequired, true, 'formal case JSON requires exact validated replay');
 assert.equal(manifest.family, 'formal-tools', 'formal tools manifest family');
@@ -154,6 +154,7 @@ assert.equal(manifest.shared.readyDocumentLabel, '文件狀態：正式附件', 
 assert.equal(manifest.shared.internalReviewLabel, '文件狀態：內部審閱', 'formal internal-review document label');
 assert.equal(manifest.shared.approvalSealScope, 'formal-calculation-book-approval-v2', 'formal approval seal scope');
 assert.deepEqual(manifest.shared.optionalApprovalFields, ['核可人', '核可依據'], 'formal optional approval fields');
+assert.equal(manifest.shared.approvalMetadataChangePolicy, 'revoke-and-reapprove', 'formal approval metadata changes require explicit reapproval');
 assert.ok(manifest.shared.directPrintBoundaryNeedles.length >= 3, 'formal direct-print boundary wording');
 assertIncludes(
   directPrintBoundary,
@@ -348,6 +349,9 @@ assertNoIncludes(sharedReportText, '計畫名稱', 'shared report generator shou
 assertIncludes(sharedReportHtml, 'FORMAL-VERIFY-001', 'shared report generator should keep project number');
 assertIncludes(sharedReportHtml, 'Codex QA', 'shared report generator should keep designer');
 assertIncludes(sharedReportHtml, '本計算內容已完成審閱，核可作為正式附件', 'shared report generator should expose the explicit approval control');
+assertIncludes(sharedReportHtml, '核可後修改上述紀錄會撤銷正式核可，需重新勾選', 'shared report generator should explain approval metadata revocation');
+assertIncludes(sharedReportHtml, '核可紀錄已異動，正式核可已撤銷；請確認後重新勾選', 'shared report generator should report approval metadata revocation');
+assertIncludes(sharedReportHtml, 'function updateApprovalMetadata()', 'shared report generator should revoke approval when approval metadata changes');
 assertIncludes(sharedReportHtml, '文件狀態：內部審閱', 'shared report generator should default every newly generated report to internal review');
 assert.match(sharedReportHtml, /計算指紋<\/b>CF-[0-9A-F]{16}/, 'shared report generator should include a stable calculation fingerprint');
 const reportFingerprintOf = (html) => html.match(/計算指紋<\/b>(CF-[0-9A-F]{16})/)?.[1] || '';

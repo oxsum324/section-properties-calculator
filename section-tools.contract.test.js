@@ -808,6 +808,8 @@ const readySharedReportHtml = renderSharedReportHtml(
 assert(!readySharedReportHtml.includes('DRAFT／非正式附件'), 'shared renderer no longer emits DRAFT classification', 'clean attachment output');
 assert(readySharedReportHtml.includes('data-initial-approved="false"'), 'shared renderer requires explicit approval even when calculation is ready', 'data-initial-approved="false"');
 assert(readySharedReportHtml.includes('本計算內容已完成審閱，核可作為正式附件'), 'shared renderer provides approval checkbox wording', 'approval control');
+assert(readySharedReportHtml.includes('核可後修改上述紀錄會撤銷正式核可，需重新勾選'), 'shared renderer warns that approval metadata edits require reapproval', 'approval metadata hint');
+assert(readySharedReportHtml.includes('核可紀錄已異動，正式核可已撤銷；請確認後重新勾選'), 'shared renderer reports approval revocation after metadata edits', 'approval metadata revocation');
 assert(readySharedReportHtml.includes('下載目前版本 HTML'), 'shared renderer exposes current-state HTML download', 'download current HTML');
 assert(readySharedReportHtml.includes('window.serializeReportDocumentHtml = serializeCurrentReportHtml'), 'shared renderer serializes the current approval state before download', 'HTML serializer');
 assert(readySharedReportHtml.includes("var status = document.querySelector('.rep-document-status-line')"), 'shared renderer reuses the statically saved document-state line', 'static document state');
@@ -820,6 +822,8 @@ const readyRcReportHtml = renderSharedReportHtml(
 );
 assert(readyRcReportHtml.includes('data-initial-approved="false"'), 'RC shared renderer defaults to internal review', 'data-initial-approved="false"');
 assert(readyRcReportHtml.includes('本計算內容已完成審閱，核可作為正式附件'), 'RC shared renderer provides approval checkbox wording', 'approval control');
+assert(readyRcReportHtml.includes('核可後修改上述紀錄會撤銷正式核可，需重新勾選'), 'RC shared renderer warns that approval metadata edits require reapproval', 'approval metadata hint');
+assert(readyRcReportHtml.includes('核可紀錄已異動，正式核可已撤銷；請確認後重新勾選'), 'RC shared renderer reports approval revocation after metadata edits', 'approval metadata revocation');
 assert(readyRcReportHtml.includes('下載目前版本 HTML'), 'RC shared renderer exposes current-state HTML download', 'download current HTML');
 assert(readyRcReportHtml.includes("source.dataset.initialApproved = checkbox.checked ? 'true' : 'false'"), 'RC approval toggle persists the current document class for downloaded HTML', 'serialized approval state');
 assert(readyRcReportHtml.includes("source.dataset.approvedAt = approvedAtValue"), 'RC approval toggle persists approval time for downloaded HTML', 'serialized approval time');

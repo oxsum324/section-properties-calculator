@@ -352,6 +352,10 @@ assert.match(sharedReportHtml, /FORMAL-VERIFY-001/, "shared report generator sho
 assert.match(localReportHtml, /FORMAL-VERIFY-001/, "steel local report generator should keep project number after placeholder scrub");
 assert.match(sharedReportHtml, /本計算內容已完成審閱，核可作為正式附件/, "shared report generator should expose the explicit approval control");
 assert.match(localReportHtml, /本計算內容已完成審閱，核可作為正式附件/, "steel local report generator should expose the explicit approval control");
+assert.match(sharedReportHtml, /核可後修改上述紀錄會撤銷正式核可，需重新勾選/, "shared report generator should explain approval metadata revocation");
+assert.match(localReportHtml, /核可後修改上述紀錄會撤銷正式核可，需重新勾選/, "steel local report generator should explain approval metadata revocation");
+assert.match(sharedReportHtml, /核可紀錄已異動，正式核可已撤銷；請確認後重新勾選/, "shared report generator should report approval metadata revocation");
+assert.match(localReportHtml, /核可紀錄已異動，正式核可已撤銷；請確認後重新勾選/, "steel local report generator should report approval metadata revocation");
 assert.match(sharedReportHtml, /下載目前版本 HTML/, "shared report generator should expose current-state HTML download");
 assert.match(localReportHtml, /下載目前版本 HTML/, "steel local report generator should expose current-state HTML download");
 assert.match(sharedReportHtml, /window\.serializeReportDocumentHtml\s*=\s*serializeCurrentReportHtml/, "shared report generator should serialize the current approval state for download");

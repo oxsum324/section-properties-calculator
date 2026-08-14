@@ -90,7 +90,7 @@ assert.equal(manifest.version, '0.3.0', 'local quick tools manifest version');
 assert.equal(manifest.family, 'local-quick-tools', 'local quick tools manifest family');
 assert.ok(Array.isArray(tools), 'local quick tools manifest tools');
 assert.ok(tools.length >= 3, 'local quick tools manifest tool count');
-assert.equal(formalManifest.version, '0.4.0', 'formal tools manifest version');
+assert.equal(formalManifest.version, '0.4.1', 'formal tools manifest version');
 
 const bridgeInput = Object.assign({
   designReference: 'taiwanFoundation2023',
@@ -374,12 +374,13 @@ assert.equal(directPrintBoundaryText.includes('content: "DRAFT"'), false, 'local
 ].forEach(needle => assertIncludes(formalBrowserSmokeTestText, needle, 'formal browser smoke test'));
 
 [
-  '"version": "0.4.0"',
+  '"version": "0.4.1"',
   '"family": "formal-tools"',
   '"shared"',
   '"runner"',
   '"contractTest"',
   '"browserSmokeTest"',
+  '"approvalMetadataChangePolicy": "revoke-and-reapprove"',
   '"maturityMatrix"',
   '"requiredRoutes"',
   '"reportForbiddenNeedles"',

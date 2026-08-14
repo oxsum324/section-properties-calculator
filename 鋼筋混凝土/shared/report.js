@@ -257,10 +257,11 @@ const RC_ATTACHMENT_APPROVAL_REPORT_CSS = `
 .rep-approval-control { display:inline-flex; align-items:center; gap:6px; margin-right:10px; padding:7px 10px;
   border:1px solid #94a3b8; border-radius:4px; background:#fff; color:#1f2937; font-size:12px; cursor:pointer; }
 .rep-approval-control input { width:16px; height:16px; margin:0; accent-color:#166534; }
-.rep-approval-meta-control { display:inline-flex; align-items:center; gap:6px; margin-right:10px; color:#334155; font-size:12px; }
+.rep-approval-meta-control { display:inline-flex; flex-wrap:wrap; align-items:center; gap:6px; margin-right:10px; color:#334155; font-size:12px; }
 .rep-approval-meta-control label { display:inline-flex; align-items:center; gap:4px; }
 .rep-approval-meta-control input { width:118px; min-width:0; padding:6px 7px; border:1px solid #94a3b8; border-radius:4px; font:inherit; }
 .rep-approval-meta-control input[data-approval-field="basis"] { width:180px; }
+.rep-approval-meta-hint { flex:1 0 100%; color:#92400e; font-size:11px; line-height:1.35; }
 .rep-document-status-line { display:block; margin-bottom:3mm; color:#4b5563; font-weight:600; }
 .rep-content-integrity-status { display:block; margin-top:6px; color:#166534; font-size:12px; font-weight:700; }
 .rep-content-integrity-status[data-integrity-status="failed"] { color:#b91c1c; }
@@ -443,8 +444,15 @@ function buildRcAttachmentApprovalReport(options = {}) {
           approvalBasisInput.dataset.approvalField = 'basis';
           approvalBasisInput.setAttribute('aria-label', '核可依據，選填');
           approvalBasisLabel.appendChild(approvalBasisInput);
+          var approvalMetaHint = document.createElement('small');
+          approvalMetaHint.className = 'rep-approval-meta-hint';
+          approvalMetaHint.id = 'repApprovalMetaHint';
+          approvalMetaHint.textContent = '核可後修改上述紀錄會撤銷正式核可，需重新勾選。';
+          approvedByInput.setAttribute('aria-describedby', approvalMetaHint.id);
+          approvalBasisInput.setAttribute('aria-describedby', approvalMetaHint.id);
           approvalMetaControl.appendChild(approvedByLabel);
           approvalMetaControl.appendChild(approvalBasisLabel);
+          approvalMetaControl.appendChild(approvalMetaHint);
           toolbar.insertBefore(approvalMetaControl, label.nextSibling);
         }
         function refreshIntegrityAlert() {
@@ -620,10 +628,28 @@ function buildRcAttachmentApprovalReport(options = {}) {
           document.body.dataset.documentClass = status.dataset.documentClass;
           document.title = buildArtifactBaseName(checkbox.checked ? '正式附件' : '內部審閱');
         }
-        checkbox.addEventListener('change', updateStatus);
-        if (approvedByInput) approvedByInput.addEventListener('input', updateStatus);
-        if (approvalBasisInput) approvalBasisInput.addEventListener('input', updateStatus);
-        updateStatus();
+        function updateApprovalMetadata() {
+          var revoked = checkbox.checked;
+          if (revoked) {
+            checkbox.checked = false;
+            approvedAtValue = '';
+            checkbox.removeAttribute('checked');
+          }
+          updateStatus();
+          if (revoked) {
+            var revokedMessage = '核可紀錄已異動，正式核可已撤銷；請確認後重新勾選。';
+            if (approvalMetaHint) approvalMetaHint.textContent = revokedMessage;
+            showDownloadStatus(revokedMessage);
+          }
+        }
+        function updateApprovalState() {
+          if (approvalMetaHint) approvalMetaHint.textContent = '核可後修改上述紀錄會撤銷正式核可，需重新勾選。';
+          updateStatus();
+        }
+        checkbox.addEventListener('change', updateApprovalState);
+        if (approvedByInput) approvedByInput.addEventListener('input', updateApprovalMetadata);
+        if (approvalBasisInput) approvalBasisInput.addEventListener('input', updateApprovalMetadata);
+        updateApprovalState();
         window.verifyReportContentSeal = verifySavedContentSeal;
         window.verifyReportApprovalSeal = verifySavedApprovalSeal;
         verifySavedContentSeal(initialSerializedHtml);

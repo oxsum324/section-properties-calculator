@@ -297,6 +297,9 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
 
     const source = document.querySelector('.rep-attachment-approval-source');
     const status = document.querySelector('.rep-document-status-line');
+    const approvedAt = source?.dataset.approvedAt || status?.dataset.approvedAt || '';
+    const approvedBy = source?.dataset.approvedBy || status?.dataset.approvedBy || '';
+    const approvalBasis = source?.dataset.approvalBasis || status?.dataset.approvalBasis || '';
     const approvedDocumentTitle = document.title || '';
     const approvedHtml = serializerAvailable ? await serializeReportDocumentHtml() : '';
     let downloadedFileName = '';
@@ -311,15 +314,33 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
         HTMLAnchorElement.prototype.click = originalAnchorClick;
       }
     }
+    const approvalMetaHintText = (document.getElementById('repApprovalMetaHint')?.textContent || '').replace(/\s+/g, ' ').trim();
+    if (approvedByInput) {
+      approvedByInput.value = 'RC 複核人（修訂）';
+      approvedByInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    const metadataEditDocumentClass = status?.dataset.documentClass || '';
+    const metadataEditApprovedAt = status?.dataset.approvedAt || '';
+    const metadataEditCheckboxAttribute = Boolean(approval?.hasAttribute('checked'));
+    const metadataEditStatusText = (status?.textContent || '').replace(/\s+/g, ' ').trim();
+    const metadataEditMessage = (document.getElementById('repWindowStatus')?.textContent || '').replace(/\s+/g, ' ').trim();
+    const metadataEditHintText = (document.getElementById('repApprovalMetaHint')?.textContent || '').replace(/\s+/g, ' ').trim();
 
     return {
       approvalControl: Boolean(approval),
       approvalMetaControl: Boolean(approvedByInput && approvalBasisInput),
       downloadControl: Boolean(downloadButton),
       serializerAvailable,
-      approvedAt: source?.dataset.approvedAt || status?.dataset.approvedAt || '',
-      approvedBy: source?.dataset.approvedBy || status?.dataset.approvedBy || '',
-      approvalBasis: source?.dataset.approvalBasis || status?.dataset.approvalBasis || '',
+      approvedAt,
+      approvedBy,
+      approvalBasis,
+      approvalMetaHintText,
+      metadataEditDocumentClass,
+      metadataEditApprovedAt,
+      metadataEditCheckboxAttribute,
+      metadataEditStatusText,
+      metadataEditMessage,
+      metadataEditHintText,
       calculationFingerprint: source?.dataset.calculationFingerprint || '',
       reportTitle: source?.dataset.reportTitle || '',
       approvedDocumentTitle,
@@ -371,8 +392,11 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
   const detail = JSON.stringify(summary);
 
   assert(state.approvalControl && state.approvalMetaControl && state.downloadControl && state.serializerAvailable, `${label} exposes approval, optional approval metadata, and current-state HTML download`, detail);
+  assert(state.approvalMetaHintText.includes('修改上述紀錄會撤銷正式核可') && state.approvalMetaHintText.includes('重新勾選'), `${label} explains approval metadata revocation before editing`, state.approvalMetaHintText);
   assert(Number.isFinite(Date.parse(state.approvedAt)), `${label} formal HTML records machine-readable approval time`, state.approvedAt);
   assert(state.approvedBy === 'RC 複核人' && state.approvalBasis === 'RC 複核紀錄 QA-01', `${label} formal HTML records optional approver and approval basis`, detail);
+  assert(state.metadataEditDocumentClass === 'internal-review' && state.metadataEditApprovedAt === '' && state.metadataEditCheckboxAttribute === false, `${label} changing approval metadata revokes formal status and clears the prior approval time`, JSON.stringify({ documentClass: state.metadataEditDocumentClass, approvedAt: state.metadataEditApprovedAt, checked: state.metadataEditCheckboxAttribute }));
+  assert(state.metadataEditStatusText.includes('文件狀態：內部審閱') && state.metadataEditHintText.includes('正式核可已撤銷') && state.metadataEditHintText.includes('重新勾選'), `${label} revoked approval is explicit in the footer and persistent page-only hint`, JSON.stringify({ status: state.metadataEditStatusText, message: state.metadataEditMessage, hint: state.metadataEditHintText }));
   assert(/^CF-[0-9A-F]{16}$/.test(state.calculationFingerprint), `${label} formal HTML keeps calculation fingerprint`, state.calculationFingerprint);
   assert(state.reportTitle.includes('計算書'), `${label} formal HTML keeps stable calculation-book title`, state.reportTitle);
   assert(state.approvedDocumentTitle.includes('正式附件') && state.approvedDocumentTitle.includes(state.calculationFingerprint), `${label} approved title carries document state and fingerprint`, state.approvedDocumentTitle);
