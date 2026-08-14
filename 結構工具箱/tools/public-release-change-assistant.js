@@ -103,6 +103,21 @@ function candidateFromClosedFile(filePath) {
   return candidateEntry(payload.runId, payload.recordsRequired, payload.postChecksRequired, payload.metrics);
 }
 
+function isSuccessfulFormalPreflight(preflight) {
+  return preflight?.quick === false
+    && preflight.forcePlatformAudit === true
+    && preflight.forceSlowChecks === true
+    && preflight.pass === true
+    && preflight.failureCount === 0
+    && /^\d{8}-\d{6}$/.test(String(preflight.runId || ''))
+    && Number.isInteger(preflight.recordsCount)
+    && preflight.recordsCount > 0
+    && preflight.passedCount === preflight.recordsCount
+    && Number.isInteger(preflight.postCheckCount)
+    && preflight.postCheckCount > 0
+    && preflight.postChecksPassedCount === preflight.postCheckCount;
+}
+
 function renderedEvidenceSource(repoRoot, preflight, explicitPath = '') {
   const candidatePath = explicitPath
     ? path.resolve(repoRoot, explicitPath)
@@ -140,14 +155,16 @@ function renderedEvidenceSource(repoRoot, preflight, explicitPath = '') {
 function candidateFromCurrentOutput(repoRoot, options = {}) {
   let preflightPath = path.resolve(repoRoot, options.preflightFile || PREFLIGHT_FILE);
   let preflight = readJson(preflightPath, 'candidate formal preflight summary');
-  if (!options.preflightFile
-    && (preflight.quick !== false || preflight.forcePlatformAudit !== true || preflight.forceSlowChecks !== true)) {
+  if (!options.preflightFile && !isSuccessfulFormalPreflight(preflight)) {
     const tracked = readJson(path.join(repoRoot, ...PUBLIC_PREFLIGHT_FILE.split('/')), 'tracked public preflight status');
     preflightPath = resolveInsideRepo(repoRoot, String(tracked.sourcePath || ''), 'tracked formal preflight source');
     preflight = readJson(preflightPath, 'tracked formal preflight summary');
   }
   if (preflight.quick !== false || preflight.forcePlatformAudit !== true || preflight.forceSlowChecks !== true) {
     throw new Error('candidate preflight must be a formal run with both force flags; quick evidence cannot predict formal thresholds');
+  }
+  if (!isSuccessfulFormalPreflight(preflight)) {
+    throw new Error('candidate preflight must be a completed successful formal run with all records and post-checks passed');
   }
   if (!/^\d{8}-\d{6}$/.test(String(preflight.runId || ''))
     || !Number.isInteger(preflight.recordsCount) || preflight.recordsCount <= 0
@@ -423,6 +440,7 @@ module.exports = {
   baselineHistoryEntry,
   candidateEntry,
   candidateFromClosedFile,
+  isSuccessfulFormalPreflight,
   candidateFromCurrentOutput,
   buildPreview,
   buildAuthorization,

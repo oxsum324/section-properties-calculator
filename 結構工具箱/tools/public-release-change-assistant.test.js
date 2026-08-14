@@ -32,6 +32,22 @@ const unchanged = assistant.buildPreview(baseline, unchangedCandidate);
 assert.equal(unchanged.classification, 'unchanged', 'same public thresholds preview as unchanged');
 assert.equal(unchanged.authorizationRequired, false, 'unchanged preview does not ask for authorization');
 
+const successfulFormalFixture = {
+  quick: false,
+  forcePlatformAudit: true,
+  forceSlowChecks: true,
+  pass: true,
+  failureCount: 0,
+  runId: '20990101-000000',
+  recordsCount: 84,
+  passedCount: 84,
+  postCheckCount: 3,
+  postChecksPassedCount: 3,
+};
+assert.equal(assistant.isSuccessfulFormalPreflight(successfulFormalFixture), true, 'completed all-green formal evidence is eligible as a threshold candidate');
+assert.equal(assistant.isSuccessfulFormalPreflight({ ...successfulFormalFixture, pass: false, failureCount: 1 }), false, 'failed latest formal evidence is never eligible as a threshold candidate');
+assert.equal(assistant.isSuccessfulFormalPreflight({ ...successfulFormalFixture, postChecksPassedCount: 2 }), false, 'partial post-check evidence is never eligible as a threshold candidate');
+
 const expandedCandidate = assistant.candidateEntry(
   '20990101-010101',
   baseline.records.required + 1,
