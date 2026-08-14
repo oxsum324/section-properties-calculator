@@ -1,4 +1,5 @@
 const assert = require('assert');
+const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -109,6 +110,7 @@ function providerVerificationFor(checkpointResult, observedAt, suffix = '') {
     checkpoint: {
       fileName: checkpointResult.fileName,
       byteLength: checkpointResult.byteLength,
+      contentSha256: crypto.createHash('sha256').update(fs.readFileSync(checkpointResult.target)).digest('hex'),
       providerFileId: `checkpointProviderFile${suffix || 'One'}_1234567890`,
       createdAt: observedAt,
       modifiedAt: observedAt,
@@ -148,6 +150,22 @@ try {
   const firstVerification = providerVerificationFor(first, '2099-01-02T03:06:30Z');
   assert.equal(cloud.validateProviderVerification(firstVerification).pass, true, 'provider readback verification validates as a closed schema');
   assert.equal(cloud.validateProviderVerification({ ...firstVerification, undeclared: true }).pass, false, 'provider readback verification rejects undeclared fields');
+  const legacyCore = {
+    ...firstVerification,
+    schemaVersion: cloud.LEGACY_VERIFICATION_SCHEMA_VERSION,
+    checkpoint: { ...firstVerification.checkpoint },
+  };
+  delete legacyCore.checkpoint.contentSha256;
+  delete legacyCore.verificationId;
+  const legacyVerification = { ...legacyCore, verificationId: `PCV-${receipts.digestObject(legacyCore).slice(0, 24).toUpperCase()}` };
+  assert.equal(cloud.validateProviderVerification(legacyVerification).pass, true, 'legacy metadata-only verification remains readable for history compatibility');
+  const legacyVerificationPath = path.join(root, 'output', 'audit', 'legacy-provider-verification.json');
+  writeJson(legacyVerificationPath, legacyVerification);
+  assert.throws(() => cloud.recordProviderVerification(root, {
+    externalDirectory: pair.externalDirectory,
+    verificationFile: legacyVerificationPath,
+    now: new Date('2099-01-02T03:06:45Z'),
+  }), /raw content SHA-256/, 'legacy metadata-only verification cannot establish a new round trip');
   confirmProviderRoundTrip(root, pair.externalDirectory, first, firstVerification, new Date('2099-01-02T03:06:45Z'));
   const notAccepted = cloud.checkHealth(root, {
     externalDirectory: pair.externalDirectory,
@@ -246,6 +264,16 @@ try {
     verificationFile: mismatchedVerificationPath,
     now: new Date('2099-01-03T03:06:00Z'),
   }), /expected one matching cloud checkpoint/, 'provider readback bytes must match the mounted checkpoint');
+  const mismatchedContentVerification = providerVerificationFor(second, '2099-01-03T03:05:00Z', 'ContentMismatch');
+  mismatchedContentVerification.checkpoint.contentSha256 = '0'.repeat(64);
+  mismatchedContentVerification.verificationId = `PCV-${receipts.digestObject(cloud.verificationCore(mismatchedContentVerification)).slice(0, 24).toUpperCase()}`;
+  const mismatchedContentVerificationPath = path.join(root, 'output', 'audit', 'mismatched-provider-content-verification.json');
+  writeJson(mismatchedContentVerificationPath, mismatchedContentVerification);
+  assert.throws(() => cloud.recordProviderVerification(root, {
+    externalDirectory: pair.externalDirectory,
+    verificationFile: mismatchedContentVerificationPath,
+    now: new Date('2099-01-03T03:06:00Z'),
+  }), /expected one matching cloud checkpoint/, 'provider-downloaded content SHA-256 must match the mounted checkpoint');
 
   const cloudDirectory = path.join(pair.externalDirectory, cloud.DEFAULT_CLOUD_DIRECTORY);
   const secondCloudPath = path.join(cloudDirectory, second.fileName);
@@ -292,4 +320,4 @@ try {
   roots.reverse().forEach(root => fs.rmSync(root, { recursive: true, force: true }));
 }
 
-console.log('public release decision cloud checkpoint OK (chain=2, provider=2, degraded=8, privacy=2, guards=6)');
+console.log('public release decision cloud checkpoint OK (chain=2, provider=4, degraded=9, privacy=2, guards=6)');

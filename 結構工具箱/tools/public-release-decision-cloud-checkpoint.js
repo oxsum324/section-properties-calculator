@@ -10,7 +10,8 @@ const OBSERVATION_SCHEMA_VERSION = 1;
 const OBSERVATION_KIND = 'public-release-decision-cloud-observation';
 const CHECKPOINT_SCHEMA_VERSION = 1;
 const CHECKPOINT_KIND = 'public-release-decision-cloud-checkpoint';
-const VERIFICATION_SCHEMA_VERSION = 1;
+const LEGACY_VERIFICATION_SCHEMA_VERSION = 1;
+const VERIFICATION_SCHEMA_VERSION = 2;
 const VERIFICATION_KIND = 'public-release-decision-cloud-verification';
 const HEALTH_SCHEMA_VERSION = 1;
 const HEALTH_KIND = 'public-release-decision-cloud-checkpoint-health';
@@ -155,13 +156,19 @@ function verificationCore(value) {
 function validateProviderVerification(value) {
   const errors = [];
   const add = (pass, label) => { if (!pass) errors.push(label); };
+  const version = value?.schemaVersion;
+  const supportedVersion = version === LEGACY_VERIFICATION_SCHEMA_VERSION || version === VERIFICATION_SCHEMA_VERSION;
   add(hasExactKeys(value, ['schemaVersion', 'kind', 'provider', 'observedAt', 'checkpoint', 'verificationId']), 'verification.shape');
-  add(value?.schemaVersion === VERIFICATION_SCHEMA_VERSION && value?.kind === VERIFICATION_KIND, 'verification.identity');
+  add(supportedVersion && value?.kind === VERIFICATION_KIND, 'verification.identity');
   add(value?.provider === PROVIDER, 'verification.provider');
   add(Number.isFinite(Date.parse(String(value?.observedAt || ''))), 'verification.observedAt');
-  add(hasExactKeys(value?.checkpoint, ['fileName', 'byteLength', 'providerFileId', 'createdAt', 'modifiedAt']), 'verification.checkpoint.shape');
+  const checkpointKeys = version === VERIFICATION_SCHEMA_VERSION
+    ? ['fileName', 'byteLength', 'contentSha256', 'providerFileId', 'createdAt', 'modifiedAt']
+    : ['fileName', 'byteLength', 'providerFileId', 'createdAt', 'modifiedAt'];
+  add(supportedVersion && hasExactKeys(value?.checkpoint, checkpointKeys), 'verification.checkpoint.shape');
   add(CHECKPOINT_FILE_PATTERN.test(String(value?.checkpoint?.fileName || '')), 'verification.checkpoint.fileName');
   add(Number.isInteger(value?.checkpoint?.byteLength) && value.checkpoint.byteLength > 0, 'verification.checkpoint.byteLength');
+  if (version === VERIFICATION_SCHEMA_VERSION) add(/^[0-9a-f]{64}$/.test(String(value?.checkpoint?.contentSha256 || '')), 'verification.checkpoint.contentSha256');
   add(/^[A-Za-z0-9_-]{10,200}$/.test(String(value?.checkpoint?.providerFileId || '')), 'verification.checkpoint.providerFileId');
   add(Number.isFinite(Date.parse(String(value?.checkpoint?.createdAt || ''))), 'verification.checkpoint.createdAt');
   add(Number.isFinite(Date.parse(String(value?.checkpoint?.modifiedAt || ''))), 'verification.checkpoint.modifiedAt');
@@ -374,6 +381,9 @@ function recordProviderVerification(repoRoot, options = {}) {
   const maximumAgeHours = Number(options.maximumObservationAgeHours ?? DEFAULT_MAXIMUM_OBSERVATION_AGE_HOURS);
   if (!Number.isInteger(maximumAgeHours) || maximumAgeHours < 1 || maximumAgeHours > 168) throw new Error('maximumObservationAgeHours must be an integer from 1 to 168');
   const verification = loadProviderVerification(options.verificationFile);
+  if (verification.schemaVersion !== VERIFICATION_SCHEMA_VERSION) {
+    throw new Error('new cloud provider verification requires a raw content SHA-256 readback');
+  }
   const observedMs = Date.parse(verification.observedAt);
   const nowMs = now.getTime();
   const errors = [];
@@ -385,7 +395,8 @@ function recordProviderVerification(repoRoot, options = {}) {
   try { history = loadCheckpointHistory(path.join(path.resolve(externalDirectory), DEFAULT_CLOUD_DIRECTORY)); }
   catch (error) { throw new Error(`cloud checkpoint provider verification source is invalid: ${error.message}`); }
   const matches = history.entries.filter(entry => entry.name === verification.checkpoint.fileName
-    && entry.byteLength === verification.checkpoint.byteLength);
+    && entry.byteLength === verification.checkpoint.byteLength
+    && fileDigest(entry.filePath) === verification.checkpoint.contentSha256);
   if (matches.length !== 1) errors.push(`expected one matching cloud checkpoint, found ${matches.length}`);
   if (errors.length) throw new Error(`cloud provider verification does not prove the mounted checkpoint: ${errors.join(', ')}`);
   const verificationHistory = loadProviderVerificationHistory(root, options.verificationDirectory || DEFAULT_VERIFICATION_DIRECTORY);
@@ -473,6 +484,13 @@ function checkpointMatchesState(checkpoint, state) {
     && receipts.stableJson(checkpoint.drill) === receipts.stableJson(provedDrill);
 }
 
+function verificationMatchesCheckpoint(verification, checkpointEntry) {
+  return verification.schemaVersion === VERIFICATION_SCHEMA_VERSION
+    && verification.checkpoint.fileName === checkpointEntry.name
+    && verification.checkpoint.byteLength === checkpointEntry.byteLength
+    && verification.checkpoint.contentSha256 === fileDigest(checkpointEntry.filePath);
+}
+
 function checkHealth(repoRoot, options = {}) {
   const root = path.resolve(repoRoot);
   const now = options.now instanceof Date ? options.now : new Date();
@@ -512,8 +530,7 @@ function checkHealth(repoRoot, options = {}) {
   const currentEntries = state ? checkpointHistory.entries.filter(entry => checkpointMatchesState(entry.checkpoint, state)) : [];
   if (state && !currentEntries.length) issueCodes.push('current-cloud-checkpoint-missing');
   const latestCurrent = currentEntries.at(-1) || null;
-  const currentVerifications = latestCurrent ? verificationHistory.entries.filter(entry => entry.verification.checkpoint.fileName === latestCurrent.name
-    && entry.verification.checkpoint.byteLength === latestCurrent.byteLength) : [];
+  const currentVerifications = latestCurrent ? verificationHistory.entries.filter(entry => verificationMatchesCheckpoint(entry.verification, latestCurrent)) : [];
   const latestVerification = currentVerifications.at(-1) || null;
   if (latestCurrent && !latestVerification) issueCodes.push('cloud-checkpoint-provider-confirmation-missing');
   let latestObservationAgeDays = -1;
@@ -699,6 +716,7 @@ module.exports = {
   OBSERVATION_KIND,
   CHECKPOINT_SCHEMA_VERSION,
   CHECKPOINT_KIND,
+  LEGACY_VERIFICATION_SCHEMA_VERSION,
   VERIFICATION_SCHEMA_VERSION,
   VERIFICATION_KIND,
   HEALTH_SCHEMA_VERSION,
