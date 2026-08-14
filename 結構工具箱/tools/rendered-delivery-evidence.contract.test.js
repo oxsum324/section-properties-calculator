@@ -41,7 +41,7 @@ const homeSource = fs.readFileSync(homePath, 'utf8');
 for (const needle of ['計算層級 / 複核邊界', '條文對照 ＆ 方法分級', '規範覆蓋矩陣']) {
   assert.ok(DEFAULT_FORBIDDEN.includes(needle), `rendered delivery evidence shares calculation-book boundary: ${needle}`);
 }
-assert.equal(CALCULATION_BOOK_CONTENT_BOUNDARY.version, '1.3.0', 'rendered delivery evidence consumes the current calculation-book boundary contract');
+assert.equal(CALCULATION_BOOK_CONTENT_BOUNDARY.version, '1.4.0', 'rendered delivery evidence consumes the current calculation-book boundary contract');
 assert.deepEqual(
   CONTENT_PROFILES['calculation-summary'],
   ['adoptedInputs', 'engineeringResult', 'engineeringValues'],

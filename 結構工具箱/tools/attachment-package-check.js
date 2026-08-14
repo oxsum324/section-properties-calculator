@@ -20,8 +20,9 @@ const PAGE_ONLY_NEEDLES = [...new Set([
   ...Object.values(CALCULATION_BOOK_CONTENT_BOUNDARY.forbiddenCategories).flat(),
   '可作附件，需人工複核',
 ])];
+const LEGACY_DRAFT_CLASSIFICATION_NEEDLES = CALCULATION_BOOK_CONTENT_BOUNDARY.forbiddenCategories.legacyDraftClassification || [];
 const DRAFT_DOCUMENT_NEEDLES = [
-  'DRAFT /', 'DRAFT／', '非正式附件', '列印內部檢討版', '本文件僅供內部檢討', '本文件僅供內部複核', '不得作為正式附件',
+  ...LEGACY_DRAFT_CLASSIFICATION_NEEDLES,
   '文件狀態：內部審閱',
 ];
 const READY_DOCUMENT_CLASS_LABEL = '文件狀態：正式附件';

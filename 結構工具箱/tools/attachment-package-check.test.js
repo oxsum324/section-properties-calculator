@@ -268,7 +268,11 @@ assert.match(Checker.formatSummary(readyReport), /測試大樓｜PKG-001｜Codex
 assert.deepEqual(Checker.detectReadyDocumentClass('<strong>文件狀態：正式附件</strong>'), ['文件狀態：正式附件']);
 assert.deepEqual(Checker.detectReadyDocumentClass('<div>文件狀態</div><div>正式附件</div>'), ['文件狀態：正式附件']);
 assert.equal(Checker.READY_DOCUMENT_CLASS_LABEL, '文件狀態：正式附件');
-assert.equal(Checker.CALCULATION_BOOK_CONTENT_BOUNDARY.version, '1.3.0');
+assert.equal(Checker.CALCULATION_BOOK_CONTENT_BOUNDARY.version, '1.4.0');
+assert.deepEqual(
+  Checker.CALCULATION_BOOK_CONTENT_BOUNDARY.forbiddenCategories.legacyDraftClassification,
+  ['DRAFT /', 'DRAFT／', '非正式附件', '列印內部檢討版', '本文件僅供內部檢討', '本文件僅供內部複核', '不得作為正式附件'],
+);
 assert.deepEqual(Checker.CONTENT_PROFILES['calculation-summary'], ['adoptedInputs', 'engineeringResult', 'engineeringValues']);
 assert.equal(Checker.detectCalculationContentProfile('RC 梁設計計算書'), 'calculation-book');
 assert.equal(Checker.detectCalculationContentProfile('RC 梁計算摘要'), 'calculation-summary');

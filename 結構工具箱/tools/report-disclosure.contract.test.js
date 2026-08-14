@@ -105,6 +105,7 @@ const boundaryCategories = calculationBookBoundary.forbiddenCategories || {};
 const pageOnlyReportStatusNeedles = boundaryCategories.pageReadingStatus || [];
 const calculationBookUiOnlyNeedles = boundaryCategories.interfaceAndWorkflow || [];
 const calculationBookGovernanceOnlyNeedles = boundaryCategories.governanceNarrative || [];
+const calculationBookLegacyDraftNeedles = boundaryCategories.legacyDraftClassification || [];
 const calculationBookForbiddenNeedles = [...new Set(Object.values(boundaryCategories).flat())];
 const formalReportRendererFiles = [
   '結構工具箱/core/ui/report.js',
@@ -299,10 +300,21 @@ assert(
   'TOOL_REPORT_GUIDE links page-only readiness glossary, ADR, and delivery boundaries',
   '頁面專用閱讀狀態 / Word / DOCX / workbook',
 );
-assert(calculationBookBoundary.version === '1.3.0', 'calculation-book boundary carries a versioned shared contract', calculationBookBoundary.version);
+assert(calculationBookBoundary.version === '1.4.0', 'calculation-book boundary carries a versioned shared contract', calculationBookBoundary.version);
 assert(calculationBookBoundary.scope === 'all-calculation-book-and-formal-attachment-outputs', 'calculation-book boundary covers every attachment output', calculationBookBoundary.scope);
-['pageReadingStatus', 'interfaceAndWorkflow', 'governanceNarrative'].forEach(category => {
+['pageReadingStatus', 'interfaceAndWorkflow', 'governanceNarrative', 'legacyDraftClassification'].forEach(category => {
   assertStringArray(boundaryCategories[category], `calculation-book boundary ${category}`);
+});
+[
+  'DRAFT /',
+  'DRAFT／',
+  '非正式附件',
+  '列印內部檢討版',
+  '本文件僅供內部檢討',
+  '本文件僅供內部複核',
+  '不得作為正式附件',
+].forEach(needle => {
+  assert(calculationBookLegacyDraftNeedles.includes(needle), 'calculation-book boundary retires legacy draft classification', needle);
 });
 assert(
   calculationBookForbiddenNeedles.length === Object.values(boundaryCategories).flat().length,
