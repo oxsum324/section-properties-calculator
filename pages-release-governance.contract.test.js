@@ -127,7 +127,7 @@ assert.ok(pushPagesRelease.indexOf('$manifest = Wait-PublicManifest') < pushPage
 assert.ok(pushPagesRelease.includes('publicArtifactVerified = $true') && pushPagesRelease.includes('schemaVersion = $manifest.schemaVersion') && pushPagesRelease.includes('fileCount = $manifest.fileCount') && pushPagesRelease.includes('totalBytes = $manifest.totalBytes'), 'Pages push wrapper reports independently verified artifact evidence');
 assert.ok(pushPagesRelease.includes('publicArtifactVerificationMaxAttempts = $PublicSmokeAttempts') && pushPagesRelease.includes('publicArtifactVerificationRetryDelaySeconds = $PublicSmokeRetryDelaySeconds'), 'Pages push wrapper reports its bounded workstation retry policy');
 assert.ok(pushPagesRelease.includes('publicArtifactVerificationAttemptCount = $publicArtifactVerificationAttemptCount') && pushPagesRelease.includes('publicArtifactVerificationRetried = $publicArtifactVerificationAttemptCount -gt 1'), 'Pages push wrapper reports actual workstation verification attempts');
-assert.ok(pushPagesRelease.includes('verify-pages-release-lineage.js') && pushPagesRelease.includes('Verifying that HEAD only carries status snapshots'), 'Pages push wrapper blocks untested carrier changes before push');
+assert.ok(pushPagesRelease.includes('verify-pages-release-lineage.js') && pushPagesRelease.includes('status snapshots and the private decision anchor'), 'Pages push wrapper blocks untested carrier changes before push');
 assert.equal(/[^\x00-\x7F]/.test(pushPagesRelease), false, 'Pages push wrapper avoids source-encoding-sensitive path literals under Windows PowerShell 5.1');
 assert.ok(pushPagesRelease.includes('AllowDirtyVerification is only valid with VerifyOnly and can never authorize a push or dispatch.'), 'dirty verification mode cannot authorize mutation');
 assert.ok(pushPagesReleaseBatch.includes('push-pages-release.ps1') && pushPagesReleaseBatch.includes('%*'), 'Pages release batch forwards explicit operator options to the safe PowerShell entrypoint');
@@ -224,6 +224,9 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
   git('config', 'user.name', 'Fixture');
   git('symbolic-ref', 'HEAD', 'refs/heads/master');
   fs.writeFileSync(path.join(fixtureRepo, 'index.html'), '<p>tested source</p>\n', 'utf8');
+  const decisionAnchorPath = path.join(fixtureRepo, '.github', 'public-release-decision-anchor.json');
+  fs.mkdirSync(path.dirname(decisionAnchorPath), { recursive: true });
+  fs.writeFileSync(decisionAnchorPath, `${JSON.stringify({ schemaVersion: 1, kind: 'public-release-decision-anchor', active: false }, null, 2)}\n`, 'utf8');
   git('add', '-A');
   git('commit', '--quiet', '-m', 'tested source');
   const sourceCommitSha = git('rev-parse', 'HEAD').toLowerCase();
@@ -251,6 +254,14 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
       : { runId: 'fixture-release', pass: true };
     fs.writeFileSync(fullPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
   }
+  fs.writeFileSync(decisionAnchorPath, `${JSON.stringify({
+    schemaVersion: 1,
+    kind: 'public-release-decision-anchor',
+    active: true,
+    runId: 'fixture-release',
+    receiptId: 'PRD-0123456789ABCDEF01234567',
+    receiptSha256: 'a'.repeat(64),
+  }, null, 2)}\n`, 'utf8');
   if (extraCarrierChange) fs.writeFileSync(path.join(fixtureRepo, 'index.html'), '<p>untested carrier change</p>\n', 'utf8');
   git('add', '-A');
   git('commit', '--quiet', '-m', 'release snapshots');
@@ -260,10 +271,10 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
 {
   const fixture = createReleaseLineageFixture();
   try {
-    const { STATUS_PATHS, verifyPagesReleaseLineage } = require(releaseLineageVerifierPath);
+    const { CARRIER_PATHS, verifyPagesReleaseLineage } = require(releaseLineageVerifierPath);
     const result = verifyPagesReleaseLineage({ repoRoot: fixture.fixtureRepo, headSha: fixture.headSha, expectedBranch: 'master' });
     assert.equal(result.sourceCommitSha, fixture.sourceCommitSha, 'release lineage binds the carrier to the tested commit');
-    assert.deepEqual(result.changedPaths, STATUS_PATHS, 'release lineage accepts exactly the three status snapshots');
+    assert.deepEqual(result.changedPaths, CARRIER_PATHS, 'release lineage accepts exactly the three status snapshots and private decision anchor');
   } finally {
     fs.rmSync(fixture.fixtureRepo, { recursive: true, force: true });
   }
@@ -275,7 +286,7 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
     const { verifyPagesReleaseLineage } = require(releaseLineageVerifierPath);
     assert.throws(
       () => verifyPagesReleaseLineage({ repoRoot: fixture.fixtureRepo, headSha: fixture.headSha, expectedBranch: 'master' }),
-      /changes only the three public status snapshots/,
+      /changes only the three public status snapshots and private decision anchor/,
       'release lineage rejects untested carrier content',
     );
   } finally {
@@ -653,6 +664,7 @@ assert.ok(pagesSmoke.includes('結構工具箱/tools/build-pages-artifact.js'), 
 assert.ok(pagesSmoke.includes('GSM-外部歸檔生命週期監測-latest.json') && pagesSmoke.includes('GSM-外部歸檔生命週期監測事件-000001-GME-00000000000000000000.json'), 'Pages smoke blocks GSM monitor state and event publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/build-pages-deployment-manifest.js'), 'Pages smoke blocks deployment manifest builder publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/verify-pages-release-lineage.js'), 'Pages smoke blocks release lineage verifier publication');
+assert.ok(pagesSmoke.includes('.github/public-release-decision-anchor.json') && pagesSmoke.includes('.github/public-release-reduction-authorization.json'), 'Pages smoke blocks private release governance configs');
 assert.ok(artifactBuilder.includes('結構工具箱/tools/release-preflight-lock.ps1') && artifactBuilder.includes('結構工具箱/tools/release-preflight-lock.test.js'), 'Pages artifact builder explicitly keeps release singleton lock and its fixture private');
 assert.ok(pagesSmoke.includes("liveUrl(base, 'pages-deployment.json')") && pagesSmoke.includes('deployed Pages commit matches the requested source commit'), 'Pages smoke validates the public deployment manifest and expected commit');
 assert.ok(pagesSmoke.includes('deployed Pages runId matches the current workflow run') && pagesSmoke.includes('sha256-tree-v1'), 'Pages smoke validates workflow run and tree digest metadata');

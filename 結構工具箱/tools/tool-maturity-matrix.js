@@ -85,7 +85,7 @@ const GLOBAL_GOVERNANCE_GATES = [
     key: 'public-release-change-governance',
     label: '公開門檻退化治理',
     contract: '結構工具箱/tools/public-release-change-governance.test.js',
-    scope: '正式檢查、後置檢查與 10 項公開完成數的逐次變化；唯讀助手先預覽差異，任何縮減才可寫入一次性精確授權與公開理由，且僅能由已發布歷程安全重設',
+    scope: '正式檢查、後置檢查與 10 項公開完成數的逐次變化；唯讀助手先預覽差異，成功 release 形成私人追加式決策收據鏈，任何縮減才可寫入一次性精確授權與公開理由，並以獨立重設收據結案',
     catalogFamilies: [],
     minCatalogs: 0
   },

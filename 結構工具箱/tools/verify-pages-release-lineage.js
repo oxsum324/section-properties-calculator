@@ -8,6 +8,8 @@ const STATUS_PATHS = [
   '結構工具箱/assets/status/preflight-summary.json',
   '結構工具箱/assets/status/report-readiness-status.json',
 ].sort();
+const DECISION_ANCHOR_PATH = '.github/public-release-decision-anchor.json';
+const CARRIER_PATHS = [...STATUS_PATHS, DECISION_ANCHOR_PATH].sort();
 
 function argValue(name) {
   const index = process.argv.indexOf(name);
@@ -45,6 +47,7 @@ function verifyPagesReleaseLineage(options = {}) {
   const preflightRelativePath = STATUS_PATHS.find((relativePath) => relativePath.endsWith('/preflight-summary.json'));
   const preflightPath = path.join(repoRoot, ...preflightRelativePath.split('/'));
   const preflight = readJson(preflightPath, 'tracked preflight release snapshot');
+  const decisionAnchor = readJson(path.join(repoRoot, ...DECISION_ANCHOR_PATH.split('/')), 'tracked private decision receipt anchor');
   const sourceCommitSha = String(preflight.sourceCommitSha || '').trim().toLowerCase();
   assert.match(sourceCommitSha, /^[0-9a-f]{40}$/, 'tracked preflight snapshot identifies a full tested Git commit');
   assert.equal(preflight.sourceDirty, false, 'tracked preflight snapshot proves a clean tested worktree');
@@ -60,6 +63,13 @@ function verifyPagesReleaseLineage(options = {}) {
   if (expectedBranch) {
     assert.equal(String(preflight.sourceBranch || ''), expectedBranch, 'tracked preflight snapshot branch matches the deployment branch');
   }
+  assert.deepEqual(Object.keys(decisionAnchor).sort(), ['active', 'kind', 'receiptId', 'receiptSha256', 'runId', 'schemaVersion'], 'private decision receipt anchor has a closed active schema');
+  assert.equal(decisionAnchor.schemaVersion, 1, 'private decision receipt anchor schema version');
+  assert.equal(decisionAnchor.kind, 'public-release-decision-anchor', 'private decision receipt anchor kind');
+  assert.equal(decisionAnchor.active, true, 'release carrier anchors a completed private decision receipt');
+  assert.equal(decisionAnchor.runId, preflight.runId, 'private decision receipt anchor belongs to the released run');
+  assert.match(String(decisionAnchor.receiptId || ''), /^PRD-[0-9A-F]{24}$/, 'private decision receipt anchor identifies a content-derived receipt');
+  assert.match(String(decisionAnchor.receiptSha256 || ''), /^[0-9a-f]{64}$/i, 'private decision receipt anchor records a canonical receipt digest');
 
   gitText(repoRoot, ['cat-file', '-e', `${sourceCommitSha}^{commit}`]);
   const lineage = gitText(repoRoot, ['rev-list', '--parents', '-n', '1', headSha]).split(/\s+/);
@@ -67,9 +77,9 @@ function verifyPagesReleaseLineage(options = {}) {
   assert.equal(lineage[1].toLowerCase(), sourceCommitSha, 'release carrier direct parent is the tested commit');
 
   const changedPaths = gitPathList(repoRoot, ['diff', '--name-only', '--no-renames', '-z', `${sourceCommitSha}..${headSha}`]);
-  assert.deepEqual(changedPaths, STATUS_PATHS, 'release carrier changes only the three public status snapshots');
+  assert.deepEqual(changedPaths, CARRIER_PATHS, 'release carrier changes only the three public status snapshots and private decision anchor');
 
-  for (const relativePath of STATUS_PATHS) {
+  for (const relativePath of CARRIER_PATHS) {
     gitText(repoRoot, ['cat-file', '-e', `${headSha}:${relativePath}`]);
   }
 
@@ -105,5 +115,7 @@ if (require.main === module) {
 
 module.exports = {
   STATUS_PATHS,
+  DECISION_ANCHOR_PATH,
+  CARRIER_PATHS,
   verifyPagesReleaseLineage,
 };

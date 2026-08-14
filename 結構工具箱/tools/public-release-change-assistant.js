@@ -261,7 +261,7 @@ function writeAuthorization(repoRoot, preview, reasonCode, reason, authorization
   return { changed: true, target, authorization: next };
 }
 
-function resetAuthorization(repoRoot, authorizationFile = AUTHORIZATION_FILE) {
+function resetAuthorization(repoRoot, authorizationFile = AUTHORIZATION_FILE, afterReset = null) {
   const target = resolveInsideRepo(repoRoot, authorizationFile, 'authorization file');
   requireRegularAuthorizationFile(target);
   const current = readJson(target, 'current reduction authorization');
@@ -293,8 +293,16 @@ function resetAuthorization(repoRoot, authorizationFile = AUTHORIZATION_FILE) {
     kind: publicEvidenceSchema.REDUCTION_AUTHORIZATION_KIND,
     active: false,
   };
+  const previousContents = fs.readFileSync(target, 'utf8');
   writeJsonConfig(target, inactive);
-  return { changed: true, target, authorization: inactive };
+  let resetReceipt = null;
+  try {
+    if (afterReset) resetReceipt = afterReset({ before: current, after: inactive, target });
+  } catch (error) {
+    fs.writeFileSync(target, previousContents, 'utf8');
+    throw new Error(`authorization reset receipt failed; active authorization was restored: ${error.message}`);
+  }
+  return { changed: true, target, authorization: inactive, resetReceipt };
 }
 
 function parseArgs(argv) {
@@ -347,8 +355,22 @@ function main() {
   const args = parseArgs(process.argv.slice(2));
   const repoRoot = path.resolve(args['repo-root'] || path.resolve(__dirname, '..', '..'));
   if (args['reset-authorization']) {
-    const action = resetAuthorization(repoRoot, args['authorization-file'] || AUTHORIZATION_FILE);
-    const result = { schemaVersion: 1, kind: 'public-release-authorization-reset', changed: action.changed, target: relativePath(repoRoot, action.target) };
+    const receiptModule = require('./public-release-decision-receipt.js');
+    const authorizationFile = args['authorization-file'] || AUTHORIZATION_FILE;
+    const prepared = receiptModule.prepareAuthorizationResetReceipt(repoRoot, authorizationFile);
+    const action = resetAuthorization(
+      repoRoot,
+      authorizationFile,
+      prepared ? () => receiptModule.writePreparedResetReceipt(repoRoot, prepared) : null,
+    );
+    const result = {
+      schemaVersion: 1,
+      kind: 'public-release-authorization-reset',
+      changed: action.changed,
+      target: relativePath(repoRoot, action.target),
+      resetReceiptId: action.resetReceipt?.receipt?.receiptId || '',
+      resetReceiptFile: action.resetReceipt ? relativePath(repoRoot, action.resetReceipt.target) : '',
+    };
     console.log(args.json ? JSON.stringify(result, null, 2) : `一次性縮減授權：${action.changed ? '已安全重設為 inactive' : '原已是 inactive'}\n設定檔：${action.target}`);
     return;
   }

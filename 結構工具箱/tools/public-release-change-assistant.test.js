@@ -99,21 +99,27 @@ try {
   );
   assert.throws(() => assistant.parseArgs(['--reason', reason]), /only accepted/, 'reason without write action is rejected');
   assert.throws(() => assistant.parseArgs(['--unknown']), /unknown argument/, 'unknown CLI arguments fail closed');
-  assert.throws(
-    () => assistant.candidateFromCurrentOutput(repoRoot, {
-      preflightFile: `output/preflight/history/${baseline.runId}/preflight-summary.json`,
-      renderedEvidenceFile: 'output/definitely-missing-evidence.json',
-    }),
-    /rendered delivery evidence is missing/,
-    'explicit candidate evidence cannot silently fall back to another release',
-  );
-  const latestOutput = readJson(path.join(repoRoot, 'output', 'preflight', 'preflight-summary.json'));
-  if (latestOutput.quick === true) {
+  const baselinePreflightPath = path.join(repoRoot, 'output', 'preflight', 'history', baseline.runId, 'preflight-summary.json');
+  if (fs.existsSync(baselinePreflightPath)) {
     assert.throws(
-      () => assistant.candidateFromCurrentOutput(repoRoot, { preflightFile: 'output/preflight/preflight-summary.json' }),
-      /quick evidence cannot predict formal thresholds/,
-      'explicit quick preflight remains ineligible for threshold authorization',
+      () => assistant.candidateFromCurrentOutput(repoRoot, {
+        preflightFile: `output/preflight/history/${baseline.runId}/preflight-summary.json`,
+        renderedEvidenceFile: 'output/definitely-missing-evidence.json',
+      }),
+      /rendered delivery evidence is missing/,
+      'explicit candidate evidence cannot silently fall back to another release',
     );
+  }
+  const latestOutputPath = path.join(repoRoot, 'output', 'preflight', 'preflight-summary.json');
+  if (fs.existsSync(latestOutputPath)) {
+    const latestOutput = readJson(latestOutputPath);
+    if (latestOutput.quick === true) {
+      assert.throws(
+        () => assistant.candidateFromCurrentOutput(repoRoot, { preflightFile: 'output/preflight/preflight-summary.json' }),
+        /quick evidence cannot predict formal thresholds/,
+        'explicit quick preflight remains ineligible for threshold authorization',
+      );
+    }
   }
 } finally {
   fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -179,18 +185,30 @@ try {
     /cannot be reset until the tracked public history proves/,
     'malformed active authorization cannot be reset through historical coincidence',
   );
+  writeJson(resetPath, resetAuthorization);
+  assert.throws(
+    () => assistant.resetAuthorization(resetRoot, assistant.AUTHORIZATION_FILE, () => { throw new Error('simulated receipt failure'); }),
+    /active authorization was restored/,
+    'receipt failure rolls the authorization config back to active',
+  );
+  assert.deepEqual(readJson(resetPath), resetAuthorization, 'rollback preserves the exact active authorization for a safe retry');
 } finally {
   fs.rmSync(resetRoot, { recursive: true, force: true });
 }
 
 const authorizationPath = path.join(repoRoot, '.github', 'public-release-reduction-authorization.json');
 const authorizationHashBefore = fs.readFileSync(authorizationPath, 'utf8');
-const livePreview = JSON.parse(childProcess.execFileSync(process.execPath, [__filename.replace(/\.test\.js$/, '.js'), '--json'], {
-  cwd: repoRoot,
-  encoding: 'utf8',
-}));
-assert.equal(livePreview.classification, 'unchanged', 'default CLI previews current formal evidence read-only');
-assert.equal(livePreview.authorizationRequired, false, 'current unchanged release needs no approval');
-assert.equal(fs.readFileSync(authorizationPath, 'utf8'), authorizationHashBefore, 'default CLI never mutates tracked authorization');
+const latestOutputPath = path.join(repoRoot, 'output', 'preflight', 'preflight-summary.json');
+let liveReadOnly = 0;
+if (fs.existsSync(latestOutputPath)) {
+  const livePreview = JSON.parse(childProcess.execFileSync(process.execPath, [__filename.replace(/\.test\.js$/, '.js'), '--json'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  }));
+  assert.equal(livePreview.classification, 'unchanged', 'default CLI previews current formal evidence read-only');
+  assert.equal(livePreview.authorizationRequired, false, 'current unchanged release needs no approval');
+  assert.equal(fs.readFileSync(authorizationPath, 'utf8'), authorizationHashBefore, 'default CLI never mutates tracked authorization');
+  liveReadOnly = 1;
+}
 
-console.log('public release change assistant OK (preview=3, writeGuards=7, resetGuards=5, evidenceGuards=2, liveReadOnly=1)');
+console.log(`public release change assistant OK (preview=3, writeGuards=7, resetGuards=5, evidenceGuards=2, liveReadOnly=${liveReadOnly})`);

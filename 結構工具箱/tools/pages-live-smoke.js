@@ -62,6 +62,8 @@ const PRIVATE_PATHS = [
   '結構工具箱/tools/verify-pages-release-lineage.js',
   '結構工具箱/tools/public-release-change-assistant.js',
   '結構工具箱/tools/public-release-change-assistant.test.js',
+  '結構工具箱/tools/public-release-decision-receipt.js',
+  '結構工具箱/tools/public-release-decision-receipt.test.js',
   '結構工具箱/tools/attachment-package-check.js',
   '結構工具箱/tools/attachment-package-build.js',
   '結構工具箱/tools/attachment-package-verify.js',
@@ -149,6 +151,8 @@ const PRIVATE_PATHS = [
   '.github/pages-smoke/write-ci-summary.js',
   '.github/pages-smoke/build-performance-trend.js',
   '.github/pages-smoke/build-performance-trend.test.js',
+  '.github/public-release-reduction-authorization.json',
+  '.github/public-release-decision-anchor.json',
   '.github/workflows/pages-deploy.yml'
 ];
 

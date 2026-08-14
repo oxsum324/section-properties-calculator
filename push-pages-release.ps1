@@ -534,7 +534,7 @@ if ($testedSourceSha -notmatch '^[0-9a-f]{40}$') {
 }
 
 $lineageScript = Resolve-RepoToolScript -LeafName 'verify-pages-release-lineage.js'
-Write-ProgressLine "Verifying that HEAD only carries status snapshots for its tested parent commit."
+Write-ProgressLine "Verifying that HEAD only carries status snapshots and the private decision anchor for its tested parent commit."
 Invoke-ExternalText -FilePath $script:NodePath -Arguments @(
   $lineageScript,
   '--repo-root', $RepoRoot,

@@ -1491,6 +1491,8 @@ $publicReleaseChangeGovernanceCommand = @'
 node 結構工具箱/tools/public-release-change-governance.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node 結構工具箱/tools/public-release-change-assistant.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node 結構工具箱/tools/public-release-decision-receipt.test.js
 exit $LASTEXITCODE
 '@
 
@@ -3300,6 +3302,25 @@ if ($overallPass -and -not $CI -and (Test-Path -LiteralPath $maturityMatrixScrip
 }
 
 Update-PreflightHistoryManifest
+
+$decisionReceiptScript = Join-Path $root "結構工具箱\tools\public-release-decision-receipt.js"
+if ($overallPass -and $isReleaseMode) {
+  $decisionReceiptStdout = Join-Path $runDir "public-release-decision-receipt.stdout.txt"
+  $decisionReceiptStderr = Join-Path $runDir "public-release-decision-receipt.stderr.txt"
+  $decisionReceiptProc = Start-Process -FilePath node -ArgumentList @($decisionReceiptScript, "--write", "--json") -WorkingDirectory $root -RedirectStandardOutput $decisionReceiptStdout -RedirectStandardError $decisionReceiptStderr -PassThru -Wait -WindowStyle Hidden
+  if ($decisionReceiptProc.ExitCode -ne 0) {
+    $overallPass = $false
+    $failures.Add("public-release-decision-receipt: exitCode=$($decisionReceiptProc.ExitCode), log=$decisionReceiptStderr")
+    $payload["pass"] = $overallPass
+    $payload["failureCount"] = $failures.Count
+    $payload["failures"] = @($failures.ToArray())
+    Write-JsonFile -Path $summaryJsonPath -Value $payload -Depth 6
+    Write-JsonFile -Path $historySummaryJsonPath -Value $payload -Depth 6
+    [System.IO.File]::AppendAllText($summaryPath, "- Release decision receipt: pass=False, exitCode=$($decisionReceiptProc.ExitCode), log=$decisionReceiptStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::AppendAllText($historySummaryPath, "- Release decision receipt: pass=False, exitCode=$($decisionReceiptProc.ExitCode), log=$decisionReceiptStderr" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
+    Update-PreflightHistoryManifest
+  }
+}
 
 if ($overallPass) {
   Write-Status "Tool preflight completed cleanly. runId=$runStamp" "Green" -Force
