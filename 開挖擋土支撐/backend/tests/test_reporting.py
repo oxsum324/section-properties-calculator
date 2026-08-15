@@ -442,6 +442,30 @@ class ReportingTests(unittest.TestCase):
         self.assertIn("詳細版（逐筆列示完整驗算過程）", combined_text)
         self.assertIn("-detail-", report_path.name)
 
+    def test_reports_tolerate_legacy_column_checks_without_optional_handoff_values(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        project.calculation_results = calculate_project(project)
+        legacy_column_check_found = False
+        for check in project.calculation_results.column_checks:
+            if check.formula_id != "column_interaction":
+                continue
+            legacy_column_check_found = True
+            check.inputs.pop("Np", None)
+            check.inputs.pop("反力分配比例", None)
+            envelope = check.details.get("construction_stage_envelope", [])
+            if isinstance(envelope, list):
+                for item in envelope:
+                    if isinstance(item, dict):
+                        item.pop("distribution_factor", None)
+
+        self.assertTrue(legacy_column_check_found)
+        word_path = build_word_report(project, concise_mode=False)
+        pdf_path = build_report(project, concise_mode=False)
+        self.assertTrue(word_path.exists())
+        self.assertTrue(pdf_path.exists())
+        word_path.unlink(missing_ok=True)
+        pdf_path.unlink(missing_ok=True)
+
     def test_word_report_preserves_verified_decking_handoff_trace(self) -> None:
         project = load_default_project().model_copy(deep=True)
         for column in project.columns:

@@ -3,11 +3,72 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const toolRoot = __dirname;
+const frontendAppPath = path.join(toolRoot, 'frontend', 'src', 'App.tsx');
+const frontendApp = fs.readFileSync(frontendAppPath, 'utf8').replace(/^\uFEFF/, '');
 const releaseEvidenceDir = process.env.EXCAVATION_RENDERED_EVIDENCE_DIR
   ? path.resolve(process.env.EXCAVATION_RENDERED_EVIDENCE_DIR)
   : process.env.PREFLIGHT_RELEASE === '1' && process.env.PREFLIGHT_RUN_DIR
     ? path.join(path.resolve(process.env.PREFLIGHT_RUN_DIR), 'rendered-delivery-evidence', 'excavation-formal')
     : '';
+
+function requireFrontendNeedle(needle, label) {
+  if (!frontendApp.includes(needle)) {
+    console.error(`FAIL | excavation frontend report approval contract :: ${label}`);
+    process.exit(1);
+  }
+  console.log(`PASS | excavation frontend report approval contract | ${label}`);
+}
+
+function frontendFunctionSource(name, nextName) {
+  const start = frontendApp.indexOf(`function ${name}(`);
+  const end = frontendApp.indexOf(`function ${nextName}`, start + 1);
+  if (start < 0 || end < 0) {
+    console.error(`FAIL | excavation frontend report approval contract :: missing ${name} boundary`);
+    process.exit(1);
+  }
+  return frontendApp.slice(start, end);
+}
+
+[
+  ['function buildReportApprovalArtifactKey(project: ProjectState | null): string', 'defines a stable approval artifact key'],
+  ['created_at: _createdAt', 'excludes persisted creation time from approval identity'],
+  ['updated_at: _updatedAt', 'excludes autosave time from approval identity'],
+  ['const reportApprovalArtifactKeyRef = useRef(reportApprovalArtifactKey);', 'tracks the previously approved artifact'],
+].forEach(([needle, label]) => requireFrontendNeedle(needle, label));
+
+const reportArtifactEffectStart = frontendApp.indexOf(
+  'useEffect(() => {\n    if (reportApprovalArtifactKeyRef.current === reportApprovalArtifactKey) return;',
+);
+const reportArtifactEffectEnd = frontendApp.indexOf('  useEffect(() => {', reportArtifactEffectStart + 1);
+if (reportArtifactEffectStart < 0 || reportArtifactEffectEnd < 0) {
+  console.error('FAIL | excavation frontend report approval contract :: missing report-artifact invalidation effect');
+  process.exit(1);
+}
+const reportArtifactEffect = frontendApp.slice(reportArtifactEffectStart, reportArtifactEffectEnd);
+[
+  ['reportApprovalArtifactKeyRef.current = reportApprovalArtifactKey;', 'detects report-content changes'],
+  ['setReportApproved(false);', 'revokes formal approval after report-content changes'],
+  ['setReportUrl("");', 'clears stale PDF link after report-content changes'],
+  ['setPdfEvidenceUrl("");', 'clears stale PDF evidence after report-content changes'],
+  ['setPdfSourceBundleUrl("");', 'clears stale formal-source bundle after report-content changes'],
+  ['setWordReportUrl("");', 'clears stale Word link after report-content changes'],
+  ['setGeneratedPdfDocumentStatus(null);', 'clears stale PDF document status after report-content changes'],
+  ['setGeneratedWordDocumentStatus(null);', 'clears stale Word document status after report-content changes'],
+  ['}, [reportApprovalArtifactKey]);', 'binds invalidation to the report artifact key'],
+].forEach(([needle, label]) => {
+  if (!reportArtifactEffect.includes(needle)) {
+    console.error(`FAIL | excavation frontend report approval contract :: ${label}`);
+    process.exit(1);
+  }
+  console.log(`PASS | excavation frontend report approval contract | ${label}`);
+});
+
+const updateBasicSource = frontendFunctionSource('updateBasic', 'updateArrayRow');
+if (!updateBasicSource.includes('calculation_results: null')) {
+  console.error('FAIL | excavation frontend report approval contract :: basic-parameter edits invalidate calculation results');
+  process.exit(1);
+}
+console.log('PASS | excavation frontend report approval contract | basic-parameter edits invalidate calculation results');
 
 const result = spawnSync(
   'python',

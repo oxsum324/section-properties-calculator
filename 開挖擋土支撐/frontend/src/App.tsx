@@ -606,6 +606,19 @@ const analysisWorkflowOptions: Array<{
   },
 ];
 
+function buildReportApprovalArtifactKey(project: ProjectState | null): string {
+  if (!project) return "";
+  const {
+    created_at: _createdAt,
+    updated_at: _updatedAt,
+    ...stableMetadata
+  } = project.metadata;
+  return JSON.stringify({
+    ...project,
+    metadata: stableMetadata,
+  });
+}
+
 function App() {
   const [bootstrap, setBootstrap] = useState<BootstrapPayload | null>(null);
   const [projectList, setProjectList] = useState<ProjectListItem[]>([]);
@@ -726,6 +739,11 @@ function App() {
   const [autoSaving, setAutoSaving] = useState(false);
   const [lastAutoSavedAt, setLastAutoSavedAt] = useState<string | null>(null);
   const [persistedProjectSnapshot, setPersistedProjectSnapshot] = useState("");
+  const reportApprovalArtifactKey = useMemo(
+    () => buildReportApprovalArtifactKey(project),
+    [project],
+  );
+  const reportApprovalArtifactKeyRef = useRef(reportApprovalArtifactKey);
   const reportModeLabel = conciseReportMode ? "簡述版" : "詳細版";
   const reportDocumentStatusLabel = reportApproved ? "正式附件" : "內部審閱";
   const receiverOperatorRoles = receiverOperatorAuth.operator?.roles ?? [];
@@ -849,6 +867,20 @@ function App() {
     receiverCalculationConfirmed,
     receiverIdentityAcknowledged,
   ]);
+
+  useEffect(() => {
+    if (reportApprovalArtifactKeyRef.current === reportApprovalArtifactKey) return;
+    reportApprovalArtifactKeyRef.current = reportApprovalArtifactKey;
+    setReportApproved(false);
+    setReportUrl("");
+    setPdfEvidenceUrl("");
+    setPdfSourceBundleUrl("");
+    setWordReportUrl("");
+    setGeneratedPdfMode(null);
+    setGeneratedWordMode(null);
+    setGeneratedPdfDocumentStatus(null);
+    setGeneratedWordDocumentStatus(null);
+  }, [reportApprovalArtifactKey]);
 
   useEffect(() => {
     if (activeStep !== STEP_RECEIPT) return;
@@ -3116,6 +3148,7 @@ function App() {
               ? parsed
               : value,
       },
+      calculation_results: null,
     });
   }
 

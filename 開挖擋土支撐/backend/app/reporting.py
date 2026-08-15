@@ -2400,7 +2400,7 @@ def _column_detail_content(
     if isinstance(envelope, list) and len(envelope) > 1:
         substitutions.append("施工階段逐案包絡結果如下：")
         substitutions.extend(
-            f"{item.get('stage_label', '—')} [{item.get('stage_id', '—')}]：來源 Np = {_fmt_short(item.get('source_Np'))} tf，分配比例 = {_fmt_short(_numeric(item.get('distribution_factor')) * 100)}%，本柱 Np = {_fmt_short(item.get('Np'))} tf，分配依據 = {item.get('distribution_basis') or '單柱全數採用'}，Δex / Δey = {_fmt_short(item.get('transfer_eccentricity_x_m'))} / {_fmt_short(item.get('transfer_eccentricity_y_m'))} m，ΔMx / ΔMy = {_fmt_short(item.get('transfer_mx_tf_m'))} / {_fmt_short(item.get('transfer_my_tf_m'))} tf-m，Mx / My = {_fmt_short(item.get('Mx'))} / {_fmt_short(item.get('My'))} tf-m，N = {_fmt_short(item.get('N'))} tf，PT = {_fmt_short(item.get('PT'))} tf，柱互制比 = {_fmt_short(item.get('interaction_ratio'))}，壓入比 = {_fmt_short(item.get('compression_ratio'))}，拉拔比 = {_fmt_short(item.get('tension_ratio'))}"
+            f"{item.get('stage_label', '—')} [{item.get('stage_id', '—')}]：來源 Np = {_fmt_short(item.get('source_Np'))} tf，分配比例 = {_fmt_short(_percentage(item.get('distribution_factor')))}%，本柱 Np = {_fmt_short(item.get('Np'))} tf，分配依據 = {item.get('distribution_basis') or '單柱全數採用'}，Δex / Δey = {_fmt_short(item.get('transfer_eccentricity_x_m'))} / {_fmt_short(item.get('transfer_eccentricity_y_m'))} m，ΔMx / ΔMy = {_fmt_short(item.get('transfer_mx_tf_m'))} / {_fmt_short(item.get('transfer_my_tf_m'))} tf-m，Mx / My = {_fmt_short(item.get('Mx'))} / {_fmt_short(item.get('My'))} tf-m，N = {_fmt_short(item.get('N'))} tf，PT = {_fmt_short(item.get('PT'))} tf，柱互制比 = {_fmt_short(item.get('interaction_ratio'))}，壓入比 = {_fmt_short(item.get('compression_ratio'))}，拉拔比 = {_fmt_short(item.get('tension_ratio'))}"
             for item in envelope
             if isinstance(item, dict)
         )
@@ -2434,6 +2434,11 @@ def _numeric(value: object) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _percentage(value: object) -> float | None:
+    numeric = _numeric(value)
+    return numeric * 100.0 if numeric is not None else None
 
 
 def _axial_allowable_substitution_line(
@@ -2566,9 +2571,10 @@ def _input_parameter_lines(check: CheckResult) -> list[str]:
             f"基礎型式 = {inputs.get('基礎型式', '—')}，基礎形狀 = {inputs.get('基礎形狀', '—')}，Bx = {_fmt_short(inputs.get('基礎尺寸 Bx'))} m，By = {_fmt_short(inputs.get('基礎尺寸 By'))} m",
             f"埋置深度 = {_fmt_short(inputs.get('埋置深度'))} m，FS壓入 = {_fmt_short(inputs.get('FS壓入'))}，FS拉拔 = {_fmt_short(inputs.get('FS拉拔'))}，Kh = {_fmt_short(inputs.get('Kh'))}",
         ]
-        if _numeric(inputs.get("Np")) > 0:
+        np_value = _numeric(inputs.get("Np"))
+        if np_value is not None and np_value > 0:
             lines.append(
-                f"來源控制軸力 = {_fmt_short(inputs.get('來源 Np'))} tf；反力分配比例 = {_fmt_short(_numeric(inputs.get('反力分配比例')) * 100)}%；"
+                f"來源控制軸力 = {_fmt_short(inputs.get('來源 Np'))} tf；反力分配比例 = {_fmt_short(_percentage(inputs.get('反力分配比例')))}%；"
                 f"本柱採用 Np = {_fmt_short(inputs.get('Np'))} tf；反力分配依據 = {inputs.get('反力分配依據') or '單柱全數採用'}；"
                 f"施工構台荷重來源 = {inputs.get('施工構台荷重來源', '—')} {inputs.get('來源工具版本', '')}；"
                 f"來源計算指紋 = {inputs.get('來源計算指紋', '—')}；交接指紋 = {inputs.get('交接指紋', '—')}；"
@@ -2581,7 +2587,7 @@ def _input_parameter_lines(check: CheckResult) -> list[str]:
                     continue
                 lines.append(
                     f"階段來源「{item.get('stage_label', '—')}」：來源 Np = {_fmt_short(item.get('source_Np'))} tf；"
-                    f"反力分配比例 = {_fmt_short(_numeric(item.get('distribution_factor')) * 100)}%；本柱採用 Np = {_fmt_short(item.get('Np'))} tf；"
+                    f"反力分配比例 = {_fmt_short(_percentage(item.get('distribution_factor')))}%；本柱採用 Np = {_fmt_short(item.get('Np'))} tf；"
                     f"反力分配依據 = {item.get('distribution_basis') or '單柱全數採用'}；"
                     f"附加偏心 = {'已採用，Δex / Δey = ' + _fmt_short(item.get('transfer_eccentricity_x_m')) + ' / ' + _fmt_short(item.get('transfer_eccentricity_y_m')) + ' m，依據 = ' + str(item.get('transfer_basis', '—')) if item.get('apply_transfer_eccentricity') else '未採用'}；"
                     f"{item.get('source_tool', '—')} {item.get('source_version', '')}；"
