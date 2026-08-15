@@ -14,6 +14,8 @@ from backend.app.calculations import (
     cc_value,
     classify_beam_section,
     classify_column_section,
+    interaction_components,
+    interaction_ratio,
 )
 from backend.app.schemas import (
     AnalysisForceCase,
@@ -27,6 +29,19 @@ from backend.tests.handoff_fixtures import make_stage_adoption, make_verified_ha
 
 
 class CalculationTests(unittest.TestCase):
+    def test_interaction_components_preserve_low_axial_8_2_3_branch(self) -> None:
+        inputs = (2.5, 0.1, 1.5, 0.2, 1.5, 0.1, 1.8, 10.0, 8.0, 0.85, 0.85)
+        components = interaction_components(*inputs)
+
+        self.assertEqual(components["governingInteractionEquation"], "8.2-3")
+        self.assertIsNone(components["interaction821Ratio"])
+        self.assertIsNone(components["interaction822Ratio"])
+        self.assertAlmostEqual(
+            float(components["interaction823Ratio"]),
+            0.1 / 1.5 + 0.2 / 1.5 + 0.1 / 1.8,
+        )
+        self.assertAlmostEqual(interaction_ratio(*inputs), float(components["ratio"]))
+
     def test_custom_functions_have_expected_shape(self) -> None:
         ref = load_reference_data()
         params = ref.basic_defaults

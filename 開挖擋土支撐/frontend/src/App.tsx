@@ -8251,7 +8251,11 @@ function App() {
                                     <span>{`控制軸：${calculation.results.controllingAxis}；KL/r = ${fmt(calculation.results.klrMax)}；${calculation.results.analysisMode === "pure_axial" ? "單支軸壓容量" : "單支純軸壓上限"} = ${fmt(calculation.results.perMemberCapacityTf, " tf")}`}</span>
                                     <span>{`可採用移轉容量 = ${fmt(calculation.results.adoptableTransferCapacityTf, " tf")}；利用率 = ${calculation.results.capacityUtilizationRatio == null ? "—" : fmt(calculation.results.capacityUtilizationRatio)}`}</span>
                                     {calculation.results.analysisMode === "axial_biaxial_bending" && (
-                                      <span>{`Mx / My = ${fmt(calculation.results.momentXTfMPerMember)} / ${fmt(calculation.results.momentYTfMPerMember)} tf·m；互制比 = ${calculation.results.memberInteractionRatio == null ? "—" : fmt(calculation.results.memberInteractionRatio)}`}</span>
+                                      <>
+                                        <span>{`Mx / My = ${fmt(calculation.results.momentXTfMPerMember)} / ${fmt(calculation.results.momentYTfMPerMember)} tf·m；互制比 = ${calculation.results.memberInteractionRatio == null ? "—" : fmt(calculation.results.memberInteractionRatio)}`}</span>
+                                        <span>{`主要彎曲方向：${calculation.results.dominantBendingAxis ?? "—"}；目前需求控制式：${calculation.results.governingInteractionEquation ?? "—"}（8.2-1 / 8.2-2 / 8.2-3 = ${calculation.results.interaction821Ratio == null ? "—" : fmt(calculation.results.interaction821Ratio)} / ${calculation.results.interaction822Ratio == null ? "—" : fmt(calculation.results.interaction822Ratio)} / ${calculation.results.interaction823Ratio == null ? "—" : fmt(calculation.results.interaction823Ratio)}）`}</span>
+                                        <span>{`容量根控制式：${calculation.results.capacityGoverningInteractionEquation ?? "—"}（互制比 = ${calculation.results.capacityInteractionRatio == null ? "—" : fmt(calculation.results.capacityInteractionRatio)}）`}</span>
+                                      </>
                                     )}
                                     <span>構件證據已下載並回填；其他未涵蓋查核仍維持「尚未完成」。若要整列通過，須在五類補充查核中逐項附上正式文件，RSC 不會被當成其他查核的證據。</span>
                                   </div>

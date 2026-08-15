@@ -86,6 +86,8 @@ const receiverCapacity = readUtf8('backend/app/receiver_capacity.py');
 const receiverCapacityTests = readUtf8('backend/tests/test_receiver_capacity.py');
 const receiverCapacityBenchmarkText = readUtf8('backend/tests/fixtures/reshore_biaxial_independent_benchmark.json');
 const receiverCapacityBenchmark = JSON.parse(receiverCapacityBenchmarkText);
+const receiverCapacity822BenchmarkText = readUtf8('backend/tests/fixtures/reshore_biaxial_independent_benchmark_822.json');
+const receiverCapacity822Benchmark = JSON.parse(receiverCapacity822BenchmarkText);
 const removalTransferHandoffTests = readUtf8('backend/tests/test_removal_transfer_handoff.py');
 const receiverOfflineSigner = readUtf8('backend/sign_receiver_request.py');
 const receiverSigningLauncher = readUtf8('sign_receiver_request.ps1');
@@ -190,7 +192,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.48.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.49.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -300,17 +302,24 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
 });
 [
   'excavation-reshore-member-capacity-calculation',
+  'SCHEMA_VERSION = 3',
   'calculate_reshore_member_capacity',
   'allowable_axial_stress',
   'allowable_fbx',
   'allowable_fby',
-  'interaction_ratio',
+  'interaction_components',
   'axial_biaxial_bending',
   'KL/r <= 200',
   'bf/(2tf) <= 25/sqrt(Fy)',
   '(d-2tf)/tw <= 68/sqrt(Fy)',
   'adoptableTransferCapacityTf',
   'capacityInteractionRatio',
+  'interaction821Ratio',
+  'interaction822Ratio',
+  'interaction823Ratio',
+  'governingInteractionEquation',
+  'dominantBendingAxis',
+  'capacityGoverningInteractionEquation',
   'pureAxialNoEccentricityOnly',
   'axialBiaxialBendingInteractionChecked',
   'doesNotAutoApproveReceiverReceipt',
@@ -337,12 +346,21 @@ assert(receiverCapacityBenchmark.kind === 'independent-engineering-benchmark', '
 assert(receiverCapacityBenchmark.benchmarkId === 'EXC-RSC-BX-001', 'excavation reshore independent benchmark id', receiverCapacityBenchmark.benchmarkId);
 assert(receiverCapacityBenchmark.independenceBoundary.includes('不呼叫 receiver_capacity.py'), 'excavation reshore independent benchmark excludes production helpers', receiverCapacityBenchmark.independenceBoundary);
 assert(receiverCapacityBenchmark.codeBasis.length === 3, 'excavation reshore independent benchmark code basis count', receiverCapacityBenchmark.codeBasis.length);
+assert(receiverCapacity822Benchmark.kind === 'independent-engineering-benchmark', 'excavation reshore 8.2-2 benchmark kind', receiverCapacity822Benchmark.kind);
+assert(receiverCapacity822Benchmark.benchmarkId === 'EXC-RSC-BX-002', 'excavation reshore 8.2-2 benchmark id', receiverCapacity822Benchmark.benchmarkId);
+assert(receiverCapacity822Benchmark.independenceBoundary.includes('不呼叫 receiver_capacity.py'), 'excavation reshore 8.2-2 benchmark excludes production helpers', receiverCapacity822Benchmark.independenceBoundary);
+assert(receiverCapacity822Benchmark.calculationInput.allowable_stress_increase_factor === 1.25, 'excavation reshore 8.2-2 benchmark uses 1.25 factor', receiverCapacity822Benchmark.calculationInput.allowable_stress_increase_factor);
+assert(receiverCapacity822Benchmark.expected.results.dominantBendingAxis === 'Y', 'excavation reshore 8.2-2 benchmark covers weak axis', receiverCapacity822Benchmark.expected.results.dominantBendingAxis);
+assert(receiverCapacity822Benchmark.expected.results.governingInteractionEquation === '8.2-2', 'excavation reshore 8.2-2 benchmark controls current demand', receiverCapacity822Benchmark.expected.results.governingInteractionEquation);
+assert(receiverCapacity822Benchmark.expected.results.capacityGoverningInteractionEquation === '8.2-2', 'excavation reshore 8.2-2 benchmark controls capacity root', receiverCapacity822Benchmark.expected.results.capacityGoverningInteractionEquation);
 assert(readme.includes('EXC-RSC-BX-001'), 'excavation README documents reshore independent benchmark', 'EXC-RSC-BX-001');
+assert(readme.includes('EXC-RSC-BX-002'), 'excavation README documents reshore 8.2-2 benchmark', 'EXC-RSC-BX-002');
 [
   'interaction',
   'capacityRoot',
 ].forEach((key) => {
   assert(typeof receiverCapacityBenchmark.derivation[key] === 'string' && receiverCapacityBenchmark.derivation[key].length > 0, `excavation reshore independent benchmark derivation ${key}`, receiverCapacityBenchmark.derivation[key]);
+  assert(typeof receiverCapacity822Benchmark.derivation[key] === 'string' && receiverCapacity822Benchmark.derivation[key].length > 0, `excavation reshore 8.2-2 benchmark derivation ${key}`, receiverCapacity822Benchmark.derivation[key]);
 });
 [
   '/api/projects/{project_id}/removal-transfer-handoff',
@@ -437,6 +455,9 @@ assert(readme.includes('EXC-RSC-BX-001'), 'excavation README documents reshore i
   '核定承載力（tf）',
   '重撐／回撐 H 型鋼構件容量',
   '軸壓＋雙向彎矩互制',
+  '主要彎曲方向',
+  '目前需求控制式',
+  '容量根控制式',
   '計算、下載證據並回填構件結果',
   '若要整列通過，須在五類補充查核中逐項附上正式文件',
   '容量利用率（需求／承載力，自動）',
@@ -1953,6 +1974,8 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'def allowable_axial_stress',
   'def allowable_fbx',
   'def allowable_fby',
+  'def interaction_components',
+  'def interaction_ratio',
   'def wall_moment_strength',
   'def _compression_breakdown',
   'def _tension_breakdown',

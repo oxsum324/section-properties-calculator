@@ -12,14 +12,14 @@ from .calculations import (
     allowable_fbx,
     allowable_fby,
     classify_column_section,
-    interaction_ratio,
+    interaction_components,
 )
 from .removal_transfer_handoff import validate_removal_transfer_handoff
 from .schemas import ReshoreMemberCapacityInput, SectionProperty
 from .workbook_loader import find_section
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 KIND = "excavation-reshore-member-capacity-calculation"
 FINGERPRINT_PREFIX = "RSC"
 STEEL_CODE_PAGE_URL = "https://www.nlma.gov.tw/ch/legislation/regsearch/7176"
@@ -237,6 +237,12 @@ def calculate_reshore_member_capacity(
             adjusted_fbx = 0.0
             adjusted_fby = 0.0
             utilization = axial_stress / adjusted_allowable_stress if adjusted_allowable_stress > 0 else math.inf
+            interaction = {
+                "interaction821Ratio": None,
+                "interaction822Ratio": None,
+                "interaction823Ratio": None,
+                "governingInteractionEquation": None,
+            }
         else:
             base_fbx = allowable_fbx(
                 section.depth_cm,
@@ -262,19 +268,40 @@ def calculate_reshore_member_capacity(
                 (bending_stress_x > 0 and axial_stress >= fex)
                 or (bending_stress_y > 0 and axial_stress >= fey)
             )
-            utilization = math.inf if unstable else interaction_ratio(
-                value.fy_tf_per_cm2 * value.allowable_stress_increase_factor,
-                axial_stress,
-                adjusted_allowable_stress,
-                bending_stress_x,
-                adjusted_fbx,
-                bending_stress_y,
-                adjusted_fby,
-                fex,
-                fey,
-                value.moment_amplification_coefficient_cmx,
-                value.moment_amplification_coefficient_cmy,
+            interaction = (
+                {
+                    "interaction821Ratio": None,
+                    "interaction822Ratio": None,
+                    "interaction823Ratio": None,
+                    "governingInteractionEquation": None,
+                }
+                if unstable
+                else interaction_components(
+                    value.fy_tf_per_cm2 * value.allowable_stress_increase_factor,
+                    axial_stress,
+                    adjusted_allowable_stress,
+                    bending_stress_x,
+                    adjusted_fbx,
+                    bending_stress_y,
+                    adjusted_fby,
+                    fex,
+                    fey,
+                    value.moment_amplification_coefficient_cmx,
+                    value.moment_amplification_coefficient_cmy,
+                )
             )
+            utilization = math.inf if unstable else float(interaction["ratio"])
+        bending_utilization_x = (
+            bending_stress_x / adjusted_fbx if adjusted_fbx > 0 else 0.0
+        )
+        bending_utilization_y = (
+            bending_stress_y / adjusted_fby if adjusted_fby > 0 else 0.0
+        )
+        dominant_bending_axis = (
+            None
+            if bending_utilization_x == 0.0 and bending_utilization_y == 0.0
+            else "X" if bending_utilization_x >= bending_utilization_y else "Y"
+        )
         return {
             "transferDemandPerMemberTf": transfer_per_member,
             "totalDemandPerMemberTf": axial_per_member,
@@ -288,6 +315,14 @@ def calculate_reshore_member_capacity(
             "baseAllowableBendingStressYTfPerCm2": base_fby,
             "adjustedAllowableBendingStressXTfPerCm2": adjusted_fbx,
             "adjustedAllowableBendingStressYTfPerCm2": adjusted_fby,
+            "bendingUtilizationX": bending_utilization_x,
+            "bendingUtilizationY": bending_utilization_y,
+            "dominantBendingAxis": dominant_bending_axis,
+            **{
+                key: child
+                for key, child in interaction.items()
+                if key != "ratio"
+            },
             "memberInteractionRatio": utilization,
         }
 
@@ -376,6 +411,22 @@ def calculate_reshore_member_capacity(
                 if math.isfinite(float(capacity_effects["memberInteractionRatio"]))
                 else None
             ),
+            "capacityInteraction821Ratio": (
+                _rounded(float(capacity_effects["interaction821Ratio"]))
+                if capacity_effects["interaction821Ratio"] is not None
+                else None
+            ),
+            "capacityInteraction822Ratio": (
+                _rounded(float(capacity_effects["interaction822Ratio"]))
+                if capacity_effects["interaction822Ratio"] is not None
+                else None
+            ),
+            "capacityInteraction823Ratio": (
+                _rounded(float(capacity_effects["interaction823Ratio"]))
+                if capacity_effects["interaction823Ratio"] is not None
+                else None
+            ),
+            "capacityGoverningInteractionEquation": capacity_effects["governingInteractionEquation"],
             "capacityMomentXTfMPerMember": _rounded(float(capacity_effects["momentXTfMPerMember"])),
             "capacityMomentYTfMPerMember": _rounded(float(capacity_effects["momentYTfMPerMember"])),
             "capacityUtilizationRatio": _rounded(transfer_capacity_utilization_ratio) if math.isfinite(transfer_capacity_utilization_ratio) else None,

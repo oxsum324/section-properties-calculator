@@ -520,7 +520,7 @@ export type ReshoreMemberCapacityInput = {
 
 export type ReshoreMemberCapacityCalculationResponse = {
   calculation: {
-    schemaVersion: 2;
+    schemaVersion: 3;
     kind: "excavation-reshore-member-capacity-calculation";
     generatedAt: string;
     calculationFingerprint: string;
@@ -541,7 +541,18 @@ export type ReshoreMemberCapacityCalculationResponse = {
       adoptableTransferCapacityTf: number;
       memberTotalUtilizationRatio: number | null;
       memberInteractionRatio: number | null;
+      interaction821Ratio: number | null;
+      interaction822Ratio: number | null;
+      interaction823Ratio: number | null;
+      governingInteractionEquation: "8.2-1" | "8.2-2" | "8.2-3" | null;
+      bendingUtilizationX: number;
+      bendingUtilizationY: number;
+      dominantBendingAxis: "X" | "Y" | null;
       capacityInteractionRatio: number | null;
+      capacityInteraction821Ratio: number | null;
+      capacityInteraction822Ratio: number | null;
+      capacityInteraction823Ratio: number | null;
+      capacityGoverningInteractionEquation: "8.2-1" | "8.2-2" | "8.2-3" | null;
       capacityMomentXTfMPerMember: number;
       capacityMomentYTfMPerMember: number;
       capacityUtilizationRatio: number | null;

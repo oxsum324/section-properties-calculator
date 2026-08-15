@@ -199,6 +199,52 @@ def allowable_fby(bf: float, tf: float, fy: float, section_class: str) -> float:
     return 0.6 * fy
 
 
+def interaction_components(
+    fy: float,
+    fa_value: float,
+    fa_allow: float,
+    fbx_value: float,
+    fbx_allow: float,
+    fby_value: float,
+    fby_allow: float,
+    fex_value: float,
+    fey_value: float,
+    cmx: float,
+    cmy: float,
+) -> dict[str, float | str | None]:
+    if fa_allow == 0 or fbx_allow == 0 or fby_allow == 0:
+        return {
+            "ratio": 999.0,
+            "interaction821Ratio": None,
+            "interaction822Ratio": None,
+            "interaction823Ratio": None,
+            "governingInteractionEquation": None,
+        }
+    primary_ratio = fa_value / fa_allow
+    if primary_ratio <= 0.15:
+        ratio_823 = primary_ratio + fbx_value / fbx_allow + fby_value / fby_allow
+        return {
+            "ratio": ratio_823,
+            "interaction821Ratio": None,
+            "interaction822Ratio": None,
+            "interaction823Ratio": ratio_823,
+            "governingInteractionEquation": "8.2-3",
+        }
+    ratio_821 = (
+        primary_ratio
+        + cmx * fbx_value / ((1.0 - fa_value / max(fex_value, 1e-6)) * fbx_allow)
+        + cmy * fby_value / ((1.0 - fa_value / max(fey_value, 1e-6)) * fby_allow)
+    )
+    ratio_822 = fa_value / (0.6 * fy) + fbx_value / fbx_allow + fby_value / fby_allow
+    return {
+        "ratio": max(ratio_821, ratio_822),
+        "interaction821Ratio": ratio_821,
+        "interaction822Ratio": ratio_822,
+        "interaction823Ratio": None,
+        "governingInteractionEquation": "8.2-1" if ratio_821 >= ratio_822 else "8.2-2",
+    }
+
+
 def interaction_ratio(
     fy: float,
     fa_value: float,
@@ -212,18 +258,21 @@ def interaction_ratio(
     cmx: float,
     cmy: float,
 ) -> float:
-    if fa_allow == 0 or fbx_allow == 0 or fby_allow == 0:
-        return 999.0
-    primary_ratio = fa_value / fa_allow
-    if primary_ratio <= 0.15:
-        return primary_ratio + fbx_value / fbx_allow + fby_value / fby_allow
-    ratio = (
-        primary_ratio
-        + cmx * fbx_value / ((1.0 - fa_value / max(fex_value, 1e-6)) * fbx_allow)
-        + cmy * fby_value / ((1.0 - fa_value / max(fey_value, 1e-6)) * fby_allow)
+    return float(
+        interaction_components(
+            fy,
+            fa_value,
+            fa_allow,
+            fbx_value,
+            fbx_allow,
+            fby_value,
+            fby_allow,
+            fex_value,
+            fey_value,
+            cmx,
+            cmy,
+        )["ratio"]
     )
-    alt = fa_value / (0.6 * fy) + fbx_value / fbx_allow + fby_value / fby_allow
-    return max(ratio, alt)
 
 
 def calculate_project(project: ProjectState) -> CalculationResults:
