@@ -1008,10 +1008,14 @@ function forcePickerStatusExpression() {
     const originalSendTo = ForcePicker.sendTo;
     const originalOpen = window.open;
     const sends = [];
-    window.open = () => null;
+    const opens = [];
+    window.open = (url, target) => {
+      opens.push({ url:String(url || ''), target:String(target || '') });
+      return null;
+    };
     ForcePicker.sendTo = (target, payload) => {
-      const safePayload = originalSendTo(target, payload, 'about:blank');
-      sends.push({ target, payload:safePayload });
+      const safePayload = originalSendTo(target, payload);
+      sends.push({ target, payload:safePayload, url:opens.at(-1)?.url || '' });
       return safePayload;
     };
 
@@ -1076,6 +1080,7 @@ function forcePickerStatusExpression() {
       columnCircPayload,
       forgedTransport,
       sendCount: sends.length,
+      openedUrls: opens.map(item => item.url),
       comboStatus,
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
@@ -3021,6 +3026,12 @@ async function main() {
         assert.equal(result.state.previewPayload.forces.M, -5, `${label} beam M alias keeps sign`);
         assert.equal(result.state.previewPayload.forces.V, -2, `${label} beam V alias keeps sign`);
         assert.equal(result.state.sendCount, 4, `${label} sends three RC targets plus one forged provenance probe`);
+        assert.deepEqual(result.state.openedUrls, [
+          '../鋼筋混凝土/tools/beam.html?import=1',
+          '../鋼筋混凝土/tools/column.html?import=1',
+          '../鋼筋混凝土/tools/column.html?import=1&colType=circle',
+          '../鋼筋混凝土/tools/beam.html?import=1',
+        ], `${label} opens the canonical RC design routes`);
         assert.ok(result.state.beamPayload, `${label} RC beam payload`);
         assert.equal(result.state.beamPayload.meta.combination.tuplePreserved, true, `${label} beam tuple metadata`);
         assert.equal(result.state.beamPayload.meta.combination.validationStatus, 'verified', `${label} beam provenance verified`);

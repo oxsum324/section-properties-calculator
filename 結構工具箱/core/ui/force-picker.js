@@ -27,7 +27,11 @@
  * 目標 (target) → 對應 URL：
  *   beam        → ../鋼筋混凝土/tools/beam.html?import=1
  *   column-rect → ../鋼筋混凝土/tools/column.html?import=1
- *   column-circ → tools/column-circular.html?import=1   (尚未實作)
+ *   column-circ → ../鋼筋混凝土/tools/column.html?import=1&colType=circle
+ *   steel-beam  → ../../鋼構工具/steel-beam-formal.html?import=1
+ *
+ * 矩形與圓形柱共用 column.html；圓形目標以 colType=circle 切換柱型，
+ * 不另行維護第二份柱設計頁或計算核心。
  */
 (function (global) {
 

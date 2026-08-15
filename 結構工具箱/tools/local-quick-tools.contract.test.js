@@ -815,6 +815,14 @@ assertIncludes(repoDocs.forcesReceive, '未驗證來源', 'force receiver disclo
     'column-circ'
   ));
 
+  assert.deepEqual(plain(context.window.ForcePicker.TARGET_URL), {
+    beam:'../鋼筋混凝土/tools/beam.html?import=1',
+    'column-rect':'../鋼筋混凝土/tools/column.html?import=1',
+    'column-circ':'../鋼筋混凝土/tools/column.html?import=1&colType=circle',
+    'steel-beam':'../../鋼構工具/steel-beam-formal.html?import=1',
+  }, 'force picker default routes target the current canonical design pages');
+  assert.equal(repoDocs.forcePickerCore.includes('column-circular.html'), false, 'force picker documentation does not advertise a nonexistent circular-column page');
+  assert.equal(repoDocs.forcePickerCore.includes('尚未實作'), false, 'force picker documentation does not describe an implemented target as unfinished');
   assert.equal(safe.meta.combination.name, '1.2D+1.0L-1.0E', 'force picker stash clones combination metadata');
   assert.equal(safe.meta.combination.factors.E, -1, 'force picker stash clones combination factors');
   assert.equal(safe.meta.combination.values.Mx, -8, 'force picker stash clones signed tuple values');
