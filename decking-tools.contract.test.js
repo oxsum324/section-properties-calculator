@@ -27,6 +27,11 @@ function functionSource(source, functionName) {
 }
 
 function renderDeckingReportRuntime(source, fixture, filename) {
+  const metadataMatch = source.match(
+    /const\s+DECKING_TOOL_METADATA\s*=\s*Object\.freeze\((\{[\s\S]*?\})\);/,
+  );
+  assert(Boolean(metadataMatch), 'decking runtime metadata exists', 'DECKING_TOOL_METADATA');
+  const deckingToolMetadata = vm.runInNewContext(`(${metadataMatch[1]})`);
   const elements = {
     'proj_name': { value: fixture.project?.name || '' },
     'proj_no': { value: fixture.project?.no || '' },
@@ -39,6 +44,7 @@ function renderDeckingReportRuntime(source, fixture, filename) {
     console,
     Date,
     Math,
+    DECKING_TOOL_METADATA: deckingToolMetadata,
     RESULTS: JSON.parse(JSON.stringify(fixture.results || {})),
     G: () => ({ ...(fixture.global || {}) }),
     fmt: (v, d = 3) => (typeof v === 'number' && isFinite(v)) ? v.toFixed(d) : '—',
