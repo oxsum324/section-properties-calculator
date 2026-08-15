@@ -84,6 +84,8 @@ const handoff = readUtf8('../結構工具箱/tools/construction-stage-load-hando
 const removalTransferHandoff = readUtf8('backend/app/removal_transfer_handoff.py');
 const receiverCapacity = readUtf8('backend/app/receiver_capacity.py');
 const receiverCapacityTests = readUtf8('backend/tests/test_receiver_capacity.py');
+const receiverCapacityBenchmarkText = readUtf8('backend/tests/fixtures/reshore_biaxial_independent_benchmark.json');
+const receiverCapacityBenchmark = JSON.parse(receiverCapacityBenchmarkText);
 const removalTransferHandoffTests = readUtf8('backend/tests/test_removal_transfer_handoff.py');
 const receiverOfflineSigner = readUtf8('backend/sign_receiver_request.py');
 const receiverSigningLauncher = readUtf8('sign_receiver_request.ps1');
@@ -188,7 +190,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.47.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.48.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -324,11 +326,23 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'test_long_column_uses_euler_branch_and_fails_slenderness',
   'test_local_slenderness_failure_is_not_adoptable',
   'test_biaxial_interaction_reduces_adoptable_transfer_capacity',
+  'test_independent_biaxial_benchmark_matches_closed_form_reference',
   'test_biaxial_mode_requires_effects_and_engineering_basis',
   'test_rejects_non_reshore_transfer',
   'test_rejects_tampered_handoff',
 ].forEach((needle) => {
   assert(receiverCapacityTests.includes(needle), `excavation reshore capacity tests keep ${needle}`, needle);
+});
+assert(receiverCapacityBenchmark.kind === 'independent-engineering-benchmark', 'excavation reshore independent benchmark kind', receiverCapacityBenchmark.kind);
+assert(receiverCapacityBenchmark.benchmarkId === 'EXC-RSC-BX-001', 'excavation reshore independent benchmark id', receiverCapacityBenchmark.benchmarkId);
+assert(receiverCapacityBenchmark.independenceBoundary.includes('不呼叫 receiver_capacity.py'), 'excavation reshore independent benchmark excludes production helpers', receiverCapacityBenchmark.independenceBoundary);
+assert(receiverCapacityBenchmark.codeBasis.length === 3, 'excavation reshore independent benchmark code basis count', receiverCapacityBenchmark.codeBasis.length);
+assert(readme.includes('EXC-RSC-BX-001'), 'excavation README documents reshore independent benchmark', 'EXC-RSC-BX-001');
+[
+  'interaction',
+  'capacityRoot',
+].forEach((key) => {
+  assert(typeof receiverCapacityBenchmark.derivation[key] === 'string' && receiverCapacityBenchmark.derivation[key].length > 0, `excavation reshore independent benchmark derivation ${key}`, receiverCapacityBenchmark.derivation[key]);
 });
 [
   '/api/projects/{project_id}/removal-transfer-handoff',

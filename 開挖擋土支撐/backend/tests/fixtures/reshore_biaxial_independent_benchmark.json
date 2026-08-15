@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "kind": "independent-engineering-benchmark",
+  "benchmarkId": "EXC-RSC-BX-001",
+  "title": "H 型鋼重撐軸壓加雙向彎矩封閉手算基準",
+  "independenceBoundary": "預期值由規範公式獨立封閉推導並固化，不呼叫 receiver_capacity.py、calculations.py 或其容許應力與互制函式。",
+  "codeBasis": [
+    {
+      "chapter": "第六章 6.3",
+      "officialPdf": "https://www.nlma.gov.tw/uploads/files/e139e8d278188c817090a2510017202e.pdf"
+    },
+    {
+      "chapter": "第七章 7.2、7.3",
+      "officialPdf": "https://www.nlma.gov.tw/uploads/files/91bbcbd01a38582e6c5b1f00dd367683.pdf"
+    },
+    {
+      "chapter": "第八章 8.2",
+      "officialPdf": "https://www.nlma.gov.tw/uploads/files/f6ed32171e4e99a9c49e85ca3b733d3c.pdf"
+    }
+  ],
+  "section": {
+    "name": "RH300X300X10X15",
+    "depthCm": 30.0,
+    "flangeWidthCm": 30.0,
+    "webThicknessCm": 1.0,
+    "flangeThicknessCm": 1.5,
+    "areaCm2": 118.0,
+    "rxCm": 13.1,
+    "ryCm": 7.56,
+    "rtCm": 8.5,
+    "sxCm3": 1350.0,
+    "syCm3": 450.0
+  },
+  "sourceDemandTf": 106.0,
+  "calculationInput": {
+    "analysis_mode": "axial_biaxial_bending",
+    "section_name": "RH300X300X10X15",
+    "member_count": 2,
+    "unbraced_length_x_m": 3.0,
+    "unbraced_length_y_m": 3.0,
+    "effective_length_factor_kx": 1.0,
+    "effective_length_factor_ky": 1.0,
+    "fy_tf_per_cm2": 2.5,
+    "e_tf_per_cm2": 2040.0,
+    "allowable_stress_increase_factor": 1.0,
+    "imbalance_factor": 1.1,
+    "additional_axial_load_tf_per_member": 1.0,
+    "transfer_eccentricity_x_m": 0.05,
+    "transfer_eccentricity_y_m": 0.03,
+    "additional_moment_x_tf_m_per_member": 0.2,
+    "additional_moment_y_tf_m_per_member": 0.1,
+    "strong_axis_lateral_unbraced_length_m": 3.0,
+    "moment_gradient_coefficient_cb": 1.0,
+    "moment_amplification_coefficient_cmx": 0.85,
+    "moment_amplification_coefficient_cmy": 0.85,
+    "governing_load_combination": "獨立基準 EXC-RSC-BX-001",
+    "effective_length_basis": "獨立基準 EXC-RSC-BX-001；Kx=Ky=1.0",
+    "load_distribution_basis": "獨立基準 EXC-RSC-BX-001；兩支共同承接、不均勻係數 1.10",
+    "additional_load_basis": "獨立基準 EXC-RSC-BX-001；單支附加軸力 1.0 tf",
+    "eccentricity_and_moment_basis": "獨立基準 EXC-RSC-BX-001",
+    "bending_stability_basis": "獨立基準 EXC-RSC-BX-001；Lb=3.0 m、Cb=1.0、Cmx=Cmy=0.85",
+    "stress_increase_basis": "",
+    "pure_axial_no_eccentricity_confirmed": false
+  },
+  "derivation": {
+    "transferPerMember": "P_t = 106.0 x 1.10 / 2 = 58.3 tf",
+    "totalAxialPerMember": "P = 58.3 + 1.0 = 59.3 tf",
+    "axialStress": "fa = 59.3 / 118.0 = 0.502542372881356 tf/cm2",
+    "moments": "Mx = 58.3 x 0.05 + 0.2 = 3.115 tf-m；My = 58.3 x 0.03 + 0.1 = 1.849 tf-m",
+    "bendingStress": "fbx = 3.115 x 100 / 1350 = 0.230740740740741 tf/cm2；fby = 1.849 x 100 / 450 = 0.410888888888889 tf/cm2",
+    "allowableStress": "Fa = 1.335766491723367、Fbx = 0.66Fy = 1.65、Fby = 0.75Fy = 1.875 tf/cm2",
+    "eulerStress": "Fex = (12/23)pi2E/(KL/rx)2 = 20.03011324633465；Fey = (12/23)pi2E/(KL/ry)2 = 6.670899600464495 tf/cm2",
+    "interaction": "8.2-1 = 0.699590906136135；8.2-2 = 0.694011862504518；控制互制比 = 0.699590906136135",
+    "capacityRoot": "令第 8.2-1 式等於 1，獨立二分解得可移轉容量 151.3378328388537 tf；第 8.2-2 式為 0.979525418056936。"
+  },
+  "expected": {
+    "absoluteTolerance": 0.000001,
+    "results": {
+      "klrX": 22.900763358778626,
+      "klrY": 39.682539682539684,
+      "cc": 126.91412207700857,
+      "baseAllowableAxialStressTfPerCm2": 1.335766491723367,
+      "fexTfPerCm2": 20.03011324633465,
+      "feyTfPerCm2": 6.670899600464495,
+      "transferDemandPerMemberTf": 58.3,
+      "totalDemandPerMemberTf": 59.3,
+      "axialStressTfPerCm2": 0.502542372881356,
+      "momentXTfMPerMember": 3.115,
+      "momentYTfMPerMember": 1.849,
+      "bendingStressXTfPerCm2": 0.230740740740741,
+      "bendingStressYTfPerCm2": 0.410888888888889,
+      "adjustedAllowableBendingStressXTfPerCm2": 1.65,
+      "adjustedAllowableBendingStressYTfPerCm2": 1.875,
+      "memberInteractionRatio": 0.699590906136135,
+      "nominalTransferCapacityTf": 151.3378328388537,
+      "adoptableTransferCapacityTf": 151.3378328388537,
+      "capacityInteractionRatio": 1.0,
+      "capacityMomentXTfMPerMember": 4.361790403068477,
+      "capacityMomentYTfMPerMember": 2.597074241841086
+    }
+  }
+}

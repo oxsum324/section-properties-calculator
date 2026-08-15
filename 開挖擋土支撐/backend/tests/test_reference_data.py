@@ -7,10 +7,24 @@ from pathlib import Path
 from unittest.mock import patch
 
 from backend.app.config import get_settings
-from backend.app.workbook_loader import load_reference_data, reset_reference_overrides, save_reference_data
+from backend.app.workbook_loader import (
+    _workbooks,
+    load_reference_data,
+    reset_reference_overrides,
+    save_reference_data,
+)
 
 
 class ReferenceDataTests(unittest.TestCase):
+    def test_read_only_source_workbooks_do_not_retain_vba_archives(self) -> None:
+        formula_workbook, value_workbook = _workbooks()
+        try:
+            self.assertIsNone(formula_workbook.vba_archive)
+            self.assertIsNone(value_workbook.vba_archive)
+        finally:
+            formula_workbook.close()
+            value_workbook.close()
+
     def test_reference_data_override_round_trip(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             override_path = Path(temp_dir) / "reference_overrides.json"

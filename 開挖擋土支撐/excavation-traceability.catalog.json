@@ -1,5 +1,5 @@
 {
-  "version": "1.47.0",
+  "version": "1.48.0",
   "family": "excavation-traceability",
   "description": "開挖擋土支撐服務型工具的規範語意追蹤表。每筆 trace 將分析檔匯入、輸入欄位、構件檢核、報表落點、測試證據與人工複核邊界對齊，避免只因 FastAPI / React 流程可產出 PDF 或 DOCX 就誤判為支撐系統檢核依據已完整可追溯。",
   "tools": [
@@ -124,9 +124,9 @@
           "clause": "鋼構造建築物鋼結構設計技術規範第四章 4.4、4.5、第六章 6.1 至 6.3、第七章 7.2、7.3 及第八章 8.2；重撐 H 型鋼構件適用邊界",
           "purpose": "只對 ERH 中 receiver.mode=reshore 的 H 型鋼構件，提供無偏心純軸壓及軸壓加雙向彎矩兩種模式。兩者均檢核 X／Y 向 KL/r、局部細長及容許軸壓應力；互制模式另依 Lb、Cb、Cmx、Cmy、偏心與附加彎矩計算強弱軸彎曲應力、第八章互制比及可移轉容量。計算會產生 RSC v2 指紋、精確 JSON bytes 與 SHA-256，但接頭、上下端承壓、底座、基礎／樓版、現場支撐真實性及施工程序一律保持未完成；任一適用性條件失敗時可採用容量歸零，且不得自動核可 RVR。",
           "inputs": ["ERH handoff", "ERT transferId", "receiver.mode=reshore", "analysis_mode", "section_name", "member_count", "unbraced_length_x_m", "unbraced_length_y_m", "Kx", "Ky", "Fy", "E", "allowable_stress_increase_factor", "imbalance_factor", "additional_axial_load_tf_per_member", "transfer_eccentricity_x_m", "transfer_eccentricity_y_m", "additional_moment_x_tf_m_per_member", "additional_moment_y_tf_m_per_member", "strong_axis_lateral_unbraced_length_m", "Cb", "Cmx", "Cmy", "governing_load_combination", "effective_length_basis", "load_distribution_basis", "eccentricity_and_moment_basis", "bending_stability_basis", "pure_axial_no_eccentricity_confirmed"],
-          "calculation": ["calculate_reshore_member_capacity", "KL/r x and y", "Cc", "allowable_axial_stress", "allowable_fbx", "allowable_fby", "interaction_ratio", "STEEL-ASD-8.2-1-TO-8.2-3", "bf/(2tf) <= 25/sqrt(Fy)", "(d-2tf)/tw <= 68/sqrt(Fy)", "KL/r <= 200", "per-member demand with imbalance", "eccentric transfer moments", "fixed additional moments", "biaxial interaction capacity solve", "nominalTransferCapacityTf", "adoptableTransferCapacityTf", "RSC v2 canonical JSON fingerprint", "evidence bytes SHA-256", "fail closed on missing engineering basis", "fail closed on non-reshore or tampered ERH", "fail closed on inapplicable slenderness"],
+          "calculation": ["calculate_reshore_member_capacity", "KL/r x and y", "Cc", "allowable_axial_stress", "allowable_fbx", "allowable_fby", "interaction_ratio", "STEEL-ASD-8.2-1-TO-8.2-3", "bf/(2tf) <= 25/sqrt(Fy)", "(d-2tf)/tw <= 68/sqrt(Fy)", "KL/r <= 200", "per-member demand with imbalance", "eccentric transfer moments", "fixed additional moments", "biaxial interaction capacity solve", "nominalTransferCapacityTf", "adoptableTransferCapacityTf", "EXC-RSC-BX-001 independent closed-form benchmark", "RSC v2 canonical JSON fingerprint", "evidence bytes SHA-256", "fail closed on missing engineering basis", "fail closed on non-reshore or tampered ERH", "fail closed on inapplicable slenderness"],
           "report": ["HTML 重撐／回撐 H 型鋼構件容量", "純軸壓／軸壓加雙向彎矩模式", "控制軸", "KL/r", "Mx／My", "互制比", "可採用移轉容量", "容量利用率", "未涵蓋查核", "RSC v2 證據 JSON 下載", "RVR 軸力、彎矩與穩定範圍回填"],
-          "evidence": ["backend/app/receiver_capacity.py", "backend/app/main.py", "backend/app/schemas.py", "backend/tests/test_receiver_capacity.py", "backend/tests/test_attachment_package_evidence_chain_drill.py", "frontend/src/App.tsx", "frontend/src/api.ts", "frontend/src/types.ts"],
+          "evidence": ["backend/app/receiver_capacity.py", "backend/app/main.py", "backend/app/schemas.py", "backend/tests/test_receiver_capacity.py", "backend/tests/fixtures/reshore_biaxial_independent_benchmark.json", "backend/tests/test_attachment_package_evidence_chain_drill.py", "frontend/src/App.tsx", "frontend/src/api.ts", "frontend/src/types.ts"],
           "manualReview": ["設計者須依實際施工圖、分析模型、材料證明、端部構造、現場側撐、預壓與拆撐順序確認 K、Lb、Cb、Cm、共同支數、荷重不均勻、附加軸力、偏心與彎矩；純軸壓模式須確認不存在偏心、彎矩或其他橫向作用。接頭、承壓、底座、錨定、基礎／樓版承載、側撐實際施工及施工程序須另以正式文件人工複核。RSC 單獨不得把 RVR 其他查核改為全部通過。"]
         },
         {

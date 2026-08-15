@@ -5,6 +5,7 @@ from copy import deepcopy
 import hashlib
 import json
 import math
+from pathlib import Path
 import unittest
 from unittest.mock import patch
 
@@ -20,6 +21,150 @@ from backend.app.workbook_loader import load_default_project
 
 
 class ReshoreMemberCapacityTests(unittest.TestCase):
+    INDEPENDENT_BENCHMARK_PATH = (
+        Path(__file__).resolve().parent
+        / "fixtures"
+        / "reshore_biaxial_independent_benchmark.json"
+    )
+
+    @staticmethod
+    def independent_biaxial_reference(benchmark: dict) -> dict[str, float]:
+        """Reproduce EXC-RSC-BX-001 without importing production calculation helpers."""
+        section = benchmark["section"]
+        value = benchmark["calculationInput"]
+        demand = float(benchmark["sourceDemandTf"])
+        area = float(section["areaCm2"])
+        fy = float(value["fy_tf_per_cm2"])
+        e_modulus = float(value["e_tf_per_cm2"])
+        klr_x = (
+            float(value["effective_length_factor_kx"])
+            * float(value["unbraced_length_x_m"])
+            * 100.0
+            / float(section["rxCm"])
+        )
+        klr_y = (
+            float(value["effective_length_factor_ky"])
+            * float(value["unbraced_length_y_m"])
+            * 100.0
+            / float(section["ryCm"])
+        )
+        cc = math.sqrt(2.0 * math.pi**2 * e_modulus / fy)
+        axial_ratio = max(klr_x, klr_y) / cc
+        allowable_axial = ((1.0 - axial_ratio**2 / 2.0) * fy) / (
+            5.0 / 3.0 + 3.0 * axial_ratio / 8.0 - axial_ratio**3 / 8.0
+        )
+
+        flange_ratio = float(section["flangeWidthCm"]) / (
+            2.0 * float(section["flangeThicknessCm"])
+        )
+        web_ratio = (
+            float(section["depthCm"]) - 2.0 * float(section["flangeThicknessCm"])
+        ) / float(section["webThicknessCm"])
+        if not 14.0 / math.sqrt(fy) < flange_ratio < 17.0 / math.sqrt(fy):
+            raise AssertionError("EXC-RSC-BX-001 翼板不再屬於結實斷面範圍。")
+        if not web_ratio < 68.0 / math.sqrt(fy):
+            raise AssertionError("EXC-RSC-BX-001 腹板不再符合封閉基準範圍。")
+        lc_cm = min(
+            20.0 * float(section["flangeWidthCm"]) / math.sqrt(fy),
+            1400.0
+            / (
+                (
+                    float(section["depthCm"])
+                    / (
+                        float(section["flangeWidthCm"])
+                        * float(section["flangeThicknessCm"])
+                    )
+                )
+                * fy
+            ),
+        )
+        if not float(value["strong_axis_lateral_unbraced_length_m"]) * 100.0 < lc_cm:
+            raise AssertionError("EXC-RSC-BX-001 的 Lb 不再小於 Lc。")
+        allowable_fbx = 0.66 * fy
+        allowable_fby = 0.75 * fy
+        fex = (12.0 / 23.0) * math.pi**2 * e_modulus / klr_x**2
+        fey = (12.0 / 23.0) * math.pi**2 * e_modulus / klr_y**2
+
+        def effects(total_transfer_demand: float) -> dict[str, float]:
+            transfer = (
+                total_transfer_demand
+                * float(value["imbalance_factor"])
+                / int(value["member_count"])
+            )
+            total_axial = transfer + float(value["additional_axial_load_tf_per_member"])
+            axial_stress = total_axial / area
+            moment_x = (
+                transfer * float(value["transfer_eccentricity_x_m"])
+                + float(value["additional_moment_x_tf_m_per_member"])
+            )
+            moment_y = (
+                transfer * float(value["transfer_eccentricity_y_m"])
+                + float(value["additional_moment_y_tf_m_per_member"])
+            )
+            bending_x = moment_x * 100.0 / float(section["sxCm3"])
+            bending_y = moment_y * 100.0 / float(section["syCm3"])
+            primary = axial_stress / allowable_axial
+            if primary <= 0.15:
+                interaction = primary + bending_x / allowable_fbx + bending_y / allowable_fby
+            else:
+                interaction_821 = (
+                    primary
+                    + float(value["moment_amplification_coefficient_cmx"])
+                    * bending_x
+                    / ((1.0 - axial_stress / fex) * allowable_fbx)
+                    + float(value["moment_amplification_coefficient_cmy"])
+                    * bending_y
+                    / ((1.0 - axial_stress / fey) * allowable_fby)
+                )
+                interaction_822 = (
+                    axial_stress / (0.6 * fy)
+                    + bending_x / allowable_fbx
+                    + bending_y / allowable_fby
+                )
+                interaction = max(interaction_821, interaction_822)
+            return {
+                "transferDemandPerMemberTf": transfer,
+                "totalDemandPerMemberTf": total_axial,
+                "axialStressTfPerCm2": axial_stress,
+                "momentXTfMPerMember": moment_x,
+                "momentYTfMPerMember": moment_y,
+                "bendingStressXTfPerCm2": bending_x,
+                "bendingStressYTfPerCm2": bending_y,
+                "memberInteractionRatio": interaction,
+            }
+
+        current = effects(demand)
+        lower = 0.0
+        upper = 1000.0
+        if not effects(lower)["memberInteractionRatio"] < 1.0:
+            raise AssertionError("EXC-RSC-BX-001 容量根下界不再通過。")
+        if not effects(upper)["memberInteractionRatio"] > 1.0:
+            raise AssertionError("EXC-RSC-BX-001 容量根上界不再失敗。")
+        for _ in range(200):
+            midpoint = (lower + upper) / 2.0
+            if effects(midpoint)["memberInteractionRatio"] <= 1.0:
+                lower = midpoint
+            else:
+                upper = midpoint
+        capacity = lower
+        capacity_effects = effects(capacity)
+        return {
+            "klrX": klr_x,
+            "klrY": klr_y,
+            "cc": cc,
+            "baseAllowableAxialStressTfPerCm2": allowable_axial,
+            "fexTfPerCm2": fex,
+            "feyTfPerCm2": fey,
+            "adjustedAllowableBendingStressXTfPerCm2": allowable_fbx,
+            "adjustedAllowableBendingStressYTfPerCm2": allowable_fby,
+            **current,
+            "nominalTransferCapacityTf": capacity,
+            "adoptableTransferCapacityTf": capacity,
+            "capacityInteractionRatio": capacity_effects["memberInteractionRatio"],
+            "capacityMomentXTfMPerMember": capacity_effects["momentXTfMPerMember"],
+            "capacityMomentYTfMPerMember": capacity_effects["momentYTfMPerMember"],
+        }
+
     def prepared_handoff(self, *, receiver_mode: str = "reshore"):
         project = load_default_project().model_copy(deep=True)
         project.metadata.id = "reshore-capacity-test"
@@ -247,6 +392,34 @@ class ReshoreMemberCapacityTests(unittest.TestCase):
             values["memberTotalUtilizationRatio"],
             places=6,
         )
+
+    def test_independent_biaxial_benchmark_matches_closed_form_reference(self) -> None:
+        benchmark = json.loads(self.INDEPENDENT_BENCHMARK_PATH.read_text(encoding="utf-8"))
+        calculation = self.calculate(**benchmark["calculationInput"])["calculation"]
+        values = calculation["results"]
+        independent = self.independent_biaxial_reference(benchmark)
+        tolerance = float(benchmark["expected"]["absoluteTolerance"])
+
+        self.assertEqual(benchmark["kind"], "independent-engineering-benchmark")
+        self.assertIn("不呼叫 receiver_capacity.py", benchmark["independenceBoundary"])
+        self.assertEqual(
+            calculation["source"]["receiverTransferDemandTf"],
+            benchmark["sourceDemandTf"],
+        )
+        self.assertEqual(values["status"], "passed")
+        self.assertEqual(values["analysisMode"], "axial_biaxial_bending")
+        for field, expected in benchmark["expected"]["results"].items():
+            with self.subTest(field=field):
+                self.assertAlmostEqual(
+                    float(independent[field]),
+                    float(expected),
+                    delta=tolerance,
+                )
+                self.assertAlmostEqual(
+                    float(values[field]),
+                    float(independent[field]),
+                    delta=tolerance,
+                )
 
     def test_rejects_non_h_section_even_if_reference_data_contains_it(self) -> None:
         non_h_section = SectionProperty(

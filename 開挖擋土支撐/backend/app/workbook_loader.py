@@ -29,11 +29,14 @@ def _workbooks() -> tuple[openpyxl.Workbook, openpyxl.Workbook]:
     settings = get_settings()
     if not settings.workbook_path.exists():
         raise FileNotFoundError(f"找不到 Excel 參考檔：{settings.workbook_path}")
+    # These workbooks are read-only calculation/reference sources and are never
+    # saved back to XLSM. Retaining a duplicate VBA archive needlessly keeps a
+    # second ZipFile alive and can trigger a late double-close during GC.
     formula_wb = openpyxl.load_workbook(
-        settings.workbook_path, read_only=True, data_only=False, keep_vba=True
+        settings.workbook_path, read_only=True, data_only=False, keep_vba=False
     )
     value_wb = openpyxl.load_workbook(
-        settings.workbook_path, read_only=True, data_only=True, keep_vba=True
+        settings.workbook_path, read_only=True, data_only=True, keep_vba=False
     )
     return formula_wb, value_wb
 
