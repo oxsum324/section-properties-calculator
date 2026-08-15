@@ -6,9 +6,10 @@ const repoRoot = path.resolve(toolsRoot, '..', '..');
 const defaultCatalogPath = path.join(toolsRoot, 'independent-engineering-benchmarks.catalog.json');
 const defaultOutputPath = path.join(repoRoot, 'output', 'audit', 'independent-engineering-benchmarks.json');
 
-const ROOT_KEYS = ['schemaVersion', 'kind', 'portfolio', 'benchmarks', 'priorityTargets'];
+const ROOT_KEYS = ['schemaVersion', 'kind', 'portfolio', 'benchmarks', 'candidateBenchmarks', 'priorityTargets'];
 const PORTFOLIO_KEYS = ['eligibleState', 'eligibleFormalRoutes', 'scopeNote'];
 const BENCHMARK_KEYS = ['id', 'route', 'title', 'productionModule', 'oracle', 'referenceType', 'referenceBasis', 'input', 'assertions'];
+const CANDIDATE_KEYS = ['id', 'capability', 'title', 'productionModule', 'oracle', 'referenceType', 'referenceBasis', 'input', 'assertions'];
 const ASSERTION_KEYS = ['path', 'absTolerance'];
 const TARGET_KEYS = ['route', 'priority', 'evidenceNeeded'];
 
@@ -3222,6 +3223,136 @@ function stoneFixingOracle(input) {
   return Object.fromEntries(input.cases.map(item => [item.id, calculateCase(item)]));
 }
 
+function srcBeamCandidateOracle(input) {
+  function calculateCase(i) {
+    const concrete = i.concrete;
+    const reinforcement = i.reinforcement;
+    const steel = i.steel;
+    const demands = i.demands;
+    const b = Number(concrete.bCm);
+    const fc = Number(concrete.fcKgfCm2);
+    const d = Number(concrete.flexureDepthCm);
+    const dPrime = Number(concrete.compressionSteelDepthCm);
+    const dShear = Number(concrete.shearDepthCm);
+    const asTension = Number(reinforcement.asTensionCm2);
+    const asCompression = Number(reinforcement.asCompressionCm2);
+    const fyTension = Number(reinforcement.fyrTensionKgfCm2);
+    const fyCompression = Number(reinforcement.fyrCompressionKgfCm2);
+    const es = Number(reinforcement.esKgfCm2 || 2100000);
+    const beta1 = fc <= 280 ? 0.85 : Math.max(0.65, 0.85 - 0.05 * ((fc - 280) / 70));
+    const concreteSlopeTfPerCm = 0.85 * fc * b * beta1 / 1000;
+    const tensionForceTf = asTension * fyTension / 1000;
+    let neutralAxisCm;
+    let compressionSteelStress = 0;
+    let compressionSteelForceTf = 0;
+    if (asCompression > 0) {
+      const compressionElasticTf = asCompression * es * 0.003 / 1000;
+      const linearCoefficient = compressionElasticTf - tensionForceTf;
+      const discriminant = linearCoefficient ** 2 + 4 * concreteSlopeTfPerCm * compressionElasticTf * dPrime;
+      neutralAxisCm = (-linearCoefficient + Math.sqrt(discriminant)) / (2 * concreteSlopeTfPerCm);
+      compressionSteelStress = es * 0.003 * (neutralAxisCm - dPrime) / neutralAxisCm;
+      if (Math.abs(compressionSteelStress) >= fyCompression) throw new Error(`src-candidate-compression-steel-yield-outside-closed-form:${i.id}`);
+      compressionSteelForceTf = asCompression * compressionSteelStress / 1000;
+    } else {
+      neutralAxisCm = tensionForceTf / concreteSlopeTfPerCm;
+    }
+    const tensionElasticStress = Math.abs(es * 0.003 * (neutralAxisCm - d) / neutralAxisCm);
+    if (tensionElasticStress < fyTension) throw new Error(`src-candidate-tension-steel-not-yielded:${i.id}`);
+    const stressBlockDepthCm = beta1 * neutralAxisCm;
+    const concreteForceTf = 0.85 * fc * b * stressBlockDepthCm / 1000;
+    const mnRcTfM = (
+      concreteForceTf * (d - stressBlockDepthCm / 2)
+      + compressionSteelForceTf * (d - dPrime)
+    ) / 100;
+    const mnSteelTfM = Number(steel.zCm3) * Number(steel.fysKgfCm2) / 100000;
+    const nominalMomentTfM = mnSteelTfM + mnRcTfM;
+    const designMomentTfM = 0.9 * mnSteelTfM + 0.9 * mnRcTfM;
+    const flexuralUtilization = Math.abs(Number(demands.muTfM)) / designMomentTfM;
+
+    const grade = String(steel.grade || '').toUpperCase();
+    const grade400 = ['SS400', 'SM400', 'SN400', 'A36', '400'].includes(grade);
+    if (!grade400 && !['SS490', 'SM490', 'SN490', 'A572GR50', 'A572 GR.50', '490'].includes(grade)) {
+      throw new Error(`src-candidate-unsupported-grade:${i.id}`);
+    }
+    const flangeRatio = (Number(steel.flangeWidthCm) / 2) / Number(steel.flangeThicknessCm);
+    const flangeLimit = grade400 ? 23 : 20;
+    const webRatio = (Number(steel.depthCm) - 2 * Number(steel.flangeThicknessCm)) / Number(steel.webThicknessCm);
+    const webLimit = grade400 ? 107 : 91;
+
+    const av = Number(reinforcement.avCm2);
+    const avf = Number(reinforcement.avfCm2 || reinforcement.avCm2);
+    const fyh = Number(reinforcement.fyhKgfCm2);
+    const spacing = Number(reinforcement.spacingCm);
+    const mu = Number(i.shearFriction?.mu ?? 0.8);
+    const k1 = Number(i.shearFriction?.k1KgfCm2 ?? 28);
+    const studContributionTf = Number(i.shearFriction?.studContributionTf || 0);
+    const vnSteelTf = 0.6 * Number(steel.fywKgfCm2) * Number(steel.webThicknessCm) * Number(steel.depthCm) / 1000;
+    const stirrupRawTf = av * fyh * dShear / spacing / 1000;
+    const stirrupCapTf = 2.12 * Math.sqrt(fc) * b * dShear / 1000;
+    const vnrTf = Math.min(stirrupRawTf, stirrupCapTf);
+    const vncTf = 0.53 * Math.sqrt(fc) * b * dShear / 1000;
+    const vnRcGeneralTf = vnrTf + vncTf;
+    const frictionStirrupRawTf = mu * avf * fyh * dShear / spacing / 1000;
+    const frictionStirrupCapTf = 2.12 * mu * Math.sqrt(fc) * b * dShear / 1000;
+    const vnrFrictionTf = Math.min(frictionStirrupRawTf, frictionStirrupCapTf);
+    const netConcreteWidthCm = b - Number(steel.flangeWidthCm);
+    const vncFrictionTf = k1 * netConcreteWidthCm * dShear / 1000;
+    const vnRcFrictionTf = vnrFrictionTf + vncFrictionTf + studContributionTf;
+    const vnRcTf = Math.min(vnRcGeneralTf, vnRcFrictionTf);
+    const vu = Math.abs(Number(demands.vuTf));
+    const steelDemandShare = mnSteelTfM / nominalMomentTfM;
+    const rcDemandShare = mnRcTfM / nominalMomentTfM;
+    const steelUtilization = steelDemandShare * vu / (0.9 * vnSteelTf);
+    const rcUtilization = rcDemandShare * vu / (0.75 * vnRcTf);
+    const flangeCompactnessPass = flangeRatio <= flangeLimit ? 1 : 0;
+    const webCompactnessPass = webRatio <= webLimit ? 1 : 0;
+    const flexurePass = flexuralUtilization <= 1 ? 1 : 0;
+    const steelShearSharePass = steelUtilization <= 1 ? 1 : 0;
+    const rcShearSharePass = rcUtilization <= 1 ? 1 : 0;
+    const overallOk = [flangeCompactnessPass, webCompactnessPass, flexurePass, steelShearSharePass, rcShearSharePass].every(Boolean) ? 1 : 0;
+    return {
+      neutralAxisCm,
+      stressBlockDepthCm,
+      compressionSteelStress,
+      mnRcTfM,
+      mnSteelTfM,
+      nominalMomentTfM,
+      designMomentTfM,
+      flexuralUtilization,
+      flangeRatio,
+      flangeLimit,
+      webRatio,
+      webLimit,
+      vnSteelTf,
+      stirrupRawTf,
+      stirrupCapTf,
+      vnrTf,
+      vncTf,
+      vnRcGeneralTf,
+      frictionStirrupRawTf,
+      frictionStirrupCapTf,
+      vnrFrictionTf,
+      netConcreteWidthCm,
+      vncFrictionTf,
+      vnRcFrictionTf,
+      vnRcTf,
+      steelDemandShare,
+      rcDemandShare,
+      steelUtilization,
+      rcUtilization,
+      governingUtilization: Math.max(flexuralUtilization, steelUtilization, rcUtilization),
+      flangeCompactnessPass,
+      webCompactnessPass,
+      flexurePass,
+      steelShearSharePass,
+      rcShearSharePass,
+      overallOk,
+    };
+  }
+
+  return Object.fromEntries(input.cases.map(item => [item.id, calculateCase(item)]));
+}
+
 const ORACLES = {
   'equipment-basic-load-path': equipmentOracle,
   'earth-rankine-dry-active': earthOracle,
@@ -3253,7 +3384,8 @@ const ORACLES = {
   'seismic-force-eight-story-static': seismicForceStaticOracle,
   'seismic-appendage-three-control-branches': seismicAppendageOracle,
   'seismic-misc-three-formula-paths': seismicMiscOracle,
-  'anchor-cast-in-m20-chapter-17': anchorCastInOracle
+  'anchor-cast-in-m20-chapter-17': anchorCastInOracle,
+  'src-beam-candidate-strength': srcBeamCandidateOracle
 };
 
 function loadProductionModule(relativePath) {
@@ -3271,13 +3403,14 @@ function loadProductionModule(relativePath) {
 function validateCatalog(catalog) {
   const issues = [];
   exactKeys(catalog, ROOT_KEYS, 'catalog', issues);
-  if (catalog?.schemaVersion !== 1) issues.push('catalog:schema-version');
-  if (catalog?.kind !== 'independent-engineering-benchmarks.v1') issues.push('catalog:kind');
+  if (catalog?.schemaVersion !== 2) issues.push('catalog:schema-version');
+  if (catalog?.kind !== 'independent-engineering-benchmarks.v2') issues.push('catalog:kind');
   exactKeys(catalog?.portfolio, PORTFOLIO_KEYS, 'portfolio', issues);
   if (catalog?.portfolio?.eligibleState !== 'formal') issues.push('portfolio:eligible-state');
   if (!Number.isInteger(catalog?.portfolio?.eligibleFormalRoutes) || catalog.portfolio.eligibleFormalRoutes < 1) issues.push('portfolio:eligible-formal-routes');
   if (!String(catalog?.portfolio?.scopeNote || '').includes('golden case')) issues.push('portfolio:scope-note-distinction');
   if (!Array.isArray(catalog?.benchmarks) || catalog.benchmarks.length < 1) issues.push('benchmarks:required');
+  if (!Array.isArray(catalog?.candidateBenchmarks)) issues.push('candidate-benchmarks:array-required');
   if (!Array.isArray(catalog?.priorityTargets)) issues.push('priority-targets:array-required');
 
   const ids = new Set();
@@ -3289,6 +3422,29 @@ function validateCatalog(catalog) {
     ids.add(benchmark.id);
     if (!/^\/[a-z0-9-]+$/.test(String(benchmark.route || '')) || routes.has(benchmark.route)) issues.push(`${label}:unique-route`);
     routes.add(benchmark.route);
+    if (!ORACLES[benchmark.oracle]) issues.push(`${label}:known-oracle`);
+    if (benchmark.referenceType !== 'closed-form-identity') issues.push(`${label}:reference-type`);
+    if (!String(benchmark.referenceBasis || '').trim()) issues.push(`${label}:reference-basis`);
+    if (!benchmark.input || typeof benchmark.input !== 'object' || Array.isArray(benchmark.input)) issues.push(`${label}:input-object`);
+    if (!Array.isArray(benchmark.assertions) || benchmark.assertions.length < 1) issues.push(`${label}:assertions-required`);
+    const assertionPaths = new Set();
+    for (const [assertionIndex, assertion] of (benchmark.assertions || []).entries()) {
+      const assertionLabel = `${label}.assertions[${assertionIndex}]`;
+      exactKeys(assertion, ASSERTION_KEYS, assertionLabel, issues);
+      if (!assertion.path || assertionPaths.has(assertion.path)) issues.push(`${assertionLabel}:unique-path`);
+      assertionPaths.add(assertion.path);
+      if (!Number.isFinite(assertion.absTolerance) || assertion.absTolerance < 0) issues.push(`${assertionLabel}:abs-tolerance`);
+    }
+  }
+
+  const capabilities = new Set();
+  for (const [index, benchmark] of (catalog?.candidateBenchmarks || []).entries()) {
+    const label = `candidateBenchmark[${index}]`;
+    exactKeys(benchmark, CANDIDATE_KEYS, label, issues);
+    if (!benchmark.id || ids.has(benchmark.id)) issues.push(`${label}:unique-id`);
+    ids.add(benchmark.id);
+    if (!/^[a-z0-9-]+$/.test(String(benchmark.capability || '')) || capabilities.has(benchmark.capability)) issues.push(`${label}:unique-capability`);
+    capabilities.add(benchmark.capability);
     if (!ORACLES[benchmark.oracle]) issues.push(`${label}:known-oracle`);
     if (benchmark.referenceType !== 'closed-form-identity') issues.push(`${label}:reference-type`);
     if (!String(benchmark.referenceBasis || '').trim()) issues.push(`${label}:reference-basis`);
@@ -3328,8 +3484,8 @@ function runBenchmarks(catalog, options = {}) {
   const catalogIssues = validateCatalog(catalog);
   if (catalogIssues.length) {
     return {
-      schemaVersion: 1,
-      kind: 'independent-engineering-benchmarks-result.v1',
+      schemaVersion: 2,
+      kind: 'independent-engineering-benchmarks-result.v2',
       generatedAt: new Date().toISOString(),
       status: 'blocked',
       summary: {
@@ -3337,18 +3493,23 @@ function runBenchmarks(catalog, options = {}) {
         pilotRequired: Array.isArray(catalog?.benchmarks) ? catalog.benchmarks.length : 0,
         pilotVerified: 0,
         independentlyVerifiedRoutes: 0,
+        candidateRequired: Array.isArray(catalog?.candidateBenchmarks) ? catalog.candidateBenchmarks.length : 0,
+        candidateVerified: 0,
+        verifiedCandidateCapabilities: 0,
         priorityTargets: Array.isArray(catalog?.priorityTargets) ? catalog.priorityTargets.length : 0,
         issueCount: catalogIssues.length
       },
       records: [],
+      candidateRecords: [],
       issues: catalogIssues
     };
   }
 
   const loadModule = options.loadProduction || loadProductionModule;
   const records = [];
+  const candidateRecords = [];
   const issues = [];
-  for (const benchmark of catalog.benchmarks) {
+  function executeBenchmark(benchmark, classification) {
     const recordIssues = [];
     let production;
     let expected;
@@ -3372,32 +3533,46 @@ function runBenchmarks(catalog, options = {}) {
       }
     }
     issues.push(...recordIssues.map(issue => `${benchmark.id}:${issue}`));
-    records.push({
+    return {
       id: benchmark.id,
-      route: benchmark.route,
+      ...(classification === 'formal' ? { route: benchmark.route } : { capability: benchmark.capability }),
+      classification,
       title: benchmark.title,
       status: recordIssues.length ? 'blocked' : 'verified',
       referenceType: benchmark.referenceType,
       referenceBasis: benchmark.referenceBasis,
       assertionCount: benchmark.assertions.length,
       issues: recordIssues
-    });
+    };
+  }
+  for (const benchmark of catalog.benchmarks) {
+    records.push(executeBenchmark(benchmark, 'formal'));
+  }
+  for (const benchmark of catalog.candidateBenchmarks) {
+    candidateRecords.push(executeBenchmark(benchmark, 'candidate'));
   }
   const pilotVerified = records.filter(record => record.status === 'verified').length;
+  const candidateVerified = candidateRecords.filter(record => record.status === 'verified').length;
   return {
-    schemaVersion: 1,
-    kind: 'independent-engineering-benchmarks-result.v1',
+    schemaVersion: 2,
+    kind: 'independent-engineering-benchmarks-result.v2',
     generatedAt: new Date().toISOString(),
-    status: issues.length === 0 && pilotVerified === catalog.benchmarks.length ? 'ready' : 'blocked',
+    status: issues.length === 0
+      && pilotVerified === catalog.benchmarks.length
+      && candidateVerified === catalog.candidateBenchmarks.length ? 'ready' : 'blocked',
     summary: {
       eligibleFormalRoutes: catalog.portfolio.eligibleFormalRoutes,
       pilotRequired: catalog.benchmarks.length,
       pilotVerified,
       independentlyVerifiedRoutes: new Set(records.filter(record => record.status === 'verified').map(record => record.route)).size,
+      candidateRequired: catalog.candidateBenchmarks.length,
+      candidateVerified,
+      verifiedCandidateCapabilities: new Set(candidateRecords.filter(record => record.status === 'verified').map(record => record.capability)).size,
       priorityTargets: catalog.priorityTargets.length,
       issueCount: issues.length
     },
     records,
+    candidateRecords,
     priorityTargets: catalog.priorityTargets,
     issues
   };
@@ -3427,7 +3602,7 @@ function main(argv = process.argv.slice(2)) {
   if (args.json) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } else {
-    process.stdout.write(`Independent engineering benchmarks: ${result.status}; pilot ${result.summary.pilotVerified}/${result.summary.pilotRequired}; formal portfolio ${result.summary.independentlyVerifiedRoutes}/${result.summary.eligibleFormalRoutes}; issues ${result.summary.issueCount}\n`);
+    process.stdout.write(`Independent engineering benchmarks: ${result.status}; formal pilot ${result.summary.pilotVerified}/${result.summary.pilotRequired}; formal portfolio ${result.summary.independentlyVerifiedRoutes}/${result.summary.eligibleFormalRoutes}; candidates ${result.summary.candidateVerified}/${result.summary.candidateRequired}; issues ${result.summary.issueCount}\n`);
   }
   return result.status === 'ready' ? 0 : 2;
 }

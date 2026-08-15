@@ -2692,7 +2692,7 @@ $checks = @(
   },
   [pscustomobject]@{
     key = "independent-engineering-benchmarks"
-    label = "Independent engineering benchmark pilot"
+    label = "Independent engineering benchmarks"
     workdir = $root
     command = $independentEngineeringBenchmarksCommand
     slow = $false

@@ -201,7 +201,7 @@ assert(
   'independent-engineering-benchmarks',
   'node 結構工具箱/tools/independent-engineering-benchmarks.test.js',
   'node 結構工具箱/tools/independent-engineering-benchmarks.js --write',
-  'Independent engineering benchmark pilot',
+  'Independent engineering benchmarks',
 ].forEach(needle => assertIncludes(preflight, needle, `preflight preserves release readiness ${needle}`));
 
 [
@@ -708,6 +708,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'independent-engineering-benchmarks',
   'maturity globalGovernance independent engineering benchmark gate exists',
   'maturity independent engineering benchmark pilot verified',
+  'maturity independent engineering candidate required',
+  'maturity independent engineering candidate verified',
 ].forEach(needle => assertIncludes(dashboardContract, needle, `dashboard contract preserves release readiness ${needle}`));
 
 [
@@ -740,6 +742,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
 [
   'independent-engineering-benchmarks.catalog.json',
   '31 / 31',
+  'candidateBenchmarks',
+  '1 / 1 個非公開候選能力',
   '石材固定',
   '不等同獨立工程驗證',
 ].forEach(needle => {

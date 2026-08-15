@@ -1236,6 +1236,8 @@ if (fs.existsSync(maturityMatrixPath)) {
   assert.equal(matrix.independentBenchmarkCoverage?.status, 'ready', 'maturity independent engineering benchmark pilot ready');
   assert.equal(matrix.independentBenchmarkCoverage?.summary?.pilotVerified, 31, 'maturity independent engineering benchmark pilot verified');
   assert.equal(matrix.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes, 31, 'maturity independent engineering benchmark eligible formal routes');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidateRequired, 1, 'maturity independent engineering candidate required');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidateVerified, 1, 'maturity independent engineering candidate verified');
   assert.equal(matrix.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes, matrix.entrypointCoverage?.byState?.formal, 'maturity independent engineering benchmark portfolio matches formal homepage entries');
   const renderedDeliveryGate = matrix.globalGovernance.gates.find(gate => gate.key === 'rendered-delivery-evidence');
   assert.ok(renderedDeliveryGate, 'maturity globalGovernance rendered delivery evidence gate exists');
@@ -1251,6 +1253,7 @@ if (fs.existsSync(maturityMatrixPath)) {
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('public-release-change-governance'), 'maturity markdown exposes public release change gate');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('independent-engineering-benchmarks'), 'maturity markdown exposes independent engineering benchmark gate');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('## Independent Engineering Benchmarks'), 'maturity markdown exposes independent engineering benchmark coverage');
+  assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('Non-public Candidate Capabilities'), 'maturity markdown separates non-public candidates from formal route coverage');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('rendered-delivery-evidence'), 'maturity markdown exposes rendered delivery evidence gate');
   if (maturityFresh) {
     assert.ok(matrix.preflightHistoryHealth && typeof matrix.preflightHistoryHealth === 'object', 'maturity preflightHistoryHealth object');

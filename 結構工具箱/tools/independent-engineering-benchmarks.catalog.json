@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 1,
-  "kind": "independent-engineering-benchmarks.v1",
+  "schemaVersion": 2,
+  "kind": "independent-engineering-benchmarks.v2",
   "portfolio": {
     "eligibleState": "formal",
     "eligibleFormalRoutes": 31,
@@ -3030,6 +3030,104 @@
         { "path": "pinCoeffServiceability.checks.anchorHorizontal.value", "absTolerance": 1e-10 }, { "path": "pinCoeffServiceability.checks.anchorInteraction.value", "absTolerance": 1e-12 },
         { "path": "pinCoeffServiceability.checks.pin.value", "absTolerance": 1e-10 }, { "path": "pinCoeffServiceability.checks.angleBending.value", "absTolerance": 1e-12 },
         { "path": "pinCoeffServiceability.allPass", "absTolerance": 0 }
+      ]
+    }
+  ],
+  "candidateBenchmarks": [
+    {
+      "id": "src-beam-candidate-strength",
+      "capability": "src-beam-core",
+      "title": "包覆型 SRC 梁候選核心彎矩、剪力分擔與寬厚比",
+      "productionModule": "independent-engineering-adapters/src-beam-candidate.js",
+      "oracle": "src-beam-candidate-strength",
+      "referenceType": "closed-form-identity",
+      "referenceBasis": "非耐震、無軸力、完全包覆矩形 SRC 梁；RC 部分以拉力筋降伏且壓力筋彈性之力平衡二次方程閉合求根，不重用 production bisection，再獨立推導 Mns、0.9(Mns+Mnrc)、鋼骨與 RC 剪力分擔、2.12√fc'bd 一般上限、2.12μ√fc'bd 剪力摩擦上限及表 3.4-1 寬厚比。候選能力不計入公開正式入口 31/31。",
+      "input": {
+        "cases": [
+          {
+            "id": "doubleReinforced490",
+            "schema": "src-beam.input.v1",
+            "demands": { "puTf": 0, "muTfM": 150, "vuTf": 96.5 },
+            "concrete": { "bCm": 50, "hCm": 80, "fcKgfCm2": 280, "flexureDepthCm": 68, "compressionSteelDepthCm": 12, "shearDepthCm": 73 },
+            "reinforcement": { "asTensionCm2": 32.68, "asCompressionCm2": 32.68, "fyrTensionKgfCm2": 4200, "fyrCompressionKgfCm2": 4200, "esKgfCm2": 2040000, "avCm2": 1.426, "avfCm2": 1.426, "spacingCm": 15, "fyhKgfCm2": 4200 },
+            "steel": { "grade": "A572 Gr.50", "depthCm": 51.2, "flangeWidthCm": 20.2, "flangeThicknessCm": 2.2, "webThicknessCm": 1.2, "zCm3": 2870, "fysKgfCm2": 3500, "fywKgfCm2": 3500 },
+            "shearFriction": { "mu": 0.8, "k1KgfCm2": 28, "studContributionTf": 0 },
+            "detailing": { "fullyEncased": true, "normalWeightConcrete": true, "monolithicShearFrictionSurface": true, "mainBarsContinuous": true, "longitudinalClearSpacingMm": 25, "reinforcementDetailingConfirmed": true, "temporaryShoringProvided": true, "steelConstructionCapacityVerified": false, "seismicDesign": false }
+          },
+          {
+            "id": "singleReinforced400",
+            "schema": "src-beam.input.v1",
+            "demands": { "puTf": 0, "muTfM": 70, "vuTf": 35 },
+            "concrete": { "bCm": 40, "hCm": 70, "fcKgfCm2": 280, "flexureDepthCm": 60, "compressionSteelDepthCm": 8, "shearDepthCm": 64 },
+            "reinforcement": { "asTensionCm2": 30.402, "asCompressionCm2": 0, "fyrTensionKgfCm2": 4200, "fyrCompressionKgfCm2": 0, "esKgfCm2": 2040000, "avCm2": 1.426, "avfCm2": 1.426, "spacingCm": 15, "fyhKgfCm2": 2800 },
+            "steel": { "grade": "SM400", "depthCm": 45, "flangeWidthCm": 20, "flangeThicknessCm": 1.2, "webThicknessCm": 0.9, "zCm3": 1500, "fysKgfCm2": 2800, "fywKgfCm2": 2800 },
+            "shearFriction": { "mu": 0.8, "k1KgfCm2": 28, "studContributionTf": 0 },
+            "detailing": { "fullyEncased": true, "normalWeightConcrete": true, "monolithicShearFrictionSurface": true, "mainBarsContinuous": true, "longitudinalClearSpacingMm": 25, "reinforcementDetailingConfirmed": true, "temporaryShoringProvided": true, "steelConstructionCapacityVerified": false, "seismicDesign": false }
+          },
+          {
+            "id": "stirrupCapControl",
+            "schema": "src-beam.input.v1",
+            "demands": { "puTf": 0, "muTfM": 150, "vuTf": 110 },
+            "concrete": { "bCm": 50, "hCm": 80, "fcKgfCm2": 280, "flexureDepthCm": 68, "compressionSteelDepthCm": 12, "shearDepthCm": 73 },
+            "reinforcement": { "asTensionCm2": 32.68, "asCompressionCm2": 32.68, "fyrTensionKgfCm2": 4200, "fyrCompressionKgfCm2": 4200, "esKgfCm2": 2040000, "avCm2": 100, "avfCm2": 100, "spacingCm": 15, "fyhKgfCm2": 4200 },
+            "steel": { "grade": "A572 Gr.50", "depthCm": 51.2, "flangeWidthCm": 20.2, "flangeThicknessCm": 2.2, "webThicknessCm": 1.2, "zCm3": 2870, "fysKgfCm2": 3500, "fywKgfCm2": 3500 },
+            "shearFriction": { "mu": 0.8, "k1KgfCm2": 28, "studContributionTf": 0 },
+            "detailing": { "fullyEncased": true, "normalWeightConcrete": true, "monolithicShearFrictionSurface": true, "mainBarsContinuous": true, "longitudinalClearSpacingMm": 25, "reinforcementDetailingConfirmed": true, "temporaryShoringProvided": true, "steelConstructionCapacityVerified": false, "seismicDesign": false }
+          },
+          {
+            "id": "rcShareFailure",
+            "schema": "src-beam.input.v1",
+            "demands": { "puTf": 0, "muTfM": 150, "vuTf": 110 },
+            "concrete": { "bCm": 50, "hCm": 80, "fcKgfCm2": 280, "flexureDepthCm": 68, "compressionSteelDepthCm": 12, "shearDepthCm": 73 },
+            "reinforcement": { "asTensionCm2": 32.68, "asCompressionCm2": 32.68, "fyrTensionKgfCm2": 4200, "fyrCompressionKgfCm2": 4200, "esKgfCm2": 2040000, "avCm2": 1.426, "avfCm2": 1.426, "spacingCm": 15, "fyhKgfCm2": 4200 },
+            "steel": { "grade": "A572 Gr.50", "depthCm": 51.2, "flangeWidthCm": 20.2, "flangeThicknessCm": 2.2, "webThicknessCm": 1.2, "zCm3": 2870, "fysKgfCm2": 3500, "fywKgfCm2": 3500 },
+            "shearFriction": { "mu": 0.8, "k1KgfCm2": 28, "studContributionTf": 0 },
+            "detailing": { "fullyEncased": true, "normalWeightConcrete": true, "monolithicShearFrictionSurface": true, "mainBarsContinuous": true, "longitudinalClearSpacingMm": 25, "reinforcementDetailingConfirmed": true, "temporaryShoringProvided": true, "steelConstructionCapacityVerified": false, "seismicDesign": false }
+          }
+        ]
+      },
+      "assertions": [
+        { "path": "doubleReinforced490.neutralAxisCm", "absTolerance": 1e-8 },
+        { "path": "doubleReinforced490.stressBlockDepthCm", "absTolerance": 1e-8 },
+        { "path": "doubleReinforced490.compressionSteelStress", "absTolerance": 1e-7 },
+        { "path": "doubleReinforced490.mnRcTfM", "absTolerance": 1e-8 },
+        { "path": "doubleReinforced490.mnSteelTfM", "absTolerance": 1e-10 },
+        { "path": "doubleReinforced490.nominalMomentTfM", "absTolerance": 1e-8 },
+        { "path": "doubleReinforced490.designMomentTfM", "absTolerance": 1e-8 },
+        { "path": "doubleReinforced490.flangeRatio", "absTolerance": 1e-12 },
+        { "path": "doubleReinforced490.flangeLimit", "absTolerance": 0 },
+        { "path": "doubleReinforced490.webRatio", "absTolerance": 1e-12 },
+        { "path": "doubleReinforced490.webLimit", "absTolerance": 0 },
+        { "path": "doubleReinforced490.vnSteelTf", "absTolerance": 1e-10 },
+        { "path": "doubleReinforced490.vnRcGeneralTf", "absTolerance": 1e-10 },
+        { "path": "doubleReinforced490.vnRcFrictionTf", "absTolerance": 1e-10 },
+        { "path": "doubleReinforced490.vnRcTf", "absTolerance": 1e-10 },
+        { "path": "doubleReinforced490.steelDemandShare", "absTolerance": 1e-12 },
+        { "path": "doubleReinforced490.rcDemandShare", "absTolerance": 1e-12 },
+        { "path": "doubleReinforced490.steelUtilization", "absTolerance": 1e-12 },
+        { "path": "doubleReinforced490.rcUtilization", "absTolerance": 1e-12 },
+        { "path": "doubleReinforced490.overallOk", "absTolerance": 0 },
+        { "path": "singleReinforced400.neutralAxisCm", "absTolerance": 1e-8 },
+        { "path": "singleReinforced400.compressionSteelStress", "absTolerance": 0 },
+        { "path": "singleReinforced400.mnRcTfM", "absTolerance": 1e-8 },
+        { "path": "singleReinforced400.designMomentTfM", "absTolerance": 1e-8 },
+        { "path": "singleReinforced400.flangeLimit", "absTolerance": 0 },
+        { "path": "singleReinforced400.webLimit", "absTolerance": 0 },
+        { "path": "singleReinforced400.vnRcTf", "absTolerance": 1e-10 },
+        { "path": "singleReinforced400.governingUtilization", "absTolerance": 1e-12 },
+        { "path": "singleReinforced400.overallOk", "absTolerance": 0 },
+        { "path": "stirrupCapControl.stirrupRawTf", "absTolerance": 1e-10 },
+        { "path": "stirrupCapControl.stirrupCapTf", "absTolerance": 1e-10 },
+        { "path": "stirrupCapControl.vnrTf", "absTolerance": 1e-10 },
+        { "path": "stirrupCapControl.frictionStirrupRawTf", "absTolerance": 1e-10 },
+        { "path": "stirrupCapControl.frictionStirrupCapTf", "absTolerance": 1e-10 },
+        { "path": "stirrupCapControl.vnrFrictionTf", "absTolerance": 1e-10 },
+        { "path": "stirrupCapControl.vnRcGeneralTf", "absTolerance": 1e-10 },
+        { "path": "stirrupCapControl.vnRcFrictionTf", "absTolerance": 1e-10 },
+        { "path": "stirrupCapControl.overallOk", "absTolerance": 0 },
+        { "path": "rcShareFailure.steelShearSharePass", "absTolerance": 0 },
+        { "path": "rcShareFailure.rcShearSharePass", "absTolerance": 0 },
+        { "path": "rcShareFailure.overallOk", "absTolerance": 0 }
       ]
     }
   ],

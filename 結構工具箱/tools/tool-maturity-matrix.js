@@ -1309,7 +1309,7 @@ function buildMarkdown(payload) {
     `- nonMatrixBoundary: complete=${entrypoint.boundaryComplete || 0}/${entrypoint.boundaryRequired || 0}, issues=${entrypoint.boundaryIssueCount || 0}`,
     `- pageOnlyBoundary: complete=${entrypoint.pageOnlyBoundaryComplete || 0}/${entrypoint.pageOnlyBoundaryRequired || 0}, issues=${entrypoint.pageOnlyBoundaryIssueCount || 0}`,
     `- globalGovernance: complete=${payload.globalGovernance?.passed || 0}/${payload.globalGovernance?.required || 0}, issues=${payload.globalGovernance?.issueCount || 0}`,
-    `- independentEngineeringBenchmarks: pilot=${payload.independentBenchmarkCoverage?.summary?.pilotVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.pilotRequired || 0}, formalPortfolio=${payload.independentBenchmarkCoverage?.summary?.independentlyVerifiedRoutes || 0}/${payload.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes || 0}, issues=${payload.independentBenchmarkCoverage?.summary?.issueCount || 0}`,
+    `- independentEngineeringBenchmarks: pilot=${payload.independentBenchmarkCoverage?.summary?.pilotVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.pilotRequired || 0}, formalPortfolio=${payload.independentBenchmarkCoverage?.summary?.independentlyVerifiedRoutes || 0}/${payload.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes || 0}, candidates=${payload.independentBenchmarkCoverage?.summary?.candidateVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.candidateRequired || 0}, issues=${payload.independentBenchmarkCoverage?.summary?.issueCount || 0}`,
     `- preflightHistoryHealth: completed=${payload.preflightHistoryHealth?.completedCount || 0}/${payload.preflightHistoryHealth?.count || 0}, abnormal=${payload.preflightHistoryHealth?.abnormalCount || 0}, resolvedAbnormal=${payload.preflightHistoryHealth?.resolvedAbnormalCount || 0}, unresolvedAbnormal=${payload.preflightHistoryHealth?.unresolvedAbnormalCount || 0}, incomplete=${payload.preflightHistoryHealth?.incompleteCount || 0}, resolvedIncomplete=${payload.preflightHistoryHealth?.resolvedIncompleteCount || 0}, unresolvedIncomplete=${payload.preflightHistoryHealth?.unresolvedIncompleteCount || 0}, inProgress=${payload.preflightHistoryHealth?.inProgressCount || 0}, latestState=${payload.preflightHistoryHealth?.latestState || '-'}`,
     payload.latestPreflight
       ? `- latestPreflight: ${payload.latestPreflight.runId}, pass=${payload.latestPreflight.pass}, quick=${payload.latestPreflight.quick}, commit=${(payload.latestPreflight.sourceCommitSha || '').slice(0, 12) || '-'}, branch=${payload.latestPreflight.sourceBranch || '-'}, dirty=${payload.latestPreflight.sourceDirty}, source=${payload.latestPreflight.sourcePath || '-'}, hash=${(payload.latestPreflight.sourceHash || '').slice(0, 12) || '-'}`
@@ -1361,6 +1361,7 @@ function buildMarkdown(payload) {
     '',
     `- pilot: ${independentSummary.pilotVerified || 0} / ${independentSummary.pilotRequired || 0}`,
     `- formal portfolio independently verified: ${independentSummary.independentlyVerifiedRoutes || 0} / ${independentSummary.eligibleFormalRoutes || 0}`,
+    `- non-public candidate capabilities independently verified: ${independentSummary.candidateVerified || 0} / ${independentSummary.candidateRequired || 0}`,
     `- priority roadmap targets: ${independentSummary.priorityTargets || 0}`,
     `- issues: ${independentSummary.issueCount || 0}`,
     '- boundary: golden case、同核心 JSON 重播與結果鏈一致性不等同獨立工程基準。',
@@ -1375,6 +1376,23 @@ function buildMarkdown(payload) {
     for (const record of independentRecords) {
       const issues = Array.isArray(record.issues) && record.issues.length ? record.issues.join(', ') : '-';
       lines.push(`| ${markdownCell(record.route)} | ${markdownCell(record.title)} | ${markdownCell(record.referenceBasis)} | ${markdownCell(record.status)} | ${record.assertionCount || 0} | ${markdownCell(issues)} |`);
+    }
+  }
+
+  lines.push(
+    '',
+    '### Non-public Candidate Capabilities',
+    '',
+    '| capability | benchmark | reference | status | assertions | issues |',
+    '|---|---|---|---|---:|---|'
+  );
+  const candidateRecords = Array.isArray(independentCoverage.candidateRecords) ? independentCoverage.candidateRecords : [];
+  if (candidateRecords.length === 0) {
+    lines.push('| - | - | - | - | 0 | - |');
+  } else {
+    for (const record of candidateRecords) {
+      const issues = Array.isArray(record.issues) && record.issues.length ? record.issues.join(', ') : '-';
+      lines.push(`| ${markdownCell(record.capability)} | ${markdownCell(record.title)} | ${markdownCell(record.referenceBasis)} | ${markdownCell(record.status)} | ${record.assertionCount || 0} | ${markdownCell(issues)} |`);
     }
   }
 
@@ -2577,8 +2595,11 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
   const independentBenchmarkVerified = compactNumber(independentBenchmarkSummary.independentlyVerifiedRoutes);
   const independentBenchmarkPilotRequired = compactNumber(independentBenchmarkSummary.pilotRequired);
   const independentBenchmarkPilotVerified = compactNumber(independentBenchmarkSummary.pilotVerified);
+  const independentBenchmarkCandidateRequired = compactNumber(independentBenchmarkSummary.candidateRequired);
+  const independentBenchmarkCandidateVerified = compactNumber(independentBenchmarkSummary.candidateVerified);
   const independentBenchmarkIssueCount = compactNumber(independentBenchmarkSummary.issueCount);
   details.push(`獨立工程基準：${independentBenchmarkVerified} / ${independentBenchmarkEligible} 個正式工具已具獨立封閉算例。既有重播、結果鏈與家族治理證據仍屬不同證據層級，不取代設計者複核。`);
+  details.push(`候選能力獨立基準：${independentBenchmarkCandidateVerified} / ${independentBenchmarkCandidateRequired}；候選結果只作上線前治理，不計入正式工具 ${independentBenchmarkVerified} / ${independentBenchmarkEligible}。`);
   return {
     publicEvidenceSchemaVersion: publicEvidenceSchema.SCHEMA_VERSION,
     snapshotVersion: 1,
@@ -3007,10 +3028,13 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 31, 'tool maturity matrix independent benchmark pilot required');
   assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 31, 'tool maturity matrix independent benchmark verified route count');
   assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 31, 'tool maturity matrix independent benchmark eligible route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.candidateRequired, 1, 'tool maturity matrix independent candidate required count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.candidateVerified, 1, 'tool maturity matrix independent candidate verified count');
   assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, payload.entrypointCoverage.byState.formal, 'tool maturity matrix independent benchmark portfolio matches formal homepage entry count');
   assert.equal(payload.independentBenchmarkCoverage.summary.issueCount, 0, 'tool maturity matrix independent benchmark issues empty');
   assert.ok(markdown.includes('## Independent Engineering Benchmarks'), 'tool maturity matrix markdown exposes independent engineering benchmarks');
   assert.ok(markdown.includes('golden case、同核心 JSON 重播與結果鏈一致性不等同獨立工程基準'), 'tool maturity matrix markdown distinguishes replay from independent verification');
+  assert.ok(markdown.includes('Non-public Candidate Capabilities') && markdown.includes('src-beam-core'), 'tool maturity matrix separates the SRC candidate from formal routes');
   assert.ok(payload.entrypointCoverage && typeof payload.entrypointCoverage === 'object', 'tool maturity matrix entrypointCoverage object');
   assert.equal(Number.isInteger(payload.entrypointCoverage.total), true, 'tool maturity matrix entrypointCoverage total integer');
   assert.equal(Number.isInteger(payload.entrypointCoverage.matrixCovered), true, 'tool maturity matrix entrypointCoverage matrixCovered integer');
