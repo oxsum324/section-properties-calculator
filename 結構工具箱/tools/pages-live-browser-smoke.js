@@ -12,6 +12,11 @@ async page => {
     { key: 'desktop', width: 1280, height: 800 },
     { key: 'mobile', width: 390, height: 844 }
   ];
+  const directPrintBoundaries = {
+    '/excavation-support': { label: 'excavation launcher', heading: '開挖服務入口列印已封鎖' },
+    '/rc': { label: 'RC launcher', heading: 'RC 工具箱入口列印已封鎖' },
+    '/toolbox-classic': { label: 'classic compatibility launcher', heading: '舊網址相容入口列印已封鎖' },
+  };
 
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`${base}%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/`, { waitUntil: 'networkidle' });
@@ -26,6 +31,7 @@ async page => {
     throw new Error(`invalid homepage route inventory: total=${routes.length}, unique=${new Set(routes).size}`);
   }
   const homeRouteCount = routes.length;
+  routes.push('/rc', '/toolbox-classic');
   routes.push('/audit-dashboard');
 
   const issues = [];
@@ -139,8 +145,8 @@ async page => {
         };
       }, route);
 
-      let excavationPrintBoundary = null;
-      if (route === '/excavation-support') {
+      let directPrintBoundary = null;
+      if (directPrintBoundaries[route]) {
         const screenBoundary = await page.evaluate(() => {
           const boundary = document.querySelector('.formal-direct-print-boundary');
           return {
@@ -163,7 +169,7 @@ async page => {
           };
         });
         await page.emulateMedia({ media: 'screen' });
-        excavationPrintBoundary = { screen: screenBoundary, print: printBoundary };
+        directPrintBoundary = { screen: screenBoundary, print: printBoundary };
       }
 
       page.off('console', onConsole);
@@ -203,15 +209,16 @@ async page => {
       if (route === '/stone-fixing' && viewport.key === 'mobile' && !containedStonePreview) {
         routeIssues.push(`stone A4 preview is not contained by its local scroll region: ${JSON.stringify({ rootOverflowX: state.rootOverflowX, preview: state.stonePreview })}`);
       }
-      if (route === '/excavation-support') {
-        const screenBoundary = excavationPrintBoundary?.screen;
-        const printBoundary = excavationPrintBoundary?.print;
+      if (directPrintBoundaries[route]) {
+        const config = directPrintBoundaries[route];
+        const screenBoundary = directPrintBoundary?.screen;
+        const printBoundary = directPrintBoundary?.print;
         if (!screenBoundary?.bodyClass || !screenBoundary?.boundaryExists || screenBoundary.boundaryRects !== 0 || !screenBoundary.stylesheetLoaded) {
-          routeIssues.push(`excavation launcher screen print-boundary invalid: ${JSON.stringify(screenBoundary)}`);
+          routeIssues.push(`${config.label} screen print-boundary invalid: ${JSON.stringify(screenBoundary)}`);
         }
         if (!printBoundary || printBoundary.boundaryRects <= 0 || printBoundary.visibleOtherChildren.length ||
-          !printBoundary.boundaryText.includes('開挖服務入口列印已封鎖') || !printBoundary.boundaryText.includes('本頁不得作為附件')) {
-          routeIssues.push(`excavation launcher print boundary invalid: ${JSON.stringify(printBoundary)}`);
+          !printBoundary.boundaryText.includes(config.heading) || !printBoundary.boundaryText.includes('本頁不得作為附件')) {
+          routeIssues.push(`${config.label} print boundary invalid: ${JSON.stringify(printBoundary)}`);
         }
       }
       if (isDashboard) {

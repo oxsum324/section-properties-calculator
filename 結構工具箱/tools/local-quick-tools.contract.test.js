@@ -593,13 +593,18 @@ assertIncludes(repoDocs.homeHtml, '開挖支撐與斜撐匯入已保留完整軸
 assertIncludes(repoDocs.homeHtml, '正式模型、控制組合、傳力、偏心、極限狀態與證據檔', 'new home records structured receiver verification scope');
 assertIncludes(repoDocs.homeHtml, '特定承接型式容量計算模組及 SRC 構件能力', 'new home roadmap points to the next deeper construction-stage capabilities');
 assertIncludes(repoDocs.homeHtml, '成熟度矩陣與巡檢儀表板', 'new home roadmap points to current governance evidence');
-assertIncludes(repoDocs.indexClassic, '三項局部快算均已具多案例基準', 'classic home reflects completed local quick golden coverage');
-assertIncludes(repoDocs.indexClassic, '牆身、趾版底層與踵版頂層設計', 'classic home records completed earth-to-RC base slab design');
-assertIncludes(repoDocs.indexClassic, '固定開挖共構柱的多階段受控交接', 'classic home records completed column-mapped multi-stage handoff');
-assertIncludes(repoDocs.indexClassic, '逐階段明確採用附加 X／Y 偏心', 'classic home records completed stage-specific eccentricity adoption');
-assertIncludes(repoDocs.indexClassic, '開挖支撐與斜撐匯入也已保留完整軸力時序', 'classic home records completed analysis-stage force history');
-assertIncludes(repoDocs.indexClassic, '正式模型、控制組合、傳力、偏心、極限狀態與證據檔', 'classic home records structured receiver verification scope');
-assertIncludes(repoDocs.indexClassic, '特定承接型式容量計算模組及 SRC 構件能力', 'classic home lists next construction-stage capability expansion');
+assertIncludes(repoDocs.homeHtml, '牆身、趾版底層與踵版頂層設計', 'canonical home records completed earth-to-RC base slab design');
+assertIncludes(repoDocs.indexClassic, '舊網址相容入口', 'classic route is retained as a compatibility entry');
+assertIncludes(repoDocs.indexClassic, '工具清冊、使用邊界與巡檢狀態均以目前工具首頁為唯一公開來源', 'classic route delegates public claims to canonical home');
+assertIncludes(repoDocs.indexClassic, 'href="./index.html"', 'classic route links canonical home');
+[
+  '三項局部快算均已具多案例基準',
+  '固定開挖共構柱的多階段受控交接',
+  '逐階段明確採用附加 X／Y 偏心',
+  '特定承接型式容量計算模組及 SRC 構件能力',
+  'class="menu-card"',
+  'class="ver ',
+].forEach(needle => assert.equal(repoDocs.indexClassic.includes(needle), false, `classic compatibility entry avoids duplicate status claim: ${needle}`));
 assertIncludes(repoDocs.readme, '同版核心重算並比對 schema、邏輯簽章、合力與傾覆矩', 'README documents earth-to-RC recalculation boundary');
 assertIncludes(repoDocs.boundaries, 'earth-pressure-rc-bridge.js', 'tool boundaries govern earth-to-RC bridge');
 assert.equal(repoDocs.indexClassic.includes('短期先補 <strong>基礎局部檢核</strong>'), false, 'classic home removes stale foundation golden-case recommendation');

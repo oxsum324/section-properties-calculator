@@ -757,6 +757,9 @@ assert.ok(preflight.includes('$postSummaryMatrixArgs += "--preserve-homepage-sta
 assert.ok(readme.includes('--preserve-homepage-status'), 'README documents quick preflight homepage status preservation');
 assert.ok(boundaries.includes('--preserve-homepage-status'), 'TOOL_BOUNDARIES documents quick preflight homepage status preservation');
 assert.ok(staging.includes('--preserve-homepage-status'), 'STAGING_GROUPS documents quick preflight homepage status preservation');
+assert.ok(preflight.includes('$publicStatusClaimsContractCommand') && preflight.includes('key = "public-status-claims-contract"'), 'preflight runs public status claims consistency contract');
+assert.ok(maturityMatrix.includes("key: 'public-status-claims-contract'") && maturityMatrix.includes('公開狀態宣告一致性'), 'maturity matrix exposes public status claims global gate');
+assert.equal(homeTools.some(tool => Array.isArray(tool.capabilities) && tool.capabilities.includes('NEW')), false, 'home cards avoid expiring NEW status claims');
 assert.ok(pagesLiveSmoke.includes('assets/status/platform-status.json'), 'Pages live smoke checks platform status asset');
 assert.ok(pagesCleanRouteBuilder.includes('buildPagesCleanRoutes'), 'Pages clean-route builder exposes a testable build function');
 assert.ok(pagesCleanRouteBuilder.includes('window.location.replace(target)'), 'Pages clean-route builder emits a browser redirect');
@@ -770,6 +773,9 @@ assert.ok(pagesLiveSmoke.includes('reportReadinessStatus.preflightStatusSourcePa
 assert.ok(pagesLiveSmoke.includes('--allow-local-output'), 'Pages live smoke supports local repo-root preview override');
 assert.ok(pagesLiveSmoke.includes('PUBLIC_ROUTE_SAMPLES'), 'Pages live smoke has public route sample inventory');
 assert.ok(pagesLiveSmoke.includes('assertPublicRouteSamples'), 'Pages live smoke checks representative public routes');
+assert.ok(pagesLiveSmoke.includes('for (const forbidden of sample.forbidden || [])'), 'Pages live smoke rejects forbidden stale public claims');
+assert.ok(pagesLiveSmoke.includes('結構工具箱/index-classic.html') && pagesLiveSmoke.includes('舊網址相容入口列印已封鎖'), 'Pages live smoke protects classic compatibility boundary');
+assert.ok(pagesLiveBrowserSmoke.includes("routes.push('/rc', '/toolbox-classic')") && pagesLiveBrowserSmoke.includes('directPrintBoundaries'), 'Pages browser smoke renders RC and classic launcher print boundaries');
 assert.ok(pagesLiveSmoke.includes("{ path: 'anchor/', needles: ['錨栓檢討工具'], checkAssets: true }"), 'Pages live smoke checks anchor application assets');
 assert.ok(pagesLiveSmoke.includes('async function assertPublicAssets'), 'Pages live smoke has public asset availability gate');
 assert.ok(pagesLiveSmoke.includes('response.arrayBuffer()'), 'Pages live smoke rejects empty application assets');
@@ -1291,6 +1297,7 @@ for (const tool of manifestTools) {
   'stateBoundaryRules',
   '首頁版本治理',
   'HOME_TOOL_UPDATES',
+  '公開狀態宣告一致性',
   'TOOL_VERSION',
   'APP_VERSION',
   'Pages deploy',

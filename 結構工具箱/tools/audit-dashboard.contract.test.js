@@ -1102,16 +1102,19 @@ const auditDashboardBrowserSmokeScript = readText(toolboxFile('tools/audit-dashb
   'report-disclosure-contract',
   'delivery-artifacts-contract',
   'release-readiness-contract',
+  'public-status-claims-contract',
   'public-release-change-governance',
   'independent-engineering-benchmarks',
   'rendered-delivery-evidence',
   '交付物一致性',
   '正式放行證據',
+  '公開狀態宣告一致性',
   '公開門檻退化治理',
   '獨立工程基準',
   '實際交付物渲染佐證',
   '結構工具箱/tools/delivery-artifacts.contract.test.js',
   '結構工具箱/tools/release-readiness.contract.test.js',
+  '結構工具箱/tools/public-status-claims.contract.test.js',
   '結構工具箱/tools/public-release-change-governance.test.js',
   '結構工具箱/tools/independent-engineering-benchmarks.test.js',
   '結構工具箱/tools/rendered-delivery-evidence.contract.test.js',
@@ -1212,6 +1215,12 @@ if (fs.existsSync(maturityMatrixPath)) {
   assert.equal(releaseReadinessGate.coveredCatalogs, 0, 'maturity globalGovernance release readiness catalog count');
   assert.deepEqual(releaseReadinessGate.catalogFamilies, [], 'maturity globalGovernance release readiness relevant families empty');
   assert.deepEqual(releaseReadinessGate.issues, [], 'maturity globalGovernance release readiness issues empty');
+  const publicStatusClaimsGate = matrix.globalGovernance.gates.find(gate => gate.key === 'public-status-claims-contract');
+  assert.ok(publicStatusClaimsGate, 'maturity globalGovernance public status claims gate exists');
+  assert.equal(publicStatusClaimsGate.pass, true, 'maturity globalGovernance public status claims gate passes');
+  assert.equal(publicStatusClaimsGate.coveredCatalogs, 0, 'maturity globalGovernance public status claims catalog count');
+  assert.deepEqual(publicStatusClaimsGate.catalogFamilies, [], 'maturity globalGovernance public status claims relevant families empty');
+  assert.deepEqual(publicStatusClaimsGate.issues, [], 'maturity globalGovernance public status claims issues empty');
   const publicReleaseChangeGate = matrix.globalGovernance.gates.find(gate => gate.key === 'public-release-change-governance');
   assert.ok(publicReleaseChangeGate, 'maturity globalGovernance public release change gate exists');
   assert.equal(publicReleaseChangeGate.pass, true, 'maturity globalGovernance public release change gate passes');
@@ -1238,6 +1247,7 @@ if (fs.existsSync(maturityMatrixPath)) {
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('report-disclosure-contract'), 'maturity markdown exposes report disclosure gate');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('delivery-artifacts-contract'), 'maturity markdown exposes delivery artifacts gate');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('release-readiness-contract'), 'maturity markdown exposes release readiness gate');
+  assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('public-status-claims-contract'), 'maturity markdown exposes public status claims gate');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('public-release-change-governance'), 'maturity markdown exposes public release change gate');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('independent-engineering-benchmarks'), 'maturity markdown exposes independent engineering benchmark gate');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('## Independent Engineering Benchmarks'), 'maturity markdown exposes independent engineering benchmark coverage');

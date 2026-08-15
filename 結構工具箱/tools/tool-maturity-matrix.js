@@ -82,6 +82,14 @@ const GLOBAL_GOVERNANCE_GATES = [
     minCatalogs: 0
   },
   {
+    key: 'public-status-claims-contract',
+    label: '公開狀態宣告一致性',
+    contract: '結構工具箱/tools/public-status-claims.contract.test.js',
+    scope: '首頁工具 metadata、RC 家族入口、舊網址相容入口、tracked release 快照與 Pages HTTP／瀏覽器成品之狀態宣告一致性',
+    catalogFamilies: [],
+    minCatalogs: 0
+  },
+  {
     key: 'public-release-change-governance',
     label: '公開門檻退化治理',
     contract: '結構工具箱/tools/public-release-change-governance.test.js',
@@ -2971,6 +2979,12 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(releaseReadinessGate.coveredCatalogs, 0, 'tool maturity matrix release readiness gate has no catalog dependency');
   assert.deepEqual(releaseReadinessGate.catalogFamilies, [], 'tool maturity matrix release readiness gate relevant families empty');
   assert.deepEqual(releaseReadinessGate.issues, [], 'tool maturity matrix release readiness gate issues empty');
+  const publicStatusClaimsGate = payload.globalGovernance.gates.find(item => item.key === 'public-status-claims-contract');
+  assert.ok(publicStatusClaimsGate, 'tool maturity matrix public status claims gate exists');
+  assert.equal(publicStatusClaimsGate.pass, true, 'tool maturity matrix public status claims gate passed');
+  assert.equal(publicStatusClaimsGate.coveredCatalogs, 0, 'tool maturity matrix public status claims gate has no traceability catalog dependency');
+  assert.deepEqual(publicStatusClaimsGate.catalogFamilies, [], 'tool maturity matrix public status claims gate relevant families empty');
+  assert.deepEqual(publicStatusClaimsGate.issues, [], 'tool maturity matrix public status claims gate issues empty');
   const independentBenchmarkGate = payload.globalGovernance.gates.find(item => item.key === 'independent-engineering-benchmarks');
   assert.ok(independentBenchmarkGate, 'tool maturity matrix independent engineering benchmark gate exists');
   assert.equal(independentBenchmarkGate.pass, true, 'tool maturity matrix independent engineering benchmark gate passed');
@@ -2985,6 +2999,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(markdown.includes('report-disclosure-contract'), 'tool maturity matrix markdown exposes report disclosure gate');
   assert.ok(markdown.includes('delivery-artifacts-contract'), 'tool maturity matrix markdown exposes delivery artifacts gate');
   assert.ok(markdown.includes('release-readiness-contract'), 'tool maturity matrix markdown exposes release readiness gate');
+  assert.ok(markdown.includes('public-status-claims-contract'), 'tool maturity matrix markdown exposes public status claims gate');
   assert.ok(markdown.includes('rendered-delivery-evidence'), 'tool maturity matrix markdown exposes rendered delivery evidence gate');
   assert.ok(payload.independentBenchmarkCoverage && typeof payload.independentBenchmarkCoverage === 'object', 'tool maturity matrix independent benchmark coverage object');
   assert.equal(payload.independentBenchmarkCoverage.status, 'ready', 'tool maturity matrix independent benchmark pilot ready');

@@ -1489,6 +1489,11 @@ node 結構工具箱/tools/public-evidence-schema.test.js
 exit $LASTEXITCODE
 '@
 
+$publicStatusClaimsContractCommand = @'
+node 結構工具箱/tools/public-status-claims.contract.test.js
+exit $LASTEXITCODE
+'@
+
 $publicReleaseChangeGovernanceCommand = @'
 node 結構工具箱/tools/public-release-change-governance.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -2657,6 +2662,13 @@ $checks = @(
     label = "Versioned public evidence schema contract"
     workdir = $root
     command = $publicEvidenceSchemaContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "public-status-claims-contract"
+    label = "Public status claims consistency contract"
+    workdir = $root
+    command = $publicStatusClaimsContractCommand
     slow = $false
   },
   [pscustomobject]@{

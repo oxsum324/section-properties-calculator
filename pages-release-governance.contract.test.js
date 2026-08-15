@@ -575,7 +575,7 @@ assert.deepEqual(pagesPerformanceBudget.thresholdsMs, { runtimeInstall: 8000, ht
     const budgetPath = path.join(fixture, 'budget.json');
     const evidencePath = path.join(fixture, 'evidence.json');
     fs.writeFileSync(httpPath, JSON.stringify({ schemaVersion: 1, kind: 'pages-http-smoke', status: 'passed', durationMs: 1234, attemptCount: 1, fileCount: 318, routeCount: 43 }));
-    fs.writeFileSync(browserPath, JSON.stringify({ schemaVersion: 1, kind: 'pages-browser-smoke', status: 'passed', durationMs: 5678, attemptCount: 1, routes: 43, checks: 86, issues: 0 }));
+    fs.writeFileSync(browserPath, JSON.stringify({ schemaVersion: 1, kind: 'pages-browser-smoke', status: 'passed', durationMs: 5678, attemptCount: 1, routes: 43, checks: 92, issues: 0 }));
     fs.writeFileSync(budgetPath, JSON.stringify(pagesPerformanceBudget));
     const environment = {
       PAGES_CI_JOB: 'fixture', GITHUB_SHA: 'a'.repeat(40), GITHUB_RUN_ID: '123', GITHUB_RUN_ATTEMPT: '2',
@@ -587,7 +587,7 @@ assert.deepEqual(pagesPerformanceBudget.thresholdsMs, { runtimeInstall: 8000, ht
     const evidence = pagesCiSummary.buildEvidence(environment);
     const summary = pagesCiSummary.buildSummary(evidence, 'success');
     assert.ok(summary.includes('exact hit') && summary.includes('miss'), 'Pages CI summary distinguishes exact cache hits from misses');
-    assert.ok(summary.includes('318 files; 43 routes') && summary.includes('86 checks; 0 issues'), 'Pages CI summary exposes bounded smoke evidence');
+    assert.ok(summary.includes('318 files; 43 routes') && summary.includes('92 checks; 0 issues'), 'Pages CI summary exposes bounded smoke evidence');
     assert.ok(summary.includes('1.2 s') && summary.includes('5.7 s') && summary.includes('987 ms'), 'Pages CI summary formats measured stage durations');
     assert.equal(evidence.performanceBudget.withinBudget, true, 'Pages CI evidence records an in-budget result');
     assert.deepEqual(evidence.performanceBudget.warnings, []);
@@ -601,7 +601,7 @@ assert.deepEqual(pagesPerformanceBudget.thresholdsMs, { runtimeInstall: 8000, ht
     pagesCiSummary.prepareEvidence(environment);
     const slowEnvironment = { ...environment, PAGES_RUNTIME_INSTALL_DURATION_MS: '8001' };
     fs.writeFileSync(httpPath, JSON.stringify({ schemaVersion: 1, kind: 'pages-http-smoke', status: 'passed', durationMs: 90001, attemptCount: 1, fileCount: 318, routeCount: 43 }));
-    fs.writeFileSync(browserPath, JSON.stringify({ schemaVersion: 1, kind: 'pages-browser-smoke', status: 'passed', durationMs: 180001, attemptCount: 1, routes: 43, checks: 86, issues: 0 }));
+    fs.writeFileSync(browserPath, JSON.stringify({ schemaVersion: 1, kind: 'pages-browser-smoke', status: 'passed', durationMs: 180001, attemptCount: 1, routes: 43, checks: 92, issues: 0 }));
     const slowEvidence = pagesCiSummary.buildEvidence(slowEnvironment);
     assert.equal(slowEvidence.performanceBudget.withinBudget, false, 'Pages CI evidence records performance warnings without changing smoke success');
     assert.deepEqual(slowEvidence.performanceBudget.warnings.map(item => item.signal), ['runtimeInstall', 'httpSmoke', 'browserSmoke']);
@@ -635,12 +635,20 @@ assert.ok(pagesBrowserRunner.includes('value.isError') && pagesBrowserRunner.inc
 assert.ok(pagesBrowserRunner.includes('status(?: of)? 5') && pagesBrowserRunner.includes('ERR_(?:TIMED_OUT|CONNECTION_RESET'), 'Pages browser runner narrows retry eligibility to transient 5xx and network failures');
 assert.ok(pagesBrowserRunner.includes('"$attempt" -lt "$attempts"') && pagesBrowserRunner.includes('throw new Error(value.error)'), 'Pages browser runner bounds retries and fails persistent or non-transient errors');
 assert.ok(
-  pagesBrowserSmoke.includes("route === '/excavation-support'") &&
+  pagesBrowserSmoke.includes("'/excavation-support':") &&
+    pagesBrowserSmoke.includes('directPrintBoundaries[route]') &&
     pagesBrowserSmoke.includes("page.emulateMedia({ media: 'print' })") &&
     pagesBrowserSmoke.includes("boundary?.getClientRects().length") &&
     pagesBrowserSmoke.includes('開挖服務入口列印已封鎖') &&
     pagesBrowserSmoke.includes('本頁不得作為附件'),
   'Pages browser smoke renders and verifies the excavation launcher print boundary'
+);
+assert.ok(
+  pagesBrowserSmoke.includes("routes.push('/rc', '/toolbox-classic')") &&
+    pagesBrowserSmoke.includes('directPrintBoundaries') &&
+    pagesBrowserSmoke.includes('RC 工具箱入口列印已封鎖') &&
+    pagesBrowserSmoke.includes('舊網址相容入口列印已封鎖'),
+  'Pages browser smoke renders public status launcher boundaries from one shared check'
 );
 
 assert.ok(pagesSmoke.includes('assets/status/platform-status.json'), 'Pages smoke checks platform status');

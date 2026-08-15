@@ -10,7 +10,21 @@ const TRANSIENT_NETWORK_ERROR_CODES = new Set([
   'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT', 'UND_ERR_SOCKET',
 ]);
 const PUBLIC_ROUTE_SAMPLES = [
-  { path: '鋼筋混凝土/', needles: ['鋼筋混凝土構件設計工具箱', 'RC 自動巡檢', '../結構工具箱/assets/status/platform-status.json', '平台公開巡檢狀態'] },
+  {
+    path: '鋼筋混凝土/',
+    needles: ['鋼筋混凝土構件設計工具箱', 'RC 自動巡檢', '../結構工具箱/assets/status/platform-status.json', '../結構工具箱/audit-dashboard.html', '../結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', 'RC 工具箱入口列印已封鎖', '明確核可後可作為正式附件', 'V1.7'],
+    forbidden: ['最後改版日期', 'ver-draft', 'badge-new', '>NEW<', '僅供初步設計與檢算參考']
+  },
+  {
+    path: '結構工具箱/index-classic.html',
+    needles: ['舊網址相容入口', 'core/direct-print-boundary.css', 'formal-tool-output-page', '舊網址相容入口列印已封鎖', '工具清冊、使用邊界與巡檢狀態均以目前工具首頁為唯一公開來源', 'href="./index.html"', 'href="./audit-dashboard.html"'],
+    forbidden: ['class="menu-card"', 'class="ver ', 'scope-pill', '>NEW<', '最後改版日期', 'output/audit/']
+  },
+  {
+    path: '結構工具箱/assets/home/home.js',
+    needles: ["capabilities: ['組合斷面', '斷面輔助']", "capabilities: ['案件參數', '案件入口']", "capabilities: ['附屬構造物', '耐震']"],
+    forbidden: ["capabilities: ['NEW'"]
+  },
   { path: '鋼筋混凝土/tools/beam.html', needles: ['梁 Beam 設計', 'RC 工具箱'] },
   { path: '鋼筋混凝土/tools/shear-wall.html', needles: ['剪力牆 Shear Wall', '18.7'] },
   { path: '鋼構工具/', needles: ['鋼構正式規範核算工具', '../結構工具箱/core/direct-print-boundary.css', 'steel-formal-output-page', '鋼構正式工具主頁列印已封鎖'] },
@@ -53,6 +67,7 @@ const PRIVATE_PATHS = [
   'preflight-tools.ps1',
   'run-preflight-tools.bat',
   'toolbox-entrypoints.contract.test.js',
+  '結構工具箱/tools/public-status-claims.contract.test.js',
   '結構工具箱/tools/pages-live-smoke.js',
   '結構工具箱/tools/pages-live-browser-smoke.js',
   '結構工具箱/tools/run-pages-browser-smoke.sh',
@@ -440,6 +455,9 @@ async function assertPublicRouteSamples(base) {
     const html = await fetchText(pageUrl);
     for (const needle of sample.needles) {
       assert.ok(html.includes(needle), `${sample.path} missing public page marker: ${needle}`);
+    }
+    for (const forbidden of sample.forbidden || []) {
+      assert.equal(html.includes(forbidden), false, `${sample.path} contains forbidden stale claim: ${forbidden}`);
     }
     assertNoLocalWorkspaceLeak(html, sample.path);
     if (sample.checkAssets) await assertPublicAssets(html, pageUrl, sample.path);
