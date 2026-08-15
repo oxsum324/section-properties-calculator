@@ -89,10 +89,12 @@ const deckingLauncher = readText('覆工板/index.html');
 const excavationLauncher = readText('開挖擋土支撐/index.html');
 const formalToolMetadataSource = readText('結構工具箱/tools/formal-tool-metadata.js');
 const localQuickToolMetadataSource = readText('結構工具箱/tools/local-quick-tool-metadata.js');
+const analysisSectionToolMetadataSource = readText('結構工具箱/tools/analysis-section-tool-metadata.js');
 const stoneLauncher = readText('石材固定/石材計算書產生器_規範版V2.html');
 const stoneVersionSource = readText('石材固定/js/version-sync.js');
 const pagesLiveSmoke = readText('結構工具箱/tools/pages-live-smoke.js');
 const pagesBrowserSmoke = readText('結構工具箱/tools/pages-live-browser-smoke.js');
+const sharedAnalysisReportSource = readText('結構工具箱/core/ui/report.js');
 const preflightStatus = readJson('結構工具箱/assets/status/preflight-summary.json');
 const platformStatus = readJson('結構工具箱/assets/status/platform-status.json');
 const reportReadinessStatus = readJson('結構工具箱/assets/status/report-readiness-status.json');
@@ -107,6 +109,9 @@ const formalToolMetadata = formalToolMetadataContext.FormalToolMetadata;
 const localQuickToolMetadataContext = {};
 vm.runInNewContext(localQuickToolMetadataSource, localQuickToolMetadataContext, { timeout: 1000, filename: 'local-quick-tool-metadata' });
 const localQuickToolMetadata = localQuickToolMetadataContext.LocalQuickToolMetadata;
+const analysisSectionToolMetadataContext = {};
+vm.runInNewContext(analysisSectionToolMetadataSource, analysisSectionToolMetadataContext, { timeout: 1000, filename: 'analysis-section-tool-metadata' });
+const analysisSectionToolMetadata = analysisSectionToolMetadataContext.AnalysisSectionToolMetadata;
 const stoneVersionContext = { window: {} };
 vm.runInNewContext(stoneVersionSource, stoneVersionContext, { timeout: 1000, filename: 'stone-public-metadata' });
 const stoneMetadata = stoneVersionContext.window.StonePublicMetadata;
@@ -225,6 +230,26 @@ for (const [toolKey, metadata] of Object.entries(localQuickToolMetadata)) {
   assert.ok(page.includes(`const PUBLIC_TOOL_VERSION = window.LocalQuickToolMetadata['${toolKey}'].version`), `local-quick page binds canonical public version: ${metadata.route}`);
   assert.ok(page.includes('calculationEngine: Core.version'), `local-quick case/report keeps calculation engine: ${metadata.route}`);
   assert.ok(page.includes('計算引擎：${escapeHtml(Core.version)}'), `local-quick report exposes calculation engine: ${metadata.route}`);
+}
+
+const analysisSectionPages = {
+  'continuous-beam': '連續梁分析.html',
+  'frame-analysis': '鋼架/平面剛架分析.html',
+  section: 'index.html',
+  'composite-section': '合成斷面性質.html',
+};
+assert.equal(Object.keys(analysisSectionToolMetadata).length, 4, 'analysis and section metadata covers every governed route');
+for (const [toolKey, metadata] of Object.entries(analysisSectionToolMetadata)) {
+  const tool = canonicalTool(metadata.route);
+  const page = readText(analysisSectionPages[toolKey]);
+  assert.equal(tool.version, metadata.version, `analysis/section public version matches canonical claim: ${metadata.route}`);
+  assert.equal(tool.state, metadata.state, `analysis/section public state matches canonical claim: ${metadata.route}`);
+  assert.equal(tool.governance, metadata.governance, `analysis/section governance matches canonical claim: ${metadata.route}`);
+  assert.match(metadata.calculationEngine, /^[a-z][a-z0-9.-]+\.inline\.v\d+\.\d+\.\d+$/, `analysis/section calculation engine is traceable: ${metadata.route}`);
+  assert.ok(page.includes('analysis-section-tool-metadata.js'), `analysis/section page loads canonical metadata: ${metadata.route}`);
+  assert.ok(page.includes(metadata.calculationEngine) === false, `analysis/section page does not duplicate calculation engine literal: ${metadata.route}`);
+  assert.ok(page.includes('calculationEngine'), `analysis/section case/report records calculation engine: ${metadata.route}`);
+  assert.ok(page.includes('計算引擎') || (page.includes('core/ui/report.js') && sharedAnalysisReportSource.includes('<b>計算引擎</b>')), `analysis/section report exposes calculation engine: ${metadata.route}`);
 }
 
 const stoneTool = canonicalTool('/stone-fixing');

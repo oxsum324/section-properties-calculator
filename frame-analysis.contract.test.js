@@ -3,6 +3,8 @@ const path = require('path');
 const vm = require('vm');
 const crypto = require('crypto');
 const calculationBookContentBoundary = require('./結構工具箱/tools/calculation-book-content-boundary.json');
+const analysisSectionMetadata = require('./結構工具箱/tools/analysis-section-tool-metadata.js');
+const frameMetadata = analysisSectionMetadata['frame-analysis'];
 
 function read(relPath) {
   return fs.readFileSync(path.join(__dirname, relPath), 'utf8');
@@ -72,6 +74,8 @@ function captureFrameReportHtml(source, project = {}, runtimeState = null) {
     ['axialCanvas', { toDataURL() { return 'data:image/png;base64,axial'; } }],
   ]);
   const context = {
+    FRAME_PUBLIC_VERSION: frameMetadata.version,
+    FRAME_CALCULATION_ENGINE: frameMetadata.calculationEngine,
     state: runtimeState ? JSON.parse(JSON.stringify(runtimeState)) : {
       nodes: [
         { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
@@ -211,6 +215,8 @@ function createFrameAnalysisContext(source) {
     ['density', { value: '7.85' }],
   ]);
   const context = {
+    FRAME_PUBLIC_VERSION: frameMetadata.version,
+    FRAME_CALCULATION_ENGINE: frameMetadata.calculationEngine,
     state: {
       nodes: [], members: [], loadCases: [], comboFactors: {},
       nodalLoads: [], memberLoads: [], memberPointLoads: [], solution: null,
@@ -325,10 +331,12 @@ assert(!frameAnalysisHtml.includes('alert('), 'rigid frame avoids blocking alert
 
 assertIncludesAll(frameAnalysisHtml, [
   '<title>平面剛架分析',
-  '<title>平面剛架分析 V0.3</title>',
-  '<h1>平面剛架分析 V0.3</h1>',
+  'id="frameAnalysisVersion"',
+  '../結構工具箱/tools/analysis-section-tool-metadata.js',
+  'FRAME_ANALYSIS_METADATA.version',
   "schema: 'plane-frame.project.v1'",
-  "version: 'V0.3'",
+  'version: FRAME_PUBLIC_VERSION',
+  'calculationEngine: FRAME_CALCULATION_ENGINE',
   'function validateFrameProjectData',
   'function solveLinear',
   'function analyze',
@@ -401,6 +409,7 @@ const frameReportText = assertReportHtmlText(frameReportRuntime.html, 'rigid fra
   '平面剛架分析 計算書',
   '產出工具',
   '工具版本',
+  '計算引擎',
   '輸出時間',
   '計算指紋',
   '分析組合',
@@ -413,6 +422,8 @@ const frameReportText = assertReportHtmlText(frameReportRuntime.html, 'rigid fra
   '桿件極值',
 ]);
 assert(frameReportRuntime.html.includes('平面剛架分析 計算書'), 'rigid frame runtime report title', '平面剛架分析 計算書');
+assert(frameReportRuntime.html.includes(`<b>工具版本</b>${frameMetadata.version}`), 'rigid frame report preserves canonical public version casing', frameMetadata.version);
+assert(frameReportRuntime.html.includes(`<b>計算引擎</b>${frameMetadata.calculationEngine}`), 'rigid frame report identifies calculation engine', frameMetadata.calculationEngine);
 assert(frameReportRuntime.html.includes('載重</h2>'), 'rigid frame runtime report keeps load table', '載重');
 assert(frameReportRuntime.html.includes('平衡檢核'), 'rigid frame runtime report keeps equilibrium section', '平衡檢核');
 assert(frameReportRuntime.html.includes('文件狀態：內部審閱'), 'rigid frame report defaults to printable internal review', '文件狀態：內部審閱');
@@ -479,6 +490,7 @@ const sourceFrameReport = captureFrameReportHtml(
 const sourceFrameFingerprint = reportCalculationFingerprint(sourceFrameReport.html);
 assert(sourceProjectJson.schema === 'plane-frame.project.v1', 'rigid frame JSON declares stable schema', sourceProjectJson.schema);
 assert(sourceProjectJson.version === 'V0.3', 'rigid frame JSON records current version', sourceProjectJson.version);
+assert(sourceProjectJson.calculationEngine === frameMetadata.calculationEngine, 'rigid frame JSON records canonical calculation engine', sourceProjectJson.calculationEngine);
 assert(frameRuntime.context.state.solution.equilibrium.ok === true, 'rigid frame replay fixture passes equilibrium check', JSON.stringify(frameRuntime.context.state.solution.equilibrium));
 assert(/^[0-9a-f]{64}$/.test(sourceResultSha256), 'rigid frame source input/result snapshot has stable SHA-256', sourceResultSha256);
 assert(/^CF-[0-9A-F]{16}$/.test(sourceFrameFingerprint), 'rigid frame source report exposes calculation fingerprint', sourceFrameFingerprint);

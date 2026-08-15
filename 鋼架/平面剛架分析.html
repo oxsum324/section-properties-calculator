@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>平面剛架分析 V0.3</title>
+<title>平面剛架分析</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
 <style>
@@ -125,7 +125,7 @@
 <body class="formal-tool-output-page">
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>分析工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面提供的計算書輸出按鈕產生只包含案件資料、分析輸入、計算結果與必要結論的計算書；本頁不得作為附件。</span></div>
 <header>
-  <h1>平面剛架分析 V0.3</h1>
+  <h1>平面剛架分析 <span id="frameAnalysisVersion"></span></h1>
   <p>2D Rigid Frame — 直接勁度法 ‧ 集中/均布/自重載重 ‧ 端部鉸接 ‧ JSON ‧ 計算書 ‧ 單位 tf-m</p>
 </header>
 
@@ -366,11 +366,18 @@
   </div>
 </div>
 
+<script src="../結構工具箱/tools/analysis-section-tool-metadata.js"></script>
 <script src="../結構工具箱/core/ui/report.js"></script>
 <script>
 // ============================================================
 // 資料模型
 // ============================================================
+const FRAME_ANALYSIS_METADATA = window.AnalysisSectionToolMetadata?.['frame-analysis'];
+if (!FRAME_ANALYSIS_METADATA) throw new Error('平面剛架工具版本資料未載入');
+const FRAME_PUBLIC_VERSION = FRAME_ANALYSIS_METADATA.version;
+const FRAME_CALCULATION_ENGINE = FRAME_ANALYSIS_METADATA.calculationEngine;
+document.title = `平面剛架分析 ${FRAME_PUBLIC_VERSION}`;
+document.getElementById('frameAnalysisVersion').textContent = FRAME_PUBLIC_VERSION;
 const state = {
   nodes: [],        // {id, x, y, cx, cy, crz, kx, ky, krz}
   members: [],      // {id, i, j, E, A, I, relI, relJ}  // relI/relJ = i/j 端彎矩釋放(鉸接)
@@ -1992,7 +1999,7 @@ function collectProjectData() {
   syncLoadCaseTableFromDom();
   return {
     schema: 'plane-frame.project.v1',
-    tool: '平面剛架分析', version: 'V0.3', unit: 'tf-m',
+    tool: '平面剛架分析', version: FRAME_PUBLIC_VERSION, calculationEngine: FRAME_CALCULATION_ENGINE, unit: 'tf-m',
     project: getFrameProjectInfo(),
     defaults: {
       E: parseFloat(document.getElementById('defE').value) || 0,
@@ -2173,8 +2180,9 @@ function printReport() {
   });
   const reportTrace = window.ToolReportUI.buildReportTrace({
     title: '平面剛架分析計算書',
-    outputSource: { tool: '平面剛架分析', version: 'V0.3' },
+    outputSource: { tool: '平面剛架分析', version: FRAME_PUBLIC_VERSION, calculationEngine: FRAME_CALCULATION_ENGINE },
     snapshot: {
+      calculationEngine: FRAME_CALCULATION_ENGINE,
       project,
       loadCases: state.loadCases,
       comboFactors: state.comboFactors,
@@ -2205,7 +2213,7 @@ th{background:#f1f5f9;} img{max-width:100%;border:1px solid #e2e8f0;margin:4px 0
 ${approvalReport.html}
 <div class="project-meta">
 ${project.name ? `<div><b>計畫名稱</b>${escapeHtml(project.name)}</div>` : ''}${project.no ? `<div><b>計畫編號</b>${escapeHtml(project.no)}</div>` : ''}${project.designer ? `<div><b>設計人員</b>${escapeHtml(project.designer)}</div>` : ''}
-<div><b>產出工具</b>${escapeHtml(reportTrace.sourceTrace.tool)}</div><div><b>工具版本</b>${escapeHtml(reportTrace.sourceTrace.version)}</div><div><b>輸出時間</b>${escapeHtml(reportTrace.generatedAt)}</div>
+<div><b>產出工具</b>${escapeHtml(reportTrace.sourceTrace.tool)}</div><div><b>工具版本</b>${escapeHtml(FRAME_PUBLIC_VERSION)}</div><div><b>計算引擎</b>${escapeHtml(FRAME_CALCULATION_ENGINE)}</div><div><b>輸出時間</b>${escapeHtml(reportTrace.generatedAt)}</div>
 <div><b>計算指紋</b>${escapeHtml(reportTrace.calculationFingerprint)}</div>${project.note ? `<div><b>專案備註</b>${escapeHtml(project.note)}</div>` : ''}
 </div>
 <h2>分析組合</h2><table><tr><th>載重案例</th><th>因子</th></tr>${comboRows}</table>

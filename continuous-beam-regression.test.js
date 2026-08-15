@@ -9,6 +9,9 @@ const directPrintBoundaryPath = path.join(__dirname, '結構工具箱', 'core', 
 const directPrintBoundarySource = fs.readFileSync(directPrintBoundaryPath, 'utf8');
 const sharedReportPath = path.join(__dirname, '結構工具箱', 'core', 'ui', 'report.js');
 const sharedReportSource = fs.readFileSync(sharedReportPath, 'utf8');
+const analysisSectionMetadataPath = path.join(__dirname, '結構工具箱', 'tools', 'analysis-section-tool-metadata.js');
+const analysisSectionMetadataSource = fs.readFileSync(analysisSectionMetadataPath, 'utf8');
+const analysisSectionMetadata = require(analysisSectionMetadataPath);
 const forcePickerPath = path.join(__dirname, '結構工具箱', 'core', 'ui', 'force-picker.js');
 const forcePickerSource = fs.readFileSync(forcePickerPath, 'utf8');
 const forcesReceivePath = path.join(__dirname, '結構工具箱', 'core', 'ui', 'forces-receive.js');
@@ -31,8 +34,9 @@ function assertPrintHidesSelectors(source, selectors, label) {
 }
 
 assert(html.includes('id="saveStatus"'), 'save status outlet exists', 'cloud save uses inline page status');
-assert(html.includes('>V1.3</span>'), 'continuous beam page exposes current version', 'V1.3');
-assert(html.includes("pageVersion: 'V1.3'"), 'continuous beam JSON records current page version', 'V1.3');
+assert(html.includes('id="continuousBeamVersion"') && html.includes('CONTINUOUS_BEAM_PUBLIC_VERSION'), 'continuous beam page exposes canonical version', analysisSectionMetadata['continuous-beam'].version);
+assert(html.includes("pageVersion: window.AnalysisSectionToolMetadata['continuous-beam'].version"), 'continuous beam JSON records canonical page version', analysisSectionMetadata['continuous-beam'].version);
+assert(html.includes("calculationEngine: window.AnalysisSectionToolMetadata['continuous-beam'].calculationEngine"), 'continuous beam JSON records calculation engine', analysisSectionMetadata['continuous-beam'].calculationEngine);
 assert(html.includes("schema: 'continuous-beam.project.v1'"), 'continuous beam JSON declares a stable schema', 'continuous-beam.project.v1');
 assert(html.includes('function validateContinuousBeamSaveData'), 'continuous beam validates restored model topology', 'validated before active-state mutation');
 assert(html.includes('id="saveModalStatus"'), 'save modal status outlet exists', 'save validation/errors stay in the modal');
@@ -384,6 +388,8 @@ function renderSharedReportPayload(payload) {
     Date,
   };
   vm.createContext(context);
+  vm.runInContext(analysisSectionMetadataSource, context, { filename: analysisSectionMetadataPath });
+  context.window.AnalysisSectionToolMetadata = context.AnalysisSectionToolMetadata || analysisSectionMetadata;
   vm.runInContext(sharedReportSource, context, { filename: sharedReportPath });
   assert(typeof context.openReport === 'function', 'shared report renderer exposes openReport', sharedReportPath);
   context.openReport(payload);
@@ -502,6 +508,8 @@ function bootPage() {
   context.removeEventListener = () => {};
 
   vm.createContext(context);
+  vm.runInContext(analysisSectionMetadataSource, context, { filename: analysisSectionMetadataPath });
+  context.window.AnalysisSectionToolMetadata = context.AnalysisSectionToolMetadata || analysisSectionMetadata;
   vm.runInContext(sharedReportSource, context, { filename: sharedReportPath });
   context.openReport = (cfg) => {
     context.__lastReportConfig = cfg;
@@ -719,8 +727,11 @@ function main() {
   const sourceFingerprint = reportCalculationFingerprint(sourceReportHtml);
   assert(sourcePayload.schema === 'continuous-beam.project.v1', 'local JSON declares continuous beam schema', sourcePayload.schema);
   assert(sourcePayload.tool.pageVersion === 'V1.3', 'local JSON records current page version', sourcePayload.tool.pageVersion);
+  assert(sourcePayload.tool.calculationEngine === analysisSectionMetadata['continuous-beam'].calculationEngine, 'local JSON records canonical calculation engine', sourcePayload.tool.calculationEngine);
   assert(/^[0-9a-f]{64}$/.test(sourceSnapshotSha256), 'source input/result snapshot has stable SHA-256', sourceSnapshotSha256);
   assert(/^CF-[0-9A-F]{16}$/.test(sourceFingerprint), 'source report exposes calculation fingerprint', sourceFingerprint);
+  assert(sourceReportHtml.includes(`<b>工具版本</b>${analysisSectionMetadata['continuous-beam'].version}`), 'continuous beam report preserves canonical public version casing', analysisSectionMetadata['continuous-beam'].version);
+  assert(sourceReportHtml.includes(`<b>計算引擎</b>${analysisSectionMetadata['continuous-beam'].calculationEngine}`), 'continuous beam report identifies calculation engine', analysisSectionMetadata['continuous-beam'].calculationEngine);
 
   ctx.model.spans[0].L = 3;
   ctx.model.loads[0] = [];

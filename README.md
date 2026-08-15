@@ -67,6 +67,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 - 擋土土壓局部快算：
   [結構工具箱/tools/earth/earth-pressure.html](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/earth/earth-pressure.html:1)
 - 上述三個局部快算工具以 `local-quick-tool-metadata.js` 作為公開版本唯一來源；首頁、工具頁、案件 JSON 與計算書的「工具版本」必須一致，並另列 `Core.version` 為「計算引擎」，避免排版改版與公式核心改版互相混淆。
+- 連續梁、平面剛架、斷面性質與合成斷面以 `analysis-section-tool-metadata.js` 統一公開版本與內嵌計算引擎識別；工具頁、案件 JSON 與計算書必須沿用同一份 metadata，計算書保留大寫 `V` 的公開版本並另列「計算引擎」。
 - 局部快算共同契約測試：
   [結構工具箱/tools/local-quick-tools.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-tools.contract.test.js:1)
 - 局部快算 JSON 匯出 helper：
@@ -116,7 +117,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   - 追蹤石材 audit JSON / Word / PDF、錨栓 HTML / XLSX / DOCX 報告、覆工板 JSON 匯出 / Word 計算書與開挖擋土支撐 PDF / DOCX / latest download API 的輸出邊界，要求 traceability catalog、README、smoke fixture、報表產生器、下載端點與前端產出狀態一致，並以 `delivery-artifacts-contract` 納入 preflight 與 Global Governance Gates。
 - 公開狀態宣告一致性契約測試：
   [結構工具箱/tools/public-status-claims.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/public-status-claims.contract.test.js:1)
-  - 以目前首頁 43 個工具 metadata 為唯一公開工具清冊，逐卡禁止會自行過期的 `NEW` 標籤。RC 家族入口的 8 個版本與 formal 狀態必須對齊首頁，並移除手動整體版本、最後改版日期與 draft 標示；RC 公開入口固定讀 tracked `platform-status.json`。鋼構四個正式入口對齊共用 `SteelToolMetadata`；風力／地震 17 個公開入口對齊 `FormalToolMetadata`，其中 14 個報告把公開語意版本列為「工具版本」，既有 `TOOL_VERSION` 只作案件相容與計算核心識別，另列為「計算引擎」。石材畫面、核心與報告則共用 `StonePublicMetadata` 的 `V3.0.7`，不再重複顯示舊 `V2`／`V2.1`。錨栓同樣把首頁 `V1.0` 與 build-derived 計算引擎分欄；覆工板的畫面、JSON 與報表共用 metadata；開挖入口維持「服務型」且不固化通過次數。公開頁預設只讀 tracked 平台快照，本機私有 audit 必須以明確診斷模式選用。乾淨 Pages artifact 即使由 localhost 預覽，也不得探測不發布的 `output/audit`；`index-classic.html` 只保留舊書籤相容。契約另沿用 canonical public-evidence schema：preflight 與 report-readiness 必須屬於同一輪乾淨、強制重跑且完整通過的 release；platform-status 保留平台 audit 自己的 runId，但產生時間必須落在該 release 執行窗口內。Pages HTTP smoke 會拒絕舊宣告，Playwright 則在桌面與行動版核對 canonical 版本，並驗證 RC、舊網址相容入口、鋼構、風力／地震、石材、覆工板與開挖入口的直接列印封鎖。
+  - 以目前首頁 43 個工具 metadata 為唯一公開工具清冊，逐卡禁止會自行過期的 `NEW` 標籤。RC 家族入口的 8 個版本與 formal 狀態必須對齊首頁，並移除手動整體版本、最後改版日期與 draft 標示；RC 公開入口固定讀 tracked `platform-status.json`。鋼構四個正式入口對齊共用 `SteelToolMetadata`；風力／地震 17 個公開入口對齊 `FormalToolMetadata`，其中 14 個報告把公開語意版本列為「工具版本」，既有 `TOOL_VERSION` 只作案件相容與計算核心識別，另列為「計算引擎」。連續梁、平面剛架、斷面性質與合成斷面則由 `AnalysisSectionToolMetadata` 鎖住首頁、工具頁、案件 JSON 與計算書的版本／引擎分工。石材畫面、核心與報告共用 `StonePublicMetadata` 的 `V3.0.7`，不再重複顯示舊 `V2`／`V2.1`。錨栓同樣把首頁 `V1.0` 與 build-derived 計算引擎分欄；覆工板的畫面、JSON 與報表共用 metadata；開挖入口維持「服務型」且不固化通過次數。公開頁預設只讀 tracked 平台快照，本機私有 audit 必須以明確診斷模式選用。乾淨 Pages artifact 即使由 localhost 預覽，也不得探測不發布的 `output/audit`；`index-classic.html` 只保留舊書籤相容。契約另沿用 canonical public-evidence schema：preflight 與 report-readiness 必須屬於同一輪乾淨、強制重跑且完整通過的 release；platform-status 保留平台 audit 自己的 runId，但產生時間必須落在該 release 執行窗口內。Pages HTTP smoke 會拒絕舊宣告，Playwright 則在桌面與行動版核對 canonical 版本，並驗證 RC、舊網址相容入口、分析／斷面、鋼構、風力／地震、石材、覆工板與開挖入口的直接列印封鎖。
 - 正式放行證據契約測試：
   [結構工具箱/tools/release-readiness.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/release-readiness.contract.test.js:1)
   - 正式 release 單例鎖：`release-preflight-lock.ps1` 以工作區正規化路徑衍生 Windows 具名 Mutex，同一工作區第二輪立即失敗關閉；持鎖程序被終止後由作業系統自動釋放，不留下需人工刪除的鎖檔。不同工作區及 quick／CI preflight 不互相阻擋；`release-preflight-lock.test.js` 會以真實雙程序覆蓋競爭、隔離與強制終止後重新取得。

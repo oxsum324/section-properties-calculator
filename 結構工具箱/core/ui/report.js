@@ -914,6 +914,8 @@ function openReport(cfg) {
   const reportGeneratedAt = formatReportTimestamp(today);
   const calculationFingerprint = buildCalculationFingerprint(cfg);
   const sourceTrace = getReportSourceTrace(cfg);
+  const sourceVersionDisplay = String(cfg.outputSource?.displayVersion || cfg.outputSource?.version || sourceTrace.version || '').trim();
+  const calculationEngine = String(cfg.outputSource?.calculationEngine || cfg.calculationEngine || cfg.snapshot?.calculationEngine || '').trim();
 
   const esc = escapeReportHtml;
   const inferredFailedItems = [];
@@ -1129,7 +1131,8 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
     ${proj.designer ? `<div><b>設計人員</b>${esc(proj.designer)}</div>` : ''}
     <div><b>製表日期</b>${esc(proj.date)}</div>
     ${sourceTrace.tool ? `<div><b>產出工具</b>${esc(sourceTrace.tool)}</div>` : ''}
-    ${sourceTrace.version ? `<div><b>工具版本</b>${esc(sourceTrace.version)}</div>` : ''}
+    ${sourceVersionDisplay ? `<div><b>工具版本</b>${esc(sourceVersionDisplay)}</div>` : ''}
+    ${calculationEngine ? `<div><b>計算引擎</b>${esc(calculationEngine)}</div>` : ''}
     <div><b>輸出時間</b>${esc(reportGeneratedAt)}</div>
     <div><b>計算指紋</b>${esc(calculationFingerprint)}</div>
   </div>

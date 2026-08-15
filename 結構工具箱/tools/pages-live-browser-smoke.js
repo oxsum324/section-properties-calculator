@@ -36,12 +36,17 @@ async page => {
     '/seismic-appendage': { label: 'seismic appendage page', heading: '正式工具主頁列印已封鎖' },
     '/seismic-misc': { label: 'seismic miscellaneous page', heading: '正式工具主頁列印已封鎖' },
     '/stone-fixing': { label: 'stone fixing page', heading: '石材工具主頁列印已封鎖' },
+    '/beam-analysis': { label: 'continuous beam page', heading: '分析工具主頁列印已封鎖' },
+    '/frame-analysis': { label: 'frame analysis page', heading: '分析工具主頁列印已封鎖' },
+    '/section': { label: 'section properties page', heading: '斷面工具主頁列印已封鎖' },
+    '/composite-section': { label: 'composite section page', heading: '斷面工具主頁列印已封鎖' },
   };
   const versionedHeadingRoutes = new Set([
     '/steel-formal', '/steel-plate', '/steel-beam-formal', '/steel-column-formal', '/anchor', '/decking',
     '/wind-overview', '/wind-kzt', '/wind-special', '/wind-force', '/wind-cc', '/wind-parapet', '/wind-open-roof',
     '/wind-object-solid', '/wind-object-frame', '/wind-lattice-tower', '/wind-object-tower', '/wind-fence-sign', '/wind-sign-pole',
     '/seismic-force', '/seismic-dynamic', '/seismic-appendage', '/seismic-misc', '/stone-fixing',
+    '/beam-analysis', '/frame-analysis', '/section', '/composite-section',
   ]);
 
   await page.setViewportSize({ width: 1280, height: 800 });

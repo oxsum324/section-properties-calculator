@@ -195,7 +195,7 @@
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>分析工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面提供的計算書輸出按鈕產生只包含案件資料、分析輸入、計算結果與必要結論的計算書；本頁不得作為附件。</span></div>
 <header>
   <p><a href="結構工具箱/index.html" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.85em;">← 回主選單</a></p>
-  <h1>連續梁分析工具 <span style="font-size:0.55em; font-weight:500; opacity:0.85; margin-left:6px;">V1.3</span></h1>
+  <h1>連續梁分析工具 <span id="continuousBeamVersion" style="font-size:0.55em; font-weight:500; opacity:0.85; margin-left:6px;"></span></h1>
   <p>Direct Stiffness Method | 剪力圖 / 彎矩圖 / 撓度曲線 / 影響線 / 計算書輸出</p>
 </header>
 <div class="save-bar">
@@ -389,9 +389,16 @@
   </div>
 </div>
 
+<script src="結構工具箱/tools/analysis-section-tool-metadata.js"></script>
 <script src="結構工具箱/core/ui/report.js"></script>
 <script>
 // ==================== UNIT SYSTEM ====================
+const CONTINUOUS_BEAM_METADATA = window.AnalysisSectionToolMetadata?.['continuous-beam'];
+if (!CONTINUOUS_BEAM_METADATA) throw new Error('連續梁工具版本資料未載入');
+const CONTINUOUS_BEAM_PUBLIC_VERSION = CONTINUOUS_BEAM_METADATA.version;
+const CONTINUOUS_BEAM_CALCULATION_ENGINE = CONTINUOUS_BEAM_METADATA.calculationEngine;
+document.title = `連續梁分析工具 ${CONTINUOUS_BEAM_PUBLIC_VERSION}`;
+document.getElementById('continuousBeamVersion').textContent = CONTINUOUS_BEAM_PUBLIC_VERSION;
 const UNITS = {
   'kN-m':   { force:'kN', moment:'kN-m', dist:'kN/m', length:'m', stress:'MPa',       E:'kN/m²',     I:'m⁴',   Efactor:1,        Ifactor:1,      steelE:2.04e8,  concFn: fc => 3760*Math.sqrt(fc)*1000 },
   'tf-m':   { force:'tf', moment:'tf-m', dist:'tf/m', length:'m', stress:'kgf/cm²',   E:'tf/m²',     I:'m⁴',   Efactor:1,        Ifactor:1,      steelE:2.04e8/9.80665, concFn: fc => 12000*Math.sqrt(fc)*10 },
@@ -2066,6 +2073,16 @@ function exportPDF() {
   openReport({
     title: '連續梁分析計算書',
     subtitle: `${n} 跨連續梁　｜　單位：${uk}`,
+    outputSource: {
+      tool: '連續梁分析工具',
+      version: CONTINUOUS_BEAM_PUBLIC_VERSION,
+      calculationEngine: CONTINUOUS_BEAM_CALCULATION_ENGINE,
+    },
+    snapshot: {
+      calculationEngine: CONTINUOUS_BEAM_CALCULATION_ENGINE,
+      model,
+      solution,
+    },
     project,
     documentState: attachmentReadiness.documentState,
     documentClass: attachmentReadiness.documentClass,
@@ -2183,7 +2200,8 @@ function buildLocalPayload() {
     tool: {
       id: 'continuous-beam',
       name: '連續梁分析工具',
-      pageVersion: 'V1.3'
+      pageVersion: window.AnalysisSectionToolMetadata['continuous-beam'].version,
+      calculationEngine: window.AnalysisSectionToolMetadata['continuous-beam'].calculationEngine
     },
     savedAt: new Date().toISOString(),
     data: collectSaveData()

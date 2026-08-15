@@ -3,6 +3,8 @@ const path = require('path');
 const vm = require('vm');
 const crypto = require('crypto');
 const calculationBookContentBoundary = require('./結構工具箱/tools/calculation-book-content-boundary.json');
+const analysisSectionMetadata = require('./結構工具箱/tools/analysis-section-tool-metadata.js');
+const compositeMetadata = analysisSectionMetadata['composite-section'];
 
 function read(relPath) {
   return fs.readFileSync(path.join(__dirname, relPath), 'utf8');
@@ -195,6 +197,8 @@ function createCompositeRuntimeContext(source) {
   ]);
   const context = {
     PI: Math.PI,
+    COMPOSITE_PUBLIC_VERSION: compositeMetadata.version,
+    COMPOSITE_CALCULATION_ENGINE: compositeMetadata.calculationEngine,
     lastData: null,
     __reportPayload: null,
     window: {
@@ -279,6 +283,8 @@ function captureCompositeReportPayload(source) {
     ['reportStatus', { textContent: '', className: '' }],
   ]);
   const context = {
+    COMPOSITE_PUBLIC_VERSION: compositeMetadata.version,
+    COMPOSITE_CALCULATION_ENGINE: compositeMetadata.calculationEngine,
     window: {
       ToolReportUI: {
         normalizeProjectFieldValue(value) {
@@ -454,15 +460,18 @@ const tools = [
     label: 'section property picker',
     path: 'index.html',
     needles: [
-      '<title>斷面性質計算工具 V2.1</title>', 'id="exportStatus"', 'function setStatus', 'sendIxToOpener()',
+      '<title>斷面性質計算工具</title>', 'id="sectionToolVersion"', 'function setStatus', 'sendIxToOpener()',
+      'src="結構工具箱/tools/analysis-section-tool-metadata.js"', 'SECTION_TOOL_METADATA.version', 'SECTION_CALCULATION_ENGINE',
       'id="sectionJsonFile"', 'section-properties.project.v1', 'src="結構工具箱/core/ui/report.js"',
       'function collectSectionProjectData', 'function validateSectionProjectData', 'function applySectionProjectData',
       'function applySectionProjectDataUnchecked', 'function sectionCalculationFingerprint',
+      'calculationEngine: SECTION_CALCULATION_ENGINE',
       'selectedResults: getCheckedResults().map(([label]) => String(label))',
       'buildAttachmentApprovalReport({ calculationFingerprint: fingerprint })',
       '已產生可列印的內部審閱計算書；請在預覽內確認後核可為正式附件。',
       '採用尺寸', '計算結果－斷面性質',
       'data-document-class="internal-review"', '產出工具：斷面性質計算', '工具版本：${SECTION_TOOL_VERSION}',
+      '計算引擎：${SECTION_CALCULATION_ENGINE}',
       '輸出時間：${escapeHtml(outputTime)}', '計算指紋：${fingerprint}',
     ],
   },
@@ -480,7 +489,8 @@ const tools = [
     label: 'composite section report',
     path: '合成斷面性質.html',
     needles: [
-      '<title>合成斷面性質計算 V1.2</title>',
+      '<title>合成斷面性質計算</title>', 'id="compositeSectionVersion"',
+      'src="結構工具箱/tools/analysis-section-tool-metadata.js"', 'COMPOSITE_TOOL_METADATA.version',
       'id="reportStatus"', 'id="reportReadiness"', 'id="caseStatus"', 'id="compositeJsonFile"',
       'function compositeReportReadinessModel', 'function collectCompositeProjectData',
       'function validateCompositeProjectData', 'composite-section.project.v1',
@@ -590,6 +600,10 @@ const compositeReportText = assertReportHtmlText(compositeReportHtml, 'composite
   'COMP-QA-001',
   '設計人員',
   'Codex QA',
+  '工具版本',
+  compositeMetadata.version,
+  '計算引擎',
+  compositeMetadata.calculationEngine,
   '基本輸入',
   '合成斷面總性質',
   '與基礎 H 型鋼比較',
@@ -614,6 +628,7 @@ const sourceCompositeReportHtml = renderSharedReportPayload(
 const sourceCompositeFingerprint = reportCalculationFingerprint(sourceCompositeReportHtml);
 assert(sourceCompositeJson.schema === 'composite-section.project.v1', 'composite JSON uses versioned schema', sourceCompositeJson.schema);
 assert(sourceCompositeJson.tool?.version === 'V1.2', 'composite JSON records current tool version', JSON.stringify(sourceCompositeJson.tool));
+assert(sourceCompositeJson.tool?.calculationEngine === compositeMetadata.calculationEngine, 'composite JSON records canonical calculation engine', JSON.stringify(sourceCompositeJson.tool));
 assert(compositeRuntime.getLastData()?.total?.Jclosed != null, 'composite replay fixture covers closed-section torsion result', JSON.stringify(compositeRuntime.getLastData()?.total));
 assert(/^[0-9a-f]{64}$/.test(sourceCompositeSha), 'composite result snapshot has stable SHA-256', sourceCompositeSha);
 assert(/^CF-[0-9A-F]{16}$/.test(sourceCompositeFingerprint), 'composite source report has calculation fingerprint', sourceCompositeFingerprint);

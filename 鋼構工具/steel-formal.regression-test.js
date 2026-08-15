@@ -307,7 +307,7 @@ const sharedReportText = assertReportHtmlText(sharedReportHtml, "shared report g
   "產出工具",
   "QA 正式工具",
   "工具版本",
-  "v9.9",
+  "V9.9",
   "輸出時間",
   "計算指紋",
   "輸入資料",

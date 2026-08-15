@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>斷面性質計算工具 V2.1</title>
+<title>斷面性質計算工具</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="結構工具箱/core/direct-print-boundary.css">
 <style>
@@ -92,7 +92,7 @@
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>斷面工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面提供的 PDF／計算書輸出按鈕產生只包含採用輸入、計算結果與必要圖示的文件；本頁不得作為附件。</span></div>
 <header>
   <p><a href="結構工具箱/index.html" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.85em;">← 回主選單</a></p>
-  <h1>斷面性質計算工具 V2.1</h1>
+  <h1>斷面性質計算工具 <span id="sectionToolVersion"></span></h1>
   <p>鋼結構 / 基本幾何斷面性質計算 | 尺寸輸入 mm, 結果輸出 cm</p>
 </header>
 <div class="container">
@@ -122,9 +122,16 @@
     </div>
   </div>
 </div>
+<script src="結構工具箱/tools/analysis-section-tool-metadata.js"></script>
 <script src="結構工具箱/core/ui/report.js"></script>
 <script>
 const PI = Math.PI;
+const SECTION_TOOL_METADATA = window.AnalysisSectionToolMetadata?.section;
+if (!SECTION_TOOL_METADATA) throw new Error('斷面性質工具版本資料未載入');
+const SECTION_TOOL_VERSION = SECTION_TOOL_METADATA.version;
+const SECTION_CALCULATION_ENGINE = SECTION_TOOL_METADATA.calculationEngine;
+document.title = `斷面性質計算工具 ${SECTION_TOOL_VERSION}`;
+document.getElementById('sectionToolVersion').textContent = SECTION_TOOL_VERSION;
 function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
 function fmt(v) { if (v === 0) return '0'; if (Math.abs(v) < 0.001 && v !== 0) return v.toExponential(4); return parseFloat(v.toPrecision(6)); }
 function setStatus(message, tone = 'warn') {
@@ -229,7 +236,6 @@ function toggleAllResults() {
 }
 
 const SECTION_PROJECT_SCHEMA = 'section-properties.project.v1';
-const SECTION_TOOL_VERSION = 'V2.1';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -252,6 +258,7 @@ function collectSectionProjectData() {
     schema: SECTION_PROJECT_SCHEMA,
     version: 1,
     toolVersion: SECTION_TOOL_VERSION,
+    calculationEngine: SECTION_CALCULATION_ENGINE,
     savedAt: new Date().toISOString(),
     section: {
       tab: currentTab,
@@ -280,6 +287,7 @@ function stableSectionHash(value, seed) {
 function sectionCalculationFingerprint() {
   const source = collectSectionInputs();
   const payload = {
+    calculationEngine: SECTION_CALCULATION_ENGINE,
     tab: currentTab,
     inputs: source.inputs,
     custom: source.custom,
@@ -487,7 +495,7 @@ function exportPDF() {
 <div class="rep-toolbar"><span class="rep-window-status" id="repWindowStatus" role="status" aria-live="polite"></span><button type="button" onclick="window.print()">列印 / 另存 PDF</button><button type="button" onclick="window.close()">關閉</button></div>
 ${approvalReport.html}
 <div class="hdr"><h1>斷面性質計算書</h1><p>${escapeHtml(lastTitle)}</p></div>
-<div class="meta"><span>產出工具：斷面性質計算</span><span>工具版本：${SECTION_TOOL_VERSION}</span><span>輸出時間：${escapeHtml(outputTime)}</span><span>計算指紋：${fingerprint}</span></div>
+<div class="meta"><span>產出工具：斷面性質計算</span><span>工具版本：${SECTION_TOOL_VERSION}</span><span>計算引擎：${SECTION_CALCULATION_ENGINE}</span><span>輸出時間：${escapeHtml(outputTime)}</span><span>計算指紋：${fingerprint}</span></div>
 <div class="fig"><img src="${imgData}"></div>
 <table><tr><th>採用尺寸</th><th style="text-align:right" colspan="2">輸入值（依欄位標示）</th></tr>${inputRows}</table>
 <table><tr><th>計算結果－斷面性質</th><th style="text-align:right">計算值</th><th>單位</th></tr>${rows}</table>

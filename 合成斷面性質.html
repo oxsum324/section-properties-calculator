@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>合成斷面性質計算 V1.2</title>
+<title>合成斷面性質計算</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="結構工具箱/core/direct-print-boundary.css">
 <style>
@@ -101,7 +101,7 @@
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>斷面工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面提供的 PDF／計算書輸出按鈕產生只包含採用輸入、計算結果與必要圖示的文件；本頁不得作為附件。</span></div>
 <header>
   <p><a href="結構工具箱/index.html" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.85em;">← 回主選單</a></p>
-  <h1>合成斷面性質計算 <span style="font-size:0.55em; font-weight:500; opacity:0.85; margin-left:6px;">V1.2</span></h1>
+  <h1>合成斷面性質計算 <span id="compositeSectionVersion" style="font-size:0.55em; font-weight:500; opacity:0.85; margin-left:6px;"></span></h1>
   <p>H 型鋼 ＋ 補強／蓋板 組合斷面 | 尺寸輸入 mm, 結果輸出 cm</p>
 </header>
 
@@ -221,9 +221,16 @@
   </div>
 </div>
 
+<script src="結構工具箱/tools/analysis-section-tool-metadata.js"></script>
 <script src="結構工具箱/core/ui/report.js"></script>
 <script>
 const PI = Math.PI;
+const COMPOSITE_TOOL_METADATA = window.AnalysisSectionToolMetadata?.['composite-section'];
+if (!COMPOSITE_TOOL_METADATA) throw new Error('合成斷面工具版本資料未載入');
+const COMPOSITE_PUBLIC_VERSION = COMPOSITE_TOOL_METADATA.version;
+const COMPOSITE_CALCULATION_ENGINE = COMPOSITE_TOOL_METADATA.calculationEngine;
+document.title = `合成斷面性質計算 ${COMPOSITE_PUBLIC_VERSION}`;
+document.getElementById('compositeSectionVersion').textContent = COMPOSITE_PUBLIC_VERSION;
 function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
 function valOrNull(id) { const v = document.getElementById(id).value.trim(); return v==='' ? null : parseFloat(v); }
 function fmt(v) { if (!isFinite(v)) return '—'; if (v===0) return '0'; if (Math.abs(v) < 0.001) return v.toExponential(4); return parseFloat(v.toPrecision(6)).toString(); }
@@ -257,7 +264,7 @@ function setCaseStatus(message, tone = '') {
 function collectCompositeProjectData() {
   return {
     schema: COMPOSITE_PROJECT_SCHEMA,
-    tool: { id: 'composite-section', name: '合成斷面性質計算', version: 'V1.2' },
+    tool: { id: 'composite-section', name: '合成斷面性質計算', version: COMPOSITE_PUBLIC_VERSION, calculationEngine: COMPOSITE_CALCULATION_ENGINE },
     savedAt: new Date().toISOString(),
     project: {
       name: getProjectFieldValue('projName'),
@@ -877,7 +884,8 @@ function exportReport() {
   openReport({
     title: '合成斷面性質計算書',
     subtitle: `${currentHName()}　｜　${modeText}`,
-    outputSource: { tool: '合成斷面性質計算', version: 'V1.2' },
+    outputSource: { tool: '合成斷面性質計算', version: COMPOSITE_PUBLIC_VERSION, calculationEngine: COMPOSITE_CALCULATION_ENGINE },
+    snapshot: { calculationEngine: COMPOSITE_CALCULATION_ENGINE, result: lastData },
     project,
     documentState: attachmentReadiness.documentState,
     documentClass: attachmentReadiness.documentClass,
