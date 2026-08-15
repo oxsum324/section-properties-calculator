@@ -28,7 +28,10 @@
     "maturityMatrix": "tools/tool-maturity-matrix.js",
     "goldenHarvest": "tools/formal-golden-harvest.js",
     "traceabilityCatalog": "tools/formal-traceability.catalog.json",
-    "traceabilityContract": "tools/formal-traceability.contract.test.js"
+    "traceabilityContract": "tools/formal-traceability.contract.test.js",
+    "publicMetadata": "tools/formal-tool-metadata.js",
+    "publicVersionConstant": "PUBLIC_TOOL_VERSION",
+    "calculationEngineConstant": "TOOL_VERSION"
   },
   "requiredRoutes": [
     "/wind-force",

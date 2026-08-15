@@ -87,6 +87,9 @@ const anchorReportDocument = readText('螺栓檢討/bolt-review-tool/src/ReportD
 const anchorReportWorkbook = readText('螺栓檢討/bolt-review-tool/src/reportWorkbook.ts');
 const deckingLauncher = readText('覆工板/index.html');
 const excavationLauncher = readText('開挖擋土支撐/index.html');
+const formalToolMetadataSource = readText('結構工具箱/tools/formal-tool-metadata.js');
+const stoneLauncher = readText('石材固定/石材計算書產生器_規範版V2.html');
+const stoneVersionSource = readText('石材固定/js/version-sync.js');
 const pagesLiveSmoke = readText('結構工具箱/tools/pages-live-smoke.js');
 const pagesBrowserSmoke = readText('結構工具箱/tools/pages-live-browser-smoke.js');
 const preflightStatus = readJson('結構工具箱/assets/status/preflight-summary.json');
@@ -97,6 +100,12 @@ vm.runInNewContext(steelMetadataSource, steelContext, { timeout: 1000, filename:
 const steelMetadata = steelContext.SteelToolMetadata;
 const anchorPublicVersion = exportedStringConstant(anchorAppMeta, 'PUBLIC_TOOL_VERSION');
 const deckingMetadata = evaluateLiteral(extractConstLiteral(deckingLauncher, 'DECKING_TOOL_METADATA'), 'decking-tool-metadata');
+const formalToolMetadataContext = {};
+vm.runInNewContext(formalToolMetadataSource, formalToolMetadataContext, { timeout: 1000, filename: 'formal-tool-metadata' });
+const formalToolMetadata = formalToolMetadataContext.FormalToolMetadata;
+const stoneVersionContext = { window: {} };
+vm.runInNewContext(stoneVersionSource, stoneVersionContext, { timeout: 1000, filename: 'stone-public-metadata' });
+const stoneMetadata = stoneVersionContext.window.StonePublicMetadata;
 
 assert.equal(homeTools.length, 43, 'canonical homepage tool inventory count');
 assert.equal(new Set(homeTools.map(tool => tool.href)).size, homeTools.length, 'canonical homepage routes are unique');
@@ -184,6 +193,30 @@ assert.ok(deckingLauncher.includes('${DECKING_TOOL_METADATA.name} ${DECKING_TOOL
   '覆工板工具主頁列印已封鎖',
   '本頁不得作為附件',
 ].forEach(needle => assert.ok(deckingLauncher.includes(needle), `decking launcher keeps output boundary: ${needle}`));
+
+assert.equal(Object.keys(formalToolMetadata).length, 17, 'formal public metadata covers every wind and seismic public route');
+for (const [toolKey, metadata] of Object.entries(formalToolMetadata)) {
+  const tool = canonicalTool(metadata.route);
+  const familyFolder = metadata.discipline === 'wind' ? '風力' : '地震力';
+  const page = readText(`結構工具箱/tools/${familyFolder}/${toolKey}.html`);
+  assert.equal(tool.version, metadata.version, `formal-family public version matches canonical claim: ${metadata.route}`);
+  assert.equal(tool.state, metadata.state, `formal-family public state matches canonical claim: ${metadata.route}`);
+  if (metadata.governance) {
+    assert.equal(tool.governance, metadata.governance, `formal-family governance matches canonical claim: ${metadata.route}`);
+    assert.ok(page.includes('../formal-tool-metadata.js'), `formal page loads canonical metadata: ${metadata.route}`);
+    assert.ok(page.includes(`const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['${toolKey}'].version`), `formal page binds canonical public version: ${metadata.route}`);
+  }
+  assert.ok(page.includes(metadata.version), `formal-family page exposes canonical version: ${metadata.route}`);
+}
+
+const stoneTool = canonicalTool('/stone-fixing');
+assert.equal(stoneMetadata.version, stoneTool.version, 'stone runtime version matches canonical claim');
+assert.equal(stoneMetadata.state, stoneTool.state, 'stone runtime state matches canonical claim');
+assert.equal(stoneMetadata.governance, stoneTool.governance, 'stone runtime governance matches canonical claim');
+assert.ok(stoneLauncher.includes('const APP_VERSION = window.StonePublicMetadata.version'), 'stone app version derives from canonical metadata');
+assert.ok(stoneLauncher.includes('產出工具：${window.StonePublicMetadata.name}') && stoneLauncher.includes('工具版本：${APP_VERSION}') && stoneLauncher.includes('計算引擎：${CALCULATOR_VERSION}') && stoneLauncher.includes('輸出時間：${formatTraceTimestamp(generatedAt)}'), 'stone calculation-book footer separates public version and calculation engine provenance');
+assert.equal(stoneLauncher.includes('目前使用版本：V2'), false, 'stone launcher removes stale duplicate V2 claim');
+assert.equal(stoneVersionSource.includes('目前使用版本：V2'), false, 'stone version runtime removes stale duplicate V2 claim');
 
 const excavationTool = canonicalTool('/excavation-support');
 assert.equal(excavationTool.version, '服務型', 'canonical excavation claim remains service-type rather than a fabricated semantic version');

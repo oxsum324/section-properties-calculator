@@ -21,8 +21,28 @@ async page => {
     '/steel-beam-formal': { label: 'steel beam page', heading: '鋼構正式工具主頁列印已封鎖', selector: '.steel-formal-direct-print-boundary', bodyClass: 'steel-formal-output-page' },
     '/steel-column-formal': { label: 'steel column page', heading: '鋼構正式工具主頁列印已封鎖', selector: '.steel-formal-direct-print-boundary', bodyClass: 'steel-formal-output-page' },
     '/decking': { label: 'decking page', heading: '覆工板工具主頁列印已封鎖' },
+    '/wind-force': { label: 'wind MWFRS page', heading: '正式工具主頁列印已封鎖' },
+    '/wind-cc': { label: 'wind C&C page', heading: '正式工具主頁列印已封鎖' },
+    '/wind-parapet': { label: 'wind parapet page', heading: '正式工具主頁列印已封鎖' },
+    '/wind-open-roof': { label: 'wind open-roof page', heading: '正式工具主頁列印已封鎖' },
+    '/wind-object-solid': { label: 'wind solid-object page', heading: '正式工具主頁列印已封鎖' },
+    '/wind-object-frame': { label: 'wind frame-object page', heading: '正式工具主頁列印已封鎖' },
+    '/wind-lattice-tower': { label: 'wind lattice-tower page', heading: '正式工具主頁列印已封鎖' },
+    '/wind-object-tower': { label: 'wind tower-object page', heading: '正式工具主頁列印已封鎖' },
+    '/wind-fence-sign': { label: 'wind fence-sign page', heading: '正式工具主頁列印已封鎖' },
+    '/wind-sign-pole': { label: 'wind sign-pole page', heading: '正式工具主頁列印已封鎖' },
+    '/seismic-force': { label: 'seismic static page', heading: '正式工具主頁列印已封鎖' },
+    '/seismic-dynamic': { label: 'seismic dynamic page', heading: '正式工具主頁列印已封鎖' },
+    '/seismic-appendage': { label: 'seismic appendage page', heading: '正式工具主頁列印已封鎖' },
+    '/seismic-misc': { label: 'seismic miscellaneous page', heading: '正式工具主頁列印已封鎖' },
+    '/stone-fixing': { label: 'stone fixing page', heading: '石材工具主頁列印已封鎖' },
   };
-  const versionedHeadingRoutes = new Set(['/steel-formal', '/steel-plate', '/steel-beam-formal', '/steel-column-formal', '/anchor', '/decking']);
+  const versionedHeadingRoutes = new Set([
+    '/steel-formal', '/steel-plate', '/steel-beam-formal', '/steel-column-formal', '/anchor', '/decking',
+    '/wind-overview', '/wind-kzt', '/wind-special', '/wind-force', '/wind-cc', '/wind-parapet', '/wind-open-roof',
+    '/wind-object-solid', '/wind-object-frame', '/wind-lattice-tower', '/wind-object-tower', '/wind-fence-sign', '/wind-sign-pole',
+    '/seismic-force', '/seismic-dynamic', '/seismic-appendage', '/seismic-misc', '/stone-fixing',
+  ]);
 
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`${base}%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/`, { waitUntil: 'networkidle' });
@@ -119,7 +139,9 @@ async page => {
           : null;
         return {
           title: document.title,
-          primaryHeading: (document.querySelector('h1')?.textContent || '').replace(/\s+/g, ' ').trim(),
+          primaryHeading: ((routeName === '/stone-fixing'
+            ? document.getElementById('tool-header')?.textContent
+            : document.querySelector('h1')?.textContent) || '').replace(/\s+/g, ' ').trim(),
           bodyChars: (document.body?.innerText || '').trim().length,
           clientWidth: document.documentElement.clientWidth,
           scrollWidth: document.documentElement.scrollWidth,

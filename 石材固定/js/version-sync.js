@@ -1,13 +1,22 @@
 (function(global){
   'use strict';
 
-  function syncToolHeaderVersion(appVersion){
+  const metadata = Object.freeze({
+    id: 'stone-fixing',
+    name: '石材外牆固定構件計算書產生器',
+    version: 'V3.0.7',
+    state: 'formal',
+    governance: 'stone-v2',
+  });
+
+  function syncToolHeaderVersion(appVersion = metadata.version){
     const el = global.document && global.document.getElementById('tool-version-label');
     if(el){
-      el.textContent = `${appVersion} 任務導向介面 ‧ 弘一工程顧問有限公司 ‧ 目前使用版本：V2`;
+      el.textContent = `${appVersion} 任務導向介面 ‧ 弘一工程顧問有限公司`;
     }
   }
 
+  global.StonePublicMetadata = metadata;
   global.StoneVersionSync = {
     syncToolHeaderVersion,
   };

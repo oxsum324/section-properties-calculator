@@ -13,6 +13,7 @@ const {
   writeEvidenceSummary,
 } = require('./rendered-delivery-evidence');
 const AttachmentPackageChecker = require('./attachment-package-check');
+const formalPublicMetadata = require('./formal-tool-metadata');
 
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
@@ -2142,10 +2143,15 @@ function assertReportContentState(state, tool, label, mode = 'default') {
   }
   if (tool.reportTraceRequired) {
     const auditHtml = state.auditHtml || state.html;
-    ['產出工具', '工具版本', '輸出時間', '計算指紋'].forEach(needle => {
+    ['產出工具', '工具版本', '計算引擎', '輸出時間', '計算指紋'].forEach(needle => {
       assert.ok(auditHtml.includes(needle), `${label} ${tool.key} ${mode} report trace includes ${needle}`);
     });
-    assert.match(auditHtml, /工具版本<\/b>\s*v\d+(?:\.\d+)*(?:[-+.\w]*)?/i, `${label} ${tool.key} ${mode} report trace canonical version`);
+    const publicVersion = formalPublicMetadata[tool.key]?.version;
+    assert.ok(publicVersion, `${label} ${tool.key} ${mode} canonical public metadata`);
+    assert.ok(
+      new RegExp(`工具版本<\\/b>\\s*${String(publicVersion).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(auditHtml),
+      `${label} ${tool.key} ${mode} report trace exact canonical version ${publicVersion}`
+    );
     assert.match(auditHtml, /計算指紋<\/b>CF-[0-9A-F]{16}/, `${label} ${tool.key} ${mode} report trace fingerprint`);
   }
   assertReportExpectations(state, tool, label, mode);
@@ -2928,7 +2934,11 @@ async function main() {
             ],
           });
           if (tool.reportTraceRequired) {
-            assert.match(fs.readFileSync(renderedEvidence.pdf.textPath, 'utf8'), /工具版本\s*v\d+(?:\.\d+)*(?:[-+.\w]*)?/i, `${interactionLabel} ${tool.key} formal PDF canonical version`);
+            const pdfText = fs.readFileSync(renderedEvidence.pdf.textPath, 'utf8');
+            const publicVersion = formalPublicMetadata[tool.key]?.version;
+            const publicVersionPattern = new RegExp(`工具版本\\s*${String(publicVersion).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
+            assert.ok(publicVersionPattern.test(pdfText), `${interactionLabel} ${tool.key} formal PDF exact canonical version ${publicVersion}`);
+            assert.ok(pdfText.includes('計算引擎'), `${interactionLabel} ${tool.key} formal PDF calculation engine provenance`);
           }
           renderedEvidenceRecords.push({
             key: tool.key,
@@ -2973,7 +2983,11 @@ async function main() {
               ],
             });
             if (tool.reportTraceRequired) {
-              assert.match(fs.readFileSync(summaryEvidence.pdf.textPath, 'utf8'), /工具版本\s*v\d+(?:\.\d+)*(?:[-+.\w]*)?/i, 'shared formal summary PDF canonical version');
+              const summaryPdfText = fs.readFileSync(summaryEvidence.pdf.textPath, 'utf8');
+              const publicVersion = formalPublicMetadata[tool.key]?.version;
+              const publicVersionPattern = new RegExp(`工具版本\\s*${String(publicVersion).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
+              assert.ok(publicVersionPattern.test(summaryPdfText), `shared formal summary PDF exact canonical version ${publicVersion}`);
+              assert.ok(summaryPdfText.includes('計算引擎'), 'shared formal summary PDF calculation engine provenance');
             }
             renderedEvidenceRecords.push({
               key: 'shared-summary-layout',

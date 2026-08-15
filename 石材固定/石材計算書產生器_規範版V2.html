@@ -859,7 +859,7 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
 
 <!-- Sidebar -->
 <div id="sidebar">
-  <div id="tool-header">石材固定構件計算書產生器｜規範版 V2 <span class="v2-rev-pill" id="v2-rev-pill" title="依目前 JSON SHA-256 前 8 碼自動產生之版次碼；內容變動即會更新">REV-—</span><span id="tool-version-label">V3.0.7 任務導向介面 ‧ 弘一工程顧問有限公司 ‧ 目前使用版本：V2.1</span></div>
+<div id="tool-header">石材固定構件計算書產生器｜規範版 <span id="tool-version-label">V3.0.7 任務導向介面 ‧ 弘一工程顧問有限公司</span> <span class="v2-rev-pill" id="v2-rev-pill" title="依目前 JSON SHA-256 前 8 碼自動產生之版次碼；內容變動即會更新">REV-—</span></div>
 
   <!-- V2 快速工具列 -->
   <div id="v2-toolbar" role="toolbar" aria-label="快速工具列">
@@ -3451,9 +3451,9 @@ function v2ResetAttachmentApproval(){
   node.checked = false;
   node.dataset.approvedAt = '';
 }
-function v2AttachmentFingerprint(){
+function v2AttachmentFingerprint(sourceMeta){
   try{
-    const meta = window.getCalculationResults?.()?.meta || {};
+    const meta = sourceMeta || window.getCalculationResults?.()?.meta || {};
     const raw = String(meta.governance_fingerprint || meta.calc_source_hash || '').trim();
     if(!raw) return '';
     const token = raw.replace(/[^0-9a-f]/gi, '').slice(0,16).toUpperCase();
@@ -3465,7 +3465,18 @@ function v2AttachmentDocumentStatusText(){
   const parts = v2AttachmentApproved()
     ? ['文件狀態：正式附件', node?.dataset.approvedAt ? `核可時間：${new Date(node.dataset.approvedAt).toLocaleString('zh-TW',{hour12:false})}` : '']
     : ['文件狀態：內部審閱'];
-  const fingerprint = v2AttachmentFingerprint();
+  let traceMeta = {};
+  try{
+    traceMeta = window.getCalculationResults?.()?.meta || {};
+  }catch(e){ /* keep empty trace metadata */ }
+  const generatedAt = traceMeta.generated_at || new Date().toISOString();
+  parts.push(
+    `產出工具：${window.StonePublicMetadata.name}`,
+    `工具版本：${APP_VERSION}`,
+    `計算引擎：${CALCULATOR_VERSION}`,
+    `輸出時間：${formatTraceTimestamp(generatedAt)}`,
+  );
+  const fingerprint = v2AttachmentFingerprint(traceMeta);
   if(fingerprint) parts.push(`計算指紋：${fingerprint}`);
   return parts.filter(Boolean).join('｜');
 }
@@ -7539,7 +7550,7 @@ const {
 } = window.StoneCalculator || {};
 const MATERIAL_GRADE_MAP = Object.fromEntries(MATERIAL_GRADE_OPTIONS.map(item => [item.value, item]));
 const STONE_GRADE_MAP = STONE_GRADE_CATALOG || {};
-const APP_VERSION = 'V3.0.7';
+const APP_VERSION = window.StonePublicMetadata.version;
 const TOOL_HTML_FILENAME = '石材計算書產生器_規範版V2.html';
 const GENERATOR_NAME = 'stone-spec-direct-word-html-v2';
 const PROJECT_SCHEMA = 'stone-calc/v3';

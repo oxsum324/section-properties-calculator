@@ -569,12 +569,14 @@
 <script src="../../core/loads/seismic.js"></script>
 <script src="../../core/loads/seismic-zones.js"></script>
 <script src="../../core/ui/report.js?v=7"></script>
+<script src="../formal-tool-metadata.js"></script>
 <script>
 const S = Seismic;
 const STATIC_STORAGE_KEY = 'seismic-static-summary';
 const DYNAMIC_STORAGE_KEY = 'seismic-dynamic-summary';
 const PROJECT_INFO_STORAGE_KEY = 'seismic-project-meta';
 const CASE_SCHEMA_VERSION = 'seismic-dynamic.case.v1';
+const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['seismic-dynamic'].version;
 const TOOL_VERSION = '3.8';
 let lastDynamicResult = null;
 let dynamicSpectrumChart = null;
@@ -1810,8 +1812,8 @@ function buildDynamicReportTrace(state = lastDynamicResult) {
   return window.ToolReportUI.buildReportTrace({
     title: '反應譜動力分析規範整理計算書',
     subtitle: '依「建築物耐震設計規範及解說」113 年版第三章整理反應譜動力分析結果、設計輸入譜與總橫力調整要求',
-    outputSource: { tool: '反應譜動力分析', version: TOOL_VERSION },
-    snapshot: { reportMode, includeModelCheck, calculation, x, y, modelCheck },
+    outputSource: { tool: '反應譜動力分析', version: PUBLIC_TOOL_VERSION },
+    snapshot: { reportMode, includeModelCheck, calculationEngine: TOOL_VERSION, calculation, x, y, modelCheck },
   });
 }
 
@@ -1885,6 +1887,7 @@ function openDynamicReport() {
         <div><b>製表日期</b>${esc(today)}</div>
         <div><b>產出工具</b>${esc(reportTrace.sourceTrace.tool || '—')}</div>
         <div><b>工具版本</b>${esc(reportTrace.sourceTrace.version || '—')}</div>
+        <div><b>計算引擎</b>${esc(TOOL_VERSION)}</div>
         <div><b>輸出時間</b>${esc(reportTrace.generatedAt)}</div>
         <div><b>計算指紋</b>${esc(reportTrace.calculationFingerprint)}</div>
       </div>

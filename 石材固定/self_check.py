@@ -15,6 +15,7 @@ ACTIVE_FILES = [
     'auto_word.py',
     '開啟石材計算書.bat',
     'js/calculator.spec.js',
+    'js/version-sync.js',
     TARGET_HTML,
 ]
 DOC_FILES = [
@@ -109,6 +110,11 @@ def js_const(text: str, name: str) -> str | None:
     return match.group(1) if match else None
 
 
+def stone_public_version(text: str) -> str | None:
+    match = re.search(r"\bversion\s*:\s*'([^']+)'", text)
+    return match.group(1) if match else None
+
+
 def calculator_version(text: str) -> str | None:
     match = re.search(r"\bconst\s+VERSION\s*=\s*'([^']+)'", text)
     return match.group(1) if match else None
@@ -145,11 +151,12 @@ def main() -> int:
     ui_smoke = read_text('ui_smoke_test.py')
     review_dashboard = read_text('js/review-dashboard.js')
     review_dashboard_test = read_text('js/review-dashboard-smoke.test.js')
+    version_sync = read_text('js/version-sync.js')
 
     server_html = single_quote_const(server, 'TOOL_HTML')
     auto_word_url = single_quote_const(auto_word, 'TOOL_URL')
     launcher_url = bat_var(launcher, 'URL')
-    app_version = js_const(html, 'APP_VERSION')
+    app_version = js_const(html, 'APP_VERSION') or stone_public_version(version_sync)
     html_filename = js_const(html, 'TOOL_HTML_FILENAME')
     auto_word_http_url = js_const(html, 'AUTO_WORD_HTTP_URL')
     template_version = js_const(html, 'TEMPLATE_CATALOG_VERSION')
@@ -165,7 +172,8 @@ def main() -> int:
     require('./js/version-sync.js' in html, 'V2 HTML should load js/version-sync.js', errors)
     require('./js/review-dashboard.js' in html, 'V2 HTML should load js/review-dashboard.js', errors)
     require('id="tool-version-label"' in html, 'V2 HTML should render a version label target in the header', errors)
-    require('syncToolHeaderVersion' in html, 'V2 HTML should sync the header version from APP_VERSION', errors)
+    require('syncToolHeaderVersion' in html, 'V2 HTML should sync the header version from canonical public metadata', errors)
+    require('const APP_VERSION = window.StonePublicMetadata.version' in html, 'V2 HTML APP_VERSION should derive from StonePublicMetadata', errors)
     require('function v2ExportChecklistHtml' in html, 'V2 HTML should keep export checklist HTML fallback wrapper', errors)
     require('function v2ExportChecklistNeedsConfirmation' in html, 'V2 HTML should keep export checklist confirmation fallback wrapper', errors)
     require('function v2DeliveryQualityChecklistItem' in html, 'V2 HTML should keep delivery quality checklist fallback wrapper', errors)

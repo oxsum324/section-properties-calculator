@@ -133,6 +133,9 @@ const manifestPath = assertFile('tools/formal-tools.manifest.json');
 const manifestText = readText(manifestPath);
 const manifest = JSON.parse(manifestText);
 const tools = manifest.tools;
+const publicMetadataPath = assertFile(manifest.shared.publicMetadata);
+delete require.cache[require.resolve(publicMetadataPath)];
+const publicMetadata = require(publicMetadataPath);
 const traceCatalogPath = assertFile(manifest.shared.traceabilityCatalog);
 const traceCatalog = JSON.parse(readText(traceCatalogPath));
 const directPrintBoundaryPath = assertFile(manifest.shared.directPrintBoundaryStylesheet);
@@ -143,6 +146,7 @@ assert.equal(manifest.shared.sourceReportFingerprintRequired, true, 'formal sour
 assert.equal(manifest.shared.caseReplayValidationRequired, true, 'formal case JSON requires exact validated replay');
 assert.equal(manifest.family, 'formal-tools', 'formal tools manifest family');
 assert.ok(Array.isArray(tools), 'formal tools manifest tools');
+assert.equal(Object.keys(publicMetadata).length, 17, 'formal public metadata covers the complete wind and seismic family');
 assert.equal(tools.length, 14, 'formal tools manifest tool count');
 assert.equal(manifest.shared.directPrintBodyClass, 'formal-tool-output-page', 'formal direct-print body class');
 assert.equal(manifest.shared.directPrintBoundaryClass, 'formal-direct-print-boundary', 'formal direct-print boundary class');
@@ -721,6 +725,23 @@ for (const tool of tools) {
   const htmlPath = assertFile(tool.html);
   const html = readText(htmlPath);
   const documentStateRendererSource = html.includes('../../core/wind-report.js') ? windReportSource : html;
+  const publicClaim = publicMetadata[tool.key];
+  assert.ok(publicClaim, `${tool.key} public metadata exists`);
+  assert.equal(publicClaim.route, tool.route, `${tool.key} public metadata route`);
+  assert.equal(publicClaim.discipline, tool.discipline, `${tool.key} public metadata discipline`);
+  assert.equal(publicClaim.governance, 'formal-tools', `${tool.key} public metadata governance`);
+  assert.ok(/^V\d+(?:\.\d+)*$/.test(publicClaim.version), `${tool.key} public semantic version`);
+  assertIncludes(html, '../formal-tool-metadata.js', `${tool.key} loads canonical public metadata`);
+  assertIncludes(html, `const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['${tool.key}'].version`, `${tool.key} binds canonical public version`);
+  assertIncludes(html, publicClaim.version, `${tool.key} visible version matches canonical metadata`);
+  if (documentStateRendererSource === windReportSource) {
+    assertIncludes(documentStateRendererSource, "typeof PUBLIC_TOOL_VERSION !== 'undefined'", `${tool.key} shared report resolves public semantic version`);
+    assertIncludes(documentStateRendererSource, 'outputSource: { tool, version }', `${tool.key} shared report publishes resolved public semantic version`);
+  } else {
+    assertIncludes(documentStateRendererSource, 'version: PUBLIC_TOOL_VERSION', `${tool.key} report uses public semantic version`);
+  }
+  assertIncludes(documentStateRendererSource, 'calculationEngine', `${tool.key} report fingerprint keeps calculation engine provenance`);
+  assertIncludes(documentStateRendererSource, '計算引擎', `${tool.key} report exposes calculation engine separately`);
   assertIncludes(html, tool.titleNeedle, `${tool.key} title needle in HTML`);
   assertIncludes(html, tool.familyNeedle, `${tool.key} family needle in HTML`);
   assertIncludes(html, tool.calcButton, `${tool.key} calc button in HTML`);

@@ -51,15 +51,19 @@
     const headerTitle = textFrom(document.querySelector('header h1')) || title;
     const displayedVersion = headerTitle.match(/(?:^|\s)(V\d+(?:\.\d+)*(?:[-+.\w]*)?)(?=\s|$)/i)?.[1] || '';
     const tool = headerTitle.replace(/\s*V\d+(?:\.\d+)*(?:[-+.\w]*)?\s*$/i, '').trim() || title;
-    const version = typeof TOOL_VERSION !== 'undefined' && TOOL_VERSION
+    const calculationEngine = typeof TOOL_VERSION !== 'undefined' && TOOL_VERSION
       ? String(TOOL_VERSION).trim()
-      : displayedVersion;
+      : '';
+    const version = typeof PUBLIC_TOOL_VERSION !== 'undefined' && PUBLIC_TOOL_VERSION
+      ? String(PUBLIC_TOOL_VERSION).trim()
+      : displayedVersion || calculationEngine;
     return reportUi.buildReportTrace({
       title,
       subtitle,
       outputSource: { tool, version },
       snapshot: {
         reportMode: mode,
+        calculationEngine,
         summary: { ok: summary?.ok, text: summary?.text || '' },
         inputs: inputGroups || [],
       },
@@ -842,6 +846,7 @@ ${reportToolbarHtml()}
     <div><b>製表日期</b>${esc(proj.date)}</div>
     <div><b>產出工具</b>${esc(reportTrace.sourceTrace.tool) || '—'}</div>
     <div><b>工具版本</b>${esc(reportTrace.sourceTrace.version) || '—'}</div>
+    <div><b>計算引擎</b>${esc(typeof TOOL_VERSION !== 'undefined' ? TOOL_VERSION : '') || '—'}</div>
     <div><b>輸出時間</b>${esc(reportTrace.generatedAt)}</div>
     <div><b>計算指紋</b>${esc(reportTrace.calculationFingerprint)}</div>
   </div>
@@ -981,6 +986,7 @@ ${reportToolbarHtml()}
     <div><b>製表日期</b>${esc(proj.date)}</div>
     <div><b>產出工具</b>${esc(reportTrace.sourceTrace.tool) || '—'}</div>
     <div><b>工具版本</b>${esc(reportTrace.sourceTrace.version) || '—'}</div>
+    <div><b>計算引擎</b>${esc(typeof TOOL_VERSION !== 'undefined' ? TOOL_VERSION : '') || '—'}</div>
     <div><b>輸出時間</b>${esc(reportTrace.generatedAt)}</div>
     <div><b>計算指紋</b>${esc(reportTrace.calculationFingerprint)}</div>
   </div>

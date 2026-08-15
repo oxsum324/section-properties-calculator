@@ -677,11 +677,13 @@
 <script src="../../core/loads/seismic-zones.js"></script>
 <script src="../../core/loads/seismic.js"></script>
 <script src="../../core/ui/report.js?v=7"></script>
+<script src="../formal-tool-metadata.js"></script>
 <script>
 /* ════════════════════════════════════════
  *  seismic-force.html V3  —  UI script
  * ════════════════════════════════════════ */
 const S = Seismic;
+const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['seismic-force'].version;
 const TOOL_VERSION = 'seismic-force.v1';
 const CASE_SCHEMA_VERSION = 'seismic-force.case.v1';
 const CASE_ZONE_VALUE_IDS = ['zoneCity', 'zoneDist', 'zoneVillage', 'faultDist'];
@@ -2119,8 +2121,8 @@ function buildSeismicReportTrace() {
   return window.ToolReportUI.buildReportTrace({
     title: '建築物耐震設計 — 等值靜力分析 計算書',
     subtitle: '依「建築物耐震設計規範及解說」113 年版｜第二章靜力分析方法',
-    outputSource: { tool: '建築物耐震設計 — 等值靜力分析', version: TOOL_VERSION },
-    snapshot: { reportOptions: snapshotReportOptions(), calculation },
+    outputSource: { tool: '建築物耐震設計 — 等值靜力分析', version: PUBLIC_TOOL_VERSION },
+    snapshot: { reportOptions: snapshotReportOptions(), calculationEngine: TOOL_VERSION, calculation },
   });
 }
 
@@ -2133,6 +2135,7 @@ function reportMetaHtml(project, reportTrace) {
       <div><b>製表日期</b>${escReport(new Date().toLocaleDateString('zh-TW'))}</div>
       <div class="rep-source-tool"><b>產出工具</b>${escReport(reportTrace.sourceTrace.tool || '—')}</div>
       <div><b>工具版本</b>${escReport(reportTrace.sourceTrace.version || '—')}</div>
+      <div><b>計算引擎</b>${escReport(TOOL_VERSION)}</div>
       <div><b>輸出時間</b>${escReport(reportTrace.generatedAt)}</div>
       <div><b>計算指紋</b>${escReport(reportTrace.calculationFingerprint)}</div>
     </div>

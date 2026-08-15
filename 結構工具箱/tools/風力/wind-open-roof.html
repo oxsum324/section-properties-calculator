@@ -352,8 +352,10 @@
 <script src="../../core/loads/wind.js"></script>
 <script src="../../core/ui/report.js?v=7"></script>
 <script src="../../core/wind-report.js"></script>
+<script src="../formal-tool-metadata.js"></script>
 <script>
 const W = Wind;
+const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['wind-open-roof'].version;
 const TOOL_VERSION = 'wind-open-roof.v1';
 const CASE_SCHEMA_VERSION = 'wind-open-roof.case.v1';
 const CASE_VALUE_IDS = [

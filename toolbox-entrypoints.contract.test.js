@@ -775,7 +775,7 @@ assert.ok(pagesLiveSmoke.includes('PUBLIC_ROUTE_SAMPLES'), 'Pages live smoke has
 assert.ok(pagesLiveSmoke.includes('assertPublicRouteSamples'), 'Pages live smoke checks representative public routes');
 assert.ok(pagesLiveSmoke.includes('for (const forbidden of sample.forbidden || [])'), 'Pages live smoke rejects forbidden stale public claims');
 assert.ok(pagesLiveSmoke.includes('結構工具箱/index-classic.html') && pagesLiveSmoke.includes('舊網址相容入口列印已封鎖'), 'Pages live smoke protects classic compatibility boundary');
-assert.ok(pagesLiveBrowserSmoke.includes("routes.push('/rc', '/toolbox-classic')") && pagesLiveBrowserSmoke.includes("'/steel-formal':") && pagesLiveBrowserSmoke.includes("'/decking':") && pagesLiveBrowserSmoke.includes('directPrintBoundaries'), 'Pages browser smoke renders RC, classic, steel and decking print boundaries');
+assert.ok(pagesLiveBrowserSmoke.includes("routes.push('/rc', '/toolbox-classic')") && pagesLiveBrowserSmoke.includes("'/steel-formal':") && pagesLiveBrowserSmoke.includes("'/wind-force':") && pagesLiveBrowserSmoke.includes("'/seismic-force':") && pagesLiveBrowserSmoke.includes("'/stone-fixing':") && pagesLiveBrowserSmoke.includes("'/decking':") && pagesLiveBrowserSmoke.includes('directPrintBoundaries'), 'Pages browser smoke renders RC, classic, steel, wind, seismic, stone and decking print boundaries');
 assert.ok(pagesLiveSmoke.includes("{ path: 'anchor/', needles: ['錨栓檢討工具'], checkAssets: true }"), 'Pages live smoke checks anchor application assets');
 assert.ok(pagesLiveSmoke.includes('async function assertPublicAssets'), 'Pages live smoke has public asset availability gate');
 assert.ok(pagesLiveSmoke.includes('response.arrayBuffer()'), 'Pages live smoke rejects empty application assets');
