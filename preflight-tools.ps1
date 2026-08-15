@@ -1263,8 +1263,21 @@ exit $LASTEXITCODE
 
 $srcBeamCoreRegressionCommand = @'
 node SRC工具/src-beam-core.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node SRC工具/src-beam.contract.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+'@
+if (-not $Quick) {
+  $srcBeamCoreRegressionCommand += @'
+
+if (-not (Test-Path -LiteralPath '.github\pages-smoke\node_modules\playwright\package.json')) {
+  npm ci --prefix .github/pages-smoke --ignore-scripts --silent
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+node SRC工具/src-beam-browser-smoke.test.js
 exit $LASTEXITCODE
 '@
+}
 
 $deckingToolsContractCommand = @'
 node decking-tools.contract.test.js
@@ -2376,7 +2389,7 @@ $checks = @(
   },
   [pscustomobject]@{
     key = "src-beam-core-regression"
-    label = "SRC beam core regression and traceability"
+    label = "SRC beam core, page, report, case replay and traceability"
     workdir = $root
     command = $srcBeamCoreRegressionCommand
     slow = $false

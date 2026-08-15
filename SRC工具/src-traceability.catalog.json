@@ -12,7 +12,7 @@
     "included": [
       "完全包覆型矩形 SRC 梁",
       "置中雙對稱 H 型鋼骨",
-      "無軸力之擘曲與剪力",
+      "無軸力之撓曲與剪力",
       "垂直箍筋",
       "常重混凝土整體澆置",
       "非耐震構材強度檢核"
@@ -25,6 +25,18 @@
       "輕質混凝土或非整體澆置剪力摩擦面",
       "施工階段鋼梁強度與穩定實算"
     ]
+  },
+  "delivery": {
+    "page": "src-beam.html",
+    "pageVersion": "v1.0",
+    "caseSchema": "src-beam.case.v1",
+    "report": "精簡可追溯計算書",
+    "documentStates": ["內部審閱", "正式附件"],
+    "approvalMetadataChangePolicy": "revoke-and-reapprove",
+    "directPrintBoundary": true,
+    "optionalProjectMetadata": true,
+    "publicRoute": false,
+    "releaseStatus": "candidate-vertical-slice-verified"
   },
   "equations": [
     { "id": "src-5.4-1", "clause": "5.4.1", "expression": "phi_b Mn = 0.9 Mns + 0.9 Mnrc", "implementation": "calculate.flexure" },

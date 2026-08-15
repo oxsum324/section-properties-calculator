@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SRC 梁正式規範核算 V1.0</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../結構工具箱/core/style.css">
+  <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
+  <link rel="stylesheet" href="src-beam.css">
+</head>
+<body class="formal-tool-output-page">
+  <div class="formal-direct-print-boundary" aria-hidden="true">
+    <strong>SRC 梁操作頁列印已封鎖</strong>
+    <span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「產生計算書」按鈕開啟可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span>
+  </div>
+
+  <header class="src-hero">
+    <div>
+      <p class="src-eyebrow">鋼骨鋼筋混凝土構件</p>
+      <h1>SRC 梁正式規範核算 <span class="src-version">V1.0</span></h1>
+      <p>完全包覆型矩形 SRC 梁｜無軸力｜非耐震｜單位：cm、kgf/cm²、tf、tf·m</p>
+      <div class="src-hero-chips" aria-label="適用範圍摘要">
+        <span>彎矩強度疊加</span><span>鋼骨／RC 剪力分擔</span><span>寬厚比</span><span>剪力摩擦</span>
+      </div>
+    </div>
+    <a class="src-back" href="../結構工具箱/index.html">← 回工具箱</a>
+  </header>
+
+  <main class="src-page">
+    <section class="src-project-bar" aria-label="案件與輸出">
+      <div class="src-project-fields">
+        <label>計畫名稱（選填）<input id="projName" type="text" autocomplete="organization" placeholder="可由主文承接"></label>
+        <label>計畫編號（選填）<input id="projNo" type="text" placeholder="可留空"></label>
+        <label>設計人員（選填）<input id="projDesigner" type="text" autocomplete="name" placeholder="可留空"></label>
+      </div>
+      <div class="src-actions">
+        <button id="btnCalculate" class="src-primary" type="button">執行核算</button>
+        <button id="btnExportCase" type="button">下載案件 JSON</button>
+        <button id="btnImportCase" type="button">匯入案件 JSON</button>
+        <button id="btnReport" class="src-report" type="button">產生計算書</button>
+        <input id="caseFile" type="file" accept="application/json,.json" hidden>
+      </div>
+      <p id="actionStatus" class="src-action-status" role="status" aria-live="polite"></p>
+    </section>
+
+    <div class="src-layout">
+      <div class="src-input-stack">
+        <section class="src-card src-page-only">
+          <h2>適用範圍與輸出邊界</h2>
+          <p>本頁只適用於鋼骨完全包覆、置中雙對稱 H 型鋼骨、無軸力、非耐震之矩形 SRC 梁。耐震設計、軸彎互制、梁柱接頭、剪力釘及施工階段鋼梁容量不在本次自動檢核範圍。</p>
+          <p><strong>計算書只保留採用資料、公式代入、檢核結果與結論。</strong>本段適用邊界、操作提醒及待人工複核內容只顯示在 HTML，不會進入計算書、列印或 PDF。</p>
+          <div class="src-meta-chips"><span>現行 100 年修正版</span><span id="coreVersion">Core —</span><span>案件 schema v1</span></div>
+        </section>
+
+        <section class="src-card">
+          <h2>① 設計需求</h2>
+          <div class="src-grid src-grid-3">
+            <label>軸力 Pu（限 0）<span><input id="puTf" type="number" value="0" step="0.1"> tf</span></label>
+            <label>設計彎矩 Mu<span><input id="muTfM" type="number" value="150" step="1"> tf·m</span></label>
+            <label>設計剪力 Vu<span><input id="vuTf" type="number" value="96.5" step="0.5"> tf</span></label>
+          </div>
+        </section>
+
+        <section class="src-card">
+          <h2>② 混凝土斷面</h2>
+          <div class="src-grid src-grid-3">
+            <label>梁寬 b<span><input id="bCm" type="number" value="50" step="0.5" min="0"> cm</span></label>
+            <label>梁深 h<span><input id="hCm" type="number" value="80" step="0.5" min="0"> cm</span></label>
+            <label>混凝土強度 fc′<span><input id="fcKgfCm2" type="number" value="280" step="10" min="0"> kgf/cm²</span></label>
+            <label>撓曲有效深度 d<span><input id="flexureDepthCm" type="number" value="68" step="0.5" min="0"> cm</span></label>
+            <label>壓力筋深度 d′<span><input id="compressionSteelDepthCm" type="number" value="12" step="0.5" min="0"> cm</span></label>
+            <label>剪力有效深度 d<sub>v</sub><span><input id="shearDepthCm" type="number" value="73" step="0.5" min="0"> cm</span></label>
+          </div>
+        </section>
+
+        <section class="src-card">
+          <h2>③ 主筋與箍筋</h2>
+          <div class="src-grid src-grid-3">
+            <label>拉力筋 As<span><input id="asTensionCm2" type="number" value="32.68" step="0.01" min="0"> cm²</span></label>
+            <label>壓力筋 As′<span><input id="asCompressionCm2" type="number" value="32.68" step="0.01" min="0"> cm²</span></label>
+            <label>鋼筋彈性模數 Es<span><input id="esKgfCm2" type="number" value="2040000" step="10000" min="0"> kgf/cm²</span></label>
+            <label>拉力筋 Fyr<span><input id="fyrTensionKgfCm2" type="number" value="4200" step="100" min="0"> kgf/cm²</span></label>
+            <label>壓力筋 Fyr′<span><input id="fyrCompressionKgfCm2" type="number" value="4200" step="100" min="0"> kgf/cm²</span></label>
+            <label>箍筋 Fyh<span><input id="fyhKgfCm2" type="number" value="4200" step="100" min="0"> kgf/cm²</span></label>
+            <label>一般剪力 Av<span><input id="avCm2" type="number" value="1.426" step="0.001" min="0"> cm²</span></label>
+            <label>剪力摩擦 Avf<span><input id="avfCm2" type="number" value="1.426" step="0.001" min="0"> cm²</span></label>
+            <label>箍筋間距 s<span><input id="spacingCm" type="number" value="15" step="0.5" min="0"> cm</span></label>
+          </div>
+        </section>
+
+        <section class="src-card">
+          <h2>④ 包覆 H 型鋼骨</h2>
+          <div class="src-grid src-grid-3">
+            <label>鋼材等級<span><select id="steelGrade"><option value="A572 Gr.50">A572 Gr.50／490 級</option><option value="SM490">SM490／490 級</option><option value="SM400">SM400／400 級</option><option value="SS400">SS400／400 級</option><option value="A36">A36／400 級</option></select></span></label>
+            <label>鋼骨深度 D<span><input id="steelDepthCm" type="number" value="51.2" step="0.1" min="0"> cm</span></label>
+            <label>翼板寬 bf<span><input id="flangeWidthCm" type="number" value="20.2" step="0.1" min="0"> cm</span></label>
+            <label>翼板厚 tf<span><input id="flangeThicknessCm" type="number" value="2.2" step="0.1" min="0"> cm</span></label>
+            <label>腹板厚 tw<span><input id="webThicknessCm" type="number" value="1.2" step="0.1" min="0"> cm</span></label>
+            <label>塑性斷面模數 Z<span><input id="zCm3" type="number" value="2870" step="10" min="0"> cm³</span></label>
+            <label>鋼骨降伏強度 Fys<span><input id="fysKgfCm2" type="number" value="3500" step="100" min="0"> kgf/cm²</span></label>
+            <label>腹板降伏強度 Fyw<span><input id="fywKgfCm2" type="number" value="3500" step="100" min="0"> kgf/cm²</span></label>
+          </div>
+        </section>
+
+        <section class="src-card">
+          <h2>⑤ 剪力摩擦與細部確認</h2>
+          <div class="src-grid src-grid-3">
+            <label>摩擦係數 μ（固定）<span><input id="frictionMu" type="number" value="0.8" step="0.1" readonly> —</span></label>
+            <label>K1（固定）<span><input id="frictionK1" type="number" value="28" step="1" readonly> kgf/cm²</span></label>
+            <label>剪力釘貢獻（未納入）<span><input id="studContributionTf" type="number" value="0" step="0.1" readonly> tf</span></label>
+          </div>
+          <div class="src-check-grid">
+            <label><input id="fullyEncased" type="checkbox" checked> 鋼骨完全包覆於 RC 斷面</label>
+            <label><input id="normalWeightConcrete" type="checkbox" checked> 已確認常重混凝土</label>
+            <label><input id="monolithicSurface" type="checkbox" checked> 剪力摩擦面為整體澆置</label>
+            <label><input id="mainBarsContinuous" type="checkbox" checked> 梁端主筋連續或適當錨定</label>
+            <label><input id="reinforcementDetailingConfirmed" type="checkbox" checked> 配筋、保護層及澆置可行性已確認</label>
+            <label><input id="temporaryShoringProvided" type="checkbox" checked> 混凝土凝固前設有充分臨時支撐</label>
+            <label><input id="steelConstructionCapacityVerified" type="checkbox"> 無臨時支撐時，施工階段鋼梁容量已另案確認</label>
+            <label><input id="highStrengthConcreteEvidenceConfirmed" type="checkbox"> 高強度混凝土試驗依據已確認（fc′&gt;420 時）</label>
+            <label><input id="highStrengthMaterialEvidenceConfirmed" type="checkbox"> 高強度鋼材可靠性依據已確認（超出建議範圍時）</label>
+            <label><input id="seismicDesign" type="checkbox"> 本案為耐震 SRC 梁（目前會失敗封閉）</label>
+          </div>
+          <label class="src-spacing">長向主筋與鋼板淨距<span><input id="longitudinalClearSpacingMm" type="number" value="25" step="1" min="0"> mm</span></label>
+        </section>
+      </div>
+
+      <aside class="src-result-stack">
+        <section class="src-card src-result-card">
+          <div class="src-result-heading"><div><p class="src-eyebrow">核算結果</p><h2>控制總覽</h2></div><span id="resultBadge" class="src-status idle">待計算</span></div>
+          <p id="resultHeadline" class="src-headline">請確認輸入後執行核算。</p>
+          <div id="metricGrid" class="src-metric-grid"></div>
+        </section>
+
+        <section class="src-card">
+          <h2>逐項檢核</h2>
+          <div id="checkList" class="src-check-list"><p class="src-muted">尚未計算。</p></div>
+        </section>
+
+        <section class="src-card">
+          <h2>強度組成</h2>
+          <div id="resultTables"><p class="src-muted">尚未計算。</p></div>
+        </section>
+
+        <section class="src-card src-page-only">
+          <h2>產報前閱讀狀態</h2>
+          <div id="reportReadiness" class="src-readiness idle" role="status" aria-live="polite">
+            <strong>尚未計算</strong><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script src="../結構工具箱/core/ui/report.js?v=7"></script>
+  <script src="core/src-beam-core.js"></script>
+  <script src="src-beam.js"></script>
+  <script src="../結構工具箱/tools/project-meta-profile.js"></script>
+</body>
+</html>
