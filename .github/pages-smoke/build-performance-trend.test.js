@@ -37,8 +37,11 @@ try {
     { buildRuntime: 5000, buildHttp: 500, buildBrowser: 50000, liveRuntime: 5100, liveHttp: 600, liveBrowser: 51000 },
     { buildRuntime: 4000, buildHttp: 400, buildBrowser: 40000, liveRuntime: 4100, liveHttp: 500, liveBrowser: 41000 },
   ];
-  samples.forEach((sample, index) => writePair(root, 100 + index, sample));
+  samples.forEach((sample, index) => writePair(root, 100 + index, sample, index === 4 ? { live: { runAttempt: 2 } } : {}));
   const pairs = trend.loadPairs(root);
+  assert.equal(pairs[4].build.runAttempt, 1, 'failed-job rerun retains the successful build receipt');
+  assert.equal(pairs[4].live.runAttempt, 2, 'failed-job rerun replaces the live receipt');
+  assert.equal(pairs[4].runAttempt, 2, 'pair records the newest contributing attempt');
   const result = trend.validateTrend(trend.buildTrend(pairs, { currentRunId: '104', generatedAt: '2026-08-13T00:00:00.000Z', maxRuns: 20 }));
   assert.equal(result.status, 'ready');
   assert.equal(result.sampleCount, 5);
@@ -48,7 +51,17 @@ try {
   assert.equal(result.jobs['live-smoke'].browserSmoke.p50Ms, 31000);
   assert.deepEqual(result.includedRuns.map(item => item.runId), ['100', '101', '102', '103', '104']);
   assert.equal(result.includedRuns[2].observationsMs.build.browserSmoke, 20000);
+  assert.equal(result.includedRuns[4].runAttempt, 2);
   assert.match(trend.buildSummary(result), /P50.*P95/);
+
+  assert.doesNotThrow(() => trend.validatePair(
+    evidence('build', 500, samples[0], { runAttempt: 1 }),
+    evidence('live-smoke', 500, samples[0], { runAttempt: 2 }),
+  ), 'same-run receipts may come from different workflow attempts');
+  assert.throws(() => trend.validatePair(
+    evidence('build', 500, samples[0]),
+    evidence('live-smoke', 501, samples[0]),
+  ), /pair mismatch: sourceCommit|pair mismatch: runId/, 'different workflow runs cannot be paired');
 
   const collecting = trend.buildTrend(pairs.slice(0, 2), { currentRunId: '101', generatedAt: '2026-08-13T00:00:00.000Z' });
   assert.equal(collecting.status, 'collecting');

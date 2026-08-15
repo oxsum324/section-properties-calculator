@@ -37,10 +37,11 @@ function evidenceDuration(evidence, signal) {
 
 function validatePair(build, live) {
   if (build.job !== 'build' || live.job !== 'live-smoke') throw new Error('Pages CI trend requires build and live-smoke evidence');
-  for (const key of ['sourceCommit', 'runId', 'runAttempt', 'runtimeLockSha256']) {
+  for (const key of ['sourceCommit', 'runId', 'runtimeLockSha256']) {
     if (build[key] !== live[key]) throw new Error(`Pages CI evidence pair mismatch: ${key}`);
   }
   for (const evidence of [build, live]) {
+    if (!Number.isInteger(evidence.runAttempt) || evidence.runAttempt < 1) throw new Error('Pages CI trend requires a positive runAttempt for each receipt');
     if (evidence.runtimeInstall.outcome !== 'success' || evidence.httpSmoke.status !== 'passed' || evidence.browserSmoke.status !== 'passed') {
       throw new Error('Pages CI trend accepts successful complete evidence only');
     }
@@ -72,7 +73,17 @@ function loadPairs(directory) {
     const live = readEvidence(livePath);
     validatePair(build, live);
     if (build.runId !== entry.name) throw new Error(`Pages CI trend directory does not match runId: ${entry.name}`);
-    pairs.push({ runId: entry.name, sourceCommit: build.sourceCommit, runAttempt: build.runAttempt, runtimeLockSha256: build.runtimeLockSha256, build, live });
+    pairs.push({
+      runId: entry.name,
+      sourceCommit: build.sourceCommit,
+      // A failed-job rerun can legitimately retain build evidence from an
+      // earlier attempt and replace only live-smoke evidence. The pair is
+      // finalized by the newest receipt while remaining bound to one run.
+      runAttempt: Math.max(build.runAttempt, live.runAttempt),
+      runtimeLockSha256: build.runtimeLockSha256,
+      build,
+      live,
+    });
   }
   pairs.sort((left, right) => Number(left.runId) - Number(right.runId));
   if (!pairs.length) throw new Error('Pages CI trend requires at least one complete evidence pair');
