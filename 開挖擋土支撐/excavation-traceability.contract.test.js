@@ -55,6 +55,7 @@ function assertPythonFunctionRole(source, functionName, role) {
 
 const catalogText = fs.readFileSync(catalogPath, 'utf8');
 const catalog = JSON.parse(catalogText);
+const launcher = readUtf8('index.html');
 const readme = readUtf8('README.md');
 const parsers = readUtf8('backend/app/parsers.py');
 const calculations = readUtf8('backend/app/calculations.py');
@@ -192,7 +193,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.49.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.50.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -2181,6 +2182,29 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
 ].forEach((needle) => {
   assert(preflight.includes(needle), `excavation preflight keeps existing gate ${needle}`, needle);
 });
+[
+  '../結構工具箱/core/direct-print-boundary.css',
+  'formal-tool-output-page',
+  '開挖服務入口列印已封鎖',
+  '本頁不得作為附件',
+  '本機受控服務工具',
+  '已驗證範圍',
+  '工程判斷邊界',
+  '平台公開巡檢狀態',
+  'RSC v3 證據',
+].forEach((needle) => {
+  assert(launcher.includes(needle), `excavation public launcher keeps ${needle}`, needle);
+});
+assert(!launcher.includes('柱構件檢核仍屬第一版移植'), 'excavation public launcher removes retired first-port limitation', '第一版移植');
+[
+  '開挖服務入口列印已封鎖',
+  '已驗證範圍',
+  '工程判斷邊界',
+  '平台公開巡檢狀態',
+].forEach((needle) => {
+  assert(preflight.includes(needle), `excavation launcher preflight protects ${needle}`, needle);
+  assert(pagesLiveSmoke.includes(needle), `excavation Pages live smoke protects ${needle}`, needle);
+});
 assert(
   preflight.includes('node 開挖擋土支撐/receiver-evidence-templates.test.js'),
   'excavation traceability gate runs receiver evidence template behavior tests',
@@ -2206,11 +2230,16 @@ assert(
   'excavation home governance keeps full backend/frontend gates',
   'excavation-service'
 );
+assert(home.includes('重撐軸壓／雙向彎矩承接'), 'excavation home output names biaxial reshore scope', '重撐軸壓／雙向彎矩承接');
+assert(home.includes('構件與基礎檢核'), 'excavation home summary names governed member and foundation scope', '構件與基礎檢核');
+assert(home.includes("capabilities: ['本機服務', 'PDF/DOCX', 'RSC v3 證據鏈']"), 'excavation home names current RSC schema', 'RSC v3 證據鏈');
 
 assert(readme.includes('excavation-traceability.catalog.json'), 'excavation README documents traceability catalog path', 'README.md');
 assert(readme.includes('規範語意追蹤'), 'excavation README documents traceability purpose', 'README.md');
 assert(readme.includes('excavation-report.contract.test.js'), 'excavation README documents report contract path', 'README.md');
 assert(readme.includes('RECEIVER_EVIDENCE_TEMPLATES.md'), 'excavation README documents receiver evidence templates', 'README.md');
+assert(readme.includes('Repo 根下的 `index.html` 只是在公開工具箱中的本機服務 launcher'), 'excavation README distinguishes launcher from service UI and report', 'README.md');
+assert(readme.includes('開挖服務入口列印已封鎖'), 'excavation README documents launcher direct-print block', 'README.md');
 
 if (failed) {
   console.error(`\n${failed} excavation traceability contract checks failed.`);

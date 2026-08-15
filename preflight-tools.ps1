@@ -2171,11 +2171,18 @@ $launcher = Get-Content -LiteralPath $launcherPath -Raw -Encoding UTF8
 $startScript = Get-Content -LiteralPath $startPath -Raw -Encoding UTF8
 $stopScript = Get-Content -LiteralPath $stopPath -Raw -Encoding UTF8
 $launcherNeedles = @(
-  '本機服務工具',
+  '本機受控服務工具',
   'start_html_mode.ps1 -OpenBrowser',
   'stop_html_mode.ps1',
   '/api/health',
   'app_data/',
+  '../結構工具箱/core/direct-print-boundary.css',
+  'formal-tool-output-page',
+  '開挖服務入口列印已封鎖',
+  '本頁不得作為附件',
+  '已驗證範圍',
+  '工程判斷邊界',
+  '平台公開巡檢狀態',
   '服務邊界',
   '不可直接當靜態部署'
 )
@@ -2184,6 +2191,10 @@ foreach ($needle in $launcherNeedles) {
     Write-Error "excavation launcher smoke missing: $needle"
     exit 1
   }
+}
+if ($launcher -like '*柱構件檢核仍屬第一版移植*') {
+  Write-Error 'excavation launcher still contains the retired first-port limitation'
+  exit 1
 }
 $startNeedles = @(
   'Test-HealthEndpoint',

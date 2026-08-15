@@ -139,6 +139,33 @@ async page => {
         };
       }, route);
 
+      let excavationPrintBoundary = null;
+      if (route === '/excavation-support') {
+        const screenBoundary = await page.evaluate(() => {
+          const boundary = document.querySelector('.formal-direct-print-boundary');
+          return {
+            bodyClass: document.body.classList.contains('formal-tool-output-page'),
+            boundaryExists: Boolean(boundary),
+            boundaryRects: boundary?.getClientRects().length || 0,
+            stylesheetLoaded: [...document.styleSheets]
+              .some(sheet => String(sheet.href || '').includes('direct-print-boundary.css')),
+          };
+        });
+        await page.emulateMedia({ media: 'print' });
+        const printBoundary = await page.evaluate(() => {
+          const boundary = document.querySelector('.formal-direct-print-boundary');
+          return {
+            boundaryRects: boundary?.getClientRects().length || 0,
+            boundaryText: (boundary?.textContent || '').replace(/\s+/g, ' ').trim(),
+            visibleOtherChildren: [...document.body.children]
+              .filter(node => !node.classList.contains('formal-direct-print-boundary') && node.getClientRects().length > 0)
+              .map(node => node.id || node.className || node.tagName),
+          };
+        });
+        await page.emulateMedia({ media: 'screen' });
+        excavationPrintBoundary = { screen: screenBoundary, print: printBoundary };
+      }
+
       page.off('console', onConsole);
       page.off('pageerror', onPageError);
       page.off('request', onRequest);
@@ -175,6 +202,17 @@ async page => {
       }
       if (route === '/stone-fixing' && viewport.key === 'mobile' && !containedStonePreview) {
         routeIssues.push(`stone A4 preview is not contained by its local scroll region: ${JSON.stringify({ rootOverflowX: state.rootOverflowX, preview: state.stonePreview })}`);
+      }
+      if (route === '/excavation-support') {
+        const screenBoundary = excavationPrintBoundary?.screen;
+        const printBoundary = excavationPrintBoundary?.print;
+        if (!screenBoundary?.bodyClass || !screenBoundary?.boundaryExists || screenBoundary.boundaryRects !== 0 || !screenBoundary.stylesheetLoaded) {
+          routeIssues.push(`excavation launcher screen print-boundary invalid: ${JSON.stringify(screenBoundary)}`);
+        }
+        if (!printBoundary || printBoundary.boundaryRects <= 0 || printBoundary.visibleOtherChildren.length ||
+          !printBoundary.boundaryText.includes('開挖服務入口列印已封鎖') || !printBoundary.boundaryText.includes('本頁不得作為附件')) {
+          routeIssues.push(`excavation launcher print boundary invalid: ${JSON.stringify(printBoundary)}`);
+        }
       }
       if (isDashboard) {
         const privateOutputRequests = requests.filter(value => {

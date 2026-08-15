@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>開挖擋土支撐計算工具</title>
   <link rel="stylesheet" href="../結構工具箱/core/style.css">
+  <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
   <style>
     .launcher-layout { display:grid; gap:16px; max-width:960px; margin:0 auto; }
     .status-pill { display:inline-flex; align-items:center; min-height:30px; padding:4px 12px; border-radius:999px; background:#fef3c7; color:#92400e; font-size:0.78em; font-weight:800; }
@@ -32,9 +33,13 @@
     }
   </style>
 </head>
-<body>
+<body class="formal-tool-output-page">
+  <aside class="formal-direct-print-boundary" aria-label="開挖服務入口列印邊界">
+    <strong>開挖服務入口列印已封鎖</strong>
+    <span>此頁是啟動、狀態與使用邊界入口，不是計算書。請關閉列印視窗，啟動本機服務後，使用 PDF／Word 報表流程產生可列印的內部審閱文件，或在核可後產生正式附件；本頁不得作為附件。</span>
+  </aside>
   <header>
-    <h1>開挖擋土支撐計算工具 <span class="status-pill">本機服務工具</span></h1>
+    <h1>開挖擋土支撐計算工具 <span class="status-pill">本機受控服務工具</span></h1>
     <p style="font-size:0.88em; opacity:0.9; margin-top:4px;">FastAPI + React + SQLite｜支撐構件檢核與報表輸出</p>
   </header>
 
@@ -46,7 +51,7 @@
           <tbody>
             <tr>
               <td>目前定位</td>
-              <td>已納入工具箱索引，但不是純靜態 HTML；需啟動本機後端服務後使用。</td>
+              <td>已納入工具箱治理與受控發布；不是純靜態計算頁，需啟動本機後端服務後使用。</td>
             </tr>
             <tr>
               <td>使用入口</td>
@@ -54,15 +59,19 @@
             </tr>
             <tr>
               <td>主要流程</td>
-              <td>匯入 .RIO / .LST / .o 分析文字檔，整理支撐、橫擋、斜撐、大角撐與柱構件檢核，並輸出報表。</td>
+              <td>匯入 .RIO / .LST / .o 分析文字檔，整理支撐、橫擋、斜撐、大角撐、柱構件與基礎承載檢核、拆撐交接及受限 H 型鋼重撐互制計算，並輸出 PDF／DOCX 報表與 RSC v3 證據。</td>
+            </tr>
+            <tr>
+              <td>已驗證範圍</td>
+              <td>啟動邊界、規範語意追蹤、後端計算、前端建置、報表結果鏈與施工階段交接均納入發布閘門；最新結果以<a href="../結構工具箱/audit-dashboard.html">平台公開巡檢狀態</a>為準，不在本頁固化可能過期的通過次數。</td>
             </tr>
             <tr>
               <td>資料邊界</td>
               <td>SQLite、專案 JSON、匯入檔與報表輸出存於 <code>app_data/</code>；該資料夾屬本機工作資料，不進版本控管。</td>
             </tr>
             <tr>
-              <td>目前限制</td>
-              <td>柱構件檢核仍屬第一版移植；複雜案例應與既有 Excel / 計算書交叉比對。</td>
+              <td>工程判斷邊界</td>
+              <td>工具提供規範計算、結果追溯與受控報表，不會自動核可分析模型、施工階段、載重組合、材料與斷面、實際支承、接頭／承壓、承接主體或施工程序；仍須由設計者依正式模型、施工圖與專案文件複核。</td>
             </tr>
           </tbody>
         </table>
@@ -84,6 +93,7 @@ cd .\開挖擋土支撐
           <a class="primary" href="http://127.0.0.1:8000">開啟本機服務</a>
           <a href="http://127.0.0.1:8000/api/health">檢查 API health</a>
           <a href="README.md">查看 README</a>
+          <a href="../結構工具箱/audit-dashboard.html">平台公開巡檢狀態</a>
           <a href="../結構工具箱/index.html">返回結構工具箱</a>
         </div>
       </div>
@@ -92,7 +102,7 @@ cd .\開挖擋土支撐
         <h2>服務邊界</h2>
         <div class="service-grid">
           <div class="service-item local">
-            <strong>本機服務，不是靜態頁</strong>
+            <strong>本機服務，不是靜態計算頁</strong>
             <span>需要 Python FastAPI 後端；若前端建置失敗，腳本會退回 Vite dev proxy 模式。</span>
           </div>
           <div class="service-item data">

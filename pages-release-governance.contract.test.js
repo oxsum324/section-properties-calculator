@@ -634,6 +634,14 @@ assert.ok(pagesBrowserRunner.includes('terser_cli') && pagesBrowserRunner.includ
 assert.ok(pagesBrowserRunner.includes('value.isError') && pagesBrowserRunner.includes('trap cleanup EXIT'), 'Pages browser runner fails on CLI JSON errors and always closes its session');
 assert.ok(pagesBrowserRunner.includes('status(?: of)? 5') && pagesBrowserRunner.includes('ERR_(?:TIMED_OUT|CONNECTION_RESET'), 'Pages browser runner narrows retry eligibility to transient 5xx and network failures');
 assert.ok(pagesBrowserRunner.includes('"$attempt" -lt "$attempts"') && pagesBrowserRunner.includes('throw new Error(value.error)'), 'Pages browser runner bounds retries and fails persistent or non-transient errors');
+assert.ok(
+  pagesBrowserSmoke.includes("route === '/excavation-support'") &&
+    pagesBrowserSmoke.includes("page.emulateMedia({ media: 'print' })") &&
+    pagesBrowserSmoke.includes("boundary?.getClientRects().length") &&
+    pagesBrowserSmoke.includes('開挖服務入口列印已封鎖') &&
+    pagesBrowserSmoke.includes('本頁不得作為附件'),
+  'Pages browser smoke renders and verifies the excavation launcher print boundary'
+);
 
 assert.ok(pagesSmoke.includes('assets/status/platform-status.json'), 'Pages smoke checks platform status');
 assert.ok(pagesSmoke.includes('assets/status/preflight-summary.json'), 'Pages smoke checks preflight status');
@@ -706,6 +714,15 @@ assert.ok(artifactSmoke.includes('$ArtifactBuilder') && artifactSmoke.includes('
 assert.equal(artifactSmoke.includes('robocopy'), false, 'local artifact smoke does not keep a second robocopy exclusion policy');
 assert.ok(artifactSmoke.includes('pages-live-smoke.js'), 'local artifact smoke reuses Pages smoke');
 assert.ok(artifactSmoke.includes('pages-live-browser-smoke.js'), 'local artifact smoke reuses Pages browser smoke');
+assert.ok(
+  artifactSmoke.includes("$ToolboxDirectoryName = [Uri]::UnescapeDataString('%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1')") &&
+    artifactSmoke.includes("$CanonicalToolRoot = Join-Path (Join-Path $RepoRoot $ToolboxDirectoryName) 'tools'") &&
+    artifactSmoke.includes("SmokeScript = Join-Path $CanonicalToolRoot 'pages-live-smoke.js'") &&
+    artifactSmoke.includes("BrowserSmokeScript = Join-Path $CanonicalToolRoot 'pages-live-browser-smoke.js'") &&
+    artifactSmoke.includes('$SmokeScript = Get-Item -LiteralPath $CanonicalTools.SmokeScript') &&
+    !artifactSmoke.includes("Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter 'pages-live-smoke.js'"),
+  'local artifact smoke resolves only canonical Pages tools and cannot select ignored archive copies'
+);
 assert.ok(artifactSmoke.includes('IO.Compression.GZipStream') && artifactSmoke.includes("page.evaluate(async s=>") && artifactSmoke.includes("new DecompressionStream('gzip')"), 'local artifact smoke transports the full browser program within the Windows command-line limit');
 assert.ok(artifactSmoke.includes('$DeploymentManifestBuilder') && artifactSmoke.includes('--expected-commit-sha $CommitSha'), 'local artifact smoke builds and verifies deployment provenance');
 assert.ok(artifactSmoke.includes('$SourceDirty') && artifactSmoke.includes('--source-dirty $SourceDirty.ToString().ToLowerInvariant()'), 'local artifact smoke records dirty source state honestly');

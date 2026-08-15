@@ -11,36 +11,25 @@ if (-not $RepoRoot) {
 }
 $RepoRoot = (Resolve-Path $RepoRoot).Path
 
-$SmokeScript = Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter 'pages-live-smoke.js' |
-  Where-Object { $_.FullName -like "*$([IO.Path]::DirectorySeparatorChar)tools$([IO.Path]::DirectorySeparatorChar)pages-live-smoke.js" } |
-  Select-Object -First 1
-if (-not $SmokeScript) {
-  throw 'Could not find pages-live-smoke.js under the repository tools directories.'
+$ToolboxDirectoryName = [Uri]::UnescapeDataString('%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1')
+$CanonicalToolRoot = Join-Path (Join-Path $RepoRoot $ToolboxDirectoryName) 'tools'
+$CanonicalTools = @{
+  SmokeScript = Join-Path $CanonicalToolRoot 'pages-live-smoke.js'
+  BrowserSmokeScript = Join-Path $CanonicalToolRoot 'pages-live-browser-smoke.js'
+  ArtifactBuilder = Join-Path $CanonicalToolRoot 'build-pages-artifact.js'
+  RouteBuilder = Join-Path $CanonicalToolRoot 'build-pages-clean-routes.js'
+  DeploymentManifestBuilder = Join-Path $CanonicalToolRoot 'build-pages-deployment-manifest.js'
 }
-$BrowserSmokeScript = Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter 'pages-live-browser-smoke.js' |
-  Where-Object { $_.FullName -like "*$([IO.Path]::DirectorySeparatorChar)tools$([IO.Path]::DirectorySeparatorChar)pages-live-browser-smoke.js" } |
-  Select-Object -First 1
-if (-not $BrowserSmokeScript) {
-  throw 'Could not find pages-live-browser-smoke.js under the repository tools directories.'
+foreach ($entry in $CanonicalTools.GetEnumerator()) {
+  if (-not (Test-Path -LiteralPath $entry.Value -PathType Leaf)) {
+    throw "Could not find canonical Pages tool: $($entry.Value)"
+  }
 }
-$ArtifactBuilder = Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter 'build-pages-artifact.js' |
-  Where-Object { $_.FullName -like "*$([IO.Path]::DirectorySeparatorChar)tools$([IO.Path]::DirectorySeparatorChar)build-pages-artifact.js" } |
-  Select-Object -First 1
-if (-not $ArtifactBuilder) {
-  throw 'Could not find build-pages-artifact.js under the repository tools directory.'
-}
-$RouteBuilder = Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter 'build-pages-clean-routes.js' |
-  Where-Object { $_.FullName -like "*$([IO.Path]::DirectorySeparatorChar)tools$([IO.Path]::DirectorySeparatorChar)build-pages-clean-routes.js" } |
-  Select-Object -First 1
-if (-not $RouteBuilder) {
-  throw 'Could not find build-pages-clean-routes.js under the repository tools directory.'
-}
-$DeploymentManifestBuilder = Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter 'build-pages-deployment-manifest.js' |
-  Where-Object { $_.FullName -like "*$([IO.Path]::DirectorySeparatorChar)tools$([IO.Path]::DirectorySeparatorChar)build-pages-deployment-manifest.js" } |
-  Select-Object -First 1
-if (-not $DeploymentManifestBuilder) {
-  throw 'Could not find build-pages-deployment-manifest.js under the repository tools directory.'
-}
+$SmokeScript = Get-Item -LiteralPath $CanonicalTools.SmokeScript
+$BrowserSmokeScript = Get-Item -LiteralPath $CanonicalTools.BrowserSmokeScript
+$ArtifactBuilder = Get-Item -LiteralPath $CanonicalTools.ArtifactBuilder
+$RouteBuilder = Get-Item -LiteralPath $CanonicalTools.RouteBuilder
+$DeploymentManifestBuilder = Get-Item -LiteralPath $CanonicalTools.DeploymentManifestBuilder
 
 $Python = Get-Command python -ErrorAction SilentlyContinue
 if (-not $Python) {

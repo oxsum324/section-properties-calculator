@@ -21,7 +21,7 @@ const PUBLIC_ROUTE_SAMPLES = [
   { path: 'anchor/', needles: ['錨栓檢討工具'], checkAssets: true },
   { path: '石材固定/石材計算書產生器_規範版V2.html', needles: ['石材外牆固定構件計算書產生器', '規範版', '../結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', '石材工具主頁列印已封鎖', 'buildPrintableSheetsHtml()', 'const V2_METHOD_MEDIA = Object.freeze({', "mode:'public_static'", '公開靜態版不檢查本機服務', 'const proseAt = m.search(/[\\u3400-\\u9fff]/);'] },
   { path: '覆工板/index.html', needles: ['覆工板系統計算工具', '../結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', '覆工板工具主頁列印已封鎖', 'printDeckingReport()'] },
-  { path: '開挖擋土支撐/index.html', needles: ['開挖擋土支撐計算工具', '本機服務工具'] },
+  { path: '開挖擋土支撐/index.html', needles: ['開挖擋土支撐計算工具', '本機受控服務工具', '../結構工具箱/core/direct-print-boundary.css', '開挖服務入口列印已封鎖', '已驗證範圍', '工程判斷邊界', '平台公開巡檢狀態'] },
   { path: '連續梁分析.html', needles: ['連續梁分析工具', '結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', '分析工具主頁列印已封鎖'] },
   { path: '鋼架/平面剛架分析.html', needles: ['平面剛架分析', '../結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', '本頁不得作為附件'] },
   { path: 'index.html', needles: ['斷面性質計算工具', '結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', '斷面工具主頁列印已封鎖'] },

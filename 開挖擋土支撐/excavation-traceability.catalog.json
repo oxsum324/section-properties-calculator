@@ -1,5 +1,5 @@
 {
-  "version": "1.49.0",
+  "version": "1.50.0",
   "family": "excavation-traceability",
   "description": "開挖擋土支撐服務型工具的規範語意追蹤表。每筆 trace 將分析檔匯入、輸入欄位、構件檢核、報表落點、測試證據與人工複核邊界對齊，避免只因 FastAPI / React 流程可產出 PDF 或 DOCX 就誤判為支撐系統檢核依據已完整可追溯。",
   "tools": [
@@ -244,12 +244,12 @@
         {
           "id": "excavation-local-service-boundary",
           "clause": "本機服務型工具啟停、前端建置、工程資料排除與 preflight 邊界",
-          "purpose": "開挖擋土支撐不是純靜態頁，首頁、README、啟停腳本與 preflight 必須揭露需啟動本機服務與資料庫的邊界。",
-          "inputs": ["start_html_mode.ps1", "stop_html_mode.ps1", "index.html", "backend/app/main.py", "frontend build", "app_data", "tmp", "frontend/dist"],
-          "calculation": ["excavation launcher smoke", "backend unittest", "frontend npm run build", "traceability contract", "generated artifact boundary"],
-          "report": ["首頁本機服務狀態", "服務邊界", "preflight summary", "TOOL_BOUNDARIES", "STAGING_GROUPS"],
-          "evidence": ["index.html", "README.md", "start_html_mode.ps1", "stop_html_mode.ps1", "frontend/package.json", "../preflight-tools.ps1"],
-          "manualReview": ["服務是否已啟動、port 衝突、Python / Node 環境、資料庫狀態、工程資料排除、部署型態與使用者機器環境仍須由使用者人工確認。"]
+          "purpose": "開挖擋土支撐不是純靜態計算頁，首頁、README、啟停腳本與 preflight 必須揭露需啟動本機服務與資料庫的邊界；公開 launcher 只陳述受控範圍並連至最新巡檢，不固化可能過期的成熟度結論，也不得被直接列印冒充計算書。",
+          "inputs": ["start_html_mode.ps1", "stop_html_mode.ps1", "index.html", "backend/app/main.py", "frontend build", "app_data", "tmp", "frontend/dist", "public audit dashboard", "direct-print-boundary.css"],
+          "calculation": ["excavation launcher smoke", "launcher direct-print block", "Pages live launcher smoke", "backend unittest", "frontend npm run build", "traceability contract", "generated artifact boundary"],
+          "report": ["首頁本機受控服務狀態", "已驗證範圍", "工程判斷邊界", "平台公開巡檢狀態", "操作入口列印封鎖", "服務邊界", "preflight summary", "TOOL_BOUNDARIES", "STAGING_GROUPS"],
+          "evidence": ["index.html", "README.md", "start_html_mode.ps1", "stop_html_mode.ps1", "frontend/package.json", "../結構工具箱/core/direct-print-boundary.css", "../結構工具箱/tools/pages-live-smoke.js", "../preflight-tools.ps1"],
+          "manualReview": ["服務是否已啟動、port 衝突、Python / Node 環境、資料庫狀態、工程資料排除、部署型態與使用者機器環境仍須由使用者人工確認。平台巡檢通過只證明受控閘門與公開輸出符合契約，不代表特定案件的分析模型、施工階段、載重組合、材料與斷面、實際支承、接頭／承壓、承接主體或施工程序已獲工程核可。"]
         }
       ]
     }
