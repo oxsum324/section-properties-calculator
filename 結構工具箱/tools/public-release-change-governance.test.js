@@ -25,6 +25,15 @@ function bundleFor(runId, generatedAt) {
   return bundle;
 }
 
+function nextReleaseIdentity(runId) {
+  const match = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/.exec(runId);
+  assert.ok(match, 'fixture runId uses YYYYMMDD-HHmmss');
+  const [, year, month, day, hour, minute, second] = match;
+  const next = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second)) + 1000);
+  const compact = next.toISOString().replace(/[-:]/g, '');
+  return { runId: `${compact.slice(0, 8)}-${compact.slice(9, 15)}`, generatedAt: next.toISOString() };
+}
+
 function setMetricRequired(bundle, requiredKey, completeKey, passKey, value) {
   bundle.reportReadinessStatus[requiredKey] = value;
   bundle.reportReadinessStatus[completeKey] = value;
@@ -42,7 +51,9 @@ const legacyBundle = clone(baseBundle);
 Object.values(legacyBundle).forEach(snapshot => { snapshot.publicEvidenceSchemaVersion = 2; });
 legacyBundle.preflightStatus.releaseHistory.schemaVersion = 1;
 legacyBundle.preflightStatus.releaseHistory.entries.forEach(entry => { delete entry.change; });
-const migratedCurrent = bundleFor('20260815-120000', '2026-08-15T12:00:00+08:00');
+const retainedTip = legacyBundle.preflightStatus.releaseHistory.entries.at(-1);
+const migratedIdentity = nextReleaseIdentity(retainedTip.runId);
+const migratedCurrent = bundleFor(migratedIdentity.runId, migratedIdentity.generatedAt);
 const migratedHistory = schema.buildReleaseHistory(legacyBundle, migratedCurrent, trackedAuthorization);
 assert.equal(
   migratedHistory.entries.length,
