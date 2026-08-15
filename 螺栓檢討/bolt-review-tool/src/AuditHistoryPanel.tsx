@@ -233,7 +233,7 @@ export function AuditHistoryPanel(props: {
                   <th>整體</th>
                   <th>控制 DCR</th>
                   <th>控制模式</th>
-                  <th>計算版本</th>
+                  <th>計算引擎</th>
                   <th>Hash</th>
                   <th>操作</th>
                 </tr>

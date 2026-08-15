@@ -78,7 +78,7 @@ function firstReviewIssue(
   calcEngineMismatch: boolean,
 ): string {
   if (calcEngineMismatch) {
-    return '案例計算版本與目前工具不一致，需採用目前版本重算並建立新留痕'
+    return '案例計算引擎與目前計算引擎不一致，需採用目前引擎重算並建立新留痕'
   }
 
   if (!completeness.formal && completeness.missing.length > 0) {
@@ -173,7 +173,7 @@ export function buildAttachmentReadinessModel({
       tone: completeness.formal ? 'ok' : 'warn',
     },
     {
-      label: '計算版本',
+      label: '計算引擎',
       value: calcEngineVersion.mismatch
         ? `${calcEngineVersion.projectVersion} → ${calcEngineVersion.runtimeVersion}，待確認`
         : calcEngineVersion.runtimeVersion,

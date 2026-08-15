@@ -166,7 +166,7 @@ export function useAuditTrail(deps: {
       '最大 DCR',
       '控制模式',
       '控制組合',
-      '計算版本',
+      '計算引擎',
       'Hash',
     ]
     const body = [...trail]

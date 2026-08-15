@@ -13,7 +13,12 @@ import {
   defaultProject,
   normalizeReportSettings,
 } from './defaults'
-import { CURRENT_CALC_ENGINE_VERSION, ENGINEERING_USE_DISCLAIMER, REPORT_SOURCE_TOOL } from './appMeta'
+import {
+  CURRENT_CALC_ENGINE_VERSION,
+  ENGINEERING_USE_DISCLAIMER,
+  PUBLIC_TOOL_VERSION,
+  REPORT_SOURCE_TOOL,
+} from './appMeta'
 import { getEvaluationFieldStates } from './evaluationCatalog'
 import { buildStandaloneReportHtml } from './reportExport'
 import { verifyAnchorReportHtmlSeals } from './reportHtmlSeal'
@@ -142,7 +147,7 @@ describe('buildStandaloneReportHtml', () => {
     expect(html).not.toContain('DRAFT /')
     expect(html).toContain(CURRENT_CALC_ENGINE_VERSION)
     expect(html).toContain(`產出工具 = ${REPORT_SOURCE_TOOL}`)
-    expect(html).toContain('工具版本 =')
+    expect(html).toContain(`工具版本 = ${PUBLIC_TOOL_VERSION}`)
     expect(html).toContain('輸出時間 =')
     expect(html).toContain('計算指紋 = —')
     expect(html).not.toContain(ENGINEERING_USE_DISCLAIMER)

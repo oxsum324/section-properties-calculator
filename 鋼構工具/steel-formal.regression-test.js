@@ -968,12 +968,17 @@ assert.match(
 );
 assert.match(
   appSource,
-  /function isLocalAuditHost\(hostname = window\.location\.hostname\)[\s\S]*function getAuditStatusSource\(\)[\s\S]*\.\/output\/audit\/audit-status\.json[\s\S]*\.\.\/結構工具箱\/assets\/status\/platform-status\.json/s,
-  "app.js should route local steel audit status and the published platform snapshot without requesting private output on public hosts",
+  /function getAuditStatusSource\(\)[\s\S]*URLSearchParams\(window\.location\.search\)\.get\("auditSource"\) === "local"[\s\S]*\.\/output\/audit\/audit-status\.json[\s\S]*\.\.\/結構工具箱\/assets\/status\/platform-status\.json/s,
+  "app.js should require explicit local-audit opt-in and otherwise use the published platform snapshot",
+);
+assert.doesNotMatch(
+  appSource,
+  /function isLocalAuditHost\(/,
+  "app.js should not infer private audit access from localhost or private-network hostnames",
 );
 assert.match(
   appSource,
-  /平台公開巡檢狀態[\s\S]*來源｜正式放行公開快照[\s\S]*開啟工具箱狀態總覽[\s\S]*開啟公開狀態 JSON/s,
+  /平台公開巡檢狀態[\s\S]*來源｜正式放行公開快照[\s\S]*開啟平台公開巡檢狀態[\s\S]*開啟公開狀態 JSON/s,
   "app.js should label the public platform snapshot distinctly from local steel audit status",
 );
 assert.match(

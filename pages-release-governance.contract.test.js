@@ -647,8 +647,12 @@ assert.ok(
   pagesBrowserSmoke.includes("routes.push('/rc', '/toolbox-classic')") &&
     pagesBrowserSmoke.includes('directPrintBoundaries') &&
     pagesBrowserSmoke.includes('RC 工具箱入口列印已封鎖') &&
-    pagesBrowserSmoke.includes('舊網址相容入口列印已封鎖'),
-  'Pages browser smoke renders public status launcher boundaries from one shared check'
+    pagesBrowserSmoke.includes('舊網址相容入口列印已封鎖') &&
+    pagesBrowserSmoke.includes("'/steel-formal':") &&
+    pagesBrowserSmoke.includes("'/decking':") &&
+    pagesBrowserSmoke.includes("selector: '.steel-formal-direct-print-boundary'") &&
+    !pagesBrowserSmoke.includes('/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/output/audit/audit-status.json'),
+  'Pages browser smoke renders shared launcher boundaries and does not suppress steel private-audit failures'
 );
 
 assert.ok(pagesSmoke.includes('assets/status/platform-status.json'), 'Pages smoke checks platform status');

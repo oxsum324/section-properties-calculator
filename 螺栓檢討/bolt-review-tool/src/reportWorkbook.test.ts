@@ -13,7 +13,12 @@ import {
   defaultProject,
   normalizeReportSettings,
 } from './defaults'
-import { CURRENT_CALC_ENGINE_VERSION, ENGINEERING_USE_DISCLAIMER, REPORT_SOURCE_TOOL } from './appMeta'
+import {
+  CURRENT_CALC_ENGINE_VERSION,
+  ENGINEERING_USE_DISCLAIMER,
+  PUBLIC_TOOL_VERSION,
+  REPORT_SOURCE_TOOL,
+} from './appMeta'
 import { getEvaluationFieldStates } from './evaluationCatalog'
 import { buildReportWorkbook, serializeReportWorkbook } from './reportWorkbook'
 import {
@@ -249,11 +254,12 @@ describe('reportWorkbook', () => {
     expect(
       summaryRows.some(
         (row) =>
-          row.項目 === '案件計算版本' && row.值 === CURRENT_CALC_ENGINE_VERSION,
+          row.項目 === '案件計算引擎' && row.值 === CURRENT_CALC_ENGINE_VERSION,
       ),
     ).toBe(true)
     expect(summaryRows.some((row) => row.項目 === '產出工具' && row.值 === REPORT_SOURCE_TOOL)).toBe(true)
-    expect(summaryRows.some((row) => row.項目 === '工具版本' && row.值 === CURRENT_CALC_ENGINE_VERSION)).toBe(true)
+    expect(summaryRows.some((row) => row.項目 === '工具版本' && row.值 === PUBLIC_TOOL_VERSION)).toBe(true)
+    expect(summaryRows.some((row) => row.項目 === '目前計算引擎' && row.值 === CURRENT_CALC_ENGINE_VERSION)).toBe(true)
     expect(summaryRows.some((row) => row.項目 === '輸出時間' && row.值)).toBe(true)
     expect(summaryRows.find((row) => row.項目 === '輸出時間')?.值).toMatch(/^\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}$/)
     expect(summaryRows.some((row) => row.項目 === '計算指紋' && String(row.值).startsWith('CF-'))).toBe(true)

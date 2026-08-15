@@ -14,7 +14,7 @@
   - `2029758 Enforce formal attachment boundaries and rendered release evidence`
 - 公開狀態快照正式放行基準：上述 tracked JSON 必須為 `quick=false`、`ForcePlatformAudit=true`、`ForceSlowChecks=true`、`sourceDirty=false`、`recordsCount=passedCount`、post checks 全數通過，且沒有慢測或平台巡檢重用；`sourceCommitSha`、`sourceBranch` 必須明確指出受測來源，當前 `runId` 直接讀取 JSON，不在本 ledger 複製。
 - 公開狀態快照發布基準：最新 `Pages deploy` 必須為 completed/success，並以 `gh run list --workflow "Pages deploy" --limit 1` 查詢；workflow run ID 不在本 ledger 硬編碼。
-- 公開狀態宣告一致性：首頁 43 個工具 metadata 是唯一公開清冊；RC 家族入口只重述一致版本與 formal 狀態，舊網址相容入口不得再保存第二份版本、能力、日期或通過狀態。`public-status-claims-contract` 必須留在 preflight summary 與 Global Governance Gates，Pages HTTP／Playwright 需同時覆蓋兩個入口及直接列印封鎖。
+- 公開狀態宣告一致性：首頁 43 個工具 metadata 是唯一公開清冊；RC 家族入口只重述一致版本與 formal 狀態；鋼構四個正式版本必須對齊共用 metadata，預設只讀 tracked 公開快照，本機 audit 需以 `?auditSource=local` 明確選用；錨栓公開版本與計算引擎 build 分欄；覆工板頁面、JSON、報表共用 metadata；開挖維持服務型且不固化通過數；舊網址相容入口不得再保存第二份版本、能力、日期或通過狀態。`public-status-claims-contract` 必須留在 preflight summary 與 Global Governance Gates，Pages HTTP／Playwright 需覆蓋 canonical 版本、私有路徑排除及 RC／鋼構／覆工板／開挖／舊網址入口的直接列印封鎖。
 - 報告閱讀狀態：`頁面專用`，page-only boundary `4/4`、可讀文字 `17/17`、瀏覽器 smoke `2/2`、首頁正式工具實際交付物渲染 `31/31`、補充報告 / 服務成品 `2/2`、成品檔案完整性 `139/139`、風力／地震數值結果鏈 `14/14`、RC 結果鏈 `34/34`、RC 來源組包 `32/32`、RC 核可 HTML 列印 `34/34`、RC HTML 內容封印 `34/34`、鋼構結果鏈 `5/5`、石材結果鏈 `1/1`、錨栓結果鏈 `1/1`、覆工板結果鏈 `1/1`、開挖結果鏈 `1/1`，issue `0`；此總覽只能出現在頁面或工具本身，不得附入計算書、列印輸出或 PDF，也不得寫入 Word / DOCX 或 workbook。公開的 139 份只分成正式 PDF／證據 `60`、RC PDF／PNG `66` 與混合格式附件 `13` 三類計數；結果鏈、RC 來源組包、核可 HTML 列印及內容封印也只公開完成數，不得帶出 scope、檔名、工具版本、bytes、雜湊、golden case 內容、RC 案例資料、補強表單快照、鋼構／石材／錨栓／覆工板／開挖來源資料、預期數值、重現指紋、成品雜湊或計算指紋。
 - 下列 A0~G 是下次同類變更的分包 playbook，不是目前待 staging 清單。
 

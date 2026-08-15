@@ -775,7 +775,7 @@ assert.ok(pagesLiveSmoke.includes('PUBLIC_ROUTE_SAMPLES'), 'Pages live smoke has
 assert.ok(pagesLiveSmoke.includes('assertPublicRouteSamples'), 'Pages live smoke checks representative public routes');
 assert.ok(pagesLiveSmoke.includes('for (const forbidden of sample.forbidden || [])'), 'Pages live smoke rejects forbidden stale public claims');
 assert.ok(pagesLiveSmoke.includes('結構工具箱/index-classic.html') && pagesLiveSmoke.includes('舊網址相容入口列印已封鎖'), 'Pages live smoke protects classic compatibility boundary');
-assert.ok(pagesLiveBrowserSmoke.includes("routes.push('/rc', '/toolbox-classic')") && pagesLiveBrowserSmoke.includes('directPrintBoundaries'), 'Pages browser smoke renders RC and classic launcher print boundaries');
+assert.ok(pagesLiveBrowserSmoke.includes("routes.push('/rc', '/toolbox-classic')") && pagesLiveBrowserSmoke.includes("'/steel-formal':") && pagesLiveBrowserSmoke.includes("'/decking':") && pagesLiveBrowserSmoke.includes('directPrintBoundaries'), 'Pages browser smoke renders RC, classic, steel and decking print boundaries');
 assert.ok(pagesLiveSmoke.includes("{ path: 'anchor/', needles: ['錨栓檢討工具'], checkAssets: true }"), 'Pages live smoke checks anchor application assets');
 assert.ok(pagesLiveSmoke.includes('async function assertPublicAssets'), 'Pages live smoke has public asset availability gate');
 assert.ok(pagesLiveSmoke.includes('response.arrayBuffer()'), 'Pages live smoke rejects empty application assets');
@@ -798,6 +798,8 @@ assert.ok(pagesLiveSmoke.includes('鋼構工具/plate-check.html'), 'Pages live 
 assert.ok(pagesLiveSmoke.includes('鋼構工具/steel-column-formal.html'), 'Pages live smoke samples steel column formal page');
 assert.ok(pagesLiveSmoke.includes('鋼構工具/app.js'), 'Pages live smoke samples the steel public audit-status router');
 assert.ok(pagesLiveSmoke.includes('../結構工具箱/assets/status/platform-status.json'), 'Pages live smoke checks the steel public platform-status source');
+assert.ok(pagesLiveSmoke.includes('?auditSource=local') && pagesLiveSmoke.includes("forbidden: ['function isLocalAuditHost']"), 'Pages live smoke keeps steel private audit behind explicit opt-in');
+assert.equal(pagesLiveBrowserSmoke.includes('/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/output/audit/audit-status.json'), false, 'Pages browser smoke does not ignore steel private-audit 404');
 assert.ok(pagesLiveSmoke.includes('石材固定/石材計算書產生器_規範版V2.html'), 'Pages live smoke samples stone V2 page');
 assert.ok(pagesLiveSmoke.includes('開挖擋土支撐/index.html'), 'Pages live smoke samples excavation launcher');
 assert.ok(pagesLiveSmoke.includes('pages live smoke OK'), 'Pages live smoke reports success');

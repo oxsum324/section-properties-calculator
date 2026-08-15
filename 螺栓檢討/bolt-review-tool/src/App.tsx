@@ -13,6 +13,7 @@ import './App.css'
 import {
   CURRENT_CALC_ENGINE_VERSION,
   ENGINEERING_USE_DISCLAIMER,
+  PUBLIC_TOOL_VERSION,
   getCalcEngineVersionStatus,
   normalizeCalcEngineVersion,
 } from './appMeta'
@@ -689,8 +690,8 @@ function App() {
   )
   const calcEngineMismatch = calcEngineVersionStatus.mismatch
   const calcEngineStatusMessage = calcEngineMismatch
-    ? `本案原始計算版本為 ${calcEngineVersionStatus.projectVersion}，目前工具為 ${calcEngineVersionStatus.runtimeVersion}。目前畫面結果已依最新版引擎重算，正式交付前應重新檢核並建立新留痕。`
-    : `本案計算版本與目前工具版本一致：${calcEngineVersionStatus.runtimeVersion}`
+    ? `本案原始計算引擎為 ${calcEngineVersionStatus.projectVersion}，目前計算引擎為 ${calcEngineVersionStatus.runtimeVersion}。目前畫面結果已依最新版引擎重算，正式交付前應重新檢核並建立新留痕。`
+    : `本案計算引擎與目前計算引擎一致：${calcEngineVersionStatus.runtimeVersion}`
   const caseDocuments = useMemo(() => project.documents ?? [], [project.documents])
   // previewDocumentMeta 已下放至 useDocumentLibrary（從其 hook 結果取得）
   const normalizedProjectTemplateSearch = projectTemplateSearch
@@ -1062,7 +1063,7 @@ function App() {
       calcEngineVersion: CURRENT_CALC_ENGINE_VERSION,
     })
     setSaveMessage(
-      `已將本案計算版本更新為 ${CURRENT_CALC_ENGINE_VERSION}；建議立即重新留痕或重新匯出報表。`,
+      `已將本案計算引擎更新為 ${CURRENT_CALC_ENGINE_VERSION}；建議立即重新留痕或重新匯出報表。`,
     )
   }
 
@@ -1497,7 +1498,7 @@ function App() {
       <div className="screen-only">
       <header className="app-header app-header-compact">
         <div className="app-header-main">
-          <h1>錨栓檢討工具</h1>
+          <h1>錨栓檢討工具 {PUBLIC_TOOL_VERSION}</h1>
           <button
             type="button"
             className="shortcut-help-trigger"
@@ -1611,7 +1612,7 @@ function App() {
         aria-live="polite"
       >
         <strong>
-          {calcEngineMismatch ? '計算版本差異' : '簽證責任與版本追溯'}
+          {calcEngineMismatch ? '計算引擎差異' : '簽證責任與版本追溯'}
         </strong>
         <span>
           {calcEngineStatusMessage} {ENGINEERING_USE_DISCLAIMER}
@@ -3802,7 +3803,7 @@ function App() {
             </div>
             <div className="shortcut-help-version">
               <span>
-                build：<code>{__APP_COMMIT_HASH__}</code> ·
+                工具：<code>{PUBLIC_TOOL_VERSION}</code> · build：<code>{__APP_COMMIT_HASH__}</code> ·
                 <code>{formatDateTime(__APP_BUILD_TIME__)}</code>
               </span>
               <span>

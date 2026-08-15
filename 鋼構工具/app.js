@@ -1604,7 +1604,7 @@
         const modules = (status.modules || []).map((key) => moduleLabels[key] || key).filter(Boolean);
         if (modules.length) meta.push(`範圍｜${modules.join("、")}`);
         meta.push("來源｜正式放行公開快照");
-        links.push({ href: "../結構工具箱/index.html", label: "開啟工具箱狀態總覽" });
+        links.push({ href: "../結構工具箱/audit-dashboard.html", label: "開啟平台公開巡檢狀態" });
         links.push({ href: "../結構工具箱/assets/status/platform-status.json", label: "開啟公開狀態 JSON" });
       } else {
         meta.push(status.loop ? "模式｜循環巡檢" : "模式｜單次巡檢");
@@ -1630,18 +1630,9 @@
     `;
   }
 
-  function isLocalAuditHost(hostname = window.location.hostname) {
-    const host = String(hostname || "").trim().toLowerCase().replace(/^\[|\]$/g, "");
-    if (["localhost", "0.0.0.0", "::1"].includes(host)) return true;
-    if (/^127(?:\.\d{1,3}){3}$/.test(host)) return true;
-    if (/^10(?:\.\d{1,3}){3}$/.test(host)) return true;
-    if (/^192\.168(?:\.\d{1,3}){2}$/.test(host)) return true;
-    const private172 = host.match(/^172\.(\d{1,2})(?:\.\d{1,3}){2}$/);
-    return Boolean(private172 && Number(private172[1]) >= 16 && Number(private172[1]) <= 31);
-  }
-
   function getAuditStatusSource() {
-    if (isLocalAuditHost()) {
+    const localAuditRequested = new URLSearchParams(window.location.search).get("auditSource") === "local";
+    if (localAuditRequested) {
       return {
         kind: "local",
         url: "./output/audit/audit-status.json",
@@ -1660,7 +1651,7 @@
 
     if (!/^https?:$/i.test(window.location.protocol)) {
       renderAuditStatusCard(null, {
-        note: "目前以直接開檔模式執行，未讀取自巡檢狀態；若改以本機伺服器開啟，會顯示最新桌機 / 平板 / 手機巡檢結果。",
+        note: "目前以直接開檔模式執行，未讀取巡檢狀態；以 HTTP 開啟時預設顯示正式放行公開快照，本機詳細 audit 僅在網址明確加上 ?auditSource=local 時讀取。",
       });
       return;
     }

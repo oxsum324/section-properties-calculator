@@ -16,16 +16,25 @@ async page => {
     '/excavation-support': { label: 'excavation launcher', heading: '開挖服務入口列印已封鎖' },
     '/rc': { label: 'RC launcher', heading: 'RC 工具箱入口列印已封鎖' },
     '/toolbox-classic': { label: 'classic compatibility launcher', heading: '舊網址相容入口列印已封鎖' },
+    '/steel-formal': { label: 'steel launcher', heading: '鋼構正式工具主頁列印已封鎖', selector: '.steel-formal-direct-print-boundary', bodyClass: 'steel-formal-output-page' },
+    '/steel-plate': { label: 'steel plate page', heading: '鋼構正式工具主頁列印已封鎖', selector: '.steel-formal-direct-print-boundary', bodyClass: 'steel-formal-output-page' },
+    '/steel-beam-formal': { label: 'steel beam page', heading: '鋼構正式工具主頁列印已封鎖', selector: '.steel-formal-direct-print-boundary', bodyClass: 'steel-formal-output-page' },
+    '/steel-column-formal': { label: 'steel column page', heading: '鋼構正式工具主頁列印已封鎖', selector: '.steel-formal-direct-print-boundary', bodyClass: 'steel-formal-output-page' },
+    '/decking': { label: 'decking page', heading: '覆工板工具主頁列印已封鎖' },
   };
+  const versionedHeadingRoutes = new Set(['/steel-formal', '/steel-plate', '/steel-beam-formal', '/steel-column-formal', '/anchor', '/decking']);
 
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`${base}%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/`, { waitUntil: 'networkidle' });
-  const routes = await page.evaluate(async () => {
+  const routeClaims = await page.evaluate(async () => {
     const response = await fetch('assets/home/home.js', { cache: 'no-store' });
     if (!response.ok) throw new Error(`home.js HTTP ${response.status}`);
     const source = await response.text();
-    return [...source.matchAll(/\bhref:\s*['"](\/[^'"]+)['"]/g)].map(match => match[1]);
+    return [...source.matchAll(/\bversion:\s*['"]([^'"]+)['"][\s\S]*?\bhref:\s*['"](\/[^'"]+)['"]/g)]
+      .map(match => ({ version: match[1], route: match[2] }));
   });
+  const routes = routeClaims.map(claim => claim.route);
+  const routeVersions = Object.fromEntries(routeClaims.map(claim => [claim.route, claim.version]));
 
   if (routes.length < 40 || new Set(routes).size !== routes.length) {
     throw new Error(`invalid homepage route inventory: total=${routes.length}, unique=${new Set(routes).size}`);
@@ -40,8 +49,7 @@ async page => {
     const url = String(value || '');
     if (url.includes('/favicon.ico')) return true;
     if (!localArtifactPreview) return false;
-    return url.includes('/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/output/audit/audit-status.json') ||
-      url === 'http://127.0.0.1:8765/status';
+    return url === 'http://127.0.0.1:8765/status';
   };
 
   for (const viewport of viewports) {
@@ -111,6 +119,7 @@ async page => {
           : null;
         return {
           title: document.title,
+          primaryHeading: (document.querySelector('h1')?.textContent || '').replace(/\s+/g, ' ').trim(),
           bodyChars: (document.body?.innerText || '').trim().length,
           clientWidth: document.documentElement.clientWidth,
           scrollWidth: document.documentElement.scrollWidth,
@@ -147,27 +156,30 @@ async page => {
 
       let directPrintBoundary = null;
       if (directPrintBoundaries[route]) {
-        const screenBoundary = await page.evaluate(() => {
-          const boundary = document.querySelector('.formal-direct-print-boundary');
+        const config = directPrintBoundaries[route];
+        const boundarySelector = config.selector || '.formal-direct-print-boundary';
+        const boundaryBodyClass = config.bodyClass || 'formal-tool-output-page';
+        const screenBoundary = await page.evaluate(({ selector, bodyClass }) => {
+          const boundary = document.querySelector(selector);
           return {
-            bodyClass: document.body.classList.contains('formal-tool-output-page'),
+            bodyClass: document.body.classList.contains(bodyClass),
             boundaryExists: Boolean(boundary),
             boundaryRects: boundary?.getClientRects().length || 0,
             stylesheetLoaded: [...document.styleSheets]
               .some(sheet => String(sheet.href || '').includes('direct-print-boundary.css')),
           };
-        });
+        }, { selector: boundarySelector, bodyClass: boundaryBodyClass });
         await page.emulateMedia({ media: 'print' });
-        const printBoundary = await page.evaluate(() => {
-          const boundary = document.querySelector('.formal-direct-print-boundary');
+        const printBoundary = await page.evaluate(selector => {
+          const boundary = document.querySelector(selector);
           return {
             boundaryRects: boundary?.getClientRects().length || 0,
             boundaryText: (boundary?.textContent || '').replace(/\s+/g, ' ').trim(),
             visibleOtherChildren: [...document.body.children]
-              .filter(node => !node.classList.contains('formal-direct-print-boundary') && node.getClientRects().length > 0)
+              .filter(node => !node.matches(selector) && node.getClientRects().length > 0)
               .map(node => node.id || node.className || node.tagName),
           };
-        });
+        }, boundarySelector);
         await page.emulateMedia({ media: 'screen' });
         directPrintBoundary = { screen: screenBoundary, print: printBoundary };
       }
@@ -183,6 +195,9 @@ async page => {
       if (navigationStatus >= 400 || navigationStatus === 0) routeIssues.push(`navigation HTTP ${navigationStatus}`);
       if (!page.url().startsWith(base)) routeIssues.push(`left deployment origin: ${page.url()}`);
       if (!state.title || state.title === '正在開啟結構工具') routeIssues.push(`invalid title: ${state.title}`);
+      if (versionedHeadingRoutes.has(route) && !state.primaryHeading.includes(routeVersions[route] || '')) {
+        routeIssues.push(`primary heading does not expose canonical version ${routeVersions[route]}: ${state.primaryHeading}`);
+      }
       if (state.bodyChars < 20) routeIssues.push(`body text too short: ${state.bodyChars}`);
       const containedStonePreview = route === '/stone-fixing' && viewport.key === 'mobile' &&
         state.rootOverflowX === 'clip' && state.stonePreview &&

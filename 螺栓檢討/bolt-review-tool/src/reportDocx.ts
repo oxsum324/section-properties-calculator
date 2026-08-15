@@ -17,6 +17,7 @@ import {
 } from 'docx'
 import {
   CURRENT_APP_BUILD_TIME,
+  PUBLIC_TOOL_VERSION,
   REPORT_SOURCE_TOOL,
   getCalcEngineVersionStatus,
 } from './appMeta'
@@ -518,7 +519,7 @@ function buildResultNotes(rows: ReportTableRow[]) {
 }
 
 /**
- * 「使用邊界與版本」終章：保留 calc engine 版本、build 時間與版本一致性狀態，
+ * 「使用邊界與版本」終章：保留工具語意版本、calc engine、build 時間與引擎一致性狀態，
  * 供附件追溯；通用流程警語與責任宣告留在 HTML 畫面，不寫入計算附件。
  */
 function buildVersionAndDisclaimerSection(params: ReportArtifactParams) {
@@ -527,7 +528,7 @@ function buildVersionAndDisclaimerSection(params: ReportArtifactParams) {
   )
   const versionRows: Array<[string, string]> = [
     ['產出工具', REPORT_SOURCE_TOOL],
-    ['工具版本', status.runtimeVersion],
+    ['工具版本', PUBLIC_TOOL_VERSION],
     ['輸出時間', formatDocxDateTime(params.reportGeneratedAt ?? new Date().toISOString())],
     [
       '計算指紋',
@@ -535,13 +536,13 @@ function buildVersionAndDisclaimerSection(params: ReportArtifactParams) {
         ? `CF-${params.auditEntry.hash.slice(0, 16).toUpperCase()}`
         : '—',
     ],
-    ['本案計算版本', status.projectVersion],
-    ['目前工具版本（runtime）', status.runtimeVersion],
+    ['本案計算引擎', status.projectVersion],
+    ['目前計算引擎', status.runtimeVersion],
     [
-      '版本一致性',
+      '引擎一致性',
       status.mismatch
-        ? '⚠ 不一致：本案先前以另一版本計算；如需確認請按主畫面「升級至目前版本」並重新留痕'
-        : '✓ 一致：本案計算版本與目前工具相同',
+        ? '⚠ 不一致：本案先前以另一計算引擎計算；如需確認請按主畫面「升級至目前引擎」並重新留痕'
+        : '✓ 一致：本案計算引擎與目前計算引擎相同',
     ],
     ['工具 build 時間', formatDocxDateTime(CURRENT_APP_BUILD_TIME)],
     [

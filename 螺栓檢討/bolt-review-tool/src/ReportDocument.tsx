@@ -8,6 +8,7 @@
 import {
   CURRENT_APP_BUILD_TIME,
   CURRENT_CALC_ENGINE_VERSION,
+  PUBLIC_TOOL_VERSION,
   REPORT_SOURCE_TOOL,
 } from './appMeta'
 import {
@@ -1075,14 +1076,14 @@ export function ReportDocument({
             </div>
             <div>
               <dt>工具版本</dt>
-              <dd><code>{CURRENT_CALC_ENGINE_VERSION}</code></dd>
+              <dd><code>{PUBLIC_TOOL_VERSION}</code></dd>
             </div>
             {calculationFingerprint ? <div>
               <dt>計算指紋</dt>
               <dd><code>{calculationFingerprint}</code></dd>
             </div> : null}
             <div>
-              <dt>本案計算版本</dt>
+              <dt>本案計算引擎</dt>
               <dd>
                 <code>
                   {review.project.calcEngineVersion ?? CURRENT_CALC_ENGINE_VERSION}
@@ -1090,14 +1091,14 @@ export function ReportDocument({
               </dd>
             </div>
             <div>
-              <dt>目前工具版本</dt>
+              <dt>目前計算引擎</dt>
               <dd>
                 <code>{CURRENT_CALC_ENGINE_VERSION}</code> · build{' '}
                 {formatDateTime(CURRENT_APP_BUILD_TIME)}
               </dd>
             </div>
             <div>
-              <dt>版本一致性</dt>
+              <dt>引擎一致性</dt>
               <dd>
                 {(review.project.calcEngineVersion ??
                   CURRENT_CALC_ENGINE_VERSION) === CURRENT_CALC_ENGINE_VERSION

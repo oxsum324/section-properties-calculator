@@ -194,7 +194,7 @@
       '/foundation-local': '2026-08-15',
       '/equipment-load': '2026-08-15',
       '/earth-pressure': '2026-08-15',
-      '/decking': '2026-07-21',
+      '/decking': '2026-08-15',
       '/excavation-support': '2026-08-15'
     }
   };

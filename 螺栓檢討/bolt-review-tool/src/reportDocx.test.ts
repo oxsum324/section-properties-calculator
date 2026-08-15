@@ -13,6 +13,7 @@ import {
   defaultProject,
   normalizeReportSettings,
 } from './defaults'
+import { CURRENT_CALC_ENGINE_VERSION, PUBLIC_TOOL_VERSION } from './appMeta'
 import { getEvaluationFieldStates } from './evaluationCatalog'
 import { serializeReportDocument } from './reportDocx'
 import { normalizeUnitPreferences } from './units'
@@ -224,6 +225,10 @@ describe('reportDocx', () => {
     expect(structure.visibleText).toContain('逐項檢核說明')
     expect(structure.visibleText).toContain('產出工具錨栓檢討工具')
     expect(structure.visibleText).toContain('工具版本')
+    expect(structure.visibleText).toContain(PUBLIC_TOOL_VERSION)
+    expect(structure.visibleText).toContain('本案計算引擎')
+    expect(structure.visibleText).toContain('目前計算引擎')
+    expect(structure.visibleText).toContain(CURRENT_CALC_ENGINE_VERSION)
     expect(structure.visibleText).toContain('輸出時間')
     expect(structure.visibleText).toContain('計算指紋—')
     expect(structure.visibleText).toContain('核可時間：2026/07/20 18:00:00')

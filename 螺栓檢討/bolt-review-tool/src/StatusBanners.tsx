@@ -3,7 +3,7 @@ import { IconRefresh } from './Icons'
 /**
  * 頂部狀態橫幅：
  *   1. swUpdateAvailable — 偵測到 service worker 有新版本可用時提示重新載入
- *   2. calcEngineMismatch — 本案 hash 留痕的計算版本與目前工具版本不一致
+ *   2. calcEngineMismatch — 本案 hash 留痕的計算引擎與目前計算引擎不一致
  *
  * 兩條皆由父層的全域狀態驅動；本元件只負責呈現與按鈕回呼。
  *
@@ -64,10 +64,10 @@ export function StatusBanners(props: {
       {calcEngineMismatch ? (
         <div className="calc-engine-mismatch-banner" role="alert">
           <div className="calc-engine-mismatch-text">
-            <strong>⚠ 本案計算版本與目前工具不一致</strong>
+            <strong>⚠ 本案計算引擎與目前計算引擎不一致</strong>
             <span>
               本案先前以 <code>{projectCalcEngineVersion}</code> 計算；
-              目前工具版本為 <code>{runtimeCalcEngineVersion}</code>。
+              目前計算引擎為 <code>{runtimeCalcEngineVersion}</code>。
               畫面顯示已依最新版重算；正式交付前請按右側按鈕升級並重新留痕。
             </span>
           </div>
@@ -75,7 +75,7 @@ export function StatusBanners(props: {
             type="button"
             className="calc-engine-upgrade-btn"
             onClick={onAdoptCurrentCalcEngineVersion}
-            title="把本案計算版本標記為目前工具版本，建議完成後立即重新留痕"
+            title="把本案計算引擎標記為目前計算引擎，建議完成後立即重新留痕"
           >
             升級此案 →
           </button>

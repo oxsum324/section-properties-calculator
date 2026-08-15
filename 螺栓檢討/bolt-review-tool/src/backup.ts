@@ -174,7 +174,7 @@ export async function verifyWorkspaceBackupReplay(backup: WorkspaceBackup) {
     }
     if (source.calcEngineVersion !== record.calcEngineVersion) {
       throw new Error(
-        `案例「${record.projectId}」計算版本與來源不符，已保留原工作區。`,
+        `案例「${record.projectId}」計算引擎與來源不符，已保留原工作區。`,
       )
     }
     if (source.fingerprint !== record.fingerprint) {

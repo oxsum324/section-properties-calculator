@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>覆工板系統計算工具 v1.0</title>
+<title>覆工板系統計算工具</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
 <style>
@@ -468,7 +468,7 @@
 
 <header>
   <a class="home-link" href="../結構工具箱/index.html">&larr; 回主選單</a>
-  <h1>覆工板系統計算工具 v1.0</h1>
+  <h1 id="deckingToolTitle">覆工板系統計算工具</h1>
   <div class="sub">覆工板面 → 覆工小梁 → 覆工大梁 → 共構柱｜HS20-44 / PC400 / 45T-300T 吊車載重　｜　Ctrl+1~5 切頁　｜　使用專用按鈕列印彙整計算書</div>
 </header>
 
@@ -888,6 +888,14 @@
 
 <script src="shared/h-section-table.js"></script>
 <script>
+const DECKING_TOOL_METADATA = Object.freeze({
+  id: 'fugongban',
+  name: '覆工板系統計算工具',
+  version: 'V1.0'
+});
+document.title = `${DECKING_TOOL_METADATA.name} ${DECKING_TOOL_METADATA.version}`;
+document.getElementById('deckingToolTitle').textContent = document.title;
+
 //============================================================
 // 全域結果暫存（供報告頁彙整）
 //============================================================
@@ -1749,7 +1757,11 @@ function restoreState() {
 function buildProjectPayload() {
   return {
     schema: 'fugongban.project.v1',
-    tool: { id: 'fugongban', name: '覆工板系統計算工具', pageVersion: 'v1.0' },
+    tool: {
+      id: DECKING_TOOL_METADATA.id,
+      name: DECKING_TOOL_METADATA.name,
+      pageVersion: DECKING_TOOL_METADATA.version
+    },
     savedAt: new Date().toISOString(),
     state: collectFormState()
   };
@@ -2057,7 +2069,7 @@ function buildReport() {
 
     <div style="margin-top:24px; text-align:right; color:#666; font-size:10px;">
       <div style="font-weight:700;color:${approved ? '#14532d' : '#4b5563'};">${approved ? `文件狀態：正式附件｜核可時間：${approval.dataset.approvedAt}` : '文件狀態：內部審閱'}｜計算指紋：${calculationFingerprint}</div>
-      報告產出時間：${new Date().toLocaleString('zh-TW')}｜覆工板系統計算工具 v1.0
+      報告產出時間：${new Date().toLocaleString('zh-TW')}｜${DECKING_TOOL_METADATA.name} ${DECKING_TOOL_METADATA.version}
     </div>
   `;
   document.getElementById('report-output').innerHTML = html;

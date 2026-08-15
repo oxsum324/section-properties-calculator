@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs'
 import {
   CURRENT_APP_BUILD_TIME,
   CURRENT_CALC_ENGINE_VERSION,
+  PUBLIC_TOOL_VERSION,
   REPORT_SOURCE_TOOL,
   getCalcEngineVersionStatus,
 } from './appMeta'
@@ -410,7 +411,7 @@ export function buildSummaryRows(params: ReportArtifactParams): ReportTableRow[]
   )
   const calcEngineStatusLabel = calcEngineVersionStatus.mismatch
     ? `本案原始版本 ${calcEngineVersionStatus.projectVersion}，目前以 ${calcEngineVersionStatus.runtimeVersion} 重算；正式交付前應重新檢核並留痕。`
-    : `與目前工具版本一致（${CURRENT_CALC_ENGINE_VERSION}）`
+    : `與目前計算引擎一致（${CURRENT_CALC_ENGINE_VERSION}）`
   const documentState = buildReportDocumentState({
     batchReview,
     review,
@@ -425,7 +426,7 @@ export function buildSummaryRows(params: ReportArtifactParams): ReportTableRow[]
     { 項目: '文件狀態', 值: documentState.label },
     ...(documentState.reason ? [{ 項目: '核可資訊', 值: documentState.reason }] : []),
     { 項目: '產出工具', 值: REPORT_SOURCE_TOOL },
-    { 項目: '工具版本', 值: calcEngineVersionStatus.runtimeVersion },
+    { 項目: '工具版本', 值: PUBLIC_TOOL_VERSION },
     { 項目: '輸出時間', 值: formatDateTime(reportGeneratedAt) },
     { 項目: '計算指紋', 值: calculationFingerprint },
     { 項目: '規範版本', 值: review.ruleProfile.versionLabel },
@@ -443,9 +444,9 @@ export function buildSummaryRows(params: ReportArtifactParams): ReportTableRow[]
     { 項目: '控制 DCR', 值: formatNumber(getGoverningDcr(batchReview.summary)) },
     { 項目: '最大數值 DCR', 值: formatNumber(batchReview.summary.maxDcr) },
     { 項目: '產品 completeness', 值: completeness.formal ? '完整' : '待補' },
-    { 項目: '案件計算版本', 值: calcEngineVersionStatus.projectVersion },
-    { 項目: '目前工具版本', 值: calcEngineVersionStatus.runtimeVersion },
-    { 項目: '版本狀態', 值: calcEngineStatusLabel },
+    { 項目: '案件計算引擎', 值: calcEngineVersionStatus.projectVersion },
+    { 項目: '目前計算引擎', 值: calcEngineVersionStatus.runtimeVersion },
+    { 項目: '引擎一致性', 值: calcEngineStatusLabel },
     { 項目: REPORT_TIMESTAMP_LABELS.editedAt, 值: formatDateTime(review.project.updatedAt) },
     { 項目: REPORT_TIMESTAMP_LABELS.generatedAt, 值: formatDateTime(reportGeneratedAt) },
     { 項目: REPORT_TIMESTAMP_LABELS.auditedAt, 值: formatDateTime(params.auditEntry?.createdAt) },
@@ -464,7 +465,7 @@ export function buildAuditRows(params: ReportArtifactParams): ReportTableRow[] {
     時間: formatDateTime(entry.createdAt),
     來源: auditSourceLabel(entry.source),
     Hash: formatAuditHash(entry.hash, 16),
-    計算版本: entry.calcEngineVersion ?? CURRENT_CALC_ENGINE_VERSION,
+    計算引擎: entry.calcEngineVersion ?? CURRENT_CALC_ENGINE_VERSION,
     控制組合: entry.summary.controllingLoadCaseName ?? '',
     控制模式: entry.summary.governingMode,
     控制DCR: formatNumber(entry.summary.governingDcr ?? entry.summary.maxDcr),

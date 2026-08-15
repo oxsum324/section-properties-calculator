@@ -3,6 +3,7 @@ import {
   CURRENT_APP_BUILD_TIME,
   CURRENT_CALC_ENGINE_VERSION,
   ENGINEERING_USE_DISCLAIMER,
+  PUBLIC_TOOL_VERSION,
 } from './appMeta'
 import { formatDateTime } from './formatHelpers'
 
@@ -172,9 +173,10 @@ export function ReportSettingsPanel(props: {
         </span>
       </label>
       <p className="helper-text">
-        目前工具版本：<code>{CURRENT_CALC_ENGINE_VERSION}</code> · build{' '}
+        工具版本：<code>{PUBLIC_TOOL_VERSION}</code> · 計算引擎：
+        <code>{CURRENT_CALC_ENGINE_VERSION}</code> · build{' '}
         <code>{formatDateTime(CURRENT_APP_BUILD_TIME)}</code>。
-        案例會保存本案計算版本，報表也會同步列出版本狀態與留痕資訊。
+        案例會保存本案計算引擎，報表也會同步列出引擎狀態與留痕資訊。
       </p>
       <p className="helper-text">{ENGINEERING_USE_DISCLAIMER}</p>
     </details>

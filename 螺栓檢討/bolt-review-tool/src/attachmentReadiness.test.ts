@@ -162,10 +162,10 @@ describe('buildAttachmentReadinessModel', () => {
     )
 
     expect(model.status).toBe('review')
-    expect(model.priority.value).toContain('計算版本與目前工具不一致')
+    expect(model.priority.value).toContain('計算引擎與目前計算引擎不一致')
     expect(model.items).toContainEqual(
       expect.objectContaining({
-        label: '計算版本',
+        label: '計算引擎',
         tone: 'warn',
       }),
     )
