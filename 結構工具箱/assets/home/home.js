@@ -195,7 +195,7 @@
       '/equipment-load': '2026-08-15',
       '/earth-pressure': '2026-08-15',
       '/decking': '2026-07-21',
-      '/excavation-support': '2026-08-13'
+      '/excavation-support': '2026-08-15'
     }
   };
 
