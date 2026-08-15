@@ -2,12 +2,12 @@
   "publicEvidenceSchemaVersion": 3,
   "snapshotVersion": 1,
   "kind": "preflight-summary",
-  "generatedAt": "2026-08-16 05:45:58",
-  "runId": "20260816-051610",
+  "generatedAt": "2026-08-16 06:48:11",
+  "runId": "20260816-061833",
   "quick": false,
   "forcePlatformAudit": true,
   "forceSlowChecks": true,
-  "sourceCommitSha": "b349ac8c164f8c088efcefaf0976b53c7fb19f5f",
+  "sourceCommitSha": "2c97af9080dc4323779ccc4cd29335e95d6b1c3c",
   "sourceBranch": "master",
   "sourceDirty": false,
   "pass": true,
@@ -18,109 +18,18 @@
   "platformAuditReused": false,
   "recordsCount": 86,
   "passedCount": 86,
-  "totalSeconds": 1716.2,
+  "totalSeconds": 1708,
   "slowestKey": "platform-audit",
-  "slowestSeconds": 770.4,
+  "slowestSeconds": 766.6,
   "postCheckCount": 3,
   "postChecksPassedCount": 3,
   "postCheckFailures": [],
-  "sourcePath": "output/preflight/history/20260816-051610/preflight-summary.json",
-  "sourceHash": "51b636f949e125613b339c2729f7a7534080ec6ab59cb224d98ed0ee620af1d4",
+  "sourcePath": "output/preflight/history/20260816-061833/preflight-summary.json",
+  "sourceHash": "4fd7503490baa9be5ec0401aa651d343debff2d926de4cd6561c3f820b8d9179",
   "releaseHistory": {
     "schemaVersion": 2,
     "limit": 8,
     "entries": [
-      {
-        "runId": "20260815-180019",
-        "generatedAt": "2026-08-15 18:36:28",
-        "sourceCommitSha": "93f728174a9eb937027d07454ae2df1ca254e5df",
-        "records": {
-          "passed": 84,
-          "required": 84
-        },
-        "postChecks": {
-          "passed": 3,
-          "required": 3
-        },
-        "dimensions": [
-          {
-            "id": "release",
-            "pass": true
-          },
-          {
-            "id": "steel",
-            "pass": true
-          },
-          {
-            "id": "rc",
-            "pass": true
-          },
-          {
-            "id": "delivery",
-            "pass": true
-          }
-        ],
-        "metrics": [
-          {
-            "id": "steelResult",
-            "complete": 5,
-            "required": 5
-          },
-          {
-            "id": "steelContentSeal",
-            "complete": 5,
-            "required": 5
-          },
-          {
-            "id": "steelApprovalSeal",
-            "complete": 5,
-            "required": 5
-          },
-          {
-            "id": "rcResult",
-            "complete": 34,
-            "required": 34
-          },
-          {
-            "id": "rcPrint",
-            "complete": 34,
-            "required": 34
-          },
-          {
-            "id": "rcPackage",
-            "complete": 32,
-            "required": 32
-          },
-          {
-            "id": "formalResult",
-            "complete": 14,
-            "required": 14
-          },
-          {
-            "id": "localQuickResult",
-            "complete": 3,
-            "required": 3
-          },
-          {
-            "id": "rendered",
-            "complete": 31,
-            "required": 31
-          },
-          {
-            "id": "delivery",
-            "complete": 139,
-            "required": 139
-          }
-        ],
-        "change": {
-          "policyVersion": 1,
-          "classification": "baseline",
-          "increases": [],
-          "reductions": [],
-          "reasonCode": "",
-          "reason": ""
-        }
-      },
       {
         "runId": "20260815-203754",
         "generatedAt": "2026-08-15 21:09:37",
@@ -205,14 +114,8 @@
         ],
         "change": {
           "policyVersion": 1,
-          "classification": "expanded",
-          "increases": [
-            {
-              "id": "records",
-              "from": 84,
-              "to": 85
-            }
-          ],
+          "classification": "baseline",
+          "increases": [],
           "reductions": [],
           "reasonCode": "",
           "reason": ""
@@ -765,6 +668,97 @@
               "to": 86
             }
           ],
+          "reductions": [],
+          "reasonCode": "",
+          "reason": ""
+        }
+      },
+      {
+        "runId": "20260816-061833",
+        "generatedAt": "2026-08-16 06:48:11",
+        "sourceCommitSha": "2c97af9080dc4323779ccc4cd29335e95d6b1c3c",
+        "records": {
+          "passed": 86,
+          "required": 86
+        },
+        "postChecks": {
+          "passed": 3,
+          "required": 3
+        },
+        "dimensions": [
+          {
+            "id": "release",
+            "pass": true
+          },
+          {
+            "id": "steel",
+            "pass": true
+          },
+          {
+            "id": "rc",
+            "pass": true
+          },
+          {
+            "id": "delivery",
+            "pass": true
+          }
+        ],
+        "metrics": [
+          {
+            "id": "steelResult",
+            "complete": 5,
+            "required": 5
+          },
+          {
+            "id": "steelContentSeal",
+            "complete": 5,
+            "required": 5
+          },
+          {
+            "id": "steelApprovalSeal",
+            "complete": 5,
+            "required": 5
+          },
+          {
+            "id": "rcResult",
+            "complete": 34,
+            "required": 34
+          },
+          {
+            "id": "rcPrint",
+            "complete": 34,
+            "required": 34
+          },
+          {
+            "id": "rcPackage",
+            "complete": 32,
+            "required": 32
+          },
+          {
+            "id": "formalResult",
+            "complete": 14,
+            "required": 14
+          },
+          {
+            "id": "localQuickResult",
+            "complete": 3,
+            "required": 3
+          },
+          {
+            "id": "rendered",
+            "complete": 31,
+            "required": 31
+          },
+          {
+            "id": "delivery",
+            "complete": 139,
+            "required": 139
+          }
+        ],
+        "change": {
+          "policyVersion": 1,
+          "classification": "unchanged",
+          "increases": [],
           "reductions": [],
           "reasonCode": "",
           "reason": ""
