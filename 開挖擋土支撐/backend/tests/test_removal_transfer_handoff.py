@@ -624,7 +624,7 @@ class RemovalTransferHandoffTests(unittest.TestCase):
         capacity["documentReference"] = "RSC-1234567890ABCDEF1234"
         draft["results"][0]["supplementalChecks"][0]["evidence"]["fileSha256"] = capacity["fileSha256"]
 
-        with self.assertRaisesRegex(ValueError, "RSC 純軸壓證據不得重複"):
+        with self.assertRaisesRegex(ValueError, "RSC 構件容量證據不得重複"):
             build_receiver_verification_receipt(
                 handoff,
                 draft["verificationAuthority"],

@@ -1539,11 +1539,29 @@ function App() {
         "allowable_stress_increase_factor",
         "imbalance_factor",
         "additional_axial_load_tf_per_member",
+        "transfer_eccentricity_x_m",
+        "transfer_eccentricity_y_m",
+        "additional_moment_x_tf_m_per_member",
+        "additional_moment_y_tf_m_per_member",
+        "strong_axis_lateral_unbraced_length_m",
+        "moment_gradient_coefficient_cb",
+        "moment_amplification_coefficient_cmx",
+        "moment_amplification_coefficient_cmy",
       ];
       const nextValue = numericFields.includes(field)
         ? Number(value)
         : value;
-      return { ...current, [transferId]: { ...draft, [field]: nextValue } };
+      const nextDraft = { ...draft, [field]: nextValue } as ReshoreMemberCapacityInput;
+      if (field === "analysis_mode") {
+        nextDraft.pure_axial_no_eccentricity_confirmed = false;
+        if (value === "pure_axial") {
+          nextDraft.transfer_eccentricity_x_m = 0;
+          nextDraft.transfer_eccentricity_y_m = 0;
+          nextDraft.additional_moment_x_tf_m_per_member = 0;
+          nextDraft.additional_moment_y_tf_m_per_member = 0;
+        }
+      }
+      return { ...current, [transferId]: nextDraft };
     });
     setReshoreCapacityCalculations((current) => {
       if (!current[transferId]) return current;
@@ -1560,7 +1578,7 @@ function App() {
     const draft = reshoreCapacityDrafts[transfer.transferId];
     if (!draft) return;
     try {
-      setBusy("計算重撐／回撐 H 型鋼軸壓容量");
+      setBusy("計算重撐／回撐 H 型鋼構件容量");
       const response = await api.calculateReshoreMemberCapacity(
         receiverAssistantHandoff,
         transfer.transferId,
@@ -1597,19 +1615,25 @@ function App() {
           analysisModelReference: response.calculation.calculationFingerprint,
           governingLoadCombination: draft.governing_load_combination.trim(),
           directionAndDistributionBasis: draft.load_distribution_basis.trim(),
-          eccentricityAndSecondaryEffectBasis: "本模組限純軸壓；已確認無偏心。任何偏心或二次效應須另案檢核。",
-          checkedLimitStates: ["axial", "stability"],
+          eccentricityAndSecondaryEffectBasis: draft.analysis_mode === "pure_axial"
+            ? "採純軸壓模式；已確認無偏心、彎矩或其他橫向作用。"
+            : [draft.eccentricity_and_moment_basis.trim(), draft.bending_stability_basis.trim()].filter(Boolean).join("；"),
+          checkedLimitStates: draft.analysis_mode === "pure_axial"
+            ? ["axial", "stability"]
+            : ["axial", "bending", "stability"],
           otherChecksStatus: "failed",
         };
         result.supplementalChecks = emptySupplementalChecks();
         result.verificationBasis = [
-          "鋼構造建築物鋼結構設計技術規範第四章及第六章",
-          `H 型鋼純軸壓計算 ${response.calculation.calculationFingerprint}`,
+          draft.analysis_mode === "pure_axial"
+            ? "鋼構造建築物鋼結構設計技術規範第四章及第六章"
+            : "鋼構造建築物鋼結構設計技術規範第四章及第六至八章",
+          `H 型鋼構件計算 ${response.calculation.calculationFingerprint}`,
           `有效長度依據：${draft.effective_length_basis.trim()}`,
         ].join("；");
         result.conclusion = response.calculation.results.status === "passed"
-          ? "H 型鋼構件之純軸壓、整體長細比及局部細長檢核通過；接頭、承壓、基礎／樓版與施工程序尚須另行完成。"
-          : "H 型鋼構件之純軸壓或穩定適用性檢核未通過，不得採用本次容量。";
+          ? `${draft.analysis_mode === "pure_axial" ? "純軸壓" : "軸壓與雙向彎矩互制"}、整體長細比及局部細長檢核通過；接頭、承壓、基礎／樓版與施工程序尚須另行完成。`
+          : `H 型鋼構件之${draft.analysis_mode === "pure_axial" ? "純軸壓" : "軸壓與雙向彎矩互制"}或穩定適用性檢核未通過，不得採用本次容量。`;
         next[index] = result;
         return next;
       });
@@ -8040,12 +8064,22 @@ function App() {
                               <section className="reshore-capacity-panel">
                                 <header>
                                   <div>
-                                    <strong>重撐／回撐 H 型鋼純軸壓容量</strong>
-                                    <span>限無偏心軸壓構件；本區不檢核接頭、承壓、基礎／樓版或施工程序。</span>
+                                    <strong>重撐／回撐 H 型鋼構件容量</strong>
+                                    <span>可採純軸壓或軸壓＋雙向彎矩互制；本區不檢核接頭、承壓、基礎／樓版或施工程序。</span>
                                   </div>
                                   <span className="status-badge">特定承接實算</span>
                                 </header>
                                 <div className="form-grid receiver-result-fields">
+                                  <label className="field-block">
+                                    <span>構件作用模式</span>
+                                    <select
+                                      value={draft.analysis_mode}
+                                      onChange={(event) => updateReshoreCapacityDraft(result.transferId, "analysis_mode", event.target.value)}
+                                    >
+                                      <option value="pure_axial">純軸壓</option>
+                                      <option value="axial_biaxial_bending">軸壓＋雙向彎矩互制</option>
+                                    </select>
+                                  </label>
                                   <label className="field-block">
                                     <span>H 型鋼斷面</span>
                                     <select
@@ -8112,6 +8146,60 @@ function App() {
                                     value={draft.additional_axial_load_tf_per_member}
                                     onChange={(value) => updateReshoreCapacityDraft(result.transferId, "additional_axial_load_tf_per_member", value)}
                                   />
+                                  {draft.analysis_mode === "axial_biaxial_bending" && (
+                                    <>
+                                      <NumberField
+                                        label="產生 Mx 的移轉偏心距（m）"
+                                        value={draft.transfer_eccentricity_x_m}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "transfer_eccentricity_x_m", value)}
+                                      />
+                                      <NumberField
+                                        label="產生 My 的移轉偏心距（m）"
+                                        value={draft.transfer_eccentricity_y_m}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "transfer_eccentricity_y_m", value)}
+                                      />
+                                      <NumberField
+                                        label="另加單支 Mx（tf·m）"
+                                        value={draft.additional_moment_x_tf_m_per_member}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "additional_moment_x_tf_m_per_member", value)}
+                                      />
+                                      <NumberField
+                                        label="另加單支 My（tf·m）"
+                                        value={draft.additional_moment_y_tf_m_per_member}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "additional_moment_y_tf_m_per_member", value)}
+                                      />
+                                      <NumberField
+                                        label="強軸彎曲側向未支撐長度 Lb（m）"
+                                        value={draft.strong_axis_lateral_unbraced_length_m}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "strong_axis_lateral_unbraced_length_m", value)}
+                                      />
+                                      <NumberField
+                                        label="彎矩梯度係數 Cb"
+                                        value={draft.moment_gradient_coefficient_cb}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "moment_gradient_coefficient_cb", value)}
+                                      />
+                                      <NumberField
+                                        label="強軸彎矩修正係數 Cmx"
+                                        value={draft.moment_amplification_coefficient_cmx}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "moment_amplification_coefficient_cmx", value)}
+                                      />
+                                      <NumberField
+                                        label="弱軸彎矩修正係數 Cmy"
+                                        value={draft.moment_amplification_coefficient_cmy}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "moment_amplification_coefficient_cmy", value)}
+                                      />
+                                      <TextAreaField
+                                        label="偏心距、彎矩來源與方向依據"
+                                        value={draft.eccentricity_and_moment_basis}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "eccentricity_and_moment_basis", value)}
+                                      />
+                                      <TextAreaField
+                                        label="Lb、Cb、Cmx、Cmy 與側向支撐依據"
+                                        value={draft.bending_stability_basis}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "bending_stability_basis", value)}
+                                      />
+                                    </>
+                                  )}
                                   <Field
                                     label="控制載重組合"
                                     value={draft.governing_load_combination}
@@ -8138,29 +8226,34 @@ function App() {
                                     onChange={(value) => updateReshoreCapacityDraft(result.transferId, "stress_increase_basis", value)}
                                   />
                                 </div>
-                                <label className="check-field reshore-applicability-check">
-                                  <input
-                                    type="checkbox"
-                                    checked={draft.pure_axial_no_eccentricity_confirmed}
-                                    onChange={(event) => updateReshoreCapacityDraft(
-                                      result.transferId,
-                                      "pure_axial_no_eccentricity_confirmed",
-                                      event.target.checked,
-                                    )}
-                                  />
-                                  <span>確認本構件為無偏心純軸壓；若有偏心、彎矩或二次效應，不採用此模組。</span>
-                                </label>
+                                {draft.analysis_mode === "pure_axial" && (
+                                  <label className="check-field reshore-applicability-check">
+                                    <input
+                                      type="checkbox"
+                                      checked={draft.pure_axial_no_eccentricity_confirmed}
+                                      onChange={(event) => updateReshoreCapacityDraft(
+                                        result.transferId,
+                                        "pure_axial_no_eccentricity_confirmed",
+                                        event.target.checked,
+                                      )}
+                                    />
+                                    <span>確認本構件為無偏心純軸壓，且無其他彎矩或橫向作用。</span>
+                                  </label>
+                                )}
                                 <div className="action-row">
                                   <button type="button" onClick={() => void handleCalculateReshoreMemberCapacity(index)}>
-                                    計算、下載證據並回填軸壓結果
+                                    計算、下載證據並回填構件結果
                                   </button>
                                 </div>
                                 {calculation && (
                                   <div className={`reshore-capacity-result ${calculation.results.status === "passed" ? "ok" : "ng"}`}>
-                                    <strong>{calculation.results.status === "passed" ? "純軸壓與穩定檢核通過" : "純軸壓或穩定適用性未通過"}</strong>
-                                    <span>{`控制軸：${calculation.results.controllingAxis}；KL/r = ${fmt(calculation.results.klrMax)}；單支容量 = ${fmt(calculation.results.perMemberCapacityTf, " tf")}`}</span>
+                                    <strong>{calculation.results.status === "passed" ? "構件容量與穩定檢核通過" : "構件容量或穩定適用性未通過"}</strong>
+                                    <span>{`控制軸：${calculation.results.controllingAxis}；KL/r = ${fmt(calculation.results.klrMax)}；${calculation.results.analysisMode === "pure_axial" ? "單支軸壓容量" : "單支純軸壓上限"} = ${fmt(calculation.results.perMemberCapacityTf, " tf")}`}</span>
                                     <span>{`可採用移轉容量 = ${fmt(calculation.results.adoptableTransferCapacityTf, " tf")}；利用率 = ${calculation.results.capacityUtilizationRatio == null ? "—" : fmt(calculation.results.capacityUtilizationRatio)}`}</span>
-                                    <span>軸壓證據已下載並回填；其他未涵蓋查核仍維持「尚未完成」。若要整列通過，須在五類補充查核中逐項附上正式文件，RSC 不會被當成其他查核的證據。</span>
+                                    {calculation.results.analysisMode === "axial_biaxial_bending" && (
+                                      <span>{`Mx / My = ${fmt(calculation.results.momentXTfMPerMember)} / ${fmt(calculation.results.momentYTfMPerMember)} tf·m；互制比 = ${calculation.results.memberInteractionRatio == null ? "—" : fmt(calculation.results.memberInteractionRatio)}`}</span>
+                                    )}
+                                    <span>構件證據已下載並回填；其他未涵蓋查核仍維持「尚未完成」。若要整列通過，須在五類補充查核中逐項附上正式文件，RSC 不會被當成其他查核的證據。</span>
                                   </div>
                                 )}
                               </section>
@@ -10089,6 +10182,7 @@ function receiverCapacityDrafts(
       .map((transfer) => [
         transfer.transferId,
         {
+          analysis_mode: "pure_axial",
           section_name: defaultSection,
           member_count: 1,
           unbraced_length_x_m: 3,
@@ -10100,6 +10194,14 @@ function receiverCapacityDrafts(
           allowable_stress_increase_factor: 1,
           imbalance_factor: 1,
           additional_axial_load_tf_per_member: 0,
+          transfer_eccentricity_x_m: 0,
+          transfer_eccentricity_y_m: 0,
+          additional_moment_x_tf_m_per_member: 0,
+          additional_moment_y_tf_m_per_member: 0,
+          strong_axis_lateral_unbraced_length_m: 3,
+          moment_gradient_coefficient_cb: 1,
+          moment_amplification_coefficient_cmx: 1,
+          moment_amplification_coefficient_cmy: 1,
           governing_load_combination: "",
           effective_length_basis: "",
           load_distribution_basis: [
@@ -10107,6 +10209,8 @@ function receiverCapacityDrafts(
             transfer.receiver.dispositionBasis,
           ].filter(Boolean).join("；"),
           additional_load_basis: "",
+          eccentricity_and_moment_basis: "",
+          bending_stability_basis: "",
           stress_increase_basis: "",
           pure_axial_no_eccentricity_confirmed: false,
         } satisfies ReshoreMemberCapacityInput,

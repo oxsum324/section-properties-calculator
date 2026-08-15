@@ -1158,7 +1158,7 @@ def validate_receiver_verification_receipt(
                     for check in supplemental_checks
                 )
             ):
-                raise ValueError("RSC 純軸壓證據不得重複作為五類補充查核的通過證據。")
+                raise ValueError("RSC 構件容量證據不得重複作為五類補充查核的通過證據。")
         if status == "passed":
             passed += 1
         else:

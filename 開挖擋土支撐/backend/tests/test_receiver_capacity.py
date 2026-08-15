@@ -178,6 +178,76 @@ class ReshoreMemberCapacityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "控制載重組合"):
             self.calculate(governing_load_combination="   ")
 
+    def test_pure_axial_mode_rejects_bending_effects(self) -> None:
+        with self.assertRaisesRegex(ValueError, "不得輸入偏心距或附加彎矩"):
+            self.calculate(transfer_eccentricity_x_m=0.05)
+
+    def test_biaxial_mode_requires_effects_and_engineering_basis(self) -> None:
+        with self.assertRaisesRegex(ValueError, "至少須輸入一項"):
+            self.calculate(
+                analysis_mode="axial_biaxial_bending",
+                pure_axial_no_eccentricity_confirmed=False,
+            )
+        with self.assertRaisesRegex(ValueError, "偏心距、彎矩來源"):
+            self.calculate(
+                analysis_mode="axial_biaxial_bending",
+                transfer_eccentricity_x_m=0.05,
+                pure_axial_no_eccentricity_confirmed=False,
+            )
+        with self.assertRaisesRegex(ValueError, "側向未支撐長度"):
+            self.calculate(
+                analysis_mode="axial_biaxial_bending",
+                transfer_eccentricity_x_m=0.05,
+                eccentricity_and_moment_basis="拆撐節點偏心 5 cm，依 CS-04 詳圖",
+                pure_axial_no_eccentricity_confirmed=False,
+            )
+
+    def test_biaxial_interaction_reduces_adoptable_transfer_capacity(self) -> None:
+        pure = self.calculate()["calculation"]
+        combined = self.calculate(
+            analysis_mode="axial_biaxial_bending",
+            transfer_eccentricity_x_m=0.05,
+            transfer_eccentricity_y_m=0.03,
+            additional_moment_x_tf_m_per_member=0.2,
+            additional_moment_y_tf_m_per_member=0.1,
+            strong_axis_lateral_unbraced_length_m=3.0,
+            moment_gradient_coefficient_cb=1.0,
+            moment_amplification_coefficient_cmx=0.85,
+            moment_amplification_coefficient_cmy=0.85,
+            eccentricity_and_moment_basis="偏心依拆撐節點詳圖 CS-04；附加彎矩依 LC-RM-01 分析",
+            bending_stability_basis="Lb=3.0 m；端點受束制且段內有橫向作用，Cmx=Cmy=0.85；Cb=1.0",
+            pure_axial_no_eccentricity_confirmed=False,
+        )["calculation"]
+        values = combined["results"]
+
+        self.assertEqual(combined["schemaVersion"], 2)
+        self.assertEqual(values["analysisMode"], "axial_biaxial_bending")
+        self.assertAlmostEqual(
+            values["momentXTfMPerMember"],
+            values["transferDemandPerMemberTf"] * 0.05 + 0.2,
+            places=6,
+        )
+        self.assertAlmostEqual(
+            values["momentYTfMPerMember"],
+            values["transferDemandPerMemberTf"] * 0.03 + 0.1,
+            places=6,
+        )
+        self.assertGreater(values["memberInteractionRatio"], 0)
+        self.assertAlmostEqual(values["capacityInteractionRatio"], 1.0, places=5)
+        self.assertEqual(values["checks"]["memberInteraction"], "passed")
+        self.assertIn("bending", combined["verificationScope"]["checkedLimitStates"])
+        self.assertTrue(combined["boundary"]["axialBiaxialBendingInteractionChecked"])
+        self.assertFalse(combined["boundary"]["pureAxialNoEccentricityOnly"])
+        self.assertLess(
+            values["adoptableTransferCapacityTf"],
+            pure["results"]["adoptableTransferCapacityTf"],
+        )
+        self.assertAlmostEqual(
+            values["memberInteractionRatio"],
+            values["memberTotalUtilizationRatio"],
+            places=6,
+        )
+
     def test_rejects_non_h_section_even_if_reference_data_contains_it(self) -> None:
         non_h_section = SectionProperty(
             name="BOX-TEST",

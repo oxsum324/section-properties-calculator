@@ -438,6 +438,7 @@ class ValidateReceiverReceiptRequest(BaseModel):
 
 
 class ReshoreMemberCapacityInput(BaseModel):
+    analysis_mode: Literal["pure_axial", "axial_biaxial_bending"] = "pure_axial"
     section_name: str = Field(min_length=1, max_length=80)
     member_count: int = Field(ge=1, le=100, strict=True)
     unbraced_length_x_m: float = Field(gt=0, le=20)
@@ -449,12 +450,22 @@ class ReshoreMemberCapacityInput(BaseModel):
     allowable_stress_increase_factor: Literal[1.0, 1.25] = 1.0
     imbalance_factor: float = Field(ge=1, le=2)
     additional_axial_load_tf_per_member: float = Field(ge=0, le=1000)
+    transfer_eccentricity_x_m: float = Field(default=0, ge=0, le=5)
+    transfer_eccentricity_y_m: float = Field(default=0, ge=0, le=5)
+    additional_moment_x_tf_m_per_member: float = Field(default=0, ge=0, le=10000)
+    additional_moment_y_tf_m_per_member: float = Field(default=0, ge=0, le=10000)
+    strong_axis_lateral_unbraced_length_m: float = Field(default=3, gt=0, le=20)
+    moment_gradient_coefficient_cb: float = Field(default=1, gt=0, le=2.3)
+    moment_amplification_coefficient_cmx: float = Field(default=1, gt=0, le=1)
+    moment_amplification_coefficient_cmy: float = Field(default=1, gt=0, le=1)
     governing_load_combination: str = Field(min_length=1, max_length=240)
     effective_length_basis: str = Field(min_length=1, max_length=240)
     load_distribution_basis: str = Field(min_length=1, max_length=240)
     additional_load_basis: str = Field(default="", max_length=240)
+    eccentricity_and_moment_basis: str = Field(default="", max_length=400)
+    bending_stability_basis: str = Field(default="", max_length=400)
     stress_increase_basis: str = Field(default="", max_length=240)
-    pure_axial_no_eccentricity_confirmed: Literal[True]
+    pure_axial_no_eccentricity_confirmed: bool = False
 
 
 class CalculateReshoreMemberCapacityRequest(BaseModel):

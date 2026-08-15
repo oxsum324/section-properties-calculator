@@ -488,6 +488,7 @@ export type ReceiverVerificationResult = {
 };
 
 export type ReshoreMemberCapacityInput = {
+  analysis_mode: "pure_axial" | "axial_biaxial_bending";
   section_name: string;
   member_count: number;
   unbraced_length_x_m: number;
@@ -499,22 +500,33 @@ export type ReshoreMemberCapacityInput = {
   allowable_stress_increase_factor: 1 | 1.25;
   imbalance_factor: number;
   additional_axial_load_tf_per_member: number;
+  transfer_eccentricity_x_m: number;
+  transfer_eccentricity_y_m: number;
+  additional_moment_x_tf_m_per_member: number;
+  additional_moment_y_tf_m_per_member: number;
+  strong_axis_lateral_unbraced_length_m: number;
+  moment_gradient_coefficient_cb: number;
+  moment_amplification_coefficient_cmx: number;
+  moment_amplification_coefficient_cmy: number;
   governing_load_combination: string;
   effective_length_basis: string;
   load_distribution_basis: string;
   additional_load_basis: string;
+  eccentricity_and_moment_basis: string;
+  bending_stability_basis: string;
   stress_increase_basis: string;
   pure_axial_no_eccentricity_confirmed: boolean;
 };
 
 export type ReshoreMemberCapacityCalculationResponse = {
   calculation: {
-    schemaVersion: 1;
+    schemaVersion: 2;
     kind: "excavation-reshore-member-capacity-calculation";
     generatedAt: string;
     calculationFingerprint: string;
     results: {
       status: "passed" | "failed";
+      analysisMode: "pure_axial" | "axial_biaxial_bending";
       controllingAxis: "X" | "Y";
       klrX: number;
       klrY: number;
@@ -528,7 +540,17 @@ export type ReshoreMemberCapacityCalculationResponse = {
       nominalTransferCapacityTf: number;
       adoptableTransferCapacityTf: number;
       memberTotalUtilizationRatio: number | null;
+      memberInteractionRatio: number | null;
+      capacityInteractionRatio: number | null;
+      capacityMomentXTfMPerMember: number;
+      capacityMomentYTfMPerMember: number;
       capacityUtilizationRatio: number | null;
+      momentXTfMPerMember: number;
+      momentYTfMPerMember: number;
+      bendingStressXTfPerCm2: number;
+      bendingStressYTfPerCm2: number;
+      adjustedAllowableBendingStressXTfPerCm2: number;
+      adjustedAllowableBendingStressYTfPerCm2: number;
       flangeSlendernessRatio: number;
       flangeSlendernessLimit: number;
       webSlendernessRatio: number;
@@ -537,6 +559,7 @@ export type ReshoreMemberCapacityCalculationResponse = {
         memberSlenderness: "passed" | "failed";
         localSlenderness: "passed" | "failed";
         axialCapacity: "passed" | "failed";
+        memberInteraction: "passed" | "failed";
       };
     };
     verificationScope: {

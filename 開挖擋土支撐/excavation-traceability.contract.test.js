@@ -188,7 +188,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.46.1', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.47.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -300,11 +300,17 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'excavation-reshore-member-capacity-calculation',
   'calculate_reshore_member_capacity',
   'allowable_axial_stress',
+  'allowable_fbx',
+  'allowable_fby',
+  'interaction_ratio',
+  'axial_biaxial_bending',
   'KL/r <= 200',
   'bf/(2tf) <= 25/sqrt(Fy)',
   '(d-2tf)/tw <= 68/sqrt(Fy)',
   'adoptableTransferCapacityTf',
+  'capacityInteractionRatio',
   'pureAxialNoEccentricityOnly',
+  'axialBiaxialBendingInteractionChecked',
   'doesNotAutoApproveReceiverReceipt',
   'requiresSeparateOtherChecks',
   'otherChecksStatus',
@@ -317,6 +323,8 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'test_golden_short_column_capacity_and_evidence',
   'test_long_column_uses_euler_branch_and_fails_slenderness',
   'test_local_slenderness_failure_is_not_adoptable',
+  'test_biaxial_interaction_reduces_adoptable_transfer_capacity',
+  'test_biaxial_mode_requires_effects_and_engineering_basis',
   'test_rejects_non_reshore_transfer',
   'test_rejects_tampered_handoff',
 ].forEach((needle) => {
@@ -413,8 +421,9 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   '此備份不得復原',
   '交接完成不等於承接構造合格',
   '核定承載力（tf）',
-  '重撐／回撐 H 型鋼純軸壓容量',
-  '計算、下載證據並回填軸壓結果',
+  '重撐／回撐 H 型鋼構件容量',
+  '軸壓＋雙向彎矩互制',
+  '計算、下載證據並回填構件結果',
   '若要整列通過，須在五類補充查核中逐項附上正式文件',
   '容量利用率（需求／承載力，自動）',
   '結果與利用率會由後端自動判定',
