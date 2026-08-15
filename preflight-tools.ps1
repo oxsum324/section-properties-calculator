@@ -1261,6 +1261,11 @@ node section-tools.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$srcBeamCoreRegressionCommand = @'
+node SRC工具/src-beam-core.test.js
+exit $LASTEXITCODE
+'@
+
 $deckingToolsContractCommand = @'
 node decking-tools.contract.test.js
 exit $LASTEXITCODE
@@ -2367,6 +2372,13 @@ $checks = @(
     label = "Section tools feedback contract"
     workdir = $root
     command = $sectionToolsContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "src-beam-core-regression"
+    label = "SRC beam core regression and traceability"
+    workdir = $root
+    command = $srcBeamCoreRegressionCommand
     slow = $false
   },
   [pscustomobject]@{

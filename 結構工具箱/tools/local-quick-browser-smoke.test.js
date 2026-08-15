@@ -1544,7 +1544,8 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload, reportR
   assert.deepEqual(state.memberTabs, ['全部', 'RC', '鋼構', 'SRC'], `${label} new home member system tabs`);
   assert.deepEqual(state.memberGroups, ['RC', '鋼構'], `${label} new home member grouped tools`);
   assert.equal(state.memberToolSystems.every(system => ['RC', '鋼構'].includes(system)), true, `${label} new home member tool systems`);
-  assert.ok(state.srcEmptyText.includes('此材料系統尚未建立工具'), `${label} new home SRC empty state`);
+  assert.ok(state.srcEmptyText.includes('SRC 計算核心建置中'), `${label} new home SRC core-only empty state`);
+  assert.ok(state.srcEmptyText.includes('公開 UI、正式計算書及完整發布證據完成前不提供工具入口'), `${label} new home SRC publication boundary`);
   assert.equal(state.hasCategoryArt, false, `${label} new home category art`);
   assert.ok(state.cardCount >= tools.length, `${label} new home card count`);
   assert.equal(state.reportReadinessStatusBadge, '頁面專用', `${label} new home report readiness badge`);

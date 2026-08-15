@@ -26,7 +26,7 @@
     { id: 'all', label: '全部', summary: '依材料系統分段顯示 RC、鋼構與未來 SRC 構件工具。' },
     { id: 'rc', label: 'RC', summary: '鋼筋混凝土梁、柱、板、牆、基礎、樁與補強構件檢核。' },
     { id: 'steel', label: '鋼構', summary: '鋼梁、鋼柱、鋼構正式入口與鋼構連接板檢核。' },
-    { id: 'src', label: 'SRC', summary: '預留鋼骨鋼筋混凝土構件工具入口；目前尚未建立工具。' }
+    { id: 'src', label: 'SRC', summary: '包覆型 SRC 梁計算核心建置中；尚未提供公開構件工具。' }
   ];
 
   const toolStates = {
@@ -1203,7 +1203,7 @@
       return;
     }
     if (state.category === 'member') {
-      renderEmptyState('此材料系統尚未建立工具', '目前先保留 SRC 入口，未來可放入 SRC 梁、柱、接合與耐震細部檢核。');
+      renderEmptyState('SRC 計算核心建置中', '已建立包覆型 SRC 梁的規範追溯與官方例題回歸；公開 UI、正式計算書及完整發布證據完成前不提供工具入口。');
       elements.grid.replaceChildren();
       elements.empty.hidden = false;
       return;

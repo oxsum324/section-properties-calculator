@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "tool": "src-beam",
+  "coreVersion": "src-beam.core.v0.1.0",
+  "regulation": {
+    "title": "鋼骨鋼筋混凝土構造設計規範與解說",
+    "versionLabel": "100 年修正版（100 年 7 月 1 日施行）",
+    "officialPage": "https://www.nlma.gov.tw/ch/legislation/regsearch/977",
+    "draftBoundary": "2024 年內政部建築研究所成果為修正草案，本核心不將草案當作現行法規。"
+  },
+  "scope": {
+    "included": [
+      "完全包覆型矩形 SRC 梁",
+      "置中雙對稱 H 型鋼骨",
+      "無軸力之擘曲與剪力",
+      "垂直箍筋",
+      "常重混凝土整體澆置",
+      "非耐震構材強度檢核"
+    ],
+    "excluded": [
+      "第 9 章耐震設計",
+      "軸力與彎矩互制",
+      "梁柱接頭與續接",
+      "剪力釘強度",
+      "輕質混凝土或非整體澆置剪力摩擦面",
+      "施工階段鋼梁強度與穩定實算"
+    ]
+  },
+  "equations": [
+    { "id": "src-5.4-1", "clause": "5.4.1", "expression": "phi_b Mn = 0.9 Mns + 0.9 Mnrc", "implementation": "calculate.flexure" },
+    { "id": "src-mns", "clause": "5.4.1", "expression": "Mns = Z Fys", "implementation": "calculate.flexure.mnSteelTfM" },
+    { "id": "src-5.5-1", "clause": "5.5", "expression": "0.9 Vns >= (Mns/Mn) Vu", "implementation": "calculate.shear.steelUtilization" },
+    { "id": "src-5.5-2", "clause": "5.5", "expression": "0.75 Vnrc >= (Mnrc/Mn) Vu", "implementation": "calculate.shear.rcUtilization" },
+    { "id": "src-5.5-3", "clause": "5.5.1", "expression": "Vns = 0.6 Fyw Aw", "implementation": "calculate.shear.vnSteelTf" },
+    { "id": "src-5.5-4", "clause": "5.5.2", "expression": "Vnrc,general = min(Av Fyh d/s, 2.12 sqrt(fc') b d) + 0.53 sqrt(fc') b d", "implementation": "calculate.shear.vnRcGeneralTf" },
+    { "id": "src-5.5-10", "clause": "5.5.2", "expression": "Vnrc,friction = min(mu Avf Fyh d/s, 2.12 mu sqrt(fc') b d) + K1 b' d + Vns'", "implementation": "calculate.shear.vnRcFrictionTf" },
+    { "id": "src-3.4", "clause": "3.4 / Table 3.4-1", "expression": "encased H-shape flange and web width-thickness limits", "implementation": "calculateCompactness" }
+  ],
+  "goldenCases": [
+    {
+      "id": "MOI-SRC-GUIDE-BEAM-EXAMPLE-1-2",
+      "source": "內政部建築研究所《鋼骨鋼筋混凝土(SRC)構造設計教材》梁例題 1 與 2",
+      "sourceUrl": "https://www.abri.gov.tw/News_Content_Table.aspx?n=807&s=38030",
+      "expected": {
+        "mnSteelTfM": 100.5,
+        "mnRcTfM": 85.1,
+        "nominalMomentTfM": 185.6,
+        "vnSteelTf": 129.0,
+        "vnRcGeneralTf": 61.5,
+        "vnRcFrictionTf": 84.2,
+        "vnRcTf": 61.5
+      }
+    }
+  ]
+}
