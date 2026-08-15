@@ -451,6 +451,7 @@
 
 <script src="../../core/ui/report.js"></script>
 <script src="../local-quick-export.js?v=1"></script>
+<script src="../local-quick-tool-metadata.js"></script>
 <script src="foundation-local-core.js?v=3"></script>
 <script>
 (function () {
@@ -473,6 +474,7 @@
   let lastFoundationReportValidationMessage = '';
   const Core = window.FoundationLocalCore;
   if (!Core) throw new Error('FoundationLocalCore is not loaded.');
+  const PUBLIC_TOOL_VERSION = window.LocalQuickToolMetadata['foundation-local'].version;
   const Exporter = window.LocalQuickExport;
   if (!Exporter) throw new Error('LocalQuickExport is not loaded.');
   const ReportUI = window.ToolReportUI;
@@ -1035,7 +1037,8 @@
       tool: {
         id: 'foundation-local',
         name: '基礎局部檢核',
-        pageVersion: 'V0.6'
+        pageVersion: PUBLIC_TOOL_VERSION,
+        calculationEngine: Core.version
       },
       project: gatherProjectInfo(),
       input: gatherInputs(),
@@ -1049,7 +1052,8 @@
       tool: {
         id: 'foundation-local',
         name: '基礎局部檢核',
-        pageVersion: 'V0.6'
+        pageVersion: PUBLIC_TOOL_VERSION,
+        calculationEngine: Core.version
       },
       project: gatherProjectInfo(),
       input: gatherInputs(),
@@ -1196,8 +1200,8 @@ ${r.liquefactionValid ? `<p><code>控制點：z=${fmt(r.liquefactionGoverningPoi
     const body = mode === 'summary' ? summaryBody(r, svgHtml) : detailedBody(r, svgHtml);
     const reportTrace = ReportUI.buildReportTrace({
       title: '基礎局部穩定檢核計算書',
-      outputSource: { tool: '基礎局部檢核', version: 'V0.6' },
-      snapshot: { mode, result: r }
+      outputSource: { tool: '基礎局部檢核', version: PUBLIC_TOOL_VERSION },
+      snapshot: { mode, calculationEngine: Core.version, result: r }
     });
     const documentStateReport = ReportUI.buildFormalDocumentStateReport({
       project: proj,
@@ -1226,7 +1230,7 @@ code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 5px;border-ra
 <main class="paper">
 <h1>基礎局部穩定檢核計算書</h1>
 ${documentStateReport.html}
-<div class="case-head">${proj.name ? `<span>計畫：${escapeHtml(proj.name)}</span>` : ''}${proj.no ? `<span>編號：${escapeHtml(proj.no)}</span>` : ''}${proj.designer ? `<span>設計人：${escapeHtml(proj.designer)}</span>` : ''}<span>產出工具：${escapeHtml(reportTrace.sourceTrace.tool)}</span><span>工具版本：${escapeHtml(reportTrace.sourceTrace.version)}</span><span>輸出時間：${escapeHtml(reportTrace.generatedAt)}</span><span>計算指紋：${escapeHtml(reportTrace.calculationFingerprint)}</span></div>
+<div class="case-head">${proj.name ? `<span>計畫：${escapeHtml(proj.name)}</span>` : ''}${proj.no ? `<span>編號：${escapeHtml(proj.no)}</span>` : ''}${proj.designer ? `<span>設計人：${escapeHtml(proj.designer)}</span>` : ''}<span>產出工具：${escapeHtml(reportTrace.sourceTrace.tool)}</span><span>工具版本：${escapeHtml(PUBLIC_TOOL_VERSION)}</span><span>計算引擎：${escapeHtml(Core.version)}</span><span>輸出時間：${escapeHtml(reportTrace.generatedAt)}</span><span>計算指紋：${escapeHtml(reportTrace.calculationFingerprint)}</span></div>
 ${body}
 </main></body></html>`;
     const win = window.open('', '_blank');

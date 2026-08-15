@@ -43,12 +43,13 @@ const PUBLIC_ROUTE_SAMPLES = [
   { path: '合成斷面性質.html', needles: ['合成斷面性質計算', '結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', '此頁是操作介面，不是計算書'] },
   { path: 'RC補強斷面性質.html', needles: ['RC 補強斷面性質計算', '鋼筋混凝土/shared/direct-print-boundary.css', 'rc-formal-output-page', 'RC 工具主頁列印已封鎖'] },
   { path: '結構工具箱/tools/formal-tool-metadata.js', needles: ["'wind-force':", "route: '/wind-force'", "version: 'V3'", "'seismic-dynamic':", "version: 'V3.8'"] },
+  { path: '結構工具箱/tools/local-quick-tool-metadata.js', needles: ["'foundation-local':", "version: 'V0.6'", "'equipment-load':", "version: 'V0.2'", "'earth-pressure':", "governance: 'local-quick-contract'"] },
   { path: '結構工具箱/tools/風力/wind-force.html', needles: ['矩形建物 MWFRS', '建築物耐風設計', '../formal-tool-metadata.js', "FormalToolMetadata['wind-force'].version", '../../core/direct-print-boundary.css', 'formal-tool-output-page', '正式工具主頁列印已封鎖'] },
   { path: '結構工具箱/tools/風力/wind-object-solid.html', needles: ['實體標示物風力', '表 2.10', '../formal-tool-metadata.js', 'version: PUBLIC_TOOL_VERSION', 'calculationEngine: TOOL_VERSION', '<b>計算引擎</b>', '../../core/direct-print-boundary.css', 'formal-tool-output-page', '此頁是操作介面，不是計算書'] },
   { path: '結構工具箱/tools/地震力/seismic-force.html', needles: ['等值靜力分析', '建築物耐震設計', '../formal-tool-metadata.js', 'version: PUBLIC_TOOL_VERSION', 'calculationEngine: TOOL_VERSION', '<b>計算引擎</b>', '../../core/direct-print-boundary.css', 'formal-tool-output-page', '本頁不得作為附件'] },
-  { path: '結構工具箱/tools/foundation/foundation-local.html', needles: ['基礎局部檢核', '../../core/direct-print-boundary.css', 'local-quick-output-page', '局部快算主頁列印已封鎖'] },
-  { path: '結構工具箱/tools/equipment/equipment-load.html', needles: ['設備局部荷重', '../../core/direct-print-boundary.css', 'local-quick-output-page', '此頁是操作介面，不是計算書'] },
-  { path: '結構工具箱/tools/earth/earth-pressure.html', needles: ['擋土土壓局部快算', '../../core/direct-print-boundary.css', 'local-quick-output-page', '本頁不得作為附件'] }
+  { path: '結構工具箱/tools/foundation/foundation-local.html', needles: ['基礎局部檢核', '../local-quick-tool-metadata.js', "LocalQuickToolMetadata['foundation-local'].version", 'calculationEngine: Core.version', '計算引擎：${escapeHtml(Core.version)}', '../../core/direct-print-boundary.css', 'local-quick-output-page', '局部快算主頁列印已封鎖'] },
+  { path: '結構工具箱/tools/equipment/equipment-load.html', needles: ['設備局部荷重', '../local-quick-tool-metadata.js', "LocalQuickToolMetadata['equipment-load'].version", 'calculationEngine: Core.version', '計算引擎：${escapeHtml(Core.version)}', '../../core/direct-print-boundary.css', 'local-quick-output-page', '此頁是操作介面，不是計算書'] },
+  { path: '結構工具箱/tools/earth/earth-pressure.html', needles: ['擋土土壓局部快算', '../local-quick-tool-metadata.js', "LocalQuickToolMetadata['earth-pressure'].version", 'calculationEngine: Core.version', '計算引擎：${escapeHtml(Core.version)}', '../../core/direct-print-boundary.css', 'local-quick-output-page', '本頁不得作為附件'] }
 ];
 const CLEAN_ROUTE_SAMPLES = [
   { path: 'rc-column/', source: '/rc-column', targetNeedle: 'column.html' },

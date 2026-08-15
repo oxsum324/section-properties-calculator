@@ -829,6 +829,9 @@ function toolExpression(tool) {
       hasDiagramBody: !!document.getElementById('diagramBody'),
       hasCheckList: !!document.getElementById('checkList'),
       hasExportScript: scripts.some(src => src === '../local-quick-export.js' || src.endsWith('/local-quick-export.js')),
+      hasPublicMetadataScript: scripts.some(src => src === '../local-quick-tool-metadata.js' || src.endsWith('/local-quick-tool-metadata.js')),
+      publicVersion: window.LocalQuickToolMetadata?.[${JSON.stringify(tool.key)}]?.version || '',
+      calculationEngine: window[${JSON.stringify(tool.coreGlobal)}]?.version || '',
       hasDocumentStateScript: scripts.some(src => src === '../../core/ui/report.js' || src.endsWith('/core/ui/report.js')),
       hasCoreScript: scripts.some(src => src.endsWith(${JSON.stringify(tool.core.split('/').pop())})),
       hasJsonImportButton: !!document.getElementById('btnImportJson'),
@@ -2105,6 +2108,9 @@ function assertToolState(state, tool, label) {
   assert.ok(state.hasMetricGrid, `${label} ${tool.key} metric grid`);
   assert.ok(state.hasCheckList, `${label} ${tool.key} check list`);
   assert.ok(state.hasExportScript, `${label} ${tool.key} export script`);
+  assert.equal(state.hasPublicMetadataScript, true, `${label} ${tool.key} public metadata script`);
+  assert.equal(state.publicVersion, tool.pageVersion, `${label} ${tool.key} canonical public version`);
+  assert.match(state.calculationEngine, /^0\.\d+\.0$/, `${label} ${tool.key} calculation engine version`);
   assert.ok(state.hasDocumentStateScript, `${label} ${tool.key} document-state script`);
   assert.ok(state.hasCoreScript, `${label} ${tool.key} core script`);
   assert.equal(state.hasPageOnlyReadiness, true, `${label} ${tool.key} page-only readiness exists`);
@@ -2164,6 +2170,7 @@ function assertJsonExportState(state, tool, label) {
   assert.equal(state.payload.tool.id, tool.key, `${label} ${tool.key} payload tool id`);
   assert.equal(state.payload.tool.name, tool.label, `${label} ${tool.key} payload tool name`);
   assert.equal(state.payload.tool.pageVersion, tool.pageVersion, `${label} ${tool.key} payload page version`);
+  assert.match(state.payload.tool.calculationEngine, /^0\.\d+\.0$/, `${label} ${tool.key} payload calculation engine`);
   assert.equal(typeof state.payload.generatedAt, 'string', `${label} ${tool.key} payload generatedAt`);
   assert.equal(state.payload.project.name, '局部工具驗證案', `${label} ${tool.key} payload project name`);
   assert.equal(state.payload.project.no, 'LOCAL-VERIFY-001', `${label} ${tool.key} payload project no`);
@@ -2248,11 +2255,15 @@ function assertEarthJsonImportState(state, label) {
 
 function assertReportContentState(state, tool, label, mode = 'detailed') {
   assert.ok(state.htmlLength > 1500, `${label} ${tool.key} report HTML length`);
+  const traceText = reportHtmlText(state.html);
+  assert.ok(traceText.includes(`工具版本：${tool.pageVersion}`), `${label} ${tool.key} report uses canonical public version: ${traceText.slice(0, 420)}`);
+  assert.match(traceText, /計算引擎：0\.\d+\.0/, `${label} ${tool.key} report separates calculation engine version`);
   const requiredNeedles = [
     tool.label,
     '計算書',
     '產出工具',
     '工具版本',
+    '計算引擎',
     '輸出時間',
     '計算指紋',
     '檢核結論',

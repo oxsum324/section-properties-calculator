@@ -39,6 +39,7 @@ function assertNonFiniteNumbersSerialized(source, serialized, label, parts = [])
 
 const manifest = JSON.parse(readText('tools/local-quick-tools.manifest.json'));
 const Exporter = require(toolboxFile(manifest.shared.exportHelper));
+const publicMetadata = require(toolboxFile(manifest.shared.publicMetadata));
 
 assert.equal(manifest.family, 'local-quick-tools', 'manifest family');
 assert.equal(manifest.shared.outputConsistencyTest, 'tools/local-quick-output-consistency.test.js', 'manifest output consistency test path');
@@ -51,10 +52,14 @@ for (const tool of manifest.tools) {
   const html = readText(tool.html);
   const core = require(toolboxFile(tool.core));
   const goldenCases = require(toolboxFile(tool.golden));
+  const publicClaim = publicMetadata[tool.key];
 
+  assert.ok(publicClaim, `${tool.key} public metadata`);
+  assert.equal(publicClaim.version, tool.pageVersion, `${tool.key} canonical public version`);
   assertIncludes(html, `id: '${tool.key}'`, `${tool.key} JSON export tool id`);
   assertIncludes(html, `name: '${tool.label}'`, `${tool.key} JSON export tool name`);
-  assertIncludes(html, `pageVersion: '${tool.pageVersion}'`, `${tool.key} JSON export page version`);
+  assertIncludes(html, `pageVersion: ${manifest.shared.publicVersionConstant}`, `${tool.key} JSON export public version`);
+  assertIncludes(html, `calculationEngine: ${manifest.shared.calculationEngineSource}`, `${tool.key} JSON export calculation engine`);
   if (tool.key === 'foundation-local') {
     // 正式化：兩段式計算書（詳算式 計算內容 / 簡易結果 設計條件）+ 計算示意圖
     assertIncludes(html, '<h2>計算內容</h2>', `${tool.key} detailed report content section`);
@@ -96,6 +101,7 @@ for (const tool of manifest.tools) {
         id: tool.key,
         name: tool.label,
         pageVersion: tool.pageVersion,
+        calculationEngine: core.version,
       },
       project: {
         name: '一致性測試',
@@ -109,6 +115,7 @@ for (const tool of manifest.tools) {
     assert.equal(payload.tool.id, tool.key, `${tool.key}/${goldenCase.id} payload tool id`);
     assert.equal(payload.tool.name, tool.label, `${tool.key}/${goldenCase.id} payload tool name`);
     assert.equal(payload.tool.pageVersion, tool.pageVersion, `${tool.key}/${goldenCase.id} payload page version`);
+    assert.equal(payload.tool.calculationEngine, core.version, `${tool.key}/${goldenCase.id} payload calculation engine`);
     assert.equal(payload.generatedAt, '2026-05-20T00:00:00.000Z', `${tool.key}/${goldenCase.id} payload generatedAt`);
     assert.strictEqual(payload.result, result, `${tool.key}/${goldenCase.id} payload uses core result object`);
     assert.equal(result.resultSchemaVersion, core.resultSchemaVersion, `${tool.key}/${goldenCase.id} result schema`);
@@ -126,6 +133,7 @@ for (const tool of manifest.tools) {
     assert.equal(parsed.tool.id, tool.key, `${tool.key}/${goldenCase.id} serialized tool id`);
     assert.equal(parsed.tool.name, tool.label, `${tool.key}/${goldenCase.id} serialized tool name`);
     assert.equal(parsed.tool.pageVersion, tool.pageVersion, `${tool.key}/${goldenCase.id} serialized page version`);
+    assert.equal(parsed.tool.calculationEngine, core.version, `${tool.key}/${goldenCase.id} serialized calculation engine`);
     assert.equal(parsed.result.resultSchemaVersion, core.resultSchemaVersion, `${tool.key}/${goldenCase.id} serialized result schema`);
     assert.deepEqual(parsed.result.provenance, apiProvenance, `${tool.key}/${goldenCase.id} serialized provenance`);
     assert.equal(parsed.result.summary.status, result.summary.status, `${tool.key}/${goldenCase.id} serialized summary status`);

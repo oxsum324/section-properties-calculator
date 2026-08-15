@@ -88,6 +88,7 @@ const anchorReportWorkbook = readText('螺栓檢討/bolt-review-tool/src/reportW
 const deckingLauncher = readText('覆工板/index.html');
 const excavationLauncher = readText('開挖擋土支撐/index.html');
 const formalToolMetadataSource = readText('結構工具箱/tools/formal-tool-metadata.js');
+const localQuickToolMetadataSource = readText('結構工具箱/tools/local-quick-tool-metadata.js');
 const stoneLauncher = readText('石材固定/石材計算書產生器_規範版V2.html');
 const stoneVersionSource = readText('石材固定/js/version-sync.js');
 const pagesLiveSmoke = readText('結構工具箱/tools/pages-live-smoke.js');
@@ -103,6 +104,9 @@ const deckingMetadata = evaluateLiteral(extractConstLiteral(deckingLauncher, 'DE
 const formalToolMetadataContext = {};
 vm.runInNewContext(formalToolMetadataSource, formalToolMetadataContext, { timeout: 1000, filename: 'formal-tool-metadata' });
 const formalToolMetadata = formalToolMetadataContext.FormalToolMetadata;
+const localQuickToolMetadataContext = {};
+vm.runInNewContext(localQuickToolMetadataSource, localQuickToolMetadataContext, { timeout: 1000, filename: 'local-quick-tool-metadata' });
+const localQuickToolMetadata = localQuickToolMetadataContext.LocalQuickToolMetadata;
 const stoneVersionContext = { window: {} };
 vm.runInNewContext(stoneVersionSource, stoneVersionContext, { timeout: 1000, filename: 'stone-public-metadata' });
 const stoneMetadata = stoneVersionContext.window.StonePublicMetadata;
@@ -207,6 +211,20 @@ for (const [toolKey, metadata] of Object.entries(formalToolMetadata)) {
     assert.ok(page.includes(`const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['${toolKey}'].version`), `formal page binds canonical public version: ${metadata.route}`);
   }
   assert.ok(page.includes(metadata.version), `formal-family page exposes canonical version: ${metadata.route}`);
+}
+
+assert.equal(Object.keys(localQuickToolMetadata).length, 3, 'local quick public metadata covers every local quick route');
+for (const [toolKey, metadata] of Object.entries(localQuickToolMetadata)) {
+  const tool = canonicalTool(metadata.route);
+  const folder = toolKey === 'foundation-local' ? 'foundation' : (toolKey === 'equipment-load' ? 'equipment' : 'earth');
+  const page = readText(`結構工具箱/tools/${folder}/${toolKey}.html`);
+  assert.equal(tool.version, metadata.version, `local-quick public version matches canonical claim: ${metadata.route}`);
+  assert.equal(tool.state, metadata.state, `local-quick public state matches canonical claim: ${metadata.route}`);
+  assert.equal(tool.governance, metadata.governance, `local-quick governance matches canonical claim: ${metadata.route}`);
+  assert.ok(page.includes('../local-quick-tool-metadata.js'), `local-quick page loads canonical metadata: ${metadata.route}`);
+  assert.ok(page.includes(`const PUBLIC_TOOL_VERSION = window.LocalQuickToolMetadata['${toolKey}'].version`), `local-quick page binds canonical public version: ${metadata.route}`);
+  assert.ok(page.includes('calculationEngine: Core.version'), `local-quick case/report keeps calculation engine: ${metadata.route}`);
+  assert.ok(page.includes('計算引擎：${escapeHtml(Core.version)}'), `local-quick report exposes calculation engine: ${metadata.route}`);
 }
 
 const stoneTool = canonicalTool('/stone-fixing');

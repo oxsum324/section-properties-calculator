@@ -86,7 +86,7 @@ const formalManifestPath = assertFile('tools/formal-tools.manifest.json');
 const formalManifestText = readText(formalManifestPath);
 const formalManifest = JSON.parse(formalManifestText);
 
-assert.equal(manifest.version, '0.3.0', 'local quick tools manifest version');
+assert.equal(manifest.version, '0.3.1', 'local quick tools manifest version');
 assert.equal(manifest.family, 'local-quick-tools', 'local quick tools manifest family');
 assert.ok(Array.isArray(tools), 'local quick tools manifest tools');
 assert.ok(tools.length >= 3, 'local quick tools manifest tool count');
@@ -200,6 +200,7 @@ const exportHelperTestPath = assertFile(manifest.shared.exportHelperTest);
 const outputConsistencyTestPath = assertFile(manifest.shared.outputConsistencyTest);
 const loadComboV2TestPath = assertFile(manifest.shared.loadComboV2Test);
 const browserSmokeTestPath = assertFile(manifest.shared.browserSmokeTest);
+const publicMetadataPath = assertFile(manifest.shared.publicMetadata);
 const documentStateHelperPath = assertFile(manifest.shared.documentStateHelper);
 const directPrintBoundaryPath = assertFile(manifest.shared.directPrintBoundaryStylesheet);
 const formalBrowserSmokeTestPath = assertFile('tools/formal-browser-smoke.test.js');
@@ -209,13 +210,14 @@ const exportHelperTestText = readText(exportHelperTestPath);
 const outputConsistencyTestText = readText(outputConsistencyTestPath);
 const loadComboV2TestText = readText(loadComboV2TestPath);
 const browserSmokeTestText = readText(browserSmokeTestPath);
+const publicMetadata = require(publicMetadataPath);
 const documentStateHelperText = readText(documentStateHelperPath);
 const directPrintBoundaryText = readText(directPrintBoundaryPath);
 const formalBrowserSmokeTestText = readText(formalBrowserSmokeTestPath);
 const ExportHelper = require(exportHelperPath);
 
 [
-  '"version": "0.3.0"',
+  '"version": "0.3.1"',
   '"family": "local-quick-tools"',
   '"shared"',
   '"runner"',
@@ -225,6 +227,9 @@ const ExportHelper = require(exportHelperPath);
   '"documentStateHelper"',
   '"documentStateBuilder"',
   '"documentStateRequired"',
+  '"publicMetadata"',
+  '"publicVersionConstant"',
+  '"calculationEngineSource"',
   '"tools"',
   '"foundation-local"',
   '"equipment-load"',
@@ -1566,6 +1571,12 @@ for (const tool of tools) {
   const core = readText(corePath);
   const test = readText(testPath);
   const golden = readText(goldenPath);
+  const publicClaim = publicMetadata[tool.key];
+  assert.ok(publicClaim, `${tool.key} public metadata exists`);
+  assert.equal(publicClaim.route, tool.route, `${tool.key} public metadata route`);
+  assert.equal(publicClaim.version, tool.pageVersion, `${tool.key} public metadata version`);
+  assert.equal(publicClaim.state, 'formal', `${tool.key} public metadata state`);
+  assert.equal(publicClaim.governance, 'local-quick-contract', `${tool.key} public metadata governance`);
   const hasJsonImportWorkflow = html.includes('id="btnImportJson"') || html.includes('讀取 JSON');
   if (hasJsonImportWorkflow) {
     assert.equal(tool.jsonRoundTrip, true, `${tool.key} manifest declares JSON round-trip smoke`);
@@ -1587,7 +1598,10 @@ for (const tool of tools) {
   [
     tool.smoke,
     tool.title,
-    `pageVersion: '${tool.pageVersion}'`,
+    `src="../local-quick-tool-metadata.js"`,
+    `const ${manifest.shared.publicVersionConstant} = window.LocalQuickToolMetadata['${tool.key}'].version`,
+    `pageVersion: ${manifest.shared.publicVersionConstant}`,
+    `calculationEngine: ${manifest.shared.calculationEngineSource}`,
     tool.calcFunction,
     'href="../../core/style.css"',
     'href="../../core/direct-print-boundary.css"',
@@ -1628,7 +1642,8 @@ for (const tool of tools) {
     [
       'Exporter.renderStatusGridPanel',
       '產出工具：${escapeHtml(reportTrace.sourceTrace.tool)}',
-      '工具版本：${escapeHtml(reportTrace.sourceTrace.version)}',
+      '工具版本：${escapeHtml(PUBLIC_TOOL_VERSION)}',
+      '計算引擎：${escapeHtml(Core.version)}',
       '輸出時間：${escapeHtml(reportTrace.generatedAt)}',
       '計算指紋：${escapeHtml(reportTrace.calculationFingerprint)}',
       '<h2>檢核結論</h2>',

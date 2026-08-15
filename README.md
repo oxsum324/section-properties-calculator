@@ -66,6 +66,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [結構工具箱/tools/equipment/equipment-load.html](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/equipment/equipment-load.html:1)
 - 擋土土壓局部快算：
   [結構工具箱/tools/earth/earth-pressure.html](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/earth/earth-pressure.html:1)
+- 上述三個局部快算工具以 `local-quick-tool-metadata.js` 作為公開版本唯一來源；首頁、工具頁、案件 JSON 與計算書的「工具版本」必須一致，並另列 `Core.version` 為「計算引擎」，避免排版改版與公式核心改版互相混淆。
 - 局部快算共同契約測試：
   [結構工具箱/tools/local-quick-tools.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-tools.contract.test.js:1)
 - 局部快算 JSON 匯出 helper：

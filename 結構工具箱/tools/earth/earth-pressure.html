@@ -458,6 +458,7 @@
 
 <script src="../../core/ui/report.js"></script>
 <script src="../local-quick-export.js?v=1"></script>
+<script src="../local-quick-tool-metadata.js"></script>
 <script src="earth-pressure-core.js?v=1"></script>
 <!-- earth-pressure-smoke -->
 <script>
@@ -500,6 +501,7 @@
   let lastEarthReportValidationMessage = '';
   const Core = window.EarthPressureCore;
   if (!Core) throw new Error('EarthPressureCore is not loaded.');
+  const PUBLIC_TOOL_VERSION = window.LocalQuickToolMetadata['earth-pressure'].version;
   const Exporter = window.LocalQuickExport;
   if (!Exporter) throw new Error('LocalQuickExport is not loaded.');
   const ReportUI = window.ToolReportUI;
@@ -1123,7 +1125,8 @@
       tool: {
         id: 'earth-pressure',
         name: '擋土土壓局部快算',
-        pageVersion: 'V0.6'
+        pageVersion: PUBLIC_TOOL_VERSION,
+        calculationEngine: Core.version
       },
       project: gatherProjectInfo(),
       input: gatherInputs(),
@@ -1137,7 +1140,8 @@
       tool: {
         id: 'earth-pressure',
         name: '擋土土壓局部快算',
-        pageVersion: 'V0.6'
+        pageVersion: PUBLIC_TOOL_VERSION,
+        calculationEngine: Core.version
       },
       project: gatherProjectInfo(),
       input: gatherInputs(),
@@ -1238,8 +1242,8 @@
     const mode = ($('reportMode') && $('reportMode').value === 'summary') ? 'summary' : 'detailed';
     const reportTrace = ReportUI.buildReportTrace({
       title: '擋土土壓局部快算計算書',
-      outputSource: { tool: '擋土土壓局部快算', version: 'V0.6' },
-      snapshot: { mode, result: r }
+      outputSource: { tool: '擋土土壓局部快算', version: PUBLIC_TOOL_VERSION },
+      snapshot: { mode, calculationEngine: Core.version, result: r }
     });
     const documentStateReport = ReportUI.buildFormalDocumentStateReport({
       project: proj,
@@ -1327,7 +1331,7 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
 <main class="paper">
 <h1>擋土土壓局部穩定檢核計算書</h1>
 ${documentStateReport.html}
-<div class="case-head">${proj.name ? `<span>計畫：${escapeHtml(proj.name)}</span>` : ''}${proj.no ? `<span>編號：${escapeHtml(proj.no)}</span>` : ''}${proj.designer ? `<span>整理人：${escapeHtml(proj.designer)}</span>` : ''}<span>產出工具：${escapeHtml(reportTrace.sourceTrace.tool)}</span><span>工具版本：${escapeHtml(reportTrace.sourceTrace.version)}</span><span>輸出時間：${escapeHtml(reportTrace.generatedAt)}</span><span>計算指紋：${escapeHtml(reportTrace.calculationFingerprint)}</span></div>
+<div class="case-head">${proj.name ? `<span>計畫：${escapeHtml(proj.name)}</span>` : ''}${proj.no ? `<span>編號：${escapeHtml(proj.no)}</span>` : ''}${proj.designer ? `<span>整理人：${escapeHtml(proj.designer)}</span>` : ''}<span>產出工具：${escapeHtml(reportTrace.sourceTrace.tool)}</span><span>工具版本：${escapeHtml(PUBLIC_TOOL_VERSION)}</span><span>計算引擎：${escapeHtml(Core.version)}</span><span>輸出時間：${escapeHtml(reportTrace.generatedAt)}</span><span>計算指紋：${escapeHtml(reportTrace.calculationFingerprint)}</span></div>
 ${body}
 </main></body></html>`;
     const win = window.open('', '_blank');
