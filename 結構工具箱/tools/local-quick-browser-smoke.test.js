@@ -620,14 +620,17 @@ async function assertLocalQuickDirectPrintBlocked(client, sessionId, manifest, t
 function homeExpression(tools) {
   return `(() => {
     const links = Array.from(document.querySelectorAll('a[href]')).map(a => a.getAttribute('href'));
-    const required = ${JSON.stringify(tools.map(tool => tool.indexHref))};
-    const relativeLinks = links.filter(href => !/^(?:[a-z][a-z0-9+.-]*:|\\/|#|\\$)/i.test(href));
+    const text = document.body.innerText.replace(/\\s+/g, ' ').trim();
     return {
       title: document.title,
-      requiredLinks: required.map(href => ({ href, exists: links.includes(href) })),
-      relativeLinks,
-      hasLocalSection: document.body.innerText.includes('施工臨時設施 / 局部檢核'),
-      hasNextToolsPanel: !!document.getElementById('nextToolsPanel'),
+      hasCompatibilityHeading: text.includes('舊網址相容入口'),
+      hasCanonicalHomeLink: links.includes('./index.html'),
+      hasDashboardLink: links.includes('./audit-dashboard.html'),
+      hasDirectPrintBoundary: !!document.querySelector('.formal-direct-print-boundary'),
+      hasAttachmentBlockCopy: (document.querySelector('.formal-direct-print-boundary')?.textContent || '').includes('本頁不得作為附件'),
+      toolCardCount: document.querySelectorAll('.tool-card').length,
+      hasVersionClaim: /(?:^|\\s)V?\\d+\\.\\d+(?:\\.\\d+)?(?:\\s|$)/.test(text),
+      hasNewClaim: /(?:^|\\s)NEW(?:\\s|$)/.test(text),
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
       horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
@@ -1492,10 +1495,16 @@ function referenceReadinessExpression(config) {
 }
 
 function assertHomeState(state, tools, label) {
-  assert.equal(state.title, '結構工具箱', `${label} home title`);
-  assert.ok(state.hasLocalSection, `${label} home local section`);
-  assert.ok(state.hasNextToolsPanel, `${label} home next tools panel`);
-  assert.equal(state.horizontalOverflow, false, `${label} home horizontal overflow`);
+  assert.equal(state.title, '結構工具箱｜舊網址相容入口', `${label} compatibility title`);
+  assert.ok(state.hasCompatibilityHeading, `${label} compatibility heading`);
+  assert.ok(state.hasCanonicalHomeLink, `${label} canonical home link`);
+  assert.ok(state.hasDashboardLink, `${label} public dashboard link`);
+  assert.ok(state.hasDirectPrintBoundary, `${label} direct print boundary`);
+  assert.ok(state.hasAttachmentBlockCopy, `${label} attachment block copy`);
+  assert.equal(state.toolCardCount, 0, `${label} no duplicate tool cards`);
+  assert.equal(state.hasVersionClaim, false, `${label} no duplicate version claims`);
+  assert.equal(state.hasNewClaim, false, `${label} no expiring NEW claims`);
+  assert.equal(state.horizontalOverflow, false, `${label} compatibility horizontal overflow`);
 }
 
 function assertNewHomeState(state, tools, label, preflightStatusPayload, reportReadinessPayload) {
@@ -2501,7 +2510,7 @@ async function main() {
     await client.send('Runtime.enable', {}, sessionId);
     await client.send('Log.enable', {}, sessionId);
 
-    // 經典公文版選單（已封存為 index-classic.html）
+    // 舊書籤相容入口：不再重複維護工具清冊、版本或狀態宣告。
     const homeCases = [
       { key: 'file-classic', url: `http://127.0.0.1:${serverPort}/${encodeURI('結構工具箱/index-classic.html')}` },
     ];
