@@ -104,7 +104,7 @@ export interface ReportSettings {
   reportMode: ReportMode
   /** 本次計算內容是否已由使用者明確核可為正式附件；不作為工程 PASS 判定。 */
   documentApproved?: boolean
-  /** 核可時間；重新產生或修改計算內容時由頁面狀態清除。 */
+  /** 核可時間；修改計算內容或報告識別／版面設定時由頁面狀態清除。 */
   documentApprovedAt?: string
   /**
    * 公司 LOGO（dataURL，建議 PNG/SVG，最大 200KB）。

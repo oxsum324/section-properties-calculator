@@ -3,13 +3,12 @@ import { defaultProject, normalizeReportSettings } from './defaults'
 import { buildDocumentApprovalCalculationKey } from './documentApproval'
 
 describe('buildDocumentApprovalCalculationKey', () => {
-  it('keeps approval across report metadata, audit, snapshot and save-time updates', () => {
+  it('keeps approval across approval flags, audit, snapshot and save-time updates', () => {
     const baseline = buildDocumentApprovalCalculationKey(defaultProject)
     const updated = {
       ...defaultProject,
       report: {
         ...normalizeReportSettings(defaultProject.report),
-        designer: '王設計',
         documentApproved: true,
         documentApprovedAt: '2026-08-02T09:00:00.000Z',
       },
@@ -27,6 +26,30 @@ describe('buildDocumentApprovalCalculationKey', () => {
 
     expect(buildDocumentApprovalCalculationKey(updated)).toBe(baseline)
   })
+
+  it.each([
+    ['companyName', '弘一工程顧問有限公司'],
+    ['projectCode', 'A-2026-0815'],
+    ['designer', '王設計'],
+    ['checker', '陳校核'],
+    ['issueDate', '2026-08-15'],
+    ['reportMode', 'summary'],
+    ['companyLogoDataUrl', 'data:image/png;base64,AA=='],
+  ] as const)(
+    'revokes approval when report artifact field %s changes',
+    (field, value) => {
+      const baseline = buildDocumentApprovalCalculationKey(defaultProject)
+      const changed = {
+        ...defaultProject,
+        report: {
+          ...normalizeReportSettings(defaultProject.report),
+          [field]: value,
+        },
+      }
+
+      expect(buildDocumentApprovalCalculationKey(changed)).not.toBe(baseline)
+    },
+  )
 
   it('revokes approval when calculation inputs change', () => {
     const baseline = buildDocumentApprovalCalculationKey(defaultProject)

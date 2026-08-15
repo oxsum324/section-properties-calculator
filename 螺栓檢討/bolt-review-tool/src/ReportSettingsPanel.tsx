@@ -167,7 +167,7 @@ export function ReportSettingsPanel(props: {
         <span>
           <strong>本計算內容已完成審閱，核可作為正式附件</strong>
           <small>
-            未勾選時為可列印的內部審閱版；修改計算內容後會自動取消核可。
+            未勾選時為可列印的內部審閱版；修改計算內容或報告設定後會自動取消核可。
           </small>
         </span>
       </label>

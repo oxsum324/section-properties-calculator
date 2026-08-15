@@ -1099,12 +1099,24 @@ function App() {
   }
 
   function patchReport(patch: Partial<ReportSettings>) {
+    const nextReport = {
+      ...reportSettings,
+      ...patch,
+    }
+    const approvalWillBeRevoked =
+      documentApproval.approved &&
+      buildDocumentApprovalCalculationKey({
+        ...project,
+        report: nextReport,
+      }) !== approvalCalculationKey
     patchProject({
-      report: {
-        ...reportSettings,
-        ...patch,
-      },
+      report: nextReport,
     })
+    if (approvalWillBeRevoked) {
+      setSaveMessage(
+        '報告設定已異動，正式核可已撤銷；請確認後重新勾選。',
+      )
+    }
   }
 
   function patchLoadPresetInput(

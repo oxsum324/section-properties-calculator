@@ -103,7 +103,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   - 以 `螺栓檢討/bolt-review-tool/src/anchor-traceability.catalog.json` 與 `螺栓檢討/bolt-review-tool/src/anchorTraceabilityCatalog.test.ts` 為源頭，確認錨栓第17章、17.10、22.8.3、產品評估與補強鋼筋 traceability 仍可追到輸入、計算、報告、證據與人工複核邊界；平台 preflight 會以 `anchor-traceability-contract` 留下獨立通過紀錄，再由 `anchor-verify` 與 `anchor-route` 覆核原始碼與部署鏡像。
 - 錨栓報告邊界契約測試：
   [螺栓檢討/anchor-report.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/螺栓檢討/anchor-report.contract.test.js:1)
-  - 包裝 `reportExport` / `reportDocx` / `reportWorkbook` / `attachmentReadiness` / `reportDocumentState` / `backup` 與 `reportArtifacts` 七組 vitest，確認頁面輔助文字不混入錨栓 HTML、PDF、DOCX 或 XLSX。所有新輸出預設為內部審閱；明確勾選核可後，HTML / DOCX / XLSX 均標示正式附件與核可時間，檔名不再附加 `_DRAFT`。案件欄位可留白並由主文承接，工程 NG 亦可經文件核可如實輸出。任何計算內容、產品、案例或匯入狀態變更都會撤銷核可。工作區 JSON v2 仍以目前核心重算並比對每一案例指紋，錯產品、缺案例或指紋不符時保留原工作區。
+  - 包裝 `reportExport` / `reportDocx` / `reportWorkbook` / `attachmentReadiness` / `reportDocumentState` / `reportWorkspace` / `documentApproval` / `backup` 與 `reportArtifacts` 九組 vitest，確認頁面輔助文字不混入錨栓 HTML、PDF、DOCX 或 XLSX。所有新輸出預設為內部審閱；明確勾選核可後，HTML / DOCX / XLSX 均標示正式附件與核可時間，檔名不再附加 `_DRAFT`。案件欄位可留白並由主文承接，工程 NG 亦可經文件核可如實輸出。任何計算內容、產品、案例或匯入狀態變更，以及公司、案號、設計／校核人、發行日期、輸出模式或 LOGO 等成品設定變更，都會撤銷舊核可；只有核可旗標、匯出留痕、衍生快照與儲存時間不會誤觸撤銷。工作區 JSON v2 仍以目前核心重算並比對每一案例指紋，錯產品、缺案例或指紋不符時保留原工作區。
 - 石材報告邊界契約測試：
   [石材固定/stone-report.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/石材固定/stone-report.contract.test.js:1)
   - 包裝 `server_smoke_test.py` 內與匯出稽核最相關的測試，固定檢查 Word/PDF 匯出稽核摘要、頁面專用「優先建議報告閱讀狀態」清理與 payload HTML 不一致時的降級判定，避免 page-only 閱讀狀態混入正式交付。V2 操作主頁另共用 `結構工具箱/core/direct-print-boundary.css`；瀏覽器功能表直接列印只顯示一頁邊界通知，`#printout` 不得繞過封鎖，正式預覽 / PDF / Word 仍走獨立報表輸出。
