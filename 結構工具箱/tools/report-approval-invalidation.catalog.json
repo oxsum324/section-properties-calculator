@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "kind": "report-approval-invalidation-catalog",
+  "policy": {
+    "defaultDocumentState": "內部審閱",
+    "approvedDocumentState": "正式附件",
+    "approvalControlMustBeExplicit": true,
+    "reportRelevantMutationMustRevokeApproval": true,
+    "approvalTimestampMustBeCleared": true,
+    "staleGeneratedArtifactsMustBeClearedWhenPresent": true,
+    "volatileSaveMetadataMustNotRevokeApproval": true
+  },
+  "tools": [
+    {
+      "key": "stone-fixing",
+      "label": "石材外牆固定構件",
+      "source": "石材固定/石材計算書產生器_規範版V2.html",
+      "strategy": "delegated-input-change",
+      "approvalControlId": "v2_attachment_approved",
+      "dynamicProof": "source-reset-function",
+      "requiredNeedles": [
+        "本計算內容已完成審閱，核可作為正式附件",
+        "function v2ResetAttachmentApproval()",
+        "node.checked = false;",
+        "node.dataset.approvedAt = '';",
+        "['input','change'].forEach(eventName => {",
+        "v2ResetAttachmentApproval();"
+      ]
+    },
+    {
+      "key": "anchor-review",
+      "label": "混凝土結構用錨栓檢討",
+      "source": "螺栓檢討/bolt-review-tool/src/App.tsx",
+      "strategy": "calculation-artifact-key",
+      "dynamicProof": "unit-key-plus-react-effect",
+      "requiredNeedles": [
+        "const approvalCalculationKey = useMemo(",
+        "const approvalCalculationKeyRef = useRef(approvalCalculationKey)",
+        "if (approvalCalculationKeyRef.current !== approvalCalculationKey)",
+        "setDocumentApproval({ approved: false, approvedAt: '' })"
+      ],
+      "proofFiles": [
+        "螺栓檢討/bolt-review-tool/src/documentApproval.ts",
+        "螺栓檢討/bolt-review-tool/src/documentApproval.test.ts"
+      ]
+    },
+    {
+      "key": "decking",
+      "label": "覆工板系統計算",
+      "source": "覆工板/index.html",
+      "strategy": "bound-input-change",
+      "approvalControlId": "deckingAttachmentApproved",
+      "dynamicProof": "source-bound-listener",
+      "requiredNeedles": [
+        "本計算內容已完成審閱，核可作為正式附件",
+        "const recalcAndResetApproval = () => {",
+        "approval.checked = false;",
+        "delete approval.dataset.approvedAt;",
+        "el.addEventListener('input', recalcAndResetApproval);",
+        "el.addEventListener('change', recalcAndResetApproval);"
+      ]
+    },
+    {
+      "key": "excavation-support",
+      "label": "開挖擋土支撐",
+      "source": "開挖擋土支撐/frontend/src/App.tsx",
+      "strategy": "report-artifact-key",
+      "dynamicProof": "artifact-key-plus-react-effect",
+      "requiredNeedles": [
+        "function buildReportApprovalArtifactKey(project: ProjectState | null): string",
+        "const reportApprovalArtifactKeyRef = useRef(reportApprovalArtifactKey);",
+        "setReportApproved(false);",
+        "setReportUrl(\"\");",
+        "setWordReportUrl(\"\");",
+        "setGeneratedPdfDocumentStatus(null);",
+        "setGeneratedWordDocumentStatus(null);"
+      ],
+      "proofFiles": [
+        "開挖擋土支撐/excavation-report.contract.test.js"
+      ]
+    }
+  ]
+}

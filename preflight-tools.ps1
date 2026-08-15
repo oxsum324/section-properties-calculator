@@ -1317,6 +1317,8 @@ exit $LASTEXITCODE
 '@
 
 $reportDisclosureContractCommand = @'
+node 結構工具箱/tools/report-approval-invalidation.contract.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node 結構工具箱/tools/report-disclosure.contract.test.js
 exit $LASTEXITCODE
 '@
