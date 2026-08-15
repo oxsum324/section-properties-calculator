@@ -100,7 +100,6 @@
     <button type="button" onclick="downloadSectionProject()">儲存案例 JSON</button>
     <button type="button" onclick="document.getElementById('sectionJsonFile').click()">載入案例 JSON</button>
     <input id="sectionJsonFile" type="file" accept="application/json,.json" hidden onchange="loadSectionProjectFile(event)">
-    <label><input id="attachmentApproved" type="checkbox"> 核可為正式附件</label>
   </div>
   <div class="tabs" id="tabBar"></div>
   <div class="main-layout">
@@ -114,7 +113,7 @@
             <button onclick="toggleAllResults()" title="全選/取消全選" style="padding:5px 10px;border:1px solid var(--border);background:white;border-radius:6px;cursor:pointer;font-size:0.78em;color:var(--text-light);font-family:inherit;">☑ 全選</button>
             <button id="btnPickI" onclick="sendIxToOpener()" style="display:none;padding:5px 12px;border:none;background:#2563eb;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">→ 導入至連續梁工具</button>
             <button onclick="exportJPG()" style="padding:5px 12px;border:none;background:#059669;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">↓ JPG</button>
-            <button onclick="exportPDF()" style="padding:5px 12px;border:none;background:#dc2626;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">↓ 計算書 PDF</button>
+            <button onclick="exportPDF()" style="padding:5px 12px;border:none;background:#dc2626;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">📄 計算書</button>
           </div>
         </div>
         <div class="results-grid" id="results"><div class="result-item"><span class="label">請輸入尺寸後點擊計算</span></div></div>
@@ -123,6 +122,7 @@
     </div>
   </div>
 </div>
+<script src="結構工具箱/core/ui/report.js"></script>
 <script>
 const PI = Math.PI;
 function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
@@ -283,6 +283,7 @@ function sectionCalculationFingerprint() {
     tab: currentTab,
     inputs: source.inputs,
     custom: source.custom,
+    selectedResults: getCheckedResults().map(([label]) => String(label)),
     results: lastResults.map(([label, value, unit]) => [String(label), Number(value), String(unit || '')]),
   };
   return `CF-${stableSectionHash(payload, 2166136261)}${stableSectionHash(payload, 2246822507)}`;
@@ -392,11 +393,6 @@ function collectReportInputRows() {
   }).filter(Boolean);
 }
 
-function revokeSectionAttachmentApproval() {
-  const approval = document.getElementById('attachmentApproved');
-  if (approval) approval.checked = false;
-}
-
 function exportJPG() {
   const checked = getCheckedResults();
   if (!checked.length) { setStatus('請至少勾選一個計算項目', 'warn'); return; }
@@ -454,6 +450,10 @@ function exportJPG() {
 function exportPDF() {
   const checked = getCheckedResults();
   if (!checked.length) { setStatus('請至少勾選一個計算項目', 'warn'); return; }
+  if (!window.ToolReportUI?.buildAttachmentApprovalReport) {
+    setStatus('計算書核可模組尚未載入，請重新整理後再試', 'error');
+    return;
+  }
   const imgData = document.getElementById('sectionCanvas').toDataURL('image/png');
   const inputRows = collectReportInputRows().map(({label, value}) =>
     `<tr><td>${escapeHtml(label)}</td><td class="val" colspan="2">${escapeHtml(value)}</td></tr>`).join('');
@@ -461,11 +461,13 @@ function exportPDF() {
     `<tr><td>${escapeHtml(l)}</td><td class="val">${escapeHtml(fmt(v))}</td><td class="unit">${escapeHtml(u)}</td></tr>`).join('');
   const outputTime = new Date().toLocaleString('zh-TW', { hour12: false });
   const fingerprint = sectionCalculationFingerprint();
-  const approved = Boolean(document.getElementById('attachmentApproved')?.checked);
-  const documentStatus = approved ? '正式附件' : '內部審閱';
+  const approvalReport = window.ToolReportUI.buildAttachmentApprovalReport({ calculationFingerprint: fingerprint });
   const html = `<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><title>${escapeHtml(lastTitle||'斷面性質計算')}</title>
 <style>
   body{font-family:"Microsoft JhengHei","Segoe UI",sans-serif;padding:24px 30px;color:#1e293b;max-width:680px;margin:0 auto;}
+  .rep-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px;margin-bottom:10px;}
+  .rep-toolbar button{padding:6px 12px;border:1px solid #94a3b8;border-radius:4px;background:#fff;cursor:pointer;}
+  .rep-window-status{flex:1 0 100%;min-height:1.4em;color:#475569;font-size:11px;}
   .hdr{border-bottom:3px double #1e293b;padding:4px 0 10px;margin-bottom:12px;}
   .hdr h1{font-size:16px;margin:0 0 3px;}
   .hdr p{font-size:12px;margin:0;color:#475569;}
@@ -479,20 +481,22 @@ function exportPDF() {
   tr td:first-child{border-left-color:#2563eb;}
   td.val{font-family:Consolas,monospace;font-weight:bold;text-align:right;white-space:nowrap;}
   td.unit{color:#64748b;white-space:nowrap;}
-  .foot{margin-top:14px;padding-top:7px;border-top:1px solid #cbd5e1;font-size:9px;color:#64748b;display:flex;justify-content:space-between;gap:12px;}
-  @media print{body{padding:8px;}@page{margin:1.2cm;}}
-</style></head><body>
+  .foot{margin-top:14px;padding-top:7px;border-top:1px solid #cbd5e1;font-size:9px;color:#64748b;display:flex;flex-wrap:wrap;justify-content:space-between;gap:3px 12px;}
+  @media print{body{padding:8px;}.rep-toolbar{display:none!important;}@page{margin:1.2cm;}}
+</style></head><body data-document-class="internal-review">
+<div class="rep-toolbar"><span class="rep-window-status" id="repWindowStatus" role="status" aria-live="polite"></span><button type="button" onclick="window.print()">列印 / 另存 PDF</button><button type="button" onclick="window.close()">關閉</button></div>
+${approvalReport.html}
 <div class="hdr"><h1>斷面性質計算書</h1><p>${escapeHtml(lastTitle)}</p></div>
-<div class="meta"><span>文件狀態：${documentStatus}</span><span>產出工具：斷面性質計算</span><span>工具版本：${SECTION_TOOL_VERSION}</span><span>輸出時間：${escapeHtml(outputTime)}</span>${approved ? `<span>核可時間：${escapeHtml(outputTime)}</span>` : ''}<span>計算指紋：${fingerprint}</span></div>
+<div class="meta"><span>產出工具：斷面性質計算</span><span>工具版本：${SECTION_TOOL_VERSION}</span><span>輸出時間：${escapeHtml(outputTime)}</span><span>計算指紋：${fingerprint}</span></div>
 <div class="fig"><img src="${imgData}"></div>
 <table><tr><th>採用尺寸</th><th style="text-align:right" colspan="2">輸入值（依欄位標示）</th></tr>${inputRows}</table>
 <table><tr><th>計算結果－斷面性質</th><th style="text-align:right">計算值</th><th>單位</th></tr>${rows}</table>
-<div class="foot"><span>斷面性質計算 ${SECTION_TOOL_VERSION}</span><span>${fingerprint}</span></div>
-<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
+<div class="foot rep-footer"><span>斷面性質計算 ${SECTION_TOOL_VERSION}</span><span>${fingerprint}</span></div>
 </body></html>`;
-  const w = window.open('', '_blank');
-  if (!w) { setStatus('請允許彈出視窗以匯出 PDF', 'error'); return; }
+  const w = window.open('', '_blank', 'width=900,height=1100,scrollbars=yes');
+  if (!w) { setStatus('請允許彈出視窗以開啟計算書', 'error'); return; }
   w.document.write(html); w.document.close();
+  setStatus('已產生可列印的內部審閱計算書；請在預覽內確認後核可為正式附件。', 'ok');
 }
 
 function drawSection(fn) {
@@ -1377,8 +1381,6 @@ function calcCustom() {
 buildTabs();
 buildPanel('h-beam');
 calcHBeam();
-document.getElementById('input-panel').addEventListener('input', revokeSectionAttachmentApproval);
-document.getElementById('results').addEventListener('change', revokeSectionAttachmentApproval);
 </script>
 </body>
 </html>

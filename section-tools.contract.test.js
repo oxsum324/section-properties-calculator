@@ -455,12 +455,14 @@ const tools = [
     path: 'index.html',
     needles: [
       '<title>斷面性質計算工具 V2.1</title>', 'id="exportStatus"', 'function setStatus', 'sendIxToOpener()',
-      'id="sectionJsonFile"', 'id="attachmentApproved"', 'section-properties.project.v1',
+      'id="sectionJsonFile"', 'section-properties.project.v1', 'src="結構工具箱/core/ui/report.js"',
       'function collectSectionProjectData', 'function validateSectionProjectData', 'function applySectionProjectData',
-      'function applySectionProjectDataUnchecked', 'function sectionCalculationFingerprint', 'function revokeSectionAttachmentApproval',
-      "addEventListener('input', revokeSectionAttachmentApproval)", "addEventListener('change', revokeSectionAttachmentApproval)",
+      'function applySectionProjectDataUnchecked', 'function sectionCalculationFingerprint',
+      'selectedResults: getCheckedResults().map(([label]) => String(label))',
+      'buildAttachmentApprovalReport({ calculationFingerprint: fingerprint })',
+      '已產生可列印的內部審閱計算書；請在預覽內確認後核可為正式附件。',
       '採用尺寸', '計算結果－斷面性質',
-      '文件狀態：${documentStatus}', '產出工具：斷面性質計算', '工具版本：${SECTION_TOOL_VERSION}',
+      'data-document-class="internal-review"', '產出工具：斷面性質計算', '工具版本：${SECTION_TOOL_VERSION}',
       '輸出時間：${escapeHtml(outputTime)}', '計算指紋：${fingerprint}',
     ],
   },
@@ -537,9 +539,9 @@ const sectionPdfSource = functionSource(sectionPickerHtml, 'exportPDF');
 for (const needle of pageOnlyReportStatusNeedles) {
   assert(!sectionPdfSource.includes(needle), 'section property calculation book excludes page-only wording', needle);
 }
-assert(sectionPdfSource.includes('文件狀態：${documentStatus}') && sectionPdfSource.includes('計算指紋：${fingerprint}'), 'section property calculation book keeps state and traceability', 'document status + fingerprint');
+assert(sectionPdfSource.includes('buildAttachmentApprovalReport({ calculationFingerprint: fingerprint })') && sectionPdfSource.includes('data-document-class="internal-review"') && sectionPdfSource.includes('計算指紋：${fingerprint}'), 'section property calculation book keeps preview approval state and traceability', 'preview approval + fingerprint');
 const sectionBrowserSmoke = read(path.join('dev_tools', 'section-properties-browser-smoke.js'));
-for (const needle of ['斷面性質計算.html?pickI=1#legacy-bookmark', '相容入口未保留 pickI 模式', '儲存案例 JSON', 'JSON 載入重算指紋不符', '錯誤 JSON 改變了目前案例', '計算書缺少採用尺寸', '計算書混入操作頁訊息']) {
+for (const needle of ['斷面性質計算.html?pickI=1#legacy-bookmark', '相容入口未保留 pickI 模式', '儲存案例 JSON', 'JSON 載入重算指紋不符', '錯誤 JSON 改變了目前案例', '輸出欄位選取變更後計算指紋未改變', '新計算書未預設為可列印的內部審閱', '預覽內核可後未標示正式附件', '核可紀錄異動後未撤銷正式核可', '正式附件 HTML 未保存核可狀態與雙封印', '正式附件 HTML 保留了核可前的暫態撤銷訊息', '計算書缺少採用尺寸', '計算書混入操作頁訊息']) {
   assert(sectionBrowserSmoke.includes(needle), 'section property browser smoke locks replay/report boundary', needle);
 }
 

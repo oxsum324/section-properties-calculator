@@ -156,7 +156,7 @@
       '/beam-analysis': '2026-08-03',
       '/frame-analysis': '2026-08-03',
       '/struct-dx': '2026-08-13',
-      '/section': '2026-08-03',
+      '/section': '2026-08-15',
       '/composite-section': '2026-08-03',
       '/rc-beam': '2026-08-15',
       '/rc-column': '2026-08-15',

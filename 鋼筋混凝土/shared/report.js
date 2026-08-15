@@ -537,6 +537,9 @@ function buildRcAttachmentApprovalReport(options = {}) {
           root.querySelectorAll('.rep-approval-control, .rep-approval-meta-control, .rep-download-control').forEach(function (node) {
             node.remove();
           });
+          root.querySelectorAll('.rep-window-status').forEach(function (node) {
+            node.textContent = '';
+          });
           Array.from(root.querySelectorAll('.rep-document-status-line')).slice(1).forEach(function (node) {
             node.remove();
           });
