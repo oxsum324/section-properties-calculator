@@ -273,7 +273,7 @@ assert(
   'new home preflight source commit',
   'new home preflight clean source',
   '成品檔案完整性',
-  '139 / 139',
+  '141 / 141',
 ].forEach(needle => assertIncludes(localQuickBrowserSmoke, needle, `local quick browser smoke preserves rendered evidence ${needle}`));
 
 [
@@ -418,7 +418,7 @@ for (const { name, source } of rcReportVisualSources) {
   'xlsxContentSeal=',
   'xlsxApprovalSeal=',
   "scope: 'canonical-rendered-pdf-evidence'",
-  'required: 60',
+  'required: 62',
   'canonicalIntegrity=',
   'formalResultReconciliation',
   "scope: 'formal-golden-result-to-report-fingerprint'",
@@ -528,7 +528,7 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 32, 'rendered evid
   'excavationResultReconciliationDeclared',
   'localQuickResultReconciliationDeclared',
   "evidence.canonicalArtifactIntegrity?.scope === 'canonical-rendered-pdf-evidence'",
-  'evidence.canonicalArtifactIntegrity.required === 60',
+  'evidence.canonicalArtifactIntegrity.required === 62',
   "evidence.docxPackageIntegrity?.scope === 'formal-docx-clean-ooxml-package'",
   'evidence.docxPackageIntegrity.required === 4',
   "evidence.xlsxPackageIntegrity?.scope === 'formal-xlsx-clean-ooxml-package-and-formula-cache'",

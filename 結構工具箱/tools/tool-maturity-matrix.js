@@ -1814,8 +1814,8 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       && evidence.rcVisualArtifactIntegrity.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.rcVisualArtifactIntegrity.setSha256 || ''))
       && evidence.canonicalArtifactIntegrity?.scope === 'canonical-rendered-pdf-evidence'
-      && evidence.canonicalArtifactIntegrity.required === 60
-      && evidence.canonicalArtifactIntegrity.verified === 60
+      && evidence.canonicalArtifactIntegrity.required === 62
+      && evidence.canonicalArtifactIntegrity.verified === 62
       && evidence.canonicalArtifactIntegrity.issueCount === 0
       && evidence.canonicalArtifactIntegrity.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.canonicalArtifactIntegrity.setSha256 || ''))
