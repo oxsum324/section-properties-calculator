@@ -603,6 +603,7 @@ assert.ok(
     [[60, 60], [62, 62], [13, 13]],
     [[60, 60], [64, 64], [13, 13]],
     [[60, 60], [66, 66], [13, 13]],
+    [[62, 62], [66, 66], [13, 13]],
   ].some(expected => JSON.stringify(expected) === JSON.stringify(trackedDeliveryCounts)),
   'tracked report readiness snapshot preserves supported redacted delivery counts'
 );

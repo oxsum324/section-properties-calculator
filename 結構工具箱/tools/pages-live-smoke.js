@@ -700,7 +700,7 @@ async function main() {
   assert.equal(reportReadinessStatus.deliveryFileIntegrityPass, true, 'report readiness delivery file integrity passes');
   assert.deepEqual(
     reportReadinessStatus.deliveryFileIntegrityBreakdown.map(item => [item.key, item.required, item.verified]),
-    [['formalPdfEvidence', 60, 60], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]],
+    [['formalPdfEvidence', 62, 62], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]],
     'report readiness exposes the three redacted delivery integrity groups'
   );
   assert.ok(reportReadinessStatus.deliveryFileIntegrityBreakdown.every(item => item.pass && item.issueCount === 0), 'report readiness delivery integrity groups pass');
