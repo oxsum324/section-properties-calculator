@@ -750,7 +750,7 @@ assert.ok(maturityMatrix.includes('writeHomepageStatusSnapshots'), 'maturity mat
 assert.ok(maturityMatrix.includes('report-readiness-status'), 'maturity matrix writes report readiness snapshot');
 assert.ok(maturityMatrix.includes('preflightStatusSourcePath'), 'report readiness snapshot records preflight source');
 assert.ok(maturityMatrix.includes('--preserve-homepage-status'), 'maturity matrix can preserve homepage status snapshots for quick checks');
-assert.ok(preflightTools.includes('$maturityMatrixArgs += "--preserve-homepage-status"'), 'quick preflight preserves homepage status on first matrix refresh');
+assert.match(preflightTools, /\$maturityMatrixArgs = @\([\s\S]*?"--check",\s*"--preserve-homepage-status"\s*\)/, 'first matrix refresh always preserves homepage status until post-checks finish');
 assert.ok(preflightTools.includes('$postSummaryMatrixArgs += "--preserve-homepage-status"'), 'quick preflight preserves homepage status on final matrix refresh');
 
 for (const [label, payload] of Object.entries({ platformStatus, preflightStatus, reportReadinessStatus })) {

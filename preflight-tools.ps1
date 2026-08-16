@@ -3205,9 +3205,9 @@ if ($overallPass -and -not $CI -and (Test-Path -LiteralPath $maturityMatrixScrip
   $maturityMatrixArgs = @(
     $maturityMatrixScript,
     "--write",
-    "--check"
+    "--check",
+    "--preserve-homepage-status"
   )
-  if ($Quick) { $maturityMatrixArgs += "--preserve-homepage-status" }
   $matrixProc = Start-Process -FilePath node -ArgumentList $maturityMatrixArgs -WorkingDirectory $root -RedirectStandardOutput (Join-Path $runDir "tool-maturity-matrix.stdout.txt") -RedirectStandardError (Join-Path $runDir "tool-maturity-matrix.stderr.txt") -PassThru -Wait -WindowStyle Hidden
   if ($matrixProc.ExitCode -ne 0) {
     $overallPass = $false
