@@ -2,12 +2,12 @@
   "publicEvidenceSchemaVersion": 3,
   "snapshotVersion": 1,
   "kind": "preflight-summary",
-  "generatedAt": "2026-08-16 06:48:11",
-  "runId": "20260816-061833",
+  "generatedAt": "2026-08-16 11:14:19",
+  "runId": "20260816-104410",
   "quick": false,
   "forcePlatformAudit": true,
   "forceSlowChecks": true,
-  "sourceCommitSha": "2c97af9080dc4323779ccc4cd29335e95d6b1c3c",
+  "sourceCommitSha": "49174569faaf44df45bbb4e4728489d46550b7f5",
   "sourceBranch": "master",
   "sourceDirty": false,
   "pass": true,
@@ -18,109 +18,18 @@
   "platformAuditReused": false,
   "recordsCount": 86,
   "passedCount": 86,
-  "totalSeconds": 1708,
+  "totalSeconds": 1738.5,
   "slowestKey": "platform-audit",
-  "slowestSeconds": 766.6,
+  "slowestSeconds": 791.4,
   "postCheckCount": 3,
   "postChecksPassedCount": 3,
   "postCheckFailures": [],
-  "sourcePath": "output/preflight/history/20260816-061833/preflight-summary.json",
-  "sourceHash": "4fd7503490baa9be5ec0401aa651d343debff2d926de4cd6561c3f820b8d9179",
+  "sourcePath": "output/preflight/history/20260816-104410/preflight-summary.json",
+  "sourceHash": "73679a3efe0f4b5cdbd42a11ba21cb8aa6daba0fed169906822b9e86771f083a",
   "releaseHistory": {
     "schemaVersion": 2,
     "limit": 8,
     "entries": [
-      {
-        "runId": "20260815-203754",
-        "generatedAt": "2026-08-15 21:09:37",
-        "sourceCommitSha": "ed482869b82d99640e7d0555377f852257be50f7",
-        "records": {
-          "passed": 85,
-          "required": 85
-        },
-        "postChecks": {
-          "passed": 3,
-          "required": 3
-        },
-        "dimensions": [
-          {
-            "id": "release",
-            "pass": true
-          },
-          {
-            "id": "steel",
-            "pass": true
-          },
-          {
-            "id": "rc",
-            "pass": true
-          },
-          {
-            "id": "delivery",
-            "pass": true
-          }
-        ],
-        "metrics": [
-          {
-            "id": "steelResult",
-            "complete": 5,
-            "required": 5
-          },
-          {
-            "id": "steelContentSeal",
-            "complete": 5,
-            "required": 5
-          },
-          {
-            "id": "steelApprovalSeal",
-            "complete": 5,
-            "required": 5
-          },
-          {
-            "id": "rcResult",
-            "complete": 34,
-            "required": 34
-          },
-          {
-            "id": "rcPrint",
-            "complete": 34,
-            "required": 34
-          },
-          {
-            "id": "rcPackage",
-            "complete": 32,
-            "required": 32
-          },
-          {
-            "id": "formalResult",
-            "complete": 14,
-            "required": 14
-          },
-          {
-            "id": "localQuickResult",
-            "complete": 3,
-            "required": 3
-          },
-          {
-            "id": "rendered",
-            "complete": 31,
-            "required": 31
-          },
-          {
-            "id": "delivery",
-            "complete": 139,
-            "required": 139
-          }
-        ],
-        "change": {
-          "policyVersion": 1,
-          "classification": "baseline",
-          "increases": [],
-          "reductions": [],
-          "reasonCode": "",
-          "reason": ""
-        }
-      },
       {
         "runId": "20260815-221144",
         "generatedAt": "2026-08-15 22:41:07",
@@ -205,7 +114,7 @@
         ],
         "change": {
           "policyVersion": 1,
-          "classification": "unchanged",
+          "classification": "baseline",
           "increases": [],
           "reductions": [],
           "reasonCode": "",
@@ -759,6 +668,108 @@
           "policyVersion": 1,
           "classification": "unchanged",
           "increases": [],
+          "reductions": [],
+          "reasonCode": "",
+          "reason": ""
+        }
+      },
+      {
+        "runId": "20260816-104410",
+        "generatedAt": "2026-08-16 11:14:19",
+        "sourceCommitSha": "49174569faaf44df45bbb4e4728489d46550b7f5",
+        "records": {
+          "passed": 86,
+          "required": 86
+        },
+        "postChecks": {
+          "passed": 3,
+          "required": 3
+        },
+        "dimensions": [
+          {
+            "id": "release",
+            "pass": true
+          },
+          {
+            "id": "steel",
+            "pass": true
+          },
+          {
+            "id": "rc",
+            "pass": true
+          },
+          {
+            "id": "delivery",
+            "pass": true
+          }
+        ],
+        "metrics": [
+          {
+            "id": "steelResult",
+            "complete": 5,
+            "required": 5
+          },
+          {
+            "id": "steelContentSeal",
+            "complete": 5,
+            "required": 5
+          },
+          {
+            "id": "steelApprovalSeal",
+            "complete": 5,
+            "required": 5
+          },
+          {
+            "id": "rcResult",
+            "complete": 34,
+            "required": 34
+          },
+          {
+            "id": "rcPrint",
+            "complete": 34,
+            "required": 34
+          },
+          {
+            "id": "rcPackage",
+            "complete": 32,
+            "required": 32
+          },
+          {
+            "id": "formalResult",
+            "complete": 14,
+            "required": 14
+          },
+          {
+            "id": "localQuickResult",
+            "complete": 3,
+            "required": 3
+          },
+          {
+            "id": "rendered",
+            "complete": 32,
+            "required": 32
+          },
+          {
+            "id": "delivery",
+            "complete": 141,
+            "required": 141
+          }
+        ],
+        "change": {
+          "policyVersion": 1,
+          "classification": "expanded",
+          "increases": [
+            {
+              "id": "rendered",
+              "from": 31,
+              "to": 32
+            },
+            {
+              "id": "delivery",
+              "from": 139,
+              "to": 141
+            }
+          ],
           "reductions": [],
           "reasonCode": "",
           "reason": ""
