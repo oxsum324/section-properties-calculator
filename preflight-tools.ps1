@@ -1274,6 +1274,9 @@ if (-not (Test-Path -LiteralPath '.github\pages-smoke\node_modules\playwright\pa
   npm ci --prefix .github/pages-smoke --ignore-scripts --silent
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
+if ($env:PREFLIGHT_RUN_DIR) {
+  $env:SRC_BEAM_BROWSER_OUT = Join-Path $env:PREFLIGHT_RUN_DIR 'rendered-delivery-evidence\src-formal'
+}
 node SRC工具/src-beam-browser-smoke.test.js
 exit $LASTEXITCODE
 '@

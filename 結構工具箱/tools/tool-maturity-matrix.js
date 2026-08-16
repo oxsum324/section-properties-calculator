@@ -1379,17 +1379,15 @@ function buildMarkdown(payload) {
     }
   }
 
-  lines.push(
-    '',
-    '### Non-public Candidate Capabilities',
-    '',
-    '| capability | benchmark | reference | status | assertions | issues |',
-    '|---|---|---|---|---:|---|'
-  );
   const candidateRecords = Array.isArray(independentCoverage.candidateRecords) ? independentCoverage.candidateRecords : [];
-  if (candidateRecords.length === 0) {
-    lines.push('| - | - | - | - | 0 | - |');
-  } else {
+  if (candidateRecords.length > 0) {
+    lines.push(
+      '',
+      '### Non-public Candidate Capabilities',
+      '',
+      '| capability | benchmark | reference | status | assertions | issues |',
+      '|---|---|---|---|---:|---|'
+    );
     for (const record of candidateRecords) {
       const issues = Array.isArray(record.issues) && record.issues.length ? record.issues.join(', ') : '-';
       lines.push(`| ${markdownCell(record.capability)} | ${markdownCell(record.title)} | ${markdownCell(record.referenceBasis)} | ${markdownCell(record.status)} | ${record.assertionCount || 0} | ${markdownCell(issues)} |`);
@@ -2599,7 +2597,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
   const independentBenchmarkCandidateVerified = compactNumber(independentBenchmarkSummary.candidateVerified);
   const independentBenchmarkIssueCount = compactNumber(independentBenchmarkSummary.issueCount);
   details.push(`獨立工程基準：${independentBenchmarkVerified} / ${independentBenchmarkEligible} 個正式工具已具獨立封閉算例。既有重播、結果鏈與家族治理證據仍屬不同證據層級，不取代設計者複核。`);
-  details.push(`候選能力獨立基準：${independentBenchmarkCandidateVerified} / ${independentBenchmarkCandidateRequired}；候選結果只作上線前治理，不計入正式工具 ${independentBenchmarkVerified} / ${independentBenchmarkEligible}。`);
+  if (independentBenchmarkCandidateRequired > 0) details.push(`候選能力獨立基準：${independentBenchmarkCandidateVerified} / ${independentBenchmarkCandidateRequired}；候選結果只作上線前治理，不計入正式工具 ${independentBenchmarkVerified} / ${independentBenchmarkEligible}。`);
   return {
     publicEvidenceSchemaVersion: publicEvidenceSchema.SCHEMA_VERSION,
     snapshotVersion: 1,
@@ -3024,17 +3022,17 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(markdown.includes('rendered-delivery-evidence'), 'tool maturity matrix markdown exposes rendered delivery evidence gate');
   assert.ok(payload.independentBenchmarkCoverage && typeof payload.independentBenchmarkCoverage === 'object', 'tool maturity matrix independent benchmark coverage object');
   assert.equal(payload.independentBenchmarkCoverage.status, 'ready', 'tool maturity matrix independent benchmark pilot ready');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 31, 'tool maturity matrix independent benchmark pilot verified');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 31, 'tool maturity matrix independent benchmark pilot required');
-  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 31, 'tool maturity matrix independent benchmark verified route count');
-  assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 31, 'tool maturity matrix independent benchmark eligible route count');
-  assert.equal(payload.independentBenchmarkCoverage.summary.candidateRequired, 1, 'tool maturity matrix independent candidate required count');
-  assert.equal(payload.independentBenchmarkCoverage.summary.candidateVerified, 1, 'tool maturity matrix independent candidate verified count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 32, 'tool maturity matrix independent benchmark pilot verified');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 32, 'tool maturity matrix independent benchmark pilot required');
+  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 32, 'tool maturity matrix independent benchmark verified route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 32, 'tool maturity matrix independent benchmark eligible route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.candidateRequired, 0, 'tool maturity matrix has no remaining independent candidate');
+  assert.equal(payload.independentBenchmarkCoverage.summary.candidateVerified, 0, 'tool maturity matrix counts no candidate verification');
   assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, payload.entrypointCoverage.byState.formal, 'tool maturity matrix independent benchmark portfolio matches formal homepage entry count');
   assert.equal(payload.independentBenchmarkCoverage.summary.issueCount, 0, 'tool maturity matrix independent benchmark issues empty');
   assert.ok(markdown.includes('## Independent Engineering Benchmarks'), 'tool maturity matrix markdown exposes independent engineering benchmarks');
   assert.ok(markdown.includes('golden case、同核心 JSON 重播與結果鏈一致性不等同獨立工程基準'), 'tool maturity matrix markdown distinguishes replay from independent verification');
-  assert.ok(markdown.includes('Non-public Candidate Capabilities') && markdown.includes('src-beam-core'), 'tool maturity matrix separates the SRC candidate from formal routes');
+  assert.ok(markdown.includes('| /src-beam |') && !markdown.includes('| src-beam-core |'), 'tool maturity matrix lists SRC as a formal route instead of a candidate capability');
   assert.ok(payload.entrypointCoverage && typeof payload.entrypointCoverage === 'object', 'tool maturity matrix entrypointCoverage object');
   assert.equal(Number.isInteger(payload.entrypointCoverage.total), true, 'tool maturity matrix entrypointCoverage total integer');
   assert.equal(Number.isInteger(payload.entrypointCoverage.matrixCovered), true, 'tool maturity matrix entrypointCoverage matrixCovered integer');

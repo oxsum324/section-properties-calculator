@@ -1080,7 +1080,7 @@ function validateFamilySummary(runDir, family, expectedKeys) {
       assert.ok(fs.existsSync(artifactPath), `${family} artifact exists: ${record.artifact}`);
       assert.equal(fs.readFileSync(artifactPath).subarray(0, 4).toString('ascii'), '%PDF', `${family} artifact is PDF: ${record.artifact}`);
     }
-    if (artifactPath && evidencePath && ['formal-tools', 'local-quick-tools', 'steel-formal'].includes(family)) {
+    if (artifactPath && evidencePath && ['formal-tools', 'local-quick-tools', 'steel-formal', 'src-formal'].includes(family)) {
       const verified = verifyCanonicalRenderedArtifact(path.dirname(summaryPath), record, `${family} ${record.key || record.artifact}`);
       canonicalArtifacts.push(
         { family, role: 'reportPdf', name: record.artifact, bytes: verified.artifactBytes, sha256: verified.artifactSha256 },
@@ -1248,7 +1248,7 @@ function newestMatchingPdf(directory, prefix) {
 }
 
 assert.equal(inventory.version, 1, 'rendered delivery inventory version');
-assert.equal(inventory.tools.length, 31, 'rendered delivery inventory covers all homepage formal tools');
+assert.equal(inventory.tools.length, 32, 'rendered delivery inventory covers all homepage formal tools');
 const homeTools = vm.runInNewContext(`(${extractConstLiteral(homeSource, 'tools')})`);
 const formalHomeTools = homeTools.filter(tool => tool.state === 'formal');
 const formalRoutes = formalHomeTools.map(tool => tool.href).sort();
@@ -1654,7 +1654,7 @@ const excavationResultReconciliationRecords = [];
 const docxPackageIntegrityRecords = [];
 const xlsxPackageIntegrityRecords = [];
 
-for (const family of ['formal-tools', 'local-quick-tools', 'steel-formal']) {
+for (const family of ['formal-tools', 'local-quick-tools', 'steel-formal', 'src-formal']) {
   const tools = inventory.tools.filter(tool => tool.family === family);
   const expectedKeys = [...new Set(tools.map(tool => tool.evidenceKey))];
   const { summary, canonicalArtifacts, formalResultReconciliations, formalHtmlDualSeals, steelHtmlDualSeals, localQuickResultReconciliations, steelResultReconciliations } = validateFamilySummary(runDir, family, expectedKeys);
@@ -1666,7 +1666,27 @@ for (const family of ['formal-tools', 'local-quick-tools', 'steel-formal']) {
   steelResultReconciliationRecords.push(...steelResultReconciliations);
   for (const tool of tools) {
     const evidence = summary.records.find(record => record.key === tool.evidenceKey);
-    records.push({ href: tool.href, title: tool.title, family, evidenceKey: tool.evidenceKey, artifact: evidence?.artifact || '' });
+    let pdfEvidence = {};
+    if (family === 'src-formal') {
+      const familyDir = path.join(runDir, 'rendered-delivery-evidence', family);
+      const artifactPath = path.join(familyDir, evidence.artifact);
+      const pdf = validatePdfFile(artifactPath, {
+        label: tool.title,
+        minTextLength: 500,
+        titleNeedle: 'SRC 梁正式規範核算計算書',
+        requiredNeedles: ['SRC 梁正式規範核算計算書', '規範與構材條件', '計算過程明細', '檢核結論', '計算指紋'],
+        contentBoundaryProfile: 'traceable-calculation-book',
+        continuationContextLabels: ['規範與構材條件', '採用斷面與材料', '設計需求', '計算過程明細', '剪力分擔強度', '檢核結果', '檢核結論'],
+      });
+      const rawEvidence = readJson(path.join(familyDir, evidence.evidence));
+      const sourcePath = path.join(familyDir, rawEvidence.sourceArtifact || '');
+      assert.ok(fs.existsSync(sourcePath), 'SRC formal source case JSON exists');
+      assert.equal(sha256File(sourcePath), rawEvidence.sourceSha256, 'SRC formal source case JSON hash matches evidence');
+      assert.match(rawEvidence.calculationFingerprint || '', /^CF-[A-F0-9]{16}$/, 'SRC formal calculation fingerprint is recorded');
+      assert.equal(rawEvidence.documentState, 'formal-attachment', 'SRC formal rendered evidence records approved attachment state');
+      pdfEvidence = { pageCount: pdf.pageCount, textLength: pdf.textLength, sourceArtifact: rawEvidence.sourceArtifact, calculationFingerprint: rawEvidence.calculationFingerprint };
+    }
+    records.push({ href: tool.href, title: tool.title, family, evidenceKey: tool.evidenceKey, artifact: evidence?.artifact || '', ...pdfEvidence });
   }
 }
 
@@ -2750,7 +2770,7 @@ assert.equal(xlsxDualSeal.contentComplete, xlsxDualSeal.contentRequired, 'releas
 assert.equal(xlsxDualSeal.approvalComplete, xlsxDualSeal.approvalRequired, 'release verifies the formal XLSX approval seal');
 assert.equal(xlsxDualSeal.pass, true, 'release passes formal XLSX dual seal integrity');
 const aggregate = {
-  schemaVersion: 25,
+  schemaVersion: 26,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),

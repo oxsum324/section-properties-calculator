@@ -116,7 +116,7 @@ const stoneVersionContext = { window: {} };
 vm.runInNewContext(stoneVersionSource, stoneVersionContext, { timeout: 1000, filename: 'stone-public-metadata' });
 const stoneMetadata = stoneVersionContext.window.StonePublicMetadata;
 
-assert.equal(homeTools.length, 43, 'canonical homepage tool inventory count');
+assert.equal(homeTools.length, 44, 'canonical homepage tool inventory count');
 assert.equal(new Set(homeTools.map(tool => tool.href)).size, homeTools.length, 'canonical homepage routes are unique');
 for (const tool of homeTools) {
   assert.ok(tool.title && tool.version && tool.state && tool.output && tool.summary && tool.fit && tool.limit, `canonical public claim complete: ${tool.href}`);
@@ -202,6 +202,12 @@ assert.ok(deckingLauncher.includes('${DECKING_TOOL_METADATA.name} ${DECKING_TOOL
   '覆工板工具主頁列印已封鎖',
   '本頁不得作為附件',
 ].forEach(needle => assert.ok(deckingLauncher.includes(needle), `decking launcher keeps output boundary: ${needle}`));
+
+const srcBeamTool = canonicalTool('/src-beam');
+assert.equal(srcBeamTool.state, 'formal', 'canonical SRC beam claim is formal');
+assert.equal(srcBeamTool.governance, 'src-formal', 'canonical SRC beam claim uses report governance');
+assert.equal(srcBeamTool.version, 'V1.0', 'canonical SRC beam claim publishes the verified page version');
+assert.ok(srcBeamTool.limit.includes('失敗封閉'), 'canonical SRC beam claim states its fail-closed applicability boundary');
 
 assert.equal(Object.keys(formalToolMetadata).length, 17, 'formal public metadata covers every wind and seismic public route');
 for (const [toolKey, metadata] of Object.entries(formalToolMetadata)) {

@@ -579,7 +579,7 @@ assert.deepEqual(reportReadinessStatusSnapshot.reportTextSmokeEvidenceUnmappedFa
 assert.ok(reportReadinessStatusSnapshot.reportTextSmokeEvidenceGates.every(gate => gate.pass && gate.complete === gate.required), 'tracked report readiness snapshot report text runtime evidence gates pass');
 assert.ok(reportReadinessStatusSnapshot.reportTextSmokeScope.includes('風力 / 地震正式工具') && reportReadinessStatusSnapshot.reportTextSmokeScope.includes('局部快算'), 'tracked report readiness snapshot names report text scope');
 assert.ok(reportReadinessStatusSnapshot.reportTextSmokeScope.includes('矩陣外工具家族'), 'tracked report readiness snapshot keeps other-family report boundary');
-assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceRequired, 31, 'tracked report readiness snapshot rendered delivery covers every formal homepage tool');
+assert.ok([31, 32].includes(reportReadinessStatusSnapshot.renderedDeliveryEvidenceRequired), 'tracked report readiness snapshot covers the previous release or promoted formal homepage portfolio');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceComplete, reportReadinessStatusSnapshot.renderedDeliveryEvidenceRequired, 'tracked report readiness snapshot rendered delivery complete');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceIssueCount, 0, 'tracked report readiness snapshot rendered delivery issues empty');
 assert.match(reportReadinessStatusSnapshot.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'tracked report readiness snapshot rendered delivery runId');
@@ -588,7 +588,7 @@ assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceFamilies.redu
 assert.ok(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSummary.includes('實際交付物渲染'), 'tracked report readiness snapshot rendered delivery summary');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatusSnapshot.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'tracked report readiness snapshot rendered delivery source path');
 assert.match(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'tracked report readiness snapshot rendered delivery source hash');
-assert.ok([135, 137, 139].includes(reportReadinessStatusSnapshot.deliveryFileIntegrityRequired), 'tracked report readiness snapshot exposes a supported delivery-file transition count');
+assert.ok([135, 137, 139, 141].includes(reportReadinessStatusSnapshot.deliveryFileIntegrityRequired), 'tracked report readiness snapshot exposes a supported delivery-file transition count');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityVerified, reportReadinessStatusSnapshot.deliveryFileIntegrityRequired, 'tracked report readiness snapshot verifies every delivery file');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityIssueCount, 0, 'tracked report readiness snapshot delivery file integrity issues empty');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityPass, true, 'tracked report readiness snapshot delivery file integrity passes');
@@ -731,7 +731,7 @@ assert.ok(staging.includes('gh run list --workflow "Pages deploy" --limit 1'), '
 assert.ok(staging.includes('workflow run ID 不在本 ledger 硬編碼'), 'STAGING_GROUPS avoids self-staling Pages run ids');
 assert.ok(staging.includes('最新 `Pages deploy` 必須為 completed/success'), 'STAGING_GROUPS requires current Pages deploy success');
 assert.ok(staging.includes('page-only boundary `4/4`') && staging.includes('issue `0`'), 'STAGING_GROUPS records page-only boundary health');
-assert.ok(staging.includes('首頁正式工具實際交付物渲染 `31/31`'), 'STAGING_GROUPS records homepage rendered delivery evidence health');
+assert.ok(staging.includes('首頁正式工具實際交付物渲染 `32/32`'), 'STAGING_GROUPS records homepage rendered delivery evidence health');
 assert.ok(staging.includes('補充報告 / 服務成品 `2/2`'), 'STAGING_GROUPS records supplemental report and service delivery evidence health');
 assert.ok(staging.includes('不得附入計算書、列印輸出或 PDF'), 'STAGING_GROUPS keeps report readiness page-only boundary');
 assert.ok(staging.includes('下次同類變更的分包 playbook'), 'STAGING_GROUPS keeps future staging playbook');

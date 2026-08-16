@@ -1,9 +1,15 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
+const {
+  CANONICAL_RENDER_EVIDENCE_KIND,
+  validatePdfFile,
+  writeEvidenceSummary,
+} = require('../結構工具箱/tools/rendered-delivery-evidence.js');
 
 const repoRoot = path.resolve(__dirname, '..');
 const outDir = path.resolve(process.env.SRC_BEAM_BROWSER_OUT || path.join(repoRoot, 'output', 'playwright', 'src-beam'));
@@ -108,6 +114,8 @@ async function main() {
     await page.emulateMedia({ media: 'screen' });
 
     const casePayload = await page.evaluate(() => window.buildSrcBeamCasePayload());
+    const sourcePath = path.join(outDir, 'src-beam-source.json');
+    fs.writeFileSync(sourcePath, `${JSON.stringify(casePayload, null, 2)}\n`, 'utf8');
     await page.fill('#muTfM', '70');
     await page.waitForFunction(() => window.lastSrcBeamResult?.flexure?.demandTfM === 70);
     await page.setInputFiles('#caseFile', {
@@ -157,6 +165,46 @@ async function main() {
     const pdf = fs.readFileSync(pdfPath);
     assert.ok(pdf.length > 10000);
     assert.equal(pdf.subarray(0, 4).toString('ascii'), '%PDF');
+    const pdfValidation = validatePdfFile(pdfPath, {
+      label: 'SRC 梁正式計算書',
+      minTextLength: 500,
+      titleNeedle: 'SRC 梁正式規範核算計算書',
+      requiredNeedles: ['SRC 梁正式規範核算計算書', '規範與構材條件', '計算過程明細', '檢核結論', '計算指紋'],
+      contentBoundaryProfile: 'traceable-calculation-book',
+      continuationContextLabels: ['規範與構材條件', '採用斷面與材料', '設計需求', '計算過程明細', '剪力分擔強度', '檢核結果', '檢核結論'],
+    });
+    const evidenceName = 'src-beam-render-evidence.json';
+    const evidencePath = path.join(outDir, evidenceName);
+    const evidence = {
+      schemaVersion: 1,
+      kind: CANONICAL_RENDER_EVIDENCE_KIND,
+      generatedAt: new Date().toISOString(),
+      key: 'src-beam',
+      artifact: path.basename(pdfPath),
+      artifactBytes: pdf.length,
+      artifactSha256: crypto.createHash('sha256').update(pdf).digest('hex'),
+      sourceArtifact: path.basename(sourcePath),
+      sourceSha256: crypto.createHash('sha256').update(fs.readFileSync(sourcePath)).digest('hex'),
+      calculationFingerprint: initial.fingerprint,
+      documentState: 'formal-attachment',
+      pdf: {
+        pageCount: pdfValidation.pageCount,
+        textLength: pdfValidation.textLength,
+        footerLineCount: pdfValidation.footerLineCount,
+        orphanHeadingCount: pdfValidation.orphanHeadingCount,
+        uncontextualPageStartCount: pdfValidation.uncontextualPageStartCount,
+        contentBoundaryProfile: pdfValidation.contentBoundary.profile,
+      },
+    };
+    fs.writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
+    writeEvidenceSummary(outDir, 'src-formal', [{
+      key: 'src-beam',
+      artifact: path.basename(pdfPath),
+      evidence: evidenceName,
+      sourceArtifact: path.basename(sourcePath),
+      calculationFingerprint: initial.fingerprint,
+      documentState: 'formal-attachment',
+    }], ['src-beam']);
     assert.deepEqual(pageErrors, []);
 
     console.log(`SRC beam browser smoke: OK (${initial.fingerprint}; PDF ${pdf.length} bytes)`);

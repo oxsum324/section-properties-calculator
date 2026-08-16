@@ -66,7 +66,7 @@ assert.ok(staging.includes('gh run list --workflow "Pages deploy" --limit 1'), '
 assert.ok(staging.includes('workflow run ID 不在本 ledger 硬編碼'), 'staging guide avoids self-staling Pages run ids');
 assert.ok(staging.includes('最新 `Pages deploy` 必須為 completed/success'), 'staging guide requires current Pages deploy success');
 assert.ok(staging.includes('page-only boundary `4/4`') && staging.includes('issue `0`'), 'staging guide records page-only boundary health');
-assert.ok(staging.includes('首頁正式工具實際交付物渲染 `31/31`'), 'staging guide records homepage rendered delivery evidence health');
+assert.ok(staging.includes('首頁正式工具實際交付物渲染 `32/32`'), 'staging guide records homepage rendered delivery evidence health');
 assert.ok(staging.includes('補充報告 / 服務成品 `2/2`'), 'staging guide records supplemental report and service delivery evidence health');
 assert.ok(staging.includes('不得附入計算書、列印輸出或 PDF'), 'staging guide keeps report readiness page-only boundary');
 assert.ok(staging.includes('下次同類變更的分包 playbook'), 'staging guide keeps future staging playbook');
@@ -361,7 +361,7 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
           metrics: [
             ['steelResult', 5], ['steelContentSeal', 5], ['steelApprovalSeal', 5],
             ['rcResult', 34], ['rcPrint', 34], ['rcPackage', 32],
-            ['formalResult', 14], ['localQuickResult', 3], ['rendered', 31], ['delivery', 139],
+            ['formalResult', 14], ['localQuickResult', 3], ['rendered', 32], ['delivery', 141],
           ].map(([id, required]) => ({ id, complete: required, required })),
           change: {
             policyVersion: 1,
@@ -408,10 +408,10 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
       localQuickResultReconciliationRequired: 3,
       localQuickResultReconciliationComplete: 3,
       localQuickResultReconciliationPass: true,
-      renderedDeliveryEvidenceRequired: 31,
-      renderedDeliveryEvidenceComplete: 31,
-      deliveryFileIntegrityRequired: 139,
-      deliveryFileIntegrityVerified: 139,
+      renderedDeliveryEvidenceRequired: 32,
+      renderedDeliveryEvidenceComplete: 32,
+      deliveryFileIntegrityRequired: 141,
+      deliveryFileIntegrityVerified: 141,
       deliveryFileIntegrityPass: true,
     }), 'utf8');
     fs.writeFileSync(path.join(fixtureRoot, '.nojekyll'), '', 'utf8');
@@ -781,7 +781,7 @@ assert.deepEqual(reportReadinessStatus.reportTextSmokeEvidenceUnmappedFamilies, 
 assert.ok(reportReadinessStatus.reportTextSmokeEvidenceGates.every(gate => gate.pass && gate.complete === gate.required), 'report readiness runtime evidence gates pass');
 assert.ok(String(reportReadinessStatus.reportTextSmokeScope || '').includes('風力 / 地震正式工具') && String(reportReadinessStatus.reportTextSmokeScope || '').includes('局部快算'), 'report readiness names report text scope');
 assert.ok(String(reportReadinessStatus.reportTextSmokeScope || '').includes('矩陣外工具家族'), 'report readiness keeps other-family report boundary');
-assert.equal(reportReadinessStatus.renderedDeliveryEvidenceRequired, 31, 'report readiness rendered delivery covers every formal homepage tool');
+assert.ok([31, 32].includes(reportReadinessStatus.renderedDeliveryEvidenceRequired), 'report readiness covers the previous release or promoted formal homepage portfolio');
 assert.equal(reportReadinessStatus.renderedDeliveryEvidenceComplete, reportReadinessStatus.renderedDeliveryEvidenceRequired, 'report readiness rendered delivery complete');
 assert.equal(reportReadinessStatus.renderedDeliveryEvidenceIssueCount, 0, 'report readiness rendered delivery issues empty');
 assert.match(reportReadinessStatus.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'report readiness rendered delivery runId');

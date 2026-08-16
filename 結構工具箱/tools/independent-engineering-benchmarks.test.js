@@ -161,29 +161,30 @@ assert.ok(anchorAdapterSource.includes("require(path.join(anchorSourceRoot, 'cal
 assert.ok(!anchorAdapterSource.includes('golden'), 'anchor adapter does not replay a golden-case fixture');
 const anchorBackupSource = fs.readFileSync(path.join(toolsRoot, '..', '..', '螺栓檢討', 'bolt-review-tool', 'src', 'backup.ts'), 'utf8');
 assert.ok(anchorBackupSource.includes("import { evaluateProjectBatch } from './calc'"), 'anchor formal workspace replay remains connected to the benchmarked production core');
-const srcBeamCandidateAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'src-beam-candidate.js'), 'utf8');
-assert.ok(srcBeamCandidateAdapterSource.includes("../../../SRC工具/core/src-beam-core.js"), 'SRC candidate adapter exercises the production SRC beam core');
-assert.ok(srcBeamCandidateAdapterSource.includes('SrcBeamCore.calculate(item)'), 'SRC candidate adapter locks the production calculation call');
-assert.ok(!srcBeamCandidateAdapterSource.includes('golden'), 'SRC candidate adapter does not replay the official teaching example answer');
+const srcBeamAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'src-beam.js'), 'utf8');
+assert.ok(srcBeamAdapterSource.includes("../../../SRC工具/core/src-beam-core.js"), 'SRC adapter exercises the production SRC beam core');
+assert.ok(srcBeamAdapterSource.includes('SrcBeamCore.calculate(item)'), 'SRC adapter locks the production calculation call');
+assert.ok(!srcBeamAdapterSource.includes('golden'), 'SRC adapter does not replay the official teaching example answer');
 
 const result = runBenchmarks(catalog);
 assert.equal(result.status, 'ready', JSON.stringify(result.issues));
 assert.equal(result.schemaVersion, 2, 'candidate-aware independent benchmark result is versioned');
-assert.equal(result.summary.eligibleFormalRoutes, 31, 'formal route portfolio is explicit');
-assert.equal(result.summary.pilotRequired, 31, 'thirty-one independent pilot benchmarks required');
-assert.equal(result.summary.pilotVerified, 31, 'thirty-one independent pilot benchmarks verified');
-assert.equal(result.summary.independentlyVerifiedRoutes, 31, 'all thirty-one formal routes independently verified');
-assert.equal(result.summary.candidateRequired, 1, 'one non-public candidate capability is independently required');
-assert.equal(result.summary.candidateVerified, 1, 'one non-public candidate capability is independently verified');
-assert.equal(result.summary.verifiedCandidateCapabilities, 1, 'candidate coverage remains separate from formal route coverage');
+assert.equal(result.summary.eligibleFormalRoutes, 32, 'formal route portfolio is explicit');
+assert.equal(result.summary.pilotRequired, 32, 'thirty-two independent pilot benchmarks required');
+assert.equal(result.summary.pilotVerified, 32, 'thirty-two independent pilot benchmarks verified');
+assert.equal(result.summary.independentlyVerifiedRoutes, 32, 'all thirty-two formal routes independently verified');
+assert.equal(result.summary.candidateRequired, 0, 'no non-public candidate capability remains');
+assert.equal(result.summary.candidateVerified, 0, 'no non-public candidate capability is counted');
+assert.equal(result.summary.verifiedCandidateCapabilities, 0, 'candidate coverage is empty after SRC promotion');
 assert.equal(result.summary.priorityTargets, 0, 'no priority route remains in the independent benchmark roadmap');
 assert.equal(result.priorityTargets.some(target => target.priority === 'P0'), false, 'no P0 route remains in the independent benchmark roadmap');
 assert.equal(result.summary.issueCount, 0, 'independent pilot has no issues');
 assert.ok(result.records.every(record => record.status === 'verified'), 'every pilot record is independently verified');
 assert.ok(result.records.every(record => record.referenceType === 'closed-form-identity'), 'every pilot uses a closed-form identity');
-assert.equal(result.candidateRecords[0].capability, 'src-beam-core', 'SRC remains a candidate capability rather than a public route');
-assert.equal(result.candidateRecords[0].status, 'verified', 'SRC candidate closed-form benchmark is verified');
-assert.equal(result.candidateRecords[0].assertionCount, 41, 'SRC candidate benchmark covers flexure, compactness, shear allocation and cap control');
+assert.equal(result.candidateRecords.length, 0, 'SRC is no longer held outside formal route coverage');
+const srcBeamRecord = result.records.find(record => record.route === '/src-beam');
+assert.equal(srcBeamRecord.status, 'verified', 'SRC formal closed-form benchmark is verified');
+assert.equal(srcBeamRecord.assertionCount, 41, 'SRC formal benchmark covers flexure, compactness, shear allocation and cap control');
 
 const runnerText = fs.readFileSync(runnerPath, 'utf8');
 assert.ok(!runnerText.includes('golden-cases.js'), 'independent runner does not import golden case answers');
@@ -224,7 +225,7 @@ const falsePositiveResult = runBenchmarks(catalog, {
         if (relativePath === 'independent-engineering-adapters/seismic-appendage.js') production.maximum.Fpv += 0.25;
         if (relativePath === 'independent-engineering-adapters/seismic-misc.js') production.flexible.Vh += 0.25;
         if (relativePath === 'independent-engineering-adapters/anchor-cast-in.js') production.interactionDcr += 0.1;
-        if (relativePath === 'independent-engineering-adapters/src-beam-candidate.js') production.doubleReinforced490.mnRcTfM += 0.5;
+        if (relativePath === 'independent-engineering-adapters/src-beam.js') production.doubleReinforced490.mnRcTfM += 0.5;
         return production;
       }
     };
@@ -259,7 +260,7 @@ assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-val
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:maximum.Fpv')), 'seismic-appendage near-fault vertical-force drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:flexible.Vh')), 'seismic-misc flexible Chapter 5 force drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:interactionDcr')), 'anchor tension-shear interaction drift identifies the mismatched quantity');
-assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:doubleReinforced490.mnRcTfM')), 'SRC candidate flexural drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:doubleReinforced490.mnRcTfM')), 'SRC formal flexural drift identifies the mismatched quantity');
 
 const duplicateCatalog = JSON.parse(JSON.stringify(catalog));
 duplicateCatalog.benchmarks[1].route = duplicateCatalog.benchmarks[0].route;
@@ -269,13 +270,6 @@ const unknownFieldCatalog = JSON.parse(JSON.stringify(catalog));
 unknownFieldCatalog.benchmarks[0].expected = 123;
 assert.ok(validateCatalog(unknownFieldCatalog).some(issue => issue.includes(':keys:')), 'unknown expected-answer fields are rejected');
 
-const duplicateCapabilityCatalog = JSON.parse(JSON.stringify(catalog));
-duplicateCapabilityCatalog.candidateBenchmarks.push(JSON.parse(JSON.stringify(duplicateCapabilityCatalog.candidateBenchmarks[0])));
-duplicateCapabilityCatalog.candidateBenchmarks[1].id = 'src-beam-candidate-duplicate';
-assert.ok(validateCatalog(duplicateCapabilityCatalog).some(issue => issue.includes('unique-capability')), 'duplicate candidate capabilities are rejected');
-
-const publicRouteLeakCatalog = JSON.parse(JSON.stringify(catalog));
-publicRouteLeakCatalog.candidateBenchmarks[0].route = '/src-beam';
-assert.ok(validateCatalog(publicRouteLeakCatalog).some(issue => issue.includes(':keys:')), 'candidate benchmark cannot silently claim a public route');
+assert.deepEqual(catalog.candidateBenchmarks, [], 'candidate catalog remains explicitly empty after promotion');
 
 console.log('Independent engineering benchmarks tests passed.');

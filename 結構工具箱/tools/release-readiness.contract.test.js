@@ -387,9 +387,9 @@ for (const { name, source } of rcReportVisualSources) {
 ].forEach(needle => assertIncludes(deliveryArtifactsContract, needle, `delivery artifact contract preserves extracted Office evidence ${needle}`));
 
 [
-  'inventory.tools.length, 31',
+  'inventory.tools.length, 32',
   "process.env.PREFLIGHT_RELEASE === '1'",
-  "['formal-tools', 'local-quick-tools', 'steel-formal']",
+  "['formal-tools', 'local-quick-tools', 'steel-formal', 'src-formal']",
   "family === 'rc-formal'",
   "family === 'rc-retrofit'",
   "family === 'stone-formal'",
@@ -402,7 +402,7 @@ for (const { name, source } of rcReportVisualSources) {
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 25',
+  'schemaVersion: 26',
   'canonicalArtifactIntegrity',
   'docxPackageIntegrity',
   "scope: 'formal-docx-clean-ooxml-package'",
@@ -479,7 +479,7 @@ for (const { name, source } of rcReportVisualSources) {
   'localQuickResultReconciliation=',
   'rendered-delivery-evidence-summary.json',
 ].forEach(needle => assertIncludes(renderedEvidenceContract, needle, `rendered evidence aggregate contract preserves ${needle}`));
-assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evidence inventory has 31 formal tools', 'rendered-delivery-evidence.inventory.json');
+assert(JSON.parse(renderedEvidenceInventory).tools.length === 32, 'rendered evidence inventory has 32 formal tools', 'rendered-delivery-evidence.inventory.json');
 
 [
   'release-readiness-contract',
@@ -741,9 +741,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
 
 [
   'independent-engineering-benchmarks.catalog.json',
-  '31 / 31',
-  'candidateBenchmarks',
-  '1 / 1 個非公開候選能力',
+  '32 / 32',
+  '/src-beam',
   '石材固定',
   '不等同獨立工程驗證',
 ].forEach(needle => {

@@ -23,10 +23,10 @@
   };
 
   const memberSystems = [
-    { id: 'all', label: '全部', summary: '依材料系統分段顯示 RC、鋼構與未來 SRC 構件工具。' },
+    { id: 'all', label: '全部', summary: '依材料系統分段顯示 RC、鋼構與 SRC 構件工具。' },
     { id: 'rc', label: 'RC', summary: '鋼筋混凝土梁、柱、板、牆、基礎、樁與補強構件檢核。' },
     { id: 'steel', label: '鋼構', summary: '鋼梁、鋼柱、鋼構正式入口與鋼構連接板檢核。' },
-    { id: 'src', label: 'SRC', summary: '包覆型 SRC 梁計算核心建置中；尚未提供公開構件工具。' }
+    { id: 'src', label: 'SRC', summary: '包覆型 SRC 梁正式檢核、案件重播與精簡計算書。' }
   ];
 
   const toolStates = {
@@ -68,6 +68,12 @@
       label: 'Steel audit / report boundary',
       preflightKeys: ['steel-traceability-contract', 'steel-formal-regression', 'steel-audit-status'],
       cardTag: '報告邊界'
+    },
+    'src-formal': {
+      label: 'SRC beam report boundary',
+      preflightKeys: ['src-beam-core-regression'],
+      fullPreflightKeys: ['src-beam-core-regression'],
+      cardTag: '計算書邊界'
     },
     'anchor-deployment': {
       label: 'Anchor deployment',
@@ -166,6 +172,7 @@
       '/rc-foundation': '2026-08-15',
       '/rc-pile': '2026-08-15',
       '/rc-retrofit-section': '2026-08-15',
+      '/src-beam': '2026-08-16',
       '/steel-formal': '2026-08-16',
       '/steel-beam-formal': '2026-08-16',
       '/steel-column-formal': '2026-08-16',
@@ -233,6 +240,7 @@
       '/rc-foundation': ['鋼筋混凝土/shared/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/rc-pile': ['鋼筋混凝土/shared/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/rc-retrofit-section': ['鋼筋混凝土/shared/report.js', '結構工具箱/tools/project-meta-profile.js'],
+      '/src-beam': ['SRC工具/core/src-beam-core.js', 'SRC工具/src-beam.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/steel-formal': ['鋼構工具/app.js', '鋼構工具/core/ui/report.js'],
       '/steel-plate': ['鋼構工具/app.js', '鋼構工具/core/ui/report.js'],
       '/steel-beam-formal': ['鋼構工具/steel-beam-formal.js', '鋼構工具/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
@@ -466,6 +474,20 @@
       fit: '鋼構構件與接合正式核算主入口。',
       limit: '仍需確認每個子頁的適用情境。',
       capabilities: ['正式核算', '自巡檢']
+    },
+    {
+      title: 'SRC 梁',
+      version: 'V1.0',
+      href: '/src-beam',
+      categories: ['member'],
+      memberSystem: 'src',
+      state: 'formal',
+      governance: 'src-formal',
+      output: '包覆型 SRC 梁強度檢核、案件 JSON 與正式計算書',
+      summary: '以應變相容與規範分擔式檢核包覆型 SRC 梁撓曲、寬厚比、鋼骨與 RC 剪力，計算書只保留採用資料、公式、結果與結論。',
+      fit: '非耐震、無軸力、完全包覆矩形 SRC 梁正式檢核。',
+      limit: '耐震、軸力、部分包覆、剪力釘與超出頁面明列條件者均失敗封閉，須另行詳算。',
+      capabilities: ['正式核算', '案件 JSON', '可列印']
     },
     {
       title: '鋼梁正式頁',
@@ -873,6 +895,7 @@
     '/rc-foundation': '../鋼筋混凝土/tools/foundation.html',
     '/rc-pile': '../鋼筋混凝土/tools/single-pile-designer.html',
     '/rc-retrofit-section': '../RC補強斷面性質.html',
+    '/src-beam': '../SRC工具/src-beam.html',
     '/wind-overview': 'tools/風力/wind-overview.html',
     '/wind-kzt': 'tools/風力/wind-kzt.html',
     '/wind-force': 'tools/風力/wind-force.html',
@@ -1200,12 +1223,6 @@
     elements.count.textContent = `${filtered.length} / ${tools.length} 項工具`;
     if (filtered.length !== 0) {
       elements.empty.hidden = true;
-      return;
-    }
-    if (state.category === 'member') {
-      renderEmptyState('SRC 計算核心建置中', '已建立包覆型 SRC 梁的規範追溯與官方例題回歸；公開 UI、正式計算書及完整發布證據完成前不提供工具入口。');
-      elements.grid.replaceChildren();
-      elements.empty.hidden = false;
       return;
     }
     renderEmptyState('找不到符合條件的工具', '請切回「全部」，或改從左側分類進入。');

@@ -63,7 +63,7 @@ function mapResult(result) {
 
 function calculate(input) {
   const issues = validateInput(input);
-  if (issues.length) throw new RangeError(`invalid-src-beam-candidate-benchmark-input:${issues.join(',')}`);
+  if (issues.length) throw new RangeError(`invalid-src-beam-benchmark-input:${issues.join(',')}`);
   return Object.fromEntries(input.cases.map(item => [item.id, mapResult(SrcBeamCore.calculate(item))]));
 }
 

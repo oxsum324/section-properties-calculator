@@ -54,7 +54,8 @@ const PUBLIC_ROUTE_SAMPLES = [
 ];
 const CLEAN_ROUTE_SAMPLES = [
   { path: 'rc-column/', source: '/rc-column', targetNeedle: 'column.html' },
-  { path: 'steel-beam-formal/', source: '/steel-beam-formal', targetNeedle: 'steel-beam-formal.html' }
+  { path: 'steel-beam-formal/', source: '/steel-beam-formal', targetNeedle: 'steel-beam-formal.html' },
+  { path: 'src-beam/', source: '/src-beam', targetNeedle: 'src-beam.html' }
 ];
 const PRIVATE_PATHS = [
   '啟動案件附件工作台.bat',

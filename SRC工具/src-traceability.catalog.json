@@ -35,8 +35,9 @@
     "approvalMetadataChangePolicy": "revoke-and-reapprove",
     "directPrintBoundary": true,
     "optionalProjectMetadata": true,
-    "publicRoute": false,
-    "releaseStatus": "candidate-vertical-slice-verified"
+    "publicRoute": true,
+    "route": "/src-beam",
+    "releaseStatus": "formal-release-ready"
   },
   "equations": [
     { "id": "src-5.4-1", "clause": "5.4.1", "expression": "phi_b Mn = 0.9 Mns + 0.9 Mnrc", "implementation": "calculate.flexure" },

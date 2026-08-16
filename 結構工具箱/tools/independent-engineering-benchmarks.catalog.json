@@ -3,7 +3,7 @@
   "kind": "independent-engineering-benchmarks.v2",
   "portfolio": {
     "eligibleState": "formal",
-    "eligibleFormalRoutes": 31,
+    "eligibleFormalRoutes": 32,
     "scopeNote": "本目錄只計入具有獨立推導預期值的案例；既有 golden case 與同核心重播不視為獨立工程基準。"
   },
   "benchmarks": [
@@ -3032,16 +3032,15 @@
         { "path": "pinCoeffServiceability.allPass", "absTolerance": 0 }
       ]
     }
-  ],
-  "candidateBenchmarks": [
+  ,
     {
-      "id": "src-beam-candidate-strength",
-      "capability": "src-beam-core",
-      "title": "包覆型 SRC 梁候選核心彎矩、剪力分擔與寬厚比",
-      "productionModule": "independent-engineering-adapters/src-beam-candidate.js",
+      "id": "src-beam-strength",
+      "route": "/src-beam",
+      "title": "包覆型 SRC 梁正式頁彎矩、剪力分擔與寬厚比",
+      "productionModule": "independent-engineering-adapters/src-beam.js",
       "oracle": "src-beam-candidate-strength",
       "referenceType": "closed-form-identity",
-      "referenceBasis": "非耐震、無軸力、完全包覆矩形 SRC 梁；RC 部分以拉力筋降伏且壓力筋彈性之力平衡二次方程閉合求根，不重用 production bisection，再獨立推導 Mns、0.9(Mns+Mnrc)、鋼骨與 RC 剪力分擔、2.12√fc'bd 一般上限、2.12μ√fc'bd 剪力摩擦上限及表 3.4-1 寬厚比。候選能力不計入公開正式入口 31/31。",
+      "referenceBasis": "非耐震、無軸力、完全包覆矩形 SRC 梁；RC 部分以拉力筋降伏且壓力筋彈性之力平衡二次方程閉合求根，不重用 production bisection，再獨立推導 Mns、0.9(Mns+Mnrc)、鋼骨與 RC 剪力分擔、2.12√fc'bd 一般上限、2.12μ√fc'bd 剪力摩擦上限及表 3.4-1 寬厚比；並鎖定正式頁 `/src-beam` 的 production 核心。",
       "input": {
         "cases": [
           {
@@ -3131,5 +3130,6 @@
       ]
     }
   ],
+  "candidateBenchmarks": [],
   "priorityTargets": []
 }
