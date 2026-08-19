@@ -1286,6 +1286,42 @@ for (const tool of manifestTools) {
   assertDestinationMatchesHtml(tool.route, deployedRoutes.get(tool.route), tool.html);
 }
 
+const serveLocalSource = readText(path.join(repoRoot, 'serve-local.js'));
+assert.ok(serveLocalSource.includes("process.argv.indexOf('--route')"), 'local server accepts a dedicated launch route');
+assert.ok(serveLocalSource.includes("rawRoute.startsWith('//')"), 'local server rejects protocol-relative launch routes');
+assert.ok(serveLocalSource.includes("routeUrl.origin !== 'http://127.0.0.1'"), 'local server keeps launch routes on localhost');
+assert.ok(serveLocalSource.includes('function redirectDestination(') && serveLocalSource.includes("fs.statSync(fullPath).isDirectory()"), 'local server preserves directory-relative asset resolution');
+assert.ok(serveLocalSource.includes('function trailingSlashCanonical(') && serveLocalSource.includes('redirectDestination(configuredDestination) === pathname'), 'local server canonicalizes trailing clean routes without looping real directories');
+for (const optionalPath of [
+  'pages-deployment.json',
+  'output/audit/gsm-lifecycle-monitor-status.json',
+  'output/audit/gsm-lifecycle-monitor-history.json',
+  'output/audit/gsm-lifecycle-monitor-task-status.json',
+]) {
+  assert.ok(serveLocalSource.includes(`'${optionalPath}'`), `local server optional JSON whitelist includes ${optionalPath}`);
+}
+assert.ok(serveLocalSource.includes("'X-Local-Optional-Resource': 'missing'") && serveLocalSource.includes("res.end('null\\n')"), 'local server exposes explicit null fallback metadata');
+const serveLocalBrowserSmokePath = path.join(repoRoot, 'serve-local-browser-smoke.test.js');
+assert.ok(fs.existsSync(serveLocalBrowserSmokePath), 'local server browser smoke exists');
+const serveLocalBrowserSmokeSource = readText(serveLocalBrowserSmokePath);
+for (const route of ['steel-formal/', 'rc/', 'section/?pickI=1', 'anchor/']) {
+  assert.ok(serveLocalBrowserSmokeSource.includes(`'${route}'`), `local server browser smoke covers ${route}`);
+}
+assert.ok(serveLocalBrowserSmokeSource.includes('audit-dashboard.html?audit_scope=local'), 'local server browser smoke covers the local audit dashboard');
+assert.ok(serveLocalBrowserSmokeSource.includes("missing-required-resource.json") && serveLocalBrowserSmokeSource.includes("unknownResponse.status(), 404"), 'local server browser smoke preserves unknown-resource 404 visibility');
+assert.ok(readme.includes('serve-local-browser-smoke.test.js') && boundaries.includes('serve-local-browser-smoke.test.js'), 'local server browser smoke is documented');
+for (const [launcherName, route] of [
+  ['啟動斷面計算工具.bat', '/section'],
+  ['啟動螺栓檢討工具.bat', '/anchor'],
+]) {
+  const launcherPath = path.join(repoRoot, launcherName);
+  assert.ok(fs.existsSync(launcherPath), `local direct launcher missing: ${launcherName}`);
+  const launcherSource = readText(launcherPath);
+  assert.ok(launcherSource.includes('serve-local.js') && launcherSource.includes(`--route ${route}`), `${launcherName} must open ${route} through the local server`);
+  assert.equal(launcherSource.includes('anchor\\index.html'), false, `${launcherName} must not open build output through file://`);
+  assert.ok(readme.includes(launcherName) && boundaries.includes(launcherName), `${launcherName} must be documented as a local-only entrypoint`);
+}
+
 [
   'toolbox-entrypoints.contract.test.js',
   '首頁入口',

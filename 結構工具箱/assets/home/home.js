@@ -162,7 +162,7 @@
       '/beam-analysis': '2026-08-16',
       '/frame-analysis': '2026-08-16',
       '/struct-dx': '2026-08-13',
-      '/section': '2026-08-16',
+      '/section': '2026-08-19',
       '/composite-section': '2026-08-16',
       '/rc-beam': '2026-08-19',
       '/rc-column': '2026-08-19',

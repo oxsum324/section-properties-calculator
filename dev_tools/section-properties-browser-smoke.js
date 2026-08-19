@@ -6,6 +6,18 @@ async function sectionPropertiesBrowserSmoke(page) {
   const canonicalUrl = await page.evaluate(() => new URL('index.html', window.location.href).href);
   await page.goto(canonicalUrl);
 
+  const consoleErrors = [];
+  const captureConsoleError = message => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  };
+  page.on('console', captureConsoleError);
+  for (const shapeName of ['圓管', '方管', '角鋼', '槽鋼', 'C 型鋼', '實心矩形', '實心圓形', '基本幾何斷面', '自訂組合斷面', 'H 型鋼']) {
+    await page.getByRole('button', { name: shapeName, exact: true }).click();
+    await page.waitForFunction(expected => document.querySelector('.tab-btn.active')?.textContent.trim() === expected, shapeName);
+  }
+  page.off('console', captureConsoleError);
+  if (consoleErrors.length) throw new Error(`切換斷面形狀時發生瀏覽器錯誤：${consoleErrors.join(' | ')}`);
+
   const source = await page.evaluate(() => collectSectionProjectData());
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: '儲存案例 JSON' }).click();
@@ -98,6 +110,7 @@ async function sectionPropertiesBrowserSmoke(page) {
     rejectedStatePreserved: true,
     mismatchRollback: true,
     selectionFingerprintBound: true,
+    allShapeTabsSwitchable: true,
     approvalRevokedOnMetadata: true,
     sealedHtml: true,
     formalReport: true,

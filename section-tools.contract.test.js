@@ -545,13 +545,15 @@ assertProjectMetaUsesSharedNormalization(compositeHtml, 'composite section repor
 
 const sectionPickerHtml = read('index.html');
 assertPrintHidesSelectors(sectionPickerHtml, ['.page-only-tool-actions'], 'section property JSON actions');
+const sectionSwitchTabSource = functionSource(sectionPickerHtml, 'switchTab');
+assert(!sectionSwitchTabSource.includes('revokeSectionAttachmentApproval'), 'section shape switch does not call undefined report-preview state', 'all ten shape tabs remain switchable');
 const sectionPdfSource = functionSource(sectionPickerHtml, 'exportPDF');
 for (const needle of pageOnlyReportStatusNeedles) {
   assert(!sectionPdfSource.includes(needle), 'section property calculation book excludes page-only wording', needle);
 }
 assert(sectionPdfSource.includes('buildAttachmentApprovalReport({ calculationFingerprint: fingerprint })') && sectionPdfSource.includes('data-document-class="internal-review"') && sectionPdfSource.includes('計算指紋：${fingerprint}'), 'section property calculation book keeps preview approval state and traceability', 'preview approval + fingerprint');
 const sectionBrowserSmoke = read(path.join('dev_tools', 'section-properties-browser-smoke.js'));
-for (const needle of ['斷面性質計算.html?pickI=1#legacy-bookmark', '相容入口未保留 pickI 模式', '儲存案例 JSON', 'JSON 載入重算指紋不符', '錯誤 JSON 改變了目前案例', '輸出欄位選取變更後計算指紋未改變', '新計算書未預設為可列印的內部審閱', '預覽內核可後未標示正式附件', '核可紀錄異動後未撤銷正式核可', '正式附件 HTML 未保存核可狀態與雙封印', '正式附件 HTML 保留了核可前的暫態撤銷訊息', '計算書缺少採用尺寸', '計算書混入操作頁訊息']) {
+for (const needle of ['斷面性質計算.html?pickI=1#legacy-bookmark', '相容入口未保留 pickI 模式', '切換斷面形狀時發生瀏覽器錯誤', 'allShapeTabsSwitchable', '儲存案例 JSON', 'JSON 載入重算指紋不符', '錯誤 JSON 改變了目前案例', '輸出欄位選取變更後計算指紋未改變', '新計算書未預設為可列印的內部審閱', '預覽內核可後未標示正式附件', '核可紀錄異動後未撤銷正式核可', '正式附件 HTML 未保存核可狀態與雙封印', '正式附件 HTML 保留了核可前的暫態撤銷訊息', '計算書缺少採用尺寸', '計算書混入操作頁訊息']) {
   assert(sectionBrowserSmoke.includes(needle), 'section property browser smoke locks replay/report boundary', needle);
 }
 
