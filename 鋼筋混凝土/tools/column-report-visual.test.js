@@ -428,6 +428,13 @@ async function main() {
       include: ['柱檢核計算書', '文件狀態：正式附件', '核可時間', '配筋圖／S-302', 'QA-01', '已完成可追溯複核', '已複核'],
       exclude: ['DRAFT／非正式附件', '容量式主筋候選', '整體配筋候選', '箍筋／繫筋', '候選只留在工作頁', '套用並檢核']
     });
+    const resolvedPdfPages = readPdfTextWithPoppler(pdfPath).text
+      .split('\f')
+      .map(text => text.replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+    const resolvedPdfLastPage = resolvedPdfPages.at(-1) || '';
+    assert(resolvedPdfLastPage.includes('握裹 / 搭接長度'), 'resolved review PDF keeps short final section heading with its rows', resolvedPdfLastPage.slice(0, 180));
+    assert(resolvedPdfLastPage.includes('主筋拉力') && resolvedPdfLastPage.includes('柱底錨定型式 / 長度'), 'resolved review PDF avoids a single orphan row on the final page', resolvedPdfLastPage.slice(-240));
     assert(metrics.bodyText.includes('人工複核採用記錄'), 'resolved review rendered report keeps traceable review heading', '人工複核採用記錄');
     ['DRAFT／非正式附件', '未輸入時不作通過判定', '人工複核項，不納入自動 OK 判定', '報告不作通過判定'].forEach(fragment => {
       assert(!metrics.bodyText.includes(fragment), 'resolved review rendered report has no stale draft conclusion', fragment);

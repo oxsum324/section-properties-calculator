@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const ExternalTools = require('./external-tool-resolver.js');
 
 const {
   CALCULATION_BOOK_CONTENT_BOUNDARY,
@@ -254,12 +255,13 @@ function resolveEvidenceDir(repoRoot, family) {
 }
 
 function run(command, args, label) {
-  const result = spawnSync(command, args, {
+  const tool = ExternalTools.resolveExternalTool(command);
+  const result = spawnSync(tool.command, args, {
     encoding: 'utf8',
     windowsHide: true,
     maxBuffer: 64 * 1024 * 1024,
   });
-  if (result.error) throw new Error(`${label}: ${result.error.message}`);
+  if (result.error) throw new Error(`${label} [${tool.resolvedPath}]: ${result.error.message}`);
   if (result.status !== 0) {
     throw new Error(`${label}: exit=${result.status}\n${result.stderr || result.stdout || ''}`);
   }

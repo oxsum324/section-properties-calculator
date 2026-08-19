@@ -52,6 +52,15 @@ function parseIndexLabels(source) {
   return new Map([...match[1].matchAll(/['"]?([a-z-]+)['"]?\s*:\s*'([^']+)'/g)].map((m) => [m[1], m[2]]));
 }
 
+function parseStatusSource(source) {
+  const match = source.match(/const source\s*=\s*\{([\s\S]*?)\};/);
+  if (!match) return {};
+  return Object.fromEntries(
+    [...match[1].matchAll(/([A-Za-z_$][\w$]*)\s*:\s*(['"])(.*?)\2/g)]
+      .map((property) => [property[1], property[3]])
+  );
+}
+
 function parseMenuCards(source) {
   const cards = [];
   const pattern = /<a class="menu-card" href="([^"]+)">([\s\S]*?)<\/a>/g;
@@ -165,6 +174,7 @@ const expectedHrefs = [
 const auditModules = parseAuditModules(audit);
 const indexLabels = parseIndexLabels(index);
 const menuCards = parseMenuCards(index);
+const statusSource = parseStatusSource(index);
 const fallbackText = expectedLabels.join('、');
 const requiredQaArtifacts = [
   'tools/audit-status.contract.test.js',
@@ -256,8 +266,10 @@ for (const [position, key] of expectedModules.entries()) {
 }
 assert(menuCards.length >= expectedModules.length, 'index menu exposes all audited modules', `cards=${menuCards.length}`);
 assert(menuCards.length === expectedModules.length + 1 && menuCards[expectedModules.length].href === '../RC補強斷面性質.html', 'index menu only has expected non-audited RC strengthening entry', JSON.stringify(menuCards.map((card) => card.href)));
-assertIncludes(index, "kind: 'public', url: '../結構工具箱/assets/status/platform-status.json'", 'RC public page reads published platform status');
-assertIncludes(index, "kind: 'local', url: './output/audit/audit-status.json'", 'RC local page keeps detailed audit status');
+assert(statusSource.kind === 'public', 'RC status source is the public release snapshot', statusSource.kind || 'missing');
+assert(statusSource.url === '../結構工具箱/assets/status/platform-status.json', 'RC public page reads published platform status', statusSource.url || 'missing');
+assert(statusSource.summaryUrl === '../結構工具箱/audit-dashboard.html', 'RC public status links to the platform dashboard', statusSource.summaryUrl || 'missing');
+assert(!/^\.\/output\/audit\//.test(statusSource.url || ''), 'RC public page does not fetch private local audit detail', statusSource.url || 'missing');
 assertIncludes(index, '平台公開巡檢狀態', 'RC public status is labeled as platform-wide');
 assertIncludes(index, 'RC 詳細巡檢僅供本機工作環境讀取', 'RC public status explains local detail boundary');
 for (const card of menuCards) {

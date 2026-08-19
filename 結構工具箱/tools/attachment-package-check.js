@@ -6,6 +6,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const AnchorHtmlSealVerifier = require('./anchor-html-seal-verifier.js');
 const AnchorXlsxSealVerifier = require('./xlsx-seal-verifier.js');
+const ExternalTools = require('./external-tool-resolver.js');
 
 const {
   CALCULATION_BOOK_CONTENT_BOUNDARY,
@@ -830,12 +831,13 @@ function isDocumentClassRequired(record = {}) {
 }
 
 function run(command, args, label) {
-  const result = spawnSync(command, args, {
+  const tool = ExternalTools.resolveExternalTool(command);
+  const result = spawnSync(tool.command, args, {
     encoding: 'utf8',
     windowsHide: true,
     maxBuffer: 32 * 1024 * 1024,
   });
-  if (result.error) throw new Error(`${label}: ${result.error.message}`);
+  if (result.error) throw new Error(`${label} [${tool.resolvedPath}]: ${result.error.message}`);
   if (result.status !== 0) throw new Error(`${label}: ${result.stderr || result.stdout || `exit=${result.status}`}`);
   return result.stdout || '';
 }

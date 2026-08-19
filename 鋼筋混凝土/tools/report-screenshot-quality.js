@@ -4,6 +4,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const zlib = require('zlib');
 const { validatePdfFile } = require('../../結構工具箱/tools/rendered-delivery-evidence');
+const ExternalTools = require('../../結構工具箱/tools/external-tool-resolver.js');
 
 const CALCULATION_BOOK_CONTENT_BOUNDARY = require('../../結構工具箱/tools/calculation-book-content-boundary.json');
 
@@ -188,7 +189,8 @@ print(json.dumps({
 
 function readPdfTextWithPoppler(file) {
   const pageStats = readPdfTextWithPython(file);
-  const result = spawnSync('pdftotext', ['-layout', file, '-'], {
+  const pdftotext = ExternalTools.resolveExternalTool('pdftotext');
+  const result = spawnSync(pdftotext.command, ['-layout', file, '-'], {
     encoding: 'utf8',
     env: {
       ...process.env,
@@ -196,7 +198,7 @@ function readPdfTextWithPoppler(file) {
     },
   });
   if (result.error) {
-    throw result.error;
+    throw new Error(`pdftotext [${pdftotext.resolvedPath}]: ${result.error.message || result.error}`);
   }
   if (result.status !== 0) {
     throw new Error((result.stderr || result.stdout || `pdftotext exit ${result.status}`).trim());

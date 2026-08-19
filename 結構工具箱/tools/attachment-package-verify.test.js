@@ -9,6 +9,9 @@ const Builder = require('./attachment-package-build.js');
 const Checker = require('./attachment-package-check.js');
 const Verifier = require('./attachment-package-verify.js');
 const XlsxSealVerifier = require('./xlsx-seal-verifier.js');
+const ExternalTools = require('./external-tool-resolver.js');
+
+const TAR_COMMAND = ExternalTools.resolveExternalTool('tar').command;
 
 const FINGERPRINT = 'CF-1234ABCD5678EF90';
 const FIXED_NOW = new Date('2026-07-21T14:10:00.000Z');
@@ -159,7 +162,7 @@ function writeXlsx(filePath, entries) {
       fs.writeFileSync(target, bytes);
     });
     fs.rmSync(zipPath, { force: true });
-    const archived = spawnSync('tar', ['-a', '-c', '-f', zipPath, '-C', archiveRoot, 'xl'], { encoding: 'utf8' });
+    const archived = spawnSync(TAR_COMMAND, ['-a', '-c', '-f', zipPath, '-C', archiveRoot, 'xl'], { encoding: 'utf8' });
     assert.equal(archived.status, 0, archived.stderr || archived.stdout);
     fs.rmSync(filePath, { force: true });
     fs.renameSync(zipPath, filePath);

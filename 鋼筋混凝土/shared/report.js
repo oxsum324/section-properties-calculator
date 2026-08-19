@@ -726,7 +726,7 @@ function openReport(cfg) {
   `).join('');
 
   const checksHtml = (cfg.checks || []).map((g, index, groups) => `
-    <section class="rep-block${index === groups.length - 1 ? ' rep-block--last-check' : ''}${index === groups.length - 1 && g.items.length <= 4 ? ' rep-block--short-tail' : ''}">
+    <section class="rep-block${index === groups.length - 1 ? ' rep-block--last-check' : ''}${index === groups.length - 1 && g.items.length <= 5 ? ' rep-block--short-tail' : ''}">
       <h3>${esc(checkGroupTitle(g.group))}</h3>
       <table class="rep-check">
         <thead>

@@ -5,6 +5,7 @@ const path = require('path');
 const toolsDir = __dirname;
 const visualPath = path.join(toolsDir, 'column-report-visual.test.js');
 const helperPath = path.join(toolsDir, 'report-screenshot-quality.js');
+const sharedReportPath = path.join(toolsDir, '..', 'shared', 'report.js');
 const testColumnPath = path.join(toolsDir, 'test-column.ps1');
 const casesPath = path.join(toolsDir, 'column-regression-cases.json');
 
@@ -19,6 +20,7 @@ function assertIncludes(text, needle, label) {
 
 const visual = read(visualPath);
 const helper = read(helperPath);
+const sharedReport = read(sharedReportPath);
 const testColumn = read(testColumnPath);
 const cases = JSON.parse(read(casesPath));
 
@@ -89,10 +91,17 @@ const cases = JSON.parse(read(casesPath));
 ].forEach(needle => assertIncludes(visual, needle, 'column report visual smoke quality gate'));
 
 [
+  'resolved review PDF keeps short final section heading with its rows',
+  'resolved review PDF avoids a single orphan row on the final page',
+].forEach(needle => assertIncludes(visual, needle, 'column report final-page quality gate'));
+assertIncludes(sharedReport, 'g.items.length <= 5', 'shared report keeps a five-row final check section together');
+
+[
   'function readPngVisualQuality',
   'function readPdfTextWithPython',
   'function readPdfTextWithPoppler',
-  "spawnSync('pdftotext'",
+  "ExternalTools.resolveExternalTool('pdftotext')",
+  'spawnSync(pdftotext.command',
   'function assertReportPdfTextQuality',
   'function captureArtifactIntegrity',
   'PAGE_ONLY_REPORT_STATUS_NEEDLES',

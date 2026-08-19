@@ -6,6 +6,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const Worker = require('./attachment-package-manager-worker.js');
+const ExternalTools = require('./external-tool-resolver.js');
+
+const TAR_COMMAND = ExternalTools.resolveExternalTool('tar').command;
 
 const toolsDir = __dirname;
 const repoRoot = path.resolve(toolsDir, '..', '..');
@@ -123,7 +126,7 @@ try {
   fs.writeFileSync(path.join(zipSource, pdfName), '%PDF-1.7\nfixture\n', 'utf8');
   fs.writeFileSync(path.join(zipSource, evidenceName), '{"kind":"fixture"}\n', 'utf8');
   const bundlePath = path.join(zipFixtureRoot, '核可計算書.formal-source.zip');
-  const archive = childProcess.spawnSync('tar', ['-a', '-cf', bundlePath, '-C', zipSource, pdfName, evidenceName], { encoding: 'utf8' });
+  const archive = childProcess.spawnSync(TAR_COMMAND, ['-a', '-cf', bundlePath, '-C', zipSource, pdfName, evidenceName], { encoding: 'utf8' });
   assert.equal(archive.status, 0, archive.stderr || archive.stdout);
 
   let checkedTemp = '';

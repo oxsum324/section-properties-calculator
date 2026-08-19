@@ -5,6 +5,9 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const Checker = require('./attachment-package-check.js');
+const ExternalTools = require('./external-tool-resolver.js');
+
+const TAR_COMMAND = ExternalTools.resolveExternalTool('tar').command;
 
 const COMPLETE_CALCULATION_CONTENT = '<section><h2>採用輸入</h2><div>材料與荷載資料：fc\'=280 kgf/cm²；Mu=12.5 tf·m</div></section><section><h2>計算內容</h2><div>檢核公式與代入值：Mu=12.5 tf·m；φMn=18.2 tf·m</div></section><section><h2>檢核結論</h2><div>DCR=0.69；檢核結果：通過</div></section>';
 
@@ -1105,7 +1108,7 @@ try {
   const xlsxMetadataCells = Array.from({ length: 16 }, (_, index) => `<c t="s"><v>${index}</v></c>`).join('');
   fs.writeFileSync(path.join(fixtureDir, 'xl', 'worksheets', 'sheet1.xml'), `<worksheet><sheetData><row>${xlsxMetadataCells}</row></sheetData></worksheet>`, 'utf8');
   for (const [archive, source] of [['sample.docx', 'word'], ['sample.xlsx', 'xl']]) {
-    const result = spawnSync('tar', ['-a', '-cf', path.join(tempDir, archive), '-C', fixtureDir, source], { encoding: 'utf8' });
+    const result = spawnSync(TAR_COMMAND, ['-a', '-cf', path.join(tempDir, archive), '-C', fixtureDir, source], { encoding: 'utf8' });
     assert.equal(result.status, 0, `${archive} fixture archive`);
   }
   const docxRecord = Checker.inspectAttachment(path.join(tempDir, 'sample.docx'), tempDir);
@@ -1137,7 +1140,7 @@ try {
     <w:p><w:r><w:rPr><w:vanish/></w:rPr><w:t>採用輸入：fc'=280 kgf/cm²；Mu=12.5 tf·m。計算內容：Mu=12.5 tf·m；φMn=18.2 tf·m。檢核結論：DCR=0.69；通過。</w:t></w:r></w:p>
   </w:document>`, 'utf8');
   const hiddenDocxPath = path.join(tempDir, 'hidden-content.docx');
-  const hiddenDocxArchive = spawnSync('tar', ['-a', '-cf', hiddenDocxPath, '-C', hiddenDocxRoot, 'word'], { encoding: 'utf8' });
+  const hiddenDocxArchive = spawnSync(TAR_COMMAND, ['-a', '-cf', hiddenDocxPath, '-C', hiddenDocxRoot, 'word'], { encoding: 'utf8' });
   assert.equal(hiddenDocxArchive.status, 0, hiddenDocxArchive.stderr || 'hidden DOCX fixture archive');
   const hiddenDocxRecord = Checker.inspectAttachment(hiddenDocxPath, tempDir);
   assert.deepEqual(hiddenDocxRecord.errors, []);
@@ -1173,7 +1176,7 @@ try {
   </sheetData></worksheet>`, 'utf8');
   fs.writeFileSync(path.join(hiddenXlsxRoot, 'xl', 'worksheets', 'sheet2.xml'), '<worksheet><sheetData><row><c t="s"><v>7</v></c></row></sheetData></worksheet>', 'utf8');
   const hiddenXlsxPath = path.join(tempDir, 'hidden-content.xlsx');
-  const hiddenXlsxArchive = spawnSync('tar', ['-a', '-cf', hiddenXlsxPath, '-C', hiddenXlsxRoot, 'xl'], { encoding: 'utf8' });
+  const hiddenXlsxArchive = spawnSync(TAR_COMMAND, ['-a', '-cf', hiddenXlsxPath, '-C', hiddenXlsxRoot, 'xl'], { encoding: 'utf8' });
   assert.equal(hiddenXlsxArchive.status, 0, hiddenXlsxArchive.stderr || 'hidden XLSX fixture archive');
   const hiddenXlsxRecord = Checker.inspectAttachment(hiddenXlsxPath, tempDir);
   assert.deepEqual(hiddenXlsxRecord.errors, []);

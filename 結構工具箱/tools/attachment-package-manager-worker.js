@@ -7,6 +7,7 @@ const childProcess = require('child_process');
 const Checker = require('./attachment-package-check.js');
 const Builder = require('./attachment-package-build.js');
 const Verifier = require('./attachment-package-verify.js');
+const ExternalTools = require('./external-tool-resolver.js');
 
 const ACTIONS = new Set(['smoke', 'check', 'build', 'verify']);
 const FORMAL_SOURCE_BUNDLE_SUFFIX = '.formal-source.zip';
@@ -226,12 +227,13 @@ function expectedBundleEntries(bundlePath) {
 }
 
 function runTar(args, options = {}) {
-  const result = childProcess.spawnSync('tar', args, {
+  const tar = ExternalTools.resolveExternalTool('tar');
+  const result = childProcess.spawnSync(tar.command, args, {
     windowsHide: true,
     encoding: options.encoding,
     maxBuffer: options.maxBuffer,
   });
-  if (result.error) throw new Error(`無法讀取 PDF＋證據來源 ZIP：${result.error.message || result.error}`);
+  if (result.error) throw new Error(`無法讀取 PDF＋證據來源 ZIP [${tar.resolvedPath}]：${result.error.message || result.error}`);
   if (result.status !== 0) {
     const detail = Buffer.isBuffer(result.stderr) ? result.stderr.toString('utf8') : text(result.stderr);
     throw new Error(`PDF＋證據來源 ZIP 無法讀取${detail ? `：${detail.trim()}` : '。'}`);
