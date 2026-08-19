@@ -694,13 +694,13 @@ async function main() {
   assert.ok(String(reportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'report readiness rendered delivery summary');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatus.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'report readiness rendered delivery source path');
   assert.match(reportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'report readiness rendered delivery source hash');
-  assert.equal(reportReadinessStatus.deliveryFileIntegrityRequired, 141, 'report readiness exposes the complete redacted delivery file count');
+  assert.equal(reportReadinessStatus.deliveryFileIntegrityRequired, 143, 'report readiness exposes the complete redacted delivery file count');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityVerified, reportReadinessStatus.deliveryFileIntegrityRequired, 'report readiness verifies every redacted delivery file');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'report readiness delivery file integrity issues empty');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityPass, true, 'report readiness delivery file integrity passes');
   assert.deepEqual(
     reportReadinessStatus.deliveryFileIntegrityBreakdown.map(item => [item.key, item.required, item.verified]),
-    [['formalPdfEvidence', 62, 62], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]],
+    [['formalPdfEvidence', 64, 64], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]],
     'report readiness exposes the three redacted delivery integrity groups'
   );
   assert.ok(reportReadinessStatus.deliveryFileIntegrityBreakdown.every(item => item.pass && item.issueCount === 0), 'report readiness delivery integrity groups pass');

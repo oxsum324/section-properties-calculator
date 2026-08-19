@@ -2408,10 +2408,10 @@ const canonicalArtifacts = uniqueIntegrityArtifacts(canonicalArtifactRecords, 'c
 const canonicalArtifactIntegrity = {
   schemaVersion: 1,
   scope: 'canonical-rendered-pdf-evidence',
-  required: 62,
+  required: 64,
   verified: canonicalArtifacts.length,
-  issueCount: Math.max(0, 62 - canonicalArtifacts.length),
-  pass: canonicalArtifacts.length === 62,
+  issueCount: Math.max(0, 64 - canonicalArtifacts.length),
+  pass: canonicalArtifacts.length === 64,
   setSha256: scopedIntegritySetHash(canonicalArtifacts),
   artifacts: canonicalArtifacts,
 };
@@ -2684,7 +2684,7 @@ const excavationResultReconciliation = {
 assert.equal(new Set(excavationResultReconciliationRecords.map(record => record.caseId)).size, excavationResultReconciliationRecords.length, 'release rendered evidence excavation result reconciliation identities are unique');
 assert.equal(excavationResultReconciliation.complete, excavationResultReconciliation.required, 'release rendered evidence reconciles the excavation ProjectState replay to PDF and DOCX hashes');
 assert.equal(excavationResultReconciliation.pass, true, 'release rendered evidence passes excavation result reconciliation');
-assert.equal(canonicalArtifactIntegrity.verified, canonicalArtifactIntegrity.required, 'release rendered evidence verifies all 62 canonical PDF and evidence files');
+assert.equal(canonicalArtifactIntegrity.verified, canonicalArtifactIntegrity.required, 'release rendered evidence verifies all 64 canonical PDF and evidence files');
 assert.equal(canonicalArtifactIntegrity.pass, true, 'release rendered evidence passes canonical PDF and evidence integrity');
 assert.equal(rcVisualArtifactIntegrity.verified, rcVisualArtifactIntegrity.required, 'release rendered evidence verifies all 66 RC PDF and PNG visual artifacts');
 assert.equal(rcVisualArtifactIntegrity.pass, true, 'release rendered evidence passes RC PDF and PNG visual artifact integrity');
