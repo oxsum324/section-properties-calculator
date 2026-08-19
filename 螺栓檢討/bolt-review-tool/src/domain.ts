@@ -85,7 +85,18 @@ export interface UnitPreferences {
   loadsSimpleMode?: boolean
 }
 
-export type ReportMode = 'summary' | 'full'
+export type ReportMode = 'summary' | 'full' | 'code_check'
+
+/**
+ * 錨栓規範簡核附件的使用情境。
+ *
+ * slab_attachment 僅代表混凝土板上的錨栓固定；結構植筋之伸展、搭接、
+ * 新舊混凝土界面傳力仍應依其適用章節另案檢核，不可用第 17 章錨栓結論取代。
+ */
+export type AnchorApplication =
+  | 'general'
+  | 'isolated_footing'
+  | 'slab_attachment'
 
 export type ProjectAuditSource =
   | 'manual'
@@ -395,6 +406,8 @@ export interface ProjectCase {
   ruleProfileId: RuleProfileId
   calcEngineVersion?: string
   selectedProductId: string
+  /** 第 17 章規範簡核附件的用途；舊案例未設定時視為 general。 */
+  anchorApplication?: AnchorApplication
   candidateProductIds?: string[]
   candidateLayoutVariants?: ProjectLayoutVariant[]
   layout: AnchorLayout

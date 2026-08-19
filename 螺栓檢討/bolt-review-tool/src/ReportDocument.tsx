@@ -25,7 +25,6 @@ import type {
   ProjectAuditEntry,
   ProjectCase,
   ProjectDocumentKind,
-  ReportMode,
   ReportSettings,
   ReviewResult,
   ReviewStatus,
@@ -56,6 +55,15 @@ import {
   buildCandidateComparisonMatrix,
   buildLayoutComparisonMatrix,
 } from './reviewArtifacts'
+import {
+  codeCheckBoundaryNotes,
+  codeCheckFormula,
+  codeCheckScopeRows,
+  buildCodeCheckBatchPresentation,
+  isCodeCheckReport,
+  isCodeCheckResult,
+  reportModeLabel,
+} from './codeCheckAttachment'
 
 function resultStatusSeverity(status: ReviewStatus) {
   switch (status) {
@@ -71,10 +79,6 @@ function resultStatusSeverity(status: ReviewStatus) {
     default:
       return 1
   }
-}
-
-function reportModeLabel(mode: ReportMode) {
-  return mode === 'summary' ? '摘要版' : '完整明細版'
 }
 
 function seismicInputModeLabel(
@@ -202,7 +206,14 @@ export function ReportDocument({
   const evidenceRows = evaluationFieldStates.filter(
     (field) => field.hasValue || field.hasEvidence,
   )
-  const summaryResults = [...review.results]
+  const excludedResultIds = new Set(review.project.excludedCheckIds ?? [])
+  const isCodeCheck = isCodeCheckReport(reportSettings.reportMode)
+  const reportResults = review.results.filter(
+    (result) =>
+      !excludedResultIds.has(result.id) &&
+      (!isCodeCheck || isCodeCheckResult(result)),
+  )
+  const summaryResults = [...reportResults]
     .sort((left, right) => {
       const severityGap =
         resultStatusSeverity(right.status) - resultStatusSeverity(left.status)
@@ -212,7 +223,7 @@ export function ReportDocument({
       return right.dcr - left.dcr
     })
     .slice(0, 3)
-  const factorResults = review.results.filter(
+  const factorResults = reportResults.filter(
     (result) => result.factors && result.factors.length > 0,
   )
   const flaggedDimensions = review.dimensionChecks.filter(
@@ -228,6 +239,24 @@ export function ReportDocument({
   )
   const bestLayoutVariantReview = layoutVariantReviews[0]
   const isSummaryReport = reportSettings.reportMode === 'summary'
+  const codeCheckScope = codeCheckScopeRows(
+    review.project,
+    review.anchorPoints.length,
+  )
+  const codeCheckNotes = codeCheckBoundaryNotes(review.project)
+  const reportBatch = isCodeCheck
+    ? buildCodeCheckBatchPresentation(batchReview)
+    : {
+        summary: batchReview.summary,
+        controllingLoadCaseId: batchReview.controllingLoadCaseId,
+        controllingLoadCaseName: batchReview.controllingLoadCaseName,
+        loadCaseSummaries: new Map(
+          batchReview.loadCaseReviews.map((item) => [
+            item.loadCaseId,
+            item.review.summary,
+          ]),
+        ),
+      }
   const documentState = buildReportDocumentState({
     batchReview,
     review,
@@ -244,27 +273,27 @@ export function ReportDocument({
   const coverHighlights = [
     {
       label: '整體判定',
-      value: statusLabel(batchReview.summary.overallStatus),
+      value: statusLabel(reportBatch.summary.overallStatus),
     },
     {
       label: '正式判定',
-      value: statusLabel(batchReview.summary.formalStatus),
+      value: statusLabel(reportBatch.summary.formalStatus),
     },
     {
       label: '控制模式',
-      value: batchReview.summary.governingMode,
+      value: reportBatch.summary.governingMode,
     },
     {
       label: '控制組合',
-      value: batchReview.controllingLoadCaseName,
+      value: reportBatch.controllingLoadCaseName,
     },
     {
       label: '控制 DCR',
-      value: formatNumber(getGoverningDcr(batchReview.summary)),
+      value: formatNumber(getGoverningDcr(reportBatch.summary)),
     },
     {
       label: '批次最大 DCR',
-      value: formatNumber(batchReview.summary.maxDcr),
+      value: formatNumber(reportBatch.summary.maxDcr),
     },
   ]
 
@@ -467,31 +496,52 @@ export function ReportDocument({
             <dl className="report-list">
               <div>
                 <dt>整體判定</dt>
-                <dd>{statusLabel(batchReview.summary.overallStatus)}</dd>
+                <dd>{statusLabel(reportBatch.summary.overallStatus)}</dd>
               </div>
               <div>
                 <dt>正式判定</dt>
-                <dd>{statusLabel(batchReview.summary.formalStatus)}</dd>
+                <dd>{statusLabel(reportBatch.summary.formalStatus)}</dd>
               </div>
               <div>
                 <dt>控制模式</dt>
-                <dd>{batchReview.summary.governingMode}</dd>
+                <dd>{reportBatch.summary.governingMode}</dd>
               </div>
               <div>
                 <dt>控制組合</dt>
-                <dd>{batchReview.controllingLoadCaseName}</dd>
+                <dd>{reportBatch.controllingLoadCaseName}</dd>
               </div>
               <div>
                 <dt>控制 DCR</dt>
-                <dd>{formatNumber(getGoverningDcr(batchReview.summary))}</dd>
+                <dd>{formatNumber(getGoverningDcr(reportBatch.summary))}</dd>
               </div>
               <div>
                 <dt>批次最大 DCR</dt>
-                <dd>{formatNumber(batchReview.summary.maxDcr)}</dd>
+                <dd>{formatNumber(reportBatch.summary.maxDcr)}</dd>
               </div>
             </dl>
           </article>
         </section>
+
+        {isCodeCheck ? (
+          <section className="report-section code-check-report-scope">
+            <h2>規範簡核範圍與適用性</h2>
+            <table className="data-table report-table">
+              <tbody>
+                {codeCheckScope.map((row) => (
+                  <tr key={row.label}>
+                    <th>{row.label}</th>
+                    <td>{row.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <ul className="report-bullets">
+              {codeCheckNotes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         <section className="report-section">
           <h2>載重組合批次檢核</h2>
@@ -512,16 +562,16 @@ export function ReportDocument({
                   <td>{item.loadCaseName}</td>
                   <td>{formatQuantity(item.review.analysisLoads.tensionKn, 'force', unitPreferences)}</td>
                   <td>{formatQuantity(Math.hypot(item.review.analysisLoads.shearXKn, item.review.analysisLoads.shearYKn), 'force', unitPreferences)}</td>
-                  <td>{item.review.summary.governingMode}</td>
-                  <td>{formatNumber(getGoverningDcr(item.review.summary))}</td>
-                  <td>{statusLabel(item.review.summary.overallStatus)}</td>
+                  <td>{(reportBatch.loadCaseSummaries.get(item.loadCaseId) ?? item.review.summary).governingMode}</td>
+                  <td>{formatNumber(getGoverningDcr(reportBatch.loadCaseSummaries.get(item.loadCaseId) ?? item.review.summary))}</td>
+                  <td>{statusLabel((reportBatch.loadCaseSummaries.get(item.loadCaseId) ?? item.review.summary).overallStatus)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </section>
 
-        {candidateProductReviews.length > 1 ? (
+        {!isCodeCheck && candidateProductReviews.length > 1 ? (
           <section className="report-section">
             <h2>候選產品比選</h2>
             {candidateProductReviews[0] ? (
@@ -615,7 +665,7 @@ export function ReportDocument({
           </section>
         ) : null}
 
-        {layoutVariantReviews.length > 1 ? (
+        {!isCodeCheck && layoutVariantReviews.length > 1 ? (
           <section className="report-section">
             <h2>候選配置比選</h2>
             {bestLayoutVariantReview ? (
@@ -921,14 +971,7 @@ export function ReportDocument({
                   </tr>
                 </thead>
                 <tbody>
-                  {review.results
-                    .filter(
-                      (result) =>
-                        !(review.project.excludedCheckIds ?? []).includes(
-                          result.id,
-                        ),
-                    )
-                    .map((result) => (
+                  {reportResults.map((result) => (
                     <tr key={result.id}>
                         <td>
                           <div className="result-mode-cell">
@@ -948,6 +991,41 @@ export function ReportDocument({
                 </tbody>
               </table>
             </section>
+
+            {isCodeCheck ? (
+              <section className="report-section">
+                <h2>規範公式與代入說明</h2>
+                <table className="data-table report-table">
+                  <thead>
+                    <tr>
+                      <th>檢核模式</th>
+                      <th>規範式</th>
+                      <th>本案代入／採用說明</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportResults.map((result) => (
+                      <tr key={`code-check-formula-${result.id}`}>
+                        <td>
+                          {result.mode}
+                          <br />
+                          <small>
+                            {sectionCitation(
+                              result.citation.title,
+                              result.citation.clause,
+                            )}
+                          </small>
+                        </td>
+                        <td>{codeCheckFormula(result)}</td>
+                        <td>
+                          {result.note || formatResultFactorList(result) || '見採用因子總表。'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+            ) : null}
 
             <section className="report-section">
               <h2>φ / ψ 採用總表</h2>
@@ -1040,10 +1118,13 @@ export function ReportDocument({
         <section className="report-section">
           <h2>工程提醒</h2>
           <ul className="report-bullets">
-            {Array.from(new Set([...combinedNotes, ...batchReview.summary.notes])).map((note) => (
+            {Array.from(new Set([...combinedNotes, ...reportBatch.summary.notes])).map((note) => (
               <li key={note}>{note}</li>
             ))}
             <li>拉力分配已納入 N + Mx + My 的受拉側錨栓近似分配。</li>
+            {isCodeCheck
+              ? codeCheckNotes.map((note) => <li key={`boundary-${note}`}>{note}</li>)
+              : null}
           </ul>
         </section>
 

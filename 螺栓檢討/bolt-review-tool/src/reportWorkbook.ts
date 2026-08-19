@@ -14,6 +14,15 @@ import type {
 } from './domain'
 import type { ReportArtifactParams } from './reportExport'
 import {
+  codeCheckBoundaryNotes,
+  codeCheckFormula,
+  codeCheckScopeRows,
+  buildCodeCheckBatchPresentation,
+  isCodeCheckReport,
+  isCodeCheckResult,
+  reportModeLabel,
+} from './codeCheckAttachment'
+import {
   buildReportDocumentState,
   formatReportDocumentDateTime,
 } from './reportDocumentState'
@@ -421,8 +430,30 @@ export function buildSummaryRows(params: ReportArtifactParams): ReportTableRow[]
   const calculationFingerprint = params.auditEntry?.hash
     ? `CF-${params.auditEntry.hash.slice(0, 16).toUpperCase()}`
     : ''
+  const isCodeCheck = isCodeCheckReport(reportSettings.reportMode)
+  const reportBatch = isCodeCheck
+    ? buildCodeCheckBatchPresentation(batchReview)
+    : {
+        summary: batchReview.summary,
+        controllingLoadCaseId: batchReview.controllingLoadCaseId,
+        controllingLoadCaseName: batchReview.controllingLoadCaseName,
+      }
+  const codeCheckRows = isCodeCheck
+    ? [
+        { 項目: '輸出模式', 值: reportModeLabel(reportSettings.reportMode) },
+        ...codeCheckScopeRows(review.project, review.anchorPoints.length).map(
+          (row) => ({ 項目: row.label, 值: row.value }),
+        ),
+        ...codeCheckBoundaryNotes(review.project).map((note, index) => ({
+          項目: `適用邊界 ${index + 1}`,
+          值: note,
+        })),
+      ]
+    : [{ 項目: '輸出模式', 值: reportModeLabel(reportSettings.reportMode) }]
+
   return [
     { 項目: '案例名稱', 值: review.project.name },
+    ...codeCheckRows,
     { 項目: '文件狀態', 值: documentState.label },
     ...(documentState.reason ? [{ 項目: '核可資訊', 值: documentState.reason }] : []),
     { 項目: '產出工具', 值: REPORT_SOURCE_TOOL },
@@ -437,12 +468,12 @@ export function buildSummaryRows(params: ReportArtifactParams): ReportTableRow[]
     { 項目: '發行日期', 值: reportSettings.issueDate || '' },
     { 項目: '產品', 值: `${selectedProduct.brand} ${selectedProduct.model}` },
     { 項目: '產品族群', 值: familyLabel(selectedProduct.family) },
-    { 項目: '整體判定', 值: statusLabel(batchReview.summary.overallStatus) },
-    { 項目: '正式性', 值: statusLabel(batchReview.summary.formalStatus) },
-    { 項目: '控制組合', 值: batchReview.controllingLoadCaseName },
-    { 項目: '控制模式', 值: batchReview.summary.governingMode },
-    { 項目: '控制 DCR', 值: formatNumber(getGoverningDcr(batchReview.summary)) },
-    { 項目: '最大數值 DCR', 值: formatNumber(batchReview.summary.maxDcr) },
+    { 項目: '整體判定', 值: statusLabel(reportBatch.summary.overallStatus) },
+    { 項目: '正式性', 值: statusLabel(reportBatch.summary.formalStatus) },
+    { 項目: '控制組合', 值: reportBatch.controllingLoadCaseName },
+    { 項目: '控制模式', 值: reportBatch.summary.governingMode },
+    { 項目: '控制 DCR', 值: formatNumber(getGoverningDcr(reportBatch.summary)) },
+    { 項目: '最大數值 DCR', 值: formatNumber(reportBatch.summary.maxDcr) },
     { 項目: '產品 completeness', 值: completeness.formal ? '完整' : '待補' },
     { 項目: '案件計算引擎', 值: calcEngineVersionStatus.projectVersion },
     { 項目: '目前計算引擎', 值: calcEngineVersionStatus.runtimeVersion },
@@ -475,14 +506,23 @@ export function buildAuditRows(params: ReportArtifactParams): ReportTableRow[] {
 }
 
 export function buildLoadCaseRows(params: ReportArtifactParams): ReportTableRow[] {
-  const { batchReview, unitPreferences } = params
+  const { batchReview, unitPreferences, reportSettings } = params
+  const reportBatch = isCodeCheckReport(reportSettings.reportMode)
+    ? buildCodeCheckBatchPresentation(batchReview)
+    : null
 
   return batchReview.loadCaseReviews.map((item) => {
     const loads = item.review.analysisLoads
+    const summary =
+      reportBatch?.loadCaseSummaries.get(item.loadCaseId) ?? item.review.summary
     return {
       組合: item.loadCaseName,
       目前編輯: item.loadCaseId === batchReview.activeLoadCaseId ? '是' : '',
-      控制組合: item.loadCaseId === batchReview.controllingLoadCaseId ? '是' : '',
+      控制組合:
+        item.loadCaseId ===
+        (reportBatch?.controllingLoadCaseId ?? batchReview.controllingLoadCaseId)
+          ? '是'
+          : '',
       N: formatNumber(toDisplayValue(loads.tensionKn, 'force', unitPreferences)),
       Vx: formatNumber(toDisplayValue(loads.shearXKn, 'force', unitPreferences)),
       Vy: formatNumber(toDisplayValue(loads.shearYKn, 'force', unitPreferences)),
@@ -495,23 +535,27 @@ export function buildLoadCaseRows(params: ReportArtifactParams): ReportTableRow[
       ),
       Mx: formatNumber(toDisplayValue(loads.momentXKnM, 'moment', unitPreferences)),
       My: formatNumber(toDisplayValue(loads.momentYKnM, 'moment', unitPreferences)),
-      控制模式: item.review.summary.governingMode,
-      控制DCR: formatNumber(getGoverningDcr(item.review.summary)),
-      最大數值DCR: formatNumber(item.review.summary.maxDcr),
-      整體狀態: statusLabel(item.review.summary.overallStatus),
-      正式性: statusLabel(item.review.summary.formalStatus),
+      控制模式: summary.governingMode,
+      控制DCR: formatNumber(getGoverningDcr(summary)),
+      最大數值DCR: formatNumber(summary.maxDcr),
+      整體狀態: statusLabel(summary.overallStatus),
+      正式性: statusLabel(summary.formalStatus),
     }
   })
 }
 
 export function buildResultRows(params: ReportArtifactParams): ReportTableRow[] {
-  const { batchReview, unitPreferences, review } = params
+  const { batchReview, unitPreferences, review, reportSettings } = params
   const excludedSet = new Set(review.project.excludedCheckIds ?? [])
+  const isCodeCheck = isCodeCheckReport(reportSettings.reportMode)
   const rows: WorkbookRow[] = []
 
   for (const item of batchReview.loadCaseReviews) {
     for (const result of item.review.results) {
       if (excludedSet.has(result.id)) {
+        continue
+      }
+      if (isCodeCheck && !isCodeCheckResult(result)) {
         continue
       }
       const unit = getResultValueUnit(result, unitPreferences)
@@ -528,6 +572,7 @@ export function buildResultRows(params: ReportArtifactParams): ReportTableRow[] 
         單位: unit.symbol,
         DCR: Number.isFinite(result.dcr) ? result.dcr : '',
         DCR重算: '',
+        ...(isCodeCheck ? { 規範公式: codeCheckFormula(result) } : {}),
         說明: result.note ?? '',
       })
     }
@@ -560,13 +605,17 @@ export function buildDimensionRows(params: ReportArtifactParams): ReportTableRow
 }
 
 export function buildFactorRows(params: ReportArtifactParams): ReportTableRow[] {
-  const { batchReview, review } = params
+  const { batchReview, review, reportSettings } = params
   const excludedSet = new Set(review.project.excludedCheckIds ?? [])
+  const isCodeCheck = isCodeCheckReport(reportSettings.reportMode)
   const rows: WorkbookRow[] = []
 
   for (const item of batchReview.loadCaseReviews) {
     for (const result of item.review.results) {
       if (excludedSet.has(result.id)) {
+        continue
+      }
+      if (isCodeCheck && !isCodeCheckResult(result)) {
         continue
       }
       for (const factor of result.factors ?? []) {
@@ -673,14 +722,15 @@ export function buildReportWorkbook(params: ReportArtifactParams) {
     appendSheet(workbook, 'Factors', factorRows)
   }
 
-  const candidateRows = buildCandidateProductRows(params)
+  const isCodeCheck = isCodeCheckReport(params.reportSettings.reportMode)
+  const candidateRows = isCodeCheck ? [] : buildCandidateProductRows(params)
   if (candidateRows.length > 0) {
     appendSheet(workbook, 'Candidates', candidateRows, {
       highlightDcrHeaders: ['控制DCR', '最大數值DCR'],
     })
   }
 
-  const variantRows = buildLayoutVariantRows(params)
+  const variantRows = isCodeCheck ? [] : buildLayoutVariantRows(params)
   if (variantRows.length > 0) {
     appendSheet(workbook, 'Layouts', variantRows, {
       highlightDcrHeaders: ['控制DCR'],

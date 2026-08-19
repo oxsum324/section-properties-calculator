@@ -97,6 +97,7 @@ export function ReportSettingsPanel(props: {
             }
           >
             <option value="full">完整明細版</option>
+            <option value="code_check">規範簡核附件版</option>
             <option value="summary">摘要版</option>
           </select>
         </label>
@@ -157,7 +158,7 @@ export function ReportSettingsPanel(props: {
         </label>
       </div>
       <p className="helper-text">
-        摘要版列印時只保留控制檢核與例外尺寸；完整明細版會附上逐項條文與產品證據對照。
+        摘要版只保留控制檢核與例外尺寸；完整明細版會附上逐項條文與產品證據對照；規範簡核附件版另列用途、單錨／群錨效應、公式與代入說明。
       </p>
       <label className="report-approval-control">
         <input

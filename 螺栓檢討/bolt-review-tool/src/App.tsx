@@ -95,6 +95,8 @@ import { LoadPresetPanel } from './LoadPresetPanel'
 import { PerAnchorMechanicsPanel } from './PerAnchorMechanicsPanel'
 import { ProductEvaluationPanel } from './ProductEvaluationPanel'
 import { QuickCheckCard } from './QuickCheckCard'
+import { CodeCheckAttachmentPanel } from './CodeCheckAttachmentPanel'
+import { normalizeAnchorApplication } from './codeCheckAttachment'
 import { ReportDocument } from './ReportDocument'
 import { ReportSettingsPanel } from './ReportSettingsPanel'
 import { ResultsDetailPanel } from './ResultsDetailPanel'
@@ -256,6 +258,7 @@ function cloneProject(project: ProjectCase) {
 
   return {
     ...project,
+    anchorApplication: normalizeAnchorApplication(project.anchorApplication),
     ruleProfileId: normalizeRuleProfileId(project.ruleProfileId),
     calcEngineVersion: normalizeCalcEngineVersion(project.calcEngineVersion),
     layout: {
@@ -2023,6 +2026,43 @@ function App() {
             <h2>柱腳與基板</h2>
             <p>基板承壓、抗彎厚度、錨栓補強鋼筋替代路徑與剪力 U 型補強。</p>
           </div>
+
+          <CodeCheckAttachmentPanel
+            project={project}
+            reportSettings={effectiveReportSettings}
+            anchorCount={review.anchorPoints.length}
+            onApplicationChange={(anchorApplication) =>
+              patchProject({ anchorApplication })
+            }
+            onEnable={() => {
+              const anchorApplication =
+                normalizeAnchorApplication(project.anchorApplication) === 'general'
+                  ? 'isolated_footing'
+                  : normalizeAnchorApplication(project.anchorApplication)
+              patchProject({
+                anchorApplication,
+                excludedCheckIds: [],
+                layout: {
+                  ...project.layout,
+                  basePlateBearingEnabled: false,
+                  basePlateBendingEnabled: false,
+                },
+                ui: {
+                  ...unitPreferences,
+                  simpleMode: true,
+                  loadsSimpleMode: true,
+                },
+                report: {
+                  ...reportSettings,
+                  reportMode: 'code_check',
+                },
+              })
+              setSaveMessage(
+                '已啟用錨栓規範簡核附件模式：重納所有第 17 章檢核，並關閉基板承壓／抗彎模組。',
+              )
+            }}
+            onContinueToLoads={() => setActiveTab('loads')}
+          />
 
           <div className="field-grid">
             <label className="field-slot" data-shows="product">

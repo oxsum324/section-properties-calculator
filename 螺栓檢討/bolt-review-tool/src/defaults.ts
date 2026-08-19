@@ -22,9 +22,15 @@ export const defaultReportSettings: ReportSettings = {
 export function normalizeReportSettings(
   settings?: Partial<ReportSettings>,
 ): ReportSettings {
+  const reportMode =
+    settings?.reportMode === 'summary' ||
+    settings?.reportMode === 'code_check'
+      ? settings.reportMode
+      : 'full'
   return {
     ...defaultReportSettings,
     ...settings,
+    reportMode,
   }
 }
 
@@ -191,6 +197,7 @@ export const defaultProject: ProjectCase = {
   ruleProfileId: 'tw_rc_112_anchor_profile',
   calcEngineVersion: normalizeCalcEngineVersion(),
   selectedProductId: 'generic-cast-m20',
+  anchorApplication: 'general',
   candidateProductIds: ['generic-cast-m20'],
   candidateLayoutVariants: [],
   auditTrail: [],

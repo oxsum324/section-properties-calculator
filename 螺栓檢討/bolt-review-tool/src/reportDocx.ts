@@ -25,6 +25,7 @@ import { buildStandaloneGeometrySketchSvg } from './reportExport'
 import type { ReportArtifactParams } from './reportExport'
 import { buildReportDocumentState } from './reportDocumentState'
 import { REPORT_TIMESTAMP_LABELS } from './reportTimestamps'
+import { isCodeCheckReport, reportModeLabel } from './codeCheckAttachment'
 import {
   buildAuditRows,
   buildCandidateProductRows,
@@ -455,11 +456,16 @@ function buildSummarySection(
       size: 34,
       alignment: AlignmentType.CENTER,
     }),
-    createParagraph('鋼筋混凝土錨栓檢討報告', {
+    createParagraph(
+      params.reportSettings.reportMode === 'code_check'
+        ? '錨栓規範簡核計算附件'
+        : '鋼筋混凝土錨栓檢討報告',
+      {
       alignment: AlignmentType.CENTER,
       color: docxColors.muted,
       size: 24,
-    }),
+      },
+    ),
     createParagraph(
       [
         params.review.ruleProfile.versionLabel,
@@ -515,6 +521,25 @@ function buildResultNotes(rows: ReportTableRow[]) {
   return [
     createParagraph('逐項檢核說明', { heading: HeadingLevel.HEADING_2 }),
     buildDataTable(noteRows),
+  ]
+}
+
+function buildCodeCheckFormulaSection(rows: ReportTableRow[]) {
+  const formulaRows = rows
+    .filter((row) => String(row.規範公式 ?? '').trim())
+    .map((row) => ({
+      組合: row.組合,
+      檢核模式: row.檢核模式,
+      條文: row.條文,
+      規範公式: row.規範公式,
+      本案代入說明: row.說明,
+    }))
+  if (formulaRows.length === 0) return []
+  return [
+    createParagraph('規範公式與代入說明', {
+      heading: HeadingLevel.HEADING_1,
+    }),
+    buildDataTable(formulaRows),
   ]
 }
 
@@ -593,6 +618,7 @@ export function buildReportDocument(
   const layoutRows = buildLayoutVariantRows(params)
   const evidenceRows = buildEvidenceRows(params)
   const auditRows = buildAuditRows(params)
+  const isCodeCheck = isCodeCheckReport(params.reportSettings.reportMode)
 
   const portraitOpeningChildren = [
     ...buildSummarySection(params, geometryPngBytes),
@@ -603,8 +629,9 @@ export function buildReportDocument(
   const landscapeDetailChildren = [
     ...buildSection('逐項檢核明細', resultRows, {
       highlightDcrHeaders: ['DCR', 'DCR重算'],
-      omittedHeaders: ['DCR重算', '說明'],
+      omittedHeaders: ['DCR重算', '規範公式', '說明'],
     }),
+    ...(isCodeCheck ? buildCodeCheckFormulaSection(resultRows) : []),
     ...buildResultNotes(resultRows),
     ...buildSection('尺寸檢核', dimensionRows),
     ...buildSection('φ / ψ 與因子總表', factorRows),
@@ -618,12 +645,16 @@ export function buildReportDocument(
   ].filter(Boolean).join('｜')
 
   const portraitClosingChildren = [
-    ...buildSection('候選產品比選', candidateRows, {
-      highlightDcrHeaders: ['控制DCR', '最大數值DCR'],
-    }),
-    ...buildSection('候選配置比選', layoutRows, {
-      highlightDcrHeaders: ['控制DCR'],
-    }),
+    ...(!isCodeCheck
+      ? buildSection('候選產品比選', candidateRows, {
+          highlightDcrHeaders: ['控制DCR', '最大數值DCR'],
+        })
+      : []),
+    ...(!isCodeCheck
+      ? buildSection('候選配置比選', layoutRows, {
+          highlightDcrHeaders: ['控制DCR'],
+        })
+      : []),
     ...buildSection('產品證據與文件對照', evidenceRows),
     ...buildSection('審查留痕', auditRows, {
       highlightDcrHeaders: ['控制DCR', '最大數值DCR'],
@@ -636,8 +667,8 @@ export function buildReportDocument(
 
   return new Document({
     creator: 'bolt-review-tool',
-    title: `${params.review.project.name} 錨栓檢討報告`,
-    description: `鋼筋混凝土錨栓檢討 Word 匯出報告；文件狀態：${documentState.label}`,
+    title: `${params.review.project.name} ${reportModeLabel(params.reportSettings.reportMode)}`,
+    description: `${reportModeLabel(params.reportSettings.reportMode)} Word 匯出報告；文件狀態：${documentState.label}`,
     sections: [
       {
         properties: { page: { margin: pageMargin } },

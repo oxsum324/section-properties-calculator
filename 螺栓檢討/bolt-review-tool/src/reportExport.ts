@@ -34,6 +34,15 @@ import { getUnitSymbol, toDisplayValue } from './units'
 import type { EvaluationFieldState } from './evaluationCatalog'
 
 import { REPORT_TIMESTAMP_LABELS } from './reportTimestamps'
+import {
+  codeCheckBoundaryNotes,
+  codeCheckFormula,
+  codeCheckScopeRows,
+  buildCodeCheckBatchPresentation,
+  isCodeCheckReport,
+  isCodeCheckResult,
+  reportModeLabel,
+} from './codeCheckAttachment'
 export { REPORT_TIMESTAMP_LABELS } from './reportTimestamps'
 
 export interface ReportArtifactParams {
@@ -110,10 +119,6 @@ function familyLabel(family: AnchorProduct['family']) {
     default:
       return family
   }
-}
-
-function reportModeLabel(mode: ReportSettings['reportMode']) {
-  return mode === 'summary' ? '摘要版' : '完整明細版'
 }
 
 function sectionCitation(title: string, clause: string) {
@@ -534,7 +539,30 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
 
   // 過濾使用者標記「不檢討」的檢核項目
   const excludedSet = new Set(review.project.excludedCheckIds ?? [])
-  const reportResults = review.results.filter((item) => !excludedSet.has(item.id))
+  const isCodeCheck = isCodeCheckReport(reportSettings.reportMode)
+  const reportResults = review.results.filter(
+    (item) =>
+      !excludedSet.has(item.id) &&
+      (!isCodeCheck || isCodeCheckResult(item)),
+  )
+  const codeCheckScope = codeCheckScopeRows(
+    review.project,
+    review.anchorPoints.length,
+  )
+  const codeCheckNotes = codeCheckBoundaryNotes(review.project)
+  const reportBatch = isCodeCheck
+    ? buildCodeCheckBatchPresentation(batchReview)
+    : {
+        summary: batchReview.summary,
+        controllingLoadCaseId: batchReview.controllingLoadCaseId,
+        controllingLoadCaseName: batchReview.controllingLoadCaseName,
+        loadCaseSummaries: new Map(
+          batchReview.loadCaseReviews.map((item) => [
+            item.loadCaseId,
+            item.review.summary,
+          ]),
+        ),
+      }
 
   const evidenceRows = evaluationFieldStates.filter(
     (field) => field.hasValue || field.hasEvidence,
@@ -796,12 +824,32 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
           <div><small class="meta">${REPORT_TIMESTAMP_LABELS.generatedAt}</small><div>${escapeHtml(formatDateTime(reportGeneratedAt))}</div></div>
           <div><small class="meta">${REPORT_TIMESTAMP_LABELS.auditedAt}</small><div>${escapeHtml(formatDateTime(auditEntry?.createdAt))}</div></div>
           <div><small class="meta">${REPORT_TIMESTAMP_LABELS.auditSource} / ${REPORT_TIMESTAMP_LABELS.auditHash}</small><div>${escapeHtml(auditEntry ? `${auditSourceLabel(auditEntry.source)} · ${formatAuditHash(auditEntry.hash)}` : '尚未留存')}</div></div>
-          <div><small class="meta">整體判定</small><div>${buildStatusChip(batchReview.summary.overallStatus)}</div></div>
-          <div><small class="meta">正式判定</small><div>${buildStatusChip(batchReview.summary.formalStatus)}</div></div>
-          <div><small class="meta">控制模式</small><div>${escapeHtml(batchReview.summary.governingMode)}</div></div>
-          <div><small class="meta">控制組合</small><div>${escapeHtml(batchReview.controllingLoadCaseName)}</div></div>
+          <div><small class="meta">整體判定</small><div>${buildStatusChip(reportBatch.summary.overallStatus)}</div></div>
+          <div><small class="meta">正式判定</small><div>${buildStatusChip(reportBatch.summary.formalStatus)}</div></div>
+          <div><small class="meta">控制模式</small><div>${escapeHtml(reportBatch.summary.governingMode)}</div></div>
+          <div><small class="meta">控制組合</small><div>${escapeHtml(reportBatch.controllingLoadCaseName)}</div></div>
         </div>
       </section>
+
+      ${
+        isCodeCheck
+          ? `<section class="card">
+              <h2>規範簡核範圍與適用性</h2>
+              <table>
+                <tbody>
+                  ${codeCheckScope
+                    .map(
+                      (row) => `<tr><th>${escapeHtml(row.label)}</th><td>${escapeHtml(row.value)}</td></tr>`,
+                    )
+                    .join('')}
+                </tbody>
+              </table>
+              <ul>${codeCheckNotes
+                .map((note) => `<li>${escapeHtml(note)}</li>`)
+                .join('')}</ul>
+            </section>`
+          : ''
+      }
 
       <section class="grid">
         <article class="card">
@@ -825,14 +873,14 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
         <article class="card">
           <h2>總結</h2>
           <ul>
-            <li>控制 DCR = ${escapeHtml(formatNumber(getGoverningDcr(batchReview.summary)))}</li>
-            <li>批次最大數值 DCR = ${escapeHtml(formatNumber(batchReview.summary.maxDcr))}</li>
-            <li>控制拉力 = ${escapeHtml(batchReview.summary.governingTensionMode)}</li>
-            <li>控制剪力 = ${escapeHtml(batchReview.summary.governingShearMode)}</li>
+            <li>控制 DCR = ${escapeHtml(formatNumber(getGoverningDcr(reportBatch.summary)))}</li>
+            <li>批次最大數值 DCR = ${escapeHtml(formatNumber(reportBatch.summary.maxDcr))}</li>
+            <li>控制拉力 = ${escapeHtml(reportBatch.summary.governingTensionMode)}</li>
+            <li>控制剪力 = ${escapeHtml(reportBatch.summary.governingShearMode)}</li>
             <li>最新留痕 = ${escapeHtml(auditEntry ? `${formatAuditHash(auditEntry.hash)} / ${auditSourceLabel(auditEntry.source)}` : '未留存')}</li>
           </ul>
           ${
-            getGoverningDcr(batchReview.summary) < batchReview.summary.maxDcr
+            getGoverningDcr(reportBatch.summary) < reportBatch.summary.maxDcr
               ? '<p class="meta">控制 DCR 跟隨 severity 判定；最大數值 DCR 僅供統計比較。</p>'
               : ''
           }
@@ -905,9 +953,9 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
                   <td>${escapeHtml(item.loadCaseName)}</td>
                   <td>${escapeHtml(formatQuantity(item.review.analysisLoads.tensionKn, 'force', unitPreferences))}</td>
                   <td>${escapeHtml(formatQuantity(Math.hypot(item.review.analysisLoads.shearXKn, item.review.analysisLoads.shearYKn), 'force', unitPreferences))}</td>
-                  <td>${escapeHtml(item.review.summary.governingMode)}</td>
-                  <td>${escapeHtml(formatNumber(getGoverningDcr(item.review.summary)))}</td>
-                  <td>${buildStatusChip(item.review.summary.overallStatus)}</td>
+                  <td>${escapeHtml((reportBatch.loadCaseSummaries.get(item.loadCaseId) ?? item.review.summary).governingMode)}</td>
+                  <td>${escapeHtml(formatNumber(getGoverningDcr(reportBatch.loadCaseSummaries.get(item.loadCaseId) ?? item.review.summary)))}</td>
+                  <td>${buildStatusChip((reportBatch.loadCaseSummaries.get(item.loadCaseId) ?? item.review.summary).overallStatus)}</td>
                 </tr>`,
               )
               .join('')}
@@ -950,7 +998,7 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
       }
 
       ${
-        candidateProductReviews.length > 1
+        !isCodeCheck && candidateProductReviews.length > 1
           ? `<section class="card">
               <h2>候選產品比選</h2>
               <table>
@@ -991,7 +1039,7 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
       }
 
       ${
-        layoutVariantReviews.length > 1
+        !isCodeCheck && layoutVariantReviews.length > 1
           ? `<section class="card">
               <h2>候選配置比選</h2>
               <table>
@@ -1073,6 +1121,28 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
         </table>
       </section>
 
+      ${
+        isCodeCheck
+          ? `<section class="card">
+              <h2>規範公式與代入說明</h2>
+              <table>
+                <thead><tr><th>檢核模式</th><th>規範式</th><th>本案代入／採用說明</th></tr></thead>
+                <tbody>
+                  ${reportResults
+                    .map(
+                      (result) => `<tr>
+                        <td>${escapeHtml(result.mode)}<br /><small class="meta">${escapeHtml(sectionCitation(result.citation.title, result.citation.clause))}</small></td>
+                        <td>${escapeHtml(codeCheckFormula(result))}</td>
+                        <td>${escapeHtml(result.note || formatResultFactorList(result) || '見採用因子總表。')}</td>
+                      </tr>`,
+                    )
+                    .join('')}
+                </tbody>
+              </table>
+            </section>`
+          : ''
+      }
+
       <section class="card">
         <h2>φ / ψ 採用總表</h2>
         <table>
@@ -1128,6 +1198,7 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
           ${Array.from(new Set([...review.summary.notes, ...completeness.missing]))
             .map((note) => `<li>${escapeHtml(note)}</li>`)
             .join('')}
+          ${isCodeCheck ? codeCheckNotes.map((note) => `<li>${escapeHtml(note)}</li>`).join('') : ''}
         </ul>
       </section>
       </div>

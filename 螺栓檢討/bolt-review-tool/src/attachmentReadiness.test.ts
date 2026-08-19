@@ -122,6 +122,48 @@ describe('buildAttachmentReadinessModel', () => {
     expect(model.priority.value).toContain('不檢討')
   })
 
+  it('requires a defined application for the code-check attachment mode', () => {
+    const model = buildModel(
+      cloneProject({ anchorApplication: 'general' }),
+      normalizeReportSettings({
+        ...readyReportSettings,
+        reportMode: 'code_check',
+      }),
+    )
+
+    expect(model.status).toBe('review')
+    expect(model.priority.value).toContain('尚未指定')
+    expect(model.items).toContainEqual({
+      label: '簡核範圍',
+      value: '待確認',
+      tone: 'warn',
+    })
+  })
+
+  it('marks a scoped code-check attachment ready when its application is defined', () => {
+    const model = buildModel(
+      cloneProject({
+        anchorApplication: 'isolated_footing',
+        layout: {
+          ...defaultProject.layout,
+          basePlateBearingEnabled: false,
+          basePlateBendingEnabled: false,
+        },
+      }),
+      normalizeReportSettings({
+        ...readyReportSettings,
+        reportMode: 'code_check',
+      }),
+    )
+
+    expect(model.status).toBe('ready')
+    expect(model.items).toContainEqual({
+      label: '簡核範圍',
+      value: '已指定',
+      tone: 'ok',
+    })
+  })
+
   it('allows blank optional attachment identity to be inherited from the main report', () => {
     const model = buildModel(
       cloneProject(),

@@ -7,6 +7,11 @@ import type {
 import { getCalcEngineVersionStatus } from './appMeta'
 import { formatNumber, getGoverningDcr } from './formatHelpers'
 import { statusLabel } from './resultDisplayHelpers'
+import {
+  codeCheckConfigurationIssues,
+  isCodeCheckReport,
+  reportModeLabel,
+} from './codeCheckAttachment'
 
 export type AttachmentReadinessStatus = 'ready' | 'review' | 'blocked'
 export type AttachmentReadinessTone = 'ok' | 'warn' | 'fail' | 'neutral'
@@ -52,10 +57,6 @@ function toneForStatus(status: ReviewStatus): AttachmentReadinessTone {
   return 'neutral'
 }
 
-function reportModeLabel(reportSettings: ReportSettings): string {
-  return reportSettings.reportMode === 'summary' ? '摘要版' : '完整明細版'
-}
-
 function firstBlockingIssue(review: ReviewResult): string {
   const failedDimension = review.dimensionChecks.find(
     (check) => check.status === 'fail',
@@ -76,10 +77,13 @@ function firstReviewIssue(
   completeness: ProductCompleteness,
   excludedCount: number,
   calcEngineMismatch: boolean,
+  codeCheckIssue?: string,
 ): string {
   if (calcEngineMismatch) {
     return '案例計算引擎與目前計算引擎不一致，需採用目前引擎重算並建立新留痕'
   }
+
+  if (codeCheckIssue) return codeCheckIssue
 
   if (!completeness.formal && completeness.missing.length > 0) {
     return `產品評估資料缺 ${completeness.missing.length} 項`
@@ -141,13 +145,17 @@ export function buildAttachmentReadinessModel({
     review.project.calcEngineVersion,
   )
   const governingDcr = getGoverningDcr(summary)
-  const modeLabel = reportModeLabel(reportSettings)
+  const modeLabel = reportModeLabel(reportSettings.reportMode)
+  const codeCheckIssues = isCodeCheckReport(reportSettings.reportMode)
+    ? codeCheckConfigurationIssues(review.project)
+    : []
   const overallTone = toneForStatus(summary.overallStatus)
   const hasReviewIssue =
     calcEngineVersion.mismatch ||
     !completeness.formal ||
     REVIEW_STATUSES.has(summary.overallStatus) ||
-    excludedCount > 0
+    excludedCount > 0 ||
+    codeCheckIssues.length > 0
 
   const sharedItems: AttachmentReadinessItem[] = [
     {
@@ -185,6 +193,15 @@ export function buildAttachmentReadinessModel({
       tone: excludedCount > 0 ? 'warn' : 'ok',
     },
     { label: '輸出模式', value: modeLabel, tone: 'neutral' },
+    ...(isCodeCheckReport(reportSettings.reportMode)
+      ? [
+          {
+            label: '簡核範圍',
+            value: codeCheckIssues.length > 0 ? '待確認' : '已指定',
+            tone: codeCheckIssues.length > 0 ? ('warn' as const) : ('ok' as const),
+          },
+        ]
+      : []),
     {
       label: '輸出邊界',
       value: '頁面顯示，不進計算書、列印或 PDF',
@@ -226,6 +243,7 @@ export function buildAttachmentReadinessModel({
           completeness,
           excludedCount,
           calcEngineVersion.mismatch,
+          codeCheckIssues[0],
         )}`,
         tone: 'warn',
       },
