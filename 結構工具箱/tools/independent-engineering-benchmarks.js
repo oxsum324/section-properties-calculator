@@ -34,12 +34,52 @@ function getPath(value, dottedPath) {
 function equipmentOracle(i) {
   const serviceWeight = i.equipmentWeight + i.fluidWeight + i.accessoryWeight;
   const designWeight = serviceWeight * i.dynamicFactor;
-  const pointLoad = designWeight / i.supportCount;
+  const averageReaction = designWeight / i.supportCount;
+  let reactions = Array.from({ length: i.supportCount }, () => averageReaction);
+  let reactionMomentX = 0;
+  let reactionMomentY = 0;
+  let reactionEquilibriumMomentX = 0;
+  let reactionEquilibriumMomentY = 0;
+  let reactionEccentricityRatio = 0;
+  let reactionUtilization = null;
+  if (i.reactionMode === 'eccentric-rectangular-4') {
+    const halfX = i.supportSpacingX / 2;
+    const halfY = i.supportSpacingY / 2;
+    const points = [
+      [-halfX, halfY],
+      [halfX, halfY],
+      [halfX, -halfY],
+      [-halfX, -halfY]
+    ];
+    reactionMomentX = designWeight * i.cgEccentricityY;
+    reactionMomentY = designWeight * i.cgEccentricityX;
+    reactions = points.map(([x, y]) => (
+      averageReaction
+      + reactionMomentY * x / (i.supportSpacingX * i.supportSpacingX)
+      + reactionMomentX * y / (i.supportSpacingY * i.supportSpacingY)
+    ));
+    reactionEquilibriumMomentX = reactions.reduce((sum, reaction, index) => sum + reaction * points[index][1], 0);
+    reactionEquilibriumMomentY = reactions.reduce((sum, reaction, index) => sum + reaction * points[index][0], 0);
+    reactionEccentricityRatio = Math.abs(i.cgEccentricityX) / i.supportSpacingX
+      + Math.abs(i.cgEccentricityY) / i.supportSpacingY;
+    reactionUtilization = reactionEccentricityRatio / 0.5;
+  }
+  const pointLoad = Math.max(...reactions);
   const spreadB = i.contactB + 2 * i.spreadDepth;
   const spreadL = i.contactL + 2 * i.spreadDepth;
   return {
     serviceWeight,
     designWeight,
+    averageReaction,
+    maximumReaction: pointLoad,
+    minimumReaction: Math.min(...reactions),
+    reactionSum: reactions.reduce((sum, reaction) => sum + reaction, 0),
+    reactionMomentX,
+    reactionMomentY,
+    reactionEquilibriumMomentX,
+    reactionEquilibriumMomentY,
+    reactionEccentricityRatio,
+    reactionUtilization,
     pointLoad,
     qContact: pointLoad / (i.contactB * i.contactL),
     spreadB,

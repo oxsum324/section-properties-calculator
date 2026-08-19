@@ -8,10 +8,10 @@
   'use strict';
 
   const CORE_NAME = 'EquipmentLoadCore';
-  const CORE_VERSION = '0.2.0';
-  const INPUT_SCHEMA_VERSION = 'equipment-load.input.v0.2';
-  const RESULT_SCHEMA_VERSION = 'equipment-load.result.v0.2';
-  const LOGIC_SIGNATURE = 'equipment-load-core:v0.2:point-contact-spread-concrete-punching-steelplate';
+  const CORE_VERSION = '0.3.0';
+  const INPUT_SCHEMA_VERSION = 'equipment-load.input.v0.3';
+  const RESULT_SCHEMA_VERSION = 'equipment-load.result.v0.3';
+  const LOGIC_SIGNATURE = 'equipment-load-core:v0.3:uniform-or-eccentric-four-support-reactions-contact-spread-concrete-punching-steelplate';
   const KGCM2_TO_TFM2 = 10;
   const M_TO_CM = 100;
   const PUNCHING_ALPHA = {
@@ -53,6 +53,11 @@
     return Object.prototype.hasOwnProperty.call(PUNCHING_ALPHA, value) ? value : 'interior';
   }
 
+  function reactionModeValue(value) {
+    const normalized = String(value == null ? '' : value).trim();
+    return normalized || 'uniform';
+  }
+
   function normalizeInput(input) {
     const source = input || {};
     return {
@@ -60,7 +65,12 @@
       fluidWeight: numberValue(source.fluidWeight),
       accessoryWeight: numberValue(source.accessoryWeight),
       dynamicFactor: numberValue(source.dynamicFactor),
+      reactionMode: reactionModeValue(source.reactionMode),
       supportCount: numberValue(source.supportCount),
+      supportSpacingX: numberValue(source.supportSpacingX),
+      supportSpacingY: numberValue(source.supportSpacingY),
+      cgEccentricityX: numberValue(source.cgEccentricityX),
+      cgEccentricityY: numberValue(source.cgEccentricityY),
       contactB: numberValue(source.contactB),
       contactL: numberValue(source.contactL),
       spreadDepth: numberValue(source.spreadDepth),
@@ -104,11 +114,18 @@
     if (i.equipmentWeight + i.fluidWeight + i.accessoryWeight <= 0) errors.push('設備總重量必須大於 0。');
     if (i.dynamicFactor <= 0) errors.push('動力 / 衝擊係數必須大於 0。');
     if (i.supportCount < 1 || Math.abs(i.supportCount - Math.round(i.supportCount)) > 1e-9) errors.push('支承點數必須為正整數。');
+    if (!['uniform', 'eccentric-rectangular-4'].includes(i.reactionMode)) errors.push(`不支援的垂直反力模式：${i.reactionMode}。`);
+    if (i.reactionMode === 'eccentric-rectangular-4') {
+      if (Math.round(i.supportCount) !== 4) errors.push('矩形四支點偏心反力模式的支承點數必須為 4。');
+      if (i.supportSpacingX <= 0 || i.supportSpacingY <= 0) errors.push('矩形四支點偏心反力模式的支點間距 Sx、Sy 必須大於 0。');
+      if (i.planB > 0 && i.supportSpacingX > i.planB + 1e-9) errors.push('X 向支點間距 Sx 不得超出設備平面寬 B。');
+      if (i.planL > 0 && i.supportSpacingY > i.planL + 1e-9) errors.push('Y 向支點間距 Sy 不得超出設備平面長 L。');
+    }
     if (i.contactB <= 0 || i.contactL <= 0) errors.push('單支承接觸尺寸必須大於 0。');
     if (i.spreadDepth < 0) errors.push('分布厚度不得為負。');
     if (i.planB <= 0 || i.planL <= 0) errors.push('設備平面範圍 B、L 必須大於 0。');
     if (i.allowableContact <= 0 || i.allowableSpread <= 0) errors.push('容許接觸壓與容許分布壓必須大於 0。');
-    if (i.allowablePoint < 0) errors.push('容許單點反力不得為負；若不檢核請填 0。');
+    if (i.allowablePoint < 0) errors.push('容許支承反力上限不得為負；若不檢核請填 0。');
     if (i.horizontalCoeff < 0) errors.push('水平係數不得為負。');
     if (isConcreteBearingEnabled(i)) {
       if (i.concreteThickness < 0) errors.push('混凝土厚度不得為負。');
@@ -118,6 +135,75 @@
       if (i.steelPlateL < i.contactL) errors.push('鋼板長 Lp 不得小於單支承接觸長 l。');
     }
     return errors;
+  }
+
+  function supportReactionModel(i, designWeight, supportCount) {
+    const average = designWeight / supportCount;
+    if (i.reactionMode !== 'eccentric-rectangular-4') {
+      const reactions = Array.from({ length: supportCount }, (_, index) => ({
+        id: `R${index + 1}`,
+        x: null,
+        y: null,
+        value: average
+      }));
+      return {
+        mode: 'uniform',
+        label: '平均分配',
+        average,
+        reactions,
+        maximum: average,
+        minimum: average,
+        maximumSupportId: reactions[0] ? reactions[0].id : null,
+        minimumSupportId: reactions[0] ? reactions[0].id : null,
+        momentX: 0,
+        momentY: 0,
+        sum: designWeight,
+        equilibriumMomentX: 0,
+        equilibriumMomentY: 0,
+        eccentricityRatio: 0,
+        utilization: null,
+        noUplift: true
+      };
+    }
+
+    const halfX = i.supportSpacingX / 2;
+    const halfY = i.supportSpacingY / 2;
+    const sumX2 = i.supportSpacingX * i.supportSpacingX;
+    const sumY2 = i.supportSpacingY * i.supportSpacingY;
+    const momentX = designWeight * i.cgEccentricityY;
+    const momentY = designWeight * i.cgEccentricityX;
+    const coordinates = [
+      { id: 'R1', x: -halfX, y: halfY },
+      { id: 'R2', x: halfX, y: halfY },
+      { id: 'R3', x: halfX, y: -halfY },
+      { id: 'R4', x: -halfX, y: -halfY }
+    ];
+    const reactions = coordinates.map(point => ({
+      ...point,
+      value: average + momentY * point.x / sumX2 + momentX * point.y / sumY2
+    }));
+    const maximumReaction = reactions.reduce((best, item) => item.value > best.value ? item : best, reactions[0]);
+    const minimumReaction = reactions.reduce((best, item) => item.value < best.value ? item : best, reactions[0]);
+    const eccentricityRatio = Math.abs(i.cgEccentricityX) / i.supportSpacingX
+      + Math.abs(i.cgEccentricityY) / i.supportSpacingY;
+    return {
+      mode: i.reactionMode,
+      label: '矩形四支點偏心剛性分配',
+      average,
+      reactions,
+      maximum: maximumReaction.value,
+      minimum: minimumReaction.value,
+      maximumSupportId: maximumReaction.id,
+      minimumSupportId: minimumReaction.id,
+      momentX,
+      momentY,
+      sum: reactions.reduce((sum, item) => sum + item.value, 0),
+      equilibriumMomentX: reactions.reduce((sum, item) => sum + item.value * item.y, 0),
+      equilibriumMomentY: reactions.reduce((sum, item) => sum + item.value * item.x, 0),
+      eccentricityRatio,
+      utilization: eccentricityRatio / 0.5,
+      noUplift: minimumReaction.value >= -1e-9
+    };
   }
 
   function concreteBearingCheck(i, pointLoad, contactAreaEach) {
@@ -208,7 +294,9 @@
     const supportCount = Math.round(i.supportCount);
     const serviceWeight = i.equipmentWeight + i.fluidWeight + i.accessoryWeight;
     const designWeight = serviceWeight * i.dynamicFactor;
-    const pointLoad = designWeight / supportCount;
+    const reactionModel = supportReactionModel(i, designWeight, supportCount);
+    const averageReaction = reactionModel.average;
+    const pointLoad = reactionModel.maximum;
     const contactAreaEach = i.contactB * i.contactL;
     const qContact = pointLoad / contactAreaEach;
     const spreadB = i.contactB + 2 * i.spreadDepth;
@@ -227,6 +315,7 @@
     const contactOk = qContact <= i.allowableContact;
     const spreadOk = qSpread <= i.allowableSpread;
     const pointOk = i.allowablePoint > 0 ? pointLoad <= i.allowablePoint : null;
+    const reactionOk = reactionModel.noUplift;
     const concreteBearing = concreteBearingCheck(i, pointLoad, contactAreaEach);
     const punching = punchingShearCheck(i, pointLoad);
     const steelPlate = steelPlateCheck(i, pointLoad);
@@ -236,19 +325,22 @@
     const governing = governingCheck([
       { key: 'contact-pressure', label: '接觸壓', utilization: contactUtil },
       { key: 'spread-pressure', label: '分布壓', utilization: spreadUtil },
-      { key: 'point-load', label: '單點反力', utilization: pointUtil },
+      { key: 'point-load', label: '控制支承反力', utilization: pointUtil },
+      reactionModel.utilization !== null ? { key: 'support-reaction', label: '支承無拉力', utilization: reactionModel.utilization } : null,
       concreteBearing ? { key: 'concrete-bearing', label: '混凝土承壓', utilization: concreteBearing.utilization } : null,
       punching ? { key: 'punching-shear', label: '穿孔剪力', utilization: punching.utilization } : null,
       steelPlate ? { key: 'steel-plate-flexure', label: '鋼板分散彎曲', utilization: steelPlate.utilization } : null
     ].filter(Boolean));
-    const overallOk = contactOk && spreadOk && pointOk !== false && concreteBearingOk !== false && punchingOk !== false && steelPlateOk !== false;
+    const overallOk = reactionOk && contactOk && spreadOk && pointOk !== false && concreteBearingOk !== false && punchingOk !== false && steelPlateOk !== false;
     const summary = {
       status: overallOk ? 'pass' : 'fail',
-      headline: overallOk ? '設備局部荷重初步通過' : '設備局部荷重需調整或另行詳算',
+      headline: overallOk ? '設備局部荷重檢核通過' : '設備局部荷重檢核不通過，須調整或另行詳算',
       governing,
       primaryMetrics: [
         { key: 'designWeight', label: '設計重量', value: designWeight, unit: 'tf' },
-        { key: 'pointLoad', label: '單點反力', value: pointLoad, unit: 'tf' },
+        { key: 'averageReaction', label: '平均支承反力', value: averageReaction, unit: 'tf' },
+        { key: 'pointLoad', label: '控制支承反力', value: pointLoad, unit: 'tf' },
+        { key: 'minimumReaction', label: '最小支承反力', value: reactionModel.minimum, unit: 'tf' },
         { key: 'qContact', label: '接觸壓', value: qContact, unit: 'tf/m2' },
         { key: 'qSpread', label: '分布壓', value: qSpread, unit: 'tf/m2' },
         { key: 'concreteBearingDesign', label: '混凝土承壓設計強度', value: concreteBearing ? concreteBearing.design : null, unit: 'tf' },
@@ -257,9 +349,12 @@
       ]
     };
     const checks = [
+      checkItem('support-reaction', '支承反力與無拉力檢核', reactionOk, reactionModel.mode === 'uniform'
+        ? `平均分配：R = ${averageReaction}`
+        : `Rmax = ${reactionModel.maximum}, Rmin = ${reactionModel.minimum}, |ex|/Sx + |ey|/Sy = ${reactionModel.eccentricityRatio}`, reactionModel.minimum, 0, 'tf'),
       checkItem('contact-pressure', '接觸壓檢核', contactOk, `qContact = ${qContact}, allowableContact = ${i.allowableContact}`, qContact, i.allowableContact, 'tf/m2'),
       checkItem('spread-pressure', '分布壓檢核', spreadOk, `qSpread = ${qSpread}, allowableSpread = ${i.allowableSpread}`, qSpread, i.allowableSpread, 'tf/m2'),
-      checkItem('point-load', '單點反力檢核', pointOk, i.allowablePoint > 0 ? `pointLoad = ${pointLoad}, allowablePoint = ${i.allowablePoint}` : '未設定容許單點反力，略過單點反力檢核。', pointLoad, i.allowablePoint, 'tf'),
+      checkItem('point-load', '控制支承反力檢核', pointOk, i.allowablePoint > 0 ? `maximumReaction = ${pointLoad}, allowablePoint = ${i.allowablePoint}` : '未設定容許支承反力上限，略過此項檢核。', pointLoad, i.allowablePoint, 'tf'),
       checkItem('concrete-bearing', '混凝土承壓檢核', concreteBearingOk, concreteBearing ? `phiBn = ${concreteBearing.design}, A2/A1 factor = ${concreteBearing.bearingFactor}` : '未啟用混凝土承壓基準。', pointLoad, concreteBearing ? concreteBearing.design : null, 'tf'),
       checkItem('punching-shear', 'RC 穿孔剪力初判', punchingOk, punching ? `phiVn = ${punching.design}, bo = ${punching.bo}, vc = ${punching.vc}` : '未啟用 RC 穿孔剪力初判。', pointLoad, punching ? punching.design : null, 'tf'),
       checkItem('steel-plate-flexure', '鋼板分散彎曲初判', steelPlateOk, steelPlate ? `Mu/phiMn = ${steelPlate.utilization}, tReq = ${steelPlate.requiredThickness}` : '未啟用鋼板分散彎曲初判。', steelPlate ? steelPlate.utilization : null, 1, 'ratio'),
@@ -271,6 +366,22 @@
       supportCount,
       serviceWeight,
       designWeight,
+      reactionMode: reactionModel.mode,
+      reactionModeLabel: reactionModel.label,
+      averageReaction,
+      supportReactions: reactionModel.reactions,
+      maximumReaction: reactionModel.maximum,
+      minimumReaction: reactionModel.minimum,
+      maximumReactionSupportId: reactionModel.maximumSupportId,
+      minimumReactionSupportId: reactionModel.minimumSupportId,
+      reactionMomentX: reactionModel.momentX,
+      reactionMomentY: reactionModel.momentY,
+      reactionSum: reactionModel.sum,
+      reactionEquilibriumMomentX: reactionModel.equilibriumMomentX,
+      reactionEquilibriumMomentY: reactionModel.equilibriumMomentY,
+      reactionEccentricityRatio: reactionModel.eccentricityRatio,
+      reactionUtilization: reactionModel.utilization,
+      reactionOk,
       pointLoad,
       contactAreaEach,
       qContact,

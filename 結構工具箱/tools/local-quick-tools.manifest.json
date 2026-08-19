@@ -75,8 +75,8 @@
       "test": "tools/equipment/equipment-load-core.test.js",
       "golden": "tools/equipment/equipment-load-golden-cases.js",
       "smoke": "equipment-load-smoke",
-      "title": "<title>設備局部荷重 V0.2</title>",
-      "pageVersion": "V0.2",
+      "title": "<title>設備局部荷重 V0.3</title>",
+      "pageVersion": "V0.3",
       "calcFunction": "function calculateEquipmentLoad",
       "coreGlobal": "EquipmentLoadCore",
       "indexHref": "/equipment-load",
@@ -99,8 +99,8 @@
         "rolesInsideDiagram": true
       },
       "reportNeedles": [
-        "不在本頁範圍",
-        "另行正式檢核"
+        "本計算範圍",
+        "應由對應計算書檢核"
       ]
     },
     {

@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>設備局部荷重 V0.2</title>
+<title>設備局部荷重 V0.3</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../core/style.css">
 <link rel="stylesheet" href="../../core/direct-print-boundary.css">
@@ -109,8 +109,8 @@
 <body class="local-quick-output-page">
 <div class="local-quick-direct-print-boundary" aria-hidden="true"><strong>局部快算主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「列印計算書」按鈕產生只包含案件資料、採用輸入與計算結果的計算書；本頁不得作為附件。</span></div>
 <header>
-  <h1>設備局部荷重 <span class="badge-v">V0.2 局部正式檢核</span></h1>
-  <p>設備重量、支承點反力、接觸壓、混凝土承壓、RC 穿孔剪力與鋼板分散厚度初估 ｜ 單位：m, tf, tf/m²</p>
+  <h1>設備局部荷重 <span class="badge-v">V0.3 局部正式檢核</span></h1>
+  <p>設備重量、平均或矩形四支點偏心反力、接觸壓、混凝土承壓、RC 穿孔剪力與鋼板分散厚度 ｜ 單位：m, tf, tf/m²</p>
   <p class="header-links">
     <a href="../../index.html" class="back">← 回工具箱</a>
     <span class="sep">｜</span>
@@ -186,9 +186,43 @@
         <h2>② 支承與檢核基準</h2>
         <div class="form-row">
           <div class="form-group">
+            <label>垂直反力模式</label>
+            <select id="reactionMode">
+              <option value="uniform">平均分配（既有模式）</option>
+              <option value="eccentric-rectangular-4">矩形四支點偏心剛性分配</option>
+            </select>
+          </div>
+          <div class="form-group">
             <label>支承點數 n</label>
             <input type="number" id="supportCount" value="4" step="1" min="1">
           </div>
+        </div>
+        <div id="eccentricReactionFields" hidden>
+          <div class="basis-note">
+            四支點位於 (±Sx/2, ±Sy/2)，以相同垂直剛度與剛性設備底座分配反力；支點中心距不得超出設備平面。ex、ey 為設備重心相對支點中心之有號偏心；任一反力為負時，本頁判定不通過並要求另做錨栓／底座詳算。
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>支點 X 向間距 Sx (m)</label>
+              <input type="number" id="supportSpacingX" value="2.00" step="0.05" min="0.01">
+            </div>
+            <div class="form-group">
+              <label>支點 Y 向間距 Sy (m)</label>
+              <input type="number" id="supportSpacingY" value="1.00" step="0.05" min="0.01">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>重心 X 向偏心 ex (m)</label>
+              <input type="number" id="cgEccentricityX" value="0.20" step="0.01">
+            </div>
+            <div class="form-group">
+              <label>重心 Y 向偏心 ey (m)</label>
+              <input type="number" id="cgEccentricityY" value="-0.10" step="0.01">
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
           <div class="form-group">
             <label>水平係數 kh</label>
             <input type="number" id="horizontalCoeff" value="0.20" step="0.05" min="0">
@@ -210,7 +244,7 @@
             <input type="number" id="spreadDepth" value="0.15" step="0.01" min="0">
           </div>
           <div class="form-group">
-            <label>容許單點反力 Pa (tf，0=不檢核)</label>
+            <label>容許支承反力上限 Ra (tf，0=不檢核)</label>
             <input type="number" id="allowablePoint" value="5" step="0.1" min="0">
           </div>
         </div>
@@ -354,7 +388,7 @@
 <script src="../../core/ui/report.js"></script>
 <script src="../local-quick-export.js?v=1"></script>
 <script src="../local-quick-tool-metadata.js"></script>
-<script src="equipment-load-core.js?v=1"></script>
+<script src="equipment-load-core.js?v=0.3.0"></script>
 <script>
 (function () {
   const STORAGE_KEY = 'equipmentLoadProjectInfo';
@@ -364,7 +398,12 @@
     fluidWeight: '2',
     accessoryWeight: '1',
     dynamicFactor: '1.10',
+    reactionMode: 'uniform',
     supportCount: '4',
+    supportSpacingX: '2.00',
+    supportSpacingY: '1.00',
+    cgEccentricityX: '0.20',
+    cgEccentricityY: '-0.10',
     contactB: '0.25',
     contactL: '0.25',
     spreadDepth: '0.15',
@@ -458,14 +497,19 @@
       const failed = (lastResult.checks || []).find(function (check) { return check && check.passed === false; });
       reviewItems.push(failed ? `控制項「${failed.label}」未通過，應先修正或改採正式詳算。` : '局部荷重檢核尚未通過，應先修正或改採正式詳算。');
     }
+    if (lastResult.reactionMode === 'eccentric-rectangular-4' && lastResult.reactionOk && lastResult.reactionUtilization > 0.8) {
+      reviewItems.push('偏心反力已接近無拉力界線，應複核支承剛度、設備重心與安裝公差。');
+    }
     if (lastResult.horizontalTotal > 0) reviewItems.push('水平力與錨栓責任邊界仍須另回錨栓檢討工具確認。');
     const items = reviewItems.slice(0, 2).map(function (message, index) {
       return { label: `優先處理 ${index + 1}`, value: message };
     });
     items.push(
-      { label: '控制狀態', value: lastResult.overallOk ? '局部荷重初步通過' : '需先複核' },
+      { label: '控制狀態', value: lastResult.overallOk ? '局部荷重檢核通過' : '局部荷重檢核不通過' },
       { label: '控制項目', value: lastResult.governingCheck ? `${lastResult.governingCheck.label} / util=${fmt(lastResult.governingCheck.utilization, 2)}` : '未形成控制項目' },
-      { label: '設計重量 / 單點反力', value: `${fmt(lastResult.designWeight)} / ${fmt(lastResult.pointLoad)} tf` },
+      { label: '反力模式', value: lastResult.reactionModeLabel },
+      { label: '設計重量 / 控制反力', value: `${fmt(lastResult.designWeight)} / ${fmt(lastResult.pointLoad)} tf` },
+      { label: '最大 / 最小反力', value: `${fmt(lastResult.maximumReaction)} / ${fmt(lastResult.minimumReaction)} tf` },
       { label: '計算書模式', value: equipmentReportModeLabel() },
       { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' }
     );
@@ -500,7 +544,12 @@
       fluidWeight: num('fluidWeight'),
       accessoryWeight: num('accessoryWeight'),
       dynamicFactor: num('dynamicFactor'),
+      reactionMode: text('reactionMode'),
       supportCount: num('supportCount'),
+      supportSpacingX: num('supportSpacingX'),
+      supportSpacingY: num('supportSpacingY'),
+      cgEccentricityX: num('cgEccentricityX'),
+      cgEccentricityY: num('cgEccentricityY'),
       contactB: num('contactB'),
       contactL: num('contactL'),
       spreadDepth: num('spreadDepth'),
@@ -524,6 +573,17 @@
       steelFy: num('steelFy'),
       steelPhiFlexure: num('steelPhiFlexure')
     };
+  }
+
+  function updateReactionModeFields() {
+    const eccentric = text('reactionMode') === 'eccentric-rectangular-4';
+    const fields = $('eccentricReactionFields');
+    if (fields) fields.hidden = !eccentric;
+    const supportCount = $('supportCount');
+    if (supportCount) {
+      supportCount.readOnly = eccentric;
+      if (eccentric && supportCount.value !== '4') supportCount.value = '4';
+    }
   }
 
   function setJsonStatus(message, isError) {
@@ -582,9 +642,10 @@
   function renderBanner(r) {
     const banner = $('bannerStatus');
     banner.className = `banner-status ${r.overallOk ? 'ok' : 'fail'}`;
-    banner.textContent = r.overallOk ? '設備局部荷重初步通過' : '設備局部荷重需調整或另行詳算';
+    banner.textContent = r.overallOk ? '設備局部荷重檢核通過' : '設備局部荷重檢核不通過，須調整或另行詳算';
     const items = [
-      ['單點反力', `${fmt(r.pointLoad)} / ${r.allowablePoint > 0 ? fmt(r.allowablePoint) : '不檢核'} tf`, r.pointOk],
+      ['支承反力', `${fmt(r.maximumReaction)} / ${fmt(r.minimumReaction)} tf`, r.reactionOk],
+      ['控制反力', `${fmt(r.pointLoad)} / ${r.allowablePoint > 0 ? fmt(r.allowablePoint) : '不檢核'} tf`, r.pointOk],
       ['接觸壓', `${fmt(r.qContact)} / ${fmt(r.allowableContact)} tf/m²`, r.contactOk],
       ['分布壓', `${fmt(r.qSpread)} / ${fmt(r.allowableSpread)} tf/m²`, r.spreadOk],
       ['混凝土承壓', r.concreteBearingApplicable ? `${fmt(r.pointLoad)} / ${fmt(r.concreteBearingDesign)} tf` : '未啟用', r.concreteBearingOk],
@@ -600,7 +661,8 @@
   function renderMetrics(r) {
     const metrics = [
       ['設計重量', `${fmt(r.designWeight)} tf`, `服務重量 ${fmt(r.serviceWeight)} × I=${fmt(r.dynamicFactor, 2)}`, true],
-      ['單點反力', `${fmt(r.pointLoad)} tf`, `n=${r.supportCount} 點`, r.pointOk],
+      ['平均 / 控制反力', `${fmt(r.averageReaction)} / ${fmt(r.pointLoad)} tf`, `${r.reactionModeLabel}；${r.maximumReactionSupportId || '—'} 控制`, r.pointOk],
+      ['最小反力', `${fmt(r.minimumReaction)} tf`, r.reactionMode === 'uniform' ? '平均分配無拉力' : `${r.minimumReactionSupportId || '—'}；無拉力 util=${fmt(r.reactionUtilization, 2)}`, r.reactionOk],
       ['接觸壓', `${fmt(r.qContact)} tf/m²`, `A=${fmt(r.contactAreaEach, 4)} m² / 點`, r.contactOk],
       ['分布壓', `${fmt(r.qSpread)} tf/m²`, `${fmt(r.spreadB)} × ${fmt(r.spreadL)} m / 點`, r.spreadOk],
       ['混凝土承壓', r.concreteBearingApplicable ? `${fmt(r.concreteBearingDesign)} tf` : '未啟用', r.concreteBearingApplicable ? `qa=${fmt(r.concreteBearingAllowablePressure)} tf/m²` : '填 0 可關閉此項', r.concreteBearingOk],
@@ -621,9 +683,12 @@
 
   function renderChecks(r) {
     const checks = [
+      ['支承反力與無拉力檢核', r.reactionOk, r.reactionMode === 'uniform'
+        ? `平均分配：R = ${fmt(r.averageReaction)} tf / 點`
+        : `Rmax = ${fmt(r.maximumReaction)} tf；Rmin = ${fmt(r.minimumReaction)} tf；|ex|/Sx + |ey|/Sy = ${fmt(r.reactionEccentricityRatio, 3)} ${r.reactionOk ? '≤' : '>'} 0.500`],
       ['接觸壓檢核', r.contactOk, `qcontact = ${fmt(r.qContact)} tf/m² ${r.contactOk ? '≤' : '>'} ${fmt(r.allowableContact)} tf/m²`],
       ['1:1 分布壓檢核', r.spreadOk, `qspread = ${fmt(r.qSpread)} tf/m² ${r.spreadOk ? '≤' : '>'} ${fmt(r.allowableSpread)} tf/m²`],
-      ['單點反力檢核', r.pointOk, r.allowablePoint > 0 ? `Ppoint = ${fmt(r.pointLoad)} tf ${r.pointOk ? '≤' : '>'} ${fmt(r.allowablePoint)} tf` : '未啟用單點反力檢核'],
+      ['控制支承反力檢核', r.pointOk, r.allowablePoint > 0 ? `Rmax = ${fmt(r.maximumReaction)} tf ${r.pointOk ? '≤' : '>'} ${fmt(r.allowablePoint)} tf` : '未啟用支承反力上限檢核'],
       ['混凝土承壓檢核', r.concreteBearingOk, r.concreteBearingApplicable ? `phiBn = ${fmt(r.concreteBearingDesign)} tf；A2/A1 factor = ${fmt(r.concreteBearingFactor, 2)}` : '未啟用混凝土承壓基準'],
       ['RC 穿孔剪力初判', r.punchingOk, r.punchingApplicable ? `phiVn = ${fmt(r.punchingDesignShear)} tf；bo = ${fmt(r.punchingBo)} m；vc = ${fmt(r.punchingVc)} kgf/cm²` : '未啟用穿孔剪力基準'],
       ['鋼板分散彎曲初判', r.steelPlateOk, r.steelPlateApplicable ? `Mu/phiMn = ${fmt(r.steelPlateUtil, 2)}；tReq = ${fmt(r.steelPlateRequiredThickness * 1000, 1)} mm` : '未啟用鋼板分散基準'],
@@ -644,11 +709,15 @@
         <code>Wservice = Wd + Wf + Wa = ${fmt(r.equipmentWeight)} + ${fmt(r.fluidWeight)} + ${fmt(r.accessoryWeight)} = ${fmt(r.serviceWeight)} tf</code><br>
         <code>Wdesign = Wservice × I = ${fmt(r.serviceWeight)} × ${fmt(r.dynamicFactor, 2)} = ${fmt(r.designWeight)} tf</code>
       </div>
-      <div class="step-title">2. 單點反力與接觸壓</div>
+      <div class="step-title">2. 支承反力與接觸壓</div>
       <div>
-        <code>Ppoint = Wdesign / n = ${fmt(r.designWeight)} / ${r.supportCount} = ${fmt(r.pointLoad)} tf</code><br>
+        ${r.reactionMode === 'uniform'
+          ? `<code>R = Wdesign / n = ${fmt(r.designWeight)} / ${r.supportCount} = ${fmt(r.pointLoad)} tf / 點</code>`
+          : `<code>Ri = W/n + My·xi/Σx² + Mx·yi/Σy²；Mx = W·ey = ${fmt(r.reactionMomentX)} tf·m；My = W·ex = ${fmt(r.reactionMomentY)} tf·m</code><br>
+             <code>Rmax = ${fmt(r.maximumReaction)} tf (${escapeHtml(r.maximumReactionSupportId)})；Rmin = ${fmt(r.minimumReaction)} tf (${escapeHtml(r.minimumReactionSupportId)})；ΣR = ${fmt(r.reactionSum)} tf</code><br>
+             <code>|ex|/Sx + |ey|/Sy = ${fmt(r.reactionEccentricityRatio, 3)} ${r.reactionOk ? '≤' : '>'} 0.500（無拉力界線）</code>`}<br>
         <code>Acontact = b × l = ${fmt(r.contactB)} × ${fmt(r.contactL)} = ${fmt(r.contactAreaEach, 4)} m²</code><br>
-        <code>qcontact = Ppoint / Acontact = ${fmt(r.qContact)} tf/m²</code>
+        <code>qcontact = Rmax / Acontact = ${fmt(r.qContact)} tf/m²</code>
       </div>
       <div class="step-title">3. 1:1 分布壓</div>
       <div>
@@ -676,11 +745,11 @@
       <div class="step-title">7. 鋼板分散厚度初判</div>
       <div>
         ${r.steelPlateApplicable ? `
-        <code>qplate = Ppoint / (Bp × Lp) = ${fmt(r.steelPlatePressure)} tf/m²；a = ${fmt(r.steelPlateControllingProjection)} m</code><br>
+         <code>qplate = Rmax / (Bp × Lp) = ${fmt(r.steelPlatePressure)} tf/m²；a = ${fmt(r.steelPlateControllingProjection)} m</code><br>
         <code>Mu = qplate × a² / 2 = ${fmt(r.steelPlateMomentDemand, 4)}；tReq = ${fmt(r.steelPlateRequiredThickness * 1000, 1)} mm</code>` : '未啟用鋼板分散基準。'}
       </div>
       <div class="scope-box" style="margin-top:12px;">
-        本頁結果用於荷重整理與早期協調；混凝土承壓、穿孔剪力與鋼板厚度僅為初判，不取代樓板、梁、基礎、錨栓、振動與疲勞之正式檢核。
+        偏心模式採矩形四支點、相同垂直剛度與剛性設備底座之靜力分配；若支承柔度不同、存在安裝間隙或 Rmin&lt;0，須另做底座接觸與錨栓拉力詳算。本頁不取代樓板、梁、基礎、振動與疲勞之正式檢核。
       </div>`;
   }
 
@@ -693,21 +762,44 @@
     const s = Math.min(98 / (r.planB / 2), 110 / (r.planL / 2));
     const pxB = s * r.planB / 2, pxL = s * r.planL / 2;
     const n = Math.max(1, Math.round(r.supportCount));
-    const cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / cols);
-    let dots = '', idx = 0;
-    for (let rr = 0; rr < rows; rr++) {
-      for (let cc = 0; cc < cols && idx < n; cc++, idx++) {
-        const fx = cols > 1 ? (cc / (cols - 1) - 0.5) : 0;
-        const fy = rows > 1 ? (rr / (rows - 1) - 0.5) : 0;
-        const sx = pcx + fx * 2 * pxB * 0.74, sy = pcy + fy * 2 * pxL * 0.74;
-        const hl = (idx === 0);
+    let dots = '';
+    if (r.reactionMode === 'eccentric-rectangular-4') {
+      const limitX = pxB * 0.74, limitY = pxL * 0.74;
+      const halfX = r.supportSpacingX / 2, halfY = r.supportSpacingY / 2;
+      r.supportReactions.forEach(function (reaction) {
+        const sx = pcx + reaction.x / halfX * limitX;
+        const sy = pcy - reaction.y / halfY * limitY;
+        const hl = reaction.id === r.maximumReactionSupportId;
         if (hl) {
           const sb = Math.min(s * r.spreadB, 2 * pxB), sl = Math.min(s * r.spreadL, 2 * pxL);
           const cb = s * r.contactB, cl = s * r.contactL;
           dots += `<rect x="${(sx - sb / 2).toFixed(1)}" y="${(sy - sl / 2).toFixed(1)}" width="${sb.toFixed(1)}" height="${sl.toFixed(1)}" fill="rgba(8,145,178,0.12)" stroke="#0891b2" stroke-width="0.8" stroke-dasharray="3 2"/>`;
           dots += `<rect x="${(sx - cb / 2).toFixed(1)}" y="${(sy - cl / 2).toFixed(1)}" width="${cb.toFixed(1)}" height="${cl.toFixed(1)}" fill="rgba(220,38,38,0.20)" stroke="#dc2626" stroke-width="1"/>`;
         }
-        dots += `<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${hl ? 3.4 : 3}" fill="${hl ? '#dc2626' : '#0b7285'}"/>`;
+        dots += `<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${hl ? 3.6 : 3}" fill="${reaction.value < 0 ? '#7c3aed' : (hl ? '#dc2626' : '#0b7285')}"/>`;
+        dots += `<text x="${sx.toFixed(1)}" y="${(sy - 7).toFixed(1)}" font-size="7.5" text-anchor="middle" fill="#334155">${reaction.id}=${fmt(reaction.value, 2)}</text>`;
+      });
+      const cgX = pcx + r.cgEccentricityX / halfX * limitX;
+      const cgY = pcy - r.cgEccentricityY / halfY * limitY;
+      dots += `<path d="M${(cgX - 5).toFixed(1)},${cgY.toFixed(1)} L${(cgX + 5).toFixed(1)},${cgY.toFixed(1)} M${cgX.toFixed(1)},${(cgY - 5).toFixed(1)} L${cgX.toFixed(1)},${(cgY + 5).toFixed(1)}" stroke="#7c3aed" stroke-width="1.5"/>`;
+      dots += `<text x="${(cgX + 7).toFixed(1)}" y="${(cgY + 3).toFixed(1)}" font-size="7.5" fill="#6d28d9">CG</text>`;
+    } else {
+      const cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / cols);
+      let idx = 0;
+      for (let rr = 0; rr < rows; rr++) {
+        for (let cc = 0; cc < cols && idx < n; cc++, idx++) {
+          const fx = cols > 1 ? (cc / (cols - 1) - 0.5) : 0;
+          const fy = rows > 1 ? (rr / (rows - 1) - 0.5) : 0;
+          const sx = pcx + fx * 2 * pxB * 0.74, sy = pcy + fy * 2 * pxL * 0.74;
+          const hl = (idx === 0);
+          if (hl) {
+            const sb = Math.min(s * r.spreadB, 2 * pxB), sl = Math.min(s * r.spreadL, 2 * pxL);
+            const cb = s * r.contactB, cl = s * r.contactL;
+            dots += `<rect x="${(sx - sb / 2).toFixed(1)}" y="${(sy - sl / 2).toFixed(1)}" width="${sb.toFixed(1)}" height="${sl.toFixed(1)}" fill="rgba(8,145,178,0.12)" stroke="#0891b2" stroke-width="0.8" stroke-dasharray="3 2"/>`;
+            dots += `<rect x="${(sx - cb / 2).toFixed(1)}" y="${(sy - cl / 2).toFixed(1)}" width="${cb.toFixed(1)}" height="${cl.toFixed(1)}" fill="rgba(220,38,38,0.20)" stroke="#dc2626" stroke-width="1"/>`;
+          }
+          dots += `<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${hl ? 3.4 : 3}" fill="${hl ? '#dc2626' : '#0b7285'}"/>`;
+        }
       }
     }
     // 立面：單支承 1:1 應力擴散
@@ -720,7 +812,7 @@
       `<rect x="${ex - 90}" y="${slabTop}" width="180" height="${slabH}" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>` +
       `<rect x="${(ex - cbE / 2).toFixed(1)}" y="${slabTop - 12}" width="${cbE.toFixed(1)}" height="12" fill="#cbd5e1" stroke="#475569" stroke-width="1"/>` +
       `<line x1="${ex}" y1="${topY}" x2="${ex}" y2="${slabTop - 13}" stroke="#047857" stroke-width="2" marker-end="url(#eq-arrow)"/>` +
-      `<text x="${ex + 6}" y="${topY + 14}" font-size="9" fill="#047857" font-weight="700">P=${fmt(r.pointLoad)}</text>` +
+      `<text x="${ex + 6}" y="${topY + 14}" font-size="9" fill="#047857" font-weight="700">Rmax=${fmt(r.maximumReaction)}</text>` +
       `<line x1="${(ex - cbE / 2).toFixed(1)}" y1="${slabTop}" x2="${(ex - sbE / 2).toFixed(1)}" y2="${slabTop + slabH}" stroke="#0891b2" stroke-width="1" stroke-dasharray="3 2"/>` +
       `<line x1="${(ex + cbE / 2).toFixed(1)}" y1="${slabTop}" x2="${(ex + sbE / 2).toFixed(1)}" y2="${slabTop + slabH}" stroke="#0891b2" stroke-width="1" stroke-dasharray="3 2"/>` +
       `<text x="${ex}" y="${slabTop - 16}" font-size="8.5" text-anchor="middle" fill="#991b1b" font-weight="700">qc=${fmt(r.qContact, 0)}</text>` +
@@ -728,16 +820,19 @@
       `<text x="${ex}" y="${slabTop + slabH / 2 + 3}" font-size="8" text-anchor="middle" fill="#64748b">1:1 (h=${fmt(r.spreadDepth)})</text>`;
     svg.innerHTML =
       `<defs><marker id="eq-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L6,3 L0,6 Z" fill="#047857"/></marker></defs>` +
-      `<g data-diagram-role="plan"><text x="120" y="22" font-size="11" text-anchor="middle" fill="#0f172a" font-weight="800">設備平面 ‧ ${n} 支承</text>` +
+      `<g data-diagram-role="plan"><text x="120" y="22" font-size="11" text-anchor="middle" fill="#0f172a" font-weight="800">設備平面 ‧ ${r.reactionMode === 'uniform' ? `${n} 支承平均分配` : '四支點偏心反力'}</text>` +
       `<rect x="${(pcx - pxB).toFixed(1)}" y="${(pcy - pxL).toFixed(1)}" width="${(2 * pxB).toFixed(1)}" height="${(2 * pxL).toFixed(1)}" fill="#ecfeff" stroke="#0e7490" stroke-width="1.5"/>` +
       dots +
       `<text x="120" y="${(pcy + pxL + 18).toFixed(1)}" font-size="9" text-anchor="middle" fill="#475569">B=${fmt(r.planB)} m</text></g>` +
       `<g data-diagram-role="elevation"><text x="360" y="22" font-size="11" text-anchor="middle" fill="#0f172a" font-weight="800">單支承 1:1 分布</text>${elev}</g>`;
     const legend = document.getElementById('diagramLegend');
-    if (legend) legend.textContent = '紅框 = 單支承接觸面 b×l（qc）；藍虛框 = 經厚度 h 之 1:1 分布面（qs）；右圖為單支承立面 1:1 應力擴散。';
+    if (legend) legend.textContent = r.reactionMode === 'uniform'
+      ? '紅框 = 單支承接觸面 b×l（qc）；藍虛框 = 經厚度 h 之 1:1 分布面（qs）；右圖為單支承立面 1:1 應力擴散。'
+      : 'R1～R4 = 四角有號反力；紅色為最大壓縮反力控制點，紫色 CG 為重心位置，負反力以紫點表示並要求另做錨栓／底座詳算。';
   }
 
   function calculateEquipmentLoad() {
+    updateReactionModeFields();
     const input = gatherInputs();
     const errors = Core.validateInput(input);
     if (errors.length) {
@@ -863,21 +958,28 @@
   }
 
   function detailedBody(r, svgHtml) {
+    const reactionDetail = r.reactionMode === 'uniform'
+      ? `<p><code>R = Wdesign / n = ${fmt(r.designWeight)} / ${r.supportCount} = ${fmt(r.maximumReaction)} tf / 點</code></p>`
+      : `<p><code>Ri = W/n + My·xi/Σx² + Mx·yi/Σy²；Mx = W·ey = ${fmt(r.reactionMomentX)} tf·m；My = W·ex = ${fmt(r.reactionMomentY)} tf·m</code></p>
+<p><code>Sx = ${fmt(r.supportSpacingX)} m；Sy = ${fmt(r.supportSpacingY)} m；ex = ${fmt(r.cgEccentricityX)} m；ey = ${fmt(r.cgEccentricityY)} m</code></p>
+<table><tr><th>支承</th><th>座標 (x, y), m</th><th>有號反力 Ri (tf)</th></tr>${r.supportReactions.map(reaction => `<tr><td>${escapeHtml(reaction.id)}</td><td>${fmt(reaction.x)}, ${fmt(reaction.y)}</td><td>${fmt(reaction.value)}</td></tr>`).join('')}</table>
+<p><code>ΣRi = ${fmt(r.reactionSum)} tf；Σ(Ri·yi) = ${fmt(r.reactionEquilibriumMomentX)} tf·m；Σ(Ri·xi) = ${fmt(r.reactionEquilibriumMomentY)} tf·m</code></p>
+<p><code>Rmax = ${fmt(r.maximumReaction)} tf (${escapeHtml(r.maximumReactionSupportId)})；Rmin = ${fmt(r.minimumReaction)} tf (${escapeHtml(r.minimumReactionSupportId)})；|ex|/Sx + |ey|/Sy = ${fmt(r.reactionEccentricityRatio, 3)} ${r.reactionOk ? '≤' : '>'} 0.500</code></p>`;
     let extra = '';
     if (r.concreteBearingApplicable) {
       extra += `<div class="rpt-step"><h3>5. 混凝土承壓基準</h3>
 <p><code>A1 = ${fmt(r.concreteBearingAreaA1, 4)} m²；A2 = ${fmt(r.concreteBearingAreaA2, 4)} m²；√(A2/A1) = ${fmt(r.concreteBearingFactor, 2)}（上限 2）</code></p>
-<p><code>φBn = φ·0.85·f'c·A1·√(A2/A1) = ${fmt(r.concreteBearingDesign)} tf ${r.pointLoad <= r.concreteBearingDesign ? '≥' : '<'} Ppoint = ${fmt(r.pointLoad)} tf</code></p></div>`;
+<p><code>φBn = φ·0.85·f'c·A1·√(A2/A1) = ${fmt(r.concreteBearingDesign)} tf ${r.maximumReaction <= r.concreteBearingDesign ? '≥' : '&lt;'} Rmax = ${fmt(r.maximumReaction)} tf</code></p></div>`;
     }
     if (r.punchingApplicable) {
       extra += `<div class="rpt-step"><h3>6. RC 穿孔剪力初判（雙向剪力）</h3>
 <p><code>bo = 2(b + l + 2d) = ${fmt(r.punchingBo)} m；β = ${fmt(r.punchingBeta, 2)}；αs = ${fmt(r.punchingAlpha, 0)}</code></p>
 <p><code>vc = min(1.06√f'c, 0.53(1+2/β)√f'c, 0.265(αs·d/bo+2)√f'c) = ${fmt(r.punchingVc)} kgf/cm²</code></p>
-<p><code>φVn = ${fmt(r.punchingDesignShear)} tf ${r.pointLoad <= r.punchingDesignShear ? '≥' : '<'} Ppoint = ${fmt(r.pointLoad)} tf</code></p></div>`;
+<p><code>φVn = ${fmt(r.punchingDesignShear)} tf ${r.maximumReaction <= r.punchingDesignShear ? '≥' : '&lt;'} Rmax = ${fmt(r.maximumReaction)} tf</code></p></div>`;
     }
     if (r.steelPlateApplicable) {
       extra += `<div class="rpt-step"><h3>7. 鋼板分散厚度初判</h3>
-<p><code>qplate = Ppoint/(Bp·Lp) = ${fmt(r.steelPlatePressure)} tf/m²；懸臂 a = ${fmt(r.steelPlateControllingProjection)} m</code></p>
+<p><code>qplate = Rmax/(Bp·Lp) = ${fmt(r.steelPlatePressure)} tf/m²；懸臂 a = ${fmt(r.steelPlateControllingProjection)} m</code></p>
 <p><code>Mu = qplate·a²/2 = ${fmt(r.steelPlateMomentDemand, 4)} tf·m/m；t,req = ${fmt(r.steelPlateRequiredThickness * 1000, 1)} mm（現用 ${fmt(r.steelPlateThickness * 1000, 0)} mm）</code></p></div>`;
     }
     return `
@@ -886,29 +988,33 @@
 <div class="rpt-step"><h3>1. 設備設計重量</h3>
 <p><code>Wservice = Wd + Wf + Wa = ${fmt(r.equipmentWeight)} + ${fmt(r.fluidWeight)} + ${fmt(r.accessoryWeight)} = ${fmt(r.serviceWeight)} tf</code></p>
 <p><code>Wdesign = Wservice × I = ${fmt(r.serviceWeight)} × ${fmt(r.dynamicFactor, 2)} = ${fmt(r.designWeight)} tf</code></p></div>
-<div class="rpt-step"><h3>2. 單點反力與接觸壓</h3>
-<p><code>Ppoint = Wdesign / n = ${fmt(r.designWeight)} / ${r.supportCount} = ${fmt(r.pointLoad)} tf</code></p>
-<p><code>Acontact = b×l = ${fmt(r.contactB)}×${fmt(r.contactL)} = ${fmt(r.contactAreaEach, 4)} m²；qcontact = ${fmt(r.qContact)} tf/m²</code></p></div>
+  <div class="rpt-step"><h3>2. 支承反力與接觸壓</h3>
+  ${reactionDetail}
+  <p><code>Acontact = b×l = ${fmt(r.contactB)}×${fmt(r.contactL)} = ${fmt(r.contactAreaEach, 4)} m²；qcontact = Rmax/Acontact = ${fmt(r.qContact)} tf/m²</code></p></div>
 <div class="rpt-step"><h3>3. 1:1 分布壓</h3>
 <p><code>Bspread = b+2h = ${fmt(r.spreadB)} m；Lspread = l+2h = ${fmt(r.spreadL)} m；qspread = ${fmt(r.qSpread)} tf/m²</code></p></div>
 <div class="rpt-step"><h3>4. 等效面載重與水平力</h3>
 <p><code>qequiv = Wdesign/(Bplan·Lplan) = ${fmt(r.qEquivalent)} tf/m²；H = kh·Wdesign = ${fmt(r.horizontalTotal)} tf（每點 ${fmt(r.horizontalPerSupport)} tf）</code></p></div>
 ${extra}
-<div class="note">本頁為設備支承局部荷重與承壓 / 穿孔剪力 / 鋼板分散之檢核；錨栓、樓板與梁配筋、振動與疲勞不在本頁範圍，應另行正式檢核。</div>
-<h2>檢核結論</h2><div class="conclusion">${r.overallOk ? '設備局部荷重初步通過' : '設備局部荷重需調整或另行詳算'}</div>`;
+<div class="note">${r.reactionMode === 'uniform' ? '支承反力採平均分配。' : '偏心反力採矩形四支點、相同垂直剛度與剛性設備底座之靜力分配；Rmin&lt;0 時本檢核判定不通過。'}本計算範圍為設備支承局部荷重、承壓、穿孔剪力與鋼板分散；錨栓、樓板與梁配筋、振動及疲勞應由對應計算書檢核。</div>
+<h2>檢核結論</h2><div class="conclusion">${r.overallOk ? '設備局部荷重檢核通過' : '設備局部荷重檢核不通過，須調整或另行詳算'}</div>`;
   }
 
   function summaryBody(r, svgHtml) {
     const condRows = [
       ['設備重量 Wd/Wf/Wa', `${fmt(r.equipmentWeight)} / ${fmt(r.fluidWeight)} / ${fmt(r.accessoryWeight)} tf；I=${fmt(r.dynamicFactor, 2)}`],
-      ['支承點數 / 水平係數', `${r.supportCount} 點；kh=${fmt(r.horizontalCoeff, 2)}`],
+      ['支承反力模式', r.reactionMode === 'uniform' ? `平均分配；${r.supportCount} 點` : '矩形四支點偏心分配'],
+      ...(r.reactionMode === 'eccentric-rectangular-4' ? [['支承間距 / 重心偏心', `Sx/Sy=${fmt(r.supportSpacingX)}/${fmt(r.supportSpacingY)} m；ex/ey=${fmt(r.cgEccentricityX)}/${fmt(r.cgEccentricityY)} m`]] : []),
+      ['水平係數', `kh=${fmt(r.horizontalCoeff, 2)}`],
       ['單支承接觸 b×l / 分布厚度 h', `${fmt(r.contactB)}×${fmt(r.contactL)} m；h=${fmt(r.spreadDepth)} m`],
       ['容許接觸 / 分布 / 單點', `${fmt(r.allowableContact)} / ${fmt(r.allowableSpread)} tf/m²；${r.allowablePoint > 0 ? fmt(r.allowablePoint) + ' tf' : '不檢核'}`],
       ['混凝土基準', (r.concreteBearingApplicable || r.punchingApplicable) ? `f'c ${fmt(r.concreteFc, 0)} kgf/cm²；hc ${fmt(r.concreteThickness)} m；d ${fmt(r.effectiveDepth)} m` : '未啟用'],
       ['鋼板基準', r.steelPlateApplicable ? `${fmt(r.steelPlateB)}×${fmt(r.steelPlateL)}×${fmt(r.steelPlateThickness)} m；Fy ${fmt(r.steelFy, 0)}` : '未啟用']
     ];
     const ctrlRows = [
-      ['設計重量 / 單點反力', `${fmt(r.designWeight)} / ${fmt(r.pointLoad)} tf`],
+      ['設計重量 / 平均反力', `${fmt(r.designWeight)} / ${fmt(r.averageReaction)} tf`],
+      ['最大 / 最小支承反力', `${fmt(r.maximumReaction)} (${r.maximumReactionSupportId}) / ${fmt(r.minimumReaction)} (${r.minimumReactionSupportId}) tf`],
+      ...(r.reactionMode === 'eccentric-rectangular-4' ? [['無拉力偏心比', `${fmt(r.reactionEccentricityRatio, 3)} / 0.500；util=${fmt(r.reactionUtilization, 2)}`]] : []),
       ['接觸壓 qc', `${fmt(r.qContact)} / ${fmt(r.allowableContact)} tf/m²`],
       ['分布壓 qs', `${fmt(r.qSpread)} / ${fmt(r.allowableSpread)} tf/m²`],
       ['混凝土承壓', r.concreteBearingApplicable ? `${fmt(r.pointLoad)} / ${fmt(r.concreteBearingDesign)} tf` : '未啟用'],
@@ -924,8 +1030,8 @@ ${extra}
 <h2>控制結果</h2>
 <table>${reportRows(ctrlRows)}</table>
 <table><tr><th>檢核項目</th><th>結果</th></tr>${checkRows}</table>
-<div class="note">本頁為設備支承局部荷重與承壓 / 穿孔剪力 / 鋼板分散之檢核；錨栓、樓板與梁配筋、振動與疲勞不在本頁範圍，應另行正式檢核。</div>
-<h2>檢核結論</h2><div class="conclusion">${r.overallOk ? '設備局部荷重初步通過' : '設備局部荷重需調整或另行詳算'}</div>`;
+<div class="note">${r.reactionMode === 'uniform' ? '支承反力採平均分配。' : '偏心反力採矩形四支點、相同垂直剛度與剛性設備底座之靜力分配；Rmin&lt;0 時本檢核判定不通過。'}本計算範圍為設備支承局部荷重、承壓、穿孔剪力與鋼板分散；錨栓、樓板與梁配筋、振動及疲勞應由對應計算書檢核。</div>
+<h2>檢核結論</h2><div class="conclusion">${r.overallOk ? '設備局部荷重檢核通過' : '設備局部荷重檢核不通過，須調整或另行詳算'}</div>`;
   }
 
   function openReport() {

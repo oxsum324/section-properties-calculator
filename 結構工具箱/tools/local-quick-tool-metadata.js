@@ -7,7 +7,7 @@
 
   const entries = {
     'foundation-local': { route: '/foundation-local', discipline: 'foundation', version: 'V0.6', state: 'formal', governance: 'local-quick-contract' },
-    'equipment-load': { route: '/equipment-load', discipline: 'equipment', version: 'V0.2', state: 'formal', governance: 'local-quick-contract' },
+    'equipment-load': { route: '/equipment-load', discipline: 'equipment', version: 'V0.3', state: 'formal', governance: 'local-quick-contract' },
     'earth-pressure': { route: '/earth-pressure', discipline: 'geotechnical', version: 'V0.6', state: 'formal', governance: 'local-quick-contract' },
   };
 

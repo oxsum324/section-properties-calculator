@@ -1251,6 +1251,39 @@ function advancedCapabilityExpression(toolKey) {
   })()`;
 }
 
+function equipmentEccentricReactionExpression(ex, ey) {
+  return `(() => {
+    const setValue = (id, value) => {
+      const element = document.getElementById(id);
+      if (!element) throw new Error('missing equipment eccentric field: ' + id);
+      element.value = String(value);
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    setValue('reactionMode', 'eccentric-rectangular-4');
+    setValue('supportSpacingX', '2');
+    setValue('supportSpacingY', '1');
+    setValue('cgEccentricityX', ${JSON.stringify(ex)});
+    setValue('cgEccentricityY', ${JSON.stringify(ey)});
+    setValue('allowablePoint', '6');
+    document.getElementById('btnCalc').click();
+    const text = id => document.getElementById(id)?.textContent?.replace(/\\s+/g, ' ').trim() || '';
+    return {
+      mode: document.getElementById('reactionMode')?.value || '',
+      eccentricFieldsHidden: document.getElementById('eccentricReactionFields')?.hidden !== false,
+      supportCount: document.getElementById('supportCount')?.value || '',
+      supportCountReadOnly: document.getElementById('supportCount')?.readOnly === true,
+      banner: text('bannerStatus'),
+      bannerClass: document.getElementById('bannerStatus')?.className || '',
+      metrics: text('metricGrid'),
+      checks: text('checkList'),
+      steps: text('stepBody'),
+      diagram: text('equipmentDiagram'),
+      readiness: text('equipmentReportReadiness')
+    };
+  })()`;
+}
+
 function reportExpression(mode = null, projectMetaState = 'complete', calculationState = 'default', toolKey = '') {
   return `(() => {
     const originalOpen = window.open;
@@ -2297,7 +2330,7 @@ function assertReportContentState(state, tool, label, mode = 'detailed') {
     });
   } else if (tool.key === 'equipment-load') {
     // 已正式化：兩段式計算書（預設詳算式）含計算內容與示意圖
-    requiredNeedles.push('計算內容', '計算示意圖', '單點反力');
+    requiredNeedles.push('計算內容', '計算示意圖', '支承反力');
     removedFromLocalReport.forEach(needle => {
       assert.equal(state.html.includes(needle), false, `${label} ${tool.key} report removes ${needle}`);
     });
@@ -3134,6 +3167,56 @@ async function main() {
               const summaryPlaceholderReportState = await evaluate(client, sessionId, reportExpression('summary', 'placeholder'));
               assertReportState(summaryReportState, tool, interactionLabel, 'summary');
               assertPlaceholderReportState(summaryPlaceholderReportState, tool, `${interactionLabel} placeholder`, 'summary');
+              if (tool.key === 'equipment-load') {
+                const eccentricState = await evaluate(client, sessionId, equipmentEccentricReactionExpression(0.2, -0.1));
+                assert.equal(eccentricState.mode, 'eccentric-rectangular-4', `${interactionLabel} equipment eccentric mode selected`);
+                assert.equal(eccentricState.eccentricFieldsHidden, false, `${interactionLabel} equipment eccentric fields visible`);
+                assert.equal(eccentricState.supportCount, '4', `${interactionLabel} equipment eccentric mode fixes four supports`);
+                assert.equal(eccentricState.supportCountReadOnly, true, `${interactionLabel} equipment eccentric support count locked`);
+                assert.ok(eccentricState.banner.includes('檢核通過'), `${interactionLabel} equipment eccentric passing banner`);
+                assert.ok(eccentricState.metrics.includes('5.78') && eccentricState.metrics.includes('2.47'), `${interactionLabel} equipment eccentric maximum/minimum reactions: ${eccentricState.metrics}`);
+                assert.ok(eccentricState.checks.includes('無拉力') && eccentricState.checks.includes('0.200'), `${interactionLabel} equipment eccentric no-uplift check`);
+                ['R1=', 'R2=', 'R3=', 'R4=', 'CG'].forEach(needle => {
+                  assert.ok(eccentricState.diagram.includes(needle), `${interactionLabel} equipment eccentric diagram includes ${needle}`);
+                });
+                assert.ok(eccentricState.steps.includes('Ri = W/n') && eccentricState.steps.includes('Rmax'), `${interactionLabel} equipment eccentric calculation steps`);
+                const eccentricReportState = await evaluate(client, sessionId, reportExpression('detailed'));
+                assertReportState(eccentricReportState, tool, `${interactionLabel} eccentric reaction`, 'detailed');
+                ['矩形四支點', 'R1', 'R2', 'R3', 'R4', 'Rmax', 'Rmin', 'ΣRi'].forEach(needle => {
+                  assert.ok(eccentricReportState.html.includes(needle), `${interactionLabel} equipment eccentric report includes ${needle}`);
+                });
+                ['Ppoint', '設備局部荷重初步通過'].forEach(needle => {
+                  assert.equal(eccentricReportState.html.includes(needle), false, `${interactionLabel} equipment eccentric report excludes stale ${needle}`);
+                });
+                const eccentricEvidence = await renderAndValidateReportPdf(client, {
+                  html: eccentricReportState.html,
+                  outputDir: renderedEvidenceDir,
+                  artifactName: 'equipment-load-eccentric-reaction-report',
+                  label: 'equipment-load eccentric reaction report',
+                  renderer: 'local-quick-equipment-eccentric',
+                  contentBoundaryProfile: 'traceable-calculation-book',
+                  titleNeedle: tool.reportTitleNeedle,
+                  projectNeedle: '計畫：',
+                  requiredNeedles: [tool.reportTitleNeedle, '計畫：', '矩形四支點', 'Rmax', 'Rmin', '文件狀態：內部審閱', '計算指紋'],
+                  forbiddenNeedles: ['DRAFT', 'Ppoint'],
+                });
+                renderedEvidenceRecords.push({
+                  key: 'equipment-load-eccentric-reaction',
+                  renderer: eccentricEvidence.renderer,
+                  artifact: path.basename(eccentricEvidence.pdfPath),
+                  evidence: path.basename(eccentricEvidence.evidencePath),
+                  pageCount: eccentricEvidence.pdf.pageCount,
+                  textLength: eccentricEvidence.pdf.textLength,
+                });
+                const upliftState = await evaluate(client, sessionId, equipmentEccentricReactionExpression(0.8, 0.2));
+                assert.ok(upliftState.banner.includes('檢核不通過'), `${interactionLabel} equipment uplift banner fails`);
+                assert.ok(upliftState.metrics.includes('-0.83'), `${interactionLabel} equipment uplift shows negative reaction`);
+                assert.ok(upliftState.checks.includes('0.600') && upliftState.checks.includes('> 0.500'), `${interactionLabel} equipment uplift check exceeds no-tension envelope: ${upliftState.checks}`);
+                assert.ok(upliftState.bannerClass.includes('fail'), `${interactionLabel} equipment uplift uses failure state`);
+                assert.ok(upliftState.readiness.includes('僅可產生內部檢討版') && upliftState.readiness.includes('暫勿作附件'), `${interactionLabel} equipment uplift blocks approval readiness`);
+                const restoredEquipmentState = await evaluate(client, sessionId, jsonImportExpression(tool, exportState.payload));
+                assertEquipmentJsonImportState(restoredEquipmentState, `${interactionLabel} eccentric restore`);
+              }
               const blockedReportState = await evaluate(client, sessionId, reportExpression('detailed', 'complete', 'failed', tool.key));
               assertReportState(blockedReportState, tool, `${interactionLabel} failed calculation`, 'detailed');
               assert.equal(blockedReportState.pageReadinessLevel, 'blocked', `${interactionLabel} ${tool.key} failed calculation blocks attachment readiness`);
@@ -3279,6 +3362,7 @@ async function main() {
 
     const expectedRenderedEvidence = [
       ...manifest.tools.map(tool => tool.key),
+      'equipment-load-eccentric-reaction',
       'shared-summary-layout',
       'shared-detailed-layout',
     ];
