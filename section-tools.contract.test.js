@@ -547,7 +547,17 @@ const sectionPickerHtml = read('index.html');
 assertPrintHidesSelectors(sectionPickerHtml, ['.page-only-tool-actions'], 'section property JSON actions');
 const sectionSwitchTabSource = functionSource(sectionPickerHtml, 'switchTab');
 assert(!sectionSwitchTabSource.includes('revokeSectionAttachmentApproval'), 'section shape switch does not call undefined report-preview state', 'all ten shape tabs remain switchable');
+const sectionCalcGeoSource = functionSource(sectionPickerHtml, 'calcGeo');
+const sectionDrawSource = functionSource(sectionPickerHtml, 'drawSection');
+const sectionGeneralDiagramSource = functionSource(sectionPickerHtml, 'drawGeoGeneral');
+assert(sectionCalcGeoSource.includes('drawGeoGeneral(parts)'), 'general parallel-axis section renders its calculation model', 'drawGeoGeneral(parts)');
+assert(sectionDrawSource.includes("setAttribute('aria-label', accessibleLabel)"), 'section diagrams expose an accessible label', 'canvas aria-label');
+for (const needle of ['平行軸定理計算模型（非實際比例）', 'I = Σ(I₀ᵢ + Aᵢdᵢ²)', '合成軸', '不代表實際外形']) {
+  assert(sectionGeneralDiagramSource.includes(needle), 'general parallel-axis diagram discloses its conceptual boundary', needle);
+}
 const sectionPdfSource = functionSource(sectionPickerHtml, 'exportPDF');
+assert(sectionPdfSource.includes("getAttribute('aria-label')"), 'section report reuses the rendered diagram description', 'canvas aria-label');
+assert(sectionPdfSource.includes('alt="${escapeHtml(diagramAlt)}"'), 'section report image exposes alternative text', 'report image alt');
 for (const needle of pageOnlyReportStatusNeedles) {
   assert(!sectionPdfSource.includes(needle), 'section property calculation book excludes page-only wording', needle);
 }

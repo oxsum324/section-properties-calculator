@@ -169,6 +169,7 @@ async function verifySectionShapeInteractions(page) {
         visibleValuesValid: [...document.querySelectorAll('#results .result-item .value')]
           .every(element => !/(?:NaN|Infinity)/.test(element.textContent)),
         hasDiagram: canvas.toDataURL() !== blank.toDataURL(),
+        diagramLabel: canvas.getAttribute('aria-label'),
         title: lastTitle,
       };
     });
@@ -179,7 +180,25 @@ async function verifySectionShapeInteractions(page) {
     assert.equal(state.finiteResults, true, `${option.label} default results must all be finite`);
     assert.equal(state.visibleValuesValid, true, `${option.label} must not render NaN or Infinity`);
     assert.ok(state.title.includes(option.label), `${option.label} must update the calculation title`);
-    assert.equal(state.hasDiagram, option.value !== 'general', `${option.label} diagram state must match its geometry definition`);
+    assert.equal(state.hasDiagram, true, `${option.label} must render a section or calculation-model diagram`);
+    assert.ok(state.diagramLabel, `${option.label} diagram must have an accessible label`);
+    if (option.value === 'general') {
+      assert.match(state.diagramLabel, /平行軸定理.*非實際比例/, `${option.label} must disclose the conceptual diagram boundary`);
+      const reportPromise = page.waitForEvent('popup');
+      await page.getByRole('button', { name: '📄 計算書' }).click();
+      const reportPage = await reportPromise;
+      await reportPage.waitForLoadState('domcontentloaded');
+      const reportDiagram = await reportPage.locator('.fig img').evaluate((image) => ({
+        alt: image.getAttribute('alt'),
+        sourceType: image.src.split(';', 1)[0],
+        naturalWidth: image.naturalWidth,
+        naturalHeight: image.naturalHeight,
+      }));
+      assert.match(reportDiagram.alt, /平行軸定理.*非實際比例/, `${option.label} report must preserve the diagram description`);
+      assert.equal(reportDiagram.sourceType, 'data:image/png', `${option.label} report must embed the rendered diagram`);
+      assert.ok(reportDiagram.naturalWidth > 0 && reportDiagram.naturalHeight > 0, `${option.label} report diagram must load`);
+      await reportPage.close();
+    }
   }
 }
 

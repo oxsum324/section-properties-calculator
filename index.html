@@ -462,7 +462,9 @@ function exportPDF() {
     setStatus('計算書核可模組尚未載入，請重新整理後再試', 'error');
     return;
   }
-  const imgData = document.getElementById('sectionCanvas').toDataURL('image/png');
+  const sectionCanvas = document.getElementById('sectionCanvas');
+  const imgData = sectionCanvas.toDataURL('image/png');
+  const diagramAlt = sectionCanvas.getAttribute('aria-label') || '斷面計算示意圖';
   const inputRows = collectReportInputRows().map(({label, value}) =>
     `<tr><td>${escapeHtml(label)}</td><td class="val" colspan="2">${escapeHtml(value)}</td></tr>`).join('');
   const rows = checked.map(([l,v,u]) =>
@@ -496,7 +498,7 @@ function exportPDF() {
 ${approvalReport.html}
 <div class="hdr"><h1>斷面性質計算書</h1><p>${escapeHtml(lastTitle)}</p></div>
 <div class="meta"><span>產出工具：斷面性質計算</span><span>工具版本：${SECTION_TOOL_VERSION}</span><span>計算引擎：${SECTION_CALCULATION_ENGINE}</span><span>輸出時間：${escapeHtml(outputTime)}</span><span>計算指紋：${fingerprint}</span></div>
-<div class="fig"><img src="${imgData}"></div>
+  <div class="fig"><img src="${imgData}" alt="${escapeHtml(diagramAlt)}"></div>
 <table><tr><th>採用尺寸</th><th style="text-align:right" colspan="2">輸入值（依欄位標示）</th></tr>${inputRows}</table>
 <table><tr><th>計算結果－斷面性質</th><th style="text-align:right">計算值</th><th>單位</th></tr>${rows}</table>
 <div class="foot rep-footer"><span>斷面性質計算 ${SECTION_TOOL_VERSION}</span><span>${fingerprint}</span></div>
@@ -507,8 +509,10 @@ ${approvalReport.html}
   setStatus('已產生可列印的內部審閱計算書；請在預覽內確認後核可為正式附件。', 'ok');
 }
 
-function drawSection(fn) {
+function drawSection(fn, accessibleLabel = '斷面計算示意圖') {
   const c = document.getElementById('sectionCanvas'), ctx = c.getContext('2d');
+  c.setAttribute('role', 'img');
+  c.setAttribute('aria-label', accessibleLabel);
   ctx.clearRect(0,0,c.width,c.height);
   fn(ctx, c.width, c.height);
 }
@@ -1243,12 +1247,15 @@ function calcGeo() {
 
   } else if (t==='general') {
     const parts=[];
-    for(let i=1;i<=3;i++){const A=g('A'+i),I=g('I'+i),d=g('d'+i);if(A)parts.push({A:A/100,I:I/10000,d:d/10});}
+    for(let i=1;i<=3;i++){
+      const Amm2=g('A'+i),I0mm4=g('I'+i),dmm=g('d'+i);
+      if(Amm2)parts.push({index:i,A:Amm2/100,I:I0mm4/10000,d:dmm/10,Amm2,I0mm4,dmm});
+    }
     if(!parts.length) return;
     const A=parts.reduce((s,p)=>s+p.A,0);
     const I=parts.reduce((s,p)=>s+p.I+p.A*p.d**2,0);
     results=[['A (合計)',A,'cm²'],['I (合計)',I,'cm⁴'],['S',I/Math.max(...parts.map(p=>Math.abs(p.d)+5)),'cm³'],['r',Math.sqrt(I/A),'cm']];
-    drawSection(()=>{});
+    drawGeoGeneral(parts);
   }
   if(results.length) showResults(results);
 }
@@ -1353,6 +1360,77 @@ function drawGeoTee(bf,tf,hw,tw) {
     ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+swf,oy);ctx.lineTo(ox+swf,oy+stf);ctx.lineTo(ox+swf/2+stw/2,oy+stf);ctx.lineTo(ox+swf/2+stw/2,oy+stf+shw);ctx.lineTo(ox+swf/2-stw/2,oy+stf+shw);ctx.lineTo(ox+swf/2-stw/2,oy+stf);ctx.lineTo(ox,oy+stf);ctx.closePath();ctx.fill();ctx.stroke();
     dimText(ctx,`bf=${bf}`,ox+swf/2,oy-8);dimText(ctx,`hw=${hw}`,ox+swf/2+stw/2+20,oy+stf+shw/2);
   });
+}
+function drawGeoGeneral(parts) {
+  drawSection((ctx,W,H)=>{
+    const axisY=Math.round(H*0.53),topY=58,bottomY=H-48;
+    const maxPositive=Math.max(0,...parts.map(part=>part.dmm));
+    const maxNegative=Math.max(0,...parts.map(part=>-part.dmm));
+    const positiveScale=maxPositive ? (axisY-topY)/maxPositive : Infinity;
+    const negativeScale=maxNegative ? (bottomY-axisY)/maxNegative : Infinity;
+    const finiteScales=[positiveScale,negativeScale].filter(Number.isFinite);
+    const distanceScale=finiteScales.length ? Math.min(0.6,...finiteScales) : 0;
+    const xPositions=parts.length===1
+      ? [W/2]
+      : parts.map((_,index)=>70+index*(W-140)/(parts.length-1));
+
+    ctx.fillStyle='#1e293b';
+    ctx.font='bold 12px "Microsoft JhengHei","Segoe UI",sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText('平行軸定理計算模型（非實際比例）',W/2,18);
+    ctx.fillStyle='#475569';
+    ctx.font='12px Consolas,monospace';
+    ctx.fillText('I = Σ(I₀ᵢ + Aᵢdᵢ²)',W/2,37);
+
+    ctx.save();
+    ctx.setLineDash([6,4]);
+    ctx.strokeStyle='#ef4444';
+    ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(24,axisY);ctx.lineTo(W-24,axisY);ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle='#b91c1c';
+    ctx.font='11px "Microsoft JhengHei","Segoe UI",sans-serif';
+    ctx.textAlign='right';
+    ctx.fillText('合成軸',W-27,axisY-7);
+
+    parts.forEach((part,index)=>{
+      const x=xPositions[index],y=axisY-part.dmm*distanceScale;
+      const subscript=['','₁','₂','₃'][part.index] || String(part.index);
+      ctx.save();
+      ctx.setLineDash([3,3]);
+      ctx.strokeStyle='#64748b';
+      ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(x,axisY);ctx.lineTo(x,y);ctx.stroke();
+      ctx.restore();
+
+      ctx.fillStyle='#dbeafe';
+      ctx.strokeStyle='#2563eb';
+      ctx.lineWidth=2;
+      ctx.fillRect(x-35,y-18,70,36);
+      ctx.strokeRect(x-35,y-18,70,36);
+      ctx.fillStyle='#1e3a8a';
+      ctx.font='bold 10px "Microsoft JhengHei","Segoe UI",sans-serif';
+      ctx.textAlign='center';
+      ctx.fillText(`子斷面 ${part.index}`,x,y-3);
+      ctx.font='10px Consolas,monospace';
+      ctx.fillText(`A${subscript}=${fmt(part.Amm2)}`,x,y+11);
+      ctx.fillStyle='#ef4444';
+      ctx.beginPath();ctx.arc(x,y,3,0,PI*2);ctx.fill();
+
+      const labelY=Math.abs(y-axisY)>38 ? (y+axisY)/2+4 : axisY+29;
+      ctx.fillStyle='rgba(250,251,252,0.94)';
+      ctx.fillRect(x-38,labelY-11,76,16);
+      ctx.fillStyle='#475569';
+      ctx.font='10px Consolas,monospace';
+      ctx.textAlign='center';
+      ctx.fillText(`d${subscript}=${fmt(part.dmm)} mm`,x,labelY);
+    });
+
+    ctx.fillStyle='#64748b';
+    ctx.font='10px "Microsoft JhengHei","Segoe UI",sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText('僅表示各子斷面形心相對合成軸的位置；不代表實際外形',W/2,H-10);
+  },'平行軸定理一般組合斷面計算模型，非實際比例');
 }
 
 // ==================== CUSTOM ====================
