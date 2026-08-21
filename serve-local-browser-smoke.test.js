@@ -102,6 +102,87 @@ async function verifyRoute(page, base, route, verify) {
   }
 }
 
+async function verifySectionShapeInteractions(page) {
+  const tabButtons = page.locator('.tab-btn');
+  assert.equal(await tabButtons.count(), 10, 'section calculator must expose all ten primary shape tabs');
+
+  for (let index = 0; index < 10; index += 1) {
+    const button = tabButtons.nth(index);
+    const expectedTab = (await button.textContent()).trim();
+    await button.click();
+    await page.waitForFunction(tab => (
+      document.querySelector('.tab-btn.active')?.textContent.trim() === tab
+    ), expectedTab);
+
+    const state = await page.evaluate(() => {
+      const canvas = document.getElementById('sectionCanvas');
+      const blank = document.createElement('canvas');
+      blank.width = canvas.width;
+      blank.height = canvas.height;
+      return {
+        activeTab: document.querySelector('.tab-btn.active')?.textContent.trim(),
+        heading: document.querySelector('#input-panel h2')?.textContent.trim(),
+        inputCount: document.querySelectorAll('#input-panel input, #input-panel select').length,
+        resultCount: lastResults.length,
+        renderedResultCount: document.querySelectorAll('#results .result-item').length,
+        finiteResults: lastResults.length > 0 && lastResults.every(row => Number.isFinite(Number(row[1]))),
+        hasDiagram: canvas.toDataURL() !== blank.toDataURL(),
+      };
+    });
+    assert.equal(state.activeTab, expectedTab, `${expectedTab} tab must become active`);
+    assert.ok(state.heading, `${expectedTab} must render its input panel`);
+    assert.ok(state.inputCount > 0, `${expectedTab} must expose editable inputs`);
+    assert.ok(state.resultCount > 0, `${expectedTab} must calculate default results`);
+    assert.equal(state.renderedResultCount, state.resultCount, `${expectedTab} must render every calculated result`);
+    assert.equal(state.finiteResults, true, `${expectedTab} default results must all be finite`);
+    assert.equal(state.hasDiagram, true, `${expectedTab} must render a section diagram`);
+
+    if (index === 0) {
+      await page.locator('#h-select').selectOption({ index: 1 });
+      assert.deepEqual(await page.locator('#h-H, #h-B, #h-tw, #h-tf, #h-R').evaluateAll(elements => (
+        elements.map(element => element.value)
+      )), ['100', '50', '5', '7', '8'], 'H-section catalogue selection must update all dimensions');
+    }
+  }
+
+  await page.getByRole('button', { name: '基本幾何斷面', exact: true }).click();
+  const geoSelect = page.locator('#geo-type');
+  const options = await geoSelect.locator('option').evaluateAll(elements => elements.map(option => ({
+    value: option.value,
+    label: option.textContent.trim(),
+  })));
+  assert.equal(options.length, 32, 'basic geometry selector must expose all 32 section types');
+
+  for (const option of options) {
+    await geoSelect.selectOption(option.value);
+    const state = await page.evaluate(() => {
+      const canvas = document.getElementById('sectionCanvas');
+      const blank = document.createElement('canvas');
+      blank.width = canvas.width;
+      blank.height = canvas.height;
+      return {
+        selected: document.getElementById('geo-type').value,
+        inputCount: document.querySelectorAll('#geo-inputs input').length,
+        resultCount: lastResults.length,
+        renderedResultCount: document.querySelectorAll('#results .result-item').length,
+        finiteResults: lastResults.length > 0 && lastResults.every(row => Number.isFinite(Number(row[1]))),
+        visibleValuesValid: [...document.querySelectorAll('#results .result-item .value')]
+          .every(element => !/(?:NaN|Infinity)/.test(element.textContent)),
+        hasDiagram: canvas.toDataURL() !== blank.toDataURL(),
+        title: lastTitle,
+      };
+    });
+    assert.equal(state.selected, option.value, `${option.label} must remain selected`);
+    assert.ok(state.inputCount > 0, `${option.label} must render its input fields`);
+    assert.ok(state.resultCount > 0, `${option.label} must calculate default results`);
+    assert.equal(state.renderedResultCount, state.resultCount, `${option.label} must render every calculated result`);
+    assert.equal(state.finiteResults, true, `${option.label} default results must all be finite`);
+    assert.equal(state.visibleValuesValid, true, `${option.label} must not render NaN or Infinity`);
+    assert.ok(state.title.includes(option.label), `${option.label} must update the calculation title`);
+    assert.equal(state.hasDiagram, option.value !== 'general', `${option.label} diagram state must match its geometry definition`);
+  }
+}
+
 async function exerciseEntrypoints(page, base) {
   await verifyRoute(page, base, 'steel-formal/', async () => {
     await page.waitForFunction(() => document.title === '鋼構連接板正式規範核算工具 V1.0');
@@ -120,8 +201,7 @@ async function exerciseEntrypoints(page, base) {
   await verifyRoute(page, base, 'section/?pickI=1', async () => {
     assert.equal(decodeURIComponent(new URL(page.url()).pathname), '/section');
     assert.equal(new URL(page.url()).search, '?pickI=1');
-    await page.getByRole('button', { name: '圓管', exact: true }).click();
-    await page.waitForFunction(() => document.querySelector('.tab-btn.active')?.textContent.trim() === '圓管');
+    await verifySectionShapeInteractions(page);
   });
 
   // Keep the real directory route stable; /anchor must redirect here without a loop.
@@ -177,7 +257,7 @@ async function main() {
       await context.close();
       process.stdout.write(`PASS | ${viewport.name} local entrypoints\n`);
     }
-    console.log('serve-local browser smoke OK (5 routes x 2 viewports)');
+    console.log('serve-local browser smoke OK (5 routes x 2 viewports; section 10 primary + 32 geometry shapes)');
   } finally {
     if (browser) await browser.close();
     await stopLocalServer(child);
