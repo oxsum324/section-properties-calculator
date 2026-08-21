@@ -1676,7 +1676,21 @@ for (const family of ['formal-tools', 'local-quick-tools', 'steel-formal', 'src-
         titleNeedle: 'SRC 梁正式規範核算計算書',
         requiredNeedles: ['SRC 梁正式規範核算計算書', '規範與構材條件', '計算過程明細', '檢核結論', '計算指紋'],
         contentBoundaryProfile: 'traceable-calculation-book',
-        continuationContextLabels: ['規範與構材條件', '採用斷面與材料', '設計需求', '計算過程明細', '剪力分擔強度', '檢核結果', '檢核結論'],
+        continuationContextLabels: [
+          '規範與構材條件',
+          '採用斷面與材料',
+          '設計需求',
+          '計算線圖與示意圖',
+          '寬厚比與撓曲強度',
+          '剪力分擔強度',
+          '計算過程明細',
+          'RC 撓曲內力平衡',
+          'SRC 撓曲強度疊加',
+          '鋼骨與 RC 剪力容量',
+          '剪力需求分擔',
+          '檢核結果',
+          '檢核結論',
+        ],
       });
       const rawEvidence = readJson(path.join(familyDir, evidence.evidence));
       const sourcePath = path.join(familyDir, rawEvidence.sourceArtifact || '');
