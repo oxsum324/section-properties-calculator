@@ -100,6 +100,26 @@ async function main() {
     assert.ok(Math.abs(initial.moment - 167.2054) < 0.001);
     assert.ok(Math.abs(initial.governing - 0.9607) < 0.001);
     assert.match(initial.fingerprint, /^CF-[A-F0-9]{16}$/);
+    const pageDiagram = page.locator('#sectionDiagramImage');
+    await pageDiagram.waitFor({ state: 'visible' });
+    assert.equal(await pageDiagram.evaluate(image => image.complete && image.naturalWidth > 0 && image.naturalHeight > 0), true);
+    const pageDiagramSource = await pageDiagram.getAttribute('src');
+    assert.match(pageDiagramSource, /^data:image\/svg\+xml;charset=utf-8,/);
+    assert.match(await page.locator('#sectionDiagramCaption').innerText(), /非施工配筋詳圖/);
+    await page.fill('#bCm', '55');
+    await page.waitForFunction(fingerprint => window.lastSrcBeamCalculationFingerprint && window.lastSrcBeamCalculationFingerprint !== fingerprint, initial.fingerprint);
+    const changedDiagramSource = await pageDiagram.getAttribute('src');
+    assert.notEqual(changedDiagramSource, pageDiagramSource, 'engineering input changes refresh the section diagram');
+    assert.ok(decodeURIComponent(changedDiagramSource.split(',').slice(1).join(',')).includes('b = 55.0 cm'));
+    await page.fill('#steelDepthCm', '80');
+    await page.waitForFunction(() => window.lastSrcBeamResult === null);
+    assert.equal(await pageDiagram.isHidden(), true, 'invalid geometry clears the old diagram instead of leaving stale evidence');
+    assert.match(await page.locator('#sectionDiagramPlaceholder').innerText(), /未產生計算斷面圖/);
+    await page.fill('#steelDepthCm', '51.2');
+    await page.fill('#bCm', '50');
+    await page.waitForFunction(fingerprint => window.lastSrcBeamCalculationFingerprint === fingerprint, initial.fingerprint);
+    assert.equal(await pageDiagram.isVisible(), true);
+    assert.equal(await pageDiagram.getAttribute('src'), pageDiagramSource);
 
     await page.emulateMedia({ media: 'print' });
     const printBoundary = await page.evaluate(() => ({
@@ -134,9 +154,13 @@ async function main() {
     await report.waitForLoadState('domcontentloaded');
     await report.waitForSelector('input[aria-label="核可人，選填"]');
     const reportText = await report.locator('body').innerText();
-    for (const needle of ['SRC 梁正式規範核算計算書', '規範與構材條件', '100 年修正版', '計算過程明細', '檢核結論']) {
+    for (const needle of ['SRC 梁正式規範核算計算書', '規範與構材條件', '100 年修正版', 'SRC 梁計算斷面', '非施工配筋詳圖', '計算過程明細', '檢核結論']) {
       assert.ok(reportText.includes(needle), `report includes ${needle}`);
     }
+    const reportDiagram = report.locator('.rep-diagram img[alt="SRC 梁計算斷面"]');
+    await reportDiagram.waitFor({ state: 'visible' });
+    assert.equal(await reportDiagram.evaluate(image => image.complete && image.naturalWidth > 0 && image.naturalHeight > 0), true);
+    assert.equal(await reportDiagram.getAttribute('src'), pageDiagramSource, 'work page and formal report use the same calculation-section image');
     for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', 'DRAFT', '非正式附件']) {
       assert.equal(reportText.includes(needle), false, `report excludes ${needle}`);
     }
@@ -169,9 +193,9 @@ async function main() {
       label: 'SRC 梁正式計算書',
       minTextLength: 500,
       titleNeedle: 'SRC 梁正式規範核算計算書',
-      requiredNeedles: ['SRC 梁正式規範核算計算書', '規範與構材條件', '計算過程明細', '檢核結論', '計算指紋'],
+      requiredNeedles: ['SRC 梁正式規範核算計算書', '規範與構材條件', 'SRC 梁計算斷面', '非施工配筋詳圖', '計算過程明細', '檢核結論', '計算指紋'],
       contentBoundaryProfile: 'traceable-calculation-book',
-      continuationContextLabels: ['規範與構材條件', '採用斷面與材料', '設計需求', '計算過程明細', '剪力分擔強度', '檢核結果', '檢核結論'],
+      continuationContextLabels: ['規範與構材條件', '採用斷面與材料', '設計需求', '計算線圖與示意圖', '寬厚比與撓曲強度', '剪力分擔強度', '計算過程明細', 'RC 撓曲內力平衡', 'SRC 撓曲強度疊加', '鋼骨與 RC 剪力容量', '剪力需求分擔', '檢核結果', '檢核結論'],
     });
     const evidenceName = 'src-beam-render-evidence.json';
     const evidencePath = path.join(outDir, evidenceName);

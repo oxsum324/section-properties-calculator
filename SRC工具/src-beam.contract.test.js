@@ -98,6 +98,19 @@ const result = Core.calculate(input);
 const config = Page.buildReportConfig(input, result, { name: '', no: '', designer: '' });
 assert.equal(result.status, 'OK');
 assert.equal(config.inputs.length, 3, 'report includes adopted regulation, geometry and material groups');
+assert.equal(config.diagrams.length, 1, 'report includes one calculation-section diagram');
+assert.equal(config.diagrams[0].title, 'SRC 梁計算斷面');
+assert.match(config.diagrams[0].dataURL, /^data:image\/svg\+xml;charset=utf-8,/);
+assert.match(config.diagrams[0].caption, /As／As′.*非施工配筋詳圖/);
+const diagramSvg = decodeURIComponent(config.diagrams[0].dataURL.split(',').slice(1).join(','));
+for (const needle of ['b = 50.0 cm', 'h = 80.0 cm', '51.2 × 20.2 × 1.2 × 2.2 cm', 'As = 32.680 cm²', 'd = 68.0 cm']) {
+  assert.ok(diagramSvg.includes(needle), `section diagram includes ${needle}`);
+}
+assert.match(html, /id="sectionDiagramImage"/);
+assert.match(html, /id="sectionDiagramCaption"/);
+const invalidDiagramInput = clone(input);
+invalidDiagramInput.steel.depthCm = invalidDiagramInput.concrete.hCm;
+assert.throws(() => Page.buildSectionDiagram(invalidDiagramInput), /H 型鋼未完全包覆/, 'impossible section geometry fails closed instead of drawing a misleading image');
 assert.equal(config.checks.flatMap(group => group.items).length, 5);
 assert.equal(config.steps.length, 4);
 assert.equal(config.summary.ok, true);
@@ -171,6 +184,7 @@ const renderedText = visibleText(renderedHtml);
 for (const needle of [
   'SRC 梁正式規範核算計算書', '產出工具', '工具版本', '輸出時間', '計算指紋',
   '規範與構材條件', '設計需求與混凝土斷面', '計算過程明細', '檢核結論',
+  'SRC 梁計算斷面', '非施工配筋詳圖',
 ]) {
   assert.ok(renderedText.includes(needle), `rendered report includes ${needle}`);
 }
