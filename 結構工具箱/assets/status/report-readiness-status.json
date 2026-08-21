@@ -2,8 +2,8 @@
   "publicEvidenceSchemaVersion": 3,
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-08-21T13:27:00.949Z",
-  "runId": "20260821-205359",
+  "generatedAt": "2026-08-21T14:37:38.981Z",
+  "runId": "20260821-220550",
   "pass": true,
   "failureCount": 0,
   "badge": "頁面專用",
@@ -13,7 +13,7 @@
   "details": [
     "目前覆蓋 過渡工具 / 輔助查詢 入口：鋼梁舊案延續頁、鋼柱舊案延續頁、Kzt 地形係數、特殊修正 / 折減。",
     "正式計算書可讀文字抽檢：17 / 17 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 2 / 2。本項確認輸出可讀文字、頁面診斷明細排除，以及內部審閱／正式附件核可狀態。",
-    "正式放行實際交付物渲染佐證：32 / 32 個首頁正式工具已完成，涵蓋 9 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20260821-205359。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
+    "正式放行實際交付物渲染佐證：32 / 32 個首頁正式工具已完成，涵蓋 9 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20260821-220550。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
     "正式交付檔案完整性：正式 PDF 與渲染證據 64 / 64、RC PDF / PNG 成品 66 / 66、混合格式附件 13 / 13；合計 143 / 143。公開狀態只提供類別、數量與通過狀態，不公開檔名、逐檔雜湊或完整性集合。",
     "正式 Word 附件乾淨封裝：石材、錨栓、覆工板與開挖擋土支撐共 4 / 4 份 DOCX 已確認沒有未引用媒體或頁首頁尾、實際批註、未接受修訂、外掛範本、外部圖片、嵌入物件、巨集或非預期 custom XML。公開狀態只顯示完成數，不公開檔名、封裝清冊或逐檔細節。",
     "正式 Excel 附件乾淨封裝：錨栓檢討 1 / 1 份 XLSX 已確認工作表全數可見、公式具快取結果，且沒有外部關聯／公式／連線、公式錯誤、隱藏資料、批註、嵌入物件、巨集、孤兒媒體或非預期 custom XML。公開狀態只顯示完成數，不公開檔名、工作表清冊、公式或逐檔細節。",
@@ -55,7 +55,7 @@
   "reportTextSmokeEvidenceRequired": 2,
   "reportTextSmokeEvidenceComplete": 2,
   "reportTextSmokeEvidenceIssueCount": 0,
-  "reportTextSmokeEvidenceRunId": "20260821-205359",
+  "reportTextSmokeEvidenceRunId": "20260821-220550",
   "reportTextSmokeEvidenceGates": [
     {
       "key": "formal-browser-smoke",
@@ -66,7 +66,7 @@
       "complete": 14,
       "pass": true,
       "reused": false,
-      "seconds": 94.9
+      "seconds": 89.6
     },
     {
       "key": "local-quick-tools-runner",
@@ -77,7 +77,7 @@
       "complete": 3,
       "pass": true,
       "reused": false,
-      "seconds": 59.7
+      "seconds": 57
     }
   ],
   "reportTextSmokeEvidenceUnmappedFamilies": [],
@@ -85,7 +85,7 @@
   "renderedDeliveryEvidenceRequired": 32,
   "renderedDeliveryEvidenceComplete": 32,
   "renderedDeliveryEvidenceIssueCount": 0,
-  "renderedDeliveryEvidenceRunId": "20260821-205359",
+  "renderedDeliveryEvidenceRunId": "20260821-220550",
   "renderedDeliveryEvidenceFamilies": [
     {
       "family": "anchor-formal",
@@ -125,8 +125,8 @@
     }
   ],
   "renderedDeliveryEvidenceSummary": "最新正式放行實際交付物渲染：首頁正式工具 32 / 32；補充報告 / 服務成品 2 / 2。",
-  "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260821-205359/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
-  "renderedDeliveryEvidenceSourceHash": "5e77eb579cdd3c8346aa57507d40404b6e7ffc1487fc343597d82df9adf6d3fd",
+  "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260821-220550/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
+  "renderedDeliveryEvidenceSourceHash": "d9e7b6e36f9fe2d8a910f56bcd5644489b587128febff5f9c9f85ff33e5b07fc",
   "deliveryFileIntegrityRequired": 143,
   "deliveryFileIntegrityVerified": 143,
   "deliveryFileIntegrityIssueCount": 0,
@@ -377,6 +377,6 @@
     }
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
-  "preflightStatusSourcePath": "output/preflight/history/20260821-205359/preflight-summary.json",
-  "sourceHash": "7162e84fe423da76fe568b38c26a6882d78cd1557781b937f1d32432af11eb62"
+  "preflightStatusSourcePath": "output/preflight/history/20260821-220550/preflight-summary.json",
+  "sourceHash": "886523d01a4304fa0566079ad7ef0bb7b0e8c251e0fbb907b6ed811cba8ab03a"
 }
