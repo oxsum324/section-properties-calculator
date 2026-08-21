@@ -11,6 +11,7 @@ terser_manifest="$runtime_dir/node_modules/terser/package.json"
 playwright_cli="$runtime_dir/node_modules/@playwright/cli/playwright-cli.js"
 terser_cli="$runtime_dir/node_modules/terser/bin/terser"
 browser_smoke_source='結構工具箱/tools/pages-live-browser-smoke.js'
+result_normalizer="$runtime_dir/normalize-playwright-result.js"
 attempts="${PAGES_BROWSER_SMOKE_ATTEMPTS:-1}"
 retry_delay_seconds="${PAGES_BROWSER_SMOKE_RETRY_DELAY_SECONDS:-5}"
 result_file="${PAGES_BROWSER_SMOKE_RESULT_FILE:-}"
@@ -48,8 +49,7 @@ const payload = {
   attemptCount: Math.max(1, Number(attemptValue) || 1),
 };
 if (status === 'passed') {
-  const response = JSON.parse(cliJson);
-  const result = typeof response.result === 'string' ? JSON.parse(response.result) : response.result;
+  const result = JSON.parse(cliJson);
   payload.routes = result.routes;
   payload.checks = result.checks;
   payload.issues = result.issues;
@@ -100,8 +100,9 @@ for ((attempt = 1; attempt <= attempts; attempt += 1)); do
   attempt_count="$attempt"
   result_json="$(node "$playwright_cli" --json "-s=$session" run-code "$code")"
   if node -e 'const value=JSON.parse(process.argv[1]);process.exit(value.isError?1:0)' "$result_json"; then
-    write_result passed "$result_json"
-    node -e 'const value=JSON.parse(process.argv[1]);const result=typeof value.result==="string"?value.result:JSON.stringify(value.result);console.log(`Pages browser smoke passed: ${result}`)' "$result_json"
+    normalized_result_json="$(node "$result_normalizer" "$result_json")"
+    write_result passed "$normalized_result_json"
+    echo "Pages browser smoke passed: $normalized_result_json"
     echo "pagesBrowserSmokeAttemptCount=$attempt_count"
     exit 0
   fi

@@ -193,6 +193,7 @@ const PRIVATE_PATHS = [
   '.github/pages-smoke/write-ci-summary.js',
   '.github/pages-smoke/build-performance-trend.js',
   '.github/pages-smoke/build-performance-trend.test.js',
+  '.github/pages-smoke/normalize-playwright-result.js',
   '.github/public-release-reduction-authorization.json',
   '.github/public-release-decision-anchor.json',
   '.github/workflows/pages-deploy.yml'

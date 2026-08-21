@@ -152,6 +152,7 @@ SRC 梁已升格為正式入口 `/src-beam`：具純計算核心、現行規範�
   [結構工具箱/tools/pages-live-smoke.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/pages-live-smoke.js:1)
   [結構工具箱/tools/pages-live-browser-smoke.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/pages-live-browser-smoke.js:1)
   [結構工具箱/tools/run-pages-browser-smoke.sh](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/run-pages-browser-smoke.sh:1)
+  [.github/pages-smoke/normalize-playwright-result.js](/C:/Users/USER/Desktop/AI/小工具製作/.github/pages-smoke/normalize-playwright-result.js:1)
   [結構工具箱/tools/build-pages-artifact.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/build-pages-artifact.js:1)
   [結構工具箱/tools/build-pages-clean-routes.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/build-pages-clean-routes.js:1)
   [結構工具箱/tools/build-pages-deployment-manifest.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/build-pages-deployment-manifest.js:1)

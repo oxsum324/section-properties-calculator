@@ -31,6 +31,7 @@ const pagesSmokeLock = readJson('.github/pages-smoke/package-lock.json');
 const pagesPerformanceBudget = readJson('.github/pages-smoke/performance-budget.json');
 const pagesCiSummary = require('./.github/pages-smoke/write-ci-summary.js');
 const pagesCiPerformanceTrend = require('./.github/pages-smoke/build-performance-trend.js');
+const pagesBrowserResultNormalizer = require('./.github/pages-smoke/normalize-playwright-result.js');
 const pagesSmoke = readText('結構工具箱/tools/pages-live-smoke.js');
 const pagesBrowserSmoke = readText('結構工具箱/tools/pages-live-browser-smoke.js');
 const pagesBrowserRunner = readText('結構工具箱/tools/run-pages-browser-smoke.sh');
@@ -547,6 +548,7 @@ assert.ok(pagesSmoke.includes("'.github/pages-smoke/write-ci-summary.js'"), 'Pag
 assert.ok(pagesSmoke.includes("'.github/pages-smoke/performance-budget.json'"), 'Pages private-boundary probe covers the CI performance budget');
 assert.ok(pagesSmoke.includes("'.github/pages-smoke/build-performance-trend.js'") && pagesSmoke.includes("'.github/pages-smoke/build-performance-trend.test.js'"), 'Pages private-boundary probe covers performance trend source and contract');
 assert.ok(artifactBuilder.includes("'.github/pages-smoke/build-performance-trend.js'") && artifactBuilder.includes("'.github/pages-smoke/build-performance-trend.test.js'"), 'Pages artifact builder explicitly excludes performance trend governance');
+assert.ok(pagesSmoke.includes("'.github/pages-smoke/normalize-playwright-result.js'") && artifactBuilder.includes("'.github/pages-smoke/normalize-playwright-result.js'"), 'Pages result normalizer remains private in artifact and live-boundary checks');
 assert.ok(pagesWorkflow.includes('performance-trend:') && pagesWorkflow.includes('needs:\n      - build\n      - live-smoke'), 'Pages performance trend waits for both complete current-run receipts');
 assert.equal((pagesWorkflow.match(/uses: actions\/download-artifact@v8/g) || []).length, 2, 'Pages trend downloads current build and live receipts with pinned actions');
 assert.ok(pagesWorkflow.includes("--status success") && pagesWorkflow.includes('pages-ci-evidence-build') && pagesWorkflow.includes('pages-ci-evidence-live-smoke'), 'Pages trend samples only successful runs with paired receipts');
@@ -624,15 +626,32 @@ assert.deepEqual(pagesPerformanceBudget.thresholdsMs, { runtimeInstall: 8000, ht
 }
 assert.ok(readme.includes('actions/cache@v5') && readme.includes('~/.cache/ms-playwright') && readme.includes('cache hit'), 'README documents the cross-job Playwright cache and validation boundary');
 assert.ok(toolBoundaries.includes('actions/cache@v5') && toolBoundaries.includes('~/.cache/ms-playwright') && toolBoundaries.includes('install-browser chromium'), 'TOOL_BOUNDARIES requires cache restore without skipping browser validation');
-assert.ok(staging.includes('pages-release-governance.contract.test.js') && staging.includes('.github/workflows/pages-deploy.yml') && staging.includes('run-pages-browser-smoke.sh'), 'STAGING_GROUPS keeps the Pages cache workflow, runner, and contract together');
+assert.ok(staging.includes('pages-release-governance.contract.test.js') && staging.includes('.github/workflows/pages-deploy.yml') && staging.includes('run-pages-browser-smoke.sh') && staging.includes('normalize-playwright-result.js'), 'STAGING_GROUPS keeps the Pages cache workflow, runner, normalizer, and contract together');
+assert.ok(readme.includes('normalize-playwright-result.js') && toolBoundaries.includes('normalize-playwright-result.js'), 'Pages result normalizer is documented with its governed release boundary');
 assert.ok(pagesWorkflow.includes('PAGES_BROWSER_SMOKE_ATTEMPTS: 2') && pagesWorkflow.includes('PAGES_BROWSER_SMOKE_RETRY_DELAY_SECONDS: 5'), 'Pages live browser smoke allows one bounded transient retry');
 assert.ok(pagesWorkflow.includes('PAGES_HTTP_SMOKE_ATTEMPTS: 2') && pagesWorkflow.includes('PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS: 5'), 'Pages live HTTP smoke allows one bounded transient retry');
 assert.ok(pagesSmoke.includes('response.status >= 500 && response.status <= 599') && pagesSmoke.includes('runWithTransientRetry'), 'Pages HTTP smoke classifies 5xx and runs through the bounded retry wrapper');
 assert.ok(pagesSmoke.includes("environmentInteger('PAGES_HTTP_SMOKE_ATTEMPTS', 1, 1)") && pagesSmoke.includes("environmentInteger('PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS', 5, 0)"), 'Pages HTTP smoke defaults staged and local runs to one attempt');
 assert.ok(pagesBrowserRunner.includes('runtime.dependencies') && pagesBrowserRunner.includes('version mismatch') && pagesBrowserRunner.includes('install-browser chromium'), 'Pages browser runner verifies installed versions before Chromium validation');
 assert.ok(pagesBrowserRunner.includes('terser_cli') && pagesBrowserRunner.includes('pages-live-browser-smoke.js'), 'Pages browser runner invokes the reusable browser smoke source through pinned Terser');
+assert.ok(pagesBrowserRunner.includes('normalize-playwright-result.js') && pagesBrowserRunner.includes('normalized_result_json'), 'Pages browser runner normalizes cross-platform Playwright CLI result envelopes');
 assert.ok(pagesBrowserRunner.includes('value.isError') && pagesBrowserRunner.includes('trap cleanup EXIT'), 'Pages browser runner fails on CLI JSON errors and always closes its session');
 assert.ok(pagesBrowserRunner.includes('status(?: of)? 5') && pagesBrowserRunner.includes('ERR_(?:TIMED_OUT|CONNECTION_RESET'), 'Pages browser runner narrows retry eligibility to transient 5xx and network failures');
+
+const browserSmokeResultFixture = { routes: 44, viewports: ['desktop', 'mobile'], checks: 94, issues: 0 };
+for (const envelope of [
+  { result: JSON.stringify(browserSmokeResultFixture) },
+  { result: browserSmokeResultFixture },
+  browserSmokeResultFixture,
+  { value: browserSmokeResultFixture },
+  { data: { result: JSON.stringify(browserSmokeResultFixture) } },
+  { structuredContent: { value: browserSmokeResultFixture } },
+  { content: [{ type: 'text', text: JSON.stringify(browserSmokeResultFixture) }] },
+  { content: [{ type: 'text', text: `### Result\n${JSON.stringify(browserSmokeResultFixture)}\n### Ran Playwright code\nnoop` }] },
+]) {
+  assert.deepEqual(pagesBrowserResultNormalizer.normalizePlaywrightResult(envelope), browserSmokeResultFixture, 'Pages browser result normalizer accepts supported CLI envelopes');
+}
+assert.throws(() => pagesBrowserResultNormalizer.normalizePlaywrightResult({ isError: false }), /does not contain a browser smoke result/, 'Pages browser result normalizer rejects a success envelope without metrics');
 assert.ok(pagesBrowserRunner.includes('"$attempt" -lt "$attempts"') && pagesBrowserRunner.includes('throw new Error(value.error)'), 'Pages browser runner bounds retries and fails persistent or non-transient errors');
 assert.ok(
   pagesBrowserSmoke.includes("'/excavation-support':") &&

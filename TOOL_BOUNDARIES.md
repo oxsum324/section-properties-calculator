@@ -249,6 +249,8 @@ Pages deployment manifest 現採 schema v3。前表所稱 v2 封閉逐檔清冊�
 
 本機 Windows Pages artifact 預演仍以 pinned Terser 產生與 Actions 相同的 browser program；為避免完整驗證成長後突破 Windows 命令列長度，PowerShell 先以 GZip 壓縮並 Base64 編碼，runner 再把壓縮內容交給受控頁面環境的 `DecompressionStream('gzip')` 解壓，將原程式碼回傳後執行。browser smoke source 仍不得進入 Pages artifact，bootstrap 仍受 7,500 字元硬上限約束，壓縮傳輸不得成為發布測試 source 的例外。
 
+Pages browser smoke 的跨平台 CLI 回傳由 `.github/pages-smoke/normalize-playwright-result.js` 正規化；只接受具正整數 `routes`／`checks` 與非負 `issues` 的封閉結果，缺少量測值即失敗。此 helper 與 runner、CI 摘要同屬私有發布治理，不進 Pages、計算書或正式附件。
+
 ## 提交前檢查順序
 
 1. `.\run-preflight-tools-quick.bat`
