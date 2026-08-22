@@ -7,8 +7,9 @@ const Production = require('./core/src-column-core.js');
 const Oracle = require('./core/src-column-oracle.js');
 
 function example8() {
+  const barAreaCm2 = 5.07;
   return {
-    schema: 'src-column.input.v3',
+    schema: 'src-column.input.v4',
     demands: { puTf: 734.0, muxTfM: 128.9, muyTfM: 0 },
     concrete: { widthCm: 65, depthCm: 80, fcKgfCm2: 280 },
     reinforcement: {
@@ -20,6 +21,14 @@ function example8() {
         { yCm: 17, areaCm2: 10.14 },
         { yCm: 63, areaCm2: 10.14 },
         { yCm: 73, areaCm2: 20.28 },
+      ],
+      bars: [
+        { xCm: 7, yCm: 7, areaCm2: barAreaCm2 }, { xCm: 17, yCm: 7, areaCm2: barAreaCm2 },
+        { xCm: 48, yCm: 7, areaCm2: barAreaCm2 }, { xCm: 58, yCm: 7, areaCm2: barAreaCm2 },
+        { xCm: 7, yCm: 17, areaCm2: barAreaCm2 }, { xCm: 58, yCm: 17, areaCm2: barAreaCm2 },
+        { xCm: 7, yCm: 63, areaCm2: barAreaCm2 }, { xCm: 58, yCm: 63, areaCm2: barAreaCm2 },
+        { xCm: 7, yCm: 73, areaCm2: barAreaCm2 }, { xCm: 17, yCm: 73, areaCm2: barAreaCm2 },
+        { xCm: 48, yCm: 73, areaCm2: barAreaCm2 }, { xCm: 58, yCm: 73, areaCm2: barAreaCm2 },
       ],
     },
     steel: {
@@ -33,6 +42,7 @@ function example8() {
       ixCm4: 95000,
       iyCm4: 11300,
       zxCm3: 4270,
+      zyCm3: 1140,
       fysKgfCm2: 3500,
       esKgfCm2: 2_040_000,
     },
@@ -64,7 +74,7 @@ function compare(production, oracle, paths, tolerance) {
   });
 }
 
-assert.equal(Oracle.ORACLE_VERSION, 'src-column.oracle.v0.2.0-research', 'independent oracle is explicitly versioned');
+assert.equal(Oracle.ORACLE_VERSION, 'src-column.oracle.v0.3.0-research', 'independent oracle is explicitly versioned');
 assert.equal(Oracle.SUPPORTED_SCHEMA, Production.INPUT_SCHEMA, 'oracle and production accept the same research input schema');
 const oracleSource = fs.readFileSync(path.join(__dirname, 'core', 'src-column-oracle.js'), 'utf8');
 assert.equal(oracleSource.includes('require('), false, 'oracle imports neither the production core nor shared PMSection');
@@ -89,10 +99,13 @@ const comparedPaths = [
   'compactness.webSeismicLimit',
   'allocation.axialSteelRatio',
   'allocation.momentSteelRatioX',
+  'allocation.momentSteelRatioY',
   'allocation.initialSteelDemands.puTf',
   'allocation.initialSteelDemands.muxTfM',
+  'allocation.initialSteelDemands.muyTfM',
   'allocation.initialRcDemands.puTf',
   'allocation.initialRcDemands.muxTfM',
+  'allocation.initialRcDemands.muyTfM',
   'steel.compressionX.effectiveRadiusCm',
   'steel.compressionX.lambdaC',
   'steel.compressionX.nominalCompressionTf',
@@ -101,6 +114,7 @@ const comparedPaths = [
   'steel.compressionY.nominalCompressionTf',
   'steel.nominalCompressionTf',
   'steel.nominalMomentXTfM',
+  'steel.nominalMomentYTfM',
   'steel.initialInteraction.axialRatio',
   'steel.initialInteraction.momentRatio',
   'steel.initialInteraction.utilization',
@@ -108,8 +122,10 @@ const comparedPaths = [
   'redistribution.beta',
   'redistribution.finalSteelDemands.puTf',
   'redistribution.finalSteelDemands.muxTfM',
+  'redistribution.finalSteelDemands.muyTfM',
   'redistribution.finalRcDemands.puTf',
   'redistribution.finalRcDemands.muxTfM',
+  'redistribution.finalRcDemands.muyTfM',
 ];
 assert.deepEqual(compare(production, oracle, comparedPaths, 1e-10), [], 'independent oracle agrees with every covered production value');
 const rcComparedPaths = ['rc.phiMnTfM', 'rc.utilization', 'rc.phiPnMaxTf', 'rc.nominalPoTf'];
@@ -124,6 +140,33 @@ assert.ok(oracle.coverage.covered.includes('rc-strain-compatibility-pm'), 'oracl
 assert.equal(oracle.rc.method, 'continuous-log-bisection', 'RC oracle uses a continuous neutral-axis solver rather than the production curve');
 assert.ok(Math.abs(oracle.rc.solution.designPTf - oracle.rc.demand.puTf) < 1e-9, 'continuous RC solution equilibrates the redistributed axial demand');
 assert.ok(Math.abs(oracle.rc.phiMnTfM - 126.5) / 126.5 < 0.05, 'independent result remains within 5% of the guide chart interpolation');
+
+const biaxialProductionInput = example8();
+biaxialProductionInput.steel = {
+  catalogId: 'rh-500x304x15x24',
+  grade: biaxialProductionInput.steel.grade,
+  fysKgfCm2: biaxialProductionInput.steel.fysKgfCm2,
+  esKgfCm2: biaxialProductionInput.steel.esKgfCm2,
+};
+biaxialProductionInput.demands.muyTfM = 30;
+const biaxialOracleInput = example8();
+biaxialOracleInput.demands.muyTfM = 30;
+const biaxialProduction = Production.calculate(biaxialProductionInput);
+const biaxialOracle = Oracle.calculate(biaxialOracleInput);
+assert.equal(biaxialOracle.rc.method, 'numerical-strip-log-bisection', 'independent biaxial oracle uses numerical strip integration instead of the production polygon clip');
+assert.ok(biaxialOracle.coverage.covered.includes('rc-biaxial-interaction'), 'oracle declares completed biaxial RC interaction coverage');
+assert.equal(biaxialOracle.coverage.uncovered.includes('biaxial-interaction'), false, 'completed biaxial interaction is removed from uncovered scope');
+assert.deepEqual(compare(biaxialProduction, biaxialOracle, [
+  'allocation.momentSteelRatioY',
+  'allocation.initialSteelDemands.muyTfM',
+  'steel.nominalMomentYTfM',
+  'steel.initialInteraction.momentRatioY',
+  'steel.initialInteraction.utilization',
+  'redistribution.finalRcDemands.muyTfM',
+], 1e-10), [], 'independent oracle agrees with every exact biaxial allocation and steel term');
+assert.ok(Math.abs(biaxialProduction.rc.utilization - biaxialOracle.rc.utilization) <= 1e-5, 'independent strip oracle agrees with exact-polygon RC biaxial utilization within 1e-5');
+assert.ok(Math.abs(biaxialProduction.rc.capacityMuxTfM - biaxialOracle.rc.capacityMuxTfM) <= 0.01, 'independent strip oracle agrees with the Mux capacity component within 0.01 tf-m');
+assert.ok(Math.abs(biaxialProduction.rc.capacityMuyTfM - biaxialOracle.rc.capacityMuyTfM) <= 0.01, 'independent strip oracle agrees with the Muy capacity component within 0.01 tf-m');
 
 const drifted = structuredClone(production);
 drifted.steel.nominalMomentXTfM += 0.01;
@@ -165,4 +208,4 @@ for (const mutate of [
   assert.throws(() => Oracle.calculate(invalid), Oracle.SrcColumnOracleError, 'oracle fails closed outside its declared scope');
 }
 
-console.log(`SRC column independent oracle OK (${comparedPaths.length + rcComparedPaths.length} arithmetic comparisons + two drift sentinels)`);
+console.log(`SRC column independent oracle OK (${comparedPaths.length + rcComparedPaths.length + 6} exact comparisons + 3 biaxial tolerance comparisons + two drift sentinels)`);

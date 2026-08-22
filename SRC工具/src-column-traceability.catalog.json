@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "tool": "src-column-research-core",
-  "coreVersion": "src-column.core.v0.4.0-research",
+  "coreVersion": "src-column.core.v0.5.0-research",
   "regulation": {
     "title": "鋼骨鋼筋混凝土構造設計規範與解說",
     "versionLabel": "100 年修正版（100 年 7 月 1 日施行）",
@@ -40,17 +40,17 @@
     "included": [
       "完全包覆型矩形 SRC 柱",
       "置中雙對稱 H 型鋼骨",
-      "軸壓與 x 向單向彎矩",
+      "軸壓與 x／y 向單向或雙向彎矩",
       "官方教材附錄 H500x300 系列 7 筆斷面性質 catalog、來源頁碼與輸入衝突阻擋",
       "第 3.4 節表 3.4-2 翼板與腹板寬厚比自動重算",
       "鋼骨與 RC 部分剛度分配",
       "鋼骨壓彎互制",
       "規範容許的軸力與彎矩重新分配",
-      "RC 部分依現行混凝土規範應變相容 P-M 檢核",
+      "RC 部分依現行混凝土規範應變相容 P-M 檢核；雙軸採定軸力角度掃描與需求射線互制",
       "專案分析已納入 P-Δ 效應的需求值"
     ],
     "excluded": [
-      "雙向彎矩與軸拉",
+      "軸拉",
       "catalog 以外型鋼之 A、Ix、Iy、Zx 來源自動核對",
       "教材出版後的現行市場供貨與專案材證核對",
       "柱剪力",
@@ -139,6 +139,12 @@
       "clause": "混凝土結構設計規範 21.2.2、22.2.2、22.4.2",
       "expression": "Whitney stress block, strain compatibility, steel stress truncation, eps_ty=fy/Es, phi transition through eps_ty+0.003, and tied-column Pn,max=0.80Po",
       "implementation": "鋼筋混凝土/shared/pmsection.js"
+    },
+    {
+      "id": "rc-pm-biaxial",
+      "clause": "SRC 7.3.2 與混凝土結構設計規範 21.2.2、22.2.2、22.4.2",
+      "expression": "at fixed Purc, rotate the neutral axis, solve strain compatibility continuously, construct the convex Mux-Muy design contour, and intersect it with the demand ray",
+      "implementation": "core/src-column-rc-biaxial.js.checkDemand"
     }
   ],
   "goldenCases": [
@@ -149,7 +155,7 @@
       "sectionCatalogId": "rh-500x304x15x24",
       "case": "65 x 80 cm 包覆 H500x304x15x24 SRC 柱，Pu=734.0 tf，Mux=128.9 tf-m",
       "sourceArithmeticNote": "教材第 3/8 頁列 Mus=57.1 tf-m，但第 5/8 頁代入式 (7.3-10) 時改用 56.7 tf-m；本核心以輸入與式 (7.3-4) 重算 57.1 tf-m，不靜默沿用不一致數字。",
-      "reinforcementLayoutNote": "教材斷面圖為 12-#8、四角各 3 支；單軸模型依圖拆為 y=7/17/63/73 cm 四層，面積依序為 20.28/10.14/10.14/20.28 cm2，不再簡化成上下各 6 支。",
+      "reinforcementLayoutNote": "教材斷面圖為 12-#8、四角各 3 支；單軸模型依圖拆為 y=7/17/63/73 cm 四層，面積依序為 20.28/10.14/10.14/20.28 cm2；雙軸模型保存 12 支鋼筋距左、上緣的實際 x/y 座標，不再簡化成上下各 6 支。",
       "expected": {
         "flangeRatio": 6.3333333333,
         "webRatio": 30.1333333333,
@@ -171,24 +177,43 @@
       }
     }
   ],
+  "verificationCases": [
+    {
+      "id": "DERIVED-EXAMPLE-8-BIAXIAL-30",
+      "authorityBoundary": "這不是教材原載例題；僅在例題 8 的已核對斷面、材料、Pu 與 Mux 上增設 Muy=30 tf-m，用於雙軸程式回歸與獨立 oracle 交叉檢查，不作規範範例或設計標準答案。",
+      "case": "65 x 80 cm 包覆 H500x304x15x24 SRC 柱，Pu=734.0 tf，Mux=128.9 tf-m，Muy=30.0 tf-m",
+      "expected": {
+        "redistributionBeta": 0.9697375509552353,
+        "redistributedRcPuTf": 446.93384132787037,
+        "redistributedRcMuxTfM": 70.01040719718011,
+        "redistributedRcMuyTfM": 26.12190108878905,
+        "rcUtilization": 0.722961423183255,
+        "capacityMuxTfM": 96.8383719409521,
+        "capacityMuyTfM": 36.13180489461291,
+        "productionOracleTolerance": "利用率 1e-5；各方向容量分量 0.01 tf-m。"
+      }
+    }
+  ],
   "oracle": {
     "file": "core/src-column-oracle.js",
-    "version": "src-column.oracle.v0.2.0-research",
-    "independence": "不引用 src-column-core.js、斷面 catalog 或共用 PMSection；測試以官方表格的獨立固定值走另一套算術路徑，RC 需求點另以連續中性軸二分法求解，不取用正式核心的離散 P-M 曲線。",
+    "version": "src-column.oracle.v0.3.0-research",
+    "independence": "不引用 src-column-core.js、斷面 catalog、共用 PMSection 或正式雙軸模組；測試以官方表格的獨立固定值走另一套算術路徑。正式雙軸核心以精確多邊形裁切求混凝土壓力塊，oracle 改以 320 條數值積分與連續中性軸二分法重算。",
     "covered": [
       "表 3.4-2 寬厚比",
       "剛度分配",
       "鋼骨有效迴轉半徑與軸壓強度",
       "鋼骨壓彎互制",
       "規範重新分配",
-      "RC 應變相容 P-M"
+      "RC 應變相容 P-M",
+      "鋼骨式 (7.3-7)／(7.3-8) 雙軸壓彎互制",
+      "RC 定軸力 Mux-Muy 互制曲面"
     ],
     "uncovered": [
-      "雙向互制",
       "柱剪力",
       "耐震設計"
     ],
     "test": "src-column-oracle.test.js",
-    "comparisonCount": 34
+    "comparisonCount": 46,
+    "approximateComparisonCount": 3
   }
 }

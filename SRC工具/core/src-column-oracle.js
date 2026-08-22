@@ -3,7 +3,8 @@
  * This module deliberately does not import src-column-core.js or PMSection.
  * It independently recomputes the current research core's table 3.4-2
  * compactness, stiffness allocation, steel compression, steel interaction,
- * redistribution, and tied rectangular RC strain-compatibility P-M paths.
+ * redistribution, and tied rectangular RC uniaxial/biaxial
+ * strain-compatibility P-M paths.
  * The RC demand point is solved continuously in neutral-axis depth and does
  * not consume the production core's discretized design curve.
  *
@@ -11,8 +12,8 @@
  */
 'use strict';
 
-const ORACLE_VERSION = 'src-column.oracle.v0.2.0-research';
-const SUPPORTED_SCHEMA = 'src-column.input.v3';
+const ORACLE_VERSION = 'src-column.oracle.v0.3.0-research';
+const SUPPORTED_SCHEMA = 'src-column.input.v4';
 const PHI_COMPRESSION = 0.85;
 const PHI_FLEXURE = 0.9;
 const DEFAULT_ES_KGF_CM2 = 2_040_000;
@@ -110,9 +111,11 @@ function steelCompression(input, axis) {
   };
 }
 
-function steelInteraction(puTf, muxTfM, pnsTf, mnxTfM) {
+function steelInteraction(puTf, muxTfM, muyTfM, pnsTf, mnxTfM, mnyTfM) {
   const axialRatio = puTf / (PHI_COMPRESSION * pnsTf);
-  const momentRatio = Math.abs(muxTfM) / (PHI_FLEXURE * mnxTfM);
+  const momentRatioX = Math.abs(muxTfM) / (PHI_FLEXURE * mnxTfM);
+  const momentRatioY = Math.abs(muyTfM) / (PHI_FLEXURE * mnyTfM);
+  const momentRatio = momentRatioX + momentRatioY;
   const highAxial = axialRatio >= 0.2;
   const utilization = highAxial
     ? axialRatio + (8 / 9) * momentRatio
@@ -120,6 +123,8 @@ function steelInteraction(puTf, muxTfM, pnsTf, mnxTfM) {
   return {
     branch: highAxial ? 'high-axial' : 'low-axial',
     axialRatio,
+    momentRatioX,
+    momentRatioY,
     momentRatio,
     utilization,
   };
@@ -294,6 +299,237 @@ function rcInteractionAtDemand(input, puTf, muTfM) {
   };
 }
 
+function normalizeBiaxialRcInput(input) {
+  const base = normalizeRcInput(input);
+  const barsInput = input?.reinforcement?.bars;
+  if (!Array.isArray(barsInput) || barsInput.length < 4) {
+    throw new SrcColumnOracleError('biaxial-bars-required', 'Biaxial RC oracle requires at least four positioned bars');
+  }
+  const bars = barsInput.map((bar, index) => {
+    const xCm = numberAt(bar?.xCm, `reinforcement.bars[${index}].xCm`);
+    const yCm = numberAt(bar?.yCm, `reinforcement.bars[${index}].yCm`);
+    if (!(xCm > 0 && xCm < base.widthCm && yCm > 0 && yCm < base.depthCm)) {
+      throw new SrcColumnOracleError('bar-outside-section', `reinforcement.bars[${index}] must lie inside the section`);
+    }
+    return {
+      x: xCm - base.widthCm / 2,
+      y: base.depthCm / 2 - yCm,
+      areaCm2: positiveAt(bar?.areaCm2, `reinforcement.bars[${index}].areaCm2`),
+    };
+  });
+  return { ...base, bars };
+}
+
+function numericalCompressionBlock(model, nx, ny, edge) {
+  const width = model.widthCm;
+  const depth = model.depthCm;
+  const strips = 320;
+  let areaCm2 = 0;
+  let firstX = 0;
+  let firstY = 0;
+  if (Math.abs(ny) >= Math.abs(nx)) {
+    const dx = width / strips;
+    for (let index = 0; index < strips; index += 1) {
+      const x = -width / 2 + (index + 0.5) * dx;
+      const threshold = (edge - nx * x) / ny;
+      const low = ny > 0 ? Math.max(-depth / 2, threshold) : -depth / 2;
+      const high = ny > 0 ? depth / 2 : Math.min(depth / 2, threshold);
+      if (high <= low) continue;
+      const stripArea = dx * (high - low);
+      areaCm2 += stripArea;
+      firstX += stripArea * x;
+      firstY += dx * (high * high - low * low) / 2;
+    }
+  } else {
+    const dy = depth / strips;
+    for (let index = 0; index < strips; index += 1) {
+      const y = -depth / 2 + (index + 0.5) * dy;
+      const threshold = (edge - ny * y) / nx;
+      const low = nx > 0 ? Math.max(-width / 2, threshold) : -width / 2;
+      const high = nx > 0 ? width / 2 : Math.min(width / 2, threshold);
+      if (high <= low) continue;
+      const stripArea = dy * (high - low);
+      areaCm2 += stripArea;
+      firstX += dy * (high * high - low * low) / 2;
+      firstY += stripArea * y;
+    }
+  }
+  return {
+    areaCm2,
+    xCm: areaCm2 > 0 ? firstX / areaCm2 : 0,
+    yCm: areaCm2 > 0 ? firstY / areaCm2 : 0,
+  };
+}
+
+function rcBiaxialNominalPointFromModel(cCm, thetaRad, model) {
+  const c = positiveAt(cCm, 'cCm');
+  const theta = numberAt(thetaRad, 'thetaRad');
+  const nx = Math.sin(theta);
+  const ny = Math.cos(theta);
+  const zMax = Math.abs(nx) * model.widthCm / 2 + Math.abs(ny) * model.depthCm / 2;
+  const zMin = -zMax;
+  const blockDepthCm = Math.min(model.beta1 * c, zMax - zMin);
+  const blockEdge = zMax - blockDepthCm;
+  const neutralEdge = zMax - c;
+  const block = numericalCompressionBlock(model, nx, ny, blockEdge);
+  const concreteForceKgf = 0.85 * model.fcKgfCm2 * block.areaCm2;
+  let nominalPKgf = concreteForceKgf;
+  let nominalMxKgfCm = concreteForceKgf * block.yCm;
+  let nominalMyKgfCm = concreteForceKgf * block.xCm;
+  let zMinBar = Infinity;
+  for (const bar of model.bars) {
+    const z = bar.x * nx + bar.y * ny;
+    zMinBar = Math.min(zMinBar, z);
+    const strain = RC_EPS_CU * (z - neutralEdge) / c;
+    const stress = Math.max(-model.fyKgfCm2, Math.min(model.fyKgfCm2, model.esKgfCm2 * strain));
+    const netStress = z >= blockEdge ? stress - 0.85 * model.fcKgfCm2 : stress;
+    const forceKgf = netStress * bar.areaCm2;
+    nominalPKgf += forceKgf;
+    nominalMxKgfCm += forceKgf * bar.y;
+    nominalMyKgfCm += forceKgf * bar.x;
+  }
+  const epsT = RC_EPS_CU * ((zMax - zMinBar) - c) / c;
+  return {
+    cCm: c,
+    thetaRad: theta,
+    blockDepthCm,
+    blockAreaCm2: block.areaCm2,
+    epsT,
+    epsTy: model.fyKgfCm2 / model.esKgfCm2,
+    phi: rcPhiFromTensionStrain(epsT, model.fyKgfCm2, model.esKgfCm2),
+    nominalPKgf,
+    nominalMxKgfCm,
+    nominalMyKgfCm,
+  };
+}
+
+function biaxialConvexHull(points) {
+  const unique = new Map();
+  for (const point of points) {
+    const normalized = { x: Math.max(0, point.x), y: Math.max(0, point.y) };
+    unique.set(`${normalized.x.toFixed(8)},${normalized.y.toFixed(8)}`, normalized);
+  }
+  const sorted = [...unique.values()].sort((left, right) => left.x === right.x ? left.y - right.y : left.x - right.x);
+  if (sorted.length <= 1) return sorted;
+  const cross = (origin, left, right) => (left.x - origin.x) * (right.y - origin.y) - (left.y - origin.y) * (right.x - origin.x);
+  const lower = [];
+  for (const point of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], point) <= 0) lower.pop();
+    lower.push(point);
+  }
+  const upper = [];
+  for (let index = sorted.length - 1; index >= 0; index -= 1) {
+    const point = sorted[index];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], point) <= 0) upper.pop();
+    upper.push(point);
+  }
+  lower.pop();
+  upper.pop();
+  return lower.concat(upper);
+}
+
+function biaxialRayCapacity(hull, unitX, unitY) {
+  const determinant = (ax, ay, bx, by) => ax * by - ay * bx;
+  let capacity = 0;
+  for (let index = 0; index < hull.length; index += 1) {
+    const start = hull[index];
+    const end = hull[(index + 1) % hull.length];
+    const edgeX = end.x - start.x;
+    const edgeY = end.y - start.y;
+    const denominator = determinant(unitX, unitY, edgeX, edgeY);
+    if (Math.abs(denominator) < 1e-12) continue;
+    const rayDistance = determinant(start.x, start.y, edgeX, edgeY) / denominator;
+    const edgeFraction = determinant(start.x, start.y, unitX, unitY) / denominator;
+    if (rayDistance >= -1e-9 && edgeFraction >= -1e-9 && edgeFraction <= 1 + 1e-9) capacity = Math.max(capacity, rayDistance);
+  }
+  return capacity;
+}
+
+function rcBiaxialInteractionAtDemand(input, puTf, muxTfM, muyTfM) {
+  const model = normalizeBiaxialRcInput(input);
+  const pu = numberAt(puTf, 'puTf');
+  const mux = Math.abs(numberAt(muxTfM, 'muxTfM'));
+  const muy = Math.abs(numberAt(muyTfM, 'muyTfM'));
+  const steelAreaCm2 = model.bars.reduce((sum, bar) => sum + bar.areaCm2, 0);
+  const nominalPoTf = (0.85 * model.fcKgfCm2 * (model.widthCm * model.depthCm - steelAreaCm2)
+    + model.fyKgfCm2 * steelAreaCm2) / 1000;
+  const phiPnMaxTf = RC_PHI_TIED * RC_PN_MAX_FACTOR * nominalPoTf;
+  const pureTensionTf = -RC_PHI_TENSION * model.fyKgfCm2 * steelAreaCm2 / 1000;
+  const axialOk = pu >= pureTensionTf - 1e-7 && pu <= phiPnMaxTf + 1e-7;
+  const demandMagnitude = Math.hypot(mux, muy);
+  const common = {
+    method: 'numerical-strip-log-bisection',
+    demand: { puTf: pu, muxTfM: mux, muyTfM: muy },
+    nominalPoTf,
+    phiPnMaxTf,
+    pMinTf: pureTensionTf,
+    pMaxTf: phiPnMaxTf,
+    axialOk,
+  };
+  if (!axialOk) return { ...common, phiMnTfM: 0, utilization: demandMagnitude > 0 ? Infinity : 0, ok: false, outOfRange: true, surface: [] };
+  if (demandMagnitude <= 1e-12) return { ...common, phiMnTfM: Infinity, utilization: 0, ok: true, outOfRange: false, surface: [] };
+
+  const reference = Math.hypot(model.widthCm, model.depthCm);
+  const points = [{ x: 0, y: 0 }];
+  const surface = [];
+  const angleSteps = 72;
+  for (let angleIndex = 0; angleIndex < angleSteps; angleIndex += 1) {
+    const thetaRad = 2 * Math.PI * angleIndex / angleSteps;
+    function designPoint(logC) {
+      const point = rcBiaxialNominalPointFromModel(Math.exp(logC), thetaRad, model);
+      let designPTf = point.phi * point.nominalPKgf / 1000;
+      if (point.nominalPKgf > 0) designPTf = Math.min(designPTf, phiPnMaxTf);
+      return {
+        ...point,
+        designPTf,
+        designMxTfM: point.phi * point.nominalMxKgfCm / 100000,
+        designMyTfM: point.phi * point.nominalMyKgfCm / 100000,
+      };
+    }
+    let low = Math.log(reference * 1e-8);
+    let high = Math.log(reference * 1e6);
+    let lowPoint = designPoint(low);
+    let highPoint = designPoint(high);
+    if (pu < lowPoint.designPTf - 1e-6 || pu > highPoint.designPTf + 1e-6) {
+      throw new SrcColumnOracleError('rc-root-not-bracketed', 'Biaxial RC axial demand could not be bracketed');
+    }
+    for (let iteration = 0; iteration < 120; iteration += 1) {
+      const middle = (low + high) / 2;
+      const point = designPoint(middle);
+      if (point.designPTf < pu) {
+        low = middle;
+        lowPoint = point;
+      } else {
+        high = middle;
+        highPoint = point;
+      }
+    }
+    const solution = Math.abs(lowPoint.designPTf - pu) <= Math.abs(highPoint.designPTf - pu) ? lowPoint : highPoint;
+    const x = Math.abs(solution.designMxTfM);
+    const y = Math.abs(solution.designMyTfM);
+    points.push({ x, y });
+    surface.push({ thetaRad, x, y, cCm: solution.cCm, phi: solution.phi, epsT: solution.epsT, designPTf: solution.designPTf });
+  }
+  const hull = biaxialConvexHull(points);
+  const unitX = mux / demandMagnitude;
+  const unitY = muy / demandMagnitude;
+  const capacityTfM = biaxialRayCapacity(hull, unitX, unitY);
+  const utilization = capacityTfM > 0 ? demandMagnitude / capacityTfM : Infinity;
+  return {
+    ...common,
+    phiMnTfM: capacityTfM,
+    capacityTfM,
+    capacityMuxTfM: capacityTfM * unitX,
+    capacityMuyTfM: capacityTfM * unitY,
+    utilization,
+    ok: utilization <= 1 + 1e-9,
+    outOfRange: false,
+    angleSteps,
+    surface,
+    hull,
+  };
+}
+
 function calculate(input) {
   if (input?.schema !== SUPPORTED_SCHEMA) {
     throw new SrcColumnOracleError('unsupported-input-schema', `Oracle accepts only ${SUPPORTED_SCHEMA}`);
@@ -309,50 +545,87 @@ function calculate(input) {
   const fc = positiveAt(concrete.fcKgfCm2, 'concrete.fcKgfCm2');
   const area = positiveAt(steel.areaCm2, 'steel.areaCm2');
   const ix = positiveAt(steel.ixCm4, 'steel.ixCm4');
+  const iy = positiveAt(steel.iyCm4, 'steel.iyCm4');
   const zx = positiveAt(steel.zxCm3, 'steel.zxCm3');
+  const zy = steel.zyCm3 == null ? null : positiveAt(steel.zyCm3, 'steel.zyCm3');
   const fys = positiveAt(steel.fysKgfCm2, 'steel.fysKgfCm2');
   const es = steel.esKgfCm2 == null ? DEFAULT_ES_KGF_CM2 : positiveAt(steel.esKgfCm2, 'steel.esKgfCm2');
   const ec = concrete.ecKgfCm2 == null ? 15000 * Math.sqrt(fc) : positiveAt(concrete.ecKgfCm2, 'concrete.ecKgfCm2');
   const grossArea = width * depth;
   const grossIx = width * depth ** 3 / 12;
+  const grossIy = depth * width ** 3 / 12;
   const axialSteelRatio = es * area / (es * area + 0.55 * ec * grossArea);
   const momentSteelRatioX = es * ix / (es * ix + 0.35 * ec * grossIx);
+  const momentSteelRatioY = es * iy / (es * iy + 0.35 * ec * grossIy);
   const pu = positiveAt(demands.puTf, 'demands.puTf');
   const mux = Math.abs(numberAt(demands.muxTfM, 'demands.muxTfM'));
-  const initialSteelDemands = { puTf: pu * axialSteelRatio, muxTfM: mux * momentSteelRatioX };
-  const initialRcDemands = { puTf: pu - initialSteelDemands.puTf, muxTfM: mux - initialSteelDemands.muxTfM };
+  const muy = Math.abs(numberAt(demands.muyTfM == null ? 0 : demands.muyTfM, 'demands.muyTfM'));
+  if (muy > 0 && zy == null) throw new SrcColumnOracleError('biaxial-steel-zy-required', 'Biaxial steel interaction requires Zy');
+  const initialSteelDemands = {
+    puTf: pu * axialSteelRatio,
+    muxTfM: mux * momentSteelRatioX,
+    muyTfM: muy * momentSteelRatioY,
+  };
+  const initialRcDemands = {
+    puTf: pu - initialSteelDemands.puTf,
+    muxTfM: mux - initialSteelDemands.muxTfM,
+    muyTfM: muy - initialSteelDemands.muyTfM,
+  };
   const compressionX = steelCompression(input, 'x');
   const compressionY = steelCompression(input, 'y');
   const control = compressionX.nominalCompressionTf <= compressionY.nominalCompressionTf ? compressionX : compressionY;
   const controlAxis = control === compressionX ? 'x' : 'y';
   const nominalMomentXTfM = zx * fys / 100000;
-  const initialInteraction = steelInteraction(initialSteelDemands.puTf, initialSteelDemands.muxTfM, control.nominalCompressionTf, nominalMomentXTfM);
+  const nominalMomentYTfM = (zy || 0) * fys / 100000;
+  const initialInteraction = steelInteraction(
+    initialSteelDemands.puTf,
+    initialSteelDemands.muxTfM,
+    initialSteelDemands.muyTfM,
+    control.nominalCompressionTf,
+    nominalMomentXTfM,
+    muy > 0 ? nominalMomentYTfM : Infinity
+  );
   const useRedistribution = input?.detailing?.redistributeToSteelBoundary === true;
   const divisor = useRedistribution ? initialInteraction.utilization : 1;
   if (!(divisor > 0)) throw new SrcColumnOracleError('invalid-redistribution-divisor', 'Interaction divisor must be positive');
   const finalSteelDemands = {
     puTf: initialSteelDemands.puTf / divisor,
     muxTfM: initialSteelDemands.muxTfM / divisor,
+    muyTfM: initialSteelDemands.muyTfM / divisor,
   };
-  const finalRcDemands = { puTf: pu - finalSteelDemands.puTf, muxTfM: mux - finalSteelDemands.muxTfM };
-  const finalInteraction = steelInteraction(finalSteelDemands.puTf, finalSteelDemands.muxTfM, control.nominalCompressionTf, nominalMomentXTfM);
-  const rc = rcInteractionAtDemand(input, finalRcDemands.puTf, finalRcDemands.muxTfM);
+  const finalRcDemands = {
+    puTf: pu - finalSteelDemands.puTf,
+    muxTfM: mux - finalSteelDemands.muxTfM,
+    muyTfM: muy - finalSteelDemands.muyTfM,
+  };
+  const finalInteraction = steelInteraction(
+    finalSteelDemands.puTf,
+    finalSteelDemands.muxTfM,
+    finalSteelDemands.muyTfM,
+    control.nominalCompressionTf,
+    nominalMomentXTfM,
+    muy > 0 ? nominalMomentYTfM : Infinity
+  );
+  const rc = muy > 0
+    ? rcBiaxialInteractionAtDemand(input, finalRcDemands.puTf, finalRcDemands.muxTfM, finalRcDemands.muyTfM)
+    : rcInteractionAtDemand(input, finalRcDemands.puTf, finalRcDemands.muxTfM);
 
   return {
     oracleVersion: ORACLE_VERSION,
     supportedSchema: SUPPORTED_SCHEMA,
     coverage: {
-      covered: ['table-3.4-2-compactness', 'stiffness-allocation', 'steel-compression', 'steel-interaction', 'redistribution', 'rc-strain-compatibility-pm'],
-      uncovered: ['biaxial-interaction', 'shear', 'seismic-design'],
+      covered: ['table-3.4-2-compactness', 'stiffness-allocation', 'steel-compression', 'steel-biaxial-interaction', 'redistribution', 'rc-strain-compatibility-pm', 'rc-biaxial-interaction'],
+      uncovered: ['shear', 'seismic-design'],
     },
     compactness: compactness(input),
-    allocation: { axialSteelRatio, momentSteelRatioX, initialSteelDemands, initialRcDemands },
+    allocation: { axialSteelRatio, momentSteelRatioX, momentSteelRatioY, initialSteelDemands, initialRcDemands },
     steel: {
       compressionX,
       compressionY,
       compressionControlAxis: controlAxis,
       nominalCompressionTf: control.nominalCompressionTf,
       nominalMomentXTfM,
+      nominalMomentYTfM,
       initialInteraction,
       finalInteraction,
     },
@@ -373,5 +646,6 @@ module.exports = {
   rcPhiFromTensionStrain,
   rcNominalPoint,
   rcInteractionAtDemand,
+  rcBiaxialInteractionAtDemand,
   calculate,
 };

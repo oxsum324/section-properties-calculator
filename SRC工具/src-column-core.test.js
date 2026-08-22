@@ -15,8 +15,9 @@ function clone(value) {
 }
 
 function officialGuideExample8() {
+  const barAreaCm2 = 5.07;
   return {
-    schema: 'src-column.input.v3',
+    schema: 'src-column.input.v4',
     caseName: 'MOI SRC design guide example 8',
     demands: { puTf: 734.0, muxTfM: 128.9, muyTfM: 0 },
     concrete: { widthCm: 65, depthCm: 80, fcKgfCm2: 280 },
@@ -29,6 +30,14 @@ function officialGuideExample8() {
         { yCm: 17, areaCm2: 2 * 5.07 },
         { yCm: 63, areaCm2: 2 * 5.07 },
         { yCm: 73, areaCm2: 4 * 5.07 },
+      ],
+      bars: [
+        { xCm: 7, yCm: 7, areaCm2: barAreaCm2 }, { xCm: 17, yCm: 7, areaCm2: barAreaCm2 },
+        { xCm: 48, yCm: 7, areaCm2: barAreaCm2 }, { xCm: 58, yCm: 7, areaCm2: barAreaCm2 },
+        { xCm: 7, yCm: 17, areaCm2: barAreaCm2 }, { xCm: 58, yCm: 17, areaCm2: barAreaCm2 },
+        { xCm: 7, yCm: 63, areaCm2: barAreaCm2 }, { xCm: 58, yCm: 63, areaCm2: barAreaCm2 },
+        { xCm: 7, yCm: 73, areaCm2: barAreaCm2 }, { xCm: 17, yCm: 73, areaCm2: barAreaCm2 },
+        { xCm: 48, yCm: 73, areaCm2: barAreaCm2 }, { xCm: 58, yCm: 73, areaCm2: barAreaCm2 },
       ],
     },
     steel: {
@@ -62,12 +71,13 @@ function manualExample8() {
     ixCm4: 95000,
     iyCm4: 11300,
     zxCm3: 4270,
+    zyCm3: 1140,
   });
   return input;
 }
 
-assert.equal(Core.CORE_VERSION, 'src-column.core.v0.4.0-research', 'SRC column core is explicitly versioned as research');
-assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v3', 'SRC column core has a versioned input schema');
+assert.equal(Core.CORE_VERSION, 'src-column.core.v0.5.0-research', 'SRC column core is explicitly versioned as research');
+assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v4', 'SRC column core has a versioned input schema');
 assert.equal(Core.RELEASE_STATUS, 'research-core-not-public', 'research core cannot be mistaken for a formal public route');
 assert.equal(Core.REGULATION_PROFILE.id, 'tw-src-2011', 'SRC column core uses the official current profile');
 assert.ok(Core.REGULATION_PROFILE.chapter3Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter6Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter7Url.endsWith('.pdf'), 'official chapter sources remain explicit');
@@ -107,6 +117,7 @@ close(official.steel.compressionX.nominalCompressionTf, 729.0, 0.7, 'example 8 P
 close(official.steel.compressionY.nominalCompressionTf, 656.1, 0.7, 'example 8 Pns y');
 assert.equal(official.steel.compressionControlAxis, 'y', 'weak axis controls example 8 steel compression');
 close(official.steel.nominalMomentXTfM, 149.5, 0.08, 'example 8 Mns x');
+close(official.steel.nominalMomentYTfM, 39.9, 0.08, 'example 8 Mns y');
 close(official.steel.initialInteraction.utilization, 0.876, 0.003, 'example 8 steel interaction beta');
 
 assert.equal(official.redistribution.applied, true, 'example 8 applies clauses 7.3-9 and 7.3-10 redistribution');
@@ -135,6 +146,22 @@ assert.equal(noRedistribution.redistribution.applied, false, 'redistribution is 
 close(noRedistribution.redistribution.finalRcDemands.puTf, 734 - noRedistribution.allocation.initialSteelDemands.puTf, 1e-9, 'initial RC residual is preserved without redistribution');
 assert.ok(noRedistribution.rc.ok, 'official example also passes the unreallocated RC demand with the current strain-compatible section');
 
+const biaxialInput = officialGuideExample8();
+biaxialInput.demands.muyTfM = 30;
+const biaxial = Core.calculate(biaxialInput);
+assert.equal(biaxial.rc.biaxial, true, 'nonzero Muy selects the biaxial RC engine');
+assert.equal(biaxial.rc.method, 'exact-polygon-log-bisection', 'production biaxial engine uses exact compression-polygon integration');
+assert.equal(biaxial.rc.angleSteps, 72, 'biaxial surface uses the governed angular resolution');
+assert.ok(biaxial.allocation.momentSteelRatioY > 0 && biaxial.allocation.momentSteelRatioY < 1, 'Muy is allocated by weak-axis relative stiffness');
+assert.ok(biaxial.steel.initialInteraction.momentRatioY > 0, 'steel equations 7.3-7/8 include the weak-axis moment term');
+assert.ok(Math.abs(biaxial.steel.finalInteraction.utilization - 1) < 1e-10, 'biaxial redistribution places steel on the full three-term boundary');
+assert.ok(Number.isFinite(biaxial.rc.capacityMuxTfM) && Number.isFinite(biaxial.rc.capacityMuyTfM), 'biaxial RC demand ray returns both capacity components');
+assert.ok(biaxial.rc.biaxialSurface.length === 72 && biaxial.rc.biaxialHull.length >= 3, 'biaxial RC result retains reviewable surface and hull points');
+close(biaxial.redistribution.beta, 0.9697375509552353, 1e-10, 'derived biaxial case redistribution beta');
+close(biaxial.rc.utilization, 0.722961423183255, 1e-9, 'derived biaxial case RC utilization');
+close(biaxial.rc.capacityMuxTfM, 96.8383719409521, 1e-8, 'derived biaxial case Mux capacity component');
+close(biaxial.rc.capacityMuyTfM, 36.13180489461291, 1e-8, 'derived biaxial case Muy capacity component');
+
 const highDemandInput = officialGuideExample8();
 highDemandInput.demands.muxTfM = 500;
 const highDemand = Core.calculate(highDemandInput);
@@ -150,7 +177,9 @@ assert.equal(slenderFlange.checks.engineeringStrength, false, 'compactness parti
 
 const failClosedCases = [
   ['unsupported-input-schema', input => { input.schema = 'src-column.input.v999'; }],
-  ['biaxial-scope-not-implemented', input => { input.demands.muyTfM = 1; }],
+  ['biaxial-bars-required', input => { input.demands.muyTfM = 1; delete input.reinforcement.bars; }],
+  ['biaxial-bars-not-doubly-symmetric', input => { input.demands.muyTfM = 1; input.reinforcement.bars[0].xCm = 8; }],
+  ['biaxial-bars-layers-conflict', input => { input.demands.muyTfM = 1; [0, 3, 8, 11].forEach(index => { input.reinforcement.bars[index].areaCm2 = 5.08; }); }],
   ['second-order-demand-not-confirmed', input => { input.detailing.secondOrderDemandIncluded = false; }],
   ['seismic-scope-not-implemented', input => { input.detailing.seismicDesign = true; }],
   ['not-fully-encased', input => { input.detailing.fullyEncased = false; }],
@@ -169,6 +198,8 @@ const manualFailClosedCases = [
   ['invalid-h-section-flange-geometry', input => { input.steel.flangeThicknessCm = 25; }],
   ['invalid-h-section-web-geometry', input => { input.steel.webThicknessCm = 30.4; }],
   ['steel-ratio-below-src-scope', input => { input.steel.areaCm2 = 100; }],
+  ['invalid-optional-section-property', input => { input.steel.zyCm3 = 0; }],
+  ['biaxial-steel-zy-required', input => { input.demands.muyTfM = 1; delete input.steel.zyCm3; }],
 ];
 
 for (const [expectedCode, mutate, makeInput] of [
@@ -206,7 +237,7 @@ assert.equal(catalog.sectionCatalog.source.printedPage, official.steelSection.so
 assert.equal(catalog.sectionCatalog.entryCount, 7, 'traceability states the deliberately limited catalog coverage');
 assert.deepEqual(
   catalog.equations.map(item => item.id),
-  ['src-3.4-2', 'src-6.4-2-5', 'src-7.3-3-6', 'src-7.3-7-8', 'src-7.3-9-10', 'rc-pm-current'],
+  ['src-3.4-2', 'src-6.4-2-5', 'src-7.3-3-6', 'src-7.3-7-8', 'src-7.3-9-10', 'rc-pm-current', 'rc-pm-biaxial'],
   'catalog covers every implemented equation family'
 );
 assert.equal(catalog.goldenCases[0].id, 'MOI-SRC-GUIDE-COLUMN-EXAMPLE-8', 'official example 8 remains the canonical research golden case');
@@ -218,10 +249,17 @@ close(catalog.goldenCases[0].expected.flangeRatio, official.compactness.flangeRa
 close(catalog.goldenCases[0].expected.webRatio, official.compactness.webRatio, 1e-9, 'catalog preserves the example 8 web compactness benchmark');
 close(catalog.goldenCases[0].expected.flangeSeismicReferenceLimit, official.compactness.flangeSeismicLimit, 1e-9, 'catalog preserves the example 8 flange lambda_pd reference');
 close(catalog.goldenCases[0].expected.webSeismicReferenceLimit, official.compactness.webSeismicLimit, 1e-9, 'catalog preserves the example 8 web lambda_pd reference');
+assert.ok(catalog.verificationCases[0].authorityBoundary.includes('不是教材原載例題'), 'derived biaxial regression is not misrepresented as an official example');
+close(catalog.verificationCases[0].expected.redistributionBeta, biaxial.redistribution.beta, 1e-12, 'catalog preserves the derived biaxial redistribution benchmark');
+close(catalog.verificationCases[0].expected.rcUtilization, biaxial.rc.utilization, 1e-12, 'catalog preserves the derived biaxial RC utilization benchmark');
+close(catalog.verificationCases[0].expected.capacityMuxTfM, biaxial.rc.capacityMuxTfM, 1e-12, 'catalog preserves the derived biaxial Mux capacity component');
+close(catalog.verificationCases[0].expected.capacityMuyTfM, biaxial.rc.capacityMuyTfM, 1e-12, 'catalog preserves the derived biaxial Muy capacity component');
 assert.equal(catalog.oracle.file, 'core/src-column-oracle.js', 'catalog identifies the independent oracle');
-assert.equal(catalog.oracle.comparisonCount, 34, 'catalog states the independently compared arithmetic surface');
+assert.equal(catalog.oracle.comparisonCount, 46, 'catalog states the independently compared exact arithmetic surface');
+assert.equal(catalog.oracle.approximateComparisonCount, 3, 'catalog states the production/oracle biaxial tolerance comparisons');
 assert.ok(catalog.oracle.covered.includes('RC 應變相容 P-M'), 'catalog declares the completed independent RC P-M coverage');
 assert.equal(catalog.oracle.uncovered.includes('RC 應變相容 P-M'), false, 'catalog no longer lists completed RC P-M work as uncovered');
+assert.ok(catalog.oracle.covered.includes('RC 定軸力 Mux-Muy 互制曲面'), 'catalog declares the completed independent biaxial RC coverage');
 
 for (const missingPath of ['depthCm', 'flangeWidthCm', 'flangeThicknessCm', 'webThicknessCm']) {
   const input = manualExample8();

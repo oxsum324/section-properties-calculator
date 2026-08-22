@@ -1,7 +1,7 @@
 /* SRC column research calculation core
  *
  * Scope: fully encased rectangular SRC column with a centered doubly-symmetric
- * H-shape, compression plus uniaxial x-axis bending, tied longitudinal
+ * H-shape, compression plus uniaxial or biaxial bending, tied longitudinal
  * reinforcement, and second-order demand supplied by the project analysis.
  *
  * This core is deliberately not a public/formal tool yet. It implements the
@@ -19,14 +19,17 @@
   const hSectionCatalog = typeof module === 'object' && module.exports
     ? require('./src-column-h-section-catalog.js')
     : globalObject && globalObject.SrcColumnHSectionCatalog;
-  const api = factory(pmSection, hSectionCatalog);
+  const rcBiaxial = typeof module === 'object' && module.exports
+    ? require('./src-column-rc-biaxial.js')
+    : globalObject && globalObject.SrcColumnRcBiaxial;
+  const api = factory(pmSection, hSectionCatalog, rcBiaxial);
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (globalObject) globalObject.SrcColumnCore = api;
-})(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnCore(PMSection, HSectionCatalog) {
+})(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnCore(PMSection, HSectionCatalog, RcBiaxial) {
   'use strict';
 
-  const CORE_VERSION = 'src-column.core.v0.4.0-research';
-  const INPUT_SCHEMA = 'src-column.input.v3';
+  const CORE_VERSION = 'src-column.core.v0.5.0-research';
+  const INPUT_SCHEMA = 'src-column.input.v4';
   const RELEASE_STATUS = 'research-core-not-public';
   const REGULATION_PROFILE = Object.freeze({
     id: 'tw-src-2011',
@@ -201,15 +204,16 @@
     ].forEach(([path, value]) => {
       if (value != null && positive(value) == null) addBlocked('invalid-optional-modulus', path, `${path} 若有提供，必須為大於 0 的有限數值。`);
     });
+    if (steel.zyCm3 != null && steel.zyCm3 !== '' && positive(steel.zyCm3) == null) {
+      addBlocked('invalid-optional-section-property', 'steel.zyCm3', 'steel.zyCm3 若有提供，必須為大於 0 的有限數值。');
+    }
 
     const pu = finite(demands.puTf);
     const mux = finite(demands.muxTfM);
     const muy = finite(demands.muyTfM == null ? 0 : demands.muyTfM);
     if (pu == null || pu <= 0) addBlocked('compression-demand-required', 'demands.puTf', '第一版核心只接受正值軸壓需求 Pu。');
     if (mux == null) addBlocked('finite-demand-required', 'demands.muxTfM', 'Mux 必須為有限數值。');
-    if (muy == null || Math.abs(muy) > ZERO_TOLERANCE) {
-      addBlocked('biaxial-scope-not-implemented', 'demands.muyTfM', '雙向彎矩尚未納入第一版核心，Muy 必須為 0。');
-    }
+    if (muy == null) addBlocked('finite-demand-required', 'demands.muyTfM', 'Muy 必須為有限數值。');
     if (detailing.secondOrderDemandIncluded !== true) {
       addBlocked('second-order-demand-not-confirmed', 'detailing.secondOrderDemandIncluded', '第 7.4 節 P-Δ 效應必須由專案分析納入需求彎矩後才可使用本核心。');
     }
@@ -256,7 +260,7 @@
     }
 
     const layers = Array.isArray(reinforcement.layers) ? reinforcement.layers : [];
-    if (layers.length < 2) addBlocked('reinforcement-layers-required', 'reinforcement.layers', '單向 P-M 核心至少需要兩層正值主筋面積。');
+    if (layers.length < 2) addBlocked('reinforcement-layers-required', 'reinforcement.layers', 'RC P-M 核心至少需要兩層正值主筋面積。');
     layers.forEach((layer, index) => {
       const y = finite(layer?.yCm);
       const area = positive(layer?.areaCm2);
@@ -267,6 +271,46 @@
       const ratio = layers.reduce((sum, layer) => sum + (positive(layer?.areaCm2) || 0), 0) / (width * depth);
       if (ratio < 0.01 - ZERO_TOLERANCE) addBlocked('longitudinal-ratio-below-scope', 'reinforcement.layers', 'RC 部分縱向主筋比不得小於 1%。');
       if (ratio > 0.08 + ZERO_TOLERANCE) addBlocked('longitudinal-ratio-above-scope', 'reinforcement.layers', '本核心排除耐震設計；非耐震 RC 柱縱向主筋比不得大於 8%。');
+    }
+
+    const biaxialRequested = muy != null && Math.abs(muy) > ZERO_TOLERANCE;
+    const bars = Array.isArray(reinforcement.bars) ? reinforcement.bars : [];
+    if (biaxialRequested && positive(steel.zyCm3) == null) {
+      addBlocked('biaxial-steel-zy-required', 'steel.zyCm3', '雙向彎矩需要鋼骨弱軸塑性斷面模數 Zy。');
+    }
+    if (biaxialRequested && bars.length < 4) {
+      addBlocked('biaxial-bars-required', 'reinforcement.bars', '雙向 RC 互制至少需要 4 支具 x、y 座標的主筋。');
+    }
+    bars.forEach((bar, index) => {
+      const x = finite(bar?.xCm);
+      const y = finite(bar?.yCm);
+      const area = positive(bar?.areaCm2);
+      if (x == null || !width || x <= 0 || x >= width) addBlocked('invalid-biaxial-bar-x', `reinforcement.bars[${index}].xCm`, '主筋 x 座標必須位於斷面內。');
+      if (y == null || !depth || y <= 0 || y >= depth) addBlocked('invalid-biaxial-bar-y', `reinforcement.bars[${index}].yCm`, '主筋 y 座標必須位於斷面內。');
+      if (area == null) addBlocked('invalid-biaxial-bar-area', `reinforcement.bars[${index}].areaCm2`, '主筋面積必須大於 0。');
+    });
+    if (biaxialRequested && width && depth && bars.length >= 4) {
+      const tolerance = 1e-7;
+      const hasBar = (x, y, area) => bars.some(bar => Math.abs(Number(bar.xCm) - x) <= tolerance
+        && Math.abs(Number(bar.yCm) - y) <= tolerance
+        && Math.abs(Number(bar.areaCm2) - area) <= tolerance);
+      const symmetric = bars.every(bar => {
+        const x = Number(bar.xCm);
+        const y = Number(bar.yCm);
+        const area = Number(bar.areaCm2);
+        return hasBar(width - x, y, area) && hasBar(x, depth - y, area) && hasBar(width - x, depth - y, area);
+      });
+      if (!symmetric) addBlocked('biaxial-bars-not-doubly-symmetric', 'reinforcement.bars', '目前雙軸核心只接受關於 x、y 軸皆對稱的主筋配置。');
+
+      const layerAreas = new Map();
+      layers.forEach(layer => layerAreas.set(Number(layer.yCm).toFixed(7), (layerAreas.get(Number(layer.yCm).toFixed(7)) || 0) + Number(layer.areaCm2)));
+      const barAreas = new Map();
+      bars.forEach(bar => barAreas.set(Number(bar.yCm).toFixed(7), (barAreas.get(Number(bar.yCm).toFixed(7)) || 0) + Number(bar.areaCm2)));
+      const layerKeys = [...layerAreas.keys()].sort();
+      const barKeys = [...barAreas.keys()].sort();
+      const consistent = layerKeys.length === barKeys.length && layerKeys.every((key, index) => key === barKeys[index]
+        && Math.abs(layerAreas.get(key) - barAreas.get(key)) <= tolerance);
+      if (!consistent) addBlocked('biaxial-bars-layers-conflict', 'reinforcement', '主筋 bars 的 y 向彙總必須與既有 layers 完全一致。');
     }
 
     if (detailing.mainBarsContinuous !== true) addBlocked('main-bars-not-continuous', 'detailing.mainBarsContinuous', '未連續通過柱接頭或未適當錨定的主筋不得計入 RC 彎矩強度。');
@@ -353,14 +397,16 @@
     };
   }
 
-  function steelInteraction(puTf, muxTfM, pnsTf, mnxTfM) {
+  function steelInteraction(puTf, muxTfM, muyTfM, pnsTf, mnxTfM, mnyTfM) {
     const axialRatio = puTf / (PHI.steelCompression * pnsTf);
-    const momentRatio = Math.abs(muxTfM) / (PHI.steelFlexure * mnxTfM);
+    const momentRatioX = Math.abs(muxTfM) / (PHI.steelFlexure * mnxTfM);
+    const momentRatioY = Math.abs(muyTfM) / (PHI.steelFlexure * mnyTfM);
+    const momentRatio = momentRatioX + momentRatioY;
     const branch = axialRatio < 0.2 ? 'low-axial' : 'high-axial';
     const utilization = branch === 'low-axial'
       ? axialRatio / 2 + momentRatio
       : axialRatio + (8 / 9) * momentRatio;
-    return { branch, axialRatio, momentRatio, utilization, ok: utilization <= 1 + ZERO_TOLERANCE };
+    return { branch, axialRatio, momentRatioX, momentRatioY, momentRatio, utilization, ok: utilization <= 1 + ZERO_TOLERANCE };
   }
 
   function calculate(input) {
@@ -388,26 +434,34 @@
       / (es * Number(steel.areaCm2) + 0.55 * ec * grossAreaCm2);
     const momentSteelRatioX = es * Number(steel.ixCm4)
       / (es * Number(steel.ixCm4) + 0.35 * ec * grossIxCm4);
+    const momentSteelRatioY = es * Number(steel.iyCm4)
+      / (es * Number(steel.iyCm4) + 0.35 * ec * grossIyCm4);
     const puTf = Number(demands.puTf);
     const muxTfM = Math.abs(Number(demands.muxTfM));
+    const muyTfM = Math.abs(Number(demands.muyTfM || 0));
     const initialSteelDemands = {
       puTf: puTf * axialSteelRatio,
       muxTfM: muxTfM * momentSteelRatioX,
+      muyTfM: muyTfM * momentSteelRatioY,
     };
     const initialRcDemands = {
       puTf: puTf - initialSteelDemands.puTf,
       muxTfM: muxTfM - initialSteelDemands.muxTfM,
+      muyTfM: muyTfM - initialSteelDemands.muyTfM,
     };
 
     const compressionX = steelCompressionAxis(resolvedInput, 'x');
     const compressionY = steelCompressionAxis(resolvedInput, 'y');
     const compressionControl = compressionX.nominalCompressionTf <= compressionY.nominalCompressionTf ? compressionX : compressionY;
     const mnxTfM = Number(steel.zxCm3) * Number(steel.fysKgfCm2) / 100000;
+    const mnyTfM = Number(steel.zyCm3 || 0) * Number(steel.fysKgfCm2) / 100000;
     const initialInteraction = steelInteraction(
       initialSteelDemands.puTf,
       initialSteelDemands.muxTfM,
+      initialSteelDemands.muyTfM,
       compressionControl.nominalCompressionTf,
-      mnxTfM
+      mnxTfM,
+      muyTfM > ZERO_TOLERANCE ? mnyTfM : Infinity
     );
 
     let finalSteelDemands = { ...initialSteelDemands };
@@ -418,12 +472,14 @@
       finalSteelDemands = {
         puTf: initialSteelDemands.puTf / beta,
         muxTfM: initialSteelDemands.muxTfM / beta,
+        muyTfM: initialSteelDemands.muyTfM / beta,
       };
       finalRcDemands = {
         puTf: puTf - finalSteelDemands.puTf,
         muxTfM: muxTfM - finalSteelDemands.muxTfM,
+        muyTfM: muyTfM - finalSteelDemands.muyTfM,
       };
-      if (finalRcDemands.puTf < -ZERO_TOLERANCE || finalRcDemands.muxTfM < -ZERO_TOLERANCE) {
+      if (finalRcDemands.puTf < -ZERO_TOLERANCE || finalRcDemands.muxTfM < -ZERO_TOLERANCE || finalRcDemands.muyTfM < -ZERO_TOLERANCE) {
         throw new SrcColumnInputError([
           issue('redistribution-invalid-residual', 'detailing.redistributeToSteelBoundary', '式 (7.3-9)~(7.3-10) 重新分配後的 RC 殘餘需求不得變成反向負值。'),
         ]);
@@ -433,8 +489,10 @@
     const finalSteelInteraction = steelInteraction(
       finalSteelDemands.puTf,
       finalSteelDemands.muxTfM,
+      finalSteelDemands.muyTfM,
       compressionControl.nominalCompressionTf,
-      mnxTfM
+      mnxTfM,
+      muyTfM > ZERO_TOLERANCE ? mnyTfM : Infinity
     );
 
     const rcSection = {
@@ -454,7 +512,21 @@
       cMaxFactor: 20,
       cMinFactor: 0.0001,
     });
-    const rcInteraction = PMSection.checkDemand(rcCurve.design, finalRcDemands.puTf, finalRcDemands.muxTfM);
+    const biaxialRequested = muyTfM > ZERO_TOLERANCE;
+    if (biaxialRequested && (!RcBiaxial || typeof RcBiaxial.checkDemand !== 'function')) {
+      throw new Error('SrcColumnRcBiaxial dependency is required for SRC column biaxial RC interaction checks.');
+    }
+    const rcInteraction = biaxialRequested
+      ? RcBiaxial.checkDemand({
+        widthCm: width,
+        depthCm: depth,
+        bars: reinforcement.bars.map(bar => ({ xCm: Number(bar.xCm), yCm: Number(bar.yCm), areaCm2: Number(bar.areaCm2) })),
+      }, {
+        fcKgfCm2: Number(concrete.fcKgfCm2),
+        fyKgfCm2: Number(reinforcement.fyKgfCm2),
+        esKgfCm2: positive(reinforcement.esKgfCm2) || DEFAULT_ES_KGF_CM2,
+      }, finalRcDemands)
+      : PMSection.checkDemand(rcCurve.design, finalRcDemands.puTf, finalRcDemands.muxTfM);
     const engineeringChecksOk = compactness.ok && finalSteelInteraction.ok && rcInteraction.ok;
 
     return {
@@ -489,6 +561,8 @@
         axialRcRatio: 1 - axialSteelRatio,
         momentSteelRatioX,
         momentRcRatioX: 1 - momentSteelRatioX,
+        momentSteelRatioY,
+        momentRcRatioY: 1 - momentSteelRatioY,
         initialSteelDemands,
         initialRcDemands,
       },
@@ -498,6 +572,7 @@
         compressionControlAxis: compressionControl.axis,
         nominalCompressionTf: compressionControl.nominalCompressionTf,
         nominalMomentXTfM: mnxTfM,
+        nominalMomentYTfM: mnyTfM,
         initialInteraction,
         finalInteraction: finalSteelInteraction,
       },
@@ -510,13 +585,20 @@
       },
       rc: {
         demand: finalRcDemands,
-        phiMnTfM: rcInteraction.phiMn,
-        utilization: rcInteraction.util,
+        method: biaxialRequested ? rcInteraction.method : 'shared-uniaxial-pmsection',
+        biaxial: biaxialRequested,
+        phiMnTfM: biaxialRequested ? rcInteraction.capacityTfM : rcInteraction.phiMn,
+        capacityMuxTfM: biaxialRequested ? rcInteraction.capacityMuxTfM : rcInteraction.phiMn,
+        capacityMuyTfM: biaxialRequested ? rcInteraction.capacityMuyTfM : 0,
+        utilization: biaxialRequested ? rcInteraction.utilization : rcInteraction.util,
         axialOk: rcInteraction.axialOk,
         ok: rcInteraction.ok,
-        phiPnMaxTf: rcCurve.phiPnMax,
-        nominalPoTf: rcCurve.Po,
-        designCurve: rcCurve.design,
+        phiPnMaxTf: biaxialRequested ? rcInteraction.phiPnMaxTf : rcCurve.phiPnMax,
+        nominalPoTf: biaxialRequested ? rcInteraction.nominalPoTf : rcCurve.Po,
+        designCurve: biaxialRequested ? [] : rcCurve.design,
+        biaxialSurface: biaxialRequested ? rcInteraction.surface : [],
+        biaxialHull: biaxialRequested ? rcInteraction.hull : [],
+        angleSteps: biaxialRequested ? rcInteraction.angleSteps : 0,
       },
       checks: {
         flangeCompactness: compactness.flangeOk,
