@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "tool": "src-column-research-core",
+  "coreVersion": "src-column.core.v0.1.0-research",
+  "regulation": {
+    "title": "鋼骨鋼筋混凝土構造設計規範與解說",
+    "versionLabel": "100 年修正版（100 年 7 月 1 日施行）",
+    "officialPage": "https://www.nlma.gov.tw/ch/legislation/regsearch/977",
+    "chapter6Url": "https://www.nlma.gov.tw/uploads/files/c0ec0fcd843b9fc64ed10865c5f03741.pdf",
+    "chapter7Url": "https://www.nlma.gov.tw/uploads/files/de33d9841890f8f82630e6bb88f3acd2.pdf",
+    "officialGuidePage": "https://www.abri.gov.tw/News_Content_Table.aspx?n=807&s=38030",
+    "draftBoundary": "2024 年內政部建築研究所成果為修正草案，本核心不將草案當作現行法規。"
+  },
+  "scope": {
+    "included": [
+      "完全包覆型矩形 SRC 柱",
+      "置中雙對稱 H 型鋼骨",
+      "軸壓與 x 向單向彎矩",
+      "鋼骨與 RC 部分剛度分配",
+      "鋼骨壓彎互制",
+      "規範容許的軸力與彎矩重新分配",
+      "RC 部分依現行混凝土規範應變相容 P-M 檢核",
+      "專案分析已納入 P-Δ 效應的需求值"
+    ],
+    "excluded": [
+      "雙向彎矩與軸拉",
+      "鋼骨寬厚比自動重算",
+      "柱剪力",
+      "第 9 章耐震設計",
+      "梁柱接頭、續接與柱腳",
+      "施工階段強度與穩定",
+      "填充型與十字、T 型鋼骨"
+    ]
+  },
+  "release": {
+    "status": "research-core-not-public",
+    "publicRoute": false,
+    "homepageEntry": false,
+    "formalAttachment": false,
+    "boundary": "本階段只供公式、例題與失敗封閉審查；尚未建立 HTML 操作頁或正式計算書。"
+  },
+  "generalRequirements": [
+    {
+      "clause": "6.3.1",
+      "check": "鋼骨斷面積不得少於構材全斷面積之 2%；不足時應按混凝土結構設計。",
+      "implementation": "validateInput.steel-ratio-below-src-scope"
+    },
+    {
+      "clause": "6.3.2 及現行混凝土結構設計規範",
+      "check": "非耐震橫箍筋柱 RC 部分的縱向主筋比限 1%~8%；耐震設計在本核心失敗封閉。",
+      "implementation": "validateInput.longitudinal-ratio"
+    }
+  ],
+  "equations": [
+    {
+      "id": "src-6.4-2-5",
+      "clause": "6.4.2 / 式 (6.4-2)~(6.4-5)",
+      "expression": "reff = rs + alpha sqrt(Ig/Ag); lambda_c = KL/(pi reff) sqrt(Fys/Es); Pns uses exp(-0.419 lambda_c^2) or 0.877/lambda_c^2",
+      "implementation": "steelCompressionAxis"
+    },
+    {
+      "id": "src-7.3-3-6",
+      "clause": "7.3.1 / 式 (7.3-3)~(7.3-6)",
+      "expression": "steel and RC demand allocation by EsAs : 0.55EcAc and EsIs : 0.35EcIg",
+      "implementation": "calculate.allocation"
+    },
+    {
+      "id": "src-7.3-7-8",
+      "clause": "7.3.2 / 式 (7.3-7)~(7.3-8)",
+      "expression": "steel axial-flexural interaction with the 0.2 phi Pns branch",
+      "implementation": "steelInteraction"
+    },
+    {
+      "id": "src-7.3-9-10",
+      "clause": "7.3.2 / 式 (7.3-9)~(7.3-10)",
+      "expression": "Pus_bar = Pus/beta; Purc_bar = Pu-Pus_bar; Mus_bar = Mus/beta; Murc_bar = Mu-Mus_bar",
+      "implementation": "calculate.redistribution"
+    },
+    {
+      "id": "rc-pm-current",
+      "clause": "現行混凝土結構設計規範應變相容與強度折減",
+      "expression": "Whitney stress block, strain compatibility, steel stress truncation, and phi transition",
+      "implementation": "鋼筋混凝土/shared/pmsection.js"
+    }
+  ],
+  "goldenCases": [
+    {
+      "id": "MOI-SRC-GUIDE-COLUMN-EXAMPLE-8",
+      "source": "內政部建築研究所《鋼骨鋼筋混凝土(SRC)構造設計教材》例題 8",
+      "sourceUrl": "https://www.abri.gov.tw/News_Content_Table.aspx?n=807&s=38030",
+      "case": "65 x 80 cm 包覆 H500x304x15x24 SRC 柱，Pu=734.0 tf，Mux=128.9 tf-m",
+      "sourceArithmeticNote": "教材第 3/8 頁列 Mus=57.1 tf-m，但第 5/8 頁代入式 (7.3-10) 時改用 56.7 tf-m；本核心以輸入與式 (7.3-4) 重算 57.1 tf-m，不靜默沿用不一致數字。",
+      "expected": {
+        "axialSteelRatio": 0.379,
+        "momentSteelRatioX": 0.443,
+        "pnsXTf": 729.0,
+        "pnsYTf": 656.1,
+        "mnxTfM": 149.5,
+        "steelInteractionBeta": 0.876,
+        "redistributedRcPuTf": 416.4,
+        "redistributedRcMuxTfM": 64.2,
+        "guideChartPhiMnTfM": 126.5
+      }
+    }
+  ]
+}
