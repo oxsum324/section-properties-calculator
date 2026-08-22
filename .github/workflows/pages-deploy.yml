@@ -326,20 +326,27 @@ jobs:
             --json databaseId \
             --jq '.[].databaseId' | while read -r run_id; do
               [[ -n "$run_id" && "$run_id" != "$GITHUB_RUN_ID" ]] || continue
-              artifact_names=$(gh api --paginate "repos/$GH_REPO/actions/runs/$run_id/artifacts" --jq '.artifacts[] | select(.expired == false) | .name')
-              build_count=$(grep -cx 'pages-ci-evidence-build' <<<"$artifact_names" || true)
-              live_count=$(grep -cx 'pages-ci-evidence-live-smoke' <<<"$artifact_names" || true)
+              artifacts=$(gh api "repos/$GH_REPO/actions/runs/$run_id/artifacts?per_page=100")
+              build_count=$(jq '[.artifacts[] | select(.expired == false and .name == "pages-ci-evidence-build")] | length' <<<"$artifacts")
+              live_count=$(jq '[.artifacts[] | select(.expired == false and .name == "pages-ci-evidence-live-smoke")] | length' <<<"$artifacts")
               if [[ "$build_count" -eq 0 && "$live_count" -eq 0 ]]; then
                 continue
               fi
-              if [[ "$build_count" -ne 1 || "$live_count" -ne 1 ]]; then
-                echo "Run $run_id has incomplete or duplicate Pages CI evidence artifacts." >&2
-                exit 1
+              if [[ "$build_count" -eq 0 || "$live_count" -eq 0 ]]; then
+                echo "::warning title=Pages CI historical evidence excluded::Run $run_id has an incomplete build/live evidence pair and is excluded from the trend."
+                continue
               fi
+              if [[ "$build_count" -gt 1 || "$live_count" -gt 1 ]]; then
+                echo "::warning title=Pages CI historical evidence deduplicated::Run $run_id has rerun artifacts; the newest build and live receipts are selected."
+              fi
+              build_id=$(jq -r '[.artifacts[] | select(.expired == false and .name == "pages-ci-evidence-build")] | sort_by(.created_at, .id) | last | .id' <<<"$artifacts")
+              live_id=$(jq -r '[.artifacts[] | select(.expired == false and .name == "pages-ci-evidence-live-smoke")] | sort_by(.created_at, .id) | last | .id' <<<"$artifacts")
               run_root="$RUNNER_TEMP/pages-ci-trend-input/$run_id"
               mkdir -p "$run_root"
-              gh run download "$run_id" -n pages-ci-evidence-build -D "$run_root"
-              gh run download "$run_id" -n pages-ci-evidence-live-smoke -D "$run_root"
+              gh api "repos/$GH_REPO/actions/artifacts/$build_id/zip" > "$RUNNER_TEMP/pages-ci-build-$run_id.zip"
+              unzip -q "$RUNNER_TEMP/pages-ci-build-$run_id.zip" -d "$run_root"
+              gh api "repos/$GH_REPO/actions/artifacts/$live_id/zip" > "$RUNNER_TEMP/pages-ci-live-$run_id.zip"
+              unzip -q "$RUNNER_TEMP/pages-ci-live-$run_id.zip" -d "$run_root"
             done
 
       - name: Prepare Pages CI performance trend
