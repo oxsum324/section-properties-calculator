@@ -9,7 +9,7 @@ const Oracle = require('./core/src-column-oracle.js');
 function example8() {
   const barAreaCm2 = 5.07;
   return {
-    schema: 'src-column.input.v4',
+    schema: 'src-column.input.v5',
     demands: { puTf: 734.0, muxTfM: 128.9, muyTfM: 0 },
     concrete: { widthCm: 65, depthCm: 80, fcKgfCm2: 280 },
     reinforcement: {
@@ -74,7 +74,7 @@ function compare(production, oracle, paths, tolerance) {
   });
 }
 
-assert.equal(Oracle.ORACLE_VERSION, 'src-column.oracle.v0.3.0-research', 'independent oracle is explicitly versioned');
+assert.equal(Oracle.ORACLE_VERSION, 'src-column.oracle.v0.4.0-research', 'independent oracle is explicitly versioned');
 assert.equal(Oracle.SUPPORTED_SCHEMA, Production.INPUT_SCHEMA, 'oracle and production accept the same research input schema');
 const oracleSource = fs.readFileSync(path.join(__dirname, 'core', 'src-column-oracle.js'), 'utf8');
 assert.equal(oracleSource.includes('require('), false, 'oracle imports neither the production core nor shared PMSection');
@@ -168,6 +168,67 @@ assert.ok(Math.abs(biaxialProduction.rc.utilization - biaxialOracle.rc.utilizati
 assert.ok(Math.abs(biaxialProduction.rc.capacityMuxTfM - biaxialOracle.rc.capacityMuxTfM) <= 0.01, 'independent strip oracle agrees with the Mux capacity component within 0.01 tf-m');
 assert.ok(Math.abs(biaxialProduction.rc.capacityMuyTfM - biaxialOracle.rc.capacityMuyTfM) <= 0.01, 'independent strip oracle agrees with the Muy capacity component within 0.01 tf-m');
 
+const shearOracleInput = example8();
+shearOracleInput.detailing.seismicDesign = true;
+shearOracleInput.detailing.seismicColumnShearSubcheck = true;
+shearOracleInput.steel.fywKgfCm2 = 3500;
+shearOracleInput.shear = {
+  axis: 'x',
+  mctTfM: 120,
+  mcbTfM: 110,
+  clearHeightCm: 300,
+  effectiveDepthCm: 73,
+  avCm2: 2.54,
+  avfCm2: 2.54,
+  spacingCm: 20,
+  fyhKgfCm2: 4200,
+  shearStudContributionTf: 0,
+  projectPlasticHingeMomentsConfirmed: true,
+  normalWeightConcreteConfirmed: true,
+  monolithicInterfaceConfirmed: true,
+  transverseReinforcementPerpendicularConfirmed: true,
+};
+const shearProductionInput = structuredClone(shearOracleInput);
+shearProductionInput.steel = {
+  catalogId: 'rh-500x304x15x24',
+  grade: shearOracleInput.steel.grade,
+  fysKgfCm2: shearOracleInput.steel.fysKgfCm2,
+  fywKgfCm2: shearOracleInput.steel.fywKgfCm2,
+  esKgfCm2: shearOracleInput.steel.esKgfCm2,
+};
+const shearProduction = Production.calculate(shearProductionInput);
+const shearOracle = Oracle.calculate(shearOracleInput);
+const shearExactPaths = [
+  'shear.demand.shearTf',
+  'shear.probableMoments.steelNominalMomentTfM',
+  'shear.steel.webAreaCm2',
+  'shear.steel.nominalShearTf',
+  'shear.steel.designShearTf',
+  'shear.rc.transverseLimitTf',
+  'shear.rc.transverseTf',
+  'shear.rc.concreteTf',
+  'shear.rc.generalTf',
+  'shear.rc.frictionTransverseTf',
+  'shear.rc.frictionConcreteTf',
+  'shear.rc.frictionTf',
+  'shear.rc.nominalShearTf',
+  'shear.rc.designShearTf',
+];
+assert.deepEqual(compare(shearProduction, shearOracle, shearExactPaths, 1e-10), [], 'independent oracle agrees with the exact shear arithmetic surface');
+const shearTolerancePaths = [
+  'shear.probableMoments.rcProbableMomentTfM',
+  'shear.steel.requiredShearTf',
+  'shear.steel.utilization',
+  'shear.rc.requiredShearTf',
+  'shear.rc.utilization',
+];
+assert.deepEqual(compare(shearProduction, shearOracle, shearTolerancePaths, 0.002), [], 'continuous probable-moment oracle agrees with the discretized production shear allocation');
+assert.equal(shearOracle.shear.method, 'independent-continuous-probable-moment', 'shear oracle independently solves the 1.25 Fyr pure-bending state');
+assert.equal(shearOracle.shear.rc.governingMode, shearProduction.shear.rc.governingMode, 'oracle agrees on the governing RC shear mode');
+assert.equal(shearOracle.shear.ok, shearProduction.shear.ok, 'oracle agrees on the separately allocated shear disposition');
+assert.ok(shearOracle.coverage.covered.includes('seismic-strong-axis-column-shear-subcheck'), 'oracle declares the completed limited shear coverage');
+assert.equal(shearOracle.coverage.uncovered.includes('shear'), false, 'generic shear is replaced by explicit covered and uncovered axes');
+
 const drifted = structuredClone(production);
 drifted.steel.nominalMomentXTfM += 0.01;
 assert.deepEqual(
@@ -181,6 +242,13 @@ assert.deepEqual(
   compare(rcDrifted, oracle, ['rc.phiMnTfM'], 0.05).map(item => item.path),
   ['rc.phiMnTfM'],
   'comparison catches an RC P-M production drift'
+);
+const shearDrifted = structuredClone(shearProduction);
+shearDrifted.shear.steel.nominalShearTf += 0.01;
+assert.deepEqual(
+  compare(shearDrifted, shearOracle, shearExactPaths, 1e-10).map(item => item.path),
+  ['shear.steel.nominalShearTf'],
+  'comparison catches a shear production arithmetic drift'
 );
 
 const grade400 = example8();
@@ -208,4 +276,4 @@ for (const mutate of [
   assert.throws(() => Oracle.calculate(invalid), Oracle.SrcColumnOracleError, 'oracle fails closed outside its declared scope');
 }
 
-console.log(`SRC column independent oracle OK (${comparedPaths.length + rcComparedPaths.length + 6} exact comparisons + 3 biaxial tolerance comparisons + two drift sentinels)`);
+console.log(`SRC column independent oracle OK (${comparedPaths.length + rcComparedPaths.length + 6 + shearExactPaths.length} exact comparisons + ${3 + shearTolerancePaths.length} tolerance comparisons + three drift sentinels)`);

@@ -1,14 +1,16 @@
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "tool": "src-column-research-core",
-  "coreVersion": "src-column.core.v0.5.0-research",
+  "coreVersion": "src-column.core.v0.6.0-research",
   "regulation": {
     "title": "鋼骨鋼筋混凝土構造設計規範與解說",
     "versionLabel": "100 年修正版（100 年 7 月 1 日施行）",
     "officialPage": "https://www.nlma.gov.tw/ch/legislation/regsearch/977",
     "chapter3Url": "https://www.nlma.gov.tw/uploads/files/bb28d35b9a579aa2352ddac6b4cdc35e.pdf",
+    "chapter5Url": "https://www.nlma.gov.tw/uploads/files/1f2700a836544dafdc81c7a1130158c5.pdf",
     "chapter6Url": "https://www.nlma.gov.tw/uploads/files/c0ec0fcd843b9fc64ed10865c5f03741.pdf",
     "chapter7Url": "https://www.nlma.gov.tw/uploads/files/de33d9841890f8f82630e6bb88f3acd2.pdf",
+    "chapter9Url": "https://www.nlma.gov.tw/uploads/files/ac7c3ad5045bd3c895bc12839750325d.pdf",
     "officialGuidePage": "https://www.abri.gov.tw/News_Content_Table.aspx?n=807&s=38030",
     "draftBoundary": "2024 年內政部建築研究所成果為修正草案，本核心不將草案當作現行法規。"
   },
@@ -47,14 +49,17 @@
       "鋼骨壓彎互制",
       "規範容許的軸力與彎矩重新分配",
       "RC 部分依現行混凝土規範應變相容 P-M 檢核；雙軸採定軸力角度掃描與需求射線互制",
+      "第 9.6.2 節強軸單向耐震柱剪力子檢核：柱端可能彎矩推導需求，鋼骨與 RC 依可能彎矩比例分配並分別檢核",
+      "第 5.5.2 節 RC 一般剪力與剪力摩擦兩條路徑取較小值；限常重混凝土、整體澆置、垂直閉合箍筋及剪力釘貢獻為零",
       "專案分析已納入 P-Δ 效應的需求值"
     ],
     "excluded": [
       "軸拉",
       "catalog 以外型鋼之 A、Ix、Iy、Zx 來源自動核對",
       "教材出版後的現行市場供貨與專案材證核對",
-      "柱剪力",
-      "第 9 章耐震設計",
+      "非耐震一般柱剪力（現行 SRC 規範未另列獨立柱剪力條文）",
+      "弱軸柱剪力、非整體澆置或輕質混凝土剪力摩擦、剪力釘貢獻",
+      "第 9 章完整耐震設計，包括強柱弱梁、圍束與其餘第 9.6.3 節細部",
       "梁柱接頭、續接與柱腳",
       "施工階段強度與穩定",
       "填充型與十字、T 型鋼骨"
@@ -75,12 +80,12 @@
     },
     {
       "clause": "6.3.2 及現行混凝土結構設計規範",
-      "check": "非耐震橫箍筋柱 RC 部分的縱向主筋比限 1%~8%；耐震設計在本核心失敗封閉。",
+      "check": "非耐震橫箍筋柱 RC 部分的縱向主筋比限 1%~8%；啟用第 9.6.2 節剪力子檢核時，依第 9.6.3 節改採 3% 上限。",
       "implementation": "validateInput.longitudinal-ratio"
     },
     {
       "clause": "3.4 / 表 3.4-2",
-      "check": "完全包覆 H 型 SRC 柱自動重算翼板 b/tf 與腹板 hc/tw；非耐震範圍以 lambda_p 判定，並另列教材例題採用的 lambda_pd 參考值。",
+      "check": "完全包覆 H 型 SRC 柱自動重算翼板 b/tf 與腹板 hc/tw；非耐震範圍以 lambda_p 判定，啟用第 9.6.2 節剪力子檢核時改以 lambda_pd 判定。",
       "implementation": "calculateCompactness"
     }
   ],
@@ -145,6 +150,24 @@
       "clause": "SRC 7.3.2 與混凝土結構設計規範 21.2.2、22.2.2、22.4.2",
       "expression": "at fixed Purc, rotate the neutral axis, solve strain compatibility continuously, construct the convex Mux-Muy design contour, and intersect it with the demand ray",
       "implementation": "core/src-column-rc-biaxial.js.checkDemand"
+    },
+    {
+      "id": "src-9.6-3-5",
+      "clause": "9.6.2 / 式 (9.6-3)~(9.6-5)，回引式 (9.5-3)",
+      "expression": "Vu=(Mct+Mcb)/hn; Mpr=Mns+Mprc; steel demand=(Mns/Mpr)Vu; RC demand=(Mprc/Mpr)Vu; Mprc uses 1.25Fyr",
+      "implementation": "core/src-column-core.js + core/src-column-shear.js"
+    },
+    {
+      "id": "src-5.5-3",
+      "clause": "5.5.1 / 式 (5.5-3)",
+      "expression": "Vns=0.6FywAw; Aw=tw*d; phi_vs=0.9",
+      "implementation": "core/src-column-shear.js.steelNominalShear"
+    },
+    {
+      "id": "src-5.5-4-13",
+      "clause": "5.5.2 / 式 (5.5-4)~(5.5-13)",
+      "expression": "Vnrc=min(Vnr+Vnc, Vnr_prime+Vnc_prime+Vns_prime); compression modifies Vnc by Purc; current scope fixes mu=0.8, K1=28 and Vns_prime=0",
+      "implementation": "core/src-column-shear.js.rcNominalShear"
     }
   ],
   "goldenCases": [
@@ -175,6 +198,24 @@
         "guideChartPhiMnTfM": 126.5,
         "chartComparisonBoundary": "教材以設計圖表內插；連續應變相容結果與圖表值差約 4%，圖表只作 5% 近似交叉檢查。"
       }
+    },
+    {
+      "id": "MOI-SRC-GUIDE-COLUMN-EXAMPLE-14-SHEAR-ARITHMETIC",
+      "source": "內政部建築研究所《鋼骨鋼筋混凝土(SRC)構造設計教材》例題 14",
+      "sourceUrl": "https://www.abri.gov.tw/News_Content_Table.aspx?n=807&s=38030",
+      "printedPages": "264~266",
+      "authorityBoundary": "教材例題 14 採兩支 H 型鋼組成的十字型鋼骨，超出本核心置中單一 H 型幾何；因此只用來鎖定第 9.6.2 與 5.5 節的獨立剪力算術，不作整體核心斷面 golden case。",
+      "case": "80 x 80 cm SRC 柱，Mct=Mcb=191.9 tf-m，hn=225 cm，Mns=163.7 tf-m，Mprc=104.7 tf-m，Purc=355.5 tf",
+      "expected": {
+        "vuTf": 170.57777777777778,
+        "steelRequiredTf": 104.03719158801127,
+        "rcRequiredTf": 66.54058618976653,
+        "steelNominalShearTf": 134.862,
+        "steelDesignShearTf": 121.3758,
+        "rcConcreteShearTf": 69.07175560232929,
+        "rcFrictionConcreteTf": 97.18968,
+        "roundingBoundary": "教材以一位小數報告 170.6、104.1、66.5、134.9、121.4、69.1、97.2 tf；本測試保留由教材印列輸入重算的未捨入值。"
+      }
     }
   ],
   "verificationCases": [
@@ -192,12 +233,25 @@
         "capacityMuyTfM": 36.13180489461291,
         "productionOracleTolerance": "利用率 1e-5；各方向容量分量 0.01 tf-m。"
       }
+    },
+    {
+      "id": "DERIVED-EXAMPLE-8-SEISMIC-STRONG-AXIS-SHEAR",
+      "authorityBoundary": "這不是教材原載例題；僅沿用例題 8 的已核對單一 H 型斷面與材料，另設 Mct=120、Mcb=110 tf-m、hn=300 cm 及 D13 雙肢箍筋 @20 cm，用於整合與 oracle 回歸，不作規範標準答案。",
+      "case": "65 x 80 cm 包覆 H500x304x15x24 SRC 柱，第 9.6.2 節強軸剪力子檢核",
+      "expected": {
+        "vuTf": 76.66666666666667,
+        "rcProbableMomentTfM": 106.47554095016433,
+        "steelUtilization": 0.31583903435376404,
+        "rcUtilization": 0.41746744896153815,
+        "rcGoverningMode": "shear-friction",
+        "productionOracleTolerance": "RC 可能彎矩與其衍生分配、利用率採 0.002 容許差；其餘剪力算術採 1e-10。"
+      }
     }
   ],
   "oracle": {
     "file": "core/src-column-oracle.js",
-    "version": "src-column.oracle.v0.3.0-research",
-    "independence": "不引用 src-column-core.js、斷面 catalog、共用 PMSection 或正式雙軸模組；測試以官方表格的獨立固定值走另一套算術路徑。正式雙軸核心以精確多邊形裁切求混凝土壓力塊，oracle 改以 320 條數值積分與連續中性軸二分法重算。",
+    "version": "src-column.oracle.v0.4.0-research",
+    "independence": "不引用 src-column-core.js、斷面 catalog、共用 PMSection、正式雙軸模組或正式剪力模組；測試以官方表格的獨立固定值走另一套算術路徑。正式雙軸核心以精確多邊形裁切求混凝土壓力塊，oracle 改以 320 條數值積分；剪力分配所需 Mprc 則以連續中性軸二分法獨立求 1.25Fyr 純彎狀態。",
     "covered": [
       "表 3.4-2 寬厚比",
       "剛度分配",
@@ -206,14 +260,15 @@
       "規範重新分配",
       "RC 應變相容 P-M",
       "鋼骨式 (7.3-7)／(7.3-8) 雙軸壓彎互制",
-      "RC 定軸力 Mux-Muy 互制曲面"
+      "RC 定軸力 Mux-Muy 互制曲面",
+      "第 9.6.2 節強軸柱剪力子檢核、RC 一般剪力與剪力摩擦"
     ],
     "uncovered": [
-      "柱剪力",
-      "耐震設計"
+      "弱軸柱剪力",
+      "完整耐震設計與細部"
     ],
     "test": "src-column-oracle.test.js",
-    "comparisonCount": 46,
-    "approximateComparisonCount": 3
+    "comparisonCount": 60,
+    "approximateComparisonCount": 8
   }
 }

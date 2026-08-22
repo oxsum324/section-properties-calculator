@@ -17,7 +17,7 @@ function clone(value) {
 function officialGuideExample8() {
   const barAreaCm2 = 5.07;
   return {
-    schema: 'src-column.input.v4',
+    schema: 'src-column.input.v5',
     caseName: 'MOI SRC design guide example 8',
     demands: { puTf: 734.0, muxTfM: 128.9, muyTfM: 0 },
     concrete: { widthCm: 65, depthCm: 80, fcKgfCm2: 280 },
@@ -76,11 +76,11 @@ function manualExample8() {
   return input;
 }
 
-assert.equal(Core.CORE_VERSION, 'src-column.core.v0.5.0-research', 'SRC column core is explicitly versioned as research');
-assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v4', 'SRC column core has a versioned input schema');
+assert.equal(Core.CORE_VERSION, 'src-column.core.v0.6.0-research', 'SRC column core is explicitly versioned as research');
+assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v5', 'SRC column core has a versioned input schema');
 assert.equal(Core.RELEASE_STATUS, 'research-core-not-public', 'research core cannot be mistaken for a formal public route');
 assert.equal(Core.REGULATION_PROFILE.id, 'tw-src-2011', 'SRC column core uses the official current profile');
-assert.ok(Core.REGULATION_PROFILE.chapter3Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter6Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter7Url.endsWith('.pdf'), 'official chapter sources remain explicit');
+assert.ok(Core.REGULATION_PROFILE.chapter3Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter5Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter6Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter7Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter9Url.endsWith('.pdf'), 'official chapter sources remain explicit');
 assert.ok(Core.REGULATION_PROFILE.draftBoundary.includes('草案'), 'research draft remains separated from current regulation');
 
 const official = Core.calculate(officialGuideExample8());
@@ -162,6 +162,41 @@ close(biaxial.rc.utilization, 0.722961423183255, 1e-9, 'derived biaxial case RC 
 close(biaxial.rc.capacityMuxTfM, 96.8383719409521, 1e-8, 'derived biaxial case Mux capacity component');
 close(biaxial.rc.capacityMuyTfM, 36.13180489461291, 1e-8, 'derived biaxial case Muy capacity component');
 
+const seismicShearInput = officialGuideExample8();
+seismicShearInput.detailing.seismicDesign = true;
+seismicShearInput.detailing.seismicColumnShearSubcheck = true;
+seismicShearInput.steel.fywKgfCm2 = 3500;
+seismicShearInput.shear = {
+  axis: 'x',
+  mctTfM: 120,
+  mcbTfM: 110,
+  clearHeightCm: 300,
+  effectiveDepthCm: 73,
+  avCm2: 2 * 1.27,
+  avfCm2: 2 * 1.27,
+  spacingCm: 20,
+  fyhKgfCm2: 4200,
+  shearStudContributionTf: 0,
+  projectPlasticHingeMomentsConfirmed: true,
+  normalWeightConcreteConfirmed: true,
+  monolithicInterfaceConfirmed: true,
+  transverseReinforcementPerpendicularConfirmed: true,
+};
+const seismicShear = Core.calculate(seismicShearInput);
+assert.equal(seismicShear.compactness.governingMode, 'seismic-lambda-pd-subcheck', 'seismic shear path governs compactness with lambda-pd');
+assert.equal(seismicShear.compactness.seismicDesignSupported, false, 'a limited shear subcheck never claims complete seismic support');
+assert.equal(seismicShear.compactness.seismicScope, 'column-shear-subcheck-only', 'compactness exposes the limited seismic scope separately');
+assert.equal(seismicShear.shear.mode, 'seismic-strong-axis-subcheck', 'integrated result preserves the limited shear mode');
+close(seismicShear.shear.demand.shearTf, 76.66666666666667, 1e-12, 'derived equation 9.6-5 demand');
+close(seismicShear.shear.probableMoments.rcProbableMomentTfM, 106.47554095016433, 1e-10, 'production recomputes RC probable moment with 1.25 Fyr');
+close(seismicShear.shear.steel.utilization, 0.31583903435376404, 1e-12, 'derived steel shear utilization');
+close(seismicShear.shear.rc.utilization, 0.41746744896153815, 1e-12, 'derived RC shear utilization');
+assert.equal(seismicShear.shear.rc.governingMode, 'shear-friction', 'derived integrated case reports the governing RC failure mode');
+assert.equal(seismicShear.checks.columnShear, true, 'both allocated shear paths pass');
+assert.equal(seismicShear.checks.completeSeismicDesign, false, 'shear subcheck does not claim complete seismic design');
+assert.ok(seismicShear.reviewItems.some(item => item.code === 'seismic-shear-subcheck-only'), 'remaining seismic scope is explicit');
+assert.equal(seismicShear.status, 'REVIEW', 'passing seismic shear remains a non-public review result');
+
 const highDemandInput = officialGuideExample8();
 highDemandInput.demands.muxTfM = 500;
 const highDemand = Core.calculate(highDemandInput);
@@ -194,6 +229,28 @@ const failClosedCases = [
   ['high-strength-material-evidence-missing', input => { input.steel.fysKgfCm2 = 3521; }],
   ['unknown-section-catalog-id', input => { input.steel.catalogId = 'missing'; }],
 ];
+
+const shearFailClosedCases = [
+  ['seismic-shear-mode-required', input => {
+    input.detailing.seismicColumnShearSubcheck = true;
+  }],
+  ['seismic-shear-strong-axis-only', input => {
+    Object.assign(input, clone(seismicShearInput));
+    input.demands.muyTfM = 1;
+  }],
+  ['confirmation-required', input => {
+    Object.assign(input, clone(seismicShearInput));
+    input.shear.projectPlasticHingeMomentsConfirmed = false;
+  }],
+  ['shear-stud-scope-not-implemented', input => {
+    Object.assign(input, clone(seismicShearInput));
+    input.shear.shearStudContributionTf = 1;
+  }],
+  ['effective-depth-outside-section', input => {
+    Object.assign(input, clone(seismicShearInput));
+    input.shear.effectiveDepthCm = 80;
+  }],
+];
 const manualFailClosedCases = [
   ['invalid-h-section-flange-geometry', input => { input.steel.flangeThicknessCm = 25; }],
   ['invalid-h-section-web-geometry', input => { input.steel.webThicknessCm = 30.4; }],
@@ -205,6 +262,7 @@ const manualFailClosedCases = [
 for (const [expectedCode, mutate, makeInput] of [
   ...failClosedCases.map(item => [...item, officialGuideExample8]),
   ...manualFailClosedCases.map(item => [...item, manualExample8]),
+  ...shearFailClosedCases.map(item => [...item, officialGuideExample8]),
 ]) {
   const input = makeInput();
   mutate(input);
@@ -228,7 +286,9 @@ const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
 assert.equal(catalog.coreVersion, Core.CORE_VERSION, 'SRC column traceability follows the research engine version');
 assert.equal(catalog.release.status, Core.RELEASE_STATUS, 'traceability catalog keeps the core non-public');
 assert.equal(catalog.regulation.chapter3Url, Core.REGULATION_PROFILE.chapter3Url, 'catalog and core use the same official chapter 3 source');
+assert.equal(catalog.regulation.chapter5Url, Core.REGULATION_PROFILE.chapter5Url, 'catalog and core use the same official chapter 5 source');
 assert.equal(catalog.regulation.chapter7Url, Core.REGULATION_PROFILE.chapter7Url, 'catalog and core use the same official chapter 7 source');
+assert.equal(catalog.regulation.chapter9Url, Core.REGULATION_PROFILE.chapter9Url, 'catalog and core use the same official chapter 9 source');
 assert.equal(catalog.concreteRegulation.officialPage, 'https://www.nlma.gov.tw/ch/legislation/regsearch/6874', 'catalog identifies the official 112 concrete regulation page');
 assert.equal(catalog.concreteRegulation.officialPdf, 'https://www.nlma.gov.tw/uploads/files/011d9249cac7d6c5547786aa348e352a.pdf', 'catalog locks the reviewed official concrete regulation PDF');
 assert.deepEqual(catalog.concreteRegulation.clauses.map(item => item.clause), ['21.2.2', '22.2.2', '22.2.2.4.1、22.4.2'], 'catalog traces the RC strain, stress block, phi, and axial-cap clauses');
@@ -237,7 +297,7 @@ assert.equal(catalog.sectionCatalog.source.printedPage, official.steelSection.so
 assert.equal(catalog.sectionCatalog.entryCount, 7, 'traceability states the deliberately limited catalog coverage');
 assert.deepEqual(
   catalog.equations.map(item => item.id),
-  ['src-3.4-2', 'src-6.4-2-5', 'src-7.3-3-6', 'src-7.3-7-8', 'src-7.3-9-10', 'rc-pm-current', 'rc-pm-biaxial'],
+  ['src-3.4-2', 'src-6.4-2-5', 'src-7.3-3-6', 'src-7.3-7-8', 'src-7.3-9-10', 'rc-pm-current', 'rc-pm-biaxial', 'src-9.6-3-5', 'src-5.5-3', 'src-5.5-4-13'],
   'catalog covers every implemented equation family'
 );
 assert.equal(catalog.goldenCases[0].id, 'MOI-SRC-GUIDE-COLUMN-EXAMPLE-8', 'official example 8 remains the canonical research golden case');
@@ -249,17 +309,29 @@ close(catalog.goldenCases[0].expected.flangeRatio, official.compactness.flangeRa
 close(catalog.goldenCases[0].expected.webRatio, official.compactness.webRatio, 1e-9, 'catalog preserves the example 8 web compactness benchmark');
 close(catalog.goldenCases[0].expected.flangeSeismicReferenceLimit, official.compactness.flangeSeismicLimit, 1e-9, 'catalog preserves the example 8 flange lambda_pd reference');
 close(catalog.goldenCases[0].expected.webSeismicReferenceLimit, official.compactness.webSeismicLimit, 1e-9, 'catalog preserves the example 8 web lambda_pd reference');
+const shearGolden = catalog.goldenCases.find(item => item.id === 'MOI-SRC-GUIDE-COLUMN-EXAMPLE-14-SHEAR-ARITHMETIC');
+assert.ok(shearGolden.authorityBoundary.includes('十字型鋼骨') && shearGolden.authorityBoundary.includes('算術'), 'official example 14 is limited to its supported arithmetic surface');
+close(shearGolden.expected.vuTf, 170.57777777777778, 1e-12, 'catalog preserves official example 14 demand shear arithmetic');
+close(shearGolden.expected.steelDesignShearTf, 121.3758, 1e-12, 'catalog preserves official example 14 steel design shear');
 assert.ok(catalog.verificationCases[0].authorityBoundary.includes('不是教材原載例題'), 'derived biaxial regression is not misrepresented as an official example');
 close(catalog.verificationCases[0].expected.redistributionBeta, biaxial.redistribution.beta, 1e-12, 'catalog preserves the derived biaxial redistribution benchmark');
 close(catalog.verificationCases[0].expected.rcUtilization, biaxial.rc.utilization, 1e-12, 'catalog preserves the derived biaxial RC utilization benchmark');
 close(catalog.verificationCases[0].expected.capacityMuxTfM, biaxial.rc.capacityMuxTfM, 1e-12, 'catalog preserves the derived biaxial Mux capacity component');
 close(catalog.verificationCases[0].expected.capacityMuyTfM, biaxial.rc.capacityMuyTfM, 1e-12, 'catalog preserves the derived biaxial Muy capacity component');
+const shearVerification = catalog.verificationCases.find(item => item.id === 'DERIVED-EXAMPLE-8-SEISMIC-STRONG-AXIS-SHEAR');
+assert.ok(shearVerification.authorityBoundary.includes('不是教材原載例題'), 'derived shear regression is not misrepresented as an official example');
+close(shearVerification.expected.vuTf, seismicShear.shear.demand.shearTf, 1e-12, 'catalog preserves the derived shear demand');
+close(shearVerification.expected.rcProbableMomentTfM, seismicShear.shear.probableMoments.rcProbableMomentTfM, 1e-12, 'catalog preserves the production probable RC moment');
+close(shearVerification.expected.steelUtilization, seismicShear.shear.steel.utilization, 1e-12, 'catalog preserves the derived steel shear utilization');
+close(shearVerification.expected.rcUtilization, seismicShear.shear.rc.utilization, 1e-12, 'catalog preserves the derived RC shear utilization');
 assert.equal(catalog.oracle.file, 'core/src-column-oracle.js', 'catalog identifies the independent oracle');
-assert.equal(catalog.oracle.comparisonCount, 46, 'catalog states the independently compared exact arithmetic surface');
-assert.equal(catalog.oracle.approximateComparisonCount, 3, 'catalog states the production/oracle biaxial tolerance comparisons');
+assert.equal(catalog.oracle.comparisonCount, 60, 'catalog states the independently compared exact arithmetic surface');
+assert.equal(catalog.oracle.approximateComparisonCount, 8, 'catalog states the production/oracle tolerance comparisons');
 assert.ok(catalog.oracle.covered.includes('RC 應變相容 P-M'), 'catalog declares the completed independent RC P-M coverage');
 assert.equal(catalog.oracle.uncovered.includes('RC 應變相容 P-M'), false, 'catalog no longer lists completed RC P-M work as uncovered');
 assert.ok(catalog.oracle.covered.includes('RC 定軸力 Mux-Muy 互制曲面'), 'catalog declares the completed independent biaxial RC coverage');
+assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.6.2 節強軸柱剪力')), 'catalog declares completed limited shear coverage');
+assert.equal(catalog.oracle.uncovered.includes('柱剪力'), false, 'generic column shear gap is replaced by explicit weak-axis and complete-seismic boundaries');
 
 for (const missingPath of ['depthCm', 'flangeWidthCm', 'flangeThicknessCm', 'webThicknessCm']) {
   const input = manualExample8();
