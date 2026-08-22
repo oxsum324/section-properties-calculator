@@ -8,7 +8,7 @@ const Oracle = require('./core/src-column-oracle.js');
 
 function example8() {
   return {
-    schema: 'src-column.input.v2',
+    schema: 'src-column.input.v3',
     demands: { puTf: 734.0, muxTfM: 128.9, muyTfM: 0 },
     concrete: { widthCm: 65, depthCm: 80, fcKgfCm2: 280 },
     reinforcement: {
@@ -68,7 +68,14 @@ const oracleSource = fs.readFileSync(path.join(__dirname, 'core', 'src-column-or
 assert.equal(oracleSource.includes('require('), false, 'oracle imports neither the production core nor shared PMSection');
 
 const input = example8();
-const production = Production.calculate(input);
+const productionInput = example8();
+productionInput.steel = {
+  catalogId: 'rh-500x304x15x24',
+  grade: productionInput.steel.grade,
+  fysKgfCm2: productionInput.steel.fysKgfCm2,
+  esKgfCm2: productionInput.steel.esKgfCm2,
+};
+const production = Production.calculate(productionInput);
 const oracle = Oracle.calculate(input);
 const comparedPaths = [
   'compactness.flangeRatio',
@@ -106,6 +113,7 @@ assert.deepEqual(compare(production, oracle, comparedPaths, 1e-10), [], 'indepen
 assert.equal(oracle.steel.compressionControlAxis, production.steel.compressionControlAxis, 'independent oracle agrees on the controlling compression axis');
 assert.equal(oracle.compactness.gradeGroup, production.compactness.gradeGroup, 'independent oracle agrees on the table grade group');
 assert.equal(oracle.compactness.ok, production.compactness.ok, 'independent oracle agrees on compactness disposition');
+assert.equal(production.steelSection.source.mode, 'catalog', 'production path resolves the official section from the catalog while the oracle keeps independent source values');
 assert.ok(oracle.coverage.uncovered.includes('rc-strain-compatibility-pm'), 'oracle does not overclaim RC P-M independence');
 
 const drifted = structuredClone(production);

@@ -46,7 +46,7 @@
 
 ## SRC 柱研究核心（尚未公開）
 
-`core/src-column-core.js`、`src-column-core.test.js` 與獨立的 `core/src-column-oracle.js`／`src-column-oracle.test.js` 已建立 SRC 柱第二階段可審查核心，並以內政部建築研究所《鋼骨鋼筋混凝土(SRC)構造設計教材》例題 8 回歸。目前實作包含：
+`core/src-column-core.js`、`core/src-column-h-section-catalog.js`、兩者的回歸測試，以及獨立的 `core/src-column-oracle.js`／`src-column-oracle.test.js` 已建立 SRC 柱第三階段可審查核心，並以內政部建築研究所《鋼骨鋼筋混凝土(SRC)構造設計教材》例題 8 回歸。目前實作包含：
 
 - 第 3.4 節表 3.4-2 翼板 `b/tf` 與腹板 `hc/tw` 自動重算；一般模式以 `λp` 判定，並保留教材例題採用的 `λpd` 參考值。
 - 式 (7.3-3)~(7.3-6) 鋼骨與 RC 部分軸力／彎矩剛度分配。
@@ -54,6 +54,8 @@
 - 式 (7.3-7)~(7.3-8) 鋼骨壓彎互制。
 - 式 (7.3-9)~(7.3-10) 規範容許的鋼骨／RC 軸力與彎矩重新分配。
 - RC 部分使用現行共用應變相容 P-M 核心，不以舊版查圖值取代斷面重算。
+- 第一批斷面 catalog 逐列核對教材附錄（一）表 1-1「RH 型鋼斷面性質（續 4）」印刷頁 289／PDF 第 301 頁，涵蓋完整 H500×300 群組 7 筆；catalog 提供尺寸與 A、Ix、Iy、Zx、Zy，使用者另填的不一致數值會失敗封閉。
+- 未選 catalog 仍可進行研究計算，但固定列出 `section-properties-manual` 複核；catalog 的教材星號只保留出版時的依訂單生產註記，不證明現況供貨，也不取代專案規格與材證。
 - 獨立 oracle 不引用正式核心或共用 P-M 模組，對寬厚比、剛度分配、鋼骨軸壓／互制與重新分配進行 30 項算術交叉比對；RC 應變相容 P-M 尚未納入獨立覆蓋。
 
-此核心固定回報 `research-core-not-public` 與 `REVIEW`，不登錄首頁、不計入正式工具數，也不得輸出正式附件。第二版僅限完全包覆矩形 SRC 柱、置中雙對稱 H 型鋼骨、軸壓加 x 向單向彎矩，並要求專案分析已納入第 7.4 節 P-Δ 效應。型鋼 A、Ix、Iy、Zx 的資料庫來源與幾何反算核對、獨立 RC P-M oracle、雙向彎矩、柱剪力、柱腳／梁柱接頭、施工階段與第 9 章耐震設計尚未完成，都維持失敗封閉或人工複核邊界。完整範圍與公式追溯見 `src-column-traceability.catalog.json`。
+此核心固定回報 `research-core-not-public` 與 `REVIEW`，不登錄首頁、不計入正式工具數，也不得輸出正式附件。第三版僅限完全包覆矩形 SRC 柱、置中雙對稱 H 型鋼骨、軸壓加 x 向單向彎矩，並要求專案分析已納入第 7.4 節 P-Δ 效應。catalog 以外型鋼的 A、Ix、Iy、Zx 來源自動核對、現況供貨與專案材證、獨立 RC P-M oracle、雙向彎矩、柱剪力、柱腳／梁柱接頭、施工階段與第 9 章耐震設計尚未完成，都維持失敗封閉或人工複核邊界。完整範圍與公式追溯見 `src-column-traceability.catalog.json`。

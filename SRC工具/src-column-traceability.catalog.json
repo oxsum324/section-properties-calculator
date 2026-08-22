@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "tool": "src-column-research-core",
-  "coreVersion": "src-column.core.v0.2.0-research",
+  "coreVersion": "src-column.core.v0.3.0-research",
   "regulation": {
     "title": "鋼骨鋼筋混凝土構造設計規範與解說",
     "versionLabel": "100 年修正版（100 年 7 月 1 日施行）",
@@ -17,6 +17,7 @@
       "完全包覆型矩形 SRC 柱",
       "置中雙對稱 H 型鋼骨",
       "軸壓與 x 向單向彎矩",
+      "官方教材附錄 H500x300 系列 7 筆斷面性質 catalog、來源頁碼與輸入衝突阻擋",
       "第 3.4 節表 3.4-2 翼板與腹板寬厚比自動重算",
       "鋼骨與 RC 部分剛度分配",
       "鋼骨壓彎互制",
@@ -26,7 +27,8 @@
     ],
     "excluded": [
       "雙向彎矩與軸拉",
-      "型鋼斷面性質 A、Ix、Iy、Zx 的資料庫來源與幾何反算核對",
+      "catalog 以外型鋼之 A、Ix、Iy、Zx 來源自動核對",
+      "教材出版後的現行市場供貨與專案材證核對",
       "柱剪力",
       "第 9 章耐震設計",
       "梁柱接頭、續接與柱腳",
@@ -58,6 +60,25 @@
       "implementation": "calculateCompactness"
     }
   ],
+  "sectionCatalog": {
+    "file": "core/src-column-h-section-catalog.js",
+    "version": "src-column.h-section-catalog.v0.1.0-research",
+    "source": {
+      "authority": "內政部建築研究所",
+      "document": "鋼骨鋼筋混凝土(SRC)構造設計教材",
+      "appendix": "附錄（一）型鋼斷面性質表",
+      "table": "表 1-1 RH 型鋼斷面性質（續 4）",
+      "printedPage": 289,
+      "pdfPage": 301,
+      "officialPage": "https://www.abri.gov.tw/News_Content_Table.aspx?n=807&s=38030",
+      "verifiedOn": "2026-08-22"
+    },
+    "coveredGroup": "H500x300",
+    "entryCount": 7,
+    "inputMode": "steel.catalogId 由 catalog 提供尺寸與 A、Ix、Iy、Zx、Zy；同時提供但不一致的欄位一律阻擋。",
+    "manualBoundary": "未提供 catalogId 時仍可研究計算，但固定列出 section-properties-manual 複核項目。",
+    "availabilityBoundary": "星號依教材註記表示出版時依訂單生產，不代表目前可供貨；正式材料仍須核對專案規格與材證。"
+  },
   "equations": [
     {
       "id": "src-3.4-2",
@@ -101,6 +122,7 @@
       "id": "MOI-SRC-GUIDE-COLUMN-EXAMPLE-8",
       "source": "內政部建築研究所《鋼骨鋼筋混凝土(SRC)構造設計教材》例題 8",
       "sourceUrl": "https://www.abri.gov.tw/News_Content_Table.aspx?n=807&s=38030",
+      "sectionCatalogId": "rh-500x304x15x24",
       "case": "65 x 80 cm 包覆 H500x304x15x24 SRC 柱，Pu=734.0 tf，Mux=128.9 tf-m",
       "sourceArithmeticNote": "教材第 3/8 頁列 Mus=57.1 tf-m，但第 5/8 頁代入式 (7.3-10) 時改用 56.7 tf-m；本核心以輸入與式 (7.3-4) 重算 57.1 tf-m，不靜默沿用不一致數字。",
       "expected": {
@@ -125,7 +147,7 @@
   "oracle": {
     "file": "core/src-column-oracle.js",
     "version": "src-column.oracle.v0.1.0-research",
-    "independence": "不引用 src-column-core.js 或共用 PMSection；以獨立算術路徑重算已涵蓋項目。",
+    "independence": "不引用 src-column-core.js、斷面 catalog 或共用 PMSection；測試以官方表格的獨立固定值走另一套算術路徑重算已涵蓋項目。",
     "covered": [
       "表 3.4-2 寬厚比",
       "剛度分配",

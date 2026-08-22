@@ -11,7 +11,7 @@
 'use strict';
 
 const ORACLE_VERSION = 'src-column.oracle.v0.1.0-research';
-const SUPPORTED_SCHEMA = 'src-column.input.v2';
+const SUPPORTED_SCHEMA = 'src-column.input.v3';
 const PHI_COMPRESSION = 0.85;
 const PHI_FLEXURE = 0.9;
 const DEFAULT_ES_KGF_CM2 = 2_040_000;

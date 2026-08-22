@@ -16,14 +16,17 @@
   const pmSection = typeof module === 'object' && module.exports
     ? require('../../鋼筋混凝土/shared/pmsection.js')
     : globalObject && globalObject.PMSection;
-  const api = factory(pmSection);
+  const hSectionCatalog = typeof module === 'object' && module.exports
+    ? require('./src-column-h-section-catalog.js')
+    : globalObject && globalObject.SrcColumnHSectionCatalog;
+  const api = factory(pmSection, hSectionCatalog);
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (globalObject) globalObject.SrcColumnCore = api;
-})(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnCore(PMSection) {
+})(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnCore(PMSection, HSectionCatalog) {
   'use strict';
 
-  const CORE_VERSION = 'src-column.core.v0.2.0-research';
-  const INPUT_SCHEMA = 'src-column.input.v2';
+  const CORE_VERSION = 'src-column.core.v0.3.0-research';
+  const INPUT_SCHEMA = 'src-column.input.v3';
   const RELEASE_STATUS = 'research-core-not-public';
   const REGULATION_PROFILE = Object.freeze({
     id: 'tw-src-2011',
@@ -78,6 +81,74 @@
     return null;
   }
 
+  function normalizedShapeName(value) {
+    return String(value || '').toLowerCase().replace(/[×*x]/g, 'x').replace(/\s+/g, '');
+  }
+
+  function resolveSteelSection(input) {
+    const supplied = input?.steel || {};
+    const catalogId = String(supplied.catalogId || '').trim().toLowerCase();
+    if (!catalogId) {
+      return {
+        steel: { ...supplied },
+        source: Object.freeze({ mode: 'manual', catalogId: null, catalogVersion: null }),
+      };
+    }
+    if (!HSectionCatalog || typeof HSectionCatalog.getSection !== 'function') {
+      throw new SrcColumnInputError([
+        issue('section-catalog-unavailable', 'steel.catalogId', 'SRC 柱斷面 catalog 未載入，不得以 catalogId 計算。'),
+      ]);
+    }
+    const item = HSectionCatalog.getSection(catalogId);
+    if (!item) {
+      throw new SrcColumnInputError([
+        issue('unknown-section-catalog-id', 'steel.catalogId', `SRC 柱斷面 catalog 找不到 ${catalogId}。`),
+      ]);
+    }
+    const canonical = {
+      shape: item.name,
+      depthCm: item.dimensions.depthCm,
+      flangeWidthCm: item.dimensions.flangeWidthCm,
+      flangeThicknessCm: item.dimensions.flangeThicknessCm,
+      webThicknessCm: item.dimensions.webThicknessCm,
+      rootRadiusCm: item.dimensions.rootRadiusCm,
+      areaCm2: item.properties.areaCm2,
+      ixCm4: item.properties.ixCm4,
+      iyCm4: item.properties.iyCm4,
+      zxCm3: item.properties.zxCm3,
+      zyCm3: item.properties.zyCm3,
+    };
+    const conflicts = [];
+    for (const [field, expected] of Object.entries(canonical)) {
+      if (supplied[field] == null || supplied[field] === '') continue;
+      const agrees = field === 'shape'
+        ? normalizedShapeName(supplied[field]) === normalizedShapeName(expected)
+        : Number.isFinite(Number(supplied[field]))
+          && Math.abs(Number(supplied[field]) - expected) <= Math.max(1e-8, Math.abs(expected) * 1e-8);
+      if (!agrees) {
+        conflicts.push(issue('catalog-section-conflict', `steel.${field}`, `${field} 與 catalog ${catalogId} 的已驗證值不一致。`));
+      }
+    }
+    if (conflicts.length) throw new SrcColumnInputError(conflicts);
+    return {
+      steel: { ...supplied, ...canonical, catalogId: item.id },
+      source: Object.freeze({
+        mode: 'catalog',
+        catalogId: item.id,
+        catalogVersion: HSectionCatalog.CATALOG_VERSION,
+        name: item.name,
+        authority: item.source.authority,
+        officialPage: item.source.officialPage,
+        table: item.source.table,
+        printedPage: item.source.printedPage,
+        pdfPage: item.source.pdfPage,
+        verifiedOn: item.source.verifiedOn,
+        orderProducedAtPublication: item.orderProducedAtPublication,
+        availabilityBoundary: item.source.availabilityBoundary,
+      }),
+    };
+  }
+
   function validateInput(input) {
     const blocked = [];
     const review = [];
@@ -85,7 +156,6 @@
     const addReview = (code, path, message) => review.push(issue(code, path, message, 'review'));
     const concrete = input?.concrete || {};
     const reinforcement = input?.reinforcement || {};
-    const steel = input?.steel || {};
     const member = input?.member || {};
     const demands = input?.demands || {};
     const detailing = input?.detailing || {};
@@ -93,6 +163,16 @@
     if (input?.schema !== INPUT_SCHEMA) {
       addBlocked('unsupported-input-schema', 'schema', `僅接受 ${INPUT_SCHEMA}，未知 schema 不得直接計算。`);
     }
+
+    let steelResolution;
+    try {
+      steelResolution = resolveSteelSection(input);
+    } catch (error) {
+      if (error instanceof SrcColumnInputError) blocked.push(...error.issues);
+      else throw error;
+      return { blocked, review, resolvedSteel: input?.steel || {}, sectionSource: null };
+    }
+    const steel = steelResolution.steel;
 
     [
       ['concrete.widthCm', concrete.widthCm],
@@ -192,10 +272,12 @@
     if (detailing.mainBarsContinuous !== true) addBlocked('main-bars-not-continuous', 'detailing.mainBarsContinuous', '未連續通過柱接頭或未適當錨定的主筋不得計入 RC 彎矩強度。');
 
     addReview('research-core-not-public', 'tool', 'SRC 柱目前只建立可審查核心，尚未登錄為公開或正式工具。');
-    addReview('section-properties-not-derived', 'steel', 'A、Ix、Iy、Zx 仍採輸入或斷面表數值；尚未以型鋼資料庫與來源版次自動核對。');
+    if (steelResolution.source.mode === 'manual') {
+      addReview('section-properties-manual', 'steel', '本案 A、Ix、Iy、Zx 採人工輸入，未由具頁碼與版次的 SRC 柱斷面 catalog 鎖定。');
+    }
     addReview('excluded-strength-paths', 'detailing', '柱剪力、柱腳、梁柱接頭、施工階段與耐震細節仍須另案檢核。');
 
-    return { blocked, review };
+    return { blocked, review, resolvedSteel: steel, sectionSource: steelResolution.source };
   }
 
   function elasticModulusConcrete(fcKgfCm2) {
@@ -203,7 +285,7 @@
   }
 
   function calculateCompactness(input) {
-    const steel = input.steel || {};
+    const steel = resolveSteelSection(input).steel;
     const gradeGroup = steelGradeGroup(steel.grade);
     if (!gradeGroup) {
       throw new SrcColumnInputError([
@@ -238,7 +320,7 @@
   }
 
   function steelCompressionAxis(input, axis) {
-    const steel = input.steel;
+    const steel = resolveSteelSection(input).steel;
     const concrete = input.concrete;
     const member = input.member;
     const area = Number(steel.areaCm2);
@@ -290,10 +372,11 @@
 
     const concrete = input.concrete;
     const reinforcement = input.reinforcement;
-    const steel = input.steel;
+    const steel = validation.resolvedSteel;
     const demands = input.demands;
     const detailing = input.detailing;
-    const compactness = calculateCompactness(input);
+    const resolvedInput = { ...input, steel };
+    const compactness = calculateCompactness(resolvedInput);
     const width = Number(concrete.widthCm);
     const depth = Number(concrete.depthCm);
     const grossAreaCm2 = width * depth;
@@ -316,8 +399,8 @@
       muxTfM: muxTfM - initialSteelDemands.muxTfM,
     };
 
-    const compressionX = steelCompressionAxis(input, 'x');
-    const compressionY = steelCompressionAxis(input, 'y');
+    const compressionX = steelCompressionAxis(resolvedInput, 'x');
+    const compressionY = steelCompressionAxis(resolvedInput, 'y');
     const compressionControl = compressionX.nominalCompressionTf <= compressionY.nominalCompressionTf ? compressionX : compressionY;
     const mnxTfM = Number(steel.zxCm3) * Number(steel.fysKgfCm2) / 100000;
     const initialInteraction = steelInteraction(
@@ -382,6 +465,24 @@
       status: engineeringChecksOk ? 'REVIEW' : 'NG',
       reviewItems: validation.review,
       section: { grossAreaCm2, grossIxCm4, grossIyCm4, ecKgfCm2: ec, esKgfCm2: es },
+      steelSection: {
+        source: validation.sectionSource,
+        shape: steel.shape || '',
+        dimensions: {
+          depthCm: Number(steel.depthCm),
+          flangeWidthCm: Number(steel.flangeWidthCm),
+          flangeThicknessCm: Number(steel.flangeThicknessCm),
+          webThicknessCm: Number(steel.webThicknessCm),
+          rootRadiusCm: finite(steel.rootRadiusCm),
+        },
+        properties: {
+          areaCm2: Number(steel.areaCm2),
+          ixCm4: Number(steel.ixCm4),
+          iyCm4: Number(steel.iyCm4),
+          zxCm3: Number(steel.zxCm3),
+          zyCm3: finite(steel.zyCm3),
+        },
+      },
       compactness,
       allocation: {
         axialSteelRatio,
@@ -438,6 +539,7 @@
     SrcColumnInputError,
     elasticModulusConcrete,
     steelGradeGroup,
+    resolveSteelSection,
     calculateCompactness,
     validateInput,
     steelCompressionAxis,
