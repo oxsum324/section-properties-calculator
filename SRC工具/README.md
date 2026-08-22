@@ -46,7 +46,7 @@
 
 ## SRC 柱研究工作頁與核心（尚未公開）
 
-`src-column.html`、`src-column.js`、`src-column.css` 已建立第一個私有 SRC 柱研究工作頁，連接 `core/src-column-core.js`、型鋼 catalog、第 9.3 節耐震軸向強度與共用計算書核心。操作頁提供強軸單向需求、四層主筋計算面積、七筆具來源頁碼之 H500 系列斷面、地震軸力組合、案件 JSON 與同比例計算斷面圖；研究計算書只保留採用資料、公式代入、結果與結論，可列印供內部審閱，但正式附件核可固定封閉。契約與真實瀏覽器測試另驗證操作頁列印封鎖、案件重播、研究核可不可繞過及 PDF 版面。
+`src-column.html`、`src-column.js`、`src-column.css` 已建立私有 SRC 柱強軸耐震研究工作頁，連接 `core/src-column-core.js`、型鋼 catalog、第 9.3 節耐震軸向強度、第 9.6.2 節柱剪力、第 9.6.1 節單一強軸接頭強柱弱梁、第 9.6.3 節矩形柱圍束與共用計算書核心。操作頁提供個別子檢核開關、強軸單向需求、四層主筋計算面積、七筆具來源頁碼之 H500 系列斷面、案件 JSON 與同比例計算斷面圖；研究計算書只保留採用資料、公式代入、結果與結論，可列印供內部審閱，但正式附件核可固定封閉。契約與真實瀏覽器測試另驗證子檢核依賴、操作頁列印封鎖、案件重播、研究核可不可繞過及 PDF 版面。
 
 `core/src-column-core.js`、`core/src-column-h-section-catalog.js`、`core/src-column-rc-biaxial.js`、`core/src-column-shear.js`、`core/src-column-seismic-axial.js`、`core/src-column-seismic-detailing.js`、各自回歸測試，以及獨立的 `core/src-column-oracle.js`／`src-column-oracle.test.js` 已建立 SRC 柱第九階段可審查核心與工作流程，並以內政部建築研究所《鋼骨鋼筋混凝土(SRC)構造設計教材》例題 8 與例題 14 的可適用算術範圍回歸。目前實作包含：
 

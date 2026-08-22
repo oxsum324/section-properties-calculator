@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>SRC 柱耐震軸向研究核算 V0.1</title>
+  <title>SRC 柱強軸耐震研究核算 V0.2</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="../結構工具箱/core/style.css">
   <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
@@ -18,10 +18,10 @@
   <header class="src-hero">
     <div>
       <p class="src-eyebrow">鋼骨鋼筋混凝土構件</p>
-      <h1>SRC 柱耐震軸向研究核算 <span class="src-version">V0.1</span></h1>
-      <p>完全包覆矩形柱｜強軸單向｜第 9.3 節軸向強度｜單位：cm、kgf/cm²、tf、tf·m</p>
+      <h1>SRC 柱強軸耐震研究核算 <span class="src-version">V0.2</span></h1>
+      <p>完全包覆矩形柱｜強軸單向｜軸力、柱剪力、強柱弱梁與圍束｜單位：cm、kgf/cm²、tf、tf·m</p>
       <div class="src-hero-chips" aria-label="目前涵蓋範圍">
-        <span>第 6.4 節壓力強度</span><span>第 7.3 節軸彎分配</span><span>第 9.3 節地震組合</span><span>計算斷面圖</span>
+        <span>第 6.4 節壓力強度</span><span>第 7.3 節軸彎分配</span><span>第 9.3 節地震組合</span><span>第 9.6 節強軸子檢核</span><span>計算斷面圖</span>
       </div>
     </div>
     <a class="src-back" href="../結構工具箱/index.html">← 回工具箱</a>
@@ -98,8 +98,105 @@
           </div>
         </section>
 
+        <section class="src-card src-subcheck-card" id="shearSubcheckPanel">
+          <div class="src-subcheck-heading">
+            <div><h2>③ 第 9.6.2 節強軸柱剪力</h2><p>由專案塑鉸端彎矩建立柱剪力需求，分別檢核鋼骨腹板與 RC 部分。</p></div>
+            <label class="src-subcheck-toggle"><input id="enableShearSubcheck" type="checkbox" checked> 啟用</label>
+          </div>
+          <div class="src-subcheck-body" data-subcheck-body="shear">
+            <div class="src-grid src-grid-3">
+              <label>柱頂可能彎矩 Mct<span><input id="mctTfM" type="number" value="120" step="0.1" min="0"> tf·m</span></label>
+              <label>柱底可能彎矩 Mcb<span><input id="mcbTfM" type="number" value="110" step="0.1" min="0"> tf·m</span></label>
+              <label>柱淨高 Ln<span><input id="clearHeightCm" type="number" value="300" step="1" min="0"> cm</span></label>
+              <label>RC 有效深度 d<span><input id="effectiveDepthCm" type="number" value="73" step="0.1" min="0"> cm</span></label>
+              <label>一般剪力箍筋面積 Av<span><input id="avCm2" type="number" value="2.54" step="0.01" min="0"> cm²</span></label>
+              <label>剪力摩擦箍筋面積 Avf<span><input id="avfCm2" type="number" value="2.54" step="0.01" min="0"> cm²</span></label>
+              <label>圍束區箍筋間距 s<span><input id="spacingCm" type="number" value="10" step="0.5" min="0"> cm</span></label>
+              <label>箍筋降伏強度 fyh<span><input id="fyhKgfCm2" type="number" value="4200" step="100" min="0"> kgf/cm²</span></label>
+              <label>鋼骨腹板降伏強度 Fyw<span><input id="steelFywKgfCm2" type="number" value="3500" step="100" min="0"> kgf/cm²</span></label>
+              <label>剪力釘貢獻（本版固定）<span><input id="shearStudContributionTf" type="number" value="0" readonly> tf</span></label>
+            </div>
+            <div class="src-check-grid">
+              <label><input id="projectPlasticHingeMomentsConfirmed" type="checkbox" checked> Mct、Mcb 已由專案塑鉸機制確認</label>
+              <label><input id="normalWeightConcreteConfirmed" type="checkbox" checked> 採用常重混凝土</label>
+              <label><input id="monolithicInterfaceConfirmed" type="checkbox" checked> 剪力摩擦面為整體澆置</label>
+              <label><input id="transverseReinforcementPerpendicularConfirmed" type="checkbox" checked> 閉合箍筋垂直構材長軸</label>
+            </div>
+            <p class="src-policy-note">Mct、Mcb、d、Av 與 Avf 均屬專案指定資料；本頁不由單一柱斷面臆測完整構架塑鉸機制。</p>
+          </div>
+        </section>
+
+        <section class="src-card src-subcheck-card" id="strongColumnSubcheckPanel">
+          <div class="src-subcheck-heading">
+            <div><h2>④ 第 9.6.1 節強柱弱梁</h2><p>檢核單一強軸接頭構架面之順、逆時針兩個名義彎矩方向。</p></div>
+            <label class="src-subcheck-toggle"><input id="enableStrongColumnSubcheck" type="checkbox" checked> 啟用</label>
+          </div>
+          <div class="src-subcheck-body" data-subcheck-body="strong-column">
+            <p class="src-subhead">順時針方向</p>
+            <div class="src-grid src-grid-4">
+              <label>上柱 Mnc<span><input id="cwUpperColumnTfM" type="number" value="209.52" step="0.01" min="0"> tf·m</span></label>
+              <label>下柱 Mnc<span><input id="cwLowerColumnTfM" type="number" value="209.52" step="0.01" min="0"> tf·m</span></label>
+              <label>左梁 Mnb<span><input id="cwLeftBeamTfM" type="number" value="195.8" step="0.1" min="0"> tf·m</span></label>
+              <label>右梁 Mnb<span><input id="cwRightBeamTfM" type="number" value="153.4" step="0.1" min="0"> tf·m</span></label>
+            </div>
+            <p class="src-subhead">逆時針方向</p>
+            <div class="src-grid src-grid-4">
+              <label>上柱 Mnc<span><input id="ccwUpperColumnTfM" type="number" value="209.52" step="0.01" min="0"> tf·m</span></label>
+              <label>下柱 Mnc<span><input id="ccwLowerColumnTfM" type="number" value="209.52" step="0.01" min="0"> tf·m</span></label>
+              <label>左梁 Mnb<span><input id="ccwLeftBeamTfM" type="number" value="153.4" step="0.1" min="0"> tf·m</span></label>
+              <label>右梁 Mnb<span><input id="ccwRightBeamTfM" type="number" value="195.8" step="0.1" min="0"> tf·m</span></label>
+            </div>
+            <div class="src-check-grid">
+              <label><input id="singleStrongAxisFramePlaneConfirmed" type="checkbox" checked> 本次僅檢核單一強軸構架面，正交方向另案檢核</label>
+              <label><input id="columnStrengthsAtGoverningAxialLoadsConfirmed" type="checkbox" checked> 柱彎矩強度已取控制軸力組合之最小值</label>
+              <label><input id="jointFaceNominalStrengthsConfirmed" type="checkbox" checked> 柱、梁彎矩均為接頭面名義強度</label>
+              <label><input id="opposingMomentDirectionsConfirmed" type="checkbox" checked> 梁柱彎矩合力方向已確認相反</label>
+            </div>
+            <p class="src-policy-note">各梁柱接頭面名義彎矩為專案指定資料；本子檢核不代表全構架或正交方向均已完成。</p>
+          </div>
+        </section>
+
+        <section class="src-card src-subcheck-card" id="confinementSubcheckPanel">
+          <div class="src-subcheck-heading">
+            <div><h2>⑤ 第 9.6.3 節矩形柱圍束</h2><p>圍束量取式 (9.6-6)、式 (9.6-7) 與第 9.6.2 節剪力需求之控制值。</p></div>
+            <label class="src-subcheck-toggle"><input id="enableConfinementSubcheck" type="checkbox" checked> 啟用</label>
+          </div>
+          <div class="src-subcheck-body" data-subcheck-body="confinement">
+            <div class="src-grid src-grid-3">
+              <label>核心短邊 bc<span><input id="coreWidthCm" type="number" value="54" step="0.1" min="0"> cm</span></label>
+              <label>核心面積 Ach<span><input id="coreAreaCm2" type="number" value="4104" step="1" min="0"> cm²</span></label>
+              <label>高度圍束混凝土面積 Ahcc<span><input id="highlyConfinedAreaCm2" type="number" value="0" step="1" min="0"> cm²</span></label>
+              <label>最小主筋直徑 db<span><input id="minimumLongitudinalBarDiameterCm" type="number" value="2.54" step="0.01" min="0"> cm</span></label>
+              <label>提供圍束區高度 lo<span><input id="providedConfinementZoneHeightCm" type="number" value="80" step="1" min="0"> cm</span></label>
+              <label>非圍束區箍筋間距<span><input id="nonConfinedSpacingCm" type="number" value="15" step="0.5" min="0"> cm</span></label>
+              <label>第一道箍筋距接頭面<span><input id="firstHoopDistanceCm" type="number" value="5" step="0.5" min="0"> cm</span></label>
+            </div>
+            <div class="src-check-grid">
+              <label><input id="inflectionPointWithinMiddleHalf" type="checkbox" checked> 反曲點位於柱淨高中間二分之一</label>
+              <label><input id="wholeLengthConfined" type="checkbox"> 全柱淨高均採圍束配置</label>
+              <label><input id="highlyConfinedAreaConfirmed" type="checkbox" checked> Ahcc 已依鋼骨翼板幾何確認</label>
+              <label><input id="cornerLongitudinalBarsConfirmed" type="checkbox" checked> 斷面各角至少配置一支主筋</label>
+              <label><input id="crosstiesProvidedAsNeededConfirmed" type="checkbox" checked> 已依需要配置繫筋</label>
+              <label><input id="crosstiesEngageLongitudinalBarsConfirmed" type="checkbox" checked> 繫筋已勾住縱向主筋</label>
+              <label><input id="crosstieHooksAlternatedConfirmed" type="checkbox" checked> 同一主筋之相鄰 90°／135° 彎鉤交錯</label>
+              <label><input id="mainBarSplicePresent" type="checkbox"> 本柱有主筋搭接</label>
+            </div>
+            <div class="src-splice-fields" data-splice-fields>
+              <p class="src-subhead">主筋搭接條件（有搭接時）</p>
+              <div class="src-check-grid">
+                <label><input id="spliceWithinMiddleHalfConfirmed" type="checkbox"> 搭接位於柱淨高中間二分之一</label>
+                <label><input id="tensionLapSpliceDesignedConfirmed" type="checkbox"> 已按拉力搭接設計</label>
+                <label><input id="confinementThroughSpliceConfirmed" type="checkbox"> 搭接全長配置圍束筋</label>
+                <label><input id="alternateBarsSplicedOnlyConfirmed" type="checkbox"> 同一斷面最多隔根搭接</label>
+              </div>
+              <div class="src-grid src-grid-3"><label>搭接斷面錯開距離<span><input id="spliceStaggerDistanceCm" type="number" value="60" step="1" min="0"> cm</span></label></div>
+            </div>
+            <p class="src-policy-note">Ahcc、Ach、bc 與現場配置均須由專案斷面及配筋資料確認；未勾選完整確認時即停止計算。</p>
+          </div>
+        </section>
+
         <section class="src-card">
-          <h2>③ 混凝土斷面與柱長</h2>
+          <h2>⑥ 混凝土斷面與柱長</h2>
           <div class="src-grid src-grid-3">
             <label>柱寬 b<span><input id="widthCm" type="number" value="65" step="0.5" min="0"> cm</span></label>
             <label>柱深 h<span><input id="depthCm" type="number" value="80" step="0.5" min="0"> cm</span></label>
@@ -111,7 +208,7 @@
         </section>
 
         <section class="src-card">
-          <h2>④ 主筋計算層</h2>
+          <h2>⑦ 主筋計算層</h2>
           <div class="src-grid src-grid-3">
             <label>主筋降伏強度 Fyr<span><input id="reinforcementFy" type="number" value="4200" step="100" min="0"> kgf/cm²</span></label>
             <label>主筋彈性模數 Es<span><input id="reinforcementEs" type="number" value="2040000" step="10000" min="0"> kgf/cm²</span></label>
@@ -129,7 +226,7 @@
         </section>
 
         <section class="src-card">
-          <h2>⑤ 包覆 H 型鋼骨</h2>
+          <h2>⑧ 包覆 H 型鋼骨</h2>
           <div class="src-grid src-grid-3">
             <label>教材斷面 catalog<span><select id="steelCatalogId"></select></span></label>
             <label>鋼材等級<span><select id="steelGrade"><option value="A572 Gr.50">A572 Gr.50／490 級</option><option value="SM490">SM490／490 級</option><option value="SM400">SM400／400 級</option></select></span></label>
@@ -140,7 +237,7 @@
         </section>
 
         <section class="src-card">
-          <h2>⑥ 構材條件確認</h2>
+          <h2>⑨ 構材條件確認</h2>
           <div class="src-check-grid">
             <label><input id="fullyEncased" type="checkbox" checked> 鋼骨完全包覆於 RC 柱內</label>
             <label><input id="centeredH" type="checkbox" checked> 鋼骨為置中雙對稱 H 型</label>

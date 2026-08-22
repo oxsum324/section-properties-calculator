@@ -90,6 +90,9 @@ async function main() {
       compressionDemand: window.lastSrcColumnResult.seismicAxial.compression.adoptedDemandTf,
       compressionUtilization: window.lastSrcColumnResult.seismicAxial.compression.utilization,
       tensionApplicable: window.lastSrcColumnResult.seismicAxial.tension.applicable,
+      shearOk: window.lastSrcColumnResult.shear?.ok,
+      strongColumnOk: window.lastSrcColumnResult.strongColumnWeakBeam?.ok,
+      confinementOk: window.lastSrcColumnResult.confinement?.ok,
       fingerprint: window.lastSrcColumnCalculationFingerprint,
     }));
     assert.equal(initial.status, 'REVIEW');
@@ -97,6 +100,9 @@ async function main() {
     assert.equal(initial.compressionDemand, 860);
     assert.ok(Math.abs(initial.compressionUtilization - 0.6615966) < 1e-6);
     assert.equal(initial.tensionApplicable, false);
+    assert.equal(initial.shearOk, true);
+    assert.equal(initial.strongColumnOk, true);
+    assert.equal(initial.confinementOk, true);
     assert.match(initial.fingerprint, /^CF-[A-F0-9]{16}$/);
 
     const pageDiagram = page.locator('#sectionDiagramImage');
@@ -105,6 +111,15 @@ async function main() {
     const pageDiagramSource = await pageDiagram.getAttribute('src');
     assert.match(pageDiagramSource, /^data:image\/svg\+xml;charset=utf-8,/);
     assert.match(await page.locator('#sectionDiagramCaption').innerText(), /非施工配筋詳圖/);
+
+    await page.uncheck('#enableShearSubcheck');
+    await page.waitForFunction(() => window.lastSrcColumnResult?.shear === null && window.lastSrcColumnResult?.confinement === null);
+    assert.equal(await page.locator('#enableConfinementSubcheck').isDisabled(), true, 'confinement toggle depends on the shear subcheck');
+    assert.equal(await page.locator('#enableConfinementSubcheck').isChecked(), false, 'disabling shear clears the dependent confinement subcheck');
+    await page.check('#enableShearSubcheck');
+    await page.waitForFunction(() => window.lastSrcColumnResult?.shear?.ok === true && window.lastSrcColumnResult?.confinement === null);
+    await page.check('#enableConfinementSubcheck');
+    await page.waitForFunction(fingerprint => window.lastSrcColumnCalculationFingerprint === fingerprint, initial.fingerprint);
 
     await page.uncheck('#fuConfirmed');
     await page.waitForFunction(() => window.lastSrcColumnResult === null);
@@ -157,8 +172,10 @@ async function main() {
 
     const reportText = await report.locator('body').innerText();
     for (const needle of [
-      'SRC 柱耐震軸向研究核算計算書', '規範、構材與分析條件', '採用斷面與材料',
-      '第 9.3 節採用地震軸力資料', 'SRC 柱計算斷面', '計算過程明細', '檢核結論',
+      'SRC 柱強軸耐震研究核算計算書', '規範、構材與分析條件', '採用斷面與材料',
+      '第 9.3 節採用地震軸力資料', '第 9.6.2 節採用柱剪力資料',
+      '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
+      '第 9.6 節強軸耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論',
     ]) assert.ok(reportText.includes(needle), `report includes ${needle}`);
     for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', 'DRAFT', '非正式附件', '弱軸耐震、接頭區']) {
       assert.equal(reportText.includes(needle), false, `report excludes ${needle}`);
@@ -179,19 +196,24 @@ async function main() {
     assert.ok(pdf.length > 10000);
     assert.equal(pdf.subarray(0, 4).toString('ascii'), '%PDF');
     const pdfValidation = validatePdfFile(pdfPath, {
-      label: 'SRC 柱耐震軸向研究計算書',
+      label: 'SRC 柱強軸耐震研究計算書',
       minTextLength: 600,
-      titleNeedle: 'SRC 柱耐震軸向研究核算計算書',
+      titleNeedle: 'SRC 柱強軸耐震研究核算計算書',
       requiredNeedles: [
-        'SRC 柱耐震軸向研究核算計算書', '規範、構材與分析條件', '採用斷面與材料',
-        '第 9.3 節採用地震軸力資料', 'SRC 柱計算斷面', '計算過程明細', '檢核結論', '計算指紋',
+        'SRC 柱強軸耐震研究核算計算書', '規範、構材與分析條件', '採用斷面與材料',
+        '第 9.3 節採用地震軸力資料', '第 9.6.2 節採用柱剪力資料',
+        '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
+        '第 9.6 節強軸耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論', '計算指紋',
       ],
       contentBoundaryProfile: 'traceable-calculation-book',
       continuationContextLabels: [
         '規範、構材與分析條件', '採用斷面與材料', '第 9.3 節採用地震軸力資料',
+        '第 9.6.2 節採用柱剪力資料', '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
         '計算線圖與示意圖', '構材斷面與軸彎互制', '第 9.3 節耐震軸向強度',
+        '第 9.6 節強軸耐震子檢核',
         '計算過程明細', '鋼骨與 RC 剛度分配', '第 6.4 節鋼骨受壓與 SRC 受壓強度',
-        '式 (9.3-1) 受壓組合', '式 (9.3-2) 受拉組合', '控制結果', '檢核結論',
+        '式 (9.3-1) 受壓組合', '式 (9.3-2) 受拉組合', '第 9.6.2 節強軸柱剪力',
+        '式 (9.6-1) 強柱弱梁', '式 (9.6-6)～(9.6-10) 矩形柱圍束', '控制結果', '檢核結論',
       ],
     });
     const evidence = {
