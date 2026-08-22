@@ -21,6 +21,7 @@ function clone(value) {
 function exampleInput() {
   return {
     schema: Core.INPUT_SCHEMA,
+    seismicAxis: 'x',
     demands: { puTf: 734, muxTfM: 128.9, muyTfM: 0 },
     concrete: { widthCm: 65, depthCm: 80, fcKgfCm2: 280 },
     reinforcement: {
@@ -28,6 +29,10 @@ function exampleInput() {
       layers: [
         { yCm: 7, areaCm2: 20.28 }, { yCm: 17, areaCm2: 10.14 },
         { yCm: 63, areaCm2: 10.14 }, { yCm: 73, areaCm2: 20.28 },
+      ],
+      xLayers: [
+        { xCm: 7, areaCm2: 20.28 }, { xCm: 17, areaCm2: 10.14 },
+        { xCm: 48, areaCm2: 10.14 }, { xCm: 58, areaCm2: 20.28 },
       ],
     },
     steel: { catalogId: 'rh-500x304x15x24', grade: 'A572 Gr.50', fysKgfCm2: 3500, fywKgfCm2: 3500, esKgfCm2: 2_040_000 },
@@ -110,9 +115,11 @@ function visibleText(reportHtml) {
     .trim();
 }
 
-assert.equal(Page.PAGE_VERSION, 'v0.3');
+assert.equal(Page.PAGE_VERSION, 'v0.4');
 assert.equal(Page.TOOL_ID, 'src-column-research');
-assert.equal(Page.CASE_SCHEMA, 'src-column-research.case.v2');
+assert.equal(Page.CASE_SCHEMA, 'src-column-research.case.v3');
+assert.equal(Page.LEGACY_CASE_SCHEMA, 'src-column-research.case.v2');
+assert.equal(Page.LEGACY_PAGE_VERSION, 'v0.3');
 assert.match(html, /<body class="formal-tool-output-page">/);
 assert.match(html, /SRC 柱操作頁列印已封鎖/);
 assert.match(html, /id="btnReport"/);
@@ -123,7 +130,7 @@ assert.match(html, /id="enableShearSubcheck"[^>]*checked/);
 assert.match(html, /id="enableJointRatioSubcheck"[^>]*checked/);
 assert.match(html, /id="enableStrongColumnSubcheck"[^>]*checked/);
 assert.match(html, /id="enableConfinementSubcheck"[^>]*checked/);
-for (const fieldId of ['mctTfM', 'mcbTfM', 'clearHeightCm', 'avCm2', 'jcwSteelColumnTfM', 'jccwRcBeamTfM', 'cwUpperColumnTfM', 'ccwRightBeamTfM', 'coreWidthCm', 'coreAreaCm2', 'highlyConfinedAreaCm2']) {
+for (const fieldId of ['seismicAxis', 'muyTfM', 'mctTfM', 'mcbTfM', 'clearHeightCm', 'avCm2', 'weakAxisSteelNominalShearTf', 'weakAxisRcNominalShearTf', 'weakAxisRequiredTransverseAreaCm2', 'xLayer1X', 'jcwSteelColumnTfM', 'jccwRcBeamTfM', 'cwUpperColumnTfM', 'ccwRightBeamTfM', 'coreWidthCm', 'coreAreaCm2', 'highlyConfinedAreaCm2', 'weakAxisAhccZeroConfirmed']) {
   assert.match(html, new RegExp(`id="${fieldId}"`), `page exposes ${fieldId}`);
 }
 assert.match(html, /core\/src-column-core\.js/);
@@ -156,6 +163,30 @@ const invalidDiagram = clone(input);
 invalidDiagram.concrete.depthCm = 50;
 assert.throws(() => Page.buildSectionDiagram(invalidDiagram), /未完全包覆/, 'impossible encasement fails closed');
 
+const weakAxisInput = clone(input);
+weakAxisInput.seismicAxis = 'y';
+weakAxisInput.demands.muxTfM = 0;
+weakAxisInput.demands.muyTfM = 60;
+weakAxisInput.shear.axis = 'y';
+weakAxisInput.jointFlexuralStrengthRatio.axis = 'y';
+weakAxisInput.strongColumnWeakBeam.axis = 'y';
+weakAxisInput.confinement.axis = 'y';
+Object.assign(weakAxisInput.shear, {
+  weakAxisSteelNominalShearTf: 100,
+  weakAxisRcNominalShearTf: 120,
+  weakAxisRequiredTransverseAreaCm2: 1.2,
+  weakAxisStrengthsConfirmed: true,
+  weakAxisRequiredTransverseAreaConfirmed: true,
+});
+weakAxisInput.confinement.weakAxisAhccZeroConfirmed = true;
+const weakAxisResult = Core.calculate(weakAxisInput);
+const weakAxisConfig = Page.buildReportConfig(weakAxisInput, weakAxisResult, {});
+assert.equal(weakAxisResult.rc.uniaxialAxis, 'y', 'page input supports a true weak-axis uniaxial RC P-M path');
+assert.equal(weakAxisConfig.title, 'SRC 柱 Y 向（鋼骨弱軸）耐震研究核算計算書');
+assert.equal(JSON.stringify(weakAxisConfig).includes('專案確認 Vns / Vnrc'), true, 'weak-axis report preserves adopted project strengths');
+const weakAxisDiagramSvg = decodeURIComponent(weakAxisConfig.diagrams[0].dataURL.split(',').slice(1).join(','));
+assert.ok(weakAxisDiagramSvg.includes('L1: x=7.0 cm, As=20.28 cm²'), 'weak-axis diagram uses the adopted x-coordinate reinforcement rows');
+
 const forbidden = [...new Set(Object.values(boundary.forbiddenCategories).flat())];
 const configText = JSON.stringify(config);
 for (const needle of forbidden) assert.equal(configText.includes(needle), false, `report config excludes page-only wording: ${needle}`);
@@ -184,6 +215,28 @@ assert.equal(payload.report.calculationFingerprint, payload.calculationFingerpri
 assert.doesNotThrow(() => reportUi.validateCalculationCasePayload(payload, {
   expectedSchema: Page.CASE_SCHEMA, expectedToolId: Page.TOOL_ID, expectedVersion: Page.PAGE_VERSION,
 }));
+const legacyPayload = clone(payload);
+legacyPayload.schema = Page.LEGACY_CASE_SCHEMA;
+legacyPayload.tool.name = 'SRC 柱強軸耐震研究核算';
+legacyPayload.tool.version = Page.LEGACY_PAGE_VERSION;
+legacyPayload.tool.calculationEngine = 'src-column.core.v0.9.0-research';
+legacyPayload.input.schema = 'src-column.input.v8';
+delete legacyPayload.input.seismicAxis;
+delete legacyPayload.input.reinforcement.xLayers;
+for (const key of ['shear', 'jointFlexuralStrengthRatio', 'strongColumnWeakBeam', 'confinement']) {
+  delete legacyPayload.input[key].axis;
+}
+const migration = Page.migrateCasePayload(legacyPayload);
+assert.equal(migration.migrated, true);
+assert.equal(migration.payload.schema, Page.CASE_SCHEMA);
+assert.equal(migration.payload.tool.version, Page.PAGE_VERSION);
+assert.equal(migration.payload.input.schema, Core.INPUT_SCHEMA);
+assert.equal(migration.payload.input.seismicAxis, 'x');
+assert.equal(migration.payload.input.demands.muyTfM, 0);
+assert.equal(migration.payload.input.shear.axis, 'x');
+assert.equal('calculationFingerprint' in migration.payload, false, 'legacy fingerprint is not misrepresented as a current replay');
+assert.doesNotThrow(() => Core.calculate(migration.payload.input), 'legacy v0.3 X-axis input recalculates under the current core');
+assert.throws(() => Page.migrateCasePayload({ ...legacyPayload, input: null }), /缺少計算輸入/);
 const changedInput = clone(input);
 changedInput.seismicAxial.pdTf = 450;
 const changedTrace = reportUi.buildReportTrace(Page.buildReportConfig(changedInput, Core.calculate(changedInput), {}));
@@ -202,16 +255,17 @@ const renderContext = loadReportRuntime({
 renderContext.openReport(config);
 const renderedText = visibleText(renderedHtml);
 for (const needle of [
-  'SRC 柱強軸耐震研究核算計算書', '產出工具', '工具版本', '計算引擎', '計算指紋',
+  'SRC 柱 X 向（鋼骨強軸）耐震研究核算計算書', '產出工具', '工具版本', '計算引擎', '計算指紋',
   '規範、構材與分析條件', '採用斷面與材料', '第 9.3 節採用地震軸力資料',
   '第 9.6.2 節採用柱剪力資料', '第 8.4.2 節採用接頭面分量彎矩', '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
-  '第 8.4.2 節接頭撓曲強度比', '第 9.6 節強軸耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論',
+  '第 8.4.2 節接頭撓曲強度比', '第 9.6 節X 向（鋼骨強軸）耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論',
 ]) assert.ok(renderedText.includes(needle), `rendered report includes ${needle}`);
-for (const needle of [...forbidden, '適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', '弱軸耐震、接頭區']) {
+for (const needle of [...forbidden, '適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', '接頭區剪力與接合細部']) {
   assert.equal(renderedText.includes(needle), false, `rendered report excludes ${needle}`);
 }
 assert.equal(renderedText.includes('計畫名稱'), false);
 assert.equal(renderedText.includes('設計人員'), false);
 assert.match(renderedHtml, /data-formal-approval-allowed="false"/);
+assert.match(renderedHtml, /rep-block rep-block--keep rep-block--new-page/, 'selected report groups start on a clean printed page');
 
 console.log('SRC column research page/report contract: OK');

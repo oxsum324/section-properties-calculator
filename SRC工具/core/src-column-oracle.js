@@ -4,7 +4,7 @@
  * It independently recomputes the current research core's table 3.4-2
  * compactness, stiffness allocation, steel compression, steel interaction,
  * redistribution, tied rectangular RC uniaxial/biaxial strain-compatibility
- * P-M paths, and the current-code seismic axial-strength, strong-axis shear,
+ * P-M paths, and the current-code seismic axial-strength, selected-axis shear,
  * clause 8.4.2 joint ratios, strong-column/weak-beam, and rectangular-column
  * confinement subchecks.
  * The RC demand point is solved continuously in neutral-axis depth and does
@@ -14,8 +14,8 @@
  */
 'use strict';
 
-const ORACLE_VERSION = 'src-column.oracle.v0.7.0-research';
-const SUPPORTED_SCHEMA = 'src-column.input.v8';
+const ORACLE_VERSION = 'src-column.oracle.v0.8.0-research';
+const SUPPORTED_SCHEMA = 'src-column.input.v9';
 const PHI_COMPRESSION = 0.85;
 const PHI_FLEXURE = 0.9;
 const DEFAULT_ES_KGF_CM2 = 2_040_000;
@@ -305,8 +305,29 @@ function rcInteractionAtDemand(input, puTf, muTfM) {
   };
 }
 
-function rcProbableMomentTfM(input) {
-  const base = normalizeRcInput(input);
+function weakAxisRcInput(input) {
+  const concrete = input.concrete || {};
+  const reinforcement = input.reinforcement || {};
+  if (!Array.isArray(reinforcement.xLayers) || reinforcement.xLayers.length < 2) {
+    throw new SrcColumnOracleError('weak-axis-reinforcement-layers-required', 'Weak-axis calculation requires x-coordinate reinforcement layers');
+  }
+  return {
+    ...input,
+    concrete: { ...concrete, widthCm: concrete.depthCm, depthCm: concrete.widthCm },
+    reinforcement: {
+      ...reinforcement,
+      layers: reinforcement.xLayers.map((layer, index) => ({
+        yCm: positiveAt(layer.xCm, `reinforcement.xLayers[${index}].xCm`),
+        areaCm2: positiveAt(layer.areaCm2, `reinforcement.xLayers[${index}].areaCm2`),
+      })),
+    },
+  };
+}
+
+function rcProbableMomentTfM(input, axis = 'x') {
+  if (axis !== 'x' && axis !== 'y') throw new SrcColumnOracleError('unsupported-seismic-axis', 'Probable-moment axis must be x or y');
+  const probableInput = axis === 'y' ? weakAxisRcInput(input) : input;
+  const base = normalizeRcInput(probableInput);
   const model = { ...base, fyKgfCm2: 1.25 * base.fyKgfCm2 };
   let low = Math.log(model.depthCm * 1e-8);
   let high = Math.log(model.depthCm * 1e6);
@@ -487,67 +508,81 @@ function seismicAxialStrength(input, steelCompressionX, steelCompressionY) {
 
 function seismicStrongAxisShear(input, rcAxialDemandTf, steelNominalMomentTfM) {
   const shear = input.shear || {};
-  if (shear.axis !== 'x') throw new SrcColumnOracleError('unsupported-shear-axis', 'Only strong-axis x shear is covered');
+  const axis = shear.axis;
+  if (axis !== 'x' && axis !== 'y') throw new SrcColumnOracleError('unsupported-shear-axis', 'Shear axis must be x or y');
   requireOracleConfirmation(shear.projectPlasticHingeMomentsConfirmed, 'plastic-hinge-moments-not-confirmed', 'Project plastic-hinge moments must be confirmed');
-  requireOracleConfirmation(shear.normalWeightConcreteConfirmed, 'normal-weight-concrete-not-confirmed', 'Normal-weight concrete must be confirmed');
-  requireOracleConfirmation(shear.monolithicInterfaceConfirmed, 'monolithic-interface-not-confirmed', 'Monolithic shear-friction interface must be confirmed');
-  requireOracleConfirmation(shear.transverseReinforcementPerpendicularConfirmed, 'transverse-reinforcement-not-confirmed', 'Perpendicular transverse reinforcement must be confirmed');
+  if (axis === 'x') {
+    requireOracleConfirmation(shear.normalWeightConcreteConfirmed, 'normal-weight-concrete-not-confirmed', 'Normal-weight concrete must be confirmed');
+    requireOracleConfirmation(shear.monolithicInterfaceConfirmed, 'monolithic-interface-not-confirmed', 'Monolithic shear-friction interface must be confirmed');
+    requireOracleConfirmation(shear.transverseReinforcementPerpendicularConfirmed, 'transverse-reinforcement-not-confirmed', 'Perpendicular transverse reinforcement must be confirmed');
+  } else {
+    requireOracleConfirmation(shear.weakAxisStrengthsConfirmed, 'weak-axis-strengths-not-confirmed', 'Weak-axis nominal strengths must be confirmed');
+    requireOracleConfirmation(shear.weakAxisRequiredTransverseAreaConfirmed, 'weak-axis-transverse-area-not-confirmed', 'Weak-axis transverse-reinforcement demand must be confirmed');
+  }
 
   const concrete = input.concrete || {};
   const steel = input.steel || {};
   const width = positiveAt(concrete.widthCm, 'concrete.widthCm');
   const depth = positiveAt(concrete.depthCm, 'concrete.depthCm');
   const fc = positiveAt(concrete.fcKgfCm2, 'concrete.fcKgfCm2');
-  const effectiveDepth = positiveAt(shear.effectiveDepthCm, 'shear.effectiveDepthCm');
-  if (!(effectiveDepth < depth)) throw new SrcColumnOracleError('effective-depth-outside-section', 'Effective depth must lie inside the section');
+  const effectiveDepth = axis === 'x' ? positiveAt(shear.effectiveDepthCm, 'shear.effectiveDepthCm') : null;
+  if (axis === 'x' && !(effectiveDepth < depth)) throw new SrcColumnOracleError('effective-depth-outside-section', 'Effective depth must lie inside the section');
   const mct = numberAt(shear.mctTfM, 'shear.mctTfM');
   const mcb = numberAt(shear.mcbTfM, 'shear.mcbTfM');
   if (mct < 0 || mcb < 0 || !(mct + mcb > 0)) throw new SrcColumnOracleError('invalid-probable-end-moment', 'Probable end moments must be nonnegative and not both zero');
   const clearHeight = positiveAt(shear.clearHeightCm, 'shear.clearHeightCm');
   const demandShearTf = (mct + mcb) * 100 / clearHeight;
-  const rcProbableMoment = rcProbableMomentTfM(input);
+  const rcProbableMoment = rcProbableMomentTfM(input, axis);
   const totalProbableMoment = steelNominalMomentTfM + rcProbableMoment;
   const steelRequiredShearTf = steelNominalMomentTfM / totalProbableMoment * demandShearTf;
   const rcRequiredShearTf = rcProbableMoment / totalProbableMoment * demandShearTf;
 
-  const fyw = positiveAt(steel.fywKgfCm2, 'steel.fywKgfCm2');
-  const webThickness = positiveAt(steel.webThicknessCm, 'steel.webThicknessCm');
-  const steelDepth = positiveAt(steel.depthCm, 'steel.depthCm');
-  const steelWebAreaCm2 = webThickness * steelDepth;
-  const steelNominalShearTf = 0.6 * fyw * steelWebAreaCm2 / 1000;
+  const steelWebAreaCm2 = axis === 'x'
+    ? positiveAt(steel.webThicknessCm, 'steel.webThicknessCm') * positiveAt(steel.depthCm, 'steel.depthCm')
+    : null;
+  const steelNominalShearTf = axis === 'x'
+    ? 0.6 * positiveAt(steel.fywKgfCm2, 'steel.fywKgfCm2') * steelWebAreaCm2 / 1000
+    : positiveAt(shear.weakAxisSteelNominalShearTf, 'shear.weakAxisSteelNominalShearTf');
   const steelDesignShearTf = 0.9 * steelNominalShearTf;
 
   const purc = numberAt(rcAxialDemandTf, 'rcAxialDemandTf');
   if (purc < 0) throw new SrcColumnOracleError('unsupported-rc-axial-tension', 'Shear oracle supports RC compression only');
-  const av = positiveAt(shear.avCm2, 'shear.avCm2');
-  const avf = positiveAt(shear.avfCm2, 'shear.avfCm2');
-  const spacing = positiveAt(shear.spacingCm, 'shear.spacingCm');
-  const fyh = positiveAt(shear.fyhKgfCm2, 'shear.fyhKgfCm2');
-  const flangeWidth = positiveAt(steel.flangeWidthCm, 'steel.flangeWidthCm');
-  if (!(flangeWidth < width)) throw new SrcColumnOracleError('invalid-net-concrete-width', 'Steel flange width must be less than concrete width');
-  const studContribution = numberAt(shear.shearStudContributionTf, 'shear.shearStudContributionTf');
-  if (studContribution !== 0) throw new SrcColumnOracleError('shear-stud-scope-not-implemented', 'Shear-stud contribution is outside the oracle scope');
+  const av = axis === 'x' ? positiveAt(shear.avCm2, 'shear.avCm2') : null;
+  const avf = axis === 'x' ? positiveAt(shear.avfCm2, 'shear.avfCm2') : null;
+  const spacing = axis === 'x' ? positiveAt(shear.spacingCm, 'shear.spacingCm') : null;
+  const fyh = axis === 'x' ? positiveAt(shear.fyhKgfCm2, 'shear.fyhKgfCm2') : null;
+  const flangeWidth = axis === 'x' ? positiveAt(steel.flangeWidthCm, 'steel.flangeWidthCm') : null;
+  if (axis === 'x' && !(flangeWidth < width)) throw new SrcColumnOracleError('invalid-net-concrete-width', 'Steel flange width must be less than concrete width');
+  const studContribution = axis === 'x' ? numberAt(shear.shearStudContributionTf, 'shear.shearStudContributionTf') : 0;
+  if (axis === 'x' && studContribution !== 0) throw new SrcColumnOracleError('shear-stud-scope-not-implemented', 'Shear-stud contribution is outside the oracle scope');
   const grossArea = width * depth;
   const sqrtFc = Math.sqrt(fc);
-  const transverseLimitTf = 2.12 * sqrtFc * width * effectiveDepth / 1000;
-  const transverseTf = Math.min(av * fyh * effectiveDepth / spacing / 1000, transverseLimitTf);
-  const concreteTf = 0.53 * (1 + purc * 1000 / (140 * grossArea)) * sqrtFc * width * effectiveDepth / 1000;
-  const generalTf = transverseTf + concreteTf;
-  const frictionTransverseTf = Math.min(0.8 * avf * fyh * effectiveDepth / spacing / 1000, 0.8 * transverseLimitTf);
-  const frictionConcreteTf = 28 * (width - flangeWidth) * effectiveDepth / 1000;
-  const frictionTf = frictionTransverseTf + frictionConcreteTf;
-  const rcNominalShearTf = Math.min(generalTf, frictionTf);
+  const transverseLimitTf = axis === 'x' ? 2.12 * sqrtFc * width * effectiveDepth / 1000 : null;
+  const transverseTf = axis === 'x' ? Math.min(av * fyh * effectiveDepth / spacing / 1000, transverseLimitTf) : null;
+  const concreteTf = axis === 'x' ? 0.53 * (1 + purc * 1000 / (140 * grossArea)) * sqrtFc * width * effectiveDepth / 1000 : null;
+  const generalTf = axis === 'x' ? transverseTf + concreteTf : null;
+  const frictionTransverseTf = axis === 'x' ? Math.min(0.8 * avf * fyh * effectiveDepth / spacing / 1000, 0.8 * transverseLimitTf) : null;
+  const frictionConcreteTf = axis === 'x' ? 28 * (width - flangeWidth) * effectiveDepth / 1000 : null;
+  const frictionTf = axis === 'x' ? frictionTransverseTf + frictionConcreteTf : null;
+  const rcNominalShearTf = axis === 'x'
+    ? Math.min(generalTf, frictionTf)
+    : positiveAt(shear.weakAxisRcNominalShearTf, 'shear.weakAxisRcNominalShearTf');
   const rcDesignShearTf = 0.75 * rcNominalShearTf;
   const requiredNominalShearTf = rcRequiredShearTf / 0.75;
-  const requiredGeneralTransverseTf = Math.max(0, requiredNominalShearTf - concreteTf);
-  const requiredGeneralAreaCm2 = requiredGeneralTransverseTf * 1000 * spacing / (fyh * effectiveDepth);
-  const requiredFrictionTransverseTf = Math.max(0, requiredNominalShearTf - frictionConcreteTf);
-  const requiredFrictionAreaCm2 = requiredFrictionTransverseTf * 1000 * spacing / (0.8 * fyh * effectiveDepth);
-  const requiredTransverseAreaCm2 = Math.max(requiredGeneralAreaCm2, requiredFrictionAreaCm2);
+  const requiredGeneralTransverseTf = axis === 'x' ? Math.max(0, requiredNominalShearTf - concreteTf) : null;
+  const requiredGeneralAreaCm2 = axis === 'x' ? requiredGeneralTransverseTf * 1000 * spacing / (fyh * effectiveDepth) : null;
+  const requiredFrictionTransverseTf = axis === 'x' ? Math.max(0, requiredNominalShearTf - frictionConcreteTf) : null;
+  const requiredFrictionAreaCm2 = axis === 'x' ? requiredFrictionTransverseTf * 1000 * spacing / (0.8 * fyh * effectiveDepth) : null;
+  const requiredTransverseAreaCm2 = axis === 'x'
+    ? Math.max(requiredGeneralAreaCm2, requiredFrictionAreaCm2)
+    : numberAt(shear.weakAxisRequiredTransverseAreaCm2, 'shear.weakAxisRequiredTransverseAreaCm2');
+  if (requiredTransverseAreaCm2 < 0) throw new SrcColumnOracleError('negative-weak-axis-transverse-area', 'Weak-axis transverse-reinforcement demand must be nonnegative');
 
   return {
     method: 'independent-continuous-probable-moment',
-    mode: 'seismic-strong-axis-subcheck',
+    mode: 'seismic-selected-axis-subcheck',
+    axis,
+    strengthSource: axis === 'x' ? 'automatic-clause-5.5' : 'project-confirmed-weak-axis',
     demand: { mctTfM: mct, mcbTfM: mcb, clearHeightCm: clearHeight, shearTf: demandShearTf },
     probableMoments: {
       steelNominalMomentTfM,
@@ -557,7 +592,7 @@ function seismicStrongAxisShear(input, rcAxialDemandTf, steelNominalMomentTfM) {
       rcShare: rcProbableMoment / totalProbableMoment,
     },
     steel: {
-      webAreaCm2: steelWebAreaCm2,
+      ...(axis === 'x' ? { webAreaCm2: steelWebAreaCm2 } : { source: 'project-confirmed-weak-axis' }),
       nominalShearTf: steelNominalShearTf,
       designShearTf: steelDesignShearTf,
       requiredShearTf: steelRequiredShearTf,
@@ -565,6 +600,7 @@ function seismicStrongAxisShear(input, rcAxialDemandTf, steelNominalMomentTfM) {
       ok: steelRequiredShearTf <= steelDesignShearTf + 1e-9,
     },
     rc: {
+      ...(axis === 'x' ? {} : { source: 'project-confirmed-weak-axis' }),
       axialDemandTf: purc,
       transverseLimitTf,
       transverseTf,
@@ -574,7 +610,7 @@ function seismicStrongAxisShear(input, rcAxialDemandTf, steelNominalMomentTfM) {
       netConcreteWidthCm: width - flangeWidth,
       frictionConcreteTf,
       frictionTf,
-      governingMode: generalTf <= frictionTf ? 'general-shear' : 'shear-friction',
+      governingMode: axis === 'x' ? (generalTf <= frictionTf ? 'general-shear' : 'shear-friction') : 'project-confirmed-weak-axis',
       nominalShearTf: rcNominalShearTf,
       designShearTf: rcDesignShearTf,
       requiredShearTf: rcRequiredShearTf,
@@ -594,7 +630,8 @@ function seismicStrongAxisShear(input, rcAxialDemandTf, steelNominalMomentTfM) {
 
 function seismicStrongColumnWeakBeam(input) {
   const joint = input.strongColumnWeakBeam || {};
-  if (joint.axis !== 'x') throw new SrcColumnOracleError('unsupported-strong-column-axis', 'Only one strong-axis joint frame plane is covered');
+  if (joint.axis !== 'x' && joint.axis !== 'y') throw new SrcColumnOracleError('unsupported-seismic-axis', 'Joint frame-plane axis must be x or y');
+  const axis = joint.axis;
   if (joint.orthogonalBeamDirectionPresent !== false) throw new SrcColumnOracleError('orthogonal-frame-plane-not-covered', 'An orthogonal frame plane requires a separate check');
   requireOracleConfirmation(joint.columnStrengthsAtGoverningAxialLoadsConfirmed, 'column-strengths-not-confirmed', 'Column strengths at governing axial loads must be confirmed');
   requireOracleConfirmation(joint.jointFaceNominalStrengthsConfirmed, 'joint-face-strengths-not-confirmed', 'Joint-face nominal strengths must be confirmed');
@@ -624,9 +661,9 @@ function seismicStrongColumnWeakBeam(input) {
   });
   const minimumRatio = Math.min(...cases.map(item => item.ratio));
   return {
-    mode: 'strong-axis-joint-subcheck',
+    mode: 'selected-axis-joint-subcheck',
     clause: '9.6.1 / (9.6-1)',
-    axis: 'x',
+    axis,
     requiredRatio: 1.2,
     cases,
     minimumRatio,
@@ -638,7 +675,8 @@ function seismicStrongColumnWeakBeam(input) {
 
 function jointFlexuralStrengthRatio(input) {
   const joint = input.jointFlexuralStrengthRatio || {};
-  if (joint.axis !== 'x') throw new SrcColumnOracleError('unsupported-joint-ratio-axis', 'Only one strong-axis joint frame plane is covered');
+  if (joint.axis !== 'x' && joint.axis !== 'y') throw new SrcColumnOracleError('unsupported-seismic-axis', 'Joint frame-plane axis must be x or y');
+  const axis = joint.axis;
   if (!['src-beam-src-column', 'steel-beam-src-column'].includes(joint.connectionType)) {
     throw new SrcColumnOracleError('unsupported-joint-connection-type', 'An explicit clause 8.4.2 connection type is required');
   }
@@ -690,7 +728,8 @@ function jointFlexuralStrengthRatio(input) {
   });
   const components = cases.flatMap(item => [item.steel, item.rc].filter(Boolean));
   return {
-    mode: 'strong-axis-joint-flexural-strength-ratio-subcheck',
+    mode: 'selected-axis-joint-flexural-strength-ratio-subcheck',
+    axis,
     connectionType: joint.connectionType,
     useVerifiedSmoothTransferAlternative: useAlternative,
     requiredRatios: { steel: steelRequiredRatio, rc: joint.connectionType === 'src-beam-src-column' ? 0.6 : null },
@@ -704,7 +743,8 @@ function jointFlexuralStrengthRatio(input) {
 
 function seismicConfinement(input, shearResult) {
   const confinement = input.confinement || {};
-  if (confinement.axis !== 'x') throw new SrcColumnOracleError('unsupported-confinement-axis', 'Only strong-axis confinement is covered');
+  if (confinement.axis !== 'x' && confinement.axis !== 'y') throw new SrcColumnOracleError('unsupported-seismic-axis', 'Confinement axis must be x or y');
+  const axis = confinement.axis;
   for (const [value, code, message] of [
     [confinement.highlyConfinedAreaConfirmed, 'highly-confined-area-not-confirmed', 'Ahcc must be confirmed'],
     [confinement.cornerLongitudinalBarsConfirmed, 'corner-bars-not-confirmed', 'Corner longitudinal bars must be confirmed'],
@@ -724,6 +764,10 @@ function seismicConfinement(input, shearResult) {
   const coreArea = positiveAt(confinement.coreAreaCm2, 'confinement.coreAreaCm2');
   const highlyConfinedArea = numberAt(confinement.highlyConfinedAreaCm2, 'confinement.highlyConfinedAreaCm2');
   if (highlyConfinedArea < 0 || highlyConfinedArea > 2500) throw new SrcColumnOracleError('invalid-highly-confined-area', 'Ahcc must be between 0 and 2500 cm2');
+  if (axis === 'y') {
+    requireOracleConfirmation(confinement.weakAxisAhccZeroConfirmed, 'weak-axis-ahcc-zero-not-confirmed', 'Weak-axis H-shape confinement must confirm Ahcc=0');
+    if (highlyConfinedArea > 1e-9) throw new SrcColumnOracleError('weak-axis-ahcc-must-be-zero', 'Weak-axis H-shape confinement requires Ahcc=0');
+  }
   const spacing = positiveAt(shear.spacingCm, 'shear.spacingCm');
   const providedAsh = positiveAt(shear.avCm2, 'shear.avCm2');
   const fyh = positiveAt(shear.fyhKgfCm2, 'shear.fyhKgfCm2');
@@ -752,7 +796,8 @@ function seismicConfinement(input, shearResult) {
   const inflectionWithinMiddleHalf = booleanAt(confinement.inflectionPointWithinMiddleHalf, 'confinement.inflectionPointWithinMiddleHalf');
   const wholeLengthConfined = booleanAt(confinement.wholeLengthConfined, 'confinement.wholeLengthConfined');
   if (!inflectionWithinMiddleHalf && !wholeLengthConfined) throw new SrcColumnOracleError('whole-length-confinement-required', 'Full-height confinement is required');
-  const requiredExtent = inflectionWithinMiddleHalf ? Math.max(depth, clearHeight / 6, 45) : clearHeight;
+  const bendingDepthCm = axis === 'x' ? depth : width;
+  const requiredExtent = inflectionWithinMiddleHalf ? Math.max(bendingDepthCm, clearHeight / 6, 45) : clearHeight;
   const providedExtent = positiveAt(confinement.providedConfinementZoneHeightCm, 'confinement.providedConfinementZoneHeightCm');
   const firstHoopDistance = numberAt(confinement.firstHoopDistanceCm, 'confinement.firstHoopDistanceCm');
   if (firstHoopDistance < 0) throw new SrcColumnOracleError('negative-first-hoop-distance', 'First-hoop distance must be nonnegative');
@@ -773,8 +818,8 @@ function seismicConfinement(input, shearResult) {
     confinementHeight: providedExtent + 1e-9 >= requiredExtent,
   };
   return {
-    mode: 'strong-axis-rectangular-confinement-subcheck',
-    axis: 'x',
+    mode: 'selected-axis-rectangular-confinement-subcheck',
+    axis,
     axialTerms: {
       grossAreaCm2: grossArea,
       concreteAreaCm2: concreteArea,
@@ -805,6 +850,7 @@ function seismicConfinement(input, shearResult) {
       firstHoopLimitCm: spacing / 2,
     },
     extent: {
+      bendingDepthCm,
       inflectionPointWithinMiddleHalf: inflectionWithinMiddleHalf,
       wholeLengthConfined,
       providedCm: providedExtent,
@@ -1057,6 +1103,19 @@ function calculate(input) {
   const strongColumnRequested = input?.detailing?.seismicStrongColumnWeakBeamSubcheck === true;
   const confinementRequested = input?.detailing?.seismicConfinementSubcheck === true;
   const seismicSubcheckRequested = shearRequested || axialRequested || jointRatioRequested || strongColumnRequested || confinementRequested;
+  const directionalSubcheckRequested = shearRequested || jointRatioRequested || strongColumnRequested || confinementRequested;
+  const seismicAxis = input?.seismicAxis;
+  if (directionalSubcheckRequested && seismicAxis !== 'x' && seismicAxis !== 'y') {
+    throw new SrcColumnOracleError('seismic-axis-required', 'Directional seismic subchecks require seismicAxis=x or y');
+  }
+  for (const [requested, axis] of [
+    [shearRequested, input?.shear?.axis],
+    [jointRatioRequested, input?.jointFlexuralStrengthRatio?.axis],
+    [strongColumnRequested, input?.strongColumnWeakBeam?.axis],
+    [confinementRequested, input?.confinement?.axis],
+  ]) {
+    if (requested && axis !== seismicAxis) throw new SrcColumnOracleError('seismic-axis-conflict', 'Every requested directional subcheck must match seismicAxis');
+  }
   if (input?.detailing?.seismicDesign === true && !seismicSubcheckRequested) {
     throw new SrcColumnOracleError('seismic-scope-not-implemented', 'Seismic SRC column design is outside the oracle scope');
   }
@@ -1095,8 +1154,7 @@ function calculate(input) {
   const pu = positiveAt(demands.puTf, 'demands.puTf');
   const mux = Math.abs(numberAt(demands.muxTfM, 'demands.muxTfM'));
   const muy = Math.abs(numberAt(demands.muyTfM == null ? 0 : demands.muyTfM, 'demands.muyTfM'));
-  if (shearRequested && muy > 0) throw new SrcColumnOracleError('seismic-shear-strong-axis-only', 'The shear subcheck covers strong-axis uniaxial action only');
-  if (muy > 0 && zy == null) throw new SrcColumnOracleError('biaxial-steel-zy-required', 'Biaxial steel interaction requires Zy');
+  if ((muy > 0 || (shearRequested && seismicAxis === 'y')) && zy == null) throw new SrcColumnOracleError('weak-axis-steel-zy-required', 'Biaxial interaction or y-axis shear allocation requires Zy');
   const initialSteelDemands = {
     puTf: pu * axialSteelRatio,
     muxTfM: mux * momentSteelRatioX,
@@ -1142,12 +1200,16 @@ function calculate(input) {
     nominalMomentXTfM,
     muy > 0 ? nominalMomentYTfM : Infinity
   );
-  const rc = muy > 0
+  const biaxialRequested = mux > 0 && muy > 0;
+  const weakAxisUniaxialRequested = mux <= 1e-12 && muy > 0;
+  const rc = biaxialRequested
     ? rcBiaxialInteractionAtDemand(input, finalRcDemands.puTf, finalRcDemands.muxTfM, finalRcDemands.muyTfM)
-    : rcInteractionAtDemand(input, finalRcDemands.puTf, finalRcDemands.muxTfM);
+    : weakAxisUniaxialRequested
+      ? { ...rcInteractionAtDemand(weakAxisRcInput(input), finalRcDemands.puTf, finalRcDemands.muyTfM), uniaxialAxis: 'y' }
+      : { ...rcInteractionAtDemand(input, finalRcDemands.puTf, finalRcDemands.muxTfM), uniaxialAxis: 'x' };
   const seismicAxial = axialRequested ? seismicAxialStrength(input, compressionX, compressionY) : null;
   const shear = shearRequested
-    ? seismicStrongAxisShear(input, finalRcDemands.puTf, nominalMomentXTfM)
+    ? seismicStrongAxisShear(input, finalRcDemands.puTf, seismicAxis === 'x' ? nominalMomentXTfM : nominalMomentYTfM)
     : null;
   const jointRatio = jointRatioRequested ? jointFlexuralStrengthRatio(input) : null;
   const strongColumnWeakBeam = strongColumnRequested ? seismicStrongColumnWeakBeam(input) : null;
@@ -1167,9 +1229,10 @@ function calculate(input) {
   return {
     oracleVersion: ORACLE_VERSION,
     supportedSchema: SUPPORTED_SCHEMA,
+    seismicAxis: seismicAxis || null,
     coverage: {
-      covered: ['table-3.4-2-compactness', 'stiffness-allocation', 'steel-compression', 'steel-biaxial-interaction', 'redistribution', 'rc-strain-compatibility-pm', 'rc-biaxial-interaction', 'seismic-axial-strength-subcheck', 'seismic-strong-axis-column-shear-subcheck', 'clause-8.4.2-joint-flexural-strength-ratio', 'seismic-strong-axis-joint-subcheck', 'seismic-strong-axis-confinement-subcheck'],
-      uncovered: ['complete-seismic-design', 'weak-axis-shear', 'weak-axis-joint-and-confinement', 'joint-panel-zone-and-connection-hardware'],
+      covered: ['table-3.4-2-compactness', 'stiffness-allocation', 'steel-compression', 'steel-biaxial-interaction', 'redistribution', 'rc-strain-compatibility-pm', 'rc-biaxial-interaction', 'seismic-axial-strength-subcheck', 'seismic-x-axis-column-shear-subcheck', 'project-confirmed-y-axis-column-shear-subcheck', 'clause-8.4.2-selected-axis-joint-flexural-strength-ratio', 'seismic-selected-axis-joint-subcheck', 'seismic-selected-axis-confinement-subcheck'],
+      uncovered: ['complete-seismic-design', 'automatic-weak-axis-nominal-strength-derivation', 'two-direction-aggregate-frame-check', 'joint-panel-zone-and-connection-hardware'],
     },
     compactness: compactness(input),
     allocation: { axialSteelRatio, momentSteelRatioX, momentSteelRatioY, initialSteelDemands, initialRcDemands },

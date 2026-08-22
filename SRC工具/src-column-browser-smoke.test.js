@@ -114,6 +114,30 @@ async function main() {
     assert.match(pageDiagramSource, /^data:image\/svg\+xml;charset=utf-8,/);
     assert.match(await page.locator('#sectionDiagramCaption').innerText(), /非施工配筋詳圖/);
 
+    await page.selectOption('#seismicAxis', 'y');
+    await page.waitForFunction(() => window.lastSrcColumnResult?.seismicAxis === 'y' && window.lastSrcColumnResult?.checks?.engineeringStrength === true);
+    const weakAxis = await page.evaluate(() => ({
+      fingerprint: window.lastSrcColumnCalculationFingerprint,
+      rcAxis: window.lastSrcColumnResult.rc.uniaxialAxis,
+      strengthSource: window.lastSrcColumnResult.shear.strengthSource,
+      steelNominalMomentTfM: window.lastSrcColumnResult.shear.probableMoments.steelNominalMomentTfM,
+      highlyConfinedAxialTf: window.lastSrcColumnResult.confinement.axialTerms.highlyConfinedAxialTf,
+    }));
+    assert.notEqual(weakAxis.fingerprint, initial.fingerprint, 'selected direction participates in the calculation fingerprint');
+    assert.equal(weakAxis.rcAxis, 'y');
+    assert.equal(weakAxis.strengthSource, 'project-confirmed-weak-axis');
+    assert.ok(Math.abs(weakAxis.steelNominalMomentTfM - 39.9) < 1e-10);
+    assert.equal(weakAxis.highlyConfinedAxialTf, 0);
+    assert.equal(await page.locator('[data-y-shear]').first().isVisible(), true);
+    assert.equal(await page.locator('[data-x-shear]').first().isHidden(), true);
+    assert.equal(await page.locator('#highlyConfinedAreaCm2').isEditable(), false, 'weak-axis Ahcc is visibly locked at zero');
+    const weakAxisDiagramSource = await pageDiagram.getAttribute('src');
+    assert.ok(decodeURIComponent(weakAxisDiagramSource).includes('L1: x=7.0 cm, As=20.28 cm²'));
+    await page.selectOption('#seismicAxis', 'x');
+    await page.waitForFunction(fingerprint => window.lastSrcColumnCalculationFingerprint === fingerprint, initial.fingerprint);
+    assert.equal(await page.locator('[data-y-shear]').first().isHidden(), true);
+    assert.equal(await page.locator('[data-x-shear]').first().isVisible(), true);
+
     await page.selectOption('#jointConnectionType', 'steel-beam-src-column');
     await page.waitForFunction(() => window.lastSrcColumnResult?.jointFlexuralStrengthRatio?.connectionType === 'steel-beam-src-column');
     assert.equal(await page.locator('[data-joint-rc]').first().isHidden(), true, 'steel-beam mode hides inapplicable RC-beam component inputs');
@@ -166,6 +190,22 @@ async function main() {
     assert.equal(await page.inputValue('#pdTf'), '400');
     assert.equal(await page.evaluate(() => window.lastSrcColumnCalculationFingerprint), initial.fingerprint);
 
+    const legacyPayload = JSON.parse(JSON.stringify(casePayload));
+    legacyPayload.schema = 'src-column-research.case.v2';
+    legacyPayload.tool.name = 'SRC 柱強軸耐震研究核算';
+    legacyPayload.tool.version = 'v0.3';
+    legacyPayload.tool.calculationEngine = 'src-column.core.v0.9.0-research';
+    legacyPayload.input.schema = 'src-column.input.v8';
+    delete legacyPayload.input.seismicAxis;
+    delete legacyPayload.input.reinforcement.xLayers;
+    for (const key of ['shear', 'jointFlexuralStrengthRatio', 'strongColumnWeakBeam', 'confinement']) delete legacyPayload.input[key].axis;
+    await page.setInputFiles('#caseFile', {
+      name: 'src-column-research-v03-case.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(legacyPayload)),
+    });
+    await page.waitForFunction(() => document.querySelector('#actionStatus')?.textContent.includes('已升級 v0.3 X 向案件'));
+    assert.equal(await page.inputValue('#seismicAxis'), 'x');
+    assert.match(await page.locator('#actionStatus').innerText(), /新計算指紋 CF-[A-F0-9]{16}/);
+
     const popupPromise = page.waitForEvent('popup');
     await page.click('#btnReport');
     const report = await popupPromise;
@@ -187,12 +227,12 @@ async function main() {
 
     const reportText = await report.locator('body').innerText();
     for (const needle of [
-      'SRC 柱強軸耐震研究核算計算書', '規範、構材與分析條件', '採用斷面與材料',
+      'SRC 柱 X 向（鋼骨強軸）耐震研究核算計算書', '規範、構材與分析條件', '採用斷面與材料',
       '第 9.3 節採用地震軸力資料', '第 9.6.2 節採用柱剪力資料',
       '第 8.4.2 節採用接頭面分量彎矩', '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
-      '第 8.4.2 節接頭撓曲強度比', '第 9.6 節強軸耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論',
+      '第 8.4.2 節接頭撓曲強度比', '第 9.6 節X 向（鋼骨強軸）耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論',
     ]) assert.ok(reportText.includes(needle), `report includes ${needle}`);
-    for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', 'DRAFT', '非正式附件', '弱軸耐震、接頭區']) {
+    for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', 'DRAFT', '非正式附件', '接頭區剪力與接合細部']) {
       assert.equal(reportText.includes(needle), false, `report excludes ${needle}`);
     }
     const reportDiagram = report.locator('.rep-diagram img[alt="SRC 柱計算斷面"]');
@@ -211,14 +251,14 @@ async function main() {
     assert.ok(pdf.length > 10000);
     assert.equal(pdf.subarray(0, 4).toString('ascii'), '%PDF');
     const pdfValidation = validatePdfFile(pdfPath, {
-      label: 'SRC 柱強軸耐震研究計算書',
+      label: 'SRC 柱 X 向耐震研究計算書',
       minTextLength: 600,
-      titleNeedle: 'SRC 柱強軸耐震研究核算計算書',
+      titleNeedle: 'SRC 柱 X 向（鋼骨強軸）耐震研究核算計算書',
       requiredNeedles: [
-        'SRC 柱強軸耐震研究核算計算書', '規範、構材與分析條件', '採用斷面與材料',
+        'SRC 柱 X 向（鋼骨強軸）耐震研究核算計算書', '規範、構材與分析條件', '採用斷面與材料',
         '第 9.3 節採用地震軸力資料', '第 9.6.2 節採用柱剪力資料',
         '第 8.4.2 節採用接頭面分量彎矩', '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
-        '第 8.4.2 節接頭撓曲強度比', '第 9.6 節強軸耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論', '計算指紋',
+        '第 8.4.2 節接頭撓曲強度比', '第 9.6 節X 向（鋼骨強軸）耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論', '計算指紋',
       ],
       contentBoundaryProfile: 'traceable-calculation-book',
       continuationContextLabels: [
@@ -226,10 +266,55 @@ async function main() {
         '第 9.6.2 節採用柱剪力資料', '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
         '第 8.4.2 節採用接頭面分量彎矩', '計算線圖與示意圖', '構材斷面與軸彎互制', '第 9.3 節耐震軸向強度',
         '第 8.4.2 節接頭撓曲強度比',
-        '第 9.6 節強軸耐震子檢核',
+        '第 9.6 節X 向（鋼骨強軸）耐震子檢核',
         '計算過程明細', '鋼骨與 RC 剛度分配', '第 6.4 節鋼骨受壓與 SRC 受壓強度',
-        '式 (9.3-1) 受壓組合', '式 (9.3-2) 受拉組合', '第 9.6.2 節強軸柱剪力',
+        '式 (9.3-1) 受壓組合', '式 (9.3-2) 受拉組合', '第 9.6.2 節X 向（鋼骨強軸）柱剪力',
         '式 (9.6-1) 強柱弱梁', '式 (9.6-6)～(9.6-10) 矩形柱圍束', '控制結果', '檢核結論',
+      ],
+    });
+    await page.selectOption('#seismicAxis', 'y');
+    await page.fill('#muyTfM', '60');
+    await page.waitForFunction(() => window.lastSrcColumnResult?.seismicAxis === 'y'
+      && window.lastSrcColumnInput?.demands?.muyTfM === 60
+      && window.lastSrcColumnResult?.checks?.engineeringStrength === true);
+    assert.ok(Math.abs(await page.evaluate(() => window.lastSrcColumnInput.demands.muyTfM) - 60) < 1e-10, 'weak-axis PDF exercises nonzero Muy');
+    const weakAxisFingerprint = await page.evaluate(() => window.lastSrcColumnCalculationFingerprint);
+    const weakAxisPopupPromise = page.waitForEvent('popup');
+    await page.click('#btnReport');
+    const weakAxisReport = await weakAxisPopupPromise;
+    attachErrorCapture(weakAxisReport);
+    await weakAxisReport.waitForLoadState('domcontentloaded');
+    const weakAxisReportText = await weakAxisReport.locator('body').innerText();
+    for (const needle of [
+      'SRC 柱 Y 向（鋼骨弱軸）耐震研究核算計算書',
+      '本計算書核算方向', 'Y 向（鋼骨弱軸）', '專案確認 Vns / Vnrc',
+      '第 9.6 節Y 向（鋼骨弱軸）耐震子檢核', '第 9.6.2 節Y 向（鋼骨弱軸）柱剪力',
+    ]) assert.ok(weakAxisReportText.includes(needle), `weak-axis report includes ${needle}`);
+    for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', 'DRAFT', '非正式附件']) {
+      assert.equal(weakAxisReportText.includes(needle), false, `weak-axis report excludes ${needle}`);
+    }
+    const weakAxisPdfPath = path.join(outDir, 'src-column-research-y-axis-report.pdf');
+    await weakAxisReport.emulateMedia({ media: 'print' });
+    await weakAxisReport.pdf({ path: weakAxisPdfPath, format: 'A4', printBackground: true });
+    await weakAxisReport.emulateMedia({ media: 'screen' });
+    await weakAxisReport.screenshot({ path: path.join(outDir, 'src-column-research-y-axis-report.png'), fullPage: true });
+    await page.screenshot({ path: path.join(outDir, 'src-column-research-y-axis-page.png'), fullPage: true });
+    const weakAxisPdf = fs.readFileSync(weakAxisPdfPath);
+    const weakAxisPdfValidation = validatePdfFile(weakAxisPdfPath, {
+      label: 'SRC 柱 Y 向耐震研究計算書',
+      minTextLength: 600,
+      titleNeedle: 'SRC 柱 Y 向（鋼骨弱軸）耐震研究核算計算書',
+      requiredNeedles: [
+        'SRC 柱 Y 向（鋼骨弱軸）耐震研究核算計算書', '本計算書核算方向', '專案確認 Vns / Vnrc',
+        '第 9.6 節Y 向（鋼骨弱軸）耐震子檢核', '第 9.6.2 節Y 向（鋼骨弱軸）柱剪力',
+        'SRC 柱計算斷面', '計算過程明細', '檢核結論', '計算指紋',
+      ],
+      contentBoundaryProfile: 'traceable-calculation-book',
+      continuationContextLabels: [
+        '規範、構材與分析條件', '採用斷面與材料', '第 9.3 節採用地震軸力資料',
+        '第 9.6.2 節採用柱剪力資料', '第 8.4.2 節採用接頭面分量彎矩',
+        '第 9.6 節Y 向（鋼骨弱軸）耐震子檢核', '計算過程明細',
+        '第 9.6.2 節Y 向（鋼骨弱軸）柱剪力', '控制結果', '檢核結論',
       ],
     });
     const evidence = {
@@ -245,10 +330,18 @@ async function main() {
       documentState: 'internal-review',
       formalApprovalAllowed: false,
       pdf: { pageCount: pdfValidation.pageCount, textLength: pdfValidation.textLength },
+      companionWeakAxis: {
+        artifact: path.basename(weakAxisPdfPath),
+        artifactBytes: weakAxisPdf.length,
+        artifactSha256: crypto.createHash('sha256').update(weakAxisPdf).digest('hex'),
+        calculationFingerprint: weakAxisFingerprint,
+        pageCount: weakAxisPdfValidation.pageCount,
+        textLength: weakAxisPdfValidation.textLength,
+      },
     };
     fs.writeFileSync(path.join(outDir, 'src-column-research-render-evidence.json'), `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
     assert.deepEqual(pageErrors, []);
-    console.log(`SRC column browser smoke: OK (${initial.fingerprint}; ${pdfValidation.pageCount} pages; PDF ${pdf.length} bytes)`);
+    console.log(`SRC column browser smoke: OK (X ${initial.fingerprint}/${pdfValidation.pageCount} pages; Y ${weakAxisFingerprint}/${weakAxisPdfValidation.pageCount} pages)`);
   } finally {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});

@@ -88,7 +88,7 @@ function officialExample14ConfinementArithmetic() {
   };
 }
 
-assert.equal(Detailing.VERSION, 'src-column.seismic-detailing.v0.2.0-research', 'seismic detailing subchecks are explicitly versioned as research');
+assert.equal(Detailing.VERSION, 'src-column.seismic-detailing.v0.3.0-research', 'seismic detailing subchecks are explicitly versioned as research');
 
 const srcJoint = Detailing.jointFlexuralStrengthRatio(derivedSrcJointRatioArithmetic());
 assert.deepEqual(srcJoint.clauses, ['8.4.2 / (8.4-1)', '8.4.2 / (8.4-2)']);
@@ -127,6 +127,18 @@ close(strongColumn.minimumRatio, 1.2, 1e-12, 'example 14 unrounded strong-column
 assert.equal(strongColumn.ok, true, 'both loading senses pass the strong-column ratio');
 assert.equal(strongColumn.completeFrameCheck, false, 'one joint frame plane cannot claim a complete frame check');
 
+const weakAxisJointInput = derivedSrcJointRatioArithmetic();
+weakAxisJointInput.axis = 'y';
+const weakAxisJoint = Detailing.jointFlexuralStrengthRatio(weakAxisJointInput);
+assert.equal(weakAxisJoint.axis, 'y', 'clause 8.4.2 retains the explicitly selected weak-axis frame plane');
+close(weakAxisJoint.maximumUtilization, 0.5, 1e-12, 'weak-axis joint ratio arithmetic is unchanged and direction-tagged');
+
+const weakAxisStrongColumnInput = officialExample14StrongColumnArithmetic();
+weakAxisStrongColumnInput.axis = 'y';
+const weakAxisStrongColumn = Detailing.strongColumnWeakBeam(weakAxisStrongColumnInput);
+assert.equal(weakAxisStrongColumn.axis, 'y', 'clause 9.6.1 is checked independently for the selected weak-axis frame plane');
+assert.equal(weakAxisStrongColumn.ok, true);
+
 const weakColumnInput = officialExample14StrongColumnArithmetic();
 weakColumnInput.cases[1].upperColumnNominalTfM = 150;
 const weakColumn = Detailing.strongColumnWeakBeam(weakColumnInput);
@@ -158,6 +170,21 @@ creditedAhcc.highlyConfinedAreaCm2 = 2500;
 const credited = Detailing.confinement(creditedAhcc);
 assert.ok(credited.axialTerms.highlyConfinedAxialTf > 0, 'current code can explicitly credit a confirmed highly confined concrete area');
 assert.ok(credited.ash.requiredCm2 < confinement.ash.requiredCm2, 'Phcc credit reduces required confinement only when Ahcc is confirmed');
+
+const weakAxisConfinementInput = officialExample14ConfinementArithmetic();
+Object.assign(weakAxisConfinementInput, { axis: 'y', widthCm: 65, depthCm: 80, coreWidthCm: 54, coreAreaCm2: 4104, weakAxisAhccZeroConfirmed: true });
+const weakAxisConfinement = Detailing.confinement(weakAxisConfinementInput);
+assert.equal(weakAxisConfinement.axis, 'y');
+assert.equal(weakAxisConfinement.axialTerms.highlyConfinedAxialTf, 0, 'clause 9.6.3 weak-axis H-shape path credits no Ahcc');
+assert.equal(weakAxisConfinement.extent.bendingDepthCm, 65, 'weak-axis confinement extent uses the selected bending depth');
+
+const invalidWeakAxisAhcc = clone(weakAxisConfinementInput);
+invalidWeakAxisAhcc.highlyConfinedAreaCm2 = 1;
+assert.throws(
+  () => Detailing.confinement(invalidWeakAxisAhcc),
+  error => error instanceof Detailing.SrcColumnSeismicDetailingError && error.code === 'weak-axis-ahcc-must-be-zero',
+  'weak-axis confinement fails closed when Ahcc is nonzero'
+);
 
 for (const [label, mutate, failedCheck] of [
   ['insufficient Ash', input => { input.providedAshCm2 = 2; }, 'ash'],
@@ -192,13 +219,13 @@ Object.assign(validSplice, {
 assert.equal(Detailing.confinement(validSplice).splice.present, true, 'a fully confirmed staggered middle-half splice is represented');
 
 for (const [code, makeInput, mutate, invoke] of [
-  ['unsupported-joint-ratio-axis', derivedSrcJointRatioArithmetic, input => { input.axis = 'y'; }, Detailing.jointFlexuralStrengthRatio],
+  ['unsupported-seismic-axis', derivedSrcJointRatioArithmetic, input => { input.axis = 'z'; }, Detailing.jointFlexuralStrengthRatio],
   ['unsupported-joint-connection-type', derivedSrcJointRatioArithmetic, input => { input.connectionType = 'unknown'; }, Detailing.jointFlexuralStrengthRatio],
   ['confirmation-required', derivedSrcJointRatioArithmetic, input => { input.allConnectedMembersIncludedConfirmed = false; }, Detailing.jointFlexuralStrengthRatio],
   ['smooth-transfer-alternative-not-applicable', derivedSrcJointRatioArithmetic, input => { input.useVerifiedSmoothTransferAlternative = true; }, Detailing.jointFlexuralStrengthRatio],
   ['confirmation-required', () => clone(steelBeamJointInput), input => { input.useVerifiedSmoothTransferAlternative = true; }, Detailing.jointFlexuralStrengthRatio],
   ['two-direction-cases-required', derivedSrcJointRatioArithmetic, input => { input.cases.pop(); }, Detailing.jointFlexuralStrengthRatio],
-  ['unsupported-strong-column-axis', officialExample14StrongColumnArithmetic, input => { input.axis = 'y'; }, Detailing.strongColumnWeakBeam],
+  ['unsupported-seismic-axis', officialExample14StrongColumnArithmetic, input => { input.axis = 'z'; }, Detailing.strongColumnWeakBeam],
   ['orthogonal-frame-plane-not-covered', officialExample14StrongColumnArithmetic, input => { input.orthogonalBeamDirectionPresent = true; }, Detailing.strongColumnWeakBeam],
   ['confirmation-required', officialExample14StrongColumnArithmetic, input => { input.columnStrengthsAtGoverningAxialLoadsConfirmed = false; }, Detailing.strongColumnWeakBeam],
   ['two-direction-cases-required', officialExample14StrongColumnArithmetic, input => { input.cases.pop(); }, Detailing.strongColumnWeakBeam],
@@ -210,6 +237,7 @@ for (const [code, makeInput, mutate, invoke] of [
   ['boolean-required', officialExample14ConfinementArithmetic, input => { delete input.wholeLengthConfined; }, Detailing.confinement],
   ['splice-stagger-too-short', () => clone(validSplice), input => { input.spliceStaggerDistanceCm = 59.9; }, Detailing.confinement],
   ['finite-number-required', officialExample14ConfinementArithmetic, input => { input.highlyConfinedAreaCm2 = ''; }, Detailing.confinement],
+  ['confirmation-required', () => clone(weakAxisConfinementInput), input => { input.weakAxisAhccZeroConfirmed = false; }, Detailing.confinement],
 ]) {
   const input = makeInput();
   mutate(input);
@@ -220,4 +248,4 @@ for (const [code, makeInput, mutate, invoke] of [
   );
 }
 
-console.log('SRC column seismic detailing OK (clause 8.4.2 joint ratios + strong-column/weak-beam + current-code confinement boundaries)');
+console.log('SRC column seismic detailing OK (selected-axis clause 8.4.2 ratios + strong-column/weak-beam + current-code confinement boundaries)');

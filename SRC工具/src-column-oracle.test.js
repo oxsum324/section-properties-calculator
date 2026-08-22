@@ -10,6 +10,7 @@ function example8() {
   const barAreaCm2 = 5.07;
   return {
     schema: Oracle.SUPPORTED_SCHEMA,
+    seismicAxis: 'x',
     demands: { puTf: 734.0, muxTfM: 128.9, muyTfM: 0 },
     concrete: { widthCm: 65, depthCm: 80, fcKgfCm2: 280 },
     reinforcement: {
@@ -21,6 +22,10 @@ function example8() {
         { yCm: 17, areaCm2: 10.14 },
         { yCm: 63, areaCm2: 10.14 },
         { yCm: 73, areaCm2: 20.28 },
+      ],
+      xLayers: [
+        { xCm: 7, areaCm2: 20.28 }, { xCm: 17, areaCm2: 10.14 },
+        { xCm: 48, areaCm2: 10.14 }, { xCm: 58, areaCm2: 20.28 },
       ],
       bars: [
         { xCm: 7, yCm: 7, areaCm2: barAreaCm2 }, { xCm: 17, yCm: 7, areaCm2: barAreaCm2 },
@@ -74,7 +79,7 @@ function compare(production, oracle, paths, tolerance) {
   });
 }
 
-assert.equal(Oracle.ORACLE_VERSION, 'src-column.oracle.v0.7.0-research', 'independent oracle is explicitly versioned');
+assert.equal(Oracle.ORACLE_VERSION, 'src-column.oracle.v0.8.0-research', 'independent oracle is explicitly versioned');
 assert.equal(Oracle.SUPPORTED_SCHEMA, Production.INPUT_SCHEMA, 'oracle and production accept the same research input schema');
 const oracleSource = fs.readFileSync(path.join(__dirname, 'core', 'src-column-oracle.js'), 'utf8');
 assert.equal(oracleSource.includes('require('), false, 'oracle imports neither the production core nor shared PMSection');
@@ -232,7 +237,7 @@ assert.deepEqual(compare(shearProduction, shearOracle, shearTolerancePaths, 0.00
 assert.equal(shearOracle.shear.method, 'independent-continuous-probable-moment', 'shear oracle independently solves the 1.25 Fyr pure-bending state');
 assert.equal(shearOracle.shear.rc.governingMode, shearProduction.shear.rc.governingMode, 'oracle agrees on the governing RC shear mode');
 assert.equal(shearOracle.shear.ok, shearProduction.shear.ok, 'oracle agrees on the separately allocated shear disposition');
-assert.ok(shearOracle.coverage.covered.includes('seismic-strong-axis-column-shear-subcheck'), 'oracle declares the completed limited shear coverage');
+assert.ok(shearOracle.coverage.covered.includes('seismic-x-axis-column-shear-subcheck'), 'oracle declares the completed limited x-axis shear coverage');
 assert.equal(shearOracle.coverage.uncovered.includes('shear'), false, 'generic shear is replaced by explicit covered and uncovered axes');
 
 const axialOracleInput = example8();
@@ -402,8 +407,65 @@ assert.equal(packageOracle.jointFlexuralStrengthRatio.ok, packageProduction.join
 assert.equal(packageOracle.strongColumnWeakBeam.ok, packageProduction.strongColumnWeakBeam.ok, 'oracle agrees on both strong-column loading senses');
 assert.equal(packageOracle.confinement.ok, packageProduction.confinement.ok, 'oracle agrees on current-code confinement disposition');
 assert.equal(packageOracle.confinement.ash.governingMode, packageProduction.confinement.ash.governingMode, 'oracle agrees on the governing confinement requirement');
-assert.ok(packageOracle.coverage.covered.includes('seismic-strong-axis-joint-subcheck') && packageOracle.coverage.covered.includes('seismic-strong-axis-confinement-subcheck'), 'oracle declares both new limited seismic subchecks');
-assert.ok(packageOracle.coverage.covered.includes('clause-8.4.2-joint-flexural-strength-ratio'), 'oracle declares the completed clause 8.4.2 arithmetic path');
+assert.ok(packageOracle.coverage.covered.includes('seismic-selected-axis-joint-subcheck') && packageOracle.coverage.covered.includes('seismic-selected-axis-confinement-subcheck'), 'oracle declares both selected-axis seismic subchecks');
+assert.ok(packageOracle.coverage.covered.includes('clause-8.4.2-selected-axis-joint-flexural-strength-ratio'), 'oracle declares the completed selected-axis clause 8.4.2 arithmetic path');
+
+const weakAxisOracleInput = structuredClone(packageOracleInput);
+weakAxisOracleInput.seismicAxis = 'y';
+weakAxisOracleInput.shear.axis = 'y';
+weakAxisOracleInput.jointFlexuralStrengthRatio.axis = 'y';
+weakAxisOracleInput.strongColumnWeakBeam.axis = 'y';
+weakAxisOracleInput.confinement.axis = 'y';
+Object.assign(weakAxisOracleInput.shear, {
+  weakAxisSteelNominalShearTf: 100,
+  weakAxisRcNominalShearTf: 120,
+  weakAxisRequiredTransverseAreaCm2: 1.2,
+  weakAxisStrengthsConfirmed: true,
+  weakAxisRequiredTransverseAreaConfirmed: true,
+});
+weakAxisOracleInput.confinement.weakAxisAhccZeroConfirmed = true;
+const weakAxisProductionInput = structuredClone(weakAxisOracleInput);
+weakAxisProductionInput.steel = {
+  catalogId: 'rh-500x304x15x24',
+  grade: weakAxisOracleInput.steel.grade,
+  fysKgfCm2: weakAxisOracleInput.steel.fysKgfCm2,
+  fywKgfCm2: weakAxisOracleInput.steel.fywKgfCm2,
+  esKgfCm2: weakAxisOracleInput.steel.esKgfCm2,
+};
+const weakAxisProduction = Production.calculate(weakAxisProductionInput);
+const weakAxisOracle = Oracle.calculate(weakAxisOracleInput);
+assert.equal(weakAxisProduction.seismicAxis, 'y');
+assert.equal(weakAxisOracle.seismicAxis, 'y');
+const weakAxisExactPaths = [
+  'shear.demand.shearTf',
+  'shear.probableMoments.steelNominalMomentTfM',
+  'shear.steel.nominalShearTf',
+  'shear.steel.designShearTf',
+  'shear.rc.nominalShearTf',
+  'shear.rc.designShearTf',
+  'shear.rc.requiredTransverseAreaCm2',
+  'jointFlexuralStrengthRatio.maximumUtilization',
+  'strongColumnWeakBeam.minimumRatio',
+  'confinement.axialTerms.highlyConfinedAxialTf',
+  'confinement.ash.shearRequiredCm2',
+  'confinement.ash.equation6Cm2',
+  'confinement.ash.equation7Cm2',
+  'confinement.extent.bendingDepthCm',
+  'confinement.extent.requiredCm',
+];
+assert.deepEqual(compare(weakAxisProduction, weakAxisOracle, weakAxisExactPaths, 1e-10), [], 'independent oracle agrees with selected weak-axis project-strength and confinement arithmetic');
+const weakAxisTolerancePaths = [
+  'shear.probableMoments.rcProbableMomentTfM',
+  'shear.steel.requiredShearTf',
+  'shear.steel.utilization',
+  'shear.rc.requiredShearTf',
+  'shear.rc.utilization',
+];
+assert.deepEqual(compare(weakAxisProduction, weakAxisOracle, weakAxisTolerancePaths, 0.002), [], 'continuous weak-axis probable-moment oracle agrees with production demand allocation');
+assert.equal(Object.hasOwn(weakAxisProduction.shear.steel, 'webAreaCm2'), false, 'production weak-axis result does not rotate the x-axis web formula');
+assert.equal(Object.hasOwn(weakAxisOracle.shear.steel, 'webAreaCm2'), false, 'oracle independently preserves the same weak-axis formula boundary');
+assert.ok(weakAxisOracle.coverage.covered.includes('project-confirmed-y-axis-column-shear-subcheck'));
+assert.ok(weakAxisOracle.coverage.uncovered.includes('automatic-weak-axis-nominal-strength-derivation'));
 
 const drifted = structuredClone(production);
 drifted.steel.nominalMomentXTfM += 0.01;
@@ -483,4 +545,4 @@ for (const missingBoolean of ['mainBarSplicePresent', 'inflectionPointWithinMidd
   );
 }
 
-console.log(`SRC column independent oracle OK (${comparedPaths.length + rcComparedPaths.length + 6 + shearExactPaths.length + axialExactPaths.length + detailingExactPaths.length} exact comparisons + ${3 + shearTolerancePaths.length} tolerance comparisons + six drift sentinels)`);
+console.log(`SRC column independent oracle OK (${comparedPaths.length + rcComparedPaths.length + 6 + shearExactPaths.length + axialExactPaths.length + detailingExactPaths.length + weakAxisExactPaths.length} exact comparisons + ${3 + shearTolerancePaths.length + weakAxisTolerancePaths.length} tolerance comparisons + six drift sentinels)`);

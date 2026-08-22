@@ -1,7 +1,7 @@
 /* SRC column current-code seismic detailing research subchecks.
  *
  * Scope: clause 8.4.2 joint flexural-strength ratios, clause 9.6.1
- * strong-column/weak-beam arithmetic for one strong-axis frame plane, and
+ * strong-column/weak-beam arithmetic for one selected x- or y-axis frame plane, and
  * clause 9.6.3 confinement quantity, extent, spacing,
  * splice, corner-bar, and crosstie checks for a fully encased rectangular
  * SRC column. Adjacent-member nominal strengths remain project inputs.
@@ -15,7 +15,7 @@
 })(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnSeismicDetailing() {
   'use strict';
 
-  const VERSION = 'src-column.seismic-detailing.v0.2.0-research';
+  const VERSION = 'src-column.seismic-detailing.v0.3.0-research';
   const SRC_JOINT_STEEL_RATIO = 0.6;
   const SRC_JOINT_RC_RATIO = 0.6;
   const STEEL_BEAM_JOINT_RATIO = 1.0;
@@ -66,13 +66,18 @@
     return value;
   }
 
+  function selectedAxis(value, path) {
+    if (value !== 'x' && value !== 'y') {
+      throw new SrcColumnSeismicDetailingError('unsupported-seismic-axis', path, `${path} must be x or y`);
+    }
+    return value;
+  }
+
   function jointFlexuralStrengthRatio(input) {
     if (!input || typeof input !== 'object') {
       throw new SrcColumnSeismicDetailingError('input-required', 'jointFlexuralStrengthRatio', 'A clause 8.4.2 joint input object is required');
     }
-    if (input.axis !== 'x') {
-      throw new SrcColumnSeismicDetailingError('unsupported-joint-ratio-axis', 'axis', 'Only one strong-axis x frame plane is covered');
-    }
+    const axis = selectedAxis(input.axis, 'axis');
     const connectionType = String(input.connectionType || '');
     if (!['src-beam-src-column', 'steel-beam-src-column'].includes(connectionType)) {
       throw new SrcColumnSeismicDetailingError('unsupported-joint-connection-type', 'connectionType', 'Clause 8.4.2 requires an explicit SRC-beam/SRC-column or steel-beam/SRC-column connection type');
@@ -136,11 +141,11 @@
     const componentResults = results.flatMap(item => [item.steel, item.rc].filter(Boolean));
     return {
       version: VERSION,
-      mode: 'strong-axis-joint-flexural-strength-ratio-subcheck',
+      mode: 'selected-axis-joint-flexural-strength-ratio-subcheck',
       clauses: connectionType === 'src-beam-src-column'
         ? ['8.4.2 / (8.4-1)', '8.4.2 / (8.4-2)']
         : [useVerifiedAlternative ? '8.4.2 / (8.4-4)' : '8.4.2 / (8.4-3)'],
-      axis: 'x',
+      axis,
       connectionType,
       useVerifiedSmoothTransferAlternative: useVerifiedAlternative,
       requiredRatios: { steel: steelRequiredRatio, rc: connectionType === 'src-beam-src-column' ? SRC_JOINT_RC_RATIO : null },
@@ -149,7 +154,7 @@
       minimumRatio: Math.min(...componentResults.map(item => item.ratio)),
       ok: results.every(item => item.ok),
       completeJointDesign: false,
-      boundary: 'This result covers clause 8.4.2 component flexural-strength ratios for one strong-axis joint frame plane only; connection hardware, panel-zone shear, anchorage, orthogonal direction, and every other joint require separate verified paths.',
+      boundary: `This result covers clause 8.4.2 component flexural-strength ratios for one selected ${axis}-axis joint frame plane only; connection hardware, panel-zone shear, anchorage, the orthogonal direction, and every other joint require separate verified paths.`,
     };
   }
 
@@ -157,11 +162,9 @@
     if (!input || typeof input !== 'object') {
       throw new SrcColumnSeismicDetailingError('input-required', 'strongColumnWeakBeam', 'A strong-column/weak-beam input object is required');
     }
-    if (input.axis !== 'x') {
-      throw new SrcColumnSeismicDetailingError('unsupported-strong-column-axis', 'axis', 'Only one strong-axis x frame plane is covered');
-    }
+    const axis = selectedAxis(input.axis, 'axis');
     if (input.orthogonalBeamDirectionPresent !== false) {
-      throw new SrcColumnSeismicDetailingError('orthogonal-frame-plane-not-covered', 'orthogonalBeamDirectionPresent', 'An orthogonal beam direction requires a separate weak-axis check');
+      throw new SrcColumnSeismicDetailingError('orthogonal-frame-plane-not-covered', 'orthogonalBeamDirectionPresent', 'The orthogonal frame direction requires a separate selected-axis check');
     }
     requireConfirmed(input.columnStrengthsAtGoverningAxialLoadsConfirmed, 'columnStrengthsAtGoverningAxialLoadsConfirmed', 'Column nominal moments must use the minimum strength from governing axial-load combinations');
     requireConfirmed(input.jointFaceNominalStrengthsConfirmed, 'jointFaceNominalStrengthsConfirmed', 'All column and beam moments must be nominal strengths at the joint faces');
@@ -199,16 +202,16 @@
     const minimumRatio = Math.min(...results.map(item => item.ratio));
     return {
       version: VERSION,
-      mode: 'strong-axis-joint-subcheck',
+      mode: 'selected-axis-joint-subcheck',
       clause: '9.6.1 / (9.6-1)',
-      axis: 'x',
+      axis,
       requiredRatio: STRONG_COLUMN_RATIO,
       cases: results,
       minimumRatio,
       utilization: STRONG_COLUMN_RATIO / minimumRatio,
       ok: results.every(item => item.ok),
       completeFrameCheck: false,
-      boundary: 'This result covers one strong-axis joint frame plane only; every other joint, orthogonal direction, and clause 8.4.2 force-transfer proportion remain outside this subcheck.',
+      boundary: `This result covers one selected ${axis}-axis joint frame plane only; every other joint, the orthogonal direction, and clause 8.4.2 force-transfer proportion remain outside this subcheck.`,
     };
   }
 
@@ -216,9 +219,7 @@
     if (!input || typeof input !== 'object') {
       throw new SrcColumnSeismicDetailingError('input-required', 'confinement', 'A confinement input object is required');
     }
-    if (input.axis !== 'x') {
-      throw new SrcColumnSeismicDetailingError('unsupported-confinement-axis', 'axis', 'Only strong-axis x confinement is covered; weak-axis H/T bending requires Ahcc=0 and a separate check');
-    }
+    const axis = selectedAxis(input.axis, 'axis');
     requireConfirmed(input.highlyConfinedAreaConfirmed, 'highlyConfinedAreaConfirmed', 'The highly confined concrete area Ahcc must be confirmed from the steel-flange geometry');
     requireConfirmed(input.cornerLongitudinalBarsConfirmed, 'cornerLongitudinalBarsConfirmed', 'At least one longitudinal bar at every section corner must be confirmed');
     requireConfirmed(input.crosstiesProvidedAsNeededConfirmed, 'crosstiesProvidedAsNeededConfirmed', 'Required crossties for bar restraint and concrete confinement must be confirmed');
@@ -233,6 +234,12 @@
     const steelArea = positive(input.steelAreaCm2, 'steelAreaCm2');
     const reinforcementArea = positive(input.reinforcementAreaCm2, 'reinforcementAreaCm2');
     const highlyConfinedArea = nonnegative(input.highlyConfinedAreaCm2, 'highlyConfinedAreaCm2');
+    if (axis === 'y') {
+      requireConfirmed(input.weakAxisAhccZeroConfirmed, 'weakAxisAhccZeroConfirmed', 'Clause 9.6.3 requires project confirmation that Ahcc is zero for weak-axis bending of an H-shaped steel core');
+      if (highlyConfinedArea > ZERO_TOLERANCE) {
+        throw new SrcColumnSeismicDetailingError('weak-axis-ahcc-must-be-zero', 'highlyConfinedAreaCm2', 'Ahcc must be zero for weak-axis bending of an H-shaped steel core');
+      }
+    }
     const fc = positive(input.fcKgfCm2, 'fcKgfCm2');
     const fys = positive(input.fysKgfCm2, 'fysKgfCm2');
     const fyr = positive(input.fyrKgfCm2, 'fyrKgfCm2');
@@ -271,8 +278,9 @@
     if (!inflectionWithinMiddleHalf && !wholeLengthConfined) {
       throw new SrcColumnSeismicDetailingError('whole-length-confinement-required', 'wholeLengthConfined', 'The full clear height must be confined when the inflection point is outside the middle half');
     }
+    const bendingDepthCm = axis === 'x' ? depth : width;
     const requiredConfinementHeightCm = inflectionWithinMiddleHalf
-      ? Math.max(depth, clearHeight / 6, 45)
+      ? Math.max(bendingDepthCm, clearHeight / 6, 45)
       : clearHeight;
     let nonConfinedSpacingCm = null;
     let nonConfinedSpacingOk = true;
@@ -302,9 +310,9 @@
     };
     return {
       version: VERSION,
-      mode: 'strong-axis-rectangular-confinement-subcheck',
+      mode: 'selected-axis-rectangular-confinement-subcheck',
       clauses: ['9.6.3 / (9.6-6)~(9.6-10)', '9.6.3 / confinement extent and spacing'],
-      axis: 'x',
+      axis,
       axialTerms: {
         grossAreaCm2: grossArea,
         concreteAreaCm2: concreteArea,
@@ -335,6 +343,7 @@
         firstHoopLimitCm: spacing / 2,
       },
       extent: {
+        bendingDepthCm,
         inflectionPointWithinMiddleHalf: inflectionWithinMiddleHalf,
         wholeLengthConfined,
         providedCm: providedConfinementHeight,
@@ -344,7 +353,7 @@
       checks,
       ok: Object.values(checks).every(Boolean),
       completeSeismicDetailing: false,
-      boundary: 'This result covers the current-code strong-axis rectangular-column confinement checks only; the fourth-chapter baseline, weak-axis Ahcc=0 check, joint-region detailing, and field placement still require separate verification.',
+      boundary: `This result covers the current-code rectangular-column confinement checks for the selected ${axis}-axis direction only; the fourth-chapter baseline, joint-region detailing, field placement, and orthogonal direction still require separate verification.`,
     };
   }
 
@@ -365,6 +374,7 @@
     STEEL_BEAM_JOINT_RATIO,
     VERIFIED_TRANSFER_JOINT_RATIO,
     STRONG_COLUMN_RATIO,
+    selectedAxis,
     SrcColumnSeismicDetailingError,
     jointFlexuralStrengthRatio,
     strongColumnWeakBeam,

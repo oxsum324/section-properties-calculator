@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 9,
+  "schemaVersion": 10,
   "tool": "src-column-research-core",
-  "coreVersion": "src-column.core.v0.9.0-research",
+  "coreVersion": "src-column.core.v0.10.0-research",
   "regulation": {
     "title": "鋼骨鋼筋混凝土構造設計規範與解說",
     "versionLabel": "100 年修正版（100 年 7 月 1 日施行）",
@@ -52,20 +52,21 @@
       "RC 部分依現行混凝土規範應變相容 P-M 檢核；雙軸採定軸力角度掃描與需求射線互制",
       "第 6.4.1、6.4.3 節完全包覆橫箍筋柱設計受壓強度：鋼骨控制軸強度與 RC 短柱／兩軸 Euler 較小值之強度疊加",
       "第 9.3 節耐震軸向強度子檢核：式 (9.3-1)、(9.3-2) 正負地震方向、Fu 上限 2.5、活載係數例外、明示選用的 1.25 倍傳力上限與彎矩構架免檢條件",
-      "第 9.6.2 節強軸單向耐震柱剪力子檢核：柱端可能彎矩推導需求，鋼骨與 RC 依可能彎矩比例分配並分別檢核",
+      "第 9.6.2 節一次選定 X 或 Y 方向的耐震柱剪力子檢核：柱端可能彎矩推導需求，鋼骨與 RC 依可能彎矩比例分配並分別檢核",
       "第 5.5.2 節 RC 一般剪力與剪力摩擦兩條路徑取較小值；限常重混凝土、整體澆置、垂直閉合箍筋及剪力釘貢獻為零",
-      "第 8.4.2 節單一強軸梁柱接頭撓曲強度比：SRC 梁接 SRC 柱分別檢核鋼骨與 RC 部分 0.6 下限；鋼梁接 SRC 柱採 1.0 下限，僅在專案分析確認應力平順傳遞時允許式 (8.4-4) 的 0.7 下限",
-      "第 9.6.1 節單一強軸梁柱接頭之強柱弱梁算術：順、逆時針皆檢核，柱容量須由專案各載重組合軸力下之最小標稱彎矩提供",
-      "第 9.6.3 節強軸矩形柱圍束子檢核：現行式 (9.6-6)~(9.6-10)、剪力需求下限、圍束範圍、圍束與非圍束間距、第一箍筋、主筋續接與繫筋確認",
+      "Y 向剪力採專案確認之鋼骨／RC 名義剪力強度與所需橫向鋼筋量；工具只重算式 (9.6-3)~(9.6-5) 的需求、可能彎矩分配、設計強度與利用率，不將 X 向腹板公式旋轉套用",
+      "第 8.4.2 節單一選定方向梁柱接頭撓曲強度比：SRC 梁接 SRC 柱分別檢核鋼骨與 RC 部分 0.6 下限；鋼梁接 SRC 柱採 1.0 下限，僅在專案分析確認應力平順傳遞時允許式 (8.4-4) 的 0.7 下限",
+      "第 9.6.1 節單一選定方向梁柱接頭之強柱弱梁算術：順、逆時針皆檢核，柱容量須由專案各載重組合軸力下之最小標稱彎矩提供；正交方向另案計算",
+      "第 9.6.3 節選定方向矩形柱圍束子檢核：現行式 (9.6-6)~(9.6-10)、剪力需求下限、圍束範圍、圍束與非圍束間距、第一箍筋、主筋續接與繫筋確認；H 型鋼 Y 向彎曲強制 Ahcc=0",
       "專案分析已納入 P-Δ 效應的需求值"
     ],
     "excluded": [
       "一般軸拉強度自動推導；第 9.3 節若產生拉力需求，設計拉力強度須由專案核定並明確確認",
-      "catalog 以外型鋼之 A、Ix、Iy、Zx 來源自動核對",
+      "catalog 以外型鋼之 A、Ix、Iy、Zx、Zy 來源自動核對",
       "教材出版後的現行市場供貨與專案材證核對",
       "非耐震一般柱剪力（現行 SRC 規範未另列獨立柱剪力條文）",
-      "弱軸柱剪力、非整體澆置或輕質混凝土剪力摩擦、剪力釘貢獻",
-      "第 9 章完整耐震設計，包括弱軸強柱弱梁／剪力／Ahcc=0 圍束、全構架所有接頭、接頭區剪力及現場配置查驗；第 9.3 節的專案拉力強度與傳力容量來源不由工具推定",
+      "Y 向鋼骨與 RC 名義剪力強度的自動推導；非整體澆置或輕質混凝土剪力摩擦、剪力釘貢獻",
+      "第 9 章完整耐震設計，包括同一案件兩方向的彙總判定、全構架所有接頭、接頭區剪力及現場配置查驗；第 9.3 節的專案拉力強度、傳力容量與 Y 向剪力強度來源不由工具推定",
       "梁柱接頭、續接與柱腳",
       "施工階段強度與穩定",
       "填充型與十字、T 型鋼骨"
@@ -172,19 +173,19 @@
     {
       "id": "src-9.6-3-5",
       "clause": "9.6.2 / 式 (9.6-3)~(9.6-5)，回引式 (9.5-3)",
-      "expression": "Vu=(Mct+Mcb)/hn; Mpr=Mns+Mprc; steel demand=(Mns/Mpr)Vu; RC demand=(Mprc/Mpr)Vu; Mprc uses 1.25Fyr",
+      "expression": "selected x or y axis: Vu=(Mct+Mcb)/hn; Mpr=Mns+Mprc; steel demand=(Mns/Mpr)Vu; RC demand=(Mprc/Mpr)Vu; Mprc uses selected-axis reinforcement layers and 1.25Fyr; y-axis nominal shear strengths and Ash_shear are project-confirmed inputs",
       "implementation": "core/src-column-core.js + core/src-column-shear.js"
     },
     {
       "id": "src-5.5-3",
       "clause": "5.5.1 / 式 (5.5-3)",
-      "expression": "Vns=0.6FywAw; Aw=tw*d; phi_vs=0.9",
+      "expression": "x-axis only: Vns=0.6FywAw; Aw=tw*d; phi_vs=0.9; this web formula is not rotated into the y-axis path",
       "implementation": "core/src-column-shear.js.steelNominalShear"
     },
     {
       "id": "src-5.5-4-13",
       "clause": "5.5.2 / 式 (5.5-4)~(5.5-13)",
-      "expression": "Vnrc=min(Vnr+Vnc, Vnr_prime+Vnc_prime+Vns_prime); compression modifies Vnc by Purc; current scope fixes mu=0.8, K1=28 and Vns_prime=0",
+      "expression": "x-axis automatic path: Vnrc=min(Vnr+Vnc, Vnr_prime+Vnc_prime+Vns_prime); compression modifies Vnc by Purc; current scope fixes mu=0.8, K1=28 and Vns_prime=0",
       "implementation": "core/src-column-shear.js.rcNominalShear"
     },
     {
@@ -202,7 +203,7 @@
     {
       "id": "src-9.6-6-10",
       "clause": "9.6.3 / 式 (9.6-6)~(9.6-10)",
-      "expression": "Ash=max(Ash_shear, 0.3*s*bc*(fc/Fyh)*(Ag/Ach-1)*(1-(Ps+Phcc)/Pn), 0.09*s*bc*(fc/Fyh)*(1-(Ps+Phcc)/Pn)); Ps=AsFys; Phcc=0.2fcAhcc; Pn=AsFys+0.85fcAc+FyrAr",
+      "expression": "selected axis: Ash=max(Ash_shear, 0.3*s*bc*(fc/Fyh)*(Ag/Ach-1)*(1-(Ps+Phcc)/Pn), 0.09*s*bc*(fc/Fyh)*(1-(Ps+Phcc)/Pn)); Ps=AsFys; Phcc=0.2fcAhcc; Pn=AsFys+0.85fcAc+FyrAr; H-shape y-axis bending forces Ahcc=0",
       "implementation": "core/src-column-seismic-detailing.js.confinement"
     }
   ],
@@ -321,7 +322,7 @@
     },
     {
       "id": "DERIVED-EXAMPLE-8-SEISMIC-COLUMN-PACKAGE",
-      "authorityBoundary": "這不是教材原載完整例題；斷面與材料沿用例題 8，耐震軸力採衍生測試載重，強柱弱梁端彎矩只沿用例題 14 的算術數字，第 8.4.2 節鋼骨／RC 分量為衍生比例，圍束採 Ahcc=0 的保守分支。此案例只驗證耐震軸向強度、單一強軸接頭撓曲強度比、強柱弱梁、柱剪力與矩形柱圍束子檢核的整合，不代表全構架、弱軸、接頭區剪力或完整耐震設計。",
+      "authorityBoundary": "這不是教材原載完整例題；斷面與材料沿用例題 8，耐震軸力採衍生測試載重，強柱弱梁端彎矩只沿用例題 14 的算術數字，第 8.4.2 節鋼骨／RC 分量為衍生比例，圍束採 Ahcc=0 的保守分支。此案例只驗證耐震軸向強度與單一 X 向接頭撓曲強度比、強柱弱梁、柱剪力及矩形柱圍束子檢核的整合，不代表正交方向彙總、全構架、接頭區剪力或完整耐震設計。",
       "case": "65 x 80 cm 包覆 H500x304x15x24 SRC 柱；D13 雙肢箍筋 @10 cm；梁端彎矩合計 349.2 tf-m，兩柱標稱彎矩合計 419.04 tf-m",
       "expected": {
         "jointSteelMinimumRatio": 1.2,
@@ -337,12 +338,29 @@
         "nonConfinedSpacingLimitCm": 15,
         "completeSeismicDesign": false
       }
+    },
+    {
+      "id": "DERIVED-EXAMPLE-8-SEISMIC-Y-AXIS-PACKAGE",
+      "authorityBoundary": "這不是教材原載例題或 Y 向自動強度標準答案；斷面、材料與主筋列沿用例題 8，另以專案確認 Vns=100 tf、Vnrc=120 tf、Ash,shear=1.2 cm2 驗證一次選定 Y 向的需求分配、利用率、接頭比值、強柱弱梁與 Ahcc=0 圍束。名義剪力強度與 Ash,shear 的來源仍須由實際專案適用規範核定。",
+      "case": "65 x 80 cm 包覆 H500x304x15x24 SRC 柱；選定 Y 向；Mux=0、Muy=60 tf-m；主筋採 x 座標計算列",
+      "expected": {
+        "axis": "y",
+        "steelNominalMomentTfM": 39.9,
+        "projectConfirmedSteelNominalShearTf": 100,
+        "projectConfirmedRcNominalShearTf": 120,
+        "projectConfirmedRequiredTransverseAreaCm2": 1.2,
+        "highlyConfinedAreaCm2": 0,
+        "weakAxisBendingDepthCm": 65,
+        "requiredConfinementHeightCm": 65,
+        "productionOracleTolerance": "Y 向 RC 可能彎矩與其衍生分配、利用率採 0.002 容許差；專案輸入、接頭與圍束算術採 1e-10。",
+        "completeSeismicDesign": false
+      }
     }
   ],
   "oracle": {
     "file": "core/src-column-oracle.js",
-    "version": "src-column.oracle.v0.7.0-research",
-    "independence": "不引用 src-column-core.js、斷面 catalog、共用 PMSection、正式雙軸、剪力、耐震軸力或耐震細節模組；測試以官方表格的獨立固定值走另一套算術路徑。正式雙軸核心以精確多邊形裁切求混凝土壓力塊，oracle 改以 320 條數值積分；耐震軸力另行重算式 (6.4-1)、(6.4-6)~(6.4-7)、(9.3-1)~(9.3-2)；剪力分配所需 Mprc 以連續中性軸二分法獨立求 1.25Fyr 純彎狀態；第 8.4.2 節接頭撓曲強度比、強柱弱梁與圍束亦以獨立算術重算。",
+    "version": "src-column.oracle.v0.8.0-research",
+    "independence": "不引用 src-column-core.js、斷面 catalog、共用 PMSection、正式雙軸、剪力、耐震軸力或耐震細節模組；測試以官方表格的獨立固定值走另一套算術路徑。正式雙軸核心以精確多邊形裁切求混凝土壓力塊，oracle 改以 320 條數值積分；耐震軸力另行重算式 (6.4-1)、(6.4-6)~(6.4-7)、(9.3-1)~(9.3-2)；X、Y 向剪力分配所需 Mprc 皆以選定方向主筋層列及連續中性軸二分法獨立求 1.25Fyr 純彎狀態；Y 向專案確認強度、Ahcc=0、第 8.4.2 節接頭撓曲強度比、強柱弱梁與圍束亦以獨立算術重算。",
     "covered": [
       "表 3.4-2 寬厚比",
       "剛度分配",
@@ -353,18 +371,18 @@
       "鋼骨式 (7.3-7)／(7.3-8) 雙軸壓彎互制",
       "RC 定軸力 Mux-Muy 互制曲面",
       "第 6.4.1、6.4.3 節完全包覆橫箍筋柱受壓強度與第 9.3 節耐震軸力組合",
-      "第 9.6.2 節強軸柱剪力子檢核、RC 一般剪力與剪力摩擦",
-      "第 8.4.2 節單一強軸接頭撓曲強度比雙向算術與條件式 0.7 分支",
-      "第 9.6.1 節單一強軸接頭強柱弱梁雙向算術",
-      "第 9.6.3 節現行強軸矩形柱圍束量、範圍、間距與續接確認"
+      "第 9.6.2 節 X 向柱剪力自動強度路徑與 Y 向專案確認強度路徑；RC 一般剪力與剪力摩擦限 X 向",
+      "第 8.4.2 節單一選定方向接頭撓曲強度比雙向算術與條件式 0.7 分支",
+      "第 9.6.1 節單一選定方向接頭強柱弱梁雙向算術",
+      "第 9.6.3 節現行選定方向矩形柱圍束量、範圍、間距、續接與 Y 向 Ahcc=0 確認"
     ],
     "uncovered": [
-      "弱軸柱剪力、弱軸強柱弱梁與 Ahcc=0 圍束",
-      "第 9.3 節專案拉力強度來源與傳力容量來源、全構架所有接頭、接頭區剪力與完整耐震設計細部"
+      "Y 向鋼骨與 RC 名義剪力強度及所需橫向鋼筋量的自動推導",
+      "同一案件兩方向彙總、第 9.3 節專案拉力強度來源與傳力容量來源、全構架所有接頭、接頭區剪力與完整耐震設計細部"
     ],
     "test": "src-column-oracle.test.js",
-    "comparisonCount": 127,
-    "approximateComparisonCount": 14,
+    "comparisonCount": 142,
+    "approximateComparisonCount": 19,
     "driftSentinelCount": 6
   }
 }

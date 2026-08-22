@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>SRC 柱強軸耐震研究核算 V0.3</title>
+  <title>SRC 柱方向可選耐震研究核算 V0.4</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="../結構工具箱/core/style.css">
   <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
@@ -18,10 +18,10 @@
   <header class="src-hero">
     <div>
       <p class="src-eyebrow">鋼骨鋼筋混凝土構件</p>
-      <h1>SRC 柱強軸耐震研究核算 <span class="src-version">V0.3</span></h1>
-      <p>完全包覆矩形柱｜強軸單向｜軸力、接頭撓曲強度比、柱剪力、強柱弱梁與圍束｜單位：cm、kgf/cm²、tf、tf·m</p>
+      <h1>SRC 柱方向可選耐震研究核算 <span class="src-version">V0.4</span></h1>
+      <p>完全包覆矩形柱｜每份選定 X 或 Y 方向｜軸力、接頭撓曲強度比、柱剪力、強柱弱梁與圍束｜單位：cm、kgf/cm²、tf、tf·m</p>
       <div class="src-hero-chips" aria-label="目前涵蓋範圍">
-        <span>第 6.4 節壓力強度</span><span>第 7.3 節軸彎分配</span><span>第 8.4.2 節接頭比值</span><span>第 9.3 節地震組合</span><span>第 9.6 節強軸子檢核</span><span>計算斷面圖</span>
+        <span>第 6.4 節壓力強度</span><span>第 7.3 節軸彎分配</span><span>第 8.4.2 節接頭比值</span><span>第 9.3 節地震組合</span><span>第 9.6 節選定方向子檢核</span><span>計算斷面圖</span>
       </div>
     </div>
     <a class="src-back" href="../結構工具箱/index.html">← 回工具箱</a>
@@ -48,19 +48,20 @@
       <div class="src-input-stack">
         <section class="src-card src-page-only">
           <h2>適用範圍與輸出邊界</h2>
-          <p>目前只涵蓋完全包覆矩形 SRC 柱、置中雙對稱 H 型鋼骨、橫箍筋柱及強軸單向作用。專案分析必須已將 P-Δ 效應反映於 Pu、Mux；弱軸耐震、接頭區剪力與接合細部、柱腳及完整構架仍須另案檢核。</p>
+          <p>目前涵蓋完全包覆矩形 SRC 柱、置中雙對稱 H 型鋼骨、橫箍筋柱，以及一次選定 X 或 Y 方向的柱子檢核。專案分析必須已將 P-Δ 效應反映於選定方向需求；正交方向、接頭區剪力與接合細部、柱腳及完整構架仍須另案檢核。Y 向名義剪力強度與所需橫向鋼筋量須由專案核定後輸入，本頁不挪用 X 向腹板公式。</p>
           <p><strong>計算書只保留採用資料、公式代入、檢核結果與結論。</strong>本段研究邊界與待複核事項只顯示於 HTML。研究計算書可列印，但正式附件核可尚未開放。</p>
-          <div class="src-meta-chips"><span>現行 100 年修正版</span><span id="coreVersion">Core —</span><span>案件 schema v2</span><span class="src-research-chip">私有研究工具</span></div>
+          <div class="src-meta-chips"><span>現行 100 年修正版</span><span id="coreVersion">Core —</span><span>案件 schema v3</span><span class="src-research-chip">私有研究工具</span></div>
         </section>
 
         <section class="src-card">
           <h2>① 構材設計需求</h2>
           <div class="src-grid src-grid-3">
+            <label>本計算書核算方向<span><select id="seismicAxis"><option value="x" selected>X 向（鋼骨強軸）</option><option value="y">Y 向（鋼骨弱軸）</option></select></span></label>
             <label>控制軸壓 Pu<span><input id="puTf" type="number" value="734" step="1" min="0"> tf</span></label>
-            <label>強軸彎矩 Mux<span><input id="muxTfM" type="number" value="128.9" step="0.1"> tf·m</span></label>
-            <label>弱軸彎矩 Muy（本頁固定）<span><input id="muyTfM" type="number" value="0" readonly> tf·m</span></label>
+            <label>X 向彎矩 Mux<span><input id="muxTfM" type="number" value="128.9" step="0.1"> tf·m</span></label>
+            <label>Y 向彎矩 Muy<span><input id="muyTfM" type="number" value="60" step="0.1" disabled> tf·m</span></label>
           </div>
-          <p class="src-policy-note">Pu、Mux 應為專案結構分析已納入第 7.4 節二階效應後的設計需求。</p>
+          <p class="src-policy-note">Pu 與選定方向彎矩應為專案結構分析已納入第 7.4 節二階效應後的設計需求；一份計算書只處理一個方向，正交方向另存一案。</p>
         </section>
 
         <section class="src-card">
@@ -100,7 +101,7 @@
 
         <section class="src-card src-subcheck-card" id="shearSubcheckPanel">
           <div class="src-subcheck-heading">
-            <div><h2>③ 第 9.6.2 節強軸柱剪力</h2><p>由專案塑鉸端彎矩建立柱剪力需求，分別檢核鋼骨腹板與 RC 部分。</p></div>
+            <div><h2>③ 第 9.6.2 節選定方向柱剪力</h2><p>X 向自動重算鋼骨腹板與 RC 路徑；Y 向採專案確認名義強度，再自動完成需求分配與比值。</p></div>
             <label class="src-subcheck-toggle"><input id="enableShearSubcheck" type="checkbox" checked> 啟用</label>
           </div>
           <div class="src-subcheck-body" data-subcheck-body="shear">
@@ -108,21 +109,26 @@
               <label>柱頂可能彎矩 Mct<span><input id="mctTfM" type="number" value="120" step="0.1" min="0"> tf·m</span></label>
               <label>柱底可能彎矩 Mcb<span><input id="mcbTfM" type="number" value="110" step="0.1" min="0"> tf·m</span></label>
               <label>柱淨高 Ln<span><input id="clearHeightCm" type="number" value="300" step="1" min="0"> cm</span></label>
-              <label>RC 有效深度 d<span><input id="effectiveDepthCm" type="number" value="73" step="0.1" min="0"> cm</span></label>
+              <label data-x-shear>RC 有效深度 d<span><input id="effectiveDepthCm" type="number" value="73" step="0.1" min="0"> cm</span></label>
               <label>一般剪力箍筋面積 Av<span><input id="avCm2" type="number" value="2.54" step="0.01" min="0"> cm²</span></label>
-              <label>剪力摩擦箍筋面積 Avf<span><input id="avfCm2" type="number" value="2.54" step="0.01" min="0"> cm²</span></label>
+              <label data-x-shear>剪力摩擦箍筋面積 Avf<span><input id="avfCm2" type="number" value="2.54" step="0.01" min="0"> cm²</span></label>
               <label>圍束區箍筋間距 s<span><input id="spacingCm" type="number" value="10" step="0.5" min="0"> cm</span></label>
               <label>箍筋降伏強度 fyh<span><input id="fyhKgfCm2" type="number" value="4200" step="100" min="0"> kgf/cm²</span></label>
-              <label>鋼骨腹板降伏強度 Fyw<span><input id="steelFywKgfCm2" type="number" value="3500" step="100" min="0"> kgf/cm²</span></label>
-              <label>剪力釘貢獻（本版固定）<span><input id="shearStudContributionTf" type="number" value="0" readonly> tf</span></label>
+              <label data-x-shear>鋼骨腹板降伏強度 Fyw<span><input id="steelFywKgfCm2" type="number" value="3500" step="100" min="0"> kgf/cm²</span></label>
+              <label data-x-shear>剪力釘貢獻（本版固定）<span><input id="shearStudContributionTf" type="number" value="0" readonly> tf</span></label>
+              <label data-y-shear hidden>Y 向鋼骨名義剪力 Vns<span><input id="weakAxisSteelNominalShearTf" type="number" value="100" step="0.1" min="0"> tf</span></label>
+              <label data-y-shear hidden>Y 向 RC 名義剪力 Vnrc<span><input id="weakAxisRcNominalShearTf" type="number" value="120" step="0.1" min="0"> tf</span></label>
+              <label data-y-shear hidden>Y 向所需橫向鋼筋 Ash,shear<span><input id="weakAxisRequiredTransverseAreaCm2" type="number" value="1.2" step="0.01" min="0"> cm²</span></label>
             </div>
             <div class="src-check-grid">
               <label><input id="projectPlasticHingeMomentsConfirmed" type="checkbox" checked> Mct、Mcb 已由專案塑鉸機制確認</label>
-              <label><input id="normalWeightConcreteConfirmed" type="checkbox" checked> 採用常重混凝土</label>
-              <label><input id="monolithicInterfaceConfirmed" type="checkbox" checked> 剪力摩擦面為整體澆置</label>
-              <label><input id="transverseReinforcementPerpendicularConfirmed" type="checkbox" checked> 閉合箍筋垂直構材長軸</label>
+              <label data-x-shear><input id="normalWeightConcreteConfirmed" type="checkbox" checked> 採用常重混凝土</label>
+              <label data-x-shear><input id="monolithicInterfaceConfirmed" type="checkbox" checked> 剪力摩擦面為整體澆置</label>
+              <label data-x-shear><input id="transverseReinforcementPerpendicularConfirmed" type="checkbox" checked> 閉合箍筋垂直構材長軸</label>
+              <label data-y-shear hidden><input id="weakAxisStrengthsConfirmed" type="checkbox" checked> Y 向 Vns、Vnrc 已由專案適用規範計算並核定</label>
+              <label data-y-shear hidden><input id="weakAxisRequiredTransverseAreaConfirmed" type="checkbox" checked> Y 向 Ash,shear 已由專案適用規範計算並核定</label>
             </div>
-            <p class="src-policy-note">Mct、Mcb、d、Av 與 Avf 均屬專案指定資料；本頁不由單一柱斷面臆測完整構架塑鉸機制。</p>
+            <p class="src-policy-note">Mct、Mcb 與配筋資料均屬專案指定；Y 向強度必須另由專案核定，本頁只自動處理式 (9.6-3)～(9.6-5) 的需求與分配。</p>
           </div>
         </section>
 
@@ -162,7 +168,7 @@
 
         <section class="src-card src-subcheck-card" id="strongColumnSubcheckPanel">
           <div class="src-subcheck-heading">
-            <div><h2>⑤ 第 9.6.1 節強柱弱梁</h2><p>檢核單一強軸接頭構架面之順、逆時針兩個名義彎矩方向。</p></div>
+            <div><h2>⑤ 第 9.6.1 節強柱弱梁</h2><p>檢核單一選定方向接頭構架面之順、逆時針兩個名義彎矩方向。</p></div>
             <label class="src-subcheck-toggle"><input id="enableStrongColumnSubcheck" type="checkbox" checked> 啟用</label>
           </div>
           <div class="src-subcheck-body" data-subcheck-body="strong-column">
@@ -181,7 +187,7 @@
               <label>右梁 Mnb<span><input id="ccwRightBeamTfM" type="number" value="195.8" step="0.1" min="0"> tf·m</span></label>
             </div>
             <div class="src-check-grid">
-              <label><input id="singleStrongAxisFramePlaneConfirmed" type="checkbox" checked> 本次僅檢核單一強軸構架面，正交方向另案檢核</label>
+              <label><input id="singleStrongAxisFramePlaneConfirmed" type="checkbox" checked> 本次僅檢核所選構架面，正交方向另案檢核</label>
               <label><input id="columnStrengthsAtGoverningAxialLoadsConfirmed" type="checkbox" checked> 柱彎矩強度已取控制軸力組合之最小值</label>
               <label><input id="jointFaceNominalStrengthsConfirmed" type="checkbox" checked> 柱、梁彎矩均為接頭面名義強度</label>
               <label><input id="opposingMomentDirectionsConfirmed" type="checkbox" checked> 梁柱彎矩合力方向已確認相反</label>
@@ -209,6 +215,7 @@
               <label><input id="inflectionPointWithinMiddleHalf" type="checkbox" checked> 反曲點位於柱淨高中間二分之一</label>
               <label><input id="wholeLengthConfined" type="checkbox"> 全柱淨高均採圍束配置</label>
               <label><input id="highlyConfinedAreaConfirmed" type="checkbox" checked> Ahcc 已依鋼骨翼板幾何確認</label>
+              <label data-y-confinement hidden><input id="weakAxisAhccZeroConfirmed" type="checkbox" checked> Y 向 H 型鋼弱軸彎曲依第 9.6.3 節採 Ahcc＝0</label>
               <label><input id="cornerLongitudinalBarsConfirmed" type="checkbox" checked> 斷面各角至少配置一支主筋</label>
               <label><input id="crosstiesProvidedAsNeededConfirmed" type="checkbox" checked> 已依需要配置繫筋</label>
               <label><input id="crosstiesEngageLongitudinalBarsConfirmed" type="checkbox" checked> 繫筋已勾住縱向主筋</label>
@@ -230,7 +237,7 @@
         </section>
 
         <section class="src-card">
-          <h2>⑥ 混凝土斷面與柱長</h2>
+          <h2>⑦ 混凝土斷面與柱長</h2>
           <div class="src-grid src-grid-3">
             <label>柱寬 b<span><input id="widthCm" type="number" value="65" step="0.5" min="0"> cm</span></label>
             <label>柱深 h<span><input id="depthCm" type="number" value="80" step="0.5" min="0"> cm</span></label>
@@ -242,7 +249,7 @@
         </section>
 
         <section class="src-card">
-          <h2>⑦ 主筋計算層</h2>
+          <h2>⑧ 主筋計算層</h2>
           <div class="src-grid src-grid-3">
             <label>主筋降伏強度 Fyr<span><input id="reinforcementFy" type="number" value="4200" step="100" min="0"> kgf/cm²</span></label>
             <label>主筋彈性模數 Es<span><input id="reinforcementEs" type="number" value="2040000" step="10000" min="0"> kgf/cm²</span></label>
@@ -256,11 +263,23 @@
               <tr><th>第 4 層</th><td><input id="layer4Y" type="number" value="73" step="0.5" min="0"></td><td><input id="layer4Area" type="number" value="20.28" step="0.01" min="0"></td></tr>
             </tbody>
           </table>
-          <p class="src-policy-note">本頁以各深度之主筋總面積進行強軸 P-M 計算；圖示為計算層位置，不臆造鋼筋號數、根數或施工配置。</p>
+          <div data-y-reinforcement hidden>
+            <p class="src-subhead">Y 向計算主筋列</p>
+            <table class="src-layer-table">
+              <thead><tr><th>計算列</th><th>自斷面左側 x</th><th>該列主筋總面積</th></tr></thead>
+              <tbody>
+                <tr><th>第 1 列</th><td><input id="xLayer1X" type="number" value="7" step="0.5" min="0"></td><td><input id="xLayer1Area" type="number" value="20.28" step="0.01" min="0"></td></tr>
+                <tr><th>第 2 列</th><td><input id="xLayer2X" type="number" value="17" step="0.5" min="0"></td><td><input id="xLayer2Area" type="number" value="10.14" step="0.01" min="0"></td></tr>
+                <tr><th>第 3 列</th><td><input id="xLayer3X" type="number" value="48" step="0.5" min="0"></td><td><input id="xLayer3Area" type="number" value="10.14" step="0.01" min="0"></td></tr>
+                <tr><th>第 4 列</th><td><input id="xLayer4X" type="number" value="58" step="0.5" min="0"></td><td><input id="xLayer4Area" type="number" value="20.28" step="0.01" min="0"></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="src-policy-note">X 向以 y 計算層、Y 向以 x 計算列的主筋總面積進行單軸 P-M 與可能彎矩計算；這些都是計算資料，圖示不臆造鋼筋號數、根數或施工配置。</p>
         </section>
 
         <section class="src-card">
-          <h2>⑧ 包覆 H 型鋼骨</h2>
+          <h2>⑨ 包覆 H 型鋼骨</h2>
           <div class="src-grid src-grid-3">
             <label>教材斷面 catalog<span><select id="steelCatalogId"></select></span></label>
             <label>鋼材等級<span><select id="steelGrade"><option value="A572 Gr.50">A572 Gr.50／490 級</option><option value="SM490">SM490／490 級</option><option value="SM400">SM400／400 級</option></select></span></label>
@@ -271,7 +290,7 @@
         </section>
 
         <section class="src-card">
-          <h2>⑨ 構材條件確認</h2>
+          <h2>⑩ 構材條件確認</h2>
           <div class="src-check-grid">
             <label><input id="fullyEncased" type="checkbox" checked> 鋼骨完全包覆於 RC 柱內</label>
             <label><input id="centeredH" type="checkbox" checked> 鋼骨為置中雙對稱 H 型</label>

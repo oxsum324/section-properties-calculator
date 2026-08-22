@@ -19,6 +19,7 @@ function officialGuideExample8() {
   return {
     schema: Core.INPUT_SCHEMA,
     caseName: 'MOI SRC design guide example 8',
+    seismicAxis: 'x',
     demands: { puTf: 734.0, muxTfM: 128.9, muyTfM: 0 },
     concrete: { widthCm: 65, depthCm: 80, fcKgfCm2: 280 },
     reinforcement: {
@@ -30,6 +31,12 @@ function officialGuideExample8() {
         { yCm: 17, areaCm2: 2 * 5.07 },
         { yCm: 63, areaCm2: 2 * 5.07 },
         { yCm: 73, areaCm2: 4 * 5.07 },
+      ],
+      xLayers: [
+        { xCm: 7, areaCm2: 4 * 5.07 },
+        { xCm: 17, areaCm2: 2 * 5.07 },
+        { xCm: 48, areaCm2: 2 * 5.07 },
+        { xCm: 58, areaCm2: 4 * 5.07 },
       ],
       bars: [
         { xCm: 7, yCm: 7, areaCm2: barAreaCm2 }, { xCm: 17, yCm: 7, areaCm2: barAreaCm2 },
@@ -76,8 +83,8 @@ function manualExample8() {
   return input;
 }
 
-assert.equal(Core.CORE_VERSION, 'src-column.core.v0.9.0-research', 'SRC column core is explicitly versioned as research');
-assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v8', 'SRC column core has a versioned input schema');
+assert.equal(Core.CORE_VERSION, 'src-column.core.v0.10.0-research', 'SRC column core is explicitly versioned as research');
+assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v9', 'SRC column core has a versioned input schema');
 assert.equal(Core.RELEASE_STATUS, 'research-core-not-public', 'research core cannot be mistaken for a formal public route');
 assert.equal(Core.REGULATION_PROFILE.id, 'tw-src-2011', 'SRC column core uses the official current profile');
 assert.ok(Core.REGULATION_PROFILE.chapter3Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter5Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter6Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter7Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter8Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter9Url.endsWith('.pdf'), 'official chapter sources remain explicit');
@@ -186,7 +193,7 @@ const seismicShear = Core.calculate(seismicShearInput);
 assert.equal(seismicShear.compactness.governingMode, 'seismic-lambda-pd-subcheck', 'seismic shear path governs compactness with lambda-pd');
 assert.equal(seismicShear.compactness.seismicDesignSupported, false, 'a limited shear subcheck never claims complete seismic support');
 assert.equal(seismicShear.compactness.seismicScope, 'limited-current-code-subchecks', 'compactness exposes the limited seismic scope separately');
-assert.equal(seismicShear.shear.mode, 'seismic-strong-axis-subcheck', 'integrated result preserves the limited shear mode');
+assert.equal(seismicShear.shear.mode, 'seismic-selected-axis-subcheck', 'integrated result preserves the limited selected-axis shear mode');
 close(seismicShear.shear.demand.shearTf, 76.66666666666667, 1e-12, 'derived equation 9.6-5 demand');
 close(seismicShear.shear.probableMoments.rcProbableMomentTfM, 106.47554095016433, 1e-10, 'production recomputes RC probable moment with 1.25 Fyr');
 close(seismicShear.shear.steel.utilization, 0.31583903435376404, 1e-12, 'derived steel shear utilization');
@@ -306,6 +313,30 @@ assert.equal(seismicPackage.checks.seismicAxialStrength, true, 'axial strength p
 assert.equal(seismicPackage.checks.completeSeismicDesign, false, 'four column subchecks still do not claim complete seismic design');
 assert.equal(seismicPackage.status, 'REVIEW', 'the integrated column package remains research review only');
 
+const weakAxisPackageInput = clone(seismicPackageInput);
+weakAxisPackageInput.seismicAxis = 'y';
+weakAxisPackageInput.shear.axis = 'y';
+weakAxisPackageInput.jointFlexuralStrengthRatio.axis = 'y';
+weakAxisPackageInput.strongColumnWeakBeam.axis = 'y';
+weakAxisPackageInput.confinement.axis = 'y';
+Object.assign(weakAxisPackageInput.shear, {
+  weakAxisSteelNominalShearTf: 100,
+  weakAxisRcNominalShearTf: 120,
+  weakAxisRequiredTransverseAreaCm2: 1.2,
+  weakAxisStrengthsConfirmed: true,
+  weakAxisRequiredTransverseAreaConfirmed: true,
+});
+weakAxisPackageInput.confinement.weakAxisAhccZeroConfirmed = true;
+const weakAxisPackage = Core.calculate(weakAxisPackageInput);
+assert.equal(weakAxisPackage.seismicAxis, 'y', 'integrated package preserves the selected y direction');
+assert.equal(weakAxisPackage.shear.strengthSource, 'project-confirmed-weak-axis');
+close(weakAxisPackage.shear.probableMoments.steelNominalMomentTfM, 39.9, 1e-12, 'weak-axis steel probable-moment share uses ZyFys');
+assert.ok(Number.isFinite(weakAxisPackage.shear.probableMoments.rcProbableMomentTfM), 'weak-axis RC probable moment is derived from the coordinate-bar section rotated to y bending');
+assert.equal(Object.hasOwn(weakAxisPackage.shear.steel, 'webAreaCm2'), false, 'integrated weak-axis result never reuses the strong-axis steel web area');
+close(weakAxisPackage.confinement.ash.shearRequiredCm2, 1.2, 1e-12, 'project-confirmed weak-axis transverse demand flows into confinement');
+assert.equal(weakAxisPackage.confinement.axialTerms.highlyConfinedAxialTf, 0, 'weak-axis confinement gives no Ahcc credit');
+assert.equal(weakAxisPackage.checks.engineeringStrength, true, 'selected weak-axis package participates in the same engineering check chain');
+
 const inconsistentJointComponents = clone(seismicPackageInput);
 inconsistentJointComponents.jointFlexuralStrengthRatio.cases[0].steelColumnSumTfM += 0.01;
 assert.throws(
@@ -340,7 +371,7 @@ assert.equal(slenderFlange.checks.engineeringStrength, false, 'compactness parti
 
 const failClosedCases = [
   ['unsupported-input-schema', input => { input.schema = 'src-column.input.v999'; }],
-  ['biaxial-bars-required', input => { input.demands.muyTfM = 1; delete input.reinforcement.bars; }],
+  ['coordinate-bars-required', input => { input.demands.muyTfM = 1; delete input.reinforcement.bars; }],
   ['biaxial-bars-not-doubly-symmetric', input => { input.demands.muyTfM = 1; input.reinforcement.bars[0].xCm = 8; }],
   ['biaxial-bars-layers-conflict', input => { input.demands.muyTfM = 1; [0, 3, 8, 11].forEach(index => { input.reinforcement.bars[index].areaCm2 = 5.08; }); }],
   ['second-order-demand-not-confirmed', input => { input.detailing.secondOrderDemandIncluded = false; }],
@@ -362,9 +393,9 @@ const shearFailClosedCases = [
   ['seismic-shear-mode-required', input => {
     input.detailing.seismicColumnShearSubcheck = true;
   }],
-  ['seismic-shear-strong-axis-only', input => {
+  ['seismic-axis-conflict', input => {
     Object.assign(input, clone(seismicShearInput));
-    input.demands.muyTfM = 1;
+    input.shear.axis = 'y';
   }],
   ['confirmation-required', input => {
     Object.assign(input, clone(seismicShearInput));
@@ -394,7 +425,7 @@ const seismicDetailingFailClosedCases = [
     input.detailing.seismicDesign = true;
     input.detailing.seismicConfinementSubcheck = true;
   }],
-  ['unsupported-strong-column-axis', input => {
+  ['seismic-axis-conflict', input => {
     Object.assign(input, clone(seismicPackageInput));
     input.strongColumnWeakBeam.axis = 'y';
   }],
@@ -416,7 +447,7 @@ const manualFailClosedCases = [
   ['invalid-h-section-web-geometry', input => { input.steel.webThicknessCm = 30.4; }],
   ['steel-ratio-below-src-scope', input => { input.steel.areaCm2 = 100; }],
   ['invalid-optional-section-property', input => { input.steel.zyCm3 = 0; }],
-  ['biaxial-steel-zy-required', input => { input.demands.muyTfM = 1; delete input.steel.zyCm3; }],
+  ['weak-axis-steel-zy-required', input => { input.demands.muyTfM = 1; delete input.steel.zyCm3; }],
 ];
 
 for (const [expectedCode, mutate, makeInput] of [
@@ -501,19 +532,24 @@ close(packageVerification.expected.strongColumnMinimumRatio, seismicPackage.stro
 close(packageVerification.expected.nominalAxialTf, seismicPackage.confinement.axialTerms.nominalAxialTf, 1e-12, 'catalog preserves the integrated confinement axial denominator');
 close(packageVerification.expected.ashEquation7Cm2, seismicPackage.confinement.ash.equation7Cm2, 1e-12, 'catalog preserves the integrated governing confinement quantity');
 assert.equal(packageVerification.expected.completeSeismicDesign, seismicPackage.checks.completeSeismicDesign, 'catalog preserves the incomplete seismic-design boundary');
+const weakAxisVerification = catalog.verificationCases.find(item => item.id === 'DERIVED-EXAMPLE-8-SEISMIC-Y-AXIS-PACKAGE');
+assert.ok(weakAxisVerification.authorityBoundary.includes('專案確認') && weakAxisVerification.authorityBoundary.includes('標準答案'), 'weak-axis verification discloses the project-strength boundary');
+close(weakAxisVerification.expected.steelNominalMomentTfM, weakAxisPackage.shear.probableMoments.steelNominalMomentTfM, 1e-12, 'catalog preserves the weak-axis steel probable moment');
+close(weakAxisVerification.expected.projectConfirmedRequiredTransverseAreaCm2, weakAxisPackage.confinement.ash.shearRequiredCm2, 1e-12, 'catalog preserves the project-confirmed weak-axis transverse demand');
+close(weakAxisVerification.expected.weakAxisBendingDepthCm, weakAxisPackage.confinement.extent.bendingDepthCm, 1e-12, 'catalog preserves the weak-axis bending depth');
 assert.equal(catalog.oracle.file, 'core/src-column-oracle.js', 'catalog identifies the independent oracle');
-assert.equal(catalog.oracle.version, 'src-column.oracle.v0.7.0-research', 'catalog identifies the current independent oracle version');
-assert.equal(catalog.oracle.comparisonCount, 127, 'catalog states the independently compared exact arithmetic surface');
-assert.equal(catalog.oracle.approximateComparisonCount, 14, 'catalog states the production/oracle tolerance comparisons');
+assert.equal(catalog.oracle.version, 'src-column.oracle.v0.8.0-research', 'catalog identifies the current independent oracle version');
+assert.equal(catalog.oracle.comparisonCount, 142, 'catalog states the independently compared exact arithmetic surface');
+assert.equal(catalog.oracle.approximateComparisonCount, 19, 'catalog states the production/oracle tolerance comparisons');
 assert.equal(catalog.oracle.driftSentinelCount, 6, 'catalog states all independent drift sentinels');
 assert.ok(catalog.oracle.covered.includes('RC 應變相容 P-M'), 'catalog declares the completed independent RC P-M coverage');
 assert.equal(catalog.oracle.uncovered.includes('RC 應變相容 P-M'), false, 'catalog no longer lists completed RC P-M work as uncovered');
 assert.ok(catalog.oracle.covered.includes('RC 定軸力 Mux-Muy 互制曲面'), 'catalog declares the completed independent biaxial RC coverage');
-assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.6.2 節強軸柱剪力')), 'catalog declares completed limited shear coverage');
-assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.6.1 節單一強軸接頭')), 'catalog declares completed limited strong-column coverage');
-assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.6.3 節現行強軸矩形柱圍束')), 'catalog declares completed limited confinement coverage');
+assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.6.2 節 X 向') && item.includes('Y 向專案確認')), 'catalog declares both selected-direction shear paths');
+assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.6.1 節單一選定方向接頭')), 'catalog declares completed selected-direction strong-column coverage');
+assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.6.3 節現行選定方向矩形柱圍束')), 'catalog declares completed selected-direction confinement coverage');
 assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.3 節耐震軸力組合')), 'catalog declares completed limited seismic axial-strength coverage');
-assert.equal(catalog.oracle.uncovered.includes('柱剪力'), false, 'generic column shear gap is replaced by explicit weak-axis and complete-seismic boundaries');
+assert.ok(catalog.oracle.uncovered.some(item => item.includes('Y 向鋼骨與 RC 名義剪力強度')), 'catalog keeps automatic weak-axis strength derivation outside the supported boundary');
 
 for (const missingPath of ['depthCm', 'flangeWidthCm', 'flangeThicknessCm', 'webThicknessCm']) {
   const input = manualExample8();

@@ -263,6 +263,12 @@ for (const relativePath of [
   '鋼筋混凝土/shared/report.js',
 ]) {
   const source = fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+  const hasKeepTogetherMarkup = source.includes("<section class=\"rep-block${g.keepTogether ? ' rep-block--keep' : ''}\">")
+    || (
+      source.includes('const reportBlockClass = group => [')
+      && source.includes("group?.keepTogether ? 'rep-block--keep' : ''")
+      && source.includes('<section class="${reportBlockClass(g)}">')
+    );
   assert.ok(
     source.includes('function buildCalculationFingerprint')
       && source.includes('<b>輸出時間</b>')
@@ -271,7 +277,7 @@ for (const relativePath of [
   );
   assert.ok(
     source.includes('.rep-block h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }')
-      && source.includes("<section class=\"rep-block${g.keepTogether ? ' rep-block--keep' : ''}\">")
+      && hasKeepTogetherMarkup
       && source.includes('.rep-block--keep { break-inside:avoid-page; page-break-inside:avoid; }')
       && source.includes('tr { break-inside:avoid-page; page-break-inside:avoid; }'),
     `${relativePath} keeps report headings and table rows intact across print pages`
