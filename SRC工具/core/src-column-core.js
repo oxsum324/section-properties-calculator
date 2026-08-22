@@ -3,13 +3,14 @@
  * Scope: fully encased rectangular SRC column with a centered doubly-symmetric
  * H-shape, compression plus uniaxial or biaxial bending, tied longitudinal
  * reinforcement, second-order demand supplied by the project analysis, and
- * an optional current-code seismic strong-axis shear subcheck.
+ * optional current-code strong-axis seismic column subchecks.
  *
  * This core is deliberately not a public/formal tool yet. It implements the
  * strength-allocation path needed to reproduce the official MOI SRC design
- * guide example and automatically checks H-shape compactness. The shear path
- * covers only clauses 9.6.2 and 5.5; complete seismic design, joints, bases,
- * and construction detailing remain outside the automatic OK boundary.
+ * guide example and automatically checks H-shape compactness. The seismic
+ * paths cover clauses 9.6.1, 9.6.2, and the strong-axis rectangular-column
+ * portions of 9.6.3; complete frame and joint design remain outside the
+ * automatic OK boundary.
  *
  * Units: cm, cm2, cm3, cm4, kgf/cm2, tf, tf-m.
  */
@@ -26,14 +27,17 @@
   const columnShear = typeof module === 'object' && module.exports
     ? require('./src-column-shear.js')
     : globalObject && globalObject.SrcColumnShear;
-  const api = factory(pmSection, hSectionCatalog, rcBiaxial, columnShear);
+  const seismicDetailing = typeof module === 'object' && module.exports
+    ? require('./src-column-seismic-detailing.js')
+    : globalObject && globalObject.SrcColumnSeismicDetailing;
+  const api = factory(pmSection, hSectionCatalog, rcBiaxial, columnShear, seismicDetailing);
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (globalObject) globalObject.SrcColumnCore = api;
-})(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnCore(PMSection, HSectionCatalog, RcBiaxial, ColumnShear) {
+})(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnCore(PMSection, HSectionCatalog, RcBiaxial, ColumnShear, SeismicDetailing) {
   'use strict';
 
-  const CORE_VERSION = 'src-column.core.v0.6.0-research';
-  const INPUT_SCHEMA = 'src-column.input.v5';
+  const CORE_VERSION = 'src-column.core.v0.7.0-research';
+  const INPUT_SCHEMA = 'src-column.input.v6';
   const RELEASE_STATUS = 'research-core-not-public';
   const REGULATION_PROFILE = Object.freeze({
     id: 'tw-src-2011',
@@ -54,6 +58,8 @@
       redistribution: '7.3.2 / 式 (7.3-9)~(7.3-10)',
       secondOrder: '7.4 / 式 (7.4-1)~(7.4-7)',
       seismicColumnShear: '9.6.2 / 式 (9.6-3)~(9.6-5)，回引 5.5.1~5.5.2',
+      strongColumnWeakBeam: '9.6.1 / 式 (9.6-1)',
+      seismicColumnConfinement: '9.6.3 / 式 (9.6-6)~(9.6-10) 與圍束配置細則',
     }),
     draftBoundary: '2024 年研究成果為修正草案，未作為本核心的正式規範來源。',
   });
@@ -171,6 +177,9 @@
     const detailing = input?.detailing || {};
     const shear = input?.shear || {};
     const shearRequested = detailing.seismicColumnShearSubcheck === true;
+    const strongColumnRequested = detailing.seismicStrongColumnWeakBeamSubcheck === true;
+    const confinementRequested = detailing.seismicConfinementSubcheck === true;
+    const seismicSubcheckRequested = shearRequested || strongColumnRequested || confinementRequested;
 
     if (input?.schema !== INPUT_SCHEMA) {
       addBlocked('unsupported-input-schema', 'schema', `僅接受 ${INPUT_SCHEMA}，未知 schema 不得直接計算。`);
@@ -226,7 +235,7 @@
     if (detailing.secondOrderDemandIncluded !== true) {
       addBlocked('second-order-demand-not-confirmed', 'detailing.secondOrderDemandIncluded', '第 7.4 節 P-Δ 效應必須由專案分析納入需求彎矩後才可使用本核心。');
     }
-    if (detailing.seismicDesign === true && !shearRequested) {
+    if (detailing.seismicDesign === true && !seismicSubcheckRequested) {
       addBlocked('seismic-scope-not-implemented', 'detailing.seismicDesign', '第 9 章 SRC 耐震設計尚未納入，不得以本核心作通過判定。');
     }
     if (shearRequested && detailing.seismicDesign !== true) {
@@ -234,6 +243,12 @@
     }
     if (shearRequested && muy != null && Math.abs(muy) > ZERO_TOLERANCE) {
       addBlocked('seismic-shear-strong-axis-only', 'demands.muyTfM', '目前第 9.6.2 節剪力子檢核只涵蓋強軸單向作用，Muy 必須為 0。');
+    }
+    if ((strongColumnRequested || confinementRequested) && detailing.seismicDesign !== true) {
+      addBlocked('seismic-detailing-mode-required', 'detailing.seismicDesign', '第 9.6.1 與 9.6.3 節子檢核只適用明確啟用的耐震設計案件。');
+    }
+    if (confinementRequested && !shearRequested) {
+      addBlocked('confinement-shear-demand-required', 'detailing.seismicColumnShearSubcheck', '圍束箍筋量不得小於剪力需求，因此第 9.6.3 節子檢核必須同時啟用第 9.6.2 節剪力子檢核。');
     }
     if (detailing.fullyEncased !== true) addBlocked('not-fully-encased', 'detailing.fullyEncased', '僅適用完全包覆型 SRC 柱。');
     if (detailing.centeredDoublySymmetricH !== true) addBlocked('unsupported-steel-shape', 'detailing.centeredDoublySymmetricH', '僅適用置中雙對稱 H 型鋼骨。');
@@ -293,6 +308,15 @@
       }
     }
 
+    if (seismicSubcheckRequested) {
+      if (width && depth) {
+        const shortSide = Math.min(width, depth);
+        const longSide = Math.max(width, depth);
+        if (shortSide < 30 - ZERO_TOLERANCE) addBlocked('seismic-column-minimum-size', 'concrete', '第 9.6.3 節規定耐震 SRC 柱最小斷面尺寸不得小於 30 cm。');
+        if (shortSide / longSide < 0.4 - ZERO_TOLERANCE) addBlocked('seismic-column-aspect-ratio', 'concrete', '第 9.6.3 節規定柱短長邊比不得小於 0.4。');
+      }
+    }
+
     if (shearRequested) {
       [
         ['steel.fywKgfCm2', steel.fywKgfCm2],
@@ -324,12 +348,6 @@
       ].forEach(([path, value, message]) => {
         if (value !== true) addBlocked('confirmation-required', path, message);
       });
-      if (width && depth) {
-        const shortSide = Math.min(width, depth);
-        const longSide = Math.max(width, depth);
-        if (shortSide < 30 - ZERO_TOLERANCE) addBlocked('seismic-column-minimum-size', 'concrete', '第 9.6.3 節規定耐震 SRC 柱最小斷面尺寸不得小於 30 cm。');
-        if (shortSide / longSide < 0.4 - ZERO_TOLERANCE) addBlocked('seismic-column-aspect-ratio', 'concrete', '第 9.6.3 節規定柱短長邊比不得小於 0.4。');
-      }
     }
 
     const biaxialRequested = muy != null && Math.abs(muy) > ZERO_TOLERANCE;
@@ -378,8 +396,13 @@
     if (steelResolution.source.mode === 'manual') {
       addReview('section-properties-manual', 'steel', '本案 A、Ix、Iy、Zx 採人工輸入，未由具頁碼與版次的 SRC 柱斷面 catalog 鎖定。');
     }
-    if (shearRequested) {
-      addReview('seismic-shear-subcheck-only', 'detailing', '僅完成第 9.6.2 節強軸柱剪力子檢核；強柱弱梁、圍束、弱軸剪力、接頭與其餘耐震細節仍須另案檢核。');
+    if (seismicSubcheckRequested) {
+      const implemented = [
+        shearRequested ? '9.6.2 強軸柱剪力' : '',
+        strongColumnRequested ? '9.6.1 單一強軸接頭強柱弱梁' : '',
+        confinementRequested ? '9.6.3 強軸矩形柱圍束' : '',
+      ].filter(Boolean).join('、');
+      addReview('seismic-column-subchecks-only', 'detailing', `目前僅完成 ${implemented} 子檢核；第 9.3 節、8.4.2 接頭傳力比例、弱軸、全構架各接頭、接頭區與其餘耐震細節仍須另案檢核。`);
     } else {
       addReview('excluded-strength-paths', 'detailing', '第 9.6.2 節耐震柱剪力未啟用；柱腳、梁柱接頭、施工階段與耐震細節仍須另案檢核。');
     }
@@ -414,7 +437,7 @@
     return {
       governingMode: seismic ? 'seismic-lambda-pd-subcheck' : 'general-lambda-p',
       seismicDesignSupported: false,
-      seismicScope: seismic ? 'column-shear-subcheck-only' : 'not-requested',
+      seismicScope: seismic ? 'limited-current-code-subchecks' : 'not-requested',
       gradeGroup,
       flangeRatio,
       flangeGeneralLimit,
@@ -649,8 +672,55 @@
         throw error;
       }
     }
+
+    let strongColumnWeakBeamResult = null;
+    let confinementResult = null;
+    const strongColumnRequested = detailing.seismicStrongColumnWeakBeamSubcheck === true;
+    const confinementRequested = detailing.seismicConfinementSubcheck === true;
+    if (strongColumnRequested || confinementRequested) {
+      if (!SeismicDetailing || typeof SeismicDetailing.strongColumnWeakBeam !== 'function' || typeof SeismicDetailing.confinement !== 'function') {
+        throw new Error('SrcColumnSeismicDetailing dependency is required for the seismic detailing subchecks.');
+      }
+      if (strongColumnRequested) {
+        try {
+          strongColumnWeakBeamResult = SeismicDetailing.strongColumnWeakBeam(input.strongColumnWeakBeam);
+        } catch (error) {
+          if (error instanceof SeismicDetailing.SrcColumnSeismicDetailingError) {
+            throw new SrcColumnInputError([issue(error.code, `strongColumnWeakBeam.${error.path}`, error.message)]);
+          }
+          throw error;
+        }
+      }
+      if (confinementRequested) {
+        try {
+          const reinforcementAreaCm2 = reinforcement.layers.reduce((sum, layer) => sum + Number(layer.areaCm2), 0);
+          confinementResult = SeismicDetailing.confinement({
+            ...input.confinement,
+            widthCm: width,
+            depthCm: depth,
+            clearHeightCm: Number(input.shear.clearHeightCm),
+            steelAreaCm2: Number(steel.areaCm2),
+            reinforcementAreaCm2,
+            fcKgfCm2: Number(concrete.fcKgfCm2),
+            fysKgfCm2: Number(steel.fysKgfCm2),
+            fyrKgfCm2: Number(reinforcement.fyKgfCm2),
+            fyhKgfCm2: Number(input.shear.fyhKgfCm2),
+            spacingCm: Number(input.shear.spacingCm),
+            providedAshCm2: Number(input.shear.avCm2),
+            shearRequiredAshCm2: shearResult.rc.requiredTransverseAreaCm2,
+          });
+        } catch (error) {
+          if (error instanceof SeismicDetailing.SrcColumnSeismicDetailingError) {
+            throw new SrcColumnInputError([issue(error.code, `confinement.${error.path}`, error.message)]);
+          }
+          throw error;
+        }
+      }
+    }
     const engineeringChecksOk = compactness.ok && finalSteelInteraction.ok && rcInteraction.ok
-      && (!shearResult || shearResult.ok);
+      && (!shearResult || shearResult.ok)
+      && (!strongColumnWeakBeamResult || strongColumnWeakBeamResult.ok)
+      && (!confinementResult || confinementResult.ok);
 
     return {
       coreVersion: CORE_VERSION,
@@ -724,6 +794,8 @@
         angleSteps: biaxialRequested ? rcInteraction.angleSteps : 0,
       },
       shear: shearResult,
+      strongColumnWeakBeam: strongColumnWeakBeamResult,
+      confinement: confinementResult,
       checks: {
         flangeCompactness: compactness.flangeOk,
         webCompactness: compactness.webOk,
@@ -731,6 +803,8 @@
         steelInteraction: finalSteelInteraction.ok,
         rcInteraction: rcInteraction.ok,
         columnShear: shearResult ? shearResult.ok : null,
+        strongColumnWeakBeam: strongColumnWeakBeamResult ? strongColumnWeakBeamResult.ok : null,
+        confinement: confinementResult ? confinementResult.ok : null,
         completeSeismicDesign: false,
         engineeringStrength: engineeringChecksOk,
         formalRelease: false,

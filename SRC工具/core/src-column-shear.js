@@ -15,7 +15,7 @@
 })(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnShear() {
   'use strict';
 
-  const VERSION = 'src-column.shear.v0.1.0-research';
+  const VERSION = 'src-column.shear.v0.2.0-research';
   const PHI_STEEL = 0.9;
   const PHI_RC = 0.75;
   const ZERO_TOLERANCE = 1e-9;
@@ -166,6 +166,14 @@
     const rc = rcNominalShear(input);
     const steelUtilization = steelRequiredTf / steel.designShearTf;
     const rcUtilization = rcRequiredTf / rc.designShearTf;
+    const requiredNominalRcShearTf = rcRequiredTf / PHI_RC;
+    const requiredGeneralTransverseTf = Math.max(0, requiredNominalRcShearTf - rc.concreteTf);
+    const requiredGeneralAreaCm2 = requiredGeneralTransverseTf * 1000 * Number(input.spacingCm)
+      / (Number(input.fyhKgfCm2) * Number(input.effectiveDepthCm));
+    const requiredFrictionTransverseTf = Math.max(0, requiredNominalRcShearTf - rc.frictionConcreteTf - rc.shearStudContributionTf);
+    const requiredFrictionAreaCm2 = requiredFrictionTransverseTf * 1000 * Number(input.spacingCm)
+      / (rc.frictionCoefficient * Number(input.fyhKgfCm2) * Number(input.effectiveDepthCm));
+    const requiredTransverseAreaCm2 = Math.max(requiredGeneralAreaCm2, requiredFrictionAreaCm2);
 
     return {
       version: VERSION,
@@ -195,12 +203,18 @@
         ...rc,
         axialDemandTf: Number(input.rcAxialDemandTf),
         requiredShearTf: rcRequiredTf,
+        requiredNominalShearTf: requiredNominalRcShearTf,
+        requiredGeneralTransverseTf,
+        requiredGeneralAreaCm2,
+        requiredFrictionTransverseTf,
+        requiredFrictionAreaCm2,
+        requiredTransverseAreaCm2,
         utilization: rcUtilization,
         ok: rcUtilization <= 1 + ZERO_TOLERANCE,
       },
       ok: steelUtilization <= 1 + ZERO_TOLERANCE && rcUtilization <= 1 + ZERO_TOLERANCE,
       completeSeismicDesign: false,
-      boundary: 'This result covers only the current-code strong-axis column shear subcheck; strong-column weak-beam, confinement, joints, bases, weak-axis shear, and the remaining seismic detailing are not completed.',
+      boundary: 'This result covers only the current-code strong-axis column shear subcheck; any requested strong-column/weak-beam and confinement results are returned separately, while complete frame, joint, base, weak-axis, and remaining seismic design stay outside this subcheck.',
     };
   }
 

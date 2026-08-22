@@ -39,7 +39,7 @@ function officialExample14ShearInput() {
   };
 }
 
-assert.equal(Shear.VERSION, 'src-column.shear.v0.1.0-research', 'shear subcheck is explicitly versioned as research');
+assert.equal(Shear.VERSION, 'src-column.shear.v0.2.0-research', 'shear subcheck is explicitly versioned as research');
 close(Shear.columnDemandShear(191.9, 191.9, 225), 170.57777777777778, 1e-12, 'equation 9.6-5 column demand shear');
 
 const steel = Shear.steelNominalShear(3500, 1.3, 49.4);
@@ -55,6 +55,9 @@ close(example14.steel.requiredShearTf, 104.03719158801127, 1e-12, 'example 14 st
 close(example14.rc.requiredShearTf, 66.54058618976653, 1e-12, 'example 14 RC share of shear');
 close(example14.rc.concreteTf, 69.07175560232929, 1e-10, 'example 14 axial-compression concrete shear term');
 close(example14.rc.frictionConcreteTf, 97.18968, 1e-10, 'example 14 shear-friction concrete term');
+close(example14.rc.requiredGeneralAreaCm2, 2.349237922528226, 1e-12, 'example 14 required general-shear transverse area at 35 cm spacing');
+close(example14.rc.requiredFrictionAreaCm2, 0, 1e-12, 'example 14 shear-friction concrete term alone covers the allocated nominal demand');
+close(example14.rc.requiredTransverseAreaCm2, 2.349237922528226, 1e-12, 'example 14 shear demand passed to confinement uses the governing required transverse area');
 assert.equal(example14.rc.governingMode, 'general-shear', '35 cm example is governed by general shear');
 assert.equal(example14.steel.ok, true, 'official example steel share passes');
 assert.equal(example14.rc.ok, true, 'official example RC share passes at 35 cm');

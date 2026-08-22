@@ -9,7 +9,7 @@ const Oracle = require('./core/src-column-oracle.js');
 function example8() {
   const barAreaCm2 = 5.07;
   return {
-    schema: 'src-column.input.v5',
+    schema: 'src-column.input.v6',
     demands: { puTf: 734.0, muxTfM: 128.9, muyTfM: 0 },
     concrete: { widthCm: 65, depthCm: 80, fcKgfCm2: 280 },
     reinforcement: {
@@ -74,7 +74,7 @@ function compare(production, oracle, paths, tolerance) {
   });
 }
 
-assert.equal(Oracle.ORACLE_VERSION, 'src-column.oracle.v0.4.0-research', 'independent oracle is explicitly versioned');
+assert.equal(Oracle.ORACLE_VERSION, 'src-column.oracle.v0.5.0-research', 'independent oracle is explicitly versioned');
 assert.equal(Oracle.SUPPORTED_SCHEMA, Production.INPUT_SCHEMA, 'oracle and production accept the same research input schema');
 const oracleSource = fs.readFileSync(path.join(__dirname, 'core', 'src-column-oracle.js'), 'utf8');
 assert.equal(oracleSource.includes('require('), false, 'oracle imports neither the production core nor shared PMSection');
@@ -221,6 +221,12 @@ const shearTolerancePaths = [
   'shear.steel.utilization',
   'shear.rc.requiredShearTf',
   'shear.rc.utilization',
+  'shear.rc.requiredNominalShearTf',
+  'shear.rc.requiredGeneralTransverseTf',
+  'shear.rc.requiredGeneralAreaCm2',
+  'shear.rc.requiredFrictionTransverseTf',
+  'shear.rc.requiredFrictionAreaCm2',
+  'shear.rc.requiredTransverseAreaCm2',
 ];
 assert.deepEqual(compare(shearProduction, shearOracle, shearTolerancePaths, 0.002), [], 'continuous probable-moment oracle agrees with the discretized production shear allocation');
 assert.equal(shearOracle.shear.method, 'independent-continuous-probable-moment', 'shear oracle independently solves the 1.25 Fyr pure-bending state');
@@ -228,6 +234,82 @@ assert.equal(shearOracle.shear.rc.governingMode, shearProduction.shear.rc.govern
 assert.equal(shearOracle.shear.ok, shearProduction.shear.ok, 'oracle agrees on the separately allocated shear disposition');
 assert.ok(shearOracle.coverage.covered.includes('seismic-strong-axis-column-shear-subcheck'), 'oracle declares the completed limited shear coverage');
 assert.equal(shearOracle.coverage.uncovered.includes('shear'), false, 'generic shear is replaced by explicit covered and uncovered axes');
+
+const packageOracleInput = structuredClone(shearOracleInput);
+packageOracleInput.detailing.seismicStrongColumnWeakBeamSubcheck = true;
+packageOracleInput.detailing.seismicConfinementSubcheck = true;
+packageOracleInput.shear.spacingCm = 10;
+const exactColumnShareTfM = 1.2 * (195.8 + 153.4) / 2;
+packageOracleInput.strongColumnWeakBeam = {
+  axis: 'x',
+  orthogonalBeamDirectionPresent: false,
+  columnStrengthsAtGoverningAxialLoadsConfirmed: true,
+  jointFaceNominalStrengthsConfirmed: true,
+  opposingMomentDirectionsConfirmed: true,
+  cases: [
+    { sense: 'clockwise', upperColumnNominalTfM: exactColumnShareTfM, lowerColumnNominalTfM: exactColumnShareTfM, leftBeamNominalTfM: 195.8, rightBeamNominalTfM: 153.4 },
+    { sense: 'counterclockwise', upperColumnNominalTfM: exactColumnShareTfM, lowerColumnNominalTfM: exactColumnShareTfM, leftBeamNominalTfM: 153.4, rightBeamNominalTfM: 195.8 },
+  ],
+};
+packageOracleInput.confinement = {
+  axis: 'x',
+  coreWidthCm: 54,
+  coreAreaCm2: 4104,
+  highlyConfinedAreaCm2: 0,
+  minimumLongitudinalBarDiameterCm: 2.54,
+  providedConfinementZoneHeightCm: 80,
+  nonConfinedSpacingCm: 15,
+  firstHoopDistanceCm: 5,
+  inflectionPointWithinMiddleHalf: true,
+  wholeLengthConfined: false,
+  mainBarSplicePresent: false,
+  highlyConfinedAreaConfirmed: true,
+  cornerLongitudinalBarsConfirmed: true,
+  crosstiesProvidedAsNeededConfirmed: true,
+  crosstiesEngageLongitudinalBarsConfirmed: true,
+  crosstieHooksAlternatedConfirmed: true,
+};
+const packageProductionInput = structuredClone(packageOracleInput);
+packageProductionInput.steel = {
+  catalogId: 'rh-500x304x15x24',
+  grade: packageOracleInput.steel.grade,
+  fysKgfCm2: packageOracleInput.steel.fysKgfCm2,
+  fywKgfCm2: packageOracleInput.steel.fywKgfCm2,
+  esKgfCm2: packageOracleInput.steel.esKgfCm2,
+};
+const packageProduction = Production.calculate(packageProductionInput);
+const packageOracle = Oracle.calculate(packageOracleInput);
+const detailingExactPaths = [
+  'strongColumnWeakBeam.cases.0.columnSumTfM',
+  'strongColumnWeakBeam.cases.0.beamSumTfM',
+  'strongColumnWeakBeam.cases.0.requiredColumnSumTfM',
+  'strongColumnWeakBeam.cases.0.ratio',
+  'strongColumnWeakBeam.cases.0.utilization',
+  'strongColumnWeakBeam.cases.1.columnSumTfM',
+  'strongColumnWeakBeam.cases.1.beamSumTfM',
+  'strongColumnWeakBeam.cases.1.ratio',
+  'strongColumnWeakBeam.minimumRatio',
+  'confinement.axialTerms.grossAreaCm2',
+  'confinement.axialTerms.concreteAreaCm2',
+  'confinement.axialTerms.steelAxialTf',
+  'confinement.axialTerms.highlyConfinedAxialTf',
+  'confinement.axialTerms.nominalAxialTf',
+  'confinement.axialTerms.reductionFactor',
+  'confinement.ash.shearRequiredCm2',
+  'confinement.ash.equation6Cm2',
+  'confinement.ash.equation7Cm2',
+  'confinement.ash.requiredCm2',
+  'confinement.ash.utilization',
+  'confinement.spacing.confinedLimitCm',
+  'confinement.spacing.nonConfinedLimitCm',
+  'confinement.spacing.firstHoopLimitCm',
+  'confinement.extent.requiredCm',
+];
+assert.deepEqual(compare(packageProduction, packageOracle, detailingExactPaths, 1e-10), [], 'independent oracle agrees with every strong-column and confinement arithmetic term');
+assert.equal(packageOracle.strongColumnWeakBeam.ok, packageProduction.strongColumnWeakBeam.ok, 'oracle agrees on both strong-column loading senses');
+assert.equal(packageOracle.confinement.ok, packageProduction.confinement.ok, 'oracle agrees on current-code confinement disposition');
+assert.equal(packageOracle.confinement.ash.governingMode, packageProduction.confinement.ash.governingMode, 'oracle agrees on the governing confinement requirement');
+assert.ok(packageOracle.coverage.covered.includes('seismic-strong-axis-joint-subcheck') && packageOracle.coverage.covered.includes('seismic-strong-axis-confinement-subcheck'), 'oracle declares both new limited seismic subchecks');
 
 const drifted = structuredClone(production);
 drifted.steel.nominalMomentXTfM += 0.01;
@@ -249,6 +331,13 @@ assert.deepEqual(
   compare(shearDrifted, shearOracle, shearExactPaths, 1e-10).map(item => item.path),
   ['shear.steel.nominalShearTf'],
   'comparison catches a shear production arithmetic drift'
+);
+const confinementDrifted = structuredClone(packageProduction);
+confinementDrifted.confinement.ash.equation7Cm2 += 0.01;
+assert.deepEqual(
+  compare(confinementDrifted, packageOracle, detailingExactPaths, 1e-10).map(item => item.path),
+  ['confinement.ash.equation7Cm2'],
+  'comparison catches a confinement production arithmetic drift'
 );
 
 const grade400 = example8();
@@ -276,4 +365,14 @@ for (const mutate of [
   assert.throws(() => Oracle.calculate(invalid), Oracle.SrcColumnOracleError, 'oracle fails closed outside its declared scope');
 }
 
-console.log(`SRC column independent oracle OK (${comparedPaths.length + rcComparedPaths.length + 6 + shearExactPaths.length} exact comparisons + ${3 + shearTolerancePaths.length} tolerance comparisons + three drift sentinels)`);
+for (const missingBoolean of ['mainBarSplicePresent', 'inflectionPointWithinMiddleHalf', 'wholeLengthConfined']) {
+  const invalid = structuredClone(packageOracleInput);
+  delete invalid.confinement[missingBoolean];
+  assert.throws(
+    () => Oracle.calculate(invalid),
+    error => error instanceof Oracle.SrcColumnOracleError && error.code === 'boolean-required',
+    `oracle requires explicit confinement.${missingBoolean}`
+  );
+}
+
+console.log(`SRC column independent oracle OK (${comparedPaths.length + rcComparedPaths.length + 6 + shearExactPaths.length + detailingExactPaths.length} exact comparisons + ${3 + shearTolerancePaths.length} tolerance comparisons + four drift sentinels)`);

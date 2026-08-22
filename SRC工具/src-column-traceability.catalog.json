@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "tool": "src-column-research-core",
-  "coreVersion": "src-column.core.v0.6.0-research",
+  "coreVersion": "src-column.core.v0.7.0-research",
   "regulation": {
     "title": "鋼骨鋼筋混凝土構造設計規範與解說",
     "versionLabel": "100 年修正版（100 年 7 月 1 日施行）",
@@ -51,6 +51,8 @@
       "RC 部分依現行混凝土規範應變相容 P-M 檢核；雙軸採定軸力角度掃描與需求射線互制",
       "第 9.6.2 節強軸單向耐震柱剪力子檢核：柱端可能彎矩推導需求，鋼骨與 RC 依可能彎矩比例分配並分別檢核",
       "第 5.5.2 節 RC 一般剪力與剪力摩擦兩條路徑取較小值；限常重混凝土、整體澆置、垂直閉合箍筋及剪力釘貢獻為零",
+      "第 9.6.1 節單一強軸梁柱接頭之強柱弱梁算術：順、逆時針皆檢核，柱容量須由專案各載重組合軸力下之最小標稱彎矩提供",
+      "第 9.6.3 節強軸矩形柱圍束子檢核：現行式 (9.6-6)~(9.6-10)、剪力需求下限、圍束範圍、圍束與非圍束間距、第一箍筋、主筋續接與繫筋確認",
       "專案分析已納入 P-Δ 效應的需求值"
     ],
     "excluded": [
@@ -59,7 +61,7 @@
       "教材出版後的現行市場供貨與專案材證核對",
       "非耐震一般柱剪力（現行 SRC 規範未另列獨立柱剪力條文）",
       "弱軸柱剪力、非整體澆置或輕質混凝土剪力摩擦、剪力釘貢獻",
-      "第 9 章完整耐震設計，包括強柱弱梁、圍束與其餘第 9.6.3 節細部",
+      "第 9 章完整耐震設計，包括第 9.3 節軸向強度、弱軸強柱弱梁／剪力／Ahcc=0 圍束、全構架所有接頭、第 8.4.2 節接頭傳力比例及現場配置查驗",
       "梁柱接頭、續接與柱腳",
       "施工階段強度與穩定",
       "填充型與十字、T 型鋼骨"
@@ -80,12 +82,12 @@
     },
     {
       "clause": "6.3.2 及現行混凝土結構設計規範",
-      "check": "非耐震橫箍筋柱 RC 部分的縱向主筋比限 1%~8%；啟用第 9.6.2 節剪力子檢核時，依第 9.6.3 節改採 3% 上限。",
+      "check": "非耐震橫箍筋柱 RC 部分的縱向主筋比限 1%~8%；啟用任一耐震子檢核時，依第 9.6.3 節改採 3% 上限。",
       "implementation": "validateInput.longitudinal-ratio"
     },
     {
       "clause": "3.4 / 表 3.4-2",
-      "check": "完全包覆 H 型 SRC 柱自動重算翼板 b/tf 與腹板 hc/tw；非耐震範圍以 lambda_p 判定，啟用第 9.6.2 節剪力子檢核時改以 lambda_pd 判定。",
+      "check": "完全包覆 H 型 SRC 柱自動重算翼板 b/tf 與腹板 hc/tw；非耐震範圍以 lambda_p 判定，啟用任一耐震子檢核時改以 lambda_pd 判定。",
       "implementation": "calculateCompactness"
     }
   ],
@@ -168,6 +170,18 @@
       "clause": "5.5.2 / 式 (5.5-4)~(5.5-13)",
       "expression": "Vnrc=min(Vnr+Vnc, Vnr_prime+Vnc_prime+Vns_prime); compression modifies Vnc by Purc; current scope fixes mu=0.8, K1=28 and Vns_prime=0",
       "implementation": "core/src-column-shear.js.rcNominalShear"
+    },
+    {
+      "id": "src-9.6-1",
+      "clause": "9.6.1 / 式 (9.6-1)",
+      "expression": "sum(Mc)/sum(Mb) >= 1.2；順、逆時針分別檢核；柱採各載重組合軸力下之最小接頭面標稱彎矩強度",
+      "implementation": "core/src-column-seismic-detailing.js.strongColumnWeakBeam"
+    },
+    {
+      "id": "src-9.6-6-10",
+      "clause": "9.6.3 / 式 (9.6-6)~(9.6-10)",
+      "expression": "Ash=max(Ash_shear, 0.3*s*bc*(fc/Fyh)*(Ag/Ach-1)*(1-(Ps+Phcc)/Pn), 0.09*s*bc*(fc/Fyh)*(1-(Ps+Phcc)/Pn)); Ps=AsFys; Phcc=0.2fcAhcc; Pn=AsFys+0.85fcAc+FyrAr",
+      "implementation": "core/src-column-seismic-detailing.js.confinement"
     }
   ],
   "goldenCases": [
@@ -216,6 +230,26 @@
         "rcFrictionConcreteTf": 97.18968,
         "roundingBoundary": "教材以一位小數報告 170.6、104.1、66.5、134.9、121.4、69.1、97.2 tf；本測試保留由教材印列輸入重算的未捨入值。"
       }
+    },
+    {
+      "id": "MOI-SRC-GUIDE-COLUMN-EXAMPLE-14-SEISMIC-DETAILING-ARITHMETIC",
+      "source": "內政部建築研究所《鋼骨鋼筋混凝土(SRC)構造設計教材》例題 14",
+      "sourceUrl": "https://www.abri.gov.tw/News_Content_Table.aspx?n=807&s=38030",
+      "printedPages": "259~269",
+      "authorityBoundary": "教材例題採十字型鋼骨且沿用修正前章節編號；本核心只鎖定強柱弱梁與圍束公式算術。現行規範式 (9.6-6)、(9.6-7) 已加入 Phcc，非圍束區間距上限亦改為 15 cm；教材舊值 20 cm 不作現行判定。Ahcc=0 僅作不計鋼骨翼板高度圍束貢獻的保守算術基準。",
+      "case": "梁端正、負標稱彎矩 153.4、195.8 tf-m；80 x 80 cm 柱，As=374 cm2，Ar=60.84 cm2，fc=280、Fys=3500、Fyr=Fyh=4200 kgf/cm2，Ach=5184 cm2，bc=70.7 cm，Ahcc=0",
+      "expected": {
+        "beamMomentSumTfM": 349.2,
+        "requiredColumnMomentSumTfM": 419.04,
+        "requiredEachColumnMomentTfM": 209.52,
+        "nominalAxialTf": 2984.23608,
+        "confinementReductionFactor": 0.5613617807341837,
+        "ashEquation6At10CmCm2": 1.8619192100252564,
+        "ashEquation7At10CmCm2": 2.3812966738744072,
+        "requiredConfinementHeightCm": 80,
+        "currentNonConfinedSpacingLimitCm": 15,
+        "roundingBoundary": "教材將每柱 209.52 捨入為 209.5，並將 Ash/s 報告為 0.187、0.239 cm；核心測試以未捨入輸入與現行公式判定。"
+      }
     }
   ],
   "verificationCases": [
@@ -246,12 +280,29 @@
         "rcGoverningMode": "shear-friction",
         "productionOracleTolerance": "RC 可能彎矩與其衍生分配、利用率採 0.002 容許差；其餘剪力算術採 1e-10。"
       }
+    },
+    {
+      "id": "DERIVED-EXAMPLE-8-SEISMIC-COLUMN-PACKAGE",
+      "authorityBoundary": "這不是教材原載完整例題；斷面與材料沿用例題 8，強柱弱梁端彎矩只沿用例題 14 的算術數字，圍束採 Ahcc=0 的保守分支。此案例只驗證單一強軸接頭、柱剪力與矩形柱圍束子檢核的整合，不代表全構架、弱軸、第 8.4.2 節傳力或完整耐震設計。",
+      "case": "65 x 80 cm 包覆 H500x304x15x24 SRC 柱；D13 雙肢箍筋 @10 cm；梁端彎矩合計 349.2 tf-m，兩柱標稱彎矩合計 419.04 tf-m",
+      "expected": {
+        "strongColumnMinimumRatio": 1.2,
+        "nominalAxialTf": 2179.97808,
+        "confinementReductionFactor": 0.6548130428907799,
+        "ashEquation6Cm2": 1.8886186710744604,
+        "ashEquation7Cm2": 2.1215942589661267,
+        "providedAshCm2": 2.54,
+        "requiredConfinementHeightCm": 80,
+        "confinedSpacingLimitCm": 15,
+        "nonConfinedSpacingLimitCm": 15,
+        "completeSeismicDesign": false
+      }
     }
   ],
   "oracle": {
     "file": "core/src-column-oracle.js",
-    "version": "src-column.oracle.v0.4.0-research",
-    "independence": "不引用 src-column-core.js、斷面 catalog、共用 PMSection、正式雙軸模組或正式剪力模組；測試以官方表格的獨立固定值走另一套算術路徑。正式雙軸核心以精確多邊形裁切求混凝土壓力塊，oracle 改以 320 條數值積分；剪力分配所需 Mprc 則以連續中性軸二分法獨立求 1.25Fyr 純彎狀態。",
+    "version": "src-column.oracle.v0.5.0-research",
+    "independence": "不引用 src-column-core.js、斷面 catalog、共用 PMSection、正式雙軸、剪力或耐震細節模組；測試以官方表格的獨立固定值走另一套算術路徑。正式雙軸核心以精確多邊形裁切求混凝土壓力塊，oracle 改以 320 條數值積分；剪力分配所需 Mprc 以連續中性軸二分法獨立求 1.25Fyr 純彎狀態；強柱弱梁與圍束則由 oracle 另行重算現行式 (9.6-1)、(9.6-6)~(9.6-10) 與配置限值。",
     "covered": [
       "表 3.4-2 寬厚比",
       "剛度分配",
@@ -261,14 +312,17 @@
       "RC 應變相容 P-M",
       "鋼骨式 (7.3-7)／(7.3-8) 雙軸壓彎互制",
       "RC 定軸力 Mux-Muy 互制曲面",
-      "第 9.6.2 節強軸柱剪力子檢核、RC 一般剪力與剪力摩擦"
+      "第 9.6.2 節強軸柱剪力子檢核、RC 一般剪力與剪力摩擦",
+      "第 9.6.1 節單一強軸接頭強柱弱梁雙向算術",
+      "第 9.6.3 節現行強軸矩形柱圍束量、範圍、間距與續接確認"
     ],
     "uncovered": [
-      "弱軸柱剪力",
-      "完整耐震設計與細部"
+      "弱軸柱剪力、弱軸強柱弱梁與 Ahcc=0 圍束",
+      "第 9.3 節軸向強度、第 8.4.2 節接頭傳力比例、全構架所有接頭與完整耐震設計細部"
     ],
     "test": "src-column-oracle.test.js",
-    "comparisonCount": 60,
-    "approximateComparisonCount": 8
+    "comparisonCount": 84,
+    "approximateComparisonCount": 14,
+    "driftSentinelCount": 4
   }
 }
