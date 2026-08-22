@@ -4,7 +4,7 @@
  * It independently recomputes the current research core's table 3.4-2
  * compactness, stiffness allocation, steel compression, steel interaction,
  * redistribution, tied rectangular RC uniaxial/biaxial strain-compatibility
- * P-M paths, and the current-code seismic strong-axis shear,
+ * P-M paths, and the current-code seismic axial-strength, strong-axis shear,
  * strong-column/weak-beam, and rectangular-column confinement subchecks.
  * The RC demand point is solved continuously in neutral-axis depth and does
  * not consume the production core's discretized design curve.
@@ -13,8 +13,8 @@
  */
 'use strict';
 
-const ORACLE_VERSION = 'src-column.oracle.v0.5.0-research';
-const SUPPORTED_SCHEMA = 'src-column.input.v6';
+const ORACLE_VERSION = 'src-column.oracle.v0.6.0-research';
+const SUPPORTED_SCHEMA = 'src-column.input.v7';
 const PHI_COMPRESSION = 0.85;
 const PHI_FLEXURE = 0.9;
 const DEFAULT_ES_KGF_CM2 = 2_040_000;
@@ -336,6 +336,152 @@ function requireOracleConfirmation(value, code, message) {
 function booleanAt(value, label) {
   if (value !== true && value !== false) throw new SrcColumnOracleError('boolean-required', `${label} must be explicitly true or false`);
   return value;
+}
+
+function seismicAxialStrength(input, steelCompressionX, steelCompressionY) {
+  const axial = input.seismicAxial || {};
+  const concrete = input.concrete || {};
+  const reinforcement = input.reinforcement || {};
+  const steel = input.steel || {};
+  const member = input.member || {};
+  const width = positiveAt(concrete.widthCm, 'concrete.widthCm');
+  const depth = positiveAt(concrete.depthCm, 'concrete.depthCm');
+  const fc = positiveAt(concrete.fcKgfCm2, 'concrete.fcKgfCm2');
+  const ec = concrete.ecKgfCm2 == null ? 15000 * Math.sqrt(fc) : positiveAt(concrete.ecKgfCm2, 'concrete.ecKgfCm2');
+  const steelArea = positiveAt(steel.areaCm2, 'steel.areaCm2');
+  const reinforcementArea = (Array.isArray(reinforcement.layers) ? reinforcement.layers : [])
+    .reduce((sum, layer, index) => sum + positiveAt(layer.areaCm2, `reinforcement.layers[${index}].areaCm2`), 0);
+  const fyr = positiveAt(reinforcement.fyKgfCm2, 'reinforcement.fyKgfCm2');
+  const length = positiveAt(member.lengthCm, 'member.lengthCm');
+  const kx = positiveAt(member.kx, 'member.kx');
+  const ky = positiveAt(member.ky, 'member.ky');
+  const grossAreaCm2 = width * depth;
+  const concreteAreaCm2 = grossAreaCm2 - steelArea - reinforcementArea;
+  if (!(concreteAreaCm2 > 0)) throw new SrcColumnOracleError('invalid-net-concrete-area', 'Ag-As-Ar must be positive');
+  const grossIxCm4 = width * depth ** 3 / 12;
+  const grossIyCm4 = depth * width ** 3 / 12;
+  const rcShortNominalTf = 0.8 * (0.85 * fc * concreteAreaCm2 + reinforcementArea * fyr) / 1000;
+  const rcEulerXNominalTf = 0.8 * Math.PI ** 2 * (ec * grossIxCm4 / 5) / (kx * length) ** 2 / 1000;
+  const rcEulerYNominalTf = 0.8 * Math.PI ** 2 * (ec * grossIyCm4 / 5) / (ky * length) ** 2 / 1000;
+  const rcNominalTf = Math.min(rcShortNominalTf, rcEulerXNominalTf, rcEulerYNominalTf);
+  const rcGoverningMode = rcNominalTf === rcShortNominalTf
+    ? 'short-column-6.4-6'
+    : (rcNominalTf === rcEulerXNominalTf ? 'euler-x-6.4-7' : 'euler-y-6.4-7');
+  const steelNominalXTf = positiveAt(steelCompressionX.nominalCompressionTf, 'steelCompressionX.nominalCompressionTf');
+  const steelNominalYTf = positiveAt(steelCompressionY.nominalCompressionTf, 'steelCompressionY.nominalCompressionTf');
+  const steelNominalTf = Math.min(steelNominalXTf, steelNominalYTf);
+  const steelDesignTf = 0.85 * steelNominalTf;
+  const rcDesignTf = 0.65 * rcNominalTf;
+  const designCompressionStrengthTf = steelDesignTf + rcDesignTf;
+  const compressionStrength = {
+    clauses: ['6.4.1 / (6.4-1)', '6.4.3 / (6.4-6)~(6.4-7)'],
+    grossAreaCm2,
+    concreteAreaCm2,
+    grossIxCm4,
+    grossIyCm4,
+    steel: {
+      nominalXTf: steelNominalXTf,
+      nominalYTf: steelNominalYTf,
+      controlAxis: steelNominalXTf <= steelNominalYTf ? 'x' : 'y',
+      nominalTf: steelNominalTf,
+      phi: 0.85,
+      designTf: steelDesignTf,
+    },
+    rc: {
+      effectiveLengthFactor: 0.8,
+      shortNominalTf: rcShortNominalTf,
+      eulerXNominalTf: rcEulerXNominalTf,
+      eulerYNominalTf: rcEulerYNominalTf,
+      governingMode: rcGoverningMode,
+      nominalTf: rcNominalTf,
+      phi: 0.65,
+      designTf: rcDesignTf,
+    },
+    designCompressionStrengthTf,
+  };
+
+  const pdTf = numberAt(axial.pdTf, 'seismicAxial.pdTf');
+  const plTf = numberAt(axial.plTf, 'seismicAxial.plTf');
+  const peTf = numberAt(axial.peTf, 'seismicAxial.peTf');
+  if (pdTf < 0 || plTf < 0 || peTf < 0) throw new SrcColumnOracleError('nonnegative-number-required', 'PD, PL, and PE must be nonnegative');
+  const projectFu = positiveAt(axial.fu, 'seismicAxial.fu');
+  requireOracleConfirmation(axial.fuFromProjectSeismicCriteriaConfirmed, 'confirmation-required', 'Fu must be confirmed from project seismic criteria');
+  const parkingUse = booleanAt(axial.parkingUse, 'seismicAxial.parkingUse');
+  const publicAssemblyUse = booleanAt(axial.publicAssemblyUse, 'seismicAxial.publicAssemblyUse');
+  const liveLoadExceeds = booleanAt(axial.liveLoadExceeds05TfM2, 'seismicAxial.liveLoadExceeds05TfM2');
+  const applyTransferCapacityCap = booleanAt(axial.applyTransferCapacityCap, 'seismicAxial.applyTransferCapacityCap');
+  const applyMomentFrameOmission = booleanAt(axial.applyMomentFrameOmission, 'seismicAxial.applyMomentFrameOmission');
+  const adoptedFu = Math.min(projectFu, 2.5);
+  const liveLoadFactor = parkingUse || publicAssemblyUse || liveLoadExceeds ? 1 : 0.5;
+  const amplifiedSeismicTf = 1.4 * adoptedFu * peTf;
+  let compressionLimit = Infinity;
+  let tensionLimit = Infinity;
+  if (applyTransferCapacityCap) {
+    requireOracleConfirmation(axial.transferCapacityConfirmed, 'confirmation-required', 'Transfer capacity must be confirmed');
+    compressionLimit = 1.25 * positiveAt(axial.compressionTransferCapacityTf, 'seismicAxial.compressionTransferCapacityTf');
+    tensionLimit = 1.25 * positiveAt(axial.tensionTransferCapacityTf, 'seismicAxial.tensionTransferCapacityTf');
+  }
+  const compressionBase = 1.2 * pdTf + liveLoadFactor * plTf;
+  const tensionBase = 0.9 * pdTf;
+  const compressionCombinations = [1, -1].map(sign => {
+    const signedTf = compressionBase + sign * amplifiedSeismicTf;
+    const raw = Math.max(0, signedTf);
+    return {
+      equation: '9.3-1',
+      seismicSense: sign > 0 ? 'plus' : 'minus',
+      signedTf,
+      rawCompressionDemandTf: raw,
+      adoptedCompressionDemandTf: Math.min(raw, compressionLimit),
+    };
+  });
+  const tensionCombinations = [1, -1].map(sign => {
+    const signedTf = tensionBase + sign * amplifiedSeismicTf;
+    const raw = Math.max(0, -signedTf);
+    return {
+      equation: '9.3-2',
+      seismicSense: sign > 0 ? 'plus' : 'minus',
+      signedTf,
+      rawTensionDemandTf: raw,
+      adoptedTensionDemandTf: Math.min(raw, tensionLimit),
+    };
+  });
+  const rawCompressionDemandTf = Math.max(...compressionCombinations.map(item => item.rawCompressionDemandTf));
+  const adoptedCompressionDemandTf = Math.max(...compressionCombinations.map(item => item.adoptedCompressionDemandTf));
+  const rawTensionDemandTf = Math.max(...tensionCombinations.map(item => item.rawTensionDemandTf));
+  const adoptedTensionDemandTf = Math.max(...tensionCombinations.map(item => item.adoptedTensionDemandTf));
+  const governingPuTf = positiveAt(input.demands.puTf, 'demands.puTf');
+  const omissionRatio = governingPuTf / designCompressionStrengthTf;
+  const omissionEligibleByRatio = omissionRatio <= 0.5 + 1e-9;
+  if (applyMomentFrameOmission) {
+    requireOracleConfirmation(axial.momentFrameConfirmed, 'confirmation-required', 'Moment-frame status must be confirmed');
+    requireOracleConfirmation(axial.relevantProvisionsSatisfiedConfirmed, 'confirmation-required', 'Relevant seismic provisions must be confirmed');
+    if (!omissionEligibleByRatio) throw new SrcColumnOracleError('omission-ratio-exceeded', 'Clause 9.3 omission ratio exceeds 0.5');
+  }
+  let designTensionStrengthTf = null;
+  if (!applyMomentFrameOmission && adoptedTensionDemandTf > 1e-9) {
+    designTensionStrengthTf = positiveAt(axial.designTensionStrengthTf, 'seismicAxial.designTensionStrengthTf');
+    requireOracleConfirmation(axial.designTensionStrengthConfirmed, 'confirmation-required', 'Project tensile strength must be confirmed');
+  }
+  const compressionUtilization = adoptedCompressionDemandTf / designCompressionStrengthTf;
+  const tensionUtilization = adoptedTensionDemandTf <= 1e-9 ? 0 : adoptedTensionDemandTf / designTensionStrengthTf;
+  const compressionOk = compressionUtilization <= 1 + 1e-9;
+  const tensionOk = adoptedTensionDemandTf <= 1e-9 || tensionUtilization <= 1 + 1e-9;
+  return {
+    mode: 'seismic-axial-strength-subcheck',
+    factors: { projectFu, adoptedFu, fuCappedAt25: projectFu > 2.5, seismicMultiplier: 1.4, liveLoadFactor, amplifiedSeismicTf },
+    compressionStrength,
+    combinations: { compression: compressionCombinations, tension: tensionCombinations },
+    transferCapacityCap: {
+      applied: applyTransferCapacityCap,
+      compressionLimitTf: Number.isFinite(compressionLimit) ? compressionLimit : null,
+      tensionLimitTf: Number.isFinite(tensionLimit) ? tensionLimit : null,
+    },
+    omission: { requested: applyMomentFrameOmission, applied: applyMomentFrameOmission, governingPuTf, ratio: omissionRatio, ratioLimit: 0.5, eligibleByRatio: omissionEligibleByRatio },
+    compression: { rawDemandTf: rawCompressionDemandTf, adoptedDemandTf: adoptedCompressionDemandTf, designStrengthTf: designCompressionStrengthTf, utilization: compressionUtilization, ok: compressionOk },
+    tension: { applicable: adoptedTensionDemandTf > 1e-9, rawDemandTf: rawTensionDemandTf, adoptedDemandTf: adoptedTensionDemandTf, designStrengthTf: designTensionStrengthTf, utilization: tensionUtilization, ok: tensionOk },
+    ok: applyMomentFrameOmission || (compressionOk && tensionOk),
+    completeSeismicDesign: false,
+  };
 }
 
 function seismicStrongAxisShear(input, rcAxialDemandTf, steelNominalMomentTfM) {
@@ -839,14 +985,18 @@ function calculate(input) {
     throw new SrcColumnOracleError('unsupported-input-schema', `Oracle accepts only ${SUPPORTED_SCHEMA}`);
   }
   const shearRequested = input?.detailing?.seismicColumnShearSubcheck === true;
+  const axialRequested = input?.detailing?.seismicAxialStrengthSubcheck === true;
   const strongColumnRequested = input?.detailing?.seismicStrongColumnWeakBeamSubcheck === true;
   const confinementRequested = input?.detailing?.seismicConfinementSubcheck === true;
-  const seismicSubcheckRequested = shearRequested || strongColumnRequested || confinementRequested;
+  const seismicSubcheckRequested = shearRequested || axialRequested || strongColumnRequested || confinementRequested;
   if (input?.detailing?.seismicDesign === true && !seismicSubcheckRequested) {
     throw new SrcColumnOracleError('seismic-scope-not-implemented', 'Seismic SRC column design is outside the oracle scope');
   }
   if (shearRequested && input?.detailing?.seismicDesign !== true) {
     throw new SrcColumnOracleError('seismic-shear-mode-required', 'The clause 9.6.2 shear subcheck requires seismicDesign=true');
+  }
+  if (axialRequested && input?.detailing?.seismicDesign !== true) {
+    throw new SrcColumnOracleError('seismic-axial-mode-required', 'The clause 9.3 axial-strength subcheck requires seismicDesign=true');
   }
   if ((strongColumnRequested || confinementRequested) && input?.detailing?.seismicDesign !== true) {
     throw new SrcColumnOracleError('seismic-detailing-mode-required', 'Clauses 9.6.1 and 9.6.3 require seismicDesign=true');
@@ -927,6 +1077,7 @@ function calculate(input) {
   const rc = muy > 0
     ? rcBiaxialInteractionAtDemand(input, finalRcDemands.puTf, finalRcDemands.muxTfM, finalRcDemands.muyTfM)
     : rcInteractionAtDemand(input, finalRcDemands.puTf, finalRcDemands.muxTfM);
+  const seismicAxial = axialRequested ? seismicAxialStrength(input, compressionX, compressionY) : null;
   const shear = shearRequested
     ? seismicStrongAxisShear(input, finalRcDemands.puTf, nominalMomentXTfM)
     : null;
@@ -937,7 +1088,7 @@ function calculate(input) {
     oracleVersion: ORACLE_VERSION,
     supportedSchema: SUPPORTED_SCHEMA,
     coverage: {
-      covered: ['table-3.4-2-compactness', 'stiffness-allocation', 'steel-compression', 'steel-biaxial-interaction', 'redistribution', 'rc-strain-compatibility-pm', 'rc-biaxial-interaction', 'seismic-strong-axis-column-shear-subcheck', 'seismic-strong-axis-joint-subcheck', 'seismic-strong-axis-confinement-subcheck'],
+      covered: ['table-3.4-2-compactness', 'stiffness-allocation', 'steel-compression', 'steel-biaxial-interaction', 'redistribution', 'rc-strain-compatibility-pm', 'rc-biaxial-interaction', 'seismic-axial-strength-subcheck', 'seismic-strong-axis-column-shear-subcheck', 'seismic-strong-axis-joint-subcheck', 'seismic-strong-axis-confinement-subcheck'],
       uncovered: ['complete-seismic-design', 'weak-axis-shear', 'weak-axis-joint-and-confinement', 'clause-8.4.2-joint-force-transfer'],
     },
     compactness: compactness(input),
@@ -954,6 +1105,7 @@ function calculate(input) {
     },
     redistribution: { applied: useRedistribution, beta: initialInteraction.utilization, finalSteelDemands, finalRcDemands },
     rc,
+    seismicAxial,
     shear,
     strongColumnWeakBeam,
     confinement,
@@ -975,6 +1127,7 @@ module.exports = {
   rcBiaxialInteractionAtDemand,
   rcProbableMomentTfM,
   seismicStrongAxisShear,
+  seismicAxialStrength,
   seismicStrongColumnWeakBeam,
   seismicConfinement,
   calculate,

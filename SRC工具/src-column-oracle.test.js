@@ -9,7 +9,7 @@ const Oracle = require('./core/src-column-oracle.js');
 function example8() {
   const barAreaCm2 = 5.07;
   return {
-    schema: 'src-column.input.v6',
+    schema: 'src-column.input.v7',
     demands: { puTf: 734.0, muxTfM: 128.9, muyTfM: 0 },
     concrete: { widthCm: 65, depthCm: 80, fcKgfCm2: 280 },
     reinforcement: {
@@ -74,7 +74,7 @@ function compare(production, oracle, paths, tolerance) {
   });
 }
 
-assert.equal(Oracle.ORACLE_VERSION, 'src-column.oracle.v0.5.0-research', 'independent oracle is explicitly versioned');
+assert.equal(Oracle.ORACLE_VERSION, 'src-column.oracle.v0.6.0-research', 'independent oracle is explicitly versioned');
 assert.equal(Oracle.SUPPORTED_SCHEMA, Production.INPUT_SCHEMA, 'oracle and production accept the same research input schema');
 const oracleSource = fs.readFileSync(path.join(__dirname, 'core', 'src-column-oracle.js'), 'utf8');
 assert.equal(oracleSource.includes('require('), false, 'oracle imports neither the production core nor shared PMSection');
@@ -235,10 +235,78 @@ assert.equal(shearOracle.shear.ok, shearProduction.shear.ok, 'oracle agrees on t
 assert.ok(shearOracle.coverage.covered.includes('seismic-strong-axis-column-shear-subcheck'), 'oracle declares the completed limited shear coverage');
 assert.equal(shearOracle.coverage.uncovered.includes('shear'), false, 'generic shear is replaced by explicit covered and uncovered axes');
 
+const axialOracleInput = example8();
+axialOracleInput.detailing.seismicDesign = true;
+axialOracleInput.detailing.seismicAxialStrengthSubcheck = true;
+axialOracleInput.seismicAxial = {
+  pdTf: 100,
+  plTf: 20,
+  peTf: 100,
+  fu: 2,
+  fuFromProjectSeismicCriteriaConfirmed: true,
+  parkingUse: false,
+  publicAssemblyUse: false,
+  liveLoadExceeds05TfM2: false,
+  applyTransferCapacityCap: false,
+  applyMomentFrameOmission: false,
+  designTensionStrengthTf: 900,
+  designTensionStrengthConfirmed: true,
+};
+const axialProductionInput = structuredClone(axialOracleInput);
+axialProductionInput.steel = {
+  catalogId: 'rh-500x304x15x24',
+  grade: axialOracleInput.steel.grade,
+  fysKgfCm2: axialOracleInput.steel.fysKgfCm2,
+  esKgfCm2: axialOracleInput.steel.esKgfCm2,
+};
+const axialProduction = Production.calculate(axialProductionInput);
+const axialOracle = Oracle.calculate(axialOracleInput);
+const axialExactPaths = [
+  'seismicAxial.compressionStrength.grossAreaCm2',
+  'seismicAxial.compressionStrength.concreteAreaCm2',
+  'seismicAxial.compressionStrength.grossIxCm4',
+  'seismicAxial.compressionStrength.grossIyCm4',
+  'seismicAxial.compressionStrength.steel.nominalXTf',
+  'seismicAxial.compressionStrength.steel.nominalYTf',
+  'seismicAxial.compressionStrength.steel.nominalTf',
+  'seismicAxial.compressionStrength.steel.designTf',
+  'seismicAxial.compressionStrength.rc.shortNominalTf',
+  'seismicAxial.compressionStrength.rc.eulerXNominalTf',
+  'seismicAxial.compressionStrength.rc.eulerYNominalTf',
+  'seismicAxial.compressionStrength.rc.nominalTf',
+  'seismicAxial.compressionStrength.rc.designTf',
+  'seismicAxial.compressionStrength.designCompressionStrengthTf',
+  'seismicAxial.factors.projectFu',
+  'seismicAxial.factors.adoptedFu',
+  'seismicAxial.factors.liveLoadFactor',
+  'seismicAxial.factors.amplifiedSeismicTf',
+  'seismicAxial.combinations.compression.0.signedTf',
+  'seismicAxial.combinations.compression.0.adoptedCompressionDemandTf',
+  'seismicAxial.combinations.compression.1.signedTf',
+  'seismicAxial.combinations.tension.0.signedTf',
+  'seismicAxial.combinations.tension.1.signedTf',
+  'seismicAxial.combinations.tension.1.adoptedTensionDemandTf',
+  'seismicAxial.omission.ratio',
+  'seismicAxial.compression.rawDemandTf',
+  'seismicAxial.compression.adoptedDemandTf',
+  'seismicAxial.compression.designStrengthTf',
+  'seismicAxial.compression.utilization',
+  'seismicAxial.tension.rawDemandTf',
+  'seismicAxial.tension.adoptedDemandTf',
+  'seismicAxial.tension.designStrengthTf',
+  'seismicAxial.tension.utilization',
+];
+assert.deepEqual(compare(axialProduction, axialOracle, axialExactPaths, 1e-10), [], 'independent oracle agrees with every clause 6.4 and 9.3 axial arithmetic term');
+assert.equal(axialOracle.seismicAxial.compressionStrength.rc.governingMode, axialProduction.seismicAxial.compressionStrength.rc.governingMode, 'oracle agrees on the governing RC compression branch');
+assert.equal(axialOracle.seismicAxial.ok, axialProduction.seismicAxial.ok, 'oracle agrees on the axial-strength disposition');
+assert.ok(axialOracle.coverage.covered.includes('seismic-axial-strength-subcheck'), 'oracle declares the completed limited clause 9.3 coverage');
+
 const packageOracleInput = structuredClone(shearOracleInput);
+packageOracleInput.detailing.seismicAxialStrengthSubcheck = true;
 packageOracleInput.detailing.seismicStrongColumnWeakBeamSubcheck = true;
 packageOracleInput.detailing.seismicConfinementSubcheck = true;
 packageOracleInput.shear.spacingCm = 10;
+packageOracleInput.seismicAxial = structuredClone(axialOracleInput.seismicAxial);
 const exactColumnShareTfM = 1.2 * (195.8 + 153.4) / 2;
 packageOracleInput.strongColumnWeakBeam = {
   axis: 'x',
@@ -339,6 +407,13 @@ assert.deepEqual(
   ['confinement.ash.equation7Cm2'],
   'comparison catches a confinement production arithmetic drift'
 );
+const axialDrifted = structuredClone(axialProduction);
+axialDrifted.seismicAxial.compressionStrength.rc.eulerYNominalTf += 0.01;
+assert.deepEqual(
+  compare(axialDrifted, axialOracle, axialExactPaths, 1e-10).map(item => item.path),
+  ['seismicAxial.compressionStrength.rc.eulerYNominalTf'],
+  'comparison catches a seismic axial-strength production drift'
+);
 
 const grade400 = example8();
 grade400.steel.grade = 'SS400';
@@ -375,4 +450,4 @@ for (const missingBoolean of ['mainBarSplicePresent', 'inflectionPointWithinMidd
   );
 }
 
-console.log(`SRC column independent oracle OK (${comparedPaths.length + rcComparedPaths.length + 6 + shearExactPaths.length + detailingExactPaths.length} exact comparisons + ${3 + shearTolerancePaths.length} tolerance comparisons + four drift sentinels)`);
+console.log(`SRC column independent oracle OK (${comparedPaths.length + rcComparedPaths.length + 6 + shearExactPaths.length + axialExactPaths.length + detailingExactPaths.length} exact comparisons + ${3 + shearTolerancePaths.length} tolerance comparisons + five drift sentinels)`);

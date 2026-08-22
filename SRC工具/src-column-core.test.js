@@ -17,7 +17,7 @@ function clone(value) {
 function officialGuideExample8() {
   const barAreaCm2 = 5.07;
   return {
-    schema: 'src-column.input.v6',
+    schema: 'src-column.input.v7',
     caseName: 'MOI SRC design guide example 8',
     demands: { puTf: 734.0, muxTfM: 128.9, muyTfM: 0 },
     concrete: { widthCm: 65, depthCm: 80, fcKgfCm2: 280 },
@@ -76,8 +76,8 @@ function manualExample8() {
   return input;
 }
 
-assert.equal(Core.CORE_VERSION, 'src-column.core.v0.7.0-research', 'SRC column core is explicitly versioned as research');
-assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v6', 'SRC column core has a versioned input schema');
+assert.equal(Core.CORE_VERSION, 'src-column.core.v0.8.0-research', 'SRC column core is explicitly versioned as research');
+assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v7', 'SRC column core has a versioned input schema');
 assert.equal(Core.RELEASE_STATUS, 'research-core-not-public', 'research core cannot be mistaken for a formal public route');
 assert.equal(Core.REGULATION_PROFILE.id, 'tw-src-2011', 'SRC column core uses the official current profile');
 assert.ok(Core.REGULATION_PROFILE.chapter3Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter5Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter6Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter7Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter9Url.endsWith('.pdf'), 'official chapter sources remain explicit');
@@ -197,10 +197,58 @@ assert.equal(seismicShear.checks.completeSeismicDesign, false, 'shear subcheck d
 assert.ok(seismicShear.reviewItems.some(item => item.code === 'seismic-column-subchecks-only'), 'remaining seismic scope is explicit');
 assert.equal(seismicShear.status, 'REVIEW', 'passing seismic shear remains a non-public review result');
 
+const seismicAxialInput = officialGuideExample8();
+seismicAxialInput.detailing.seismicDesign = true;
+seismicAxialInput.detailing.seismicAxialStrengthSubcheck = true;
+seismicAxialInput.seismicAxial = {
+  pdTf: 400,
+  plTf: 100,
+  peTf: 80,
+  fu: 3,
+  fuFromProjectSeismicCriteriaConfirmed: true,
+  parkingUse: true,
+  publicAssemblyUse: false,
+  liveLoadExceeds05TfM2: false,
+  applyTransferCapacityCap: false,
+  applyMomentFrameOmission: false,
+};
+const seismicAxial = Core.calculate(seismicAxialInput);
+assert.equal(seismicAxial.seismicAxial.mode, 'seismic-axial-strength-subcheck', 'integrated result preserves the limited axial-strength mode');
+assert.equal(seismicAxial.seismicAxial.factors.adoptedFu, 2.5, 'integrated axial subcheck caps Fu at 2.5 and discloses it');
+close(seismicAxial.seismicAxial.compression.adoptedDemandTf, 860, 1e-12, 'integrated equation 9.3-1 compression demand');
+assert.equal(seismicAxial.seismicAxial.tension.applicable, false, 'integrated case does not invent tensile strength without tensile demand');
+assert.equal(seismicAxial.seismicAxial.compressionStrength.steel.controlAxis, 'y', 'integrated clause 6.4 strength uses the governing steel axis');
+assert.equal(seismicAxial.checks.seismicAxialStrength, true, 'seismic axial strength participates in the engineering chain');
+assert.equal(seismicAxial.checks.completeSeismicDesign, false, 'axial subcheck does not claim complete seismic design');
+assert.equal(seismicAxial.status, 'REVIEW', 'passing seismic axial strength remains a non-public review result');
+
+const seismicAxialFailureInput = clone(seismicAxialInput);
+seismicAxialFailureInput.seismicAxial.pdTf = 1000;
+const seismicAxialFailure = Core.calculate(seismicAxialFailureInput);
+assert.equal(seismicAxialFailure.checks.seismicAxialStrength, false, 'clause 9.3 compression failure participates in the engineering chain');
+assert.equal(seismicAxialFailure.status, 'NG', 'failed seismic axial strength produces NG');
+
+const seismicAxialTensionInput = clone(seismicAxialInput);
+Object.assign(seismicAxialTensionInput.seismicAxial, {
+  pdTf: 100,
+  plTf: 20,
+  peTf: 100,
+  fu: 2,
+  parkingUse: false,
+  designTensionStrengthTf: 900,
+  designTensionStrengthConfirmed: true,
+});
+const seismicAxialTension = Core.calculate(seismicAxialTensionInput);
+close(seismicAxialTension.seismicAxial.compression.adoptedDemandTf, 410, 1e-12, 'equation 9.3-1 plus sense governs compression');
+close(seismicAxialTension.seismicAxial.tension.adoptedDemandTf, 190, 1e-12, 'equation 9.3-2 minus sense governs tension');
+assert.equal(seismicAxialTension.seismicAxial.tension.strengthSource, 'project-confirmed', 'tension strength remains a confirmed project input');
+
 const seismicPackageInput = clone(seismicShearInput);
+seismicPackageInput.detailing.seismicAxialStrengthSubcheck = true;
 seismicPackageInput.detailing.seismicStrongColumnWeakBeamSubcheck = true;
 seismicPackageInput.detailing.seismicConfinementSubcheck = true;
 seismicPackageInput.shear.spacingCm = 10;
+seismicPackageInput.seismicAxial = clone(seismicAxialInput.seismicAxial);
 const exactColumnShareTfM = 1.2 * (195.8 + 153.4) / 2;
 seismicPackageInput.strongColumnWeakBeam = {
   axis: 'x',
@@ -238,7 +286,8 @@ assert.equal(seismicPackage.confinement.ash.governingMode, 'equation-9.6-7', 'cu
 assert.equal(seismicPackage.confinement.spacing.nonConfinedLimitCm, 15, 'integrated package uses the current 15 cm non-confined-zone limit');
 assert.equal(seismicPackage.checks.strongColumnWeakBeam, true, 'strong-column/weak-beam participates in the engineering chain');
 assert.equal(seismicPackage.checks.confinement, true, 'confinement participates in the engineering chain');
-assert.equal(seismicPackage.checks.completeSeismicDesign, false, 'three column subchecks still do not claim complete seismic design');
+assert.equal(seismicPackage.checks.seismicAxialStrength, true, 'axial strength participates in the integrated engineering chain');
+assert.equal(seismicPackage.checks.completeSeismicDesign, false, 'four column subchecks still do not claim complete seismic design');
 assert.equal(seismicPackage.status, 'REVIEW', 'the integrated column package remains research review only');
 
 const shearGoverningConfinementInput = clone(seismicPackageInput);
@@ -307,6 +356,13 @@ const shearFailClosedCases = [
   }],
 ];
 const seismicDetailingFailClosedCases = [
+  ['seismic-axial-mode-required', input => {
+    input.detailing.seismicAxialStrengthSubcheck = true;
+  }],
+  ['finite-number-required', input => {
+    input.detailing.seismicDesign = true;
+    input.detailing.seismicAxialStrengthSubcheck = true;
+  }],
   ['seismic-detailing-mode-required', input => {
     input.detailing.seismicStrongColumnWeakBeamSubcheck = true;
   }],
@@ -378,7 +434,7 @@ assert.equal(catalog.sectionCatalog.source.printedPage, official.steelSection.so
 assert.equal(catalog.sectionCatalog.entryCount, 7, 'traceability states the deliberately limited catalog coverage');
 assert.deepEqual(
   catalog.equations.map(item => item.id),
-  ['src-3.4-2', 'src-6.4-2-5', 'src-7.3-3-6', 'src-7.3-7-8', 'src-7.3-9-10', 'rc-pm-current', 'rc-pm-biaxial', 'src-9.6-3-5', 'src-5.5-3', 'src-5.5-4-13', 'src-9.6-1', 'src-9.6-6-10'],
+  ['src-3.4-2', 'src-6.4-1-7', 'src-6.4-2-5', 'src-7.3-3-6', 'src-7.3-7-8', 'src-7.3-9-10', 'rc-pm-current', 'rc-pm-biaxial', 'src-9.3-1-2', 'src-9.6-3-5', 'src-5.5-3', 'src-5.5-4-13', 'src-9.6-1', 'src-9.6-6-10'],
   'catalog covers every implemented equation family'
 );
 assert.equal(catalog.goldenCases[0].id, 'MOI-SRC-GUIDE-COLUMN-EXAMPLE-8', 'official example 8 remains the canonical research golden case');
@@ -409,6 +465,11 @@ close(shearVerification.expected.vuTf, seismicShear.shear.demand.shearTf, 1e-12,
 close(shearVerification.expected.rcProbableMomentTfM, seismicShear.shear.probableMoments.rcProbableMomentTfM, 1e-12, 'catalog preserves the production probable RC moment');
 close(shearVerification.expected.steelUtilization, seismicShear.shear.steel.utilization, 1e-12, 'catalog preserves the derived steel shear utilization');
 close(shearVerification.expected.rcUtilization, seismicShear.shear.rc.utilization, 1e-12, 'catalog preserves the derived RC shear utilization');
+const axialVerification = catalog.verificationCases.find(item => item.id === 'DERIVED-EXAMPLE-8-SEISMIC-AXIAL-STRENGTH');
+assert.ok(axialVerification.authorityBoundary.includes('不是教材原載例題') && axialVerification.authorityBoundary.includes('專案核定拉力設計強度'), 'derived axial regression discloses its project-input boundary');
+close(axialVerification.expected.designCompressionStrengthTf, seismicAxialTension.seismicAxial.compression.designStrengthTf, 0.5, 'catalog preserves the derived clause 6.4 compression-strength benchmark');
+close(axialVerification.expected.compressionDemandTf, seismicAxialTension.seismicAxial.compression.adoptedDemandTf, 1e-12, 'catalog preserves the derived equation 9.3-1 demand');
+close(axialVerification.expected.tensionDemandTf, seismicAxialTension.seismicAxial.tension.adoptedDemandTf, 1e-12, 'catalog preserves the derived equation 9.3-2 demand');
 const packageVerification = catalog.verificationCases.find(item => item.id === 'DERIVED-EXAMPLE-8-SEISMIC-COLUMN-PACKAGE');
 assert.ok(packageVerification.authorityBoundary.includes('不是教材原載完整例題') && packageVerification.authorityBoundary.includes('完整耐震設計'), 'derived seismic package is not misrepresented as an official complete design');
 close(packageVerification.expected.strongColumnMinimumRatio, seismicPackage.strongColumnWeakBeam.minimumRatio, 1e-12, 'catalog preserves the integrated strong-column ratio');
@@ -416,16 +477,17 @@ close(packageVerification.expected.nominalAxialTf, seismicPackage.confinement.ax
 close(packageVerification.expected.ashEquation7Cm2, seismicPackage.confinement.ash.equation7Cm2, 1e-12, 'catalog preserves the integrated governing confinement quantity');
 assert.equal(packageVerification.expected.completeSeismicDesign, seismicPackage.checks.completeSeismicDesign, 'catalog preserves the incomplete seismic-design boundary');
 assert.equal(catalog.oracle.file, 'core/src-column-oracle.js', 'catalog identifies the independent oracle');
-assert.equal(catalog.oracle.version, 'src-column.oracle.v0.5.0-research', 'catalog identifies the current independent oracle version');
-assert.equal(catalog.oracle.comparisonCount, 84, 'catalog states the independently compared exact arithmetic surface');
+assert.equal(catalog.oracle.version, 'src-column.oracle.v0.6.0-research', 'catalog identifies the current independent oracle version');
+assert.equal(catalog.oracle.comparisonCount, 117, 'catalog states the independently compared exact arithmetic surface');
 assert.equal(catalog.oracle.approximateComparisonCount, 14, 'catalog states the production/oracle tolerance comparisons');
-assert.equal(catalog.oracle.driftSentinelCount, 4, 'catalog states all independent drift sentinels');
+assert.equal(catalog.oracle.driftSentinelCount, 5, 'catalog states all independent drift sentinels');
 assert.ok(catalog.oracle.covered.includes('RC 應變相容 P-M'), 'catalog declares the completed independent RC P-M coverage');
 assert.equal(catalog.oracle.uncovered.includes('RC 應變相容 P-M'), false, 'catalog no longer lists completed RC P-M work as uncovered');
 assert.ok(catalog.oracle.covered.includes('RC 定軸力 Mux-Muy 互制曲面'), 'catalog declares the completed independent biaxial RC coverage');
 assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.6.2 節強軸柱剪力')), 'catalog declares completed limited shear coverage');
 assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.6.1 節單一強軸接頭')), 'catalog declares completed limited strong-column coverage');
 assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.6.3 節現行強軸矩形柱圍束')), 'catalog declares completed limited confinement coverage');
+assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.3 節耐震軸力組合')), 'catalog declares completed limited seismic axial-strength coverage');
 assert.equal(catalog.oracle.uncovered.includes('柱剪力'), false, 'generic column shear gap is replaced by explicit weak-axis and complete-seismic boundaries');
 
 for (const missingPath of ['depthCm', 'flangeWidthCm', 'flangeThicknessCm', 'webThicknessCm']) {
