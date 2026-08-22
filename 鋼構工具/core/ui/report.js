@@ -969,8 +969,13 @@ function openReport(cfg) {
     formalApprovalAllowed: cfg.formalApprovalAllowed !== false,
   });
 
+  const reportBlockClass = group => [
+    'rep-block',
+    group?.keepTogether ? 'rep-block--keep' : '',
+    group?.pageBreakBefore ? 'rep-block--new-page' : '',
+  ].filter(Boolean).join(' ');
   const inputsHtml = getCalculationBookInputGroups(cfg.inputs).map(g => `
-    <section class="rep-block${g.keepTogether ? ' rep-block--keep' : ''}">
+    <section class="${reportBlockClass(g)}">
       <h3>${esc(g.group)}</h3>
       <table class="rep-input">
         <thead><tr><th>項目</th><th>採用值</th></tr></thead>
@@ -987,7 +992,7 @@ function openReport(cfg) {
   `).join('');
 
   const checksHtml = (cfg.checks || []).map(g => `
-    <section class="rep-block">
+    <section class="${reportBlockClass(g)}">
       <h3>${esc(g.group)}</h3>
       <table class="rep-check">
         <thead>
@@ -1127,6 +1132,8 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   .rep-paper { position:relative; box-shadow:none; padding:0; max-width:none; }
   .rep-block h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }
   .rep-block--keep { break-inside:avoid-page; page-break-inside:avoid; }
+  .rep-block--new-page { break-before:page; page-break-before:always; }
+  .rep-block--new-page > h3 { border-top:8mm solid #fff; }
   thead { display:table-header-group; }
   table { break-inside:auto; page-break-inside:auto; }
   tr { break-inside:avoid-page; page-break-inside:avoid; }
