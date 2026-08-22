@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SRC 柱耐震軸向研究核算 V0.1</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../結構工具箱/core/style.css">
+  <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
+  <link rel="stylesheet" href="src-column.css">
+</head>
+<body class="formal-tool-output-page">
+  <div class="formal-direct-print-boundary" aria-hidden="true">
+    <strong>SRC 柱操作頁列印已封鎖</strong>
+    <span>此頁是研究操作介面，不是計算書。請關閉列印視窗，使用頁面上的「產生研究計算書」開啟可列印的內部審閱版；本頁不得作為附件。</span>
+  </div>
+
+  <header class="src-hero">
+    <div>
+      <p class="src-eyebrow">鋼骨鋼筋混凝土構件</p>
+      <h1>SRC 柱耐震軸向研究核算 <span class="src-version">V0.1</span></h1>
+      <p>完全包覆矩形柱｜強軸單向｜第 9.3 節軸向強度｜單位：cm、kgf/cm²、tf、tf·m</p>
+      <div class="src-hero-chips" aria-label="目前涵蓋範圍">
+        <span>第 6.4 節壓力強度</span><span>第 7.3 節軸彎分配</span><span>第 9.3 節地震組合</span><span>計算斷面圖</span>
+      </div>
+    </div>
+    <a class="src-back" href="../結構工具箱/index.html">← 回工具箱</a>
+  </header>
+
+  <main class="src-page">
+    <section class="src-project-bar" aria-label="案件與輸出">
+      <div class="src-project-fields">
+        <label>計畫名稱（選填）<input id="projName" type="text" autocomplete="organization" placeholder="可由主文承接"></label>
+        <label>計畫編號（選填）<input id="projNo" type="text" placeholder="可留空"></label>
+        <label>設計人員（選填）<input id="projDesigner" type="text" autocomplete="name" placeholder="可留空"></label>
+      </div>
+      <div class="src-actions">
+        <button id="btnCalculate" class="src-primary" type="button">執行核算</button>
+        <button id="btnExportCase" type="button">下載案件 JSON</button>
+        <button id="btnImportCase" type="button">匯入案件 JSON</button>
+        <button id="btnReport" class="src-report-research" type="button">產生研究計算書</button>
+        <input id="caseFile" type="file" accept="application/json,.json" hidden>
+      </div>
+      <p id="actionStatus" class="src-action-status" role="status" aria-live="polite"></p>
+    </section>
+
+    <div class="src-layout">
+      <div class="src-input-stack">
+        <section class="src-card src-page-only">
+          <h2>適用範圍與輸出邊界</h2>
+          <p>目前只涵蓋完全包覆矩形 SRC 柱、置中雙對稱 H 型鋼骨、橫箍筋柱及強軸單向作用。專案分析必須已將 P-Δ 效應反映於 Pu、Mux；弱軸耐震、接頭區、柱腳及完整構架仍須另案檢核。</p>
+          <p><strong>計算書只保留採用資料、公式代入、檢核結果與結論。</strong>本段研究邊界與待複核事項只顯示於 HTML。研究計算書可列印，但正式附件核可尚未開放。</p>
+          <div class="src-meta-chips"><span>現行 100 年修正版</span><span id="coreVersion">Core —</span><span>案件 schema v1</span><span class="src-research-chip">私有研究工具</span></div>
+        </section>
+
+        <section class="src-card">
+          <h2>① 構材設計需求</h2>
+          <div class="src-grid src-grid-3">
+            <label>控制軸壓 Pu<span><input id="puTf" type="number" value="734" step="1" min="0"> tf</span></label>
+            <label>強軸彎矩 Mux<span><input id="muxTfM" type="number" value="128.9" step="0.1"> tf·m</span></label>
+            <label>弱軸彎矩 Muy（本頁固定）<span><input id="muyTfM" type="number" value="0" readonly> tf·m</span></label>
+          </div>
+          <p class="src-policy-note">Pu、Mux 應為專案結構分析已納入第 7.4 節二階效應後的設計需求。</p>
+        </section>
+
+        <section class="src-card">
+          <h2>② 第 9.3 節地震軸力組合</h2>
+          <div class="src-grid src-grid-3">
+            <label>靜載軸力 PD<span><input id="pdTf" type="number" value="400" step="1" min="0"> tf</span></label>
+            <label>活載軸力 PL<span><input id="plTf" type="number" value="100" step="1" min="0"> tf</span></label>
+            <label>地震軸力 PE<span><input id="peTf" type="number" value="80" step="1" min="0"> tf</span></label>
+            <label>專案 Fu<span><input id="fu" type="number" value="3" step="0.1" min="0"> —</span></label>
+            <label>專案核定拉力設計強度<span><input id="designTensionStrengthTf" type="number" value="900" step="1" min="0"> tf</span></label>
+          </div>
+          <div class="src-check-grid">
+            <label><input id="fuConfirmed" type="checkbox" checked> Fu 已由專案耐震設計條件確認</label>
+            <label><input id="parkingUse" type="checkbox" checked> 停車場用途</label>
+            <label><input id="publicAssemblyUse" type="checkbox"> 公眾集會場所</label>
+            <label><input id="liveLoadHigh" type="checkbox"> 活載超過 0.5 tf/m²</label>
+            <label><input id="designTensionStrengthConfirmed" type="checkbox"> 拉力設計強度已由專案核定</label>
+          </div>
+
+          <p class="src-subhead">選用 1.25 倍相接構材／接頭區傳力上限</p>
+          <div class="src-check-grid">
+            <label><input id="applyTransferCap" type="checkbox"> 採用傳力容量上限</label>
+            <label><input id="transferCapacityConfirmed" type="checkbox"> 壓力與拉力傳力容量均已確認</label>
+          </div>
+          <div class="src-grid src-grid-3">
+            <label>壓力傳力容量<span><input id="compressionTransferCapacityTf" type="number" value="1000" step="1" min="0" disabled> tf</span></label>
+            <label>拉力傳力容量<span><input id="tensionTransferCapacityTf" type="number" value="800" step="1" min="0" disabled> tf</span></label>
+          </div>
+
+          <p class="src-subhead">選用彎矩構架柱免檢條件</p>
+          <div class="src-check-grid">
+            <label><input id="applyMomentFrameOmission" type="checkbox"> 申請第 9.3 節組合免檢</label>
+            <label><input id="momentFrameConfirmed" type="checkbox"> 已確認屬適用之彎矩構架 SRC 柱</label>
+            <label><input id="relevantProvisionsConfirmed" type="checkbox"> 相關耐震規定均已確認符合</label>
+          </div>
+        </section>
+
+        <section class="src-card">
+          <h2>③ 混凝土斷面與柱長</h2>
+          <div class="src-grid src-grid-3">
+            <label>柱寬 b<span><input id="widthCm" type="number" value="65" step="0.5" min="0"> cm</span></label>
+            <label>柱深 h<span><input id="depthCm" type="number" value="80" step="0.5" min="0"> cm</span></label>
+            <label>混凝土強度 fc′<span><input id="fcKgfCm2" type="number" value="280" step="10" min="0"> kgf/cm²</span></label>
+            <label>柱構材長度 L<span><input id="lengthCm" type="number" value="350" step="5" min="0"> cm</span></label>
+            <label>有效長度係數 Kx<span><input id="kx" type="number" value="1.53" step="0.01" min="0"> —</span></label>
+            <label>有效長度係數 Ky<span><input id="ky" type="number" value="1.83" step="0.01" min="0"> —</span></label>
+          </div>
+        </section>
+
+        <section class="src-card">
+          <h2>④ 主筋計算層</h2>
+          <div class="src-grid src-grid-3">
+            <label>主筋降伏強度 Fyr<span><input id="reinforcementFy" type="number" value="4200" step="100" min="0"> kgf/cm²</span></label>
+            <label>主筋彈性模數 Es<span><input id="reinforcementEs" type="number" value="2040000" step="10000" min="0"> kgf/cm²</span></label>
+          </div>
+          <table class="src-layer-table">
+            <thead><tr><th>計算層</th><th>自斷面頂面 y</th><th>該層主筋總面積</th></tr></thead>
+            <tbody>
+              <tr><th>第 1 層</th><td><input id="layer1Y" type="number" value="7" step="0.5" min="0"></td><td><input id="layer1Area" type="number" value="20.28" step="0.01" min="0"></td></tr>
+              <tr><th>第 2 層</th><td><input id="layer2Y" type="number" value="17" step="0.5" min="0"></td><td><input id="layer2Area" type="number" value="10.14" step="0.01" min="0"></td></tr>
+              <tr><th>第 3 層</th><td><input id="layer3Y" type="number" value="63" step="0.5" min="0"></td><td><input id="layer3Area" type="number" value="10.14" step="0.01" min="0"></td></tr>
+              <tr><th>第 4 層</th><td><input id="layer4Y" type="number" value="73" step="0.5" min="0"></td><td><input id="layer4Area" type="number" value="20.28" step="0.01" min="0"></td></tr>
+            </tbody>
+          </table>
+          <p class="src-policy-note">本頁以各深度之主筋總面積進行強軸 P-M 計算；圖示為計算層位置，不臆造鋼筋號數、根數或施工配置。</p>
+        </section>
+
+        <section class="src-card">
+          <h2>⑤ 包覆 H 型鋼骨</h2>
+          <div class="src-grid src-grid-3">
+            <label>教材斷面 catalog<span><select id="steelCatalogId"></select></span></label>
+            <label>鋼材等級<span><select id="steelGrade"><option value="A572 Gr.50">A572 Gr.50／490 級</option><option value="SM490">SM490／490 級</option><option value="SM400">SM400／400 級</option></select></span></label>
+            <label>鋼骨降伏強度 Fys<span><input id="steelFys" type="number" value="3500" step="100" min="0"> kgf/cm²</span></label>
+            <label>鋼骨彈性模數 Es<span><input id="steelEs" type="number" value="2040000" step="10000" min="0"> kgf/cm²</span></label>
+          </div>
+          <p id="catalogSource" class="src-policy-note"></p>
+        </section>
+
+        <section class="src-card">
+          <h2>⑥ 構材條件確認</h2>
+          <div class="src-check-grid">
+            <label><input id="fullyEncased" type="checkbox" checked> 鋼骨完全包覆於 RC 柱內</label>
+            <label><input id="centeredH" type="checkbox" checked> 鋼骨為置中雙對稱 H 型</label>
+            <label><input id="mainBarsContinuous" type="checkbox" checked> 主筋連續通過柱接頭或適當錨定</label>
+            <label><input id="secondOrderIncluded" type="checkbox" checked> 專案需求已納入 P-Δ 效應</label>
+            <label><input id="redistribute" type="checkbox" checked> 依式 (7.3-9)～(7.3-10) 重分配</label>
+            <label><input id="highStrengthConcreteConfirmed" type="checkbox"> 高強度混凝土可靠性依據已確認（fc′&gt;420 時）</label>
+            <label><input id="highStrengthMaterialConfirmed" type="checkbox"> 高強度鋼材可靠性依據已確認（超出建議範圍時）</label>
+          </div>
+        </section>
+      </div>
+
+      <aside class="src-result-stack">
+        <section class="src-card src-result-card">
+          <div class="src-result-heading"><div><p class="src-eyebrow">核算結果</p><h2>控制總覽</h2></div><span id="resultBadge" class="src-status idle">待計算</span></div>
+          <p id="resultHeadline" class="src-headline">請確認輸入後執行核算。</p>
+          <div id="metricGrid" class="src-metric-grid"></div>
+        </section>
+
+        <section class="src-card">
+          <h2>逐項檢核</h2>
+          <div id="checkList" class="src-check-list"><p class="src-muted">尚未計算。</p></div>
+        </section>
+
+        <section class="src-card">
+          <h2>強度與需求組成</h2>
+          <div id="resultTables"><p class="src-muted">尚未計算。</p></div>
+        </section>
+
+        <section class="src-card src-section-card">
+          <h2>SRC 柱計算斷面</h2>
+          <figure class="src-section-figure">
+            <img id="sectionDiagramImage" alt="SRC 柱計算斷面" hidden>
+            <div id="sectionDiagramPlaceholder" class="src-section-placeholder">尚未產生計算斷面圖。</div>
+            <figcaption id="sectionDiagramCaption"></figcaption>
+          </figure>
+        </section>
+
+        <section class="src-card src-page-only">
+          <h2>產報前閱讀狀態</h2>
+          <div id="reportReadiness" class="src-readiness idle" role="status" aria-live="polite">
+            <strong>尚未計算</strong><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script src="../結構工具箱/core/ui/report.js?v=7"></script>
+  <script src="../鋼筋混凝土/shared/pmsection.js"></script>
+  <script src="core/src-column-h-section-catalog.js"></script>
+  <script src="core/src-column-rc-biaxial.js"></script>
+  <script src="core/src-column-shear.js"></script>
+  <script src="core/src-column-seismic-detailing.js"></script>
+  <script src="core/src-column-seismic-axial.js"></script>
+  <script src="core/src-column-core.js"></script>
+  <script src="src-column.js"></script>
+  <script src="../結構工具箱/tools/project-meta-profile.js"></script>
+</body>
+</html>

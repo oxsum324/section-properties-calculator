@@ -303,12 +303,15 @@ function assessFormalAttachment(state = {}) {
   if (failedItems.length) detailParts.push(`尚有 ${failedItems.length} 項檢核不符：${failedItems.join('、')}。`);
   if (reviewItems.length) detailParts.push(`尚有 ${reviewItems.length} 項待人工複核：${reviewItems.join('、')}。`);
   if (missingMetadata.length) detailParts.push(`案件識別資料可由主文承接：${missingMetadata.join('、')}。`);
-  const approved = state.approved === true || state.documentApproval?.approved === true;
+  const formalApprovalAllowed = state.formalApprovalAllowed !== false;
+  const approved = formalApprovalAllowed && (state.approved === true || state.documentApproval?.approved === true);
   const documentState = approved ? null : {
     kind: 'internal-review',
     reason: status,
     label: '內部審閱',
-    detail: '本計算內容尚未勾選核可；仍可列印供內部審閱。',
+    detail: formalApprovalAllowed
+      ? '本計算內容尚未勾選核可；仍可列印供內部審閱。'
+      : '本計算內容僅供內部審閱；正式附件核可尚未開放。',
   };
   return {
     status,
@@ -318,9 +321,10 @@ function assessFormalAttachment(state = {}) {
     reviewItems,
     missingMetadata,
     printable: calculated,
-    approvalRequired: !approved,
-    formalOutputAllowed: calculated,
-    readyToSign: calculated && approved,
+    approvalRequired: formalApprovalAllowed && !approved,
+    formalApprovalAllowed,
+    formalOutputAllowed: calculated && formalApprovalAllowed,
+    readyToSign: calculated && formalApprovalAllowed && approved,
     documentClass: approved
       ? { key: 'formal-attachment', label: '正式附件' }
       : { key: 'internal-review', label: '內部審閱' },
@@ -336,6 +340,7 @@ const FORMAL_DOCUMENT_STATE_REPORT_CSS = `
 .rep-approval-control { display:inline-flex; align-items:center; gap:6px; margin-right:10px; padding:7px 10px;
   border:1px solid #94a3b8; border-radius:4px; background:#fff; color:#1f2937; font-size:12px; cursor:pointer; }
 .rep-approval-control input { width:16px; height:16px; margin:0; accent-color:#166534; }
+.rep-approval-control--blocked { border-color:#cbd5e1; background:#f8fafc; color:#64748b; cursor:not-allowed; }
 .rep-approval-meta-control { display:inline-flex; flex-wrap:wrap; align-items:center; gap:6px; margin-right:10px; color:#334155; font-size:12px; }
 .rep-approval-meta-control label { display:inline-flex; align-items:center; gap:4px; }
 .rep-approval-meta-control input { width:118px; min-width:0; padding:6px 7px; border:1px solid #94a3b8; border-radius:4px; font:inherit; }
@@ -377,7 +382,8 @@ function normalizeFormalDocumentClass(documentClass, documentState) {
 }
 
 function buildAttachmentApprovalReport(options = {}) {
-  const approved = options.approved === true;
+  const formalApprovalAllowed = options.formalApprovalAllowed !== false;
+  const approved = formalApprovalAllowed && options.approved === true;
   const fingerprint = String(options.calculationFingerprint || '').trim();
   const approvedAt = String(options.approvedAt || '').trim();
   const approvedBy = String(options.approvedBy || '').trim();
@@ -387,7 +393,7 @@ function buildAttachmentApprovalReport(options = {}) {
     approved,
     css: FORMAL_DOCUMENT_STATE_REPORT_CSS,
     html: `<style data-formal-document-state-style>${FORMAL_DOCUMENT_STATE_REPORT_CSS}</style>
-      <span class="rep-attachment-approval-source" data-initial-approved="${approved ? 'true' : 'false'}" data-calculation-fingerprint="${esc(fingerprint)}" data-approved-at="${esc(approvedAt)}" data-approved-by="${esc(approvedBy)}" data-approval-basis="${esc(approvalBasis)}" aria-hidden="true"></span>
+      <span class="rep-attachment-approval-source" data-initial-approved="${approved ? 'true' : 'false'}" data-formal-approval-allowed="${formalApprovalAllowed ? 'true' : 'false'}" data-calculation-fingerprint="${esc(fingerprint)}" data-approved-at="${esc(approvedAt)}" data-approved-by="${esc(approvedBy)}" data-approval-basis="${esc(approvalBasis)}" aria-hidden="true"></span>
       <span class="rep-formal-content-seal-source" data-content-seal-scope="formal-calculation-book-content-v1" data-content-sha256="" aria-hidden="true"></span>
       <span class="rep-formal-approval-seal-source" data-approval-seal-scope="formal-calculation-book-approval-v2" data-approval-sha256="" aria-hidden="true"></span>
       <script data-attachment-approval-script>
@@ -476,6 +482,7 @@ function buildAttachmentApprovalReport(options = {}) {
           var source = document.querySelector('.rep-attachment-approval-source');
           if (!source || source.dataset.initialized === 'true') return;
           source.dataset.initialized = 'true';
+          var formalApprovalAllowed = source.dataset.formalApprovalAllowed !== 'false';
           var toolbar = document.querySelector('.rep-toolbar, .toolbar');
           var contentSealSource = document.querySelector('.rep-formal-content-seal-source');
           var approvalSealSource = document.querySelector('.rep-formal-approval-seal-source');
@@ -544,10 +551,22 @@ function buildAttachmentApprovalReport(options = {}) {
             toolbar.insertBefore(label, toolbar.firstChild);
           }
           if (!checkbox) return;
+          if (!formalApprovalAllowed) {
+            checkbox.checked = false;
+            checkbox.disabled = true;
+            checkbox.setAttribute('aria-disabled', 'true');
+            var blockedLabel = checkbox.closest('.rep-approval-control');
+            if (blockedLabel) {
+              blockedLabel.classList.add('rep-approval-control--blocked');
+              Array.from(blockedLabel.childNodes).forEach(function (node) {
+                if (node.nodeType === 3) node.textContent = '研究核算：正式附件核可尚未開放';
+              });
+            }
+          }
           var approvalMetaControl = document.querySelector('.rep-approval-meta-control');
           var approvedByInput = document.getElementById('repAttachmentApprovedBy');
           var approvalBasisInput = document.getElementById('repAttachmentApprovalBasis');
-          if (!approvalMetaControl && toolbar) {
+          if (formalApprovalAllowed && !approvalMetaControl && toolbar) {
             approvalMetaControl = document.createElement('span');
             approvalMetaControl.className = 'rep-approval-meta-control';
             var approvedByLabel = document.createElement('label');
@@ -702,7 +721,7 @@ function buildAttachmentApprovalReport(options = {}) {
             var approvalControl = checkbox.closest('.rep-approval-control');
             toolbar.insertBefore(downloadButton, approvalControl ? approvalControl.nextSibling : toolbar.firstChild);
           }
-          checkbox.checked = source.dataset.initialApproved === 'true';
+          checkbox.checked = formalApprovalAllowed && source.dataset.initialApproved === 'true';
           var approvedAtValue = source.dataset.approvedAt || '';
           if (approvedByInput) approvedByInput.value = source.dataset.approvedBy || '';
           if (approvalBasisInput) approvalBasisInput.value = source.dataset.approvalBasis || '';
@@ -711,6 +730,7 @@ function buildAttachmentApprovalReport(options = {}) {
             return Number.isFinite(d.getTime()) ? d.toLocaleString('zh-TW', { timeZone:'Asia/Taipei', hour12:false }) : value;
           }
           function updateStatus() {
+            if (!formalApprovalAllowed) checkbox.checked = false;
             if (checkbox.checked && !approvedAtValue) approvedAtValue = new Date().toISOString();
             if (!checkbox.checked) approvedAtValue = '';
             source.dataset.initialApproved = checkbox.checked ? 'true' : 'false';
@@ -795,6 +815,7 @@ function buildFormalDocumentStateReport(state = {}) {
     failedItems,
     reviewItems,
     approved: state.approved === true || state.documentApproval?.approved === true,
+    formalApprovalAllowed: state.formalApprovalAllowed !== false,
   });
   const documentState = normalizeFormalDocumentState(assessment.documentState);
   const documentClass = normalizeFormalDocumentClass(assessment.documentClass, documentState);
@@ -804,6 +825,7 @@ function buildFormalDocumentStateReport(state = {}) {
     approvedAt: state.approvedAt || state.documentApproval?.approvedAt,
     approvedBy: state.approvedBy || state.documentApproval?.approvedBy,
     approvalBasis: state.approvalBasis || state.documentApproval?.approvalBasis,
+    formalApprovalAllowed: state.formalApprovalAllowed !== false,
   });
   return {
     ...assessment,
@@ -934,6 +956,7 @@ function openReport(cfg) {
     failedItems: [...inferredFailedItems, ...(Array.isArray(cfg.failedItems) ? cfg.failedItems : [])],
     reviewItems: cfg.reviewItems,
     approved: initialApproval.approved === true,
+    formalApprovalAllowed: cfg.formalApprovalAllowed !== false,
   });
   const documentState = normalizeFormalDocumentState(automaticAttachmentAssessment.documentState);
   const documentClass = normalizeFormalDocumentClass(automaticAttachmentAssessment.documentClass, documentState);
@@ -943,6 +966,7 @@ function openReport(cfg) {
     approvedAt: initialApproval.approvedAt,
     approvedBy: initialApproval.approvedBy,
     approvalBasis: initialApproval.approvalBasis,
+    formalApprovalAllowed: cfg.formalApprovalAllowed !== false,
   });
 
   const inputsHtml = getCalculationBookInputGroups(cfg.inputs).map(g => `

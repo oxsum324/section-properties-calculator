@@ -1,0 +1,722 @@
+(function initSrcColumnPage(root, factory) {
+  const core = root.SrcColumnCore || (typeof require === 'function' ? require('./core/src-column-core.js') : null);
+  const catalog = root.SrcColumnHSectionCatalog || (typeof require === 'function' ? require('./core/src-column-h-section-catalog.js') : null);
+  const api = factory(core, catalog);
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  root.SrcColumnPage = api;
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => api.init(document, root));
+    else api.init(document, root);
+  }
+})(typeof globalThis !== 'undefined' ? globalThis : this, function buildSrcColumnPage(Core, Catalog) {
+  'use strict';
+
+  const PAGE_VERSION = 'v0.1';
+  const TOOL_ID = 'src-column-research';
+  const CASE_SCHEMA = 'src-column-research.case.v1';
+  const TOOL_NAME = 'SRC 柱耐震軸向研究核算';
+  const REPORT_TITLE = 'SRC 柱耐震軸向研究核算計算書';
+  const REGULATION_LABEL = '鋼骨鋼筋混凝土構造設計規範與解說（100 年修正版）';
+  const SECTION_DIAGRAM_TITLE = 'SRC 柱計算斷面';
+  const SECTION_DIAGRAM_CAPTION = '混凝土與置中 H 型鋼依採用尺寸比例繪製；主筋以各計算層總面積表示，本圖非施工配筋詳圖。';
+  const NUMBER_FIELDS = Object.freeze([
+    'puTf', 'muxTfM', 'pdTf', 'plTf', 'peTf', 'fu', 'designTensionStrengthTf',
+    'compressionTransferCapacityTf', 'tensionTransferCapacityTf',
+    'widthCm', 'depthCm', 'fcKgfCm2', 'lengthCm', 'kx', 'ky',
+    'reinforcementFy', 'reinforcementEs', 'steelFys', 'steelEs',
+    'layer1Y', 'layer1Area', 'layer2Y', 'layer2Area', 'layer3Y', 'layer3Area', 'layer4Y', 'layer4Area',
+  ]);
+  const CHECK_FIELDS = Object.freeze([
+    'fuConfirmed', 'parkingUse', 'publicAssemblyUse', 'liveLoadHigh', 'designTensionStrengthConfirmed',
+    'applyTransferCap', 'transferCapacityConfirmed', 'applyMomentFrameOmission', 'momentFrameConfirmed',
+    'relevantProvisionsConfirmed', 'fullyEncased', 'centeredH', 'mainBarsContinuous', 'secondOrderIncluded',
+    'redistribute', 'highStrengthConcreteConfirmed', 'highStrengthMaterialConfirmed',
+  ]);
+  const CHECK_LABELS = Object.freeze({
+    flangeCompactness: '翼板寬厚比',
+    webCompactness: '腹板寬厚比',
+    steelInteraction: '鋼骨軸壓－彎矩互制',
+    rcInteraction: 'RC 軸壓－彎矩互制',
+    seismicAxialStrength: '第 9.3 節耐震軸向強度',
+  });
+
+  function assertDependencies(reportUi) {
+    if (!Core) throw new Error('SRC 柱計算核心未載入。');
+    if (!Catalog) throw new Error('SRC 柱型鋼 catalog 未載入。');
+    if (!reportUi) throw new Error('共用計算書核心未載入。');
+  }
+
+  function finite(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : NaN;
+  }
+
+  function fmt(value, digits = 2) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number.toFixed(digits) : '—';
+  }
+
+  function percent(value, digits = 1) {
+    const number = Number(value);
+    return Number.isFinite(number) ? `${(number * 100).toFixed(digits)}%` : '—';
+  }
+
+  function clone(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, char => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[char]);
+  }
+
+  function escapeXml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, char => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;',
+    })[char]);
+  }
+
+  function readProject(doc) {
+    const normalize = value => String(value || '').trim().replace(/^未填$/, '');
+    return {
+      name: normalize(doc.getElementById('projName')?.value),
+      no: normalize(doc.getElementById('projNo')?.value),
+      designer: normalize(doc.getElementById('projDesigner')?.value),
+    };
+  }
+
+  function writeProject(doc, project) {
+    const value = (id, next) => {
+      const node = doc.getElementById(id);
+      if (node) node.value = String(next || '');
+    };
+    value('projName', project?.name);
+    value('projNo', project?.no);
+    value('projDesigner', project?.designer);
+  }
+
+  function readCoreInput(doc) {
+    const number = id => finite(doc.getElementById(id)?.value);
+    const checked = id => doc.getElementById(id)?.checked === true;
+    const layers = [1, 2, 3, 4].map(index => ({
+      yCm: number(`layer${index}Y`),
+      areaCm2: number(`layer${index}Area`),
+    }));
+    return {
+      schema: Core.INPUT_SCHEMA,
+      caseName: readProject(doc).name,
+      demands: { puTf: number('puTf'), muxTfM: number('muxTfM'), muyTfM: 0 },
+      concrete: { widthCm: number('widthCm'), depthCm: number('depthCm'), fcKgfCm2: number('fcKgfCm2') },
+      reinforcement: {
+        tieType: 'tied',
+        fyKgfCm2: number('reinforcementFy'),
+        esKgfCm2: number('reinforcementEs'),
+        layers,
+      },
+      steel: {
+        catalogId: String(doc.getElementById('steelCatalogId')?.value || ''),
+        grade: String(doc.getElementById('steelGrade')?.value || ''),
+        fysKgfCm2: number('steelFys'),
+        esKgfCm2: number('steelEs'),
+      },
+      member: { lengthCm: number('lengthCm'), kx: number('kx'), ky: number('ky') },
+      detailing: {
+        fullyEncased: checked('fullyEncased'),
+        centeredDoublySymmetricH: checked('centeredH'),
+        mainBarsContinuous: checked('mainBarsContinuous'),
+        secondOrderDemandIncluded: checked('secondOrderIncluded'),
+        seismicDesign: true,
+        seismicAxialStrengthSubcheck: true,
+        seismicColumnShearSubcheck: false,
+        seismicStrongColumnWeakBeamSubcheck: false,
+        seismicConfinementSubcheck: false,
+        redistributeToSteelBoundary: checked('redistribute'),
+        highStrengthConcreteEvidenceConfirmed: checked('highStrengthConcreteConfirmed'),
+        highStrengthMaterialEvidenceConfirmed: checked('highStrengthMaterialConfirmed'),
+      },
+      seismicAxial: {
+        pdTf: number('pdTf'),
+        plTf: number('plTf'),
+        peTf: number('peTf'),
+        fu: number('fu'),
+        fuFromProjectSeismicCriteriaConfirmed: checked('fuConfirmed'),
+        parkingUse: checked('parkingUse'),
+        publicAssemblyUse: checked('publicAssemblyUse'),
+        liveLoadExceeds05TfM2: checked('liveLoadHigh'),
+        designTensionStrengthTf: number('designTensionStrengthTf'),
+        designTensionStrengthConfirmed: checked('designTensionStrengthConfirmed'),
+        applyTransferCapacityCap: checked('applyTransferCap'),
+        transferCapacityConfirmed: checked('transferCapacityConfirmed'),
+        compressionTransferCapacityTf: number('compressionTransferCapacityTf'),
+        tensionTransferCapacityTf: number('tensionTransferCapacityTf'),
+        applyMomentFrameOmission: checked('applyMomentFrameOmission'),
+        momentFrameConfirmed: checked('momentFrameConfirmed'),
+        relevantProvisionsSatisfiedConfirmed: checked('relevantProvisionsConfirmed'),
+      },
+    };
+  }
+
+  function writeCoreInput(doc, input) {
+    const setValue = (id, value) => {
+      const node = doc.getElementById(id);
+      if (node && value != null && Number.isFinite(Number(value))) node.value = String(value);
+    };
+    const setText = (id, value) => {
+      const node = doc.getElementById(id);
+      if (node && value != null) node.value = String(value);
+    };
+    const setChecked = (id, value) => {
+      const node = doc.getElementById(id);
+      if (node) node.checked = value === true;
+    };
+    const d = input?.demands || {};
+    const c = input?.concrete || {};
+    const r = input?.reinforcement || {};
+    const s = input?.steel || {};
+    const m = input?.member || {};
+    const detail = input?.detailing || {};
+    const axial = input?.seismicAxial || {};
+    [
+      ['puTf', d.puTf], ['muxTfM', d.muxTfM],
+      ['pdTf', axial.pdTf], ['plTf', axial.plTf], ['peTf', axial.peTf], ['fu', axial.fu],
+      ['designTensionStrengthTf', axial.designTensionStrengthTf],
+      ['compressionTransferCapacityTf', axial.compressionTransferCapacityTf],
+      ['tensionTransferCapacityTf', axial.tensionTransferCapacityTf],
+      ['widthCm', c.widthCm], ['depthCm', c.depthCm], ['fcKgfCm2', c.fcKgfCm2],
+      ['lengthCm', m.lengthCm], ['kx', m.kx], ['ky', m.ky],
+      ['reinforcementFy', r.fyKgfCm2], ['reinforcementEs', r.esKgfCm2],
+      ['steelFys', s.fysKgfCm2], ['steelEs', s.esKgfCm2],
+    ].forEach(([id, value]) => setValue(id, value));
+    (Array.isArray(r.layers) ? r.layers : []).slice(0, 4).forEach((layer, index) => {
+      setValue(`layer${index + 1}Y`, layer.yCm);
+      setValue(`layer${index + 1}Area`, layer.areaCm2);
+    });
+    setText('steelCatalogId', s.catalogId);
+    setText('steelGrade', s.grade);
+    [
+      ['fuConfirmed', axial.fuFromProjectSeismicCriteriaConfirmed], ['parkingUse', axial.parkingUse],
+      ['publicAssemblyUse', axial.publicAssemblyUse], ['liveLoadHigh', axial.liveLoadExceeds05TfM2],
+      ['designTensionStrengthConfirmed', axial.designTensionStrengthConfirmed],
+      ['applyTransferCap', axial.applyTransferCapacityCap], ['transferCapacityConfirmed', axial.transferCapacityConfirmed],
+      ['applyMomentFrameOmission', axial.applyMomentFrameOmission], ['momentFrameConfirmed', axial.momentFrameConfirmed],
+      ['relevantProvisionsConfirmed', axial.relevantProvisionsSatisfiedConfirmed],
+      ['fullyEncased', detail.fullyEncased], ['centeredH', detail.centeredDoublySymmetricH],
+      ['mainBarsContinuous', detail.mainBarsContinuous], ['secondOrderIncluded', detail.secondOrderDemandIncluded],
+      ['redistribute', detail.redistributeToSteelBoundary],
+      ['highStrengthConcreteConfirmed', detail.highStrengthConcreteEvidenceConfirmed],
+      ['highStrengthMaterialConfirmed', detail.highStrengthMaterialEvidenceConfirmed],
+    ].forEach(([id, value]) => setChecked(id, value));
+  }
+
+  function resolvedSection(input) {
+    return Core.resolveSteelSection(input).steel;
+  }
+
+  function assertSectionDiagramInput(input) {
+    const steel = resolvedSection(input);
+    const values = [
+      input?.concrete?.widthCm, input?.concrete?.depthCm,
+      steel.depthCm, steel.flangeWidthCm, steel.flangeThicknessCm, steel.webThicknessCm,
+    ].map(Number);
+    if (values.some(value => !Number.isFinite(value) || value <= 0)) throw new Error('SRC 柱計算斷面圖缺少有效正值尺寸。');
+    const [width, depth, steelDepth, flangeWidth, flangeThickness, webThickness] = values;
+    if (steelDepth >= depth || flangeWidth >= width) throw new Error('SRC 柱計算斷面圖的 H 型鋼未完全包覆於混凝土斷面。');
+    if (2 * flangeThickness >= steelDepth || webThickness >= flangeWidth) throw new Error('SRC 柱計算斷面圖的 H 型鋼幾何尺寸無效。');
+    const layers = input?.reinforcement?.layers || [];
+    if (layers.length < 2 || layers.some(layer => !(Number(layer.yCm) > 0 && Number(layer.yCm) < depth && Number(layer.areaCm2) > 0))) {
+      throw new Error('SRC 柱計算斷面圖的主筋計算層資料無效。');
+    }
+    return steel;
+  }
+
+  function buildSectionDiagram(input) {
+    const steel = assertSectionDiagramInput(input);
+    const width = Number(input.concrete.widthCm);
+    const depth = Number(input.concrete.depthCm);
+    const layers = input.reinforcement.layers;
+    const plot = { x: 70, y: 52, width: 330, height: 350 };
+    const scale = Math.min(plot.width / width, plot.height / depth);
+    const sectionWidth = width * scale;
+    const sectionHeight = depth * scale;
+    const x = plot.x + (plot.width - sectionWidth) / 2;
+    const y = plot.y + (plot.height - sectionHeight) / 2;
+    const cx = x + sectionWidth / 2;
+    const cy = y + sectionHeight / 2;
+    const steelDepth = Number(steel.depthCm) * scale;
+    const flangeWidth = Number(steel.flangeWidthCm) * scale;
+    const flangeThickness = Number(steel.flangeThicknessCm) * scale;
+    const webThickness = Number(steel.webThicknessCm) * scale;
+    const steelTop = cy - steelDepth / 2;
+    const steelLeft = cx - flangeWidth / 2;
+    const webLeft = cx - webThickness / 2;
+    const layerSvg = layers.map((layer, index) => {
+      const layerY = y + Number(layer.yCm) * scale;
+      return `<line x1="${x + 9}" y1="${layerY}" x2="${x + sectionWidth - 9}" y2="${layerY}" stroke="#b45309" stroke-width="2.5" stroke-dasharray="6 5"/>
+        <rect x="${x + 7}" y="${layerY - 10}" width="25" height="18" rx="4" fill="#fff7ed" stroke="#fdba74"/>
+        <text x="${x + 19.5}" y="${layerY + 3}" text-anchor="middle" class="layer">L${index + 1}</text>`;
+    }).join('');
+    const layerLegendSvg = layers.map((layer, index) =>
+      `<text class="note" x="0" y="${154 + index * 27}">L${index + 1}: y=${fmt(layer.yCm, 1)} cm, As=${fmt(layer.areaCm2, 2)} cm²</text>`
+    ).join('');
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 455" role="img" aria-labelledby="src-column-title src-column-desc">
+      <title id="src-column-title">${SECTION_DIAGRAM_TITLE}</title>
+      <desc id="src-column-desc">矩形混凝土柱內置中雙對稱 H 型鋼，主筋以各深度計算層總面積表示。</desc>
+      <style>text{font-family:"Noto Sans TC","Microsoft JhengHei",Arial,sans-serif;fill:#172033}.dim{font-size:14px;font-weight:700}.layer{font-size:12px;fill:#92400e}.note{font-size:12px;fill:#64748b}.title{font-size:17px;font-weight:800}</style>
+      <rect x="0.5" y="0.5" width="759" height="454" rx="10" fill="#fff" stroke="#cbd5e1"/>
+      <rect x="${x}" y="${y}" width="${sectionWidth}" height="${sectionHeight}" fill="#f1f5f9" stroke="#334155" stroke-width="2.2"/>
+      ${layerSvg}
+      <rect x="${steelLeft}" y="${steelTop}" width="${flangeWidth}" height="${flangeThickness}" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.3"/>
+      <rect x="${webLeft}" y="${steelTop + flangeThickness}" width="${webThickness}" height="${steelDepth - 2 * flangeThickness}" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.3"/>
+      <rect x="${steelLeft}" y="${steelTop + steelDepth - flangeThickness}" width="${flangeWidth}" height="${flangeThickness}" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.3"/>
+      <text x="${cx}" y="${y - 18}" text-anchor="middle" class="dim">b = ${fmt(width, 1)} cm</text>
+      <text x="${x - 22}" y="${cy}" text-anchor="middle" class="dim" transform="rotate(-90 ${x - 22} ${cy})">h = ${fmt(depth, 1)} cm</text>
+      <g transform="translate(475 82)">
+        <text class="title" x="0" y="0">採用計算斷面</text>
+        <text class="dim" x="0" y="35">混凝土 ${fmt(width, 1)} × ${fmt(depth, 1)} cm</text>
+        <text class="dim" x="0" y="66">${escapeXml(steel.shape || '')}</text>
+        <text class="note" x="0" y="91">D × bf × tw × tf</text>
+        <text class="dim" x="0" y="116">${fmt(steel.depthCm, 1)} × ${fmt(steel.flangeWidthCm, 1)} × ${fmt(steel.webThicknessCm, 1)} × ${fmt(steel.flangeThicknessCm, 1)} cm</text>
+        <line x1="0" y1="132" x2="28" y2="132" stroke="#b45309" stroke-width="2.5" stroke-dasharray="6 5"/>
+        <text class="note" x="38" y="136">主筋計算層與該層總 As</text>
+        ${layerLegendSvg}
+        <text class="note" x="0" y="278">本圖依計算尺寸同比例繪製</text>
+        <text class="note" x="0" y="303">不表示鋼筋根數、號數或施工配置</text>
+      </g>
+    </svg>`;
+    return Object.freeze({
+      title: SECTION_DIAGRAM_TITLE,
+      caption: SECTION_DIAGRAM_CAPTION,
+      width: 680,
+      svg,
+      dataURL: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+    });
+  }
+
+  function failedLabels(result) {
+    return Object.entries(CHECK_LABELS)
+      .filter(([key]) => result?.checks?.[key] === false)
+      .map(([, label]) => label);
+  }
+
+  function reviewLabels(result) {
+    return (result?.reviewItems || []).map(item => item.message || item.code || '人工複核');
+  }
+
+  function buildReportConfig(input, result, project) {
+    const axial = result.seismicAxial;
+    const compressionStrength = axial.compressionStrength;
+    const compactness = result.compactness;
+    const section = result.steelSection;
+    const diagram = buildSectionDiagram(input);
+    const compressionCombos = axial.combinations.compression;
+    const tensionCombos = axial.combinations.tension;
+    const strengthOk = result.checks.engineeringStrength === true;
+    const tensionText = axial.tension.applicable
+      ? `${fmt(axial.tension.adoptedDemandTf, 2)} / ${fmt(axial.tension.designStrengthTf, 2)} tf`
+      : '無拉力需求';
+    const transferText = axial.transferCapacityCap.applied
+      ? `採用；壓／拉上限 = ${fmt(axial.transferCapacityCap.compressionLimitTf, 2)} / ${fmt(axial.transferCapacityCap.tensionLimitTf, 2)} tf`
+      : '未採用';
+    const omissionText = axial.omission.applied
+      ? `採用；Pu/φPn = ${fmt(axial.omission.ratio, 4)} ≤ 0.5`
+      : '未採用';
+    return {
+      title: REPORT_TITLE,
+      subtitle: 'SRC Column Seismic Axial Research Calculation Report',
+      toolName: TOOL_NAME,
+      toolVersion: PAGE_VERSION,
+      formalApprovalAllowed: false,
+      outputSource: {
+        tool: TOOL_NAME,
+        version: PAGE_VERSION,
+        displayVersion: PAGE_VERSION,
+        calculationEngine: result.coreVersion,
+      },
+      project: project || {},
+      calculated: true,
+      failedItems: failedLabels(result),
+      reviewItems: reviewLabels(result),
+      inputs: [
+        {
+          group: '規範、構材與分析條件',
+          items: [
+            { label: '採用規範', value: REGULATION_LABEL, unit: '' },
+            { label: '構材型式', value: '完全包覆矩形 SRC 橫箍筋柱；置中雙對稱 H 型鋼骨', unit: '' },
+            { label: '檢核範圍', value: '強軸單向 P-M 與第 9.3 節耐震軸向強度', unit: '' },
+            { label: 'Pu / Mux', value: `${fmt(input.demands.puTf, 2)} / ${fmt(input.demands.muxTfM, 2)}`, unit: 'tf / tf·m' },
+            { label: '二階需求', value: '專案分析已納入 P-Δ 效應', unit: '' },
+            { label: '重分配', value: result.redistribution.applied ? '依式 (7.3-9)～(7.3-10) 採用' : '未採用', unit: '' },
+          ],
+        },
+        {
+          group: '採用斷面與材料',
+          items: [
+            { label: '混凝土 b × h', value: `${fmt(input.concrete.widthCm, 1)} × ${fmt(input.concrete.depthCm, 1)}`, unit: 'cm' },
+            { label: "fc′ / Fyr", value: `${fmt(input.concrete.fcKgfCm2, 0)} / ${fmt(input.reinforcement.fyKgfCm2, 0)}`, unit: 'kgf/cm²' },
+            { label: '鋼骨', value: `${section.shape}；${input.steel.grade}`, unit: '' },
+            { label: 'A / Ix / Iy', value: `${fmt(section.properties.areaCm2, 1)} / ${fmt(section.properties.ixCm4, 0)} / ${fmt(section.properties.iyCm4, 0)}`, unit: 'cm² / cm⁴ / cm⁴' },
+            { label: 'Fys', value: fmt(input.steel.fysKgfCm2, 0), unit: 'kgf/cm²' },
+            { label: 'L / Kx / Ky', value: `${fmt(input.member.lengthCm, 1)} / ${fmt(input.member.kx, 2)} / ${fmt(input.member.ky, 2)}`, unit: 'cm / — / —' },
+            { label: '主筋計算層', value: input.reinforcement.layers.map(layer => `y=${fmt(layer.yCm, 1)} cm：As=${fmt(layer.areaCm2, 2)} cm²`).join('；'), unit: '' },
+          ],
+        },
+        {
+          group: '第 9.3 節採用地震軸力資料',
+          keepTogether: true,
+          items: [
+            { label: 'PD / PL / PE', value: `${fmt(input.seismicAxial.pdTf, 2)} / ${fmt(input.seismicAxial.plTf, 2)} / ${fmt(input.seismicAxial.peTf, 2)}`, unit: 'tf' },
+            { label: '專案 Fu / 採用 Fu', value: `${fmt(axial.factors.projectFu, 2)} / ${fmt(axial.factors.adoptedFu, 2)}`, unit: '—' },
+            { label: '活載係數', value: fmt(axial.factors.liveLoadFactor, 1), unit: '—' },
+            { label: '1.4FuPE', value: fmt(axial.factors.amplifiedSeismicTf, 2), unit: 'tf' },
+            { label: '傳力容量上限', value: transferText, unit: '' },
+            { label: '彎矩構架免檢', value: omissionText, unit: '' },
+            { label: '專案拉力設計強度', value: axial.tension.applicable ? fmt(axial.tension.designStrengthTf, 2) : '本組合未產生拉力需求', unit: axial.tension.applicable ? 'tf' : '' },
+          ],
+        },
+      ],
+      diagrams: [{ title: diagram.title, dataURL: diagram.dataURL, caption: diagram.caption, width: diagram.width }],
+      checks: [
+        {
+          group: '構材斷面與軸彎互制',
+          items: [
+            { label: '翼板寬厚比', formula: '(bf/2)/tf ≤ λpd', sub: `${fmt(compactness.flangeRatio, 3)} ≤ ${fmt(compactness.flangeSeismicLimit, 3)}`, value: fmt(compactness.flangeRatio, 3), ok: result.checks.flangeCompactness },
+            { label: '腹板寬厚比', formula: '(D−2tf)/tw ≤ λpd', sub: `${fmt(compactness.webRatio, 3)} ≤ ${fmt(compactness.webSeismicLimit, 3)}`, value: fmt(compactness.webRatio, 3), ok: result.checks.webCompactness },
+            { label: '鋼骨 P-M 互制', formula: '式 (7.3-7) 或 (7.3-8)', sub: `β = ${fmt(result.steel.finalInteraction.utilization, 5)}`, value: percent(result.steel.finalInteraction.utilization), ok: result.checks.steelInteraction },
+            { label: 'RC P-M 互制', formula: '應變相容 P-M 曲線', sub: `需求比 = ${fmt(result.rc.utilization, 5)}`, value: percent(result.rc.utilization), ok: result.checks.rcInteraction },
+          ],
+        },
+        {
+          group: '第 9.3 節耐震軸向強度',
+          items: [
+            { label: '受壓組合', formula: '1.2PD + αLPL ± 1.4FuPE ≤ φcPn', sub: `${fmt(axial.compression.adoptedDemandTf, 2)} ≤ ${fmt(axial.compression.designStrengthTf, 2)} tf`, value: percent(axial.compression.utilization), ok: axial.omission.applied ? true : axial.compression.ok },
+            { label: '受拉組合', formula: '0.9PD ± 1.4FuPE ≤ φtPn', sub: tensionText, value: axial.tension.applicable ? percent(axial.tension.utilization) : '無需求', ok: axial.omission.applied ? true : axial.tension.ok },
+          ],
+        },
+      ],
+      steps: [
+        {
+          group: '鋼骨與 RC 剛度分配',
+          body: `鋼骨軸力分配比 = ${fmt(result.allocation.axialSteelRatio, 6)}\n鋼骨強軸彎矩分配比 = ${fmt(result.allocation.momentSteelRatioX, 6)}\n初始鋼骨需求 Ps / Msx = ${fmt(result.allocation.initialSteelDemands.puTf, 4)} tf / ${fmt(result.allocation.initialSteelDemands.muxTfM, 4)} tf·m\n最終 RC 需求 Prc / Mrcx = ${fmt(result.redistribution.finalRcDemands.puTf, 4)} tf / ${fmt(result.redistribution.finalRcDemands.muxTfM, 4)} tf·m`,
+        },
+        {
+          group: '第 6.4 節鋼骨受壓與 SRC 受壓強度',
+          body: `Pns,x = ${fmt(compressionStrength.steel.nominalXTf, 4)} tf；Pns,y = ${fmt(compressionStrength.steel.nominalYTf, 4)} tf\n鋼骨控制軸 = ${compressionStrength.steel.controlAxis}；φcsPns = 0.85 × ${fmt(compressionStrength.steel.nominalTf, 4)} = ${fmt(compressionStrength.steel.designTf, 4)} tf\nPnrc,short = ${fmt(compressionStrength.rc.shortNominalTf, 4)} tf\nPnrc,Euler-x / Euler-y = ${fmt(compressionStrength.rc.eulerXNominalTf, 4)} / ${fmt(compressionStrength.rc.eulerYNominalTf, 4)} tf\nφcrcPnrc = 0.65 × ${fmt(compressionStrength.rc.nominalTf, 4)} = ${fmt(compressionStrength.rc.designTf, 4)} tf\nφcPn = φcsPns + φcrcPnrc = ${fmt(compressionStrength.designCompressionStrengthTf, 4)} tf`,
+        },
+        {
+          group: '式 (9.3-1) 受壓組合',
+          body: compressionCombos.map(item => `${item.seismicSense === 'plus' ? '+' : '−'}E：1.2PD + αLPL ${item.seismicSense === 'plus' ? '+' : '−'} 1.4FuPE = ${fmt(item.signedTf, 4)} tf；採用受壓需求 = ${fmt(item.adoptedCompressionDemandTf, 4)} tf`).join('\n'),
+        },
+        {
+          group: '式 (9.3-2) 受拉組合',
+          body: tensionCombos.map(item => `${item.seismicSense === 'plus' ? '+' : '−'}E：0.9PD ${item.seismicSense === 'plus' ? '+' : '−'} 1.4FuPE = ${fmt(item.signedTf, 4)} tf；採用受拉需求 = ${fmt(item.adoptedTensionDemandTf, 4)} tf`).join('\n'),
+        },
+        {
+          group: '控制結果',
+          body: axial.omission.applied
+            ? `已依明確確認之彎矩構架免檢條件採用第 9.3 節省略；Pu/φcPn = ${fmt(axial.omission.ratio, 5)} ≤ 0.5。`
+            : `受壓需求比 = ${fmt(axial.compression.utilization, 5)}\n受拉需求比 = ${fmt(axial.tension.utilization, 5)}\n第 9.3 節軸向強度 = ${axial.ok ? 'OK' : 'NG'}`,
+        },
+      ],
+      summary: {
+        ok: strengthOk,
+        text: strengthOk
+          ? '本次已實作之 SRC 柱斷面、軸彎互制及第 9.3 節耐震軸向強度檢核通過。'
+          : `本次 SRC 柱之${failedLabels(result).join('、')}未通過。`,
+      },
+      snapshot: {
+        schema: CASE_SCHEMA,
+        input: clone(input),
+        result: {
+          status: result.status,
+          checks: clone(result.checks),
+          steelUtilization: result.steel.finalInteraction.utilization,
+          rcUtilization: result.rc.utilization,
+          compressionUtilization: axial.compression.utilization,
+          tensionUtilization: axial.tension.utilization,
+        },
+      },
+    };
+  }
+
+  function buildCasePayload(input, result, project, reportUi) {
+    assertDependencies(reportUi);
+    const config = buildReportConfig(input, result, project);
+    const trace = reportUi.buildReportTrace(config);
+    return {
+      schema: CASE_SCHEMA,
+      schemaVersion: 1,
+      tool: { id: TOOL_ID, name: TOOL_NAME, version: PAGE_VERSION, calculationEngine: result.coreVersion },
+      savedAt: new Date().toISOString(),
+      project: clone(project || {}),
+      input: clone(input),
+      result: {
+        status: result.status,
+        checks: clone(result.checks),
+        compressionUtilization: result.seismicAxial.compression.utilization,
+        tensionUtilization: result.seismicAxial.tension.utilization,
+      },
+      calculationFingerprint: trace.calculationFingerprint,
+      report: { calculationFingerprint: trace.calculationFingerprint },
+    };
+  }
+
+  function downloadJson(win, fileName, payload) {
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = win.URL.createObjectURL(blob);
+    const link = win.document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    win.document.body.appendChild(link);
+    link.click();
+    link.remove();
+    win.URL.revokeObjectURL(url);
+  }
+
+  function init(doc, win) {
+    if (doc.documentElement.dataset.srcColumnInitialized === 'true') return;
+    doc.documentElement.dataset.srcColumnInitialized = 'true';
+    const reportUi = win.ToolReportUI;
+    assertDependencies(reportUi);
+    let lastInput = null;
+    let lastResult = null;
+    let lastConfig = null;
+    let lastFingerprint = '';
+    let calculateTimer = 0;
+    const $ = id => doc.getElementById(id);
+
+    Catalog.listSections().forEach(item => {
+      const option = doc.createElement('option');
+      option.value = item.id;
+      option.textContent = `${item.name}${item.orderProducedAtPublication ? '（教材星號）' : ''}`;
+      $('steelCatalogId').appendChild(option);
+    });
+    $('steelCatalogId').value = 'rh-500x304x15x24';
+    $('coreVersion').textContent = `Core ${Core.CORE_VERSION}`;
+
+    function updateDependentFields() {
+      const transfer = $('applyTransferCap').checked;
+      $('compressionTransferCapacityTf').disabled = !transfer;
+      $('tensionTransferCapacityTf').disabled = !transfer;
+      const section = Catalog.getSection($('steelCatalogId').value);
+      $('catalogSource').textContent = section
+        ? `${section.name}：教材附錄（一）表 1-1，印刷頁 ${section.source.printedPage}／PDF 第 ${section.source.pdfPage} 頁；實際供貨與材證仍依專案確認。`
+        : '尚未選擇具來源頁碼的型鋼斷面。';
+    }
+
+    function setActionStatus(message, tone = '') {
+      $('actionStatus').textContent = message || '';
+      $('actionStatus').className = `src-action-status ${tone}`.trim();
+    }
+
+    function renderInvalid(issues) {
+      $('resultBadge').className = 'src-status ng';
+      $('resultBadge').textContent = '輸入有誤';
+      $('resultHeadline').textContent = '請修正輸入後重新核算。';
+      $('metricGrid').innerHTML = '';
+      $('checkList').innerHTML = `<ul>${issues.map(item => `<li>${escapeHtml(item.message || item)}</li>`).join('')}</ul>`;
+      $('resultTables').innerHTML = '<p class="src-muted">輸入尚未通過檢查，未產生計算結果。</p>';
+      $('sectionDiagramImage').hidden = true;
+      $('sectionDiagramImage').removeAttribute('src');
+      $('sectionDiagramPlaceholder').hidden = false;
+      $('sectionDiagramPlaceholder').textContent = '輸入尚未通過檢查，未產生計算斷面圖。';
+      $('sectionDiagramCaption').textContent = '';
+      $('reportReadiness').className = 'src-readiness blocked';
+      $('reportReadiness').innerHTML = `<strong>輸入未通過檢查</strong><ul>${issues.map(item => `<li>${escapeHtml(item.message || item)}</li>`).join('')}</ul><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>`;
+    }
+
+    function metric(label, value, ok) {
+      return `<div class="src-metric ${ok === false ? 'ng' : 'ok'}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+    }
+
+    function renderResult(input, result, config) {
+      const axial = result.seismicAxial;
+      const failed = failedLabels(result);
+      const strengthOk = result.checks.engineeringStrength === true;
+      $('resultBadge').className = `src-status ${strengthOk ? 'review' : 'ng'}`;
+      $('resultBadge').textContent = strengthOk ? '研究通過' : 'NG';
+      $('resultHeadline').textContent = strengthOk
+        ? '已實作強度檢核通過；文件仍維持私有研究狀態。'
+        : `控制不符：${failed.join('、')}。`;
+      $('metricGrid').innerHTML = [
+        metric('SRC 設計受壓強度 φcPn', `${fmt(axial.compression.designStrengthTf, 2)} tf`, axial.compression.ok),
+        metric('9.3 受壓需求比', percent(axial.compression.utilization), axial.compression.ok),
+        metric('9.3 受拉需求比', axial.tension.applicable ? percent(axial.tension.utilization) : '無需求', axial.tension.ok),
+        metric('鋼骨 P-M 需求比', percent(result.steel.finalInteraction.utilization), result.checks.steelInteraction),
+        metric('RC P-M 需求比', percent(result.rc.utilization), result.checks.rcInteraction),
+        metric('採用 Fu', `${fmt(axial.factors.adoptedFu, 2)}${axial.factors.fuCappedAt25 ? '（上限）' : ''}`, true),
+      ].join('');
+      $('checkList').innerHTML = Object.entries(CHECK_LABELS).map(([key, label]) => {
+        const ok = result.checks[key];
+        return `<div class="src-check-item ${ok ? 'ok' : 'ng'}"><strong>${escapeHtml(label)}</strong><span>${ok ? 'OK' : 'NG'}</span></div>`;
+      }).join('');
+      $('resultTables').innerHTML = `
+        <table class="src-table"><thead><tr><th>受壓強度</th><th>結果</th></tr></thead><tbody>
+          <tr><td>鋼骨控制軸／φcsPns</td><td>${escapeHtml(axial.compressionStrength.steel.controlAxis)} / ${fmt(axial.compressionStrength.steel.designTf, 2)} tf</td></tr>
+          <tr><td>RC 控制模式／φcrcPnrc</td><td>${escapeHtml(axial.compressionStrength.rc.governingMode)} / ${fmt(axial.compressionStrength.rc.designTf, 2)} tf</td></tr>
+          <tr><td>φcPn</td><td>${fmt(axial.compressionStrength.designCompressionStrengthTf, 2)} tf</td></tr>
+        </tbody></table>
+        <table class="src-table"><thead><tr><th>第 9.3 節</th><th>需求 / 強度</th></tr></thead><tbody>
+          <tr><td>受壓控制</td><td>${fmt(axial.compression.adoptedDemandTf, 2)} / ${fmt(axial.compression.designStrengthTf, 2)} tf</td></tr>
+          <tr><td>受拉控制</td><td>${axial.tension.applicable ? `${fmt(axial.tension.adoptedDemandTf, 2)} / ${fmt(axial.tension.designStrengthTf, 2)} tf` : '未產生拉力需求'}</td></tr>
+          <tr><td>免檢條件</td><td>${axial.omission.applied ? '已採用' : '未採用'}；Pu/φcPn = ${fmt(axial.omission.ratio, 3)}</td></tr>
+        </tbody></table>`;
+      const diagram = config?.diagrams?.[0];
+      $('sectionDiagramImage').src = diagram?.dataURL || '';
+      $('sectionDiagramImage').hidden = !diagram;
+      $('sectionDiagramPlaceholder').hidden = Boolean(diagram);
+      $('sectionDiagramCaption').textContent = diagram?.caption || '';
+      $('reportReadiness').className = strengthOk ? 'src-readiness review' : 'src-readiness ng';
+      $('reportReadiness').innerHTML = strengthOk
+        ? '<strong>研究計算完成</strong><span>可產生並列印內部審閱計算書；正式附件核可仍封閉。待弱軸、接頭區與完整構架範圍完成後再進行升格審查。</span><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>'
+        : `<strong>工程結果含 NG</strong><span>${escapeHtml(failed.join('、'))}不符；研究計算書仍可如實列印結果。</span><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>`;
+    }
+
+    function calculate(options = {}) {
+      updateDependentFields();
+      const input = readCoreInput(doc);
+      try {
+        const result = Core.calculate(input);
+        const config = buildReportConfig(input, result, readProject(doc));
+        const trace = reportUi.buildReportTrace(config);
+        lastInput = clone(input);
+        lastResult = result;
+        lastConfig = config;
+        lastFingerprint = trace.calculationFingerprint;
+        win.lastSrcColumnInput = clone(input);
+        win.lastSrcColumnResult = result;
+        win.lastSrcColumnReportConfig = config;
+        win.lastSrcColumnCalculationFingerprint = lastFingerprint;
+        renderResult(input, result, config);
+        if (options.announce !== false) setActionStatus(`核算完成；計算指紋 ${lastFingerprint}。`, 'ok');
+        return result;
+      } catch (error) {
+        lastInput = null;
+        lastResult = null;
+        lastConfig = null;
+        lastFingerprint = '';
+        win.lastSrcColumnInput = null;
+        win.lastSrcColumnResult = null;
+        win.lastSrcColumnReportConfig = null;
+        win.lastSrcColumnCalculationFingerprint = '';
+        const issues = Array.isArray(error?.issues) ? error.issues : [{ message: error?.message || String(error) }];
+        renderInvalid(issues);
+        if (options.announce !== false) setActionStatus(`無法計算：${issues.map(item => item.message).join('；')}`, 'error');
+        return null;
+      }
+    }
+
+    function scheduleCalculate() {
+      win.clearTimeout(calculateTimer);
+      calculateTimer = win.setTimeout(() => calculate({ announce: false }), 120);
+    }
+
+    function ensureCurrent() {
+      const result = calculate({ announce: false });
+      if (!result) throw new Error('輸入尚未通過檢查，無法產生輸出。');
+      return result;
+    }
+
+    function currentPayload() {
+      ensureCurrent();
+      return buildCasePayload(lastInput, lastResult, readProject(doc), reportUi);
+    }
+
+    function captureState() {
+      return { input: readCoreInput(doc), project: readProject(doc) };
+    }
+
+    function restoreState(state) {
+      writeCoreInput(doc, state.input);
+      writeProject(doc, state.project);
+      updateDependentFields();
+      calculate({ announce: false });
+    }
+
+    async function importCase(file) {
+      if (!file) return;
+      if (Number(file.size || 0) > 1024 * 1024) throw new Error('案件 JSON 超過 1 MiB。');
+      let payload;
+      try { payload = JSON.parse(await file.text()); }
+      catch { throw new Error('案件 JSON 無法解析。'); }
+      const previous = captureState();
+      try {
+        reportUi.validateCalculationCasePayload(payload, {
+          expectedSchema: CASE_SCHEMA,
+          expectedToolId: TOOL_ID,
+          expectedVersion: PAGE_VERSION,
+        });
+        if (!payload.input || typeof payload.input !== 'object') throw new Error('案件 JSON 缺少計算輸入。');
+        writeCoreInput(doc, payload.input);
+        writeProject(doc, payload.project || {});
+        updateDependentFields();
+        const result = calculate({ announce: false });
+        if (!result) throw new Error('案件 JSON 套用後未通過輸入檢核。');
+        reportUi.assertCalculationCaseReplay(payload, lastFingerprint);
+        setActionStatus(`已匯入 ${file.name || '案件 JSON'}，重算指紋一致。`, 'ok');
+      } catch (error) {
+        restoreState(previous);
+        throw new Error(`${error.message || error}；已保留原輸入。`);
+      }
+    }
+
+    $('btnCalculate').addEventListener('click', () => calculate({ announce: true }));
+    $('btnReport').addEventListener('click', () => {
+      try {
+        ensureCurrent();
+        win.openReport(lastConfig);
+      } catch (error) { setActionStatus(error.message || String(error), 'error'); }
+    });
+    $('btnExportCase').addEventListener('click', () => {
+      try {
+        const payload = currentPayload();
+        downloadJson(win, `src-column-research-case-${payload.savedAt.slice(0, 10)}.json`, payload);
+        setActionStatus(`案件 JSON 已下載；計算指紋 ${payload.calculationFingerprint}。`, 'ok');
+      } catch (error) { setActionStatus(error.message || String(error), 'error'); }
+    });
+    $('btnImportCase').addEventListener('click', () => $('caseFile').click());
+    $('caseFile').addEventListener('change', async event => {
+      const file = event.target.files?.[0];
+      try { await importCase(file); }
+      catch (error) { setActionStatus(`匯入失敗：${error.message || error}`, 'error'); }
+      finally { event.target.value = ''; }
+    });
+    [...NUMBER_FIELDS, ...CHECK_FIELDS, 'steelCatalogId', 'steelGrade'].forEach(id => {
+      const node = $(id);
+      if (!node) return;
+      node.addEventListener('input', scheduleCalculate);
+      node.addEventListener('change', scheduleCalculate);
+    });
+    ['projName', 'projNo', 'projDesigner'].forEach(id => {
+      $(id).addEventListener('input', () => {
+        if (!lastResult) return;
+        lastConfig = buildReportConfig(lastInput, lastResult, readProject(doc));
+        lastFingerprint = reportUi.buildReportTrace(lastConfig).calculationFingerprint;
+        win.lastSrcColumnReportConfig = lastConfig;
+        win.lastSrcColumnCalculationFingerprint = lastFingerprint;
+      });
+    });
+
+    win.runSrcColumnCalculation = () => calculate({ announce: true });
+    win.buildSrcColumnCasePayload = currentPayload;
+    win.importSrcColumnCaseFile = importCase;
+    updateDependentFields();
+    calculate({ announce: false });
+  }
+
+  return Object.freeze({
+    PAGE_VERSION,
+    TOOL_ID,
+    CASE_SCHEMA,
+    TOOL_NAME,
+    REPORT_TITLE,
+    readCoreInput,
+    writeCoreInput,
+    buildReportConfig,
+    buildSectionDiagram,
+    buildCasePayload,
+    failedLabels,
+    reviewLabels,
+    init,
+  });
+});
