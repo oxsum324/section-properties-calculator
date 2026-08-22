@@ -17,7 +17,7 @@ function clone(value) {
 function officialGuideExample8() {
   const barAreaCm2 = 5.07;
   return {
-    schema: 'src-column.input.v7',
+    schema: Core.INPUT_SCHEMA,
     caseName: 'MOI SRC design guide example 8',
     demands: { puTf: 734.0, muxTfM: 128.9, muyTfM: 0 },
     concrete: { widthCm: 65, depthCm: 80, fcKgfCm2: 280 },
@@ -76,11 +76,11 @@ function manualExample8() {
   return input;
 }
 
-assert.equal(Core.CORE_VERSION, 'src-column.core.v0.8.0-research', 'SRC column core is explicitly versioned as research');
-assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v7', 'SRC column core has a versioned input schema');
+assert.equal(Core.CORE_VERSION, 'src-column.core.v0.9.0-research', 'SRC column core is explicitly versioned as research');
+assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v8', 'SRC column core has a versioned input schema');
 assert.equal(Core.RELEASE_STATUS, 'research-core-not-public', 'research core cannot be mistaken for a formal public route');
 assert.equal(Core.REGULATION_PROFILE.id, 'tw-src-2011', 'SRC column core uses the official current profile');
-assert.ok(Core.REGULATION_PROFILE.chapter3Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter5Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter6Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter7Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter9Url.endsWith('.pdf'), 'official chapter sources remain explicit');
+assert.ok(Core.REGULATION_PROFILE.chapter3Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter5Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter6Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter7Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter8Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter9Url.endsWith('.pdf'), 'official chapter sources remain explicit');
 assert.ok(Core.REGULATION_PROFILE.draftBoundary.includes('草案'), 'research draft remains separated from current regulation');
 
 const official = Core.calculate(officialGuideExample8());
@@ -245,11 +245,25 @@ assert.equal(seismicAxialTension.seismicAxial.tension.strengthSource, 'project-c
 
 const seismicPackageInput = clone(seismicShearInput);
 seismicPackageInput.detailing.seismicAxialStrengthSubcheck = true;
+seismicPackageInput.detailing.jointFlexuralStrengthRatioSubcheck = true;
 seismicPackageInput.detailing.seismicStrongColumnWeakBeamSubcheck = true;
 seismicPackageInput.detailing.seismicConfinementSubcheck = true;
 seismicPackageInput.shear.spacingCm = 10;
 seismicPackageInput.seismicAxial = clone(seismicAxialInput.seismicAxial);
 const exactColumnShareTfM = 1.2 * (195.8 + 153.4) / 2;
+seismicPackageInput.jointFlexuralStrengthRatio = {
+  axis: 'x',
+  connectionType: 'src-beam-src-column',
+  jointFaceNominalStrengthsConfirmed: true,
+  allConnectedMembersIncludedConfirmed: true,
+  componentStrengthsSeparatedConfirmed: true,
+  useVerifiedSmoothTransferAlternative: false,
+  smoothStressTransferAnalysisConfirmed: false,
+  cases: [
+    { sense: 'clockwise', steelColumnSumTfM: 251.424, steelBeamSumTfM: 209.52, rcColumnSumTfM: 167.616, rcBeamSumTfM: 139.68 },
+    { sense: 'counterclockwise', steelColumnSumTfM: 251.424, steelBeamSumTfM: 209.52, rcColumnSumTfM: 167.616, rcBeamSumTfM: 139.68 },
+  ],
+};
 seismicPackageInput.strongColumnWeakBeam = {
   axis: 'x',
   orthogonalBeamDirectionPresent: false,
@@ -280,15 +294,25 @@ seismicPackageInput.confinement = {
   crosstieHooksAlternatedConfirmed: true,
 };
 const seismicPackage = Core.calculate(seismicPackageInput);
+assert.equal(seismicPackage.jointFlexuralStrengthRatio.ok, true, 'integrated package checks both clause 8.4.2 component ratios in both directions');
 assert.equal(seismicPackage.strongColumnWeakBeam.ok, true, 'integrated package checks both strong-column loading senses');
 assert.equal(seismicPackage.confinement.ok, true, 'integrated package checks current-code confinement quantity and placement');
 assert.equal(seismicPackage.confinement.ash.governingMode, 'equation-9.6-7', 'current equation 9.6-7 governs the derived H-section package');
 assert.equal(seismicPackage.confinement.spacing.nonConfinedLimitCm, 15, 'integrated package uses the current 15 cm non-confined-zone limit');
 assert.equal(seismicPackage.checks.strongColumnWeakBeam, true, 'strong-column/weak-beam participates in the engineering chain');
+assert.equal(seismicPackage.checks.jointFlexuralStrengthRatio, true, 'joint component ratios participate in the engineering chain');
 assert.equal(seismicPackage.checks.confinement, true, 'confinement participates in the engineering chain');
 assert.equal(seismicPackage.checks.seismicAxialStrength, true, 'axial strength participates in the integrated engineering chain');
 assert.equal(seismicPackage.checks.completeSeismicDesign, false, 'four column subchecks still do not claim complete seismic design');
 assert.equal(seismicPackage.status, 'REVIEW', 'the integrated column package remains research review only');
+
+const inconsistentJointComponents = clone(seismicPackageInput);
+inconsistentJointComponents.jointFlexuralStrengthRatio.cases[0].steelColumnSumTfM += 0.01;
+assert.throws(
+  () => Core.calculate(inconsistentJointComponents),
+  error => error instanceof Core.SrcColumnInputError && error.issues.some(item => item.code === 'joint-component-column-sum-conflict'),
+  'clause 8.4.2 component sums cannot contradict the same-direction clause 9.6.1 total'
+);
 
 const shearGoverningConfinementInput = clone(seismicPackageInput);
 shearGoverningConfinementInput.shear.mctTfM = 350;
@@ -425,6 +449,7 @@ assert.equal(catalog.release.status, Core.RELEASE_STATUS, 'traceability catalog 
 assert.equal(catalog.regulation.chapter3Url, Core.REGULATION_PROFILE.chapter3Url, 'catalog and core use the same official chapter 3 source');
 assert.equal(catalog.regulation.chapter5Url, Core.REGULATION_PROFILE.chapter5Url, 'catalog and core use the same official chapter 5 source');
 assert.equal(catalog.regulation.chapter7Url, Core.REGULATION_PROFILE.chapter7Url, 'catalog and core use the same official chapter 7 source');
+assert.equal(catalog.regulation.chapter8Url, Core.REGULATION_PROFILE.chapter8Url, 'catalog and core use the same official chapter 8 source');
 assert.equal(catalog.regulation.chapter9Url, Core.REGULATION_PROFILE.chapter9Url, 'catalog and core use the same official chapter 9 source');
 assert.equal(catalog.concreteRegulation.officialPage, 'https://www.nlma.gov.tw/ch/legislation/regsearch/6874', 'catalog identifies the official 112 concrete regulation page');
 assert.equal(catalog.concreteRegulation.officialPdf, 'https://www.nlma.gov.tw/uploads/files/011d9249cac7d6c5547786aa348e352a.pdf', 'catalog locks the reviewed official concrete regulation PDF');
@@ -434,7 +459,7 @@ assert.equal(catalog.sectionCatalog.source.printedPage, official.steelSection.so
 assert.equal(catalog.sectionCatalog.entryCount, 7, 'traceability states the deliberately limited catalog coverage');
 assert.deepEqual(
   catalog.equations.map(item => item.id),
-  ['src-3.4-2', 'src-6.4-1-7', 'src-6.4-2-5', 'src-7.3-3-6', 'src-7.3-7-8', 'src-7.3-9-10', 'rc-pm-current', 'rc-pm-biaxial', 'src-9.3-1-2', 'src-9.6-3-5', 'src-5.5-3', 'src-5.5-4-13', 'src-9.6-1', 'src-9.6-6-10'],
+  ['src-3.4-2', 'src-6.4-1-7', 'src-6.4-2-5', 'src-7.3-3-6', 'src-7.3-7-8', 'src-7.3-9-10', 'rc-pm-current', 'rc-pm-biaxial', 'src-9.3-1-2', 'src-9.6-3-5', 'src-5.5-3', 'src-5.5-4-13', 'src-8.4-1-4', 'src-9.6-1', 'src-9.6-6-10'],
   'catalog covers every implemented equation family'
 );
 assert.equal(catalog.goldenCases[0].id, 'MOI-SRC-GUIDE-COLUMN-EXAMPLE-8', 'official example 8 remains the canonical research golden case');
@@ -477,10 +502,10 @@ close(packageVerification.expected.nominalAxialTf, seismicPackage.confinement.ax
 close(packageVerification.expected.ashEquation7Cm2, seismicPackage.confinement.ash.equation7Cm2, 1e-12, 'catalog preserves the integrated governing confinement quantity');
 assert.equal(packageVerification.expected.completeSeismicDesign, seismicPackage.checks.completeSeismicDesign, 'catalog preserves the incomplete seismic-design boundary');
 assert.equal(catalog.oracle.file, 'core/src-column-oracle.js', 'catalog identifies the independent oracle');
-assert.equal(catalog.oracle.version, 'src-column.oracle.v0.6.0-research', 'catalog identifies the current independent oracle version');
-assert.equal(catalog.oracle.comparisonCount, 117, 'catalog states the independently compared exact arithmetic surface');
+assert.equal(catalog.oracle.version, 'src-column.oracle.v0.7.0-research', 'catalog identifies the current independent oracle version');
+assert.equal(catalog.oracle.comparisonCount, 127, 'catalog states the independently compared exact arithmetic surface');
 assert.equal(catalog.oracle.approximateComparisonCount, 14, 'catalog states the production/oracle tolerance comparisons');
-assert.equal(catalog.oracle.driftSentinelCount, 5, 'catalog states all independent drift sentinels');
+assert.equal(catalog.oracle.driftSentinelCount, 6, 'catalog states all independent drift sentinels');
 assert.ok(catalog.oracle.covered.includes('RC 應變相容 P-M'), 'catalog declares the completed independent RC P-M coverage');
 assert.equal(catalog.oracle.uncovered.includes('RC 應變相容 P-M'), false, 'catalog no longer lists completed RC P-M work as uncovered');
 assert.ok(catalog.oracle.covered.includes('RC 定軸力 Mux-Muy 互制曲面'), 'catalog declares the completed independent biaxial RC coverage');

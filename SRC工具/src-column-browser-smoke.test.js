@@ -91,6 +91,7 @@ async function main() {
       compressionUtilization: window.lastSrcColumnResult.seismicAxial.compression.utilization,
       tensionApplicable: window.lastSrcColumnResult.seismicAxial.tension.applicable,
       shearOk: window.lastSrcColumnResult.shear?.ok,
+      jointRatioOk: window.lastSrcColumnResult.jointFlexuralStrengthRatio?.ok,
       strongColumnOk: window.lastSrcColumnResult.strongColumnWeakBeam?.ok,
       confinementOk: window.lastSrcColumnResult.confinement?.ok,
       fingerprint: window.lastSrcColumnCalculationFingerprint,
@@ -101,6 +102,7 @@ async function main() {
     assert.ok(Math.abs(initial.compressionUtilization - 0.6615966) < 1e-6);
     assert.equal(initial.tensionApplicable, false);
     assert.equal(initial.shearOk, true);
+    assert.equal(initial.jointRatioOk, true);
     assert.equal(initial.strongColumnOk, true);
     assert.equal(initial.confinementOk, true);
     assert.match(initial.fingerprint, /^CF-[A-F0-9]{16}$/);
@@ -111,6 +113,19 @@ async function main() {
     const pageDiagramSource = await pageDiagram.getAttribute('src');
     assert.match(pageDiagramSource, /^data:image\/svg\+xml;charset=utf-8,/);
     assert.match(await page.locator('#sectionDiagramCaption').innerText(), /非施工配筋詳圖/);
+
+    await page.selectOption('#jointConnectionType', 'steel-beam-src-column');
+    await page.waitForFunction(() => window.lastSrcColumnResult?.jointFlexuralStrengthRatio?.connectionType === 'steel-beam-src-column');
+    assert.equal(await page.locator('[data-joint-rc]').first().isHidden(), true, 'steel-beam mode hides inapplicable RC-beam component inputs');
+    assert.equal(await page.locator('#useVerifiedSmoothTransferAlternative').isDisabled(), false);
+    assert.equal(await page.evaluate(() => window.lastSrcColumnResult.jointFlexuralStrengthRatio.requiredRatios.steel), 1.0, 'steel-beam mode defaults to equation 8.4-3');
+    await page.check('#useVerifiedSmoothTransferAlternative');
+    await page.waitForFunction(() => window.lastSrcColumnResult === null);
+    await page.check('#smoothStressTransferAnalysisConfirmed');
+    await page.waitForFunction(() => window.lastSrcColumnResult?.jointFlexuralStrengthRatio?.requiredRatios?.steel === 0.7);
+    await page.selectOption('#jointConnectionType', 'src-beam-src-column');
+    await page.waitForFunction(fingerprint => window.lastSrcColumnCalculationFingerprint === fingerprint, initial.fingerprint);
+    assert.equal(await page.locator('#useVerifiedSmoothTransferAlternative').isChecked(), false, 'switching back to SRC-beam mode clears the inapplicable alternative');
 
     await page.uncheck('#enableShearSubcheck');
     await page.waitForFunction(() => window.lastSrcColumnResult?.shear === null && window.lastSrcColumnResult?.confinement === null);
@@ -174,8 +189,8 @@ async function main() {
     for (const needle of [
       'SRC 柱強軸耐震研究核算計算書', '規範、構材與分析條件', '採用斷面與材料',
       '第 9.3 節採用地震軸力資料', '第 9.6.2 節採用柱剪力資料',
-      '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
-      '第 9.6 節強軸耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論',
+      '第 8.4.2 節採用接頭面分量彎矩', '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
+      '第 8.4.2 節接頭撓曲強度比', '第 9.6 節強軸耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論',
     ]) assert.ok(reportText.includes(needle), `report includes ${needle}`);
     for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', 'DRAFT', '非正式附件', '弱軸耐震、接頭區']) {
       assert.equal(reportText.includes(needle), false, `report excludes ${needle}`);
@@ -202,14 +217,15 @@ async function main() {
       requiredNeedles: [
         'SRC 柱強軸耐震研究核算計算書', '規範、構材與分析條件', '採用斷面與材料',
         '第 9.3 節採用地震軸力資料', '第 9.6.2 節採用柱剪力資料',
-        '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
-        '第 9.6 節強軸耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論', '計算指紋',
+        '第 8.4.2 節採用接頭面分量彎矩', '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
+        '第 8.4.2 節接頭撓曲強度比', '第 9.6 節強軸耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論', '計算指紋',
       ],
       contentBoundaryProfile: 'traceable-calculation-book',
       continuationContextLabels: [
         '規範、構材與分析條件', '採用斷面與材料', '第 9.3 節採用地震軸力資料',
         '第 9.6.2 節採用柱剪力資料', '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
-        '計算線圖與示意圖', '構材斷面與軸彎互制', '第 9.3 節耐震軸向強度',
+        '第 8.4.2 節採用接頭面分量彎矩', '計算線圖與示意圖', '構材斷面與軸彎互制', '第 9.3 節耐震軸向強度',
+        '第 8.4.2 節接頭撓曲強度比',
         '第 9.6 節強軸耐震子檢核',
         '計算過程明細', '鋼骨與 RC 剛度分配', '第 6.4 節鋼骨受壓與 SRC 受壓強度',
         '式 (9.3-1) 受壓組合', '式 (9.3-2) 受拉組合', '第 9.6.2 節強軸柱剪力',

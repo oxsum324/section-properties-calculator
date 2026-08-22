@@ -8,7 +8,8 @@
  * This core is deliberately not a public/formal tool yet. It implements the
  * strength-allocation path needed to reproduce the official MOI SRC design
  * guide example and automatically checks H-shape compactness. The seismic
- * paths cover clause 9.3 axial strength, clauses 9.6.1 and 9.6.2, and the
+ * paths cover clause 9.3 axial strength, clause 8.4.2 joint flexural-strength
+ * ratios for one strong-axis frame plane, clauses 9.6.1 and 9.6.2, and the
  * strong-axis rectangular-column portions of 9.6.3; complete frame and joint
  * design remain outside the automatic OK boundary.
  *
@@ -39,8 +40,8 @@
 })(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnCore(PMSection, HSectionCatalog, RcBiaxial, ColumnShear, SeismicDetailing, SeismicAxial) {
   'use strict';
 
-  const CORE_VERSION = 'src-column.core.v0.8.0-research';
-  const INPUT_SCHEMA = 'src-column.input.v7';
+  const CORE_VERSION = 'src-column.core.v0.9.0-research';
+  const INPUT_SCHEMA = 'src-column.input.v8';
   const RELEASE_STATUS = 'research-core-not-public';
   const REGULATION_PROFILE = Object.freeze({
     id: 'tw-src-2011',
@@ -51,6 +52,7 @@
     chapter5Url: 'https://www.nlma.gov.tw/uploads/files/1f2700a836544dafdc81c7a1130158c5.pdf',
     chapter6Url: 'https://www.nlma.gov.tw/uploads/files/c0ec0fcd843b9fc64ed10865c5f03741.pdf',
     chapter7Url: 'https://www.nlma.gov.tw/uploads/files/de33d9841890f8f82630e6bb88f3acd2.pdf',
+    chapter8Url: 'https://www.nlma.gov.tw/uploads/files/81a17efb5ef8039d7c320ff52282ebc0.pdf',
     chapter9Url: 'https://www.nlma.gov.tw/uploads/files/ac7c3ad5045bd3c895bc12839750325d.pdf',
     officialGuidePage: 'https://www.abri.gov.tw/News_Content_Table.aspx?n=807&s=38030',
     clauses: Object.freeze({
@@ -62,6 +64,7 @@
       secondOrder: '7.4 / 式 (7.4-1)~(7.4-7)',
       seismicColumnShear: '9.6.2 / 式 (9.6-3)~(9.6-5)，回引 5.5.1~5.5.2',
       seismicAxialStrength: '9.3 / 式 (9.3-1)~(9.3-2)，回引 6.4.1 與 6.4.3',
+      jointFlexuralStrengthRatio: '8.4.2 / 式 (8.4-1)~(8.4-4)',
       strongColumnWeakBeam: '9.6.1 / 式 (9.6-1)',
       seismicColumnConfinement: '9.6.3 / 式 (9.6-6)~(9.6-10) 與圍束配置細則',
     }),
@@ -182,9 +185,10 @@
     const shear = input?.shear || {};
     const shearRequested = detailing.seismicColumnShearSubcheck === true;
     const axialRequested = detailing.seismicAxialStrengthSubcheck === true;
+    const jointRatioRequested = detailing.jointFlexuralStrengthRatioSubcheck === true;
     const strongColumnRequested = detailing.seismicStrongColumnWeakBeamSubcheck === true;
     const confinementRequested = detailing.seismicConfinementSubcheck === true;
-    const seismicSubcheckRequested = shearRequested || axialRequested || strongColumnRequested || confinementRequested;
+    const seismicSubcheckRequested = shearRequested || axialRequested || jointRatioRequested || strongColumnRequested || confinementRequested;
 
     if (input?.schema !== INPUT_SCHEMA) {
       addBlocked('unsupported-input-schema', 'schema', `僅接受 ${INPUT_SCHEMA}，未知 schema 不得直接計算。`);
@@ -252,8 +256,8 @@
     if (shearRequested && muy != null && Math.abs(muy) > ZERO_TOLERANCE) {
       addBlocked('seismic-shear-strong-axis-only', 'demands.muyTfM', '目前第 9.6.2 節剪力子檢核只涵蓋強軸單向作用，Muy 必須為 0。');
     }
-    if ((strongColumnRequested || confinementRequested) && detailing.seismicDesign !== true) {
-      addBlocked('seismic-detailing-mode-required', 'detailing.seismicDesign', '第 9.6.1 與 9.6.3 節子檢核只適用明確啟用的耐震設計案件。');
+    if ((jointRatioRequested || strongColumnRequested || confinementRequested) && detailing.seismicDesign !== true) {
+      addBlocked('seismic-detailing-mode-required', 'detailing.seismicDesign', '第 8.4.2、9.6.1 與 9.6.3 節子檢核只適用明確啟用的耐震設計案件。');
     }
     if (confinementRequested && !shearRequested) {
       addBlocked('confinement-shear-demand-required', 'detailing.seismicColumnShearSubcheck', '圍束箍筋量不得小於剪力需求，因此第 9.6.3 節子檢核必須同時啟用第 9.6.2 節剪力子檢核。');
@@ -407,11 +411,12 @@
     if (seismicSubcheckRequested) {
       const implemented = [
         axialRequested ? '9.3 軸向強度' : '',
+        jointRatioRequested ? '8.4.2 單一強軸接頭撓曲強度比' : '',
         shearRequested ? '9.6.2 強軸柱剪力' : '',
         strongColumnRequested ? '9.6.1 單一強軸接頭強柱弱梁' : '',
         confinementRequested ? '9.6.3 強軸矩形柱圍束' : '',
       ].filter(Boolean).join('、');
-      addReview('seismic-column-subchecks-only', 'detailing', `目前僅完成 ${implemented} 子檢核；第 8.4.2 接頭傳力比例、弱軸、全構架各接頭、接頭區與其餘耐震細節仍須另案檢核。`);
+      addReview('seismic-column-subchecks-only', 'detailing', `目前僅完成 ${implemented} 子檢核；弱軸、全構架各接頭、接頭區剪力與其餘耐震細節仍須另案檢核。`);
     } else {
       addReview('excluded-strength-paths', 'detailing', '第 9.6.2 節耐震柱剪力未啟用；柱腳、梁柱接頭、施工階段與耐震細節仍須另案檢核。');
     }
@@ -716,13 +721,25 @@
       }
     }
 
+    let jointFlexuralStrengthRatioResult = null;
     let strongColumnWeakBeamResult = null;
     let confinementResult = null;
+    const jointRatioRequested = detailing.jointFlexuralStrengthRatioSubcheck === true;
     const strongColumnRequested = detailing.seismicStrongColumnWeakBeamSubcheck === true;
     const confinementRequested = detailing.seismicConfinementSubcheck === true;
-    if (strongColumnRequested || confinementRequested) {
-      if (!SeismicDetailing || typeof SeismicDetailing.strongColumnWeakBeam !== 'function' || typeof SeismicDetailing.confinement !== 'function') {
+    if (jointRatioRequested || strongColumnRequested || confinementRequested) {
+      if (!SeismicDetailing || typeof SeismicDetailing.jointFlexuralStrengthRatio !== 'function' || typeof SeismicDetailing.strongColumnWeakBeam !== 'function' || typeof SeismicDetailing.confinement !== 'function') {
         throw new Error('SrcColumnSeismicDetailing dependency is required for the seismic detailing subchecks.');
+      }
+      if (jointRatioRequested) {
+        try {
+          jointFlexuralStrengthRatioResult = SeismicDetailing.jointFlexuralStrengthRatio(input.jointFlexuralStrengthRatio);
+        } catch (error) {
+          if (error instanceof SeismicDetailing.SrcColumnSeismicDetailingError) {
+            throw new SrcColumnInputError([issue(error.code, `jointFlexuralStrengthRatio.${error.path}`, error.message)]);
+          }
+          throw error;
+        }
       }
       if (strongColumnRequested) {
         try {
@@ -760,9 +777,23 @@
         }
       }
     }
+    if (jointFlexuralStrengthRatioResult?.connectionType === 'src-beam-src-column' && strongColumnWeakBeamResult) {
+      jointFlexuralStrengthRatioResult.cases.forEach(jointCase => {
+        const combinedCase = strongColumnWeakBeamResult.cases.find(item => item.sense === jointCase.sense);
+        const jointColumnSum = jointCase.steel.columnSumTfM + jointCase.rc.columnSumTfM;
+        const jointBeamSum = jointCase.steel.beamSumTfM + jointCase.rc.beamSumTfM;
+        if (Math.abs(jointColumnSum - combinedCase.columnSumTfM) > ZERO_TOLERANCE) {
+          throw new SrcColumnInputError([issue('joint-component-column-sum-conflict', `jointFlexuralStrengthRatio.cases.${jointCase.sense}`, '第 8.4.2 節鋼骨與 RC 柱彎矩總和必須與同方向第 9.6.1 節柱彎矩總和一致。')]);
+        }
+        if (Math.abs(jointBeamSum - combinedCase.beamSumTfM) > ZERO_TOLERANCE) {
+          throw new SrcColumnInputError([issue('joint-component-beam-sum-conflict', `jointFlexuralStrengthRatio.cases.${jointCase.sense}`, '第 8.4.2 節鋼骨與 RC 梁彎矩總和必須與同方向第 9.6.1 節梁彎矩總和一致。')]);
+        }
+      });
+    }
     const engineeringChecksOk = compactness.ok && finalSteelInteraction.ok && rcInteraction.ok
       && (!seismicAxialResult || seismicAxialResult.ok)
       && (!shearResult || shearResult.ok)
+      && (!jointFlexuralStrengthRatioResult || jointFlexuralStrengthRatioResult.ok)
       && (!strongColumnWeakBeamResult || strongColumnWeakBeamResult.ok)
       && (!confinementResult || confinementResult.ok);
 
@@ -839,6 +870,7 @@
       },
       seismicAxial: seismicAxialResult,
       shear: shearResult,
+      jointFlexuralStrengthRatio: jointFlexuralStrengthRatioResult,
       strongColumnWeakBeam: strongColumnWeakBeamResult,
       confinement: confinementResult,
       checks: {
@@ -849,6 +881,7 @@
         rcInteraction: rcInteraction.ok,
         seismicAxialStrength: seismicAxialResult ? seismicAxialResult.ok : null,
         columnShear: shearResult ? shearResult.ok : null,
+        jointFlexuralStrengthRatio: jointFlexuralStrengthRatioResult ? jointFlexuralStrengthRatioResult.ok : null,
         strongColumnWeakBeam: strongColumnWeakBeamResult ? strongColumnWeakBeamResult.ok : null,
         confinement: confinementResult ? confinementResult.ok : null,
         completeSeismicDesign: false,

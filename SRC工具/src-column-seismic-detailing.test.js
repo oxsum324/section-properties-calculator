@@ -39,6 +39,22 @@ function officialExample14StrongColumnArithmetic() {
   };
 }
 
+function derivedSrcJointRatioArithmetic() {
+  return {
+    axis: 'x',
+    connectionType: 'src-beam-src-column',
+    jointFaceNominalStrengthsConfirmed: true,
+    allConnectedMembersIncludedConfirmed: true,
+    componentStrengthsSeparatedConfirmed: true,
+    useVerifiedSmoothTransferAlternative: false,
+    smoothStressTransferAnalysisConfirmed: false,
+    cases: [
+      { sense: 'clockwise', steelColumnSumTfM: 251.424, steelBeamSumTfM: 209.52, rcColumnSumTfM: 167.616, rcBeamSumTfM: 139.68 },
+      { sense: 'counterclockwise', steelColumnSumTfM: 251.424, steelBeamSumTfM: 209.52, rcColumnSumTfM: 167.616, rcBeamSumTfM: 139.68 },
+    ],
+  };
+}
+
 function officialExample14ConfinementArithmetic() {
   return {
     axis: 'x',
@@ -72,7 +88,37 @@ function officialExample14ConfinementArithmetic() {
   };
 }
 
-assert.equal(Detailing.VERSION, 'src-column.seismic-detailing.v0.1.0-research', 'seismic detailing subchecks are explicitly versioned as research');
+assert.equal(Detailing.VERSION, 'src-column.seismic-detailing.v0.2.0-research', 'seismic detailing subchecks are explicitly versioned as research');
+
+const srcJoint = Detailing.jointFlexuralStrengthRatio(derivedSrcJointRatioArithmetic());
+assert.deepEqual(srcJoint.clauses, ['8.4.2 / (8.4-1)', '8.4.2 / (8.4-2)']);
+close(srcJoint.cases[0].steel.ratio, 1.2, 1e-12, 'SRC joint steel-component ratio');
+close(srcJoint.cases[0].rc.ratio, 1.2, 1e-12, 'SRC joint RC-component ratio');
+assert.equal(srcJoint.requiredRatios.steel, 0.6, 'equation 8.4-1 steel ratio threshold');
+assert.equal(srcJoint.requiredRatios.rc, 0.6, 'equation 8.4-2 RC ratio threshold');
+assert.equal(srcJoint.ok, true, 'both component ratios pass in both directions');
+assert.equal(srcJoint.completeJointDesign, false, 'component ratios cannot claim complete joint design');
+
+const weakRcJointInput = derivedSrcJointRatioArithmetic();
+weakRcJointInput.cases[1].rcColumnSumTfM = 80;
+const weakRcJoint = Detailing.jointFlexuralStrengthRatio(weakRcJointInput);
+assert.equal(weakRcJoint.cases[0].ok, true, 'one direction may pass the component-ratio check');
+assert.equal(weakRcJoint.cases[1].rc.ok, false, 'equation 8.4-2 failure is identified separately');
+assert.equal(weakRcJoint.ok, false, 'every required component and direction must pass');
+
+const steelBeamJointInput = derivedSrcJointRatioArithmetic();
+steelBeamJointInput.connectionType = 'steel-beam-src-column';
+steelBeamJointInput.cases.forEach(item => { delete item.rcColumnSumTfM; delete item.rcBeamSumTfM; item.steelColumnSumTfM = 100; item.steelBeamSumTfM = 100; });
+const steelBeamJoint = Detailing.jointFlexuralStrengthRatio(steelBeamJointInput);
+assert.equal(steelBeamJoint.requiredRatios.steel, 1.0, 'equation 8.4-3 is the default steel-beam threshold');
+assert.equal(steelBeamJoint.ok, true);
+const smoothTransferJointInput = clone(steelBeamJointInput);
+smoothTransferJointInput.useVerifiedSmoothTransferAlternative = true;
+smoothTransferJointInput.smoothStressTransferAnalysisConfirmed = true;
+smoothTransferJointInput.cases.forEach(item => { item.steelColumnSumTfM = 70; });
+const smoothTransferJoint = Detailing.jointFlexuralStrengthRatio(smoothTransferJointInput);
+assert.equal(smoothTransferJoint.requiredRatios.steel, 0.7, 'equation 8.4-4 is used only with confirmed smooth stress transfer');
+assert.equal(smoothTransferJoint.ok, true);
 
 const strongColumn = Detailing.strongColumnWeakBeam(officialExample14StrongColumnArithmetic());
 close(strongColumn.cases[0].beamSumTfM, 349.2, 1e-12, 'example 14 beam nominal moment sum');
@@ -146,6 +192,12 @@ Object.assign(validSplice, {
 assert.equal(Detailing.confinement(validSplice).splice.present, true, 'a fully confirmed staggered middle-half splice is represented');
 
 for (const [code, makeInput, mutate, invoke] of [
+  ['unsupported-joint-ratio-axis', derivedSrcJointRatioArithmetic, input => { input.axis = 'y'; }, Detailing.jointFlexuralStrengthRatio],
+  ['unsupported-joint-connection-type', derivedSrcJointRatioArithmetic, input => { input.connectionType = 'unknown'; }, Detailing.jointFlexuralStrengthRatio],
+  ['confirmation-required', derivedSrcJointRatioArithmetic, input => { input.allConnectedMembersIncludedConfirmed = false; }, Detailing.jointFlexuralStrengthRatio],
+  ['smooth-transfer-alternative-not-applicable', derivedSrcJointRatioArithmetic, input => { input.useVerifiedSmoothTransferAlternative = true; }, Detailing.jointFlexuralStrengthRatio],
+  ['confirmation-required', () => clone(steelBeamJointInput), input => { input.useVerifiedSmoothTransferAlternative = true; }, Detailing.jointFlexuralStrengthRatio],
+  ['two-direction-cases-required', derivedSrcJointRatioArithmetic, input => { input.cases.pop(); }, Detailing.jointFlexuralStrengthRatio],
   ['unsupported-strong-column-axis', officialExample14StrongColumnArithmetic, input => { input.axis = 'y'; }, Detailing.strongColumnWeakBeam],
   ['orthogonal-frame-plane-not-covered', officialExample14StrongColumnArithmetic, input => { input.orthogonalBeamDirectionPresent = true; }, Detailing.strongColumnWeakBeam],
   ['confirmation-required', officialExample14StrongColumnArithmetic, input => { input.columnStrengthsAtGoverningAxialLoadsConfirmed = false; }, Detailing.strongColumnWeakBeam],
@@ -168,4 +220,4 @@ for (const [code, makeInput, mutate, invoke] of [
   );
 }
 
-console.log('SRC column seismic detailing OK (strong-column/weak-beam + current-code confinement boundaries)');
+console.log('SRC column seismic detailing OK (clause 8.4.2 joint ratios + strong-column/weak-beam + current-code confinement boundaries)');

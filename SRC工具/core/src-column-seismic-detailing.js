@@ -1,7 +1,8 @@
 /* SRC column current-code seismic detailing research subchecks.
  *
- * Scope: clause 9.6.1 strong-column/weak-beam arithmetic for one strong-axis
- * frame plane, and clause 9.6.3 confinement quantity, extent, spacing,
+ * Scope: clause 8.4.2 joint flexural-strength ratios, clause 9.6.1
+ * strong-column/weak-beam arithmetic for one strong-axis frame plane, and
+ * clause 9.6.3 confinement quantity, extent, spacing,
  * splice, corner-bar, and crosstie checks for a fully encased rectangular
  * SRC column. Adjacent-member nominal strengths remain project inputs.
  *
@@ -14,7 +15,11 @@
 })(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnSeismicDetailing() {
   'use strict';
 
-  const VERSION = 'src-column.seismic-detailing.v0.1.0-research';
+  const VERSION = 'src-column.seismic-detailing.v0.2.0-research';
+  const SRC_JOINT_STEEL_RATIO = 0.6;
+  const SRC_JOINT_RC_RATIO = 0.6;
+  const STEEL_BEAM_JOINT_RATIO = 1.0;
+  const VERIFIED_TRANSFER_JOINT_RATIO = 0.7;
   const STRONG_COLUMN_RATIO = 1.2;
   const ZERO_TOLERANCE = 1e-9;
 
@@ -59,6 +64,93 @@
       throw new SrcColumnSeismicDetailingError('boolean-required', path, `${path} must be explicitly true or false`);
     }
     return value;
+  }
+
+  function jointFlexuralStrengthRatio(input) {
+    if (!input || typeof input !== 'object') {
+      throw new SrcColumnSeismicDetailingError('input-required', 'jointFlexuralStrengthRatio', 'A clause 8.4.2 joint input object is required');
+    }
+    if (input.axis !== 'x') {
+      throw new SrcColumnSeismicDetailingError('unsupported-joint-ratio-axis', 'axis', 'Only one strong-axis x frame plane is covered');
+    }
+    const connectionType = String(input.connectionType || '');
+    if (!['src-beam-src-column', 'steel-beam-src-column'].includes(connectionType)) {
+      throw new SrcColumnSeismicDetailingError('unsupported-joint-connection-type', 'connectionType', 'Clause 8.4.2 requires an explicit SRC-beam/SRC-column or steel-beam/SRC-column connection type');
+    }
+    requireConfirmed(input.jointFaceNominalStrengthsConfirmed, 'jointFaceNominalStrengthsConfirmed', 'All component moments must be nominal strengths at the joint faces');
+    requireConfirmed(input.allConnectedMembersIncludedConfirmed, 'allConnectedMembersIncludedConfirmed', 'The sums must include every beam and column connected at the joint in the checked frame plane');
+    requireConfirmed(input.componentStrengthsSeparatedConfirmed, 'componentStrengthsSeparatedConfirmed', 'Steel and reinforced-concrete component strengths must be separated without double counting');
+
+    const useVerifiedAlternative = booleanAt(input.useVerifiedSmoothTransferAlternative, 'useVerifiedSmoothTransferAlternative');
+    if (connectionType === 'src-beam-src-column' && useVerifiedAlternative) {
+      throw new SrcColumnSeismicDetailingError('smooth-transfer-alternative-not-applicable', 'useVerifiedSmoothTransferAlternative', 'Equation (8.4-4) applies only to a steel beam connected to an SRC column');
+    }
+    if (useVerifiedAlternative) {
+      requireConfirmed(input.smoothStressTransferAnalysisConfirmed, 'smoothStressTransferAnalysisConfirmed', 'Equation (8.4-4) requires project analysis confirming smooth transfer of steel-beam stress into the SRC column');
+    }
+    const steelRequiredRatio = connectionType === 'src-beam-src-column'
+      ? SRC_JOINT_STEEL_RATIO
+      : (useVerifiedAlternative ? VERIFIED_TRANSFER_JOINT_RATIO : STEEL_BEAM_JOINT_RATIO);
+
+    const cases = Array.isArray(input.cases) ? input.cases : [];
+    if (cases.length !== 2) {
+      throw new SrcColumnSeismicDetailingError('two-direction-cases-required', 'cases', 'Clockwise and counterclockwise component-strength cases are both required');
+    }
+    const requiredSenses = new Set(['clockwise', 'counterclockwise']);
+    const seen = new Set();
+    const results = cases.map((item, index) => {
+      const sense = item && item.sense;
+      if (!requiredSenses.has(sense) || seen.has(sense)) {
+        throw new SrcColumnSeismicDetailingError('invalid-or-duplicate-sense', `cases[${index}].sense`, 'Exactly one clockwise and one counterclockwise case are required');
+      }
+      seen.add(sense);
+      const steelColumnSumTfM = positive(item.steelColumnSumTfM, `cases[${index}].steelColumnSumTfM`);
+      const steelBeamSumTfM = positive(item.steelBeamSumTfM, `cases[${index}].steelBeamSumTfM`);
+      const steelRatio = steelColumnSumTfM / steelBeamSumTfM;
+      const steel = {
+        columnSumTfM: steelColumnSumTfM,
+        beamSumTfM: steelBeamSumTfM,
+        requiredRatio: steelRequiredRatio,
+        requiredColumnSumTfM: steelRequiredRatio * steelBeamSumTfM,
+        ratio: steelRatio,
+        utilization: steelRequiredRatio / steelRatio,
+        ok: steelRatio + ZERO_TOLERANCE >= steelRequiredRatio,
+      };
+      let rc = null;
+      if (connectionType === 'src-beam-src-column') {
+        const rcColumnSumTfM = positive(item.rcColumnSumTfM, `cases[${index}].rcColumnSumTfM`);
+        const rcBeamSumTfM = positive(item.rcBeamSumTfM, `cases[${index}].rcBeamSumTfM`);
+        const rcRatio = rcColumnSumTfM / rcBeamSumTfM;
+        rc = {
+          columnSumTfM: rcColumnSumTfM,
+          beamSumTfM: rcBeamSumTfM,
+          requiredRatio: SRC_JOINT_RC_RATIO,
+          requiredColumnSumTfM: SRC_JOINT_RC_RATIO * rcBeamSumTfM,
+          ratio: rcRatio,
+          utilization: SRC_JOINT_RC_RATIO / rcRatio,
+          ok: rcRatio + ZERO_TOLERANCE >= SRC_JOINT_RC_RATIO,
+        };
+      }
+      return { sense, steel, rc, ok: steel.ok && (!rc || rc.ok) };
+    });
+    const componentResults = results.flatMap(item => [item.steel, item.rc].filter(Boolean));
+    return {
+      version: VERSION,
+      mode: 'strong-axis-joint-flexural-strength-ratio-subcheck',
+      clauses: connectionType === 'src-beam-src-column'
+        ? ['8.4.2 / (8.4-1)', '8.4.2 / (8.4-2)']
+        : [useVerifiedAlternative ? '8.4.2 / (8.4-4)' : '8.4.2 / (8.4-3)'],
+      axis: 'x',
+      connectionType,
+      useVerifiedSmoothTransferAlternative: useVerifiedAlternative,
+      requiredRatios: { steel: steelRequiredRatio, rc: connectionType === 'src-beam-src-column' ? SRC_JOINT_RC_RATIO : null },
+      cases: results,
+      maximumUtilization: Math.max(...componentResults.map(item => item.utilization)),
+      minimumRatio: Math.min(...componentResults.map(item => item.ratio)),
+      ok: results.every(item => item.ok),
+      completeJointDesign: false,
+      boundary: 'This result covers clause 8.4.2 component flexural-strength ratios for one strong-axis joint frame plane only; connection hardware, panel-zone shear, anchorage, orthogonal direction, and every other joint require separate verified paths.',
+    };
   }
 
   function strongColumnWeakBeam(input) {
@@ -259,6 +351,7 @@
   function calculate(input) {
     return {
       version: VERSION,
+      jointFlexuralStrengthRatio: jointFlexuralStrengthRatio(input.jointFlexuralStrengthRatio),
       strongColumnWeakBeam: strongColumnWeakBeam(input.strongColumnWeakBeam),
       confinement: confinement(input.confinement),
       completeSeismicDesign: false,
@@ -267,8 +360,13 @@
 
   return {
     VERSION,
+    SRC_JOINT_STEEL_RATIO,
+    SRC_JOINT_RC_RATIO,
+    STEEL_BEAM_JOINT_RATIO,
+    VERIFIED_TRANSFER_JOINT_RATIO,
     STRONG_COLUMN_RATIO,
     SrcColumnSeismicDetailingError,
+    jointFlexuralStrengthRatio,
     strongColumnWeakBeam,
     confinement,
     calculate,

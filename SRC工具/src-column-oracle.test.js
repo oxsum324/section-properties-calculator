@@ -9,7 +9,7 @@ const Oracle = require('./core/src-column-oracle.js');
 function example8() {
   const barAreaCm2 = 5.07;
   return {
-    schema: 'src-column.input.v7',
+    schema: Oracle.SUPPORTED_SCHEMA,
     demands: { puTf: 734.0, muxTfM: 128.9, muyTfM: 0 },
     concrete: { widthCm: 65, depthCm: 80, fcKgfCm2: 280 },
     reinforcement: {
@@ -74,7 +74,7 @@ function compare(production, oracle, paths, tolerance) {
   });
 }
 
-assert.equal(Oracle.ORACLE_VERSION, 'src-column.oracle.v0.6.0-research', 'independent oracle is explicitly versioned');
+assert.equal(Oracle.ORACLE_VERSION, 'src-column.oracle.v0.7.0-research', 'independent oracle is explicitly versioned');
 assert.equal(Oracle.SUPPORTED_SCHEMA, Production.INPUT_SCHEMA, 'oracle and production accept the same research input schema');
 const oracleSource = fs.readFileSync(path.join(__dirname, 'core', 'src-column-oracle.js'), 'utf8');
 assert.equal(oracleSource.includes('require('), false, 'oracle imports neither the production core nor shared PMSection');
@@ -303,11 +303,25 @@ assert.ok(axialOracle.coverage.covered.includes('seismic-axial-strength-subcheck
 
 const packageOracleInput = structuredClone(shearOracleInput);
 packageOracleInput.detailing.seismicAxialStrengthSubcheck = true;
+packageOracleInput.detailing.jointFlexuralStrengthRatioSubcheck = true;
 packageOracleInput.detailing.seismicStrongColumnWeakBeamSubcheck = true;
 packageOracleInput.detailing.seismicConfinementSubcheck = true;
 packageOracleInput.shear.spacingCm = 10;
 packageOracleInput.seismicAxial = structuredClone(axialOracleInput.seismicAxial);
 const exactColumnShareTfM = 1.2 * (195.8 + 153.4) / 2;
+packageOracleInput.jointFlexuralStrengthRatio = {
+  axis: 'x',
+  connectionType: 'src-beam-src-column',
+  jointFaceNominalStrengthsConfirmed: true,
+  allConnectedMembersIncludedConfirmed: true,
+  componentStrengthsSeparatedConfirmed: true,
+  useVerifiedSmoothTransferAlternative: false,
+  smoothStressTransferAnalysisConfirmed: false,
+  cases: [
+    { sense: 'clockwise', steelColumnSumTfM: 251.424, steelBeamSumTfM: 209.52, rcColumnSumTfM: 167.616, rcBeamSumTfM: 139.68 },
+    { sense: 'counterclockwise', steelColumnSumTfM: 251.424, steelBeamSumTfM: 209.52, rcColumnSumTfM: 167.616, rcBeamSumTfM: 139.68 },
+  ],
+};
 packageOracleInput.strongColumnWeakBeam = {
   axis: 'x',
   orthogonalBeamDirectionPresent: false,
@@ -348,6 +362,16 @@ packageProductionInput.steel = {
 const packageProduction = Production.calculate(packageProductionInput);
 const packageOracle = Oracle.calculate(packageOracleInput);
 const detailingExactPaths = [
+  'jointFlexuralStrengthRatio.cases.0.steel.columnSumTfM',
+  'jointFlexuralStrengthRatio.cases.0.steel.beamSumTfM',
+  'jointFlexuralStrengthRatio.cases.0.steel.requiredColumnSumTfM',
+  'jointFlexuralStrengthRatio.cases.0.steel.ratio',
+  'jointFlexuralStrengthRatio.cases.0.rc.columnSumTfM',
+  'jointFlexuralStrengthRatio.cases.0.rc.beamSumTfM',
+  'jointFlexuralStrengthRatio.cases.0.rc.ratio',
+  'jointFlexuralStrengthRatio.cases.1.steel.ratio',
+  'jointFlexuralStrengthRatio.cases.1.rc.ratio',
+  'jointFlexuralStrengthRatio.maximumUtilization',
   'strongColumnWeakBeam.cases.0.columnSumTfM',
   'strongColumnWeakBeam.cases.0.beamSumTfM',
   'strongColumnWeakBeam.cases.0.requiredColumnSumTfM',
@@ -374,10 +398,12 @@ const detailingExactPaths = [
   'confinement.extent.requiredCm',
 ];
 assert.deepEqual(compare(packageProduction, packageOracle, detailingExactPaths, 1e-10), [], 'independent oracle agrees with every strong-column and confinement arithmetic term');
+assert.equal(packageOracle.jointFlexuralStrengthRatio.ok, packageProduction.jointFlexuralStrengthRatio.ok, 'oracle agrees on every clause 8.4.2 component and direction');
 assert.equal(packageOracle.strongColumnWeakBeam.ok, packageProduction.strongColumnWeakBeam.ok, 'oracle agrees on both strong-column loading senses');
 assert.equal(packageOracle.confinement.ok, packageProduction.confinement.ok, 'oracle agrees on current-code confinement disposition');
 assert.equal(packageOracle.confinement.ash.governingMode, packageProduction.confinement.ash.governingMode, 'oracle agrees on the governing confinement requirement');
 assert.ok(packageOracle.coverage.covered.includes('seismic-strong-axis-joint-subcheck') && packageOracle.coverage.covered.includes('seismic-strong-axis-confinement-subcheck'), 'oracle declares both new limited seismic subchecks');
+assert.ok(packageOracle.coverage.covered.includes('clause-8.4.2-joint-flexural-strength-ratio'), 'oracle declares the completed clause 8.4.2 arithmetic path');
 
 const drifted = structuredClone(production);
 drifted.steel.nominalMomentXTfM += 0.01;
@@ -406,6 +432,13 @@ assert.deepEqual(
   compare(confinementDrifted, packageOracle, detailingExactPaths, 1e-10).map(item => item.path),
   ['confinement.ash.equation7Cm2'],
   'comparison catches a confinement production arithmetic drift'
+);
+const jointRatioDrifted = structuredClone(packageProduction);
+jointRatioDrifted.jointFlexuralStrengthRatio.cases[0].steel.ratio += 0.01;
+assert.deepEqual(
+  compare(jointRatioDrifted, packageOracle, detailingExactPaths, 1e-10).map(item => item.path),
+  ['jointFlexuralStrengthRatio.cases.0.steel.ratio'],
+  'comparison catches a clause 8.4.2 component-ratio arithmetic drift'
 );
 const axialDrifted = structuredClone(axialProduction);
 axialDrifted.seismicAxial.compressionStrength.rc.eulerYNominalTf += 0.01;
@@ -450,4 +483,4 @@ for (const missingBoolean of ['mainBarSplicePresent', 'inflectionPointWithinMidd
   );
 }
 
-console.log(`SRC column independent oracle OK (${comparedPaths.length + rcComparedPaths.length + 6 + shearExactPaths.length + axialExactPaths.length + detailingExactPaths.length} exact comparisons + ${3 + shearTolerancePaths.length} tolerance comparisons + five drift sentinels)`);
+console.log(`SRC column independent oracle OK (${comparedPaths.length + rcComparedPaths.length + 6 + shearExactPaths.length + axialExactPaths.length + detailingExactPaths.length} exact comparisons + ${3 + shearTolerancePaths.length} tolerance comparisons + six drift sentinels)`);

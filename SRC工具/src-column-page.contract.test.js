@@ -35,7 +35,7 @@ function exampleInput() {
     detailing: {
       fullyEncased: true, centeredDoublySymmetricH: true, mainBarsContinuous: true,
       secondOrderDemandIncluded: true, seismicDesign: true, seismicAxialStrengthSubcheck: true,
-      seismicColumnShearSubcheck: true, seismicStrongColumnWeakBeamSubcheck: true,
+      seismicColumnShearSubcheck: true, jointFlexuralStrengthRatioSubcheck: true, seismicStrongColumnWeakBeamSubcheck: true,
       seismicConfinementSubcheck: true, redistributeToSteelBoundary: true,
       highStrengthConcreteEvidenceConfirmed: false, highStrengthMaterialEvidenceConfirmed: false,
     },
@@ -54,6 +54,16 @@ function exampleInput() {
       avCm2: 2.54, avfCm2: 2.54, spacingCm: 10, fyhKgfCm2: 4200, shearStudContributionTf: 0,
       projectPlasticHingeMomentsConfirmed: true, normalWeightConcreteConfirmed: true,
       monolithicInterfaceConfirmed: true, transverseReinforcementPerpendicularConfirmed: true,
+    },
+    jointFlexuralStrengthRatio: {
+      axis: 'x', connectionType: 'src-beam-src-column',
+      jointFaceNominalStrengthsConfirmed: true, allConnectedMembersIncludedConfirmed: true,
+      componentStrengthsSeparatedConfirmed: true, useVerifiedSmoothTransferAlternative: false,
+      smoothStressTransferAnalysisConfirmed: false,
+      cases: [
+        { sense: 'clockwise', steelColumnSumTfM: 251.424, steelBeamSumTfM: 209.52, rcColumnSumTfM: 167.616, rcBeamSumTfM: 139.68 },
+        { sense: 'counterclockwise', steelColumnSumTfM: 251.424, steelBeamSumTfM: 209.52, rcColumnSumTfM: 167.616, rcBeamSumTfM: 139.68 },
+      ],
     },
     strongColumnWeakBeam: {
       axis: 'x', orthogonalBeamDirectionPresent: false,
@@ -100,9 +110,9 @@ function visibleText(reportHtml) {
     .trim();
 }
 
-assert.equal(Page.PAGE_VERSION, 'v0.2');
+assert.equal(Page.PAGE_VERSION, 'v0.3');
 assert.equal(Page.TOOL_ID, 'src-column-research');
-assert.equal(Page.CASE_SCHEMA, 'src-column-research.case.v1');
+assert.equal(Page.CASE_SCHEMA, 'src-column-research.case.v2');
 assert.match(html, /<body class="formal-tool-output-page">/);
 assert.match(html, /SRC 柱操作頁列印已封鎖/);
 assert.match(html, /id="btnReport"/);
@@ -110,9 +120,10 @@ assert.match(html, /id="btnExportCase"/);
 assert.match(html, /id="btnImportCase"/);
 assert.match(html, /core\/src-column-seismic-axial\.js/);
 assert.match(html, /id="enableShearSubcheck"[^>]*checked/);
+assert.match(html, /id="enableJointRatioSubcheck"[^>]*checked/);
 assert.match(html, /id="enableStrongColumnSubcheck"[^>]*checked/);
 assert.match(html, /id="enableConfinementSubcheck"[^>]*checked/);
-for (const fieldId of ['mctTfM', 'mcbTfM', 'clearHeightCm', 'avCm2', 'cwUpperColumnTfM', 'ccwRightBeamTfM', 'coreWidthCm', 'coreAreaCm2', 'highlyConfinedAreaCm2']) {
+for (const fieldId of ['mctTfM', 'mcbTfM', 'clearHeightCm', 'avCm2', 'jcwSteelColumnTfM', 'jccwRcBeamTfM', 'cwUpperColumnTfM', 'ccwRightBeamTfM', 'coreWidthCm', 'coreAreaCm2', 'highlyConfinedAreaCm2']) {
   assert.match(html, new RegExp(`id="${fieldId}"`), `page exposes ${fieldId}`);
 }
 assert.match(html, /core\/src-column-core\.js/);
@@ -126,14 +137,15 @@ assert.equal(result.status, 'REVIEW');
 assert.equal(result.checks.engineeringStrength, true);
 assert.equal(result.seismicAxial.ok, true);
 assert.equal(result.shear.ok, true);
+assert.equal(result.jointFlexuralStrengthRatio.ok, true);
 assert.equal(result.strongColumnWeakBeam.ok, true);
 assert.equal(result.confinement.ok, true);
 assert.equal(config.formalApprovalAllowed, false, 'research report explicitly blocks formal approval');
 assert.equal(config.summary.ok, true);
-assert.equal(config.inputs.length, 6);
+assert.equal(config.inputs.length, 7);
 assert.equal(config.diagrams.length, 1);
-assert.equal(config.checks.flatMap(group => group.items).length, 11);
-assert.equal(config.steps.length, 8);
+assert.equal(config.checks.flatMap(group => group.items).length, 15);
+assert.equal(config.steps.length, 9);
 assert.equal(config.project.name, '', 'blank optional project metadata remains acceptable');
 assert.match(config.diagrams[0].dataURL, /^data:image\/svg\+xml;charset=utf-8,/);
 const diagramSvg = decodeURIComponent(config.diagrams[0].dataURL.split(',').slice(1).join(','));
@@ -192,8 +204,8 @@ const renderedText = visibleText(renderedHtml);
 for (const needle of [
   'SRC 柱強軸耐震研究核算計算書', '產出工具', '工具版本', '計算引擎', '計算指紋',
   '規範、構材與分析條件', '採用斷面與材料', '第 9.3 節採用地震軸力資料',
-  '第 9.6.2 節採用柱剪力資料', '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
-  '第 9.6 節強軸耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論',
+  '第 9.6.2 節採用柱剪力資料', '第 8.4.2 節採用接頭面分量彎矩', '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
+  '第 8.4.2 節接頭撓曲強度比', '第 9.6 節強軸耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論',
 ]) assert.ok(renderedText.includes(needle), `rendered report includes ${needle}`);
 for (const needle of [...forbidden, '適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', '弱軸耐震、接頭區']) {
   assert.equal(renderedText.includes(needle), false, `rendered report excludes ${needle}`);

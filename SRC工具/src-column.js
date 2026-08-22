@@ -11,9 +11,9 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function buildSrcColumnPage(Core, Catalog) {
   'use strict';
 
-  const PAGE_VERSION = 'v0.2';
+  const PAGE_VERSION = 'v0.3';
   const TOOL_ID = 'src-column-research';
-  const CASE_SCHEMA = 'src-column-research.case.v1';
+  const CASE_SCHEMA = 'src-column-research.case.v2';
   const TOOL_NAME = 'SRC 柱強軸耐震研究核算';
   const REPORT_TITLE = 'SRC 柱強軸耐震研究核算計算書';
   const REGULATION_LABEL = '鋼骨鋼筋混凝土構造設計規範與解說（100 年修正版）';
@@ -27,6 +27,8 @@
     'layer1Y', 'layer1Area', 'layer2Y', 'layer2Area', 'layer3Y', 'layer3Area', 'layer4Y', 'layer4Area',
     'mctTfM', 'mcbTfM', 'clearHeightCm', 'effectiveDepthCm', 'avCm2', 'avfCm2', 'spacingCm',
     'fyhKgfCm2', 'steelFywKgfCm2', 'shearStudContributionTf',
+    'jcwSteelColumnTfM', 'jcwSteelBeamTfM', 'jcwRcColumnTfM', 'jcwRcBeamTfM',
+    'jccwSteelColumnTfM', 'jccwSteelBeamTfM', 'jccwRcColumnTfM', 'jccwRcBeamTfM',
     'cwUpperColumnTfM', 'cwLowerColumnTfM', 'cwLeftBeamTfM', 'cwRightBeamTfM',
     'ccwUpperColumnTfM', 'ccwLowerColumnTfM', 'ccwLeftBeamTfM', 'ccwRightBeamTfM',
     'coreWidthCm', 'coreAreaCm2', 'highlyConfinedAreaCm2', 'minimumLongitudinalBarDiameterCm',
@@ -39,6 +41,8 @@
     'redistribute', 'highStrengthConcreteConfirmed', 'highStrengthMaterialConfirmed',
     'enableShearSubcheck', 'projectPlasticHingeMomentsConfirmed', 'normalWeightConcreteConfirmed',
     'monolithicInterfaceConfirmed', 'transverseReinforcementPerpendicularConfirmed',
+    'enableJointRatioSubcheck', 'jointRatioJointFaceStrengthsConfirmed', 'allConnectedMembersIncludedConfirmed',
+    'componentStrengthsSeparatedConfirmed', 'useVerifiedSmoothTransferAlternative', 'smoothStressTransferAnalysisConfirmed',
     'enableStrongColumnSubcheck', 'singleStrongAxisFramePlaneConfirmed',
     'columnStrengthsAtGoverningAxialLoadsConfirmed', 'jointFaceNominalStrengthsConfirmed',
     'opposingMomentDirectionsConfirmed', 'enableConfinementSubcheck', 'inflectionPointWithinMiddleHalf',
@@ -54,6 +58,7 @@
     rcInteraction: 'RC 軸壓－彎矩互制',
     seismicAxialStrength: '第 9.3 節耐震軸向強度',
     columnShear: '第 9.6.2 節強軸柱剪力',
+    jointFlexuralStrengthRatio: '第 8.4.2 節接頭撓曲強度比',
     strongColumnWeakBeam: '第 9.6.1 節強柱弱梁',
     confinement: '第 9.6.3 節矩形柱圍束',
   });
@@ -148,6 +153,7 @@
         seismicDesign: true,
         seismicAxialStrengthSubcheck: true,
         seismicColumnShearSubcheck: checked('enableShearSubcheck'),
+        jointFlexuralStrengthRatioSubcheck: checked('enableJointRatioSubcheck'),
         seismicStrongColumnWeakBeamSubcheck: checked('enableStrongColumnSubcheck'),
         seismicConfinementSubcheck: checked('enableConfinementSubcheck'),
         redistributeToSteelBoundary: checked('redistribute'),
@@ -188,6 +194,31 @@
         normalWeightConcreteConfirmed: checked('normalWeightConcreteConfirmed'),
         monolithicInterfaceConfirmed: checked('monolithicInterfaceConfirmed'),
         transverseReinforcementPerpendicularConfirmed: checked('transverseReinforcementPerpendicularConfirmed'),
+      },
+      jointFlexuralStrengthRatio: {
+        axis: 'x',
+        connectionType: String(doc.getElementById('jointConnectionType')?.value || ''),
+        jointFaceNominalStrengthsConfirmed: checked('jointRatioJointFaceStrengthsConfirmed'),
+        allConnectedMembersIncludedConfirmed: checked('allConnectedMembersIncludedConfirmed'),
+        componentStrengthsSeparatedConfirmed: checked('componentStrengthsSeparatedConfirmed'),
+        useVerifiedSmoothTransferAlternative: checked('useVerifiedSmoothTransferAlternative'),
+        smoothStressTransferAnalysisConfirmed: checked('smoothStressTransferAnalysisConfirmed'),
+        cases: [
+          {
+            sense: 'clockwise',
+            steelColumnSumTfM: number('jcwSteelColumnTfM'),
+            steelBeamSumTfM: number('jcwSteelBeamTfM'),
+            rcColumnSumTfM: number('jcwRcColumnTfM'),
+            rcBeamSumTfM: number('jcwRcBeamTfM'),
+          },
+          {
+            sense: 'counterclockwise',
+            steelColumnSumTfM: number('jccwSteelColumnTfM'),
+            steelBeamSumTfM: number('jccwSteelBeamTfM'),
+            rcColumnSumTfM: number('jccwRcColumnTfM'),
+            rcBeamSumTfM: number('jccwRcBeamTfM'),
+          },
+        ],
       },
       strongColumnWeakBeam: {
         axis: 'x',
@@ -259,9 +290,13 @@
     const detail = input?.detailing || {};
     const axial = input?.seismicAxial || {};
     const shear = input?.shear || {};
+    const jointRatio = input?.jointFlexuralStrengthRatio || {};
     const strongColumn = input?.strongColumnWeakBeam || {};
     const confinement = input?.confinement || {};
     const strongColumnCases = Array.isArray(strongColumn.cases) ? strongColumn.cases : [];
+    const jointRatioCases = Array.isArray(jointRatio.cases) ? jointRatio.cases : [];
+    const jointClockwise = jointRatioCases.find(item => item?.sense === 'clockwise') || {};
+    const jointCounterclockwise = jointRatioCases.find(item => item?.sense === 'counterclockwise') || {};
     const clockwise = strongColumnCases.find(item => item?.sense === 'clockwise') || {};
     const counterclockwise = strongColumnCases.find(item => item?.sense === 'counterclockwise') || {};
     [
@@ -278,6 +313,10 @@
       ['effectiveDepthCm', shear.effectiveDepthCm], ['avCm2', shear.avCm2], ['avfCm2', shear.avfCm2],
       ['spacingCm', shear.spacingCm], ['fyhKgfCm2', shear.fyhKgfCm2],
       ['shearStudContributionTf', shear.shearStudContributionTf],
+      ['jcwSteelColumnTfM', jointClockwise.steelColumnSumTfM], ['jcwSteelBeamTfM', jointClockwise.steelBeamSumTfM],
+      ['jcwRcColumnTfM', jointClockwise.rcColumnSumTfM], ['jcwRcBeamTfM', jointClockwise.rcBeamSumTfM],
+      ['jccwSteelColumnTfM', jointCounterclockwise.steelColumnSumTfM], ['jccwSteelBeamTfM', jointCounterclockwise.steelBeamSumTfM],
+      ['jccwRcColumnTfM', jointCounterclockwise.rcColumnSumTfM], ['jccwRcBeamTfM', jointCounterclockwise.rcBeamSumTfM],
       ['cwUpperColumnTfM', clockwise.upperColumnNominalTfM], ['cwLowerColumnTfM', clockwise.lowerColumnNominalTfM],
       ['cwLeftBeamTfM', clockwise.leftBeamNominalTfM], ['cwRightBeamTfM', clockwise.rightBeamNominalTfM],
       ['ccwUpperColumnTfM', counterclockwise.upperColumnNominalTfM], ['ccwLowerColumnTfM', counterclockwise.lowerColumnNominalTfM],
@@ -295,6 +334,7 @@
     });
     setText('steelCatalogId', s.catalogId);
     setText('steelGrade', s.grade);
+    setText('jointConnectionType', jointRatio.connectionType);
     [
       ['fuConfirmed', axial.fuFromProjectSeismicCriteriaConfirmed], ['parkingUse', axial.parkingUse],
       ['publicAssemblyUse', axial.publicAssemblyUse], ['liveLoadHigh', axial.liveLoadExceeds05TfM2],
@@ -312,6 +352,12 @@
       ['normalWeightConcreteConfirmed', shear.normalWeightConcreteConfirmed],
       ['monolithicInterfaceConfirmed', shear.monolithicInterfaceConfirmed],
       ['transverseReinforcementPerpendicularConfirmed', shear.transverseReinforcementPerpendicularConfirmed],
+      ['enableJointRatioSubcheck', detail.jointFlexuralStrengthRatioSubcheck],
+      ['jointRatioJointFaceStrengthsConfirmed', jointRatio.jointFaceNominalStrengthsConfirmed],
+      ['allConnectedMembersIncludedConfirmed', jointRatio.allConnectedMembersIncludedConfirmed],
+      ['componentStrengthsSeparatedConfirmed', jointRatio.componentStrengthsSeparatedConfirmed],
+      ['useVerifiedSmoothTransferAlternative', jointRatio.useVerifiedSmoothTransferAlternative],
+      ['smoothStressTransferAnalysisConfirmed', jointRatio.smoothStressTransferAnalysisConfirmed],
       ['enableStrongColumnSubcheck', detail.seismicStrongColumnWeakBeamSubcheck],
       ['singleStrongAxisFramePlaneConfirmed', strongColumn.orthogonalBeamDirectionPresent === false],
       ['columnStrengthsAtGoverningAxialLoadsConfirmed', strongColumn.columnStrengthsAtGoverningAxialLoadsConfirmed],
@@ -430,6 +476,7 @@
   function buildReportConfig(input, result, project) {
     const axial = result.seismicAxial;
     const shear = result.shear;
+    const jointRatio = result.jointFlexuralStrengthRatio;
     const strongColumn = result.strongColumnWeakBeam;
     const confinement = result.confinement;
     const compressionStrength = axial.compressionStrength;
@@ -451,6 +498,7 @@
     const implementedScope = [
       '強軸單向 P-M',
       '第 9.3 節耐震軸向強度',
+      jointRatio ? '第 8.4.2 節接頭撓曲強度比' : '',
       shear ? '第 9.6.2 節柱剪力' : '',
       strongColumn ? '第 9.6.1 節強柱弱梁' : '',
       confinement ? '第 9.6.3 節矩形柱圍束' : '',
@@ -519,6 +567,25 @@
             { label: '剪力釘貢獻', value: fmt(input.shear.shearStudContributionTf, 2), unit: 'tf' },
           ],
         }] : []),
+        ...(jointRatio ? [{
+          group: '第 8.4.2 節採用接頭面分量彎矩',
+          keepTogether: true,
+          items: [
+            { label: '接合類型', value: jointRatio.connectionType === 'src-beam-src-column' ? 'SRC 梁－SRC 柱' : '鋼梁－SRC 柱', unit: '' },
+            ...jointRatio.cases.flatMap(item => [
+              {
+                label: `${item.sense === 'clockwise' ? '順時針' : '逆時針'}：鋼骨 Σ(Mns)C / Σ(Mns)B`,
+                value: `${fmt(item.steel.columnSumTfM, 3)} / ${fmt(item.steel.beamSumTfM, 3)}`,
+                unit: 'tf·m',
+              },
+              ...(item.rc ? [{
+                label: `${item.sense === 'clockwise' ? '順時針' : '逆時針'}：RC Σ(Mnrc)C / Σ(Mnrc)B`,
+                value: `${fmt(item.rc.columnSumTfM, 3)} / ${fmt(item.rc.beamSumTfM, 3)}`,
+                unit: 'tf·m',
+              }] : []),
+            ]),
+          ],
+        }] : []),
         ...(strongColumn ? [{
           group: '第 9.6.1 節採用接頭面名義彎矩',
           keepTogether: true,
@@ -558,6 +625,25 @@
             { label: '受拉組合', formula: '0.9PD ± 1.4FuPE ≤ φtPn', sub: tensionText, value: axial.tension.applicable ? percent(axial.tension.utilization) : '無需求', ok: axial.omission.applied ? true : axial.tension.ok },
           ],
         },
+        ...(jointRatio ? [{
+          group: '第 8.4.2 節接頭撓曲強度比',
+          items: jointRatio.cases.flatMap(item => [
+            {
+              label: `${item.sense === 'clockwise' ? '順時針' : '逆時針'}鋼骨部分`,
+              formula: `Σ(Mns)C / Σ(Mns)B ≥ ${fmt(item.steel.requiredRatio, 1)}`,
+              sub: `${fmt(item.steel.columnSumTfM, 3)} / ${fmt(item.steel.beamSumTfM, 3)} = ${fmt(item.steel.ratio, 4)}`,
+              value: percent(item.steel.utilization),
+              ok: item.steel.ok,
+            },
+            ...(item.rc ? [{
+              label: `${item.sense === 'clockwise' ? '順時針' : '逆時針'} RC 部分`,
+              formula: `Σ(Mnrc)C / Σ(Mnrc)B ≥ ${fmt(item.rc.requiredRatio, 1)}`,
+              sub: `${fmt(item.rc.columnSumTfM, 3)} / ${fmt(item.rc.beamSumTfM, 3)} = ${fmt(item.rc.ratio, 4)}`,
+              value: percent(item.rc.utilization),
+              ok: item.rc.ok,
+            }] : []),
+          ]),
+        }] : []),
         ...((shear || strongColumn || confinement) ? [{
           group: '第 9.6 節強軸耐震子檢核',
           items: [
@@ -590,6 +676,13 @@
           group: '式 (9.3-2) 受拉組合',
           body: tensionCombos.map(item => `${item.seismicSense === 'plus' ? '+' : '−'}E：0.9PD ${item.seismicSense === 'plus' ? '+' : '−'} 1.4FuPE = ${fmt(item.signedTf, 4)} tf；採用受拉需求 = ${fmt(item.adoptedTensionDemandTf, 4)} tf`).join('\n'),
         },
+        ...(jointRatio ? [{
+          group: `第 8.4.2 節接頭撓曲強度比（${jointRatio.clauses.join('、')}）`,
+          body: jointRatio.cases.flatMap(item => [
+            `${item.sense === 'clockwise' ? '順時針' : '逆時針'}鋼骨：Σ(Mns)C / Σ(Mns)B = ${fmt(item.steel.columnSumTfM, 4)} / ${fmt(item.steel.beamSumTfM, 4)} = ${fmt(item.steel.ratio, 6)} ≥ ${fmt(item.steel.requiredRatio, 1)}；${item.steel.ok ? 'OK' : 'NG'}`,
+            ...(item.rc ? [`${item.sense === 'clockwise' ? '順時針' : '逆時針'} RC：Σ(Mnrc)C / Σ(Mnrc)B = ${fmt(item.rc.columnSumTfM, 4)} / ${fmt(item.rc.beamSumTfM, 4)} = ${fmt(item.rc.ratio, 6)} ≥ ${fmt(item.rc.requiredRatio, 1)}；${item.rc.ok ? 'OK' : 'NG'}`] : []),
+          ]).join('\n'),
+        }] : []),
         ...(shear ? [{
           group: '第 9.6.2 節強軸柱剪力',
           body: `Vu = (Mct + Mcb) / Ln = (${fmt(shear.demand.mctTfM, 4)} + ${fmt(shear.demand.mcbTfM, 4)}) / ${fmt(shear.demand.clearHeightCm / 100, 4)} = ${fmt(shear.demand.shearTf, 4)} tf\nMns / (Mns + Mnr) = ${fmt(shear.probableMoments.steelShare, 6)}；Mnr / (Mns + Mnr) = ${fmt(shear.probableMoments.rcShare, 6)}\n鋼骨需求／設計剪力 = ${fmt(shear.steel.requiredShearTf, 4)} / ${fmt(shear.steel.designShearTf, 4)} tf；需求比 = ${fmt(shear.steel.utilization, 6)}\nRC 需求／設計剪力 = ${fmt(shear.rc.requiredShearTf, 4)} / ${fmt(shear.rc.designShearTf, 4)} tf；需求比 = ${fmt(shear.rc.utilization, 6)}\n剪力所需 Ash = ${fmt(shear.rc.requiredTransverseAreaCm2, 4)} cm²；控制模式 = ${shear.rc.governingMode}`,
@@ -608,6 +701,7 @@
             axial.omission.applied
               ? `已依明確確認之彎矩構架免檢條件採用第 9.3 節省略；Pu/φcPn = ${fmt(axial.omission.ratio, 5)} ≤ 0.5。`
               : `受壓需求比 = ${fmt(axial.compression.utilization, 5)}；受拉需求比 = ${fmt(axial.tension.utilization, 5)}；第 9.3 節 = ${axial.ok ? 'OK' : 'NG'}`,
+            jointRatio ? `第 8.4.2 節接頭撓曲強度比 = ${jointRatio.ok ? 'OK' : 'NG'}` : '',
             shear ? `第 9.6.2 節強軸柱剪力 = ${shear.ok ? 'OK' : 'NG'}` : '',
             strongColumn ? `第 9.6.1 節強柱弱梁 = ${strongColumn.ok ? 'OK' : 'NG'}` : '',
             confinement ? `第 9.6.3 節矩形柱圍束 = ${confinement.ok ? 'OK' : 'NG'}` : '',
@@ -631,6 +725,7 @@
            compressionUtilization: axial.compression.utilization,
            tensionUtilization: axial.tension.utilization,
            shearUtilization: shear ? Math.max(shear.steel.utilization, shear.rc.utilization) : null,
+           jointRatioUtilization: jointRatio ? jointRatio.maximumUtilization : null,
            strongColumnUtilization: strongColumn ? strongColumn.utilization : null,
            confinementUtilization: confinement ? confinement.ash.utilization : null,
         },
@@ -655,6 +750,7 @@
         compressionUtilization: result.seismicAxial.compression.utilization,
         tensionUtilization: result.seismicAxial.tension.utilization,
         shearUtilization: result.shear ? Math.max(result.shear.steel.utilization, result.shear.rc.utilization) : null,
+        jointRatioUtilization: result.jointFlexuralStrengthRatio?.maximumUtilization ?? null,
         strongColumnUtilization: result.strongColumnWeakBeam?.utilization ?? null,
         confinementUtilization: result.confinement?.ash?.utilization ?? null,
       },
@@ -709,11 +805,26 @@
       const shearEnabled = $('enableShearSubcheck').checked;
       if (!shearEnabled) $('enableConfinementSubcheck').checked = false;
       $('enableConfinementSubcheck').disabled = !shearEnabled;
+      const jointRatioEnabled = $('enableJointRatioSubcheck').checked;
       const strongColumnEnabled = $('enableStrongColumnSubcheck').checked;
       const confinementEnabled = shearEnabled && $('enableConfinementSubcheck').checked;
       setSubcheckEnabled('[data-subcheck-body="shear"]', shearEnabled);
+      setSubcheckEnabled('[data-subcheck-body="joint-ratio"]', jointRatioEnabled);
       setSubcheckEnabled('[data-subcheck-body="strong-column"]', strongColumnEnabled);
       setSubcheckEnabled('[data-subcheck-body="confinement"]', confinementEnabled);
+      if (jointRatioEnabled) {
+        const steelBeamConnection = $('jointConnectionType').value === 'steel-beam-src-column';
+        doc.querySelectorAll('[data-joint-rc]').forEach(node => {
+          node.hidden = steelBeamConnection;
+          node.querySelectorAll('input').forEach(input => { input.disabled = steelBeamConnection; });
+        });
+        doc.querySelectorAll('[data-steel-beam-alternative]').forEach(node => { node.hidden = !steelBeamConnection; });
+        $('useVerifiedSmoothTransferAlternative').disabled = !steelBeamConnection;
+        if (!steelBeamConnection) $('useVerifiedSmoothTransferAlternative').checked = false;
+        const alternativeEnabled = steelBeamConnection && $('useVerifiedSmoothTransferAlternative').checked;
+        $('smoothStressTransferAnalysisConfirmed').disabled = !alternativeEnabled;
+        if (!alternativeEnabled) $('smoothStressTransferAnalysisConfirmed').checked = false;
+      }
       const spliceEnabled = confinementEnabled && $('mainBarSplicePresent').checked;
       const spliceFields = doc.querySelector('[data-splice-fields]');
       if (spliceFields) {
@@ -754,6 +865,7 @@
     function renderResult(input, result, config) {
       const axial = result.seismicAxial;
       const shear = result.shear;
+      const jointRatio = result.jointFlexuralStrengthRatio;
       const strongColumn = result.strongColumnWeakBeam;
       const confinement = result.confinement;
       const failed = failedLabels(result);
@@ -770,6 +882,7 @@
         metric('鋼骨 P-M 需求比', percent(result.steel.finalInteraction.utilization), result.checks.steelInteraction),
         metric('RC P-M 需求比', percent(result.rc.utilization), result.checks.rcInteraction),
         metric('採用 Fu', `${fmt(axial.factors.adoptedFu, 2)}${axial.factors.fuCappedAt25 ? '（上限）' : ''}`, true),
+        ...(jointRatio ? [metric('8.4.2 接頭比值需求比', percent(jointRatio.maximumUtilization), jointRatio.ok)] : []),
         ...(shear ? [metric('9.6.2 柱剪力控制比', percent(Math.max(shear.steel.utilization, shear.rc.utilization)), shear.ok)] : []),
         ...(strongColumn ? [metric('9.6.1 強柱弱梁需求比', percent(strongColumn.utilization), strongColumn.ok)] : []),
         ...(confinement ? [metric('9.6.3 圍束箍筋需求比', percent(confinement.ash.utilization), confinement.ok)] : []),
@@ -794,6 +907,12 @@
           <tr><td>鋼骨部分</td><td>${fmt(shear.steel.requiredShearTf, 3)} / ${fmt(shear.steel.designShearTf, 3)} tf</td></tr>
           <tr><td>RC 部分</td><td>${fmt(shear.rc.requiredShearTf, 3)} / ${fmt(shear.rc.designShearTf, 3)} tf</td></tr>
         </tbody></table>` : ''}
+        ${jointRatio ? `<table class="src-table"><thead><tr><th>第 8.4.2 節接頭撓曲強度比</th><th>柱 / 梁；比值</th></tr></thead><tbody>
+          ${jointRatio.cases.flatMap(item => [
+            `<tr><td>${item.sense === 'clockwise' ? '順時針' : '逆時針'}鋼骨</td><td>${fmt(item.steel.columnSumTfM, 3)} / ${fmt(item.steel.beamSumTfM, 3)} tf·m；${fmt(item.steel.ratio, 3)}</td></tr>`,
+            ...(item.rc ? [`<tr><td>${item.sense === 'clockwise' ? '順時針' : '逆時針'} RC</td><td>${fmt(item.rc.columnSumTfM, 3)} / ${fmt(item.rc.beamSumTfM, 3)} tf·m；${fmt(item.rc.ratio, 3)}</td></tr>`] : []),
+          ]).join('')}
+        </tbody></table>` : ''}
         ${strongColumn ? `<table class="src-table"><thead><tr><th>第 9.6.1 節強柱弱梁</th><th>ΣMnc / ΣMnb</th></tr></thead><tbody>
           ${strongColumn.cases.map(item => `<tr><td>${item.sense === 'clockwise' ? '順時針' : '逆時針'}</td><td>${fmt(item.columnSumTfM, 2)} / ${fmt(item.beamSumTfM, 2)} tf·m（比值 ${fmt(item.ratio, 3)}）</td></tr>`).join('')}
         </tbody></table>` : ''}
@@ -809,7 +928,7 @@
       $('sectionDiagramCaption').textContent = diagram?.caption || '';
       $('reportReadiness').className = strengthOk ? 'src-readiness review' : 'src-readiness ng';
       $('reportReadiness').innerHTML = strengthOk
-        ? '<strong>研究計算完成</strong><span>可產生並列印內部審閱計算書；正式附件核可仍封閉。待弱軸、接頭區與完整構架範圍完成後再進行升格審查。</span><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>'
+        ? '<strong>研究計算完成</strong><span>可產生並列印內部審閱計算書；正式附件核可仍封閉。待弱軸、接頭區剪力與接合細部、完整構架範圍完成後再進行升格審查。</span><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>'
         : `<strong>工程結果含 NG</strong><span>${escapeHtml(failed.join('、'))}不符；研究計算書仍可如實列印結果。</span><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>`;
     }
 
@@ -922,7 +1041,7 @@
       catch (error) { setActionStatus(`匯入失敗：${error.message || error}`, 'error'); }
       finally { event.target.value = ''; }
     });
-    [...NUMBER_FIELDS, ...CHECK_FIELDS, 'steelCatalogId', 'steelGrade'].forEach(id => {
+    [...NUMBER_FIELDS, ...CHECK_FIELDS, 'steelCatalogId', 'steelGrade', 'jointConnectionType'].forEach(id => {
       const node = $(id);
       if (!node) return;
       node.addEventListener('input', scheduleCalculate);

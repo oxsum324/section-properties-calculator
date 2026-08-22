@@ -5,7 +5,8 @@
  * compactness, stiffness allocation, steel compression, steel interaction,
  * redistribution, tied rectangular RC uniaxial/biaxial strain-compatibility
  * P-M paths, and the current-code seismic axial-strength, strong-axis shear,
- * strong-column/weak-beam, and rectangular-column confinement subchecks.
+ * clause 8.4.2 joint ratios, strong-column/weak-beam, and rectangular-column
+ * confinement subchecks.
  * The RC demand point is solved continuously in neutral-axis depth and does
  * not consume the production core's discretized design curve.
  *
@@ -13,8 +14,8 @@
  */
 'use strict';
 
-const ORACLE_VERSION = 'src-column.oracle.v0.6.0-research';
-const SUPPORTED_SCHEMA = 'src-column.input.v7';
+const ORACLE_VERSION = 'src-column.oracle.v0.7.0-research';
+const SUPPORTED_SCHEMA = 'src-column.input.v8';
 const PHI_COMPRESSION = 0.85;
 const PHI_FLEXURE = 0.9;
 const DEFAULT_ES_KGF_CM2 = 2_040_000;
@@ -635,6 +636,72 @@ function seismicStrongColumnWeakBeam(input) {
   };
 }
 
+function jointFlexuralStrengthRatio(input) {
+  const joint = input.jointFlexuralStrengthRatio || {};
+  if (joint.axis !== 'x') throw new SrcColumnOracleError('unsupported-joint-ratio-axis', 'Only one strong-axis joint frame plane is covered');
+  if (!['src-beam-src-column', 'steel-beam-src-column'].includes(joint.connectionType)) {
+    throw new SrcColumnOracleError('unsupported-joint-connection-type', 'An explicit clause 8.4.2 connection type is required');
+  }
+  requireOracleConfirmation(joint.jointFaceNominalStrengthsConfirmed, 'joint-face-strengths-not-confirmed', 'Joint-face nominal strengths must be confirmed');
+  requireOracleConfirmation(joint.allConnectedMembersIncludedConfirmed, 'all-members-not-confirmed', 'All connected members must be included');
+  requireOracleConfirmation(joint.componentStrengthsSeparatedConfirmed, 'component-strengths-not-confirmed', 'Component strengths must be separated without double counting');
+  const useAlternative = booleanAt(joint.useVerifiedSmoothTransferAlternative, 'jointFlexuralStrengthRatio.useVerifiedSmoothTransferAlternative');
+  if (joint.connectionType === 'src-beam-src-column' && useAlternative) {
+    throw new SrcColumnOracleError('smooth-transfer-alternative-not-applicable', 'Equation 8.4-4 applies only to a steel beam connected to an SRC column');
+  }
+  if (useAlternative) requireOracleConfirmation(joint.smoothStressTransferAnalysisConfirmed, 'smooth-transfer-not-confirmed', 'Smooth stress transfer must be confirmed by project analysis');
+  const steelRequiredRatio = joint.connectionType === 'src-beam-src-column' ? 0.6 : (useAlternative ? 0.7 : 1.0);
+  const sourceCases = Array.isArray(joint.cases) ? joint.cases : [];
+  if (sourceCases.length !== 2) throw new SrcColumnOracleError('two-direction-cases-required', 'Two joint component-strength senses are required');
+  const senses = new Set();
+  const cases = sourceCases.map((item, index) => {
+    if (!['clockwise', 'counterclockwise'].includes(item.sense) || senses.has(item.sense)) {
+      throw new SrcColumnOracleError('invalid-or-duplicate-sense', 'Exactly one clockwise and one counterclockwise case are required');
+    }
+    senses.add(item.sense);
+    const steelColumnSumTfM = positiveAt(item.steelColumnSumTfM, `jointFlexuralStrengthRatio.cases[${index}].steelColumnSumTfM`);
+    const steelBeamSumTfM = positiveAt(item.steelBeamSumTfM, `jointFlexuralStrengthRatio.cases[${index}].steelBeamSumTfM`);
+    const steelRatio = steelColumnSumTfM / steelBeamSumTfM;
+    const steel = {
+      columnSumTfM: steelColumnSumTfM,
+      beamSumTfM: steelBeamSumTfM,
+      requiredRatio: steelRequiredRatio,
+      requiredColumnSumTfM: steelRequiredRatio * steelBeamSumTfM,
+      ratio: steelRatio,
+      utilization: steelRequiredRatio / steelRatio,
+      ok: steelRatio + 1e-9 >= steelRequiredRatio,
+    };
+    let rc = null;
+    if (joint.connectionType === 'src-beam-src-column') {
+      const rcColumnSumTfM = positiveAt(item.rcColumnSumTfM, `jointFlexuralStrengthRatio.cases[${index}].rcColumnSumTfM`);
+      const rcBeamSumTfM = positiveAt(item.rcBeamSumTfM, `jointFlexuralStrengthRatio.cases[${index}].rcBeamSumTfM`);
+      const rcRatio = rcColumnSumTfM / rcBeamSumTfM;
+      rc = {
+        columnSumTfM: rcColumnSumTfM,
+        beamSumTfM: rcBeamSumTfM,
+        requiredRatio: 0.6,
+        requiredColumnSumTfM: 0.6 * rcBeamSumTfM,
+        ratio: rcRatio,
+        utilization: 0.6 / rcRatio,
+        ok: rcRatio + 1e-9 >= 0.6,
+      };
+    }
+    return { sense: item.sense, steel, rc, ok: steel.ok && (!rc || rc.ok) };
+  });
+  const components = cases.flatMap(item => [item.steel, item.rc].filter(Boolean));
+  return {
+    mode: 'strong-axis-joint-flexural-strength-ratio-subcheck',
+    connectionType: joint.connectionType,
+    useVerifiedSmoothTransferAlternative: useAlternative,
+    requiredRatios: { steel: steelRequiredRatio, rc: joint.connectionType === 'src-beam-src-column' ? 0.6 : null },
+    cases,
+    maximumUtilization: Math.max(...components.map(item => item.utilization)),
+    minimumRatio: Math.min(...components.map(item => item.ratio)),
+    ok: cases.every(item => item.ok),
+    completeJointDesign: false,
+  };
+}
+
 function seismicConfinement(input, shearResult) {
   const confinement = input.confinement || {};
   if (confinement.axis !== 'x') throw new SrcColumnOracleError('unsupported-confinement-axis', 'Only strong-axis confinement is covered');
@@ -986,9 +1053,10 @@ function calculate(input) {
   }
   const shearRequested = input?.detailing?.seismicColumnShearSubcheck === true;
   const axialRequested = input?.detailing?.seismicAxialStrengthSubcheck === true;
+  const jointRatioRequested = input?.detailing?.jointFlexuralStrengthRatioSubcheck === true;
   const strongColumnRequested = input?.detailing?.seismicStrongColumnWeakBeamSubcheck === true;
   const confinementRequested = input?.detailing?.seismicConfinementSubcheck === true;
-  const seismicSubcheckRequested = shearRequested || axialRequested || strongColumnRequested || confinementRequested;
+  const seismicSubcheckRequested = shearRequested || axialRequested || jointRatioRequested || strongColumnRequested || confinementRequested;
   if (input?.detailing?.seismicDesign === true && !seismicSubcheckRequested) {
     throw new SrcColumnOracleError('seismic-scope-not-implemented', 'Seismic SRC column design is outside the oracle scope');
   }
@@ -998,8 +1066,8 @@ function calculate(input) {
   if (axialRequested && input?.detailing?.seismicDesign !== true) {
     throw new SrcColumnOracleError('seismic-axial-mode-required', 'The clause 9.3 axial-strength subcheck requires seismicDesign=true');
   }
-  if ((strongColumnRequested || confinementRequested) && input?.detailing?.seismicDesign !== true) {
-    throw new SrcColumnOracleError('seismic-detailing-mode-required', 'Clauses 9.6.1 and 9.6.3 require seismicDesign=true');
+  if ((jointRatioRequested || strongColumnRequested || confinementRequested) && input?.detailing?.seismicDesign !== true) {
+    throw new SrcColumnOracleError('seismic-detailing-mode-required', 'Clauses 8.4.2, 9.6.1 and 9.6.3 require seismicDesign=true');
   }
   if (confinementRequested && !shearRequested) {
     throw new SrcColumnOracleError('confinement-shear-demand-required', 'Confinement requires the calculated shear reinforcement demand');
@@ -1081,15 +1149,27 @@ function calculate(input) {
   const shear = shearRequested
     ? seismicStrongAxisShear(input, finalRcDemands.puTf, nominalMomentXTfM)
     : null;
+  const jointRatio = jointRatioRequested ? jointFlexuralStrengthRatio(input) : null;
   const strongColumnWeakBeam = strongColumnRequested ? seismicStrongColumnWeakBeam(input) : null;
   const confinement = confinementRequested ? seismicConfinement(input, shear) : null;
+  if (jointRatio?.connectionType === 'src-beam-src-column' && strongColumnWeakBeam) {
+    jointRatio.cases.forEach(jointCase => {
+      const combined = strongColumnWeakBeam.cases.find(item => item.sense === jointCase.sense);
+      if (Math.abs(jointCase.steel.columnSumTfM + jointCase.rc.columnSumTfM - combined.columnSumTfM) > 1e-9) {
+        throw new SrcColumnOracleError('joint-component-column-sum-conflict', 'Clause 8.4.2 and 9.6.1 column sums conflict');
+      }
+      if (Math.abs(jointCase.steel.beamSumTfM + jointCase.rc.beamSumTfM - combined.beamSumTfM) > 1e-9) {
+        throw new SrcColumnOracleError('joint-component-beam-sum-conflict', 'Clause 8.4.2 and 9.6.1 beam sums conflict');
+      }
+    });
+  }
 
   return {
     oracleVersion: ORACLE_VERSION,
     supportedSchema: SUPPORTED_SCHEMA,
     coverage: {
-      covered: ['table-3.4-2-compactness', 'stiffness-allocation', 'steel-compression', 'steel-biaxial-interaction', 'redistribution', 'rc-strain-compatibility-pm', 'rc-biaxial-interaction', 'seismic-axial-strength-subcheck', 'seismic-strong-axis-column-shear-subcheck', 'seismic-strong-axis-joint-subcheck', 'seismic-strong-axis-confinement-subcheck'],
-      uncovered: ['complete-seismic-design', 'weak-axis-shear', 'weak-axis-joint-and-confinement', 'clause-8.4.2-joint-force-transfer'],
+      covered: ['table-3.4-2-compactness', 'stiffness-allocation', 'steel-compression', 'steel-biaxial-interaction', 'redistribution', 'rc-strain-compatibility-pm', 'rc-biaxial-interaction', 'seismic-axial-strength-subcheck', 'seismic-strong-axis-column-shear-subcheck', 'clause-8.4.2-joint-flexural-strength-ratio', 'seismic-strong-axis-joint-subcheck', 'seismic-strong-axis-confinement-subcheck'],
+      uncovered: ['complete-seismic-design', 'weak-axis-shear', 'weak-axis-joint-and-confinement', 'joint-panel-zone-and-connection-hardware'],
     },
     compactness: compactness(input),
     allocation: { axialSteelRatio, momentSteelRatioX, momentSteelRatioY, initialSteelDemands, initialRcDemands },
@@ -1107,6 +1187,7 @@ function calculate(input) {
     rc,
     seismicAxial,
     shear,
+    jointFlexuralStrengthRatio: jointRatio,
     strongColumnWeakBeam,
     confinement,
   };
@@ -1128,6 +1209,7 @@ module.exports = {
   rcProbableMomentTfM,
   seismicStrongAxisShear,
   seismicAxialStrength,
+  jointFlexuralStrengthRatio,
   seismicStrongColumnWeakBeam,
   seismicConfinement,
   calculate,

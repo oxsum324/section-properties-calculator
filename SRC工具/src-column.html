@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>SRC 柱強軸耐震研究核算 V0.2</title>
+  <title>SRC 柱強軸耐震研究核算 V0.3</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="../結構工具箱/core/style.css">
   <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
@@ -18,10 +18,10 @@
   <header class="src-hero">
     <div>
       <p class="src-eyebrow">鋼骨鋼筋混凝土構件</p>
-      <h1>SRC 柱強軸耐震研究核算 <span class="src-version">V0.2</span></h1>
-      <p>完全包覆矩形柱｜強軸單向｜軸力、柱剪力、強柱弱梁與圍束｜單位：cm、kgf/cm²、tf、tf·m</p>
+      <h1>SRC 柱強軸耐震研究核算 <span class="src-version">V0.3</span></h1>
+      <p>完全包覆矩形柱｜強軸單向｜軸力、接頭撓曲強度比、柱剪力、強柱弱梁與圍束｜單位：cm、kgf/cm²、tf、tf·m</p>
       <div class="src-hero-chips" aria-label="目前涵蓋範圍">
-        <span>第 6.4 節壓力強度</span><span>第 7.3 節軸彎分配</span><span>第 9.3 節地震組合</span><span>第 9.6 節強軸子檢核</span><span>計算斷面圖</span>
+        <span>第 6.4 節壓力強度</span><span>第 7.3 節軸彎分配</span><span>第 8.4.2 節接頭比值</span><span>第 9.3 節地震組合</span><span>第 9.6 節強軸子檢核</span><span>計算斷面圖</span>
       </div>
     </div>
     <a class="src-back" href="../結構工具箱/index.html">← 回工具箱</a>
@@ -48,9 +48,9 @@
       <div class="src-input-stack">
         <section class="src-card src-page-only">
           <h2>適用範圍與輸出邊界</h2>
-          <p>目前只涵蓋完全包覆矩形 SRC 柱、置中雙對稱 H 型鋼骨、橫箍筋柱及強軸單向作用。專案分析必須已將 P-Δ 效應反映於 Pu、Mux；弱軸耐震、接頭區、柱腳及完整構架仍須另案檢核。</p>
+          <p>目前只涵蓋完全包覆矩形 SRC 柱、置中雙對稱 H 型鋼骨、橫箍筋柱及強軸單向作用。專案分析必須已將 P-Δ 效應反映於 Pu、Mux；弱軸耐震、接頭區剪力與接合細部、柱腳及完整構架仍須另案檢核。</p>
           <p><strong>計算書只保留採用資料、公式代入、檢核結果與結論。</strong>本段研究邊界與待複核事項只顯示於 HTML。研究計算書可列印，但正式附件核可尚未開放。</p>
-          <div class="src-meta-chips"><span>現行 100 年修正版</span><span id="coreVersion">Core —</span><span>案件 schema v1</span><span class="src-research-chip">私有研究工具</span></div>
+          <div class="src-meta-chips"><span>現行 100 年修正版</span><span id="coreVersion">Core —</span><span>案件 schema v2</span><span class="src-research-chip">私有研究工具</span></div>
         </section>
 
         <section class="src-card">
@@ -126,9 +126,43 @@
           </div>
         </section>
 
+        <section class="src-card src-subcheck-card" id="jointRatioSubcheckPanel">
+          <div class="src-subcheck-heading">
+            <div><h2>④ 第 8.4.2 節接頭撓曲強度比</h2><p>以接頭面各梁、柱之鋼骨與 RC 標稱彎矩強度總和，分別檢核順、逆時針方向。</p></div>
+            <label class="src-subcheck-toggle"><input id="enableJointRatioSubcheck" type="checkbox" checked> 啟用</label>
+          </div>
+          <div class="src-subcheck-body" data-subcheck-body="joint-ratio">
+            <div class="src-grid src-grid-3">
+              <label>接合類型<span><select id="jointConnectionType"><option value="src-beam-src-column" selected>SRC 梁－SRC 柱</option><option value="steel-beam-src-column">鋼梁－SRC 柱</option></select></span></label>
+            </div>
+            <p class="src-subhead">順時針方向之構成分量</p>
+            <div class="src-grid src-grid-4">
+              <label>柱鋼骨 Σ(Mns)C<span><input id="jcwSteelColumnTfM" type="number" value="251.424" step="0.001" min="0"> tf·m</span></label>
+              <label>梁鋼骨 Σ(Mns)B<span><input id="jcwSteelBeamTfM" type="number" value="209.52" step="0.001" min="0"> tf·m</span></label>
+              <label data-joint-rc>柱 RC Σ(Mnrc)C<span><input id="jcwRcColumnTfM" type="number" value="167.616" step="0.001" min="0"> tf·m</span></label>
+              <label data-joint-rc>梁 RC Σ(Mnrc)B<span><input id="jcwRcBeamTfM" type="number" value="139.68" step="0.001" min="0"> tf·m</span></label>
+            </div>
+            <p class="src-subhead">逆時針方向之構成分量</p>
+            <div class="src-grid src-grid-4">
+              <label>柱鋼骨 Σ(Mns)C<span><input id="jccwSteelColumnTfM" type="number" value="251.424" step="0.001" min="0"> tf·m</span></label>
+              <label>梁鋼骨 Σ(Mns)B<span><input id="jccwSteelBeamTfM" type="number" value="209.52" step="0.001" min="0"> tf·m</span></label>
+              <label data-joint-rc>柱 RC Σ(Mnrc)C<span><input id="jccwRcColumnTfM" type="number" value="167.616" step="0.001" min="0"> tf·m</span></label>
+              <label data-joint-rc>梁 RC Σ(Mnrc)B<span><input id="jccwRcBeamTfM" type="number" value="139.68" step="0.001" min="0"> tf·m</span></label>
+            </div>
+            <div class="src-check-grid">
+              <label><input id="jointRatioJointFaceStrengthsConfirmed" type="checkbox" checked> 各分量均為接頭面標稱彎矩強度</label>
+              <label><input id="allConnectedMembersIncludedConfirmed" type="checkbox" checked> 已納入該構架面接頭之所有相接梁柱</label>
+              <label><input id="componentStrengthsSeparatedConfirmed" type="checkbox" checked> 鋼骨與 RC 強度已分離且未重複計入</label>
+              <label data-steel-beam-alternative><input id="useVerifiedSmoothTransferAlternative" type="checkbox"> 採用式 (8.4-4) 的 0.7 替代門檻</label>
+              <label data-steel-beam-alternative><input id="smoothStressTransferAnalysisConfirmed" type="checkbox"> 專案分析已確認鋼梁應力平順傳入 SRC 柱</label>
+            </div>
+            <p class="src-policy-note">SRC 梁－SRC 柱採式 (8.4-1)、(8.4-2) 的 0.6 下限；鋼梁－SRC 柱預設採式 (8.4-3) 的 1.0 下限，只有專案分析明確確認平順傳力時才可採式 (8.4-4) 的 0.7 下限。接合板、銲道、螺栓、錨定與接頭區剪力不由本比值檢核取代。</p>
+          </div>
+        </section>
+
         <section class="src-card src-subcheck-card" id="strongColumnSubcheckPanel">
           <div class="src-subcheck-heading">
-            <div><h2>④ 第 9.6.1 節強柱弱梁</h2><p>檢核單一強軸接頭構架面之順、逆時針兩個名義彎矩方向。</p></div>
+            <div><h2>⑤ 第 9.6.1 節強柱弱梁</h2><p>檢核單一強軸接頭構架面之順、逆時針兩個名義彎矩方向。</p></div>
             <label class="src-subcheck-toggle"><input id="enableStrongColumnSubcheck" type="checkbox" checked> 啟用</label>
           </div>
           <div class="src-subcheck-body" data-subcheck-body="strong-column">
@@ -158,7 +192,7 @@
 
         <section class="src-card src-subcheck-card" id="confinementSubcheckPanel">
           <div class="src-subcheck-heading">
-            <div><h2>⑤ 第 9.6.3 節矩形柱圍束</h2><p>圍束量取式 (9.6-6)、式 (9.6-7) 與第 9.6.2 節剪力需求之控制值。</p></div>
+            <div><h2>⑥ 第 9.6.3 節矩形柱圍束</h2><p>圍束量取式 (9.6-6)、式 (9.6-7) 與第 9.6.2 節剪力需求之控制值。</p></div>
             <label class="src-subcheck-toggle"><input id="enableConfinementSubcheck" type="checkbox" checked> 啟用</label>
           </div>
           <div class="src-subcheck-body" data-subcheck-body="confinement">
