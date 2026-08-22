@@ -1,11 +1,12 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "tool": "src-column-research-core",
-  "coreVersion": "src-column.core.v0.1.0-research",
+  "coreVersion": "src-column.core.v0.2.0-research",
   "regulation": {
     "title": "鋼骨鋼筋混凝土構造設計規範與解說",
     "versionLabel": "100 年修正版（100 年 7 月 1 日施行）",
     "officialPage": "https://www.nlma.gov.tw/ch/legislation/regsearch/977",
+    "chapter3Url": "https://www.nlma.gov.tw/uploads/files/bb28d35b9a579aa2352ddac6b4cdc35e.pdf",
     "chapter6Url": "https://www.nlma.gov.tw/uploads/files/c0ec0fcd843b9fc64ed10865c5f03741.pdf",
     "chapter7Url": "https://www.nlma.gov.tw/uploads/files/de33d9841890f8f82630e6bb88f3acd2.pdf",
     "officialGuidePage": "https://www.abri.gov.tw/News_Content_Table.aspx?n=807&s=38030",
@@ -16,6 +17,7 @@
       "完全包覆型矩形 SRC 柱",
       "置中雙對稱 H 型鋼骨",
       "軸壓與 x 向單向彎矩",
+      "第 3.4 節表 3.4-2 翼板與腹板寬厚比自動重算",
       "鋼骨與 RC 部分剛度分配",
       "鋼骨壓彎互制",
       "規範容許的軸力與彎矩重新分配",
@@ -24,7 +26,7 @@
     ],
     "excluded": [
       "雙向彎矩與軸拉",
-      "鋼骨寬厚比自動重算",
+      "型鋼斷面性質 A、Ix、Iy、Zx 的資料庫來源與幾何反算核對",
       "柱剪力",
       "第 9 章耐震設計",
       "梁柱接頭、續接與柱腳",
@@ -49,9 +51,20 @@
       "clause": "6.3.2 及現行混凝土結構設計規範",
       "check": "非耐震橫箍筋柱 RC 部分的縱向主筋比限 1%~8%；耐震設計在本核心失敗封閉。",
       "implementation": "validateInput.longitudinal-ratio"
+    },
+    {
+      "clause": "3.4 / 表 3.4-2",
+      "check": "完全包覆 H 型 SRC 柱自動重算翼板 b/tf 與腹板 hc/tw；非耐震範圍以 lambda_p 判定，並另列教材例題採用的 lambda_pd 參考值。",
+      "implementation": "calculateCompactness"
     }
   ],
   "equations": [
+    {
+      "id": "src-3.4-2",
+      "clause": "3.4 / 表 3.4-2",
+      "expression": "flange b/tf=(bf/2)/tf; web hc/tw=(d-2tf)/tw; lambda_p=20/81 for 490 group and 23/96 for 400 group; lambda_pd=21/sqrt(Fys) and 123/sqrt(Fys)",
+      "implementation": "calculateCompactness"
+    },
     {
       "id": "src-6.4-2-5",
       "clause": "6.4.2 / 式 (6.4-2)~(6.4-5)",
@@ -91,6 +104,12 @@
       "case": "65 x 80 cm 包覆 H500x304x15x24 SRC 柱，Pu=734.0 tf，Mux=128.9 tf-m",
       "sourceArithmeticNote": "教材第 3/8 頁列 Mus=57.1 tf-m，但第 5/8 頁代入式 (7.3-10) 時改用 56.7 tf-m；本核心以輸入與式 (7.3-4) 重算 57.1 tf-m，不靜默沿用不一致數字。",
       "expected": {
+        "flangeRatio": 6.3333333333,
+        "webRatio": 30.1333333333,
+        "flangeGeneralLimit": 20,
+        "webGeneralLimit": 81,
+        "flangeSeismicReferenceLimit": 11.2249721603,
+        "webSeismicReferenceLimit": 65.7462655105,
         "axialSteelRatio": 0.379,
         "momentSteelRatioX": 0.443,
         "pnsXTf": 729.0,
@@ -102,5 +121,25 @@
         "guideChartPhiMnTfM": 126.5
       }
     }
-  ]
+  ],
+  "oracle": {
+    "file": "core/src-column-oracle.js",
+    "version": "src-column.oracle.v0.1.0-research",
+    "independence": "不引用 src-column-core.js 或共用 PMSection；以獨立算術路徑重算已涵蓋項目。",
+    "covered": [
+      "表 3.4-2 寬厚比",
+      "剛度分配",
+      "鋼骨有效迴轉半徑與軸壓強度",
+      "鋼骨壓彎互制",
+      "規範重新分配"
+    ],
+    "uncovered": [
+      "RC 應變相容 P-M",
+      "雙向互制",
+      "柱剪力",
+      "耐震設計"
+    ],
+    "test": "src-column-oracle.test.js",
+    "comparisonCount": 30
+  }
 }

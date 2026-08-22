@@ -6,8 +6,9 @@
  *
  * This core is deliberately not a public/formal tool yet. It implements the
  * strength-allocation path needed to reproduce the official MOI SRC design
- * guide example, while keeping compactness, shear, joint, base, construction
- * detailing, and seismic checks outside the automatic OK boundary.
+ * guide example and automatically checks H-shape compactness. Shear, joint,
+ * base, construction detailing, and seismic design remain outside the
+ * automatic OK boundary.
  *
  * Units: cm, cm2, cm3, cm4, kgf/cm2, tf, tf-m.
  */
@@ -21,18 +22,20 @@
 })(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnCore(PMSection) {
   'use strict';
 
-  const CORE_VERSION = 'src-column.core.v0.1.0-research';
-  const INPUT_SCHEMA = 'src-column.input.v1';
+  const CORE_VERSION = 'src-column.core.v0.2.0-research';
+  const INPUT_SCHEMA = 'src-column.input.v2';
   const RELEASE_STATUS = 'research-core-not-public';
   const REGULATION_PROFILE = Object.freeze({
     id: 'tw-src-2011',
     title: '鋼骨鋼筋混凝土構造設計規範與解說',
     versionLabel: '100 年修正版（100 年 7 月 1 日施行）',
     officialPage: 'https://www.nlma.gov.tw/ch/legislation/regsearch/977',
+    chapter3Url: 'https://www.nlma.gov.tw/uploads/files/bb28d35b9a579aa2352ddac6b4cdc35e.pdf',
     chapter6Url: 'https://www.nlma.gov.tw/uploads/files/c0ec0fcd843b9fc64ed10865c5f03741.pdf',
     chapter7Url: 'https://www.nlma.gov.tw/uploads/files/de33d9841890f8f82630e6bb88f3acd2.pdf',
     officialGuidePage: 'https://www.abri.gov.tw/News_Content_Table.aspx?n=807&s=38030',
     clauses: Object.freeze({
+      compactness: '3.4 / 表 3.4-2',
       steelCompression: '6.4.2 / 式 (6.4-2)~(6.4-5)',
       forceAllocation: '7.3.1 / 式 (7.3-3)~(7.3-6)',
       steelInteraction: '7.3.2 / 式 (7.3-7)~(7.3-8)',
@@ -68,6 +71,13 @@
     return { code, path, message, level: level || 'blocked' };
   }
 
+  function steelGradeGroup(value) {
+    const grade = String(value || '').toUpperCase().replace(/\s+/g, ' ').trim();
+    if (['SS400', 'SM400', 'SN400', 'A36', '400'].includes(grade)) return '400';
+    if (['SS490', 'SM490', 'SN490', 'A572GR50', 'A572 GR.50', 'A572 GR50', '490'].includes(grade)) return '490';
+    return null;
+  }
+
   function validateInput(input) {
     const blocked = [];
     const review = [];
@@ -92,6 +102,8 @@
       ['steel.areaCm2', steel.areaCm2],
       ['steel.depthCm', steel.depthCm],
       ['steel.flangeWidthCm', steel.flangeWidthCm],
+      ['steel.flangeThicknessCm', steel.flangeThicknessCm],
+      ['steel.webThicknessCm', steel.webThicknessCm],
       ['steel.ixCm4', steel.ixCm4],
       ['steel.iyCm4', steel.iyCm4],
       ['steel.zxCm3', steel.zxCm3],
@@ -132,9 +144,20 @@
     const depth = positive(concrete.depthCm);
     const steelDepth = positive(steel.depthCm);
     const steelWidth = positive(steel.flangeWidthCm);
+    const flangeThickness = positive(steel.flangeThicknessCm);
+    const webThickness = positive(steel.webThicknessCm);
     const steelArea = positive(steel.areaCm2);
+    if (!steelGradeGroup(steel.grade)) {
+      addBlocked('unsupported-steel-grade', 'steel.grade', '鋼骨寬厚比目前僅支援表 3.4-2 之 400 級或 490 級鋼材。');
+    }
     if (width && steelWidth && steelWidth >= width) addBlocked('steel-not-encased-width', 'steel.flangeWidthCm', '鋼骨翼板寬度必須小於 SRC 柱寬度。');
     if (depth && steelDepth && steelDepth >= depth) addBlocked('steel-not-encased-depth', 'steel.depthCm', '鋼骨深度必須小於 SRC 柱深度。');
+    if (steelDepth && flangeThickness && 2 * flangeThickness >= steelDepth) {
+      addBlocked('invalid-h-section-flange-geometry', 'steel.flangeThicknessCm', 'H 型鋼骨兩片翼板總厚度必須小於鋼骨深度。');
+    }
+    if (steelWidth && webThickness && webThickness >= steelWidth) {
+      addBlocked('invalid-h-section-web-geometry', 'steel.webThicknessCm', 'H 型鋼骨腹板厚度必須小於翼板寬度。');
+    }
     if (width && depth && steelArea) {
       const steelRatio = steelArea / (width * depth);
       if (steelRatio < 0.02 - ZERO_TOLERANCE) addBlocked('steel-ratio-below-src-scope', 'steel.areaCm2', '第 6.3 節要求 SRC 柱鋼骨斷面積不得少於構材全斷面積的 2%。');
@@ -167,12 +190,9 @@
     }
 
     if (detailing.mainBarsContinuous !== true) addBlocked('main-bars-not-continuous', 'detailing.mainBarsContinuous', '未連續通過柱接頭或未適當錨定的主筋不得計入 RC 彎矩強度。');
-    if (typeof detailing.compactnessBasis !== 'string' || !detailing.compactnessBasis.trim()) {
-      addBlocked('compactness-basis-required', 'detailing.compactnessBasis', '本階段必須提供鋼骨寬厚比檢核依據。');
-    }
 
     addReview('research-core-not-public', 'tool', 'SRC 柱目前只建立可審查核心，尚未登錄為公開或正式工具。');
-    addReview('compactness-not-recomputed', 'detailing.compactnessBasis', '寬厚比尚未由本核心自動重算，目前只保留專案檢核依據。');
+    addReview('section-properties-not-derived', 'steel', 'A、Ix、Iy、Zx 仍採輸入或斷面表數值；尚未以型鋼資料庫與來源版次自動核對。');
     addReview('excluded-strength-paths', 'detailing', '柱剪力、柱腳、梁柱接頭、施工階段與耐震細節仍須另案檢核。');
 
     return { blocked, review };
@@ -180,6 +200,41 @@
 
   function elasticModulusConcrete(fcKgfCm2) {
     return 15000 * Math.sqrt(fcKgfCm2);
+  }
+
+  function calculateCompactness(input) {
+    const steel = input.steel || {};
+    const gradeGroup = steelGradeGroup(steel.grade);
+    if (!gradeGroup) {
+      throw new SrcColumnInputError([
+        issue('unsupported-steel-grade', 'steel.grade', '鋼骨寬厚比目前僅支援表 3.4-2 之 400 級或 490 級鋼材。'),
+      ]);
+    }
+    const isGrade400 = gradeGroup === '400';
+    const fysTfCm2 = Number(steel.fysKgfCm2) / 1000;
+    const flangeRatio = (Number(steel.flangeWidthCm) / 2) / Number(steel.flangeThicknessCm);
+    const clearWebDepthCm = Number(steel.depthCm) - 2 * Number(steel.flangeThicknessCm);
+    const webRatio = clearWebDepthCm / Number(steel.webThicknessCm);
+    const flangeGeneralLimit = isGrade400 ? 23 : 20;
+    const webGeneralLimit = isGrade400 ? 96 : 81;
+    const flangeSeismicLimit = 21 / Math.sqrt(fysTfCm2);
+    const webSeismicLimit = 123 / Math.sqrt(fysTfCm2);
+    return {
+      governingMode: 'general-lambda-p',
+      seismicDesignSupported: false,
+      gradeGroup,
+      flangeRatio,
+      flangeGeneralLimit,
+      flangeSeismicLimit,
+      flangeOk: flangeRatio <= flangeGeneralLimit + ZERO_TOLERANCE,
+      clearWebDepthCm,
+      webRatio,
+      webGeneralLimit,
+      webSeismicLimit,
+      webOk: webRatio <= webGeneralLimit + ZERO_TOLERANCE,
+      ok: flangeRatio <= flangeGeneralLimit + ZERO_TOLERANCE
+        && webRatio <= webGeneralLimit + ZERO_TOLERANCE,
+    };
   }
 
   function steelCompressionAxis(input, axis) {
@@ -238,6 +293,7 @@
     const steel = input.steel;
     const demands = input.demands;
     const detailing = input.detailing;
+    const compactness = calculateCompactness(input);
     const width = Number(concrete.widthCm);
     const depth = Number(concrete.depthCm);
     const grossAreaCm2 = width * depth;
@@ -316,7 +372,7 @@
       cMinFactor: 0.0001,
     });
     const rcInteraction = PMSection.checkDemand(rcCurve.design, finalRcDemands.puTf, finalRcDemands.muxTfM);
-    const engineeringChecksOk = finalSteelInteraction.ok && rcInteraction.ok;
+    const engineeringChecksOk = compactness.ok && finalSteelInteraction.ok && rcInteraction.ok;
 
     return {
       coreVersion: CORE_VERSION,
@@ -326,6 +382,7 @@
       status: engineeringChecksOk ? 'REVIEW' : 'NG',
       reviewItems: validation.review,
       section: { grossAreaCm2, grossIxCm4, grossIyCm4, ecKgfCm2: ec, esKgfCm2: es },
+      compactness,
       allocation: {
         axialSteelRatio,
         axialRcRatio: 1 - axialSteelRatio,
@@ -361,6 +418,9 @@
         designCurve: rcCurve.design,
       },
       checks: {
+        flangeCompactness: compactness.flangeOk,
+        webCompactness: compactness.webOk,
+        compactness: compactness.ok,
         steelInteraction: finalSteelInteraction.ok,
         rcInteraction: rcInteraction.ok,
         engineeringStrength: engineeringChecksOk,
@@ -377,6 +437,8 @@
     PHI,
     SrcColumnInputError,
     elasticModulusConcrete,
+    steelGradeGroup,
+    calculateCompactness,
     validateInput,
     steelCompressionAxis,
     steelInteraction,

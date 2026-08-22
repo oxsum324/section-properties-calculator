@@ -16,7 +16,7 @@ function clone(value) {
 
 function officialGuideExample8() {
   return {
-    schema: 'src-column.input.v1',
+    schema: 'src-column.input.v2',
     caseName: 'MOI SRC design guide example 8',
     demands: { puTf: 734.0, muxTfM: 128.9, muyTfM: 0 },
     concrete: { widthCm: 65, depthCm: 80, fcKgfCm2: 280 },
@@ -31,8 +31,11 @@ function officialGuideExample8() {
     },
     steel: {
       shape: 'H500x304x15x24',
+      grade: 'A572 Gr.50',
       depthCm: 50,
       flangeWidthCm: 30.4,
+      flangeThicknessCm: 2.4,
+      webThicknessCm: 1.5,
       areaCm2: 215,
       ixCm4: 95000,
       iyCm4: 11300,
@@ -48,16 +51,15 @@ function officialGuideExample8() {
       secondOrderDemandIncluded: true,
       seismicDesign: false,
       redistributeToSteelBoundary: true,
-      compactnessBasis: '教材例題 8：第 3.4 節 lambda_pd 翼板與腹板檢核均 OK',
     },
   };
 }
 
-assert.equal(Core.CORE_VERSION, 'src-column.core.v0.1.0-research', 'SRC column core is explicitly versioned as research');
-assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v1', 'SRC column core has a versioned input schema');
+assert.equal(Core.CORE_VERSION, 'src-column.core.v0.2.0-research', 'SRC column core is explicitly versioned as research');
+assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v2', 'SRC column core has a versioned input schema');
 assert.equal(Core.RELEASE_STATUS, 'research-core-not-public', 'research core cannot be mistaken for a formal public route');
 assert.equal(Core.REGULATION_PROFILE.id, 'tw-src-2011', 'SRC column core uses the official current profile');
-assert.ok(Core.REGULATION_PROFILE.chapter6Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter7Url.endsWith('.pdf'), 'official chapter sources remain explicit');
+assert.ok(Core.REGULATION_PROFILE.chapter3Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter6Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter7Url.endsWith('.pdf'), 'official chapter sources remain explicit');
 assert.ok(Core.REGULATION_PROFILE.draftBoundary.includes('草案'), 'research draft remains separated from current regulation');
 
 const official = Core.calculate(officialGuideExample8());
@@ -68,6 +70,16 @@ close(official.allocation.axialSteelRatio, 0.379, 0.001, 'example 8 axial stiffn
 close(official.allocation.momentSteelRatioX, 0.443, 0.001, 'example 8 flexural stiffness ratio');
 close(official.allocation.initialSteelDemands.puTf, 278.2, 0.3, 'example 8 initial steel axial demand');
 close(official.allocation.initialSteelDemands.muxTfM, 57.1, 0.15, 'example 8 initial steel moment demand');
+
+assert.equal(official.compactness.governingMode, 'general-lambda-p', 'nonseismic research scope uses table 3.4-2 lambda_p');
+assert.equal(official.compactness.gradeGroup, '490', 'A572 Gr.50 maps to the 490-grade table row');
+close(official.compactness.flangeRatio, 6.3333333333, 1e-9, 'example 8 flange b/tf');
+close(official.compactness.webRatio, 30.1333333333, 1e-9, 'example 8 web hc/tw');
+close(official.compactness.flangeGeneralLimit, 20, 1e-12, '490-grade general flange limit');
+close(official.compactness.webGeneralLimit, 81, 1e-12, '490-grade general web limit');
+close(official.compactness.flangeSeismicLimit, 21 / Math.sqrt(3.5), 1e-12, 'example 8 guide seismic-reference flange limit');
+close(official.compactness.webSeismicLimit, 123 / Math.sqrt(3.5), 1e-12, 'example 8 guide seismic-reference web limit');
+assert.equal(official.compactness.ok, true, 'example 8 passes the implemented general compactness boundary');
 
 close(official.steel.compressionX.effectiveRadiusCm, 25.64, 0.03, 'example 8 effective steel radius x');
 close(official.steel.compressionY.effectiveRadiusCm, 14.76, 0.03, 'example 8 effective steel radius y');
@@ -86,9 +98,11 @@ close(official.steel.finalInteraction.utilization, 1.0, 1e-10, 'redistribution p
 close(official.rc.phiMnTfM, 126.5, 2.0, 'current strain-compatibility RC capacity agrees with official chart example');
 assert.equal(official.checks.steelInteraction, true, 'official example steel portion passes');
 assert.equal(official.checks.rcInteraction, true, 'official example RC portion passes');
+assert.equal(official.checks.compactness, true, 'official example compactness passes');
 assert.equal(official.checks.formalRelease, false, 'research result is never a formal release result');
 assert.equal(official.status, 'REVIEW', 'engineering pass remains review until the tool boundary is completed');
-assert.ok(official.reviewItems.some(item => item.code === 'compactness-not-recomputed'), 'automatic compactness gap stays visible');
+assert.ok(official.reviewItems.some(item => item.code === 'section-properties-not-derived'), 'section-table property provenance gap stays visible');
+assert.equal(official.reviewItems.some(item => item.code === 'compactness-not-recomputed'), false, 'completed automatic compactness is not reported as a remaining gap');
 
 const noRedistributionInput = officialGuideExample8();
 noRedistributionInput.detailing.redistributeToSteelBoundary = false;
@@ -103,6 +117,13 @@ const highDemand = Core.calculate(highDemandInput);
 assert.equal(highDemand.status, 'NG', 'an RC or steel interaction failure produces NG even in research mode');
 assert.equal(highDemand.checks.engineeringStrength, false, 'high-demand counterexample fails the engineering strength chain');
 
+const slenderFlangeInput = officialGuideExample8();
+slenderFlangeInput.steel.flangeThicknessCm = 0.5;
+const slenderFlange = Core.calculate(slenderFlangeInput);
+assert.equal(slenderFlange.compactness.flangeOk, false, 'slender synthetic flange fails table 3.4-2');
+assert.equal(slenderFlange.status, 'NG', 'compactness failure cannot remain REVIEW');
+assert.equal(slenderFlange.checks.engineeringStrength, false, 'compactness participates in the engineering check chain');
+
 [
   ['unsupported-input-schema', input => { input.schema = 'src-column.input.v999'; }],
   ['biaxial-scope-not-implemented', input => { input.demands.muyTfM = 1; }],
@@ -111,7 +132,9 @@ assert.equal(highDemand.checks.engineeringStrength, false, 'high-demand countere
   ['not-fully-encased', input => { input.detailing.fullyEncased = false; }],
   ['unsupported-steel-shape', input => { input.detailing.centeredDoublySymmetricH = false; }],
   ['main-bars-not-continuous', input => { input.detailing.mainBarsContinuous = false; }],
-  ['compactness-basis-required', input => { input.detailing.compactnessBasis = ''; }],
+  ['unsupported-steel-grade', input => { input.steel.grade = 'unknown'; }],
+  ['invalid-h-section-flange-geometry', input => { input.steel.flangeThicknessCm = 25; }],
+  ['invalid-h-section-web-geometry', input => { input.steel.webThicknessCm = 30.4; }],
   ['compression-demand-required', input => { input.demands.puTf = 0; }],
   ['steel-ratio-below-src-scope', input => { input.steel.areaCm2 = 100; }],
   ['longitudinal-ratio-below-scope', input => { input.reinforcement.layers.forEach(layer => { layer.areaCm2 = 20; }); }],
@@ -133,16 +156,24 @@ const catalogPath = path.join(__dirname, 'src-column-traceability.catalog.json')
 const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
 assert.equal(catalog.coreVersion, Core.CORE_VERSION, 'SRC column traceability follows the research engine version');
 assert.equal(catalog.release.status, Core.RELEASE_STATUS, 'traceability catalog keeps the core non-public');
+assert.equal(catalog.regulation.chapter3Url, Core.REGULATION_PROFILE.chapter3Url, 'catalog and core use the same official chapter 3 source');
 assert.equal(catalog.regulation.chapter7Url, Core.REGULATION_PROFILE.chapter7Url, 'catalog and core use the same official chapter 7 source');
 assert.deepEqual(
   catalog.equations.map(item => item.id),
-  ['src-6.4-2-5', 'src-7.3-3-6', 'src-7.3-7-8', 'src-7.3-9-10', 'rc-pm-current'],
+  ['src-3.4-2', 'src-6.4-2-5', 'src-7.3-3-6', 'src-7.3-7-8', 'src-7.3-9-10', 'rc-pm-current'],
   'catalog covers every implemented equation family'
 );
 assert.equal(catalog.goldenCases[0].id, 'MOI-SRC-GUIDE-COLUMN-EXAMPLE-8', 'official example 8 remains the canonical research golden case');
 assert.ok(catalog.goldenCases[0].sourceArithmeticNote.includes('57.1') && catalog.goldenCases[0].sourceArithmeticNote.includes('56.7'), 'catalog discloses the guide example arithmetic inconsistency');
+close(catalog.goldenCases[0].expected.flangeRatio, official.compactness.flangeRatio, 1e-9, 'catalog preserves the example 8 flange compactness benchmark');
+close(catalog.goldenCases[0].expected.webRatio, official.compactness.webRatio, 1e-9, 'catalog preserves the example 8 web compactness benchmark');
+close(catalog.goldenCases[0].expected.flangeSeismicReferenceLimit, official.compactness.flangeSeismicLimit, 1e-9, 'catalog preserves the example 8 flange lambda_pd reference');
+close(catalog.goldenCases[0].expected.webSeismicReferenceLimit, official.compactness.webSeismicLimit, 1e-9, 'catalog preserves the example 8 web lambda_pd reference');
+assert.equal(catalog.oracle.file, 'core/src-column-oracle.js', 'catalog identifies the independent oracle');
+assert.equal(catalog.oracle.comparisonCount, 30, 'catalog states the independently compared arithmetic surface');
+assert.ok(catalog.oracle.uncovered.includes('RC 應變相容 P-M'), 'catalog does not overclaim independent RC P-M coverage');
 
-for (const missingPath of ['depthCm', 'flangeWidthCm']) {
+for (const missingPath of ['depthCm', 'flangeWidthCm', 'flangeThicknessCm', 'webThicknessCm']) {
   const input = officialGuideExample8();
   delete input.steel[missingPath];
   assert.throws(
