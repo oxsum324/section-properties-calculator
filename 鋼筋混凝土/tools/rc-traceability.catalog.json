@@ -70,9 +70,9 @@
         {
           "id": "column-pm-21-22",
           "clause": "混凝土結構設計規範 112 年版 21.2.2 / 22.2 / 22.4.2",
-          "purpose": "單軸 P-M 與雙軸 P-Mx-My 容量以應變相容核心為主，Bresler 僅作傳統近似對照。",
+          "purpose": "單軸 P-M 與雙軸 P-Mx-My 容量以應變相容核心為主，強度折減依 εty=fy/Es 至 εty+0.003 轉換；Bresler 僅作傳統近似對照。",
           "inputs": ["Pu", "Mux", "Muy", "fc", "fy", "colType", "b", "h", "D", "barNo", "barCount"],
-          "calculation": ["PMSection.curve", "φPn,max", "φMn@Pu", "雙向 P-Mx-My 角度掃描", "Bresler reciprocal"],
+          "calculation": ["PMSection.curve", "εty=fy/Es 強度折減轉換", "φPn,max", "φMn@Pu", "雙向 P-Mx-My 角度掃描", "Bresler reciprocal"],
           "report": ["P-M 互制檢核", "單軸 / 雙軸 P-M 強度", "P-Mx-My 角度掃描", "Bresler 參考值"],
           "evidence": ["tools/column-regression.test.js", "tools/column-regression-cases.json", "tools/column-report-visual.test.js"],
           "manualReview": ["雙軸彎矩、非標準鋼筋排列、開孔或不規則柱斷面須依完整分析模型與配筋圖人工複核。"]

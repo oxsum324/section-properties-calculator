@@ -25,7 +25,7 @@
 })(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnCore(PMSection, HSectionCatalog) {
   'use strict';
 
-  const CORE_VERSION = 'src-column.core.v0.3.0-research';
+  const CORE_VERSION = 'src-column.core.v0.4.0-research';
   const INPUT_SCHEMA = 'src-column.input.v3';
   const RELEASE_STATUS = 'research-core-not-public';
   const REGULATION_PROFILE = Object.freeze({

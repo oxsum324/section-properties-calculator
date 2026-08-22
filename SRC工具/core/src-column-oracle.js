@@ -3,18 +3,23 @@
  * This module deliberately does not import src-column-core.js or PMSection.
  * It independently recomputes the current research core's table 3.4-2
  * compactness, stiffness allocation, steel compression, steel interaction,
- * and redistribution paths. RC strain-compatibility P-M remains outside this
- * oracle and is identified as an uncovered release gap.
+ * redistribution, and tied rectangular RC strain-compatibility P-M paths.
+ * The RC demand point is solved continuously in neutral-axis depth and does
+ * not consume the production core's discretized design curve.
  *
  * Units: cm, cm2, cm3, cm4, kgf/cm2, tf, tf-m.
  */
 'use strict';
 
-const ORACLE_VERSION = 'src-column.oracle.v0.1.0-research';
+const ORACLE_VERSION = 'src-column.oracle.v0.2.0-research';
 const SUPPORTED_SCHEMA = 'src-column.input.v3';
 const PHI_COMPRESSION = 0.85;
 const PHI_FLEXURE = 0.9;
 const DEFAULT_ES_KGF_CM2 = 2_040_000;
+const RC_EPS_CU = 0.003;
+const RC_PHI_TIED = 0.65;
+const RC_PHI_TENSION = 0.90;
+const RC_PN_MAX_FACTOR = 0.80;
 
 class SrcColumnOracleError extends Error {
   constructor(code, message) {
@@ -120,6 +125,175 @@ function steelInteraction(puTf, muxTfM, pnsTf, mnxTfM) {
   };
 }
 
+function rcBeta1(fcKgfCm2) {
+  const fc = positiveAt(fcKgfCm2, 'concrete.fcKgfCm2');
+  if (fc <= 280) return 0.85;
+  if (fc >= 560) return 0.65;
+  return 0.85 - 0.05 * (fc - 280) / 70;
+}
+
+function rcPhiFromTensionStrain(epsT, fyKgfCm2, esKgfCm2) {
+  const strain = numberAt(epsT, 'epsT');
+  const fy = positiveAt(fyKgfCm2, 'reinforcement.fyKgfCm2');
+  const es = positiveAt(esKgfCm2, 'reinforcement.esKgfCm2');
+  const epsTy = fy / es;
+  if (strain <= epsTy) return RC_PHI_TIED;
+  if (strain >= epsTy + 0.003) return RC_PHI_TENSION;
+  return RC_PHI_TIED + (RC_PHI_TENSION - RC_PHI_TIED) * (strain - epsTy) / 0.003;
+}
+
+function normalizeRcInput(input) {
+  const concrete = input.concrete || {};
+  const reinforcement = input.reinforcement || {};
+  if (reinforcement.tieType !== 'tied') {
+    throw new SrcColumnOracleError('unsupported-tie-type', 'RC P-M oracle supports tied rectangular columns only');
+  }
+  const widthCm = positiveAt(concrete.widthCm, 'concrete.widthCm');
+  const depthCm = positiveAt(concrete.depthCm, 'concrete.depthCm');
+  const fcKgfCm2 = positiveAt(concrete.fcKgfCm2, 'concrete.fcKgfCm2');
+  const fyKgfCm2 = positiveAt(reinforcement.fyKgfCm2, 'reinforcement.fyKgfCm2');
+  const esKgfCm2 = reinforcement.esKgfCm2 == null
+    ? DEFAULT_ES_KGF_CM2
+    : positiveAt(reinforcement.esKgfCm2, 'reinforcement.esKgfCm2');
+  if (!Array.isArray(reinforcement.layers) || reinforcement.layers.length < 2) {
+    throw new SrcColumnOracleError('reinforcement-layers-required', 'RC P-M oracle requires at least two reinforcement layers');
+  }
+  const layers = reinforcement.layers.map((layer, index) => {
+    const yCm = positiveAt(layer.yCm, `reinforcement.layers[${index}].yCm`);
+    if (!(yCm < depthCm)) {
+      throw new SrcColumnOracleError('invalid-reinforcement-depth', `reinforcement.layers[${index}].yCm must lie inside the section`);
+    }
+    return { yCm, areaCm2: positiveAt(layer.areaCm2, `reinforcement.layers[${index}].areaCm2`) };
+  });
+  return {
+    widthCm,
+    depthCm,
+    fcKgfCm2,
+    fyKgfCm2,
+    esKgfCm2,
+    beta1: rcBeta1(fcKgfCm2),
+    layers,
+  };
+}
+
+function rcNominalPointFromModel(cCm, model) {
+  const c = positiveAt(cCm, 'cCm');
+  const { widthCm: width, depthCm: depth, fcKgfCm2: fc, fyKgfCm2: fy, esKgfCm2: es, beta1, layers } = model;
+  const aCm = Math.min(beta1 * c, depth);
+  const concreteForceKgf = 0.85 * fc * width * aCm;
+  let nominalPKgf = concreteForceKgf;
+  let nominalMKgfCm = concreteForceKgf * (depth / 2 - aCm / 2);
+  for (const layer of layers) {
+    const strain = RC_EPS_CU * (c - layer.yCm) / c;
+    const stress = Math.max(-fy, Math.min(fy, strain * es));
+    const netForceKgf = layer.yCm < aCm
+      ? (stress - 0.85 * fc) * layer.areaCm2
+      : stress * layer.areaCm2;
+    nominalPKgf += netForceKgf;
+    nominalMKgfCm += netForceKgf * (depth / 2 - layer.yCm);
+  }
+  const tensionDepthCm = Math.max(...layers.map(layer => layer.yCm));
+  const epsT = RC_EPS_CU * (tensionDepthCm - c) / c;
+  const epsTy = fy / es;
+  return {
+    cCm: c,
+    aCm,
+    epsT,
+    epsTy,
+    phi: rcPhiFromTensionStrain(epsT, fy, es),
+    nominalPKgf,
+    nominalMKgfCm,
+  };
+}
+
+function rcNominalPoint(cCm, input) {
+  return rcNominalPointFromModel(cCm, normalizeRcInput(input));
+}
+
+function rcInteractionAtDemand(input, puTf, muTfM) {
+  const model = normalizeRcInput(input);
+  const pu = numberAt(puTf, 'puTf');
+  const mu = Math.abs(numberAt(muTfM, 'muTfM'));
+  const grossAreaCm2 = model.widthCm * model.depthCm;
+  const steelAreaCm2 = model.layers.reduce((sum, layer) => sum + layer.areaCm2, 0);
+  const nominalPoTf = (0.85 * model.fcKgfCm2 * (grossAreaCm2 - steelAreaCm2)
+    + model.fyKgfCm2 * steelAreaCm2) / 1000;
+  const phiPnMaxTf = RC_PHI_TIED * RC_PN_MAX_FACTOR * nominalPoTf;
+  const pureTensionTf = -RC_PHI_TENSION * model.fyKgfCm2 * steelAreaCm2 / 1000;
+  const axialToleranceTf = 1e-7;
+  const axialOk = pu >= pureTensionTf - axialToleranceTf && pu <= phiPnMaxTf + axialToleranceTf;
+  const common = {
+    method: 'continuous-log-bisection',
+    demand: { puTf: pu, muxTfM: mu },
+    nominalPoTf,
+    phiPnMaxTf,
+    pMinTf: pureTensionTf,
+    pMaxTf: phiPnMaxTf,
+    axialOk,
+  };
+  if (!axialOk) {
+    return {
+      ...common,
+      phiMnTfM: 0,
+      utilization: mu > 0 ? Infinity : 0,
+      ok: false,
+      outOfRange: true,
+      solution: null,
+    };
+  }
+
+  function designPoint(logC) {
+    const point = rcNominalPointFromModel(Math.exp(logC), model);
+    let designPTf = point.phi * point.nominalPKgf / 1000;
+    if (point.nominalPKgf > 0) designPTf = Math.min(designPTf, phiPnMaxTf);
+    return {
+      ...point,
+      designPTf,
+      designMTfM: Math.abs(point.nominalMKgfCm) * point.phi / 100000,
+    };
+  }
+
+  let low = Math.log(model.depthCm * 1e-8);
+  let high = Math.log(model.depthCm * 1e6);
+  let lowPoint = designPoint(low);
+  let highPoint = designPoint(high);
+  if (pu < lowPoint.designPTf - axialToleranceTf || pu > highPoint.designPTf + axialToleranceTf) {
+    throw new SrcColumnOracleError('rc-root-not-bracketed', 'RC design axial force could not be bracketed by the independent solver');
+  }
+  for (let iteration = 0; iteration < 160; iteration += 1) {
+    const middle = (low + high) / 2;
+    const middlePoint = designPoint(middle);
+    if (middlePoint.designPTf < pu) {
+      low = middle;
+      lowPoint = middlePoint;
+    } else {
+      high = middle;
+      highPoint = middlePoint;
+    }
+  }
+  const solution = Math.abs(lowPoint.designPTf - pu) <= Math.abs(highPoint.designPTf - pu)
+    ? lowPoint
+    : highPoint;
+  const utilization = solution.designMTfM > 0 ? mu / solution.designMTfM : (mu > 0 ? Infinity : 0);
+  return {
+    ...common,
+    phiMnTfM: solution.designMTfM,
+    utilization,
+    ok: mu <= solution.designMTfM + 1e-9,
+    outOfRange: false,
+    solution: {
+      cCm: solution.cCm,
+      aCm: solution.aCm,
+      epsT: solution.epsT,
+      epsTy: solution.epsTy,
+      phi: solution.phi,
+      nominalPTf: solution.nominalPKgf / 1000,
+      nominalMTfM: Math.abs(solution.nominalMKgfCm) / 100000,
+      designPTf: solution.designPTf,
+    },
+  };
+}
+
 function calculate(input) {
   if (input?.schema !== SUPPORTED_SCHEMA) {
     throw new SrcColumnOracleError('unsupported-input-schema', `Oracle accepts only ${SUPPORTED_SCHEMA}`);
@@ -162,13 +336,14 @@ function calculate(input) {
   };
   const finalRcDemands = { puTf: pu - finalSteelDemands.puTf, muxTfM: mux - finalSteelDemands.muxTfM };
   const finalInteraction = steelInteraction(finalSteelDemands.puTf, finalSteelDemands.muxTfM, control.nominalCompressionTf, nominalMomentXTfM);
+  const rc = rcInteractionAtDemand(input, finalRcDemands.puTf, finalRcDemands.muxTfM);
 
   return {
     oracleVersion: ORACLE_VERSION,
     supportedSchema: SUPPORTED_SCHEMA,
     coverage: {
-      covered: ['table-3.4-2-compactness', 'stiffness-allocation', 'steel-compression', 'steel-interaction', 'redistribution'],
-      uncovered: ['rc-strain-compatibility-pm', 'biaxial-interaction', 'shear', 'seismic-design'],
+      covered: ['table-3.4-2-compactness', 'stiffness-allocation', 'steel-compression', 'steel-interaction', 'redistribution', 'rc-strain-compatibility-pm'],
+      uncovered: ['biaxial-interaction', 'shear', 'seismic-design'],
     },
     compactness: compactness(input),
     allocation: { axialSteelRatio, momentSteelRatioX, initialSteelDemands, initialRcDemands },
@@ -182,6 +357,7 @@ function calculate(input) {
       finalInteraction,
     },
     redistribution: { applied: useRedistribution, beta: initialInteraction.utilization, finalSteelDemands, finalRcDemands },
+    rc,
   };
 }
 
@@ -193,5 +369,9 @@ module.exports = {
   compactness,
   steelCompression,
   steelInteraction,
+  rcBeta1,
+  rcPhiFromTensionStrain,
+  rcNominalPoint,
+  rcInteractionAtDemand,
   calculate,
 };

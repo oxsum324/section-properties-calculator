@@ -76,7 +76,7 @@ function main() {
   assert(wallHtml.includes('function compareWallCaseJson()'), 'wall.html can compare wall case JSON', 'compare helper exists');
   assert(wallHtml.includes('id="bwSupport"'), 'wall.html has basement support selector', 'basement wall model is selectable');
   assert(wallHtml.includes('簡式不適用，P-M 仍照常檢核'), 'wall.html keeps P-M active when the simple formula is out of range', 'eccentricity no longer blocks the formal P-M check');
-  assert(wallHtml.includes('../shared/pmsection.js?v=2'), 'wall.html loads the shared P-M engine', 'general wall uses the same strain-compatibility core');
+  assert(wallHtml.includes('../shared/pmsection.js?v=3'), 'wall.html loads the shared P-M engine', 'general wall uses the same strain-compatibility core');
   assert(wallHtml.includes('../shared/wall-inplane-evaluator.js?v=2'), 'wall.html loads the in-plane capacity evaluator', 'formal calculation and load combinations share one evaluator');
   assert(wallHtml.includes('WallInplaneEvaluator.computeCapacity(wallInplaneEvaluatorBase)'), 'wall.html formal calculation uses the shared evaluator', 'displayed capacities and tuple ranking cannot drift apart');
   assert(wallHtml.includes('WallInplaneEvaluator.evaluatePMDemand(wallInplaneEvaluatorBase'), 'wall.html formal calculation evaluates the P-M envelope', 'axial tension and eccentric compression use the formal section model');

@@ -14,7 +14,8 @@
  *   - Whitney 等值矩形應力方塊 a = β1·c, 應力 0.85·fc'。
  *   - 位於壓力方塊內的鋼筋扣除被排擠之混凝土應力 0.85·fc'。
  *   - 鋼筋彈塑性 (Es, ±fy 截斷)。
- *   - 強度折減 φ 依最外受拉鋼筋應變 εt 於 0.002~0.005 線性轉換 (規範 21.2.2)。
+ *   - 強度折減 φ 依最外受拉鋼筋應變 εt 於 εty~(εty+0.003) 線性轉換
+ *     (規範 21.2.2；εty=fy/Es，fy=4200 kgf/cm2 時得採 0.002)。
  *   - 軸壓設計上限 φPn,max = φc·α·Po (繫筋 α=0.80，螺箍 α=0.85)。
  *
  * 純函式, 同時支援瀏覽器 (window.PMSection) 與 Node (module.exports), 便於單元測試。
@@ -37,12 +38,14 @@
   }
 
   // φ — 依最外受拉鋼筋應變 εt 線性轉換 (規範 21.2.2)
-  function phiOf(epsT, phiComp, phiTen) {
+  function phiOf(epsT, phiComp, phiTen, epsTy) {
     const pc = (phiComp == null) ? DEFAULTS.phiComp : phiComp;
     const pt = (phiTen == null) ? DEFAULTS.phiTen : phiTen;
-    if (epsT >= 0.005) return pt;
-    if (epsT <= 0.002) return pc;
-    return pc + (pt - pc) * (epsT - 0.002) / 0.003;
+    const ey = (epsTy == null) ? 0.002 : epsTy;
+    if (!(ey > 0) || !isFinite(ey)) throw new Error('epsTy must be positive and finite');
+    if (epsT >= ey + 0.003) return pt;
+    if (epsT <= ey) return pc;
+    return pc + (pt - pc) * (epsT - ey) / 0.003;
   }
 
   // 斷面型式判讀。圓形以 D / diameter / b 代表直徑。
@@ -131,6 +134,7 @@
     const h = circle ? D : sec.h;
     const bars = sec.bars || [];
     const fc = mat.fc, fy = mat.fy;
+    const epsTy = fy / mat.Es;
     const Ag = circle ? Math.PI * D * D / 4 : b * h;
     const Ast = bars.reduce(function (s, r) { return s + r.As; }, 0);
     const Po = 0.85 * fc * (Ag - Ast) + fy * Ast;            // 標稱最大軸壓 (kgf)
@@ -149,7 +153,7 @@
       const c = cRatios[i] * refDepth;
       const pt = point(c, sec, mat);
       const epsT = EPS_CU * (dt - c) / c;
-      nominal.push({ P: pt.Pn, M: pt.Mn, phi: phiOf(epsT, mat.phiComp, mat.phiTen), c: c });
+      nominal.push({ P: pt.Pn, M: pt.Mn, phi: phiOf(epsT, mat.phiComp, mat.phiTen, epsTy), c: c });
     }
     nominal.push({ P: -Ast * fy, M: 0, phi: mat.phiTen, c: 0 });   // 純拉端
 
@@ -168,6 +172,7 @@
       dt: dt,
       Ag: Ag,
       beta1: mat.beta1,
+      epsTy: epsTy,
       shape: circle ? 'circle' : 'rect',
       refDepth: refDepth,
       phiFactorComp: mat.phiComp,

@@ -27,7 +27,7 @@ const tool = read(toolPath);
   '案件識別資料',
   '../shared/wall-inplane-evaluator.js?v=2',
   '../shared/wall-rebar-designer.js?v=1',
-  '../shared/pmsection.js?v=2',
+  '../shared/pmsection.js?v=3',
   'WallInplaneEvaluator.computeCapacity(wallInplaneEvaluatorBase)',
   'id="pmBoundaryRebar"',
   'id="wallPMDiagram"',

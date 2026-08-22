@@ -16,8 +16,10 @@ function example8() {
       fyKgfCm2: 4200,
       esKgfCm2: 2_040_000,
       layers: [
-        { yCm: 7, areaCm2: 30.42 },
-        { yCm: 73, areaCm2: 30.42 },
+        { yCm: 7, areaCm2: 20.28 },
+        { yCm: 17, areaCm2: 10.14 },
+        { yCm: 63, areaCm2: 10.14 },
+        { yCm: 73, areaCm2: 20.28 },
       ],
     },
     steel: {
@@ -62,7 +64,7 @@ function compare(production, oracle, paths, tolerance) {
   });
 }
 
-assert.equal(Oracle.ORACLE_VERSION, 'src-column.oracle.v0.1.0-research', 'independent oracle is explicitly versioned');
+assert.equal(Oracle.ORACLE_VERSION, 'src-column.oracle.v0.2.0-research', 'independent oracle is explicitly versioned');
 assert.equal(Oracle.SUPPORTED_SCHEMA, Production.INPUT_SCHEMA, 'oracle and production accept the same research input schema');
 const oracleSource = fs.readFileSync(path.join(__dirname, 'core', 'src-column-oracle.js'), 'utf8');
 assert.equal(oracleSource.includes('require('), false, 'oracle imports neither the production core nor shared PMSection');
@@ -110,11 +112,18 @@ const comparedPaths = [
   'redistribution.finalRcDemands.muxTfM',
 ];
 assert.deepEqual(compare(production, oracle, comparedPaths, 1e-10), [], 'independent oracle agrees with every covered production value');
+const rcComparedPaths = ['rc.phiMnTfM', 'rc.utilization', 'rc.phiPnMaxTf', 'rc.nominalPoTf'];
+assert.deepEqual(compare(production, oracle, ['rc.phiMnTfM'], 0.05), [], 'continuous oracle agrees with the production curve interpolation within 0.05 tf-m');
+assert.deepEqual(compare(production, oracle, ['rc.utilization'], 0.001), [], 'continuous oracle agrees with the production RC utilization');
+assert.deepEqual(compare(production, oracle, ['rc.phiPnMaxTf', 'rc.nominalPoTf'], 1e-10), [], 'independent oracle agrees on the RC axial caps');
 assert.equal(oracle.steel.compressionControlAxis, production.steel.compressionControlAxis, 'independent oracle agrees on the controlling compression axis');
 assert.equal(oracle.compactness.gradeGroup, production.compactness.gradeGroup, 'independent oracle agrees on the table grade group');
 assert.equal(oracle.compactness.ok, production.compactness.ok, 'independent oracle agrees on compactness disposition');
 assert.equal(production.steelSection.source.mode, 'catalog', 'production path resolves the official section from the catalog while the oracle keeps independent source values');
-assert.ok(oracle.coverage.uncovered.includes('rc-strain-compatibility-pm'), 'oracle does not overclaim RC P-M independence');
+assert.ok(oracle.coverage.covered.includes('rc-strain-compatibility-pm'), 'oracle declares its independent RC P-M coverage');
+assert.equal(oracle.rc.method, 'continuous-log-bisection', 'RC oracle uses a continuous neutral-axis solver rather than the production curve');
+assert.ok(Math.abs(oracle.rc.solution.designPTf - oracle.rc.demand.puTf) < 1e-9, 'continuous RC solution equilibrates the redistributed axial demand');
+assert.ok(Math.abs(oracle.rc.phiMnTfM - 126.5) / 126.5 < 0.05, 'independent result remains within 5% of the guide chart interpolation');
 
 const drifted = structuredClone(production);
 drifted.steel.nominalMomentXTfM += 0.01;
@@ -123,12 +132,28 @@ assert.deepEqual(
   ['steel.nominalMomentXTfM'],
   'comparison catches a production arithmetic drift'
 );
+const rcDrifted = structuredClone(production);
+rcDrifted.rc.phiMnTfM += 0.2;
+assert.deepEqual(
+  compare(rcDrifted, oracle, ['rc.phiMnTfM'], 0.05).map(item => item.path),
+  ['rc.phiMnTfM'],
+  'comparison catches an RC P-M production drift'
+);
 
 const grade400 = example8();
 grade400.steel.grade = 'SS400';
 const grade400Result = Oracle.compactness(grade400);
 assert.equal(grade400Result.flangeGeneralLimit, 23, 'oracle independently selects the 400-grade flange limit');
 assert.equal(grade400Result.webGeneralLimit, 96, 'oracle independently selects the 400-grade web limit');
+
+for (const fy of [2800, 5600]) {
+  const epsTy = fy / 2_040_000;
+  assert.equal(Oracle.rcPhiFromTensionStrain(epsTy, fy, 2_040_000), 0.65, `oracle uses fy/Es for the fy=${fy} compression-control limit`);
+  assert.ok(Math.abs(Oracle.rcPhiFromTensionStrain(epsTy + 0.0015, fy, 2_040_000) - 0.775) < 1e-12, `oracle uses the 0.003 transition width for fy=${fy}`);
+}
+const axialOutOfRange = Oracle.rcInteractionAtDemand(example8(), 1000, 0);
+assert.equal(axialOutOfRange.axialOk, false, 'RC oracle fails the demand outside the tied-column axial cap');
+assert.equal(axialOutOfRange.ok, false, 'out-of-range RC axial demand cannot pass');
 
 for (const mutate of [
   value => { value.schema = 'src-column.input.v999'; },
@@ -140,4 +165,4 @@ for (const mutate of [
   assert.throws(() => Oracle.calculate(invalid), Oracle.SrcColumnOracleError, 'oracle fails closed outside its declared scope');
 }
 
-console.log(`SRC column independent oracle OK (${comparedPaths.length} arithmetic comparisons + drift sentinel)`);
+console.log(`SRC column independent oracle OK (${comparedPaths.length + rcComparedPaths.length} arithmetic comparisons + two drift sentinels)`);

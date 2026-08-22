@@ -666,7 +666,7 @@
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/report.js?v=9"></script>
 
-<script src="../shared/pmsection.js?v=2"></script>
+<script src="../shared/pmsection.js?v=3"></script>
 <script src="../shared/column-evaluator.js?v=1"></script>
 <script src="../shared/column-rebar-designer.js?v=2"></script>
 <script src="../shared/column-transverse-designer.js?v=2"></script>
@@ -1854,6 +1854,13 @@
     return best;
   }
 
+  function columnPhiFromTensionStrain(epsT, fy, phiFactorComp) {
+    const epsTy = fy / ES;
+    if (epsT >= epsTy + 0.003) return PHI.tension;
+    if (epsT <= epsTy) return phiFactorComp;
+    return phiFactorComp + (PHI.tension - phiFactorComp) * (epsT - epsTy) / 0.003;
+  }
+
   function calcBiaxialFiberPoint(c, theta, sec, fc, fy, beta1, phiFactorComp, phiPnMax) {
     const nx = Math.sin(theta);
     const ny = Math.cos(theta);
@@ -1893,10 +1900,7 @@
     });
 
     const epsT = isFinite(zMinBar) ? 0.003 * ((zMax - zMinBar) - c) / c : 0;
-    let phi;
-    if (epsT >= 0.005) phi = PHI.tension;
-    else if (epsT <= 0.002) phi = phiFactorComp;
-    else phi = phiFactorComp + (PHI.tension - phiFactorComp) * (epsT - 0.002) / 0.003;
+    const phi = columnPhiFromTensionStrain(epsT, fy, phiFactorComp);
 
     let phiP = (Pn / 1000) * phi;
     if (Pn > 0 && phiP > phiPnMax) phiP = phiPnMax;
@@ -2024,10 +2028,7 @@
         ? calcPMPointCircle(c, D, fc, fy, bars, beta1)
         : calcPMPoint(c, bDim, hDim, fc, fy, bars, beta1);
       const epsT = 0.003 * (dt - c) / c;
-      let phi;
-      if (epsT >= 0.005) phi = PHI.tension;
-      else if (epsT <= 0.002) phi = phiFactorComp;
-      else phi = phiFactorComp + (PHI.tension - phiFactorComp) * (epsT - 0.002) / 0.003;
+      const phi = columnPhiFromTensionStrain(epsT, fy, phiFactorComp);
       curve.push({ P: Pn / 1000, M: Mn / 1e5, phi });
     }
     curve.push({ P: -Ast * fy / 1000, M: 0, phi: PHI.tension });
@@ -3488,9 +3489,10 @@
         '  • 對應從純壓 Po 平滑掃到純拉狀態，覆蓋整條 PM 曲線',
         '',
         '【φ 強度折減】依最外受拉鋼筋實際位置 dt 計算拉應變 εt (規範 21.2.2)',
-        `  • εt ≤ 0.002 → 壓控 φ = ${(colType==='circle'?PHI.compSpiral:PHI.compTied).toFixed(2)}`,
-        `  • εt ≥ 0.005 → 拉控 φ = ${PHI.tension.toFixed(2)}`,
-        '  • 0.002 < εt < 0.005 → 線性過渡',
+        `  • εty = fy/Es = ${(fy / ES).toFixed(6)}`,
+        `  • εt ≤ εty → 壓控 φ = ${(colType==='circle'?PHI.compSpiral:PHI.compTied).toFixed(2)}`,
+        `  • εt ≥ εty + 0.003 = ${(fy / ES + 0.003).toFixed(6)} → 拉控 φ = ${PHI.tension.toFixed(2)}`,
+        '  • εty < εt < εty + 0.003 → 線性過渡',
         '',
         '【最大軸力封頂】(規範 22.4.2.1)',
         `  • φPn,max = ${(colType==='circle'?0.85:0.80)} · φ · Po (上限封頂)`,

@@ -155,7 +155,7 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 2,
-    generatedAt: '2026-08-21',
+    generatedAt: '2026-08-22',
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
@@ -165,10 +165,10 @@
       '/section': '2026-08-21',
       '/composite-section': '2026-08-16',
       '/rc-beam': '2026-08-19',
-      '/rc-column': '2026-08-19',
+      '/rc-column': '2026-08-22',
       '/rc-slab': '2026-08-19',
-      '/rc-wall': '2026-08-19',
-      '/rc-shear-wall': '2026-08-19',
+      '/rc-wall': '2026-08-22',
+      '/rc-shear-wall': '2026-08-22',
       '/rc-foundation': '2026-08-19',
       '/rc-pile': '2026-08-19',
       '/rc-retrofit-section': '2026-08-19',

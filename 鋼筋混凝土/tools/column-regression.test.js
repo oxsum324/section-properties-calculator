@@ -828,6 +828,8 @@ async function main() {
   assert(html.includes('refreshLimitStateSuggestions(window.rcColumnLoadComboConfig)'), 'column section changes refresh capacity suggestions', 'reactive capacity refresh');
   assert(!html.includes('(swayMode && isFinite(deltaS)) ? deltaS : 1'), 'column no longer falls back to deltaS=1 when sway magnification is unstable', 'fail-closed sway magnification');
   assert(html.includes('pmCore.curve'), 'column.html calls shared PM section engine', 'rectangular column P-M uses shared core');
+  assert(html.includes('function columnPhiFromTensionStrain') && html.includes('epsTy + 0.003'), 'column biaxial and fallback paths use the fy/Es phi transition', 'regulation 21.2.2 transition is consistent across modes');
+  assert(html.includes('εty = fy/Es') && html.includes('εty + 0.003'), 'column calculation text reports the adopted phi transition', 'report formula matches the calculation core');
   assert(html.includes('reportCoverage'), 'column.html builds report coverage matrix', 'code-clause coverage matrix exists');
   assert(html.includes('id="columnMethodBoundaryCard"'), 'column.html keeps method boundaries on work page', 'method explanations remain page-only');
   assert(html.includes('本區僅供操作與判讀，不會寫入計算書或列印 PDF'), 'column.html labels report boundary', 'page explains what the calculation book excludes');

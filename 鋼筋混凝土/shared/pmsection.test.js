@@ -48,6 +48,20 @@ near(PM.beta1Of(560), 0.65, 1e-9, 'β1(560)=0.65');
 near(PM.phiOf(0.006, 0.65, 0.90), 0.90, 1e-9, 'φ 拉力控制 (εt≥0.005)');
 near(PM.phiOf(0.001, 0.65, 0.90), 0.65, 1e-9, 'φ 壓力控制 (εt≤0.002)');
 near(PM.phiOf(0.0035, 0.65, 0.90), 0.65 + 0.25 * 0.5, 1e-9, 'φ 過渡區線性內插');
+{
+  const Es = 2.04e6;
+  const epsTy2800 = 2800 / Es;
+  const epsTy5600 = 5600 / Es;
+  near(PM.phiOf(epsTy2800, 0.65, 0.90, epsTy2800), 0.65, 1e-9, 'φ 壓力控制門檻依 fy/Es（fy=2800）');
+  near(PM.phiOf(epsTy2800 + 0.0015, 0.65, 0.90, epsTy2800), 0.775, 1e-9, 'φ 過渡區依 fy/Es（fy=2800）');
+  near(PM.phiOf(epsTy5600 + 0.003, 0.65, 0.90, epsTy5600), 0.90, 1e-9, 'φ 拉力控制門檻依 fy/Es（fy=5600）');
+  const grade5600 = PM.curve(
+    { b: 50, h: 60, bars: [{ y: 6, As: 10 }, { y: 54, As: 10 }] },
+    { fc: 280, fy: 5600, Es: Es },
+    { steps: 20 }
+  );
+  near(grade5600.epsTy, epsTy5600, 1e-9, 'P-M 曲線公開採用之 εty');
+}
 
 // ── 3. 純軸壓 Po (大 c → Pn=Po, Mn=0) ──
 (function () {
@@ -125,7 +139,7 @@ near(PM.phiOf(0.0035, 0.65, 0.90), 0.65 + 0.25 * 0.5, 1e-9, 'φ 過渡區線性�
     { cRatios: ratios }
   );
   near(cv.phiPnMax, 686.2910434732414, 1e-10, '圓柱 φPn,max 對齊柱頁基準');
-  near(PM.phiMnAtPu(cv.design, 220), 71.04066971868404, 1e-10, '圓柱 φMn@Pu 對齊柱頁基準');
+  near(PM.phiMnAtPu(cv.design, 220), 70.8098831413698, 1e-10, '圓柱 φMn@Pu 對齊依 fy/Es 修正之基準');
 })();
 
 console.log(`\n${fail === 0 ? '✓ ALL PASS' : '✗ HAS FAILURES'} — ${pass} passed, ${fail} failed`);

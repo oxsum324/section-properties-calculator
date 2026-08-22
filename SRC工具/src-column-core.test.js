@@ -25,8 +25,10 @@ function officialGuideExample8() {
       fyKgfCm2: 4200,
       esKgfCm2: 2_040_000,
       layers: [
-        { yCm: 7, areaCm2: 6 * 5.07 },
-        { yCm: 73, areaCm2: 6 * 5.07 },
+        { yCm: 7, areaCm2: 4 * 5.07 },
+        { yCm: 17, areaCm2: 2 * 5.07 },
+        { yCm: 63, areaCm2: 2 * 5.07 },
+        { yCm: 73, areaCm2: 4 * 5.07 },
       ],
     },
     steel: {
@@ -64,7 +66,7 @@ function manualExample8() {
   return input;
 }
 
-assert.equal(Core.CORE_VERSION, 'src-column.core.v0.3.0-research', 'SRC column core is explicitly versioned as research');
+assert.equal(Core.CORE_VERSION, 'src-column.core.v0.4.0-research', 'SRC column core is explicitly versioned as research');
 assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v3', 'SRC column core has a versioned input schema');
 assert.equal(Core.RELEASE_STATUS, 'research-core-not-public', 'research core cannot be mistaken for a formal public route');
 assert.equal(Core.REGULATION_PROFILE.id, 'tw-src-2011', 'SRC column core uses the official current profile');
@@ -111,7 +113,8 @@ assert.equal(official.redistribution.applied, true, 'example 8 applies clauses 7
 close(official.redistribution.finalRcDemands.puTf, 416.4, 0.3, 'example 8 redistributed RC axial demand');
 close(official.redistribution.finalRcDemands.muxTfM, 64.2, 0.6, 'example 8 redistributed RC moment demand');
 close(official.steel.finalInteraction.utilization, 1.0, 1e-10, 'redistribution places steel on its interaction boundary');
-close(official.rc.phiMnTfM, 126.5, 2.0, 'current strain-compatibility RC capacity agrees with official chart example');
+close(official.rc.phiMnTfM, 121.4, 0.15, 'strain-compatibility RC capacity follows the four-layer bar layout shown in the guide');
+assert.ok(Math.abs(official.rc.phiMnTfM - 126.5) / 126.5 < 0.05, 'continuous strain compatibility remains within 5% of the guide chart interpolation');
 assert.equal(official.checks.steelInteraction, true, 'official example steel portion passes');
 assert.equal(official.checks.rcInteraction, true, 'official example RC portion passes');
 assert.equal(official.checks.compactness, true, 'official example compactness passes');
@@ -155,7 +158,7 @@ const failClosedCases = [
   ['main-bars-not-continuous', input => { input.detailing.mainBarsContinuous = false; }],
   ['unsupported-steel-grade', input => { input.steel.grade = 'unknown'; }],
   ['compression-demand-required', input => { input.demands.puTf = 0; }],
-  ['longitudinal-ratio-below-scope', input => { input.reinforcement.layers.forEach(layer => { layer.areaCm2 = 20; }); }],
+  ['longitudinal-ratio-below-scope', input => { input.reinforcement.layers.forEach(layer => { layer.areaCm2 = 10; }); }],
   ['longitudinal-ratio-above-scope', input => { input.reinforcement.layers.forEach(layer => { layer.areaCm2 = 220; }); }],
   ['concrete-strength-below-scope', input => { input.concrete.fcKgfCm2 = 209; }],
   ['high-strength-concrete-evidence-missing', input => { input.concrete.fcKgfCm2 = 421; }],
@@ -195,6 +198,9 @@ assert.equal(catalog.coreVersion, Core.CORE_VERSION, 'SRC column traceability fo
 assert.equal(catalog.release.status, Core.RELEASE_STATUS, 'traceability catalog keeps the core non-public');
 assert.equal(catalog.regulation.chapter3Url, Core.REGULATION_PROFILE.chapter3Url, 'catalog and core use the same official chapter 3 source');
 assert.equal(catalog.regulation.chapter7Url, Core.REGULATION_PROFILE.chapter7Url, 'catalog and core use the same official chapter 7 source');
+assert.equal(catalog.concreteRegulation.officialPage, 'https://www.nlma.gov.tw/ch/legislation/regsearch/6874', 'catalog identifies the official 112 concrete regulation page');
+assert.equal(catalog.concreteRegulation.officialPdf, 'https://www.nlma.gov.tw/uploads/files/011d9249cac7d6c5547786aa348e352a.pdf', 'catalog locks the reviewed official concrete regulation PDF');
+assert.deepEqual(catalog.concreteRegulation.clauses.map(item => item.clause), ['21.2.2', '22.2.2', '22.2.2.4.1、22.4.2'], 'catalog traces the RC strain, stress block, phi, and axial-cap clauses');
 assert.equal(catalog.sectionCatalog.version, official.steelSection.source.catalogVersion, 'traceability identifies the adopted H-section catalog version');
 assert.equal(catalog.sectionCatalog.source.printedPage, official.steelSection.source.printedPage, 'traceability preserves the section source page');
 assert.equal(catalog.sectionCatalog.entryCount, 7, 'traceability states the deliberately limited catalog coverage');
@@ -206,13 +212,16 @@ assert.deepEqual(
 assert.equal(catalog.goldenCases[0].id, 'MOI-SRC-GUIDE-COLUMN-EXAMPLE-8', 'official example 8 remains the canonical research golden case');
 assert.equal(catalog.goldenCases[0].sectionCatalogId, official.steelSection.source.catalogId, 'golden case locks the verified section identity');
 assert.ok(catalog.goldenCases[0].sourceArithmeticNote.includes('57.1') && catalog.goldenCases[0].sourceArithmeticNote.includes('56.7'), 'catalog discloses the guide example arithmetic inconsistency');
+assert.ok(catalog.goldenCases[0].reinforcementLayoutNote.includes('y=7/17/63/73 cm'), 'catalog preserves the four-layer interpretation of the guide section drawing');
+close(catalog.goldenCases[0].expected.continuousPhiMnTfM, official.rc.phiMnTfM, 0.15, 'catalog preserves the continuous four-layer RC capacity benchmark');
 close(catalog.goldenCases[0].expected.flangeRatio, official.compactness.flangeRatio, 1e-9, 'catalog preserves the example 8 flange compactness benchmark');
 close(catalog.goldenCases[0].expected.webRatio, official.compactness.webRatio, 1e-9, 'catalog preserves the example 8 web compactness benchmark');
 close(catalog.goldenCases[0].expected.flangeSeismicReferenceLimit, official.compactness.flangeSeismicLimit, 1e-9, 'catalog preserves the example 8 flange lambda_pd reference');
 close(catalog.goldenCases[0].expected.webSeismicReferenceLimit, official.compactness.webSeismicLimit, 1e-9, 'catalog preserves the example 8 web lambda_pd reference');
 assert.equal(catalog.oracle.file, 'core/src-column-oracle.js', 'catalog identifies the independent oracle');
-assert.equal(catalog.oracle.comparisonCount, 30, 'catalog states the independently compared arithmetic surface');
-assert.ok(catalog.oracle.uncovered.includes('RC 應變相容 P-M'), 'catalog does not overclaim independent RC P-M coverage');
+assert.equal(catalog.oracle.comparisonCount, 34, 'catalog states the independently compared arithmetic surface');
+assert.ok(catalog.oracle.covered.includes('RC 應變相容 P-M'), 'catalog declares the completed independent RC P-M coverage');
+assert.equal(catalog.oracle.uncovered.includes('RC 應變相容 P-M'), false, 'catalog no longer lists completed RC P-M work as uncovered');
 
 for (const missingPath of ['depthCm', 'flangeWidthCm', 'flangeThicknessCm', 'webThicknessCm']) {
   const input = manualExample8();

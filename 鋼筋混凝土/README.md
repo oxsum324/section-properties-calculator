@@ -121,6 +121,8 @@ RC 專案 JSON 與正式計算書共用同一枚 `CF-` 計算指紋。指紋納�
 
 牆報告視覺 smoke contract 位於 [tools/wall-report-visual.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/wall-report-visual.contract.test.js:1)，固定檢查 visual smoke 案例、wrapper wiring、頁面附件閱讀狀態邊界與輸出證據檔名，避免地下室外牆或 SBE page-only 提示漂移進計算書。
 
+柱、一般牆與特殊結構牆共用 `shared/pmsection.js` 的單軸應變相容核心。112 年版規範 21.2.2 的強度折減轉換採 `εty=fy/Es` 至 `εty+0.003`；RC 柱雙軸角度掃描與本機備援路徑採同一門檻，避免不同鋼筋等級仍固定套用 0.002／0.005。
+
 牆報告視覺 smoke 已接在 [tools/test-wall.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/test-wall.ps1:1)，會以瀏覽器產生計算書，檢查：
 
 - 結構牆耐震與地下室外牆面外兩種代表報告情境。
