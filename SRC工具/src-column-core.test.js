@@ -528,14 +528,25 @@ assert.throws(
 
 const catalogPath = path.join(__dirname, 'src-column-traceability.catalog.json');
 const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
-assert.equal(catalog.schemaVersion, 14, 'SRC column traceability schema includes the controlled same-member dual-axis package');
+assert.equal(catalog.schemaVersion, 15, 'SRC column traceability schema includes the controlled attachment-responsibility package');
 assert.equal(catalog.coreVersion, Core.CORE_VERSION, 'SRC column traceability follows the research engine version');
 assert.equal(catalog.release.status, Core.RELEASE_STATUS, 'traceability catalog keeps the core non-public');
 assert.equal(catalog.formalPromotionReadiness.status, 'blocked', 'formal promotion remains fail-closed while declared blockers exist');
 assert.equal(catalog.formalPromotionReadiness.evaluatedPageVersion, 'v0.7');
 assert.ok(catalog.formalPromotionReadiness.satisfied.some(item => item.includes('X／Y') && item.includes('計算指紋')), 'readiness records the completed dual-axis evidence');
-assert.ok(catalog.formalPromotionReadiness.blocking.length > 0, 'formal approval cannot be opened without resolving explicit blockers');
+assert.ok(catalog.formalPromotionReadiness.satisfied.some(item => item.includes('正式附件責任分工')), 'readiness records the completed attachment responsibility boundary');
+assert.equal(catalog.formalPromotionReadiness.blocking.length, 2, 'formal approval remains blocked only by material provenance and formal-release evidence');
 assert.ok(catalog.formalPromotionReadiness.safeguard.includes('formalApprovalAllowed=false'), 'readiness contract preserves the formal-approval safeguard');
+assert.equal(catalog.attachmentResponsibility.contractId, 'src-column-member-calculation-attachment.v1');
+assert.equal(catalog.attachmentResponsibility.reportRule.includes('不作為計算書警告'), true, 'responsibility guidance stays outside the calculation report');
+assert.deepEqual(
+  catalog.attachmentResponsibility.workPackages.map(item => item.status),
+  ['included', 'referenced-input', 'separate-attachment'],
+  'responsibility contract distinguishes member calculation, adopted project inputs, and separate attachments'
+);
+assert.equal(new Set(catalog.attachmentResponsibility.workPackages.map(item => item.id)).size, 3, 'responsibility work-package ids are unique');
+assert.ok(catalog.attachmentResponsibility.workPackages.every(item => item.owner && item.items.length >= 4), 'every responsibility work package has an owner and concrete contents');
+assert.ok(catalog.attachmentResponsibility.packagingRules.some(item => item.includes('不構成工程結果 NG')), 'blank project metadata remains an acceptable attachment condition');
 assert.equal(catalog.regulation.chapter3Url, Core.REGULATION_PROFILE.chapter3Url, 'catalog and core use the same official chapter 3 source');
 assert.equal(catalog.regulation.chapter5Url, Core.REGULATION_PROFILE.chapter5Url, 'catalog and core use the same official chapter 5 source');
 assert.equal(catalog.regulation.chapter7Url, Core.REGULATION_PROFILE.chapter7Url, 'catalog and core use the same official chapter 7 source');

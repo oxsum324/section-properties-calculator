@@ -106,6 +106,14 @@ async function main() {
     assert.equal(initial.strongColumnOk, true);
     assert.equal(initial.confinementOk, true);
     assert.match(initial.fingerprint, /^CF-[A-F0-9]{16}$/);
+    const responsibilityMatrix = page.locator('#attachmentResponsibility');
+    await responsibilityMatrix.waitFor({ state: 'visible' });
+    assert.equal(await responsibilityMatrix.getAttribute('data-contract-id'), 'src-column-member-calculation-attachment.v1');
+    const responsibilityText = await responsibilityMatrix.innerText();
+    for (const needle of ['本計算附件', '主文／專案資料', '另案附件', '接頭區剪力', '銲道', '柱腳']) {
+      assert.ok(responsibilityText.includes(needle), `HTML responsibility matrix includes ${needle}`);
+    }
+    assert.equal(await responsibilityMatrix.locator('[data-responsibility]').count(), 3);
     await page.click('#btnCaptureAxis');
     assert.match(await page.locator('#axisPairStatus').innerText(), new RegExp(`X 向 ${initial.fingerprint}`));
     assert.equal(await page.locator('#btnDualReport').isDisabled(), true, '只記錄 X 向時不得產生雙向彙總');
@@ -301,7 +309,7 @@ async function main() {
       '第 8.4.2 節採用接頭面分量彎矩', '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
       '第 8.4.2 節接頭撓曲強度比', '第 9.6 節X 向（鋼骨強軸）耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論',
     ]) assert.ok(reportText.includes(needle), `report includes ${needle}`);
-    for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', 'DRAFT', '非正式附件', '接頭區剪力與接合細部']) {
+    for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', 'DRAFT', '非正式附件', '接頭區剪力與接合細部', '附件分工原則', '另案附件']) {
       assert.equal(reportText.includes(needle), false, `report excludes ${needle}`);
     }
     const reportDiagram = report.locator('.rep-diagram img[alt="SRC 柱計算斷面"]');
@@ -370,7 +378,7 @@ async function main() {
       'x=7.0 cm', 'Y 向 RC b / d / b′', '一般剪力：Vnr + Vnc', '剪力摩擦：Vnr′ + Vnc′ + Vns',
       '第 9.6 節Y 向（鋼骨弱軸）耐震子檢核', '第 9.6.2 節Y 向（鋼骨弱軸）柱剪力',
     ]) assert.ok(weakAxisReportText.includes(needle), `weak-axis report includes ${needle}`);
-    for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', '本對照卡只顯示於 HTML', '可選外部對照', 'DRAFT', '非正式附件']) {
+    for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', '本對照卡只顯示於 HTML', '可選外部對照', 'DRAFT', '非正式附件', '附件分工原則', '另案附件']) {
       assert.equal(weakAxisReportText.includes(needle), false, `weak-axis report excludes ${needle}`);
     }
     const weakAxisPdfPath = path.join(outDir, 'src-column-research-y-axis-report.pdf');
@@ -420,7 +428,7 @@ async function main() {
       'X 向｜第 9.6 節X 向（鋼骨強軸）耐震子檢核', 'Y 向｜第 9.6 節Y 向（鋼骨弱軸）耐震子檢核',
       '本案 SRC 柱 X 向與 Y 向已實作之耐震子檢核均通過',
     ]) assert.ok(dualReportText.includes(needle), `dual-axis report includes ${needle}`);
-    for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', 'DRAFT', '非正式附件', '接頭區剪力與接合細部']) {
+    for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', 'DRAFT', '非正式附件', '接頭區剪力與接合細部', '附件分工原則', '另案附件']) {
       assert.equal(dualReportText.includes(needle), false, `dual-axis report excludes ${needle}`);
     }
     const dualApproval = dualReport.getByRole('checkbox', { name: '核可為正式附件' });

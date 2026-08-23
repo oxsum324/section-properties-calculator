@@ -12,6 +12,7 @@ const html = fs.readFileSync(path.join(__dirname, 'src-column.html'), 'utf8');
 const source = fs.readFileSync(path.join(__dirname, 'src-column.js'), 'utf8');
 const directPrintCss = fs.readFileSync(path.join(repoRoot, '結構工具箱', 'core', 'direct-print-boundary.css'), 'utf8');
 const boundary = JSON.parse(fs.readFileSync(path.join(repoRoot, '結構工具箱', 'tools', 'calculation-book-content-boundary.json'), 'utf8'));
+const traceability = JSON.parse(fs.readFileSync(path.join(__dirname, 'src-column-traceability.catalog.json'), 'utf8'));
 const reportRuntimePath = path.join(repoRoot, '結構工具箱', 'core', 'ui', 'report.js');
 const governanceDocs = ['README.md', 'TOOL_BOUNDARIES.md', 'STAGING_GROUPS.md']
   .map(file => fs.readFileSync(path.join(repoRoot, file), 'utf8'))
@@ -141,6 +142,12 @@ assert.match(html, /id="btnImportCase"/);
 assert.match(html, /id="btnCaptureAxis"/);
 assert.match(html, /id="btnDualReport"[^>]*disabled/);
 assert.match(html, /id="btnExportDualCase"[^>]*disabled/);
+assert.match(html, /id="attachmentResponsibility"[^>]*data-contract-id="src-column-member-calculation-attachment\.v1"/);
+for (const responsibility of ['included', 'referenced-input', 'separate-attachment']) {
+  assert.match(html, new RegExp(`data-responsibility="${responsibility}"`), `page exposes ${responsibility} responsibility`);
+}
+assert.equal(traceability.attachmentResponsibility.workPackages.length, 3);
+assert.equal(traceability.formalPromotionReadiness.blocking.length, 2);
 for (const needle of ['V0.7', '雙向案件 schema v1', 'formalPromotionReadiness', 'formalApprovalAllowed=false']) {
   assert.equal(governanceDocs.includes(needle), true, `root governance documents preserve ${needle}`);
 }
@@ -380,7 +387,7 @@ for (const needle of [
   '第 9.6.2 節採用柱剪力資料', '第 8.4.2 節採用接頭面分量彎矩', '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
   '第 8.4.2 節接頭撓曲強度比', '第 9.6 節X 向（鋼骨強軸）耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論',
 ]) assert.ok(renderedText.includes(needle), `rendered report includes ${needle}`);
-for (const needle of [...forbidden, '適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', '接頭區剪力與接合細部']) {
+for (const needle of [...forbidden, '適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', '接頭區剪力與接合細部', '附件分工原則', '另案附件']) {
   assert.equal(renderedText.includes(needle), false, `rendered report excludes ${needle}`);
 }
 assert.equal(renderedText.includes('計畫名稱'), false);
@@ -406,7 +413,7 @@ const renderedDualText = visibleText(renderedDualHtml);
 for (const needle of ['SRC 柱 X／Y 雙向耐震研究核算計算書', '雙向核算索引', 'X 向計算指紋', 'Y 向計算指紋', 'X 向｜構材斷面與軸彎互制', 'Y 向｜構材斷面與軸彎互制']) {
   assert.ok(renderedDualText.includes(needle), `rendered dual-axis report includes ${needle}`);
 }
-for (const needle of [...forbidden, '適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', '接頭區剪力與接合細部']) {
+for (const needle of [...forbidden, '適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', '接頭區剪力與接合細部', '附件分工原則', '另案附件']) {
   assert.equal(renderedDualText.includes(needle), false, `rendered dual-axis report excludes ${needle}`);
 }
 assert.match(renderedDualHtml, /data-formal-approval-allowed="false"/);

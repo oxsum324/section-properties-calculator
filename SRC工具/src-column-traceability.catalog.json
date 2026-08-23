@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 14,
+  "schemaVersion": 15,
   "tool": "src-column-research-core",
   "coreVersion": "src-column.core.v0.12.0-research",
   "regulation": {
@@ -73,6 +73,53 @@
       "填充型與十字、T 型鋼骨"
     ]
   },
+  "attachmentResponsibility": {
+    "schemaVersion": 1,
+    "contractId": "src-column-member-calculation-attachment.v1",
+    "principle": "本計算書可作為 SRC 柱構材核算附件；未納入本附件的系統分析、接頭區與接合細部由主文或其他附件承接，不因未重複併入本計算書而將構材核算結果判定為 NG。",
+    "reportRule": "計算書只列本附件實際採用的規範、輸入、公式代入、結果與結論；責任矩陣、操作提醒與升格待辦只顯示於 HTML 與治理資料，不作為計算書警告。",
+    "workPackages": [
+      {
+        "id": "src-column-member-calculation",
+        "owner": "本計算附件",
+        "status": "included",
+        "items": [
+          "完全包覆矩形 SRC 柱之斷面、材料、寬厚比、P-M／P-M-M 與規範容許重分配",
+          "第 9.3 節耐震軸向強度與選定方向第 9.6.2 節柱剪力",
+          "第 8.4.2 節接頭面分量彎矩比、第 9.6.1 節強柱弱梁及第 9.6.3 節柱圍束之算術檢核",
+          "同一構材 X／Y 方向配對、雙向彙總與可重現計算指紋"
+        ]
+      },
+      {
+        "id": "project-analysis-and-adopted-inputs",
+        "owner": "主文／專案分析／引用附件",
+        "status": "referenced-input",
+        "items": [
+          "已納入 P-Δ 效應的設計需求、載重組合與適用耐震條件",
+          "Fu、拉力設計強度、傳力容量與免檢條件之專案依據",
+          "接頭面梁柱名義彎矩、可能塑鉸彎矩與各載重組合軸力下之柱容量",
+          "型鋼性質、材料規格、供貨狀態與材證；採用 AISC G6 時之專案指定與無扭轉確認"
+        ]
+      },
+      {
+        "id": "system-joint-and-detail-attachments",
+        "owner": "另案附件",
+        "status": "separate-attachment",
+        "items": [
+          "全構架分析、正交構架、所有接頭與系統層級設計",
+          "梁柱接頭區剪力、連續板／加勁板與局部傳力",
+          "接合板、銲道、螺栓、鋼筋錨定及施工可行性",
+          "構材續接、柱腳、錨栓、基礎介面及施工階段強度與穩定"
+        ]
+      }
+    ],
+    "packagingRules": [
+      "本附件可獨立作為 SRC 柱構材核算附件，不要求將全構架、接頭區與全部接合細部重複塞入同一計算書。",
+      "採用的專案輸入須可追溯至主文、分析模型或引用附件；缺少必要輸入時由輸入驗證阻擋，不以大面積 DRAFT 警告取代。",
+      "工程名稱、計畫編號與設計人員得留空並由主文承接，不構成工程結果 NG。",
+      "本責任分工完成不等於正式升格；formalPromotionReadiness.blocking 非空時仍不得開放正式核可。"
+    ]
+  },
   "release": {
     "status": "research-core-not-public",
     "publicRoute": false,
@@ -87,10 +134,10 @@
       "已實作範圍具官方教材例題、AISC 官方例題與不引用 production 的獨立 oracle",
       "單向與雙向計算書只列採用資料、公式代入、檢核結果與結論",
       "同案 X／Y 方向可配對、合併列印、匯出與重現雙向計算指紋",
-      "空白計畫名稱、編號與設計人員不會被判定為 NG"
+      "空白計畫名稱、編號與設計人員不會被判定為 NG",
+      "SRC 柱構材計算、主文／專案輸入與全構架／接頭區／接合細部另案附件已建立機器可讀的正式附件責任分工"
     ],
     "blocking": [
-      "尚未完成全構架接頭、接頭區剪力、接合板、銜道、螺栓、錨定與柱腳細部的範圍定義與正式附件分工",
       "catalog 以外型鋼性質、現況供貨與專案材證的正式來源政策尚未定案",
       "尚未納入正式工具清冊、獨立工程基準、rendered-delivery inventory 與 release 當輪核可完整性證據"
     ],

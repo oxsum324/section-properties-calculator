@@ -54,6 +54,21 @@
           <h2>適用範圍與輸出邊界</h2>
           <p>目前涵蓋完全包覆矩形 SRC 柱、置中雙對稱 H 型鋼骨、橫箍筋柱，以及一次選定 X 或 Y 方向的柱子檢核。可分別記錄兩方向，產生同一構材的 X／Y 雙向彙總計算書與可重現的雙向案件 JSON。專案分析必須已將 P-Δ 效應反映於選定方向需求；接頭區剪力與接合細部、柱腳及完整構架仍須另案檢核。Y 向鋼骨不挪用台灣 SRC 第 5.5.1 節的 X 向腹板公式，可採專案確認值，或在專案明確指定 ANSI/AISC 360-22 G6 且確認無扭轉時自動計算；Y 向 RC 可依第 5.5.2 節自動計算或採專案確認值。</p>
           <p><strong>計算書只保留採用資料、公式代入、檢核結果與結論。</strong>本段研究邊界與待複核事項只顯示於 HTML。研究計算書可列印，但正式附件核可尚未開放。</p>
+          <div id="attachmentResponsibility" class="src-responsibility-grid" data-contract-id="src-column-member-calculation-attachment.v1">
+            <article data-responsibility="included">
+              <h3>本計算附件</h3>
+              <p>SRC 柱構材的斷面、材料、P-M／P-M-M、耐震軸力、選定方向柱剪力、接頭比值與強柱弱梁算術、柱圍束，以及同案 X／Y 彙總。</p>
+            </article>
+            <article data-responsibility="referenced-input">
+              <h3>主文／專案資料</h3>
+              <p>結構分析需求與 P-Δ、Fu 與傳力條件、接頭面彎矩與柱容量、型鋼及材料來源；本工具採用但不替專案產生這些依據。</p>
+            </article>
+            <article data-responsibility="separate-attachment">
+              <h3>另案附件</h3>
+              <p>全構架與正交構架、接頭區剪力、連續板／加勁板、接合板、銲道、螺栓、錨定、續接、柱腳、基礎介面及施工階段。</p>
+            </article>
+          </div>
+          <p class="src-responsibility-note"><strong>附件分工原則：</strong>另案項目不必重複塞入本計算書，也不會僅因未併入而把 SRC 柱構材核算判定為 NG；必要專案輸入缺漏時仍由既有輸入檢查阻擋。工程名稱、編號與設計者可留空並由主文承接。</p>
           <div class="src-meta-chips"><span>現行 100 年修正版</span><span id="coreVersion">Core —</span><span>案件 schema v6</span><span>雙向案件 schema v1</span><span class="src-research-chip">私有研究工具</span></div>
         </section>
 
