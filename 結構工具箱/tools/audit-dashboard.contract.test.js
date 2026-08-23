@@ -1234,8 +1234,8 @@ if (fs.existsSync(maturityMatrixPath)) {
   assert.deepEqual(independentBenchmarkGate.catalogFamilies, [], 'maturity globalGovernance independent engineering benchmark relevant families empty');
   assert.deepEqual(independentBenchmarkGate.issues, [], 'maturity globalGovernance independent engineering benchmark issues empty');
   assert.equal(matrix.independentBenchmarkCoverage?.status, 'ready', 'maturity independent engineering benchmark pilot ready');
-  assert.equal(matrix.independentBenchmarkCoverage?.summary?.pilotVerified, 32, 'maturity independent engineering benchmark pilot verified');
-  assert.equal(matrix.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes, 32, 'maturity independent engineering benchmark eligible formal routes');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.pilotVerified, 33, 'maturity independent engineering benchmark pilot verified');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes, 33, 'maturity independent engineering benchmark eligible formal routes');
   assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidateRequired, 0, 'maturity independent engineering candidate required');
   assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidateVerified, 0, 'maturity independent engineering candidate verified');
   assert.equal(matrix.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes, matrix.entrypointCoverage?.byState?.formal, 'maturity independent engineering benchmark portfolio matches formal homepage entries');
