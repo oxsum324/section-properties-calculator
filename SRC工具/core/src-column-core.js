@@ -40,8 +40,8 @@
 })(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnCore(PMSection, HSectionCatalog, RcBiaxial, ColumnShear, SeismicDetailing, SeismicAxial) {
   'use strict';
 
-  const CORE_VERSION = 'src-column.core.v0.10.0-research';
-  const INPUT_SCHEMA = 'src-column.input.v9';
+  const CORE_VERSION = 'src-column.core.v0.11.0-research';
+  const INPUT_SCHEMA = 'src-column.input.v10';
   const RELEASE_STATUS = 'research-core-not-public';
   const REGULATION_PROFILE = Object.freeze({
     id: 'tw-src-2011',
@@ -342,6 +342,7 @@
     }
 
     if (shearRequested) {
+      const weakAxisRcDesignBasis = shear.weakAxisRcDesignBasis || 'project-confirmed';
       const positiveShearFields = [['shear.clearHeightCm', shear.clearHeightCm]];
       if (seismicAxis === 'x') {
         positiveShearFields.push(
@@ -353,20 +354,33 @@
           ['shear.fyhKgfCm2', shear.fyhKgfCm2]
         );
       } else if (seismicAxis === 'y') {
-        positiveShearFields.push(
-          ['shear.weakAxisSteelNominalShearTf', shear.weakAxisSteelNominalShearTf],
-          ['shear.weakAxisRcNominalShearTf', shear.weakAxisRcNominalShearTf]
-        );
+        if (!['automatic-clause-5.5.2', 'project-confirmed'].includes(weakAxisRcDesignBasis)) {
+          addBlocked('unsupported-weak-axis-rc-design-basis', 'shear.weakAxisRcDesignBasis', 'Y 向 RC 剪力依據必須選擇「第 5.5.2 節自動計算」或「專案確認值」。');
+        }
+        positiveShearFields.push(['shear.weakAxisSteelNominalShearTf', shear.weakAxisSteelNominalShearTf]);
+        if (weakAxisRcDesignBasis === 'automatic-clause-5.5.2') {
+          positiveShearFields.push(
+            ['shear.weakAxisEffectiveDepthCm', shear.weakAxisEffectiveDepthCm],
+            ['shear.weakAxisAvCm2', shear.weakAxisAvCm2],
+            ['shear.weakAxisAvfCm2', shear.weakAxisAvfCm2],
+            ['shear.spacingCm', shear.spacingCm],
+            ['shear.fyhKgfCm2', shear.fyhKgfCm2]
+          );
+        } else {
+          positiveShearFields.push(['shear.weakAxisRcNominalShearTf', shear.weakAxisRcNominalShearTf]);
+        }
         if (confinementRequested) {
           positiveShearFields.push(
-            ['shear.avCm2', shear.avCm2],
+            ['shear.weakAxisAvCm2', shear.weakAxisAvCm2],
             ['shear.spacingCm', shear.spacingCm],
             ['shear.fyhKgfCm2', shear.fyhKgfCm2]
           );
         }
-        const requiredArea = finite(shear.weakAxisRequiredTransverseAreaCm2);
-        if (requiredArea == null || requiredArea < 0) {
-          addBlocked('nonnegative-number-required', 'shear.weakAxisRequiredTransverseAreaCm2', 'Y 向專案確認所需橫向鋼筋面積必須為非負有限數值。');
+        if (weakAxisRcDesignBasis === 'project-confirmed') {
+          const requiredArea = finite(shear.weakAxisRequiredTransverseAreaCm2);
+          if (requiredArea == null || requiredArea < 0) {
+            addBlocked('nonnegative-number-required', 'shear.weakAxisRequiredTransverseAreaCm2', 'Y 向專案確認所需橫向鋼筋面積必須為非負有限數值。');
+          }
         }
       }
       positiveShearFields.forEach(([path, value]) => {
@@ -380,23 +394,30 @@
       if (seismicAxis === 'x' && depth && positive(shear.effectiveDepthCm) != null && Number(shear.effectiveDepthCm) >= depth) {
         addBlocked('effective-depth-outside-section', 'shear.effectiveDepthCm', 'RC 有效深度 d 必須位於混凝土斷面內。');
       }
+      if (seismicAxis === 'y' && weakAxisRcDesignBasis === 'automatic-clause-5.5.2' && width && positive(shear.weakAxisEffectiveDepthCm) != null && Number(shear.weakAxisEffectiveDepthCm) >= width) {
+        addBlocked('effective-depth-outside-section', 'shear.weakAxisEffectiveDepthCm', 'Y 向 RC 有效深度 dy 必須位於混凝土斷面寬度內。');
+      }
       if (seismicAxis === 'x' && (shear.shearStudContributionTf == null || finite(shear.shearStudContributionTf) == null || Number(shear.shearStudContributionTf) !== 0)) {
         addBlocked('shear-stud-scope-not-implemented', 'shear.shearStudContributionTf', '本階段必須明確輸入剪力釘貢獻為 0；非零貢獻尚未納入。');
       }
       const confirmations = [
         ['shear.projectPlasticHingeMomentsConfirmed', shear.projectPlasticHingeMomentsConfirmed, '須確認 Mct、Mcb 來自專案塑鉸機制。'],
       ];
-      if (seismicAxis === 'x') {
+      if (seismicAxis === 'x' || (seismicAxis === 'y' && weakAxisRcDesignBasis === 'automatic-clause-5.5.2')) {
         confirmations.push(
           ['shear.normalWeightConcreteConfirmed', shear.normalWeightConcreteConfirmed, '須確認採用常重混凝土。'],
           ['shear.monolithicInterfaceConfirmed', shear.monolithicInterfaceConfirmed, '須確認剪力摩擦面為整體澆置。'],
           ['shear.transverseReinforcementPerpendicularConfirmed', shear.transverseReinforcementPerpendicularConfirmed, '須確認閉合箍筋垂直構材長軸。']
         );
-      } else if (seismicAxis === 'y') {
-        confirmations.push(
-          ['shear.weakAxisStrengthsConfirmed', shear.weakAxisStrengthsConfirmed, '須確認 Y 向鋼骨與 RC 名義剪力強度來自專案核定計算。'],
-          ['shear.weakAxisRequiredTransverseAreaConfirmed', shear.weakAxisRequiredTransverseAreaConfirmed, '須確認 Y 向所需橫向鋼筋面積來自專案核定計算。']
-        );
+      }
+      if (seismicAxis === 'y') {
+        confirmations.push(['shear.weakAxisStrengthsConfirmed', shear.weakAxisStrengthsConfirmed, '須確認 Y 向鋼骨名義剪力強度來自專案核定計算。']);
+        if (weakAxisRcDesignBasis === 'project-confirmed') {
+          confirmations.push(
+            ['shear.weakAxisRcStrengthConfirmed', shear.weakAxisRcStrengthConfirmed, '須確認 Y 向 RC 名義剪力強度來自專案核定計算。'],
+            ['shear.weakAxisRequiredTransverseAreaConfirmed', shear.weakAxisRequiredTransverseAreaConfirmed, '須確認 Y 向所需橫向鋼筋面積來自專案核定計算。']
+          );
+        }
       }
       confirmations.forEach(([path, value, message]) => {
         if (value !== true) addBlocked('confirmation-required', path, message);
@@ -771,9 +792,14 @@
           monolithicInterfaceConfirmed: input.shear.monolithicInterfaceConfirmed,
           transverseReinforcementPerpendicularConfirmed: input.shear.transverseReinforcementPerpendicularConfirmed,
           weakAxisSteelNominalShearTf: Number(input.shear.weakAxisSteelNominalShearTf),
+          weakAxisRcDesignBasis: input.shear.weakAxisRcDesignBasis,
+          weakAxisEffectiveDepthCm: Number(input.shear.weakAxisEffectiveDepthCm),
+          weakAxisAvCm2: Number(input.shear.weakAxisAvCm2),
+          weakAxisAvfCm2: Number(input.shear.weakAxisAvfCm2),
           weakAxisRcNominalShearTf: Number(input.shear.weakAxisRcNominalShearTf),
           weakAxisRequiredTransverseAreaCm2: Number(input.shear.weakAxisRequiredTransverseAreaCm2),
           weakAxisStrengthsConfirmed: input.shear.weakAxisStrengthsConfirmed,
+          weakAxisRcStrengthConfirmed: input.shear.weakAxisRcStrengthConfirmed,
           weakAxisRequiredTransverseAreaConfirmed: input.shear.weakAxisRequiredTransverseAreaConfirmed,
         });
       } catch (error) {
@@ -863,7 +889,7 @@
             fyrKgfCm2: Number(reinforcement.fyKgfCm2),
             fyhKgfCm2: Number(input.shear.fyhKgfCm2),
             spacingCm: Number(input.shear.spacingCm),
-            providedAshCm2: Number(input.shear.avCm2),
+            providedAshCm2: Number(input.seismicAxis === 'y' ? input.shear.weakAxisAvCm2 : input.shear.avCm2),
             shearRequiredAshCm2: shearResult.rc.requiredTransverseAreaCm2,
           });
         } catch (error) {

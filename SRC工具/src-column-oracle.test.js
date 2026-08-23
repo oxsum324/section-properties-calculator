@@ -79,7 +79,7 @@ function compare(production, oracle, paths, tolerance) {
   });
 }
 
-assert.equal(Oracle.ORACLE_VERSION, 'src-column.oracle.v0.8.0-research', 'independent oracle is explicitly versioned');
+assert.equal(Oracle.ORACLE_VERSION, 'src-column.oracle.v0.9.0-research', 'independent oracle is explicitly versioned');
 assert.equal(Oracle.SUPPORTED_SCHEMA, Production.INPUT_SCHEMA, 'oracle and production accept the same research input schema');
 const oracleSource = fs.readFileSync(path.join(__dirname, 'core', 'src-column-oracle.js'), 'utf8');
 assert.equal(oracleSource.includes('require('), false, 'oracle imports neither the production core nor shared PMSection');
@@ -417,10 +417,15 @@ weakAxisOracleInput.jointFlexuralStrengthRatio.axis = 'y';
 weakAxisOracleInput.strongColumnWeakBeam.axis = 'y';
 weakAxisOracleInput.confinement.axis = 'y';
 Object.assign(weakAxisOracleInput.shear, {
+  weakAxisRcDesignBasis: 'project-confirmed',
   weakAxisSteelNominalShearTf: 100,
+  weakAxisEffectiveDepthCm: 58,
+  weakAxisAvCm2: 2.54,
+  weakAxisAvfCm2: 2.54,
   weakAxisRcNominalShearTf: 120,
   weakAxisRequiredTransverseAreaCm2: 1.2,
   weakAxisStrengthsConfirmed: true,
+  weakAxisRcStrengthConfirmed: true,
   weakAxisRequiredTransverseAreaConfirmed: true,
 });
 weakAxisOracleInput.confinement.weakAxisAhccZeroConfirmed = true;
@@ -465,7 +470,55 @@ assert.deepEqual(compare(weakAxisProduction, weakAxisOracle, weakAxisTolerancePa
 assert.equal(Object.hasOwn(weakAxisProduction.shear.steel, 'webAreaCm2'), false, 'production weak-axis result does not rotate the x-axis web formula');
 assert.equal(Object.hasOwn(weakAxisOracle.shear.steel, 'webAreaCm2'), false, 'oracle independently preserves the same weak-axis formula boundary');
 assert.ok(weakAxisOracle.coverage.covered.includes('project-confirmed-y-axis-column-shear-subcheck'));
-assert.ok(weakAxisOracle.coverage.uncovered.includes('automatic-weak-axis-nominal-strength-derivation'));
+assert.ok(weakAxisOracle.coverage.uncovered.includes('automatic-y-axis-steel-nominal-strength-derivation'));
+
+const automaticWeakAxisOracleInput = structuredClone(weakAxisOracleInput);
+automaticWeakAxisOracleInput.shear.weakAxisRcDesignBasis = 'automatic-clause-5.5.2';
+const automaticWeakAxisProductionInput = structuredClone(automaticWeakAxisOracleInput);
+automaticWeakAxisProductionInput.steel = {
+  catalogId: 'rh-500x304x15x24',
+  grade: automaticWeakAxisOracleInput.steel.grade,
+  fysKgfCm2: automaticWeakAxisOracleInput.steel.fysKgfCm2,
+  fywKgfCm2: automaticWeakAxisOracleInput.steel.fywKgfCm2,
+  esKgfCm2: automaticWeakAxisOracleInput.steel.esKgfCm2,
+};
+const automaticWeakAxisProduction = Production.calculate(automaticWeakAxisProductionInput);
+const automaticWeakAxisOracle = Oracle.calculate(automaticWeakAxisOracleInput);
+const automaticWeakAxisExactPaths = [
+  'shear.demand.shearTf',
+  'shear.steel.nominalShearTf',
+  'shear.steel.designShearTf',
+  'shear.rc.sectionWidthCm',
+  'shear.rc.sectionDepthCm',
+  'shear.rc.effectiveDepthCm',
+  'shear.rc.avCm2',
+  'shear.rc.avfCm2',
+  'shear.rc.steelFrictionPlaneWidthCm',
+  'shear.rc.netConcreteWidthCm',
+  'shear.rc.transverseLimitTf',
+  'shear.rc.transverseTf',
+  'shear.rc.concreteTf',
+  'shear.rc.generalTf',
+  'shear.rc.frictionTransverseTf',
+  'shear.rc.frictionConcreteTf',
+  'shear.rc.frictionTf',
+  'shear.rc.nominalShearTf',
+  'shear.rc.designShearTf',
+  'confinement.ash.providedCm2',
+];
+assert.deepEqual(compare(automaticWeakAxisProduction, automaticWeakAxisOracle, automaticWeakAxisExactPaths, 1e-10), [], 'independent oracle agrees with direction-aware clause 5.5.2 weak-axis RC arithmetic');
+const automaticWeakAxisTolerancePaths = [
+  'shear.probableMoments.rcProbableMomentTfM',
+  'shear.rc.requiredShearTf',
+  'shear.rc.requiredNominalShearTf',
+  'shear.rc.requiredGeneralAreaCm2',
+  'shear.rc.requiredFrictionAreaCm2',
+  'shear.rc.requiredTransverseAreaCm2',
+  'shear.rc.utilization',
+  'confinement.ash.shearRequiredCm2',
+];
+assert.deepEqual(compare(automaticWeakAxisProduction, automaticWeakAxisOracle, automaticWeakAxisTolerancePaths, 0.002), [], 'continuous probable-moment oracle agrees with automatic weak-axis RC demand and confinement flow');
+assert.ok(automaticWeakAxisOracle.coverage.covered.includes('automatic-y-axis-rc-shear-clause-5.5.2'));
 
 const drifted = structuredClone(production);
 drifted.steel.nominalMomentXTfM += 0.01;
@@ -509,6 +562,13 @@ assert.deepEqual(
   ['seismicAxial.compressionStrength.rc.eulerYNominalTf'],
   'comparison catches a seismic axial-strength production drift'
 );
+const automaticWeakAxisDrifted = structuredClone(automaticWeakAxisProduction);
+automaticWeakAxisDrifted.shear.rc.nominalShearTf += 0.01;
+assert.deepEqual(
+  compare(automaticWeakAxisDrifted, automaticWeakAxisOracle, automaticWeakAxisExactPaths, 1e-10).map(item => item.path),
+  ['shear.rc.nominalShearTf'],
+  'comparison catches an automatic weak-axis RC shear arithmetic drift'
+);
 
 const grade400 = example8();
 grade400.steel.grade = 'SS400';
@@ -545,4 +605,18 @@ for (const missingBoolean of ['mainBarSplicePresent', 'inflectionPointWithinMidd
   );
 }
 
-console.log(`SRC column independent oracle OK (${comparedPaths.length + rcComparedPaths.length + 6 + shearExactPaths.length + axialExactPaths.length + detailingExactPaths.length + weakAxisExactPaths.length} exact comparisons + ${3 + shearTolerancePaths.length + weakAxisTolerancePaths.length} tolerance comparisons + six drift sentinels)`);
+for (const [code, mutate] of [
+  ['unsupported-weak-axis-rc-design-basis', value => { value.shear.weakAxisRcDesignBasis = 'invented'; }],
+  ['effective-depth-outside-section', value => { value.shear.weakAxisEffectiveDepthCm = value.concrete.widthCm; }],
+  ['normal-weight-concrete-not-confirmed', value => { value.shear.normalWeightConcreteConfirmed = false; }],
+]) {
+  const invalid = structuredClone(automaticWeakAxisOracleInput);
+  mutate(invalid);
+  assert.throws(
+    () => Oracle.calculate(invalid),
+    error => error instanceof Oracle.SrcColumnOracleError && error.code === code,
+    `automatic weak-axis oracle ${code} fails closed`
+  );
+}
+
+console.log(`SRC column independent oracle OK (${comparedPaths.length + rcComparedPaths.length + 6 + shearExactPaths.length + axialExactPaths.length + detailingExactPaths.length + weakAxisExactPaths.length + automaticWeakAxisExactPaths.length} exact comparisons + ${3 + shearTolerancePaths.length + weakAxisTolerancePaths.length + automaticWeakAxisTolerancePaths.length} tolerance comparisons + seven drift sentinels)`);

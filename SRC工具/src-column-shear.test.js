@@ -42,7 +42,7 @@ function officialExample14ShearInput() {
   };
 }
 
-assert.equal(Shear.VERSION, 'src-column.shear.v0.3.0-research', 'shear subcheck is explicitly versioned as research');
+assert.equal(Shear.VERSION, 'src-column.shear.v0.4.0-research', 'shear subcheck is explicitly versioned as research');
 assert.equal(WeakAxisReference.VERSION, 'src-column.weak-axis-shear-reference.v0.1.0');
 const referenceSource = fs.readFileSync(path.join(__dirname, 'core', 'src-column-weak-axis-shear-reference.js'), 'utf8');
 const productionSource = fs.readFileSync(path.join(__dirname, 'core', 'src-column-shear.js'), 'utf8');
@@ -116,10 +116,12 @@ const weakAxisInput = {
   mctTfM: 120,
   mcbTfM: 110,
   clearHeightCm: 300,
+  weakAxisRcDesignBasis: 'project-confirmed',
   weakAxisSteelNominalShearTf: 100,
   weakAxisRcNominalShearTf: 120,
   weakAxisRequiredTransverseAreaCm2: 1.2,
   weakAxisStrengthsConfirmed: true,
+  weakAxisRcStrengthConfirmed: true,
   weakAxisRequiredTransverseAreaConfirmed: true,
 };
 const weakAxis = Shear.calculate(weakAxisInput);
@@ -130,6 +132,30 @@ close(weakAxis.steel.designShearTf, 90, 1e-12, 'weak-axis steel design strength 
 close(weakAxis.rc.designShearTf, 90, 1e-12, 'weak-axis RC design strength applies phi to the project-confirmed nominal value');
 close(weakAxis.rc.requiredTransverseAreaCm2, 1.2, 1e-12, 'weak-axis confinement receives the project-confirmed transverse area');
 assert.equal(Object.hasOwn(weakAxis.steel, 'webAreaCm2'), false, 'weak-axis steel strength does not fabricate a rotated web area');
+
+const automaticWeakAxis = Shear.calculate({
+  ...weakAxisInput,
+  widthCm: 65,
+  depthCm: 80,
+  steelDepthCm: 50,
+  steelFlangeWidthCm: 30.4,
+  weakAxisRcDesignBasis: 'automatic-clause-5.5.2',
+  weakAxisEffectiveDepthCm: 58,
+  weakAxisAvCm2: 2.54,
+  weakAxisAvfCm2: 2.54,
+});
+assert.equal(automaticWeakAxis.strengthSource, 'project-confirmed-steel+automatic-rc-clause-5.5.2');
+assert.equal(automaticWeakAxis.rc.source, 'automatic-clause-5.5.2-selected-y-axis');
+close(automaticWeakAxis.rc.sectionWidthCm, 80, 1e-12, 'weak-axis RC path rotates the concrete depth into selected-direction b');
+close(automaticWeakAxis.rc.sectionDepthCm, 65, 1e-12, 'weak-axis RC path rotates the concrete width into selected-direction depth');
+close(automaticWeakAxis.rc.effectiveDepthCm, 58, 1e-12, 'weak-axis RC path adopts the direction-specific effective depth');
+close(automaticWeakAxis.rc.steelFrictionPlaneWidthCm, 50, 1e-12, 'weak-axis friction plane deducts the explicit embedded-steel dimension');
+close(automaticWeakAxis.rc.netConcreteWidthCm, 30, 1e-12, 'weak-axis net concrete width is direction-aware');
+close(automaticWeakAxis.rc.generalTf, 78.92336660475799, 1e-10, 'weak-axis clause 5.5.2 general-shear path');
+close(automaticWeakAxis.rc.frictionTf, 62.862719999999996, 1e-10, 'weak-axis clause 5.5.2 shear-friction path');
+close(automaticWeakAxis.rc.nominalShearTf, 62.862719999999996, 1e-10, 'weak-axis RC nominal strength takes the smaller path');
+close(automaticWeakAxis.rc.requiredTransverseAreaCm2, 3.4994586271871935, 1e-10, 'weak-axis RC transverse-steel demand is calculated');
+assert.equal(automaticWeakAxis.rc.governingMode, 'shear-friction');
 
 const externallyTracedWeakAxis = Shear.calculate({
   ...weakAxisInput,
@@ -172,6 +198,7 @@ for (const [code, mutate] of [
 
 for (const [code, mutate] of [
   ['confirmation-required', input => { input.weakAxisStrengthsConfirmed = false; }],
+  ['confirmation-required', input => { input.weakAxisRcStrengthConfirmed = false; }],
   ['confirmation-required', input => { input.weakAxisRequiredTransverseAreaConfirmed = false; }],
   ['positive-number-required', input => { input.weakAxisSteelNominalShearTf = 0; }],
   ['nonnegative-number-required', input => { input.weakAxisRequiredTransverseAreaCm2 = -0.1; }],
@@ -185,4 +212,27 @@ for (const [code, mutate] of [
   );
 }
 
-console.log('SRC column seismic selected-axis shear subcheck OK (automatic x-axis + project-confirmed y-axis boundaries)');
+for (const [code, mutate] of [
+  ['unsupported-weak-axis-rc-design-basis', input => { input.weakAxisRcDesignBasis = 'invented'; }],
+  ['effective-depth-outside-section', input => { input.weakAxisEffectiveDepthCm = 65; }],
+  ['confirmation-required', input => { input.normalWeightConcreteConfirmed = false; }],
+]) {
+  const input = {
+    ...weakAxisInput,
+    widthCm: 65,
+    depthCm: 80,
+    steelDepthCm: 50,
+    weakAxisRcDesignBasis: 'automatic-clause-5.5.2',
+    weakAxisEffectiveDepthCm: 58,
+    weakAxisAvCm2: 2.54,
+    weakAxisAvfCm2: 2.54,
+  };
+  mutate(input);
+  assert.throws(
+    () => Shear.calculate(input),
+    error => error instanceof Shear.SrcColumnShearError && error.code === code,
+    `automatic weak-axis ${code} fails closed`
+  );
+}
+
+console.log('SRC column seismic selected-axis shear subcheck OK (automatic x-axis + dual-basis y-axis RC boundaries)');

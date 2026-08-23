@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>SRC 柱方向可選耐震研究核算 V0.4</title>
+  <title>SRC 柱方向可選耐震研究核算 V0.5</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="../結構工具箱/core/style.css">
   <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
@@ -18,7 +18,7 @@
   <header class="src-hero">
     <div>
       <p class="src-eyebrow">鋼骨鋼筋混凝土構件</p>
-      <h1>SRC 柱方向可選耐震研究核算 <span class="src-version">V0.4</span></h1>
+      <h1>SRC 柱方向可選耐震研究核算 <span class="src-version">V0.5</span></h1>
       <p>完全包覆矩形柱｜每份選定 X 或 Y 方向｜軸力、接頭撓曲強度比、柱剪力、強柱弱梁與圍束｜單位：cm、kgf/cm²、tf、tf·m</p>
       <div class="src-hero-chips" aria-label="目前涵蓋範圍">
         <span>第 6.4 節壓力強度</span><span>第 7.3 節軸彎分配</span><span>第 8.4.2 節接頭比值</span><span>第 9.3 節地震組合</span><span>第 9.6 節選定方向子檢核</span><span>計算斷面圖</span>
@@ -48,9 +48,9 @@
       <div class="src-input-stack">
         <section class="src-card src-page-only">
           <h2>適用範圍與輸出邊界</h2>
-          <p>目前涵蓋完全包覆矩形 SRC 柱、置中雙對稱 H 型鋼骨、橫箍筋柱，以及一次選定 X 或 Y 方向的柱子檢核。專案分析必須已將 P-Δ 效應反映於選定方向需求；正交方向、接頭區剪力與接合細部、柱腳及完整構架仍須另案檢核。Y 向名義剪力強度與所需橫向鋼筋量須由專案核定後輸入，本頁不挪用 X 向腹板公式。</p>
+          <p>目前涵蓋完全包覆矩形 SRC 柱、置中雙對稱 H 型鋼骨、橫箍筋柱，以及一次選定 X 或 Y 方向的柱子檢核。專案分析必須已將 P-Δ 效應反映於選定方向需求；正交方向、接頭區剪力與接合細部、柱腳及完整構架仍須另案檢核。Y 向鋼骨 Vns 須由專案核定，本頁不挪用 X 向腹板公式；Y 向 RC 可依第 5.5.2 節自動計算或採既有案件之專案確認值。</p>
           <p><strong>計算書只保留採用資料、公式代入、檢核結果與結論。</strong>本段研究邊界與待複核事項只顯示於 HTML。研究計算書可列印，但正式附件核可尚未開放。</p>
-          <div class="src-meta-chips"><span>現行 100 年修正版</span><span id="coreVersion">Core —</span><span>案件 schema v3</span><span class="src-research-chip">私有研究工具</span></div>
+          <div class="src-meta-chips"><span>現行 100 年修正版</span><span id="coreVersion">Core —</span><span>案件 schema v4</span><span class="src-research-chip">私有研究工具</span></div>
         </section>
 
         <section class="src-card">
@@ -101,7 +101,7 @@
 
         <section class="src-card src-subcheck-card" id="shearSubcheckPanel">
           <div class="src-subcheck-heading">
-            <div><h2>③ 第 9.6.2 節選定方向柱剪力</h2><p>X 向自動重算鋼骨腹板與 RC 路徑；Y 向採專案確認名義強度，再自動完成需求分配與比值。</p></div>
+            <div><h2>③ 第 9.6.2 節選定方向柱剪力</h2><p>X 向自動重算鋼骨腹板與 RC 路徑；Y 向鋼骨採專案確認值，RC 可依第 5.5.2 節自動計算或採專案確認值。</p></div>
             <label class="src-subcheck-toggle"><input id="enableShearSubcheck" type="checkbox" checked> 啟用</label>
           </div>
           <div class="src-subcheck-body" data-subcheck-body="shear">
@@ -110,26 +110,31 @@
               <label>柱底可能彎矩 Mcb<span><input id="mcbTfM" type="number" value="110" step="0.1" min="0"> tf·m</span></label>
               <label>柱淨高 Ln<span><input id="clearHeightCm" type="number" value="300" step="1" min="0"> cm</span></label>
               <label data-x-shear>RC 有效深度 d<span><input id="effectiveDepthCm" type="number" value="73" step="0.1" min="0"> cm</span></label>
-              <label>一般剪力箍筋面積 Av<span><input id="avCm2" type="number" value="2.54" step="0.01" min="0"> cm²</span></label>
+              <label data-x-shear>一般剪力箍筋面積 Av<span><input id="avCm2" type="number" value="2.54" step="0.01" min="0"> cm²</span></label>
               <label data-x-shear>剪力摩擦箍筋面積 Avf<span><input id="avfCm2" type="number" value="2.54" step="0.01" min="0"> cm²</span></label>
               <label>圍束區箍筋間距 s<span><input id="spacingCm" type="number" value="10" step="0.5" min="0"> cm</span></label>
               <label>箍筋降伏強度 fyh<span><input id="fyhKgfCm2" type="number" value="4200" step="100" min="0"> kgf/cm²</span></label>
               <label data-x-shear>鋼骨腹板降伏強度 Fyw<span><input id="steelFywKgfCm2" type="number" value="3500" step="100" min="0"> kgf/cm²</span></label>
               <label data-x-shear>剪力釘貢獻（本版固定）<span><input id="shearStudContributionTf" type="number" value="0" readonly> tf</span></label>
+              <label data-y-shear hidden>Y 向 RC 計算依據<span><select id="weakAxisRcDesignBasis"><option value="automatic-clause-5.5.2" selected>第 5.5.2 節自動計算</option><option value="project-confirmed">專案確認值</option></select></span></label>
               <label data-y-shear hidden>Y 向鋼骨名義剪力 Vns<span><input id="weakAxisSteelNominalShearTf" type="number" value="100" step="0.1" min="0"> tf</span></label>
-              <label data-y-shear hidden>Y 向 RC 名義剪力 Vnrc<span><input id="weakAxisRcNominalShearTf" type="number" value="120" step="0.1" min="0"> tf</span></label>
-              <label data-y-shear hidden>Y 向所需橫向鋼筋 Ash,shear<span><input id="weakAxisRequiredTransverseAreaCm2" type="number" value="1.2" step="0.01" min="0"> cm²</span></label>
+              <label data-y-automatic-rc hidden>Y 向 RC 有效深度 dy<span><input id="weakAxisEffectiveDepthCm" type="number" value="58" step="0.1" min="0"> cm</span></label>
+              <label data-y-shear hidden>Y 向一般剪力箍筋面積 Av,y<span><input id="weakAxisAvCm2" type="number" value="2.54" step="0.01" min="0"> cm²</span></label>
+              <label data-y-automatic-rc hidden>Y 向剪力摩擦箍筋面積 Avf,y<span><input id="weakAxisAvfCm2" type="number" value="2.54" step="0.01" min="0"> cm²</span></label>
+              <label data-y-project-rc hidden>Y 向 RC 名義剪力 Vnrc<span><input id="weakAxisRcNominalShearTf" type="number" value="120" step="0.1" min="0"> tf</span></label>
+              <label data-y-project-rc hidden>Y 向所需橫向鋼筋 Ash,shear<span><input id="weakAxisRequiredTransverseAreaCm2" type="number" value="1.2" step="0.01" min="0"> cm²</span></label>
             </div>
             <div id="weakAxisSteelReference" class="src-reference-note src-page-only" data-y-shear hidden></div>
             <div class="src-check-grid">
               <label><input id="projectPlasticHingeMomentsConfirmed" type="checkbox" checked> Mct、Mcb 已由專案塑鉸機制確認</label>
-              <label data-x-shear><input id="normalWeightConcreteConfirmed" type="checkbox" checked> 採用常重混凝土</label>
-              <label data-x-shear><input id="monolithicInterfaceConfirmed" type="checkbox" checked> 剪力摩擦面為整體澆置</label>
-              <label data-x-shear><input id="transverseReinforcementPerpendicularConfirmed" type="checkbox" checked> 閉合箍筋垂直構材長軸</label>
-              <label data-y-shear hidden><input id="weakAxisStrengthsConfirmed" type="checkbox" checked> Y 向 Vns、Vnrc 已由專案適用規範計算並核定</label>
-              <label data-y-shear hidden><input id="weakAxisRequiredTransverseAreaConfirmed" type="checkbox" checked> Y 向 Ash,shear 已由專案適用規範計算並核定</label>
+              <label data-automatic-rc><input id="normalWeightConcreteConfirmed" type="checkbox" checked> 採用常重混凝土</label>
+              <label data-automatic-rc><input id="monolithicInterfaceConfirmed" type="checkbox" checked> 剪力摩擦面為整體澆置</label>
+              <label data-automatic-rc><input id="transverseReinforcementPerpendicularConfirmed" type="checkbox" checked> 閉合箍筋垂直構材長軸</label>
+              <label data-y-shear hidden><input id="weakAxisStrengthsConfirmed" type="checkbox" checked> Y 向鋼骨 Vns 已由專案適用規範計算並核定</label>
+              <label data-y-project-rc hidden><input id="weakAxisRcStrengthConfirmed" type="checkbox" checked> Y 向 RC Vnrc 已由專案適用規範計算並核定</label>
+              <label data-y-project-rc hidden><input id="weakAxisRequiredTransverseAreaConfirmed" type="checkbox" checked> Y 向 Ash,shear 已由專案適用規範計算並核定</label>
             </div>
-            <p class="src-policy-note">Mct、Mcb 與配筋資料均屬專案指定；Y 向強度必須另由專案核定，本頁只自動處理式 (9.6-3)～(9.6-5) 的需求與分配。</p>
+            <p class="src-policy-note">Mct、Mcb 與配筋資料均屬專案指定。Y 向鋼骨 Vns 仍須另由專案核定；Y 向 RC 自動模式依選定方向幾何代入式 (5.5-4)～(5.5-13)，其中 b = 柱深、d = dy、b′ = 柱深扣除型鋼深度。</p>
           </div>
         </section>
 

@@ -2,9 +2,9 @@
  *
  * Scope: current Taiwan SRC clauses 9.6.2 and 5.5 for a fully encased,
  * centered H-shape. The strong-axis path computes steel-web and RC strength.
- * The weak-axis path keeps demand allocation automatic but requires project-
- * confirmed nominal steel/RC shear strengths and required transverse area;
- * it never rotates the clause 5.5.1 web formula into the weak direction.
+ * The weak-axis path keeps the steel strength project-confirmed, never rotates
+ * the clause 5.5.1 web formula, and offers either an automatic direction-aware
+ * clause 5.5.2 RC path or legacy project-confirmed RC values.
  * The automatic RC path is limited to normal-weight concrete,
  * a monolithic shear-friction plane, perpendicular closed transverse
  * reinforcement, and zero shear-stud contribution.
@@ -18,7 +18,7 @@
 })(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnShear() {
   'use strict';
 
-  const VERSION = 'src-column.shear.v0.3.0-research';
+  const VERSION = 'src-column.shear.v0.4.0-research';
   const PHI_STEEL = 0.9;
   const PHI_RC = 0.75;
   const ZERO_TOLERANCE = 1e-9;
@@ -102,9 +102,12 @@
     const avf = positive(input.avfCm2, 'avfCm2');
     const spacing = positive(input.spacingCm, 'spacingCm');
     const fyh = positive(input.fyhKgfCm2, 'fyhKgfCm2');
-    const flangeWidth = positive(input.steelFlangeWidthCm, 'steelFlangeWidthCm');
-    if (!(flangeWidth < width)) {
-      throw new SrcColumnShearError('invalid-net-concrete-width', 'steelFlangeWidthCm', 'Steel flange width must be smaller than the concrete section width');
+    const steelFrictionPlaneWidth = positive(
+      input.steelFrictionPlaneWidthCm ?? input.steelFlangeWidthCm,
+      input.steelFrictionPlaneWidthCm == null ? 'steelFlangeWidthCm' : 'steelFrictionPlaneWidthCm'
+    );
+    if (!(steelFrictionPlaneWidth < width)) {
+      throw new SrcColumnShearError('invalid-net-concrete-width', 'steelFrictionPlaneWidthCm', 'Steel width deducted from the friction plane must be smaller than the selected concrete width');
     }
     const mu = positive(input.frictionCoefficient, 'frictionCoefficient');
     const k1 = positive(input.frictionK1KgfCm2, 'frictionK1KgfCm2');
@@ -125,14 +128,21 @@
     const frictionTransverseLimitTf = mu * transverseLimitTf;
     const rawFrictionTransverseTf = mu * avf * fyh * effectiveDepth / spacing / 1000;
     const frictionTransverseTf = Math.min(rawFrictionTransverseTf, frictionTransverseLimitTf);
-    const netConcreteWidthCm = width - flangeWidth;
+    const netConcreteWidthCm = width - steelFrictionPlaneWidth;
     const frictionConcreteTf = k1 * netConcreteWidthCm * effectiveDepth / 1000;
     const frictionTf = frictionTransverseTf + frictionConcreteTf + studContributionTf;
     const nominalShearTf = Math.min(generalTf, frictionTf);
 
     return {
       grossAreaCm2,
+      sectionWidthCm: width,
+      sectionDepthCm: depth,
       effectiveDepthCm: effectiveDepth,
+      avCm2: av,
+      avfCm2: avf,
+      spacingCm: spacing,
+      fyhKgfCm2: fyh,
+      steelFrictionPlaneWidthCm: steelFrictionPlaneWidth,
       transverseLimitTf,
       rawTransverseTf,
       transverseTf,
@@ -160,12 +170,22 @@
     }
     const axis = selectedAxis(input.axis);
     requireConfirmed(input.projectPlasticHingeMomentsConfirmed, 'projectPlasticHingeMomentsConfirmed', 'Project plastic-hinge end moments must be confirmed');
-    if (axis === 'x') {
+    const weakAxisRcDesignBasis = axis === 'y'
+      ? (input.weakAxisRcDesignBasis || 'project-confirmed')
+      : 'automatic-clause-5.5.2';
+    if (axis === 'y' && !['automatic-clause-5.5.2', 'project-confirmed'].includes(weakAxisRcDesignBasis)) {
+      throw new SrcColumnShearError('unsupported-weak-axis-rc-design-basis', 'weakAxisRcDesignBasis', 'Weak-axis RC design basis must be automatic-clause-5.5.2 or project-confirmed');
+    }
+    if (axis === 'x' || weakAxisRcDesignBasis === 'automatic-clause-5.5.2') {
       requireConfirmed(input.normalWeightConcreteConfirmed, 'normalWeightConcreteConfirmed', 'Normal-weight concrete must be confirmed');
       requireConfirmed(input.monolithicInterfaceConfirmed, 'monolithicInterfaceConfirmed', 'A monolithic shear-friction plane must be confirmed');
       requireConfirmed(input.transverseReinforcementPerpendicularConfirmed, 'transverseReinforcementPerpendicularConfirmed', 'Perpendicular closed transverse reinforcement must be confirmed');
-    } else {
-      requireConfirmed(input.weakAxisStrengthsConfirmed, 'weakAxisStrengthsConfirmed', 'Weak-axis nominal steel and RC shear strengths must be confirmed by the project');
+    }
+    if (axis === 'y') {
+      requireConfirmed(input.weakAxisStrengthsConfirmed, 'weakAxisStrengthsConfirmed', 'Weak-axis nominal steel shear strength must be confirmed by the project');
+    }
+    if (axis === 'y' && weakAxisRcDesignBasis === 'project-confirmed') {
+      requireConfirmed(input.weakAxisRcStrengthConfirmed ?? input.weakAxisStrengthsConfirmed, 'weakAxisRcStrengthConfirmed', 'Weak-axis nominal RC shear strength must be confirmed by the project');
       requireConfirmed(input.weakAxisRequiredTransverseAreaConfirmed, 'weakAxisRequiredTransverseAreaConfirmed', 'Weak-axis required transverse-reinforcement area must be confirmed by the project');
     }
 
@@ -182,29 +202,42 @@
         nominalShearTf: positive(input.weakAxisSteelNominalShearTf, 'weakAxisSteelNominalShearTf'),
       };
     if (axis === 'y') steel.designShearTf = PHI_STEEL * steel.nominalShearTf;
-    const rc = axis === 'x'
-      ? rcNominalShear(input)
+    const automaticRc = axis === 'x' || weakAxisRcDesignBasis === 'automatic-clause-5.5.2';
+    const rcInput = axis === 'x'
+      ? input
+      : {
+        ...input,
+        widthCm: input.depthCm,
+        depthCm: input.widthCm,
+        effectiveDepthCm: input.weakAxisEffectiveDepthCm,
+        avCm2: input.weakAxisAvCm2,
+        avfCm2: input.weakAxisAvfCm2,
+        steelFrictionPlaneWidthCm: input.steelDepthCm,
+        shearStudContributionTf: 0,
+      };
+    const rc = automaticRc
+      ? { ...rcNominalShear(rcInput), source: axis === 'y' ? 'automatic-clause-5.5.2-selected-y-axis' : 'automatic-clause-5.5.2-selected-x-axis' }
       : {
         source: 'project-confirmed-weak-axis',
         nominalShearTf: positive(input.weakAxisRcNominalShearTf, 'weakAxisRcNominalShearTf'),
       };
-    if (axis === 'y') rc.designShearTf = PHI_RC * rc.nominalShearTf;
+    if (!automaticRc) rc.designShearTf = PHI_RC * rc.nominalShearTf;
     const steelUtilization = steelRequiredTf / steel.designShearTf;
     const rcUtilization = rcRequiredTf / rc.designShearTf;
     const requiredNominalRcShearTf = rcRequiredTf / PHI_RC;
-    const requiredGeneralTransverseTf = axis === 'x' ? Math.max(0, requiredNominalRcShearTf - rc.concreteTf) : null;
-    const requiredGeneralAreaCm2 = axis === 'x'
+    const requiredGeneralTransverseTf = automaticRc ? Math.max(0, requiredNominalRcShearTf - rc.concreteTf) : null;
+    const requiredGeneralAreaCm2 = automaticRc
       ? requiredGeneralTransverseTf * 1000 * Number(input.spacingCm)
-        / (Number(input.fyhKgfCm2) * Number(input.effectiveDepthCm))
+        / (Number(input.fyhKgfCm2) * Number(rc.effectiveDepthCm))
       : null;
-    const requiredFrictionTransverseTf = axis === 'x'
+    const requiredFrictionTransverseTf = automaticRc
       ? Math.max(0, requiredNominalRcShearTf - rc.frictionConcreteTf - rc.shearStudContributionTf)
       : null;
-    const requiredFrictionAreaCm2 = axis === 'x'
+    const requiredFrictionAreaCm2 = automaticRc
       ? requiredFrictionTransverseTf * 1000 * Number(input.spacingCm)
-        / (rc.frictionCoefficient * Number(input.fyhKgfCm2) * Number(input.effectiveDepthCm))
+        / (rc.frictionCoefficient * Number(input.fyhKgfCm2) * Number(rc.effectiveDepthCm))
       : null;
-    const requiredTransverseAreaCm2 = axis === 'x'
+    const requiredTransverseAreaCm2 = automaticRc
       ? Math.max(requiredGeneralAreaCm2, requiredFrictionAreaCm2)
       : nonnegative(input.weakAxisRequiredTransverseAreaCm2, 'weakAxisRequiredTransverseAreaCm2');
 
@@ -212,10 +245,15 @@
       version: VERSION,
       mode: 'seismic-selected-axis-subcheck',
       axis,
-      strengthSource: axis === 'x' ? 'automatic-clause-5.5' : 'project-confirmed-weak-axis',
+      weakAxisRcDesignBasis: axis === 'y' ? weakAxisRcDesignBasis : null,
+      strengthSource: axis === 'x'
+        ? 'automatic-clause-5.5'
+        : (automaticRc ? 'project-confirmed-steel+automatic-rc-clause-5.5.2' : 'project-confirmed-weak-axis'),
       clauses: axis === 'x'
         ? ['9.6.2 / (9.6-3)~(9.6-5)', '5.5.1 / (5.5-3)', '5.5.2 / (5.5-4)~(5.5-13)']
-        : ['9.6.2 / (9.6-3)~(9.6-5)', 'project-confirmed weak-axis strengths under applicable steel and RC provisions'],
+        : (automaticRc
+          ? ['9.6.2 / (9.6-3)~(9.6-5)', 'project-confirmed weak-axis steel strength under applicable steel provisions', '5.5.2 / (5.5-4)~(5.5-13) selected-y-axis RC path']
+          : ['9.6.2 / (9.6-3)~(9.6-5)', 'project-confirmed weak-axis strengths under applicable steel and RC provisions']),
       demand: {
         mctTfM: Number(input.mctTfM),
         mcbTfM: Number(input.mcbTfM),
@@ -245,7 +283,7 @@
         requiredFrictionTransverseTf,
         requiredFrictionAreaCm2,
         requiredTransverseAreaCm2,
-        governingMode: axis === 'x' ? rc.governingMode : 'project-confirmed-weak-axis',
+        governingMode: automaticRc ? rc.governingMode : 'project-confirmed-weak-axis',
         utilization: rcUtilization,
         ok: rcUtilization <= 1 + ZERO_TOLERANCE,
       },
@@ -253,7 +291,9 @@
       completeSeismicDesign: false,
       boundary: axis === 'x'
         ? 'This result covers the selected x-axis column shear subcheck using the current-code steel-web and RC paths; complete frame, joint, base, orthogonal-direction, and remaining seismic design stay outside this subcheck.'
-        : 'This result covers selected y-axis demand, probable-moment allocation, and utilization using project-confirmed weak-axis nominal strengths and transverse-reinforcement demand; it does not derive weak-axis strength by rotating the x-axis web formula, and the orthogonal direction remains a separate check.',
+        : (automaticRc
+          ? 'This result covers selected y-axis demand, probable-moment allocation, project-confirmed steel strength, and direction-aware clause 5.5.2 RC shear; it does not derive steel weak-axis strength by rotating the x-axis web formula, and the orthogonal direction remains a separate check.'
+          : 'This result covers selected y-axis demand, probable-moment allocation, and utilization using project-confirmed weak-axis nominal strengths and transverse-reinforcement demand; it does not derive weak-axis strength by rotating the x-axis web formula, and the orthogonal direction remains a separate check.'),
     };
   }
 

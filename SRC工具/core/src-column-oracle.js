@@ -14,8 +14,8 @@
  */
 'use strict';
 
-const ORACLE_VERSION = 'src-column.oracle.v0.8.0-research';
-const SUPPORTED_SCHEMA = 'src-column.input.v9';
+const ORACLE_VERSION = 'src-column.oracle.v0.9.0-research';
+const SUPPORTED_SCHEMA = 'src-column.input.v10';
 const PHI_COMPRESSION = 0.85;
 const PHI_FLEXURE = 0.9;
 const DEFAULT_ES_KGF_CM2 = 2_040_000;
@@ -510,13 +510,22 @@ function seismicStrongAxisShear(input, rcAxialDemandTf, steelNominalMomentTfM) {
   const shear = input.shear || {};
   const axis = shear.axis;
   if (axis !== 'x' && axis !== 'y') throw new SrcColumnOracleError('unsupported-shear-axis', 'Shear axis must be x or y');
+  const weakAxisRcDesignBasis = axis === 'y' ? (shear.weakAxisRcDesignBasis || 'project-confirmed') : 'automatic-clause-5.5.2';
+  if (axis === 'y' && !['automatic-clause-5.5.2', 'project-confirmed'].includes(weakAxisRcDesignBasis)) {
+    throw new SrcColumnOracleError('unsupported-weak-axis-rc-design-basis', 'Weak-axis RC design basis is unsupported');
+  }
+  const automaticRc = axis === 'x' || weakAxisRcDesignBasis === 'automatic-clause-5.5.2';
   requireOracleConfirmation(shear.projectPlasticHingeMomentsConfirmed, 'plastic-hinge-moments-not-confirmed', 'Project plastic-hinge moments must be confirmed');
-  if (axis === 'x') {
+  if (automaticRc) {
     requireOracleConfirmation(shear.normalWeightConcreteConfirmed, 'normal-weight-concrete-not-confirmed', 'Normal-weight concrete must be confirmed');
     requireOracleConfirmation(shear.monolithicInterfaceConfirmed, 'monolithic-interface-not-confirmed', 'Monolithic shear-friction interface must be confirmed');
     requireOracleConfirmation(shear.transverseReinforcementPerpendicularConfirmed, 'transverse-reinforcement-not-confirmed', 'Perpendicular transverse reinforcement must be confirmed');
-  } else {
-    requireOracleConfirmation(shear.weakAxisStrengthsConfirmed, 'weak-axis-strengths-not-confirmed', 'Weak-axis nominal strengths must be confirmed');
+  }
+  if (axis === 'y') {
+    requireOracleConfirmation(shear.weakAxisStrengthsConfirmed, 'weak-axis-strengths-not-confirmed', 'Weak-axis nominal steel strength must be confirmed');
+  }
+  if (axis === 'y' && !automaticRc) {
+    requireOracleConfirmation(shear.weakAxisRcStrengthConfirmed ?? shear.weakAxisStrengthsConfirmed, 'weak-axis-rc-strength-not-confirmed', 'Weak-axis nominal RC strength must be confirmed');
     requireOracleConfirmation(shear.weakAxisRequiredTransverseAreaConfirmed, 'weak-axis-transverse-area-not-confirmed', 'Weak-axis transverse-reinforcement demand must be confirmed');
   }
 
@@ -525,8 +534,12 @@ function seismicStrongAxisShear(input, rcAxialDemandTf, steelNominalMomentTfM) {
   const width = positiveAt(concrete.widthCm, 'concrete.widthCm');
   const depth = positiveAt(concrete.depthCm, 'concrete.depthCm');
   const fc = positiveAt(concrete.fcKgfCm2, 'concrete.fcKgfCm2');
-  const effectiveDepth = axis === 'x' ? positiveAt(shear.effectiveDepthCm, 'shear.effectiveDepthCm') : null;
-  if (axis === 'x' && !(effectiveDepth < depth)) throw new SrcColumnOracleError('effective-depth-outside-section', 'Effective depth must lie inside the section');
+  const rcWidth = axis === 'x' ? width : depth;
+  const rcDepth = axis === 'x' ? depth : width;
+  const effectiveDepth = automaticRc
+    ? positiveAt(axis === 'x' ? shear.effectiveDepthCm : shear.weakAxisEffectiveDepthCm, axis === 'x' ? 'shear.effectiveDepthCm' : 'shear.weakAxisEffectiveDepthCm')
+    : null;
+  if (automaticRc && !(effectiveDepth < rcDepth)) throw new SrcColumnOracleError('effective-depth-outside-section', 'Effective depth must lie inside the selected-direction section');
   const mct = numberAt(shear.mctTfM, 'shear.mctTfM');
   const mcb = numberAt(shear.mcbTfM, 'shear.mcbTfM');
   if (mct < 0 || mcb < 0 || !(mct + mcb > 0)) throw new SrcColumnOracleError('invalid-probable-end-moment', 'Probable end moments must be nonnegative and not both zero');
@@ -547,33 +560,36 @@ function seismicStrongAxisShear(input, rcAxialDemandTf, steelNominalMomentTfM) {
 
   const purc = numberAt(rcAxialDemandTf, 'rcAxialDemandTf');
   if (purc < 0) throw new SrcColumnOracleError('unsupported-rc-axial-tension', 'Shear oracle supports RC compression only');
-  const av = axis === 'x' ? positiveAt(shear.avCm2, 'shear.avCm2') : null;
-  const avf = axis === 'x' ? positiveAt(shear.avfCm2, 'shear.avfCm2') : null;
-  const spacing = axis === 'x' ? positiveAt(shear.spacingCm, 'shear.spacingCm') : null;
-  const fyh = axis === 'x' ? positiveAt(shear.fyhKgfCm2, 'shear.fyhKgfCm2') : null;
-  const flangeWidth = axis === 'x' ? positiveAt(steel.flangeWidthCm, 'steel.flangeWidthCm') : null;
-  if (axis === 'x' && !(flangeWidth < width)) throw new SrcColumnOracleError('invalid-net-concrete-width', 'Steel flange width must be less than concrete width');
-  const studContribution = axis === 'x' ? numberAt(shear.shearStudContributionTf, 'shear.shearStudContributionTf') : 0;
-  if (axis === 'x' && studContribution !== 0) throw new SrcColumnOracleError('shear-stud-scope-not-implemented', 'Shear-stud contribution is outside the oracle scope');
+  const av = automaticRc ? positiveAt(axis === 'x' ? shear.avCm2 : shear.weakAxisAvCm2, axis === 'x' ? 'shear.avCm2' : 'shear.weakAxisAvCm2') : null;
+  const avf = automaticRc ? positiveAt(axis === 'x' ? shear.avfCm2 : shear.weakAxisAvfCm2, axis === 'x' ? 'shear.avfCm2' : 'shear.weakAxisAvfCm2') : null;
+  const spacing = automaticRc ? positiveAt(shear.spacingCm, 'shear.spacingCm') : null;
+  const fyh = automaticRc ? positiveAt(shear.fyhKgfCm2, 'shear.fyhKgfCm2') : null;
+  const steelFrictionPlaneWidth = automaticRc
+    ? positiveAt(axis === 'x' ? steel.flangeWidthCm : steel.depthCm, axis === 'x' ? 'steel.flangeWidthCm' : 'steel.depthCm')
+    : null;
+  if (automaticRc && !(steelFrictionPlaneWidth < rcWidth)) throw new SrcColumnOracleError('invalid-net-concrete-width', 'Steel width deducted from the friction plane must be less than the selected concrete width');
+  const studContribution = automaticRc && axis === 'x' ? numberAt(shear.shearStudContributionTf, 'shear.shearStudContributionTf') : 0;
+  if (automaticRc && studContribution !== 0) throw new SrcColumnOracleError('shear-stud-scope-not-implemented', 'Shear-stud contribution is outside the oracle scope');
   const grossArea = width * depth;
   const sqrtFc = Math.sqrt(fc);
-  const transverseLimitTf = axis === 'x' ? 2.12 * sqrtFc * width * effectiveDepth / 1000 : null;
-  const transverseTf = axis === 'x' ? Math.min(av * fyh * effectiveDepth / spacing / 1000, transverseLimitTf) : null;
-  const concreteTf = axis === 'x' ? 0.53 * (1 + purc * 1000 / (140 * grossArea)) * sqrtFc * width * effectiveDepth / 1000 : null;
-  const generalTf = axis === 'x' ? transverseTf + concreteTf : null;
-  const frictionTransverseTf = axis === 'x' ? Math.min(0.8 * avf * fyh * effectiveDepth / spacing / 1000, 0.8 * transverseLimitTf) : null;
-  const frictionConcreteTf = axis === 'x' ? 28 * (width - flangeWidth) * effectiveDepth / 1000 : null;
-  const frictionTf = axis === 'x' ? frictionTransverseTf + frictionConcreteTf : null;
-  const rcNominalShearTf = axis === 'x'
+  const transverseLimitTf = automaticRc ? 2.12 * sqrtFc * rcWidth * effectiveDepth / 1000 : null;
+  const transverseTf = automaticRc ? Math.min(av * fyh * effectiveDepth / spacing / 1000, transverseLimitTf) : null;
+  const concreteTf = automaticRc ? 0.53 * (1 + purc * 1000 / (140 * grossArea)) * sqrtFc * rcWidth * effectiveDepth / 1000 : null;
+  const generalTf = automaticRc ? transverseTf + concreteTf : null;
+  const frictionTransverseTf = automaticRc ? Math.min(0.8 * avf * fyh * effectiveDepth / spacing / 1000, 0.8 * transverseLimitTf) : null;
+  const netConcreteWidthCm = automaticRc ? rcWidth - steelFrictionPlaneWidth : null;
+  const frictionConcreteTf = automaticRc ? 28 * netConcreteWidthCm * effectiveDepth / 1000 : null;
+  const frictionTf = automaticRc ? frictionTransverseTf + frictionConcreteTf + studContribution : null;
+  const rcNominalShearTf = automaticRc
     ? Math.min(generalTf, frictionTf)
     : positiveAt(shear.weakAxisRcNominalShearTf, 'shear.weakAxisRcNominalShearTf');
   const rcDesignShearTf = 0.75 * rcNominalShearTf;
   const requiredNominalShearTf = rcRequiredShearTf / 0.75;
-  const requiredGeneralTransverseTf = axis === 'x' ? Math.max(0, requiredNominalShearTf - concreteTf) : null;
-  const requiredGeneralAreaCm2 = axis === 'x' ? requiredGeneralTransverseTf * 1000 * spacing / (fyh * effectiveDepth) : null;
-  const requiredFrictionTransverseTf = axis === 'x' ? Math.max(0, requiredNominalShearTf - frictionConcreteTf) : null;
-  const requiredFrictionAreaCm2 = axis === 'x' ? requiredFrictionTransverseTf * 1000 * spacing / (0.8 * fyh * effectiveDepth) : null;
-  const requiredTransverseAreaCm2 = axis === 'x'
+  const requiredGeneralTransverseTf = automaticRc ? Math.max(0, requiredNominalShearTf - concreteTf) : null;
+  const requiredGeneralAreaCm2 = automaticRc ? requiredGeneralTransverseTf * 1000 * spacing / (fyh * effectiveDepth) : null;
+  const requiredFrictionTransverseTf = automaticRc ? Math.max(0, requiredNominalShearTf - frictionConcreteTf - studContribution) : null;
+  const requiredFrictionAreaCm2 = automaticRc ? requiredFrictionTransverseTf * 1000 * spacing / (0.8 * fyh * effectiveDepth) : null;
+  const requiredTransverseAreaCm2 = automaticRc
     ? Math.max(requiredGeneralAreaCm2, requiredFrictionAreaCm2)
     : numberAt(shear.weakAxisRequiredTransverseAreaCm2, 'shear.weakAxisRequiredTransverseAreaCm2');
   if (requiredTransverseAreaCm2 < 0) throw new SrcColumnOracleError('negative-weak-axis-transverse-area', 'Weak-axis transverse-reinforcement demand must be nonnegative');
@@ -582,7 +598,10 @@ function seismicStrongAxisShear(input, rcAxialDemandTf, steelNominalMomentTfM) {
     method: 'independent-continuous-probable-moment',
     mode: 'seismic-selected-axis-subcheck',
     axis,
-    strengthSource: axis === 'x' ? 'automatic-clause-5.5' : 'project-confirmed-weak-axis',
+    weakAxisRcDesignBasis: axis === 'y' ? weakAxisRcDesignBasis : null,
+    strengthSource: axis === 'x'
+      ? 'automatic-clause-5.5'
+      : (automaticRc ? 'project-confirmed-steel+automatic-rc-clause-5.5.2' : 'project-confirmed-weak-axis'),
     demand: { mctTfM: mct, mcbTfM: mcb, clearHeightCm: clearHeight, shearTf: demandShearTf },
     probableMoments: {
       steelNominalMomentTfM,
@@ -600,17 +619,27 @@ function seismicStrongAxisShear(input, rcAxialDemandTf, steelNominalMomentTfM) {
       ok: steelRequiredShearTf <= steelDesignShearTf + 1e-9,
     },
     rc: {
-      ...(axis === 'x' ? {} : { source: 'project-confirmed-weak-axis' }),
+      source: automaticRc
+        ? `automatic-clause-5.5.2-selected-${axis}-axis`
+        : 'project-confirmed-weak-axis',
       axialDemandTf: purc,
+      sectionWidthCm: automaticRc ? rcWidth : null,
+      sectionDepthCm: automaticRc ? rcDepth : null,
+      effectiveDepthCm: effectiveDepth,
+      avCm2: av,
+      avfCm2: avf,
+      spacingCm: spacing,
+      fyhKgfCm2: fyh,
+      steelFrictionPlaneWidthCm: steelFrictionPlaneWidth,
       transverseLimitTf,
       transverseTf,
       concreteTf,
       generalTf,
       frictionTransverseTf,
-      netConcreteWidthCm: width - flangeWidth,
+      netConcreteWidthCm,
       frictionConcreteTf,
       frictionTf,
-      governingMode: axis === 'x' ? (generalTf <= frictionTf ? 'general-shear' : 'shear-friction') : 'project-confirmed-weak-axis',
+      governingMode: automaticRc ? (generalTf <= frictionTf ? 'general-shear' : 'shear-friction') : 'project-confirmed-weak-axis',
       nominalShearTf: rcNominalShearTf,
       designShearTf: rcDesignShearTf,
       requiredShearTf: rcRequiredShearTf,
@@ -769,7 +798,7 @@ function seismicConfinement(input, shearResult) {
     if (highlyConfinedArea > 1e-9) throw new SrcColumnOracleError('weak-axis-ahcc-must-be-zero', 'Weak-axis H-shape confinement requires Ahcc=0');
   }
   const spacing = positiveAt(shear.spacingCm, 'shear.spacingCm');
-  const providedAsh = positiveAt(shear.avCm2, 'shear.avCm2');
+  const providedAsh = positiveAt(input.seismicAxis === 'y' ? shear.weakAxisAvCm2 : shear.avCm2, input.seismicAxis === 'y' ? 'shear.weakAxisAvCm2' : 'shear.avCm2');
   const fyh = positiveAt(shear.fyhKgfCm2, 'shear.fyhKgfCm2');
   const steelArea = positiveAt(steel.areaCm2, 'steel.areaCm2');
   const reinforcementArea = (reinforcement.layers || []).reduce((sum, layer, index) => sum + positiveAt(layer.areaCm2, `reinforcement.layers[${index}].areaCm2`), 0);
@@ -1231,8 +1260,8 @@ function calculate(input) {
     supportedSchema: SUPPORTED_SCHEMA,
     seismicAxis: seismicAxis || null,
     coverage: {
-      covered: ['table-3.4-2-compactness', 'stiffness-allocation', 'steel-compression', 'steel-biaxial-interaction', 'redistribution', 'rc-strain-compatibility-pm', 'rc-biaxial-interaction', 'seismic-axial-strength-subcheck', 'seismic-x-axis-column-shear-subcheck', 'project-confirmed-y-axis-column-shear-subcheck', 'clause-8.4.2-selected-axis-joint-flexural-strength-ratio', 'seismic-selected-axis-joint-subcheck', 'seismic-selected-axis-confinement-subcheck'],
-      uncovered: ['complete-seismic-design', 'automatic-weak-axis-nominal-strength-derivation', 'two-direction-aggregate-frame-check', 'joint-panel-zone-and-connection-hardware'],
+      covered: ['table-3.4-2-compactness', 'stiffness-allocation', 'steel-compression', 'steel-biaxial-interaction', 'redistribution', 'rc-strain-compatibility-pm', 'rc-biaxial-interaction', 'seismic-axial-strength-subcheck', 'seismic-x-axis-column-shear-subcheck', 'automatic-y-axis-rc-shear-clause-5.5.2', 'project-confirmed-y-axis-column-shear-subcheck', 'clause-8.4.2-selected-axis-joint-flexural-strength-ratio', 'seismic-selected-axis-joint-subcheck', 'seismic-selected-axis-confinement-subcheck'],
+      uncovered: ['complete-seismic-design', 'automatic-y-axis-steel-nominal-strength-derivation', 'two-direction-aggregate-frame-check', 'joint-panel-zone-and-connection-hardware'],
     },
     compactness: compactness(input),
     allocation: { axialSteelRatio, momentSteelRatioX, momentSteelRatioY, initialSteelDemands, initialRcDemands },

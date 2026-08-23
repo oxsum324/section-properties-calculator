@@ -12,9 +12,11 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function buildSrcColumnPage(Core, Catalog, WeakAxisReference) {
   'use strict';
 
-  const PAGE_VERSION = 'v0.4';
+  const PAGE_VERSION = 'v0.5';
   const TOOL_ID = 'src-column-research';
-  const CASE_SCHEMA = 'src-column-research.case.v3';
+  const CASE_SCHEMA = 'src-column-research.case.v4';
+  const PREVIOUS_CASE_SCHEMA = 'src-column-research.case.v3';
+  const PREVIOUS_PAGE_VERSION = 'v0.4';
   const LEGACY_CASE_SCHEMA = 'src-column-research.case.v2';
   const LEGACY_PAGE_VERSION = 'v0.3';
   const TOOL_NAME = 'SRC 柱方向可選耐震研究核算';
@@ -31,7 +33,8 @@
     'xLayer1X', 'xLayer1Area', 'xLayer2X', 'xLayer2Area', 'xLayer3X', 'xLayer3Area', 'xLayer4X', 'xLayer4Area',
     'mctTfM', 'mcbTfM', 'clearHeightCm', 'effectiveDepthCm', 'avCm2', 'avfCm2', 'spacingCm',
     'fyhKgfCm2', 'steelFywKgfCm2', 'shearStudContributionTf',
-    'weakAxisSteelNominalShearTf', 'weakAxisRcNominalShearTf', 'weakAxisRequiredTransverseAreaCm2',
+    'weakAxisSteelNominalShearTf', 'weakAxisEffectiveDepthCm', 'weakAxisAvCm2', 'weakAxisAvfCm2',
+    'weakAxisRcNominalShearTf', 'weakAxisRequiredTransverseAreaCm2',
     'jcwSteelColumnTfM', 'jcwSteelBeamTfM', 'jcwRcColumnTfM', 'jcwRcBeamTfM',
     'jccwSteelColumnTfM', 'jccwSteelBeamTfM', 'jccwRcColumnTfM', 'jccwRcBeamTfM',
     'cwUpperColumnTfM', 'cwLowerColumnTfM', 'cwLeftBeamTfM', 'cwRightBeamTfM',
@@ -46,7 +49,7 @@
     'redistribute', 'highStrengthConcreteConfirmed', 'highStrengthMaterialConfirmed',
     'enableShearSubcheck', 'projectPlasticHingeMomentsConfirmed', 'normalWeightConcreteConfirmed',
     'monolithicInterfaceConfirmed', 'transverseReinforcementPerpendicularConfirmed',
-    'weakAxisStrengthsConfirmed', 'weakAxisRequiredTransverseAreaConfirmed',
+    'weakAxisStrengthsConfirmed', 'weakAxisRcStrengthConfirmed', 'weakAxisRequiredTransverseAreaConfirmed',
     'enableJointRatioSubcheck', 'jointRatioJointFaceStrengthsConfirmed', 'allConnectedMembersIncludedConfirmed',
     'componentStrengthsSeparatedConfirmed', 'useVerifiedSmoothTransferAlternative', 'smoothStressTransferAnalysisConfirmed',
     'enableStrongColumnSubcheck', 'singleStrongAxisFramePlaneConfirmed',
@@ -97,17 +100,33 @@
 
   function migrateCasePayload(sourcePayload) {
     const payload = clone(sourcePayload);
+    const isPrevious = payload?.schema === PREVIOUS_CASE_SCHEMA
+      && payload?.tool?.id === TOOL_ID
+      && payload?.tool?.version === PREVIOUS_PAGE_VERSION;
     const isLegacy = payload?.schema === LEGACY_CASE_SCHEMA
       && payload?.tool?.id === TOOL_ID
       && payload?.tool?.version === LEGACY_PAGE_VERSION;
-    if (!isLegacy) return { payload, migrated: false };
+    if (!isPrevious && !isLegacy) return { payload, migrated: false };
     if (!payload.input || typeof payload.input !== 'object') throw new Error('舊版案件 JSON 缺少計算輸入。');
     const input = payload.input;
+    if (isLegacy) {
+      input.seismicAxis = 'x';
+      input.demands = { ...(input.demands || {}), muyTfM: 0 };
+      for (const key of ['shear', 'jointFlexuralStrengthRatio', 'strongColumnWeakBeam', 'confinement']) {
+        if (input[key] && typeof input[key] === 'object') input[key].axis = 'x';
+      }
+    }
     input.schema = Core.INPUT_SCHEMA;
-    input.seismicAxis = 'x';
-    input.demands = { ...(input.demands || {}), muyTfM: 0 };
-    for (const key of ['shear', 'jointFlexuralStrengthRatio', 'strongColumnWeakBeam', 'confinement']) {
-      if (input[key] && typeof input[key] === 'object') input[key].axis = 'x';
+    if (input.shear && typeof input.shear === 'object') {
+      const shear = input.shear;
+      const xPositions = Array.isArray(input.reinforcement?.xLayers)
+        ? input.reinforcement.xLayers.map(item => Number(item?.xCm)).filter(Number.isFinite)
+        : [];
+      shear.weakAxisRcDesignBasis = 'project-confirmed';
+      shear.weakAxisEffectiveDepthCm = xPositions.length ? Math.max(...xPositions) : Math.max(1, Number(input.concrete?.widthCm || 1) - 7);
+      shear.weakAxisAvCm2 = Number.isFinite(Number(shear.avCm2)) ? Number(shear.avCm2) : 2.54;
+      shear.weakAxisAvfCm2 = Number.isFinite(Number(shear.avfCm2)) ? Number(shear.avfCm2) : shear.weakAxisAvCm2;
+      shear.weakAxisRcStrengthConfirmed = shear.weakAxisStrengthsConfirmed === true;
     }
     payload.schema = CASE_SCHEMA;
     payload.tool = {
@@ -121,8 +140,8 @@
     return {
       payload,
       migrated: true,
-      sourceSchema: LEGACY_CASE_SCHEMA,
-      sourceVersion: LEGACY_PAGE_VERSION,
+      sourceSchema: isLegacy ? LEGACY_CASE_SCHEMA : PREVIOUS_CASE_SCHEMA,
+      sourceVersion: isLegacy ? LEGACY_PAGE_VERSION : PREVIOUS_PAGE_VERSION,
     };
   }
 
@@ -243,10 +262,15 @@
         normalWeightConcreteConfirmed: checked('normalWeightConcreteConfirmed'),
         monolithicInterfaceConfirmed: checked('monolithicInterfaceConfirmed'),
         transverseReinforcementPerpendicularConfirmed: checked('transverseReinforcementPerpendicularConfirmed'),
+        weakAxisRcDesignBasis: String(doc.getElementById('weakAxisRcDesignBasis')?.value || 'automatic-clause-5.5.2'),
         weakAxisSteelNominalShearTf: number('weakAxisSteelNominalShearTf'),
+        weakAxisEffectiveDepthCm: number('weakAxisEffectiveDepthCm'),
+        weakAxisAvCm2: number('weakAxisAvCm2'),
+        weakAxisAvfCm2: number('weakAxisAvfCm2'),
         weakAxisRcNominalShearTf: number('weakAxisRcNominalShearTf'),
         weakAxisRequiredTransverseAreaCm2: number('weakAxisRequiredTransverseAreaCm2'),
         weakAxisStrengthsConfirmed: checked('weakAxisStrengthsConfirmed'),
+        weakAxisRcStrengthConfirmed: checked('weakAxisRcStrengthConfirmed'),
         weakAxisRequiredTransverseAreaConfirmed: checked('weakAxisRequiredTransverseAreaConfirmed'),
       },
       jointFlexuralStrengthRatio: {
@@ -369,6 +393,9 @@
       ['spacingCm', shear.spacingCm], ['fyhKgfCm2', shear.fyhKgfCm2],
       ['shearStudContributionTf', shear.shearStudContributionTf],
       ['weakAxisSteelNominalShearTf', shear.weakAxisSteelNominalShearTf],
+      ['weakAxisEffectiveDepthCm', shear.weakAxisEffectiveDepthCm],
+      ['weakAxisAvCm2', shear.weakAxisAvCm2],
+      ['weakAxisAvfCm2', shear.weakAxisAvfCm2],
       ['weakAxisRcNominalShearTf', shear.weakAxisRcNominalShearTf],
       ['weakAxisRequiredTransverseAreaCm2', shear.weakAxisRequiredTransverseAreaCm2],
       ['jcwSteelColumnTfM', jointClockwise.steelColumnSumTfM], ['jcwSteelBeamTfM', jointClockwise.steelBeamSumTfM],
@@ -395,6 +422,7 @@
       setValue(`xLayer${index + 1}Area`, layer.areaCm2);
     });
     setText('seismicAxis', input?.seismicAxis || shear.axis || 'x');
+    setText('weakAxisRcDesignBasis', shear.weakAxisRcDesignBasis || 'project-confirmed');
     setText('steelCatalogId', s.catalogId);
     setText('steelGrade', s.grade);
     setText('jointConnectionType', jointRatio.connectionType);
@@ -416,6 +444,7 @@
       ['monolithicInterfaceConfirmed', shear.monolithicInterfaceConfirmed],
       ['transverseReinforcementPerpendicularConfirmed', shear.transverseReinforcementPerpendicularConfirmed],
       ['weakAxisStrengthsConfirmed', shear.weakAxisStrengthsConfirmed],
+      ['weakAxisRcStrengthConfirmed', shear.weakAxisRcStrengthConfirmed ?? shear.weakAxisStrengthsConfirmed],
       ['weakAxisRequiredTransverseAreaConfirmed', shear.weakAxisRequiredTransverseAreaConfirmed],
       ['enableJointRatioSubcheck', detail.jointFlexuralStrengthRatioSubcheck],
       ['jointRatioJointFaceStrengthsConfirmed', jointRatio.jointFaceNominalStrengthsConfirmed],
@@ -563,6 +592,8 @@
     const section = result.steelSection;
     const axis = input.seismicAxis === 'y' ? 'y' : 'x';
     const axisLabel = axis === 'y' ? 'Y 向（鋼骨弱軸）' : 'X 向（鋼骨強軸）';
+    const automaticWeakAxisRc = axis === 'y' && shear?.weakAxisRcDesignBasis === 'automatic-clause-5.5.2';
+    const rcShearBasisLabel = axis === 'x' || automaticWeakAxisRc ? '第 5.5.2 節自動計算' : '專案確認值';
     const selectedMoment = axis === 'y' ? input.demands.muyTfM : input.demands.muxTfM;
     const selectedLayers = axis === 'y' ? input.reinforcement.xLayers : input.reinforcement.layers;
     const diagram = buildSectionDiagram(input);
@@ -624,7 +655,7 @@
             { label: 'A / Ix / Iy', value: `${fmt(section.properties.areaCm2, 1)} / ${fmt(section.properties.ixCm4, 0)} / ${fmt(section.properties.iyCm4, 0)}`, unit: 'cm² / cm⁴ / cm⁴' },
             { label: 'Fys', value: fmt(input.steel.fysKgfCm2, 0), unit: 'kgf/cm²' },
             { label: 'L / Kx / Ky', value: `${fmt(input.member.lengthCm, 1)} / ${fmt(input.member.kx, 2)} / ${fmt(input.member.ky, 2)}`, unit: 'cm / — / —' },
-            { label: `${axisLabel}主筋計算${axis === 'y' ? '列' : '層'}`, value: selectedLayers.map(layer => `${axis}=${fmt(axis === 'y' ? layer.xCm : layer.yCm, 1)} cm：As=${fmt(layer.areaCm2, 2)} cm²`).join('；'), unit: '' },
+            { label: `${axisLabel}主筋計算${axis === 'y' ? '列' : '層'}`, value: selectedLayers.map(layer => `${axis === 'y' ? 'x' : 'y'}=${fmt(axis === 'y' ? layer.xCm : layer.yCm, 1)} cm：As=${fmt(layer.areaCm2, 2)} cm²`).join('；'), unit: '' },
           ],
         },
         {
@@ -653,9 +684,18 @@
               { label: 's / fyh / Fyw', value: `${fmt(input.shear.spacingCm, 1)} / ${fmt(input.shear.fyhKgfCm2, 0)} / ${fmt(input.steel.fywKgfCm2, 0)}`, unit: 'cm / kgf/cm² / kgf/cm²' },
               { label: '剪力釘貢獻', value: fmt(input.shear.shearStudContributionTf, 2), unit: 'tf' },
             ] : [
-              { label: '專案確認 Vns / Vnrc', value: `${fmt(shear.steel.nominalShearTf, 3)} / ${fmt(shear.rc.nominalShearTf, 3)}`, unit: 'tf' },
-              { label: '專案確認 Ash,shear', value: fmt(shear.rc.requiredTransverseAreaCm2, 3), unit: 'cm²' },
-              { label: '提供 Av / s / fyh', value: `${fmt(input.shear.avCm2, 3)} / ${fmt(input.shear.spacingCm, 1)} / ${fmt(input.shear.fyhKgfCm2, 0)}`, unit: 'cm² / cm / kgf/cm²' },
+              { label: 'Y 向鋼骨 Vns', value: fmt(shear.steel.nominalShearTf, 3), unit: 'tf（專案確認）' },
+              { label: 'Y 向 RC 計算依據', value: rcShearBasisLabel, unit: '' },
+              ...(automaticWeakAxisRc ? [
+                { label: 'Y 向 RC b / d / b′', value: `${fmt(shear.rc.sectionWidthCm, 1)} / ${fmt(shear.rc.effectiveDepthCm, 1)} / ${fmt(shear.rc.netConcreteWidthCm, 1)}`, unit: 'cm' },
+                { label: 'Y 向 Av / Avf', value: `${fmt(input.shear.weakAxisAvCm2, 3)} / ${fmt(input.shear.weakAxisAvfCm2, 3)}`, unit: 'cm²' },
+                { label: 's / fyh', value: `${fmt(input.shear.spacingCm, 1)} / ${fmt(input.shear.fyhKgfCm2, 0)}`, unit: 'cm / kgf/cm²' },
+                { label: '計算 Vnrc / Ash,shear', value: `${fmt(shear.rc.nominalShearTf, 3)} / ${fmt(shear.rc.requiredTransverseAreaCm2, 3)}`, unit: 'tf / cm²' },
+              ] : [
+                { label: '專案確認 Vnrc', value: fmt(shear.rc.nominalShearTf, 3), unit: 'tf' },
+                { label: '專案確認 Ash,shear', value: fmt(shear.rc.requiredTransverseAreaCm2, 3), unit: 'cm²' },
+                { label: '提供 Av,y / s / fyh', value: `${fmt(input.shear.weakAxisAvCm2, 3)} / ${fmt(input.shear.spacingCm, 1)} / ${fmt(input.shear.fyhKgfCm2, 0)}`, unit: 'cm² / cm / kgf/cm²' },
+              ]),
             ]),
           ],
         }] : []),
@@ -780,7 +820,20 @@
         }] : []),
         ...(shear ? [{
           group: `第 9.6.2 節${axisLabel}柱剪力`,
-          body: `Vu = (Mct + Mcb) / Ln = (${fmt(shear.demand.mctTfM, 4)} + ${fmt(shear.demand.mcbTfM, 4)}) / ${fmt(shear.demand.clearHeightCm / 100, 4)} = ${fmt(shear.demand.shearTf, 4)} tf\nMns / (Mns + Mnr) = ${fmt(shear.probableMoments.steelShare, 6)}；Mnr / (Mns + Mnr) = ${fmt(shear.probableMoments.rcShare, 6)}${axis === 'y' ? `\nY 向專案確認名義剪力：Vns = ${fmt(shear.steel.nominalShearTf, 4)} tf；Vnrc = ${fmt(shear.rc.nominalShearTf, 4)} tf` : ''}\n鋼骨需求／設計剪力 = ${fmt(shear.steel.requiredShearTf, 4)} / ${fmt(shear.steel.designShearTf, 4)} tf；需求比 = ${fmt(shear.steel.utilization, 6)}\nRC 需求／設計剪力 = ${fmt(shear.rc.requiredShearTf, 4)} / ${fmt(shear.rc.designShearTf, 4)} tf；需求比 = ${fmt(shear.rc.utilization, 6)}\n剪力所需 Ash = ${fmt(shear.rc.requiredTransverseAreaCm2, 4)} cm²；控制模式 = ${shear.rc.governingMode}`,
+          body: [
+            `Vu = (Mct + Mcb) / Ln = (${fmt(shear.demand.mctTfM, 4)} + ${fmt(shear.demand.mcbTfM, 4)}) / ${fmt(shear.demand.clearHeightCm / 100, 4)} = ${fmt(shear.demand.shearTf, 4)} tf`,
+            `Mns / (Mns + Mnr) = ${fmt(shear.probableMoments.steelShare, 6)}；Mnr / (Mns + Mnr) = ${fmt(shear.probableMoments.rcShare, 6)}`,
+            ...(axis === 'y' ? [`Y 向鋼骨專案確認 Vns = ${fmt(shear.steel.nominalShearTf, 4)} tf`] : []),
+            ...((axis === 'x' || automaticWeakAxisRc) ? [
+              `RC 第 5.5.2 節：b = ${fmt(shear.rc.sectionWidthCm, 4)} cm；d = ${fmt(shear.rc.effectiveDepthCm, 4)} cm；b′ = ${fmt(shear.rc.sectionWidthCm, 4)} − ${fmt(shear.rc.steelFrictionPlaneWidthCm, 4)} = ${fmt(shear.rc.netConcreteWidthCm, 4)} cm`,
+              `一般剪力：Vnr + Vnc = ${fmt(shear.rc.transverseTf, 4)} + ${fmt(shear.rc.concreteTf, 4)} = ${fmt(shear.rc.generalTf, 4)} tf`,
+              `剪力摩擦：Vnr′ + Vnc′ + Vns = ${fmt(shear.rc.frictionTransverseTf, 4)} + ${fmt(shear.rc.frictionConcreteTf, 4)} + ${fmt(shear.rc.shearStudContributionTf, 4)} = ${fmt(shear.rc.frictionTf, 4)} tf`,
+              `Vnrc = min(${fmt(shear.rc.generalTf, 4)}, ${fmt(shear.rc.frictionTf, 4)}) = ${fmt(shear.rc.nominalShearTf, 4)} tf`,
+            ] : [`Y 向 RC 專案確認 Vnrc = ${fmt(shear.rc.nominalShearTf, 4)} tf；Ash,shear = ${fmt(shear.rc.requiredTransverseAreaCm2, 4)} cm²`]),
+            `鋼骨需求／設計剪力 = ${fmt(shear.steel.requiredShearTf, 4)} / ${fmt(shear.steel.designShearTf, 4)} tf；需求比 = ${fmt(shear.steel.utilization, 6)}`,
+            `RC 需求／設計剪力 = ${fmt(shear.rc.requiredShearTf, 4)} / ${fmt(shear.rc.designShearTf, 4)} tf；需求比 = ${fmt(shear.rc.utilization, 6)}`,
+            `剪力所需 Ash = ${fmt(shear.rc.requiredTransverseAreaCm2, 4)} cm²；控制模式 = ${shear.rc.governingMode}`,
+          ].join('\n'),
         }] : []),
         ...(strongColumn ? [{
           group: '式 (9.6-1) 強柱弱梁',
@@ -937,6 +990,19 @@
         node.hidden = axis !== 'y';
         node.querySelectorAll('input,select,textarea').forEach(input => { input.disabled = !shearEnabled || axis !== 'y'; });
       });
+      const automaticRc = axis === 'x' || $('weakAxisRcDesignBasis').value === 'automatic-clause-5.5.2';
+      doc.querySelectorAll('[data-y-automatic-rc]').forEach(node => {
+        node.hidden = axis !== 'y' || !automaticRc;
+        node.querySelectorAll('input,select,textarea').forEach(input => { input.disabled = !shearEnabled || axis !== 'y' || !automaticRc; });
+      });
+      doc.querySelectorAll('[data-y-project-rc]').forEach(node => {
+        node.hidden = axis !== 'y' || automaticRc;
+        node.querySelectorAll('input,select,textarea').forEach(input => { input.disabled = !shearEnabled || axis !== 'y' || automaticRc; });
+      });
+      doc.querySelectorAll('[data-automatic-rc]').forEach(node => {
+        node.hidden = !automaticRc;
+        node.querySelectorAll('input,select,textarea').forEach(input => { input.disabled = !shearEnabled || !automaticRc; });
+      });
       doc.querySelectorAll('[data-y-reinforcement]').forEach(node => {
         node.hidden = axis !== 'y';
         node.querySelectorAll('input,select,textarea').forEach(input => { input.disabled = axis !== 'y'; });
@@ -1000,7 +1066,7 @@
               flangeThickness: result.steelSection.dimensions.flangeThicknessCm,
               forceDivisor: 1000,
             });
-            weakAxisReferenceNode.innerHTML = `<strong>專案指定參考｜AISC 360 G6 鋼骨弱軸對照</strong><span>若專案明確指定此路徑，本斷面參考 Vns = ${fmt(reference.nominalShear, 3)} tf，φVns = ${fmt(reference.designShear, 3)} tf；bf/(2tf) = ${fmt(reference.flangeSlenderness, 3)}，Cv2 = ${fmt(reference.cv2, 3)}（${reference.cv2Equation}）。</span><span>目前計算仍採你輸入並確認的 Vns = ${fmt(input.shear.weakAxisSteelNominalShearTf, 3)} tf；本對照不自動取代採用值，也不建立 Vnrc 或 Ash,shear。<a href="${escapeHtml(reference.source.url)}" target="_blank" rel="noreferrer">官方 Example G.6</a></span><span>本區只顯示於 HTML，不進計算書、列印、PDF 或計算指紋。</span>`;
+            weakAxisReferenceNode.innerHTML = `<strong>專案指定參考｜AISC 360 G6 鋼骨弱軸對照</strong><span>若專案明確指定此路徑，本斷面參考 Vns = ${fmt(reference.nominalShear, 3)} tf，φVns = ${fmt(reference.designShear, 3)} tf；bf/(2tf) = ${fmt(reference.flangeSlenderness, 3)}，Cv2 = ${fmt(reference.cv2, 3)}（${reference.cv2Equation}）。</span><span>目前鋼骨計算仍採你輸入並確認的 Vns = ${fmt(input.shear.weakAxisSteelNominalShearTf, 3)} tf；此對照不自動取代採用值。RC 的 Vnrc 與 Ash,shear 則依上方選定模式處理。<a href="${escapeHtml(reference.source.url)}" target="_blank" rel="noreferrer">官方 Example G.6</a></span><span>本區只顯示於 HTML，不進計算書、列印、PDF 或計算指紋。</span>`;
           } catch (error) {
             weakAxisReferenceNode.innerHTML = '<strong>AISC G6 外部對照目前無法建立</strong><span>請先完成有效的 H 型鋼翼板尺寸、Fys 與 Es；採用的 Y 向 Vns 仍須由專案確認。</span><span>本區只顯示於 HTML，不進計算書、列印、PDF 或計算指紋。</span>';
           }
@@ -1155,7 +1221,7 @@
         const result = calculate({ announce: false });
         if (!result) throw new Error('案件 JSON 套用後未通過輸入檢核。');
         if (migration.migrated) {
-          setActionStatus(`已升級 ${migration.sourceVersion} X 向案件並以現行核心重算；新計算指紋 ${lastFingerprint}。`, 'ok');
+          setActionStatus(`已升級 ${migration.sourceVersion} 案件並以現行核心重算；原 Y 向 RC 專案確認值已保留，新計算指紋 ${lastFingerprint}。`, 'ok');
         } else {
           reportUi.assertCalculationCaseReplay(payload, lastFingerprint);
           setActionStatus(`已匯入 ${file.name || '案件 JSON'}，重算指紋一致。`, 'ok');
@@ -1187,7 +1253,7 @@
       catch (error) { setActionStatus(`匯入失敗：${error.message || error}`, 'error'); }
       finally { event.target.value = ''; }
     });
-    [...NUMBER_FIELDS, ...CHECK_FIELDS, 'steelCatalogId', 'steelGrade', 'jointConnectionType', 'seismicAxis'].forEach(id => {
+    [...NUMBER_FIELDS, ...CHECK_FIELDS, 'steelCatalogId', 'steelGrade', 'jointConnectionType', 'seismicAxis', 'weakAxisRcDesignBasis'].forEach(id => {
       const node = $(id);
       if (!node) return;
       node.addEventListener('input', scheduleCalculate);
@@ -1214,6 +1280,8 @@
     PAGE_VERSION,
     TOOL_ID,
     CASE_SCHEMA,
+    PREVIOUS_CASE_SCHEMA,
+    PREVIOUS_PAGE_VERSION,
     LEGACY_CASE_SCHEMA,
     LEGACY_PAGE_VERSION,
     TOOL_NAME,

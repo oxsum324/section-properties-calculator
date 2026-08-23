@@ -120,15 +120,27 @@ async function main() {
       fingerprint: window.lastSrcColumnCalculationFingerprint,
       rcAxis: window.lastSrcColumnResult.rc.uniaxialAxis,
       strengthSource: window.lastSrcColumnResult.shear.strengthSource,
+      rcSource: window.lastSrcColumnResult.shear.rc.source,
+      rcWidth: window.lastSrcColumnResult.shear.rc.sectionWidthCm,
+      rcDepth: window.lastSrcColumnResult.shear.rc.sectionDepthCm,
+      rcEffectiveDepth: window.lastSrcColumnResult.shear.rc.effectiveDepthCm,
+      rcNetWidth: window.lastSrcColumnResult.shear.rc.netConcreteWidthCm,
       steelNominalMomentTfM: window.lastSrcColumnResult.shear.probableMoments.steelNominalMomentTfM,
       highlyConfinedAxialTf: window.lastSrcColumnResult.confinement.axialTerms.highlyConfinedAxialTf,
     }));
     assert.notEqual(weakAxis.fingerprint, initial.fingerprint, 'selected direction participates in the calculation fingerprint');
     assert.equal(weakAxis.rcAxis, 'y');
-    assert.equal(weakAxis.strengthSource, 'project-confirmed-weak-axis');
+    assert.equal(weakAxis.strengthSource, 'project-confirmed-steel+automatic-rc-clause-5.5.2');
+    assert.equal(weakAxis.rcSource, 'automatic-clause-5.5.2-selected-y-axis');
+    assert.equal(weakAxis.rcWidth, 80);
+    assert.equal(weakAxis.rcDepth, 65);
+    assert.equal(weakAxis.rcEffectiveDepth, 58);
+    assert.equal(weakAxis.rcNetWidth, 30);
     assert.ok(Math.abs(weakAxis.steelNominalMomentTfM - 39.9) < 1e-10);
     assert.equal(weakAxis.highlyConfinedAxialTf, 0);
     assert.equal(await page.locator('[data-y-shear]').first().isVisible(), true);
+    assert.equal(await page.locator('[data-y-automatic-rc]').first().isVisible(), true);
+    assert.equal(await page.locator('[data-y-project-rc]').first().isHidden(), true);
     assert.equal(await page.locator('[data-x-shear]').first().isHidden(), true);
     assert.equal(await page.locator('#highlyConfinedAreaCm2').isEditable(), false, 'weak-axis Ahcc is visibly locked at zero');
     const weakAxisReference = page.locator('#weakAxisSteelReference');
@@ -136,7 +148,7 @@ async function main() {
     const weakAxisReferenceText = await weakAxisReference.innerText();
     assert.match(weakAxisReferenceText, /AISC 360 G6 鋼骨弱軸對照/);
     assert.match(weakAxisReferenceText, /參考 Vns = 306\.432 tf/);
-    assert.match(weakAxisReferenceText, /目前計算仍採你輸入並確認的 Vns = 100\.000 tf/);
+    assert.match(weakAxisReferenceText, /目前鋼骨計算仍採你輸入並確認的 Vns = 100\.000 tf/);
     assert.match(weakAxisReferenceText, /不進計算書、列印、PDF 或計算指紋/);
     assert.equal(
       await weakAxisReference.locator('a').getAttribute('href'),
@@ -149,6 +161,14 @@ async function main() {
     await page.check('#weakAxisStrengthsConfirmed');
     await page.waitForFunction(() => window.lastSrcColumnResult?.seismicAxis === 'y' && window.lastSrcColumnResult?.checks?.engineeringStrength === true);
     assert.match(await weakAxisReference.innerText(), /參考 Vns = 306\.432 tf/, 'valid Y-axis input restores the external comparison');
+    await page.selectOption('#weakAxisRcDesignBasis', 'project-confirmed');
+    await page.waitForFunction(() => window.lastSrcColumnResult?.shear?.strengthSource === 'project-confirmed-weak-axis');
+    assert.equal(await page.locator('[data-y-automatic-rc]').first().isHidden(), true, 'manual RC basis hides automatic direction inputs');
+    assert.equal(await page.locator('[data-y-project-rc]').first().isVisible(), true, 'manual RC basis exposes preserved project inputs');
+    assert.equal(await page.evaluate(() => window.lastSrcColumnResult.shear.rc.nominalShearTf), 120);
+    assert.equal(await page.evaluate(() => window.lastSrcColumnResult.shear.rc.requiredTransverseAreaCm2), 1.2);
+    await page.selectOption('#weakAxisRcDesignBasis', 'automatic-clause-5.5.2');
+    await page.waitForFunction(() => window.lastSrcColumnResult?.shear?.strengthSource === 'project-confirmed-steel+automatic-rc-clause-5.5.2');
     const weakAxisDiagramSource = await pageDiagram.getAttribute('src');
     assert.ok(decodeURIComponent(weakAxisDiagramSource).includes('L1: x=7.0 cm, As=20.28 cm²'));
     await page.selectOption('#seismicAxis', 'x');
@@ -221,7 +241,7 @@ async function main() {
     await page.setInputFiles('#caseFile', {
       name: 'src-column-research-v03-case.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(legacyPayload)),
     });
-    await page.waitForFunction(() => document.querySelector('#actionStatus')?.textContent.includes('已升級 v0.3 X 向案件'));
+    await page.waitForFunction(() => document.querySelector('#actionStatus')?.textContent.includes('已升級 v0.3 案件'));
     assert.equal(await page.inputValue('#seismicAxis'), 'x');
     assert.match(await page.locator('#actionStatus').innerText(), /新計算指紋 CF-[A-F0-9]{16}/);
 
@@ -292,6 +312,7 @@ async function main() {
       ],
     });
     await page.selectOption('#seismicAxis', 'y');
+    await page.selectOption('#weakAxisRcDesignBasis', 'automatic-clause-5.5.2');
     await page.fill('#muyTfM', '60');
     await page.waitForFunction(() => window.lastSrcColumnResult?.seismicAxis === 'y'
       && window.lastSrcColumnInput?.demands?.muyTfM === 60
@@ -306,7 +327,8 @@ async function main() {
     const weakAxisReportText = await weakAxisReport.locator('body').innerText();
     for (const needle of [
       'SRC 柱 Y 向（鋼骨弱軸）耐震研究核算計算書',
-      '本計算書核算方向', 'Y 向（鋼骨弱軸）', '專案確認 Vns / Vnrc',
+      '本計算書核算方向', 'Y 向（鋼骨弱軸）', 'Y 向鋼骨 Vns', '第 5.5.2 節自動計算',
+      'x=7.0 cm', 'Y 向 RC b / d / b′', '一般剪力：Vnr + Vnc', '剪力摩擦：Vnr′ + Vnc′ + Vns',
       '第 9.6 節Y 向（鋼骨弱軸）耐震子檢核', '第 9.6.2 節Y 向（鋼骨弱軸）柱剪力',
     ]) assert.ok(weakAxisReportText.includes(needle), `weak-axis report includes ${needle}`);
     for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', 'DRAFT', '非正式附件', 'AISC 360 G6', '306.432']) {
@@ -324,7 +346,8 @@ async function main() {
       minTextLength: 600,
       titleNeedle: 'SRC 柱 Y 向（鋼骨弱軸）耐震研究核算計算書',
       requiredNeedles: [
-        'SRC 柱 Y 向（鋼骨弱軸）耐震研究核算計算書', '本計算書核算方向', '專案確認 Vns / Vnrc',
+        'SRC 柱 Y 向（鋼骨弱軸）耐震研究核算計算書', '本計算書核算方向', 'Y 向鋼骨 Vns', '第 5.5.2 節自動計算',
+        'x=7.0 cm', 'Y 向 RC b / d / b′', 'RC 第 5.5.2 節', 'Vnrc = min',
         '第 9.6 節Y 向（鋼骨弱軸）耐震子檢核', '第 9.6.2 節Y 向（鋼骨弱軸）柱剪力',
         'SRC 柱計算斷面', '計算過程明細', '檢核結論', '計算指紋',
       ],

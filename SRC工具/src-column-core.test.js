@@ -84,8 +84,8 @@ function manualExample8() {
   return input;
 }
 
-assert.equal(Core.CORE_VERSION, 'src-column.core.v0.10.0-research', 'SRC column core is explicitly versioned as research');
-assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v9', 'SRC column core has a versioned input schema');
+assert.equal(Core.CORE_VERSION, 'src-column.core.v0.11.0-research', 'SRC column core is explicitly versioned as research');
+assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v10', 'SRC column core has a versioned input schema');
 assert.equal(Core.RELEASE_STATUS, 'research-core-not-public', 'research core cannot be mistaken for a formal public route');
 assert.equal(Core.REGULATION_PROFILE.id, 'tw-src-2011', 'SRC column core uses the official current profile');
 assert.ok(Core.REGULATION_PROFILE.chapter3Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter5Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter6Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter7Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter8Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter9Url.endsWith('.pdf'), 'official chapter sources remain explicit');
@@ -321,10 +321,15 @@ weakAxisPackageInput.jointFlexuralStrengthRatio.axis = 'y';
 weakAxisPackageInput.strongColumnWeakBeam.axis = 'y';
 weakAxisPackageInput.confinement.axis = 'y';
 Object.assign(weakAxisPackageInput.shear, {
+  weakAxisRcDesignBasis: 'project-confirmed',
   weakAxisSteelNominalShearTf: 100,
+  weakAxisEffectiveDepthCm: 58,
+  weakAxisAvCm2: 2.54,
+  weakAxisAvfCm2: 2.54,
   weakAxisRcNominalShearTf: 120,
   weakAxisRequiredTransverseAreaCm2: 1.2,
   weakAxisStrengthsConfirmed: true,
+  weakAxisRcStrengthConfirmed: true,
   weakAxisRequiredTransverseAreaConfirmed: true,
 });
 weakAxisPackageInput.confinement.weakAxisAhccZeroConfirmed = true;
@@ -337,6 +342,18 @@ assert.equal(Object.hasOwn(weakAxisPackage.shear.steel, 'webAreaCm2'), false, 'i
 close(weakAxisPackage.confinement.ash.shearRequiredCm2, 1.2, 1e-12, 'project-confirmed weak-axis transverse demand flows into confinement');
 assert.equal(weakAxisPackage.confinement.axialTerms.highlyConfinedAxialTf, 0, 'weak-axis confinement gives no Ahcc credit');
 assert.equal(weakAxisPackage.checks.engineeringStrength, true, 'selected weak-axis package participates in the same engineering check chain');
+
+const automaticWeakAxisPackageInput = clone(weakAxisPackageInput);
+automaticWeakAxisPackageInput.shear.weakAxisRcDesignBasis = 'automatic-clause-5.5.2';
+const automaticWeakAxisPackage = Core.calculate(automaticWeakAxisPackageInput);
+assert.equal(automaticWeakAxisPackage.shear.strengthSource, 'project-confirmed-steel+automatic-rc-clause-5.5.2');
+assert.equal(automaticWeakAxisPackage.shear.rc.source, 'automatic-clause-5.5.2-selected-y-axis');
+close(automaticWeakAxisPackage.shear.rc.sectionWidthCm, 80, 1e-12, 'integrated weak-axis RC path adopts concrete depth as selected-direction b');
+close(automaticWeakAxisPackage.shear.rc.sectionDepthCm, 65, 1e-12, 'integrated weak-axis RC path adopts concrete width as selected-direction depth');
+close(automaticWeakAxisPackage.shear.rc.netConcreteWidthCm, 30, 1e-12, 'integrated weak-axis RC path deducts the 50 cm steel depth from b');
+close(automaticWeakAxisPackage.confinement.ash.providedCm2, 2.54, 1e-12, 'weak-axis confinement receives direction-specific provided Av');
+close(automaticWeakAxisPackage.confinement.ash.shearRequiredCm2, automaticWeakAxisPackage.shear.rc.requiredTransverseAreaCm2, 1e-12, 'automatic weak-axis RC demand flows into confinement without re-entry');
+assert.equal(automaticWeakAxisPackage.checks.engineeringStrength, true, 'automatic weak-axis RC path participates in the engineering check chain');
 
 const inconsistentJointComponents = clone(seismicPackageInput);
 inconsistentJointComponents.jointFlexuralStrengthRatio.cases[0].steelColumnSumTfM += 0.01;
@@ -466,6 +483,20 @@ for (const [expectedCode, mutate, makeInput] of [
   );
 }
 
+for (const [expectedCode, mutate] of [
+  ['unsupported-weak-axis-rc-design-basis', input => { input.shear.weakAxisRcDesignBasis = 'invented'; }],
+  ['effective-depth-outside-section', input => { input.shear.weakAxisEffectiveDepthCm = input.concrete.widthCm; }],
+  ['confirmation-required', input => { input.shear.normalWeightConcreteConfirmed = false; }],
+]) {
+  const input = clone(automaticWeakAxisPackageInput);
+  mutate(input);
+  assert.throws(
+    () => Core.calculate(input),
+    error => error instanceof Core.SrcColumnInputError && error.issues.some(item => item.code === expectedCode),
+    `automatic weak-axis ${expectedCode} fails closed in the integrated core`
+  );
+}
+
 const catalogConflict = officialGuideExample8();
 catalogConflict.steel.areaCm2 = 214;
 assert.throws(
@@ -476,7 +507,7 @@ assert.throws(
 
 const catalogPath = path.join(__dirname, 'src-column-traceability.catalog.json');
 const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
-assert.equal(catalog.schemaVersion, 11, 'SRC column traceability schema includes the external weak-axis steel reference');
+assert.equal(catalog.schemaVersion, 12, 'SRC column traceability schema includes direction-aware weak-axis RC shear');
 assert.equal(catalog.coreVersion, Core.CORE_VERSION, 'SRC column traceability follows the research engine version');
 assert.equal(catalog.release.status, Core.RELEASE_STATUS, 'traceability catalog keeps the core non-public');
 assert.equal(catalog.regulation.chapter3Url, Core.REGULATION_PROFILE.chapter3Url, 'catalog and core use the same official chapter 3 source');
@@ -547,19 +578,26 @@ assert.ok(weakAxisVerification.authorityBoundary.includes('專案確認') && wea
 close(weakAxisVerification.expected.steelNominalMomentTfM, weakAxisPackage.shear.probableMoments.steelNominalMomentTfM, 1e-12, 'catalog preserves the weak-axis steel probable moment');
 close(weakAxisVerification.expected.projectConfirmedRequiredTransverseAreaCm2, weakAxisPackage.confinement.ash.shearRequiredCm2, 1e-12, 'catalog preserves the project-confirmed weak-axis transverse demand');
 close(weakAxisVerification.expected.weakAxisBendingDepthCm, weakAxisPackage.confinement.extent.bendingDepthCm, 1e-12, 'catalog preserves the weak-axis bending depth');
+const automaticWeakAxisVerification = catalog.verificationCases.find(item => item.id === 'DERIVED-EXAMPLE-8-SEISMIC-Y-AXIS-AUTOMATIC-RC');
+assert.ok(automaticWeakAxisVerification.authorityBoundary.includes('第 5.5.2 節') && automaticWeakAxisVerification.authorityBoundary.includes('完整耐震設計'), 'automatic weak-axis RC verification states its authority boundary');
+close(automaticWeakAxisVerification.expected.rcSectionWidthCm, automaticWeakAxisPackage.shear.rc.sectionWidthCm, 1e-12, 'catalog preserves automatic weak-axis RC b');
+close(automaticWeakAxisVerification.expected.rcSectionDepthCm, automaticWeakAxisPackage.shear.rc.sectionDepthCm, 1e-12, 'catalog preserves automatic weak-axis RC selected-direction depth');
+close(automaticWeakAxisVerification.expected.netConcreteWidthCm, automaticWeakAxisPackage.shear.rc.netConcreteWidthCm, 1e-12, 'catalog preserves automatic weak-axis b prime');
+close(automaticWeakAxisVerification.expected.frictionPathTf, automaticWeakAxisPackage.shear.rc.frictionTf, 1e-12, 'catalog preserves automatic weak-axis shear-friction path');
+close(automaticWeakAxisVerification.expected.rcNominalShearTf, automaticWeakAxisPackage.shear.rc.nominalShearTf, 1e-12, 'catalog preserves automatic weak-axis nominal RC shear');
 assert.equal(catalog.oracle.file, 'core/src-column-oracle.js', 'catalog identifies the independent oracle');
-assert.equal(catalog.oracle.version, 'src-column.oracle.v0.8.0-research', 'catalog identifies the current independent oracle version');
-assert.equal(catalog.oracle.comparisonCount, 142, 'catalog states the independently compared exact arithmetic surface');
-assert.equal(catalog.oracle.approximateComparisonCount, 19, 'catalog states the production/oracle tolerance comparisons');
-assert.equal(catalog.oracle.driftSentinelCount, 6, 'catalog states all independent drift sentinels');
+assert.equal(catalog.oracle.version, 'src-column.oracle.v0.9.0-research', 'catalog identifies the current independent oracle version');
+assert.equal(catalog.oracle.comparisonCount, 162, 'catalog states the independently compared exact arithmetic surface');
+assert.equal(catalog.oracle.approximateComparisonCount, 27, 'catalog states the production/oracle tolerance comparisons');
+assert.equal(catalog.oracle.driftSentinelCount, 7, 'catalog states all independent drift sentinels');
 assert.ok(catalog.oracle.covered.includes('RC 應變相容 P-M'), 'catalog declares the completed independent RC P-M coverage');
 assert.equal(catalog.oracle.uncovered.includes('RC 應變相容 P-M'), false, 'catalog no longer lists completed RC P-M work as uncovered');
 assert.ok(catalog.oracle.covered.includes('RC 定軸力 Mux-Muy 互制曲面'), 'catalog declares the completed independent biaxial RC coverage');
-assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.6.2 節 X 向') && item.includes('Y 向專案確認')), 'catalog declares both selected-direction shear paths');
+assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.6.2 節 X 向') && item.includes('Y 向 RC 第 5.5.2 節自動路徑')), 'catalog declares both selected-direction automatic RC shear paths');
 assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.6.1 節單一選定方向接頭')), 'catalog declares completed selected-direction strong-column coverage');
 assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.6.3 節現行選定方向矩形柱圍束')), 'catalog declares completed selected-direction confinement coverage');
 assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.3 節耐震軸力組合')), 'catalog declares completed limited seismic axial-strength coverage');
-assert.ok(catalog.oracle.uncovered.some(item => item.includes('Y 向鋼骨與 RC 名義剪力強度')), 'catalog keeps automatic weak-axis strength derivation outside the supported boundary');
+assert.ok(catalog.oracle.uncovered.some(item => item.includes('Y 向鋼骨名義剪力強度')), 'catalog keeps automatic weak-axis steel strength derivation outside the supported boundary');
 
 for (const missingPath of ['depthCm', 'flangeWidthCm', 'flangeThicknessCm', 'webThicknessCm']) {
   const input = manualExample8();
