@@ -528,9 +528,14 @@ assert.throws(
 
 const catalogPath = path.join(__dirname, 'src-column-traceability.catalog.json');
 const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
-assert.equal(catalog.schemaVersion, 13, 'SRC column traceability schema includes controlled project-specified weak-axis steel shear');
+assert.equal(catalog.schemaVersion, 14, 'SRC column traceability schema includes the controlled same-member dual-axis package');
 assert.equal(catalog.coreVersion, Core.CORE_VERSION, 'SRC column traceability follows the research engine version');
 assert.equal(catalog.release.status, Core.RELEASE_STATUS, 'traceability catalog keeps the core non-public');
+assert.equal(catalog.formalPromotionReadiness.status, 'blocked', 'formal promotion remains fail-closed while declared blockers exist');
+assert.equal(catalog.formalPromotionReadiness.evaluatedPageVersion, 'v0.7');
+assert.ok(catalog.formalPromotionReadiness.satisfied.some(item => item.includes('X／Y') && item.includes('計算指紋')), 'readiness records the completed dual-axis evidence');
+assert.ok(catalog.formalPromotionReadiness.blocking.length > 0, 'formal approval cannot be opened without resolving explicit blockers');
+assert.ok(catalog.formalPromotionReadiness.safeguard.includes('formalApprovalAllowed=false'), 'readiness contract preserves the formal-approval safeguard');
 assert.equal(catalog.regulation.chapter3Url, Core.REGULATION_PROFILE.chapter3Url, 'catalog and core use the same official chapter 3 source');
 assert.equal(catalog.regulation.chapter5Url, Core.REGULATION_PROFILE.chapter5Url, 'catalog and core use the same official chapter 5 source');
 assert.equal(catalog.regulation.chapter7Url, Core.REGULATION_PROFILE.chapter7Url, 'catalog and core use the same official chapter 7 source');
@@ -624,6 +629,7 @@ assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.6.1 節單一
 assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.6.3 節現行選定方向矩形柱圍束')), 'catalog declares completed selected-direction confinement coverage');
 assert.ok(catalog.oracle.covered.some(item => item.includes('第 9.3 節耐震軸力組合')), 'catalog declares completed limited seismic axial-strength coverage');
 assert.ok(catalog.oracle.uncovered.some(item => item.includes('Y 向鋼骨名義剪力強度')), 'catalog keeps automatic weak-axis steel strength derivation outside the supported boundary');
+assert.equal(catalog.oracle.uncovered.some(item => item.includes('同一案件兩方向彙總')), false, 'completed dual-axis report packaging is removed from uncovered scope');
 
 for (const missingPath of ['depthCm', 'flangeWidthCm', 'flangeThicknessCm', 'webThicknessCm']) {
   const input = manualExample8();

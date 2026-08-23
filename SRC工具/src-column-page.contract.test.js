@@ -13,6 +13,9 @@ const source = fs.readFileSync(path.join(__dirname, 'src-column.js'), 'utf8');
 const directPrintCss = fs.readFileSync(path.join(repoRoot, '結構工具箱', 'core', 'direct-print-boundary.css'), 'utf8');
 const boundary = JSON.parse(fs.readFileSync(path.join(repoRoot, '結構工具箱', 'tools', 'calculation-book-content-boundary.json'), 'utf8'));
 const reportRuntimePath = path.join(repoRoot, '結構工具箱', 'core', 'ui', 'report.js');
+const governanceDocs = ['README.md', 'TOOL_BOUNDARIES.md', 'STAGING_GROUPS.md']
+  .map(file => fs.readFileSync(path.join(repoRoot, file), 'utf8'))
+  .join('\n');
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -115,22 +118,35 @@ function visibleText(reportHtml) {
     .trim();
 }
 
-assert.equal(Page.PAGE_VERSION, 'v0.6');
+assert.equal(Page.PAGE_VERSION, 'v0.7');
 assert.equal(Page.TOOL_ID, 'src-column-research');
-assert.equal(Page.CASE_SCHEMA, 'src-column-research.case.v5');
-assert.equal(Page.PREVIOUS_CASE_SCHEMA, 'src-column-research.case.v4');
-assert.equal(Page.PREVIOUS_PAGE_VERSION, 'v0.5');
-assert.equal(Page.INTERMEDIATE_CASE_SCHEMA, 'src-column-research.case.v3');
-assert.equal(Page.INTERMEDIATE_PAGE_VERSION, 'v0.4');
-assert.equal(Page.LEGACY_CASE_SCHEMA, 'src-column-research.case.v2');
-assert.equal(Page.LEGACY_PAGE_VERSION, 'v0.3');
-assert.match(html, /SRC 柱方向可選耐震研究核算 V0\.6/);
-assert.match(html, /案件 schema v5/);
+assert.equal(Page.CASE_SCHEMA, 'src-column-research.case.v6');
+assert.equal(Page.DUAL_CASE_SCHEMA, 'src-column-research.dual-axis.case.v1');
+assert.equal(Page.PREVIOUS_CASE_SCHEMA, 'src-column-research.case.v5');
+assert.equal(Page.PREVIOUS_PAGE_VERSION, 'v0.6');
+assert.equal(Page.INTERMEDIATE_CASE_SCHEMA, 'src-column-research.case.v4');
+assert.equal(Page.INTERMEDIATE_PAGE_VERSION, 'v0.5');
+assert.equal(Page.LEGACY_CASE_SCHEMA, 'src-column-research.case.v3');
+assert.equal(Page.LEGACY_PAGE_VERSION, 'v0.4');
+assert.equal(Page.EARLIEST_CASE_SCHEMA, 'src-column-research.case.v2');
+assert.equal(Page.EARLIEST_PAGE_VERSION, 'v0.3');
+assert.match(html, /SRC 柱方向可選耐震研究核算 V0\.7/);
+assert.match(html, /案件 schema v6/);
+assert.match(html, /雙向案件 schema v1/);
 assert.match(html, /<body class="formal-tool-output-page">/);
 assert.match(html, /SRC 柱操作頁列印已封鎖/);
 assert.match(html, /id="btnReport"/);
 assert.match(html, /id="btnExportCase"/);
 assert.match(html, /id="btnImportCase"/);
+assert.match(html, /id="btnCaptureAxis"/);
+assert.match(html, /id="btnDualReport"[^>]*disabled/);
+assert.match(html, /id="btnExportDualCase"[^>]*disabled/);
+for (const needle of ['V0.7', '雙向案件 schema v1', 'formalPromotionReadiness', 'formalApprovalAllowed=false']) {
+  assert.equal(governanceDocs.includes(needle), true, `root governance documents preserve ${needle}`);
+}
+for (const stale of ['src-column.core.v0.11.0-research', '私有研究工作頁 V0.5', '同案兩方向彙總、全構架']) {
+  assert.equal(governanceDocs.includes(stale), false, `root governance documents exclude stale SRC column wording: ${stale}`);
+}
 assert.match(html, /core\/src-column-seismic-axial\.js/);
 assert.match(html, /id="enableShearSubcheck"[^>]*checked/);
 assert.match(html, /id="enableJointRatioSubcheck"[^>]*checked/);
@@ -223,6 +239,22 @@ for (const needle of ['專案指定 ANSI/AISC 360-22 G6', 'bf/(2tf) / Cv2', 'Vns
   assert.equal(automaticAiscWeakAxisConfigText.includes(needle), true, `adopted AISC G6 report includes ${needle}`);
 }
 
+const dualSnapshots = {
+  x: { input, result, project: { name: '', no: '', designer: '' }, calculationFingerprint: 'CF-1111111111111111' },
+  y: { input: automaticAiscWeakAxisInput, result: automaticAiscWeakAxisResult, project: { name: '', no: '', designer: '' }, calculationFingerprint: 'CF-2222222222222222' },
+};
+const dualConfig = Page.buildDualAxisReportConfig(dualSnapshots);
+assert.equal(dualConfig.title, 'SRC 柱 X／Y 雙向耐震研究核算計算書');
+assert.equal(dualConfig.formalApprovalAllowed, false, '雙向彙總在範圍完整性審查前仍不得正式核可');
+assert.equal(dualConfig.summary.ok, true);
+assert.equal(dualConfig.diagrams.length, 2, '雙向彙總同時保留 X／Y 計算斷面');
+assert.equal(dualConfig.snapshot.schema, Page.DUAL_CASE_SCHEMA);
+assert.equal(JSON.stringify(dualConfig).includes('X 向計算指紋'), true);
+assert.equal(JSON.stringify(dualConfig).includes('Y 向｜第 9.6.2 節採用柱剪力資料'), true);
+const mismatchedDualSnapshots = clone(dualSnapshots);
+mismatchedDualSnapshots.y.input.concrete.widthCm = 70;
+assert.throws(() => Page.buildDualAxisReportConfig(mismatchedDualSnapshots), /斷面、材料、主筋、柱長或構造條件不一致/);
+
 const forbidden = [...new Set(Object.values(boundary.forbiddenCategories).flat())];
 const configText = JSON.stringify(config);
 for (const needle of forbidden) assert.equal(configText.includes(needle), false, `report config excludes page-only wording: ${needle}`);
@@ -233,6 +265,18 @@ for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '�
 
 const reportContext = loadReportRuntime();
 const reportUi = reportContext.window.ToolReportUI;
+const dualPayload = Page.buildDualAxisCasePayload(dualSnapshots, reportUi);
+assert.equal(dualPayload.schema, Page.DUAL_CASE_SCHEMA);
+assert.match(dualPayload.calculationFingerprint, /^CF-[A-F0-9]{16}$/);
+assert.equal(dualPayload.axes.x.input.seismicAxis, 'x');
+assert.equal(dualPayload.axes.y.input.seismicAxis, 'y');
+const dualReplay = Page.replayDualAxisCasePayload(dualPayload, reportUi);
+assert.equal(dualReplay.calculationFingerprint, dualPayload.calculationFingerprint);
+assert.equal(dualReplay.snapshots.x.calculationFingerprint, dualPayload.axes.x.calculationFingerprint);
+assert.equal(dualReplay.snapshots.y.calculationFingerprint, dualPayload.axes.y.calculationFingerprint);
+const tamperedDualPayload = clone(dualPayload);
+tamperedDualPayload.axes.y.input.demands.muyTfM += 1;
+assert.throws(() => Page.replayDualAxisCasePayload(tamperedDualPayload, reportUi), /重現失敗/);
 const assessment = reportUi.assessFormalAttachment(config);
 assert.equal(assessment.status, 'review');
 assert.equal(assessment.formalApprovalAllowed, false);
@@ -251,18 +295,18 @@ assert.equal(payload.report.calculationFingerprint, payload.calculationFingerpri
 assert.doesNotThrow(() => reportUi.validateCalculationCasePayload(payload, {
   expectedSchema: Page.CASE_SCHEMA, expectedToolId: Page.TOOL_ID, expectedVersion: Page.PAGE_VERSION,
 }));
-const legacyPayload = clone(payload);
-legacyPayload.schema = Page.LEGACY_CASE_SCHEMA;
-legacyPayload.tool.name = 'SRC 柱強軸耐震研究核算';
-legacyPayload.tool.version = Page.LEGACY_PAGE_VERSION;
-legacyPayload.tool.calculationEngine = 'src-column.core.v0.9.0-research';
-legacyPayload.input.schema = 'src-column.input.v8';
-delete legacyPayload.input.seismicAxis;
-delete legacyPayload.input.reinforcement.xLayers;
+const earliestPayload = clone(payload);
+earliestPayload.schema = Page.EARLIEST_CASE_SCHEMA;
+earliestPayload.tool.name = 'SRC 柱強軸耐震研究核算';
+earliestPayload.tool.version = Page.EARLIEST_PAGE_VERSION;
+earliestPayload.tool.calculationEngine = 'src-column.core.v0.9.0-research';
+earliestPayload.input.schema = 'src-column.input.v8';
+delete earliestPayload.input.seismicAxis;
+delete earliestPayload.input.reinforcement.xLayers;
 for (const key of ['shear', 'jointFlexuralStrengthRatio', 'strongColumnWeakBeam', 'confinement']) {
-  delete legacyPayload.input[key].axis;
+  delete earliestPayload.input[key].axis;
 }
-const migration = Page.migrateCasePayload(legacyPayload);
+const migration = Page.migrateCasePayload(earliestPayload);
 assert.equal(migration.migrated, true);
 assert.equal(migration.payload.schema, Page.CASE_SCHEMA);
 assert.equal(migration.payload.tool.version, Page.PAGE_VERSION);
@@ -272,36 +316,47 @@ assert.equal(migration.payload.input.demands.muyTfM, 0);
 assert.equal(migration.payload.input.shear.axis, 'x');
 assert.equal('calculationFingerprint' in migration.payload, false, 'legacy fingerprint is not misrepresented as a current replay');
 assert.doesNotThrow(() => Core.calculate(migration.payload.input), 'legacy v0.3 X-axis input recalculates under the current core');
-assert.throws(() => Page.migrateCasePayload({ ...legacyPayload, input: null }), /缺少計算輸入/);
-const previousPayload = Page.buildCasePayload(manualWeakAxisInput, manualWeakAxisResult, {}, reportUi);
+assert.throws(() => Page.migrateCasePayload({ ...earliestPayload, input: null }), /缺少計算輸入/);
+
+const previousPayload = Page.buildCasePayload(automaticAiscWeakAxisInput, automaticAiscWeakAxisResult, {}, reportUi);
 previousPayload.schema = Page.PREVIOUS_CASE_SCHEMA;
 previousPayload.tool.version = Page.PREVIOUS_PAGE_VERSION;
-previousPayload.tool.calculationEngine = 'src-column.core.v0.11.0-research';
-previousPayload.input.schema = 'src-column.input.v10';
+previousPayload.tool.calculationEngine = 'src-column.core.v0.12.0-research';
+previousPayload.input.schema = 'src-column.input.v11';
 const previousMigration = Page.migrateCasePayload(previousPayload);
 assert.equal(previousMigration.migrated, true);
-assert.equal(previousMigration.payload.input.shear.weakAxisSteelDesignBasis, 'project-confirmed', 'v0.5 weak-axis steel remains on its historical project-confirmed basis');
-assert.equal(previousMigration.payload.input.shear.weakAxisSteelNominalShearTf, 100, 'v0.5 weak-axis Vns is preserved');
-assert.equal(previousMigration.payload.input.shear.weakAxisRcDesignBasis, 'project-confirmed', 'v0.5 RC basis is preserved');
-assert.equal(previousMigration.payload.input.shear.weakAxisAiscG6ApplicabilityConfirmed, false, 'migration never opts an old case into AISC G6');
-assert.doesNotThrow(() => Core.calculate(previousMigration.payload.input), 'v0.5 weak-axis case recalculates without changing adopted strengths');
+assert.equal(previousMigration.payload.input.shear.weakAxisSteelDesignBasis, 'project-specified-aisc-360-g6', 'v0.6 project-specified AISC basis is preserved');
+assert.equal(previousMigration.payload.input.shear.weakAxisAiscG6ApplicabilityConfirmed, true, 'v0.6 AISC applicability confirmation is preserved');
+assert.equal(previousMigration.payload.input.shear.weakAxisRcDesignBasis, 'automatic-clause-5.5.2', 'v0.6 automatic RC basis is preserved');
+assert.doesNotThrow(() => Core.calculate(previousMigration.payload.input), 'v0.6 weak-axis case recalculates without changing adopted strengths');
 
-const intermediatePayload = clone(previousPayload);
+const intermediatePayload = Page.buildCasePayload(weakAxisInput, weakAxisResult, {}, reportUi);
 intermediatePayload.schema = Page.INTERMEDIATE_CASE_SCHEMA;
 intermediatePayload.tool.version = Page.INTERMEDIATE_PAGE_VERSION;
-intermediatePayload.tool.calculationEngine = 'src-column.core.v0.10.0-research';
-intermediatePayload.input.schema = 'src-column.input.v9';
-delete intermediatePayload.input.shear.weakAxisRcDesignBasis;
-delete intermediatePayload.input.shear.weakAxisEffectiveDepthCm;
-delete intermediatePayload.input.shear.weakAxisAvCm2;
-delete intermediatePayload.input.shear.weakAxisAvfCm2;
-delete intermediatePayload.input.shear.weakAxisRcStrengthConfirmed;
+intermediatePayload.tool.calculationEngine = 'src-column.core.v0.11.0-research';
+intermediatePayload.input.schema = 'src-column.input.v10';
 const intermediateMigration = Page.migrateCasePayload(intermediatePayload);
-assert.equal(intermediateMigration.payload.input.shear.weakAxisRcDesignBasis, 'project-confirmed', 'v0.4 weak-axis case preserves its historical manual RC basis');
-assert.equal(intermediateMigration.payload.input.shear.weakAxisRcNominalShearTf, 120, 'v0.4 weak-axis Vnrc is preserved');
-assert.equal(intermediateMigration.payload.input.shear.weakAxisRequiredTransverseAreaCm2, 1.2, 'v0.4 weak-axis Ash is preserved');
-assert.equal(intermediateMigration.payload.input.shear.weakAxisAvCm2, 2.54, 'v0.4 provided Av is mapped to the selected y direction');
-assert.doesNotThrow(() => Core.calculate(intermediateMigration.payload.input), 'v0.4 weak-axis case recalculates with preserved manual values');
+assert.equal(intermediateMigration.payload.input.shear.weakAxisSteelDesignBasis, 'project-confirmed', 'v0.5 remains on its historical project-confirmed steel basis');
+assert.equal(intermediateMigration.payload.input.shear.weakAxisAiscG6ApplicabilityConfirmed, false, 'v0.5 migration never opts into AISC G6');
+assert.equal(intermediateMigration.payload.input.shear.weakAxisRcDesignBasis, 'automatic-clause-5.5.2', 'v0.5 automatic RC basis is preserved');
+assert.doesNotThrow(() => Core.calculate(intermediateMigration.payload.input), 'v0.5 weak-axis case recalculates without changing adopted strengths');
+
+const legacyPayload = Page.buildCasePayload(manualWeakAxisInput, manualWeakAxisResult, {}, reportUi);
+legacyPayload.schema = Page.LEGACY_CASE_SCHEMA;
+legacyPayload.tool.version = Page.LEGACY_PAGE_VERSION;
+legacyPayload.tool.calculationEngine = 'src-column.core.v0.10.0-research';
+legacyPayload.input.schema = 'src-column.input.v9';
+delete legacyPayload.input.shear.weakAxisRcDesignBasis;
+delete legacyPayload.input.shear.weakAxisEffectiveDepthCm;
+delete legacyPayload.input.shear.weakAxisAvCm2;
+delete legacyPayload.input.shear.weakAxisAvfCm2;
+delete legacyPayload.input.shear.weakAxisRcStrengthConfirmed;
+const legacyMigration = Page.migrateCasePayload(legacyPayload);
+assert.equal(legacyMigration.payload.input.shear.weakAxisRcDesignBasis, 'project-confirmed', 'v0.4 weak-axis case preserves its historical manual RC basis');
+assert.equal(legacyMigration.payload.input.shear.weakAxisRcNominalShearTf, 120, 'v0.4 weak-axis Vnrc is preserved');
+assert.equal(legacyMigration.payload.input.shear.weakAxisRequiredTransverseAreaCm2, 1.2, 'v0.4 weak-axis Ash is preserved');
+assert.equal(legacyMigration.payload.input.shear.weakAxisAvCm2, 2.54, 'v0.4 provided Av is mapped to the selected y direction');
+assert.doesNotThrow(() => Core.calculate(legacyMigration.payload.input), 'v0.4 weak-axis case recalculates with preserved manual values');
 const changedInput = clone(input);
 changedInput.seismicAxial.pdTf = 450;
 const changedTrace = reportUi.buildReportTrace(Page.buildReportConfig(changedInput, Core.calculate(changedInput), {}));
@@ -333,5 +388,27 @@ assert.equal(renderedText.includes('設計人員'), false);
 assert.equal(renderedText.includes('AISC 360 G6'), false, 'HTML-only external comparison does not leak into the calculation report');
 assert.match(renderedHtml, /data-formal-approval-allowed="false"/);
 assert.match(renderedHtml, /rep-block rep-block--keep rep-block--new-page/, 'selected report groups start on a clean printed page');
+
+let renderedDualHtml = '';
+const renderDualContext = loadReportRuntime({
+  open() {
+    return {
+      document: { open() {}, write(nextHtml) { renderedDualHtml += String(nextHtml || ''); }, close() {} },
+      focus() {},
+    };
+  },
+});
+renderDualContext.openReport(Page.buildDualAxisReportConfig({
+  x: { ...dualReplay.snapshots.x },
+  y: { ...dualReplay.snapshots.y },
+}));
+const renderedDualText = visibleText(renderedDualHtml);
+for (const needle of ['SRC 柱 X／Y 雙向耐震研究核算計算書', '雙向核算索引', 'X 向計算指紋', 'Y 向計算指紋', 'X 向｜構材斷面與軸彎互制', 'Y 向｜構材斷面與軸彎互制']) {
+  assert.ok(renderedDualText.includes(needle), `rendered dual-axis report includes ${needle}`);
+}
+for (const needle of [...forbidden, '適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', '接頭區剪力與接合細部']) {
+  assert.equal(renderedDualText.includes(needle), false, `rendered dual-axis report excludes ${needle}`);
+}
+assert.match(renderedDualHtml, /data-formal-approval-allowed="false"/);
 
 console.log('SRC column research page/report contract: OK');

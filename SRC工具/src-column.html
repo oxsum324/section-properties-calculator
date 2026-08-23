@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>SRC 柱方向可選耐震研究核算 V0.6</title>
+  <title>SRC 柱方向可選耐震研究核算 V0.7</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="../結構工具箱/core/style.css">
   <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
@@ -18,7 +18,7 @@
   <header class="src-hero">
     <div>
       <p class="src-eyebrow">鋼骨鋼筋混凝土構件</p>
-      <h1>SRC 柱方向可選耐震研究核算 <span class="src-version">V0.6</span></h1>
+      <h1>SRC 柱方向可選耐震研究核算 <span class="src-version">V0.7</span></h1>
       <p>完全包覆矩形柱｜每份選定 X 或 Y 方向｜軸力、接頭撓曲強度比、柱剪力、強柱弱梁與圍束｜單位：cm、kgf/cm²、tf、tf·m</p>
       <div class="src-hero-chips" aria-label="目前涵蓋範圍">
         <span>第 6.4 節壓力強度</span><span>第 7.3 節軸彎分配</span><span>第 8.4.2 節接頭比值</span><span>第 9.3 節地震組合</span><span>第 9.6 節選定方向子檢核</span><span>計算斷面圖</span>
@@ -39,8 +39,12 @@
         <button id="btnExportCase" type="button">下載案件 JSON</button>
         <button id="btnImportCase" type="button">匯入案件 JSON</button>
         <button id="btnReport" class="src-report-research" type="button">產生研究計算書</button>
+        <button id="btnCaptureAxis" type="button">記錄目前方向</button>
+        <button id="btnDualReport" class="src-report-research" type="button" disabled>產生 X／Y 雙向彙總</button>
+        <button id="btnExportDualCase" type="button" disabled>下載雙向案件 JSON</button>
         <input id="caseFile" type="file" accept="application/json,.json" hidden>
       </div>
+      <p id="axisPairStatus" class="src-axis-pair-status">尚未記錄 X／Y 方向。</p>
       <p id="actionStatus" class="src-action-status" role="status" aria-live="polite"></p>
     </section>
 
@@ -48,9 +52,9 @@
       <div class="src-input-stack">
         <section class="src-card src-page-only">
           <h2>適用範圍與輸出邊界</h2>
-          <p>目前涵蓋完全包覆矩形 SRC 柱、置中雙對稱 H 型鋼骨、橫箍筋柱，以及一次選定 X 或 Y 方向的柱子檢核。專案分析必須已將 P-Δ 效應反映於選定方向需求；正交方向、接頭區剪力與接合細部、柱腳及完整構架仍須另案檢核。Y 向鋼骨不挪用台灣 SRC 第 5.5.1 節的 X 向腹板公式，可採專案確認值，或在專案明確指定 ANSI/AISC 360-22 G6 且確認無扭轉時自動計算；Y 向 RC 可依第 5.5.2 節自動計算或採專案確認值。</p>
+          <p>目前涵蓋完全包覆矩形 SRC 柱、置中雙對稱 H 型鋼骨、橫箍筋柱，以及一次選定 X 或 Y 方向的柱子檢核。可分別記錄兩方向，產生同一構材的 X／Y 雙向彙總計算書與可重現的雙向案件 JSON。專案分析必須已將 P-Δ 效應反映於選定方向需求；接頭區剪力與接合細部、柱腳及完整構架仍須另案檢核。Y 向鋼骨不挪用台灣 SRC 第 5.5.1 節的 X 向腹板公式，可採專案確認值，或在專案明確指定 ANSI/AISC 360-22 G6 且確認無扭轉時自動計算；Y 向 RC 可依第 5.5.2 節自動計算或採專案確認值。</p>
           <p><strong>計算書只保留採用資料、公式代入、檢核結果與結論。</strong>本段研究邊界與待複核事項只顯示於 HTML。研究計算書可列印，但正式附件核可尚未開放。</p>
-          <div class="src-meta-chips"><span>現行 100 年修正版</span><span id="coreVersion">Core —</span><span>案件 schema v5</span><span class="src-research-chip">私有研究工具</span></div>
+          <div class="src-meta-chips"><span>現行 100 年修正版</span><span id="coreVersion">Core —</span><span>案件 schema v6</span><span>雙向案件 schema v1</span><span class="src-research-chip">私有研究工具</span></div>
         </section>
 
         <section class="src-card">
@@ -61,7 +65,7 @@
             <label>X 向彎矩 Mux<span><input id="muxTfM" type="number" value="128.9" step="0.1"> tf·m</span></label>
             <label>Y 向彎矩 Muy<span><input id="muyTfM" type="number" value="60" step="0.1" disabled> tf·m</span></label>
           </div>
-          <p class="src-policy-note">Pu 與選定方向彎矩應為專案結構分析已納入第 7.4 節二階效應後的設計需求；一份計算書只處理一個方向，正交方向另存一案。</p>
+          <p class="src-policy-note">Pu 與選定方向彎矩應為專案結構分析已納入第 7.4 節二階效應後的設計需求。單向計算書只處理當前方向；如需同案雙向附件，請完成並記錄 X、Y 兩方向後產生雙向彙總。</p>
         </section>
 
         <section class="src-card">

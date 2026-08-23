@@ -106,6 +106,9 @@ async function main() {
     assert.equal(initial.strongColumnOk, true);
     assert.equal(initial.confinementOk, true);
     assert.match(initial.fingerprint, /^CF-[A-F0-9]{16}$/);
+    await page.click('#btnCaptureAxis');
+    assert.match(await page.locator('#axisPairStatus').innerText(), new RegExp(`X 向 ${initial.fingerprint}`));
+    assert.equal(await page.locator('#btnDualReport').isDisabled(), true, '只記錄 X 向時不得產生雙向彙總');
 
     const pageDiagram = page.locator('#sectionDiagramImage');
     await pageDiagram.waitFor({ state: 'visible' });
@@ -348,6 +351,12 @@ async function main() {
       && window.lastSrcColumnResult?.checks?.engineeringStrength === true);
     assert.ok(Math.abs(await page.evaluate(() => window.lastSrcColumnInput.demands.muyTfM) - 60) < 1e-10, 'weak-axis PDF exercises nonzero Muy');
     const weakAxisFingerprint = await page.evaluate(() => window.lastSrcColumnCalculationFingerprint);
+    await page.click('#btnCaptureAxis');
+    const axisPairText = await page.locator('#axisPairStatus').innerText();
+    assert.match(axisPairText, new RegExp(`X 向 ${initial.fingerprint}`));
+    assert.match(axisPairText, new RegExp(`Y 向 ${weakAxisFingerprint}`));
+    assert.equal(await page.locator('#btnDualReport').isEnabled(), true);
+    assert.equal(await page.locator('#btnExportDualCase').isEnabled(), true);
     const weakAxisPopupPromise = page.waitForEvent('popup');
     await page.click('#btnReport');
     const weakAxisReport = await weakAxisPopupPromise;
@@ -390,6 +399,71 @@ async function main() {
         '第 9.6.2 節Y 向（鋼骨弱軸）柱剪力', '控制結果', '檢核結論',
       ],
     });
+
+    const dualCasePayload = await page.evaluate(() => window.buildSrcColumnDualAxisCasePayload());
+    assert.equal(dualCasePayload.schema, 'src-column-research.dual-axis.case.v1');
+    assert.equal(dualCasePayload.axes.x.calculationFingerprint, initial.fingerprint);
+    assert.equal(dualCasePayload.axes.y.calculationFingerprint, weakAxisFingerprint);
+    assert.match(dualCasePayload.calculationFingerprint, /^CF-[A-F0-9]{16}$/);
+    const dualSourcePath = path.join(outDir, 'src-column-research-dual-axis-source.json');
+    fs.writeFileSync(dualSourcePath, `${JSON.stringify(dualCasePayload, null, 2)}\n`, 'utf8');
+
+    const dualPopupPromise = page.waitForEvent('popup');
+    await page.click('#btnDualReport');
+    const dualReport = await dualPopupPromise;
+    attachErrorCapture(dualReport);
+    await dualReport.waitForLoadState('domcontentloaded');
+    const dualReportText = await dualReport.locator('body').innerText();
+    for (const needle of [
+      'SRC 柱 X／Y 雙向耐震研究核算計算書', '雙向核算索引', 'X 向計算指紋', 'Y 向計算指紋',
+      'X 向｜構材斷面與軸彎互制', 'Y 向｜構材斷面與軸彎互制',
+      'X 向｜第 9.6 節X 向（鋼骨強軸）耐震子檢核', 'Y 向｜第 9.6 節Y 向（鋼骨弱軸）耐震子檢核',
+      '本案 SRC 柱 X 向與 Y 向已實作之耐震子檢核均通過',
+    ]) assert.ok(dualReportText.includes(needle), `dual-axis report includes ${needle}`);
+    for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', 'DRAFT', '非正式附件', '接頭區剪力與接合細部']) {
+      assert.equal(dualReportText.includes(needle), false, `dual-axis report excludes ${needle}`);
+    }
+    const dualApproval = dualReport.getByRole('checkbox', { name: '核可為正式附件' });
+    assert.equal(await dualApproval.isDisabled(), true, '雙向彙總在升格審查前仍不得核可');
+    assert.equal(await dualReport.locator('.rep-diagram img').count(), 2, '雙向彙總含兩張計算斷面');
+    const dualPdfPath = path.join(outDir, 'src-column-research-dual-axis-report.pdf');
+    await dualReport.emulateMedia({ media: 'print' });
+    await dualReport.pdf({ path: dualPdfPath, format: 'A4', printBackground: true });
+    await dualReport.emulateMedia({ media: 'screen' });
+    await dualReport.screenshot({ path: path.join(outDir, 'src-column-research-dual-axis-report.png'), fullPage: true });
+    const dualPdf = fs.readFileSync(dualPdfPath);
+    const dualPdfValidation = validatePdfFile(dualPdfPath, {
+      label: 'SRC 柱 X／Y 雙向耐震研究計算書',
+      minTextLength: 1200,
+      titleNeedle: 'SRC 柱 X／Y 雙向耐震研究核算計算書',
+      requiredNeedles: [
+        'SRC 柱 X／Y 雙向耐震研究核算計算書', '雙向核算索引', 'X 向計算指紋', 'Y 向計算指紋',
+        'X 向｜構材斷面與軸彎互制', 'Y 向｜構材斷面與軸彎互制', '計算過程明細', '檢核結論', '計算指紋',
+      ],
+      contentBoundaryProfile: 'traceable-calculation-book',
+      continuationContextLabels: [
+        '雙向核算索引', 'X 向｜規範、構材與分析條件', 'Y 向｜規範、構材與分析條件',
+        'X 向｜構材斷面與軸彎互制', 'Y 向｜構材斷面與軸彎互制',
+        'X 向｜第 8.4.2 節接頭撓曲強度比', 'Y 向｜第 8.4.2 節接頭撓曲強度比',
+        'X 向｜第 9.6.1 節採用接頭面名義彎矩', 'Y 向｜第 9.6.1 節採用接頭面名義彎矩',
+        'X 向｜SRC 柱計算斷面', 'Y 向｜SRC 柱計算斷面',
+        'X 向｜計算過程明細', 'Y 向｜計算過程明細',
+        'X 向｜第 6.4 節鋼骨受壓與 SRC 受壓強度', 'Y 向｜第 6.4 節鋼骨受壓與 SRC 受壓強度',
+        'X 向｜第 8.4.2 節接頭撓曲強度比（8.4.2 / (8.4-1)、8.4.2 / (8.4-2)）',
+        'Y 向｜第 8.4.2 節接頭撓曲強度比（8.4.2 / (8.4-1)、8.4.2 / (8.4-2)）',
+        '檢核結論',
+      ],
+    });
+
+    await page.fill('#pdTf', '450');
+    await page.waitForFunction(() => window.lastSrcColumnInput?.seismicAxial?.pdTf === 450);
+    await page.setInputFiles('#caseFile', {
+      name: 'src-column-research-dual-axis.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(dualCasePayload)),
+    });
+    await page.waitForFunction(() => document.querySelector('#actionStatus')?.textContent.includes('已匯入 X／Y 雙向案件'));
+    assert.equal(await page.inputValue('#seismicAxis'), 'x');
+    assert.equal(await page.inputValue('#pdTf'), '400');
+    assert.equal(await page.evaluate(() => window.buildSrcColumnDualAxisCasePayload().calculationFingerprint), dualCasePayload.calculationFingerprint);
     const evidence = {
       schemaVersion: 1,
       kind: 'src-column-research-render-evidence',
@@ -412,10 +486,22 @@ async function main() {
         pageCount: weakAxisPdfValidation.pageCount,
         textLength: weakAxisPdfValidation.textLength,
       },
+      dualAxis: {
+        artifact: path.basename(dualPdfPath),
+        artifactBytes: dualPdf.length,
+        artifactSha256: crypto.createHash('sha256').update(dualPdf).digest('hex'),
+        sourceArtifact: path.basename(dualSourcePath),
+        sourceSha256: crypto.createHash('sha256').update(fs.readFileSync(dualSourcePath)).digest('hex'),
+        calculationFingerprint: dualCasePayload.calculationFingerprint,
+        xCalculationFingerprint: initial.fingerprint,
+        yCalculationFingerprint: weakAxisFingerprint,
+        pageCount: dualPdfValidation.pageCount,
+        textLength: dualPdfValidation.textLength,
+      },
     };
     fs.writeFileSync(path.join(outDir, 'src-column-research-render-evidence.json'), `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
     assert.deepEqual(pageErrors, []);
-    console.log(`SRC column browser smoke: OK (X ${initial.fingerprint}/${pdfValidation.pageCount} pages; Y ${weakAxisFingerprint}/${weakAxisPdfValidation.pageCount} pages)`);
+    console.log(`SRC column browser smoke: OK (X ${initial.fingerprint}/${pdfValidation.pageCount} pages; Y ${weakAxisFingerprint}/${weakAxisPdfValidation.pageCount} pages; XY ${dualCasePayload.calculationFingerprint}/${dualPdfValidation.pageCount} pages)`);
   } finally {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});

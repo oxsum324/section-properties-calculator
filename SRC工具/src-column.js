@@ -12,15 +12,18 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function buildSrcColumnPage(Core, Catalog, WeakAxisReference) {
   'use strict';
 
-  const PAGE_VERSION = 'v0.6';
+  const PAGE_VERSION = 'v0.7';
   const TOOL_ID = 'src-column-research';
-  const CASE_SCHEMA = 'src-column-research.case.v5';
-  const PREVIOUS_CASE_SCHEMA = 'src-column-research.case.v4';
-  const PREVIOUS_PAGE_VERSION = 'v0.5';
-  const INTERMEDIATE_CASE_SCHEMA = 'src-column-research.case.v3';
-  const INTERMEDIATE_PAGE_VERSION = 'v0.4';
-  const LEGACY_CASE_SCHEMA = 'src-column-research.case.v2';
-  const LEGACY_PAGE_VERSION = 'v0.3';
+  const CASE_SCHEMA = 'src-column-research.case.v6';
+  const DUAL_CASE_SCHEMA = 'src-column-research.dual-axis.case.v1';
+  const PREVIOUS_CASE_SCHEMA = 'src-column-research.case.v5';
+  const PREVIOUS_PAGE_VERSION = 'v0.6';
+  const INTERMEDIATE_CASE_SCHEMA = 'src-column-research.case.v4';
+  const INTERMEDIATE_PAGE_VERSION = 'v0.5';
+  const LEGACY_CASE_SCHEMA = 'src-column-research.case.v3';
+  const LEGACY_PAGE_VERSION = 'v0.4';
+  const EARLIEST_CASE_SCHEMA = 'src-column-research.case.v2';
+  const EARLIEST_PAGE_VERSION = 'v0.3';
   const TOOL_NAME = 'SRC 柱方向可選耐震研究核算';
   const REPORT_TITLE = 'SRC 柱方向可選耐震研究核算計算書';
   const REGULATION_LABEL = '鋼骨鋼筋混凝土構造設計規範與解說（100 年修正版）';
@@ -112,10 +115,13 @@
     const isLegacy = payload?.schema === LEGACY_CASE_SCHEMA
       && payload?.tool?.id === TOOL_ID
       && payload?.tool?.version === LEGACY_PAGE_VERSION;
-    if (!isPrevious && !isIntermediate && !isLegacy) return { payload, migrated: false };
+    const isEarliest = payload?.schema === EARLIEST_CASE_SCHEMA
+      && payload?.tool?.id === TOOL_ID
+      && payload?.tool?.version === EARLIEST_PAGE_VERSION;
+    if (!isPrevious && !isIntermediate && !isLegacy && !isEarliest) return { payload, migrated: false };
     if (!payload.input || typeof payload.input !== 'object') throw new Error('舊版案件 JSON 缺少計算輸入。');
     const input = payload.input;
-    if (isLegacy) {
+    if (isEarliest) {
       input.seismicAxis = 'x';
       input.demands = { ...(input.demands || {}), muyTfM: 0 };
       for (const key of ['shear', 'jointFlexuralStrengthRatio', 'strongColumnWeakBeam', 'confinement']) {
@@ -125,9 +131,11 @@
     input.schema = Core.INPUT_SCHEMA;
     if (input.shear && typeof input.shear === 'object') {
       const shear = input.shear;
-      shear.weakAxisSteelDesignBasis = 'project-confirmed';
-      shear.weakAxisAiscG6ApplicabilityConfirmed = false;
-      if (isIntermediate || isLegacy) {
+      if (!isPrevious) {
+        shear.weakAxisSteelDesignBasis = 'project-confirmed';
+        shear.weakAxisAiscG6ApplicabilityConfirmed = false;
+      }
+      if (isLegacy || isEarliest) {
         const xPositions = Array.isArray(input.reinforcement?.xLayers)
           ? input.reinforcement.xLayers.map(item => Number(item?.xCm)).filter(Number.isFinite)
           : [];
@@ -150,8 +158,8 @@
     return {
       payload,
       migrated: true,
-      sourceSchema: isLegacy ? LEGACY_CASE_SCHEMA : (isIntermediate ? INTERMEDIATE_CASE_SCHEMA : PREVIOUS_CASE_SCHEMA),
-      sourceVersion: isLegacy ? LEGACY_PAGE_VERSION : (isIntermediate ? INTERMEDIATE_PAGE_VERSION : PREVIOUS_PAGE_VERSION),
+      sourceSchema: isEarliest ? EARLIEST_CASE_SCHEMA : (isLegacy ? LEGACY_CASE_SCHEMA : (isIntermediate ? INTERMEDIATE_CASE_SCHEMA : PREVIOUS_CASE_SCHEMA)),
+      sourceVersion: isEarliest ? EARLIEST_PAGE_VERSION : (isLegacy ? LEGACY_PAGE_VERSION : (isIntermediate ? INTERMEDIATE_PAGE_VERSION : PREVIOUS_PAGE_VERSION)),
     };
   }
 
@@ -909,6 +917,131 @@
     };
   }
 
+  function mergeDualProject(xProject, yProject) {
+    const merged = {};
+    for (const key of ['name', 'no', 'designer']) {
+      const xValue = String(xProject?.[key] || '').trim();
+      const yValue = String(yProject?.[key] || '').trim();
+      if (xValue && yValue && xValue !== yValue) {
+        throw new Error(`X／Y 案件的${key === 'name' ? '計畫名稱' : (key === 'no' ? '計畫編號' : '設計人員')}不一致，不得合併。`);
+      }
+      merged[key] = xValue || yValue;
+    }
+    return merged;
+  }
+
+  function dualMemberIdentity(input, result) {
+    return {
+      concrete: clone(input.concrete),
+      reinforcement: clone(input.reinforcement),
+      steel: clone(input.steel),
+      steelSection: clone(result.steelSection),
+      member: clone(input.member),
+      construction: {
+        fullyEncased: input.detailing?.fullyEncased === true,
+        centeredDoublySymmetricH: input.detailing?.centeredDoublySymmetricH === true,
+        mainBarsContinuous: input.detailing?.mainBarsContinuous === true,
+      },
+    };
+  }
+
+  function normalizeDualAxisSnapshots(snapshots) {
+    const list = [snapshots?.x, snapshots?.y];
+    if (list.some(item => !item?.input || !item?.result)) throw new Error('雙向彙總必須同時具備 X 向與 Y 向的有效核算。');
+    if (snapshots.x.input.seismicAxis !== 'x' || snapshots.y.input.seismicAxis !== 'y') {
+      throw new Error('雙向彙總的方向配對無效，必須分別為 X 向與 Y 向。');
+    }
+    const xIdentity = JSON.stringify(dualMemberIdentity(snapshots.x.input, snapshots.x.result));
+    const yIdentity = JSON.stringify(dualMemberIdentity(snapshots.y.input, snapshots.y.result));
+    if (xIdentity !== yIdentity) throw new Error('X／Y 案件的斷面、材料、主筋、柱長或構造條件不一致，不得合併。');
+    return {
+      x: snapshots.x,
+      y: snapshots.y,
+      project: mergeDualProject(snapshots.x.project, snapshots.y.project),
+    };
+  }
+
+  function prefixReportGroups(groups, axisLabel, pageBreakBeforeFirst = false) {
+    return (groups || []).map((group, index) => ({
+      ...clone(group),
+      group: `${axisLabel}｜${group.group}`,
+      pageBreakBefore: (pageBreakBeforeFirst && index === 0) || group.pageBreakBefore === true,
+    }));
+  }
+
+  function buildDualAxisReportConfig(snapshots) {
+    const pair = normalizeDualAxisSnapshots(snapshots);
+    const xConfig = buildReportConfig(pair.x.input, pair.x.result, pair.project);
+    const yConfig = buildReportConfig(pair.y.input, pair.y.result, pair.project);
+    const xOk = pair.x.result.checks?.engineeringStrength === true;
+    const yOk = pair.y.result.checks?.engineeringStrength === true;
+    const xFingerprint = String(pair.x.calculationFingerprint || '').trim() || '由雙向報告指紋涵蓋';
+    const yFingerprint = String(pair.y.calculationFingerprint || '').trim() || '由雙向報告指紋涵蓋';
+    const prefixItems = (items, label) => (items || []).map(item => `${label}｜${item}`);
+    return {
+      title: 'SRC 柱 X／Y 雙向耐震研究核算計算書',
+      subtitle: 'SRC Column X/Y-Axis Seismic Research Calculation Report',
+      toolName: `${TOOL_NAME}（雙向彙總）`,
+      toolVersion: PAGE_VERSION,
+      formalApprovalAllowed: false,
+      outputSource: {
+        tool: `${TOOL_NAME}（雙向彙總）`,
+        version: PAGE_VERSION,
+        displayVersion: PAGE_VERSION,
+        calculationEngine: pair.x.result.coreVersion,
+      },
+      project: pair.project,
+      calculated: true,
+      failedItems: [
+        ...prefixItems(failedLabels(pair.x.result), 'X 向'),
+        ...prefixItems(failedLabels(pair.y.result), 'Y 向'),
+      ],
+      reviewItems: [...new Set([
+        ...prefixItems(reviewLabels(pair.x.result), 'X 向'),
+        ...prefixItems(reviewLabels(pair.y.result), 'Y 向'),
+      ])],
+      inputs: [
+        {
+          group: '雙向核算索引',
+          keepTogether: true,
+          items: [
+            { label: 'X 向計算指紋', value: xFingerprint, unit: '' },
+            { label: 'Y 向計算指紋', value: yFingerprint, unit: '' },
+            { label: '共同構材', value: `${pair.x.result.steelSection.shape}；${fmt(pair.x.input.concrete.widthCm, 1)} × ${fmt(pair.x.input.concrete.depthCm, 1)} cm`, unit: '' },
+            { label: '雙向結果', value: `X 向 ${xOk ? 'OK' : 'NG'}；Y 向 ${yOk ? 'OK' : 'NG'}`, unit: '' },
+          ],
+        },
+        ...prefixReportGroups(xConfig.inputs, 'X 向'),
+        ...prefixReportGroups(yConfig.inputs, 'Y 向', true),
+      ],
+      diagrams: [
+        ...xConfig.diagrams.map(item => ({ ...clone(item), title: `X 向｜${item.title}`, caption: `X 向｜${item.caption}` })),
+        ...yConfig.diagrams.map(item => ({ ...clone(item), title: `Y 向｜${item.title}`, caption: `Y 向｜${item.caption}` })),
+      ],
+      checks: [
+        ...prefixReportGroups(xConfig.checks, 'X 向'),
+        ...prefixReportGroups(yConfig.checks, 'Y 向', true),
+      ],
+      steps: [
+        ...prefixReportGroups(xConfig.steps, 'X 向'),
+        ...prefixReportGroups(yConfig.steps, 'Y 向', true),
+      ],
+      summary: {
+        ok: xOk && yOk,
+        text: xOk && yOk
+          ? '本案 SRC 柱 X 向與 Y 向已實作之耐震子檢核均通過。'
+          : `本案 SRC 柱雙向核算結果：X 向 ${xOk ? 'OK' : 'NG'}；Y 向 ${yOk ? 'OK' : 'NG'}。`,
+      },
+      snapshot: {
+        schema: DUAL_CASE_SCHEMA,
+        axes: {
+          x: { input: clone(pair.x.input), result: clone(xConfig.snapshot.result), calculationFingerprint: xFingerprint },
+          y: { input: clone(pair.y.input), result: clone(yConfig.snapshot.result), calculationFingerprint: yFingerprint },
+        },
+      },
+    };
+  }
+
   function buildCasePayload(input, result, project, reportUi) {
     assertDependencies(reportUi);
     const config = buildReportConfig(input, result, project);
@@ -935,6 +1068,62 @@
     };
   }
 
+  function buildDualAxisCasePayload(snapshots, reportUi) {
+    assertDependencies(reportUi);
+    const pair = normalizeDualAxisSnapshots(snapshots);
+    const axes = {};
+    for (const axis of ['x', 'y']) {
+      axes[axis] = buildCasePayload(pair[axis].input, pair[axis].result, pair[axis].project || pair.project, reportUi);
+    }
+    const enriched = {
+      x: { ...pair.x, project: axes.x.project, calculationFingerprint: axes.x.calculationFingerprint },
+      y: { ...pair.y, project: axes.y.project, calculationFingerprint: axes.y.calculationFingerprint },
+    };
+    const config = buildDualAxisReportConfig(enriched);
+    const trace = reportUi.buildReportTrace(config);
+    return {
+      schema: DUAL_CASE_SCHEMA,
+      schemaVersion: 1,
+      tool: { id: TOOL_ID, name: `${TOOL_NAME}（雙向彙總）`, version: PAGE_VERSION, calculationEngine: pair.x.result.coreVersion },
+      savedAt: new Date().toISOString(),
+      project: clone(pair.project),
+      axes,
+      calculationFingerprint: trace.calculationFingerprint,
+      report: { calculationFingerprint: trace.calculationFingerprint },
+    };
+  }
+
+  function replayDualAxisCasePayload(payload, reportUi) {
+    assertDependencies(reportUi);
+    if (!payload || payload.schema !== DUAL_CASE_SCHEMA || payload.tool?.id !== TOOL_ID || payload.tool?.version !== PAGE_VERSION) {
+      throw new Error('雙向案件 JSON 的 schema、工具或版本不符。');
+    }
+    const snapshots = {};
+    for (const axis of ['x', 'y']) {
+      const child = payload.axes?.[axis];
+      reportUi.validateCalculationCasePayload(child, {
+        expectedSchema: CASE_SCHEMA,
+        expectedToolId: TOOL_ID,
+        expectedVersion: PAGE_VERSION,
+      });
+      if (child.input?.seismicAxis !== axis) throw new Error(`${axis.toUpperCase()} 向案件的方向標記不符。`);
+      const result = Core.calculate(child.input);
+      const config = buildReportConfig(child.input, result, child.project || payload.project || {});
+      const fingerprint = reportUi.buildReportTrace(config).calculationFingerprint;
+      reportUi.assertCalculationCaseReplay(child, fingerprint);
+      snapshots[axis] = {
+        input: clone(child.input),
+        result,
+        project: clone(child.project || payload.project || {}),
+        calculationFingerprint: fingerprint,
+      };
+    }
+    const config = buildDualAxisReportConfig(snapshots);
+    const calculationFingerprint = reportUi.buildReportTrace(config).calculationFingerprint;
+    reportUi.assertCalculationCaseReplay(payload, calculationFingerprint);
+    return { snapshots, config, calculationFingerprint };
+  }
+
   function downloadJson(win, fileName, payload) {
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
     const url = win.URL.createObjectURL(blob);
@@ -957,6 +1146,7 @@
     let lastConfig = null;
     let lastFingerprint = '';
     let calculateTimer = 0;
+    const axisPair = { x: null, y: null };
     const $ = id => doc.getElementById(id);
 
     Catalog.listSections().forEach(item => {
@@ -1059,6 +1249,38 @@
     function setActionStatus(message, tone = '') {
       $('actionStatus').textContent = message || '';
       $('actionStatus').className = `src-action-status ${tone}`.trim();
+    }
+
+    function updateAxisPairStatus() {
+      const xText = axisPair.x ? `X 向 ${axisPair.x.calculationFingerprint}` : 'X 向尚未記錄';
+      const yText = axisPair.y ? `Y 向 ${axisPair.y.calculationFingerprint}` : 'Y 向尚未記錄';
+      const complete = Boolean(axisPair.x && axisPair.y);
+      $('axisPairStatus').textContent = `${xText}｜${yText}`;
+      $('axisPairStatus').className = `src-axis-pair-status ${complete ? 'complete' : ''}`.trim();
+      $('btnDualReport').disabled = !complete;
+      $('btnExportDualCase').disabled = !complete;
+    }
+
+    function captureCurrentAxis() {
+      ensureCurrent();
+      const axis = lastInput.seismicAxis === 'y' ? 'y' : 'x';
+      axisPair[axis] = {
+        input: clone(lastInput),
+        result: clone(lastResult),
+        project: clone(readProject(doc)),
+        calculationFingerprint: lastFingerprint,
+      };
+      updateAxisPairStatus();
+      setActionStatus(`${axis.toUpperCase()} 向已納入雙向彙總；計算指紋 ${lastFingerprint}。`, 'ok');
+      return axisPair[axis];
+    }
+
+    function currentDualAxisConfig() {
+      return buildDualAxisReportConfig(axisPair);
+    }
+
+    function currentDualAxisPayload() {
+      return buildDualAxisCasePayload(axisPair, reportUi);
     }
 
     function renderInvalid(issues) {
@@ -1248,6 +1470,18 @@
       catch { throw new Error('案件 JSON 無法解析。'); }
       const previous = captureState();
       try {
+        if (payload?.schema === DUAL_CASE_SCHEMA) {
+          const replay = replayDualAxisCasePayload(payload, reportUi);
+          axisPair.x = replay.snapshots.x;
+          axisPair.y = replay.snapshots.y;
+          writeCoreInput(doc, replay.snapshots.x.input);
+          writeProject(doc, replay.snapshots.x.project);
+          updateDependentFields();
+          calculate({ announce: false });
+          updateAxisPairStatus();
+          setActionStatus(`已匯入 X／Y 雙向案件，重算指紋一致；雙向指紋 ${replay.calculationFingerprint}。`, 'ok');
+          return;
+        }
         const migration = migrateCasePayload(payload);
         payload = migration.payload;
         if (!migration.migrated) {
@@ -1282,6 +1516,14 @@
         win.openReport(lastConfig);
       } catch (error) { setActionStatus(error.message || String(error), 'error'); }
     });
+    $('btnCaptureAxis').addEventListener('click', () => {
+      try { captureCurrentAxis(); }
+      catch (error) { setActionStatus(error.message || String(error), 'error'); }
+    });
+    $('btnDualReport').addEventListener('click', () => {
+      try { win.openReport(currentDualAxisConfig()); }
+      catch (error) { setActionStatus(error.message || String(error), 'error'); }
+    });
     $('btnExportCase').addEventListener('click', () => {
       try {
         const payload = currentPayload();
@@ -1290,6 +1532,13 @@
       } catch (error) { setActionStatus(error.message || String(error), 'error'); }
     });
     $('btnImportCase').addEventListener('click', () => $('caseFile').click());
+    $('btnExportDualCase').addEventListener('click', () => {
+      try {
+        const payload = currentDualAxisPayload();
+        downloadJson(win, `src-column-research-dual-axis-${payload.savedAt.slice(0, 10)}.json`, payload);
+        setActionStatus(`雙向案件 JSON 已下載；雙向計算指紋 ${payload.calculationFingerprint}。`, 'ok');
+      } catch (error) { setActionStatus(error.message || String(error), 'error'); }
+    });
     $('caseFile').addEventListener('change', async event => {
       const file = event.target.files?.[0];
       try { await importCase(file); }
@@ -1314,28 +1563,38 @@
 
     win.runSrcColumnCalculation = () => calculate({ announce: true });
     win.buildSrcColumnCasePayload = currentPayload;
+    win.captureSrcColumnAxis = captureCurrentAxis;
+    win.buildSrcColumnDualAxisConfig = currentDualAxisConfig;
+    win.buildSrcColumnDualAxisCasePayload = currentDualAxisPayload;
     win.importSrcColumnCaseFile = importCase;
     updateDependentFields();
     calculate({ announce: false });
+    updateAxisPairStatus();
   }
 
   return Object.freeze({
     PAGE_VERSION,
     TOOL_ID,
     CASE_SCHEMA,
+    DUAL_CASE_SCHEMA,
     PREVIOUS_CASE_SCHEMA,
     PREVIOUS_PAGE_VERSION,
     INTERMEDIATE_CASE_SCHEMA,
     INTERMEDIATE_PAGE_VERSION,
     LEGACY_CASE_SCHEMA,
     LEGACY_PAGE_VERSION,
+    EARLIEST_CASE_SCHEMA,
+    EARLIEST_PAGE_VERSION,
     TOOL_NAME,
     REPORT_TITLE,
     readCoreInput,
     writeCoreInput,
     buildReportConfig,
+    buildDualAxisReportConfig,
     buildSectionDiagram,
     buildCasePayload,
+    buildDualAxisCasePayload,
+    replayDualAxisCasePayload,
     migrateCasePayload,
     failedLabels,
     reviewLabels,
