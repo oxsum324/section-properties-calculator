@@ -1579,7 +1579,7 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload, reportR
   assert.deepEqual(state.memberTabs, ['全部', 'RC', '鋼構', 'SRC'], `${label} new home member system tabs`);
   assert.deepEqual(state.memberGroups, ['RC', '鋼構', 'SRC'], `${label} new home member grouped tools`);
   assert.equal(state.memberToolSystems.every(system => ['RC', '鋼構', 'SRC'].includes(system)), true, `${label} new home member tool systems`);
-  assert.deepEqual(state.srcToolTitles, ['SRC 梁'], `${label} new home SRC formal tool entry`);
+  assert.deepEqual(state.srcToolTitles, ['SRC 梁', 'SRC 柱'], `${label} new home SRC formal tool entries`);
   assert.equal(state.hasCategoryArt, false, `${label} new home category art`);
   assert.ok(state.cardCount >= tools.length, `${label} new home card count`);
   assert.equal(state.reportReadinessStatusBadge, '頁面專用', `${label} new home report readiness badge`);

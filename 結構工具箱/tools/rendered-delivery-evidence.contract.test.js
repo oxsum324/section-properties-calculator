@@ -180,6 +180,13 @@ assert.deepEqual(
   'rendered delivery evidence accepts known headings, numbered steps, and multi-column headers at continuation page starts'
 );
 assert.deepEqual(
+  findPdfUncontextualPageStarts(
+    summarizePdfLayoutPages(`前頁內容\fY 向｜第 9.6.1 節採用接頭面名義彎矩\n計算內容\fX 向｜SRC 柱計算斷面\n斷面圖\f`)
+  ),
+  [],
+  'rendered delivery evidence accepts directional SRC clause and section headings at continuation page starts'
+);
+assert.deepEqual(
   findPdfUncontextualPageStarts(summarizePdfLayoutPages(`前頁內容\fℓ\n= 172.6 cm\f`)),
   [{ page: 2, text: 'ℓ' }],
   'rendered delivery evidence only skips an isolated extracted symbol when a contextual line follows it'
