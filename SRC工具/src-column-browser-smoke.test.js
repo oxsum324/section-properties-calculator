@@ -114,6 +114,14 @@ async function main() {
       assert.ok(responsibilityText.includes(needle), `HTML responsibility matrix includes ${needle}`);
     }
     assert.equal(await responsibilityMatrix.locator('[data-responsibility]').count(), 3);
+    const provenancePolicy = page.locator('#materialProvenancePolicy');
+    await provenancePolicy.waitFor({ state: 'visible' });
+    assert.equal(await provenancePolicy.getAttribute('data-contract-id'), 'src-column-material-provenance.v1');
+    const provenanceText = await provenancePolicy.innerText();
+    for (const needle of ['斷面性質｜官方教材', '設計材料｜專案指定', '供貨／材證｜專案文件', '未附不會把構材計算判為 NG']) {
+      assert.ok(provenanceText.includes(needle), `HTML material-provenance policy includes ${needle}`);
+    }
+    assert.equal(await provenancePolicy.locator('[data-provenance]').count(), 3);
     await page.click('#btnCaptureAxis');
     assert.match(await page.locator('#axisPairStatus').innerText(), new RegExp(`X 向 ${initial.fingerprint}`));
     assert.equal(await page.locator('#btnDualReport').isDisabled(), true, '只記錄 X 向時不得產生雙向彙總');
@@ -305,11 +313,12 @@ async function main() {
     const reportText = await report.locator('body').innerText();
     for (const needle of [
       'SRC 柱 X 向（鋼骨強軸）耐震研究核算計算書', '規範、構材與分析條件', '採用斷面與材料',
+      '設計材料來源', '專案指定', '斷面性質來源', '內政部建築研究所', '印刷頁 289', 'PDF 第 301 頁',
       '第 9.3 節採用地震軸力資料', '第 9.6.2 節採用柱剪力資料',
       '第 8.4.2 節採用接頭面分量彎矩', '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
       '第 8.4.2 節接頭撓曲強度比', '第 9.6 節X 向（鋼骨強軸）耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論',
     ]) assert.ok(reportText.includes(needle), `report includes ${needle}`);
-    for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', 'DRAFT', '非正式附件', '接頭區剪力與接合細部', '附件分工原則', '另案附件']) {
+    for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', 'DRAFT', '非正式附件', '接頭區剪力與接合細部', '附件分工原則', '另案附件', '供貨／材證｜專案文件', '未附不會把構材計算判為 NG']) {
       assert.equal(reportText.includes(needle), false, `report excludes ${needle}`);
     }
     const reportDiagram = report.locator('.rep-diagram img[alt="SRC 柱計算斷面"]');
@@ -333,6 +342,7 @@ async function main() {
       titleNeedle: 'SRC 柱 X 向（鋼骨強軸）耐震研究核算計算書',
       requiredNeedles: [
         'SRC 柱 X 向（鋼骨強軸）耐震研究核算計算書', '規範、構材與分析條件', '採用斷面與材料',
+        '設計材料來源', '專案指定', '斷面性質來源', '內政部建築研究所', '印刷頁 289', 'PDF 第 301 頁',
         '第 9.3 節採用地震軸力資料', '第 9.6.2 節採用柱剪力資料',
         '第 8.4.2 節採用接頭面分量彎矩', '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
         '第 8.4.2 節接頭撓曲強度比', '第 9.6 節X 向（鋼骨強軸）耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論', '計算指紋',
@@ -409,7 +419,7 @@ async function main() {
     });
 
     const dualCasePayload = await page.evaluate(() => window.buildSrcColumnDualAxisCasePayload());
-    assert.equal(dualCasePayload.schema, 'src-column-research.dual-axis.case.v1');
+    assert.equal(dualCasePayload.schema, 'src-column-research.dual-axis.case.v2');
     assert.equal(dualCasePayload.axes.x.calculationFingerprint, initial.fingerprint);
     assert.equal(dualCasePayload.axes.y.calculationFingerprint, weakAxisFingerprint);
     assert.match(dualCasePayload.calculationFingerprint, /^CF-[A-F0-9]{16}$/);
@@ -424,11 +434,12 @@ async function main() {
     const dualReportText = await dualReport.locator('body').innerText();
     for (const needle of [
       'SRC 柱 X／Y 雙向耐震研究核算計算書', '雙向核算索引', 'X 向計算指紋', 'Y 向計算指紋',
+      'X 向｜採用斷面與材料', 'Y 向｜採用斷面與材料', '斷面性質來源', '內政部建築研究所', '專案指定',
       'X 向｜構材斷面與軸彎互制', 'Y 向｜構材斷面與軸彎互制',
       'X 向｜第 9.6 節X 向（鋼骨強軸）耐震子檢核', 'Y 向｜第 9.6 節Y 向（鋼骨弱軸）耐震子檢核',
       '本案 SRC 柱 X 向與 Y 向已實作之耐震子檢核均通過',
     ]) assert.ok(dualReportText.includes(needle), `dual-axis report includes ${needle}`);
-    for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', 'DRAFT', '非正式附件', '接頭區剪力與接合細部', '附件分工原則', '另案附件']) {
+    for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', 'DRAFT', '非正式附件', '接頭區剪力與接合細部', '附件分工原則', '另案附件', '供貨／材證｜專案文件', '未附不會把構材計算判為 NG']) {
       assert.equal(dualReportText.includes(needle), false, `dual-axis report excludes ${needle}`);
     }
     const dualApproval = dualReport.getByRole('checkbox', { name: '核可為正式附件' });
@@ -446,12 +457,15 @@ async function main() {
       titleNeedle: 'SRC 柱 X／Y 雙向耐震研究核算計算書',
       requiredNeedles: [
         'SRC 柱 X／Y 雙向耐震研究核算計算書', '雙向核算索引', 'X 向計算指紋', 'Y 向計算指紋',
+        'X 向｜採用斷面與材料', 'Y 向｜採用斷面與材料', '斷面性質來源', '內政部建築研究所', '專案指定',
         'X 向｜構材斷面與軸彎互制', 'Y 向｜構材斷面與軸彎互制', '計算過程明細', '檢核結論', '計算指紋',
       ],
       contentBoundaryProfile: 'traceable-calculation-book',
       continuationContextLabels: [
         '雙向核算索引', 'X 向｜規範、構材與分析條件', 'Y 向｜規範、構材與分析條件',
         'X 向｜構材斷面與軸彎互制', 'Y 向｜構材斷面與軸彎互制',
+        'X 向｜第 9.3 節耐震軸向強度', 'Y 向｜第 9.3 節耐震軸向強度',
+        'X 向｜第 9.6.2 節X 向（鋼骨強軸）柱剪力', 'Y 向｜第 9.6.2 節Y 向（鋼骨弱軸）柱剪力',
         'X 向｜第 8.4.2 節接頭撓曲強度比', 'Y 向｜第 8.4.2 節接頭撓曲強度比',
         'X 向｜第 9.6.1 節採用接頭面名義彎矩', 'Y 向｜第 9.6.1 節採用接頭面名義彎矩',
         'X 向｜SRC 柱計算斷面', 'Y 向｜SRC 柱計算斷面',
@@ -471,6 +485,24 @@ async function main() {
     await page.waitForFunction(() => document.querySelector('#actionStatus')?.textContent.includes('已匯入 X／Y 雙向案件'));
     assert.equal(await page.inputValue('#seismicAxis'), 'x');
     assert.equal(await page.inputValue('#pdTf'), '400');
+    assert.equal(await page.evaluate(() => window.buildSrcColumnDualAxisCasePayload().calculationFingerprint), dualCasePayload.calculationFingerprint);
+    const previousDualPayload = JSON.parse(JSON.stringify(dualCasePayload));
+    previousDualPayload.schema = 'src-column-research.dual-axis.case.v1';
+    previousDualPayload.tool.version = 'v0.7';
+    previousDualPayload.calculationFingerprint = 'CF-AAAAAAAAAAAAAAAA';
+    previousDualPayload.report.calculationFingerprint = 'CF-AAAAAAAAAAAAAAAA';
+    for (const axis of ['x', 'y']) {
+      previousDualPayload.axes[axis].schema = 'src-column-research.case.v6';
+      previousDualPayload.axes[axis].tool.version = 'v0.7';
+      previousDualPayload.axes[axis].calculationFingerprint = `CF-${axis === 'x' ? 'B' : 'C'}${'0'.repeat(15)}`;
+      previousDualPayload.axes[axis].report.calculationFingerprint = previousDualPayload.axes[axis].calculationFingerprint;
+    }
+    await page.setInputFiles('#caseFile', {
+      name: 'src-column-research-v07-dual-axis.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(previousDualPayload)),
+    });
+    await page.waitForFunction(() => document.querySelector('#actionStatus')?.textContent.includes('已升級 v0.7 X／Y 雙向案件'));
+    assert.match(await page.locator('#actionStatus').innerText(), /新雙向指紋 CF-[A-F0-9]{16}/);
+    assert.equal(await page.evaluate(() => window.buildSrcColumnDualAxisCasePayload().schema), 'src-column-research.dual-axis.case.v2');
     assert.equal(await page.evaluate(() => window.buildSrcColumnDualAxisCasePayload().calculationFingerprint), dualCasePayload.calculationFingerprint);
     const evidence = {
       schemaVersion: 1,

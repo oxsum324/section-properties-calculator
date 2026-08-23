@@ -24,7 +24,7 @@
     table: '表 1-1 RH 型鋼斷面性質（續 4）',
     printedPage: 289,
     pdfPage: 301,
-    verifiedOn: '2026-08-22',
+    verifiedOn: '2026-08-23',
     availabilityBoundary: '表內星號表示教材出版時依訂單生產；本 catalog 不證明目前可供貨，實際材料仍須核對專案規格與材證。',
   });
 

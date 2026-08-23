@@ -528,14 +528,15 @@ assert.throws(
 
 const catalogPath = path.join(__dirname, 'src-column-traceability.catalog.json');
 const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
-assert.equal(catalog.schemaVersion, 15, 'SRC column traceability schema includes the controlled attachment-responsibility package');
+assert.equal(catalog.schemaVersion, 16, 'SRC column traceability schema includes attachment responsibility and material provenance policies');
 assert.equal(catalog.coreVersion, Core.CORE_VERSION, 'SRC column traceability follows the research engine version');
 assert.equal(catalog.release.status, Core.RELEASE_STATUS, 'traceability catalog keeps the core non-public');
 assert.equal(catalog.formalPromotionReadiness.status, 'blocked', 'formal promotion remains fail-closed while declared blockers exist');
-assert.equal(catalog.formalPromotionReadiness.evaluatedPageVersion, 'v0.7');
+assert.equal(catalog.formalPromotionReadiness.evaluatedPageVersion, 'v0.8');
 assert.ok(catalog.formalPromotionReadiness.satisfied.some(item => item.includes('X／Y') && item.includes('計算指紋')), 'readiness records the completed dual-axis evidence');
 assert.ok(catalog.formalPromotionReadiness.satisfied.some(item => item.includes('正式附件責任分工')), 'readiness records the completed attachment responsibility boundary');
-assert.equal(catalog.formalPromotionReadiness.blocking.length, 2, 'formal approval remains blocked only by material provenance and formal-release evidence');
+assert.ok(catalog.formalPromotionReadiness.satisfied.some(item => item.includes('斷面性質') && item.includes('供貨') && item.includes('材證')), 'readiness records the completed material-provenance policy');
+assert.equal(catalog.formalPromotionReadiness.blocking.length, 1, 'formal approval remains blocked only by formal inventory, benchmark, and release evidence');
 assert.ok(catalog.formalPromotionReadiness.safeguard.includes('formalApprovalAllowed=false'), 'readiness contract preserves the formal-approval safeguard');
 assert.equal(catalog.attachmentResponsibility.contractId, 'src-column-member-calculation-attachment.v1');
 assert.equal(catalog.attachmentResponsibility.reportRule.includes('不作為計算書警告'), true, 'responsibility guidance stays outside the calculation report');
@@ -547,6 +548,17 @@ assert.deepEqual(
 assert.equal(new Set(catalog.attachmentResponsibility.workPackages.map(item => item.id)).size, 3, 'responsibility work-package ids are unique');
 assert.ok(catalog.attachmentResponsibility.workPackages.every(item => item.owner && item.items.length >= 4), 'every responsibility work package has an owner and concrete contents');
 assert.ok(catalog.attachmentResponsibility.packagingRules.some(item => item.includes('不構成工程結果 NG')), 'blank project metadata remains an acceptable attachment condition');
+assert.equal(catalog.materialProvenancePolicy.contractId, 'src-column-material-provenance.v1');
+assert.deepEqual(
+  catalog.materialProvenancePolicy.authorityLayers.map(item => item.id),
+  ['section-properties', 'design-material', 'availability', 'mill-certificate'],
+  'material policy distinguishes adopted calculation sources from procurement and construction verification'
+);
+assert.equal(catalog.materialProvenancePolicy.authorityLayers.find(item => item.id === 'design-material').authority, '專案指定');
+assert.equal(catalog.materialProvenancePolicy.authorityLayers.find(item => item.id === 'availability').reportFields.length, 0, 'availability notes do not enter the member calculation report');
+assert.equal(catalog.materialProvenancePolicy.authorityLayers.find(item => item.id === 'mill-certificate').formalRule.includes('不改變構材計算的 OK／NG'), true, 'missing mill certificates do not misclassify the member calculation');
+assert.equal(catalog.materialProvenancePolicy.reportRule.includes('不作為計算書警告'), true, 'supply and certificate guidance stays outside the calculation report');
+assert.equal(catalog.materialProvenancePolicy.fingerprintRule.includes('catalog 版本'), true, 'adopted section provenance is fingerprinted');
 assert.equal(catalog.regulation.chapter3Url, Core.REGULATION_PROFILE.chapter3Url, 'catalog and core use the same official chapter 3 source');
 assert.equal(catalog.regulation.chapter5Url, Core.REGULATION_PROFILE.chapter5Url, 'catalog and core use the same official chapter 5 source');
 assert.equal(catalog.regulation.chapter7Url, Core.REGULATION_PROFILE.chapter7Url, 'catalog and core use the same official chapter 7 source');

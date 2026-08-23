@@ -12,16 +12,19 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function buildSrcColumnPage(Core, Catalog, WeakAxisReference) {
   'use strict';
 
-  const PAGE_VERSION = 'v0.7';
+  const PAGE_VERSION = 'v0.8';
   const TOOL_ID = 'src-column-research';
-  const CASE_SCHEMA = 'src-column-research.case.v6';
-  const DUAL_CASE_SCHEMA = 'src-column-research.dual-axis.case.v1';
-  const PREVIOUS_CASE_SCHEMA = 'src-column-research.case.v5';
-  const PREVIOUS_PAGE_VERSION = 'v0.6';
-  const INTERMEDIATE_CASE_SCHEMA = 'src-column-research.case.v4';
-  const INTERMEDIATE_PAGE_VERSION = 'v0.5';
-  const LEGACY_CASE_SCHEMA = 'src-column-research.case.v3';
-  const LEGACY_PAGE_VERSION = 'v0.4';
+  const CASE_SCHEMA = 'src-column-research.case.v7';
+  const DUAL_CASE_SCHEMA = 'src-column-research.dual-axis.case.v2';
+  const PREVIOUS_DUAL_CASE_SCHEMA = 'src-column-research.dual-axis.case.v1';
+  const PREVIOUS_CASE_SCHEMA = 'src-column-research.case.v6';
+  const PREVIOUS_PAGE_VERSION = 'v0.7';
+  const INTERMEDIATE_CASE_SCHEMA = 'src-column-research.case.v5';
+  const INTERMEDIATE_PAGE_VERSION = 'v0.6';
+  const LEGACY_CASE_SCHEMA = 'src-column-research.case.v4';
+  const LEGACY_PAGE_VERSION = 'v0.5';
+  const EARLIER_CASE_SCHEMA = 'src-column-research.case.v3';
+  const EARLIER_PAGE_VERSION = 'v0.4';
   const EARLIEST_CASE_SCHEMA = 'src-column-research.case.v2';
   const EARLIEST_PAGE_VERSION = 'v0.3';
   const TOOL_NAME = 'SRC 柱方向可選耐震研究核算';
@@ -115,10 +118,13 @@
     const isLegacy = payload?.schema === LEGACY_CASE_SCHEMA
       && payload?.tool?.id === TOOL_ID
       && payload?.tool?.version === LEGACY_PAGE_VERSION;
+    const isEarlier = payload?.schema === EARLIER_CASE_SCHEMA
+      && payload?.tool?.id === TOOL_ID
+      && payload?.tool?.version === EARLIER_PAGE_VERSION;
     const isEarliest = payload?.schema === EARLIEST_CASE_SCHEMA
       && payload?.tool?.id === TOOL_ID
       && payload?.tool?.version === EARLIEST_PAGE_VERSION;
-    if (!isPrevious && !isIntermediate && !isLegacy && !isEarliest) return { payload, migrated: false };
+    if (!isPrevious && !isIntermediate && !isLegacy && !isEarlier && !isEarliest) return { payload, migrated: false };
     if (!payload.input || typeof payload.input !== 'object') throw new Error('舊版案件 JSON 缺少計算輸入。');
     const input = payload.input;
     if (isEarliest) {
@@ -131,11 +137,11 @@
     input.schema = Core.INPUT_SCHEMA;
     if (input.shear && typeof input.shear === 'object') {
       const shear = input.shear;
-      if (!isPrevious) {
+      if (!isPrevious && !isIntermediate) {
         shear.weakAxisSteelDesignBasis = 'project-confirmed';
         shear.weakAxisAiscG6ApplicabilityConfirmed = false;
       }
-      if (isLegacy || isEarliest) {
+      if (isEarlier || isEarliest) {
         const xPositions = Array.isArray(input.reinforcement?.xLayers)
           ? input.reinforcement.xLayers.map(item => Number(item?.xCm)).filter(Number.isFinite)
           : [];
@@ -158,8 +164,8 @@
     return {
       payload,
       migrated: true,
-      sourceSchema: isEarliest ? EARLIEST_CASE_SCHEMA : (isLegacy ? LEGACY_CASE_SCHEMA : (isIntermediate ? INTERMEDIATE_CASE_SCHEMA : PREVIOUS_CASE_SCHEMA)),
-      sourceVersion: isEarliest ? EARLIEST_PAGE_VERSION : (isLegacy ? LEGACY_PAGE_VERSION : (isIntermediate ? INTERMEDIATE_PAGE_VERSION : PREVIOUS_PAGE_VERSION)),
+      sourceSchema: isEarliest ? EARLIEST_CASE_SCHEMA : (isEarlier ? EARLIER_CASE_SCHEMA : (isLegacy ? LEGACY_CASE_SCHEMA : (isIntermediate ? INTERMEDIATE_CASE_SCHEMA : PREVIOUS_CASE_SCHEMA))),
+      sourceVersion: isEarliest ? EARLIEST_PAGE_VERSION : (isEarlier ? EARLIER_PAGE_VERSION : (isLegacy ? LEGACY_PAGE_VERSION : (isIntermediate ? INTERMEDIATE_PAGE_VERSION : PREVIOUS_PAGE_VERSION))),
     };
   }
 
@@ -612,6 +618,11 @@
     const compressionStrength = axial.compressionStrength;
     const compactness = result.compactness;
     const section = result.steelSection;
+    const sectionSource = section.source || {};
+    const catalogSource = Catalog?.SOURCE || {};
+    const sectionSourceText = sectionSource.mode === 'catalog'
+      ? `${sectionSource.authority || catalogSource.authority}《${catalogSource.documentTitle || '鋼骨鋼筋混凝土(SRC)構造設計教材'}》${sectionSource.table || catalogSource.table}，印刷頁 ${sectionSource.printedPage || catalogSource.printedPage}／PDF 第 ${sectionSource.pdfPage || catalogSource.pdfPage} 頁；${sectionSource.catalogVersion}`
+      : '專案指定斷面性質（研究複核）';
     const axis = input.seismicAxis === 'y' ? 'y' : 'x';
     const axisLabel = axis === 'y' ? 'Y 向（鋼骨弱軸）' : 'X 向（鋼骨強軸）';
     const automaticWeakAxisSteel = axis === 'y' && shear?.weakAxisSteelDesignBasis === 'project-specified-aisc-360-g6';
@@ -674,10 +685,12 @@
           group: '採用斷面與材料',
           items: [
             { label: '混凝土 b × h', value: `${fmt(input.concrete.widthCm, 1)} × ${fmt(input.concrete.depthCm, 1)}`, unit: 'cm' },
-            { label: "fc′ / Fyr", value: `${fmt(input.concrete.fcKgfCm2, 0)} / ${fmt(input.reinforcement.fyKgfCm2, 0)}`, unit: 'kgf/cm²' },
+            { label: '設計材料來源', value: '專案指定', unit: '' },
+            { label: "fc′ / Fyr / Fys / Fyw", value: `${fmt(input.concrete.fcKgfCm2, 0)} / ${fmt(input.reinforcement.fyKgfCm2, 0)} / ${fmt(input.steel.fysKgfCm2, 0)} / ${fmt(input.steel.fywKgfCm2, 0)}`, unit: 'kgf/cm²' },
+            { label: 'Es（鋼骨 / 鋼筋）', value: `${fmt(input.steel.esKgfCm2, 0)} / ${fmt(input.reinforcement.esKgfCm2, 0)}`, unit: 'kgf/cm²' },
             { label: '鋼骨', value: `${section.shape}；${input.steel.grade}`, unit: '' },
             { label: 'A / Ix / Iy', value: `${fmt(section.properties.areaCm2, 1)} / ${fmt(section.properties.ixCm4, 0)} / ${fmt(section.properties.iyCm4, 0)}`, unit: 'cm² / cm⁴ / cm⁴' },
-            { label: 'Fys', value: fmt(input.steel.fysKgfCm2, 0), unit: 'kgf/cm²' },
+            { label: '斷面性質來源', value: sectionSourceText, unit: '' },
             { label: 'L / Kx / Ky', value: `${fmt(input.member.lengthCm, 1)} / ${fmt(input.member.kx, 2)} / ${fmt(input.member.ky, 2)}`, unit: 'cm / — / —' },
             { label: `${axisLabel}主筋計算${axis === 'y' ? '列' : '層'}`, value: selectedLayers.map(layer => `${axis === 'y' ? 'x' : 'y'}=${fmt(axis === 'y' ? layer.xCm : layer.yCm, 1)} cm：As=${fmt(layer.areaCm2, 2)} cm²`).join('；'), unit: '' },
           ],
@@ -961,11 +974,12 @@
     };
   }
 
-  function prefixReportGroups(groups, axisLabel, pageBreakBeforeFirst = false) {
+  function prefixReportGroups(groups, axisLabel, pageBreakBeforeFirst = false, suppressChildPageBreaks = false) {
     return (groups || []).map((group, index) => ({
       ...clone(group),
       group: `${axisLabel}｜${group.group}`,
-      pageBreakBefore: (pageBreakBeforeFirst && index === 0) || group.pageBreakBefore === true,
+      pageBreakBefore: (pageBreakBeforeFirst && index === 0)
+        || (!suppressChildPageBreaks && group.pageBreakBefore === true),
     }));
   }
 
@@ -1011,20 +1025,20 @@
             { label: '雙向結果', value: `X 向 ${xOk ? 'OK' : 'NG'}；Y 向 ${yOk ? 'OK' : 'NG'}`, unit: '' },
           ],
         },
-        ...prefixReportGroups(xConfig.inputs, 'X 向'),
-        ...prefixReportGroups(yConfig.inputs, 'Y 向', true),
+        ...prefixReportGroups(xConfig.inputs, 'X 向', false, true),
+        ...prefixReportGroups(yConfig.inputs, 'Y 向', false, true),
       ],
       diagrams: [
         ...xConfig.diagrams.map(item => ({ ...clone(item), title: `X 向｜${item.title}`, caption: `X 向｜${item.caption}` })),
         ...yConfig.diagrams.map(item => ({ ...clone(item), title: `Y 向｜${item.title}`, caption: `Y 向｜${item.caption}` })),
       ],
       checks: [
-        ...prefixReportGroups(xConfig.checks, 'X 向'),
-        ...prefixReportGroups(yConfig.checks, 'Y 向', true),
+        ...prefixReportGroups(xConfig.checks, 'X 向', false, true),
+        ...prefixReportGroups(yConfig.checks, 'Y 向', true, true),
       ],
       steps: [
-        ...prefixReportGroups(xConfig.steps, 'X 向'),
-        ...prefixReportGroups(yConfig.steps, 'Y 向', true),
+        ...prefixReportGroups(xConfig.steps, 'X 向', false, true),
+        ...prefixReportGroups(yConfig.steps, 'Y 向', true, true),
       ],
       summary: {
         ok: xOk && yOk,
@@ -1093,24 +1107,57 @@
     };
   }
 
-  function replayDualAxisCasePayload(payload, reportUi) {
+  function migrateDualAxisCasePayload(sourcePayload) {
+    const payload = clone(sourcePayload);
+    const isPrevious = payload?.schema === PREVIOUS_DUAL_CASE_SCHEMA
+      && payload?.tool?.id === TOOL_ID
+      && payload?.tool?.version === PREVIOUS_PAGE_VERSION;
+    if (!isPrevious) return { payload, migrated: false };
+    if (!payload.axes || typeof payload.axes !== 'object') throw new Error('舊版雙向案件 JSON 缺少 X／Y 計算輸入。');
+    for (const axis of ['x', 'y']) {
+      const childMigration = migrateCasePayload(payload.axes[axis]);
+      if (!childMigration.migrated) throw new Error(`舊版雙向案件的 ${axis.toUpperCase()} 向子案件版本不符。`);
+      payload.axes[axis] = childMigration.payload;
+    }
+    payload.schema = DUAL_CASE_SCHEMA;
+    payload.tool = {
+      ...(payload.tool || {}),
+      name: `${TOOL_NAME}（雙向彙總）`,
+      version: PAGE_VERSION,
+      calculationEngine: Core.CORE_VERSION,
+    };
+    delete payload.calculationFingerprint;
+    if (payload.report && typeof payload.report === 'object') delete payload.report.calculationFingerprint;
+    return {
+      payload,
+      migrated: true,
+      sourceSchema: PREVIOUS_DUAL_CASE_SCHEMA,
+      sourceVersion: PREVIOUS_PAGE_VERSION,
+    };
+  }
+
+  function replayDualAxisCasePayload(sourcePayload, reportUi) {
     assertDependencies(reportUi);
+    const migration = migrateDualAxisCasePayload(sourcePayload);
+    const payload = migration.payload;
     if (!payload || payload.schema !== DUAL_CASE_SCHEMA || payload.tool?.id !== TOOL_ID || payload.tool?.version !== PAGE_VERSION) {
       throw new Error('雙向案件 JSON 的 schema、工具或版本不符。');
     }
     const snapshots = {};
     for (const axis of ['x', 'y']) {
       const child = payload.axes?.[axis];
-      reportUi.validateCalculationCasePayload(child, {
-        expectedSchema: CASE_SCHEMA,
-        expectedToolId: TOOL_ID,
-        expectedVersion: PAGE_VERSION,
-      });
+      if (!migration.migrated) {
+        reportUi.validateCalculationCasePayload(child, {
+          expectedSchema: CASE_SCHEMA,
+          expectedToolId: TOOL_ID,
+          expectedVersion: PAGE_VERSION,
+        });
+      }
       if (child.input?.seismicAxis !== axis) throw new Error(`${axis.toUpperCase()} 向案件的方向標記不符。`);
       const result = Core.calculate(child.input);
       const config = buildReportConfig(child.input, result, child.project || payload.project || {});
       const fingerprint = reportUi.buildReportTrace(config).calculationFingerprint;
-      reportUi.assertCalculationCaseReplay(child, fingerprint);
+      if (!migration.migrated) reportUi.assertCalculationCaseReplay(child, fingerprint);
       snapshots[axis] = {
         input: clone(child.input),
         result,
@@ -1120,8 +1167,15 @@
     }
     const config = buildDualAxisReportConfig(snapshots);
     const calculationFingerprint = reportUi.buildReportTrace(config).calculationFingerprint;
-    reportUi.assertCalculationCaseReplay(payload, calculationFingerprint);
-    return { snapshots, config, calculationFingerprint };
+    if (!migration.migrated) reportUi.assertCalculationCaseReplay(payload, calculationFingerprint);
+    return {
+      snapshots,
+      config,
+      calculationFingerprint,
+      migrated: migration.migrated,
+      sourceSchema: migration.sourceSchema,
+      sourceVersion: migration.sourceVersion,
+    };
   }
 
   function downloadJson(win, fileName, payload) {
@@ -1470,7 +1524,7 @@
       catch { throw new Error('案件 JSON 無法解析。'); }
       const previous = captureState();
       try {
-        if (payload?.schema === DUAL_CASE_SCHEMA) {
+        if ([DUAL_CASE_SCHEMA, PREVIOUS_DUAL_CASE_SCHEMA].includes(payload?.schema)) {
           const replay = replayDualAxisCasePayload(payload, reportUi);
           axisPair.x = replay.snapshots.x;
           axisPair.y = replay.snapshots.y;
@@ -1479,7 +1533,9 @@
           updateDependentFields();
           calculate({ announce: false });
           updateAxisPairStatus();
-          setActionStatus(`已匯入 X／Y 雙向案件，重算指紋一致；雙向指紋 ${replay.calculationFingerprint}。`, 'ok');
+          setActionStatus(replay.migrated
+            ? `已升級 ${replay.sourceVersion} X／Y 雙向案件並以現行報告契約重算；新雙向指紋 ${replay.calculationFingerprint}。`
+            : `已匯入 X／Y 雙向案件，重算指紋一致；雙向指紋 ${replay.calculationFingerprint}。`, 'ok');
           return;
         }
         const migration = migrateCasePayload(payload);
@@ -1498,7 +1554,7 @@
         const result = calculate({ announce: false });
         if (!result) throw new Error('案件 JSON 套用後未通過輸入檢核。');
         if (migration.migrated) {
-          setActionStatus(`已升級 ${migration.sourceVersion} 案件並以現行核心重算；原採用的 Y 向鋼骨與 RC 依據／數值均已保留，且未自動啟用 AISC G6，新計算指紋 ${lastFingerprint}。`, 'ok');
+          setActionStatus(`已升級 ${migration.sourceVersion} 案件並以現行核心重算；原採用的 Y 向鋼骨與 RC 依據／數值均已保留，舊案未採用的規範路徑不會被自動啟用，新計算指紋 ${lastFingerprint}。`, 'ok');
         } else {
           reportUi.assertCalculationCaseReplay(payload, lastFingerprint);
           setActionStatus(`已匯入 ${file.name || '案件 JSON'}，重算指紋一致。`, 'ok');
@@ -1577,12 +1633,15 @@
     TOOL_ID,
     CASE_SCHEMA,
     DUAL_CASE_SCHEMA,
+    PREVIOUS_DUAL_CASE_SCHEMA,
     PREVIOUS_CASE_SCHEMA,
     PREVIOUS_PAGE_VERSION,
     INTERMEDIATE_CASE_SCHEMA,
     INTERMEDIATE_PAGE_VERSION,
     LEGACY_CASE_SCHEMA,
     LEGACY_PAGE_VERSION,
+    EARLIER_CASE_SCHEMA,
+    EARLIER_PAGE_VERSION,
     EARLIEST_CASE_SCHEMA,
     EARLIEST_PAGE_VERSION,
     TOOL_NAME,
@@ -1594,6 +1653,7 @@
     buildSectionDiagram,
     buildCasePayload,
     buildDualAxisCasePayload,
+    migrateDualAxisCasePayload,
     replayDualAxisCasePayload,
     migrateCasePayload,
     failedLabels,

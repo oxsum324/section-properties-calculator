@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 15,
+  "schemaVersion": 16,
   "tool": "src-column-research-core",
   "coreVersion": "src-column.core.v0.12.0-research",
   "regulation": {
@@ -120,6 +120,58 @@
       "本責任分工完成不等於正式升格；formalPromotionReadiness.blocking 非空時仍不得開放正式核可。"
     ]
   },
+  "materialProvenancePolicy": {
+    "schemaVersion": 1,
+    "contractId": "src-column-material-provenance.v1",
+    "principle": "構材計算採用值與施工查驗證據分層治理：斷面性質與設計材料值必須進入計算書及指紋；現況供貨與材證由專案採購、施工或驗收文件承接。",
+    "authorityLayers": [
+      {
+        "id": "section-properties",
+        "authority": "內政部建築研究所官方教材",
+        "calculationUse": "catalog-locked",
+        "reportFields": [
+          "型鋼名稱",
+          "A、Ix、Iy",
+          "教材名稱與表次",
+          "印刷頁與 PDF 頁",
+          "catalog 版本"
+        ],
+        "formalRule": "目前工作頁的附件候選輸出只接受具官方頁碼的受控 catalog；catalog 以外斷面仍僅供研究複核。"
+      },
+      {
+        "id": "design-material",
+        "authority": "專案指定",
+        "calculationUse": "adopted-input",
+        "reportFields": [
+          "鋼材等級",
+          "Fys",
+          "Fyw",
+          "Fyr",
+          "fc′",
+          "Es（鋼骨）",
+          "Es（鋼筋）"
+        ],
+        "formalRule": "本次採用的設計材料值進入計算書與計算指紋；工具不以預設值自稱規範或產品證明。"
+      },
+      {
+        "id": "availability",
+        "authority": "專案採購／供應資料",
+        "calculationUse": "not-inferred",
+        "reportFields": [],
+        "formalRule": "除非專案明確提供引用文件，現況供貨不進構材計算書，也不由教材星號推定。"
+      },
+      {
+        "id": "mill-certificate",
+        "authority": "專案材證／檢驗文件",
+        "calculationUse": "construction-verification",
+        "reportFields": [],
+        "formalRule": "未附材證不改變構材計算的 OK／NG；但不得因此宣稱實際供料、材質或施工符合已完成查驗。"
+      }
+    ],
+    "reportRule": "計算書只列本次採用的斷面性質來源與專案指定材料值；供貨、材證的責任說明只留在 HTML 與治理資料，不作為計算書警告。",
+    "fingerprintRule": "斷面 catalogId、catalog 版本、教材表頁及專案指定材料值均由報告內容納入計算指紋；變更任一採用資料即產生新指紋。",
+    "noNgRule": "供貨或材證尚未附具不等於構材計算 NG；必要的計算輸入缺漏仍由輸入驗證阻擋，實際材料查驗則由主文或引用附件承接。"
+  },
   "release": {
     "status": "research-core-not-public",
     "publicRoute": false,
@@ -129,16 +181,16 @@
   },
   "formalPromotionReadiness": {
     "status": "blocked",
-    "evaluatedPageVersion": "v0.7",
+    "evaluatedPageVersion": "v0.8",
     "satisfied": [
       "已實作範圍具官方教材例題、AISC 官方例題與不引用 production 的獨立 oracle",
       "單向與雙向計算書只列採用資料、公式代入、檢核結果與結論",
       "同案 X／Y 方向可配對、合併列印、匯出與重現雙向計算指紋",
       "空白計畫名稱、編號與設計人員不會被判定為 NG",
-      "SRC 柱構材計算、主文／專案輸入與全構架／接頭區／接合細部另案附件已建立機器可讀的正式附件責任分工"
+      "SRC 柱構材計算、主文／專案輸入與全構架／接頭區／接合細部另案附件已建立機器可讀的正式附件責任分工",
+      "斷面性質、專案指定設計材料、現況供貨與材證已建立分層來源政策；計算書只列採用依據，供貨或材證未附不構成構材計算 NG"
     ],
     "blocking": [
-      "catalog 以外型鋼性質、現況供貨與專案材證的正式來源政策尚未定案",
       "尚未納入正式工具清冊、獨立工程基準、rendered-delivery inventory 與 release 當輪核可完整性證據"
     ],
     "safeguard": "blocking 非空時，formalApprovalAllowed=false、research-core-not-public、首頁與公開 route 均必須維持封閉。"
@@ -171,7 +223,8 @@
       "printedPage": 289,
       "pdfPage": 301,
       "officialPage": "https://www.abri.gov.tw/News_Content_Table.aspx?n=807&s=38030",
-      "verifiedOn": "2026-08-22"
+      "documentUrl": "https://ws.moi.gov.tw/Download.ashx?u=LzAwMS9VcGxvYWQvT2xkRmlsZV9BYnJpX0dvdi9yZXNlYXJjaC82NjAvMTQ0NzkyOTgzMzEucGRm&n=Y29tcGxldGUucGRm",
+      "verifiedOn": "2026-08-23"
     },
     "coveredGroup": "H500x300",
     "entryCount": 7,

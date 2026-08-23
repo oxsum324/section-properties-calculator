@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>SRC 柱方向可選耐震研究核算 V0.7</title>
+  <title>SRC 柱方向可選耐震研究核算 V0.8</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="../結構工具箱/core/style.css">
   <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
@@ -18,7 +18,7 @@
   <header class="src-hero">
     <div>
       <p class="src-eyebrow">鋼骨鋼筋混凝土構件</p>
-      <h1>SRC 柱方向可選耐震研究核算 <span class="src-version">V0.7</span></h1>
+      <h1>SRC 柱方向可選耐震研究核算 <span class="src-version">V0.8</span></h1>
       <p>完全包覆矩形柱｜每份選定 X 或 Y 方向｜軸力、接頭撓曲強度比、柱剪力、強柱弱梁與圍束｜單位：cm、kgf/cm²、tf、tf·m</p>
       <div class="src-hero-chips" aria-label="目前涵蓋範圍">
         <span>第 6.4 節壓力強度</span><span>第 7.3 節軸彎分配</span><span>第 8.4.2 節接頭比值</span><span>第 9.3 節地震組合</span><span>第 9.6 節選定方向子檢核</span><span>計算斷面圖</span>
@@ -69,7 +69,7 @@
             </article>
           </div>
           <p class="src-responsibility-note"><strong>附件分工原則：</strong>另案項目不必重複塞入本計算書，也不會僅因未併入而把 SRC 柱構材核算判定為 NG；必要專案輸入缺漏時仍由既有輸入檢查阻擋。工程名稱、編號與設計者可留空並由主文承接。</p>
-          <div class="src-meta-chips"><span>現行 100 年修正版</span><span id="coreVersion">Core —</span><span>案件 schema v6</span><span>雙向案件 schema v1</span><span class="src-research-chip">私有研究工具</span></div>
+          <div class="src-meta-chips"><span>現行 100 年修正版</span><span id="coreVersion">Core —</span><span>案件 schema v7</span><span>雙向案件 schema v2</span><span class="src-research-chip">私有研究工具</span></div>
         </section>
 
         <section class="src-card">
@@ -314,6 +314,20 @@
             <label>鋼骨彈性模數 Es<span><input id="steelEs" type="number" value="2040000" step="10000" min="0"> kgf/cm²</span></label>
           </div>
           <p id="catalogSource" class="src-policy-note"></p>
+          <div id="materialProvenancePolicy" class="src-provenance-grid src-page-only" data-contract-id="src-column-material-provenance.v1">
+            <article data-provenance="section-properties">
+              <h3>斷面性質｜官方教材</h3>
+              <p>目前工作頁只提供具官方頁碼的受控 catalog；計算書列出教材、表次、頁碼與 catalog 版本。</p>
+            </article>
+            <article data-provenance="design-material">
+              <h3>設計材料｜專案指定</h3>
+              <p>鋼材等級、Fys、Fyw、Fyr、fc′ 與鋼骨／鋼筋 Es 是本次採用的設計輸入，會進入計算書及計算指紋。</p>
+            </article>
+            <article data-provenance="supply-certificate">
+              <h3>供貨／材證｜專案文件</h3>
+              <p>現況供貨與材證屬採購、施工及驗收查驗；未附不會把構材計算判為 NG，但本工具也不據此宣稱實際材料已查驗。</p>
+            </article>
+          </div>
         </section>
 
         <section class="src-card">
