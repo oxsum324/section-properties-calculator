@@ -8,6 +8,9 @@
 .src-layer-table input{width:100%;min-width:90px;padding:8px;border:1px solid #b9c8d6;border-radius:7px;font:inherit}
 .src-grid input:disabled,.src-check-grid input:disabled,.src-layer-table input:disabled{background:#eef2f6;color:#64748b;cursor:not-allowed}
 .src-policy-note{margin:10px 0 0;padding:9px 11px;border-left:4px solid #b45309;background:#fff7ed;color:#7c2d12;border-radius:6px;font-size:.82rem;line-height:1.55}
+.src-reference-note{margin-top:14px;padding:12px 14px;border:1px solid #a7c4df;border-radius:10px;background:#f2f8fd;color:#24445f;line-height:1.65}
+.src-reference-note strong,.src-reference-note span{display:block}
+.src-reference-note a{color:#075985}
 .src-actions .src-report-research{background:#7c3aed;border-color:#7c3aed;color:#fff}
 .src-grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
 .src-subcheck-card{border-left:4px solid #0e7490}

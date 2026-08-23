@@ -82,6 +82,7 @@ const PRIVATE_FILES = new Set([
   'SRC工具/core/src-column-oracle.js',
   'SRC工具/core/src-column-rc-biaxial.js',
   'SRC工具/core/src-column-shear.js',
+  'SRC工具/core/src-column-weak-axis-shear-reference.js',
   'SRC工具/core/src-column-seismic-axial.js',
   'SRC工具/core/src-column-seismic-detailing.js',
   'SRC工具/src-column.html',

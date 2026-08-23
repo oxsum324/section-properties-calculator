@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 10,
+  "schemaVersion": 11,
   "tool": "src-column-research-core",
   "coreVersion": "src-column.core.v0.10.0-research",
   "regulation": {
@@ -275,6 +275,61 @@
       }
     }
   ],
+  "externalWeakAxisSteelReference": {
+    "module": "core/src-column-weak-axis-shear-reference.js",
+    "version": "src-column.weak-axis-shear-reference.v0.1.0",
+    "authority": "專案指定",
+    "source": {
+      "authority": "American Institute of Steel Construction",
+      "standard": "ANSI/AISC 360-22",
+      "clause": "G6，Cv2 依 G2.2 式 G2-9~G2-11",
+      "example": "Companion V16.0 Example G.6，印刷頁 G-13~G-14／PDF 第 86~87 頁",
+      "officialPdf": "https://www.aisc.org/globalassets/aisc/university-programs/teaching-aids/first-semester-design-examples---v16.0.pdf",
+      "verifiedOn": "2026-08-23"
+    },
+    "authorityBoundary": "本模組是專案明確指定 AISC 360 G6 時的外部鋼骨弱軸算術對照，不是臺灣 SRC 規範第 5.5.1 節的自動延伸，也不自動取代工作頁採用的專案確認 Vns。它不建立 RC 的 Vnrc 或 Ash,shear，且只顯示於 HTML 研究畫面，不進計算書、列印、PDF 或計算指紋。",
+    "officialExample": {
+      "shape": "W21x48",
+      "inputs": {
+        "fyKsi": 50,
+        "modulusKsi": 29000,
+        "flangeWidthIn": 8.14,
+        "flangeThicknessIn": 0.43,
+        "kv": 1.2
+      },
+      "expected": {
+        "flangeSlenderness": 9.465116279069768,
+        "yieldingLimit": 29.019993108200424,
+        "cv2": 1,
+        "cv2Equation": "G2-9",
+        "nominalShearKipBeforePublishedRounding": 210.012,
+        "designShearKipBeforePublishedRounding": 189.0108,
+        "publishedNominalShearKip": 210,
+        "publishedDesignShearKip": 189
+      }
+    },
+    "derivedCatalogComparison": {
+      "authorityBoundary": "以下只把相同 G6 算術套至教材 catalog 的 H500x304x15x24，供專案指定時比對；不是目前臺灣 SRC 生產核心的採用強度。",
+      "shape": "H500x304x15x24",
+      "inputs": {
+        "fyKgfCm2": 3500,
+        "modulusKgfCm2": 2040000,
+        "flangeWidthCm": 30.4,
+        "flangeThicknessCm": 2.4,
+        "kv": 1.2
+      },
+      "expected": {
+        "flangeSlenderness": 6.333333333333333,
+        "cv2": 1,
+        "cv2Equation": "G2-9",
+        "referenceNominalShearTf": 306.432,
+        "referenceDesignShearTf": 275.7888
+      }
+    },
+    "test": "src-column-shear.test.js",
+    "independentComparisonCount": 15,
+    "negativeAndBranchCount": 3
+  },
   "verificationCases": [
     {
       "id": "DERIVED-EXAMPLE-8-BIAXIAL-30",

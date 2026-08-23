@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const Core = require('./core/src-column-core.js');
+const WeakAxisReference = require('./core/src-column-weak-axis-shear-reference.js');
 
 function close(actual, expected, tolerance, label) {
   assert.ok(Number.isFinite(actual), `${label}: actual must be finite`);
@@ -475,6 +476,7 @@ assert.throws(
 
 const catalogPath = path.join(__dirname, 'src-column-traceability.catalog.json');
 const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+assert.equal(catalog.schemaVersion, 11, 'SRC column traceability schema includes the external weak-axis steel reference');
 assert.equal(catalog.coreVersion, Core.CORE_VERSION, 'SRC column traceability follows the research engine version');
 assert.equal(catalog.release.status, Core.RELEASE_STATUS, 'traceability catalog keeps the core non-public');
 assert.equal(catalog.regulation.chapter3Url, Core.REGULATION_PROFILE.chapter3Url, 'catalog and core use the same official chapter 3 source');
@@ -502,6 +504,14 @@ close(catalog.goldenCases[0].expected.flangeRatio, official.compactness.flangeRa
 close(catalog.goldenCases[0].expected.webRatio, official.compactness.webRatio, 1e-9, 'catalog preserves the example 8 web compactness benchmark');
 close(catalog.goldenCases[0].expected.flangeSeismicReferenceLimit, official.compactness.flangeSeismicLimit, 1e-9, 'catalog preserves the example 8 flange lambda_pd reference');
 close(catalog.goldenCases[0].expected.webSeismicReferenceLimit, official.compactness.webSeismicLimit, 1e-9, 'catalog preserves the example 8 web lambda_pd reference');
+const externalWeakAxisReference = catalog.externalWeakAxisSteelReference;
+assert.equal(externalWeakAxisReference.version, WeakAxisReference.VERSION, 'catalog identifies the independent AISC G6 reference version');
+assert.equal(externalWeakAxisReference.authority, '專案指定', 'external weak-axis reference uses the project-specified authority label');
+assert.ok(externalWeakAxisReference.authorityBoundary.includes('不自動取代') && externalWeakAxisReference.authorityBoundary.includes('Vnrc'), 'external reference keeps adoption and RC boundaries explicit');
+const catalogOfficialG6 = WeakAxisReference.calculate({ fy: 50, modulus: 29000, flangeWidth: 8.14, flangeThickness: 0.43 });
+close(externalWeakAxisReference.officialExample.expected.nominalShearKipBeforePublishedRounding, catalogOfficialG6.nominalShear, 1e-12, 'catalog preserves the official G.6 unrounded nominal shear');
+const catalogH500G6 = WeakAxisReference.calculate({ fy: 3500, modulus: 2040000, flangeWidth: 30.4, flangeThickness: 2.4, forceDivisor: 1000 });
+close(externalWeakAxisReference.derivedCatalogComparison.expected.referenceNominalShearTf, catalogH500G6.nominalShear, 1e-12, 'catalog preserves the H500 project-specified reference comparison');
 const shearGolden = catalog.goldenCases.find(item => item.id === 'MOI-SRC-GUIDE-COLUMN-EXAMPLE-14-SHEAR-ARITHMETIC');
 assert.ok(shearGolden.authorityBoundary.includes('十字型鋼骨') && shearGolden.authorityBoundary.includes('算術'), 'official example 14 is limited to its supported arithmetic surface');
 close(shearGolden.expected.vuTf, 170.57777777777778, 1e-12, 'catalog preserves official example 14 demand shear arithmetic');

@@ -131,12 +131,31 @@ async function main() {
     assert.equal(await page.locator('[data-y-shear]').first().isVisible(), true);
     assert.equal(await page.locator('[data-x-shear]').first().isHidden(), true);
     assert.equal(await page.locator('#highlyConfinedAreaCm2').isEditable(), false, 'weak-axis Ahcc is visibly locked at zero');
+    const weakAxisReference = page.locator('#weakAxisSteelReference');
+    await weakAxisReference.waitFor({ state: 'visible' });
+    const weakAxisReferenceText = await weakAxisReference.innerText();
+    assert.match(weakAxisReferenceText, /AISC 360 G6 鋼骨弱軸對照/);
+    assert.match(weakAxisReferenceText, /參考 Vns = 306\.432 tf/);
+    assert.match(weakAxisReferenceText, /目前計算仍採你輸入並確認的 Vns = 100\.000 tf/);
+    assert.match(weakAxisReferenceText, /不進計算書、列印、PDF 或計算指紋/);
+    assert.equal(
+      await weakAxisReference.locator('a').getAttribute('href'),
+      'https://www.aisc.org/globalassets/aisc/university-programs/teaching-aids/first-semester-design-examples---v16.0.pdf',
+      'weak-axis comparison links to the official AISC example',
+    );
+    await page.uncheck('#weakAxisStrengthsConfirmed');
+    await page.waitForFunction(() => window.lastSrcColumnResult === null);
+    assert.equal(await weakAxisReference.innerText(), '', 'invalid Y-axis input clears the stale external comparison');
+    await page.check('#weakAxisStrengthsConfirmed');
+    await page.waitForFunction(() => window.lastSrcColumnResult?.seismicAxis === 'y' && window.lastSrcColumnResult?.checks?.engineeringStrength === true);
+    assert.match(await weakAxisReference.innerText(), /參考 Vns = 306\.432 tf/, 'valid Y-axis input restores the external comparison');
     const weakAxisDiagramSource = await pageDiagram.getAttribute('src');
     assert.ok(decodeURIComponent(weakAxisDiagramSource).includes('L1: x=7.0 cm, As=20.28 cm²'));
     await page.selectOption('#seismicAxis', 'x');
     await page.waitForFunction(fingerprint => window.lastSrcColumnCalculationFingerprint === fingerprint, initial.fingerprint);
     assert.equal(await page.locator('[data-y-shear]').first().isHidden(), true);
     assert.equal(await page.locator('[data-x-shear]').first().isVisible(), true);
+    assert.equal(await weakAxisReference.isHidden(), true, 'external comparison is direction-scoped to the weak axis');
 
     await page.selectOption('#jointConnectionType', 'steel-beam-src-column');
     await page.waitForFunction(() => window.lastSrcColumnResult?.jointFlexuralStrengthRatio?.connectionType === 'steel-beam-src-column');
@@ -290,7 +309,7 @@ async function main() {
       '本計算書核算方向', 'Y 向（鋼骨弱軸）', '專案確認 Vns / Vnrc',
       '第 9.6 節Y 向（鋼骨弱軸）耐震子檢核', '第 9.6.2 節Y 向（鋼骨弱軸）柱剪力',
     ]) assert.ok(weakAxisReportText.includes(needle), `weak-axis report includes ${needle}`);
-    for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', 'DRAFT', '非正式附件']) {
+    for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', 'DRAFT', '非正式附件', 'AISC 360 G6', '306.432']) {
       assert.equal(weakAxisReportText.includes(needle), false, `weak-axis report excludes ${needle}`);
     }
     const weakAxisPdfPath = path.join(outDir, 'src-column-research-y-axis-report.pdf');

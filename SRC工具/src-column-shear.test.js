@@ -1,7 +1,10 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const Shear = require('./core/src-column-shear.js');
+const WeakAxisReference = require('./core/src-column-weak-axis-shear-reference.js');
 
 function close(actual, expected, tolerance, label) {
   assert.ok(Number.isFinite(actual), `${label}: actual must be finite`);
@@ -40,6 +43,47 @@ function officialExample14ShearInput() {
 }
 
 assert.equal(Shear.VERSION, 'src-column.shear.v0.3.0-research', 'shear subcheck is explicitly versioned as research');
+assert.equal(WeakAxisReference.VERSION, 'src-column.weak-axis-shear-reference.v0.1.0');
+const referenceSource = fs.readFileSync(path.join(__dirname, 'core', 'src-column-weak-axis-shear-reference.js'), 'utf8');
+const productionSource = fs.readFileSync(path.join(__dirname, 'core', 'src-column-shear.js'), 'utf8');
+assert.equal(referenceSource.includes('require('), false, 'external reference imports no production calculation');
+assert.equal(productionSource.includes('SrcColumnWeakAxisShearReference'), false, 'production shear does not silently consume the external reference');
+
+const officialAiscG6 = WeakAxisReference.calculate({
+  fy: 50,
+  modulus: 29000,
+  flangeWidth: 8.14,
+  flangeThickness: 0.430,
+});
+close(officialAiscG6.flangeSlenderness, 9.465116279069768, 1e-12, 'AISC Companion Example G.6 flange slenderness');
+close(officialAiscG6.yieldingLimit, 29.019993108200424, 1e-12, 'AISC Companion Example G.6 yielding limit');
+assert.equal(officialAiscG6.cv2Equation, 'G2-9');
+close(officialAiscG6.cv2, 1, 1e-12, 'AISC Companion Example G.6 Cv2');
+close(officialAiscG6.shearArea, 7.0004, 1e-12, 'AISC Companion Example G.6 two-flange shear area');
+close(officialAiscG6.nominalShear, 210.012, 1e-12, 'AISC Companion Example G.6 nominal shear before published rounding');
+close(officialAiscG6.designShear, 189.0108, 1e-10, 'AISC Companion Example G.6 LRFD design shear before published rounding');
+assert.equal(officialAiscG6.adoption, 'not-adopted-by-production');
+
+const h500WeakAxisReference = WeakAxisReference.calculate({
+  fy: 3500,
+  modulus: 2040000,
+  flangeWidth: 30.4,
+  flangeThickness: 2.4,
+  forceDivisor: 1000,
+});
+close(h500WeakAxisReference.flangeSlenderness, 6.333333333333333, 1e-12, 'H500x304x15x24 reference flange slenderness');
+close(h500WeakAxisReference.nominalShear, 306.432, 1e-12, 'H500x304x15x24 AISC G6 project-specified reference Vns');
+close(h500WeakAxisReference.designShear, 275.7888, 1e-10, 'H500x304x15x24 AISC G6 project-specified reference phi Vns');
+
+const inelasticBuckling = WeakAxisReference.calculate({ fy: 1, modulus: 100, flangeWidth: 30, flangeThickness: 1 });
+assert.equal(inelasticBuckling.cv2Equation, 'G2-10', 'intermediate flange slenderness uses the G2-10 Cv2 branch');
+const elasticBuckling = WeakAxisReference.calculate({ fy: 1, modulus: 100, flangeWidth: 40, flangeThickness: 1 });
+assert.equal(elasticBuckling.cv2Equation, 'G2-11', 'large flange slenderness uses the G2-11 Cv2 branch');
+assert.throws(
+  () => WeakAxisReference.calculate({ fy: 50, modulus: 29000, flangeWidth: 8.14, flangeThickness: 0.430, phi: 1.01 }),
+  error => error instanceof WeakAxisReference.WeakAxisShearReferenceError && error.code === 'phi-out-of-range',
+  'external reference fails closed on an invalid resistance factor'
+);
 close(Shear.columnDemandShear(191.9, 191.9, 225), 170.57777777777778, 1e-12, 'equation 9.6-5 column demand shear');
 
 const steel = Shear.steelNominalShear(3500, 1.3, 49.4);
@@ -86,6 +130,13 @@ close(weakAxis.steel.designShearTf, 90, 1e-12, 'weak-axis steel design strength 
 close(weakAxis.rc.designShearTf, 90, 1e-12, 'weak-axis RC design strength applies phi to the project-confirmed nominal value');
 close(weakAxis.rc.requiredTransverseAreaCm2, 1.2, 1e-12, 'weak-axis confinement receives the project-confirmed transverse area');
 assert.equal(Object.hasOwn(weakAxis.steel, 'webAreaCm2'), false, 'weak-axis steel strength does not fabricate a rotated web area');
+
+const externallyTracedWeakAxis = Shear.calculate({
+  ...weakAxisInput,
+  weakAxisSteelNominalShearTf: h500WeakAxisReference.nominalShear,
+});
+close(externallyTracedWeakAxis.steel.nominalShearTf, h500WeakAxisReference.nominalShear, 1e-12, 'project-confirmed weak-axis Vns can be reproduced by the independent AISC G6 reference');
+assert.equal(externallyTracedWeakAxis.strengthSource, 'project-confirmed-weak-axis', 'external comparison does not silently change the production authority label');
 
 const tooWideSpacing = officialExample14ShearInput();
 tooWideSpacing.spacingCm = 45;

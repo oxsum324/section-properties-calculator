@@ -120,6 +120,7 @@
               <label data-y-shear hidden>Y 向 RC 名義剪力 Vnrc<span><input id="weakAxisRcNominalShearTf" type="number" value="120" step="0.1" min="0"> tf</span></label>
               <label data-y-shear hidden>Y 向所需橫向鋼筋 Ash,shear<span><input id="weakAxisRequiredTransverseAreaCm2" type="number" value="1.2" step="0.01" min="0"> cm²</span></label>
             </div>
+            <div id="weakAxisSteelReference" class="src-reference-note src-page-only" data-y-shear hidden></div>
             <div class="src-check-grid">
               <label><input id="projectPlasticHingeMomentsConfirmed" type="checkbox" checked> Mct、Mcb 已由專案塑鉸機制確認</label>
               <label data-x-shear><input id="normalWeightConcreteConfirmed" type="checkbox" checked> 採用常重混凝土</label>
@@ -344,6 +345,7 @@
   <script src="core/src-column-h-section-catalog.js"></script>
   <script src="core/src-column-rc-biaxial.js"></script>
   <script src="core/src-column-shear.js"></script>
+  <script src="core/src-column-weak-axis-shear-reference.js"></script>
   <script src="core/src-column-seismic-detailing.js"></script>
   <script src="core/src-column-seismic-axial.js"></script>
   <script src="core/src-column-core.js"></script>

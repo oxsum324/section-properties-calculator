@@ -1,14 +1,15 @@
 (function initSrcColumnPage(root, factory) {
   const core = root.SrcColumnCore || (typeof require === 'function' ? require('./core/src-column-core.js') : null);
   const catalog = root.SrcColumnHSectionCatalog || (typeof require === 'function' ? require('./core/src-column-h-section-catalog.js') : null);
-  const api = factory(core, catalog);
+  const weakAxisReference = root.SrcColumnWeakAxisShearReference || (typeof require === 'function' ? require('./core/src-column-weak-axis-shear-reference.js') : null);
+  const api = factory(core, catalog, weakAxisReference);
   if (typeof module === 'object' && module.exports) module.exports = api;
   root.SrcColumnPage = api;
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => api.init(document, root));
     else api.init(document, root);
   }
-})(typeof globalThis !== 'undefined' ? globalThis : this, function buildSrcColumnPage(Core, Catalog) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function buildSrcColumnPage(Core, Catalog, WeakAxisReference) {
   'use strict';
 
   const PAGE_VERSION = 'v0.4';
@@ -958,6 +959,8 @@
     }
 
     function renderInvalid(issues) {
+      const weakAxisReferenceNode = $('weakAxisSteelReference');
+      if (weakAxisReferenceNode) weakAxisReferenceNode.textContent = '';
       $('resultBadge').className = 'src-status ng';
       $('resultBadge').textContent = '輸入有誤';
       $('resultHeadline').textContent = '請修正輸入後重新核算。';
@@ -986,6 +989,25 @@
       const confinement = result.confinement;
       const failed = failedLabels(result);
       const strengthOk = result.checks.engineeringStrength === true;
+      const weakAxisReferenceNode = $('weakAxisSteelReference');
+      if (weakAxisReferenceNode) {
+        if (input.seismicAxis === 'y' && WeakAxisReference?.calculate) {
+          try {
+            const reference = WeakAxisReference.calculate({
+              fy: input.steel.fysKgfCm2,
+              modulus: input.steel.esKgfCm2,
+              flangeWidth: result.steelSection.dimensions.flangeWidthCm,
+              flangeThickness: result.steelSection.dimensions.flangeThicknessCm,
+              forceDivisor: 1000,
+            });
+            weakAxisReferenceNode.innerHTML = `<strong>專案指定參考｜AISC 360 G6 鋼骨弱軸對照</strong><span>若專案明確指定此路徑，本斷面參考 Vns = ${fmt(reference.nominalShear, 3)} tf，φVns = ${fmt(reference.designShear, 3)} tf；bf/(2tf) = ${fmt(reference.flangeSlenderness, 3)}，Cv2 = ${fmt(reference.cv2, 3)}（${reference.cv2Equation}）。</span><span>目前計算仍採你輸入並確認的 Vns = ${fmt(input.shear.weakAxisSteelNominalShearTf, 3)} tf；本對照不自動取代採用值，也不建立 Vnrc 或 Ash,shear。<a href="${escapeHtml(reference.source.url)}" target="_blank" rel="noreferrer">官方 Example G.6</a></span><span>本區只顯示於 HTML，不進計算書、列印、PDF 或計算指紋。</span>`;
+          } catch (error) {
+            weakAxisReferenceNode.innerHTML = '<strong>AISC G6 外部對照目前無法建立</strong><span>請先完成有效的 H 型鋼翼板尺寸、Fys 與 Es；採用的 Y 向 Vns 仍須由專案確認。</span><span>本區只顯示於 HTML，不進計算書、列印、PDF 或計算指紋。</span>';
+          }
+        } else {
+          weakAxisReferenceNode.textContent = '';
+        }
+      }
       $('resultBadge').className = `src-status ${strengthOk ? 'review' : 'ng'}`;
       $('resultBadge').textContent = strengthOk ? '研究通過' : 'NG';
       $('resultHeadline').textContent = strengthOk

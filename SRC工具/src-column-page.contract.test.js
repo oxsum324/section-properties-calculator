@@ -133,6 +133,8 @@ assert.match(html, /id="enableConfinementSubcheck"[^>]*checked/);
 for (const fieldId of ['seismicAxis', 'muyTfM', 'mctTfM', 'mcbTfM', 'clearHeightCm', 'avCm2', 'weakAxisSteelNominalShearTf', 'weakAxisRcNominalShearTf', 'weakAxisRequiredTransverseAreaCm2', 'xLayer1X', 'jcwSteelColumnTfM', 'jccwRcBeamTfM', 'cwUpperColumnTfM', 'ccwRightBeamTfM', 'coreWidthCm', 'coreAreaCm2', 'highlyConfinedAreaCm2', 'weakAxisAhccZeroConfirmed']) {
   assert.match(html, new RegExp(`id="${fieldId}"`), `page exposes ${fieldId}`);
 }
+assert.match(html, /id="weakAxisSteelReference"[^>]*src-page-only[^>]*data-y-shear/, 'external weak-axis steel reference is explicitly page-only and direction-scoped');
+assert.match(html, /core\/src-column-weak-axis-shear-reference\.js/, 'page loads the independent AISC G6 reference');
 assert.match(html, /core\/src-column-core\.js/);
 assert.match(html, /鋼筋混凝土\/shared\/pmsection\.js/);
 assert.match(directPrintCss, /body\.formal-tool-output-page > :not\(\.formal-direct-print-boundary\)/);
@@ -265,6 +267,7 @@ for (const needle of [...forbidden, '適用範圍與輸出邊界', '產報前閱
 }
 assert.equal(renderedText.includes('計畫名稱'), false);
 assert.equal(renderedText.includes('設計人員'), false);
+assert.equal(renderedText.includes('AISC 360 G6'), false, 'HTML-only external comparison does not leak into the calculation report');
 assert.match(renderedHtml, /data-formal-approval-allowed="false"/);
 assert.match(renderedHtml, /rep-block rep-block--keep rep-block--new-page/, 'selected report groups start on a clean printed page');
 
