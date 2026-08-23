@@ -1609,7 +1609,7 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload, reportR
     assert.ok(state.reportReadinessStatusMeta.includes('瀏覽器 smoke 2 / 2'), `${label} new home report readiness runtime metric`);
     assert.ok(state.reportReadinessStatusMeta.includes(`成品渲染 ${reportReadinessPayload.renderedDeliveryEvidenceComplete} / ${reportReadinessPayload.renderedDeliveryEvidenceRequired}`), `${label} new home report readiness rendered delivery metric`);
     assert.ok(
-      ['成品檔案完整性 137 / 137', '成品檔案完整性 139 / 139', '成品檔案完整性 141 / 141', '成品檔案完整性 143 / 143'].some(metric => state.reportReadinessStatusMeta.includes(metric)),
+      ['成品檔案完整性 137 / 137', '成品檔案完整性 139 / 139', '成品檔案完整性 141 / 141', '成品檔案完整性 143 / 143', '成品檔案完整性 145 / 145'].some(metric => state.reportReadinessStatusMeta.includes(metric)),
       `${label} new home report readiness delivery file integrity metric`
     );
     assert.ok(state.reportReadinessStatusMeta.includes('Word 乾淨封裝 4 / 4'), `${label} new home report readiness DOCX package integrity metric`);

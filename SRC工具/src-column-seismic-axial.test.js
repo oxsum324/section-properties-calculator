@@ -45,7 +45,7 @@ function checkInput(overrides = {}) {
   };
 }
 
-assert.equal(Axial.VERSION, 'src-column.seismic-axial.v0.1.0-research', 'seismic axial subcheck is explicitly versioned as research');
+assert.equal(Axial.VERSION, 'src-column.seismic-axial.v1.0.0', 'formal seismic axial subcheck is explicitly versioned');
 
 const strength = Axial.calculateCompressionDesignStrength(strengthInput());
 const expectedAc = 65 * 80 - 215 - 60.84;

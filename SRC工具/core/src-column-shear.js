@@ -20,7 +20,7 @@
 })(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnShear() {
   'use strict';
 
-  const VERSION = 'src-column.shear.v0.5.0-research';
+  const VERSION = 'src-column.shear.v1.0.0';
   const PHI_STEEL = 0.9;
   const PHI_RC = 0.75;
   const ZERO_TOLERANCE = 1e-9;

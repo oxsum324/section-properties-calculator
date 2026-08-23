@@ -273,7 +273,7 @@ assert(
   'new home preflight source commit',
   'new home preflight clean source',
   '成品檔案完整性',
-  '143 / 143',
+  '145 / 145',
 ].forEach(needle => assertIncludes(localQuickBrowserSmoke, needle, `local quick browser smoke preserves rendered evidence ${needle}`));
 
 [
@@ -387,7 +387,7 @@ for (const { name, source } of rcReportVisualSources) {
 ].forEach(needle => assertIncludes(deliveryArtifactsContract, needle, `delivery artifact contract preserves extracted Office evidence ${needle}`));
 
 [
-  'inventory.tools.length, 32',
+  'inventory.tools.length, 33',
   "process.env.PREFLIGHT_RELEASE === '1'",
   "['formal-tools', 'local-quick-tools', 'steel-formal', 'src-formal']",
   "family === 'rc-formal'",
@@ -418,7 +418,7 @@ for (const { name, source } of rcReportVisualSources) {
   'xlsxContentSeal=',
   'xlsxApprovalSeal=',
   "scope: 'canonical-rendered-pdf-evidence'",
-  'required: 64',
+  'required: 66',
   'canonicalIntegrity=',
   'formalResultReconciliation',
   "scope: 'formal-golden-result-to-report-fingerprint'",
@@ -479,7 +479,7 @@ for (const { name, source } of rcReportVisualSources) {
   'localQuickResultReconciliation=',
   'rendered-delivery-evidence-summary.json',
 ].forEach(needle => assertIncludes(renderedEvidenceContract, needle, `rendered evidence aggregate contract preserves ${needle}`));
-assert(JSON.parse(renderedEvidenceInventory).tools.length === 32, 'rendered evidence inventory has 32 formal tools', 'rendered-delivery-evidence.inventory.json');
+assert(JSON.parse(renderedEvidenceInventory).tools.length === 33, 'rendered evidence inventory has 33 formal tools', 'rendered-delivery-evidence.inventory.json');
 
 [
   'release-readiness-contract',
@@ -528,7 +528,7 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 32, 'rendered evid
   'excavationResultReconciliationDeclared',
   'localQuickResultReconciliationDeclared',
   "evidence.canonicalArtifactIntegrity?.scope === 'canonical-rendered-pdf-evidence'",
-  'evidence.canonicalArtifactIntegrity.required === 64',
+  'evidence.canonicalArtifactIntegrity.required === 66',
   "evidence.docxPackageIntegrity?.scope === 'formal-docx-clean-ooxml-package'",
   'evidence.docxPackageIntegrity.required === 4',
   "evidence.xlsxPackageIntegrity?.scope === 'formal-xlsx-clean-ooxml-package-and-formula-cache'",
@@ -741,8 +741,9 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 32, 'rendered evid
 
 [
   'independent-engineering-benchmarks.catalog.json',
-  '32 / 32',
+  '33 / 33',
   '/src-beam',
+  '/src-column',
   '石材固定',
   '不等同獨立工程驗證',
 ].forEach(needle => {

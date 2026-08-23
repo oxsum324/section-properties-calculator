@@ -15,7 +15,7 @@
 })(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnSeismicDetailing() {
   'use strict';
 
-  const VERSION = 'src-column.seismic-detailing.v0.3.0-research';
+  const VERSION = 'src-column.seismic-detailing.v1.0.0';
   const SRC_JOINT_STEEL_RATIO = 0.6;
   const SRC_JOINT_RC_RATIO = 0.6;
   const STEEL_BEAM_JOINT_RATIO = 1.0;

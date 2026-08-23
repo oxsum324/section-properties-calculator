@@ -26,7 +26,7 @@
     { id: 'all', label: '全部', summary: '依材料系統分段顯示 RC、鋼構與 SRC 構件工具。' },
     { id: 'rc', label: 'RC', summary: '鋼筋混凝土梁、柱、板、牆、基礎、樁與補強構件檢核。' },
     { id: 'steel', label: '鋼構', summary: '鋼梁、鋼柱、鋼構正式入口與鋼構連接板檢核。' },
-    { id: 'src', label: 'SRC', summary: '包覆型 SRC 梁正式檢核、案件重播與精簡計算書。' }
+    { id: 'src', label: 'SRC', summary: '包覆型 SRC 梁、柱正式檢核、案件重播與精簡計算書。' }
   ];
 
   const toolStates = {
@@ -70,9 +70,10 @@
       cardTag: '報告邊界'
     },
     'src-formal': {
-      label: 'SRC beam report boundary',
-      preflightKeys: ['src-beam-core-regression'],
-      fullPreflightKeys: ['src-beam-core-regression'],
+      label: 'SRC member report boundary',
+      preflightKeys: ['src-formal-regression'],
+      legacyPreflightKeys: ['src-beam-core-regression'],
+      fullPreflightKeys: [],
       cardTag: '計算書邊界'
     },
     'anchor-deployment': {
@@ -173,6 +174,7 @@
       '/rc-pile': '2026-08-19',
       '/rc-retrofit-section': '2026-08-19',
       '/src-beam': '2026-08-23',
+      '/src-column': '2026-08-23',
       '/steel-formal': '2026-08-23',
       '/steel-beam-formal': '2026-08-23',
       '/steel-column-formal': '2026-08-23',
@@ -241,6 +243,7 @@
       '/rc-pile': ['鋼筋混凝土/shared/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/rc-retrofit-section': ['鋼筋混凝土/shared/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/src-beam': ['SRC工具/core/src-beam-core.js', 'SRC工具/src-beam.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
+      '/src-column': ['SRC工具/core/src-column-core.js', 'SRC工具/src-column.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/steel-formal': ['鋼構工具/app.js', '鋼構工具/core/ui/report.js'],
       '/steel-plate': ['鋼構工具/app.js', '鋼構工具/core/ui/report.js'],
       '/steel-beam-formal': ['鋼構工具/steel-beam-formal.js', '鋼構工具/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
@@ -488,6 +491,20 @@
       fit: '非耐震、無軸力、完全包覆矩形 SRC 梁正式檢核。',
       limit: '耐震、軸力、部分包覆、剪力釘與超出頁面明列條件者均失敗封閉，須另行詳算。',
       capabilities: ['正式核算', '案件 JSON', '可列印']
+    },
+    {
+      title: 'SRC 柱',
+      version: 'V1.0',
+      href: '/src-column',
+      categories: ['member'],
+      memberSystem: 'src',
+      state: 'formal',
+      governance: 'src-formal',
+      output: '單向／雙向 SRC 柱強度檢核、計算斷面圖、案件 JSON 與正式計算書',
+      summary: '檢核完全包覆型 SRC 柱之寬厚比、P-M／P-M-M、耐震軸力及選定方向柱剪力、接頭彎矩比、強柱弱梁與圍束；附件只保留採用資料、公式、結果與結論。',
+      fit: '完全包覆矩形 SRC 柱之構材核算，可分別記錄 X／Y 方向並彙總為正式附件。',
+      limit: '全構架分析、正交構架、接頭區剪力、接合細部、柱腳及施工階段由主文或其他附件承接；正式核可只接受受控 catalog 斷面。',
+      capabilities: ['正式核算', '雙向彙總', '案件 JSON', '可列印']
     },
     {
       title: '鋼梁正式頁',
@@ -896,6 +913,7 @@
     '/rc-pile': '../鋼筋混凝土/tools/single-pile-designer.html',
     '/rc-retrofit-section': '../RC補強斷面性質.html',
     '/src-beam': '../SRC工具/src-beam.html',
+    '/src-column': '../SRC工具/src-column.html',
     '/wind-overview': 'tools/風力/wind-overview.html',
     '/wind-kzt': 'tools/風力/wind-kzt.html',
     '/wind-force': 'tools/風力/wind-force.html',

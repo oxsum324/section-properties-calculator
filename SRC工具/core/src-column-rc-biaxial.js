@@ -16,7 +16,7 @@
 })(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnRcBiaxial() {
   'use strict';
 
-  const VERSION = 'src-column.rc-biaxial.v0.1.0-research';
+  const VERSION = 'src-column.rc-biaxial.v1.0.0';
   const EPS_CU = 0.003;
   const PHI_TIED = 0.65;
   const PHI_TENSION = 0.90;

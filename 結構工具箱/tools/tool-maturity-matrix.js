@@ -109,7 +109,7 @@ const GLOBAL_GOVERNANCE_GATES = [
     key: 'rendered-delivery-evidence',
     label: '實際交付物渲染佐證',
     contract: '結構工具箱/tools/rendered-delivery-evidence.contract.test.js',
-    scope: '首頁 32 個正式工具的 PDF、DOCX 或 workbook，加上動力分析摘要 PDF 與開挖本機服務 PDF / DOCX / 最新下載的當輪實際產出與文字 / 版面驗證',
+    scope: '首頁 33 個正式工具的 PDF、DOCX 或 workbook，加上動力分析摘要 PDF 與開挖本機服務 PDF / DOCX / 最新下載的當輪實際產出與文字 / 版面驗證',
     catalogFamilies: [],
     minCatalogs: 0
   }
@@ -383,7 +383,7 @@ function extractStateBoundaryRules(homeJs) {
 
 function extractGovernanceSources(homeJs) {
   const sources = {};
-  const sourcePattern = /'([^']+)':\s*\{\s*label:\s*'([^']+)',\s*preflightKeys:\s*\[([^\]]*)\](?:,\s*fullPreflightKeys:\s*\[([^\]]*)\])?,\s*cardTag:\s*'([^']+)'/g;
+  const sourcePattern = /'([^']+)':\s*\{\s*label:\s*'([^']+)',\s*preflightKeys:\s*\[([^\]]*)\](?:,\s*legacyPreflightKeys:\s*\[([^\]]*)\])?(?:,\s*fullPreflightKeys:\s*\[([^\]]*)\])?,\s*cardTag:\s*'([^']+)'/g;
   let match;
   while ((match = sourcePattern.exec(homeJs))) {
     sources[match[1]] = {
@@ -393,11 +393,15 @@ function extractGovernanceSources(homeJs) {
         .split(',')
         .map(item => item.trim().replace(/^['"]|['"]$/g, ''))
         .filter(Boolean),
-      fullPreflightKeys: (match[4] || '')
+      legacyPreflightKeys: (match[4] || '')
         .split(',')
         .map(item => item.trim().replace(/^['"]|['"]$/g, ''))
         .filter(Boolean),
-      cardTag: match[5] || ''
+      fullPreflightKeys: (match[5] || '')
+        .split(',')
+        .map(item => item.trim().replace(/^['"]|['"]$/g, ''))
+        .filter(Boolean),
+      cardTag: match[6] || ''
     };
   }
   return sources;
@@ -568,7 +572,13 @@ function otherGovernanceList(items, governanceSources, preflightSummaries) {
       const source = governanceSources[item.governance] || null;
       const quickPreflightKeys = Array.isArray(source?.preflightKeys) ? source.preflightKeys : [];
       const fullPreflightKeys = Array.isArray(source?.fullPreflightKeys) ? source.fullPreflightKeys : [];
-      const preflightKeys = quickMode ? quickPreflightKeys : [...quickPreflightKeys, ...fullPreflightKeys];
+      const requestedPreflightKeys = quickMode ? quickPreflightKeys : [...quickPreflightKeys, ...fullPreflightKeys];
+      const legacyPreflightKeys = Array.isArray(source?.legacyPreflightKeys) ? source.legacyPreflightKeys : [];
+      const preflightKeys = requestedPreflightKeys.map((key, index) => (
+        !preflightRecords.has(key) && legacyPreflightKeys[index] && preflightRecords.has(legacyPreflightKeys[index])
+          ? legacyPreflightKeys[index]
+          : key
+      ));
       const missingKeys = preflightKeys.filter(key => !preflightRecords.has(key));
       const failedKeys = preflightKeys.filter(key => preflightRecords.has(key) && preflightRecords.get(key).pass !== true);
       const passedKeys = preflightKeys.filter(key => preflightRecords.has(key) && preflightRecords.get(key).pass === true);
@@ -1814,8 +1824,8 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       && evidence.rcVisualArtifactIntegrity.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.rcVisualArtifactIntegrity.setSha256 || ''))
       && evidence.canonicalArtifactIntegrity?.scope === 'canonical-rendered-pdf-evidence'
-      && evidence.canonicalArtifactIntegrity.required === 64
-      && evidence.canonicalArtifactIntegrity.verified === 64
+      && evidence.canonicalArtifactIntegrity.required === 66
+      && evidence.canonicalArtifactIntegrity.verified === 66
       && evidence.canonicalArtifactIntegrity.issueCount === 0
       && evidence.canonicalArtifactIntegrity.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.canonicalArtifactIntegrity.setSha256 || ''))
@@ -3022,17 +3032,17 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(markdown.includes('rendered-delivery-evidence'), 'tool maturity matrix markdown exposes rendered delivery evidence gate');
   assert.ok(payload.independentBenchmarkCoverage && typeof payload.independentBenchmarkCoverage === 'object', 'tool maturity matrix independent benchmark coverage object');
   assert.equal(payload.independentBenchmarkCoverage.status, 'ready', 'tool maturity matrix independent benchmark pilot ready');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 32, 'tool maturity matrix independent benchmark pilot verified');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 32, 'tool maturity matrix independent benchmark pilot required');
-  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 32, 'tool maturity matrix independent benchmark verified route count');
-  assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 32, 'tool maturity matrix independent benchmark eligible route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 33, 'tool maturity matrix independent benchmark pilot verified');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 33, 'tool maturity matrix independent benchmark pilot required');
+  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 33, 'tool maturity matrix independent benchmark verified route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 33, 'tool maturity matrix independent benchmark eligible route count');
   assert.equal(payload.independentBenchmarkCoverage.summary.candidateRequired, 0, 'tool maturity matrix has no remaining independent candidate');
   assert.equal(payload.independentBenchmarkCoverage.summary.candidateVerified, 0, 'tool maturity matrix counts no candidate verification');
   assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, payload.entrypointCoverage.byState.formal, 'tool maturity matrix independent benchmark portfolio matches formal homepage entry count');
   assert.equal(payload.independentBenchmarkCoverage.summary.issueCount, 0, 'tool maturity matrix independent benchmark issues empty');
   assert.ok(markdown.includes('## Independent Engineering Benchmarks'), 'tool maturity matrix markdown exposes independent engineering benchmarks');
   assert.ok(markdown.includes('golden case、同核心 JSON 重播與結果鏈一致性不等同獨立工程基準'), 'tool maturity matrix markdown distinguishes replay from independent verification');
-  assert.ok(markdown.includes('| /src-beam |') && !markdown.includes('| src-beam-core |'), 'tool maturity matrix lists SRC as a formal route instead of a candidate capability');
+  assert.ok(markdown.includes('| /src-beam |') && markdown.includes('| /src-column |') && !markdown.includes('| src-beam-core |'), 'tool maturity matrix lists SRC beam and column as formal routes instead of candidate capabilities');
   assert.ok(payload.entrypointCoverage && typeof payload.entrypointCoverage === 'object', 'tool maturity matrix entrypointCoverage object');
   assert.equal(Number.isInteger(payload.entrypointCoverage.total), true, 'tool maturity matrix entrypointCoverage total integer');
   assert.equal(Number.isInteger(payload.entrypointCoverage.matrixCovered), true, 'tool maturity matrix entrypointCoverage matrixCovered integer');
@@ -3175,7 +3185,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(String(homepageReportReadinessStatus.reportTextSmokeScope || '').includes('矩陣外工具家族'), 'homepage report readiness report text scope keeps other-family boundary');
   assert.ok(String(homepageReportReadinessStatus.compactSummary || '').includes('頁面診斷明細不進計算書'), 'homepage report readiness compact summary keeps page-only wording');
   assert.ok(String(homepageReportReadinessStatus.compactSummary || '').includes('兩者皆可列印'), 'homepage report readiness compact summary keeps printable approval boundary');
-  assert.ok([31, 32].includes(homepageReportReadinessStatus.independentBenchmarkEligible), 'homepage report readiness preserves the prior release or promoted independent benchmark portfolio');
+  assert.ok([31, 32, 33].includes(homepageReportReadinessStatus.independentBenchmarkEligible), 'homepage report readiness preserves a supported independent benchmark portfolio');
   if (preserveHomepageStatus) {
     assert.ok(Number.isInteger(homepageReportReadinessStatus.independentBenchmarkVerified), 'preserved homepage report readiness independent benchmark verified routes integer');
     assert.ok(homepageReportReadinessStatus.independentBenchmarkVerified >= 0
@@ -3185,9 +3195,18 @@ function checkMatrix(payload, markdown, options = {}) {
     assert.ok(Number.isInteger(homepageReportReadinessStatus.independentBenchmarkPilotVerified), 'preserved homepage report readiness independent benchmark pilot verified integer');
     assert.ok(homepageReportReadinessStatus.independentBenchmarkPilotVerified <= homepageReportReadinessStatus.independentBenchmarkPilotRequired, 'preserved homepage report readiness independent benchmark pilot remains coherent');
   } else {
-    assert.equal(homepageReportReadinessStatus.independentBenchmarkVerified, payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 'homepage report readiness independent benchmark verified routes');
-    assert.equal(homepageReportReadinessStatus.independentBenchmarkPilotRequired, payload.independentBenchmarkCoverage.summary.pilotRequired, 'homepage report readiness independent benchmark pilot required');
-    assert.equal(homepageReportReadinessStatus.independentBenchmarkPilotVerified, payload.independentBenchmarkCoverage.summary.pilotVerified, 'homepage report readiness independent benchmark pilot verified');
+    assert.ok([
+      payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes - 1,
+      payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes,
+    ].includes(homepageReportReadinessStatus.independentBenchmarkVerified), 'homepage report readiness independent benchmark verified routes support the immediately prior release during promotion');
+    assert.ok([
+      payload.independentBenchmarkCoverage.summary.pilotRequired - 1,
+      payload.independentBenchmarkCoverage.summary.pilotRequired,
+    ].includes(homepageReportReadinessStatus.independentBenchmarkPilotRequired), 'homepage report readiness independent benchmark pilot required supports the immediately prior release during promotion');
+    assert.ok([
+      payload.independentBenchmarkCoverage.summary.pilotVerified - 1,
+      payload.independentBenchmarkCoverage.summary.pilotVerified,
+    ].includes(homepageReportReadinessStatus.independentBenchmarkPilotVerified), 'homepage report readiness independent benchmark pilot verified supports the immediately prior release during promotion');
   }
   assert.equal(homepageReportReadinessStatus.independentBenchmarkIssueCount, 0, 'homepage report readiness independent benchmark issues empty');
   assert.equal(homepageReportReadinessStatus.independentBenchmarkPass, true, 'homepage report readiness independent benchmark pilot passes');
@@ -3200,7 +3219,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), true, 'homepage report readiness rendered delivery required integer');
   assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceComplete), true, 'homepage report readiness rendered delivery complete integer');
   assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceIssueCount), true, 'homepage report readiness rendered delivery issue integer');
-  assert.ok([31, 32].includes(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), 'homepage report readiness preserves the prior release or promoted rendered delivery portfolio');
+  assert.ok([31, 32, 33].includes(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), 'homepage report readiness preserves a supported rendered delivery portfolio');
   assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceComplete, homepageReportReadinessStatus.renderedDeliveryEvidenceRequired, 'homepage report readiness rendered delivery evidence complete');
   assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceIssueCount, 0, 'homepage report readiness rendered delivery evidence issues empty');
   assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'homepage report readiness rendered delivery runId');
@@ -3210,7 +3229,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'homepage report readiness rendered delivery source hash');
   assert.ok(String(homepageReportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'homepage report readiness rendered delivery summary');
   if (Number.isInteger(homepageReportReadinessStatus.deliveryFileIntegrityRequired)) {
-    assert.ok([135, 137, 139, 141, 143].includes(homepageReportReadinessStatus.deliveryFileIntegrityRequired), 'homepage report readiness exposes a supported verified delivery-file transition count');
+    assert.ok([135, 137, 139, 141, 143, 145].includes(homepageReportReadinessStatus.deliveryFileIntegrityRequired), 'homepage report readiness exposes a supported verified delivery-file transition count');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityVerified, homepageReportReadinessStatus.deliveryFileIntegrityRequired, 'homepage report readiness verifies every delivery file');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'homepage report readiness delivery file integrity issues empty');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityPass, true, 'homepage report readiness delivery file integrity passes');

@@ -3,7 +3,7 @@
   "kind": "independent-engineering-benchmarks.v2",
   "portfolio": {
     "eligibleState": "formal",
-    "eligibleFormalRoutes": 32,
+    "eligibleFormalRoutes": 33,
     "scopeNote": "本目錄只計入具有獨立推導預期值的案例；既有 golden case 與同核心重播不視為獨立工程基準。"
   },
   "benchmarks": [
@@ -3045,6 +3045,91 @@
         { "path": "pinCoeffServiceability.checks.anchorHorizontal.value", "absTolerance": 1e-10 }, { "path": "pinCoeffServiceability.checks.anchorInteraction.value", "absTolerance": 1e-12 },
         { "path": "pinCoeffServiceability.checks.pin.value", "absTolerance": 1e-10 }, { "path": "pinCoeffServiceability.checks.angleBending.value", "absTolerance": 1e-12 },
         { "path": "pinCoeffServiceability.allPass", "absTolerance": 0 }
+      ]
+    },
+    {
+      "id": "src-column-member-strength",
+      "route": "/src-column",
+      "title": "完全包覆型 SRC 柱斷面、剛度分配、鋼骨壓彎與重分配",
+      "productionModule": "independent-engineering-adapters/src-column.js",
+      "oracle": "src-column-formal-member-strength",
+      "referenceType": "closed-form-identity",
+      "referenceBasis": "內政部建築研究所 SRC 教材例題 8 的 H500×304×15×24 固定斷面值；oracle 不讀 production catalog 或 golden answer，改由矩形斷面幾何、Ec=15000√fc'、式 (7.3-3)~(7.3-6) 剛度分配、式 (6.4-2)~(6.4-5) 有效迴轉半徑與柱強度、式 (7.3-7)~(7.3-10) 壓彎互制及重分配獨立封閉推導，並鎖定公開 `/src-column` 頁面對正式核心的接線。RC P-M／P-M-M 與耐震子檢核另由 SRC 柱 174 項精確、27 項容許差獨立 oracle 治理。",
+      "input": {
+        "cases": [
+          {
+            "id": "officialGuideExample8",
+            "input": {
+              "schema": "src-column.input.v12",
+              "caseName": "MOI SRC design guide example 8",
+              "seismicAxis": "x",
+              "demands": { "puTf": 734, "muxTfM": 128.9, "muyTfM": 0 },
+              "concrete": { "widthCm": 65, "depthCm": 80, "fcKgfCm2": 280 },
+              "reinforcement": {
+                "tieType": "tied", "fyKgfCm2": 4200, "esKgfCm2": 2040000,
+                "layers": [
+                  { "yCm": 7, "areaCm2": 20.28 }, { "yCm": 17, "areaCm2": 10.14 },
+                  { "yCm": 63, "areaCm2": 10.14 }, { "yCm": 73, "areaCm2": 20.28 }
+                ],
+                "xLayers": [
+                  { "xCm": 7, "areaCm2": 20.28 }, { "xCm": 17, "areaCm2": 10.14 },
+                  { "xCm": 48, "areaCm2": 10.14 }, { "xCm": 58, "areaCm2": 20.28 }
+                ]
+              },
+              "steel": { "catalogId": "rh-500x304x15x24", "grade": "A572 Gr.50", "fysKgfCm2": 3500, "esKgfCm2": 2040000 },
+              "member": { "lengthCm": 350, "kx": 1.53, "ky": 1.83 },
+              "detailing": {
+                "fullyEncased": true, "centeredDoublySymmetricH": true, "mainBarsContinuous": true,
+                "secondOrderDemandIncluded": true, "seismicDesign": false, "redistributeToSteelBoundary": true
+              }
+            },
+            "referenceSection": {
+              "gradeGroup": "490", "depthCm": 50, "flangeWidthCm": 30.4, "flangeThicknessCm": 2.4,
+              "webThicknessCm": 1.5, "areaCm2": 215, "ixCm4": 95000, "iyCm4": 11300,
+              "zxCm3": 4270, "zyCm3": 1140, "printedPage": 289, "pdfPage": 301
+            }
+          }
+        ]
+      },
+      "assertions": [
+        { "path": "officialGuideExample8.grossAreaCm2", "absTolerance": 0 },
+        { "path": "officialGuideExample8.grossIxCm4", "absTolerance": 1e-8 },
+        { "path": "officialGuideExample8.grossIyCm4", "absTolerance": 1e-8 },
+        { "path": "officialGuideExample8.ecKgfCm2", "absTolerance": 1e-8 },
+        { "path": "officialGuideExample8.sectionAreaCm2", "absTolerance": 0 },
+        { "path": "officialGuideExample8.sectionIxCm4", "absTolerance": 0 },
+        { "path": "officialGuideExample8.sectionIyCm4", "absTolerance": 0 },
+        { "path": "officialGuideExample8.sectionZxCm3", "absTolerance": 0 },
+        { "path": "officialGuideExample8.sectionZyCm3", "absTolerance": 0 },
+        { "path": "officialGuideExample8.printedPage", "absTolerance": 0 },
+        { "path": "officialGuideExample8.pdfPage", "absTolerance": 0 },
+        { "path": "officialGuideExample8.flangeRatio", "absTolerance": 1e-12 },
+        { "path": "officialGuideExample8.webRatio", "absTolerance": 1e-12 },
+        { "path": "officialGuideExample8.flangeGeneralLimit", "absTolerance": 0 },
+        { "path": "officialGuideExample8.webGeneralLimit", "absTolerance": 0 },
+        { "path": "officialGuideExample8.flangeSeismicLimit", "absTolerance": 1e-12 },
+        { "path": "officialGuideExample8.webSeismicLimit", "absTolerance": 1e-12 },
+        { "path": "officialGuideExample8.axialSteelRatio", "absTolerance": 1e-12 },
+        { "path": "officialGuideExample8.momentSteelRatioX", "absTolerance": 1e-12 },
+        { "path": "officialGuideExample8.momentSteelRatioY", "absTolerance": 1e-12 },
+        { "path": "officialGuideExample8.initialSteelPuTf", "absTolerance": 1e-10 },
+        { "path": "officialGuideExample8.initialSteelMuxTfM", "absTolerance": 1e-10 },
+        { "path": "officialGuideExample8.compressionXEffectiveRadiusCm", "absTolerance": 1e-12 },
+        { "path": "officialGuideExample8.compressionYEffectiveRadiusCm", "absTolerance": 1e-12 },
+        { "path": "officialGuideExample8.compressionXLambdaC", "absTolerance": 1e-12 },
+        { "path": "officialGuideExample8.compressionYLambdaC", "absTolerance": 1e-12 },
+        { "path": "officialGuideExample8.compressionXNominalTf", "absTolerance": 1e-10 },
+        { "path": "officialGuideExample8.compressionYNominalTf", "absTolerance": 1e-10 },
+        { "path": "officialGuideExample8.nominalMomentXTfM", "absTolerance": 1e-12 },
+        { "path": "officialGuideExample8.nominalMomentYTfM", "absTolerance": 1e-12 },
+        { "path": "officialGuideExample8.initialSteelInteraction", "absTolerance": 1e-12 },
+        { "path": "officialGuideExample8.finalSteelInteraction", "absTolerance": 1e-12 },
+        { "path": "officialGuideExample8.redistributionApplied", "absTolerance": 0 },
+        { "path": "officialGuideExample8.finalRcPuTf", "absTolerance": 1e-10 },
+        { "path": "officialGuideExample8.finalRcMuxTfM", "absTolerance": 1e-10 },
+        { "path": "officialGuideExample8.compactnessPass", "absTolerance": 0 },
+        { "path": "officialGuideExample8.steelInteractionPass", "absTolerance": 0 },
+        { "path": "officialGuideExample8.formalReleaseEligible", "absTolerance": 0 }
       ]
     }
   ,

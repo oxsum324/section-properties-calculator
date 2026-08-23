@@ -119,24 +119,28 @@ function visibleText(reportHtml) {
     .trim();
 }
 
-assert.equal(Page.PAGE_VERSION, 'v0.8');
-assert.equal(Page.TOOL_ID, 'src-column-research');
-assert.equal(Page.CASE_SCHEMA, 'src-column-research.case.v7');
-assert.equal(Page.DUAL_CASE_SCHEMA, 'src-column-research.dual-axis.case.v2');
-assert.equal(Page.PREVIOUS_DUAL_CASE_SCHEMA, 'src-column-research.dual-axis.case.v1');
-assert.equal(Page.PREVIOUS_CASE_SCHEMA, 'src-column-research.case.v6');
-assert.equal(Page.PREVIOUS_PAGE_VERSION, 'v0.7');
-assert.equal(Page.INTERMEDIATE_CASE_SCHEMA, 'src-column-research.case.v5');
-assert.equal(Page.INTERMEDIATE_PAGE_VERSION, 'v0.6');
-assert.equal(Page.LEGACY_CASE_SCHEMA, 'src-column-research.case.v4');
-assert.equal(Page.LEGACY_PAGE_VERSION, 'v0.5');
-assert.equal(Page.EARLIER_CASE_SCHEMA, 'src-column-research.case.v3');
-assert.equal(Page.EARLIER_PAGE_VERSION, 'v0.4');
-assert.equal(Page.EARLIEST_CASE_SCHEMA, 'src-column-research.case.v2');
-assert.equal(Page.EARLIEST_PAGE_VERSION, 'v0.3');
-assert.match(html, /SRC 柱方向可選耐震研究核算 V0\.8/);
-assert.match(html, /案件 schema v7/);
-assert.match(html, /雙向案件 schema v2/);
+assert.equal(Page.PAGE_VERSION, 'v1.0');
+assert.equal(Page.TOOL_ID, 'src-column');
+assert.equal(Page.LEGACY_TOOL_ID, 'src-column-research');
+assert.equal(Page.CASE_SCHEMA, 'src-column.case.v1');
+assert.equal(Page.DUAL_CASE_SCHEMA, 'src-column.dual-axis.case.v1');
+assert.equal(Page.PREVIOUS_DUAL_CASE_SCHEMA, 'src-column-research.dual-axis.case.v2');
+assert.equal(Page.INTERMEDIATE_DUAL_CASE_SCHEMA, 'src-column-research.dual-axis.case.v1');
+assert.equal(Page.PREVIOUS_CASE_SCHEMA, 'src-column-research.case.v7');
+assert.equal(Page.PREVIOUS_PAGE_VERSION, 'v0.8');
+assert.equal(Page.INTERMEDIATE_CASE_SCHEMA, 'src-column-research.case.v6');
+assert.equal(Page.INTERMEDIATE_PAGE_VERSION, 'v0.7');
+assert.equal(Page.LEGACY_CASE_SCHEMA, 'src-column-research.case.v5');
+assert.equal(Page.LEGACY_PAGE_VERSION, 'v0.6');
+assert.equal(Page.EARLIER_CASE_SCHEMA, 'src-column-research.case.v4');
+assert.equal(Page.EARLIER_PAGE_VERSION, 'v0.5');
+assert.equal(Page.EARLIEST_CASE_SCHEMA, 'src-column-research.case.v3');
+assert.equal(Page.EARLIEST_PAGE_VERSION, 'v0.4');
+assert.equal(Page.ORIGINAL_CASE_SCHEMA, 'src-column-research.case.v2');
+assert.equal(Page.ORIGINAL_PAGE_VERSION, 'v0.3');
+assert.match(html, /SRC 柱方向可選耐震核算 V1\.0/);
+assert.match(html, /案件 schema v1/);
+assert.match(html, /雙向案件 schema v1/);
 assert.match(html, /<body class="formal-tool-output-page">/);
 assert.match(html, /SRC 柱操作頁列印已封鎖/);
 assert.match(html, /id="btnReport"/);
@@ -155,8 +159,8 @@ for (const provenance of ['section-properties', 'design-material', 'supply-certi
 }
 assert.equal(traceability.attachmentResponsibility.workPackages.length, 3);
 assert.equal(traceability.materialProvenancePolicy.authorityLayers.length, 4);
-assert.equal(traceability.formalPromotionReadiness.blocking.length, 1);
-for (const needle of ['V0.8', '雙向案件 schema v2', 'materialProvenancePolicy', 'formalPromotionReadiness', 'formalApprovalAllowed=false']) {
+assert.equal(traceability.formalPromotionReadiness.blocking.length, 0);
+for (const needle of ['V1.0', '雙向案件 schema v1', 'materialProvenancePolicy', '/src-column', 'formalApprovalAllowed']) {
   assert.equal(governanceDocs.includes(needle), true, `root governance documents preserve ${needle}`);
 }
 for (const stale of ['src-column.core.v0.11.0-research', '私有研究工作頁 V0.5', '同案兩方向彙總、全構架']) {
@@ -186,7 +190,27 @@ assert.equal(result.shear.ok, true);
 assert.equal(result.jointFlexuralStrengthRatio.ok, true);
 assert.equal(result.strongColumnWeakBeam.ok, true);
 assert.equal(result.confinement.ok, true);
-assert.equal(config.formalApprovalAllowed, false, 'research report explicitly blocks formal approval');
+assert.equal(config.formalApprovalAllowed, true, 'catalog-backed report allows explicit formal approval');
+const manualSectionInput = clone(input);
+manualSectionInput.steel = {
+  ...manualSectionInput.steel,
+  catalogId: '',
+  shape: 'H500×304×15×24',
+  depthCm: 50,
+  flangeWidthCm: 30.4,
+  flangeThicknessCm: 2.4,
+  webThicknessCm: 1.5,
+  rootRadiusCm: 2.8,
+  areaCm2: 215,
+  ixCm4: 95000,
+  iyCm4: 11300,
+  zxCm3: 4150,
+  zyCm3: 744,
+};
+const manualSectionResult = Core.calculate(manualSectionInput);
+const manualSectionConfig = Page.buildReportConfig(manualSectionInput, manualSectionResult, {});
+assert.equal(manualSectionConfig.formalApprovalAllowed, false, 'manual section remains printable for internal review but cannot be formally approved');
+assert.ok(manualSectionResult.reviewItems.some(item => item.code === 'section-properties-manual'), 'manual section retains its source-review disclosure');
 assert.equal(config.summary.ok, true);
 assert.equal(config.inputs.length, 7);
 assert.equal(config.diagrams.length, 1);
@@ -194,7 +218,7 @@ assert.equal(config.checks.flatMap(group => group.items).length, 15);
 assert.equal(config.steps.length, 9);
 assert.equal(config.project.name, '', 'blank optional project metadata remains acceptable');
 const configText = JSON.stringify(config);
-for (const needle of ['設計材料來源', '專案指定', 'Es（鋼骨 / 鋼筋）', '2040000 / 2040000', '斷面性質來源', '內政部建築研究所', '鋼骨鋼筋混凝土(SRC)構造設計教材', '印刷頁 289', 'PDF 第 301 頁', 'src-column.h-section-catalog.v0.1.0-research']) {
+for (const needle of ['設計材料來源', '專案指定', 'Es（鋼骨 / 鋼筋）', '2040000 / 2040000', '斷面性質來源', '內政部建築研究所', '鋼骨鋼筋混凝土(SRC)構造設計教材', '印刷頁 289', 'PDF 第 301 頁', 'src-column.h-section-catalog.v1.0.0']) {
   assert.equal(configText.includes(needle), true, `report config includes adopted provenance: ${needle}`);
 }
 assert.match(config.diagrams[0].dataURL, /^data:image\/svg\+xml;charset=utf-8,/);
@@ -230,7 +254,7 @@ weakAxisInput.confinement.weakAxisAhccZeroConfirmed = true;
 const weakAxisResult = Core.calculate(weakAxisInput);
 const weakAxisConfig = Page.buildReportConfig(weakAxisInput, weakAxisResult, {});
 assert.equal(weakAxisResult.rc.uniaxialAxis, 'y', 'page input supports a true weak-axis uniaxial RC P-M path');
-assert.equal(weakAxisConfig.title, 'SRC 柱 Y 向（鋼骨弱軸）耐震研究核算計算書');
+assert.equal(weakAxisConfig.title, 'SRC 柱 Y 向（鋼骨弱軸）耐震核算計算書');
 assert.equal(JSON.stringify(weakAxisConfig).includes('第 5.5.2 節自動計算'), true, 'weak-axis report states the adopted automatic RC basis');
 assert.equal(JSON.stringify(weakAxisConfig).includes('Y 向 RC b / d / b′'), true, 'weak-axis report exposes direction-aware RC geometry');
 assert.equal(JSON.stringify(weakAxisConfig).includes('一般剪力：Vnr + Vnc'), true, 'weak-axis report includes clause 5.5.2 substitutions');
@@ -263,8 +287,8 @@ const dualSnapshots = {
   y: { input: automaticAiscWeakAxisInput, result: automaticAiscWeakAxisResult, project: { name: '', no: '', designer: '' }, calculationFingerprint: 'CF-2222222222222222' },
 };
 const dualConfig = Page.buildDualAxisReportConfig(dualSnapshots);
-assert.equal(dualConfig.title, 'SRC 柱 X／Y 雙向耐震研究核算計算書');
-assert.equal(dualConfig.formalApprovalAllowed, false, '雙向彙總在範圍完整性審查前仍不得正式核可');
+assert.equal(dualConfig.title, 'SRC 柱 X／Y 雙向耐震核算計算書');
+assert.equal(dualConfig.formalApprovalAllowed, true, '雙向 catalog-backed 彙總可在人工審閱後正式核可');
 assert.equal(dualConfig.summary.ok, true);
 assert.equal(dualConfig.diagrams.length, 2, '雙向彙總同時保留 X／Y 計算斷面');
 assert.equal(dualConfig.snapshot.schema, Page.DUAL_CASE_SCHEMA);
@@ -299,18 +323,20 @@ assert.equal(dualReplay.snapshots.y.calculationFingerprint, dualPayload.axes.y.c
 assert.equal(dualReplay.migrated, false);
 const previousDualPayload = clone(dualPayload);
 previousDualPayload.schema = Page.PREVIOUS_DUAL_CASE_SCHEMA;
+previousDualPayload.tool.id = Page.LEGACY_TOOL_ID;
 previousDualPayload.tool.version = Page.PREVIOUS_PAGE_VERSION;
 previousDualPayload.calculationFingerprint = 'CF-AAAAAAAAAAAAAAAA';
 previousDualPayload.report.calculationFingerprint = 'CF-AAAAAAAAAAAAAAAA';
 for (const axis of ['x', 'y']) {
   previousDualPayload.axes[axis].schema = Page.PREVIOUS_CASE_SCHEMA;
+  previousDualPayload.axes[axis].tool.id = Page.LEGACY_TOOL_ID;
   previousDualPayload.axes[axis].tool.version = Page.PREVIOUS_PAGE_VERSION;
   previousDualPayload.axes[axis].calculationFingerprint = `CF-${axis === 'x' ? 'B' : 'C'.repeat(1)}${'0'.repeat(15)}`;
   previousDualPayload.axes[axis].report.calculationFingerprint = previousDualPayload.axes[axis].calculationFingerprint;
 }
 const migratedDualReplay = Page.replayDualAxisCasePayload(previousDualPayload, reportUi);
-assert.equal(migratedDualReplay.migrated, true, 'v0.7 dual-axis case migrates to the current report contract');
-assert.equal(migratedDualReplay.sourceVersion, 'v0.7');
+assert.equal(migratedDualReplay.migrated, true, 'v0.8 dual-axis case migrates to the formal report contract');
+assert.equal(migratedDualReplay.sourceVersion, 'v0.8');
 assert.match(migratedDualReplay.calculationFingerprint, /^CF-[A-F0-9]{16}$/);
 assert.notEqual(migratedDualReplay.calculationFingerprint, previousDualPayload.calculationFingerprint, 'migrated dual case receives a new provenance-aware fingerprint');
 const tamperedDualPayload = clone(dualPayload);
@@ -318,13 +344,13 @@ tamperedDualPayload.axes.y.input.demands.muyTfM += 1;
 assert.throws(() => Page.replayDualAxisCasePayload(tamperedDualPayload, reportUi), /重現失敗/);
 const assessment = reportUi.assessFormalAttachment(config);
 assert.equal(assessment.status, 'review');
-assert.equal(assessment.formalApprovalAllowed, false);
-assert.equal(assessment.formalOutputAllowed, false);
+assert.equal(assessment.formalApprovalAllowed, true);
+assert.equal(assessment.formalOutputAllowed, true);
 assert.equal(assessment.readyToSign, false);
-assert.equal(assessment.approvalRequired, false);
+assert.equal(assessment.approvalRequired, true);
 const documentState = reportUi.buildFormalDocumentStateReport(config);
-assert.match(documentState.html, /data-formal-approval-allowed="false"/);
-assert.match(documentState.html, /研究核算：正式附件核可尚未開放/);
+assert.match(documentState.html, /data-formal-approval-allowed="true"/);
+assert.match(documentState.html, /本計算內容已完成審閱，核可作為正式附件/);
 
 const payload = Page.buildCasePayload(input, result, { name: '', no: '', designer: '' }, reportUi);
 assert.equal(payload.schema, Page.CASE_SCHEMA);
@@ -335,9 +361,10 @@ assert.doesNotThrow(() => reportUi.validateCalculationCasePayload(payload, {
   expectedSchema: Page.CASE_SCHEMA, expectedToolId: Page.TOOL_ID, expectedVersion: Page.PAGE_VERSION,
 }));
 const earliestPayload = clone(payload);
-earliestPayload.schema = Page.EARLIEST_CASE_SCHEMA;
+earliestPayload.schema = Page.ORIGINAL_CASE_SCHEMA;
+earliestPayload.tool.id = Page.LEGACY_TOOL_ID;
 earliestPayload.tool.name = 'SRC 柱強軸耐震研究核算';
-earliestPayload.tool.version = Page.EARLIEST_PAGE_VERSION;
+earliestPayload.tool.version = Page.ORIGINAL_PAGE_VERSION;
 earliestPayload.tool.calculationEngine = 'src-column.core.v0.9.0-research';
 earliestPayload.input.schema = 'src-column.input.v8';
 delete earliestPayload.input.seismicAxis;
@@ -359,6 +386,7 @@ assert.throws(() => Page.migrateCasePayload({ ...earliestPayload, input: null })
 
 const previousPayload = Page.buildCasePayload(automaticAiscWeakAxisInput, automaticAiscWeakAxisResult, {}, reportUi);
 previousPayload.schema = Page.PREVIOUS_CASE_SCHEMA;
+previousPayload.tool.id = Page.LEGACY_TOOL_ID;
 previousPayload.tool.version = Page.PREVIOUS_PAGE_VERSION;
 previousPayload.tool.calculationEngine = 'src-column.core.v0.12.0-research';
 previousPayload.input.schema = 'src-column.input.v11';
@@ -371,6 +399,7 @@ assert.doesNotThrow(() => Core.calculate(previousMigration.payload.input), 'v0.7
 
 const intermediatePayload = Page.buildCasePayload(automaticAiscWeakAxisInput, automaticAiscWeakAxisResult, {}, reportUi);
 intermediatePayload.schema = Page.INTERMEDIATE_CASE_SCHEMA;
+intermediatePayload.tool.id = Page.LEGACY_TOOL_ID;
 intermediatePayload.tool.version = Page.INTERMEDIATE_PAGE_VERSION;
 intermediatePayload.tool.calculationEngine = 'src-column.core.v0.11.0-research';
 intermediatePayload.input.schema = 'src-column.input.v10';
@@ -381,8 +410,9 @@ assert.equal(intermediateMigration.payload.input.shear.weakAxisRcDesignBasis, 'a
 assert.doesNotThrow(() => Core.calculate(intermediateMigration.payload.input), 'v0.6 weak-axis case recalculates without changing adopted strengths');
 
 const legacyPayload = Page.buildCasePayload(weakAxisInput, weakAxisResult, {}, reportUi);
-legacyPayload.schema = Page.LEGACY_CASE_SCHEMA;
-legacyPayload.tool.version = Page.LEGACY_PAGE_VERSION;
+legacyPayload.schema = Page.EARLIER_CASE_SCHEMA;
+legacyPayload.tool.id = Page.LEGACY_TOOL_ID;
+legacyPayload.tool.version = Page.EARLIER_PAGE_VERSION;
 legacyPayload.tool.calculationEngine = 'src-column.core.v0.10.0-research';
 legacyPayload.input.schema = 'src-column.input.v9';
 const legacyMigration = Page.migrateCasePayload(legacyPayload);
@@ -392,8 +422,9 @@ assert.equal(legacyMigration.payload.input.shear.weakAxisRcDesignBasis, 'automat
 assert.doesNotThrow(() => Core.calculate(legacyMigration.payload.input), 'v0.5 weak-axis case recalculates without changing adopted strengths');
 
 const earlierPayload = Page.buildCasePayload(manualWeakAxisInput, manualWeakAxisResult, {}, reportUi);
-earlierPayload.schema = Page.EARLIER_CASE_SCHEMA;
-earlierPayload.tool.version = Page.EARLIER_PAGE_VERSION;
+earlierPayload.schema = Page.EARLIEST_CASE_SCHEMA;
+earlierPayload.tool.id = Page.LEGACY_TOOL_ID;
+earlierPayload.tool.version = Page.EARLIEST_PAGE_VERSION;
 earlierPayload.tool.calculationEngine = 'src-column.core.v0.10.0-research';
 earlierPayload.input.schema = 'src-column.input.v9';
 delete earlierPayload.input.shear.weakAxisRcDesignBasis;
@@ -425,7 +456,7 @@ const renderContext = loadReportRuntime({
 renderContext.openReport(config);
 const renderedText = visibleText(renderedHtml);
 for (const needle of [
-  'SRC 柱 X 向（鋼骨強軸）耐震研究核算計算書', '產出工具', '工具版本', '計算引擎', '計算指紋',
+  'SRC 柱 X 向（鋼骨強軸）耐震核算計算書', '產出工具', '工具版本', '計算引擎', '計算指紋',
   '規範、構材與分析條件', '採用斷面與材料', '設計材料來源', '專案指定', '斷面性質來源', '內政部建築研究所', '印刷頁 289', 'PDF 第 301 頁', '第 9.3 節採用地震軸力資料',
   '第 9.6.2 節採用柱剪力資料', '第 8.4.2 節採用接頭面分量彎矩', '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
   '第 8.4.2 節接頭撓曲強度比', '第 9.6 節X 向（鋼骨強軸）耐震子檢核', 'SRC 柱計算斷面', '計算過程明細', '檢核結論',
@@ -436,7 +467,7 @@ for (const needle of [...forbidden, '適用範圍與輸出邊界', '產報前閱
 assert.equal(renderedText.includes('計畫名稱'), false);
 assert.equal(renderedText.includes('設計人員'), false);
 assert.equal(renderedText.includes('AISC 360 G6'), false, 'HTML-only external comparison does not leak into the calculation report');
-assert.match(renderedHtml, /data-formal-approval-allowed="false"/);
+assert.match(renderedHtml, /data-formal-approval-allowed="true"/);
 assert.match(renderedHtml, /rep-block rep-block--keep rep-block--new-page/, 'selected report groups start on a clean printed page');
 
 let renderedDualHtml = '';
@@ -453,12 +484,12 @@ renderDualContext.openReport(Page.buildDualAxisReportConfig({
   y: { ...dualReplay.snapshots.y },
 }));
 const renderedDualText = visibleText(renderedDualHtml);
-for (const needle of ['SRC 柱 X／Y 雙向耐震研究核算計算書', '雙向核算索引', 'X 向計算指紋', 'Y 向計算指紋', 'X 向｜構材斷面與軸彎互制', 'Y 向｜構材斷面與軸彎互制']) {
+for (const needle of ['SRC 柱 X／Y 雙向耐震核算計算書', '雙向核算索引', 'X 向計算指紋', 'Y 向計算指紋', 'X 向｜構材斷面與軸彎互制', 'Y 向｜構材斷面與軸彎互制']) {
   assert.ok(renderedDualText.includes(needle), `rendered dual-axis report includes ${needle}`);
 }
 for (const needle of [...forbidden, '適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', '接頭區剪力與接合細部', '附件分工原則', '另案附件', '現況供貨與材證屬採購', '實際材料已查驗']) {
   assert.equal(renderedDualText.includes(needle), false, `rendered dual-axis report excludes ${needle}`);
 }
-assert.match(renderedDualHtml, /data-formal-approval-allowed="false"/);
+assert.match(renderedDualHtml, /data-formal-approval-allowed="true"/);
 
-console.log('SRC column research page/report contract: OK');
+console.log('SRC column formal page/report contract: OK');

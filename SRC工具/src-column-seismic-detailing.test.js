@@ -88,7 +88,7 @@ function officialExample14ConfinementArithmetic() {
   };
 }
 
-assert.equal(Detailing.VERSION, 'src-column.seismic-detailing.v0.3.0-research', 'seismic detailing subchecks are explicitly versioned as research');
+assert.equal(Detailing.VERSION, 'src-column.seismic-detailing.v1.0.0', 'formal seismic detailing subchecks are explicitly versioned');
 
 const srcJoint = Detailing.jointFlexuralStrengthRatio(derivedSrcJointRatioArithmetic());
 assert.deepEqual(srcJoint.clauses, ['8.4.2 / (8.4-1)', '8.4.2 / (8.4-2)']);

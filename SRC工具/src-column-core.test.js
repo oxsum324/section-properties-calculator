@@ -84,9 +84,9 @@ function manualExample8() {
   return input;
 }
 
-assert.equal(Core.CORE_VERSION, 'src-column.core.v0.12.0-research', 'SRC column core is explicitly versioned as research');
-assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v11', 'SRC column core has a versioned input schema');
-assert.equal(Core.RELEASE_STATUS, 'research-core-not-public', 'research core cannot be mistaken for a formal public route');
+assert.equal(Core.CORE_VERSION, 'src-column.core.v1.0.0', 'SRC column formal core is explicitly versioned');
+assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v12', 'SRC column core has a versioned input schema');
+assert.equal(Core.RELEASE_STATUS, 'formal-release-ready', 'core declares formal release readiness');
 assert.equal(Core.REGULATION_PROFILE.id, 'tw-src-2011', 'SRC column core uses the official current profile');
 assert.ok(Core.REGULATION_PROFILE.chapter3Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter5Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter6Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter7Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter8Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter9Url.endsWith('.pdf'), 'official chapter sources remain explicit');
 assert.ok(Core.REGULATION_PROFILE.draftBoundary.includes('草案'), 'research draft remains separated from current regulation');
@@ -94,7 +94,7 @@ assert.ok(Core.REGULATION_PROFILE.draftBoundary.includes('草案'), 'research dr
 const official = Core.calculate(officialGuideExample8());
 assert.equal(official.steelSection.source.mode, 'catalog', 'official example properties are resolved from the verified catalog');
 assert.equal(official.steelSection.source.catalogId, 'rh-500x304x15x24', 'result preserves the adopted catalog identity');
-assert.equal(official.steelSection.source.catalogVersion, 'src-column.h-section-catalog.v0.1.0-research', 'result preserves the catalog version');
+assert.equal(official.steelSection.source.catalogVersion, 'src-column.h-section-catalog.v1.0.0', 'result preserves the catalog version');
 assert.equal(official.steelSection.source.printedPage, 289, 'result preserves the printed source page');
 assert.equal(official.steelSection.source.pdfPage, 301, 'result preserves the PDF source page');
 assert.equal(official.steelSection.properties.areaCm2, 215, 'catalog supplies example 8 area without manual duplication');
@@ -137,8 +137,8 @@ assert.ok(Math.abs(official.rc.phiMnTfM - 126.5) / 126.5 < 0.05, 'continuous str
 assert.equal(official.checks.steelInteraction, true, 'official example steel portion passes');
 assert.equal(official.checks.rcInteraction, true, 'official example RC portion passes');
 assert.equal(official.checks.compactness, true, 'official example compactness passes');
-assert.equal(official.checks.formalRelease, false, 'research result is never a formal release result');
-assert.equal(official.status, 'REVIEW', 'engineering pass remains review until the tool boundary is completed');
+assert.equal(official.checks.formalRelease, true, 'catalog-backed result is eligible for the formal attachment workflow');
+assert.equal(official.status, 'REVIEW', 'engineering pass remains review until a person explicitly approves the attachment');
 assert.equal(official.reviewItems.some(item => item.code === 'section-properties-manual'), false, 'catalog-backed properties do not produce the manual-source review');
 assert.equal(official.reviewItems.some(item => item.code === 'section-properties-not-derived'), false, 'completed catalog provenance is not reported as an old gap');
 assert.equal(official.reviewItems.some(item => item.code === 'compactness-not-recomputed'), false, 'completed automatic compactness is not reported as a remaining gap');
@@ -528,16 +528,16 @@ assert.throws(
 
 const catalogPath = path.join(__dirname, 'src-column-traceability.catalog.json');
 const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
-assert.equal(catalog.schemaVersion, 16, 'SRC column traceability schema includes attachment responsibility and material provenance policies');
-assert.equal(catalog.coreVersion, Core.CORE_VERSION, 'SRC column traceability follows the research engine version');
-assert.equal(catalog.release.status, Core.RELEASE_STATUS, 'traceability catalog keeps the core non-public');
-assert.equal(catalog.formalPromotionReadiness.status, 'blocked', 'formal promotion remains fail-closed while declared blockers exist');
-assert.equal(catalog.formalPromotionReadiness.evaluatedPageVersion, 'v0.8');
+assert.equal(catalog.schemaVersion, 17, 'SRC column traceability schema includes formal promotion evidence');
+assert.equal(catalog.coreVersion, Core.CORE_VERSION, 'SRC column traceability follows the formal engine version');
+assert.equal(catalog.release.status, Core.RELEASE_STATUS, 'traceability catalog follows the formal release status');
+assert.equal(catalog.formalPromotionReadiness.status, 'ready', 'formal promotion evidence chain is complete');
+assert.equal(catalog.formalPromotionReadiness.evaluatedPageVersion, 'v1.0');
 assert.ok(catalog.formalPromotionReadiness.satisfied.some(item => item.includes('X／Y') && item.includes('計算指紋')), 'readiness records the completed dual-axis evidence');
 assert.ok(catalog.formalPromotionReadiness.satisfied.some(item => item.includes('正式附件責任分工')), 'readiness records the completed attachment responsibility boundary');
 assert.ok(catalog.formalPromotionReadiness.satisfied.some(item => item.includes('斷面性質') && item.includes('供貨') && item.includes('材證')), 'readiness records the completed material-provenance policy');
-assert.equal(catalog.formalPromotionReadiness.blocking.length, 1, 'formal approval remains blocked only by formal inventory, benchmark, and release evidence');
-assert.ok(catalog.formalPromotionReadiness.safeguard.includes('formalApprovalAllowed=false'), 'readiness contract preserves the formal-approval safeguard');
+assert.equal(catalog.formalPromotionReadiness.blocking.length, 0, 'formal promotion has no unresolved blocker');
+assert.ok(catalog.formalPromotionReadiness.safeguard.includes('受控 catalog') && catalog.formalPromotionReadiness.safeguard.includes('失敗封閉'), 'readiness contract preserves catalog-only approval and release safeguards');
 assert.equal(catalog.attachmentResponsibility.contractId, 'src-column-member-calculation-attachment.v1');
 assert.equal(catalog.attachmentResponsibility.reportRule.includes('不作為計算書警告'), true, 'responsibility guidance stays outside the calculation report');
 assert.deepEqual(

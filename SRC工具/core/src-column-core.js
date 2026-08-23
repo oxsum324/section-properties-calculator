@@ -40,9 +40,9 @@
 })(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnCore(PMSection, HSectionCatalog, RcBiaxial, ColumnShear, SeismicDetailing, SeismicAxial) {
   'use strict';
 
-  const CORE_VERSION = 'src-column.core.v0.12.0-research';
-  const INPUT_SCHEMA = 'src-column.input.v11';
-  const RELEASE_STATUS = 'research-core-not-public';
+  const CORE_VERSION = 'src-column.core.v1.0.0';
+  const INPUT_SCHEMA = 'src-column.input.v12';
+  const RELEASE_STATUS = 'formal-release-ready';
   const REGULATION_PROFILE = Object.freeze({
     id: 'tw-src-2011',
     title: '鋼骨鋼筋混凝土構造設計規範與解說',
@@ -503,7 +503,6 @@
 
     if (detailing.mainBarsContinuous !== true) addBlocked('main-bars-not-continuous', 'detailing.mainBarsContinuous', '未連續通過柱接頭或未適當錨定的主筋不得計入 RC 彎矩強度。');
 
-    addReview('research-core-not-public', 'tool', 'SRC 柱目前只建立可審查核心，尚未登錄為公開或正式工具。');
     if (steelResolution.source.mode === 'manual') {
       addReview('section-properties-manual', 'steel', '本案 A、Ix、Iy、Zx 採人工輸入，未由具頁碼與版次的 SRC 柱斷面 catalog 鎖定。');
     }
@@ -1026,7 +1025,7 @@
         confinement: confinementResult ? confinementResult.ok : null,
         completeSeismicDesign: false,
         engineeringStrength: engineeringChecksOk,
-        formalRelease: false,
+        formalRelease: validation.sectionSource.mode === 'catalog',
       },
     };
   }

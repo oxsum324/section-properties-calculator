@@ -116,7 +116,7 @@ const stoneVersionContext = { window: {} };
 vm.runInNewContext(stoneVersionSource, stoneVersionContext, { timeout: 1000, filename: 'stone-public-metadata' });
 const stoneMetadata = stoneVersionContext.window.StonePublicMetadata;
 
-assert.equal(homeTools.length, 44, 'canonical homepage tool inventory count');
+assert.equal(homeTools.length, 45, 'canonical homepage tool inventory count');
 assert.equal(new Set(homeTools.map(tool => tool.href)).size, homeTools.length, 'canonical homepage routes are unique');
 for (const tool of homeTools) {
   assert.ok(tool.title && tool.version && tool.state && tool.output && tool.summary && tool.fit && tool.limit, `canonical public claim complete: ${tool.href}`);
@@ -208,6 +208,11 @@ assert.equal(srcBeamTool.state, 'formal', 'canonical SRC beam claim is formal');
 assert.equal(srcBeamTool.governance, 'src-formal', 'canonical SRC beam claim uses report governance');
 assert.equal(srcBeamTool.version, 'V1.0', 'canonical SRC beam claim publishes the verified page version');
 assert.ok(srcBeamTool.limit.includes('失敗封閉'), 'canonical SRC beam claim states its fail-closed applicability boundary');
+const srcColumnTool = canonicalTool('/src-column');
+assert.equal(srcColumnTool.state, 'formal', 'canonical SRC column claim is formal');
+assert.equal(srcColumnTool.governance, 'src-formal', 'canonical SRC column claim uses report governance');
+assert.equal(srcColumnTool.version, 'V1.0', 'canonical SRC column claim publishes the verified page version');
+assert.ok(srcColumnTool.limit.includes('其他附件') && srcColumnTool.limit.includes('受控 catalog'), 'canonical SRC column claim states its limited member and controlled-section boundary');
 
 assert.equal(Object.keys(formalToolMetadata).length, 17, 'formal public metadata covers every wind and seismic public route');
 for (const [toolKey, metadata] of Object.entries(formalToolMetadata)) {

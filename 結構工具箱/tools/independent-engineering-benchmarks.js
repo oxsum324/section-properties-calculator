@@ -3393,6 +3393,117 @@ function srcBeamCandidateOracle(input) {
   return Object.fromEntries(input.cases.map(item => [item.id, calculateCase(item)]));
 }
 
+function srcColumnFormalOracle(input) {
+  const phiSteelCompression = 0.85;
+  const phiSteelFlexure = 0.9;
+
+  function calculateCase(item) {
+    const source = item.input;
+    const section = item.referenceSection;
+    const concrete = source.concrete;
+    const steel = source.steel;
+    const member = source.member;
+    const demands = source.demands;
+    const width = Number(concrete.widthCm);
+    const depth = Number(concrete.depthCm);
+    const grossArea = width * depth;
+    const grossIx = width * Math.pow(depth, 3) / 12;
+    const grossIy = depth * Math.pow(width, 3) / 12;
+    const es = Number(steel.esKgfCm2);
+    const ec = 15000 * Math.sqrt(Number(concrete.fcKgfCm2));
+    const axialSteelRatio = es * section.areaCm2 / (es * section.areaCm2 + 0.55 * ec * grossArea);
+    const momentSteelRatioX = es * section.ixCm4 / (es * section.ixCm4 + 0.35 * ec * grossIx);
+    const momentSteelRatioY = es * section.iyCm4 / (es * section.iyCm4 + 0.35 * ec * grossIy);
+    const initialSteel = {
+      puTf: Number(demands.puTf) * axialSteelRatio,
+      muxTfM: Math.abs(Number(demands.muxTfM)) * momentSteelRatioX,
+      muyTfM: Math.abs(Number(demands.muyTfM || 0)) * momentSteelRatioY,
+    };
+    const nominalMomentX = section.zxCm3 * Number(steel.fysKgfCm2) / 100000;
+    const nominalMomentY = section.zyCm3 * Number(steel.fysKgfCm2) / 100000;
+
+    function compressionAxis(axis) {
+      const inertia = axis === 'x' ? section.ixCm4 : section.iyCm4;
+      const grossInertia = axis === 'x' ? grossIx : grossIy;
+      const alpha = axis === 'x' ? 0.2 : 0.4;
+      const effectiveRadius = Math.sqrt(inertia / section.areaCm2) + alpha * Math.sqrt(grossInertia / grossArea);
+      const k = Number(axis === 'x' ? member.kx : member.ky);
+      const lambda = k * Number(member.lengthCm) / (Math.PI * effectiveRadius)
+        * Math.sqrt(Number(steel.fysKgfCm2) / es);
+      const strengthFactor = lambda <= 1.5 ? Math.exp(-0.419 * lambda * lambda) : 0.877 / (lambda * lambda);
+      return {
+        effectiveRadius,
+        lambda,
+        nominalTf: strengthFactor * Number(steel.fysKgfCm2) * section.areaCm2 / 1000,
+      };
+    }
+
+    const compressionX = compressionAxis('x');
+    const compressionY = compressionAxis('y');
+    const controllingCompression = Math.min(compressionX.nominalTf, compressionY.nominalTf);
+    function interaction(demand) {
+      const axialRatio = demand.puTf / (phiSteelCompression * controllingCompression);
+      const momentRatio = demand.muxTfM / (phiSteelFlexure * nominalMomentX)
+        + (demand.muyTfM ? demand.muyTfM / (phiSteelFlexure * nominalMomentY) : 0);
+      return axialRatio < 0.2 ? axialRatio / 2 + momentRatio : axialRatio + (8 / 9) * momentRatio;
+    }
+    const beta = interaction(initialSteel);
+    const finalSteel = source.detailing.redistributeToSteelBoundary
+      ? Object.fromEntries(Object.entries(initialSteel).map(([key, value]) => [key, value / beta]))
+      : initialSteel;
+    const finalRc = {
+      puTf: Number(demands.puTf) - finalSteel.puTf,
+      muxTfM: Math.abs(Number(demands.muxTfM)) - finalSteel.muxTfM,
+    };
+    const fysTfCm2 = Number(steel.fysKgfCm2) / 1000;
+    const flangeRatio = (section.flangeWidthCm / 2) / section.flangeThicknessCm;
+    const webRatio = (section.depthCm - 2 * section.flangeThicknessCm) / section.webThicknessCm;
+    const grade400 = section.gradeGroup === '400';
+    return {
+      grossAreaCm2: grossArea,
+      grossIxCm4: grossIx,
+      grossIyCm4: grossIy,
+      ecKgfCm2: ec,
+      sectionAreaCm2: section.areaCm2,
+      sectionIxCm4: section.ixCm4,
+      sectionIyCm4: section.iyCm4,
+      sectionZxCm3: section.zxCm3,
+      sectionZyCm3: section.zyCm3,
+      printedPage: section.printedPage,
+      pdfPage: section.pdfPage,
+      flangeRatio,
+      webRatio,
+      flangeGeneralLimit: grade400 ? 23 : 20,
+      webGeneralLimit: grade400 ? 96 : 81,
+      flangeSeismicLimit: 21 / Math.sqrt(fysTfCm2),
+      webSeismicLimit: 123 / Math.sqrt(fysTfCm2),
+      axialSteelRatio,
+      momentSteelRatioX,
+      momentSteelRatioY,
+      initialSteelPuTf: initialSteel.puTf,
+      initialSteelMuxTfM: initialSteel.muxTfM,
+      compressionXEffectiveRadiusCm: compressionX.effectiveRadius,
+      compressionYEffectiveRadiusCm: compressionY.effectiveRadius,
+      compressionXLambdaC: compressionX.lambda,
+      compressionYLambdaC: compressionY.lambda,
+      compressionXNominalTf: compressionX.nominalTf,
+      compressionYNominalTf: compressionY.nominalTf,
+      nominalMomentXTfM: nominalMomentX,
+      nominalMomentYTfM: nominalMomentY,
+      initialSteelInteraction: beta,
+      finalSteelInteraction: interaction(finalSteel),
+      redistributionApplied: source.detailing.redistributeToSteelBoundary ? 1 : 0,
+      finalRcPuTf: finalRc.puTf,
+      finalRcMuxTfM: finalRc.muxTfM,
+      compactnessPass: flangeRatio <= (grade400 ? 23 : 20) && webRatio <= (grade400 ? 96 : 81) ? 1 : 0,
+      steelInteractionPass: interaction(finalSteel) <= 1 + 1e-9 ? 1 : 0,
+      formalReleaseEligible: 1,
+    };
+  }
+
+  return Object.fromEntries(input.cases.map(item => [item.id, calculateCase(item)]));
+}
+
 const ORACLES = {
   'equipment-basic-load-path': equipmentOracle,
   'earth-rankine-dry-active': earthOracle,
@@ -3425,7 +3536,8 @@ const ORACLES = {
   'seismic-appendage-three-control-branches': seismicAppendageOracle,
   'seismic-misc-three-formula-paths': seismicMiscOracle,
   'anchor-cast-in-m20-chapter-17': anchorCastInOracle,
-  'src-beam-candidate-strength': srcBeamCandidateOracle
+  'src-beam-candidate-strength': srcBeamCandidateOracle,
+  'src-column-formal-member-strength': srcColumnFormalOracle
 };
 
 function loadProductionModule(relativePath) {

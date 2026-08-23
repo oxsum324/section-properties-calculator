@@ -165,14 +165,19 @@ const srcBeamAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-e
 assert.ok(srcBeamAdapterSource.includes("../../../SRC工具/core/src-beam-core.js"), 'SRC adapter exercises the production SRC beam core');
 assert.ok(srcBeamAdapterSource.includes('SrcBeamCore.calculate(item)'), 'SRC adapter locks the production calculation call');
 assert.ok(!srcBeamAdapterSource.includes('golden'), 'SRC adapter does not replay the official teaching example answer');
+const srcColumnAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'src-column.js'), 'utf8');
+assert.ok(srcColumnAdapterSource.includes("../../../SRC工具/core/src-column-core.js"), 'SRC column adapter exercises the production SRC column core');
+assert.ok(srcColumnAdapterSource.includes("../../../SRC工具/src-column.html"), 'SRC column adapter guards the public formal page wiring');
+assert.ok(srcColumnAdapterSource.includes('SrcColumnCore.calculate(item.input)'), 'SRC column adapter locks the production calculation call');
+assert.ok(!srcColumnAdapterSource.includes('golden'), 'SRC column adapter does not replay the official teaching example answer');
 
 const result = runBenchmarks(catalog);
 assert.equal(result.status, 'ready', JSON.stringify(result.issues));
 assert.equal(result.schemaVersion, 2, 'candidate-aware independent benchmark result is versioned');
-assert.equal(result.summary.eligibleFormalRoutes, 32, 'formal route portfolio is explicit');
-assert.equal(result.summary.pilotRequired, 32, 'thirty-two independent pilot benchmarks required');
-assert.equal(result.summary.pilotVerified, 32, 'thirty-two independent pilot benchmarks verified');
-assert.equal(result.summary.independentlyVerifiedRoutes, 32, 'all thirty-two formal routes independently verified');
+assert.equal(result.summary.eligibleFormalRoutes, 33, 'formal route portfolio is explicit');
+assert.equal(result.summary.pilotRequired, 33, 'thirty-three independent pilot benchmarks required');
+assert.equal(result.summary.pilotVerified, 33, 'thirty-three independent pilot benchmarks verified');
+assert.equal(result.summary.independentlyVerifiedRoutes, 33, 'all thirty-three formal routes independently verified');
 assert.equal(result.summary.candidateRequired, 0, 'no non-public candidate capability remains');
 assert.equal(result.summary.candidateVerified, 0, 'no non-public candidate capability is counted');
 assert.equal(result.summary.verifiedCandidateCapabilities, 0, 'candidate coverage is empty after SRC promotion');
@@ -185,6 +190,9 @@ assert.equal(result.candidateRecords.length, 0, 'SRC is no longer held outside f
 const srcBeamRecord = result.records.find(record => record.route === '/src-beam');
 assert.equal(srcBeamRecord.status, 'verified', 'SRC formal closed-form benchmark is verified');
 assert.equal(srcBeamRecord.assertionCount, 41, 'SRC formal benchmark covers flexure, compactness, shear allocation and cap control');
+const srcColumnRecord = result.records.find(record => record.route === '/src-column');
+assert.equal(srcColumnRecord.status, 'verified', 'SRC column formal closed-form benchmark is verified');
+assert.equal(srcColumnRecord.assertionCount, 38, 'SRC column formal benchmark covers geometry, compactness, stiffness allocation, compression and interaction');
 
 const runnerText = fs.readFileSync(runnerPath, 'utf8');
 assert.ok(!runnerText.includes('golden-cases.js'), 'independent runner does not import golden case answers');
@@ -226,6 +234,7 @@ const falsePositiveResult = runBenchmarks(catalog, {
         if (relativePath === 'independent-engineering-adapters/seismic-misc.js') production.flexible.Vh += 0.25;
         if (relativePath === 'independent-engineering-adapters/anchor-cast-in.js') production.interactionDcr += 0.1;
         if (relativePath === 'independent-engineering-adapters/src-beam.js') production.doubleReinforced490.mnRcTfM += 0.5;
+        if (relativePath === 'independent-engineering-adapters/src-column.js') production.officialGuideExample8.grossAreaCm2 += 1;
         return production;
       }
     };
@@ -261,6 +270,7 @@ assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-val
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:flexible.Vh')), 'seismic-misc flexible Chapter 5 force drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:interactionDcr')), 'anchor tension-shear interaction drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:doubleReinforced490.mnRcTfM')), 'SRC formal flexural drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:officialGuideExample8.grossAreaCm2')), 'SRC column gross-area drift identifies the mismatched quantity');
 
 const duplicateCatalog = JSON.parse(JSON.stringify(catalog));
 duplicateCatalog.benchmarks[1].route = duplicateCatalog.benchmarks[0].route;

@@ -26,7 +26,7 @@ function section65x80() {
 
 const materials = { fcKgfCm2: 280, fyKgfCm2: 4200, esKgfCm2: 2_040_000 };
 
-assert.equal(Biaxial.VERSION, 'src-column.rc-biaxial.v0.1.0-research', 'biaxial RC engine is explicitly versioned');
+assert.equal(Biaxial.VERSION, 'src-column.rc-biaxial.v1.0.0', 'formal biaxial RC engine is explicitly versioned');
 assert.equal(Biaxial.beta1Of(280), 0.85, 'beta1 lower-strength branch is explicit');
 assert.equal(Biaxial.beta1Of(560), 0.65, 'beta1 high-strength floor is explicit');
 const epsTy = materials.fyKgfCm2 / materials.esKgfCm2;

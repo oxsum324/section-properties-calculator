@@ -1254,7 +1254,7 @@ function newestMatchingPdf(directory, prefix) {
 }
 
 assert.equal(inventory.version, 1, 'rendered delivery inventory version');
-assert.equal(inventory.tools.length, 32, 'rendered delivery inventory covers all homepage formal tools');
+assert.equal(inventory.tools.length, 33, 'rendered delivery inventory covers all homepage formal tools');
 const homeTools = vm.runInNewContext(`(${extractConstLiteral(homeSource, 'tools')})`);
 const formalHomeTools = homeTools.filter(tool => tool.state === 'formal');
 const formalRoutes = formalHomeTools.map(tool => tool.href).sort();
@@ -1676,7 +1676,24 @@ for (const family of ['formal-tools', 'local-quick-tools', 'steel-formal', 'src-
     if (family === 'src-formal') {
       const familyDir = path.join(runDir, 'rendered-delivery-evidence', family);
       const artifactPath = path.join(familyDir, evidence.artifact);
-      const pdf = validatePdfFile(artifactPath, {
+      const isColumn = tool.evidenceKey === 'src-column';
+      const pdf = validatePdfFile(artifactPath, isColumn ? {
+        label: tool.title,
+        minTextLength: 1200,
+        titleNeedle: 'SRC 柱 X／Y 雙向耐震核算計算書',
+        requiredNeedles: ['SRC 柱 X／Y 雙向耐震核算計算書', '雙向核算索引', 'X 向計算指紋', 'Y 向計算指紋', '計算過程明細', '檢核結論', '計算指紋'],
+        contentBoundaryProfile: 'traceable-calculation-book',
+        continuationContextLabels: [
+          '雙向核算索引',
+          'X 向｜規範、構材與分析條件',
+          'Y 向｜規範、構材與分析條件',
+          'X 向｜構材斷面與軸彎互制',
+          'Y 向｜構材斷面與軸彎互制',
+          'X 向｜計算過程明細',
+          'Y 向｜計算過程明細',
+          '檢核結論',
+        ],
+      } : {
         label: tool.title,
         minTextLength: 500,
         titleNeedle: 'SRC 梁正式規範核算計算書',
@@ -2428,10 +2445,10 @@ const canonicalArtifacts = uniqueIntegrityArtifacts(canonicalArtifactRecords, 'c
 const canonicalArtifactIntegrity = {
   schemaVersion: 1,
   scope: 'canonical-rendered-pdf-evidence',
-  required: 64,
+  required: 66,
   verified: canonicalArtifacts.length,
-  issueCount: Math.max(0, 64 - canonicalArtifacts.length),
-  pass: canonicalArtifacts.length === 64,
+  issueCount: Math.max(0, 66 - canonicalArtifacts.length),
+  pass: canonicalArtifacts.length === 66,
   setSha256: scopedIntegritySetHash(canonicalArtifacts),
   artifacts: canonicalArtifacts,
 };
@@ -2704,7 +2721,7 @@ const excavationResultReconciliation = {
 assert.equal(new Set(excavationResultReconciliationRecords.map(record => record.caseId)).size, excavationResultReconciliationRecords.length, 'release rendered evidence excavation result reconciliation identities are unique');
 assert.equal(excavationResultReconciliation.complete, excavationResultReconciliation.required, 'release rendered evidence reconciles the excavation ProjectState replay to PDF and DOCX hashes');
 assert.equal(excavationResultReconciliation.pass, true, 'release rendered evidence passes excavation result reconciliation');
-assert.equal(canonicalArtifactIntegrity.verified, canonicalArtifactIntegrity.required, 'release rendered evidence verifies all 64 canonical PDF and evidence files');
+assert.equal(canonicalArtifactIntegrity.verified, canonicalArtifactIntegrity.required, 'release rendered evidence verifies all 66 canonical PDF and evidence files');
 assert.equal(canonicalArtifactIntegrity.pass, true, 'release rendered evidence passes canonical PDF and evidence integrity');
 assert.equal(rcVisualArtifactIntegrity.verified, rcVisualArtifactIntegrity.required, 'release rendered evidence verifies all 66 RC PDF and PNG visual artifacts');
 assert.equal(rcVisualArtifactIntegrity.pass, true, 'release rendered evidence passes RC PDF and PNG visual artifact integrity');

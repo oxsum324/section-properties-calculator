@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 16,
-  "tool": "src-column-research-core",
-  "coreVersion": "src-column.core.v0.12.0-research",
+  "schemaVersion": 17,
+  "tool": "src-column",
+  "coreVersion": "src-column.core.v1.0.0",
   "regulation": {
     "title": "鋼骨鋼筋混凝土構造設計規範與解說",
     "versionLabel": "100 年修正版（100 年 7 月 1 日施行）",
@@ -117,7 +117,7 @@
       "本附件可獨立作為 SRC 柱構材核算附件，不要求將全構架、接頭區與全部接合細部重複塞入同一計算書。",
       "採用的專案輸入須可追溯至主文、分析模型或引用附件；缺少必要輸入時由輸入驗證阻擋，不以大面積 DRAFT 警告取代。",
       "工程名稱、計畫編號與設計人員得留空並由主文承接，不構成工程結果 NG。",
-      "本責任分工完成不等於正式升格；formalPromotionReadiness.blocking 非空時仍不得開放正式核可。"
+      "正式附件僅涵蓋本責任矩陣列為 included 的 SRC 柱構材核算；另案工作包仍由主文或其他附件承接。"
     ]
   },
   "materialProvenancePolicy": {
@@ -136,7 +136,7 @@
           "印刷頁與 PDF 頁",
           "catalog 版本"
         ],
-        "formalRule": "目前工作頁的附件候選輸出只接受具官方頁碼的受控 catalog；catalog 以外斷面仍僅供研究複核。"
+        "formalRule": "正式附件核可只接受具官方頁碼的受控 catalog；catalog 以外斷面仍可計算與列印供內部審閱，但須先完成斷面來源複核。"
       },
       {
         "id": "design-material",
@@ -173,27 +173,28 @@
     "noNgRule": "供貨或材證尚未附具不等於構材計算 NG；必要的計算輸入缺漏仍由輸入驗證阻擋，實際材料查驗則由主文或引用附件承接。"
   },
   "release": {
-    "status": "research-core-not-public",
-    "publicRoute": false,
-    "homepageEntry": false,
-    "formalAttachment": false,
-    "boundary": "本階段已建立私有 HTML 工作頁、可列印單向與 X／Y 雙向內部審閱計算書，以及可重現的雙向案件 JSON；正式附件核可仍固定封閉。"
+    "status": "formal-release-ready",
+    "publicRoute": "/src-column",
+    "homepageEntry": true,
+    "formalAttachment": true,
+    "boundary": "公開頁提供單向與 X／Y 雙向 SRC 柱構材核算；計算書預設為可列印的內部審閱，採受控斷面 catalog 且完成審閱並明確勾選核可後可作正式附件。附件範圍不包含全構架、接頭區剪力與接合細部。"
   },
   "formalPromotionReadiness": {
-    "status": "blocked",
-    "evaluatedPageVersion": "v0.8",
+    "status": "ready",
+    "evaluatedPageVersion": "v1.0",
     "satisfied": [
       "已實作範圍具官方教材例題、AISC 官方例題與不引用 production 的獨立 oracle",
       "單向與雙向計算書只列採用資料、公式代入、檢核結果與結論",
       "同案 X／Y 方向可配對、合併列印、匯出與重現雙向計算指紋",
       "空白計畫名稱、編號與設計人員不會被判定為 NG",
       "SRC 柱構材計算、主文／專案輸入與全構架／接頭區／接合細部另案附件已建立機器可讀的正式附件責任分工",
-      "斷面性質、專案指定設計材料、現況供貨與材證已建立分層來源政策；計算書只列採用依據，供貨或材證未附不構成構材計算 NG"
+      "斷面性質、專案指定設計材料、現況供貨與材證已建立分層來源政策；計算書只列採用依據，供貨或材證未附不構成構材計算 NG",
+      "已納入正式工具清冊與公開 /src-column route",
+      "已由獨立工程基準鎖定正式 production 核心與公開頁接線",
+      "已納入 rendered-delivery inventory，正式放行時產生經核可的 PDF、案件 JSON、計算指紋與雜湊證據"
     ],
-    "blocking": [
-      "尚未納入正式工具清冊、獨立工程基準、rendered-delivery inventory 與 release 當輪核可完整性證據"
-    ],
-    "safeguard": "blocking 非空時，formalApprovalAllowed=false、research-core-not-public、首頁與公開 route 均必須維持封閉。"
+    "blocking": [],
+    "safeguard": "只有受控 catalog 斷面開放 formalApprovalAllowed；人工斷面保留可列印內部審閱但核可固定封閉。任何正式 release 缺少獨立基準或 rendered-delivery 當輪證據時，聚合放行門檻失敗封閉。"
   },
   "generalRequirements": [
     {
@@ -214,7 +215,7 @@
   ],
   "sectionCatalog": {
     "file": "core/src-column-h-section-catalog.js",
-    "version": "src-column.h-section-catalog.v0.1.0-research",
+    "version": "src-column.h-section-catalog.v1.0.0",
     "source": {
       "authority": "內政部建築研究所",
       "document": "鋼骨鋼筋混凝土(SRC)構造設計教材",

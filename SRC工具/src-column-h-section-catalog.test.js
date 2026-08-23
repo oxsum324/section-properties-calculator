@@ -8,7 +8,7 @@ function close(actual, expected, tolerance, label) {
   assert.ok(Math.abs(actual - expected) <= tolerance, `${label}: actual=${actual}, expected=${expected}, tolerance=${tolerance}`);
 }
 
-assert.equal(Catalog.CATALOG_VERSION, 'src-column.h-section-catalog.v0.1.0-research', 'catalog is explicitly versioned');
+assert.equal(Catalog.CATALOG_VERSION, 'src-column.h-section-catalog.v1.0.0', 'formal catalog is explicitly versioned');
 assert.equal(Catalog.SOURCE.authority, '內政部建築研究所', 'catalog identifies the public source authority');
 assert.equal(Catalog.SOURCE.printedPage, 289, 'catalog identifies the printed appendix page');
 assert.equal(Catalog.SOURCE.pdfPage, 301, 'catalog identifies the PDF page used for visual verification');

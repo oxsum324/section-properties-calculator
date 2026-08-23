@@ -42,7 +42,7 @@ function officialExample14ShearInput() {
   };
 }
 
-assert.equal(Shear.VERSION, 'src-column.shear.v0.5.0-research', 'shear subcheck is explicitly versioned as research');
+assert.equal(Shear.VERSION, 'src-column.shear.v1.0.0', 'formal shear subcheck is explicitly versioned');
 assert.equal(WeakAxisReference.VERSION, 'src-column.weak-axis-shear-reference.v0.2.0');
 const referenceSource = fs.readFileSync(path.join(__dirname, 'core', 'src-column-weak-axis-shear-reference.js'), 'utf8');
 const productionSource = fs.readFileSync(path.join(__dirname, 'core', 'src-column-shear.js'), 'utf8');

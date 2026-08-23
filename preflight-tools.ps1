@@ -1261,14 +1261,30 @@ node section-tools.contract.test.js
 exit $LASTEXITCODE
 '@
 
-$srcBeamCoreRegressionCommand = @'
+$srcFormalRegressionCommand = @'
 node SRC工具/src-beam-core.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node SRC工具/src-beam.contract.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node SRC工具/src-column-h-section-catalog.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node SRC工具/src-column-rc-biaxial.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node SRC工具/src-column-shear.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node SRC工具/src-column-seismic-axial.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node SRC工具/src-column-seismic-detailing.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node SRC工具/src-column-core.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node SRC工具/src-column-oracle.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node SRC工具/src-column-page.contract.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 '@
 if (-not $Quick) {
-  $srcBeamCoreRegressionCommand += @'
+  $srcFormalRegressionCommand += @'
 
 if (-not (Test-Path -LiteralPath '.github\pages-smoke\node_modules\playwright\package.json')) {
   npm ci --prefix .github/pages-smoke --ignore-scripts --silent
@@ -1276,8 +1292,11 @@ if (-not (Test-Path -LiteralPath '.github\pages-smoke\node_modules\playwright\pa
 }
 if ($env:PREFLIGHT_RUN_DIR) {
   $env:SRC_BEAM_BROWSER_OUT = Join-Path $env:PREFLIGHT_RUN_DIR 'rendered-delivery-evidence\src-formal'
+  $env:SRC_COLUMN_BROWSER_OUT = $env:SRC_BEAM_BROWSER_OUT
 }
 node SRC工具/src-beam-browser-smoke.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node SRC工具/src-column-browser-smoke.test.js
 exit $LASTEXITCODE
 '@
 }
@@ -2391,10 +2410,10 @@ $checks = @(
     slow = $false
   },
   [pscustomobject]@{
-    key = "src-beam-core-regression"
-    label = "SRC beam core, page, report, case replay and traceability"
+    key = "src-formal-regression"
+    label = "SRC beam and column core, page, report, case replay and traceability"
     workdir = $root
-    command = $srcBeamCoreRegressionCommand
+    command = $srcFormalRegressionCommand
     slow = $false
   },
   [pscustomobject]@{

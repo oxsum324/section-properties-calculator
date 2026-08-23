@@ -15,7 +15,7 @@
 })(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnSeismicAxial() {
   'use strict';
 
-  const VERSION = 'src-column.seismic-axial.v0.1.0-research';
+  const VERSION = 'src-column.seismic-axial.v1.0.0';
   const ZERO_TOLERANCE = 1e-9;
   const PHI_STEEL_COMPRESSION = 0.85;
   const PHI_RC_TIED_COMPRESSION = 0.65;

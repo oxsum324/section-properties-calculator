@@ -5,10 +5,14 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
-const { validatePdfFile } = require('../結構工具箱/tools/rendered-delivery-evidence.js');
+const {
+  CANONICAL_RENDER_EVIDENCE_KIND,
+  validatePdfFile,
+  writeEvidenceSummary,
+} = require('../結構工具箱/tools/rendered-delivery-evidence.js');
 
 const repoRoot = path.resolve(__dirname, '..');
-const outDir = path.resolve(process.env.SRC_COLUMN_BROWSER_OUT || path.join(repoRoot, 'output', 'pdf', 'src-column-research'));
+const outDir = path.resolve(process.env.SRC_COLUMN_BROWSER_OUT || path.join(repoRoot, 'output', 'playwright', 'src-column'));
 const playwrightCandidates = [
   process.env.PLAYWRIGHT_MODULE,
   path.join(repoRoot, '.github', 'pages-smoke', 'node_modules', 'playwright'),
@@ -264,12 +268,12 @@ async function main() {
     await page.emulateMedia({ media: 'screen' });
 
     const casePayload = await page.evaluate(() => window.buildSrcColumnCasePayload());
-    const sourcePath = path.join(outDir, 'src-column-research-source.json');
+    const sourcePath = path.join(outDir, 'src-column-source.json');
     fs.writeFileSync(sourcePath, `${JSON.stringify(casePayload, null, 2)}\n`, 'utf8');
     await page.fill('#pdTf', '450');
     await page.waitForFunction(fingerprint => window.lastSrcColumnCalculationFingerprint && window.lastSrcColumnCalculationFingerprint !== fingerprint, initial.fingerprint);
     await page.setInputFiles('#caseFile', {
-      name: 'src-column-research-case.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(casePayload)),
+      name: 'src-column-case.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(casePayload)),
     });
     await page.waitForFunction(() => document.querySelector('#actionStatus')?.textContent.includes('重算指紋一致'));
     assert.equal(await page.inputValue('#pdTf'), '400');
@@ -277,6 +281,7 @@ async function main() {
 
     const legacyPayload = JSON.parse(JSON.stringify(casePayload));
     legacyPayload.schema = 'src-column-research.case.v2';
+    legacyPayload.tool.id = 'src-column-research';
     legacyPayload.tool.name = 'SRC 柱強軸耐震研究核算';
     legacyPayload.tool.version = 'v0.3';
     legacyPayload.tool.calculationEngine = 'src-column.core.v0.9.0-research';
@@ -298,21 +303,22 @@ async function main() {
     await report.waitForLoadState('domcontentloaded');
     const approval = report.getByRole('checkbox', { name: '核可為正式附件' });
     await approval.waitFor({ state: 'attached' });
-    assert.equal(await approval.isDisabled(), true, 'research report cannot be promoted by checkbox');
-    assert.equal(await report.locator('#repAttachmentApprovedBy').count(), 0, 'research report omits formal approval metadata controls');
-    assert.match(await report.locator('.rep-approval-control').innerText(), /正式附件核可尚未開放/);
+    assert.equal(await approval.isDisabled(), false, 'catalog-backed SRC column report can be approved');
+    assert.equal(await report.locator('#repAttachmentApprovedBy').count(), 1, 'formal report exposes optional approval metadata');
     assert.match(await report.title(), /內部審閱/);
-    await report.evaluate(() => {
-      const checkbox = document.getElementById('repAttachmentApproval');
-      checkbox.checked = true;
-      checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-    assert.equal(await approval.isChecked(), false, 'approval policy also rejects scripted checkbox changes');
+    await report.getByLabel('核可人，選填').fill('瀏覽器測試核可人');
+    await report.getByLabel('核可依據，選填').fill('SRC 柱雙向重算核對');
+    await approval.check();
+    assert.match(await report.title(), /正式附件/);
+    await report.getByLabel('核可依據，選填').fill('異動後依據');
+    assert.equal(await approval.isChecked(), false, 'approval metadata change revokes approval');
     assert.match(await report.title(), /內部審閱/);
+    await approval.check();
+    assert.match(await report.title(), /正式附件/);
 
     const reportText = await report.locator('body').innerText();
     for (const needle of [
-      'SRC 柱 X 向（鋼骨強軸）耐震研究核算計算書', '規範、構材與分析條件', '採用斷面與材料',
+      'SRC 柱 X 向（鋼骨強軸）耐震核算計算書', '規範、構材與分析條件', '採用斷面與材料',
       '設計材料來源', '專案指定', '斷面性質來源', '內政部建築研究所', '印刷頁 289', 'PDF 第 301 頁',
       '第 9.3 節採用地震軸力資料', '第 9.6.2 節採用柱剪力資料',
       '第 8.4.2 節採用接頭面分量彎矩', '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
@@ -328,20 +334,20 @@ async function main() {
 
     await report.emulateMedia({ media: 'print' });
     assert.equal(await report.locator('.rep-toolbar').evaluate(node => node.getClientRects().length > 0), false);
-    const pdfPath = path.join(outDir, 'src-column-research-report.pdf');
+    const pdfPath = path.join(outDir, 'src-column-formal-report.pdf');
     await report.pdf({ path: pdfPath, format: 'A4', printBackground: true });
     await report.emulateMedia({ media: 'screen' });
-    await report.screenshot({ path: path.join(outDir, 'src-column-research-report.png'), fullPage: true });
-    await page.screenshot({ path: path.join(outDir, 'src-column-research-page.png'), fullPage: true });
+    await report.screenshot({ path: path.join(outDir, 'src-column-formal-report.png'), fullPage: true });
+    await page.screenshot({ path: path.join(outDir, 'src-column-page.png'), fullPage: true });
     const pdf = fs.readFileSync(pdfPath);
     assert.ok(pdf.length > 10000);
     assert.equal(pdf.subarray(0, 4).toString('ascii'), '%PDF');
     const pdfValidation = validatePdfFile(pdfPath, {
-      label: 'SRC 柱 X 向耐震研究計算書',
+      label: 'SRC 柱 X 向耐震計算書',
       minTextLength: 600,
-      titleNeedle: 'SRC 柱 X 向（鋼骨強軸）耐震研究核算計算書',
+      titleNeedle: 'SRC 柱 X 向（鋼骨強軸）耐震核算計算書',
       requiredNeedles: [
-        'SRC 柱 X 向（鋼骨強軸）耐震研究核算計算書', '規範、構材與分析條件', '採用斷面與材料',
+        'SRC 柱 X 向（鋼骨強軸）耐震核算計算書', '規範、構材與分析條件', '採用斷面與材料',
         '設計材料來源', '專案指定', '斷面性質來源', '內政部建築研究所', '印刷頁 289', 'PDF 第 301 頁',
         '第 9.3 節採用地震軸力資料', '第 9.6.2 節採用柱剪力資料',
         '第 8.4.2 節採用接頭面分量彎矩', '第 9.6.1 節採用接頭面名義彎矩', '第 9.6.3 節採用圍束資料',
@@ -382,7 +388,7 @@ async function main() {
     await weakAxisReport.waitForLoadState('domcontentloaded');
     const weakAxisReportText = await weakAxisReport.locator('body').innerText();
     for (const needle of [
-      'SRC 柱 Y 向（鋼骨弱軸）耐震研究核算計算書',
+      'SRC 柱 Y 向（鋼骨弱軸）耐震核算計算書',
       '本計算書核算方向', 'Y 向（鋼骨弱軸）', 'Y 向鋼骨計算依據', '專案指定 ANSI/AISC 360-22 G6', '第 5.5.2 節自動計算',
       'bf/(2tf) / Cv2', 'Vns = 2 × 0.6 × Fys × bf × tf × Cv2', '306.4320', '275.7888',
       'x=7.0 cm', 'Y 向 RC b / d / b′', '一般剪力：Vnr + Vnc', '剪力摩擦：Vnr′ + Vnc′ + Vns',
@@ -391,19 +397,19 @@ async function main() {
     for (const needle of ['適用範圍與輸出邊界', '產報前閱讀狀態', '本區只顯示於 HTML', '本對照卡只顯示於 HTML', '可選外部對照', 'DRAFT', '非正式附件', '附件分工原則', '另案附件']) {
       assert.equal(weakAxisReportText.includes(needle), false, `weak-axis report excludes ${needle}`);
     }
-    const weakAxisPdfPath = path.join(outDir, 'src-column-research-y-axis-report.pdf');
+    const weakAxisPdfPath = path.join(outDir, 'src-column-y-axis-report.pdf');
     await weakAxisReport.emulateMedia({ media: 'print' });
     await weakAxisReport.pdf({ path: weakAxisPdfPath, format: 'A4', printBackground: true });
     await weakAxisReport.emulateMedia({ media: 'screen' });
-    await weakAxisReport.screenshot({ path: path.join(outDir, 'src-column-research-y-axis-report.png'), fullPage: true });
-    await page.screenshot({ path: path.join(outDir, 'src-column-research-y-axis-page.png'), fullPage: true });
+    await weakAxisReport.screenshot({ path: path.join(outDir, 'src-column-y-axis-report.png'), fullPage: true });
+    await page.screenshot({ path: path.join(outDir, 'src-column-y-axis-page.png'), fullPage: true });
     const weakAxisPdf = fs.readFileSync(weakAxisPdfPath);
     const weakAxisPdfValidation = validatePdfFile(weakAxisPdfPath, {
-      label: 'SRC 柱 Y 向耐震研究計算書',
+      label: 'SRC 柱 Y 向耐震計算書',
       minTextLength: 600,
-      titleNeedle: 'SRC 柱 Y 向（鋼骨弱軸）耐震研究核算計算書',
+      titleNeedle: 'SRC 柱 Y 向（鋼骨弱軸）耐震核算計算書',
       requiredNeedles: [
-        'SRC 柱 Y 向（鋼骨弱軸）耐震研究核算計算書', '本計算書核算方向', 'Y 向鋼骨計算依據', '專案指定 ANSI/AISC 360-22 G6', '第 5.5.2 節自動計算',
+        'SRC 柱 Y 向（鋼骨弱軸）耐震核算計算書', '本計算書核算方向', 'Y 向鋼骨計算依據', '專案指定 ANSI/AISC 360-22 G6', '第 5.5.2 節自動計算',
         'bf/(2tf) / Cv2', 'Vns = 2 × 0.6 × Fys × bf × tf × Cv2', '306.4320', '275.7888',
         'x=7.0 cm', 'Y 向 RC b / d / b′', 'RC 第 5.5.2 節', 'Vnrc = min',
         '第 9.6 節Y 向（鋼骨弱軸）耐震子檢核', '第 9.6.2 節Y 向（鋼骨弱軸）柱剪力',
@@ -419,11 +425,11 @@ async function main() {
     });
 
     const dualCasePayload = await page.evaluate(() => window.buildSrcColumnDualAxisCasePayload());
-    assert.equal(dualCasePayload.schema, 'src-column-research.dual-axis.case.v2');
+    assert.equal(dualCasePayload.schema, 'src-column.dual-axis.case.v1');
     assert.equal(dualCasePayload.axes.x.calculationFingerprint, initial.fingerprint);
     assert.equal(dualCasePayload.axes.y.calculationFingerprint, weakAxisFingerprint);
     assert.match(dualCasePayload.calculationFingerprint, /^CF-[A-F0-9]{16}$/);
-    const dualSourcePath = path.join(outDir, 'src-column-research-dual-axis-source.json');
+    const dualSourcePath = path.join(outDir, 'src-column-dual-axis-source.json');
     fs.writeFileSync(dualSourcePath, `${JSON.stringify(dualCasePayload, null, 2)}\n`, 'utf8');
 
     const dualPopupPromise = page.waitForEvent('popup');
@@ -433,7 +439,7 @@ async function main() {
     await dualReport.waitForLoadState('domcontentloaded');
     const dualReportText = await dualReport.locator('body').innerText();
     for (const needle of [
-      'SRC 柱 X／Y 雙向耐震研究核算計算書', '雙向核算索引', 'X 向計算指紋', 'Y 向計算指紋',
+      'SRC 柱 X／Y 雙向耐震核算計算書', '雙向核算索引', 'X 向計算指紋', 'Y 向計算指紋',
       'X 向｜採用斷面與材料', 'Y 向｜採用斷面與材料', '斷面性質來源', '內政部建築研究所', '專案指定',
       'X 向｜構材斷面與軸彎互制', 'Y 向｜構材斷面與軸彎互制',
       'X 向｜第 9.6 節X 向（鋼骨強軸）耐震子檢核', 'Y 向｜第 9.6 節Y 向（鋼骨弱軸）耐震子檢核',
@@ -443,20 +449,24 @@ async function main() {
       assert.equal(dualReportText.includes(needle), false, `dual-axis report excludes ${needle}`);
     }
     const dualApproval = dualReport.getByRole('checkbox', { name: '核可為正式附件' });
-    assert.equal(await dualApproval.isDisabled(), true, '雙向彙總在升格審查前仍不得核可');
+    assert.equal(await dualApproval.isDisabled(), false, 'catalog-backed dual-axis report can be approved');
+    await dualReport.getByLabel('核可人，選填').fill('瀏覽器測試核可人');
+    await dualReport.getByLabel('核可依據，選填').fill('SRC 柱 X／Y 雙向重算核對');
+    await dualApproval.check();
+    assert.match(await dualReport.title(), /正式附件/);
     assert.equal(await dualReport.locator('.rep-diagram img').count(), 2, '雙向彙總含兩張計算斷面');
-    const dualPdfPath = path.join(outDir, 'src-column-research-dual-axis-report.pdf');
+    const dualPdfPath = path.join(outDir, 'src-column-dual-axis-formal-report.pdf');
     await dualReport.emulateMedia({ media: 'print' });
     await dualReport.pdf({ path: dualPdfPath, format: 'A4', printBackground: true });
     await dualReport.emulateMedia({ media: 'screen' });
-    await dualReport.screenshot({ path: path.join(outDir, 'src-column-research-dual-axis-report.png'), fullPage: true });
+    await dualReport.screenshot({ path: path.join(outDir, 'src-column-dual-axis-formal-report.png'), fullPage: true });
     const dualPdf = fs.readFileSync(dualPdfPath);
     const dualPdfValidation = validatePdfFile(dualPdfPath, {
-      label: 'SRC 柱 X／Y 雙向耐震研究計算書',
+      label: 'SRC 柱 X／Y 雙向耐震計算書',
       minTextLength: 1200,
-      titleNeedle: 'SRC 柱 X／Y 雙向耐震研究核算計算書',
+      titleNeedle: 'SRC 柱 X／Y 雙向耐震核算計算書',
       requiredNeedles: [
-        'SRC 柱 X／Y 雙向耐震研究核算計算書', '雙向核算索引', 'X 向計算指紋', 'Y 向計算指紋',
+        'SRC 柱 X／Y 雙向耐震核算計算書', '雙向核算索引', 'X 向計算指紋', 'Y 向計算指紋',
         'X 向｜採用斷面與材料', 'Y 向｜採用斷面與材料', '斷面性質來源', '內政部建築研究所', '專案指定',
         'X 向｜構材斷面與軸彎互制', 'Y 向｜構材斷面與軸彎互制', '計算過程明細', '檢核結論', '計算指紋',
       ],
@@ -480,7 +490,7 @@ async function main() {
     await page.fill('#pdTf', '450');
     await page.waitForFunction(() => window.lastSrcColumnInput?.seismicAxial?.pdTf === 450);
     await page.setInputFiles('#caseFile', {
-      name: 'src-column-research-dual-axis.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(dualCasePayload)),
+      name: 'src-column-dual-axis.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(dualCasePayload)),
     });
     await page.waitForFunction(() => document.querySelector('#actionStatus')?.textContent.includes('已匯入 X／Y 雙向案件'));
     assert.equal(await page.inputValue('#seismicAxis'), 'x');
@@ -488,11 +498,13 @@ async function main() {
     assert.equal(await page.evaluate(() => window.buildSrcColumnDualAxisCasePayload().calculationFingerprint), dualCasePayload.calculationFingerprint);
     const previousDualPayload = JSON.parse(JSON.stringify(dualCasePayload));
     previousDualPayload.schema = 'src-column-research.dual-axis.case.v1';
+    previousDualPayload.tool.id = 'src-column-research';
     previousDualPayload.tool.version = 'v0.7';
     previousDualPayload.calculationFingerprint = 'CF-AAAAAAAAAAAAAAAA';
     previousDualPayload.report.calculationFingerprint = 'CF-AAAAAAAAAAAAAAAA';
     for (const axis of ['x', 'y']) {
       previousDualPayload.axes[axis].schema = 'src-column-research.case.v6';
+      previousDualPayload.axes[axis].tool.id = 'src-column-research';
       previousDualPayload.axes[axis].tool.version = 'v0.7';
       previousDualPayload.axes[axis].calculationFingerprint = `CF-${axis === 'x' ? 'B' : 'C'}${'0'.repeat(15)}`;
       previousDualPayload.axes[axis].report.calculationFingerprint = previousDualPayload.axes[axis].calculationFingerprint;
@@ -500,23 +512,34 @@ async function main() {
     await page.setInputFiles('#caseFile', {
       name: 'src-column-research-v07-dual-axis.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(previousDualPayload)),
     });
-    await page.waitForFunction(() => document.querySelector('#actionStatus')?.textContent.includes('已升級 v0.7 X／Y 雙向案件'));
+    await page.waitForFunction(() => document.querySelector('#actionStatus')?.textContent.includes('已升級 v0.7 X／Y 雙向案件'), null, { timeout: 5000 }).catch(async error => {
+      throw new Error(`${error.message}; actionStatus=${await page.locator('#actionStatus').innerText()}`);
+    });
     assert.match(await page.locator('#actionStatus').innerText(), /新雙向指紋 CF-[A-F0-9]{16}/);
-    assert.equal(await page.evaluate(() => window.buildSrcColumnDualAxisCasePayload().schema), 'src-column-research.dual-axis.case.v2');
+    assert.equal(await page.evaluate(() => window.buildSrcColumnDualAxisCasePayload().schema), 'src-column.dual-axis.case.v1');
     assert.equal(await page.evaluate(() => window.buildSrcColumnDualAxisCasePayload().calculationFingerprint), dualCasePayload.calculationFingerprint);
+    const evidenceName = 'src-column-render-evidence.json';
+    const evidencePath = path.join(outDir, evidenceName);
     const evidence = {
       schemaVersion: 1,
-      kind: 'src-column-research-render-evidence',
+      kind: CANONICAL_RENDER_EVIDENCE_KIND,
       generatedAt: new Date().toISOString(),
-      artifact: path.basename(pdfPath),
-      artifactBytes: pdf.length,
-      artifactSha256: crypto.createHash('sha256').update(pdf).digest('hex'),
-      sourceArtifact: path.basename(sourcePath),
-      sourceSha256: crypto.createHash('sha256').update(fs.readFileSync(sourcePath)).digest('hex'),
-      calculationFingerprint: initial.fingerprint,
-      documentState: 'internal-review',
-      formalApprovalAllowed: false,
-      pdf: { pageCount: pdfValidation.pageCount, textLength: pdfValidation.textLength },
+      key: 'src-column',
+      artifact: path.basename(dualPdfPath),
+      artifactBytes: dualPdf.length,
+      artifactSha256: crypto.createHash('sha256').update(dualPdf).digest('hex'),
+      sourceArtifact: path.basename(dualSourcePath),
+      sourceSha256: crypto.createHash('sha256').update(fs.readFileSync(dualSourcePath)).digest('hex'),
+      calculationFingerprint: dualCasePayload.calculationFingerprint,
+      documentState: 'formal-attachment',
+      pdf: {
+        pageCount: dualPdfValidation.pageCount,
+        textLength: dualPdfValidation.textLength,
+        footerLineCount: dualPdfValidation.footerLineCount,
+        orphanHeadingCount: dualPdfValidation.orphanHeadingCount,
+        uncontextualPageStartCount: dualPdfValidation.uncontextualPageStartCount,
+        contentBoundaryProfile: dualPdfValidation.contentBoundary.profile,
+      },
       companionWeakAxis: {
         artifact: path.basename(weakAxisPdfPath),
         artifactBytes: weakAxisPdf.length,
@@ -539,7 +562,21 @@ async function main() {
         textLength: dualPdfValidation.textLength,
       },
     };
-    fs.writeFileSync(path.join(outDir, 'src-column-research-render-evidence.json'), `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
+    fs.writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
+    const summaryPath = path.join(outDir, 'rendered-delivery-evidence-summary.json');
+    const existingRecords = fs.existsSync(summaryPath)
+      ? JSON.parse(fs.readFileSync(summaryPath, 'utf8').replace(/^\uFEFF/, '')).records.filter(record => record.key !== 'src-column')
+      : [];
+    const records = [...existingRecords, {
+      key: 'src-column',
+      artifact: path.basename(dualPdfPath),
+      evidence: evidenceName,
+      sourceArtifact: path.basename(dualSourcePath),
+      calculationFingerprint: dualCasePayload.calculationFingerprint,
+      documentState: 'formal-attachment',
+    }];
+    const expectedKeys = records.some(record => record.key === 'src-beam') ? ['src-beam', 'src-column'] : ['src-column'];
+    writeEvidenceSummary(outDir, 'src-formal', records, expectedKeys);
     assert.deepEqual(pageErrors, []);
     console.log(`SRC column browser smoke: OK (X ${initial.fingerprint}/${pdfValidation.pageCount} pages; Y ${weakAxisFingerprint}/${weakAxisPdfValidation.pageCount} pages; XY ${dualCasePayload.calculationFingerprint}/${dualPdfValidation.pageCount} pages)`);
   } finally {

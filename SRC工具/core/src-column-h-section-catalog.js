@@ -14,7 +14,7 @@
 })(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnHSectionCatalog() {
   'use strict';
 
-  const CATALOG_VERSION = 'src-column.h-section-catalog.v0.1.0-research';
+  const CATALOG_VERSION = 'src-column.h-section-catalog.v1.0.0';
   const SOURCE = Object.freeze({
     authority: '內政部建築研究所',
     documentTitle: '鋼骨鋼筋混凝土(SRC)構造設計教材',

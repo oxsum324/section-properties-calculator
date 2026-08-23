@@ -12,23 +12,27 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function buildSrcColumnPage(Core, Catalog, WeakAxisReference) {
   'use strict';
 
-  const PAGE_VERSION = 'v0.8';
-  const TOOL_ID = 'src-column-research';
-  const CASE_SCHEMA = 'src-column-research.case.v7';
-  const DUAL_CASE_SCHEMA = 'src-column-research.dual-axis.case.v2';
-  const PREVIOUS_DUAL_CASE_SCHEMA = 'src-column-research.dual-axis.case.v1';
-  const PREVIOUS_CASE_SCHEMA = 'src-column-research.case.v6';
-  const PREVIOUS_PAGE_VERSION = 'v0.7';
-  const INTERMEDIATE_CASE_SCHEMA = 'src-column-research.case.v5';
-  const INTERMEDIATE_PAGE_VERSION = 'v0.6';
-  const LEGACY_CASE_SCHEMA = 'src-column-research.case.v4';
-  const LEGACY_PAGE_VERSION = 'v0.5';
-  const EARLIER_CASE_SCHEMA = 'src-column-research.case.v3';
-  const EARLIER_PAGE_VERSION = 'v0.4';
-  const EARLIEST_CASE_SCHEMA = 'src-column-research.case.v2';
-  const EARLIEST_PAGE_VERSION = 'v0.3';
-  const TOOL_NAME = 'SRC 柱方向可選耐震研究核算';
-  const REPORT_TITLE = 'SRC 柱方向可選耐震研究核算計算書';
+  const PAGE_VERSION = 'v1.0';
+  const TOOL_ID = 'src-column';
+  const LEGACY_TOOL_ID = 'src-column-research';
+  const CASE_SCHEMA = 'src-column.case.v1';
+  const DUAL_CASE_SCHEMA = 'src-column.dual-axis.case.v1';
+  const PREVIOUS_DUAL_CASE_SCHEMA = 'src-column-research.dual-axis.case.v2';
+  const INTERMEDIATE_DUAL_CASE_SCHEMA = 'src-column-research.dual-axis.case.v1';
+  const PREVIOUS_CASE_SCHEMA = 'src-column-research.case.v7';
+  const PREVIOUS_PAGE_VERSION = 'v0.8';
+  const INTERMEDIATE_CASE_SCHEMA = 'src-column-research.case.v6';
+  const INTERMEDIATE_PAGE_VERSION = 'v0.7';
+  const LEGACY_CASE_SCHEMA = 'src-column-research.case.v5';
+  const LEGACY_PAGE_VERSION = 'v0.6';
+  const EARLIER_CASE_SCHEMA = 'src-column-research.case.v4';
+  const EARLIER_PAGE_VERSION = 'v0.5';
+  const EARLIEST_CASE_SCHEMA = 'src-column-research.case.v3';
+  const EARLIEST_PAGE_VERSION = 'v0.4';
+  const ORIGINAL_CASE_SCHEMA = 'src-column-research.case.v2';
+  const ORIGINAL_PAGE_VERSION = 'v0.3';
+  const TOOL_NAME = 'SRC 柱方向可選耐震核算';
+  const REPORT_TITLE = 'SRC 柱方向可選耐震核算計算書';
   const REGULATION_LABEL = '鋼骨鋼筋混凝土構造設計規範與解說（100 年修正版）';
   const SECTION_DIAGRAM_TITLE = 'SRC 柱計算斷面';
   const SECTION_DIAGRAM_CAPTION = '混凝土與置中 H 型鋼依採用尺寸比例繪製；主筋以選定方向計算層（列）總面積表示，本圖非施工配筋詳圖。';
@@ -110,24 +114,27 @@
   function migrateCasePayload(sourcePayload) {
     const payload = clone(sourcePayload);
     const isPrevious = payload?.schema === PREVIOUS_CASE_SCHEMA
-      && payload?.tool?.id === TOOL_ID
+      && payload?.tool?.id === LEGACY_TOOL_ID
       && payload?.tool?.version === PREVIOUS_PAGE_VERSION;
     const isIntermediate = payload?.schema === INTERMEDIATE_CASE_SCHEMA
-      && payload?.tool?.id === TOOL_ID
+      && payload?.tool?.id === LEGACY_TOOL_ID
       && payload?.tool?.version === INTERMEDIATE_PAGE_VERSION;
     const isLegacy = payload?.schema === LEGACY_CASE_SCHEMA
-      && payload?.tool?.id === TOOL_ID
+      && payload?.tool?.id === LEGACY_TOOL_ID
       && payload?.tool?.version === LEGACY_PAGE_VERSION;
     const isEarlier = payload?.schema === EARLIER_CASE_SCHEMA
-      && payload?.tool?.id === TOOL_ID
+      && payload?.tool?.id === LEGACY_TOOL_ID
       && payload?.tool?.version === EARLIER_PAGE_VERSION;
     const isEarliest = payload?.schema === EARLIEST_CASE_SCHEMA
-      && payload?.tool?.id === TOOL_ID
+      && payload?.tool?.id === LEGACY_TOOL_ID
       && payload?.tool?.version === EARLIEST_PAGE_VERSION;
-    if (!isPrevious && !isIntermediate && !isLegacy && !isEarlier && !isEarliest) return { payload, migrated: false };
+    const isOriginal = payload?.schema === ORIGINAL_CASE_SCHEMA
+      && payload?.tool?.id === LEGACY_TOOL_ID
+      && payload?.tool?.version === ORIGINAL_PAGE_VERSION;
+    if (!isPrevious && !isIntermediate && !isLegacy && !isEarlier && !isEarliest && !isOriginal) return { payload, migrated: false };
     if (!payload.input || typeof payload.input !== 'object') throw new Error('舊版案件 JSON 缺少計算輸入。');
     const input = payload.input;
-    if (isEarliest) {
+    if (isOriginal) {
       input.seismicAxis = 'x';
       input.demands = { ...(input.demands || {}), muyTfM: 0 };
       for (const key of ['shear', 'jointFlexuralStrengthRatio', 'strongColumnWeakBeam', 'confinement']) {
@@ -137,11 +144,11 @@
     input.schema = Core.INPUT_SCHEMA;
     if (input.shear && typeof input.shear === 'object') {
       const shear = input.shear;
-      if (!isPrevious && !isIntermediate) {
+      if (isEarlier || isEarliest || isOriginal) {
         shear.weakAxisSteelDesignBasis = 'project-confirmed';
         shear.weakAxisAiscG6ApplicabilityConfirmed = false;
       }
-      if (isEarlier || isEarliest) {
+      if (isEarliest || isOriginal) {
         const xPositions = Array.isArray(input.reinforcement?.xLayers)
           ? input.reinforcement.xLayers.map(item => Number(item?.xCm)).filter(Number.isFinite)
           : [];
@@ -155,6 +162,7 @@
     payload.schema = CASE_SCHEMA;
     payload.tool = {
       ...(payload.tool || {}),
+      id: TOOL_ID,
       name: TOOL_NAME,
       version: PAGE_VERSION,
       calculationEngine: Core.CORE_VERSION,
@@ -164,8 +172,8 @@
     return {
       payload,
       migrated: true,
-      sourceSchema: isEarliest ? EARLIEST_CASE_SCHEMA : (isEarlier ? EARLIER_CASE_SCHEMA : (isLegacy ? LEGACY_CASE_SCHEMA : (isIntermediate ? INTERMEDIATE_CASE_SCHEMA : PREVIOUS_CASE_SCHEMA))),
-      sourceVersion: isEarliest ? EARLIEST_PAGE_VERSION : (isEarlier ? EARLIER_PAGE_VERSION : (isLegacy ? LEGACY_PAGE_VERSION : (isIntermediate ? INTERMEDIATE_PAGE_VERSION : PREVIOUS_PAGE_VERSION))),
+      sourceSchema: isOriginal ? ORIGINAL_CASE_SCHEMA : (isEarliest ? EARLIEST_CASE_SCHEMA : (isEarlier ? EARLIER_CASE_SCHEMA : (isLegacy ? LEGACY_CASE_SCHEMA : (isIntermediate ? INTERMEDIATE_CASE_SCHEMA : PREVIOUS_CASE_SCHEMA)))),
+      sourceVersion: isOriginal ? ORIGINAL_PAGE_VERSION : (isEarliest ? EARLIEST_PAGE_VERSION : (isEarlier ? EARLIER_PAGE_VERSION : (isLegacy ? LEGACY_PAGE_VERSION : (isIntermediate ? INTERMEDIATE_PAGE_VERSION : PREVIOUS_PAGE_VERSION)))),
     };
   }
 
@@ -622,7 +630,7 @@
     const catalogSource = Catalog?.SOURCE || {};
     const sectionSourceText = sectionSource.mode === 'catalog'
       ? `${sectionSource.authority || catalogSource.authority}《${catalogSource.documentTitle || '鋼骨鋼筋混凝土(SRC)構造設計教材'}》${sectionSource.table || catalogSource.table}，印刷頁 ${sectionSource.printedPage || catalogSource.printedPage}／PDF 第 ${sectionSource.pdfPage || catalogSource.pdfPage} 頁；${sectionSource.catalogVersion}`
-      : '專案指定斷面性質（研究複核）';
+      : '專案指定斷面性質（需複核來源）';
     const axis = input.seismicAxis === 'y' ? 'y' : 'x';
     const axisLabel = axis === 'y' ? 'Y 向（鋼骨弱軸）' : 'X 向（鋼骨強軸）';
     const automaticWeakAxisSteel = axis === 'y' && shear?.weakAxisSteelDesignBasis === 'project-specified-aisc-360-g6';
@@ -653,11 +661,11 @@
       confinement ? '第 9.6.3 節矩形柱圍束' : '',
     ].filter(Boolean).join('、');
     return {
-      title: `SRC 柱 ${axisLabel}耐震研究核算計算書`,
-      subtitle: `SRC Column ${axis.toUpperCase()}-Axis Seismic Research Calculation Report`,
+      title: `SRC 柱 ${axisLabel}耐震核算計算書`,
+      subtitle: `SRC Column ${axis.toUpperCase()}-Axis Seismic Calculation Report`,
       toolName: TOOL_NAME,
       toolVersion: PAGE_VERSION,
-      formalApprovalAllowed: false,
+      formalApprovalAllowed: result.steelSection?.source?.mode === 'catalog',
       outputSource: {
         tool: TOOL_NAME,
         version: PAGE_VERSION,
@@ -993,11 +1001,11 @@
     const yFingerprint = String(pair.y.calculationFingerprint || '').trim() || '由雙向報告指紋涵蓋';
     const prefixItems = (items, label) => (items || []).map(item => `${label}｜${item}`);
     return {
-      title: 'SRC 柱 X／Y 雙向耐震研究核算計算書',
-      subtitle: 'SRC Column X/Y-Axis Seismic Research Calculation Report',
+      title: 'SRC 柱 X／Y 雙向耐震核算計算書',
+      subtitle: 'SRC Column X/Y-Axis Seismic Calculation Report',
       toolName: `${TOOL_NAME}（雙向彙總）`,
       toolVersion: PAGE_VERSION,
-      formalApprovalAllowed: false,
+      formalApprovalAllowed: xConfig.formalApprovalAllowed && yConfig.formalApprovalAllowed,
       outputSource: {
         tool: `${TOOL_NAME}（雙向彙總）`,
         version: PAGE_VERSION,
@@ -1110,9 +1118,12 @@
   function migrateDualAxisCasePayload(sourcePayload) {
     const payload = clone(sourcePayload);
     const isPrevious = payload?.schema === PREVIOUS_DUAL_CASE_SCHEMA
-      && payload?.tool?.id === TOOL_ID
+      && payload?.tool?.id === LEGACY_TOOL_ID
       && payload?.tool?.version === PREVIOUS_PAGE_VERSION;
-    if (!isPrevious) return { payload, migrated: false };
+    const isIntermediate = payload?.schema === INTERMEDIATE_DUAL_CASE_SCHEMA
+      && payload?.tool?.id === LEGACY_TOOL_ID
+      && payload?.tool?.version === INTERMEDIATE_PAGE_VERSION;
+    if (!isPrevious && !isIntermediate) return { payload, migrated: false };
     if (!payload.axes || typeof payload.axes !== 'object') throw new Error('舊版雙向案件 JSON 缺少 X／Y 計算輸入。');
     for (const axis of ['x', 'y']) {
       const childMigration = migrateCasePayload(payload.axes[axis]);
@@ -1122,6 +1133,7 @@
     payload.schema = DUAL_CASE_SCHEMA;
     payload.tool = {
       ...(payload.tool || {}),
+      id: TOOL_ID,
       name: `${TOOL_NAME}（雙向彙總）`,
       version: PAGE_VERSION,
       calculationEngine: Core.CORE_VERSION,
@@ -1131,8 +1143,8 @@
     return {
       payload,
       migrated: true,
-      sourceSchema: PREVIOUS_DUAL_CASE_SCHEMA,
-      sourceVersion: PREVIOUS_PAGE_VERSION,
+      sourceSchema: isPrevious ? PREVIOUS_DUAL_CASE_SCHEMA : INTERMEDIATE_DUAL_CASE_SCHEMA,
+      sourceVersion: isPrevious ? PREVIOUS_PAGE_VERSION : INTERMEDIATE_PAGE_VERSION,
     };
   }
 
@@ -1393,10 +1405,10 @@
           weakAxisReferenceNode.textContent = '';
         }
       }
-      $('resultBadge').className = `src-status ${strengthOk ? 'review' : 'ng'}`;
-      $('resultBadge').textContent = strengthOk ? '研究通過' : 'NG';
+      $('resultBadge').className = `src-status ${strengthOk ? 'ok' : 'ng'}`;
+      $('resultBadge').textContent = strengthOk ? 'OK' : 'NG';
       $('resultHeadline').textContent = strengthOk
-        ? '已實作強度檢核通過；文件仍維持私有研究狀態。'
+        ? '本次已實作之 SRC 柱構材檢核通過。'
         : `控制不符：${failed.join('、')}。`;
       $('metricGrid').innerHTML = [
         metric('SRC 設計受壓強度 φcPn', `${fmt(axial.compression.designStrengthTf, 2)} tf`, axial.compression.ok),
@@ -1451,8 +1463,8 @@
       $('sectionDiagramCaption').textContent = diagram?.caption || '';
       $('reportReadiness').className = strengthOk ? 'src-readiness review' : 'src-readiness ng';
       $('reportReadiness').innerHTML = strengthOk
-        ? `<strong>${escapeHtml(axisLabel)}研究計算完成</strong><span>可產生並列印內部審閱計算書；正式附件核可仍封閉。正交方向、接頭區剪力與接合細部、完整構架範圍仍須另案完成。</span><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>`
-        : `<strong>工程結果含 NG</strong><span>${escapeHtml(failed.join('、'))}不符；研究計算書仍可如實列印結果。</span><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>`;
+        ? `<strong>${escapeHtml(axisLabel)}計算完成</strong><span>計算書預設為可列印的內部審閱；完成審閱並勾選核可後可作正式附件。正交方向、接頭區剪力、接合細部與完整構架仍由主文或其他附件承接。</span><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>`
+        : `<strong>工程結果含 NG</strong><span>${escapeHtml(failed.join('、'))}不符；計算書仍可如實列印結果，完成內容審閱後亦可核可作為 NG 結果附件。</span><span>本區只顯示於 HTML，不進計算書、列印或 PDF。</span>`;
     }
 
     function calculate(options = {}) {
@@ -1524,7 +1536,7 @@
       catch { throw new Error('案件 JSON 無法解析。'); }
       const previous = captureState();
       try {
-        if ([DUAL_CASE_SCHEMA, PREVIOUS_DUAL_CASE_SCHEMA].includes(payload?.schema)) {
+        if ([DUAL_CASE_SCHEMA, PREVIOUS_DUAL_CASE_SCHEMA, INTERMEDIATE_DUAL_CASE_SCHEMA].includes(payload?.schema)) {
           const replay = replayDualAxisCasePayload(payload, reportUi);
           axisPair.x = replay.snapshots.x;
           axisPair.y = replay.snapshots.y;
@@ -1583,7 +1595,7 @@
     $('btnExportCase').addEventListener('click', () => {
       try {
         const payload = currentPayload();
-        downloadJson(win, `src-column-research-case-${payload.savedAt.slice(0, 10)}.json`, payload);
+        downloadJson(win, `src-column-case-${payload.savedAt.slice(0, 10)}.json`, payload);
         setActionStatus(`案件 JSON 已下載；計算指紋 ${payload.calculationFingerprint}。`, 'ok');
       } catch (error) { setActionStatus(error.message || String(error), 'error'); }
     });
@@ -1591,7 +1603,7 @@
     $('btnExportDualCase').addEventListener('click', () => {
       try {
         const payload = currentDualAxisPayload();
-        downloadJson(win, `src-column-research-dual-axis-${payload.savedAt.slice(0, 10)}.json`, payload);
+        downloadJson(win, `src-column-dual-axis-${payload.savedAt.slice(0, 10)}.json`, payload);
         setActionStatus(`雙向案件 JSON 已下載；雙向計算指紋 ${payload.calculationFingerprint}。`, 'ok');
       } catch (error) { setActionStatus(error.message || String(error), 'error'); }
     });
@@ -1631,9 +1643,11 @@
   return Object.freeze({
     PAGE_VERSION,
     TOOL_ID,
+    LEGACY_TOOL_ID,
     CASE_SCHEMA,
     DUAL_CASE_SCHEMA,
     PREVIOUS_DUAL_CASE_SCHEMA,
+    INTERMEDIATE_DUAL_CASE_SCHEMA,
     PREVIOUS_CASE_SCHEMA,
     PREVIOUS_PAGE_VERSION,
     INTERMEDIATE_CASE_SCHEMA,
@@ -1644,6 +1658,8 @@
     EARLIER_PAGE_VERSION,
     EARLIEST_CASE_SCHEMA,
     EARLIEST_PAGE_VERSION,
+    ORIGINAL_CASE_SCHEMA,
+    ORIGINAL_PAGE_VERSION,
     TOOL_NAME,
     REPORT_TITLE,
     readCoreInput,

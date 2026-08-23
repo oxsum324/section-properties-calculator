@@ -45,6 +45,7 @@
     { "source": "/rc-foundation", "destination": "/鋼筋混凝土/tools/foundation", "permanent": true },
     { "source": "/rc-pile", "destination": "/鋼筋混凝土/tools/single-pile-designer", "permanent": true },
     { "source": "/src-beam", "destination": "/SRC工具/src-beam", "permanent": true },
+    { "source": "/src-column", "destination": "/SRC工具/src-column", "permanent": true },
     { "source": "/foundation-local", "destination": "/結構工具箱/tools/foundation/foundation-local", "permanent": true },
     { "source": "/equipment-load", "destination": "/結構工具箱/tools/equipment/equipment-load", "permanent": true },
     { "source": "/earth-pressure", "destination": "/結構工具箱/tools/earth/earth-pressure", "permanent": true },
