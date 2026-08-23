@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 12,
+  "schemaVersion": 13,
   "tool": "src-column-research-core",
-  "coreVersion": "src-column.core.v0.11.0-research",
+  "coreVersion": "src-column.core.v0.12.0-research",
   "regulation": {
     "title": "鋼骨鋼筋混凝土構造設計規範與解說",
     "versionLabel": "100 年修正版（100 年 7 月 1 日施行）",
@@ -54,7 +54,7 @@
       "第 9.3 節耐震軸向強度子檢核：式 (9.3-1)、(9.3-2) 正負地震方向、Fu 上限 2.5、活載係數例外、明示選用的 1.25 倍傳力上限與彎矩構架免檢條件",
       "第 9.6.2 節一次選定 X 或 Y 方向的耐震柱剪力子檢核：柱端可能彎矩推導需求，鋼骨與 RC 依可能彎矩比例分配並分別檢核",
       "第 5.5.2 節 RC 一般剪力與剪力摩擦兩條路徑取較小值；限常重混凝土、整體澆置、垂直閉合箍筋及剪力釘貢獻為零",
-      "Y 向鋼骨名義剪力採專案確認值且不將 X 向腹板公式旋轉套用；Y 向 RC 可選第 5.5.2 節方向性自動計算，或為相容既有案件採專案確認 Vnrc 與 Ash,shear",
+      "Y 向鋼骨不將 X 向腹板公式旋轉套用；預設採專案確認 Vns，或由專案明確指定 ANSI/AISC 360-22 G6 且確認無扭轉後，依兩片翼板與 Cv2 自動計算；Y 向 RC 可選第 5.5.2 節方向性自動計算，或為相容既有案件採專案確認 Vnrc 與 Ash,shear",
       "第 8.4.2 節單一選定方向梁柱接頭撓曲強度比：SRC 梁接 SRC 柱分別檢核鋼骨與 RC 部分 0.6 下限；鋼梁接 SRC 柱採 1.0 下限，僅在專案分析確認應力平順傳遞時允許式 (8.4-4) 的 0.7 下限",
       "第 9.6.1 節單一選定方向梁柱接頭之強柱弱梁算術：順、逆時針皆檢核，柱容量須由專案各載重組合軸力下之最小標稱彎矩提供；正交方向另案計算",
       "第 9.6.3 節選定方向矩形柱圍束子檢核：現行式 (9.6-6)~(9.6-10)、剪力需求下限、圍束範圍、圍束與非圍束間距、第一箍筋、主筋續接與繫筋確認；H 型鋼 Y 向彎曲強制 Ahcc=0",
@@ -65,8 +65,8 @@
       "catalog 以外型鋼之 A、Ix、Iy、Zx、Zy 來源自動核對",
       "教材出版後的現行市場供貨與專案材證核對",
       "非耐震一般柱剪力（現行 SRC 規範未另列獨立柱剪力條文）",
-      "Y 向鋼骨名義剪力強度的自動推導；非整體澆置或輕質混凝土剪力摩擦、剪力釘貢獻",
-      "第 9 章完整耐震設計，包括同一案件兩方向的彙總判定、全構架所有接頭、接頭區剪力及現場配置查驗；第 9.3 節的專案拉力強度、傳力容量與 Y 向鋼骨剪力強度來源不由工具推定",
+      "臺灣 SRC 規範原生的 Y 向鋼骨名義剪力強度推導；非整體澆置或輕質混凝土剪力摩擦、剪力釘貢獻",
+      "第 9 章完整耐震設計，包括同一案件兩方向的彙總判定、全構架所有接頭、接頭區剪力及現場配置查驗；第 9.3 節的專案拉力強度與傳力容量來源不由工具推定，AISC G6 路徑亦須由專案指定而非工具自行選用",
       "梁柱接頭、續接與柱腳",
       "施工階段強度與穩定",
       "填充型與十字、T 型鋼骨"
@@ -173,7 +173,7 @@
     {
       "id": "src-9.6-3-5",
       "clause": "9.6.2 / 式 (9.6-3)~(9.6-5)，回引式 (9.5-3)",
-      "expression": "selected x or y axis: Vu=(Mct+Mcb)/hn; Mpr=Mns+Mprc; steel demand=(Mns/Mpr)Vu; RC demand=(Mprc/Mpr)Vu; Mprc uses selected-axis reinforcement layers and 1.25Fyr; y-axis steel nominal shear is project-confirmed while RC uses either automatic clause 5.5.2 or preserved project-confirmed inputs",
+      "expression": "selected x or y axis: Vu=(Mct+Mcb)/hn; Mpr=Mns+Mprc; steel demand=(Mns/Mpr)Vu; RC demand=(Mprc/Mpr)Vu; Mprc uses selected-axis reinforcement layers and 1.25Fyr; y-axis steel nominal shear uses either project-confirmed Vns or explicitly project-specified AISC 360-22 G6, while RC uses either automatic clause 5.5.2 or preserved project-confirmed inputs",
       "implementation": "core/src-column-core.js + core/src-column-shear.js"
     },
     {
@@ -181,6 +181,13 @@
       "clause": "5.5.1 / 式 (5.5-3)",
       "expression": "x-axis only: Vns=0.6FywAw; Aw=tw*d; phi_vs=0.9; this web formula is not rotated into the y-axis path",
       "implementation": "core/src-column-shear.js.steelNominalShear"
+    },
+    {
+      "id": "project-aisc-360-g6",
+      "clause": "專案指定 ANSI/AISC 360-22 G6 / 式 (G6-1)，Cv2 依 G2.2",
+      "expression": "y-axis only, without torsion: each flange is a shear-resisting element; Vns=2*0.6*Fys*bf*tf*Cv2; bf/(2tf), kv=1.2, Cv2 by G2-9~G2-11; phi_v=0.9",
+      "implementation": "core/src-column-shear.js.weakAxisSteelNominalShear",
+      "authorityBoundary": "僅在專案明確採用 ANSI/AISC 360-22 G6 且確認弱軸剪力不含扭轉時啟用；不得標示為臺灣 SRC 第 5.5.1 節原生公式。"
     },
     {
       "id": "src-5.5-4-13",
@@ -277,17 +284,17 @@
   ],
   "externalWeakAxisSteelReference": {
     "module": "core/src-column-weak-axis-shear-reference.js",
-    "version": "src-column.weak-axis-shear-reference.v0.1.0",
+    "version": "src-column.weak-axis-shear-reference.v0.2.0",
     "authority": "專案指定",
     "source": {
       "authority": "American Institute of Steel Construction",
       "standard": "ANSI/AISC 360-22",
       "clause": "G6，Cv2 依 G2.2 式 G2-9~G2-11",
       "example": "Companion V16.0 Example G.6，印刷頁 G-13~G-14／PDF 第 86~87 頁",
-      "officialPdf": "https://www.aisc.org/globalassets/aisc/university-programs/teaching-aids/first-semester-design-examples---v16.0.pdf",
+      "officialPdf": "https://www.aisc.org/media/kybevlwy/first-semester-design-examples-v160.pdf",
       "verifiedOn": "2026-08-23"
     },
-    "authorityBoundary": "本模組是專案明確指定 AISC 360 G6 時的外部鋼骨弱軸算術對照，不是臺灣 SRC 規範第 5.5.1 節的自動延伸，也不自動取代工作頁採用的專案確認 Vns。它不建立 RC 的 Vnrc 或 Ash,shear，且只顯示於 HTML 研究畫面，不進計算書、列印、PDF 或計算指紋。",
+    "authorityBoundary": "本模組是不引用正式剪力核心的獨立 AISC 360 G6 算術對照，不是臺灣 SRC 規範第 5.5.1 節的自動延伸。工作頁預設仍採專案確認 Vns；只有專案主動選擇並確認 AISC G6 適用條件時，正式核心才以另一條受控路徑計算，並將採用依據、公式、結果納入計算書與指紋。本對照卡本身仍只顯示於 HTML，且不建立 RC 的 Vnrc 或 Ash,shear。",
     "officialExample": {
       "shape": "W21x48",
       "inputs": {
@@ -309,7 +316,7 @@
       }
     },
     "derivedCatalogComparison": {
-      "authorityBoundary": "以下只把相同 G6 算術套至教材 catalog 的 H500x304x15x24，供專案指定時比對；不是目前臺灣 SRC 生產核心的採用強度。",
+      "authorityBoundary": "以下把相同 G6 算術套至教材 catalog 的 H500x304x15x24；只有工作頁明確選定專案指定 AISC G6 並完成適用性確認時才成為採用強度，否則僅為外部對照；任何模式皆不得改稱臺灣 SRC 原生弱軸強度。",
       "shape": "H500x304x15x24",
       "inputs": {
         "fyKgfCm2": 3500,
@@ -428,12 +435,27 @@
         "steelStrengthSource": "project-confirmed",
         "completeSeismicDesign": false
       }
+    },
+    {
+      "id": "DERIVED-EXAMPLE-8-SEISMIC-Y-AXIS-PROJECT-AISC-G6",
+      "authorityBoundary": "這不是臺灣 SRC 規範原生弱軸公式或教材標準答案；斷面與材料沿用例題 8，只驗證專案明確指定 ANSI/AISC 360-22 G6 且確認無扭轉時，以兩片翼板及 Cv2 計算 Y 向鋼骨剪力。RC 仍另依臺灣 SRC 第 5.5.2 節處理，完整耐震設計不在本案例範圍。",
+      "case": "H500x304x15x24，Fys=3500 kgf/cm2，Es=2040000 kgf/cm2；專案指定 ANSI/AISC 360-22 G6；bf=30.4 cm、tf=2.4 cm、kv=1.2",
+      "expected": {
+        "axis": "y",
+        "flangeSlenderness": 6.333333333333333,
+        "cv2": 1,
+        "cv2Equation": "G2-9",
+        "steelNominalShearTf": 306.432,
+        "steelDesignShearTf": 275.7888,
+        "strengthSource": "project-specified-aisc-360-g6",
+        "completeSeismicDesign": false
+      }
     }
   ],
   "oracle": {
     "file": "core/src-column-oracle.js",
-    "version": "src-column.oracle.v0.9.0-research",
-    "independence": "不引用 src-column-core.js、斷面 catalog、共用 PMSection、正式雙軸、剪力、耐震軸力或耐震細節模組；測試以官方表格的獨立固定值走另一套算術路徑。正式雙軸核心以精確多邊形裁切求混凝土壓力塊，oracle 改以 320 條數值積分；耐震軸力另行重算式 (6.4-1)、(6.4-6)~(6.4-7)、(9.3-1)~(9.3-2)；X、Y 向剪力分配所需 Mprc 皆以選定方向主筋層列及連續中性軸二分法獨立求 1.25Fyr 純彎狀態；Y 向第 5.5.2 節 RC 一般剪力、剪力摩擦、方向性幾何與 Ash 需求另行重算；Y 向鋼骨專案確認值、Ahcc=0、第 8.4.2 節接頭撓曲強度比、強柱弱梁與圍束亦以獨立算術重算。",
+    "version": "src-column.oracle.v0.10.0-research",
+    "independence": "不引用 src-column-core.js、斷面 catalog、共用 PMSection、正式雙軸、剪力、耐震軸力或耐震細節模組；測試以官方表格的獨立固定值走另一套算術路徑。正式雙軸核心以精確多邊形裁切求混凝土壓力塊，oracle 改以 320 條數值積分；耐震軸力另行重算式 (6.4-1)、(6.4-6)~(6.4-7)、(9.3-1)~(9.3-2)；X、Y 向剪力分配所需 Mprc 皆以選定方向主筋層列及連續中性軸二分法獨立求 1.25Fyr 純彎狀態；Y 向第 5.5.2 節 RC 一般剪力、剪力摩擦、方向性幾何與 Ash 需求另行重算；專案指定 AISC 360-22 G6 的翼板寬厚比、Cv2 與兩翼板 Vns 亦不引用正式剪力函式而獨立重算；Y 向專案確認值、Ahcc=0、第 8.4.2 節接頭撓曲強度比、強柱弱梁與圍束亦以獨立算術重算。",
     "covered": [
       "表 3.4-2 寬厚比",
       "剛度分配",
@@ -444,17 +466,17 @@
       "鋼骨式 (7.3-7)／(7.3-8) 雙軸壓彎互制",
       "RC 定軸力 Mux-Muy 互制曲面",
       "第 6.4.1、6.4.3 節完全包覆橫箍筋柱受壓強度與第 9.3 節耐震軸力組合",
-      "第 9.6.2 節 X 向柱剪力自動強度、Y 向鋼骨專案確認值、Y 向 RC 第 5.5.2 節自動路徑及既有案件專案確認 RC 路徑",
+      "第 9.6.2 節 X 向柱剪力自動強度、Y 向鋼骨專案確認值或專案指定 AISC 360-22 G6 自動路徑、Y 向 RC 第 5.5.2 節自動路徑及既有案件專案確認 RC 路徑",
       "第 8.4.2 節單一選定方向接頭撓曲強度比雙向算術與條件式 0.7 分支",
       "第 9.6.1 節單一選定方向接頭強柱弱梁雙向算術",
       "第 9.6.3 節現行選定方向矩形柱圍束量、範圍、間距、續接與 Y 向 Ahcc=0 確認"
     ],
     "uncovered": [
-      "Y 向鋼骨名義剪力強度的自動推導",
+      "臺灣 SRC 規範原生的 Y 向鋼骨名義剪力強度推導",
       "同一案件兩方向彙總、第 9.3 節專案拉力強度來源與傳力容量來源、全構架所有接頭、接頭區剪力與完整耐震設計細部"
     ],
     "test": "src-column-oracle.test.js",
-    "comparisonCount": 162,
+    "comparisonCount": 174,
     "approximateComparisonCount": 27,
     "driftSentinelCount": 7
   }

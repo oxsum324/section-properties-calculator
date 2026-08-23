@@ -115,15 +115,17 @@ function visibleText(reportHtml) {
     .trim();
 }
 
-assert.equal(Page.PAGE_VERSION, 'v0.5');
+assert.equal(Page.PAGE_VERSION, 'v0.6');
 assert.equal(Page.TOOL_ID, 'src-column-research');
-assert.equal(Page.CASE_SCHEMA, 'src-column-research.case.v4');
-assert.equal(Page.PREVIOUS_CASE_SCHEMA, 'src-column-research.case.v3');
-assert.equal(Page.PREVIOUS_PAGE_VERSION, 'v0.4');
+assert.equal(Page.CASE_SCHEMA, 'src-column-research.case.v5');
+assert.equal(Page.PREVIOUS_CASE_SCHEMA, 'src-column-research.case.v4');
+assert.equal(Page.PREVIOUS_PAGE_VERSION, 'v0.5');
+assert.equal(Page.INTERMEDIATE_CASE_SCHEMA, 'src-column-research.case.v3');
+assert.equal(Page.INTERMEDIATE_PAGE_VERSION, 'v0.4');
 assert.equal(Page.LEGACY_CASE_SCHEMA, 'src-column-research.case.v2');
 assert.equal(Page.LEGACY_PAGE_VERSION, 'v0.3');
-assert.match(html, /SRC 柱方向可選耐震研究核算 V0\.5/);
-assert.match(html, /案件 schema v4/);
+assert.match(html, /SRC 柱方向可選耐震研究核算 V0\.6/);
+assert.match(html, /案件 schema v5/);
 assert.match(html, /<body class="formal-tool-output-page">/);
 assert.match(html, /SRC 柱操作頁列印已封鎖/);
 assert.match(html, /id="btnReport"/);
@@ -134,7 +136,7 @@ assert.match(html, /id="enableShearSubcheck"[^>]*checked/);
 assert.match(html, /id="enableJointRatioSubcheck"[^>]*checked/);
 assert.match(html, /id="enableStrongColumnSubcheck"[^>]*checked/);
 assert.match(html, /id="enableConfinementSubcheck"[^>]*checked/);
-for (const fieldId of ['seismicAxis', 'muyTfM', 'mctTfM', 'mcbTfM', 'clearHeightCm', 'avCm2', 'weakAxisRcDesignBasis', 'weakAxisSteelNominalShearTf', 'weakAxisEffectiveDepthCm', 'weakAxisAvCm2', 'weakAxisAvfCm2', 'weakAxisRcNominalShearTf', 'weakAxisRequiredTransverseAreaCm2', 'xLayer1X', 'jcwSteelColumnTfM', 'jccwRcBeamTfM', 'cwUpperColumnTfM', 'ccwRightBeamTfM', 'coreWidthCm', 'coreAreaCm2', 'highlyConfinedAreaCm2', 'weakAxisAhccZeroConfirmed']) {
+for (const fieldId of ['seismicAxis', 'muyTfM', 'mctTfM', 'mcbTfM', 'clearHeightCm', 'avCm2', 'weakAxisSteelDesignBasis', 'weakAxisRcDesignBasis', 'weakAxisSteelNominalShearTf', 'weakAxisAiscG6ApplicabilityConfirmed', 'weakAxisEffectiveDepthCm', 'weakAxisAvCm2', 'weakAxisAvfCm2', 'weakAxisRcNominalShearTf', 'weakAxisRequiredTransverseAreaCm2', 'xLayer1X', 'jcwSteelColumnTfM', 'jccwRcBeamTfM', 'cwUpperColumnTfM', 'ccwRightBeamTfM', 'coreWidthCm', 'coreAreaCm2', 'highlyConfinedAreaCm2', 'weakAxisAhccZeroConfirmed']) {
   assert.match(html, new RegExp(`id="${fieldId}"`), `page exposes ${fieldId}`);
 }
 assert.match(html, /id="weakAxisSteelReference"[^>]*src-page-only[^>]*data-y-shear/, 'external weak-axis steel reference is explicitly page-only and direction-scoped');
@@ -207,6 +209,19 @@ manualWeakAxisInput.shear.weakAxisRcDesignBasis = 'project-confirmed';
 const manualWeakAxisResult = Core.calculate(manualWeakAxisInput);
 const manualWeakAxisConfig = Page.buildReportConfig(manualWeakAxisInput, manualWeakAxisResult, {});
 assert.equal(JSON.stringify(manualWeakAxisConfig).includes('專案確認 Vnrc'), true, 'legacy project-confirmed RC basis remains reportable');
+assert.equal(JSON.stringify(manualWeakAxisConfig).includes('ANSI/AISC 360-22 G6'), false, 'manual weak-axis report excludes an unadopted external comparison');
+
+const automaticAiscWeakAxisInput = clone(weakAxisInput);
+automaticAiscWeakAxisInput.shear.weakAxisSteelDesignBasis = 'project-specified-aisc-360-g6';
+automaticAiscWeakAxisInput.shear.weakAxisAiscG6ApplicabilityConfirmed = true;
+delete automaticAiscWeakAxisInput.shear.weakAxisSteelNominalShearTf;
+delete automaticAiscWeakAxisInput.shear.weakAxisStrengthsConfirmed;
+const automaticAiscWeakAxisResult = Core.calculate(automaticAiscWeakAxisInput);
+const automaticAiscWeakAxisConfig = Page.buildReportConfig(automaticAiscWeakAxisInput, automaticAiscWeakAxisResult, {});
+const automaticAiscWeakAxisConfigText = JSON.stringify(automaticAiscWeakAxisConfig);
+for (const needle of ['專案指定 ANSI/AISC 360-22 G6', 'bf/(2tf) / Cv2', 'Vns = 2 × 0.6 × Fys × bf × tf × Cv2', '306.4320', '275.7888']) {
+  assert.equal(automaticAiscWeakAxisConfigText.includes(needle), true, `adopted AISC G6 report includes ${needle}`);
+}
 
 const forbidden = [...new Set(Object.values(boundary.forbiddenCategories).flat())];
 const configText = JSON.stringify(config);
@@ -261,20 +276,32 @@ assert.throws(() => Page.migrateCasePayload({ ...legacyPayload, input: null }), 
 const previousPayload = Page.buildCasePayload(manualWeakAxisInput, manualWeakAxisResult, {}, reportUi);
 previousPayload.schema = Page.PREVIOUS_CASE_SCHEMA;
 previousPayload.tool.version = Page.PREVIOUS_PAGE_VERSION;
-previousPayload.tool.calculationEngine = 'src-column.core.v0.10.0-research';
-previousPayload.input.schema = 'src-column.input.v9';
-delete previousPayload.input.shear.weakAxisRcDesignBasis;
-delete previousPayload.input.shear.weakAxisEffectiveDepthCm;
-delete previousPayload.input.shear.weakAxisAvCm2;
-delete previousPayload.input.shear.weakAxisAvfCm2;
-delete previousPayload.input.shear.weakAxisRcStrengthConfirmed;
+previousPayload.tool.calculationEngine = 'src-column.core.v0.11.0-research';
+previousPayload.input.schema = 'src-column.input.v10';
 const previousMigration = Page.migrateCasePayload(previousPayload);
 assert.equal(previousMigration.migrated, true);
-assert.equal(previousMigration.payload.input.shear.weakAxisRcDesignBasis, 'project-confirmed', 'v0.4 weak-axis case preserves its historical manual RC basis');
-assert.equal(previousMigration.payload.input.shear.weakAxisRcNominalShearTf, 120, 'v0.4 weak-axis Vnrc is preserved');
-assert.equal(previousMigration.payload.input.shear.weakAxisRequiredTransverseAreaCm2, 1.2, 'v0.4 weak-axis Ash is preserved');
-assert.equal(previousMigration.payload.input.shear.weakAxisAvCm2, 2.54, 'v0.4 provided Av is mapped to the selected y direction');
-assert.doesNotThrow(() => Core.calculate(previousMigration.payload.input), 'v0.4 weak-axis case recalculates with preserved manual values');
+assert.equal(previousMigration.payload.input.shear.weakAxisSteelDesignBasis, 'project-confirmed', 'v0.5 weak-axis steel remains on its historical project-confirmed basis');
+assert.equal(previousMigration.payload.input.shear.weakAxisSteelNominalShearTf, 100, 'v0.5 weak-axis Vns is preserved');
+assert.equal(previousMigration.payload.input.shear.weakAxisRcDesignBasis, 'project-confirmed', 'v0.5 RC basis is preserved');
+assert.equal(previousMigration.payload.input.shear.weakAxisAiscG6ApplicabilityConfirmed, false, 'migration never opts an old case into AISC G6');
+assert.doesNotThrow(() => Core.calculate(previousMigration.payload.input), 'v0.5 weak-axis case recalculates without changing adopted strengths');
+
+const intermediatePayload = clone(previousPayload);
+intermediatePayload.schema = Page.INTERMEDIATE_CASE_SCHEMA;
+intermediatePayload.tool.version = Page.INTERMEDIATE_PAGE_VERSION;
+intermediatePayload.tool.calculationEngine = 'src-column.core.v0.10.0-research';
+intermediatePayload.input.schema = 'src-column.input.v9';
+delete intermediatePayload.input.shear.weakAxisRcDesignBasis;
+delete intermediatePayload.input.shear.weakAxisEffectiveDepthCm;
+delete intermediatePayload.input.shear.weakAxisAvCm2;
+delete intermediatePayload.input.shear.weakAxisAvfCm2;
+delete intermediatePayload.input.shear.weakAxisRcStrengthConfirmed;
+const intermediateMigration = Page.migrateCasePayload(intermediatePayload);
+assert.equal(intermediateMigration.payload.input.shear.weakAxisRcDesignBasis, 'project-confirmed', 'v0.4 weak-axis case preserves its historical manual RC basis');
+assert.equal(intermediateMigration.payload.input.shear.weakAxisRcNominalShearTf, 120, 'v0.4 weak-axis Vnrc is preserved');
+assert.equal(intermediateMigration.payload.input.shear.weakAxisRequiredTransverseAreaCm2, 1.2, 'v0.4 weak-axis Ash is preserved');
+assert.equal(intermediateMigration.payload.input.shear.weakAxisAvCm2, 2.54, 'v0.4 provided Av is mapped to the selected y direction');
+assert.doesNotThrow(() => Core.calculate(intermediateMigration.payload.input), 'v0.4 weak-axis case recalculates with preserved manual values');
 const changedInput = clone(input);
 changedInput.seismicAxial.pdTf = 450;
 const changedTrace = reportUi.buildReportTrace(Page.buildReportConfig(changedInput, Core.calculate(changedInput), {}));

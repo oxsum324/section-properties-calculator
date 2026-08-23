@@ -42,8 +42,8 @@ function officialExample14ShearInput() {
   };
 }
 
-assert.equal(Shear.VERSION, 'src-column.shear.v0.4.0-research', 'shear subcheck is explicitly versioned as research');
-assert.equal(WeakAxisReference.VERSION, 'src-column.weak-axis-shear-reference.v0.1.0');
+assert.equal(Shear.VERSION, 'src-column.shear.v0.5.0-research', 'shear subcheck is explicitly versioned as research');
+assert.equal(WeakAxisReference.VERSION, 'src-column.weak-axis-shear-reference.v0.2.0');
 const referenceSource = fs.readFileSync(path.join(__dirname, 'core', 'src-column-weak-axis-shear-reference.js'), 'utf8');
 const productionSource = fs.readFileSync(path.join(__dirname, 'core', 'src-column-shear.js'), 'utf8');
 assert.equal(referenceSource.includes('require('), false, 'external reference imports no production calculation');
@@ -62,7 +62,7 @@ close(officialAiscG6.cv2, 1, 1e-12, 'AISC Companion Example G.6 Cv2');
 close(officialAiscG6.shearArea, 7.0004, 1e-12, 'AISC Companion Example G.6 two-flange shear area');
 close(officialAiscG6.nominalShear, 210.012, 1e-12, 'AISC Companion Example G.6 nominal shear before published rounding');
 close(officialAiscG6.designShear, 189.0108, 1e-10, 'AISC Companion Example G.6 LRFD design shear before published rounding');
-assert.equal(officialAiscG6.adoption, 'not-adopted-by-production');
+assert.equal(officialAiscG6.adoption, 'independent-reference-not-consumed-by-production');
 
 const h500WeakAxisReference = WeakAxisReference.calculate({
   fy: 3500,
@@ -126,7 +126,7 @@ const weakAxisInput = {
 };
 const weakAxis = Shear.calculate(weakAxisInput);
 assert.equal(weakAxis.axis, 'y');
-assert.equal(weakAxis.strengthSource, 'project-confirmed-weak-axis');
+assert.equal(weakAxis.strengthSource, 'project-confirmed+project-confirmed-rc');
 close(weakAxis.demand.shearTf, 76.66666666666667, 1e-12, 'weak-axis demand remains equation 9.6-5');
 close(weakAxis.steel.designShearTf, 90, 1e-12, 'weak-axis steel design strength applies phi to the project-confirmed nominal value');
 close(weakAxis.rc.designShearTf, 90, 1e-12, 'weak-axis RC design strength applies phi to the project-confirmed nominal value');
@@ -144,7 +144,7 @@ const automaticWeakAxis = Shear.calculate({
   weakAxisAvCm2: 2.54,
   weakAxisAvfCm2: 2.54,
 });
-assert.equal(automaticWeakAxis.strengthSource, 'project-confirmed-steel+automatic-rc-clause-5.5.2');
+assert.equal(automaticWeakAxis.strengthSource, 'project-confirmed+automatic-rc-clause-5.5.2');
 assert.equal(automaticWeakAxis.rc.source, 'automatic-clause-5.5.2-selected-y-axis');
 close(automaticWeakAxis.rc.sectionWidthCm, 80, 1e-12, 'weak-axis RC path rotates the concrete depth into selected-direction b');
 close(automaticWeakAxis.rc.sectionDepthCm, 65, 1e-12, 'weak-axis RC path rotates the concrete width into selected-direction depth');
@@ -162,7 +162,33 @@ const externallyTracedWeakAxis = Shear.calculate({
   weakAxisSteelNominalShearTf: h500WeakAxisReference.nominalShear,
 });
 close(externallyTracedWeakAxis.steel.nominalShearTf, h500WeakAxisReference.nominalShear, 1e-12, 'project-confirmed weak-axis Vns can be reproduced by the independent AISC G6 reference');
-assert.equal(externallyTracedWeakAxis.strengthSource, 'project-confirmed-weak-axis', 'external comparison does not silently change the production authority label');
+assert.equal(externallyTracedWeakAxis.strengthSource, 'project-confirmed+project-confirmed-rc', 'external comparison does not silently change the production authority label');
+
+const automaticAiscWeakAxisInput = {
+  ...weakAxisInput,
+  widthCm: 65,
+  depthCm: 80,
+  steelDepthCm: 50,
+  steelFlangeWidthCm: 30.4,
+  steelFlangeThicknessCm: 2.4,
+  steelFysKgfCm2: 3500,
+  steelEsKgfCm2: 2_040_000,
+  weakAxisSteelDesignBasis: 'project-specified-aisc-360-g6',
+  weakAxisAiscG6ApplicabilityConfirmed: true,
+  weakAxisRcDesignBasis: 'automatic-clause-5.5.2',
+  weakAxisEffectiveDepthCm: 58,
+  weakAxisAvCm2: 2.54,
+  weakAxisAvfCm2: 2.54,
+};
+const automaticAiscWeakAxis = Shear.calculate(automaticAiscWeakAxisInput);
+assert.equal(automaticAiscWeakAxis.weakAxisSteelDesignBasis, 'project-specified-aisc-360-g6');
+assert.equal(automaticAiscWeakAxis.strengthSource, 'project-specified-aisc-360-g6+automatic-rc-clause-5.5.2');
+assert.equal(automaticAiscWeakAxis.steel.source, 'project-specified-aisc-360-g6');
+assert.equal(automaticAiscWeakAxis.steel.cv2Equation, 'G2-9');
+close(automaticAiscWeakAxis.steel.flangeSlenderness, 6.333333333333333, 1e-12, 'production AISC G6 flange slenderness');
+close(automaticAiscWeakAxis.steel.nominalShearTf, 306.432, 1e-12, 'production AISC G6 two-flange nominal shear');
+close(automaticAiscWeakAxis.steel.designShearTf, 275.7888, 1e-10, 'production AISC G6 design shear');
+assert.ok(automaticAiscWeakAxis.clauses.some(item => item.includes('ANSI/AISC 360-22 G6')), 'adopted clause is traceable in the result');
 
 const tooWideSpacing = officialExample14ShearInput();
 tooWideSpacing.spacingCm = 45;
@@ -213,6 +239,7 @@ for (const [code, mutate] of [
 }
 
 for (const [code, mutate] of [
+  ['unsupported-weak-axis-steel-design-basis', input => { input.weakAxisSteelDesignBasis = 'invented'; }],
   ['unsupported-weak-axis-rc-design-basis', input => { input.weakAxisRcDesignBasis = 'invented'; }],
   ['effective-depth-outside-section', input => { input.weakAxisEffectiveDepthCm = 65; }],
   ['confirmation-required', input => { input.normalWeightConcreteConfirmed = false; }],
@@ -235,4 +262,11 @@ for (const [code, mutate] of [
   );
 }
 
-console.log('SRC column seismic selected-axis shear subcheck OK (automatic x-axis + dual-basis y-axis RC boundaries)');
+assert.throws(
+  () => Shear.calculate({ ...automaticAiscWeakAxisInput, weakAxisAiscG6ApplicabilityConfirmed: false }),
+  error => error instanceof Shear.SrcColumnShearError && error.code === 'confirmation-required'
+    && error.path === 'weakAxisAiscG6ApplicabilityConfirmed',
+  'automatic AISC G6 basis fails closed without explicit project applicability confirmation'
+);
+
+console.log('SRC column seismic selected-axis shear subcheck OK (automatic x-axis + dual-basis y-axis steel/RC boundaries)');

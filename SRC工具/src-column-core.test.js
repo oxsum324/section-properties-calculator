@@ -84,8 +84,8 @@ function manualExample8() {
   return input;
 }
 
-assert.equal(Core.CORE_VERSION, 'src-column.core.v0.11.0-research', 'SRC column core is explicitly versioned as research');
-assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v10', 'SRC column core has a versioned input schema');
+assert.equal(Core.CORE_VERSION, 'src-column.core.v0.12.0-research', 'SRC column core is explicitly versioned as research');
+assert.equal(Core.INPUT_SCHEMA, 'src-column.input.v11', 'SRC column core has a versioned input schema');
 assert.equal(Core.RELEASE_STATUS, 'research-core-not-public', 'research core cannot be mistaken for a formal public route');
 assert.equal(Core.REGULATION_PROFILE.id, 'tw-src-2011', 'SRC column core uses the official current profile');
 assert.ok(Core.REGULATION_PROFILE.chapter3Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter5Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter6Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter7Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter8Url.endsWith('.pdf') && Core.REGULATION_PROFILE.chapter9Url.endsWith('.pdf'), 'official chapter sources remain explicit');
@@ -335,7 +335,7 @@ Object.assign(weakAxisPackageInput.shear, {
 weakAxisPackageInput.confinement.weakAxisAhccZeroConfirmed = true;
 const weakAxisPackage = Core.calculate(weakAxisPackageInput);
 assert.equal(weakAxisPackage.seismicAxis, 'y', 'integrated package preserves the selected y direction');
-assert.equal(weakAxisPackage.shear.strengthSource, 'project-confirmed-weak-axis');
+assert.equal(weakAxisPackage.shear.strengthSource, 'project-confirmed+project-confirmed-rc');
 close(weakAxisPackage.shear.probableMoments.steelNominalMomentTfM, 39.9, 1e-12, 'weak-axis steel probable-moment share uses ZyFys');
 assert.ok(Number.isFinite(weakAxisPackage.shear.probableMoments.rcProbableMomentTfM), 'weak-axis RC probable moment is derived from the coordinate-bar section rotated to y bending');
 assert.equal(Object.hasOwn(weakAxisPackage.shear.steel, 'webAreaCm2'), false, 'integrated weak-axis result never reuses the strong-axis steel web area');
@@ -346,7 +346,7 @@ assert.equal(weakAxisPackage.checks.engineeringStrength, true, 'selected weak-ax
 const automaticWeakAxisPackageInput = clone(weakAxisPackageInput);
 automaticWeakAxisPackageInput.shear.weakAxisRcDesignBasis = 'automatic-clause-5.5.2';
 const automaticWeakAxisPackage = Core.calculate(automaticWeakAxisPackageInput);
-assert.equal(automaticWeakAxisPackage.shear.strengthSource, 'project-confirmed-steel+automatic-rc-clause-5.5.2');
+assert.equal(automaticWeakAxisPackage.shear.strengthSource, 'project-confirmed+automatic-rc-clause-5.5.2');
 assert.equal(automaticWeakAxisPackage.shear.rc.source, 'automatic-clause-5.5.2-selected-y-axis');
 close(automaticWeakAxisPackage.shear.rc.sectionWidthCm, 80, 1e-12, 'integrated weak-axis RC path adopts concrete depth as selected-direction b');
 close(automaticWeakAxisPackage.shear.rc.sectionDepthCm, 65, 1e-12, 'integrated weak-axis RC path adopts concrete width as selected-direction depth');
@@ -354,6 +354,18 @@ close(automaticWeakAxisPackage.shear.rc.netConcreteWidthCm, 30, 1e-12, 'integrat
 close(automaticWeakAxisPackage.confinement.ash.providedCm2, 2.54, 1e-12, 'weak-axis confinement receives direction-specific provided Av');
 close(automaticWeakAxisPackage.confinement.ash.shearRequiredCm2, automaticWeakAxisPackage.shear.rc.requiredTransverseAreaCm2, 1e-12, 'automatic weak-axis RC demand flows into confinement without re-entry');
 assert.equal(automaticWeakAxisPackage.checks.engineeringStrength, true, 'automatic weak-axis RC path participates in the engineering check chain');
+
+const automaticAiscWeakAxisPackageInput = clone(automaticWeakAxisPackageInput);
+automaticAiscWeakAxisPackageInput.shear.weakAxisSteelDesignBasis = 'project-specified-aisc-360-g6';
+automaticAiscWeakAxisPackageInput.shear.weakAxisAiscG6ApplicabilityConfirmed = true;
+delete automaticAiscWeakAxisPackageInput.shear.weakAxisSteelNominalShearTf;
+delete automaticAiscWeakAxisPackageInput.shear.weakAxisStrengthsConfirmed;
+const automaticAiscWeakAxisPackage = Core.calculate(automaticAiscWeakAxisPackageInput);
+assert.equal(automaticAiscWeakAxisPackage.shear.strengthSource, 'project-specified-aisc-360-g6+automatic-rc-clause-5.5.2');
+assert.equal(automaticAiscWeakAxisPackage.shear.steel.cv2Equation, 'G2-9');
+close(automaticAiscWeakAxisPackage.shear.steel.nominalShearTf, 306.432, 1e-12, 'integrated project-specified AISC G6 steel Vns');
+close(automaticAiscWeakAxisPackage.shear.steel.designShearTf, 275.7888, 1e-10, 'integrated project-specified AISC G6 phi Vns');
+assert.equal(Object.hasOwn(automaticAiscWeakAxisPackage.shear.steel, 'webAreaCm2'), false, 'AISC weak-axis route uses the two flanges and never rotates the SRC web formula');
 
 const inconsistentJointComponents = clone(seismicPackageInput);
 inconsistentJointComponents.jointFlexuralStrengthRatio.cases[0].steelColumnSumTfM += 0.01;
@@ -484,6 +496,7 @@ for (const [expectedCode, mutate, makeInput] of [
 }
 
 for (const [expectedCode, mutate] of [
+  ['unsupported-weak-axis-steel-design-basis', input => { input.shear.weakAxisSteelDesignBasis = 'invented'; }],
   ['unsupported-weak-axis-rc-design-basis', input => { input.shear.weakAxisRcDesignBasis = 'invented'; }],
   ['effective-depth-outside-section', input => { input.shear.weakAxisEffectiveDepthCm = input.concrete.widthCm; }],
   ['confirmation-required', input => { input.shear.normalWeightConcreteConfirmed = false; }],
@@ -497,6 +510,14 @@ for (const [expectedCode, mutate] of [
   );
 }
 
+const unconfirmedAiscWeakAxis = clone(automaticAiscWeakAxisPackageInput);
+unconfirmedAiscWeakAxis.shear.weakAxisAiscG6ApplicabilityConfirmed = false;
+assert.throws(
+  () => Core.calculate(unconfirmedAiscWeakAxis),
+  error => error instanceof Core.SrcColumnInputError && error.issues.some(item => item.code === 'confirmation-required' && item.path === 'shear.weakAxisAiscG6ApplicabilityConfirmed'),
+  'integrated AISC G6 route fails closed without project applicability confirmation'
+);
+
 const catalogConflict = officialGuideExample8();
 catalogConflict.steel.areaCm2 = 214;
 assert.throws(
@@ -507,7 +528,7 @@ assert.throws(
 
 const catalogPath = path.join(__dirname, 'src-column-traceability.catalog.json');
 const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
-assert.equal(catalog.schemaVersion, 12, 'SRC column traceability schema includes direction-aware weak-axis RC shear');
+assert.equal(catalog.schemaVersion, 13, 'SRC column traceability schema includes controlled project-specified weak-axis steel shear');
 assert.equal(catalog.coreVersion, Core.CORE_VERSION, 'SRC column traceability follows the research engine version');
 assert.equal(catalog.release.status, Core.RELEASE_STATUS, 'traceability catalog keeps the core non-public');
 assert.equal(catalog.regulation.chapter3Url, Core.REGULATION_PROFILE.chapter3Url, 'catalog and core use the same official chapter 3 source');
@@ -523,7 +544,7 @@ assert.equal(catalog.sectionCatalog.source.printedPage, official.steelSection.so
 assert.equal(catalog.sectionCatalog.entryCount, 7, 'traceability states the deliberately limited catalog coverage');
 assert.deepEqual(
   catalog.equations.map(item => item.id),
-  ['src-3.4-2', 'src-6.4-1-7', 'src-6.4-2-5', 'src-7.3-3-6', 'src-7.3-7-8', 'src-7.3-9-10', 'rc-pm-current', 'rc-pm-biaxial', 'src-9.3-1-2', 'src-9.6-3-5', 'src-5.5-3', 'src-5.5-4-13', 'src-8.4-1-4', 'src-9.6-1', 'src-9.6-6-10'],
+  ['src-3.4-2', 'src-6.4-1-7', 'src-6.4-2-5', 'src-7.3-3-6', 'src-7.3-7-8', 'src-7.3-9-10', 'rc-pm-current', 'rc-pm-biaxial', 'src-9.3-1-2', 'src-9.6-3-5', 'src-5.5-3', 'project-aisc-360-g6', 'src-5.5-4-13', 'src-8.4-1-4', 'src-9.6-1', 'src-9.6-6-10'],
   'catalog covers every implemented equation family'
 );
 assert.equal(catalog.goldenCases[0].id, 'MOI-SRC-GUIDE-COLUMN-EXAMPLE-8', 'official example 8 remains the canonical research golden case');
@@ -538,7 +559,7 @@ close(catalog.goldenCases[0].expected.webSeismicReferenceLimit, official.compact
 const externalWeakAxisReference = catalog.externalWeakAxisSteelReference;
 assert.equal(externalWeakAxisReference.version, WeakAxisReference.VERSION, 'catalog identifies the independent AISC G6 reference version');
 assert.equal(externalWeakAxisReference.authority, '專案指定', 'external weak-axis reference uses the project-specified authority label');
-assert.ok(externalWeakAxisReference.authorityBoundary.includes('不自動取代') && externalWeakAxisReference.authorityBoundary.includes('Vnrc'), 'external reference keeps adoption and RC boundaries explicit');
+assert.ok(externalWeakAxisReference.authorityBoundary.includes('專案主動選擇') && externalWeakAxisReference.authorityBoundary.includes('Vnrc'), 'external reference keeps adoption and RC boundaries explicit');
 const catalogOfficialG6 = WeakAxisReference.calculate({ fy: 50, modulus: 29000, flangeWidth: 8.14, flangeThickness: 0.43 });
 close(externalWeakAxisReference.officialExample.expected.nominalShearKipBeforePublishedRounding, catalogOfficialG6.nominalShear, 1e-12, 'catalog preserves the official G.6 unrounded nominal shear');
 const catalogH500G6 = WeakAxisReference.calculate({ fy: 3500, modulus: 2040000, flangeWidth: 30.4, flangeThickness: 2.4, forceDivisor: 1000 });
@@ -585,9 +606,14 @@ close(automaticWeakAxisVerification.expected.rcSectionDepthCm, automaticWeakAxis
 close(automaticWeakAxisVerification.expected.netConcreteWidthCm, automaticWeakAxisPackage.shear.rc.netConcreteWidthCm, 1e-12, 'catalog preserves automatic weak-axis b prime');
 close(automaticWeakAxisVerification.expected.frictionPathTf, automaticWeakAxisPackage.shear.rc.frictionTf, 1e-12, 'catalog preserves automatic weak-axis shear-friction path');
 close(automaticWeakAxisVerification.expected.rcNominalShearTf, automaticWeakAxisPackage.shear.rc.nominalShearTf, 1e-12, 'catalog preserves automatic weak-axis nominal RC shear');
+const automaticAiscWeakAxisVerification = catalog.verificationCases.find(item => item.id === 'DERIVED-EXAMPLE-8-SEISMIC-Y-AXIS-PROJECT-AISC-G6');
+assert.ok(automaticAiscWeakAxisVerification.authorityBoundary.includes('不是臺灣 SRC 規範原生') && automaticAiscWeakAxisVerification.authorityBoundary.includes('專案明確指定'), 'AISC G6 verification states its project authority boundary');
+close(automaticAiscWeakAxisVerification.expected.flangeSlenderness, automaticAiscWeakAxisPackage.shear.steel.flangeSlenderness, 1e-12, 'catalog preserves adopted AISC G6 flange slenderness');
+close(automaticAiscWeakAxisVerification.expected.steelNominalShearTf, automaticAiscWeakAxisPackage.shear.steel.nominalShearTf, 1e-12, 'catalog preserves adopted AISC G6 nominal shear');
+close(automaticAiscWeakAxisVerification.expected.steelDesignShearTf, automaticAiscWeakAxisPackage.shear.steel.designShearTf, 1e-12, 'catalog preserves adopted AISC G6 design shear');
 assert.equal(catalog.oracle.file, 'core/src-column-oracle.js', 'catalog identifies the independent oracle');
-assert.equal(catalog.oracle.version, 'src-column.oracle.v0.9.0-research', 'catalog identifies the current independent oracle version');
-assert.equal(catalog.oracle.comparisonCount, 162, 'catalog states the independently compared exact arithmetic surface');
+assert.equal(catalog.oracle.version, 'src-column.oracle.v0.10.0-research', 'catalog identifies the current independent oracle version');
+assert.equal(catalog.oracle.comparisonCount, 174, 'catalog states the independently compared exact arithmetic surface');
 assert.equal(catalog.oracle.approximateComparisonCount, 27, 'catalog states the production/oracle tolerance comparisons');
 assert.equal(catalog.oracle.driftSentinelCount, 7, 'catalog states all independent drift sentinels');
 assert.ok(catalog.oracle.covered.includes('RC 應變相容 P-M'), 'catalog declares the completed independent RC P-M coverage');

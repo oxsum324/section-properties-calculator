@@ -79,7 +79,7 @@ function compare(production, oracle, paths, tolerance) {
   });
 }
 
-assert.equal(Oracle.ORACLE_VERSION, 'src-column.oracle.v0.9.0-research', 'independent oracle is explicitly versioned');
+assert.equal(Oracle.ORACLE_VERSION, 'src-column.oracle.v0.10.0-research', 'independent oracle is explicitly versioned');
 assert.equal(Oracle.SUPPORTED_SCHEMA, Production.INPUT_SCHEMA, 'oracle and production accept the same research input schema');
 const oracleSource = fs.readFileSync(path.join(__dirname, 'core', 'src-column-oracle.js'), 'utf8');
 assert.equal(oracleSource.includes('require('), false, 'oracle imports neither the production core nor shared PMSection');
@@ -470,7 +470,7 @@ assert.deepEqual(compare(weakAxisProduction, weakAxisOracle, weakAxisTolerancePa
 assert.equal(Object.hasOwn(weakAxisProduction.shear.steel, 'webAreaCm2'), false, 'production weak-axis result does not rotate the x-axis web formula');
 assert.equal(Object.hasOwn(weakAxisOracle.shear.steel, 'webAreaCm2'), false, 'oracle independently preserves the same weak-axis formula boundary');
 assert.ok(weakAxisOracle.coverage.covered.includes('project-confirmed-y-axis-column-shear-subcheck'));
-assert.ok(weakAxisOracle.coverage.uncovered.includes('automatic-y-axis-steel-nominal-strength-derivation'));
+assert.ok(weakAxisOracle.coverage.uncovered.includes('taiwan-src-native-y-axis-steel-strength'));
 
 const automaticWeakAxisOracleInput = structuredClone(weakAxisOracleInput);
 automaticWeakAxisOracleInput.shear.weakAxisRcDesignBasis = 'automatic-clause-5.5.2';
@@ -519,6 +519,35 @@ const automaticWeakAxisTolerancePaths = [
 ];
 assert.deepEqual(compare(automaticWeakAxisProduction, automaticWeakAxisOracle, automaticWeakAxisTolerancePaths, 0.002), [], 'continuous probable-moment oracle agrees with automatic weak-axis RC demand and confinement flow');
 assert.ok(automaticWeakAxisOracle.coverage.covered.includes('automatic-y-axis-rc-shear-clause-5.5.2'));
+
+const automaticAiscWeakAxisOracleInput = structuredClone(automaticWeakAxisOracleInput);
+automaticAiscWeakAxisOracleInput.shear.weakAxisSteelDesignBasis = 'project-specified-aisc-360-g6';
+automaticAiscWeakAxisOracleInput.shear.weakAxisAiscG6ApplicabilityConfirmed = true;
+delete automaticAiscWeakAxisOracleInput.shear.weakAxisSteelNominalShearTf;
+delete automaticAiscWeakAxisOracleInput.shear.weakAxisStrengthsConfirmed;
+const automaticAiscWeakAxisProductionInput = structuredClone(automaticAiscWeakAxisOracleInput);
+automaticAiscWeakAxisProductionInput.steel = {
+  catalogId: 'rh-500x304x15x24',
+  grade: automaticAiscWeakAxisOracleInput.steel.grade,
+  fysKgfCm2: automaticAiscWeakAxisOracleInput.steel.fysKgfCm2,
+  fywKgfCm2: automaticAiscWeakAxisOracleInput.steel.fywKgfCm2,
+  esKgfCm2: automaticAiscWeakAxisOracleInput.steel.esKgfCm2,
+};
+const automaticAiscWeakAxisProduction = Production.calculate(automaticAiscWeakAxisProductionInput);
+const automaticAiscWeakAxisOracle = Oracle.calculate(automaticAiscWeakAxisOracleInput);
+const automaticAiscWeakAxisExactPaths = [
+  'shear.steel.fyKgfCm2', 'shear.steel.modulusKgfCm2',
+  'shear.steel.flangeWidthCm', 'shear.steel.flangeThicknessCm',
+  'shear.steel.kv', 'shear.steel.flangeSlenderness',
+  'shear.steel.yieldingLimit', 'shear.steel.inelasticLimit',
+  'shear.steel.cv2', 'shear.steel.shearAreaCm2',
+  'shear.steel.nominalShearTf', 'shear.steel.designShearTf',
+];
+assert.deepEqual(compare(automaticAiscWeakAxisProduction, automaticAiscWeakAxisOracle, automaticAiscWeakAxisExactPaths, 1e-10), [], 'independent oracle agrees with project-specified AISC G6 weak-axis steel arithmetic');
+assert.equal(automaticAiscWeakAxisOracle.shear.steel.cv2Equation, 'G2-9');
+assert.equal(automaticAiscWeakAxisOracle.shear.steel.source, 'project-specified-aisc-360-g6');
+assert.ok(automaticAiscWeakAxisOracle.coverage.covered.includes('project-specified-aisc-360-g6-y-axis-steel-shear'));
+assert.equal(Object.hasOwn(automaticAiscWeakAxisOracle.shear.steel, 'webAreaCm2'), false, 'independent AISC G6 route uses flange elements, not a rotated SRC web area');
 
 const drifted = structuredClone(production);
 drifted.steel.nominalMomentXTfM += 0.01;
@@ -619,4 +648,4 @@ for (const [code, mutate] of [
   );
 }
 
-console.log(`SRC column independent oracle OK (${comparedPaths.length + rcComparedPaths.length + 6 + shearExactPaths.length + axialExactPaths.length + detailingExactPaths.length + weakAxisExactPaths.length + automaticWeakAxisExactPaths.length} exact comparisons + ${3 + shearTolerancePaths.length + weakAxisTolerancePaths.length + automaticWeakAxisTolerancePaths.length} tolerance comparisons + seven drift sentinels)`);
+console.log(`SRC column independent oracle OK (${comparedPaths.length + rcComparedPaths.length + 6 + shearExactPaths.length + axialExactPaths.length + detailingExactPaths.length + weakAxisExactPaths.length + automaticWeakAxisExactPaths.length + automaticAiscWeakAxisExactPaths.length} exact comparisons + ${3 + shearTolerancePaths.length + weakAxisTolerancePaths.length + automaticWeakAxisTolerancePaths.length} tolerance comparisons + seven drift sentinels)`);

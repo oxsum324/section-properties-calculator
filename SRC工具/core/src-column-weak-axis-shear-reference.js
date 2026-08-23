@@ -1,11 +1,11 @@
 /* Independent external reference for H-shape weak-axis steel shear.
  *
- * This module is intentionally not part of the SRC column production
+ * This module is intentionally independent from the SRC column production
  * calculation. It reproduces AISC 360 Section G6 and the Section G2.2 Cv2
- * branches so a project-specified weak-axis steel nominal shear can be
- * compared with an external, sourced arithmetic path. Taiwan SRC clauses
- * 5.5.1 and 9.6.2 remain the governing production profile; this reference
- * must never silently replace the project-confirmed Vns input.
+ * branches so the controlled project-specified path can be checked against
+ * a second sourced arithmetic implementation. Taiwan SRC clause 5.5.1 is
+ * never rotated into the weak axis, and this comparator never selects or
+ * replaces the adopted production basis.
  *
  * Inputs may use any consistent stress/length system. forceDivisor converts
  * stress x area to the desired force unit (1 for ksi/in -> kip, 1000 for
@@ -18,7 +18,7 @@
 })(typeof window !== 'undefined' ? window : globalThis, function buildWeakAxisShearReference() {
   'use strict';
 
-  const VERSION = 'src-column.weak-axis-shear-reference.v0.1.0';
+  const VERSION = 'src-column.weak-axis-shear-reference.v0.2.0';
   const DEFAULT_KV = 1.2;
   const DEFAULT_PHI = 0.9;
   const SOURCE = Object.freeze({
@@ -26,7 +26,7 @@
     standard: 'ANSI/AISC 360-22',
     clause: 'G6 with Cv2 from G2.2',
     example: 'Companion V16.0 Example G.6, printed pages G-13 to G-14',
-    url: 'https://www.aisc.org/globalassets/aisc/university-programs/teaching-aids/first-semester-design-examples---v16.0.pdf',
+    url: 'https://www.aisc.org/media/kybevlwy/first-semester-design-examples-v160.pdf',
   });
 
   class WeakAxisShearReferenceError extends Error {
@@ -80,7 +80,7 @@
     return Object.freeze({
       version: VERSION,
       mode: 'external-reference-only',
-      adoption: 'not-adopted-by-production',
+      adoption: 'independent-reference-not-consumed-by-production',
       source: SOURCE,
       kv,
       phi,

@@ -40,8 +40,8 @@
 })(typeof window !== 'undefined' ? window : globalThis, function buildSrcColumnCore(PMSection, HSectionCatalog, RcBiaxial, ColumnShear, SeismicDetailing, SeismicAxial) {
   'use strict';
 
-  const CORE_VERSION = 'src-column.core.v0.11.0-research';
-  const INPUT_SCHEMA = 'src-column.input.v10';
+  const CORE_VERSION = 'src-column.core.v0.12.0-research';
+  const INPUT_SCHEMA = 'src-column.input.v11';
   const RELEASE_STATUS = 'research-core-not-public';
   const REGULATION_PROFILE = Object.freeze({
     id: 'tw-src-2011',
@@ -343,6 +343,7 @@
 
     if (shearRequested) {
       const weakAxisRcDesignBasis = shear.weakAxisRcDesignBasis || 'project-confirmed';
+      const weakAxisSteelDesignBasis = shear.weakAxisSteelDesignBasis || 'project-confirmed';
       const positiveShearFields = [['shear.clearHeightCm', shear.clearHeightCm]];
       if (seismicAxis === 'x') {
         positiveShearFields.push(
@@ -354,10 +355,15 @@
           ['shear.fyhKgfCm2', shear.fyhKgfCm2]
         );
       } else if (seismicAxis === 'y') {
+        if (!['project-confirmed', 'project-specified-aisc-360-g6'].includes(weakAxisSteelDesignBasis)) {
+          addBlocked('unsupported-weak-axis-steel-design-basis', 'shear.weakAxisSteelDesignBasis', 'Y 向鋼骨剪力依據必須選擇「專案確認值」或「專案指定 ANSI/AISC 360-22 G6」。');
+        }
         if (!['automatic-clause-5.5.2', 'project-confirmed'].includes(weakAxisRcDesignBasis)) {
           addBlocked('unsupported-weak-axis-rc-design-basis', 'shear.weakAxisRcDesignBasis', 'Y 向 RC 剪力依據必須選擇「第 5.5.2 節自動計算」或「專案確認值」。');
         }
-        positiveShearFields.push(['shear.weakAxisSteelNominalShearTf', shear.weakAxisSteelNominalShearTf]);
+        if (weakAxisSteelDesignBasis === 'project-confirmed') {
+          positiveShearFields.push(['shear.weakAxisSteelNominalShearTf', shear.weakAxisSteelNominalShearTf]);
+        }
         if (weakAxisRcDesignBasis === 'automatic-clause-5.5.2') {
           positiveShearFields.push(
             ['shear.weakAxisEffectiveDepthCm', shear.weakAxisEffectiveDepthCm],
@@ -411,7 +417,11 @@
         );
       }
       if (seismicAxis === 'y') {
-        confirmations.push(['shear.weakAxisStrengthsConfirmed', shear.weakAxisStrengthsConfirmed, '須確認 Y 向鋼骨名義剪力強度來自專案核定計算。']);
+        if (weakAxisSteelDesignBasis === 'project-specified-aisc-360-g6') {
+          confirmations.push(['shear.weakAxisAiscG6ApplicabilityConfirmed', shear.weakAxisAiscG6ApplicabilityConfirmed, '須確認本案明確採用 ANSI/AISC 360-22 G6，且鋼骨承受無扭轉之弱軸剪力。']);
+        } else {
+          confirmations.push(['shear.weakAxisStrengthsConfirmed', shear.weakAxisStrengthsConfirmed, '須確認 Y 向鋼骨名義剪力強度來自專案核定計算。']);
+        }
         if (weakAxisRcDesignBasis === 'project-confirmed') {
           confirmations.push(
             ['shear.weakAxisRcStrengthConfirmed', shear.weakAxisRcStrengthConfirmed, '須確認 Y 向 RC 名義剪力強度來自專案核定計算。'],
@@ -771,8 +781,11 @@
           fcKgfCm2: Number(concrete.fcKgfCm2),
           steelDepthCm: Number(steel.depthCm),
           steelFlangeWidthCm: Number(steel.flangeWidthCm),
+          steelFlangeThicknessCm: Number(steel.flangeThicknessCm),
           steelWebThicknessCm: Number(steel.webThicknessCm),
           steelFywKgfCm2: Number(steel.fywKgfCm2),
+          steelFysKgfCm2: Number(steel.fysKgfCm2),
+          steelEsKgfCm2: Number(steel.esKgfCm2),
           steelNominalMomentTfM,
           rcProbableMomentTfM,
           rcAxialDemandTf: finalRcDemands.puTf,
@@ -791,7 +804,9 @@
           normalWeightConcreteConfirmed: input.shear.normalWeightConcreteConfirmed,
           monolithicInterfaceConfirmed: input.shear.monolithicInterfaceConfirmed,
           transverseReinforcementPerpendicularConfirmed: input.shear.transverseReinforcementPerpendicularConfirmed,
+          weakAxisSteelDesignBasis: input.shear.weakAxisSteelDesignBasis,
           weakAxisSteelNominalShearTf: Number(input.shear.weakAxisSteelNominalShearTf),
+          weakAxisAiscG6ApplicabilityConfirmed: input.shear.weakAxisAiscG6ApplicabilityConfirmed,
           weakAxisRcDesignBasis: input.shear.weakAxisRcDesignBasis,
           weakAxisEffectiveDepthCm: Number(input.shear.weakAxisEffectiveDepthCm),
           weakAxisAvCm2: Number(input.shear.weakAxisAvCm2),
