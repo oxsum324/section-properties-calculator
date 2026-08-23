@@ -2,12 +2,12 @@
   "publicEvidenceSchemaVersion": 3,
   "snapshotVersion": 1,
   "kind": "preflight-summary",
-  "generatedAt": "2026-08-23 15:50:50",
-  "runId": "20260823-151814",
+  "generatedAt": "2026-08-23 17:08:02",
+  "runId": "20260823-163451",
   "quick": false,
   "forcePlatformAudit": true,
   "forceSlowChecks": true,
-  "sourceCommitSha": "a68cdb16a74b66006538ccf5c092abf4db2c6d99",
+  "sourceCommitSha": "219e4e8005a1a862a2e3cd5392770b3b464d5bfc",
   "sourceBranch": "master",
   "sourceDirty": false,
   "pass": true,
@@ -18,109 +18,18 @@
   "platformAuditReused": false,
   "recordsCount": 86,
   "passedCount": 86,
-  "totalSeconds": 1884.6,
+  "totalSeconds": 1921.5,
   "slowestKey": "platform-audit",
-  "slowestSeconds": 839.2,
+  "slowestSeconds": 814.8,
   "postCheckCount": 3,
   "postChecksPassedCount": 3,
   "postCheckFailures": [],
-  "sourcePath": "output/preflight/history/20260823-151814/preflight-summary.json",
-  "sourceHash": "8f235a2f68f7cd09345a1c84a2d57a5a268f5b849378ddc921fb21a1d6d5e613",
+  "sourcePath": "output/preflight/history/20260823-163451/preflight-summary.json",
+  "sourceHash": "9e220d076ebc6c3fc25a71252cb669620bed6aee0de34e556cdf7926ee0fda7b",
   "releaseHistory": {
     "schemaVersion": 2,
     "limit": 8,
     "entries": [
-      {
-        "runId": "20260823-022124",
-        "generatedAt": "2026-08-23 02:54:15",
-        "sourceCommitSha": "e5073ae4cc503dfa762b138a8d407554d0c18864",
-        "records": {
-          "passed": 86,
-          "required": 86
-        },
-        "postChecks": {
-          "passed": 3,
-          "required": 3
-        },
-        "dimensions": [
-          {
-            "id": "release",
-            "pass": true
-          },
-          {
-            "id": "steel",
-            "pass": true
-          },
-          {
-            "id": "rc",
-            "pass": true
-          },
-          {
-            "id": "delivery",
-            "pass": true
-          }
-        ],
-        "metrics": [
-          {
-            "id": "steelResult",
-            "complete": 5,
-            "required": 5
-          },
-          {
-            "id": "steelContentSeal",
-            "complete": 5,
-            "required": 5
-          },
-          {
-            "id": "steelApprovalSeal",
-            "complete": 5,
-            "required": 5
-          },
-          {
-            "id": "rcResult",
-            "complete": 34,
-            "required": 34
-          },
-          {
-            "id": "rcPrint",
-            "complete": 34,
-            "required": 34
-          },
-          {
-            "id": "rcPackage",
-            "complete": 32,
-            "required": 32
-          },
-          {
-            "id": "formalResult",
-            "complete": 14,
-            "required": 14
-          },
-          {
-            "id": "localQuickResult",
-            "complete": 3,
-            "required": 3
-          },
-          {
-            "id": "rendered",
-            "complete": 32,
-            "required": 32
-          },
-          {
-            "id": "delivery",
-            "complete": 143,
-            "required": 143
-          }
-        ],
-        "change": {
-          "policyVersion": 1,
-          "classification": "baseline",
-          "increases": [],
-          "reductions": [],
-          "reasonCode": "",
-          "reason": ""
-        }
-      },
       {
         "runId": "20260823-034434",
         "generatedAt": "2026-08-23 04:17:34",
@@ -205,7 +114,7 @@
         ],
         "change": {
           "policyVersion": 1,
-          "classification": "unchanged",
+          "classification": "baseline",
           "increases": [],
           "reductions": [],
           "reasonCode": "",
@@ -671,6 +580,97 @@
         "runId": "20260823-151814",
         "generatedAt": "2026-08-23 15:50:50",
         "sourceCommitSha": "a68cdb16a74b66006538ccf5c092abf4db2c6d99",
+        "records": {
+          "passed": 86,
+          "required": 86
+        },
+        "postChecks": {
+          "passed": 3,
+          "required": 3
+        },
+        "dimensions": [
+          {
+            "id": "release",
+            "pass": true
+          },
+          {
+            "id": "steel",
+            "pass": true
+          },
+          {
+            "id": "rc",
+            "pass": true
+          },
+          {
+            "id": "delivery",
+            "pass": true
+          }
+        ],
+        "metrics": [
+          {
+            "id": "steelResult",
+            "complete": 5,
+            "required": 5
+          },
+          {
+            "id": "steelContentSeal",
+            "complete": 5,
+            "required": 5
+          },
+          {
+            "id": "steelApprovalSeal",
+            "complete": 5,
+            "required": 5
+          },
+          {
+            "id": "rcResult",
+            "complete": 34,
+            "required": 34
+          },
+          {
+            "id": "rcPrint",
+            "complete": 34,
+            "required": 34
+          },
+          {
+            "id": "rcPackage",
+            "complete": 32,
+            "required": 32
+          },
+          {
+            "id": "formalResult",
+            "complete": 14,
+            "required": 14
+          },
+          {
+            "id": "localQuickResult",
+            "complete": 3,
+            "required": 3
+          },
+          {
+            "id": "rendered",
+            "complete": 32,
+            "required": 32
+          },
+          {
+            "id": "delivery",
+            "complete": 143,
+            "required": 143
+          }
+        ],
+        "change": {
+          "policyVersion": 1,
+          "classification": "unchanged",
+          "increases": [],
+          "reductions": [],
+          "reasonCode": "",
+          "reason": ""
+        }
+      },
+      {
+        "runId": "20260823-163451",
+        "generatedAt": "2026-08-23 17:08:02",
+        "sourceCommitSha": "219e4e8005a1a862a2e3cd5392770b3b464d5bfc",
         "records": {
           "passed": 86,
           "required": 86
