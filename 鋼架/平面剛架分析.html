@@ -207,6 +207,7 @@
               <option value="portalSymmetricUdlBenchmark">門架梁對稱均布載重</option>
               <option value="inclinedCantileverBenchmark">3–4–5 斜桿懸臂端點力</option>
               <option value="elasticSupportPortalBenchmark">水平彈簧柱腳門架側推</option>
+              <option value="rotationalSpringCantileverBenchmark">轉動彈簧柱腳懸臂側推</option>
             </select>
             <button class="btn btn-accent btn-sm" id="loadFrameBenchmarkButton" onclick="loadSelectedFrameBenchmark()">載入並分析</button>
           </div>
@@ -1986,6 +1987,30 @@ function getFrameBenchmarkDefinition(kind) {
         { label: 'M2 i 端彎矩', unit: 'tf·m', expected: -9.58164319809908, source: ['memberEnd', 2, 2, 1] },
       ],
     },
+    rotationalSpringCantileverBenchmark: {
+      id: 'PF-BM-CANTILEVER-RSPRING-01',
+      title: '轉動彈簧柱腳懸臂承受端點水平力',
+      basis: 'Euler–Bernoulli 懸臂梁封閉解，加上柱腳轉動彈簧之剛體轉動 PL/kθ',
+      model: {
+        nodes: [
+          { id: 1, x: 0, y: 0, cx: true, cy: true, crz: false, kx: 0, ky: 0, krz: 5000 },
+          { id: 2, x: 0, y: 4, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+        ],
+        members: [
+          { id: 1, i: 1, j: 2, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+        ],
+        nodalLoads: [{ caseId: 1, node: 2, Fx: 10, Fy: 0, M: 0 }],
+        memberLoads: [],
+      },
+      metrics: [
+        { label: 'N1 柱腳轉角 θZ', unit: 'mrad', expected: -8, source: ['nodeDof', 1, 2, 1000] },
+        { label: 'N2 柱頂水平位移 uX', unit: 'mm', expected: 108.89350249903883, source: ['nodeDof', 2, 0, 1000] },
+        { label: 'N2 柱頂轉角 θZ', unit: 'mrad', expected: -36.83506343713956, source: ['nodeDof', 2, 2, 1000] },
+        { label: 'N1 轉動彈簧反力矩 Mz', unit: 'tf·m', expected: 40, source: ['reaction', 1, 2, 1] },
+        { label: 'M1 i 端彎矩', unit: 'tf·m', expected: 40, source: ['memberEnd', 1, 2, 1] },
+        { label: 'M1 i 端剪力', unit: 'tf', expected: 10, source: ['memberEnd', 1, 1, 1] },
+      ],
+    },
   };
   return definitions[kind] || null;
 }
@@ -2507,7 +2532,7 @@ function setReportLink(url) {
 }
 
 function loadExample(kind) {
-  if (kind === 'portalSideswayBenchmark' || kind === 'portalSymmetricUdlBenchmark' || kind === 'inclinedCantileverBenchmark' || kind === 'elasticSupportPortalBenchmark') {
+  if (kind === 'portalSideswayBenchmark' || kind === 'portalSymmetricUdlBenchmark' || kind === 'inclinedCantileverBenchmark' || kind === 'elasticSupportPortalBenchmark' || kind === 'rotationalSpringCantileverBenchmark') {
     loadFromData(frameBenchmarkProjectData(kind));
     state.benchmarkId = kind;
     renderFrameBenchmarkPanel();

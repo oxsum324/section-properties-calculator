@@ -317,6 +317,7 @@ const frameBenchmarkPageOnlyNeedles = [
   'PF-BM-PORTAL-UDL-01',
   'PF-BM-INCLINED-CANTILEVER-01',
   'PF-BM-PORTAL-HSPRING-01',
+  'PF-BM-CANTILEVER-RSPRING-01',
 ];
 
 function reportHtmlText(reportHtml) {
@@ -401,6 +402,7 @@ assertIncludesAll(frameAnalysisHtml, [
   'value="portalSymmetricUdlBenchmark"',
   'value="inclinedCantileverBenchmark"',
   'value="elasticSupportPortalBenchmark"',
+  'value="rotationalSpringCantileverBenchmark"',
   'function loadSelectedFrameBenchmark',
   'URL.createObjectURL(new Blob',
   'lastReportObjectUrl',
@@ -492,7 +494,7 @@ assert(readyFrameReport.html.includes('Codex QA'), 'rigid frame complete report 
 const frameProjectFixture = {
   schema: 'plane-frame.project.v1',
   tool: '平面剛架分析',
-  version: 'V0.8',
+  version: 'V0.9',
   unit: 'tf-m',
   project: { name: 'Frame Replay', no: 'FR-R01', designer: 'QA', note: 'JSON result chain' },
   defaults: { E: 2040, A: 63.1, I: 13600 },
@@ -528,7 +530,7 @@ const sourceFrameReport = captureFrameReportHtml(
 );
 const sourceFrameFingerprint = reportCalculationFingerprint(sourceFrameReport.html);
 assert(sourceProjectJson.schema === 'plane-frame.project.v1', 'rigid frame JSON declares stable schema', sourceProjectJson.schema);
-assert(sourceProjectJson.version === 'V0.8', 'rigid frame JSON records current version', sourceProjectJson.version);
+assert(sourceProjectJson.version === 'V0.9', 'rigid frame JSON records current version', sourceProjectJson.version);
 assert(sourceProjectJson.calculationEngine === frameMetadata.calculationEngine, 'rigid frame JSON records canonical calculation engine', sourceProjectJson.calculationEngine);
 assert(frameRuntime.context.state.solution.equilibrium.ok === true, 'rigid frame replay fixture passes equilibrium check', JSON.stringify(frameRuntime.context.state.solution.equilibrium));
 assert(/^[0-9a-f]{64}$/.test(sourceResultSha256), 'rigid frame source input/result snapshot has stable SHA-256', sourceResultSha256);
@@ -889,6 +891,67 @@ assertNear(elasticSupportPortal.springForces[0], elasticSupportPortalExpected.sp
 assertNear(elasticSupportPortal.elems[0].qLocal[2], elasticSupportPortalExpected.columnBaseMoment, 1e-10, 'elastic-support portal column base moment matches reduced solution');
 assertNear(elasticSupportPortal.elems[1].qLocal[2], elasticSupportPortalExpected.beamEndMoment, 1e-10, 'elastic-support portal beam end moment matches reduced solution');
 
+function rotationalSpringCantileverReference({ EI, L, P, krz }) {
+  // A horizontal tip force produces a clockwise rigid-body rotation at the
+  // spring support. The tip response is the sum of that rotation and the
+  // ordinary fixed-base Euler–Bernoulli cantilever deformation.
+  const baseRotation = -P * L / krz;
+  const rigidRotationDisplacement = -baseRotation * L;
+  const flexuralDisplacement = P * L ** 3 / (3 * EI);
+  const flexuralTipRotation = -P * L ** 2 / (2 * EI);
+  return {
+    baseRotation,
+    rigidRotationDisplacement,
+    flexuralDisplacement,
+    topDisplacement: rigidRotationDisplacement + flexuralDisplacement,
+    tipRotation: baseRotation + flexuralTipRotation,
+    springReactionMoment: -krz * baseRotation,
+    memberBaseMoment: P * L,
+    memberBaseShear: P,
+  };
+}
+
+const cantileverRotationalSpring = 5000;
+const rotationalSpringCantilever = runClosedFormFrameCase({
+  id: 'cantilever-with-base-rotational-spring',
+  ...closedFormMaterial,
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: false, kx: 0, ky: 0, krz: cantileverRotationalSpring },
+    { id: 2, x: 0, y: portalHeight, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [
+    { id: 1, i: 1, j: 2, ...closedFormMaterial, relI: false, relJ: false },
+  ],
+  nodalLoads: [{ caseId: 1, node: 2, Fx: 10, Fy: 0, M: 0 }],
+});
+const rotationalSpringCantileverExpected = rotationalSpringCantileverReference({
+  EI: closedFormEI,
+  L: portalHeight,
+  P: 10,
+  krz: cantileverRotationalSpring,
+});
+const rotationalSpringCantileverReferenceFixture = Object.freeze({
+  baseRotation: -0.008,
+  rigidRotationDisplacement: 0.032,
+  flexuralDisplacement: 0.07689350249903883,
+  topDisplacement: 0.10889350249903883,
+  tipRotation: -0.03683506343713956,
+  springReactionMoment: 40,
+  memberBaseMoment: 40,
+  memberBaseShear: 10,
+});
+for (const [key, expected] of Object.entries(rotationalSpringCantileverReferenceFixture)) {
+  assertNear(rotationalSpringCantileverExpected[key], expected, 1e-12, `rotational-spring cantilever closed-form equations match frozen reference result: ${key}`);
+}
+assertNear(rotationalSpringCantilever.d[2], rotationalSpringCantileverExpected.baseRotation, 1e-10, 'rotational-spring cantilever base rotation matches -PL/krz');
+assertNear(rotationalSpringCantilever.d[3], rotationalSpringCantileverExpected.topDisplacement, 1e-10, 'rotational-spring cantilever top displacement combines rigid rotation and beam flexure');
+assertNear(rotationalSpringCantilever.d[5], rotationalSpringCantileverExpected.tipRotation, 1e-10, 'rotational-spring cantilever tip rotation combines base and beam rotations');
+assertNear(rotationalSpringCantilever.reactions[0], -10, 1e-10, 'rotational-spring cantilever fixed horizontal base DOF balances the tip force');
+assertNear(rotationalSpringCantilever.reactions[2], rotationalSpringCantileverExpected.springReactionMoment, 1e-10, 'rotational-spring cantilever spring reaction balances the load moment');
+assertNear(rotationalSpringCantilever.springForces[2], rotationalSpringCantileverExpected.springReactionMoment, 1e-10, 'rotational-spring cantilever exposes rotational spring force in the governed result chain');
+assertNear(rotationalSpringCantilever.elems[0].qLocal[2], rotationalSpringCantileverExpected.memberBaseMoment, 1e-10, 'rotational-spring cantilever member base moment matches PL');
+assertNear(rotationalSpringCantilever.elems[0].qLocal[1], rotationalSpringCantileverExpected.memberBaseShear, 1e-10, 'rotational-spring cantilever member base shear matches P');
+
 function portalSymmetricUdlReference({ EA, EI, h, L, w }) {
   // Symmetric non-sway equations with beam axial deformation retained. The
   // left/right joint horizontal displacements are equal and opposite; column
@@ -1023,12 +1086,34 @@ assertNear(interactiveElasticSupportPortal.definition.metrics[4].expected, elast
 assertNear(interactiveElasticSupportPortal.definition.metrics[5].expected, elasticSupportPortalReferenceFixture.columnBaseMoment, 1e-12, 'interactive elastic-support portal column base moment reference matches frozen fixture');
 assertNear(interactiveElasticSupportPortal.definition.metrics[6].expected, elasticSupportPortalReferenceFixture.beamEndMoment, 1e-12, 'interactive elastic-support portal beam end moment reference matches frozen fixture');
 
+const interactiveRotationalSpringCantilever = runInteractiveFrameBenchmark('rotationalSpringCantileverBenchmark');
+assert(interactiveRotationalSpringCantilever.definition.id === 'PF-BM-CANTILEVER-RSPRING-01', 'interactive rotational-spring cantilever exposes stable case id', interactiveRotationalSpringCantilever.definition.id);
+assert(interactiveRotationalSpringCantilever.projectData.nodes.length === 2 && interactiveRotationalSpringCantilever.projectData.members.length === 1, 'interactive rotational-spring cantilever loads the governed two-node one-member model', `${interactiveRotationalSpringCantilever.projectData.nodes.length}/${interactiveRotationalSpringCantilever.projectData.members.length}`);
+assert(interactiveRotationalSpringCantilever.projectData.nodes[0].krz === cantileverRotationalSpring && interactiveRotationalSpringCantilever.projectData.nodes[0].crz === false, 'interactive rotational-spring cantilever assigns an active base rotational spring', JSON.stringify(interactiveRotationalSpringCantilever.projectData.nodes[0]));
+assert(interactiveRotationalSpringCantilever.projectData.nodalLoads.length === 1 && interactiveRotationalSpringCantilever.projectData.nodalLoads[0].Fx === 10, 'interactive rotational-spring cantilever loads the governed 10 tf horizontal tip force', JSON.stringify(interactiveRotationalSpringCantilever.projectData.nodalLoads));
+assert(interactiveRotationalSpringCantilever.model.pass === true && interactiveRotationalSpringCantilever.model.rows.length === 6, 'interactive rotational-spring cantilever passes every visible spring-response comparison', `${interactiveRotationalSpringCantilever.model.pass}/${interactiveRotationalSpringCantilever.model.rows.length}`);
+assertNear(interactiveRotationalSpringCantilever.definition.metrics[0].expected, rotationalSpringCantileverReferenceFixture.baseRotation * 1000, 1e-12, 'interactive rotational-spring cantilever base rotation reference matches frozen fixture');
+assertNear(interactiveRotationalSpringCantilever.definition.metrics[1].expected, rotationalSpringCantileverReferenceFixture.topDisplacement * 1000, 1e-12, 'interactive rotational-spring cantilever top displacement reference matches frozen fixture');
+assertNear(interactiveRotationalSpringCantilever.definition.metrics[2].expected, rotationalSpringCantileverReferenceFixture.tipRotation * 1000, 1e-12, 'interactive rotational-spring cantilever tip rotation reference matches frozen fixture');
+assertNear(interactiveRotationalSpringCantilever.definition.metrics[3].expected, rotationalSpringCantileverReferenceFixture.springReactionMoment, 1e-12, 'interactive rotational-spring cantilever spring moment reference matches frozen fixture');
+assertNear(interactiveRotationalSpringCantilever.definition.metrics[4].expected, rotationalSpringCantileverReferenceFixture.memberBaseMoment, 1e-12, 'interactive rotational-spring cantilever member moment reference matches frozen fixture');
+assertNear(interactiveRotationalSpringCantilever.definition.metrics[5].expected, rotationalSpringCantileverReferenceFixture.memberBaseShear, 1e-12, 'interactive rotational-spring cantilever member shear reference matches frozen fixture');
+
+const priorV08FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
+priorV08FrameJson.version = 'V0.8';
+frameRuntime.context.loadFromData(priorV08FrameJson);
+assert(
+  stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
+  'prior V0.8 JSON remains readable after the V0.9 rotational-spring benchmark upgrade',
+  'schema v1 compatibility path',
+);
+
 const priorV07FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
 priorV07FrameJson.version = 'V0.7';
 frameRuntime.context.loadFromData(priorV07FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.7 JSON remains readable after the V0.8 elastic-support benchmark upgrade',
+  'prior V0.7 JSON remains readable after the V0.9 rotational-spring benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1037,7 +1122,7 @@ priorV06FrameJson.version = 'V0.6';
 frameRuntime.context.loadFromData(priorV06FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.6 JSON remains readable after the V0.8 elastic-support benchmark upgrade',
+  'prior V0.6 JSON remains readable after the V0.9 rotational-spring benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1046,7 +1131,7 @@ priorV05FrameJson.version = 'V0.5';
 frameRuntime.context.loadFromData(priorV05FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.5 JSON remains readable after the V0.8 elastic-support benchmark upgrade',
+  'prior V0.5 JSON remains readable after the V0.9 rotational-spring benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1055,7 +1140,7 @@ priorFrameJson.version = 'V0.4';
 frameRuntime.context.loadFromData(priorFrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.4 JSON remains readable after the V0.8 elastic-support benchmark upgrade',
+  'prior V0.4 JSON remains readable after the V0.9 rotational-spring benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1064,7 +1149,7 @@ olderFrameJson.version = 'V0.3';
 frameRuntime.context.loadFromData(olderFrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'older V0.3 JSON remains readable after the V0.8 elastic-support benchmark upgrade',
+  'older V0.3 JSON remains readable after the V0.9 rotational-spring benchmark upgrade',
   'schema v1 compatibility path',
 );
 
