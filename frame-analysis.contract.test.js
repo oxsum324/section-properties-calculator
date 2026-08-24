@@ -316,6 +316,7 @@ const frameBenchmarkPageOnlyNeedles = [
   'PF-BM-PORTAL-SWAY-01',
   'PF-BM-PORTAL-UDL-01',
   'PF-BM-INCLINED-CANTILEVER-01',
+  'PF-BM-PORTAL-HSPRING-01',
 ];
 
 function reportHtmlText(reportHtml) {
@@ -399,6 +400,7 @@ assertIncludesAll(frameAnalysisHtml, [
   'value="portalSideswayBenchmark"',
   'value="portalSymmetricUdlBenchmark"',
   'value="inclinedCantileverBenchmark"',
+  'value="elasticSupportPortalBenchmark"',
   'function loadSelectedFrameBenchmark',
   'URL.createObjectURL(new Blob',
   'lastReportObjectUrl',
@@ -490,7 +492,7 @@ assert(readyFrameReport.html.includes('Codex QA'), 'rigid frame complete report 
 const frameProjectFixture = {
   schema: 'plane-frame.project.v1',
   tool: '平面剛架分析',
-  version: 'V0.7',
+  version: 'V0.8',
   unit: 'tf-m',
   project: { name: 'Frame Replay', no: 'FR-R01', designer: 'QA', note: 'JSON result chain' },
   defaults: { E: 2040, A: 63.1, I: 13600 },
@@ -526,7 +528,7 @@ const sourceFrameReport = captureFrameReportHtml(
 );
 const sourceFrameFingerprint = reportCalculationFingerprint(sourceFrameReport.html);
 assert(sourceProjectJson.schema === 'plane-frame.project.v1', 'rigid frame JSON declares stable schema', sourceProjectJson.schema);
-assert(sourceProjectJson.version === 'V0.7', 'rigid frame JSON records current version', sourceProjectJson.version);
+assert(sourceProjectJson.version === 'V0.8', 'rigid frame JSON records current version', sourceProjectJson.version);
 assert(sourceProjectJson.calculationEngine === frameMetadata.calculationEngine, 'rigid frame JSON records canonical calculation engine', sourceProjectJson.calculationEngine);
 assert(frameRuntime.context.state.solution.equilibrium.ok === true, 'rigid frame replay fixture passes equilibrium check', JSON.stringify(frameRuntime.context.state.solution.equilibrium));
 assert(/^[0-9a-f]{64}$/.test(sourceResultSha256), 'rigid frame source input/result snapshot has stable SHA-256', sourceResultSha256);
@@ -820,6 +822,73 @@ assertNear(portalSidesway.elems[1].qLocal[2], portalSideswayExpected.beamEndMome
 assertNear(portalSidesway.elems[1].qLocal[5], portalSideswayExpected.beamEndMoment, 1e-10, 'portal sidesway beam right end moment matches reduced solution');
 assertNear(portalSideswayExpected.columnTopMoment + portalSideswayExpected.beamEndMoment, 0, 1e-10, 'portal sidesway independent joint moment equilibrium closes');
 
+function elasticSupportPortalReference({ EA, EI, h, L, P, kx }) {
+  // Equal horizontal base springs permit a common rigid-body translation while
+  // fixed vertical/rotational base DOFs retain the fixed-base portal response.
+  const upperFrame = portalSideswayReference({ EA, EI, h, L, P });
+  const baseTranslation = P / (2 * kx);
+  return {
+    ...upperFrame,
+    baseTranslation,
+    topDisplacement: baseTranslation + upperFrame.delta,
+    springReaction: -kx * baseTranslation,
+  };
+}
+
+const portalHorizontalSpring = 1000;
+const elasticSupportPortal = runClosedFormFrameCase({
+  id: 'portal-sidesway-with-equal-horizontal-base-springs',
+  ...closedFormMaterial,
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: false, cy: true, crz: true, kx: portalHorizontalSpring, ky: 0, krz: 0 },
+    { id: 2, x: 0, y: portalHeight, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 3, x: portalSpan, y: portalHeight, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 4, x: portalSpan, y: 0, cx: false, cy: true, crz: true, kx: portalHorizontalSpring, ky: 0, krz: 0 },
+  ],
+  members: [
+    { id: 1, i: 1, j: 2, ...closedFormMaterial, relI: false, relJ: false },
+    { id: 2, i: 2, j: 3, ...closedFormMaterial, relI: false, relJ: false },
+    { id: 3, i: 4, j: 3, ...closedFormMaterial, relI: false, relJ: false },
+  ],
+  nodalLoads: [
+    { caseId: 1, node: 2, Fx: portalLateralLoad / 2, Fy: 0, M: 0 },
+    { caseId: 1, node: 3, Fx: portalLateralLoad / 2, Fy: 0, M: 0 },
+  ],
+});
+const elasticSupportPortalExpected = elasticSupportPortalReference({
+  EA: closedFormEA,
+  EI: closedFormEI,
+  h: portalHeight,
+  L: portalSpan,
+  P: portalLateralLoad,
+  kx: portalHorizontalSpring,
+});
+const elasticSupportPortalReferenceFixture = Object.freeze({
+  baseTranslation: 0.006,
+  topDisplacement: 0.02450737255450092,
+  delta: 0.01850737255450092,
+  theta: -0.003486673589822547,
+  eta: 0.0000992474151217497,
+  springReaction: -6,
+  columnBaseMoment: 14.41835680190092,
+  beamEndMoment: -9.58164319809908,
+});
+for (const [key, expected] of Object.entries(elasticSupportPortalReferenceFixture)) {
+  assertNear(elasticSupportPortalExpected[key], expected, 1e-12, `elastic-support portal closed-form equations match frozen reference result: ${key}`);
+}
+assertNear(elasticSupportPortal.d[0], elasticSupportPortalExpected.baseTranslation, 1e-10, 'elastic-support portal left base translation matches P/(2kx)');
+assertNear(elasticSupportPortal.d[9], elasticSupportPortalExpected.baseTranslation, 1e-10, 'elastic-support portal right base translation matches P/(2kx)');
+assertNear(elasticSupportPortal.d[3], elasticSupportPortalExpected.topDisplacement, 1e-10, 'elastic-support portal top displacement equals base translation plus frame drift');
+assertNear(elasticSupportPortal.d[6], elasticSupportPortalExpected.topDisplacement, 1e-10, 'elastic-support portal right top displacement preserves symmetry');
+assertNear(elasticSupportPortal.d[3] - elasticSupportPortal.d[0], elasticSupportPortalExpected.delta, 1e-10, 'elastic-support portal relative story drift matches fixed-base reduced solution');
+assertNear(elasticSupportPortal.d[4], elasticSupportPortalExpected.eta, 1e-10, 'elastic-support portal retains column axial-flexibility displacement');
+assertNear(elasticSupportPortal.d[5], elasticSupportPortalExpected.theta, 1e-10, 'elastic-support portal joint rotation matches fixed-base upper-frame response');
+assertNear(elasticSupportPortal.reactions[0], elasticSupportPortalExpected.springReaction, 1e-10, 'elastic-support portal left horizontal spring reaction matches -kx times displacement');
+assertNear(elasticSupportPortal.reactions[9], elasticSupportPortalExpected.springReaction, 1e-10, 'elastic-support portal right horizontal spring reaction matches -P/2');
+assertNear(elasticSupportPortal.springForces[0], elasticSupportPortalExpected.springReaction, 1e-10, 'elastic-support portal exposes left spring force in the governed result chain');
+assertNear(elasticSupportPortal.elems[0].qLocal[2], elasticSupportPortalExpected.columnBaseMoment, 1e-10, 'elastic-support portal column base moment matches reduced solution');
+assertNear(elasticSupportPortal.elems[1].qLocal[2], elasticSupportPortalExpected.beamEndMoment, 1e-10, 'elastic-support portal beam end moment matches reduced solution');
+
 function portalSymmetricUdlReference({ EA, EI, h, L, w }) {
   // Symmetric non-sway equations with beam axial deformation retained. The
   // left/right joint horizontal displacements are equal and opposite; column
@@ -941,12 +1010,34 @@ assertNear(interactiveInclinedCantilever.definition.metrics[4].expected, incline
 assertNear(interactiveInclinedCantilever.definition.metrics[5].expected, inclinedCantileverReferenceFixture.localAxialInternal, 1e-12, 'interactive inclined cantilever tension-positive axial-force reference matches frozen fixture');
 assertNear(interactiveInclinedCantilever.definition.metrics[6].expected, inclinedCantileverReferenceFixture.localShearReaction, 1e-12, 'interactive inclined cantilever local shear reference matches frozen fixture');
 
+const interactiveElasticSupportPortal = runInteractiveFrameBenchmark('elasticSupportPortalBenchmark');
+assert(interactiveElasticSupportPortal.definition.id === 'PF-BM-PORTAL-HSPRING-01', 'interactive elastic-support portal exposes stable case id', interactiveElasticSupportPortal.definition.id);
+assert(interactiveElasticSupportPortal.projectData.nodes.length === 4 && interactiveElasticSupportPortal.projectData.members.length === 3, 'interactive elastic-support portal loads the governed four-node three-member model', `${interactiveElasticSupportPortal.projectData.nodes.length}/${interactiveElasticSupportPortal.projectData.members.length}`);
+assert(interactiveElasticSupportPortal.projectData.nodes.filter(node => node.kx === portalHorizontalSpring).length === 2, 'interactive elastic-support portal assigns equal horizontal springs to both bases', JSON.stringify(interactiveElasticSupportPortal.projectData.nodes));
+assert(interactiveElasticSupportPortal.model.pass === true && interactiveElasticSupportPortal.model.rows.length === 7, 'interactive elastic-support portal passes every visible spring-response comparison', `${interactiveElasticSupportPortal.model.pass}/${interactiveElasticSupportPortal.model.rows.length}`);
+assertNear(interactiveElasticSupportPortal.definition.metrics[0].expected, elasticSupportPortalReferenceFixture.baseTranslation * 1000, 1e-12, 'interactive elastic-support portal base translation reference matches frozen fixture');
+assertNear(interactiveElasticSupportPortal.definition.metrics[1].expected, elasticSupportPortalReferenceFixture.topDisplacement * 1000, 1e-12, 'interactive elastic-support portal top displacement reference matches frozen fixture');
+assertNear(interactiveElasticSupportPortal.definition.metrics[2].expected, elasticSupportPortalReferenceFixture.eta * 1000, 1e-12, 'interactive elastic-support portal vertical displacement reference matches frozen fixture');
+assertNear(interactiveElasticSupportPortal.definition.metrics[3].expected, elasticSupportPortalReferenceFixture.theta * 1000, 1e-12, 'interactive elastic-support portal rotation reference matches frozen fixture');
+assertNear(interactiveElasticSupportPortal.definition.metrics[4].expected, elasticSupportPortalReferenceFixture.springReaction, 1e-12, 'interactive elastic-support portal spring reaction reference matches frozen fixture');
+assertNear(interactiveElasticSupportPortal.definition.metrics[5].expected, elasticSupportPortalReferenceFixture.columnBaseMoment, 1e-12, 'interactive elastic-support portal column base moment reference matches frozen fixture');
+assertNear(interactiveElasticSupportPortal.definition.metrics[6].expected, elasticSupportPortalReferenceFixture.beamEndMoment, 1e-12, 'interactive elastic-support portal beam end moment reference matches frozen fixture');
+
+const priorV07FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
+priorV07FrameJson.version = 'V0.7';
+frameRuntime.context.loadFromData(priorV07FrameJson);
+assert(
+  stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
+  'prior V0.7 JSON remains readable after the V0.8 elastic-support benchmark upgrade',
+  'schema v1 compatibility path',
+);
+
 const priorV06FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
 priorV06FrameJson.version = 'V0.6';
 frameRuntime.context.loadFromData(priorV06FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.6 JSON remains readable after the V0.7 standard benchmark library upgrade',
+  'prior V0.6 JSON remains readable after the V0.8 elastic-support benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -955,7 +1046,7 @@ priorV05FrameJson.version = 'V0.5';
 frameRuntime.context.loadFromData(priorV05FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.5 JSON remains readable after the V0.7 standard benchmark library upgrade',
+  'prior V0.5 JSON remains readable after the V0.8 elastic-support benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -964,7 +1055,7 @@ priorFrameJson.version = 'V0.4';
 frameRuntime.context.loadFromData(priorFrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.4 JSON remains readable after the V0.7 standard benchmark library upgrade',
+  'prior V0.4 JSON remains readable after the V0.8 elastic-support benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -973,7 +1064,7 @@ olderFrameJson.version = 'V0.3';
 frameRuntime.context.loadFromData(olderFrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'older V0.3 JSON remains readable after the V0.7 standard benchmark library upgrade',
+  'older V0.3 JSON remains readable after the V0.8 elastic-support benchmark upgrade',
   'schema v1 compatibility path',
 );
 

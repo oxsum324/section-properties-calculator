@@ -206,6 +206,7 @@
               <option value="portalSideswayBenchmark">固定柱腳門架側推</option>
               <option value="portalSymmetricUdlBenchmark">門架梁對稱均布載重</option>
               <option value="inclinedCantileverBenchmark">3–4–5 斜桿懸臂端點力</option>
+              <option value="elasticSupportPortalBenchmark">水平彈簧柱腳門架側推</option>
             </select>
             <button class="btn btn-accent btn-sm" id="loadFrameBenchmarkButton" onclick="loadSelectedFrameBenchmark()">載入並分析</button>
           </div>
@@ -1953,6 +1954,38 @@ function getFrameBenchmarkDefinition(kind) {
         { label: 'M1 i 端剪力 V', unit: 'tf', expected: 6, source: ['memberEnd', 1, 1, 1] },
       ],
     },
+    elasticSupportPortalBenchmark: {
+      id: 'PF-BM-PORTAL-HSPRING-01',
+      title: '相同水平彈簧柱腳門架側推（含軸向變形）',
+      basis: '固定柱腳門架斜率－撓度封閉解，加上相同柱腳水平彈簧之剛體平移 P/(2kₓ)',
+      model: {
+        nodes: [
+          { id: 1, x: 0, y: 0, cx: false, cy: true, crz: true, kx: 1000, ky: 0, krz: 0 },
+          { id: 2, x: 0, y: 4, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+          { id: 3, x: 6, y: 4, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+          { id: 4, x: 6, y: 0, cx: false, cy: true, crz: true, kx: 1000, ky: 0, krz: 0 },
+        ],
+        members: [
+          { id: 1, i: 1, j: 2, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+          { id: 2, i: 2, j: 3, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+          { id: 3, i: 4, j: 3, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+        ],
+        nodalLoads: [
+          { caseId: 1, node: 2, Fx: 6, Fy: 0, M: 0 },
+          { caseId: 1, node: 3, Fx: 6, Fy: 0, M: 0 },
+        ],
+        memberLoads: [],
+      },
+      metrics: [
+        { label: 'N1 柱腳水平位移 uX', unit: 'mm', expected: 6, source: ['nodeDof', 1, 0, 1000] },
+        { label: 'N2 柱頂水平位移 uX', unit: 'mm', expected: 24.50737255450092, source: ['nodeDof', 2, 0, 1000] },
+        { label: 'N2 垂直位移 uY', unit: 'mm', expected: 0.0992474151217497, source: ['nodeDof', 2, 1, 1000] },
+        { label: 'N2 轉角 θZ', unit: 'mrad', expected: -3.486673589822547, source: ['nodeDof', 2, 2, 1000] },
+        { label: 'N1 水平彈簧反力 Rx', unit: 'tf', expected: -6, source: ['reaction', 1, 0, 1] },
+        { label: 'M1 i 端彎矩', unit: 'tf·m', expected: 14.41835680190092, source: ['memberEnd', 1, 2, 1] },
+        { label: 'M2 i 端彎矩', unit: 'tf·m', expected: -9.58164319809908, source: ['memberEnd', 2, 2, 1] },
+      ],
+    },
   };
   return definitions[kind] || null;
 }
@@ -2474,7 +2507,7 @@ function setReportLink(url) {
 }
 
 function loadExample(kind) {
-  if (kind === 'portalSideswayBenchmark' || kind === 'portalSymmetricUdlBenchmark' || kind === 'inclinedCantileverBenchmark') {
+  if (kind === 'portalSideswayBenchmark' || kind === 'portalSymmetricUdlBenchmark' || kind === 'inclinedCantileverBenchmark' || kind === 'elasticSupportPortalBenchmark') {
     loadFromData(frameBenchmarkProjectData(kind));
     state.benchmarkId = kind;
     renderFrameBenchmarkPanel();
