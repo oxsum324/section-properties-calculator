@@ -315,6 +315,7 @@ const frameBenchmarkPageOnlyNeedles = [
   '此驗證結果只供工作頁確認求解器',
   'PF-BM-PORTAL-SWAY-01',
   'PF-BM-PORTAL-UDL-01',
+  'PF-BM-INCLINED-CANTILEVER-01',
 ];
 
 function reportHtmlText(reportHtml) {
@@ -393,10 +394,12 @@ assertIncludesAll(frameAnalysisHtml, [
   'page-only-report-status',
   'page-only-tool-actions',
   'page-only-frame-benchmark',
-  'id="portalSideswayBenchmarkButton"',
-  'id="portalSymmetricUdlBenchmarkButton"',
-  "loadExample('portalSideswayBenchmark')",
-  "loadExample('portalSymmetricUdlBenchmark')",
+  'id="frameBenchmarkCaseSelect"',
+  'id="loadFrameBenchmarkButton"',
+  'value="portalSideswayBenchmark"',
+  'value="portalSymmetricUdlBenchmark"',
+  'value="inclinedCantileverBenchmark"',
+  'function loadSelectedFrameBenchmark',
   'URL.createObjectURL(new Blob',
   'lastReportObjectUrl',
   'equilibrium',
@@ -487,7 +490,7 @@ assert(readyFrameReport.html.includes('Codex QA'), 'rigid frame complete report 
 const frameProjectFixture = {
   schema: 'plane-frame.project.v1',
   tool: '平面剛架分析',
-  version: 'V0.6',
+  version: 'V0.7',
   unit: 'tf-m',
   project: { name: 'Frame Replay', no: 'FR-R01', designer: 'QA', note: 'JSON result chain' },
   defaults: { E: 2040, A: 63.1, I: 13600 },
@@ -523,7 +526,7 @@ const sourceFrameReport = captureFrameReportHtml(
 );
 const sourceFrameFingerprint = reportCalculationFingerprint(sourceFrameReport.html);
 assert(sourceProjectJson.schema === 'plane-frame.project.v1', 'rigid frame JSON declares stable schema', sourceProjectJson.schema);
-assert(sourceProjectJson.version === 'V0.6', 'rigid frame JSON records current version', sourceProjectJson.version);
+assert(sourceProjectJson.version === 'V0.7', 'rigid frame JSON records current version', sourceProjectJson.version);
 assert(sourceProjectJson.calculationEngine === frameMetadata.calculationEngine, 'rigid frame JSON records canonical calculation engine', sourceProjectJson.calculationEngine);
 assert(frameRuntime.context.state.solution.equilibrium.ok === true, 'rigid frame replay fixture passes equilibrium check', JSON.stringify(frameRuntime.context.state.solution.equilibrium));
 assert(/^[0-9a-f]{64}$/.test(sourceResultSha256), 'rigid frame source input/result snapshot has stable SHA-256', sourceResultSha256);
@@ -668,6 +671,70 @@ assertNear(springSolution.reactions[0], -expectedBarForce, 1e-10, 'axial bar fix
 assertNear(springSolution.reactions[3], -expectedSpringForce, 1e-10, 'axial spring reaction matches k times displacement');
 assertNear(maxAbs(springSolution.elems[0].diag.Ns), expectedBarForce, 1e-10, 'axial member force matches EA/L stiffness share');
 assertNear(springSolution.reactions[0] + springSolution.reactions[3], -springLoad, 1e-10, 'axial bar and spring reactions close global force balance');
+
+function inclinedCantileverReference({ E, A, I, dx, dy, Fx, Fy }) {
+  const L = Math.hypot(dx, dy);
+  const c = dx / L;
+  const s = dy / L;
+  const EA = E * A;
+  const EI = E * I * 1e-4;
+  const localAxialLoad = c * Fx + s * Fy;
+  const localTransverseLoad = -s * Fx + c * Fy;
+  const localAxialDisplacement = localAxialLoad * L / EA;
+  const localTransverseDisplacement = localTransverseLoad * L ** 3 / (3 * EI);
+  const theta = localTransverseLoad * L ** 2 / (2 * EI);
+  return {
+    ux: c * localAxialDisplacement - s * localTransverseDisplacement,
+    uy: s * localAxialDisplacement + c * localTransverseDisplacement,
+    theta,
+    reactionX: -Fx,
+    reactionY: -Fy,
+    reactionMoment: -(dx * Fy - dy * Fx),
+    localAxialEndAction: -localAxialLoad,
+    localAxialInternal: localAxialLoad,
+    localShearReaction: -localTransverseLoad,
+  };
+}
+
+const inclinedCantileverExpected = inclinedCantileverReference({
+  ...closedFormMaterial,
+  dx: 3,
+  dy: 4,
+  Fx: 0,
+  Fy: -10,
+});
+const inclinedCantileverReferenceFixture = Object.freeze({
+  ux: 0.07190121317474506,
+  uy: -0.05431433783544181,
+  theta: -0.027032871972318337,
+  reactionX: 0,
+  reactionY: 10,
+  reactionMoment: 30,
+  localAxialEndAction: 8,
+  localAxialInternal: -8,
+  localShearReaction: 6,
+});
+for (const [key, expected] of Object.entries(inclinedCantileverReferenceFixture)) {
+  assertNear(inclinedCantileverExpected[key], expected, 1e-12, `inclined cantilever closed-form equations match frozen reference result: ${key}`);
+}
+const inclinedCantilever = runClosedFormFrameCase({
+  id: 'inclined-cantilever-tip-vertical-load',
+  ...closedFormMaterial,
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: 3, y: 4, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [{ id: 1, i: 1, j: 2, ...closedFormMaterial, relI: false, relJ: false }],
+  nodalLoads: [{ caseId: 1, node: 2, Fx: 0, Fy: -10, M: 0 }],
+});
+assertNear(inclinedCantilever.d[3], inclinedCantileverExpected.ux, 1e-10, 'inclined cantilever global uX retains axial-flexural coordinate transformation');
+assertNear(inclinedCantilever.d[4], inclinedCantileverExpected.uy, 1e-10, 'inclined cantilever global uY retains axial-flexural coordinate transformation');
+assertNear(inclinedCantilever.d[5], inclinedCantileverExpected.theta, 1e-10, 'inclined cantilever rotation matches local bending closed form');
+assertNear(inclinedCantilever.reactions[0], inclinedCantileverExpected.reactionX, 1e-10, 'inclined cantilever base horizontal reaction matches statics');
+assertNear(inclinedCantilever.reactions[1], inclinedCantileverExpected.reactionY, 1e-10, 'inclined cantilever base vertical reaction matches statics');
+assertNear(inclinedCantilever.reactions[2], inclinedCantileverExpected.reactionMoment, 1e-10, 'inclined cantilever base moment matches r cross F');
+assertNear(inclinedCantilever.elems[0].qLocal[0], inclinedCantileverExpected.localAxialEndAction, 1e-10, 'inclined cantilever local axial end action matches projected load');
+assertNear(inclinedCantilever.elems[0].qLocal[1], inclinedCantileverExpected.localShearReaction, 1e-10, 'inclined cantilever local shear end force matches projected load');
 
 function portalSideswayReference({ EA, EI, h, L, P }) {
   // Symmetric reduced slope-deflection system for an unbraced, fixed-base portal.
@@ -862,12 +929,33 @@ assertNear(interactiveSymmetricUdl.definition.metrics[2].expected, portalSymmetr
 assertNear(interactiveSymmetricUdl.definition.metrics[3].expected, portalSymmetricReferenceFixture.horizontalReaction, 1e-12, 'interactive portal symmetric UDL horizontal reaction reference matches frozen fixture');
 assertNear(interactiveSymmetricUdl.definition.metrics[5].expected, portalSymmetricReferenceFixture.beamLeftMoment, 1e-12, 'interactive portal symmetric UDL beam moment reference matches frozen fixture');
 
+const interactiveInclinedCantilever = runInteractiveFrameBenchmark('inclinedCantileverBenchmark');
+assert(interactiveInclinedCantilever.definition.id === 'PF-BM-INCLINED-CANTILEVER-01', 'interactive inclined cantilever exposes stable case id', interactiveInclinedCantilever.definition.id);
+assert(interactiveInclinedCantilever.projectData.nodes.length === 2 && interactiveInclinedCantilever.projectData.members.length === 1, 'interactive inclined cantilever loads the governed 3-4-5 single-member model', `${interactiveInclinedCantilever.projectData.nodes.length}/${interactiveInclinedCantilever.projectData.members.length}`);
+assert(interactiveInclinedCantilever.projectData.nodalLoads.length === 1 && interactiveInclinedCantilever.projectData.nodalLoads[0].Fy === -10, 'interactive inclined cantilever loads the governed 10 tf downward joint force', JSON.stringify(interactiveInclinedCantilever.projectData.nodalLoads));
+assert(interactiveInclinedCantilever.model.pass === true && interactiveInclinedCantilever.model.rows.length === 7, 'interactive inclined cantilever passes every visible coordinate-transformation comparison', `${interactiveInclinedCantilever.model.pass}/${interactiveInclinedCantilever.model.rows.length}`);
+assertNear(interactiveInclinedCantilever.definition.metrics[0].expected, inclinedCantileverReferenceFixture.ux * 1000, 1e-12, 'interactive inclined cantilever horizontal displacement reference matches frozen fixture');
+assertNear(interactiveInclinedCantilever.definition.metrics[1].expected, inclinedCantileverReferenceFixture.uy * 1000, 1e-12, 'interactive inclined cantilever vertical displacement reference matches frozen fixture');
+assertNear(interactiveInclinedCantilever.definition.metrics[2].expected, inclinedCantileverReferenceFixture.theta * 1000, 1e-12, 'interactive inclined cantilever rotation reference matches frozen fixture');
+assertNear(interactiveInclinedCantilever.definition.metrics[4].expected, inclinedCantileverReferenceFixture.reactionMoment, 1e-12, 'interactive inclined cantilever support moment reference matches frozen fixture');
+assertNear(interactiveInclinedCantilever.definition.metrics[5].expected, inclinedCantileverReferenceFixture.localAxialInternal, 1e-12, 'interactive inclined cantilever tension-positive axial-force reference matches frozen fixture');
+assertNear(interactiveInclinedCantilever.definition.metrics[6].expected, inclinedCantileverReferenceFixture.localShearReaction, 1e-12, 'interactive inclined cantilever local shear reference matches frozen fixture');
+
+const priorV06FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
+priorV06FrameJson.version = 'V0.6';
+frameRuntime.context.loadFromData(priorV06FrameJson);
+assert(
+  stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
+  'prior V0.6 JSON remains readable after the V0.7 standard benchmark library upgrade',
+  'schema v1 compatibility path',
+);
+
 const priorV05FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
 priorV05FrameJson.version = 'V0.5';
 frameRuntime.context.loadFromData(priorV05FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.5 JSON remains readable after the V0.6 interactive benchmark upgrade',
+  'prior V0.5 JSON remains readable after the V0.7 standard benchmark library upgrade',
   'schema v1 compatibility path',
 );
 
@@ -876,7 +964,7 @@ priorFrameJson.version = 'V0.4';
 frameRuntime.context.loadFromData(priorFrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.4 JSON remains readable after the V0.6 interactive benchmark upgrade',
+  'prior V0.4 JSON remains readable after the V0.7 standard benchmark library upgrade',
   'schema v1 compatibility path',
 );
 
@@ -885,7 +973,7 @@ olderFrameJson.version = 'V0.3';
 frameRuntime.context.loadFromData(olderFrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'older V0.3 JSON remains readable after the V0.6 interactive benchmark upgrade',
+  'older V0.3 JSON remains readable after the V0.7 standard benchmark library upgrade',
   'schema v1 compatibility path',
 );
 

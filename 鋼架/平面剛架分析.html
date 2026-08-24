@@ -124,6 +124,9 @@
   .frame-benchmark-status { font-weight: 800; }
   .frame-benchmark-status.pass { color: var(--accent); }
   .frame-benchmark-status.fail { color: var(--danger); }
+  .frame-benchmark-library { margin-top: 10px; padding: 10px 12px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; }
+  .frame-benchmark-library .flex-row { margin-top: 6px; }
+  .frame-benchmark-library select { flex: 1 1 280px; min-width: 0; }
 
   .diag-card .canvas-wrap { min-height: 120px; display: flex; align-items: center; justify-content: center; }
   .diag-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
@@ -195,8 +198,18 @@
           <button class="btn btn-ghost btn-sm" onclick="loadExample('cantilever')">懸臂驗證</button>
           <button class="btn btn-ghost btn-sm" onclick="loadExample('ss')">簡支梁(均布)</button>
           <button class="btn btn-ghost btn-sm" onclick="loadExample('ssP')">簡支梁(集中)</button>
-          <button class="btn btn-ghost btn-sm" id="portalSideswayBenchmarkButton" onclick="loadExample('portalSideswayBenchmark')">門架側推驗證</button>
-          <button class="btn btn-ghost btn-sm" id="portalSymmetricUdlBenchmarkButton" onclick="loadExample('portalSymmetricUdlBenchmark')">對稱載重驗證</button>
+        </div>
+        <div class="frame-benchmark-library page-only-tool-actions">
+          <label for="frameBenchmarkCaseSelect">標準驗證案例庫</label>
+          <div class="flex-row">
+            <select id="frameBenchmarkCaseSelect" aria-label="標準驗證案例">
+              <option value="portalSideswayBenchmark">固定柱腳門架側推</option>
+              <option value="portalSymmetricUdlBenchmark">門架梁對稱均布載重</option>
+              <option value="inclinedCantileverBenchmark">3–4–5 斜桿懸臂端點力</option>
+            </select>
+            <button class="btn btn-accent btn-sm" id="loadFrameBenchmarkButton" onclick="loadSelectedFrameBenchmark()">載入並分析</button>
+          </div>
+          <div class="hint">以獨立封閉式參考值核對求解器；案例比對只顯示於工作頁，不會寫入計算書。</div>
         </div>
         <div class="flex-row" style="margin-top:10px; gap:12px; align-items:center;">
           <label style="display:inline-flex;align-items:center;gap:5px;font-weight:600;">
@@ -341,7 +354,7 @@
 
       <div class="card frame-benchmark inactive page-only-frame-benchmark" id="frameBenchmarkPanel" role="status" aria-live="polite">
         <h2>封閉式參考解比對</h2>
-        <div>請由左側載入「門架側推驗證」或「對稱載重驗證」。</div>
+        <div>請由左側「標準驗證案例庫」選取案例並載入。</div>
       </div>
 
       <div class="card diag-card">
@@ -1915,6 +1928,31 @@ function getFrameBenchmarkDefinition(kind) {
         { label: 'M2 i 端彎矩', unit: 'tf·m', expected: 4.489824672029794, source: ['memberEnd', 2, 2, 1] },
       ],
     },
+    inclinedCantileverBenchmark: {
+      id: 'PF-BM-INCLINED-CANTILEVER-01',
+      title: '3–4–5 斜桿懸臂承受端點垂直力',
+      basis: 'Euler–Bernoulli 懸臂梁軸向與彎曲封閉解（3–4–5 座標轉換）',
+      model: {
+        nodes: [
+          { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+          { id: 2, x: 3, y: 4, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+        ],
+        members: [
+          { id: 1, i: 1, j: 2, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+        ],
+        nodalLoads: [{ caseId: 1, node: 2, Fx: 0, Fy: -10, M: 0 }],
+        memberLoads: [],
+      },
+      metrics: [
+        { label: 'N2 水平位移 uX', unit: 'mm', expected: 71.90121317474505, source: ['nodeDof', 2, 0, 1000] },
+        { label: 'N2 垂直位移 uY', unit: 'mm', expected: -54.31433783544181, source: ['nodeDof', 2, 1, 1000] },
+        { label: 'N2 轉角 θZ', unit: 'mrad', expected: -27.032871972318336, source: ['nodeDof', 2, 2, 1000] },
+        { label: 'N1 垂直反力 Ry', unit: 'tf', expected: 10, source: ['reaction', 1, 1, 1] },
+        { label: 'N1 反力矩 Mz', unit: 'tf·m', expected: 30, source: ['reaction', 1, 2, 1] },
+        { label: 'M1 i 端軸力 N（拉正壓負）', unit: 'tf', expected: -8, source: ['memberEnd', 1, 0, -1] },
+        { label: 'M1 i 端剪力 V', unit: 'tf', expected: 6, source: ['memberEnd', 1, 1, 1] },
+      ],
+    },
   };
   return definitions[kind] || null;
 }
@@ -1986,7 +2024,7 @@ function renderFrameBenchmarkPanel() {
   const model = frameBenchmarkResultModel();
   panel.className = `card frame-benchmark ${model.level} page-only-frame-benchmark`;
   if (!model.definition) {
-    panel.innerHTML = '<h2>封閉式參考解比對</h2><div>請由左側載入「門架側推驗證」或「對稱載重驗證」。</div>';
+    panel.innerHTML = '<h2>封閉式參考解比對</h2><div>請由左側「標準驗證案例庫」選取案例並載入。</div>';
     return;
   }
   const rows = model.rows.map(row => `<tr>
@@ -2436,7 +2474,7 @@ function setReportLink(url) {
 }
 
 function loadExample(kind) {
-  if (kind === 'portalSideswayBenchmark' || kind === 'portalSymmetricUdlBenchmark') {
+  if (kind === 'portalSideswayBenchmark' || kind === 'portalSymmetricUdlBenchmark' || kind === 'inclinedCantileverBenchmark') {
     loadFromData(frameBenchmarkProjectData(kind));
     state.benchmarkId = kind;
     renderFrameBenchmarkPanel();
@@ -2494,6 +2532,12 @@ function loadExample(kind) {
     addMemberLoadRow({ member: 2, w: 2.0, dir: 'globalY' });
   }
   runAnalysis();
+}
+
+function loadSelectedFrameBenchmark() {
+  const select = document.getElementById('frameBenchmarkCaseSelect');
+  if (!select || !select.value) return;
+  loadExample(select.value);
 }
 
 // 啟動
