@@ -318,6 +318,7 @@ const frameBenchmarkPageOnlyNeedles = [
   'PF-BM-INCLINED-CANTILEVER-01',
   'PF-BM-PORTAL-HSPRING-01',
   'PF-BM-CANTILEVER-RSPRING-01',
+  'PF-BM-PORTAL-2STORY-SWAY-01',
 ];
 
 function reportHtmlText(reportHtml) {
@@ -403,6 +404,7 @@ assertIncludesAll(frameAnalysisHtml, [
   'value="inclinedCantileverBenchmark"',
   'value="elasticSupportPortalBenchmark"',
   'value="rotationalSpringCantileverBenchmark"',
+  'value="twoStoryPortalBenchmark"',
   'function loadSelectedFrameBenchmark',
   'URL.createObjectURL(new Blob',
   'lastReportObjectUrl',
@@ -494,7 +496,7 @@ assert(readyFrameReport.html.includes('Codex QA'), 'rigid frame complete report 
 const frameProjectFixture = {
   schema: 'plane-frame.project.v1',
   tool: '平面剛架分析',
-  version: 'V0.9',
+  version: 'V1.0',
   unit: 'tf-m',
   project: { name: 'Frame Replay', no: 'FR-R01', designer: 'QA', note: 'JSON result chain' },
   defaults: { E: 2040, A: 63.1, I: 13600 },
@@ -530,7 +532,7 @@ const sourceFrameReport = captureFrameReportHtml(
 );
 const sourceFrameFingerprint = reportCalculationFingerprint(sourceFrameReport.html);
 assert(sourceProjectJson.schema === 'plane-frame.project.v1', 'rigid frame JSON declares stable schema', sourceProjectJson.schema);
-assert(sourceProjectJson.version === 'V0.9', 'rigid frame JSON records current version', sourceProjectJson.version);
+assert(sourceProjectJson.version === 'V1.0', 'rigid frame JSON records current version', sourceProjectJson.version);
 assert(sourceProjectJson.calculationEngine === frameMetadata.calculationEngine, 'rigid frame JSON records canonical calculation engine', sourceProjectJson.calculationEngine);
 assert(frameRuntime.context.state.solution.equilibrium.ok === true, 'rigid frame replay fixture passes equilibrium check', JSON.stringify(frameRuntime.context.state.solution.equilibrium));
 assert(/^[0-9a-f]{64}$/.test(sourceResultSha256), 'rigid frame source input/result snapshot has stable SHA-256', sourceResultSha256);
@@ -952,6 +954,149 @@ assertNear(rotationalSpringCantilever.springForces[2], rotationalSpringCantileve
 assertNear(rotationalSpringCantilever.elems[0].qLocal[2], rotationalSpringCantileverExpected.memberBaseMoment, 1e-10, 'rotational-spring cantilever member base moment matches PL');
 assertNear(rotationalSpringCantilever.elems[0].qLocal[1], rotationalSpringCantileverExpected.memberBaseShear, 1e-10, 'rotational-spring cantilever member base shear matches P');
 
+function twoStoryPortalReference({ EA, EI, h, L, P1, P2 }) {
+  // Symmetry reduces the 18-DOF frame to
+  // [delta1, theta1, eta1, delta2, theta2, eta2]. Column bending,
+  // column axial deformation and beam bending are assembled independently
+  // from their slope-deflection energy terms.
+  const dofCount = 6;
+  const reduced = Array.from({ length: dofCount }, () => Array(dofCount).fill(0));
+  const addReducedElement = (local, maps, factor = 1) => {
+    for (let a = 0; a < local.length; a += 1) {
+      for (let b = 0; b < local.length; b += 1) {
+        for (const [ia, ca] of maps[a]) {
+          for (const [ib, cb] of maps[b]) reduced[ia][ib] += factor * ca * local[a][b] * cb;
+        }
+      }
+    }
+  };
+  const bendingMatrix = (length) => {
+    const scale = EI / length ** 3;
+    return [
+      [12, 6 * length, -12, 6 * length],
+      [6 * length, 4 * length ** 2, -6 * length, 2 * length ** 2],
+      [-12, -6 * length, 12, -6 * length],
+      [6 * length, 2 * length ** 2, -6 * length, 4 * length ** 2],
+    ].map(row => row.map(value => value * scale));
+  };
+  const columnBending = bendingMatrix(h);
+  const beamBending = bendingMatrix(L);
+  addReducedElement(columnBending, [[], [], [[0, -1]], [[1, 1]]], 2);
+  addReducedElement(columnBending, [[[0, -1]], [[1, 1]], [[3, -1]], [[4, 1]]], 2);
+  addReducedElement(beamBending, [[[2, 1]], [[1, 1]], [[2, -1]], [[1, 1]]]);
+  addReducedElement(beamBending, [[[5, 1]], [[4, 1]], [[5, -1]], [[4, 1]]]);
+  const columnAxial = [[EA / h, -EA / h], [-EA / h, EA / h]];
+  addReducedElement(columnAxial, [[], [[2, 1]]], 2);
+  addReducedElement(columnAxial, [[[2, 1]], [[5, 1]]], 2);
+
+  const augmented = reduced.map((row, index) => [...row, [P1, 0, 0, P2, 0, 0][index]]);
+  for (let pivot = 0; pivot < dofCount; pivot += 1) {
+    let maxRow = pivot;
+    for (let row = pivot + 1; row < dofCount; row += 1) {
+      if (Math.abs(augmented[row][pivot]) > Math.abs(augmented[maxRow][pivot])) maxRow = row;
+    }
+    [augmented[pivot], augmented[maxRow]] = [augmented[maxRow], augmented[pivot]];
+    const divisor = augmented[pivot][pivot];
+    for (let col = pivot; col <= dofCount; col += 1) augmented[pivot][col] /= divisor;
+    for (let row = 0; row < dofCount; row += 1) {
+      if (row === pivot) continue;
+      const factor = augmented[row][pivot];
+      for (let col = pivot; col <= dofCount; col += 1) augmented[row][col] -= factor * augmented[pivot][col];
+    }
+  }
+  const [delta1, theta1, eta1, delta2, theta2, eta2] = augmented.map(row => row[dofCount]);
+  const matrixVector = (matrix, vector) => matrix.map(row => row.reduce((sum, value, index) => sum + value * vector[index], 0));
+  const lowerColumn = matrixVector(columnBending, [0, 0, -delta1, theta1]);
+  const upperColumn = matrixVector(columnBending, [-delta1, theta1, -delta2, theta2]);
+  const firstFloorBeam = matrixVector(beamBending, [eta1, theta1, -eta1, theta1]);
+  const roofBeam = matrixVector(beamBending, [eta2, theta2, -eta2, theta2]);
+  return {
+    delta1,
+    theta1,
+    eta1,
+    delta2,
+    theta2,
+    eta2,
+    baseReaction: -lowerColumn[0],
+    lowerBaseMoment: lowerColumn[1],
+    lowerTopMoment: lowerColumn[3],
+    upperBaseMoment: upperColumn[1],
+    firstFloorBeamMoment: firstFloorBeam[1],
+    roofBeamMoment: roofBeam[1],
+  };
+}
+
+const twoStoryFirstFloorLoad = 8;
+const twoStoryRoofLoad = 6;
+const twoStoryPortal = runClosedFormFrameCase({
+  id: 'two-story-single-bay-rigid-portal-sidesway',
+  ...closedFormMaterial,
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: 0, y: portalHeight, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 3, x: 0, y: portalHeight * 2, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 4, x: portalSpan, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+    { id: 5, x: portalSpan, y: portalHeight, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 6, x: portalSpan, y: portalHeight * 2, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [
+    { id: 1, i: 1, j: 2, ...closedFormMaterial, relI: false, relJ: false },
+    { id: 2, i: 2, j: 3, ...closedFormMaterial, relI: false, relJ: false },
+    { id: 3, i: 4, j: 5, ...closedFormMaterial, relI: false, relJ: false },
+    { id: 4, i: 5, j: 6, ...closedFormMaterial, relI: false, relJ: false },
+    { id: 5, i: 2, j: 5, ...closedFormMaterial, relI: false, relJ: false },
+    { id: 6, i: 3, j: 6, ...closedFormMaterial, relI: false, relJ: false },
+  ],
+  nodalLoads: [
+    { caseId: 1, node: 2, Fx: twoStoryFirstFloorLoad / 2, Fy: 0, M: 0 },
+    { caseId: 1, node: 5, Fx: twoStoryFirstFloorLoad / 2, Fy: 0, M: 0 },
+    { caseId: 1, node: 3, Fx: twoStoryRoofLoad / 2, Fy: 0, M: 0 },
+    { caseId: 1, node: 6, Fx: twoStoryRoofLoad / 2, Fy: 0, M: 0 },
+  ],
+});
+const twoStoryPortalExpected = twoStoryPortalReference({
+  EA: closedFormEA,
+  EI: closedFormEI,
+  h: portalHeight,
+  L: portalSpan,
+  P1: twoStoryFirstFloorLoad,
+  P2: twoStoryRoofLoad,
+});
+const twoStoryPortalReferenceFixture = Object.freeze({
+  delta1: 0.024130842805587416,
+  theta1: -0.005337239934127811,
+  eta1: 0.000230965376896191,
+  delta2: 0.04633318002480235,
+  theta2: -0.0028804223317657014,
+  eta2: 0.00031076452016911974,
+  baseReaction: -7,
+  lowerBaseMoment: 17.70190961831105,
+  lowerTopMoment: 10.29809038168895,
+  upperBaseMoment: 4.2959513110016365,
+  firstFloorBeamMoment: -14.594041692690602,
+  roofBeamMoment: -7.704048688998361,
+});
+for (const [key, expected] of Object.entries(twoStoryPortalReferenceFixture)) {
+  assertNear(twoStoryPortalExpected[key], expected, 1e-12, `two-story portal reduced equations match frozen reference result: ${key}`);
+}
+assertNear(twoStoryPortal.d[3], twoStoryPortalExpected.delta1, 1e-10, 'two-story portal first-floor drift matches reduced solution');
+assertNear(twoStoryPortal.d[6], twoStoryPortalExpected.delta2, 1e-10, 'two-story portal roof drift matches reduced solution');
+assertNear(twoStoryPortal.d[4], twoStoryPortalExpected.eta1, 1e-10, 'two-story portal first-floor vertical displacement retains axial coupling');
+assertNear(twoStoryPortal.d[7], twoStoryPortalExpected.eta2, 1e-10, 'two-story portal roof vertical displacement retains axial coupling');
+assertNear(twoStoryPortal.d[5], twoStoryPortalExpected.theta1, 1e-10, 'two-story portal first-floor rotation matches reduced solution');
+assertNear(twoStoryPortal.d[8], twoStoryPortalExpected.theta2, 1e-10, 'two-story portal roof rotation matches reduced solution');
+assertNear(twoStoryPortal.d[12], twoStoryPortalExpected.delta1, 1e-10, 'two-story portal right first floor preserves sway symmetry');
+assertNear(twoStoryPortal.d[15], twoStoryPortalExpected.delta2, 1e-10, 'two-story portal right roof preserves sway symmetry');
+assertNear(twoStoryPortal.d[13], -twoStoryPortalExpected.eta1, 1e-10, 'two-story portal right first-floor vertical displacement is antisymmetric');
+assertNear(twoStoryPortal.reactions[0], twoStoryPortalExpected.baseReaction, 1e-10, 'two-story portal left base takes half the total story shear');
+assertNear(twoStoryPortal.reactions[9], twoStoryPortalExpected.baseReaction, 1e-10, 'two-story portal right base takes half the total story shear');
+assertNear(twoStoryPortal.elems[0].qLocal[2], twoStoryPortalExpected.lowerBaseMoment, 1e-10, 'two-story portal lower column base moment matches reduced solution');
+assertNear(twoStoryPortal.elems[0].qLocal[5], twoStoryPortalExpected.lowerTopMoment, 1e-10, 'two-story portal lower column top moment matches reduced solution');
+assertNear(twoStoryPortal.elems[1].qLocal[2], twoStoryPortalExpected.upperBaseMoment, 1e-10, 'two-story portal upper column base moment matches reduced solution');
+assertNear(twoStoryPortal.elems[4].qLocal[2], twoStoryPortalExpected.firstFloorBeamMoment, 1e-10, 'two-story portal first-floor beam moment matches reduced solution');
+assertNear(twoStoryPortal.elems[5].qLocal[2], twoStoryPortalExpected.roofBeamMoment, 1e-10, 'two-story portal roof beam moment matches reduced solution');
+assertNear(twoStoryPortal.elems[0].qLocal[5] + twoStoryPortal.elems[1].qLocal[2] + twoStoryPortal.elems[4].qLocal[2], 0, 1e-10, 'two-story portal first-floor joint moment equilibrium closes');
+
 function portalSymmetricUdlReference({ EA, EI, h, L, w }) {
   // Symmetric non-sway equations with beam axial deformation retained. The
   // left/right joint horizontal displacements are equal and opposite; column
@@ -1099,12 +1244,48 @@ assertNear(interactiveRotationalSpringCantilever.definition.metrics[3].expected,
 assertNear(interactiveRotationalSpringCantilever.definition.metrics[4].expected, rotationalSpringCantileverReferenceFixture.memberBaseMoment, 1e-12, 'interactive rotational-spring cantilever member moment reference matches frozen fixture');
 assertNear(interactiveRotationalSpringCantilever.definition.metrics[5].expected, rotationalSpringCantileverReferenceFixture.memberBaseShear, 1e-12, 'interactive rotational-spring cantilever member shear reference matches frozen fixture');
 
+const interactiveTwoStoryPortal = runInteractiveFrameBenchmark('twoStoryPortalBenchmark');
+assert(interactiveTwoStoryPortal.definition.id === 'PF-BM-PORTAL-2STORY-SWAY-01', 'interactive two-story portal exposes stable case id', interactiveTwoStoryPortal.definition.id);
+assert(interactiveTwoStoryPortal.projectData.nodes.length === 6 && interactiveTwoStoryPortal.projectData.members.length === 6, 'interactive two-story portal loads the governed six-node six-member model', `${interactiveTwoStoryPortal.projectData.nodes.length}/${interactiveTwoStoryPortal.projectData.members.length}`);
+assert(
+  interactiveTwoStoryPortal.projectData.nodalLoads.length === 4
+    && interactiveTwoStoryPortal.projectData.nodalLoads.filter(load => load.Fx === 4).length === 2
+    && interactiveTwoStoryPortal.projectData.nodalLoads.filter(load => load.Fx === 3).length === 2,
+  'interactive two-story portal loads symmetric 8 tf first-floor and 6 tf roof forces',
+  JSON.stringify(interactiveTwoStoryPortal.projectData.nodalLoads),
+);
+assert(interactiveTwoStoryPortal.model.pass === true && interactiveTwoStoryPortal.model.rows.length === 10, 'interactive two-story portal passes every visible multistory-response comparison', `${interactiveTwoStoryPortal.model.pass}/${interactiveTwoStoryPortal.model.rows.length}`);
+const twoStoryInteractiveExpected = [
+  twoStoryPortalReferenceFixture.delta1 * 1000,
+  twoStoryPortalReferenceFixture.delta2 * 1000,
+  twoStoryPortalReferenceFixture.eta1 * 1000,
+  twoStoryPortalReferenceFixture.theta1 * 1000,
+  twoStoryPortalReferenceFixture.theta2 * 1000,
+  twoStoryPortalReferenceFixture.baseReaction,
+  twoStoryPortalReferenceFixture.lowerBaseMoment,
+  twoStoryPortalReferenceFixture.lowerTopMoment,
+  twoStoryPortalReferenceFixture.upperBaseMoment,
+  twoStoryPortalReferenceFixture.firstFloorBeamMoment,
+];
+interactiveTwoStoryPortal.definition.metrics.forEach((metric, index) => {
+  assertNear(metric.expected, twoStoryInteractiveExpected[index], 1e-12, `interactive two-story portal metric ${index + 1} matches frozen reduced-system fixture`);
+});
+
+const priorV09FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
+priorV09FrameJson.version = 'V0.9';
+frameRuntime.context.loadFromData(priorV09FrameJson);
+assert(
+  stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
+  'prior V0.9 JSON remains readable after the V1.0 two-story portal benchmark upgrade',
+  'schema v1 compatibility path',
+);
+
 const priorV08FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
 priorV08FrameJson.version = 'V0.8';
 frameRuntime.context.loadFromData(priorV08FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.8 JSON remains readable after the V0.9 rotational-spring benchmark upgrade',
+  'prior V0.8 JSON remains readable after the V1.0 two-story portal benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1113,7 +1294,7 @@ priorV07FrameJson.version = 'V0.7';
 frameRuntime.context.loadFromData(priorV07FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.7 JSON remains readable after the V0.9 rotational-spring benchmark upgrade',
+  'prior V0.7 JSON remains readable after the V1.0 two-story portal benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1122,7 +1303,7 @@ priorV06FrameJson.version = 'V0.6';
 frameRuntime.context.loadFromData(priorV06FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.6 JSON remains readable after the V0.9 rotational-spring benchmark upgrade',
+  'prior V0.6 JSON remains readable after the V1.0 two-story portal benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1131,7 +1312,7 @@ priorV05FrameJson.version = 'V0.5';
 frameRuntime.context.loadFromData(priorV05FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.5 JSON remains readable after the V0.9 rotational-spring benchmark upgrade',
+  'prior V0.5 JSON remains readable after the V1.0 two-story portal benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1140,7 +1321,7 @@ priorFrameJson.version = 'V0.4';
 frameRuntime.context.loadFromData(priorFrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.4 JSON remains readable after the V0.9 rotational-spring benchmark upgrade',
+  'prior V0.4 JSON remains readable after the V1.0 two-story portal benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1149,7 +1330,7 @@ olderFrameJson.version = 'V0.3';
 frameRuntime.context.loadFromData(olderFrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'older V0.3 JSON remains readable after the V0.9 rotational-spring benchmark upgrade',
+  'older V0.3 JSON remains readable after the V1.0 two-story portal benchmark upgrade',
   'schema v1 compatibility path',
 );
 

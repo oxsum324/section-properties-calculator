@@ -208,6 +208,7 @@
               <option value="inclinedCantileverBenchmark">3–4–5 斜桿懸臂端點力</option>
               <option value="elasticSupportPortalBenchmark">水平彈簧柱腳門架側推</option>
               <option value="rotationalSpringCantileverBenchmark">轉動彈簧柱腳懸臂側推</option>
+              <option value="twoStoryPortalBenchmark">二層單跨剛接門架側推</option>
             </select>
             <button class="btn btn-accent btn-sm" id="loadFrameBenchmarkButton" onclick="loadSelectedFrameBenchmark()">載入並分析</button>
           </div>
@@ -2011,6 +2012,48 @@ function getFrameBenchmarkDefinition(kind) {
         { label: 'M1 i 端剪力', unit: 'tf', expected: 10, source: ['memberEnd', 1, 1, 1] },
       ],
     },
+    twoStoryPortalBenchmark: {
+      id: 'PF-BM-PORTAL-2STORY-SWAY-01',
+      title: '二層單跨剛接門架承受對稱樓層側力',
+      basis: '左右對稱條件之六廣義自由度斜率－撓度／能量法縮減方程（含柱軸向變形）',
+      model: {
+        nodes: [
+          { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+          { id: 2, x: 0, y: 4, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+          { id: 3, x: 0, y: 8, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+          { id: 4, x: 6, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+          { id: 5, x: 6, y: 4, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+          { id: 6, x: 6, y: 8, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+        ],
+        members: [
+          { id: 1, i: 1, j: 2, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+          { id: 2, i: 2, j: 3, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+          { id: 3, i: 4, j: 5, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+          { id: 4, i: 5, j: 6, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+          { id: 5, i: 2, j: 5, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+          { id: 6, i: 3, j: 6, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+        ],
+        nodalLoads: [
+          { caseId: 1, node: 2, Fx: 4, Fy: 0, M: 0 },
+          { caseId: 1, node: 5, Fx: 4, Fy: 0, M: 0 },
+          { caseId: 1, node: 3, Fx: 3, Fy: 0, M: 0 },
+          { caseId: 1, node: 6, Fx: 3, Fy: 0, M: 0 },
+        ],
+        memberLoads: [],
+      },
+      metrics: [
+        { label: 'N2 一樓水平位移 uX', unit: 'mm', expected: 24.130842805587417, source: ['nodeDof', 2, 0, 1000] },
+        { label: 'N3 屋頂水平位移 uX', unit: 'mm', expected: 46.33318002480235, source: ['nodeDof', 3, 0, 1000] },
+        { label: 'N2 一樓垂直位移 uY', unit: 'mm', expected: 0.230965376896191, source: ['nodeDof', 2, 1, 1000] },
+        { label: 'N2 一樓轉角 θZ', unit: 'mrad', expected: -5.337239934127811, source: ['nodeDof', 2, 2, 1000] },
+        { label: 'N3 屋頂轉角 θZ', unit: 'mrad', expected: -2.8804223317657014, source: ['nodeDof', 3, 2, 1000] },
+        { label: 'N1 柱腳水平反力 Rx', unit: 'tf', expected: -7, source: ['reaction', 1, 0, 1] },
+        { label: 'M1 i 端彎矩', unit: 'tf·m', expected: 17.70190961831105, source: ['memberEnd', 1, 2, 1] },
+        { label: 'M1 j 端彎矩', unit: 'tf·m', expected: 10.29809038168895, source: ['memberEnd', 1, 5, 1] },
+        { label: 'M2 i 端彎矩', unit: 'tf·m', expected: 4.2959513110016365, source: ['memberEnd', 2, 2, 1] },
+        { label: 'M5 i 端彎矩', unit: 'tf·m', expected: -14.594041692690602, source: ['memberEnd', 5, 2, 1] },
+      ],
+    },
   };
   return definitions[kind] || null;
 }
@@ -2532,7 +2575,7 @@ function setReportLink(url) {
 }
 
 function loadExample(kind) {
-  if (kind === 'portalSideswayBenchmark' || kind === 'portalSymmetricUdlBenchmark' || kind === 'inclinedCantileverBenchmark' || kind === 'elasticSupportPortalBenchmark' || kind === 'rotationalSpringCantileverBenchmark') {
+  if (kind === 'portalSideswayBenchmark' || kind === 'portalSymmetricUdlBenchmark' || kind === 'inclinedCantileverBenchmark' || kind === 'elasticSupportPortalBenchmark' || kind === 'rotationalSpringCantileverBenchmark' || kind === 'twoStoryPortalBenchmark') {
     loadFromData(frameBenchmarkProjectData(kind));
     state.benchmarkId = kind;
     renderFrameBenchmarkPanel();
