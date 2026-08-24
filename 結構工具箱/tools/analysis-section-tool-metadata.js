@@ -16,7 +16,7 @@
     'frame-analysis': define({
       route: '/frame-analysis',
       discipline: 'analysis',
-      version: 'V0.5',
+      version: 'V0.6',
       calculationEngine: 'plane-frame.inline.v0.3.0',
       state: 'assist',
       governance: 'frame-analysis',

@@ -247,6 +247,7 @@ function createFrameAnalysisContext(source) {
     },
     syncLoadCaseTableFromDom() {},
     invalidateAnalysisState() { context.state.solution = null; },
+    renderFrameBenchmarkPanel() {},
     renderLoadCaseTable() {},
     renderNodeTable() {},
     refreshNodeSelectors() {},
@@ -271,8 +272,9 @@ function createFrameAnalysisContext(source) {
     'formatActiveCombination', 'activeLoadFactors', 'momentAboutOrigin',
     'computeAppliedResultant', 'validateModel', 'zeros', 'matmul', 'matvec',
     'transpose', 'subtractMat', 'invSmall', 'condenseReleases', 'solveLinear',
-    'analyze', 'getFrameProjectInfo', 'resetAll', 'validateFrameProjectData',
-    'collectProjectData', 'loadFromData',
+    'analyze', 'getFrameProjectInfo', 'getFrameBenchmarkDefinition',
+    'frameBenchmarkProjectData', 'resolveFrameBenchmarkMetric', 'frameBenchmarkResultModel',
+    'resetAll', 'validateFrameProjectData', 'collectProjectData', 'loadFromData',
   ].forEach(name => {
     vm.runInContext(functionSource(source, name), context, { filename: `frame-analysis:${name}` });
   });
@@ -308,6 +310,12 @@ function frameResultSnapshot(context) {
 const pageOnlyReportStatusNeedles = [...new Set(
   Object.values(calculationBookContentBoundary.forbiddenCategories).flat(),
 )];
+const frameBenchmarkPageOnlyNeedles = [
+  '封閉式參考解比對',
+  '此驗證結果只供工作頁確認求解器',
+  'PF-BM-PORTAL-SWAY-01',
+  'PF-BM-PORTAL-UDL-01',
+];
 
 function reportHtmlText(reportHtml) {
   return String(reportHtml || '')
@@ -364,6 +372,10 @@ assertIncludesAll(frameAnalysisHtml, [
   'function setReportLink',
   'function frameReportReadinessModel',
   'function renderFrameReportReadiness',
+  'function getFrameBenchmarkDefinition',
+  'function frameBenchmarkProjectData',
+  'function frameBenchmarkResultModel',
+  'function renderFrameBenchmarkPanel',
   'function invalidateAnalysisState',
   'id="geomCanvas"',
   'id="momCanvas"',
@@ -380,6 +392,11 @@ assertIncludesAll(frameAnalysisHtml, [
   'buildReportTrace',
   'page-only-report-status',
   'page-only-tool-actions',
+  'page-only-frame-benchmark',
+  'id="portalSideswayBenchmarkButton"',
+  'id="portalSymmetricUdlBenchmarkButton"',
+  "loadExample('portalSideswayBenchmark')",
+  "loadExample('portalSymmetricUdlBenchmark')",
   'URL.createObjectURL(new Blob',
   'lastReportObjectUrl',
   'equilibrium',
@@ -414,8 +431,9 @@ assertIncludesAll(frameAnalysisHtml, [
   'overflow-x: auto',
 ], 'rigid frame responsive contract');
 
-assertPrintHidesSelectors(frameAnalysisHtml, ['.page-only-report-status', '.page-only-tool-actions'], 'rigid frame page-only controls');
+assertPrintHidesSelectors(frameAnalysisHtml, ['.page-only-report-status', '.page-only-tool-actions', '.page-only-frame-benchmark'], 'rigid frame page-only controls');
 assertFunctionTemplateExcludes(frameAnalysisHtml, 'printReport', 'const html = `', pageOnlyReportStatusNeedles, 'rigid frame report export');
+assertFunctionTemplateExcludes(frameAnalysisHtml, 'printReport', 'const html = `', frameBenchmarkPageOnlyNeedles, 'rigid frame benchmark report boundary');
 
 const frameReportRuntime = captureFrameReportHtml(frameAnalysisHtml);
 const frameReportText = assertReportHtmlText(frameReportRuntime.html, 'rigid frame runtime report', [
@@ -449,6 +467,9 @@ assert(frameReportRuntime.status.includes('已產生計算書'), 'rigid frame ru
 for (const needle of pageOnlyReportStatusNeedles) {
   assert(!frameReportRuntime.html.includes(needle), 'rigid frame runtime report excludes page-only readiness wording', needle);
 }
+for (const needle of frameBenchmarkPageOnlyNeedles) {
+  assert(!frameReportRuntime.html.includes(needle), 'rigid frame runtime report excludes page-only benchmark wording', needle);
+}
 
 const readyFrameReport = captureFrameReportHtml(frameAnalysisHtml, {
   name: 'Frame QA',
@@ -466,7 +487,7 @@ assert(readyFrameReport.html.includes('Codex QA'), 'rigid frame complete report 
 const frameProjectFixture = {
   schema: 'plane-frame.project.v1',
   tool: '平面剛架分析',
-  version: 'V0.5',
+  version: 'V0.6',
   unit: 'tf-m',
   project: { name: 'Frame Replay', no: 'FR-R01', designer: 'QA', note: 'JSON result chain' },
   defaults: { E: 2040, A: 63.1, I: 13600 },
@@ -502,7 +523,7 @@ const sourceFrameReport = captureFrameReportHtml(
 );
 const sourceFrameFingerprint = reportCalculationFingerprint(sourceFrameReport.html);
 assert(sourceProjectJson.schema === 'plane-frame.project.v1', 'rigid frame JSON declares stable schema', sourceProjectJson.schema);
-assert(sourceProjectJson.version === 'V0.5', 'rigid frame JSON records current version', sourceProjectJson.version);
+assert(sourceProjectJson.version === 'V0.6', 'rigid frame JSON records current version', sourceProjectJson.version);
 assert(sourceProjectJson.calculationEngine === frameMetadata.calculationEngine, 'rigid frame JSON records canonical calculation engine', sourceProjectJson.calculationEngine);
 assert(frameRuntime.context.state.solution.equilibrium.ok === true, 'rigid frame replay fixture passes equilibrium check', JSON.stringify(frameRuntime.context.state.solution.equilibrium));
 assert(/^[0-9a-f]{64}$/.test(sourceResultSha256), 'rigid frame source input/result snapshot has stable SHA-256', sourceResultSha256);
@@ -806,12 +827,56 @@ assertNear(portalSymmetricUdl.elems[1].qLocal[2], portalSymmetricExpected.beamLe
 assertNear(portalSymmetricUdl.elems[1].qLocal[5], -portalSymmetricExpected.beamLeftMoment, 1e-10, 'portal symmetric UDL beam right end moment is mirrored');
 assertNear(portalSymmetricExpected.columnTopMoment + portalSymmetricExpected.beamLeftMoment, 0, 1e-10, 'portal symmetric UDL independent joint moment equilibrium closes');
 
+function runInteractiveFrameBenchmark(kind) {
+  const runtime = createFrameAnalysisContext(frameAnalysisHtml);
+  const projectData = runtime.context.frameBenchmarkProjectData(kind);
+  runtime.context.loadFromData(JSON.parse(JSON.stringify(projectData)));
+  runtime.context.state.benchmarkId = kind;
+  return {
+    definition: runtime.context.getFrameBenchmarkDefinition(kind),
+    projectData,
+    model: runtime.context.frameBenchmarkResultModel(),
+  };
+}
+
+const interactiveSidesway = runInteractiveFrameBenchmark('portalSideswayBenchmark');
+assert(interactiveSidesway.definition.id === 'PF-BM-PORTAL-SWAY-01', 'interactive portal sidesway exposes stable case id', interactiveSidesway.definition.id);
+assert(interactiveSidesway.projectData.version === frameMetadata.version, 'interactive portal sidesway uses current public version', interactiveSidesway.projectData.version);
+assert(interactiveSidesway.projectData.calculationEngine === frameMetadata.calculationEngine, 'interactive portal sidesway records canonical engine', interactiveSidesway.projectData.calculationEngine);
+assert(interactiveSidesway.projectData.nodes.length === 4 && interactiveSidesway.projectData.members.length === 3, 'interactive portal sidesway loads the governed four-node three-member model', `${interactiveSidesway.projectData.nodes.length}/${interactiveSidesway.projectData.members.length}`);
+assert(interactiveSidesway.projectData.nodalLoads.length === 2 && interactiveSidesway.projectData.nodalLoads.every(load => load.Fx === 6), 'interactive portal sidesway loads two equal 6 tf joint forces', JSON.stringify(interactiveSidesway.projectData.nodalLoads));
+assert(interactiveSidesway.model.pass === true && interactiveSidesway.model.rows.length === 6, 'interactive portal sidesway passes every visible reference comparison', `${interactiveSidesway.model.pass}/${interactiveSidesway.model.rows.length}`);
+assertNear(interactiveSidesway.definition.metrics[0].expected, portalSideswayReferenceFixture.delta * 1000, 1e-12, 'interactive portal sidesway drift reference matches frozen fixture');
+assertNear(interactiveSidesway.definition.metrics[1].expected, portalSideswayReferenceFixture.eta * 1000, 1e-12, 'interactive portal sidesway axial-flexibility displacement reference matches frozen fixture');
+assertNear(interactiveSidesway.definition.metrics[2].expected, portalSideswayReferenceFixture.theta * 1000, 1e-12, 'interactive portal sidesway rotation reference matches frozen fixture');
+assertNear(interactiveSidesway.definition.metrics[4].expected, portalSideswayReferenceFixture.columnBaseMoment, 1e-12, 'interactive portal sidesway column moment reference matches frozen fixture');
+assertNear(interactiveSidesway.definition.metrics[5].expected, portalSideswayReferenceFixture.beamEndMoment, 1e-12, 'interactive portal sidesway beam moment reference matches frozen fixture');
+
+const interactiveSymmetricUdl = runInteractiveFrameBenchmark('portalSymmetricUdlBenchmark');
+assert(interactiveSymmetricUdl.definition.id === 'PF-BM-PORTAL-UDL-01', 'interactive portal symmetric UDL exposes stable case id', interactiveSymmetricUdl.definition.id);
+assert(interactiveSymmetricUdl.projectData.memberLoads.length === 1 && interactiveSymmetricUdl.projectData.memberLoads[0].w === 2, 'interactive portal symmetric UDL loads the governed 2 tf/m beam load', JSON.stringify(interactiveSymmetricUdl.projectData.memberLoads));
+assert(interactiveSymmetricUdl.model.pass === true && interactiveSymmetricUdl.model.rows.length === 6, 'interactive portal symmetric UDL passes every visible reference comparison', `${interactiveSymmetricUdl.model.pass}/${interactiveSymmetricUdl.model.rows.length}`);
+assertNear(interactiveSymmetricUdl.definition.metrics[0].expected, portalSymmetricReferenceFixture.xi * 1000, 1e-12, 'interactive portal symmetric UDL horizontal displacement reference matches frozen fixture');
+assertNear(interactiveSymmetricUdl.definition.metrics[1].expected, portalSymmetricReferenceFixture.vertical * 1000, 1e-12, 'interactive portal symmetric UDL vertical displacement reference matches frozen fixture');
+assertNear(interactiveSymmetricUdl.definition.metrics[2].expected, portalSymmetricReferenceFixture.theta * 1000, 1e-12, 'interactive portal symmetric UDL rotation reference matches frozen fixture');
+assertNear(interactiveSymmetricUdl.definition.metrics[3].expected, portalSymmetricReferenceFixture.horizontalReaction, 1e-12, 'interactive portal symmetric UDL horizontal reaction reference matches frozen fixture');
+assertNear(interactiveSymmetricUdl.definition.metrics[5].expected, portalSymmetricReferenceFixture.beamLeftMoment, 1e-12, 'interactive portal symmetric UDL beam moment reference matches frozen fixture');
+
+const priorV05FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
+priorV05FrameJson.version = 'V0.5';
+frameRuntime.context.loadFromData(priorV05FrameJson);
+assert(
+  stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
+  'prior V0.5 JSON remains readable after the V0.6 interactive benchmark upgrade',
+  'schema v1 compatibility path',
+);
+
 const priorFrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
 priorFrameJson.version = 'V0.4';
 frameRuntime.context.loadFromData(priorFrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.4 JSON remains readable after the V0.5 evidence upgrade',
+  'prior V0.4 JSON remains readable after the V0.6 interactive benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -820,7 +885,7 @@ olderFrameJson.version = 'V0.3';
 frameRuntime.context.loadFromData(olderFrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'older V0.3 JSON remains readable after the V0.5 evidence upgrade',
+  'older V0.3 JSON remains readable after the V0.6 interactive benchmark upgrade',
   'schema v1 compatibility path',
 );
 

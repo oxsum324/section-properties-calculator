@@ -108,6 +108,22 @@
   .summary-grid div { background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
   .summary-grid b { display: block; font-size: 0.72em; color: var(--text-light); }
   .summary-grid span { font-family: Consolas, monospace; font-size: 0.86em; }
+  .frame-benchmark { border-left-color: #2563eb; background: #eff6ff; }
+  .frame-benchmark.inactive { border-left-color: var(--border); background: #f8fafc; }
+  .frame-benchmark.pass { border-left-color: var(--accent); background: #f0fdf4; }
+  .frame-benchmark.fail { border-left-color: var(--danger); background: #fef2f2; }
+  .frame-benchmark-table-wrap { overflow-x: auto; margin-top: 8px; }
+  .frame-benchmark-table { width: 100%; min-width: 650px; border-collapse: collapse; font-size: 0.78em; }
+  .frame-benchmark-table th,
+  .frame-benchmark-table td { padding: 5px 7px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+  .frame-benchmark-table th:first-child,
+  .frame-benchmark-table td:first-child { text-align: left; }
+  .frame-benchmark-table th { color: var(--text-light); background: rgba(255,255,255,0.7); }
+  .frame-benchmark-table td { font-family: Consolas, monospace; }
+  .frame-benchmark-table td:first-child { font-family: inherit; font-weight: 600; }
+  .frame-benchmark-status { font-weight: 800; }
+  .frame-benchmark-status.pass { color: var(--accent); }
+  .frame-benchmark-status.fail { color: var(--danger); }
 
   .diag-card .canvas-wrap { min-height: 120px; display: flex; align-items: center; justify-content: center; }
   .diag-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
@@ -118,7 +134,8 @@
   }
   @media print {
     .page-only-report-status,
-    .page-only-tool-actions { display: none !important; }
+    .page-only-tool-actions,
+    .page-only-frame-benchmark { display: none !important; }
   }
 </style>
 </head>
@@ -178,6 +195,8 @@
           <button class="btn btn-ghost btn-sm" onclick="loadExample('cantilever')">懸臂驗證</button>
           <button class="btn btn-ghost btn-sm" onclick="loadExample('ss')">簡支梁(均布)</button>
           <button class="btn btn-ghost btn-sm" onclick="loadExample('ssP')">簡支梁(集中)</button>
+          <button class="btn btn-ghost btn-sm" id="portalSideswayBenchmarkButton" onclick="loadExample('portalSideswayBenchmark')">門架側推驗證</button>
+          <button class="btn btn-ghost btn-sm" id="portalSymmetricUdlBenchmarkButton" onclick="loadExample('portalSymmetricUdlBenchmark')">對稱載重驗證</button>
         </div>
         <div class="flex-row" style="margin-top:10px; gap:12px; align-items:center;">
           <label style="display:inline-flex;align-items:center;gap:5px;font-weight:600;">
@@ -318,6 +337,11 @@
         <div id="modelCheckPanel" class="check-panel">
           <div class="check-line warn">尚未執行分析。</div>
         </div>
+      </div>
+
+      <div class="card frame-benchmark inactive page-only-frame-benchmark" id="frameBenchmarkPanel" role="status" aria-live="polite">
+        <h2>封閉式參考解比對</h2>
+        <div>請由左側載入「門架側推驗證」或「對稱載重驗證」。</div>
       </div>
 
       <div class="card diag-card">
@@ -1830,6 +1854,157 @@ function renderModelChecks(sol, fallbackValidation) {
   panel.innerHTML = lines.join('');
 }
 
+function getFrameBenchmarkDefinition(kind) {
+  const definitions = {
+    portalSideswayBenchmark: {
+      id: 'PF-BM-PORTAL-SWAY-01',
+      title: '固定柱腳門架側推（含軸向變形）',
+      basis: '斜率－撓度法縮減方程封閉解',
+      model: {
+        nodes: [
+          { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+          { id: 2, x: 0, y: 4, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+          { id: 3, x: 6, y: 4, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+          { id: 4, x: 6, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+        ],
+        members: [
+          { id: 1, i: 1, j: 2, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+          { id: 2, i: 2, j: 3, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+          { id: 3, i: 4, j: 3, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+        ],
+        nodalLoads: [
+          { caseId: 1, node: 2, Fx: 6, Fy: 0, M: 0 },
+          { caseId: 1, node: 3, Fx: 6, Fy: 0, M: 0 },
+        ],
+        memberLoads: [],
+      },
+      metrics: [
+        { label: 'N2 水平位移 uX', unit: 'mm', expected: 18.50737255450092, source: ['nodeDof', 2, 0, 1000] },
+        { label: 'N2 垂直位移 uY', unit: 'mm', expected: 0.0992474151217497, source: ['nodeDof', 2, 1, 1000] },
+        { label: 'N2 轉角 θZ', unit: 'mrad', expected: -3.486673589822547, source: ['nodeDof', 2, 2, 1000] },
+        { label: 'N1 水平反力 Rx', unit: 'tf', expected: -6, source: ['reaction', 1, 0, 1] },
+        { label: 'M1 i 端彎矩', unit: 'tf·m', expected: 14.41835680190092, source: ['memberEnd', 1, 2, 1] },
+        { label: 'M2 i 端彎矩', unit: 'tf·m', expected: -9.58164319809908, source: ['memberEnd', 2, 2, 1] },
+      ],
+    },
+    portalSymmetricUdlBenchmark: {
+      id: 'PF-BM-PORTAL-UDL-01',
+      title: '固定柱腳門架梁對稱均布載重（含軸向變形）',
+      basis: '對稱非側移縮減方程封閉解',
+      model: {
+        nodes: [
+          { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+          { id: 2, x: 0, y: 4, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+          { id: 3, x: 6, y: 4, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+          { id: 4, x: 6, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+        ],
+        members: [
+          { id: 1, i: 1, j: 2, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+          { id: 2, i: 2, j: 3, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+          { id: 3, i: 4, j: 3, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false },
+        ],
+        nodalLoads: [],
+        memberLoads: [{ caseId: 1, member: 2, w: 2, dir: 'globalY' }],
+      },
+      metrics: [
+        { label: 'N2 水平位移 uX', unit: 'mm', expected: 0.039120830335277117, source: ['nodeDof', 2, 0, 1000] },
+        { label: 'N2 垂直位移 uY', unit: 'mm', expected: -0.1864454181038501, source: ['nodeDof', 2, 1, 1000] },
+        { label: 'N2 轉角 θZ', unit: 'mrad', expected: -1.632975051870897, source: ['nodeDof', 2, 2, 1000] },
+        { label: 'N1 水平反力 Rx', unit: 'tf', expected: 1.6785965880260705, source: ['reaction', 1, 0, 1] },
+        { label: 'N1 垂直反力 Ry', unit: 'tf', expected: 6, source: ['reaction', 1, 1, 1] },
+        { label: 'M2 i 端彎矩', unit: 'tf·m', expected: 4.489824672029794, source: ['memberEnd', 2, 2, 1] },
+      ],
+    },
+  };
+  return definitions[kind] || null;
+}
+
+function frameBenchmarkProjectData(kind) {
+  const definition = getFrameBenchmarkDefinition(kind);
+  if (!definition) throw new Error('未知的平面剛架驗證案例。');
+  return {
+    schema: 'plane-frame.project.v1',
+    tool: '平面剛架分析',
+    version: FRAME_PUBLIC_VERSION,
+    calculationEngine: FRAME_CALCULATION_ENGINE,
+    unit: 'tf-m',
+    project: { name: '', no: '', designer: '', note: '' },
+    defaults: { E: 2040, A: 63.1, I: 13600 },
+    selfWeight: false,
+    density: 7.85,
+    loadCases: [{ id: 1, name: 'D' }],
+    comboFactors: { 1: 1 },
+    nodes: definition.model.nodes,
+    members: definition.model.members,
+    nodalLoads: definition.model.nodalLoads,
+    memberLoads: definition.model.memberLoads,
+    memberPointLoads: [],
+  };
+}
+
+function resolveFrameBenchmarkMetric(metric, sol) {
+  const [type, entityId, component, scale] = metric.source;
+  if (type === 'nodeDof' || type === 'reaction') {
+    const nodeIndex = state.nodes.findIndex(node => node.id === entityId);
+    if (nodeIndex < 0) return NaN;
+    const vector = type === 'nodeDof' ? sol.d : sol.reactions;
+    return Number(vector[nodeIndex * 3 + component]) * scale;
+  }
+  if (type === 'memberEnd') {
+    const element = sol.elems.find(item => item.m.id === entityId);
+    return element ? Number(element.qLocal[component]) * scale : NaN;
+  }
+  return NaN;
+}
+
+function frameBenchmarkResultModel() {
+  const definition = getFrameBenchmarkDefinition(state.benchmarkId);
+  if (!definition) return { level: 'inactive', title: '尚未載入封閉式驗證案例', rows: [] };
+  if (!state.solution) return { level: 'inactive', definition, title: '模型已變更，請重新執行分析後比對。', rows: [] };
+  const rows = definition.metrics.map(metric => {
+    const actual = resolveFrameBenchmarkMetric(metric, state.solution);
+    const absError = Math.abs(actual - metric.expected);
+    const relError = Math.abs(metric.expected) > 1e-12 ? absError / Math.abs(metric.expected) : absError;
+    const tolerance = Math.max(1e-8, Math.abs(metric.expected) * 1e-8);
+    return { ...metric, actual, absError, relError, tolerance, pass: Number.isFinite(actual) && absError <= tolerance };
+  });
+  const pass = rows.every(row => row.pass);
+  return { level: pass ? 'pass' : 'fail', definition, title: pass ? '封閉式參考解比對通過' : '封閉式參考解比對未通過', rows, pass };
+}
+
+function formatFrameBenchmarkNumber(value) {
+  if (!Number.isFinite(value)) return '—';
+  const abs = Math.abs(value);
+  if (abs === 0) return '0';
+  if (abs > 0 && (abs < 1e-6 || abs >= 1e6)) return value.toExponential(3);
+  return value.toFixed(9).replace(/\.?0+$/, '');
+}
+
+function renderFrameBenchmarkPanel() {
+  const panel = document.getElementById('frameBenchmarkPanel');
+  if (!panel) return;
+  const model = frameBenchmarkResultModel();
+  panel.className = `card frame-benchmark ${model.level} page-only-frame-benchmark`;
+  if (!model.definition) {
+    panel.innerHTML = '<h2>封閉式參考解比對</h2><div>請由左側載入「門架側推驗證」或「對稱載重驗證」。</div>';
+    return;
+  }
+  const rows = model.rows.map(row => `<tr>
+    <td>${escapeHtml(row.label)}</td>
+    <td>${formatFrameBenchmarkNumber(row.expected)}</td>
+    <td>${formatFrameBenchmarkNumber(row.actual)}</td>
+    <td>${formatFrameBenchmarkNumber(row.absError)}</td>
+    <td>${formatFrameBenchmarkNumber(row.relError * 100)}%</td>
+    <td>${escapeHtml(row.unit)}</td>
+    <td><span class="frame-benchmark-status ${row.pass ? 'pass' : 'fail'}">${row.pass ? '通過' : '未通過'}</span></td>
+  </tr>`).join('');
+  panel.innerHTML = `<h2>封閉式參考解比對</h2>
+    <div><strong>${escapeHtml(model.title)}</strong></div>
+    <div class="hint">案例 ${escapeHtml(model.definition.id)}｜${escapeHtml(model.definition.title)}｜依據：${escapeHtml(model.definition.basis)}</div>
+    ${rows ? `<div class="frame-benchmark-table-wrap"><table class="frame-benchmark-table"><thead><tr><th>檢核量</th><th>參考值</th><th>分析值</th><th>絕對誤差</th><th>相對誤差</th><th>單位</th><th>狀態</th></tr></thead><tbody>${rows}</tbody></table></div>` : ''}
+    <div class="report-readiness-note">此驗證結果只供工作頁確認求解器，不寫入計算書、列印或附件，也不代表專案設計核可。</div>`;
+}
+
 function activeFrameLoadCount() {
   const activeCases = new Set(state.loadCases.filter(lc => Math.abs(comboFactor(lc.id)) > 1e-12).map(lc => lc.id));
   const nodal = state.nodalLoads.filter(l => activeCases.has(normalizeLoadCaseId(l.caseId)) && ((+l.Fx || 0) || (+l.Fy || 0) || (+l.M || 0))).length;
@@ -1940,6 +2115,7 @@ function renderFrameReportReadiness(validationOverride) {
 function invalidateAnalysisState() {
   state.solution = null;
   renderFrameReportReadiness();
+  renderFrameBenchmarkPanel();
 }
 
 // ============================================================
@@ -1963,6 +2139,7 @@ function runAnalysis() {
     renderResults();
     renderModelChecks(state.solution);
     renderFrameReportReadiness(state.solution.validation);
+    renderFrameBenchmarkPanel();
   } catch (e) {
     state.solution = null;
     err.textContent = '錯誤: ' + e.message;
@@ -1970,6 +2147,7 @@ function runAnalysis() {
     const validation = { checks: [{ level: 'error', text: e.message }], hasErrors: true };
     renderModelChecks(null, validation);
     renderFrameReportReadiness(validation);
+    renderFrameBenchmarkPanel();
     console.error(e);
   }
 }
@@ -1983,6 +2161,7 @@ function resetAll() {
   state.nodes = []; state.members = []; state.nodalLoads = [];
   state.memberLoads = []; state.memberPointLoads = [];
   state.loadCases = []; state.comboFactors = {};
+  state.benchmarkId = null;
   invalidateAnalysisState();
   nodeIdCnt = 0; memberIdCnt = 0; loadCaseIdCnt = 0;
   ensureLoadCases();
@@ -2257,6 +2436,12 @@ function setReportLink(url) {
 }
 
 function loadExample(kind) {
+  if (kind === 'portalSideswayBenchmark' || kind === 'portalSymmetricUdlBenchmark') {
+    loadFromData(frameBenchmarkProjectData(kind));
+    state.benchmarkId = kind;
+    renderFrameBenchmarkPanel();
+    return;
+  }
   resetAll();
   const E = 2040, A = 63.1, I = 13600;
   if (kind === 'portal') {

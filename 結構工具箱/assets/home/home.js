@@ -156,15 +156,15 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 2,
-    generatedAt: '2026-08-24',
+    generatedAt: '2026-08-25',
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
-      '/beam-analysis': '2026-08-24',
-      '/frame-analysis': '2026-08-24',
+      '/beam-analysis': '2026-08-25',
+      '/frame-analysis': '2026-08-25',
       '/struct-dx': '2026-08-13',
-      '/section': '2026-08-24',
-      '/composite-section': '2026-08-24',
+      '/section': '2026-08-25',
+      '/composite-section': '2026-08-25',
       '/rc-beam': '2026-08-24',
       '/rc-column': '2026-08-24',
       '/rc-slab': '2026-08-24',
@@ -303,16 +303,16 @@
     },
     {
       title: '平面剛架分析',
-      version: 'V0.5',
+      version: 'V0.6',
       href: '/frame-analysis',
       categories: ['analysis'],
       state: 'assist',
       governance: 'frame-analysis',
       output: '位移、反力、M/V/N 內力圖、計算書與 JSON',
-      summary: '2D 剛架直接勁度法：節點／集中／均布／自重載重、端部鉸接釋放，支援以 JSON 重播模型並輸出位移、反力、內力圖與計算書；另以單桿件及含軸向變形的側推／對稱門架封閉式解答驗證。',
+      summary: '2D 剛架直接勁度法：節點／集中／均布／自重載重、端部鉸接釋放，支援以 JSON 重播模型並輸出位移、反力、內力圖與計算書；工作頁可一鍵載入含軸向變形的側推／對稱門架封閉式案例，逐項比對參考值與求解誤差。',
       fit: '簡化剛架模型、連續梁與手算前後校核。',
       limit: '複雜工程模型仍應回正式分析軟體。',
-      capabilities: ['鉸接釋放', '集中載重', '多桿件基準', '計算書']
+      capabilities: ['鉸接釋放', '集中載重', '互動驗證案例', '計算書']
     },
     {
       title: 'struct.dx 解題套件',
