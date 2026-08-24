@@ -466,7 +466,7 @@ assert(readyFrameReport.html.includes('Codex QA'), 'rigid frame complete report 
 const frameProjectFixture = {
   schema: 'plane-frame.project.v1',
   tool: '平面剛架分析',
-  version: 'V0.4',
+  version: 'V0.5',
   unit: 'tf-m',
   project: { name: 'Frame Replay', no: 'FR-R01', designer: 'QA', note: 'JSON result chain' },
   defaults: { E: 2040, A: 63.1, I: 13600 },
@@ -502,7 +502,7 @@ const sourceFrameReport = captureFrameReportHtml(
 );
 const sourceFrameFingerprint = reportCalculationFingerprint(sourceFrameReport.html);
 assert(sourceProjectJson.schema === 'plane-frame.project.v1', 'rigid frame JSON declares stable schema', sourceProjectJson.schema);
-assert(sourceProjectJson.version === 'V0.4', 'rigid frame JSON records current version', sourceProjectJson.version);
+assert(sourceProjectJson.version === 'V0.5', 'rigid frame JSON records current version', sourceProjectJson.version);
 assert(sourceProjectJson.calculationEngine === frameMetadata.calculationEngine, 'rigid frame JSON records canonical calculation engine', sourceProjectJson.calculationEngine);
 assert(frameRuntime.context.state.solution.equilibrium.ok === true, 'rigid frame replay fixture passes equilibrium check', JSON.stringify(frameRuntime.context.state.solution.equilibrium));
 assert(/^[0-9a-f]{64}$/.test(sourceResultSha256), 'rigid frame source input/result snapshot has stable SHA-256', sourceResultSha256);
@@ -648,12 +648,179 @@ assertNear(springSolution.reactions[3], -expectedSpringForce, 1e-10, 'axial spri
 assertNear(maxAbs(springSolution.elems[0].diag.Ns), expectedBarForce, 1e-10, 'axial member force matches EA/L stiffness share');
 assertNear(springSolution.reactions[0] + springSolution.reactions[3], -springLoad, 1e-10, 'axial bar and spring reactions close global force balance');
 
+function portalSideswayReference({ EA, EI, h, L, P }) {
+  // Symmetric reduced slope-deflection system for an unbraced, fixed-base portal.
+  // Unknowns are common story drift delta, common joint rotation theta, and
+  // antisymmetric beam-end vertical displacement eta. Column axial flexibility
+  // is retained instead of assuming EA is infinite.
+  const columnAxial = EA / h;
+  const beamVertical = 24 * EI / L ** 3;
+  const beamRotationCoupling = 12 * EI / L ** 2;
+  const jointRotational = 4 * EI / h + 6 * EI / L
+    - beamRotationCoupling ** 2 / (columnAxial + beamVertical);
+  const rotationPerDrift = -(6 * EI / h ** 2) / jointRotational;
+  const storyStiffness = 24 * EI / h ** 3 + 12 * EI / h ** 2 * rotationPerDrift;
+  const delta = P / storyStiffness;
+  const theta = rotationPerDrift * delta;
+  const eta = -beamRotationCoupling * theta / (columnAxial + beamVertical);
+  return {
+    delta,
+    theta,
+    eta,
+    columnBaseMoment: 6 * EI / h ** 2 * delta + 2 * EI / h * theta,
+    columnTopMoment: 6 * EI / h ** 2 * delta + 4 * EI / h * theta,
+    beamEndMoment: 12 * EI / L ** 2 * eta + 6 * EI / L * theta,
+    columnAxialForce: columnAxial * eta,
+  };
+}
+
+const portalHeight = 4;
+const portalSpan = 6;
+const portalLateralLoad = 12;
+const closedFormEA = closedFormMaterial.E * closedFormMaterial.A;
+const portalSidesway = runClosedFormFrameCase({
+  id: 'fixed-base-portal-sidesway-with-axial-flexibility',
+  ...closedFormMaterial,
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: 0, y: portalHeight, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 3, x: portalSpan, y: portalHeight, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 4, x: portalSpan, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [
+    { id: 1, i: 1, j: 2, ...closedFormMaterial, relI: false, relJ: false },
+    { id: 2, i: 2, j: 3, ...closedFormMaterial, relI: false, relJ: false },
+    { id: 3, i: 4, j: 3, ...closedFormMaterial, relI: false, relJ: false },
+  ],
+  nodalLoads: [
+    { caseId: 1, node: 2, Fx: portalLateralLoad / 2, Fy: 0, M: 0 },
+    { caseId: 1, node: 3, Fx: portalLateralLoad / 2, Fy: 0, M: 0 },
+  ],
+});
+const portalSideswayExpected = portalSideswayReference({
+  EA: closedFormEA,
+  EI: closedFormEI,
+  h: portalHeight,
+  L: portalSpan,
+  P: portalLateralLoad,
+});
+const portalSideswayReferenceFixture = Object.freeze({
+  delta: 0.01850737255450092,
+  theta: -0.003486673589822547,
+  eta: 0.0000992474151217497,
+  columnBaseMoment: 14.41835680190092,
+  columnTopMoment: 9.581643198099082,
+  beamEndMoment: -9.58164319809908,
+  columnAxialForce: 3.1938810660330272,
+});
+for (const [key, expected] of Object.entries(portalSideswayReferenceFixture)) {
+  assertNear(portalSideswayExpected[key], expected, 1e-12, `portal sidesway reduced equations match frozen reference result: ${key}`);
+}
+assertNear(portalSidesway.d[3], portalSideswayExpected.delta, 1e-10, 'portal sidesway left joint drift matches reduced slope-deflection solution');
+assertNear(portalSidesway.d[6], portalSideswayExpected.delta, 1e-10, 'portal sidesway right joint drift matches diaphragm-free symmetry solution');
+assertNear(portalSidesway.d[4], portalSideswayExpected.eta, 1e-10, 'portal sidesway left joint vertical displacement retains column axial flexibility');
+assertNear(portalSidesway.d[7], -portalSideswayExpected.eta, 1e-10, 'portal sidesway right joint vertical displacement is antisymmetric');
+assertNear(portalSidesway.d[5], portalSideswayExpected.theta, 1e-10, 'portal sidesway left joint rotation matches reduced solution');
+assertNear(portalSidesway.d[8], portalSideswayExpected.theta, 1e-10, 'portal sidesway right joint rotation is symmetric');
+assertNear(portalSidesway.reactions[0], -portalLateralLoad / 2, 1e-10, 'portal sidesway left base takes half the story shear');
+assertNear(portalSidesway.reactions[9], -portalLateralLoad / 2, 1e-10, 'portal sidesway right base takes half the story shear');
+assertNear(portalSidesway.reactions[1], -portalSideswayExpected.columnAxialForce, 1e-10, 'portal sidesway left base vertical reaction matches axial-flexibility coupling');
+assertNear(portalSidesway.reactions[10], portalSideswayExpected.columnAxialForce, 1e-10, 'portal sidesway right base vertical reaction is antisymmetric');
+assertNear(portalSidesway.elems[0].qLocal[2], portalSideswayExpected.columnBaseMoment, 1e-10, 'portal sidesway left column base moment matches reduced solution');
+assertNear(portalSidesway.elems[0].qLocal[5], portalSideswayExpected.columnTopMoment, 1e-10, 'portal sidesway left column top moment matches reduced solution');
+assertNear(portalSidesway.elems[1].qLocal[2], portalSideswayExpected.beamEndMoment, 1e-10, 'portal sidesway beam left end moment matches reduced solution');
+assertNear(portalSidesway.elems[1].qLocal[5], portalSideswayExpected.beamEndMoment, 1e-10, 'portal sidesway beam right end moment matches reduced solution');
+assertNear(portalSideswayExpected.columnTopMoment + portalSideswayExpected.beamEndMoment, 0, 1e-10, 'portal sidesway independent joint moment equilibrium closes');
+
+function portalSymmetricUdlReference({ EA, EI, h, L, w }) {
+  // Symmetric non-sway equations with beam axial deformation retained. The
+  // left/right joint horizontal displacements are equal and opposite; column
+  // axial shortening follows directly from the vertical reaction wL/2.
+  const horizontalJointStiffness = 12 * EI / h ** 3 + 2 * EA / L;
+  const coupling = 6 * EI / h ** 2;
+  const rotationalJointStiffness = 4 * EI / h + 2 * EI / L;
+  const fixedEndMoment = w * L ** 2 / 12;
+  const theta = -fixedEndMoment / (rotationalJointStiffness - coupling ** 2 / horizontalJointStiffness);
+  const xi = -coupling * theta / horizontalJointStiffness;
+  const vertical = -(w * L / 2) * h / EA;
+  return {
+    theta,
+    xi,
+    vertical,
+    horizontalReaction: 2 * EA / L * xi,
+    columnBaseMoment: coupling * xi + 2 * EI / h * theta,
+    columnTopMoment: coupling * xi + 4 * EI / h * theta,
+    beamLeftMoment: 2 * EI / L * theta + fixedEndMoment,
+  };
+}
+
+const portalUniformLoad = 2;
+const portalSymmetricUdl = runClosedFormFrameCase({
+  id: 'fixed-base-portal-symmetric-beam-uniform-load',
+  ...closedFormMaterial,
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: 0, y: portalHeight, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 3, x: portalSpan, y: portalHeight, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 4, x: portalSpan, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [
+    { id: 1, i: 1, j: 2, ...closedFormMaterial, relI: false, relJ: false },
+    { id: 2, i: 2, j: 3, ...closedFormMaterial, relI: false, relJ: false },
+    { id: 3, i: 4, j: 3, ...closedFormMaterial, relI: false, relJ: false },
+  ],
+  memberLoads: [{ caseId: 1, member: 2, w: portalUniformLoad, dir: 'globalY' }],
+});
+const portalSymmetricExpected = portalSymmetricUdlReference({
+  EA: closedFormEA,
+  EI: closedFormEI,
+  h: portalHeight,
+  L: portalSpan,
+  w: portalUniformLoad,
+});
+const portalSymmetricReferenceFixture = Object.freeze({
+  theta: -0.001632975051870897,
+  xi: 0.000039120830335277117,
+  vertical: -0.0001864454181038501,
+  horizontalReaction: 1.6785965880260705,
+  columnBaseMoment: -2.224561680074486,
+  columnTopMoment: -4.489824672029795,
+  beamLeftMoment: 4.489824672029794,
+});
+for (const [key, expected] of Object.entries(portalSymmetricReferenceFixture)) {
+  assertNear(portalSymmetricExpected[key], expected, 1e-12, `portal symmetric UDL reduced equations match frozen reference result: ${key}`);
+}
+assertNear(portalSymmetricUdl.d[3], portalSymmetricExpected.xi, 1e-10, 'portal symmetric UDL left joint horizontal displacement matches reduced solution');
+assertNear(portalSymmetricUdl.d[6], -portalSymmetricExpected.xi, 1e-10, 'portal symmetric UDL right joint horizontal displacement is mirrored');
+assertNear(portalSymmetricUdl.d[4], portalSymmetricExpected.vertical, 1e-10, 'portal symmetric UDL left column axial shortening matches wLh/(2EA)');
+assertNear(portalSymmetricUdl.d[7], portalSymmetricExpected.vertical, 1e-10, 'portal symmetric UDL right column axial shortening matches wLh/(2EA)');
+assertNear(portalSymmetricUdl.d[5], portalSymmetricExpected.theta, 1e-10, 'portal symmetric UDL left joint rotation matches reduced solution');
+assertNear(portalSymmetricUdl.d[8], -portalSymmetricExpected.theta, 1e-10, 'portal symmetric UDL right joint rotation is mirrored');
+assertNear(portalSymmetricUdl.reactions[0], portalSymmetricExpected.horizontalReaction, 1e-10, 'portal symmetric UDL left base horizontal reaction matches beam axial restraint');
+assertNear(portalSymmetricUdl.reactions[9], -portalSymmetricExpected.horizontalReaction, 1e-10, 'portal symmetric UDL right base horizontal reaction is mirrored');
+assertNear(portalSymmetricUdl.reactions[1], portalUniformLoad * portalSpan / 2, 1e-10, 'portal symmetric UDL left base vertical reaction matches wL/2');
+assertNear(portalSymmetricUdl.reactions[10], portalUniformLoad * portalSpan / 2, 1e-10, 'portal symmetric UDL right base vertical reaction matches wL/2');
+assertNear(portalSymmetricUdl.elems[0].qLocal[2], portalSymmetricExpected.columnBaseMoment, 1e-10, 'portal symmetric UDL left column base moment matches reduced solution');
+assertNear(portalSymmetricUdl.elems[0].qLocal[5], portalSymmetricExpected.columnTopMoment, 1e-10, 'portal symmetric UDL left column top moment matches reduced solution');
+assertNear(portalSymmetricUdl.elems[1].qLocal[2], portalSymmetricExpected.beamLeftMoment, 1e-10, 'portal symmetric UDL beam left end moment matches fixed-end plus rotation solution');
+assertNear(portalSymmetricUdl.elems[1].qLocal[5], -portalSymmetricExpected.beamLeftMoment, 1e-10, 'portal symmetric UDL beam right end moment is mirrored');
+assertNear(portalSymmetricExpected.columnTopMoment + portalSymmetricExpected.beamLeftMoment, 0, 1e-10, 'portal symmetric UDL independent joint moment equilibrium closes');
+
 const priorFrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
-priorFrameJson.version = 'V0.3';
+priorFrameJson.version = 'V0.4';
 frameRuntime.context.loadFromData(priorFrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.3 JSON remains readable after the V0.4 evidence upgrade',
+  'prior V0.4 JSON remains readable after the V0.5 evidence upgrade',
+  'schema v1 compatibility path',
+);
+
+const olderFrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
+olderFrameJson.version = 'V0.3';
+frameRuntime.context.loadFromData(olderFrameJson);
+assert(
+  stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
+  'older V0.3 JSON remains readable after the V0.5 evidence upgrade',
   'schema v1 compatibility path',
 );
 

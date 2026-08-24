@@ -303,16 +303,16 @@
     },
     {
       title: '平面剛架分析',
-      version: 'V0.4',
+      version: 'V0.5',
       href: '/frame-analysis',
       categories: ['analysis'],
       state: 'assist',
       governance: 'frame-analysis',
       output: '位移、反力、M/V/N 內力圖、計算書與 JSON',
-      summary: '2D 剛架直接勁度法：節點／集中／均布／自重載重、端部鉸接釋放，支援以 JSON 重播模型並輸出位移、反力、內力圖與計算書；懸臂、簡支、端釋放及彈簧路徑具封閉式力學基準。',
+      summary: '2D 剛架直接勁度法：節點／集中／均布／自重載重、端部鉸接釋放，支援以 JSON 重播模型並輸出位移、反力、內力圖與計算書；另以單桿件及含軸向變形的側推／對稱門架封閉式解答驗證。',
       fit: '簡化剛架模型、連續梁與手算前後校核。',
       limit: '複雜工程模型仍應回正式分析軟體。',
-      capabilities: ['鉸接釋放', '集中載重', '封閉算例', '計算書']
+      capabilities: ['鉸接釋放', '集中載重', '多桿件基準', '計算書']
     },
     {
       title: 'struct.dx 解題套件',
