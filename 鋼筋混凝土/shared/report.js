@@ -509,7 +509,7 @@ function buildRcAttachmentApprovalReport(options = {}) {
         async function verifySavedApprovalSeal(serializedHtml) {
           var expected = String(approvalSealSource && approvalSealSource.dataset.approvalSha256 || '').trim().toLowerCase();
           if (!expected) {
-            setIntegrityStatus('approval', 'unsealed', '核可完整性：舊版未封印，作為正式附件前需複核');
+            setIntegrityStatus('approval', 'unsealed', '核可完整性：此預覽頁尚未封印；下載目前版本 HTML 時建立 SHA-256 核可封印');
             return { status:'unsealed', expected:'', actual:'' };
           }
           var payload = canonicalApprovalPayload(serializedHtml || initialSerializedHtml || (document.documentElement && document.documentElement.outerHTML));

@@ -15,6 +15,19 @@ function assert(pass, title, detail) {
   console.log(`PASS | ${title} | ${detail}`);
 }
 
+function assertNear(actual, expected, absTolerance, title) {
+  const error = Math.abs(Number(actual) - Number(expected));
+  assert(
+    Number.isFinite(Number(actual)) && error <= absTolerance,
+    title,
+    `actual=${actual}, expected=${expected}, absError=${error}, tolerance=${absTolerance}`,
+  );
+}
+
+function maxAbs(values) {
+  return Math.max(...values.map(value => Math.abs(Number(value))));
+}
+
 function functionSource(source, functionName) {
   const start = source.indexOf(`function ${functionName}`);
   assert(start >= 0, `${functionName} exists`, functionName);
@@ -453,7 +466,7 @@ assert(readyFrameReport.html.includes('Codex QA'), 'rigid frame complete report 
 const frameProjectFixture = {
   schema: 'plane-frame.project.v1',
   tool: '平面剛架分析',
-  version: 'V0.3',
+  version: 'V0.4',
   unit: 'tf-m',
   project: { name: 'Frame Replay', no: 'FR-R01', designer: 'QA', note: 'JSON result chain' },
   defaults: { E: 2040, A: 63.1, I: 13600 },
@@ -489,7 +502,7 @@ const sourceFrameReport = captureFrameReportHtml(
 );
 const sourceFrameFingerprint = reportCalculationFingerprint(sourceFrameReport.html);
 assert(sourceProjectJson.schema === 'plane-frame.project.v1', 'rigid frame JSON declares stable schema', sourceProjectJson.schema);
-assert(sourceProjectJson.version === 'V0.3', 'rigid frame JSON records current version', sourceProjectJson.version);
+assert(sourceProjectJson.version === 'V0.4', 'rigid frame JSON records current version', sourceProjectJson.version);
 assert(sourceProjectJson.calculationEngine === frameMetadata.calculationEngine, 'rigid frame JSON records canonical calculation engine', sourceProjectJson.calculationEngine);
 assert(frameRuntime.context.state.solution.equilibrium.ok === true, 'rigid frame replay fixture passes equilibrium check', JSON.stringify(frameRuntime.context.state.solution.equilibrium));
 assert(/^[0-9a-f]{64}$/.test(sourceResultSha256), 'rigid frame source input/result snapshot has stable SHA-256', sourceResultSha256);
@@ -510,6 +523,139 @@ const replayFrameReport = captureFrameReportHtml(
 const replayFrameFingerprint = reportCalculationFingerprint(replayFrameReport.html);
 assert(replayResultSha256 === sourceResultSha256, 'rigid frame JSON replay reproduces model and every analysis result', `source=${sourceResultSha256}, replay=${replayResultSha256}`);
 assert(replayFrameFingerprint === sourceFrameFingerprint, 'rigid frame JSON replay reproduces calculation-book fingerprint', `source=${sourceFrameFingerprint}, replay=${replayFrameFingerprint}`);
+
+function runClosedFormFrameCase(caseData) {
+  const runtime = createFrameAnalysisContext(frameAnalysisHtml);
+  runtime.context.loadFromData({
+    schema: 'plane-frame.project.v1',
+    tool: '平面剛架分析',
+    version: frameMetadata.version,
+    calculationEngine: frameMetadata.calculationEngine,
+    unit: 'tf-m',
+    project: { name: '', no: '', designer: '', note: caseData.id },
+    defaults: { E: caseData.E, A: caseData.A, I: caseData.I },
+    selfWeight: false,
+    density: 7.85,
+    loadCases: [{ id: 1, name: 'D' }],
+    comboFactors: { 1: 1 },
+    nodes: caseData.nodes,
+    members: caseData.members,
+    nodalLoads: caseData.nodalLoads || [],
+    memberLoads: caseData.memberLoads || [],
+    memberPointLoads: caseData.memberPointLoads || [],
+  });
+  const solution = runtime.context.state.solution;
+  assert(solution?.equilibrium?.ok === true, `${caseData.id} closed-form case passes global equilibrium`, JSON.stringify(solution?.equilibrium));
+  return solution;
+}
+
+const closedFormMaterial = { E: 2040, A: 63.1, I: 13600 };
+const closedFormEI = closedFormMaterial.E * closedFormMaterial.I * 1e-4;
+
+const cantileverLength = 6;
+const cantileverTipLoad = 1;
+const cantileverSolution = runClosedFormFrameCase({
+  id: 'cantilever-tip-load',
+  ...closedFormMaterial,
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: 0, y: cantileverLength, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [{ id: 1, i: 1, j: 2, ...closedFormMaterial, relI: false, relJ: false }],
+  nodalLoads: [{ caseId: 1, node: 2, Fx: cantileverTipLoad, Fy: 0, M: 0 }],
+});
+assertNear(cantileverSolution.d[3], cantileverTipLoad * cantileverLength ** 3 / (3 * closedFormEI), 1e-11, 'cantilever tip translation matches PL^3/(3EI)');
+assertNear(cantileverSolution.d[5], -cantileverTipLoad * cantileverLength ** 2 / (2 * closedFormEI), 1e-11, 'cantilever tip rotation matches PL^2/(2EI)');
+assertNear(cantileverSolution.reactions[0], -cantileverTipLoad, 1e-10, 'cantilever base horizontal reaction matches statics');
+assertNear(cantileverSolution.reactions[2], cantileverTipLoad * cantileverLength, 1e-10, 'cantilever base moment matches PL');
+assertNear(maxAbs(cantileverSolution.elems[0].diag.Ms), cantileverTipLoad * cantileverLength, 1e-10, 'cantilever moment diagram maximum matches PL');
+assertNear(maxAbs(cantileverSolution.elems[0].diag.Vs), cantileverTipLoad, 1e-10, 'cantilever shear diagram matches P');
+
+const simpleSpan = 8;
+const uniformLoad = 1;
+const simpleUdlSolution = runClosedFormFrameCase({
+  id: 'simple-beam-uniform-load',
+  ...closedFormMaterial,
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: simpleSpan, y: 0, cx: false, cy: true, crz: false, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [{ id: 1, i: 1, j: 2, ...closedFormMaterial, relI: false, relJ: false }],
+  memberLoads: [{ caseId: 1, member: 1, w: uniformLoad, dir: 'globalY' }],
+});
+assertNear(simpleUdlSolution.reactions[1], uniformLoad * simpleSpan / 2, 1e-10, 'simple beam UDL left reaction matches wL/2');
+assertNear(simpleUdlSolution.reactions[4], uniformLoad * simpleSpan / 2, 1e-10, 'simple beam UDL right reaction matches wL/2');
+assertNear(simpleUdlSolution.d[2], -uniformLoad * simpleSpan ** 3 / (24 * closedFormEI), 1e-11, 'simple beam UDL left rotation matches wL^3/(24EI)');
+assertNear(simpleUdlSolution.d[5], uniformLoad * simpleSpan ** 3 / (24 * closedFormEI), 1e-11, 'simple beam UDL right rotation matches wL^3/(24EI)');
+assertNear(maxAbs(simpleUdlSolution.elems[0].diag.Ms), uniformLoad * simpleSpan ** 2 / 8, 1e-10, 'simple beam UDL maximum moment matches wL^2/8');
+assertNear(maxAbs(simpleUdlSolution.elems[0].diag.Vs), uniformLoad * simpleSpan / 2, 1e-10, 'simple beam UDL maximum shear matches wL/2');
+
+const midpointLoad = 10;
+const simplePointSolution = runClosedFormFrameCase({
+  id: 'simple-beam-midpoint-load',
+  ...closedFormMaterial,
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: simpleSpan, y: 0, cx: false, cy: true, crz: false, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [{ id: 1, i: 1, j: 2, ...closedFormMaterial, relI: false, relJ: false }],
+  memberPointLoads: [{ caseId: 1, member: 1, P: midpointLoad, a: simpleSpan / 2, dir: 'globalY' }],
+});
+assertNear(simplePointSolution.reactions[1], midpointLoad / 2, 1e-10, 'simple beam midpoint load left reaction matches P/2');
+assertNear(simplePointSolution.reactions[4], midpointLoad / 2, 1e-10, 'simple beam midpoint load right reaction matches P/2');
+assertNear(simplePointSolution.d[2], -midpointLoad * simpleSpan ** 2 / (16 * closedFormEI), 1e-11, 'simple beam midpoint load left rotation matches PL^2/(16EI)');
+assertNear(simplePointSolution.d[5], midpointLoad * simpleSpan ** 2 / (16 * closedFormEI), 1e-11, 'simple beam midpoint load right rotation matches PL^2/(16EI)');
+assertNear(maxAbs(simplePointSolution.elems[0].diag.Ms), midpointLoad * simpleSpan / 4, 1e-10, 'simple beam midpoint load maximum moment matches PL/4');
+assertNear(maxAbs(simplePointSolution.elems[0].diag.Vs), midpointLoad / 2, 1e-10, 'simple beam midpoint load maximum shear matches P/2');
+
+const releasedEndSolution = runClosedFormFrameCase({
+  id: 'fixed-pinned-beam-uniform-load',
+  ...closedFormMaterial,
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: simpleSpan, y: 0, cx: false, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [{ id: 1, i: 1, j: 2, ...closedFormMaterial, relI: false, relJ: true }],
+  memberLoads: [{ caseId: 1, member: 1, w: uniformLoad, dir: 'globalY' }],
+});
+assertNear(releasedEndSolution.reactions[1], 5 * uniformLoad * simpleSpan / 8, 1e-10, 'fixed-pinned beam left reaction matches 5wL/8');
+assertNear(releasedEndSolution.reactions[4], 3 * uniformLoad * simpleSpan / 8, 1e-10, 'fixed-pinned beam right reaction matches 3wL/8');
+assertNear(releasedEndSolution.reactions[2], uniformLoad * simpleSpan ** 2 / 8, 1e-10, 'fixed-pinned beam fixed-end reaction moment matches wL^2/8');
+assertNear(releasedEndSolution.elems[0].qLocal[5], 0, 1e-10, 'released member end moment is zero after static condensation');
+assertNear(Math.min(...releasedEndSolution.elems[0].diag.Ms), -uniformLoad * simpleSpan ** 2 / 8, 1e-10, 'fixed-pinned beam hogging moment matches -wL^2/8');
+assertNear(Math.max(...releasedEndSolution.elems[0].diag.Ms), 9 * uniformLoad * simpleSpan ** 2 / 128, 1e-10, 'fixed-pinned beam positive moment matches 9wL^2/128');
+
+const springSpan = 5;
+const springLoad = 20;
+const springStiffness = 1000;
+const axialStiffness = closedFormMaterial.E * closedFormMaterial.A / springSpan;
+const springSolution = runClosedFormFrameCase({
+  id: 'axial-bar-with-end-spring',
+  ...closedFormMaterial,
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: springSpan, y: 0, cx: false, cy: true, crz: true, kx: springStiffness, ky: 0, krz: 0 },
+  ],
+  members: [{ id: 1, i: 1, j: 2, ...closedFormMaterial, relI: false, relJ: false }],
+  nodalLoads: [{ caseId: 1, node: 2, Fx: springLoad, Fy: 0, M: 0 }],
+});
+const expectedSpringDisplacement = springLoad / (axialStiffness + springStiffness);
+const expectedBarForce = axialStiffness * expectedSpringDisplacement;
+const expectedSpringForce = springStiffness * expectedSpringDisplacement;
+assertNear(springSolution.d[3], expectedSpringDisplacement, 1e-12, 'axial bar plus spring displacement matches P/(EA/L+k)');
+assertNear(springSolution.reactions[0], -expectedBarForce, 1e-10, 'axial bar fixed-end reaction matches stiffness share');
+assertNear(springSolution.reactions[3], -expectedSpringForce, 1e-10, 'axial spring reaction matches k times displacement');
+assertNear(maxAbs(springSolution.elems[0].diag.Ns), expectedBarForce, 1e-10, 'axial member force matches EA/L stiffness share');
+assertNear(springSolution.reactions[0] + springSolution.reactions[3], -springLoad, 1e-10, 'axial bar and spring reactions close global force balance');
+
+const priorFrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
+priorFrameJson.version = 'V0.3';
+frameRuntime.context.loadFromData(priorFrameJson);
+assert(
+  stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
+  'prior V0.3 JSON remains readable after the V0.4 evidence upgrade',
+  'schema v1 compatibility path',
+);
 
 const legacyFrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
 delete legacyFrameJson.schema;

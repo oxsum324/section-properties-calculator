@@ -811,7 +811,7 @@ assert.deepEqual(reportReadinessStatus.reportTextSmokeEvidenceUnmappedFamilies, 
 assert.ok(reportReadinessStatus.reportTextSmokeEvidenceGates.every(gate => gate.pass && gate.complete === gate.required), 'report readiness runtime evidence gates pass');
 assert.ok(String(reportReadinessStatus.reportTextSmokeScope || '').includes('風力 / 地震正式工具') && String(reportReadinessStatus.reportTextSmokeScope || '').includes('局部快算'), 'report readiness names report text scope');
 assert.ok(String(reportReadinessStatus.reportTextSmokeScope || '').includes('矩陣外工具家族'), 'report readiness keeps other-family report boundary');
-assert.ok([31, 32].includes(reportReadinessStatus.renderedDeliveryEvidenceRequired), 'report readiness covers the previous release or promoted formal homepage portfolio');
+assert.ok([31, 32, 33].includes(reportReadinessStatus.renderedDeliveryEvidenceRequired), 'report readiness covers the previous release or promoted formal homepage portfolio');
 assert.equal(reportReadinessStatus.renderedDeliveryEvidenceComplete, reportReadinessStatus.renderedDeliveryEvidenceRequired, 'report readiness rendered delivery complete');
 assert.equal(reportReadinessStatus.renderedDeliveryEvidenceIssueCount, 0, 'report readiness rendered delivery issues empty');
 assert.match(reportReadinessStatus.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'report readiness rendered delivery runId');

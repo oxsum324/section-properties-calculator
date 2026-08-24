@@ -49,6 +49,7 @@ const rcResultReconciliationHelper = readText('鋼筋混凝土/tools/report-resu
 const rcPortableHtmlHelper = readText('鋼筋混凝土/tools/report-portable-html-check.js');
 const rcSharedReport = readText('鋼筋混凝土/shared/report.js');
 const formalSharedReport = readText('結構工具箱/core/ui/report.js');
+const steelSharedReport = readText('鋼構工具/core/ui/report.js');
 const formalWindReport = readText('結構工具箱/core/wind-report.js');
 const attachmentPackageChecker = readText('結構工具箱/tools/attachment-package-check.js');
 const attachmentPackageVerifier = readText('結構工具箱/tools/attachment-package-verify.js');
@@ -252,6 +253,10 @@ assert(
   '內容完整性異常',
   '核可完整性異常',
 ].forEach(needle => assertIncludes(formalSharedReport, needle, `formal shared report preserves HTML dual seal ${needle}`));
+assertIncludes(formalSharedReport, '內容完整性：此預覽頁尚未封印；下載目前版本 HTML 時建立 SHA-256 內容封印', 'formal shared report explains when the live preview receives a content seal');
+assertIncludes(formalSharedReport, '核可完整性：此預覽頁尚未封印；下載目前版本 HTML 時建立 SHA-256 核可封印', 'formal shared report explains when the live preview receives an approval seal');
+assertIncludes(steelSharedReport, '內容完整性：此預覽頁尚未封印；下載目前版本 HTML 時建立 SHA-256 內容封印', 'steel shared report explains when the live preview receives a content seal');
+assertIncludes(steelSharedReport, '核可完整性：此預覽頁尚未封印；下載目前版本 HTML 時建立 SHA-256 核可封印', 'steel shared report explains when the live preview receives an approval seal');
 [
   '<!--formal-content-seal:start-->',
   '<!--formal-content-seal:end-->',
@@ -341,6 +346,8 @@ for (const { name, source } of rcReportVisualSources) {
   'verifyReportApprovalSeal',
   '核可完整性異常',
 ].forEach(needle => assertIncludes(rcSharedReport, needle, `RC shared report preserves HTML approval seal ${needle}`));
+assertIncludes(rcSharedReport, '核可完整性：此預覽頁尚未封印；下載目前版本 HTML 時建立 SHA-256 核可封印', 'RC shared report explains when the live preview receives an approval seal');
+assertIncludes(reportGuide, '不得誤稱為舊版', 'report guide distinguishes a live unsealed preview from a legacy report');
 [
   'verifyRcHtmlContentSeal',
   'rc-html-content-seal-missing',

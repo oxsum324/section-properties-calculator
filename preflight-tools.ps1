@@ -2934,7 +2934,7 @@ $checks = @(
   },
   [pscustomobject]@{
     key = "frame-analysis-contract"
-    label = "Frame analysis report boundary contract"
+    label = "Frame analysis closed-form benchmark and report boundary contract"
     workdir = $root
     command = $frameAnalysisContractCommand
     slow = $false
