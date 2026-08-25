@@ -199,6 +199,8 @@ function captureFrameReportHtml(source, project = {}, runtimeState = null) {
     'frameStoryResponseModel',
     'frameCombinationAnalysisSet',
     'frameStoryCombinationEnvelopeModel',
+    'frameNodeEnvelopeComponents',
+    'frameNodeCombinationEnvelopeModel',
     'frameMemberEnvelopeComponents',
     'frameMemberCombinationEnvelopeModel',
     'formatFrameStoryRatio',
@@ -294,7 +296,7 @@ function createFrameAnalysisContext(source) {
     'formatCombinationFactors', 'formatActiveCombination', 'activeLoadFactors', 'momentAboutOrigin',
     'computeAppliedResultant', 'validateModel', 'zeros', 'matmul', 'matvec',
     'transpose', 'subtractMat', 'invSmall', 'condenseReleases', 'solveLinear',
-    'analyze', 'frameStoryResponseModel', 'frameCombinationAnalysisSet', 'frameStoryCombinationEnvelopeModel', 'frameMemberEnvelopeComponents', 'frameMemberCombinationEnvelopeModel', 'formatFrameStoryRatio', 'getFrameProjectInfo', 'getFrameBenchmarkDefinition',
+    'analyze', 'frameStoryResponseModel', 'frameCombinationAnalysisSet', 'frameStoryCombinationEnvelopeModel', 'frameNodeEnvelopeComponents', 'frameNodeCombinationEnvelopeModel', 'frameMemberEnvelopeComponents', 'frameMemberCombinationEnvelopeModel', 'formatFrameStoryRatio', 'getFrameProjectInfo', 'getFrameBenchmarkDefinition',
     'frameBenchmarkProjectData', 'resolveFrameBenchmarkMetric', 'frameBenchmarkResultModel',
     'resetAll', 'validateFrameProjectData', 'collectProjectData', 'loadFromData',
   ].forEach(name => {
@@ -420,6 +422,10 @@ assertIncludesAll(frameAnalysisHtml, [
   'function frameStoryCombinationEnvelopeModel',
   'function frameCombinationAnalysisSet',
   'function renderStoryEnvelope',
+  'id="nodeEnvelopeCard"',
+  'id="nodeEnvelopeTbl"',
+  'function frameNodeCombinationEnvelopeModel',
+  'function renderNodeEnvelope',
   'id="memberEnvelopeCard"',
   'id="memberEnvelopeTbl"',
   'function frameMemberCombinationEnvelopeModel',
@@ -1649,6 +1655,80 @@ memberEnvelope.rows.forEach(row => {
     `M${expected.memberId} / ${expected.absoluteCombinationName}`,
   );
 });
+const nodeEnvelope = storyEnvelopeRuntime.context.frameNodeCombinationEnvelopeModel();
+const supportedNodeDofCount = storyEnvelopeProject.nodes.reduce((count, node) => count
+  + Number(storyEnvelopeRuntime.context.hasSupportDof(node, 'cx', 'kx'))
+  + Number(storyEnvelopeRuntime.context.hasSupportDof(node, 'cy', 'ky'))
+  + Number(storyEnvelopeRuntime.context.hasSupportDof(node, 'crz', 'krz')), 0);
+assert(
+  nodeEnvelope.active === true && nodeEnvelope.rows.length === storyEnvelopeProject.nodes.length * 3 + supportedNodeDofCount,
+  'two named combinations produce displacement rows for every node and reaction rows only for supported degrees of freedom',
+  `rows=${nodeEnvelope.rows.length}, supported=${supportedNodeDofCount}`,
+);
+const solvedNodeCombinations = [
+  { name: 'LOWER-CONTROL', solution: lowerEnvelopeSolution },
+  { name: 'ROOF-CONTROL', solution: roofEnvelopeSolution },
+];
+const nodeComponentSource = {
+  uX: { valuesKey: 'd', offset: 0, scale: 1000 },
+  uY: { valuesKey: 'd', offset: 1, scale: 1000 },
+  thetaZ: { valuesKey: 'd', offset: 2, scale: 1000 },
+  Rx: { valuesKey: 'reactions', offset: 0, scale: 1 },
+  Ry: { valuesKey: 'reactions', offset: 1, scale: 1 },
+  Mz: { valuesKey: 'reactions', offset: 2, scale: 1 },
+};
+nodeEnvelope.rows.forEach(row => {
+  const nodeIndex = storyEnvelopeProject.nodes.findIndex(node => node.id === row.nodeId);
+  const source = nodeComponentSource[row.component];
+  const samples = solvedNodeCombinations.map(combination => {
+    const scaledValue = combination.solution[source.valuesKey][nodeIndex * 3 + source.offset] * source.scale;
+    return {
+      value: Math.abs(scaledValue) < 1e-12 ? 0 : scaledValue,
+      name: combination.name,
+    };
+  });
+  const expectedMaximum = samples.reduce((current, sample) => sample.value > current.value ? sample : current, samples[0]);
+  const expectedMinimum = samples.reduce((current, sample) => sample.value < current.value ? sample : current, samples[0]);
+  assertNear(row.maxValue, expectedMaximum.value, 1e-12, `N${row.nodeId} ${row.component} maximum equals solved-combination envelope`);
+  assert(row.maxCombinationName === expectedMaximum.name, `N${row.nodeId} ${row.component} maximum controlling combination is retained`, row.maxCombinationName);
+  assertNear(row.minValue, expectedMinimum.value, 1e-12, `N${row.nodeId} ${row.component} minimum equals solved-combination envelope`);
+  assert(row.minCombinationName === expectedMinimum.name, `N${row.nodeId} ${row.component} minimum controlling combination is retained`, row.minCombinationName);
+});
+Object.keys(nodeEnvelope.governingByComponent).forEach(component => {
+  const rows = nodeEnvelope.rows.filter(row => row.component === component);
+  const expected = rows.reduce((current, row) => Math.abs(row.absoluteValue) > Math.abs(current.absoluteValue) ? row : current, rows[0]);
+  const actual = nodeEnvelope.governingByComponent[component];
+  assert(
+    actual.nodeId === expected.nodeId
+      && actual.absoluteValue === expected.absoluteValue
+      && actual.absoluteCombinationName === expected.absoluteCombinationName,
+    `global |${component}| summary points to the governing node envelope row`,
+    `N${expected.nodeId} / ${expected.absoluteCombinationName}`,
+  );
+});
+const springNodeEnvelopeRuntime = createFrameAnalysisContext(frameAnalysisHtml);
+const springNodeEnvelopeProject = springNodeEnvelopeRuntime.context.frameBenchmarkProjectData('elasticSupportPortalBenchmark');
+springNodeEnvelopeProject.loadCombinations = [
+  { id: 1, name: 'SPRING-SERVICE', factors: { 1: 1 } },
+  { id: 2, name: 'SPRING-ULTIMATE', factors: { 1: 1.5 } },
+];
+springNodeEnvelopeProject.activeCombinationId = 1;
+springNodeEnvelopeRuntime.context.loadFromData(springNodeEnvelopeProject);
+const springNodeEnvelope = springNodeEnvelopeRuntime.context.frameNodeCombinationEnvelopeModel();
+const springBaseNodes = springNodeEnvelopeProject.nodes.filter(node => !node.cx && node.kx > 0);
+const springReactionRows = springNodeEnvelope.rows.filter(row => row.component === 'Rx' && springBaseNodes.some(node => node.id === row.nodeId));
+assert(
+  springReactionRows.length === springBaseNodes.length,
+  'node envelope includes Rx rows for active horizontal spring supports',
+  `springBases=${springBaseNodes.length}, rows=${springReactionRows.length}`,
+);
+springReactionRows.forEach(row => {
+  assert(
+    row.maxCombinationName === 'SPRING-SERVICE' && row.minCombinationName === 'SPRING-ULTIMATE',
+    `spring support N${row.nodeId} reaction envelope retains signed service and ultimate controls`,
+    `${row.maxCombinationName}/${row.minCombinationName}`,
+  );
+});
 storyEnvelopeRuntime.context.selectLoadCombination(2);
 assert(storyEnvelopeRuntime.context.state.activeCombinationId === 2 && storyEnvelopeRuntime.context.state.comboFactors[2] === 1, 'combination selection restores the named factor vector', JSON.stringify(storyEnvelopeRuntime.context.state.comboFactors));
 storyEnvelopeRuntime.context.runAnalysis();
@@ -1662,6 +1742,8 @@ const storyEnvelopeReport = captureFrameReportHtml(
 );
 assert(storyEnvelopeReport.html.includes('載重組合矩陣') && storyEnvelopeReport.html.includes('LOWER-CONTROL') && storyEnvelopeReport.html.includes('ROOF-CONTROL'), 'calculation book records the complete named combination matrix', 'LOWER-CONTROL / ROOF-CONTROL');
 assert(storyEnvelopeReport.html.includes('多組合樓層反應包絡'), 'calculation book includes the multi-combination story envelope', '多組合樓層反應包絡');
+assert(storyEnvelopeReport.html.includes('多組合節點位移／支承反力包絡'), 'calculation book includes the multi-combination node displacement and support reaction envelope', '多組合節點位移／支承反力包絡');
+assert(storyEnvelopeReport.html.includes('水平位移 uX') && storyEnvelopeReport.html.includes('水平反力 Rx'), 'node envelope report distinguishes displacement and supported reaction rows', '水平位移 uX / 水平反力 Rx');
 assert(storyEnvelopeReport.html.includes('多組合桿件內力包絡'), 'calculation book includes the multi-combination member-force envelope', '多組合桿件內力包絡');
 assert(storyEnvelopeReport.html.includes('最大值') && storyEnvelopeReport.html.includes('最小值') && storyEnvelopeReport.html.includes('控制組合'), 'member envelope report preserves signed bounds, station and controlling combination columns', '最大值 / 最小值 / 控制組合');
 
@@ -1676,13 +1758,23 @@ assert(storyLoadResponse.active === true && storyLoadResponse.rows.length === 1,
 assertNear(storyLoadResponse.rows[0].storyShear, -10, 1e-12, 'story shear transforms and accumulates nodal, distributed local-y and point local-y horizontal loads');
 assertNear(storyLoadResponse.rows[0].storyShear, storyLoadRuntime.context.state.solution.equilibrium.applied.Fx, 1e-12, 'one-story shear matches the solved global horizontal applied resultant');
 
+const priorV14FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
+priorV14FrameJson.version = 'V1.4';
+frameRuntime.context.loadFromData(priorV14FrameJson);
+assert(
+  stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution)
+    && frameRuntime.context.state.loadCombinations.length === sourceProjectJson.loadCombinations.length,
+  'prior V1.4 member-envelope JSON remains readable after the V1.5 node-envelope upgrade',
+  'named combination schema is unchanged',
+);
+
 const priorV13FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
 priorV13FrameJson.version = 'V1.3';
 frameRuntime.context.loadFromData(priorV13FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution)
     && frameRuntime.context.state.loadCombinations.length === sourceProjectJson.loadCombinations.length,
-  'prior V1.3 named-combination JSON remains readable after the V1.4 member-envelope upgrade',
+  'prior V1.3 named-combination JSON remains readable after the V1.5 node-envelope upgrade',
   'named combination schema is unchanged',
 );
 
@@ -1699,7 +1791,7 @@ frameRuntime.context.loadFromData(priorV12FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution)
     && frameRuntime.context.state.loadCombinations.length === 1,
-  'prior V1.2 single-combination JSON remains readable after the V1.4 member-envelope upgrade',
+  'prior V1.2 single-combination JSON remains readable after the V1.5 node-envelope upgrade',
   'legacy comboFactors synthesized as one named combination',
 );
 
