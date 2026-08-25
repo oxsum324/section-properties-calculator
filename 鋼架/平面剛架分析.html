@@ -209,10 +209,11 @@
               <option value="elasticSupportPortalBenchmark">水平彈簧柱腳門架側推</option>
               <option value="rotationalSpringCantileverBenchmark">轉動彈簧柱腳懸臂側推</option>
               <option value="twoStoryPortalBenchmark">二層單跨剛接門架側推</option>
+              <option value="asymmetricTwoStoryPortalBenchmark">不對稱二層剛架偏置節點載重</option>
             </select>
             <button class="btn btn-accent btn-sm" id="loadFrameBenchmarkButton" onclick="loadSelectedFrameBenchmark()">載入並分析</button>
           </div>
-          <div class="hint">以獨立封閉式參考值核對求解器；案例比對只顯示於工作頁，不會寫入計算書。</div>
+          <div class="hint">以獨立參考值核對求解器；各案例的推導方法列於比對面板，且不會寫入計算書。</div>
         </div>
         <div class="flex-row" style="margin-top:10px; gap:12px; align-items:center;">
           <label style="display:inline-flex;align-items:center;gap:5px;font-weight:600;">
@@ -356,7 +357,7 @@
       </div>
 
       <div class="card frame-benchmark inactive page-only-frame-benchmark" id="frameBenchmarkPanel" role="status" aria-live="polite">
-        <h2>封閉式參考解比對</h2>
+        <h2>獨立參考解比對</h2>
         <div>請由左側「標準驗證案例庫」選取案例並載入。</div>
       </div>
 
@@ -2054,6 +2055,50 @@ function getFrameBenchmarkDefinition(kind) {
         { label: 'M5 i 端彎矩', unit: 'tf·m', expected: -14.594041692690602, source: ['memberEnd', 5, 2, 1] },
       ],
     },
+    asymmetricTwoStoryPortalBenchmark: {
+      id: 'PF-BM-PORTAL-2STORY-ASYM-01',
+      title: '不對稱二層單跨剛架承受偏置節點載重',
+      basis: '獨立全域勁度矩陣組裝與 Cholesky 分解參考解（不同層高、柱梁剛度及節點載重）',
+      model: {
+        nodes: [
+          { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+          { id: 2, x: 0, y: 3.6, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+          { id: 3, x: 0, y: 8.1, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+          { id: 4, x: 7.5, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+          { id: 5, x: 7.5, y: 3.6, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+          { id: 6, x: 7.5, y: 8.1, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+        ],
+        members: [
+          { id: 1, i: 1, j: 2, E: 2040, A: 72, I: 18000, relI: false, relJ: false },
+          { id: 2, i: 2, j: 3, E: 2040, A: 58, I: 11200, relI: false, relJ: false },
+          { id: 3, i: 4, j: 5, E: 2040, A: 54, I: 9000, relI: false, relJ: false },
+          { id: 4, i: 5, j: 6, E: 2040, A: 78, I: 21000, relI: false, relJ: false },
+          { id: 5, i: 2, j: 5, E: 2040, A: 65, I: 24000, relI: false, relJ: false },
+          { id: 6, i: 3, j: 6, E: 2040, A: 48, I: 13500, relI: false, relJ: false },
+        ],
+        nodalLoads: [
+          { caseId: 1, node: 2, Fx: 5, Fy: 0, M: 0 },
+          { caseId: 1, node: 5, Fx: 2, Fy: 0, M: 0 },
+          { caseId: 1, node: 3, Fx: 4, Fy: -2, M: 0 },
+          { caseId: 1, node: 6, Fx: 1.5, Fy: -5, M: 0 },
+        ],
+        memberLoads: [],
+      },
+      metrics: [
+        { label: 'N2 左側一樓水平位移 uX', unit: 'mm', expected: 15.63750047845189, source: ['nodeDof', 2, 0, 1000] },
+        { label: 'N5 右側一樓水平位移 uX', unit: 'mm', expected: 15.677527076888936, source: ['nodeDof', 5, 0, 1000] },
+        { label: 'N3 左側屋頂水平位移 uX', unit: 'mm', expected: 37.47731922829581, source: ['nodeDof', 3, 0, 1000] },
+        { label: 'N6 右側屋頂垂直位移 uY', unit: 'mm', expected: -0.5341859051808281, source: ['nodeDof', 6, 1, 1000] },
+        { label: 'N2 左側一樓轉角 θZ', unit: 'mrad', expected: -3.985666241181421, source: ['nodeDof', 2, 2, 1000] },
+        { label: 'N6 右側屋頂轉角 θZ', unit: 'mrad', expected: -3.6904347767222193, source: ['nodeDof', 6, 2, 1000] },
+        { label: 'N1 左柱腳水平反力 Rx', unit: 'tf', expected: -7.993117841862814, source: ['reaction', 1, 0, 1] },
+        { label: 'N4 右柱腳水平反力 Rx', unit: 'tf', expected: -4.506882158137321, source: ['reaction', 4, 0, 1] },
+        { label: 'M1 左下柱 i 端彎矩', unit: 'tf·m', expected: 18.452991681358117, source: ['memberEnd', 1, 2, 1] },
+        { label: 'M3 右下柱 i 端彎矩', unit: 'tf·m', expected: 9.850224594883318, source: ['memberEnd', 3, 2, 1] },
+        { label: 'M5 一樓梁 i 端彎矩', unit: 'tf·m', expected: -14.631450030659714, source: ['memberEnd', 5, 2, 1] },
+        { label: 'M6 屋頂梁 j 端彎矩', unit: 'tf·m', expected: -6.963410893302524, source: ['memberEnd', 6, 5, 1] },
+      ],
+    },
   };
   return definitions[kind] || null;
 }
@@ -2108,7 +2153,7 @@ function frameBenchmarkResultModel() {
     return { ...metric, actual, absError, relError, tolerance, pass: Number.isFinite(actual) && absError <= tolerance };
   });
   const pass = rows.every(row => row.pass);
-  return { level: pass ? 'pass' : 'fail', definition, title: pass ? '封閉式參考解比對通過' : '封閉式參考解比對未通過', rows, pass };
+  return { level: pass ? 'pass' : 'fail', definition, title: pass ? '獨立參考解比對通過' : '獨立參考解比對未通過', rows, pass };
 }
 
 function formatFrameBenchmarkNumber(value) {
@@ -2125,7 +2170,7 @@ function renderFrameBenchmarkPanel() {
   const model = frameBenchmarkResultModel();
   panel.className = `card frame-benchmark ${model.level} page-only-frame-benchmark`;
   if (!model.definition) {
-    panel.innerHTML = '<h2>封閉式參考解比對</h2><div>請由左側「標準驗證案例庫」選取案例並載入。</div>';
+    panel.innerHTML = '<h2>獨立參考解比對</h2><div>請由左側「標準驗證案例庫」選取案例並載入。</div>';
     return;
   }
   const rows = model.rows.map(row => `<tr>
@@ -2137,7 +2182,7 @@ function renderFrameBenchmarkPanel() {
     <td>${escapeHtml(row.unit)}</td>
     <td><span class="frame-benchmark-status ${row.pass ? 'pass' : 'fail'}">${row.pass ? '通過' : '未通過'}</span></td>
   </tr>`).join('');
-  panel.innerHTML = `<h2>封閉式參考解比對</h2>
+  panel.innerHTML = `<h2>獨立參考解比對</h2>
     <div><strong>${escapeHtml(model.title)}</strong></div>
     <div class="hint">案例 ${escapeHtml(model.definition.id)}｜${escapeHtml(model.definition.title)}｜依據：${escapeHtml(model.definition.basis)}</div>
     ${rows ? `<div class="frame-benchmark-table-wrap"><table class="frame-benchmark-table"><thead><tr><th>檢核量</th><th>參考值</th><th>分析值</th><th>絕對誤差</th><th>相對誤差</th><th>單位</th><th>狀態</th></tr></thead><tbody>${rows}</tbody></table></div>` : ''}
@@ -2575,7 +2620,7 @@ function setReportLink(url) {
 }
 
 function loadExample(kind) {
-  if (kind === 'portalSideswayBenchmark' || kind === 'portalSymmetricUdlBenchmark' || kind === 'inclinedCantileverBenchmark' || kind === 'elasticSupportPortalBenchmark' || kind === 'rotationalSpringCantileverBenchmark' || kind === 'twoStoryPortalBenchmark') {
+  if (kind === 'portalSideswayBenchmark' || kind === 'portalSymmetricUdlBenchmark' || kind === 'inclinedCantileverBenchmark' || kind === 'elasticSupportPortalBenchmark' || kind === 'rotationalSpringCantileverBenchmark' || kind === 'twoStoryPortalBenchmark' || kind === 'asymmetricTwoStoryPortalBenchmark') {
     loadFromData(frameBenchmarkProjectData(kind));
     state.benchmarkId = kind;
     renderFrameBenchmarkPanel();

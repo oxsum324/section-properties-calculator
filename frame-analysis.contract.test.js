@@ -311,7 +311,7 @@ const pageOnlyReportStatusNeedles = [...new Set(
   Object.values(calculationBookContentBoundary.forbiddenCategories).flat(),
 )];
 const frameBenchmarkPageOnlyNeedles = [
-  '封閉式參考解比對',
+  '獨立參考解比對',
   '此驗證結果只供工作頁確認求解器',
   'PF-BM-PORTAL-SWAY-01',
   'PF-BM-PORTAL-UDL-01',
@@ -319,6 +319,7 @@ const frameBenchmarkPageOnlyNeedles = [
   'PF-BM-PORTAL-HSPRING-01',
   'PF-BM-CANTILEVER-RSPRING-01',
   'PF-BM-PORTAL-2STORY-SWAY-01',
+  'PF-BM-PORTAL-2STORY-ASYM-01',
 ];
 
 function reportHtmlText(reportHtml) {
@@ -405,6 +406,7 @@ assertIncludesAll(frameAnalysisHtml, [
   'value="elasticSupportPortalBenchmark"',
   'value="rotationalSpringCantileverBenchmark"',
   'value="twoStoryPortalBenchmark"',
+  'value="asymmetricTwoStoryPortalBenchmark"',
   'function loadSelectedFrameBenchmark',
   'URL.createObjectURL(new Blob',
   'lastReportObjectUrl',
@@ -496,7 +498,7 @@ assert(readyFrameReport.html.includes('Codex QA'), 'rigid frame complete report 
 const frameProjectFixture = {
   schema: 'plane-frame.project.v1',
   tool: '平面剛架分析',
-  version: 'V1.0',
+  version: frameMetadata.version,
   unit: 'tf-m',
   project: { name: 'Frame Replay', no: 'FR-R01', designer: 'QA', note: 'JSON result chain' },
   defaults: { E: 2040, A: 63.1, I: 13600 },
@@ -532,7 +534,7 @@ const sourceFrameReport = captureFrameReportHtml(
 );
 const sourceFrameFingerprint = reportCalculationFingerprint(sourceFrameReport.html);
 assert(sourceProjectJson.schema === 'plane-frame.project.v1', 'rigid frame JSON declares stable schema', sourceProjectJson.schema);
-assert(sourceProjectJson.version === 'V1.0', 'rigid frame JSON records current version', sourceProjectJson.version);
+assert(sourceProjectJson.version === frameMetadata.version, 'rigid frame JSON records current version', sourceProjectJson.version);
 assert(sourceProjectJson.calculationEngine === frameMetadata.calculationEngine, 'rigid frame JSON records canonical calculation engine', sourceProjectJson.calculationEngine);
 assert(frameRuntime.context.state.solution.equilibrium.ok === true, 'rigid frame replay fixture passes equilibrium check', JSON.stringify(frameRuntime.context.state.solution.equilibrium));
 assert(/^[0-9a-f]{64}$/.test(sourceResultSha256), 'rigid frame source input/result snapshot has stable SHA-256', sourceResultSha256);
@@ -1171,6 +1173,199 @@ assertNear(portalSymmetricUdl.elems[1].qLocal[2], portalSymmetricExpected.beamLe
 assertNear(portalSymmetricUdl.elems[1].qLocal[5], -portalSymmetricExpected.beamLeftMoment, 1e-10, 'portal symmetric UDL beam right end moment is mirrored');
 assertNear(portalSymmetricExpected.columnTopMoment + portalSymmetricExpected.beamLeftMoment, 0, 1e-10, 'portal symmetric UDL independent joint moment equilibrium closes');
 
+const asymmetricTwoStoryReferenceModel = {
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: 0, y: 3.6, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 3, x: 0, y: 8.1, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 4, x: 7.5, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+    { id: 5, x: 7.5, y: 3.6, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 6, x: 7.5, y: 8.1, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [
+    { id: 1, i: 1, j: 2, E: 2040, A: 72, I: 18000, relI: false, relJ: false },
+    { id: 2, i: 2, j: 3, E: 2040, A: 58, I: 11200, relI: false, relJ: false },
+    { id: 3, i: 4, j: 5, E: 2040, A: 54, I: 9000, relI: false, relJ: false },
+    { id: 4, i: 5, j: 6, E: 2040, A: 78, I: 21000, relI: false, relJ: false },
+    { id: 5, i: 2, j: 5, E: 2040, A: 65, I: 24000, relI: false, relJ: false },
+    { id: 6, i: 3, j: 6, E: 2040, A: 48, I: 13500, relI: false, relJ: false },
+  ],
+  nodalLoads: [
+    { caseId: 1, node: 2, Fx: 5, Fy: 0, M: 0 },
+    { caseId: 1, node: 5, Fx: 2, Fy: 0, M: 0 },
+    { caseId: 1, node: 3, Fx: 4, Fy: -2, M: 0 },
+    { caseId: 1, node: 6, Fx: 1.5, Fy: -5, M: 0 },
+  ],
+};
+
+function independentRigidFrameReference(model) {
+  // This reference path intentionally does not call the production matrix,
+  // transformation or Gaussian-elimination helpers. It assembles a fresh
+  // unreleased 2D-frame matrix and solves the free block by Cholesky factors.
+  const dofCount = model.nodes.length * 3;
+  const stiffness = Array.from({ length: dofCount }, () => Array(dofCount).fill(0));
+  const force = Array(dofCount).fill(0);
+  const nodeIndex = new Map(model.nodes.map((node, index) => [node.id, index]));
+  const transposeReference = matrix => matrix[0].map((unused, column) => matrix.map(row => row[column]));
+  const multiplyReference = (left, right) => left.map(row => right[0].map((unused, column) =>
+    row.reduce((sum, value, index) => sum + value * right[index][column], 0)));
+  const matrixVectorReference = (matrix, vector) => matrix.map(row =>
+    row.reduce((sum, value, index) => sum + value * vector[index], 0));
+  const elements = [];
+
+  for (const load of model.nodalLoads) {
+    const offset = nodeIndex.get(load.node) * 3;
+    force[offset] += load.Fx;
+    force[offset + 1] += load.Fy;
+    force[offset + 2] += load.M;
+  }
+
+  for (const member of model.members) {
+    const iIndex = nodeIndex.get(member.i);
+    const jIndex = nodeIndex.get(member.j);
+    const ni = model.nodes[iIndex];
+    const nj = model.nodes[jIndex];
+    const dx = nj.x - ni.x;
+    const dy = nj.y - ni.y;
+    const length = Math.hypot(dx, dy);
+    const cosine = dx / length;
+    const sine = dy / length;
+    const axialRigidity = member.E * member.A;
+    const flexuralRigidity = member.E * member.I * 1e-4;
+    const axial = axialRigidity / length;
+    const shear = 12 * flexuralRigidity / length ** 3;
+    const coupling = 6 * flexuralRigidity / length ** 2;
+    const rotation = 4 * flexuralRigidity / length;
+    const carryOver = 2 * flexuralRigidity / length;
+    const local = [
+      [axial, 0, 0, -axial, 0, 0],
+      [0, shear, coupling, 0, -shear, coupling],
+      [0, coupling, rotation, 0, -coupling, carryOver],
+      [-axial, 0, 0, axial, 0, 0],
+      [0, -shear, -coupling, 0, shear, -coupling],
+      [0, coupling, carryOver, 0, -coupling, rotation],
+    ];
+    const transform = [
+      [cosine, sine, 0, 0, 0, 0],
+      [-sine, cosine, 0, 0, 0, 0],
+      [0, 0, 1, 0, 0, 0],
+      [0, 0, 0, cosine, sine, 0],
+      [0, 0, 0, -sine, cosine, 0],
+      [0, 0, 0, 0, 0, 1],
+    ];
+    const global = multiplyReference(transposeReference(transform), multiplyReference(local, transform));
+    const dofs = [iIndex * 3, iIndex * 3 + 1, iIndex * 3 + 2, jIndex * 3, jIndex * 3 + 1, jIndex * 3 + 2];
+    for (let row = 0; row < 6; row += 1) {
+      for (let column = 0; column < 6; column += 1) stiffness[dofs[row]][dofs[column]] += global[row][column];
+    }
+    elements.push({ member, local, transform, dofs });
+  }
+
+  const constrained = new Set();
+  model.nodes.forEach((node, index) => {
+    if (node.cx) constrained.add(index * 3);
+    if (node.cy) constrained.add(index * 3 + 1);
+    if (node.crz) constrained.add(index * 3 + 2);
+  });
+  const free = Array.from({ length: dofCount }, (unused, index) => index).filter(index => !constrained.has(index));
+  const reduced = free.map(row => free.map(column => stiffness[row][column]));
+  const rhs = free.map(index => force[index]);
+  const lower = Array.from({ length: free.length }, () => Array(free.length).fill(0));
+  for (let row = 0; row < free.length; row += 1) {
+    for (let column = 0; column <= row; column += 1) {
+      let value = reduced[row][column];
+      for (let k = 0; k < column; k += 1) value -= lower[row][k] * lower[column][k];
+      if (row === column) {
+        assert(value > 0, 'asymmetric reference matrix is positive definite', `pivot=${row}, value=${value}`);
+        lower[row][column] = Math.sqrt(value);
+      } else {
+        lower[row][column] = value / lower[column][column];
+      }
+    }
+  }
+  const forward = Array(free.length).fill(0);
+  for (let row = 0; row < free.length; row += 1) {
+    let value = rhs[row];
+    for (let column = 0; column < row; column += 1) value -= lower[row][column] * forward[column];
+    forward[row] = value / lower[row][row];
+  }
+  const reducedDisplacement = Array(free.length).fill(0);
+  for (let row = free.length - 1; row >= 0; row -= 1) {
+    let value = forward[row];
+    for (let column = row + 1; column < free.length; column += 1) value -= lower[column][row] * reducedDisplacement[column];
+    reducedDisplacement[row] = value / lower[row][row];
+  }
+  const displacement = Array(dofCount).fill(0);
+  free.forEach((dof, index) => { displacement[dof] = reducedDisplacement[index]; });
+  const reactions = matrixVectorReference(stiffness, displacement).map((value, index) => value - force[index]);
+  const memberEnds = new Map(elements.map(element => {
+    const localDisplacement = matrixVectorReference(element.transform, element.dofs.map(dof => displacement[dof]));
+    return [element.member.id, matrixVectorReference(element.local, localDisplacement)];
+  }));
+  return { displacement, reactions, memberEnds };
+}
+
+const asymmetricTwoStoryReference = independentRigidFrameReference(asymmetricTwoStoryReferenceModel);
+const asymmetricTwoStoryReferenceFixture = Object.freeze({
+  node2Ux: 0.01563750047845189,
+  node5Ux: 0.015677527076888936,
+  node3Ux: 0.03747731922829581,
+  node6Uy: -0.0005341859051808281,
+  node2Theta: -0.003985666241181421,
+  node6Theta: -0.0036904347767222193,
+  node1Rx: -7.993117841862814,
+  node4Rx: -4.506882158137321,
+  member1IMoment: 18.452991681358117,
+  member3IMoment: 9.850224594883318,
+  member5IMoment: -14.631450030659714,
+  member6JMoment: -6.963410893302524,
+});
+const asymmetricTwoStoryReferenceResults = {
+  node2Ux: asymmetricTwoStoryReference.displacement[3],
+  node5Ux: asymmetricTwoStoryReference.displacement[12],
+  node3Ux: asymmetricTwoStoryReference.displacement[6],
+  node6Uy: asymmetricTwoStoryReference.displacement[16],
+  node2Theta: asymmetricTwoStoryReference.displacement[5],
+  node6Theta: asymmetricTwoStoryReference.displacement[17],
+  node1Rx: asymmetricTwoStoryReference.reactions[0],
+  node4Rx: asymmetricTwoStoryReference.reactions[9],
+  member1IMoment: asymmetricTwoStoryReference.memberEnds.get(1)[2],
+  member3IMoment: asymmetricTwoStoryReference.memberEnds.get(3)[2],
+  member5IMoment: asymmetricTwoStoryReference.memberEnds.get(5)[2],
+  member6JMoment: asymmetricTwoStoryReference.memberEnds.get(6)[5],
+};
+for (const [key, expected] of Object.entries(asymmetricTwoStoryReferenceFixture)) {
+  assertNear(asymmetricTwoStoryReferenceResults[key], expected, 1e-12, `asymmetric two-story independent matrix matches frozen reference result: ${key}`);
+}
+assertNear(asymmetricTwoStoryReference.reactions[0] + asymmetricTwoStoryReference.reactions[9], -12.5, 1e-10, 'asymmetric two-story independent horizontal reactions close');
+assertNear(asymmetricTwoStoryReference.reactions[1] + asymmetricTwoStoryReference.reactions[10], 7, 1e-10, 'asymmetric two-story independent vertical reactions close');
+assertNear(asymmetricTwoStoryReference.reactions[2] + asymmetricTwoStoryReference.reactions[10] * 7.5 + asymmetricTwoStoryReference.reactions[11], 107.25, 1e-10, 'asymmetric two-story independent support moment closes about the origin');
+
+const asymmetricTwoStoryPortal = runClosedFormFrameCase({
+  id: 'asymmetric-two-story-single-bay-rigid-frame',
+  E: 2040,
+  A: 72,
+  I: 18000,
+  ...asymmetricTwoStoryReferenceModel,
+});
+const asymmetricProductionResults = {
+  node2Ux: asymmetricTwoStoryPortal.d[3],
+  node5Ux: asymmetricTwoStoryPortal.d[12],
+  node3Ux: asymmetricTwoStoryPortal.d[6],
+  node6Uy: asymmetricTwoStoryPortal.d[16],
+  node2Theta: asymmetricTwoStoryPortal.d[5],
+  node6Theta: asymmetricTwoStoryPortal.d[17],
+  node1Rx: asymmetricTwoStoryPortal.reactions[0],
+  node4Rx: asymmetricTwoStoryPortal.reactions[9],
+  member1IMoment: asymmetricTwoStoryPortal.elems.find(element => element.m.id === 1).qLocal[2],
+  member3IMoment: asymmetricTwoStoryPortal.elems.find(element => element.m.id === 3).qLocal[2],
+  member5IMoment: asymmetricTwoStoryPortal.elems.find(element => element.m.id === 5).qLocal[2],
+  member6JMoment: asymmetricTwoStoryPortal.elems.find(element => element.m.id === 6).qLocal[5],
+};
+for (const [key, expected] of Object.entries(asymmetricTwoStoryReferenceFixture)) {
+  assertNear(asymmetricProductionResults[key], expected, 1e-10, `asymmetric two-story production solver matches independent reference: ${key}`);
+}
+
 function runInteractiveFrameBenchmark(kind) {
   const runtime = createFrameAnalysisContext(frameAnalysisHtml);
   const projectData = runtime.context.frameBenchmarkProjectData(kind);
@@ -1271,12 +1466,63 @@ interactiveTwoStoryPortal.definition.metrics.forEach((metric, index) => {
   assertNear(metric.expected, twoStoryInteractiveExpected[index], 1e-12, `interactive two-story portal metric ${index + 1} matches frozen reduced-system fixture`);
 });
 
+const interactiveAsymmetricTwoStory = runInteractiveFrameBenchmark('asymmetricTwoStoryPortalBenchmark');
+assert(interactiveAsymmetricTwoStory.definition.id === 'PF-BM-PORTAL-2STORY-ASYM-01', 'interactive asymmetric two-story frame exposes stable case id', interactiveAsymmetricTwoStory.definition.id);
+assert(interactiveAsymmetricTwoStory.projectData.version === frameMetadata.version, 'interactive asymmetric two-story frame uses current public version', interactiveAsymmetricTwoStory.projectData.version);
+assert(interactiveAsymmetricTwoStory.projectData.nodes.length === 6 && interactiveAsymmetricTwoStory.projectData.members.length === 6, 'interactive asymmetric two-story frame loads the governed six-node six-member model', `${interactiveAsymmetricTwoStory.projectData.nodes.length}/${interactiveAsymmetricTwoStory.projectData.members.length}`);
+assert(
+  interactiveAsymmetricTwoStory.projectData.nodes[1].y === 3.6
+    && interactiveAsymmetricTwoStory.projectData.nodes[2].y === 8.1
+    && interactiveAsymmetricTwoStory.projectData.nodes[5].x === 7.5,
+  'interactive asymmetric two-story frame preserves unequal story heights and governed span',
+  JSON.stringify(interactiveAsymmetricTwoStory.projectData.nodes),
+);
+assert(
+  new Set(interactiveAsymmetricTwoStory.projectData.members.map(member => `${member.A}/${member.I}`)).size === 6,
+  'interactive asymmetric two-story frame preserves six distinct member stiffness pairs',
+  JSON.stringify(interactiveAsymmetricTwoStory.projectData.members.map(member => ({ id: member.id, A: member.A, I: member.I }))),
+);
+assert(
+  interactiveAsymmetricTwoStory.projectData.nodalLoads.length === 4
+    && interactiveAsymmetricTwoStory.projectData.nodalLoads.reduce((sum, load) => sum + load.Fx, 0) === 12.5
+    && interactiveAsymmetricTwoStory.projectData.nodalLoads.reduce((sum, load) => sum + load.Fy, 0) === -7,
+  'interactive asymmetric two-story frame preserves offset horizontal and vertical nodal loads',
+  JSON.stringify(interactiveAsymmetricTwoStory.projectData.nodalLoads),
+);
+assert(interactiveAsymmetricTwoStory.model.pass === true && interactiveAsymmetricTwoStory.model.rows.length === 12, 'interactive asymmetric two-story frame passes every visible independent-reference comparison', `${interactiveAsymmetricTwoStory.model.pass}/${interactiveAsymmetricTwoStory.model.rows.length}`);
+const asymmetricInteractiveExpected = [
+  asymmetricTwoStoryReferenceFixture.node2Ux * 1000,
+  asymmetricTwoStoryReferenceFixture.node5Ux * 1000,
+  asymmetricTwoStoryReferenceFixture.node3Ux * 1000,
+  asymmetricTwoStoryReferenceFixture.node6Uy * 1000,
+  asymmetricTwoStoryReferenceFixture.node2Theta * 1000,
+  asymmetricTwoStoryReferenceFixture.node6Theta * 1000,
+  asymmetricTwoStoryReferenceFixture.node1Rx,
+  asymmetricTwoStoryReferenceFixture.node4Rx,
+  asymmetricTwoStoryReferenceFixture.member1IMoment,
+  asymmetricTwoStoryReferenceFixture.member3IMoment,
+  asymmetricTwoStoryReferenceFixture.member5IMoment,
+  asymmetricTwoStoryReferenceFixture.member6JMoment,
+];
+interactiveAsymmetricTwoStory.definition.metrics.forEach((metric, index) => {
+  assertNear(metric.expected, asymmetricInteractiveExpected[index], 1e-12, `interactive asymmetric two-story metric ${index + 1} matches frozen independent fixture`);
+});
+
+const priorV10FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
+priorV10FrameJson.version = 'V1.0';
+frameRuntime.context.loadFromData(priorV10FrameJson);
+assert(
+  stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
+  'prior V1.0 JSON remains readable after the V1.1 asymmetric two-story benchmark upgrade',
+  'schema v1 compatibility path',
+);
+
 const priorV09FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
 priorV09FrameJson.version = 'V0.9';
 frameRuntime.context.loadFromData(priorV09FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.9 JSON remains readable after the V1.0 two-story portal benchmark upgrade',
+  'prior V0.9 JSON remains readable after the V1.1 asymmetric two-story benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1285,7 +1531,7 @@ priorV08FrameJson.version = 'V0.8';
 frameRuntime.context.loadFromData(priorV08FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.8 JSON remains readable after the V1.0 two-story portal benchmark upgrade',
+  'prior V0.8 JSON remains readable after the V1.1 asymmetric two-story benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1294,7 +1540,7 @@ priorV07FrameJson.version = 'V0.7';
 frameRuntime.context.loadFromData(priorV07FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.7 JSON remains readable after the V1.0 two-story portal benchmark upgrade',
+  'prior V0.7 JSON remains readable after the V1.1 asymmetric two-story benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1303,7 +1549,7 @@ priorV06FrameJson.version = 'V0.6';
 frameRuntime.context.loadFromData(priorV06FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.6 JSON remains readable after the V1.0 two-story portal benchmark upgrade',
+  'prior V0.6 JSON remains readable after the V1.1 asymmetric two-story benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1312,7 +1558,7 @@ priorV05FrameJson.version = 'V0.5';
 frameRuntime.context.loadFromData(priorV05FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.5 JSON remains readable after the V1.0 two-story portal benchmark upgrade',
+  'prior V0.5 JSON remains readable after the V1.1 asymmetric two-story benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1321,7 +1567,7 @@ priorFrameJson.version = 'V0.4';
 frameRuntime.context.loadFromData(priorFrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.4 JSON remains readable after the V1.0 two-story portal benchmark upgrade',
+  'prior V0.4 JSON remains readable after the V1.1 asymmetric two-story benchmark upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1330,7 +1576,7 @@ olderFrameJson.version = 'V0.3';
 frameRuntime.context.loadFromData(olderFrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'older V0.3 JSON remains readable after the V1.0 two-story portal benchmark upgrade',
+  'older V0.3 JSON remains readable after the V1.1 asymmetric two-story benchmark upgrade',
   'schema v1 compatibility path',
 );
 
