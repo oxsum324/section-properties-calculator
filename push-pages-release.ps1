@@ -10,6 +10,9 @@ param(
   [int]$PollSeconds = 5,
   [int]$PublicSmokeAttempts = 3,
   [int]$PublicSmokeRetryDelaySeconds = 10,
+  [int]$PublicRequestAttempts = 4,
+  [int]$PublicRequestRetryDelayMilliseconds = 1000,
+  [int]$PublicRequestTimeoutMilliseconds = 15000,
   [switch]$ForceDeploy,
   [switch]$VerifyOnly,
   [switch]$AllowDirtyVerification,
@@ -83,11 +86,20 @@ function Invoke-PublicArtifactVerification {
 
   $attemptsVariable = 'PAGES_HTTP_SMOKE_ATTEMPTS'
   $delayVariable = 'PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS'
+  $requestAttemptsVariable = 'PAGES_HTTP_REQUEST_ATTEMPTS'
+  $requestDelayVariable = 'PAGES_HTTP_REQUEST_RETRY_DELAY_MILLISECONDS'
+  $requestTimeoutVariable = 'PAGES_HTTP_REQUEST_TIMEOUT_MILLISECONDS'
   $previousAttempts = [Environment]::GetEnvironmentVariable($attemptsVariable, 'Process')
   $previousDelay = [Environment]::GetEnvironmentVariable($delayVariable, 'Process')
+  $previousRequestAttempts = [Environment]::GetEnvironmentVariable($requestAttemptsVariable, 'Process')
+  $previousRequestDelay = [Environment]::GetEnvironmentVariable($requestDelayVariable, 'Process')
+  $previousRequestTimeout = [Environment]::GetEnvironmentVariable($requestTimeoutVariable, 'Process')
   try {
     [Environment]::SetEnvironmentVariable($attemptsVariable, [string]$PublicSmokeAttempts, 'Process')
     [Environment]::SetEnvironmentVariable($delayVariable, [string]$PublicSmokeRetryDelaySeconds, 'Process')
+    [Environment]::SetEnvironmentVariable($requestAttemptsVariable, [string]$PublicRequestAttempts, 'Process')
+    [Environment]::SetEnvironmentVariable($requestDelayVariable, [string]$PublicRequestRetryDelayMilliseconds, 'Process')
+    [Environment]::SetEnvironmentVariable($requestTimeoutVariable, [string]$PublicRequestTimeoutMilliseconds, 'Process')
     $verificationOutput = Invoke-ExternalText -FilePath $script:NodePath -Arguments @(
       $ScriptPath,
       '--base-url', $PagesUrl,
@@ -108,6 +120,9 @@ function Invoke-PublicArtifactVerification {
   } finally {
     [Environment]::SetEnvironmentVariable($attemptsVariable, $previousAttempts, 'Process')
     [Environment]::SetEnvironmentVariable($delayVariable, $previousDelay, 'Process')
+    [Environment]::SetEnvironmentVariable($requestAttemptsVariable, $previousRequestAttempts, 'Process')
+    [Environment]::SetEnvironmentVariable($requestDelayVariable, $previousRequestDelay, 'Process')
+    [Environment]::SetEnvironmentVariable($requestTimeoutVariable, $previousRequestTimeout, 'Process')
   }
 }
 
@@ -247,6 +262,16 @@ function Test-QueuedPagesDeploymentTimeout {
   param(
     [long]$RunId
   )
+
+  $deadline = (Get-Date).AddSeconds([Math]::Max(30, $PollSeconds * 6))
+  do {
+    $run = Invoke-ExternalJson -FilePath $script:GhPath -Arguments @(
+      'api', "repos/$script:RepoName/actions/runs/$RunId"
+    )
+    if ($run.status -eq 'completed') { break }
+    Start-Sleep -Seconds $PollSeconds
+  } while ((Get-Date) -lt $deadline)
+  if ($run.status -ne 'completed') { return $false }
 
   $failedLog = Invoke-ExternalText -FilePath $script:GhPath -Arguments @(
     'run', 'view', ([string]$RunId), '--log-failed'
@@ -458,7 +483,7 @@ function Dispatch-WorkflowRun {
   throw "The fallback workflow dispatch did not create a discoverable run for commit $HeadSha."
 }
 
-if ($PushRunWaitSeconds -lt 0 -or $RunTimeoutSeconds -le 0 -or $ManifestTimeoutSeconds -le 0 -or $DeploymentRecoverySeconds -le 0 -or $PollSeconds -le 0 -or $PublicSmokeAttempts -le 0 -or $PublicSmokeRetryDelaySeconds -lt 0) {
+if ($PushRunWaitSeconds -lt 0 -or $RunTimeoutSeconds -le 0 -or $ManifestTimeoutSeconds -le 0 -or $DeploymentRecoverySeconds -le 0 -or $PollSeconds -le 0 -or $PublicSmokeAttempts -le 0 -or $PublicSmokeRetryDelaySeconds -lt 0 -or $PublicRequestAttempts -le 0 -or $PublicRequestRetryDelayMilliseconds -lt 0 -or $PublicRequestTimeoutMilliseconds -le 0) {
   throw 'Timeout values must be positive; PushRunWaitSeconds may be zero.'
 }
 if ($AllowDirtyVerification -and -not $VerifyOnly) {
@@ -651,6 +676,9 @@ $result = [ordered]@{
   publicArtifactVerificationRetried = $publicArtifactVerificationAttemptCount -gt 1
   publicArtifactVerificationMaxAttempts = $PublicSmokeAttempts
   publicArtifactVerificationRetryDelaySeconds = $PublicSmokeRetryDelaySeconds
+  publicArtifactRequestMaxAttempts = $PublicRequestAttempts
+  publicArtifactRequestRetryDelayMilliseconds = $PublicRequestRetryDelayMilliseconds
+  publicArtifactRequestTimeoutMilliseconds = $PublicRequestTimeoutMilliseconds
   deploymentManifest = [ordered]@{
     schemaVersion = $manifest.schemaVersion
     commitSha = [string]$manifest.commitSha

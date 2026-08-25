@@ -258,20 +258,51 @@ function isTransientSmokeError(error) {
   return Boolean(error?.transient) || isTransientNetworkError(error);
 }
 
-async function fetchResponse(url, options = {}, fetchImpl = globalThis.fetch) {
-  let response;
-  try {
-    response = await fetchImpl(url, options);
-  } catch (error) {
-    if (isTransientNetworkError(error)) {
-      throw new TransientPagesSmokeError(`${url} 暫時性網路錯誤：${error.message || error}`, error);
+async function fetchResponse(url, options = {}, fetchImpl = globalThis.fetch, retryOptions = {}) {
+  const attempts = retryOptions.attempts ?? environmentInteger('PAGES_HTTP_REQUEST_ATTEMPTS', 1, 1);
+  const delayMs = retryOptions.delayMs ?? environmentInteger('PAGES_HTTP_REQUEST_RETRY_DELAY_MILLISECONDS', 1000, 0);
+  const timeoutMs = retryOptions.timeoutMs ?? environmentInteger('PAGES_HTTP_REQUEST_TIMEOUT_MILLISECONDS', 30000, 1);
+  const sleep = retryOptions.sleep || delay;
+  const onRetry = retryOptions.onRetry || ((error, context) => {
+    console.error(`Pages HTTP request ${context.attempt}/${context.attempts} 遇到暫態錯誤：${error.message || error}`);
+    console.error(`將於 ${context.delayMs} ms 後重試同一請求（request attempt ${context.nextAttempt}/${context.attempts}）。`);
+  });
+
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1) throw new Error('HTTP request timeout 必須是正整數。');
+
+  return runWithTransientRetry(async () => {
+    let response;
+    const controller = new AbortController();
+    const upstreamSignal = options.signal;
+    let timedOut = false;
+    const forwardAbort = () => controller.abort(upstreamSignal.reason);
+    if (upstreamSignal) {
+      if (upstreamSignal.aborted) forwardAbort();
+      else upstreamSignal.addEventListener('abort', forwardAbort, { once: true });
     }
-    throw error;
-  }
-  if (response.status >= 500 && response.status <= 599) {
-    throw new TransientPagesSmokeError(`${url} 暫時回傳 HTTP ${response.status}`);
-  }
-  return response;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeoutMs);
+    try {
+      response = await fetchImpl(url, { ...options, signal: controller.signal });
+    } catch (error) {
+      if (timedOut) {
+        throw new TransientPagesSmokeError(`${url} 單一請求超過 ${timeoutMs} ms`, error);
+      }
+      if (isTransientNetworkError(error)) {
+        throw new TransientPagesSmokeError(`${url} 暫時性網路錯誤：${error.message || error}`, error);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+      if (upstreamSignal && !upstreamSignal.aborted) upstreamSignal.removeEventListener('abort', forwardAbort);
+    }
+    if (response.status >= 500 && response.status <= 599) {
+      throw new TransientPagesSmokeError(`${url} 暫時回傳 HTTP ${response.status}`);
+    }
+    return response;
+  }, { attempts, delayMs, sleep, onRetry });
 }
 
 async function fetchText(url) {

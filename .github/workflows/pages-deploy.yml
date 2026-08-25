@@ -235,6 +235,9 @@ jobs:
           PAGES_EXPECTED_COMMIT_SHA: ${{ github.sha }}
           PAGES_EXPECTED_RUN_ID: ${{ github.run_id }}
           PAGES_EXPECT_CLEAN_SOURCE: 1
+          PAGES_HTTP_REQUEST_ATTEMPTS: 4
+          PAGES_HTTP_REQUEST_RETRY_DELAY_MILLISECONDS: 1000
+          PAGES_HTTP_REQUEST_TIMEOUT_MILLISECONDS: 15000
           PAGES_HTTP_SMOKE_ATTEMPTS: 2
           PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS: 5
           PAGES_HTTP_SMOKE_RESULT_FILE: ${{ runner.temp }}/pages-http-smoke-result.json

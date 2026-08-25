@@ -82,6 +82,8 @@ dashboard 公開／本機資料範圍變更也屬 A0 同包。有效 v3 manifest
 
 成功 smoke 必須輸出唯一的 `pagesHttpSmokeAttemptCount`；安全發布入口只接受大於 0 且不超過 `PublicSmokeAttempts` 的值，並回報 `publicArtifactVerificationAttemptCount` 與 `publicArtifactVerificationRetried`。缺少、重複或超界均視為工作站驗證失敗。
 
+正式 live HTTP 另以每一請求 15000 ms 逾時、最多 4 次、間隔 1000 ms 的有限重試處理逾時／隨機 5xx／網路暫態，耗盡後才進入既有整輪清冊重跑；staged gate 與本機 artifact 預演仍維持單次請求失敗即阻擋，但共用預設 30000 ms 逾時，不能無限懸掛。工作站安全發布入口須設定並在 `finally` 還原 `PAGES_HTTP_REQUEST_ATTEMPTS`、`PAGES_HTTP_REQUEST_RETRY_DELAY_MILLISECONDS`、`PAGES_HTTP_REQUEST_TIMEOUT_MILLISECONDS`，並回報 request 上限、間隔與逾時。failed log 只能在 Actions API 證明 run 已 `completed` 後讀取；若 aggregate 尚未收斂，應保留原始 failed-job 錯誤，不得由 `gh run view --log-failed` 的 in-progress 錯誤覆寫根因。
+
 Pages CI 效能趨勢固定使用私有 `performance-trend` job：當輪 build／live 收據必須完整成對，歷史只取成功 run 中同樣成對的 14 天 artifact。只有四個 exact cache hit 的同 lock digest 樣本可進最近 20 輪序列；冷快取當輪要列出排除原因，不能誤判部署失敗。trend v1 必須逐輪保存 build／live 的 runtime、HTTP、browser 六個毫秒值，並能重算 nearest-rank P50／P95；不足 3 輪顯示 `collecting`，不得假裝具備成熟統計。趨勢來源、測試、JSON、摘要與歷史收據均為私有 CI 治理，不得發布至 Pages 或放入計算書／正式附件。
 
 Windows 發布一律優先執行 `push-pages-release.bat`；此入口先找 PowerShell 7，再以 Windows PowerShell 5.1 後備。`push-pages-release.ps1` 必須維持 ASCII 來源路徑解析，不得重新加入會受 5.1 UTF-8 無 BOM 解碼影響的中文路徑字面值。
