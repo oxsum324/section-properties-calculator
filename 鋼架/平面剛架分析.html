@@ -128,6 +128,8 @@
   .frame-benchmark-library .flex-row { margin-top: 6px; }
   .frame-benchmark-library select { flex: 1 1 280px; min-width: 0; }
   .story-response-wrap { overflow-x: auto; }
+  #storyEnvelopeTbl { min-width: 760px; }
+  #storyEnvelopeTbl th, #storyEnvelopeTbl td { white-space: nowrap; }
   .story-response-summary { margin: 2px 0 8px; padding: 8px 10px; border-left: 4px solid #2563eb; background: #eff6ff; color: #1e3a8a; }
   .story-response-summary.inactive { border-left-color: var(--border); background: #f8fafc; color: var(--text-light); }
   .story-response-control td { background: #eff6ff; font-weight: 700; }
@@ -242,6 +244,14 @@
 
       <div class="card">
         <h2>載重案例 / 分析組合 <button class="btn btn-primary btn-sm" onclick="addLoadCaseRow()">+ 案例</button></h2>
+        <div class="flex-row" style="margin-bottom:8px;">
+          <label for="loadCombinationSelect">目前組合</label>
+          <select id="loadCombinationSelect" onchange="selectLoadCombination(this.value)" style="min-width:130px;"></select>
+          <label for="loadCombinationName">組合名稱</label>
+          <input type="text" id="loadCombinationName" maxlength="40" onchange="updateLoadCombinationName(this.value)" style="width:130px;">
+          <button class="btn btn-primary btn-sm" onclick="addLoadCombination()">+ 複製組合</button>
+          <button class="btn btn-ghost btn-sm" id="deleteLoadCombinationButton" onclick="deleteLoadCombination()">刪除組合</button>
+        </div>
         <table class="data-tbl">
           <thead>
             <tr>
@@ -253,7 +263,7 @@
           </thead>
           <tbody id="loadCaseTbody"></tbody>
         </table>
-        <div class="hint">目前分析組合 = Σ(各案例載重 × 組合因子)。自重併入第一個載重案例；因子 0 可暫時排除該案例。</div>
+        <div class="hint">目前結果表與內力圖使用上方選取的單一組合；樓層反應包絡比較全部具名組合。自重併入第一個載重案例；因子 0 可排除該案例。</div>
       </div>
 
       <div class="card">
@@ -397,6 +407,18 @@
         <div class="hint">依基底與水平樓層梁自動辨識；位移角與層剪力為目前分析組合的計算結果，不套用規範容許值。</div>
       </div>
 
+      <div class="card" id="storyEnvelopeCard">
+        <h2>多組合樓層反應包絡</h2>
+        <div class="story-response-summary inactive" id="storyEnvelopeSummary">至少建立 2 個具名組合後執行分析。</div>
+        <div class="story-response-wrap" id="storyEnvelopeTableWrap" style="display:none;">
+          <table class="results-table" id="storyEnvelopeTbl"><thead><tr>
+            <th>樓層</th><th>高程 (m)</th><th>層高 (m)</th><th>包絡 Δ (mm)</th>
+            <th>包絡位移角</th><th>位移控制組合</th><th>包絡 Vx (tf)</th><th>剪力控制組合</th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+        <div class="hint">比較全部具名組合的絕對值，並保留控制組合下的正負結果；包絡為分析結果，不代替規範載重組合完整性與容許值判定。</div>
+      </div>
+
       <div class="card">
         <h2>節點位移 / 反力</h2>
         <table class="results-table" id="dispTbl"><thead><tr>
@@ -440,13 +462,15 @@ const state = {
   members: [],      // {id, i, j, E, A, I, relI, relJ}  // relI/relJ = i/j 端彎矩釋放(鉸接)
   loadCases: [],    // {id, name}
   comboFactors: {}, // {loadCaseId: factor}
+  loadCombinations: [], // {id, name, factors: {loadCaseId: factor}}
+  activeCombinationId: null,
   nodalLoads: [],   // {node, Fx, Fy, M}        // tf, tf, tf·m
   memberLoads: [],  // {member, w, dir}         // w (tf/m), dir: 'globalY'|'localY'
   memberPointLoads: [], // {member, P, a, dir}  // P(tf), a(m 從 i 端沿桿件), dir
   solution: null
 };
 
-let nodeIdCnt = 0, memberIdCnt = 0, loadCaseIdCnt = 0;
+let nodeIdCnt = 0, memberIdCnt = 0, loadCaseIdCnt = 0, loadCombinationIdCnt = 0;
 
 function asNonNegativeNumber(value) {
   const n = parseFloat(value);
@@ -513,6 +537,117 @@ function ensureLoadCases() {
   }
 }
 
+function normalizedCombinationFactors(factors) {
+  ensureLoadCases();
+  const source = factors && typeof factors === 'object' ? factors : {};
+  const out = {};
+  for (const lc of state.loadCases) {
+    const value = parseFloat(source[lc.id]);
+    out[lc.id] = Number.isFinite(value) ? value : 0;
+  }
+  return out;
+}
+
+function ensureLoadCombinations() {
+  ensureLoadCases();
+  if (!Array.isArray(state.loadCombinations)) state.loadCombinations = [];
+  state.loadCombinations = state.loadCombinations.filter(item => item && typeof item === 'object');
+  for (const combo of state.loadCombinations) {
+    combo.id = parseInt(combo.id);
+    if (!Number.isInteger(combo.id) || combo.id <= 0) combo.id = ++loadCombinationIdCnt;
+    loadCombinationIdCnt = Math.max(loadCombinationIdCnt, combo.id);
+    combo.name = String(combo.name || '').trim() || `COMB${combo.id}`;
+    combo.factors = normalizedCombinationFactors(combo.factors);
+  }
+  if (!state.loadCombinations.length) {
+    const id = ++loadCombinationIdCnt;
+    state.loadCombinations.push({ id, name: `COMB${id}`, factors: normalizedCombinationFactors(state.comboFactors) });
+  }
+  let active = state.loadCombinations.find(combo => combo.id === parseInt(state.activeCombinationId));
+  if (!active) {
+    active = state.loadCombinations[0];
+    state.activeCombinationId = active.id;
+  }
+  state.comboFactors = normalizedCombinationFactors(active.factors);
+}
+
+function currentLoadCombination() {
+  ensureLoadCombinations();
+  return state.loadCombinations.find(combo => combo.id === state.activeCombinationId) || state.loadCombinations[0];
+}
+
+function persistActiveCombinationFactors() {
+  let active = state.loadCombinations.find(combo => combo.id === parseInt(state.activeCombinationId));
+  if (!active) {
+    ensureLoadCombinations();
+    active = state.loadCombinations.find(combo => combo.id === state.activeCombinationId);
+  }
+  if (active) active.factors = normalizedCombinationFactors(state.comboFactors);
+}
+
+function renderLoadCombinationControls() {
+  ensureLoadCombinations();
+  const select = document.getElementById('loadCombinationSelect');
+  const nameInput = document.getElementById('loadCombinationName');
+  const deleteButton = document.getElementById('deleteLoadCombinationButton');
+  const active = currentLoadCombination();
+  if (select) {
+    select.innerHTML = state.loadCombinations.map(combo =>
+      `<option value="${combo.id}" ${combo.id === active.id ? 'selected' : ''}>${escapeHtml(combo.name)}</option>`).join('');
+  }
+  if (nameInput) nameInput.value = active.name;
+  if (deleteButton) deleteButton.disabled = state.loadCombinations.length <= 1;
+}
+
+function selectLoadCombination(id) {
+  syncLoadCaseTableFromDom();
+  ensureLoadCombinations();
+  const next = state.loadCombinations.find(combo => combo.id === parseInt(id));
+  if (!next || next.id === state.activeCombinationId) return;
+  state.activeCombinationId = next.id;
+  state.comboFactors = normalizedCombinationFactors(next.factors);
+  renderLoadCombinationControls();
+  renderLoadCaseTable();
+  invalidateAnalysisState();
+}
+
+function addLoadCombination() {
+  syncLoadCaseTableFromDom();
+  ensureLoadCombinations();
+  const id = ++loadCombinationIdCnt;
+  const combo = { id, name: `COMB${id}`, factors: normalizedCombinationFactors(state.comboFactors) };
+  state.loadCombinations.push(combo);
+  state.activeCombinationId = id;
+  state.comboFactors = normalizedCombinationFactors(combo.factors);
+  renderLoadCombinationControls();
+  renderLoadCaseTable();
+  invalidateAnalysisState();
+}
+
+function deleteLoadCombination() {
+  syncLoadCaseTableFromDom();
+  ensureLoadCombinations();
+  if (state.loadCombinations.length <= 1) return;
+  const index = state.loadCombinations.findIndex(combo => combo.id === state.activeCombinationId);
+  state.loadCombinations.splice(index < 0 ? 0 : index, 1);
+  const next = state.loadCombinations[Math.max(0, Math.min(index, state.loadCombinations.length - 1))];
+  state.activeCombinationId = next.id;
+  state.comboFactors = normalizedCombinationFactors(next.factors);
+  renderLoadCombinationControls();
+  renderLoadCaseTable();
+  invalidateAnalysisState();
+}
+
+function updateLoadCombinationName(value) {
+  const active = currentLoadCombination();
+  active.name = String(value || '').trim() || `COMB${active.id}`;
+  const select = document.getElementById('loadCombinationSelect');
+  if (select) {
+    const option = Array.from(select.options).find(item => parseInt(item.value) === active.id);
+    if (option) option.textContent = active.name;
+  }
+}
+
 function firstLoadCaseId() {
   ensureLoadCases();
   return state.loadCases[0].id;
@@ -535,13 +670,17 @@ function loadCaseOptions(selectedId) {
   return state.loadCases.map(lc => `<option value="${lc.id}" ${lc.id === selectedId ? 'selected' : ''}>${escapeHtml(lc.name || ('LC' + lc.id))}</option>`).join('');
 }
 
-function formatActiveCombination() {
+function formatCombinationFactors(factors) {
   ensureLoadCases();
   return state.loadCases
-    .map(lc => ({ name: lc.name || ('LC' + lc.id), factor: comboFactor(lc.id) }))
+    .map(lc => ({ name: lc.name || ('LC' + lc.id), factor: Number(factors && factors[lc.id]) || 0 }))
     .filter(item => Math.abs(item.factor) > 1e-12)
     .map(item => `${item.factor.toFixed(3).replace(/\.?0+$/, '')}${item.name}`)
     .join(' + ') || '全部因子為 0';
+}
+
+function formatActiveCombination() {
+  return formatCombinationFactors(activeLoadFactors());
 }
 
 function activeLoadFactors() {
@@ -816,10 +955,16 @@ function delMember(idx) {
 
 function addLoadCaseRow(data) {
   const d = data || {};
+  syncLoadCaseTableFromDom();
+  ensureLoadCombinations();
   const id = d.id != null ? parseInt(d.id) : ++loadCaseIdCnt;
   if (id > loadCaseIdCnt) loadCaseIdCnt = id;
   state.loadCases.push({ id, name: d.name || `LC${id}` });
-  state.comboFactors[id] = d.factor != null ? parseFloat(d.factor) || 0 : 0;
+  const factor = d.factor != null ? parseFloat(d.factor) || 0 : 0;
+  for (const combo of state.loadCombinations) combo.factors[id] = combo.id === state.activeCombinationId ? factor : 0;
+  state.comboFactors[id] = factor;
+  persistActiveCombinationFactors();
+  renderLoadCombinationControls();
   renderLoadCaseTable();
   renderNodalLoadTable();
   renderMemberLoadTable();
@@ -855,13 +1000,17 @@ function syncLoadCaseTableFromDom() {
     lc.name = name || `LC${lc.id}`;
     state.comboFactors[lc.id] = parseFloat(factorInput && factorInput.value) || 0;
   });
+  persistActiveCombinationFactors();
 }
 
 function updateLoadCase(idx, key, value) {
   const lc = state.loadCases[idx];
   if (!lc) return;
   if (key === 'name') lc.name = String(value || '').trim() || `LC${lc.id}`;
-  if (key === 'factor') state.comboFactors[lc.id] = parseFloat(value) || 0;
+  if (key === 'factor') {
+    state.comboFactors[lc.id] = parseFloat(value) || 0;
+    persistActiveCombinationFactors();
+  }
   renderNodalLoadTable();
   renderMemberLoadTable();
   renderMemberPointLoadTable();
@@ -870,13 +1019,18 @@ function updateLoadCase(idx, key, value) {
 
 function delLoadCase(idx) {
   if (state.loadCases.length <= 1) return;
+  syncLoadCaseTableFromDom();
+  ensureLoadCombinations();
   const removed = state.loadCases[idx];
   state.loadCases.splice(idx, 1);
   delete state.comboFactors[removed.id];
+  for (const combo of state.loadCombinations) delete combo.factors[removed.id];
+  persistActiveCombinationFactors();
   const fallback = firstLoadCaseId();
   for (const l of state.nodalLoads) if (l.caseId === removed.id) l.caseId = fallback;
   for (const l of state.memberLoads) if (l.caseId === removed.id) l.caseId = fallback;
   for (const l of state.memberPointLoads) if (l.caseId === removed.id) l.caseId = fallback;
+  renderLoadCombinationControls();
   renderLoadCaseTable();
   renderNodalLoadTable();
   renderMemberLoadTable();
@@ -1113,8 +1267,8 @@ function solveLinear(Ain, bin) {
 // E 輸入 tf/cm²  → 計算時需要 EA [tf] 與 EI [tf·m²]
 //   EA (tf)  = E(tf/cm²) × A(cm²)
 //   EI (tf·m²) = E(tf/cm²) × I(cm⁴) × 1e-4
-function analyze() {
-  syncLoadCaseTableFromDom();
+function analyze(loadFactorOverride = null) {
+  if (loadFactorOverride == null) syncLoadCaseTableFromDom();
   const nodes = state.nodes;
   const members = state.members;
   if (nodes.length < 2) throw new Error('至少需要 2 個節點');
@@ -1123,7 +1277,9 @@ function analyze() {
   if (validation.hasErrors) {
     throw new Error(validation.checks.filter(c => c.level === 'error').map(c => c.text).join('；'));
   }
-  const loadFactors = activeLoadFactors();
+  const loadFactors = loadFactorOverride == null
+    ? activeLoadFactors()
+    : normalizedCombinationFactors(loadFactorOverride);
 
   const selfWeightOn = !!(document.getElementById('selfWeight') && document.getElementById('selfWeight').checked);
   const density = parseFloat(document.getElementById('density') && document.getElementById('density').value) || 0;
@@ -1373,7 +1529,7 @@ function analyze() {
     e.diag = { xs, Ns, Vs, Ms };
   }
 
-  return { d, reactions, springForces, elems: elemResults, validation, equilibrium, loadFactors, comboText: formatActiveCombination() };
+  return { d, reactions, springForces, elems: elemResults, validation, equilibrium, loadFactors, comboText: formatCombinationFactors(loadFactors) };
 }
 
 // ============================================================
@@ -1922,6 +2078,54 @@ function formatFrameStoryRatio(ratio) {
   return `${(value * 100).toFixed(4)}% (1/${Math.round(1 / value)})`;
 }
 
+function frameStoryCombinationEnvelopeModel() {
+  const inactive = reason => ({ active: false, reason, rows: [], governingDrift: null, governingShear: null });
+  if (!state.solution) return inactive('尚未執行分析。');
+  ensureLoadCombinations();
+  if (state.loadCombinations.length < 2) return inactive('至少建立 2 個具名組合後，才能形成跨組合包絡。');
+  const analyses = [];
+  for (const combo of state.loadCombinations) {
+    try {
+      const solution = analyze(combo.factors);
+      const story = frameStoryResponseModel(solution);
+      if (!story.active) return inactive(story.reason);
+      analyses.push({ combo, story });
+    } catch (error) {
+      return inactive(`${combo.name} 無法完成分析：${error.message}`);
+    }
+  }
+  const referenceRows = analyses[0].story.rows;
+  const rows = referenceRows.map((reference, index) => {
+    let driftControl = null;
+    let shearControl = null;
+    for (const analysis of analyses) {
+      const row = analysis.story.rows[index];
+      if (!row || row.story !== reference.story) return null;
+      const driftCandidate = { combo: analysis.combo, value: row.drift, ratio: row.driftRatio };
+      const shearCandidate = { combo: analysis.combo, value: row.storyShear };
+      if (!driftControl || driftCandidate.ratio > driftControl.ratio) driftControl = driftCandidate;
+      if (!shearControl || Math.abs(shearCandidate.value) > Math.abs(shearControl.value)) shearControl = shearCandidate;
+    }
+    return {
+      story: reference.story,
+      lowerElevation: reference.lowerElevation,
+      upperElevation: reference.upperElevation,
+      height: reference.height,
+      drift: driftControl.value,
+      driftRatio: driftControl.ratio,
+      driftCombinationId: driftControl.combo.id,
+      driftCombinationName: driftControl.combo.name,
+      storyShear: shearControl.value,
+      shearCombinationId: shearControl.combo.id,
+      shearCombinationName: shearControl.combo.name,
+    };
+  });
+  if (rows.some(row => !row)) return inactive('各組合的樓層辨識結果不一致，無法形成包絡。');
+  const governingDrift = rows.reduce((current, row) => row.driftRatio > current.driftRatio ? row : current, rows[0]);
+  const governingShear = rows.reduce((current, row) => Math.abs(row.storyShear) > Math.abs(current.storyShear) ? row : current, rows[0]);
+  return { active: true, reason: '', rows, governingDrift, governingShear, combinationCount: analyses.length };
+}
+
 function renderStoryResponse() {
   const summary = document.getElementById('storyResponseSummary');
   const wrap = document.getElementById('storyResponseTableWrap');
@@ -1936,13 +2140,38 @@ function renderStoryResponse() {
     return;
   }
   const governing = model.rows.find(row => row.governing);
+  const activeCombination = currentLoadCombination();
   summary.className = 'story-response-summary';
-  summary.innerHTML = `<strong>控制樓層：第 ${model.governingStory} 層</strong>｜最大層間位移角 ${formatFrameStoryRatio(model.maxDriftRatio)}｜該層層剪力 Vx = ${governing.storyShear.toFixed(3)} tf`;
+  summary.innerHTML = `<strong>目前組合：${escapeHtml(activeCombination.name)}</strong>｜控制樓層：第 ${model.governingStory} 層｜最大層間位移角 ${formatFrameStoryRatio(model.maxDriftRatio)}｜該層層剪力 Vx = ${governing.storyShear.toFixed(3)} tf`;
   body.innerHTML = model.rows.map(row => `<tr class="${row.governing ? 'story-response-control' : ''}">
     <td>第 ${row.story} 層</td><td>${row.lowerElevation.toFixed(3)} → ${row.upperElevation.toFixed(3)}</td>
     <td>${row.height.toFixed(3)}</td><td>${(row.upperAverageUx * 1000).toFixed(3)}</td>
     <td>${(row.drift * 1000).toFixed(3)}</td><td>${formatFrameStoryRatio(row.driftRatio)}</td>
     <td>${row.storyShear.toFixed(3)}</td><td>${row.governing ? '控制' : ''}</td>
+  </tr>`).join('');
+  wrap.style.display = 'block';
+}
+
+function renderStoryEnvelope() {
+  const summary = document.getElementById('storyEnvelopeSummary');
+  const wrap = document.getElementById('storyEnvelopeTableWrap');
+  const body = document.querySelector('#storyEnvelopeTbl tbody');
+  if (!summary || !wrap || !body) return;
+  const model = frameStoryCombinationEnvelopeModel();
+  body.innerHTML = '';
+  if (!model.active) {
+    summary.className = 'story-response-summary inactive';
+    summary.textContent = model.reason;
+    wrap.style.display = 'none';
+    return;
+  }
+  summary.className = 'story-response-summary';
+  summary.innerHTML = `<strong>位移角控制：第 ${model.governingDrift.story} 層／${escapeHtml(model.governingDrift.driftCombinationName)}</strong>｜${formatFrameStoryRatio(model.governingDrift.driftRatio)}｜最大 |Vx|：第 ${model.governingShear.story} 層／${escapeHtml(model.governingShear.shearCombinationName)} = ${Math.abs(model.governingShear.storyShear).toFixed(3)} tf`;
+  body.innerHTML = model.rows.map(row => `<tr class="${row === model.governingDrift ? 'story-response-control' : ''}">
+    <td>第 ${row.story} 層</td><td>${row.lowerElevation.toFixed(3)} → ${row.upperElevation.toFixed(3)}</td>
+    <td>${row.height.toFixed(3)}</td><td>${(row.drift * 1000).toFixed(3)}</td>
+    <td>${formatFrameStoryRatio(row.driftRatio)}</td><td>${escapeHtml(row.driftCombinationName)}</td>
+    <td>${row.storyShear.toFixed(3)}</td><td>${escapeHtml(row.shearCombinationName)}</td>
   </tr>`).join('');
   wrap.style.display = 'block';
 }
@@ -2010,6 +2239,7 @@ function renderResults() {
     tbE.appendChild(tr);
   }
   renderStoryResponse();
+  renderStoryEnvelope();
 }
 
 function escapeHtml(value) {
@@ -2476,6 +2706,7 @@ function invalidateAnalysisState() {
   renderFrameReportReadiness();
   renderFrameBenchmarkPanel();
   renderStoryResponse();
+  renderStoryEnvelope();
 }
 
 // ============================================================
@@ -2509,6 +2740,7 @@ function runAnalysis() {
     renderFrameReportReadiness(validation);
     renderFrameBenchmarkPanel();
     renderStoryResponse();
+    renderStoryEnvelope();
     console.error(e);
   }
 }
@@ -2522,10 +2754,13 @@ function resetAll() {
   state.nodes = []; state.members = []; state.nodalLoads = [];
   state.memberLoads = []; state.memberPointLoads = [];
   state.loadCases = []; state.comboFactors = {};
+  state.loadCombinations = []; state.activeCombinationId = null;
   state.benchmarkId = null;
   invalidateAnalysisState();
-  nodeIdCnt = 0; memberIdCnt = 0; loadCaseIdCnt = 0;
+  nodeIdCnt = 0; memberIdCnt = 0; loadCaseIdCnt = 0; loadCombinationIdCnt = 0;
   ensureLoadCases();
+  ensureLoadCombinations();
+  renderLoadCombinationControls();
   renderLoadCaseTable();
 }
 
@@ -2550,6 +2785,8 @@ function collectProjectData() {
     density: parseFloat(document.getElementById('density').value) || 0,
     loadCases: state.loadCases,
     comboFactors: state.comboFactors,
+    loadCombinations: state.loadCombinations,
+    activeCombinationId: state.activeCombinationId,
     nodes: state.nodes,
     members: state.members,
     nodalLoads: state.nodalLoads,
@@ -2611,7 +2848,7 @@ function validateFrameProjectData(data) {
   if (data.project != null && (typeof data.project !== 'object' || Array.isArray(data.project))) throw new Error('專案資料格式不正確。');
   if (data.defaults != null && (typeof data.defaults !== 'object' || Array.isArray(data.defaults))) throw new Error('預設斷面資料格式不正確。');
   if (data.comboFactors != null && (typeof data.comboFactors !== 'object' || Array.isArray(data.comboFactors))) throw new Error('載重組合因子格式不正確。');
-  const arrays = ['loadCases', 'nodes', 'members', 'nodalLoads', 'memberLoads', 'memberPointLoads'];
+  const arrays = ['loadCases', 'loadCombinations', 'nodes', 'members', 'nodalLoads', 'memberLoads', 'memberPointLoads'];
   arrays.forEach(key => {
     if (data[key] != null && !Array.isArray(data[key])) throw new Error(key + ' 必須是陣列。');
     (data[key] || []).forEach((item, index) => {
@@ -2624,6 +2861,7 @@ function validateFrameProjectData(data) {
     if (new Set(ids).size !== ids.length) throw new Error(label + '編號不得重複。');
   };
   assertUniqueFiniteIds(data.loadCases || [], '載重案例');
+  assertUniqueFiniteIds(data.loadCombinations || [], '載重組合');
   assertUniqueFiniteIds(data.nodes || [], '節點');
   assertUniqueFiniteIds(data.members || [], '桿件');
   (data.nodes || []).forEach(node => {
@@ -2632,6 +2870,12 @@ function validateFrameProjectData(data) {
   (data.members || []).forEach(member => {
     if (!Number.isInteger(Number(member.i)) || !Number.isInteger(Number(member.j))) throw new Error('桿件端點編號必須是整數。');
   });
+  (data.loadCombinations || []).forEach(combo => {
+    if (combo.factors == null || typeof combo.factors !== 'object' || Array.isArray(combo.factors)) throw new Error('載重組合因子格式不正確。');
+  });
+  if (data.activeCombinationId != null && (!Number.isInteger(Number(data.activeCombinationId)) || Number(data.activeCombinationId) <= 0)) {
+    throw new Error('目前載重組合編號必須是正整數。');
+  }
   return data;
 }
 function loadFromData(data) {
@@ -2657,6 +2901,18 @@ function loadFromData(data) {
     for (const [key, value] of Object.entries(data.comboFactors)) state.comboFactors[parseInt(key)] = parseFloat(value) || 0;
   }
   ensureLoadCases();
+  state.loadCombinations = (data.loadCombinations || []).map(combo => ({
+    id: parseInt(combo.id),
+    name: String(combo.name || '').trim() || `COMB${combo.id}`,
+    factors: normalizedCombinationFactors(combo.factors),
+  })).filter(combo => Number.isInteger(combo.id) && combo.id > 0);
+  loadCombinationIdCnt = state.loadCombinations.reduce((mx, combo) => Math.max(mx, combo.id), 0);
+  if (!state.loadCombinations.length) {
+    const id = ++loadCombinationIdCnt;
+    state.loadCombinations = [{ id, name: `COMB${id}`, factors: normalizedCombinationFactors(state.comboFactors) }];
+  }
+  state.activeCombinationId = parseInt(data.activeCombinationId);
+  ensureLoadCombinations();
   state.nodes = (data.nodes || []).map(n => ({ id: n.id, ...makeNode(n) }));
   state.members = (data.members || []).map(m => ({ id: m.id, i: m.i, j: m.j, E: +m.E || 0, A: +m.A || 0, I: +m.I || 0, relI: !!m.relI, relJ: !!m.relJ }));
   state.nodalLoads = (data.nodalLoads || []).map(l => ({ caseId: normalizeLoadCaseId(l.caseId), node: l.node, Fx: +l.Fx || 0, Fy: +l.Fy || 0, M: +l.M || 0 }));
@@ -2664,7 +2920,7 @@ function loadFromData(data) {
   state.memberPointLoads = (data.memberPointLoads || []).map(l => ({ caseId: normalizeLoadCaseId(l.caseId), member: l.member, P: +l.P || 0, a: +l.a || 0, dir: l.dir || 'globalY' }));
   nodeIdCnt = state.nodes.reduce((mx, n) => Math.max(mx, n.id), 0);
   memberIdCnt = state.members.reduce((mx, m) => Math.max(mx, m.id), 0);
-  renderLoadCaseTable(); renderNodeTable(); refreshNodeSelectors();
+  renderLoadCombinationControls(); renderLoadCaseTable(); renderNodeTable(); refreshNodeSelectors();
   runAnalysis();
 }
 
@@ -2682,8 +2938,12 @@ function printReport() {
     `<tr><td>N${n.id}</td><td>${n.x}</td><td>${n.y}</td><td>${formatNodeSupport(n)}</td></tr>`).join('');
   const memRows = state.members.map(m =>
     `<tr><td>M${m.id}</td><td>N${m.i}→N${m.j}</td><td>${m.E}</td><td>${m.A}</td><td>${m.I}</td><td>${((m.relI?'i':'')+(m.relJ?(m.relI?',j':'j'):''))||'剛接'}</td></tr>`).join('');
-  const comboRows = state.loadCases.map(lc =>
-    `<tr><td>${escapeHtml(lc.name || ('LC' + lc.id))}</td><td>${comboFactor(lc.id)}</td></tr>`).join('');
+  const activeCombination = currentLoadCombination();
+  const comboHeaderCells = state.loadCases.map(lc => `<th>${escapeHtml(lc.name || ('LC' + lc.id))}</th>`).join('');
+  const comboRows = state.loadCombinations.map(combo => `<tr>
+    <td>${escapeHtml(combo.name)}${combo.id === activeCombination.id ? '（目前圖表）' : ''}</td>
+    ${state.loadCases.map(lc => `<td>${Number(combo.factors[lc.id]) || 0}</td>`).join('')}
+  </tr>`).join('');
   const loadRows = []
     .concat(state.nodalLoads.map(l => `<tr><td>${escapeHtml(loadCaseName(l.caseId))}</td><td>節點 N${l.node}</td><td>Fx=${l.Fx}, Fy=${l.Fy}, M=${l.M}</td></tr>`))
     .concat(state.memberLoads.map(l => `<tr><td>${escapeHtml(loadCaseName(l.caseId))}</td><td>桿件 M${l.member} 均布</td><td>w=${l.w} (${l.dir})</td></tr>`))
@@ -2717,9 +2977,18 @@ function printReport() {
     <td>${(row.drift * 1000).toFixed(3)}</td><td>${formatFrameStoryRatio(row.driftRatio)}</td>
     <td>${row.storyShear.toFixed(3)}</td><td>${row.governing ? '控制' : ''}</td>
   </tr>`).join('') : '';
-  const storySection = storyResponse.active ? `<h2>樓層反應摘要</h2>
-    <p class="result-summary"><b>控制樓層</b> 第 ${storyResponse.governingStory} 層　<b>最大層間位移角</b> ${formatFrameStoryRatio(storyResponse.maxDriftRatio)}　<b>該層層剪力 Vx</b> ${governingStory.storyShear.toFixed(3)} tf</p>
+  const storySection = storyResponse.active ? `<h2>目前組合樓層反應</h2>
+    <p class="result-summary"><b>分析組合</b> ${escapeHtml(activeCombination.name)}（${escapeHtml(formatActiveCombination())}）　<b>控制樓層</b> 第 ${storyResponse.governingStory} 層　<b>最大層間位移角</b> ${formatFrameStoryRatio(storyResponse.maxDriftRatio)}　<b>該層層剪力 Vx</b> ${governingStory.storyShear.toFixed(3)} tf</p>
     <table><tr><th>樓層</th><th>高程(m)</th><th>層高(m)</th><th>平均 uX(mm)</th><th>層間位移 Δ(mm)</th><th>層間位移角</th><th>層剪力 Vx(tf)</th><th>控制</th></tr>${storyRows}</table>` : '';
+  const storyEnvelope = frameStoryCombinationEnvelopeModel();
+  const envelopeRows = storyEnvelope.active ? storyEnvelope.rows.map(row => `<tr>
+    <td>第 ${row.story} 層</td><td>${row.lowerElevation.toFixed(3)} → ${row.upperElevation.toFixed(3)}</td>
+    <td>${row.height.toFixed(3)}</td><td>${(row.drift * 1000).toFixed(3)}</td><td>${formatFrameStoryRatio(row.driftRatio)}</td>
+    <td>${escapeHtml(row.driftCombinationName)}</td><td>${row.storyShear.toFixed(3)}</td><td>${escapeHtml(row.shearCombinationName)}</td>
+  </tr>`).join('') : '';
+  const envelopeSection = storyEnvelope.active ? `<h2>多組合樓層反應包絡</h2>
+    <p class="result-summary"><b>位移角控制</b> 第 ${storyEnvelope.governingDrift.story} 層／${escapeHtml(storyEnvelope.governingDrift.driftCombinationName)}：${formatFrameStoryRatio(storyEnvelope.governingDrift.driftRatio)}　<b>最大 |Vx|</b> 第 ${storyEnvelope.governingShear.story} 層／${escapeHtml(storyEnvelope.governingShear.shearCombinationName)}：${Math.abs(storyEnvelope.governingShear.storyShear).toFixed(3)} tf</p>
+    <table><tr><th>樓層</th><th>高程(m)</th><th>層高(m)</th><th>包絡 Δ(mm)</th><th>包絡位移角</th><th>位移控制組合</th><th>包絡 Vx(tf)</th><th>剪力控制組合</th></tr>${envelopeRows}</table>` : '';
   const img = id => { try { return document.getElementById(id).toDataURL('image/png'); } catch (e) { return ''; } };
   const project = getFrameProjectInfo();
   const reportReadiness = frameReportReadinessModel(sol.validation);
@@ -2737,6 +3006,8 @@ function printReport() {
       project,
       loadCases: state.loadCases,
       comboFactors: state.comboFactors,
+      loadCombinations: state.loadCombinations,
+      activeCombinationId: state.activeCombinationId,
       nodes: state.nodes,
       members: state.members,
       nodalLoads: state.nodalLoads,
@@ -2767,13 +3038,14 @@ ${project.name ? `<div><b>計畫名稱</b>${escapeHtml(project.name)}</div>` : '
 <div><b>產出工具</b>${escapeHtml(reportTrace.sourceTrace.tool)}</div><div><b>工具版本</b>${escapeHtml(FRAME_PUBLIC_VERSION)}</div><div><b>計算引擎</b>${escapeHtml(FRAME_CALCULATION_ENGINE)}</div><div><b>輸出時間</b>${escapeHtml(reportTrace.generatedAt)}</div>
 <div><b>計算指紋</b>${escapeHtml(reportTrace.calculationFingerprint)}</div>${project.note ? `<div><b>專案備註</b>${escapeHtml(project.note)}</div>` : ''}
 </div>
-<h2>分析組合</h2><table><tr><th>載重案例</th><th>因子</th></tr>${comboRows}</table>
+  <h2>載重組合矩陣</h2><table><tr><th>組合</th>${comboHeaderCells}</tr>${comboRows}</table>
 <h2>節點</h2><table><tr><th>節點</th><th>X(m)</th><th>Y(m)</th><th>支承</th></tr>${nodesRows}</table>
 <h2>桿件</h2><table><tr><th>桿件</th><th>i→j</th><th>E(tf/cm²)</th><th>A(cm²)</th><th>I(cm⁴)</th><th>端鉸接</th></tr>${memRows}</table>
 <h2>載重</h2><table><tr><th>案例</th><th>項目</th><th>內容</th></tr>${loadRows}</table>
   <h2>模型自檢</h2><table><tr><th>層級</th><th>內容</th></tr>${checkRows}</table>
   <h2>平衡檢核</h2><table><tr><th>項目</th><th>Fx(tf)</th><th>Fy(tf)</th><th>M(tf·m)</th></tr>${eqRows}</table>
   ${storySection}
+  ${envelopeSection}
   <h2>幾何 / 變形圖</h2><img src="${img('geomCanvas')}">
 <h2>彎矩圖 M (tf·m)</h2><img src="${img('momCanvas')}">
 <h2>剪力圖 V (tf)</h2><img src="${img('shearCanvas')}">

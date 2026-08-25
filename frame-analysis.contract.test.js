@@ -99,6 +99,8 @@ function captureFrameReportHtml(source, project = {}, runtimeState = null) {
       ],
       loadCases: [{ id: 1, name: 'D' }],
       comboFactors: { 1: 1 },
+      loadCombinations: [{ id: 1, name: 'COMB1', factors: { 1: 1 } }],
+      activeCombinationId: 1,
       nodalLoads: [{ caseId: 1, node: 2, Fx: 0, Fy: -12, M: 0 }],
       memberLoads: [{ caseId: 1, member: 1, w: 1.5, dir: 'globalY' }],
       memberPointLoads: [{ caseId: 1, member: 1, P: 8, a: 3, dir: 'globalY' }],
@@ -127,6 +129,7 @@ function captureFrameReportHtml(source, project = {}, runtimeState = null) {
       },
     },
     loadCaseIdCnt: 1,
+    loadCombinationIdCnt: 1,
     lastReportObjectUrl: null,
     Blob: class FakeBlob {
       constructor(parts) {
@@ -152,6 +155,9 @@ function captureFrameReportHtml(source, project = {}, runtimeState = null) {
     },
     syncLoadCaseTableFromDom() {},
     runAnalysis() {},
+    analyze(loadFactors) {
+      return { ...context.state.solution, loadFactors, comboText: context.formatCombinationFactors(loadFactors) };
+    },
     console,
     Math,
     Number,
@@ -179,12 +185,18 @@ function captureFrameReportHtml(source, project = {}, runtimeState = null) {
     'formatSupportValue',
     'formatNodeSupport',
     'ensureLoadCases',
+    'normalizedCombinationFactors',
+    'ensureLoadCombinations',
+    'currentLoadCombination',
     'firstLoadCaseId',
     'normalizeLoadCaseId',
     'comboFactor',
     'loadCaseName',
+    'formatCombinationFactors',
+    'activeLoadFactors',
     'formatActiveCombination',
     'frameStoryResponseModel',
+    'frameStoryCombinationEnvelopeModel',
     'formatFrameStoryRatio',
     'escapeHtml',
     'fmtCheck',
@@ -233,12 +245,13 @@ function createFrameAnalysisContext(source) {
     FRAME_PUBLIC_VERSION: frameMetadata.version,
     FRAME_CALCULATION_ENGINE: frameMetadata.calculationEngine,
     state: {
-      nodes: [], members: [], loadCases: [], comboFactors: {},
+      nodes: [], members: [], loadCases: [], comboFactors: {}, loadCombinations: [], activeCombinationId: null,
       nodalLoads: [], memberLoads: [], memberPointLoads: [], solution: null,
     },
     nodeIdCnt: 0,
     memberIdCnt: 0,
     loadCaseIdCnt: 0,
+    loadCombinationIdCnt: 0,
     document: {
       getElementById(id) { return elements.get(id) || null; },
     },
@@ -251,6 +264,7 @@ function createFrameAnalysisContext(source) {
     invalidateAnalysisState() { context.state.solution = null; },
     renderFrameBenchmarkPanel() {},
     renderLoadCaseTable() {},
+    renderLoadCombinationControls() {},
     renderNodeTable() {},
     refreshNodeSelectors() {},
     console,
@@ -270,11 +284,13 @@ function createFrameAnalysisContext(source) {
   vm.createContext(context);
   [
     'asNonNegativeNumber', 'makeNode', 'springValue', 'activeSpring', 'hasSupportDof',
-    'ensureLoadCases', 'firstLoadCaseId', 'normalizeLoadCaseId', 'comboFactor',
-    'formatActiveCombination', 'activeLoadFactors', 'momentAboutOrigin',
+    'ensureLoadCases', 'normalizedCombinationFactors', 'ensureLoadCombinations', 'currentLoadCombination',
+    'persistActiveCombinationFactors', 'selectLoadCombination', 'addLoadCombination', 'deleteLoadCombination',
+    'firstLoadCaseId', 'normalizeLoadCaseId', 'comboFactor',
+    'formatCombinationFactors', 'formatActiveCombination', 'activeLoadFactors', 'momentAboutOrigin',
     'computeAppliedResultant', 'validateModel', 'zeros', 'matmul', 'matvec',
     'transpose', 'subtractMat', 'invSmall', 'condenseReleases', 'solveLinear',
-    'analyze', 'frameStoryResponseModel', 'formatFrameStoryRatio', 'getFrameProjectInfo', 'getFrameBenchmarkDefinition',
+    'analyze', 'frameStoryResponseModel', 'frameStoryCombinationEnvelopeModel', 'formatFrameStoryRatio', 'getFrameProjectInfo', 'getFrameBenchmarkDefinition',
     'frameBenchmarkProjectData', 'resolveFrameBenchmarkMetric', 'frameBenchmarkResultModel',
     'resetAll', 'validateFrameProjectData', 'collectProjectData', 'loadFromData',
   ].forEach(name => {
@@ -391,6 +407,14 @@ assertIncludesAll(frameAnalysisHtml, [
   'id="storyResponseTbl"',
   'function frameStoryResponseModel',
   'function renderStoryResponse',
+  'id="loadCombinationSelect"',
+  'id="loadCombinationName"',
+  'function addLoadCombination',
+  'function selectLoadCombination',
+  'id="storyEnvelopeCard"',
+  'id="storyEnvelopeTbl"',
+  'function frameStoryCombinationEnvelopeModel',
+  'function renderStoryEnvelope',
   'id="reportStatus"',
   'id="reportLink"',
   'id="frameReportReadiness"',
@@ -460,7 +484,7 @@ const frameReportText = assertReportHtmlText(frameReportRuntime.html, 'rigid fra
   '計算引擎',
   '輸出時間',
   '計算指紋',
-  '分析組合',
+  '載重組合矩陣',
   '節點',
   '桿件',
   '載重',
@@ -562,7 +586,7 @@ const replayFrameReport = captureFrameReportHtml(
 const replayFrameFingerprint = reportCalculationFingerprint(replayFrameReport.html);
 assert(replayResultSha256 === sourceResultSha256, 'rigid frame JSON replay reproduces model and every analysis result', `source=${sourceResultSha256}, replay=${replayResultSha256}`);
 assert(replayFrameFingerprint === sourceFrameFingerprint, 'rigid frame JSON replay reproduces calculation-book fingerprint', `source=${sourceFrameFingerprint}, replay=${replayFrameFingerprint}`);
-assert(sourceFrameReport.html.includes('樓層反應摘要'), 'portal-frame report includes applicable story-response results', '樓層反應摘要');
+assert(sourceFrameReport.html.includes('目前組合樓層反應'), 'portal-frame report includes applicable story-response results', '目前組合樓層反應');
 assert(sourceFrameReport.html.includes('層剪力 Vx(tf)'), 'portal-frame report includes story-shear result column', '層剪力 Vx(tf)');
 
 function runClosedFormFrameCase(caseData) {
@@ -1536,13 +1560,61 @@ const asymmetricStoryReport = captureFrameReportHtml(
   { name: '', no: '', designer: '', note: 'story response report' },
   interactiveAsymmetricTwoStory.runtimeState,
 );
-assert(asymmetricStoryReport.html.includes('樓層反應摘要'), 'story-frame calculation book includes the story-response section', '樓層反應摘要');
+assert(asymmetricStoryReport.html.includes('目前組合樓層反應'), 'story-frame calculation book includes the story-response section', '目前組合樓層反應');
 assert(asymmetricStoryReport.html.includes('控制樓層</b> 第 2 層'), 'story-frame calculation book records the governing story result', '第 2 層');
 assert(asymmetricStoryReport.html.includes('12.500'), 'story-frame calculation book records first-story shear', '12.500 tf');
 assert(asymmetricStoryReport.html.includes('5.500'), 'story-frame calculation book records second-story shear', '5.500 tf');
 for (const needle of frameBenchmarkPageOnlyNeedles) {
   assert(!asymmetricStoryReport.html.includes(needle), 'story-frame calculation book still excludes page-only benchmark wording', needle);
 }
+
+const storyEnvelopeRuntime = createFrameAnalysisContext(frameAnalysisHtml);
+const storyEnvelopeProject = storyEnvelopeRuntime.context.frameBenchmarkProjectData('asymmetricTwoStoryPortalBenchmark');
+const envelopeRoofElevation = Math.max(...storyEnvelopeProject.nodes.map(node => node.y));
+storyEnvelopeProject.loadCases = [{ id: 1, name: 'FLOOR' }, { id: 2, name: 'ROOF' }];
+storyEnvelopeProject.nodalLoads = storyEnvelopeProject.nodalLoads.map(load => ({
+  ...load,
+  caseId: storyEnvelopeProject.nodes.find(node => node.id === load.node).y === envelopeRoofElevation ? 2 : 1,
+}));
+storyEnvelopeProject.comboFactors = { 1: 2, 2: 0 };
+storyEnvelopeProject.loadCombinations = [
+  { id: 1, name: 'LOWER-CONTROL', factors: { 1: 2, 2: 0 } },
+  { id: 2, name: 'ROOF-CONTROL', factors: { 1: 0, 2: 1 } },
+];
+storyEnvelopeProject.activeCombinationId = 1;
+storyEnvelopeRuntime.context.loadFromData(storyEnvelopeProject);
+const lowerStoryModel = storyEnvelopeRuntime.context.frameStoryResponseModel(
+  storyEnvelopeRuntime.context.analyze({ 1: 2, 2: 0 }),
+);
+const roofStoryModel = storyEnvelopeRuntime.context.frameStoryResponseModel(
+  storyEnvelopeRuntime.context.analyze({ 1: 0, 2: 1 }),
+);
+const storyEnvelope = storyEnvelopeRuntime.context.frameStoryCombinationEnvelopeModel();
+assert(storyEnvelope.active === true && storyEnvelope.rows.length === 2, 'two named combinations produce a two-story response envelope', JSON.stringify(storyEnvelope));
+assertNear(storyEnvelope.rows[0].storyShear, 14, 1e-12, 'first-story shear envelope retains the lower-floor combination signed result');
+assert(storyEnvelope.rows[0].shearCombinationName === 'LOWER-CONTROL', 'first-story shear envelope identifies its controlling combination', storyEnvelope.rows[0].shearCombinationName);
+assertNear(storyEnvelope.rows[1].storyShear, 5.5, 1e-12, 'second-story shear envelope retains the roof combination signed result');
+assert(storyEnvelope.rows[1].shearCombinationName === 'ROOF-CONTROL', 'second-story shear envelope identifies its controlling combination', storyEnvelope.rows[1].shearCombinationName);
+storyEnvelope.rows.forEach((row, index) => {
+  const expected = lowerStoryModel.rows[index].driftRatio >= roofStoryModel.rows[index].driftRatio
+    ? { model: lowerStoryModel, name: 'LOWER-CONTROL' }
+    : { model: roofStoryModel, name: 'ROOF-CONTROL' };
+  assertNear(row.driftRatio, expected.model.rows[index].driftRatio, 1e-12, `story ${index + 1} drift envelope equals the governing solved combination`);
+  assert(row.driftCombinationName === expected.name, `story ${index + 1} drift envelope identifies the governing combination`, row.driftCombinationName);
+});
+storyEnvelopeRuntime.context.selectLoadCombination(2);
+assert(storyEnvelopeRuntime.context.state.activeCombinationId === 2 && storyEnvelopeRuntime.context.state.comboFactors[2] === 1, 'combination selection restores the named factor vector', JSON.stringify(storyEnvelopeRuntime.context.state.comboFactors));
+storyEnvelopeRuntime.context.runAnalysis();
+assert(storyEnvelopeRuntime.context.state.solution.comboText === '1ROOF', 'active result chain solves only the selected named combination', storyEnvelopeRuntime.context.state.solution.comboText);
+const storyEnvelopeJson = storyEnvelopeRuntime.context.collectProjectData();
+assert(storyEnvelopeJson.loadCombinations.length === 2 && storyEnvelopeJson.activeCombinationId === 2, 'JSON preserves all named combinations and the active selection', JSON.stringify({ combinations: storyEnvelopeJson.loadCombinations, active: storyEnvelopeJson.activeCombinationId }));
+const storyEnvelopeReport = captureFrameReportHtml(
+  frameAnalysisHtml,
+  { name: '', no: '', designer: '', note: 'combination envelope report' },
+  storyEnvelopeRuntime.context.state,
+);
+assert(storyEnvelopeReport.html.includes('載重組合矩陣') && storyEnvelopeReport.html.includes('LOWER-CONTROL') && storyEnvelopeReport.html.includes('ROOF-CONTROL'), 'calculation book records the complete named combination matrix', 'LOWER-CONTROL / ROOF-CONTROL');
+assert(storyEnvelopeReport.html.includes('多組合樓層反應包絡'), 'calculation book includes the multi-combination story envelope', '多組合樓層反應包絡');
 
 const storyLoadRuntime = createFrameAnalysisContext(frameAnalysisHtml);
 const storyLoadProject = storyLoadRuntime.context.frameBenchmarkProjectData('portalSideswayBenchmark');
@@ -1555,90 +1627,97 @@ assert(storyLoadResponse.active === true && storyLoadResponse.rows.length === 1,
 assertNear(storyLoadResponse.rows[0].storyShear, -10, 1e-12, 'story shear transforms and accumulates nodal, distributed local-y and point local-y horizontal loads');
 assertNear(storyLoadResponse.rows[0].storyShear, storyLoadRuntime.context.state.solution.equilibrium.applied.Fx, 1e-12, 'one-story shear matches the solved global horizontal applied resultant');
 
-const priorV11FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
-priorV11FrameJson.version = 'V1.1';
+function priorSingleCombinationFrameJson(version) {
+  const data = JSON.parse(JSON.stringify(sourceProjectJson));
+  data.version = version;
+  delete data.loadCombinations;
+  delete data.activeCombinationId;
+  return data;
+}
+
+const priorV12FrameJson = priorSingleCombinationFrameJson('V1.2');
+frameRuntime.context.loadFromData(priorV12FrameJson);
+assert(
+  stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution)
+    && frameRuntime.context.state.loadCombinations.length === 1,
+  'prior V1.2 single-combination JSON remains readable after the V1.3 envelope upgrade',
+  'legacy comboFactors synthesized as one named combination',
+);
+
+const priorV11FrameJson = priorSingleCombinationFrameJson('V1.1');
 frameRuntime.context.loadFromData(priorV11FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V1.1 JSON remains readable after the V1.2 story-response upgrade',
+  'prior V1.1 JSON remains readable after the V1.3 combination-envelope upgrade',
   'schema v1 compatibility path',
 );
 
-const priorV10FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
-priorV10FrameJson.version = 'V1.0';
+const priorV10FrameJson = priorSingleCombinationFrameJson('V1.0');
 frameRuntime.context.loadFromData(priorV10FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V1.0 JSON remains readable after the V1.2 story-response upgrade',
+  'prior V1.0 JSON remains readable after the V1.3 combination-envelope upgrade',
   'schema v1 compatibility path',
 );
 
-const priorV09FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
-priorV09FrameJson.version = 'V0.9';
+const priorV09FrameJson = priorSingleCombinationFrameJson('V0.9');
 frameRuntime.context.loadFromData(priorV09FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.9 JSON remains readable after the V1.2 story-response upgrade',
+  'prior V0.9 JSON remains readable after the V1.3 combination-envelope upgrade',
   'schema v1 compatibility path',
 );
 
-const priorV08FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
-priorV08FrameJson.version = 'V0.8';
+const priorV08FrameJson = priorSingleCombinationFrameJson('V0.8');
 frameRuntime.context.loadFromData(priorV08FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.8 JSON remains readable after the V1.2 story-response upgrade',
+  'prior V0.8 JSON remains readable after the V1.3 combination-envelope upgrade',
   'schema v1 compatibility path',
 );
 
-const priorV07FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
-priorV07FrameJson.version = 'V0.7';
+const priorV07FrameJson = priorSingleCombinationFrameJson('V0.7');
 frameRuntime.context.loadFromData(priorV07FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.7 JSON remains readable after the V1.2 story-response upgrade',
+  'prior V0.7 JSON remains readable after the V1.3 combination-envelope upgrade',
   'schema v1 compatibility path',
 );
 
-const priorV06FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
-priorV06FrameJson.version = 'V0.6';
+const priorV06FrameJson = priorSingleCombinationFrameJson('V0.6');
 frameRuntime.context.loadFromData(priorV06FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.6 JSON remains readable after the V1.2 story-response upgrade',
+  'prior V0.6 JSON remains readable after the V1.3 combination-envelope upgrade',
   'schema v1 compatibility path',
 );
 
-const priorV05FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
-priorV05FrameJson.version = 'V0.5';
+const priorV05FrameJson = priorSingleCombinationFrameJson('V0.5');
 frameRuntime.context.loadFromData(priorV05FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.5 JSON remains readable after the V1.2 story-response upgrade',
+  'prior V0.5 JSON remains readable after the V1.3 combination-envelope upgrade',
   'schema v1 compatibility path',
 );
 
-const priorFrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
-priorFrameJson.version = 'V0.4';
+const priorFrameJson = priorSingleCombinationFrameJson('V0.4');
 frameRuntime.context.loadFromData(priorFrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.4 JSON remains readable after the V1.2 story-response upgrade',
+  'prior V0.4 JSON remains readable after the V1.3 combination-envelope upgrade',
   'schema v1 compatibility path',
 );
 
-const olderFrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
-olderFrameJson.version = 'V0.3';
+const olderFrameJson = priorSingleCombinationFrameJson('V0.3');
 frameRuntime.context.loadFromData(olderFrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'older V0.3 JSON remains readable after the V1.2 story-response upgrade',
+  'older V0.3 JSON remains readable after the V1.3 combination-envelope upgrade',
   'schema v1 compatibility path',
 );
 
-const legacyFrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
+const legacyFrameJson = priorSingleCombinationFrameJson('V0.2');
 delete legacyFrameJson.schema;
-legacyFrameJson.version = 'V0.2';
 frameRuntime.context.loadFromData(legacyFrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
