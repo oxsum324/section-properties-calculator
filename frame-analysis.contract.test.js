@@ -184,6 +184,8 @@ function captureFrameReportHtml(source, project = {}, runtimeState = null) {
     'comboFactor',
     'loadCaseName',
     'formatActiveCombination',
+    'frameStoryResponseModel',
+    'formatFrameStoryRatio',
     'escapeHtml',
     'fmtCheck',
     'hasAnySpring',
@@ -272,7 +274,7 @@ function createFrameAnalysisContext(source) {
     'formatActiveCombination', 'activeLoadFactors', 'momentAboutOrigin',
     'computeAppliedResultant', 'validateModel', 'zeros', 'matmul', 'matvec',
     'transpose', 'subtractMat', 'invSmall', 'condenseReleases', 'solveLinear',
-    'analyze', 'getFrameProjectInfo', 'getFrameBenchmarkDefinition',
+    'analyze', 'frameStoryResponseModel', 'formatFrameStoryRatio', 'getFrameProjectInfo', 'getFrameBenchmarkDefinition',
     'frameBenchmarkProjectData', 'resolveFrameBenchmarkMetric', 'frameBenchmarkResultModel',
     'resetAll', 'validateFrameProjectData', 'collectProjectData', 'loadFromData',
   ].forEach(name => {
@@ -385,6 +387,10 @@ assertIncludesAll(frameAnalysisHtml, [
   'id="geomCanvas"',
   'id="momCanvas"',
   'id="dispTbl"',
+  'id="storyResponseCard"',
+  'id="storyResponseTbl"',
+  'function frameStoryResponseModel',
+  'function renderStoryResponse',
   'id="reportStatus"',
   'id="reportLink"',
   'id="frameReportReadiness"',
@@ -468,6 +474,7 @@ assert(frameReportRuntime.html.includes(`<b>工具版本</b>${frameMetadata.vers
 assert(frameReportRuntime.html.includes(`<b>計算引擎</b>${frameMetadata.calculationEngine}`), 'rigid frame report identifies calculation engine', frameMetadata.calculationEngine);
 assert(frameReportRuntime.html.includes('載重</h2>'), 'rigid frame runtime report keeps load table', '載重');
 assert(frameReportRuntime.html.includes('平衡檢核'), 'rigid frame runtime report keeps equilibrium section', '平衡檢核');
+assert(!frameReportRuntime.html.includes('樓層反應摘要'), 'non-story beam report omits inapplicable story-response section', 'no horizontal floor above the support level');
 assert(frameReportRuntime.html.includes('文件狀態：內部審閱'), 'rigid frame report defaults to printable internal review', '文件狀態：內部審閱');
 assert(frameReportRuntime.html.includes('本計算內容已完成審閱，核可作為正式附件'), 'rigid frame report exposes explicit approval checkbox', '核可作為正式附件');
 assert(frameReportText.includes('節點 N2'), 'rigid frame visible report text keeps node data', '節點 N2');
@@ -555,6 +562,8 @@ const replayFrameReport = captureFrameReportHtml(
 const replayFrameFingerprint = reportCalculationFingerprint(replayFrameReport.html);
 assert(replayResultSha256 === sourceResultSha256, 'rigid frame JSON replay reproduces model and every analysis result', `source=${sourceResultSha256}, replay=${replayResultSha256}`);
 assert(replayFrameFingerprint === sourceFrameFingerprint, 'rigid frame JSON replay reproduces calculation-book fingerprint', `source=${sourceFrameFingerprint}, replay=${replayFrameFingerprint}`);
+assert(sourceFrameReport.html.includes('樓層反應摘要'), 'portal-frame report includes applicable story-response results', '樓層反應摘要');
+assert(sourceFrameReport.html.includes('層剪力 Vx(tf)'), 'portal-frame report includes story-shear result column', '層剪力 Vx(tf)');
 
 function runClosedFormFrameCase(caseData) {
   const runtime = createFrameAnalysisContext(frameAnalysisHtml);
@@ -1375,6 +1384,8 @@ function runInteractiveFrameBenchmark(kind) {
     definition: runtime.context.getFrameBenchmarkDefinition(kind),
     projectData,
     model: runtime.context.frameBenchmarkResultModel(),
+    storyResponse: runtime.context.frameStoryResponseModel(),
+    runtimeState: JSON.parse(JSON.stringify(runtime.context.state)),
   };
 }
 
@@ -1508,12 +1519,57 @@ interactiveAsymmetricTwoStory.definition.metrics.forEach((metric, index) => {
   assertNear(metric.expected, asymmetricInteractiveExpected[index], 1e-12, `interactive asymmetric two-story metric ${index + 1} matches frozen independent fixture`);
 });
 
+const asymmetricStoryResponse = interactiveAsymmetricTwoStory.storyResponse;
+assert(asymmetricStoryResponse.active === true && asymmetricStoryResponse.rows.length === 2, 'asymmetric two-story frame produces two governed story-response rows', JSON.stringify(asymmetricStoryResponse));
+assert(asymmetricStoryResponse.governingStory === 2, 'asymmetric two-story frame identifies the second story as drift-control story', String(asymmetricStoryResponse.governingStory));
+const asymmetricFirstFloorUx = (asymmetricTwoStoryReference.displacement[3] + asymmetricTwoStoryReference.displacement[12]) / 2;
+const asymmetricRoofUx = (asymmetricTwoStoryReference.displacement[6] + asymmetricTwoStoryReference.displacement[15]) / 2;
+assertNear(asymmetricStoryResponse.rows[0].upperAverageUx, asymmetricFirstFloorUx, 1e-12, 'story response averages all first-floor horizontal node displacements');
+assertNear(asymmetricStoryResponse.rows[0].driftRatio, Math.abs(asymmetricFirstFloorUx) / 3.6, 1e-12, 'first-story drift ratio uses the governed 3.6 m story height');
+assertNear(asymmetricStoryResponse.rows[1].driftRatio, Math.abs(asymmetricRoofUx - asymmetricFirstFloorUx) / 4.5, 1e-12, 'second-story drift ratio uses relative floor displacement and 4.5 m story height');
+assertNear(asymmetricStoryResponse.rows[0].storyShear, 12.5, 1e-12, 'first-story shear accumulates all horizontal loads above the base');
+assertNear(asymmetricStoryResponse.rows[1].storyShear, 5.5, 1e-12, 'second-story shear excludes horizontal loads applied at the first-floor level');
+assert(interactiveInclinedCantilever.storyResponse.active === false, 'inclined cantilever does not get misclassified as a story system', interactiveInclinedCantilever.storyResponse.reason);
+
+const asymmetricStoryReport = captureFrameReportHtml(
+  frameAnalysisHtml,
+  { name: '', no: '', designer: '', note: 'story response report' },
+  interactiveAsymmetricTwoStory.runtimeState,
+);
+assert(asymmetricStoryReport.html.includes('樓層反應摘要'), 'story-frame calculation book includes the story-response section', '樓層反應摘要');
+assert(asymmetricStoryReport.html.includes('控制樓層</b> 第 2 層'), 'story-frame calculation book records the governing story result', '第 2 層');
+assert(asymmetricStoryReport.html.includes('12.500'), 'story-frame calculation book records first-story shear', '12.500 tf');
+assert(asymmetricStoryReport.html.includes('5.500'), 'story-frame calculation book records second-story shear', '5.500 tf');
+for (const needle of frameBenchmarkPageOnlyNeedles) {
+  assert(!asymmetricStoryReport.html.includes(needle), 'story-frame calculation book still excludes page-only benchmark wording', needle);
+}
+
+const storyLoadRuntime = createFrameAnalysisContext(frameAnalysisHtml);
+const storyLoadProject = storyLoadRuntime.context.frameBenchmarkProjectData('portalSideswayBenchmark');
+storyLoadProject.nodalLoads = [{ caseId: 1, node: 2, Fx: 1, Fy: 0, M: 0 }];
+storyLoadProject.memberLoads = [{ caseId: 1, member: 1, w: 2, dir: 'localY' }];
+storyLoadProject.memberPointLoads = [{ caseId: 1, member: 3, P: 3, a: 2, dir: 'localY' }];
+storyLoadRuntime.context.loadFromData(storyLoadProject);
+const storyLoadResponse = storyLoadRuntime.context.frameStoryResponseModel();
+assert(storyLoadResponse.active === true && storyLoadResponse.rows.length === 1, 'local-axis lateral load fixture produces one applicable story row', JSON.stringify(storyLoadResponse));
+assertNear(storyLoadResponse.rows[0].storyShear, -10, 1e-12, 'story shear transforms and accumulates nodal, distributed local-y and point local-y horizontal loads');
+assertNear(storyLoadResponse.rows[0].storyShear, storyLoadRuntime.context.state.solution.equilibrium.applied.Fx, 1e-12, 'one-story shear matches the solved global horizontal applied resultant');
+
+const priorV11FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
+priorV11FrameJson.version = 'V1.1';
+frameRuntime.context.loadFromData(priorV11FrameJson);
+assert(
+  stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
+  'prior V1.1 JSON remains readable after the V1.2 story-response upgrade',
+  'schema v1 compatibility path',
+);
+
 const priorV10FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
 priorV10FrameJson.version = 'V1.0';
 frameRuntime.context.loadFromData(priorV10FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V1.0 JSON remains readable after the V1.1 asymmetric two-story benchmark upgrade',
+  'prior V1.0 JSON remains readable after the V1.2 story-response upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1522,7 +1578,7 @@ priorV09FrameJson.version = 'V0.9';
 frameRuntime.context.loadFromData(priorV09FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.9 JSON remains readable after the V1.1 asymmetric two-story benchmark upgrade',
+  'prior V0.9 JSON remains readable after the V1.2 story-response upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1531,7 +1587,7 @@ priorV08FrameJson.version = 'V0.8';
 frameRuntime.context.loadFromData(priorV08FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.8 JSON remains readable after the V1.1 asymmetric two-story benchmark upgrade',
+  'prior V0.8 JSON remains readable after the V1.2 story-response upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1540,7 +1596,7 @@ priorV07FrameJson.version = 'V0.7';
 frameRuntime.context.loadFromData(priorV07FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.7 JSON remains readable after the V1.1 asymmetric two-story benchmark upgrade',
+  'prior V0.7 JSON remains readable after the V1.2 story-response upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1549,7 +1605,7 @@ priorV06FrameJson.version = 'V0.6';
 frameRuntime.context.loadFromData(priorV06FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.6 JSON remains readable after the V1.1 asymmetric two-story benchmark upgrade',
+  'prior V0.6 JSON remains readable after the V1.2 story-response upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1558,7 +1614,7 @@ priorV05FrameJson.version = 'V0.5';
 frameRuntime.context.loadFromData(priorV05FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.5 JSON remains readable after the V1.1 asymmetric two-story benchmark upgrade',
+  'prior V0.5 JSON remains readable after the V1.2 story-response upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1567,7 +1623,7 @@ priorFrameJson.version = 'V0.4';
 frameRuntime.context.loadFromData(priorFrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'prior V0.4 JSON remains readable after the V1.1 asymmetric two-story benchmark upgrade',
+  'prior V0.4 JSON remains readable after the V1.2 story-response upgrade',
   'schema v1 compatibility path',
 );
 
@@ -1576,7 +1632,7 @@ olderFrameJson.version = 'V0.3';
 frameRuntime.context.loadFromData(olderFrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution),
-  'older V0.3 JSON remains readable after the V1.1 asymmetric two-story benchmark upgrade',
+  'older V0.3 JSON remains readable after the V1.2 story-response upgrade',
   'schema v1 compatibility path',
 );
 

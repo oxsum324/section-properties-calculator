@@ -127,6 +127,10 @@
   .frame-benchmark-library { margin-top: 10px; padding: 10px 12px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; }
   .frame-benchmark-library .flex-row { margin-top: 6px; }
   .frame-benchmark-library select { flex: 1 1 280px; min-width: 0; }
+  .story-response-wrap { overflow-x: auto; }
+  .story-response-summary { margin: 2px 0 8px; padding: 8px 10px; border-left: 4px solid #2563eb; background: #eff6ff; color: #1e3a8a; }
+  .story-response-summary.inactive { border-left-color: var(--border); background: #f8fafc; color: var(--text-light); }
+  .story-response-control td { background: #eff6ff; font-weight: 700; }
 
   .diag-card .canvas-wrap { min-height: 120px; display: flex; align-items: center; justify-content: center; }
   .diag-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
@@ -379,6 +383,18 @@
       <div class="card diag-card">
         <div class="diag-title"><h2 style="border:none;padding:0;margin:0;">軸力圖 N</h2><span class="legend">紅 = 拉力 (+), 藍 = 壓力 (−)</span></div>
         <div class="canvas-wrap"><canvas id="axialCanvas" width="800" height="400"></canvas></div>
+      </div>
+
+      <div class="card" id="storyResponseCard">
+        <h2>樓層反應摘要</h2>
+        <div class="story-response-summary inactive" id="storyResponseSummary">尚未執行分析。</div>
+        <div class="story-response-wrap" id="storyResponseTableWrap" style="display:none;">
+          <table class="results-table" id="storyResponseTbl"><thead><tr>
+            <th>樓層</th><th>高程 (m)</th><th>層高 (m)</th><th>平均 uX (mm)</th>
+            <th>層間位移 Δ (mm)</th><th>層間位移角</th><th>層剪力 Vx (tf)</th><th>控制</th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+        <div class="hint">依基底與水平樓層梁自動辨識；位移角與層剪力為目前分析組合的計算結果，不套用規範容許值。</div>
       </div>
 
       <div class="card">
@@ -1773,6 +1789,164 @@ function drawDiagram(canvasId, getter, posColor, negColor, labelUnit) {
 // ============================================================
 // 結果表格
 // ============================================================
+function frameStoryResponseModel(sol = state.solution) {
+  const inactive = reason => ({ active: false, reason, rows: [], governingStory: null });
+  if (!sol || !Array.isArray(sol.d)) return inactive('尚未執行分析。');
+  if (!state.nodes.length || !state.members.length) return inactive('目前模型沒有可供辨識的樓層系統。');
+
+  const coordinateScale = Math.max(1, ...state.nodes.flatMap(node => [Math.abs(Number(node.x) || 0), Math.abs(Number(node.y) || 0)]));
+  const tolerance = Math.max(1e-8, coordinateScale * 1e-8);
+  const nodeById = new Map(state.nodes.map((node, index) => [node.id, { node, index }]));
+  const supportNodes = state.nodes.filter(node =>
+    hasSupportDof(node, 'cx', 'kx') || hasSupportDof(node, 'cy', 'ky') || hasSupportDof(node, 'crz', 'krz'));
+  if (!supportNodes.length) return inactive('未辨識到基底支承，無法建立樓層反應摘要。');
+  const baseElevation = Math.min(...supportNodes.map(node => Number(node.y) || 0));
+
+  const candidateElevations = [];
+  for (const member of state.members) {
+    const iEntry = nodeById.get(member.i), jEntry = nodeById.get(member.j);
+    if (!iEntry || !jEntry) continue;
+    const ni = iEntry.node, nj = jEntry.node;
+    if (Math.abs(nj.y - ni.y) <= tolerance && Math.abs(nj.x - ni.x) > tolerance) {
+      const elevation = (Number(ni.y) + Number(nj.y)) / 2;
+      if (elevation > baseElevation + tolerance) candidateElevations.push(elevation);
+    }
+  }
+  candidateElevations.sort((a, b) => a - b);
+  const floorElevations = [];
+  for (const elevation of candidateElevations) {
+    if (!floorElevations.length || Math.abs(elevation - floorElevations[floorElevations.length - 1]) > tolerance) {
+      floorElevations.push(elevation);
+    }
+  }
+  if (!floorElevations.length) return inactive('未辨識到高於基底的水平樓層梁；一般梁、斜桿與單柱模型不產生樓層摘要。');
+
+  const levels = [baseElevation, ...floorElevations].map(elevation => {
+    const entries = state.nodes
+      .map((node, index) => ({ node, index }))
+      .filter(entry => Math.abs(entry.node.y - elevation) <= tolerance);
+    const averageUx = entries.length
+      ? entries.reduce((sum, entry) => sum + (Number(sol.d[entry.index * 3]) || 0), 0) / entries.length
+      : 0;
+    return { elevation, entries, averageUx };
+  });
+
+  const factors = sol.loadFactors || activeLoadFactors();
+  const lengthFractionAbove = (ni, nj, cutElevation) => {
+    const dy = nj.y - ni.y;
+    if (Math.abs(dy) <= tolerance) return ni.y > cutElevation + tolerance ? 1 : 0;
+    const crossing = Math.max(0, Math.min(1, (cutElevation - ni.y) / dy));
+    return dy > 0 ? 1 - crossing : crossing;
+  };
+  const horizontalLoadAbove = cutElevation => {
+    let fxTotal = 0;
+    for (const load of state.nodalLoads) {
+      const entry = nodeById.get(load.node);
+      if (!entry || entry.node.y <= cutElevation + tolerance) continue;
+      const factor = factors[normalizeLoadCaseId(load.caseId)] ?? 0;
+      fxTotal += (Number(load.Fx) || 0) * factor;
+    }
+    for (const load of state.memberLoads) {
+      const member = state.members.find(item => item.id === load.member);
+      if (!member) continue;
+      const iEntry = nodeById.get(member.i), jEntry = nodeById.get(member.j);
+      if (!iEntry || !jEntry) continue;
+      const ni = iEntry.node, nj = jEntry.node;
+      const dx = nj.x - ni.x, dy = nj.y - ni.y;
+      const length = Math.hypot(dx, dy);
+      if (length <= tolerance || load.dir !== 'localY') continue;
+      const factor = factors[normalizeLoadCaseId(load.caseId)] ?? 0;
+      const localSine = dy / length;
+      const fxPerLength = -(Number(load.w) || 0) * localSine * factor;
+      fxTotal += fxPerLength * length * lengthFractionAbove(ni, nj, cutElevation);
+    }
+    for (const load of state.memberPointLoads) {
+      const member = state.members.find(item => item.id === load.member);
+      if (!member) continue;
+      const iEntry = nodeById.get(member.i), jEntry = nodeById.get(member.j);
+      if (!iEntry || !jEntry) continue;
+      const ni = iEntry.node, nj = jEntry.node;
+      const dx = nj.x - ni.x, dy = nj.y - ni.y;
+      const length = Math.hypot(dx, dy);
+      if (length <= tolerance) continue;
+      const distance = Math.max(0, Math.min(length, Number(load.a) || 0));
+      const y = ni.y + (distance / length) * dy;
+      if (y <= cutElevation + tolerance) continue;
+      const factor = factors[normalizeLoadCaseId(load.caseId)] ?? 0;
+      const force = (Number(load.P) || 0) * factor;
+      const cosine = dx / length, sine = dy / length;
+      if (load.dir === 'localY') fxTotal += -force * sine;
+      else if (load.dir === 'localX') fxTotal += force * cosine;
+      else if (load.dir === 'globalX') fxTotal += force;
+    }
+    return fxTotal;
+  };
+
+  const rows = [];
+  for (let index = 1; index < levels.length; index++) {
+    const lower = levels[index - 1], upper = levels[index];
+    const height = upper.elevation - lower.elevation;
+    if (height <= tolerance) continue;
+    const drift = upper.averageUx - lower.averageUx;
+    rows.push({
+      story: index,
+      lowerElevation: lower.elevation,
+      upperElevation: upper.elevation,
+      height,
+      lowerAverageUx: lower.averageUx,
+      upperAverageUx: upper.averageUx,
+      drift,
+      driftRatio: Math.abs(drift) / height,
+      storyShear: horizontalLoadAbove(lower.elevation),
+      nodeIds: upper.entries.map(entry => entry.node.id),
+      governing: false,
+    });
+  }
+  if (!rows.length) return inactive('樓層高程不足，無法建立樓層反應摘要。');
+  const governing = rows.reduce((current, row) => row.driftRatio > current.driftRatio ? row : current, rows[0]);
+  governing.governing = true;
+  return {
+    active: true,
+    reason: '',
+    rows,
+    governingStory: governing.story,
+    maxDriftRatio: governing.driftRatio,
+    maxStoryShear: Math.max(...rows.map(row => Math.abs(row.storyShear))),
+    baseElevation,
+  };
+}
+
+function formatFrameStoryRatio(ratio) {
+  const value = Math.abs(Number(ratio) || 0);
+  if (value < 1e-12) return '0.0000% (1/∞)';
+  return `${(value * 100).toFixed(4)}% (1/${Math.round(1 / value)})`;
+}
+
+function renderStoryResponse() {
+  const summary = document.getElementById('storyResponseSummary');
+  const wrap = document.getElementById('storyResponseTableWrap');
+  const body = document.querySelector('#storyResponseTbl tbody');
+  if (!summary || !wrap || !body) return;
+  const model = frameStoryResponseModel();
+  body.innerHTML = '';
+  if (!model.active) {
+    summary.className = 'story-response-summary inactive';
+    summary.textContent = model.reason;
+    wrap.style.display = 'none';
+    return;
+  }
+  const governing = model.rows.find(row => row.governing);
+  summary.className = 'story-response-summary';
+  summary.innerHTML = `<strong>控制樓層：第 ${model.governingStory} 層</strong>｜最大層間位移角 ${formatFrameStoryRatio(model.maxDriftRatio)}｜該層層剪力 Vx = ${governing.storyShear.toFixed(3)} tf`;
+  body.innerHTML = model.rows.map(row => `<tr class="${row.governing ? 'story-response-control' : ''}">
+    <td>第 ${row.story} 層</td><td>${row.lowerElevation.toFixed(3)} → ${row.upperElevation.toFixed(3)}</td>
+    <td>${row.height.toFixed(3)}</td><td>${(row.upperAverageUx * 1000).toFixed(3)}</td>
+    <td>${(row.drift * 1000).toFixed(3)}</td><td>${formatFrameStoryRatio(row.driftRatio)}</td>
+    <td>${row.storyShear.toFixed(3)}</td><td>${row.governing ? '控制' : ''}</td>
+  </tr>`).join('');
+  wrap.style.display = 'block';
+}
+
 function renderResults() {
   const sol = state.solution;
   const tbD = document.querySelector('#dispTbl tbody');
@@ -1835,6 +2009,7 @@ function renderResults() {
       <td>${mMax.toFixed(3)}</td><td>${vMax.toFixed(3)}</td><td>${nMax.toFixed(3)}</td>`;
     tbE.appendChild(tr);
   }
+  renderStoryResponse();
 }
 
 function escapeHtml(value) {
@@ -2300,6 +2475,7 @@ function invalidateAnalysisState() {
   state.solution = null;
   renderFrameReportReadiness();
   renderFrameBenchmarkPanel();
+  renderStoryResponse();
 }
 
 // ============================================================
@@ -2332,6 +2508,7 @@ function runAnalysis() {
     renderModelChecks(null, validation);
     renderFrameReportReadiness(validation);
     renderFrameBenchmarkPanel();
+    renderStoryResponse();
     console.error(e);
   }
 }
@@ -2532,6 +2709,17 @@ function printReport() {
     const nMax = Math.max(...e.diag.Ns.map(Math.abs));
     return `<tr><td>M${e.m.id}</td><td>${e.L.toFixed(3)}</td><td>${mMax.toFixed(3)}</td><td>${vMax.toFixed(3)}</td><td>${nMax.toFixed(3)}</td></tr>`;
   }).join('');
+  const storyResponse = frameStoryResponseModel(sol);
+  const governingStory = storyResponse.active ? storyResponse.rows.find(row => row.governing) : null;
+  const storyRows = storyResponse.active ? storyResponse.rows.map(row => `<tr>
+    <td>第 ${row.story} 層</td><td>${row.lowerElevation.toFixed(3)} → ${row.upperElevation.toFixed(3)}</td>
+    <td>${row.height.toFixed(3)}</td><td>${(row.upperAverageUx * 1000).toFixed(3)}</td>
+    <td>${(row.drift * 1000).toFixed(3)}</td><td>${formatFrameStoryRatio(row.driftRatio)}</td>
+    <td>${row.storyShear.toFixed(3)}</td><td>${row.governing ? '控制' : ''}</td>
+  </tr>`).join('') : '';
+  const storySection = storyResponse.active ? `<h2>樓層反應摘要</h2>
+    <p class="result-summary"><b>控制樓層</b> 第 ${storyResponse.governingStory} 層　<b>最大層間位移角</b> ${formatFrameStoryRatio(storyResponse.maxDriftRatio)}　<b>該層層剪力 Vx</b> ${governingStory.storyShear.toFixed(3)} tf</p>
+    <table><tr><th>樓層</th><th>高程(m)</th><th>層高(m)</th><th>平均 uX(mm)</th><th>層間位移 Δ(mm)</th><th>層間位移角</th><th>層剪力 Vx(tf)</th><th>控制</th></tr>${storyRows}</table>` : '';
   const img = id => { try { return document.getElementById(id).toDataURL('image/png'); } catch (e) { return ''; } };
   const project = getFrameProjectInfo();
   const reportReadiness = frameReportReadinessModel(sol.validation);
@@ -2568,7 +2756,7 @@ th,td{border:1px solid #cbd5e1;padding:4px 8px;text-align:center;font-size:12px;
 th{background:#f1f5f9;} img{max-width:100%;border:1px solid #e2e8f0;margin:4px 0;}
 .meta{color:#64748b;font-size:12px;margin:2px 0;} button{padding:6px 14px;margin:6px 0;cursor:pointer;}.rep-toolbar{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:8px}.rep-footer{margin-top:12px;color:#64748b;font-size:10px;text-align:right;}
 .project-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:5px 14px;margin:12px 0 16px;font-size:11px;}
-.project-meta div{border-bottom:1px dotted #94a3b8;padding:3px 0;}.project-meta b{display:inline-block;min-width:62px;color:#475569;}
+  .project-meta div{border-bottom:1px dotted #94a3b8;padding:3px 0;}.project-meta b{display:inline-block;min-width:62px;color:#475569;}.result-summary{padding:7px 9px;background:#eff6ff;border-left:4px solid #2563eb;}
 @media print{.rep-toolbar{display:none}}</style></head><body data-document-class="internal-review">
 <div class="rep-toolbar"><button onclick="window.print()">列印 / 另存 PDF</button><button onclick="window.close()">關閉</button></div>
 <h1>平面剛架分析 計算書</h1>
@@ -2583,9 +2771,10 @@ ${project.name ? `<div><b>計畫名稱</b>${escapeHtml(project.name)}</div>` : '
 <h2>節點</h2><table><tr><th>節點</th><th>X(m)</th><th>Y(m)</th><th>支承</th></tr>${nodesRows}</table>
 <h2>桿件</h2><table><tr><th>桿件</th><th>i→j</th><th>E(tf/cm²)</th><th>A(cm²)</th><th>I(cm⁴)</th><th>端鉸接</th></tr>${memRows}</table>
 <h2>載重</h2><table><tr><th>案例</th><th>項目</th><th>內容</th></tr>${loadRows}</table>
-<h2>模型自檢</h2><table><tr><th>層級</th><th>內容</th></tr>${checkRows}</table>
-<h2>平衡檢核</h2><table><tr><th>項目</th><th>Fx(tf)</th><th>Fy(tf)</th><th>M(tf·m)</th></tr>${eqRows}</table>
-<h2>幾何 / 變形圖</h2><img src="${img('geomCanvas')}">
+  <h2>模型自檢</h2><table><tr><th>層級</th><th>內容</th></tr>${checkRows}</table>
+  <h2>平衡檢核</h2><table><tr><th>項目</th><th>Fx(tf)</th><th>Fy(tf)</th><th>M(tf·m)</th></tr>${eqRows}</table>
+  ${storySection}
+  <h2>幾何 / 變形圖</h2><img src="${img('geomCanvas')}">
 <h2>彎矩圖 M (tf·m)</h2><img src="${img('momCanvas')}">
 <h2>剪力圖 V (tf)</h2><img src="${img('shearCanvas')}">
 <h2>軸力圖 N (tf)</h2><img src="${img('axialCanvas')}">
