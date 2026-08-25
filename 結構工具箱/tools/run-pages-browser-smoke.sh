@@ -100,11 +100,21 @@ for ((attempt = 1; attempt <= attempts; attempt += 1)); do
   attempt_count="$attempt"
   result_json="$(node "$playwright_cli" --json "-s=$session" run-code "$code")"
   if node -e 'const value=JSON.parse(process.argv[1]);process.exit(value.isError?1:0)' "$result_json"; then
-    normalized_result_json="$(node "$result_normalizer" "$result_json")"
-    write_result passed "$normalized_result_json"
-    echo "Pages browser smoke passed: $normalized_result_json"
-    echo "pagesBrowserSmokeAttemptCount=$attempt_count"
-    exit 0
+    if normalized_result_json="$(node "$result_normalizer" "$result_json")"; then
+      write_result passed "$normalized_result_json"
+      echo "Pages browser smoke passed: $normalized_result_json"
+      echo "pagesBrowserSmokeAttemptCount=$attempt_count"
+      exit 0
+    fi
+
+    if [[ "$attempt" -lt "$attempts" ]]; then
+      echo "Pages browser smoke attempt returned no usable result; retrying the complete smoke in ${retry_delay_seconds}s (attempt $((attempt + 1))/$attempts)..." >&2
+      sleep "$retry_delay_seconds"
+      continue
+    fi
+
+    echo "Pages browser smoke returned no usable result after ${attempt_count} attempt(s)." >&2
+    exit 1
   fi
 
   retryable=false

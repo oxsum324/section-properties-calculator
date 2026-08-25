@@ -675,6 +675,12 @@ for (const envelope of [
 assert.throws(() => pagesBrowserResultNormalizer.normalizePlaywrightResult({ isError: false }), /does not contain a browser smoke result/, 'Pages browser result normalizer rejects a success envelope without metrics');
 assert.ok(pagesBrowserRunner.includes('"$attempt" -lt "$attempts"') && pagesBrowserRunner.includes('throw new Error(value.error)'), 'Pages browser runner bounds retries and fails persistent or non-transient errors');
 assert.ok(
+  pagesBrowserRunner.includes('if normalized_result_json="$(node "$result_normalizer" "$result_json")"') &&
+    pagesBrowserRunner.includes('attempt returned no usable result') &&
+    pagesBrowserRunner.includes('returned no usable result after ${attempt_count} attempt(s)'),
+  'Pages browser runner retries a success envelope without smoke metrics once, then fails closed'
+);
+assert.ok(
   pagesBrowserSmoke.includes("'/excavation-support':") &&
     pagesBrowserSmoke.includes('directPrintBoundaries[route]') &&
     pagesBrowserSmoke.includes("page.emulateMedia({ media: 'print' })") &&
