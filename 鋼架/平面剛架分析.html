@@ -130,6 +130,9 @@
   .story-response-wrap { overflow-x: auto; }
   #storyEnvelopeTbl { min-width: 760px; }
   #storyEnvelopeTbl th, #storyEnvelopeTbl td { white-space: nowrap; }
+  #memberEnvelopeTbl { min-width: 920px; }
+  #memberEnvelopeTbl th, #memberEnvelopeTbl td { white-space: nowrap; }
+  .member-envelope-control td { background: #eff6ff; font-weight: 700; }
   .story-response-summary { margin: 2px 0 8px; padding: 8px 10px; border-left: 4px solid #2563eb; background: #eff6ff; color: #1e3a8a; }
   .story-response-summary.inactive { border-left-color: var(--border); background: #f8fafc; color: var(--text-light); }
   .story-response-control td { background: #eff6ff; font-weight: 700; }
@@ -440,6 +443,18 @@
         <table class="results-table" id="extrTbl"><thead><tr>
           <th>桿件</th><th>L (m)</th><th>|M|max (tf·m)</th><th>|V|max (tf)</th><th>|N|max (tf)</th>
         </tr></thead><tbody></tbody></table>
+      </div>
+
+      <div class="card" id="memberEnvelopeCard">
+        <h2>多組合桿件內力包絡</h2>
+        <div class="story-response-summary inactive" id="memberEnvelopeSummary">至少建立 2 個具名組合後執行分析。</div>
+        <div class="story-response-wrap" id="memberEnvelopeTableWrap" style="display:none;">
+          <table class="results-table" id="memberEnvelopeTbl"><thead><tr>
+            <th>桿件</th><th>內力</th><th>最大值</th><th>x (m)</th><th>控制組合</th>
+            <th>最小值</th><th>x (m)</th><th>控制組合</th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+        <div class="hint">逐組求解並保留最大值、最小值、桿件局部位置與控制組合；N 拉正壓負，V 為 +y_local 正，M 採內力圖正負號。本包絡不代替規範載重組合完整性或構件設計檢核。</div>
       </div>
     </div>
   </div>
@@ -2078,21 +2093,31 @@ function formatFrameStoryRatio(ratio) {
   return `${(value * 100).toFixed(4)}% (1/${Math.round(1 / value)})`;
 }
 
-function frameStoryCombinationEnvelopeModel() {
-  const inactive = reason => ({ active: false, reason, rows: [], governingDrift: null, governingShear: null });
+function frameCombinationAnalysisSet() {
+  const inactive = reason => ({ active: false, reason, analyses: [] });
   if (!state.solution) return inactive('尚未執行分析。');
   ensureLoadCombinations();
   if (state.loadCombinations.length < 2) return inactive('至少建立 2 個具名組合後，才能形成跨組合包絡。');
   const analyses = [];
   for (const combo of state.loadCombinations) {
     try {
-      const solution = analyze(combo.factors);
-      const story = frameStoryResponseModel(solution);
-      if (!story.active) return inactive(story.reason);
-      analyses.push({ combo, story });
+      analyses.push({ combo, solution: analyze(combo.factors) });
     } catch (error) {
       return inactive(`${combo.name} 無法完成分析：${error.message}`);
     }
+  }
+  return { active: true, reason: '', analyses };
+}
+
+function frameStoryCombinationEnvelopeModel(analysisSetOverride = null) {
+  const inactive = reason => ({ active: false, reason, rows: [], governingDrift: null, governingShear: null });
+  const analysisSet = analysisSetOverride || frameCombinationAnalysisSet();
+  if (!analysisSet.active) return inactive(analysisSet.reason);
+  const analyses = [];
+  for (const analysis of analysisSet.analyses) {
+    const story = frameStoryResponseModel(analysis.solution);
+    if (!story.active) return inactive(story.reason);
+    analyses.push({ combo: analysis.combo, story });
   }
   const referenceRows = analyses[0].story.rows;
   const rows = referenceRows.map((reference, index) => {
@@ -2126,6 +2151,91 @@ function frameStoryCombinationEnvelopeModel() {
   return { active: true, reason: '', rows, governingDrift, governingShear, combinationCount: analyses.length };
 }
 
+function frameMemberEnvelopeComponents() {
+  return [
+    { key: 'N', label: '軸力 N', valuesKey: 'Ns', unit: 'tf' },
+    { key: 'V', label: '剪力 V', valuesKey: 'Vs', unit: 'tf' },
+    { key: 'M', label: '彎矩 M', valuesKey: 'Ms', unit: 'tf·m' },
+  ];
+}
+
+function frameMemberCombinationEnvelopeModel(analysisSetOverride = null) {
+  const inactive = reason => ({ active: false, reason, rows: [], governingByComponent: {}, combinationCount: 0 });
+  const analysisSet = analysisSetOverride || frameCombinationAnalysisSet();
+  if (!analysisSet.active) {
+    const reason = analysisSet.reason.includes('至少建立 2 個')
+      ? '至少建立 2 個具名組合後，才能形成跨組合桿件內力包絡。'
+      : analysisSet.reason;
+    return inactive(reason);
+  }
+  const analyses = analysisSet.analyses.map(analysis => ({
+    ...analysis,
+    elements: new Map(analysis.solution.elems.map(element => [element.m.id, element])),
+  }));
+
+  const rows = [];
+  for (const member of state.members) {
+    const referenceElement = analyses[0].elements.get(member.id);
+    if (!referenceElement) return inactive(`組合 ${analyses[0].combo.name} 缺少桿件 M${member.id} 的分析結果。`);
+    for (const component of frameMemberEnvelopeComponents()) {
+      let maximum = null;
+      let minimum = null;
+      for (const analysis of analyses) {
+        const element = analysis.elements.get(member.id);
+        const values = element?.diag?.[component.valuesKey];
+        const stations = element?.diag?.xs;
+        if (!element || !Array.isArray(values) || values.length === 0) {
+          return inactive(`組合 ${analysis.combo.name} 缺少桿件 M${member.id} 的 ${component.key} 內力結果。`);
+        }
+        for (let index = 0; index < values.length; index++) {
+          const value = Number(values[index]);
+          const fallbackX = values.length > 1 ? element.L * index / (values.length - 1) : 0;
+          const x = Number(Array.isArray(stations) ? stations[index] : fallbackX);
+          if (!Number.isFinite(value) || !Number.isFinite(x)) {
+            return inactive(`組合 ${analysis.combo.name} 的桿件 M${member.id} ${component.key} 包含無效數值。`);
+          }
+          const candidate = {
+            value: Math.abs(value) < 1e-12 ? 0 : value,
+            x,
+            combinationId: analysis.combo.id,
+            combinationName: analysis.combo.name,
+          };
+          if (!maximum || candidate.value > maximum.value) maximum = candidate;
+          if (!minimum || candidate.value < minimum.value) minimum = candidate;
+        }
+      }
+      const absoluteControl = Math.abs(maximum.value) >= Math.abs(minimum.value) ? maximum : minimum;
+      rows.push({
+        memberId: member.id,
+        length: referenceElement.L,
+        component: component.key,
+        componentLabel: component.label,
+        unit: component.unit,
+        maxValue: maximum.value,
+        maxX: maximum.x,
+        maxCombinationId: maximum.combinationId,
+        maxCombinationName: maximum.combinationName,
+        minValue: minimum.value,
+        minX: minimum.x,
+        minCombinationId: minimum.combinationId,
+        minCombinationName: minimum.combinationName,
+        absoluteValue: absoluteControl.value,
+        absoluteX: absoluteControl.x,
+        absoluteCombinationId: absoluteControl.combinationId,
+        absoluteCombinationName: absoluteControl.combinationName,
+      });
+    }
+  }
+  if (!rows.length) return inactive('沒有可建立包絡的桿件內力結果。');
+  const governingByComponent = {};
+  for (const component of frameMemberEnvelopeComponents()) {
+    const candidates = rows.filter(row => row.component === component.key);
+    governingByComponent[component.key] = candidates.reduce((current, row) =>
+      Math.abs(row.absoluteValue) > Math.abs(current.absoluteValue) ? row : current, candidates[0]);
+  }
+  return { active: true, reason: '', rows, governingByComponent, combinationCount: analyses.length };
+}
+
 function renderStoryResponse() {
   const summary = document.getElementById('storyResponseSummary');
   const wrap = document.getElementById('storyResponseTableWrap');
@@ -2152,12 +2262,12 @@ function renderStoryResponse() {
   wrap.style.display = 'block';
 }
 
-function renderStoryEnvelope() {
+function renderStoryEnvelope(analysisSet = null) {
   const summary = document.getElementById('storyEnvelopeSummary');
   const wrap = document.getElementById('storyEnvelopeTableWrap');
   const body = document.querySelector('#storyEnvelopeTbl tbody');
   if (!summary || !wrap || !body) return;
-  const model = frameStoryCombinationEnvelopeModel();
+  const model = frameStoryCombinationEnvelopeModel(analysisSet);
   body.innerHTML = '';
   if (!model.active) {
     summary.className = 'story-response-summary inactive';
@@ -2172,6 +2282,34 @@ function renderStoryEnvelope() {
     <td>${row.height.toFixed(3)}</td><td>${(row.drift * 1000).toFixed(3)}</td>
     <td>${formatFrameStoryRatio(row.driftRatio)}</td><td>${escapeHtml(row.driftCombinationName)}</td>
     <td>${row.storyShear.toFixed(3)}</td><td>${escapeHtml(row.shearCombinationName)}</td>
+  </tr>`).join('');
+  wrap.style.display = 'block';
+}
+
+function renderMemberEnvelope(analysisSet = null) {
+  const summary = document.getElementById('memberEnvelopeSummary');
+  const wrap = document.getElementById('memberEnvelopeTableWrap');
+  const body = document.querySelector('#memberEnvelopeTbl tbody');
+  if (!summary || !wrap || !body) return;
+  const model = frameMemberCombinationEnvelopeModel(analysisSet);
+  body.innerHTML = '';
+  if (!model.active) {
+    summary.className = 'story-response-summary inactive';
+    summary.textContent = model.reason;
+    wrap.style.display = 'none';
+    return;
+  }
+  const summaryOrder = ['M', 'V', 'N'];
+  summary.className = 'story-response-summary';
+  summary.innerHTML = summaryOrder.map(key => {
+    const row = model.governingByComponent[key];
+    return `<b>|${key}| 控制</b> M${row.memberId}／${escapeHtml(row.absoluteCombinationName)}：${Math.abs(row.absoluteValue).toFixed(3)} ${escapeHtml(row.unit)} @ x=${row.absoluteX.toFixed(3)} m`;
+  }).join('　');
+  const governingRows = new Set(Object.values(model.governingByComponent));
+  body.innerHTML = model.rows.map(row => `<tr class="${governingRows.has(row) ? 'member-envelope-control' : ''}">
+    <td>M${row.memberId}</td><td>${escapeHtml(row.componentLabel)}</td>
+    <td>${row.maxValue.toFixed(3)} ${escapeHtml(row.unit)}</td><td>${row.maxX.toFixed(3)}</td><td>${escapeHtml(row.maxCombinationName)}</td>
+    <td>${row.minValue.toFixed(3)} ${escapeHtml(row.unit)}</td><td>${row.minX.toFixed(3)}</td><td>${escapeHtml(row.minCombinationName)}</td>
   </tr>`).join('');
   wrap.style.display = 'block';
 }
@@ -2238,8 +2376,10 @@ function renderResults() {
       <td>${mMax.toFixed(3)}</td><td>${vMax.toFixed(3)}</td><td>${nMax.toFixed(3)}</td>`;
     tbE.appendChild(tr);
   }
+  const combinationAnalyses = frameCombinationAnalysisSet();
   renderStoryResponse();
-  renderStoryEnvelope();
+  renderStoryEnvelope(combinationAnalyses);
+  renderMemberEnvelope(combinationAnalyses);
 }
 
 function escapeHtml(value) {
@@ -2705,8 +2845,10 @@ function invalidateAnalysisState() {
   state.solution = null;
   renderFrameReportReadiness();
   renderFrameBenchmarkPanel();
+  const combinationAnalyses = frameCombinationAnalysisSet();
   renderStoryResponse();
-  renderStoryEnvelope();
+  renderStoryEnvelope(combinationAnalyses);
+  renderMemberEnvelope(combinationAnalyses);
 }
 
 // ============================================================
@@ -2739,8 +2881,10 @@ function runAnalysis() {
     renderModelChecks(null, validation);
     renderFrameReportReadiness(validation);
     renderFrameBenchmarkPanel();
+    const combinationAnalyses = frameCombinationAnalysisSet();
     renderStoryResponse();
-    renderStoryEnvelope();
+    renderStoryEnvelope(combinationAnalyses);
+    renderMemberEnvelope(combinationAnalyses);
     console.error(e);
   }
 }
@@ -2969,6 +3113,7 @@ function printReport() {
     const nMax = Math.max(...e.diag.Ns.map(Math.abs));
     return `<tr><td>M${e.m.id}</td><td>${e.L.toFixed(3)}</td><td>${mMax.toFixed(3)}</td><td>${vMax.toFixed(3)}</td><td>${nMax.toFixed(3)}</td></tr>`;
   }).join('');
+  const combinationAnalyses = frameCombinationAnalysisSet();
   const storyResponse = frameStoryResponseModel(sol);
   const governingStory = storyResponse.active ? storyResponse.rows.find(row => row.governing) : null;
   const storyRows = storyResponse.active ? storyResponse.rows.map(row => `<tr>
@@ -2980,7 +3125,7 @@ function printReport() {
   const storySection = storyResponse.active ? `<h2>目前組合樓層反應</h2>
     <p class="result-summary"><b>分析組合</b> ${escapeHtml(activeCombination.name)}（${escapeHtml(formatActiveCombination())}）　<b>控制樓層</b> 第 ${storyResponse.governingStory} 層　<b>最大層間位移角</b> ${formatFrameStoryRatio(storyResponse.maxDriftRatio)}　<b>該層層剪力 Vx</b> ${governingStory.storyShear.toFixed(3)} tf</p>
     <table><tr><th>樓層</th><th>高程(m)</th><th>層高(m)</th><th>平均 uX(mm)</th><th>層間位移 Δ(mm)</th><th>層間位移角</th><th>層剪力 Vx(tf)</th><th>控制</th></tr>${storyRows}</table>` : '';
-  const storyEnvelope = frameStoryCombinationEnvelopeModel();
+  const storyEnvelope = frameStoryCombinationEnvelopeModel(combinationAnalyses);
   const envelopeRows = storyEnvelope.active ? storyEnvelope.rows.map(row => `<tr>
     <td>第 ${row.story} 層</td><td>${row.lowerElevation.toFixed(3)} → ${row.upperElevation.toFixed(3)}</td>
     <td>${row.height.toFixed(3)}</td><td>${(row.drift * 1000).toFixed(3)}</td><td>${formatFrameStoryRatio(row.driftRatio)}</td>
@@ -2989,6 +3134,18 @@ function printReport() {
   const envelopeSection = storyEnvelope.active ? `<h2>多組合樓層反應包絡</h2>
     <p class="result-summary"><b>位移角控制</b> 第 ${storyEnvelope.governingDrift.story} 層／${escapeHtml(storyEnvelope.governingDrift.driftCombinationName)}：${formatFrameStoryRatio(storyEnvelope.governingDrift.driftRatio)}　<b>最大 |Vx|</b> 第 ${storyEnvelope.governingShear.story} 層／${escapeHtml(storyEnvelope.governingShear.shearCombinationName)}：${Math.abs(storyEnvelope.governingShear.storyShear).toFixed(3)} tf</p>
     <table><tr><th>樓層</th><th>高程(m)</th><th>層高(m)</th><th>包絡 Δ(mm)</th><th>包絡位移角</th><th>位移控制組合</th><th>包絡 Vx(tf)</th><th>剪力控制組合</th></tr>${envelopeRows}</table>` : '';
+  const memberEnvelope = frameMemberCombinationEnvelopeModel(combinationAnalyses);
+  const memberEnvelopeRows = memberEnvelope.active ? memberEnvelope.rows.map(row => `<tr>
+    <td>M${row.memberId}</td><td>${escapeHtml(row.componentLabel)}</td>
+    <td>${row.maxValue.toFixed(3)}</td><td>${row.maxX.toFixed(3)}</td><td>${escapeHtml(row.maxCombinationName)}</td>
+    <td>${row.minValue.toFixed(3)}</td><td>${row.minX.toFixed(3)}</td><td>${escapeHtml(row.minCombinationName)}</td><td>${escapeHtml(row.unit)}</td>
+  </tr>`).join('') : '';
+  const memberEnvelopeSection = memberEnvelope.active ? `<h2>多組合桿件內力包絡</h2>
+    <p class="result-summary">${['M', 'V', 'N'].map(key => {
+      const row = memberEnvelope.governingByComponent[key];
+      return `<b>|${key}| 控制</b> M${row.memberId}／${escapeHtml(row.absoluteCombinationName)}：${Math.abs(row.absoluteValue).toFixed(3)} ${escapeHtml(row.unit)} @ x=${row.absoluteX.toFixed(3)} m`;
+    }).join('　')}</p>
+    <table><tr><th>桿件</th><th>內力</th><th>最大值</th><th>x(m)</th><th>控制組合</th><th>最小值</th><th>x(m)</th><th>控制組合</th><th>單位</th></tr>${memberEnvelopeRows}</table>` : '';
   const img = id => { try { return document.getElementById(id).toDataURL('image/png'); } catch (e) { return ''; } };
   const project = getFrameProjectInfo();
   const reportReadiness = frameReportReadinessModel(sol.validation);
@@ -3052,6 +3209,7 @@ ${project.name ? `<div><b>計畫名稱</b>${escapeHtml(project.name)}</div>` : '
 <h2>軸力圖 N (tf)</h2><img src="${img('axialCanvas')}">
 <h2>節點位移 / 反力</h2><table><tr><th>節點</th><th>uX(mm)</th><th>uY(mm)</th><th>θZ(×10⁻³rad)</th><th>Rx(tf)</th><th>Ry(tf)</th><th>Mz(tf·m)</th></tr>${dispRows}</table>
 <h2>桿件極值</h2><table><tr><th>桿件</th><th>L(m)</th><th>|M|max(tf·m)</th><th>|V|max(tf)</th><th>|N|max(tf)</th></tr>${extrRows}</table>
+${memberEnvelopeSection}
 <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>
 </body></html>`;
   if (lastReportObjectUrl) URL.revokeObjectURL(lastReportObjectUrl);

@@ -120,6 +120,7 @@ function captureFrameReportHtml(source, project = {}, runtimeState = null) {
             m: { id: 1, i: 1, j: 2 },
             L: 6,
             diag: {
+              xs: [0, 3, 6],
               Ms: [0, 18, -12],
               Vs: [12, -8, 4],
               Ns: [3, -2, 1],
@@ -196,7 +197,10 @@ function captureFrameReportHtml(source, project = {}, runtimeState = null) {
     'activeLoadFactors',
     'formatActiveCombination',
     'frameStoryResponseModel',
+    'frameCombinationAnalysisSet',
     'frameStoryCombinationEnvelopeModel',
+    'frameMemberEnvelopeComponents',
+    'frameMemberCombinationEnvelopeModel',
     'formatFrameStoryRatio',
     'escapeHtml',
     'fmtCheck',
@@ -290,7 +294,7 @@ function createFrameAnalysisContext(source) {
     'formatCombinationFactors', 'formatActiveCombination', 'activeLoadFactors', 'momentAboutOrigin',
     'computeAppliedResultant', 'validateModel', 'zeros', 'matmul', 'matvec',
     'transpose', 'subtractMat', 'invSmall', 'condenseReleases', 'solveLinear',
-    'analyze', 'frameStoryResponseModel', 'frameStoryCombinationEnvelopeModel', 'formatFrameStoryRatio', 'getFrameProjectInfo', 'getFrameBenchmarkDefinition',
+    'analyze', 'frameStoryResponseModel', 'frameCombinationAnalysisSet', 'frameStoryCombinationEnvelopeModel', 'frameMemberEnvelopeComponents', 'frameMemberCombinationEnvelopeModel', 'formatFrameStoryRatio', 'getFrameProjectInfo', 'getFrameBenchmarkDefinition',
     'frameBenchmarkProjectData', 'resolveFrameBenchmarkMetric', 'frameBenchmarkResultModel',
     'resetAll', 'validateFrameProjectData', 'collectProjectData', 'loadFromData',
   ].forEach(name => {
@@ -414,7 +418,12 @@ assertIncludesAll(frameAnalysisHtml, [
   'id="storyEnvelopeCard"',
   'id="storyEnvelopeTbl"',
   'function frameStoryCombinationEnvelopeModel',
+  'function frameCombinationAnalysisSet',
   'function renderStoryEnvelope',
+  'id="memberEnvelopeCard"',
+  'id="memberEnvelopeTbl"',
+  'function frameMemberCombinationEnvelopeModel',
+  'function renderMemberEnvelope',
   'id="reportStatus"',
   'id="reportLink"',
   'id="frameReportReadiness"',
@@ -1583,12 +1592,10 @@ storyEnvelopeProject.loadCombinations = [
 ];
 storyEnvelopeProject.activeCombinationId = 1;
 storyEnvelopeRuntime.context.loadFromData(storyEnvelopeProject);
-const lowerStoryModel = storyEnvelopeRuntime.context.frameStoryResponseModel(
-  storyEnvelopeRuntime.context.analyze({ 1: 2, 2: 0 }),
-);
-const roofStoryModel = storyEnvelopeRuntime.context.frameStoryResponseModel(
-  storyEnvelopeRuntime.context.analyze({ 1: 0, 2: 1 }),
-);
+const lowerEnvelopeSolution = storyEnvelopeRuntime.context.analyze({ 1: 2, 2: 0 });
+const roofEnvelopeSolution = storyEnvelopeRuntime.context.analyze({ 1: 0, 2: 1 });
+const lowerStoryModel = storyEnvelopeRuntime.context.frameStoryResponseModel(lowerEnvelopeSolution);
+const roofStoryModel = storyEnvelopeRuntime.context.frameStoryResponseModel(roofEnvelopeSolution);
 const storyEnvelope = storyEnvelopeRuntime.context.frameStoryCombinationEnvelopeModel();
 assert(storyEnvelope.active === true && storyEnvelope.rows.length === 2, 'two named combinations produce a two-story response envelope', JSON.stringify(storyEnvelope));
 assertNear(storyEnvelope.rows[0].storyShear, 14, 1e-12, 'first-story shear envelope retains the lower-floor combination signed result');
@@ -1601,6 +1608,46 @@ storyEnvelope.rows.forEach((row, index) => {
     : { model: roofStoryModel, name: 'ROOF-CONTROL' };
   assertNear(row.driftRatio, expected.model.rows[index].driftRatio, 1e-12, `story ${index + 1} drift envelope equals the governing solved combination`);
   assert(row.driftCombinationName === expected.name, `story ${index + 1} drift envelope identifies the governing combination`, row.driftCombinationName);
+});
+const memberEnvelope = storyEnvelopeRuntime.context.frameMemberCombinationEnvelopeModel();
+assert(
+  memberEnvelope.active === true && memberEnvelope.rows.length === storyEnvelopeProject.members.length * 3,
+  'two named combinations produce N/V/M envelope rows for every member',
+  `rows=${memberEnvelope.rows.length}`,
+);
+const solvedMemberCombinations = [
+  { name: 'LOWER-CONTROL', solution: lowerEnvelopeSolution },
+  { name: 'ROOF-CONTROL', solution: roofEnvelopeSolution },
+];
+const componentValuesKey = { N: 'Ns', V: 'Vs', M: 'Ms' };
+memberEnvelope.rows.forEach(row => {
+  const samples = [];
+  solvedMemberCombinations.forEach(combination => {
+    const element = combination.solution.elems.find(item => item.m.id === row.memberId);
+    element.diag[componentValuesKey[row.component]].forEach((value, index) => {
+      samples.push({ value, x: element.diag.xs[index], name: combination.name });
+    });
+  });
+  const expectedMaximum = samples.reduce((current, sample) => sample.value > current.value ? sample : current, samples[0]);
+  const expectedMinimum = samples.reduce((current, sample) => sample.value < current.value ? sample : current, samples[0]);
+  assertNear(row.maxValue, expectedMaximum.value, 1e-12, `M${row.memberId} ${row.component} maximum equals solved-combination envelope`);
+  assertNear(row.maxX, expectedMaximum.x, 1e-12, `M${row.memberId} ${row.component} maximum station is retained`);
+  assert(row.maxCombinationName === expectedMaximum.name, `M${row.memberId} ${row.component} maximum controlling combination is retained`, row.maxCombinationName);
+  assertNear(row.minValue, expectedMinimum.value, 1e-12, `M${row.memberId} ${row.component} minimum equals solved-combination envelope`);
+  assertNear(row.minX, expectedMinimum.x, 1e-12, `M${row.memberId} ${row.component} minimum station is retained`);
+  assert(row.minCombinationName === expectedMinimum.name, `M${row.memberId} ${row.component} minimum controlling combination is retained`, row.minCombinationName);
+});
+['N', 'V', 'M'].forEach(component => {
+  const rows = memberEnvelope.rows.filter(row => row.component === component);
+  const expected = rows.reduce((current, row) => Math.abs(row.absoluteValue) > Math.abs(current.absoluteValue) ? row : current, rows[0]);
+  const actual = memberEnvelope.governingByComponent[component];
+  assert(
+    actual.memberId === expected.memberId
+      && actual.absoluteValue === expected.absoluteValue
+      && actual.absoluteCombinationName === expected.absoluteCombinationName,
+    `global |${component}| summary points to the governing member envelope row`,
+    `M${expected.memberId} / ${expected.absoluteCombinationName}`,
+  );
 });
 storyEnvelopeRuntime.context.selectLoadCombination(2);
 assert(storyEnvelopeRuntime.context.state.activeCombinationId === 2 && storyEnvelopeRuntime.context.state.comboFactors[2] === 1, 'combination selection restores the named factor vector', JSON.stringify(storyEnvelopeRuntime.context.state.comboFactors));
@@ -1615,6 +1662,8 @@ const storyEnvelopeReport = captureFrameReportHtml(
 );
 assert(storyEnvelopeReport.html.includes('載重組合矩陣') && storyEnvelopeReport.html.includes('LOWER-CONTROL') && storyEnvelopeReport.html.includes('ROOF-CONTROL'), 'calculation book records the complete named combination matrix', 'LOWER-CONTROL / ROOF-CONTROL');
 assert(storyEnvelopeReport.html.includes('多組合樓層反應包絡'), 'calculation book includes the multi-combination story envelope', '多組合樓層反應包絡');
+assert(storyEnvelopeReport.html.includes('多組合桿件內力包絡'), 'calculation book includes the multi-combination member-force envelope', '多組合桿件內力包絡');
+assert(storyEnvelopeReport.html.includes('最大值') && storyEnvelopeReport.html.includes('最小值') && storyEnvelopeReport.html.includes('控制組合'), 'member envelope report preserves signed bounds, station and controlling combination columns', '最大值 / 最小值 / 控制組合');
 
 const storyLoadRuntime = createFrameAnalysisContext(frameAnalysisHtml);
 const storyLoadProject = storyLoadRuntime.context.frameBenchmarkProjectData('portalSideswayBenchmark');
@@ -1626,6 +1675,16 @@ const storyLoadResponse = storyLoadRuntime.context.frameStoryResponseModel();
 assert(storyLoadResponse.active === true && storyLoadResponse.rows.length === 1, 'local-axis lateral load fixture produces one applicable story row', JSON.stringify(storyLoadResponse));
 assertNear(storyLoadResponse.rows[0].storyShear, -10, 1e-12, 'story shear transforms and accumulates nodal, distributed local-y and point local-y horizontal loads');
 assertNear(storyLoadResponse.rows[0].storyShear, storyLoadRuntime.context.state.solution.equilibrium.applied.Fx, 1e-12, 'one-story shear matches the solved global horizontal applied resultant');
+
+const priorV13FrameJson = JSON.parse(JSON.stringify(sourceProjectJson));
+priorV13FrameJson.version = 'V1.3';
+frameRuntime.context.loadFromData(priorV13FrameJson);
+assert(
+  stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution)
+    && frameRuntime.context.state.loadCombinations.length === sourceProjectJson.loadCombinations.length,
+  'prior V1.3 named-combination JSON remains readable after the V1.4 member-envelope upgrade',
+  'named combination schema is unchanged',
+);
 
 function priorSingleCombinationFrameJson(version) {
   const data = JSON.parse(JSON.stringify(sourceProjectJson));
@@ -1640,7 +1699,7 @@ frameRuntime.context.loadFromData(priorV12FrameJson);
 assert(
   stableSha256(frameResultSnapshot(frameRuntime.context).solution) === stableSha256(sourceResultSnapshot.solution)
     && frameRuntime.context.state.loadCombinations.length === 1,
-  'prior V1.2 single-combination JSON remains readable after the V1.3 envelope upgrade',
+  'prior V1.2 single-combination JSON remains readable after the V1.4 member-envelope upgrade',
   'legacy comboFactors synthesized as one named combination',
 );
 
