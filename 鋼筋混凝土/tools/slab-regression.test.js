@@ -264,6 +264,45 @@ async function exerciseSlabProjectStorage(page) {
   assert(draft.raw && draft.raw.includes('rc-slab-project-v1'), 'slab project draft localStorage payload', 'draft saved');
 }
 
+async function exerciseSlabReportOutputActions(page) {
+  const state = await page.evaluate(() => {
+    window.calcSlab();
+    let html = '';
+    let focusCalls = 0;
+    let printCalls = 0;
+    const popup = {
+      document: {
+        open() {},
+        write(chunk) { html += String(chunk); },
+        close() {}
+      },
+      focus() { focusCalls += 1; },
+      print() { printCalls += 1; },
+      close() {},
+      closed: false
+    };
+    const previousOpen = window.open;
+    window.open = () => popup;
+    let returnedPopup = null;
+    try {
+      returnedPopup = window.buildSlabReport({ autoPrint:true });
+    } finally {
+      window.open = previousOpen;
+    }
+    return {
+      focusCalls,
+      printCalls,
+      returnsPopup:returnedPopup === popup,
+      textExportEnabled:html.includes('data-text-export-enabled="true"'),
+      hasTextDownloadLabel:html.includes('下載文字計算書 TXT'),
+      hasPrintButton:Boolean(document.getElementById('btnPrintReport')),
+    };
+  });
+  assert(state.focusCalls === 1 && state.printCalls === 1 && state.returnsPopup, 'slab direct-print action prints the generated report window once', JSON.stringify(state));
+  assert(state.textExportEnabled && state.hasTextDownloadLabel, 'slab report enables governed TXT download', JSON.stringify(state));
+  assert(state.hasPrintButton, 'slab page exposes direct-print calculation-book control', JSON.stringify(state));
+}
+
 async function main() {
   const slabHtml = fs.readFileSync(htmlPath, 'utf8');
   const common = fs.readFileSync(commonPath, 'utf8');
@@ -293,6 +332,8 @@ async function main() {
   assert(style.includes('.report-readiness-card') && style.includes('@media print'), 'shared/style.css hides readiness card from print', 'page-only readiness is print-hidden');
   assert(style.includes('.report-readiness-priority'), 'shared/style.css styles prioritized readiness cue', 'page-only priority cue has stable layout');
   assert(slabHtml.includes('summary:false'), 'slab report hides top status banner', 'page-only review status stays out of the report');
+  assert(slabHtml.includes('id="btnPrintReport"'), 'slab.html has direct-print calculation-book control', 'top action is available');
+  assert(slabHtml.includes('textExport:true') && slabHtml.includes('autoPrint:options && options.autoPrint === true'), 'slab report enables TXT and direct-print options', 'shared report options are explicit');
   const buildReportSrc = slabHtml.slice(slabHtml.indexOf('function buildSlabReport'), slabHtml.indexOf('function svgToDataURL'));
   assert(!buildReportSrc.includes("label:'內建案例'"), 'slab report excludes built-in case provenance', 'test case stays on tool page');
   assert(!buildReportSrc.includes('未來擴充：') && !buildReportSrc.includes('實際設計仍應由執業技師簽證'), 'slab report excludes page governance notes', 'future work and generic sign-off stay page-only');
@@ -317,6 +358,7 @@ async function main() {
     await wait(250);
     assert(pageErrors.length === 0, 'slab page boot', 'no page errors during initial load');
     assert(failedResponses.length === 0, 'slab page resources', 'no missing static resources during initial load');
+    await exerciseSlabReportOutputActions(page);
     await exerciseSlabProjectStorage(page);
     assert(pageErrors.length === 0, 'slab project storage workflow', 'no page errors during project save/load checks');
     await page.goto(TOOL_URL, { waitUntil: 'networkidle' });

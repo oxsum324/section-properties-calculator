@@ -87,6 +87,7 @@
         <input id="columnProjectFile" class="mode-bar__file" type="file" accept=".json,application/json">
       </div>
       <button id="btnReport" class="mode-bar__report" type="button">📄 計算書</button>
+      <button id="btnPrintReport" class="mode-bar__report" type="button">🖨️ 直接列印計算書</button>
       <span id="projectFileStatus" class="mode-bar__project-status" aria-live="polite"></span>
     </div>
   </div>
@@ -398,6 +399,8 @@
       <div class="card" data-shows="summary">
         <h2>輸出</h2>
         <button id="btnReportSummary" type="button" class="btn-secondary">匯出計算書</button>
+        <button id="btnPrintReportSummary" type="button" class="btn-secondary">🖨️ 直接列印計算書</button>
+        <p class="hint">計算書預覽可下載文字備查版 TXT，或列印／存成 PDF。</p>
       </div>
     </div>
 
@@ -4336,7 +4339,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
     return { group: '人工複核採用記錄', keepTogether: true, items };
   }
 
-  function buildColumnReport() {
+  function buildColumnReport(options = {}) {
     const projectSnapshot = collectColumnProjectData();
     const r = window.colLast;
     const isDesignMode = (currentMode === 'design');
@@ -4867,6 +4870,8 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
     const reportConfig = {
       title: isDesignMode ? '柱設計計算書' : '柱檢核計算書',
       outputSource:{ tool:'柱 Column 設計／檢核', version:'V3.1' },
+      textExport:true,
+      autoPrint:options && options.autoPrint === true,
       subtitle: isDesignMode ? 'RC Column Design Report' : 'RC Column Check Report',
       project: proj,
       calculationFingerprint: projectSnapshot.calculationFingerprint,
@@ -4894,7 +4899,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
       ]
     };
     window.lastColumnReportConfig = reportConfig;
-    openReport(reportConfig);
+    return openReport(reportConfig);
   }
 
   function updateBanner(r) {
@@ -5294,6 +5299,8 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
   });
   document.getElementById('btnReport')?.addEventListener('click', buildColumnReport);
   document.getElementById('btnReportSummary')?.addEventListener('click', buildColumnReport);
+  document.getElementById('btnPrintReport')?.addEventListener('click', () => buildColumnReport({ autoPrint:true }));
+  document.getElementById('btnPrintReportSummary')?.addEventListener('click', () => buildColumnReport({ autoPrint:true }));
   document.getElementById('pmShowDetails')?.addEventListener('change', e => {
     const box = document.getElementById('pmDetailsBox');
     if (box) box.style.display = e.target.checked ? '' : 'none';

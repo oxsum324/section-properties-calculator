@@ -301,6 +301,27 @@ async function main() {
       await report.emulateMedia({ media: 'screen' });
 
       const metrics = await extractReportMetrics(report);
+      const reportTextState = await report.evaluate(async () => ({
+        hasTextDownloadControl:Boolean(document.getElementById('repDownloadCurrentText')),
+        textBuilderAvailable:typeof window.buildReportText === 'function',
+        reportText:typeof window.buildReportText === 'function' ? await window.buildReportText() : '',
+      }));
+      const textDownloadPath = path.join(OUT_DIR, `column-report-text-download-${tc.key}.txt`);
+      const textDownloadPromise = report.waitForEvent('download', { timeout:10000 });
+      await report.click('#repDownloadCurrentText');
+      const textDownload = await textDownloadPromise;
+      await textDownload.saveAs(textDownloadPath);
+      const textBuffer = fs.readFileSync(textDownloadPath);
+      const downloadedText = textBuffer.toString('utf8');
+      const textHasBom = downloadedText.charCodeAt(0) === 0xFEFF;
+      const textContent = textHasBom ? downloadedText.slice(1) : downloadedText;
+      const textState = {
+        path:textDownloadPath,
+        suggestedFilename:textDownload.suggestedFilename(),
+        bytes:textBuffer.length,
+        hasBom:textHasBom,
+        content:textContent,
+      };
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${tc.key} report`, {
         assert,
@@ -318,7 +339,7 @@ async function main() {
         reportCalculationFingerprint: metrics.calculationFingerprint,
         verifiedAssertionCount: (EXPECTED_REPORT_TEXT[tc.key] || []).length + 2,
       });
-      results.push({ key: tc.key, pageErrors, failedResponses, screenshotPath, pdfPath, directPrintPdfPath, directPrintState, directPrintPdfText, metrics, printMetrics, screenshotQuality, pdfTextQuality, artifactIntegrity, resultReconciliation });
+      results.push({ key: tc.key, pageErrors, failedResponses, screenshotPath, pdfPath, textDownloadPath, directPrintPdfPath, directPrintState, directPrintPdfText, metrics, reportTextState:{ ...reportTextState, reportText:undefined }, textState:{ ...textState, content:undefined }, printMetrics, screenshotQuality, pdfTextQuality, artifactIntegrity, resultReconciliation });
 
       assert(pageErrors.length === 0, `${tc.key} report page errors`, 'none');
       assert(failedResponses.length === 0, `${tc.key} report failed responses`, 'none');
@@ -334,6 +355,25 @@ async function main() {
       assert(metrics.documentState === 'internal-review' && metrics.documentApproved === 'false' && metrics.hasApprovalControl, `${tc.key} report defaults to printable internal review`, metrics.documentStateText);
       assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${tc.key} project JSON calculation fingerprint`, sourceFingerprint);
       assert(metrics.calculationFingerprint === sourceFingerprint, `${tc.key} project JSON matches report calculation fingerprint`, `${sourceFingerprint} -> ${metrics.calculationFingerprint}`);
+      assert(reportTextState.hasTextDownloadControl && reportTextState.textBuilderAvailable, `${tc.key} report exposes TXT calculation-book download`, JSON.stringify(reportTextState));
+      for (const fragment of [
+        '文件用途：文字備查版（不作為正式附件）',
+        '來源文件狀態：',
+        '產出工具：柱 Column 設計／檢核',
+        '工具版本：V3.1',
+        '計算指紋：CF-',
+        '[幾何]',
+        '文字版限制：不含可列印圖形',
+        '文字內容 SHA-256（非數位簽章）：',
+      ]) {
+        assert(reportTextState.reportText.includes(fragment), `${tc.key} generated TXT includes`, fragment);
+        assert(textState.content.includes(fragment), `${tc.key} downloaded TXT includes`, fragment);
+      }
+      assert(textState.hasBom, `${tc.key} downloaded TXT has UTF-8 BOM`, textState.suggestedFilename);
+      assert(textState.bytes > 4096, `${tc.key} downloaded TXT has substantive calculation content`, `${textState.bytes} bytes`);
+      assert(/文字備查.*CF-[A-F0-9]{16}\.txt$/.test(textState.suggestedFilename), `${tc.key} TXT filename is traceable`, textState.suggestedFilename);
+      assert(/文字內容 SHA-256（非數位簽章）：[0-9a-f]{64}/.test(textState.content), `${tc.key} TXT carries content digest`, 'SHA-256 present');
+      assert(!textState.content.includes('產報前檢查') && !textState.content.includes('data:image/'), `${tc.key} TXT excludes page-only state and embedded images`, 'clean text boundary');
       assert(!metrics.hasCoverageSummary, `${tc.key} coverage summary hidden`, 'no .rep-coverage-summary-wrap');
       assert(metrics.cardCount === 0, `${tc.key} coverage summary cards hidden`, `count=${metrics.cardCount}`);
       assert(printMetrics.toolbarDisplay === 'none', `${tc.key} print toolbar hidden`, `display=${printMetrics.toolbarDisplay}`);

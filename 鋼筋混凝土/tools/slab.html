@@ -109,6 +109,7 @@
         <input id="slabProjectFile" class="mode-bar__file" type="file" accept=".json,application/json">
       </div>
       <button class="mode-bar__report" id="btnReport" type="button">📄 計算書</button>
+      <button class="mode-bar__report" id="btnPrintReport" type="button">🖨️ 直接列印計算書</button>
       <span id="slabProjectStatus" class="mode-bar__project-status" aria-live="polite"></span>
     </div>
     <div class="form-row page-only-case-tools" style="margin-top:10px;">
@@ -2249,7 +2250,7 @@
   }
 
   // ─── 計算書 ────────────────────────────────────
-  function buildSlabReport() {
+  function buildSlabReport(options = {}) {
     const projectSnapshot = collectSlabProjectData();
     const r = window.slabLast;
     const proj = {
@@ -2560,9 +2561,11 @@
       }
       stepsArr.push({ group:'剪力與衝剪', body:shearLines.join('\n') });
     }
-    openReport({
+    return openReport({
       title: isDesignMode ? '板初步設計計算書' : '板初步檢核計算書',
       outputSource:{ tool:'板 Slab 設計／檢核', version:'V3.2' },
+      textExport:true,
+      autoPrint:options && options.autoPrint === true,
       subtitle: isDesignMode
         ? `RC Slab Preliminary Design Report — ${reportGrade}`
         : `RC Slab Preliminary Verification Report — ${reportGrade}`,
@@ -2619,6 +2622,7 @@
     el.addEventListener('change', scheduleCalc);
   });
   $('btnReport').addEventListener('click', buildSlabReport);
+  $('btnPrintReport').addEventListener('click', () => buildSlabReport({ autoPrint:true }));
   window.addEventListener('load', () => { updateSelfWt(); updatePunchModeHint(); syncVsInputs(); syncDesignFields(); syncDetailHelp(); syncAdvancedCaseTools(); calcSlab(); });
 </script>
 <script src="../../結構工具箱/tools/project-meta-profile.js"></script>

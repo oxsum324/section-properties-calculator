@@ -324,6 +324,27 @@ async function main() {
       await report.emulateMedia({ media: 'screen' });
 
       const metrics = await reportMetrics(report);
+      const reportTextState = await report.evaluate(async () => ({
+        hasTextDownloadControl:Boolean(document.getElementById('repDownloadCurrentText')),
+        textBuilderAvailable:typeof window.buildReportText === 'function',
+        reportText:typeof window.buildReportText === 'function' ? await window.buildReportText() : '',
+      }));
+      const textDownloadPath = path.join(OUT_DIR, `slab-report-text-download-${key}.txt`);
+      const textDownloadPromise = report.waitForEvent('download', { timeout:10000 });
+      await report.click('#repDownloadCurrentText');
+      const textDownload = await textDownloadPromise;
+      await textDownload.saveAs(textDownloadPath);
+      const textBuffer = fs.readFileSync(textDownloadPath);
+      const downloadedText = textBuffer.toString('utf8');
+      const textHasBom = downloadedText.charCodeAt(0) === 0xFEFF;
+      const textContent = textHasBom ? downloadedText.slice(1) : downloadedText;
+      const textState = {
+        path:textDownloadPath,
+        suggestedFilename:textDownload.suggestedFilename(),
+        bytes:textBuffer.length,
+        hasBom:textHasBom,
+        content:textContent,
+      };
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${key} report`, {
         assert,
@@ -340,7 +361,7 @@ async function main() {
         reportCalculationFingerprint: metrics.calculationFingerprint,
         verifiedAssertionCount: (expected.fragments || []).length + 2,
       });
-      results.push({ key, screenshotPath, pdfPath, state, metrics, printMetrics, screenshotQuality, pdfTextQuality, artifactIntegrity, resultReconciliation });
+      results.push({ key, screenshotPath, pdfPath, textDownloadPath, state, metrics, reportTextState:{ ...reportTextState, reportText:undefined }, textState:{ ...textState, content:undefined }, printMetrics, screenshotQuality, pdfTextQuality, artifactIntegrity, resultReconciliation });
 
       assert(metrics.title === expected.title, `${key} report title`, metrics.title);
       assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${key} project JSON calculation fingerprint`, sourceFingerprint);
@@ -348,6 +369,25 @@ async function main() {
       assert(!metrics.hasReportSummary, `${key} report status banner hidden`, 'no .rep-summary');
       assert(metrics.documentState === 'internal-review' && metrics.documentApproved === 'false', `${key} report defaults to printable internal review independent of engineering readiness`, `${state.readinessStatus} -> ${metrics.documentState}`);
       assert(metrics.documentStateText.includes('文件狀態：內部審閱'), `${key} report carries concise document status`, metrics.documentStateText);
+      assert(reportTextState.hasTextDownloadControl && reportTextState.textBuilderAvailable, `${key} report exposes TXT calculation-book download`, JSON.stringify(reportTextState));
+      for (const fragment of [
+        '文件用途：文字備查版（不作為正式附件）',
+        '來源文件狀態：',
+        '產出工具：板 Slab 設計／檢核',
+        '工具版本：V3.2',
+        '計算指紋：CF-',
+        '[幾何]',
+        '文字版限制：不含可列印圖形',
+        '文字內容 SHA-256（非數位簽章）：',
+      ]) {
+        assert(reportTextState.reportText.includes(fragment), `${key} generated TXT includes`, fragment);
+        assert(textState.content.includes(fragment), `${key} downloaded TXT includes`, fragment);
+      }
+      assert(textState.hasBom, `${key} downloaded TXT has UTF-8 BOM`, textState.suggestedFilename);
+      assert(textState.bytes > 4096, `${key} downloaded TXT has substantive calculation content`, `${textState.bytes} bytes`);
+      assert(/文字備查.*CF-[A-F0-9]{16}\.txt$/.test(textState.suggestedFilename), `${key} TXT filename is traceable`, textState.suggestedFilename);
+      assert(/文字內容 SHA-256（非數位簽章）：[0-9a-f]{64}/.test(textState.content), `${key} TXT carries content digest`, 'SHA-256 present');
+      assert(!textState.content.includes('產報前檢查') && !textState.content.includes('data:image/'), `${key} TXT excludes page-only state and embedded images`, 'clean text boundary');
       assert(metrics.checkGroupCount >= expected.minCheckGroups, `${key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.stepCount >= 1, `${key} report detailed steps`, `count=${metrics.stepCount}`);
       assert(metrics.diagramCount >= 1, `${key} report diagrams`, `count=${metrics.diagramCount}`);

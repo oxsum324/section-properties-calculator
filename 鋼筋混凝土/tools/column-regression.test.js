@@ -393,6 +393,46 @@ async function captureColumnReportHtml(page) {
   });
 }
 
+async function exerciseColumnReportOutputActions(page) {
+  const state = await page.evaluate(() => {
+    window.calcColumn();
+    let html = '';
+    let focusCalls = 0;
+    let printCalls = 0;
+    const popup = {
+      document: {
+        open() {},
+        write(chunk) { html += String(chunk); },
+        close() {}
+      },
+      focus() { focusCalls += 1; },
+      print() { printCalls += 1; },
+      close() {},
+      closed: false
+    };
+    const previousOpen = window.open;
+    window.open = () => popup;
+    let returnedPopup = null;
+    try {
+      returnedPopup = window.buildColumnReport({ autoPrint:true });
+    } finally {
+      window.open = previousOpen;
+    }
+    return {
+      focusCalls,
+      printCalls,
+      returnsPopup:returnedPopup === popup,
+      textExportEnabled:html.includes('data-text-export-enabled="true"'),
+      hasTextDownloadLabel:html.includes('下載文字計算書 TXT'),
+      hasTopPrintButton:Boolean(document.getElementById('btnPrintReport')),
+      hasSummaryPrintButton:Boolean(document.getElementById('btnPrintReportSummary')),
+    };
+  });
+  assert(state.focusCalls === 1 && state.printCalls === 1 && state.returnsPopup, 'column direct-print action prints the generated report window once', JSON.stringify(state));
+  assert(state.textExportEnabled && state.hasTextDownloadLabel, 'column report enables governed TXT download', JSON.stringify(state));
+  assert(state.hasTopPrintButton && state.hasSummaryPrintButton, 'column page exposes direct-print calculation-book controls', JSON.stringify(state));
+}
+
 async function exerciseColumnRebarDesignCandidates(page) {
   await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
   const designed = await page.evaluate(() => {
@@ -845,6 +885,8 @@ async function main() {
   assert(html.includes('COLUMN_PROJECT_SCHEMA'), 'column.html has project file schema', 'versioned column project file exists');
   assert(html.includes('btnSaveProject'), 'column.html has save project button', 'local JSON export control exists');
   assert(html.includes('btnLoadProject'), 'column.html has load project button', 'local JSON import control exists');
+  assert(html.includes('id="btnPrintReport"') && html.includes('id="btnPrintReportSummary"'), 'column.html has direct-print calculation-book controls', 'top and summary actions are available');
+  assert(html.includes('textExport:true') && html.includes('autoPrint:options && options.autoPrint === true'), 'column report enables TXT and direct-print options', 'shared report options are explicit');
   assert(html.includes('rc.column.project.draft'), 'column.html has browser draft storage key', 'browser-local draft storage exists');
   assert(html.includes('id="columnForceCandidateCard"'), 'column.html has force candidate review card', 'imported forces require explicit confirmation');
   assert(html.includes('initColumnForceCandidateReview'), 'column.html initializes candidate receiver', 'candidate payload is rendered without automatic adoption');
@@ -874,6 +916,8 @@ async function main() {
     await wait(300);
     assert(pageErrors.length === 0, 'column page boot', 'no page errors during initial load');
     assert(failedResponses.length === 0, 'column page resources', 'no missing static resources during initial load');
+    await exerciseColumnReportOutputActions(page);
+    assert(pageErrors.length === 0, 'column report output actions', 'no page errors during text-export and direct-print wiring');
     await exerciseColumnRebarDesignCandidates(page);
     assert(pageErrors.length === 0, 'column rebar candidate workflow', 'no page errors during capacity candidate adoption');
     await exerciseProjectStorage(page);
