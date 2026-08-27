@@ -12,7 +12,8 @@
   .scope-card p { color:#4c1d95; font-size:.86em; line-height:1.7; }
   .scope-list { margin:8px 0 0 20px; color:#5b21b6; font-size:.82em; }
   .scope-list li { margin:3px 0; }
-  .model-grid { display:grid; grid-template-columns:minmax(360px,430px) minmax(0,1fr); gap:18px; align-items:start; }
+  .model-grid { display:grid; grid-template-columns:minmax(360px,430px) minmax(0,1fr); gap:18px; align-items:start; min-width:0; }
+  .model-grid > * { min-width:0; }
   .subhead { margin:16px 0 8px; color:var(--primary); font-size:.92em; border-bottom:1px dashed var(--border); padding-bottom:5px; }
   .check-confirm { display:flex; gap:9px; align-items:flex-start; padding:10px 12px; margin-top:9px; border:1px solid #fde68a; border-radius:8px; background:#fffbeb; color:#78350f; font-size:.84em; line-height:1.5; }
   .check-confirm input { width:18px; height:18px; margin-top:2px; flex:0 0 auto; accent-color:var(--primary); }
@@ -22,9 +23,9 @@
   .status-banner.ok { border-color:#16a34a; background:#f0fdf4; color:#166534; }
   .status-banner.review { border-color:#d97706; background:#fffbeb; color:#92400e; }
   .status-banner.fail { border-color:#dc2626; background:#fef2f2; color:#991b1b; }
-  .stm-diagram { margin-top:12px; overflow:auto; border:1px solid var(--border); border-radius:10px; background:#fff; padding:8px; }
+  .stm-diagram { margin-top:12px; overflow:auto; max-width:100%; min-width:0; border:1px solid var(--border); border-radius:10px; background:#fff; padding:8px; }
   .stm-diagram svg { display:block; width:100%; min-width:620px; height:auto; }
-  .tie-section-diagram { margin-top:12px; overflow:auto; border:1px solid var(--border); border-radius:10px; background:#fff; padding:8px; }
+  .tie-section-diagram { margin-top:12px; overflow:auto; max-width:100%; min-width:0; border:1px solid var(--border); border-radius:10px; background:#fff; padding:8px; }
   .tie-section-diagram svg { display:block; width:100%; min-width:520px; height:auto; }
   .result-table { width:100%; border-collapse:collapse; font-size:.82em; margin-top:12px; }
   .result-table th, .result-table td { border:1px solid var(--border); padding:7px 8px; text-align:left; vertical-align:top; }
