@@ -438,6 +438,27 @@ async function exerciseWallCapacityLoadCombo(page) {
   });
   assert(reranked.status === 'evaluated' && reranked.after > reranked.before, 'wall reinforcement change reranks shear utilization', `${reranked.before} -> ${reranked.after}`);
 
+  const transientDiagram = await page.evaluate(() => {
+    const result = window.wallLast;
+    if (!result) return { error:'missing-wall-result', fallback:null, note:'' };
+    const original = result.pmActualSpacing;
+    const fallback = Number(result.vSp) || 0;
+    let error = '';
+    try {
+      result.pmActualSpacing = undefined;
+      drawWallRebar();
+    } catch (caught) {
+      error = String(caught?.message || caught);
+    }
+    const note = document.getElementById('wallRebarSvgNote')?.textContent || '';
+    result.pmActualSpacing = original;
+    drawWallRebar();
+    return { error, fallback, note };
+  });
+  assert(!transientDiagram.error
+    && transientDiagram.note.includes(`實際 ${transientDiagram.fallback.toFixed(1)} cm`),
+  'wall reinforcement diagram survives a transient missing P-M spacing', JSON.stringify(transientDiagram));
+
   const boundarySection = await page.evaluate(() => {
     const set = (id, value) => {
       const el = document.getElementById(id);

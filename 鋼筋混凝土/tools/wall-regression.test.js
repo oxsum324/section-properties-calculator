@@ -82,6 +82,8 @@ function main() {
   assert(wallHtml.includes('WallInplaneEvaluator.evaluatePMDemand(wallInplaneEvaluatorBase'), 'wall.html formal calculation evaluates the P-M envelope', 'axial tension and eccentric compression use the formal section model');
   assert(wallHtml.includes('id="cover"') && wallHtml.includes('id="pmBoundaryRebar"') && wallHtml.includes('id="pmBoundaryCountEach"'), 'wall.html exposes actual cover and optional end reinforcement', 'P-M section assumptions are user inputs');
   assert(wallHtml.includes('id="wallPMDiagram"') && wallHtml.includes("title:'P-M 設計互制圖'"), 'wall.html renders and reports the P-M interaction diagram', 'formal report includes capacity envelope and demand point');
+  assert(wallHtml.includes('const actualSpacing = Number.isFinite(Number(r.pmActualSpacing))')
+    && wallHtml.includes('(Number(r.vSp) || 0)'), 'wall reinforcement diagram has a finite spacing fallback', 'transient P-M geometry gaps cannot abort the page render');
   assert(wallHtml.includes('../shared/wall-rebar-designer.js?v=1'), 'wall.html loads the capacity-based reinforcement designer', 'design suggestions share the formal evaluators');
   assert(wallHtml.includes('id="wallRebarDesignCandidates"') && wallHtml.includes('applyWallRebarCandidate'), 'wall.html exposes ranked reinforcement candidates and apply action', 'a selected candidate returns to formal check mode');
   assert(wallHtml.includes("key:'pm-capacity'") && wallHtml.includes("key:'shear-capacity'"), 'wall load combinations expose capacity-based limit states', 'P-M and shear are separated');

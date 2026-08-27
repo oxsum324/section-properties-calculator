@@ -2359,6 +2359,8 @@ ${basementStepTxt}
   function drawWallRebar() {
     const r = window.wallLast; if (!r) return;
     const svg = document.getElementById('wallRebarSvg'); if (!svg) return;
+    // 輸入欄位逐一更新時，P-M 評估可能短暫回傳無幾何結果；示意圖不得因此中斷整頁計算。
+    const actualSpacing = Number.isFinite(Number(r.pmActualSpacing)) ? Number(r.pmActualSpacing) : (Number(r.vSp) || 0);
     const dbV = REBAR_TABLE[r.vBar]?.db || 1.27;
     const dbH = REBAR_TABLE[r.hBar]?.db || 1.27;
     const vw = 520, vh = 220;
@@ -2372,7 +2374,7 @@ ${basementStepTxt}
     const faceOff = cover + dbH + dbV / 2;
     const layers = r.layers;
     const rowYs = (layers === 1) ? [r.h / 2] : [faceOff, r.h - faceOff];
-    const barXs = Array.from({ length:r.pmBarCount || 0 }, (_, index) => r.pmEdgeOffset + index * r.pmActualSpacing);
+    const barXs = Array.from({ length:r.pmBarCount || 0 }, (_, index) => r.pmEdgeOffset + index * actualSpacing);
     // BE 觸發：端部加密示意
     const showBE = (r.seismic || r.wallType === 'shear') && (r.sigmaMax > 0.2 * r.fc);
     // 畫圖
@@ -2427,7 +2429,7 @@ ${basementStepTxt}
     // 尺寸線：s (底部, 第 1 個間距)
     const yDim = y0 + drawH + 14;
     body += `<line x1="${x0}" y1="${yDim}" x2="${x0+drawW}" y2="${yDim}" stroke="#475569" stroke-width="0.9" marker-end="url(#arr)" marker-start="url(#arr)"/>`;
-    body += `<text x="${x0+drawW/2}" y="${yDim + 14}" fill="#475569" font-size="11" text-anchor="middle">ℓw=${r.lw} cm；均布 s≈${r.pmActualSpacing.toFixed(1)} cm</text>`;
+    body += `<text x="${x0+drawW/2}" y="${yDim + 14}" fill="#475569" font-size="11" text-anchor="middle">ℓw=${r.lw} cm；均布 s≈${actualSpacing.toFixed(1)} cm</text>`;
     // 圖例
     const lgY = vh - 12;
     body += `<circle cx="${padL}" cy="${lgY}" r="3.5" fill="#dc2626" stroke="#7f1d1d" stroke-width="0.6"/>`;
@@ -2442,7 +2444,7 @@ ${basementStepTxt}
     svg.innerHTML = defs + body;
     const note = document.getElementById('wallRebarSvgNote');
     if (note) {
-      note.textContent = `均布縱筋 ${r.vBar} @ ${r.vSp} cm（實際 ${r.pmActualSpacing.toFixed(1)} cm），橫筋 ${r.hBar} @ ${r.hSp} cm，${layers} 層；保護層 ${cover} cm${r.pmBoundaryRebar ? `；兩端各附加 ${r.pmBoundaryCountEach}-${r.pmBoundaryBar}` : ''}。`;
+      note.textContent = `均布縱筋 ${r.vBar} @ ${r.vSp} cm（實際 ${actualSpacing.toFixed(1)} cm），橫筋 ${r.hBar} @ ${r.hSp} cm，${layers} 層；保護層 ${cover} cm${r.pmBoundaryRebar ? `；兩端各附加 ${r.pmBoundaryCountEach}-${r.pmBoundaryBar}` : ''}。`;
     }
   }
 
