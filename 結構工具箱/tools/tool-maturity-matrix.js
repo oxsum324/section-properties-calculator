@@ -3573,7 +3573,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(String(homepageReportReadinessStatus.reportTextSmokeScope || '').includes('矩陣外工具家族'), 'homepage report readiness report text scope keeps other-family boundary');
   assert.ok(String(homepageReportReadinessStatus.compactSummary || '').includes('頁面診斷明細不進計算書'), 'homepage report readiness compact summary keeps page-only wording');
   assert.ok(String(homepageReportReadinessStatus.compactSummary || '').includes('兩者皆可列印'), 'homepage report readiness compact summary keeps printable approval boundary');
-  assert.ok([31, 32, 33].includes(homepageReportReadinessStatus.independentBenchmarkEligible), 'homepage report readiness preserves a supported independent benchmark portfolio');
+  assert.ok([31, 32, 33, 36].includes(homepageReportReadinessStatus.independentBenchmarkEligible), 'homepage report readiness preserves a supported independent benchmark portfolio');
   if (preserveHomepageStatus) {
     assert.ok(Number.isInteger(homepageReportReadinessStatus.independentBenchmarkVerified), 'preserved homepage report readiness independent benchmark verified routes integer');
     assert.ok(homepageReportReadinessStatus.independentBenchmarkVerified >= 0
@@ -3607,7 +3607,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), true, 'homepage report readiness rendered delivery required integer');
   assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceComplete), true, 'homepage report readiness rendered delivery complete integer');
   assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceIssueCount), true, 'homepage report readiness rendered delivery issue integer');
-  assert.ok([31, 32, 33].includes(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), 'homepage report readiness preserves a supported rendered delivery portfolio');
+  assert.ok([31, 32, 33, 36].includes(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), 'homepage report readiness preserves a supported rendered delivery portfolio');
   assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceComplete, homepageReportReadinessStatus.renderedDeliveryEvidenceRequired, 'homepage report readiness rendered delivery evidence complete');
   assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceIssueCount, 0, 'homepage report readiness rendered delivery evidence issues empty');
   assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'homepage report readiness rendered delivery runId');
