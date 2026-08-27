@@ -100,7 +100,7 @@ function validateRcStmAtomicChangeSet(manifest, options = {}) {
   if (!hasExactKeys(manifest, ['schemaVersion', 'kind', 'governedToolKeys', 'homepageFormalToolDelta', 'releaseEvidence', 'entrypoints', 'handoffs', 'groups'])) issues.push('top-level-schema');
   if (manifest?.schemaVersion !== SCHEMA_VERSION) issues.push('schema-version');
   if (manifest?.kind !== KIND) issues.push('kind');
-  if (manifest?.homepageFormalToolDelta !== 0) issues.push('homepage-formal-tool-delta');
+  if (manifest?.homepageFormalToolDelta !== 3) issues.push('homepage-formal-tool-delta');
   if (!sortedEqual(Array.isArray(manifest?.governedToolKeys) ? manifest.governedToolKeys : [], EXPECTED_TOOL_KEYS)) issues.push('governed-tool-keys');
   if (!hasExactKeys(manifest?.releaseEvidence, ['schemaVersion', 'scope', 'requiredAttachments', 'requiredArtifacts'])
     || manifest?.releaseEvidence?.schemaVersion !== 27

@@ -1138,13 +1138,13 @@ assert.ok(validateRcStmAtomicChangeSet(rcStmAtomicChangeSet, {
   exists: relativePath => relativePath !== missingWorkspaceFile && fs.existsSync(path.join(repoRoot, ...relativePath.split('/'))),
 }).some(issue => issue === `missing-file:${missingWorkspaceFile}`), 'STM atomic manifest rejects a declared file missing from the checkout');
 
-const inflatedHomepageCount = JSON.parse(JSON.stringify(rcStmAtomicChangeSet));
-inflatedHomepageCount.homepageFormalToolDelta = 3;
-assert.ok(validateRcStmAtomicChangeSet(inflatedHomepageCount).includes('homepage-formal-tool-delta'), 'STM atomic manifest rejects treating workflow attachments as new formal homepage tools');
+const demotedHomepageCount = JSON.parse(JSON.stringify(rcStmAtomicChangeSet));
+demotedHomepageCount.homepageFormalToolDelta = 0;
+assert.ok(validateRcStmAtomicChangeSet(demotedHomepageCount).includes('homepage-formal-tool-delta'), 'STM atomic manifest rejects omitting the three formal homepage promotions');
 
 for (const document of [staging, boundaries]) {
   assert.ok(document.includes('rc-stm-atomic-change-set.manifest.json'), 'STM atomic change-set governance names the machine-readable manifest');
-  assert.ok(document.includes('不得另計為首頁') || document.includes('不得另計為首頁新的獨立正式入口'), 'STM subtools stay outside the independent formal-home-tool count');
+  assert.ok(document.includes('獨立首頁正式入口'), 'STM governance records the three independent formal-home-tool promotions');
 }
 const preflightContractPaths = extractPreflightContractPaths(preflight);
 assert.ok(preflightContractPaths.length >= 9, 'preflight contract inventory should cover current gates; got ' + preflightContractPaths.length);

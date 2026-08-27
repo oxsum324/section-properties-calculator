@@ -21,6 +21,9 @@ async page => {
     '/steel-beam-formal': { label: 'steel beam page', heading: '鋼構正式工具主頁列印已封鎖', selector: '.steel-formal-direct-print-boundary', bodyClass: 'steel-formal-output-page' },
     '/steel-column-formal': { label: 'steel column page', heading: '鋼構正式工具主頁列印已封鎖', selector: '.steel-formal-direct-print-boundary', bodyClass: 'steel-formal-output-page' },
     '/decking': { label: 'decking page', heading: '覆工板工具主頁列印已封鎖' },
+    '/rc-deep-beam-stm': { label: 'RC deep-beam STM page', heading: 'RC 工具主頁列印已封鎖', selector: '.rc-direct-print-boundary', bodyClass: 'rc-formal-output-page' },
+    '/rc-foundation-deep-beam-stm': { label: 'RC foundation deep-beam STM page', heading: 'RC 工具主頁列印已封鎖', selector: '.rc-direct-print-boundary', bodyClass: 'rc-formal-output-page' },
+    '/rc-pile-cap-3d-stm': { label: 'RC pile-cap 3D STM page', heading: 'RC 工具主頁列印已封鎖', selector: '.rc-direct-print-boundary', bodyClass: 'rc-formal-output-page' },
     '/wind-force': { label: 'wind MWFRS page', heading: '正式工具主頁列印已封鎖' },
     '/wind-cc': { label: 'wind C&C page', heading: '正式工具主頁列印已封鎖' },
     '/wind-parapet': { label: 'wind parapet page', heading: '正式工具主頁列印已封鎖' },
@@ -47,6 +50,7 @@ async page => {
     '/wind-object-solid', '/wind-object-frame', '/wind-lattice-tower', '/wind-object-tower', '/wind-fence-sign', '/wind-sign-pole',
     '/seismic-force', '/seismic-dynamic', '/seismic-appendage', '/seismic-misc', '/stone-fixing',
     '/beam-analysis', '/frame-analysis', '/section', '/composite-section',
+    '/rc-deep-beam-stm', '/rc-foundation-deep-beam-stm', '/rc-pile-cap-3d-stm',
   ]);
 
   await page.setViewportSize({ width: 1280, height: 800 });

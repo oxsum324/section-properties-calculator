@@ -109,7 +109,7 @@ const GLOBAL_GOVERNANCE_GATES = [
     key: 'rendered-delivery-evidence',
     label: '實際交付物渲染佐證',
     contract: '結構工具箱/tools/rendered-delivery-evidence.contract.test.js',
-    scope: '首頁 33 個正式工具的 PDF、DOCX 或 workbook，加上動力分析摘要 PDF 與開挖本機服務 PDF / DOCX / 最新下載的當輪實際產出與文字 / 版面驗證',
+    scope: '首頁 36 個正式工具的 PDF、DOCX 或 workbook，加上動力分析摘要 PDF 與開挖本機服務 PDF / DOCX / 最新下載的當輪實際產出與文字 / 版面驗證',
     catalogFamilies: [],
     minCatalogs: 0
   }
@@ -2901,7 +2901,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       ? Math.max(0, localQuickResultReconciliationRequired - localQuickResultReconciliationComplete)
       : Math.max(1, compactNumber(localQuickResultReconciliation.issueCount) || localQuickResultReconciliationRequired - localQuickResultReconciliationComplete);
   const renderedDeliverySummary = supplementalDeliveryDeclared
-    ? `最新正式放行實際交付物渲染：首頁正式工具 ${renderedDeliveryComplete} / ${renderedDeliveryRequired}；補充報告 / 服務成品 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired}${rcStmFormalAttachmentDeclared ? `；RC 流程內 STM 正式附件 ${rcStmFormalAttachmentComplete} / ${rcStmFormalAttachmentRequired}` : ''}。`
+    ? `最新正式放行實際交付物渲染：首頁正式工具 ${renderedDeliveryComplete} / ${renderedDeliveryRequired}；補充報告 / 服務成品 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired}${rcStmFormalAttachmentDeclared ? `；RC STM 正式入口附件 ${rcStmFormalAttachmentComplete} / ${rcStmFormalAttachmentRequired}` : ''}。`
     : `最新正式放行實際交付物渲染：${renderedDeliveryComplete} / ${renderedDeliveryRequired}。`;
   const summary = `頁面上的「優先建議報告閱讀狀態」診斷明細只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF；計算書預設為可列印的內部審閱，勾選核可後改為正式附件。工程檢核狀態與文件身分分開，空白案件欄位可由主文承接。目前首頁矩陣外 ${complete} / ${required} 個有列印 / 報表表面的入口已完成頁面專用閱讀狀態治理。`;
   const details = [
@@ -2921,7 +2921,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     ...(rcStandaloneFormalHtmlPrintDeclared ? [`RC 核可 HTML 獨立列印：設計與補強共 ${rcStandaloneFormalHtmlPrintComplete} / ${rcStandaloneFormalHtmlPrintRequired} 份核可後 HTML 已在無外部網路請求下重新開啟並列印成 PDF，且通過正式狀態、工程內容與分頁檢查。公開狀態只顯示完成數，不公開案件、檔名、成品雜湊或計算指紋。`] : []),
     ...(rcFormalHtmlContentSealDeclared ? [`RC 正式 HTML 內容封印：設計與補強共 ${rcFormalHtmlContentSealComplete} / ${rcFormalHtmlContentSealRequired} 份核可 HTML 已由瀏覽器與附件檢查器分別重算 SHA-256 計算內容封印；內容變更會阻擋組包。此封印不等同核可人數位簽章；公開狀態只顯示完成數。`] : []),
     ...(rcFormalHtmlApprovalSealDeclared ? [`RC 正式 HTML 核可封印：設計與補強共 ${rcFormalHtmlApprovalSealComplete} / ${rcFormalHtmlApprovalSealRequired} 份核可 HTML 已將文件狀態、核可時間、計算指紋、標題與內容封印綁定並由瀏覽器及附件檢查器分別重算；任一欄位變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
-    ...(rcStmFormalAttachmentDeclared ? [`RC 流程內 STM 正式附件：深梁、基礎深梁與樁帽三維 STM 共 ${rcStmFormalAttachmentComplete} / ${rcStmFormalAttachmentRequired} 份已驗證內部審閱 PDF／PNG、核可 HTML、內容與核可雙封印、離線重開及正式 PDF 列印；三者仍屬 RC 梁／基礎流程子工具，不另計首頁正式入口。`] : []),
+    ...(rcStmFormalAttachmentDeclared ? [`RC STM 正式入口附件：深梁、基礎深梁與樁帽三維 STM 共 ${rcStmFormalAttachmentComplete} / ${rcStmFormalAttachmentRequired} 份已驗證內部審閱 PDF／PNG、核可 HTML、內容與核可雙封印、離線重開及正式 PDF 列印；三者現為獨立首頁正式入口，仍保留限定拓樸及 RC 梁／基礎流程銜接。`] : []),
     ...(formalHtmlDualSealDeclared ? [`風力／地震正式 HTML 雙封印：${formalHtmlContentSealComplete} / ${formalHtmlContentSealRequired} 份內容封印與 ${formalHtmlApprovalSealComplete} / ${formalHtmlApprovalSealRequired} 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；計算正文、文件狀態、核可時間、指紋或標題遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
     ...(steelHtmlDualSealDeclared ? [`鋼構正式 HTML 雙封印：主工具連接板、主工具拉力構件、獨立連接板、鋼梁與鋼柱共 ${steelHtmlContentSealComplete} / ${steelHtmlContentSealRequired} 份內容封印與 ${steelHtmlApprovalSealComplete} / ${steelHtmlApprovalSealRequired} 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；計算正文或核可資料遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
     ...(anchorHtmlDualSealDeclared ? [`錨栓正式 HTML 雙封印：${anchorHtmlContentSealComplete} / ${anchorHtmlContentSealRequired} 份內容封印與 ${anchorHtmlApprovalSealComplete} / ${anchorHtmlApprovalSealRequired} 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；工作頁核可後輸出狀態固定，計算正文或核可資料遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
@@ -3411,14 +3411,14 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(markdown.includes('rendered-delivery-evidence'), 'tool maturity matrix markdown exposes rendered delivery evidence gate');
   assert.ok(payload.independentBenchmarkCoverage && typeof payload.independentBenchmarkCoverage === 'object', 'tool maturity matrix independent benchmark coverage object');
   assert.equal(payload.independentBenchmarkCoverage.status, 'ready', 'tool maturity matrix independent benchmark pilot ready');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 33, 'tool maturity matrix independent benchmark pilot verified');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 33, 'tool maturity matrix independent benchmark pilot required');
-  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 33, 'tool maturity matrix independent benchmark verified route count');
-  assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 33, 'tool maturity matrix independent benchmark eligible route count');
-  assert.equal(payload.independentBenchmarkCoverage.summary.candidateRequired, 24, 'tool maturity matrix requires twenty-four supplemental STM candidate cases');
-  assert.equal(payload.independentBenchmarkCoverage.summary.candidateVerified, 24, 'tool maturity matrix verifies twenty-four supplemental STM candidate cases');
-  assert.equal(payload.independentBenchmarkCoverage.summary.candidatePassRequired, 15, 'tool maturity matrix requires fifteen expected passing STM candidate cases');
-  assert.equal(payload.independentBenchmarkCoverage.summary.candidatePassVerified, 15, 'tool maturity matrix verifies fifteen expected passing STM candidate cases');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 36, 'tool maturity matrix independent benchmark pilot verified');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 36, 'tool maturity matrix independent benchmark pilot required');
+  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 36, 'tool maturity matrix independent benchmark verified route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 36, 'tool maturity matrix independent benchmark eligible route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.candidateRequired, 21, 'tool maturity matrix requires twenty-one supplemental STM boundary cases');
+  assert.equal(payload.independentBenchmarkCoverage.summary.candidateVerified, 21, 'tool maturity matrix verifies twenty-one supplemental STM boundary cases');
+  assert.equal(payload.independentBenchmarkCoverage.summary.candidatePassRequired, 12, 'tool maturity matrix requires twelve expected passing STM boundary cases');
+  assert.equal(payload.independentBenchmarkCoverage.summary.candidatePassVerified, 12, 'tool maturity matrix verifies twelve expected passing STM boundary cases');
   assert.equal(payload.independentBenchmarkCoverage.summary.candidateRejectionRequired, 9, 'tool maturity matrix requires nine expected STM rejection cases');
   assert.equal(payload.independentBenchmarkCoverage.summary.candidateRejectionVerified, 9, 'tool maturity matrix verifies nine expected STM rejection cases');
   assert.equal(payload.independentBenchmarkCoverage.summary.verifiedCandidateCapabilities, 3, 'tool maturity matrix keeps three distinct supplemental STM capabilities');

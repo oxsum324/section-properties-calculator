@@ -119,8 +119,8 @@ async function main() {
     const evidence = {
       schemaVersion:1,
       key:'foundation-deep-beam-stm',
-      href:'/rc-foundation',
-      title:'RC 基礎深梁二維壓拉桿模型',
+      href:'/rc-foundation-deep-beam-stm',
+      title:'RC 基礎深梁二維 STM',
       sourcePage:'鋼筋混凝土/tools/foundation-deep-beam-stm.html',
       pdfPath:path.basename(pdfPath),
       screenshotPath:path.basename(screenshotPath),

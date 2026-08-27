@@ -184,14 +184,14 @@ assert.ok(!srcColumnAdapterSource.includes('golden'), 'SRC column adapter does n
 const result = runBenchmarks(catalog);
 assert.equal(result.status, 'ready', JSON.stringify(result.issues));
 assert.equal(result.schemaVersion, 3, 'outcome-aware independent benchmark result is versioned');
-assert.equal(result.summary.eligibleFormalRoutes, 33, 'formal route portfolio is explicit');
-assert.equal(result.summary.pilotRequired, 33, 'thirty-three independent pilot benchmarks required');
-assert.equal(result.summary.pilotVerified, 33, 'thirty-three independent pilot benchmarks verified');
-assert.equal(result.summary.independentlyVerifiedRoutes, 33, 'all thirty-three formal routes independently verified');
-assert.equal(result.summary.candidateRequired, 24, 'twenty-four supplemental STM cases require independent benchmarks');
-assert.equal(result.summary.candidateVerified, 24, 'twenty-four supplemental STM cases are independently verified');
-assert.equal(result.summary.candidatePassRequired, 15, 'fifteen supplemental STM passing cases are required');
-assert.equal(result.summary.candidatePassVerified, 15, 'fifteen supplemental STM passing cases are independently verified');
+assert.equal(result.summary.eligibleFormalRoutes, 36, 'formal route portfolio is explicit');
+assert.equal(result.summary.pilotRequired, 36, 'thirty-six independent pilot benchmarks required');
+assert.equal(result.summary.pilotVerified, 36, 'thirty-six independent pilot benchmarks verified');
+assert.equal(result.summary.independentlyVerifiedRoutes, 36, 'all thirty-six formal routes independently verified');
+assert.equal(result.summary.candidateRequired, 21, 'twenty-one supplemental STM boundary cases require independent benchmarks');
+assert.equal(result.summary.candidateVerified, 21, 'twenty-one supplemental STM boundary cases are independently verified');
+assert.equal(result.summary.candidatePassRequired, 12, 'twelve supplemental STM passing boundary cases are required');
+assert.equal(result.summary.candidatePassVerified, 12, 'twelve supplemental STM passing boundary cases are independently verified');
 assert.equal(result.summary.candidateRejectionRequired, 9, 'nine supplemental STM rejection cases are required');
 assert.equal(result.summary.candidateRejectionVerified, 9, 'nine supplemental STM rejection cases are independently verified');
 assert.equal(result.summary.verifiedCandidateCapabilities, 3, 'three distinct supplemental STM capabilities are covered');
@@ -200,15 +200,22 @@ assert.equal(result.priorityTargets.some(target => target.priority === 'P0'), fa
 assert.equal(result.summary.issueCount, 0, 'independent pilot has no issues');
 assert.ok(result.records.every(record => record.status === 'verified'), 'every pilot record is independently verified');
 assert.ok(result.records.every(record => record.referenceType === 'closed-form-identity'), 'every pilot uses a closed-form identity');
-assert.equal(result.candidateRecords.length, 24, 'three supplemental STM capabilities each retain representative cases, a numerical boundary triplet and an EPS inside/outside pair');
-const expectedStmCandidateAssertions = new Map([
+assert.equal(result.candidateRecords.length, 21, 'three STM capabilities retain supplemental boundary, rejection and EPS cases after formal-route promotion');
+const expectedStmFormalAssertions = new Map([
   ['rc-deep-beam-stm-strength', 33],
+  ['rc-foundation-2d-stm-strength', 41],
+  ['rc-pile-cap-3d-stm-strength', 59],
+]);
+for (const [id, assertionCount] of expectedStmFormalAssertions) {
+  const record = result.records.find(item => item.id === id);
+  assert.equal(record?.status, 'verified', `${id} formal-route closed-form benchmark is verified`);
+  assert.equal(record?.assertionCount, assertionCount, `${id} formal-route assertion coverage remains explicit`);
+}
+const expectedStmCandidateAssertions = new Map([
   ['rc-deep-beam-stm-minimum-steel-four-row', 32],
   ['rc-deep-beam-stm-reject-low-angle', 20],
-  ['rc-foundation-2d-stm-strength', 41],
   ['rc-foundation-2d-stm-uniform-soil-2344', 41],
   ['rc-foundation-2d-stm-reject-shear-2344', 28],
-  ['rc-pile-cap-3d-stm-strength', 59],
   ['rc-pile-cap-3d-stm-six-pile-2344', 59],
   ['rc-pile-cap-3d-stm-reject-tie-layer-offset', 46],
   ['rc-deep-beam-stm-boundary-angle-below', 10],
@@ -232,7 +239,7 @@ for (const [id, assertionCount] of expectedStmCandidateAssertions) {
   assert.equal(record?.status, 'verified', `${id} closed-form benchmark is verified`);
   assert.equal(record?.assertionCount, assertionCount, `${id} assertion coverage remains explicit`);
 }
-assert.equal(result.candidateRecords.reduce((sum, record) => sum + record.assertionCount, 0), 564, 'twenty-four STM cases provide 564 independent assertions');
+assert.equal(result.candidateRecords.reduce((sum, record) => sum + record.assertionCount, 0), 431, 'twenty-one supplemental STM cases provide 431 independent assertions');
 const expectedRejectionIds = catalog.candidateBenchmarks
   .filter(item => item.expectedOutcome === 'strength-reject')
   .map(item => item.id)
@@ -517,11 +524,11 @@ assert.ok(validateCatalog(missingStrengthPassAssertionCatalog).some(issue => iss
 assert.deepEqual(
   [...new Set(catalog.candidateBenchmarks.map(item => item.capability))].sort(),
   ['rc-deep-beam-stm', 'rc-foundation-2d-stm', 'rc-pile-cap-3d-stm'],
-  'supplemental STM capabilities remain explicitly separate from formal homepage route coverage'
+  'supplemental STM boundary capabilities remain explicitly identified after formal-route promotion'
 );
 for (const capability of ['rc-deep-beam-stm', 'rc-foundation-2d-stm', 'rc-pile-cap-3d-stm']) {
-  assert.equal(catalog.candidateBenchmarks.filter(item => item.capability === capability).length, 8, `${capability} retains three representative cases, a numerical boundary triplet and an EPS inside/outside pair`);
-  assert.equal(catalog.candidateBenchmarks.filter(item => item.capability === capability && item.expectedOutcome === 'strength-pass').length, 5, `${capability} retains five explicit passing cases`);
+  assert.equal(catalog.candidateBenchmarks.filter(item => item.capability === capability).length, 7, `${capability} retains supplemental passing, rejection, numerical-boundary and EPS cases`);
+  assert.equal(catalog.candidateBenchmarks.filter(item => item.capability === capability && item.expectedOutcome === 'strength-pass').length, 4, `${capability} retains four supplemental passing cases`);
   assert.equal(catalog.candidateBenchmarks.filter(item => item.capability === capability && item.expectedOutcome === 'strength-reject').length, 3, `${capability} retains three explicit rejection cases`);
 }
 

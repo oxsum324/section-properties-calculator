@@ -406,6 +406,7 @@ async function main() {
         }
         const source = document.querySelector('.rep-attachment-approval-source');
         const html = typeof serializeReportDocumentHtml === 'function' ? await serializeReportDocumentHtml() : '';
+        const reportText = typeof buildReportText === 'function' ? await buildReportText() : '';
         const savedDocument = html ? new DOMParser().parseFromString(html, 'text/html') : null;
         const savedSeal = savedDocument?.querySelector('.rep-content-seal-source');
         const sealComments = [];
@@ -416,7 +417,11 @@ async function main() {
         return {
           hasDownloadControl: Array.from(document.querySelectorAll('.rep-toolbar button'))
             .some(button => /下載目前版本 HTML/.test(button.textContent || '')),
+          hasTextDownloadControl: Array.from(document.querySelectorAll('.rep-toolbar button'))
+            .some(button => /下載文字計算書 TXT/.test(button.textContent || '')),
           serializerAvailable: typeof serializeReportDocumentHtml === 'function',
+          textBuilderAvailable: typeof buildReportText === 'function',
+          reportText,
           approvedAt: source?.dataset.approvedAt || '',
           calculationFingerprint: source?.dataset.calculationFingerprint || '',
           reportTitle: source?.dataset.reportTitle || '',
@@ -435,6 +440,24 @@ async function main() {
           contentSealBoundaryCount: sealComments.filter(value => /^rc-content-seal:(?:start|end)$/.test(value)).length,
         };
       });
+      // Keep the browser-downloaded TXT separate from the PDF extractor's
+      // sibling `beam-report-<case>.txt` evidence file.
+      const textDownloadPath = path.join(OUT_DIR, `beam-report-text-download-${tc.key}.txt`);
+      const textDownloadPromise = report.waitForEvent('download', { timeout: 10000 });
+      await report.click('#repDownloadCurrentText');
+      const textDownload = await textDownloadPromise;
+      await textDownload.saveAs(textDownloadPath);
+      const textBuffer = fs.readFileSync(textDownloadPath);
+      const downloadedText = textBuffer.toString('utf8');
+      const textHasBom = downloadedText.charCodeAt(0) === 0xFEFF;
+      const textContent = textHasBom ? downloadedText.slice(1) : downloadedText;
+      const textState = {
+        path:textDownloadPath,
+        suggestedFilename:textDownload.suggestedFilename(),
+        bytes:textBuffer.length,
+        hasBom:textHasBom,
+        content:textContent,
+      };
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${tc.key} report`, {
         assert,
@@ -453,7 +476,7 @@ async function main() {
         reportCalculationFingerprint: metrics.calculationFingerprint,
         verifiedAssertionCount: (expected.fragments || []).length + 2,
       });
-      results.push({ key: tc.key, screenshotPath, pdfPath, directPrintPdfPath, directPrintState, directPrintPdfText, state, metrics, portableHtmlState, printMetrics, screenshotQuality, pdfTextQuality, artifactIntegrity, resultReconciliation });
+      results.push({ key: tc.key, screenshotPath, pdfPath, textDownloadPath, directPrintPdfPath, directPrintState, directPrintPdfText, state, metrics, portableHtmlState, textState:{ ...textState, content:undefined }, printMetrics, screenshotQuality, pdfTextQuality, artifactIntegrity, resultReconciliation });
 
       assert(metrics.title === expected.title, `${tc.key} report title`, metrics.title);
       assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${tc.key} project JSON calculation fingerprint`, sourceFingerprint);
@@ -461,6 +484,25 @@ async function main() {
       assert(!metrics.hasReportSummary, `${tc.key} report status banner hidden`, 'no .rep-summary');
       assert(metrics.documentState === 'internal-review' && metrics.documentApproved === 'false', `${tc.key} report defaults to printable internal review`, metrics.documentStateText);
       assert(portableHtmlState.hasDownloadControl && portableHtmlState.serializerAvailable, `${tc.key} report exposes current-state HTML download`, JSON.stringify(portableHtmlState));
+      assert(portableHtmlState.hasTextDownloadControl && portableHtmlState.textBuilderAvailable, `${tc.key} report exposes TXT calculation-book download`, JSON.stringify({ hasTextDownloadControl:portableHtmlState.hasTextDownloadControl, textBuilderAvailable:portableHtmlState.textBuilderAvailable }));
+      for (const fragment of [
+        '文件用途：文字備查版（不作為正式附件）',
+        '來源文件狀態：正式附件',
+        '產出工具：梁 Beam 設計／檢核',
+        '工具版本：V3.1',
+        '計算指紋：CF-',
+        '[幾何與斷面]',
+        '文字版限制：不含可列印圖形',
+        '文字內容 SHA-256（非數位簽章）：',
+      ]) {
+        assert(portableHtmlState.reportText.includes(fragment), `${tc.key} generated TXT includes`, fragment);
+        assert(textState.content.includes(fragment), `${tc.key} downloaded TXT includes`, fragment);
+      }
+      assert(textState.hasBom, `${tc.key} downloaded TXT has UTF-8 BOM`, textState.suggestedFilename);
+      assert(textState.bytes > 4096, `${tc.key} downloaded TXT has substantive calculation content`, `${textState.bytes} bytes`);
+      assert(/文字備查.*CF-[A-F0-9]{16}\.txt$/.test(textState.suggestedFilename), `${tc.key} TXT filename is traceable`, textState.suggestedFilename);
+      assert(/文字內容 SHA-256（非數位簽章）：[0-9a-f]{64}/.test(textState.content), `${tc.key} TXT carries content digest`, 'SHA-256 present');
+      assert(!textState.content.includes('產報前檢查') && !textState.content.includes('data:image/'), `${tc.key} TXT excludes page-only state and embedded images`, 'clean text boundary');
       assert(Number.isFinite(Date.parse(portableHtmlState.approvedAt)), `${tc.key} downloaded formal HTML records approval time`, portableHtmlState.approvedAt);
       assert(portableHtmlState.startsWithDoctype && portableHtmlState.preservesApproval && portableHtmlState.preservesApprovalTime && portableHtmlState.preservesFingerprint, `${tc.key} downloaded formal HTML preserves approval provenance`, JSON.stringify(portableHtmlState));
       assert(portableHtmlState.reportTitle.includes('計算書'), `${tc.key} downloaded formal HTML preserves the stable base report title`, portableHtmlState.reportTitle);

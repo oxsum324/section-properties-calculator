@@ -667,6 +667,47 @@ async function exerciseBeamProjectStorage(page) {
   assert(draft.raw && draft.raw.includes('rc-beam-project-v1'), 'beam project draft localStorage payload', 'draft saved');
 }
 
+async function exerciseBeamReportOutputActions(page) {
+  section('Beam Report Output Actions');
+  const state = await page.evaluate(() => {
+    window.calcBeam();
+    let html = '';
+    let focusCalls = 0;
+    let printCalls = 0;
+    const popup = {
+      document: {
+        open() {},
+        write(chunk) { html += String(chunk); },
+        close() {}
+      },
+      focus() { focusCalls += 1; },
+      print() { printCalls += 1; },
+      close() {},
+      closed: false
+    };
+    const previousOpen = window.open;
+    window.open = () => popup;
+    let returnedPopup = null;
+    try {
+      returnedPopup = window.buildBeamReport({ autoPrint:true });
+    } finally {
+      window.open = previousOpen;
+    }
+    return {
+      focusCalls,
+      printCalls,
+      returnsPopup:returnedPopup === popup,
+      textExportEnabled:html.includes('data-text-export-enabled="true"'),
+      hasTextDownloadLabel:html.includes('下載文字計算書 TXT'),
+      hasTopPrintButton:Boolean(document.getElementById('btnPrintReport')),
+      hasSummaryPrintButton:Boolean(document.getElementById('btnPrintReport2')),
+    };
+  });
+  assert(state.focusCalls === 1 && state.printCalls === 1 && state.returnsPopup, 'beam direct-print action prints the generated report window once', JSON.stringify(state));
+  assert(state.textExportEnabled && state.hasTextDownloadLabel, 'beam report enables governed TXT download', JSON.stringify(state));
+  assert(state.hasTopPrintButton && state.hasSummaryPrintButton, 'beam page exposes direct-print calculation-book controls', JSON.stringify(state));
+}
+
 async function exerciseCapacityLoadCombo(page) {
   await page.goto(TOOL_URL, { waitUntil:'networkidle' });
   await page.evaluate(() => {
@@ -1084,6 +1125,8 @@ async function runBrowserCases() {
     await wait(300);
     assert(pageErrors.length === 0, 'beam page boot', 'no page errors during initial load');
     assert(failedResponses.length === 0, 'beam page resources', 'no missing static resources during initial load');
+    await exerciseBeamReportOutputActions(page);
+    assert(pageErrors.length === 0, 'beam report output actions', 'no page errors during text-export and direct-print wiring');
     await exerciseBeamRebarDesignCandidates(page);
     assert(pageErrors.length === 0, 'beam rebar candidate workflow', 'no page errors during candidate search and adoption');
     await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
@@ -1200,6 +1243,8 @@ async function main() {
   assert(beamHtml.includes('id="beamPreset"'), 'beam.html has beam preset selector', 'example-case selector exists in source');
   assert(beamHtml.includes('id="btnApplyPreset"'), 'beam.html has apply preset button', 'example-case apply button exists in source');
   assert(beamHtml.includes('btn-calc'), 'beam.html has visible calc button', 'manual calculate entry exists in source');
+  assert(beamHtml.includes('id="btnPrintReport"') && beamHtml.includes('id="btnPrintReport2"'), 'beam.html has direct-print calculation-book controls', 'top and summary actions are available');
+  assert(beamHtml.includes('textExport:true') && beamHtml.includes('autoPrint:options && options.autoPrint === true'), 'beam report enables TXT and direct-print options', 'shared report options are explicit');
   assert(beamHtml.includes('function getStepsVerbosity'), 'beam.html uses shared-friendly verbosity helper', 'verbosity access is abstracted');
   assert(beamHtml.includes('reportFullSteps ? txt : summarizeStepText(txt)'), 'beam report respects steps verbosity', 'report steps follow summary/full mode');
   assert(sharedCommon.includes('window.RCUI.getStepsVerbosity'), 'shared/common.js exposes getStepsVerbosity', 'shared RCUI helper exists');

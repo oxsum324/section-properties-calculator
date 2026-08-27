@@ -55,6 +55,9 @@ const PUBLIC_ROUTE_SAMPLES = [
 ];
 const CLEAN_ROUTE_SAMPLES = [
   { path: 'rc-column/', source: '/rc-column', targetNeedle: 'column.html' },
+  { path: 'rc-deep-beam-stm/', source: '/rc-deep-beam-stm', targetNeedle: 'deep-beam-stm.html' },
+  { path: 'rc-foundation-deep-beam-stm/', source: '/rc-foundation-deep-beam-stm', targetNeedle: 'foundation-deep-beam-stm.html' },
+  { path: 'rc-pile-cap-3d-stm/', source: '/rc-pile-cap-3d-stm', targetNeedle: 'pile-cap-3d-stm.html' },
   { path: 'steel-beam-formal/', source: '/steel-beam-formal', targetNeedle: 'steel-beam-formal.html' },
   { path: 'src-beam/', source: '/src-beam', targetNeedle: 'src-beam.html' },
   { path: 'src-column/', source: '/src-column', targetNeedle: 'src-column.html' },

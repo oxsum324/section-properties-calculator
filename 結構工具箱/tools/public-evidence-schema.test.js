@@ -38,7 +38,7 @@ const withRcStmResult = schema.validatePublicEvidenceBundle(withRcStm);
 assert.equal(withRcStmResult.pass, true, `schema v3 accepts the optional v27 RC STM public counters: ${withRcStmResult.errors.join(', ')}`);
 assert.equal(withRcStmResult.metrics.rcStmAttachment.declared, true, 'RC STM supplemental attachment coverage is explicitly declared');
 assert.equal(withRcStmResult.metrics.rcStmAttachment.pass, true, 'RC STM supplemental attachment coverage participates in the RC dimension');
-assert.equal(withRcStmResult.releaseHistory.entries.at(-1).metrics.some(metric => metric.id === 'rcStmAttachment'), false, 'RC STM workflow attachments do not inflate the formal homepage portfolio history');
+assert.equal(withRcStmResult.releaseHistory.entries.at(-1).metrics.some(metric => metric.id === 'rcStmAttachment'), false, 'RC STM special attachment evidence remains separate from the formal homepage portfolio total');
 
 const incompleteRcStm = clone(withRcStm);
 incompleteRcStm.reportReadinessStatus.rcStmFormalAttachmentComplete = 2;
@@ -49,6 +49,9 @@ assert.equal(incompleteRcStmResult.pass, false, 'incomplete RC STM supplemental 
 assert.deepEqual(incompleteRcStmResult.dimensions.map(item => item.pass), [true, true, false, true], 'incomplete RC STM evidence only fails the RC dimension');
 
 const partialRcStm = clone(bundle);
+delete partialRcStm.reportReadinessStatus.rcStmFormalAttachmentComplete;
+delete partialRcStm.reportReadinessStatus.rcStmFormalAttachmentIssueCount;
+delete partialRcStm.reportReadinessStatus.rcStmFormalAttachmentPass;
 partialRcStm.reportReadinessStatus.rcStmFormalAttachmentRequired = 3;
 const partialRcStmResult = schema.validatePublicEvidenceBundle(partialRcStm);
 assert.equal(partialRcStmResult.valid, false, 'a partially declared RC STM public metric fails schema validation');

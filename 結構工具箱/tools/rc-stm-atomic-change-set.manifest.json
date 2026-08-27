@@ -6,7 +6,7 @@
     "foundation-deep-beam-stm",
     "pile-cap-3d-stm"
   ],
-  "homepageFormalToolDelta": 0,
+  "homepageFormalToolDelta": 3,
   "releaseEvidence": {
     "schemaVersion": 27,
     "scope": "rc-stm-supplemental-formal-attachments",
@@ -16,21 +16,21 @@
   "entrypoints": [
     {
       "key": "deep-beam-stm",
-      "parentHref": "/rc-beam",
+      "parentHref": "/rc-deep-beam-stm",
       "page": "鋼筋混凝土/tools/deep-beam-stm.html",
       "regression": "鋼筋混凝土/tools/deep-beam-stm-regression.test.js",
       "wrapper": "鋼筋混凝土/tools/test-deep-beam-stm.ps1"
     },
     {
       "key": "foundation-deep-beam-stm",
-      "parentHref": "/rc-foundation",
+      "parentHref": "/rc-foundation-deep-beam-stm",
       "page": "鋼筋混凝土/tools/foundation-deep-beam-stm.html",
       "regression": "鋼筋混凝土/tools/foundation-deep-beam-stm-regression.test.js",
       "wrapper": "鋼筋混凝土/tools/test-foundation-deep-beam-stm.ps1"
     },
     {
       "key": "pile-cap-3d-stm",
-      "parentHref": "/rc-foundation",
+      "parentHref": "/rc-pile-cap-3d-stm",
       "page": "鋼筋混凝土/tools/pile-cap-3d-stm.html",
       "regression": "鋼筋混凝土/tools/pile-cap-3d-stm-regression.test.js",
       "wrapper": "鋼筋混凝土/tools/test-pile-cap-3d-stm.ps1"
@@ -114,7 +114,7 @@
     },
     {
       "key": "stm-pages-to-formal-evidence",
-      "summary": "The three supplemental pages must produce same-run rendered, portable, sealed and publicly redacted release evidence.",
+      "summary": "The three formal entry pages must produce same-run rendered, portable, sealed and publicly redacted release evidence.",
       "sourcePaths": [
         "鋼筋混凝土/tools/deep-beam-stm.html",
         "鋼筋混凝土/tools/foundation-deep-beam-stm.html",

@@ -8,9 +8,10 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.RC_INDEX_SMOKE_PORT || 0);
 const OUT_DIR = path.resolve(process.env.RC_INDEX_SMOKE_OUT || path.join(ROOT, 'output', 'playwright'));
 const INDEX_PATH = '/鋼筋混凝土/index.html';
-const EXPECTED_CARD_COUNT = 10;
+const EXPECTED_CARD_COUNT = 11;
 const FORMAL_PRINT_KEYS = new Map([
   ['tools/beam.html', 'beam'],
+  ['tools/deep-beam-stm.html', 'deep-beam-stm'],
   ['tools/column.html', 'column'],
   ['tools/slab.html', 'slab'],
   ['tools/wall.html', 'wall'],

@@ -158,7 +158,7 @@ const passingPublicTransition = maturityMatrixApi.buildHomepageReportReadinessSt
 );
 assert(passingPublicTransition.pass === true && passingPublicTransition.failureCount === 0, 'Schema v27 complete RC STM evidence keeps the public readiness snapshot green');
 assert(passingPublicTransition.rcStmFormalAttachmentRequired === 3 && passingPublicTransition.rcStmFormalAttachmentComplete === 3, 'Schema v27 public readiness exposes RC STM 3 / 3');
-assert((passingPublicTransition.details || []).some(detail => detail.includes('RC 流程內 STM 正式附件')), 'Schema v27 public readiness explains the RC STM workflow boundary');
+assert((passingPublicTransition.details || []).some(detail => detail.includes('RC STM 正式入口附件')), 'Schema v27 public readiness explains the RC STM formal-entry boundary');
 const failingPublicTransitionEvidence = JSON.parse(JSON.stringify(publicTransitionEvidence));
 Object.assign(failingPublicTransitionEvidence.payload.rcStmFormalAttachment, { complete: 2, issueCount: 1, pass: false });
 const failingPublicTransition = maturityMatrixApi.buildHomepageReportReadinessStatus(
@@ -537,11 +537,12 @@ assertIncludes(reportGuide, '不得誤稱為舊版', 'report guide distinguishes
 ].forEach(needle => assertIncludes(deliveryArtifactsContract, needle, `delivery artifact contract preserves extracted Office evidence ${needle}`));
 
 [
-  'inventory.tools.length, 33',
+  'inventory.tools.length, 36',
   "process.env.PREFLIGHT_RELEASE === '1'",
   "['formal-tools', 'local-quick-tools', 'steel-formal', 'src-formal']",
   "family === 'rc-formal'",
   "family === 'rc-retrofit'",
+  "family === 'rc-stm-formal'",
   "family === 'stone-formal'",
   "family === 'anchor-formal'",
   "family === 'decking-formal'",
@@ -633,11 +634,11 @@ assertIncludes(reportGuide, '不得誤稱為舊版', 'report guide distinguishes
   'localQuickResultReconciliation=',
   'rendered-delivery-evidence-summary.json',
 ].forEach(needle => assertIncludes(renderedEvidenceContract, needle, `rendered evidence aggregate contract preserves ${needle}`));
-assert(JSON.parse(renderedEvidenceInventory).tools.length === 33, 'rendered evidence inventory has 33 formal tools', 'rendered-delivery-evidence.inventory.json');
-assert(JSON.parse(renderedEvidenceInventory).rcSupplementalAttachments.length === 3, 'rendered evidence inventory has three RC STM supplemental formal attachments', 'rendered-delivery-evidence.inventory.json');
+assert(JSON.parse(renderedEvidenceInventory).tools.length === 36, 'rendered evidence inventory has 36 formal tools', 'rendered-delivery-evidence.inventory.json');
+assert(JSON.parse(renderedEvidenceInventory).rcSupplementalAttachments.length === 3, 'rendered evidence inventory has three RC STM dedicated formal-entry attachments', 'rendered-delivery-evidence.inventory.json');
 assert(rcStmAtomicChangeSet.kind === 'rc-stm-atomic-change-set' && rcStmAtomicChangeSet.schemaVersion === 2, 'release governance reads the RC STM atomic change-set manifest with governed handoff edges');
 assert(Array.isArray(rcStmAtomicChangeSet.handoffs) && rcStmAtomicChangeSet.handoffs.length === 4, 'RC STM atomic change set declares all four cross-tool handoffs');
-assert(rcStmAtomicChangeSet.homepageFormalToolDelta === 0, 'RC STM atomic change set does not inflate the formal homepage tool count');
+assert(rcStmAtomicChangeSet.homepageFormalToolDelta === 3, 'RC STM atomic change set records the three formal homepage promotions');
 assert(rcStmAtomicChangeSet.releaseEvidence?.schemaVersion === 27
   && rcStmAtomicChangeSet.releaseEvidence?.requiredAttachments === 3
   && rcStmAtomicChangeSet.releaseEvidence?.requiredArtifacts === 12,
@@ -775,7 +776,7 @@ assertIncludes(preflight, 'node 結構工具箱/tools/rc-stm-atomic-change-set-r
   'rcFormalHtmlApprovalSealRequired',
   'RC 正式 HTML 核可封印',
   'rcStmFormalAttachmentRequired',
-  'RC 流程內 STM 正式附件',
+  'RC STM 正式入口附件',
   'formalHtmlContentSealRequired',
   'formalHtmlApprovalSealRequired',
   '風力／地震正式 HTML 雙封印',
@@ -923,12 +924,12 @@ assertIncludes(preflight, 'node 結構工具箱/tools/rc-stm-atomic-change-set-r
 
 [
   'independent-engineering-benchmarks.catalog.json',
-  '33 / 33',
+  '36 / 36',
   '/src-beam',
   '/src-column',
   '石材固定',
   '不等同獨立工程驗證',
-  'candidate cases 24 / 24',
+  'candidate cases 21 / 21',
   '564 項',
   'strength-reject',
 ].forEach(needle => {

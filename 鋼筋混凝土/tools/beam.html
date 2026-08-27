@@ -30,7 +30,7 @@
                      showSteps 勾選且該檢核啟用時)
         ‧ summary  : false；附件適用狀態留在頁面產報前檢查，不寫入計算書
         ‧ notes    : 第一條即「作業模式：設計／檢核」
-        ‧ openReport() 共用模組 (../shared/report.js?v=9) 統一輸出
+        ‧ openReport() 共用模組 (../shared/report.js?v=10) 統一輸出
         ‧ window.xxxLast 必須包含所有 r.* 欄位 (含 svMin/okBarsPerLayer 等)
 
   (4) 規範附加檢核 (依各構件規範對照)
@@ -285,6 +285,7 @@
         <input id="beamProjectFile" class="mode-bar__file" type="file" accept=".json,application/json">
       </div>
       <button id="btnReport" class="mode-bar__report" type="button">📄 計算書</button>
+      <button id="btnPrintReport" class="mode-bar__report" type="button">🖨️ 直接列印計算書</button>
       <span id="beamProjectStatus" class="mode-bar__project-status" aria-live="polite"></span>
     </div>
   </div>
@@ -656,8 +657,9 @@
         <h2>輸出</h2>
         <button class="btn-secondary btn-calc" type="button">開始計算</button>
         <button id="btnReport2" class="btn-secondary" type="button">📄 匯出計算書</button>
+        <button id="btnPrintReport2" class="btn-secondary" type="button">🖨️ 直接列印計算書</button>
         <button id="btnCopyJson" class="btn-secondary" type="button">複製輸入 JSON</button>
-        <p class="hint">計算書內容會依目前「設計／檢核」模式自動切換群組與標題。</p>
+        <p class="hint">計算書內容會依目前「設計／檢核」模式自動切換群組與標題；預覽視窗可下載文字備查版 TXT，或列印／存成 PDF。</p>
       </div>
     </div>
 
@@ -866,7 +868,7 @@
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
-<script src="../shared/report.js?v=9"></script>
+<script src="../shared/report.js?v=10"></script>
 <script src="../shared/beam-applicability.js?v=1"></script>
 <script src="../shared/beam-evaluator.js?v=1"></script>
 <script src="../shared/beam-rebar-designer.js?v=1"></script>
@@ -3340,7 +3342,7 @@ ${layerBars.map(L => {
   }
 
   // === 計算書產生 ===
-  function buildBeamReport() {
+  function buildBeamReport(options = {}) {
     // 專案快照會先以最新輸入計算，並提供 JSON 與計算書共用的計算指紋。
     const projectSnapshot = collectBeamProjectData();
     const r = window.beamLast;
@@ -3652,9 +3654,11 @@ ${layerBars.map(L => {
       }
     } catch(e) { console.warn('beam diagram capture failed', e); }
 
-    openReport({
+    return openReport({
       title: isDesignMode ? '梁設計計算書' : '梁檢核計算書',
       outputSource:{ tool:'梁 Beam 設計／檢核', version:'V3.1' },
+      textExport:true,
+      autoPrint:options && options.autoPrint === true,
       subtitle: isDesignMode ? 'RC Beam Design Report' : 'RC Beam Check Report',
       project: proj,
       calculationFingerprint: projectSnapshot.calculationFingerprint,
@@ -3961,6 +3965,8 @@ ${layerBars.map(L => {
   // 計算書按鈕
   document.getElementById('btnReport')?.addEventListener('click', buildBeamReport);
   document.getElementById('btnReport2')?.addEventListener('click', buildBeamReport);
+  document.getElementById('btnPrintReport')?.addEventListener('click', () => buildBeamReport({ autoPrint:true }));
+  document.getElementById('btnPrintReport2')?.addEventListener('click', () => buildBeamReport({ autoPrint:true }));
   document.getElementById('btnCopyJson')?.addEventListener('click', () => {
     calcBeam();
     const r = window.beamLast || {};

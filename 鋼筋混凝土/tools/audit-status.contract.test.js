@@ -174,6 +174,7 @@ const expectedHrefs = [
   'tools/single-pile-designer.html',
 ];
 const expectedAuxiliaryCards = [
+  { href: 'tools/deep-beam-stm.html', title: '深梁 STM' },
   { href: 'tools/foundation-deep-beam-stm.html', title: '基礎深梁 STM' },
   { href: 'tools/pile-cap-3d-stm.html', title: '樁帽三維 STM' },
   { href: '../RC補強斷面性質.html', title: 'RC 補強斷面' },

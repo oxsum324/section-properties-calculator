@@ -15,6 +15,11 @@ const EXPECTED_CAPABILITIES = [
   'rc-pile-cap-3d-stm',
 ];
 const EXPECTED_PRODUCTION_MODULE = 'independent-engineering-adapters/rc-stm-strength.js';
+const FORMAL_ROUTE_CAPABILITIES = new Map([
+  ['/rc-deep-beam-stm', 'rc-deep-beam-stm'],
+  ['/rc-foundation-deep-beam-stm', 'rc-foundation-2d-stm'],
+  ['/rc-pile-cap-3d-stm', 'rc-pile-cap-3d-stm'],
+]);
 const EXPECTED_CASES = 24;
 const EXPECTED_PASS_CASES = 15;
 const EXPECTED_REJECTION_CASES = 9;
@@ -50,11 +55,19 @@ function evaluateRcStmCandidates(catalog, options = {}) {
   const calculate = options.calculate || ((input) => productionAdapter.calculate(input));
   const validateInput = options.validateInput || ((input) => productionAdapter.validateInput(input));
   const capabilitySet = new Set(EXPECTED_CAPABILITIES);
-  const candidates = catalog.candidateBenchmarks.filter(item => capabilitySet.has(item.capability));
+  const promotedFormalBenchmarks = catalog.benchmarks
+    .filter(item => FORMAL_ROUTE_CAPABILITIES.has(item.route))
+    .map(item => ({
+      ...item,
+      capability:FORMAL_ROUTE_CAPABILITIES.get(item.route),
+      expectedOutcome:'strength-pass',
+    }));
+  const supplementalCandidates = catalog.candidateBenchmarks.filter(item => capabilitySet.has(item.capability));
+  const candidates = [...promotedFormalBenchmarks, ...supplementalCandidates];
   const issues = [];
   const records = [];
 
-  if (candidates.length !== catalog.candidateBenchmarks.length) {
+  if (supplementalCandidates.length !== catalog.candidateBenchmarks.length || promotedFormalBenchmarks.length !== FORMAL_ROUTE_CAPABILITIES.size) {
     issues.push('unexpected-candidate-capability');
   }
   if (candidates.length !== EXPECTED_CASES) {
@@ -164,8 +177,11 @@ const falseRejection = evaluateRcStmCandidates(catalog, {
   },
 });
 assert.equal(falseRejection.status, 'blocked', 'false rejection must fail the RC-local gate');
-for (const benchmark of catalog.candidateBenchmarks.filter(item => item.expectedOutcome === 'strength-pass')) {
-  assert.ok(falseRejection.issues.some(issue => issue.includes(`${benchmark.id}:expected-outcome-mismatch:production`)), `${benchmark.id} false rejection is reported`);
+for (const benchmarkId of [
+  ...catalog.benchmarks.filter(item => FORMAL_ROUTE_CAPABILITIES.has(item.route)).map(item => item.id),
+  ...catalog.candidateBenchmarks.filter(item => item.expectedOutcome === 'strength-pass').map(item => item.id),
+]) {
+  assert.ok(falseRejection.issues.some(issue => issue.includes(`${benchmarkId}:expected-outcome-mismatch:production`)), `${benchmarkId} false rejection is reported`);
 }
 
 console.log(`RC STM independent engineering gate OK (candidates=${actual.summary.verified}/${actual.summary.required}, pass=${actual.summary.passVerified}/${actual.summary.passRequired}, reject=${actual.summary.rejectionVerified}/${actual.summary.rejectionRequired}, assertions=${actual.summary.assertions}, capabilities=${actual.summary.capabilities}, falseAcceptance=blocked, falseRejection=blocked)`);

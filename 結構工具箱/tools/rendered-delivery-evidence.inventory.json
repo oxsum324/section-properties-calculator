@@ -4,8 +4,8 @@
   "rcSupplementalAttachments": [
     {
       "key": "deep-beam-stm",
-      "href": "/rc-beam",
-      "title": "RC 深梁壓拉桿模型",
+      "href": "/rc-deep-beam-stm",
+      "title": "RC 深梁 STM",
       "sourcePage": "鋼筋混凝土/tools/deep-beam-stm.html",
       "evidenceFile": "deep-beam-stm-formal-evidence.json",
       "reportTitle": "RC 深梁壓拉桿模型檢核計算書",
@@ -14,8 +14,8 @@
     },
     {
       "key": "foundation-deep-beam-stm",
-      "href": "/rc-foundation",
-      "title": "RC 基礎深梁二維壓拉桿模型",
+      "href": "/rc-foundation-deep-beam-stm",
+      "title": "RC 基礎深梁二維 STM",
       "sourcePage": "鋼筋混凝土/tools/foundation-deep-beam-stm.html",
       "evidenceFile": "foundation-deep-beam-stm-formal-evidence.json",
       "reportTitle": "RC 基礎深梁二維壓拉桿模型檢核計算書",
@@ -24,8 +24,8 @@
     },
     {
       "key": "pile-cap-3d-stm",
-      "href": "/rc-foundation",
-      "title": "RC 樁帽三維壓拉桿模型",
+      "href": "/rc-pile-cap-3d-stm",
+      "title": "RC 樁帽三維 STM",
       "sourcePage": "鋼筋混凝土/tools/pile-cap-3d-stm.html",
       "evidenceFile": "pile-cap-3d-stm-formal-evidence.json",
       "reportTitle": "RC 樁帽三維壓拉桿模型檢核計算書",
@@ -35,11 +35,14 @@
   ],
   "tools": [
     { "href": "/rc-beam", "title": "RC 梁", "family": "rc-formal", "evidenceKey": "beam-report-", "htmlExpected": 4 },
+    { "href": "/rc-deep-beam-stm", "title": "RC 深梁 STM", "family": "rc-stm-formal", "evidenceKey": "deep-beam-stm" },
     { "href": "/rc-column", "title": "RC 柱", "family": "rc-formal", "evidenceKey": "column-report-", "htmlExpected": 6 },
     { "href": "/rc-slab", "title": "RC 板", "family": "rc-formal", "evidenceKey": "slab-report-", "htmlExpected": 5 },
     { "href": "/rc-wall", "title": "RC 牆", "family": "rc-formal", "evidenceKey": "wall-report-", "htmlExpected": 4 },
     { "href": "/rc-shear-wall", "title": "RC 剪力牆", "family": "rc-formal", "evidenceKey": "shear-wall-report-", "htmlExpected": 2 },
     { "href": "/rc-foundation", "title": "RC 基礎", "family": "rc-formal", "evidenceKey": "foundation-report-", "htmlExpected": 8 },
+    { "href": "/rc-foundation-deep-beam-stm", "title": "RC 基礎深梁二維 STM", "family": "rc-stm-formal", "evidenceKey": "foundation-deep-beam-stm" },
+    { "href": "/rc-pile-cap-3d-stm", "title": "RC 樁帽三維 STM", "family": "rc-stm-formal", "evidenceKey": "pile-cap-3d-stm" },
     { "href": "/rc-pile", "title": "單樁承載力設計器", "family": "rc-formal", "evidenceKey": "single-pile-report-", "htmlExpected": 3 },
     { "href": "/rc-retrofit-section", "title": "RC 補強斷面", "family": "rc-retrofit", "evidenceKey": "rc-retrofit-section", "htmlExpected": 2 },
     { "href": "/src-beam", "title": "SRC 梁", "family": "src-formal", "evidenceKey": "src-beam" },

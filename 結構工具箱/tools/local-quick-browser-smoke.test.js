@@ -714,6 +714,9 @@ function newHomeExpression(tools) {
     const legacySteelReadiness = legacySteelCard
       ? (Array.from(legacySteelCard.querySelectorAll('.tool-profile__item')).find(item => item.querySelector('span')?.textContent.trim() === '閱讀狀態')?.querySelector('p')?.textContent.trim() || '')
       : '';
+    const rcStmToolTitles = Array.from(document.querySelectorAll('.tool-card h3'))
+      .map(node => node.textContent.trim())
+      .filter(title => ['RC 深梁 STM', 'RC 基礎深梁二維 STM', 'RC 樁帽三維 STM'].includes(title));
     const srcButton = Array.from(document.querySelectorAll('.member-system-tab')).find(button => button.textContent.includes('SRC'));
     if (srcButton) srcButton.click();
     const srcEmptyText = document.getElementById('emptyState')?.innerText || '';
@@ -748,6 +751,7 @@ function newHomeExpression(tools) {
       memberTabs,
       memberGroups,
       memberToolSystems,
+      rcStmToolTitles,
       srcEmptyText,
       srcToolTitles,
       hasCategoryArt: !!document.querySelector('.category-art'),
@@ -1598,6 +1602,7 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload, reportR
   assert.deepEqual(state.memberTabs, ['全部', 'RC', '鋼構', 'SRC'], `${label} new home member system tabs`);
   assert.deepEqual(state.memberGroups, ['RC', '鋼構', 'SRC'], `${label} new home member grouped tools`);
   assert.equal(state.memberToolSystems.every(system => ['RC', '鋼構', 'SRC'].includes(system)), true, `${label} new home member tool systems`);
+  assert.deepEqual(state.rcStmToolTitles, ['RC 深梁 STM', 'RC 基礎深梁二維 STM', 'RC 樁帽三維 STM'], `${label} new home RC STM formal tool entries`);
   assert.deepEqual(state.srcToolTitles, ['SRC 梁', 'SRC 柱'], `${label} new home SRC formal tool entries`);
   assert.equal(state.hasCategoryArt, false, `${label} new home category art`);
   assert.ok(state.cardCount >= tools.length, `${label} new home card count`);

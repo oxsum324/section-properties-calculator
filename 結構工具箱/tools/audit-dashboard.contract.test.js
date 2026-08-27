@@ -1284,12 +1284,12 @@ if (fs.existsSync(maturityMatrixPath)) {
   assert.deepEqual(independentBenchmarkGate.catalogFamilies, [], 'maturity globalGovernance independent engineering benchmark relevant families empty');
   assert.deepEqual(independentBenchmarkGate.issues, [], 'maturity globalGovernance independent engineering benchmark issues empty');
   assert.equal(matrix.independentBenchmarkCoverage?.status, 'ready', 'maturity independent engineering benchmark pilot ready');
-  assert.equal(matrix.independentBenchmarkCoverage?.summary?.pilotVerified, 33, 'maturity independent engineering benchmark pilot verified');
-  assert.equal(matrix.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes, 33, 'maturity independent engineering benchmark eligible formal routes');
-  assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidateRequired, 24, 'maturity independent engineering candidate cases required');
-  assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidateVerified, 24, 'maturity independent engineering candidate cases verified');
-  assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidatePassRequired, 15, 'maturity independent engineering passing candidate cases required');
-  assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidatePassVerified, 15, 'maturity independent engineering passing candidate cases verified');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.pilotVerified, 36, 'maturity independent engineering benchmark pilot verified');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes, 36, 'maturity independent engineering benchmark eligible formal routes');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidateRequired, 21, 'maturity independent engineering candidate cases required');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidateVerified, 21, 'maturity independent engineering candidate cases verified');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidatePassRequired, 12, 'maturity independent engineering passing candidate cases required');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidatePassVerified, 12, 'maturity independent engineering passing candidate cases verified');
   assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidateRejectionRequired, 9, 'maturity independent engineering rejection candidate cases required');
   assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidateRejectionVerified, 9, 'maturity independent engineering rejection candidate cases verified');
   assert.equal(matrix.independentBenchmarkCoverage?.summary?.verifiedCandidateCapabilities, 3, 'maturity independent engineering candidate capabilities remain distinct');

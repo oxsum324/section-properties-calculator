@@ -157,8 +157,8 @@ async function main() {
     const evidence = {
       schemaVersion:1,
       key:'pile-cap-3d-stm',
-      href:'/rc-foundation',
-      title:'RC 樁帽三維壓拉桿模型',
+      href:'/rc-pile-cap-3d-stm',
+      title:'RC 樁帽三維 STM',
       sourcePage:'鋼筋混凝土/tools/pile-cap-3d-stm.html',
       pdfPath:path.basename(pdfPath),
       screenshotPath:path.basename(screenshotPath),

@@ -1262,7 +1262,7 @@ function newestMatchingPdf(directory, prefix) {
 }
 
 assert.equal(inventory.version, 2, 'rendered delivery inventory version');
-assert.equal(inventory.tools.length, 33, 'rendered delivery inventory covers all homepage formal tools');
+assert.equal(inventory.tools.length, 36, 'rendered delivery inventory covers all homepage formal tools');
 const homeTools = vm.runInNewContext(`(${extractConstLiteral(homeSource, 'tools')})`);
 const formalHomeTools = homeTools.filter(tool => tool.state === 'formal');
 const formalRoutes = formalHomeTools.map(tool => tool.href).sort();
@@ -1276,10 +1276,10 @@ for (const tool of inventory.tools) {
 const rcHtmlInventory = inventory.tools.filter(tool => ['rc-formal', 'rc-retrofit'].includes(tool.family));
 assert.equal(rcHtmlInventory.length, 8, 'rendered delivery inventory maps all eight RC HTML attachment families');
 assert.equal(rcHtmlInventory.reduce((sum, tool) => sum + tool.htmlExpected, 0), 34, 'rendered delivery inventory declares 34 expected RC HTML attachments');
-assert.equal(inventory.rcSupplementalAttachments?.length, 3, 'rendered delivery inventory declares three RC STM supplemental formal attachments');
-assert.equal(new Set(inventory.rcSupplementalAttachments.map(item => item.key)).size, 3, 'RC STM supplemental formal attachment identities are unique');
+assert.equal(inventory.rcSupplementalAttachments?.length, 3, 'rendered delivery inventory declares three RC STM dedicated formal-entry attachments');
+assert.equal(new Set(inventory.rcSupplementalAttachments.map(item => item.key)).size, 3, 'RC STM dedicated formal-entry attachment identities are unique');
 for (const item of inventory.rcSupplementalAttachments) {
-  assert.ok(formalRoutes.includes(item.href), `${item.title} belongs to a homepage formal RC workflow`);
+  assert.ok(formalRoutes.includes(item.href), `${item.title} has a homepage formal route`);
   assert.ok(item.evidenceFile.endsWith('-formal-evidence.json'), `${item.title} declares a formal evidence manifest`);
   assert.ok(fs.existsSync(path.join(repoRoot, item.sourcePage)), `${item.title} source page exists`);
   assert.ok(item.reportTitle.includes('計算書') && item.requiredNeedles.length >= 3 && item.continuationContextLabels.length >= 1, `${item.title} declares rendered report content requirements`);
@@ -1843,10 +1843,10 @@ for (const item of inventory.rcSupplementalAttachments) {
   const evidencePath = path.join(rcStmDir, item.evidenceFile);
   assert.ok(fs.existsSync(evidencePath), `${item.title} formal evidence manifest exists`);
   const evidence = readJson(evidencePath);
-  const label = `${item.title} supplemental formal attachment`;
+  const label = `${item.title} formal entry attachment`;
   assert.equal(evidence?.schemaVersion, 1, `${label} evidence schema`);
   assert.equal(evidence?.key, item.key, `${label} evidence identity`);
-  assert.equal(evidence?.href, item.href, `${label} parent workflow route`);
+  assert.equal(evidence?.href, item.href, `${label} homepage route`);
   assert.equal(evidence?.title, item.title, `${label} title`);
   assert.equal(evidence?.sourcePage, item.sourcePage, `${label} source page`);
   assert.match(String(evidence?.metrics?.calculationFingerprint || ''), /^CF-[0-9A-F]{16}$/i, `${label} calculation fingerprint`);
@@ -1883,6 +1883,22 @@ for (const item of inventory.rcSupplementalAttachments) {
     contentSeal,
     approvalSeal,
     visualArtifactIntegrity,
+  });
+  const stmTool = inventory.tools.find(tool => tool.family === 'rc-stm-formal' && tool.evidenceKey === item.key);
+  assert.ok(stmTool, `${label} maps to the homepage rendered-delivery inventory`);
+  records.push({
+    href:stmTool.href,
+    title:stmTool.title,
+    family:stmTool.family,
+    evidenceKey:stmTool.evidenceKey,
+    artifact:standalonePrint.artifact,
+    htmlArtifacts:[htmlIntegrity.name],
+    standalonePrintArtifacts:[standalonePrint.artifact],
+    contentSealArtifacts:[contentSeal.htmlArtifact],
+    htmlIntegrity:[htmlIntegrity],
+    visualArtifactIntegrity,
+    pageCount:pdf.pageCount,
+    textLength:pdf.textLength,
   });
 }
 

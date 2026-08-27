@@ -116,7 +116,7 @@ const stoneVersionContext = { window: {} };
 vm.runInNewContext(stoneVersionSource, stoneVersionContext, { timeout: 1000, filename: 'stone-public-metadata' });
 const stoneMetadata = stoneVersionContext.window.StonePublicMetadata;
 
-assert.equal(homeTools.length, 45, 'canonical homepage tool inventory count');
+assert.equal(homeTools.length, 48, 'canonical homepage tool inventory count');
 assert.equal(new Set(homeTools.map(tool => tool.href)).size, homeTools.length, 'canonical homepage routes are unique');
 for (const tool of homeTools) {
   assert.ok(tool.title && tool.version && tool.state && tool.output && tool.summary && tool.fit && tool.limit, `canonical public claim complete: ${tool.href}`);
@@ -286,11 +286,14 @@ assert.equal(excavationTool.governance, 'excavation-service', 'canonical excavat
 
 const rcCards = [
   ['/rc-beam', 'tools/beam.html'],
+  ['/rc-deep-beam-stm', 'tools/deep-beam-stm.html'],
   ['/rc-column', 'tools/column.html'],
   ['/rc-slab', 'tools/slab.html'],
   ['/rc-wall', 'tools/wall.html'],
   ['/rc-shear-wall', 'tools/shear-wall.html'],
   ['/rc-foundation', 'tools/foundation.html'],
+  ['/rc-foundation-deep-beam-stm', 'tools/foundation-deep-beam-stm.html'],
+  ['/rc-pile-cap-3d-stm', 'tools/pile-cap-3d-stm.html'],
   ['/rc-pile', 'tools/single-pile-designer.html'],
   ['/rc-retrofit-section', '../RC補強斷面性質.html'],
 ];

@@ -12,7 +12,7 @@
 - `基礎 Foundation`
 - `單樁 Single Pile`
 
-深梁、基礎二維與樁帽三維 STM 子流程另由 `結構工具箱/tools/independent-engineering-adapters/rc-stm-strength.js` 接入獨立工程基準。每個能力保留兩個代表性合格案、一個隔離拒絕案、一組「略低／等於／略高」臨界值，以及一組「負裕度在 EPS 內／剛超出 EPS」案例：深梁鎖定 25° 壓桿角度、基礎二維鎖定 23.4.4 剪力容量、樁帽三維鎖定 X/Y 拉桿層容許錯位。二十四案共 564 項封閉解斷言，schema 明確區分 `strength-pass` 15 / 15 與 `strength-reject` 9 / 9。Oracle 不讀 production 結果，會各自重算力與力矩平衡、壓桿／拉桿、節點、多排形心、剪力及帶號裕度；故意改動中間量、把不合格案例放行、把合格案例拒絕或改變 EPS 邊界時均必須阻擋。狀態為 supplemental candidate cases 24 / 24、candidate capabilities 3 / 3，不增加首頁 33 個正式入口，也不把這些限定拓樸擴張為所有 STM 案件均已獨立驗證。
+深梁、基礎二維與樁帽三維 STM 子流程另由 `結構工具箱/tools/independent-engineering-adapters/rc-stm-strength.js` 接入獨立工程基準。每個能力保留兩個代表性合格案、一個隔離拒絕案、一組「略低／等於／略高」臨界值，以及一組「負裕度在 EPS 內／剛超出 EPS」案例：深梁鎖定 25° 壓桿角度、基礎二維鎖定 23.4.4 剪力容量、樁帽三維鎖定 X/Y 拉桿層容許錯位。二十四案共 564 項封閉解斷言，schema 明確區分 `strength-pass` 15 / 15 與 `strength-reject` 9 / 9。Oracle 不讀 production 結果，會各自重算力與力矩平衡、壓桿／拉桿、節點、多排形心、剪力及帶號裕度；故意改動中間量、把不合格案例放行、把合格案例拒絕或改變 EPS 邊界時均必須阻擋。整體狀態為 24 / 24 案、564 項斷言：3 個代表性強度案已升為 `/rc-deep-beam-stm`、`/rc-foundation-deep-beam-stm`、`/rc-pile-cap-3d-stm` 正式路由基準，其餘 supplemental candidate cases 21 / 21，candidate capabilities 維持 3 / 3；不得把這些限定拓樸擴張為所有 STM 案件均已獨立驗證。
 
 ## 自動巡檢
 
