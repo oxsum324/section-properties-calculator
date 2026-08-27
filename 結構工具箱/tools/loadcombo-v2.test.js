@@ -98,6 +98,33 @@ function testDetailLookupAndLegacyExports() {
   assert.equal(LoadCombo.COMBOS.ASD.length, 10);
 }
 
+function testComponentPackageContract() {
+  const raw = LoadCombo.createComponentPackage({
+    generatedAt:'2026-08-26T01:02:03.000Z',
+    source:{ tool:'analysis-export', label:'結構分析模型 A', version:'2026.1', analysisId:'ANA-001', caseSet:'ULS 基本工況' },
+    forces:{
+      P:{ D:300, L:50, W:0, E:0 },
+      Mx:{ D:0, L:0, W:100, E:0 },
+      My:{ D:0, L:0, W:0, E:-80 },
+    },
+  });
+  assert.equal(raw.schemaVersion, 'loadcombo-components-v1');
+  assert.equal(raw.units.force, 'tf');
+  assert.equal(raw.units.moment, 'tf·m');
+  assert.equal(raw.signConvention.P, 'compression-positive');
+  assert.equal(raw.signConvention.Mx, 'right-hand-rule');
+  assert.equal(raw.forces.My.E, -80);
+  assert.deepEqual(LoadCombo.normalizeComponentPackage(JSON.stringify(raw)), raw);
+  assert.throws(() => LoadCombo.normalizeComponentPackage({ ...raw, units:{ force:'kN', moment:'kN·m' } }), /單位/);
+  assert.throws(() => LoadCombo.normalizeComponentPackage({ ...raw, signConvention:{ ...raw.signConvention, P:'tension-positive' } }), /compression-positive/);
+  const missing = JSON.parse(JSON.stringify(raw));
+  delete missing.forces.Mx.W;
+  assert.throws(() => LoadCombo.normalizeComponentPackage(missing), /Mx\.W.*不得缺少/);
+  const invalid = JSON.parse(JSON.stringify(raw));
+  invalid.forces.My.E = 'not-a-number';
+  assert.throws(() => LoadCombo.normalizeComponentPackage(invalid), /My\.E.*有限數值/);
+}
+
 testTuplePreservationAndGoverningSelection();
 testSignsAndSourceInputsArePreserved();
 testDetailLookupAndLegacyExports();
@@ -107,8 +134,9 @@ testColumnConsumersDoNotSynthesizeTuples();
 testTupleSelectionUiAndTargetInvalidation();
 testForceReceiveKeepsLastAppliedPayload();
 testConsumerReportContracts();
+testComponentPackageContract();
 
-console.log('loadcombo-v2.test.js: PASS (9/9)');
+console.log('loadcombo-v2.test.js: PASS (10/10)');
 
 function testLimitStateRecommendationsPreserveTuples() {
   const tuples = LoadCombo.computeTuples({

@@ -63,6 +63,8 @@ _參考資料/
 !鋼筋混凝土/tools/beam-regression-cases.json
 !鋼筋混凝土/tools/beam-report-visual.test.js
 !鋼筋混凝土/tools/test-beam.ps1
+!鋼筋混凝土/tools/deep-beam-stm-regression.test.js
+!鋼筋混凝土/tools/test-deep-beam-stm.ps1
 !鋼筋混凝土/tools/column-regression.test.js
 !鋼筋混凝土/tools/column-regression-cases.json
 !鋼筋混凝土/tools/column-report-visual.test.js
@@ -86,9 +88,19 @@ _參考資料/
 !鋼筋混凝土/tools/foundation-regression-cases.json
 !鋼筋混凝土/tools/foundation-report-visual.test.js
 !鋼筋混凝土/tools/test-foundation.ps1
+!鋼筋混凝土/tools/foundation-deep-beam-stm-regression.test.js
+!鋼筋混凝土/tools/test-foundation-deep-beam-stm.ps1
+!鋼筋混凝土/tools/pile-cap-3d-stm-regression.test.js
+!鋼筋混凝土/tools/pile-cap-3d-stm-bridge-regression.test.js
+!鋼筋混凝土/tools/test-pile-cap-3d-stm.ps1
 !鋼筋混凝土/tools/single-pile-regression.test.js
 !鋼筋混凝土/tools/single-pile-report-visual.test.js
 !鋼筋混凝土/tools/test-single-pile.ps1
+# Joint Reactions observed promotion 的中斷復原暫存；正式 fixture／provenance 不受此規則影響。
+鋼筋混凝土/shared/fixtures/joint-reactions/observed-manifest.json.promotion.lock
+鋼筋混凝土/shared/fixtures/joint-reactions/observed-manifest.json.promotion-clear-*
+鋼筋混凝土/shared/fixtures/joint-reactions/.observed-manifest.json.*.promotion-next
+鋼筋混凝土/shared/fixtures/joint-reactions/.observed-manifest.json.*.promotion-backup
 鋼筋混凝土/注意事項.txt
 
 # 鋼構接頭工具開發資料

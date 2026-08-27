@@ -1,6 +1,38 @@
 {
-  "version": 1,
+  "version": 2,
   "description": "首頁 formal 工具與正式放行實際交付物證據的對照清冊。",
+  "rcSupplementalAttachments": [
+    {
+      "key": "deep-beam-stm",
+      "href": "/rc-beam",
+      "title": "RC 深梁壓拉桿模型",
+      "sourcePage": "鋼筋混凝土/tools/deep-beam-stm.html",
+      "evidenceFile": "deep-beam-stm-formal-evidence.json",
+      "reportTitle": "RC 深梁壓拉桿模型檢核計算書",
+      "continuationContextLabels": ["壓拉桿力流示意圖"],
+      "requiredNeedles": ["底部拉桿提供量", "同層水平淨距", "上部 CCC 節點"]
+    },
+    {
+      "key": "foundation-deep-beam-stm",
+      "href": "/rc-foundation",
+      "title": "RC 基礎深梁二維壓拉桿模型",
+      "sourcePage": "鋼筋混凝土/tools/foundation-deep-beam-stm.html",
+      "evidenceFile": "foundation-deep-beam-stm-formal-evidence.json",
+      "reportTitle": "RC 基礎深梁二維壓拉桿模型檢核計算書",
+      "continuationContextLabels": ["基礎力流與拉桿配置"],
+      "requiredNeedles": ["對稱離散樁反力群", "垂直力平衡", "最大分段拉桿力"]
+    },
+    {
+      "key": "pile-cap-3d-stm",
+      "href": "/rc-foundation",
+      "title": "RC 樁帽三維壓拉桿模型",
+      "sourcePage": "鋼筋混凝土/tools/pile-cap-3d-stm.html",
+      "evidenceFile": "pile-cap-3d-stm-formal-evidence.json",
+      "reportTitle": "RC 樁帽三維壓拉桿模型檢核計算書",
+      "continuationContextLabels": ["樁帽平面配置與三維力流"],
+      "requiredNeedles": ["三維邊界合力與平衡", "X/Y 底部拉桿強度與配置", "三維壓桿與節點區強度"]
+    }
+  ],
   "tools": [
     { "href": "/rc-beam", "title": "RC 梁", "family": "rc-formal", "evidenceKey": "beam-report-", "htmlExpected": 4 },
     { "href": "/rc-column", "title": "RC 柱", "family": "rc-formal", "evidenceKey": "column-report-", "htmlExpected": 6 },

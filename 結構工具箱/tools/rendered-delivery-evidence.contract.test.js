@@ -865,7 +865,7 @@ function validateRcStandaloneFormalHtmlPrintRecord(portableHtml, label) {
   return standalonePrint;
 }
 
-function verifyRcStandaloneFormalHtmlPrintArtifact(directory, portableHtml, label) {
+function verifyRcStandaloneFormalHtmlPrintArtifact(directory, portableHtml, label, options = {}) {
   const standalonePrint = validateRcStandaloneFormalHtmlPrintRecord(portableHtml, label);
   const integrity = verifyRecordedArtifact(directory, standalonePrint, {
     nameField: 'artifact',
@@ -878,6 +878,7 @@ function verifyRcStandaloneFormalHtmlPrintArtifact(directory, portableHtml, labe
     contentBoundaryProfile: 'traceable-calculation-book',
     projectNeedle: '__skip_project_order__',
     requiredNeedles: [portableHtml.reportTitle, '文件狀態：正式附件', standalonePrint.calculationFingerprint],
+    continuationContextLabels:options.continuationContextLabels || [],
     forbiddenNeedles: [],
   });
   assert.equal(pdf.pageCount, standalonePrint.pageCount, `${label} standalone formal HTML print page count matches producer`);
@@ -1260,7 +1261,7 @@ function newestMatchingPdf(directory, prefix) {
   return matches[0];
 }
 
-assert.equal(inventory.version, 1, 'rendered delivery inventory version');
+assert.equal(inventory.version, 2, 'rendered delivery inventory version');
 assert.equal(inventory.tools.length, 33, 'rendered delivery inventory covers all homepage formal tools');
 const homeTools = vm.runInNewContext(`(${extractConstLiteral(homeSource, 'tools')})`);
 const formalHomeTools = homeTools.filter(tool => tool.state === 'formal');
@@ -1275,6 +1276,14 @@ for (const tool of inventory.tools) {
 const rcHtmlInventory = inventory.tools.filter(tool => ['rc-formal', 'rc-retrofit'].includes(tool.family));
 assert.equal(rcHtmlInventory.length, 8, 'rendered delivery inventory maps all eight RC HTML attachment families');
 assert.equal(rcHtmlInventory.reduce((sum, tool) => sum + tool.htmlExpected, 0), 34, 'rendered delivery inventory declares 34 expected RC HTML attachments');
+assert.equal(inventory.rcSupplementalAttachments?.length, 3, 'rendered delivery inventory declares three RC STM supplemental formal attachments');
+assert.equal(new Set(inventory.rcSupplementalAttachments.map(item => item.key)).size, 3, 'RC STM supplemental formal attachment identities are unique');
+for (const item of inventory.rcSupplementalAttachments) {
+  assert.ok(formalRoutes.includes(item.href), `${item.title} belongs to a homepage formal RC workflow`);
+  assert.ok(item.evidenceFile.endsWith('-formal-evidence.json'), `${item.title} declares a formal evidence manifest`);
+  assert.ok(fs.existsSync(path.join(repoRoot, item.sourcePage)), `${item.title} source page exists`);
+  assert.ok(item.reportTitle.includes('計算書') && item.requiredNeedles.length >= 3 && item.continuationContextLabels.length >= 1, `${item.title} declares rendered report content requirements`);
+}
 
 const canonicalIntegrityFixtureDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'canonical-render-integrity-'));
 try {
@@ -1659,6 +1668,7 @@ const rcResultReconciliationRecords = [];
 const rcStandaloneFormalHtmlPrintRecords = [];
 const rcFormalHtmlContentSealRecords = [];
 const rcFormalHtmlApprovalSealRecords = [];
+const rcStmFormalAttachmentRecords = [];
 const steelResultReconciliationRecords = [];
 const stoneResultReconciliationRecords = [];
 const anchorResultReconciliationRecords = [];
@@ -1826,6 +1836,55 @@ records.push({
   integrity: retrofitIntegrity,
   visualArtifactIntegrity: retrofitVisualArtifactIntegrity,
 });
+
+const rcStmDir = path.join(runDir, 'rendered-delivery-evidence', 'rc-stm-formal');
+assert.ok(fs.existsSync(rcStmDir), 'release rendered evidence contains the RC STM supplemental attachment directory');
+for (const item of inventory.rcSupplementalAttachments) {
+  const evidencePath = path.join(rcStmDir, item.evidenceFile);
+  assert.ok(fs.existsSync(evidencePath), `${item.title} formal evidence manifest exists`);
+  const evidence = readJson(evidencePath);
+  const label = `${item.title} supplemental formal attachment`;
+  assert.equal(evidence?.schemaVersion, 1, `${label} evidence schema`);
+  assert.equal(evidence?.key, item.key, `${label} evidence identity`);
+  assert.equal(evidence?.href, item.href, `${label} parent workflow route`);
+  assert.equal(evidence?.title, item.title, `${label} title`);
+  assert.equal(evidence?.sourcePage, item.sourcePage, `${label} source page`);
+  assert.match(String(evidence?.metrics?.calculationFingerprint || ''), /^CF-[0-9A-F]{16}$/i, `${label} calculation fingerprint`);
+  assert.equal(evidence?.portableHtml?.calculationFingerprint, evidence.metrics.calculationFingerprint, `${label} internal and approved reports share one calculation fingerprint`);
+
+  const visualArtifactIntegrity = verifyRcVisualArtifactRecord(rcStmDir, evidence, label);
+  const pdfPath = path.join(rcStmDir, String(evidence.pdfPath || ''));
+  const pdf = validatePdfFile(pdfPath, {
+    label,
+    minTextLength: 1200,
+    titleNeedle: item.reportTitle,
+    requiredNeedles: [...item.requiredNeedles, '文件狀態：內部審閱', evidence.metrics.calculationFingerprint],
+    continuationContextLabels:item.continuationContextLabels,
+    contentBoundaryProfile: 'traceable-calculation-book',
+    forbiddenNeedles: [],
+  });
+  assert.equal(pdf.pageCount, evidence.metrics.pages, `${label} PDF page count matches producer evidence`);
+  assert.ok(Number.isInteger(evidence.metrics.textLength) && evidence.metrics.textLength >= 1200, `${label} producer records substantial extracted PDF text`);
+
+  const htmlIntegrity = validateHtmlArtifactRecord(rcStmDir, evidence.portableHtml, label, { requireRecordedIntegrity:true });
+  const standalonePrint = verifyRcStandaloneFormalHtmlPrintArtifact(rcStmDir, evidence.portableHtml, label, {
+    continuationContextLabels:item.continuationContextLabels,
+  });
+  const contentSeal = verifyRcFormalHtmlContentSealArtifact(rcStmDir, evidence.portableHtml, label);
+  const approvalSeal = verifyRcFormalHtmlApprovalSealArtifact(rcStmDir, evidence.portableHtml, label);
+  rcStmFormalAttachmentRecords.push({
+    key:item.key,
+    href:item.href,
+    title:item.title,
+    sourcePage:item.sourcePage,
+    calculationFingerprint:evidence.metrics.calculationFingerprint,
+    htmlIntegrity,
+    standalonePrint,
+    contentSeal,
+    approvalSeal,
+    visualArtifactIntegrity,
+  });
+}
 
 const { summary: stoneSummary } = validateFamilySummary(runDir, 'stone-formal', ['stone-fixing']);
 const stoneTool = inventory.tools.find(tool => tool.family === 'stone-formal');
@@ -2408,6 +2467,33 @@ supplementalRecords.push({
 
 assert.equal(records.length, inventory.tools.length, 'release rendered evidence resolves every homepage formal tool');
 assert.equal(supplementalRecords.length, 2, 'release rendered evidence resolves every supplemental report and service artifact');
+const rcStmFormalAttachmentArtifacts = rcStmFormalAttachmentRecords.flatMap(record => [
+  ...record.visualArtifactIntegrity.map(artifact => ({ family:'rc-stm-formal', ...artifact })),
+  { family:'rc-stm-formal', role:'approvedFormalHtml', ...record.htmlIntegrity },
+  {
+    family:'rc-stm-formal',
+    role:'standaloneFormalHtmlPrintPdf',
+    name:record.standalonePrint.artifact,
+    bytes:record.standalonePrint.artifactBytes,
+    sha256:record.standalonePrint.artifactSha256,
+  },
+]);
+const rcStmFormalAttachment = {
+  schemaVersion:1,
+  scope:'rc-stm-supplemental-formal-attachments',
+  required:inventory.rcSupplementalAttachments.length,
+  complete:rcStmFormalAttachmentRecords.length,
+  issueCount:Math.max(0, inventory.rcSupplementalAttachments.length - rcStmFormalAttachmentRecords.length),
+  pass:rcStmFormalAttachmentRecords.length === inventory.rcSupplementalAttachments.length,
+  artifactRequired:inventory.rcSupplementalAttachments.length * 4,
+  artifactVerified:rcStmFormalAttachmentArtifacts.length,
+  setSha256:scopedIntegritySetHash(rcStmFormalAttachmentArtifacts),
+  records:rcStmFormalAttachmentRecords,
+};
+assert.equal(new Set(rcStmFormalAttachmentRecords.map(record => record.key)).size, rcStmFormalAttachmentRecords.length, 'release rendered evidence RC STM supplemental attachment identities are unique');
+assert.equal(rcStmFormalAttachment.complete, rcStmFormalAttachment.required, 'release rendered evidence verifies all three RC STM supplemental formal attachments');
+assert.equal(rcStmFormalAttachment.artifactVerified, rcStmFormalAttachment.artifactRequired, 'release rendered evidence verifies PDF, PNG, approved HTML and standalone print for every RC STM attachment');
+assert.equal(rcStmFormalAttachment.pass, true, 'release rendered evidence passes RC STM supplemental formal attachment verification');
 const attachmentIntegrityGroups = records
   .filter(record => ['rc-formal', 'rc-retrofit'].includes(record.family))
   .map(record => record.integrity);
@@ -2814,7 +2900,7 @@ assert.equal(xlsxDualSeal.contentComplete, xlsxDualSeal.contentRequired, 'releas
 assert.equal(xlsxDualSeal.approvalComplete, xlsxDualSeal.approvalRequired, 'release verifies the formal XLSX approval seal');
 assert.equal(xlsxDualSeal.pass, true, 'release passes formal XLSX dual seal integrity');
 const aggregate = {
-  schemaVersion: 26,
+  schemaVersion: 27,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),
@@ -2823,7 +2909,8 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && docxPackageIntegrity.pass && xlsxPackageIntegrity.pass && xlsxPrintVisual.pass && xlsxDualSeal.pass && formalResultReconciliation.pass && formalHtmlContentSeal.pass && formalHtmlApprovalSeal.pass && steelHtmlContentSeal.pass && steelHtmlApprovalSeal.pass && anchorHtmlContentSeal.pass && anchorHtmlApprovalSeal.pass && localQuickResultReconciliation.pass && rcResultReconciliation.pass && rcSourceReportPackage.pass && rcStandaloneFormalHtmlPrint.pass && rcFormalHtmlContentSeal.pass && rcFormalHtmlApprovalSeal.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && rcStmFormalAttachment.pass && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && docxPackageIntegrity.pass && xlsxPackageIntegrity.pass && xlsxPrintVisual.pass && xlsxDualSeal.pass && formalResultReconciliation.pass && formalHtmlContentSeal.pass && formalHtmlApprovalSeal.pass && steelHtmlContentSeal.pass && steelHtmlApprovalSeal.pass && anchorHtmlContentSeal.pass && anchorHtmlApprovalSeal.pass && localQuickResultReconciliation.pass && rcResultReconciliation.pass && rcSourceReportPackage.pass && rcStandaloneFormalHtmlPrint.pass && rcFormalHtmlContentSeal.pass && rcFormalHtmlApprovalSeal.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
+  rcStmFormalAttachment,
   attachmentIntegrity,
   mixedArtifactIntegrity,
   rcVisualArtifactIntegrity,
@@ -2856,4 +2943,4 @@ const aggregate = {
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, docxPackageIntegrity=${docxPackageIntegrity.complete}/${docxPackageIntegrity.required}, xlsxPackageIntegrity=${xlsxPackageIntegrity.complete}/${xlsxPackageIntegrity.required}, xlsxPrintVisual=${xlsxPrintVisual.complete}/${xlsxPrintVisual.required}, xlsxContentSeal=${xlsxDualSeal.contentComplete}/${xlsxDualSeal.contentRequired}, xlsxApprovalSeal=${xlsxDualSeal.approvalComplete}/${xlsxDualSeal.approvalRequired}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, formalHtmlContentSeal=${formalHtmlContentSeal.complete}/${formalHtmlContentSeal.required}, formalHtmlApprovalSeal=${formalHtmlApprovalSeal.complete}/${formalHtmlApprovalSeal.required}, steelHtmlContentSeal=${steelHtmlContentSeal.complete}/${steelHtmlContentSeal.required}, steelHtmlApprovalSeal=${steelHtmlApprovalSeal.complete}/${steelHtmlApprovalSeal.required}, anchorHtmlContentSeal=${anchorHtmlContentSeal.complete}/${anchorHtmlContentSeal.required}, anchorHtmlApprovalSeal=${anchorHtmlApprovalSeal.complete}/${anchorHtmlApprovalSeal.required}, localQuickResultReconciliation=${localQuickResultReconciliation.complete}/${localQuickResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, rcSourceReportPackage=${rcSourceReportPackage.complete}/${rcSourceReportPackage.required}, rcStandaloneFormalHtmlPrint=${rcStandaloneFormalHtmlPrint.complete}/${rcStandaloneFormalHtmlPrint.required}, rcFormalHtmlContentSeal=${rcFormalHtmlContentSeal.complete}/${rcFormalHtmlContentSeal.required}, rcFormalHtmlApprovalSeal=${rcFormalHtmlApprovalSeal.complete}/${rcFormalHtmlApprovalSeal.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, rcStmFormalAttachment=${rcStmFormalAttachment.complete}/${rcStmFormalAttachment.required}, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, docxPackageIntegrity=${docxPackageIntegrity.complete}/${docxPackageIntegrity.required}, xlsxPackageIntegrity=${xlsxPackageIntegrity.complete}/${xlsxPackageIntegrity.required}, xlsxPrintVisual=${xlsxPrintVisual.complete}/${xlsxPrintVisual.required}, xlsxContentSeal=${xlsxDualSeal.contentComplete}/${xlsxDualSeal.contentRequired}, xlsxApprovalSeal=${xlsxDualSeal.approvalComplete}/${xlsxDualSeal.approvalRequired}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, formalHtmlContentSeal=${formalHtmlContentSeal.complete}/${formalHtmlContentSeal.required}, formalHtmlApprovalSeal=${formalHtmlApprovalSeal.complete}/${formalHtmlApprovalSeal.required}, steelHtmlContentSeal=${steelHtmlContentSeal.complete}/${steelHtmlContentSeal.required}, steelHtmlApprovalSeal=${steelHtmlApprovalSeal.complete}/${steelHtmlApprovalSeal.required}, anchorHtmlContentSeal=${anchorHtmlContentSeal.complete}/${anchorHtmlContentSeal.required}, anchorHtmlApprovalSeal=${anchorHtmlApprovalSeal.complete}/${anchorHtmlApprovalSeal.required}, localQuickResultReconciliation=${localQuickResultReconciliation.complete}/${localQuickResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, rcSourceReportPackage=${rcSourceReportPackage.complete}/${rcSourceReportPackage.required}, rcStandaloneFormalHtmlPrint=${rcStandaloneFormalHtmlPrint.complete}/${rcStandaloneFormalHtmlPrint.required}, rcFormalHtmlContentSeal=${rcFormalHtmlContentSeal.complete}/${rcFormalHtmlContentSeal.required}, rcFormalHtmlApprovalSeal=${rcFormalHtmlApprovalSeal.complete}/${rcFormalHtmlApprovalSeal.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);

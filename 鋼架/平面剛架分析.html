@@ -138,6 +138,13 @@
   .story-response-summary { margin: 2px 0 8px; padding: 8px 10px; border-left: 4px solid #2563eb; background: #eff6ff; color: #1e3a8a; }
   .story-response-summary.inactive { border-left-color: var(--border); background: #f8fafc; color: var(--text-light); }
   .story-response-control td { background: #eff6ff; font-weight: 700; }
+  .foundation-transfer-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+  .foundation-transfer-cases { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-top:8px; }
+  .foundation-transfer-grid > div, .foundation-transfer-cases > div { min-width:0; }
+  .foundation-transfer-grid select, .foundation-transfer-cases select { width:100%; }
+  .foundation-transfer-preview { margin-top:8px; padding:8px 10px; border:1px solid var(--border); border-radius:7px; background:#f8fafc; color:#334155; font:0.78em/1.55 Consolas,'Microsoft JhengHei',sans-serif; white-space:pre-wrap; }
+  .foundation-transfer-preview.pass { border-color:#86efac; background:#f0fdf4; color:#166534; }
+  .foundation-transfer-preview.fail { border-color:#fca5a5; background:#fef2f2; color:#991b1b; }
 
   .diag-card .canvas-wrap { min-height: 120px; display: flex; align-items: center; justify-content: center; }
   .diag-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
@@ -269,6 +276,28 @@
           <tbody id="loadCaseTbody"></tbody>
         </table>
         <div class="hint">目前結果表與內力圖使用上方選取的單一組合；樓層反應包絡比較全部具名組合。自重併入第一個載重案例；因子 0 可排除該案例。</div>
+      </div>
+
+      <div class="card page-only-tool-actions" id="foundationTransferCard">
+        <h2>基礎樁帽基本載重分量</h2>
+        <div class="foundation-transfer-grid">
+          <div><label for="foundationTransferNode">基礎節點</label><select id="foundationTransferNode" onchange="updateFoundationTransferSetting('nodeId',this.value)"></select></div>
+          <div><label for="foundationTransferMomentAxis">構架平面／基礎彎矩</label><select id="foundationTransferMomentAxis" onchange="updateFoundationTransferSetting('momentAxis',this.value)"><option value="My">X–Z 平面 → My</option><option value="Mx">Y–Z 平面 → Mx</option></select></div>
+          <div><label for="foundationTransferMomentSign">座標方向倍率</label><select id="foundationTransferMomentSign" onchange="updateFoundationTransferSetting('momentSign',this.value)"><option value="1">+1（同向）</option><option value="-1">−1（反向）</option></select></div>
+        </div>
+        <div class="foundation-transfer-cases">
+          <div><label for="foundationTransferCaseD">D 靜載重</label><select id="foundationTransferCaseD" onchange="updateFoundationTransferCase('D',this.value)"></select></div>
+          <div><label for="foundationTransferCaseL">L 活載重</label><select id="foundationTransferCaseL" onchange="updateFoundationTransferCase('L',this.value)"></select></div>
+          <div><label for="foundationTransferCaseW">W 風力</label><select id="foundationTransferCaseW" onchange="updateFoundationTransferCase('W',this.value)"></select></div>
+          <div><label for="foundationTransferCaseE">E 地震力</label><select id="foundationTransferCaseE" onchange="updateFoundationTransferCase('E',this.value)"></select></div>
+        </div>
+        <div class="hint">逐一以因子 1.0 重算選定的基本案例，不從已因數化組合反推。P 採節點向上支承反力為壓力正；基礎作用矩 = −構架支承反力矩 Mz × 座標方向倍率，另一方向為 0。勾選「含自重」時，D 必須對應第一個載重案例。</div>
+        <div class="flex-row" style="margin-top:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="previewFoundationLoadComponents()">預覽分量</button>
+          <button class="btn btn-accent btn-sm" onclick="downloadFoundationLoadComponents()">下載分析 JSON</button>
+          <button class="btn btn-primary btn-sm" onclick="sendFoundationLoadComponents()">送至樁帽三維 STM</button>
+        </div>
+        <pre id="foundationTransferPreview" class="foundation-transfer-preview">請先指定基礎節點與 D／L／W／E 案例；未使用案例可保留 0。</pre>
       </div>
 
       <div class="card">
@@ -476,6 +505,8 @@
 
 <script src="../結構工具箱/tools/analysis-section-tool-metadata.js"></script>
 <script src="../結構工具箱/core/ui/report.js"></script>
+<script src="../結構工具箱/core/loads/loadcombo.js"></script>
+<script src="../結構工具箱/core/ui/force-picker.js"></script>
 <script>
 // ============================================================
 // 資料模型
@@ -496,6 +527,7 @@ const state = {
   nodalLoads: [],   // {node, Fx, Fy, M}        // tf, tf, tf·m
   memberLoads: [],  // {member, w, dir}         // w (tf/m), dir: 'globalY'|'localY'
   memberPointLoads: [], // {member, P, a, dir}  // P(tf), a(m 從 i 端沿桿件), dir
+  foundationTransfer: null, // {nodeId, momentAxis, momentSign, caseMap:{D,L,W,E}}
   solution: null
 };
 
@@ -729,6 +761,210 @@ function momentAboutOrigin(x, y, fx, fy, m = 0) {
   return x * fy - y * fx + m;
 }
 
+const FOUNDATION_TRANSFER_LOAD_KEYS = ['D', 'L', 'W', 'E'];
+
+function automaticFoundationLoadCaseId(loadKey) {
+  const aliases = {
+    D: ['D', 'DEAD', 'DL'],
+    L: ['L', 'LIVE', 'LL'],
+    W: ['W', 'WIND'],
+    E: ['E', 'EQ', 'EARTHQUAKE'],
+  };
+  const match = state.loadCases.find(loadCase => {
+    const token = String(loadCase.name || '').trim().toUpperCase().replace(/[\s_-]+/g, '');
+    return aliases[loadKey].includes(token);
+  });
+  return match ? match.id : null;
+}
+
+function normalizeFoundationTransferSettings(rawSettings = null) {
+  ensureLoadCases();
+  const raw = rawSettings && typeof rawSettings === 'object' && !Array.isArray(rawSettings) ? rawSettings : {};
+  const supportedNodes = state.nodes.filter(node => hasSupportDof(node, 'cy', 'ky'));
+  const requestedNodeId = parseInt(raw.nodeId);
+  const nodeId = supportedNodes.some(node => node.id === requestedNodeId)
+    ? requestedNodeId
+    : (supportedNodes[0]?.id || null);
+  const momentAxis = raw.momentAxis === 'Mx' ? 'Mx' : 'My';
+  const momentSign = Number(raw.momentSign) === -1 ? -1 : 1;
+  const caseMap = {};
+  FOUNDATION_TRANSFER_LOAD_KEYS.forEach(loadKey => {
+    const hasSavedChoice = raw.caseMap && Object.prototype.hasOwnProperty.call(raw.caseMap, loadKey);
+    const requestedId = parseInt(raw.caseMap?.[loadKey]);
+    caseMap[loadKey] = hasSavedChoice
+      ? (state.loadCases.some(loadCase => loadCase.id === requestedId) ? requestedId : null)
+      : automaticFoundationLoadCaseId(loadKey);
+  });
+  return { nodeId, momentAxis, momentSign, caseMap };
+}
+
+function renderFoundationTransferControls() {
+  const nodeSelect = document.getElementById('foundationTransferNode');
+  if (!nodeSelect) return;
+  state.foundationTransfer = normalizeFoundationTransferSettings(state.foundationTransfer);
+  const settings = state.foundationTransfer;
+  const supportedNodes = state.nodes.filter(node => hasSupportDof(node, 'cy', 'ky'));
+  nodeSelect.innerHTML = supportedNodes.length
+    ? supportedNodes.map(node => `<option value="${node.id}">N${node.id}｜${escapeHtml(formatNodeSupport(node))}</option>`).join('')
+    : '<option value="">沒有具 Y 支承的基礎節點</option>';
+  nodeSelect.value = settings.nodeId == null ? '' : String(settings.nodeId);
+  const axisSelect = document.getElementById('foundationTransferMomentAxis');
+  const signSelect = document.getElementById('foundationTransferMomentSign');
+  if (axisSelect) axisSelect.value = settings.momentAxis;
+  if (signSelect) signSelect.value = String(settings.momentSign);
+  const caseOptions = selectedId => '<option value="">未使用（分量 0）</option>' + state.loadCases.map(loadCase =>
+    `<option value="${loadCase.id}" ${loadCase.id === selectedId ? 'selected' : ''}>${escapeHtml(loadCase.name || `LC${loadCase.id}`)}</option>`
+  ).join('');
+  FOUNDATION_TRANSFER_LOAD_KEYS.forEach(loadKey => {
+    const select = document.getElementById(`foundationTransferCase${loadKey}`);
+    if (select) select.innerHTML = caseOptions(settings.caseMap[loadKey]);
+  });
+}
+
+function updateFoundationTransferSetting(key, value) {
+  state.foundationTransfer = normalizeFoundationTransferSettings(state.foundationTransfer);
+  if (key === 'nodeId') state.foundationTransfer.nodeId = parseInt(value) || null;
+  if (key === 'momentAxis') state.foundationTransfer.momentAxis = value === 'Mx' ? 'Mx' : 'My';
+  if (key === 'momentSign') state.foundationTransfer.momentSign = Number(value) === -1 ? -1 : 1;
+  state.foundationTransfer = normalizeFoundationTransferSettings(state.foundationTransfer);
+  showFoundationTransferPreview('設定已變更；請重新預覽或傳送。');
+}
+
+function updateFoundationTransferCase(loadKey, value) {
+  if (!FOUNDATION_TRANSFER_LOAD_KEYS.includes(loadKey)) return;
+  state.foundationTransfer = normalizeFoundationTransferSettings(state.foundationTransfer);
+  state.foundationTransfer.caseMap[loadKey] = value === '' ? null : (parseInt(value) || null);
+  showFoundationTransferPreview('案例對應已變更；請重新預覽或傳送。');
+}
+
+function showFoundationTransferPreview(message, tone = '') {
+  const preview = document.getElementById('foundationTransferPreview');
+  if (!preview) return;
+  preview.textContent = message;
+  preview.classList.remove('pass', 'fail');
+  if (tone) preview.classList.add(tone);
+}
+
+function buildFoundationLoadComponentPackage() {
+  syncLoadCaseTableFromDom();
+  if (!window.LoadCombo || typeof window.LoadCombo.createComponentPackage !== 'function') {
+    throw new Error('缺少共同基本載重分量核心。');
+  }
+  state.foundationTransfer = normalizeFoundationTransferSettings(state.foundationTransfer);
+  const settings = state.foundationTransfer;
+  const node = state.nodes.find(item => item.id === settings.nodeId);
+  if (!node || !hasSupportDof(node, 'cy', 'ky')) throw new Error('請選擇具有全域 Y 固定或彈簧支承的基礎節點。');
+  const selectedIds = FOUNDATION_TRANSFER_LOAD_KEYS.map(loadKey => settings.caseMap[loadKey]).filter(Number.isInteger);
+  if (!selectedIds.length) throw new Error('D／L／W／E 至少要對應一個基本載重案例。');
+  if (new Set(selectedIds).size !== selectedIds.length) throw new Error('同一載重案例不可重複指定給 D／L／W／E。');
+  if (document.getElementById('selfWeight')?.checked && settings.caseMap.D !== firstLoadCaseId()) {
+    throw new Error('目前勾選含自重；D 必須對應第一個載重案例，才能把自重納入靜載重分量。');
+  }
+  const nodeIndex = state.nodes.findIndex(item => item.id === node.id);
+  const forces = {
+    P: { D:0, L:0, W:0, E:0 },
+    Mx: { D:0, L:0, W:0, E:0 },
+    My: { D:0, L:0, W:0, E:0 },
+  };
+  const clean = value => {
+    const numeric = Number(value) || 0;
+    if (Math.abs(numeric) < 1e-10) return 0;
+    return Number(numeric.toFixed(9));
+  };
+  FOUNDATION_TRANSFER_LOAD_KEYS.forEach(loadKey => {
+    const caseId = settings.caseMap[loadKey];
+    if (!Number.isInteger(caseId)) return;
+    const factors = Object.fromEntries(state.loadCases.map(loadCase => [loadCase.id, loadCase.id === caseId ? 1 : 0]));
+    const solution = analyze(factors);
+    const supportRy = clean(solution.reactions[nodeIndex * 3 + 1]);
+    const supportMz = clean(solution.reactions[nodeIndex * 3 + 2]);
+    forces.P[loadKey] = supportRy;
+    forces[settings.momentAxis][loadKey] = clean(-supportMz * settings.momentSign);
+  });
+  const project = getFrameProjectInfo();
+  const mappedCases = FOUNDATION_TRANSFER_LOAD_KEYS.map(loadKey => {
+    const caseId = settings.caseMap[loadKey];
+    return `${loadKey}=${Number.isInteger(caseId) ? loadCaseName(caseId) : '0'}`;
+  }).join('；');
+  const projectToken = project.no || project.name || 'untitled';
+  return window.LoadCombo.createComponentPackage({
+    source: {
+      tool: '平面剛架分析',
+      label: `${project.name ? `${project.name}｜` : ''}N${node.id} 支承反力（Mz→${settings.momentAxis}）`,
+      version: FRAME_PUBLIC_VERSION,
+      analysisId: `frame:${projectToken}:N${node.id}`,
+      caseSet: `${mappedCases}；基礎作用矩=-Mz×${settings.momentSign}`,
+    },
+    forces,
+  });
+}
+
+function formatFoundationLoadComponentPackage(packageData) {
+  const source = packageData.source;
+  const row = forceKey => FOUNDATION_TRANSFER_LOAD_KEYS.map(loadKey =>
+    `${loadKey} ${Number(packageData.forces[forceKey][loadKey]).toFixed(3)}`
+  ).join('｜');
+  return [
+    `來源：${source.label}`,
+    `案例：${source.caseSet}`,
+    `P (tf，壓+)：${row('P')}`,
+    `Mx (tf·m)：${row('Mx')}`,
+    `My (tf·m)：${row('My')}`,
+    '接收端仍須按「採用候選分量」才會寫入樁帽正式欄位。',
+  ].join('\n');
+}
+
+function previewFoundationLoadComponents() {
+  try {
+    const packageData = buildFoundationLoadComponentPackage();
+    showFoundationTransferPreview(formatFoundationLoadComponentPackage(packageData), 'pass');
+    return packageData;
+  } catch (error) {
+    showFoundationTransferPreview(`無法產生基本載重分量：${error?.message || error}`, 'fail');
+    return null;
+  }
+}
+
+function downloadFoundationLoadComponents() {
+  const packageData = previewFoundationLoadComponents();
+  if (!packageData) return null;
+  const blob = new Blob([`${JSON.stringify(packageData, null, 2)}\n`], { type:'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `frame-foundation-load-components-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  setReportStatus(`已下載 ${link.download}。`);
+  return packageData;
+}
+
+function sendFoundationLoadComponents() {
+  const packageData = previewFoundationLoadComponents();
+  if (!packageData) return null;
+  try {
+    if (!window.ForcePicker || typeof window.ForcePicker.sendTo !== 'function') throw new Error('缺少跨工具內力傳遞核心。');
+    const safe = window.ForcePicker.sendTo('foundation-pile-cap', {
+      meta: {
+        source:'平面剛架分析',
+        caseName:packageData.source.caseSet,
+        factored:false,
+        loadBasis:'basic-components',
+      },
+      forces:{},
+      loadComponents:packageData,
+    }, '../鋼筋混凝土/tools/foundation.html?import=1');
+    showFoundationTransferPreview(`${formatFoundationLoadComponentPackage(packageData)}\n已送出候選並開啟基礎工具。`, 'pass');
+    setReportStatus('已送出樁帽基本載重候選；請在基礎工具確認後採用。');
+    return safe;
+  } catch (error) {
+    showFoundationTransferPreview(`跨工具傳遞失敗：${error?.message || error}`, 'fail');
+    return null;
+  }
+}
+
 function computeAppliedResultant(factors = activeLoadFactors()) {
   const idToNode = new Map(state.nodes.map(n => [n.id, n]));
   const idToMember = new Map(state.members.map(m => [m.id, m]));
@@ -894,6 +1130,7 @@ function renderNodeTable() {
       <td><button class="del-btn" onclick="delNode(${idx})">✕</button></td>`;
     tb.appendChild(tr);
   });
+  renderFoundationTransferControls();
 }
 function updateNode(idx, key, val) {
   if (key === 'cx' || key === 'cy' || key === 'crz') {
@@ -1015,6 +1252,7 @@ function renderLoadCaseTable() {
       <td><button class="del-btn" onclick="delLoadCase(${idx})" ${state.loadCases.length <= 1 ? 'disabled' : ''}>✕</button></td>`;
     tb.appendChild(tr);
   });
+  renderFoundationTransferControls();
 }
 
 function syncLoadCaseTableFromDom() {
@@ -1043,6 +1281,7 @@ function updateLoadCase(idx, key, value) {
   renderNodalLoadTable();
   renderMemberLoadTable();
   renderMemberPointLoadTable();
+  if (key === 'name') renderFoundationTransferControls();
   invalidateAnalysisState();
 }
 
@@ -3019,6 +3258,7 @@ function resetAll() {
   state.memberLoads = []; state.memberPointLoads = [];
   state.loadCases = []; state.comboFactors = {};
   state.loadCombinations = []; state.activeCombinationId = null;
+  state.foundationTransfer = null;
   state.benchmarkId = null;
   invalidateAnalysisState();
   nodeIdCnt = 0; memberIdCnt = 0; loadCaseIdCnt = 0; loadCombinationIdCnt = 0;
@@ -3055,7 +3295,8 @@ function collectProjectData() {
     members: state.members,
     nodalLoads: state.nodalLoads,
     memberLoads: state.memberLoads,
-    memberPointLoads: state.memberPointLoads
+    memberPointLoads: state.memberPointLoads,
+    foundationTransfer: normalizeFoundationTransferSettings(state.foundationTransfer)
   };
 }
 
@@ -3112,6 +3353,7 @@ function validateFrameProjectData(data) {
   if (data.project != null && (typeof data.project !== 'object' || Array.isArray(data.project))) throw new Error('專案資料格式不正確。');
   if (data.defaults != null && (typeof data.defaults !== 'object' || Array.isArray(data.defaults))) throw new Error('預設斷面資料格式不正確。');
   if (data.comboFactors != null && (typeof data.comboFactors !== 'object' || Array.isArray(data.comboFactors))) throw new Error('載重組合因子格式不正確。');
+  if (data.foundationTransfer != null && (typeof data.foundationTransfer !== 'object' || Array.isArray(data.foundationTransfer))) throw new Error('基礎樁帽分量輸出設定格式不正確。');
   const arrays = ['loadCases', 'loadCombinations', 'nodes', 'members', 'nodalLoads', 'memberLoads', 'memberPointLoads'];
   arrays.forEach(key => {
     if (data[key] != null && !Array.isArray(data[key])) throw new Error(key + ' 必須是陣列。');
@@ -3182,9 +3424,10 @@ function loadFromData(data) {
   state.nodalLoads = (data.nodalLoads || []).map(l => ({ caseId: normalizeLoadCaseId(l.caseId), node: l.node, Fx: +l.Fx || 0, Fy: +l.Fy || 0, M: +l.M || 0 }));
   state.memberLoads = (data.memberLoads || []).map(l => ({ caseId: normalizeLoadCaseId(l.caseId), member: l.member, w: +l.w || 0, dir: l.dir || 'globalY' }));
   state.memberPointLoads = (data.memberPointLoads || []).map(l => ({ caseId: normalizeLoadCaseId(l.caseId), member: l.member, P: +l.P || 0, a: +l.a || 0, dir: l.dir || 'globalY' }));
+  state.foundationTransfer = normalizeFoundationTransferSettings(data.foundationTransfer);
   nodeIdCnt = state.nodes.reduce((mx, n) => Math.max(mx, n.id), 0);
   memberIdCnt = state.members.reduce((mx, m) => Math.max(mx, m.id), 0);
-  renderLoadCombinationControls(); renderLoadCaseTable(); renderNodeTable(); refreshNodeSelectors();
+  renderLoadCombinationControls(); renderLoadCaseTable(); renderNodeTable(); refreshNodeSelectors(); renderFoundationTransferControls();
   runAnalysis();
 }
 

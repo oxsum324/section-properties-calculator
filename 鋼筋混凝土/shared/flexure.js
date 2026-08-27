@@ -12,7 +12,7 @@
  *     - 回傳 Mn 單位 = kgf·cm，對壓力面 y=0 取矩
  *
  *   Flexure.phiFlexure(epsT, fy)
- *     依 εt 線性內插 φ (拉控 0.9 / 過渡 / 壓控 0.65)
+ *     依 εt 與 εty + 0.003 線性內插 φ (拉控 0.9 / 過渡 / 壓控 0.65)
  *
  *   Flexure.designAsRect({ b, d, Mu_kgcm, fc, fy })
  *     單筋矩形斷面 (1 排底拉)，給 Mu 反算 As 需求 (cm²)
@@ -29,6 +29,20 @@
 
   const Es = 2.04e6;        // kgf/cm²
   const eps_cu = 0.003;     // 混凝土極限應變
+
+  // 規範 21.2.2.1：fy=4200 kgf/cm² 之竹節鋼筋，εty 得採 0.002；
+  // 其餘強度依 fy/Es。拉力控制界線為 εty + 0.003。
+  function yieldStrain(fy) {
+    return Math.abs(Number(fy) - 4200) < 1e-9 ? 0.002 : Number(fy) / Es;
+  }
+
+  function tensionControlledStrainLimit(fy) {
+    return yieldStrain(fy) + 0.003;
+  }
+
+  function isTensionControlled(epsT, fy, tolerance = 1e-9) {
+    return Number(epsT) + tolerance >= tensionControlledStrainLimit(fy);
+  }
 
   // ─── 嚴謹應變相容解 (T/L/矩形通用) ─────────────
   function solveSection(opt) {
@@ -100,12 +114,13 @@
 
   // ─── φ 內插 (拉控 / 過渡 / 壓控) ────────────────
   function phiFlexure(epsT, fy) {
-    const epsY = fy / Es;
+    const epsY = yieldStrain(fy);
+    const epsTLimit = tensionControlledStrainLimit(fy);
     const phiC = 0.65;
     const phiT = 0.90;
-    if (epsT >= 0.005) return phiT;
+    if (epsT >= epsTLimit) return phiT;
     if (epsT <= epsY)  return phiC;
-    return phiC + (phiT - phiC) * (epsT - epsY) / (0.005 - epsY);
+    return phiC + (phiT - phiC) * (epsT - epsY) / (epsTLimit - epsY);
   }
 
   // ─── 單筋矩形：給 Mu 反算 As 需求 ───────────────
@@ -150,11 +165,15 @@
 
   // ─── As,min (規範 9.6.1.2 — 一般梁/單向板) ──────
   function asMinFlexure(b, d, fc, fy) {
-    return Math.max(0.8 * Math.sqrt(fc) / fy, 14 / fy) * b * d;
+    const fyForAsMin = Math.min(Number(fy), 5600);
+    return Math.max(0.8 * Math.sqrt(fc) / fyForAsMin, 14 / fyForAsMin) * b * d;
   }
 
   global.Flexure = {
     solveSection,
+    yieldStrain,
+    tensionControlledStrainLimit,
+    isTensionControlled,
     phiFlexure,
     designAsRect,
     phiMnRect,

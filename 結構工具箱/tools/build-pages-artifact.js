@@ -68,6 +68,10 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/tools/attachment-case-governance-workspace.js',
   '結構工具箱/tools/rendered-delivery-evidence.js',
   '結構工具箱/tools/rendered-delivery-evidence.inventory.json',
+  '結構工具箱/tools/rc-stm-atomic-change-set.manifest.json',
+  '結構工具箱/tools/rc-stm-atomic-change-set.js',
+  '結構工具箱/tools/rc-stm-atomic-change-set-review.js',
+  '結構工具箱/tools/rc-stm-atomic-change-set-review.test.js',
   '結構工具箱/tools/docx-package-integrity.js',
   '結構工具箱/tools/docx-package-integrity.test.js',
   '結構工具箱/tools/xlsx-package-integrity.js',
@@ -77,6 +81,11 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/tools/xlsx-print-visual.test.js',
   '結構工具箱/tools/xlsx-seal-verifier.js',
   '結構工具箱/tools/xlsx-seal-verifier.test.js',
+  '鋼構工具/core/formal-core-manifest.json',
+  '鋼筋混凝土/shared/joint-reaction-fixture-sanitizer.js',
+  '鋼筋混凝土/shared/joint-reaction-fixture-promotion-gate.js',
+  '鋼筋混凝土/shared/joint-reaction-observed-intake.js',
+  '鋼筋混凝土/shared/joint-reaction-observed-review.template.json',
   'SRC工具/core/src-column-oracle.js',
   'SRC工具/src-column-page.contract.test.js',
   'SRC工具/src-column-browser-smoke.test.js',
@@ -95,6 +104,8 @@ const PRIVATE_FILES = new Set([
 
 const PRIVATE_PREFIXES = [
   '螺栓檢討/bolt-review-tool/',
+  '結構工具箱/tools/independent-engineering-',
+  '鋼筋混凝土/shared/fixtures/joint-reactions/',
   '開挖擋土支撐/backend/',
   '開挖擋土支撐/frontend/',
 ];
@@ -136,6 +147,13 @@ const PRIVATE_SUFFIXES = [
   '.py',
   '.reg',
   '.ts',
+];
+
+const PRIVATE_CONTENT_PATTERNS = [
+  {
+    name: 'windows-user-profile-path',
+    pattern: /(?:^|[^A-Za-z0-9_.-])[A-Za-z]:[\\/]+Users[\\/]+[^\\/\s\"'<>|]+[\\/]+/i,
+  },
 ];
 
 function argValue(name) {
@@ -200,6 +218,84 @@ function gitCandidates(repoRoot) {
 function isInside(root, candidate) {
   const relative = path.relative(root, candidate);
   return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+}
+
+function privateContentNeedles(repoRoot) {
+  const sources = [
+    { name: 'build-repository-root', value: path.resolve(repoRoot) },
+    { name: 'build-user-home', value: os.homedir() },
+  ];
+  const needles = [];
+  const seen = new Set();
+  for (const source of sources) {
+    const backslash = String(source.value || '').replace(/\//g, '\\');
+    const variants = [
+      String(source.value || ''),
+      backslash,
+      backslash.replace(/\\/g, '\\\\'),
+      backslash.replace(/\\/g, '/'),
+    ];
+    for (const needle of variants) {
+      if (needle.length < 4 || seen.has(needle)) {
+        continue;
+      }
+      seen.add(needle);
+      needles.push({ name: source.name, needle });
+    }
+  }
+  return needles;
+}
+
+function scanPrivatePublishedContent(siteRoot, repoRoot) {
+  const findings = [];
+  let scannedFileCount = 0;
+  const needles = privateContentNeedles(repoRoot);
+
+  function scan(directory) {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        scan(absolutePath);
+        continue;
+      }
+      if (entry.isSymbolicLink()) {
+        throw new Error(`published artifact contains unsupported symbolic link: ${normalizeSlash(path.relative(siteRoot, absolutePath))}`);
+      }
+      if (!entry.isFile()) {
+        continue;
+      }
+
+      scannedFileCount += 1;
+      const content = fs.readFileSync(absolutePath).toString('utf8');
+      for (const rule of PRIVATE_CONTENT_PATTERNS) {
+        if (rule.pattern.test(content)) {
+          findings.push({
+            path: normalizeSlash(path.relative(siteRoot, absolutePath)),
+            rule: rule.name,
+          });
+        }
+      }
+      for (const rule of needles) {
+        if (content.includes(rule.needle)) {
+          findings.push({
+            path: normalizeSlash(path.relative(siteRoot, absolutePath)),
+            rule: rule.name,
+          });
+        }
+      }
+    }
+  }
+
+  scan(siteRoot);
+  if (findings.length) {
+    const summary = findings
+      .slice(0, 12)
+      .map(finding => `${finding.path} [${finding.rule}]`)
+      .join(', ');
+    const overflow = findings.length > 12 ? `, and ${findings.length - 12} more` : '';
+    throw new Error(`published artifact contains private workstation path content: ${summary}${overflow}`);
+  }
+  return { scannedFileCount, findingCount: findings.length };
 }
 
 function stagePagesArtifact(options) {
@@ -289,6 +385,10 @@ function stagePagesArtifact(options) {
   if (copiedCount !== publishedPaths.length) {
     throw new Error(`staged file count mismatch: inventory=${publishedPaths.length}, copied=${copiedCount}`);
   }
+  const privateContentScan = scanPrivatePublishedContent(siteRoot, repoRoot);
+  if (privateContentScan.scannedFileCount !== copiedCount) {
+    throw new Error(`private content scan count mismatch: copied=${copiedCount}, scanned=${privateContentScan.scannedFileCount}`);
+  }
 
   return {
     repoRoot,
@@ -299,6 +399,7 @@ function stagePagesArtifact(options) {
     missingCount,
     totalBytes,
     reasonCounts,
+    privateContentScan,
   };
 }
 
@@ -307,7 +408,7 @@ function main() {
     repoRoot: argValue('--repo-root'),
     siteRoot: argValue('--site-root'),
   });
-  console.log(`Pages artifact staged from Git inventory: candidates=${result.candidateCount}, published=${result.publishedCount}, excluded=${result.excludedCount}, missing=${result.missingCount}, bytes=${result.totalBytes}`);
+  console.log(`Pages artifact staged from Git inventory: candidates=${result.candidateCount}, published=${result.publishedCount}, excluded=${result.excludedCount}, missing=${result.missingCount}, bytes=${result.totalBytes}, privateContentScanned=${result.privateContentScan.scannedFileCount}, privateContentFindings=${result.privateContentScan.findingCount}`);
 }
 
 if (require.main === module) {
@@ -324,7 +425,10 @@ module.exports = {
   PRIVATE_PREFIXES,
   PRIVATE_GENERATED_DIRECTORY_PREFIXES,
   PRIVATE_GENERATED_FILE_PREFIXES,
+  PRIVATE_CONTENT_PATTERNS,
   classifyPublishedPath,
   gitCandidates,
+  privateContentNeedles,
+  scanPrivatePublishedContent,
   stagePagesArtifact,
 };

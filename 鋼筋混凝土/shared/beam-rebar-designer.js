@@ -25,7 +25,7 @@
   function buildStack(barNo, counts, cover, tieDb, sv, table) {
     const bar = table[barNo];
     let usedDepth = cover + tieDb;
-    return [0, 1, 2].map(index => {
+    return counts.map((_, index) => {
       usedDepth += bar.db / 2;
       const n = Number(counts[index]) || 0;
       const layer = { n, barNo, db: bar.db, ab: bar.area, As: n * bar.area, dFromFace: usedDepth };
@@ -46,12 +46,12 @@
     return { active, As, centroid, innerEdge, rows: active.length };
   }
 
-  function distribute(total, cap) {
-    if (cap < 2 || total < 2 || total > 3 * cap) return null;
-    const counts = [0, 0, 0];
+  function distribute(total, cap, maxRows = 3) {
+    if (cap < 2 || total < 2 || total > maxRows * cap) return null;
+    const counts = Array(maxRows).fill(0);
     let remain = total;
-    for (let index = 0; index < 3 && remain > 0; index += 1) {
-      const rowsLeft = 3 - index;
+    for (let index = 0; index < maxRows && remain > 0; index += 1) {
+      const rowsLeft = maxRows - index;
       let take = Math.min(cap, remain);
       if (remain > cap && remain - take === 1 && rowsLeft > 1) take -= 1;
       if (take < 2) return null;
@@ -83,9 +83,18 @@
     return { Ig, ytPos: h - ybarTop, ytNeg: ybarTop };
   }
 
-  function asMin(direction, sectionType, bw, bf, d, fc, fy) {
-    const width = sectionType !== 'rect' && direction === 'neg' ? Math.min(bf, 2 * bw) : bw;
-    return Math.max(0.8 * Math.sqrt(fc) / fy, 14 / fy) * width * d;
+  function isStaticallyDeterminate(support) {
+    return support === 'simple' || support === 'cantilever';
+  }
+
+  function asMinWidth(direction, sectionType, support, bw, bf) {
+    const flangeInTension = sectionType !== 'rect' && direction === 'neg';
+    return flangeInTension && isStaticallyDeterminate(support) ? Math.min(bf, 2 * bw) : bw;
+  }
+
+  function asMin(direction, sectionType, support, bw, bf, d, fc, fy) {
+    const width = asMinWidth(direction, sectionType, support, bw, bf);
+    return root.Flexure.asMinFlexure(width, d, fc, fy);
   }
 
   function crackSpacingLimit(fy, cover) {
@@ -110,11 +119,22 @@
       fy: base.fy,
       beta1: base.beta1,
     });
+    const epsTy = root.Flexure.yieldStrain(base.fy);
+    const epsTLimit = root.Flexure.tensionControlledStrainLimit(base.fy);
     const phi = root.Flexure.phiFlexure(solved.epsT_max, base.fy);
-    return { valid: solved.valid, phi, phiMn: phi * solved.Mn / 1e5, Mn: solved.Mn / 1e5 };
+    return {
+      valid: solved.valid,
+      phi,
+      phiMn: phi * solved.Mn / 1e5,
+      Mn: solved.Mn / 1e5,
+      epsT: solved.epsT_max,
+      epsTy,
+      epsTLimit,
+      tensionControlled: solved.valid && root.Flexure.isTensionControlled(solved.epsT_max, base.fy),
+    };
   }
 
-  function planCatalog(base, direction, barNo, tieDb, section) {
+  function assessBarPlans(base, direction, barNo, tieDb, section, oppositeStack) {
     const table = base.barTable;
     const bar = table[barNo];
     if (!bar) return [];
@@ -122,8 +142,8 @@
     if (cap < 2) return [];
     const smax = crackSpacingLimit(base.fy, base.cover);
     const plans = [];
-    for (let total = 2; total <= 3 * cap; total += 1) {
-      const counts = distribute(total, cap);
+    for (let total = 2; total <= base.maxRows * cap; total += 1) {
+      const counts = distribute(total, cap, base.maxRows);
       if (!counts) continue;
       const stack = buildStack(barNo, counts, base.cover, tieDb, base.sv, table);
       const summary = summarize(stack);
@@ -131,27 +151,50 @@
       const d = base.h - summary.centroid;
       if (d <= 0 || summary.innerEdge >= base.h / 2) continue;
       const rho = summary.As / (base.bw * d);
-      if (rho > base.rhoMax + 1e-9) continue;
-      if (summary.As + 1e-9 < asMin(direction, base.sectionType, base.bw, base.bf, d, base.fc, base.fy)) continue;
       const centerSpan = Math.max(0, base.bw - 2 * base.cover - 2 * tieDb - bar.db);
       const outerSpacing = counts[0] > 1 ? centerSpan / (counts[0] - 1) : Infinity;
-      if (outerSpacing > smax + 1e-9) continue;
-      const zero = buildStack(barNo, [0, 0, 0], base.cover, tieDb, base.sv, table);
+      const zero = buildStack(barNo, Array(base.maxRows).fill(0), base.cover, tieDb, base.sv, table);
+      const opposite = Array.isArray(oppositeStack) ? oppositeStack : zero;
       const trial = direction === 'pos'
-        ? flexure(direction, base, stack, zero)
-        : flexure(direction, base, zero, stack);
-      const mcr = 1.2 * (2 * Math.sqrt(base.fc)) * section.Ig / (direction === 'pos' ? section.ytPos : section.ytNeg) / 1e5;
-      if (!trial.valid || trial.phiMn + 1e-9 < mcr) continue;
+        ? flexure(direction, base, stack, opposite)
+        : flexure(direction, base, opposite, stack);
       const demand = direction === 'pos' ? base.MuPos : base.MuNeg;
-      plans.push({ barNo, counts, stack, summary, d, rho, phiMn: trial.phiMn, utilization: Math.max(demand, mcr) / trial.phiMn });
+      const minimumRequired = base.seismic || demand > 1e-9;
+      const asMinValue = asMin(direction, base.sectionType, base.support, base.bw, base.bf, d, base.fc, base.fy);
+      const asFlexReq = direction === 'pos' ? base.asFlexReqPos : base.asFlexReqNeg;
+      const waiverThreshold = Number.isFinite(asFlexReq) ? (4 / 3) * Math.max(asFlexReq, 0) : Infinity;
+      plans.push({
+        barNo, counts, stack, summary, d, rho, trial, demand,
+        asMin: asMinValue,
+        minimumRequired,
+        asMinOk: !minimumRequired || summary.As + 1e-9 >= asMinValue,
+        waiverThreshold,
+        waiverOk: minimumRequired && summary.As + 1e-9 >= waiverThreshold,
+        smrfRhoOk: !base.seismic || rho <= base.rhoSmrfLimit + 1e-9,
+        crackOk: outerSpacing <= smax + 1e-9,
+        outerSpacing,
+        strengthOk: trial.valid && trial.phiMn + 1e-9 >= demand,
+      });
     }
     return plans;
   }
 
-  function search(options) {
+  function planCatalog(base, direction, barNo, tieDb, section) {
+    return assessBarPlans(base, direction, barNo, tieDb, section)
+      .filter(plan => (plan.asMinOk || (!base.seismic && plan.waiverOk))
+        && plan.crackOk && plan.strengthOk && plan.trial.tensionControlled && plan.smrfRhoOk)
+      .map(plan => ({
+        barNo:plan.barNo, counts:plan.counts, stack:plan.stack, summary:plan.summary,
+        d:plan.d, rho:plan.rho, phiMn:plan.trial.phiMn,
+        epsT:plan.trial.epsT, epsTLimit:plan.trial.epsTLimit,
+        utilization:plan.demand / plan.trial.phiMn,
+      }));
+  }
+
+  function normalizeBase(options) {
     const table = options?.barTable || root.Rebar?.REBAR_TABLE || root.REBAR_TABLE || {};
     const base = {
-      sectionType: String(options?.sectionType || 'rect'),
+      sectionType: String(options?.sectionType || 'rect'), support:String(options?.support || 'simple'),
       bw: Number(options?.bw), h: Number(options?.h), bf: Number(options?.bf), hf: Number(options?.hf),
       cover: Number(options?.cover), sv: Number(options?.sv), shMin: Math.max(Number(options?.shMin) || 4, 2.5),
       fc: Number(options?.fc), fy: Number(options?.fy), fyt: Number(options?.fyt), beta1: Number(options?.beta1),
@@ -159,7 +202,84 @@
       Vu: Math.abs(Number(options?.Vu)), Pu: Number(options?.Pu), Tu: Math.abs(Number(options?.Tu)), Ve: Math.abs(Number(options?.Ve)),
       ln: Number(options?.ln), seismic: options?.seismic === true, enableTorsion: options?.enableTorsion === true,
       torsionDesignStatus: String(options?.torsionDesignStatus || 'pending'), barTable: table,
+      asFlexReqPos:Number(options?.asFlexReqPos), asFlexReqNeg:Number(options?.asFlexReqNeg),
+      maxRows:Math.max(3, Math.min(12, Math.floor(Number(options?.maxRows) || 3))),
     };
+    base.bf = base.sectionType === 'rect' ? base.bw : base.bf;
+    base.hf = base.sectionType === 'rect' ? 0 : base.hf;
+    base.epsTy = root.Flexure.yieldStrain(base.fy);
+    base.epsTLimit = root.Flexure.tensionControlledStrainLimit(base.fy);
+    base.rhoMax = 0.85 * base.beta1 * (base.fc / base.fy) * (0.003 / (0.003 + base.epsTLimit));
+    base.rhoSmrfLimit = Math.min((Math.sqrt(base.fc) + 100) / (4 * base.fy), 0.025);
+    return base;
+  }
+
+  function summarizeLongitudinalRanges(options) {
+    const base = normalizeBase(options);
+    const mainBars = unique(options?.mainBars || DEFAULT_MAIN_BARS).filter(barNo => base.barTable[barNo]);
+    const tieBar = String(options?.tieBar || DEFAULT_STIRRUPS[0]);
+    const tie = base.barTable[tieBar];
+    if (!tie || !positive(base.bw) || !positive(base.h) || !positive(base.fc) || !positive(base.fy)) {
+      return { status:'invalid-input', reason:'梁幾何、材料與箍筋號數須有效', rows:[] };
+    }
+    const section = grossSection(base.sectionType, base.bw, base.bf, base.hf, base.h);
+    const bottomReferenceStack = Array.isArray(options?.bottomReferenceStack) ? options.bottomReferenceStack : null;
+    const topReferenceStack = Array.isArray(options?.topReferenceStack) ? options.topReferenceStack : null;
+    const rows = [];
+    for (const direction of ['pos', 'neg']) for (const barNo of mainBars) {
+      // 支數區間屬於目前斷面的配筋輔助資訊；另一側鋼筋會參與應變相容與強度計算。
+      // 未提供參考配置時才退回零壓力鋼筋，讓 DOM-free API 仍可獨立使用。
+      const oppositeStack = direction === 'pos' ? topReferenceStack : bottomReferenceStack;
+      const plans = assessBarPlans(base, direction, barNo, tie.db, section, oppositeStack);
+      const byTotal = (a, b) => a.summary.active.reduce((sum, layer) => sum + layer.n, 0)
+        - b.summary.active.reduce((sum, layer) => sum + layer.n, 0);
+      plans.sort(byTotal);
+      const total = plan => plan.summary.active.reduce((sum, layer) => sum + layer.n, 0);
+      const standard = plans.filter(plan => plan.strengthOk && plan.asMinOk && plan.crackOk
+        && plan.trial.tensionControlled && plan.smrfRhoOk);
+      const waiver = base.seismic ? [] : plans.filter(plan => plan.strengthOk && plan.waiverOk && plan.crackOk
+        && plan.trial.tensionControlled && plan.smrfRhoOk);
+      const clause = [...standard, ...waiver].sort(byTotal);
+      const codeMaximum = plans.filter(plan => plan.crackOk && plan.trial.tensionControlled && plan.smrfRhoOk);
+      const first = clause[0] || null;
+      const standardFirst = standard[0] || null;
+      const waiverFirst = waiver[0] || null;
+      const codeMaximumLast = codeMaximum[codeMaximum.length - 1] || null;
+      const geometryLast = plans[plans.length - 1] || null;
+      const usesWaiver = !!first && (!standardFirst || total(first) < total(standardFirst));
+      rows.push({
+        direction, face:direction === 'pos' ? '底筋 (+M)' : '頂筋 (−M)', barNo,
+        barArea:base.barTable[barNo].area,
+        minBars:first ? total(first) : null,
+        minCounts:first ? [...first.counts] : null,
+        minAs:first ? first.summary.As : null,
+        minMode:!first?.minimumRequired ? 'not-required' : usesWaiver ? 'four-thirds' : 'as-min',
+        standardMinBars:standardFirst ? total(standardFirst) : null,
+        waiverMinBars:waiverFirst ? total(waiverFirst) : null,
+        codeMaxBars:codeMaximumLast ? total(codeMaximumLast) : null,
+        codeMaxCounts:codeMaximumLast ? [...codeMaximumLast.counts] : null,
+        tensionMaxBars:codeMaximumLast ? total(codeMaximumLast) : null,
+        tensionMaxCounts:codeMaximumLast ? [...codeMaximumLast.counts] : null,
+        geometryMaxBars:geometryLast ? total(geometryLast) : null,
+        capPerLayer:maxBarsPerLayer({ ...base, tieDb:tie.db, db:base.barTable[barNo].db }),
+        asMinWidth:asMinWidth(direction, base.sectionType, base.support, base.bw, base.bf),
+        asMin:first?.asMin ?? standardFirst?.asMin ?? null,
+        waiverThreshold:Number.isFinite(first?.waiverThreshold) ? first.waiverThreshold : null,
+        epsTAtMax:codeMaximumLast?.trial.epsT ?? null,
+        epsTLimit:base.epsTLimit,
+        rhoAtMax:codeMaximumLast?.rho ?? null,
+        rhoSmrfLimit:base.seismic ? base.rhoSmrfLimit : null,
+        maximumBasis:base.seismic ? 'tension-strain-and-smrf-ratio' : 'tension-strain',
+        feasible:!!first && !!codeMaximumLast && total(first) <= total(codeMaximumLast),
+      });
+    }
+    return { status:'evaluated', tieBar, epsTy:base.epsTy, epsTLimit:base.epsTLimit,
+      rhoSmrfLimit:base.seismic ? base.rhoSmrfLimit : null, rows };
+  }
+
+  function search(options) {
+    const base = normalizeBase(options);
+    const table = base.barTable;
     const required = ['bw', 'h', 'cover', 'sv', 'fc', 'fy', 'fyt', 'beta1', 'MuPos', 'MuNeg', 'Vu', 'Pu', 'Tu', 'Ve'];
     if (!required.every(key => finite(base[key])) || ![base.bw, base.h, base.fc, base.fy, base.fyt, base.beta1].every(positive)) {
       return { status: 'invalid-input', reason: '梁幾何、材料與需求須為有限正值', candidates: [] };
@@ -168,10 +288,6 @@
     if (base.sectionType !== 'rect' && (!positive(base.bf) || !positive(base.hf) || base.bf < base.bw || base.hf >= base.h)) {
       return { status: 'invalid-input', reason: 'T / L 形梁翼板尺寸不合理', candidates: [] };
     }
-    base.bf = base.sectionType === 'rect' ? base.bw : base.bf;
-    base.hf = base.sectionType === 'rect' ? 0 : base.hf;
-    base.rhoMax = 0.85 * base.beta1 * (base.fc / base.fy) * (0.003 / 0.008);
-
     const mainBars = unique(options?.mainBars || DEFAULT_MAIN_BARS).filter(barNo => table[barNo]);
     const stirrups = unique(options?.stirrupBars || DEFAULT_STIRRUPS).filter(barNo => table[barNo]);
     const legsCatalog = unique(options?.legsCatalog || DEFAULT_LEGS).map(Number).filter(value => value >= 2);
@@ -202,10 +318,9 @@
         const dNeg = base.h - top.summary.centroid;
         const rhoPos = bottom.summary.As / (base.bw * dPos);
         const rhoNeg = top.summary.As / (base.bw * dNeg);
-        const mcrPos = 1.2 * (2 * Math.sqrt(base.fc)) * section.Ig / section.ytPos / 1e5;
-        const mcrNeg = 1.2 * (2 * Math.sqrt(base.fc)) * section.Ig / section.ytNeg / 1e5;
-        if (!pos.valid || !neg.valid || pos.phiMn + 1e-9 < Math.max(base.MuPos, mcrPos) || neg.phiMn + 1e-9 < Math.max(base.MuNeg, mcrNeg)) continue;
-        if (rhoPos > base.rhoMax + 1e-9 || rhoNeg > base.rhoMax + 1e-9) continue;
+        if (!pos.valid || !neg.valid || !pos.tensionControlled || !neg.tensionControlled
+          || (base.seismic && (rhoPos > base.rhoSmrfLimit + 1e-9 || rhoNeg > base.rhoSmrfLimit + 1e-9))
+          || pos.phiMn + 1e-9 < base.MuPos || neg.phiMn + 1e-9 < base.MuNeg) continue;
         const d = Math.min(dPos, dNeg);
         const rhoShear = Math.max(0.0001, Math.min(rhoPos, rhoNeg));
         for (const legs of legsCatalog) for (const spacing of spacings) {
@@ -248,6 +363,7 @@
             stirrup, legs, spacing, dPos, dNeg,
             phiMnPos: pos.phiMn, phiMnNeg: neg.phiMn, shearCapacity: shear.phiVn_eff / 1000,
             flexPosUtilization, flexNegUtilization, shearUtilization,
+            epsTPos:pos.epsT, epsTNeg:neg.epsT, epsTLimit:base.epsTLimit,
             utilization: Math.max(flexPosUtilization, flexNegUtilization, shearUtilization),
             steelScore, congestion: bottom.summary.rows + top.summary.rows + legs / 2 + tie.db,
           });
@@ -276,5 +392,5 @@
     };
   }
 
-  root.BeamRebarDesigner = { search, buildStack, maxBarsPerLayer, planCatalog };
+  root.BeamRebarDesigner = { search, buildStack, maxBarsPerLayer, planCatalog, summarizeLongitudinalRanges };
 })(typeof window !== 'undefined' ? window : globalThis);

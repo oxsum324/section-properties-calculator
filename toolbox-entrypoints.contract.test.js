@@ -8,6 +8,7 @@ const { spawnSync } = require('child_process');
 const repoRoot = __dirname;
 const toolboxRoot = path.join(repoRoot, '結構工具箱');
 const homeJsPath = path.join(toolboxRoot, 'assets/home/home.js');
+const rcStmAtomicChangeSetContract = require('./結構工具箱/tools/rc-stm-atomic-change-set.js');
 
 function readText(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -402,6 +403,8 @@ const EXPECTED_GOVERNANCE_SOURCE_KEYS = {
 const vercel = readJson('vercel.json');
 const formalManifest = readJson('結構工具箱/tools/formal-tools.manifest.json');
 const localQuickManifest = readJson('結構工具箱/tools/local-quick-tools.manifest.json');
+const rcStmAtomicChangeSet = readJson('結構工具箱/tools/rc-stm-atomic-change-set.manifest.json');
+const renderedDeliveryInventory = readJson('結構工具箱/tools/rendered-delivery-evidence.inventory.json');
 const readme = readText(path.join(repoRoot, 'README.md'));
 const boundaries = readText(path.join(repoRoot, 'TOOL_BOUNDARIES.md'));
 const staging = readText(path.join(repoRoot, 'STAGING_GROUPS.md'));
@@ -541,6 +544,7 @@ assertHomeStatusRegion(homeIndex, 'preflightStatus', 'home preflight');
 assertHomeStatusRegion(homeIndex, 'reportReadinessStatus', 'home report readiness');
 assert.ok(homeSource.includes('function renderReportReadinessStatus('), 'home.js renders report readiness status card');
 assert.ok(homeSource.includes('function renderStaticStatusCard('), 'home.js exposes reusable static status card renderer');
+assert.ok(homeSource.includes('payload.rcStmFormalAttachmentRequired') && homeSource.includes("ratio('RC STM 正式附件'"), 'home.js conditionally renders the Schema v27 RC STM formal attachment metric');
 assert.equal(reportReadinessOverview.badge, '頁面專用', 'report readiness overview uses page-only badge');
 assert.equal(reportReadinessOverview.label, '報告閱讀狀態總覽', 'report readiness overview label');
 assert.ok(reportReadinessOverview.summary.includes('優先建議報告閱讀狀態'), 'report readiness overview summary mentions page-only readiness');
@@ -913,6 +917,9 @@ assert.ok(pagesArtifactBuilder.includes("core.autocrlf=false") && pagesArtifactB
 assert.ok(pagesArtifactBuilder.includes("'output'") && pagesArtifactBuilder.includes("'dev_tools'") && pagesArtifactBuilder.includes("'tests'"), 'shared Pages artifact builder owns private directory exclusions');
 assert.ok(pagesArtifactBuilder.includes("'螺栓檢討/bolt-review-tool/'") && pagesArtifactBuilder.includes("'開挖擋土支撐/backend/'") && pagesArtifactBuilder.includes("'開挖擋土支撐/frontend/'"), 'shared Pages artifact builder excludes private source trees');
 assert.ok(pagesArtifactBuilder.includes("'.md'") && pagesArtifactBuilder.includes("'.ps1'") && pagesArtifactBuilder.includes("'.test.js'"), 'shared Pages artifact builder owns private file exclusions');
+assert.ok(pagesArtifactBuilder.includes("'鋼構工具/core/formal-core-manifest.json'"), 'shared Pages artifact builder excludes the steel sync manifest with workstation paths');
+assert.ok(pagesArtifactBuilder.includes('scanPrivatePublishedContent') && pagesArtifactBuilder.includes('privateContentScan'), 'shared Pages artifact builder scans every staged file and fails closed on private workstation paths');
+assert.ok(pagesLiveSmoke.includes("'鋼構工具/core/formal-core-manifest.json'"), 'Pages private-boundary smoke probes the steel sync manifest');
 assert.ok(pagesArtifactSmoke.includes('pages-live-smoke.js'), 'local Pages artifact smoke calls shared live smoke');
 assert.ok(pagesArtifactSmoke.includes('pages-live-browser-smoke.js'), 'local Pages artifact smoke calls shared browser smoke');
 assert.ok(pagesArtifactSmoke.includes('IO.Compression.GZipStream') && pagesArtifactSmoke.includes("page.evaluate(async s=>") && pagesArtifactSmoke.includes("new DecompressionStream('gzip')"), 'local Pages artifact smoke compresses the full browser program for Windows transport');
@@ -945,7 +952,8 @@ assert.ok(pagesDeployWorkflow.includes('name: github-pages'), 'Pages deploy work
 assert.ok(pagesDeployWorkflow.includes('node "結構工具箱/tools/build-pages-artifact.js" --repo-root "." --site-root "_site"'), 'Pages deploy workflow uses the shared Git-inventory builder');
 assert.equal(pagesDeployWorkflow.includes('rsync -a'), false, 'Pages deploy workflow has no duplicate rsync exclusion policy');
 assert.ok(pagesArtifactBuilder.includes('PRIVATE_FILES') && pagesArtifactBuilder.includes('PRIVATE_PREFIXES') && pagesArtifactBuilder.includes('PRIVATE_SUFFIXES'), 'shared Pages artifact builder centralizes the publication policy');
-assert.ok(pagesArtifactBuilder.includes('attachment-package-check.js') && pagesArtifactBuilder.includes('attachment-package-build.js') && pagesArtifactBuilder.includes('attachment-package-verify.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-assess.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-workspace.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-workspace-check.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-flow.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-history.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-history-index.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-history-baseline.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-history-baseline-advance.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-history-baseline-chain.js') && pagesArtifactBuilder.includes('attachment-case-governance-overview.js') && pagesArtifactBuilder.includes('attachment-case-governance-root.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-compare.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-snapshot.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-snapshot-index.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-snapshot-trend.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-snapshot-trend-disposition.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js') && pagesArtifactBuilder.includes('attachment-case-governance-workspace.js') && pagesArtifactBuilder.includes('rendered-delivery-evidence.inventory.json'), 'shared Pages artifact builder excludes governance helpers');
+assert.ok(pagesArtifactBuilder.includes('attachment-package-check.js') && pagesArtifactBuilder.includes('attachment-package-build.js') && pagesArtifactBuilder.includes('attachment-package-verify.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-assess.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-workspace.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-workspace-check.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-flow.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-history.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-history-index.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-history-baseline.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-history-baseline-advance.js') && pagesArtifactBuilder.includes('attachment-package-upgrade-history-baseline-chain.js') && pagesArtifactBuilder.includes('attachment-case-governance-overview.js') && pagesArtifactBuilder.includes('attachment-case-governance-root.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-compare.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-snapshot.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-snapshot-index.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-snapshot-trend.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-snapshot-trend-disposition.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js') && pagesArtifactBuilder.includes('attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js') && pagesArtifactBuilder.includes('attachment-case-governance-workspace.js') && pagesArtifactBuilder.includes('rendered-delivery-evidence.inventory.json') && rcStmAtomicChangeSetContract.REQUIRED_GOVERNANCE_PATHS.every(relativePath => pagesArtifactBuilder.includes(relativePath)), 'shared Pages artifact builder excludes governance helpers and every RC STM atomic governance file');
+assert.ok(rcStmAtomicChangeSetContract.REQUIRED_GOVERNANCE_PATHS.every(relativePath => pagesLiveSmoke.includes(relativePath)), 'Pages private-boundary smoke blocks every RC STM atomic governance file');
 assert.ok(pagesLiveSmoke.includes('attachment-package-upgrade-assess.js') && pagesLiveSmoke.includes('attachment-package-upgrade-workspace.js') && pagesLiveSmoke.includes('attachment-package-upgrade-workspace-check.js') && pagesLiveSmoke.includes('attachment-package-upgrade-flow.js') && pagesLiveSmoke.includes('attachment-package-upgrade-history.js') && pagesLiveSmoke.includes('attachment-package-upgrade-history-index.js') && pagesLiveSmoke.includes('attachment-package-upgrade-history-baseline.js') && pagesLiveSmoke.includes('attachment-package-upgrade-history-baseline-advance.js') && pagesLiveSmoke.includes('attachment-package-upgrade-history-baseline-chain.js') && pagesLiveSmoke.includes('attachment-case-governance-overview.js') && pagesLiveSmoke.includes('attachment-case-governance-root.js') && pagesLiveSmoke.includes('attachment-case-governance-portfolio.js') && pagesLiveSmoke.includes('attachment-case-governance-portfolio-compare.js') && pagesLiveSmoke.includes('attachment-case-governance-portfolio-snapshot.js') && pagesLiveSmoke.includes('attachment-case-governance-portfolio-snapshot-index.js') && pagesLiveSmoke.includes('attachment-case-governance-portfolio-snapshot-trend.js') && pagesLiveSmoke.includes('attachment-case-governance-portfolio-snapshot-trend-disposition.js') && pagesLiveSmoke.includes('attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js') && pagesLiveSmoke.includes('attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js') && pagesLiveSmoke.includes('attachment-case-governance-workspace.js'), 'Pages private-boundary smoke blocks the attachment upgrade helpers');
 assert.ok(pagesArtifactBuilder.includes('build-performance-trend.js') && pagesArtifactBuilder.includes('build-performance-trend.test.js') && pagesLiveSmoke.includes('build-performance-trend.js'), 'Pages publication keeps performance trend governance private');
 assert.ok(pagesDeployWorkflow.includes('needs: deploy'), 'Pages live smoke waits for deploy job');
@@ -1106,6 +1114,37 @@ const stagingPaths = extractStagingPaths(staging);
 assert.ok(stagingPaths.length >= 55, 'STAGING_GROUPS should keep concrete git add paths');
 for (const stagingPath of stagingPaths) {
   assertStagingPathIsUsable(stagingPath);
+}
+function validateRcStmAtomicChangeSet(manifest, options = {}) {
+  return rcStmAtomicChangeSetContract.validateRcStmAtomicChangeSet(manifest, {
+    repoRoot,
+    renderedDeliveryInventory,
+    ...options,
+  });
+}
+
+const stmAtomicChangePaths = rcStmAtomicChangeSet.groups.flatMap(group => group.paths);
+assert.ok(stmAtomicChangePaths.length >= 80, `STM atomic manifest should cover the full cross-tool dependency surface: ${stmAtomicChangePaths.length}`);
+assert.deepEqual(validateRcStmAtomicChangeSet(rcStmAtomicChangeSet), [], 'STM atomic change-set manifest is complete and internally consistent');
+
+const missingManifestPath = JSON.parse(JSON.stringify(rcStmAtomicChangeSet));
+missingManifestPath.groups.find(group => group.key === 'formal-attachment-evidence').paths = missingManifestPath.groups
+  .find(group => group.key === 'formal-attachment-evidence').paths
+  .filter(relativePath => relativePath !== missingManifestPath.entrypoints[0].regression);
+assert.ok(validateRcStmAtomicChangeSet(missingManifestPath).some(issue => issue === 'entrypoint-path-not-listed:deep-beam-stm:regression'), 'STM atomic manifest rejects an omitted entrypoint regression');
+
+const missingWorkspaceFile = rcStmAtomicChangeSet.entrypoints[1].page;
+assert.ok(validateRcStmAtomicChangeSet(rcStmAtomicChangeSet, {
+  exists: relativePath => relativePath !== missingWorkspaceFile && fs.existsSync(path.join(repoRoot, ...relativePath.split('/'))),
+}).some(issue => issue === `missing-file:${missingWorkspaceFile}`), 'STM atomic manifest rejects a declared file missing from the checkout');
+
+const inflatedHomepageCount = JSON.parse(JSON.stringify(rcStmAtomicChangeSet));
+inflatedHomepageCount.homepageFormalToolDelta = 3;
+assert.ok(validateRcStmAtomicChangeSet(inflatedHomepageCount).includes('homepage-formal-tool-delta'), 'STM atomic manifest rejects treating workflow attachments as new formal homepage tools');
+
+for (const document of [staging, boundaries]) {
+  assert.ok(document.includes('rc-stm-atomic-change-set.manifest.json'), 'STM atomic change-set governance names the machine-readable manifest');
+  assert.ok(document.includes('不得另計為首頁') || document.includes('不得另計為首頁新的獨立正式入口'), 'STM subtools stay outside the independent formal-home-tool count');
 }
 const preflightContractPaths = extractPreflightContractPaths(preflight);
 assert.ok(preflightContractPaths.length >= 9, 'preflight contract inventory should cover current gates; got ' + preflightContractPaths.length);

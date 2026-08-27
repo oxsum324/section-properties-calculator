@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "rc-joint-reaction-observed-review.v1",
+  "fixtureId": "replace-with-lowercase-fixture-id",
+  "candidateSha256": "replace-with-sanitized-output-sha256",
+  "reviewedAt": "2026-08-26T00:00:00.000Z",
+  "reviewer": "replace-with-reviewer-or-role",
+  "assertions": {
+    "noProjectIdentity": false,
+    "headersReviewed": false,
+    "softwareVersionConfirmed": false,
+    "tableNameConfirmed": false,
+    "unitsConfirmed": false,
+    "compatibilityReplayPassed": false,
+    "nonEngineeringUseAcknowledged": false,
+    "originalSourceExcluded": false
+  },
+  "notes": "After human review, replace reviewer and reviewedAt with real values and explicitly change every confirmed assertion to true. Placeholder reviewer values are rejected."
+}

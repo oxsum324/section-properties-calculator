@@ -1,0 +1,300 @@
+{
+  "schemaVersion": 2,
+  "kind": "rc-stm-atomic-change-set",
+  "governedToolKeys": [
+    "deep-beam-stm",
+    "foundation-deep-beam-stm",
+    "pile-cap-3d-stm"
+  ],
+  "homepageFormalToolDelta": 0,
+  "releaseEvidence": {
+    "schemaVersion": 27,
+    "scope": "rc-stm-supplemental-formal-attachments",
+    "requiredAttachments": 3,
+    "requiredArtifacts": 12
+  },
+  "entrypoints": [
+    {
+      "key": "deep-beam-stm",
+      "parentHref": "/rc-beam",
+      "page": "鋼筋混凝土/tools/deep-beam-stm.html",
+      "regression": "鋼筋混凝土/tools/deep-beam-stm-regression.test.js",
+      "wrapper": "鋼筋混凝土/tools/test-deep-beam-stm.ps1"
+    },
+    {
+      "key": "foundation-deep-beam-stm",
+      "parentHref": "/rc-foundation",
+      "page": "鋼筋混凝土/tools/foundation-deep-beam-stm.html",
+      "regression": "鋼筋混凝土/tools/foundation-deep-beam-stm-regression.test.js",
+      "wrapper": "鋼筋混凝土/tools/test-foundation-deep-beam-stm.ps1"
+    },
+    {
+      "key": "pile-cap-3d-stm",
+      "parentHref": "/rc-foundation",
+      "page": "鋼筋混凝土/tools/pile-cap-3d-stm.html",
+      "regression": "鋼筋混凝土/tools/pile-cap-3d-stm-regression.test.js",
+      "wrapper": "鋼筋混凝土/tools/test-pile-cap-3d-stm.ps1"
+    }
+  ],
+  "handoffs": [
+    {
+      "key": "rc-beam-design-to-stm",
+      "summary": "RC beam flexure, reinforcement limits and row geometry must lead to an explicit deep-beam applicability branch.",
+      "sourcePaths": [
+        "鋼筋混凝土/shared/flexure.js",
+        "鋼筋混凝土/shared/beam-rebar-designer.js",
+        "鋼筋混凝土/tools/beam.html"
+      ],
+      "targetPaths": [
+        "鋼筋混凝土/shared/beam-applicability.js",
+        "鋼筋混凝土/shared/deep-beam-stm.js",
+        "鋼筋混凝土/tools/deep-beam-stm.html"
+      ],
+      "contractPaths": [
+        "鋼筋混凝土/shared/flexure.test.js",
+        "鋼筋混凝土/shared/beam-rebar-designer.test.js",
+        "鋼筋混凝土/tools/beam-regression.test.js",
+        "鋼筋混凝土/tools/beam-regression-cases.json",
+        "結構工具箱/tools/independent-engineering-adapters/rc-beam-strength.js",
+        "結構工具箱/tools/independent-engineering-benchmarks.catalog.json",
+        "結構工具箱/tools/independent-engineering-benchmarks.js",
+        "結構工具箱/tools/independent-engineering-benchmarks.test.js"
+      ]
+    },
+    {
+      "key": "frame-basic-components-to-pile-cap-stm",
+      "summary": "Plane-frame support reactions must preserve unfactored D, L, W and E components through the governed transfer into pile-cap STM.",
+      "sourcePaths": [
+        "鋼架/平面剛架分析.html",
+        "結構工具箱/tools/analysis-section-tool-metadata.js",
+        "結構工具箱/core/loads/loadcombo.js",
+        "結構工具箱/core/ui/force-picker.js",
+        "結構工具箱/tools/force-picker.html"
+      ],
+      "targetPaths": [
+        "鋼筋混凝土/tools/foundation.html",
+        "鋼筋混凝土/shared/pile-cap-3d-stm-bridge.js",
+        "鋼筋混凝土/shared/pile-cap-3d-stm.js",
+        "鋼筋混凝土/tools/pile-cap-3d-stm.html"
+      ],
+      "contractPaths": [
+        "frame-analysis.contract.test.js",
+        "結構工具箱/tools/loadcombo-v2.test.js",
+        "結構工具箱/tools/local-quick-tools.contract.test.js",
+        "鋼筋混凝土/tools/pile-cap-3d-stm-bridge-regression.test.js",
+        "鋼筋混凝土/tools/test-pile-cap-3d-stm.ps1"
+      ]
+    },
+    {
+      "key": "joint-reactions-to-pile-cap-stm",
+      "summary": "Observed or synthetic joint-reaction tables remain candidates until format, case type, sign and component checks pass before pile-cap adoption.",
+      "sourcePaths": [
+        "鋼筋混凝土/shared/joint-reaction-load-adapter.js",
+        "鋼筋混凝土/shared/joint-reaction-fixture-sanitizer-core.js",
+        "鋼筋混凝土/shared/joint-reaction-observed-intake.js",
+        "鋼筋混凝土/shared/fixtures/joint-reactions/manifest.json",
+        "鋼筋混凝土/shared/fixtures/joint-reactions/observed-manifest.json"
+      ],
+      "targetPaths": [
+        "鋼筋混凝土/tools/foundation.html",
+        "鋼筋混凝土/shared/pile-cap-3d-stm-bridge.js",
+        "鋼筋混凝土/shared/pile-cap-3d-stm.js",
+        "鋼筋混凝土/tools/pile-cap-3d-stm.html"
+      ],
+      "contractPaths": [
+        "鋼筋混凝土/shared/joint-reaction-load-adapter.test.js",
+        "鋼筋混凝土/shared/joint-reaction-load-adapter-fixtures.test.js",
+        "鋼筋混凝土/shared/joint-reaction-fixture-sanitizer-core.test.js",
+        "鋼筋混凝土/shared/joint-reaction-fixture-sanitizer.test.js",
+        "鋼筋混凝土/shared/joint-reaction-fixture-promotion-gate.test.js",
+        "鋼筋混凝土/shared/joint-reaction-observed-intake.test.js",
+        "鋼筋混凝土/tools/foundation-regression.test.js",
+        "鋼筋混凝土/tools/pile-cap-3d-stm-bridge-regression.test.js"
+      ]
+    },
+    {
+      "key": "stm-pages-to-formal-evidence",
+      "summary": "The three supplemental pages must produce same-run rendered, portable, sealed and publicly redacted release evidence.",
+      "sourcePaths": [
+        "鋼筋混凝土/tools/deep-beam-stm.html",
+        "鋼筋混凝土/tools/foundation-deep-beam-stm.html",
+        "鋼筋混凝土/tools/pile-cap-3d-stm.html"
+      ],
+      "targetPaths": [
+        "結構工具箱/tools/rendered-delivery-evidence.inventory.json",
+        "結構工具箱/tools/tool-maturity-matrix.js",
+        "結構工具箱/assets/home/home.js",
+        "結構工具箱/assets/status/public-evidence-schema.js"
+      ],
+      "contractPaths": [
+        "鋼筋混凝土/tools/deep-beam-stm-regression.test.js",
+        "鋼筋混凝土/tools/foundation-deep-beam-stm-regression.test.js",
+        "鋼筋混凝土/tools/pile-cap-3d-stm-regression.test.js",
+        "結構工具箱/tools/independent-engineering-adapters/rc-stm-strength.js",
+        "結構工具箱/tools/independent-engineering-benchmarks.catalog.json",
+        "結構工具箱/tools/independent-engineering-benchmarks.js",
+        "結構工具箱/tools/independent-engineering-benchmarks.test.js",
+        "結構工具箱/tools/rendered-delivery-evidence.contract.test.js",
+        "結構工具箱/tools/release-readiness.contract.test.js",
+        "結構工具箱/tools/public-evidence-schema.test.js",
+        "結構工具箱/tools/local-quick-browser-smoke.test.js",
+        "toolbox-entrypoints.contract.test.js"
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "key": "calculation-core",
+      "purpose": "STM applicability, force-flow, reinforcement layout, pile reaction and governing-envelope calculations",
+      "paths": [
+        "鋼筋混凝土/shared/beam-applicability.js",
+        "鋼筋混凝土/shared/beam-applicability.test.js",
+        "鋼筋混凝土/shared/beam-evaluator.js",
+        "鋼筋混凝土/shared/beam-rebar-designer.js",
+        "鋼筋混凝土/shared/beam-rebar-designer.test.js",
+        "鋼筋混凝土/shared/flexure.js",
+        "鋼筋混凝土/shared/flexure.test.js",
+        "鋼筋混凝土/shared/deep-beam-stm.js",
+        "鋼筋混凝土/shared/deep-beam-stm.test.js",
+        "鋼筋混凝土/shared/foundation-deep-beam-stm.js",
+        "鋼筋混凝土/shared/foundation-deep-beam-stm.test.js",
+        "鋼筋混凝土/shared/pile-cap-load-combinations.js",
+        "鋼筋混凝土/shared/pile-cap-load-combinations.test.js",
+        "鋼筋混凝土/shared/pile-cap-3d-stm.js",
+        "鋼筋混凝土/shared/pile-cap-3d-stm.test.js",
+        "鋼筋混凝土/shared/pile-cap-3d-stm-bridge.js",
+        "鋼筋混凝土/shared/pile-cap-3d-stm-bridge.test.js",
+        "鋼筋混凝土/shared/pile-cap-3d-stm-envelope.js",
+        "鋼筋混凝土/shared/pile-cap-3d-stm-envelope.test.js"
+      ]
+    },
+    {
+      "key": "runtime-pages-and-handoffs",
+      "purpose": "RC work pages, analysis load handoff and the three governed STM report surfaces",
+      "paths": [
+        "結構工具箱/core/loads/loadcombo.js",
+        "結構工具箱/core/ui/force-picker.js",
+        "結構工具箱/tools/force-picker.html",
+        "結構工具箱/tools/loadcombo-v2.test.js",
+        "結構工具箱/tools/local-quick-tools.contract.test.js",
+        "結構工具箱/tools/analysis-section-tool-metadata.js",
+        "frame-analysis.contract.test.js",
+        "鋼架/平面剛架分析.html",
+        "鋼筋混凝土/shared/joint-reaction-load-adapter.js",
+        "鋼筋混凝土/shared/joint-reaction-load-adapter.test.js",
+        "鋼筋混凝土/shared/joint-reaction-load-adapter-fixtures.test.js",
+        "鋼筋混凝土/tools/beam.html",
+        "鋼筋混凝土/tools/foundation.html",
+        "鋼筋混凝土/tools/deep-beam-stm.html",
+        "鋼筋混凝土/tools/foundation-deep-beam-stm.html",
+        "鋼筋混凝土/tools/pile-cap-3d-stm.html",
+        "鋼筋混凝土/tools/pile-cap-3d-stm-bridge-regression.test.js"
+      ]
+    },
+    {
+      "key": "runtime-baseline-dependencies",
+      "purpose": "Existing local assets loaded directly by the standalone STM pages",
+      "paths": [
+        "結構工具箱/core/materials/concrete.js",
+        "結構工具箱/core/materials/rebar.js",
+        "結構工具箱/core/direct-print-boundary.css",
+        "結構工具箱/core/ui/report.js",
+        "結構工具箱/tools/calculation-book-content-boundary.json",
+        "結構工具箱/tools/project-meta-profile.js",
+        "鋼筋混凝土/shared/common.js",
+        "鋼筋混凝土/shared/style.css",
+        "鋼筋混凝土/shared/direct-print-boundary.css",
+        "鋼筋混凝土/shared/report.js"
+      ]
+    },
+    {
+      "key": "observed-format-governance",
+      "purpose": "Privacy-preserving Joint Reactions compatibility evidence without engineering-data fixtures",
+      "paths": [
+        "鋼筋混凝土/shared/joint-reaction-fixture-sanitizer-core.js",
+        "鋼筋混凝土/shared/joint-reaction-fixture-sanitizer-core.test.js",
+        "鋼筋混凝土/shared/joint-reaction-fixture-sanitizer.js",
+        "鋼筋混凝土/shared/joint-reaction-fixture-sanitizer.test.js",
+        "鋼筋混凝土/shared/joint-reaction-fixture-promotion-gate.js",
+        "鋼筋混凝土/shared/joint-reaction-fixture-promotion-gate.test.js",
+        "鋼筋混凝土/shared/joint-reaction-observed-intake.js",
+        "鋼筋混凝土/shared/joint-reaction-observed-intake.test.js",
+        "鋼筋混凝土/shared/joint-reaction-observed-review.template.json",
+        "鋼筋混凝土/shared/fixtures/joint-reactions/README.md",
+        "鋼筋混凝土/shared/fixtures/joint-reactions/manifest.json",
+        "鋼筋混凝土/shared/fixtures/joint-reactions/observed-manifest.json",
+        "鋼筋混凝土/shared/fixtures/joint-reactions/etabs-like-quoted-preamble.csv",
+        "鋼筋混凝土/shared/fixtures/joint-reactions/generic-semicolon-quoted.txt",
+        "鋼筋混凝土/shared/fixtures/joint-reactions/sap2000-like-aliases.tsv",
+        "鋼筋混凝土/shared/fixtures/joint-reactions/reject-load-combination.csv",
+        "鋼筋混凝土/shared/fixtures/joint-reactions/reject-missing-case-type.csv",
+        "鋼筋混凝土/shared/fixtures/joint-reactions/reject-multi-step.tsv",
+        "鋼筋混凝土/shared/fixtures/joint-reactions/reject-response-spectrum.csv",
+        "結構工具箱/audit-dashboard.html",
+        "結構工具箱/tools/audit-dashboard.contract.test.js",
+        "結構工具箱/tools/audit-dashboard-browser-smoke.test.js"
+      ]
+    },
+    {
+      "key": "rc-integration-and-regression",
+      "purpose": "RC menu, traceability, audit and parent-flow regressions",
+      "paths": [
+        ".gitignore",
+        "鋼筋混凝土/README.md",
+        "鋼筋混凝土/index.html",
+        "鋼筋混凝土/audit-tool.ps1",
+        "鋼筋混凝土/tools/audit-status.contract.test.js",
+        "鋼筋混凝土/tools/rc-stm-independent-engineering-gate.test.js",
+        "鋼筋混凝土/tools/rc-index-menu-browser-smoke.test.js",
+        "鋼筋混凝土/tools/rc-traceability.catalog.json",
+        "鋼筋混凝土/tools/beam-regression.test.js",
+        "鋼筋混凝土/tools/beam-regression-cases.json",
+        "鋼筋混凝土/tools/beam-report-visual.test.js",
+        "鋼筋混凝土/tools/test-beam.ps1",
+        "鋼筋混凝土/tools/foundation-regression.test.js",
+        "鋼筋混凝土/tools/foundation-report-visual.test.js",
+        "鋼筋混凝土/tools/test-foundation.ps1"
+      ]
+    },
+    {
+      "key": "formal-attachment-evidence",
+      "purpose": "Schema v27 production, aggregation, public status and rendered-home proof",
+      "paths": [
+        "鋼筋混凝土/tools/deep-beam-stm-regression.test.js",
+        "鋼筋混凝土/tools/foundation-deep-beam-stm-regression.test.js",
+        "鋼筋混凝土/tools/pile-cap-3d-stm-regression.test.js",
+        "鋼筋混凝土/tools/test-deep-beam-stm.ps1",
+        "鋼筋混凝土/tools/test-foundation-deep-beam-stm.ps1",
+        "鋼筋混凝土/tools/test-pile-cap-3d-stm.ps1",
+        "鋼筋混凝土/tools/report-portable-html-check.js",
+        "鋼筋混凝土/tools/report-screenshot-quality.js",
+        "結構工具箱/tools/rendered-delivery-evidence.inventory.json",
+        "結構工具箱/tools/rendered-delivery-evidence.contract.test.js",
+        "結構工具箱/tools/independent-engineering-adapters/rc-beam-strength.js",
+        "結構工具箱/tools/independent-engineering-adapters/rc-stm-strength.js",
+        "結構工具箱/tools/independent-engineering-benchmarks.catalog.json",
+        "結構工具箱/tools/independent-engineering-benchmarks.js",
+        "結構工具箱/tools/independent-engineering-benchmarks.test.js",
+        "結構工具箱/tools/release-readiness.contract.test.js",
+        "結構工具箱/tools/tool-maturity-matrix.js",
+        "結構工具箱/assets/home/home.js",
+        "結構工具箱/assets/status/public-evidence-schema.js",
+        "結構工具箱/tools/public-evidence-schema.test.js",
+        "結構工具箱/tools/local-quick-browser-smoke.test.js",
+        "結構工具箱/tools/rc-stm-atomic-change-set.manifest.json",
+        "結構工具箱/tools/rc-stm-atomic-change-set.js",
+        "結構工具箱/tools/rc-stm-atomic-change-set-review.js",
+        "結構工具箱/tools/rc-stm-atomic-change-set-review.test.js",
+        "結構工具箱/tools/build-pages-artifact.js",
+        "結構工具箱/tools/pages-live-smoke.js",
+        "pages-release-governance.contract.test.js",
+        "toolbox-entrypoints.contract.test.js",
+        "preflight-tools.ps1",
+        "README.md",
+        "STAGING_GROUPS.md",
+        "TOOL_BOUNDARIES.md",
+        "TOOL_REPORT_GUIDE.md"
+      ]
+    }
+  ]
+}

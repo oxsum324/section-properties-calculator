@@ -1,0 +1,118 @@
+{
+  "schemaVersion": "rc-joint-reaction-fixtures.v1",
+  "fixturePolicy": "synthetic-compatibility-only",
+  "notEngineeringData": true,
+  "fixtures": [
+    {
+      "id": "etabs-like-quoted-csv-preamble",
+      "software": "ETABS",
+      "file": "etabs-like-quoted-preamble.csv",
+      "format": "comma",
+      "headerLine": 3,
+      "pointKey": "Base / P1",
+      "unitProfile": "kn-m",
+      "cases": { "D": "DEAD", "L": "LIVE", "W": "WIND", "E": "EQ" },
+      "verticalForce": "F3",
+      "mxMoment": "M1",
+      "myMoment": "M2",
+      "expectedForces": {
+        "P": { "D": 100, "L": 40, "W": 0, "E": 0 },
+        "Mx": { "D": 0, "L": 0, "W": -12, "E": 0 },
+        "My": { "D": 0, "L": 0, "W": 0, "E": 15 }
+      }
+    },
+    {
+      "id": "sap2000-like-tab-aliases",
+      "software": "SAP2000",
+      "file": "sap2000-like-aliases.tsv",
+      "format": "tab",
+      "headerLine": 2,
+      "pointKey": "J-BASE",
+      "unitProfile": "tf-m",
+      "cases": { "D": "DEAD", "L": "LIVE", "W": "WX", "E": "EY" },
+      "verticalForce": "F3",
+      "verticalSign": -1,
+      "mxMoment": "M1",
+      "myMoment": "M2",
+      "expectedForces": {
+        "P": { "D": 120, "L": 35, "W": 0, "E": 0 },
+        "Mx": { "D": 0, "L": 0, "W": 18, "E": 0 },
+        "My": { "D": 0, "L": 0, "W": 0, "E": -22 }
+      }
+    },
+    {
+      "id": "generic-semicolon-quoted-delimiter",
+      "software": "ETABS",
+      "file": "generic-semicolon-quoted.txt",
+      "format": "semicolon",
+      "headerLine": 1,
+      "pointKey": "J;1",
+      "unitProfile": "kgf-cm",
+      "cases": { "D": "D", "W": "W", "E": "E" },
+      "verticalForce": "F3",
+      "mxMoment": "M1",
+      "myMoment": "M2",
+      "expectedForces": {
+        "P": { "D": 150, "L": 0, "W": 0, "E": 0 },
+        "Mx": { "D": 0, "L": 0, "W": -2, "E": 0 },
+        "My": { "D": 0, "L": 0, "W": 0, "E": 3 }
+      }
+    },
+    {
+      "id": "reject-load-combination",
+      "software": "ETABS",
+      "file": "reject-load-combination.csv",
+      "format": "comma",
+      "headerLine": 1,
+      "pointKey": "Base / P1",
+      "unitProfile": "tf-m",
+      "cases": { "D": "1.2D+1.6L" },
+      "verticalForce": "F3",
+      "mxMoment": "M1",
+      "myMoment": "M2",
+      "expectedError": "為載重組合"
+    },
+    {
+      "id": "reject-multi-step",
+      "software": "SAP2000",
+      "file": "reject-multi-step.tsv",
+      "format": "tab",
+      "headerLine": 1,
+      "pointKey": "J1",
+      "unitProfile": "kn-m",
+      "cases": { "D": "MODAL-HISTORY" },
+      "verticalForce": "F3",
+      "mxMoment": "M1",
+      "myMoment": "M2",
+      "expectedError": "有 2 列"
+    },
+    {
+      "id": "reject-response-spectrum",
+      "software": "ETABS",
+      "file": "reject-response-spectrum.csv",
+      "format": "comma",
+      "headerLine": 1,
+      "pointKey": "Base / P1",
+      "unitProfile": "kn-m",
+      "cases": { "E": "RS-X" },
+      "verticalForce": "F3",
+      "mxMoment": "M1",
+      "myMoment": "M2",
+      "expectedError": "不是可線性疊加的 Linear Static／LinStatic"
+    },
+    {
+      "id": "reject-missing-case-type",
+      "software": "ETABS",
+      "file": "reject-missing-case-type.csv",
+      "format": "comma",
+      "headerLine": 1,
+      "pointKey": "P1",
+      "unitProfile": "tf-m",
+      "cases": { "D": "DEAD" },
+      "verticalForce": "F3",
+      "mxMoment": "M1",
+      "myMoment": "M2",
+      "expectedError": "缺少 CaseType"
+    }
+  ]
+}

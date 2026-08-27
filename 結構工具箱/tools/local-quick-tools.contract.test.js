@@ -820,6 +820,7 @@ assertIncludes(repoDocs.forcesReceive, '未驗證來源', 'force receiver disclo
     'column-rect':'../鋼筋混凝土/tools/column.html?import=1',
     'column-circ':'../鋼筋混凝土/tools/column.html?import=1&colType=circle',
     'steel-beam':'../../鋼構工具/steel-beam-formal.html?import=1',
+    'foundation-pile-cap':'../../鋼筋混凝土/tools/foundation.html?import=1',
   }, 'force picker default routes target the current canonical design pages');
   assert.equal(repoDocs.forcePickerCore.includes('column-circular.html'), false, 'force picker documentation does not advertise a nonexistent circular-column page');
   assert.equal(repoDocs.forcePickerCore.includes('尚未實作'), false, 'force picker documentation does not describe an implemented target as unfinished');
@@ -915,6 +916,30 @@ assertIncludes(repoDocs.forcesReceive, '未驗證來源', 'force receiver disclo
   assert.equal(positiveTransport.forces.P, 25, 'RC beam send transport preserves positive P');
   assert.equal(positiveTransport.forces.M, 8, 'RC beam send transport stores positive moment magnitude');
   assert.equal(positiveTransport.forces.MNeg, 0, 'RC beam send transport clears MNeg for positive source moment');
+
+  const componentPackage = context.window.LoadCombo.createComponentPackage({
+    generatedAt:'2026-08-26T01:02:03.000Z',
+    source:{tool:'contract-analysis',label:'contract load components',caseSet:'ULS basic cases'},
+    forces:{
+      P:{D:300,L:50,W:0,E:0},
+      Mx:{D:0,L:0,W:100,E:0},
+      My:{D:0,L:0,W:0,E:80},
+    },
+  });
+  context.window.ForcePicker.sendTo(
+    'foundation-pile-cap',
+    {meta:{source:'contract-analysis',caseName:'ULS basic cases'},forces:{},loadComponents:componentPackage},
+    'about:blank'
+  );
+  const foundationTransport = context.window.ForcePicker.consume();
+  assert.equal(foundationTransport.target, 'foundation-pile-cap', 'force picker identifies the foundation pile-cap target');
+  assert.equal(foundationTransport.loadComponents.schemaVersion, 'loadcombo-components-v1', 'force picker preserves the common component schema');
+  assert.equal(foundationTransport.loadComponents.forces.Mx.W, 100, 'force picker preserves signed D/L/W/E moment components');
+  assert.throws(() => context.window.ForcePicker.sendTo(
+    'foundation-pile-cap',
+    {meta:{source:'contract-analysis'},forces:{}},
+    'about:blank'
+  ), /需要 D\/L\/W\/E 基本載重分量/, 'foundation pile-cap transport fails closed without load components');
 
 }
 

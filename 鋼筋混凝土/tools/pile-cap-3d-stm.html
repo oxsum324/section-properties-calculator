@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RC 樁帽三維壓拉桿模型 - V0.5</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../shared/style.css">
+<link rel="stylesheet" href="../shared/direct-print-boundary.css">
+<style>
+  .scope-card{border-top:3px solid #7c3aed;background:linear-gradient(180deg,#f5f3ff,#fff)}
+  .scope-card p,.scope-list{color:#5b21b6;font-size:.84em;line-height:1.65}.scope-list{margin:8px 0 0 20px}.scope-list li{margin:3px 0}
+  .model-grid{display:grid;grid-template-columns:minmax(390px,470px) minmax(0,1fr);gap:18px;align-items:start}
+  .subhead{margin:16px 0 8px;color:var(--primary);font-size:.92em;border-bottom:1px dashed var(--border);padding-bottom:5px}
+  textarea.pile-input{min-height:150px;width:100%;resize:vertical;font-family:Consolas,monospace;line-height:1.45}
+  .bridge-box{border:1px solid #93c5fd;border-radius:10px;background:#eff6ff;padding:12px 14px}.bridge-box strong{color:#1e3a8a}.bridge-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}.bridge-actions button{width:auto;margin:0;padding:8px 13px}.bridge-file{display:none}.bridge-status{margin:8px 0 0;color:#475569;font-size:.82em;line-height:1.55}.bridge-status.pass{color:#166534}.bridge-status.fail{color:#991b1b}.bridge-status.warn{color:#92400e}
+  .load-case-controls{margin-top:10px;padding-top:10px;border-top:1px dashed #93c5fd}.load-case-controls label{font-size:.82em;color:#1e3a8a;font-weight:700}.load-case-controls select{margin-top:4px}.envelope-table{width:100%;border-collapse:collapse;margin-top:9px;font-size:.76em}.envelope-table th,.envelope-table td{border:1px solid #bfdbfe;padding:6px 7px;text-align:left}.envelope-table th{background:#dbeafe;color:#1e3a8a}.envelope-table td:nth-child(2){text-align:right;font-variant-numeric:tabular-nums}
+  .tie-box{border:1px solid var(--border);border-radius:9px;padding:10px;margin-top:10px;background:#f8fafc}.tie-box h4{margin:0 0 8px;color:#334155}
+  .check-confirm{display:flex;gap:9px;align-items:flex-start;padding:9px 11px;margin-top:8px;border:1px solid #fde68a;border-radius:8px;background:#fffbeb;color:#78350f;font-size:.82em;line-height:1.5}
+  .check-confirm input{width:18px;height:18px;margin-top:2px;flex:0 0 auto;accent-color:var(--primary)}
+  .action-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}.action-row button{margin-top:0}
+  .status-banner{padding:14px 16px;border:2px solid #94a3b8;border-radius:9px;background:#f8fafc;font-size:1.05em;font-weight:800;text-align:center}
+  .status-banner.ok{border-color:#16a34a;background:#f0fdf4;color:#166534}.status-banner.review{border-color:#d97706;background:#fffbeb;color:#92400e}.status-banner.fail{border-color:#dc2626;background:#fef2f2;color:#991b1b}
+  .diagram{margin-top:12px;overflow:auto;border:1px solid var(--border);border-radius:10px;background:#fff;padding:8px}.diagram svg{display:block;width:100%;min-width:680px;height:auto}
+  .result-table{width:100%;border-collapse:collapse;font-size:.8em;margin-top:12px}.result-table th,.result-table td{border:1px solid var(--border);padding:7px 8px;text-align:left;vertical-align:top}.result-table th{background:#f1f5f9;color:var(--primary)}.result-table td:last-child{font-weight:800;text-align:center}
+  .judge-ok{color:#15803d}.judge-ng{color:#b91c1c}.judge-review{color:#b45309}.page-status{min-height:22px;margin-top:8px;color:#b91c1c;font-size:.82em}
+  @media(max-width:960px){.model-grid{grid-template-columns:1fr}}@media(max-width:560px){.action-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body class="rc-formal-output-page">
+<aside class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用「產生計算書」開啟可列印的內部審閱文件，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></aside>
+<header>
+  <p><a class="back" href="foundation.html">← 回 RC 基礎工具</a></p>
+  <h1>RC 樁帽三維壓拉桿模型 <span style="font-size:.62em;opacity:.85">V0.5</span></h1>
+  <p>矩形正交樁群｜112 年規範 13.2.6、13.4.6、23 章｜單位：cm、kgf/cm²、tf、tf·m</p>
+</header>
+<main class="container">
+  <section class="card scope-card">
+    <h2>本頁支援範圍</h2>
+    <p>由柱／基座承壓面內的單一垂直合力節點，建立連往完整矩形正交樁群的三維壓桿，並以 X、Y 兩向底部拉桿帶平衡水平分力。操作提示只留在本頁，計算書保留採用模型、幾何、力流、公式、配筋與結果。</p>
+    <ul class="scope-list">
+      <li>每一組各樁反力須來自同一因數化載重組合，並各自同時平衡 Pu、Mux、Muy；可批次包絡最多 24 組。</li>
+      <li>支援無缺角的矩形正交樁群及正向垂直反力；載重合力節點須位於柱／基座承壓面內。</li>
+      <li>多柱、斜樁、拔力樁、水平反力、扭矩、缺角樁群、承台開孔與任意三維桁架不得使用本頁結論。</li>
+    </ul>
+  </section>
+  <section class="card">
+    <h2>附件識別資料 <span class="hint">選填，可由主文承接</span></h2>
+    <div class="form-row3">
+      <div class="form-group"><label for="projName">計畫名稱</label><input id="projName" type="text" placeholder="可留空"></div>
+      <div class="form-group"><label for="projNo">計畫編號</label><input id="projNo" type="text" placeholder="可留空"></div>
+      <div class="form-group"><label for="projDesigner">設計人員</label><input id="projDesigner" type="text" placeholder="可留空"></div>
+    </div>
+  </section>
+  <section class="card bridge-box">
+    <strong>基礎完整工具結果銜接</strong>
+    <div class="bridge-actions">
+      <button id="btnImportFoundationPileCap" type="button">匯入版本化 JSON</button>
+      <button id="btnClearFoundationPileCap" type="button" class="secondary">清除來源追溯</button>
+    </div>
+    <input id="foundationPileCapJsonFile" class="bridge-file" type="file" accept=".json,application/json">
+    <p id="foundationPileCapBridgeStatus" class="bridge-status">可由 RC 基礎工具一鍵開啟，或匯入 v1／v2 版本化 JSON。v2 可承接多組載重並建立控制包絡；壓桿／節點有效面積及模型確認仍須在本頁完成。</p>
+    <div id="foundationLoadCaseControls" class="load-case-controls" hidden>
+      <label for="foundationLoadCaseSelect">目前顯示／詳細代入的載重組合</label>
+      <select id="foundationLoadCaseSelect"></select>
+      <p id="foundationEnvelopeSummary" class="bridge-status"></p>
+      <table class="envelope-table"><thead><tr><th>包絡項目</th><th>控制值</th><th>控制組合</th></tr></thead><tbody id="foundationEnvelopeRows"></tbody></table>
+    </div>
+  </section>
+  <div class="model-grid">
+    <section>
+      <div class="card">
+        <h2>模型、外力與反力</h2>
+        <div class="form-row3">
+          <div class="form-group"><label for="capLengthX">樁帽 X 向長度 (cm)</label><input id="capLengthX" type="number" value="600" min="1" step="any"></div>
+          <div class="form-group"><label for="capWidthY">樁帽 Y 向寬度 (cm)</label><input id="capWidthY" type="number" value="600" min="1" step="any"></div>
+          <div class="form-group"><label for="h">總厚度 h (cm)</label><input id="h" type="number" value="180" min="1" step="any"></div>
+        </div>
+        <div class="form-row3">
+          <div class="form-group"><label for="columnX">柱／基座 X 尺寸 (cm)</label><input id="columnX" type="number" value="100" min="1" step="any"></div>
+          <div class="form-group"><label for="columnY">柱／基座 Y 尺寸 (cm)</label><input id="columnY" type="number" value="100" min="1" step="any"></div>
+          <div class="form-group"><label for="loadNodeDepth">載重節點距頂面 (cm)</label><input id="loadNodeDepth" type="number" value="20" min="0.1" step="any"></div>
+        </div>
+        <div class="form-row3">
+          <div class="form-group"><label for="Pu">Pu (tf)</label><input id="Pu" type="number" value="400" min="0.1" step="any"></div>
+          <div class="form-group"><label for="Mx">Mux (tf·m)</label><input id="Mx" type="number" value="0" step="any"></div>
+          <div class="form-group"><label for="My">Muy (tf·m)</label><input id="My" type="number" value="0" step="any"></div>
+        </div>
+        <div class="form-group"><label for="pileDiameter">樁徑 Dp (cm)</label><input id="pileDiameter" type="number" value="100" min="1" step="any"></div>
+        <div class="form-group"><label for="pileReactions">各樁：編號, x(cm), y(cm), Ru(tf)</label><textarea id="pileReactions" class="pile-input">P1, -150, -150, 100
+P2, 150, -150, 100
+P3, -150, 150, 100
+P4, 150, 150, 100</textarea></div>
+        <p class="hint">正號約定：Σ(Ri·yi)=Mux×100，Σ(Ri·xi)=Muy×100。僅接受正向壓樁反力。</p>
+
+        <h3 class="subhead">材料、壓桿與節點有效面積</h3>
+        <div class="form-row3">
+          <div class="form-group"><label for="fc">fc' (kgf/cm²)</label><input id="fc" type="number" value="280" min="1" step="any"></div>
+          <div class="form-group"><label for="fy">fy (kgf/cm²)</label><input id="fy" type="number" value="4200" min="1" max="5600" step="any"></div>
+          <div class="form-group"><label for="lambda">λ</label><input id="lambda" type="number" value="1" min="0.1" max="1" step="any"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label for="betaC">βc</label><input id="betaC" type="number" value="1" min="0.1" max="2" step="0.05"></div>
+          <div class="form-group"><label for="betaS">內部壓桿 βs</label><select id="betaS"><option value="0.4">0.40｜表 23.4.3(a)(f)</option><option value="0.75">0.75｜表 23.4.3(a)(d)，須檢核 23.4.4</option></select></div>
+        </div>
+        <div class="form-row3">
+          <div class="form-group"><label for="strutArea">單支壓桿有效面積 (cm²)</label><input id="strutArea" type="number" value="4000" min="1" step="any"></div>
+          <div class="form-group"><label for="topNodeArea">柱下節點有效面積 (cm²)</label><input id="topNodeArea" type="number" value="10000" min="1" step="any"></div>
+          <div class="form-group"><label for="bottomNodeArea">單樁節點有效面積 (cm²)</label><input id="bottomNodeArea" type="number" value="7000" min="1" step="any"></div>
+        </div>
+        <label class="check-confirm"><input id="distributionReinforcementComplies" type="checkbox"><span>分布鋼筋已依 23.5 配置；勾選後 23.4.4.1 的 λs 採 1.0，未勾選則依尺寸效應公式計算。</span></label>
+
+        <h3 class="subhead">X/Y 向底部拉桿實際配筋</h3>
+        <div class="tie-box"><h4>X 向拉桿（跨越 Y 向寬度配置）</h4>
+          <div class="form-row3"><div class="form-group"><label for="xTieBar">鋼筋</label><select id="xTieBar"></select></div><div class="form-group"><label for="xTieCount">總支數</label><input id="xTieCount" type="number" value="12" min="1" step="1"></div><div class="form-group"><label for="xTieRows">垂直排數</label><input id="xTieRows" type="number" value="2" min="1" max="12" step="1"></div></div>
+          <div class="form-row3"><div class="form-group"><label for="xTieMinimumArea">專案指定最小 As (cm²)</label><input id="xTieMinimumArea" type="number" value="60" min="0.01" step="any"></div><div class="form-group"><label for="xTieCover">側／底保護層 (cm)</label><input id="xTieCover" type="number" value="7.5" min="0.1" step="any"></div><div class="form-group"><label for="xTieTransverse">外圍橫向筋</label><select id="xTieTransverse"></select></div></div>
+        </div>
+        <div class="tie-box"><h4>Y 向拉桿（跨越 X 向長度配置）</h4>
+          <div class="form-row3"><div class="form-group"><label for="yTieBar">鋼筋</label><select id="yTieBar"></select></div><div class="form-group"><label for="yTieCount">總支數</label><input id="yTieCount" type="number" value="12" min="1" step="1"></div><div class="form-group"><label for="yTieRows">垂直排數</label><input id="yTieRows" type="number" value="2" min="1" max="12" step="1"></div></div>
+          <div class="form-row3"><div class="form-group"><label for="yTieMinimumArea">專案指定最小 As (cm²)</label><input id="yTieMinimumArea" type="number" value="60" min="0.01" step="any"></div><div class="form-group"><label for="yTieCover">側／底保護層 (cm)</label><input id="yTieCover" type="number" value="7.5" min="0.1" step="any"></div><div class="form-group"><label for="yTieTransverse">外圍橫向筋</label><select id="yTieTransverse"></select></div></div>
+        </div>
+        <div class="form-row"><div class="form-group"><label for="maxAggregateSize">粗粒料最大粒徑 (cm)</label><input id="maxAggregateSize" type="number" value="2.5" min="0.1" step="any"></div><div class="form-group"><label for="verticalClearSpacing">各排垂直淨距 (cm)</label><input id="verticalClearSpacing" type="number" value="3" min="0.1" step="any"></div></div>
+
+        <h3 class="subhead">採用確認</h3>
+        <label class="check-confirm"><input id="reactionSourceConfirmed" type="checkbox"><span>已確認 Pu、Mux、Muy 與各樁因數化反力來自同一載重組合及同一樁群模型。</span></label>
+        <label class="check-confirm"><input id="threeDimensionalTopologyConfirmed" type="checkbox"><span>已確認單一柱節點、三維壓桿及 X/Y 拉桿帶能代表實際樁帽力流。</span></label>
+        <label class="check-confirm"><input id="nodalGeometryConfirmed" type="checkbox"><span>已確認柱節點、樁頂節點及各壓桿有效面積可由實際承壓面與配筋幾何形成。</span></label>
+        <label class="check-confirm"><input id="anchorageConfirmed" type="checkbox"><span>已確認 X/Y 拉桿在外側樁節點區內完成錨定與發展。</span></label>
+        <label class="check-confirm"><input id="localTieDistributionConfirmed" type="checkbox"><span>已確認整體拉桿帶需求已合理分配至各樁列及局部配筋帶，並反映於施工圖。</span></label>
+        <div class="action-row"><button id="btnCalc" type="button">重新計算</button><button id="btnReport" type="button" class="secondary">產生計算書</button></div>
+        <div id="pageStatus" class="page-status"></div>
+      </div>
+    </section>
+    <section>
+      <div class="card">
+        <h2>三維力流與檢核結果</h2>
+        <div id="statusBanner" class="status-banner">計算中</div>
+        <div id="planDiagram" class="diagram" aria-label="樁帽平面反力與拉桿示意圖"></div>
+        <div id="isoDiagram" class="diagram" aria-label="樁帽三維壓拉桿示意圖"></div>
+        <div class="results-grid" style="margin-top:12px">
+          <div class="result-item" id="resReaction"><span class="label">總反力 ΣR</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item" id="resMoments"><span class="label">力矩誤差 X / Y</span><span><span class="value">—</span><span class="unit">%</span></span></div>
+          <div class="result-item" id="resLoadPoint"><span class="label">合力節點 x / y</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
+          <div class="result-item" id="resTheta"><span class="label">最小三維壓桿角</span><span><span class="value">—</span><span class="unit">deg</span></span></div>
+          <div class="result-item" id="resTieX"><span class="label">X 向拉桿需求</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item" id="resTieY"><span class="label">Y 向拉桿需求</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item" id="resAsX"><span class="label">X 向 As,req / As,prov</span><span><span class="value">—</span><span class="unit">cm²</span></span></div>
+          <div class="result-item" id="resAsY"><span class="label">Y 向 As,req / As,prov</span><span><span class="value">—</span><span class="unit">cm²</span></span></div>
+        </div>
+        <table class="result-table"><thead><tr><th>檢核項</th><th>需求／依據</th><th>結果</th><th>判定</th></tr></thead><tbody id="checkRows"></tbody></table>
+      </div>
+      <div class="card report-readiness-card"><h2>產報前檢查 <span class="scope-badge">頁面輔助</span></h2><div id="attachmentReadiness">完成輸入後顯示附件狀態。</div></div>
+    </section>
+  </div>
+</main>
+<script src="../../結構工具箱/core/materials/concrete.js"></script>
+<script src="../../結構工具箱/core/materials/rebar.js"></script>
+<script src="../shared/common.js"></script>
+<script src="../shared/deep-beam-stm.js"></script>
+<script src="../shared/pile-cap-3d-stm-bridge.js"></script>
+<script src="../shared/pile-cap-3d-stm.js"></script>
+<script src="../shared/pile-cap-3d-stm-envelope.js"></script>
+<script src="../shared/report.js"></script>
+<script>
+(function(){
+  'use strict';
+  const $=id=>document.getElementById(id),num=id=>Number($(id)?.value),fmt=(v,d=2)=>Number.isFinite(v)?Number(v).toFixed(d):'—';
+  const barTable=window.Rebar?.REBAR_TABLE||window.REBAR_TABLE||{};
+  const bridge=window.PileCap3DSTMBridge;
+  const envelopeCore=window.PileCap3DSTMEnvelope;
+  let importedFoundationPayload=null;
+  let selectedFoundationLoadCaseId=null;
+  let pileCapEnvelope=null;
+  function populateBars(){const options=Object.keys(barTable).map(k=>`<option value="${k}">${k}（${barTable[k].area.toFixed(3)} cm²）</option>`).join('');for(const id of['xTieBar','yTieBar','xTieTransverse','yTieTransverse'])$(id).innerHTML=options;$('xTieBar').value='#9';$('yTieBar').value='#9';$('xTieTransverse').value='#4';$('yTieTransverse').value='#4'}
+  function readTie(axis){const bar=barTable[$(`${axis}TieBar`).value],trans=barTable[$(`${axis}TieTransverse`).value];return{barArea:bar?.area||0,barDiameter:bar?.db||0,count:num(`${axis}TieCount`),rows:num(`${axis}TieRows`),sideCover:num(`${axis}TieCover`),transverseBarDiameter:trans?.db||0,maxAggregateSize:num('maxAggregateSize'),verticalClearSpacing:num('verticalClearSpacing')}}
+  function readInput(){return{capLengthX:num('capLengthX'),capWidthY:num('capWidthY'),h:num('h'),columnX:num('columnX'),columnY:num('columnY'),loadNodeDepth:num('loadNodeDepth'),pileDiameter:num('pileDiameter'),Pu:num('Pu'),Mx:num('Mx'),My:num('My'),pileReactions:$('pileReactions').value,fc:num('fc'),fy:num('fy'),lambda:num('lambda'),betaC:num('betaC'),betaS:num('betaS'),strutArea:num('strutArea'),topNodeArea:num('topNodeArea'),bottomNodeArea:num('bottomNodeArea'),xTieMinimumArea:num('xTieMinimumArea'),yTieMinimumArea:num('yTieMinimumArea'),xTie:readTie('x'),yTie:readTie('y'),distributionReinforcementComplies:$('distributionReinforcementComplies').checked,reactionSourceConfirmed:$('reactionSourceConfirmed').checked,threeDimensionalTopologyConfirmed:$('threeDimensionalTopologyConfirmed').checked,nodalGeometryConfirmed:$('nodalGeometryConfirmed').checked,anchorageConfirmed:$('anchorageConfirmed').checked,localTieDistributionConfirmed:$('localTieDistributionConfirmed').checked}}
+  function setBridgeStatus(message,tone='') {const el=$('foundationPileCapBridgeStatus');el.textContent=message;el.classList.remove('pass','fail','warn');if(tone)el.classList.add(tone)}
+  function currentBridgeFields(){const input=readInput();return{capLengthX:input.capLengthX,capWidthY:input.capWidthY,h:input.h,columnX:input.columnX,columnY:input.columnY,pileDiameter:input.pileDiameter,Pu:input.Pu,Mx:input.Mx,My:input.My,pileReactions:input.pileReactions,fc:input.fc,fy:input.fy,lambda:input.lambda}}
+  function inspectFoundationBridgeCurrent(){if(!importedFoundationPayload)return{available:false,valid:false,mismatches:[]};try{const reference=selectedFoundationLoadCaseId||importedFoundationPayload.model.loadCases[0].id,mismatches=bridge.toolFieldMismatches(importedFoundationPayload,currentBridgeFields(),reference);return{available:true,valid:mismatches.length===0,mismatches,payload:importedFoundationPayload,loadCase:bridge.resolveLoadCase(importedFoundationPayload,reference)}}catch(error){return{available:true,valid:false,mismatches:['payload'],reason:error?.message||String(error),payload:importedFoundationPayload}}}
+  function envelopeValue(entry){return entry.unit==='DCR'?fmt(entry.value,3):`${fmt(entry.value,entry.unit==='deg'?2:1)} ${entry.unit}`}
+  function combinationSourceLabel(payload){const source=payload?.model?.loadCombinationSource;return source?.mode==='auto-lrfd'?`共用 LoadCombo ${source.method}（${source.loadComboSchema}）`:(source?.label||'手動因數化載重／既有交換資料')}
+  function loadComponentSourceLabel(payload){const input=payload?.model?.loadCombinationSource?.inputSource;if(!input)return null;const source=input.source,transport=input.transport.kind==='force-picker'?'ForcePicker':input.transport.label;return `${source.label}｜${source.tool}${source.version?` ${source.version}`:''}｜分析 ID ${source.analysisId||'—'}｜${source.caseSet||'未命名工況集'}｜${transport}｜SHA-256 ${input.transport.contentSha256}`}
+  function componentReportGroup(payload){const source=payload?.model?.loadCombinationSource;if(source?.mode!=='auto-lrfd')return null;const value=force=>['D','L','W','E'].map(key=>`${key} ${fmt(source.inputForces[force][key],2)}`).join('／');return{group:'基本載重分量',items:[{label:'Pu（tf）',value:value('Pu')},{label:'Mux（tf·m）',value:value('Mux')},{label:'Muy（tf·m）',value:value('Muy')}]}}
+  function calculateImportedEnvelope(){if(!importedFoundationPayload||!envelopeCore)return null;pileCapEnvelope=envelopeCore.evaluate(importedFoundationPayload,readInput());return pileCapEnvelope}
+  function renderFoundationEnvelope(){const box=$('foundationLoadCaseControls');if(!pileCapEnvelope){box.hidden=true;return}box.hidden=false;const control=pileCapEnvelope.overallControl;$('foundationEnvelopeSummary').textContent=`共 ${pileCapEnvelope.caseCount} 組｜整體控制：${control.combination}／${control.label} ${envelopeValue(control)}｜${pileCapEnvelope.allStrengthPass?'所有數值檢核通過':'至少一組數值檢核不符'}`;$('foundationEnvelopeRows').innerHTML=pileCapEnvelope.entries.map(entry=>`<tr><td>${esc(entry.label)}</td><td>${esc(envelopeValue(entry))}</td><td>${esc(entry.combination)}</td></tr>`).join('')}
+  function renderFoundationBridgeStatus(){const state=inspectFoundationBridgeCurrent();if(!state.available)return;if(!state.valid){pileCapEnvelope=null;renderFoundationEnvelope();$('reactionSourceConfirmed').checked=false;setBridgeStatus(`來源追溯已失效：目前輸入與匯入資料不一致（${state.mismatches.join('、')}）。可重新匯入，或改由設計者自行確認反力來源。`,'fail');return}try{calculateImportedEnvelope();renderFoundationEnvelope();const p=state.payload,inputSource=p.model.loadCombinationSource?.inputSource;setBridgeStatus(`已採用 ${p.source.title} ${p.source.version}｜${combinationSourceLabel(p)}${inputSource?`｜基本分量 ${inputSource.source.label}`:''}｜${p.source.calculationFingerprint}｜${p.model.loadCases.length} 組｜目前 ${state.loadCase.combination}。各組交換資料已驗證；節點、壓桿有效面積、拓樸與錨定仍須確認。`,'pass')}catch(error){pileCapEnvelope=null;renderFoundationEnvelope();$('reactionSourceConfirmed').checked=false;setBridgeStatus(`載重包絡已阻擋：${error?.message||error}`,'fail')}}
+  function applyFoundationLoadCase(reference,{calculateNow=true}={}){if(!importedFoundationPayload)return null;const loadCase=bridge.resolveLoadCase(importedFoundationPayload,reference),fields=bridge.toToolFields(importedFoundationPayload,loadCase.id);for(const id of['Pu','Mx','My','pileReactions'])$(id).value=fields[id];selectedFoundationLoadCaseId=loadCase.id;$('foundationLoadCaseSelect').value=loadCase.id;if(calculateNow)calculate();return loadCase}
+  function applyFoundationPileCapPayload(raw){if(!bridge)throw new Error('缺少樁帽三維 STM 橋接核心。');if(!envelopeCore)throw new Error('缺少多載重組合包絡核心。');const payload=bridge.validatePayload(raw),fields=bridge.toToolFields(payload);Object.entries(fields).forEach(([id,value])=>{const el=$(id);if(el)el.value=value});const topArea=fields.columnX*fields.columnY,bottomArea=Math.PI*fields.pileDiameter*fields.pileDiameter/4;$('topNodeArea').value=String(topArea);$('bottomNodeArea').value=String(bottomArea);$('strutArea').value=String(Math.min(topArea,bottomArea));for(const id of['reactionSourceConfirmed','threeDimensionalTopologyConfirmed','nodalGeometryConfirmed','anchorageConfirmed','localTieDistributionConfirmed'])$(id).checked=false;importedFoundationPayload=payload;const cases=bridge.listLoadCases(payload),select=$('foundationLoadCaseSelect');select.innerHTML=cases.map(item=>`<option value="${esc(item.id)}">${esc(item.combination)}｜Pu ${fmt(item.PuTf,1)}／Mux ${fmt(item.MuxTfm,1)}／Muy ${fmt(item.MuyTfm,1)}</option>`).join('');selectedFoundationLoadCaseId=cases[0].id;select.value=selectedFoundationLoadCaseId;calculate();const envelope=calculateImportedEnvelope();if(envelope?.overallControl?.caseId!==selectedFoundationLoadCaseId)applyFoundationLoadCase(envelope.overallControl.caseId);renderFoundationBridgeStatus();return payload}
+  async function loadFoundationPileCapJsonFile(file){if(!file)return null;try{if(file.size>1024*1024)throw new Error('JSON 超過 1 MiB 上限。');const payload=applyFoundationPileCapPayload(await file.text());setBridgeStatus(`已匯入 ${file.name}｜${payload.model.loadCases.length} 組｜${payload.source.calculationFingerprint}；請完成本頁模型採用確認。`,'pass');return payload}catch(error){setBridgeStatus(`匯入已阻擋：${error?.message||error}`,'fail');return null}}
+  function clearFoundationPileCapSource(){importedFoundationPayload=null;selectedFoundationLoadCaseId=null;pileCapEnvelope=null;$('foundationLoadCaseControls').hidden=true;try{sessionStorage.removeItem(bridge.transferStorageKey)}catch(_){/* storage may be unavailable under file:// */}setBridgeStatus('來源追溯已清除；目前數值保留，後續由設計者自行確認反力來源。','warn');$('reactionSourceConfirmed').checked=false;calculate()}
+  function consumeFoundationPileCapTransfer(){if(!bridge)return null;try{const raw=sessionStorage.getItem(bridge.transferStorageKey);if(!raw)return null;sessionStorage.removeItem(bridge.transferStorageKey);return applyFoundationPileCapPayload(raw)}catch(error){setBridgeStatus(`一鍵銜接已阻擋：${error?.message||error}`,'fail');return null}}
+  const baseOpenReport=window.openReport;
+  window.openReport=function(options){
+    const sourceState=inspectFoundationBridgeCurrent(),configured={...options,outputSource:{...(options.outputSource||{}),version:'V0.5'}};
+    if(sourceState.valid){
+      const envelope=calculateImportedEnvelope(),control=envelope.overallControl;
+      const caseItems=envelope.cases.map(item=>({label:item.combination,value:`Pu ${fmt(item.loads.PuTf,2)} tf／Mux ${fmt(item.loads.MuxTfm,2)} tf·m／Muy ${fmt(item.loads.MuyTfm,2)} tf·m`}));
+      const componentGroup=componentReportGroup(sourceState.payload);
+      configured.inputs=[
+        {group:'來源追溯',keepTogether:true,items:[
+          {label:'來源工具／交換 schema',value:`${sourceState.payload.source.title} ${sourceState.payload.source.version}／${sourceState.payload.schema}`},
+          {label:'載重組合來源',value:combinationSourceLabel(sourceState.payload)},
+          ...(loadComponentSourceLabel(sourceState.payload)?[{label:'基本分量匯入來源',value:loadComponentSourceLabel(sourceState.payload)}]:[]),
+          {label:'來源計算指紋／時間',value:`${sourceState.payload.source.calculationFingerprint}／${sourceState.payload.generatedAt}`},
+          {label:'載重組合數／詳細代入',value:`${envelope.caseCount} 組／${sourceState.loadCase.combination}`},
+          {label:'整體控制組合',value:`${control.combination}｜${control.label} ${envelopeValue(control)}`},
+        ]},
+        ...(componentGroup?[componentGroup]:[]),
+        {group:'載重組合清冊',items:caseItems},
+        ...(options.inputs||[]),
+      ];
+      configured.checks=[{group:'多載重組合控制包絡',items:envelope.entries.map(entry=>({label:entry.label,formula:entry.mode==='min'?'取各組最小值':'取各組最大值',sub:`控制組合：${entry.combination}`,value:fmt(entry.value,entry.unit==='DCR'?3:2),unit:entry.unit,ok:entry.demandOnly?null:entry.ok,note:entry.demandOnly?'需求值包絡，未在此判定樁容量。':''}))},...(options.checks||[])];
+    }
+    return baseOpenReport(configured)
+  };
+  window.addEventListener('load',()=>{$('btnImportFoundationPileCap').addEventListener('click',()=>$('foundationPileCapJsonFile').click());$('btnClearFoundationPileCap').addEventListener('click',clearFoundationPileCapSource);$('foundationLoadCaseSelect').addEventListener('change',event=>applyFoundationLoadCase(event.target.value));$('foundationPileCapJsonFile').addEventListener('change',event=>{const file=event.target.files?.[0];loadFoundationPileCapJsonFile(file).finally(()=>{event.target.value=''})});consumeFoundationPileCapTransfer()});
+  window.applyFoundationPileCapPayload=applyFoundationPileCapPayload;
+  window.loadFoundationPileCapJsonFile=loadFoundationPileCapJsonFile;
+  window.inspectFoundationPileCapBridge=inspectFoundationBridgeCurrent;
+  window.getPileCap3DSTMEnvelope=()=>pileCapEnvelope;
+  window.applyFoundationLoadCase=applyFoundationLoadCase;
+  window.clearFoundationPileCapSource=clearFoundationPileCapSource;
+  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function svgDataUrl(svg){return`data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`}
+  function planSvg(r){const W=760,H=500,p=65,s=Math.min((W-2*p)/r.input.capLengthX,(H-2*p)/r.input.capWidthY),cx=W/2,cy=H/2,px=x=>cx+x*s,py=y=>cy-y*s;const L=r.input.capLengthX*s,B=r.input.capWidthY*s;const xMin=Math.min(...r.grid.xCoordinates),xMax=Math.max(...r.grid.xCoordinates),yMin=Math.min(...r.grid.yCoordinates),yMax=Math.max(...r.grid.yCoordinates);return`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img"><rect width="100%" height="100%" fill="white"/><text x="20" y="28" font-family="sans-serif" font-size="15" fill="#334155">樁帽平面、樁反力與 X/Y 拉桿帶</text><rect x="${cx-L/2}" y="${cy-B/2}" width="${L}" height="${B}" fill="#f1f5f9" stroke="#334155" stroke-width="2"/>${r.grid.yCoordinates.map(y=>`<line x1="${px(xMin)}" y1="${py(y)}" x2="${px(xMax)}" y2="${py(y)}" stroke="#2563eb" stroke-width="5" opacity=".55"/>`).join('')}${r.grid.xCoordinates.map(x=>`<line x1="${px(x)}" y1="${py(yMin)}" x2="${px(x)}" y2="${py(yMax)}" stroke="#059669" stroke-width="5" opacity=".55"/>`).join('')}<rect x="${px(-r.input.columnX/2)}" y="${py(r.input.columnY/2)}" width="${r.input.columnX*s}" height="${r.input.columnY*s}" fill="#cbd5e1" stroke="#475569" stroke-width="2"/>${r.nodes.map(n=>`<circle cx="${px(n.x)}" cy="${py(n.y)}" r="${Math.max(10,r.input.pileDiameter*s/2)}" fill="#fbbf24" stroke="#92400e" stroke-width="2"/><text x="${px(n.x)}" y="${py(n.y)+4}" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#422006">${esc(n.id)}</text><text x="${px(n.x)}" y="${py(n.y)+Math.max(22,r.input.pileDiameter*s/2+15)}" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#334155">${fmt(n.reaction,1)} tf</text>`).join('')}<circle cx="${px(r.loadX)}" cy="${py(r.loadY)}" r="8" fill="#dc2626"/><text x="${px(r.loadX)+12}" y="${py(r.loadY)-10}" font-family="sans-serif" font-size="11" fill="#991b1b">合力節點 (${fmt(r.loadX,1)}, ${fmt(r.loadY,1)})</text><text x="20" y="${H-20}" font-family="sans-serif" font-size="12" fill="#2563eb">藍：X 向拉桿帶</text><text x="165" y="${H-20}" font-family="sans-serif" font-size="12" fill="#059669">綠：Y 向拉桿帶</text></svg>`}
+  function isoSvg(r){const W=760,H=470,s=Math.min(360/r.input.capLengthX,250/r.input.capWidthY,220/r.z),ox=360,oy=365,pr=(x,y,z)=>({x:ox+x*s+y*s*.45,y:oy+y*s*.24-z*s*.82});const corners=[[-r.input.capLengthX/2,-r.input.capWidthY/2],[r.input.capLengthX/2,-r.input.capWidthY/2],[r.input.capLengthX/2,r.input.capWidthY/2],[-r.input.capLengthX/2,r.input.capWidthY/2]].map(([x,y])=>pr(x,y,0)),top=pr(r.loadX,r.loadY,r.z);return`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img"><rect width="100%" height="100%" fill="white"/><text x="20" y="28" font-family="sans-serif" font-size="15" fill="#334155">三維壓桿力流（紅）與底部正交拉桿網（藍／綠）</text><polygon points="${corners.map(q=>`${q.x},${q.y}`).join(' ')}" fill="#f8fafc" stroke="#475569" stroke-width="2"/>${r.grid.yCoordinates.map(y=>{const a=pr(Math.min(...r.grid.xCoordinates),y,0),b=pr(Math.max(...r.grid.xCoordinates),y,0);return`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#2563eb" stroke-width="5"/>`}).join('')}${r.grid.xCoordinates.map(x=>{const a=pr(x,Math.min(...r.grid.yCoordinates),0),b=pr(x,Math.max(...r.grid.yCoordinates),0);return`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#059669" stroke-width="5"/>`}).join('')}${r.nodes.map(n=>{const q=pr(n.x,n.y,0);return`<line x1="${top.x}" y1="${top.y}" x2="${q.x}" y2="${q.y}" stroke="#dc2626" stroke-width="7" opacity=".72"/><circle cx="${q.x}" cy="${q.y}" r="9" fill="#fbbf24" stroke="#92400e" stroke-width="2"/><text x="${q.x+10}" y="${q.y+15}" font-family="sans-serif" font-size="10" fill="#334155">${esc(n.id)} C=${fmt(n.strutDemand,1)}</text>`}).join('')}<circle cx="${top.x}" cy="${top.y}" r="11" fill="#f97316" stroke="#9a3412" stroke-width="2"/><path d="M${top.x} ${top.y-50}v35" stroke="#111827" stroke-width="4"/><path d="M${top.x-7} ${top.y-20}l7 10 7-10" fill="#111827"/><text x="${top.x+15}" y="${top.y-35}" font-family="sans-serif" font-size="11" fill="#111827">Pu=${fmt(r.input.Pu,1)} tf</text><text x="20" y="${H-18}" font-family="sans-serif" font-size="12" fill="#475569">z=${fmt(r.z,1)} cm；θmin=${fmt(r.minThetaDeg,1)}°；最大壓桿 DCR=${fmt(r.maxStrutDcr,3)}</text></svg>`}
+  function setValue(id,text){$(id).querySelector('.value').textContent=text}
+  function judge(ok){return ok===true?'<span class="judge-ok">✓ OK</span>':ok===false?'<span class="judge-ng">✗ NG</span>':'<span class="judge-review">待確認</span>'}
+  function row(label,basis,result,ok){return`<tr><td>${esc(label)}</td><td>${esc(basis)}</td><td>${esc(result)}</td><td>${judge(ok)}</td></tr>`}
+  function render(r){$('pageStatus').textContent='';if(!r.valid){$('statusBanner').className='status-banner fail';$('statusBanner').textContent=`輸入無效：${r.errors.join('；')}`;$('planDiagram').innerHTML='';$('isoDiagram').innerHTML='';$('checkRows').innerHTML='';window.pc3Last=r;return}const cls=r.status==='ready'?'ok':r.status==='review'?'review':'fail';$('statusBanner').className=`status-banner ${cls}`;$('statusBanner').textContent=r.status==='ready'?'✓ 數值檢核與模型採用確認完成':r.status==='review'?`數值檢核通過｜尚有 ${r.modelReviewItems.length} 項模型採用確認`:`✗ ${r.failedItems.join('、')}`;$('planDiagram').innerHTML=planSvg(r);$('isoDiagram').innerHTML=isoSvg(r);setValue('resReaction',fmt(r.reactionTotal,2));setValue('resMoments',`${fmt(r.momentXErrorPct,3)} / ${fmt(r.momentYErrorPct,3)}`);setValue('resLoadPoint',`${fmt(r.loadX,1)} / ${fmt(r.loadY,1)}`);setValue('resTheta',fmt(r.minThetaDeg,2));setValue('resTieX',fmt(r.xTieDemand,2));setValue('resTieY',fmt(r.yTieDemand,2));setValue('resAsX',`${fmt(r.xTieAsRequired,2)} / ${fmt(r.xTieLayout.providedArea,2)}`);setValue('resAsY',`${fmt(r.yTieAsRequired,2)} / ${fmt(r.yTieLayout.providedArea,2)}`);$('checkRows').innerHTML=[row('垂直力平衡',`${r.numericalTolerancePolicy.label}：|ΣR−Pu| / Pu ≤ ${fmt(r.input.balanceTolerancePct,1)}%`,`誤差 ${fmt(r.forceErrorPct,3)}%`,r.checks.forceBalanceOk),row('Mux / Muy 平衡',`${r.numericalTolerancePolicy.label}：正規化誤差各 ≤ ${fmt(r.input.momentTolerancePct,1)}%`,`${fmt(r.momentXErrorPct,3)}% / ${fmt(r.momentYErrorPct,3)}%`,r.checks.momentXBalanceOk&&r.checks.momentYBalanceOk),row('X/Y 水平力平衡',`${r.numericalTolerancePolicy.label}：正規化殘差各 ≤ ${fmt(r.input.horizontalTolerancePct,1)}%`,`ΣHx / ΣHy=${fmt(r.horizontalResidualX,3)} / ${fmt(r.horizontalResidualY,3)} tf；殘差 ${fmt(r.horizontalResidualXPct,3)}% / ${fmt(r.horizontalResidualYPct,3)}%`,r.checks.horizontalXBalanceOk&&r.checks.horizontalYBalanceOk),row('載重合力節點','位於柱／基座承壓面內',`x=${fmt(r.loadX,1)}, y=${fmt(r.loadY,1)} cm`,r.checks.loadPointInsideColumn),row('三維壓桿角','θmin ≥ 25°',`${fmt(r.minThetaDeg,2)}°`,r.checks.angleOk),row('X 向拉桿','As,prov ≥ As,req',`${fmt(r.xTieLayout.providedArea,2)} ≥ ${fmt(r.xTieAsRequired,2)} cm²`,r.checks.xTieOk&&r.xTieLayout.layoutOk),row('Y 向拉桿','As,prov ≥ As,req',`${fmt(r.yTieLayout.providedArea,2)} ≥ ${fmt(r.yTieAsRequired,2)} cm²`,r.checks.yTieOk&&r.yTieLayout.layoutOk),row('壓桿強度','φFns ≥ Cmax',`DCR=${fmt(r.maxStrutDcr,3)}`,r.checks.strutOk),row('柱／樁節點','φFnn ≥ 需求',`頂 DCR=${fmt(r.topNodeDcr,3)}；樁頂控制=${fmt(Math.max(...r.bottomNodeResults.map(x=>x.dcr)),3)}`,r.checks.topNodeOk&&r.checks.bottomNodeOk),row('樁帽有效深度','13.4.6.1：d ≥ 30 cm',`dX/dY=${fmt(r.dX,1)}/${fmt(r.dY,1)} cm`,r.checks.pileEffectiveDepthOk),...(r.check2344Required?[row('23.4.4 X/Y','βs=0.75 時檢核剪力上限',`DCR=${fmt(r.shearX.demand/r.shearDesignLimitX,3)} / ${fmt(r.shearY.demand/r.shearDesignLimitY,3)}`,r.checks.shearLimitXOk&&r.checks.shearLimitYOk)]:[])].join('');const readiness=r.status==='ready'?{status:'ready',summary:'數值與模型採用確認完成'}:r.status==='review'?{status:'review',summary:'數值通過，待模型採用確認'}:{status:'blocked',summary:'有檢核不符'};window.RCUI.renderAttachmentReadiness('attachmentReadiness',{status:readiness.status,summary:readiness.summary,items:[{label:'三維平衡',value:r.checks.topologyOk?'符合':'不符',tone:r.checks.topologyOk?'ok':'fail'},{label:'數值不符',value:`${r.failedItems.length} 項`,tone:r.failedItems.length?'fail':'ok'},{label:'模型確認',value:`${r.modelReviewItems.length} 項`,tone:r.modelReviewItems.length?'warn':'ok'},{label:'樁群',value:`${r.grid.xCoordinates.length}×${r.grid.yCoordinates.length}，共 ${r.nodes.length} 支`,tone:'neutral'},{label:'案件識別資料',value:'可由主文承接',tone:'neutral'}],notes:['本面板僅顯示於操作頁，不會寫入計算書或列印 PDF。',r.failedItems.length?`優先處理：${r.failedItems.join('、')}。`:'',r.modelReviewItems.length?`需確認：${r.modelReviewItems.join('、')}。`:'']});window.pc3Last=r}
+  function calculate(){const r=window.PileCap3DSTM.assess(readInput());render(r);renderFoundationBridgeStatus();return r}
+  function reportCheck(label,formula,sub,value,unit,ok,note){return{label,formula,sub,value,unit,ok,note}}
+  function buildReport(){const r=calculate();if(!r.valid){$('pageStatus').textContent='輸入資料無效，尚不能產生計算書。';return}const xBar=$('xTieBar').value,yBar=$('yTieBar').value,maxBottom=Math.max(...r.bottomNodeResults.map(x=>x.dcr));const inputs=[{group:'採用模型與幾何',keepTogether:true,items:[{label:'結構模型',value:'單一柱垂直合力節點 + 完整矩形正交樁群三維 STM'},{label:'樁群',value:`${r.grid.xCoordinates.length} × ${r.grid.yCoordinates.length}，共 ${r.nodes.length} 支`},{label:'樁帽 Lx / Ly / h',value:`${fmt(r.input.capLengthX,1)} / ${fmt(r.input.capWidthY,1)} / ${fmt(r.input.h,1)}`,unit:'cm'},{label:'柱／基座 cx / cy',value:`${fmt(r.input.columnX,1)} / ${fmt(r.input.columnY,1)}`,unit:'cm'},{label:'載重合力節點 x / y',value:`${fmt(r.loadX,2)} / ${fmt(r.loadY,2)}`,unit:'cm'},{label:'dX / dY / z',value:`${fmt(r.dX,2)} / ${fmt(r.dY,2)} / ${fmt(r.z,2)}`,unit:'cm'}]},{group:'材料、外力與樁反力',keepTogether:true,items:[{label:"fc' / fy",value:`${fmt(r.input.fc,0)} / ${fmt(r.input.fy,0)}`,unit:'kgf/cm²'},{label:'λ / βc / βs / φSTM',value:`${fmt(r.input.lambda,2)} / ${fmt(r.input.betaC,2)} / ${fmt(r.input.betaS,2)} / ${fmt(r.phiStm,2)}`},{label:'Pu / Mux / Muy',value:`${fmt(r.input.Pu,2)} tf / ${fmt(r.input.Mx,2)} tf·m / ${fmt(r.input.My,2)} tf·m`},{label:'各樁反力',value:r.nodes.map(n=>`${n.id}: (${fmt(n.x,0)},${fmt(n.y,0)}) ${fmt(n.reaction,2)} tf`).join('；')},{label:'壓桿／柱節點／樁節點有效面積',value:`${fmt(r.input.strutArea,0)} / ${fmt(r.input.topNodeArea,0)} / ${fmt(r.input.bottomNodeArea,0)}`,unit:'cm²'}]},{group:'X/Y 底部拉桿配筋',keepTogether:true,items:[{label:'X 向拉桿',value:`${$('xTieCount').value}-${xBar}，${r.xTieLayout.rowCounts.length} 排（${r.xTieLayout.rowCounts.join('+')}支），As=${fmt(r.xTieLayout.providedArea,2)} cm²`},{label:'Y 向拉桿',value:`${$('yTieCount').value}-${yBar}，${r.yTieLayout.rowCounts.length} 排（${r.yTieLayout.rowCounts.join('+')}支），As=${fmt(r.yTieLayout.providedArea,2)} cm²`},{label:'專案指定最小 As,X / As,Y',value:`${fmt(r.input.xTieMinimumArea,2)} / ${fmt(r.input.yTieMinimumArea,2)}`,unit:'cm²'},{label:'X/Y 拉桿形心距底面',value:`${fmt(r.xTieAxisFromBottom,2)} / ${fmt(r.yTieAxisFromBottom,2)}`,unit:'cm'}]}];const checks=[{group:'三維邊界合力與平衡',items:[reportCheck('垂直力平衡',`${r.numericalTolerancePolicy.label}：|ΣR−Pu| / Pu ≤ ${fmt(r.input.balanceTolerancePct,1)}%`,`${fmt(r.reactionTotal,2)} vs ${fmt(r.input.Pu,2)}；誤差 ${fmt(r.forceErrorPct,3)}%`,fmt(r.forceErrorPct,3),'%',r.checks.forceBalanceOk),reportCheck('繞 X 軸力矩平衡',`${r.numericalTolerancePolicy.label}：|Σ(Ri yi)−Mux×100| / (Pu Ly/2) ≤ ${fmt(r.input.momentTolerancePct,1)}%`,`${fmt(r.reactionMomentX,2)} vs ${fmt(r.targetMomentX,2)} tf·cm`,fmt(r.momentXErrorPct,3),'%',r.checks.momentXBalanceOk),reportCheck('繞 Y 軸力矩平衡',`${r.numericalTolerancePolicy.label}：|Σ(Ri xi)−Muy×100| / (Pu Lx/2) ≤ ${fmt(r.input.momentTolerancePct,1)}%`,`${fmt(r.reactionMomentY,2)} vs ${fmt(r.targetMomentY,2)} tf·cm`,fmt(r.momentYErrorPct,3),'%',r.checks.momentYBalanceOk),reportCheck('X 向水平力平衡',`${r.numericalTolerancePolicy.label}：|ΣHx| / Σ|Hx,i| ≤ ${fmt(r.input.horizontalTolerancePct,1)}%`,`ΣHx=${fmt(r.horizontalResidualX,3)}；Σ|Hx,i|=${fmt(r.horizontalActionX,3)} tf`,fmt(r.horizontalResidualXPct,3),'%',r.checks.horizontalXBalanceOk),reportCheck('Y 向水平力平衡',`${r.numericalTolerancePolicy.label}：|ΣHy| / Σ|Hy,i| ≤ ${fmt(r.input.horizontalTolerancePct,1)}%`,`ΣHy=${fmt(r.horizontalResidualY,3)}；Σ|Hy,i|=${fmt(r.horizontalActionY,3)} tf`,fmt(r.horizontalResidualYPct,3),'%',r.checks.horizontalYBalanceOk),reportCheck('載重合力節點','合力作用點位於柱／基座承壓面內',`x=${fmt(r.loadX,2)}；y=${fmt(r.loadY,2)} cm`,r.checks.loadPointInsideColumn?'符合':'不符合','',r.checks.loadPointInsideColumn),reportCheck('三維壓桿最小夾角','23.2.7：θmin ≥ 25°',`θmin=${fmt(r.minThetaDeg,2)}°`,fmt(r.minThetaDeg,2),'deg',r.checks.angleOk)]},{group:'X/Y 底部拉桿強度與配置',keepTogether:true,items:[reportCheck('X 向拉桿需求','Tx = max|Σleft[Ri(xi-xL)/z]|',r.xTieCuts.map((c,i)=>`Tx${i+1}=${fmt(c.demand,2)}`).join('；'),fmt(r.xTieDemand,2),'tf',true),reportCheck('X 向提供量','As,X,prov ≥ max[Tx/(φfy), 專案指定最小 As]',`${fmt(r.xTieLayout.providedArea,2)} ≥ ${fmt(r.xTieAsRequired,2)}`,fmt(r.xTieDcr,3),'DCR',r.checks.xTieOk&&r.xTieLayout.layoutOk),reportCheck('Y 向拉桿需求','Ty = max|Σbelow[Ri(yi-yL)/z]|',r.yTieCuts.map((c,i)=>`Ty${i+1}=${fmt(c.demand,2)}`).join('；'),fmt(r.yTieDemand,2),'tf',true),reportCheck('Y 向提供量','As,Y,prov ≥ max[Ty/(φfy), 專案指定最小 As]',`${fmt(r.yTieLayout.providedArea,2)} ≥ ${fmt(r.yTieAsRequired,2)}`,fmt(r.yTieDcr,3),'DCR',r.checks.yTieOk&&r.yTieLayout.layoutOk),reportCheck('X/Y 拉桿節點高程','兩向形心差不大於較大鋼筋直徑',`${fmt(r.tieLayerOffset,2)} cm`,fmt(r.tieLayerOffset,2),'cm',r.checks.tieLayerOffsetOk)]},{group:'三維壓桿與節點區強度',items:[reportCheck('三維壓桿','φFns = φ(0.85 βc βs fc\') Astrut',`φFns=${fmt(r.strutDesign,2)} tf；控制 C=${fmt(Math.max(...r.nodes.map(n=>n.strutDemand)),2)} tf`,fmt(r.maxStrutDcr,3),'DCR',r.checks.strutOk),reportCheck('柱下 CCC 節點','φFnn = φ(0.85 βc βn fc\') An；βn=1.0',`Pu=${fmt(r.input.Pu,2)}；φFnn=${fmt(r.topNodeDesign,2)} tf`,fmt(r.topNodeDcr,3),'DCR',r.checks.topNodeOk),reportCheck('樁頂 CCT 節點','各樁頂 φFnn ≥ max(Ri,Ci)；βn=0.8',`φFnn=${fmt(r.bottomNodeDesign,2)} tf；控制 DCR=${fmt(maxBottom,3)}`,fmt(maxBottom,3),'DCR',r.checks.bottomNodeOk)]},{group:'樁帽構材與 23.4.4',keepTogether:true,items:[reportCheck('樁帽有效深度','13.4.6.1：d ≥ 30 cm',`dX=${fmt(r.dX,2)}；dY=${fmt(r.dY,2)} cm`,fmt(Math.min(r.dX,r.dY),2),'cm',r.checks.pileEffectiveDepthOk),reportCheck('X 向臨界斷面剪力','13.4.6.5：依樁心與臨界斷面位置計入反力',`Vu,X=${fmt(r.shearX.demand,2)} tf`,fmt(r.shearX.demand,2),'tf',true),reportCheck('Y 向臨界斷面剪力','13.4.6.5：依樁心與臨界斷面位置計入反力',`Vu,Y=${fmt(r.shearY.demand,2)} tf`,fmt(r.shearY.demand,2),'tf',true),...(r.check2344Required?[reportCheck('23.4.4 X 向','Vu,X ≤ φ1.32 tanθx λ λs √fc\' Ly dX',`${fmt(r.shearX.demand,2)} ≤ ${fmt(r.shearDesignLimitX,2)}；λs=${fmt(r.lambdaSX,3)}`,fmt(r.shearX.demand/r.shearDesignLimitX,3),'DCR',r.checks.shearLimitXOk),reportCheck('23.4.4 Y 向','Vu,Y ≤ φ1.32 tanθy λ λs √fc\' Lx dY',`${fmt(r.shearY.demand,2)} ≤ ${fmt(r.shearDesignLimitY,2)}；λs=${fmt(r.lambdaSY,3)}`,fmt(r.shearY.demand/r.shearDesignLimitY,3),'DCR',r.checks.shearLimitYOk)]:[])]},{group:'模型採用紀錄',items:[reportCheck('反力來源','13.2.6.3：載重與反力須同一基準',r.reactionSourceConfirmed?'已確認':'尚未確認',r.reactionSourceConfirmed?'已確認':'待確認','',r.reactionSourceConfirmed?true:null),reportCheck('三維拓樸代表性','13.2.6.4 / 13.2.6.5 / 23.2.1',r.threeDimensionalTopologyConfirmed?'已確認':'尚未確認',r.threeDimensionalTopologyConfirmed?'已確認':'待確認','',r.threeDimensionalTopologyConfirmed?true:null),reportCheck('節點與壓桿幾何','23.2 / 23.4 / 23.9',r.nodalGeometryConfirmed?'已確認':'尚未確認',r.nodalGeometryConfirmed?'已確認':'待確認','',r.nodalGeometryConfirmed?true:null),reportCheck('拉桿錨定','23.8.2 / 23.8.3',r.anchorageConfirmed?'已確認':'尚未確認',r.anchorageConfirmed?'已確認':'待確認','',r.anchorageConfirmed?true:null),reportCheck('局部拉桿帶分配','整體 Tx/Ty 已分配至各樁列與施工圖配筋帶',r.localTieDistributionConfirmed?'已確認':'尚未確認',r.localTieDistributionConfirmed?'已確認':'待確認','',r.localTieDistributionConfirmed?true:null)]}];const plan=planSvg(r),iso=isoSvg(r);openReport({title:'RC 樁帽三維壓拉桿模型檢核計算書',subtitle:'RC Pile Cap 3D Strut-and-Tie Model Check Report',outputSource:{tool:'RC 樁帽三維壓拉桿模型',version:'V0.5'},project:{name:$('projName').value,no:$('projNo').value,designer:$('projDesigner').value},summary:false,inputs,checks,diagramsTitle:'樁帽平面配置與三維力流',diagrams:[{title:'樁帽平面、樁反力與正交拉桿帶',dataURL:svgDataUrl(plan),caption:`${r.grid.xCoordinates.length}×${r.grid.yCoordinates.length} 樁群；ΣR=${fmt(r.reactionTotal,1)} tf`,width:300},{title:'三維壓桿力流',dataURL:svgDataUrl(iso),caption:`θmin=${fmt(r.minThetaDeg,1)}°；控制壓桿 DCR=${fmt(r.maxStrutDcr,3)}`,width:300}]})}
+  populateBars();$('btnCalc').addEventListener('click',calculate);$('btnReport').addEventListener('click',buildReport);document.querySelectorAll('input,select,textarea').forEach(el=>el.addEventListener('change',calculate));window.calculatePileCap3DSTM=calculate;window.buildPileCap3DSTMReport=buildReport;calculate();
+})();
+</script>
+<script src="../../結構工具箱/tools/project-meta-profile.js"></script>
+</body>
+</html>

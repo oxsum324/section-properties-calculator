@@ -21,7 +21,8 @@
  *       V  : 主剪力 (tf)       ── 梁專用
  *       T  : 扭矩 (tf·m)       ── 梁專用
  *     },
- *     target: 'beam' | 'column-rect' | 'column-circ' | 'steel-beam'
+ *     loadComponents: LoadCombo loadcombo-components-v1 package (optional),
+ *     target: 'beam' | 'column-rect' | 'column-circ' | 'steel-beam' | 'foundation-pile-cap'
  *   }
  *
  * 目標 (target) → 對應 URL：
@@ -29,6 +30,7 @@
  *   column-rect → ../鋼筋混凝土/tools/column.html?import=1
  *   column-circ → ../鋼筋混凝土/tools/column.html?import=1&colType=circle
  *   steel-beam  → ../../鋼構工具/steel-beam-formal.html?import=1
+ *   foundation-pile-cap → ../../鋼筋混凝土/tools/foundation.html?import=1
  *
  * 矩形與圓形柱共用 column.html；圓形目標以 colType=circle 切換柱型，
  * 不另行維護第二份柱設計頁或計算核心。
@@ -44,6 +46,7 @@
     'column-rect': '../鋼筋混凝土/tools/column.html?import=1',
     'column-circ': '../鋼筋混凝土/tools/column.html?import=1&colType=circle',
     'steel-beam':   '../../鋼構工具/steel-beam-formal.html?import=1',
+    'foundation-pile-cap': '../../鋼筋混凝土/tools/foundation.html?import=1',
   };
 
   // 各 target 預期使用的 force keys (用於驗證 + UI 顯示)
@@ -52,6 +55,7 @@
     'column-rect':  ['P', 'Mx', 'My', 'Vx', 'Vy'],
     'column-circ':  ['P', 'Mx', 'Vx'],
     'steel-beam':   ['M', 'MNeg', 'V'],
+    'foundation-pile-cap': [],
   };
 
   const TARGET_LABEL = {
@@ -59,6 +63,7 @@
     'column-rect':  '矩形柱設計 (column.html)',
     'column-circ':  '圓形柱設計 (column.html)',
     'steel-beam':   '鋼梁正式檢核 (steel-beam-formal.html)',
+    'foundation-pile-cap': '基礎樁帽三維 STM (foundation.html)',
   };
 
   // 內力鍵 → 中文標籤、單位
@@ -212,6 +217,14 @@
     return normalized;
   }
 
+  function normalizeLoadComponents(value) {
+    if (value == null) return null;
+    if (!global.LoadCombo || typeof global.LoadCombo.normalizeComponentPackage !== 'function') {
+      throw new Error('缺少 LoadCombo 基本載重分量驗證核心。');
+    }
+    return global.LoadCombo.normalizeComponentPackage(value);
+  }
+
   /**
    * 暫存內力到 localStorage
    */
@@ -233,6 +246,8 @@
       material: payload.material || null,
       // 可選: 構件幾何摘要，例如 {spanCm}
       member:   payload.member   || null,
+      // 可選: D/L/W/E 基本載重分量；保留完整來源供樁帽等多組合工作流採用。
+      loadComponents: normalizeLoadComponents(payload.loadComponents),
       target:   payload.target   || null,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
@@ -330,6 +345,9 @@
   function sendTo(target, payload, urlOverride) {
     const url = urlOverride || TARGET_URL[target];
     if (!url) throw new Error('未知 target: ' + target);
+    if (target === 'foundation-pile-cap' && !payload.loadComponents) {
+      throw new Error('基礎樁帽目標需要 D/L/W/E 基本載重分量資料包。');
+    }
     const rawForces = normalizeNumericMap(payload.forces) || {};
     const adaptedForces = filterForTarget(rawForces, target);
     const safe = stashInternal({ ...payload, forces:adaptedForces, target }, rawForces);

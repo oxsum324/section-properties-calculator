@@ -214,11 +214,31 @@ assert.ok(
     const result = stagePagesArtifact({ repoRoot: fixtureRepo, siteRoot: fixtureSite });
     assert.equal(result.publishedCount, 2, 'artifact builder stages tracked changes and non-ignored new published files only');
     assert.equal(result.missingCount, 1, 'artifact builder omits tracked working-tree deletions');
+    assert.deepEqual(result.privateContentScan, { scannedFileCount: 2, findingCount: 0 }, 'artifact builder scans every staged public file for private workstation paths');
     assert.equal(fs.readFileSync(path.join(fixtureSite, 'keep.html'), 'utf8'), '<p>working change</p>\n', 'artifact builder applies Git clean filters to tracked changes');
     assert.equal(fs.readFileSync(path.join(fixtureSite, 'new-page.html'), 'utf8'), '<p>new page</p>\n', 'artifact builder applies Git clean filters to new published files');
     for (const privatePath of ['README.md', 'secret.test.js', 'dev_tools/secret.html', '案件/GSP-外部歸檔生命週期總覽-GSP-00000000000000000000/overview.html', '案件/GSM-外部歸檔生命週期監測-latest.json', '案件/events/GSM-外部歸檔生命週期監測事件-000001-GME-00000000000000000000.json', '案件/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_DASHBOARD_SCHEMA.json', 'output/audit/gsm-lifecycle-monitor-status.json', 'output/audit/gsm-lifecycle-monitor-history.json', 'output/audit/gsm-lifecycle-monitor-task-status.json', '結構工具箱/tools/build-pages-artifact.js', 'ignored.html', 'deleted.html']) {
       assert.equal(fs.existsSync(path.join(fixtureSite, ...privatePath.split('/'))), false, `artifact builder excludes ${privatePath}`);
     }
+
+    fs.writeFileSync(path.join(fixtureRepo, 'windows-path-leak.html'), '<pre>C:\\Users\\Fixture\\Desktop\\secret.json</pre>\n', 'utf8');
+    assert.throws(
+      () => stagePagesArtifact({ repoRoot: fixtureRepo, siteRoot: fixtureSite }),
+      error => error instanceof Error
+        && error.message.includes('published artifact contains private workstation path content')
+        && error.message.includes('windows-path-leak.html [windows-user-profile-path]'),
+      'artifact builder fails closed when public content contains a Windows user-profile path',
+    );
+    fs.rmSync(path.join(fixtureRepo, 'windows-path-leak.html'));
+
+    fs.writeFileSync(path.join(fixtureRepo, 'build-root-leak.json'), `${JSON.stringify({ path: fixtureRepo })}\n`, 'utf8');
+    assert.throws(
+      () => stagePagesArtifact({ repoRoot: fixtureRepo, siteRoot: fixtureSite }),
+      error => error instanceof Error
+        && error.message.includes('build-root-leak.json [build-repository-root]'),
+      'artifact builder fails closed on the current build root, including JSON-escaped separators',
+    );
+    fs.rmSync(path.join(fixtureRepo, 'build-root-leak.json'));
   } finally {
     fs.rmSync(fixtureRepo, { recursive: true, force: true });
     fs.rmSync(fixtureSite, { recursive: true, force: true });
@@ -504,6 +524,13 @@ assert.equal(pagesWorkflow.includes('rsync -a'), false, 'Pages workflow does not
 assert.ok(artifactBuilder.includes("'output'") && artifactBuilder.includes("'.md'") && artifactBuilder.includes("'.ps1'"), 'shared artifact builder excludes generated output, docs, and scripts');
 assert.ok(artifactBuilder.includes('attachment-package-check.js') && artifactBuilder.includes('rendered-delivery-evidence.js') && artifactBuilder.includes('docx-package-integrity.js') && artifactBuilder.includes('xlsx-package-integrity.js') && artifactBuilder.includes('xlsx-print-export.py') && artifactBuilder.includes('xlsx-print-visual.js') && artifactBuilder.includes('xlsx-seal-verifier.js'), 'shared artifact builder excludes delivery governance helpers');
 assert.ok(!artifactBuilder.includes("'SRC工具/core/src-column-core.js'") && !artifactBuilder.includes("'SRC工具/src-column.html'") && artifactBuilder.includes('SRC工具/core/src-column-oracle.js') && artifactBuilder.includes('SRC工具/src-column-page.contract.test.js') && artifactBuilder.includes('SRC工具/src-column-browser-smoke.test.js') && artifactBuilder.includes('SRC工具/src-column-traceability.catalog.json'), 'shared artifact builder publishes the SRC column production page/core while keeping oracle, tests and governance catalog private');
+assert.ok(artifactBuilder.includes('joint-reaction-fixture-sanitizer.js') && artifactBuilder.includes('joint-reaction-fixture-promotion-gate.js') && artifactBuilder.includes('joint-reaction-observed-intake.js') && artifactBuilder.includes('joint-reaction-observed-review.template.json') && artifactBuilder.includes('shared/fixtures/joint-reactions/'), 'shared artifact builder keeps Joint Reactions intake, promotion and fixture evidence private');
+assert.ok(artifactBuilder.includes('結構工具箱/tools/independent-engineering-'), 'shared artifact builder keeps the complete independent engineering governance tree private');
+assert.ok(pagesSmoke.includes('joint-reaction-fixture-sanitizer.js') && pagesSmoke.includes('joint-reaction-fixture-promotion-gate.js') && pagesSmoke.includes('joint-reaction-observed-intake.js') && pagesSmoke.includes('joint-reaction-observed-review.template.json') && pagesSmoke.includes('shared/fixtures/joint-reactions/observed-manifest.json'), 'Pages smoke probes Joint Reactions private governance assets');
+assert.ok(pagesSmoke.includes('結構工具箱/tools/independent-engineering-adapters/rc-stm-strength.js')
+  && pagesSmoke.includes('結構工具箱/tools/independent-engineering-benchmarks.js')
+  && pagesSmoke.includes('結構工具箱/tools/independent-engineering-benchmarks.catalog.json')
+  && pagesSmoke.includes('結構工具箱/tools/independent-engineering-benchmarks.test.js'), 'Pages smoke probes the complete private independent engineering governance boundary');
 assert.ok(pagesSmoke.includes("path: 'SRC工具/src-column.html'") && pagesSmoke.includes("source: '/src-column'") && pagesSmoke.includes('SRC工具/core/src-column-oracle.js') && pagesSmoke.includes('SRC工具/src-column-page.contract.test.js') && pagesSmoke.includes('SRC工具/src-column-browser-smoke.test.js') && pagesSmoke.includes('SRC工具/src-column-core.test.js') && pagesSmoke.includes('SRC工具/src-column-h-section-catalog.test.js') && pagesSmoke.includes('SRC工具/src-column-rc-biaxial.test.js') && pagesSmoke.includes('SRC工具/src-column-shear.test.js') && pagesSmoke.includes('SRC工具/src-column-seismic-axial.test.js') && pagesSmoke.includes('SRC工具/src-column-seismic-detailing.test.js') && pagesSmoke.includes('SRC工具/src-column-oracle.test.js') && pagesSmoke.includes('SRC工具/src-column-traceability.catalog.json'), 'Pages smoke treats SRC column production assets as public and probes private oracle/test assets');
 const { classifyPublishedPath } = require(artifactBuilderPath);
 for (const publicPath of ['SRC工具/core/src-column-core.js', 'SRC工具/core/src-column-h-section-catalog.js', 'SRC工具/core/src-column-rc-biaxial.js', 'SRC工具/core/src-column-shear.js', 'SRC工具/core/src-column-weak-axis-shear-reference.js', 'SRC工具/core/src-column-seismic-axial.js', 'SRC工具/core/src-column-seismic-detailing.js', 'SRC工具/src-column.html', 'SRC工具/src-column.css', 'SRC工具/src-column.js']) {
@@ -512,6 +539,26 @@ for (const publicPath of ['SRC工具/core/src-column-core.js', 'SRC工具/core/s
 for (const privatePath of ['SRC工具/core/src-column-oracle.js', 'SRC工具/src-column-page.contract.test.js', 'SRC工具/src-column-browser-smoke.test.js', 'SRC工具/src-column-core.test.js', 'SRC工具/src-column-h-section-catalog.test.js', 'SRC工具/src-column-rc-biaxial.test.js', 'SRC工具/src-column-shear.test.js', 'SRC工具/src-column-seismic-axial.test.js', 'SRC工具/src-column-seismic-detailing.test.js', 'SRC工具/src-column-oracle.test.js', 'SRC工具/src-column-traceability.catalog.json']) {
   assert.deepEqual(classifyPublishedPath(privatePath), { publish: false, reason: 'private-tooling' }, `${privatePath} is excluded by exact Pages policy`);
 }
+for (const publicPath of ['鋼筋混凝土/shared/joint-reaction-load-adapter.js', '鋼筋混凝土/shared/joint-reaction-fixture-sanitizer-core.js']) {
+  assert.deepEqual(classifyPublishedPath(publicPath), { publish: true, reason: 'published' }, `${publicPath} is a required Joint Reactions browser runtime`);
+}
+for (const privatePath of ['鋼筋混凝土/shared/joint-reaction-fixture-sanitizer.js', '鋼筋混凝土/shared/joint-reaction-fixture-promotion-gate.js', '鋼筋混凝土/shared/joint-reaction-observed-intake.js', '鋼筋混凝土/shared/joint-reaction-observed-review.template.json']) {
+  assert.deepEqual(classifyPublishedPath(privatePath), { publish: false, reason: 'private-tooling' }, `${privatePath} is excluded from the public Joint Reactions runtime`);
+}
+for (const privatePath of ['鋼筋混凝土/shared/fixtures/joint-reactions/manifest.json', '鋼筋混凝土/shared/fixtures/joint-reactions/observed-manifest.json']) {
+  assert.deepEqual(classifyPublishedPath(privatePath), { publish: false, reason: 'private-source-tree' }, `${privatePath} is excluded with the private Joint Reactions fixture tree`);
+}
+for (const privatePath of ['結構工具箱/tools/independent-engineering-adapters/rc-column-pm.js', '結構工具箱/tools/independent-engineering-adapters/rc-stm-strength.js', '結構工具箱/tools/independent-engineering-adapters/src-column.js', '結構工具箱/tools/independent-engineering-benchmarks.js', '結構工具箱/tools/independent-engineering-benchmarks.catalog.json', '結構工具箱/tools/independent-engineering-benchmarks.test.js']) {
+  assert.deepEqual(classifyPublishedPath(privatePath), { publish: false, reason: 'private-source-tree' }, `${privatePath} is excluded with the private independent engineering governance tree`);
+}
+assert.deepEqual(
+  classifyPublishedPath('鋼構工具/core/formal-core-manifest.json'),
+  { publish: false, reason: 'private-tooling' },
+  'steel formal core sync manifest is excluded because it contains workstation paths and private synchronization evidence',
+);
+assert.ok(pagesSmoke.includes("'鋼構工具/core/formal-core-manifest.json'"), 'Pages private-boundary probe blocks the steel formal core sync manifest');
+assert.ok(artifactBuilder.includes('PRIVATE_CONTENT_PATTERNS') && artifactBuilder.includes('privateContentNeedles') && artifactBuilder.includes('scanPrivatePublishedContent'), 'shared artifact builder owns the generic private workstation path content scan');
+assert.ok(artifactBuilder.includes('privateContentScanned=') && artifactBuilder.includes('privateContentFindings='), 'shared artifact builder reports closed private-content scan evidence');
 assert.ok(artifactBuilder.includes('PRIVATE_GENERATED_FILE_PREFIXES') && artifactBuilder.includes('GSM-外部歸檔生命週期監測-latest') && artifactBuilder.includes('GSM-外部歸檔生命週期監測事件-'), 'shared artifact builder excludes copied GSM monitor state and events');
 assert.ok(artifactBuilder.includes('verify-pages-release-lineage.js'), 'shared artifact builder excludes the release lineage verifier');
 assert.ok(artifactBuilder.includes('GIT_INDEX_FILE') && artifactBuilder.includes("core.autocrlf=false") && artifactBuilder.includes("core.eol=lf"), 'shared artifact builder uses an isolated normalized Git index');

@@ -284,7 +284,7 @@
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
   <h1>基礎 Foundation 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.1</span></h1>
-  <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 獨立基腳、聯合基腳、筏式基礎、樁基／樁帽、擋土牆、耐震繫材</p>
+  <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ <a class="back" href="foundation-deep-beam-stm.html">基礎深梁二維 STM</a> ｜ <a class="back" href="pile-cap-3d-stm.html">樁帽三維 STM</a> ｜ 獨立基腳、聯合基腳、筏式基礎、樁基／樁帽、擋土牆、耐震繫材</p>
 </header>
 
 <div class="container">
@@ -672,11 +672,120 @@
           <div class="form-group"><label>L 活載重 (tf)</label><input type="number" id="pPL" value="80"></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>PE 地震 (tf)</label><input type="number" id="pPE" value="0"></div>
-          <div class="form-group"><label>Mx 彎矩 (tf·m)</label><input type="number" id="pMx" value="0"></div>
+          <div class="form-group"><label>W 風力垂直分量 (tf)</label><input type="number" id="pPW" value="0"></div>
+          <div class="form-group"><label>E 地震垂直分量 (tf)</label><input type="number" id="pPE" value="0"></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>My 彎矩 (tf·m)</label><input type="number" id="pMy" value="0"></div>
+          <div class="form-group"><label>目前頁面 Mx 因數化彎矩 (tf·m)</label><input type="number" id="pMx" value="0"></div>
+          <div class="form-group"><label>目前頁面 My 因數化彎矩 (tf·m)</label><input type="number" id="pMy" value="0"></div>
+        </div>
+        <div class="retain-source-box" id="pileCap3DSTMBridgeBox">
+          <strong>樁帽三維 STM 結果銜接</strong>
+          <div class="retain-source-actions">
+            <button class="mode-bar__action" id="btnOpenPileCap3DSTM" type="button">以目前結果開啟三維 STM</button>
+            <button class="mode-bar__action" id="btnDownloadPileCap3DSTM" type="button">下載三維 STM JSON</button>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label for="pileCap3DSTMCaseMode">STM 載重組合來源</label>
+            <select id="pileCap3DSTMCaseMode">
+              <option value="manual">目前頁面結果＋手動附加組合</option>
+              <option value="auto-lrfd">由 D／L／W／E 基本載重自動產生 LRFD 組合</option>
+            </select>
+          </div>
+          <details id="pileCap3DSTMComponentPanel" style="margin-top:10px;">
+            <summary style="cursor:pointer; font-weight:700; color:#1e3a5f;">自動組合的彎矩分量與預覽</summary>
+            <p class="hint">Pu 分量直接採用上方 D、L、W、E 垂直載重；下列彎矩須填未乘載重係數的基本分量。正負方向由 W／E 的 ± 組合自動展開。</p>
+            <div class="retain-source-box" id="pileCapLoadComponentSourceBox" style="margin:10px 0;">
+              <strong>基本載重分量來源</strong>
+              <div class="retain-source-actions">
+                <button class="mode-bar__action" id="btnImportPileCapLoadComponents" type="button">匯入分析 JSON</button>
+                <button class="mode-bar__action" id="btnDownloadPileCapLoadComponentTemplate" type="button">下載格式範本</button>
+                <button class="mode-bar__action" id="btnAdoptPileCapLoadComponents" type="button" hidden>採用候選分量</button>
+                <button class="mode-bar__action" id="btnClearPileCapLoadComponentSource" type="button">清除來源</button>
+              </div>
+              <input class="mode-bar__file" id="pileCapLoadComponentJsonFile" type="file" accept=".json,application/json">
+              <input id="pileCapLoadComponentAdoptedSource" type="hidden" value="">
+              <p class="retain-source-status" id="pileCapLoadComponentSourceStatus">目前由頁面人工輸入。可匯入 loadcombo-components-v1 分析資料包，或由 ForcePicker 傳入候選。</p>
+              <pre class="steps-body" id="pileCapLoadComponentCandidate" style="margin-top:10px;" hidden></pre>
+              <details id="jointReactionAdapterPanel" style="margin-top:10px;">
+                <summary style="cursor:pointer; font-weight:700; color:#1e3a5f;">由 ETABS／SAP2000 Joint Reactions CSV 建立候選</summary>
+                <p class="hint">只讀取 Joint Reactions 表格中的單一節點與 Linear Static／LinStatic 基本載重案例；載重組合、其他 CaseType、多步驟或重複列都會阻擋。P 採壓力為正，基礎彎矩採結構支承反力矩的反向作用，單位與座標軸須由使用者明確指定。</p>
+                <details id="jointReactionExportChecklist" class="page-only-case-tools" style="margin:8px 0 12px;">
+                  <summary style="cursor:pointer; font-weight:700; color:#0f766e;">實際匯出檔準備清單（僅畫面顯示）</summary>
+                  <ol class="hint" style="margin:8px 0 0; padding-left:22px; line-height:1.65;">
+                    <li>在分析軟體先固定目前顯示單位，並在下方選取相同來源單位；本工具不從數值大小猜測單位。</li>
+                    <li>表格須為 Joint Reactions，只匯出一個基礎節點及要對應的 D／L／W／E Linear Static／LinStatic 基本載重案例；不要匯出載重組合、Response Spectrum、Time History 或 Nonlinear Static。</li>
+                    <li>必要欄位：Point／Joint、OutputCase、CaseType、F1、F2、F3、M1、M2、M3；建議另保留 Story 與 Unique Name 以辨識節點。</li>
+                    <li>每一節點＋案例只能有一列。多步驟、歷時、包絡 Max／Min 或重複列須先回分析軟體改選單一線性靜力基本案例。</li>
+                    <li>讀取後逐項確認節點、案例、單位、P／Mx／My 軸向及支承反力的作用／反作用方向，再建立候選並按「採用候選分量」。</li>
+                  </ol>
+                  <p class="hint" style="margin:8px 0 0;"><strong>附件邊界：</strong>這份清單與原始表格只供工作頁核對，不會進入計算書或列印 PDF；後續計算書只列已採用的來源追溯與計算結果。</p>
+                </details>
+                <div class="retain-source-actions">
+                  <button class="mode-bar__action" id="btnLoadJointReactionTable" type="button">讀取 Joint Reactions CSV</button>
+                  <button class="mode-bar__action" id="btnBuildJointReactionCandidate" type="button" disabled>建立候選分量</button>
+                  <button class="mode-bar__action" id="btnDownloadJointReactionObservedPackage" type="button" disabled>下載匿名相容性收件包</button>
+                </div>
+                <input class="mode-bar__file" id="jointReactionTableFile" type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain">
+                <div class="form-row" style="margin-top:10px;">
+                  <div class="form-group"><label for="jointReactionSoftware">來源軟體</label><select id="jointReactionSoftware"><option value="ETABS">ETABS</option><option value="SAP2000">SAP2000</option></select></div>
+                  <div class="form-group"><label for="jointReactionUnits">CSV 來源單位</label><select id="jointReactionUnits"><option value="tf-m">tf / tf·m</option><option value="kn-m">kN / kN·m</option><option value="kgf-cm">kgf / kgf·cm</option><option value="kip-ft">kip / kip·ft</option></select></div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group"><label for="jointReactionSoftwareVersion">來源軟體版本</label><input id="jointReactionSoftwareVersion" type="text" placeholder="例如 23.0.0" autocomplete="off"></div>
+                  <div class="form-group"><label for="jointReactionTableName">來源表格名稱</label><input id="jointReactionTableName" type="text" value="Joint Reactions" autocomplete="off"></div>
+                </div>
+                <label class="checkbox-row page-only-case-tools" style="margin:8px 0 10px;">
+                  <input id="jointReactionObservedOriginConfirmed" type="checkbox">
+                  <span>我確認這是由上列 ETABS／SAP2000 版本實際匯出的原始 Joint Reactions 表格。匿名收件包仍須人工檢查，不會自動核可或進入正式計算書。</span>
+                </label>
+                <div class="form-group"><label for="jointReactionPoint">節點</label><select id="jointReactionPoint" disabled><option value="">請先讀取 CSV</option></select></div>
+                <div class="form-group"><label for="jointReactionCaseD">D 基本案例</label><select id="jointReactionCaseD" disabled><option value="">0（不對應）</option></select></div>
+                <div class="form-group"><label for="jointReactionCaseL">L 基本案例</label><select id="jointReactionCaseL" disabled><option value="">0（不對應）</option></select></div>
+                <div class="form-group"><label for="jointReactionCaseW">W 基本案例</label><select id="jointReactionCaseW" disabled><option value="">0（不對應）</option></select></div>
+                <div class="form-group"><label for="jointReactionCaseE">E 基本案例</label><select id="jointReactionCaseE" disabled><option value="">0（不對應）</option></select></div>
+                <div class="form-row">
+                  <div class="form-group"><label for="jointReactionVerticalForce">P 來源分量</label><select id="jointReactionVerticalForce"><option value="F3">F3</option><option value="F2">F2</option><option value="F1">F1</option></select></div>
+                  <div class="form-group"><label for="jointReactionVerticalSign">P 軸向係數</label><select id="jointReactionVerticalSign"><option value="1">+1</option><option value="-1">-1</option></select></div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group"><label for="jointReactionMxMoment">Mx 來源反力矩</label><select id="jointReactionMxMoment"><option value="M1">M1</option><option value="M2">M2</option><option value="M3">M3</option><option value="">0（不匯入）</option></select></div>
+                  <div class="form-group"><label for="jointReactionMxSign">Mx 軸向係數（另套反作用負號）</label><select id="jointReactionMxSign"><option value="1">+1</option><option value="-1">-1</option></select></div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group"><label for="jointReactionMyMoment">My 來源反力矩</label><select id="jointReactionMyMoment"><option value="M2">M2</option><option value="M1">M1</option><option value="M3">M3</option><option value="">0（不匯入）</option></select></div>
+                  <div class="form-group"><label for="jointReactionMySign">My 軸向係數（另套反作用負號）</label><select id="jointReactionMySign"><option value="1">+1</option><option value="-1">-1</option></select></div>
+                </div>
+                <p class="retain-source-status" id="jointReactionAdapterStatus">尚未讀取表格；轉換結果只會成為候選，不會直接覆寫設計欄位。</p>
+                <p class="retain-source-status page-only-case-tools" id="jointReactionObservedPackageStatus">匿名收件包只保存去識別候選、匿名化證據、未核可 review 與 receipt；原始表格內容、檔名與路徑不會寫入收件包。</p>
+                <pre class="steps-body page-only-case-tools" id="jointReactionPreflightSummary" style="margin-top:10px;" hidden></pre>
+              </details>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Mux,D (tf·m)</label><input type="number" id="pileCapMuxD" value="0"></div>
+              <div class="form-group"><label>Mux,L (tf·m)</label><input type="number" id="pileCapMuxL" value="0"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Mux,W (tf·m)</label><input type="number" id="pileCapMuxW" value="0"></div>
+              <div class="form-group"><label>Mux,E (tf·m)</label><input type="number" id="pileCapMuxE" value="0"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Muy,D (tf·m)</label><input type="number" id="pileCapMuyD" value="0"></div>
+              <div class="form-group"><label>Muy,L (tf·m)</label><input type="number" id="pileCapMuyL" value="0"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Muy,W (tf·m)</label><input type="number" id="pileCapMuyW" value="0"></div>
+              <div class="form-group"><label>Muy,E (tf·m)</label><input type="number" id="pileCapMuyE" value="0"></div>
+            </div>
+            <button class="mode-bar__action" id="btnPreviewPileCap3DSTMCombos" type="button">預覽 LRFD 組合</button>
+            <pre class="steps-body" id="pileCap3DSTMComboPreview" style="margin-top:10px;">切換至自動模式後，可在此預覽共用核心產生的組合。</pre>
+          </details>
+          <div class="form-group" style="margin-top:10px;">
+            <label for="pileCap3DSTMAdditionalCases">補充自訂因數化載重組合（選填；每列：名稱 | Pu(tf) | Mux(tf·m) | Muy(tf·m)）</label>
+            <textarea id="pileCap3DSTMAdditionalCases" class="soil-input" style="min-height:82px;" spellcheck="false" placeholder="ULS-X | 500 | 0 | 60&#10;ULS-Y | 500 | 60 | 0"></textarea>
+          </div>
+          <p class="hint">手動模式以目前頁面結果為第 1 組；自動模式改由共用 LoadCombo 核心產生 LRFD 組合。補充組合會接在後方，所有組合合計最多 24 組，並以同一樁群剛性承台分配式重算各樁反力。</p>
+          <p class="retain-source-status" id="pileCap3DSTMBridgeStatus">將目前樁帽幾何、材料、因數化載重、樁位與樁反力以版本化 JSON 傳至三維 STM；各組的負反力、非完整矩形樁群或不平衡資料都會阻擋輸出。</p>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Hx 服務水平力 (tf)</label><input type="number" id="pHX" value="0" step="1"></div>
@@ -1222,8 +1331,13 @@
 <script src="../shared/pile-group-lateral.js?v=1"></script>
 <script src="../shared/pile-py-table-adapter.js?v=1"></script>
 <script src="../shared/pile-py-result-bridge.js?v=1"></script>
+<script src="../shared/pile-cap-3d-stm-bridge.js?v=2"></script>
 <script src="../shared/report.js?v=9"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
+<script src="../shared/joint-reaction-load-adapter.js?v=2"></script>
+<script src="../shared/joint-reaction-fixture-sanitizer-core.js?v=1"></script>
+<script src="../shared/pile-cap-load-combinations.js?v=1"></script>
+<script src="../../結構工具箱/core/ui/forces-receive.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script src="./pile-site-presets.js?v=1"></script>
 <script src="../../結構工具箱/tools/earth/earth-pressure-core.js?v=1"></script>
@@ -1239,14 +1353,33 @@
     'pilePyAdapterSoftware', 'pilePyAdapterVersion', 'pilePyAdapterAnalysisId', 'pilePyAdapterCaseName',
     'pilePyAdapterScope', 'pilePyAdapterUnits', 'pilePyAdapterAnalyst', 'pilePyAdapterCapacityBasis',
     'pilePyAdapterAllow', 'pilePyAdapterShearCap', 'pilePyAdapterMomentCap',
-    'pilePyAdapterXTable', 'pilePyAdapterYTable', 'pilePyAdapterXFile', 'pilePyAdapterYFile'
+    'pilePyAdapterXTable', 'pilePyAdapterYTable', 'pilePyAdapterXFile', 'pilePyAdapterYFile',
+    'jointReactionTableFile', 'jointReactionSoftware', 'jointReactionUnits', 'jointReactionSoftwareVersion',
+    'jointReactionTableName', 'jointReactionObservedOriginConfirmed', 'jointReactionPoint',
+    'jointReactionCaseD', 'jointReactionCaseL', 'jointReactionCaseW', 'jointReactionCaseE',
+    'jointReactionVerticalForce', 'jointReactionVerticalSign', 'jointReactionMxMoment', 'jointReactionMxSign',
+    'jointReactionMyMoment', 'jointReactionMySign'
   ]);
   const EARTH_PRESSURE_BRIDGE = window.EarthPressureRcBridge;
   const RETAINING_BASE_DEMAND = window.RetainingBaseDemand;
   const PILE_PY_TABLE_ADAPTER = window.PilePyTableAdapter;
+  const JOINT_REACTION_LOAD_ADAPTER = window.JointReactionLoadAdapter;
+  const JOINT_REACTION_FIXTURE_SANITIZER_CORE = window.JointReactionFixtureSanitizerCore;
+  const JOINT_REACTION_BROWSER_INTAKE_PACKAGE_SCHEMA = 'rc-joint-reaction-browser-intake-package.v1';
+  const JOINT_REACTION_OBSERVED_REVIEW_SCHEMA = 'rc-joint-reaction-observed-review.v1';
+  const JOINT_REACTION_OBSERVED_RECEIPT_SCHEMA = 'rc-joint-reaction-observed-intake-receipt.v1';
+  const JOINT_REACTION_OBSERVED_ASSERTION_KEYS = Object.freeze([
+    'noProjectIdentity', 'headersReviewed', 'softwareVersionConfirmed', 'tableNameConfirmed',
+    'unitsConfirmed', 'compatibilityReplayPassed', 'nonEngineeringUseAcknowledged', 'originalSourceExcluded'
+  ]);
+  const PILE_CAP_3D_STM_BRIDGE = window.PileCap3DSTMBridge;
+  const PILE_CAP_LOAD_COMBINATIONS = window.PileCapLoadCombinations;
   const PILE_PY_BRIDGE = window.PilePyResultBridge;
   const PILE_SITE_GROUPS = window.PILE_SITE_GROUPS || {};
   const PILE_SITE_PRESETS = window.PILE_SITE_PRESETS || {};
+  const PILE_CAP_LOAD_COMPONENT_SOURCE_SCHEMA = 'pile-cap-load-component-source-v1';
+  let pendingPileCapLoadComponentCandidate = null;
+  let loadedJointReactionTable = null;
 
   // ============================================================
   //  通用 UI 函式
@@ -2167,6 +2300,574 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     return Array.from(new Uint8Array(digest)).map(value => value.toString(16).padStart(2, '0')).join('');
   }
 
+  function normalizePileCapLoadComponentPackage(raw) {
+    if (!window.LoadCombo?.normalizeComponentPackage) throw new Error('缺少共用基本載重分量驗證核心。');
+    const normalized = window.LoadCombo.normalizeComponentPackage(raw);
+    ['P', 'Mx', 'My'].forEach(forceKey => {
+      if (!normalized.forces[forceKey]) throw new Error(`樁帽自動組合需要 ${forceKey} 的 D／L／W／E 基本分量。`);
+    });
+    return normalized;
+  }
+
+  function mapPileCapLoadComponentPackage(packageData) {
+    const normalized = normalizePileCapLoadComponentPackage(packageData);
+    return {
+      Pu:{ ...normalized.forces.P },
+      Mux:{ ...normalized.forces.Mx },
+      Muy:{ ...normalized.forces.My },
+    };
+  }
+
+  function pileCapLoadComponentFieldMap() {
+    return {
+      pPD:['Pu', 'D'], pPL:['Pu', 'L'], pPW:['Pu', 'W'], pPE:['Pu', 'E'],
+      pileCapMuxD:['Mux', 'D'], pileCapMuxL:['Mux', 'L'], pileCapMuxW:['Mux', 'W'], pileCapMuxE:['Mux', 'E'],
+      pileCapMuyD:['Muy', 'D'], pileCapMuyL:['Muy', 'L'], pileCapMuyW:['Muy', 'W'], pileCapMuyE:['Muy', 'E'],
+    };
+  }
+
+  function samePileCapLoadComponents(a, b) {
+    return ['Pu', 'Mux', 'Muy'].every(forceKey =>
+      ['D', 'L', 'W', 'E'].every(loadKey =>
+        Number.isFinite(Number(a?.[forceKey]?.[loadKey])) &&
+        Number.isFinite(Number(b?.[forceKey]?.[loadKey])) &&
+        Math.abs(Number(a[forceKey][loadKey]) - Number(b[forceKey][loadKey])) <= 1e-9
+      )
+    );
+  }
+
+  function normalizePileCapLoadComponentSourceRecord(raw) {
+    let record = raw;
+    if (typeof record === 'string') {
+      try { record = JSON.parse(record); }
+      catch (_) { throw new Error('已採用的基本載重來源不是有效 JSON。'); }
+    }
+    if (!record || typeof record !== 'object' || Array.isArray(record) || record.schema !== PILE_CAP_LOAD_COMPONENT_SOURCE_SCHEMA) {
+      throw new Error('已採用的基本載重來源 schema 不相容。');
+    }
+    const packageData = normalizePileCapLoadComponentPackage(record.package);
+    const transport = record.transport;
+    if (!transport || !['file', 'force-picker'].includes(transport.kind)) throw new Error('基本載重來源傳遞方式不相容。');
+    const contentSha256 = String(transport.contentSha256 || '').trim().toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(contentSha256)) throw new Error('基本載重來源 SHA-256 格式錯誤。');
+    const adoptedTime = new Date(record.adoptedAt);
+    if (!Number.isFinite(adoptedTime.getTime())) throw new Error('基本載重來源採用時間格式錯誤。');
+    return {
+      schema:PILE_CAP_LOAD_COMPONENT_SOURCE_SCHEMA,
+      package:packageData,
+      transport:{ kind:transport.kind, label:String(transport.label || '').trim() || transport.kind, contentSha256 },
+      adoptedAt:adoptedTime.toISOString(),
+    };
+  }
+
+  function inspectPileCapLoadComponentSource() {
+    const raw = $('pileCapLoadComponentAdoptedSource')?.value || '';
+    if (!raw) return { exists:false, valid:true, record:null, mismatches:[] };
+    try {
+      const record = normalizePileCapLoadComponentSourceRecord(raw);
+      const adopted = mapPileCapLoadComponentPackage(record.package);
+      const current = readPileCap3DSTMComponents();
+      const valid = samePileCapLoadComponents(adopted, current);
+      return { exists:true, valid, record, mismatches:valid ? [] : ['D／L／W／E 分量'] };
+    } catch (error) {
+      return { exists:true, valid:false, record:null, mismatches:[error?.message || String(error)] };
+    }
+  }
+
+  function showPileCapLoadComponentSourceStatus(message, tone = '') {
+    const el = $('pileCapLoadComponentSourceStatus');
+    if (!el) return;
+    el.textContent = message;
+    el.classList.remove('pass', 'fail', 'warn');
+    if (tone) el.classList.add(tone);
+  }
+
+  function renderPileCapLoadComponentSourceStatus() {
+    const state = inspectPileCapLoadComponentSource();
+    if (!state.exists) {
+      showPileCapLoadComponentSourceStatus('目前由頁面人工輸入。可匯入 loadcombo-components-v1 分析資料包，或由 ForcePicker 傳入候選。');
+      return state;
+    }
+    if (!state.valid || !state.record) {
+      showPileCapLoadComponentSourceStatus(`來源追溯已失效：${state.mismatches.join('、')}。請重新採用候選，或清除來源後改採人工輸入。`, 'fail');
+      return state;
+    }
+    const record = state.record;
+    const source = record.package.source;
+    showPileCapLoadComponentSourceStatus(
+      `已採用 ${source.label}｜${source.tool}${source.version ? ` ${source.version}` : ''}｜工況集 ${source.caseSet || '—'}｜${record.transport.label}｜SHA-256 ${record.transport.contentSha256.slice(0, 16)}…`,
+      'pass'
+    );
+    return state;
+  }
+
+  function formatPileCapLoadComponentCandidate(candidate) {
+    const source = candidate.package.source;
+    const forces = mapPileCapLoadComponentPackage(candidate.package);
+    const row = forceKey => ['D', 'L', 'W', 'E'].map(loadKey => `${loadKey} ${Number(forces[forceKey][loadKey]).toFixed(2)}`).join('／');
+    return [
+      `來源：${source.label}｜${source.tool}${source.version ? ` ${source.version}` : ''}`,
+      `分析 ID：${source.analysisId || '—'}｜工況集：${source.caseSet || '—'}`,
+      `Pu (tf)：${row('Pu')}`,
+      `Mux (tf·m)：${row('Mux')}`,
+      `Muy (tf·m)：${row('Muy')}`,
+      `傳遞：${candidate.transport.label}｜SHA-256 ${candidate.transport.contentSha256}`,
+    ].join('\n');
+  }
+
+  function setPileCapLoadComponentCandidate(packageData, transport) {
+    const normalized = normalizePileCapLoadComponentPackage(packageData);
+    pendingPileCapLoadComponentCandidate = { package:normalized, transport };
+    const preview = $('pileCapLoadComponentCandidate');
+    if (preview) {
+      preview.textContent = formatPileCapLoadComponentCandidate(pendingPileCapLoadComponentCandidate);
+      preview.hidden = false;
+    }
+    if ($('btnAdoptPileCapLoadComponents')) $('btnAdoptPileCapLoadComponents').hidden = false;
+    showPileCapLoadComponentSourceStatus('候選分量已通過 schema、單位、符號與數值驗證；按「採用候選分量」後才會寫入正式欄位。', 'warn');
+    $('pileCap3DSTMComponentPanel').open = true;
+    applyPanel('pile');
+    return pendingPileCapLoadComponentCandidate;
+  }
+
+  function clearPileCapLoadComponentCandidate() {
+    pendingPileCapLoadComponentCandidate = null;
+    if ($('pileCapLoadComponentCandidate')) {
+      $('pileCapLoadComponentCandidate').textContent = '';
+      $('pileCapLoadComponentCandidate').hidden = true;
+    }
+    if ($('btnAdoptPileCapLoadComponents')) $('btnAdoptPileCapLoadComponents').hidden = true;
+  }
+
+  async function loadPileCapLoadComponentJsonFile(file) {
+    if (!file) return null;
+    try {
+      if (file.size > 1024 * 1024) throw new Error('基本載重分量 JSON 超過 1 MiB 上限。');
+      const text = await file.text();
+      const packageData = normalizePileCapLoadComponentPackage(text);
+      const contentSha256 = await sha256Text(text);
+      return setPileCapLoadComponentCandidate(packageData, { kind:'file', label:file.name, contentSha256 });
+    } catch (error) {
+      clearPileCapLoadComponentCandidate();
+      showPileCapLoadComponentSourceStatus(`基本載重分量匯入已阻擋：${error?.message || error}`, 'fail');
+      return null;
+    }
+  }
+
+  function showJointReactionAdapterStatus(message, tone = '') {
+    const el = $('jointReactionAdapterStatus');
+    if (!el) return;
+    el.textContent = message;
+    el.classList.remove('pass', 'fail', 'warn');
+    if (tone) el.classList.add(tone);
+  }
+
+  function showJointReactionObservedPackageStatus(message, tone = '') {
+    const el = $('jointReactionObservedPackageStatus');
+    if (!el) return;
+    el.textContent = message;
+    el.classList.remove('pass', 'fail', 'warn');
+    if (tone) el.classList.add(tone);
+  }
+
+  function safeObservedFixtureSegment(value) {
+    return String(value == null ? '' : value)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'unknown';
+  }
+
+  function jointReactionSourceExtension(filename) {
+    const match = String(filename || '').toLowerCase().match(/\.(csv|tsv|txt)$/);
+    if (!match) throw new Error('來源副檔名只支援 .csv、.tsv 或 .txt。');
+    return `.${match[1]}`;
+  }
+
+  async function downloadJointReactionObservedPackage() {
+    const button = $('btnDownloadJointReactionObservedPackage');
+    if (button) button.disabled = true;
+    try {
+      if (!loadedJointReactionTable) throw new Error('請先讀取 Joint Reactions CSV／TSV／TXT。');
+      if (!JOINT_REACTION_FIXTURE_SANITIZER_CORE?.sanitizeExportStructure) throw new Error('缺少 Joint Reactions 匿名化核心。');
+      if (!$('jointReactionObservedOriginConfirmed')?.checked) throw new Error('請先確認這是由所選軟體版本實際匯出的原始表格。');
+      const software = String($('jointReactionSoftware')?.value || '').trim();
+      const softwareVersion = String($('jointReactionSoftwareVersion')?.value || '').trim();
+      const tableName = String($('jointReactionTableName')?.value || '').trim();
+      if (!softwareVersion) throw new Error('來源軟體版本不得空白。');
+      if (!tableName) throw new Error('來源表格名稱不得空白。');
+      const unitSelect = $('jointReactionUnits');
+      const units = unitSelect?.selectedOptions?.[0]?.textContent?.trim() || unitSelect?.value || '';
+      const sourceExtension = jointReactionSourceExtension(loadedJointReactionTable.filename);
+      const structured = JOINT_REACTION_FIXTURE_SANITIZER_CORE.sanitizeExportStructure({
+        raw:loadedJointReactionTable.raw,
+        software,
+        softwareVersion,
+        units,
+        tableName,
+        originKind:'actual-observed',
+        sourceExtension,
+      });
+      const sourceSha256 = loadedJointReactionTable.contentSha256 || await sha256Text(loadedJointReactionTable.raw);
+      const outputSha256 = await sha256Text(structured.sanitized);
+      const stem = `${safeObservedFixtureSegment(software)}-${safeObservedFixtureSegment(softwareVersion)}-joint-reactions-${outputSha256.slice(0, 12)}`;
+      const fixtureId = `${safeObservedFixtureSegment(software)}-${safeObservedFixtureSegment(softwareVersion)}-observed-${outputSha256.slice(0, 8)}`;
+      const candidateFile = `${stem}-candidate${sourceExtension}`;
+      const evidenceFile = `${stem}-candidate.evidence.json`;
+      const reviewFile = `${stem}-candidate.review.json`;
+      const receiptFile = `${stem}-candidate.intake.json`;
+      const evidence = {
+        ...structured.evidence,
+        source:{ ...structured.evidence.source, sha256:sourceSha256 },
+        output:{ ...structured.evidence.output, sha256:outputSha256, file:candidateFile },
+      };
+      const review = {
+        schemaVersion:JOINT_REACTION_OBSERVED_REVIEW_SCHEMA,
+        fixtureId,
+        candidateSha256:outputSha256,
+        reviewedAt:'',
+        reviewer:'',
+        assertions:Object.fromEntries(JOINT_REACTION_OBSERVED_ASSERTION_KEYS.map(key => [key, false])),
+        notes:'人工檢查匿名候選檔後填入 reviewedAt / reviewer，並逐項將確認完成的 assertion 改為 true；不得以程式自動核可。',
+      };
+      const receipt = {
+        schemaVersion:JOINT_REACTION_OBSERVED_RECEIPT_SCHEMA,
+        status:'manual-review-required',
+        fixtureId,
+        createdAt:evidence.generatedAt,
+        declaredOrigin:'actual-observed',
+        software:evidence.source.software,
+        softwareVersion:evidence.source.softwareVersion,
+        tableName:evidence.source.tableName,
+        units:evidence.source.units,
+        candidateFile,
+        evidenceFile,
+        reviewFile,
+        candidateSha256:outputSha256,
+        privacy:{
+          sourceFileStored:false,
+          sourcePathStored:false,
+          sourceNameStored:false,
+          sourceHashCommitted:false,
+          originalNumbersStored:false,
+        },
+        nextAction:'人工檢查匿名候選與 review assertions；全部確認後先執行唯讀 assess，最後才可明確使用 --promote yes。',
+      };
+      const packageData = {
+        schemaVersion:JOINT_REACTION_BROWSER_INTAKE_PACKAGE_SCHEMA,
+        status:'manual-review-required',
+        createdAt:evidence.generatedAt,
+        fixtureId,
+        candidate:{ file:candidateFile, sha256:outputSha256, content:structured.sanitized },
+        evidence:{ file:evidenceFile, data:evidence },
+        review:{ file:reviewFile, data:review },
+        receipt:{ file:receiptFile, data:receipt },
+        privacy:{
+          originalSourceContentStored:false,
+          originalSourceNameStored:false,
+          originalSourcePathStored:false,
+          originalNumbersStored:false,
+          sourceHashLocalEvidenceOnly:true,
+          manualReviewRequired:true,
+        },
+      };
+      const blob = new Blob([`${JSON.stringify(packageData, null, 2)}\n`], { type:'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${fixtureId}-intake-package.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+      showJointReactionObservedPackageStatus(
+        `已產生 ${link.download}；只含去識別候選與待人工審閱資料，未保存原始檔名、路徑或原始數值。`,
+        'pass'
+      );
+      return packageData;
+    } catch (error) {
+      showJointReactionObservedPackageStatus(`匿名相容性收件包已阻擋：${error?.message || error}`, 'fail');
+      return null;
+    } finally {
+      if (button) button.disabled = !loadedJointReactionTable;
+    }
+  }
+
+  function summarizeJointReactionTablePreflight(parsed) {
+    const rows = Array.isArray(parsed?.rows) ? parsed.rows : [];
+    const groups = new Map();
+    rows.forEach(row => {
+      const key = `${row.pointKey}\u0000${row.outputCase}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(row);
+    });
+    const groupRows = [...groups.values()];
+    const isCombination = row => JOINT_REACTION_LOAD_ADAPTER.isCombinationCaseType(row.caseType);
+    const isLinearStatic = row => JOINT_REACTION_LOAD_ADAPTER.isLinearStaticCaseType(row.caseType);
+    const missingCaseType = rows.filter(row => !String(row.caseType || '').trim()).length;
+    const combinationRows = rows.filter(isCombination).length;
+    const unsupportedCaseTypeRows = rows.filter(row => String(row.caseType || '').trim() && !isCombination(row) && !isLinearStatic(row)).length;
+    const repeatedGroups = groupRows.filter(items => items.length > 1).length;
+    const basicCandidates = groupRows.filter(items => items.length === 1 && isLinearStatic(items[0])).length;
+    const identityColumns = [
+      parsed?.columns?.story != null ? 'Story' : '',
+      parsed?.columns?.point != null ? 'Point／Joint' : '',
+      parsed?.columns?.uniqueName != null ? 'Unique Name' : '',
+    ].filter(Boolean).join(' + ');
+    const delimiter = parsed?.delimiter === '\t' ? 'Tab' : parsed?.delimiter === ';' ? '分號' : '逗號';
+    const caseCount = new Set(rows.map(row => row.outputCase)).size;
+    return [
+      '表格預檢（僅限畫面）',
+      `表頭：第 ${parsed.headerLine} 列｜分隔符：${delimiter}｜資料：${rows.length} 列`,
+      `辨識：${parsed.points.length} 個節點｜${caseCount} 個案例名稱｜節點欄位 ${identityColumns || 'Point／Joint'}`,
+      `單列基本案例候選：${basicCandidates} 組`,
+      `選用時會阻擋：缺少 CaseType ${missingCaseType} 列｜載重組合 ${combinationRows} 列｜其他 CaseType ${unsupportedCaseTypeRows} 列｜多步驟／重複 ${repeatedGroups} 組`,
+      '預檢只描述表格結構；仍須人工確認分析單位、座標軸、反力方向與 D／L／W／E 對應。',
+    ].join('\n');
+  }
+
+  function renderJointReactionTablePreflight(parsed = null) {
+    const el = $('jointReactionPreflightSummary');
+    if (!el) return '';
+    if (!parsed) {
+      el.textContent = '';
+      el.hidden = true;
+      return '';
+    }
+    const summary = summarizeJointReactionTablePreflight(parsed);
+    el.textContent = summary;
+    el.hidden = false;
+    return summary;
+  }
+
+  function setJointReactionSelectOptions(id, items, blankLabel) {
+    const select = $(id);
+    if (!select) return;
+    select.replaceChildren();
+    if (blankLabel != null) {
+      const blank = document.createElement('option');
+      blank.value = '';
+      blank.textContent = blankLabel;
+      select.appendChild(blank);
+    }
+    items.forEach(item => {
+      const option = document.createElement('option');
+      option.value = typeof item === 'string' ? item : item.value;
+      option.textContent = typeof item === 'string' ? item : item.label;
+      select.appendChild(option);
+    });
+  }
+
+  function renderJointReactionCaseOptions() {
+    const parsed = loadedJointReactionTable?.parsed;
+    const pointKey = $('jointReactionPoint')?.value || '';
+    const rows = parsed?.rows?.filter(row => row.pointKey === pointKey) || [];
+    const cases = [...new Set(rows.map(row => row.outputCase))].map(caseName => {
+      const matching = rows.filter(row => row.outputCase === caseName);
+      const type = matching[0]?.caseType || '缺少 CaseType';
+      const extra = matching.length > 1 ? `；${matching.length} 列` : '';
+      return { value:caseName, label:`${caseName}（${type}${extra}）` };
+    });
+    ['D', 'L', 'W', 'E'].forEach(loadKey => {
+      const id = `jointReactionCase${loadKey}`;
+      setJointReactionSelectOptions(id, cases, '0（不對應）');
+      if ($(id)) $(id).disabled = !pointKey;
+    });
+  }
+
+  function invalidateJointReactionCandidate(message = '轉換設定已變更；請重新建立候選分量。') {
+    clearPileCapLoadComponentCandidate();
+    renderPileCapLoadComponentSourceStatus();
+    if (loadedJointReactionTable) showJointReactionAdapterStatus(message, 'warn');
+  }
+
+  async function loadJointReactionTableFile(file) {
+    if (!file) return null;
+    try {
+      if (!JOINT_REACTION_LOAD_ADAPTER?.parseTable) throw new Error('缺少 Joint Reactions 轉接核心。');
+      if (!/\.(csv|tsv|txt)$/i.test(file.name || '')) throw new Error('只接受 .csv、.tsv 或 .txt 表格檔。');
+      if (file.size > 1024 * 1024) throw new Error('Joint Reactions 表格超過 1 MiB 上限。');
+      const raw = await file.text();
+      const parsed = JOINT_REACTION_LOAD_ADAPTER.parseTable(raw);
+      const contentSha256 = await sha256Text(raw);
+      loadedJointReactionTable = { filename:file.name, raw, parsed, contentSha256 };
+      if ($('jointReactionObservedOriginConfirmed')) $('jointReactionObservedOriginConfirmed').checked = false;
+      setJointReactionSelectOptions('jointReactionPoint', parsed.points, null);
+      if ($('jointReactionPoint')) $('jointReactionPoint').disabled = false;
+      renderJointReactionCaseOptions();
+      renderJointReactionTablePreflight(parsed);
+      if ($('btnBuildJointReactionCandidate')) $('btnBuildJointReactionCandidate').disabled = false;
+      if ($('btnDownloadJointReactionObservedPackage')) $('btnDownloadJointReactionObservedPackage').disabled = false;
+      clearPileCapLoadComponentCandidate();
+      renderPileCapLoadComponentSourceStatus();
+      showJointReactionObservedPackageStatus('表格已載入；若為實際軟體匯出，請填寫版本、確認來源，再下載匿名相容性收件包。', 'warn');
+      showJointReactionAdapterStatus(
+        `已讀取 ${file.name}：${parsed.rowCount} 列、${parsed.points.length} 個節點；請逐一指定 D／L／W／E、來源單位與軸向後建立候選。`,
+        'pass'
+      );
+      return loadedJointReactionTable;
+    } catch (error) {
+      loadedJointReactionTable = null;
+      renderJointReactionTablePreflight();
+      setJointReactionSelectOptions('jointReactionPoint', [], '請先讀取 CSV');
+      if ($('jointReactionPoint')) $('jointReactionPoint').disabled = true;
+      ['D', 'L', 'W', 'E'].forEach(loadKey => {
+        setJointReactionSelectOptions(`jointReactionCase${loadKey}`, [], '0（不對應）');
+        if ($(`jointReactionCase${loadKey}`)) $(`jointReactionCase${loadKey}`).disabled = true;
+      });
+      if ($('btnBuildJointReactionCandidate')) $('btnBuildJointReactionCandidate').disabled = true;
+      if ($('btnDownloadJointReactionObservedPackage')) $('btnDownloadJointReactionObservedPackage').disabled = true;
+      clearPileCapLoadComponentCandidate();
+      renderPileCapLoadComponentSourceStatus();
+      showJointReactionObservedPackageStatus('沒有可匿名化的有效 Joint Reactions 表格。', 'fail');
+      showJointReactionAdapterStatus(`Joint Reactions 表格已阻擋：${error?.message || error}`, 'fail');
+      return null;
+    }
+  }
+
+  function buildJointReactionCandidate() {
+    if (!loadedJointReactionTable) {
+      showJointReactionAdapterStatus('請先讀取 Joint Reactions CSV／TSV／TXT。', 'fail');
+      return null;
+    }
+    try {
+      const packageData = JOINT_REACTION_LOAD_ADAPTER.buildPackage({
+        loadCombo:window.LoadCombo,
+        software:$('jointReactionSoftware')?.value,
+        filename:loadedJointReactionTable.filename,
+        parsed:loadedJointReactionTable.parsed,
+        pointKey:$('jointReactionPoint')?.value,
+        unitProfile:$('jointReactionUnits')?.value,
+        cases:Object.fromEntries(['D', 'L', 'W', 'E'].map(loadKey => [loadKey, $(`jointReactionCase${loadKey}`)?.value || ''])),
+        verticalForce:$('jointReactionVerticalForce')?.value,
+        verticalSign:Number($('jointReactionVerticalSign')?.value),
+        mxMoment:$('jointReactionMxMoment')?.value,
+        mxSign:Number($('jointReactionMxSign')?.value),
+        myMoment:$('jointReactionMyMoment')?.value,
+        mySign:Number($('jointReactionMySign')?.value),
+      });
+      const candidate = setPileCapLoadComponentCandidate(packageData, {
+        kind:'file',
+        label:loadedJointReactionTable.filename,
+        contentSha256:loadedJointReactionTable.contentSha256,
+      });
+      showJointReactionAdapterStatus('轉換完成並建立候選；數值尚未寫入，請核對候選摘要後按「採用候選分量」。', 'warn');
+      return candidate;
+    } catch (error) {
+      clearPileCapLoadComponentCandidate();
+      renderPileCapLoadComponentSourceStatus();
+      showJointReactionAdapterStatus(`Joint Reactions 候選已阻擋：${error?.message || error}`, 'fail');
+      return null;
+    }
+  }
+
+  async function receivePileCapLoadComponentCandidate(payload) {
+    if (!payload || payload.target !== 'foundation-pile-cap') return null;
+    try {
+      const packageData = normalizePileCapLoadComponentPackage(payload.loadComponents);
+      const contentSha256 = await sha256Text(JSON.stringify(packageData));
+      const source = packageData.source;
+      return setPileCapLoadComponentCandidate(packageData, {
+        kind:'force-picker',
+        label:`ForcePicker：${source.caseSet || payload.meta?.caseName || '未命名工況集'}`,
+        contentSha256,
+      });
+    } catch (error) {
+      clearPileCapLoadComponentCandidate();
+      showPileCapLoadComponentSourceStatus(`ForcePicker 基本載重候選已阻擋：${error?.message || error}`, 'fail');
+      return null;
+    }
+  }
+
+  function adoptPileCapLoadComponentCandidate() {
+    if (!pendingPileCapLoadComponentCandidate) {
+      showPileCapLoadComponentSourceStatus('目前沒有可採用的基本載重候選。', 'fail');
+      return null;
+    }
+    try {
+      const mapped = mapPileCapLoadComponentPackage(pendingPileCapLoadComponentCandidate.package);
+      Object.entries(pileCapLoadComponentFieldMap()).forEach(([id, [forceKey, loadKey]]) => {
+        const el = $(id);
+        if (!el) throw new Error(`找不到基本載重欄位 ${id}。`);
+        el.value = String(mapped[forceKey][loadKey]);
+        el.dispatchEvent(new Event('input', { bubbles:true }));
+        el.dispatchEvent(new Event('change', { bubbles:true }));
+      });
+      const record = normalizePileCapLoadComponentSourceRecord({
+        schema:PILE_CAP_LOAD_COMPONENT_SOURCE_SCHEMA,
+        package:pendingPileCapLoadComponentCandidate.package,
+        transport:pendingPileCapLoadComponentCandidate.transport,
+        adoptedAt:new Date().toISOString(),
+      });
+      $('pileCapLoadComponentAdoptedSource').value = JSON.stringify(record);
+      $('pileCap3DSTMCaseMode').value = 'auto-lrfd';
+      if (pendingPileCapLoadComponentCandidate.transport.kind === 'force-picker') {
+        window.ForcePickerReceive?.discardPending();
+      }
+      if (loadedJointReactionTable && record.transport.label === loadedJointReactionTable.filename) {
+        showJointReactionAdapterStatus('Joint Reactions 候選已採用；正式欄位與來源 SHA-256 已建立連結。', 'pass');
+      }
+      clearPileCapLoadComponentCandidate();
+      renderPileCapLoadComponentSourceStatus();
+      renderPileCap3DSTMCombinationPreview();
+      calcFdtn();
+      return record;
+    } catch (error) {
+      showPileCapLoadComponentSourceStatus(`基本載重候選採用失敗：${error?.message || error}`, 'fail');
+      return null;
+    }
+  }
+
+  function clearPileCapLoadComponentSource(options = {}) {
+    if ($('pileCapLoadComponentAdoptedSource')) $('pileCapLoadComponentAdoptedSource').value = '';
+    renderPileCapLoadComponentSourceStatus();
+    renderPileCap3DSTMCombinationPreview();
+    if (!options.silent) showFoundationProjectStatus('已清除基本載重分量來源；數值仍保留為頁面人工輸入。', 'warn');
+  }
+
+  function createPileCapLoadComponentTemplate() {
+    return window.LoadCombo.createComponentPackage({
+      source:{ tool:'analysis-export', label:'請填入分析模型或來源名稱', version:'', analysisId:'', caseSet:'請填入基本工況集名稱' },
+      forces:{
+        P:{ D:300, L:50, W:0, E:0 },
+        Mx:{ D:0, L:0, W:100, E:0 },
+        My:{ D:0, L:0, W:0, E:100 },
+      },
+    });
+  }
+
+  function downloadPileCapLoadComponentTemplate() {
+    const payload = createPileCapLoadComponentTemplate();
+    const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type:'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'pile-cap-load-components-template.json';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function pileCapLoadComponentInputSource() {
+    const state = inspectPileCapLoadComponentSource();
+    if (!state.exists) return null;
+    if (!state.valid || !state.record) {
+      throw new Error(`基本載重來源追溯已失效：${state.mismatches.join('、')}。`);
+    }
+    const record = state.record;
+    return {
+      schemaVersion:record.package.schemaVersion,
+      generatedAt:record.package.generatedAt,
+      source:{ ...record.package.source },
+      signConvention:{
+        P:record.package.signConvention.P,
+        Mx:record.package.signConvention.Mx,
+        My:record.package.signConvention.My,
+      },
+      transport:{ ...record.transport },
+    };
+  }
+
   function createPilePyJsonTemplate() {
     const source = currentPilePyModel();
     const direction = required => required ? {
@@ -2598,6 +3299,186 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     }
   }
 
+  function showPileCap3DSTMBridgeStatus(message, tone = '') {
+    const el = $('pileCap3DSTMBridgeStatus');
+    if (!el) return;
+    el.textContent = message;
+    el.classList.remove('pass', 'fail', 'warn');
+    if (tone) el.classList.add(tone);
+  }
+
+  function pileCap3DSTMCaseMode() {
+    return $('pileCap3DSTMCaseMode')?.value === 'auto-lrfd' ? 'auto-lrfd' : 'manual';
+  }
+
+  function readPileCap3DSTMComponents() {
+    return {
+      Pu:{ D:num('pPD'), L:num('pPL'), W:num('pPW'), E:num('pPE') },
+      Mux:{ D:num('pileCapMuxD'), L:num('pileCapMuxL'), W:num('pileCapMuxW'), E:num('pileCapMuxE') },
+      Muy:{ D:num('pileCapMuyD'), L:num('pileCapMuyL'), W:num('pileCapMuyW'), E:num('pileCapMuyE') },
+    };
+  }
+
+  function generatePileCap3DSTMCombinations() {
+    if (!PILE_CAP_LOAD_COMBINATIONS) throw new Error('缺少樁帽 LRFD 載重組合轉接核心。');
+    const generated = PILE_CAP_LOAD_COMBINATIONS.generate(readPileCap3DSTMComponents(), { method:'LRFD' });
+    const inputSource = pileCapLoadComponentInputSource();
+    return inputSource ? { ...generated, inputSource } : generated;
+  }
+
+  function renderPileCap3DSTMCombinationPreview() {
+    const panel = $('pileCap3DSTMComponentPanel');
+    const preview = $('pileCap3DSTMComboPreview');
+    const auto = pileCap3DSTMCaseMode() === 'auto-lrfd';
+    if (panel) panel.open = auto;
+    if (!preview) return null;
+    if (!auto) {
+      preview.textContent = '目前採手動模式；主案例沿用頁面結果，並可於下方補充其他因數化組合。';
+      return null;
+    }
+    try {
+      const generated = generatePileCap3DSTMCombinations();
+      const sourceLine = generated.inputSource
+        ? `基本分量來源 ${generated.inputSource.source.label}｜${generated.inputSource.transport.label}`
+        : '基本分量來源 頁面人工輸入';
+      preview.textContent = [
+        `共用核心 ${generated.loadComboSchema}｜${generated.method}｜${generated.cases.length} 組`,
+        sourceLine,
+        ...generated.cases.map(item => `${item.combination}｜Pu ${item.PuTf.toFixed(2)} tf｜Mux ${item.MuxTfm.toFixed(2)} tf·m｜Muy ${item.MuyTfm.toFixed(2)} tf·m`),
+      ].join('\n');
+      return generated;
+    } catch (error) {
+      preview.textContent = `無法產生自動組合：${error.message}`;
+      return null;
+    }
+  }
+
+  function calculatePileCap3DSTMCase(snapshot, values, id) {
+    const result = FoundationPile.calculateGroupAndCap({
+      fc:snapshot.fc, fy:snapshot.fy, phiShear:PHI.shear, lambda:snapshot.lambda,
+      c1:snapshot.c1, c2:snapshot.c2, pileD:snapshot.pileD,
+      pileNL:snapshot.pileNL, pileNB:snapshot.pileNB, pileSL:snapshot.pileSL, pileSB:snapshot.pileSB,
+      PuTf:values.PuTf, MxTfm:values.MuxTfm, MyTfm:values.MuyTfm,
+      hc:snapshot.hc, cover:snapshot.pcCover, db:snapshot.db, capSteelAreaTotal:snapshot.As,
+    });
+    return {
+      id,
+      combination:values.combination,
+      PuTf:values.PuTf,
+      MuxTfm:values.MuxTfm,
+      MuyTfm:values.MuyTfm,
+      reactions:result.reactions,
+    };
+  }
+
+  function parsePileCap3DSTMAdditionalCases(snapshot, options = {}) {
+    const lines = String($('pileCap3DSTMAdditionalCases')?.value || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    const startIndex = Number.isInteger(options.startIndex) ? options.startIndex : 2;
+    const names = new Set(options.reservedNames || ['1.2D + 1.6L + 1.0E']);
+    if (startIndex - 1 + lines.length > 24) throw new Error('主案例、自動組合與補充載重組合合計最多 24 組。');
+    return lines.map((line, index) => {
+      const parts = line.split('|').map(value => value.trim());
+      if (parts.length !== 4 || !parts[0]) throw new Error(`附加載重第 ${index + 1} 列格式應為：名稱 | Pu | Mux | Muy。`);
+      const [combination, puText, muxText, muyText] = parts;
+      if (names.has(combination)) throw new Error(`載重組合名稱重複：${combination}。`);
+      names.add(combination);
+      const PuTf = Number(puText), MuxTfm = Number(muxText), MuyTfm = Number(muyText);
+      if (!Number.isFinite(PuTf) || PuTf <= 0 || !Number.isFinite(MuxTfm) || !Number.isFinite(MuyTfm)) {
+        throw new Error(`附加載重第 ${index + 1} 列須為 Pu > 0 且 Mux、Muy 為有限數值。`);
+      }
+      return calculatePileCap3DSTMCase(snapshot, { combination, PuTf, MuxTfm, MuyTfm }, `LC${startIndex + index}`);
+    });
+  }
+
+  function buildPileCap3DSTMBridgePayload() {
+    if (!PILE_CAP_3D_STM_BRIDGE) throw new Error('缺少樁帽三維 STM 橋接核心。');
+    if (currentTab !== 'pile') throw new Error('請先切換至「樁基／樁帽」分頁。');
+    calcPileCap();
+    const mode = pileCap3DSTMCaseMode();
+    let sourceSnapshot = window.ftLast;
+    let primaryCombination = '1.2D + 1.6L + 1.0E';
+    let loadCases;
+    let loadCombinationSource = { mode:'manual', label:'頁面目前結果與自訂因數化載重' };
+    if (mode === 'auto-lrfd') {
+      const generated = generatePileCap3DSTMCombinations();
+      const automaticCases = generated.cases.map((item, index) => calculatePileCap3DSTMCase(window.ftLast, item, `LC${index + 1}`));
+      const customCases = parsePileCap3DSTMAdditionalCases(window.ftLast, {
+        startIndex:automaticCases.length + 1,
+        reservedNames:automaticCases.map(item => item.combination),
+      });
+      const allCases = [...automaticCases, ...customCases];
+      if (allCases.length > 24) throw new Error('自動與補充載重組合合計最多 24 組。');
+      const primary = allCases[0];
+      sourceSnapshot = {
+        ...window.ftLast,
+        Pu_tf:primary.PuTf,
+        Mx:primary.MuxTfm,
+        My:primary.MuyTfm,
+        pileReactions:primary.reactions,
+      };
+      primaryCombination = primary.combination;
+      loadCases = allCases.slice(1);
+      loadCombinationSource = generated;
+    } else {
+      loadCases = parsePileCap3DSTMAdditionalCases(window.ftLast);
+    }
+    const projectPayload = collectFoundationProjectData();
+    return PILE_CAP_3D_STM_BRIDGE.buildPayload(sourceSnapshot, {
+      calculationFingerprint:projectPayload.calculationFingerprint,
+      primaryCombination,
+      loadCases,
+      loadCombinationSource,
+      project:{
+        name:projectPayload.metadata.projectName,
+        no:projectPayload.metadata.projectNo,
+        designer:projectPayload.metadata.designer,
+      },
+    });
+  }
+
+  function pileCap3DSTMBridgeFilename(payload) {
+    const meta = payload?.project || {};
+    const base = [meta.no, meta.name, '樁帽三維STM'].filter(Boolean).join('_') || '樁帽三維STM';
+    const safeBase = base.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_').slice(0, 80);
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
+    return `${safeBase}_${stamp}.json`;
+  }
+
+  function downloadPileCap3DSTMBridgeJson() {
+    try {
+      const payload = buildPileCap3DSTMBridgePayload();
+      const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type:'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = pileCap3DSTMBridgeFilename(payload);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      showPileCap3DSTMBridgeStatus(`已下載 ${link.download}；共 ${payload.model.loadCases.length} 組，來源計算指紋 ${payload.source.calculationFingerprint}。`, 'pass');
+      return payload;
+    } catch (error) {
+      showPileCap3DSTMBridgeStatus(`三維 STM JSON 輸出已阻擋：${error?.message || error}`, 'fail');
+      return null;
+    }
+  }
+
+  function openPileCap3DSTMWithCurrentData() {
+    try {
+      const payload = buildPileCap3DSTMBridgePayload();
+      sessionStorage.setItem(PILE_CAP_3D_STM_BRIDGE.transferStorageKey, JSON.stringify(payload));
+      const opened = window.open('pile-cap-3d-stm.html?source=rc-foundation-v2', '_blank');
+      if (!opened) throw new Error('瀏覽器阻擋新分頁；可改用「下載三維 STM JSON」後匯入。');
+      try { opened.opener = null; } catch (_) { /* same-origin opener cleanup is best-effort */ }
+      showPileCap3DSTMBridgeStatus(`已將 ${payload.model.loadCases.length} 組結果送往三維 STM；來源計算指紋 ${payload.source.calculationFingerprint}。`, 'pass');
+      return payload;
+    } catch (error) {
+      showPileCap3DSTMBridgeStatus(`三維 STM 開啟已阻擋：${error?.message || error}`, 'fail');
+      return null;
+    }
+  }
+
   function normalizeFoundationProjectPayload(raw) {
     return window.RCReportFingerprint.validateProjectCalculationSource(raw, {
       expectedSchema: FOUNDATION_PROJECT_SCHEMA,
@@ -2736,6 +3617,47 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       loadEarthPressureJsonFile(file).finally(() => { event.target.value = ''; });
     });
     $('btnDownloadPilePyTemplate')?.addEventListener('click', downloadPilePyJsonTemplate);
+    $('btnImportPileCapLoadComponents')?.addEventListener('click', () => $('pileCapLoadComponentJsonFile')?.click());
+    $('btnDownloadPileCapLoadComponentTemplate')?.addEventListener('click', downloadPileCapLoadComponentTemplate);
+    $('btnAdoptPileCapLoadComponents')?.addEventListener('click', adoptPileCapLoadComponentCandidate);
+    $('btnClearPileCapLoadComponentSource')?.addEventListener('click', () => clearPileCapLoadComponentSource());
+    $('pileCapLoadComponentJsonFile')?.addEventListener('change', event => {
+      const file = event.target.files && event.target.files[0];
+      loadPileCapLoadComponentJsonFile(file).finally(() => { event.target.value = ''; });
+    });
+    $('btnLoadJointReactionTable')?.addEventListener('click', () => $('jointReactionTableFile')?.click());
+    $('btnBuildJointReactionCandidate')?.addEventListener('click', buildJointReactionCandidate);
+    $('btnDownloadJointReactionObservedPackage')?.addEventListener('click', downloadJointReactionObservedPackage);
+    $('jointReactionTableFile')?.addEventListener('change', event => {
+      const file = event.target.files && event.target.files[0];
+      loadJointReactionTableFile(file).finally(() => { event.target.value = ''; });
+    });
+    $('jointReactionPoint')?.addEventListener('change', () => {
+      renderJointReactionCaseOptions();
+      invalidateJointReactionCandidate('節點已變更；請重新指定 D／L／W／E 案例並建立候選。');
+    });
+    [
+      'jointReactionSoftware', 'jointReactionUnits',
+      'jointReactionCaseD', 'jointReactionCaseL', 'jointReactionCaseW', 'jointReactionCaseE',
+      'jointReactionVerticalForce', 'jointReactionVerticalSign',
+      'jointReactionMxMoment', 'jointReactionMxSign', 'jointReactionMyMoment', 'jointReactionMySign'
+    ].forEach(id => $(id)?.addEventListener('change', () => invalidateJointReactionCandidate()));
+    document.addEventListener('force-picker-candidate-ready', event => {
+      receivePileCapLoadComponentCandidate(event.detail);
+    });
+    $('btnOpenPileCap3DSTM')?.addEventListener('click', openPileCap3DSTMWithCurrentData);
+    $('btnDownloadPileCap3DSTM')?.addEventListener('click', downloadPileCap3DSTMBridgeJson);
+    $('btnPreviewPileCap3DSTMCombos')?.addEventListener('click', renderPileCap3DSTMCombinationPreview);
+    $('pileCap3DSTMCaseMode')?.addEventListener('change', renderPileCap3DSTMCombinationPreview);
+    Object.keys(pileCapLoadComponentFieldMap()).forEach(id => {
+      $(id)?.addEventListener('input', () => {
+        renderPileCapLoadComponentSourceStatus();
+        if (pileCap3DSTMCaseMode() === 'auto-lrfd') renderPileCap3DSTMCombinationPreview();
+      });
+    });
+    $('pileCapLoadComponentAdoptedSource')?.addEventListener('change', renderPileCapLoadComponentSourceStatus);
+    renderPileCapLoadComponentSourceStatus();
+    renderPileCap3DSTMCombinationPreview();
     $('btnImportPilePy')?.addEventListener('click', () => $('pilePyJsonFile')?.click());
     $('btnDownloadAdoptedPilePy')?.addEventListener('click', downloadAdoptedPilePySourceJson);
     $('btnDownloadPilePyCandidate')?.addEventListener('click', downloadPilePyCandidateJson);
@@ -2777,6 +3699,17 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   window.saveFoundationProjectDraft = saveFoundationProjectDraft;
   window.loadFoundationProjectDraft = loadFoundationProjectDraft;
   window.downloadFoundationProjectFile = downloadFoundationProjectFile;
+  window.buildPileCap3DSTMBridgePayload = buildPileCap3DSTMBridgePayload;
+  window.downloadPileCap3DSTMBridgeJson = downloadPileCap3DSTMBridgeJson;
+  window.openPileCap3DSTMWithCurrentData = openPileCap3DSTMWithCurrentData;
+  window.createPileCapLoadComponentTemplate = createPileCapLoadComponentTemplate;
+  window.loadPileCapLoadComponentJsonFile = loadPileCapLoadComponentJsonFile;
+  window.loadJointReactionTableFile = loadJointReactionTableFile;
+  window.buildJointReactionCandidate = buildJointReactionCandidate;
+  window.receivePileCapLoadComponentCandidate = receivePileCapLoadComponentCandidate;
+  window.adoptPileCapLoadComponentCandidate = adoptPileCapLoadComponentCandidate;
+  window.clearPileCapLoadComponentSource = clearPileCapLoadComponentSource;
+  window.inspectPileCapLoadComponentSource = inspectPileCapLoadComponentSource;
   window.applyEarthPressurePayload = applyEarthPressurePayload;
   window.clearEarthPressureSource = clearEarthPressureSource;
   window.readImportedEarthPressureSource = readImportedEarthPressureSource;
@@ -4027,7 +4960,7 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
     }
     updateBannerSimple(checks);
 
-    window.ftLast = { tab:'pile', fc, fy, c1, c2, cover, pileD, pileQa, pileQt,
+    window.ftLast = { tab:'pile', fc, fy, lambda, c1, c2, cover, pileD, pileQa, pileQt,
       pileType, pileInstall, pileNL, pileNB, pileSL, pileSB, pileEta, pileLength, pileFS, pileSteelThickness, soilProfileText,
       PD, PL, PE, Mx, My, HX, HY,
       Bc, Lc, hc, pcCover, barNo, nBar, ab, db, As, d, nPile, QaEff,
@@ -4045,7 +4978,7 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
       pilePresetSummaryText: $('pilePresetSummary')?.textContent?.trim() || '',
       pileSiteCompareTableText: tableToText('pileSiteCompareTable'),
       pileCapacityTableText: tableToText('pileCapacityTable'),
-      pileStressKgCm2, pileStressAllow, okPileStress, pileReactions,
+      pileStressKgCm2, pileStressAllow, okPileStress, xs, ys, pileReactions,
       rowSpanL, rowSpanB, pileReactionRowsL, pileReactionRowsB, controlRowL, controlRowB, capMuLong_tfm, capMuTrans_tfm,
       capMu_tfm, capPhiMn_tfm, capVu_tfm, capPhiVn_tfm, capAsReq, capAsProv, okCapFlex, okCapShear,
       tzCurve: pileCurves?.tz || [], qwCurve: pileCurves?.qw || [], pyCurve: pileCurves?.py || [] };

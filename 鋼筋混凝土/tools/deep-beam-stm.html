@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RC 深梁壓拉桿模型 — V0.3</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../shared/style.css">
+<link rel="stylesheet" href="../shared/direct-print-boundary.css">
+<style>
+  .scope-card { border-top:3px solid #7c3aed; background:linear-gradient(180deg,#faf5ff,#fff); }
+  .scope-card p { color:#4c1d95; font-size:.86em; line-height:1.7; }
+  .scope-list { margin:8px 0 0 20px; color:#5b21b6; font-size:.82em; }
+  .scope-list li { margin:3px 0; }
+  .model-grid { display:grid; grid-template-columns:minmax(360px,430px) minmax(0,1fr); gap:18px; align-items:start; }
+  .subhead { margin:16px 0 8px; color:var(--primary); font-size:.92em; border-bottom:1px dashed var(--border); padding-bottom:5px; }
+  .check-confirm { display:flex; gap:9px; align-items:flex-start; padding:10px 12px; margin-top:9px; border:1px solid #fde68a; border-radius:8px; background:#fffbeb; color:#78350f; font-size:.84em; line-height:1.5; }
+  .check-confirm input { width:18px; height:18px; margin-top:2px; flex:0 0 auto; accent-color:var(--primary); }
+  .action-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
+  .action-row button { margin-top:0; }
+  .status-banner { padding:14px 16px; border:2px solid #94a3b8; border-radius:9px; background:#f8fafc; font-size:1.12em; font-weight:800; text-align:center; }
+  .status-banner.ok { border-color:#16a34a; background:#f0fdf4; color:#166534; }
+  .status-banner.review { border-color:#d97706; background:#fffbeb; color:#92400e; }
+  .status-banner.fail { border-color:#dc2626; background:#fef2f2; color:#991b1b; }
+  .stm-diagram { margin-top:12px; overflow:auto; border:1px solid var(--border); border-radius:10px; background:#fff; padding:8px; }
+  .stm-diagram svg { display:block; width:100%; min-width:620px; height:auto; }
+  .tie-section-diagram { margin-top:12px; overflow:auto; border:1px solid var(--border); border-radius:10px; background:#fff; padding:8px; }
+  .tie-section-diagram svg { display:block; width:100%; min-width:520px; height:auto; }
+  .result-table { width:100%; border-collapse:collapse; font-size:.82em; margin-top:12px; }
+  .result-table th, .result-table td { border:1px solid var(--border); padding:7px 8px; text-align:left; vertical-align:top; }
+  .result-table th { background:#f1f5f9; color:var(--primary); }
+  .result-table td:last-child { font-weight:800; text-align:center; }
+  .judge-ok { color:#15803d; }
+  .judge-ng { color:#b91c1c; }
+  .judge-review { color:#b45309; }
+  .page-status { min-height:22px; margin-top:8px; color:#b91c1c; font-size:.82em; }
+  @media (max-width:920px) { .model-grid { grid-template-columns:1fr; } }
+  @media (max-width:560px) { .action-row { grid-template-columns:1fr; } }
+</style>
+</head>
+<body class="rc-formal-output-page">
+<aside class="rc-direct-print-boundary" aria-hidden="true">
+  <strong>RC 工具主頁列印已封鎖</strong>
+  <span>此頁是操作介面，不是計算書。請關閉列印視窗，使用「產生計算書」開啟可列印的內部審閱文件，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span>
+</aside>
+<header>
+  <p><a class="back" href="beam.html">← 回 RC 梁工具</a></p>
+  <h1>RC 深梁壓拉桿模型 <span style="font-size:.62em; opacity:.85;">V0.3</span></h1>
+  <p>對稱單跨、跨中集中載重二維 STM｜112 年規範 9.9、21.2.1、23 章｜單位：cm、kgf/cm²、tf</p>
+</header>
+
+<main class="container">
+  <section class="card scope-card">
+    <h2>本頁支援範圍</h2>
+    <p>本工具計算已由設計者選定的對稱二維力流，不替案件自動選擇壓拉桿拓樸。操作說明與方法邊界只顯示在本頁；計算書本體只保留採用模型、輸入、公式、代入值、結果與核可狀態。</p>
+    <ul class="scope-list">
+      <li>簡支深梁，頂部跨中單一係數化集中載重 Pu，左右支承對稱。</li>
+      <li>兩支對角壓桿、一道底部拉桿；上部採 CCC 節點、下部採 CCT 節點。</li>
+      <li>連續載重、多跨、偏心載重、開孔、地盤反力、樁反力群或不對稱筏基地梁，須另建符合實際邊界的 STM。</li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2>附件識別資料 <span class="hint">選填，可由主文承接</span></h2>
+    <div class="form-row3">
+      <div class="form-group"><label for="projName">計畫名稱</label><input id="projName" type="text" placeholder="可留空"></div>
+      <div class="form-group"><label for="projNo">計畫編號</label><input id="projNo" type="text" placeholder="可留空"></div>
+      <div class="form-group"><label for="projDesigner">設計人員</label><input id="projDesigner" type="text" placeholder="可留空"></div>
+    </div>
+  </section>
+
+  <div class="model-grid">
+    <section>
+      <div class="card">
+        <h2>模型、材料與外力</h2>
+        <div class="form-row">
+          <div class="form-group"><label for="h">梁總深 h (cm)</label><input id="h" type="number" value="400" min="1" step="any"></div>
+          <div class="form-group"><label for="ln">淨跨 ℓn (cm)</label><input id="ln" type="number" value="1000" min="1" step="any"></div>
+        </div>
+        <div class="form-row3">
+          <div class="form-group"><label for="bw">梁寬 bw (cm)</label><input id="bw" type="number" value="100" min="1" step="any"></div>
+          <div class="form-group"><label for="d">有效深 d (cm)</label><input id="d" type="number" value="360" min="1" step="any"></div>
+          <div class="form-group"><label for="z">STM 桿臂 z (cm)</label><input id="z" type="number" value="320" min="1" step="any"></div>
+        </div>
+        <div class="form-row3">
+          <div class="form-group"><label for="fc">fc' (kgf/cm²)</label><select id="fc"><option>210</option><option>245</option><option selected>280</option><option>350</option><option>420</option></select></div>
+          <div class="form-group"><label for="fy">fy (kgf/cm²)</label><select id="fy"><option>2800</option><option selected>4200</option><option>5000</option><option>5600</option></select></div>
+          <div class="form-group"><label for="lambda">λ</label><input id="lambda" type="number" value="1.0" min="0.01" max="1" step="0.05"></div>
+        </div>
+        <div class="form-group"><label for="Pu">跨中係數化集中載重 Pu (tf)</label><input id="Pu" type="number" value="500" min="0" step="any"></div>
+
+        <h3 class="subhead">壓桿與節點區</h3>
+        <div class="form-row">
+          <div class="form-group"><label for="betaS">壓桿 βs（規範表 23.4.3）</label>
+            <select id="betaS">
+              <option value="1">1.00｜邊界壓桿</option>
+              <option value="0.75" selected>0.75｜具規定分布筋的內部壓桿</option>
+              <option value="0.4">0.40｜其他內部壓桿／拉力區</option>
+            </select>
+          </div>
+          <div class="form-group"><label for="betaC">承壓修正 βc</label><input id="betaC" type="number" value="1.0" min="0.1" max="2" step="0.05"></div>
+        </div>
+        <div class="form-row3">
+          <div class="form-group"><label for="strutWidth">壓桿有效寬 ws (cm)</label><input id="strutWidth" type="number" value="50" min="1" step="any"></div>
+          <div class="form-group"><label for="topNodeWidth">上節點控制寬 wn,t (cm)</label><input id="topNodeWidth" type="number" value="60" min="1" step="any"></div>
+          <div class="form-group"><label for="bottomNodeWidth">下節點控制寬 wn,b (cm)</label><input id="bottomNodeWidth" type="number" value="60" min="1" step="any"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label for="loadBearingWidth">載重承壓寬 (cm)</label><input id="loadBearingWidth" type="number" value="60" min="1" step="any"></div>
+          <div class="form-group"><label for="supportBearingWidth">單側支承承壓寬 (cm)</label><input id="supportBearingWidth" type="number" value="60" min="1" step="any"></div>
+        </div>
+        <p class="hint">wn,t 與 wn,b 應採節點各受力面中控制的有效寬度，且不得大於對應承壓寬；壓桿寬度與節點幾何須對應實際力流。</p>
+
+        <h3 class="subhead">底部拉桿與分布筋</h3>
+        <div class="form-row3">
+          <div class="form-group"><label for="tieBar">底部拉桿號數</label><select id="tieBar"></select></div>
+          <div class="form-group"><label for="tieCount">底部拉桿總根數</label><input id="tieCount" type="number" value="20" min="1" step="1"></div>
+          <div class="form-group"><label for="tieRows">拉桿配置排數</label><input id="tieRows" type="number" value="2" min="1" max="12" step="1"></div>
+        </div>
+        <div class="form-row3">
+          <div class="form-group"><label for="tieSideCover">側邊／底部保護層 (cm)</label><input id="tieSideCover" type="number" value="7.5" min="0.1" step="any"></div>
+          <div class="form-group"><label for="tieTransverseBar">外圍橫向筋號數</label><select id="tieTransverseBar"></select></div>
+          <div class="form-group"><label for="maxAggregateSize">粗骨材最大粒徑 dagg (cm)</label><input id="maxAggregateSize" type="number" value="2.5" min="0.1" step="any"></div>
+        </div>
+        <div class="form-group">
+          <label for="tieVerticalClearSpacing">拉桿各排垂直淨距 (cm)</label>
+          <input id="tieVerticalClearSpacing" type="number" value="3.0" min="0.1" step="any">
+        </div>
+        <p class="hint">同層淨距依 25.2.1 檢核 max(2.5 cm、db、4/3 dagg)；多層層間淨距依 25.2.2 不小於 2.5 cm，上層鋼筋直接對齊下層既有柱線。排數可輸入 3 排以上，工具會自動分配各排支數並檢查斷面是否容得下。</p>
+        <div class="form-row3">
+          <div class="form-group"><label for="verticalBar">垂直分布筋／每面</label><select id="verticalBar"></select></div>
+          <div class="form-group"><label for="verticalFaces">配置面數</label><input id="verticalFaces" type="number" value="2" min="1" step="1"></div>
+          <div class="form-group"><label for="verticalSpacing">垂直筋間距 sv (cm)</label><input id="verticalSpacing" type="number" value="20" min="1" step="any"></div>
+        </div>
+        <div class="form-row3">
+          <div class="form-group"><label for="horizontalBar">水平分布筋／每面</label><select id="horizontalBar"></select></div>
+          <div class="form-group"><label for="horizontalFaces">配置面數</label><input id="horizontalFaces" type="number" value="2" min="1" step="1"></div>
+          <div class="form-group"><label for="horizontalSpacing">水平筋間距 sh (cm)</label><input id="horizontalSpacing" type="number" value="20" min="1" step="any"></div>
+        </div>
+
+        <label class="check-confirm"><input id="geometryConfirmed" type="checkbox"><span>我已依實際載重面、支承面與斷面配置，確認本頁二維力流拓樸及 ws、wn,t、wn,b 的採用幾何。</span></label>
+        <label class="check-confirm"><input id="anchorageConfirmed" type="checkbox"><span>我已確認底部拉桿在兩端節點區依規範 23.8 完成錨定與發展，且配筋圖可落實。</span></label>
+
+        <div class="action-row">
+          <button id="btnCalc" class="btn-calc" type="button">重新計算</button>
+          <button id="btnReport" class="btn-secondary" type="button">📄 產生計算書</button>
+        </div>
+        <div id="pageStatus" class="page-status" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <h2>檢核結論</h2>
+        <div id="statusBanner" class="status-banner">尚未計算</div>
+        <div id="stmDiagram" class="stm-diagram" aria-label="深梁壓拉桿力流示意圖"></div>
+        <div class="results-grid" style="margin-top:12px;">
+          <div class="result-item" id="resTheta"><span class="label">壓桿角度 θ</span><span><span class="value">—</span><span class="unit">deg</span></span></div>
+          <div class="result-item" id="resReaction"><span class="label">單側反力 R</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item" id="resStrut"><span class="label">壓桿力 C</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item" id="resTie"><span class="label">拉桿力 T</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item" id="resAsReq"><span class="label">控制 As,req</span><span><span class="value">—</span><span class="unit">cm²</span></span></div>
+          <div class="result-item" id="resAsProv"><span class="label">提供 As</span><span><span class="value">—</span><span class="unit">cm²</span></span></div>
+          <div class="result-item" id="resTieRows"><span class="label">拉桿分排</span><span><span class="value">—</span><span class="unit">支</span></span></div>
+        </div>
+        <div id="tieSectionDiagram" class="tie-section-diagram" aria-label="底部拉桿多排斷面配置示意圖"></div>
+        <table class="result-table">
+          <thead><tr><th>檢核項</th><th>需求</th><th>設計強度／提供值</th><th>判定</th></tr></thead>
+          <tbody id="checkRows"></tbody>
+        </table>
+      </div>
+
+      <div class="card report-readiness-card">
+        <h2>產報前檢查 <span class="scope-badge">頁面輔助</span></h2>
+        <div id="attachmentReadiness">完成輸入後顯示附件狀態。</div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script src="../../結構工具箱/core/materials/concrete.js"></script>
+<script src="../../結構工具箱/core/materials/rebar.js"></script>
+<script src="../shared/common.js"></script>
+<script src="../shared/deep-beam-stm.js"></script>
+<script src="../shared/report.js"></script>
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const num = id => Number($(id)?.value);
+  const fmt = (value, digits = 2) => Number.isFinite(value) ? Number(value).toFixed(digits) : '—';
+  const barTable = window.Rebar?.REBAR_TABLE || window.REBAR_TABLE || {};
+  let lastResult = null;
+
+  function populateBars() {
+    const keys = Object.keys(barTable);
+    for (const id of ['tieBar', 'tieTransverseBar', 'verticalBar', 'horizontalBar']) {
+      $(id).innerHTML = keys.map(key => `<option value="${key}">${key}（${barTable[key].area.toFixed(3)} cm²）</option>`).join('');
+    }
+    $('tieBar').value = '#9';
+    $('tieTransverseBar').value = '#4';
+    $('verticalBar').value = '#6';
+    $('horizontalBar').value = '#6';
+  }
+
+  function readInput() {
+    const tieBar = barTable[$('tieBar').value];
+    const tieTransverseBar = barTable[$('tieTransverseBar').value];
+    const verticalBar = barTable[$('verticalBar').value];
+    const horizontalBar = barTable[$('horizontalBar').value];
+    return {
+      h:num('h'), ln:num('ln'), bw:num('bw'), d:num('d'), z:num('z'),
+      Pu:num('Pu'), fc:num('fc'), fy:num('fy'), lambda:num('lambda'),
+      betaC:num('betaC'), betaS:num('betaS'), strutWidth:num('strutWidth'),
+      loadBearingWidth:num('loadBearingWidth'), supportBearingWidth:num('supportBearingWidth'),
+      topNodeWidth:num('topNodeWidth'), bottomNodeWidth:num('bottomNodeWidth'),
+      tieBarArea:tieBar?.area || 0, tieBarDiameter:tieBar?.db || 0,
+      tieCount:num('tieCount'), tieRows:num('tieRows'), tieSideCover:num('tieSideCover'),
+      tieTransverseBarDiameter:tieTransverseBar?.db || 0,
+      maxAggregateSize:num('maxAggregateSize'), tieVerticalClearSpacing:num('tieVerticalClearSpacing'),
+      verticalBarArea:verticalBar?.area || 0, verticalFaces:num('verticalFaces'), verticalSpacing:num('verticalSpacing'),
+      horizontalBarArea:horizontalBar?.area || 0, horizontalFaces:num('horizontalFaces'), horizontalSpacing:num('horizontalSpacing'),
+      geometryConfirmed:$('geometryConfirmed').checked,
+      anchorageConfirmed:$('anchorageConfirmed').checked,
+    };
+  }
+
+  function statusText(ok) {
+    return ok === true ? '<span class="judge-ok">OK</span>' : ok === false ? '<span class="judge-ng">NG</span>' : '<span class="judge-review">複核</span>';
+  }
+
+  function setResult(id, value, tone) {
+    const el = $(id);
+    el.querySelector('.value').textContent = value;
+    el.classList.remove('ok', 'warn', 'fail');
+    if (tone) el.classList.add(tone);
+  }
+
+  function makeSvg(result) {
+    if (!result?.valid) return '';
+    const xL = 95, xC = 390, xR = 685, yTop = 80, yTie = 310;
+    const red = '#dc2626', blue = '#2563eb', green = '#15803d', ink = '#1e293b';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="780" height="390" viewBox="0 0 780 390" role="img" aria-label="對稱單跨深梁壓拉桿模型">
+      <rect width="780" height="390" fill="#ffffff"/>
+      <rect x="65" y="50" width="650" height="290" rx="4" fill="#f8fafc" stroke="#64748b" stroke-width="2"/>
+      <rect x="${xC-35}" y="40" width="70" height="18" fill="#cbd5e1" stroke="#475569"/>
+      <rect x="${xL-35}" y="332" width="70" height="18" fill="#cbd5e1" stroke="#475569"/>
+      <rect x="${xR-35}" y="332" width="70" height="18" fill="#cbd5e1" stroke="#475569"/>
+      <line x1="${xC}" y1="${yTop}" x2="${xL}" y2="${yTie}" stroke="${red}" stroke-width="18" stroke-linecap="round" opacity=".78"/>
+      <line x1="${xC}" y1="${yTop}" x2="${xR}" y2="${yTie}" stroke="${red}" stroke-width="18" stroke-linecap="round" opacity=".78"/>
+      <line x1="${xL}" y1="${yTie}" x2="${xR}" y2="${yTie}" stroke="${blue}" stroke-width="10" stroke-linecap="round"/>
+      <circle cx="${xC}" cy="${yTop}" r="17" fill="#f59e0b" stroke="#92400e" stroke-width="2"/>
+      <circle cx="${xL}" cy="${yTie}" r="17" fill="#f59e0b" stroke="#92400e" stroke-width="2"/>
+      <circle cx="${xR}" cy="${yTie}" r="17" fill="#f59e0b" stroke="#92400e" stroke-width="2"/>
+      <line x1="${xC}" y1="8" x2="${xC}" y2="38" stroke="${ink}" stroke-width="3" marker-end="url(#arrow)"/>
+      <line x1="${xL}" y1="378" x2="${xL}" y2="352" stroke="${green}" stroke-width="3" marker-end="url(#arrowGreen)"/>
+      <line x1="${xR}" y1="378" x2="${xR}" y2="352" stroke="${green}" stroke-width="3" marker-end="url(#arrowGreen)"/>
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="${ink}"/></marker>
+        <marker id="arrowGreen" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="${green}"/></marker>
+      </defs>
+      <g font-family="Microsoft JhengHei, sans-serif" fill="${ink}" font-size="15">
+        <text x="405" y="25">Pu = ${fmt(result.input.Pu,1)} tf</text>
+        <text x="20" y="380" fill="${green}">R = ${fmt(result.reaction,1)} tf</text>
+        <text x="610" y="380" fill="${green}">R = ${fmt(result.reaction,1)} tf</text>
+        <text x="180" y="165" fill="#991b1b">C = ${fmt(result.strutDemand,1)} tf</text>
+        <text x="490" y="165" fill="#991b1b">C = ${fmt(result.strutDemand,1)} tf</text>
+        <text x="320" y="302" fill="#1d4ed8">T = ${fmt(result.tieDemand,1)} tf</text>
+        <text x="330" y="368">θ = ${fmt(result.thetaDeg,1)}°</text>
+        <text x="315" y="105" font-size="13">CCC</text>
+        <text x="48" y="300" font-size="13">CCT</text>
+        <text x="700" y="300" font-size="13">CCT</text>
+      </g>
+    </svg>`;
+    return svg;
+  }
+
+  function svgDataUrl(svg) {
+    return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+  }
+
+  function makeTieSectionSvg(result) {
+    const layout = result?.tieLayout;
+    if (!result?.valid || !layout?.valid || !layout?.evaluated) return '';
+    const width = 620, height = 330, left = 58, right = 562, top = 48, bottom = 272;
+    const concrete = '#e2e8f0', outline = '#475569', steel = layout.layoutOk ? '#1d4ed8' : '#b91c1c';
+    const maxCount = Math.max(...layout.rowCounts);
+    const xFor = column => maxCount <= 1 ? (left + right) / 2 : left + 30 + column * ((right - left - 60) / (maxCount - 1));
+    const yFor = index => bottom - 30 - index * Math.min(56, 150 / Math.max(1, layout.rowCounts.length - 1));
+    const bars = layout.rowColumnIndices.map((columns, row) => columns.map(column =>
+      `<circle cx="${xFor(column).toFixed(1)}" cy="${yFor(row).toFixed(1)}" r="9" fill="${steel}" stroke="#0f172a" stroke-width="1.4"/>`
+    ).join('')).join('');
+    const rowLabels = layout.rowCounts.map((count, row) =>
+      `<text x="610" y="${(yFor(row)+5).toFixed(1)}" text-anchor="end" font-size="13">${row+1}排：${count}支</text>`
+    ).join('');
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="620" height="330" viewBox="0 0 620 330" role="img" aria-label="底部拉桿多排斷面配置示意圖">
+      <rect width="620" height="330" fill="#fff"/>
+      <text x="28" y="25" fill="#334155" font-family="Microsoft JhengHei, sans-serif" font-size="14">拉桿區局部放大（排列示意，非比例）</text>
+      <rect x="${left}" y="${top}" width="${right-left}" height="${bottom-top}" rx="3" fill="${concrete}" stroke="${outline}" stroke-width="2"/>
+      <rect x="${left+18}" y="${top+18}" width="${right-left-36}" height="${bottom-top-36}" rx="12" fill="none" stroke="#64748b" stroke-width="3"/>
+      ${bars}${rowLabels}
+      <g fill="#334155" font-family="Microsoft JhengHei, sans-serif" font-size="13">
+        <text x="58" y="306">bw=${fmt(result.input.bw,1)} cm；最多 ${layout.maxBarsPerRow} 支/排；實際最小水平淨距=${fmt(layout.minHorizontalClear,2)} cm</text>
+        <text x="58" y="324">排數=${layout.rowCounts.length}；層間淨距=${fmt(layout.input.verticalClearSpacing,2)} cm；鋼筋群心距底面=${fmt(layout.centroidFromBottom,2)} cm</text>
+      </g>
+    </svg>`;
+  }
+
+  function render(result) {
+    const status = $('pageStatus');
+    if (!result.valid) {
+      lastResult = result;
+      $('statusBanner').className = 'status-banner fail';
+      $('statusBanner').textContent = '輸入資料不完整';
+      status.textContent = result.errors.join('；');
+      $('checkRows').innerHTML = '';
+      $('stmDiagram').innerHTML = '';
+      $('tieSectionDiagram').innerHTML = '';
+      window.RCUI.renderAttachmentReadiness('attachmentReadiness', { status:'neutral', summary:'修正輸入後重新計算。' });
+      return;
+    }
+    status.textContent = '';
+    lastResult = result;
+    const banner = $('statusBanner');
+    banner.className = `status-banner ${result.status === 'ready' ? 'ok' : result.status === 'review' ? 'review' : 'fail'}`;
+    banner.textContent = result.status === 'ready'
+      ? '計算檢核符合｜模型與錨定已確認'
+      : result.status === 'review'
+        ? `計算檢核符合｜尚有 ${result.modelReviewItems.length} 項人工複核`
+        : `計算檢核有 ${result.failedItems.length} 項不符`;
+
+    $('stmDiagram').innerHTML = makeSvg(result);
+    $('tieSectionDiagram').innerHTML = makeTieSectionSvg(result);
+    setResult('resTheta', fmt(result.thetaDeg, 2), result.checks.angleOk ? 'ok' : 'fail');
+    setResult('resReaction', fmt(result.reaction, 2));
+    setResult('resStrut', fmt(result.strutDemand, 2), result.checks.strutOk ? 'ok' : 'fail');
+    setResult('resTie', fmt(result.tieDemand, 2), result.checks.tieOk ? 'ok' : 'fail');
+    setResult('resAsReq', fmt(result.tieAsRequired, 2), result.checks.tieOk ? 'ok' : 'fail');
+    setResult('resAsProv', fmt(result.input.tieAsProvided, 2), result.checks.tieOk ? 'ok' : 'fail');
+    setResult('resTieRows', result.tieLayout?.rowCounts?.join('+') || '—', result.checks.tieLayoutOk ? 'ok' : 'fail');
+
+    const rows = [
+      ['深梁適用條件', `ℓn/h = ${fmt(result.input.ln/result.input.h,3)}`, '≤ 4 或 a/h ≤ 2', result.checks.isDeepBeam],
+      ['桿件夾角', 'θ ≥ 25°', `${fmt(result.thetaDeg,2)}°`, result.checks.angleOk],
+      ['底部拉桿', `${fmt(result.tieAsRequired,2)} cm²`, `${fmt(result.input.tieAsProvided,2)} cm²`, result.checks.tieOk],
+      ['拉桿水平淨距', `≥ ${fmt(result.tieLayout.requiredHorizontalClear,2)} cm`, `${fmt(result.tieLayout.minHorizontalClear,2)} cm；最多 ${result.tieLayout.maxBarsPerRow} 支/排`, result.tieLayout.horizontalSpacingOk],
+      ['拉桿層間淨距', '≥ 2.50 cm', `${fmt(result.tieLayout.input.verticalClearSpacing,2)} cm`, result.tieLayout.verticalSpacingOk],
+      ['拉桿斷面容納', `鋼筋帶深 ≤ ${fmt(result.tieLayout.availableDepth,2)} cm`, `${fmt(result.tieLayout.tieBandDepth,2)} cm；${result.tieLayout.rowCounts.join('+')}支`, result.tieLayout.depthFitOk],
+      ['對角壓桿', `${fmt(result.strutDemand,2)} tf`, `${fmt(result.strutDesign,2)} tf`, result.checks.strutOk],
+      ['上部 CCC 節點', `${fmt(result.topNodeDemand,2)} tf`, `${fmt(result.topNodeDesign,2)} tf`, result.checks.topNodeOk],
+      ['下部 CCT 節點', `${fmt(result.bottomNodeDemand,2)} tf`, `${fmt(result.bottomNodeDesign,2)} tf`, result.checks.bottomNodeOk],
+      ['垂直分布筋', 'ρv ≥ 0.0025', `${fmt(result.rhoVertical,5)}；s=${fmt(result.input.verticalSpacing,1)} cm`, result.checks.verticalRatioOk && result.checks.verticalSpacingOk],
+      ['水平分布筋', 'ρh ≥ 0.0025', `${fmt(result.rhoHorizontal,5)}；s=${fmt(result.input.horizontalSpacing,1)} cm`, result.checks.horizontalRatioOk && result.checks.horizontalSpacingOk],
+      ['9.9.2.1 剪力上限', `${fmt(result.reaction,2)} tf`, `${fmt(result.shearDesignLimit99,2)} tf`, result.checks.shearLimit99Ok],
+      ...(result.check2344Required ? [['23.4.4 剪力條件', `${fmt(result.reaction,2)} tf`, result.shearDesignLimit2344 == null ? '分布筋未符合，λs 未採 1.0' : `${fmt(result.shearDesignLimit2344,2)} tf`, result.checks.shearLimit2344Ok]] : []),
+      ['STM 幾何確認', '依 23.2.2', result.geometryConfirmed ? '已確認' : '待確認', result.geometryConfirmed ? true : null],
+      ['拉桿錨定確認', '依 23.8', result.anchorageConfirmed ? '已確認' : '待確認', result.anchorageConfirmed ? true : null],
+    ];
+    $('checkRows').innerHTML = rows.map(row => `<tr><td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td><td>${statusText(row[3])}</td></tr>`).join('');
+
+    const readiness = window.RCUI.assessFormalAttachment({
+      project:{ name:$('projName').value, no:$('projNo').value, designer:$('projDesigner').value },
+      failedItems:result.failedItems,
+      reviewItems:result.modelReviewItems,
+    });
+    window.RCUI.renderAttachmentReadiness('attachmentReadiness', {
+      status:readiness.status,
+      summary:readiness.summary,
+      items:[
+        { label:'不符項目', value:`${result.failedItems.length} 項`, tone:result.failedItems.length ? 'fail' : 'ok' },
+        { label:'人工複核', value:`${result.modelReviewItems.length} 項`, tone:result.modelReviewItems.length ? 'warn' : 'ok' },
+        { label:'支援模型', value:'對稱單跨跨中集中載重', tone:'neutral' },
+        { label:'拉桿配筋', value:`${result.tieLayout.rowCounts.length} 排（${result.tieLayout.rowCounts.join('+')}支）`, tone:result.checks.tieLayoutOk ? 'ok' : 'fail' },
+        { label:'案件識別資料', value:readiness.metadata.missingItems.length ? '由主文承接' : '已填', tone:'neutral' },
+      ],
+      notes:[
+        '本面板僅顯示於操作頁，不會寫入計算書或列印 PDF。',
+        result.failedItems.length ? `優先處理：${result.failedItems.join('、')}。` : '',
+        result.modelReviewItems.length ? `需人工確認：${result.modelReviewItems.join('、')}。` : '',
+      ],
+    });
+  }
+
+  function calculate() {
+    const result = window.DeepBeamSTM.assess(readInput());
+    render(result);
+    return result;
+  }
+
+  function reportCheck(label, formula, sub, value, unit, ok, note) {
+    return { label, formula, sub, value, unit, ok, note };
+  }
+
+  function buildReport() {
+    const r = calculate();
+    if (!r.valid) {
+      $('pageStatus').textContent = '輸入資料無效，尚不能產生計算書。';
+      return;
+    }
+    const tieKey = $('tieBar').value;
+    const transverseKey = $('tieTransverseBar').value;
+    const vKey = $('verticalBar').value;
+    const hKey = $('horizontalBar').value;
+    const project = { name:$('projName').value, no:$('projNo').value, designer:$('projDesigner').value };
+    const inputs = [
+      { group:'採用模型與幾何', keepTogether:true, items:[
+        { label:'結構模型', value:'對稱單跨簡支深梁；頂部跨中單一集中載重' },
+        { label:'STM 拓樸', value:'2 支對角壓桿 + 1 道底部拉桿；上 CCC、下 CCT' },
+        { label:'h / ℓn / bw', value:`${fmt(r.input.h,1)} / ${fmt(r.input.ln,1)} / ${fmt(r.input.bw,1)}`, unit:'cm' },
+        { label:'d / z / a', value:`${fmt(r.input.d,1)} / ${fmt(r.input.z,1)} / ${fmt(r.a,1)}`, unit:'cm' },
+        { label:'ws / wn,t / wn,b', value:`${fmt(r.input.strutWidth,1)} / ${fmt(r.input.topNodeWidth,1)} / ${fmt(r.input.bottomNodeWidth,1)}`, unit:'cm' },
+        { label:'載重面 / 支承面寬', value:`${fmt(r.input.loadBearingWidth,1)} / ${fmt(r.input.supportBearingWidth,1)}`, unit:'cm' },
+      ]},
+      { group:'材料、外力與配筋', keepTogether:true, items:[
+        { label:"fc' / fy", value:`${fmt(r.input.fc,0)} / ${fmt(r.input.fy,0)}`, unit:'kgf/cm²' },
+        { label:'λ / βc / βs / φSTM', value:`${fmt(r.input.lambda,2)} / ${fmt(r.input.betaC,2)} / ${fmt(r.input.betaS,2)} / ${fmt(r.phiStm,2)}` },
+        { label:'跨中係數化集中載重 Pu', value:fmt(r.input.Pu,2), unit:'tf' },
+        { label:'底部拉桿', value:`${$('tieCount').value}-${tieKey}，${r.tieLayout.rowCounts.length} 排（${r.tieLayout.rowCounts.join('+')}支），As=${fmt(r.input.tieAsProvided,2)}`, unit:'cm²' },
+        { label:'拉桿配筋幾何', value:`保護層 ${fmt(r.tieLayout.input.sideCover,1)} cm；外圍橫向筋 ${transverseKey}；dagg=${fmt(r.tieLayout.input.maxAggregateSize,1)} cm` },
+        { label:'拉桿鋼筋群心', value:`距底面 ${fmt(r.tieLayout.centroidFromBottom,2)} cm；鋼筋帶深 ${fmt(r.tieLayout.tieBandDepth,2)}`, unit:'cm' },
+        { label:'垂直分布筋', value:`${$('verticalFaces').value} 面-${vKey}@${fmt(r.input.verticalSpacing,1)}`, unit:'cm' },
+        { label:'水平分布筋', value:`${$('horizontalFaces').value} 面-${hKey}@${fmt(r.input.horizontalSpacing,1)}`, unit:'cm' },
+      ]},
+    ];
+    const checks = [
+      { group:'模型適用性與平衡', items:[
+        reportCheck('深梁適用條件','9.9.1.1：ℓn ≤ 4h；或集中載重距支承面 a ≤ 2h',`ℓn/h=${fmt(r.input.ln/r.input.h,3)}；a/h=${fmt(r.a/r.input.h,3)}`,r.isDeepBeam ? '深梁' : '非深梁','',r.checks.isDeepBeam),
+        reportCheck('桿件最小夾角','23.2.7：θ ≥ 25°',`θ=tan⁻¹(z/a)=tan⁻¹(${fmt(r.input.z,1)}/${fmt(r.a,1)})`,fmt(r.thetaDeg,2),'deg',r.checks.angleOk),
+        reportCheck('單側支承反力','R = Pu / 2',`${fmt(r.input.Pu,2)} / 2`,fmt(r.reaction,2),'tf',true),
+        reportCheck('對角壓桿力','C = R / sinθ',`${fmt(r.reaction,2)} / sin(${fmt(r.thetaDeg,2)}°)`,fmt(r.strutDemand,2),'tf',true),
+        reportCheck('底部拉桿力','T = R / tanθ',`${fmt(r.reaction,2)} / tan(${fmt(r.thetaDeg,2)}°)`,fmt(r.tieDemand,2),'tf',true),
+      ]},
+      { group:'拉桿強度', keepTogether:true, items:[
+        reportCheck('STM 拉桿 As 需求','As,STM = T / (φ fy)',`${fmt(r.tieDemand*1000,0)} / (${fmt(r.phiStm,2)} × ${fmt(r.input.fy,0)})`,fmt(r.tieAsStm,2),'cm²',true),
+        reportCheck('9.6.1 最小鋼筋量','As,min = max(0.8√fc\'/fy, 14/fy) bw d',`max(0.8√${fmt(r.input.fc,0)}/${fmt(Math.min(r.input.fy,5600),0)}, 14/${fmt(Math.min(r.input.fy,5600),0)}) × ${fmt(r.input.bw,1)} × ${fmt(r.input.d,1)}`,fmt(r.tieAsMin,2),'cm²',true),
+        reportCheck('底部拉桿提供量','As,prov ≥ max(As,STM, As,min)',`${fmt(r.input.tieAsProvided,2)} ≥ max(${fmt(r.tieAsStm,2)}, ${fmt(r.tieAsMin,2)})`,fmt(r.tieDcr,3),'DCR',r.checks.tieOk),
+        reportCheck('同層水平淨距','25.2.1：sc ≥ max(2.5 cm, db, 4/3 dagg)',`${fmt(r.tieLayout.minHorizontalClear,2)} ≥ max(2.50, ${fmt(r.tieLayout.input.barDiameter,3)}, ${fmt(4*r.tieLayout.input.maxAggregateSize/3,2)})`,fmt(r.tieLayout.minHorizontalClear,2),'cm',r.tieLayout.horizontalSpacingOk),
+        reportCheck('多層垂直淨距','25.2.2：sv,clear ≥ 2.5 cm；上層鋼筋直接位於下層鋼筋之上',`${fmt(r.tieLayout.input.verticalClearSpacing,2)} ≥ 2.50；各排共用對齊柱線`,fmt(r.tieLayout.input.verticalClearSpacing,2),'cm',r.tieLayout.verticalSpacingOk && r.tieLayout.rowAlignmentOk),
+        reportCheck('斷面容納','各排支數不超過可容納支數，且鋼筋帶深不超過斷面內可用深度',`各排 ${r.tieLayout.rowCounts.join('+')}支；最多 ${r.tieLayout.maxBarsPerRow}支/排；${fmt(r.tieLayout.tieBandDepth,2)} ≤ ${fmt(r.tieLayout.availableDepth,2)} cm`,r.tieLayout.layoutOk ? '符合' : '不符合','',r.tieLayout.layoutOk),
+      ]},
+      { group:'壓桿與節點區強度', items:[
+        reportCheck('對角壓桿','φFns = φ(0.85 βc βs fc\') bw ws',`${fmt(r.phiStm,2)}×0.85×${fmt(r.input.betaC,2)}×${fmt(r.input.betaS,2)}×${fmt(r.input.fc,0)}×${fmt(r.input.bw,1)}×${fmt(r.input.strutWidth,1)} / 1000 = ${fmt(r.strutDesign,2)} tf`,fmt(r.strutDcr,3),'DCR',r.checks.strutOk),
+        reportCheck('上部 CCC 節點','φFnn = φ(0.85 βc βn fc\') bw wn,t；βn=1.0',`需求 max(Pu,C)=${fmt(r.topNodeDemand,2)}；強度=${fmt(r.topNodeDesign,2)} tf；wn,t≤載重面寬：${fmt(r.input.topNodeWidth,1)}≤${fmt(r.input.loadBearingWidth,1)}`,fmt(r.topNodeDcr,3),'DCR',r.checks.topNodeOk),
+        reportCheck('下部 CCT 節點','φFnn = φ(0.85 βc βn fc\') bw wn,b；βn=0.8',`需求 max(R,C)=${fmt(r.bottomNodeDemand,2)}；強度=${fmt(r.bottomNodeDesign,2)} tf；wn,b≤支承面寬：${fmt(r.input.bottomNodeWidth,1)}≤${fmt(r.input.supportBearingWidth,1)}`,fmt(r.bottomNodeDcr,3),'DCR',r.checks.bottomNodeOk),
+      ]},
+      { group:'分布筋與深梁剪力上限', keepTogether:true, items:[
+        reportCheck('垂直分布筋比','9.9.3.1：ρv = Av/(bw sv) ≥ 0.0025',`${fmt(r.verticalAreaWithinSpacing,3)} / (${fmt(r.input.bw,1)}×${fmt(r.input.verticalSpacing,1)})`,fmt(r.rhoVertical,5),'',r.checks.verticalRatioOk),
+        reportCheck('水平分布筋比','9.9.3.1：ρh = Avh/(bw sh) ≥ 0.0025',`${fmt(r.horizontalAreaWithinSpacing,3)} / (${fmt(r.input.bw,1)}×${fmt(r.input.horizontalSpacing,1)})`,fmt(r.rhoHorizontal,5),'',r.checks.horizontalRatioOk),
+        reportCheck('分布筋最大間距','9.9.4.3：s ≤ min(d/5, 30 cm)',`min(${fmt(r.input.d,1)}/5,30)=${fmt(r.distributedSpacingLimit,1)} cm；sv=${fmt(r.input.verticalSpacing,1)}；sh=${fmt(r.input.horizontalSpacing,1)}`,fmt(r.distributedSpacingLimit,1),'cm',r.checks.verticalSpacingOk && r.checks.horizontalSpacingOk),
+        reportCheck('9.9.2.1 剪力上限','Vu ≤ φ 2.65 λ √fc\' bw d',`${fmt(r.reaction,2)} ≤ ${fmt(r.shearDesignLimit99,2)}`,fmt(r.reaction/r.shearDesignLimit99,3),'DCR',r.checks.shearLimit99Ok),
+        ...(r.check2344Required ? [reportCheck('23.4.4 剪力條件','Vu ≤ φ 1.32 tanθ λ λs √fc\' bw d',r.shearDesignLimit2344 == null ? '分布筋未符合，λs 不採 1.0' : `${fmt(r.reaction,2)} ≤ ${fmt(r.shearDesignLimit2344,2)}；λs=1.0`,r.shearDesignLimit2344 == null ? '未成立' : fmt(r.reaction/r.shearDesignLimit2344,3),r.shearDesignLimit2344 == null ? '' : 'DCR',r.checks.shearLimit2344Ok)] : []),
+      ]},
+      { group:'模型與構造確認', items:[
+        reportCheck('力流與有效寬度','23.2.2 及 23.8.1：模型幾何、有效寬度與拉桿鋼筋群中心軸應相符',r.geometryConfirmed ? `已確認採用模型；拉桿鋼筋群心距底面 ${fmt(r.tieLayout.centroidFromBottom,2)} cm` : '尚未確認',r.geometryConfirmed ? '已確認' : '待確認','',r.geometryConfirmed ? true : null),
+        reportCheck('拉桿端部錨定','23.8.2、23.8.3：拉桿力須於兩端節點區完成錨定與發展',r.anchorageConfirmed ? '已由使用者確認配筋圖與錨定細節' : '尚未確認',r.anchorageConfirmed ? '已確認' : '待確認','',r.anchorageConfirmed ? true : null),
+      ]},
+    ];
+    const svg = makeSvg(r);
+    const tieSvg = makeTieSectionSvg(r);
+    openReport({
+      title:'RC 深梁壓拉桿模型檢核計算書',
+      subtitle:'RC Deep Beam Strut-and-Tie Model Check Report',
+      outputSource:{ tool:'RC 深梁壓拉桿模型', version:'V0.3' },
+      project,
+      summary:false,
+      inputs,
+      checks,
+      diagramsTitle:'壓拉桿力流示意圖',
+      diagrams:[
+        ...(svg ? [{ title:'對稱單跨深梁壓拉桿力流', dataURL:svgDataUrl(svg), caption:`Pu=${fmt(r.input.Pu,1)} tf；θ=${fmt(r.thetaDeg,1)}°；紅色為壓桿、藍色為底部拉桿`, width:300 }] : []),
+        ...(tieSvg ? [{ title:'底部拉桿多排斷面配置', dataURL:svgDataUrl(tieSvg), caption:`${$('tieCount').value}-${tieKey}，${r.tieLayout.rowCounts.length} 排（${r.tieLayout.rowCounts.join('+')}支）；水平最小淨距 ${fmt(r.tieLayout.minHorizontalClear,2)} cm`, width:300 }] : []),
+      ],
+    });
+  }
+
+  function applyQuery() {
+    const params = new URLSearchParams(location.search);
+    for (const id of ['h','ln','bw','d','z','Pu','fc','fy']) {
+      if (params.has(id) && $(id)) $(id).value = params.get(id);
+    }
+  }
+
+  populateBars();
+  applyQuery();
+  $('btnCalc').addEventListener('click', calculate);
+  $('btnReport').addEventListener('click', buildReport);
+  document.querySelectorAll('input,select').forEach(el => el.addEventListener('change', calculate));
+  window.calculateDeepBeamSTM = calculate;
+  window.buildDeepBeamSTMReport = buildReport;
+  calculate();
+})();
+</script>
+<script src="../../結構工具箱/tools/project-meta-profile.js"></script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+"Point Name";"Load Case";"Load Case Type";"F1";"F2";"F3";"M1";"M2";"M3"
+"J;1";"D";"Linear Static";"0";"0";"150000";"0";"0";"0"
+"J;1";"W";"Linear Static";"0";"0";"0";"200000";"0";"0"
+"J;1";"E";"Linear Static";"0";"0";"0";"0";"-300000";"0"

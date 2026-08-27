@@ -1,0 +1,7 @@
+Fixture Note	Synthetic compatibility data; not an engineering export
+Joint Label	Load Case/Combo	Load Case Type	Step Type	Step Number	F1	F2	F3	M1	M2	M3
+J-BASE	DEAD	Linear Static			0	0	-120	0	0	0
+J-BASE	LIVE	Linear Static			0	0	-35	0	0	0
+J-BASE	WX	Linear Static			0	0	0	-18	0	0
+J-BASE	EY	Linear Static			0	0	0	0	22	0
+J-OTHER	DEAD	Linear Static			0	0	-1	0	0	0

@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-async function renderStandaloneFormalHtmlPdf(report, approvedHtml, summary, label, assert, outputDir) {
+async function renderStandaloneFormalHtmlPdf(report, approvedHtml, summary, label, assert, outputDir, qualityOptions = {}) {
   const standalonePage = await report.context().browser().newPage({ viewport: { width: 980, height: 1200 } });
   const externalRequests = [];
   standalonePage.on('request', request => {
@@ -173,6 +173,7 @@ async function renderStandaloneFormalHtmlPdf(report, approvedHtml, summary, labe
     minTextLength: 500,
     include: ['文件狀態：正式附件', summary.calculationFingerprint],
     contentBoundaryProfile: 'traceable-calculation-book',
+    continuationContextLabels: qualityOptions.continuationContextLabels || [],
   });
   const integrity = captureArtifactIntegrity(artifactPath, 'standaloneFormalHtmlPrintPdf');
   return {
@@ -453,6 +454,7 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
       label,
       assert,
       options.outputDir,
+      options,
     );
   }
 

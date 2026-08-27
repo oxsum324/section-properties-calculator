@@ -838,6 +838,242 @@ function buildGlobalGovernance(preflightEvidenceSummaries, traceabilityCatalogCo
   };
 }
 
+function buildJointReactionCandidateInventory(candidateDir) {
+  const counts = {
+    actualObserved: 0,
+    syntheticCompatibility: 0,
+    privacyTest: 0,
+    unknownOrigin: 0,
+    invalid: 0,
+    unpairedFiles: 0,
+  };
+  if (!fileExists(candidateDir)) return { ...counts, total:0, ignoredLocalOutput:true };
+  const entries = fs.readdirSync(candidateDir, { withFileTypes:true }).filter(entry => entry.isFile());
+  const candidateFiles = entries
+    .map(entry => entry.name)
+    .filter(name => /\.(?:csv|tsv|txt)$/i.test(name));
+  const evidenceFiles = entries
+    .map(entry => entry.name)
+    .filter(name => name.endsWith('.evidence.json'));
+  const paired = new Set();
+  for (const evidenceFile of evidenceFiles) {
+    try {
+      const evidence = readJson(path.join(candidateDir, evidenceFile));
+      const outputFile = path.basename(String(evidence.output?.file || ''));
+      const candidatePath = path.join(candidateDir, outputFile);
+      const valid = evidence.schemaVersion === 'rc-joint-reaction-anonymization-evidence.v1'
+        && evidence.status === 'candidate-manual-review-required'
+        && evidence.provenance === 'anonymized-observed-export-candidate'
+        && evidence.notEngineeringData === true
+        && evidence.source?.stored === false
+        && candidateFiles.includes(outputFile)
+        && sourceHashIfExists(candidatePath) === evidence.output?.sha256;
+      if (!valid) {
+        counts.invalid += 1;
+        continue;
+      }
+      paired.add(outputFile);
+      if (evidence.originKind === 'actual-observed') counts.actualObserved += 1;
+      else if (evidence.originKind === 'synthetic-compatibility') counts.syntheticCompatibility += 1;
+      else if (evidence.originKind === 'privacy-test') counts.privacyTest += 1;
+      else counts.unknownOrigin += 1;
+    } catch (_) {
+      counts.invalid += 1;
+    }
+  }
+  counts.unpairedFiles = candidateFiles.filter(file => !paired.has(file)).length;
+  return {
+    ...counts,
+    total:evidenceFiles.length,
+    ignoredLocalOutput:true,
+  };
+}
+
+function buildJointReactionEvidenceStatus(state) {
+  const syntheticManifest = state.jointReactionSyntheticManifest || {};
+  const observedManifest = state.jointReactionObservedManifest || {};
+  const syntheticFixtures = Array.isArray(syntheticManifest.fixtures) ? syntheticManifest.fixtures : [];
+  const observedFixtures = Array.isArray(observedManifest.fixtures) ? observedManifest.fixtures : [];
+  const syntheticIssues = [];
+  const observedIssues = [];
+  if (syntheticManifest.schemaVersion !== 'rc-joint-reaction-fixtures.v1') syntheticIssues.push('synthetic-schema');
+  if (syntheticManifest.fixturePolicy !== 'synthetic-compatibility-only') syntheticIssues.push('synthetic-policy');
+  const syntheticIds = new Set();
+  syntheticFixtures.forEach(fixture => {
+    if (!fixture?.id || syntheticIds.has(fixture.id)) syntheticIssues.push('synthetic-id');
+    syntheticIds.add(fixture?.id || '');
+    if (!fixture?.file || !fileExists(path.join(state.jointReactionFixtureDir, fixture.file))) syntheticIssues.push('synthetic-file');
+  });
+  if (observedManifest.schemaVersion !== 'rc-joint-reaction-observed-fixtures.v1') observedIssues.push('observed-schema');
+  if (observedManifest.fixturePolicy !== 'anonymized-observed-exports-only') observedIssues.push('observed-policy');
+  const observedIds = new Set();
+  observedFixtures.forEach(fixture => {
+    if (!fixture?.id || observedIds.has(fixture.id)) observedIssues.push('observed-id');
+    observedIds.add(fixture?.id || '');
+    const fixturePath = path.join(state.jointReactionFixtureDir, String(fixture?.file || ''));
+    const provenancePath = path.join(state.jointReactionFixtureDir, String(fixture?.provenanceFile || ''));
+    if (!fixture?.file || !fileExists(fixturePath)) observedIssues.push('observed-file');
+    if (!fixture?.provenanceFile || !fileExists(provenancePath)) observedIssues.push('observed-provenance');
+    if (fileExists(fixturePath) && sourceHashIfExists(fixturePath) !== fixture.sha256) observedIssues.push('observed-hash');
+    if (fileExists(provenancePath)) {
+      try {
+        const provenance = readJson(provenancePath);
+        if (provenance.schemaVersion !== 'rc-joint-reaction-observed-provenance.v1'
+          || provenance.provenance !== 'anonymized-observed-export'
+          || provenance.privacy?.sourceHashCommitted !== false
+          || Object.prototype.hasOwnProperty.call(provenance, 'source')) observedIssues.push('observed-privacy');
+      } catch (_) {
+        observedIssues.push('observed-provenance-json');
+      }
+    }
+  });
+  const bySoftware = ['ETABS', 'SAP2000'].map(software => ({
+    software,
+    count:observedFixtures.filter(item => item.software === software).length,
+    versions:[...new Set(observedFixtures.filter(item => item.software === software).map(item => String(item.softwareVersion || '')).filter(Boolean))].sort(),
+  }));
+  const candidates = buildJointReactionCandidateInventory(state.jointReactionCandidateDir);
+  const gateFiles = [
+    state.jointReactionSanitizerCorePath,
+    state.jointReactionSanitizerCoreTestPath,
+    state.jointReactionSanitizerPath,
+    state.jointReactionSanitizerTestPath,
+    state.jointReactionPromotionGatePath,
+    state.jointReactionPromotionGateTestPath,
+    state.jointReactionObservedIntakePath,
+    state.jointReactionObservedIntakeTestPath,
+    state.jointReactionReviewTemplatePath,
+  ];
+  let reviewTemplateDefaultClosed = false;
+  try {
+    const template = readJson(state.jointReactionReviewTemplatePath);
+    reviewTemplateDefaultClosed = template.schemaVersion === 'rc-joint-reaction-observed-review.v1'
+      && Object.values(template.assertions || {}).length === 8
+      && Object.values(template.assertions || {}).every(value => value === false);
+  } catch (_) {}
+  const gateConfigured = gateFiles.every(fileExists) && reviewTemplateDefaultClosed;
+  const intakeConfigured = fileExists(state.jointReactionObservedIntakePath)
+    && fileExists(state.jointReactionObservedIntakeTestPath);
+  const promotionGateSource = fileExists(state.jointReactionPromotionGatePath)
+    ? readText(state.jointReactionPromotionGatePath)
+    : '';
+  const promotionGateTestSource = fileExists(state.jointReactionPromotionGateTestPath)
+    ? readText(state.jointReactionPromotionGateTestPath)
+    : '';
+  const transactionalPromotion = gateConfigured
+    && [
+      'acquirePromotionLock',
+      '.promotion-next',
+      '.promotion-backup',
+      'fs.renameSync(nextPath, state.manifestPath)',
+      'releasePromotionLock',
+    ].every(token => promotionGateSource.includes(token))
+    && [
+      'transaction preserves a competing manifest update',
+      'replace failure preserves original manifest bytes',
+      'successful promotion leaves no lock, next or backup residue',
+    ].every(token => promotionGateTestSource.includes(token));
+  const staleLockRecoveryConfigured = transactionalPromotion
+    && [
+      'rc-joint-reaction-observed-promotion-lock.v2',
+      'DEFAULT_STALE_LOCK_MINUTES = 10',
+      'assessPromotionLock',
+      'clearStalePromotionLock',
+      '--lock-status',
+      '--clear-stale-lock',
+      'expected-lock-sha256',
+      '.promotion-clear-',
+    ].every(token => promotionGateSource.includes(token))
+    && [
+      "status, 'active'",
+      "status, 'recent-inactive'",
+      "status, 'foreign-host-unverified'",
+      "status, 'recovery-residue'",
+      "status, 'partial-transaction'",
+      "status, 'stale-safe-to-clear'",
+      'tampered committed output keeps stale lock',
+    ].every(token => promotionGateTestSource.includes(token));
+  const canonicalManifestPathGuardConfigured = staleLockRecoveryConfigured
+    && [
+      'resolveGovernedManifestPath',
+      'fs.realpathSync.native',
+      'manifest-parent-not-canonical',
+      'invalid-manifest-target',
+      'resolveGovernedManifestPath(state.manifestPath)',
+    ].every(token => promotionGateSource.includes(token))
+    && [
+      'manifest junction block creates no promotion lock',
+      'promotion rechecks canonical manifest parent before lock acquisition',
+      'manifest parent identity change creates no observed output',
+    ].every(token => promotionGateTestSource.includes(token));
+  const issueCount = syntheticIssues.length
+    + observedIssues.length
+    + candidates.invalid
+    + candidates.unpairedFiles
+    + candidates.unknownOrigin
+    + (gateConfigured ? 0 : 1)
+    + (transactionalPromotion ? 0 : 1)
+    + (staleLockRecoveryConfigured ? 0 : 1)
+    + (canonicalManifestPathGuardConfigured ? 0 : 1);
+  const status = issueCount > 0
+    ? 'attention'
+    : (observedFixtures.length > 0 ? 'observed-evidence-present' : 'synthetic-only');
+  const missingSoftware = bySoftware.filter(item => item.count === 0).map(item => item.software);
+  const nextActionCode = observedFixtures.length === 0
+    ? (candidates.actualObserved > 0 ? 'manual-review-required' : 'actual-export-required')
+    : (missingSoftware.length > 0 ? 'collect-missing-software' : 'maintain-observed-coverage');
+  const nextAction = {
+    'actual-export-required':'需要由實際 ETABS／SAP2000 模型匯出一份 Joint Reactions CSV／TSV／TXT；工具不會也不得自行製造實際版本證據。',
+    'manual-review-required':`本機已有 ${candidates.actualObserved} 份 actual-observed 候選；下一步是逐項人工審閱並先執行唯讀 assess。`,
+    'collect-missing-software':`已具部分實際匿名證據；仍需補 ${missingSoftware.join('／')} 的實際匯出版本。`,
+    'maintain-observed-coverage':'ETABS 與 SAP2000 均已有實際匿名格式證據；後續依使用版本持續補樣。',
+  }[nextActionCode];
+  return {
+    schemaVersion:'rc-joint-reaction-evidence-status.v1',
+    status,
+    synthetic:{
+      count:syntheticFixtures.length,
+      accepted:syntheticFixtures.filter(item => !item.expectedError).length,
+      rejected:syntheticFixtures.filter(item => Boolean(item.expectedError)).length,
+      formats:[...new Set(syntheticFixtures.map(item => item.format).filter(Boolean))].sort(),
+      issues:[...new Set(syntheticIssues)],
+    },
+    observed:{
+      count:observedFixtures.length,
+      bySoftware,
+      issues:[...new Set(observedIssues)],
+    },
+    candidates,
+    gate:{
+      configured:gateConfigured,
+      intakeConfigured,
+      reviewTemplateDefaultClosed,
+      transactionalPromotion,
+      staleLockRecoveryConfigured,
+      canonicalManifestPathGuardConfigured,
+    },
+    workflow:{
+      nextActionCode,
+      nextAction,
+      intakeCommand:'node .\\鋼筋混凝土\\shared\\joint-reaction-observed-intake.js --input "<Joint Reactions 匯出檔>" --software ETABS --version "<實際版本>" --units "<實際單位>" --fixture-id "<唯一小寫-ID>"',
+      packageImportCommand:'node .\\鋼筋混凝土\\shared\\joint-reaction-observed-intake.js --package "<基礎頁下載的 intake-package.json>"',
+      lockStatusCommand:'node .\\鋼筋混凝土\\shared\\joint-reaction-fixture-promotion-gate.js --manifest ".\\鋼筋混凝土\\shared\\fixtures\\joint-reactions\\observed-manifest.json" --lock-status yes',
+      lockClearCommand:'node .\\鋼筋混凝土\\shared\\joint-reaction-fixture-promotion-gate.js --manifest ".\\鋼筋混凝土\\shared\\fixtures\\joint-reactions\\observed-manifest.json" --clear-stale-lock yes --expected-lock-sha256 "<lock-status 顯示的完整 SHA-256>"',
+      browserPackageSchema:'rc-joint-reaction-browser-intake-package.v1',
+      assessmentIsReadOnly:true,
+      promotionRequiresExplicitYes:true,
+      staleLockClearRequiresExplicitYesAndSha256:true,
+    },
+    claims:{
+      syntheticFormatCompatibility:syntheticIssues.length === 0 ? 'demonstrated' : 'attention',
+      actualExportVersionCoverage:observedFixtures.length > 0 && observedIssues.length === 0 ? 'partial-observed-evidence' : 'not-demonstrated',
+      affectsFormalToolMaturity:false,
+    },
+    issueCount,
+    boundary:'合成格式測試通過不等於實際 ETABS／SAP2000 版本匯出已驗證；匿名觀察樣本只證明已收錄版本的格式相容性。',
+  };
+}
+
 function loadSourceState() {
   const independentBenchmarkRelativePath = '結構工具箱/tools/independent-engineering-benchmarks.catalog.json';
   const formalManifestRelativePath = '結構工具箱/tools/formal-tools.manifest.json';
@@ -853,6 +1089,17 @@ function loadSourceState() {
   const homeRelativePath = '結構工具箱/assets/home/home.js';
   const preflightSummaryRelativePath = 'output/preflight/preflight-summary.json';
   const preflightHistoryRelativePath = 'output/preflight/preflight-history.json';
+  const jointReactionSyntheticManifestRelativePath = '鋼筋混凝土/shared/fixtures/joint-reactions/manifest.json';
+  const jointReactionObservedManifestRelativePath = '鋼筋混凝土/shared/fixtures/joint-reactions/observed-manifest.json';
+  const jointReactionSanitizerCoreRelativePath = '鋼筋混凝土/shared/joint-reaction-fixture-sanitizer-core.js';
+  const jointReactionSanitizerCoreTestRelativePath = '鋼筋混凝土/shared/joint-reaction-fixture-sanitizer-core.test.js';
+  const jointReactionSanitizerRelativePath = '鋼筋混凝土/shared/joint-reaction-fixture-sanitizer.js';
+  const jointReactionSanitizerTestRelativePath = '鋼筋混凝土/shared/joint-reaction-fixture-sanitizer.test.js';
+  const jointReactionPromotionGateRelativePath = '鋼筋混凝土/shared/joint-reaction-fixture-promotion-gate.js';
+  const jointReactionPromotionGateTestRelativePath = '鋼筋混凝土/shared/joint-reaction-fixture-promotion-gate.test.js';
+  const jointReactionObservedIntakeRelativePath = '鋼筋混凝土/shared/joint-reaction-observed-intake.js';
+  const jointReactionObservedIntakeTestRelativePath = '鋼筋混凝土/shared/joint-reaction-observed-intake.test.js';
+  const jointReactionReviewTemplateRelativePath = '鋼筋混凝土/shared/joint-reaction-observed-review.template.json';
   const formalManifestPath = toolboxFile('tools/formal-tools.manifest.json');
   const formalTraceabilityPath = toolboxFile('tools/formal-traceability.catalog.json');
   const rcTraceabilityPath = repoFile('鋼筋混凝土/tools/rc-traceability.catalog.json');
@@ -867,6 +1114,19 @@ function loadSourceState() {
   const preflightSummaryPath = repoFile(preflightSummaryRelativePath);
   const preflightHistoryPath = repoFile(preflightHistoryRelativePath);
   const independentBenchmarkPath = toolboxFile('tools/independent-engineering-benchmarks.catalog.json');
+  const jointReactionFixtureDir = repoFile('鋼筋混凝土/shared/fixtures/joint-reactions');
+  const jointReactionSyntheticManifestPath = repoFile(jointReactionSyntheticManifestRelativePath);
+  const jointReactionObservedManifestPath = repoFile(jointReactionObservedManifestRelativePath);
+  const jointReactionSanitizerCorePath = repoFile(jointReactionSanitizerCoreRelativePath);
+  const jointReactionSanitizerCoreTestPath = repoFile(jointReactionSanitizerCoreTestRelativePath);
+  const jointReactionSanitizerPath = repoFile(jointReactionSanitizerRelativePath);
+  const jointReactionSanitizerTestPath = repoFile(jointReactionSanitizerTestRelativePath);
+  const jointReactionPromotionGatePath = repoFile(jointReactionPromotionGateRelativePath);
+  const jointReactionPromotionGateTestPath = repoFile(jointReactionPromotionGateTestRelativePath);
+  const jointReactionObservedIntakePath = repoFile(jointReactionObservedIntakeRelativePath);
+  const jointReactionObservedIntakeTestPath = repoFile(jointReactionObservedIntakeTestRelativePath);
+  const jointReactionReviewTemplatePath = repoFile(jointReactionReviewTemplateRelativePath);
+  const jointReactionCandidateDir = repoFile('output/anonymized-fixtures/joint-reactions');
   const formalManifest = readJson(formalManifestPath);
   const formalTraceabilityCatalog = readJson(formalTraceabilityPath);
   const rcTraceabilityCatalog = readJson(rcTraceabilityPath);
@@ -877,6 +1137,8 @@ function loadSourceState() {
   const excavationTraceabilityCatalog = readJson(excavationTraceabilityPath);
   const localQuickManifest = readJson(localQuickManifestPath);
   const independentBenchmarkCatalog = readJson(independentBenchmarkPath);
+  const jointReactionSyntheticManifest = readJson(jointReactionSyntheticManifestPath);
+  const jointReactionObservedManifest = readJson(jointReactionObservedManifestPath);
   const vercelText = readText(vercelPath);
   const homeJs = readText(homePath);
   const routeFileMap = extractRouteFileMap(homeJs);
@@ -932,7 +1194,18 @@ function loadSourceState() {
     sourceInput('independent-engineering-benchmarks', independentBenchmarkRelativePath, independentBenchmarkPath),
     sourceInput('vercel-routes', vercelRelativePath, vercelPath),
     sourceInput('home-entrypoints', homeRelativePath, homePath),
-    sourceInput('latest-preflight-summary', preflightSummaryRelativePath, preflightSummaryPath)
+    sourceInput('latest-preflight-summary', preflightSummaryRelativePath, preflightSummaryPath),
+    sourceInput('joint-reaction-synthetic-fixtures', jointReactionSyntheticManifestRelativePath, jointReactionSyntheticManifestPath),
+    sourceInput('joint-reaction-observed-fixtures', jointReactionObservedManifestRelativePath, jointReactionObservedManifestPath),
+    sourceInput('joint-reaction-sanitizer-core', jointReactionSanitizerCoreRelativePath, jointReactionSanitizerCorePath),
+    sourceInput('joint-reaction-sanitizer-core-test', jointReactionSanitizerCoreTestRelativePath, jointReactionSanitizerCoreTestPath),
+    sourceInput('joint-reaction-sanitizer', jointReactionSanitizerRelativePath, jointReactionSanitizerPath),
+    sourceInput('joint-reaction-sanitizer-test', jointReactionSanitizerTestRelativePath, jointReactionSanitizerTestPath),
+    sourceInput('joint-reaction-promotion-gate', jointReactionPromotionGateRelativePath, jointReactionPromotionGatePath),
+    sourceInput('joint-reaction-promotion-gate-test', jointReactionPromotionGateTestRelativePath, jointReactionPromotionGateTestPath),
+    sourceInput('joint-reaction-observed-intake', jointReactionObservedIntakeRelativePath, jointReactionObservedIntakePath),
+    sourceInput('joint-reaction-observed-intake-test', jointReactionObservedIntakeTestRelativePath, jointReactionObservedIntakeTestPath),
+    sourceInput('joint-reaction-review-template', jointReactionReviewTemplateRelativePath, jointReactionReviewTemplatePath),
   ];
   if (needsFullPreflightFallback && latestFullPreflightSummaryPath) {
     sourceInputs.push(sourceInput('latest-full-preflight-summary', latestFullPreflightSummaryRelativePath, latestFullPreflightSummaryPath));
@@ -952,6 +1225,19 @@ function loadSourceState() {
     excavationTraceabilityCatalog,
     localQuickManifest,
     independentBenchmarkCatalog,
+    jointReactionSyntheticManifest,
+    jointReactionObservedManifest,
+    jointReactionFixtureDir,
+    jointReactionCandidateDir,
+    jointReactionSanitizerCorePath,
+    jointReactionSanitizerCoreTestPath,
+    jointReactionSanitizerPath,
+    jointReactionSanitizerTestPath,
+    jointReactionPromotionGatePath,
+    jointReactionPromotionGateTestPath,
+    jointReactionObservedIntakePath,
+    jointReactionObservedIntakeTestPath,
+    jointReactionReviewTemplatePath,
     vercelText,
     homeJs,
     routeFileMap,
@@ -1214,7 +1500,9 @@ function summarize(rows, preflightSummary, preflightSummarySource = null, source
       '覆工板/decking-traceability.catalog.json',
       '開挖擋土支撐/excavation-traceability.catalog.json',
       '結構工具箱/tools/local-quick-tools.manifest.json',
-      '結構工具箱/tools/independent-engineering-benchmarks.catalog.json'
+      '結構工具箱/tools/independent-engineering-benchmarks.catalog.json',
+      '鋼筋混凝土/shared/fixtures/joint-reactions/manifest.json',
+      '鋼筋混凝土/shared/fixtures/joint-reactions/observed-manifest.json'
     ],
     sourceTrace: sourceTrace || { inputs: [] },
     traceabilityCatalogCoverage,
@@ -1319,11 +1607,25 @@ function buildMarkdown(payload) {
     `- nonMatrixBoundary: complete=${entrypoint.boundaryComplete || 0}/${entrypoint.boundaryRequired || 0}, issues=${entrypoint.boundaryIssueCount || 0}`,
     `- pageOnlyBoundary: complete=${entrypoint.pageOnlyBoundaryComplete || 0}/${entrypoint.pageOnlyBoundaryRequired || 0}, issues=${entrypoint.pageOnlyBoundaryIssueCount || 0}`,
     `- globalGovernance: complete=${payload.globalGovernance?.passed || 0}/${payload.globalGovernance?.required || 0}, issues=${payload.globalGovernance?.issueCount || 0}`,
-    `- independentEngineeringBenchmarks: pilot=${payload.independentBenchmarkCoverage?.summary?.pilotVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.pilotRequired || 0}, formalPortfolio=${payload.independentBenchmarkCoverage?.summary?.independentlyVerifiedRoutes || 0}/${payload.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes || 0}, candidates=${payload.independentBenchmarkCoverage?.summary?.candidateVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.candidateRequired || 0}, issues=${payload.independentBenchmarkCoverage?.summary?.issueCount || 0}`,
+    `- independentEngineeringBenchmarks: pilot=${payload.independentBenchmarkCoverage?.summary?.pilotVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.pilotRequired || 0}, formalPortfolio=${payload.independentBenchmarkCoverage?.summary?.independentlyVerifiedRoutes || 0}/${payload.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes || 0}, candidateCases=${payload.independentBenchmarkCoverage?.summary?.candidateVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.candidateRequired || 0}, candidatePass=${payload.independentBenchmarkCoverage?.summary?.candidatePassVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.candidatePassRequired || 0}, candidateRejections=${payload.independentBenchmarkCoverage?.summary?.candidateRejectionVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.candidateRejectionRequired || 0}, candidateCapabilities=${payload.independentBenchmarkCoverage?.summary?.verifiedCandidateCapabilities || 0}, issues=${payload.independentBenchmarkCoverage?.summary?.issueCount || 0}`,
+    `- jointReactionEvidence: status=${payload.jointReactionEvidence?.status || 'unavailable'}, synthetic=${payload.jointReactionEvidence?.synthetic?.count || 0}, observed=${payload.jointReactionEvidence?.observed?.count || 0}, actualCandidates=${payload.jointReactionEvidence?.candidates?.actualObserved || 0}, issues=${payload.jointReactionEvidence?.issueCount || 0}`,
     `- preflightHistoryHealth: completed=${payload.preflightHistoryHealth?.completedCount || 0}/${payload.preflightHistoryHealth?.count || 0}, abnormal=${payload.preflightHistoryHealth?.abnormalCount || 0}, resolvedAbnormal=${payload.preflightHistoryHealth?.resolvedAbnormalCount || 0}, unresolvedAbnormal=${payload.preflightHistoryHealth?.unresolvedAbnormalCount || 0}, incomplete=${payload.preflightHistoryHealth?.incompleteCount || 0}, resolvedIncomplete=${payload.preflightHistoryHealth?.resolvedIncompleteCount || 0}, unresolvedIncomplete=${payload.preflightHistoryHealth?.unresolvedIncompleteCount || 0}, inProgress=${payload.preflightHistoryHealth?.inProgressCount || 0}, latestState=${payload.preflightHistoryHealth?.latestState || '-'}`,
     payload.latestPreflight
       ? `- latestPreflight: ${payload.latestPreflight.runId}, pass=${payload.latestPreflight.pass}, quick=${payload.latestPreflight.quick}, commit=${(payload.latestPreflight.sourceCommitSha || '').slice(0, 12) || '-'}, branch=${payload.latestPreflight.sourceBranch || '-'}, dirty=${payload.latestPreflight.sourceDirty}, source=${payload.latestPreflight.sourcePath || '-'}, hash=${(payload.latestPreflight.sourceHash || '').slice(0, 12) || '-'}`
       : '- latestPreflight: unavailable',
+    '',
+    '## Joint Reactions Format Evidence',
+    '',
+    `- status: ${payload.jointReactionEvidence?.status || 'unavailable'}`,
+    `- synthetic compatibility fixtures: ${payload.jointReactionEvidence?.synthetic?.count || 0} (${payload.jointReactionEvidence?.synthetic?.accepted || 0} accepted / ${payload.jointReactionEvidence?.synthetic?.rejected || 0} rejected)`,
+    `- anonymized observed exports: ${payload.jointReactionEvidence?.observed?.count || 0}`,
+    `- local ignored candidates: actual=${payload.jointReactionEvidence?.candidates?.actualObserved || 0}, synthetic=${payload.jointReactionEvidence?.candidates?.syntheticCompatibility || 0}, privacy=${payload.jointReactionEvidence?.candidates?.privacyTest || 0}, unknown=${payload.jointReactionEvidence?.candidates?.unknownOrigin || 0}, invalid=${payload.jointReactionEvidence?.candidates?.invalid || 0}, unpaired=${payload.jointReactionEvidence?.candidates?.unpairedFiles || 0}`,
+    `- sanitizer / intake / promotion gate configured: ${payload.jointReactionEvidence?.gate?.configured === true}`,
+    `- next action: ${payload.jointReactionEvidence?.workflow?.nextActionCode || 'unavailable'} — ${payload.jointReactionEvidence?.workflow?.nextAction || '-'}`,
+    `- intake command: ${payload.jointReactionEvidence?.workflow?.intakeCommand || '-'}`,
+    `- browser package import: ${payload.jointReactionEvidence?.workflow?.packageImportCommand || '-'}`,
+    `- actual export version coverage: ${payload.jointReactionEvidence?.claims?.actualExportVersionCoverage || 'not-demonstrated'}`,
+    `- boundary: ${payload.jointReactionEvidence?.boundary || '-'}`,
     '',
     '## Coverage Totals',
     '',
@@ -1371,7 +1673,10 @@ function buildMarkdown(payload) {
     '',
     `- pilot: ${independentSummary.pilotVerified || 0} / ${independentSummary.pilotRequired || 0}`,
     `- formal portfolio independently verified: ${independentSummary.independentlyVerifiedRoutes || 0} / ${independentSummary.eligibleFormalRoutes || 0}`,
-    `- non-public candidate capabilities independently verified: ${independentSummary.candidateVerified || 0} / ${independentSummary.candidateRequired || 0}`,
+    `- non-public candidate cases independently verified: ${independentSummary.candidateVerified || 0} / ${independentSummary.candidateRequired || 0}`,
+    `- expected passing candidate cases verified: ${independentSummary.candidatePassVerified || 0} / ${independentSummary.candidatePassRequired || 0}`,
+    `- expected rejection candidate cases verified: ${independentSummary.candidateRejectionVerified || 0} / ${independentSummary.candidateRejectionRequired || 0}`,
+    `- distinct candidate capabilities independently verified: ${independentSummary.verifiedCandidateCapabilities || 0}`,
     `- priority roadmap targets: ${independentSummary.priorityTargets || 0}`,
     `- issues: ${independentSummary.issueCount || 0}`,
     '- boundary: golden case、同核心 JSON 重播與結果鏈一致性不等同獨立工程基準。',
@@ -1395,12 +1700,12 @@ function buildMarkdown(payload) {
       '',
       '### Non-public Candidate Capabilities',
       '',
-      '| capability | benchmark | reference | status | assertions | issues |',
-      '|---|---|---|---|---:|---|'
+      '| capability | benchmark | expected outcome | reference | status | assertions | issues |',
+      '|---|---|---|---|---|---:|---|'
     );
     for (const record of candidateRecords) {
       const issues = Array.isArray(record.issues) && record.issues.length ? record.issues.join(', ') : '-';
-      lines.push(`| ${markdownCell(record.capability)} | ${markdownCell(record.title)} | ${markdownCell(record.referenceBasis)} | ${markdownCell(record.status)} | ${record.assertionCount || 0} | ${markdownCell(issues)} |`);
+      lines.push(`| ${markdownCell(record.capability)} | ${markdownCell(record.title)} | ${markdownCell(record.expectedOutcome)} | ${markdownCell(record.referenceBasis)} | ${markdownCell(record.status)} | ${record.assertionCount || 0} | ${markdownCell(issues)} |`);
     }
   }
 
@@ -1551,9 +1856,11 @@ function buildMatrix() {
   const traceabilityCatalogCoverage = buildTraceabilityCatalogCoverage(state);
   const globalGovernance = buildGlobalGovernance(state.preflightEvidenceSummaries, traceabilityCatalogCoverage);
   const independentBenchmarkCoverage = runBenchmarks(state.independentBenchmarkCatalog);
+  const jointReactionEvidence = buildJointReactionEvidenceStatus(state);
   const payload = {
     ...summarize(rows, state.preflightSummary, state.preflightSummarySource, state.sourceTrace, entrypointCoverage, state.preflightHistoryHealth, traceabilityCatalogCoverage, globalGovernance),
     independentBenchmarkCoverage,
+    jointReactionEvidence,
     rows
   };
 
@@ -1763,6 +2070,20 @@ function renderedDeliveryEvidencePathForRun(runId) {
   );
 }
 
+function isCompleteRcStmFormalAttachmentEvidence(evidence) {
+  if (Number(evidence?.schemaVersion) < 27) return true;
+  return Boolean(
+    evidence.rcStmFormalAttachment?.scope === 'rc-stm-supplemental-formal-attachments'
+    && evidence.rcStmFormalAttachment.required === 3
+    && evidence.rcStmFormalAttachment.complete === 3
+    && evidence.rcStmFormalAttachment.issueCount === 0
+    && evidence.rcStmFormalAttachment.artifactRequired === 12
+    && evidence.rcStmFormalAttachment.artifactVerified === 12
+    && evidence.rcStmFormalAttachment.pass === true
+    && /^[0-9a-f]{64}$/i.test(String(evidence.rcStmFormalAttachment.setSha256 || ''))
+  );
+}
+
 function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const supplementalDeclared = Number.isInteger(evidence?.supplementalRequired);
   const attachmentIntegrityDeclared = Number(evidence?.schemaVersion) >= 2;
@@ -1789,6 +2110,7 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const xlsxPackageIntegrityDeclared = Number(evidence?.schemaVersion) >= 23;
   const xlsxPrintVisualDeclared = Number(evidence?.schemaVersion) >= 24;
   const xlsxDualSealDeclared = Number(evidence?.schemaVersion) >= 25;
+  const rcStmFormalAttachmentDeclared = Number(evidence?.schemaVersion) >= 27;
   return Boolean(
     evidence
     && evidence.kind === 'release-rendered-delivery-evidence'
@@ -1802,6 +2124,7 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       && evidence.supplementalComplete === evidence.supplementalRequired
       && evidence.supplementalPass === true
     ))
+    && (!rcStmFormalAttachmentDeclared || isCompleteRcStmFormalAttachmentEvidence(evidence))
     && (!attachmentIntegrityDeclared || (
       evidence.attachmentIntegrity?.pass === true
       && Number.isInteger(evidence.attachmentIntegrity.required)
@@ -2397,6 +2720,21 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     : rcFormalHtmlApprovalSeal.pass === true
       ? Math.max(0, rcFormalHtmlApprovalSealRequired - rcFormalHtmlApprovalSealComplete)
       : Math.max(1, compactNumber(rcFormalHtmlApprovalSeal.issueCount) || rcFormalHtmlApprovalSealRequired - rcFormalHtmlApprovalSealComplete);
+  const rcStmFormalAttachment = renderedDeliveryPayload?.rcStmFormalAttachment;
+  const rcStmFormalAttachmentDeclared = Boolean(
+    Number(renderedDeliveryPayload?.schemaVersion) >= 27
+    && rcStmFormalAttachment
+    && rcStmFormalAttachment.scope === 'rc-stm-supplemental-formal-attachments'
+    && Number.isInteger(rcStmFormalAttachment.required)
+    && Number.isInteger(rcStmFormalAttachment.complete)
+  );
+  const rcStmFormalAttachmentRequired = rcStmFormalAttachmentDeclared ? compactNumber(rcStmFormalAttachment.required) : 0;
+  const rcStmFormalAttachmentComplete = rcStmFormalAttachmentDeclared ? compactNumber(rcStmFormalAttachment.complete) : 0;
+  const rcStmFormalAttachmentIssueCount = !rcStmFormalAttachmentDeclared
+    ? 0
+    : rcStmFormalAttachment.pass === true
+      ? Math.max(0, rcStmFormalAttachmentRequired - rcStmFormalAttachmentComplete)
+      : Math.max(1, compactNumber(rcStmFormalAttachment.issueCount) || rcStmFormalAttachmentRequired - rcStmFormalAttachmentComplete);
   const formalHtmlContentSeal = renderedDeliveryPayload?.formalHtmlContentSeal;
   const formalHtmlApprovalSeal = renderedDeliveryPayload?.formalHtmlApprovalSeal;
   const formalHtmlDualSealDeclared = Boolean(
@@ -2563,7 +2901,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       ? Math.max(0, localQuickResultReconciliationRequired - localQuickResultReconciliationComplete)
       : Math.max(1, compactNumber(localQuickResultReconciliation.issueCount) || localQuickResultReconciliationRequired - localQuickResultReconciliationComplete);
   const renderedDeliverySummary = supplementalDeliveryDeclared
-    ? `最新正式放行實際交付物渲染：首頁正式工具 ${renderedDeliveryComplete} / ${renderedDeliveryRequired}；補充報告 / 服務成品 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired}。`
+    ? `最新正式放行實際交付物渲染：首頁正式工具 ${renderedDeliveryComplete} / ${renderedDeliveryRequired}；補充報告 / 服務成品 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired}${rcStmFormalAttachmentDeclared ? `；RC 流程內 STM 正式附件 ${rcStmFormalAttachmentComplete} / ${rcStmFormalAttachmentRequired}` : ''}。`
     : `最新正式放行實際交付物渲染：${renderedDeliveryComplete} / ${renderedDeliveryRequired}。`;
   const summary = `頁面上的「優先建議報告閱讀狀態」診斷明細只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF；計算書預設為可列印的內部審閱，勾選核可後改為正式附件。工程檢核狀態與文件身分分開，空白案件欄位可由主文承接。目前首頁矩陣外 ${complete} / ${required} 個有列印 / 報表表面的入口已完成頁面專用閱讀狀態治理。`;
   const details = [
@@ -2583,6 +2921,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     ...(rcStandaloneFormalHtmlPrintDeclared ? [`RC 核可 HTML 獨立列印：設計與補強共 ${rcStandaloneFormalHtmlPrintComplete} / ${rcStandaloneFormalHtmlPrintRequired} 份核可後 HTML 已在無外部網路請求下重新開啟並列印成 PDF，且通過正式狀態、工程內容與分頁檢查。公開狀態只顯示完成數，不公開案件、檔名、成品雜湊或計算指紋。`] : []),
     ...(rcFormalHtmlContentSealDeclared ? [`RC 正式 HTML 內容封印：設計與補強共 ${rcFormalHtmlContentSealComplete} / ${rcFormalHtmlContentSealRequired} 份核可 HTML 已由瀏覽器與附件檢查器分別重算 SHA-256 計算內容封印；內容變更會阻擋組包。此封印不等同核可人數位簽章；公開狀態只顯示完成數。`] : []),
     ...(rcFormalHtmlApprovalSealDeclared ? [`RC 正式 HTML 核可封印：設計與補強共 ${rcFormalHtmlApprovalSealComplete} / ${rcFormalHtmlApprovalSealRequired} 份核可 HTML 已將文件狀態、核可時間、計算指紋、標題與內容封印綁定並由瀏覽器及附件檢查器分別重算；任一欄位變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
+    ...(rcStmFormalAttachmentDeclared ? [`RC 流程內 STM 正式附件：深梁、基礎深梁與樁帽三維 STM 共 ${rcStmFormalAttachmentComplete} / ${rcStmFormalAttachmentRequired} 份已驗證內部審閱 PDF／PNG、核可 HTML、內容與核可雙封印、離線重開及正式 PDF 列印；三者仍屬 RC 梁／基礎流程子工具，不另計首頁正式入口。`] : []),
     ...(formalHtmlDualSealDeclared ? [`風力／地震正式 HTML 雙封印：${formalHtmlContentSealComplete} / ${formalHtmlContentSealRequired} 份內容封印與 ${formalHtmlApprovalSealComplete} / ${formalHtmlApprovalSealRequired} 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；計算正文、文件狀態、核可時間、指紋或標題遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
     ...(steelHtmlDualSealDeclared ? [`鋼構正式 HTML 雙封印：主工具連接板、主工具拉力構件、獨立連接板、鋼梁與鋼柱共 ${steelHtmlContentSealComplete} / ${steelHtmlContentSealRequired} 份內容封印與 ${steelHtmlApprovalSealComplete} / ${steelHtmlApprovalSealRequired} 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；計算正文或核可資料遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
     ...(anchorHtmlDualSealDeclared ? [`錨栓正式 HTML 雙封印：${anchorHtmlContentSealComplete} / ${anchorHtmlContentSealRequired} 份內容封印與 ${anchorHtmlApprovalSealComplete} / ${anchorHtmlApprovalSealRequired} 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；工作頁核可後輸出狀態固定，計算正文或核可資料遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
@@ -2605,17 +2944,22 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
   const independentBenchmarkPilotVerified = compactNumber(independentBenchmarkSummary.pilotVerified);
   const independentBenchmarkCandidateRequired = compactNumber(independentBenchmarkSummary.candidateRequired);
   const independentBenchmarkCandidateVerified = compactNumber(independentBenchmarkSummary.candidateVerified);
+  const independentBenchmarkCandidatePassRequired = compactNumber(independentBenchmarkSummary.candidatePassRequired);
+  const independentBenchmarkCandidatePassVerified = compactNumber(independentBenchmarkSummary.candidatePassVerified);
+  const independentBenchmarkCandidateRejectionRequired = compactNumber(independentBenchmarkSummary.candidateRejectionRequired);
+  const independentBenchmarkCandidateRejectionVerified = compactNumber(independentBenchmarkSummary.candidateRejectionVerified);
+  const independentBenchmarkCandidateCapabilities = compactNumber(independentBenchmarkSummary.verifiedCandidateCapabilities);
   const independentBenchmarkIssueCount = compactNumber(independentBenchmarkSummary.issueCount);
   details.push(`獨立工程基準：${independentBenchmarkVerified} / ${independentBenchmarkEligible} 個正式工具已具獨立封閉算例。既有重播、結果鏈與家族治理證據仍屬不同證據層級，不取代設計者複核。`);
-  if (independentBenchmarkCandidateRequired > 0) details.push(`候選能力獨立基準：${independentBenchmarkCandidateVerified} / ${independentBenchmarkCandidateRequired}；候選結果只作上線前治理，不計入正式工具 ${independentBenchmarkVerified} / ${independentBenchmarkEligible}。`);
+  if (independentBenchmarkCandidateRequired > 0) details.push(`候選案例獨立基準：${independentBenchmarkCandidateVerified} / ${independentBenchmarkCandidateRequired}，其中預期合格 ${independentBenchmarkCandidatePassVerified} / ${independentBenchmarkCandidatePassRequired}、預期拒絕 ${independentBenchmarkCandidateRejectionVerified} / ${independentBenchmarkCandidateRejectionRequired}，涵蓋 ${independentBenchmarkCandidateCapabilities} 個候選能力；候選結果只作上線前治理，不計入正式工具 ${independentBenchmarkVerified} / ${independentBenchmarkEligible}。`);
   return {
     publicEvidenceSchemaVersion: publicEvidenceSchema.SCHEMA_VERSION,
     snapshotVersion: 1,
     kind: 'report-readiness-status',
     generatedAt: String(matrixPayload.generatedAt || ''),
     runId: String(preflightStatus?.runId || matrixPayload.latestPreflight?.runId || ''),
-    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && docxPackageIntegrityIssueCount === 0 && xlsxPackageIntegrityIssueCount === 0 && xlsxPrintVisualIssueCount === 0 && xlsxDualSealIssueCount === 0 && formalResultReconciliationIssueCount === 0 && formalHtmlContentSealIssueCount === 0 && formalHtmlApprovalSealIssueCount === 0 && steelHtmlContentSealIssueCount === 0 && steelHtmlApprovalSealIssueCount === 0 && anchorHtmlContentSealIssueCount === 0 && anchorHtmlApprovalSealIssueCount === 0 && rcResultReconciliationIssueCount === 0 && rcSourceReportPackageIssueCount === 0 && rcStandaloneFormalHtmlPrintIssueCount === 0 && rcFormalHtmlContentSealIssueCount === 0 && rcFormalHtmlApprovalSealIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
-    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + docxPackageIntegrityIssueCount + xlsxPackageIntegrityIssueCount + xlsxPrintVisualIssueCount + xlsxDualSealIssueCount + formalResultReconciliationIssueCount + formalHtmlContentSealIssueCount + formalHtmlApprovalSealIssueCount + steelHtmlContentSealIssueCount + steelHtmlApprovalSealIssueCount + anchorHtmlContentSealIssueCount + anchorHtmlApprovalSealIssueCount + rcResultReconciliationIssueCount + rcSourceReportPackageIssueCount + rcStandaloneFormalHtmlPrintIssueCount + rcFormalHtmlContentSealIssueCount + rcFormalHtmlApprovalSealIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
+    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && docxPackageIntegrityIssueCount === 0 && xlsxPackageIntegrityIssueCount === 0 && xlsxPrintVisualIssueCount === 0 && xlsxDualSealIssueCount === 0 && formalResultReconciliationIssueCount === 0 && formalHtmlContentSealIssueCount === 0 && formalHtmlApprovalSealIssueCount === 0 && steelHtmlContentSealIssueCount === 0 && steelHtmlApprovalSealIssueCount === 0 && anchorHtmlContentSealIssueCount === 0 && anchorHtmlApprovalSealIssueCount === 0 && rcResultReconciliationIssueCount === 0 && rcSourceReportPackageIssueCount === 0 && rcStandaloneFormalHtmlPrintIssueCount === 0 && rcFormalHtmlContentSealIssueCount === 0 && rcFormalHtmlApprovalSealIssueCount === 0 && rcStmFormalAttachmentIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
+    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + docxPackageIntegrityIssueCount + xlsxPackageIntegrityIssueCount + xlsxPrintVisualIssueCount + xlsxDualSealIssueCount + formalResultReconciliationIssueCount + formalHtmlContentSealIssueCount + formalHtmlApprovalSealIssueCount + steelHtmlContentSealIssueCount + steelHtmlApprovalSealIssueCount + anchorHtmlContentSealIssueCount + anchorHtmlApprovalSealIssueCount + rcResultReconciliationIssueCount + rcSourceReportPackageIssueCount + rcStandaloneFormalHtmlPrintIssueCount + rcFormalHtmlContentSealIssueCount + rcFormalHtmlApprovalSealIssueCount + rcStmFormalAttachmentIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
@@ -2784,6 +3128,14 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       rcFormalHtmlApprovalSealPass: rcFormalHtmlApprovalSeal.pass === true
         && rcFormalHtmlApprovalSealComplete === rcFormalHtmlApprovalSealRequired
         && rcFormalHtmlApprovalSealIssueCount === 0,
+    } : {}),
+    ...(rcStmFormalAttachmentDeclared ? {
+      rcStmFormalAttachmentRequired,
+      rcStmFormalAttachmentComplete,
+      rcStmFormalAttachmentIssueCount,
+      rcStmFormalAttachmentPass: rcStmFormalAttachment.pass === true
+        && rcStmFormalAttachmentComplete === rcStmFormalAttachmentRequired
+        && rcStmFormalAttachmentIssueCount === 0,
     } : {}),
     ...(steelResultReconciliationDeclared ? {
       steelResultReconciliationRequired,
@@ -2959,6 +3311,33 @@ function checkMatrix(payload, markdown, options = {}) {
     'tool maturity matrix requires at least two golden cases for every governed tool'
   );
   assert.ok(Array.isArray(payload.topUpgradeTargets), 'tool maturity matrix exposes top upgrade targets');
+  assert.equal(payload.jointReactionEvidence?.schemaVersion, 'rc-joint-reaction-evidence-status.v1', 'tool maturity matrix Joint Reactions evidence schema');
+  assert.ok(Number.isInteger(payload.jointReactionEvidence?.synthetic?.count), 'tool maturity matrix Joint Reactions synthetic count integer');
+  assert.ok(payload.jointReactionEvidence.synthetic.count >= 7, 'tool maturity matrix preserves Joint Reactions synthetic fixture coverage');
+  assert.ok(Number.isInteger(payload.jointReactionEvidence?.observed?.count), 'tool maturity matrix Joint Reactions observed count integer');
+  assert.equal(payload.jointReactionEvidence?.gate?.configured, true, 'tool maturity matrix Joint Reactions privacy and promotion gate configured');
+  assert.equal(payload.jointReactionEvidence?.gate?.intakeConfigured, true, 'tool maturity matrix Joint Reactions observed intake workflow configured');
+  assert.equal(payload.jointReactionEvidence?.gate?.reviewTemplateDefaultClosed, true, 'tool maturity matrix Joint Reactions review template defaults closed');
+  assert.ok(['actual-export-required', 'manual-review-required', 'collect-missing-software', 'maintain-observed-coverage'].includes(payload.jointReactionEvidence?.workflow?.nextActionCode), 'tool maturity matrix Joint Reactions next action code controlled');
+  assert.equal(payload.jointReactionEvidence?.workflow?.assessmentIsReadOnly, true, 'tool maturity matrix Joint Reactions assessment remains read-only');
+  assert.equal(payload.jointReactionEvidence?.workflow?.promotionRequiresExplicitYes, true, 'tool maturity matrix Joint Reactions promotion requires explicit yes');
+  assert.ok(String(payload.jointReactionEvidence?.workflow?.intakeCommand || '').includes('joint-reaction-observed-intake.js'), 'tool maturity matrix Joint Reactions intake command exposed');
+  assert.ok(String(payload.jointReactionEvidence?.workflow?.packageImportCommand || '').includes('--package'), 'tool maturity matrix Joint Reactions browser package import command exposed');
+  assert.equal(payload.jointReactionEvidence?.workflow?.browserPackageSchema, 'rc-joint-reaction-browser-intake-package.v1', 'tool maturity matrix Joint Reactions browser package schema');
+  assert.ok(markdown.includes('browser package import:') && markdown.includes('--package'), 'tool maturity matrix markdown exposes browser package import workflow');
+  assert.equal(payload.jointReactionEvidence?.claims?.affectsFormalToolMaturity, false, 'Joint Reactions observed evidence does not inflate formal tool maturity');
+  assert.equal(
+    payload.jointReactionEvidence.status,
+    payload.jointReactionEvidence.issueCount > 0 ? 'attention' : (payload.jointReactionEvidence.observed.count > 0 ? 'observed-evidence-present' : 'synthetic-only'),
+    'tool maturity matrix Joint Reactions evidence status matches evidence inventory'
+  );
+  assert.equal(
+    payload.jointReactionEvidence.claims.actualExportVersionCoverage,
+    payload.jointReactionEvidence.observed.count > 0 && payload.jointReactionEvidence.observed.issues.length === 0 ? 'partial-observed-evidence' : 'not-demonstrated',
+    'tool maturity matrix does not overclaim actual ETABS/SAP2000 version coverage'
+  );
+  assert.ok(markdown.includes('## Joint Reactions Format Evidence'), 'tool maturity matrix markdown exposes Joint Reactions evidence boundary');
+  assert.ok(markdown.includes('合成格式測試通過不等於實際 ETABS／SAP2000 版本匯出已驗證'), 'tool maturity matrix markdown prevents synthetic evidence overclaim');
   assert.ok(payload.preflightHistoryHealth && typeof payload.preflightHistoryHealth === 'object', 'tool maturity matrix preflightHistoryHealth object');
   assert.equal(Number.isInteger(payload.preflightHistoryHealth.count), true, 'tool maturity matrix preflightHistoryHealth count integer');
   assert.equal(Number.isInteger(payload.preflightHistoryHealth.completedCount), true, 'tool maturity matrix preflightHistoryHealth completedCount integer');
@@ -3036,13 +3415,22 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 33, 'tool maturity matrix independent benchmark pilot required');
   assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 33, 'tool maturity matrix independent benchmark verified route count');
   assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 33, 'tool maturity matrix independent benchmark eligible route count');
-  assert.equal(payload.independentBenchmarkCoverage.summary.candidateRequired, 0, 'tool maturity matrix has no remaining independent candidate');
-  assert.equal(payload.independentBenchmarkCoverage.summary.candidateVerified, 0, 'tool maturity matrix counts no candidate verification');
+  assert.equal(payload.independentBenchmarkCoverage.summary.candidateRequired, 24, 'tool maturity matrix requires twenty-four supplemental STM candidate cases');
+  assert.equal(payload.independentBenchmarkCoverage.summary.candidateVerified, 24, 'tool maturity matrix verifies twenty-four supplemental STM candidate cases');
+  assert.equal(payload.independentBenchmarkCoverage.summary.candidatePassRequired, 15, 'tool maturity matrix requires fifteen expected passing STM candidate cases');
+  assert.equal(payload.independentBenchmarkCoverage.summary.candidatePassVerified, 15, 'tool maturity matrix verifies fifteen expected passing STM candidate cases');
+  assert.equal(payload.independentBenchmarkCoverage.summary.candidateRejectionRequired, 9, 'tool maturity matrix requires nine expected STM rejection cases');
+  assert.equal(payload.independentBenchmarkCoverage.summary.candidateRejectionVerified, 9, 'tool maturity matrix verifies nine expected STM rejection cases');
+  assert.equal(payload.independentBenchmarkCoverage.summary.verifiedCandidateCapabilities, 3, 'tool maturity matrix keeps three distinct supplemental STM capabilities');
   assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, payload.entrypointCoverage.byState.formal, 'tool maturity matrix independent benchmark portfolio matches formal homepage entry count');
   assert.equal(payload.independentBenchmarkCoverage.summary.issueCount, 0, 'tool maturity matrix independent benchmark issues empty');
   assert.ok(markdown.includes('## Independent Engineering Benchmarks'), 'tool maturity matrix markdown exposes independent engineering benchmarks');
   assert.ok(markdown.includes('golden case、同核心 JSON 重播與結果鏈一致性不等同獨立工程基準'), 'tool maturity matrix markdown distinguishes replay from independent verification');
   assert.ok(markdown.includes('| /src-beam |') && markdown.includes('| /src-column |') && !markdown.includes('| src-beam-core |'), 'tool maturity matrix lists SRC beam and column as formal routes instead of candidate capabilities');
+  assert.ok(markdown.includes('| rc-deep-beam-stm |')
+    && markdown.includes('| rc-foundation-2d-stm |')
+    && markdown.includes('| rc-pile-cap-3d-stm |'), 'tool maturity matrix lists the three supplemental STM independent candidate capabilities');
+  assert.ok(markdown.includes('| strength-pass |') && markdown.includes('| strength-reject |'), 'tool maturity matrix distinguishes expected passing and rejection candidate outcomes');
   assert.ok(payload.entrypointCoverage && typeof payload.entrypointCoverage === 'object', 'tool maturity matrix entrypointCoverage object');
   assert.equal(Number.isInteger(payload.entrypointCoverage.total), true, 'tool maturity matrix entrypointCoverage total integer');
   assert.equal(Number.isInteger(payload.entrypointCoverage.matrixCovered), true, 'tool maturity matrix entrypointCoverage matrixCovered integer');
@@ -3406,7 +3794,31 @@ function checkMatrix(payload, markdown, options = {}) {
   }
   assert.ok(payload.sourceTrace && typeof payload.sourceTrace === 'object', 'tool maturity matrix sourceTrace object');
   assert.ok(Array.isArray(payload.sourceTrace.inputs), 'tool maturity matrix sourceTrace inputs array');
-  const requiredSourceKeys = ['formal-tools-manifest', 'formal-traceability-catalog', 'rc-traceability-catalog', 'steel-traceability-catalog', 'anchor-traceability-catalog', 'stone-traceability-catalog', 'decking-traceability-catalog', 'excavation-traceability-catalog', 'local-quick-tools-manifest', 'independent-engineering-benchmarks', 'vercel-routes', 'home-entrypoints'];
+  const requiredSourceKeys = [
+    'formal-tools-manifest',
+    'formal-traceability-catalog',
+    'rc-traceability-catalog',
+    'steel-traceability-catalog',
+    'anchor-traceability-catalog',
+    'stone-traceability-catalog',
+    'decking-traceability-catalog',
+    'excavation-traceability-catalog',
+    'local-quick-tools-manifest',
+    'independent-engineering-benchmarks',
+    'vercel-routes',
+    'home-entrypoints',
+    'joint-reaction-synthetic-fixtures',
+    'joint-reaction-observed-fixtures',
+    'joint-reaction-sanitizer-core',
+    'joint-reaction-sanitizer-core-test',
+    'joint-reaction-sanitizer',
+    'joint-reaction-sanitizer-test',
+    'joint-reaction-promotion-gate',
+    'joint-reaction-promotion-gate-test',
+    'joint-reaction-observed-intake',
+    'joint-reaction-observed-intake-test',
+    'joint-reaction-review-template',
+  ];
   for (const key of requiredSourceKeys) {
     const input = payload.sourceTrace.inputs.find(item => item.key === key);
     assert.ok(input, `tool maturity matrix sourceTrace includes ${key}`);
@@ -3497,5 +3909,6 @@ module.exports = {
   buildMatrix,
   buildHomepagePreflightStatus,
   buildHomepageReportReadinessStatus,
+  isCompleteRcStmFormalAttachmentEvidence,
   resolveRenderedDeliveryEvidenceSource,
 };

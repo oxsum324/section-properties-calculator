@@ -14,6 +14,7 @@ const casesPath = path.join(__dirname, 'beam-regression-cases.json');
 const concretePath = path.join(ROOT, '結構工具箱', 'core', 'materials', 'concrete.js');
 const rebarPath = path.join(ROOT, '結構工具箱', 'core', 'materials', 'rebar.js');
 const flexurePath = path.join(RC_ROOT, 'shared', 'flexure.js');
+const beamApplicabilityPath = path.join(RC_ROOT, 'shared', 'beam-applicability.js');
 const commonPath = path.join(RC_ROOT, 'shared', 'common.js');
 const beamEvaluatorPath = path.join(RC_ROOT, 'shared', 'beam-evaluator.js');
 const beamDesignerPath = path.join(RC_ROOT, 'shared', 'beam-rebar-designer.js');
@@ -79,10 +80,11 @@ function getBeamShape(sectionType, direction, bw, bf, hf) {
 }
 
 function calcPhiFromEpsT(epsT, fy, PHI) {
-  const epsY = fy / 2.04e6;
-  if (epsT >= 0.005) return PHI.tension;
+  const epsY = Math.abs(fy - 4200) < 1e-9 ? 0.002 : fy / 2.04e6;
+  const epsTLimit = epsY + 0.003;
+  if (epsT >= epsTLimit) return PHI.tension;
   if (epsT <= epsY) return 0.65;
-  return 0.65 + (PHI.tension - 0.65) * (epsT - epsY) / (0.005 - epsY);
+  return 0.65 + (PHI.tension - 0.65) * (epsT - epsY) / (epsTLimit - epsY);
 }
 
 function solveTrialFlexure(Flexure, PHI, opt) {
@@ -218,6 +220,12 @@ async function captureBeamSnapshot(page) {
       AsMinPosBSourceText: r.AsMinPosInfo?.bSourceText ?? null,
       AsMinNegBSourceText: r.AsMinNegInfo?.bSourceText ?? null,
       AsMinNegFlangeInTension: r.AsMinNegInfo?.flangeInTension ?? null,
+      AsMinNegFlangeTensionSpecial: r.AsMinNegInfo?.flangeTensionSpecial ?? null,
+      AsMinFyEffective: r.AsMinPosInfo?.fyForAsMin ?? null,
+      epsTy: r.epsTy ?? null,
+      epsTLimit: r.epsTLimit ?? null,
+      epsTPos: r.epsTPos ?? null,
+      epsTNeg: r.epsTNeg ?? null,
       phiMnPos: r.phiMnPos ?? null,
       phiMnNeg: r.phiMnNeg ?? null,
       MnPos_raw: r.MnPos_raw ?? null,
@@ -290,6 +298,13 @@ async function captureBeamSnapshot(page) {
       hasFirstHoopInput: r.hasFirstHoopInput ?? null,
       okFirstHoop: r.okFirstHoop ?? null,
       okRhoMax: r.okRhoMax ?? null,
+      okRhoMaxPos: r.okRhoMaxPos ?? null,
+      okRhoMaxNeg: r.okRhoMaxNeg ?? null,
+      okTensionPos: r.okTensionPos ?? null,
+      okTensionNeg: r.okTensionNeg ?? null,
+      rhoSmrfLimit: r.rhoSmrfLimit ?? null,
+      okSmrfRhoPos: r.okSmrfRhoPos ?? null,
+      okSmrfRhoNeg: r.okSmrfRhoNeg ?? null,
       okAsMin: r.okAsMin ?? null,
       okAsMinBot: r.okAsMinBot ?? null,
       okAsMinTop: r.okAsMinTop ?? null,
@@ -297,6 +312,9 @@ async function captureBeamSnapshot(page) {
       AsMinNegMode: r.asMinCheckNeg?.mode ?? null,
       AsMinPosWaiverReq: r.asMinCheckPos?.waiverReq ?? null,
       AsMinNegWaiverReq: r.asMinCheckNeg?.waiverReq ?? null,
+      rebarRangeRows: r.rebarRanges?.rows?.length ?? null,
+      rebarRangeFeasibleRows: r.rebarRanges?.rows?.filter(row => row.feasible).length ?? null,
+      rebarRangeText: text('beamRebarFeasibleRanges'),
       needSkin: r.needSkin ?? null,
       okSkin: r.okSkin ?? null,
       skinSpacing: r.skinSpacing ?? null,
@@ -892,10 +910,13 @@ async function exerciseBeamRebarDesignCandidates(page) {
       status: window.beamLast?.designSearch?.status,
       first,
       text: document.getElementById('beamRebarDesignCandidates')?.innerText || '',
+      rangeText: document.getElementById('beamRebarFeasibleRanges')?.innerText || '',
+      rangeRows: window.beamLast?.rebarRanges?.rows?.length || 0,
     };
   });
   assert(before.status === 'evaluated' && before.count >= 3, 'beam capacity-based rebar candidates', `${before.status}, count=${before.count}`);
   assert(before.text.includes('底筋') && before.text.includes('箍筋') && before.text.includes('M+ / M− / V 利用率'), 'beam candidate table content', before.text.replace(/\s+/g, ' ').slice(0, 220));
+  assert(before.rangeRows === 10 && before.rangeText.includes('可用最少') && before.rangeText.includes('規範最多') && before.rangeText.includes('幾何最多') && before.rangeText.includes('目前另一側鋼筋'), 'beam feasible bar-count range table', before.rangeText.replace(/\s+/g, ' ').slice(0, 320));
 
   await page.click('.section-tabs button[data-tab="flex"]');
   await page.click('.beam-design-apply');
@@ -920,7 +941,7 @@ async function exerciseBeamRebarDesignCandidates(page) {
       checks: {
         flexPos: window.beamLast?.okFlexPos, flexNeg: window.beamLast?.okFlexNeg,
         shear: window.beamLast?.okShear, asMin: window.beamLast?.okAsMin,
-        rhoMax: window.beamLast?.okRhoMax, mcr: window.beamLast?.okMcr,
+        rhoMax: window.beamLast?.okRhoMax,
         layerSpacing: window.beamLast?.okLayerSpacing, barsPerLayer: window.beamLast?.okBarsPerLayer,
         crackSpacing: window.beamLast?.okCrackSpacing,
       },
@@ -934,9 +955,110 @@ async function exerciseBeamRebarDesignCandidates(page) {
   assert(applied.bottomBar === before.first.bottomBar && applied.topBar === before.first.topBar && applied.stirrup === before.first.stirrup && applied.legs === before.first.legs && applied.spacing === before.first.spacing, 'beam candidate adoption preserves bar and stirrup configuration', JSON.stringify({ bottomBar:applied.bottomBar, topBar:applied.topBar, stirrup:applied.stirrup, legs:applied.legs, spacing:applied.spacing }));
   assert(Object.values(applied.checks).every(value => value === true), 'beam adopted candidate passes formal beam checks', JSON.stringify(applied.checks));
   assert(!applied.candidateVisible, 'beam candidate table hides outside design mode', String(applied.candidateVisible));
-  ['容量式候選依', '套用並檢核', 'M+ / M− / V 利用率'].forEach(fragment => {
+  ['容量式候選依', '套用並檢核', 'M+ / M− / V 利用率', '主筋可行支數區間', '規範最多', '幾何最多'].forEach(fragment => {
     assert(!applied.report.includes(fragment), 'beam report excludes page-only rebar candidate content', fragment);
   });
+
+  const infeasible = await page.evaluate(() => {
+    document.getElementById('MuPos').value = '500';
+    document.getElementById('MuNeg').value = '500';
+    window.setBeamMode?.('design', { recalculate:false, applyPanel:false });
+    window.calcBeam();
+    return {
+      designInfeasible: window.beamLast?.designInfeasible,
+      searchStatus: window.beamLast?.designSearch?.status,
+      warningText: document.getElementById('warningList')?.innerText || '',
+    };
+  });
+  assert(infeasible.designInfeasible === true && infeasible.searchStatus === 'no-solution', 'beam design flags configured-layer capacity exhaustion', JSON.stringify(infeasible));
+  assert(infeasible.warningText.includes('自動配筋已達排內可配置上限'), 'beam design explains infeasible section', infeasible.warningText);
+}
+
+async function exerciseDynamicRebarAndDeepBeamBoundary(page) {
+  section('Dynamic Rebar Layers And Deep-Beam Boundary');
+  await page.click('#btnAddBotLayer');
+  await page.click('#btnAddTopLayer');
+  const fourRows = await page.evaluate(() => {
+    window.setBeamMode?.('check', { recalculate:false, applyPanel:false });
+    const set = (id, value) => { document.getElementById(id).value = String(value); };
+    set('h', 100); set('ln', 600); set('deepLoadDistance', 250);
+    set('botBar4No', '#8'); set('botBar4N', 2);
+    set('topBar4No', '#7'); set('topBar4N', 2);
+    window.calcBeam();
+    const saved = window.collectBeamProjectData();
+    return {
+      bottomRows:window.beamLast?.botStack?.length,
+      topRows:window.beamLast?.topStack?.length,
+      bottomFourth:window.beamLast?.botStack?.[3],
+      topFourth:window.beamLast?.topStack?.[3],
+      methodApplicable:window.beamLast?.methodApplicable,
+      saved,
+    };
+  });
+  assert(fourRows.bottomRows === 4 && fourRows.topRows === 4, 'beam accepts more than three top and bottom layers', JSON.stringify({ bottom:fourRows.bottomRows, top:fourRows.topRows }));
+  assert(fourRows.bottomFourth?.n === 2 && fourRows.topFourth?.n === 2, 'beam fourth-layer bars participate in formal stack', JSON.stringify({ bottom:fourRows.bottomFourth, top:fourRows.topFourth }));
+  assert(fourRows.methodApplicable === true, 'ordinary-beam four-layer case remains method-applicable', String(fourRows.methodApplicable));
+  assert(fourRows.saved?.fields?.botBar4N && fourRows.saved?.fields?.topBar4N, 'beam project file stores dynamic reinforcement layers', 'fourth-layer fields present');
+
+  await page.click('#btnRemoveBotLayer');
+  await page.click('#btnRemoveTopLayer');
+  const restored = await page.evaluate(saved => {
+    window.applyBeamProjectData(saved, { silent:true });
+    return {
+      bottomRows:document.querySelectorAll('#botRebarStack .rebar-layer').length,
+      topRows:document.querySelectorAll('#topRebarStack .rebar-layer').length,
+      bot4:document.getElementById('botBar4N')?.value,
+      top4:document.getElementById('topBar4N')?.value,
+    };
+  }, fourRows.saved);
+  assert(restored.bottomRows === 4 && restored.topRows === 4 && restored.bot4 === '2' && restored.top4 === '2', 'beam project replay recreates dynamic reinforcement rows', JSON.stringify(restored));
+  const fourRowReport = await captureBeamReportHtml(page);
+  assert(fourRowReport.includes('第4排: 2-#8') && fourRowReport.includes('第4排: 2-#7'), 'beam report includes adopted fourth-layer reinforcement', 'top and bottom fourth rows recorded');
+  assert(!fourRowReport.includes('新增底筋排') && !fourRowReport.includes('目前 4 排'), 'beam report excludes dynamic-row editing controls', 'editing UI remains page-only');
+
+  const deepBySpan = await page.evaluate(() => {
+    document.getElementById('h').value = '400';
+    document.getElementById('ln').value = '1200';
+    document.getElementById('deepLoadDistance').value = '';
+    window.calcBeam();
+    return {
+      deepBeam:window.beamLast?.deepBeam,
+      methodApplicable:window.beamLast?.methodApplicable,
+      status:window.beamLast?.beamApplicability?.status,
+      notice:document.getElementById('deepBeamNotice')?.innerText || '',
+      readiness:window.lastBeamAttachmentReadiness,
+      ranges:window.beamLast?.rebarRanges,
+      search:window.beamLast?.designSearch,
+    };
+  });
+  assert(deepBySpan.deepBeam === true && deepBySpan.methodApplicable === false && deepBySpan.status === 'deep-beam', 'beam span-depth ratio triggers deep-beam boundary', JSON.stringify(deepBySpan));
+  assert(deepBySpan.notice.includes('一般梁法不適用') && deepBySpan.notice.includes('壓拉桿模型'), 'beam page explains deep-beam method boundary', deepBySpan.notice.replace(/\s+/g, ' '));
+  assert(
+    deepBySpan.readiness?.status === 'blocked'
+      && deepBySpan.readiness?.formalOutputAllowed === true
+      && deepBySpan.readiness?.readyToSign === false,
+    'deep-beam ordinary-method result remains printable, blocked, and defaults to internal review',
+    JSON.stringify(deepBySpan.readiness)
+  );
+  assert(deepBySpan.ranges?.status === 'not-applicable' && deepBySpan.search == null, 'deep beam disables ordinary-beam rebar recommendations', JSON.stringify({ ranges:deepBySpan.ranges, search:deepBySpan.search }));
+  const deepReport = await captureBeamReportHtml(page);
+  assert(deepReport.includes('方法適用性 (規範 9.9.1.1)') && deepReport.includes('深梁／一般梁法不適用'), 'beam report discloses deep-beam inapplicability as a calculation result', '9.9 applicability row present');
+
+  const deepByLoad = await page.evaluate(() => {
+    document.getElementById('h').value = '100';
+    document.getElementById('ln').value = '600';
+    document.getElementById('deepLoadDistance').value = '150';
+    window.calcBeam();
+    return window.beamLast?.beamApplicability;
+  });
+  assert(deepByLoad?.deepBySpan === false && deepByLoad?.deepByLoad === true && deepByLoad?.deepBeam === true, 'beam concentrated-load distance triggers deep-beam boundary', JSON.stringify(deepByLoad));
+
+  const ordinary = await page.evaluate(() => {
+    document.getElementById('deepLoadDistance').value = '250';
+    window.calcBeam();
+    return window.beamLast?.beamApplicability;
+  });
+  assert(ordinary?.status === 'ordinary-beam' && ordinary?.methodApplicable === true, 'beam exits deep-beam boundary when both criteria are clear', JSON.stringify(ordinary));
 }
 
 async function runBrowserCases() {
@@ -964,6 +1086,10 @@ async function runBrowserCases() {
     assert(failedResponses.length === 0, 'beam page resources', 'no missing static resources during initial load');
     await exerciseBeamRebarDesignCandidates(page);
     assert(pageErrors.length === 0, 'beam rebar candidate workflow', 'no page errors during candidate search and adoption');
+    await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
+    await wait(300);
+    await exerciseDynamicRebarAndDeepBeamBoundary(page);
+    assert(pageErrors.length === 0, 'beam dynamic layers and applicability workflow', 'no page errors during multi-row and deep-beam checks');
     await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
     await wait(300);
     await exerciseBeamProjectStorage(page);
@@ -1024,6 +1150,8 @@ async function main() {
   const sharedCommon = fs.readFileSync(commonPath, 'utf8');
   const beamEvaluatorSource = fs.readFileSync(beamEvaluatorPath, 'utf8');
   const beamDesignerSource = fs.readFileSync(beamDesignerPath, 'utf8');
+  const beamApplicabilitySource = fs.readFileSync(beamApplicabilityPath, 'utf8');
+  const flexureSource = fs.readFileSync(flexurePath, 'utf8');
   section('Source Helpers');
   assert(beamHtml.includes('function calcSmrfSpacingDbFactor'), 'beam.html has calcSmrfSpacingDbFactor', 'helper exists in source');
   assert(beamHtml.includes('function calcBischoffIe'), 'beam.html has calcBischoffIe', 'helper exists in source');
@@ -1031,10 +1159,15 @@ async function main() {
   assert(beamHtml.includes('deflManualReview'), 'beam.html has deflection manual-review status', 'span-depth non-exemption is not treated as automatic NG');
   assert(beamHtml.includes("support === 'cantilever'") && beamHtml.includes('Ma_use_tf'), 'beam.html has cantilever deflection direction logic', 'cantilever exact deflection uses negative-moment critical section');
   assert(beamHtml.includes('function calcSmrfSpacingLimit'), 'beam.html has calcSmrfSpacingLimit', 'helper exists in source');
+  assert(beamHtml.includes('function calcSmrfLongitudinalRatioLimit'), 'beam.html has SMRF longitudinal ratio limit', '18.3.3.1 uses the fy- and fc-dependent upper bound');
   assert(beamHtml.includes('function getCrackingStateText'), 'beam.html has getCrackingStateText', 'helper exists in source');
   assert(beamHtml.includes('function calcAsMinInfo'), 'beam.html has calcAsMinInfo', 'T/L beam As,min width helper exists in source');
   assert(beamHtml.includes('bSourceText'), 'beam.html exposes As.min width source text', 'T/L beam As.min b source is report-visible');
   assert(beamHtml.includes('function calcAsMinCheck'), 'beam.html has calcAsMinCheck', 'As,min waiver source is explicit');
+  assert(beamHtml.includes('(4 / 3) * Math.max(asFlexReq || 0, 0)'), 'beam.html uses exact four-thirds As,min exception', '9.6.1.3 is not rounded down to 1.33');
+  assert(beamHtml.includes('calcAsMinCheck(AsBot, AsMinPos, AsFlexReqPos, !seismic'), 'beam.html disables 4/3 waiver for SMRF', '18.3.3.1 requires direct As,min compliance');
+  assert(beamHtml.includes('fyForAsMin = Math.min(fy, 5600)'), 'beam.html caps fy for As,min', '9.6.1.2 high-strength steel boundary is explicit');
+  assert(beamHtml.includes("support === 'simple' || support === 'cantilever'"), 'beam.html limits flange-tension As,min width special case to determinate beams', 'T/L beam width source follows support condition');
   assert(beamHtml.includes('function calcShearSizeFactor'), 'beam.html has calcShearSizeFactor', 'shear size-effect helper exists in source');
   assert(beamHtml.includes('function calcCrackSpacingLimit'), 'beam.html has calcCrackSpacingLimit', 'surface reinforcement spacing helper exists in source');
   assert(beamHtml.includes('function calcSkinReinforcementData'), 'beam.html has calcSkinReinforcementData', 'skin reinforcement zone helper exists in source');
@@ -1045,8 +1178,15 @@ async function main() {
   assert(beamHtml.includes('Nu/(6Ag)'), 'beam shear axial term is displayed as stress', 'avoids treating axial stress as a multiplier');
   assert(beamHtml.includes('../shared/beam-evaluator.js'), 'beam.html loads shared beam demand evaluator', 'tuple scoring and formal shear calculation share one DOM-free core');
   assert(beamHtml.includes('../shared/beam-rebar-designer.js'), 'beam.html loads capacity-based rebar designer', 'design candidates use a separately tested DOM-free core');
+  assert(beamHtml.includes('../shared/beam-applicability.js') && beamApplicabilitySource.includes('ln <= 4 * h') && beamApplicabilitySource.includes('loadDistance <= 2 * h'), 'beam.html loads deep-beam applicability core', '9.9.1.1 span and concentrated-load triggers share one tested core');
+  assert(beamHtml.includes('id="btnAddBotLayer"') && beamHtml.includes('id="btnAddTopLayer"') && beamHtml.includes('MAX_REBAR_ROWS = 12'), 'beam.html exposes dynamic top and bottom reinforcement rows', 'legacy first three rows can be extended without changing their IDs');
   assert(beamHtml.includes('id="beamRebarDesignCandidates"') && beamHtml.includes('applyBeamRebarCandidate'), 'beam.html exposes ranked rebar candidates and adoption', 'page-only candidates can be applied into formal check mode');
+  assert(beamHtml.includes('id="beamRebarFeasibleRanges"') && beamHtml.includes('renderBeamRebarFeasibleRanges'), 'beam.html exposes longitudinal bar-count ranges', 'minimum, code-governed maximum, and geometry maximum are page-visible');
   assert(beamDesignerSource.includes('Flexure.solveSection') && beamDesignerSource.includes('BeamEvaluator.computeShearState'), 'beam designer shares formal flexure and shear cores', 'candidate screening is capacity-based');
+  assert(beamDesignerSource.includes('trial.tensionControlled') && beamDesignerSource.includes('summarizeLongitudinalRanges'), 'beam designer screens actual tension strain and publishes count ranges', 'fixed rho-only maximum is not used for candidate acceptance');
+  assert(beamDesignerSource.includes('rhoSmrfLimit') && beamDesignerSource.includes('plan.smrfRhoOk'), 'beam designer screens SMRF reinforcement ratio', 'candidate and count-range outputs follow 18.3.3.1');
+  assert(!beamDesignerSource.includes('Math.max(demand, mcr)') && !beamHtml.includes('id="c-Mcr"'), 'nonprestressed beam does not use prestressed 1.2Mcr strength gate', 'Mcr remains serviceability information only');
+  assert(flexureSource.includes('tensionControlledStrainLimit') && flexureSource.includes('Math.min(Number(fy), 5600)'), 'shared flexure core has current strain and As,min limits', 'shared calculations use εty+0.003 and fy cap');
   assert(beamDesignerSource.includes("['inactive', 'below-threshold']"), 'beam designer fails closed beyond automatic torsion boundary', '22.7 torsion design is not invented by the candidate search');
   assert(beamHtml.includes('BeamEvaluator.computeShearState') && beamHtml.includes('BeamEvaluator.flexureScore') && beamHtml.includes('BeamEvaluator.shearTorsionScore'), 'beam formal calculation and load-combo scorers share evaluator', 'shared evaluator wiring');
   assert(beamEvaluatorSource.includes('const shearDemand = seismic ? Math.max(Vu, Ve) : Vu'), 'beam evaluator has SMRF shear demand control', 'seismic shear demand uses max(Vu, Ve)');

@@ -340,6 +340,18 @@ function refreshPreview() {
   };
   if (collected.combination) meta.combination = collected.combination;
   const payload = { meta, forces:collected.forces };
+  if (collected.combination) {
+    payload.loadComponents = LoadCombo.createComponentPackage({
+      source:{
+        tool:'force-picker',
+        label:meta.source || 'ForcePicker',
+        version:'v1',
+        analysisId:'',
+        caseSet:meta.caseName || '未命名工況集',
+      },
+      forces:readComboInputs(),
+    });
+  }
   document.getElementById('preview').textContent = JSON.stringify(payload, null, 2);
   return payload;
 }
@@ -358,21 +370,34 @@ const TARGETS = [
   { key: 'beam',        icon: '▭', name: '梁設計 (beam.html)',         disabled: false },
   { key: 'column-rect', icon: '▮', name: '矩形柱設計 (column.html)',   disabled: false },
   { key: 'column-circ', icon: '⬤', name: '圓形柱設計 (column.html)',   disabled: false },
+  { key: 'foundation-pile-cap', icon: '▦', name: '基礎樁帽三維 STM', disabled: false },
 ];
 TARGETS.forEach(t => {
   const keys = ForcePicker.TARGET_KEYS[t.key].join(', ');
+  const requirement = t.key === 'foundation-pile-cap'
+    ? 'D/L/W/E：P、Mx、My（須使用載重組合模式）'
+    : keys;
   const card = document.createElement('div');
   card.className = 'target-card' + (t.disabled ? ' disabled' : '');
   card.innerHTML = `
     <div class="icon">${t.icon}</div>
     <div class="name">${t.name}</div>
-    <div class="keys">需要: ${keys}</div>
+    <div class="keys">需要: ${requirement}</div>
   `;
   if (!t.disabled) {
     card.addEventListener('click', () => {
       const payload = refreshPreview();
       if (!payload) {
         setTargetStatus('載重組合模式尚未選擇完整組合，未送出任何內力。');
+        return;
+      }
+      if (t.key === 'foundation-pile-cap') {
+        if (!payload.loadComponents) {
+          setTargetStatus('基礎樁帽需要載重組合模式中的 D/L/W/E 基本分量；手動單組內力不會送出。');
+          return;
+        }
+        setTargetStatus('');
+        ForcePicker.sendTo(t.key, payload);
         return;
       }
       const compatible = ForcePicker.filterForTarget(payload.forces, t.key);

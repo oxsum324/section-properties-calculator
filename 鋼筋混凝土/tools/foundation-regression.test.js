@@ -1,6 +1,8 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const http = require('http');
+const { spawnSync } = require('child_process');
 const { chromium } = require('playwright');
 
 const ROOT = path.resolve(__dirname, '..', '..');
@@ -9,6 +11,8 @@ const TOOL_URL = `http://127.0.0.1:${PORT}/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%
 const htmlPath = path.join(__dirname, 'foundation.html');
 const commonPath = path.join(__dirname, '..', 'shared', 'common.js');
 const casesPath = path.join(__dirname, 'foundation-regression-cases.json');
+const jointReactionFixturePath = path.join(__dirname, '..', 'shared', 'fixtures', 'joint-reactions', 'etabs-like-quoted-preamble.csv');
+const jointReactionObservedIntakePath = path.join(__dirname, '..', 'shared', 'joint-reaction-observed-intake.js');
 const toleranceDefault = 0.001;
 const CHROME_CANDIDATES = [
   process.env.CHROME_PATH,
@@ -65,6 +69,245 @@ async function wait(ms) {
 function toTfMaybe(v) {
   if (v == null || !isFinite(v)) return v;
   return Math.abs(v) > 1000 ? v / 1000 : v;
+}
+
+async function exerciseJointReactionExportChecklist(page) {
+  await page.click('#mainTabs button[data-tab="pile"]');
+  const state = await page.evaluate(() => {
+    const componentPanel = document.getElementById('pileCap3DSTMComponentPanel');
+    const adapter = document.getElementById('jointReactionAdapterPanel');
+    const checklist = document.getElementById('jointReactionExportChecklist');
+    if (componentPanel) componentPanel.open = true;
+    if (adapter) adapter.open = true;
+    if (checklist) checklist.open = true;
+    const text = checklist?.innerText?.replace(/\s+/g, ' ').trim() || '';
+    return {
+      visible: !!checklist && getComputedStyle(checklist).display !== 'none' && checklist.getClientRects().length > 0,
+      pageOnly: checklist?.classList.contains('page-only-case-tools') || false,
+      text,
+    };
+  });
+  assert(state.visible, 'joint reaction export checklist is visible in pile workflow', state.text || 'missing');
+  assert(state.pageOnly, 'joint reaction export checklist is marked page-only', 'page-only-case-tools');
+  for (const fragment of ['實際匯出檔準備清單', 'Point／Joint', 'OutputCase', 'CaseType', 'F1', 'M3', 'Linear Static／LinStatic', 'Response Spectrum', '不要匯出載重組合', '不會進入計算書或列印 PDF']) {
+    assert(state.text.includes(fragment), 'joint reaction export checklist guidance', fragment);
+  }
+}
+
+async function exerciseJointReactionObservedPackage(page) {
+  assert(await page.locator('#btnDownloadJointReactionObservedPackage').isDisabled(), 'joint reaction anonymized package starts disabled', 'a parsed table is required');
+  await page.setInputFiles('#jointReactionTableFile', jointReactionFixturePath);
+  await page.waitForFunction(() => document.getElementById('jointReactionAdapterStatus')?.textContent?.startsWith('已讀取'));
+  assert(!(await page.locator('#btnDownloadJointReactionObservedPackage').isDisabled()), 'joint reaction anonymized package enables after parse', 'valid CSV/TSV/TXT loaded');
+  await page.fill('#jointReactionSoftwareVersion', '23.0.0-browser-regression');
+  await page.fill('#jointReactionTableName', 'Joint Reactions');
+  await page.check('#jointReactionObservedOriginConfirmed');
+  const downloadPromise = page.waitForEvent('download');
+  await page.click('#btnDownloadJointReactionObservedPackage');
+  const download = await downloadPromise;
+  const downloadPath = await download.path();
+  const packageText = fs.readFileSync(downloadPath, 'utf8');
+  const packageData = JSON.parse(packageText);
+  assert(packageData.schemaVersion === 'rc-joint-reaction-browser-intake-package.v1', 'joint reaction anonymized package schema', packageData.schemaVersion);
+  assert(packageData.status === 'manual-review-required' && packageData.privacy?.manualReviewRequired === true, 'joint reaction anonymized package stays pending', packageData.status);
+  assert(download.suggestedFilename().endsWith('-intake-package.json'), 'joint reaction anonymized package filename', download.suggestedFilename());
+  assert(packageData.candidate.sha256 === packageData.evidence.data.output.sha256, 'joint reaction anonymized candidate hash is linked', packageData.candidate.sha256);
+  assert(packageData.candidate.file.includes(packageData.candidate.sha256.slice(0, 12)), 'joint reaction anonymized filename uses output hash', packageData.candidate.file);
+  assert(!packageData.candidate.file.includes(packageData.evidence.data.source.sha256.slice(0, 12)), 'joint reaction anonymized filename excludes source hash prefix', packageData.candidate.file);
+  assert(!JSON.stringify(packageData.receipt.data).includes(packageData.evidence.data.source.sha256.slice(0, 12)), 'joint reaction receipt excludes partial source hash', 'source hash remains local evidence only');
+  assert(Object.values(packageData.review.data.assertions).every(value => value === false), 'joint reaction anonymized review cannot be preapproved', 'all assertions false');
+  for (const secret of ['Synthetic compatibility data; not an engineering export', 'Base', 'P1', '101', 'DEAD', '980.665', 'etabs-like-quoted-preamble.csv']) {
+    assert(!packageData.candidate.content.includes(secret), 'joint reaction anonymized candidate removes source data', secret);
+    assert(!JSON.stringify(packageData.receipt.data).includes(secret), 'joint reaction receipt removes source identity', secret);
+  }
+  const handoffRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'joint-reaction-browser-handoff-'));
+  try {
+    const browserPackagePath = path.join(handoffRoot, download.suggestedFilename());
+    const outputDir = path.join(handoffRoot, 'node-import');
+    fs.copyFileSync(downloadPath, browserPackagePath);
+    const imported = spawnSync(process.execPath, [
+      jointReactionObservedIntakePath,
+      '--package', browserPackagePath,
+      '--output-dir', outputDir,
+    ], { encoding:'utf8' });
+    assert(imported.status === 0, 'browser download imports through Node CLI without editing', imported.stderr || imported.stdout);
+    const importResult = JSON.parse(imported.stdout);
+    const outputFiles = fs.readdirSync(outputDir).sort();
+    const expectedFiles = [importResult.candidatePath, importResult.evidencePath, importResult.reviewPath, importResult.receiptPath]
+      .map(filePath => path.basename(filePath)).sort();
+    assert(importResult.packageSchemaVersion === packageData.schemaVersion
+      && importResult.status === 'manual-review-required'
+      && importResult.manualReviewRequired === true
+      && importResult.sourceStored === false,
+    'browser-to-Node handoff preserves pending-review boundary', `${importResult.packageSchemaVersion} / ${importResult.status}`);
+    assert(JSON.stringify(outputFiles) === JSON.stringify(expectedFiles) && outputFiles.length === 4,
+      'browser-to-Node handoff writes exactly four controlled files', outputFiles.join(' | '));
+    assert(!outputFiles.includes(path.basename(browserPackagePath)), 'Node import does not copy the browser package into controlled output', path.basename(browserPackagePath));
+    const importedCandidate = fs.readFileSync(importResult.candidatePath, 'utf8');
+    const importedEvidence = JSON.parse(fs.readFileSync(importResult.evidencePath, 'utf8'));
+    const importedReview = JSON.parse(fs.readFileSync(importResult.reviewPath, 'utf8'));
+    const importedReceiptText = fs.readFileSync(importResult.receiptPath, 'utf8');
+    const importedReceipt = JSON.parse(importedReceiptText);
+    assert(importedCandidate === packageData.candidate.content
+      && importedEvidence.output.sha256 === packageData.candidate.sha256
+      && importedReceipt.candidateSha256 === packageData.candidate.sha256,
+    'browser-to-Node handoff preserves candidate bytes and hash links', packageData.candidate.sha256);
+    assert(importedReview.reviewer === ''
+      && importedReview.reviewedAt === ''
+      && Object.values(importedReview.assertions).every(value => value === false),
+    'browser-to-Node handoff cannot manufacture approval', 'reviewer blank; eight assertions false');
+    assert(!importedReceiptText.includes(packageData.evidence.data.source.sha256)
+      && !importedReceiptText.includes(packageData.evidence.data.source.sha256.slice(0, 12)),
+    'browser-to-Node receipt excludes complete and partial source hash', 'source fingerprint retained only in local evidence');
+    for (const secret of ['Synthetic compatibility data; not an engineering export', 'Base', 'P1', '101', 'DEAD', '980.665', 'etabs-like-quoted-preamble.csv']) {
+      assert(!importedCandidate.includes(secret) && !importedReceiptText.includes(secret), 'browser-to-Node handoff remains anonymized', secret);
+    }
+    const manifestDir = path.join(handoffRoot, 'fixture-library');
+    const manifestPath = path.join(manifestDir, 'observed-manifest.json');
+    fs.mkdirSync(manifestDir, { recursive:true });
+    fs.writeFileSync(manifestPath, `${JSON.stringify({
+      schemaVersion:'rc-joint-reaction-observed-fixtures.v1',
+      fixturePolicy:'anonymized-observed-exports-only',
+      fixtures:[],
+    }, null, 2)}\n`, 'utf8');
+    const manifestBefore = fs.readFileSync(manifestPath, 'utf8');
+    const pendingAssessment = spawnSync(process.execPath, [
+      jointReactionObservedIntakePath,
+      '--receipt', importResult.receiptPath,
+      '--manifest', manifestPath,
+    ], { encoding:'utf8' });
+    assert(pendingAssessment.status === 2, 'browser package cannot advance before manual review', pendingAssessment.stderr || pendingAssessment.stdout);
+    const pending = JSON.parse(pendingAssessment.stdout);
+    assert(pending.ready === false
+      && pending.intakeStatus === 'manual-review-required'
+      && pending.issues.some(issue => issue.code === 'reviewer-missing')
+      && pending.issues.some(issue => issue.code === 'review-assertion-incomplete'),
+    'browser package pending assessment explains missing approval', pending.issues.map(issue => issue.code).join(' | '));
+    assert(fs.readFileSync(manifestPath, 'utf8') === manifestBefore
+      && !fs.existsSync(path.join(manifestDir, 'observed')),
+    'pending browser package assessment is strictly read-only', 'manifest unchanged; observed directory absent');
+
+    fs.writeFileSync(importResult.reviewPath, `${JSON.stringify({
+      ...importedReview,
+      reviewedAt:new Date(Date.parse(importedEvidence.generatedAt) + 1000).toISOString(),
+      reviewer:'browser-package-independent-reviewer',
+      assertions:Object.fromEntries(Object.keys(importedReview.assertions).map(key => [key, true])),
+    }, null, 2)}\n`, 'utf8');
+    const readyAssessment = spawnSync(process.execPath, [
+      jointReactionObservedIntakePath,
+      '--receipt', importResult.receiptPath,
+      '--manifest', manifestPath,
+    ], { encoding:'utf8' });
+    assert(readyAssessment.status === 0, 'fully reviewed browser package passes read-only assessment', readyAssessment.stderr || readyAssessment.stdout);
+    const ready = JSON.parse(readyAssessment.stdout);
+    assert(ready.ready === true && ready.intakeStatus === 'ready-to-promote' && ready.issueCount === 0,
+      'fully reviewed browser package becomes ready without auto-promotion', `${ready.intakeStatus} / issues=${ready.issueCount}`);
+    assert(fs.readFileSync(manifestPath, 'utf8') === manifestBefore
+      && !fs.existsSync(path.join(manifestDir, 'observed')),
+    'ready browser package assessment remains read-only', 'manifest unchanged; observed directory absent');
+
+    const ambiguousPromotion = spawnSync(process.execPath, [
+      jointReactionObservedIntakePath,
+      '--receipt', importResult.receiptPath,
+      '--manifest', manifestPath,
+      '--promote', 'true',
+    ], { encoding:'utf8' });
+    assert(ambiguousPromotion.status === 1
+      && ambiguousPromotion.stderr.includes('--promote 只接受明確值 yes')
+      && !fs.existsSync(path.join(manifestDir, 'observed')),
+    'browser package promotion rejects ambiguous confirmation', ambiguousPromotion.stderr.trim());
+
+    const explicitPromotion = spawnSync(process.execPath, [
+      jointReactionObservedIntakePath,
+      '--receipt', importResult.receiptPath,
+      '--manifest', manifestPath,
+      '--promote', 'yes',
+    ], { encoding:'utf8' });
+    assert(explicitPromotion.status === 0, 'explicitly reviewed browser package promotes through Node CLI', explicitPromotion.stderr || explicitPromotion.stdout);
+    const promoted = JSON.parse(explicitPromotion.stdout);
+    const promotedManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const promotedFixturePath = path.join(manifestDir, promoted.fixtureFile);
+    const promotedProvenancePath = path.join(manifestDir, promoted.provenanceFile);
+    const promotedProvenanceText = fs.readFileSync(promotedProvenancePath, 'utf8');
+    const promotedProvenance = JSON.parse(promotedProvenanceText);
+    assert(promoted.status === 'promoted'
+      && promoted.sourceFileStored === false
+      && promoted.sourceHashCommitted === false
+      && promotedManifest.fixtures.length === 1
+      && promotedManifest.fixtures[0].id === importResult.fixtureId,
+    'explicit browser package promotion writes one governed manifest entry', promotedManifest.fixtures.map(item => item.id).join(' | '));
+    assert(fs.readFileSync(promotedFixturePath, 'utf8') === importedCandidate
+      && promotedProvenance.output.sha256 === packageData.candidate.sha256
+      && promotedProvenance.review.reviewer === 'browser-package-independent-reviewer'
+      && Object.values(promotedProvenance.review.assertions).every(value => value === true),
+    'promoted browser fixture preserves reviewed candidate and approval evidence', promotedProvenance.output.sha256);
+    assert(promotedProvenance.privacy.sourceFileStored === false
+      && promotedProvenance.privacy.sourcePathStored === false
+      && promotedProvenance.privacy.sourceNameStored === false
+      && promotedProvenance.privacy.sourceHashCommitted === false
+      && promotedProvenance.privacy.originalNumbersStored === false
+      && !promotedProvenanceText.includes(packageData.evidence.data.source.sha256)
+      && !promotedProvenanceText.includes(packageData.evidence.data.source.sha256.slice(0, 12)),
+    'promoted browser provenance excludes source identity and fingerprint', JSON.stringify(promotedProvenance.privacy));
+    for (const secret of ['Synthetic compatibility data; not an engineering export', 'Base', 'P1', '101', 'DEAD', '980.665', 'etabs-like-quoted-preamble.csv']) {
+      assert(!promotedProvenanceText.includes(secret), 'promoted browser provenance remains anonymized', secret);
+    }
+    const promotedFixtureBefore = fs.readFileSync(promotedFixturePath, 'utf8');
+    const duplicatePromotion = spawnSync(process.execPath, [
+      jointReactionObservedIntakePath,
+      '--receipt', importResult.receiptPath,
+      '--manifest', manifestPath,
+      '--promote', 'yes',
+    ], { encoding:'utf8' });
+    assert(duplicatePromotion.status === 1
+      && /已有 fixture ID|拒絕覆寫/.test(duplicatePromotion.stderr)
+      && JSON.parse(fs.readFileSync(manifestPath, 'utf8')).fixtures.length === 1
+      && fs.readFileSync(promotedFixturePath, 'utf8') === promotedFixtureBefore,
+    'duplicate browser package promotion fails closed without overwrite', duplicatePromotion.stderr.trim());
+    assert(fs.readFileSync(browserPackagePath, 'utf8') === packageText,
+      'browser intake package remains byte-identical through review and promotion', path.basename(browserPackagePath));
+  } finally {
+    fs.rmSync(handoffRoot, { recursive:true, force:true });
+  }
+  const status = await page.locator('#jointReactionObservedPackageStatus').innerText();
+  assert(status.startsWith('已產生') && status.includes('未保存原始檔名、路徑或原始數值'), 'joint reaction anonymized package reports privacy boundary', status);
+}
+
+async function exerciseJointReactionTablePreflight(page) {
+  await page.setInputFiles('#jointReactionTableFile', jointReactionFixturePath);
+  await page.waitForFunction(() => document.getElementById('jointReactionAdapterStatus')?.textContent?.startsWith('已讀取'));
+  const state = await page.evaluate(() => {
+    const summary = document.getElementById('jointReactionPreflightSummary');
+    return {
+      visible: !!summary && !summary.hidden && getComputedStyle(summary).display !== 'none' && summary.getClientRects().length > 0,
+      text: summary?.innerText?.replace(/\s+/g, ' ').trim() || '',
+      pointOptions: [...(document.getElementById('jointReactionPoint')?.options || [])].map(option => option.textContent),
+    };
+  });
+  assert(state.visible, 'joint reaction table preflight is visible after file import', state.text || 'missing');
+  for (const fragment of ['表格預檢（僅限畫面）', '第 3 列', '分隔符：逗號', '資料：5 列', '2 個節點', '4 個案例名稱', 'Story + Point／Joint + Unique Name', '單列基本案例候選：5 組', '缺少 CaseType 0 列', '載重組合 0 列', '其他 CaseType 0 列', '多步驟／重複 0 組']) {
+    assert(state.text.includes(fragment), 'joint reaction table preflight diagnosis', fragment);
+  }
+  assert(state.pointOptions.includes('Base / P1') && state.pointOptions.includes('Roof / P9'), 'joint reaction table preflight keeps selectable point identities', state.pointOptions.join(' | '));
+
+  const importRiskFixture = async (fileName) => {
+    const filePath = path.join(__dirname, '..', 'shared', 'fixtures', 'joint-reactions', fileName);
+    await page.setInputFiles('#jointReactionTableFile', filePath);
+    await page.waitForFunction(name => document.getElementById('jointReactionAdapterStatus')?.textContent?.includes(name), fileName);
+    return page.locator('#jointReactionPreflightSummary').innerText();
+  };
+  const riskFixtures = [
+    ['reject-missing-case-type.csv', ['缺少 CaseType 1 列', '單列基本案例候選：0 組']],
+    ['reject-load-combination.csv', ['載重組合 1 列', '單列基本案例候選：0 組']],
+    ['reject-response-spectrum.csv', ['其他 CaseType 1 列', '單列基本案例候選：0 組']],
+    ['reject-multi-step.tsv', ['其他 CaseType 2 列', '多步驟／重複 1 組', '單列基本案例候選：0 組']],
+  ];
+  for (const [fileName, fragments] of riskFixtures) {
+    const diagnosis = await importRiskFixture(fileName);
+    for (const fragment of fragments) {
+      assert(diagnosis.includes(fragment), `joint reaction risk preflight :: ${fileName}`, fragment);
+    }
+  }
 }
 
 async function exerciseFoundationProjectStorage(page) {
@@ -472,6 +715,23 @@ async function main() {
   assert(html.includes('PILE_PY_BRIDGE.inspectState'), 'foundation revalidates adopted p-y source against current model', 'fail-closed replay gate exists');
   assert(reportSrc.includes("group:'專項 p-y 分析結果'"), 'foundation report includes adopted p-y calculation results', 'formal report result group exists');
   assert(reportSrc.includes("label:'分析範圍 / Hx / Hy'") && reportSrc.includes("label:'來源表格換算'"), 'foundation report identifies p-y analysis scope and table provenance', 'formal report provenance exists');
+  assert(html.includes('pile-cap-3d-stm-bridge.js?v=2') && html.includes('id="btnOpenPileCap3DSTM"') && html.includes('id="btnDownloadPileCap3DSTM"'), 'foundation exposes versioned pile-cap 3D STM bridge', 'one-click and JSON fallback controls exist');
+  assert(html.includes('pile-cap-load-combinations.js?v=1') && html.includes('id="pileCap3DSTMCaseMode"') && html.includes('id="btnPreviewPileCap3DSTMCombos"'), 'foundation exposes automatic LRFD component-to-combination workflow', 'shared LoadCombo adapter, source mode and preview controls exist');
+  assert(html.includes('PILE_CAP_LOAD_COMBINATIONS.generate') && html.includes("method:'LRFD'") && html.includes('loadCombinationSource = generated'), 'foundation generates traceable LRFD pile-cap cases from the shared load-combination core', 'automatic cases preserve component and schema provenance');
+  assert(html.includes('loadcombo-components-v1') && html.includes('id="btnImportPileCapLoadComponents"') && html.includes('id="btnAdoptPileCapLoadComponents"') && html.includes('forces-receive.js'), 'foundation accepts common D/L/W/E component packages as review candidates', 'analysis JSON and ForcePicker candidates require explicit adoption');
+  assert(html.includes('joint-reaction-load-adapter.js?v=2') && html.includes('id="btnLoadJointReactionTable"') && html.includes('id="btnBuildJointReactionCandidate"'), 'foundation exposes ETABS/SAP2000 Joint Reactions table adapter', 'CSV source remains a candidate until explicit adoption');
+  assert(html.includes('joint-reaction-fixture-sanitizer-core.js?v=1') && html.includes('id="btnDownloadJointReactionObservedPackage"'), 'foundation exposes browser-safe Joint Reactions anonymized intake', 'actual exports can become a pending review package without copy/paste');
+  assert(html.includes('id="jointReactionObservedOriginConfirmed"') && html.includes('不會自動核可或進入正式計算書'), 'foundation requires explicit observed-origin declaration', 'browser package remains manual-review-only');
+  assert(html.includes('isLinearStaticCaseType') && html.includes('其他 CaseType'), 'foundation preflight uses the adapter linear-static case gate', 'dynamic and nonlinear cases are diagnosed before mapping');
+  assert(html.includes('id="jointReactionExportChecklist"') && html.includes('實際匯出檔準備清單（僅畫面顯示）'), 'foundation exposes page-only Joint Reactions export checklist', 'operator guidance exists outside the calculation book');
+  assert(html.includes('id="jointReactionPreflightSummary"') && html.includes('summarizeJointReactionTablePreflight'), 'foundation exposes deterministic Joint Reactions table preflight', 'parsed structure risks are visible before adoption');
+  assert(!reportSrc.includes('jointReactionExportChecklist') && !reportSrc.includes('實際匯出檔準備清單'), 'foundation report excludes Joint Reactions export workflow', 'export checklist stays page-only');
+  assert(!reportSrc.includes('jointReactionPreflightSummary') && !reportSrc.includes('表格預檢（僅限畫面）'), 'foundation report excludes Joint Reactions table diagnostics', 'table preflight stays page-only');
+  assert(html.includes('JOINT_REACTION_LOAD_ADAPTER.buildPackage') && html.includes('CaseType') && html.includes("contentSha256:loadedJointReactionTable.contentSha256"), 'joint reaction adapter preserves strict case and source evidence gates', 'basic cases, explicit axes and original table SHA-256 are required');
+  assert(html.includes('inspectPileCapLoadComponentSource') && html.includes('基本載重來源追溯已失效') && html.includes('contentSha256'), 'foundation fails closed when adopted component provenance no longer matches fields', 'report generation cannot retain stale imported-source claims');
+  assert(html.includes('PILE_CAP_3D_STM_BRIDGE.buildPayload') && html.includes('projectPayload.calculationFingerprint') && html.includes('id="pileCap3DSTMAdditionalCases"'), 'foundation 3D STM bridge carries validated calculation provenance and batch cases', 'bridge payload is built from current pile result, project fingerprint and optional load cases');
+  assert(html.includes('parsePileCap3DSTMAdditionalCases') && html.includes('FoundationPile.calculateGroupAndCap'), 'foundation recomputes each 3D STM load-case reaction set', 'batch cases use the same pile-group calculation core');
+  assert(html.includes('xs, ys, pileReactions'), 'foundation pile result snapshot preserves per-pile coordinates and reactions', '3D STM bridge source data present');
 
   const chromePath = CHROME_CANDIDATES.find(p => fs.existsSync(p));
   assert(!!chromePath, 'browser executable', 'system Chrome/Edge found for foundation regression test');
@@ -491,6 +751,9 @@ async function main() {
     await wait(300);
     assert(pageErrors.length === 0, 'foundation page boot', 'no page errors during initial load');
     assert(failedResponses.length === 0, 'foundation page resources', 'no missing static resources during initial load');
+    await exerciseJointReactionExportChecklist(page);
+    await exerciseJointReactionObservedPackage(page);
+    await exerciseJointReactionTablePreflight(page);
     await exerciseFoundationProjectStorage(page);
     await exerciseEarthPressureBridge(page);
     await exercisePilePyBridge(page);

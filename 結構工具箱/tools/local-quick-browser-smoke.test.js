@@ -188,6 +188,23 @@ function startStaticServer(port, vercelConfig) {
       return;
     }
 
+    const refererUrl = new URL(String(req.headers.referer || '/'), `http://127.0.0.1:${port}`);
+    if (
+      requestUrl.pathname.endsWith('/assets/status/report-readiness-status.json')
+      && refererUrl.searchParams.get('report-readiness-fixture') === 'schema-v27-stm'
+    ) {
+      const payload = readJson('assets/status/report-readiness-status.json');
+      Object.assign(payload, {
+        rcStmFormalAttachmentRequired: 3,
+        rcStmFormalAttachmentComplete: 3,
+        rcStmFormalAttachmentIssueCount: 0,
+        rcStmFormalAttachmentPass: true,
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(payload));
+      return;
+    }
+
     const requestedPath = resolveRequestPath(requestUrl.pathname, rewriteMap);
     const fullPath = path.resolve(repoRoot, requestedPath);
     const rootWithSep = repoRoot.endsWith(path.sep) ? repoRoot : repoRoot + path.sep;
@@ -1060,6 +1077,7 @@ function forcePickerStatusExpression() {
     const beamPayload = sends.find(item => item.target === 'beam')?.payload || null;
     const columnRectPayload = sends.find(item => item.target === 'column-rect')?.payload || null;
     const columnCircPayload = sends.find(item => item.target === 'column-circ')?.payload || null;
+    const foundationPayload = sends.find(item => item.target === 'foundation-pile-cap')?.payload || null;
     const comboStatus = document.getElementById('comboStatus')?.textContent?.replace(/\\s+/g, ' ').trim() || '';
     const forgedInput = JSON.parse(JSON.stringify(previewPayload));
     forgedInput.meta.combination.name = 'FORGED-COMBO';
@@ -1080,6 +1098,7 @@ function forcePickerStatusExpression() {
       beamPayload,
       columnRectPayload,
       columnCircPayload,
+      foundationPayload,
       forgedTransport,
       sendCount: sends.length,
       openedUrls: opens.map(item => item.url),
@@ -1550,7 +1569,7 @@ function assertHomeState(state, tools, label) {
   assert.equal(state.horizontalOverflow, false, `${label} compatibility horizontal overflow`);
 }
 
-function assertNewHomeState(state, tools, label, preflightStatusPayload, reportReadinessPayload) {
+function assertNewHomeState(state, tools, label, preflightStatusPayload, reportReadinessPayload, options = {}) {
   assert.equal(state.title, '結構工具箱', `${label} new home title`);
   assert.ok(state.hasHomeApp, `${label} new home app shell`);
   assert.ok(state.hasToolGrid, `${label} new home tool grid`);
@@ -1619,6 +1638,9 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload, reportR
     }
     if (Number.isInteger(reportReadinessPayload.xlsxContentSealRequired)) {
       assert.ok(state.reportReadinessStatusMeta.includes('Excel 雙封印 2 / 2'), `${label} new home report readiness XLSX dual seal metric`);
+    }
+    if (options.expectRcStm || Number.isInteger(reportReadinessPayload.rcStmFormalAttachmentRequired)) {
+      assert.ok(state.reportReadinessStatusMeta.includes('RC STM 正式附件 3 / 3'), `${label} new home report readiness RC STM supplemental attachment metric`);
     }
     assert.ok(state.reportReadinessStatusText.includes('風力 / 地震正式工具') && state.reportReadinessStatusText.includes('局部快算'), `${label} new home report text scope`);
   }
@@ -2571,6 +2593,7 @@ async function main() {
       { key: 'route-root', url: `http://127.0.0.1:${serverPort}/` },
       { key: 'route-platform', url: `http://127.0.0.1:${serverPort}/platform` },
       { key: 'route-toolbox-home', url: `http://127.0.0.1:${serverPort}/toolbox-home` },
+      { key: 'schema-v27-stm', url: `http://127.0.0.1:${serverPort}/${encodeURI('結構工具箱/index.html')}?report-readiness-fixture=schema-v27-stm`, expectRcStm: true },
       { key: 'file-url-new-home', url: pathToFileURL(toolboxFile('index.html')).href },
     ];
     const legacyInlineValidationCases = [
@@ -2742,7 +2765,7 @@ async function main() {
         const label = `${viewport.key} ${newHomeCase.key}`;
         const home = await navigateAndInspect(client, sessionId, newHomeCase.url, viewport, newHomeExpression(manifest.tools));
         assert.deepEqual(home.errors, [], `${label} console errors: ${home.errors.join(' | ')}`);
-        assertNewHomeState(home.state, manifest.tools, label, preflightStatusPayload, reportReadinessPayload);
+        assertNewHomeState(home.state, manifest.tools, label, preflightStatusPayload, reportReadinessPayload, newHomeCase);
       }
 
       for (const validationCase of legacyInlineValidationCases) {
@@ -3060,11 +3083,12 @@ async function main() {
         assert.equal(result.state.previewPayload.forces.T, -3, `${label} selected tuple negative T`);
         assert.equal(result.state.previewPayload.forces.M, -5, `${label} beam M alias keeps sign`);
         assert.equal(result.state.previewPayload.forces.V, -2, `${label} beam V alias keeps sign`);
-        assert.equal(result.state.sendCount, 4, `${label} sends three RC targets plus one forged provenance probe`);
+        assert.equal(result.state.sendCount, 5, `${label} sends four RC targets plus one forged provenance probe`);
         assert.deepEqual(result.state.openedUrls, [
           '../鋼筋混凝土/tools/beam.html?import=1',
           '../鋼筋混凝土/tools/column.html?import=1',
           '../鋼筋混凝土/tools/column.html?import=1&colType=circle',
+          '../../鋼筋混凝土/tools/foundation.html?import=1',
           '../鋼筋混凝土/tools/beam.html?import=1',
         ], `${label} opens the canonical RC design routes`);
         assert.ok(result.state.beamPayload, `${label} RC beam payload`);
@@ -3086,6 +3110,15 @@ async function main() {
         assert.equal(result.state.columnCircPayload.forces.P, 10, `${label} circular column keeps signed P`);
         assert.equal(result.state.columnCircPayload.forces.Mx, 5, `${label} circular column Mx magnitude`);
         assert.equal(result.state.columnCircPayload.forces.Vx, 2, `${label} circular column Vx magnitude`);
+        assert.ok(result.state.foundationPayload, `${label} foundation pile-cap payload`);
+        assert.equal(result.state.foundationPayload.target, 'foundation-pile-cap', `${label} foundation target identity`);
+        assert.equal(result.state.foundationPayload.loadComponents.schemaVersion, 'loadcombo-components-v1', `${label} foundation keeps the D/L/W/E component package`);
+        assert.equal(result.state.foundationPayload.loadComponents.forces.P.W, 10, `${label} foundation component package keeps P.W`);
+        assert.equal(result.state.foundationPayload.loadComponents.forces.Mx.W, -5, `${label} foundation component package keeps signed Mx.W`);
+        assert.equal(result.state.foundationPayload.loadComponents.forces.Vx.W, -2, `${label} foundation component package keeps signed Vx.W`);
+        assert.equal(result.state.foundationPayload.loadComponents.forces.T.W, -3, `${label} foundation component package keeps signed T.W`);
+        assert.equal(result.state.foundationPayload.meta.combination.validationStatus, 'verified', `${label} foundation provenance verified`);
+        assert.equal(result.state.foundationPayload.meta.combination.tuplePreserved, true, `${label} foundation tuple metadata preserved`);
         assert.ok(result.state.comboStatus.includes('1.2D+1.0L+1.0W'), `${label} selected combination status`);
         assert.equal(result.state.columnRectPayload.meta.combination.validationStatus, 'verified', `${label} rectangular column provenance verified`);
         assert.equal(result.state.columnCircPayload.meta.combination.validationStatus, 'verified', `${label} circular column provenance verified`);

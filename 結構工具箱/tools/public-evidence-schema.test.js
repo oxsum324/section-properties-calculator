@@ -27,6 +27,40 @@ assert.deepEqual(valid.dimensions.map(item => item.pass), [true, true, true, tru
 assert.equal(valid.releaseHistory.entries.length >= 1, true, 'tracked bundle exposes at least the current formal release');
 assert.equal(valid.releaseHistory.entries.at(-1).runId, bundle.preflightStatus.runId, 'release history ends at the current public release');
 
+const withRcStm = clone(bundle);
+Object.assign(withRcStm.reportReadinessStatus, {
+  rcStmFormalAttachmentRequired: 3,
+  rcStmFormalAttachmentComplete: 3,
+  rcStmFormalAttachmentIssueCount: 0,
+  rcStmFormalAttachmentPass: true,
+});
+const withRcStmResult = schema.validatePublicEvidenceBundle(withRcStm);
+assert.equal(withRcStmResult.pass, true, `schema v3 accepts the optional v27 RC STM public counters: ${withRcStmResult.errors.join(', ')}`);
+assert.equal(withRcStmResult.metrics.rcStmAttachment.declared, true, 'RC STM supplemental attachment coverage is explicitly declared');
+assert.equal(withRcStmResult.metrics.rcStmAttachment.pass, true, 'RC STM supplemental attachment coverage participates in the RC dimension');
+assert.equal(withRcStmResult.releaseHistory.entries.at(-1).metrics.some(metric => metric.id === 'rcStmAttachment'), false, 'RC STM workflow attachments do not inflate the formal homepage portfolio history');
+
+const incompleteRcStm = clone(withRcStm);
+incompleteRcStm.reportReadinessStatus.rcStmFormalAttachmentComplete = 2;
+incompleteRcStm.reportReadinessStatus.rcStmFormalAttachmentIssueCount = 1;
+incompleteRcStm.reportReadinessStatus.rcStmFormalAttachmentPass = false;
+const incompleteRcStmResult = schema.validatePublicEvidenceBundle(incompleteRcStm);
+assert.equal(incompleteRcStmResult.pass, false, 'incomplete RC STM supplemental attachments fail the public evidence bundle even if the top-level flag is forged green');
+assert.deepEqual(incompleteRcStmResult.dimensions.map(item => item.pass), [true, true, false, true], 'incomplete RC STM evidence only fails the RC dimension');
+
+const partialRcStm = clone(bundle);
+partialRcStm.reportReadinessStatus.rcStmFormalAttachmentRequired = 3;
+const partialRcStmResult = schema.validatePublicEvidenceBundle(partialRcStm);
+assert.equal(partialRcStmResult.valid, false, 'a partially declared RC STM public metric fails schema validation');
+assert.ok(partialRcStmResult.errors.includes('readiness.rcStmFormalAttachmentRequired.optionalShape'), 'partial RC STM declaration reports its shape error');
+
+const reducedRcStm = clone(withRcStm);
+reducedRcStm.reportReadinessStatus.rcStmFormalAttachmentRequired = 2;
+reducedRcStm.reportReadinessStatus.rcStmFormalAttachmentComplete = 2;
+const reducedRcStmResult = schema.validatePublicEvidenceBundle(reducedRcStm);
+assert.equal(reducedRcStmResult.pass, false, 'RC STM public coverage cannot silently shrink from the governed three attachments');
+assert.ok(reducedRcStmResult.errors.includes('readiness.rcStmFormalAttachmentRequired.expected'), 'RC STM governed count drift is identified');
+
 const rebuiltHistory = schema.buildReleaseHistory([], bundle);
 assert.equal(rebuiltHistory.entries.length, 1, 'history builder can seed a bounded chain from the current release');
 assert.equal(rebuiltHistory.entries[0].runId, bundle.preflightStatus.runId, 'seeded history identifies the current release');
@@ -87,4 +121,4 @@ unusedReason.preflightStatus.releaseHistory.entries.at(-1).change.reasonCode = '
 unusedReason.preflightStatus.releaseHistory.entries.at(-1).change.reason = '沒有縮減時不得附帶可重用的例外理由。';
 assert.equal(schema.validatePublicEvidenceBundle(unusedReason).pass, false, 'non-reduced release cannot carry a reusable reduction reason');
 
-console.log(`public evidence schema OK (v${schema.SCHEMA_VERSION}, history=${valid.releaseHistory.entries.length}/${schema.RELEASE_HISTORY_LIMIT}, dimensions=${schema.DIMENSION_IDS.length}, negativeCases=12)`);
+console.log(`public evidence schema OK (v${schema.SCHEMA_VERSION}, history=${valid.releaseHistory.entries.length}/${schema.RELEASE_HISTORY_LIMIT}, dimensions=${schema.DIMENSION_IDS.length}, negativeCases=15)`);

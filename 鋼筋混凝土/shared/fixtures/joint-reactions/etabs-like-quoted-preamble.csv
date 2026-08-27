@@ -1,0 +1,8 @@
+TABLE:  "Joint Reactions"
+"Fixture Note","Synthetic compatibility data; not an engineering export"
+"Story","Point","Unique Name","Output Case","Case Type","Step Type","F1","F2","F3","M1","M2","M3"
+"Base","P1","101","DEAD","Linear Static","","0","0","980.665","0","0","0"
+"Base","P1","101","LIVE","Linear Static","","0","0","392.266","0","0","0"
+"Base","P1","101","WIND","Linear Static","","0","0","0","117.6798","0","0"
+"Base","P1","101","EQ","Linear Static","","0","0","0","0","-147.09975","0"
+"Roof","P9","999","DEAD","Linear Static","","0","0","9.80665","0","0","0"

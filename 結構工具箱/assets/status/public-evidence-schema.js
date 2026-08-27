@@ -84,6 +84,26 @@
     };
   }
 
+  function optionalCoverage(payload, requiredKey, completeKey, issueKey, passKey, expectedRequired, errors) {
+    const keys = [requiredKey, completeKey, issueKey, passKey];
+    const declared = keys.some(key => Object.prototype.hasOwnProperty.call(payload || {}, key));
+    if (!declared) return { declared: false, required: 0, complete: 0, pass: true };
+    const completeShape = keys.every(key => Object.prototype.hasOwnProperty.call(payload || {}, key));
+    addError(errors, completeShape, `readiness.${requiredKey}.optionalShape`);
+    const result = coverage(payload, requiredKey, completeKey, passKey, errors);
+    const issueCount = payload?.[issueKey];
+    addError(errors, isNonNegativeInteger(issueCount), `readiness.${issueKey}`);
+    addError(errors, payload?.[requiredKey] === expectedRequired, `readiness.${requiredKey}.expected`);
+    return {
+      ...result,
+      declared: true,
+      pass: completeShape
+        && result.pass
+        && issueCount === 0
+        && payload?.[requiredKey] === expectedRequired,
+    };
+  }
+
   function validateBundleCore(bundle, allowedSchemaVersions = [SCHEMA_VERSION]) {
     const errors = [];
     const platform = bundle?.platformStatus;
@@ -135,6 +155,7 @@
       rcResult: coverage(readiness, 'rcResultReconciliationRequired', 'rcResultReconciliationComplete', 'rcResultReconciliationPass', errors),
       rcPrint: coverage(readiness, 'rcStandaloneFormalHtmlPrintRequired', 'rcStandaloneFormalHtmlPrintComplete', 'rcStandaloneFormalHtmlPrintPass', errors),
       rcPackage: coverage(readiness, 'rcSourceReportPackageRequired', 'rcSourceReportPackageComplete', 'rcSourceReportPackagePass', errors),
+      rcStmAttachment: optionalCoverage(readiness, 'rcStmFormalAttachmentRequired', 'rcStmFormalAttachmentComplete', 'rcStmFormalAttachmentIssueCount', 'rcStmFormalAttachmentPass', 3, errors),
       formalResult: coverage(readiness, 'formalResultReconciliationRequired', 'formalResultReconciliationComplete', 'formalResultReconciliationPass', errors),
       localQuickResult: coverage(readiness, 'localQuickResultReconciliationRequired', 'localQuickResultReconciliationComplete', 'localQuickResultReconciliationPass', errors),
       rendered: coverage(readiness, 'renderedDeliveryEvidenceRequired', 'renderedDeliveryEvidenceComplete', '', errors),
@@ -143,7 +164,7 @@
     const dimensions = [
       { id: 'release', pass: platformPass && preflightPass },
       { id: 'steel', pass: readinessPass && metrics.steelResult.pass && metrics.steelContentSeal.pass && metrics.steelApprovalSeal.pass },
-      { id: 'rc', pass: readinessPass && metrics.rcResult.pass && metrics.rcPrint.pass && metrics.rcPackage.pass },
+      { id: 'rc', pass: readinessPass && metrics.rcResult.pass && metrics.rcPrint.pass && metrics.rcPackage.pass && metrics.rcStmAttachment.pass },
       { id: 'delivery', pass: readinessPass && metrics.formalResult.pass && metrics.localQuickResult.pass && metrics.rendered.pass && metrics.delivery.pass },
     ];
     return {

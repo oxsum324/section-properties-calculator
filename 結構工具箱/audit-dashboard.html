@@ -708,8 +708,31 @@
         <div class="kpi-value" id="maturityPreflight">讀取中</div>
         <div class="kpi-hint" id="maturityPreflightHint">成熟度矩陣會同步標示最近一次 preflight 結果。</div>
       </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Joint Reactions 合成樣本</div>
+        <div class="kpi-value" id="jointReactionSyntheticCount">讀取中</div>
+        <div class="kpi-hint" id="jointReactionSyntheticHint">只驗證已知欄位、分隔符與拒絕案例，不代表實際軟體版本已驗證。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Joint Reactions 實際匿名樣本</div>
+        <div class="kpi-value" id="jointReactionObservedCount">讀取中</div>
+        <div class="kpi-hint" id="jointReactionObservedHint">只計入經匿名化、人工核對與升級閘門通過的實際匯出。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">實際候選 / 全部候選</div>
+        <div class="kpi-value" id="jointReactionCandidateCount">讀取中</div>
+        <div class="kpi-hint" id="jointReactionCandidateHint">候選檔留在 git-ignore 本機輸出區，通過閘門前不納入版本證據。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">匿名化升級閘門</div>
+        <div class="kpi-value" id="jointReactionGateStatus">讀取中</div>
+        <div class="kpi-hint" id="jointReactionGateHint">需同時具備匿名化工具、測試、人工核對模板與升級閘門。</div>
+      </div>
     </div>
     <div class="upgrade-targets" id="maturityUpgradeTargets"></div>
+    <p class="boundary-note" id="jointReactionObservedVersions"><strong>Joint Reactions 實際版本覆蓋：</strong>讀取中。</p>
+    <p class="boundary-note" id="jointReactionNextAction"><strong>Joint Reactions 下一步：</strong><span id="jointReactionNextActionText">讀取中。</span><br><span>CLI 直接收件：</span> <code id="jointReactionIntakeCommand"></code><br><span>基礎頁匿名收件包匯入：</span> <code id="jointReactionPackageImportCommand"></code><br><span>升級鎖唯讀診斷：</span> <code id="jointReactionLockStatusCommand"></code><br><span>確認後清除安全殘留鎖：</span> <code id="jointReactionLockClearCommand"></code></p>
+    <p class="boundary-note" id="jointReactionEvidenceBoundary"><strong>Joint Reactions 證據邊界：</strong>讀取中。</p>
     <p class="boundary-note" id="reportReadinessBoundaryNote"><strong>報告閱讀狀態邊界：</strong>頁面診斷明細只供公司內部整理，不會寫入計算書、列印或 PDF。文件狀態由核可勾選決定；內部審閱與正式附件皆可列印，工程狀態不取代文件核可。</p>
     <div class="history-table-wrap" id="maturityOtherGovernanceWrap" aria-label="Other Governance Sources">
       <div class="history-empty">讀取其他治理來源中。</div>
@@ -1917,6 +1940,21 @@
       const sourceTraceNode = document.getElementById('maturitySourceTrace');
       const preflightNode = document.getElementById('maturityPreflight');
       const preflightHintNode = document.getElementById('maturityPreflightHint');
+      const jointReactionSyntheticNode = document.getElementById('jointReactionSyntheticCount');
+      const jointReactionSyntheticHintNode = document.getElementById('jointReactionSyntheticHint');
+      const jointReactionObservedNode = document.getElementById('jointReactionObservedCount');
+      const jointReactionObservedHintNode = document.getElementById('jointReactionObservedHint');
+      const jointReactionCandidateNode = document.getElementById('jointReactionCandidateCount');
+      const jointReactionCandidateHintNode = document.getElementById('jointReactionCandidateHint');
+      const jointReactionGateNode = document.getElementById('jointReactionGateStatus');
+      const jointReactionGateHintNode = document.getElementById('jointReactionGateHint');
+      const jointReactionObservedVersionsNode = document.getElementById('jointReactionObservedVersions');
+      const jointReactionNextActionTextNode = document.getElementById('jointReactionNextActionText');
+      const jointReactionIntakeCommandNode = document.getElementById('jointReactionIntakeCommand');
+      const jointReactionPackageImportCommandNode = document.getElementById('jointReactionPackageImportCommand');
+      const jointReactionLockStatusCommandNode = document.getElementById('jointReactionLockStatusCommand');
+      const jointReactionLockClearCommandNode = document.getElementById('jointReactionLockClearCommand');
+      const jointReactionBoundaryNode = document.getElementById('jointReactionEvidenceBoundary');
       if (!wrap) return;
 
       if (!payload || !Array.isArray(payload.rows)) {
@@ -1942,6 +1980,21 @@
         if (globalGovernanceNode) globalGovernanceNode.innerHTML = '<div class="history-empty">目前尚無全域治理 gate。</div>';
         if (sourceTraceNode) sourceTraceNode.innerHTML = '<div class="history-empty">目前尚無來源追蹤。</div>';
         if (preflightNode) preflightNode.textContent = '未讀取';
+        if (jointReactionSyntheticNode) jointReactionSyntheticNode.textContent = '未讀取';
+        if (jointReactionSyntheticHintNode) jointReactionSyntheticHintNode.textContent = '目前尚未讀到合成格式樣本。';
+        if (jointReactionObservedNode) jointReactionObservedNode.textContent = '未讀取';
+        if (jointReactionObservedHintNode) jointReactionObservedHintNode.textContent = '目前尚未讀到實際匿名樣本。';
+        if (jointReactionCandidateNode) jointReactionCandidateNode.textContent = '未讀取';
+        if (jointReactionCandidateHintNode) jointReactionCandidateHintNode.textContent = '目前尚未讀到本機候選樣本清冊。';
+        if (jointReactionGateNode) jointReactionGateNode.textContent = '未讀取';
+        if (jointReactionGateHintNode) jointReactionGateHintNode.textContent = '目前尚未讀到匿名化升級閘門狀態。';
+        if (jointReactionObservedVersionsNode) jointReactionObservedVersionsNode.innerHTML = '<strong>Joint Reactions 實際版本覆蓋：</strong>未讀取。';
+        if (jointReactionNextActionTextNode) jointReactionNextActionTextNode.textContent = '未讀取。';
+        if (jointReactionIntakeCommandNode) jointReactionIntakeCommandNode.textContent = '';
+        if (jointReactionPackageImportCommandNode) jointReactionPackageImportCommandNode.textContent = '';
+        if (jointReactionLockStatusCommandNode) jointReactionLockStatusCommandNode.textContent = '';
+        if (jointReactionLockClearCommandNode) jointReactionLockClearCommandNode.textContent = '';
+        if (jointReactionBoundaryNode) jointReactionBoundaryNode.innerHTML = '<strong>Joint Reactions 證據邊界：</strong>未讀取。';
         return;
       }
 
@@ -2024,6 +2077,88 @@
         upgradeGapHintNode.textContent = affected
           ? `${affected} 個工具已有治理基線，但仍有可排程的升級缺口。`
           : '目前沒有升級缺口。';
+      }
+      const jointReactionEvidence = payload.jointReactionEvidence || {};
+      const jointReactionSynthetic = jointReactionEvidence.synthetic || {};
+      const jointReactionObserved = jointReactionEvidence.observed || {};
+      const jointReactionCandidates = jointReactionEvidence.candidates || {};
+      const jointReactionGate = jointReactionEvidence.gate || {};
+      const syntheticCount = Number(jointReactionSynthetic.count || 0);
+      const syntheticAccepted = Number(jointReactionSynthetic.accepted || 0);
+      const syntheticRejected = Number(jointReactionSynthetic.rejected || 0);
+      const observedCount = Number(jointReactionObserved.count || 0);
+      const actualCandidateCount = Number(jointReactionCandidates.actualObserved || 0);
+      const totalCandidateCount = Number(jointReactionCandidates.total || 0);
+      const candidateIssueCount = Number(jointReactionCandidates.invalid || 0)
+        + Number(jointReactionCandidates.unpairedFiles || 0)
+        + Number(jointReactionCandidates.unknownOrigin || 0);
+      const gateReady = jointReactionGate.configured === true
+        && jointReactionGate.reviewTemplateDefaultClosed === true
+        && jointReactionGate.transactionalPromotion === true
+        && jointReactionGate.staleLockRecoveryConfigured === true
+        && jointReactionGate.canonicalManifestPathGuardConfigured === true;
+      if (jointReactionSyntheticNode) {
+        jointReactionSyntheticNode.textContent = `${syntheticCount}（可接受 ${syntheticAccepted}／拒絕案例 ${syntheticRejected}）`;
+        jointReactionSyntheticNode.className = `kpi-value ${syntheticCount > 0 && (jointReactionSynthetic.issues || []).length === 0 ? 'ok' : 'fail'}`;
+      }
+      if (jointReactionSyntheticHintNode) {
+        jointReactionSyntheticHintNode.textContent = '合成樣本只證明 parser 對已知格式與錯誤案例的相容性。';
+      }
+      if (jointReactionObservedNode) {
+        jointReactionObservedNode.textContent = `${observedCount}`;
+        jointReactionObservedNode.className = `kpi-value ${observedCount > 0 && (jointReactionObserved.issues || []).length === 0 ? 'ok' : 'warn'}`;
+      }
+      if (jointReactionObservedHintNode) {
+        jointReactionObservedHintNode.textContent = observedCount > 0
+          ? `已收錄 ${observedCount} 份通過匿名化與人工核對的實際匯出；只代表已列版本。`
+          : '目前僅有合成格式相容性，尚未證明任何實際 ETABS／SAP2000 匯出版本。';
+      }
+      if (jointReactionCandidateNode) {
+        jointReactionCandidateNode.textContent = `${actualCandidateCount} / ${totalCandidateCount}`;
+        jointReactionCandidateNode.className = `kpi-value ${candidateIssueCount === 0 ? 'ok' : 'fail'}`;
+      }
+      if (jointReactionCandidateHintNode) {
+        jointReactionCandidateHintNode.textContent = candidateIssueCount > 0
+          ? `候選區有 ${candidateIssueCount} 個來源未分類、無配對檔或驗證失敗問題。`
+          : `本機候選共 ${totalCandidateCount} 份，其中實際觀察來源 ${actualCandidateCount} 份；未升級前不計入實際版本覆蓋。`;
+      }
+      if (jointReactionGateNode) {
+        jointReactionGateNode.textContent = gateReady ? '已配置' : '缺漏';
+        jointReactionGateNode.className = `kpi-value ${gateReady ? 'ok' : 'fail'}`;
+      }
+      if (jointReactionGateHintNode) {
+        jointReactionGateHintNode.textContent = gateReady
+          ? '匿名化工具與測試、交易式升級閘門、canonical 清冊路徑封閉、殘留鎖診斷，以及預設未勾選的人工核對模板均已就緒。'
+          : '匿名化工具、測試、升級閘門或人工核對模板仍有缺漏。';
+      }
+      if (jointReactionObservedVersionsNode) {
+        const versionGroups = Array.isArray(jointReactionObserved.bySoftware) ? jointReactionObserved.bySoftware : [];
+        const versionText = versionGroups
+          .map((item) => {
+            const versions = Array.isArray(item.versions) ? item.versions.filter(Boolean) : [];
+            return versions.length ? `${item.software || '未知軟體'} ${versions.join('、')}` : '';
+          })
+          .filter(Boolean)
+          .join('；');
+        jointReactionObservedVersionsNode.innerHTML = `<strong>Joint Reactions 實際版本覆蓋：</strong>${escapeHtml(versionText || '尚無實際匿名版本。')}`;
+      }
+      if (jointReactionNextActionTextNode) {
+        jointReactionNextActionTextNode.textContent = jointReactionEvidence.workflow?.nextAction || '目前尚未建立收件處置指引。';
+      }
+      if (jointReactionIntakeCommandNode) {
+        jointReactionIntakeCommandNode.textContent = jointReactionEvidence.workflow?.intakeCommand || '';
+      }
+      if (jointReactionPackageImportCommandNode) {
+        jointReactionPackageImportCommandNode.textContent = jointReactionEvidence.workflow?.packageImportCommand || '';
+      }
+      if (jointReactionLockStatusCommandNode) {
+        jointReactionLockStatusCommandNode.textContent = jointReactionEvidence.workflow?.lockStatusCommand || '';
+      }
+      if (jointReactionLockClearCommandNode) {
+        jointReactionLockClearCommandNode.textContent = jointReactionEvidence.workflow?.lockClearCommand || '';
+      }
+      if (jointReactionBoundaryNode) {
+        jointReactionBoundaryNode.innerHTML = `<strong>Joint Reactions 證據邊界：</strong>${escapeHtml(jointReactionEvidence.boundary || '目前尚未建立證據邊界。')}`;
       }
       if (upgradeTargetsNode) {
         const targets = Array.isArray(payload.topUpgradeTargets) ? payload.topUpgradeTargets : [];

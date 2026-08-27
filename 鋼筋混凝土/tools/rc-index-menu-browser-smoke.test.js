@@ -8,7 +8,7 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.RC_INDEX_SMOKE_PORT || 0);
 const OUT_DIR = path.resolve(process.env.RC_INDEX_SMOKE_OUT || path.join(ROOT, 'output', 'playwright'));
 const INDEX_PATH = '/鋼筋混凝土/index.html';
-const EXPECTED_CARD_COUNT = 8;
+const EXPECTED_CARD_COUNT = 10;
 const FORMAL_PRINT_KEYS = new Map([
   ['tools/beam.html', 'beam'],
   ['tools/column.html', 'column'],
@@ -16,6 +16,8 @@ const FORMAL_PRINT_KEYS = new Map([
   ['tools/wall.html', 'wall'],
   ['tools/shear-wall.html', 'shear-wall'],
   ['tools/foundation.html', 'foundation'],
+  ['tools/foundation-deep-beam-stm.html', 'foundation-deep-beam-stm'],
+  ['tools/pile-cap-3d-stm.html', 'pile-cap-3d-stm'],
   ['tools/single-pile-designer.html', 'single-pile'],
   ['../RC補強斷面性質.html', 'retrofit'],
 ]);

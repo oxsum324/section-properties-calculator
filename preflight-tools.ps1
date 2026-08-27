@@ -1636,6 +1636,8 @@ exit $LASTEXITCODE
 '@
 
 $toolboxEntrypointsContractCommand = @'
+node 結構工具箱/tools/rc-stm-atomic-change-set-review.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node toolbox-entrypoints.contract.test.js
 exit $LASTEXITCODE
 '@
@@ -2051,6 +2053,48 @@ if (($actualModules -join '|') -ne ($expectedModules -join '|')) {
   exit 1
 }
 
+$expectedRecordCount = 24
+if ([int]$status.recordCount -ne $expectedRecordCount) {
+  Write-Error "RC audit gate count drifted: actual=$($status.recordCount), expected=$expectedRecordCount"
+  exit 1
+}
+
+$summaryJsonPath = '鋼筋混凝土\output\audit\audit-summary.json'
+if (-not (Test-Path -LiteralPath $summaryJsonPath)) {
+  Write-Error "missing RC audit JSON summary: $summaryJsonPath"
+  exit 1
+}
+$summary = Get-Content -LiteralPath $summaryJsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$records = @($summary.records)
+if ($records.Count -ne $expectedRecordCount) {
+  Write-Error "RC audit JSON gate count drifted: actual=$($records.Count), expected=$expectedRecordCount"
+  exit 1
+}
+
+$stmLabel = 'RC STM independent engineering benchmarks'
+$stmRecords = @($records | Where-Object { $_.label -eq $stmLabel })
+if ($stmRecords.Count -ne 1) {
+  Write-Error "RC STM independent benchmark record count drifted: actual=$($stmRecords.Count), expected=1"
+  exit 1
+}
+if ([int]$stmRecords[0].exitCode -ne 0) {
+  Write-Error "RC STM independent benchmark record failed: exitCode=$($stmRecords[0].exitCode)"
+  exit 1
+}
+
+$stmLogPath = '鋼筋混凝土\output\audit\rc-stm-independent-engineering-benchmarks.txt'
+if (-not (Test-Path -LiteralPath $stmLogPath)) {
+  Write-Error "missing RC STM independent benchmark log: $stmLogPath"
+  exit 1
+}
+$stmLog = Get-Content -LiteralPath $stmLogPath -Raw -Encoding UTF8
+foreach ($token in @('candidates=24/24', 'pass=15/15', 'reject=9/9', 'assertions=564', 'falseAcceptance=blocked', 'falseRejection=blocked')) {
+  if (-not $stmLog.Contains($token)) {
+    Write-Error "RC STM independent benchmark evidence missing token: $token"
+    exit 1
+  }
+}
+
 foreach ($path in @($status.lastSummary, $status.lastHistorySummary)) {
   if (-not $path -or -not (Test-Path -LiteralPath $path)) {
     Write-Error "missing RC audit summary referenced by status: $path"
@@ -2070,6 +2114,24 @@ $newer = Get-ChildItem -LiteralPath $rcRoot -Recurse -File | Where-Object {
     $_.LastWriteTime -gt $auditTime.AddSeconds(2)
 } | Sort-Object LastWriteTime -Descending
 
+$externalRcStmDependencies = @(
+  '結構工具箱\tools\independent-engineering-benchmarks.catalog.json',
+  '結構工具箱\tools\independent-engineering-benchmarks.js',
+  '結構工具箱\tools\independent-engineering-adapters\rc-stm-strength.js'
+)
+$externalDependencyFiles = foreach ($path in $externalRcStmDependencies) {
+  if (-not (Test-Path -LiteralPath $path)) {
+    Write-Error "missing RC STM external audit dependency: $path"
+    exit 1
+  }
+  Get-Item -LiteralPath $path
+}
+$newerExternal = @($externalDependencyFiles | Where-Object {
+  $_.LastWriteTime -gt $auditTime.AddSeconds(2)
+})
+$newer = @($newer) + $newerExternal
+$newer = @($newer | Sort-Object LastWriteTime -Descending)
+
 if ($newer) {
   $items = ($newer | Select-Object -First 8 | ForEach-Object {
     "$($_.FullName) ($($_.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss')))"
@@ -2078,7 +2140,7 @@ if ($newer) {
   exit 1
 }
 
-Write-Output "RC audit status OK (runId=$($status.runId), modules=$($actualModules.Count), checkedAt=$($statusFile.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss')))"
+Write-Output "RC audit status OK (runId=$($status.runId), modules=$($actualModules.Count), records=$($records.Count), stmCandidates=24/24, checkedAt=$($statusFile.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss')))"
 exit 0
 '@
 
@@ -3350,7 +3412,7 @@ if ($overallPass -and -not $CI -and (Test-Path -LiteralPath $maturityMatrixScrip
       "--write",
       "--check"
     )
-    if ($Quick) { $postSummaryMatrixArgs += "--preserve-homepage-status" }
+    if (-not $isReleaseMode) { $postSummaryMatrixArgs += "--preserve-homepage-status" }
     $postSummaryMatrixProc = Start-Process -FilePath node -ArgumentList $postSummaryMatrixArgs -WorkingDirectory $root -RedirectStandardOutput (Join-Path $runDir "tool-maturity-matrix-final.stdout.txt") -RedirectStandardError (Join-Path $runDir "tool-maturity-matrix-final.stderr.txt") -PassThru -Wait -WindowStyle Hidden
     if ($postSummaryMatrixProc.ExitCode -ne 0) {
       $overallPass = $false

@@ -20,6 +20,7 @@ const ensurePlaywrightDepsPath = path.join(ROOT, 'tools', 'ensure-playwright-dep
 const sharedReportPath = path.join(ROOT, 'shared', 'report.js');
 const directPrintBoundaryPath = path.join(ROOT, 'shared', 'direct-print-boundary.css');
 const rcTraceCatalogPath = path.join(ROOT, 'tools', 'rc-traceability.catalog.json');
+const rcStmIndependentGatePath = path.join(ROOT, 'tools', 'rc-stm-independent-engineering-gate.test.js');
 
 let failed = 0;
 function assert(pass, label, detail = '') {
@@ -159,6 +160,7 @@ const sharedReport = fs.readFileSync(sharedReportPath, 'utf8');
 const directPrintBoundary = fs.readFileSync(directPrintBoundaryPath, 'utf8');
 const rcTraceCatalogText = fs.readFileSync(rcTraceCatalogPath, 'utf8');
 const rcTraceCatalog = JSON.parse(rcTraceCatalogText);
+const rcStmIndependentGate = fs.readFileSync(rcStmIndependentGatePath, 'utf8');
 
 const expectedModules = ['beam', 'column', 'slab', 'wall', 'shear-wall', 'foundation', 'single-pile'];
 const expectedLabels = ['梁', '柱', '板', '牆', '剪力牆', '基礎', '單樁'];
@@ -170,6 +172,11 @@ const expectedHrefs = [
   'tools/shear-wall.html',
   'tools/foundation.html',
   'tools/single-pile-designer.html',
+];
+const expectedAuxiliaryCards = [
+  { href: 'tools/foundation-deep-beam-stm.html', title: '基礎深梁 STM' },
+  { href: 'tools/pile-cap-3d-stm.html', title: '樁帽三維 STM' },
+  { href: '../RC補強斷面性質.html', title: 'RC 補強斷面' },
 ];
 const auditModules = parseAuditModules(audit);
 const indexLabels = parseIndexLabels(index);
@@ -213,6 +220,33 @@ const requiredQaArtifacts = [
   'tools/foundation-report-visual.test.js',
   'tools/foundation-report-visual.contract.test.js',
   'tools/test-foundation.ps1',
+  'tools/foundation-deep-beam-stm.html',
+  'tools/foundation-deep-beam-stm-regression.test.js',
+  'tools/test-foundation-deep-beam-stm.ps1',
+  'shared/foundation-deep-beam-stm.js',
+  'shared/foundation-deep-beam-stm.test.js',
+  'tools/pile-cap-3d-stm.html',
+  'tools/pile-cap-3d-stm-regression.test.js',
+  'tools/pile-cap-3d-stm-bridge-regression.test.js',
+  'tools/test-pile-cap-3d-stm.ps1',
+  'shared/pile-cap-3d-stm.js',
+  'shared/pile-cap-3d-stm.test.js',
+  'shared/pile-cap-3d-stm-bridge.js',
+  'shared/pile-cap-3d-stm-bridge.test.js',
+  'shared/pile-cap-load-combinations.js',
+  'shared/pile-cap-load-combinations.test.js',
+  'shared/pile-cap-3d-stm-envelope.js',
+  'shared/pile-cap-3d-stm-envelope.test.js',
+  'shared/joint-reaction-load-adapter-fixtures.test.js',
+  'shared/joint-reaction-fixture-sanitizer.js',
+  'shared/joint-reaction-fixture-sanitizer.test.js',
+  'shared/joint-reaction-fixture-promotion-gate.js',
+  'shared/joint-reaction-fixture-promotion-gate.test.js',
+  'shared/joint-reaction-observed-intake.js',
+  'shared/joint-reaction-observed-intake.test.js',
+  'shared/joint-reaction-observed-review.template.json',
+  'shared/fixtures/joint-reactions/manifest.json',
+  'shared/fixtures/joint-reactions/observed-manifest.json',
   'shared/retaining-base-demand.js',
   'shared/retaining-base-demand.test.js',
   'shared/pile-py-result-bridge.js',
@@ -232,6 +266,7 @@ const requiredQaArtifacts = [
   'shared/wall-base.test.js',
   'shared/wall-evaluator.test.js',
   'shared/pmsection.test.js',
+  'tools/rc-stm-independent-engineering-gate.test.js',
 ];
 const browserSuiteScripts = [
   ['test-beam.ps1', testBeam, '.beam-testdeps'],
@@ -260,12 +295,25 @@ for (const [position, key] of expectedModules.entries()) {
   const label = expectedLabels[position];
   assert(indexLabels.get(key) === label, `index label maps ${key}`, indexLabels.get(key));
   assertIncludes(readme, label, `README mentions ${label}`);
-  const card = menuCards[position];
+  const card = menuCards.find((item) => item.href === expectedHrefs[position]);
   assert(card && card.href === expectedHrefs[position], `menu card href maps ${key}`, card ? card.href : 'missing');
   assert(card && card.title.includes(label), `menu card title mentions ${label}`, card ? card.title : 'missing');
 }
 assert(menuCards.length >= expectedModules.length, 'index menu exposes all audited modules', `cards=${menuCards.length}`);
-assert(menuCards.length === expectedModules.length + 1 && menuCards[expectedModules.length].href === '../RC補強斷面性質.html', 'index menu only has expected non-audited RC strengthening entry', JSON.stringify(menuCards.map((card) => card.href)));
+const auditedHrefs = new Set(expectedHrefs);
+const auxiliaryCards = menuCards.filter((card) => !auditedHrefs.has(card.href));
+assert(
+  sameArray(
+    auxiliaryCards.map((card) => card.href).sort(),
+    expectedAuxiliaryCards.map((card) => card.href).sort(),
+  ),
+  'index menu only has governed auxiliary RC entries',
+  JSON.stringify(auxiliaryCards.map((card) => card.href)),
+);
+for (const expected of expectedAuxiliaryCards) {
+  const card = auxiliaryCards.find((item) => item.href === expected.href);
+  assert(card && card.title.includes(expected.title), `auxiliary card title maps ${expected.href}`, card ? card.title : 'missing');
+}
 assert(statusSource.kind === 'public', 'RC status source is the public release snapshot', statusSource.kind || 'missing');
 assert(statusSource.url === '../結構工具箱/assets/status/platform-status.json', 'RC public page reads published platform status', statusSource.url || 'missing');
 assert(statusSource.summaryUrl === '../結構工具箱/audit-dashboard.html', 'RC public status links to the platform dashboard', statusSource.summaryUrl || 'missing');
@@ -328,6 +376,28 @@ assertIncludes(audit, 'Shear wall suite', 'audit runs shear wall suite');
 assertIncludes(audit, 'Shared common helper unit tests', 'audit runs shared common helper unit tests');
 assertIncludes(audit, 'Retaining base demand unit tests', 'audit runs retaining base demand unit tests');
 assertIncludes(audit, 'RC traceability catalog contract', 'audit runs RC traceability catalog contract');
+assertIncludes(audit, 'RC STM independent engineering benchmarks', 'audit runs the RC STM independent engineering benchmark gate');
+assertIncludes(audit, '.\\rc-stm-independent-engineering-gate.test.js', 'audit runs the RC-scoped independent benchmark gate');
+assertIncludes(audit, 'recordCount = $auditRecords.Count', 'audit status records the exact completed gate count');
+assertIncludes(audit, 'TimeoutSeconds = 120', 'audit gives the RC STM independent benchmark a bounded timeout');
+assert((audit.split('if (`$LASTEXITCODE -ne 0) { exit `$LASTEXITCODE }').length - 1) >= 1, 'audit fails closed when the RC STM independent benchmark exits nonzero');
+const auditCommandLabels = [...audit.matchAll(/@\{\s*Label\s*=\s*"([^"]+)"/g)].map(match => match[1]);
+assert(auditCommandLabels.length === 24, 'audit retains exactly twenty-four governed commands', JSON.stringify(auditCommandLabels));
+assert(auditCommandLabels[5] === 'RC STM independent engineering benchmarks', 'STM independent benchmark gate runs after metadata contract and before browser suites', JSON.stringify(auditCommandLabels.slice(3, 8)));
+assertIncludes(rcStmIndependentGate, 'independent-engineering-benchmarks.catalog.json', 'RC STM gate reads the shared private benchmark catalog');
+assertIncludes(rcStmIndependentGate, 'independent-engineering-benchmarks.js', 'RC STM gate reuses the shared independent oracles and catalog validator');
+assertIncludes(rcStmIndependentGate, 'independent-engineering-adapters', 'RC STM gate resolves the production adapter directory');
+assertIncludes(rcStmIndependentGate, 'rc-stm-strength.js', 'RC STM gate loads only the RC STM production adapter');
+assertIncludes(rcStmIndependentGate, "'rc-deep-beam-stm'", 'RC STM gate covers deep-beam STM');
+assertIncludes(rcStmIndependentGate, "'rc-foundation-2d-stm'", 'RC STM gate covers foundation two-dimensional STM');
+assertIncludes(rcStmIndependentGate, "'rc-pile-cap-3d-stm'", 'RC STM gate covers pile-cap three-dimensional STM');
+assertIncludes(rcStmIndependentGate, 'EXPECTED_CASES = 24', 'RC STM gate fixes the candidate case count');
+assertIncludes(rcStmIndependentGate, 'EXPECTED_PASS_CASES = 15', 'RC STM gate fixes the candidate pass count');
+assertIncludes(rcStmIndependentGate, 'EXPECTED_REJECTION_CASES = 9', 'RC STM gate fixes the candidate rejection count');
+assertIncludes(rcStmIndependentGate, 'EXPECTED_ASSERTIONS = 564', 'RC STM gate fixes the independent assertion count');
+assertIncludes(rcStmIndependentGate, 'falseAcceptance=blocked', 'RC STM gate reports false-acceptance failure closure');
+assertIncludes(rcStmIndependentGate, 'falseRejection=blocked', 'RC STM gate reports false-rejection failure closure');
+assert(!rcStmIndependentGate.includes('steel-strength.js') && !rcStmIndependentGate.includes('wind-force.js'), 'RC STM gate does not load non-RC production adapters');
 assertIncludes(audit, 'Beam report visual smoke contract', 'audit runs beam report visual smoke contract');
 assertIncludes(audit, 'Slab report visual smoke contract', 'audit runs slab report visual smoke contract');
 assertIncludes(audit, 'Wall report visual smoke contract', 'audit runs wall report visual smoke contract');
@@ -361,6 +431,9 @@ assertIncludes(sharedReport, 'showRcReportIssue', 'shared report exposes inline 
 assertIncludes(sharedReport, 'repWindowStatus', 'shared report exposes inline report-window status helper');
 assertIncludes(sharedReport, 'window.RCReportFingerprint', 'shared report exposes project calculation fingerprint API');
 assertIncludes(audit, 'RC project/report calculation fingerprint contract', 'RC audit wires project/report calculation fingerprint contract');
+assertIncludes(audit, 'Column regression and report visual smoke', 'RC audit keeps the column browser/PDF suite');
+assertIncludes(audit, 'TimeoutSeconds = 600', 'RC audit gives the expanded column browser/PDF suite a dedicated ten-minute ceiling');
+assertIncludes(audit, '-TimeoutSeconds $timeoutSeconds', 'RC audit forwards per-check timeout ceilings without widening every check');
 assert(!sharedReport.includes('alert('), 'shared report uses inline status instead of blocking alerts');
 validateRcTraceabilityCatalog(rcTraceCatalog, rcTraceCatalogText);
 assertIncludes(testBeam, 'Beam report visual smoke', 'test-beam runs beam report visual smoke');
@@ -373,6 +446,16 @@ assertIncludes(testFoundation, 'Foundation report visual smoke', 'test-foundatio
 assertIncludes(testFoundation, 'Retaining wall base demand unit tests', 'test-foundation runs retaining base demand unit tests');
 assertIncludes(testFoundation, 'Pile p-y result bridge unit tests', 'test-foundation runs pile p-y result bridge unit tests');
 assertIncludes(testFoundation, 'Pile p-y table adapter unit tests', 'test-foundation runs pile p-y table adapter unit tests');
+assertIncludes(testFoundation, 'Pile-cap 3D STM unit tests', 'test-foundation runs pile-cap 3D STM unit tests');
+assertIncludes(testFoundation, 'Foundation to pile-cap 3D STM bridge unit tests', 'test-foundation runs pile-cap 3D STM bridge unit tests');
+assertIncludes(testFoundation, 'Pile-cap LRFD load-component adapter unit tests', 'test-foundation runs pile-cap LRFD load-component adapter unit tests');
+assertIncludes(testFoundation, 'Pile-cap 3D STM multi-load envelope unit tests', 'test-foundation runs pile-cap 3D STM envelope unit tests');
+assertIncludes(testFoundation, 'joint reaction compatibility fixture tests', 'test-foundation runs Joint Reactions compatibility fixtures');
+assertIncludes(testFoundation, 'fixture sanitizer privacy tests', 'test-foundation runs Joint Reactions fixture sanitizer privacy tests');
+assertIncludes(testFoundation, 'observed fixture promotion gate tests', 'test-foundation runs Joint Reactions observed fixture promotion gate tests');
+assertIncludes(testFoundation, 'observed intake workflow tests', 'test-foundation runs Joint Reactions observed intake workflow tests');
+assertIncludes(testFoundation, 'pile-cap-3d-stm-regression.test.js', 'test-foundation wires pile-cap 3D STM browser and PDF regression');
+assertIncludes(testFoundation, 'pile-cap-3d-stm-bridge-regression.test.js', 'test-foundation wires foundation to pile-cap 3D STM one-click bridge regression');
 assertIncludes(testFoundation, 'foundation-report-visual.test.js', 'test-foundation wires foundation report visual script');
 assertIncludes(testSinglePile, 'Single pile report visual smoke', 'test-single-pile runs single pile report visual smoke');
 assertIncludes(testSinglePile, 'single-pile-report-visual.test.js', 'test-single-pile wires single pile report visual script');
@@ -396,6 +479,7 @@ assertIncludes(readme, '單樁回歸測試與報告視覺 smoke', 'README docume
   '.\\tools\\test-slab.ps1',
   '.\\tools\\test-wall.ps1',
   '.\\tools\\test-foundation.ps1',
+  '.\\tools\\test-pile-cap-3d-stm.ps1',
   '.\\tools\\test-single-pile.ps1',
   '.\\tools\\test-shear-wall.ps1',
   '.\\tools\\test-shear-wall-report.ps1',
@@ -421,6 +505,10 @@ assertIncludes(readme, 'RC 補強報告視覺 smoke contract', 'README documents
 assertIncludes(readme, 'RC 補強報告視覺 smoke', 'README documents RC retrofit report visual smoke');
 assertIncludes(readme, '人工複核 / 補充資料需求', 'README documents single pile manual-review report boundary');
 assertIncludes(readme, '首頁入口瀏覽器 smoke', 'README documents index menu browser smoke');
+assertIncludes(readme, 'RC STM 獨立工程基準', 'README documents the local RC STM independent benchmark gate');
+assertIncludes(readme, '24 / 24', 'README documents the local STM candidate case count');
+assertIncludes(readme, '564', 'README documents the local STM independent assertion count');
+assertIncludes(readme, 'rc-stm-independent-engineering-benchmarks.txt', 'README documents the local STM benchmark audit log');
 assertIncludes(readme, '維護品質門檻', 'README documents maintenance quality gates');
 [
   '鋼筋混凝土/output/audit/audit-summary.md',

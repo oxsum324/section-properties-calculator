@@ -663,6 +663,62 @@ const fixtures = new Map(Object.entries({
       referenceTraceability: 1,
     },
     topUpgradeTargets: [],
+    jointReactionEvidence: {
+      schemaVersion: 'rc-joint-reaction-evidence-status.v1',
+      status: 'synthetic-only',
+      synthetic: {
+        count: 7,
+        accepted: 3,
+        rejected: 4,
+        formats: ['comma', 'semicolon', 'tab'],
+        issues: [],
+      },
+      observed: {
+        count: 0,
+        bySoftware: [
+          { software: 'ETABS', count: 0, versions: [] },
+          { software: 'SAP2000', count: 0, versions: [] },
+        ],
+        issues: [],
+      },
+      candidates: {
+        actualObserved: 0,
+        syntheticCompatibility: 1,
+        privacyTest: 0,
+        unknownOrigin: 0,
+        invalid: 0,
+        unpairedFiles: 0,
+        total: 1,
+        ignoredLocalOutput: true,
+      },
+      gate: {
+        configured: true,
+        intakeConfigured: true,
+        reviewTemplateDefaultClosed: true,
+        transactionalPromotion: true,
+        staleLockRecoveryConfigured: true,
+        canonicalManifestPathGuardConfigured: true,
+      },
+      workflow: {
+        nextActionCode: 'actual-export-required',
+        nextAction: '需要由實際 ETABS／SAP2000 模型匯出一份 Joint Reactions CSV／TSV／TXT；工具不會也不得自行製造實際版本證據。',
+        intakeCommand: 'node .\\鋼筋混凝土\\shared\\joint-reaction-observed-intake.js --input "<Joint Reactions 匯出檔>" --software ETABS --version "<實際版本>" --units "<實際單位>" --fixture-id "<唯一小寫-ID>"',
+        packageImportCommand: 'node .\\鋼筋混凝土\\shared\\joint-reaction-observed-intake.js --package "<基礎頁下載的 intake-package.json>"',
+        lockStatusCommand: 'node .\\鋼筋混凝土\\shared\\joint-reaction-fixture-promotion-gate.js --manifest ".\\鋼筋混凝土\\shared\\fixtures\\joint-reactions\\observed-manifest.json" --lock-status yes',
+        lockClearCommand: 'node .\\鋼筋混凝土\\shared\\joint-reaction-fixture-promotion-gate.js --manifest ".\\鋼筋混凝土\\shared\\fixtures\\joint-reactions\\observed-manifest.json" --clear-stale-lock yes --expected-lock-sha256 "<lock-status 顯示的完整 SHA-256>"',
+        browserPackageSchema: 'rc-joint-reaction-browser-intake-package.v1',
+        assessmentIsReadOnly: true,
+        promotionRequiresExplicitYes: true,
+        staleLockClearRequiresExplicitYesAndSha256: true,
+      },
+      claims: {
+        syntheticFormatCompatibility: 'demonstrated',
+        actualExportVersionCoverage: 'not-demonstrated',
+        affectsFormalToolMaturity: false,
+      },
+      issueCount: 0,
+      boundary: '合成格式測試通過不等於實際 ETABS／SAP2000 版本匯出已驗證；匿名觀察樣本只證明已收錄版本的格式相容性。',
+    },
     traceabilityCatalogCoverage: [
       {
         family: 'formal-traceability',
@@ -1746,6 +1802,25 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         })),
         maturityBoundaryCoverage: document.getElementById('maturityBoundaryCoverage')?.textContent?.trim() || '',
         maturityBoundaryHint: document.getElementById('maturityBoundaryHint')?.textContent?.trim() || '',
+        jointReactionSyntheticCount: document.getElementById('jointReactionSyntheticCount')?.textContent?.trim() || '',
+        jointReactionSyntheticOk: document.getElementById('jointReactionSyntheticCount')?.classList.contains('ok') || false,
+        jointReactionSyntheticHint: document.getElementById('jointReactionSyntheticHint')?.textContent?.trim() || '',
+        jointReactionObservedCount: document.getElementById('jointReactionObservedCount')?.textContent?.trim() || '',
+        jointReactionObservedWarn: document.getElementById('jointReactionObservedCount')?.classList.contains('warn') || false,
+        jointReactionObservedHint: document.getElementById('jointReactionObservedHint')?.textContent?.trim() || '',
+        jointReactionCandidateCount: document.getElementById('jointReactionCandidateCount')?.textContent?.trim() || '',
+        jointReactionCandidateOk: document.getElementById('jointReactionCandidateCount')?.classList.contains('ok') || false,
+        jointReactionCandidateHint: document.getElementById('jointReactionCandidateHint')?.textContent?.trim() || '',
+        jointReactionGateStatus: document.getElementById('jointReactionGateStatus')?.textContent?.trim() || '',
+        jointReactionGateOk: document.getElementById('jointReactionGateStatus')?.classList.contains('ok') || false,
+        jointReactionGateHint: document.getElementById('jointReactionGateHint')?.textContent?.trim() || '',
+        jointReactionObservedVersions: document.getElementById('jointReactionObservedVersions')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        jointReactionNextAction: document.getElementById('jointReactionNextActionText')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        jointReactionIntakeCommand: document.getElementById('jointReactionIntakeCommand')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        jointReactionPackageImportCommand: document.getElementById('jointReactionPackageImportCommand')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        jointReactionLockStatusCommand: document.getElementById('jointReactionLockStatusCommand')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        jointReactionLockClearCommand: document.getElementById('jointReactionLockClearCommand')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        jointReactionEvidenceBoundary: document.getElementById('jointReactionEvidenceBoundary')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
         maturityBoundaryRows: Array.from(document.querySelectorAll('#maturityBoundaryWrap tbody tr')).map((row) => ({
           route: row.querySelector('td:nth-child(1)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
           tool: row.querySelector('td:nth-child(2)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
@@ -1833,6 +1908,11 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
       lastState.traceabilityCatalogCoverage.length >= (expectedLive ? (expectedLive.matrix.traceabilityCatalogCoverage || []).length : expectedTraceabilityCatalogs.length) &&
       lastState.maturityOtherGovernanceRows.length >= 1 &&
       lastState.maturityBoundaryRows.length >= 1 &&
+      lastState.jointReactionSyntheticCount &&
+      !lastState.jointReactionSyntheticCount.includes('讀取中') &&
+      lastState.jointReactionGateStatus &&
+      !lastState.jointReactionGateStatus.includes('讀取中') &&
+      lastState.jointReactionNextAction &&
       lastState.latestPostCheckRows.length === expectedPostCheckRows &&
       lastState.attachmentIntegrityGroups.length === expectedAttachmentGroups &&
       lastState.rvrBackupHealthStatus &&
@@ -2108,6 +2188,41 @@ function assertDashboardLiveState(state, label, expected) {
   assert.ok(state.maturityPreflightHint.includes(`通過 ${summary.passedCount} / ${summary.recordsCount}`), `${label} live maturity hint pass count: ${state.maturityPreflightHint}`);
   assert.ok(state.maturityPreflightText.includes(summary.quick ? '快速檢查' : '完整檢查') || state.maturityPreflightText.includes('正式放行'), `${label} live maturity preflight mode: ${state.maturityPreflightText}`);
   assert.ok(state.maturityBoundaryHint.includes('頁面專用閱讀狀態檢查'), `${label} live maturity boundary page-only note: ${state.maturityBoundaryHint}`);
+  const jointReactionEvidence = matrix.jointReactionEvidence || {};
+  const jointReactionSynthetic = jointReactionEvidence.synthetic || {};
+  const jointReactionObserved = jointReactionEvidence.observed || {};
+  const jointReactionCandidates = jointReactionEvidence.candidates || {};
+  const jointReactionGate = jointReactionEvidence.gate || {};
+  const jointReactionCandidateIssueCount = Number(jointReactionCandidates.invalid || 0)
+    + Number(jointReactionCandidates.unpairedFiles || 0)
+    + Number(jointReactionCandidates.unknownOrigin || 0);
+  assert.equal(
+    state.jointReactionSyntheticCount,
+    `${Number(jointReactionSynthetic.count || 0)}（可接受 ${Number(jointReactionSynthetic.accepted || 0)}／拒絕案例 ${Number(jointReactionSynthetic.rejected || 0)}）`,
+    `${label} live Joint Reactions synthetic fixture count`
+  );
+  assert.equal(state.jointReactionSyntheticOk, Number(jointReactionSynthetic.count || 0) > 0 && (jointReactionSynthetic.issues || []).length === 0, `${label} live Joint Reactions synthetic status tone`);
+  assert.ok(state.jointReactionSyntheticHint.includes('只證明 parser'), `${label} live Joint Reactions synthetic boundary hint: ${state.jointReactionSyntheticHint}`);
+  assert.equal(state.jointReactionObservedCount, String(Number(jointReactionObserved.count || 0)), `${label} live Joint Reactions observed count`);
+  assert.equal(state.jointReactionObservedWarn, !(Number(jointReactionObserved.count || 0) > 0 && (jointReactionObserved.issues || []).length === 0), `${label} live Joint Reactions observed status tone`);
+  if (Number(jointReactionObserved.count || 0) === 0) {
+    assert.ok(state.jointReactionObservedHint.includes('尚未證明任何實際 ETABS／SAP2000 匯出版本'), `${label} live Joint Reactions zero-observation disclosure: ${state.jointReactionObservedHint}`);
+    assert.ok(state.jointReactionObservedVersions.includes('尚無實際匿名版本'), `${label} live Joint Reactions zero-version disclosure: ${state.jointReactionObservedVersions}`);
+  }
+  assert.equal(state.jointReactionCandidateCount, `${Number(jointReactionCandidates.actualObserved || 0)} / ${Number(jointReactionCandidates.total || 0)}`, `${label} live Joint Reactions candidate inventory`);
+  assert.equal(state.jointReactionCandidateOk, jointReactionCandidateIssueCount === 0, `${label} live Joint Reactions candidate status tone`);
+  const jointReactionGateReady = jointReactionGate.configured === true
+    && jointReactionGate.reviewTemplateDefaultClosed === true
+    && jointReactionGate.transactionalPromotion === true
+    && jointReactionGate.staleLockRecoveryConfigured === true
+    && jointReactionGate.canonicalManifestPathGuardConfigured === true;
+  assert.equal(state.jointReactionGateStatus, jointReactionGateReady ? '已配置' : '缺漏', `${label} live Joint Reactions gate status`);
+  assert.equal(state.jointReactionGateOk, jointReactionGateReady, `${label} live Joint Reactions gate status tone`);
+  assert.equal(state.jointReactionNextAction, jointReactionEvidence.workflow?.nextAction || '目前尚未建立收件處置指引。', `${label} live Joint Reactions next action`);
+  assert.equal(state.jointReactionIntakeCommand, jointReactionEvidence.workflow?.intakeCommand || '', `${label} live Joint Reactions intake command`);
+  assert.equal(state.jointReactionLockStatusCommand, jointReactionEvidence.workflow?.lockStatusCommand || '', `${label} live Joint Reactions lock status command`);
+  assert.equal(state.jointReactionLockClearCommand, jointReactionEvidence.workflow?.lockClearCommand || '', `${label} live Joint Reactions stale lock clear command`);
+  assert.ok(state.jointReactionEvidenceBoundary.includes(jointReactionEvidence.boundary || '目前尚未建立證據邊界。'), `${label} live Joint Reactions evidence boundary: ${state.jointReactionEvidenceBoundary}`);
   if (summary.quick) {
     assert.ok(state.maturityPreflightHint.includes('僅供快速巡查，不作為正式交付證據。'), `${label} live maturity quick evidence note: ${state.maturityPreflightHint}`);
   } else if (summary.pass === true && summary.forcePlatformAudit === true && summary.forceSlowChecks === true && /^[0-9a-f]{40}$/i.test(String(summary.sourceCommitSha || '')) && summary.sourceDirty === false) {
@@ -2239,6 +2354,29 @@ function assertDashboardState(state, label, expectedLive = null) {
     capabilities: '分析輔助',
     issues: '無',
   }], `${label} maturity boundary detail rows rendered: ${JSON.stringify(state.maturityBoundaryRows)}`);
+  assert.equal(state.jointReactionSyntheticCount, '7（可接受 3／拒絕案例 4）', `${label} Joint Reactions synthetic fixture count rendered`);
+  assert.equal(state.jointReactionSyntheticOk, true, `${label} Joint Reactions synthetic fixture status is healthy`);
+  assert.ok(state.jointReactionSyntheticHint.includes('只證明 parser'), `${label} Joint Reactions synthetic boundary hint rendered: ${state.jointReactionSyntheticHint}`);
+  assert.equal(state.jointReactionObservedCount, '0', `${label} Joint Reactions observed sample count rendered`);
+  assert.equal(state.jointReactionObservedWarn, true, `${label} Joint Reactions zero observed samples uses warning tone`);
+  assert.ok(state.jointReactionObservedHint.includes('尚未證明任何實際 ETABS／SAP2000 匯出版本'), `${label} Joint Reactions zero-observation disclosure rendered: ${state.jointReactionObservedHint}`);
+  assert.equal(state.jointReactionCandidateCount, '0 / 1', `${label} Joint Reactions candidate inventory rendered`);
+  assert.equal(state.jointReactionCandidateOk, true, `${label} Joint Reactions candidate inventory has no integrity issue`);
+  assert.ok(state.jointReactionCandidateHint.includes('未升級前不計入實際版本覆蓋'), `${label} Joint Reactions candidate boundary rendered: ${state.jointReactionCandidateHint}`);
+  assert.equal(state.jointReactionGateStatus, '已配置', `${label} Joint Reactions promotion gate rendered`);
+  assert.equal(state.jointReactionGateOk, true, `${label} Joint Reactions promotion gate uses success tone`);
+  assert.ok(state.jointReactionGateHint.includes('canonical 清冊路徑封閉'), `${label} Joint Reactions canonical manifest path guard rendered: ${state.jointReactionGateHint}`);
+  assert.ok(state.jointReactionGateHint.includes('預設未勾選的人工核對模板均已就緒'), `${label} Joint Reactions promotion gate detail rendered: ${state.jointReactionGateHint}`);
+  assert.ok(state.jointReactionObservedVersions.includes('尚無實際匿名版本'), `${label} Joint Reactions observed version absence rendered: ${state.jointReactionObservedVersions}`);
+  assert.ok(state.jointReactionNextAction.includes('需要由實際 ETABS／SAP2000 模型匯出'), `${label} Joint Reactions actual export action rendered: ${state.jointReactionNextAction}`);
+  assert.ok(state.jointReactionNextAction.includes('不得自行製造實際版本證據'), `${label} Joint Reactions evidence fabrication prohibition rendered: ${state.jointReactionNextAction}`);
+  assert.ok(state.jointReactionIntakeCommand.includes('joint-reaction-observed-intake.js'), `${label} Joint Reactions intake command rendered: ${state.jointReactionIntakeCommand}`);
+  assert.ok(state.jointReactionIntakeCommand.includes('--fixture-id'), `${label} Joint Reactions intake command requires fixture ID: ${state.jointReactionIntakeCommand}`);
+  assert.ok(state.jointReactionPackageImportCommand.includes('--package'), `${label} Joint Reactions browser package import command rendered: ${state.jointReactionPackageImportCommand}`);
+  assert.ok(state.jointReactionLockStatusCommand.includes('--lock-status yes'), `${label} Joint Reactions lock status command rendered: ${state.jointReactionLockStatusCommand}`);
+  assert.ok(state.jointReactionLockClearCommand.includes('--clear-stale-lock yes'), `${label} Joint Reactions stale lock clear command rendered: ${state.jointReactionLockClearCommand}`);
+  assert.ok(state.jointReactionLockClearCommand.includes('--expected-lock-sha256'), `${label} Joint Reactions stale lock clear command is SHA-bound: ${state.jointReactionLockClearCommand}`);
+  assert.ok(state.jointReactionEvidenceBoundary.includes('合成格式測試通過不等於實際 ETABS／SAP2000 版本匯出已驗證'), `${label} Joint Reactions evidence boundary rendered: ${state.jointReactionEvidenceBoundary}`);
   assert.deepEqual(state.latestPostCheckRows, [{
     key: 'audit-dashboard-contract-final',
     label: 'Audit dashboard final output contract',

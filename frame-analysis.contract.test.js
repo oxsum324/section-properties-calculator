@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const crypto = require('crypto');
+const LoadCombo = require('./結構工具箱/core/loads/loadcombo.js');
 const calculationBookContentBoundary = require('./結構工具箱/tools/calculation-book-content-boundary.json');
 const analysisSectionMetadata = require('./結構工具箱/tools/analysis-section-tool-metadata.js');
 const frameMetadata = analysisSectionMetadata['frame-analysis'];
@@ -89,6 +90,7 @@ function captureFrameReportHtml(source, project = {}, runtimeState = null) {
   const context = {
     FRAME_PUBLIC_VERSION: frameMetadata.version,
     FRAME_CALCULATION_ENGINE: frameMetadata.calculationEngine,
+    FOUNDATION_TRANSFER_LOAD_KEYS: ['D', 'L', 'W', 'E'],
     state: runtimeState ? JSON.parse(JSON.stringify(runtimeState)) : {
       nodes: [
         { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
@@ -250,6 +252,7 @@ function createFrameAnalysisContext(source) {
   const context = {
     FRAME_PUBLIC_VERSION: frameMetadata.version,
     FRAME_CALCULATION_ENGINE: frameMetadata.calculationEngine,
+    FOUNDATION_TRANSFER_LOAD_KEYS: ['D', 'L', 'W', 'E'],
     state: {
       nodes: [], members: [], loadCases: [], comboFactors: {}, loadCombinations: [], activeCombinationId: null,
       nodalLoads: [], memberLoads: [], memberPointLoads: [], solution: null,
@@ -265,6 +268,7 @@ function createFrameAnalysisContext(source) {
       ToolReportUI: {
         normalizeProjectFieldValue(value) { return String(value || '').trim(); },
       },
+      LoadCombo,
     },
     syncLoadCaseTableFromDom() {},
     invalidateAnalysisState() { context.state.solution = null; },
@@ -272,6 +276,7 @@ function createFrameAnalysisContext(source) {
     renderLoadCaseTable() {},
     renderLoadCombinationControls() {},
     renderNodeTable() {},
+    renderFoundationTransferControls() {},
     refreshNodeSelectors() {},
     console,
     Math,
@@ -292,7 +297,9 @@ function createFrameAnalysisContext(source) {
     'asNonNegativeNumber', 'makeNode', 'springValue', 'activeSpring', 'hasSupportDof',
     'ensureLoadCases', 'normalizedCombinationFactors', 'ensureLoadCombinations', 'currentLoadCombination',
     'persistActiveCombinationFactors', 'selectLoadCombination', 'addLoadCombination', 'deleteLoadCombination',
-    'firstLoadCaseId', 'normalizeLoadCaseId', 'comboFactor',
+    'firstLoadCaseId', 'normalizeLoadCaseId', 'comboFactor', 'loadCaseName',
+    'automaticFoundationLoadCaseId', 'normalizeFoundationTransferSettings',
+    'buildFoundationLoadComponentPackage',
     'formatCombinationFactors', 'formatActiveCombination', 'activeLoadFactors', 'momentAboutOrigin',
     'computeAppliedResultant', 'validateModel', 'zeros', 'matmul', 'matvec',
     'transpose', 'subtractMat', 'invSmall', 'condenseReleases', 'solveLinear',
@@ -378,6 +385,16 @@ const directPrintBoundary = read(path.join('結構工具箱', 'core', 'direct-pr
 const sharedReportSource = read(path.join('結構工具箱', 'core', 'ui', 'report.js'));
 
 assert(!frameAnalysisHtml.includes('alert('), 'rigid frame avoids blocking alert', 'alert(');
+assertIncludesAll(frameAnalysisHtml, [
+  '../結構工具箱/core/loads/loadcombo.js',
+  '../結構工具箱/core/ui/force-picker.js',
+  'id="foundationTransferNode"',
+  'id="foundationTransferCaseD"',
+  'id="foundationTransferCaseE"',
+  'buildFoundationLoadComponentPackage',
+  "ForcePicker.sendTo('foundation-pile-cap'",
+  '../鋼筋混凝土/tools/foundation.html?import=1',
+], 'rigid frame foundation component transfer');
 
 assertIncludesAll(frameAnalysisHtml, [
   '<title>平面剛架分析',
@@ -1897,5 +1914,78 @@ try {
 }
 assert(rejectedFrameTopology.includes('節點編號不得重複'), 'rigid frame rejects malformed node identity before reset', rejectedFrameTopology);
 assert(stableSha256(frameRuntime.context.collectProjectData()) === stateBeforeRejectedFrameImport, 'rejected rigid frame topology leaves active model unchanged', stateBeforeRejectedFrameImport);
+
+const foundationTransferRuntime = createFrameAnalysisContext(frameAnalysisHtml);
+foundationTransferRuntime.context.loadFromData({
+  schema: 'plane-frame.project.v1',
+  tool: '平面剛架分析',
+  project: { name: '樁帽轉接驗證', no: 'PC-001', designer: '', note: '' },
+  defaults: { E: 2040, A: 63.1, I: 13600 },
+  selfWeight: false,
+  density: 7.85,
+  loadCases: [
+    { id: 1, name: 'D' },
+    { id: 2, name: 'L' },
+    { id: 3, name: 'W' },
+    { id: 4, name: 'E' },
+  ],
+  comboFactors: { 1: 1, 2: 0, 3: 0, 4: 0 },
+  loadCombinations: [{ id: 1, name: 'D', factors: { 1: 1, 2: 0, 3: 0, 4: 0 } }],
+  activeCombinationId: 1,
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true },
+    { id: 2, x: 0, y: 6, cx: false, cy: false, crz: false },
+  ],
+  members: [{ id: 1, i: 1, j: 2, E: 2040, A: 63.1, I: 13600, relI: false, relJ: false }],
+  nodalLoads: [
+    { caseId: 1, node: 2, Fx: 0, Fy: -10, M: 0 },
+    { caseId: 2, node: 2, Fx: 0, Fy: -5, M: 0 },
+    { caseId: 3, node: 2, Fx: 2, Fy: 0, M: 0 },
+    { caseId: 4, node: 2, Fx: -3, Fy: 0, M: 0 },
+  ],
+  memberLoads: [],
+  memberPointLoads: [],
+  foundationTransfer: {
+    nodeId: 1,
+    momentAxis: 'My',
+    momentSign: 1,
+    caseMap: { D: 1, L: 2, W: 3, E: 4 },
+  },
+});
+const foundationComponentPackage = foundationTransferRuntime.context.buildFoundationLoadComponentPackage();
+assert(foundationComponentPackage.schemaVersion === 'loadcombo-components-v1', 'rigid frame exports governed component package schema', foundationComponentPackage.schemaVersion);
+assertNear(foundationComponentPackage.forces.P.D, 10, 1e-8, 'rigid frame maps D vertical support reaction to compression-positive P');
+assertNear(foundationComponentPackage.forces.P.L, 5, 1e-8, 'rigid frame maps L vertical support reaction to compression-positive P');
+assertNear(foundationComponentPackage.forces.My.W, -12, 1e-8, 'rigid frame maps W support Mz to foundation action My');
+assertNear(foundationComponentPackage.forces.My.E, 18, 1e-8, 'rigid frame maps E support Mz to foundation action My');
+assertNear(foundationComponentPackage.forces.Mx.W, 0, 1e-12, 'rigid frame leaves orthogonal foundation moment at zero');
+assert(foundationComponentPackage.source.analysisId === 'frame:PC-001:N1', 'rigid frame component package preserves project and support identity', foundationComponentPackage.source.analysisId);
+const savedFoundationTransfer = foundationTransferRuntime.context.collectProjectData().foundationTransfer;
+assert(
+  savedFoundationTransfer.nodeId === 1 && savedFoundationTransfer.caseMap.W === 3 && savedFoundationTransfer.momentAxis === 'My',
+  'rigid frame project JSON preserves foundation transfer mapping',
+  JSON.stringify(savedFoundationTransfer),
+);
+foundationTransferRuntime.context.state.foundationTransfer.caseMap.E = 3;
+let duplicateFoundationCaseError = '';
+try {
+  foundationTransferRuntime.context.buildFoundationLoadComponentPackage();
+} catch (error) {
+  duplicateFoundationCaseError = error.message;
+}
+assert(duplicateFoundationCaseError.includes('不可重複指定'), 'rigid frame rejects duplicate D/L/W/E case mapping', duplicateFoundationCaseError);
+foundationTransferRuntime.context.state.foundationTransfer.caseMap = { D: 2, L: 1, W: 3, E: 4 };
+foundationTransferRuntime.elements.get('selfWeight').checked = true;
+let misplacedSelfWeightError = '';
+try {
+  foundationTransferRuntime.context.buildFoundationLoadComponentPackage();
+} catch (error) {
+  misplacedSelfWeightError = error.message;
+}
+assert(
+  misplacedSelfWeightError.includes('D 必須對應第一個載重案例'),
+  'rigid frame blocks a component package that would omit configured self weight from D',
+  misplacedSelfWeightError,
+);
 
 console.log('\nFrame analysis contract checks passed.');

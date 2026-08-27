@@ -156,23 +156,23 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 2,
-    generatedAt: '2026-08-25',
+    generatedAt: '2026-08-26',
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
-      '/beam-analysis': '2026-08-25',
-      '/frame-analysis': '2026-08-25',
+      '/beam-analysis': '2026-08-26',
+      '/frame-analysis': '2026-08-26',
       '/struct-dx': '2026-08-13',
-      '/section': '2026-08-25',
-      '/composite-section': '2026-08-25',
-      '/rc-beam': '2026-08-24',
-      '/rc-column': '2026-08-24',
-      '/rc-slab': '2026-08-24',
-      '/rc-wall': '2026-08-24',
-      '/rc-shear-wall': '2026-08-24',
-      '/rc-foundation': '2026-08-24',
-      '/rc-pile': '2026-08-24',
-      '/rc-retrofit-section': '2026-08-24',
+      '/section': '2026-08-26',
+      '/composite-section': '2026-08-26',
+      '/rc-beam': '2026-08-26',
+      '/rc-column': '2026-08-26',
+      '/rc-slab': '2026-08-26',
+      '/rc-wall': '2026-08-26',
+      '/rc-shear-wall': '2026-08-26',
+      '/rc-foundation': '2026-08-26',
+      '/rc-pile': '2026-08-26',
+      '/rc-retrofit-section': '2026-08-26',
       '/src-beam': '2026-08-24',
       '/src-column': '2026-08-24',
       '/steel-formal': '2026-08-24',
@@ -303,16 +303,16 @@
     },
     {
       title: '平面剛架分析',
-      version: 'V1.5',
+      version: 'V1.6',
       href: '/frame-analysis',
       categories: ['analysis'],
       state: 'assist',
       governance: 'frame-analysis',
-      output: '位移、反力、具名組合樓層／節點／支承與桿件 N/V/M 包絡、內力圖、計算書與 JSON',
-      summary: '2D 剛架直接勁度法：節點／集中／均布／自重載重、端部鉸接釋放，支援具名載重組合的建立、切換與 JSON 重播；目前組合輸出位移、反力及 M/V/N 圖，全部組合另形成樓層反應、各節點 uX/uY/θ、固定或彈簧支承 Rx/Ry/Mz，以及每支桿件 N/V/M 的最大值、最小值與控制組合，計算書同步列出組合矩陣及包絡結果。工作頁案例庫可逐項比對七組獨立參考值與求解誤差。',
+      output: '位移、反力、具名組合包絡、基礎 D/L/W/E 分量 JSON、內力圖、計算書與專案 JSON',
+      summary: '2D 剛架直接勁度法：節點／集中／均布／自重載重、端部鉸接釋放，支援具名載重組合與 JSON 重播；全部組合可形成樓層、節點、支承與桿件 N/V/M 包絡。可指定基礎節點及 D/L/W/E 案例，逐案重算支承反力並以 loadcombo-components-v1 候選傳送至樁帽三維 STM。計算書同步列出組合矩陣及包絡結果。',
       fit: '簡化剛架模型、連續梁與手算前後校核。',
       limit: '複雜工程模型仍應回正式分析軟體。',
-      capabilities: ['具名載重組合', '樓層反應包絡', '節點／支承包絡', '桿件內力包絡', '互動驗證案例', '計算書']
+      capabilities: ['具名載重組合', '樓層反應包絡', '節點／支承包絡', '桿件內力包絡', '跨工具基本分量', '互動驗證案例', '計算書']
     },
     {
       title: 'struct.dx 解題套件',
@@ -1382,6 +1382,9 @@
         : null,
       Number.isInteger(payload.rcFormalHtmlApprovalSealRequired) && payload.rcFormalHtmlApprovalSealRequired > 0
         ? ratio('RC HTML 核可封印', payload.rcFormalHtmlApprovalSealComplete, payload.rcFormalHtmlApprovalSealRequired, payload.rcFormalHtmlApprovalSealIssueCount)
+        : null,
+      Number.isInteger(payload.rcStmFormalAttachmentRequired) && payload.rcStmFormalAttachmentRequired > 0
+        ? ratio('RC STM 正式附件', payload.rcStmFormalAttachmentComplete, payload.rcStmFormalAttachmentRequired, payload.rcStmFormalAttachmentIssueCount)
         : null,
       Number.isInteger(payload.steelHtmlContentSealRequired) && payload.steelHtmlContentSealRequired > 0
         ? ratio('鋼構 HTML 內容封印', payload.steelHtmlContentSealComplete, payload.steelHtmlContentSealRequired, payload.steelHtmlContentSealIssueCount)

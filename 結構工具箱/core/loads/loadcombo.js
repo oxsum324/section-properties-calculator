@@ -20,7 +20,9 @@
 (function () {
   const TUPLE_SCHEMA_VERSION = 'loadcombo-tuples-v2';
   const LIMIT_STATE_SCHEMA_VERSION = 'loadcombo-limit-states-v1';
+  const COMPONENT_PACKAGE_SCHEMA_VERSION = 'loadcombo-components-v1';
   const LOAD_CASE_KEYS = ['D', 'L', 'W', 'E'];
+  const COMPONENT_FORCE_KEYS = new Set(['P', 'Mx', 'My', 'Vx', 'Vy', 'M', 'MNeg', 'V', 'T']);
   let targetWriteDepth = 0;
 
   const LRFD_COMBOS = [
@@ -104,6 +106,97 @@
       });
     }
     return normalized;
+  }
+
+  function normalizeComponentPackage(rawPackage) {
+    let raw = rawPackage;
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw); }
+      catch (_) { throw new Error('基本載重分量檔不是有效 JSON。'); }
+    }
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new Error('基本載重分量資料包必須是物件。');
+    }
+    if (raw.schemaVersion !== COMPONENT_PACKAGE_SCHEMA_VERSION) {
+      throw new Error(`基本載重分量 schema 不相容：${raw.schemaVersion || '缺少'}。`);
+    }
+    const units = raw.units;
+    if (!units || units.force !== 'tf' || units.moment !== 'tf·m') {
+      throw new Error('基本載重分量單位必須為 tf 與 tf·m。');
+    }
+    const forces = raw.forces;
+    if (!forces || typeof forces !== 'object' || Array.isArray(forces) || Object.keys(forces).length === 0) {
+      throw new Error('基本載重分量資料包缺少 forces。');
+    }
+    const normalizedForces = {};
+    Object.entries(forces).forEach(([forceKey, force]) => {
+      if (!COMPONENT_FORCE_KEYS.has(forceKey)) throw new Error(`基本載重分量不支援 ${forceKey}。`);
+      if (!force || typeof force !== 'object' || Array.isArray(force)) {
+        throw new Error(`${forceKey} 基本載重分量必須是物件。`);
+      }
+      normalizedForces[forceKey] = {};
+      LOAD_CASE_KEYS.forEach(loadCase => {
+        if (!Object.prototype.hasOwnProperty.call(force, loadCase)) {
+          throw new Error(`${forceKey}.${loadCase} 基本載重分量不得缺少。`);
+        }
+        const value = Number(force[loadCase]);
+        if (!Number.isFinite(value)) throw new Error(`${forceKey}.${loadCase} 必須是有限數值。`);
+        normalizedForces[forceKey][loadCase] = value;
+      });
+    });
+    const signConvention = raw.signConvention;
+    if (!signConvention || typeof signConvention !== 'object' || Array.isArray(signConvention)) {
+      throw new Error('基本載重分量資料包缺少符號約定。');
+    }
+    if (normalizedForces.P && signConvention.P !== 'compression-positive') {
+      throw new Error('P 符號約定必須為 compression-positive。');
+    }
+    ['Mx', 'My'].forEach(forceKey => {
+      if (normalizedForces[forceKey] && signConvention[forceKey] !== 'right-hand-rule') {
+        throw new Error(`${forceKey} 符號約定必須為 right-hand-rule。`);
+      }
+    });
+    const generatedTime = new Date(raw.generatedAt);
+    if (!Number.isFinite(generatedTime.getTime())) throw new Error('基本載重分量產出時間格式錯誤。');
+    const sourceRaw = raw.source;
+    if (!sourceRaw || typeof sourceRaw !== 'object' || Array.isArray(sourceRaw)) {
+      throw new Error('基本載重分量資料包缺少來源。');
+    }
+    const source = {
+      tool:String(sourceRaw.tool || '').trim(),
+      label:String(sourceRaw.label || '').trim(),
+      version:String(sourceRaw.version || '').trim(),
+      analysisId:String(sourceRaw.analysisId || '').trim(),
+      caseSet:String(sourceRaw.caseSet || '').trim(),
+    };
+    if (!source.tool || !source.label) throw new Error('基本載重分量來源工具與來源名稱不得空白。');
+    return {
+      schemaVersion:COMPONENT_PACKAGE_SCHEMA_VERSION,
+      generatedAt:generatedTime.toISOString(),
+      source,
+      units:{ force:'tf', moment:'tf·m' },
+      signConvention:clonePlainData(signConvention),
+      forces:normalizedForces,
+    };
+  }
+
+  function createComponentPackage(options) {
+    const cfg = options || {};
+    const forces = cfg.forces || {};
+    const signConvention = {
+      ...(Object.prototype.hasOwnProperty.call(forces, 'P') ? { P:'compression-positive' } : {}),
+      ...(Object.prototype.hasOwnProperty.call(forces, 'Mx') ? { Mx:'right-hand-rule' } : {}),
+      ...(Object.prototype.hasOwnProperty.call(forces, 'My') ? { My:'right-hand-rule' } : {}),
+      ...(cfg.signConvention || {}),
+    };
+    return normalizeComponentPackage({
+      schemaVersion:COMPONENT_PACKAGE_SCHEMA_VERSION,
+      generatedAt:cfg.generatedAt || new Date().toISOString(),
+      source:cfg.source,
+      units:{ force:'tf', moment:'tf·m' },
+      signConvention,
+      forces,
+    });
   }
 
   /**
@@ -995,6 +1088,8 @@
     COMBOS: { LRFD: LRFD_COMBOS, ASD: ASD_COMBOS },
     TUPLE_SCHEMA_VERSION,
     LIMIT_STATE_SCHEMA_VERSION,
+    COMPONENT_PACKAGE_SCHEMA_VERSION,
+    createComponentPackage, normalizeComponentPackage,
     getComboSet, computeTuples, getTupleByName, selectGoverningTuple, selectGoverningLimitStates,
     buildPanel, compute, computeDetailed, apply, clear, bind, refreshLimitStateSuggestions, toReportGroup, drawEnvelopeChart,
   };

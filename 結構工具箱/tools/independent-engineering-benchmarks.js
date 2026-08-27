@@ -9,9 +9,10 @@ const defaultOutputPath = path.join(repoRoot, 'output', 'audit', 'independent-en
 const ROOT_KEYS = ['schemaVersion', 'kind', 'portfolio', 'benchmarks', 'candidateBenchmarks', 'priorityTargets'];
 const PORTFOLIO_KEYS = ['eligibleState', 'eligibleFormalRoutes', 'scopeNote'];
 const BENCHMARK_KEYS = ['id', 'route', 'title', 'productionModule', 'oracle', 'referenceType', 'referenceBasis', 'input', 'assertions'];
-const CANDIDATE_KEYS = ['id', 'capability', 'title', 'productionModule', 'oracle', 'referenceType', 'referenceBasis', 'input', 'assertions'];
+const CANDIDATE_KEYS = ['id', 'capability', 'title', 'productionModule', 'oracle', 'referenceType', 'referenceBasis', 'expectedOutcome', 'input', 'assertions'];
 const ASSERTION_KEYS = ['path', 'absTolerance'];
 const TARGET_KEYS = ['route', 'priority', 'evidenceNeeded'];
+const CANDIDATE_OUTCOMES = new Set(['strength-pass', 'strength-reject']);
 
 function exactKeys(value, expected, label, issues) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -178,16 +179,18 @@ function rcBeamStrengthOracle(i) {
     const a = tensileForce / (0.85 * i.fc * i.b);
     const c = a / i.beta1;
     const epsT = 0.003 * (d - c) / c;
-    const epsY = i.fy / 2.04e6;
-    const phi = epsT >= 0.005
+    const epsY = Math.abs(i.fy - 4200) < 1e-9 ? 0.002 : i.fy / 2.04e6;
+    const epsTLimit = epsY + 0.003;
+    const phi = epsT >= epsTLimit
       ? 0.9
-      : (epsT <= epsY ? 0.65 : 0.65 + 0.25 * (epsT - epsY) / (0.005 - epsY));
+      : (epsT <= epsY ? 0.65 : 0.65 + 0.25 * (epsT - epsY) / (epsTLimit - epsY));
     const Mn = tensileForce * (d - a / 2);
     return { c, a, Cc:tensileForce, eqN:0, Mn, epsT, phi, phiMn:phi * Mn, valid:1 };
   };
   const positive = flexure(i.asPositive, i.dPositive);
   const negative = flexure(i.asNegative, i.dNegative);
-  const asMin = d => Math.max(0.8 * Math.sqrt(i.fc) / i.fy, 14 / i.fy) * i.b * d;
+  const fyForAsMin = Math.min(i.fy, 5600);
+  const asMin = d => Math.max(0.8 * Math.sqrt(i.fc) / fyForAsMin, 14 / fyForAsMin) * i.b * d;
 
   const Ag = i.b * i.h;
   const rhoShear = i.asPositive / (i.b * i.dPositive);
@@ -214,6 +217,27 @@ function rcBeamStrengthOracle(i) {
   const flexureUtilization = i.momentDemand / (positive.phiMn / 1e5);
   const shearUtilization = shearDemand / phiVnEffective;
   const governingUtilization = Math.max(flexureUtilization, shearUtilization);
+  const epsTy = Math.abs(i.fy - 4200) < 1e-9 ? 0.002 : i.fy / 2.04e6;
+  const epsTLimit = epsTy + 0.003;
+  const positiveTensionControlled = positive.epsT >= epsTLimit;
+  const negativeTensionControlled = negative.epsT >= epsTLimit;
+  const asMinPositive = asMin(i.dPositive);
+  const asMinNegative = asMin(i.dNegative);
+  const asMinPositivePass = i.asPositive >= asMinPositive;
+  const asMinNegativePass = i.asNegative >= asMinNegative;
+  const positiveRho = i.asPositive / (i.b * i.dPositive);
+  const negativeRho = i.asNegative / (i.b * i.dNegative);
+  const rhoSmrfLimit = Math.min((Math.sqrt(i.fc) + 100) / (4 * i.fy), 0.025);
+  const positiveSmrfRhoPass = positiveRho <= rhoSmrfLimit;
+  const negativeSmrfRhoPass = negativeRho <= rhoSmrfLimit;
+  const longitudinalDetailPass = positiveTensionControlled && negativeTensionControlled
+    && asMinPositivePass && asMinNegativePass && positiveSmrfRhoPass && negativeSmrfRhoPass;
+  const spanDepthRatio = i.ln / i.h;
+  const loadDistanceProvided = Number.isFinite(Number(i.loadDistance)) && Number(i.loadDistance) >= 0;
+  const loadDistanceRatio = loadDistanceProvided ? i.loadDistance / i.h : null;
+  const deepBySpan = spanDepthRatio <= 4;
+  const deepByLoad = loadDistanceProvided && loadDistanceRatio <= 2;
+  const methodApplicable = !deepBySpan && !deepByLoad;
   return {
     positiveC:positive.c,
     positiveA:positive.a,
@@ -233,8 +257,20 @@ function rcBeamStrengthOracle(i) {
     negativePhi:negative.phi,
     negativePhiMn:negative.phiMn,
     negativeValid:negative.valid,
-    asMinPositive:asMin(i.dPositive),
-    asMinNegative:asMin(i.dNegative),
+    epsTy,
+    epsTLimit,
+    positiveTensionControlled:positiveTensionControlled ? 1 : 0,
+    negativeTensionControlled:negativeTensionControlled ? 1 : 0,
+    asMinPositive,
+    asMinNegative,
+    asMinPositivePass:asMinPositivePass ? 1 : 0,
+    asMinNegativePass:asMinNegativePass ? 1 : 0,
+    positiveRho,
+    negativeRho,
+    rhoSmrfLimit,
+    positiveSmrfRhoPass:positiveSmrfRhoPass ? 1 : 0,
+    negativeSmrfRhoPass:negativeSmrfRhoPass ? 1 : 0,
+    longitudinalDetailPass:longitudinalDetailPass ? 1 : 0,
     AvProvidedPerS,
     AvMinPerS,
     hasMinStir:hasMinStir ? 1 : 0,
@@ -250,7 +286,471 @@ function rcBeamStrengthOracle(i) {
     flexureUtilization,
     shearUtilization,
     governingUtilization,
-    overallPass:governingUtilization <= 1 ? 1 : 0
+    spanDepthRatio,
+    loadDistanceRatio,
+    deepBySpan:deepBySpan ? 1 : 0,
+    deepByLoad:deepByLoad ? 1 : 0,
+    methodApplicable:methodApplicable ? 1 : 0,
+    overallPass:governingUtilization <= 1 && longitudinalDetailPass && hasMinStir && methodApplicable ? 1 : 0
+  };
+}
+
+function stmTieLayoutOracle(input) {
+  const rowBase = Math.floor(input.count / input.rows);
+  const remainder = input.count % input.rows;
+  const rowCounts = Array.from({ length:input.rows }, (_, index) => rowBase + (index < remainder ? 1 : 0));
+  const requiredHorizontalClear = Math.max(2.5, input.barDiameter, (4 / 3) * input.maxAggregateSize);
+  const insideWidth = input.bw - 2 * (input.sideCover + input.transverseBarDiameter);
+  const maxBarsPerRow = Math.max(0, Math.floor((insideWidth + requiredHorizontalClear + 1e-9)
+    / (input.barDiameter + requiredHorizontalClear)));
+  const horizontalClears = rowCounts.map(count => count <= 1
+    ? Infinity
+    : (insideWidth - count * input.barDiameter) / (count - 1));
+  const minHorizontalClear = Math.min(...horizontalClears);
+  const requiredVerticalClear = 2.5;
+  const tieBandDepth = input.rows * input.barDiameter + (input.rows - 1) * input.verticalClearSpacing;
+  const availableDepth = input.h - 2 * (input.sideCover + input.transverseBarDiameter);
+  const firstCenter = input.sideCover + input.transverseBarDiameter + input.barDiameter / 2;
+  const rowCenters = rowCounts.map((_, index) => firstCenter
+    + index * (input.barDiameter + input.verticalClearSpacing));
+  const centroidFromBottom = rowCenters.reduce((sum, center, index) => sum + center * rowCounts[index], 0)
+    / input.count;
+  const providedArea = input.count * input.barArea;
+  const layoutOk = rowCounts.every(count => count <= maxBarsPerRow)
+    && minHorizontalClear >= requiredHorizontalClear - 1e-9
+    && (input.rows === 1 || input.verticalClearSpacing >= requiredVerticalClear - 1e-9)
+    && tieBandDepth <= availableDepth + 1e-9;
+  return {
+    rowCounts,
+    requiredHorizontalClear,
+    minHorizontalClear,
+    tieBandDepth,
+    centroidFromBottom,
+    providedArea,
+    layoutOk,
+  };
+}
+
+function stmDirectTieLayoutInput(i, bw = i.bw, h = i.h) {
+  return {
+    bw,
+    h,
+    barArea:i.tieBarArea,
+    barDiameter:i.tieBarDiameter,
+    count:i.tieCount,
+    rows:i.tieRows,
+    sideCover:i.tieSideCover,
+    transverseBarDiameter:i.tieTransverseBarDiameter,
+    maxAggregateSize:i.maxAggregateSize,
+    verticalClearSpacing:i.tieVerticalClearSpacing,
+  };
+}
+
+function stmNestedTieLayoutInput(source, bw, h) {
+  return {
+    bw,
+    h,
+    barArea:source.barArea,
+    barDiameter:source.barDiameter,
+    count:source.count,
+    rows:source.rows,
+    sideCover:source.sideCover,
+    transverseBarDiameter:source.transverseBarDiameter,
+    maxAggregateSize:source.maxAggregateSize,
+    verticalClearSpacing:source.verticalClearSpacing,
+  };
+}
+
+function stmPileReactionFactor(distanceFromSection, pileDiameter) {
+  const half = pileDiameter / 2;
+  if (distanceFromSection >= half - 1e-9) return 1;
+  if (distanceFromSection <= -half + 1e-9) return 0;
+  return (distanceFromSection + half) / pileDiameter;
+}
+
+function rcDeepBeamStmOracle(input) {
+  const i = input.case;
+  const phi = 0.75;
+  const layout = stmTieLayoutOracle(stmDirectTieLayoutInput(i));
+  const a = i.ln / 2;
+  const reaction = i.Pu / 2;
+  const thetaRad = Math.atan2(i.z, a);
+  const thetaDeg = thetaRad * 180 / Math.PI;
+  const strutDemand = reaction / Math.sin(thetaRad);
+  const tieDemand = reaction / Math.tan(thetaRad);
+  const fyForMinimum = Math.min(i.fy, 5600);
+  const tieAsStm = tieDemand * 1000 / (phi * i.fy);
+  const tieAsMin = Math.max(0.8 * Math.sqrt(i.fc) / fyForMinimum, 14 / fyForMinimum) * i.bw * i.d;
+  const tieAsRequired = Math.max(tieAsStm, tieAsMin);
+  const strutFce = 0.85 * i.betaC * i.betaS * i.fc;
+  const strutDesign = phi * strutFce * i.bw * i.strutWidth / 1000;
+  const topNodeDesign = phi * 0.85 * i.betaC * i.fc * i.bw * i.topNodeWidth / 1000;
+  const bottomNodeDesign = phi * 0.85 * i.betaC * 0.8 * i.fc * i.bw * i.bottomNodeWidth / 1000;
+  const rhoVertical = i.verticalBarArea * i.verticalFaces / (i.bw * i.verticalSpacing);
+  const rhoHorizontal = i.horizontalBarArea * i.horizontalFaces / (i.bw * i.horizontalSpacing);
+  const distributedSpacingLimit = Math.min(i.d / 5, 30);
+  const distributionOk = rhoVertical >= 0.0025 - 1e-9
+    && rhoHorizontal >= 0.0025 - 1e-9
+    && i.verticalSpacing <= distributedSpacingLimit + 1e-9
+    && i.horizontalSpacing <= distributedSpacingLimit + 1e-9;
+  const shearDesignLimit99 = phi * 2.65 * i.lambda * Math.sqrt(i.fc) * i.bw * i.d / 1000;
+  const shearDesignLimit2344 = phi * 1.32 * Math.tan(thetaRad) * i.lambda
+    * (distributionOk ? 1 : 0) * Math.sqrt(i.fc) * i.bw * i.d / 1000;
+  const tieOk = layout.providedArea >= tieAsRequired - 1e-9;
+  const strutOk = strutDesign >= strutDemand - 1e-9;
+  const nodesOk = i.topNodeWidth <= i.loadBearingWidth + 1e-9
+    && i.bottomNodeWidth <= i.supportBearingWidth + 1e-9
+    && topNodeDesign >= Math.max(i.Pu, strutDemand) - 1e-9
+    && bottomNodeDesign >= Math.max(reaction, strutDemand) - 1e-9;
+  const shear2344Required = Math.abs(i.betaS - 0.75) < 1e-9;
+  const shearLimitsOk = shearDesignLimit99 >= reaction - 1e-9
+    && (!shear2344Required || shearDesignLimit2344 >= reaction - 1e-9);
+  const deepBeam = i.ln <= 4 * i.h + 1e-9 || a <= 2 * i.h + 1e-9;
+  const strengthPass = deepBeam && thetaDeg >= 25 - 1e-9 && tieOk && layout.layoutOk
+    && strutOk && nodesOk && distributionOk && shearLimitsOk;
+  return {
+    a,
+    reaction,
+    thetaRad,
+    thetaDeg,
+    angleMarginDeg:thetaDeg - 25,
+    angleOk:thetaDeg >= 25 - 1e-9 ? 1 : 0,
+    strutDemand,
+    tieDemand,
+    tieAsStm,
+    tieAsMin,
+    tieAsRequired,
+    tieProvidedArea:layout.providedArea,
+    tieCentroidFromBottom:layout.centroidFromBottom,
+    tieMinHorizontalClear:layout.minHorizontalClear,
+    tieBandDepth:layout.tieBandDepth,
+    tieRows:i.tieRows,
+    minimumSteelControls:tieAsMin >= tieAsStm - 1e-9 ? 1 : 0,
+    strutFce,
+    strutDesign,
+    topNodeDesign,
+    bottomNodeDesign,
+    rhoVertical,
+    rhoHorizontal,
+    distributedSpacingLimit,
+    shearDesignLimit99,
+    shearDesignLimit2344,
+    shear2344Required:shear2344Required ? 1 : 0,
+    tieOk:tieOk ? 1 : 0,
+    tieLayoutOk:layout.layoutOk ? 1 : 0,
+    strutOk:strutOk ? 1 : 0,
+    nodesOk:nodesOk ? 1 : 0,
+    distributionOk:distributionOk ? 1 : 0,
+    shearLimitsOk:shearLimitsOk ? 1 : 0,
+    strengthPass:strengthPass ? 1 : 0,
+  };
+}
+
+function rcFoundation2dStmOracle(input) {
+  const i = input.case;
+  const phi = 0.75;
+  const layout = stmTieLayoutOracle(stmDirectTieLayoutInput(i));
+  const d = i.h - layout.centroidFromBottom;
+  const z = i.h - i.loadNodeDepth - layout.centroidFromBottom;
+  const reactionModeSoilUniform = i.reactionMode === 'soil-uniform';
+  const soilLineReaction = reactionModeSoilUniform ? i.soilPressure * i.soilTributaryWidth / 100 : null;
+  const reactionNodes = reactionModeSoilUniform
+    ? [
+      { x:-i.ln / 4, reaction:soilLineReaction * i.ln / 200 },
+      { x:i.ln / 4, reaction:soilLineReaction * i.ln / 200 },
+    ]
+    : [...i.pileReactions];
+  const nodes = reactionNodes.sort((left, right) => left.x - right.x).map(node => {
+    const thetaRad = Math.atan2(z, Math.abs(node.x));
+    return {
+      ...node,
+      thetaRad,
+      thetaDeg:thetaRad * 180 / Math.PI,
+      strutDemand:node.reaction / Math.sin(thetaRad),
+      horizontal:node.reaction * node.x / z,
+    };
+  });
+  const reactionTotal = nodes.reduce((sum, node) => sum + node.reaction, 0);
+  const reactionMoment = nodes.reduce((sum, node) => sum + node.reaction * node.x, 0);
+  const balanceErrorPct = Math.abs(reactionTotal - i.Pu) / i.Pu * 100;
+  const momentErrorPct = Math.abs(reactionMoment) / (i.Pu * i.ln / 2) * 100;
+  const horizontalResidual = nodes.reduce((sum, node) => sum + node.horizontal, 0);
+  const horizontalAction = nodes.reduce((sum, node) => sum + Math.abs(node.horizontal), 0);
+  const horizontalResidualPct = Math.abs(horizontalResidual) / horizontalAction * 100;
+  const minThetaDeg = Math.min(...nodes.map(node => node.thetaDeg));
+  let cumulative = 0;
+  const tieSegments = nodes.slice(0, -1).map(node => {
+    cumulative += node.reaction * node.x / z;
+    return Math.abs(cumulative);
+  });
+  const tieDemand = Math.max(...tieSegments);
+  const tieAsStm = tieDemand * 1000 / (phi * i.fy);
+  const tieAsRequired = Math.max(tieAsStm, i.tieMinimumArea);
+  const strutFce = 0.85 * i.betaC * i.betaS * i.fc;
+  const strutDesign = phi * strutFce * i.bw * i.strutWidth / 1000;
+  const maximumStrutDemand = Math.max(...nodes.map(node => node.strutDemand));
+  const maxStrutDcr = maximumStrutDemand / strutDesign;
+  const topNodeDesign = phi * 0.85 * i.betaC * i.fc * i.bw * i.topNodeWidth / 1000;
+  const bottomNodeDesign = phi * 0.85 * i.betaC * 0.8 * i.fc * i.bw * i.bottomNodeWidth / 1000;
+  const criticalSectionX = i.columnWidth / 2 + d;
+  let shearLeft = 0;
+  let shearRight = 0;
+  if (reactionModeSoilUniform) {
+    const outsideLength = Math.max(0, i.ln / 2 - criticalSectionX);
+    shearLeft = soilLineReaction * outsideLength / 100;
+    shearRight = shearLeft;
+  } else {
+    for (const node of nodes) {
+      if (node.x > 0) shearRight += node.reaction * stmPileReactionFactor(node.x - criticalSectionX, i.pileDiameter);
+      if (node.x < 0) shearLeft += node.reaction * stmPileReactionFactor(-node.x - criticalSectionX, i.pileDiameter);
+    }
+  }
+  const shearDemand = Math.max(shearLeft, shearRight);
+  const lambdaS = i.distributionReinforcementComplies ? 1 : Math.sqrt(2 / (1 + d / 25));
+  const shearDesignLimit2344 = phi * 1.32 * Math.tan(minThetaDeg * Math.PI / 180)
+    * i.lambda * lambdaS * Math.sqrt(i.fc) * i.bw * d / 1000;
+  const symmetric = reactionModeSoilUniform || nodes.every((node) => {
+    const opposite = nodes.find(candidate => Math.abs(candidate.x + node.x) < 1e-9);
+    return opposite && Math.abs(opposite.reaction - node.reaction) < 1e-9;
+  });
+  const topologyOk = balanceErrorPct <= i.balanceTolerancePct + 1e-9
+    && momentErrorPct <= i.momentTolerancePct + 1e-9
+    && horizontalResidualPct <= (i.horizontalTolerancePct ?? 1) + 1e-9
+    && symmetric;
+  const tieOk = layout.providedArea >= tieAsRequired - 1e-9;
+  const strutOk = strutDesign >= maximumStrutDemand - 1e-9;
+  const bottomNodesOk = i.bottomNodeWidth <= i.supportBearingWidth + 1e-9
+    && nodes.every(node => bottomNodeDesign >= Math.max(node.reaction, node.strutDemand) - 1e-9);
+  const nodesOk = i.topNodeWidth <= i.columnWidth + 1e-9
+    && topNodeDesign >= i.Pu - 1e-9
+    && bottomNodesOk;
+  const shear2344Required = Math.abs(i.betaS - 0.75) < 1e-9;
+  const shear2344Ok = !shear2344Required || shearDesignLimit2344 >= shearDemand - 1e-9;
+  const pileEffectiveDepthOk = reactionModeSoilUniform || d >= 30 - 1e-9;
+  const strengthPass = topologyOk && minThetaDeg >= 25 - 1e-9 && tieOk && layout.layoutOk
+    && strutOk && nodesOk && shear2344Ok && pileEffectiveDepthOk;
+  return {
+    d,
+    z,
+    reactionModeSoilUniform:reactionModeSoilUniform ? 1 : 0,
+    reactionNodeCount:nodes.length,
+    reactionTotal,
+    reactionMoment,
+    balanceErrorPct,
+    momentErrorPct,
+    horizontalResidual,
+    horizontalAction,
+    horizontalResidualPct,
+    minThetaDeg,
+    angleMarginDeg:minThetaDeg - 25,
+    angleOk:minThetaDeg >= 25 - 1e-9 ? 1 : 0,
+    firstStrutDemand:nodes[0].strutDemand,
+    maximumStrutDemand,
+    firstTieSegmentDemand:tieSegments[0],
+    middleTieSegmentDemand:tieSegments[Math.floor(tieSegments.length / 2)],
+    tieDemand,
+    tieAsStm,
+    tieAsRequired,
+    tieProvidedArea:layout.providedArea,
+    tieCentroidFromBottom:layout.centroidFromBottom,
+    tieRows:i.tieRows,
+    strutFce,
+    strutDesign,
+    maxStrutDcr,
+    topNodeDesign,
+    bottomNodeDesign,
+    criticalSectionX,
+    shearDemand,
+    lambdaS,
+    shearDesignLimit2344,
+    shear2344Margin:shearDesignLimit2344 - shearDemand,
+    shear2344Required:shear2344Required ? 1 : 0,
+    shear2344Ok:shear2344Ok ? 1 : 0,
+    topologyOk:topologyOk ? 1 : 0,
+    tieOk:tieOk ? 1 : 0,
+    tieLayoutOk:layout.layoutOk ? 1 : 0,
+    strutOk:strutOk ? 1 : 0,
+    nodesOk:nodesOk ? 1 : 0,
+    pileEffectiveDepthOk:pileEffectiveDepthOk ? 1 : 0,
+    strengthPass:strengthPass ? 1 : 0,
+  };
+}
+
+function stmDirectionalShearOracle(nodes, coordinate, sectionDistance, pileDiameter) {
+  let negative = 0;
+  let positive = 0;
+  for (const node of nodes) {
+    if (node[coordinate] > 0) positive += node.reaction
+      * stmPileReactionFactor(node[coordinate] - sectionDistance, pileDiameter);
+    if (node[coordinate] < 0) negative += node.reaction
+      * stmPileReactionFactor(-node[coordinate] - sectionDistance, pileDiameter);
+  }
+  return Math.max(negative, positive);
+}
+
+function stmDirectionalTieDemandOracle(nodes, coordinate, component) {
+  const coordinates = [...new Set(nodes.map(node => node[coordinate]))].sort((a, b) => a - b);
+  return Math.max(...coordinates.slice(0, -1).map((value, index) => {
+    const cut = (value + coordinates[index + 1]) / 2;
+    return Math.abs(nodes.filter(node => node[coordinate] <= cut + 1e-9)
+      .reduce((sum, node) => sum + node[component], 0));
+  }));
+}
+
+function rcPileCap3dStmOracle(input) {
+  const i = input.case;
+  const phi = 0.75;
+  const xLayout = stmTieLayoutOracle(stmNestedTieLayoutInput(i.xTie, i.capWidthY, i.h));
+  const yLayout = stmTieLayoutOracle(stmNestedTieLayoutInput(i.yTie, i.capLengthX, i.h));
+  const loadX = i.My * 100 / i.Pu;
+  const loadY = i.Mx * 100 / i.Pu;
+  const xTieCentroidFromBottom = xLayout.centroidFromBottom;
+  const yTieCentroidFromBottom = yLayout.centroidFromBottom;
+  const z = i.h - i.loadNodeDepth - (xTieCentroidFromBottom + yTieCentroidFromBottom) / 2;
+  const dX = i.h - xTieCentroidFromBottom;
+  const dY = i.h - yTieCentroidFromBottom;
+  const nodes = i.pileReactions.map(node => {
+    const dx = node.x - loadX;
+    const dy = node.y - loadY;
+    const planDistance = Math.hypot(dx, dy);
+    const length = Math.hypot(planDistance, z);
+    return {
+      ...node,
+      dx,
+      dy,
+      thetaDeg:Math.atan2(z, planDistance) * 180 / Math.PI,
+      thetaXDeg:Math.abs(dx) < 1e-9 ? 90 : Math.atan2(z, Math.abs(dx)) * 180 / Math.PI,
+      thetaYDeg:Math.abs(dy) < 1e-9 ? 90 : Math.atan2(z, Math.abs(dy)) * 180 / Math.PI,
+      strutDemand:node.reaction * length / z,
+      horizontalX:node.reaction * dx / z,
+      horizontalY:node.reaction * dy / z,
+    };
+  });
+  const reactionTotal = nodes.reduce((sum, node) => sum + node.reaction, 0);
+  const reactionMomentX = nodes.reduce((sum, node) => sum + node.reaction * node.y, 0);
+  const reactionMomentY = nodes.reduce((sum, node) => sum + node.reaction * node.x, 0);
+  const targetMomentX = i.Mx * 100;
+  const targetMomentY = i.My * 100;
+  const forceErrorPct = Math.abs(reactionTotal - i.Pu) / i.Pu * 100;
+  const momentXErrorPct = Math.abs(reactionMomentX - targetMomentX) / (i.Pu * i.capWidthY / 2) * 100;
+  const momentYErrorPct = Math.abs(reactionMomentY - targetMomentY) / (i.Pu * i.capLengthX / 2) * 100;
+  const horizontalResidualX = nodes.reduce((sum, node) => sum + node.horizontalX, 0);
+  const horizontalResidualY = nodes.reduce((sum, node) => sum + node.horizontalY, 0);
+  const horizontalActionX = nodes.reduce((sum, node) => sum + Math.abs(node.horizontalX), 0);
+  const horizontalActionY = nodes.reduce((sum, node) => sum + Math.abs(node.horizontalY), 0);
+  const horizontalResidualXPct = Math.abs(horizontalResidualX) / horizontalActionX * 100;
+  const horizontalResidualYPct = Math.abs(horizontalResidualY) / horizontalActionY * 100;
+  const minThetaDeg = Math.min(...nodes.map(node => node.thetaDeg));
+  const minThetaXDeg = Math.min(...nodes.map(node => node.thetaXDeg));
+  const minThetaYDeg = Math.min(...nodes.map(node => node.thetaYDeg));
+  const xTieDemand = stmDirectionalTieDemandOracle(nodes, 'x', 'horizontalX');
+  const yTieDemand = stmDirectionalTieDemandOracle(nodes, 'y', 'horizontalY');
+  const xTieAsStm = xTieDemand * 1000 / (phi * i.fy);
+  const yTieAsStm = yTieDemand * 1000 / (phi * i.fy);
+  const xTieAsRequired = Math.max(xTieAsStm, i.xTieMinimumArea);
+  const yTieAsRequired = Math.max(yTieAsStm, i.yTieMinimumArea);
+  const strutFce = 0.85 * i.betaC * i.betaS * i.fc;
+  const strutDesign = phi * strutFce * i.strutArea / 1000;
+  const maxStrutDcr = Math.max(...nodes.map(node => node.strutDemand / strutDesign));
+  const topNodeDesign = phi * 0.85 * i.betaC * i.fc * i.topNodeArea / 1000;
+  const bottomNodeDesign = phi * 0.85 * i.betaC * 0.8 * i.fc * i.bottomNodeArea / 1000;
+  const criticalSectionX = i.columnX / 2 + dX;
+  const criticalSectionY = i.columnY / 2 + dY;
+  const shearX = stmDirectionalShearOracle(nodes, 'x', criticalSectionX, i.pileDiameter);
+  const shearY = stmDirectionalShearOracle(nodes, 'y', criticalSectionY, i.pileDiameter);
+  const lambdaSX = i.distributionReinforcementComplies ? 1 : Math.sqrt(2 / (1 + dX / 25));
+  const lambdaSY = i.distributionReinforcementComplies ? 1 : Math.sqrt(2 / (1 + dY / 25));
+  const shearDesignLimitX = phi * 1.32 * Math.tan(minThetaXDeg * Math.PI / 180)
+    * i.lambda * lambdaSX * Math.sqrt(i.fc) * i.capWidthY * dX / 1000;
+  const shearDesignLimitY = phi * 1.32 * Math.tan(minThetaYDeg * Math.PI / 180)
+    * i.lambda * lambdaSY * Math.sqrt(i.fc) * i.capLengthX * dY / 1000;
+  const pileNodeCount = nodes.length;
+  const gridXCount = new Set(nodes.map(node => node.x)).size;
+  const gridYCount = new Set(nodes.map(node => node.y)).size;
+  const topologyOk = forceErrorPct <= (i.balanceTolerancePct ?? 2) + 1e-9
+    && momentXErrorPct <= (i.momentTolerancePct ?? 1) + 1e-9
+    && momentYErrorPct <= (i.momentTolerancePct ?? 1) + 1e-9
+    && horizontalResidualXPct <= (i.horizontalTolerancePct ?? 1) + 1e-9
+    && horizontalResidualYPct <= (i.horizontalTolerancePct ?? 1) + 1e-9
+    && Math.abs(loadX) <= i.columnX / 2 + 1e-9
+    && Math.abs(loadY) <= i.columnY / 2 + 1e-9;
+  const tiesOk = xLayout.layoutOk && yLayout.layoutOk
+    && xLayout.providedArea >= xTieAsRequired - 1e-9
+    && yLayout.providedArea >= yTieAsRequired - 1e-9;
+  const tieLayerOffset = Math.abs(xTieCentroidFromBottom - yTieCentroidFromBottom);
+  const tieLayerOffsetOk = tieLayerOffset <= Math.max(i.xTie.barDiameter, i.yTie.barDiameter) + 1e-9;
+  const strutOk = maxStrutDcr <= 1 + 1e-9;
+  const nodesOk = topNodeDesign >= i.Pu - 1e-9
+    && nodes.every(node => bottomNodeDesign >= Math.max(node.reaction, node.strutDemand) - 1e-9);
+  const pileEffectiveDepthOk = Math.min(dX, dY) >= 30 - 1e-9;
+  const shear2344Required = Math.abs(i.betaS - 0.75) < 1e-9;
+  const shearLimitsOk = !shear2344Required
+    || (shearDesignLimitX >= shearX - 1e-9 && shearDesignLimitY >= shearY - 1e-9);
+  const strengthPass = topologyOk && minThetaDeg >= 25 - 1e-9 && tiesOk && tieLayerOffsetOk
+    && strutOk && nodesOk && shearLimitsOk && pileEffectiveDepthOk;
+  return {
+    loadX,
+    loadY,
+    pileNodeCount,
+    gridXCount,
+    gridYCount,
+    z,
+    dX,
+    dY,
+    reactionTotal,
+    reactionMomentX,
+    reactionMomentY,
+    targetMomentX,
+    targetMomentY,
+    forceErrorPct,
+    momentXErrorPct,
+    momentYErrorPct,
+    horizontalResidualX,
+    horizontalResidualY,
+    horizontalResidualXPct,
+    horizontalResidualYPct,
+    minThetaDeg,
+    minThetaXDeg,
+    minThetaYDeg,
+    angleMarginDeg:minThetaDeg - 25,
+    angleOk:minThetaDeg >= 25 - 1e-9 ? 1 : 0,
+    xTieDemand,
+    yTieDemand,
+    xTieAsStm,
+    yTieAsStm,
+    xTieAsRequired,
+    yTieAsRequired,
+    xTieProvidedArea:xLayout.providedArea,
+    yTieProvidedArea:yLayout.providedArea,
+    xTieCentroidFromBottom,
+    yTieCentroidFromBottom,
+    xTieRows:i.xTie.rows,
+    yTieRows:i.yTie.rows,
+    tieLayerOffset,
+    tieLayerOffsetLimit:Math.max(i.xTie.barDiameter, i.yTie.barDiameter),
+    tieLayerOffsetMargin:Math.max(i.xTie.barDiameter, i.yTie.barDiameter) - tieLayerOffset,
+    strutFce,
+    strutDesign,
+    maxStrutDcr,
+    topNodeDesign,
+    bottomNodeDesign,
+    criticalSectionX,
+    criticalSectionY,
+    shearX,
+    shearY,
+    lambdaSX,
+    lambdaSY,
+    shearDesignLimitX,
+    shearDesignLimitY,
+    shear2344Required:shear2344Required ? 1 : 0,
+    shearLimitsOk:shearLimitsOk ? 1 : 0,
+    topologyOk:topologyOk ? 1 : 0,
+    tiesOk:tiesOk ? 1 : 0,
+    tieLayerOffsetOk:tieLayerOffsetOk ? 1 : 0,
+    strutOk:strutOk ? 1 : 0,
+    nodesOk:nodesOk ? 1 : 0,
+    pileEffectiveDepthOk:pileEffectiveDepthOk ? 1 : 0,
+    strengthPass:strengthPass ? 1 : 0,
   };
 }
 
@@ -3510,6 +4010,9 @@ const ORACLES = {
   'foundation-external-load-only': foundationOracle,
   'rc-column-balanced-nearby-pm-point': rcColumnPmOracle,
   'rc-beam-seismic-strength': rcBeamStrengthOracle,
+  'rc-deep-beam-stm-strength': rcDeepBeamStmOracle,
+  'rc-foundation-2d-stm-strength': rcFoundation2dStmOracle,
+  'rc-pile-cap-3d-stm-strength': rcPileCap3dStmOracle,
   'rc-shear-wall-seismic-strength': rcShearWallStrengthOracle,
   'rc-wall-general-strength': rcWallStrengthOracle,
   'rc-retrofit-section-strength': rcRetrofitSectionOracle,
@@ -3555,8 +4058,8 @@ function loadProductionModule(relativePath) {
 function validateCatalog(catalog) {
   const issues = [];
   exactKeys(catalog, ROOT_KEYS, 'catalog', issues);
-  if (catalog?.schemaVersion !== 2) issues.push('catalog:schema-version');
-  if (catalog?.kind !== 'independent-engineering-benchmarks.v2') issues.push('catalog:kind');
+  if (catalog?.schemaVersion !== 3) issues.push('catalog:schema-version');
+  if (catalog?.kind !== 'independent-engineering-benchmarks.v3') issues.push('catalog:kind');
   exactKeys(catalog?.portfolio, PORTFOLIO_KEYS, 'portfolio', issues);
   if (catalog?.portfolio?.eligibleState !== 'formal') issues.push('portfolio:eligible-state');
   if (!Number.isInteger(catalog?.portfolio?.eligibleFormalRoutes) || catalog.portfolio.eligibleFormalRoutes < 1) issues.push('portfolio:eligible-formal-routes');
@@ -3589,19 +4092,19 @@ function validateCatalog(catalog) {
     }
   }
 
-  const capabilities = new Set();
   for (const [index, benchmark] of (catalog?.candidateBenchmarks || []).entries()) {
     const label = `candidateBenchmark[${index}]`;
     exactKeys(benchmark, CANDIDATE_KEYS, label, issues);
     if (!benchmark.id || ids.has(benchmark.id)) issues.push(`${label}:unique-id`);
     ids.add(benchmark.id);
-    if (!/^[a-z0-9-]+$/.test(String(benchmark.capability || '')) || capabilities.has(benchmark.capability)) issues.push(`${label}:unique-capability`);
-    capabilities.add(benchmark.capability);
+    if (!/^[a-z0-9-]+$/.test(String(benchmark.capability || ''))) issues.push(`${label}:valid-capability`);
     if (!ORACLES[benchmark.oracle]) issues.push(`${label}:known-oracle`);
     if (benchmark.referenceType !== 'closed-form-identity') issues.push(`${label}:reference-type`);
     if (!String(benchmark.referenceBasis || '').trim()) issues.push(`${label}:reference-basis`);
+    if (!CANDIDATE_OUTCOMES.has(benchmark.expectedOutcome)) issues.push(`${label}:expected-outcome`);
     if (!benchmark.input || typeof benchmark.input !== 'object' || Array.isArray(benchmark.input)) issues.push(`${label}:input-object`);
     if (!Array.isArray(benchmark.assertions) || benchmark.assertions.length < 1) issues.push(`${label}:assertions-required`);
+    if (!benchmark.assertions?.some(assertion => assertion?.path === 'strengthPass')) issues.push(`${label}:strength-pass-assertion-required`);
     const assertionPaths = new Set();
     for (const [assertionIndex, assertion] of (benchmark.assertions || []).entries()) {
       const assertionLabel = `${label}.assertions[${assertionIndex}]`;
@@ -3636,8 +4139,8 @@ function runBenchmarks(catalog, options = {}) {
   const catalogIssues = validateCatalog(catalog);
   if (catalogIssues.length) {
     return {
-      schemaVersion: 2,
-      kind: 'independent-engineering-benchmarks-result.v2',
+      schemaVersion: 3,
+      kind: 'independent-engineering-benchmarks-result.v3',
       generatedAt: new Date().toISOString(),
       status: 'blocked',
       summary: {
@@ -3647,6 +4150,12 @@ function runBenchmarks(catalog, options = {}) {
         independentlyVerifiedRoutes: 0,
         candidateRequired: Array.isArray(catalog?.candidateBenchmarks) ? catalog.candidateBenchmarks.length : 0,
         candidateVerified: 0,
+        candidatePassRequired: Array.isArray(catalog?.candidateBenchmarks)
+          ? catalog.candidateBenchmarks.filter(item => item?.expectedOutcome === 'strength-pass').length : 0,
+        candidatePassVerified: 0,
+        candidateRejectionRequired: Array.isArray(catalog?.candidateBenchmarks)
+          ? catalog.candidateBenchmarks.filter(item => item?.expectedOutcome === 'strength-reject').length : 0,
+        candidateRejectionVerified: 0,
         verifiedCandidateCapabilities: 0,
         priorityTargets: Array.isArray(catalog?.priorityTargets) ? catalog.priorityTargets.length : 0,
         issueCount: catalogIssues.length
@@ -3676,6 +4185,15 @@ function runBenchmarks(catalog, options = {}) {
       recordIssues.push(`benchmark-execution:${error.message}`);
     }
     if (production && expected) {
+      if (classification === 'candidate') {
+        const expectedStrengthPass = benchmark.expectedOutcome === 'strength-pass' ? 1 : 0;
+        if (production.strengthPass !== expectedStrengthPass) {
+          recordIssues.push(`expected-outcome-mismatch:production:actual=${production.strengthPass}:expected=${expectedStrengthPass}`);
+        }
+        if (expected.strengthPass !== expectedStrengthPass) {
+          recordIssues.push(`expected-outcome-mismatch:oracle:actual=${expected.strengthPass}:expected=${expectedStrengthPass}`);
+        }
+      }
       for (const assertion of benchmark.assertions) {
         const actualValue = getPath(production, assertion.path);
         const expectedValue = getPath(expected, assertion.path);
@@ -3689,6 +4207,7 @@ function runBenchmarks(catalog, options = {}) {
       id: benchmark.id,
       ...(classification === 'formal' ? { route: benchmark.route } : { capability: benchmark.capability }),
       classification,
+      ...(classification === 'candidate' ? { expectedOutcome: benchmark.expectedOutcome } : {}),
       title: benchmark.title,
       status: recordIssues.length ? 'blocked' : 'verified',
       referenceType: benchmark.referenceType,
@@ -3705,9 +4224,11 @@ function runBenchmarks(catalog, options = {}) {
   }
   const pilotVerified = records.filter(record => record.status === 'verified').length;
   const candidateVerified = candidateRecords.filter(record => record.status === 'verified').length;
+  const candidatePassRecords = candidateRecords.filter(record => record.expectedOutcome === 'strength-pass');
+  const candidateRejectionRecords = candidateRecords.filter(record => record.expectedOutcome === 'strength-reject');
   return {
-    schemaVersion: 2,
-    kind: 'independent-engineering-benchmarks-result.v2',
+    schemaVersion: 3,
+    kind: 'independent-engineering-benchmarks-result.v3',
     generatedAt: new Date().toISOString(),
     status: issues.length === 0
       && pilotVerified === catalog.benchmarks.length
@@ -3719,6 +4240,10 @@ function runBenchmarks(catalog, options = {}) {
       independentlyVerifiedRoutes: new Set(records.filter(record => record.status === 'verified').map(record => record.route)).size,
       candidateRequired: catalog.candidateBenchmarks.length,
       candidateVerified,
+      candidatePassRequired: candidatePassRecords.length,
+      candidatePassVerified: candidatePassRecords.filter(record => record.status === 'verified').length,
+      candidateRejectionRequired: candidateRejectionRecords.length,
+      candidateRejectionVerified: candidateRejectionRecords.filter(record => record.status === 'verified').length,
       verifiedCandidateCapabilities: new Set(candidateRecords.filter(record => record.status === 'verified').map(record => record.capability)).size,
       priorityTargets: catalog.priorityTargets.length,
       issueCount: issues.length
@@ -3754,7 +4279,7 @@ function main(argv = process.argv.slice(2)) {
   if (args.json) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } else {
-    process.stdout.write(`Independent engineering benchmarks: ${result.status}; formal pilot ${result.summary.pilotVerified}/${result.summary.pilotRequired}; formal portfolio ${result.summary.independentlyVerifiedRoutes}/${result.summary.eligibleFormalRoutes}; candidates ${result.summary.candidateVerified}/${result.summary.candidateRequired}; issues ${result.summary.issueCount}\n`);
+    process.stdout.write(`Independent engineering benchmarks: ${result.status}; formal pilot ${result.summary.pilotVerified}/${result.summary.pilotRequired}; formal portfolio ${result.summary.independentlyVerifiedRoutes}/${result.summary.eligibleFormalRoutes}; candidate pass ${result.summary.candidatePassVerified}/${result.summary.candidatePassRequired}; candidate rejection ${result.summary.candidateRejectionVerified}/${result.summary.candidateRejectionRequired}; issues ${result.summary.issueCount}\n`);
   }
   return result.status === 'ready' ? 0 : 2;
 }

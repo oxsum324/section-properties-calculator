@@ -208,6 +208,24 @@ dashboardScripts.forEach((match, index) => {
   'maturityUpgradeGapCount',
   'maturityUpgradeGapHint',
   'maturityUpgradeTargets',
+  'jointReactionSyntheticCount',
+  'jointReactionSyntheticHint',
+  'jointReactionObservedCount',
+  'jointReactionObservedHint',
+  'jointReactionCandidateCount',
+  'jointReactionCandidateHint',
+  'jointReactionGateStatus',
+  'jointReactionGateHint',
+  'jointReactionObservedVersions',
+  'jointReactionNextAction',
+  'jointReactionNextActionText',
+  'jointReactionIntakeCommand',
+  'jointReactionPackageImportCommand',
+  'jointReactionLockStatusCommand',
+  'jointReactionLockClearCommand',
+  'jointReactionEvidenceBoundary',
+  '目前僅有合成格式相容性，尚未證明任何實際 ETABS／SAP2000 匯出版本',
+  '合成樣本只證明 parser 對已知格式與錯誤案例的相容性',
   'maturityCoverageTotals',
   'traceabilityCatalogCoverage',
   'maturityGlobalGovernance',
@@ -1096,6 +1114,17 @@ const auditDashboardBrowserSmokeScript = readText(toolboxFile('tools/audit-dashb
   'buildTraceabilityCatalogCoverage',
   'traceabilityCatalogCoverage',
   '## Traceability Catalog Coverage',
+  'buildJointReactionCandidateInventory',
+  'buildJointReactionEvidenceStatus',
+  'jointReactionEvidence',
+  'rc-joint-reaction-evidence-status.v1',
+  'joint-reaction-synthetic-fixtures',
+  'joint-reaction-observed-fixtures',
+  'joint-reaction-sanitizer',
+  'joint-reaction-promotion-gate',
+  'joint-reaction-observed-intake',
+  '## Joint Reactions Format Evidence',
+  '合成格式測試通過不等於實際 ETABS／SAP2000 版本匯出已驗證',
   'GLOBAL_GOVERNANCE_GATES',
   'buildGlobalGovernance',
   'globalGovernance',
@@ -1192,6 +1221,27 @@ if (fs.existsSync(maturityMatrixPath)) {
     assert.equal(matrix.totals[key], matrix.totals.tools, `maturity coverage total ${key} complete`);
   }
   assert.ok(Array.isArray(matrix.topUpgradeTargets), 'maturity top upgrade targets array');
+  assert.equal(matrix.jointReactionEvidence?.schemaVersion, 'rc-joint-reaction-evidence-status.v1', 'maturity Joint Reactions evidence schema');
+  assert.ok(Number.isInteger(matrix.jointReactionEvidence?.synthetic?.count), 'maturity Joint Reactions synthetic count integer');
+  assert.ok(matrix.jointReactionEvidence.synthetic.count >= 7, 'maturity Joint Reactions synthetic fixture coverage');
+  assert.ok(Number.isInteger(matrix.jointReactionEvidence?.observed?.count), 'maturity Joint Reactions observed count integer');
+  assert.ok(Number.isInteger(matrix.jointReactionEvidence?.candidates?.total), 'maturity Joint Reactions candidate count integer');
+  assert.equal(matrix.jointReactionEvidence?.gate?.configured, true, 'maturity Joint Reactions anonymization promotion gate configured');
+  assert.equal(matrix.jointReactionEvidence?.gate?.intakeConfigured, true, 'maturity Joint Reactions observed intake workflow configured');
+  assert.equal(matrix.jointReactionEvidence?.gate?.reviewTemplateDefaultClosed, true, 'maturity Joint Reactions review template defaults closed');
+  assert.equal(matrix.jointReactionEvidence?.gate?.transactionalPromotion, true, 'maturity Joint Reactions promotion is transactional');
+  assert.equal(matrix.jointReactionEvidence?.gate?.staleLockRecoveryConfigured, true, 'maturity Joint Reactions stale lock recovery configured');
+  assert.equal(matrix.jointReactionEvidence?.gate?.canonicalManifestPathGuardConfigured, true, 'maturity Joint Reactions canonical manifest path guard configured');
+  assert.equal(matrix.jointReactionEvidence?.workflow?.assessmentIsReadOnly, true, 'maturity Joint Reactions assessment is read-only');
+  assert.equal(matrix.jointReactionEvidence?.workflow?.promotionRequiresExplicitYes, true, 'maturity Joint Reactions promotion requires explicit yes');
+  assert.match(matrix.jointReactionEvidence?.workflow?.intakeCommand || '', /joint-reaction-observed-intake\.js/, 'maturity Joint Reactions intake command available');
+  assert.match(matrix.jointReactionEvidence?.workflow?.packageImportCommand || '', /--package/, 'maturity Joint Reactions browser package import command available');
+  assert.match(matrix.jointReactionEvidence?.workflow?.lockStatusCommand || '', /--lock-status yes/, 'maturity Joint Reactions lock status command available');
+  assert.match(matrix.jointReactionEvidence?.workflow?.lockClearCommand || '', /--clear-stale-lock yes.*--expected-lock-sha256/, 'maturity Joint Reactions SHA-bound stale lock clear command available');
+  assert.equal(matrix.jointReactionEvidence?.workflow?.staleLockClearRequiresExplicitYesAndSha256, true, 'maturity Joint Reactions stale lock clear is explicit and SHA-bound');
+  assert.equal(matrix.jointReactionEvidence?.workflow?.browserPackageSchema, 'rc-joint-reaction-browser-intake-package.v1', 'maturity Joint Reactions browser package schema');
+  assert.equal(matrix.jointReactionEvidence?.claims?.affectsFormalToolMaturity, false, 'maturity Joint Reactions evidence does not inflate formal tool maturity');
+  assert.match(matrix.jointReactionEvidence?.boundary || '', /合成格式測試通過不等於實際 ETABS／SAP2000 版本匯出已驗證/, 'maturity Joint Reactions boundary distinguishes synthetic and observed evidence');
   assert.ok(matrix.globalGovernance && typeof matrix.globalGovernance === 'object', 'maturity globalGovernance object');
   assert.equal(Number.isInteger(matrix.globalGovernance.required), true, 'maturity globalGovernance required integer');
   assert.equal(Number.isInteger(matrix.globalGovernance.passed), true, 'maturity globalGovernance passed integer');
@@ -1236,8 +1286,13 @@ if (fs.existsSync(maturityMatrixPath)) {
   assert.equal(matrix.independentBenchmarkCoverage?.status, 'ready', 'maturity independent engineering benchmark pilot ready');
   assert.equal(matrix.independentBenchmarkCoverage?.summary?.pilotVerified, 33, 'maturity independent engineering benchmark pilot verified');
   assert.equal(matrix.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes, 33, 'maturity independent engineering benchmark eligible formal routes');
-  assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidateRequired, 0, 'maturity independent engineering candidate required');
-  assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidateVerified, 0, 'maturity independent engineering candidate verified');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidateRequired, 24, 'maturity independent engineering candidate cases required');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidateVerified, 24, 'maturity independent engineering candidate cases verified');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidatePassRequired, 15, 'maturity independent engineering passing candidate cases required');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidatePassVerified, 15, 'maturity independent engineering passing candidate cases verified');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidateRejectionRequired, 9, 'maturity independent engineering rejection candidate cases required');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidateRejectionVerified, 9, 'maturity independent engineering rejection candidate cases verified');
+  assert.equal(matrix.independentBenchmarkCoverage?.summary?.verifiedCandidateCapabilities, 3, 'maturity independent engineering candidate capabilities remain distinct');
   assert.equal(matrix.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes, matrix.entrypointCoverage?.byState?.formal, 'maturity independent engineering benchmark portfolio matches formal homepage entries');
   const renderedDeliveryGate = matrix.globalGovernance.gates.find(gate => gate.key === 'rendered-delivery-evidence');
   assert.ok(renderedDeliveryGate, 'maturity globalGovernance rendered delivery evidence gate exists');
@@ -1253,6 +1308,8 @@ if (fs.existsSync(maturityMatrixPath)) {
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('public-release-change-governance'), 'maturity markdown exposes public release change gate');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('independent-engineering-benchmarks'), 'maturity markdown exposes independent engineering benchmark gate');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('## Independent Engineering Benchmarks'), 'maturity markdown exposes independent engineering benchmark coverage');
+  assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('## Joint Reactions Format Evidence'), 'maturity markdown exposes Joint Reactions evidence status');
+  assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('合成格式測試通過不等於實際 ETABS／SAP2000 版本匯出已驗證'), 'maturity markdown preserves Joint Reactions evidence boundary');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('| /src-beam |'), 'maturity markdown lists SRC inside formal route coverage');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('rendered-delivery-evidence'), 'maturity markdown exposes rendered delivery evidence gate');
   if (maturityFresh) {
@@ -1353,6 +1410,17 @@ if (fs.existsSync(maturityMatrixPath)) {
       'independent-engineering-benchmarks',
       'vercel-routes',
       'home-entrypoints',
+      'joint-reaction-synthetic-fixtures',
+      'joint-reaction-observed-fixtures',
+      'joint-reaction-sanitizer-core',
+      'joint-reaction-sanitizer-core-test',
+      'joint-reaction-sanitizer',
+      'joint-reaction-sanitizer-test',
+      'joint-reaction-promotion-gate',
+      'joint-reaction-promotion-gate-test',
+      'joint-reaction-observed-intake',
+      'joint-reaction-observed-intake-test',
+      'joint-reaction-review-template',
       'latest-preflight-summary'
     ];
     const hasFullPreflightSource = matrix.sourceTrace.inputs

@@ -39,12 +39,12 @@
             ★ 本工具參照《梁柱斷面允許鋼筋根數計算.xls》驗證 (sh_min 預設 4 cm)
         ‧ 排間淨距 sv (規範 25.2.2)：sv ≥ max(2.5 cm, db_outer)
             ⚠ 只在「該側實際配 ≥ 2 排」才檢核；單排免檢
-        ‧ ρ ≤ ρmax / As ≥ As,min
+        ‧ εt ≥ εty+0.003 / As,min；一般梁才可採 4/3 As需求例外
         ‧ 耐震幾何規範 (SMRF 梁 18.3.2：bw≥0.3h、ℓn≥4d)
 
-  (5) 設計模式自動配筋 (fillStack 三排配置)
+  (5) 設計模式自動配筋 (fillStack 動態多排配置)
         ‧ 每排根數受「排內最大根數」限制 (cap)
-        ‧ 第 1 排不夠才開第 2 排，第 2 排不夠再開第 3 排
+        ‧ 外排不夠時依序使用使用者已新增的內排
         ‧ heroCombo 在 design 模式直接顯示 layerComboStr(stack)，
           ★ 不可用 findCombo() 取代，否則會忽略使用者選的號數
 
@@ -102,6 +102,46 @@
     margin-top: 0;
   }
   .preset-row select { min-height: 42px; }
+  .rebar-stack-actions {
+    display:flex;
+    gap:8px;
+    align-items:center;
+    flex-wrap:wrap;
+    margin:6px 0 10px;
+  }
+  .rebar-stack-actions button {
+    border:1px solid #94a3b8;
+    background:#fff;
+    color:#334155;
+    border-radius:6px;
+    padding:6px 10px;
+    cursor:pointer;
+    font-family:inherit;
+  }
+  .rebar-stack-actions button:disabled { opacity:0.45; cursor:not-allowed; }
+  .deep-beam-notice {
+    margin-top:8px;
+    padding:10px 12px;
+    border:1px solid #cbd5e1;
+    border-radius:6px;
+    background:#f8fafc;
+    color:#334155;
+    line-height:1.55;
+    font-size:0.86em;
+  }
+  .deep-beam-notice.ok { border-color:#86efac; background:#f0fdf4; color:#166534; }
+  .deep-beam-notice.fail { border-color:#fca5a5; background:#fef2f2; color:#991b1b; }
+  .deep-beam-notice .deep-beam-tool-link {
+    display:inline-flex;
+    margin-top:7px;
+    padding:6px 10px;
+    border-radius:6px;
+    background:#7f1d1d;
+    color:#fff;
+    font-weight:800;
+    text-decoration:none;
+  }
+  .deep-beam-notice .deep-beam-tool-link:hover { background:#991b1b; }
   .mode-bar__actions {
     display: flex;
     gap: 6px;
@@ -130,6 +170,15 @@
     font-size: 0.76em;
     font-style: italic;
   }
+  .rebar-range-wrap { margin-top:14px; }
+  .rebar-range-heading { display:flex; justify-content:space-between; gap:10px; align-items:baseline; margin-bottom:6px; }
+  .rebar-range-heading strong { color:#0f4c5c; }
+  .rebar-range-table { width:100%; border-collapse:collapse; font-size:0.82em; border:1px solid #cbd5e1; min-width:820px; }
+  .rebar-range-table th { padding:7px 6px; background:#e6f4f7; color:#164e63; border-bottom:1px solid #94a3b8; white-space:nowrap; }
+  .rebar-range-table td { padding:7px 6px; border-bottom:1px solid #e2e8f0; text-align:center; }
+  .rebar-range-table td.range-arrangement { text-align:left; font-family:ui-monospace,"Cascadia Code","Consolas",monospace; }
+  .rebar-range-table tr.range-ng td { background:#fff1f2; color:#991b1b; }
+  .rebar-range-note { margin:7px 0 0; color:#64748b; font-size:0.78em; line-height:1.55; }
   .section-tabs button,
   .mode-bar__btn,
   .mode-bar__report,
@@ -306,6 +355,13 @@
         </div>
 
         <div class="form-group">
+          <label>最近集中載重至支承面距離 a<sub>v</sub> (cm，可選)</label>
+          <input type="number" id="deepLoadDistance" min="0" step="any" placeholder="空白時僅依 ℓn/h 判定">
+        </div>
+        <p class="hint">規範 9.9.1.1：ℓn ≤ 4h，或集中載重位於距支承面 2h 內，即屬深梁適用範圍。</p>
+        <div id="deepBeamNotice" class="deep-beam-notice" role="status" aria-live="polite">完成輸入後判定一般梁方法適用性。</div>
+
+        <div class="form-group">
           <label>fyt 橫向鋼筋降伏強度 (kgf/cm²)</label>
           <input type="number" id="fyt" value="2800">
         </div>
@@ -389,23 +445,23 @@
         </div>
         <p class="hint">直線錨定依 shared/devlength.js 的 25.4.2 簡化式判定；標準彎鉤、機械錨定與其他端部構造列為人工複核，須依配筋圖、產品資料或專案文件確認。SMRF 梁搭接位置需避開距柱面 2h 內塑鉸區。</p>
 
-        <h3 style="font-size:0.85em; color:var(--primary); margin:10px 0 4px;">底層主筋（最多 3 排，外排為第 1 排）</h3>
-        <div class="rebar-stack" style="font-size:0.78em;">
-          <div class="form-row3" style="gap:6px; margin-bottom:4px;">
+        <h3 style="font-size:0.85em; color:var(--primary); margin:10px 0 4px;">底層主筋（可新增排數，外排為第 1 排）</h3>
+        <div class="rebar-stack" id="botRebarStack" data-rebar-side="bot" style="font-size:0.78em;">
+          <div class="form-row3 rebar-layer" data-rebar-side="bot" data-rebar-index="1" style="gap:6px; margin-bottom:4px;">
             <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">第 1 排 號數</label>
               <select id="botBar1No"><option>#3</option><option>#4</option><option>#5</option><option>#6</option><option>#7</option><option selected>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
             </div>
             <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">根數</label><input type="number" id="botBar1N" value="4"></div>
             <div></div>
           </div>
-          <div class="form-row3" style="gap:6px; margin-bottom:4px;">
+          <div class="form-row3 rebar-layer" data-rebar-side="bot" data-rebar-index="2" style="gap:6px; margin-bottom:4px;">
             <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">第 2 排 號數</label>
               <select id="botBar2No"><option>#3</option><option>#4</option><option>#5</option><option>#6</option><option>#7</option><option selected>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
             </div>
             <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">根數</label><input type="number" id="botBar2N" value="0"></div>
             <div></div>
           </div>
-          <div class="form-row3" style="gap:6px; margin-bottom:4px;">
+          <div class="form-row3 rebar-layer" data-rebar-side="bot" data-rebar-index="3" style="gap:6px; margin-bottom:4px;">
             <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">第 3 排 號數</label>
               <select id="botBar3No"><option>#3</option><option>#4</option><option>#5</option><option>#6</option><option>#7</option><option selected>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
             </div>
@@ -413,30 +469,40 @@
             <div></div>
           </div>
         </div>
+        <div class="rebar-stack-actions page-only-case-tools">
+          <button type="button" id="btnAddBotLayer">＋ 新增底筋排</button>
+          <button type="button" id="btnRemoveBotLayer">－ 移除最內排</button>
+          <span class="hint" id="botLayerCount">目前 3 排</span>
+        </div>
 
-        <h3 style="font-size:0.85em; color:var(--primary); margin:10px 0 4px;">頂層主筋（最多 3 排，外排為第 1 排）</h3>
-        <div class="rebar-stack" style="font-size:0.78em;">
-          <div class="form-row3" style="gap:6px; margin-bottom:4px;">
+        <h3 style="font-size:0.85em; color:var(--primary); margin:10px 0 4px;">頂層主筋（可新增排數，外排為第 1 排）</h3>
+        <div class="rebar-stack" id="topRebarStack" data-rebar-side="top" style="font-size:0.78em;">
+          <div class="form-row3 rebar-layer" data-rebar-side="top" data-rebar-index="1" style="gap:6px; margin-bottom:4px;">
             <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">第 1 排 號數</label>
               <select id="topBar1No"><option>#3</option><option>#4</option><option>#5</option><option>#6</option><option selected>#7</option><option>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
             </div>
             <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">根數</label><input type="number" id="topBar1N" value="2"></div>
             <div></div>
           </div>
-          <div class="form-row3" style="gap:6px; margin-bottom:4px;">
+          <div class="form-row3 rebar-layer" data-rebar-side="top" data-rebar-index="2" style="gap:6px; margin-bottom:4px;">
             <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">第 2 排 號數</label>
               <select id="topBar2No"><option>#3</option><option>#4</option><option>#5</option><option>#6</option><option selected>#7</option><option>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
             </div>
             <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">根數</label><input type="number" id="topBar2N" value="0"></div>
             <div></div>
           </div>
-          <div class="form-row3" style="gap:6px; margin-bottom:4px;">
+          <div class="form-row3 rebar-layer" data-rebar-side="top" data-rebar-index="3" style="gap:6px; margin-bottom:4px;">
             <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">第 3 排 號數</label>
               <select id="topBar3No"><option>#3</option><option>#4</option><option>#5</option><option>#6</option><option selected>#7</option><option>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
             </div>
             <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">根數</label><input type="number" id="topBar3N" value="0"></div>
             <div></div>
           </div>
+        </div>
+        <div class="rebar-stack-actions page-only-case-tools">
+          <button type="button" id="btnAddTopLayer">＋ 新增頂筋排</button>
+          <button type="button" id="btnRemoveTopLayer">－ 移除最內排</button>
+          <span class="hint" id="topLayerCount">目前 3 排</span>
         </div>
 
         <h3 style="font-size:0.9em; color:var(--primary); margin:8px 0 6px;">表層筋 (skin reinforcement)</h3>
@@ -645,6 +711,7 @@
           <div class="line"><span class="lbl">目前配置 / 需求</span><span class="big" id="heroAsRatio">—</span></div>
         </div>
         <div id="beamRebarDesignCandidates" style="margin-top:12px;"></div>
+        <div id="beamRebarFeasibleRanges" class="rebar-range-wrap" aria-live="polite"></div>
       </div>
 
       <!-- 設計建議 (剪力) -->
@@ -668,6 +735,8 @@
           <div class="result-item" data-topic="flex" id="r-rhoPos"><span class="label">ρ⁺</span><span><span class="value">—</span></span></div>
           <div class="result-item" data-topic="flex" id="r-rhoNeg"><span class="label">ρ⁻</span><span><span class="value">—</span></span></div>
           <div class="result-item" data-topic="flex" id="r-AsMin"><span class="label">As,min</span><span><span class="value">—</span><span class="unit">cm²</span></span></div>
+          <div class="result-item" data-topic="flex" id="r-epsTPos"><span class="label">εt⁺ (底拉)</span><span><span class="value">—</span></span></div>
+          <div class="result-item" data-topic="flex" id="r-epsTNeg"><span class="label">εt⁻ (頂拉)</span><span><span class="value">—</span></span></div>
           <div class="result-item" data-topic="flex" id="r-Mcr"><span class="label">Mcr (開裂彎矩)</span><span><span class="value">—</span><span class="unit">tf·m</span></span></div>
           <div class="result-item" data-topic="flex" id="r-aPos"><span class="label">a⁺ (底拉)</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
           <div class="result-item" data-topic="flex" id="r-aNeg"><span class="label">a⁻ (頂拉)</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
@@ -682,11 +751,10 @@
         <div class="results-grid">
           <div class="result-item" data-topic="geom-shared" id="c-bw"><span class="label">SMRF: bw ≥ max(0.3h, 25)</span><span class="value">—</span></div>
           <div class="result-item" data-topic="geom-shared" id="c-ln"><span class="label">SMRF: ℓn ≥ 4d</span><span class="value">—</span></div>
-          <div class="result-item" data-topic="flex" id="c-rhoMaxPos"><span class="label">ρ⁺ ≤ ρmax</span><span class="value">—</span></div>
-          <div class="result-item" data-topic="flex" id="c-rhoMaxNeg"><span class="label">ρ⁻ ≤ ρmax</span><span class="value">—</span></div>
-          <div class="result-item" data-topic="flex" id="c-AsMinBot"><span class="label">底 As ≥ As,min</span><span class="value">—</span></div>
-          <div class="result-item" data-topic="flex" id="c-AsMinTop"><span class="label">頂 As ≥ As,min</span><span class="value">—</span></div>
-          <div class="result-item" data-topic="flex" id="c-Mcr"><span class="label">φMn ≥ 1.2 Mcr</span><span class="value">—</span></div>
+          <div class="result-item" data-topic="flex" id="c-rhoMaxPos"><span class="label">εt⁺ ≥ εty+0.003</span><span class="value">—</span></div>
+          <div class="result-item" data-topic="flex" id="c-rhoMaxNeg"><span class="label">εt⁻ ≥ εty+0.003</span><span class="value">—</span></div>
+          <div class="result-item" data-topic="flex" id="c-AsMinBot"><span class="label">底筋最小量條文</span><span class="value">—</span></div>
+          <div class="result-item" data-topic="flex" id="c-AsMinTop"><span class="label">頂筋最小量條文</span><span class="value">—</span></div>
           <div class="result-item" data-topic="defl" id="c-hmin"><span class="label">跨深比 h ≥ hmin</span><span class="value">—</span></div>
           <div class="result-item" data-topic="shear" id="c-shear"><span class="label">φVn ≥ Vd</span><span class="value">—</span></div>
           <div class="result-item" data-topic="shear" id="c-shearMin"><span class="label">Av/s ≥ Av,min/s</span><span class="value">—</span></div>
@@ -708,8 +776,8 @@
       <div class="card" data-shows="seismic summary">
         <h2><span>耐震檢核</span><span class="badge-seismic">SMRF</span></h2>
         <div class="results-grid">
-          <div class="result-item" id="s-rhoPos"><span class="label">ρ⁺ ≤ 0.025</span><span class="value">—</span></div>
-          <div class="result-item" id="s-rhoNeg"><span class="label">ρ⁻ ≤ 0.025</span><span class="value">—</span></div>
+          <div class="result-item" id="s-rhoPos"><span class="label">ρ⁺ ≤ 18.3.3.1 上限</span><span class="value">—</span></div>
+          <div class="result-item" id="s-rhoNeg"><span class="label">ρ⁻ ≤ 18.3.3.1 上限</span><span class="value">—</span></div>
           <div class="result-item" id="s-2bar"><span class="label">上下各 ≥ 2 根</span><span class="value">—</span></div>
           <div class="result-item" id="s-MnRatio"><span class="label">Mn⁺ ≥ Mn⁻/2 (18.3.3.2)</span><span class="value">—</span></div>
           <div class="result-item" id="s-MnQuarter"><span class="label">跨內任一斷面 ≥ Mn,max/4</span><span class="value">—</span></div>
@@ -799,6 +867,7 @@
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
 <script src="../shared/report.js?v=9"></script>
+<script src="../shared/beam-applicability.js?v=1"></script>
 <script src="../shared/beam-evaluator.js?v=1"></script>
 <script src="../shared/beam-rebar-designer.js?v=1"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
@@ -886,6 +955,144 @@
     const v = parseFloat(el.value);
     return Number.isFinite(v) ? v : null;
   };
+
+  const MIN_REBAR_ROWS = 3;
+  const MAX_REBAR_ROWS = 12;
+
+  function getRebarLayerElements(side) {
+    return Array.from(document.querySelectorAll(`#${side}RebarStack .rebar-layer`))
+      .sort((a, b) => Number(a.dataset.rebarIndex) - Number(b.dataset.rebarIndex));
+  }
+
+  function rebarNumberOptions(selected = '#8') {
+    return Object.keys(REBAR_TABLE)
+      .map(barNo => `<option${barNo === selected ? ' selected' : ''}>${barNo}</option>`)
+      .join('');
+  }
+
+  function updateRebarLayerControls(side) {
+    const count = getRebarLayerElements(side).length;
+    const label = $(`${side}LayerCount`);
+    const add = $(`btnAdd${side === 'bot' ? 'Bot' : 'Top'}Layer`);
+    const remove = $(`btnRemove${side === 'bot' ? 'Bot' : 'Top'}Layer`);
+    if (label) label.textContent = `目前 ${count} 排（最多 ${MAX_REBAR_ROWS} 排）`;
+    if (add) add.disabled = count >= MAX_REBAR_ROWS;
+    if (remove) remove.disabled = count <= MIN_REBAR_ROWS;
+  }
+
+  function createRebarLayer(side, index, barNo, count = 0) {
+    const row = document.createElement('div');
+    row.className = 'form-row3 rebar-layer';
+    row.dataset.rebarSide = side;
+    row.dataset.rebarIndex = String(index);
+    row.style.cssText = 'gap:6px; margin-bottom:4px;';
+    row.innerHTML = `
+      <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">第 ${index} 排 號數</label>
+        <select id="${side}Bar${index}No">${rebarNumberOptions(barNo)}</select>
+      </div>
+      <div class="form-group" style="margin:0;"><label style="font-size:0.95em;">根數</label>
+        <input type="number" id="${side}Bar${index}N" min="0" step="1" value="${Math.max(0, Number(count) || 0)}">
+      </div>
+      <div></div>`;
+    row.querySelectorAll('input, select').forEach(el => {
+      el.addEventListener('input', calcBeam);
+      el.addEventListener('change', calcBeam);
+    });
+    return row;
+  }
+
+  function setRebarLayerCount(side, requestedCount) {
+    const container = $(`${side}RebarStack`);
+    if (!container) return 0;
+    const target = Math.max(MIN_REBAR_ROWS, Math.min(MAX_REBAR_ROWS, Number(requestedCount) || MIN_REBAR_ROWS));
+    let layers = getRebarLayerElements(side);
+    while (layers.length < target) {
+      const index = layers.length + 1;
+      const previousNo = layers[layers.length - 1]?.querySelector('select')?.value || (side === 'bot' ? '#8' : '#7');
+      container.appendChild(createRebarLayer(side, index, previousNo, 0));
+      layers = getRebarLayerElements(side);
+    }
+    while (layers.length > target) {
+      layers[layers.length - 1].remove();
+      layers = getRebarLayerElements(side);
+    }
+    updateRebarLayerControls(side);
+    syncDesignFields();
+    return layers.length;
+  }
+
+  function readRebarLayerInputs(side) {
+    const layers = getRebarLayerElements(side);
+    return {
+      barNos: layers.map(row => row.querySelector('select')?.value || '#8'),
+      counts: layers.map(row => {
+        const value = Number(row.querySelector('input')?.value);
+        return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+      }),
+    };
+  }
+
+  function writeRebarLayerCounts(side, counts) {
+    const layers = getRebarLayerElements(side);
+    layers.forEach((row, index) => {
+      const input = row.querySelector('input');
+      if (input) input.value = Math.max(0, Number(counts[index]) || 0);
+    });
+  }
+
+  function ensureProjectRebarLayers(fields = {}) {
+    ['bot', 'top'].forEach(side => {
+      const pattern = new RegExp(`^${side}Bar(\\d+)(?:No|N)$`);
+      const savedRows = Object.keys(fields)
+        .map(id => id.match(pattern))
+        .filter(Boolean)
+        .map(match => Number(match[1]));
+      setRebarLayerCount(side, savedRows.length ? Math.max(...savedRows) : MIN_REBAR_ROWS);
+    });
+  }
+
+  function bindRebarLayerControls() {
+    [['bot', 'Bot'], ['top', 'Top']].forEach(([side, cap]) => {
+      $(`btnAdd${cap}Layer`)?.addEventListener('click', () => {
+        setRebarLayerCount(side, getRebarLayerElements(side).length + 1);
+        calcBeam();
+      });
+      $(`btnRemove${cap}Layer`)?.addEventListener('click', () => {
+        setRebarLayerCount(side, getRebarLayerElements(side).length - 1);
+        calcBeam();
+      });
+      updateRebarLayerControls(side);
+    });
+  }
+
+  function renderBeamApplicability(applicability) {
+    const notice = $('deepBeamNotice');
+    if (!notice || !applicability) return;
+    notice.classList.remove('ok', 'fail');
+    if (applicability.status === 'deep-beam') {
+      notice.classList.add('fail');
+      const tieDbForHandoff = REBAR_TABLE[$('stirrup')?.value]?.db || 0;
+      const bottomOuterBarNo = getRebarLayerElements('bot')[0]?.querySelector('select')?.value;
+      const bottomOuterDb = REBAR_TABLE[bottomOuterBarNo]?.db || 0;
+      const query = new URLSearchParams({
+        h: String(num('h')),
+        ln: String(num('ln')),
+        bw: String(num('bw')),
+        d: String(Math.max(0, num('h') - num('cover') - tieDbForHandoff - bottomOuterDb / 2)),
+        z: String(Math.max(0, num('h') - 2 * num('cover'))),
+        fc: String(num('fc')),
+        fy: String(num('fy')),
+        Pu: String(Math.max(0, num('Vu') * 2)),
+      });
+      notice.innerHTML = `<strong>深梁：一般梁法不適用</strong><br>${applicability.reason}<br>須依規範 9.9 考慮非線性應變，或依第 23 章採壓拉桿模型。<br><a class="deep-beam-tool-link" href="deep-beam-stm.html?${query.toString()}">開啟對稱單跨深梁 STM 工具</a>`;
+    } else if (applicability.status === 'ordinary-beam') {
+      notice.classList.add('ok');
+      notice.innerHTML = `<strong>一般梁跨深比條件未觸發深梁</strong><br>${applicability.reason}`;
+    } else {
+      notice.classList.add('fail');
+      notice.textContent = applicability.reason || '梁方法適用性輸入無效。';
+    }
+  }
 
   const BEAM_PROJECT_SCHEMA = 'rc-beam-project-v1';
   const BEAM_PROJECT_STORAGE_KEY = 'rc.beam.project.draft';
@@ -1050,6 +1257,7 @@
     const payload = normalizeBeamProjectPayload(raw);
     const previous = options.skipReplayCheck ? null : collectBeamProjectData();
     setBeamMode(payload.mode, { recalculate: false, applyPanel: false });
+    ensureProjectRebarLayers(payload.fields);
     let applied = 0;
     Object.entries(payload.fields).forEach(([id, saved]) => {
       if (setBeamProjectControl(id, saved)) applied += 1;
@@ -1143,7 +1351,7 @@
     const mprFactor = Math.max(1, parseFloat($('beamJointMprFactor')?.value) || 1.25);
     const fyProb = opt.fy * mprFactor;
     const flexProb = calcFlexureData({
-      sectionType: opt.sectionType, bw: opt.bw, bf: opt.bf, hf: opt.hf, h: opt.h, fc: opt.fc,
+      sectionType: opt.sectionType, support:opt.support, bw: opt.bw, bf: opt.bf, hf: opt.hf, h: opt.h, fc: opt.fc,
       fy: fyProb, beta1: opt.beta1, botStack: opt.botStack, topStack: opt.topStack,
       AsBot: opt.AsBot, AsTop: opt.AsTop, d_pos: opt.d_pos, d_neg: opt.d_neg
     });
@@ -1283,10 +1491,7 @@
   }
 
   function calcPhiFromEpsT(epsT, fy) {
-    const epsY = fy / 2.04e6;
-    if (epsT >= 0.005) return PHI.tension;
-    if (epsT <= epsY) return 0.65;
-    return 0.65 + (PHI.tension - 0.65) * (epsT - epsY) / (0.005 - epsY);
+    return Flexure.phiFlexure(epsT, fy);
   }
 
   function solveTrialFlexure({ sectionType, direction, h, bw, bf, hf, fc, fy, beta1, dEff, AsTension, AsComp = 0, dComp = 0 }) {
@@ -1426,50 +1631,76 @@
     };
   }
 
-  function calcAsMinInfo(sectionType, direction, bw, bf, d, fc, fy) {
+  function calcAsMinInfo(sectionType, direction, support, bw, bf, d, fc, fy) {
     const flangeInTension = sectionType !== 'rect' && direction === 'neg';
     const flangeInCompression = sectionType !== 'rect' && direction === 'pos';
-    const bAsMin = flangeInTension ? Math.min(bf, 2 * bw) : bw;
-    const coef = Math.max(0.8 * Math.sqrt(fc) / fy, 14 / fy);
+    const staticallyDeterminate = support === 'simple' || support === 'cantilever';
+    const flangeTensionSpecial = flangeInTension && staticallyDeterminate;
+    const bAsMin = flangeTensionSpecial ? Math.min(bf, 2 * bw) : bw;
+    const fyForAsMin = Math.min(fy, 5600);
+    const coef = Math.max(0.8 * Math.sqrt(fc) / fyForAsMin, 14 / fyForAsMin);
     const tensionFace = direction === 'pos' ? '底拉' : '頂拉';
-    const bSource = flangeInTension ? 'flange-tension' : flangeInCompression ? 'web-tension' : 'rect';
-    const bSourceText = flangeInTension
-      ? `T/L 梁 ${tensionFace}，翼板受拉，b 取 min(bf, 2bw) = min(${bf}, ${2*bw})`
-      : flangeInCompression
-        ? `T/L 梁 ${tensionFace}，翼板受壓，受拉區在腹板，b 取 bw`
-        : `矩形梁 ${tensionFace}，b 取 bw`;
+    const bSource = flangeTensionSpecial ? 'flange-tension-determinate' : flangeInTension ? 'flange-tension-indeterminate' : flangeInCompression ? 'web-tension' : 'rect';
+    const bSourceText = flangeTensionSpecial
+      ? `T/L 梁 ${tensionFace}，翼板受拉且屬靜定梁，b 取 min(bf, 2bw) = min(${bf}, ${2*bw})`
+      : flangeInTension
+        ? `T/L 梁 ${tensionFace}，翼板受拉但非靜定梁，b 取 bw`
+        : flangeInCompression
+          ? `T/L 梁 ${tensionFace}，翼板受壓，受拉區在腹板，b 取 bw`
+          : `矩形梁 ${tensionFace}，b 取 bw`;
     return {
       AsMin: coef * bAsMin * d,
       bAsMin,
       coef,
+      fyForAsMin,
       flangeInTension,
       flangeInCompression,
+      flangeTensionSpecial,
+      staticallyDeterminate,
       tensionFace,
       bSource,
       bSourceText
     };
   }
 
-  function calcAsMinCheck(provided, asMin, asFlexReq) {
+  function calcSmrfLongitudinalRatioLimit(fc, fy) {
+    return Math.min((Math.sqrt(fc) + 100) / (4 * fy), 0.025);
+  }
+
+  function requiredAsWithMinimumClause(asFlexReq, asMin, seismic) {
+    const required = Math.max(Number(asFlexReq) || 0, 0);
+    if (seismic) return Math.max(required, asMin);
+    if (required <= 0) return 0;
+    return Math.max(required, Math.min(asMin, (4 / 3) * required));
+  }
+
+  function calcAsMinCheck(provided, asMin, asFlexReq, allowWaiver = true, minimumRequired = true) {
     const tol = 1e-6;
-    const waiverReq = 1.33 * Math.max(asFlexReq || 0, 0);
+    const waiverReq = (4 / 3) * Math.max(asFlexReq || 0, 0);
+    if (!minimumRequired) {
+      return { ok:true, mode:'not-required', byAsMin:false, byWaiver:false, waiverAllowed:allowWaiver,
+        waiverReq, asFlexReq, text:'該方向無分析拉力筋需求，9.6.1.1 不適用' };
+    }
     const byAsMin = provided + tol >= asMin;
-    const byWaiver = provided + tol >= waiverReq;
+    const byWaiver = allowWaiver && provided + tol >= waiverReq;
     const ok = byAsMin || byWaiver;
     const mode = byAsMin ? 'asmin' : byWaiver ? 'waiver' : 'fail';
     const text = byAsMin
       ? `${provided.toFixed(2)} / As,min ${asMin.toFixed(2)} cm²`
       : byWaiver
-        ? `${provided.toFixed(2)} < As,min ${asMin.toFixed(2)}；但 ≥ 1.33As需求 ${waiverReq.toFixed(2)} cm²`
-        : `${provided.toFixed(2)} < As,min ${asMin.toFixed(2)}；且 < 1.33As需求 ${waiverReq.toFixed(2)} cm²`;
-    return { ok, mode, byAsMin, byWaiver: !byAsMin && byWaiver, waiverReq, asFlexReq, text };
+        ? `${provided.toFixed(2)} < As,min ${asMin.toFixed(2)}；但 ≥ 4/3 As需求 ${waiverReq.toFixed(2)} cm²`
+        : allowWaiver
+          ? `${provided.toFixed(2)} < As,min ${asMin.toFixed(2)}；且 < 4/3 As需求 ${waiverReq.toFixed(2)} cm²`
+          : `${provided.toFixed(2)} < As,min ${asMin.toFixed(2)}；SMRF 依 18.3.3.1 須直接符合 As,min`;
+    return { ok, mode, byAsMin, byWaiver: !byAsMin && byWaiver, waiverAllowed:allowWaiver,
+      waiverReq, asFlexReq, text };
   }
 
   function calcShearSizeFactor(d) {
     return Math.min(1, Math.sqrt(2 / (1 + Math.max(d, 0) / 25)));
   }
 
-  function calcFlexureData({ sectionType, bw, bf, hf, h, fc, fy, beta1, botStack, topStack, AsBot, AsTop, d_pos, d_neg }) {
+  function calcFlexureData({ sectionType, support, bw, bf, hf, h, fc, fy, beta1, botStack, topStack, AsBot, AsTop, d_pos, d_neg }) {
     const computeDir = (direction) => {
       const layers = [];
       if (direction === 'pos') {
@@ -1493,9 +1724,11 @@
     const phiMnNeg = resNeg.phiMn_kgcm / 1e5;
     const rhoPos = AsBot / (bw * d_pos);
     const rhoNeg = AsTop / (bw * d_neg);
-    const rhoMax = 0.85 * beta1 * (fc / fy) * (0.003 / (0.003 + 0.005));
-    const AsMinPosInfo = calcAsMinInfo(sectionType, 'pos', bw, bf, d_pos, fc, fy);
-    const AsMinNegInfo = calcAsMinInfo(sectionType, 'neg', bw, bf, d_neg, fc, fy);
+    const epsTy = Flexure.yieldStrain(fy);
+    const epsTLimit = Flexure.tensionControlledStrainLimit(fy);
+    const rhoMax = 0.85 * beta1 * (fc / fy) * (0.003 / (0.003 + epsTLimit));
+    const AsMinPosInfo = calcAsMinInfo(sectionType, 'pos', support, bw, bf, d_pos, fc, fy);
+    const AsMinNegInfo = calcAsMinInfo(sectionType, 'neg', support, bw, bf, d_neg, fc, fy);
     const AsMinPos = AsMinPosInfo.AsMin;
     const AsMinNeg = AsMinNegInfo.AsMin;
     const fr = 2 * Math.sqrt(fc);
@@ -1523,7 +1756,7 @@
       MnPos_raw: resPos.Mn_kgcm / 1e5,
       MnNeg_raw: resNeg.Mn_kgcm / 1e5,
       aPos: resPos.a, aNeg: resNeg.a,
-      rhoPos, rhoNeg, rhoMax, AsMinPos, AsMinNeg, AsMinPosInfo, AsMinNegInfo,
+      rhoPos, rhoNeg, rhoMax, epsTy, epsTLimit, AsMinPos, AsMinNeg, AsMinPosInfo, AsMinNegInfo,
       fr, Ig, yt_pos, yt_neg,
       Mcr_pos_kgcm, Mcr_neg_kgcm,
       Mcr_pos: Mcr_pos_kgcm / 1e5, Mcr_neg: Mcr_neg_kgcm / 1e5
@@ -1631,7 +1864,7 @@
     };
   }
 
-  function calcSeismicData({ seismic, rhoPos, rhoNeg, botNs, topNs, okBw, bw, colW, d, fy, botStack, topStack, MnPos_raw, MnNeg_raw, h, ln, smrfMnMin, firstHoopDist }) {
+  function calcSeismicData({ seismic, rhoPos, rhoNeg, botNs, topNs, okBw, bw, colW, d, fc, fy, botStack, topStack, MnPos_raw, MnNeg_raw, h, ln, smrfMnMin, firstHoopDist }) {
     if (!seismic) return null;
     const totBot = botNs.reduce((a, b) => a + b, 0);
     const totTop = topNs.reduce((a, b) => a + b, 0);
@@ -1644,9 +1877,11 @@
     const okMnQuarter = hasMnQuarterInput ? smrfMnMin + 1e-6 >= mnQuarterReq : null;
     const hasFirstHoopInput = firstHoopDist != null;
     const okFirstHoop = hasFirstHoopInput ? firstHoopDist <= 5 + 1e-6 : null;
+    const rhoSmrfLimit = calcSmrfLongitudinalRatioLimit(fc, fy);
     return {
-      okSRhoPos: rhoPos <= 0.025,
-      okSRhoNeg: rhoNeg <= 0.025,
+      rhoSmrfLimit,
+      okSRhoPos: rhoPos <= rhoSmrfLimit + 1e-9,
+      okSRhoNeg: rhoNeg <= rhoSmrfLimit + 1e-9,
       totBot, totTop,
       ok2Bar: totBot >= 2 && totTop >= 2,
       okSBw: okBw,
@@ -1714,6 +1949,38 @@
     return (counts || []).map((count, index) => count > 0 ? `第${index + 1}排 ${count}-${barNo}` : '').filter(Boolean).join('＋') || '—';
   }
 
+  function renderBeamRebarFeasibleRanges(result) {
+    const host = $('beamRebarFeasibleRanges');
+    if (!host) return;
+    const rows = result?.rows || [];
+    if (!rows.length) {
+      host.innerHTML = `<div class="rebar-range-heading"><strong>主筋可行支數區間</strong></div><p class="rebar-range-note">${result?.reason || '尚無可計算的支數區間。'}</p>`;
+      return;
+    }
+    const arrangement = counts => (counts || []).filter(Boolean).join('+') || '—';
+    const body = rows.map(row => {
+      const lower = row.minBars == null ? '—' : row.minBars;
+      const upper = row.codeMaxBars == null ? '—' : row.codeMaxBars;
+      const basis = row.minMode === 'four-thirds' ? '4/3 As需求例外'
+        : row.minMode === 'not-required' ? '該向無分析需求' : 'As,min';
+      return `<tr class="${row.feasible ? '' : 'range-ng'}">
+        <td>${row.face}</td><td>${row.barNo}</td><td>${row.barArea.toFixed(2)}</td>
+        <td><strong>${lower}</strong></td><td>${row.minBars == null ? '無可行值' : basis}</td>
+        <td><strong>${upper}</strong></td><td>${row.geometryMaxBars ?? '—'}</td><td>${row.capPerLayer}</td>
+        <td class="range-arrangement">${row.minCounts ? arrangement(row.minCounts) : '斷面無可行配置'}</td>
+      </tr>`;
+    }).join('');
+    host.innerHTML = `
+      <div class="rebar-range-heading"><strong>主筋可行支數區間</strong><span class="hint">箍筋採 ${result.tieBar}</span></div>
+      <div style="overflow-x:auto;">
+        <table class="rebar-range-table">
+          <thead><tr><th>受拉面</th><th>號數</th><th>Ab<br>(cm²)</th><th>可用最少<br>(支)</th><th>下限控制</th><th>規範最多<br>(支)</th><th>幾何最多<br>(支)</th><th>每排最多</th><th>最少支數排列</th></tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>
+      <p class="rebar-range-note">可用最少支數同時滿足彎矩需求、最小撓曲鋼筋條文、裂縫間距與縱向主筋上限；規範最多支數依 εt ≥ εty+0.003，SMRF 另同時受 18.3.3.1 鋼筋比上限控制。各受拉面均連同目前另一側鋼筋逐案重算，另一側配置變更時區間也會更新。此表供 HTML 選筋，不寫入正式計算書；正式計算書只列最後採用配置及其檢核。</p>`;
+  }
+
   function renderBeamRebarDesignCandidates(result) {
     const host = $('beamRebarDesignCandidates');
     if (!host) return;
@@ -1750,7 +2017,10 @@
   function applyBeamRebarCandidate(index) {
     const candidate = window.beamLast?.designSearch?.candidates?.[Number(index)];
     if (!candidate) return false;
-    [0, 1, 2].forEach(layer => {
+    const candidateRows = Math.max(candidate.bottomCounts.length, candidate.topCounts.length, MIN_REBAR_ROWS);
+    setRebarLayerCount('bot', candidateRows);
+    setRebarLayerCount('top', candidateRows);
+    Array.from({ length:candidateRows }).forEach((_, layer) => {
       const suffix = layer + 1;
       const bottomNo = $(`botBar${suffix}No`), bottomN = $(`botBar${suffix}N`);
       const topNo = $(`topBar${suffix}No`), topN = $(`topBar${suffix}N`);
@@ -1795,16 +2065,17 @@
     return { Astot, dCentroid: Astot > 0 ? M1 / Astot : 0, dbOuter };
   }
 
-  // 依排次計算每排距「該面 (頂或底)」的距離
-  // i = 0,1,2 → 第 1, 2, 3 排
+  // 依排次計算每排距「該面 (頂或底)」的距離；排數由操作畫面動態決定。
   function buildRebarStack(barNos, nBars, cover, tieDb, sv) {
     const out = [];
     let usedDepth = cover + tieDb;  // 從面起算
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < barNos.length; i++) {
       const n = nBars[i] || 0;
       const barNo = barNos[i];
-      const db = REBAR_TABLE[barNo].db;
-      const ab = REBAR_TABLE[barNo].area;
+      const bar = REBAR_TABLE[barNo];
+      if (!bar) continue;
+      const db = bar.db;
+      const ab = bar.area;
       if (i === 0) {
         usedDepth += db / 2;
       } else {
@@ -1820,11 +2091,9 @@
   let currentMode = 'design';
   let adoptedBeamForceImport = null;
   // 設計模式：根數欄位設為 readonly + 灰色，由 calcBeam 自動寫入；檢核模式可手動編輯
-  const REBAR_N_IDS = ['botBar1N','botBar2N','botBar3N','topBar1N','topBar2N','topBar3N'];
   function syncDesignFields() {
     const isDesign = (currentMode === 'design');
-    REBAR_N_IDS.forEach(id => {
-      const el = $(id); if (!el) return;
+    document.querySelectorAll('#botRebarStack input[id$="N"], #topRebarStack input[id$="N"]').forEach(el => {
       el.readOnly = isDesign;
       el.style.background = isDesign ? '#f1f5f9' : '';
       el.style.color = isDesign ? '#475569' : '';
@@ -1983,6 +2252,10 @@
     const support = $('support').value;
     const fc = num('fc'), fy = num('fy'), fyt = num('fyt');
     const bw = num('bw'), h = num('h'), ln = num('ln');
+    const deepLoadDistance = optNum('deepLoadDistance');
+    const beamApplicability = window.BeamApplicability?.assess({ h, ln, loadDistance:deepLoadDistance })
+      || { status:'invalid-input', methodApplicable:false, deepBeam:null, reason:'深梁適用性模組未載入。' };
+    renderBeamApplicability(beamApplicability);
     const bf = num('bf'), hf = num('hf');
     const cover = num('cover');
     const sv = Math.max(num('layerSv'), 0.1);
@@ -1993,11 +2266,13 @@
     const Tu = num('Tu') * 1e5;
     const Ve = num('Ve') * 1000;
     const beta1 = calcBeta1(fc);
-    // 多排筋輸入
-    const botBarNos = [$('botBar1No').value, $('botBar2No').value, $('botBar3No').value];
-    const botNs     = [num('botBar1N'),       num('botBar2N'),       num('botBar3N')];
-    const topBarNos = [$('topBar1No').value, $('topBar2No').value, $('topBar3No').value];
-    const topNs     = [num('topBar1N'),       num('topBar2N'),       num('topBar3N')];
+    // 多排筋輸入（前三排 ID 保留供舊專案檔使用；第 4 排起為動態欄位）
+    const bottomLayersInput = readRebarLayerInputs('bot');
+    const topLayersInput = readRebarLayerInputs('top');
+    const botBarNos = bottomLayersInput.barNos;
+    const botNs = bottomLayersInput.counts;
+    const topBarNos = topLayersInput.barNos;
+    const topNs = topLayersInput.counts;
 
     // === 排內最大根數 (受 bw、cover、箍筋、主筋直徑、淨距下限限制) ===
     // 規範 25.2.1：主筋淨距 ≥ max(db, 2.5 cm, 4/3·骨材)；台灣實務常用 4 cm
@@ -2014,57 +2289,57 @@
     let designInfeasible = false;  // cap < 2 時標記斷面不足
     if (currentMode === 'design') {
       const tieDb_est = tieDb_global;
-      const ab1Bot = REBAR_TABLE[botBarNos[0]].area;
-      const ab1Top = REBAR_TABLE[topBarNos[0]].area;
-      const ab2Bot = REBAR_TABLE[botBarNos[1]].area;
-      const ab2Top = REBAR_TABLE[topBarNos[1]].area;
-      const ab3Bot = REBAR_TABLE[botBarNos[2]].area;
-      const ab3Top = REBAR_TABLE[topBarNos[2]].area;
-      const cap1Bot = maxBarsPerLayer(REBAR_TABLE[botBarNos[0]].db);
-      const cap2Bot = maxBarsPerLayer(REBAR_TABLE[botBarNos[1]].db);
-      const cap3Bot = maxBarsPerLayer(REBAR_TABLE[botBarNos[2]].db);
-      const cap1Top = maxBarsPerLayer(REBAR_TABLE[topBarNos[0]].db);
-      const cap2Top = maxBarsPerLayer(REBAR_TABLE[topBarNos[1]].db);
-      const cap3Top = maxBarsPerLayer(REBAR_TABLE[topBarNos[2]].db);
+      const botAreas = botBarNos.map(barNo => REBAR_TABLE[barNo].area);
+      const topAreas = topBarNos.map(barNo => REBAR_TABLE[barNo].area);
+      const botCaps = botBarNos.map(barNo => maxBarsPerLayer(REBAR_TABLE[barNo].db));
+      const topCaps = topBarNos.map(barNo => maxBarsPerLayer(REBAR_TABLE[barNo].db));
       // 用估計 d (h - cover - tieDb - 第1排 db/2) 反算 As 需求
       const d_est_pos = h - cover - tieDb_est - REBAR_TABLE[botBarNos[0]].db / 2;
       const d_est_neg = h - cover - tieDb_est - REBAR_TABLE[topBarNos[0]].db / 2;
-      const fillStack = (AsReq, ab1, ab2, ab3, cap1, cap2, cap3, NsArr) => {
-        if (AsReq <= 0) { NsArr[0] = 2; NsArr[1] = 0; NsArr[2] = 0; return; }
-        // 第 1 排連 2 根都放不下 → 斷面不足
-        if (cap1 < 2) { NsArr[0] = 0; NsArr[1] = 0; NsArr[2] = 0; designInfeasible = true; return; }
-        let n1 = Math.max(2, Math.ceil(AsReq / ab1));
-        if (n1 <= cap1) { NsArr[0] = n1; NsArr[1] = 0; NsArr[2] = 0; return; }
-        // 第 1 排塞滿，剩下放第 2 排
-        NsArr[0] = cap1;
-        let remain = AsReq - cap1 * ab1;
-        if (cap2 < 2) { NsArr[1] = 0; NsArr[2] = 0; designInfeasible = true; return; }
-        let n2 = Math.max(2, Math.ceil(remain / ab2));
-        if (n2 <= cap2) { NsArr[1] = n2; NsArr[2] = 0; return; }
-        // 第 2 排塞滿，剩下放第 3 排
-        NsArr[1] = cap2;
-        remain = remain - cap2 * ab2;
-        if (cap3 < 2) { NsArr[2] = 0; designInfeasible = true; return; }
-        let n3 = Math.max(2, Math.ceil(remain / ab3));
-        NsArr[2] = Math.min(n3, cap3);
+      const fillStack = (AsReq, areas, caps, NsArr) => {
+        NsArr.fill(0);
+        if (caps[0] < 2) {
+          designInfeasible = true;
+          return;
+        }
+        if (AsReq <= 0) {
+          NsArr[0] = 2;
+          return;
+        }
+        let remain = AsReq;
+        for (let index = 0; index < NsArr.length && remain > 1e-9; index += 1) {
+          const area = areas[index];
+          const cap = caps[index];
+          if (!(area > 0) || cap < 2) {
+            designInfeasible = true;
+            break;
+          }
+          const requiredCount = Math.max(2, Math.ceil(remain / area));
+          const adoptedCount = Math.min(requiredCount, cap);
+          NsArr[index] = adoptedCount;
+          remain -= adoptedCount * area;
+        }
+        if (remain > 1e-9) designInfeasible = true;
       };
-      const AsMinEstPos = calcAsMinInfo(sectionType, 'pos', bw, bf, d_est_pos, fc, fy).AsMin;
-      const AsMinEstNeg = calcAsMinInfo(sectionType, 'neg', bw, bf, d_est_neg, fc, fy).AsMin;
-      const AsReqPosEst = calcRequiredAsByAnalysis({
+      const AsMinEstPos = calcAsMinInfo(sectionType, 'pos', support, bw, bf, d_est_pos, fc, fy).AsMin;
+      const AsMinEstNeg = calcAsMinInfo(sectionType, 'neg', support, bw, bf, d_est_neg, fc, fy).AsMin;
+      const AsFlexReqPosEst = calcRequiredAsByAnalysis({
         Mu_kgcm: MuPos,
         sectionType, direction:'pos', h, bw, bf, hf, fc, fy, beta1,
-        dEff: d_est_pos, AsMin: AsMinEstPos
+        dEff: d_est_pos, AsMin: 0
       });
-      const AsReqNegEst = calcRequiredAsByAnalysis({
+      const AsFlexReqNegEst = calcRequiredAsByAnalysis({
         Mu_kgcm: MuNeg,
         sectionType, direction:'neg', h, bw, bf, hf, fc, fy, beta1,
-        dEff: d_est_neg, AsMin: AsMinEstNeg
+        dEff: d_est_neg, AsMin: 0
       });
-      fillStack(AsReqPosEst, ab1Bot, ab2Bot, ab3Bot, cap1Bot, cap2Bot, cap3Bot, botNs);
-      fillStack(AsReqNegEst, ab1Top, ab2Top, ab3Top, cap1Top, cap2Top, cap3Top, topNs);
+      const AsReqPosEst = requiredAsWithMinimumClause(AsFlexReqPosEst, AsMinEstPos, seismic);
+      const AsReqNegEst = requiredAsWithMinimumClause(AsFlexReqNegEst, AsMinEstNeg, seismic);
+      fillStack(AsReqPosEst, botAreas, botCaps, botNs);
+      fillStack(AsReqNegEst, topAreas, topCaps, topNs);
       // 寫回 DOM (直接 .value 不會觸發 input event，避免遞迴)
-      $('botBar1N').value = botNs[0]; $('botBar2N').value = botNs[1]; $('botBar3N').value = botNs[2];
-      $('topBar1N').value = topNs[0]; $('topBar2N').value = topNs[1]; $('topBar3N').value = topNs[2];
+      writeRebarLayerCounts('bot', botNs);
+      writeRebarLayerCounts('top', topNs);
     }
     const skinNo = $('skinNo').value;
     const nSkin = num('nSkin');
@@ -2098,15 +2373,12 @@
 
     // === 撓曲 (純計算模組) ===
     const b_eff = (sectionType === 'rect') ? bw : bf;
-    const flex = calcFlexureData({ sectionType, bw, bf, hf, h, fc, fy, beta1, botStack, topStack, AsBot, AsTop, d_pos, d_neg });
-    const { resPos, resNeg, phiMnPos, phiMnNeg, aPos, aNeg, MnPos_raw, MnNeg_raw, rhoPos, rhoNeg, rhoMax, AsMinPos, AsMinNeg, AsMinPosInfo, AsMinNegInfo, fr, Ig, yt_pos, yt_neg, Mcr_pos_kgcm, Mcr_neg_kgcm, Mcr_pos, Mcr_neg } = flex;
+    const flex = calcFlexureData({ sectionType, support, bw, bf, hf, h, fc, fy, beta1, botStack, topStack, AsBot, AsTop, d_pos, d_neg });
+    const { resPos, resNeg, phiMnPos, phiMnNeg, aPos, aNeg, MnPos_raw, MnNeg_raw, rhoPos, rhoNeg, rhoMax, epsTy, epsTLimit, AsMinPos, AsMinNeg, AsMinPosInfo, AsMinNegInfo, fr, Ig, yt_pos, yt_neg, Mcr_pos_kgcm, Mcr_neg_kgcm, Mcr_pos, Mcr_neg } = flex;
     const rho = Math.max(rhoPos, rhoNeg);     // 代表值 (給 banner / 耐震)
     const AsMin = AsMinPos;  // banner 顯示用
     const Mcr = Mcr_pos;                   // 顯示用 (正彎矩方向)
     const Mcr_kgcm = Mcr_pos_kgcm;        // 向後相容 (撓度計算用)
-    const Mcr12_pos = 1.2 * Mcr_pos;
-    const Mcr12_neg = 1.2 * Mcr_neg;
-    const Mcr12 = Mcr12_pos;              // 顯示用
 
     // === 剪力 / 扭力 (純計算模組) ===
     const rhoShearCandidates = [rhoPos, rhoNeg].filter(v => Number.isFinite(v) && v > 0);
@@ -2138,10 +2410,15 @@
     const okLnRaw = ln >= 4 * d;            // 耐震規定
     const okBw = seismic ? okBwRaw : true;
     const okLn = seismic ? okLnRaw : true;
-    const okRhoMaxPos = rhoPos <= rhoMax;
-    const okRhoMaxNeg = rhoNeg <= rhoMax;
+    const okTensionPos = resPos.valid && Flexure.isTensionControlled(resPos.epsT, fy);
+    const okTensionNeg = resNeg.valid && Flexure.isTensionControlled(resNeg.epsT, fy);
+    const rhoSmrfLimit = calcSmrfLongitudinalRatioLimit(fc, fy);
+    const okSmrfRhoPos = !seismic || rhoPos <= rhoSmrfLimit + 1e-9;
+    const okSmrfRhoNeg = !seismic || rhoNeg <= rhoSmrfLimit + 1e-9;
+    const okRhoMaxPos = okTensionPos && okSmrfRhoPos;
+    const okRhoMaxNeg = okTensionNeg && okSmrfRhoNeg;
     const okRhoMax = okRhoMaxPos && okRhoMaxNeg;
-    // As,min 寬限: As ≥ 1.33×分析需求時可免 (規範 9.6.1.3 後段)
+    // As,min 寬限: As ≥ 4/3×分析需求時可免 (規範 9.6.1.3)
     const AsFlexReqPos = calcRequiredAsByAnalysis({
       Mu_kgcm: MuPos,
       sectionType, direction:'pos', h, bw, bf, hf, fc, fy, beta1,
@@ -2152,13 +2429,11 @@
       sectionType, direction:'neg', h, bw, bf, hf, fc, fy, beta1,
       dEff: d_neg, AsMin: 0
     });
-    const asMinCheckPos = calcAsMinCheck(AsBot, AsMinPos, AsFlexReqPos);
-    const asMinCheckNeg = calcAsMinCheck(AsTop, AsMinNeg, AsFlexReqNeg);
+    const asMinCheckPos = calcAsMinCheck(AsBot, AsMinPos, AsFlexReqPos, !seismic, seismic || MuPos > 1e-6);
+    const asMinCheckNeg = calcAsMinCheck(AsTop, AsMinNeg, AsFlexReqNeg, !seismic, seismic || MuNeg > 1e-6);
     const okAsMinBot = asMinCheckPos.ok;
     const okAsMinTop = asMinCheckNeg.ok;
     const okAsMin = okAsMinBot && okAsMinTop;
-    // φMn ≥ 1.2 Mcr (兩方向各用對應 Mcr)
-    const okMcr = (phiMnPos >= Mcr12_pos) && (phiMnNeg >= Mcr12_neg);
     // okHmin = 跨深比是否可免算撓度；未達 hmin 或連接易損時，需嚴謹撓度計算，不直接判 NG。
     const okHmin = enableDefl ? (!sensitive && (h >= hmin)) : true;
     const deflNeedsExact = enableDefl && !okHmin;
@@ -2198,6 +2473,8 @@
     setResult('r-rhoPos', rhoPos, '', 4);
     setResult('r-rhoNeg', rhoNeg, '', 4);
     setResult('r-AsMin', AsMinPos, 'cm²', 2);
+    setResult('r-epsTPos', resPos.epsT, '', 5);
+    setResult('r-epsTNeg', resNeg.epsT, '', 5);
     setResult('r-Mcr', Mcr, 'tf·m', 2);
     setResult('r-aPos', aPos, 'cm', 2);
     setResult('r-aNeg', aNeg, 'cm', 2);
@@ -2214,11 +2491,10 @@
       seismic
         ? (okLnRaw ? `✓ ${ln} ≥ ${(4*d).toFixed(0)}` : `✗ ${ln} < ${(4*d).toFixed(0)}`)
         : '一般梁不列為強制檢核；SMRF 才適用 18.3.2');
-    setCheck('c-rhoMaxPos', okRhoMaxPos, `${rhoPos.toFixed(4)} / ${rhoMax.toFixed(4)}`);
-    setCheck('c-rhoMaxNeg', okRhoMaxNeg, `${rhoNeg.toFixed(4)} / ${rhoMax.toFixed(4)}`);
-    setCheck('c-AsMinBot', okAsMinBot, `b=${AsMinPosInfo.bAsMin.toFixed(1)} cm (${AsMinPosInfo.bSourceText})；${asMinCheckPos.text}`);
-    setCheck('c-AsMinTop', okAsMinTop, `b=${AsMinNegInfo.bAsMin.toFixed(1)} cm (${AsMinNegInfo.bSourceText})；${asMinCheckNeg.text}`);
-    setCheck('c-Mcr', okMcr, `φMn⁺=${phiMnPos.toFixed(1)}/${Mcr12_pos.toFixed(1)}, φMn⁻=${phiMnNeg.toFixed(1)}/${Mcr12_neg.toFixed(1)}`);
+    setCheck('c-rhoMaxPos', okTensionPos, `εt⁺=${resPos.epsT.toFixed(5)} / ${epsTLimit.toFixed(5)}`);
+    setCheck('c-rhoMaxNeg', okTensionNeg, `εt⁻=${resNeg.epsT.toFixed(5)} / ${epsTLimit.toFixed(5)}`);
+    setCheck('c-AsMinBot', okAsMinBot, `fy,Asmin=${AsMinPosInfo.fyForAsMin.toFixed(0)}；b=${AsMinPosInfo.bAsMin.toFixed(1)} cm (${AsMinPosInfo.bSourceText})；${asMinCheckPos.text}`);
+    setCheck('c-AsMinTop', okAsMinTop, `fy,Asmin=${AsMinNegInfo.fyForAsMin.toFixed(0)}；b=${AsMinNegInfo.bAsMin.toFixed(1)} cm (${AsMinNegInfo.bSourceText})；${asMinCheckNeg.text}`);
     if (enableDefl) {
       // sensitive 時跨深比不適用，但這是資訊提示而非 NG
       if (sensitive) {
@@ -2289,12 +2565,12 @@
     }
 
     // === 耐震檢核 ===
-    const seismicData = calcSeismicData({ seismic, rhoPos, rhoNeg, botNs, topNs, okBw, bw, colW, d, fy, botStack, topStack, MnPos_raw, MnNeg_raw, h, ln, smrfMnMin, firstHoopDist });
+    const seismicData = calcSeismicData({ seismic, rhoPos, rhoNeg, botNs, topNs, okBw, bw, colW, d, fc, fy, botStack, topStack, MnPos_raw, MnNeg_raw, h, ln, smrfMnMin, firstHoopDist });
     if (seismicData) {
-      const { okSRhoPos, okSRhoNeg, totBot, totTop, ok2Bar, okSBw, overhang, okBwCol, dbMinAll, dbFactor, sLimit, okMnRatio, MnMax, mnQuarterReq, smrfMnMin, hasMnQuarterInput, okMnQuarter, firstHoopDist, hasFirstHoopInput, okFirstHoop, lo, sMid } = seismicData;
+      const { okSRhoPos, okSRhoNeg, rhoSmrfLimit, totBot, totTop, ok2Bar, okSBw, overhang, okBwCol, dbMinAll, dbFactor, sLimit, okMnRatio, MnMax, mnQuarterReq, smrfMnMin, hasMnQuarterInput, okMnQuarter, firstHoopDist, hasFirstHoopInput, okFirstHoop, lo, sMid } = seismicData;
 
-      setCheck('s-rhoPos', okSRhoPos, `${rhoPos.toFixed(4)} / 0.025`);
-      setCheck('s-rhoNeg', okSRhoNeg, `${rhoNeg.toFixed(4)} / 0.025`);
+      setCheck('s-rhoPos', okSRhoPos, `${rhoPos.toFixed(4)} / ${rhoSmrfLimit.toFixed(4)}`);
+      setCheck('s-rhoNeg', okSRhoNeg, `${rhoNeg.toFixed(4)} / ${rhoSmrfLimit.toFixed(4)}`);
       setCheck('s-2bar', ok2Bar, `底 ${totBot} 根 / 頂 ${totTop} 根`);
       setCheck('s-bw', okSBw, okSBw ? `✓ ${bw}` : `✗ ${bw}`);
       setCheck('s-bwCol', okBwCol, overhang === 0 ? '無突出' : `突出 ${overhang.toFixed(1)} / ${(0.75*colW).toFixed(1)}`);
@@ -2325,7 +2601,7 @@
     const hasFirstHoopInput = seismicData?.hasFirstHoopInput ?? false;
 
     const beamColumnJoint = calcBeamColumnJointData({
-      sectionType, bw, bf, hf, h, fc, fy, beta1, botStack, topStack, AsBot, AsTop,
+      sectionType, support, bw, bf, hf, h, fc, fy, beta1, botStack, topStack, AsBot, AsTop,
       d_pos, d_neg, ln, MnPos_raw, MnNeg_raw
     });
     setResult('r-jointMnb', beamColumnJoint.values.mnbControl, 'tf·m', 2);
@@ -2334,8 +2610,8 @@
     setResultText('r-jointTarget', beamColumnJoint.targetLabel);
 
     // === 設計建議 (反算 As 需求 — 兩個方向各算一次) ===
-    const AsReqPos = Math.max(AsFlexReqPos, AsMinPos);
-    const AsReqNeg = Math.max(AsFlexReqNeg, AsMinNeg);
+    const AsReqPos = requiredAsWithMinimumClause(AsFlexReqPos, AsMinPos, seismic);
+    const AsReqNeg = requiredAsWithMinimumClause(AsFlexReqNeg, AsMinNeg, seismic);
     const findCombo = (AsReq) => {
       const candidates = ['#6','#7','#8','#9','#10'];
       for (const bn of candidates) {
@@ -2431,12 +2707,16 @@
 
     // === 綜合結論 banner (依當前分頁) ===
     const bannerData = {
+      beamApplicability, methodApplicable:beamApplicability.methodApplicable, deepBeam:beamApplicability.deepBeam,
       okFlex, okFlexPos, okFlexNeg, okShear, okShearStrength, okShearMin, okShearSpacing, shearDemand, shearDemandSource,
-      okBw, okLn, okBwRaw, okLnRaw, okRhoMax, okAsMin, okHmin, okDeflOverall, deflNeedsExact, deflManualReview, deflStatusText, okCrackSpacing, needSkin, okSkin,
+      okBw, okLn, okBwRaw, okLnRaw, okRhoMax, okRhoMaxPos, okRhoMaxNeg,
+      okTensionPos, okTensionNeg, okSmrfRhoPos, okSmrfRhoNeg, rhoSmrfLimit,
+      okAsMin, okHmin, okDeflOverall, deflNeedsExact, deflManualReview, deflStatusText, okCrackSpacing, needSkin, okSkin,
       phiMnPos, phiMnNeg,
       MuPos: num('MuPos'), MuNeg: num('MuNeg'),
       phiVn: phiVn_eff/1000, Vu: num('Vu'),
-      AsBot, AsTop, AsReqPos, AsReqNeg, AsFlexReqPos, AsFlexReqNeg, rhoPos, rhoNeg, rhoMax, AsMinPos, AsMinNeg,
+      AsBot, AsTop, AsReqPos, AsReqNeg, AsFlexReqPos, AsFlexReqNeg, rhoPos, rhoNeg, rhoMax,
+      epsTPos:resPos.epsT, epsTNeg:resNeg.epsT, epsTy, epsTLimit, AsMinPos, AsMinNeg,
       AvProvidedPerS, AvMinPerS,
       torNegligible, torsionNeedsDesign, torsionStatusOk, torsionDetailOk, torsionDesignStatus, enableTorsion, enableDefl, seismic, developmentData,
       okMnQuarter, hasMnQuarterInput, okFirstHoop, hasFirstHoopInput
@@ -2453,23 +2733,25 @@
 `【1】材料常數
   fc' = ${fc} kgf/cm²    fy = ${fy} kgf/cm²
   β₁ = 0.85 − 0.05·(fc'−280)/70 = ${fmt(beta1,4)}    (規範 22.2.2.4.3)
-  ρmax = 0.85·β₁·(fc'/fy)·(0.003/(0.003+0.005))
-       = 0.85·${fmt(beta1,4)}·(${fc}/${fy})·0.375 = ${fmt(rhoMax,4)}
+  εty = ${fmt(epsTy,5)}    εt,lim = εty + 0.003 = ${fmt(epsTLimit,5)}  (規範表 21.2.2)
+  ρmax,ref = 0.85·β₁·(fc'/fy)·[0.003/(0.003+εt,lim)]
+           = ${fmt(rhoMax,4)}  (矩形單筋參考值；正式判定採實際 εt)
 
-【2】開裂彎矩 Mcr (規範 9.6.1.3)
+【2】撓度用開裂彎矩 Mcr (規範 24.2.3.5)
   fr = 2·√fc' = 2·√${fc} = ${fmt(fr,1)} kgf/cm²
   Ig = bw·h³/12 = ${bw}·${h}³/12 = ${fmt(Ig,0)} cm⁴
   yt⁺ = ${fmt(yt_pos,2)} cm (正彎矩)    yt⁻ = ${fmt(yt_neg,2)} cm (負彎矩)
   Mcr⁺ = fr·Ig/yt⁺ = ${fmt(fr,1)}·${fmt(Ig,0)}/${fmt(yt_pos,2)}
        = ${fmt(Mcr_pos_kgcm,0)} kgf·cm = ${fmt(Mcr_pos,2)} tf·m
   Mcr⁻ = fr·Ig/yt⁻ = ${fmt(Mcr_neg_kgcm,0)} kgf·cm = ${fmt(Mcr_neg,2)} tf·m
-  1.2·Mcr⁺ = ${fmt(Mcr12_pos,2)} tf·m    1.2·Mcr⁻ = ${fmt(Mcr12_neg,2)} tf·m
+  註：非預力 RC 梁之 Mcr 僅供開裂與撓度計算，不作本工具之撓曲強度下限。
 
 【3】正彎矩 +Mu (底拉，壓力面=頂)
   d⁺ = h − 底層拉力筋形心 = ${fmt(h,1)} − ${fmt(botSum.dCentroid,2)} = ${fmt(d_pos,2)} cm
   AsBot = ${fmt(AsBot,2)} cm²
   ρ⁺ = AsBot/(bw·d⁺) = ${fmt(AsBot,2)}/(${bw}·${fmt(d_pos,2)}) = ${fmt(rhoPos,4)}
-  As,min⁺ = max(0.8·√fc'/fy, 14/fy)·b·d⁺
+  fy,Asmin = min(fy, 5600) = ${fmt(AsMinPosInfo.fyForAsMin,0)} kgf/cm²
+  As,min⁺ = max(0.8·√fc'/fy,Asmin, 14/fy,Asmin)·b·d⁺
           = ${fmt(AsMinPosInfo.coef,5)}·${fmt(AsMinPosInfo.bAsMin,1)}·${fmt(d_pos,2)} = ${fmt(AsMinPos,2)} cm²
   b 取值來源：${AsMinPosInfo.bSourceText}
   a⁺ = ${fmt(aPos,2)} cm   (應變相容解)
@@ -2480,20 +2762,19 @@
   d⁻ = h − 頂層拉力筋形心 = ${fmt(h,1)} − ${fmt(topSum.dCentroid,2)} = ${fmt(d_neg,2)} cm
   AsTop = ${fmt(AsTop,2)} cm²
   ρ⁻ = AsTop/(bw·d⁻) = ${fmt(AsTop,2)}/(${bw}·${fmt(d_neg,2)}) = ${fmt(rhoNeg,4)}
-  As,min⁻ = max(0.8·√fc'/fy, 14/fy)·${fmt(AsMinNegInfo.bAsMin,1)}·d⁻ = ${fmt(AsMinNeg,2)} cm²
+  As,min⁻ = max(0.8·√fc'/fy,Asmin, 14/fy,Asmin)·${fmt(AsMinNegInfo.bAsMin,1)}·d⁻ = ${fmt(AsMinNeg,2)} cm²
   b 取值來源：${AsMinNegInfo.bSourceText}
   a⁻ = ${fmt(aNeg,2)} cm    Mn⁻ = ${fmt(MnNeg_raw,2)} tf·m    φMn⁻ = ${fmt(phiMnNeg,2)} tf·m
   檢核 φMn⁻ (${fmt(phiMnNeg,2)}) ≥ −Mu (${fmt(Mu_n,2)}) → ${okFlexNeg?'✓ OK':'✗ NG'}
 
 【5】規範附加檢核
-  ρ⁺ ≤ ρmax : ${fmt(rhoPos,4)} ≤ ${fmt(rhoMax,4)} → ${okRhoMaxPos?'✓':'✗'}
-  ρ⁻ ≤ ρmax : ${fmt(rhoNeg,4)} ≤ ${fmt(rhoMax,4)} → ${okRhoMaxNeg?'✓':'✗'}
-  AsBot ≥ As,min⁺ 或 1.33As需求⁺ : ${asMinCheckPos.text} → ${okAsMinBot?'✓':'✗'}
-  AsTop ≥ As,min⁻ 或 1.33As需求⁻ : ${asMinCheckNeg.text} → ${okAsMinTop?'✓':'✗'}
+  εt⁺ ≥ εty+0.003 : ${fmt(resPos.epsT,5)} ≥ ${fmt(epsTLimit,5)} → ${okTensionPos?'✓':'✗'}
+  εt⁻ ≥ εty+0.003 : ${fmt(resNeg.epsT,5)} ≥ ${fmt(epsTLimit,5)} → ${okTensionNeg?'✓':'✗'}
+  ${seismic ? 'SMRF 底筋須直接符合 As,min⁺' : 'AsBot ≥ As,min⁺ 或 4/3 As需求⁺'} : ${asMinCheckPos.text} → ${okAsMinBot?'✓':'✗'}
+  ${seismic ? 'SMRF 頂筋須直接符合 As,min⁻' : 'AsTop ≥ As,min⁻ 或 4/3 As需求⁻'} : ${asMinCheckNeg.text} → ${okAsMinTop?'✓':'✗'}
+  ${seismic ? `SMRF ρ⁺/ρ⁻ ≤ min[(√fc'+100)/(4fy), 0.025] = ${fmt(rhoSmrfLimit,4)} : ${fmt(rhoPos,4)}/${fmt(rhoNeg,4)} → ${(okSmrfRhoPos&&okSmrfRhoNeg)?'✓':'✗'}` : '一般梁無 18.3.3.1 SMRF 鋼筋比附加上限'}
   主筋裂縫控制 (24.3.2): smax=${fmt(crackSpacingLimit,1)} cm；${crackSpacingText} → ${okCrackSpacing === true ? '✓' : okCrackSpacing === false ? '✗' : '⚠'}
   表層筋: ${needSkin ? `${skinZoneText}；每側每區 ${nSkin} 根，需求 ≥ ${skinRequiredPerTensionFace} 根；估計間距 ${Number.isFinite(skinSpacing)?fmt(skinSpacing,1):'∞'} ≤ ${fmt(skinSpacingLimit,1)} cm → ${okSkin?'✓':'✗'}` : 'h ≤ 90 cm，免檢核'}
-  φMn ≥ 1.2 Mcr : φMn⁺=${fmt(phiMnPos,2)} ≥ 1.2Mcr⁺=${fmt(Mcr12_pos,2)} → ${phiMnPos>=Mcr12_pos?'✓':'✗'}
-                   φMn⁻=${fmt(phiMnNeg,2)} ≥ 1.2Mcr⁻=${fmt(Mcr12_neg,2)} → ${phiMnNeg>=Mcr12_neg?'✓':'✗'}
   排間淨距 sv ≥ max(2.5, db) : ${hasMultiLayer ? `${fmt(sv,2)} ≥ ${fmt(svMin,2)} → ${okLayerSpacing?'✓':'✗'}` : '單排配筋，免檢核'}
 
 【6】排內最大根數 (規範 25.2.1，淨距 ≥ max(db, ${shMin} cm))
@@ -2640,9 +2921,11 @@ ${layerBars.map(L => {
     const okFirstHoop = hasFirstHoopInput ? firstHoopDist <= 5 + 1e-6 : null;
         const lo = 2 * h, sMid = d / 2;
         const stepsSm =
-`【1】縱向鋼筋限值 (規範 18.3.3)
-  ρ⁺ = ${fmt(rhoPos,4)} ≤ 0.025 → ${rhoPos<=0.025?'✓':'✗'}
-  ρ⁻ = ${fmt(rhoNeg,4)} ≤ 0.025 → ${rhoNeg<=0.025?'✓':'✗'}
+`【1】縱向鋼筋限值 (規範 18.3.3.1)
+  ρlim = min[(√fc'+100)/(4fy), 0.025] = ${fmt(rhoSmrfLimit,4)}
+  ρ⁺ = ${fmt(rhoPos,4)} ≤ ${fmt(rhoSmrfLimit,4)} → ${okSmrfRhoPos?'✓':'✗'}
+  ρ⁻ = ${fmt(rhoNeg,4)} ≤ ${fmt(rhoSmrfLimit,4)} → ${okSmrfRhoNeg?'✓':'✗'}
+  上下筋均須直接符合 9.6.1.2 As,min，不適用 9.6.1.3 之 4/3 例外。
   上下各 ≥ 2 根：底 ${totBot} 根 / 頂 ${totTop} 根 → ${(totBot>=2&&totTop>=2)?'✓':'✗'}
 
 【2】支承斷面強度比 (規範 18.3.3.2)
@@ -2679,12 +2962,24 @@ ${layerBars.map(L => {
     }
 
     // 容量式候選只供 HTML 操作頁比較，不屬於正式計算書內容。
-    const designSearch = (currentMode === 'design' && window.BeamRebarDesigner)
+    const rebarRangeOptions = {
+      sectionType, support, bw, h, bf, hf, ln, cover, sv, shMin,
+      fc, fy, fyt, beta1,
+      MuPos:num('MuPos'), MuNeg:num('MuNeg'), Vu:num('Vu'), Pu:num('Pu'), Tu:num('Tu'), Ve:num('Ve'),
+      seismic, enableTorsion, torsionDesignStatus,
+      asFlexReqPos:AsFlexReqPos, asFlexReqNeg:AsFlexReqNeg,
+      bottomReferenceStack:botStack, topReferenceStack:topStack,
+      tieBar:stirrup, barTable:REBAR_TABLE,
+      maxRows:Math.max(botBarNos.length, topBarNos.length),
+    };
+    const rebarRanges = beamApplicability.deepBeam
+      ? { status:'not-applicable', reason:'深梁須依規範 9.9／第 23 章建立力流模型，不提供一般梁選筋區間。', rows:[] }
+      : (window.BeamRebarDesigner?.summarizeLongitudinalRanges(rebarRangeOptions)
+        || { status:'invalid-input', reason:'配筋支數模組未載入', rows:[] });
+    const designSearch = (currentMode === 'design' && window.BeamRebarDesigner && !beamApplicability.deepBeam)
       ? window.BeamRebarDesigner.search({
-          sectionType, bw, h, bf, hf, ln, cover, sv, shMin,
+          ...rebarRangeOptions,
           fc, fy, fyt, beta1,
-          MuPos:num('MuPos'), MuNeg:num('MuNeg'), Vu:num('Vu'), Pu:num('Pu'), Tu:num('Tu'), Ve:num('Ve'),
-          seismic, enableTorsion, torsionDesignStatus,
           barTable:REBAR_TABLE, limit:5,
         })
       : null;
@@ -2693,7 +2988,7 @@ ${layerBars.map(L => {
     window.beamLast = {
       // 輸入
       sectionType, support, seismic, enableTorsion, enableDefl, enableExactDefl: exactDeflEnabled, sensitive,
-      fc, fy, fyt, bw, h, ln, bf, hf, cover, sv, d, d_pos, d_neg, tieDb,
+      fc, fy, fyt, bw, h, ln, bf, hf, cover, sv, d, d_pos, d_neg, tieDb, deepLoadDistance,
       MuPos_in: num('MuPos'), MuNeg_in: num('MuNeg'),
       Vu_in: num('Vu'), Pu_in: num('Pu'), Tu_in: num('Tu'), Ve_in: num('Ve'),
       torsionDesignStatus, torsionAtPerS, torsionAl,
@@ -2701,8 +2996,9 @@ ${layerBars.map(L => {
       stirrup, legs, s, Av, colW, smrfMnMin, firstHoopDist,
       // 計算結果
       beta1, b_eff, aPos, aNeg, phiMnPos, phiMnNeg, MnPos_raw, MnNeg_raw,
-      rhoPos, rhoNeg, rhoMax, AsMinPos, AsMinNeg, AsMinPosInfo, AsMinNegInfo,
-      Mcr, Mcr_pos, Mcr_neg, Mcr12, Mcr12_pos, Mcr12_neg, fr, Ig, yt_pos, yt_neg, okMcr,
+      rhoPos, rhoNeg, rhoMax, epsTPos:resPos.epsT, epsTNeg:resNeg.epsT, epsTy, epsTLimit,
+      AsMinPos, AsMinNeg, AsMinPosInfo, AsMinNegInfo,
+      Mcr, Mcr_pos, Mcr_neg, fr, Ig, yt_pos, yt_neg,
       Vc_kgf: Vc, phiVc_kgf: phiVc, phiVs_kgf: phiVs, phiVn_kgf: phiVn_eff,
       forceVc0, shearDemand, shearDemandSource, needsMinStir, AvMinPerS, AvProvidedPerS, hasMinStir, needsShearRebar,
       okShearStrength, okShearMin, okShearSpacing,
@@ -2716,11 +3012,13 @@ ${layerBars.map(L => {
       // 設計建議
       designInfeasible: (currentMode === 'design') ? designInfeasible : false,
       AsReqPos, AsReqNeg, bestComboPos, bestComboNeg, VsReq, sFinal,
-      designSearch,
+      designSearch, rebarRanges,
       warnings, stepsVerbosity: $('stepsVerbosity')?.value || 'full',
       // 檢核
+      beamApplicability, methodApplicable:beamApplicability.methodApplicable, deepBeam:beamApplicability.deepBeam,
       okFlex, okFlexPos, okFlexNeg, okShear, okShearStrength, okShearMin, okShearSpacing,
-      okBw, okLn, okBwRaw, okLnRaw, okRhoMax, okAsMin,
+      okBw, okLn, okBwRaw, okLnRaw, okRhoMax, okRhoMaxPos, okRhoMaxNeg,
+      okTensionPos, okTensionNeg, okSmrfRhoPos, okSmrfRhoNeg, rhoSmrfLimit, okAsMin,
       okAsMinBot, okAsMinTop, asMinCheckPos, asMinCheckNeg, okHmin, okDeflOverall,
       // 握裹 / 搭接
       developmentData,
@@ -2735,6 +3033,7 @@ ${layerBars.map(L => {
       window.LoadCombo.refreshLimitStateSuggestions(window.rcBeamLoadComboConfig);
     }
     renderBeamRebarDesignCandidates(designSearch);
+    renderBeamRebarFeasibleRanges(rebarRanges);
     updateBeamAttachmentReadiness(window.beamLast);
   }
 
@@ -2841,13 +3140,14 @@ ${layerBars.map(L => {
       return window.lastBeamAttachmentReadiness;
     }
     const checks = [
+      ['一般梁方法適用性', r.methodApplicable],
       ['正彎矩強度', r.okFlexPos],
       ['負彎矩強度', r.okFlexNeg],
       ['剪力強度', r.okShear],
       ['剪力 Av,min', r.okShearMin],
       ['剪力筋間距', r.okShearSpacing],
-      ['ρ ≤ ρmax', r.okRhoMax],
-      ['As ≥ As,min', r.okAsMin],
+      [r.seismic ? '縱向主筋上限（εt / SMRF ρ）' : '拉力控制 εt', r.okRhoMax],
+      ['最小撓曲鋼筋條文', r.okAsMin],
       ['主筋裂縫間距', r.okCrackSpacing],
       ['握裹 / 搭接', r.developmentData?.okExplicit],
       ['梁幾何', r.okBw && r.okLn],
@@ -3051,8 +3351,9 @@ ${layerBars.map(L => {
       || window.RCUI.assessFormalAttachment({ project: proj, calculated: false });
 
     const layerStr = (stack) => stack
-      .filter(L => L.n > 0)
-      .map((L,i) => `第${i+1}排: ${L.n}-${L.barNo}`)
+      .map((L, index) => ({ layer: L, index }))
+      .filter(({ layer }) => layer.n > 0)
+      .map(({ layer, index }) => `第${index+1}排: ${layer.n}-${layer.barNo}`)
       .join('；') || '—';
 
     const importedForceGroup = buildBeamForceImportReportGroup(r);
@@ -3064,6 +3365,7 @@ ${layerBars.map(L => {
         { label:'有效深 d⁺ (底拉)',  value: r.d_pos.toFixed(2), unit:'cm' },
         { label:'有效深 d⁻ (頂拉)',  value: r.d_neg.toFixed(2), unit:'cm' },
         { label:'淨跨距 ℓn', value: r.ln, unit:'cm' },
+        { label:'集中載重距支承面 a_v', value:r.deepLoadDistance == null ? '未輸入' : r.deepLoadDistance, unit:r.deepLoadDistance == null ? '' : 'cm' },
         { label:'支承狀況',  value: ({simple:'簡支',oneEnd:'一端連續',bothEnd:'兩端連續',cantilever:'懸臂'})[r.support] },
         ...(r.sectionType!=='rect'?[
           { label:'翼板寬 bf', value:r.bf, unit:'cm' },
@@ -3105,18 +3407,30 @@ ${layerBars.map(L => {
     ];
 
     const checks = [
+      { group:'方法適用性 (規範 9.9.1.1)', keepTogether:true, items:[
+        { label:'一般梁平截面方法適用性',
+          formula:'深梁條件：(a) ℓn ≤ 4h；或 (b) 集中載重距支承面 a_v ≤ 2h',
+          sub:r.beamApplicability.reason,
+          value:r.methodApplicable ? '一般梁法適用' : '深梁／一般梁法不適用',
+          ok:r.methodApplicable,
+          note:r.methodApplicable
+            ? '未觸發已輸入條件之深梁判定。'
+            : '本計算之一般梁強度結果不得作為正式設計結論；須依規範 9.9 考慮全深度非線性應變，或依第 23 章採壓拉桿模型。' }
+      ]},
       { group: '撓曲檢核 (正彎矩 +Mu，底拉)', items: [
         { label:'φMn⁺ ≥ +Mu',
           formula:'多排應變相容嚴謹解；對壓力面取矩 Mn = ΣFi·yi − Cc·a/2',
           sub:`d⁺ = ${r.d_pos.toFixed(2)} cm  a⁺ = ${r.aPos.toFixed(2)} cm  AsBot = ${r.AsBot.toFixed(2)} cm²`,
           value:`φMn⁺=${r.phiMnPos.toFixed(2)} / +Mu=${r.MuPos_in.toFixed(2)}`, unit:'tf·m', ok:r.okFlexPos },
-        { label:'ρ⁺ ≤ ρmax',
-          formula:'ρmax = 0.85·β₁·(fc/fy)·(0.003/0.008)',
-          sub:`ρ⁺ = AsBot/(bw·d⁺) = ${r.AsBot.toFixed(2)}/(${r.bw}·${r.d_pos.toFixed(1)}) = ${r.rhoPos.toFixed(4)}    ρmax = ${r.rhoMax.toFixed(4)}`,
-          value:`${r.rhoPos.toFixed(4)}`, ok:(r.rhoPos<=r.rhoMax) },
-        { label:'底層 As ≥ As,min',
-          formula:'As,min = max(0.8√fc/fy, 14/fy)·b·d；若 As ≥ 1.33As需求，可免 As,min',
-          sub:`b = ${r.AsMinPosInfo.bAsMin.toFixed(1)} cm (${r.AsMinPosInfo.bSourceText})    As,min = ${r.AsMinPos.toFixed(2)} cm²    1.33As需求 = ${r.asMinCheckPos.waiverReq.toFixed(2)} cm²；判定：${r.asMinCheckPos.text}`,
+        { label:'正彎矩拉力控制',
+          formula:'規範 9.3.3、表 21.2.2：εt ≥ εty + 0.003',
+          sub:`εty = ${r.epsTy.toFixed(5)}    εt,lim = ${r.epsTLimit.toFixed(5)}    εt⁺ = ${r.epsTPos.toFixed(5)}；ρ⁺ = ${r.rhoPos.toFixed(4)}，矩形單筋參考 ρmax=${r.rhoMax.toFixed(4)}`,
+          value:`${r.epsTPos.toFixed(5)}`, ok:r.okTensionPos },
+        { label:'底筋最小量條文',
+          formula:r.seismic
+            ? '18.3.3.1：SMRF 上下筋均須直接符合 9.6.1.2；As,min = max(0.8√fc/fy,Asmin, 14/fy,Asmin)·b·d，fy,Asmin=min(fy,5600)'
+            : '9.6.1.2：As,min = max(0.8√fc/fy,Asmin, 14/fy,Asmin)·b·d，fy,Asmin=min(fy,5600)；可依 9.6.1.3 採 As ≥ 4/3 As需求',
+          sub:`fy,Asmin=${r.AsMinPosInfo.fyForAsMin.toFixed(0)}；b = ${r.AsMinPosInfo.bAsMin.toFixed(1)} cm (${r.AsMinPosInfo.bSourceText})    As,min = ${r.AsMinPos.toFixed(2)} cm²${r.seismic ? '；4/3 例外不適用' : `    4/3 As需求 = ${r.asMinCheckPos.waiverReq.toFixed(2)} cm²`}；判定：${r.asMinCheckPos.text}`,
           value:`${r.AsBot.toFixed(2)}`, unit:'cm²', ok:r.okAsMinBot }
       ]},
       { group: '撓曲檢核 (負彎矩 −Mu，頂拉)', items: [
@@ -3124,18 +3438,16 @@ ${layerBars.map(L => {
           formula:'多排應變相容嚴謹解 (倒置)',
           sub:`d⁻ = ${r.d_neg.toFixed(2)} cm  a⁻ = ${r.aNeg.toFixed(2)} cm  AsTop = ${r.AsTop.toFixed(2)} cm²`,
           value:`φMn⁻=${r.phiMnNeg.toFixed(2)} / −Mu=${r.MuNeg_in.toFixed(2)}`, unit:'tf·m', ok:r.okFlexNeg },
-        { label:'ρ⁻ ≤ ρmax',
-          formula:'ρmax = 0.85·β₁·(fc/fy)·(0.003/0.008)',
-          sub:`ρ⁻ = AsTop/(bw·d⁻) = ${r.AsTop.toFixed(2)}/(${r.bw}·${r.d_neg.toFixed(1)}) = ${r.rhoNeg.toFixed(4)}    ρmax = ${r.rhoMax.toFixed(4)}`,
-          value:`${r.rhoNeg.toFixed(4)}`, ok:(r.rhoNeg<=r.rhoMax) },
-        { label:'頂層 As ≥ As,min',
-          formula:'As,min = max(0.8√fc/fy, 14/fy)·b·d；若 As ≥ 1.33As需求，可免 As,min',
-          sub:`b = ${r.AsMinNegInfo.bAsMin.toFixed(1)} cm (${r.AsMinNegInfo.bSourceText})    As,min = ${r.AsMinNeg.toFixed(2)} cm²    1.33As需求 = ${r.asMinCheckNeg.waiverReq.toFixed(2)} cm²；判定：${r.asMinCheckNeg.text}`,
+        { label:'負彎矩拉力控制',
+          formula:'規範 9.3.3、表 21.2.2：εt ≥ εty + 0.003',
+          sub:`εty = ${r.epsTy.toFixed(5)}    εt,lim = ${r.epsTLimit.toFixed(5)}    εt⁻ = ${r.epsTNeg.toFixed(5)}；ρ⁻ = ${r.rhoNeg.toFixed(4)}，矩形單筋參考 ρmax=${r.rhoMax.toFixed(4)}`,
+          value:`${r.epsTNeg.toFixed(5)}`, ok:r.okTensionNeg },
+        { label:'頂筋最小量條文',
+          formula:r.seismic
+            ? '18.3.3.1：SMRF 上下筋均須直接符合 9.6.1.2；As,min = max(0.8√fc/fy,Asmin, 14/fy,Asmin)·b·d，fy,Asmin=min(fy,5600)'
+            : '9.6.1.2：As,min = max(0.8√fc/fy,Asmin, 14/fy,Asmin)·b·d，fy,Asmin=min(fy,5600)；可依 9.6.1.3 採 As ≥ 4/3 As需求',
+          sub:`fy,Asmin=${r.AsMinNegInfo.fyForAsMin.toFixed(0)}；b = ${r.AsMinNegInfo.bAsMin.toFixed(1)} cm (${r.AsMinNegInfo.bSourceText})    As,min = ${r.AsMinNeg.toFixed(2)} cm²${r.seismic ? '；4/3 例外不適用' : `    4/3 As需求 = ${r.asMinCheckNeg.waiverReq.toFixed(2)} cm²`}；判定：${r.asMinCheckNeg.text}`,
           value:`${r.AsTop.toFixed(2)}`, unit:'cm²', ok:r.okAsMinTop },
-        { label:'φMn ≥ 1.2 Mcr (兩向)',
-          formula:"Mcr = fr·Ig/yt    fr = 2√fc'",
-          sub:`fr = 2√${r.fc} = ${r.fr.toFixed(1)} kgf/cm²    Ig = ${r.Ig.toFixed(0)} cm⁴    yt⁺=${r.yt_pos.toFixed(2)} yt⁻=${r.yt_neg.toFixed(2)} cm    Mcr⁺=${r.Mcr_pos.toFixed(2)} Mcr⁻=${r.Mcr_neg.toFixed(2)} tf·m`,
-          value:`φMn⁺=${r.phiMnPos.toFixed(2)}/${r.Mcr12_pos.toFixed(2)}, φMn⁻=${r.phiMnNeg.toFixed(2)}/${r.Mcr12_neg.toFixed(2)}`, unit:'tf·m', ok:r.okMcr },
         { label:'排間淨距 sv',
           formula:'sv ≥ max(2.5 cm, db)  (僅多排適用)',
           sub: r.svMin > 0
@@ -3156,6 +3468,16 @@ ${layerBars.map(L => {
           sub: `${r.skinZoneText}；每側每區 ${r.nSkin} 根 ${r.skinNo}，需求 ≥ ${r.skinRequiredPerTensionFace} 根；估計間距 ${Number.isFinite(r.skinSpacing)?r.skinSpacing.toFixed(1):'∞'} / ${r.skinSpacingLimit.toFixed(1)} cm；雙側面 As=${r.skinAreaTotalBothSides.toFixed(2)} cm²`,
           value: r.okSkin ? '符合' : '不符', unit:'', ok: r.okSkin }] : [])
       ]},
+      ...(r.seismic ? [{ group:'SMRF 縱向鋼筋附加檢核 (18.3.3.1)', items:[
+        { label:'正彎矩鋼筋比上限',
+          formula:"ρlim = min[(√fc'+100)/(4fy), 0.025]  (kgf/cm²)",
+          sub:`ρ⁺ = ${r.rhoPos.toFixed(4)}；ρlim = ${r.rhoSmrfLimit.toFixed(4)}`,
+          value:`${r.rhoPos.toFixed(4)} / ${r.rhoSmrfLimit.toFixed(4)}`, ok:r.okSmrfRhoPos },
+        { label:'負彎矩鋼筋比上限',
+          formula:"ρlim = min[(√fc'+100)/(4fy), 0.025]  (kgf/cm²)",
+          sub:`ρ⁻ = ${r.rhoNeg.toFixed(4)}；ρlim = ${r.rhoSmrfLimit.toFixed(4)}`,
+          value:`${r.rhoNeg.toFixed(4)} / ${r.rhoSmrfLimit.toFixed(4)}`, ok:r.okSmrfRhoNeg }
+      ]}] : []),
       { group: '剪力檢核', items: [
         { label:'φVc',
           formula:'Vc 依 22.5.5.1；Av < Av,min 時納入 λs 尺寸效應，Av ≥ Av,min 時可採簡化式或 ρw 式',
@@ -3355,6 +3677,9 @@ ${layerBars.map(L => {
       notes: [
         `作業模式：${isDesignMode ? '設計 (依 +Mu/−Mu 反算配筋)' : '檢核 (使用者自訂配筋與規範比對)'}`,
         '規範依據：112 年混凝土結構設計規範；耐震模式採特殊抗彎矩構架 (SMRF) 梁 18.3 系列。',
+        r.methodApplicable
+          ? `方法適用性：${r.beamApplicability.reason}`
+          : '方法適用性：符合深梁條件；一般梁平截面結果不得作為正式設計結論，須另依 9.9／第 23 章完成深梁設計。',
         '檢核邊界：跨內 Mn,min 與首支箍筋距柱面若未輸入，列為人工複核；柱梁接頭區與塑鉸區實際範圍仍須由設計者依專案文件與配筋圖確認。',
         '握裹／搭接：直線錨定可自動比對 ℓd；彎鉤、機械錨定與其他端部構造列為人工複核，須依配筋圖、產品資料或專案文件確認。',
         '扭力：本頁自動判定 Tu 是否可忽略；Tu 超過門檻時承接專案 22.7 詳算結論，未輸入時列為人工複核；本頁不自動反算 At/Al。',
@@ -3381,6 +3706,10 @@ ${layerBars.map(L => {
     const manualReviewItems = collectBeamManualReviewItems(r);
     const kfmt = (label, val, unit, ok) => ({ label, val: `${Number(val).toFixed(2)} ${unit||''}`, ok });
 
+    if (tab !== 'geom' && r.methodApplicable === false) {
+      checks.push(['一般梁方法適用性', false]);
+    }
+
     if (tab === 'geom') {
       // 幾何與材料分頁：不顯示檢核，僅顯示輸入摘要
       banner.className = 'banner-status';
@@ -3406,8 +3735,8 @@ ${layerBars.map(L => {
     } else if (tab === 'flex') {
       checks.push(['φMn⁺ ≥ +Mu', r.okFlexPos]);
       checks.push(['φMn⁻ ≥ −Mu', r.okFlexNeg]);
-      checks.push(['ρ ≤ ρmax (兩向)', r.okRhoMax]);
-      checks.push(['As ≥ As,min (兩向)', r.okAsMin]);
+      checks.push([r.seismic ? '縱向主筋上限 εt / SMRF ρ (兩向)' : '拉力控制 εt (兩向)', r.okRhoMax]);
+      checks.push(['最小撓曲鋼筋條文 (兩向)', r.okAsMin]);
       checks.push(['主筋裂縫間距', r.okCrackSpacing]);
       if (r.needSkin) checks.push(['表層筋', r.okSkin]);
       if (r.developmentData?.okExplicit !== null) checks.push(['錨定/搭接', r.developmentData.okExplicit]);
@@ -3447,8 +3776,8 @@ ${layerBars.map(L => {
       checks.push(['φMn⁻ ≥ −Mu', r.okFlexNeg]);
       checks.push(['φVn ≥ Vd', r.okShear]);
       checks.push(['剪力筋細則', r.okShearMin && r.okShearSpacing]);
-      checks.push(['ρ⁺ ≤ 0.025', r.rhoPos <= 0.025]);
-      checks.push(['ρ⁻ ≤ 0.025', r.rhoNeg <= 0.025]);
+      checks.push([`ρ⁺ ≤ ${r.rhoSmrfLimit.toFixed(4)}`, r.okSmrfRhoPos]);
+      checks.push([`ρ⁻ ≤ ${r.rhoSmrfLimit.toFixed(4)}`, r.okSmrfRhoNeg]);
       checks.push(['SMRF 幾何', r.okBw && r.okLn]);
       checks.push(['跨內 Mn', r.okMnQuarter]);
       checks.push(['首支箍筋', r.okFirstHoop]);
@@ -3457,8 +3786,8 @@ ${layerBars.map(L => {
       checks.push(['φMn⁺ ≥ +Mu', r.okFlexPos]);
       checks.push(['φMn⁻ ≥ −Mu', r.okFlexNeg]);
       checks.push(['φVn ≥ Vd', r.okShear]);
-      checks.push(['ρ ≤ ρmax', r.okRhoMax]);
-      checks.push(['As ≥ As,min', r.okAsMin]);
+      checks.push([r.seismic ? '縱向主筋上限（εt / SMRF ρ）' : '拉力控制 εt', r.okRhoMax]);
+      checks.push(['最小撓曲鋼筋條文', r.okAsMin]);
       checks.push(['主筋裂縫間距', r.okCrackSpacing]);
       if (r.needSkin) checks.push(['表層筋', r.okSkin]);
       if (r.enableTorsion) checks.push([r.torsionNeedsDesign ? (r.torsionDetailOk == null ? '扭力詳算人工複核' : '22.7 扭力詳算') : '扭力門檻', r.torsionStatusOk]);
@@ -3521,10 +3850,8 @@ ${layerBars.map(L => {
     const sv = Math.max(num('layerSv'), 0.1);
 
     // 重新建立 stack (與 calcBeam 同一邏輯)
-    const botBarNos = [$('botBar1No').value, $('botBar2No').value, $('botBar3No').value];
-    const botNs     = [num('botBar1N'),       num('botBar2N'),       num('botBar3N')];
-    const topBarNos = [$('topBar1No').value, $('topBar2No').value, $('topBar3No').value];
-    const topNs     = [num('topBar1N'),       num('topBar2N'),       num('topBar3N')];
+    const { barNos:botBarNos, counts:botNs } = readRebarLayerInputs('bot');
+    const { barNos:topBarNos, counts:topNs } = readRebarLayerInputs('top');
     const botStack = buildRebarStack(botBarNos, botNs, cover, tieDb, sv);
     const topStack = buildRebarStack(topBarNos, topNs, cover, tieDb, sv);
 
@@ -3577,13 +3904,13 @@ ${layerBars.map(L => {
       }
     };
 
-    // 底層 (3 排)
+    // 底層（動態多排）
     botStack.forEach((L, i) => {
       if (L.n <= 0) return;
       const yPx = oy + drawH - L.dFromFace * scale;
       drawRow(yPx, L.n, L.db, i === 0 ? '#0e7490' : i === 1 ? '#0891b2' : '#22d3ee');
     });
-    // 頂層 (3 排)
+    // 頂層（動態多排）
     topStack.forEach((L, i) => {
       if (L.n <= 0) return;
       const yPx = oy + L.dFromFace * scale;
@@ -3735,14 +4062,16 @@ ${layerBars.map(L => {
     FormulaInfo.attach({
       'r-phiMnPos':  '正彎矩 (底拉) 嚴謹解\n多排筋 → 應變相容反覆求中性軸 c\nMn = ΣFi·yi − Cc·a/2 (對壓力面取矩)',
       'r-phiMnNeg':  '負彎矩 (頂拉) — 將梁倒置後相同算法',
-      'r-AsBot':     '底層三排主筋面積總和\nΣ ni·ab,i',
-      'r-AsTop':     '頂層三排主筋面積總和\nΣ ni·ab,i',
+      'r-AsBot':     '底層各排主筋面積總和\nΣ ni·ab,i',
+      'r-AsTop':     '頂層各排主筋面積總和\nΣ ni·ab,i',
       'r-dPos':      'd⁺ = h − Σ(As·y)/ΣAs (底層筋形心到頂面距離)',
       'r-dNeg':      'd⁻ = h − Σ(As·y)/ΣAs (頂層筋形心到底面距離)',
       'r-rhoPos':    'ρ⁺ = AsBot / (bw·d⁺)',
       'r-rhoNeg':    'ρ⁻ = AsTop / (bw·d⁻)',
-      'r-AsMin':     'As,min = max(14/fy, 0.8·√fc/fy)·b·d\n矩形梁與 T/L 梁翼板受壓時 b 取 bw；T/L 梁翼板受拉時 b 取 min(bf, 2bw)\n若 As ≥ 1.33As需求，可免 As,min',
-      'r-Mcr':       '開裂彎矩 Mcr = fr·Ig / yt\nfr = 2·√fc\n規範要求 φMn ≥ 1.2·Mcr (兩向)',
+      'r-AsMin':     'As,min = max(14/fy,Asmin, 0.8·√fc/fy,Asmin)·b·d，fy,Asmin=min(fy,5600)\nT/L 梁翼板受拉且屬靜定梁時 b 取 min(bf, 2bw)，其餘取 bw\n一般梁若 As ≥ 4/3 As需求，可依 9.6.1.3 免 As,min；SMRF 依 18.3.3.1 須直接符合',
+      'r-epsTPos':   '正彎矩最外端受拉鋼筋淨拉應變；拉力控制須 εt⁺ ≥ εty+0.003',
+      'r-epsTNeg':   '負彎矩最外端受拉鋼筋淨拉應變；拉力控制須 εt⁻ ≥ εty+0.003',
+      'r-Mcr':       '開裂彎矩 Mcr = fr·Ig / yt\nfr = 2·√fc\n供開裂狀態與撓度計算使用',
       'r-aPos':      '正彎矩應力方塊深 a⁺ = β1·c⁺',
       'r-aNeg':      '負彎矩應力方塊深 a⁻ = β1·c⁻',
       'r-phiVn':     'φVn = φ(Vc + Vs)\nVc 依 22.5.5.1：Av < Av,min 時納入 λs，Av ≥ Av,min 時可採簡化式或 ρw 式\nVs = Av·fyt·d / s',
@@ -3774,7 +4103,7 @@ ${layerBars.map(L => {
   });
 
   // 載入時初始化 + 算一次 + 套用預設分頁顯示
-  window.addEventListener('load', () => { syncToggles(); syncDesignFields(); ingestQueryParams(); applyPanel('geom'); attachFormulaTips(); });
+  window.addEventListener('load', () => { bindRebarLayerControls(); syncToggles(); syncDesignFields(); ingestQueryParams(); applyPanel('geom'); attachFormulaTips(); });
 </script>
 <!-- ForcePicker 接收器：RC 頁面先顯示候選值，人工確認後才套用。 -->
 <script src="../../結構工具箱/core/ui/forces-receive.js"></script>

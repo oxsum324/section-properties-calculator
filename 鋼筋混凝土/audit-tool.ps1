@@ -244,6 +244,7 @@ function Save-AuditOutputs {
     loop = [bool]$Loop
     pass = ($auditFailures.Count -eq 0)
     failureCount = $auditFailures.Count
+    recordCount = $auditRecords.Count
     modules = @("beam", "column", "slab", "wall", "shear-wall", "foundation", "single-pile")
     lastSummary = $summaryPath
     lastHistorySummary = $historySummaryPath
@@ -270,11 +271,12 @@ function Run-AuditPass {
     @{ Label = "RC traceability catalog contract"; Command = "Set-Location '$toolsDir'; node '.\rc-traceability.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "RC project/report calculation fingerprint contract"; Command = "Set-Location '$toolsDir'; node '.\rc-project-fingerprint.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "Audit status metadata contract"; Command = "Set-Location '$toolsDir'; node '.\audit-status.contract.test.js'"; Workdir = $toolsDir },
+    @{ Label = "RC STM independent engineering benchmarks"; Command = "node '.\rc-stm-independent-engineering-gate.test.js'; if (`$LASTEXITCODE -ne 0) { exit `$LASTEXITCODE }"; Workdir = $toolsDir; TimeoutSeconds = 120 },
     @{ Label = "RC index menu browser smoke"; Command = "& '$toolsDir\test-rc-index-menu.ps1'"; Workdir = $toolsDir },
     @{ Label = "Beam report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\beam-report-visual.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "Beam regression and report visual smoke"; Command = "& '$toolsDir\test-beam.ps1'"; Workdir = $toolsDir },
     @{ Label = "Column report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\column-report-visual.contract.test.js'"; Workdir = $toolsDir },
-    @{ Label = "Column regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='8131'; & '$toolsDir\test-column.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
+    @{ Label = "Column regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='8131'; & '$toolsDir\test-column.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir; TimeoutSeconds = 600 },
     @{ Label = "Slab report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\slab-report-visual.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "Slab regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='8132'; & '$toolsDir\test-slab.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
     @{ Label = "Wall report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\wall-report-visual.contract.test.js'"; Workdir = $toolsDir },
@@ -291,7 +293,8 @@ function Run-AuditPass {
   )
 
   foreach ($item in $commands) {
-    Invoke-AuditCommand -Label $item.Label -Command $item.Command -Workdir $item.Workdir -RunDir $runDir
+    $timeoutSeconds = if ($null -ne $item.TimeoutSeconds) { [int]$item.TimeoutSeconds } else { 300 }
+    Invoke-AuditCommand -Label $item.Label -Command $item.Command -Workdir $item.Workdir -RunDir $runDir -TimeoutSeconds $timeoutSeconds
   }
 
   $paths = Save-AuditOutputs -RunDir $runDir -RunStamp $runStamp

@@ -255,6 +255,7 @@ function assertReportPdfTextQuality(file, title, options = {}) {
       contentBoundaryProfile: options.contentBoundaryProfile || 'traceable-calculation-book',
       projectNeedle: '__skip_project_order__',
       forbiddenNeedles: options.exclude || options.forbiddenText || [],
+      continuationContextLabels: options.continuationContextLabels || [],
     });
   } catch (err) {
     assertFn(false, `${title} PDF rendered pagination quality`, err.message);

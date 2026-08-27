@@ -25,7 +25,17 @@ assert.ok(!rcColumnAdapterSource.includes('golden'), 'RC column adapter does not
 const rcBeamAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'rc-beam-strength.js'), 'utf8');
 assert.ok(rcBeamAdapterSource.includes("../../../鋼筋混凝土/shared/flexure.js"), 'RC beam adapter exercises the production flexure core');
 assert.ok(rcBeamAdapterSource.includes("../../../鋼筋混凝土/shared/beam-evaluator.js"), 'RC beam adapter exercises the production shear evaluator');
+assert.ok(rcBeamAdapterSource.includes("../../../鋼筋混凝土/shared/beam-applicability.js"), 'RC beam adapter exercises the production deep-beam applicability core');
 assert.ok(!rcBeamAdapterSource.includes('golden'), 'RC beam adapter does not replay a golden-case fixture');
+const rcStmAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'rc-stm-strength.js'), 'utf8');
+assert.ok(rcStmAdapterSource.includes("../../../鋼筋混凝土/shared/deep-beam-stm.js"), 'RC STM adapter exercises the production deep-beam core');
+assert.ok(rcStmAdapterSource.includes("../../../鋼筋混凝土/shared/foundation-deep-beam-stm.js"), 'RC STM adapter exercises the production foundation 2D STM core');
+assert.ok(rcStmAdapterSource.includes("../../../鋼筋混凝土/shared/pile-cap-3d-stm.js"), 'RC STM adapter exercises the production pile-cap 3D STM core');
+assert.ok(rcStmAdapterSource.includes('angleOk:pass(result.checks.angleOk)'), 'RC STM adapter exposes the production 25-degree rejection branch');
+assert.ok(rcStmAdapterSource.includes('angleMarginDeg'), 'RC STM adapter exposes the signed 25-degree boundary margin');
+assert.ok(rcStmAdapterSource.includes('shear2344Margin'), 'RC STM adapter exposes the signed 23.4.4 shear-capacity margin');
+assert.ok(rcStmAdapterSource.includes('tieLayerOffsetMargin'), 'RC STM adapter exposes the signed X/Y tie-layer offset margin');
+assert.ok(!rcStmAdapterSource.includes('golden'), 'RC STM adapter does not replay a golden-case fixture');
 const rcShearWallAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'rc-shear-wall-strength.js'), 'utf8');
 assert.ok(rcShearWallAdapterSource.includes("../../../鋼筋混凝土/shared/pmsection.js"), 'RC shear-wall adapter exercises the production P-M engine');
 assert.ok(rcShearWallAdapterSource.includes("../../../鋼筋混凝土/shared/wall-base.js"), 'RC shear-wall adapter exercises the production wall base assembly');
@@ -173,20 +183,181 @@ assert.ok(!srcColumnAdapterSource.includes('golden'), 'SRC column adapter does n
 
 const result = runBenchmarks(catalog);
 assert.equal(result.status, 'ready', JSON.stringify(result.issues));
-assert.equal(result.schemaVersion, 2, 'candidate-aware independent benchmark result is versioned');
+assert.equal(result.schemaVersion, 3, 'outcome-aware independent benchmark result is versioned');
 assert.equal(result.summary.eligibleFormalRoutes, 33, 'formal route portfolio is explicit');
 assert.equal(result.summary.pilotRequired, 33, 'thirty-three independent pilot benchmarks required');
 assert.equal(result.summary.pilotVerified, 33, 'thirty-three independent pilot benchmarks verified');
 assert.equal(result.summary.independentlyVerifiedRoutes, 33, 'all thirty-three formal routes independently verified');
-assert.equal(result.summary.candidateRequired, 0, 'no non-public candidate capability remains');
-assert.equal(result.summary.candidateVerified, 0, 'no non-public candidate capability is counted');
-assert.equal(result.summary.verifiedCandidateCapabilities, 0, 'candidate coverage is empty after SRC promotion');
+assert.equal(result.summary.candidateRequired, 24, 'twenty-four supplemental STM cases require independent benchmarks');
+assert.equal(result.summary.candidateVerified, 24, 'twenty-four supplemental STM cases are independently verified');
+assert.equal(result.summary.candidatePassRequired, 15, 'fifteen supplemental STM passing cases are required');
+assert.equal(result.summary.candidatePassVerified, 15, 'fifteen supplemental STM passing cases are independently verified');
+assert.equal(result.summary.candidateRejectionRequired, 9, 'nine supplemental STM rejection cases are required');
+assert.equal(result.summary.candidateRejectionVerified, 9, 'nine supplemental STM rejection cases are independently verified');
+assert.equal(result.summary.verifiedCandidateCapabilities, 3, 'three distinct supplemental STM capabilities are covered');
 assert.equal(result.summary.priorityTargets, 0, 'no priority route remains in the independent benchmark roadmap');
 assert.equal(result.priorityTargets.some(target => target.priority === 'P0'), false, 'no P0 route remains in the independent benchmark roadmap');
 assert.equal(result.summary.issueCount, 0, 'independent pilot has no issues');
 assert.ok(result.records.every(record => record.status === 'verified'), 'every pilot record is independently verified');
 assert.ok(result.records.every(record => record.referenceType === 'closed-form-identity'), 'every pilot uses a closed-form identity');
-assert.equal(result.candidateRecords.length, 0, 'SRC is no longer held outside formal route coverage');
+assert.equal(result.candidateRecords.length, 24, 'three supplemental STM capabilities each retain representative cases, a numerical boundary triplet and an EPS inside/outside pair');
+const expectedStmCandidateAssertions = new Map([
+  ['rc-deep-beam-stm-strength', 33],
+  ['rc-deep-beam-stm-minimum-steel-four-row', 32],
+  ['rc-deep-beam-stm-reject-low-angle', 20],
+  ['rc-foundation-2d-stm-strength', 41],
+  ['rc-foundation-2d-stm-uniform-soil-2344', 41],
+  ['rc-foundation-2d-stm-reject-shear-2344', 28],
+  ['rc-pile-cap-3d-stm-strength', 59],
+  ['rc-pile-cap-3d-stm-six-pile-2344', 59],
+  ['rc-pile-cap-3d-stm-reject-tie-layer-offset', 46],
+  ['rc-deep-beam-stm-boundary-angle-below', 10],
+  ['rc-deep-beam-stm-boundary-angle-equal', 10],
+  ['rc-deep-beam-stm-boundary-angle-above', 10],
+  ['rc-foundation-2d-stm-boundary-shear-over', 15],
+  ['rc-foundation-2d-stm-boundary-shear-equal', 15],
+  ['rc-foundation-2d-stm-boundary-shear-under', 15],
+  ['rc-pile-cap-3d-stm-boundary-offset-over', 16],
+  ['rc-pile-cap-3d-stm-boundary-offset-equal', 16],
+  ['rc-pile-cap-3d-stm-boundary-offset-under', 16],
+  ['rc-deep-beam-stm-eps-angle-inside', 10],
+  ['rc-deep-beam-stm-eps-angle-outside', 10],
+  ['rc-foundation-2d-stm-eps-shear-inside', 15],
+  ['rc-foundation-2d-stm-eps-shear-outside', 15],
+  ['rc-pile-cap-3d-stm-eps-offset-inside', 16],
+  ['rc-pile-cap-3d-stm-eps-offset-outside', 16],
+]);
+for (const [id, assertionCount] of expectedStmCandidateAssertions) {
+  const record = result.candidateRecords.find(item => item.id === id);
+  assert.equal(record?.status, 'verified', `${id} closed-form benchmark is verified`);
+  assert.equal(record?.assertionCount, assertionCount, `${id} assertion coverage remains explicit`);
+}
+assert.equal(result.candidateRecords.reduce((sum, record) => sum + record.assertionCount, 0), 564, 'twenty-four STM cases provide 564 independent assertions');
+const expectedRejectionIds = catalog.candidateBenchmarks
+  .filter(item => item.expectedOutcome === 'strength-reject')
+  .map(item => item.id)
+  .sort();
+assert.deepEqual(
+  result.candidateRecords.filter(record => record.expectedOutcome === 'strength-reject').map(record => record.id).sort(),
+  expectedRejectionIds,
+  'rejection cases remain explicitly distinguished from benchmark execution failures'
+);
+const stmAdapter = require('./independent-engineering-adapters/rc-stm-strength.js');
+const candidateInput = id => catalog.candidateBenchmarks.find(item => item.id === id).input;
+const lowAngleRejection = stmAdapter.calculate(candidateInput('rc-deep-beam-stm-reject-low-angle'));
+assert.deepEqual(
+  {
+    angleOk:lowAngleRejection.angleOk,
+    tieOk:lowAngleRejection.tieOk,
+    tieLayoutOk:lowAngleRejection.tieLayoutOk,
+    strutOk:lowAngleRejection.strutOk,
+    nodesOk:lowAngleRejection.nodesOk,
+    distributionOk:lowAngleRejection.distributionOk,
+    shearLimitsOk:lowAngleRejection.shearLimitsOk,
+    strengthPass:lowAngleRejection.strengthPass,
+  },
+  { angleOk:0, tieOk:1, tieLayoutOk:1, strutOk:1, nodesOk:1, distributionOk:1, shearLimitsOk:1, strengthPass:0 },
+  'low-angle deep beam is rejected by the angle branch alone'
+);
+const shearRejection = stmAdapter.calculate(candidateInput('rc-foundation-2d-stm-reject-shear-2344'));
+assert.deepEqual(
+  {
+    angleOk:shearRejection.angleOk,
+    shear2344Required:shearRejection.shear2344Required,
+    shear2344Ok:shearRejection.shear2344Ok,
+    topologyOk:shearRejection.topologyOk,
+    tieOk:shearRejection.tieOk,
+    tieLayoutOk:shearRejection.tieLayoutOk,
+    strutOk:shearRejection.strutOk,
+    nodesOk:shearRejection.nodesOk,
+    pileEffectiveDepthOk:shearRejection.pileEffectiveDepthOk,
+    strengthPass:shearRejection.strengthPass,
+  },
+  { angleOk:1, shear2344Required:1, shear2344Ok:0, topologyOk:1, tieOk:1, tieLayoutOk:1, strutOk:1, nodesOk:1, pileEffectiveDepthOk:1, strengthPass:0 },
+  'foundation STM is rejected by the required 23.4.4 shear branch alone'
+);
+const tieLayerRejection = stmAdapter.calculate(candidateInput('rc-pile-cap-3d-stm-reject-tie-layer-offset'));
+assert.deepEqual(
+  {
+    angleOk:tieLayerRejection.angleOk,
+    shearLimitsOk:tieLayerRejection.shearLimitsOk,
+    topologyOk:tieLayerRejection.topologyOk,
+    tiesOk:tieLayerRejection.tiesOk,
+    tieLayerOffsetOk:tieLayerRejection.tieLayerOffsetOk,
+    strutOk:tieLayerRejection.strutOk,
+    nodesOk:tieLayerRejection.nodesOk,
+    pileEffectiveDepthOk:tieLayerRejection.pileEffectiveDepthOk,
+    strengthPass:tieLayerRejection.strengthPass,
+  },
+  { angleOk:1, shearLimitsOk:1, topologyOk:1, tiesOk:1, tieLayerOffsetOk:0, strutOk:1, nodesOk:1, pileEffectiveDepthOk:1, strengthPass:0 },
+  'pile-cap STM is rejected by the X/Y tie-layer compatibility branch alone'
+);
+
+const angleBoundary = [
+  stmAdapter.calculate(candidateInput('rc-deep-beam-stm-boundary-angle-below')),
+  stmAdapter.calculate(candidateInput('rc-deep-beam-stm-boundary-angle-equal')),
+  stmAdapter.calculate(candidateInput('rc-deep-beam-stm-boundary-angle-above')),
+];
+assert.ok(angleBoundary[0].angleMarginDeg < -1e-9, 'angle just below 25 degrees has a negative signed margin outside EPS');
+assert.ok(Math.abs(angleBoundary[1].angleMarginDeg) <= 1e-9, 'angle exactly at 25 degrees has a zero signed margin within EPS');
+assert.ok(angleBoundary[2].angleMarginDeg > 1e-9, 'angle just above 25 degrees has a positive signed margin outside EPS');
+assert.deepEqual(angleBoundary.map(item => item.angleOk), [0, 1, 1], '25-degree boundary is inclusive at equality');
+assert.deepEqual(angleBoundary.map(item => item.strengthPass), [0, 1, 1], 'angle boundary alone controls the final strength outcome');
+assert.ok(angleBoundary.every(item => item.tieOk && item.tieLayoutOk && item.strutOk && item.nodesOk && item.distributionOk && item.shearLimitsOk), 'all non-angle deep-beam branches remain passing across the boundary triplet');
+
+const shearBoundary = [
+  stmAdapter.calculate(candidateInput('rc-foundation-2d-stm-boundary-shear-over')),
+  stmAdapter.calculate(candidateInput('rc-foundation-2d-stm-boundary-shear-equal')),
+  stmAdapter.calculate(candidateInput('rc-foundation-2d-stm-boundary-shear-under')),
+];
+assert.ok(shearBoundary[0].shear2344Margin < -1e-9, '23.4.4 demand just over capacity has a negative signed margin outside EPS');
+assert.ok(Math.abs(shearBoundary[1].shear2344Margin) <= 1e-9, '23.4.4 demand exactly at capacity has a zero signed margin within EPS');
+assert.ok(shearBoundary[2].shear2344Margin > 1e-9, '23.4.4 demand just under capacity has a positive signed margin outside EPS');
+assert.deepEqual(shearBoundary.map(item => item.shear2344Ok), [0, 1, 1], '23.4.4 shear boundary is inclusive at equality');
+assert.deepEqual(shearBoundary.map(item => item.strengthPass), [0, 1, 1], '23.4.4 shear boundary alone controls the final strength outcome');
+assert.ok(shearBoundary.every(item => item.angleOk && item.topologyOk && item.tieOk && item.tieLayoutOk && item.strutOk && item.nodesOk && item.pileEffectiveDepthOk), 'all non-shear foundation branches remain passing across the boundary triplet');
+
+const offsetBoundary = [
+  stmAdapter.calculate(candidateInput('rc-pile-cap-3d-stm-boundary-offset-over')),
+  stmAdapter.calculate(candidateInput('rc-pile-cap-3d-stm-boundary-offset-equal')),
+  stmAdapter.calculate(candidateInput('rc-pile-cap-3d-stm-boundary-offset-under')),
+];
+assert.ok(offsetBoundary[0].tieLayerOffsetMargin < -1e-9, 'tie-layer offset just over the bar-diameter limit has a negative signed margin outside EPS');
+assert.ok(Math.abs(offsetBoundary[1].tieLayerOffsetMargin) <= 1e-9, 'tie-layer offset exactly at the bar-diameter limit has a zero signed margin within EPS');
+assert.ok(offsetBoundary[2].tieLayerOffsetMargin > 1e-9, 'tie-layer offset just under the bar-diameter limit has a positive signed margin outside EPS');
+assert.deepEqual(offsetBoundary.map(item => item.tieLayerOffsetOk), [0, 1, 1], 'tie-layer offset boundary is inclusive at equality');
+assert.deepEqual(offsetBoundary.map(item => item.strengthPass), [0, 1, 1], 'tie-layer offset boundary alone controls the final strength outcome');
+assert.ok(offsetBoundary.every(item => item.angleOk && item.shearLimitsOk && item.topologyOk && item.tiesOk && item.strutOk && item.nodesOk && item.pileEffectiveDepthOk), 'all non-offset pile-cap branches remain passing across the boundary triplet');
+
+const angleEpsPair = [
+  stmAdapter.calculate(candidateInput('rc-deep-beam-stm-eps-angle-inside')),
+  stmAdapter.calculate(candidateInput('rc-deep-beam-stm-eps-angle-outside')),
+];
+assert.ok(angleEpsPair[0].angleMarginDeg < 0 && angleEpsPair[0].angleMarginDeg >= -1e-9, 'negative angle margin inside EPS remains on the accepted side');
+assert.ok(angleEpsPair[1].angleMarginDeg < -1e-9, 'negative angle margin outside EPS remains on the rejected side');
+assert.deepEqual(angleEpsPair.map(item => item.angleOk), [1, 0], 'angle EPS pair distinguishes tolerance from mathematical equality');
+assert.deepEqual(angleEpsPair.map(item => item.strengthPass), [1, 0], 'angle EPS pair alone controls the final strength outcome');
+assert.ok(angleEpsPair.every(item => item.tieOk && item.tieLayoutOk && item.strutOk && item.nodesOk && item.distributionOk && item.shearLimitsOk), 'all non-angle deep-beam branches remain passing across the EPS pair');
+
+const shearEpsPair = [
+  stmAdapter.calculate(candidateInput('rc-foundation-2d-stm-eps-shear-inside')),
+  stmAdapter.calculate(candidateInput('rc-foundation-2d-stm-eps-shear-outside')),
+];
+assert.ok(shearEpsPair[0].shear2344Margin < 0 && shearEpsPair[0].shear2344Margin >= -1e-9, 'negative 23.4.4 shear margin inside EPS remains on the accepted side');
+assert.ok(shearEpsPair[1].shear2344Margin < -1e-9, 'negative 23.4.4 shear margin outside EPS remains on the rejected side');
+assert.deepEqual(shearEpsPair.map(item => item.shear2344Ok), [1, 0], '23.4.4 shear EPS pair distinguishes tolerance from mathematical equality');
+assert.deepEqual(shearEpsPair.map(item => item.strengthPass), [1, 0], '23.4.4 shear EPS pair alone controls the final strength outcome');
+assert.ok(shearEpsPair.every(item => item.angleOk && item.topologyOk && item.tieOk && item.tieLayoutOk && item.strutOk && item.nodesOk && item.pileEffectiveDepthOk), 'all non-shear foundation branches remain passing across the EPS pair');
+
+const offsetEpsPair = [
+  stmAdapter.calculate(candidateInput('rc-pile-cap-3d-stm-eps-offset-inside')),
+  stmAdapter.calculate(candidateInput('rc-pile-cap-3d-stm-eps-offset-outside')),
+];
+assert.ok(offsetEpsPair[0].tieLayerOffsetMargin < 0 && offsetEpsPair[0].tieLayerOffsetMargin >= -1e-9, 'negative tie-layer offset margin inside EPS remains on the accepted side');
+assert.ok(offsetEpsPair[1].tieLayerOffsetMargin < -1e-9, 'negative tie-layer offset margin outside EPS remains on the rejected side');
+assert.deepEqual(offsetEpsPair.map(item => item.tieLayerOffsetOk), [1, 0], 'tie-layer offset EPS pair distinguishes tolerance from mathematical equality');
+assert.deepEqual(offsetEpsPair.map(item => item.strengthPass), [1, 0], 'tie-layer offset EPS pair alone controls the final strength outcome');
+assert.ok(offsetEpsPair.every(item => item.angleOk && item.shearLimitsOk && item.topologyOk && item.tiesOk && item.strutOk && item.nodesOk && item.pileEffectiveDepthOk), 'all non-offset pile-cap branches remain passing across the EPS pair');
 const srcBeamRecord = result.records.find(record => record.route === '/src-beam');
 assert.equal(srcBeamRecord.status, 'verified', 'SRC formal closed-form benchmark is verified');
 assert.equal(srcBeamRecord.assertionCount, 41, 'SRC formal benchmark covers flexure, compactness, shear allocation and cap control');
@@ -207,6 +378,9 @@ const falsePositiveResult = runBenchmarks(catalog, {
         if (relativePath === 'equipment/equipment-load-core.js') production.pointLoad += 0.25;
         if (relativePath === 'independent-engineering-adapters/rc-column-pm.js') production.designM += 0.5;
         if (relativePath === 'independent-engineering-adapters/rc-beam-strength.js') production.phiVnEffective += 500;
+        if (relativePath === 'independent-engineering-adapters/rc-stm-strength.js' && input.mode === 'deep-beam') production.tieDemand += 0.5;
+        if (relativePath === 'independent-engineering-adapters/rc-stm-strength.js' && input.mode === 'foundation-2d') production.reactionTotal += 0.5;
+        if (relativePath === 'independent-engineering-adapters/rc-stm-strength.js' && input.mode === 'pile-cap-3d') production.xTieDemand += 0.5;
         if (relativePath === 'independent-engineering-adapters/rc-shear-wall-strength.js') production.sbeHoriz += 5;
         if (relativePath === 'independent-engineering-adapters/rc-wall-strength.js') production.bearingTensionBoundary.pmPhiMn += 5;
         if (relativePath === 'independent-engineering-adapters/rc-retrofit-section.js') production.columnFrpWrap.pmPhiMnConf += 5;
@@ -244,6 +418,15 @@ assert.equal(falsePositiveResult.status, 'blocked', 'independent benchmark detec
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:pointLoad')), 'production drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:designM')), 'RC column P-M production drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:phiVnEffective')), 'RC beam seismic shear drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('rc-deep-beam-stm-strength:benchmark-value-mismatch:tieDemand')), 'deep-beam STM tie-force drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('rc-deep-beam-stm-minimum-steel-four-row:benchmark-value-mismatch:tieDemand')), 'four-row deep-beam STM tie-force drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('rc-deep-beam-stm-reject-low-angle:benchmark-value-mismatch:tieDemand')), 'low-angle deep-beam rejection case still detects tie-force drift');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('rc-foundation-2d-stm-strength:benchmark-value-mismatch:reactionTotal')), 'foundation 2D STM equilibrium drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('rc-foundation-2d-stm-uniform-soil-2344:benchmark-value-mismatch:reactionTotal')), 'uniform-soil foundation STM equilibrium drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('rc-foundation-2d-stm-reject-shear-2344:benchmark-value-mismatch:reactionTotal')), 'shear-rejection foundation STM case still detects equilibrium drift');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('rc-pile-cap-3d-stm-strength:benchmark-value-mismatch:xTieDemand')), 'pile-cap 3D STM tie-force drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('rc-pile-cap-3d-stm-six-pile-2344:benchmark-value-mismatch:xTieDemand')), 'six-pile 3D STM tie-force drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('rc-pile-cap-3d-stm-reject-tie-layer-offset:benchmark-value-mismatch:xTieDemand')), 'tie-layer rejection pile-cap case still detects tie-force drift');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:sbeHoriz')), 'RC shear-wall boundary-element drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:bearingTensionBoundary.pmPhiMn')), 'RC wall tension-bending capacity drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:columnFrpWrap.pmPhiMnConf')), 'RC retrofit column P-M drift identifies the mismatched quantity');
@@ -272,6 +455,48 @@ assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-val
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:doubleReinforced490.mnRcTfM')), 'SRC formal flexural drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:officialGuideExample8.grossAreaCm2')), 'SRC column gross-area drift identifies the mismatched quantity');
 
+const falseAcceptanceResult = runBenchmarks(catalog, {
+  loadProduction(relativePath, benchmark) {
+    const realModule = require(path.join(toolsRoot, relativePath));
+    return {
+      validateInput: realModule.validateInput,
+      calculate(input) {
+        const production = realModule.calculate(input);
+        if (benchmark.expectedOutcome === 'strength-reject') production.strengthPass = 1;
+        return production;
+      }
+    };
+  }
+});
+assert.equal(falseAcceptanceResult.status, 'blocked', 'independent benchmark blocks production that falsely accepts an expected rejection case');
+for (const id of expectedRejectionIds) {
+  assert.ok(
+    falseAcceptanceResult.issues.some(issue => issue.includes(`${id}:expected-outcome-mismatch:production:actual=1:expected=0`)),
+    `${id} false acceptance is reported as an outcome mismatch`
+  );
+}
+
+const falseRejectionResult = runBenchmarks(catalog, {
+  loadProduction(relativePath, benchmark) {
+    const realModule = require(path.join(toolsRoot, relativePath));
+    return {
+      validateInput: realModule.validateInput,
+      calculate(input) {
+        const production = realModule.calculate(input);
+        if (benchmark.expectedOutcome === 'strength-pass') production.strengthPass = 0;
+        return production;
+      }
+    };
+  }
+});
+assert.equal(falseRejectionResult.status, 'blocked', 'independent benchmark blocks production that falsely rejects an expected passing case');
+for (const id of catalog.candidateBenchmarks.filter(item => item.expectedOutcome === 'strength-pass').map(item => item.id)) {
+  assert.ok(
+    falseRejectionResult.issues.some(issue => issue.includes(`${id}:expected-outcome-mismatch:production:actual=0:expected=1`)),
+    `${id} false rejection is reported as an outcome mismatch`
+  );
+}
+
 const duplicateCatalog = JSON.parse(JSON.stringify(catalog));
 duplicateCatalog.benchmarks[1].route = duplicateCatalog.benchmarks[0].route;
 assert.ok(validateCatalog(duplicateCatalog).some(issue => issue.includes('unique-route')), 'duplicate benchmark routes are rejected');
@@ -280,6 +505,24 @@ const unknownFieldCatalog = JSON.parse(JSON.stringify(catalog));
 unknownFieldCatalog.benchmarks[0].expected = 123;
 assert.ok(validateCatalog(unknownFieldCatalog).some(issue => issue.includes(':keys:')), 'unknown expected-answer fields are rejected');
 
-assert.deepEqual(catalog.candidateBenchmarks, [], 'candidate catalog remains explicitly empty after promotion');
+const missingOutcomeCatalog = JSON.parse(JSON.stringify(catalog));
+delete missingOutcomeCatalog.candidateBenchmarks[0].expectedOutcome;
+assert.ok(validateCatalog(missingOutcomeCatalog).some(issue => issue.includes('expected-outcome')), 'candidate benchmark outcome intent is required');
+
+const missingStrengthPassAssertionCatalog = JSON.parse(JSON.stringify(catalog));
+missingStrengthPassAssertionCatalog.candidateBenchmarks[0].assertions = missingStrengthPassAssertionCatalog.candidateBenchmarks[0].assertions
+  .filter(assertion => assertion.path !== 'strengthPass');
+assert.ok(validateCatalog(missingStrengthPassAssertionCatalog).some(issue => issue.includes('strength-pass-assertion-required')), 'candidate benchmarks must assert the final strength outcome');
+
+assert.deepEqual(
+  [...new Set(catalog.candidateBenchmarks.map(item => item.capability))].sort(),
+  ['rc-deep-beam-stm', 'rc-foundation-2d-stm', 'rc-pile-cap-3d-stm'],
+  'supplemental STM capabilities remain explicitly separate from formal homepage route coverage'
+);
+for (const capability of ['rc-deep-beam-stm', 'rc-foundation-2d-stm', 'rc-pile-cap-3d-stm']) {
+  assert.equal(catalog.candidateBenchmarks.filter(item => item.capability === capability).length, 8, `${capability} retains three representative cases, a numerical boundary triplet and an EPS inside/outside pair`);
+  assert.equal(catalog.candidateBenchmarks.filter(item => item.capability === capability && item.expectedOutcome === 'strength-pass').length, 5, `${capability} retains five explicit passing cases`);
+  assert.equal(catalog.candidateBenchmarks.filter(item => item.capability === capability && item.expectedOutcome === 'strength-reject').length, 3, `${capability} retains three explicit rejection cases`);
+}
 
 console.log('Independent engineering benchmarks tests passed.');

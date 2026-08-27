@@ -726,7 +726,7 @@ function openReport(cfg) {
   `).join('');
 
   const checksHtml = (cfg.checks || []).map((g, index, groups) => `
-    <section class="rep-block${index === groups.length - 1 ? ' rep-block--last-check' : ''}${index === groups.length - 1 && g.items.length <= 5 ? ' rep-block--short-tail' : ''}">
+    <section class="rep-block${index === groups.length - 1 ? ' rep-block--last-check' : ''}${index === groups.length - 1 && g.items.length <= 5 ? ' rep-block--short-tail' : ''}${g.keepTogether ? ' rep-block--keep' : ''}">
       <h3>${esc(checkGroupTitle(g.group))}</h3>
       <table class="rep-check">
         <thead>
@@ -749,9 +749,10 @@ function openReport(cfg) {
     </section>
   `).join('');
 
+  const diagramsHeading = cfg.diagramsTitle || '斷面示意圖';
   const diagramsHtml = (cfg.diagrams && cfg.diagrams.length) ? `
     <section class="rep-block rep-diagrams">
-      <h3>斷面示意圖</h3>
+      <h3>${esc(diagramsHeading)}</h3>
       <div class="rep-diagrams-grid">
         ${cfg.diagrams.map(d => `
           <figure class="rep-diagram">
