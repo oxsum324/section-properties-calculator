@@ -22,6 +22,11 @@ import type { AnchorProduct, ProjectCase } from '../src/domain'
 import { getEvaluationFieldStates } from '../src/evaluationCatalog'
 import { serializeReportDocument } from '../src/reportDocx'
 import { buildStandaloneReportHtml } from '../src/reportExport'
+import { buildReportDocumentState } from '../src/reportDocumentState'
+import {
+  buildGovernedReportText,
+  REPORT_TEXT_BOM,
+} from '../src/reportText'
 import {
   ANCHOR_APPROVAL_SEAL_SCOPE,
   ANCHOR_CONTENT_SEAL_SCOPE,
@@ -165,7 +170,7 @@ function resolveEvidenceDirectory() {
 }
 
 describe('release report artifacts', () => {
-  it('serializes and optionally preserves the actual HTML, DOCX, and XLSX reports', async () => {
+  it('serializes formal HTML, DOCX, XLSX and the governed non-formal TXT reference', async () => {
     const sourceProject = buildProject()
     const sourceProduct = defaultProducts.find(
       (item) => item.id === sourceProject.selectedProductId,
@@ -216,6 +221,18 @@ describe('release report artifacts', () => {
       sourceBatchReview.summary.formalStatus,
     )
     const html = buildStandaloneReportHtml(params)
+    const textArtifact = await buildGovernedReportText({
+      html,
+      documentState: buildReportDocumentState({
+        batchReview: params.batchReview,
+        review: params.review,
+        completeness: params.completeness,
+        reportSettings: params.reportSettings,
+      }),
+      reportGeneratedAt: REPORT_GENERATED_AT,
+      auditHash: params.auditEntry.hash,
+    })
+    const referenceText = `${REPORT_TEXT_BOM}${textArtifact.text}`
     const reviewHtml = buildStandaloneReportHtml(buildParams('review'))
     const blockedHtml = buildStandaloneReportHtml(buildParams('blocked'))
     const htmlSealVerification = verifyAnchorReportHtmlSeals(html)
@@ -264,6 +281,13 @@ describe('release report artifacts', () => {
     expect(Buffer.from(docx).subarray(0, 2).toString('ascii')).toBe('PK')
     expect(workbook.byteLength).toBeGreaterThan(4_000)
     expect(Buffer.from(workbook).subarray(0, 2).toString('ascii')).toBe('PK')
+    expect(Buffer.from(referenceText, 'utf8').subarray(0, 3)).toEqual(
+      Buffer.from([0xef, 0xbb, 0xbf]),
+    )
+    expect(referenceText).toContain('文件類別：文字備查')
+    expect(referenceText).toContain('正式附件資格：否')
+    expect(referenceText).toContain(calculationFingerprint)
+    expect(referenceText).toContain('文字內容 SHA-256（非數位簽章）')
     for (const needle of PAGE_ONLY_REPORT_STATUS_NEEDLES) {
       expect(html).not.toContain(needle)
       expect(reviewHtml).not.toContain(needle)
@@ -279,6 +303,7 @@ describe('release report artifacts', () => {
     const htmlName = `${ARTIFACT_KEY}.html`
     const docxName = `${ARTIFACT_KEY}.docx`
     const workbookName = `${ARTIFACT_KEY}.xlsx`
+    const referenceTextName = `${ARTIFACT_KEY}-reference.txt`
     const sourceBackupName = `${ARTIFACT_KEY}-source-backup.json`
     const reviewHtmlName = `${ARTIFACT_KEY}-review.html`
     const blockedHtmlName = `${ARTIFACT_KEY}-blocked.html`
@@ -299,6 +324,11 @@ describe('release report artifacts', () => {
     writeFileSync(path.join(evidenceDir, htmlName), html, 'utf8')
     writeFileSync(path.join(evidenceDir, docxName), docx)
     writeFileSync(path.join(evidenceDir, workbookName), workbook)
+    writeFileSync(
+      path.join(evidenceDir, referenceTextName),
+      referenceText,
+      'utf8',
+    )
     writeFileSync(path.join(evidenceDir, sourceBackupName), sourceBackupJson, 'utf8')
     writeFileSync(path.join(evidenceDir, reviewHtmlName), reviewHtml, 'utf8')
     writeFileSync(path.join(evidenceDir, blockedHtmlName), blockedHtml, 'utf8')
@@ -324,6 +354,12 @@ describe('release report artifacts', () => {
               workbook: workbookName,
               workbookBytes: workbook.byteLength,
               workbookSha256: sha256(workbook),
+              referenceText: referenceTextName,
+              referenceTextBytes: Buffer.byteLength(referenceText, 'utf8'),
+              referenceTextSha256: sha256(referenceText),
+              referenceTextContentSha256: textArtifact.contentSha256,
+              referenceTextRole: 'non-formal-reference-text',
+              referenceTextPackageStatus: 'blocked',
               sourceBackup: sourceBackupName,
               sourceBackupBytes: Buffer.byteLength(sourceBackupJson, 'utf8'),
               sourceBackupArtifactSha256: sha256(sourceBackupJson),

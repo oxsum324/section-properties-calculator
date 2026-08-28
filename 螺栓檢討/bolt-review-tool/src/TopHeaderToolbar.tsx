@@ -34,6 +34,7 @@ export function TopHeaderToolbar(props: {
   onPrintReport: () => void
   onPreviewReport: () => void
   onExportHtmlReport: () => Promise<void> | void
+  onExportTxtReport: () => Promise<void> | void
   onExportXlsxReport: () => Promise<void> | void
   onExportDocxReport: () => Promise<void> | void
   onRecordAuditTrailManual: () => Promise<void> | void
@@ -51,6 +52,7 @@ export function TopHeaderToolbar(props: {
     onPrintReport,
     onPreviewReport,
     onExportHtmlReport,
+    onExportTxtReport,
     onExportXlsxReport,
     onExportDocxReport,
     onRecordAuditTrailManual,
@@ -123,6 +125,15 @@ export function TopHeaderToolbar(props: {
           }}
         >
           匯出 HTML
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            void onExportTxtReport()
+          }}
+          title="下載同源文字備查；不可作為正式附件"
+        >
+          匯出 TXT 備查
         </button>
         <button
           type="button"

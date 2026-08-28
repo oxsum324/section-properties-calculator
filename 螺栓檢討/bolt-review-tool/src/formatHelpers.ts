@@ -72,7 +72,7 @@ export function formatDateTime(value?: string): string {
   })
 }
 
-/** 留痕來源代碼 → 顯示文字（手動 / 預覽 / 列印 / HTML / XLSX / DOCX）。 */
+/** 留痕來源代碼 → 顯示文字（手動 / 預覽 / 列印 / HTML / TXT / XLSX / DOCX）。 */
 export function auditSourceLabel(source: ProjectAuditSource): string {
   switch (source) {
     case 'manual':
@@ -83,6 +83,8 @@ export function auditSourceLabel(source: ProjectAuditSource): string {
       return '列印報表'
     case 'html':
       return '匯出 HTML'
+    case 'txt':
+      return '匯出 TXT 備查'
     case 'xlsx':
       return '匯出 XLSX'
     case 'docx':

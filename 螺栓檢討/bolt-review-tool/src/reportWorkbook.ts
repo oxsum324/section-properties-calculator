@@ -114,6 +114,8 @@ function auditSourceLabel(source?: ProjectAuditSource) {
       return '列印報表'
     case 'html':
       return '匯出 HTML'
+    case 'txt':
+      return '匯出 TXT 備查'
     case 'xlsx':
       return '匯出 XLSX'
     case 'docx':

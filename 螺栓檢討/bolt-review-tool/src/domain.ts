@@ -103,6 +103,7 @@ export type ProjectAuditSource =
   | 'preview'
   | 'print'
   | 'html'
+  | 'txt'
   | 'xlsx'
   | 'docx'
 

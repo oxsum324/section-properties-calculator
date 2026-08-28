@@ -43,7 +43,7 @@ function familyLabel(family: AnchorFamily): string {
  * 命令面板（Ctrl/⌘+K）指令清單建構：包含
  *   - 7 條 tab 切換 + 1 條回 hub
  *   - 最多 10 條案例 / 10 條產品快捷
- *   - 8 條動作（列印 / 預覽 / 匯出 HTML/XLSX/DOCX / 留痕 / 匯出本案 / 匯出工作區 / 顯示捷徑）
+ *   - 9 條動作（列印 / 預覽 / 匯出 HTML/TXT/XLSX/DOCX / 留痕 / 匯出本案 / 匯出工作區 / 顯示捷徑）
  *
  * 從 App.tsx 抽出（~120 行）；以 useMemo 快取，依賴變動才重建。
  */
@@ -57,6 +57,7 @@ export function useCommandPaletteCommands<TabId extends string>(deps: {
   patchProject: (patch: Partial<ProjectCase>) => void
   openStandaloneReportWindow: (autoPrint?: boolean) => Promise<void> | void
   exportHtmlReport: () => Promise<void> | void
+  exportTxtReport: () => Promise<void> | void
   exportXlsxReport: () => Promise<void> | void
   exportDocxReport: () => Promise<void> | void
   recordCurrentAuditTrail: (
@@ -76,6 +77,7 @@ export function useCommandPaletteCommands<TabId extends string>(deps: {
     patchProject,
     openStandaloneReportWindow,
     exportHtmlReport,
+    exportTxtReport,
     exportXlsxReport,
     exportDocxReport,
     recordCurrentAuditTrail,
@@ -162,6 +164,15 @@ export function useCommandPaletteCommands<TabId extends string>(deps: {
         },
       },
       {
+        id: 'action:export-txt',
+        label: '匯出 TXT 文字備查',
+        group: '動作',
+        hint: '同源純文字，不作為正式附件',
+        run: () => {
+          void exportTxtReport()
+        },
+      },
+      {
         id: 'action:export-docx',
         label: '匯出 DOCX 報告',
         group: '動作',
@@ -213,6 +224,7 @@ export function useCommandPaletteCommands<TabId extends string>(deps: {
       patchProject,
       openStandaloneReportWindow,
       exportHtmlReport,
+      exportTxtReport,
       exportXlsxReport,
       exportDocxReport,
       recordCurrentAuditTrail,

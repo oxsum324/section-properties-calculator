@@ -11,6 +11,7 @@ const vitestArgs = [
   'src/reportWorkbook.test.ts',
   'src/attachmentReadiness.test.ts',
   'src/reportDocumentState.test.ts',
+  'src/reportText.test.ts',
   'src/reportWorkspace.test.ts',
   'src/documentApproval.test.ts',
   'src/backup.test.ts',

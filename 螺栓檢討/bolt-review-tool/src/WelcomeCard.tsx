@@ -40,7 +40,7 @@ export function WelcomeCard(props: { onDismiss: () => void }) {
         </li>
         <li>
           <strong>看「結果」</strong>
-          <span>整體判定 / 逐項 DCR / 敏感度分析 / 一鍵匯出 PDF/XLSX/DOCX</span>
+          <span>整體判定 / 逐項 DCR / 敏感度分析 / 一鍵匯出 PDF/TXT/XLSX/DOCX</span>
         </li>
       </ol>
       <p className="welcome-shortcut-hint">

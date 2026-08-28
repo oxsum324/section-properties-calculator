@@ -201,7 +201,7 @@
       '/seismic-dynamic': '2026-08-29',
       '/seismic-appendage': '2026-08-29',
       '/seismic-misc': '2026-08-29',
-      '/anchor': '2026-08-19',
+      '/anchor': '2026-08-29',
       '/stone-fixing': '2026-08-28',
       '/foundation-local': '2026-08-29',
       '/equipment-load': '2026-08-29',
@@ -854,11 +854,11 @@
       categories: ['attachments'],
       state: 'formal',
       governance: 'anchor-deployment',
-      output: '錨栓破壞模式、互制與 HTML / XLSX / DOCX 報告',
+      output: '錨栓破壞模式、互制、HTML / XLSX / DOCX 報告與 TXT 文字備查',
       summary: '規範第 17 章錨栓鋼材、混凝土破壞、拉拔、剪力、互制與耐震路徑。',
       fit: '設備基座、底板錨栓與產品比選。',
       limit: '母材、施工品質與現場條件仍需工程師確認。',
-      capabilities: ['正式核算', 'HTML/XLSX/DOCX']
+      capabilities: ['正式核算', 'HTML/XLSX/DOCX', 'TXT 備查']
     },
     {
       title: '石材固定構件計算書',

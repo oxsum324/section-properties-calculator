@@ -20,7 +20,7 @@
 - 測試或程式證據
 - 人工複核邊界
 
-`src/anchorTraceabilityCatalog.test.ts` 會檢查 catalog 結構、證據檔存在、README 說明，以及核心原始碼仍保留 17.6、17.7、17.8、17.9、17.10、22.8.3 與補強鋼筋路線。repo 根層級的 `螺栓檢討/anchor-traceability.contract.test.js` 另會檢查平台 preflight、首頁 governance 與 staging / boundary 文件是否同步，讓 `anchor-traceability-contract` 成為獨立可追溯 gate；`螺栓檢討/anchor-report.contract.test.js` 則把報告匯出與附件閱讀狀態、`reportDocumentState` 文件分類、`backup.test.ts` 案例重現，以及 `tests/reportArtifacts.test.ts` 的實體產物測試收斂成平台層報告邊界 gate。正式 release 會把同一案例序列化的 HTML、DOCX、XLSX 留在當輪 `anchor-formal`，再由總閘門解析 HTML、DOCX / XLSX ZIP 內容與工作表清冊，不以通過日誌取代成品。新增計算路徑、報告段落、workbook/docx 邊界、正式產物留存或人工判斷邊界時，需同步更新 catalog 與 contract test。
+`src/anchorTraceabilityCatalog.test.ts` 會檢查 catalog 結構、證據檔存在、README 說明，以及核心原始碼仍保留 17.6、17.7、17.8、17.9、17.10、22.8.3 與補強鋼筋路線。repo 根層級的 `螺栓檢討/anchor-traceability.contract.test.js` 另會檢查平台 preflight、首頁 governance 與 staging / boundary 文件是否同步，讓 `anchor-traceability-contract` 成為獨立可追溯 gate；`螺栓檢討/anchor-report.contract.test.js` 則把報告匯出與附件閱讀狀態、`reportDocumentState` 文件分類、受治理 TXT、`backup.test.ts` 案例重現，以及 `tests/reportArtifacts.test.ts` 的實體產物測試收斂成平台層報告邊界 gate。正式 release 會把同一案例序列化的 HTML、DOCX、XLSX 與非正式 TXT 證據留在當輪 `anchor-formal`；總閘門仍只把 HTML、DOCX、XLSX 視為正式附件成品，TXT 固定以 `non-formal-reference-text` 阻擋，不以通過日誌取代成品。新增計算路徑、報告段落、workbook/docx 邊界、正式產物留存或人工判斷邊界時，需同步更新 catalog 與 contract test。
 
 正式 release 的 XLSX 另由 `結構工具箱/tools/xlsx-package-integrity.js` 驗證乾淨封裝與公式快取：9 張工作表必須全數可見，內部 DCR 重算公式必須有快取結果；外部關聯、外部公式／連線、公式錯誤、隱藏資料、批註、嵌入物件、巨集、孤兒媒體及非預期 custom XML 會阻擋放行。這些檢查只存在 release 與頁面閱讀狀態，不寫入 workbook 工作表。
 
@@ -30,7 +30,7 @@ Schema v25 另在 `Summary` 可見列保存 XLSX 內容／核可雙封印。內�
 
 同一總閘門會以共通 OOXML 規則檢查 DOCX 封裝：空白 comments 零件可接受，但實際批註／正文錨點、未接受修訂、未引用媒體或頁首頁尾、外掛範本、外部圖片、嵌入物件、巨集及非預期 custom XML 都會阻擋 release。封裝明細只留內部證據，不會加入附件正文。
 
-HTML 工作頁的產報前檢查只供操作判讀，不會整張搬入計算書。HTML、DOCX、XLSX 新輸出一律預設為可列印的「內部審閱」；勾選「本計算內容已完成審閱，核可作為正式附件」後，三種輸出都標示「正式附件」並記錄核可時間。三種下載檔名共用「計算書名稱_文件狀態_計算指紋」格式，使檔案離開工具後仍可直接辨識身分與對應留痕；同一計算內容的三種格式共用指紋，匯出格式、案件顯示名稱、設計／複核欄位、核可時間及儲存時間不改變計算指紋。DOCX 採瀏覽器相容的 Blob 序列化路徑，實際下載不得依賴 Node 專用 `nodebuffer`。計畫名稱、案號、公司、設計人、複核人及發行日期可留空，空白列省略並由主文承接。工程檢核不符仍如實列入計算書，但不會自動形成 DRAFT；文件核可也不代表工程結果 PASS。計算內容變更，或核可後再修改公司、案號、設計／複核人、發行日期、完整／摘要模式、LOGO 等會改變三種成品內容的報告設定時，既有核可會自動撤銷並清除舊核可時間；新增匯出留痕、更新衍生結果快照或儲存時間不會撤銷核可。
+HTML 工作頁的產報前檢查只供操作判讀，不會整張搬入計算書。HTML、DOCX、XLSX 新輸出一律預設為可列印的「內部審閱」；勾選「本計算內容已完成審閱，核可作為正式附件」後，三種輸出都標示「正式附件」並記錄核可時間。三種正式下載檔名共用「計算書名稱_文件狀態_計算指紋」格式，使檔案離開工具後仍可直接辨識身分與對應留痕；同一計算內容的三種格式共用指紋，匯出格式、案件顯示名稱、設計／複核欄位、核可時間及儲存時間不改變計算指紋。TXT 由同一次產生的 HTML 主文衍生，不重新計算，使用 UTF-8 BOM 並保留來源文件狀態、產出工具、版本、引擎、輸出時間、計算指紋與可重算 SHA-256；檔名另加 `_文字備查`，正文固定標示「正式附件資格：否」，不保留圖形、版面、核可控制或雙封印，也不得取代完整基礎、樓板、底板或新舊混凝土介面設計。DOCX 採瀏覽器相容的 Blob 序列化路徑，實際下載不得依賴 Node 專用 `nodebuffer`。計畫名稱、案號、公司、設計人、複核人及發行日期可留空，空白列省略並由主文承接。工程檢核不符仍如實列入計算書，但不會自動形成 DRAFT；文件核可也不代表工程結果 PASS。計算內容變更，或核可後再修改公司、案號、設計／複核人、發行日期、完整／摘要模式、LOGO 等會改變三種成品內容的報告設定時，既有核可會自動撤銷並清除舊核可時間；新增匯出留痕、更新衍生結果快照或儲存時間不會撤銷核可。
 
 工作區 JSON 自 v2 起會為每一案例保存目前採用產品、計算版本與 `evaluateProjectBatch` 重算結果的 SHA-256 指紋。匯入時先驗證 schema / 版本，再於寫入 IndexedDB 前重新計算；缺少案例、產品不符或指紋不同時完全保留原工作區。既有 v1 備份仍可匯入救回，但會移除無法覆驗的舊留痕、標示為計算版本未確認，且文件回到內部審閱。v2 案例合併時因 ID、名稱、附件識別與更新時間可能重編，來源 audit trail 與文件核可也會撤銷，避免把已失效 hash 誤認為目前案件簽章。
 

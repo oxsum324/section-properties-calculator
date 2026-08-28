@@ -123,6 +123,7 @@ const anchorPackageReadme = readText(repoFile('螺栓檢討/bolt-review-tool/REA
 const anchorReportExportTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportExport.test.ts'));
 const anchorReportDocxTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportDocx.test.ts'));
 const anchorReportWorkbookTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportWorkbook.test.ts'));
+const anchorReportTextTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportText.test.ts'));
 const anchorAttachmentReadinessTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/attachmentReadiness.test.ts'));
 const anchorBackup = readText(repoFile('螺栓檢討/bolt-review-tool/src/backup.ts'));
 const anchorBackupTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/backup.test.ts'));
@@ -480,6 +481,7 @@ assertIncludesAny(
   'src/reportExport.test.ts',
   'src/reportDocx.test.ts',
   'src/reportWorkbook.test.ts',
+  'src/reportText.test.ts',
   'src/attachmentReadiness.test.ts',
   'src/reportDocumentState.test.ts',
   'src/backup.test.ts',
@@ -529,6 +531,16 @@ assertIncludesAny(
 ].forEach(needle => assertIncludes(anchorReportWorkbookTest, needle, `anchor XLSX artifact test keeps ${needle}`));
 
 [
+  'buildGovernedReportText',
+  'REPORT_TEXT_BOM',
+  '文件類別：文字備查',
+  '正式附件資格：否',
+  '文字內容 SHA-256（非數位簽章）',
+  'non-formal-reference-text',
+  "expect(report.status).toBe('blocked')",
+].forEach(needle => assertIncludes(anchorReportTextTest, needle, `anchor TXT reference artifact test keeps ${needle}`));
+
+[
   'ANCHOR_RENDERED_EVIDENCE_DIR',
   "process.env.PREFLIGHT_RELEASE !== '1'",
   'PREFLIGHT_RUN_DIR',
@@ -543,6 +555,9 @@ assertIncludesAny(
   'artifactSha256',
   'documentSha256',
   'workbookSha256',
+  'referenceTextSha256',
+  "referenceTextRole: 'non-formal-reference-text'",
+  "referenceTextPackageStatus: 'blocked'",
   'reviewArtifactSha256',
   'blockedArtifactSha256',
   'reviewDocumentState',

@@ -20,6 +20,7 @@ import {
   appendReportDocumentStateSuffix,
   buildReportDocumentState,
 } from './reportDocumentState'
+import { buildGovernedReportText, REPORT_TEXT_BOM } from './reportText'
 
 type BatchReviewResult = ReturnType<typeof evaluateProjectBatch>
 type CandidateProductReview = ReturnType<
@@ -43,7 +44,7 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 /**
- * 報表匯出邏輯：把 HTML / XLSX / DOCX 三種匯出（共用 ensureProjectAudit + 共用
+ * 報表匯出邏輯：把 HTML / TXT / XLSX / DOCX 四種匯出（共用 ensureProjectAudit + 共用
  * artifact params）+ openStandaloneReportWindow（預覽 / 列印）整合為單一 hook，
  * 從 App.tsx 的 250+ 行下放至此。
  */
@@ -185,6 +186,38 @@ export function useReportExports(deps: {
     )
   }
 
+  async function exportTxtReport() {
+    const { auditEntry, auditTrail, reused } = await ensureProjectAudit('txt')
+    const reportGeneratedAt = new Date().toISOString()
+    const { buildStandaloneReportHtml } = await import('./reportExport')
+    const html = buildStandaloneReportHtml(
+      getReportArtifactParams(
+        false,
+        auditEntry,
+        auditTrail,
+        reportGeneratedAt,
+      ),
+    )
+    const artifact = await buildGovernedReportText({
+      html,
+      documentState: getDocumentState(),
+      reportGeneratedAt,
+      auditHash: auditEntry.hash,
+    })
+    const safeName = getReportFileStem(auditEntry)
+    downloadBlob(
+      new Blob([REPORT_TEXT_BOM, artifact.text], {
+        type: 'text/plain;charset=utf-8',
+      }),
+      `${safeName}_文字備查.txt`,
+    )
+    setSaveMessage(
+      reused
+        ? `已匯出 TXT 文字備查：${safeName}_文字備查.txt（沿用留痕 ${formatAuditHash(auditEntry.hash)}；不可作為正式附件）`
+        : `已匯出 TXT 文字備查：${safeName}_文字備查.txt（不可作為正式附件）`,
+    )
+  }
+
   async function exportXlsxReport() {
     const { auditEntry, auditTrail, reused } = await ensureProjectAudit('xlsx')
     const { serializeReportWorkbook } = await import('./reportWorkbook')
@@ -233,6 +266,7 @@ export function useReportExports(deps: {
   return {
     openStandaloneReportWindow,
     exportHtmlReport,
+    exportTxtReport,
     exportXlsxReport,
     exportDocxReport,
   }

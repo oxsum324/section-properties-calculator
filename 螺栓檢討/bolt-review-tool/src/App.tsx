@@ -1323,10 +1323,11 @@ function App() {
     requestConfirm,
   })
 
-  // 報表匯出（HTML / XLSX / DOCX / 獨立預覽 / 列印）已抽至 useReportExports
+  // 報表匯出（HTML / TXT / XLSX / DOCX / 獨立預覽 / 列印）已抽至 useReportExports
   const {
     openStandaloneReportWindow,
     exportHtmlReport,
+    exportTxtReport,
     exportXlsxReport,
     exportDocxReport,
   } = useReportExports({
@@ -1373,7 +1374,7 @@ function App() {
     setPaletteQuery,
   })
 
-  // exportHtmlReport / exportXlsxReport / exportDocxReport 已下放至 useReportExports
+  // exportHtmlReport / exportTxtReport / exportXlsxReport / exportDocxReport 已下放至 useReportExports
 
   // 命令面板指令清單（~120 行）已下放至 useCommandPaletteCommands
   const paletteCommands = useCommandPaletteCommands({
@@ -1386,6 +1387,7 @@ function App() {
     patchProject,
     openStandaloneReportWindow,
     exportHtmlReport,
+    exportTxtReport,
     exportXlsxReport,
     exportDocxReport,
     recordCurrentAuditTrail,
@@ -1605,6 +1607,7 @@ function App() {
         }}
         onPreviewReport={() => openStandaloneReportWindow(false)}
         onExportHtmlReport={exportHtmlReport}
+        onExportTxtReport={exportTxtReport}
         onExportXlsxReport={exportXlsxReport}
         onExportDocxReport={exportDocxReport}
         onRecordAuditTrailManual={() => recordCurrentAuditTrail('manual')}
