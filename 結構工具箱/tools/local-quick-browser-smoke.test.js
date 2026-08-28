@@ -1199,6 +1199,10 @@ function jsonImportExpression(tool, payload) {
       document.getElementById('surcharge').value = '8.88';
       document.getElementById('wallType').value = 'gravity';
     }
+    if (tool.key === 'floor-slab-westergaard') {
+      document.getElementById('slabThicknessMm').value = '999';
+      document.getElementById('subgradeModulusMNm3').value = '999';
+    }
     const fileInput = document.getElementById('jsonFile');
     const file = new File([JSON.stringify(payload)], tool.key + '-import.json', { type: 'application/json' });
     const transfer = new DataTransfer();
@@ -1223,6 +1227,17 @@ function jsonImportExpression(tool, payload) {
         B: document.getElementById('B').value,
         L: document.getElementById('L').value,
         P: document.getElementById('P').value,
+        projectName: document.getElementById('projName').value,
+        banner: document.getElementById('bannerStatus')?.textContent || '',
+        metricText: document.getElementById('metricGrid')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        checkText: document.getElementById('checkList')?.textContent?.replace(/\\s+/g, ' ').trim() || ''
+      };
+    }
+    if (tool.key === 'floor-slab-westergaard') {
+      return {
+        tool: tool.key,
+        slabThicknessMm: document.getElementById('slabThicknessMm').value,
+        subgradeModulusMNm3: document.getElementById('subgradeModulusMNm3').value,
         projectName: document.getElementById('projName').value,
         banner: document.getElementById('bannerStatus')?.textContent || '',
         metricText: document.getElementById('metricGrid')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
@@ -1375,6 +1390,7 @@ function reportExpression(mode = null, projectMetaState = 'complete', calculatio
           setProjectField('verticalLoad', '1.00');
           setProjectField('surcharge', '100.00');
         }
+        if (requestedToolKey === 'floor-slab-westergaard') setProjectField('allowableStressMpa', '0.10');
         document.getElementById('btnCalc').click();
       }
       const pageReadinessLevel = window.ToolReportUI?.getPageReportReadinessLevel(document) || '';
@@ -2268,6 +2284,11 @@ function assertJsonExportState(state, tool, label) {
     assert.equal(state.payload.result.wallType, 'cantilever', `${label} ${tool.key} payload wall type`);
     assert.equal(state.payload.result.wallTypeOutput.headline, '懸臂式工作輸出', `${label} ${tool.key} payload wall output`);
   }
+  if (tool.key === 'floor-slab-westergaard') {
+    assert.equal(state.payload.input.slabThicknessMm, 180, `${label} ${tool.key} payload slab thickness`);
+    assert.equal(state.payload.input.subgradeModulusMNm3, 50, `${label} ${tool.key} payload subgrade modulus`);
+    assert.equal(state.payload.input.loadGroups.length, 1, `${label} ${tool.key} payload load groups`);
+  }
 }
 
 function assertPlaceholderJsonExportState(state, tool, label) {
@@ -2320,6 +2341,15 @@ function assertEarthJsonImportState(state, label) {
   assert.ok(state.diagramText.includes('懸臂式擋土牆'), `${label} earth import diagram`);
 }
 
+function assertFloorSlabJsonImportState(state, label) {
+  assert.equal(state.slabThicknessMm, '180', `${label} floor slab import thickness`);
+  assert.equal(state.subgradeModulusMNm3, '50', `${label} floor slab import subgrade modulus`);
+  assert.equal(state.projectName, '回讀測試案', `${label} floor slab import project`);
+  assert.ok(state.banner && state.banner !== '尚未計算', `${label} floor slab import recalculates`);
+  assert.ok(state.metricText.includes('相對勁度半徑'), `${label} floor slab import metrics`);
+  assert.ok(state.checkText.includes('Westergaard 閉式解適用性'), `${label} floor slab import checks`);
+}
+
 function assertReportContentState(state, tool, label, mode = 'detailed') {
   assert.ok(state.htmlLength > 1500, `${label} ${tool.key} report HTML length`);
   const traceText = reportHtmlText(state.html);
@@ -2358,6 +2388,11 @@ function assertReportContentState(state, tool, label, mode = 'detailed') {
   } else if (tool.key === 'equipment-load') {
     // 已正式化：兩段式計算書（預設詳算式）含計算內容與示意圖
     requiredNeedles.push('計算內容', '計算示意圖', '支承反力');
+    removedFromLocalReport.forEach(needle => {
+      assert.equal(state.html.includes(needle), false, `${label} ${tool.key} report removes ${needle}`);
+    });
+  } else if (tool.key === 'floor-slab-westergaard') {
+    requiredNeedles.push('計算內容', '計算示意圖', 'Westergaard 一般化載重應力');
     removedFromLocalReport.forEach(needle => {
       assert.equal(state.html.includes(needle), false, `${label} ${tool.key} report removes ${needle}`);
     });
@@ -3165,6 +3200,7 @@ async function main() {
               if (tool.key === 'foundation-local') assertFoundationJsonImportState(importState, interactionLabel);
               if (tool.key === 'equipment-load') assertEquipmentJsonImportState(importState, interactionLabel);
               if (tool.key === 'earth-pressure') assertEarthJsonImportState(importState, interactionLabel);
+              if (tool.key === 'floor-slab-westergaard') assertFloorSlabJsonImportState(importState, interactionLabel);
             }
             if (tool.key === 'earth-pressure') {
               const wallTypeState = await evaluate(client, sessionId, earthWallTypeExpression());
@@ -3180,6 +3216,7 @@ async function main() {
               if (tool.key === 'foundation-local') assertFoundationJsonImportState(replayImportState, `${interactionLabel} report replay`);
               if (tool.key === 'equipment-load') assertEquipmentJsonImportState(replayImportState, `${interactionLabel} report replay`);
               if (tool.key === 'earth-pressure') assertEarthJsonImportState(replayImportState, `${interactionLabel} report replay`);
+              if (tool.key === 'floor-slab-westergaard') assertFloorSlabJsonImportState(replayImportState, `${interactionLabel} report replay`);
               const replayExportState = await evaluate(client, sessionId, jsonExportExpression('preserve'));
               assert.equal(replayExportState.downloadCount, 1, `${interactionLabel} ${tool.key} report replay JSON click count`);
               assert.equal(replayExportState.blobCount, 1, `${interactionLabel} ${tool.key} report replay JSON blob count`);

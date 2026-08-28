@@ -3,7 +3,7 @@
   "kind": "independent-engineering-benchmarks.v3",
   "portfolio": {
     "eligibleState": "formal",
-    "eligibleFormalRoutes": 36,
+    "eligibleFormalRoutes": 37,
     "scopeNote": "本目錄只計入具有獨立推導預期值的案例；既有 golden case 與同核心重播不視為獨立工程基準。"
   },
   "benchmarks": [
@@ -134,6 +134,46 @@
         { "path": "qmin", "absTolerance": 1e-10 },
         { "path": "fsSlide", "absTolerance": 1e-10 },
         { "path": "fsOver", "absTolerance": 1e-10 }
+      ]
+    },
+    {
+      "id": "floor-slab-westergaard-three-position",
+      "route": "/floor-slab-westergaard",
+      "title": "地坪 Westergaard 內部／邊緣／角隅三位置應力",
+      "productionModule": "floor-slab/floor-slab-westergaard-core.js",
+      "oracle": "floor-slab-westergaard-three-position",
+      "referenceType": "closed-form-identity",
+      "referenceBasis": "Westergaard 一般化內部、自由邊緣與角隅載重應力閉式解；以 N、mm、MPa 及 N/mm³ 獨立推導相對勁度半徑、等效接觸半徑與三位置應力。",
+      "input": {
+        "slabThicknessMm": 180,
+        "elasticModulusMpa": 28000,
+        "poissonRatio": 0.15,
+        "subgradeModulusMNm3": 50,
+        "allowableStressMpa": 3,
+        "allowableStressBasis": "專案指定：獨立工程基準容許值",
+        "loadGroups": [
+          {
+            "name": "單輪",
+            "loadKn": 40,
+            "count": 1,
+            "dynamicFactor": 1.15,
+            "contactRadiusMm": 150,
+            "influenceInterior": 1,
+            "influenceEdge": 1,
+            "influenceCorner": 1,
+            "influenceBasis": ""
+          }
+        ]
+      },
+      "assertions": [
+        { "path": "relativeStiffnessRadiusMm", "absTolerance": 1e-9 },
+        { "path": "loadGroups.0.equivalentRadiusMm", "absTolerance": 1e-9 },
+        { "path": "loadGroups.0.effectiveLoadKn", "absTolerance": 1e-10 },
+        { "path": "totalStressMpa.interior", "absTolerance": 1e-10 },
+        { "path": "totalStressMpa.edge", "absTolerance": 1e-10 },
+        { "path": "totalStressMpa.corner", "absTolerance": 1e-10 },
+        { "path": "governingStressMpa", "absTolerance": 1e-10 },
+        { "path": "governingRatio", "absTolerance": 1e-10 }
       ]
     },
     {

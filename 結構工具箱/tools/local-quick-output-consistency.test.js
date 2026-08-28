@@ -80,6 +80,11 @@ for (const tool of manifest.tools) {
     assertIncludes(html, '<h2>設計條件</h2>', `${tool.key} summary report condition section`);
     assertIncludes(html, '<h2>計算示意圖</h2>', `${tool.key} report diagram section`);
     assert.equal(html.includes('<h2>工具與責任邊界</h2>'), false, `${tool.key} report removes boundary heading`);
+  } else if (tool.key === 'floor-slab-westergaard') {
+    assertIncludes(html, '<h2>計算內容</h2>', `${tool.key} detailed report content section`);
+    assertIncludes(html, '<h2>設計條件</h2>', `${tool.key} summary report condition section`);
+    assertIncludes(html, '<h2>計算示意圖</h2>', `${tool.key} report diagram section`);
+    assert.equal(html.includes('<h2>工具與責任邊界</h2>'), false, `${tool.key} report removes boundary heading`);
   } else {
     assertIncludes(html, 'const prov = r.provenance || (Core.provenance ? Core.provenance() : {})', `${tool.key} report provenance source`);
     assertIncludes(html, '輸入格式', `${tool.key} report input schema row`);

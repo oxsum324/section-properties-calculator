@@ -52,6 +52,7 @@
     { "source": "/foundation-local", "destination": "/結構工具箱/tools/foundation/foundation-local", "permanent": true },
     { "source": "/equipment-load", "destination": "/結構工具箱/tools/equipment/equipment-load", "permanent": true },
     { "source": "/earth-pressure", "destination": "/結構工具箱/tools/earth/earth-pressure", "permanent": true },
+    { "source": "/floor-slab-westergaard", "destination": "/結構工具箱/tools/floor-slab/floor-slab-westergaard", "permanent": true },
 
     { "source": "/platform", "destination": "/結構工具箱/", "permanent": true },
     { "source": "/platform-audit", "destination": "/結構工具箱/audit-dashboard", "permanent": true },

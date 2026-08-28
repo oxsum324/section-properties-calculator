@@ -86,7 +86,7 @@ const formalManifestPath = assertFile('tools/formal-tools.manifest.json');
 const formalManifestText = readText(formalManifestPath);
 const formalManifest = JSON.parse(formalManifestText);
 
-assert.equal(manifest.version, '0.3.1', 'local quick tools manifest version');
+assert.equal(manifest.version, '0.4.0', 'local quick tools manifest version');
 assert.equal(manifest.family, 'local-quick-tools', 'local quick tools manifest family');
 assert.ok(Array.isArray(tools), 'local quick tools manifest tools');
 assert.ok(tools.length >= 3, 'local quick tools manifest tool count');
@@ -217,7 +217,7 @@ const formalBrowserSmokeTestText = readText(formalBrowserSmokeTestPath);
 const ExportHelper = require(exportHelperPath);
 
 [
-  '"version": "0.3.1"',
+  '"version": "0.4.0"',
   '"family": "local-quick-tools"',
   '"shared"',
   '"runner"',
@@ -234,6 +234,7 @@ const ExportHelper = require(exportHelperPath);
   '"foundation-local"',
   '"equipment-load"',
   '"earth-pressure"',
+  '"floor-slab-westergaard"',
   '"jsonRoundTrip"',
 ].forEach(needle => assertIncludes(manifestText, needle, 'local quick tools manifest'));
 
@@ -1668,10 +1669,10 @@ for (const tool of tools) {
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, `${tool.key} page-only readiness copy`));
   assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), `${tool.key} page-only readiness hidden from print`);
-  if (['foundation-local', 'earth-pressure', 'equipment-load'].includes(tool.key)) {
+  if (['foundation-local', 'earth-pressure', 'equipment-load', 'floor-slab-westergaard'].includes(tool.key)) {
     assertPrintHidesSelectors(html, ['.case-actions'], `${tool.key} print-only case helper boundary`);
   }
-  if (['foundation-local', 'earth-pressure', 'equipment-load'].includes(tool.key)) {
+  if (['foundation-local', 'earth-pressure', 'equipment-load', 'floor-slab-westergaard'].includes(tool.key)) {
     [
       'Exporter.renderStatusGridPanel',
       '產出工具：${escapeHtml(reportTrace.sourceTrace.tool)}',
@@ -1707,11 +1708,12 @@ for (const tool of tools) {
   if (tool.key === 'equipment-load') assertIncludes(html, 'id="equipmentReportReadiness"', `${tool.key} page-only readiness target`);
   if (tool.key === 'earth-pressure') assertIncludes(html, 'id="earthReportReadiness"', `${tool.key} page-only readiness target`);
   if (tool.key === 'foundation-local') assertIncludes(html, 'id="foundationReportReadiness"', `${tool.key} page-only readiness target`);
+  if (tool.key === 'floor-slab-westergaard') assertIncludes(html, 'id="floorSlabReportReadiness"', `${tool.key} page-only readiness target`);
   // 已正式化的工具（report standard）不再以「初估」標示；尚未正式化者仍須保留
-  if (!['foundation-local', 'equipment-load'].includes(tool.key)) {
+  if (!['foundation-local', 'equipment-load', 'floor-slab-westergaard'].includes(tool.key)) {
     assertIncludes(html, '初估', `${tool.key} html estimate label`);
   }
-  if (!['foundation-local', 'earth-pressure', 'equipment-load'].includes(tool.key)) {
+  if (!['foundation-local', 'earth-pressure', 'equipment-load', 'floor-slab-westergaard'].includes(tool.key)) {
     [
       '工具與責任邊界',
       '輸入格式',
@@ -1824,6 +1826,35 @@ for (const tool of tools) {
     assert.ok(html.indexOf('id="btnJson"') > html.indexOf('③ 簡化穩定參數'), `${tool.key} JSON download stays after full input basis`);
     assert.equal(html.includes('id="btnReport"'), false, `${tool.key} removes duplicate top report action`);
     assert.equal(html.includes('<h2>工具與責任邊界</h2>'), false, `${tool.key} removes report boundary heading`);
+  }
+  if (tool.key === 'floor-slab-westergaard') {
+    [
+      'class="case-actions"',
+      'class="output-actions"',
+      'id="btnImportJson"',
+      'id="jsonFile"',
+      '讀取 JSON',
+      '① 版與地基參數',
+      '② 輪壓／機具腳位與同點疊加',
+      'id="slabThicknessMm"',
+      'id="subgradeModulusMNm3"',
+      'id="allowableStressBasis"',
+      'id="loadRows"',
+      'function gatherLoadGroups',
+      'function extractImportedInput',
+      'function applyImportedCase',
+      'function importJsonFile',
+      'Westergaard 一般化載重應力',
+      'Winkler 彈性地基',
+      '疲勞、接縫傳力與沉陷不在本頁範圍',
+      '③ 計算與輸出',
+      '<h2>設計條件</h2>',
+      '<h2>計算內容</h2>',
+    ].forEach(needle => assertIncludes(html, needle, `${tool.key} action and report layout`));
+    assert.ok(html.indexOf('id="btnImportJson"') < html.indexOf('class="main-layout floor-slab-shell"'), `${tool.key} import action stays in top case-management area`);
+    assert.ok(html.indexOf('id="btnReset"') < html.indexOf('class="main-layout floor-slab-shell"'), `${tool.key} reset action stays in top case-management area`);
+    assert.ok(html.indexOf('id="btnCalc"') > html.indexOf('③ 計算與輸出'), `${tool.key} calculate action stays after full input basis`);
+    assert.ok(html.indexOf('id="btnJson"') > html.indexOf('③ 計算與輸出'), `${tool.key} JSON download stays after full input basis`);
   }
 
   [
