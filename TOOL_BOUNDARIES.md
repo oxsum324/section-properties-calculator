@@ -183,6 +183,8 @@ Schema v25 新增正式 Excel 雙封印：錨栓產製器以 `reportWorkbookSeal
 
 Schema v27 新增 RC STM 補充正式附件 gate：`deep-beam-stm`、`foundation-deep-beam-stm`、`pile-cap-3d-stm` 各自必須在當輪 `rc-stm-formal` 保存內部審閱 PDF／PNG、明確核可後的可攜 HTML、離線重開正式 PDF及 evidence JSON。產出端與 aggregate 兩層都要驗證計算指紋、page-only 排除、合法續頁圖節、內容／核可雙封印與兩類竄改阻擋，合計要求 `3/3` 附件與 `12/12` 實體成品。三者屬 `/rc-beam`、`/rc-foundation` 流程內專用子工具，不新增首頁正式入口，也不混入需專案 JSON 的 RC 來源組包計數。跨工具提交邊界以 `結構工具箱/tools/rc-stm-atomic-change-set.manifest.json` 為唯一機器可讀清冊；共用驗證器與契約須驗證所有清冊檔案、三個入口與 parent route、wrapper／regression、頁面直接載入資產、rendered inventory 與首頁正式工具增量固定為零，任一漏列或實體缺件均失敗關閉。`結構工具箱/tools/rc-stm-atomic-change-set-review.js` 只讀呈現清冊內變更與清冊外熱檔，並由 `結構工具箱/tools/rc-stm-atomic-change-set-review.test.js` 在每次 preflight 驗證；`--require-staged-closure` 另在實際提交前阻擋清冊內未完全暫存、清冊外檔案被混入暫存或衝突狀態。
 
+Schema v28 把地坪 Westergaard 的來源 JSON 重播與 PDF 指紋納入局部快算結果鏈，使正式 aggregate 從 rendered inventory 推導並要求 `4/4`。`rendered-delivery-evidence.contract.test.js`、`tool-maturity-matrix.js`、release contract、Pages live smoke、入口契約與四份治理文件必須同批變更；Schema v27 已發布證據只允許以 `3/3` 過渡讀取，Schema v28 當輪證據若缺第四份、身分重複或 required count 降回三份，一律阻擋 release。
+
 這個原子邊界不只是三份報告：RC 梁最小／最大配筋、拉控應變、多排筋配置與深梁適用性必須與獨立工程基準同步；平面剛架 V1.6 的 D／L／W／E 基本反力套件是樁帽 STM 的上游輸入，其頁面、contract、metadata、LoadCombo／ForcePicker 與基礎接收端不得分開交付。RC 牆斷面圖示容錯不屬這條輸入鏈，須維持獨立變更邊界。
 
 錨栓雙封印亦屬日常案件組包的必要語意檢查，不只存在 release 證據。`attachment-package-check.js` 必須以獨立檢查器重算正式 HTML 的內容與核可封印；舊版缺封印為 review，封印或 scope 不符為 blocked。v3 事後驗證會重新解析包內附件並套用相同判定，因此同步改寫附件、檔案雜湊、清單與附件包指紋仍不得掩蓋正文或核可資料竄改。

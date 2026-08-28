@@ -583,7 +583,7 @@ assert.deepEqual(reportReadinessStatusSnapshot.reportTextSmokeEvidenceUnmappedFa
 assert.ok(reportReadinessStatusSnapshot.reportTextSmokeEvidenceGates.every(gate => gate.pass && gate.complete === gate.required), 'tracked report readiness snapshot report text runtime evidence gates pass');
 assert.ok(reportReadinessStatusSnapshot.reportTextSmokeScope.includes('風力 / 地震正式工具') && reportReadinessStatusSnapshot.reportTextSmokeScope.includes('局部快算'), 'tracked report readiness snapshot names report text scope');
 assert.ok(reportReadinessStatusSnapshot.reportTextSmokeScope.includes('矩陣外工具家族'), 'tracked report readiness snapshot keeps other-family report boundary');
-assert.ok([31, 32, 33, 36].includes(reportReadinessStatusSnapshot.renderedDeliveryEvidenceRequired), 'tracked report readiness snapshot covers a supported formal homepage portfolio');
+assert.ok([31, 32, 33, 36, 37].includes(reportReadinessStatusSnapshot.renderedDeliveryEvidenceRequired), 'tracked report readiness snapshot covers a supported formal homepage portfolio');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceComplete, reportReadinessStatusSnapshot.renderedDeliveryEvidenceRequired, 'tracked report readiness snapshot rendered delivery complete');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceIssueCount, 0, 'tracked report readiness snapshot rendered delivery issues empty');
 assert.match(reportReadinessStatusSnapshot.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'tracked report readiness snapshot rendered delivery runId');

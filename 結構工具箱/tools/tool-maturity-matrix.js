@@ -2097,6 +2097,8 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const deckingResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 10;
   const excavationResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 11;
   const localQuickResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 12;
+  const expandedLocalQuickResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 28;
+  const expectedLocalQuickResultReconciliationCount = expandedLocalQuickResultReconciliationDeclared ? 4 : 3;
   const earthBridgeRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 13;
   const pileGroupLateralRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 14;
   const rcSourceReportPackageDeclared = Number(evidence?.schemaVersion) >= 15;
@@ -2346,8 +2348,8 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
     ))
     && (!localQuickResultReconciliationDeclared || (
       evidence.localQuickResultReconciliation?.scope === 'local-quick-json-replay-to-pdf-hash'
-      && evidence.localQuickResultReconciliation.required === 4
-      && evidence.localQuickResultReconciliation.complete === 4
+      && evidence.localQuickResultReconciliation.required === expectedLocalQuickResultReconciliationCount
+      && evidence.localQuickResultReconciliation.complete === expectedLocalQuickResultReconciliationCount
       && evidence.localQuickResultReconciliation.issueCount === 0
       && evidence.localQuickResultReconciliation.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.localQuickResultReconciliation.setSha256 || ''))
@@ -2895,6 +2897,9 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
   );
   const localQuickResultReconciliationRequired = localQuickResultReconciliationDeclared ? compactNumber(localQuickResultReconciliation.required) : 0;
   const localQuickResultReconciliationComplete = localQuickResultReconciliationDeclared ? compactNumber(localQuickResultReconciliation.complete) : 0;
+  const localQuickResultReconciliationToolLabels = localQuickResultReconciliationRequired >= 4
+    ? '基礎、設備荷重、擋土土壓與地坪 Westergaard'
+    : '基礎、設備荷重與擋土土壓';
   const localQuickResultReconciliationIssueCount = !localQuickResultReconciliationDeclared
     ? 0
     : localQuickResultReconciliation.pass === true
@@ -2930,7 +2935,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     ...(anchorResultReconciliationDeclared ? [`錨栓正式計算書結果鏈：工作區備份 ${anchorResultReconciliationComplete} / ${anchorResultReconciliationRequired} 已依 v2 案例重現指紋重新計算，並核對正式 HTML、DOCX 與 XLSX。公開狀態只顯示完成數，不公開工作區資料、來源備份雜湊、案例重現指紋、計算指紋或成品雜湊。`] : []),
     ...(deckingResultReconciliationDeclared ? [`覆工板正式計算書結果鏈：來源 JSON ${deckingResultReconciliationComplete} / ${deckingResultReconciliationRequired} 已由目前頁面核心重算 31 項控制結果，再核對 DOCX 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊。`] : []),
     ...(excavationResultReconciliationDeclared ? [`開挖擋土支撐正式計算書結果鏈：ProjectState ${excavationResultReconciliationComplete} / ${excavationResultReconciliationRequired} 已由目前後端核心重算 47 項構件檢核，再核對 PDF、DOCX 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開 ProjectState、輸入／結果資料、計算指紋或成品雜湊。`] : []),
-    ...(localQuickResultReconciliationDeclared ? [`局部快算計算書結果鏈：基礎、設備荷重、擋土土壓與地坪 Westergaard 共 ${localQuickResultReconciliationComplete} / ${localQuickResultReconciliationRequired} 組來源 JSON 已完成全輸入與全結果逐值重播，再核對 PDF 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊。`] : []),
+    ...(localQuickResultReconciliationDeclared ? [`局部快算計算書結果鏈：${localQuickResultReconciliationToolLabels}共 ${localQuickResultReconciliationComplete} / ${localQuickResultReconciliationRequired} 組來源 JSON 已完成全輸入與全結果逐值重播，再核對 PDF 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊。`] : []),
     ...(attachmentIntegrityDeclared ? [`RC 正式附件 HTML 完整性：預期 ${attachmentIntegrityRequired} 份、實際 ${attachmentIntegrityActual} 份、已驗證 ${attachmentIntegrityVerified} 份。公開狀態只提供各工具類別、數量與通過狀態；集合與逐檔完整性證據僅留在內部 release 證據。本項不會寫入計算書、列印或 PDF。`] : []),
     `可讀文字抽檢範圍：${reportTextSmokeEvidence.scope}`,
     '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。',
@@ -3573,7 +3578,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(String(homepageReportReadinessStatus.reportTextSmokeScope || '').includes('矩陣外工具家族'), 'homepage report readiness report text scope keeps other-family boundary');
   assert.ok(String(homepageReportReadinessStatus.compactSummary || '').includes('頁面診斷明細不進計算書'), 'homepage report readiness compact summary keeps page-only wording');
   assert.ok(String(homepageReportReadinessStatus.compactSummary || '').includes('兩者皆可列印'), 'homepage report readiness compact summary keeps printable approval boundary');
-  assert.ok([31, 32, 33, 36].includes(homepageReportReadinessStatus.independentBenchmarkEligible), 'homepage report readiness preserves a supported independent benchmark portfolio');
+  assert.ok([31, 32, 33, 36, 37].includes(homepageReportReadinessStatus.independentBenchmarkEligible), 'homepage report readiness preserves a supported independent benchmark portfolio');
   if (preserveHomepageStatus) {
     assert.ok(Number.isInteger(homepageReportReadinessStatus.independentBenchmarkVerified), 'preserved homepage report readiness independent benchmark verified routes integer');
     assert.ok(homepageReportReadinessStatus.independentBenchmarkVerified >= 0
@@ -3607,7 +3612,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), true, 'homepage report readiness rendered delivery required integer');
   assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceComplete), true, 'homepage report readiness rendered delivery complete integer');
   assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceIssueCount), true, 'homepage report readiness rendered delivery issue integer');
-  assert.ok([31, 32, 33, 36].includes(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), 'homepage report readiness preserves a supported rendered delivery portfolio');
+  assert.ok([31, 32, 33, 36, 37].includes(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), 'homepage report readiness preserves a supported rendered delivery portfolio');
   assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceComplete, homepageReportReadinessStatus.renderedDeliveryEvidenceRequired, 'homepage report readiness rendered delivery evidence complete');
   assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceIssueCount, 0, 'homepage report readiness rendered delivery evidence issues empty');
   assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'homepage report readiness rendered delivery runId');

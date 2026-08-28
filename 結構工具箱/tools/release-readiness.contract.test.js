@@ -553,7 +553,7 @@ assertIncludes(reportGuide, '不得誤稱為舊版', 'report guide distinguishes
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 27',
+  'schemaVersion: 28',
   'rcSupplementalAttachments',
   'rcStmFormalAttachment',
   "scope:'rc-stm-supplemental-formal-attachments'",
@@ -750,7 +750,9 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   "evidence.excavationResultReconciliation?.scope === 'excavation-project-state-replay-to-pdf-docx-hash'",
   'evidence.excavationResultReconciliation.required === 1',
   "evidence.localQuickResultReconciliation?.scope === 'local-quick-json-replay-to-pdf-hash'",
-  'evidence.localQuickResultReconciliation.required === 4',
+  'expandedLocalQuickResultReconciliationDeclared',
+  'expectedLocalQuickResultReconciliationCount',
+  'evidence.localQuickResultReconciliation.required === expectedLocalQuickResultReconciliationCount',
   'function resolveRenderedDeliveryEvidenceSource',
   'function resolveHomepagePreflightSource',
   'isCompleteFormalPreflight(latestSummary)',
@@ -988,6 +990,8 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   assertIncludes(source, 'Schema v25', `${label} documents formal XLSX dual seal release evidence schema`);
   assertIncludes(source, 'XLSX', `${label} documents formal XLSX dual seal family`);
   assertIncludes(source, 'Schema v27', `${label} documents RC STM supplemental formal attachment release evidence schema`);
+  assertIncludes(source, 'Schema v28', `${label} documents four-tool local quick result reconciliation release evidence schema`);
+  assertIncludes(source, '4/4', `${label} documents four local quick result reconciliations`);
   assertIncludes(source, 'rc-stm-formal', `${label} documents RC STM release evidence directory`);
   assertIncludes(source, 'rc-stm-atomic-change-set.manifest.json', `${label} documents the RC STM machine-readable atomic change set`);
   assertIncludes(source, 'rc-stm-atomic-change-set-review.js', `${label} documents the RC STM human-readable atomic review`);
