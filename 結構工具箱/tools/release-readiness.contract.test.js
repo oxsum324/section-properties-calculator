@@ -393,6 +393,7 @@ assertIncludes(steelSharedReport, '核可完整性：此預覽頁尚未封印；
   'new home preflight clean source',
   '成品檔案完整性',
   '145 / 145',
+  '151 / 151',
 ].forEach(needle => assertIncludes(localQuickBrowserSmoke, needle, `local quick browser smoke preserves rendered evidence ${needle}`));
 
 [
@@ -678,6 +679,8 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   'payload.postCheckFailures.length === 0',
   "/^[0-9a-f]{40}$/i.test(String(payload.sourceCommitSha || ''))",
   'payload.sourceDirty === false',
+  "const currentRunId = String(currentBundle.preflightStatus?.runId || '')",
+  ".filter(bundle => String(bundle.preflightStatus?.runId || '') !== currentRunId)",
   'function isCompleteRenderedDeliveryEvidence',
   'function isCompleteRcStmFormalAttachmentEvidence',
   'completeIntegrityDeclared',
@@ -702,7 +705,8 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   'excavationResultReconciliationDeclared',
   'localQuickResultReconciliationDeclared',
   "evidence.canonicalArtifactIntegrity?.scope === 'canonical-rendered-pdf-evidence'",
-  'evidence.canonicalArtifactIntegrity.required === 66',
+  'expectedCanonicalArtifactIntegrityCount',
+  'evidence.canonicalArtifactIntegrity.required === expectedCanonicalArtifactIntegrityCount',
   "evidence.docxPackageIntegrity?.scope === 'formal-docx-clean-ooxml-package'",
   'evidence.docxPackageIntegrity.required === 4',
   "evidence.xlsxPackageIntegrity?.scope === 'formal-xlsx-clean-ooxml-package-and-formula-cache'",

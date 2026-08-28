@@ -2,7 +2,7 @@
   "publicEvidenceSchemaVersion": 3,
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-08-28T08:55:57.209Z",
+  "generatedAt": "2026-08-28T09:06:36.967Z",
   "runId": "20260828-162131",
   "pass": true,
   "failureCount": 0,
@@ -13,8 +13,8 @@
   "details": [
     "目前覆蓋 過渡工具 / 輔助查詢 入口：鋼梁舊案延續頁、鋼柱舊案延續頁、Kzt 地形係數、特殊修正 / 折減。",
     "正式計算書可讀文字抽檢：18 / 18 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 2 / 2。本項確認輸出可讀文字、頁面診斷明細排除，以及內部審閱／正式附件核可狀態。",
-    "正式放行實際交付物渲染佐證：36 / 36 個首頁正式工具已完成，涵蓋 10 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20260827-203311。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
-    "正式交付檔案完整性：正式 PDF 與渲染證據 66 / 66、RC PDF / PNG 成品 66 / 66、混合格式附件 13 / 13；合計 145 / 145。公開狀態只提供類別、數量與通過狀態，不公開檔名、逐檔雜湊或完整性集合。",
+    "正式放行實際交付物渲染佐證：37 / 37 個首頁正式工具已完成，涵蓋 10 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20260828-162131。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
+    "正式交付檔案完整性：正式 PDF 與渲染證據 72 / 72、RC PDF / PNG 成品 66 / 66、混合格式附件 13 / 13；合計 151 / 151。公開狀態只提供類別、數量與通過狀態，不公開檔名、逐檔雜湊或完整性集合。",
     "正式 Word 附件乾淨封裝：石材、錨栓、覆工板與開挖擋土支撐共 4 / 4 份 DOCX 已確認沒有未引用媒體或頁首頁尾、實際批註、未接受修訂、外掛範本、外部圖片、嵌入物件、巨集或非預期 custom XML。公開狀態只顯示完成數，不公開檔名、封裝清冊或逐檔細節。",
     "正式 Excel 附件乾淨封裝：錨栓檢討 1 / 1 份 XLSX 已確認工作表全數可見、公式具快取結果，且沒有外部關聯／公式／連線、公式錯誤、隱藏資料、批註、嵌入物件、巨集、孤兒媒體或非預期 custom XML。公開狀態只顯示完成數，不公開檔名、工作表清冊、公式或逐檔細節。",
     "正式 Excel 列印成品：錨栓檢討 1 / 1 份 XLSX、9 / 9 張工作表已由 Microsoft Excel 以原始列印設定逐張輸出 PDF，確認 A4、寬表橫向、單頁寬、續頁重複表頭、可讀文字、非空白頁、無頁緣裁切及無橫向溢出頁。公開狀態只顯示完成數，不公開工作表名稱、列印 PDF、逐頁指標或雜湊。",
@@ -34,7 +34,7 @@
     "錨栓正式計算書結果鏈：工作區備份 1 / 1 已依 v2 案例重現指紋重新計算，並核對正式 HTML、DOCX 與 XLSX。公開狀態只顯示完成數，不公開工作區資料、來源備份雜湊、案例重現指紋、計算指紋或成品雜湊。",
     "覆工板正式計算書結果鏈：來源 JSON 1 / 1 已由目前頁面核心重算 31 項控制結果，再核對 DOCX 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊。",
     "開挖擋土支撐正式計算書結果鏈：ProjectState 1 / 1 已由目前後端核心重算 47 項構件檢核，再核對 PDF、DOCX 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開 ProjectState、輸入／結果資料、計算指紋或成品雜湊。",
-    "局部快算計算書結果鏈：基礎、設備荷重與擋土土壓共 3 / 3 組來源 JSON 已完成全輸入與全結果逐值重播，再核對 PDF 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊。",
+    "局部快算計算書結果鏈：基礎、設備荷重、擋土土壓與地坪 Westergaard共 4 / 4 組來源 JSON 已完成全輸入與全結果逐值重播，再核對 PDF 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊。",
     "RC 正式附件 HTML 完整性：預期 34 份、實際 34 份、已驗證 34 份。公開狀態只提供各工具類別、數量與通過狀態；集合與逐檔完整性證據僅留在內部 release 證據。本項不會寫入計算書、列印或 PDF。",
     "可讀文字抽檢範圍：正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具 14 項、局部快算 4 項。矩陣外工具家族仍以各自報告合約治理。",
     "首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。",
@@ -84,10 +84,10 @@
   ],
   "reportTextSmokeEvidenceUnmappedFamilies": [],
   "reportTextSmokeScope": "正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具 14 項、局部快算 4 項。矩陣外工具家族仍以各自報告合約治理。",
-  "renderedDeliveryEvidenceRequired": 36,
-  "renderedDeliveryEvidenceComplete": 36,
+  "renderedDeliveryEvidenceRequired": 37,
+  "renderedDeliveryEvidenceComplete": 37,
   "renderedDeliveryEvidenceIssueCount": 0,
-  "renderedDeliveryEvidenceRunId": "20260827-203311",
+  "renderedDeliveryEvidenceRunId": "20260828-162131",
   "renderedDeliveryEvidenceFamilies": [
     {
       "family": "anchor-formal",
@@ -103,7 +103,7 @@
     },
     {
       "family": "local-quick-tools",
-      "complete": 3
+      "complete": 4
     },
     {
       "family": "rc-formal",
@@ -130,19 +130,19 @@
       "complete": 1
     }
   ],
-  "renderedDeliveryEvidenceSummary": "最新正式放行實際交付物渲染：首頁正式工具 36 / 36；補充報告 / 服務成品 2 / 2；RC STM 正式入口附件 3 / 3。",
-  "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260827-203311/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
-  "renderedDeliveryEvidenceSourceHash": "4cba37c8b8839c698957333a661bde6e10be832eb318d30a2f91d3dc03e129cb",
-  "deliveryFileIntegrityRequired": 145,
-  "deliveryFileIntegrityVerified": 145,
+  "renderedDeliveryEvidenceSummary": "最新正式放行實際交付物渲染：首頁正式工具 37 / 37；補充報告 / 服務成品 2 / 2；RC STM 正式入口附件 3 / 3。",
+  "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260828-162131/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
+  "renderedDeliveryEvidenceSourceHash": "676bfe74342f129f46b5c9fcec0bbfe39eac88ca130444fd8f58bb7d6e27f8b5",
+  "deliveryFileIntegrityRequired": 151,
+  "deliveryFileIntegrityVerified": 151,
   "deliveryFileIntegrityIssueCount": 0,
   "deliveryFileIntegrityPass": true,
   "deliveryFileIntegrityBreakdown": [
     {
       "key": "formalPdfEvidence",
       "label": "正式 PDF 與渲染證據",
-      "required": 66,
-      "verified": 66,
+      "required": 72,
+      "verified": 72,
       "issueCount": 0,
       "pass": true
     },
@@ -255,8 +255,8 @@
   "excavationResultReconciliationComplete": 1,
   "excavationResultReconciliationIssueCount": 0,
   "excavationResultReconciliationPass": true,
-  "localQuickResultReconciliationRequired": 3,
-  "localQuickResultReconciliationComplete": 3,
+  "localQuickResultReconciliationRequired": 4,
+  "localQuickResultReconciliationComplete": 4,
   "localQuickResultReconciliationIssueCount": 0,
   "localQuickResultReconciliationPass": true,
   "supplementalDeliveryEvidenceRequired": 2,
@@ -388,5 +388,5 @@
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
   "preflightStatusSourcePath": "output/preflight/history/20260828-162131/preflight-summary.json",
-  "sourceHash": "b3cd609b81dd5eece53a63fe310e3cf668b0bd87660d72ed9ec18bef997b42a3"
+  "sourceHash": "fcf4df80d140b4f171f5996805fb05f81c63523b732ea8dabb1b619fd2d2b76f"
 }

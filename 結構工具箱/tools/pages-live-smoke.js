@@ -757,13 +757,14 @@ async function main() {
   assert.ok(String(reportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'report readiness rendered delivery summary');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatus.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'report readiness rendered delivery source path');
   assert.match(reportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'report readiness rendered delivery source hash');
-  assert.ok([143, 145].includes(reportReadinessStatus.deliveryFileIntegrityRequired), 'report readiness exposes a supported complete redacted delivery file count');
+  assert.ok([143, 145, 151].includes(reportReadinessStatus.deliveryFileIntegrityRequired), 'report readiness exposes a supported complete redacted delivery file count');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityVerified, reportReadinessStatus.deliveryFileIntegrityRequired, 'report readiness verifies every redacted delivery file');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'report readiness delivery file integrity issues empty');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityPass, true, 'report readiness delivery file integrity passes');
   assert.ok([
     JSON.stringify([['formalPdfEvidence', 64, 64], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]]),
     JSON.stringify([['formalPdfEvidence', 66, 66], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]]),
+    JSON.stringify([['formalPdfEvidence', 72, 72], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]]),
   ].includes(JSON.stringify(reportReadinessStatus.deliveryFileIntegrityBreakdown.map(item => [item.key, item.required, item.verified]))), 'report readiness exposes the three redacted delivery integrity groups');
   assert.ok(reportReadinessStatus.deliveryFileIntegrityBreakdown.every(item => item.pass && item.issueCount === 0), 'report readiness delivery integrity groups pass');
   const deliveryFileIntegrityJson = JSON.stringify(reportReadinessStatus.deliveryFileIntegrityBreakdown);

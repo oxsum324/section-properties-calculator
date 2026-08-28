@@ -741,18 +741,18 @@
           },
           {
             "id": "localQuickResult",
-            "complete": 3,
-            "required": 3
+            "complete": 4,
+            "required": 4
           },
           {
             "id": "rendered",
-            "complete": 36,
-            "required": 36
+            "complete": 37,
+            "required": 37
           },
           {
             "id": "delivery",
-            "complete": 145,
-            "required": 145
+            "complete": 151,
+            "required": 151
           }
         ],
         "change": {
@@ -763,6 +763,21 @@
               "id": "records",
               "from": 86,
               "to": 87
+            },
+            {
+              "id": "localQuickResult",
+              "from": 3,
+              "to": 4
+            },
+            {
+              "id": "rendered",
+              "from": 36,
+              "to": 37
+            },
+            {
+              "id": "delivery",
+              "from": 145,
+              "to": 151
             }
           ],
           "reductions": [],

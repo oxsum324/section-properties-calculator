@@ -67,7 +67,7 @@ assert.ok(staging.includes('gh run list --workflow "Pages deploy" --limit 1'), '
 assert.ok(staging.includes('workflow run ID 不在本 ledger 硬編碼'), 'staging guide avoids self-staling Pages run ids');
 assert.ok(staging.includes('最新 `Pages deploy` 必須為 completed/success'), 'staging guide requires current Pages deploy success');
 assert.ok(staging.includes('page-only boundary `4/4`') && staging.includes('issue `0`'), 'staging guide records page-only boundary health');
-assert.ok(staging.includes('首頁正式工具實際交付物渲染 `33/33`'), 'staging guide records homepage rendered delivery evidence health');
+assert.ok(staging.includes('首頁正式工具實際交付物渲染 `37/37`'), 'staging guide records homepage rendered delivery evidence health');
 assert.ok(staging.includes('補充報告 / 服務成品 `2/2`'), 'staging guide records supplemental report and service delivery evidence health');
 assert.ok(staging.includes('不得附入計算書、列印輸出或 PDF'), 'staging guide keeps report readiness page-only boundary');
 assert.ok(staging.includes('下次同類變更的分包 playbook'), 'staging guide keeps future staging playbook');

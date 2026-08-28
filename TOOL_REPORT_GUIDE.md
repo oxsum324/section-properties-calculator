@@ -319,7 +319,7 @@ Schema v11 新增開挖擋土支撐正式計算書結果鏈。Producer 必須保
 
 Schema v12 新增局部快算計算書結果鏈。基礎局部檢核、設備局部荷重與擋土土壓 producer 必須在同一瀏覽器工作階段匯出來源 JSON，改動表單後回讀重算，逐值核對全部 `input` 與 `result`，再由同一重播狀態產生詳細計算書 PDF；私密 summary 須保存來源 JSON SHA-256、來源／重播輸入與結果 SHA-256、逐值斷言數、計算指紋及 PDF SHA-256。Aggregate 要求 `3/3`、案例身分唯一與私人集合 SHA-256；公開狀態只顯示完成數，不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊。
 
-Schema v28 將地坪 Westergaard 納入局部快算結果鏈第四頁。Aggregate 從 rendered inventory 的 `local-quick-tools` family 與 evidence key 動態推導 required count，正式放行必須得到 `4/4`；成熟度矩陣依 evidence schema 分流，Schema v27 舊正式證據仍可作已發布 `3/3` 快照的過渡來源，但任何 Schema v28 新證據缺少第四份、重複身分或降回三份都必須失敗關閉。公開狀態只發布完成數，Westergaard 來源 JSON、重播輸入／結果、指紋及成品雜湊仍留在私人 release 證據。
+Schema v28 將地坪 Westergaard 納入局部快算結果鏈第四頁。Aggregate 從 rendered inventory 的 `local-quick-tools` family 與 evidence key 動態推導 required count，正式放行必須得到 `4/4`；Westergaard 的詳細、內部審閱與阻擋審閱三組 PDF／evidence 也會把 canonical 完整性由 `66/66` 提升為 `72/72`，公開成品合計由 `145/145` 提升為 `151/151`。成熟度矩陣依 evidence schema 分流，Schema v27 舊正式證據仍可作已發布 `3/3`、canonical `66/66` 快照的過渡來源，但任何 Schema v28 新證據缺少第四份、重複身分、降回三份或 canonical 未達 `72/72` 都必須失敗關閉。公開狀態只發布完成數，Westergaard 來源 JSON、重播輸入／結果、指紋及成品雜湊仍留在私人 release 證據。
 
 ### 採用依據文字
 

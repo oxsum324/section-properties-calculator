@@ -2099,6 +2099,7 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const localQuickResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 12;
   const expandedLocalQuickResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 28;
   const expectedLocalQuickResultReconciliationCount = expandedLocalQuickResultReconciliationDeclared ? 4 : 3;
+  const expectedCanonicalArtifactIntegrityCount = 48 + (expectedLocalQuickResultReconciliationCount * 6);
   const earthBridgeRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 13;
   const pileGroupLateralRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 14;
   const rcSourceReportPackageDeclared = Number(evidence?.schemaVersion) >= 15;
@@ -2149,8 +2150,8 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       && evidence.rcVisualArtifactIntegrity.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.rcVisualArtifactIntegrity.setSha256 || ''))
       && evidence.canonicalArtifactIntegrity?.scope === 'canonical-rendered-pdf-evidence'
-      && evidence.canonicalArtifactIntegrity.required === 66
-      && evidence.canonicalArtifactIntegrity.verified === 66
+      && evidence.canonicalArtifactIntegrity.required === expectedCanonicalArtifactIntegrityCount
+      && evidence.canonicalArtifactIntegrity.verified === expectedCanonicalArtifactIntegrityCount
       && evidence.canonicalArtifactIntegrity.issueCount === 0
       && evidence.canonicalArtifactIntegrity.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.canonicalArtifactIntegrity.setSha256 || ''))
@@ -3244,8 +3245,12 @@ function writeHomepageStatusSnapshots(matrixPayload = null, matrixSourceHash = '
     preflightStatus,
     reportReadinessStatus,
   };
-  const retainedBundles = readRetainedPublicEvidenceBundles();
-  retainedBundles.push(previousBundle);
+  const currentRunId = String(currentBundle.preflightStatus?.runId || '');
+  const retainedBundles = readRetainedPublicEvidenceBundles()
+    .filter(bundle => String(bundle.preflightStatus?.runId || '') !== currentRunId);
+  if (String(previousBundle.preflightStatus?.runId || '') !== currentRunId) {
+    retainedBundles.push(previousBundle);
+  }
   const reductionAuthorization = readJsonIfExists(publicReleaseReductionAuthorizationPath);
   assert.ok(reductionAuthorization, 'public release reduction authorization config is required');
   preflightStatus.releaseHistory = publicEvidenceSchema.buildReleaseHistory(retainedBundles, currentBundle, reductionAuthorization);
@@ -3622,7 +3627,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'homepage report readiness rendered delivery source hash');
   assert.ok(String(homepageReportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'homepage report readiness rendered delivery summary');
   if (Number.isInteger(homepageReportReadinessStatus.deliveryFileIntegrityRequired)) {
-    assert.ok([135, 137, 139, 141, 143, 145].includes(homepageReportReadinessStatus.deliveryFileIntegrityRequired), 'homepage report readiness exposes a supported verified delivery-file transition count');
+    assert.ok([135, 137, 139, 141, 143, 145, 151].includes(homepageReportReadinessStatus.deliveryFileIntegrityRequired), 'homepage report readiness exposes a supported verified delivery-file transition count');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityVerified, homepageReportReadinessStatus.deliveryFileIntegrityRequired, 'homepage report readiness verifies every delivery file');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'homepage report readiness delivery file integrity issues empty');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityPass, true, 'homepage report readiness delivery file integrity passes');
@@ -3640,6 +3645,7 @@ function checkMatrix(payload, markdown, options = {}) {
         [[62, 62], [66, 66], [13, 13]],
         [[64, 64], [66, 66], [13, 13]],
         [[66, 66], [66, 66], [13, 13]],
+        [[72, 72], [66, 66], [13, 13]],
       ].some(expected => JSON.stringify(expected) === JSON.stringify(homepageDeliveryCounts)),
       'homepage report readiness preserves supported redacted delivery counts'
     );
