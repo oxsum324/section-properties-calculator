@@ -672,7 +672,7 @@ if (Number.isInteger(reportReadinessStatusSnapshot.deckingResultReconciliationRe
   assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊'), 'tracked report readiness snapshot keeps decking evidence private');
 }
 if (Number.isInteger(reportReadinessStatusSnapshot.localQuickResultReconciliationRequired)) {
-  assert.equal(reportReadinessStatusSnapshot.localQuickResultReconciliationRequired, 3, 'tracked report readiness snapshot expects 3 local quick result reconciliations');
+  assert.ok([3, 4].includes(reportReadinessStatusSnapshot.localQuickResultReconciliationRequired), 'tracked report readiness snapshot uses the supported 3-to-4 local quick result reconciliation transition');
   assert.equal(reportReadinessStatusSnapshot.localQuickResultReconciliationComplete, reportReadinessStatusSnapshot.localQuickResultReconciliationRequired, 'tracked report readiness snapshot completes every local quick result reconciliation');
   assert.equal(reportReadinessStatusSnapshot.localQuickResultReconciliationIssueCount, 0, 'tracked report readiness snapshot local quick result reconciliation issues empty');
   assert.equal(reportReadinessStatusSnapshot.localQuickResultReconciliationPass, true, 'tracked report readiness snapshot local quick result reconciliation passes');

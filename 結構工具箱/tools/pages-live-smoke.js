@@ -894,7 +894,7 @@ async function main() {
   assert.equal(reportReadinessStatus.excavationResultReconciliationPass, true, 'report readiness excavation result reconciliation passes');
   assert.equal(reportReadinessJson.includes('"excavationResultReconciliation":'), false, 'report readiness omits the private excavation reconciliation aggregate');
   assert.equal(/excavation-project-state-replay-to-pdf-docx-hash|sourceProjectSha256|resultSha256|excavation-project-state\.json/.test(reportReadinessJson), false, 'report readiness omits private excavation reconciliation scope and hashes');
-  assert.equal(reportReadinessStatus.localQuickResultReconciliationRequired, 3, 'report readiness expects 3 local quick result reconciliations');
+  assert.ok([3, 4].includes(reportReadinessStatus.localQuickResultReconciliationRequired), 'report readiness uses the supported 3-to-4 local quick result reconciliation transition');
   assert.equal(reportReadinessStatus.localQuickResultReconciliationComplete, reportReadinessStatus.localQuickResultReconciliationRequired, 'report readiness completes every local quick result reconciliation');
   assert.equal(reportReadinessStatus.localQuickResultReconciliationIssueCount, 0, 'report readiness local quick result reconciliation issues empty');
   assert.equal(reportReadinessStatus.localQuickResultReconciliationPass, true, 'report readiness local quick result reconciliation passes');

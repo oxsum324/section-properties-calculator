@@ -750,7 +750,7 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   "evidence.excavationResultReconciliation?.scope === 'excavation-project-state-replay-to-pdf-docx-hash'",
   'evidence.excavationResultReconciliation.required === 1',
   "evidence.localQuickResultReconciliation?.scope === 'local-quick-json-replay-to-pdf-hash'",
-  'evidence.localQuickResultReconciliation.required === 3',
+  'evidence.localQuickResultReconciliation.required === 4',
   'function resolveRenderedDeliveryEvidenceSource',
   'function resolveHomepagePreflightSource',
   'isCompleteFormalPreflight(latestSummary)',
