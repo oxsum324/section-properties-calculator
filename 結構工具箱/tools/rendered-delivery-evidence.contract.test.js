@@ -37,6 +37,16 @@ const inventoryPath = path.join(toolsRoot, 'rendered-delivery-evidence.inventory
 const homePath = path.join(toolboxRoot, 'assets', 'home', 'home.js');
 const inventory = JSON.parse(fs.readFileSync(inventoryPath, 'utf8'));
 const homeSource = fs.readFileSync(homePath, 'utf8');
+const localQuickResultReconciliationRequired = new Set(
+  inventory.tools
+    .filter(tool => tool.family === 'local-quick-tools')
+    .map(tool => tool.evidenceKey)
+).size;
+// The fixed formal/steel/SRC and shared local scenarios contribute 48 canonical
+// PDF/evidence files. Each local quick tool adds detailed, internal-review and
+// blocked-boundary PDF/evidence pairs (six files per inventory entry).
+const canonicalArtifactIntegrityRequired = 48 + (localQuickResultReconciliationRequired * 6);
+assert.ok(localQuickResultReconciliationRequired > 0, 'rendered delivery evidence inventory declares local quick tools');
 
 for (const needle of ['計算層級 / 複核邊界', '條文對照 ＆ 方法分級', '規範覆蓋矩陣']) {
   assert.ok(DEFAULT_FORBIDDEN.includes(needle), `rendered delivery evidence shares calculation-book boundary: ${needle}`);
@@ -2554,10 +2564,10 @@ const canonicalArtifacts = uniqueIntegrityArtifacts(canonicalArtifactRecords, 'c
 const canonicalArtifactIntegrity = {
   schemaVersion: 1,
   scope: 'canonical-rendered-pdf-evidence',
-  required: 66,
+  required: canonicalArtifactIntegrityRequired,
   verified: canonicalArtifacts.length,
-  issueCount: Math.max(0, 66 - canonicalArtifacts.length),
-  pass: canonicalArtifacts.length === 66,
+  issueCount: Math.max(0, canonicalArtifactIntegrityRequired - canonicalArtifacts.length),
+  pass: canonicalArtifacts.length === canonicalArtifactIntegrityRequired,
   setSha256: scopedIntegritySetHash(canonicalArtifacts),
   artifacts: canonicalArtifacts,
 };
@@ -2576,15 +2586,15 @@ assert.equal(formalResultReconciliation.pass, true, 'release rendered evidence p
 const localQuickResultReconciliation = {
   schemaVersion: 1,
   scope: 'local-quick-json-replay-to-pdf-hash',
-  required: 3,
+  required: localQuickResultReconciliationRequired,
   complete: localQuickResultReconciliationRecords.length,
-  issueCount: Math.max(0, 3 - localQuickResultReconciliationRecords.length),
-  pass: localQuickResultReconciliationRecords.length === 3,
+  issueCount: Math.max(0, localQuickResultReconciliationRequired - localQuickResultReconciliationRecords.length),
+  pass: localQuickResultReconciliationRecords.length === localQuickResultReconciliationRequired,
   setSha256: localQuickResultReconciliationSetHash(localQuickResultReconciliationRecords),
   records: localQuickResultReconciliationRecords,
 };
 assert.equal(new Set(localQuickResultReconciliationRecords.map(record => record.key)).size, localQuickResultReconciliationRecords.length, 'release rendered evidence local quick result reconciliation identities are unique');
-assert.equal(localQuickResultReconciliation.complete, localQuickResultReconciliation.required, 'release rendered evidence reconciles all 3 local quick JSON replays to PDF fingerprints');
+assert.equal(localQuickResultReconciliation.complete, localQuickResultReconciliation.required, `release rendered evidence reconciles all ${localQuickResultReconciliationRequired} local quick JSON replays to PDF fingerprints`);
 assert.equal(localQuickResultReconciliation.pass, true, 'release rendered evidence passes local quick result reconciliation');
 const rcResultReconciliation = {
   schemaVersion: 1,
@@ -2830,7 +2840,7 @@ const excavationResultReconciliation = {
 assert.equal(new Set(excavationResultReconciliationRecords.map(record => record.caseId)).size, excavationResultReconciliationRecords.length, 'release rendered evidence excavation result reconciliation identities are unique');
 assert.equal(excavationResultReconciliation.complete, excavationResultReconciliation.required, 'release rendered evidence reconciles the excavation ProjectState replay to PDF and DOCX hashes');
 assert.equal(excavationResultReconciliation.pass, true, 'release rendered evidence passes excavation result reconciliation');
-assert.equal(canonicalArtifactIntegrity.verified, canonicalArtifactIntegrity.required, 'release rendered evidence verifies all 66 canonical PDF and evidence files');
+assert.equal(canonicalArtifactIntegrity.verified, canonicalArtifactIntegrity.required, `release rendered evidence verifies all ${canonicalArtifactIntegrityRequired} canonical PDF and evidence files`);
 assert.equal(canonicalArtifactIntegrity.pass, true, 'release rendered evidence passes canonical PDF and evidence integrity');
 assert.equal(rcVisualArtifactIntegrity.verified, rcVisualArtifactIntegrity.required, 'release rendered evidence verifies all 66 RC PDF and PNG visual artifacts');
 assert.equal(rcVisualArtifactIntegrity.pass, true, 'release rendered evidence passes RC PDF and PNG visual artifact integrity');
