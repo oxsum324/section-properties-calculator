@@ -141,7 +141,7 @@ const traceCatalog = JSON.parse(readText(traceCatalogPath));
 const directPrintBoundaryPath = assertFile(manifest.shared.directPrintBoundaryStylesheet);
 const directPrintBoundary = readText(directPrintBoundaryPath);
 
-assert.equal(manifest.version, '0.4.1', 'formal tools manifest version');
+assert.equal(manifest.version, '0.5.0', 'formal tools manifest version');
 assert.equal(manifest.shared.sourceReportFingerprintRequired, true, 'formal source JSON and report fingerprint link required');
 assert.equal(manifest.shared.caseReplayValidationRequired, true, 'formal case JSON requires exact validated replay');
 assert.equal(manifest.family, 'formal-tools', 'formal tools manifest family');
@@ -153,6 +153,9 @@ assert.equal(manifest.shared.directPrintBoundaryClass, 'formal-direct-print-boun
 assert.equal(manifest.shared.documentStateHelper, 'core/ui/report.js', 'formal document state helper');
 assert.equal(manifest.shared.documentStateBuilder, 'buildFormalDocumentStateReport', 'formal document state builder');
 assert.equal(manifest.shared.documentStateRequired, true, 'formal document state required');
+assert.equal(manifest.shared.textExportHelper, manifest.shared.documentStateHelper, 'formal TXT uses the governed report helper');
+assert.equal(manifest.shared.textExportMode, 'non-formal-reference-text', 'formal TXT remains a non-formal reference');
+assert.equal(manifest.shared.textExportRequired, true, 'formal governed TXT export is required');
 assert.equal(manifest.shared.readyDocumentClass, 'formal-attachment', 'formal approved document class');
 assert.equal(manifest.shared.readyDocumentLabel, '文件狀態：正式附件', 'formal approved document label');
 assert.equal(manifest.shared.internalReviewLabel, '文件狀態：內部審閱', 'formal internal-review document label');
@@ -196,6 +199,11 @@ assert.deepEqual(
   tools.filter(tool => tool.reportTraceRequired).map(tool => tool.key),
   traceRequiredToolKeys,
   'formal trace metadata coverage'
+);
+assert.deepEqual(
+  tools.filter(tool => tool.textExport).map(tool => tool.key),
+  traceRequiredToolKeys,
+  'formal governed TXT coverage'
 );
 
 const repoDocs = {
@@ -616,6 +624,10 @@ assertIncludes(
   'assertInlineValidationState',
   'downloadedFileName',
   'downloaded formal HTML filename matches document state and fingerprint',
+  'verifyGovernedTextExport',
+  'repDownloadCurrentText',
+  'non-formal-reference-text',
+  'textExports=${textExportRecords.length}',
   "viewport.key === 'desktop'",
   'desktop interaction'
 ].forEach(needle => assertIncludes(repoDocs.smoke, needle, 'formal browser smoke manifest contract'));
@@ -765,6 +777,8 @@ for (const tool of tools) {
   assertIncludes(html, `../../${manifest.shared.documentStateHelper}`, `${tool.key} loads shared document state helper`);
   assertIncludes(documentStateRendererSource, manifest.shared.documentStateBuilder, `${tool.key} report applies shared document state`);
   assertIncludes(documentStateRendererSource, 'getPageReportReadinessLevel', `${tool.key} report derives document state from page readiness`);
+  assert.equal(tool.textExport, true, `${tool.key} manifest requires governed TXT export`);
+  assertIncludes(documentStateRendererSource, 'textExport: true', `${tool.key} enables governed TXT export`);
   for (const needle of manifest.shared.directPrintBoundaryNeedles) {
     assertIncludes(html, needle, `${tool.key} direct-print guidance`);
   }

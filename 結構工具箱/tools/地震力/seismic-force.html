@@ -2193,7 +2193,8 @@ function openSeismicReport() {
     project,
     calculated: true,
     readinessLevel: window.ToolReportUI.getPageReportReadinessLevel(document),
-    calculationFingerprint: reportTrace.calculationFingerprint
+    calculationFingerprint: reportTrace.calculationFingerprint,
+    textExport: true
   });
   const spectrumImage = collectSeismicDiagrams()[0];
   const inputsHtml = reportOpt('rep_inputs', true) ? renderReportInputSections(collectSeismicInputs()) : '';

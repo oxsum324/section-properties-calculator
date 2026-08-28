@@ -1234,7 +1234,8 @@ function openAppendageReport() {
     project: proj,
     calculated: true,
     readinessLevel: window.ToolReportUI.getPageReportReadinessLevel(document),
-    calculationFingerprint: reportTrace.calculationFingerprint
+    calculationFingerprint: reportTrace.calculationFingerprint,
+    textExport: true
   });
   const calcDetailHtml = document.getElementById('appendResult')?.querySelector('.step')?.outerHTML || document.getElementById('appendResult')?.innerHTML || '';
   const detailedDiagramHtml = renderAppendageDiagram(r, { compact: true });

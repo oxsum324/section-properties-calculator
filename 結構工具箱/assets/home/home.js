@@ -672,11 +672,11 @@
       categories: ['wind'],
       state: 'formal',
       governance: 'formal-tools',
-      output: 'MWFRS 風力、風壓與計算書',
+      output: 'MWFRS 風力、風壓、計算書與 TXT 文字備查',
       summary: '矩形建物外牆、側牆、屋頂與 MWFRS 女兒牆風力計算。',
       fit: '常規建築物主要抗風系統計算。',
       limit: '風洞替代與特殊形體另行處理。',
-      capabilities: ['正式核算', '耐風']
+      capabilities: ['正式核算', '耐風', 'TXT 備查']
     },
     {
       title: '區域風壓 C&C',
@@ -685,11 +685,11 @@
       categories: ['wind'],
       state: 'formal',
       governance: 'formal-tools',
-      output: 'C&C 正負風壓與局部計算書',
+      output: 'C&C 正負風壓、局部計算書與 TXT 文字備查',
       summary: '外牆與屋面構材、包覆物設計風壓，含正負壓組合。',
       fit: 'C&C 局部風壓計算書。',
       limit: '需確認構件有效面積與區域判定。',
-      capabilities: ['正式核算', '耐風']
+      capabilities: ['正式核算', '耐風', 'TXT 備查']
     },
     {
       title: '女兒牆風壓',
@@ -698,11 +698,11 @@
       categories: ['wind'],
       state: 'formal',
       governance: 'formal-tools',
-      output: '女兒牆 MWFRS / C&C 風壓計算書',
+      output: '女兒牆 MWFRS / C&C 風壓計算書與 TXT 文字備查',
       summary: 'MWFRS 女兒牆與 C&C 女兒牆風壓。',
       fit: '女兒牆局部風壓檢核。',
       limit: '特殊屋頂或構造仍需判斷適用圖表。',
-      capabilities: ['正式核算', '耐風']
+      capabilities: ['正式核算', '耐風', 'TXT 備查']
     },
     {
       title: '開放式建築屋面風壓',
@@ -711,11 +711,11 @@
       categories: ['wind'],
       state: 'formal',
       governance: 'formal-tools',
-      output: '開放式屋面淨風壓係數與計算書',
+      output: '開放式屋面淨風壓係數、計算書與 TXT 文字備查',
       summary: '依第三章圖表計算開放式單斜與雙斜屋頂淨風壓係數。',
       fit: '開放式屋面局部風壓。',
       limit: '非典型屋面需確認規範適用性。',
-      capabilities: ['正式核算', '耐風']
+      capabilities: ['正式核算', '耐風', 'TXT 備查']
     },
     {
       title: '實體標示物風力',
@@ -724,11 +724,11 @@
       categories: ['wind'],
       state: 'formal',
       governance: 'formal-tools',
-      output: '表 2.10 C_f(ν)、C_f(M/N)、控制 C_f、0.3b_w、示意圖、案件 JSON 與簡易 / 詳算計算書',
+      output: '表 2.10 C_f(ν)、C_f(M/N)、控制 C_f、0.3b_w、示意圖、案件 JSON、簡易 / 詳算計算書與 TXT 文字備查',
       summary: '回歸規範表 2.10 實體標示物：分離物體高度 H_o、平面斷面 M/N 與受風寬度 b_w，依開口率與雙路內插取較大 C_f。',
       fit: '實體標示物、板狀標示物、圍籬牆、自立看板等表 2.10 情境。',
       limit: '圓柱、球體、角柱體、煙囪、水塔、格子式構架等應改用各自規範表格路線。',
-      capabilities: ['正式核算', '耐風', '計算書模式']
+      capabilities: ['正式核算', '耐風', '計算書模式', 'TXT 備查']
     },
     {
       title: '中空式 / 格子式風力',
@@ -737,11 +737,11 @@
       categories: ['wind'],
       state: 'formal',
       governance: 'formal-tools',
-      output: '表 2.11 Cf、D√q(z) 分類、示意圖、案件 JSON 與簡易 / 詳算計算書',
+      output: '表 2.11 Cf、D√q(z) 分類、示意圖、案件 JSON、簡易 / 詳算計算書與 TXT 文字備查',
       summary: '中空式標示物、格子式構架採表 2.11，依實體率、構材斷面與 D√q(z) 查 C_f。',
       fit: '中空式標示物與格子式構架之表 2.11 風力整理。',
       limit: '桁架高塔、實體標示物、煙囪、水塔或圓柱體應改用各自規範表格路線。',
-      capabilities: ['正式核算', '耐風', '計算書模式']
+      capabilities: ['正式核算', '耐風', '計算書模式', 'TXT 備查']
     },
     {
       title: '桁架高塔風力',
@@ -750,11 +750,11 @@
       categories: ['wind'],
       state: 'formal',
       governance: 'formal-tools',
-      output: '表 2.15 Cf、塔身分段風力、總剪力、底部彎矩、案件 JSON 與簡易 / 詳算計算書',
+      output: '表 2.15 Cf、塔身分段風力、總剪力、底部彎矩、案件 JSON、簡易 / 詳算計算書與 TXT 文字備查',
       summary: '桁架高塔採表 2.15，依塔型、構材、實體率與分段高度輸出塔身風力與底部作用。',
       fit: '方形或三角形桁架高塔之分段風力整理。',
       limit: '柔性動力、拉索、高度特殊或風洞替代設計需另行分析。',
-      capabilities: ['正式核算', '耐風', '分段計算']
+      capabilities: ['正式核算', '耐風', '分段計算', 'TXT 備查']
     },
     {
       title: '煙囪 / 水塔風力',
@@ -763,11 +763,11 @@
       categories: ['wind'],
       state: 'formal',
       governance: 'formal-tools',
-      output: '表 2.12 Cf、h/D 內插、G 詳算、分段剪力、頂部附加風力、案件 JSON 與簡易 / 詳算計算書',
+      output: '表 2.12 Cf、h/D 內插、G 詳算、分段剪力、頂部附加風力、案件 JSON、簡易 / 詳算計算書與 TXT 文字備查',
       summary: '煙囪、水塔等採表 2.12，依 h/D、斷面形狀與圓形 D√q(z) 分類輸出底部作用。',
       fit: '煙囪、水塔等表 2.12 構造物耐風檢核。',
       limit: '桁架高塔、中空式標示物、格子式構架或需動力分析者應改用對應規範路線。',
-      capabilities: ['正式核算', '耐風', '分段計算', '計算書模式']
+      capabilities: ['正式核算', '耐風', '分段計算', '計算書模式', 'TXT 備查']
     },
     {
       title: '圍籬牆 / 獨立招牌風力',
@@ -776,11 +776,11 @@
       categories: ['wind'],
       state: 'formal',
       governance: 'formal-tools',
-      output: '圍籬、招牌與板狀物風力計算書',
+      output: '圍籬、招牌與板狀物風力計算書及 TXT 文字備查',
       summary: '規範表 2.10 招牌物 Cf 路線，座地與架高雙模式，支援案件 JSON 與簡易 / 詳算計算書。',
       fit: '圍籬、招牌與獨立板狀物風力。',
       limit: '基礎、錨栓與構件強度需另行檢核。',
-      capabilities: ['正式核算', '耐風']
+      capabilities: ['正式核算', '耐風', 'TXT 備查']
     },
     {
       title: '招牌 / 燈桿組合風力',
@@ -789,11 +789,11 @@
       categories: ['wind'],
       state: 'formal',
       governance: 'formal-tools',
-      output: '表 2.10 面板、表 2.14 管材或表 2.13 角柱體支撐、分段風力、案件 JSON 與簡易 / 詳算計算書',
+      output: '表 2.10 面板、表 2.14 管材或表 2.13 角柱體支撐、分段風力、案件 JSON、簡易 / 詳算計算書與 TXT 文字備查',
       summary: '常見獨立招牌、路燈與燈桿附掛招牌情境；上方面板與下方支撐分別依規範表格計算後合成底部作用。',
       fit: '上方為實體招牌面板、下方為管材燈桿或型鋼支撐之組合式風力整理。',
       limit: '開口率達 30% 以上、格構式支撐、桁架高塔或特殊動力效應應改用對應規範路線。',
-      capabilities: ['正式核算', '耐風', '分段計算', '計算書模式']
+      capabilities: ['正式核算', '耐風', '分段計算', '計算書模式', 'TXT 備查']
     },
     {
       title: '等值靜力分析',
@@ -802,11 +802,11 @@
       categories: ['seismic'],
       state: 'formal',
       governance: 'formal-tools',
-      output: '等值靜力法地震力與逐層分配計算書',
+      output: '等值靜力法地震力、逐層分配計算書與 TXT 文字備查',
       summary: 'Fa/Fv 內插、VD/V*/VM 比較、Fu 分段、逐層分配與地下層 K。',
       fit: '耐震等值靜力法主流程。',
       limit: '不規則、高層、特殊結構或需動力分析案件不得直接取代正式分析。',
-      capabilities: ['正式核算', '耐震']
+      capabilities: ['正式核算', '耐震', 'TXT 備查']
     },
     {
       title: '動力分析摘要',
@@ -815,11 +815,11 @@
       categories: ['seismic'],
       state: 'report',
       governance: 'formal-tools',
-      output: '動力分析比對、縮放倍率與摘要計算書',
+      output: '動力分析比對、縮放倍率、摘要計算書與 TXT 文字備查',
       summary: '整理反應譜動力分析結果，比對等值靜力結果，提示縮放倍率與採用剪力候選。',
       fit: '承接 ETABS、SAP2000、MIDAS 等模型結果。',
       limit: '本頁不是動力求解器。',
-      capabilities: ['案件報表', '耐震']
+      capabilities: ['案件報表', '耐震', 'TXT 備查']
     },
     {
       title: '附屬構造物地震力',
@@ -828,11 +828,11 @@
       categories: ['seismic'],
       state: 'formal',
       governance: 'formal-tools',
-      output: '附屬構造物 Fph / Fpv / Rpa 計算摘要',
+      output: '附屬構造物 Fph / Fpv / Rpa 計算摘要與 TXT 文字備查',
       summary: '第四章局部計算，整理 Fph、Fpv、Rpa 與控制條件。',
       fit: '機電設備、管線、吊架與非結構構件地震力。',
       limit: '不取代完整建築物耐震通盤檢討。',
-      capabilities: ['附屬構造物', '耐震']
+      capabilities: ['附屬構造物', '耐震', 'TXT 備查']
     },
     {
       title: '雜項工作物地震力',
@@ -841,11 +841,11 @@
       categories: ['seismic'],
       state: 'formal',
       governance: 'formal-tools',
-      output: '雜項工作物地震力計算書',
+      output: '雜項工作物地震力計算書與 TXT 文字備查',
       summary: '第五章快速分流，輸出雜項工作物地震力計算書。',
       fit: '雜項工作物局部地震力。',
       limit: '主結構設計請回耐震主流程。',
-      capabilities: ['正式核算', '耐震']
+      capabilities: ['正式核算', '耐震', 'TXT 備查']
     },
     {
       title: '錨栓檢討工具',

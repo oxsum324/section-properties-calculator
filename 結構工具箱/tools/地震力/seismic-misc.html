@@ -1290,7 +1290,8 @@ function openMiscReport() {
     project: proj,
     calculated: true,
     readinessLevel: window.ToolReportUI.getPageReportReadinessLevel(document),
-    calculationFingerprint: reportTrace.calculationFingerprint
+    calculationFingerprint: reportTrace.calculationFingerprint,
+    textExport: true
   });
   const diagramHtml = renderMiscDiagram(r, { compact: true });
   const resultGridHtml = document.getElementById('miscResult')?.querySelector('.results-grid')?.outerHTML || '';

@@ -430,6 +430,7 @@ function closeReportWindow() {
       calculated: true,
       readinessLevel: reportUi.getPageReportReadinessLevel(document),
       calculationFingerprint,
+      textExport: true,
     });
   }
 

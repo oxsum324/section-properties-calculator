@@ -1,5 +1,5 @@
 {
-  "version": "0.4.1",
+  "version": "0.5.0",
   "family": "formal-tools",
   "description": "風力 / 地震正式工具清冊。此檔集中記錄正式頁入口、乾淨路由、瀏覽器 smoke、報表 regression 與示意圖幾何檢查，避免首頁、路由、preflight 與 smoke coverage 漂移。",
   "shared": {
@@ -9,6 +9,9 @@
     "documentStateHelper": "core/ui/report.js",
     "documentStateBuilder": "buildFormalDocumentStateReport",
     "documentStateRequired": true,
+    "textExportHelper": "core/ui/report.js",
+    "textExportMode": "non-formal-reference-text",
+    "textExportRequired": true,
     "sourceReportFingerprintRequired": true,
     "caseReplayValidationRequired": true,
     "readyDocumentClass": "formal-attachment",
@@ -136,6 +139,7 @@
       "calcButton": "btnCalc",
       "reportButtonSelector": ".btn-print",
       "reportMode": true,
+      "textExport": true,
       "reportTraceRequired": true,
       "popupReportModes": [
         "simple",
@@ -277,6 +281,7 @@
       "calcButton": "btnCalc",
       "reportButtonSelector": ".btn-print",
       "reportMode": true,
+      "textExport": true,
       "reportTraceRequired": true,
       "exportButton": "btnExportCase",
       "importButton": "btnImportCase",
@@ -419,6 +424,7 @@
       "calcButton": "btnCalc",
       "reportButtonSelector": ".btn-print",
       "reportMode": true,
+      "textExport": true,
       "reportTraceRequired": true,
       "exportButton": "btnExportCase",
       "importButton": "btnImportCase",
@@ -572,6 +578,7 @@
       "calcButton": "btnCalc",
       "reportButtonSelector": ".btn-print",
       "reportMode": true,
+      "textExport": true,
       "reportTraceRequired": true,
       "exportButton": "btnExportCase",
       "importButton": "btnImportCase",
@@ -733,6 +740,7 @@
       "importButton": "btnImportCase",
       "jsonRoundTrip": true,
       "reportMode": true,
+      "textExport": true,
       "reportTraceRequired": true,
       "diagramSelector": "#schemaSvg",
       "diagramRoleNeedles": [
@@ -875,6 +883,7 @@
       "importButton": "btnImportCase",
       "jsonRoundTrip": true,
       "reportMode": true,
+      "textExport": true,
       "reportTraceRequired": true,
       "diagramSelector": "#schemaSvg",
       "diagramRoleNeedles": [
@@ -1003,6 +1012,7 @@
       "importButton": "btnImportCase",
       "jsonRoundTrip": true,
       "reportMode": true,
+      "textExport": true,
       "reportTraceRequired": true,
       "diagramSelector": "#schemaSvg",
       "diagramRoleNeedles": [
@@ -1138,6 +1148,7 @@
       "importButton": "btnImportCase",
       "jsonRoundTrip": true,
       "reportMode": true,
+      "textExport": true,
       "reportTraceRequired": true,
       "diagramSelector": "#schemaSvg",
       "diagramRoleNeedles": [
@@ -1277,6 +1288,7 @@
       "importButton": "btnImportCase",
       "jsonRoundTrip": true,
       "reportMode": true,
+      "textExport": true,
       "reportTraceRequired": true,
       "diagramSelector": "#schemaSvg",
       "diagramRoleNeedles": [
@@ -1406,6 +1418,7 @@
       "importButton": "btnImportCase",
       "jsonRoundTrip": true,
       "reportMode": true,
+      "textExport": true,
       "reportTraceRequired": true,
       "diagramSelector": "#schemaSvg",
       "diagramRoleNeedles": [
@@ -1545,6 +1558,7 @@
       "calcButton": "btnCalc",
       "reportButton": "btnReport",
       "reportMode": true,
+      "textExport": true,
       "reportTraceRequired": true,
       "popupReportModes": [
         "simple",
@@ -1689,6 +1703,7 @@
       "importButton": "btnImportCaseJson",
       "jsonRoundTrip": true,
       "reportMode": true,
+      "textExport": true,
       "reportTraceRequired": true,
       "diagramSelector": ".line-h2-diagram",
       "diagramRoleNeedles": [
@@ -1848,6 +1863,7 @@
       "importButton": "btnImportCaseJson",
       "jsonRoundTrip": true,
       "reportMode": true,
+      "textExport": true,
       "reportTraceRequired": true,
       "diagramSelector": ".line-h2-diagram",
       "diagramRoleNeedles": [
@@ -2055,6 +2071,7 @@
       "importButton": "btnImportCaseJson",
       "jsonRoundTrip": true,
       "reportMode": true,
+      "textExport": true,
       "reportTraceRequired": true,
       "diagramSelector": "#dynamicSpectrumChart",
       "diagramRoleNeedles": [

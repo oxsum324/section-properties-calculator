@@ -1009,7 +1009,8 @@ function buildSolidObjectReportHtml() {
     project,
     calculated: true,
     readinessLevel: window.ToolReportUI.getPageReportReadinessLevel(document),
-    calculationFingerprint: reportTrace.calculationFingerprint
+    calculationFingerprint: reportTrace.calculationFingerprint,
+    textExport: true
   });
   const diagramHtml = document.getElementById('schemaSvg')?.outerHTML || '';
   const simpleReportHtml = `

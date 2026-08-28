@@ -40,6 +40,7 @@ if (requestedToolKey && formalTools.length !== 1) {
 const requiredFormalRoutes = formalManifest.requiredRoutes;
 const renderedEvidenceDir = resolveEvidenceDir(repoRoot, 'formal-tools');
 const directPrintOutputDir = path.join(repoRoot, 'output', 'playwright', 'formal-direct-print-block');
+const textExportOutputDir = path.join(renderedEvidenceDir, 'text-exports');
 const SHARED_CASE_DRAFT_TOOL_KEYS = new Set([
   'seismic-force',
   'seismic-dynamic',
@@ -111,7 +112,7 @@ const inlineValidationCases = {
 
 function assertFormalToolCoverage() {
   assert.equal(formalManifest.family, 'formal-tools', 'formal browser smoke manifest family');
-  assert.equal(formalManifest.version, '0.4.1', 'formal browser smoke manifest version');
+  assert.equal(formalManifest.version, '0.5.0', 'formal browser smoke manifest version');
   assert.ok(Array.isArray(formalManifest.tools), 'formal browser smoke manifest tools');
   assert.ok(Array.isArray(requiredFormalRoutes), 'formal browser smoke manifest required routes');
   const coveredRoutes = new Set(formalManifest.tools.map(tool => tool.route));
@@ -1011,6 +1012,156 @@ async function waitForPopupReady(client, sessionId, label, timeoutMs = POPUP_REA
     await delay(100);
   }
   throw new Error(`Timed out waiting for popup report content after ${timeoutMs}ms: ${label} :: ${JSON.stringify(lastState)}`);
+}
+
+async function waitForDownloadedArtifact(filePath, timeoutMs = 10000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (fs.existsSync(filePath) && fs.statSync(filePath).size > 0) return;
+    await delay(50);
+  }
+  throw new Error(`timed out waiting for downloaded artifact: ${filePath}`);
+}
+
+async function verifyGovernedTextExport(client, tool, html) {
+  const outputDir = path.resolve(textExportOutputDir);
+  fs.mkdirSync(outputDir, { recursive: true });
+  const created = await client.send('Target.createTarget', { url: 'about:blank' });
+  try {
+    const attached = await client.send('Target.attachToTarget', {
+      targetId: created.targetId,
+      flatten: true,
+    });
+    const sessionId = attached.sessionId;
+    await client.send('Page.enable', {}, sessionId);
+    await client.send('Runtime.enable', {}, sessionId);
+    await client.send('Browser.setDownloadBehavior', {
+      behavior: 'allow',
+      downloadPath: outputDir,
+      eventsEnabled: true,
+    }).catch(() => client.send('Page.setDownloadBehavior', {
+      behavior: 'allow',
+      downloadPath: outputDir,
+    }, sessionId));
+    const frameTree = await client.send('Page.getFrameTree', {}, sessionId);
+    await client.send('Page.setDocumentContent', {
+      frameId: frameTree.frameTree.frame.id,
+      html,
+    }, sessionId);
+    const ready = await client.send('Runtime.evaluate', {
+      expression: `(async () => {
+        const startedAt = Date.now();
+        while (Date.now() - startedAt < 5000) {
+          if (document.getElementById('repDownloadCurrentText') && typeof window.buildReportText === 'function') return true;
+          await new Promise(resolve => setTimeout(resolve, 25));
+        }
+        return false;
+      })()`,
+      awaitPromise: true,
+      returnByValue: true,
+    }, sessionId);
+    assert.equal(ready.result?.value, true, `${tool.key} governed TXT control initializes`);
+    const preparedResult = await client.send('Runtime.evaluate', {
+      expression: `(() => {
+        const button = document.getElementById('repDownloadCurrentText');
+        let fileName = '';
+        const originalAnchorClick = HTMLAnchorElement.prototype.click;
+        try {
+          HTMLAnchorElement.prototype.click = function captureTextDownloadName() {
+            fileName = this.download || '';
+          };
+          button.click();
+        } finally {
+          HTMLAnchorElement.prototype.click = originalAnchorClick;
+        }
+        return {
+          text: window.buildReportText(),
+          fileName,
+          buttonText: button.textContent || '',
+        };
+      })()`,
+      returnByValue: true,
+    }, sessionId);
+    const prepared = preparedResult.result?.value || {};
+    assert.ok(prepared.buttonText.includes('TXT'), `${tool.key} governed TXT button label`);
+    assert.match(prepared.fileName || '', /文字備查.*CF-[A-F0-9]{16}\.txt$/, `${tool.key} traceable TXT filename`);
+    const filePath = path.resolve(outputDir, prepared.fileName);
+    assert.equal(path.dirname(filePath), outputDir, `${tool.key} TXT path remains inside evidence directory`);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    await client.send('Runtime.evaluate', {
+      expression: `document.getElementById('repDownloadCurrentText').click()`,
+      returnByValue: true,
+    }, sessionId);
+    await waitForDownloadedArtifact(filePath);
+    const buffer = fs.readFileSync(filePath);
+    const decoded = buffer.toString('utf8');
+    const hasBom = decoded.charCodeAt(0) === 0xFEFF;
+    const content = hasBom ? decoded.slice(1) : decoded;
+    const textNeedle = needle => String(needle || '')
+      .replace(/<sub>(.*?)<\/sub>/gi, '_$1')
+      .replace(/<sup>(.*?)<\/sup>/gi, '^$1')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'");
+    const requiredNeedles = [
+      '文件類別：文字備查',
+      '正式附件資格：否',
+      '文件用途：文字備查版（不作為正式附件）',
+      '產出工具：',
+      '工具版本：',
+      '計算引擎：',
+      '輸出時間：',
+      '計算指紋：CF-',
+      '文字版限制：不含可列印圖形',
+      '文字內容 SHA-256（非數位簽章）：',
+      tool.titleNeedle,
+      ...(tool.reportNeedles || []).map(textNeedle),
+      ...(tool.key === 'wind-object-solid' ? ['C_f(ν)', 'C_f(M/N)', 'max[C_f(ν), C_f(M/N)]', '控制：'] : []),
+    ];
+    const normalizedNotation = value => String(value || '').replace(/[_^]/g, '');
+    requiredNeedles.forEach(needle => assert.ok(
+      content.includes(needle) || normalizedNotation(content).includes(normalizedNotation(needle)),
+      `${tool.key} downloaded TXT includes ${needle}`
+    ));
+    if (tool.key === 'wind-object-solid') {
+      ['C_f(ν)', 'C_f(M/N)', 'max[C_f(ν), C_f(M/N)]', '控制：'].forEach(needle => {
+        assert.ok(content.includes(needle), `${tool.key} downloaded TXT keeps exact governing notation ${needle}`);
+      });
+    }
+    assert.equal(hasBom, true, `${tool.key} downloaded TXT has UTF-8 BOM`);
+    assert.equal(content, prepared.text, `${tool.key} downloaded TXT matches the in-browser builder`);
+    assert.ok(buffer.length > 1024, `${tool.key} downloaded TXT is substantial`);
+    assert.equal(content.includes('data:image/'), false, `${tool.key} TXT excludes embedded images`);
+    assert.equal(content.includes('<svg'), false, `${tool.key} TXT excludes SVG markup`);
+    for (const needle of formalManifest.reportPageOnlyForbiddenNeedles || []) {
+      assert.equal(content.includes(needle), false, `${tool.key} TXT excludes page-only wording ${needle}`);
+    }
+    const digestMatch = content.match(/文字內容 SHA-256（非數位簽章）：([0-9a-f]{64})\r?\n$/);
+    const baseText = digestMatch ? content.slice(0, digestMatch.index) : '';
+    const actualDigest = baseText ? crypto.createHash('sha256').update(baseText, 'utf8').digest('hex') : '';
+    assert.ok(digestMatch, `${tool.key} TXT carries a content digest`);
+    assert.equal(digestMatch[1], actualDigest, `${tool.key} TXT content digest recomputes`);
+    const record = AttachmentPackageChecker.inspectAttachment(filePath, outputDir);
+    const packageReport = AttachmentPackageChecker.analyzePackage([record]);
+    const packageIssueCodes = packageReport.issues.map(issue => issue.code);
+    assert.equal(packageReport.status, 'blocked', `${tool.key} TXT cannot enter a formal attachment package`);
+    assert.ok(packageIssueCodes.includes('non-formal-reference-text'), `${tool.key} TXT is classified as non-formal reference text`);
+    return {
+      key: tool.key,
+      artifact: path.basename(filePath),
+      bytes: buffer.length,
+      hasBom,
+      textLength: content.length,
+      contentSha256: actualDigest,
+      packageStatus: packageReport.status,
+      packageIssueCodes,
+    };
+  } finally {
+    await client.send('Target.closeTarget', { targetId: created.targetId }).catch(() => {});
+  }
 }
 
 async function popupReportCaptureState(client, pageSessionId, tool, mode = 'default', projectMetaState = 'complete') {
@@ -2815,6 +2966,7 @@ async function main() {
   let client;
   const renderedEvidenceRecords = [];
   const directPrintRecords = [];
+  const textExportRecords = [];
 
   try {
     server = await startStaticServer(serverPort, vercelConfig);
@@ -2957,6 +3109,7 @@ async function main() {
           const renderedDocumentStateNeedles = getApprovedReportPdfDocumentStateNeedles(renderedReportState);
           const resultReconciliation = buildFormalResultReconciliation(tool, goldenStates, renderedReportState);
           const dualSealEvidence = verifyApprovedHtmlDualSeals(renderedReportState.approvedHtml, `${interactionLabel} ${tool.key} release evidence`);
+          textExportRecords.push(await verifyGovernedTextExport(client, tool, renderedReportState.approvedHtml));
           const htmlArtifact = `${viewport.key}-${tool.key}-approved-formal-attachment.html`;
           const htmlArtifactPath = path.join(renderedEvidenceDir, htmlArtifact);
           fs.mkdirSync(renderedEvidenceDir, { recursive: true });
@@ -3103,10 +3256,19 @@ async function main() {
       records: directPrintRecords,
       pass: directPrintRecords.length === formalTools.length,
     }, null, 2)}\n`, 'utf8');
+    assert.equal(textExportRecords.length, formalTools.length, 'formal governed TXT download coverage');
+    const textExportSummaryPath = path.join(textExportOutputDir, 'formal-text-export-summary.json');
+    fs.writeFileSync(textExportSummaryPath, `${JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      required: formalTools.map(tool => tool.key),
+      complete: textExportRecords.map(record => record.key),
+      records: textExportRecords,
+      pass: textExportRecords.length === formalTools.length,
+    }, null, 2)}\n`, 'utf8');
     await client.send('Browser.close').catch(() => {});
     await waitForProcessExit(edge, 5000);
     await terminateProcessTree(edge);
-    console.log(`formal browser smoke OK (${formalTools.length} tools, ${viewports.length} viewports, renderedEvidence=${renderedEvidenceRecords.length}, directPrintBlocks=${directPrintRecords.length}, summary=${renderedSummary.summaryPath})`);
+    console.log(`formal browser smoke OK (${formalTools.length} tools, ${viewports.length} viewports, renderedEvidence=${renderedEvidenceRecords.length}, directPrintBlocks=${directPrintRecords.length}, textExports=${textExportRecords.length}, summary=${renderedSummary.summaryPath})`);
   } finally {
     if (client) client.close();
     await terminateProcessTree(edge);
