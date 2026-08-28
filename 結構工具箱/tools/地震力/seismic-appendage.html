@@ -342,6 +342,7 @@
 <script src="../../core/loads/project-location.js" data-location-tool-id="seismic-appendage" data-location-tool-name="附屬構造物地震力" data-location-tool-version="V2.5"></script>
 <script src="../../core/ui/report.js?v=7"></script>
 <script src="../formal-tool-metadata.js"></script>
+<script src="../project-storage.js?v=0.4.0" data-auto-bind="false"></script>
 <script>
 const S = Seismic;
 const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['seismic-appendage'].version;
@@ -585,71 +586,18 @@ function exportCaseJson() {
 
 
 const CASE_BROWSER_DRAFT_KEY = 'toolCaseDraft:' + location.pathname + ':' + (typeof CASE_SCHEMA_VERSION !== 'undefined' ? CASE_SCHEMA_VERSION : 'v1');
-function setCaseDraftStatus(message, tone = 'ok') {
-  if (typeof setCaseStatus === 'function') {
-    setCaseStatus(message, tone === 'warn' ? 'warn' : '');
-    return;
-  }
-  const node = document.getElementById('caseStatus') || document.getElementById('staticImportStatus') || document.getElementById('inputStatus');
-  if (node) {
-    node.textContent = message;
-    node.classList.toggle('warn', tone === 'warn');
-    return;
-  }
-  if (typeof setInputStatus === 'function') setInputStatus(message);
-}
-function buildCaseDraftPayload() {
-  let payload = null;
-  if (typeof buildCasePayload === 'function') payload = buildCasePayload();
-  if (!payload && typeof readCaseInputs === 'function') {
-    payload = {
-      schema: typeof CASE_SCHEMA_VERSION !== 'undefined' ? CASE_SCHEMA_VERSION : 'case-draft.v1',
-      tool: { id: location.pathname.split('/').pop().replace(/\.html$/i, '') },
-      generatedAt: new Date().toISOString(),
-      ...readCaseInputs(),
-      result: typeof readExportResultSummary === 'function'
-        ? readExportResultSummary()
-        : (typeof lastResult !== 'undefined' ? lastResult : null)
-    };
-  }
-  if (!payload) throw new Error('目前輸入尚未通過檢核，無法暫存。');
-  return payload;
-}
-function refreshCaseAfterDraftLoad() {
-  const refreshers = [
-    'calc', 'calcDynamic', 'calcAppendagePage', 'calcMiscPage',
-    'calcMiscSeismicFull', 'runCheck', 'renderSummary'
-  ];
-  for (const name of refreshers) {
-    if (typeof window[name] === 'function') {
-      try { window[name](); } catch (err) {}
-      return;
-    }
-  }
-}
+const caseDraftController = window.ToolProjectStorage.createCaseDraftController({
+  storageKey: CASE_BROWSER_DRAFT_KEY,
+  buildPayload: () => buildCasePayload(),
+  applyPayload: payload => applyCaseInputs(payload),
+  refresh: () => calcAppendagePage(),
+  setStatus: (message, tone) => setCaseStatus(message, tone === 'warn' ? 'warn' : 'ok')
+});
 function saveCaseDraft() {
-  try {
-    const payload = buildCaseDraftPayload();
-    localStorage.setItem(CASE_BROWSER_DRAFT_KEY, JSON.stringify(payload));
-    setCaseDraftStatus('已暫存目前案件到此瀏覽器。');
-  } catch (err) {
-    setCaseDraftStatus('暫存失敗：' + (err.message || err), 'warn');
-  }
+  return caseDraftController.save();
 }
 function loadCaseDraft() {
-  try {
-    const raw = localStorage.getItem(CASE_BROWSER_DRAFT_KEY);
-    if (!raw) {
-      setCaseDraftStatus('尚無可讀取的瀏覽器暫存。', 'warn');
-      return;
-    }
-    const payload = JSON.parse(raw);
-    applyCaseInputs(payload);
-    refreshCaseAfterDraftLoad();
-    setCaseDraftStatus('已讀取瀏覽器暫存，並依目前頁面重新整理。');
-  } catch (err) {
-    setCaseDraftStatus('讀取暫存失敗：' + (err.message || err), 'warn');
-  }
+  return caseDraftController.load();
 }
 
 function importCaseJsonFile(file) {

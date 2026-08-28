@@ -14,7 +14,8 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  const VERSION = '0.3.0';
+  const VERSION = '0.4.0';
+  const CASE_DRAFT_CONTROLLER_VERSION = '1.0.0';
   const REVIEW_VERSION = '1';
   const CONTROL_CLASS = 'project-storage-bar';
   const PROJECT_META_FIELD_IDS = new Set([
@@ -487,11 +488,88 @@
     return bar;
   }
 
+  function buildCaseDraftStorageKey(pathname, schemaVersion) {
+    return 'toolCaseDraft:' + String(pathname || '') + ':' + String(schemaVersion || 'v1');
+  }
+
+  function defaultCaseDraftStatus(message, tone) {
+    if (typeof document === 'undefined') return;
+    const node = document.getElementById('caseStatus')
+      || document.getElementById('caseJsonStatus')
+      || document.getElementById('staticImportStatus')
+      || document.getElementById('inputStatus');
+    if (!node) return;
+    node.textContent = message || '';
+    node.classList?.toggle('warn', tone === 'warn');
+  }
+
+  function createCaseDraftController(options = {}) {
+    if (typeof options.buildPayload !== 'function') throw new Error('案件暫存控制器需要 buildPayload。');
+    if (typeof options.applyPayload !== 'function') throw new Error('案件暫存控制器需要 applyPayload。');
+    const pathname = options.pathname != null
+      ? options.pathname
+      : (typeof location !== 'undefined' ? location.pathname : '');
+    const storageKeyValue = options.storageKey
+      || buildCaseDraftStorageKey(pathname, options.schemaVersion);
+    const status = typeof options.setStatus === 'function'
+      ? options.setStatus
+      : defaultCaseDraftStatus;
+
+    function getStorage() {
+      if (options.storage) return options.storage;
+      if (typeof localStorage !== 'undefined') return localStorage;
+      throw new Error('此環境無法使用瀏覽器暫存。');
+    }
+
+    function notify(message, tone) {
+      status(message, tone || 'ok');
+    }
+
+    function save() {
+      try {
+        const payload = options.buildPayload();
+        if (!payload || typeof payload !== 'object') throw new Error('目前輸入尚未通過檢核，無法暫存。');
+        getStorage().setItem(storageKeyValue, JSON.stringify(payload));
+        notify('已暫存目前案件到此瀏覽器。', 'ok');
+        return { ok: true, storageKey: storageKeyValue, payload };
+      } catch (err) {
+        notify('暫存失敗：' + (err.message || err), 'warn');
+        return { ok: false, storageKey: storageKeyValue, error: err };
+      }
+    }
+
+    function load() {
+      try {
+        const raw = getStorage().getItem(storageKeyValue);
+        if (!raw) {
+          notify('尚無可讀取的瀏覽器暫存。', 'warn');
+          return { ok: false, storageKey: storageKeyValue, reason: 'missing' };
+        }
+        const payload = JSON.parse(raw);
+        options.applyPayload(payload);
+        if (typeof options.refresh === 'function') options.refresh(payload);
+        notify('已讀取瀏覽器暫存，並依目前頁面重新整理。', 'ok');
+        return { ok: true, storageKey: storageKeyValue, payload };
+      } catch (err) {
+        notify('讀取暫存失敗：' + (err.message || err), 'warn');
+        return { ok: false, storageKey: storageKeyValue, error: err };
+      }
+    }
+
+    return {
+      version: CASE_DRAFT_CONTROLLER_VERSION,
+      storageKey: storageKeyValue,
+      save,
+      load,
+    };
+  }
+
   function autoBind() {
     if (document.querySelector('.' + CONTROL_CLASS)) return null;
     const scriptEl = document.currentScript || Array.from(document.scripts).find(function (script) {
       return /project-storage\.js(?:\?|$)/.test(script.src || '');
     });
+    if (scriptEl?.dataset.autoBind === 'false') return null;
     const meta = getToolMeta(scriptEl);
     const bar = createBar(meta);
     const target = document.querySelector('.mode-bar') || document.querySelector('header') || document.body.firstElementChild;
@@ -514,6 +592,8 @@
     buildReviewSnapshot,
     evaluateReviewRecord,
     buildPayload,
+    buildCaseDraftStorageKey,
+    createCaseDraftController,
     autoBind,
   };
 });

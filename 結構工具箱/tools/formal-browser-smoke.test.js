@@ -40,6 +40,12 @@ if (requestedToolKey && formalTools.length !== 1) {
 const requiredFormalRoutes = formalManifest.requiredRoutes;
 const renderedEvidenceDir = resolveEvidenceDir(repoRoot, 'formal-tools');
 const directPrintOutputDir = path.join(repoRoot, 'output', 'playwright', 'formal-direct-print-block');
+const SHARED_CASE_DRAFT_TOOL_KEYS = new Set([
+  'seismic-force',
+  'seismic-dynamic',
+  'seismic-appendage',
+  'seismic-misc',
+]);
 const inlineValidationCases = {
   'wind-force': {
     inputs: { h: '0' },
@@ -1292,6 +1298,7 @@ function jsonRoundTripExpression(tool, sourcePayload) {
       requestAnimationFrame(step);
     });
     const payload = ${JSON.stringify(sourcePayload || null)};
+    const expectsSharedCaseDraft = ${JSON.stringify(SHARED_CASE_DRAFT_TOOL_KEYS.has(tool.key))};
     if (!payload || typeof payload !== 'object') {
       return { missingPayload: true, mismatches: [], resultSelectors: {} };
     }
@@ -1453,6 +1460,36 @@ function jsonRoundTripExpression(tool, sourcePayload) {
     }
     const successfulCaseStatus = readCaseStatus();
 
+    const draftGuard = {
+      applicable: expectsSharedCaseDraft,
+      hasSaveButton: false,
+      hasLoadButton: false,
+      hasSharedApi: typeof ToolProjectStorage?.createCaseDraftController === 'function',
+      genericBarAbsent: !document.querySelector('.project-storage-bar'),
+      saved: false,
+      loaded: false,
+      restored: false
+    };
+    if (expectsSharedCaseDraft) {
+      const saveDraftButton = document.getElementById('btnSaveCaseDraft');
+      const loadDraftButton = document.getElementById('btnLoadCaseDraft');
+      draftGuard.hasSaveButton = !!saveDraftButton;
+      draftGuard.hasLoadButton = !!loadDraftButton;
+      if (saveDraftButton && loadDraftButton) {
+        clearCaseStatus();
+        const savedProjectName = readValue('projName');
+        saveDraftButton.click();
+        const saveStatus = await waitForCaseStatus('已暫存目前案件');
+        draftGuard.saved = saveStatus.includes('已暫存目前案件');
+        writeValue('projName', 'draft-roundtrip-mutated');
+        loadDraftButton.click();
+        const loadStatus = await waitForCaseStatus('已讀取瀏覽器暫存');
+        await settle(2);
+        draftGuard.loaded = loadStatus.includes('已讀取瀏覽器暫存');
+        draftGuard.restored = readValue('projName') === savedProjectName;
+      }
+    }
+
     let versionGuard = { status: '', unchanged: false };
     let fingerprintGuard = { status: '', restored: false };
     if (typeof importCaseJsonFile === 'function') {
@@ -1495,6 +1532,7 @@ function jsonRoundTripExpression(tool, sourcePayload) {
       resultValues,
       payloadSchema,
       payloadToolId,
+      draftGuard,
       versionGuard,
       fingerprintGuard
     };
@@ -2639,6 +2677,16 @@ function assertJsonRoundTripState(state, tool, label) {
   );
   assert.equal(state.payloadToolId, tool.key, `${label} ${tool.key} JSON round-trip payload tool`);
   assert.ok(state.payloadSchema, `${label} ${tool.key} JSON round-trip payload schema`);
+  if (SHARED_CASE_DRAFT_TOOL_KEYS.has(tool.key)) {
+    assert.equal(state.draftGuard?.applicable, true, `${label} ${tool.key} shared draft guard applies`);
+    assert.equal(state.draftGuard?.hasSaveButton, true, `${label} ${tool.key} shared draft save button`);
+    assert.equal(state.draftGuard?.hasLoadButton, true, `${label} ${tool.key} shared draft load button`);
+    assert.equal(state.draftGuard?.hasSharedApi, true, `${label} ${tool.key} shared draft controller API`);
+    assert.equal(state.draftGuard?.genericBarAbsent, true, `${label} ${tool.key} shared helper does not inject the generic storage bar`);
+    assert.equal(state.draftGuard?.saved, true, `${label} ${tool.key} shared draft save status`);
+    assert.equal(state.draftGuard?.loaded, true, `${label} ${tool.key} shared draft load status`);
+    assert.equal(state.draftGuard?.restored, true, `${label} ${tool.key} shared draft restores project state`);
+  }
   assert.equal(state.versionGuard?.unchanged, true, `${label} ${tool.key} wrong-version JSON leaves the prior inputs unchanged`);
   assert.ok(state.versionGuard?.status.includes('工具版本不符'), `${label} ${tool.key} wrong-version status: ${state.versionGuard?.status}`);
   assert.ok(state.versionGuard?.status.includes('已保留原輸入'), `${label} ${tool.key} wrong-version status preserves original inputs`);

@@ -1,6 +1,8 @@
 const assert = require('assert');
 const Storage = require('./project-storage.js');
 
+assert.equal(Storage.version, '0.4.0', 'project storage helper exposes the cache-busting API version');
+
 function makeField(id, value, type = 'text') {
   return {
     id,
@@ -112,6 +114,52 @@ assert.equal(Storage.evaluateReviewRecord({
   reviewedSnapshot: reviewSnapshot,
 }, 'RS-CHANGED').status, 'stale', 'changed case data requires review again');
 assert.equal(Storage.safeFileName('A/B:C*D?E'), 'A-B-C-D-E');
+
+const draftValues = new Map();
+const draftStorage = {
+  getItem(key) { return draftValues.has(key) ? draftValues.get(key) : null; },
+  setItem(key, value) { draftValues.set(key, String(value)); },
+};
+const draftStatuses = [];
+let draftSource = { schemaVersion: 'seismic-force.case.v3', inputs: { values: { H: '30' } } };
+let appliedDraft = null;
+let draftRefreshCount = 0;
+const draftController = Storage.createCaseDraftController({
+  pathname: '/section-properties-calculator/seismic-force/',
+  schemaVersion: 'seismic-force.case.v3',
+  storage: draftStorage,
+  buildPayload: () => draftSource,
+  applyPayload: value => { appliedDraft = value; },
+  refresh: () => { draftRefreshCount += 1; },
+  setStatus: (message, tone) => draftStatuses.push({ message, tone }),
+});
+assert.equal(draftController.version, '1.0.0', 'case draft controller exposes its contract version');
+assert.equal(
+  draftController.storageKey,
+  'toolCaseDraft:/section-properties-calculator/seismic-force/:seismic-force.case.v3',
+  'case draft key preserves the existing pathname and schema convention'
+);
+assert.equal(draftController.save().ok, true, 'case draft controller saves the page payload');
+draftSource = { schemaVersion: 'seismic-force.case.v3', inputs: { values: { H: '99' } } };
+const loadedDraft = draftController.load();
+assert.equal(loadedDraft.ok, true, 'case draft controller reloads the stored payload');
+assert.equal(appliedDraft.inputs.values.H, '30', 'case draft controller restores the saved state instead of the later page state');
+assert.equal(draftRefreshCount, 1, 'case draft controller recalculates after applying a draft');
+assert.ok(draftStatuses.some(item => item.message.includes('已暫存目前案件')), 'case draft controller reports save success');
+assert.ok(draftStatuses.some(item => item.message.includes('已讀取瀏覽器暫存')), 'case draft controller reports load success');
+
+const missingDraftStatuses = [];
+const missingDraftController = Storage.createCaseDraftController({
+  pathname: '/missing/',
+  schemaVersion: 'v1',
+  storage: draftStorage,
+  buildPayload: () => ({}),
+  applyPayload: () => { throw new Error('missing draft must not apply'); },
+  setStatus: (message, tone) => missingDraftStatuses.push({ message, tone }),
+});
+assert.deepEqual(missingDraftController.load().reason, 'missing', 'missing case draft remains a non-destructive warning');
+assert.equal(missingDraftStatuses.at(-1).tone, 'warn', 'missing case draft uses warning status');
+
 const storageSource = require('fs').readFileSync(require.resolve('./project-storage.js'), 'utf8');
 assert(storageSource.includes("['runCheck', 'calc', 'calculate', 'compute', 'renderSummaryFromFields', 'renderSummary', 'loadOverview']"), 'project storage refreshPage checks renderSummaryFromFields before loadOverview');
 assert(storageSource.includes('continue;'), 'project storage refreshPage keeps trying later refresh candidates after an earlier helper throws');
@@ -122,5 +170,6 @@ assert(storageSource.includes('data-project-review-confirm'), 'project storage h
 assert(storageSource.includes('案件資料或計算輸入已變更'), 'project storage invalidates review after case data changes');
 assert(storageSource.includes('不會寫入計算書、列印或 PDF'), 'project storage keeps manual review out of reports and PDF output');
 assert(storageSource.includes('已不存在的選項而保留本頁值'), 'project storage warns before skipping retired select options');
+assert(storageSource.includes("scriptEl?.dataset.autoBind === 'false'"), 'project storage can expose shared helpers without injecting the generic storage bar');
 
 console.log('project storage helper OK');

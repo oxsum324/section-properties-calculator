@@ -1392,6 +1392,21 @@ for (const tool of manifest.tools) {
 }
 
 for (const relativePath of [
+  'tools/地震力/seismic-force.html',
+  'tools/地震力/seismic-dynamic.html',
+  'tools/地震力/seismic-appendage.html',
+  'tools/地震力/seismic-misc.html',
+]) {
+  const html = readText(toolboxFile(relativePath));
+  assertIncludes(html, '<script src="../project-storage.js?v=0.4.0" data-auto-bind="false"></script>', `${relativePath} versioned shared case storage helper`);
+  assertIncludes(html, 'window.ToolProjectStorage.createCaseDraftController({', `${relativePath} shared case draft controller`);
+  assertIncludes(html, 'return caseDraftController.save();', `${relativePath} shared case draft save`);
+  assertIncludes(html, 'return caseDraftController.load();', `${relativePath} shared case draft load`);
+  assertNoIncludes(html, 'function setCaseDraftStatus(', `${relativePath} removes duplicated draft status helper`);
+  assertNoIncludes(html, 'function refreshCaseAfterDraftLoad(', `${relativePath} removes duplicated draft refresh helper`);
+}
+
+for (const relativePath of [
   'tools/風力/wind-force.html',
   'tools/風力/wind-cc.html',
   'tools/風力/wind-open-roof.html',
