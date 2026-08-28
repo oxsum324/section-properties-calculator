@@ -38,6 +38,7 @@ assert(html.includes('id="continuousBeamVersion"') && html.includes('CONTINUOUS_
 assert(html.includes("pageVersion: window.AnalysisSectionToolMetadata['continuous-beam'].version"), 'continuous beam JSON records canonical page version', analysisSectionMetadata['continuous-beam'].version);
 assert(html.includes("calculationEngine: window.AnalysisSectionToolMetadata['continuous-beam'].calculationEngine"), 'continuous beam JSON records calculation engine', analysisSectionMetadata['continuous-beam'].calculationEngine);
 assert(html.includes("schema: 'continuous-beam.project.v1'"), 'continuous beam JSON declares a stable schema', 'continuous-beam.project.v1');
+assert(/openReport\(\{[\s\S]*?textExport:\s*true,[\s\S]*?outputSource:/.test(html), 'continuous beam enables governed TXT from the same report state', 'textExport: true');
 assert(html.includes('function validateContinuousBeamSaveData'), 'continuous beam validates restored model topology', 'validated before active-state mutation');
 assert(html.includes('id="saveModalStatus"'), 'save modal status outlet exists', 'save validation/errors stay in the modal');
 assert(html.includes('id="loadModalStatus"'), 'load modal status outlet exists', 'load/delete errors stay in the modal');
@@ -605,11 +606,14 @@ function main() {
   assert(placeholderSave.projName === '', 'placeholder project name is normalized before local save', JSON.stringify(placeholderSave));
   assert(placeholderSave.projDesigner === '', 'placeholder designer is normalized before local save', JSON.stringify(placeholderSave));
   ctx.exportPDF();
+  assert(ctx.__lastReportConfig.textExport === true, 'continuous beam report enables governed TXT', JSON.stringify(ctx.__lastReportConfig.textExport));
   assert(ctx.__lastReportConfig.project.name === '', 'placeholder project name is scrubbed before report export', JSON.stringify(ctx.__lastReportConfig.project));
   assert(ctx.__lastReportConfig.project.no === 'CB-001', 'project number remains in report export', JSON.stringify(ctx.__lastReportConfig.project));
   assert(ctx.__lastReportConfig.project.designer === '', 'placeholder designer is scrubbed before report export', JSON.stringify(ctx.__lastReportConfig.project));
   assert(ctx.__lastReportConfig.documentState?.label === '內部審閱', 'new continuous beam report defaults to printable internal review', JSON.stringify(ctx.__lastReportConfig.documentState));
   const reportHtml = renderSharedReportPayload(ctx.__lastReportConfig);
+  assert(reportHtml.includes('data-text-export-enabled="true"'), 'continuous beam report carries TXT enablement into the report window', 'data-text-export-enabled=true');
+  assert(reportHtml.includes('repDownloadCurrentText') && reportHtml.includes('下載文字計算書 TXT'), 'continuous beam report renders the TXT download control', 'repDownloadCurrentText');
   const reportText = assertReportHtmlText(reportHtml, 'continuous beam runtime report', [
     '連續梁分析計算書',
     '計畫編號',
@@ -726,7 +730,7 @@ function main() {
   const sourceReportHtml = renderSharedReportPayload(ctx.__lastReportConfig);
   const sourceFingerprint = reportCalculationFingerprint(sourceReportHtml);
   assert(sourcePayload.schema === 'continuous-beam.project.v1', 'local JSON declares continuous beam schema', sourcePayload.schema);
-  assert(sourcePayload.tool.pageVersion === 'V1.3', 'local JSON records current page version', sourcePayload.tool.pageVersion);
+  assert(sourcePayload.tool.pageVersion === analysisSectionMetadata['continuous-beam'].version, 'local JSON records current page version', sourcePayload.tool.pageVersion);
   assert(sourcePayload.tool.calculationEngine === analysisSectionMetadata['continuous-beam'].calculationEngine, 'local JSON records canonical calculation engine', sourcePayload.tool.calculationEngine);
   assert(/^[0-9a-f]{64}$/.test(sourceSnapshotSha256), 'source input/result snapshot has stable SHA-256', sourceSnapshotSha256);
   assert(/^CF-[0-9A-F]{16}$/.test(sourceFingerprint), 'source report exposes calculation fingerprint', sourceFingerprint);
