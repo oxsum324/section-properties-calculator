@@ -50,6 +50,7 @@ function makeBase(ctx) {
     lw: 500,
     hw: 1500,
     cover: 5,
+    coreCover: 4,
     duhw: 0.01,
     nBE: 12,
     dBE: '#7',
@@ -109,8 +110,19 @@ function main() {
     sbeSpOk: service.sbeSpOk,
     sbeAshOk: service.sbeAshOk,
   }));
+  assert(base.AshReqControl === '0.3(Ag/Ach−1)式' && base.AshReq > base.AshReqEqB,
+    '服務工況 SBE Ash 採兩式取大且揭露控制式',
+    JSON.stringify({ control: base.AshReqControl, eqA: base.AshReqEqA, eqB: base.AshReqEqB }));
   assert(service.shearFricActive === false, '服務工況未觸發剪摩擦', JSON.stringify({ shearFricActive: service.shearFricActive }));
   assert(Array.isArray(service.reviewWarnings) && service.reviewWarnings.some(w => w.includes('水平施工縫剪摩擦已初估')), '服務工況回傳施工縫圖說確認 warning', service.reviewWarnings.join(' / '));
+
+  const flangedReviewBase = makeBase(ctx);
+  flangedReviewBase.bComp = 45;
+  const flangedReview = WallEvaluator.evaluateLoadCase(flangedReviewBase, {
+    name: 'LC-flanged-review', Pu: 150, Mu: 650, Vu: 160, shearDemandMode: 'direct',
+  });
+  assert(flangedReview.reviewWarnings.some(w => w.includes('翼板或非矩形核心') && w.includes('另檢兩方向圍束')),
+    'b 與 tw 不同時揭露矩形 Ag/Ach 適用邊界', flangedReview.reviewWarnings.join(' / '));
 
   const control = WallEvaluator.evaluateLoadCase(base, {
     name: 'LC-control',
@@ -134,6 +146,27 @@ function main() {
     sVReq: control.shearFricSVReq,
   }));
   assert(control.reviewWarnings.some(w => w.includes('剪摩擦強度不足')), '控制工況回傳剪摩擦不足 warning', control.reviewWarnings.join(' / '));
+
+  const weakTieBase = makeBase(ctx);
+  weakTieBase.nLegTie = 1;
+  weakTieBase.sTie = 9;
+  weakTieBase.AshReqEqA = weakTieBase.AshReqRatioA * weakTieBase.sTie * weakTieBase.bc;
+  weakTieBase.AshReqEqB = weakTieBase.AshReqRatioB * weakTieBase.sTie * weakTieBase.bc;
+  weakTieBase.AshReq = Math.max(weakTieBase.AshReqEqA, weakTieBase.AshReqEqB);
+  weakTieBase.AshProv = weakTieBase.aTie;
+  const weakTie = WallEvaluator.evaluateLoadCase(weakTieBase, {
+    name: 'LC-weak-tie',
+    Pu: 150,
+    Mu: 650,
+    Vu: 160,
+    shearDemandMode: 'direct',
+  });
+  assert(weakTieBase.AshProv >= weakTieBase.AshReqEqB && weakTieBase.AshProv < weakTieBase.AshReq,
+    '弱圍束案例依舊可通過舊 0.09 式但不通過控制式',
+    JSON.stringify({ prov: weakTieBase.AshProv, eqB: weakTieBase.AshReqEqB, req: weakTieBase.AshReq }));
+  assert(weakTie.sbeReq === true && weakTie.sbeAshOk === false && weakTie.sbeDesignOk === false && weakTie.overallOk === false,
+    '兩式取大會阻擋 SBE 圍束量不足案例',
+    JSON.stringify({ sbeReq: weakTie.sbeReq, sbeAshOk: weakTie.sbeAshOk, overallOk: weakTie.overallOk }));
 
   const amplified = WallEvaluator.evaluateLoadCase(base, {
     name: 'LC-amp',

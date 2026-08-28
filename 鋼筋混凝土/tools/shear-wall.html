@@ -106,7 +106,7 @@
 <body class="rc-formal-output-page">
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>剪力牆 Shear Wall 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V0.3</span></h1>
+  <h1>剪力牆 Shear Wall 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V0.4</span></h1>
   <p><a class="back" href="../index.html">← 回 RC 工具箱</a> ｜ 面內撓曲 P-M 互制、面內剪力、特殊邊界構材 (依 112 規範 11 章 ＋ 18.7 章)</p>
 </header>
 
@@ -335,7 +335,10 @@
           <div class="form-group"><label>邊界未支撐高度 hu (cm)</label><input type="number" id="hu" value="300" step="any"></div>
           <div class="form-group"><label>壓力區有效寬度 b (cm)</label><input type="number" id="bComp" value="" step="any" placeholder="預設 tw"></div>
         </div>
-        <p class="hint detail-help">Ash/(s·bc) ≥ 0.09·fc'/fyt (18.7.6.4(g))；間距 ≤ min(邊界最小尺寸/3, 6·db, so)，so=10+(35−hx)/3 取 [10,15] cm。bc = tw−2·cover。壓力區 b 可依翼板有效寬度調整，未輸入時採 tw。</p>
+        <div class="form-row">
+          <div class="form-group"><label>構材面至橫向筋外緣 ccore (cm)</label><input type="number" id="coreCover" value="" step="any" placeholder="依施工圖輸入"></div>
+        </div>
+        <p class="hint detail-help">ccore 須依專案施工圖指定，與前頁「至縱筋筋心 cover」不同。Ash/(s·bc) ≥ max[0.3·(Ag/Ach−1)·fc'/fyt, 0.09·fc'/fyt] (表 18.7.6.4(g))；矩形牆邊界區採 Ag=tw·ℓbe、Ach=(tw−2ccore)(ℓbe−2ccore)、bc=tw−2ccore。間距 ≤ min(邊界最小尺寸/3, 6·db, so)，so=10+(35−hx)/3 取 [10,15] cm。壓力區 b 可依翼板有效寬度調整，未輸入時採 tw；非矩形邊界構材仍須依施工圖另檢兩方向圍束。</p>
       </div>
       <div class="card subpanel" data-panel="detail">
         <h2>施工細部</h2>
@@ -449,7 +452,10 @@
           <div class="result-item" id="c-sbeCratioB"><span class="label">c/ℓw≥3/8 時 b≥30 cm</span><span class="value">—</span></div>
           <div class="result-item" id="c-sbeHx"><span class="label">hx ≤ min(35 cm, 2b/3)</span><span class="value">—</span></div>
           <div class="result-item" id="r-sbeSpLimit"><span class="label">圍束筋間距上限 min(d/3,6db,so)</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
-          <div class="result-item" id="r-sbeAshReq"><span class="label">需求 Ash = 0.09·s·bc·fc'/fyt</span><span><span class="value">—</span><span class="unit">cm²</span></span></div>
+          <div class="result-item" id="r-sbeAgAch"><span class="label">矩形邊界核心面積比 Ag/Ach</span><span class="value">—</span></div>
+          <div class="result-item" id="r-sbeAshEqA"><span class="label">Ash 需求：0.3(Ag/Ach−1) 式</span><span><span class="value">—</span><span class="unit">cm²</span></span></div>
+          <div class="result-item" id="r-sbeAshEqB"><span class="label">Ash 需求：0.09 式</span><span><span class="value">—</span><span class="unit">cm²</span></span></div>
+          <div class="result-item" id="r-sbeAshReq"><span class="label">Ash 控制需求（兩式取大）</span><span><span class="value">—</span><span class="unit">cm²</span></span></div>
           <div class="result-item" id="c-sbeSp"><span class="label">圍束筋間距 ≤ 上限</span><span class="value">—</span></div>
           <div class="result-item" id="c-sbeAsh"><span class="label">Ash 提供 ≥ 需求</span><span class="value">—</span></div>
         </div>
@@ -529,8 +535,8 @@
 <script src="../shared/wall.js?v=2"></script>
 <script src="../shared/loadcases.js?v=1"></script>
 <script src="../shared/pmsection.js?v=3"></script>
-<script src="../shared/wall-base.js?v=1"></script>
-<script src="../shared/wall-evaluator.js?v=1"></script>
+<script src="../shared/wall-base.js?v=2"></script>
+<script src="../shared/wall-evaluator.js?v=2"></script>
 <script>
   const $ = id => document.getElementById(id);
   const num = id => parseFloat($(id)?.value) || 0;
@@ -670,7 +676,7 @@
       schema: SHEAR_WALL_PROJECT_SCHEMA,
       tool: 'rc-shear-wall',
       toolTitle: '剪力牆 Shear Wall 設計／檢核',
-      appVersion: 'V0.3',
+      appVersion: 'V0.4',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom',
@@ -722,7 +728,7 @@
     return window.RCReportFingerprint.validateProjectCalculationSource(raw, {
       expectedSchema: SHEAR_WALL_PROJECT_SCHEMA,
       expectedToolId: 'rc-shear-wall',
-      expectedVersion: 'V0.3',
+      expectedVersion: 'V0.4',
       sourceKey: 'fields',
       fingerprintOptions: { ignoredKeys: ['activeTab'] }
     });
@@ -874,17 +880,17 @@
     slender_seismic: { label:'細長結構牆耐震例', mode:'check', values:{
       seismicMode:true, scopeSingleWall:true, scopeNoOpening:true, scopeAnalysisReady:true, hasConstrJoint:true, jointSurface:'roughened',
       fc:280, fy:4200, fyt:4200, lambdaSel:'1.00',
-      tw:30, lw:500, hw:1500, cover:5, Pu:150, Mu:650, Vu:160, shearDemandMode:'direct', Vuns:0, VuEh:160, omegaV:1.5, omegaW:1.0, duhw:0.012,
+      tw:30, lw:500, hw:1500, cover:5, coreCover:4, Pu:150, Mu:650, Vu:160, shearDemandMode:'direct', Vuns:0, VuEh:160, omegaV:1.5, omegaW:1.0, duhw:0.012,
       nBE:12, dBE:'#7', lbe:75, dV:'#4', sV:20, nLayer:'2', dH:'#4', sH:20, hu:300, bComp:'', loadCasesText:'' } },
     squat: { label:'矮牆剪力控制例', mode:'check', values:{
       seismicMode:true, scopeSingleWall:true, scopeNoOpening:true, scopeAnalysisReady:true, hasConstrJoint:true, jointSurface:'roughened',
       fc:280, fy:4200, fyt:4200, lambdaSel:'1.00',
-      tw:30, lw:600, hw:600, cover:5, Pu:120, Mu:280, Vu:320, shearDemandMode:'direct', Vuns:0, VuEh:320, omegaV:1.0, omegaW:1.0, duhw:0.008,
+      tw:30, lw:600, hw:600, cover:5, coreCover:4, Pu:120, Mu:280, Vu:320, shearDemandMode:'direct', Vuns:0, VuEh:320, omegaV:1.0, omegaW:1.0, duhw:0.008,
       nBE:10, dBE:'#7', lbe:80, dV:'#4', sV:18, nLayer:'2', dH:'#5', sH:15, hu:300, bComp:'', loadCasesText:'' } },
     bearing_shear: { label:'承重兼結構牆例', mode:'check', values:{
       seismicMode:true, scopeSingleWall:true, scopeNoOpening:true, scopeAnalysisReady:true, hasConstrJoint:true, jointSurface:'roughened',
       fc:350, fy:4200, fyt:4200, lambdaSel:'1.00',
-      tw:25, lw:450, hw:1350, cover:5, Pu:220, Mu:480, Vu:140, shearDemandMode:'direct', Vuns:0, VuEh:140, omegaV:1.5, omegaW:1.0, duhw:0.010,
+      tw:25, lw:450, hw:1350, cover:5, coreCover:4, Pu:220, Mu:480, Vu:140, shearDemandMode:'direct', Vuns:0, VuEh:140, omegaV:1.5, omegaW:1.0, duhw:0.010,
       nBE:10, dBE:'#6', lbe:60, dV:'#4', sV:20, nLayer:'2', dH:'#4', sH:20, hu:300, bComp:'', loadCasesText:'' } },
   };
   function applyTestCase(key) {
@@ -1181,7 +1187,7 @@
       scopeAnalysisReady: $('scopeAnalysisReady')?.checked ?? true,
       fc: num('fc'), fy: num('fy'), fyt: num('fyt'),
       lambda: parseFloat($('lambdaSel').value) || 1.0,
-      tw: num('tw'), lw: num('lw'), hw: num('hw'), cover: num('cover'),
+      tw: num('tw'), lw: num('lw'), hw: num('hw'), cover: num('cover'), coreCover: num('coreCover'),
       Pu: num('Pu'), Mu: num('Mu'), Vu: num('Vu'), duhw: num('duhw'),
       shearDemandMode: $('shearDemandMode')?.value || 'direct',
       Vuns: num('Vuns'), VuEh: num('VuEh'), omegaV: num('omegaV') || 1.0, omegaW: num('omegaW') || 1.0,
@@ -1199,11 +1205,12 @@
     // ---------- base 組裝 (幾何 / 配筋 / P-M / 基本容量) ----------
     const base = WallBase.buildBase(g, { pmSteps: 140 });
     const {
-      Ag, Acv, hwlw, isPier, fcOk, scopeWarnings, scopeOk, positiveGeomOk, coverOk, lbeCoverOk, lbeOverlapOk, geomModelOk, geomModelIssues,
+      Ag, Acv, hwlw, isPier, fcOk, scopeWarnings, scopeOk, positiveGeomOk, coverOk, coreCoverOk, lbeCoverOk, lbeOverlapOk, geomModelOk, geomModelIssues,
       bars, aV, aH, aBE, AsBEend, rhol, rhot, AstTotal,
       pm, cAtPu, dem, pmAxialOk, pmOutOfRange,
       alpha_c, Vn, VnMaxSingle,
-      bc, so, sbeSpLimit, AshReqRatio, AshReq, AshProv,
+      bc, sbeAg, sbeAch, sbeAgAchRatio, so, sbeSpLimit,
+      AshReqEqA, AshReqEqB, AshReqControl, AshReqRatio, AshReq, AshProv,
       spVmax, spHmax,
       shearFricLim, shearFricSurface, shearFricFyDesign, shearFricNWeb, shearFricBoundaryAvf, shearFricWebAvf, shearFricAvfProv, shearFricWebLength,
     } = base;
@@ -1275,6 +1282,9 @@
     setCheck('c-sbeHx', sbeReq ? sbeHxOk : null, sbeReq ? `${g.hx.toFixed(1)} / ${hxLimit.toFixed(1)} cm` : '免設置');
 
     setResult('r-sbeSpLimit', sbeReq ? sbeSpLimit : null, 'cm', 1);
+    setResult('r-sbeAgAch', sbeReq ? sbeAgAchRatio : null, '', 3);
+    setResult('r-sbeAshEqA', sbeReq ? AshReqEqA : null, 'cm²', 2);
+    setResult('r-sbeAshEqB', sbeReq ? AshReqEqB : null, 'cm²', 2);
     setResult('r-sbeAshReq', sbeReq ? AshReq : null, 'cm²', 2);
     setCheck('c-sbeSp', sbeReq ? sbeSpOk : null, sbeReq ? `${g.sTie} ≤ ${sbeSpLimit.toFixed(1)}` : '免設置');
     setCheck('c-sbeAsh', sbeReq ? sbeAshOk : null, sbeReq ? `${AshProv.toFixed(2)} / ${AshReq.toFixed(2)} cm²` : '免設置');
@@ -1556,9 +1566,11 @@ Vn 上限 = 2.65√fc'·Acv = ${f(r.VnMaxSingle/1000,1)} tf；φ·上限 vs Ve �
 ${strainSbeStep}
 須設 SBE：${r.sbeReq?'是':'否'}${sbeReqStep}${r.sbeReq?`
   ℓbe=${f(r.lbe,0)} cm ${statusMark(r.sbeLengthOk)}；b=${f(r.bComp,1)} cm vs hu/16=${f(r.bWidthMin,1)} cm ${statusMark(r.sbeBWidthOk)}；hx=${f(r.hx,1)} cm vs ${f(r.hxLimit,1)} cm ${statusMark(r.sbeHxOk)}`:''}${r.sbeReq?`
-SBE 圍束筋 (18.7.6.4)：bc=tw−2cover=${f(r.bc,1)} cm、so=10+(35−hx)/3=${f(r.so,1)} cm
+SBE 圍束筋 (18.7.6.4)：ccore=${f(r.coreCover,1)} cm（至橫向筋外緣）、bc=tw−2ccore=${f(r.bc,1)} cm、so=10+(35−hx)/3=${f(r.so,1)} cm
   間距上限=min(min(tw,ℓbe)/3, 6db, so)=${f(r.sbeSpLimit,1)} cm (sTie=${r.sTie} ${statusMark(r.sbeSpOk)})
-  Ash 需求=0.09·s·bc·fc'/fyt=${f(r.AshReq,2)} cm² vs 提供 ${f(r.AshProv,2)} cm² ${statusMark(r.sbeAshOk)}`:''}
+  Ag=tw·ℓbe=${f(r.sbeAg,1)} cm²；Ach=(tw−2ccore)(ℓbe−2ccore)=${f(r.sbeAch,1)} cm²；Ag/Ach=${f(r.sbeAgAchRatio,3)}
+  0.3式=${f(r.AshReqEqA,2)} cm²；0.09式=${f(r.AshReqEqB,2)} cm²；控制=${r.AshReqControl} → Ash=${f(r.AshReq,2)} cm²
+  提供 Ash=${f(r.AshProv,2)} cm² ${statusMark(r.sbeAshOk)}`:''}
 ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRequired || r.noSbeTieRequired) ? '仍須圖說確認 ' : '未觸發額外提醒 '}${r.noSbeHookRequired?'水平筋端部彎鉤/U型筋；':''}${r.noSbeTieRequired?'邊界縱筋比需橫向束制':''}` : ''}
 ρℓ,min=${f(r.rholMin,4)} (ρℓ=${f(r.rhol,4)} ${r.rholOk?'✓':'✗'})；ρt,min=${f(r.rhotMin,4)} (ρt=${f(r.rhot,4)} ${r.rhotOk?'✓':'✗'})
 筋距上限：縱≤${f(r.spVmax,0)} 橫≤${f(r.spHmax,0)} cm`;
@@ -1812,6 +1824,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
         { label:"fc'", value:r.fc, unit:'kgf/cm²' }, { label:'fy / fyt', value:`${r.fy} / ${r.fyt}`, unit:'kgf/cm²' },
         { label:'牆厚 tw', value:r.tw, unit:'cm' }, { label:'牆長 ℓw', value:r.lw, unit:'cm' },
         { label:'牆高 hw', value:r.hw, unit:'cm' }, { label:'hw/ℓw', value:r.hwlw.toFixed(2) },
+        { label:'縱筋筋心 cover / 橫向筋外緣 ccore', value:`${r.cover} / ${r.coreCover}`, unit:'cm' },
       ]},
       { group:'配筋', items:[
         { label:'端部邊界縱筋', value:`${r.nBE}-${r.dBE} / 端 (ℓbe=${r.lbe} cm)` },
@@ -1839,7 +1852,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
     const checks = [
       { group:'幾何 (規範 18.7.1)', items:[
         { label:'Wall Pier 判定', formula:'hw/ℓw≥2.0 且 ℓw/tw≤2.5 → 改柱設計', sub:`hw/ℓw=${r.hwlw.toFixed(2)}, ℓw/tw=${(r.lw/r.tw).toFixed(2)}`, value:r.isPier?'⚠ 改柱':'牆設計', ok:!r.isPier },
-        { label:'幾何模型一致性', formula:'正值、cover<tw/2、ℓbe>2cover、2ℓbe<ℓw', sub:r.geomModelIssues.length ? r.geomModelIssues.join('；') : '幾何輸入可建立有效斷面模型', value:r.geomModelOk?'有效':'需修正', ok:r.geomModelOk },
+        { label:'幾何模型一致性', formula:'正值、cover<tw/2、ccore<min(tw,ℓbe)/2、ℓbe>2cover、2ℓbe<ℓw', sub:r.geomModelIssues.length ? r.geomModelIssues.join('；') : '幾何輸入可建立有效斷面模型', value:r.geomModelOk?'有效':'需修正', ok:r.geomModelOk },
         ...(r.seismic ? [{ label:"SSW fc'≤350", formula:'規範 18.7.2.4', sub:`fc'=${r.fc}`, value:`${r.fc}`, unit:'kgf/cm²', ok:r.fcOk }] : []),
       ]},
       { group:'面內撓曲 P-M (規範 18.7.5)', items:[
@@ -1901,7 +1914,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
           { label:'深中性軸 b 限制', formula:'c/ℓw≥3/8 時 b≥30 cm (18.7.6.4(c))', sub:isFinite(r.cRatio) ? `c/ℓw=${fmt(r.cRatio,3)}` : 'c@Pu 不採用，b≥30 觸發條件須另行確認', value:!isFinite(r.cRatio) ? '待確認' : (r.b30Required ? `${r.bComp.toFixed(1)} / 30` : '未觸發'), unit:r.b30Required?'cm':'', ok:r.sbeCratioBOk },
           { label:'hx 側向支撐間距', formula:'hx ≤ min(35 cm, 2b/3) (18.7.6.4(f))', sub:`上限=${r.hxLimit.toFixed(1)} cm`, value:`${r.hx.toFixed(1)}`, unit:'cm', ok:r.sbeHxOk },
           { label:'圍束筋間距', formula:'≤ min(邊界最小尺寸/3, 6db, so) (18.7.6.4(e))', sub:`so=${r.so.toFixed(1)}, 上限=${r.sbeSpLimit.toFixed(1)}`, value:`${r.sTie}`, unit:'cm', ok:r.sbeSpOk },
-          { label:'Ash 圍束量', formula:'Ash ≥ 0.09·s·bc·fc\'/fyt (18.7.6.4(g))', sub:`bc=${r.bc.toFixed(0)}, 需求=${r.AshReq.toFixed(2)}, 提供=${r.AshProv.toFixed(2)}`, value:`${r.AshProv.toFixed(2)} / ${r.AshReq.toFixed(2)}`, unit:'cm²', ok:r.sbeAshOk },
+          { label:'Ash 圍束量', formula:'Ash ≥ max[0.3(Ag/Ach−1), 0.09]·s·bc·fc\'/fyt (表 18.7.6.4(g))', sub:`ccore=${r.coreCover.toFixed(1)}（橫向筋外緣）；Ag=${r.sbeAg.toFixed(1)}, Ach=${r.sbeAch.toFixed(1)}, Ag/Ach=${r.sbeAgAchRatio.toFixed(3)}；0.3式=${r.AshReqEqA.toFixed(2)}, 0.09式=${r.AshReqEqB.toFixed(2)}；控制=${r.AshReqControl}`, value:`${r.AshProv.toFixed(2)} / ${r.AshReq.toFixed(2)}`, unit:'cm²', ok:r.sbeAshOk },
         ] : []),
       ]}] : []),
       { group:'細部 (規範 18.7.2 / 18.7.6.5 / 22.9)', items:[
@@ -1937,7 +1950,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
     openReport({
       title:'剪力牆設計計算書',
       textExport:true,
-      outputSource:{ tool:'剪力牆 Shear Wall 設計／檢核', version:'V0.3' },
+      outputSource:{ tool:'剪力牆 Shear Wall 設計／檢核', version:'V0.4' },
       subtitle:'RC Shear Wall Design Report (依 112 規範 11 / 18.7 章)',
       project:proj,
       calculationFingerprint:projectSnapshot.calculationFingerprint,
@@ -1956,7 +1969,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
         '依據 112 年「混凝土結構設計規範」第 11 章 (牆) 與第 18.7 章 (特殊結構牆)',
         '面內撓曲採應變相容纖維法 P-M 互制 (εcu=0.003, Whitney 等值應力方塊, Es=2.04×10⁶ kgf/cm²)',
         '剪力 φ 依 21.2.4.1：標稱剪力 Vn 小於撓曲強度發展對應剪力 Vmn 時採 0.60，否則 0.75',
-        r.seismic ? '已套用特殊結構牆 (18.7) 耐震規定，含邊界構材圍束筋 Ash 檢核 (18.7.6.4)' : '未套用耐震規定 (一般結構牆/承重牆)',
+        r.seismic ? '已套用特殊結構牆 (18.7) 耐震規定，含表 18.7.6.4(g) Ag/Ach 與 0.09 兩式取大之邊界構材圍束筋 Ash 檢核；ccore 為專案施工圖指定之橫向筋外緣邊距；Ag/Ach 僅按矩形邊界區 tw×ℓbe，翼板或非矩形核心須另檢兩方向圍束' : '未套用耐震規定 (一般結構牆/承重牆)',
       ],
     });
   }
@@ -1990,7 +2003,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
   }
 
   // ===================== JSON 匯出 / 匯入 =====================
-  const FIELD_IDS = ['fc','fy','fyt','lambdaSel','tw','lw','hw','cover','Pu','Mu','Vu','shearDemandMode','Vuns','VuEh','omegaV','omegaW','duhw','nBE','dBE','lbe','dV','sV','nLayer','dH','sH','dTie','sTie','nLegTie','hx','hu','bComp','jointSurface','loadCasesText'];
+  const FIELD_IDS = ['fc','fy','fyt','lambdaSel','tw','lw','hw','cover','coreCover','Pu','Mu','Vu','shearDemandMode','Vuns','VuEh','omegaV','omegaW','duhw','nBE','dBE','lbe','dV','sV','nLayer','dH','sH','dTie','sTie','nLegTie','hx','hu','bComp','jointSurface','loadCasesText'];
   const CHECK_IDS = ['seismicMode','scopeSingleWall','scopeNoOpening','scopeAnalysisReady','hasConstrJoint'];
   function exportCase() {
     const data = { _tool:'shear-wall', mode:currentMode };

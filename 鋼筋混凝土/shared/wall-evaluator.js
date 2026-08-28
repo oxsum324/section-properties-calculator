@@ -32,6 +32,9 @@
       if (result.noSbeTieRequired) parts.push('邊界縱筋橫向束制');
       warnings.push(`免 SBE 邊界細部仍須圖說確認：${parts.join('、')}`);
     }
+    if (result.sbeReq && Math.abs(base.bComp - base.tw) > 1e-9) {
+      warnings.push('壓力區寬度 b 與矩形牆厚 tw 不同；本頁 Ag/Ach 圍束量仍按矩形邊界區 tw×ℓbe，翼板或非矩形核心須依施工圖另檢兩方向圍束');
+    }
     if (result.shearFricActive && !result.shearFricOk) {
       warnings.push('水平施工縫剪摩擦強度不足或 Vn 上限不足，須調整穿縫筋、界面處理或牆段設計');
     }

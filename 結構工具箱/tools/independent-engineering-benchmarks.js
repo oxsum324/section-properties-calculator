@@ -907,7 +907,13 @@ function rcShearWallStrengthOracle(i) {
   const sbeHxOk = !sbeReq || i.hx <= hxLimit + 1e-9;
   const so = Math.min(15, Math.max(10, 10 + (35 - i.hx) / 3));
   const sbeSpLimit = Math.min(Math.min(i.tw, i.lbe) / 3, 6 * i.dbBE, so);
-  const AshReq = 0.09 * i.fc / i.fyt * i.sTie * (i.tw - 2 * i.cover);
+  const sbeBc = i.tw - 2 * i.coreCover;
+  const sbeAg = i.tw * i.lbe;
+  const sbeAch = sbeBc * (i.lbe - 2 * i.coreCover);
+  const sbeAgAchRatio = sbeAg / sbeAch;
+  const AshReqEqA = 0.3 * (sbeAgAchRatio - 1) * i.fc / i.fyt * i.sTie * sbeBc;
+  const AshReqEqB = 0.09 * i.fc / i.fyt * i.sTie * sbeBc;
+  const AshReq = Math.max(AshReqEqA, AshReqEqB);
   const AshProv = i.nLegTie * i.aTie;
   const sbeSpOk = !sbeReq || i.sTie <= sbeSpLimit + 1e-9;
   const sbeAshOk = !sbeReq || AshProv >= AshReq - 1e-9;
@@ -934,7 +940,7 @@ function rcShearWallStrengthOracle(i) {
   const spVOk = i.sV <= spVmax + 1e-9;
   const spHOk = i.sH <= spHmax + 1e-9;
   const isPier = hwlw >= 2 && i.lw / i.tw <= 2.5;
-  const geomModelOk = i.cover * 2 < i.tw && i.lbe > 2 * i.cover && 2 * i.lbe < i.lw;
+  const geomModelOk = i.cover * 2 < i.tw && i.coreCover * 2 < i.tw && i.coreCover * 2 < i.lbe && i.lbe > 2 * i.cover && 2 * i.lbe < i.lw;
   const overallOk = geomModelOk && !isPier && pmOk && shearOk && vnMaxOk && twoLayerOk && sbeDesignOk && shearFricOk && rholOk && rhotOk && spVOk && spHOk;
 
   return {
@@ -944,7 +950,8 @@ function rcShearWallStrengthOracle(i) {
     shearOk:bool(shearOk), vnMaxOk:bool(vnMaxOk), needTwoLayer:bool(needTwoLayer), twoLayerOk:bool(twoLayerOk),
     sigmaFiber, cLimit, sigmaTrig:bool(sigmaTrig), cTrig:bool(cTrig), sbeReq:bool(sbeReq),
     sbeHoriz, sbeVert, sbeExtX, bWidthMin, hxLimit, sbeLengthOk:bool(sbeLengthOk),
-    sbeBWidthOk:bool(sbeBWidthOk), sbeHxOk:bool(sbeHxOk), sbeSpLimit, AshReq, AshProv,
+    sbeBWidthOk:bool(sbeBWidthOk), sbeHxOk:bool(sbeHxOk), sbeSpLimit,
+    sbeAg, sbeAch, sbeAgAchRatio, AshReqEqA, AshReqEqB, AshReq, AshProv,
     sbeSpOk:bool(sbeSpOk), sbeAshOk:bool(sbeAshOk), sbeDesignOk:bool(sbeDesignOk),
     shearFricLimit, shearFricActive:bool(shearFricActive), shearFricAvfProv, shearFricAvfReq,
     shearFricVn, shearFricPhiVn, shearFricOk:bool(shearFricOk), rholOk:bool(rholOk),

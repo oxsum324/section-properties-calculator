@@ -49,6 +49,7 @@ function sampleInput(overrides = {}) {
     lw: 500,
     hw: 1500,
     cover: 5,
+    coreCover: 4,
     Pu: 150,
     Mu: 650,
     Vu: 160,
@@ -98,10 +99,27 @@ function main() {
   near(base.Vn, 399098.9, 0.01, 'Vn');
   near(base.VnMaxSingle, 665148.5, 0.01, 'VnMaxSingle');
 
-  near(base.bc, 20, 0.0001, 'SBE bc');
+  near(base.bc, 22, 0.0001, 'SBE bc measured to transverse reinforcement outer edge');
   near(base.sbeSpLimit, 10, 0.0001, 'SBE spacing limit uses boundary db');
-  near(base.AshReq, 1.2, 0.0001, 'Ash requirement');
+  near(base.sbeAg, 2250, 0.0001, 'SBE gross area Ag=tw*lbe');
+  near(base.sbeAch, 1474, 0.0001, 'SBE core area Ach=(tw-2ccore)*(lbe-2ccore)');
+  near(base.sbeAgAchRatio, 2250 / 1474, 0.0001, 'SBE Ag/Ach ratio');
+  near(base.AshReqEqA, 2.31641791, 0.0001, 'Ash 0.3(Ag/Ach-1) requirement');
+  near(base.AshReqEqB, 1.32, 0.0001, 'Ash 0.09 requirement');
+  near(base.AshReq, 2.31641791, 0.0001, 'Ash governing requirement takes larger equation');
+  assert(base.AshReqControl === '0.3(Ag/Ach−1)式', 'Ash controlling equation is exposed', base.AshReqControl);
   near(base.AshProv, 5.068, 0.0001, 'Ash provided');
+
+  const thinCover = WallBase.buildBase(sampleInput({ coreCover: 1 }));
+  near(thinCover.AshReqEqA, 0.564383562, 0.0001, 'thin-cover Ash 0.3 equation');
+  near(thinCover.AshReqEqB, 1.68, 0.0001, 'thin-cover Ash 0.09 equation');
+  near(thinCover.AshReq, 1.68, 0.0001, 'thin-cover Ash takes 0.09 equation');
+  assert(thinCover.AshReqControl === '0.09式', 'thin-cover controlling equation is 0.09', thinCover.AshReqControl);
+
+  const oldPassNewFail = WallBase.buildBase(sampleInput({ nLegTie: 1, sTie: 9 }));
+  assert(oldPassNewFail.AshProv >= oldPassNewFail.AshReqEqB && oldPassNewFail.AshProv < oldPassNewFail.AshReq,
+    'two-equation rule catches case that would pass 0.09 equation alone',
+    JSON.stringify({ AshProv: oldPassNewFail.AshProv, old09: oldPassNewFail.AshReqEqB, governing: oldPassNewFail.AshReq }));
 
   near(base.spVmax, 45, 0.0001, 'vertical spacing max');
   near(base.spHmax, 45, 0.0001, 'horizontal spacing max');
@@ -110,7 +128,7 @@ function main() {
   near(base.shearFricBoundaryAvf, 93.096, 0.001, 'boundary Avf provided');
   near(base.shearFricWebAvf, 45.612, 0.001, 'web Avf provided');
 
-  const invalid = WallBase.buildBase(sampleInput({ cover: 20, lbe: 30, scopeNoOpening: false }));
+  const invalid = WallBase.buildBase(sampleInput({ cover: 20, coreCover: 20, lbe: 30, scopeNoOpening: false }));
   assert(invalid.scopeOk === false && invalid.scopeWarnings.length === 1, 'scope warning captured', invalid.scopeWarnings.join(' / '));
   assert(invalid.geomModelOk === false && invalid.geomModelIssues.length >= 2, 'geometry invalid issues captured', invalid.geomModelIssues.join(' / '));
 

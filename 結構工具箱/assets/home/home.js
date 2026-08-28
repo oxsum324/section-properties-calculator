@@ -438,14 +438,14 @@
     },
     {
       title: 'RC 剪力牆',
-      version: 'V0.3',
+      version: 'V0.4',
       href: '/rc-shear-wall',
       categories: ['member'],
       memberSystem: 'rc',
       state: 'formal',
       governance: 'rc-audit',
       output: '面內 P-M 互制、面內剪力與特殊邊界構材檢核摘要',
-      summary: '結構牆面內撓曲 P-M 互制 (應變相容纖維法)、18.7.3 設計剪力、面內剪力 (φ 0.60/0.75 判定) 與特殊邊界構材含圍束筋 Ash，依 112 規範第 11 與 18.7 章。',
+      summary: '結構牆面內撓曲 P-M 互制 (應變相容纖維法)、18.7.3 設計剪力、面內剪力 (φ 0.60/0.75 判定) 與特殊邊界構材 Ag/Ach 兩式取大圍束筋 Ash，依 112 規範第 11 與 18.7 章。',
       fit: '剪力牆面內撓曲與剪力正式檢核。',
       limit: '連肢牆、連接梁與整體耐震牆系統需完整模型分析。',
       capabilities: ['正式核算', 'P-M 互制', '耐震構件']

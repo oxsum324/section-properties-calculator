@@ -255,11 +255,11 @@
           "id": "shear-wall-sbe-18-7-6",
           "clause": "混凝土結構設計規範 112 年版 18.7.6.2 / 18.7.6.3 / 18.7.6.4 / 18.7.6.5",
           "purpose": "SBE 需求是觸發設計與待確認事項，不是單純合格或不合格狀態。",
-          "inputs": ["duhw", "sigmaFiber", "cAtPu", "cLimit", "sbeReq", "lbe", "bComp", "hx", "sTie", "AshProv", "AshReq"],
-          "calculation": ["應變法 c >= cLimit", "應力法 sigma > 0.2fc'", "水平長度 max(c - 0.1lw, c/2)", "圍束筋間距與 Ash 需求"],
-          "report": ["特殊邊界構材", "應變法", "應力法", "SBE 提供量", "待確認事項"],
+          "inputs": ["duhw", "sigmaFiber", "cAtPu", "cLimit", "sbeReq", "lbe", "bComp", "coreCover", "hx", "sTie", "sbeAg", "sbeAch", "sbeAgAchRatio", "AshReqEqA", "AshReqEqB", "AshReqControl", "AshProv", "AshReq"],
+          "calculation": ["應變法 c >= cLimit", "應力法 sigma > 0.2fc'", "水平長度 max(c - 0.1lw, c/2)", "表 18.7.6.4(g) 0.3(Ag/Ach-1) 與 0.09 兩式取大", "圍束筋間距與 Ash 需求"],
+          "report": ["特殊邊界構材", "應變法", "應力法", "Ag/Ach", "Ash 兩式與控制式", "SBE 提供量", "待確認事項"],
           "evidence": ["shared/wall-evaluator.test.js", "tools/shear-wall-regression.test.js", "tools/shear-wall-report-visual.test.js"],
-          "manualReview": ["SBE 端區實際範圍、U 型筋或端部彎鉤、橫向束制與搭接區須配合施工圖正式分析確認。"]
+          "manualReview": ["ccore 須按施工圖採橫向鋼筋外緣邊距；SBE 端區實際範圍、非矩形核心兩方向圍束、U 型筋或端部彎鉤、橫向束制與搭接區須配合施工圖正式分析確認。"]
         },
         {
           "id": "shear-wall-scope-review-boundary",

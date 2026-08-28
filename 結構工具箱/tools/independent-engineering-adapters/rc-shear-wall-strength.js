@@ -15,7 +15,7 @@ const WallEvaluator = globalThis.WallEvaluator;
 function validateInput(input) {
   const issues = [];
   const positive = [
-    'fc', 'fy', 'fyt', 'lambda', 'tw', 'lw', 'hw', 'cover', 'Pu', 'Mu', 'Vu', 'duhw',
+    'fc', 'fy', 'fyt', 'lambda', 'tw', 'lw', 'hw', 'cover', 'coreCover', 'Pu', 'Mu', 'Vu', 'duhw',
     'nBE', 'aBE', 'dbBE', 'lbe', 'aV', 'sV', 'nLayer', 'aH', 'sH', 'aTie', 'sTie',
     'nLegTie', 'hx', 'hu', 'bComp', 'pmSteps'
   ];
@@ -39,6 +39,7 @@ function validateInput(input) {
   }
   if (!Number.isInteger(Number(input?.pmSteps)) || Number(input.pmSteps) < 2) issues.push('pmSteps:integer-at-least-two-required');
   if (Number(input?.cover) * 2 >= Number(input?.tw)) issues.push('cover:less-than-half-thickness-required');
+  if (Number(input?.coreCover) * 2 >= Number(input?.tw) || Number(input?.coreCover) * 2 >= Number(input?.lbe)) issues.push('coreCover:valid-core-dimensions-required');
   if (Number(input?.lbe) * 2 >= Number(input?.lw)) issues.push('lbe:non-overlap-required');
   if (!['direct', 'amplified'].includes(input?.shearDemandMode)) issues.push('shearDemandMode:known-mode-required');
   return issues;
@@ -58,7 +59,7 @@ function calculate(input) {
     scopeNoOpening:Boolean(input.scopeNoOpening),
     scopeAnalysisReady:Boolean(input.scopeAnalysisReady),
     fc:Number(input.fc), fy:Number(input.fy), fyt:Number(input.fyt), lambda:Number(input.lambda),
-    tw:Number(input.tw), lw:Number(input.lw), hw:Number(input.hw), cover:Number(input.cover),
+    tw:Number(input.tw), lw:Number(input.lw), hw:Number(input.hw), cover:Number(input.cover), coreCover:Number(input.coreCover),
     Pu:Number(input.Pu), Mu:Number(input.Mu), Vu:Number(input.Vu), duhw:Number(input.duhw),
     shearDemandMode:input.shearDemandMode,
     Vuns:Number(input.Vuns || 0), VuEh:Number(input.VuEh || 0),
@@ -129,6 +130,11 @@ function calculate(input) {
     sbeBWidthOk:bool(result.sbeBWidthOk),
     sbeHxOk:bool(result.sbeHxOk),
     sbeSpLimit:base.sbeSpLimit,
+    sbeAg:base.sbeAg,
+    sbeAch:base.sbeAch,
+    sbeAgAchRatio:base.sbeAgAchRatio,
+    AshReqEqA:base.AshReqEqA,
+    AshReqEqB:base.AshReqEqB,
     AshReq:base.AshReq,
     AshProv:base.AshProv,
     sbeSpOk:bool(result.sbeSpOk),

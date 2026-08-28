@@ -296,12 +296,12 @@ async function main() {
         caseKey: tc.key,
         label: `${tc.key} shear wall report`,
         assert,
-        expectedFragments: ['剪力牆設計計算書', '產出工具：剪力牆 Shear Wall 設計／檢核', '工具版本：V0.3'],
+        expectedFragments: ['剪力牆設計計算書', '產出工具：剪力牆 Shear Wall 設計／檢核', '工具版本：V0.4', 'Ag/Ach', 'ccore'],
       });
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${tc.key} report`, {
         assert,
-        include: ['RC Shear Wall', '計算書', 'V0.3', '文件狀態：內部審閱'],
+        include: ['RC Shear Wall', '計算書', 'V0.4', '文件狀態：內部審閱'],
         exclude: ['DRAFT／非正式附件'],
       });
       const artifactIntegrity = [
@@ -322,7 +322,9 @@ async function main() {
       assert(metrics.bodyText.includes('產出工具'), `${tc.key} report source tool label`, metrics.bodyText);
       assert(metrics.bodyText.includes('剪力牆 Shear Wall 設計／檢核'), `${tc.key} report source tool matches project JSON`, metrics.bodyText);
       assert(metrics.bodyText.includes('工具版本'), `${tc.key} report source version label`, metrics.bodyText);
-      assert(metrics.bodyText.includes('V0.3'), `${tc.key} report source version`, metrics.bodyText);
+      assert(metrics.bodyText.includes('V0.4'), `${tc.key} report source version`, metrics.bodyText);
+      assert(metrics.calculationText.includes('0.3式') && metrics.calculationText.includes('0.09式') && metrics.calculationText.includes('控制='), `${tc.key} report exposes both Ash equations and governing equation`, metrics.calculationText);
+      assert(metrics.calculationText.includes('橫向筋外緣 ccore') || metrics.calculationText.includes('ccore='), `${tc.key} report exposes Ach boundary dimension source`, metrics.calculationText);
       assert(!metrics.hasReportSummary, `${tc.key} report status summary hidden`, 'no .rep-summary');
       assert(metrics.documentState === 'internal-review' && metrics.documentApproved === 'false', `${tc.key} report defaults to printable internal review independent of engineering readiness`, `${state.readinessStatus} -> ${metrics.documentState}`);
       assert(metrics.documentStateText.includes('文件狀態：內部審閱'), `${tc.key} report carries concise document status`, metrics.documentStateText);

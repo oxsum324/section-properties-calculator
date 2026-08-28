@@ -68,18 +68,20 @@
     if (!g.scopeNoOpening) scopeWarnings.push('開口牆或臨界斷面削弱須另行建立有效斷面與力流模型');
     if (!g.scopeAnalysisReady) scopeWarnings.push('Pu / Mu / Ve 尚未確認包含樓版、集力構件、扭轉與整體牆系統效應');
     const scopeOk = scopeWarnings.length === 0;
-    const positiveGeomOk = [g.fc, g.fy, g.fyt, g.tw, g.lw, g.hw, g.cover, g.lbe, g.sV, g.sH, g.sTie, g.hx, g.hu, g.bComp]
+    const positiveGeomOk = [g.fc, g.fy, g.fyt, g.tw, g.lw, g.hw, g.cover, g.coreCover, g.lbe, g.sV, g.sH, g.sTie, g.hx, g.hu, g.bComp]
       .every(v => Number.isFinite(v) && v > 0);
     const coverOk = g.tw > 0 && g.cover > 0 && (2 * g.cover) < g.tw;
+    const coreCoverOk = g.coreCover > 0 && (2 * g.coreCover) < g.tw && (2 * g.coreCover) < g.lbe;
     const lbeCoverOk = g.lbe > 2 * g.cover;
     const lbeOverlapOk = (2 * g.lbe) < g.lw;
-    const geomModelOk = positiveGeomOk && coverOk && lbeCoverOk && lbeOverlapOk;
+    const geomModelOk = positiveGeomOk && coverOk && coreCoverOk && lbeCoverOk && lbeOverlapOk;
     const geomModelIssues = [];
     if (!positiveGeomOk) geomModelIssues.push('材料、幾何、間距與圍束輸入須為正值');
-    if (!coverOk) geomModelIssues.push('cover 需小於 tw/2，圍束核心寬度 bc=tw−2cover 才有效');
+    if (!coverOk) geomModelIssues.push('縱筋筋心 cover 需小於 tw/2，P-M 配筋位置才有效');
+    if (!coreCoverOk) geomModelIssues.push('橫向筋外緣邊距 ccore 需小於 tw/2 與 ℓbe/2，圍束核心 Ach 才有效');
     if (!lbeCoverOk) geomModelIssues.push('ℓbe 需大於 2cover，邊界縱筋才可放入邊界區內');
     if (!lbeOverlapOk) geomModelIssues.push('2ℓbe 需小於 ℓw，兩端邊界區不可重疊');
-    return { Ag, Acv, hwlw, isPier, fcOk, scopeWarnings, scopeOk, positiveGeomOk, coverOk, lbeCoverOk, lbeOverlapOk, geomModelOk, geomModelIssues };
+    return { Ag, Acv, hwlw, isPier, fcOk, scopeWarnings, scopeOk, positiveGeomOk, coverOk, coreCoverOk, lbeCoverOk, lbeOverlapOk, geomModelOk, geomModelIssues };
   };
 
   WallBase.buildBase = function (g, opt = {}) {
@@ -110,11 +112,20 @@
     const Vn = Wall.vn({ Acv: geom.Acv, alpha_c, lambda: g.lambda, fc: g.fc, rhot, fy: g.fyt });
     const VnMaxSingle = Wall.vnMaxSingle(g.fc, geom.Acv);
 
-    const bc = Math.max(0, g.tw - 2 * g.cover);
+    const bc = Math.max(0, g.tw - 2 * g.coreCover);
+    const sbeCoreLength = Math.max(0, g.lbe - 2 * g.coreCover);
+    const sbeAg = Math.max(0, g.tw * g.lbe);
+    const sbeAch = bc * sbeCoreLength;
+    const sbeAgAchRatio = sbeAch > 0 ? sbeAg / sbeAch : Infinity;
     const so = Math.min(15, Math.max(10, 10 + (35 - g.hx) / 3));
     const sbeSpLimit = Math.min(Math.min(g.tw, g.lbe) / 3, 6 * WallBase.barDia(g.dBE), so);
-    const AshReqRatio = 0.09 * g.fc / g.fyt;
-    const AshReq = AshReqRatio * g.sTie * bc;
+    const AshReqRatioA = 0.3 * Math.max(0, sbeAgAchRatio - 1) * g.fc / g.fyt;
+    const AshReqRatioB = 0.09 * g.fc / g.fyt;
+    const AshReqEqA = AshReqRatioA * g.sTie * bc;
+    const AshReqEqB = AshReqRatioB * g.sTie * bc;
+    const AshReqRatio = Math.max(AshReqRatioA, AshReqRatioB);
+    const AshReq = Math.max(AshReqEqA, AshReqEqB);
+    const AshReqControl = AshReqEqA >= AshReqEqB ? '0.3(Ag/Ach−1)式' : '0.09式';
     const AshProv = g.nLegTie * aTie;
 
     const spLim = Wall.spacingLimits(g.tw, g.lw);
@@ -152,10 +163,19 @@
       Vn,
       VnMaxSingle,
       bc,
+      sbeCoreLength,
+      sbeAg,
+      sbeAch,
+      sbeAgAchRatio,
       so,
       sbeSpLimit,
+      AshReqRatioA,
+      AshReqRatioB,
+      AshReqEqA,
+      AshReqEqB,
       AshReqRatio,
       AshReq,
+      AshReqControl,
       AshProv,
       spLim,
       spVmax,

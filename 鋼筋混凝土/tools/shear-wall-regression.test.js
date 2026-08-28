@@ -88,9 +88,13 @@ function main() {
     assert(html.includes(id), `具結果節點 ${id}`, 'id present'));
   ['id="loadCaseEditor"', 'id="btnSyncLoadCaseEditor"', 'id="btnAddCurrentLoadCase"', 'id="btnClearLoadCases"'].forEach(id =>
     assert(html.includes(id), `具多工況表格編輯節點 ${id}`, 'load case editor id present'));
+  ['id="coreCover"', 'id="r-sbeAgAch"', 'id="r-sbeAshEqA"', 'id="r-sbeAshEqB"', 'id="r-sbeAshReq"'].forEach(id =>
+    assert(html.includes(id), `具 SBE 兩式與核心幾何節點 ${id}`, 'id present'));
   assert(html.includes('21.2.4.1'), '剪力 φ 引用 21.2.4.1', 'shear phi clause');
   assert(html.includes('18.7.3.1'), '設計剪力引用 18.7.3.1', 'design shear clause');
   assert(html.includes('18.7.6.4'), 'SBE 圍束筋引用 18.7.6.4', 'SBE confinement clause');
+  assert(html.includes('max[0.3·(Ag/Ach−1)') && html.includes('橫向筋外緣 ccore'), 'SBE Ash 明列 Ag/Ach 兩式取大與正確核心邊距語意', 'Table 18.7.6.4(g) trace present');
+  assert(wallBaseSrc.includes('AshReqEqA') && wallBaseSrc.includes('AshReqEqB') && wallBaseSrc.includes('Math.max(AshReqEqA, AshReqEqB)'), '共用 SBE 核心以兩式取大決定 Ash', 'two-equation core present');
   assert(wallSrc.includes('Wall.designShear'), '共用牆模組提供 18.7.3 設計剪力函式', 'Wall.designShear present');
   assert(wallSrc.includes('Wall.shearFrictionDesign') && wallSrc.includes('Wall.shearFrictionVnMax'), '共用牆模組提供 22.9 剪摩擦初估函式', 'Wall.shearFrictionDesign present');
   assert(loadCasesSrc.includes('LoadCases.parseText') && loadCasesSrc.includes('LoadCases.pickControls') && loadCasesSrc.includes('LoadCases.result'), '共用多工況模組提供解析與控制工況函式', 'LoadCases shared present');
@@ -105,7 +109,7 @@ function main() {
   const buildReportSrc = html.slice(html.indexOf('function buildReport'), html.indexOf('function svgToDataURL'));
   assert(buildReportSrc.includes('summary:false'), '剪力牆計算書關閉頂部狀態 summary', 'report summary false');
   assert(buildReportSrc.includes('textExport:true'), '剪力牆計算書啟用受治理 TXT 下載', 'shared report text export is explicit');
-  assert(buildReportSrc.includes("outputSource:{ tool:'剪力牆 Shear Wall 設計／檢核', version:'V0.3' }"), '剪力牆計算書明示與專案 JSON 相同的產出工具及版本', 'V0.3 source trace');
+  assert(buildReportSrc.includes("outputSource:{ tool:'剪力牆 Shear Wall 設計／檢核', version:'V0.4' }"), '剪力牆計算書明示與專案 JSON 相同的產出工具及版本', 'V0.4 source trace');
   assert(html.includes("projectName: window.RCUI.normalizeProjectFieldValue($('projName')?.value)"), '剪力牆專案 payload 會清除 placeholder 案名', 'project storage metadata normalized');
   assert(!buildReportSrc.includes("$('projName').value.trim()"), '剪力牆計算書不直接輸出 placeholder 專案欄位', 'report project header normalized');
   assert(!buildReportSrc.includes('RCUI.buildReviewCheckGroup'), '剪力牆計算書不輸出待確認總覽群組', 'review overview stays page-only');
@@ -172,7 +176,7 @@ function main() {
 
   section('面內撓曲 P-M (黃金案例：細長結構牆)');
   const g = { seismic:true, scopeSingleWall:true, scopeNoOpening:true, scopeAnalysisReady:true,
-    fc:280, fy:4200, fyt:4200, lambda:1.0, tw:30, lw:500, hw:1500, cover:5,
+    fc:280, fy:4200, fyt:4200, lambda:1.0, tw:30, lw:500, hw:1500, cover:5, coreCover:4,
     Pu:150, Mu:650, Vu:160, duhw:0.010, nBE:12, dBE:'#7', lbe:75, dV:'#4', sV:20, nLayer:2, dH:'#4', sH:20,
     hasJoint:true, jointSurface:'roughened', dTie:'#4', sTie:10, nLegTie:4, hx:15, hu:300, bComp:30 };
   const base = WallBase.buildBase(g, { pmSteps: 140 });
@@ -261,13 +265,19 @@ function main() {
   const highRt = phiFor('#5', 10);
   assert(highRt.phi === 0.75, '高橫筋牆 φ=0.75 (Vn≥Vmn)', `Vn=${highRt.vn.toFixed(0)} ≥ Vmn=${Vmn.toFixed(0)} tf`);
   // 圍束筋 Ash
-  const bc = g.tw - 2 * g.cover, hx = 15;
+  const bc = g.tw - 2 * g.coreCover, hx = 15;
   const so = Math.min(15, Math.max(10, 10 + (35 - hx) / 3));
   const sbeSpLimit = Math.min(Math.min(g.tw, g.lbe) / 3, 6 * REBAR_TABLE[g.dBE].db, so);
   near(sbeSpLimit, 10, 1e-6, '圍束筋間距上限 min(d/3,6db,so)');
-  const AshReq = (0.09 * g.fc / g.fyt) * 10 * bc;   // sTie=10
+  const AgSbe = g.tw * g.lbe;
+  const AchSbe = (g.tw - 2 * g.coreCover) * (g.lbe - 2 * g.coreCover);
+  const AshReqEqA = (0.3 * (AgSbe / AchSbe - 1) * g.fc / g.fyt) * 10 * bc;
+  const AshReqEqB = (0.09 * g.fc / g.fyt) * 10 * bc;
+  const AshReq = Math.max(AshReqEqA, AshReqEqB);   // sTie=10，表 18.7.6.4(g) 兩式取大
   const AshProv = 4 * REBAR_TABLE['#4'].area;        // 4 肢 #4
-  assert(AshProv >= AshReq, 'Ash 提供 ≥ 需求 (0.09·s·bc·fc/fyt)', `${AshProv.toFixed(2)} ≥ ${AshReq.toFixed(2)} cm²`);
+  near(AshReqEqA, 2.31641791, 1e-6, 'Ash 0.3(Ag/Ach−1) 式');
+  near(AshReqEqB, 1.32, 1e-6, 'Ash 0.09 式');
+  assert(AshReqEqA > AshReqEqB && AshProv >= AshReq, 'Ash 提供 ≥ 兩式控制需求', `${AshProv.toFixed(2)} ≥ ${AshReq.toFixed(2)} cm²`);
 
   section('矮牆 αc (剪力控制)');
   near(Wall.alphaC(1.0), 0.80, 1e-9, 'αc (hw/ℓw=1 → 0.80)');
