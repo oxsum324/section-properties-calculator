@@ -1262,7 +1262,7 @@ function newestMatchingPdf(directory, prefix) {
 }
 
 assert.equal(inventory.version, 2, 'rendered delivery inventory version');
-assert.equal(inventory.tools.length, 36, 'rendered delivery inventory covers all homepage formal tools');
+assert.equal(inventory.tools.length, 37, 'rendered delivery inventory covers all homepage formal tools');
 const homeTools = vm.runInNewContext(`(${extractConstLiteral(homeSource, 'tools')})`);
 const formalHomeTools = homeTools.filter(tool => tool.state === 'formal');
 const formalRoutes = formalHomeTools.map(tool => tool.href).sort();

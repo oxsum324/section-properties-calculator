@@ -184,10 +184,10 @@ assert.ok(!srcColumnAdapterSource.includes('golden'), 'SRC column adapter does n
 const result = runBenchmarks(catalog);
 assert.equal(result.status, 'ready', JSON.stringify(result.issues));
 assert.equal(result.schemaVersion, 3, 'outcome-aware independent benchmark result is versioned');
-assert.equal(result.summary.eligibleFormalRoutes, 36, 'formal route portfolio is explicit');
-assert.equal(result.summary.pilotRequired, 36, 'thirty-six independent pilot benchmarks required');
-assert.equal(result.summary.pilotVerified, 36, 'thirty-six independent pilot benchmarks verified');
-assert.equal(result.summary.independentlyVerifiedRoutes, 36, 'all thirty-six formal routes independently verified');
+assert.equal(result.summary.eligibleFormalRoutes, 37, 'formal route portfolio is explicit');
+assert.equal(result.summary.pilotRequired, 37, 'thirty-seven independent pilot benchmarks required');
+assert.equal(result.summary.pilotVerified, 37, 'thirty-seven independent pilot benchmarks verified');
+assert.equal(result.summary.independentlyVerifiedRoutes, 37, 'all thirty-seven formal routes independently verified');
 assert.equal(result.summary.candidateRequired, 21, 'twenty-one supplemental STM boundary cases require independent benchmarks');
 assert.equal(result.summary.candidateVerified, 21, 'twenty-one supplemental STM boundary cases are independently verified');
 assert.equal(result.summary.candidatePassRequired, 12, 'twelve supplemental STM passing boundary cases are required');

@@ -109,7 +109,7 @@ const GLOBAL_GOVERNANCE_GATES = [
     key: 'rendered-delivery-evidence',
     label: '實際交付物渲染佐證',
     contract: '結構工具箱/tools/rendered-delivery-evidence.contract.test.js',
-    scope: '首頁 36 個正式工具的 PDF、DOCX 或 workbook，加上動力分析摘要 PDF 與開挖本機服務 PDF / DOCX / 最新下載的當輪實際產出與文字 / 版面驗證',
+    scope: '首頁 37 個正式工具的 PDF、DOCX 或 workbook，加上動力分析摘要 PDF 與開挖本機服務 PDF / DOCX / 最新下載的當輪實際產出與文字 / 版面驗證',
     catalogFamilies: [],
     minCatalogs: 0
   }
@@ -3411,10 +3411,10 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(markdown.includes('rendered-delivery-evidence'), 'tool maturity matrix markdown exposes rendered delivery evidence gate');
   assert.ok(payload.independentBenchmarkCoverage && typeof payload.independentBenchmarkCoverage === 'object', 'tool maturity matrix independent benchmark coverage object');
   assert.equal(payload.independentBenchmarkCoverage.status, 'ready', 'tool maturity matrix independent benchmark pilot ready');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 36, 'tool maturity matrix independent benchmark pilot verified');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 36, 'tool maturity matrix independent benchmark pilot required');
-  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 36, 'tool maturity matrix independent benchmark verified route count');
-  assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 36, 'tool maturity matrix independent benchmark eligible route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 37, 'tool maturity matrix independent benchmark pilot verified');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 37, 'tool maturity matrix independent benchmark pilot required');
+  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 37, 'tool maturity matrix independent benchmark verified route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 37, 'tool maturity matrix independent benchmark eligible route count');
   assert.equal(payload.independentBenchmarkCoverage.summary.candidateRequired, 21, 'tool maturity matrix requires twenty-one supplemental STM boundary cases');
   assert.equal(payload.independentBenchmarkCoverage.summary.candidateVerified, 21, 'tool maturity matrix verifies twenty-one supplemental STM boundary cases');
   assert.equal(payload.independentBenchmarkCoverage.summary.candidatePassRequired, 12, 'tool maturity matrix requires twelve expected passing STM boundary cases');

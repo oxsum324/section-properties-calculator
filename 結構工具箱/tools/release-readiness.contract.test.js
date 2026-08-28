@@ -537,7 +537,7 @@ assertIncludes(reportGuide, '不得誤稱為舊版', 'report guide distinguishes
 ].forEach(needle => assertIncludes(deliveryArtifactsContract, needle, `delivery artifact contract preserves extracted Office evidence ${needle}`));
 
 [
-  'inventory.tools.length, 36',
+  'inventory.tools.length, 37',
   "process.env.PREFLIGHT_RELEASE === '1'",
   "['formal-tools', 'local-quick-tools', 'steel-formal', 'src-formal']",
   "family === 'rc-formal'",
@@ -634,7 +634,7 @@ assertIncludes(reportGuide, '不得誤稱為舊版', 'report guide distinguishes
   'localQuickResultReconciliation=',
   'rendered-delivery-evidence-summary.json',
 ].forEach(needle => assertIncludes(renderedEvidenceContract, needle, `rendered evidence aggregate contract preserves ${needle}`));
-assert(JSON.parse(renderedEvidenceInventory).tools.length === 36, 'rendered evidence inventory has 36 formal tools', 'rendered-delivery-evidence.inventory.json');
+assert(JSON.parse(renderedEvidenceInventory).tools.length === 37, 'rendered evidence inventory has 37 formal tools', 'rendered-delivery-evidence.inventory.json');
 assert(JSON.parse(renderedEvidenceInventory).rcSupplementalAttachments.length === 3, 'rendered evidence inventory has three RC STM dedicated formal-entry attachments', 'rendered-delivery-evidence.inventory.json');
 assert(rcStmAtomicChangeSet.kind === 'rc-stm-atomic-change-set' && rcStmAtomicChangeSet.schemaVersion === 2, 'release governance reads the RC STM atomic change-set manifest with governed handoff edges');
 assert(Array.isArray(rcStmAtomicChangeSet.handoffs) && rcStmAtomicChangeSet.handoffs.length === 4, 'RC STM atomic change set declares all four cross-tool handoffs');
@@ -925,7 +925,7 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
 
 [
   'independent-engineering-benchmarks.catalog.json',
-  '36 / 36',
+  '37 / 37',
   '/src-beam',
   '/src-column',
   '石材固定',

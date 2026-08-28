@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>地坪承載檢核（Westergaard） V0.1</title>
+  <link rel="stylesheet" href="../../core/style.css">
+  <link rel="stylesheet" href="../../core/direct-print-boundary.css">
+  <style>
+    :root{--floor:#0f766e;--floor-dark:#134e4a;--floor-soft:#f0fdfa;--line:#d7e4e2;--ink:#17212b}
+    *{box-sizing:border-box} body{margin:0;background:#f5f7f7;color:var(--ink);font-family:"Microsoft JhengHei",Arial,sans-serif;line-height:1.55}
+    .page{max-width:1380px;margin:0 auto;padding:22px}.hero{background:linear-gradient(135deg,var(--floor-dark),var(--floor));color:#fff;border-radius:16px;padding:22px 24px;box-shadow:0 12px 32px rgba(15,118,110,.18)}
+    .hero h1{margin:0;font-size:clamp(1.45rem,3vw,2rem)}.hero p{margin:8px 0 0;color:#d9fffa}.hero-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.tag{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:4px 9px;font-size:.84rem}
+    .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 3px 14px rgba(15,23,42,.05)}.case-card{margin-top:16px}.section-title{font-weight:900;color:var(--floor-dark);margin:0 0 12px;font-size:1.05rem}
+    .form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.field label{display:block;font-weight:800;font-size:.88rem;margin-bottom:5px}.field input,.field select{width:100%;border:1px solid #b8cbc8;border-radius:8px;padding:9px 10px;background:#fff;font:inherit}.field small{display:block;color:#5c6b73;margin-top:4px}.span-2{grid-column:span 2}.span-3{grid-column:1/-1}
+    .case-actions,.output-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.case-actions{margin-top:12px}.btn{border:0;border-radius:8px;padding:9px 13px;font-weight:800;cursor:pointer}.btn-primary{background:var(--floor);color:#fff}.btn-secondary{background:#e5efee;color:var(--floor-dark)}.btn-danger{background:#fff1f2;color:#9f1239;border:1px solid #fecdd3}.btn:focus{outline:3px solid rgba(13,148,136,.25)}
+    .main-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(380px,.9fr);gap:16px;margin-top:16px}.stack{display:grid;gap:16px}.scope-box{background:var(--floor-soft);border-left:4px solid var(--floor);padding:11px 13px;border-radius:8px;color:#134e4a}.warning-box{background:#fff7ed;border-left:4px solid #f97316;padding:11px 13px;border-radius:8px;color:#7c2d12}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}.load-table{width:100%;min-width:1030px;border-collapse:collapse;font-size:.84rem}.load-table th,.load-table td{border-bottom:1px solid #e4eceb;padding:7px;text-align:left;vertical-align:top}.load-table th{background:#eef7f6;color:#134e4a;white-space:nowrap}.load-table input{width:100%;min-width:70px;border:1px solid #bfcecc;border-radius:6px;padding:7px}.load-table .basis{min-width:210px}.load-table .row-actions{min-width:64px;text-align:center}
+    .banner-status{font-weight:900;padding:11px 13px;border-radius:9px;background:#edf2f2}.banner-status.ok{background:#ecfdf5;color:#065f46}.banner-status.fail{background:#fef2f2;color:#991b1b}.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.metric{border:1px solid #dfe8e7;border-left:4px solid #94a3b8;border-radius:9px;padding:10px;background:#fff}.metric.ok{border-left-color:#10b981}.metric.fail{border-left-color:#ef4444}.metric .label{display:block;color:#5f6d72;font-size:.82rem}.metric .value{display:block;font-size:1.18rem;font-weight:900;color:#0f3d39}.muted{color:#607078;font-size:.82rem}.check-list{display:grid;gap:8px}.check-item{border:1px solid #e2e8e7;border-radius:8px;padding:9px 10px}.check-item.ok{border-left:4px solid #10b981}.check-item.fail{border-left:4px solid #ef4444}.check-item.warn{border-left:4px solid #f59e0b}.check-item .k{font-weight:900;display:block}.check-item .v{font-size:.86rem;color:#526168}
+    .diagram-wrap{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fbffff}.diagram-wrap svg{width:100%;height:auto;min-height:250px;display:block}.formula-list{font-size:.9rem}.formula-list code{font-family:Consolas,monospace;background:#edf6f5;border-radius:4px;padding:2px 5px}.formula-list p{margin:7px 0}.output-actions{margin-top:12px}.output-actions select{border:1px solid #b8cbc8;border-radius:8px;padding:8px}.json-status{font-size:.84rem;color:#526168}.direct-print-note{margin:0}
+    @media(max-width:900px){.main-layout{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr 1fr}.span-3{grid-column:1/-1}}
+    @media(max-width:560px){.page{padding:10px}.form-grid,.metrics{grid-template-columns:1fr}.span-2,.span-3{grid-column:auto}.hero{padding:18px}.btn{width:100%}}
+    @media print{.page-only-report-status,.case-actions{display:none!important}}
+  </style>
+</head>
+<body class="local-quick-output-page">
+  <div class="local-quick-direct-print-boundary" aria-hidden="true">
+    <h1>局部快算主頁列印已封鎖</h1>
+    <p>此頁是操作介面，不是計算書；本頁不得作為附件。</p>
+    <p>請回工具頁按「列印計算書」，在獨立計算書視窗列印或存成 PDF。</p>
+  </div>
+  <main class="page">
+    <header class="hero" data-smoke="floor-slab-westergaard-smoke">
+      <h1>地坪承載檢核（Westergaard）</h1>
+      <p>以一般化 Westergaard 閉式解，計算地坪版內部、自由邊緣與角隅集中載重彎拉應力。</p>
+      <div class="hero-meta"><span class="tag">局部快算</span><span class="tag">SI 單位</span><span class="tag" id="coreVersion">Core v0.1.0</span><span class="tag">公開版本 V0.1</span></div>
+    </header>
+
+    <section class="card case-card">
+      <h2 class="section-title">案件資料與案例管理</h2>
+      <div class="form-grid">
+        <div class="field"><label for="projName">計畫名稱</label><input id="projName" autocomplete="off"></div>
+        <div class="field"><label for="projNo">計畫編號</label><input id="projNo" autocomplete="off"></div>
+        <div class="field"><label for="projDesigner">設計／整理人</label><input id="projDesigner" autocomplete="off"></div>
+      </div>
+      <div class="case-actions">
+        <button class="btn btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
+        <button class="btn btn-secondary" id="btnSaveProject" type="button">另存案件 JSON</button>
+        <button class="btn btn-secondary" id="btnSaveDraft" type="button">暫存瀏覽器</button>
+        <button class="btn btn-secondary" id="btnLoadDraft" type="button">讀取暫存</button>
+        <button class="btn btn-danger" id="btnReset" type="button">恢復示例</button>
+        <input id="jsonFile" type="file" accept="application/json,.json" hidden>
+        <span class="json-status" id="jsonStatus">JSON 可用於保存與回讀本頁案例。</span>
+      </div>
+    </section>
+
+    <div class="main-layout floor-slab-shell">
+      <div class="stack">
+        <section class="card">
+          <h2 class="section-title">① 版與地基參數</h2>
+          <div class="form-grid">
+            <div class="field"><label for="slabThicknessMm">版厚 h (mm)</label><input id="slabThicknessMm" type="number" min="1" step="1" value="180"></div>
+            <div class="field"><label for="elasticModulusMpa">混凝土彈性模數 E (MPa)</label><input id="elasticModulusMpa" type="number" min="1" step="100" value="28000"></div>
+            <div class="field"><label for="poissonRatio">泊松比 ν</label><input id="poissonRatio" type="number" min="0.01" max="0.49" step="0.01" value="0.15"></div>
+            <div class="field"><label for="subgradeModulusMNm3">版下反力模數 k (MN/m³)</label><input id="subgradeModulusMNm3" type="number" min="0.01" step="1" value="50"><small>1 MN/m³ = 0.001 N/mm³</small></div>
+            <div class="field"><label for="allowableStressMpa">容許彎拉應力 σallow (MPa)</label><input id="allowableStressMpa" type="number" min="0.01" step="0.1" value="3.0"></div>
+            <div class="field span-3"><label for="allowableStressBasis">容許值依據</label><input id="allowableStressBasis" value="專案指定：容許彎拉應力 3.0 MPa（請依實際案件覆核）"><small>應填規範判定、專案指定或材料試驗；不得只寫「工具內建」。</small></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2 class="section-title">② 輪壓／機具腳位與同點疊加</h2>
+          <div class="scope-box">每列先計算單輪／單腳應力，再乘數量、動力係數與各位置影響係數後線性相加。影響係數預設 1.0（保守同點疊加）；若小於 1.0，必須填幾何、圖表或分析依據。</div>
+          <div class="table-wrap" style="margin-top:10px">
+            <table class="load-table">
+              <thead><tr><th>名稱</th><th>單輪／單腳 P (kN)</th><th>數量</th><th>動力係數</th><th>接觸半徑 a (mm)</th><th>ηi 內部</th><th>ηe 邊緣</th><th>ηc 角隅</th><th>影響係數依據</th><th></th></tr></thead>
+              <tbody id="loadRows"></tbody>
+            </table>
+          </div>
+          <button class="btn btn-secondary" id="btnAddLoad" type="button" style="margin-top:9px">新增載重群</button>
+        </section>
+
+        <section class="card">
+          <h2 class="section-title">③ 計算與輸出</h2>
+          <div class="warning-box">本頁檢核的是均質彈性地坪版之載重彎拉應力，不是地質承載力或沉陷分析。疲勞、接縫傳力與沉陷不在本頁範圍；溫度翹曲、有限版尺寸、空洞、非線性接觸與配筋亦須另行檢核。</div>
+          <div class="output-actions">
+            <button class="btn btn-primary" id="btnCalc" type="button">計算 Westergaard 應力</button>
+            <button class="btn btn-secondary" id="btnPrint" type="button">列印計算書</button>
+            <button class="btn btn-secondary" id="btnJson" type="button">下載 JSON</button>
+            <label for="reportMode">計算書：</label><select id="reportMode"><option value="detailed">詳算式</option><option value="summary">簡易結果</option></select>
+          </div>
+        </section>
+
+        <section class="card page-only-report-status" id="floorSlabReportReadiness" data-report-readiness="blocked" data-report-readiness-scope="page-only"></section>
+      </div>
+
+      <aside class="stack">
+        <section class="card"><div class="banner-status" id="bannerStatus">尚未計算</div></section>
+        <section class="card"><h2 class="section-title">控制結果</h2><div class="metrics" id="metricGrid"></div></section>
+        <section class="card"><h2 class="section-title">檢核清單</h2><div class="check-list" id="checkList"></div></section>
+        <section class="card"><h2 class="section-title">Westergaard 模型示意</h2><div class="diagram-wrap"><svg id="westergaardDiagram" viewBox="0 0 620 310" role="img" aria-label="地坪版內部邊緣角隅載重示意"></svg></div></section>
+        <section class="card"><h2 class="section-title">計算內容</h2><div class="formula-list" id="stepBody"></div></section>
+      </aside>
+    </div>
+  </main>
+
+  <script src="../local-quick-tool-metadata.js"></script>
+  <script src="../../core/ui/report.js"></script>
+  <script src="../local-quick-export.js?v=0.2.0"></script>
+  <script src="floor-slab-westergaard-core.js?v=0.1.0"></script>
+  <script>
+  (function () {
+    'use strict';
+    const Core = window.FloorSlabWestergaardCore;
+    if (!Core) throw new Error('FloorSlabWestergaardCore is not loaded.');
+    const PUBLIC_TOOL_VERSION = window.LocalQuickToolMetadata['floor-slab-westergaard'].version;
+    const Exporter = window.LocalQuickExport;
+    const ReportUI = window.ToolReportUI;
+    if (!Exporter || !ReportUI) throw new Error('Local quick shared helpers are not loaded.');
+    const STORAGE_KEY = 'floor-slab-westergaard-project-meta-v1';
+    const PROJECT_DRAFT_KEY = 'floor-slab-westergaard-project-draft-v1';
+    const DEFAULT_LOADS = [
+      { name:'單輪', loadKn:40, count:1, dynamicFactor:1.15, contactRadiusMm:150, influenceInterior:1, influenceEdge:1, influenceCorner:1, influenceBasis:'' }
+    ];
+    let lastResult = null;
+    let lastValidationMessage = '';
+
+    function $(id) { return document.getElementById(id); }
+    function num(id) { const value = Number.parseFloat($(id).value); return Number.isFinite(value) ? value : 0; }
+    function fmt(value, digits) { if (value == null) return '—'; if (!Number.isFinite(value)) return '—'; return Number(value).toFixed(digits == null ? 3 : digits); }
+    function escapeHtml(text) { return String(text == null ? '' : text).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]); }
+    function statusClass(value) { return value === true ? 'ok' : (value === false ? 'fail' : 'warn'); }
+    function reportModeLabel() { return $('reportMode').value === 'summary' ? '簡易結果' : '詳算式'; }
+
+    function loadRowTemplate(load) {
+      const item = Object.assign({ name:'載重群', loadKn:20, count:1, dynamicFactor:1, contactRadiusMm:120, influenceInterior:1, influenceEdge:1, influenceCorner:1, influenceBasis:'' }, load || {});
+      return `<tr class="load-row">
+        <td><input data-field="name" value="${escapeHtml(item.name)}"></td>
+        <td><input data-field="loadKn" type="number" min="0.01" step="1" value="${item.loadKn}"></td>
+        <td><input data-field="count" type="number" min="1" step="1" value="${item.count}"></td>
+        <td><input data-field="dynamicFactor" type="number" min="0.01" step="0.05" value="${item.dynamicFactor}"></td>
+        <td><input data-field="contactRadiusMm" type="number" min="0.01" step="1" value="${item.contactRadiusMm}"></td>
+        <td><input data-field="influenceInterior" type="number" min="0" max="1" step="0.05" value="${item.influenceInterior}"></td>
+        <td><input data-field="influenceEdge" type="number" min="0" max="1" step="0.05" value="${item.influenceEdge}"></td>
+        <td><input data-field="influenceCorner" type="number" min="0" max="1" step="0.05" value="${item.influenceCorner}"></td>
+        <td><input class="basis" data-field="influenceBasis" value="${escapeHtml(item.influenceBasis)}" placeholder="η<1 時必填"></td>
+        <td class="row-actions"><button class="btn btn-danger remove-load" type="button">刪除</button></td>
+      </tr>`;
+    }
+
+    function bindLoadRows() {
+      Array.from(document.querySelectorAll('.load-row input')).forEach(input => {
+        input.addEventListener('input', calculateFloorSlabWestergaard);
+        input.addEventListener('change', calculateFloorSlabWestergaard);
+      });
+      Array.from(document.querySelectorAll('.remove-load')).forEach(button => {
+        button.addEventListener('click', function () {
+          if (document.querySelectorAll('.load-row').length <= 1) return;
+          button.closest('tr').remove();
+          calculateFloorSlabWestergaard();
+        });
+      });
+    }
+
+    function renderLoadRows(loads) {
+      $('loadRows').innerHTML = (loads && loads.length ? loads : DEFAULT_LOADS).map(loadRowTemplate).join('');
+      bindLoadRows();
+    }
+
+    function gatherLoadGroups() {
+      return Array.from(document.querySelectorAll('.load-row')).map(function (row, index) {
+        const value = field => row.querySelector(`[data-field="${field}"]`).value;
+        const numeric = field => { const n = Number.parseFloat(value(field)); return Number.isFinite(n) ? n : 0; };
+        return {
+          id: `L${index + 1}`,
+          name: value('name').trim() || `載重群 ${index + 1}`,
+          loadKn: numeric('loadKn'), count: numeric('count'), dynamicFactor: numeric('dynamicFactor'), contactRadiusMm: numeric('contactRadiusMm'),
+          influenceInterior: numeric('influenceInterior'), influenceEdge: numeric('influenceEdge'), influenceCorner: numeric('influenceCorner'), influenceBasis: value('influenceBasis').trim()
+        };
+      });
+    }
+
+    function gatherInputs() {
+      return {
+        slabThicknessMm: num('slabThicknessMm'), elasticModulusMpa: num('elasticModulusMpa'), poissonRatio: num('poissonRatio'),
+        subgradeModulusMNm3: num('subgradeModulusMNm3'), allowableStressMpa: num('allowableStressMpa'),
+        allowableStressBasis: $('allowableStressBasis').value.trim(), loadGroups: gatherLoadGroups()
+      };
+    }
+
+    function gatherProjectInfo() {
+      return {
+        name: Exporter.normalizeProjectFieldValue($('projName').value),
+        no: Exporter.normalizeProjectFieldValue($('projNo').value),
+        designer: Exporter.normalizeProjectFieldValue($('projDesigner').value)
+      };
+    }
+
+    function renderReadiness(validationMessage) {
+      const target = $('floorSlabReportReadiness');
+      if (!target) return;
+      const message = typeof validationMessage === 'string' ? validationMessage : lastValidationMessage;
+      let readinessLevel = 'blocked';
+      let title = '尚未完成計算，先不要產生計算書。';
+      const items = [];
+      if (message) {
+        title = '輸入尚未通過檢查，先不要產生計算書。';
+        items.push({ label:'輸入檢核', value:message });
+      } else if (lastResult) {
+        const failed = lastResult.checks.filter(check => check.passed === false);
+        const level = !lastResult.overallOk ? 'blocked' : 'ready';
+        readinessLevel = level;
+        title = level === 'ready' ? '計算與依據均已通過，可產生計算書附件。' : '計算已完成，但仍有未通過項目，僅可產生內部審閱版。';
+        items.push({ label:'控制位置', value:`${lastResult.governingPositionLabel}；σ/σallow=${fmt(lastResult.governingRatio,3)}` });
+        items.push({ label:'控制狀態', value:lastResult.summary.headline });
+        if (failed[0]) items.push({ label:'優先處理 1', value:failed[0].detail });
+        if (failed[1]) items.push({ label:'優先處理 2', value:failed[1].detail });
+      }
+      items.push({ label:'計算書模式', value:reportModeLabel() });
+      items.push({ label:'輸出邊界', value:'頁面顯示，不進計算書、列印或 PDF' });
+      Exporter.renderStatusGridPanel({
+        target, level: readinessLevel, containerClassName:'page-only-report-status report-readiness', eyebrow:'頁面輔助｜產報前檢查｜優先閱讀', title,
+        badge:readinessLevel === 'ready' ? '可作附件' : '暫勿作附件', items,
+        note:'此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認 k 值、材料容許值、載重位置、動力係數與影響係數依據。'
+      });
+    }
+
+    function renderBanner(r) {
+      $('bannerStatus').className = `banner-status ${r.overallOk ? 'ok' : 'fail'}`;
+      $('bannerStatus').textContent = r.summary.headline;
+    }
+
+    function renderMetrics(r) {
+      const metrics = [
+        ['相對勁度半徑 ℓ', `${fmt(r.relativeStiffnessRadiusM,3)} m`, `h=${fmt(r.slabThicknessMm,0)} mm；k=${fmt(r.subgradeModulusMNm3,1)} MN/m³`, true],
+        ['內部應力 σi', `${fmt(r.totalStressMpa.interior,3)} MPa`, `ratio=${fmt(r.stressRatios.interior,3)}`, r.stressRatios.interior <= 1],
+        ['邊緣應力 σe', `${fmt(r.totalStressMpa.edge,3)} MPa`, `ratio=${fmt(r.stressRatios.edge,3)}`, r.stressRatios.edge <= 1],
+        ['角隅應力 σc', `${fmt(r.totalStressMpa.corner,3)} MPa`, `ratio=${fmt(r.stressRatios.corner,3)}`, r.stressRatios.corner <= 1],
+        ['控制位置', r.governingPositionLabel, `σ=${fmt(r.governingStressMpa,3)} MPa`, r.governingRatio <= 1],
+        ['控制應力比', fmt(r.governingRatio,3), `σallow=${fmt(r.allowableStressMpa,3)} MPa`, r.governingRatio <= 1],
+        ['有效載重合計', `${fmt(r.totalEffectiveLoadKn,1)} kN`, `${r.loadGroups.length} 組；含數量與動力係數`, true],
+        ['依據完整性', r.allowableBasisReady && r.influenceBasisReady ? '完整' : '待補', '容許值與 η 折減均須可追溯', r.allowableBasisReady && r.influenceBasisReady]
+      ];
+      $('metricGrid').innerHTML = metrics.map(m => `<div class="metric ${statusClass(m[3])}"><span class="label">${m[0]}</span><span class="value">${m[1]}</span><div class="muted">${m[2]}</div></div>`).join('');
+    }
+
+    function renderChecks(r) {
+      $('checkList').innerHTML = r.checks.map(check => `<div class="check-item ${statusClass(check.passed)}"><span class="k">${escapeHtml(check.label)}｜${check.passed === true ? '通過' : (check.passed === false ? '不通過' : '不適用')}</span><span class="v">${escapeHtml(check.detail)}</span></div>`).join('');
+    }
+
+    function renderSteps(r) {
+      const groupRows = r.loadGroups.map(group => `<tr><td>${escapeHtml(group.name)}</td><td>${fmt(group.effectiveLoadKn,2)}</td><td>${fmt(group.equivalentRadiusMm,2)}</td><td>${fmt(group.stressContributionMpa.interior,3)}</td><td>${fmt(group.stressContributionMpa.edge,3)}</td><td>${fmt(group.stressContributionMpa.corner,3)}</td></tr>`).join('');
+      $('stepBody').innerHTML = `
+        <p><b>1. 相對勁度半徑</b><br><code>ℓ = [E h³ / 12k(1−ν²)]^(1/4) = ${fmt(r.relativeStiffnessRadiusMm,2)} mm</code></p>
+        <p><b>2. 等效接觸半徑</b><br><code>b = a（a ≥ 1.724h）；否則 b = √(1.6a²+h²) − 0.675h</code></p>
+        <p><b>3. 一般化載重應力</b><br><code>σi = 0.275(1+ν)P/h² · log10(Eh³/kb⁴)</code><br><code>σe = 0.529(1+0.54ν)P/h² · [log10(Eh³/kb⁴)−0.71]</code><br><code>σc = 3P/h² · [1−(a√2/ℓ)^0.6]</code></p>
+        <div class="table-wrap"><table class="load-table"><tr><th>載重群</th><th>Pdesign kN</th><th>b mm</th><th>Δσi</th><th>Δσe</th><th>Δσc</th></tr>${groupRows}</table></div>
+        <p><b>4. 同點線性疊加</b><br><code>σposition = Σ(ηposition,j · σposition,j)</code>；控制為${r.governingPositionLabel}，ratio=${fmt(r.governingRatio,3)}。</p>
+        <div class="scope-box">採均質、等向、線彈性、等厚版與 Winkler 彈性地基（反力與撓度成正比）的 Westergaard 模型。多輪空間互制不由本頁自動推導；η&lt;1 必須有專案依據。</div>`;
+    }
+
+    function drawDiagram(r) {
+      const svg = $('westergaardDiagram');
+      const ratio = r ? Math.min(1.2, r.governingRatio) : 0;
+      const color = r && r.governingRatio <= 1 ? '#0f766e' : '#dc2626';
+      svg.innerHTML = `<defs><marker id="floor-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="#b91c1c"/></marker></defs>
+        <g data-diagram-role="plan"><text x="150" y="24" text-anchor="middle" font-size="13" font-weight="700">版平面三種載重位置</text><rect x="34" y="45" width="232" height="178" fill="#effafa" stroke="#0f766e" stroke-width="3"/>
+        <circle cx="150" cy="132" r="16" fill="#fee2e2" stroke="#b91c1c"/><text x="150" y="137" text-anchor="middle" font-size="11">內部</text><circle cx="150" cy="45" r="15" fill="#ffedd5" stroke="#c2410c"/><text x="150" y="49" text-anchor="middle" font-size="10">邊緣</text><circle cx="34" cy="45" r="15" fill="#fef3c7" stroke="#a16207"/><text x="53" y="40" font-size="10">角隅</text></g>
+        <g data-diagram-role="section"><text x="452" y="24" text-anchor="middle" font-size="13" font-weight="700">Winkler 彈性地基</text><rect x="340" y="90" width="226" height="36" fill="#dbeafe" stroke="#1d4ed8" stroke-width="2"/><text x="574" y="112" font-size="11">h</text>${Array.from({length:9},(_,i)=>`<path d="M${350+i*25} 126 v52 l-8 12 h16 l-8 12" fill="none" stroke="#64748b"/>`).join('')}<text x="452" y="224" text-anchor="middle" font-size="11">k：反力與局部撓度成正比</text></g>
+        <g data-diagram-role="load"><line x1="452" y1="42" x2="452" y2="86" stroke="#b91c1c" stroke-width="4" marker-end="url(#floor-arrow)"/><text x="465" y="60" font-size="12" fill="#991b1b">P</text><rect x="350" y="250" width="204" height="28" rx="6" fill="#f8fafc" stroke="${color}" stroke-width="2"/><rect x="350" y="250" width="${204*Math.min(1,ratio)}" height="28" rx="6" fill="${color}" opacity=".18"/><text x="452" y="269" text-anchor="middle" font-size="12" fill="${color}">${r ? `控制 ${escapeHtml(r.governingPositionLabel)} ratio=${fmt(r.governingRatio,3)}` : '尚未計算'}</text></g>`;
+    }
+
+    function calculateFloorSlabWestergaard() {
+      const input = gatherInputs();
+      const errors = Core.validateInput(input);
+      if (errors.length) {
+        lastResult = null; lastValidationMessage = errors.join(' ');
+        $('bannerStatus').className = 'banner-status fail'; $('bannerStatus').textContent = lastValidationMessage;
+        $('metricGrid').innerHTML = ''; $('checkList').innerHTML = ''; $('stepBody').innerHTML = `<div class="warning-box">${escapeHtml(lastValidationMessage)}</div>`;
+        drawDiagram(null); renderReadiness(lastValidationMessage); return null;
+      }
+      const result = Core.calculate(input); lastResult = result; lastValidationMessage = '';
+      renderBanner(result); renderMetrics(result); renderChecks(result); renderSteps(result); drawDiagram(result); renderReadiness('');
+      return result;
+    }
+
+    function setJsonStatus(message, isError) { $('jsonStatus').textContent = message; $('jsonStatus').style.color = isError ? '#991b1b' : ''; }
+    function applyProjectInfo(project) {
+      const data = project || {};
+      if (data.name != null) $('projName').value = Exporter.normalizeProjectFieldValue(data.name);
+      if (data.no != null) $('projNo').value = Exporter.normalizeProjectFieldValue(data.no);
+      if (data.designer != null) $('projDesigner').value = Exporter.normalizeProjectFieldValue(data.designer);
+      saveProjectInfo();
+    }
+    function extractImportedInput(payload) {
+      if (!payload || typeof payload !== 'object') throw new Error('JSON 格式不正確。');
+      const toolId = payload.tool && payload.tool.id;
+      if (toolId && toolId !== 'floor-slab-westergaard') throw new Error(`此 JSON 屬於 ${toolId}，不是地坪 Westergaard 案例。`);
+      return payload.input || (payload.result && payload.result.input) || payload.result || payload;
+    }
+    function applyImportedCase(payload, fileName) {
+      const normalized = Core.normalizeInput(extractImportedInput(payload));
+      const errors = Core.validateInput(normalized); if (errors.length) throw new Error(errors.join(' '));
+      ['slabThicknessMm','elasticModulusMpa','poissonRatio','subgradeModulusMNm3','allowableStressMpa'].forEach(id => { $(id).value = normalized[id]; });
+      $('allowableStressBasis').value = normalized.allowableStressBasis; renderLoadRows(normalized.loadGroups); applyProjectInfo(payload.project); calculateFloorSlabWestergaard();
+      setJsonStatus(`已讀取 JSON：${fileName || '案例檔'}。`, false);
+    }
+    async function importJsonFile(file) {
+      if (!file) return;
+      try { applyImportedCase(JSON.parse(await file.text()), file.name); } catch (error) { setJsonStatus(`讀取失敗：${error.message || error}`, true); }
+      finally { $('jsonFile').value = ''; }
+    }
+    function buildProjectPayload() {
+      const r = lastResult || calculateFloorSlabWestergaard();
+      return Exporter.buildPayload({
+        tool: {
+          id: 'floor-slab-westergaard',
+          name: '地坪承載檢核（Westergaard）',
+          pageVersion: PUBLIC_TOOL_VERSION,
+          calculationEngine: Core.version
+        },
+        project: gatherProjectInfo(),
+        input: gatherInputs(),
+        result: r,
+        generatedAt: new Date().toISOString()
+      });
+    }
+    function downloadResultJson() {
+      const payload = buildProjectPayload(); if (!payload.result) return;
+      Exporter.downloadResultJson(payload); setJsonStatus('已產生 JSON，可用「讀取 JSON」回復本頁案例。', false);
+    }
+    function downloadProjectJson() {
+      const payload = buildProjectPayload(); if (!payload.result) return;
+      Exporter.downloadProjectJson(Object.assign({}, payload, { filename:`floor-slab-westergaard-project-${payload.generatedAt.slice(0,10)}.json` }));
+      setJsonStatus('已存檔 JSON；可用「讀取 JSON」回復本頁案例。', false);
+    }
+
+    function reportRows(rows) { return rows.map(row => `<tr><th>${escapeHtml(row[0])}</th><td>${escapeHtml(row[1])}</td></tr>`).join(''); }
+    function reportDiagram(r) { drawDiagram(r); return $('westergaardDiagram').outerHTML; }
+    function conditionRows(r) {
+      return [
+        ['版厚 / E / ν', `${fmt(r.slabThicknessMm,0)} mm / ${fmt(r.elasticModulusMpa,0)} MPa / ${fmt(r.poissonRatio,2)}`],
+        ['版下反力模數 k', `${fmt(r.subgradeModulusMNm3,2)} MN/m³ = ${fmt(r.subgradeModulusNmm3,4)} N/mm³`],
+        ['容許彎拉應力', `${fmt(r.allowableStressMpa,3)} MPa；${r.allowableStressBasis}`],
+        ['相對勁度半徑 ℓ', `${fmt(r.relativeStiffnessRadiusMm,2)} mm`],
+        ['載重群', `${r.loadGroups.length} 組；有效載重合計 ${fmt(r.totalEffectiveLoadKn,2)} kN`]
+      ];
+    }
+    function resultRows(r) {
+      return [
+        ['內部應力 σi', `${fmt(r.totalStressMpa.interior,3)} MPa；ratio=${fmt(r.stressRatios.interior,3)}`],
+        ['邊緣應力 σe', `${fmt(r.totalStressMpa.edge,3)} MPa；ratio=${fmt(r.stressRatios.edge,3)}`],
+        ['角隅應力 σc', `${fmt(r.totalStressMpa.corner,3)} MPa；ratio=${fmt(r.stressRatios.corner,3)}`],
+        ['控制位置 / 應力比', `${r.governingPositionLabel} / ${fmt(r.governingRatio,3)}`],
+        ['依據狀態', `容許值：${r.allowableBasisReady ? '完整' : '待補'}；影響係數：${r.influenceBasisReady ? '完整' : '待補'}`]
+      ];
+    }
+    function reportScopeNote() {
+      return '採均質、等向、線彈性、等厚版與 Winkler 彈性地基之 Westergaard 一般化閉式解。本計算範圍為內部、自由邊緣與角隅集中載重彎拉應力；疲勞、接縫傳力與沉陷不在本頁範圍，溫度翹曲、有限版、空洞、非線性接觸、地質承載力與配筋亦須另行檢核。';
+    }
+    function detailedBody(r, svgHtml) {
+      const groupRows = r.loadGroups.map(group => `<tr><td>${escapeHtml(group.name)}</td><td>${fmt(group.loadKn,2)}×${group.count}×${fmt(group.dynamicFactor,2)}=${fmt(group.effectiveLoadKn,2)}</td><td>${fmt(group.contactRadiusMm,1)} / ${fmt(group.equivalentRadiusMm,1)}</td><td>${fmt(group.influenceInterior,2)} / ${fmt(group.influenceEdge,2)} / ${fmt(group.influenceCorner,2)}</td><td>${fmt(group.stressContributionMpa.interior,3)} / ${fmt(group.stressContributionMpa.edge,3)} / ${fmt(group.stressContributionMpa.corner,3)}</td><td>${escapeHtml(group.influenceBasis || '係數均為 1.0')}</td></tr>`).join('');
+      return `<h2>設計條件</h2><table>${reportRows(conditionRows(r))}</table><h2>計算示意圖</h2><div class="rpt-diagram">${svgHtml}</div><h2>計算內容</h2>
+      <div class="rpt-step"><h3>1. 相對勁度半徑</h3><p><code>ℓ=[Eh³/12k(1−ν²)]^(1/4)=${fmt(r.relativeStiffnessRadiusMm,2)} mm</code></p></div>
+      <div class="rpt-step"><h3>2. 等效接觸半徑</h3><p><code>b=a（a≥1.724h）；否則 b=√(1.6a²+h²)−0.675h</code></p></div>
+      <div class="rpt-step"><h3>3. Westergaard 一般化載重應力</h3><p><code>σi=0.275(1+ν)P/h²·log10(Eh³/kb⁴)</code></p><p><code>σe=0.529(1+0.54ν)P/h²·[log10(Eh³/kb⁴)−0.71]</code></p><p><code>σc=3P/h²·[1−(a√2/ℓ)^0.6]</code></p></div>
+      <div class="rpt-step"><h3>4. 載重群與同點線性疊加</h3><table><tr><th>載重群</th><th>P×n×I (kN)</th><th>a / b (mm)</th><th>ηi / ηe / ηc</th><th>Δσi / Δσe / Δσc (MPa)</th><th>影響係數依據</th></tr>${groupRows}</table><p><code>σposition=Σ(ηposition,j·σposition,j)</code></p></div>
+      <h2>檢核結論</h2><table>${reportRows(resultRows(r))}</table><div class="conclusion">${escapeHtml(r.summary.headline)}</div><div class="note">${escapeHtml(reportScopeNote())}</div>`;
+    }
+    function summaryBody(r, svgHtml) {
+      const checks = r.checks.map(check => `<tr><th>${escapeHtml(check.label)}</th><td>${check.passed ? '通過' : '不通過'}</td></tr>`).join('');
+      return `<h2>設計條件</h2><table>${reportRows(conditionRows(r))}</table><h2>計算示意圖</h2><div class="rpt-diagram">${svgHtml}</div><h2>控制結果</h2><table>${reportRows(resultRows(r))}</table><table><tr><th>檢核項目</th><th>結果</th></tr>${checks}</table><div class="note">${escapeHtml(reportScopeNote())}</div><h2>檢核結論</h2><div class="conclusion">${escapeHtml(r.summary.headline)}</div>`;
+    }
+    function openReport() {
+      const r = lastResult || calculateFloorSlabWestergaard(); if (!r) return;
+      const proj = gatherProjectInfo(); const mode = $('reportMode').value === 'summary' ? 'summary' : 'detailed'; const svgHtml = reportDiagram(r);
+      const reportTrace = ReportUI.buildReportTrace({ title:'地坪承載檢核（Westergaard）計算書', outputSource:{tool:'地坪承載檢核（Westergaard）',version:PUBLIC_TOOL_VERSION}, snapshot:{mode,calculationEngine:Core.version,result:r} });
+      const documentStateReport = ReportUI.buildFormalDocumentStateReport({ project:proj, calculated:true, readinessLevel:ReportUI.getPageReportReadinessLevel(document), calculationFingerprint:reportTrace.calculationFingerprint });
+      const body = mode === 'summary' ? summaryBody(r,svgHtml) : detailedBody(r,svgHtml);
+      const reportHtml = `<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="UTF-8"><title>地坪承載檢核（Westergaard）計算書</title><style>
+      body{font-family:"Microsoft JhengHei",Arial,sans-serif;background:#f8fafc;color:#111827;margin:0;line-height:1.65}.toolbar{position:sticky;top:0;background:#134e4a;color:white;padding:10px 16px}.toolbar button{padding:8px 12px;margin-right:8px;border:0;border-radius:6px}.paper{max-width:900px;margin:20px auto;background:white;padding:30px 34px;box-shadow:0 2px 12px #0002}h1{font-size:1.45rem;margin:0 0 8px}h2{font-size:1.05rem;border-bottom:2px solid #dbe8e6;padding-bottom:5px;margin-top:22px;color:#0f766e}h3{font-size:.95rem;color:#134e4a;margin:12px 0 4px}.case-head{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.88rem;color:#334155;border-bottom:1px solid #e5e7eb;padding-bottom:8px}table{width:100%;border-collapse:collapse;font-size:.86rem;margin-top:8px}th,td{border:1px solid #d1d5db;padding:7px 8px;text-align:left;vertical-align:top}th{background:#f8fafc}code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 4px;border-radius:4px}.rpt-diagram{border:1px solid #dce7e6;border-radius:8px;padding:8px}.rpt-diagram svg{width:100%;max-width:620px;height:auto;display:block;margin:auto}.conclusion{padding:12px;border:2px solid ${r.overallOk?'#10b981':'#ef4444'};background:${r.overallOk?'#ecfdf5':'#fef2f2'};border-radius:8px;font-weight:800}.note{margin-top:14px;padding:10px 12px;border-left:4px solid #0f766e;background:#f0fdfa}.rpt-step{break-inside:avoid-page;page-break-inside:avoid}h2,h3{break-after:avoid-page;page-break-after:avoid}tr{break-inside:avoid-page;page-break-inside:avoid}thead{display:table-header-group}@media print{.toolbar{display:none}.paper{box-shadow:none;margin:0;max-width:none}body{background:white}}</style></head><body><div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div><main class="paper"><h1>地坪承載檢核（Westergaard）計算書</h1>${documentStateReport.html}<div class="case-head">${proj.name?`<span>計畫：${escapeHtml(proj.name)}</span>`:''}${proj.no?`<span>編號：${escapeHtml(proj.no)}</span>`:''}${proj.designer?`<span>整理人：${escapeHtml(proj.designer)}</span>`:''}<span>產出工具：${escapeHtml(reportTrace.sourceTrace.tool)}</span><span>工具版本：${escapeHtml(PUBLIC_TOOL_VERSION)}</span><span>計算引擎：${escapeHtml(Core.version)}</span><span>輸出時間：${escapeHtml(reportTrace.generatedAt)}</span><span>計算指紋：${escapeHtml(reportTrace.calculationFingerprint)}</span></div>${body}</main></body></html>`;
+      const win = window.open('', '_blank'); if (!win) return; win.document.open(); win.document.write(reportHtml); win.document.close();
+    }
+
+    function saveProjectInfo() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(gatherProjectInfo())); } catch (_) {} }
+    function loadProjectInfo() { try { applyProjectInfo(JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')); } catch (_) {} }
+    function resetDefaults() {
+      $('slabThicknessMm').value=180; $('elasticModulusMpa').value=28000; $('poissonRatio').value=.15; $('subgradeModulusMNm3').value=50; $('allowableStressMpa').value=3; $('allowableStressBasis').value='專案指定：容許彎拉應力 3.0 MPa（請依實際案件覆核）'; renderLoadRows(DEFAULT_LOADS); calculateFloorSlabWestergaard();
+    }
+
+    $('btnAddLoad').addEventListener('click', function () { $('loadRows').insertAdjacentHTML('beforeend', loadRowTemplate()); bindLoadRows(); calculateFloorSlabWestergaard(); });
+    $('btnCalc').addEventListener('click', calculateFloorSlabWestergaard); $('btnPrint').addEventListener('click', openReport); $('btnJson').addEventListener('click', downloadResultJson); $('btnSaveProject').addEventListener('click', downloadProjectJson);
+    $('btnImportJson').addEventListener('click', () => $('jsonFile').click()); $('jsonFile').addEventListener('change', event => importJsonFile(event.target.files && event.target.files[0]));
+    $('btnSaveDraft').addEventListener('click', function () { Exporter.saveDraft(PROJECT_DRAFT_KEY, buildProjectPayload()); setJsonStatus('已暫存目前案例到此瀏覽器。', false); });
+    $('btnLoadDraft').addEventListener('click', function () { const payload=Exporter.loadDraft(PROJECT_DRAFT_KEY); if(!payload){setJsonStatus('尚無可讀取的瀏覽器暫存。',true);return;} applyImportedCase(payload,'瀏覽器暫存'); });
+    $('btnReset').addEventListener('click', resetDefaults); $('reportMode').addEventListener('change', () => renderReadiness());
+    ['slabThicknessMm','elasticModulusMpa','poissonRatio','subgradeModulusMNm3','allowableStressMpa','allowableStressBasis'].forEach(id => { $(id).addEventListener('input',calculateFloorSlabWestergaard); $(id).addEventListener('change',calculateFloorSlabWestergaard); });
+    ['projName','projNo','projDesigner'].forEach(id => { $(id).addEventListener('input',saveProjectInfo); $(id).addEventListener('change',saveProjectInfo); });
+    $('coreVersion').textContent = `Core v${Core.version}`; renderLoadRows(DEFAULT_LOADS); loadProjectInfo(); calculateFloorSlabWestergaard();
+  })();
+  </script>
+  <script src="../project-meta-profile.js"></script>
+</body>
+</html>

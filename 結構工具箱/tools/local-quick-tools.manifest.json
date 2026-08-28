@@ -1,5 +1,5 @@
 {
-  "version": "0.3.1",
+  "version": "0.4.0",
   "family": "local-quick-tools",
   "description": "高頻局部快算工具清冊。此檔集中記錄工具入口、核心檔案、測試檔、乾淨路由與文件邊界，供契約測試與交付檢查使用。",
   "shared": {
@@ -139,6 +139,44 @@
       "reportNeedles": [
         "不在本次計算範圍",
         "正式詳算"
+      ]
+    },
+    {
+      "key": "floor-slab-westergaard",
+      "label": "地坪承載檢核（Westergaard）",
+      "route": "/floor-slab-westergaard",
+      "html": "tools/floor-slab/floor-slab-westergaard.html",
+      "core": "tools/floor-slab/floor-slab-westergaard-core.js",
+      "test": "tools/floor-slab/floor-slab-westergaard-core.test.js",
+      "golden": "tools/floor-slab/floor-slab-westergaard-golden-cases.js",
+      "smoke": "floor-slab-westergaard-smoke",
+      "title": "<title>地坪承載檢核（Westergaard） V0.1</title>",
+      "pageVersion": "V0.1",
+      "calcFunction": "function calculateFloorSlabWestergaard",
+      "coreGlobal": "FloorSlabWestergaardCore",
+      "indexHref": "/floor-slab-westergaard",
+      "boundaryPath": "結構工具箱/tools/floor-slab/",
+      "jsonRoundTrip": true,
+      "reportMode": true,
+      "reportTitleNeedle": "地坪承載檢核（Westergaard）計算書",
+      "reportModeControls": {
+        "selectId": "reportMode",
+        "simpleValue": "summary",
+        "detailValue": "detailed"
+      },
+      "diagramSelector": "#westergaardDiagram",
+      "diagramRoleNeedles": [
+        "plan",
+        "section",
+        "load"
+      ],
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
+      },
+      "reportNeedles": [
+        "Winkler 彈性地基",
+        "接縫傳力"
       ]
     }
   ]

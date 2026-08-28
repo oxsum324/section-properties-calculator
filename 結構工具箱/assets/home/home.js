@@ -206,6 +206,7 @@
       '/foundation-local': '2026-08-24',
       '/equipment-load': '2026-08-24',
       '/earth-pressure': '2026-08-24',
+      '/floor-slab-westergaard': '2026-08-28',
       '/decking': '2026-08-15',
       '/excavation-support': '2026-08-15'
     }
@@ -275,6 +276,7 @@
       '/foundation-local': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/equipment-load': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/earth-pressure': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
+      '/floor-slab-westergaard': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/excavation-support': [
         '開挖擋土支撐/frontend/src/App.tsx',
         '開挖擋土支撐/backend/app/parsers.py',
@@ -905,6 +907,19 @@
       capabilities: ['正式核算', '計算書', '示意圖']
     },
     {
+      title: '地坪承載檢核（Westergaard）',
+      version: 'V0.1',
+      href: '/floor-slab-westergaard',
+      categories: ['temporary'],
+      state: 'formal',
+      governance: 'local-quick-contract',
+      output: '相對勁度半徑、內部／邊緣／角隅載重應力、多輪／機具腳位同點疊加、容許應力比、示意圖、兩段式計算書與 JSON',
+      summary: '以一般化 Westergaard 閉式解檢核均質彈性地坪版於內部、自由邊緣與角隅集中載重之彎拉應力；輪壓或機具腳位可逐組設定數量、動力係數與具依據的同點影響係數。',
+      fit: '工業地坪、倉庫地坪或設備腳位之彈性板載重應力局部檢核。',
+      limit: '疲勞、接縫傳力、沉陷、溫度翹曲、有限版、空洞、非線性接觸、地質承載力與配筋不在本頁範圍；影響係數小於 1.0 時須有專案依據。',
+      capabilities: ['正式核算', '計算書', '多載重疊加']
+    },
+    {
       title: '覆工板系統計算',
       version: 'V1.0',
       href: '/decking',
@@ -987,6 +1002,7 @@
     '/foundation-local': 'tools/foundation/foundation-local.html',
     '/equipment-load': 'tools/equipment/equipment-load.html',
     '/earth-pressure': 'tools/earth/earth-pressure.html',
+    '/floor-slab-westergaard': 'tools/floor-slab/floor-slab-westergaard.html',
     '/decking': '../覆工板/index.html',
     '/excavation-support': '../開挖擋土支撐/index.html'
   };

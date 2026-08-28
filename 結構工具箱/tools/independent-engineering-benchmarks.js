@@ -132,6 +132,47 @@ function foundationOracle(i) {
   };
 }
 
+function floorSlabWestergaardOracle(i) {
+  const h = i.slabThicknessMm;
+  const e = i.elasticModulusMpa;
+  const nu = i.poissonRatio;
+  const k = i.subgradeModulusMNm3 * 0.001;
+  const l = Math.pow(e * h ** 3 / (12 * (1 - nu ** 2) * k), 0.25);
+  const responses = i.loadGroups.map(group => {
+    const a = group.contactRadiusMm;
+    const b = a >= 1.724 * h ? a : Math.sqrt(1.6 * a ** 2 + h ** 2) - 0.675 * h;
+    const effectiveLoadKn = group.loadKn * group.count * group.dynamicFactor;
+    const p = effectiveLoadKn * 1000;
+    const logarithm = Math.log10(e * h ** 3 / (k * b ** 4));
+    const base = {
+      interior: 0.275 * (1 + nu) * p / h ** 2 * logarithm,
+      edge: 0.529 * (1 + 0.54 * nu) * p / h ** 2 * (logarithm - 0.71),
+      corner: 3 * p / h ** 2 * (1 - (a * Math.SQRT2 / l) ** 0.6)
+    };
+    return {
+      equivalentRadiusMm: b,
+      effectiveLoadKn,
+      stressContributionMpa: {
+        interior: base.interior * group.influenceInterior,
+        edge: base.edge * group.influenceEdge,
+        corner: base.corner * group.influenceCorner
+      }
+    };
+  });
+  const totalStressMpa = { interior: 0, edge: 0, corner: 0 };
+  responses.forEach(response => {
+    Object.keys(totalStressMpa).forEach(key => { totalStressMpa[key] += response.stressContributionMpa[key]; });
+  });
+  const governingStressMpa = Math.max(totalStressMpa.interior, totalStressMpa.edge, totalStressMpa.corner);
+  return {
+    relativeStiffnessRadiusMm: l,
+    loadGroups: responses,
+    totalStressMpa,
+    governingStressMpa,
+    governingRatio: governingStressMpa / i.allowableStressMpa
+  };
+}
+
 function rcColumnPmOracle(i) {
   const a = Math.min(i.beta1 * i.c, i.h);
   const concreteForce = 0.85 * i.fc * i.b * a;
@@ -4008,6 +4049,7 @@ const ORACLES = {
   'equipment-basic-load-path': equipmentOracle,
   'earth-rankine-dry-active': earthOracle,
   'foundation-external-load-only': foundationOracle,
+  'floor-slab-westergaard-three-position': floorSlabWestergaardOracle,
   'rc-column-balanced-nearby-pm-point': rcColumnPmOracle,
   'rc-beam-seismic-strength': rcBeamStrengthOracle,
   'rc-deep-beam-stm-strength': rcDeepBeamStmOracle,
