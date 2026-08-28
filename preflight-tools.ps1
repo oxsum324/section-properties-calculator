@@ -2060,7 +2060,7 @@ if (($actualModules -join '|') -ne ($expectedModules -join '|')) {
   exit 1
 }
 
-$expectedRecordCount = 24
+$expectedRecordCount = 25
 if ([int]$status.recordCount -ne $expectedRecordCount) {
   Write-Error "RC audit gate count drifted: actual=$($status.recordCount), expected=$expectedRecordCount"
   exit 1
