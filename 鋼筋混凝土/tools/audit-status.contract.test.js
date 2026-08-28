@@ -263,6 +263,8 @@ const requiredQaArtifacts = [
   'tools/test-retrofit-report.ps1',
   'tools/report-portable-html-check.js',
   'shared/common.test.js',
+  'shared/project-storage.js',
+  'shared/project-storage.test.js',
   'shared/loadcases.test.js',
   'shared/wall-base.test.js',
   'shared/wall-evaluator.test.js',
@@ -375,6 +377,10 @@ for (const rel of localDependencyDirs) {
 
 assertIncludes(audit, 'Shear wall suite', 'audit runs shear wall suite');
 assertIncludes(audit, 'Shared common helper unit tests', 'audit runs shared common helper unit tests');
+assertIncludes(audit, 'Shared project storage unit tests', 'audit runs shared project storage unit tests');
+assertIncludes(audit, 'Get-AvailableTcpPort', 'audit allocates isolated local ports for browser suites');
+assertIncludes(audit, '[System.Net.Sockets.TcpListener]::new', 'audit asks the operating system for an available loopback port');
+assert(!/RC_TEST_PORT='813[1-4]'/.test(audit), 'audit does not reuse fixed cross-worktree browser ports', 'dynamic ports');
 assertIncludes(audit, 'Retaining base demand unit tests', 'audit runs retaining base demand unit tests');
 assertIncludes(audit, 'RC traceability catalog contract', 'audit runs RC traceability catalog contract');
 assertIncludes(audit, 'RC STM independent engineering benchmarks', 'audit runs the RC STM independent engineering benchmark gate');
@@ -383,8 +389,8 @@ assertIncludes(audit, 'recordCount = $auditRecords.Count', 'audit status records
 assertIncludes(audit, 'TimeoutSeconds = 120', 'audit gives the RC STM independent benchmark a bounded timeout');
 assert((audit.split('if (`$LASTEXITCODE -ne 0) { exit `$LASTEXITCODE }').length - 1) >= 1, 'audit fails closed when the RC STM independent benchmark exits nonzero');
 const auditCommandLabels = [...audit.matchAll(/@\{\s*Label\s*=\s*"([^"]+)"/g)].map(match => match[1]);
-assert(auditCommandLabels.length === 24, 'audit retains exactly twenty-four governed commands', JSON.stringify(auditCommandLabels));
-assert(auditCommandLabels[5] === 'RC STM independent engineering benchmarks', 'STM independent benchmark gate runs after metadata contract and before browser suites', JSON.stringify(auditCommandLabels.slice(3, 8)));
+assert(auditCommandLabels.length === 25, 'audit retains exactly twenty-five governed commands', JSON.stringify(auditCommandLabels));
+assert(auditCommandLabels[6] === 'RC STM independent engineering benchmarks', 'STM independent benchmark gate runs after metadata contract and before browser suites', JSON.stringify(auditCommandLabels.slice(4, 9)));
 assertIncludes(rcStmIndependentGate, 'independent-engineering-benchmarks.catalog.json', 'RC STM gate reads the shared private benchmark catalog');
 assertIncludes(rcStmIndependentGate, 'independent-engineering-benchmarks.js', 'RC STM gate reuses the shared independent oracles and catalog validator');
 assertIncludes(rcStmIndependentGate, 'independent-engineering-adapters', 'RC STM gate resolves the production adapter directory');
@@ -488,6 +494,7 @@ assertIncludes(readme, '單樁回歸測試與報告視覺 smoke', 'README docume
   '.\\tools\\test-retrofit-report.ps1',
   'node .\\tools\\rc-project-fingerprint.contract.test.js',
   'node .\\shared\\common.test.js',
+  'node .\\shared\\project-storage.test.js',
 ].forEach(command => assertIncludes(readme, command, `README documents direct command ${command}`));
 assertIncludes(readme, '剪力牆報告視覺 smoke', 'README documents shear wall report visual smoke');
 assertIncludes(readme, '剪力牆報告視覺 smoke contract', 'README documents shear wall report visual smoke contract');

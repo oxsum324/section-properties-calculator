@@ -530,6 +530,7 @@
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/report.js?v=10"></script>
+<script src="../shared/project-storage.js?v=1"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script src="../shared/wall.js?v=2"></script>
@@ -644,32 +645,18 @@
     setTimeout(() => note.remove(), status === 'fail' ? 6000 : 4500);
   }
 
-  function shearWallProjectControls() {
-    return Array.from(document.querySelectorAll('input[id], select[id], textarea[id]')).filter(el => {
-      if (!el.id || SHEAR_WALL_PROJECT_EXCLUDED_IDS.has(el.id)) return false;
-      return (el.type || '').toLowerCase() !== 'file';
-    });
-  }
-
-  function readShearWallControl(el) {
-    if ((el.type || '').toLowerCase() === 'checkbox') {
-      return { kind: 'checkbox', checked: !!el.checked };
-    }
-    return {
-      kind: el.tagName.toLowerCase(),
-      inputType: (el.type || '').toLowerCase(),
-      value: ['projName', 'projNo', 'projDesigner'].includes(el.id)
-        ? window.RCUI.normalizeProjectFieldValue(el.value)
-        : el.value
-    };
-  }
+  const shearWallProjectStorage = window.RCProjectStorage.createManager({
+    documentRef: document,
+    getElement: $,
+    excludedIds: SHEAR_WALL_PROJECT_EXCLUDED_IDS,
+    storageKey: SHEAR_WALL_PROJECT_STORAGE_KEY,
+    fallbackBase: 'RC剪力牆專案',
+    normalizeProjectFieldValue: value => window.RCUI.normalizeProjectFieldValue(value)
+  });
 
   function collectShearWallProjectData() {
     if (typeof calcShearWall === 'function') calcShearWall();
-    const fields = {};
-    shearWallProjectControls().forEach(el => {
-      fields[el.id] = readShearWallControl(el);
-    });
+    const fields = shearWallProjectStorage.collectFields();
     const snap = window.swLast || {};
     const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
     const payload = {
@@ -696,26 +683,14 @@
   }
 
   function shearWallProjectFilename(payload) {
-    const meta = payload?.metadata || {};
-    const base = [meta.projectNo, meta.projectName].filter(Boolean).join('_') || 'RC剪力牆專案';
-    const safeBase = base.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_').slice(0, 80);
-    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
-    return `${safeBase}_${stamp}.json`;
+    return shearWallProjectStorage.buildFilename(payload);
   }
 
   function downloadShearWallProjectFile() {
     try {
       const payload = collectShearWallProjectData();
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = shearWallProjectFilename(payload);
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      showShearWallProjectStatus(`已下載剪力牆專案檔：${a.download}`);
+      const filename = shearWallProjectStorage.downloadJson(payload);
+      showShearWallProjectStatus(`已下載剪力牆專案檔：${filename}`);
       return payload;
     } catch (err) {
       console.error('shear wall project save failed', err);
@@ -735,29 +710,7 @@
   }
 
   function setShearWallProjectControl(id, saved) {
-    const el = $(id);
-    if (!el || (el.type || '').toLowerCase() === 'file') return false;
-    const type = (el.type || '').toLowerCase();
-    if (type === 'checkbox') {
-      const checked = (saved && typeof saved === 'object' && 'checked' in saved)
-        ? saved.checked
-        : !!saved;
-      el.checked = !!checked;
-    } else {
-      const value = (saved && typeof saved === 'object' && 'value' in saved)
-        ? saved.value
-        : saved;
-      if (el.tagName === 'SELECT') {
-        const exists = Array.from(el.options).some(option => option.value === String(value));
-        if (!exists) return false;
-      }
-      el.value = ['projName', 'projNo', 'projDesigner'].includes(id)
-        ? window.RCUI.normalizeProjectFieldValue(value)
-        : (value == null ? '' : String(value));
-    }
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-    el.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
+    return shearWallProjectStorage.setControl(id, saved);
   }
 
   function applyShearWallProjectData(raw, options = {}) {
@@ -796,7 +749,7 @@
   async function loadShearWallProjectFile(file) {
     if (!file) return null;
     try {
-      const text = await file.text();
+      const text = await shearWallProjectStorage.readProjectFile(file);
       return applyShearWallProjectData(text, { sourceLabel: '剪力牆專案檔' });
     } catch (err) {
       console.error('shear wall project load failed', err);
@@ -808,10 +761,8 @@
   function saveShearWallProjectDraft() {
     try {
       const payload = collectShearWallProjectData();
-      localStorage.setItem(SHEAR_WALL_PROJECT_STORAGE_KEY, JSON.stringify(payload));
-      const name = window.RCUI.normalizeProjectFieldValue(payload.metadata.projectName)
-        || window.RCUI.normalizeProjectFieldValue(payload.metadata.projectNo)
-        || '未命名專案';
+      shearWallProjectStorage.writeDraft(payload);
+      const name = shearWallProjectStorage.projectDisplayName(payload);
       showShearWallProjectStatus(`已暫存到此瀏覽器：${name}`);
       return payload;
     } catch (err) {
@@ -823,7 +774,7 @@
 
   function loadShearWallProjectDraft() {
     try {
-      const raw = localStorage.getItem(SHEAR_WALL_PROJECT_STORAGE_KEY);
+      const raw = shearWallProjectStorage.readDraft();
       if (!raw) {
         showShearWallProjectStatus('此瀏覽器目前沒有剪力牆專案暫存。', 'fail');
         return null;

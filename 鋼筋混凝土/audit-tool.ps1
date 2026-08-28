@@ -92,6 +92,27 @@ function Invoke-Step {
   & $Action
 }
 
+function Get-AvailableTcpPort {
+  param(
+    [System.Collections.Generic.HashSet[int]]$ReservedPorts
+  )
+
+  for ($attempt = 0; $attempt -lt 20; $attempt += 1) {
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+    try {
+      $listener.Start()
+      $port = [int]$listener.LocalEndpoint.Port
+    } finally {
+      $listener.Stop()
+    }
+    if ($ReservedPorts.Add($port)) {
+      return $port
+    }
+  }
+
+  throw "Unable to reserve a unique local TCP port for the RC browser audit."
+}
+
 function Invoke-AuditCommand {
   param(
     [string]$Label,
@@ -265,8 +286,15 @@ function Run-AuditPass {
   New-Item -Path $runDir -ItemType Directory -Force | Out-Null
   Reset-AuditState
 
+  $reservedPorts = [System.Collections.Generic.HashSet[int]]::new()
+  $columnTestPort = Get-AvailableTcpPort -ReservedPorts $reservedPorts
+  $slabTestPort = Get-AvailableTcpPort -ReservedPorts $reservedPorts
+  $foundationTestPort = Get-AvailableTcpPort -ReservedPorts $reservedPorts
+  $singlePileTestPort = Get-AvailableTcpPort -ReservedPorts $reservedPorts
+
   $commands = @(
     @{ Label = "Shared common helper unit tests"; Command = "Set-Location '$root'; node '.\shared\common.test.js'"; Workdir = $root },
+    @{ Label = "Shared project storage unit tests"; Command = "Set-Location '$root'; node '.\shared\project-storage.test.js'"; Workdir = $root },
     @{ Label = "Retaining base demand unit tests"; Command = "Set-Location '$root'; node '.\shared\retaining-base-demand.test.js'"; Workdir = $root },
     @{ Label = "RC traceability catalog contract"; Command = "Set-Location '$toolsDir'; node '.\rc-traceability.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "RC project/report calculation fingerprint contract"; Command = "Set-Location '$toolsDir'; node '.\rc-project-fingerprint.contract.test.js'"; Workdir = $toolsDir },
@@ -276,18 +304,18 @@ function Run-AuditPass {
     @{ Label = "Beam report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\beam-report-visual.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "Beam regression and report visual smoke"; Command = "& '$toolsDir\test-beam.ps1'"; Workdir = $toolsDir },
     @{ Label = "Column report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\column-report-visual.contract.test.js'"; Workdir = $toolsDir },
-    @{ Label = "Column regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='8131'; & '$toolsDir\test-column.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir; TimeoutSeconds = 600 },
+    @{ Label = "Column regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='$columnTestPort'; & '$toolsDir\test-column.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir; TimeoutSeconds = 600 },
     @{ Label = "Slab report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\slab-report-visual.contract.test.js'"; Workdir = $toolsDir },
-    @{ Label = "Slab regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='8132'; & '$toolsDir\test-slab.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
+    @{ Label = "Slab regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='$slabTestPort'; & '$toolsDir\test-slab.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
     @{ Label = "Wall report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\wall-report-visual.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "Wall regression and report visual smoke"; Command = "& '$toolsDir\test-wall.ps1'"; Workdir = $toolsDir },
     @{ Label = "Shear wall suite"; Command = "& '$toolsDir\test-shear-wall.ps1'"; Workdir = $toolsDir },
     @{ Label = "Shear wall report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\shear-wall-report-visual.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "Shear wall report visual smoke"; Command = "& '$toolsDir\test-shear-wall-report.ps1'"; Workdir = $toolsDir },
     @{ Label = "Foundation report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\foundation-report-visual.contract.test.js'"; Workdir = $toolsDir },
-    @{ Label = "Foundation regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='8133'; & '$toolsDir\test-foundation.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
+    @{ Label = "Foundation regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='$foundationTestPort'; & '$toolsDir\test-foundation.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
     @{ Label = "Single pile report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\single-pile-report-visual.contract.test.js'"; Workdir = $toolsDir },
-    @{ Label = "Single pile regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='8134'; & '$toolsDir\test-single-pile.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir }
+    @{ Label = "Single pile regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='$singlePileTestPort'; & '$toolsDir\test-single-pile.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir }
     @{ Label = "RC Retrofit report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\retrofit-report-visual.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "RC Retrofit report visual smoke"; Command = "& '$toolsDir\test-retrofit-report.ps1'"; Workdir = $toolsDir }
   )

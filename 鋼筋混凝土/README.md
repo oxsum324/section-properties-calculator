@@ -25,6 +25,7 @@
 巡檢會跑：
 
 - `shared/common.js` helper 單元測試
+- `shared/project-storage.js` 案件存讀檔單元測試
 - RC 專案 JSON／計算書指紋一致性 contract（另含七類工具的正式 HTML＋來源 JSON 實檔組包，以及竄改、錯版本與完整身分改寫失敗封閉）
 - 稽核狀態與首頁選單 contract
 - RC STM 獨立工程基準 gate（24 / 24 案、564 項斷言；合格 15 / 15、拒絕 9 / 9，另驗證 false acceptance / false rejection 失敗關閉）
@@ -70,7 +71,7 @@ RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Us
 
 獨立契約測試位於 [tools/rc-traceability.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/rc-traceability.contract.test.js:1)，會確認每個 RC 模組的 trace 數量、規範來源、報告落點、證據檔存在與人工複核措辭，並由 RC audit 與平台 preflight 直接執行。
 
-RC 專案 JSON 與正式計算書共用同一枚 `CF-` 計算指紋。指紋納入工具識別、計算模式、計算欄位、結果摘要、外力匯入及人工複核紀錄；案名、計畫編號、設計者、儲存時間、版本字串與純畫面分頁不納入。基礎分頁代表不同計算類型，另以計算情境納入。梁、柱、板、牆、剪力牆、基礎與單樁讀取專案 JSON 時，會先驗證 schema、工具種類、工具版本及來源內容指紋，再套用輸入並重新計算；只有重算指紋與來源完全相同才保留匯入結果，不相容、遭修改或無法完整還原時會回復匯入前狀態。這 7 個工具的計算書另固定使用和專案 JSON 完全相同的產出工具名稱及版本；附件組包器可辨識既有 RC `metadata`／`fields` 與單樁 `state` 格式，據案件、工具、版本及 `CF-` 自動配對來源與報告，不要求改寫舊專案檔。契約測試位於 [tools/rc-project-fingerprint.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/rc-project-fingerprint.contract.test.js:1)，7 個報告視覺 smoke 會實際套用來源並比對重算指紋與報告頁完全一致；梁、柱、板回歸另以真實檔案介面確認錯誤版本遭拒且現有輸入不變。
+RC 專案 JSON 與正式計算書共用同一枚 `CF-` 計算指紋。指紋納入工具識別、計算模式、計算欄位、結果摘要、外力匯入及人工複核紀錄；案名、計畫編號、設計者、儲存時間、版本字串與純畫面分頁不納入。基礎分頁代表不同計算類型，另以計算情境納入。梁、柱、板、牆、剪力牆、基礎與單樁讀取專案 JSON 時，會先驗證 schema、工具種類、工具版本及來源內容指紋，再套用輸入並重新計算；只有重算指紋與來源完全相同才保留匯入結果，不相容、遭修改或無法完整還原時會回復匯入前狀態。這 7 個工具的計算書另固定使用和專案 JSON 完全相同的產出工具名稱及版本；附件組包器可辨識既有 RC `metadata`／`fields` 與單樁 `state` 格式，據案件、工具、版本及 `CF-` 自動配對來源與報告，不要求改寫舊專案檔。柱與剪力牆已先以 [shared/project-storage.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/shared/project-storage.js:1) 共用欄位收集、欄位回填、JSON 下載、瀏覽器暫存、檔名清理與 1 MiB 匯入上限；schema、工具版本、計算指紋與失敗回復仍由各工具保有。契約測試位於 [tools/rc-project-fingerprint.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/rc-project-fingerprint.contract.test.js:1)，7 個報告視覺 smoke 會實際套用來源並比對重算指紋與報告頁完全一致；梁、柱、板回歸另以真實檔案介面確認錯誤版本遭拒且現有輸入不變。RC 稽核的柱、板、基礎與單樁瀏覽器套件每輪會向作業系統取得不同的 loopback 埠，避免多個工作目錄或 release 流程同時執行時互撞。
 
 梁報告視覺 smoke contract 位於 [tools/beam-report-visual.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/beam-report-visual.contract.test.js:1)，固定檢查 visual smoke 案例、wrapper wiring、頁面附件閱讀狀態邊界與輸出證據檔名，避免頁面專用提醒或人工複核提示漂移進計算書。
 
@@ -208,6 +209,12 @@ run-audit-loop.bat
 
 ```powershell
 node .\shared\common.test.js
+```
+
+單跑 shared 案件存讀檔單元測試：
+
+```powershell
+node .\shared\project-storage.test.js
 ```
 
 單跑梁回歸測試與報告視覺 smoke：
