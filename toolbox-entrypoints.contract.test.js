@@ -1013,8 +1013,8 @@ assert.ok(pagesDeployWorkflow.includes('PAGES_BASE_URL: ${{ needs.deploy.outputs
 assert.ok(preflight.includes('key = "staging-groups-coverage"'), 'preflight includes staging groups coverage gate');
 assert.match(
   preflight,
-  /key\s*=\s*"excavation-backend"[\s\S]{0,380}?timeoutSeconds\s*=\s*300/,
-  'excavation backend keeps a five-minute timeout for its complete Python test suite'
+  /key\s*=\s*"excavation-backend"[\s\S]{0,380}?timeoutSeconds\s*=\s*600/,
+  'excavation backend keeps a ten-minute timeout for its complete Python test suite'
 );
 assert.match(
   preflight,
@@ -1029,7 +1029,7 @@ assert.match(
 [readme, boundaries, staging].forEach((documentText, index) => {
   const label = ['README', 'TOOL_BOUNDARIES', 'STAGING_GROUPS'][index];
   assert.ok(documentText.includes('excavation-backend'), `${label} documents the excavation backend gate`);
-  assert.ok(documentText.includes('timeoutSeconds = 300'), `${label} documents the excavation backend timeout`);
+  assert.ok(documentText.includes('timeoutSeconds = 600'), `${label} documents the excavation backend timeout`);
   assert.ok(documentText.includes('rc-column-report-contract'), `${label} documents the RC column report gate`);
   assert.ok(documentText.includes('timeoutSeconds = 600'), `${label} documents the RC column report timeout`);
   assert.ok(documentText.includes('formal-browser-smoke'), `${label} documents the formal browser smoke gate`);

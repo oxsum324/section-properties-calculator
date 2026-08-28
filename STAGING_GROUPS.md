@@ -295,7 +295,7 @@ git add -- "結構工具箱/index.html" "結構工具箱/index-classic.html" "�
 
 Pages provenance 變更還必須一併 staging 共用 artifact builder、manifest builder、workflow、HTTP smoke、local artifact wrapper 與兩份入口／release contract。Actions 與本機預演只能透過 `build-pages-artifact.js` 的 Git tracked＋非 ignored 清冊產生發布樹，不得再分別維護 `rsync` / `robocopy` 排除規則；暫存 Git index 必須套用 LF clean filter，讓 Windows 與 Linux 對同一內容得到相同 fileCount、totalBytes 與 digest。正式 workflow 在 staging 前須以 `git status --porcelain --untracked-files=all` 證明 checkout 乾淨，manifest 固定記錄並驗證 `sourceDirty: false`；本機預演則如實保存 dirty/clean，不得只以 HEAD SHA 誤示為完整來源。
 
-開挖完整後端慢測治理：`excavation-backend` 的 preflight 專屬上限為 `timeoutSeconds = 300`。調整開挖後端完整測試套件或 wrapper 時，必須同步 staging `preflight-tools.ps1`、入口契約、README 與邊界文件；不得以 timeout 調整取代、重用或縮減實際測試。
+開挖完整後端慢測治理：`excavation-backend` 的 preflight 專屬上限為 `timeoutSeconds = 600`。調整開挖後端完整測試套件或 wrapper 時，必須同步 staging `preflight-tools.ps1`、入口契約、README 與邊界文件；不得以 timeout 調整取代、重用或縮減實際測試。
 
 RC 柱報告慢測治理：`rc-column-report-contract` 的 preflight 專屬上限為 `timeoutSeconds = 600`。調整柱報告視覺案例、人工複核完成／正式附件核可案例或 wrapper 時，必須同步 staging `preflight-tools.ps1`、入口契約、README 與邊界文件。
 
