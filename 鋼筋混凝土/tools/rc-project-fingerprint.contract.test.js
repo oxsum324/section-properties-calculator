@@ -125,7 +125,8 @@ const pageContracts = [
   ['single-pile-designer.html', 'buildProjectPayload', 'projectSnapshot = buildProjectPayload()', '單樁承載力設計器', 'V3.1'],
 ];
 
-const sharedProjectStoragePages = new Set(['column.html', 'slab.html', 'shear-wall.html', 'foundation.html']);
+const sharedProjectStoragePages = new Set(pageContracts.map(([file]) => file));
+const sharedFieldProjectStoragePages = new Set(['beam.html', 'column.html', 'slab.html', 'wall.html', 'shear-wall.html', 'foundation.html']);
 
 const escapeRegExp = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 for (const [file, collector, snapshotCall, sourceTool, sourceVersion] of pageContracts) {
@@ -134,11 +135,13 @@ for (const [file, collector, snapshotCall, sourceTool, sourceVersion] of pageCon
   if (sharedProjectStoragePages.has(file)) {
     assert.ok(html.includes('shared/project-storage.js?v=1'), `${file} should load the shared project storage core`);
     assert.ok(html.includes('RCProjectStorage.createManager'), `${file} should create a shared project storage manager`);
-    assert.ok(html.includes('ProjectStorage.collectFields()'), `${file} should collect project fields through the shared core`);
     assert.ok(html.includes('ProjectStorage.downloadJson(payload)'), `${file} should download project JSON through the shared core`);
     assert.ok(html.includes('ProjectStorage.readProjectFile(file)'), `${file} should enforce the shared project file read boundary`);
     assert.ok(html.includes('ProjectStorage.writeDraft(payload)'), `${file} should write browser drafts through the shared core`);
     assert.ok(html.includes('ProjectStorage.readDraft()'), `${file} should read browser drafts through the shared core`);
+    if (sharedFieldProjectStoragePages.has(file)) {
+      assert.ok(html.includes('ProjectStorage.collectFields()'), `${file} should collect project fields through the shared core`);
+    }
   }
   assert.ok(html.includes('withProjectCalculationFingerprint(payload'), `${file} should fingerprint its project JSON payload`);
   assert.ok(html.includes('validateProjectCalculationSource'), `${file} should validate schema, tool, version, and source fingerprint before applying project JSON`);
