@@ -384,6 +384,7 @@ function normalizeFormalDocumentClass(documentClass, documentState) {
 function buildAttachmentApprovalReport(options = {}) {
   const formalApprovalAllowed = options.formalApprovalAllowed !== false;
   const approved = formalApprovalAllowed && options.approved === true;
+  const textExportEnabled = options.textExportEnabled === true;
   const fingerprint = String(options.calculationFingerprint || '').trim();
   const approvedAt = String(options.approvedAt || '').trim();
   const approvedBy = String(options.approvedBy || '').trim();
@@ -393,7 +394,7 @@ function buildAttachmentApprovalReport(options = {}) {
     approved,
     css: FORMAL_DOCUMENT_STATE_REPORT_CSS,
     html: `<style data-formal-document-state-style>${FORMAL_DOCUMENT_STATE_REPORT_CSS}</style>
-      <span class="rep-attachment-approval-source" data-initial-approved="${approved ? 'true' : 'false'}" data-formal-approval-allowed="${formalApprovalAllowed ? 'true' : 'false'}" data-calculation-fingerprint="${esc(fingerprint)}" data-approved-at="${esc(approvedAt)}" data-approved-by="${esc(approvedBy)}" data-approval-basis="${esc(approvalBasis)}" aria-hidden="true"></span>
+      <span class="rep-attachment-approval-source" data-initial-approved="${approved ? 'true' : 'false'}" data-formal-approval-allowed="${formalApprovalAllowed ? 'true' : 'false'}" data-text-export-enabled="${textExportEnabled ? 'true' : 'false'}" data-calculation-fingerprint="${esc(fingerprint)}" data-approved-at="${esc(approvedAt)}" data-approved-by="${esc(approvedBy)}" data-approval-basis="${esc(approvalBasis)}" aria-hidden="true"></span>
       <span class="rep-formal-content-seal-source" data-content-seal-scope="formal-calculation-book-content-v1" data-content-sha256="" aria-hidden="true"></span>
       <span class="rep-formal-approval-seal-source" data-approval-seal-scope="formal-calculation-book-approval-v2" data-approval-sha256="" aria-hidden="true"></span>
       <script data-attachment-approval-script>
@@ -689,6 +690,148 @@ function buildAttachmentApprovalReport(options = {}) {
             var messageTarget = document.getElementById('repWindowStatus') || document.querySelector('.rep-window-status');
             if (messageTarget) messageTarget.textContent = message;
           }
+          function cleanReportText(value) {
+            return String(value || '').replace(/\\s+/g, ' ').trim();
+          }
+          function multilineReportText(node) {
+            if (!node) return '';
+            var clone = node.cloneNode(true);
+            Array.from(clone.querySelectorAll('br')).forEach(function (lineBreakNode) {
+              lineBreakNode.parentNode.replaceChild(document.createTextNode(String.fromCharCode(10)), lineBreakNode);
+            });
+            return String(clone.textContent || '').trim();
+          }
+          function reportMetaLine(row) {
+            var labelNode = row && row.querySelector('b');
+            var label = cleanReportText(labelNode && labelNode.textContent);
+            var value = cleanReportText(row && row.textContent).slice(label.length).trim();
+            return label && value ? label + '：' + value : cleanReportText(row && row.textContent);
+          }
+          function appendGenericTable(lines, table) {
+            var headers = Array.from(table.querySelectorAll('thead th')).map(function (cell) {
+              return cleanReportText(cell.textContent);
+            });
+            Array.from(table.querySelectorAll('tbody tr')).forEach(function (row) {
+              var cells = Array.from(row.querySelectorAll('th, td')).map(function (cell) {
+                return cleanReportText(cell.textContent);
+              });
+              if (!cells.some(Boolean)) return;
+              if (headers.length === cells.length && headers.some(Boolean)) {
+                lines.push('- ' + cells.map(function (value, index) {
+                  return (headers[index] || '欄位 ' + (index + 1)) + '：' + (value || '—');
+                }).join('｜'));
+              } else if (cells.length === 2) {
+                lines.push('- ' + cells[0] + '：' + cells[1]);
+              } else {
+                lines.push('- ' + cells.join('｜'));
+              }
+            });
+          }
+          function buildCurrentReportText() {
+            if (source.dataset.textExportEnabled !== 'true') throw new Error('此工具尚未啟用文字計算書下載。');
+            var lineBreak = String.fromCharCode(13, 10);
+            var lines = [];
+            var heading = cleanReportText((document.querySelector('.rep-header h1, .header h1, .paper h1, h1') || {}).textContent) || reportTitle;
+            lines.push(heading);
+            lines.push(Array(Math.max(9, heading.length + 1)).join('='));
+            lines.push('文件類別：文字備查');
+            lines.push('正式附件資格：否');
+            lines.push('文件用途：文字備查版（不作為正式附件）');
+            lines.push('正式交付：請使用核可 HTML，或由計算書預覽列印／存成 PDF。');
+            var documentStatus = cleanReportText((document.querySelector('.rep-document-status-line') || {}).textContent);
+            if (documentStatus) lines.push('來源' + documentStatus);
+            lines.push('');
+            lines.push('[文件識別]');
+            Array.from(document.querySelectorAll('.rep-meta > div, .meta > div')).forEach(function (row) {
+              var value = reportMetaLine(row);
+              if (value) lines.push(value);
+            });
+            Array.from(document.querySelectorAll('.rep-sealed-content .rep-block, .rep-sealed-content .block')).forEach(function (section) {
+              var sectionHeading = cleanReportText((section.querySelector('h3') || {}).textContent) || '計算內容';
+              lines.push('');
+              lines.push('[' + sectionHeading + ']');
+              var inputTable = section.querySelector('.rep-input');
+              var checkTable = section.querySelector('.rep-check');
+              var genericTables = Array.from(section.querySelectorAll('table')).filter(function (table) {
+                return table !== inputTable && table !== checkTable;
+              });
+              var figures = Array.from(section.querySelectorAll('.rep-diagram, svg, canvas, img')).filter(function (node) {
+                return !node.closest('mjx-container, .equation-math');
+              });
+              var steps = Array.from(section.querySelectorAll('.rep-step'));
+              if (inputTable) {
+                Array.from(inputTable.querySelectorAll('tbody tr')).forEach(function (row) {
+                  var label = cleanReportText((row.querySelector('th') || {}).textContent);
+                  var value = cleanReportText((row.querySelector('td') || {}).textContent);
+                  if (label || value) lines.push('- ' + label + '：' + value);
+                });
+              } else if (checkTable) {
+                Array.from(checkTable.querySelectorAll('tbody tr')).forEach(function (row) {
+                  var label = cleanReportText((row.querySelector('.lbl') || {}).textContent) || '檢核項';
+                  lines.push('- ' + label);
+                  lines.push('  公式：' + (cleanReportText((row.querySelector('.formula') || {}).textContent) || '—'));
+                  lines.push('  代入值：' + (cleanReportText((row.querySelector('.sub') || {}).textContent) || '—'));
+                  lines.push('  結果：' + (cleanReportText((row.querySelector('.value') || {}).textContent) || '—'));
+                  lines.push('  判定：' + (cleanReportText((row.querySelector('.judge') || {}).textContent) || '—'));
+                });
+              } else if (genericTables.length) {
+                genericTables.forEach(function (table) { appendGenericTable(lines, table); });
+              } else if (steps.length) {
+                steps.forEach(function (step) {
+                  var title = cleanReportText((step.querySelector('h4') || {}).textContent) || '計算步驟';
+                  var body = String((step.querySelector('.rep-step-body') || {}).textContent || '').trim();
+                  lines.push('- ' + title);
+                  body.split(String.fromCharCode(10)).forEach(function (line) {
+                    var value = String(line || '').replace(/\\s+$/g, '');
+                    if (value) lines.push('  ' + value);
+                  });
+                });
+              } else {
+                var monoNode = section.querySelector('.mono:not(.mono--fallback), .mono');
+                var mono = multilineReportText(monoNode);
+                if (mono) {
+                  mono.split(String.fromCharCode(10)).forEach(function (line) {
+                    var value = String(line || '').replace(/\\s+$/g, '');
+                    if (value) lines.push('- ' + value);
+                  });
+                }
+              }
+              if (figures.length) {
+                Array.from(section.querySelectorAll('.rep-diagram')).forEach(function (figure, index) {
+                  var title = cleanReportText((figure.querySelector('.rep-diagram-title') || {}).textContent) || '圖 ' + (index + 1);
+                  var caption = cleanReportText((figure.querySelector('.rep-diagram-caption') || {}).textContent);
+                  lines.push('- ' + title + (caption ? '：' + caption : ''));
+                });
+                lines.push('  圖形內容請參閱 HTML／PDF 計算書。');
+              }
+              var banner = cleanReportText((section.querySelector('.banner') || {}).textContent);
+              if (banner) lines.push(banner);
+            });
+            var summary = cleanReportText((document.querySelector('.rep-summary') || {}).textContent);
+            if (summary) {
+              lines.push('');
+              lines.push('[綜合結論]');
+              lines.push(summary);
+            }
+            lines.push('');
+            lines.push('文字版限制：不含可列印圖形、版面配置、核可控制與可執行的完整性驗證；不得取代正式附件。');
+            var baseText = lines.join(lineBreak).trim() + lineBreak;
+            var digest = sha256Text(baseText);
+            return baseText + '文字內容 SHA-256（非數位簽章）：' + digest + lineBreak;
+          }
+          function downloadCurrentReportText() {
+            var reportText = buildCurrentReportText();
+            var fileName = buildArtifactBaseName('文字備查') + '.txt';
+            var url = URL.createObjectURL(new Blob([String.fromCharCode(65279), reportText], { type:'text/plain;charset=utf-8' }));
+            var link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+            showDownloadStatus('已下載文字備查版 TXT；檔案包含來源文件狀態、計算指紋與文字內容 SHA-256，但不作為正式附件。');
+          }
           function downloadCurrentReportHtml() {
             var html = serializeCurrentReportHtml();
             if (!html) {
@@ -720,6 +863,26 @@ function buildAttachmentApprovalReport(options = {}) {
             downloadButton.addEventListener('click', downloadCurrentReportHtml);
             var approvalControl = checkbox.closest('.rep-approval-control');
             toolbar.insertBefore(downloadButton, approvalControl ? approvalControl.nextSibling : toolbar.firstChild);
+          }
+          if (source.dataset.textExportEnabled === 'true') {
+            window.buildReportText = buildCurrentReportText;
+            window.downloadReportText = downloadCurrentReportText;
+            var textDownloadButton = document.getElementById('repDownloadCurrentText');
+            if (!textDownloadButton && toolbar) {
+              textDownloadButton = document.createElement('button');
+              textDownloadButton.type = 'button';
+              textDownloadButton.id = 'repDownloadCurrentText';
+              textDownloadButton.className = 'rep-download-control rep-text-download-control';
+              textDownloadButton.textContent = '⬇ 下載文字計算書 TXT';
+              textDownloadButton.addEventListener('click', function () {
+                try {
+                  downloadCurrentReportText();
+                } catch (error) {
+                  showDownloadStatus('無法下載文字計算書：' + (error && error.message || error));
+                }
+              });
+              toolbar.insertBefore(textDownloadButton, downloadButton ? downloadButton.nextSibling : toolbar.firstChild);
+            }
           }
           checkbox.checked = formalApprovalAllowed && source.dataset.initialApproved === 'true';
           var approvedAtValue = source.dataset.approvedAt || '';
@@ -826,6 +989,7 @@ function buildFormalDocumentStateReport(state = {}) {
     approvedBy: state.approvedBy || state.documentApproval?.approvedBy,
     approvalBasis: state.approvalBasis || state.documentApproval?.approvalBasis,
     formalApprovalAllowed: state.formalApprovalAllowed !== false,
+    textExportEnabled: state.textExport === true,
   });
   return {
     ...assessment,
@@ -967,6 +1131,7 @@ function openReport(cfg) {
     approvedBy: initialApproval.approvedBy,
     approvalBasis: initialApproval.approvalBasis,
     formalApprovalAllowed: cfg.formalApprovalAllowed !== false,
+    textExportEnabled: cfg.textExport === true,
   });
 
   const reportBlockClass = group => [

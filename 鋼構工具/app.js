@@ -2219,6 +2219,7 @@
       title: result.reportTitle,
       subtitle: result.reportSubtitle,
       outputSource,
+      textExport: true,
       checks: result.checks,
       summary: { ok: result.passes, text: reportBanner.textContent },
       snapshot: {
@@ -2343,6 +2344,7 @@
       calculated: true,
       readinessLevel: result.passes ? (result.overallStatus === "warn" ? "review" : "ready") : "blocked",
       calculationFingerprint: reportTrace.calculationFingerprint,
+      textExport: true,
     });
     const escReport = SteelFormalUI.escapeHtml;
     const strengthRows = result.checks.map((check) => `

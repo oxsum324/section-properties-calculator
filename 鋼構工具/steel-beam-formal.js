@@ -1873,6 +1873,7 @@
       title: "鋼梁正式規範核算計算書",
       subtitle: `Steel Beam Formal Report (${designMethod})`,
       outputSource: TOOL_METADATA,
+      textExport: true,
       project: { name: getProjectMetaValue("projName"), no: getProjectMetaValue("projNo"), designer: getProjectMetaValue("projDesigner") },
       inputs: [
         { group: "斷面與材料", items: [

@@ -24,6 +24,7 @@ const scenarioTimeoutMs = Number(args['scenario-timeout-ms'] || 90000);
 const repoRoot = path.resolve(__dirname, '..');
 const renderedEvidenceDir = resolveEvidenceDir(repoRoot, 'steel-formal');
 const renderedEvidenceRecords = [];
+const textExportEvidenceRecords = [];
 const directPrintOutputDir = path.resolve(String(
   args['direct-print-output-dir']
     || path.join(repoRoot, 'output', 'playwright', 'steel-formal-direct-print-block')
@@ -1100,6 +1101,105 @@ function verifySteelApprovedHtml(approvalState, label) {
   };
 }
 
+async function waitForDownloadedArtifact(filePath, timeoutMs = 10000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (fs.existsSync(filePath) && fs.statSync(filePath).size > 0 && !fs.existsSync(`${filePath}.crdownload`)) return;
+    await wait(100);
+  }
+  throw new Error(`timed out waiting for downloaded artifact: ${filePath}`);
+}
+
+async function verifySteelTextDownload(cdp, sessionId, label, evidenceKey) {
+  const prepared = await evaluate(cdp, sessionId, `(() => {
+    const button = document.getElementById('repDownloadCurrentText');
+    const builder = window.buildReportText;
+    let fileName = '';
+    if (button) {
+      const originalAnchorClick = HTMLAnchorElement.prototype.click;
+      try {
+        HTMLAnchorElement.prototype.click = function captureTextDownloadName() {
+          fileName = this.download || '';
+        };
+        button.click();
+      } finally {
+        HTMLAnchorElement.prototype.click = originalAnchorClick;
+      }
+    }
+    return {
+      hasControl: Boolean(button),
+      builderAvailable: typeof builder === 'function',
+      text: typeof builder === 'function' ? builder() : '',
+      fileName,
+    };
+  })()`, `${label} TXT preparation`);
+  if (!prepared.hasControl || !prepared.builderAvailable) {
+    throw new Error(`${label} should expose governed TXT export: ${JSON.stringify(prepared)}`);
+  }
+  if (!/文字備查.*CF-[A-F0-9]{16}\.txt$/.test(prepared.fileName)) {
+    throw new Error(`${label} TXT filename is not traceable: ${prepared.fileName}`);
+  }
+  const filePath = path.resolve(outputDir, prepared.fileName);
+  if (path.dirname(filePath) !== outputDir) throw new Error(`${label} TXT filename escapes the audit output directory`);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  await evaluate(cdp, sessionId, `(() => {
+    const button = document.getElementById('repDownloadCurrentText');
+    if (!button) throw new Error('missing TXT download control');
+    button.click();
+    return true;
+  })()`, `${label} TXT download`);
+  await waitForDownloadedArtifact(filePath);
+
+  const buffer = fs.readFileSync(filePath);
+  const decoded = buffer.toString('utf8');
+  const hasBom = decoded.charCodeAt(0) === 0xFEFF;
+  const content = hasBom ? decoded.slice(1) : decoded;
+  const requiredFragments = [
+    '文件類別：文字備查',
+    '正式附件資格：否',
+    '文件用途：文字備查版（不作為正式附件）',
+    '產出工具：',
+    '工具版本：',
+    '輸出時間：',
+    '計算指紋：CF-',
+    '文字版限制：不含可列印圖形',
+    '文字內容 SHA-256（非數位簽章）：',
+  ];
+  for (const fragment of requiredFragments) {
+    if (!content.includes(fragment)) throw new Error(`${label} downloaded TXT missing ${fragment}`);
+  }
+  if (!hasBom || content !== prepared.text || buffer.length <= 1024) {
+    throw new Error(`${label} TXT content/BOM/substance mismatch: ${JSON.stringify({ hasBom, bytes: buffer.length, matchesBuilder: content === prepared.text })}`);
+  }
+  if (content.includes('data:image/') || content.includes('優先建議報告閱讀狀態')) {
+    throw new Error(`${label} TXT includes page-only or embedded-image content`);
+  }
+  const digestMatch = content.match(/文字內容 SHA-256（非數位簽章）：([0-9a-f]{64})\r?\n$/);
+  const baseText = digestMatch ? content.slice(0, digestMatch.index) : '';
+  const actualDigest = baseText ? crypto.createHash('sha256').update(baseText, 'utf8').digest('hex') : '';
+  if (!digestMatch || digestMatch[1] !== actualDigest) {
+    throw new Error(`${label} TXT SHA-256 mismatch: ${JSON.stringify({ expected: digestMatch?.[1] || '', actual: actualDigest })}`);
+  }
+  const record = AttachmentPackageChecker.inspectAttachment(filePath, outputDir);
+  const packageReport = AttachmentPackageChecker.analyzePackage([record]);
+  const packageIssueCodes = packageReport.issues.map(issue => issue.code);
+  if (packageReport.status !== 'blocked' || !packageIssueCodes.includes('non-formal-reference-text')) {
+    throw new Error(`${label} TXT must be blocked from formal attachment packaging: ${JSON.stringify({ status: packageReport.status, packageIssueCodes })}`);
+  }
+  const evidence = {
+    key: evidenceKey,
+    artifact: path.basename(filePath),
+    bytes: buffer.length,
+    hasBom,
+    textLength: content.length,
+    contentSha256: actualDigest,
+    packageStatus: packageReport.status,
+    packageIssueCodes,
+  };
+  textExportEvidenceRecords.push(evidence);
+  return evidence;
+}
+
 function saveSteelApprovedHtml(key, approvedHtml) {
   ensureDir(renderedEvidenceDir);
   const htmlArtifact = `${key}-approved-formal-attachment.html`;
@@ -1295,6 +1395,9 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
     throw new Error(`${options.label} saved formal HTML should exclude interactive controls`);
   }
   const dualSealEvidence = verifySteelApprovedHtml(approvalState, options.label);
+  if (options.renderEvidenceKey) {
+    await verifySteelTextDownload(cdp, popup.sessionId, options.label, options.renderEvidenceKey);
+  }
   if (snapshot.bodyText.includes('DRAFT')) {
     throw new Error(`${options.label} should not render a DRAFT banner: ${snapshot.bodyText}`);
   }
@@ -1409,6 +1512,9 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
   }))()`, `${options.label} snapshot`);
   const approvalState = await captureReportApprovalState(cdp, popup.sessionId, options.label);
   const dualSealEvidence = verifySteelApprovedHtml(approvalState, options.label);
+  if (options.renderEvidenceKey) {
+    await verifySteelTextDownload(cdp, popup.sessionId, options.label, options.renderEvidenceKey);
+  }
   if (!snapshot.title.includes(options.titleNeedle) || !snapshot.header.includes(options.titleNeedle)) {
     throw new Error(`${options.label} title mismatch: ${JSON.stringify(snapshot)}`);
   }
@@ -1885,6 +1991,7 @@ async function main() {
     browser = await launchEdge();
     cdp = new CdpConnection(browser.wsUrl);
     await cdp.open();
+    await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: outputDir, eventsEnabled: true });
     for (const page of steelDirectPrintPages) {
       try {
         const record = await withTimeout(
@@ -1939,6 +2046,7 @@ async function main() {
     runner: 'edge-cdp',
     records,
     directPrintRecords,
+    textExportEvidenceRecords,
     failures,
     summaryLines,
     cleanupWarnings,
@@ -1971,7 +2079,7 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  console.log(`steel browser runner OK (records=${records.length}, directPrintBlocks=${directPrintRecords.length}, runner=edge-cdp)`);
+  console.log(`steel browser runner OK (records=${records.length}, directPrintBlocks=${directPrintRecords.length}, textExports=${textExportEvidenceRecords.length}, runner=edge-cdp)`);
 }
 
 main().catch(error => {

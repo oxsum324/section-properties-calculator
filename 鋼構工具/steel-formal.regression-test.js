@@ -45,6 +45,7 @@ function renderReportHtml(source, filename, project = {}) {
   context.openReport({
     title: "QA 計算書",
     outputSource: { tool: "QA 正式工具", version: "V9.9" },
+    textExport: true,
     project,
     inputs: [
       { group: "頁面操作說明", items: [
@@ -207,6 +208,19 @@ const pageOnlyReportStatusNeedles = calculationBookContentBoundary.forbiddenCate
 const calculationBookUiOnlyNeedles = calculationBookContentBoundary.forbiddenCategories.interfaceAndWorkflow;
 const calculationBookGovernanceOnlyNeedles = calculationBookContentBoundary.forbiddenCategories.governanceNarrative;
 
+for (const [label, runtime] of [["shared", sharedReportRuntime], ["local", localReportRuntime]]) {
+  assert.match(
+    runtime.SteelFormalUI.buildAttachmentApprovalReport({}).html,
+    /data-text-export-enabled="false"/,
+    `${label} report core should keep TXT export opt-in so unrelated formal tools do not gain it implicitly`,
+  );
+  assert.match(
+    runtime.SteelFormalUI.buildAttachmentApprovalReport({ textExportEnabled: true }).html,
+    /data-text-export-enabled="true"/,
+    `${label} report core should expose explicit governed TXT opt-in`,
+  );
+}
+
 for (const token of [
   "const toY = (value) => 36 + value * scale",
   "toY(plateLength) + 34",
@@ -358,6 +372,14 @@ assert.match(sharedReportHtml, /核可紀錄已異動，正式核可已撤銷；
 assert.match(localReportHtml, /核可紀錄已異動，正式核可已撤銷；請確認後重新勾選/, "steel local report generator should report approval metadata revocation");
 assert.match(sharedReportHtml, /下載目前版本 HTML/, "shared report generator should expose current-state HTML download");
 assert.match(localReportHtml, /下載目前版本 HTML/, "steel local report generator should expose current-state HTML download");
+for (const [label, html] of [["shared", sharedReportHtml], ["local", localReportHtml]]) {
+  assert.match(html, /data-text-export-enabled="true"/, `${label} report generator should opt the formal steel report into governed TXT export`);
+  assert.match(html, /window\.buildReportText\s*=\s*buildCurrentReportText/, `${label} report generator should expose the current TXT state builder`);
+  assert.match(html, /下載文字計算書 TXT/, `${label} report generator should expose the TXT download control`);
+  assert.match(html, /正式附件資格：否/, `${label} TXT builder should make the non-formal boundary explicit`);
+  assert.match(html, /文字內容 SHA-256（非數位簽章）/, `${label} TXT builder should carry a content digest`);
+  assert.match(html, /String\.fromCharCode\(65279\)/, `${label} TXT download should include a UTF-8 BOM`);
+}
 assert.match(sharedReportHtml, /window\.serializeReportDocumentHtml\s*=\s*serializeCurrentReportHtml/, "shared report generator should serialize the current approval state for download");
 assert.match(localReportHtml, /window\.serializeReportDocumentHtml\s*=\s*serializeCurrentReportHtml/, "steel local report generator should serialize the current approval state for download");
 assert.match(sharedReportHtml, /var status\s*=\s*document\.querySelector\('\.rep-document-status-line'\)/, "shared report generator should reuse the statically saved document-state line");
@@ -479,6 +501,11 @@ assert.match(
 );
 const mainReportBuilderSource = appSource.match(/function buildConnectionReportConfig\(result\)\s*\{[\s\S]*?\n\s*function exportReport\(\)/)?.[0] || "";
 assert.ok(mainReportBuilderSource, "app.js should expose a statically inspectable formal report builder");
+assert.match(
+  mainReportBuilderSource,
+  /function buildConnectionReportConfig\(result\)[\s\S]*textExport:\s*true[\s\S]*buildFormalDocumentStateReport\([\s\S]*textExport:\s*true/s,
+  "connection, tension, and standalone plate reports should opt into governed TXT reference export",
+);
 assert.match(
   mainReportBuilderSource,
   /function buildConnectionReportConfig\(result\)[\s\S]*outputSource[\s\S]*function buildConnectionReportTrace\(result\)[\s\S]*SteelFormalUI\.buildReportTrace\(buildConnectionReportConfig\(result\)\)[\s\S]*reportTrace\.sourceTrace\.tool[\s\S]*reportTrace\.sourceTrace\.version[\s\S]*reportTrace\.generatedAt[\s\S]*reportTrace\.calculationFingerprint/s,
@@ -801,6 +828,7 @@ assert.match(
   /subtitle: `Steel Beam Formal Report \(\$\{designMethod\}\)`[\s\S]*inputs:[\s\S]*group: "斷面與材料"[\s\S]*checks:[\s\S]*summary: summaryState[\s\S]*steps: buildReportSteps\(result\)/s,
   "steel-beam-formal.js should export adopted inputs, checks, calculation steps, and the final conclusion",
 );
+assert.match(beamBuildReportSource, /outputSource:\s*TOOL_METADATA,[\s\S]*textExport:\s*true/, "steel beam report should opt into governed TXT reference export");
 assert.doesNotMatch(
   beamBuildReportSource,
   /highlights:|summaryFacts:|group: "單位系統"|symbols:|notes:/,
@@ -851,6 +879,7 @@ assert.match(
   /subtitle: `Steel Column Formal Report \(\$\{designMethod\}\)`[\s\S]*inputs:[\s\S]*group: "斷面與材料"[\s\S]*checks:[\s\S]*summary: summaryState[\s\S]*steps: buildReportSteps\(result\)/s,
   "steel-column-formal.js should export adopted inputs, checks, calculation steps, and the final conclusion",
 );
+assert.match(columnBuildReportSource, /outputSource:\s*TOOL_METADATA,[\s\S]*textExport:\s*true/, "steel column report should opt into governed TXT reference export");
 assert.doesNotMatch(
   columnBuildReportSource,
   /highlights:|summaryFacts:|group: "單位系統"|symbols:|notes:/,
@@ -1140,6 +1169,11 @@ assert.match(
   browserRunnerSource,
   /function assertFormalReportTraceText\(value, label\)[\s\S]*產出工具[\s\S]*工具版本[\s\S]*輸出時間[\s\S]*計算指紋[\s\S]*requiredNeedles:[\s\S]*FORMAL_REPORT_TRACE_LABELS[\s\S]*evidence\.pdf\.textPath/s,
   "steel rendered-evidence browser contract should validate non-empty trace values in both the popup and extracted PDF text",
+);
+assert.match(
+  browserRunnerSource,
+  /function verifySteelTextDownload\([\s\S]*repDownloadCurrentText[\s\S]*hasBom[\s\S]*文字內容 SHA-256[\s\S]*non-formal-reference-text[\s\S]*textExportEvidenceRecords\.push/s,
+  "steel browser contract should download and validate all five governed non-formal TXT artifacts",
 );
 for (const needle of formalReportReferenceNeedles) {
   assert.ok(browserRunnerSource.includes(needle), `steel browser contract should forbid ${needle} in formal report output`);

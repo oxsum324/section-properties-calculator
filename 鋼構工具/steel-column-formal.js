@@ -1633,6 +1633,7 @@
       title: "鋼柱正式規範核算計算書",
       subtitle: `Steel Column Formal Report (${designMethod})`,
       outputSource: TOOL_METADATA,
+      textExport: true,
       project: { name: getProjectMetaValue("projName"), no: getProjectMetaValue("projNo"), designer: getProjectMetaValue("projDesigner") },
       inputs: [
           { group: "斷面與材料", items: [
