@@ -1050,7 +1050,8 @@ ${extra}
       project: proj,
       calculated: true,
       readinessLevel: ReportUI.getPageReportReadinessLevel(document),
-      calculationFingerprint: reportTrace.calculationFingerprint
+      calculationFingerprint: reportTrace.calculationFingerprint,
+      textExport: true
     });
     const reportHtml = `<!DOCTYPE html>
 <html lang="zh-TW"><head><meta charset="UTF-8"><title>設備局部荷重計算書</title>

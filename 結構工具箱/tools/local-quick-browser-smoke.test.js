@@ -14,6 +14,7 @@ const {
   writeEvidenceSummary,
 } = require('./rendered-delivery-evidence');
 const calculationBookContentBoundary = require('./calculation-book-content-boundary.json');
+const AttachmentPackageChecker = require('./attachment-package-check');
 
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
@@ -99,6 +100,135 @@ function calculationFingerprintFromReport(reportHtml, label) {
   const match = reportHtmlText(reportHtml).match(/計算指紋[：:\s]*(CF-[0-9A-F]{16})/i);
   assert.ok(match, `${label} report exposes a calculation fingerprint`);
   return match[1].toUpperCase();
+}
+
+async function waitForDownloadedArtifact(filePath, timeoutMs = 10000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (fs.existsSync(filePath) && fs.statSync(filePath).size > 0 && !fs.existsSync(`${filePath}.crdownload`)) return;
+    await delay(100);
+  }
+  throw new Error(`timed out waiting for downloaded artifact: ${filePath}`);
+}
+
+async function verifyGovernedTextExport(client, options) {
+  const outputDir = path.resolve(options.outputDir);
+  fs.mkdirSync(outputDir, { recursive: true });
+  const created = await client.send('Target.createTarget', { url: 'about:blank' });
+  let sessionId;
+  try {
+    const attached = await client.send('Target.attachToTarget', {
+      targetId: created.targetId,
+      flatten: true,
+    });
+    sessionId = attached.sessionId;
+    await client.send('Page.enable', {}, sessionId);
+    await client.send('Runtime.enable', {}, sessionId);
+    await client.send('Browser.setDownloadBehavior', {
+      behavior: 'allow',
+      downloadPath: outputDir,
+      eventsEnabled: true,
+    }).catch(() => client.send('Page.setDownloadBehavior', {
+      behavior: 'allow',
+      downloadPath: outputDir,
+    }, sessionId));
+    const frameTree = await client.send('Page.getFrameTree', {}, sessionId);
+    const frameId = frameTree.frameTree.frame.id;
+    await client.send('Page.setDocumentContent', { frameId, html: options.html }, sessionId);
+    const ready = await client.send('Runtime.evaluate', {
+      expression: `(async () => {
+        const startedAt = Date.now();
+        while (Date.now() - startedAt < 5000) {
+          if (document.getElementById('repDownloadCurrentText') && typeof window.buildReportText === 'function') return true;
+          await new Promise(resolve => setTimeout(resolve, 25));
+        }
+        return false;
+      })()`,
+      awaitPromise: true,
+      returnByValue: true,
+    }, sessionId);
+    assert.equal(ready.result?.value, true, `${options.label} governed TXT control initializes`);
+    const preparedResult = await client.send('Runtime.evaluate', {
+      expression: `(() => {
+        const button = document.getElementById('repDownloadCurrentText');
+        let fileName = '';
+        const originalAnchorClick = HTMLAnchorElement.prototype.click;
+        try {
+          HTMLAnchorElement.prototype.click = function captureTextDownloadName() {
+            fileName = this.download || '';
+          };
+          button.click();
+        } finally {
+          HTMLAnchorElement.prototype.click = originalAnchorClick;
+        }
+        return {
+          text: window.buildReportText(),
+          fileName,
+          buttonText: button.textContent || '',
+        };
+      })()`,
+      returnByValue: true,
+    }, sessionId);
+    const prepared = preparedResult.result?.value || {};
+    assert.ok(prepared.buttonText.includes('TXT'), `${options.label} governed TXT button label`);
+    assert.match(prepared.fileName || '', /文字備查.*CF-[A-F0-9]{16}\.txt$/, `${options.label} traceable TXT filename`);
+    const filePath = path.resolve(outputDir, prepared.fileName);
+    assert.equal(path.dirname(filePath), outputDir, `${options.label} TXT path remains inside evidence directory`);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    await client.send('Runtime.evaluate', {
+      expression: `document.getElementById('repDownloadCurrentText').click()`,
+      returnByValue: true,
+    }, sessionId);
+    await waitForDownloadedArtifact(filePath);
+    const buffer = fs.readFileSync(filePath);
+    const decoded = buffer.toString('utf8');
+    const hasBom = decoded.charCodeAt(0) === 0xFEFF;
+    const content = hasBom ? decoded.slice(1) : decoded;
+    [
+      '文件類別：文字備查',
+      '正式附件資格：否',
+      '文件用途：文字備查版（不作為正式附件）',
+      '產出工具：',
+      '工具版本：',
+      '計算引擎：',
+      '輸出時間：',
+      '計算指紋：CF-',
+      '文字版限制：不含可列印圖形',
+      '文字內容 SHA-256（非數位簽章）：',
+      options.tool.reportTitleNeedle,
+      ...(options.tool.reportNeedles || []),
+    ].forEach(needle => assert.ok(content.includes(needle), `${options.label} downloaded TXT includes ${needle}`));
+    assert.equal(hasBom, true, `${options.label} downloaded TXT has UTF-8 BOM`);
+    assert.equal(content, prepared.text, `${options.label} downloaded TXT matches the in-browser builder`);
+    assert.ok(buffer.length > 1024, `${options.label} downloaded TXT is substantial`);
+    assert.equal(content.includes('data:image/'), false, `${options.label} TXT excludes embedded images`);
+    assert.equal(content.includes('<svg'), false, `${options.label} TXT excludes SVG markup`);
+    pageOnlyReportStatusNeedles.forEach(needle => {
+      assert.equal(content.includes(needle), false, `${options.label} TXT excludes page-only wording ${needle}`);
+    });
+    const digestMatch = content.match(/文字內容 SHA-256（非數位簽章）：([0-9a-f]{64})\r?\n$/);
+    const baseText = digestMatch ? content.slice(0, digestMatch.index) : '';
+    const actualDigest = baseText ? crypto.createHash('sha256').update(baseText, 'utf8').digest('hex') : '';
+    assert.ok(digestMatch, `${options.label} TXT carries a content digest`);
+    assert.equal(digestMatch[1], actualDigest, `${options.label} TXT content digest recomputes`);
+    const record = AttachmentPackageChecker.inspectAttachment(filePath, outputDir);
+    const packageReport = AttachmentPackageChecker.analyzePackage([record]);
+    const packageIssueCodes = packageReport.issues.map(issue => issue.code);
+    assert.equal(packageReport.status, 'blocked', `${options.label} TXT cannot enter a formal attachment package`);
+    assert.ok(packageIssueCodes.includes('non-formal-reference-text'), `${options.label} TXT is classified as non-formal reference text`);
+    return {
+      key: options.tool.key,
+      artifact: path.basename(filePath),
+      bytes: buffer.length,
+      hasBom,
+      textLength: content.length,
+      contentSha256: actualDigest,
+      packageStatus: packageReport.status,
+      packageIssueCodes,
+    };
+  } finally {
+    await client.send('Target.closeTarget', { targetId: created.targetId }).catch(() => {});
+  }
 }
 
 function toolboxFile(relativePath) {
@@ -2580,8 +2710,10 @@ async function main() {
   const manifest = readJson('tools/local-quick-tools.manifest.json');
   const renderedEvidenceDir = resolveEvidenceDir(repoRoot, 'local-quick-tools');
   const directPrintOutputDir = path.join(repoRoot, 'output', 'playwright', 'local-quick-direct-print-block');
+  const textExportOutputDir = path.join(renderedEvidenceDir, 'text-exports');
   const renderedEvidenceRecords = [];
   const directPrintRecords = [];
+  const textExportRecords = [];
   const preflightStatusPayload = readJson('assets/status/preflight-summary.json');
   const reportReadinessPayload = readJson('assets/status/report-readiness-status.json');
   const vercelConfig = readRootJson('vercel.json');
@@ -3245,6 +3377,12 @@ async function main() {
               const summaryPlaceholderReportState = await evaluate(client, sessionId, reportExpression('summary', 'placeholder'));
               assertReportState(summaryReportState, tool, interactionLabel, 'summary');
               assertPlaceholderReportState(summaryPlaceholderReportState, tool, `${interactionLabel} placeholder`, 'summary');
+              textExportRecords.push(await verifyGovernedTextExport(client, {
+                html: detailedReportState.html,
+                outputDir: textExportOutputDir,
+                tool,
+                label: `${interactionLabel} ${tool.key}`,
+              }));
               if (tool.key === 'equipment-load') {
                 const eccentricState = await evaluate(client, sessionId, equipmentEccentricReactionExpression(0.2, -0.1));
                 assert.equal(eccentricState.mode, 'eccentric-rectangular-4', `${interactionLabel} equipment eccentric mode selected`);
@@ -3451,6 +3589,7 @@ async function main() {
       expectedRenderedEvidence
     );
     assert.equal(directPrintRecords.length, manifest.tools.length, 'local quick direct-print PDF coverage');
+    assert.equal(textExportRecords.length, manifest.tools.length, 'local quick governed TXT download coverage');
     const directPrintSummaryPath = path.join(directPrintOutputDir, 'local-quick-direct-print-block-summary.json');
     fs.writeFileSync(directPrintSummaryPath, `${JSON.stringify({
       generatedAt: new Date().toISOString(),
@@ -3459,9 +3598,17 @@ async function main() {
       records: directPrintRecords,
       pass: directPrintRecords.length === manifest.tools.length,
     }, null, 2)}\n`, 'utf8');
+    const textExportSummaryPath = path.join(textExportOutputDir, 'local-quick-text-export-summary.json');
+    fs.writeFileSync(textExportSummaryPath, `${JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      required: manifest.tools.map(tool => tool.key),
+      complete: textExportRecords.map(record => record.key),
+      records: textExportRecords,
+      pass: textExportRecords.length === manifest.tools.length,
+    }, null, 2)}\n`, 'utf8');
     await client.send('Browser.close').catch(() => {});
     await waitForProcessExit(edge, 5000);
-    console.log(`local quick browser smoke OK (${manifest.tools.length} tools, ${viewports.length} viewports, clean routes, renderedEvidence=${renderedEvidenceRecords.length}, directPrintBlocks=${directPrintRecords.length}, summary=${renderedSummary.summaryPath})`);
+    console.log(`local quick browser smoke OK (${manifest.tools.length} tools, ${viewports.length} viewports, clean routes, renderedEvidence=${renderedEvidenceRecords.length}, directPrintBlocks=${directPrintRecords.length}, textExports=${textExportRecords.length}, summary=${renderedSummary.summaryPath})`);
   } finally {
     if (client) client.close();
     if (edge && edge.exitCode === null) {

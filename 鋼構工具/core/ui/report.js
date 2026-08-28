@@ -727,6 +727,61 @@ function buildAttachmentApprovalReport(options = {}) {
               }
             });
           }
+          function appendGenericReportContent(lines, root) {
+            if (!root) return false;
+            var appended = false;
+            var candidates = Array.from(root.querySelectorAll('h2, h3, p, table, .rpt-step, .rpt-diagram, .report-diagram, .note, .conclusion'));
+            candidates.forEach(function (node) {
+              if (node.closest('.rep-block, .block')) return;
+              var containingStep = node.closest('.rpt-step');
+              if (containingStep && containingStep !== node) return;
+              var containingCallout = node.closest('.note, .conclusion');
+              if (containingCallout && containingCallout !== node) return;
+              if (node.tagName === 'H2') {
+                var sectionTitle = cleanReportText(node.textContent);
+                if (!sectionTitle) return;
+                lines.push('');
+                lines.push('[' + sectionTitle + ']');
+                appended = true;
+                return;
+              }
+              if (node.tagName === 'H3') {
+                var subsectionTitle = cleanReportText(node.textContent);
+                if (!subsectionTitle) return;
+                lines.push('- ' + subsectionTitle);
+                appended = true;
+                return;
+              }
+              if (node.tagName === 'TABLE') {
+                appendGenericTable(lines, node);
+                appended = true;
+                return;
+              }
+              if (node.classList.contains('rpt-step')) {
+                var stepTitle = cleanReportText((node.querySelector('h3, h4') || {}).textContent) || '計算步驟';
+                lines.push('- ' + stepTitle);
+                Array.from(node.querySelectorAll('p')).forEach(function (paragraph) {
+                  var paragraphText = cleanReportText(paragraph.textContent);
+                  if (paragraphText) lines.push('  ' + paragraphText);
+                });
+                Array.from(node.querySelectorAll('table')).forEach(function (table) {
+                  appendGenericTable(lines, table);
+                });
+                appended = true;
+                return;
+              }
+              if (node.matches('.rpt-diagram, .report-diagram')) {
+                lines.push('- 圖形內容請參閱 HTML／PDF 計算書。');
+                appended = true;
+                return;
+              }
+              var value = cleanReportText(node.textContent);
+              if (!value) return;
+              lines.push('- ' + value);
+              appended = true;
+            });
+            return appended;
+          }
           function buildCurrentReportText() {
             if (source.dataset.textExportEnabled !== 'true') throw new Error('此工具尚未啟用文字計算書下載。');
             var lineBreak = String.fromCharCode(13, 10);
@@ -742,11 +797,12 @@ function buildAttachmentApprovalReport(options = {}) {
             if (documentStatus) lines.push('來源' + documentStatus);
             lines.push('');
             lines.push('[文件識別]');
-            Array.from(document.querySelectorAll('.rep-meta > div, .meta > div')).forEach(function (row) {
+            Array.from(document.querySelectorAll('.rep-meta > div, .meta > div, .case-head > span')).forEach(function (row) {
               var value = reportMetaLine(row);
               if (value) lines.push(value);
             });
-            Array.from(document.querySelectorAll('.rep-sealed-content .rep-block, .rep-sealed-content .block')).forEach(function (section) {
+            var structuredSections = Array.from(document.querySelectorAll('.rep-sealed-content .rep-block, .rep-sealed-content .block'));
+            structuredSections.forEach(function (section) {
               var sectionHeading = cleanReportText((section.querySelector('h3') || {}).textContent) || '計算內容';
               lines.push('');
               lines.push('[' + sectionHeading + ']');
@@ -807,6 +863,9 @@ function buildAttachmentApprovalReport(options = {}) {
               var banner = cleanReportText((section.querySelector('.banner') || {}).textContent);
               if (banner) lines.push(banner);
             });
+            if (!structuredSections.length) {
+              appendGenericReportContent(lines, document.querySelector('.rep-sealed-content'));
+            }
             var summary = cleanReportText((document.querySelector('.rep-summary') || {}).textContent);
             if (summary) {
               lines.push('');

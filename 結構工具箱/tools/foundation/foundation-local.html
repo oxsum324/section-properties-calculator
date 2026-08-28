@@ -1207,7 +1207,8 @@ ${r.liquefactionValid ? `<p><code>控制點：z=${fmt(r.liquefactionGoverningPoi
       project: proj,
       calculated: true,
       readinessLevel: ReportUI.getPageReportReadinessLevel(document),
-      calculationFingerprint: reportTrace.calculationFingerprint
+      calculationFingerprint: reportTrace.calculationFingerprint,
+      textExport: true
     });
     const reportHtml = `<!DOCTYPE html>
 <html lang="zh-TW"><head><meta charset="UTF-8"><title>基礎局部穩定檢核計算書</title>

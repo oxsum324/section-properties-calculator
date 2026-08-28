@@ -86,7 +86,7 @@ const formalManifestPath = assertFile('tools/formal-tools.manifest.json');
 const formalManifestText = readText(formalManifestPath);
 const formalManifest = JSON.parse(formalManifestText);
 
-assert.equal(manifest.version, '0.4.0', 'local quick tools manifest version');
+assert.equal(manifest.version, '0.5.0', 'local quick tools manifest version');
 assert.equal(manifest.family, 'local-quick-tools', 'local quick tools manifest family');
 assert.ok(Array.isArray(tools), 'local quick tools manifest tools');
 assert.ok(tools.length >= 3, 'local quick tools manifest tool count');
@@ -217,7 +217,7 @@ const formalBrowserSmokeTestText = readText(formalBrowserSmokeTestPath);
 const ExportHelper = require(exportHelperPath);
 
 [
-  '"version": "0.4.0"',
+  '"version": "0.5.0"',
   '"family": "local-quick-tools"',
   '"shared"',
   '"runner"',
@@ -227,6 +227,9 @@ const ExportHelper = require(exportHelperPath);
   '"documentStateHelper"',
   '"documentStateBuilder"',
   '"documentStateRequired"',
+  '"textExportHelper"',
+  '"textExportMode"',
+  '"textExportRequired"',
   '"publicMetadata"',
   '"publicVersionConstant"',
   '"calculationEngineSource"',
@@ -239,6 +242,9 @@ const ExportHelper = require(exportHelperPath);
 ].forEach(needle => assertIncludes(manifestText, needle, 'local quick tools manifest'));
 
 assert.equal(manifest.shared.documentStateRequired, true, 'local quick calculation-book document state is required');
+assert.equal(manifest.shared.textExportHelper, manifest.shared.documentStateHelper, 'local quick text export uses the governed report helper');
+assert.equal(manifest.shared.textExportMode, 'non-formal-reference-text', 'local quick TXT remains a non-formal reference');
+assert.equal(manifest.shared.textExportRequired, true, 'local quick governed TXT export is required');
 [
   manifest.shared.documentStateBuilder,
   'getPageReportReadinessLevel',
@@ -247,6 +253,10 @@ assert.equal(manifest.shared.documentStateRequired, true, 'local quick calculati
   '正式附件',
   'repAttachmentApproval',
   'data-formal-document-state-style',
+  'buildCurrentReportText',
+  'appendGenericReportContent',
+  '.case-head > span',
+  '文字備查版（不作為正式附件）',
 ].forEach(needle => assertIncludes(documentStateHelperText, needle, 'local quick shared document-state helper'));
 
 assert.equal(manifest.shared.readyDocumentClass, 'formal-attachment', 'local quick approved document class');
@@ -328,6 +338,11 @@ assert.equal(directPrintBoundaryText.includes('content: "DRAFT"'), false, 'local
   "jsonExportExpression('placeholder')",
   "reportExpression('summary', 'placeholder')",
   "reportExpression('detailed', 'placeholder')",
+  'verifyGovernedTextExport',
+  'repDownloadCurrentText',
+  'Browser.setDownloadBehavior',
+  'non-formal-reference-text',
+  'textExports=${textExportRecords.length}',
   "viewport.key === 'desktop'",
   'desktop route-tool interaction',
   'hasCompatibilityHeading',
@@ -1602,6 +1617,8 @@ for (const tool of tools) {
   const goldenPath = assertFile(tool.golden);
 
   const html = readText(htmlPath);
+  assert.equal(tool.textExport, true, `${tool.key} manifest requires governed TXT export`);
+  assert.match(html, /textExport\s*:\s*true/, `${tool.key} enables governed TXT export`);
   const core = readText(corePath);
   const test = readText(testPath);
   const golden = readText(goldenPath);

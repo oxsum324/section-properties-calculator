@@ -1249,7 +1249,8 @@
       project: proj,
       calculated: true,
       readinessLevel: ReportUI.getPageReportReadinessLevel(document),
-      calculationFingerprint: reportTrace.calculationFingerprint
+      calculationFingerprint: reportTrace.calculationFingerprint,
+      textExport: true
     });
     const diagramHtml = buildPressureDiagramSvg(r);
     const forceRows = [

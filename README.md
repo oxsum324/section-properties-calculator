@@ -84,7 +84,7 @@ SRC 柱已以 `src-column.core.v1.0.0` 升格為限定範圍的正式構材附�
   [結構工具箱/tools/local-quick-output-consistency.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-output-consistency.test.js:1)
 - 局部快算瀏覽器 smoke：
   [結構工具箱/tools/local-quick-browser-smoke.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-browser-smoke.test.js:1)
-  - 在 Edge/CDP 內檢查四個局部快算頁的乾淨路由、JSON 匯出 / 回讀、詳算式與簡易結果列印計算書，並把報告 HTML 轉成可讀文字抽檢必要章節與 page-only wording 排除清單。4 個工作頁的瀏覽器直接列印另由共用邊界樣式完全封鎖，只輸出一頁操作指引；真正的計算書仍由頁面上的「列印計算書」流程產生。
+  - 在 Edge/CDP 內檢查四個局部快算頁的乾淨路由、JSON 匯出 / 回讀、詳算式與簡易結果列印計算書，並把報告 HTML 轉成可讀文字抽檢必要章節與 page-only wording 排除清單。桌機代表案例會實際下載 4 份 TXT，核對 UTF-8 BOM、可追溯檔名、畫面計算書同源內容、SHA-256 與附件組包阻擋結果。4 個工作頁的瀏覽器直接列印另由共用邊界樣式完全封鎖，只輸出一頁操作指引；真正的計算書仍由頁面上的「列印計算書」流程產生。
 - 風力 / 地震正式頁瀏覽器 smoke：
   [結構工具箱/tools/formal-browser-smoke.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/formal-browser-smoke.test.js:1)
 - 風力 / 地震正式工具 manifest：
@@ -187,7 +187,7 @@ SRC 柱已以 `src-column.core.v1.0.0` 升格為限定範圍的正式構材附�
 - 局部快算工具 manifest：
   [結構工具箱/tools/local-quick-tools.manifest.json](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-tools.manifest.json:1)
   - `地坪承載檢核（Westergaard）` 納入相對勁度半徑、內部／自由邊緣／角隅載重應力、多輪或機具腳位同點疊加、容許彎拉應力比對、6 組 golden cases、JSON 回讀及兩段式計算書；疲勞、接縫傳力與沉陷明列為頁面外責任。
-  - 基礎局部檢核、設備局部荷重、擋土土壓與地坪 Westergaard 局部快算的簡易結果／詳算式計算書共用 `core/ui/report.js` 文件核可模型：預設內部審閱、明確核可後成為正式附件，工程檢核不符或人工複核狀態仍如實列入計算內容。頁面的產報前診斷明細仍不進計算書；瀏覽器直接列印操作頁仍只顯示封鎖通知。
+  - 基礎局部檢核、設備局部荷重、擋土土壓與地坪 Westergaard 局部快算的簡易結果／詳算式計算書共用 `core/ui/report.js` 文件核可模型：預設內部審閱、明確核可後成為正式附件，工程檢核不符或人工複核狀態仍如實列入計算內容。四頁另可由同一份畫面計算書下載 UTF-8 BOM 的 TXT 文字備查，包含來源文件狀態、工具版本、輸出時間、計算指紋與文字內容 SHA-256，固定明列不具正式附件資格；圖形、版面、核可控制與可執行完整性驗證仍以核可 HTML 或列印／存成 PDF 為準。頁面的產報前診斷明細仍不進計算書與 TXT；瀏覽器直接列印操作頁仍只顯示封鎖通知。
 - 局部快算 manifest runner：
   [結構工具箱/tools/local-quick-tools.run.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-tools.run.js:1)
 - 載重組合完整向量 regression：

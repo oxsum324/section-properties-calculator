@@ -880,11 +880,11 @@
       categories: ['temporary'],
       state: 'formal',
       governance: 'local-quick-contract',
-      output: '底壓/偏心/抗滑/抗傾覆、Meyerhof 有效面積承壓、立即彈性沉陷、壓密沉陷(Boussinesq/2:1)、Terzaghi 時間-沉陷歷程、SPT 液化初判、中央核示意圖、兩段式計算書與 JSON',
+      output: '底壓/偏心/抗滑/抗傾覆、Meyerhof 有效面積承壓、立即彈性沉陷、壓密沉陷(Boussinesq/2:1)、Terzaghi 時間-沉陷歷程、SPT 液化初判、中央核示意圖、兩段式計算書、TXT 文字備查與 JSON',
       summary: '矩形淺基礎服務載重底壓、合力偏心、抗滑與抗傾覆檢核，依台灣 112 基礎構造設計規範安全係數；可選用 Meyerhof 有效面積承壓、立即彈性沉陷，以及可自訂層數之一維壓密沉陷（Cc/Cr、NC/OC 判別、Boussinesq 或 2:1 應力增量、Terzaghi t50/t90 與指定年限沉陷量），並可選用 SPT 液化初判（NCEER/Youd et al. 2001 簡化法 + Idriss 1999 地震規模比例係數），含中央核示意圖與詳算式/簡易結果計算書。',
       fit: '矩形獨立基礎與設備基座之局部穩定正式檢核。',
       limit: '衝剪、配筋、樁基與土壤互制不在本頁範圍，需回 RC 基礎完整工具；液化初判為簡化篩選，正式設計仍應以完整地質鑽探報告與液化潛能詳細評估為準。',
-      capabilities: ['正式核算', '計算書', '示意圖']
+      capabilities: ['正式核算', '計算書', 'TXT 備查', '示意圖']
     },
     {
       title: '設備局部荷重',
@@ -893,11 +893,11 @@
       categories: ['temporary'],
       state: 'formal',
       governance: 'local-quick-contract',
-      output: '平均或矩形四支點偏心反力、接觸壓/分布壓、混凝土承壓、穿孔剪力、鋼板分散、示意圖、兩段式計算書與 JSON',
+      output: '平均或矩形四支點偏心反力、接觸壓/分布壓、混凝土承壓、穿孔剪力、鋼板分散、示意圖、兩段式計算書、TXT 文字備查與 JSON',
       summary: '設備重量可採支承平均分配，或依矩形四支點、剛性設備底座與相同垂直剛度計算偏心反力；以最大壓縮反力檢核接觸/分布壓、混凝土承壓、RC 穿孔剪力與鋼板分散厚度，並檢查最小反力及無拉力界線。',
       fit: '設備基座支承局部荷重與承壓正式檢核。',
       limit: '偏心模式限矩形四支點、相同垂直剛度與剛性設備底座；支承柔度不同、安裝間隙或最小反力為負時，須另做接觸、底座及錨栓拉力詳算。樓板梁配筋、振動與疲勞不在範圍。',
-      capabilities: ['正式核算', '計算書', '示意圖']
+      capabilities: ['正式核算', '計算書', 'TXT 備查', '示意圖']
     },
     {
       title: '擋土土壓局部快算',
@@ -906,11 +906,11 @@
       categories: ['temporary'],
       state: 'formal',
       governance: 'local-quick-contract',
-      output: 'Rankine/Coulomb 土壓、地震 Mononobe-Okabe、分層土(砂/黏)、水壓、抗滑/抗傾覆/基底壓檢核、牆型示意圖、兩段式計算書與 JSON',
+      output: 'Rankine/Coulomb 土壓、地震 Mononobe-Okabe、分層土(砂/黏)、水壓、抗滑/抗傾覆/基底壓檢核、牆型示意圖、兩段式計算書、TXT 文字備查與 JSON',
       summary: 'Rankine 主動/靜止土壓、均佈超載與地下水壓之抗滑、抗傾覆與基底壓局部穩定檢核；可選用 Coulomb（牆摩擦 δ、牆背傾角 θ、背填傾角 β）、地震時 Mononobe-Okabe，以及可自訂層數之分層土（砂土/黏土，含黏土張力裂縫與有效應力水壓），含牆型示意圖與詳算式/簡易結果計算書。',
       fit: '懸臂式/重力式擋土牆與圍牆之局部土壓與穩定正式檢核。',
       limit: '基礎埋置、被動土壓動員位移仍需判斷；簡單水平回填的懸臂式主動土壓可銜接 RC 牆身及趾踵版設計，地下水、分層回填、Coulomb 垂直分力、扶壁式與地震載重組合需另行正式詳算。',
-      capabilities: ['正式核算', '計算書', '示意圖']
+      capabilities: ['正式核算', '計算書', 'TXT 備查', '示意圖']
     },
     {
       title: '地坪承載檢核（Westergaard）',
@@ -919,11 +919,11 @@
       categories: ['temporary'],
       state: 'formal',
       governance: 'local-quick-contract',
-      output: '相對勁度半徑、內部／邊緣／角隅載重應力、多輪／機具腳位同點疊加、容許應力比、示意圖、兩段式計算書與 JSON',
+      output: '相對勁度半徑、內部／邊緣／角隅載重應力、多輪／機具腳位同點疊加、容許應力比、示意圖、兩段式計算書、TXT 文字備查與 JSON',
       summary: '以一般化 Westergaard 閉式解檢核均質彈性地坪版於內部、自由邊緣與角隅集中載重之彎拉應力；輪壓或機具腳位可逐組設定數量、動力係數與具依據的同點影響係數。',
       fit: '工業地坪、倉庫地坪或設備腳位之彈性板載重應力局部檢核。',
       limit: '疲勞、接縫傳力、沉陷、溫度翹曲、有限版、空洞、非線性接觸、地質承載力與配筋不在本頁範圍；影響係數小於 1.0 時須有專案依據。',
-      capabilities: ['正式核算', '計算書', '多載重疊加']
+      capabilities: ['正式核算', '計算書', 'TXT 備查', '多載重疊加']
     },
     {
       title: '覆工板系統計算',
