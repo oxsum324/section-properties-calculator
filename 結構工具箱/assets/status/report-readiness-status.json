@@ -2,8 +2,8 @@
   "publicEvidenceSchemaVersion": 3,
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-08-27T13:08:59.912Z",
-  "runId": "20260827-203311",
+  "generatedAt": "2026-08-28T08:55:57.209Z",
+  "runId": "20260828-162131",
   "pass": true,
   "failureCount": 0,
   "badge": "頁面專用",
@@ -12,7 +12,7 @@
   "compactSummary": "頁面診斷明細不進計算書；文件預設內部審閱，明確核可後為正式附件，兩者皆可列印。",
   "details": [
     "目前覆蓋 過渡工具 / 輔助查詢 入口：鋼梁舊案延續頁、鋼柱舊案延續頁、Kzt 地形係數、特殊修正 / 折減。",
-    "正式計算書可讀文字抽檢：17 / 17 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 2 / 2。本項確認輸出可讀文字、頁面診斷明細排除，以及內部審閱／正式附件核可狀態。",
+    "正式計算書可讀文字抽檢：18 / 18 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 2 / 2。本項確認輸出可讀文字、頁面診斷明細排除，以及內部審閱／正式附件核可狀態。",
     "正式放行實際交付物渲染佐證：36 / 36 個首頁正式工具已完成，涵蓋 10 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20260827-203311。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
     "正式交付檔案完整性：正式 PDF 與渲染證據 66 / 66、RC PDF / PNG 成品 66 / 66、混合格式附件 13 / 13；合計 145 / 145。公開狀態只提供類別、數量與通過狀態，不公開檔名、逐檔雜湊或完整性集合。",
     "正式 Word 附件乾淨封裝：石材、錨栓、覆工板與開挖擋土支撐共 4 / 4 份 DOCX 已確認沒有未引用媒體或頁首頁尾、實際批註、未接受修訂、外掛範本、外部圖片、嵌入物件、巨集或非預期 custom XML。公開狀態只顯示完成數，不公開檔名、封裝清冊或逐檔細節。",
@@ -36,28 +36,28 @@
     "開挖擋土支撐正式計算書結果鏈：ProjectState 1 / 1 已由目前後端核心重算 47 項構件檢核，再核對 PDF、DOCX 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開 ProjectState、輸入／結果資料、計算指紋或成品雜湊。",
     "局部快算計算書結果鏈：基礎、設備荷重與擋土土壓共 3 / 3 組來源 JSON 已完成全輸入與全結果逐值重播，再核對 PDF 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊。",
     "RC 正式附件 HTML 完整性：預期 34 份、實際 34 份、已驗證 34 份。公開狀態只提供各工具類別、數量與通過狀態；集合與逐檔完整性證據僅留在內部 release 證據。本項不會寫入計算書、列印或 PDF。",
-    "可讀文字抽檢範圍：正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具 14 項、局部快算 3 項。矩陣外工具家族仍以各自報告合約治理。",
+    "可讀文字抽檢範圍：正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具 14 項、局部快算 4 項。矩陣外工具家族仍以各自報告合約治理。",
     "首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。",
     "正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。",
-    "獨立工程基準：36 / 36 個正式工具已具獨立封閉算例。既有重播、結果鏈與家族治理證據仍屬不同證據層級，不取代設計者複核。",
-    "候選案例獨立基準：21 / 21，其中預期合格 12 / 12、預期拒絕 9 / 9，涵蓋 3 個候選能力；候選結果只作上線前治理，不計入正式工具 36 / 36。"
+    "獨立工程基準：37 / 37 個正式工具已具獨立封閉算例。既有重播、結果鏈與家族治理證據仍屬不同證據層級，不取代設計者複核。",
+    "候選案例獨立基準：21 / 21，其中預期合格 12 / 12、預期拒絕 9 / 9，涵蓋 3 個候選能力；候選結果只作上線前治理，不計入正式工具 37 / 37。"
   ],
-  "independentBenchmarkEligible": 36,
-  "independentBenchmarkVerified": 36,
-  "independentBenchmarkPilotRequired": 36,
-  "independentBenchmarkPilotVerified": 36,
+  "independentBenchmarkEligible": 37,
+  "independentBenchmarkVerified": 37,
+  "independentBenchmarkPilotRequired": 37,
+  "independentBenchmarkPilotVerified": 37,
   "independentBenchmarkIssueCount": 0,
   "independentBenchmarkPass": true,
   "pageOnlyBoundaryRequired": 4,
   "pageOnlyBoundaryComplete": 4,
   "pageOnlyBoundaryIssueCount": 0,
-  "reportTextSmokeRequired": 17,
-  "reportTextSmokeComplete": 17,
+  "reportTextSmokeRequired": 18,
+  "reportTextSmokeComplete": 18,
   "reportTextSmokeIssueCount": 0,
   "reportTextSmokeEvidenceRequired": 2,
   "reportTextSmokeEvidenceComplete": 2,
   "reportTextSmokeEvidenceIssueCount": 0,
-  "reportTextSmokeEvidenceRunId": "20260827-203311",
+  "reportTextSmokeEvidenceRunId": "20260828-162131",
   "reportTextSmokeEvidenceGates": [
     {
       "key": "formal-browser-smoke",
@@ -68,22 +68,22 @@
       "complete": 14,
       "pass": true,
       "reused": false,
-      "seconds": 94
+      "seconds": 93.4
     },
     {
       "key": "local-quick-tools-runner",
       "label": "局部快算 manifest runner",
       "family": "local-quick-tools",
       "scopeLabel": "局部快算",
-      "required": 3,
-      "complete": 3,
+      "required": 4,
+      "complete": 4,
       "pass": true,
       "reused": false,
-      "seconds": 61.4
+      "seconds": 72.6
     }
   ],
   "reportTextSmokeEvidenceUnmappedFamilies": [],
-  "reportTextSmokeScope": "正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具 14 項、局部快算 3 項。矩陣外工具家族仍以各自報告合約治理。",
+  "reportTextSmokeScope": "正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具 14 項、局部快算 4 項。矩陣外工具家族仍以各自報告合約治理。",
   "renderedDeliveryEvidenceRequired": 36,
   "renderedDeliveryEvidenceComplete": 36,
   "renderedDeliveryEvidenceIssueCount": 0,
@@ -387,6 +387,6 @@
     }
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
-  "preflightStatusSourcePath": "output/preflight/history/20260827-203311/preflight-summary.json",
-  "sourceHash": "714e9428134399be67adc6bb38c2793668387775b2a0a0a21b60f9c6706018ae"
+  "preflightStatusSourcePath": "output/preflight/history/20260828-162131/preflight-summary.json",
+  "sourceHash": "b3cd609b81dd5eece53a63fe310e3cf668b0bd87660d72ed9ec18bef997b42a3"
 }
