@@ -886,6 +886,34 @@ assert(internalReviewReport.issues.some(issue => issue.code === 'internal-review
 assert(Checker.DRAFT_DOCUMENT_NEEDLES.includes('文件狀態：內部審閱'));
 assert(Checker.DRAFT_DOCUMENT_NEEDLES.includes('DRAFT /'));
 assert(Checker.DRAFT_DOCUMENT_NEEDLES.includes('DRAFT／'));
+assert(Checker.NON_FORMAL_REFERENCE_TEXT_NEEDLES.includes('文件類別：文字備查'));
+assert(Checker.NON_FORMAL_REFERENCE_TEXT_NEEDLES.includes('文件用途：文字備查版（不作為正式附件）'));
+
+const referenceTextDir = fs.mkdtempSync(path.join(os.tmpdir(), 'attachment-reference-text-'));
+try {
+  const referenceTextPath = path.join(referenceTextDir, '梁設計計算書_文字備查_CF-1234ABCD5678EF90.txt');
+  fs.writeFileSync(referenceTextPath, [
+    '梁設計計算書',
+    '文件類別：文字備查',
+    '正式附件資格：否',
+    '文件用途：文字備查版（不作為正式附件）',
+    '來源文件狀態：正式附件｜核可時間：2026/08/27 17:12:08｜計算指紋：CF-1234ABCD5678EF90',
+    '產出工具：梁 Beam 設計／檢核',
+    '工具版本：V3.1',
+    '輸出時間：2026/08/27 17:12:05',
+    COMPLETE_CALCULATION_CONTENT,
+  ].join('\r\n'), 'utf8');
+  const referenceTextRecord = Checker.inspectAttachment(referenceTextPath, referenceTextDir);
+  assert(referenceTextRecord.nonFormalReferenceNeedles.includes('文件類別：文字備查'));
+  assert.deepEqual(referenceTextRecord.readyDocumentNeedles, [], 'formal source status cannot promote a TXT reference artifact');
+  assert.deepEqual(referenceTextRecord.draftDocumentNeedles, [], 'source status does not classify the TXT artifact itself');
+  const referenceTextPackage = Checker.analyzePackage([referenceTextRecord]);
+  assert.equal(referenceTextPackage.status, 'blocked', 'TXT reference artifact is never formal-package ready');
+  assert(referenceTextPackage.issues.some(issue => issue.code === 'non-formal-reference-text'));
+  assert.match(Checker.formatSummary(referenceTextPackage), /文字備查（非正式附件）/);
+} finally {
+  fs.rmSync(referenceTextDir, { recursive: true, force: true });
+}
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'attachment-package-check-'));
 try {

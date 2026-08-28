@@ -690,6 +690,7 @@ async function main() {
   assert(html.includes('id="foundationAttachmentReadiness"'), 'foundation page has attachment readiness target', 'readiness target present');
   assert(html.includes('page-only-case-tools'), 'foundation site preset workflow page-only group', 'page-only-case-tools exists');
   assert(reportSrc.includes('summary: false'), 'foundation report disables top status summary', 'attachment status is not printed');
+  assert(reportSrc.includes('textExport:true'), 'foundation report enables governed TXT download', 'shared report text export is explicit');
   assert(!reportSrc.includes('RCUI.buildReviewCheckGroup'), 'foundation report excludes review overview helper', 'review overview stays page-only');
   assert(!reportSrc.includes('待確認 / 正式'), 'foundation report excludes formal-analysis overview groups', 'report has no page-only review group');
   assert(!reportSrc.includes('作業模式：') && !reportSrc.includes('RC 工具箱 ·'), 'foundation report excludes page operation identity', 'mode and tool branding stay on tool page');

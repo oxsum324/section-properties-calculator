@@ -371,6 +371,8 @@ async function main() {
       assert(metrics.documentStateText.includes('文件狀態：內部審閱'), `${key} report carries concise document status`, metrics.documentStateText);
       assert(reportTextState.hasTextDownloadControl && reportTextState.textBuilderAvailable, `${key} report exposes TXT calculation-book download`, JSON.stringify(reportTextState));
       for (const fragment of [
+        '文件類別：文字備查',
+        '正式附件資格：否',
         '文件用途：文字備查版（不作為正式附件）',
         '來源文件狀態：',
         '產出工具：板 Slab 設計／檢核',

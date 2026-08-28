@@ -6,6 +6,7 @@ const toolsDir = __dirname;
 const visualPath = path.join(toolsDir, 'retrofit-report-visual.test.js');
 const portableHtmlPath = path.join(toolsDir, 'report-portable-html-check.js');
 const sharedReportPath = path.join(toolsDir, '..', 'shared', 'report.js');
+const retrofitToolPath = path.join(toolsDir, '..', '..', 'RC補強斷面性質.html');
 const wrapperPath = path.join(toolsDir, 'test-retrofit-report.ps1');
 
 function read(file) {
@@ -20,7 +21,10 @@ function assertIncludes(text, needle, label) {
 const visual = read(visualPath);
 const portableHtml = read(portableHtmlPath);
 const sharedReport = read(sharedReportPath);
+const retrofitTool = read(retrofitToolPath);
 const wrapper = read(wrapperPath);
+
+assert.equal((retrofitTool.match(/textExport:\s*true/g) || []).length, 2, 'RC retrofit beam and column reports both enable governed TXT download');
 
 [
   'retrofit-report-visual.test.js',
@@ -30,6 +34,11 @@ const wrapper = read(wrapperPath);
 
 [
   "require('./report-portable-html-check')",
+  "require('./report-text-download-check')",
+  'captureReportTextDownload(report',
+  'captureReportTextDownload(blockedReport',
+  'referenceTextDownload: beamTextDownload',
+  'referenceTextDownload: columnTextDownload',
   'RC retrofit NG calculation can be explicitly approved as a truthful formal attachment',
   'RC retrofit blank project metadata remains printable for internal review',
   'collectRetrofitProjectData()',

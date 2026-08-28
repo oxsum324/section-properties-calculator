@@ -6,6 +6,7 @@ const { chromium } = require('playwright');
 const { assertReportPdfTextQuality, assertReportScreenshotQuality, captureArtifactIntegrity } = require('./report-screenshot-quality');
 const { assertPortableFormalHtml } = require('./report-portable-html-check');
 const { buildRcResultReconciliation } = require('./report-result-reconciliation');
+const { captureReportTextDownload } = require('./report-text-download-check');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const outputDir = path.resolve(
@@ -243,6 +244,16 @@ async function main() {
       exclude: ['DRAFT／非正式附件'],
     });
     const portableBeamHtml = await assertPortableFormalHtml(report, 'RC retrofit beam report', assert, { outputDir });
+    await report.emulateMedia({ media: 'screen' });
+    const beamTextDownload = await captureReportTextDownload(report, {
+      outputDir,
+      filePrefix: 'rc-retrofit-beam',
+      caseKey: 'formal',
+      label: 'RC retrofit beam report',
+      assert,
+      expectedFragments: ['RC 梁補強斷面計算書', '產出工具：RC 補強斷面性質計算', '工具版本：V1.7'],
+      removeAfterCheck: Boolean(process.env.PREFLIGHT_RUN_DIR),
+    });
     assert.equal(errors.length, 0, `RC retrofit page/report console errors: ${errors.join(' | ')}`);
     const beamSourceSnapshot = {
       ...beamSourceSnapshotBase,
@@ -279,6 +290,7 @@ async function main() {
           captureArtifactIntegrity(screenshotPath, 'reportScreenshot'),
         ],
         metrics: { calculationFingerprint: portableBeamHtml.calculationFingerprint },
+        referenceTextDownload: beamTextDownload,
         calculationFingerprint: portableBeamHtml.calculationFingerprint,
         portableHtml: portableBeamHtml,
         resultReconciliation: beamResultReconciliation,
@@ -335,6 +347,16 @@ async function main() {
     assert.equal(approvedBlockedState.state, 'formal-attachment', 'RC retrofit NG calculation can be explicitly approved as a truthful formal attachment');
     assert.ok(approvedBlockedState.text.includes('核可時間'), 'RC retrofit formal attachment records approval time');
     const portableBlockedHtml = await assertPortableFormalHtml(blockedReport, 'RC retrofit NG column report', assert, { outputDir });
+    await blockedReport.emulateMedia({ media: 'screen' });
+    const columnTextDownload = await captureReportTextDownload(blockedReport, {
+      outputDir,
+      filePrefix: 'rc-retrofit-column',
+      caseKey: 'formal-ng',
+      label: 'RC retrofit column report',
+      assert,
+      expectedFragments: ['RC 柱補強斷面計算書', '產出工具：RC 補強斷面性質計算', '工具版本：V1.7'],
+      removeAfterCheck: Boolean(process.env.PREFLIGHT_RUN_DIR),
+    });
     const columnSourceSnapshot = {
       ...columnSourceSnapshotBase,
       calculationFingerprint: portableBlockedHtml.calculationFingerprint,
@@ -355,6 +377,7 @@ async function main() {
       htmlArtifact: portableBlockedHtml.htmlArtifact,
       title: portableBlockedHtml.reportTitle,
       metrics: { calculationFingerprint: portableBlockedHtml.calculationFingerprint },
+      referenceTextDownload: columnTextDownload,
       calculationFingerprint: portableBlockedHtml.calculationFingerprint,
       portableHtml: portableBlockedHtml,
       resultReconciliation: columnResultReconciliation,

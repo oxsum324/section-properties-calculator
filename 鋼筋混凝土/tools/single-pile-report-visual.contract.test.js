@@ -27,6 +27,7 @@ const tool = read(toolPath);
   'documentState: attachmentReadiness.documentState',
   'documentClass: attachmentReadiness.documentClass',
   '案件識別資料',
+  'textExport: true',
 ].forEach(needle => assertIncludes(tool, needle, 'single pile formal attachment state wiring'));
 
 [
@@ -75,6 +76,7 @@ const tool = read(toolPath);
   'screenshotQuality',
   'pdfTextQuality',
   'captureArtifactIntegrity',
+  'captureReportTextDownload',
   "'reportPdf'",
   "'reportScreenshot'",
   'artifactIntegrity',

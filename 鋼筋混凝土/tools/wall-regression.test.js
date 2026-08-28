@@ -65,6 +65,7 @@ function main() {
   assert(wallHtml.includes('RCUI.renderAttachmentReadiness'), 'wall.html uses shared attachment readiness renderer', 'readiness helper present');
   assert(wallHtml.includes('summary:false'), 'wall report disables top status summary', 'attachment status is not printed');
   const buildReportSrc = wallHtml.slice(wallHtml.indexOf('function buildWallReport'), wallHtml.indexOf('function svgToDataURL'));
+  assert(buildReportSrc.includes('textExport:true'), 'wall report enables governed TXT download', 'shared report text export is explicit');
   assert(!buildReportSrc.includes('RCUI.buildReviewCheckGroup'), 'wall report excludes review overview helper', 'formal-analysis overview stays page-only');
   assert(!buildReportSrc.includes('待確認 / 正式分析需求'), 'wall report excludes formal-analysis overview group', 'report has no page-only review group');
   assert(!buildReportSrc.includes("label:'內建案例'"), 'wall report excludes built-in case provenance', 'test case stays on tool page');

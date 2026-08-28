@@ -63,6 +63,7 @@ async function main() {
   assert(html.includes('id="singlePileAttachmentReadiness"'), 'single-pile page has attachment readiness card', 'page-only readiness target exists');
   const reportSrc = html.slice(html.indexOf('function buildSinglePileReport'), html.indexOf('function updateModeUi'));
   assert(reportSrc.includes('summary: false'), 'single-pile report disables top status summary', 'attachment status is not printed');
+  assert(reportSrc.includes('textExport: true'), 'single-pile report enables governed TXT download', 'shared report text export is explicit');
   assert(!reportSrc.includes('RC 工具箱 ·') && !reportSrc.includes('初步檢核'), 'single-pile report excludes tool identity and preliminary label', 'report subtitle states calculation scope');
   assert(!html.includes('人工複核 / 補充資料需求'), 'single-pile report excludes manual-review group', 'manual-review overview stays page-only');
   assert(!html.includes('不列為 OK 結論；補齊資料後方可作為完整檢核'), 'single-pile report excludes manual-review verdict banner', 'report has no overview verdict text');

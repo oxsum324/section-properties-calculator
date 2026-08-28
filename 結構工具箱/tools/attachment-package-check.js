@@ -27,6 +27,11 @@ const DRAFT_DOCUMENT_NEEDLES = [
   '文件狀態：內部審閱',
 ];
 const READY_DOCUMENT_CLASS_LABEL = '文件狀態：正式附件';
+const NON_FORMAL_REFERENCE_TEXT_NEEDLES = [
+  '文件類別：文字備查',
+  '正式附件資格：否',
+  '文件用途：文字備查版（不作為正式附件）',
+];
 const CANONICAL_RENDER_EVIDENCE_KIND = 'attachment-canonical-render-evidence.v1';
 const RC_CONTENT_SEAL_SCOPE = 'rc-calculation-book-content-v1';
 const RC_APPROVAL_SEAL_SCOPE = 'rc-calculation-book-approval-v2';
@@ -816,6 +821,12 @@ function detectReadyDocumentClass(text) {
     : [];
 }
 
+function detectNonFormalReferenceText(text, type = '') {
+  if (String(type || '').toLowerCase() !== 'txt') return [];
+  const normalized = normalizeText(text);
+  return NON_FORMAL_REFERENCE_TEXT_NEEDLES.filter(needle => normalized.includes(needle));
+}
+
 function isDocumentClassRequired(record = {}) {
   if (typeof record.documentClassRequired === 'boolean') return record.documentClassRequired;
   if (String(record.type || '').toLowerCase() === 'json') return false;
@@ -1488,7 +1499,7 @@ function inspectAttachment(filePath, rootDir) {
   const record = {
     file: path.relative(rootDir, filePath) || path.basename(filePath), type, size: 0, sourceSha256: '',
     textLength: 0, projectName: '', projectNo: '', designer: '', sourceTool: '', toolVersion: '', outputTime: '', approvalTime: '', approvedBy: '', approvalBasis: '',
-    fingerprints: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: [],
+    fingerprints: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: [], nonFormalReferenceNeedles: [],
     reportDocumentNeedles: [], calculationSummaryNeedles: [], documentClassRequired: false, contentBoundary: null, visibilityEvidence: null, contentSeal: null, approvalSeal: null, formalContentSeal: null, formalApprovalSeal: null, formalReportSealCandidate: false, anchorContentSeal: null, anchorApprovalSeal: null, anchorReportSealCandidate: false, xlsxContentSeal: null, xlsxApprovalSeal: null, errors: [],
   };
   try {
@@ -1560,8 +1571,11 @@ function inspectAttachment(filePath, rootDir) {
     Object.assign(record, metadata || extractTextMetadata(text));
     record.textLength = normalizeText(text).length;
     record.pageOnlyNeedles = PAGE_ONLY_NEEDLES.filter(needle => text.includes(needle));
-    record.draftDocumentNeedles = DRAFT_DOCUMENT_NEEDLES.filter(needle => text.includes(needle));
-    record.readyDocumentNeedles = detectReadyDocumentClass(text);
+    record.nonFormalReferenceNeedles = detectNonFormalReferenceText(text, type);
+    if (!record.nonFormalReferenceNeedles.length) {
+      record.draftDocumentNeedles = DRAFT_DOCUMENT_NEEDLES.filter(needle => text.includes(needle));
+      record.readyDocumentNeedles = detectReadyDocumentClass(text);
+    }
     const normalizedText = normalizeText(text);
     record.reportDocumentNeedles = REPORT_DOCUMENT_NEEDLES.filter(needle => normalizedText.includes(needle));
     record.documentClassRequired = isDocumentClassRequired({ ...record, documentClassRequired: undefined });
@@ -1969,6 +1983,14 @@ function analyzePackage(records, options = {}) {
   records.forEach(record => {
     if (record.errors.length) issues.push(buildIssue('error', 'unreadable-attachment', `${record.file} 無法讀取：${record.errors.join('；')}`, [record.file]));
     if (record.pageOnlyNeedles.length) issues.push(buildIssue('error', 'page-only-leak', `${record.file} 含有頁面專用文字：${record.pageOnlyNeedles.join('、')}`, [record.file]));
+    if ((record.nonFormalReferenceNeedles || []).length) {
+      issues.push(buildIssue(
+        'error',
+        'non-formal-reference-text',
+        `${record.file} 是文字備查檔，不具正式附件資格；請移出正式附件組包，並改附核可 HTML、PDF、DOCX 或 XLSX。`,
+        [record.file],
+      ));
+    }
     if (!record.errors.length && record.visibilityEvidence?.status === 'review') {
       const isPdf = String(record.type || '').toLowerCase() === 'pdf';
       if (isPdf) {
@@ -2068,7 +2090,10 @@ function analyzePackage(records, options = {}) {
         issues.push(buildIssue('error', 'anchor-xlsx-approval-seal-invalid', `${record.file} 的錨栓 XLSX 核可狀態、核可時間、計算指紋或內容封印與輸出時 SHA-256 封印不一致（${(record.xlsxApprovalSeal.reasons || ['unknown']).join('、')}）；不得作為正式附件，請回原工具重新輸出。`, [record.file]));
       }
     }
-    if ((record.draftDocumentNeedles || []).length) {
+    if ((record.nonFormalReferenceNeedles || []).length) {
+      // The source report may have been formally approved, but the derived TXT
+      // remains a non-formal reference artifact and must not inherit that state.
+    } else if ((record.draftDocumentNeedles || []).length) {
       issues.push(buildIssue('error', 'internal-review-document', `${record.file} 的文件狀態仍為內部審閱：${record.draftDocumentNeedles.join('、')}；請在計算書預覽完成核可後再納入正式附件組包。`, [record.file]));
     } else if (isDocumentClassRequired(record) && !(record.readyDocumentNeedles || []).length) {
       issues.push(buildIssue('warn', 'missing-document-class', `${record.file} 未找到「${READY_DOCUMENT_CLASS_LABEL}」；不得自動視為已核可附件，請回原工具確認文件狀態。`, [record.file]));
@@ -2161,11 +2186,13 @@ function formatSummary(report) {
   if (report.fingerprintLinks?.length) lines.push(`來源資料與計算書已完成 ${report.fingerprintLinks.length} 組計算指紋配對。`);
   if (report.evidenceChainLinks?.length) lines.push(`開挖 ERH／RVR／SEV／SCV 證據鏈已完成 ${report.evidenceChainLinks.length} 組檔案雜湊與指紋連結。`);
   report.attachments.forEach(record => {
-    const documentClass = (record.draftDocumentNeedles || []).length
-      ? '內部審閱'
-      : (record.readyDocumentNeedles || []).length
-        ? '正式附件'
-        : isDocumentClassRequired(record) ? '文件未分類' : '';
+    const documentClass = (record.nonFormalReferenceNeedles || []).length
+      ? '文字備查（非正式附件）'
+      : (record.draftDocumentNeedles || []).length
+        ? '內部審閱'
+        : (record.readyDocumentNeedles || []).length
+          ? '正式附件'
+          : isDocumentClassRequired(record) ? '文件未分類' : '';
     const contentStatus = record.contentBoundary
       ? record.contentBoundary.missingGroups.length ? `內容缺 ${record.contentBoundary.missingGroups.join(',')}` : '工程內容完整'
       : '';
@@ -2220,4 +2247,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { CALCULATION_BOOK_CONTENT_BOUNDARY, CONTENT_GROUPS, CONTENT_PROFILES, CANONICAL_RENDER_EVIDENCE_KIND, RC_CONTENT_SEAL_SCOPE, RC_APPROVAL_SEAL_SCOPE, FORMAL_CONTENT_SEAL_SCOPE, FORMAL_APPROVAL_SEAL_SCOPE, ANCHOR_CONTENT_SEAL_SCOPE, ANCHOR_APPROVAL_SEAL_SCOPE, ANCHOR_XLSX_CONTENT_SEAL_SCOPE, ANCHOR_XLSX_APPROVAL_SEAL_SCOPE, RC_CONTENT_SEAL_START, RC_CONTENT_SEAL_END, FORMAL_CONTENT_SEAL_START, FORMAL_CONTENT_SEAL_END, SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, CALCULATION_SUMMARY_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, decodeXmlEntities, extractHtmlText, extractHtmlVisibleContent, canonicalizeRcHtmlContentSeal, verifyRcHtmlContentSeal, isRcHtmlContentSealRequired, canonicalizeRcHtmlApprovalSeal, verifyRcHtmlApprovalSeal, isRcHtmlApprovalSealRequired, canonicalizeFormalHtmlContentSeal, verifyFormalHtmlContentSeal, canonicalizeFormalHtmlApprovalSeal, verifyFormalHtmlApprovalSeal, isFormalHtmlSealRequired, normalizeAnchorHtmlSealResult, verifyAnchorHtmlDualSeals, isAnchorHtmlSealRequired, isAnchorXlsxSealRequired, hasDefinitelyHiddenStyle, hasAmbiguousVisibilityStyle, detectCalculationContentProfile, evaluateCalculationContent, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, normalizeOcrAlignmentText, ocrAlignmentBigramDice, validateRenderedPageOcrAlignment, validateCanonicalRenderEvidence, loadPdfVisibilityEvidence, collectDocxHiddenStyleIds, stripDocxHiddenText, parseSharedStrings, extractVisibleWorksheetText, resolveVisibleWorksheetEntries, extractXlsxVisibleContent, extractTextMetadata, excavationEvidenceMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzeExcavationEvidenceChains, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };
+module.exports = { CALCULATION_BOOK_CONTENT_BOUNDARY, CONTENT_GROUPS, CONTENT_PROFILES, CANONICAL_RENDER_EVIDENCE_KIND, RC_CONTENT_SEAL_SCOPE, RC_APPROVAL_SEAL_SCOPE, FORMAL_CONTENT_SEAL_SCOPE, FORMAL_APPROVAL_SEAL_SCOPE, ANCHOR_CONTENT_SEAL_SCOPE, ANCHOR_APPROVAL_SEAL_SCOPE, ANCHOR_XLSX_CONTENT_SEAL_SCOPE, ANCHOR_XLSX_APPROVAL_SEAL_SCOPE, RC_CONTENT_SEAL_START, RC_CONTENT_SEAL_END, FORMAL_CONTENT_SEAL_START, FORMAL_CONTENT_SEAL_END, SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, NON_FORMAL_REFERENCE_TEXT_NEEDLES, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, CALCULATION_SUMMARY_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, decodeXmlEntities, extractHtmlText, extractHtmlVisibleContent, canonicalizeRcHtmlContentSeal, verifyRcHtmlContentSeal, isRcHtmlContentSealRequired, canonicalizeRcHtmlApprovalSeal, verifyRcHtmlApprovalSeal, isRcHtmlApprovalSealRequired, canonicalizeFormalHtmlContentSeal, verifyFormalHtmlContentSeal, canonicalizeFormalHtmlApprovalSeal, verifyFormalHtmlApprovalSeal, isFormalHtmlSealRequired, normalizeAnchorHtmlSealResult, verifyAnchorHtmlDualSeals, isAnchorHtmlSealRequired, isAnchorXlsxSealRequired, hasDefinitelyHiddenStyle, hasAmbiguousVisibilityStyle, detectCalculationContentProfile, evaluateCalculationContent, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, detectNonFormalReferenceText, isDocumentClassRequired, sha256File, fileSnapshot, normalizeOcrAlignmentText, ocrAlignmentBigramDice, validateRenderedPageOcrAlignment, validateCanonicalRenderEvidence, loadPdfVisibilityEvidence, collectDocxHiddenStyleIds, stripDocxHiddenText, parseSharedStrings, extractVisibleWorksheetText, resolveVisibleWorksheetEntries, extractXlsxVisibleContent, extractTextMetadata, excavationEvidenceMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzeExcavationEvidenceChains, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };

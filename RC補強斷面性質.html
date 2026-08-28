@@ -2403,6 +2403,7 @@ function exportBeamReport() {
   openReport({
     title: 'RC 梁補強斷面計算書',
     subtitle: `${g.b_mm}×${g.h_mm} 矩形梁　｜　${modeTxt}`,
+    textExport: true,
     outputSource: { tool: 'RC 補強斷面性質計算', version: 'V1.7' },
     project,
     documentState: attachmentReadiness.documentState,
@@ -2523,6 +2524,7 @@ function exportColReport() {
   openReport({
     title: 'RC 柱補強斷面計算書',
     subtitle: `${g.b_mm}×${g.h_mm} 矩形柱　｜　${modeTxt}`,
+    textExport: true,
     outputSource: { tool: 'RC 補強斷面性質計算', version: 'V1.7' },
     project,
     documentState: attachmentReadiness.documentState,

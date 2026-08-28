@@ -486,6 +486,8 @@ async function main() {
       assert(portableHtmlState.hasDownloadControl && portableHtmlState.serializerAvailable, `${tc.key} report exposes current-state HTML download`, JSON.stringify(portableHtmlState));
       assert(portableHtmlState.hasTextDownloadControl && portableHtmlState.textBuilderAvailable, `${tc.key} report exposes TXT calculation-book download`, JSON.stringify({ hasTextDownloadControl:portableHtmlState.hasTextDownloadControl, textBuilderAvailable:portableHtmlState.textBuilderAvailable }));
       for (const fragment of [
+        '文件類別：文字備查',
+        '正式附件資格：否',
         '文件用途：文字備查版（不作為正式附件）',
         '來源文件狀態：正式附件',
         '產出工具：梁 Beam 設計／檢核',

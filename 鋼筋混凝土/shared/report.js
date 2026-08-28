@@ -580,6 +580,8 @@ function buildRcAttachmentApprovalReport(options = {}) {
           var heading = cleanReportText((document.querySelector('.rep-header h1, .header h1, h1') || {}).textContent) || reportTitle;
           lines.push(heading);
           lines.push(Array(Math.max(9, heading.length + 1)).join('='));
+          lines.push('文件類別：文字備查');
+          lines.push('正式附件資格：否');
           lines.push('文件用途：文字備查版（不作為正式附件）');
           lines.push('正式交付：請使用核可 HTML，或由計算書預覽列印／存成 PDF。');
           var documentStatus = cleanReportText((document.querySelector('.rep-document-status-line') || {}).textContent);

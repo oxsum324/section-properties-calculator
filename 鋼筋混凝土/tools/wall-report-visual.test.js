@@ -5,6 +5,7 @@ const { chromium } = require('playwright');
 const { assertReportPdfTextQuality, assertReportScreenshotQuality, captureArtifactIntegrity } = require('./report-screenshot-quality');
 const { assertPortableFormalHtml } = require('./report-portable-html-check');
 const { buildRcResultReconciliation } = require('./report-result-reconciliation');
+const { captureReportTextDownload } = require('./report-text-download-check');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.WALL_REPORT_PORT || 0);
@@ -667,6 +668,14 @@ async function main() {
       await report.emulateMedia({ media: 'screen' });
 
       const metrics = await reportMetrics(report);
+      const textDownload = await captureReportTextDownload(report, {
+        outputDir: OUT_DIR,
+        filePrefix: 'wall',
+        caseKey: key,
+        label: `${key} wall report`,
+        assert,
+        expectedFragments: ['牆設計計算書', '產出工具：牆 Wall 設計／檢核', '工具版本：V3.2'],
+      });
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${key} report`, {
         assert,
@@ -683,7 +692,7 @@ async function main() {
         reportCalculationFingerprint: metrics.calculationFingerprint,
         verifiedAssertionCount: (expected.fragments || []).length + 2,
       });
-      results.push({ key, screenshotPath, pdfPath, state, metrics, printMetrics, screenshotQuality, pdfTextQuality, artifactIntegrity, resultReconciliation });
+      results.push({ key, screenshotPath, pdfPath, state, metrics, textDownload, printMetrics, screenshotQuality, pdfTextQuality, artifactIntegrity, resultReconciliation });
 
       assert(metrics.title === expected.title, `${key} report title`, metrics.title);
       assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${key} project JSON calculation fingerprint`, sourceFingerprint);

@@ -43,6 +43,7 @@ const pilePyTableAdapterTest = read(pilePyTableAdapterTestPath);
   'documentState: attachmentReadiness.documentState',
   'documentClass: attachmentReadiness.documentClass',
   '案件識別資料',
+  'textExport:true',
 ].forEach(needle => assertIncludes(tool, needle, 'foundation formal attachment state wiring'));
 
 [
@@ -218,6 +219,7 @@ const pilePyTableAdapterTest = read(pilePyTableAdapterTestPath);
   'screenshotQuality',
   'pdfTextQuality',
   'captureArtifactIntegrity',
+  'captureReportTextDownload',
   "'reportPdf'",
   "'reportScreenshot'",
   'artifactIntegrity',

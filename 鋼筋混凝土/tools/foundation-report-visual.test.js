@@ -5,6 +5,7 @@ const { chromium } = require('playwright');
 const { assertReportPdfTextQuality, assertReportScreenshotQuality, captureArtifactIntegrity } = require('./report-screenshot-quality');
 const { assertPortableFormalHtml } = require('./report-portable-html-check');
 const { buildRcResultReconciliation } = require('./report-result-reconciliation');
+const { captureReportTextDownload } = require('./report-text-download-check');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.FOUNDATION_REPORT_PORT || 0);
@@ -429,6 +430,14 @@ async function main() {
 
       const metrics = await reportMetrics(report);
       const expected = EXPECTED[tc.key] || {};
+      const textDownload = await captureReportTextDownload(report, {
+        outputDir: OUT_DIR,
+        filePrefix: 'foundation',
+        caseKey: tc.key,
+        label: `${tc.key} foundation report`,
+        assert,
+        expectedFragments: ['產出工具：基礎 Foundation 設計／檢核', '工具版本：V3.1'],
+      });
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${tc.key} report`, {
         assert,
@@ -446,7 +455,7 @@ async function main() {
         reportCalculationFingerprint: metrics.calculationFingerprint,
         verifiedAssertionCount: (expected.fragments || []).length + 3,
       });
-      results.push({ key: tc.key, screenshotPath, pdfPath, state, metrics, printMetrics, screenshotQuality, pdfTextQuality, artifactIntegrity, resultReconciliation });
+      results.push({ key: tc.key, screenshotPath, pdfPath, state, metrics, textDownload, printMetrics, screenshotQuality, pdfTextQuality, artifactIntegrity, resultReconciliation });
 
       assert(metrics.title === expected.title, `${tc.key} report title`, metrics.title);
       assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${tc.key} project JSON calculation fingerprint`, sourceFingerprint);

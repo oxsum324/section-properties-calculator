@@ -34,6 +34,7 @@ const tool = read(toolPath);
   "title:'P-M 設計互制圖'",
   "key:'pm-capacity'",
   "key:'shear-capacity'",
+  'textExport:true',
 ].forEach(needle => assertIncludes(tool, needle, 'wall formal attachment state wiring'));
 
 [
@@ -94,6 +95,7 @@ const tool = read(toolPath);
   'screenshotQuality',
   'pdfTextQuality',
   'captureArtifactIntegrity',
+  'captureReportTextDownload',
   "'reportPdf'",
   "'reportScreenshot'",
   'artifactIntegrity',

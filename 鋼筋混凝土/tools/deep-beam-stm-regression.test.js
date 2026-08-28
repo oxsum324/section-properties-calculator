@@ -5,6 +5,7 @@ const http = require('http');
 const { chromium } = require('playwright');
 const { readPdfTextWithPoppler, captureArtifactIntegrity } = require('./report-screenshot-quality');
 const { assertPortableFormalHtml } = require('./report-portable-html-check');
+const { captureReportTextDownload } = require('./report-text-download-check');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const RELEASE_OUT = process.env.PREFLIGHT_RUN_DIR
@@ -100,6 +101,15 @@ async function main() {
     const report = await popupPromise;
     await report.waitForLoadState('load');
     await report.waitForSelector('.rep-paper');
+    const textDownload = await captureReportTextDownload(report, {
+      outputDir:OUT_SCREEN,
+      filePrefix:'deep-beam-stm',
+      caseKey:'ready',
+      label:'RC deep-beam STM report',
+      assert:assertCheck,
+      expectedFragments:['RC 深梁壓拉桿模型檢核計算書','產出工具：RC 深梁壓拉桿模型','工具版本：V0.3'],
+      removeAfterCheck:Boolean(RELEASE_OUT),
+    });
     const reportText = await report.locator('body').innerText();
     for (const needle of [
       'RC 深梁壓拉桿模型檢核計算書',
@@ -154,6 +164,7 @@ async function main() {
         captureArtifactIntegrity(screenshotPath, 'reportScreenshot'),
       ],
       metrics:{ pages:pdf.pages, textLength:pdf.textLength, calculationFingerprint:portableHtml.calculationFingerprint },
+      referenceTextDownload:textDownload,
       portableHtml,
     };
     const evidencePath = path.join(OUT_FORMAL, 'deep-beam-stm-formal-evidence.json');
