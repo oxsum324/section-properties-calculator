@@ -193,7 +193,7 @@ const expectedTools = [
   'excavation-service-data-governance',
 ];
 
-assert(catalog.version === '1.50.0', 'excavation traceability catalog version', catalog.version);
+assert(catalog.version === '1.51.0', 'excavation traceability catalog version', catalog.version);
 assert(catalog.family === 'excavation-traceability', 'excavation traceability catalog family', catalog.family);
 assertString(catalog.description, 'excavation traceability catalog description');
 assert(Array.isArray(catalog.tools), 'excavation traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -1977,7 +1977,11 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'def allowable_fby',
   'def interaction_components',
   'def interaction_ratio',
+  'def wall_capacity_details',
   'def wall_moment_strength',
+  '鋼板樁斷面容量資料或採用依據不完整，Mwc / Vwc 採 0，不折減橫擋需求。',
+  'allowable_bending * section_modulus / 100.0',
+  'allowable_shear * shear_area',
   'def _compression_breakdown',
   'def _tension_breakdown',
   'support_interaction',
@@ -1996,6 +2000,9 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'def _report_scope_lines',
   'def _formula_source_text',
   '鋼結構容許應力設計法規範及解說',
+  '鋼板樁 Mwc = Fb x Z / 100；Vwc = Fv x Aw',
+  '鋼板樁容量僅用於橫擋需求折減',
+  '不包含鋼板樁壁體彎曲、剪力、變形、貫入深度',
   'support_interaction',
   'wale_bending_shear',
   'column_interaction',
@@ -2015,6 +2022,10 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   'formula_id',
   'document_status',
   'approval_time',
+  'sheet_pile_section_name',
+  'sheet_pile_section_modulus_cm3_per_m',
+  'sheet_pile_shear_area_cm2_per_m',
+  'sheet_pile_capacity_basis',
 ].forEach((needle) => {
   assert(schemas.includes(needle), `excavation schemas keep ${needle}`, needle);
 });
@@ -2076,6 +2087,10 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   '下載 PDF＋證據組包來源套件',
   '可直接交給正式附件包管理器',
   '儲存、產生 PDF 並逐頁驗證',
+  '鋼板樁型號',
+  '每米斷面模數 Z (cm3/m)',
+  '斷面性質與容量採用依據',
+  '不完整，容量歸零',
   'setReportApproved(false)',
 ].forEach((needle) => {
   assert(app.includes(needle), `excavation frontend keeps ${needle}`, needle);

@@ -1,5 +1,5 @@
 {
-  "version": "1.50.0",
+  "version": "1.51.0",
   "family": "excavation-traceability",
   "description": "開挖擋土支撐服務型工具的規範語意追蹤表。每筆 trace 將分析檔匯入、輸入欄位、構件檢核、報表落點、測試證據與人工複核邊界對齊，避免只因 FastAPI / React 流程可產出 PDF 或 DOCX 就誤判為支撐系統檢核依據已完整可追溯。",
   "tools": [
@@ -144,7 +144,7 @@
     {
       "key": "excavation-member-strength",
       "label": "支撐、橫擋、斜撐與大角撐檢核",
-      "scope": "支撐、橫擋、斜撐、大角撐的容許應力、KL/r、Fa、Fbx / Fby、彎剪與互制比檢核，含橫擋扣除連續壁抵抗力選項。",
+      "scope": "支撐、橫擋、斜撐、大角撐的容許應力、KL/r、Fa、Fbx / Fby、彎剪與互制比檢核，含橫擋扣除連續壁或具完整來源之鋼板樁抵抗力選項。",
       "status": "covered",
       "traces": [
         {
@@ -159,13 +159,13 @@
         },
         {
           "id": "excavation-wale-wall-deduction",
-          "clause": "鋼結構容許應力設計法規範及解說，第七章撓曲構材與剪力條文；連續壁 Mwc / Vwc 抵抗力扣除為專案檢核假設",
-          "purpose": "橫擋檢核需分開追蹤彎矩、剪力、容許彎應力、容許剪應力與牆體扣抵，不讓扣除連續壁抵抗力成為未揭露的隱含假設。",
-          "inputs": ["line_load_t_per_m", "span_m", "section_name", "consider_wall_deduction_for_wales", "wall_thickness_cm", "wall_fc_kg_cm2", "wall_rebar", "Fy", "E"],
-          "calculation": ["calculate_wale", "wall_moment_strength", "wall_shear_strength", "wale_bending_shear", "bending_ratio", "shear_ratio"],
-          "report": ["橫擋檢核", "Mwc / Vwc", "彎矩比", "剪力比", "牆體扣底說明", "公式來源"],
-          "evidence": ["backend/app/calculations.py", "backend/app/reporting.py", "backend/app/schemas.py", "backend/tests/test_calculations.py", "backend/tests/test_reporting.py"],
-          "manualReview": ["連續壁配筋、混凝土強度、實際可扣抵區段、開口或接頭、外部分析彎剪分配與是否允許扣底，需由專案文件、施工圖與設計者人工判斷。"]
+          "clause": "鋼結構容許應力設計法規範及解說，第七章撓曲構材與剪力條文；連續壁或鋼板樁 Mwc / Vwc 抵抗力扣除為專案指定檢核假設",
+          "purpose": "橫擋檢核需分開追蹤彎矩、剪力、容許彎應力、容許剪應力與牆體扣抵。鋼板樁只有在型號、每米斷面模數、每米剪力面積與採用依據全部具備時，才按 Fb = 0.6Fy、Fv = 0.4Fy 計入 Mwc / Vwc；任一缺漏均容量歸零，不讓壁體扣抵成為未揭露或無來源的隱含假設。",
+          "inputs": ["line_load_t_per_m", "span_m", "section_name", "consider_wall_deduction_for_wales", "wall_type", "wall_thickness_cm", "wall_fc_kg_per_cm2", "sheet_pile_section_name", "sheet_pile_section_modulus_cm3_per_m", "sheet_pile_shear_area_cm2_per_m", "sheet_pile_capacity_basis", "Fy", "E"],
+          "calculation": ["calculate_wale", "wall_capacity_details", "wall_moment_strength", "wall_shear_strength", "Fb = 0.6Fy", "Fv = 0.4Fy", "Mwc = Fb x Z / 100", "Vwc = Fv x Aw", "fail safe Mwc / Vwc = 0", "wale_bending_shear", "bending_ratio", "shear_ratio"],
+          "report": ["橫擋檢核", "鋼板樁型號", "每米斷面模數 Z", "每米剪力面積 Aw", "斷面性質與容量採用依據", "Mwc / Vwc", "彎矩比", "剪力比", "牆體扣底說明", "鋼板樁完整設計排除範圍", "公式來源"],
+          "evidence": ["backend/app/calculations.py", "backend/app/reporting.py", "backend/app/schemas.py", "backend/tests/test_calculations.py", "backend/tests/test_reporting.py", "frontend/src/App.tsx", "frontend/src/types.ts"],
+          "manualReview": ["連續壁配筋、混凝土強度、實際可扣抵區段、開口或接頭、外部分析彎剪分配與是否允許扣底，需由專案文件、施工圖與設計者人工判斷。鋼板樁斷面性質與 Fy 須由最新版型錄、材料證明與專案文件複核；本項只折減橫擋需求，不取代鋼板樁壁體彎曲、剪力、變形、貫入深度、土壓／水壓、接頭、腐蝕及施工階段設計。"]
         }
       ]
     },

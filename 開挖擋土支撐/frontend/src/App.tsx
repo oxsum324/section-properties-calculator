@@ -3166,8 +3166,10 @@ function App() {
       basic_parameters: {
         ...project.basic_parameters,
         [field]:
-          field === "wall_type"
-            ? normalizeWallTypeValue(value)
+          field === "wall_type" || field === "sheet_pile_section_name" || field === "sheet_pile_capacity_basis"
+            ? field === "wall_type"
+              ? normalizeWallTypeValue(value)
+              : value
             : Number.isFinite(parsed)
               ? parsed
               : value,
@@ -3745,6 +3747,10 @@ function App() {
     () => usesConcreteWallParameters(project?.basic_parameters.wall_type),
     [project?.basic_parameters.wall_type],
   );
+  const showSheetPileFields = useMemo(
+    () => usesSheetPileWallParameters(project?.basic_parameters.wall_type),
+    [project?.basic_parameters.wall_type],
+  );
   const advancedSettingsCustomCount = useMemo(
     () => countCustomizedAdvancedSettings(project?.basic_parameters),
     [project?.basic_parameters],
@@ -3980,6 +3986,14 @@ function App() {
             hasPositiveValue(project.basic_parameters.wall_fc_kg_per_cm2),
           ]
         : []),
+      ...(showSheetPileFields && project.calculation_options.consider_wall_deduction_for_wales
+        ? [
+            hasTextValue(project.basic_parameters.sheet_pile_section_name),
+            hasPositiveValue(project.basic_parameters.sheet_pile_section_modulus_cm3_per_m),
+            hasPositiveValue(project.basic_parameters.sheet_pile_shear_area_cm2_per_m),
+            hasTextValue(project.basic_parameters.sheet_pile_capacity_basis),
+          ]
+        : []),
     ];
     const missingBasicCount = basicFields.filter((item) => !item).length;
     const validSoils = editableSoils.filter((soil) => hasPositiveValue(soil.depth_m ?? null)).length;
@@ -4060,6 +4074,7 @@ function App() {
     bottomImportSummary,
     editableSoils,
     showConcreteWallFields,
+    showSheetPileFields,
     statusCounts,
     reportUrl,
     wordReportUrl,
@@ -4933,6 +4948,30 @@ function App() {
                     />
                   </>
                 )}
+                {showSheetPileFields && (
+                  <>
+                    <Field
+                      label="鋼板樁型號"
+                      value={project.basic_parameters.sheet_pile_section_name}
+                      onChange={(v) => updateBasic("sheet_pile_section_name", v)}
+                    />
+                    <NumberField
+                      label="每米斷面模數 Z (cm3/m)"
+                      value={project.basic_parameters.sheet_pile_section_modulus_cm3_per_m}
+                      onChange={(v) => updateBasic("sheet_pile_section_modulus_cm3_per_m", v)}
+                    />
+                    <NumberField
+                      label="每米剪力面積 Aw (cm2/m)"
+                      value={project.basic_parameters.sheet_pile_shear_area_cm2_per_m}
+                      onChange={(v) => updateBasic("sheet_pile_shear_area_cm2_per_m", v)}
+                    />
+                    <TextAreaField
+                      label="斷面性質與容量採用依據"
+                      value={project.basic_parameters.sheet_pile_capacity_basis}
+                      onChange={(v) => updateBasic("sheet_pile_capacity_basis", v)}
+                    />
+                  </>
+                )}
               </div>
               <div className="advanced-settings-shell">
                 <button
@@ -4966,10 +5005,23 @@ function App() {
                 />
                 <span>橫擋考慮牆體扣底</span>
               </label>
-              <p className="meta-line">勾選時會依 Excel 邏輯扣除牆體可提供的彎矩與剪力強度；取消勾選時則直接以橫擋自身需求檢核。</p>
+              <p className="meta-line">
+                勾選時會扣除牆體可提供的彎矩與剪力強度；鋼板樁須同時具備型號、Z、Aw 與採用依據，否則 Mwc / Vwc 採 0。取消勾選時直接以橫擋自身需求檢核。
+              </p>
+              {showSheetPileFields && (
+                <p className="meta-line">
+                  鋼板樁容量採 Fb = 0.6Fy、Fv = 0.4Fy，僅供本頁既有橫擋需求折減；不包含鋼板樁壁體彎曲、剪力、變形、貫入深度、土壓／水壓、接頭與施工階段設計。
+                </p>
+              )}
               <div className="meta-grid">
                 <MetaItem label="牆體彎矩 Mwc" value={fmt(waleWallDeduction.moment, "tf-m")} />
                 <MetaItem label="牆體剪力 Vwc" value={fmt(waleWallDeduction.shear, "tf")} />
+                {showSheetPileFields && (
+                  <MetaItem
+                    label="鋼板樁容量資料"
+                    value={sheetPileCapacityReady(project.basic_parameters) ? "完整，可供扣抵" : "不完整，容量歸零"}
+                  />
+                )}
                 <MetaItem
                   label="橫擋 ratio 規則"
                   value="取彎矩比與剪力比兩者較大值"
@@ -10602,6 +10654,10 @@ function syncProjectGuardrails(project: ProjectState): ProjectState {
   const normalizedBasicParameters = {
     ...project.basic_parameters,
     wall_type: normalizeWallTypeValue(project.basic_parameters.wall_type),
+    sheet_pile_section_name: project.basic_parameters.sheet_pile_section_name ?? "",
+    sheet_pile_section_modulus_cm3_per_m: project.basic_parameters.sheet_pile_section_modulus_cm3_per_m ?? 0,
+    sheet_pile_shear_area_cm2_per_m: project.basic_parameters.sheet_pile_shear_area_cm2_per_m ?? 0,
+    sheet_pile_capacity_basis: project.basic_parameters.sheet_pile_capacity_basis ?? "",
   };
   const normalizedSoils = buildEditableSoils(project);
   const nextColumns = normalizeConstructionStageColumns(syncColumnsFromSoils(project.columns, normalizedSoils));
@@ -11998,6 +12054,24 @@ function usesConcreteWallParameters(wallType: string | null | undefined): boolea
   return normalizeWallTypeValue(wallType ?? "") === "連續壁";
 }
 
+function usesSheetPileWallParameters(wallType: string | null | undefined): boolean {
+  return normalizeWallTypeValue(wallType ?? "") === "鋼板樁";
+}
+
+function sheetPileCapacityReady(
+  params: ProjectState["basic_parameters"] | null | undefined,
+): boolean {
+  return Boolean(
+    params &&
+      usesSheetPileWallParameters(params.wall_type) &&
+      hasTextValue(params.sheet_pile_section_name) &&
+      hasPositiveValue(params.sheet_pile_section_modulus_cm3_per_m) &&
+      hasPositiveValue(params.sheet_pile_shear_area_cm2_per_m) &&
+      hasTextValue(params.sheet_pile_capacity_basis) &&
+      hasPositiveValue(params.fy_tf_per_cm2),
+  );
+}
+
 function normalizeWallTypeValue(value: string): string {
   const compact = value.replace(/\s+/g, "");
   if (compact.includes("連續") || compact.includes("连续")) return "連續壁";
@@ -12164,6 +12238,9 @@ function summarySectionName(item: SummaryItem): string {
 }
 
 function wallMomentStrength(params: ProjectState["basic_parameters"] | null | undefined): number {
+  if (params && sheetPileCapacityReady(params)) {
+    return 0.6 * params.fy_tf_per_cm2 * params.sheet_pile_section_modulus_cm3_per_m / 100.0;
+  }
   if (!params || !usesConcreteWallParameters(params.wall_type)) return 0;
   return (
     0.9 *
@@ -12175,6 +12252,9 @@ function wallMomentStrength(params: ProjectState["basic_parameters"] | null | un
 }
 
 function wallShearStrength(params: ProjectState["basic_parameters"] | null | undefined): number {
+  if (params && sheetPileCapacityReady(params)) {
+    return 0.4 * params.fy_tf_per_cm2 * params.sheet_pile_shear_area_cm2_per_m;
+  }
   if (!params || !usesConcreteWallParameters(params.wall_type)) return 0;
   return (
     0.75 *

@@ -44,6 +44,10 @@ export type BasicParameters = {
   wall_type: string;
   wall_thickness_cm: number;
   wall_fc_kg_per_cm2: number;
+  sheet_pile_section_name: string;
+  sheet_pile_section_modulus_cm3_per_m: number;
+  sheet_pile_shear_area_cm2_per_m: number;
+  sheet_pile_capacity_basis: string;
 };
 
 export type AnalysisForceCase = {

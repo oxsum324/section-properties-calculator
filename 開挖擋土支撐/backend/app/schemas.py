@@ -140,6 +140,10 @@ class BasicParameters(BaseModel):
     wall_type: str = "連續壁"
     wall_thickness_cm: float = 100.0
     wall_fc_kg_per_cm2: float = 245.0
+    sheet_pile_section_name: str = Field(default="", max_length=120)
+    sheet_pile_section_modulus_cm3_per_m: float = Field(default=0.0, ge=0.0)
+    sheet_pile_shear_area_cm2_per_m: float = Field(default=0.0, ge=0.0)
+    sheet_pile_capacity_basis: str = Field(default="", max_length=240)
 
 
 class RemovalTransferReceiverAllocation(BaseModel):

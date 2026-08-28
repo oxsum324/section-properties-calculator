@@ -4,7 +4,10 @@ const { spawnSync } = require('child_process');
 
 const toolRoot = __dirname;
 const frontendAppPath = path.join(toolRoot, 'frontend', 'src', 'App.tsx');
-const frontendApp = fs.readFileSync(frontendAppPath, 'utf8').replace(/^\uFEFF/, '');
+const frontendApp = fs
+  .readFileSync(frontendAppPath, 'utf8')
+  .replace(/^\uFEFF/, '')
+  .replace(/\r\n?/g, '\n');
 const releaseEvidenceDir = process.env.EXCAVATION_RENDERED_EVIDENCE_DIR
   ? path.resolve(process.env.EXCAVATION_RENDERED_EVIDENCE_DIR)
   : process.env.PREFLIGHT_RELEASE === '1' && process.env.PREFLIGHT_RUN_DIR

@@ -667,6 +667,30 @@ class ReportingTests(unittest.TestCase):
         self.assertNotIn("層別\n水平支撐\n大角撐", table_text)
         report_path.unlink(missing_ok=True)
 
+    def test_word_report_discloses_sheet_pile_capacity_source_and_scope(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        project.basic_parameters.wall_type = "鋼板樁"
+        project.basic_parameters.sheet_pile_section_name = "SP-IV 測試斷面"
+        project.basic_parameters.sheet_pile_section_modulus_cm3_per_m = 3000.0
+        project.basic_parameters.sheet_pile_shear_area_cm2_per_m = 120.0
+        project.basic_parameters.sheet_pile_capacity_basis = "製造商型錄 SP-2026 表 4，設計者專案指定"
+        project.calculation_results = calculate_project(project)
+
+        report_path = build_word_report(project, concise_mode=False)
+        document = Document(str(report_path))
+        text = "\n".join(paragraph.text for paragraph in document.paragraphs)
+        table_text = "\n".join(cell.text for table in document.tables for row in table.rows for cell in row.cells)
+        combined_text = text + "\n" + table_text
+
+        self.assertIn("SP-IV 測試斷面", combined_text)
+        self.assertIn("每米斷面模數 Z (cm3/m)", combined_text)
+        self.assertIn("每米剪力面積 Aw (cm2/m)", combined_text)
+        self.assertIn("製造商型錄 SP-2026 表 4，設計者專案指定", combined_text)
+        self.assertIn("鋼板樁 Mwc = Fb x Z / 100；Vwc = Fv x Aw", combined_text)
+        self.assertIn("鋼板樁容量僅用於橫擋需求折減", combined_text)
+        self.assertIn("不包含鋼板樁壁體彎曲、剪力、變形、貫入深度", combined_text)
+        report_path.unlink(missing_ok=True)
+
     def test_word_report_uses_compact_manual_analysis_rows(self) -> None:
         table_text = self.default_word_artifact()["table_text"]
 

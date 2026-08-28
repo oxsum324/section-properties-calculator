@@ -280,6 +280,16 @@ def calculate_project(project: ProjectState) -> CalculationResults:
     params = project.basic_parameters
     options, option_warnings = _normalized_calculation_options(project)
     results.warnings.extend(option_warnings)
+    wall_capacity = wall_capacity_details(params)
+    if (
+        params.wall_type == "鋼板樁"
+        and options.consider_wall_deduction_for_wales
+        and (options.include_top_wales or options.include_bottom_wales)
+        and not wall_capacity["ready"]
+    ):
+        results.warnings.append(
+            "鋼板樁斷面容量資料或採用依據不完整，Mwc / Vwc 採 0，不折減橫擋需求。"
+        )
     synced_support_rows = _all_support_rows(project, options)
     top_support_name = _module_name("top", "水平支撐", options.include_top_supports, options.include_bottom_supports)
     bottom_support_name = _module_name("bottom", "水平支撐", options.include_top_supports, options.include_bottom_supports)
@@ -696,8 +706,9 @@ def calculate_wale(
             "請輸入至少 1 支橫擋。",
             inputs,
         )
-    wall_moment = wall_moment_strength(params) if consider_wall_deduction else 0.0
-    wall_shear = wall_shear_strength(params) if consider_wall_deduction else 0.0
+    wall_capacity = wall_capacity_details(params)
+    wall_moment = float(wall_capacity["moment_tf_m"]) if consider_wall_deduction else 0.0
+    wall_shear = float(wall_capacity["shear_tf"]) if consider_wall_deduction else 0.0
     lc = min(
         20.0 * section.flange_width_cm / math.sqrt(params.fy_tf_per_cm2),
         1400.0
@@ -763,6 +774,15 @@ def calculate_wale(
             "fv_allow": round(fv_allow, 4),
             "wall_moment_strength": round(wall_moment, 4),
             "wall_shear_strength": round(wall_shear, 4),
+            "wall_capacity_kind": wall_capacity["kind"],
+            "wall_capacity_ready": wall_capacity["ready"],
+            "wall_capacity_reason": wall_capacity["reason"],
+            "wall_capacity_section_name": wall_capacity["section_name"],
+            "wall_capacity_basis": wall_capacity["basis"],
+            "wall_section_modulus_cm3_per_m": wall_capacity["section_modulus_cm3_per_m"],
+            "wall_shear_area_cm2_per_m": wall_capacity["shear_area_cm2_per_m"],
+            "wall_allowable_bending_tf_per_cm2": wall_capacity["allowable_bending_tf_per_cm2"],
+            "wall_allowable_shear_tf_per_cm2": wall_capacity["allowable_shear_tf_per_cm2"],
             "bending_ratio": round(bending_ratio, 4),
             "shear_ratio": round(shear_ratio, 4),
             "consider_wall_deduction": consider_wall_deduction,
@@ -1488,24 +1508,85 @@ def _module_name(side: str, base_name: str, top_enabled: bool, bottom_enabled: b
     return f"{prefix}{base_name}"
 
 
+def wall_capacity_details(params: BasicParameters) -> dict[str, object]:
+    if params.wall_type == "連續壁":
+        moment = 0.9 * 2.0 * math.sqrt(params.wall_fc_kg_per_cm2) * (
+            100.0 * params.wall_thickness_cm * params.wall_thickness_cm / 6.0
+        ) / 100000.0
+        shear = (
+            0.75
+            * 0.53
+            * math.sqrt(params.wall_fc_kg_per_cm2)
+            * (100.0 * params.wall_thickness_cm)
+            / 1000.0
+        )
+        return {
+            "kind": "continuous_wall",
+            "ready": True,
+            "reason": "連續壁依既有混凝土容量公式計算。",
+            "moment_tf_m": moment,
+            "shear_tf": shear,
+            "section_name": "",
+            "basis": "混凝土結構設計規範與本案既有連續壁扣抵假設",
+            "section_modulus_cm3_per_m": 0.0,
+            "shear_area_cm2_per_m": 0.0,
+            "allowable_bending_tf_per_cm2": 0.0,
+            "allowable_shear_tf_per_cm2": 0.0,
+        }
+
+    if params.wall_type == "鋼板樁":
+        section_name = params.sheet_pile_section_name.strip()
+        basis = params.sheet_pile_capacity_basis.strip()
+        section_modulus = params.sheet_pile_section_modulus_cm3_per_m
+        shear_area = params.sheet_pile_shear_area_cm2_per_m
+        ready = bool(
+            section_name
+            and basis
+            and section_modulus > 0.0
+            and shear_area > 0.0
+            and params.fy_tf_per_cm2 > 0.0
+        )
+        allowable_bending = 0.6 * params.fy_tf_per_cm2 if ready else 0.0
+        allowable_shear = 0.4 * params.fy_tf_per_cm2 if ready else 0.0
+        return {
+            "kind": "steel_sheet_pile",
+            "ready": ready,
+            "reason": (
+                "鋼板樁型號、每米斷面模數、每米剪力面積與採用依據均已提供。"
+                if ready
+                else "鋼板樁容量須同時具備型號、每米斷面模數、每米剪力面積與採用依據。"
+            ),
+            "moment_tf_m": allowable_bending * section_modulus / 100.0 if ready else 0.0,
+            "shear_tf": allowable_shear * shear_area if ready else 0.0,
+            "section_name": section_name,
+            "basis": basis,
+            "section_modulus_cm3_per_m": section_modulus,
+            "shear_area_cm2_per_m": shear_area,
+            "allowable_bending_tf_per_cm2": allowable_bending,
+            "allowable_shear_tf_per_cm2": allowable_shear,
+        }
+
+    return {
+        "kind": "none",
+        "ready": False,
+        "reason": "其他壁體未定義可供橫擋扣抵之容量。",
+        "moment_tf_m": 0.0,
+        "shear_tf": 0.0,
+        "section_name": "",
+        "basis": "",
+        "section_modulus_cm3_per_m": 0.0,
+        "shear_area_cm2_per_m": 0.0,
+        "allowable_bending_tf_per_cm2": 0.0,
+        "allowable_shear_tf_per_cm2": 0.0,
+    }
+
+
 def wall_moment_strength(params: BasicParameters) -> float:
-    if params.wall_type != "連續壁":
-        return 0.0
-    return 0.9 * 2.0 * math.sqrt(params.wall_fc_kg_per_cm2) * (
-        100.0 * params.wall_thickness_cm * params.wall_thickness_cm / 6.0
-    ) / 100000.0
+    return float(wall_capacity_details(params)["moment_tf_m"])
 
 
 def wall_shear_strength(params: BasicParameters) -> float:
-    if params.wall_type != "連續壁":
-        return 0.0
-    return (
-        0.75
-        * 0.53
-        * math.sqrt(params.wall_fc_kg_per_cm2)
-        * (100.0 * params.wall_thickness_cm)
-        / 1000.0
-    )
+    return float(wall_capacity_details(params)["shear_tf"])
 
 
 def _compression_breakdown(column: ColumnScenarioInput, section) -> dict[str, float]:

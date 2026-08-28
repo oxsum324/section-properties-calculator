@@ -199,6 +199,52 @@ class CalculationTests(unittest.TestCase):
         self.assertGreater(result.details["moment_tf_m"], 0.0)
         self.assertGreater(result.details["shear_tf"], 0.0)
 
+    def test_sheet_pile_capacity_is_used_only_when_all_source_fields_are_complete(self) -> None:
+        ref = load_reference_data()
+        params = ref.basic_defaults.model_copy(deep=True)
+        params.wall_type = "鋼板樁"
+        params.sheet_pile_section_name = "SP-IV 測試斷面"
+        params.sheet_pile_section_modulus_cm3_per_m = 3000.0
+        params.sheet_pile_shear_area_cm2_per_m = 120.0
+        params.sheet_pile_capacity_basis = "製造商型錄 SP-2026 表 4，設計者專案指定"
+        row = WaleRow(
+            level_label="1",
+            wale_count=1,
+            section_name=ref.sections[0].name,
+            span_m=4.0,
+            support_spacing_m=2.0,
+            line_load_tf_per_m=30.0,
+        )
+
+        result = calculate_wale(row, params, "上層橫擋")
+
+        self.assertTrue(result.details["wall_capacity_ready"])
+        self.assertEqual(result.details["wall_capacity_kind"], "steel_sheet_pile")
+        self.assertAlmostEqual(result.details["wall_moment_strength"], 45.0)
+        self.assertAlmostEqual(result.details["wall_shear_strength"], 120.0)
+        self.assertAlmostEqual(result.details["moment_tf_m"], 3.0)
+        self.assertAlmostEqual(result.details["shear_tf"], 0.0)
+        self.assertEqual(result.details["wall_capacity_basis"], "製造商型錄 SP-2026 表 4，設計者專案指定")
+
+    def test_incomplete_sheet_pile_capacity_fails_safe_and_warns(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        project.basic_parameters.wall_type = "鋼板樁"
+        project.basic_parameters.sheet_pile_section_name = "SP-IV 測試斷面"
+        project.basic_parameters.sheet_pile_section_modulus_cm3_per_m = 3000.0
+        project.basic_parameters.sheet_pile_shear_area_cm2_per_m = 120.0
+        project.basic_parameters.sheet_pile_capacity_basis = ""
+
+        results = calculate_project(project)
+
+        self.assertIn(
+            "鋼板樁斷面容量資料或採用依據不完整，Mwc / Vwc 採 0，不折減橫擋需求。",
+            results.warnings,
+        )
+        for check in results.wale_checks:
+            self.assertFalse(check.details["wall_capacity_ready"])
+            self.assertEqual(check.details["wall_moment_strength"], 0.0)
+            self.assertEqual(check.details["wall_shear_strength"], 0.0)
+
     def test_brace_interaction_display_values_match_ratio(self) -> None:
         ref = load_reference_data()
         params = ref.basic_defaults.model_copy(deep=True)

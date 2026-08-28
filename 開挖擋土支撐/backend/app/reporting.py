@@ -177,12 +177,12 @@ def build_report(
 
     elements.append(Paragraph("四、材料性質", styles["ZHHeading"]))
     basic = project.basic_parameters
-    elements.append(Paragraph("鋼材與混凝土基本設定", styles["ZHLead"]))
+    elements.append(Paragraph("鋼材與擋土壁基本設定", styles["ZHLead"]))
     material_rows = [
         ["鋼材彈性係數 E (tf/cm2)", f"{basic.e_tf_per_cm2:.2f}"],
         ["鋼材降伏應力 Fy (tf/cm2)", f"{basic.fy_tf_per_cm2:.2f}"],
         ["材料折減係數 ψ", f"{basic.psi_material:.2f}"],
-        ["混凝土抗壓強度 fc' (kg/cm2)", f"{basic.wall_fc_kg_per_cm2:.1f}"],
+        *_wall_material_rows(basic),
     ]
     material_table = Table(material_rows, colWidths=[55 * mm, 125 * mm])
     material_table.setStyle(_table_style())
@@ -190,7 +190,7 @@ def build_report(
     elements.append(Paragraph("擋土措施", styles["ZHLead"]))
     elements.append(
         Paragraph(
-            f"擋土壁型式為 {basic.wall_type}，牆厚約 {basic.wall_thickness_cm:.1f} cm。",
+            _wall_description(basic),
             styles["ZHBody"],
         )
     )
@@ -444,20 +444,20 @@ def build_word_report(
     )
 
     _add_main_heading(document, _main_section_title("材料性質"))
-    _add_subheading(document, "鋼材與混凝土基本設定")
+    _add_subheading(document, "鋼材與擋土壁基本設定")
     _add_key_value_table(
         document,
         [
             ["鋼材彈性係數 E (tf/cm2)", f"{basic.e_tf_per_cm2:.2f}"],
             ["鋼材降伏應力 Fy (tf/cm2)", f"{basic.fy_tf_per_cm2:.2f}"],
             ["材料折減係數 ψ", f"{basic.psi_material:.2f}"],
-            ["混凝土抗壓強度 fc' (kg/cm2)", f"{basic.wall_fc_kg_per_cm2:.1f}"],
+            *_wall_material_rows(basic),
         ],
     )
     _add_subheading(document, "擋土措施")
     _add_body_paragraph(
         document,
-        f"擋土壁型式為 {basic.wall_type}，牆厚約 {basic.wall_thickness_cm:.1f} cm。",
+        _wall_description(basic),
     )
 
     _add_main_heading(document, _main_section_title("輸入基本資料"))
@@ -1000,8 +1000,47 @@ def _report_scope_lines(project: ProjectState) -> list[str]:
         lines.append("本計算書目前未納入構件檢核項目，相關內容僅供輸入條件與章節編排確認之用。")
     if inactive_modules:
         lines.append(f"未納入檢討之{'、'.join(inactive_modules)}，不列入本章摘要與後附附件內容。")
+    if project.basic_parameters.wall_type == "鋼板樁":
+        lines.append(
+            "鋼板樁斷面容量僅供本工具既有橫擋需求之 Mwc / Vwc 折減；不包含鋼板樁壁體彎曲、剪力、變形、貫入深度、土壓／水壓、接頭、腐蝕與施工階段設計。"
+        )
     lines.append("本報告所列正文摘要與附件細部驗算，均以本次重新計算之結果為準。")
     return lines
+
+
+def _wall_material_rows(basic: BasicParameters) -> list[list[str]]:
+    if basic.wall_type == "連續壁":
+        return [
+            ["混凝土抗壓強度 fc' (kg/cm2)", f"{basic.wall_fc_kg_per_cm2:.1f}"],
+            ["連續壁厚度 (cm)", f"{basic.wall_thickness_cm:.1f}"],
+        ]
+    if basic.wall_type == "鋼板樁":
+        return [
+            ["鋼板樁型號", basic.sheet_pile_section_name.strip() or "未提供"],
+            ["每米斷面模數 Z (cm3/m)", _fmt_short(basic.sheet_pile_section_modulus_cm3_per_m)],
+            ["每米剪力面積 Aw (cm2/m)", _fmt_short(basic.sheet_pile_shear_area_cm2_per_m)],
+            ["斷面性質與容量採用依據", basic.sheet_pile_capacity_basis.strip() or "未提供；Mwc / Vwc 採 0"],
+        ]
+    return [["擋土壁容量", "未定義；Mwc / Vwc 採 0"]]
+
+
+def _wall_description(basic: BasicParameters) -> str:
+    if basic.wall_type == "連續壁":
+        return f"擋土壁型式為連續壁，牆厚約 {basic.wall_thickness_cm:.1f} cm。"
+    if basic.wall_type == "鋼板樁":
+        ready = bool(
+            basic.sheet_pile_section_name.strip()
+            and basic.sheet_pile_capacity_basis.strip()
+            and basic.sheet_pile_section_modulus_cm3_per_m > 0
+            and basic.sheet_pile_shear_area_cm2_per_m > 0
+            and basic.fy_tf_per_cm2 > 0
+        )
+        status = "容量資料完整，可依橫擋扣底選項採用" if ready else "容量資料不完整，Mwc / Vwc 採 0"
+        return (
+            f"擋土壁型式為鋼板樁，型號 {basic.sheet_pile_section_name.strip() or '未提供'}；"
+            f"{status}。本項僅供橫擋需求折減，不代表鋼板樁壁體設計完成。"
+        )
+    return f"擋土壁型式為 {basic.wall_type}；未定義可供橫擋扣抵之容量。"
 
 
 def _design_basis_lines(project: ProjectState) -> list[str]:
@@ -2112,7 +2151,7 @@ def _build_concise_summary_plain_rows(checks: list[CheckResult]) -> list[list[st
 def _formula_source_text(formula_id: str) -> str:
     mapping = {
         "support_interaction": "鋼結構容許應力設計法規範及解說，第六章受壓構材與第八章構材承受組合力及扭矩相關條文。",
-        "wale_bending_shear": "鋼結構容許應力設計法規範及解說，第七章撓曲構材與剪力條文；若啟用牆體扣底，另扣除連續壁 Mwc、Vwc 之抵抗能力。",
+        "wale_bending_shear": "鋼結構容許應力設計法規範及解說，第七章撓曲構材與剪力條文；若啟用牆體扣底，連續壁依混凝土容量公式、鋼板樁依專案指定斷面性質與 Fb = 0.6Fy、Fv = 0.4Fy 計算 Mwc、Vwc。",
         "brace_interaction": "鋼結構容許應力設計法規範及解說，第六章受壓構材與第八章構材承受組合力及扭矩相關條文。",
         "corner_brace_interaction": "鋼結構容許應力設計法規範及解說，第六章受壓構材與第八章構材承受組合力及扭矩相關條文。",
         "column_interaction": "鋼結構容許應力設計法規範及解說，第六章受壓構材、第八章組合力條文；基礎承載部分併用既有柱腳檢核公式。",
@@ -2231,7 +2270,34 @@ def _wale_detail_content(
 ) -> tuple[list[str], list[str], list[str]]:
     inputs = check.inputs
     details = check.details
+    wall_kind = str(details.get("wall_capacity_kind", "none"))
+    wall_ready = bool(details.get("wall_capacity_ready", False))
+    wall_formulas: list[str] = []
+    wall_substitutions: list[str] = []
+    if wall_kind == "steel_sheet_pile":
+        if wall_ready:
+            wall_formulas = [
+                "鋼板樁容許彎曲應力 Fb = 0.6 x Fy；容許剪應力 Fv = 0.4 x Fy",
+                "鋼板樁 Mwc = Fb x Z / 100；Vwc = Fv x Aw",
+            ]
+        else:
+            wall_formulas = ["鋼板樁型號、Z、Aw 或採用依據任一不完整時，Mwc = Vwc = 0，不得折減橫擋需求。"]
+        wall_substitutions = [
+            f"鋼板樁型號 = {details.get('wall_capacity_section_name') or '未提供'}",
+            f"Z = {_fmt_short(details.get('wall_section_modulus_cm3_per_m'))} cm3/m，Aw = {_fmt_short(details.get('wall_shear_area_cm2_per_m'))} cm2/m",
+            f"Fb = {_fmt_short(details.get('wall_allowable_bending_tf_per_cm2'))} tf/cm2，Fv = {_fmt_short(details.get('wall_allowable_shear_tf_per_cm2'))} tf/cm2",
+            f"斷面性質與容量採用依據 = {details.get('wall_capacity_basis') or '未提供'}",
+            f"容量資料狀態 = {'完整' if wall_ready else '不完整，容量歸零'}；{details.get('wall_capacity_reason') or ''}",
+        ]
+    elif wall_kind == "continuous_wall":
+        wall_formulas = [
+            "連續壁 Mwc、Vwc 依本案既有混凝土容量公式計算；是否允許扣抵仍屬專案指定與設計者判斷。"
+        ]
+    else:
+        wall_formulas = ["未定義之壁體型式不採抵抗容量，Mwc = Vwc = 0。"]
+
     formulas = [
+        *wall_formulas,
         "M = max(Ww x Lw^2 / 10 - Mwc, 0)",
         "V = max(Ww x Lw / 2 - Vwc, 0)",
         "fbx = M x 100 / (Sx x n)",
@@ -2242,6 +2308,8 @@ def _wale_detail_content(
     ]
     substitutions = [
         f"Ww = {_fmt_short(inputs.get('線載重 Ww'))} tf/m，Lw = {_fmt_short(inputs.get('跨度 Lw'))} m，n = {_fmt_short(inputs.get('支數'))}",
+        f"牆體扣底模式 = {'考慮' if details.get('consider_wall_deduction') else '不考慮'}",
+        *wall_substitutions,
         f"Mwc = {_fmt_short(details.get('wall_moment_strength'))} tf-m，Vwc = {_fmt_short(details.get('wall_shear_strength'))} tf",
         f"lc = min(20 x bf / sqrt(Fy), 1400 / ((d/(bf x tf)) x Fy)) = {_fmt_short(details.get('lc_cm'))} cm",
         f"M = max({_fmt_short(inputs.get('線載重 Ww'))} x {_fmt_short(inputs.get('跨度 Lw'))}^2 / 10 - {_fmt_short(details.get('wall_moment_strength'))}, 0) = {_fmt_short(details.get('moment_tf_m'))} tf-m",
@@ -2262,6 +2330,8 @@ def _wale_detail_content(
         f"控制模式 = {check.controlling_condition}",
         f"利用率 R = {_fmt_short(check.utilization_ratio)}，判定 = {_report_status_text(check.status)}",
     ]
+    if wall_kind == "steel_sheet_pile":
+        results.append("鋼板樁容量僅用於橫擋需求折減；鋼板樁壁體完整設計不在本計算書範圍內。")
     return formulas, substitutions, results
 
 
