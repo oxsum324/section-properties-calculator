@@ -131,6 +131,17 @@ async page => {
           await page.waitForFunction(() => document.body?.dataset.auditScope === 'public' &&
             document.getElementById('loadedAt')?.textContent !== '尚未載入', null, { timeout: 30000 });
         }
+        if (versionedHeadingRoutes.has(route)) {
+          await page.waitForFunction(({ routeName, expectedVersion }) => {
+            const heading = routeName === '/stone-fixing'
+              ? document.getElementById('tool-header')
+              : document.querySelector('h1');
+            return Boolean(expectedVersion) && String(heading?.textContent || '').includes(expectedVersion);
+          }, {
+            routeName: route,
+            expectedVersion: routeVersions[route] || '',
+          }, { timeout: 30000 });
+        }
         await page.waitForTimeout(150);
       } catch (error) {
         navigationError = error.message;

@@ -354,5 +354,10 @@ assert.ok(pagesBrowserSmoke.includes("'/toolbox-classic'"), 'Pages browser smoke
 assert.ok(pagesBrowserSmoke.includes("'/steel-formal'") && pagesBrowserSmoke.includes("'/decking'"), 'Pages browser smoke includes steel and decking print boundaries');
 assert.equal(pagesBrowserSmoke.includes('/%E9%8B%BC%E6%A7%8B%E5%B7%A5%E5%85%B7/output/audit/audit-status.json'), false, 'Pages browser smoke no longer ignores steel private-audit 404');
 assert.ok(pagesBrowserSmoke.includes('directPrintBoundaries'), 'Pages browser smoke uses shared launcher print-boundary checks');
+assert.ok(
+  pagesBrowserSmoke.includes('versionedHeadingRoutes.has(route)') &&
+    pagesBrowserSmoke.includes("String(heading?.textContent || '').includes(expectedVersion)"),
+  'Pages browser smoke waits for the canonical version heading before evaluating async application routes'
+);
 
 console.log(`public status claims contract OK (tools=${homeTools.length}, rcCards=${rcCards.length}, release=${preflightStatus.runId})`);
