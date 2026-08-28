@@ -125,7 +125,7 @@ const pageContracts = [
   ['single-pile-designer.html', 'buildProjectPayload', 'projectSnapshot = buildProjectPayload()', '單樁承載力設計器', 'V3.1'],
 ];
 
-const sharedProjectStoragePages = new Set(['column.html', 'shear-wall.html']);
+const sharedProjectStoragePages = new Set(['column.html', 'slab.html', 'shear-wall.html', 'foundation.html']);
 
 const escapeRegExp = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 for (const [file, collector, snapshotCall, sourceTool, sourceVersion] of pageContracts) {

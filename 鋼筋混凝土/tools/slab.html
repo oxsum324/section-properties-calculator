@@ -611,6 +611,7 @@
 <script src="../shared/flexure.js?v=1"></script>
 <script src="../shared/slab-evaluator.js?v=1"></script>
 <script src="../shared/report.js?v=10"></script>
+<script src="../shared/project-storage.js?v=1"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script>
@@ -723,30 +724,18 @@
     document.body.appendChild(note);
     setTimeout(() => note.remove(), status === 'fail' ? 6000 : 4500);
   }
-  function slabProjectControls() {
-    return Array.from(document.querySelectorAll('input[id], select[id], textarea[id]')).filter(el => {
-      if (!el.id || SLAB_PROJECT_EXCLUDED_IDS.has(el.id)) return false;
-      return (el.type || '').toLowerCase() !== 'file';
-    });
-  }
-  function readSlabControl(el) {
-    if ((el.type || '').toLowerCase() === 'checkbox') {
-      return { kind: 'checkbox', checked: !!el.checked };
-    }
-    return {
-      kind: el.tagName.toLowerCase(),
-      inputType: (el.type || '').toLowerCase(),
-      value: ['projName', 'projNo', 'projDesigner'].includes(el.id)
-        ? window.RCUI.normalizeProjectFieldValue(el.value)
-        : el.value
-    };
-  }
+  const slabProjectStorage = window.RCProjectStorage.createManager({
+    documentRef: document,
+    getElement: $,
+    excludedIds: SLAB_PROJECT_EXCLUDED_IDS,
+    storageKey: SLAB_PROJECT_STORAGE_KEY,
+    fallbackBase: 'RC板專案',
+    normalizeProjectFieldValue: value => window.RCUI.normalizeProjectFieldValue(value)
+  });
+
   function collectSlabProjectData() {
     if (typeof calcSlab === 'function') calcSlab();
-    const fields = {};
-    slabProjectControls().forEach(el => {
-      fields[el.id] = readSlabControl(el);
-    });
+    const fields = slabProjectStorage.collectFields();
     const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
     const payload = {
       schema: SLAB_PROJECT_SCHEMA,
@@ -770,25 +759,13 @@
     return window.RCReportFingerprint.withProjectCalculationFingerprint(payload);
   }
   function slabProjectFilename(payload) {
-    const meta = payload?.metadata || {};
-    const base = [meta.projectNo, meta.projectName].filter(Boolean).join('_') || 'RC板專案';
-    const safeBase = base.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_').slice(0, 80);
-    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
-    return `${safeBase}_${stamp}.json`;
+    return slabProjectStorage.buildFilename(payload);
   }
   function downloadSlabProjectFile() {
     try {
       const payload = collectSlabProjectData();
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = slabProjectFilename(payload);
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      showSlabProjectStatus(`已下載板專案檔：${a.download}`);
+      const filename = slabProjectStorage.downloadJson(payload);
+      showSlabProjectStatus(`已下載板專案檔：${filename}`);
       return payload;
     } catch (err) {
       console.error('slab project save failed', err);
@@ -813,29 +790,7 @@
     });
   }
   function setSlabProjectControl(id, saved) {
-    const el = $(id);
-    if (!el || (el.type || '').toLowerCase() === 'file') return false;
-    const type = (el.type || '').toLowerCase();
-    if (type === 'checkbox') {
-      const checked = (saved && typeof saved === 'object' && 'checked' in saved)
-        ? saved.checked
-        : !!saved;
-      el.checked = !!checked;
-    } else {
-      const value = (saved && typeof saved === 'object' && 'value' in saved)
-        ? saved.value
-        : saved;
-      if (el.tagName === 'SELECT') {
-        const exists = Array.from(el.options).some(option => option.value === String(value));
-        if (!exists) return false;
-      }
-      el.value = ['projName', 'projNo', 'projDesigner'].includes(id)
-        ? window.RCUI.normalizeProjectFieldValue(value)
-        : (value == null ? '' : String(value));
-    }
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-    el.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
+    return slabProjectStorage.setControl(id, saved);
   }
   function applySlabProjectData(raw, options = {}) {
     const payload = normalizeSlabProjectPayload(raw);
@@ -877,7 +832,7 @@
   async function loadSlabProjectFile(file) {
     if (!file) return null;
     try {
-      const text = await file.text();
+      const text = await slabProjectStorage.readProjectFile(file);
       return applySlabProjectData(text, { sourceLabel: '板專案檔' });
     } catch (err) {
       console.error('slab project load failed', err);
@@ -888,10 +843,8 @@
   function saveSlabProjectDraft() {
     try {
       const payload = collectSlabProjectData();
-      localStorage.setItem(SLAB_PROJECT_STORAGE_KEY, JSON.stringify(payload));
-      const name = window.RCUI.normalizeProjectFieldValue(payload.metadata.projectName)
-        || window.RCUI.normalizeProjectFieldValue(payload.metadata.projectNo)
-        || '未命名專案';
+      slabProjectStorage.writeDraft(payload);
+      const name = slabProjectStorage.projectDisplayName(payload);
       showSlabProjectStatus(`已暫存到此瀏覽器：${name}`);
       return payload;
     } catch (err) {
@@ -902,7 +855,7 @@
   }
   function loadSlabProjectDraft() {
     try {
-      const raw = localStorage.getItem(SLAB_PROJECT_STORAGE_KEY);
+      const raw = slabProjectStorage.readDraft();
       if (!raw) {
         showSlabProjectStatus('此瀏覽器目前沒有板專案暫存。', 'fail');
         return null;

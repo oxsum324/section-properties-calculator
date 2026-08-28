@@ -1333,6 +1333,7 @@
 <script src="../shared/pile-py-result-bridge.js?v=1"></script>
 <script src="../shared/pile-cap-3d-stm-bridge.js?v=2"></script>
 <script src="../shared/report.js?v=10"></script>
+<script src="../shared/project-storage.js?v=1"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/joint-reaction-load-adapter.js?v=2"></script>
 <script src="../shared/joint-reaction-fixture-sanitizer-core.js?v=1"></script>
@@ -3216,32 +3217,18 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     if (!options.silent) showFoundationProjectStatus('已清除採用的 p-y 分析結果。', 'warn');
   }
 
-  function foundationProjectControls() {
-    return Array.from(document.querySelectorAll('input[id], select[id], textarea[id]')).filter(el => {
-      if (!el.id || FOUNDATION_PROJECT_EXCLUDED_IDS.has(el.id)) return false;
-      return (el.type || '').toLowerCase() !== 'file';
-    });
-  }
-
-  function readFoundationControl(el) {
-    if ((el.type || '').toLowerCase() === 'checkbox') {
-      return { kind: 'checkbox', checked: !!el.checked };
-    }
-    return {
-      kind: el.tagName.toLowerCase(),
-      inputType: (el.type || '').toLowerCase(),
-      value: ['projName', 'projNo', 'projDesigner'].includes(el.id)
-        ? window.RCUI.normalizeProjectFieldValue(el.value)
-        : el.value
-    };
-  }
+  const foundationProjectStorage = window.RCProjectStorage.createManager({
+    documentRef: document,
+    getElement: $,
+    excludedIds: FOUNDATION_PROJECT_EXCLUDED_IDS,
+    storageKey: FOUNDATION_PROJECT_STORAGE_KEY,
+    fallbackBase: 'RC基礎專案',
+    normalizeProjectFieldValue: value => window.RCUI.normalizeProjectFieldValue(value)
+  });
 
   function collectFoundationProjectData() {
     if (typeof calcFdtn === 'function') calcFdtn();
-    const fields = {};
-    foundationProjectControls().forEach(el => {
-      fields[el.id] = readFoundationControl(el);
-    });
+    const fields = foundationProjectStorage.collectFields();
     const snap = window.ftLast || {};
     const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
     const payload = {
@@ -3271,26 +3258,14 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   }
 
   function foundationProjectFilename(payload) {
-    const meta = payload?.metadata || {};
-    const base = [meta.projectNo, meta.projectName].filter(Boolean).join('_') || 'RC基礎專案';
-    const safeBase = base.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_').slice(0, 80);
-    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
-    return `${safeBase}_${stamp}.json`;
+    return foundationProjectStorage.buildFilename(payload);
   }
 
   function downloadFoundationProjectFile() {
     try {
       const payload = collectFoundationProjectData();
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = foundationProjectFilename(payload);
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      showFoundationProjectStatus(`已下載基礎專案檔：${a.download}`);
+      const filename = foundationProjectStorage.downloadJson(payload);
+      showFoundationProjectStatus(`已下載基礎專案檔：${filename}`);
       return payload;
     } catch (err) {
       console.error('foundation project save failed', err);
@@ -3493,29 +3468,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   }
 
   function setFoundationProjectControl(id, saved) {
-    const el = $(id);
-    if (!el || (el.type || '').toLowerCase() === 'file') return false;
-    const type = (el.type || '').toLowerCase();
-    if (type === 'checkbox') {
-      const checked = (saved && typeof saved === 'object' && 'checked' in saved)
-        ? saved.checked
-        : !!saved;
-      el.checked = !!checked;
-    } else {
-      const value = (saved && typeof saved === 'object' && 'value' in saved)
-        ? saved.value
-        : saved;
-      if (el.tagName === 'SELECT') {
-        const exists = Array.from(el.options).some(option => option.value === String(value));
-        if (!exists) return false;
-      }
-      el.value = ['projName', 'projNo', 'projDesigner'].includes(id)
-        ? window.RCUI.normalizeProjectFieldValue(value)
-        : (value == null ? '' : String(value));
-    }
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-    el.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
+    return foundationProjectStorage.setControl(id, saved);
   }
 
   function applyFoundationProjectData(raw, options = {}) {
@@ -3561,7 +3514,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   async function loadFoundationProjectFile(file) {
     if (!file) return null;
     try {
-      const text = await file.text();
+      const text = await foundationProjectStorage.readProjectFile(file);
       return applyFoundationProjectData(text, { sourceLabel: '基礎專案檔' });
     } catch (err) {
       console.error('foundation project load failed', err);
@@ -3573,10 +3526,8 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   function saveFoundationProjectDraft() {
     try {
       const payload = collectFoundationProjectData();
-      localStorage.setItem(FOUNDATION_PROJECT_STORAGE_KEY, JSON.stringify(payload));
-      const name = window.RCUI.normalizeProjectFieldValue(payload.metadata.projectName)
-        || window.RCUI.normalizeProjectFieldValue(payload.metadata.projectNo)
-        || '未命名專案';
+      foundationProjectStorage.writeDraft(payload);
+      const name = foundationProjectStorage.projectDisplayName(payload);
       showFoundationProjectStatus(`已暫存到此瀏覽器：${name}`);
       return payload;
     } catch (err) {
@@ -3588,7 +3539,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
 
   function loadFoundationProjectDraft() {
     try {
-      const raw = localStorage.getItem(FOUNDATION_PROJECT_STORAGE_KEY);
+      const raw = foundationProjectStorage.readDraft();
       if (!raw) {
         showFoundationProjectStatus('此瀏覽器目前沒有基礎專案暫存。', 'fail');
         return null;
