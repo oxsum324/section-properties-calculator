@@ -219,7 +219,7 @@ SRC 柱已以 `src-column.core.v1.0.0` 升格為限定範圍的正式構材附�
   - `excavation-backend` 會完整執行開挖擋土支撐 Python 測試套件；其 preflight 專屬上限固定為 `timeoutSeconds = 600`，容納真實附件證據鏈、治理封存 round-trip 與測試完成後程序收尾，仍維持逾時失敗且不得重用、跳過或縮減測試。
   - `rc-column-report-contract` 會完整渲染三個柱案例與人工複核後正式核可案例；其 preflight 專屬上限固定為 `timeoutSeconds = 600`，保留 release 全平台負載下的瀏覽器啟動與完整證據餘裕。
   - `formal-browser-smoke` 會在 release 模式逐一重跑 14 個風力／地震正式工具的桌面與行動版報表；其 preflight 專屬上限固定為 `timeoutSeconds = 600`，保留平台稽核後的瀏覽器啟動與 31 份正式渲染證據餘裕。
-  - `audit-all.ps1` 內的完整 RC audit 固定為 `timeoutSeconds = 900`，其 preflight 外層 `platform-audit` 固定為 `timeoutSeconds = 1200`；兩層仍保留逾時失敗與程序樹終止，只提供 release 平行慢測所需的執行餘裕，不重用或略過任何 RC 檢查。RC 子 gate 只有在輸出精確出現 Windows／Chromium `net::ERR_NO_BUFFER_SPACE` 時，才保存首次失敗 log、冷卻 60 秒並重跑一次；其他錯誤或第二次失敗仍立即阻擋。
+  - `audit-all.ps1` 內的完整 RC audit 固定為 `timeoutSeconds = 1200`，其 preflight 外層 `platform-audit` 固定為 `timeoutSeconds = 1500`；兩層仍保留逾時失敗與程序樹終止，只提供 release 全量瀏覽器證據與平台串行稽核所需的執行餘裕，不重用或略過任何 RC 檢查。RC 子 gate 只有在輸出精確出現 Windows／Chromium `net::ERR_NO_BUFFER_SPACE` 時，才保存首次失敗 log、冷卻 60 秒並重跑一次；其他錯誤或第二次失敗仍立即阻擋。
 
 ### Windows 案件附件工作台捷徑
 

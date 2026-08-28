@@ -301,7 +301,7 @@ RC 柱報告慢測治理：`rc-column-report-contract` 的 preflight 專屬上�
 
 風力／地震正式報表慢測治理：`formal-browser-smoke` 的 preflight 專屬上限為 `timeoutSeconds = 600`。調整 14 個正式工具的桌面／行動版瀏覽器證據、渲染彙整或 runner 時，必須同步 staging `preflight-tools.ps1`、入口契約、README 與邊界文件。
 
-平台完整稽核慢測治理：`audit-all.ps1` 內完整 RC audit 的上限為 `timeoutSeconds = 900`，`preflight-tools.ps1` 外層 `platform-audit` 上限為 `timeoutSeconds = 1200`。`鋼筋混凝土/audit-tool.ps1` 只允許對精確 `net::ERR_NO_BUFFER_SPACE` 保存首次 log、冷卻 60 秒並重跑單一 RC gate 一次，其他錯誤與第二次失敗仍阻擋。調整平台平行策略、暫態重試或任一家族完整 audit 時，必須同步 staging `audit-all.ps1`、`preflight-tools.ps1`、`鋼筋混凝土/audit-tool.ps1`、`鋼筋混凝土/tools/audit-status.contract.test.js`、入口契約、README 與邊界文件；不得以 timeout 或重試調整取代、重用或縮減實際檢查。
+平台完整稽核慢測治理：`audit-all.ps1` 內完整 RC audit 的上限為 `timeoutSeconds = 1200`，`preflight-tools.ps1` 外層 `platform-audit` 上限為 `timeoutSeconds = 1500`。`鋼筋混凝土/audit-tool.ps1` 只允許對精確 `net::ERR_NO_BUFFER_SPACE` 保存首次 log、冷卻 60 秒並重跑單一 RC gate 一次，其他錯誤與第二次失敗仍阻擋。調整平台平行策略、暫態重試或任一家族完整 audit 時，必須同步 staging `audit-all.ps1`、`preflight-tools.ps1`、`鋼筋混凝土/audit-tool.ps1`、`鋼筋混凝土/tools/audit-status.contract.test.js`、入口契約、README 與邊界文件；不得以 timeout 或重試調整取代、重用或縮減實際檢查。
 
 首頁版本合約會同時檢查 canonical family metadata、`APP_VERSION`、公開版本常數、title、H1 與報告；內部 `TOOL_VERSION` 若作案件相容或計算核心識別，必須另以「計算引擎」揭露，不得冒充公開語意版本。任一入口調整版本時，必須同步更新 `HOME_TOOL_UPDATES` 的逐工具日期與首頁版本。
 

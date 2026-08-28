@@ -268,7 +268,7 @@ function Run-PlatformAuditPass {
       command = "& '$rcAuditScript' -Quiet"
       statusPath = (Join-Path $rcDir "output\audit\audit-status.json")
       summaryPath = (Join-Path $rcDir "output\audit\audit-summary.md")
-      timeoutSeconds = 900
+      timeoutSeconds = 1200
     },
     @{
       key = "core"

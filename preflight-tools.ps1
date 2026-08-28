@@ -2455,7 +2455,7 @@ $checks = @(
     workdir = $root
     command = $platformAuditCommand
     slow = $true
-    timeoutSeconds = 1200
+    timeoutSeconds = 1500
   },
   [pscustomobject]@{
     key = "wind-report-paths"

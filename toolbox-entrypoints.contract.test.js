@@ -1100,13 +1100,13 @@ assert.ok(auditAll.includes('[System.Diagnostics.ProcessStartInfo]::new()'), 'au
 assert.equal(auditAll.includes('Start-Process -FilePath powershell'), false, 'audit-all avoids Start-Process powershell env dictionary bug');
 assert.match(
   auditAll,
-  /key\s*=\s*"rc"[\s\S]{0,320}?timeoutSeconds\s*=\s*900/,
-  'platform audit keeps a fifteen-minute timeout for the complete RC audit under release contention'
+  /key\s*=\s*"rc"[\s\S]{0,320}?timeoutSeconds\s*=\s*1200/,
+  'platform audit keeps a twenty-minute timeout for the complete RC audit under release contention'
 );
 assert.match(
   preflight,
-  /key\s*=\s*"platform-audit"[\s\S]{0,320}?timeoutSeconds\s*=\s*1200/,
-  'preflight keeps a twenty-minute outer timeout for the forced platform audit'
+  /key\s*=\s*"platform-audit"[\s\S]{0,320}?timeoutSeconds\s*=\s*1500/,
+  'preflight keeps a twenty-five-minute outer timeout for the forced platform audit'
 );
 assert.ok(readText(path.join(toolboxRoot, 'tools/local-quick-tools.run.js')).includes('spawn error'), 'local quick runner reports spawn errors');
 assert.ok(readText(path.join(toolboxRoot, 'tools/formal-tools.run.js')).includes('spawn error'), 'formal tools runner reports spawn errors');
