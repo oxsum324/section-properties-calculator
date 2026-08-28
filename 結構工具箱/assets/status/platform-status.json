@@ -2,8 +2,8 @@
   "publicEvidenceSchemaVersion": 3,
   "snapshotVersion": 1,
   "kind": "platform-status",
-  "generatedAt": "2026-08-29 01:43:11",
-  "runId": "20260829-014311",
+  "generatedAt": "2026-08-29 02:24:15",
+  "runId": "20260829-022415",
   "pass": true,
   "failureCount": 0,
   "source": "component-status-refresh",
@@ -13,5 +13,5 @@
     "core"
   ],
   "sourcePath": "output/audit/platform-status.json",
-  "sourceHash": "e50b507460ebd28170bd14c274949861c25c12aae740990c45566b740450919d"
+  "sourceHash": "cb29f1d464c7cb3c1588aff44a8e00c4407a8cb4ee476465368ea383df7515cd"
 }
