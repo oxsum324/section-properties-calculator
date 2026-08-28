@@ -1464,7 +1464,7 @@ function jsonRoundTripExpression(tool, sourcePayload) {
       applicable: expectsSharedCaseDraft,
       hasSaveButton: false,
       hasLoadButton: false,
-      hasSharedApi: typeof ToolProjectStorage?.createCaseDraftController === 'function',
+      hasSharedApi: typeof window.ToolProjectStorage?.createCaseDraftController === 'function',
       genericBarAbsent: !document.querySelector('.project-storage-bar'),
       saved: false,
       loaded: false,
