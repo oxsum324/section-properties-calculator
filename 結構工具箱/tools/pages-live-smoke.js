@@ -22,7 +22,7 @@ const PUBLIC_ROUTE_SAMPLES = [
   },
   {
     path: '結構工具箱/assets/home/home.js',
-    needles: ["capabilities: ['組合斷面', '斷面輔助']", "capabilities: ['案件參數', '案件入口']", "capabilities: ['附屬構造物', '耐震']"],
+    needles: ["capabilities: ['組合斷面', '斷面輔助']", "capabilities: ['案件參數', '案件入口']", "capabilities: ['附屬構造物', '耐震', 'TXT 備查']"],
     forbidden: ["capabilities: ['NEW'"]
   },
   { path: '鋼筋混凝土/tools/beam.html', needles: ['梁 Beam 設計', 'RC 工具箱'] },
