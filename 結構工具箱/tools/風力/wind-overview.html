@@ -226,11 +226,16 @@
     儲存後由本頁開啟支援的子工具，即會自動預填案件識別、地點、地況、用途係數與 K<sub>zt</sub>；
     主風力抵抗系統工具另會帶入可明確對應的總高、樓層與 X／Y 平面尺寸。
     屋頂平均高、屋簷高、構架或標示物尺寸等專用幾何仍須由設計人確認，不由本頁代填。
+    另可由頁首「共用工址」套用 <code>structural-project-location.v1</code>；該設定檔只保存縣市、鄉鎮與地盤分類，V₁₀(C) 與耐震係數均於套用時由目前規範主庫重新解析。
   </div>
 </div>
 </div>
 
 <script src="../../core/loads/wind.js"></script>
+<script src="../../core/loads/seismic-zones.js"></script>
+<script src="../../core/loads/seismic.js"></script>
+<script src="../../core/loads/regulatory-locations.js"></script>
+<script src="../../core/loads/project-location.js" data-location-tool-id="wind-overview" data-location-tool-name="耐風設計案件總覽" data-location-tool-version="V1"></script>
 <script src="wind-shared-profile.js"></script>
 <script>
 const W = window.Wind;

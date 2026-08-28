@@ -56,7 +56,7 @@ const expectedTools = [
   'stone-serviceability-report',
 ];
 
-assert(catalog.version === '0.6.0', 'stone traceability catalog version', catalog.version);
+assert(catalog.version === '0.7.0', 'stone traceability catalog version', catalog.version);
 assert(catalog.family === 'stone-traceability', 'stone traceability catalog family', catalog.family);
 assertString(catalog.description, 'stone traceability catalog description');
 assert(Array.isArray(catalog.tools), 'stone traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -103,6 +103,18 @@ for (const tool of catalog.tools || []) {
 }
 
 assert(seenTraceIds.size >= 8, 'stone traceability catalog trace volume', `traces=${seenTraceIds.size}`);
+
+[
+  's_ssd',
+  's_site_class',
+  's_sds_basis',
+  'SDS = Fa × SsD',
+  'SsD / Fa / SDS 來源鏈',
+  'vendor/loads/seismic.js',
+  'vendor/loads/regulatory-locations.js',
+].forEach((needle) => {
+  assert(catalogText.includes(needle), `stone seismic traceability includes ${needle}`, needle);
+});
 
 [
   '建築物耐風設計規範及解說（107 年版）',

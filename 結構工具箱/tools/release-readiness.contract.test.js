@@ -651,6 +651,7 @@ const rcStmAtomicPaths = new Set(rcStmAtomicChangeSet.groups.flatMap(group => gr
   '結構工具箱/tools/rc-stm-atomic-change-set-review.test.js',
 ].forEach(relativePath => assert(rcStmAtomicPaths.has(relativePath), 'RC STM atomic manifest includes its governance implementation', relativePath));
 assertIncludes(preflight, 'node 結構工具箱/tools/rc-stm-atomic-change-set-review.test.js', 'preflight runs the RC STM atomic review contract');
+assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.test.js', 'preflight runs the regulatory data synchronization contract');
 
 [
   'release-readiness-contract',

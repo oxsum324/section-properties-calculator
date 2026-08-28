@@ -3,8 +3,8 @@
   "id": "cns_seismic_113",
   "scope": "seismic",
   "name": "建築物耐震設計規範及解說（113 年版）",
-  "issued": "2024-XX-XX",
-  "publisher": "內政部營建署",
+  "issued": "2024-03-01",
+  "publisher": "內政部（國土管理署）",
   "supersedes": "cns_seismic_111",
   "expires": null,
   "params": {
@@ -26,5 +26,5 @@
     },
     "Ip_facade_minimum": 1.5
   },
-  "notes": "對應建築物耐震設計規範第 13.5 節非結構組件。Fph 簡式 = 1.6×SDS×Ip×Wp；細式 = 0.4×ap×SDS×Ip×(1+2z/h)×Wp/Rp，並受 0.3SDSIpWp 與 1.6SDSIpWp 上下限控制。"
+  "notes": "依內政部 113.3.1 台內國字第 1130801422 號令修正並自即日生效。對應建築物耐震設計規範第 13.5 節非結構組件。Fph 簡式 = 1.6×SDS×Ip×Wp；細式 = 0.4×ap×SDS×Ip×(1+2z/h)×Wp/Rp，並受 0.3SDSIpWp 與 1.6SDSIpWp 上下限控制。"
 }

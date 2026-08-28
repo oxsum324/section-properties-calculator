@@ -845,7 +845,7 @@ def main() -> int:
     ], 'V2 project JSON export should continue downloading even if localStorage save fails', errors)
     require_all([
         ('UI smoke lightbox a11y coverage', 'lightbox_a11y' in ui_smoke),
-        ('UI smoke lightbox focus restore fixture', '背扣雙角鐵示意圖' in ui_smoke),
+        ('UI smoke lightbox focus restore fixture', '背扣雙角鐵節點參考示意圖' in ui_smoke),
     ], 'ui_smoke_test.py should cover lightbox dialog semantics and focus restore', errors)
     require_all([
         ('UI smoke template modal a11y coverage', 'template_modal_a11y' in ui_smoke),

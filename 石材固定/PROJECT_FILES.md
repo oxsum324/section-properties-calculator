@@ -12,7 +12,7 @@
 - `pdf_to_docx.py`：PDF 轉 Word 輔助流程。
 - `paged.polyfill.js`：列印分頁使用的 Paged.js polyfill。
 - `docx-9.6.1.tgz`：前端 DOCX 產生相關套件封存。
-- `vendor/`：V2 HTML 離線執行所需第三方前端資產，包括 KaTeX、PDF.js、docx IIFE 與風壓 / 地震分區資料。
+- `vendor/`：V2 HTML 離線執行所需第三方前端資產，包括 KaTeX、PDF.js、docx IIFE，以及由結構工具箱核心同步的風速、震區、工址係數與行政區正規化資料；`vendor/loads/` 不得手動維護獨立副本。
 
 ## 前端計算核心
 

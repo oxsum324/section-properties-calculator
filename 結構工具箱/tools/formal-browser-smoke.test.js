@@ -603,7 +603,10 @@ function pageStateExpression(tool) {
       byId(calc).click();
       await settle(2);
     }
-    const readPageOnlyReadinessText = () => (document.querySelector('.page-only-report-status')?.textContent || '').replace(/\\s+/g, ' ').trim();
+    const findPageOnlyReadiness = () => document.querySelector(
+      '.page-only-report-status.report-readiness, .page-only-report-status .report-readiness'
+    );
+    const readPageOnlyReadinessText = () => (findPageOnlyReadiness()?.textContent || '').replace(/\\s+/g, ' ').trim();
     const setProjectField = (id, value) => {
       const node = byId(id);
       if (!node) return;
@@ -739,7 +742,7 @@ function pageStateExpression(tool) {
         right: Math.round(node.getBoundingClientRect().right),
         text: (node.innerText || node.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 80)
       }));
-    const pageOnlyReadiness = document.querySelector('.page-only-report-status');
+    const pageOnlyReadiness = findPageOnlyReadiness();
     return {
       title: document.title,
       bodyText: text.slice(0, 12000),

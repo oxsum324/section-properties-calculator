@@ -1630,6 +1630,13 @@ node 石材固定/stone-traceability.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$regulatoryDataContractCommand = @'
+node 結構工具箱/tools/project-location.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node 結構工具箱/tools/regulatory-data.contract.test.js
+exit $LASTEXITCODE
+'@
+
 $browserDialogsContractCommand = @'
 node browser-dialogs.contract.test.js
 exit $LASTEXITCODE
@@ -2827,6 +2834,13 @@ $checks = @(
     label = "Stone traceability catalog contract"
     workdir = $root
     command = $stoneTraceabilityContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "regulatory-data-contract"
+    label = "Regulatory data, shared project location, and vendor synchronization contract"
+    workdir = $root
+    command = $regulatoryDataContractCommand
     slow = $false
   },
   [pscustomobject]@{

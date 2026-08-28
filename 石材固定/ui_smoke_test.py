@@ -121,6 +121,67 @@ def main() -> int:
             if f'V{server.SERVER_VERSION} 任務導向介面' not in data['header']:
                 raise AssertionError('Expected header version to match server version')
 
+            # Township seismic data is SsD, not SDS.  The formal page must apply
+            # the selected site class through Fa, expose the source chain in the
+            # rendered report, and fail closed when a manual SDS has no basis.
+            site_context = browser.new_context(viewport={'width': 1440, 'height': 1000})
+            site_page = site_context.new_page()
+            site_page.goto(TOOL_URL, wait_until='networkidle', timeout=60000)
+            site_page.select_option('#c_city', '臺北市')
+            site_page.select_option('#c_dist', '中正區')
+            site_page.select_option('#s_site_class', '2')
+            site_page.wait_for_function(
+                """() => document.getElementById('s_ssd')?.value === '0.6'
+                  && document.getElementById('s_fa')?.value === '1.100'
+                  && document.getElementById('s_sds')?.value === '0.66'""",
+                timeout=10000,
+            )
+            seismic_site_state = site_page.evaluate(
+                """() => ({
+                  ssd: document.getElementById('s_ssd')?.value || '',
+                  fa: document.getElementById('s_fa')?.value || '',
+                  sds: document.getElementById('s_sds')?.value || '',
+                  sourceNote: document.getElementById('seismic_site_source_note')?.innerText || '',
+                  report: document.querySelector('#preview-sheets')?.innerText || '',
+                  reportHtml: document.querySelector('#preview-sheets')?.innerHTML || '',
+                  sourceText: seismicParameterSourceText(inputs()),
+                  source: inputs().s_sds_source,
+                })"""
+            )
+            if seismic_site_state['source'] != 'site-coefficient':
+                raise AssertionError(f'Expected site-coefficient SDS source: {seismic_site_state}')
+            for needle in ('表 2-1', '表 2-4(a)', '式 (2-4)', 'SDS = Fa × SsD'):
+                if needle not in seismic_site_state['sourceNote']:
+                    raise AssertionError(f'Expected seismic source note to include {needle}: {seismic_site_state}')
+            for needle in ('SsD = 0.600', 'Fa = 1.100', 'SDS = Fa × SsD = 0.660'):
+                if needle not in seismic_site_state['sourceText']:
+                    raise AssertionError(f'Expected report source text to include {needle}: {seismic_site_state["sourceText"]}')
+            if 'data-tex="S_{DS} = Fa \\times SsD = 0.660"' not in seismic_site_state['reportHtml']:
+                raise AssertionError('Expected rendered report to preserve the SDS equation through KaTeX')
+
+            site_page.select_option('#s_site_class', 'manual')
+            site_page.fill('#s_sds_basis', '')
+            manual_missing = site_page.evaluate(
+                """() => v2CollectExportChecklist({inp: inputs(), results: []}, {ok: true})
+                  .some(item => item.text === '專案指定 SDS 尚未填寫來源依據')"""
+            )
+            if not manual_missing:
+                raise AssertionError('Expected manual SDS without basis to be blocked')
+            site_page.fill('#s_sds_basis', '地盤調查報告第 5 章')
+            manual_with_basis = site_page.evaluate(
+                """() => ({
+                  blocked: v2CollectExportChecklist({inp: inputs(), results: []}, {ok: true})
+                    .some(item => item.text === '專案指定 SDS 尚未填寫來源依據'),
+                  source: inputs().s_sds_source,
+                  report: document.querySelector('#preview-sheets')?.innerText || '',
+                })"""
+            )
+            if manual_with_basis['blocked'] or manual_with_basis['source'] != 'project-specified':
+                raise AssertionError(f'Expected documented manual SDS to pass its source gate: {manual_with_basis}')
+            if '地盤調查報告第 5 章' not in manual_with_basis['report']:
+                raise AssertionError('Expected manual SDS basis in rendered report')
+            site_context.close()
+
             # Profile picker must update the editable values actually consumed by calc-core.
             # Use an isolated browser context so this stateful scenario cannot affect the
             # remaining dashboard and persistence checks in the main page.
@@ -1872,7 +1933,7 @@ def main() -> int:
                 'labelledby': 'v2_lightbox_caption',
                 'titleExists': True,
                 'focused': 'v2-lightbox',
-                'alt': '背扣雙角鐵示意圖',
+                'alt': '背扣雙角鐵節點參考示意圖',
                 'closeType': 'button',
             }:
                 raise AssertionError(f'Expected lightbox dialog semantics and focus: {lightbox_a11y}')

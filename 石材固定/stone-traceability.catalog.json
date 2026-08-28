@@ -1,5 +1,5 @@
 {
-  "version": "0.6.0",
+  "version": "0.7.0",
   "family": "stone-traceability",
   "description": "石材固定 V2 計算書工具的條文語意追蹤表。每筆 trace 將規範來源、輸入欄位、計算路線、報告落點、測試證據與人工複核邊界對齊，避免只因自我檢查或匯出成功就誤判為所有工程依據都已可追溯。",
   "tools": [
@@ -12,12 +12,12 @@
         {
           "id": "stone-load-wind-seismic-demand",
           "clause": "建築物耐風設計規範及解說（107 年版）與建築物耐震設計規範及解說（113 年版）非結構組件需求",
-          "purpose": "風力與耐震需求需分開追蹤來源，並揭露 Ip 外牆最小值、Fph、PEV、正負風壓與方向性包絡，不把單一控制力當成完整載重依據。",
-          "inputs": ["w_src", "w_manual_mode", "w_pos", "w_neg", "w_cf", "w_qref", "w_cpe_pos", "w_cpe_neg", "w_gcpi", "s_sds", "s_ip_raw", "sp_ip15_on", "sp_seis_ap", "sp_seis_rp", "sp_seis_zh_ratio", "sp_pev_conservative_on", "case width / height / point count"],
-          "calculation": ["GCp wind pressure", "positive / negative wind envelope", "Ip facade minimum", "Fph", "PEV", "horizontal pull / push", "effective fixing point count", "D + W / D + E vertical basis"],
-          "report": ["主要計算依據", "荷重計算", "風壓方向性", "地震水平力", "PEV 採用方式", "控制檢核摘要"],
-          "evidence": ["js/calculator.spec.js", "js/formula-registry.spec.js", "js/code-profiles-registry.spec.js", "js/regression-smoke.test.js", "石材計算書產生器_規範版V2.html"],
-          "manualReview": ["風洞報告、專案指定風壓、建築物重要性、非結構組件類別、樓層高度比與正負風壓區位須由設計者依專案文件人工複核。"]
+          "purpose": "風力與耐震需求需分開追蹤來源；鄉鎮表提供 SsD 而非 SDS，必須再依地盤種類與 Fa 換算，或由專案文件指定 SDS。報告另揭露 Ip 外牆最小值、Fph、PEV、正負風壓與方向性包絡，不把單一控制力當成完整載重依據。",
+          "inputs": ["w_src", "w_manual_mode", "w_pos", "w_neg", "w_cf", "w_qref", "w_cpe_pos", "w_cpe_neg", "w_gcpi", "s_ssd", "s_site_class", "s_fa", "s_sds_source", "s_sds_basis", "s_sds", "s_ip_raw", "sp_ip15_on", "sp_seis_ap", "sp_seis_rp", "sp_seis_zh_ratio", "sp_pev_conservative_on", "case width / height / point count"],
+          "calculation": ["GCp wind pressure", "positive / negative wind envelope", "SsD township lookup", "Fa site-class interpolation", "SDS = Fa × SsD", "Ip facade minimum", "Fph", "PEV", "horizontal pull / push", "effective fixing point count", "D + W / D + E vertical basis"],
+          "report": ["主要計算依據", "荷重計算", "SsD / Fa / SDS 來源鏈", "專案指定 SDS 依據", "風壓方向性", "地震水平力", "PEV 採用方式", "控制檢核摘要"],
+          "evidence": ["js/calculator.spec.js", "js/formula-registry.spec.js", "js/code-profiles-registry.spec.js", "js/input-schema.spec.js", "js/regression-smoke.test.js", "vendor/loads/seismic.js", "vendor/loads/regulatory-locations.js", "石材計算書產生器_規範版V2.html"],
+          "manualReview": ["風洞報告、專案指定風壓、地盤種類、專案指定 SDS 依據、建築物重要性、非結構組件類別、樓層高度比與正負風壓區位須由設計者依專案文件人工複核。"]
         },
         {
           "id": "stone-load-profile-governance",

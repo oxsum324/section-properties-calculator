@@ -1,4 +1,4 @@
-/* core/loads/wind.js — v2.0
+/* core/loads/wind.js — v3.1
  * 台灣建築物耐風設計規範 — 完整計算引擎
  * 依據：建築物耐風設計規範及解說 (107 年版)
  *
@@ -13,82 +13,399 @@
  *   ‧ 新增扭矩 MTz (Eq 2.23/2.24)
  *   ‧ 新增基本設計風速詳細表 (至鄉鎮區層級)
  *   ‧ 新增用途係數 5 分類
+ *
+ * v3.1 更新：
+ *   ‧ 實體標的物圓柱體改依表 2.14 以 D√q(z) 與粗糙分類查用 Cf
+ *   ‧ 煙囪 / 水塔等保留表 2.12 h/D 內插路線
  */
 (function (global) {
   'use strict';
 
   // ═══════════════════════════════
-  //  基本設計風速 V10(C) (m/s)
-  //  107 年版 §2.4 依行政區詳細劃分
-  //  此處以主要縣市代表值簡化（同一縣市內有多風速區者取較大值）
+  //  基本設計風速 V10(C) (m/s) — 依 107 年版 §2.4「基本設計風速」原文
+  //  逐鄉鎮市區列出，不做「沿海/內陸/北區/南區」等簡化分類
+  //  （原簡化標籤與規範實際分界不符，例如彰化縣鹿港鎮沿海卻與彰化市同屬
+  //   每秒 27.5 公尺區，非每秒 32.5 公尺區，故一律採規範原文行政區名稱）
+  //  桃園（原桃園縣「各鄉、鎮、市」）已於 103 年 12 月改制桃園市，全市仍
+  //  同屬每秒 37.5 公尺區，故以「桃園市」單一項表示，不影響風速判定。
   // ═══════════════════════════════
-  const BASIC_WIND_SPEED = {
-    '花蓮市/吉安': 47.5, '恆春/滿州': 47.5,
-    '基隆市': 42.5,
-    '臺北市': 42.5, '新北市(北區)': 42.5,
-    '新北市(南區)': 37.5, '桃園市': 37.5,
-    '高雄市': 37.5, '臺南市(沿海)': 37.5, '屏東縣': 37.5,
-    '宜蘭縣': 37.5, '臺東縣': 37.5,
-    '花蓮縣': 42.5,
-    '新竹市': 32.5, '新竹縣': 32.5,
-    '苗栗縣': 32.5, '臺中市': 32.5,
-    '臺南市(內陸)': 32.5,
-    '彰化縣(沿海)': 32.5,
-    '雲林縣(沿海)': 32.5,
-    '嘉義市': 27.5, '嘉義縣': 27.5,
-    '南投縣': 27.5, '彰化縣(內陸)': 27.5,
-    '雲林縣(內陸)': 27.5,
-    '南投縣(山區)': 22.5,
-    '澎湖縣': 33.0, '金門縣': 35.0, '馬祖': 42.0,
-    '蘭嶼/綠島': 65.0, '琉球': 40.0,
-    // 簡化常用城市 (取轄區代表值或最大值)
-    '臺北市(簡)': 42.5, '新北市': 37.5,
-    '桃園市(簡)': 37.5, '臺中市(簡)': 32.5,
-    '臺南市': 32.5, '高雄市(簡)': 37.5,
+  const CITY_QUICK = {
+    // ── 每秒 47.5 公尺區 ──
+    '花蓮縣－花蓮市':     47.5,
+    '花蓮縣－吉安鄉':     47.5,
+    '屏東縣－恆春鎮':     47.5,
+    '屏東縣－滿州鄉':     47.5,
+
+    // ── 每秒 42.5 公尺區 ──
+    '基隆市':             42.5,
+    '新北市－貢寮區':     42.5,
+    '新北市－雙溪區':     42.5,
+    '新北市－坪林區':     42.5,
+    '新北市－瑞芳區':     42.5,
+    '新北市－平溪區':     42.5,
+    '新北市－石碇區':     42.5,
+    '新北市－深坑區':     42.5,
+    '新北市－汐止區':     42.5,
+    '新北市－萬里區':     42.5,
+    '新北市－金山區':     42.5,
+    '新北市－石門區':     42.5,
+    '新北市－三芝區':     42.5,
+    '新北市－淡水區':     42.5,
+    '臺北市':             42.5,
+    '屏東縣－車城鄉':     42.5,
+    '屏東縣－牡丹鄉':     42.5,
+    '屏東縣－枋山鄉':     42.5,
+    '屏東縣－獅子鄉':     42.5,
+    '屏東縣－枋寮鄉':     42.5,
+    '屏東縣－春日鄉':     42.5,
+    '宜蘭縣－南澳鄉':     42.5,
+    '宜蘭縣－蘇澳鎮':     42.5,
+    '宜蘭縣－冬山鄉':     42.5,
+    '宜蘭縣－五結鄉':     42.5,
+    '宜蘭縣－壯圍鄉':     42.5,
+    '宜蘭縣－頭城鎮':     42.5,
+    '花蓮縣－玉里鎮':     42.5,
+    '花蓮縣－瑞穗鄉':     42.5,
+    '花蓮縣－豐濱鄉':     42.5,
+    '花蓮縣－光復鄉':     42.5,
+    '花蓮縣－鳳林鎮':     42.5,
+    '花蓮縣－壽豐鄉':     42.5,
+    '花蓮縣－新城鄉':     42.5,
+    '花蓮縣－秀林鄉':     42.5,
+    '臺東縣－達仁鄉':     42.5,
+    '臺東縣－大武鄉':     42.5,
+    '臺東縣－太麻里鄉':   42.5,
+    '臺東縣－長濱鄉':     42.5,
+
+    // ── 每秒 37.5 公尺區 ──
+    '新北市－烏來區':     37.5,
+    '新北市－新店區':     37.5,
+    '新北市－三峽區':     37.5,
+    '新北市－五股區':     37.5,
+    '新北市－蘆洲區':     37.5,
+    '新北市－三重區':     37.5,
+    '新北市－泰山區':     37.5,
+    '新北市－新莊區':     37.5,
+    '新北市－板橋區':     37.5,
+    '新北市－中和區':     37.5,
+    '新北市－永和區':     37.5,
+    '新北市－土城區':     37.5,
+    '新北市－樹林區':     37.5,
+    '新北市－鶯歌區':     37.5,
+    '新北市－林口區':     37.5,
+    '新北市－八里區':     37.5,
+    '桃園市':             37.5,
+    '新竹縣－新豐鄉':     37.5,
+    '新竹縣－湖口鄉':     37.5,
+    '新竹縣－新埔鎮':     37.5,
+    '新竹縣－關西鎮':     37.5,
+    '新竹縣－橫山鄉':     37.5,
+    '新竹縣－尖石鄉':     37.5,
+    '臺中市－和平區':     37.5,
+    '南投縣－信義鄉':     37.5,
+    '臺南市－七股區':     37.5,
+    '臺南市－中西區':     37.5,
+    '臺南市－東區':       37.5,
+    '臺南市－南區':       37.5,
+    '臺南市－北區':       37.5,
+    '臺南市－安平區':     37.5,
+    '臺南市－安南區':     37.5,
+    '高雄市－林園區':     37.5,
+    '高雄市－大寮區':     37.5,
+    '高雄市－大樹區':     37.5,
+    '高雄市－燕巢區':     37.5,
+    '高雄市－大社區':     37.5,
+    '高雄市－仁武區':     37.5,
+    '高雄市－鳥松區':     37.5,
+    '高雄市－鳳山區':     37.5,
+    '高雄市－橋頭區':     37.5,
+    '高雄市－岡山區':     37.5,
+    '高雄市－梓官區':     37.5,
+    '高雄市－彌陀區':     37.5,
+    '高雄市－永安區':     37.5,
+    '高雄市－茄萣區':     37.5,
+    '高雄市－路竹區':     37.5,
+    '高雄市－湖內區':     37.5,
+    '高雄市－桃源區':     37.5,
+    '高雄市－新興區':     37.5,
+    '高雄市－前金區':     37.5,
+    '高雄市－苓雅區':     37.5,
+    '高雄市－鹽埕區':     37.5,
+    '高雄市－鼓山區':     37.5,
+    '高雄市－旗津區':     37.5,
+    '高雄市－前鎮區':     37.5,
+    '高雄市－三民區':     37.5,
+    '高雄市－楠梓區':     37.5,
+    '高雄市－小港區':     37.5,
+    '高雄市－左營區':     37.5,
+    '屏東縣－佳冬鄉':     37.5,
+    '屏東縣－林邊鄉':     37.5,
+    '屏東縣－東港鎮':     37.5,
+    '屏東縣－新埤鄉':     37.5,
+    '屏東縣－來義鄉':     37.5,
+    '屏東縣－泰武鄉':     37.5,
+    '屏東縣－萬巒鄉':     37.5,
+    '屏東縣－潮州鎮':     37.5,
+    '屏東縣－竹田鄉':     37.5,
+    '屏東縣－崁頂鄉':     37.5,
+    '屏東縣－南州鄉':     37.5,
+    '屏東縣－萬丹鄉':     37.5,
+    '屏東縣－新園鄉':     37.5,
+    '屏東縣－麟洛鄉':     37.5,
+    '屏東縣－瑪家鄉':     37.5,
+    '屏東縣－內埔鄉':     37.5,
+    '屏東縣－長治鄉':     37.5,
+    '屏東縣－屏東市':     37.5,
+    '屏東縣－九如鄉':     37.5,
+    '屏東縣－鹽埔鄉':     37.5,
+    '屏東縣－里港鄉':     37.5,
+    '屏東縣－高樹鄉':     37.5,
+    '屏東縣－三地門鄉':   37.5,
+    '屏東縣－霧臺鄉':     37.5,
+    '宜蘭縣－大同鄉':     37.5,
+    '宜蘭縣－三星鄉':     37.5,
+    '宜蘭縣－員山鄉':     37.5,
+    '宜蘭縣－羅東鎮':     37.5,
+    '宜蘭縣－宜蘭市':     37.5,
+    '宜蘭縣－礁溪鄉':     37.5,
+    '花蓮縣－富里鄉':     37.5,
+    '花蓮縣－卓溪鄉':     37.5,
+    '花蓮縣－萬榮鄉':     37.5,
+    '臺東縣－金峰鄉':     37.5,
+    '臺東縣－卑南鄉':     37.5,
+    '臺東縣－臺東市':     37.5,
+    '臺東縣－東河鄉':     37.5,
+    '臺東縣－鹿野鄉':     37.5,
+    '臺東縣－延平鄉':     37.5,
+    '臺東縣－關山鎮':     37.5,
+    '臺東縣－池上鄉':     37.5,
+    '臺東縣－海端鄉':     37.5,
+    '臺東縣－成功鎮':     37.5,
+
+    // ── 每秒 32.5 公尺區 ──
+    '新竹縣－五峰鄉':     32.5,
+    '新竹縣－北埔鄉':     32.5,
+    '新竹縣－峨眉鄉':     32.5,
+    '新竹縣－竹東鎮':     32.5,
+    '新竹縣－寶山鄉':     32.5,
+    '新竹縣－芎林鄉':     32.5,
+    '新竹縣－竹北市':     32.5,
+    '新竹市':             32.5,
+    '苗栗縣':             32.5,
+    '臺中市－東勢區':     32.5,
+    '臺中市－新社區':     32.5,
+    '臺中市－太平區':     32.5,
+    '臺中市－石岡區':     32.5,
+    '臺中市－豐原區':     32.5,
+    '臺中市－潭子區':     32.5,
+    '臺中市－神岡區':     32.5,
+    '臺中市－大雅區':     32.5,
+    '臺中市－大肚區':     32.5,
+    '臺中市－龍井區':     32.5,
+    '臺中市－沙鹿區':     32.5,
+    '臺中市－梧棲區':     32.5,
+    '臺中市－清水區':     32.5,
+    '臺中市－后里區':     32.5,
+    '臺中市－外埔區':     32.5,
+    '臺中市－大安區':     32.5,
+    '臺中市－大甲區':     32.5,
+    '臺中市－中區':       32.5,
+    '臺中市－東區':       32.5,
+    '臺中市－南區':       32.5,
+    '臺中市－西區':       32.5,
+    '臺中市－北區':       32.5,
+    '臺中市－北屯區':     32.5,
+    '臺中市－西屯區':     32.5,
+    '臺中市－南屯區':     32.5,
+    '彰化縣－伸港鄉':     32.5,
+    '彰化縣－線西鄉':     32.5,
+    '彰化縣－和美鎮':     32.5,
+    '南投縣－仁愛鄉':     32.5,
+    '雲林縣－口湖鄉':     32.5,
+    '雲林縣－水林鄉':     32.5,
+    '雲林縣－四湖鄉':     32.5,
+    '嘉義縣－布袋鎮':     32.5,
+    '嘉義縣－義竹鄉':     32.5,
+    '嘉義縣－鹿草鄉':     32.5,
+    '嘉義縣－太保市':     32.5,
+    '嘉義縣－六腳鄉':     32.5,
+    '嘉義縣－朴子市':     32.5,
+    '嘉義縣－東石鄉':     32.5,
+    '臺南市－永康區':     32.5,
+    '臺南市－歸仁區':     32.5,
+    '臺南市－新化區':     32.5,
+    '臺南市－左鎮區':     32.5,
+    '臺南市－玉井區':     32.5,
+    '臺南市－楠西區':     32.5,
+    '臺南市－南化區':     32.5,
+    '臺南市－仁德區':     32.5,
+    '臺南市－關廟區':     32.5,
+    '臺南市－龍崎區':     32.5,
+    '臺南市－官田區':     32.5,
+    '臺南市－麻豆區':     32.5,
+    '臺南市－佳里區':     32.5,
+    '臺南市－西港區':     32.5,
+    '臺南市－將軍區':     32.5,
+    '臺南市－學甲區':     32.5,
+    '臺南市－北門區':     32.5,
+    '臺南市－新營區':     32.5,
+    '臺南市－後壁區':     32.5,
+    '臺南市－東山區':     32.5,
+    '臺南市－六甲區':     32.5,
+    '臺南市－下營區':     32.5,
+    '臺南市－柳營區':     32.5,
+    '臺南市－鹽水區':     32.5,
+    '臺南市－善化區':     32.5,
+    '臺南市－大內區':     32.5,
+    '臺南市－山上區':     32.5,
+    '臺南市－新市區':     32.5,
+    '臺南市－安定區':     32.5,
+    '高雄市－阿蓮區':     32.5,
+    '高雄市－田寮區':     32.5,
+    '高雄市－旗山區':     32.5,
+    '高雄市－美濃區':     32.5,
+    '高雄市－內門區':     32.5,
+    '高雄市－杉林區':     32.5,
+    '高雄市－六龜區':     32.5,
+    '高雄市－茂林區':     32.5,
+    '高雄市－甲仙區':     32.5,
+    '高雄市－那瑪夏區':   32.5,
+
+    // ── 每秒 27.5 公尺區 ──
+    '臺中市－烏日區':     27.5,
+    '臺中市－霧峰區':     27.5,
+    '臺中市－大里區':     27.5,
+    '彰化縣－鹿港鎮':     27.5,
+    '彰化縣－福興鄉':     27.5,
+    '彰化縣－芳苑鄉':     27.5,
+    '彰化縣－大城鄉':     27.5,
+    '彰化縣－二林鎮':     27.5,
+    '彰化縣－埔鹽鄉':     27.5,
+    '彰化縣－竹塘鄉':     27.5,
+    '彰化縣－埤頭鄉':     27.5,
+    '彰化縣－溪湖鎮':     27.5,
+    '彰化縣－溪州鄉':     27.5,
+    '彰化縣－二水鄉':     27.5,
+    '彰化縣－彰化市':     27.5,
+    '彰化縣－花壇鄉':     27.5,
+    '彰化縣－芬園鄉':     27.5,
+    '彰化縣－秀水鄉':     27.5,
+    '彰化縣－大村鄉':     27.5,
+    '彰化縣－員林市':     27.5,
+    '彰化縣－社頭鄉':     27.5,
+    '彰化縣－埔心鄉':     27.5,
+    '彰化縣－永靖鄉':     27.5,
+    '彰化縣－田尾鄉':     27.5,
+    '彰化縣－北斗鎮':     27.5,
+    '彰化縣－田中鎮':     27.5,
+    '南投縣－草屯鎮':     27.5,
+    '南投縣－南投市':     27.5,
+    '南投縣－名間鄉':     27.5,
+    '南投縣－中寮鄉':     27.5,
+    '南投縣－國姓鄉':     27.5,
+    '南投縣－埔里鎮':     27.5,
+    '南投縣－魚池鄉':     27.5,
+    '雲林縣－麥寮鄉':     27.5,
+    '雲林縣－臺西鄉':     27.5,
+    '雲林縣－東勢鄉':     27.5,
+    '雲林縣－崙背鄉':     27.5,
+    '雲林縣－褒忠鄉':     27.5,
+    '雲林縣－元長鄉':     27.5,
+    '雲林縣－北港鎮':     27.5,
+    '雲林縣－土庫鎮':     27.5,
+    '雲林縣－二崙鄉':     27.5,
+    '雲林縣－西螺鎮':     27.5,
+    '雲林縣－虎尾鎮':     27.5,
+    '雲林縣－大埤鄉':     27.5,
+    '雲林縣－莿桐鄉':     27.5,
+    '雲林縣－斗六市':     27.5,
+    '雲林縣－斗南鎮':     27.5,
+    '雲林縣－古坑鄉':     27.5,
+    '雲林縣－林內鄉':     27.5,
+    '嘉義縣－新港鄉':     27.5,
+    '嘉義縣－水上鄉':     27.5,
+    '嘉義縣－溪口鄉':     27.5,
+    '嘉義縣－民雄鄉':     27.5,
+    '嘉義縣－大林鎮':     27.5,
+    '嘉義縣－梅山鄉':     27.5,
+    '嘉義縣－竹崎鄉':     27.5,
+    '嘉義縣－中埔鄉':     27.5,
+    '嘉義縣－番路鄉':     27.5,
+    '嘉義縣－大埔鄉':     27.5,
+    '嘉義縣－阿里山鄉':   27.5,
+    '嘉義市':             27.5,
+    '臺南市－白河區':     27.5,
+
+    // ── 每秒 22.5 公尺區 ──
+    '南投縣－竹山鎮':     22.5,
+    '南投縣－水里鄉':     22.5,
+    '南投縣－集集鎮':     22.5,
+    '南投縣－鹿谷鄉':     22.5,
+
+    // ── 外島地區 ──
+    '金門':               35.0,
+    '馬祖':               42.0,
+    '彭佳嶼':             57.0,
+    '澎湖縣':             33.0,
+    '東吉島':             45.0,
+    '蘭嶼':               65.0,
+    '綠島':               65.0,
+    '琉球':               40.0,
   };
 
   // ═══════════════════════════════
-  //  常用城市快捷 (UI 用) — 依 107 規範 §2.4 詳分沿海/內陸/山區
-  //  保留「臺北市」作為各工具預設值
+  //  地點下拉選單建置 — CITY_QUICK 依縣市分組 (optgroup)，供各風力工具頁面共用
+  //  （308 筆逐鄉鎮市區扁平清單過長，改依縣市分組並保留原生 <select> 行為）
   // ═══════════════════════════════
-  const CITY_QUICK = {
-    // —— 北部 ——
-    '臺北市':         42.5,
-    '新北市(北區)':   42.5,
-    '新北市(南區)':   37.5,
-    '基隆市':         42.5,
-    '桃園市':         37.5,
-    '新竹市':         32.5,
-    '新竹縣':         32.5,
-    '苗栗縣':         32.5,
-    // —— 中部 ——
-    '臺中市':         32.5,
-    '彰化縣(沿海)':   32.5,
-    '彰化縣(內陸)':   27.5,
-    '雲林縣(沿海)':   32.5,
-    '雲林縣(內陸)':   27.5,
-    '南投縣':         27.5,
-    '南投縣(山區)':   22.5,
-    // —— 南部 ——
-    '嘉義市':         27.5,
-    '嘉義縣':         27.5,
-    '臺南市(沿海)':   37.5,
-    '臺南市(內陸)':   32.5,
-    '高雄市':         37.5,
-    '屏東縣':         37.5,
-    '恆春/滿州':      47.5,
-    // —— 東部 ——
-    '宜蘭縣':         37.5,
-    '花蓮縣':         42.5,
-    '花蓮市/吉安':    47.5,
-    '臺東縣':         37.5,
-    // —— 離島 ——
-    '澎湖縣':         33.0,
-    '金門縣':         35.0,
-    '連江縣(馬祖)':   42.0,
-    '蘭嶼/綠島':      65.0,
-    '小琉球':         40.0,
-  };
+  const OUTLYING_ISLANDS = new Set(['金門', '馬祖', '彭佳嶼', '澎湖縣', '東吉島', '蘭嶼', '綠島', '琉球']);
+  const COUNTY_GROUP_ORDER = [
+    '臺北市', '新北市', '桃園市', '臺中市', '臺南市', '高雄市',
+    '基隆市', '新竹市', '嘉義市',
+    '新竹縣', '苗栗縣', '彰化縣', '南投縣', '雲林縣', '嘉義縣',
+    '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣',
+    '外島地區', // 含澎湖縣（規範原文列於外島地區，非本島縣市清單）
+  ];
+
+  function groupCityQuickByCounty() {
+    const groups = new Map();
+    Object.entries(CITY_QUICK).forEach(([key, v]) => {
+      const dashIdx = key.indexOf('－');
+      let county, label;
+      if (dashIdx > -1) {
+        county = key.slice(0, dashIdx);
+        label = key.slice(dashIdx + 1);
+      } else if (OUTLYING_ISLANDS.has(key)) {
+        county = '外島地區';
+        label = key;
+      } else {
+        county = key;
+        label = '全區';
+      }
+      if (!groups.has(county)) groups.set(county, []);
+      groups.get(county).push({ key, label, v });
+    });
+
+    const order = COUNTY_GROUP_ORDER.filter(c => groups.has(c));
+    groups.forEach((_, c) => { if (!order.includes(c)) order.push(c); });
+    return order.map(county => ({ county, items: groups.get(county) }));
+  }
+
+  function populateCityQuickSelect(selectEl, selectedKey) {
+    if (!selectEl) return;
+    selectEl.innerHTML = '';
+    groupCityQuickByCounty().forEach(({ county, items }) => {
+      const og = document.createElement('optgroup');
+      og.label = county;
+      items.forEach(({ key, label, v }) => {
+        const o = document.createElement('option');
+        o.value = key;
+        o.textContent = `${label}　(V = ${v} m/s)`;
+        if (key === selectedKey) o.selected = true;
+        og.appendChild(o);
+      });
+      selectEl.appendChild(og);
+    });
+  }
 
   // ═══════════════════════════════
   //  表 2.2 地況參數 (10 分鐘平均)
@@ -248,7 +565,7 @@
     const Q  = Math.sqrt(Q2);
     const gQ = 3.4, gV = 3.4;
     const G = 1.927 * (1 + 1.7 * gQ * Iz * Q) / (1 + 1.7 * gV * Iz);
-    return { G, Iz, Lz, Q2, Q, zBar };
+    return { G, Iz, Lz, Q2, Q, zBar, h, B, terrain, gQ, gV };
   }
 
   // ═══════════════════════════════
@@ -1371,7 +1688,7 @@
     SS: 200,
   };
   const SOLID_OBJECT_CF = {
-    flat_panel: { name: '平板 / 告示牌', cf: 1.80 },
+    flat_panel: { name: '投影面積單體（需指定 C_f）', cf: 1.00 },
     box: { name: '矩形箱體', cf: 1.30 },
     circular_cylinder: { name: '圓柱體', cf: 0.70 },
     polygonal_prism: { name: '多角柱', cf: 1.20 },
@@ -1391,19 +1708,19 @@
       points: [[1, 1.0], [7, 1.2], [25, 1.4]],
     },
     circular_low_qd: {
-      name: '圓形（q(z)D ≤ 1.70）',
+      name: '圓形（D√q(z) ≤ 1.70）',
       points: [[1, 0.7], [7, 0.8], [25, 1.2]],
     },
     circular_moderate: {
-      name: '圓形（中度光滑，q(z)D > 1.70）',
+      name: '圓形（中度光滑，D√q(z) > 1.70）',
       points: [[1, 0.5], [7, 0.6], [25, 0.7]],
     },
     circular_rough: {
-      name: '圓形（粗糙，q(z)D > 1.70）',
+      name: '圓形（粗糙，D√q(z) > 1.70）',
       points: [[1, 0.7], [7, 0.8], [25, 0.9]],
     },
     circular_very_rough: {
-      name: '圓形（極粗糙，q(z)D > 1.70）',
+      name: '圓形（極粗糙，D√q(z) > 1.70）',
       points: [[1, 0.8], [7, 1.0], [25, 1.2]],
     },
   };
@@ -1538,10 +1855,56 @@
     };
   }
 
-  function lookupSolidObjectCf(shapeType) {
+  function lookupSolidObjectCf(shapeType, opts = {}) {
     const data = SOLID_OBJECT_CF[shapeType];
     if (!data) throw new Error('Unknown solid object shape: ' + shapeType);
+    const dSqrtQz = opts.dSqrtQz != null ? opts.dSqrtQz : opts.qzD;
+    if (
+      shapeType === 'circular_cylinder' &&
+      opts.diameter > 0 &&
+      dSqrtQz != null &&
+      isFinite(dSqrtQz)
+    ) {
+      const cfData = lookupCircularCylinderCf({
+        diameter: opts.diameter,
+        dSqrtQz,
+        roughness: opts.roughness,
+      });
+      return {
+        shapeType,
+        name: data.name,
+        cf: cfData.cf,
+        cfData,
+      };
+    }
     return { shapeType, name: data.name, cf: data.cf };
+  }
+
+  function calcDiameterSqrtQz(diameter, qz) {
+    const D = Number(diameter);
+    const q = Number(qz);
+    return D > 0 && q >= 0 ? D * Math.sqrt(q) : null;
+  }
+
+  function lookupCircularCylinderCf(p) {
+    const {
+      diameter,
+      roughness = 'moderate',
+    } = p;
+    const dSqrtQz = p.dSqrtQz != null ? p.dSqrtQz : p.qzD;
+    const D = Math.max(diameter || 0, 1e-9);
+    const cfData = lookupCableCf({ roughness, dSqrtQz });
+    return {
+      ...cfData,
+      source: '表 2.14',
+      diameter: D,
+      roughness,
+      roughnessName: cfData.name,
+      dSqrtQz,
+      qzD: dSqrtQz,
+      dSqrtQzRegime: cfData.regime,
+      qzDRegime: cfData.regime,
+    };
   }
 
   function calcSolidObjectWind(p) {
@@ -1551,26 +1914,41 @@
       A,
       charWidth,
       Kzt = 1.0,
-      shapeType = 'flat_panel',
+      shapeType = 'box',
       Cf = null,
       shapeFactor = 1.0,
       G = null,
+      diameter = null,
+      height = null,
+      cylinderRoughness = 'moderate',
     } = p;
     const zUse = Math.max(z, 0);
-    const shape = lookupSolidObjectCf(shapeType);
+    const qz = calcQz(zUse, V, terrain, I, Kzt).qz;
+    const dSqrtQz = calcDiameterSqrtQz(diameter, qz);
+    const shape = lookupSolidObjectCf(shapeType, {
+      diameter,
+      height,
+      dSqrtQz,
+      roughness: cylinderRoughness,
+    });
     const baseCf = Cf == null ? shape.cf : Cf;
     const CfEff = baseCf * shapeFactor;
-    const qz = calcQz(zUse, V, terrain, I, Kzt).qz;
-    const gust = G == null ? calcGustRigid(Math.max(zUse, 0.1), Math.max(charWidth || 1, 1), terrain).G : G;
+    const gustDetail = G == null
+      ? calcGustRigid(Math.max(zUse, 0.1), Math.max(charWidth || 1, 1), terrain)
+      : { G, h: Math.max(zUse, 0.1), B: Math.max(charWidth || 1, 1), terrain, manual: true };
+    const gust = gustDetail.G;
     const pressure = qz * gust * CfEff;
     const F = pressure * A;
     return {
       z: zUse,
       qz,
       G: gust,
+      gustDetail,
       shapeType,
       shapeName: shape.name,
       baseCf,
+      suggestedCf: shape.cf,
+      cfData: shape.cfData || null,
       shapeFactor,
       CfEff,
       A,
@@ -1588,20 +1966,34 @@
       zBase = 0,
       height,
       width,
+      charWidth = null,
       segments = 10,
       Kzt = 1.0,
-      shapeType = 'flat_panel',
+      shapeType = 'box',
       Cf = null,
       shapeFactor = 1.0,
       G = null,
+      diameter = null,
+      cylinderRoughness = 'moderate',
     } = p;
     const n = Math.max(1, Math.round(segments));
     const dz = height / n;
     const topZ = zBase + height;
-    const shape = lookupSolidObjectCf(shapeType);
+    const qTop = calcQz(topZ, V, terrain, I, Kzt).qz;
+    const D = diameter > 0 ? diameter : width;
+    const shape = lookupSolidObjectCf(shapeType, {
+      diameter: D,
+      height,
+      dSqrtQz: calcDiameterSqrtQz(D, qTop),
+      roughness: cylinderRoughness,
+    });
     const baseCf = Cf == null ? shape.cf : Cf;
     const CfEff = baseCf * shapeFactor;
-    const gust = G == null ? calcGustRigid(Math.max(topZ, dz), Math.max(width || 1, 1), terrain).G : G;
+    const gustWidth = Math.max(charWidth || width || 1, 1);
+    const gustDetail = G == null
+      ? calcGustRigid(Math.max(topZ, dz), gustWidth, terrain)
+      : { G, h: Math.max(topZ, dz), B: gustWidth, terrain, manual: true };
+    const gust = gustDetail.G;
     const rows = [];
     let baseShear = 0;
     let baseMoment = 0;
@@ -1636,9 +2028,12 @@
       segments: n,
       segmentHeight: dz,
       G: gust,
+      gustDetail,
       shapeType,
       shapeName: shape.name,
       baseCf,
+      suggestedCf: shape.cf,
+      cfData: shape.cfData || null,
       shapeFactor,
       CfEff,
       totalArea: width * height,
@@ -1653,11 +2048,13 @@
     const {
       sectionType = 'square_face',
       hOverD,
+      dSqrtQz = null,
       qzD = null,
     } = p;
+    const dQ = dSqrtQz != null ? dSqrtQz : qzD;
     let key = sectionType;
     if (sectionType === 'circular_auto') {
-      key = (qzD != null && qzD <= 1.70) ? 'circular_low_qd' : 'circular_moderate';
+      key = (dQ != null && dQ <= 1.70) ? 'circular_low_qd' : 'circular_moderate';
     }
     const data = TOWER_CF_TABLE[key];
     if (!data) throw new Error('Unknown tower section type: ' + sectionType);
@@ -1682,7 +2079,8 @@
       lowCf: low[1],
       highCf: high[1],
       cf,
-      qzD,
+      dSqrtQz: dQ,
+      qzD: dQ,
     };
   }
 
@@ -1701,8 +2099,8 @@
     } = p;
     const refZ = zBase + height;
     const qTop = calcQz(refZ, V, terrain, I, Kzt).qz;
-    const qzD = qTop * D;
-    const cfData = lookupTowerCf({ sectionType, hOverD: height / Math.max(D, 1e-9), qzD });
+    const dSqrtQz = calcDiameterSqrtQz(D, qTop);
+    const cfData = lookupTowerCf({ sectionType, hOverD: height / Math.max(D, 1e-9), dSqrtQz });
     const body = calcVerticalSolidObjectWind({
       V, terrain, I,
       zBase,
@@ -1743,7 +2141,8 @@
       height,
       D,
       qTop,
-      qzD,
+      dSqrtQz,
+      qzD: dSqrtQz,
       cfData,
       shapeFactor,
       body,
@@ -1758,11 +2157,13 @@
     const {
       solidity,
       memberType = 'circular',
+      dSqrtQz = null,
       qzD = null,
     } = p;
+    const dQ = dSqrtQz != null ? dSqrtQz : qzD;
     let key;
     if (memberType === 'flat') key = 'flat_member';
-    else key = (qzD != null && qzD <= 1.70) ? 'circular_low_qd' : 'circular_high_qd';
+    else key = (dQ != null && dQ <= 1.70) ? 'circular_low_qd' : 'circular_high_qd';
     const rows = POROUS_FRAME_CF_TABLE[key];
     const phi = Math.max(rows[0].min, Math.min(solidity, rows[rows.length - 1].max));
     const row = rows.find(item => phi >= item.min && phi <= item.max) || rows[rows.length - 1];
@@ -1770,7 +2171,8 @@
       key,
       memberType,
       solidity: phi,
-      qzD,
+      dSqrtQz: dQ,
+      qzD: dQ,
       cf: row.cf,
       band: `${row.min.toFixed(2)}~${row.max.toFixed(2)}`,
     };
@@ -1909,15 +2311,17 @@
   }
 
   function lookupCableCf(p) {
-    const { roughness = 'smooth', qzD } = p;
+    const { roughness = 'smooth', dSqrtQz = null, qzD = null } = p;
+    const dQ = dSqrtQz != null ? dSqrtQz : qzD;
     const data = CABLE_CF[roughness];
     if (!data) throw new Error('Unknown cable roughness: ' + roughness);
-    const lowRegime = qzD <= 1.70;
+    const lowRegime = dQ <= 1.70;
     return {
       roughness,
       name: data.name,
-      qzD,
-      regime: lowRegime ? 'q(z)D ≤ 1.70' : 'q(z)D > 1.70',
+      dSqrtQz: dQ,
+      qzD: dQ,
+      regime: lowRegime ? 'D√q(z) ≤ 1.70' : 'D√q(z) > 1.70',
       cf: lowRegime ? data.low : data.high,
     };
   }
@@ -1926,8 +2330,9 @@
   //  匯出
   // ═══════════════════════════════
   global.Wind = {
-    BASIC_WIND_SPEED,
     CITY_QUICK,
+    groupCityQuickByCounty,
+    populateCityQuickSelect,
     TERRAIN,
     IMPORTANCE,
     GCPI,
@@ -1983,7 +2388,9 @@
     calcSingleRoofParapetCcCases,
     lookupOpenRoofCpn,
     calcOpenRoofCC,
+    calcDiameterSqrtQz,
     lookupSolidObjectCf,
+    lookupCircularCylinderCf,
     calcSolidObjectWind,
     calcVerticalSolidObjectWind,
     lookupTowerCf,

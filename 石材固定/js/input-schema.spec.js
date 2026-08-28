@@ -39,6 +39,10 @@
     w_pos:   { type: 'number', min: 1,    max: 1500, default: 426,  unit: 'kgf/m²', label: '正風壓' },
     w_cf:    { type: 'number', min: 0.5,  max: 2.0,  default: 1.25,                 label: '載重組合係數' },
     // ─── 地震 ───
+    s_ssd:   { type: 'number', min: 0.1,  max: 2.0,  required: false,               label: 'SsD 震區短週期係數' },
+    s_site_class: { type: 'enum', options: ['manual', '1', '2', '3'], default: 'manual', label: 'SDS 取得方式' },
+    s_sds_source: { type: 'enum', options: ['project-specified', 'site-coefficient'], default: 'project-specified', label: 'SDS 資料來源模式' },
+    s_sds_basis: { type: 'string', default: '', required: false,                    label: '專案指定 SDS 依據' },
     s_sds:   { type: 'number', min: 0.1,  max: 2.0,  default: 0.6,                  label: 'SDS 短週期設計譜' },
     s_ip:    { type: 'number', min: 1.0,  max: 1.5,  default: 1.0,                  label: 'Ip 重要性係數',   required: false },
     // ─── 材料 ───

@@ -27,6 +27,25 @@ for (const needle of directPrintNeedles) {
   assertContract(formalPage.includes(needle), 'Stone direct-print boundary is present', needle);
 }
 
+const seismicSourceNeedles = [
+  'vendor/loads/regulatory-locations.js',
+  'vendor/loads/seismic.js',
+  'SDS = Fa × SsD',
+  '113 年耐震規範表 2-1',
+  '表 2-4(a)',
+  '專案指定 SDS 尚未填寫來源依據',
+  'function seismicParameterSourceText(inp)',
+  'seismicParameterSourceText(inp)',
+];
+for (const needle of seismicSourceNeedles) {
+  assertContract(formalPage.includes(needle), 'Stone seismic source chain is present', needle);
+}
+assertContract(
+  !/getElementById\(['"]s_sds['"]\)\.value\s*=\s*row\[0\]/.test(formalPage),
+  'Stone township lookup does not treat SsD as SDS',
+  'no direct row[0] -> s_sds assignment'
+);
+
 const privateMethodPhotoPaths = [
   '01_背扣雙角鐵.jpg',
   '02_插銷鐵件.jpg',

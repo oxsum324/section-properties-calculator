@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>石材外牆固定構件計算書產生器 規範版 V3.0.7</title>
+<title>石材外牆固定構件計算書產生器 規範版 V3.0.8</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
 <style>
@@ -759,7 +759,10 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
 }
 </style>
 <script src="vendor/loads/seismic-zones.js"></script>
+<script src="vendor/loads/regulatory-locations.js"></script>
+<script src="vendor/loads/seismic.js"></script>
 <script src="vendor/loads/wind.js"></script>
+<script src="vendor/loads/project-location.js" data-location-tool-id="stone-fixing" data-location-tool-name="石材固定計算書" data-location-tool-version="V3.0.8"></script>
 <script src="./js/constants.spec.js"></script>
 <script src="./js/input-schema.spec.js"></script>
 <script src="./js/code-profiles-registry.spec.js"></script>
@@ -859,7 +862,7 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
 
 <!-- Sidebar -->
 <div id="sidebar">
-<div id="tool-header">石材固定構件計算書產生器｜規範版 <span id="tool-version-label">V3.0.7 任務導向介面 ‧ 弘一工程顧問有限公司</span> <span class="v2-rev-pill" id="v2-rev-pill" title="依目前 JSON SHA-256 前 8 碼自動產生之版次碼；內容變動即會更新">REV-—</span></div>
+<div id="tool-header">石材固定構件計算書產生器｜規範版 <span id="tool-version-label">V3.0.8 任務導向介面 ‧ 弘一工程顧問有限公司</span> <span class="v2-rev-pill" id="v2-rev-pill" title="依目前 JSON SHA-256 前 8 碼自動產生之版次碼；內容變動即會更新">REV-—</span></div>
 
   <!-- V2 快速工具列 -->
   <div id="v2-toolbar" role="toolbar" aria-label="快速工具列">
@@ -911,7 +914,7 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
       <div class="field"><label>施工地點（可補充路名）</label>
         <input id="c_loc" type="text" placeholder="選鄉鎮後自動帶入" oninput="save();render()"></div>
     </div>
-    <p class="note">↑ 選鄉鎮後自動帶入地點、設計風速 V 及 SDS（113年規範附錄A，精確到鄉鎮層級）</p>
+    <p class="note">↑ 選鄉鎮後帶入地點、耐風規範 V₁₀(C) 及耐震規範表 2-1 的震區係數；SDS 另依地盤種類計算，或由專案文件明確指定。</p>
     <div class="field"><label>校核單位</label>
       <input id="c_checker" type="text" value="弘一工程顧問有限公司" oninput="save();render()"></div>
     <div class="row">
@@ -1215,8 +1218,28 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
 
     <div class="sub-hd" style="margin-top:10px">▸ 地震力</div>
     <div class="row">
-      <div class="field"><label>SDS（短週期設計譜加速度）<span class="infoi" title="工址設計譜加速度係數 SDS = Fa × Ss / 2.5。台北盆地二區約 0.6；一般地區 0.4~0.6。查耐震規範工址資料。">i</span></label>
-        <input id="s_sds" type="number" value="0.6" step="0.05" min="0" max="3" oninput="save();render()"></div>
+      <div class="field"><label>震區短週期係數 SsD<span class="infoi" title="依 113 年建築物耐震設計規範表 2-1，由縣市／鄉鎮帶入；SsD 不是 SDS。">i</span></label>
+        <input id="s_ssd" type="number" value="" step="0.05" min="0" max="3" readonly style="background:#eef5ff"></div>
+      <div class="field"><label>SDS 取得方式<span class="infoi" title="依地盤種類計算時採 SDS = Fa × SsD；專案指定模式則須填寫規範判定、地盤調查或專案文件來源。">i</span></label>
+        <select id="s_site_class" onchange="onSeismicSiteModeChange()">
+          <option value="manual">專案指定 SDS</option>
+          <option value="1">地盤第一類</option>
+          <option value="2">地盤第二類</option>
+          <option value="3">地盤第三類</option>
+        </select></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Fa（短週期工址放大係數）</label>
+        <input id="s_fa" type="text" value="—" readonly style="background:#eef5ff"></div>
+      <div class="field"><label>SDS（工址短週期設計譜加速度）<span class="infoi" title="依規範式 (2-4)，SDS = Fa × SsD。專案指定時請輸入已完成工址判定的 SDS。">i</span></label>
+        <input id="s_sds" type="number" value="0.6" step="0.05" min="0" max="3" oninput="onManualSdsInput()"></div>
+    </div>
+    <div class="field" id="s_sds_basis_field"><label>專案指定 SDS 依據</label>
+      <input id="s_sds_basis" type="text" placeholder="例：地盤調查報告第 5 章／專案耐震設計條件" oninput="onManualSdsInput()">
+    </div>
+    <input id="s_s1d" type="hidden"><input id="s_ssm" type="hidden"><input id="s_s1m" type="hidden">
+    <p class="note" id="seismic_site_source_note">目前為專案指定 SDS；正式附件前須填寫規範判定、地盤調查或專案文件來源。</p>
+    <div class="row">
       <div class="field"><label>Ip（重要性係數）<span class="infoi" title="非結構構件重要性係數。一般 1.0；生命安全相關（例：緊急逃生通道附近之帷幕石材）1.5。見耐震規範表 9.1-1。">i</span></label>
         <div class="chips" id="chips_ip" style="margin-top:4px">
           <div class="chip active" data-v="1.0" onclick="setChip('chips_ip',this);save();render()">1.0 一般</div>
@@ -3113,6 +3136,48 @@ function v2CollectExportChecklist(payload, serverStatus){
       });
     }
   });
+  // 1b. SsD / Fa / SDS 來源鏈。手動值可用，但正式附件必須有專案依據；
+  // 自動值則必須可由震區係數與地盤種類重新計算。
+  const siteMode = String(inp?.s_site_class || 'manual');
+  if(siteMode === 'manual'){
+    if(!String(inp?.s_sds_basis || '').trim()){
+      items.push({
+        level: 'block',
+        text: '專案指定 SDS 尚未填寫來源依據',
+        reason: '目前 SDS 不是由工具依 SsD 與地盤種類計算，正式附件必須交代其規範判定或專案文件來源',
+        current: `SDS = ${Number.isFinite(Number(inp?.s_sds)) ? Number(inp.s_sds) : '—'}`,
+        required: '規範判定、地盤調查報告或專案文件名稱／章節',
+        suggestion: '於「專案指定 SDS 依據」填入可追溯資料；或改選地盤第一、二、三類由工具計算',
+      });
+    }
+  }else{
+    const siteClass = Number(siteMode);
+    const hasSsd = inp?.s_ssd !== null && inp?.s_ssd !== undefined && inp?.s_ssd !== '';
+    const ssd = Number(inp?.s_ssd);
+    if(![1,2,3].includes(siteClass) || !hasSsd || !Number.isFinite(ssd) || ssd <= 0 || !window.Seismic?.getFa){
+      items.push({
+        level: 'block',
+        text: 'SDS 工址係數計算鏈不完整',
+        reason: '依地盤種類計算時必須具有有效 SsD、地盤種類與工址係數模組',
+        current: `SsD=${Number.isFinite(ssd) ? ssd : '—'}；地盤種類=${siteMode || '—'}`,
+        required: 'SsD、地盤種類 1～3、Seismic 共用核心',
+        suggestion: '重新選擇縣市／鄉鎮及地盤種類後再計算',
+      });
+    }else{
+      const fa = window.Seismic.getFa(siteClass, ssd);
+      const expected = fa * ssd;
+      if(Math.abs(expected - Number(inp?.s_sds)) > 1e-6){
+        items.push({
+          level: 'block',
+          text: 'SDS 與 SsD × Fa 不一致',
+          reason: '自動計算模式不得由保存值或手動輸入覆寫規範換算結果',
+          current: `SDS=${inp?.s_sds}`,
+          required: `SDS=${expected.toFixed(4)}（SsD ${ssd} × Fa ${fa.toFixed(3)}）`,
+          suggestion: '重新切換地盤種類，讓工具回填正確 SDS',
+        });
+      }
+    }
+  }
   // 2. 無案例
   if(!Array.isArray(payload?.cases) || !payload.cases.length){
     items.push({
@@ -3888,7 +3953,7 @@ const V2_TIPS = {
   w_cpe_pos:'正壓係數（吸附方向的反向）。C&C 牆面 Zone 4 依 A 變化：A=1m² 約 1.00；A=50m² 約 0.75。見規範圖 6.11.4-1。',
   w_cpe_neg:'負壓係數（吸離方向）。Zone 5（轉角）負壓較 Zone 4 大；A 變大時數值下降。見規範圖 6.11.4-1。',
   // 地震
-  s_sds:    '工址設計譜加速度係數 SDS = Fa × Ss / 2.5。台北盆地二區約 0.6；一般地區 0.4~0.6。查耐震規範工址資料。',
+  s_sds:    '工址短週期設計譜加速度係數。依規範式 (2-4)，SDS = Fa × SsD；Fa 由地盤種類及 SsD 查表 2-4(a)。',
   s_ip:     '非結構構件重要性係數。一般 1.0；生命安全相關（例：緊急逃生通道附近之帷幕石材）1.5。見耐震規範表 9.1-1。',
   // 材料
   m_fy:     'SUS304 不銹鋼降伏強度，典型值 2100 kgf/cm²（≈205 MPa）。',
@@ -7554,7 +7619,7 @@ const APP_VERSION = window.StonePublicMetadata.version;
 const TOOL_HTML_FILENAME = '石材計算書產生器_規範版V2.html';
 const GENERATOR_NAME = 'stone-spec-direct-word-html-v2';
 const PROJECT_SCHEMA = 'stone-calc/v3';
-const PROJECT_SCHEMA_VERSION = 3;
+const PROJECT_SCHEMA_VERSION = 4;
 const LEGACY_PROJECT_SCHEMA = 'stone-calc/legacy';
 const V2_PROFILE_OVERRIDE_KEY = 'stone_v2_profile_override';
 
@@ -7755,6 +7820,13 @@ const MIGRATABLE_INPUT_FIELDS = Object.freeze({
   extra_per_page: 2,
   s_ip_raw: 1.0,
   s_ip: 1.0,
+  s_ssd: null,
+  s_s1d: null,
+  s_ssm: null,
+  s_s1m: null,
+  s_site_class: 'manual',
+  s_sds_source: 'project-specified',
+  s_sds_basis: '',
   m_anc_type: 'custom',
   m_anc_fc: 280,
   m_anc_sf: 5,
@@ -7849,7 +7921,7 @@ function inferProjectVersion(source, sourceSchema){
 function v2ApplyImportedDefault(target, key, fallback, appliedDefaults){
   const current = target[key];
   const missing = current === undefined
-    || current === null
+    || (current === null && fallback !== null)
     || (current === '' && fallback !== '');
   if(!missing) return false;
   target[key] = fallback;
@@ -8182,7 +8254,104 @@ function autoSetAnc(sel){
 }
 
 /* ══════════════════ 縣市 / 鄉鎮 法規查表 ═══════ */
-function szZones(){ return window.SeismicZones?.ZONES || {}; }
+let _normalizedSeismicZones = null;
+function szZones(){
+  if(_normalizedSeismicZones) return _normalizedSeismicZones;
+  const raw = window.SeismicZones?.ZONES || {};
+  _normalizedSeismicZones = window.RegulatoryLocations?.normalizeZones
+    ? window.RegulatoryLocations.normalizeZones(raw)
+    : raw;
+  return _normalizedSeismicZones;
+}
+
+function normalizedDistrict(city, district){
+  return window.RegulatoryLocations?.normalizeDistrict
+    ? window.RegulatoryLocations.normalizeDistrict(city, district)
+    : String(district || '').trim();
+}
+
+function seismicSiteMode(){
+  return document.getElementById('s_site_class')?.value || 'manual';
+}
+
+function readSeismicSiteState(){
+  const mode = seismicSiteMode();
+  const siteClass = ['1','2','3'].includes(mode) ? Number(mode) : null;
+  const ssd = parseFloat(document.getElementById('s_ssd')?.value);
+  const sds = parseFloat(document.getElementById('s_sds')?.value);
+  let fa = null;
+  let expectedSds = null;
+  let error = '';
+  if(siteClass !== null){
+    if(!Number.isFinite(ssd)){
+      error = '尚未由鄉鎮資料取得 SsD。';
+    }else if(!window.Seismic?.getFa){
+      error = '工址係數模組未載入。';
+    }else{
+      try{
+        fa = window.Seismic.getFa(siteClass, ssd);
+        expectedSds = fa * ssd;
+      }catch(err){
+        error = err?.message || String(err);
+      }
+    }
+  }
+  return {
+    mode,
+    source: siteClass === null ? 'project-specified' : 'site-coefficient',
+    siteClass,
+    ssd: Number.isFinite(ssd) ? ssd : null,
+    fa,
+    expectedSds,
+    sds: Number.isFinite(sds) ? sds : null,
+    basis: String(document.getElementById('s_sds_basis')?.value || '').trim(),
+    error,
+  };
+}
+
+function refreshSeismicSiteState({ applySds = true } = {}){
+  const state = readSeismicSiteState();
+  const sdsEl = document.getElementById('s_sds');
+  const faEl = document.getElementById('s_fa');
+  const basisField = document.getElementById('s_sds_basis_field');
+  const note = document.getElementById('seismic_site_source_note');
+  const automatic = state.siteClass !== null;
+  if(sdsEl){
+    sdsEl.readOnly = automatic;
+    sdsEl.style.background = automatic ? '#eef5ff' : '';
+    if(automatic && applySds && Number.isFinite(state.expectedSds)){
+      sdsEl.value = Number(state.expectedSds.toFixed(4)).toString();
+    }
+  }
+  if(faEl) faEl.value = Number.isFinite(state.fa) ? state.fa.toFixed(3) : '—';
+  if(basisField) basisField.style.display = automatic ? 'none' : '';
+  if(note){
+    if(automatic && state.error){
+      note.textContent = `尚無法計算 SDS：${state.error}`;
+      note.style.color = '#b00000';
+    }else if(automatic){
+      note.textContent = `規範判定：SsD 採 113 年耐震規範表 2-1；地盤第 ${state.siteClass} 類之 Fa = ${state.fa.toFixed(3)} 採表 2-4(a)；依式 (2-4)，SDS = Fa × SsD = ${state.expectedSds.toFixed(3)}。`;
+      note.style.color = '#176017';
+    }else{
+      const basis = state.basis ? `依據：${state.basis}。` : '正式附件前須填寫規範判定、地盤調查或專案文件來源。';
+      note.textContent = `目前為專案指定 SDS；${basis}`;
+      note.style.color = '#8a5b00';
+    }
+  }
+  return readSeismicSiteState();
+}
+
+function onSeismicSiteModeChange(){
+  refreshSeismicSiteState({ applySds: true });
+  save();
+  render();
+}
+
+function onManualSdsInput(){
+  if(seismicSiteMode() !== 'manual') refreshSeismicSiteState({ applySds: true });
+  save();
+  render();
+}
 
 function initCityDropdown(){
   const sel = document.getElementById('c_city');
@@ -8294,9 +8463,13 @@ function onDistChange(){
   if(!city||!dist) return;
   const row = szZones()[city]?.[dist];
   if(!row) return;
-  const sds = row[0];   // SsD
+  const ssd = row[0];   // 震區短週期係數，尚非 SDS
   const v10c = row[4];  // V10C (m/s)
-  document.getElementById('s_sds').value = sds;
+  document.getElementById('s_ssd').value = ssd;
+  document.getElementById('s_s1d').value = row[1];
+  document.getElementById('s_ssm').value = row[2];
+  document.getElementById('s_s1m').value = row[3];
+  refreshSeismicSiteState({ applySds: true });
   document.getElementById('w_v').value   = v10c;
   document.getElementById('c_loc').value = city + dist;
 }
@@ -8878,6 +9051,7 @@ function inputs(){
   const n = id=>parseFloat(v(id))||0;
   const ipRaw = parseFloat(chipVal('chips_ip'))||1.0;
   const ipFloor = document.getElementById('sp_ip15_on')?.checked ? (n('sp_ip_default') || 1.5) : 0;
+  const seismicSite = readSeismicSiteState();
   // V3.0.4：計算一律讀取目前專案的 runtime profile；localStorage 只負責跨重開持久化。
   const profileOverride = v2GetRuntimeProfileOverride();
   return {
@@ -8945,6 +9119,14 @@ function inputs(){
     sa_sds_values: v('sa_sds_values'),
     sa_wind_values: v('sa_wind_values'),
     sa_size_values: v('sa_size_values'),
+    s_ssd:seismicSite.ssd,
+    s_s1d:Number.isFinite(parseFloat(v('s_s1d'))) ? parseFloat(v('s_s1d')) : null,
+    s_ssm:Number.isFinite(parseFloat(v('s_ssm'))) ? parseFloat(v('s_ssm')) : null,
+    s_s1m:Number.isFinite(parseFloat(v('s_s1m'))) ? parseFloat(v('s_s1m')) : null,
+    s_site_class:seismicSite.mode,
+    s_fa:seismicSite.fa,
+    s_sds_source:seismicSite.source,
+    s_sds_basis:seismicSite.basis,
     s_sds:n('s_sds'), s_ip_raw:ipRaw, s_ip:Math.max(ipRaw, ipFloor || ipRaw),
     st_t:n('st_t'), st_gam:n('st_gam'),
     m_fy:n('m_fy'), m_fya36:n('m_fya36'),
@@ -9247,6 +9429,19 @@ function seismicMainText(inp, seismic){
     return '依建築物耐震設計規範檢討非結構組件地震力，並就細算值與上下限控制後採用本案設計地震需求。';
   }
   return '依建築物耐震設計規範檢討附屬構造物設計地震力，作為本案石材外牆固定構件之耐震需求。';
+}
+
+function seismicParameterSourceText(inp){
+  const mode = String(inp?.s_site_class || 'manual');
+  if(['1','2','3'].includes(mode)){
+    const ssd = Number(inp?.s_ssd);
+    const fa = Number(inp?.s_fa);
+    const sds = Number(inp?.s_sds);
+    const location = [inp?.city, inp?.dist].filter(Boolean).join('');
+    return `耐震參數來源：${location || '所選行政區'}之 SsD = ${Number.isFinite(ssd) ? ssd.toFixed(3) : '—'}（113 年耐震規範表 2-1）；地盤第 ${mode} 類，Fa = ${Number.isFinite(fa) ? fa.toFixed(3) : '—'}（表 2-4(a)）；依式 (2-4) 採 SDS = Fa × SsD = ${Number.isFinite(sds) ? sds.toFixed(3) : '—'}。`;
+  }
+  const basis = String(inp?.s_sds_basis || '').trim();
+  return `耐震參數來源：SDS = ${Number.isFinite(Number(inp?.s_sds)) ? Number(inp.s_sds).toFixed(3) : '—'}，採專案指定值；依據：${basis || '尚未填寫（正式附件前須補齊並人工複核）'}。`;
 }
 
 function seismicFormulaNoteEnabled(inp){
@@ -10316,6 +10511,7 @@ function buildMainLoadAnnotations(inp, sampleResult){
   return [
     manualWindNote(inp),
     spec?.seismic && seismicSummaryNoteEnabled(inp) ? seismicNote(inp, spec) : '',
+    seismicParameterSourceText(inp),
     inp?.sp_ip15_on ? ipAutoNote(inp, spec) : '',
     inp?.sp_drift_on ? `層間變位設計參數：θa = ${inp.sp_drift_theta.toFixed(4)}，參考層高 hs = ${inp.sp_story_height_mm.toFixed(0)} mm。` : '',
     inp?.sp_thermal_on ? `伸縮縫設計參數：α = ${inp.sp_thermal_alpha.toExponential(2)} /°C，ΔT = ${inp.sp_thermal_delta_t.toFixed(1)}°C，預留 r = ${inp.sp_thermal_reserve_mm.toFixed(1)} mm。` : '',
@@ -10682,7 +10878,7 @@ function reviewSummaryData(inp, results){
     basis,
     windSource,
     windDesign: `FW− / FW+ = ${windValues.designNeg.toFixed(1)} / ${windValues.designPos.toFixed(1)} kgf/m²`,
-    seismic: `SDS = ${inp.s_sds}，Ip = ${inp.s_ip}`,
+    seismic: `${seismicParameterSourceText(inp)} Ip = ${inp.s_ip.toFixed(2)}。`,
     caseCount: results.length,
     checksTotal,
     failedTotal,
@@ -12653,6 +12849,7 @@ function load(){
       w_manual:'w_manual',w_qref:'w_qref',w_cpe_pos:'w_cpe_pos',w_cpe_neg:'w_cpe_neg',w_gcpi:'w_gcpi',
       w_v:'w_v',w_i:'w_i',w_neg:'w_neg',w_pos:'w_pos',w_cf:'w_cf',
       sa_case_id:'sa_case_id',sa_sds_values:'sa_sds_values',sa_wind_values:'sa_wind_values',sa_size_values:'sa_size_values',
+      s_ssd:'s_ssd',s_s1d:'s_s1d',s_ssm:'s_ssm',s_s1m:'s_s1m',s_site_class:'s_site_class',s_sds_basis:'s_sds_basis',
       s_sds:'s_sds','st_t':'st_t','st_gam':'st_gam',
       m_fy:'m_fy',m_fya36:'m_fya36',m_screw_ta:'m_screw_ta',
       m_anc_ta:'m_anc_ta',m_mc_va:'m_mc_va',m_mc_ta:'m_mc_ta',
@@ -12673,7 +12870,13 @@ function load(){
     sp_drift_theta:'sp_drift_theta',sp_story_height_mm:'sp_story_height_mm',
     sp_thermal_alpha:'sp_thermal_alpha',sp_thermal_delta_t:'sp_thermal_delta_t',sp_thermal_reserve_mm:'sp_thermal_reserve_mm',
     sp_custom_torque_nm:'sp_custom_torque_nm'};
-    Object.keys(mapping).forEach(k=>{ if(inp[k]!==undefined) set(mapping[k], inp[k]); });
+    Object.keys(mapping).forEach(k=>{ if(inp[k]!==undefined && inp[k]!==null) set(mapping[k], inp[k]); });
+    if(inp.city){
+      set('c_city', inp.city);
+      onCityChange();
+      set('c_dist', normalizedDistrict(inp.city, inp.dist));
+    }
+    refreshSeismicSiteState({ applySds: seismicSiteMode() !== 'manual' });
     ['review_summary_on','sign_page_on','cover_show_engineer_on','cover_show_license_on','cert_page_on','ref_inline_table_on','ref_appendix_on','batch_appendix_on','appendix_spec_summary_on',
       'seismic_formula_note_on','seismic_summary_note_on',
       'basis_building_on','basis_steel_on','basis_seismic_on','basis_wind_on','basis_anchor_on','basis_stone_on','basis_drift_on','basis_thermal_on',
@@ -16140,10 +16343,11 @@ window.addEventListener('load', ()=>{
   const { raw: savedRaw } = getStoredProjectRaw();
   if(savedRaw){ try{ const {inp} = JSON.parse(savedRaw);
     if(inp?.city){ document.getElementById('c_city').value = inp.city; onCityChange();
-      setTimeout(()=>{ if(inp?.dist) document.getElementById('c_dist').value = inp.dist; }, 0); }
+      setTimeout(()=>{ if(inp?.dist) document.getElementById('c_dist').value = normalizedDistrict(inp.city, inp.dist); }, 0); }
   }catch(e){} }
   updatePinVa();
   updateAnchorAllowable();
+  refreshSeismicSiteState({ applySds: seismicSiteMode() !== 'manual' });
   if(cases.length===0) addCase({name:'標準板 870×800mm', w:870, h:800, type:'pk_4h',
     bh:10, H1:5, d1:2.5, h12:'3.4, 3.6', L1a:5, L1b:8, LL:5, Lt:0.5, d0:1.2, fx:150, fy1:150, fy2:200,
     angle_section_mode:'l_angle_composite', mat_grade:'sus304', panel_mode:'two_way_rankine', hole_edge_mm:50, hole_spacing_mm:600, hole_depth_mm:25, hole_diameter_mm:12, anchor_spacing_mm:160, anchor_edge_mm:60, pin_edge_mm:25});
