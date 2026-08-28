@@ -1645,7 +1645,10 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload, reportR
   } else {
     assert.equal(state.reportReadinessStatusSource, 'snapshot', `${label} new home report readiness snapshot source`);
     assert.ok(state.reportReadinessStatusMeta.includes('頁面邊界 4 / 4'), `${label} new home report readiness page-only metric`);
-    assert.ok(state.reportReadinessStatusMeta.includes('可讀文字 17 / 17'), `${label} new home report readiness report-text metric`);
+    assert.ok(
+      state.reportReadinessStatusMeta.includes(`可讀文字 ${reportReadinessPayload.reportTextSmokeComplete} / ${reportReadinessPayload.reportTextSmokeRequired}`),
+      `${label} new home report readiness report-text metric`
+    );
     assert.ok(state.reportReadinessStatusMeta.includes('瀏覽器 smoke 2 / 2'), `${label} new home report readiness runtime metric`);
     assert.ok(state.reportReadinessStatusMeta.includes(`成品渲染 ${reportReadinessPayload.renderedDeliveryEvidenceComplete} / ${reportReadinessPayload.renderedDeliveryEvidenceRequired}`), `${label} new home report readiness rendered delivery metric`);
     assert.ok(
