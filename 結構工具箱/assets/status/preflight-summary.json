@@ -2,12 +2,12 @@
   "publicEvidenceSchemaVersion": 3,
   "snapshotVersion": 1,
   "kind": "preflight-summary",
-  "generatedAt": "2026-08-29 12:14:41",
-  "runId": "20260829-112045",
+  "generatedAt": "2026-08-29 19:16:19",
+  "runId": "20260829-183048",
   "quick": false,
   "forcePlatformAudit": true,
   "forceSlowChecks": true,
-  "sourceCommitSha": "237796518efa0106e80bac1dddded0a95082f9fd",
+  "sourceCommitSha": "30586cae48360773f1a702f728a8b4d8059979a0",
   "sourceBranch": "master",
   "sourceDirty": false,
   "pass": true,
@@ -16,111 +16,20 @@
   "slowReuseCount": 0,
   "slowReuseKeys": [],
   "platformAuditReused": false,
-  "recordsCount": 87,
-  "passedCount": 87,
-  "totalSeconds": 3165,
+  "recordsCount": 88,
+  "passedCount": 88,
+  "totalSeconds": 2653.2,
   "slowestKey": "platform-audit",
-  "slowestSeconds": 1305,
+  "slowestSeconds": 902.7,
   "postCheckCount": 3,
   "postChecksPassedCount": 3,
   "postCheckFailures": [],
-  "sourcePath": "output/preflight/history/20260829-112045/preflight-summary.json",
-  "sourceHash": "ddd4c585a618d872bb0334e87b2fd7dd3fdd35a639d304e0f4b2411ccb5c423e",
+  "sourcePath": "output/preflight/history/20260829-183048/preflight-summary.json",
+  "sourceHash": "6238bfdef5ce9a4b536b22d31a8e57711f780f9f5871f43e022df912797b380e",
   "releaseHistory": {
     "schemaVersion": 2,
     "limit": 8,
     "entries": [
-      {
-        "runId": "20260828-214640",
-        "generatedAt": "2026-08-28 22:20:36",
-        "sourceCommitSha": "c99b2e9bfd52504196363fe0ad22e90a141e1315",
-        "records": {
-          "passed": 87,
-          "required": 87
-        },
-        "postChecks": {
-          "passed": 3,
-          "required": 3
-        },
-        "dimensions": [
-          {
-            "id": "release",
-            "pass": true
-          },
-          {
-            "id": "steel",
-            "pass": true
-          },
-          {
-            "id": "rc",
-            "pass": true
-          },
-          {
-            "id": "delivery",
-            "pass": true
-          }
-        ],
-        "metrics": [
-          {
-            "id": "steelResult",
-            "complete": 5,
-            "required": 5
-          },
-          {
-            "id": "steelContentSeal",
-            "complete": 5,
-            "required": 5
-          },
-          {
-            "id": "steelApprovalSeal",
-            "complete": 5,
-            "required": 5
-          },
-          {
-            "id": "rcResult",
-            "complete": 34,
-            "required": 34
-          },
-          {
-            "id": "rcPrint",
-            "complete": 34,
-            "required": 34
-          },
-          {
-            "id": "rcPackage",
-            "complete": 32,
-            "required": 32
-          },
-          {
-            "id": "formalResult",
-            "complete": 14,
-            "required": 14
-          },
-          {
-            "id": "localQuickResult",
-            "complete": 4,
-            "required": 4
-          },
-          {
-            "id": "rendered",
-            "complete": 37,
-            "required": 37
-          },
-          {
-            "id": "delivery",
-            "complete": 151,
-            "required": 151
-          }
-        ],
-        "change": {
-          "policyVersion": 1,
-          "classification": "baseline",
-          "increases": [],
-          "reductions": [],
-          "reasonCode": "",
-          "reason": ""
-        }
-      },
       {
         "runId": "20260828-225707",
         "generatedAt": "2026-08-28 23:34:18",
@@ -205,7 +114,7 @@
         ],
         "change": {
           "policyVersion": 1,
-          "classification": "unchanged",
+          "classification": "baseline",
           "increases": [],
           "reductions": [],
           "reasonCode": "",
@@ -753,6 +662,118 @@
           "policyVersion": 1,
           "classification": "unchanged",
           "increases": [],
+          "reductions": [],
+          "reasonCode": "",
+          "reason": ""
+        }
+      },
+      {
+        "runId": "20260829-183048",
+        "generatedAt": "2026-08-29 19:16:19",
+        "sourceCommitSha": "30586cae48360773f1a702f728a8b4d8059979a0",
+        "records": {
+          "passed": 88,
+          "required": 88
+        },
+        "postChecks": {
+          "passed": 3,
+          "required": 3
+        },
+        "dimensions": [
+          {
+            "id": "release",
+            "pass": true
+          },
+          {
+            "id": "steel",
+            "pass": true
+          },
+          {
+            "id": "rc",
+            "pass": true
+          },
+          {
+            "id": "delivery",
+            "pass": true
+          }
+        ],
+        "metrics": [
+          {
+            "id": "steelResult",
+            "complete": 5,
+            "required": 5
+          },
+          {
+            "id": "steelContentSeal",
+            "complete": 5,
+            "required": 5
+          },
+          {
+            "id": "steelApprovalSeal",
+            "complete": 5,
+            "required": 5
+          },
+          {
+            "id": "rcResult",
+            "complete": 34,
+            "required": 34
+          },
+          {
+            "id": "rcPrint",
+            "complete": 34,
+            "required": 34
+          },
+          {
+            "id": "rcPackage",
+            "complete": 32,
+            "required": 32
+          },
+          {
+            "id": "formalResult",
+            "complete": 14,
+            "required": 14
+          },
+          {
+            "id": "localQuickResult",
+            "complete": 5,
+            "required": 5
+          },
+          {
+            "id": "rendered",
+            "complete": 38,
+            "required": 38
+          },
+          {
+            "id": "delivery",
+            "complete": 157,
+            "required": 157
+          }
+        ],
+        "change": {
+          "policyVersion": 1,
+          "classification": "expanded",
+          "increases": [
+            {
+              "id": "records",
+              "from": 87,
+              "to": 88
+            },
+            {
+              "id": "localQuickResult",
+              "from": 4,
+              "to": 5
+            },
+            {
+              "id": "rendered",
+              "from": 37,
+              "to": 38
+            },
+            {
+              "id": "delivery",
+              "from": 151,
+              "to": 157
+            }
+          ],
           "reductions": [],
           "reasonCode": "",
           "reason": ""
