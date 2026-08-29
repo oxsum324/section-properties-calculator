@@ -2,7 +2,7 @@
   "publicEvidenceSchemaVersion": 3,
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-08-29T02:23:12.150Z",
+  "generatedAt": "2026-08-29T02:29:17.207Z",
   "runId": "20260829-083809",
   "pass": true,
   "failureCount": 0,
@@ -388,5 +388,5 @@
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
   "preflightStatusSourcePath": "output/preflight/history/20260829-083809/preflight-summary.json",
-  "sourceHash": "0b95c452b3f8d87fde3b840645609092ea20b2097422a3eb3b6fe4adf51b6384"
+  "sourceHash": "d9492b15ab417c73c9b4adc9d15852ab4423ddbfcb26ef43ad28d4f7fdffd2c0"
 }
