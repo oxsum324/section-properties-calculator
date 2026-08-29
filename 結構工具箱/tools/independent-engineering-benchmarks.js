@@ -214,6 +214,187 @@ function rcColumnPmOracle(i) {
   };
 }
 
+function rcColumnCoverDeviationOracle(i) {
+  const epsCu = 0.003;
+  const phiComp = 0.65;
+  const phiTen = 0.90;
+  const pnMaxFactor = 0.80;
+  const widthCm = i.sectionWidthMm / 10;
+  const depthCm = i.sectionDepthMm / 10;
+  const beta1 = i.fcKgfCm2 <= 280
+    ? 0.85
+    : (i.fcKgfCm2 >= 560 ? 0.65 : 0.85 - 0.05 * (i.fcKgfCm2 - 280) / 70);
+  const epsTy = i.fyKgfCm2 / i.esKgfCm2;
+  const conversionOffsetMm = i.measurementMode === 'clear-cover'
+    ? i.stirrupDiameterMm + i.mainBarDiameterMm / 2
+    : 0;
+
+  function phiOf(epsT) {
+    if (epsT <= epsTy) return phiComp;
+    if (epsT >= epsTy + 0.003) return phiTen;
+    return phiComp + (phiTen - phiComp) * (epsT - epsTy) / 0.003;
+  }
+
+  function centers(measured) {
+    if (!measured) {
+      return {
+        top:i.designCenterTopMm,
+        bottom:i.designCenterBottomMm,
+        left:i.designCenterLeftMm,
+        right:i.designCenterRightMm,
+      };
+    }
+    return {
+      top:i.measuredTopMm + conversionOffsetMm,
+      bottom:i.measuredBottomMm + conversionOffsetMm,
+      left:i.measuredLeftMm + conversionOffsetMm,
+      right:i.measuredRightMm + conversionOffsetMm,
+    };
+  }
+
+  function evenlySpaced(start, end, count, includeEnds) {
+    if (count <= 0) return [];
+    if (includeEnds) {
+      if (count === 1) return [(start + end) / 2];
+      return Array.from({ length:count }, (_, index) => start + (end - start) * index / (count - 1));
+    }
+    return Array.from({ length:count }, (_, index) => start + (end - start) * (index + 1) / (count + 1));
+  }
+
+  function buildBars(faceCenters) {
+    const left = faceCenters.left / 10;
+    const right = widthCm - faceCenters.right / 10;
+    const top = faceCenters.top / 10;
+    const bottom = depthCm - faceCenters.bottom / 10;
+    const horizontal = evenlySpaced(left, right, i.barsPerTopBottomFace, true);
+    const side = evenlySpaced(top, bottom, i.intermediateBarsPerSide, false);
+    return [
+      ...horizontal.map(x => ({ x, y:top, As:i.barAreaCm2 })),
+      ...horizontal.map(x => ({ x, y:bottom, As:i.barAreaCm2 })),
+      ...side.map(y => ({ x:left, y, As:i.barAreaCm2 })),
+      ...side.map(y => ({ x:right, y, As:i.barAreaCm2 })),
+    ];
+  }
+
+  function sectionForDirection(bars, axis, reverse) {
+    const alongDepth = axis === 'x';
+    const h = alongDepth ? depthCm : widthCm;
+    return {
+      b:alongDepth ? widthCm : depthCm,
+      h,
+      bars:bars.map(bar => {
+        const coordinate = alongDepth ? bar.y : bar.x;
+        return { y:reverse ? h - coordinate : coordinate, As:bar.As };
+      }),
+    };
+  }
+
+  function capacityAtPu(section) {
+    const Ast = section.bars.reduce((sum, bar) => sum + bar.As, 0);
+    const Ag = section.b * section.h;
+    const PoKgf = 0.85 * i.fcKgfCm2 * (Ag - Ast) + i.fyKgfCm2 * Ast;
+    const pMaxTf = phiComp * pnMaxFactor * PoKgf / 1000;
+    const pMinTf = -phiTen * Ast * i.fyKgfCm2 / 1000;
+    const dt = Math.max(...section.bars.map(bar => bar.y));
+
+    function state(c) {
+      const a = Math.min(beta1 * c, section.h);
+      const concreteForce = 0.85 * i.fcKgfCm2 * section.b * a;
+      let nominalAxial = concreteForce;
+      let nominalMoment = concreteForce * (section.h / 2 - a / 2);
+      for (const bar of section.bars) {
+        const strain = epsCu * (c - bar.y) / c;
+        const stress = Math.max(-i.fyKgfCm2, Math.min(i.fyKgfCm2, i.esKgfCm2 * strain));
+        const force = (bar.y < a ? stress - 0.85 * i.fcKgfCm2 : stress) * bar.As;
+        nominalAxial += force;
+        nominalMoment += force * (section.h / 2 - bar.y);
+      }
+      const phi = phiOf(epsCu * (dt - c) / c);
+      const uncappedDesignAxial = phi * nominalAxial;
+      const designAxial = nominalAxial > 0
+        ? Math.min(uncappedDesignAxial, phiComp * pnMaxFactor * PoKgf)
+        : uncappedDesignAxial;
+      return {
+        pTf:designAxial / 1000,
+        mTfm:phi * Math.abs(nominalMoment) / 1e5,
+      };
+    }
+
+    let lower = section.h * 1e-8;
+    let upper = section.h * 100;
+    const lowerState = state(lower);
+    const upperState = state(upper);
+    if (i.puTf < lowerState.pTf - 1e-9 || i.puTf > upperState.pTf + 1e-9) {
+      throw new Error(`independent cover-deviation oracle Pu outside P-M envelope: ${i.puTf}`);
+    }
+    for (let iteration = 0; iteration < 180; iteration += 1) {
+      const middle = (lower + upper) / 2;
+      if (state(middle).pTf < i.puTf) lower = middle;
+      else upper = middle;
+    }
+    const solution = state((lower + upper) / 2);
+    return { phiMnTfm:solution.mTfm, pMinTf, pMaxTf, PoTf:PoKgf / 1000 };
+  }
+
+  const designCenters = centers(false);
+  const measuredCenters = centers(true);
+  const designBars = buildBars(designCenters);
+  const measuredBars = buildBars(measuredCenters);
+  const definitions = [
+    { key:'mxPositive', axis:'x', reverse:false, demand:i.muXPositiveTfm },
+    { key:'mxNegative', axis:'x', reverse:true, demand:i.muXNegativeTfm },
+    { key:'myPositive', axis:'y', reverse:false, demand:i.muYPositiveTfm },
+    { key:'myNegative', axis:'y', reverse:true, demand:i.muYNegativeTfm },
+  ];
+  const directions = definitions.map(definition => {
+    const designCapacity = capacityAtPu(sectionForDirection(designBars, definition.axis, definition.reverse));
+    const measuredCapacity = capacityAtPu(sectionForDirection(measuredBars, definition.axis, definition.reverse));
+    const retentionRatio = measuredCapacity.phiMnTfm / designCapacity.phiMnTfm;
+    return {
+      key:definition.key,
+      demandTfm:definition.demand,
+      design:{
+        phiMnTfm:designCapacity.phiMnTfm,
+        utilization:definition.demand / designCapacity.phiMnTfm,
+        pMinTf:designCapacity.pMinTf,
+        pMaxTf:designCapacity.pMaxTf,
+      },
+      measured:{
+        phiMnTfm:measuredCapacity.phiMnTfm,
+        utilization:definition.demand / measuredCapacity.phiMnTfm,
+        pMinTf:measuredCapacity.pMinTf,
+        pMaxTf:measuredCapacity.pMaxTf,
+      },
+      retentionRatio,
+      capacityChangePercent:(retentionRatio - 1) * 100,
+    };
+  });
+  const totalSteelAreaCm2 = designBars.reduce((sum, bar) => sum + bar.As, 0);
+  const grossAreaCm2 = widthCm * depthCm;
+
+  return {
+    calculationPolicy:{ phiComp, phiTen, pnMaxFactor },
+    measurement:{
+      conversionOffsetMm,
+      deviationsMm:{
+        top:measuredCenters.top - designCenters.top,
+        bottom:measuredCenters.bottom - designCenters.bottom,
+        left:measuredCenters.left - designCenters.left,
+        right:measuredCenters.right - designCenters.right,
+      },
+    },
+    barLayout:{
+      totalBars:designBars.length,
+      totalSteelAreaCm2,
+      grossAreaCm2,
+      steelRatio:totalSteelAreaCm2 / grossAreaCm2,
+    },
+    directions,
+    minimumRetentionRatio:Math.min(...directions.map(direction => direction.retentionRatio)),
+    maximumMeasuredUtilization:Math.max(...directions.map(direction => direction.measured.utilization)),
+  };
+}
+
 function rcBeamStrengthOracle(i) {
   const flexure = (As, d) => {
     const tensileForce = As * i.fy;
@@ -4058,6 +4239,7 @@ const ORACLES = {
   'foundation-external-load-only': foundationOracle,
   'floor-slab-westergaard-three-position': floorSlabWestergaardOracle,
   'rc-column-balanced-nearby-pm-point': rcColumnPmOracle,
+  'rc-column-cover-deviation-four-direction': rcColumnCoverDeviationOracle,
   'rc-beam-seismic-strength': rcBeamStrengthOracle,
   'rc-deep-beam-stm-strength': rcDeepBeamStmOracle,
   'rc-foundation-2d-stm-strength': rcFoundation2dStmOracle,

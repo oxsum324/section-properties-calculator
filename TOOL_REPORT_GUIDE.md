@@ -323,6 +323,8 @@ Schema v12 新增局部快算計算書結果鏈。基礎局部檢核、設備局
 
 Schema v28 將地坪 Westergaard 納入局部快算結果鏈第四頁。Aggregate 從 rendered inventory 的 `local-quick-tools` family 與 evidence key 動態推導 required count，正式放行必須得到 `4/4`；Westergaard 的詳細、內部審閱與阻擋審閱三組 PDF／evidence 也會把 canonical 完整性由 `66/66` 提升為 `72/72`，公開成品合計由 `145/145` 提升為 `151/151`。成熟度矩陣依 evidence schema 分流，Schema v27 舊正式證據仍可作已發布 `3/3`、canonical `66/66` 快照的過渡來源，但任何 Schema v28 新證據缺少第四份、重複身分、降回三份或 canonical 未達 `72/72` 都必須失敗關閉。公開狀態只發布完成數，Westergaard 來源 JSON、重播輸入／結果、指紋及成品雜湊仍留在私人 release 證據。
 
+Schema v29 將柱保護層偏差強度評估納入局部快算結果鏈第五頁。來源 JSON 必須帶案件 schema、工具／頁面／計算引擎版本與計算指紋；匯入忽略內嵌結果，以目前 core 重算輸入並核對指紋，版本或指紋不符時回復原始 raw DOM 值。Aggregate 依 inventory 要求 `5/5`；新頁詳細、內部審閱與阻擋審閱三組 PDF／evidence 使 canonical 完整性成為 `78/78`、公開成品合計 `157/157`。Schema v27 `3/3` 與 Schema v28 `4/4` 只作舊正式快照過渡；Schema v29 缺第五份、重複身分、降回四份或 canonical 未達 `78/78` 都必須失敗關閉。頁面與計算書必須明列 capacity OK 不等於保護層厚度合規，雙軸、二階、剪扭、接頭／握裹、劣化、耐火耐久與施工容許差仍屬人工審查界線。
+
 ### 採用依據文字
 
 應使用：

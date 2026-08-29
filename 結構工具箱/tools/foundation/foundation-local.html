@@ -8,6 +8,7 @@
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../core/style.css">
 <link rel="stylesheet" href="../../core/direct-print-boundary.css">
+<link rel="stylesheet" href="../../core/report-readiness.css">
 <style>
   .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
              font-size:0.6em; font-weight:700; vertical-align:middle; background:#a16207; color:#fff; }
@@ -44,18 +45,6 @@
   .output-actions .btn-secondary { flex:1 1 150px; }
   .scope-box { padding:12px 14px; border-radius:10px; background:#fffbeb; border:1px solid #fcd34d; color:#78350f; font-size:0.84em; line-height:1.75; }
   .scope-box strong { color:#92400e; }
-  .report-readiness { margin-top:10px; border:1px solid #fde68a; border-radius:10px; background:#fffbeb; padding:12px 14px; color:#92400e; line-height:1.6; }
-  .report-readiness.ready { border-color:#bbf7d0; background:#f0fdf4; color:#166534; }
-  .report-readiness.review { border-color:#fde68a; background:#fffbeb; color:#92400e; }
-  .report-readiness.blocked { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
-  .report-readiness-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:8px; }
-  .report-readiness-kicker { margin:0 0 2px; font-size:0.76em; font-weight:700; color:#64748b; }
-  .report-readiness-title { margin:0; font-size:1em; font-weight:800; color:inherit; }
-  .report-readiness-badge { display:inline-flex; align-items:center; border-radius:999px; padding:4px 9px; background:rgba(255,255,255,.78); border:1px solid currentColor; font-size:0.78em; font-weight:800; white-space:nowrap; }
-  .report-readiness-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; }
-  .report-readiness-item { border:1px solid rgba(148,163,184,.45); border-radius:8px; background:rgba(255,255,255,.72); padding:8px 10px; font-size:0.82em; }
-  .report-readiness-item strong { display:block; margin-bottom:2px; color:#334155; }
-  .report-readiness-note { margin-top:8px; padding-top:8px; border-top:1px dashed rgba(100,116,139,.38); color:#475569; font-size:0.82em; }
   .tool-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
   .tool-meta span { display:inline-flex; align-items:center; min-height:24px; padding:3px 8px; border-radius:999px; background:#fef3c7; color:#92400e; font-size:0.78em; font-weight:800; }
   .basis-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin-top:10px; }
@@ -97,7 +86,7 @@
     .header-links .sep { display:none; }
     .hero-chip { font-size:0.76em; padding:5px 10px; }
     .foundation-shell, .foundation-form-stack, .foundation-result-stack { gap:14px; }
-    .form-row, .metric-grid, .basis-grid, .report-readiness-grid { grid-template-columns:1fr; }
+    .form-row, .metric-grid, .basis-grid { grid-template-columns:1fr; }
     .case-actions,
     .output-actions { flex-direction:column; align-items:stretch; width:100%; }
     .case-actions { margin-left:0; }

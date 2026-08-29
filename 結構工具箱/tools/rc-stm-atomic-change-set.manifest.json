@@ -198,6 +198,7 @@
         "結構工具箱/core/materials/concrete.js",
         "結構工具箱/core/materials/rebar.js",
         "結構工具箱/core/direct-print-boundary.css",
+        "結構工具箱/core/report-readiness.css",
         "結構工具箱/core/ui/report.js",
         "結構工具箱/tools/calculation-book-content-boundary.json",
         "結構工具箱/tools/project-meta-profile.js",

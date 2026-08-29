@@ -184,10 +184,10 @@ assert.ok(!srcColumnAdapterSource.includes('golden'), 'SRC column adapter does n
 const result = runBenchmarks(catalog);
 assert.equal(result.status, 'ready', JSON.stringify(result.issues));
 assert.equal(result.schemaVersion, 3, 'outcome-aware independent benchmark result is versioned');
-assert.equal(result.summary.eligibleFormalRoutes, 37, 'formal route portfolio is explicit');
-assert.equal(result.summary.pilotRequired, 37, 'thirty-seven independent pilot benchmarks required');
-assert.equal(result.summary.pilotVerified, 37, 'thirty-seven independent pilot benchmarks verified');
-assert.equal(result.summary.independentlyVerifiedRoutes, 37, 'all thirty-seven formal routes independently verified');
+assert.equal(result.summary.eligibleFormalRoutes, 38, 'formal route portfolio is explicit');
+assert.equal(result.summary.pilotRequired, 38, 'thirty-eight independent pilot benchmarks required');
+assert.equal(result.summary.pilotVerified, 38, 'thirty-eight independent pilot benchmarks verified');
+assert.equal(result.summary.independentlyVerifiedRoutes, 38, 'all thirty-eight formal routes independently verified');
 assert.equal(result.summary.candidateRequired, 21, 'twenty-one supplemental STM boundary cases require independent benchmarks');
 assert.equal(result.summary.candidateVerified, 21, 'twenty-one supplemental STM boundary cases are independently verified');
 assert.equal(result.summary.candidatePassRequired, 12, 'twelve supplemental STM passing boundary cases are required');
@@ -371,9 +371,44 @@ assert.equal(srcBeamRecord.assertionCount, 41, 'SRC formal benchmark covers flex
 const srcColumnRecord = result.records.find(record => record.route === '/src-column');
 assert.equal(srcColumnRecord.status, 'verified', 'SRC column formal closed-form benchmark is verified');
 assert.equal(srcColumnRecord.assertionCount, 38, 'SRC column formal benchmark covers geometry, compactness, stiffness allocation, compression and interaction');
+const rcColumnCoverDeviationRecord = result.records.find(record => record.route === '/rc-column-cover-deviation');
+assert.equal(rcColumnCoverDeviationRecord.status, 'verified', 'RC column cover-deviation four-direction benchmark is verified');
+assert.equal(rcColumnCoverDeviationRecord.assertionCount, 43, 'RC column cover-deviation benchmark covers four-face geometry, four-direction capacity, retention, utilization, phi and axial cap');
 
 const runnerText = fs.readFileSync(runnerPath, 'utf8');
 assert.ok(!runnerText.includes('golden-cases.js'), 'independent runner does not import golden case answers');
+assert.ok(!runnerText.includes('pmsection.js'), 'independent runner does not import the production P-M engine');
+assert.ok(!/require\([^\n]*column-cover-deviation-core\.js/.test(runnerText), 'cover-deviation oracle does not import the production cover-deviation core');
+const coverDeviationBenchmark = catalog.benchmarks.find(item => item.route === '/rc-column-cover-deviation');
+assert.equal(coverDeviationBenchmark.productionModule, 'rc/column-cover-deviation-core.js', 'cover-deviation benchmark exercises the production core directly without an oracle adapter');
+const coverDeviationAssertionPaths = new Set(coverDeviationBenchmark.assertions.map(assertion => assertion.path));
+[
+  'calculationPolicy.phiComp',
+  'calculationPolicy.phiTen',
+  'calculationPolicy.pnMaxFactor',
+  'directions.0.design.pMaxTf',
+  'directions.0.measured.pMaxTf',
+  'directions.0.design.phiMnTfm',
+  'directions.0.measured.phiMnTfm',
+  'directions.1.design.phiMnTfm',
+  'directions.1.measured.phiMnTfm',
+  'directions.2.design.phiMnTfm',
+  'directions.2.measured.phiMnTfm',
+  'directions.3.design.phiMnTfm',
+  'directions.3.measured.phiMnTfm',
+  'minimumRetentionRatio',
+  'maximumMeasuredUtilization',
+].forEach(assertionPath => assert.ok(coverDeviationAssertionPaths.has(assertionPath), `cover-deviation benchmark locks ${assertionPath}`));
+assert.deepEqual(
+  {
+    top:coverDeviationBenchmark.input.measuredTopMm - coverDeviationBenchmark.input.designCenterTopMm,
+    bottom:coverDeviationBenchmark.input.measuredBottomMm - coverDeviationBenchmark.input.designCenterBottomMm,
+    left:coverDeviationBenchmark.input.measuredLeftMm - coverDeviationBenchmark.input.designCenterLeftMm,
+    right:coverDeviationBenchmark.input.measuredRightMm - coverDeviationBenchmark.input.designCenterRightMm,
+  },
+  { top:26, bottom:-13, left:17, right:-9 },
+  'cover-deviation benchmark has deliberately asymmetric four-face bar-position offsets'
+);
 
 const falsePositiveResult = runBenchmarks(catalog, {
   loadProduction(relativePath) {
@@ -384,6 +419,7 @@ const falsePositiveResult = runBenchmarks(catalog, {
         const production = realModule.calculate(input);
         if (relativePath === 'equipment/equipment-load-core.js') production.pointLoad += 0.25;
         if (relativePath === 'independent-engineering-adapters/rc-column-pm.js') production.designM += 0.5;
+        if (relativePath === 'rc/column-cover-deviation-core.js') production.directions[0].measured.phiMnTfm += 5;
         if (relativePath === 'independent-engineering-adapters/rc-beam-strength.js') production.phiVnEffective += 500;
         if (relativePath === 'independent-engineering-adapters/rc-stm-strength.js' && input.mode === 'deep-beam') production.tieDemand += 0.5;
         if (relativePath === 'independent-engineering-adapters/rc-stm-strength.js' && input.mode === 'foundation-2d') production.reactionTotal += 0.5;
@@ -424,6 +460,7 @@ const falsePositiveResult = runBenchmarks(catalog, {
 assert.equal(falsePositiveResult.status, 'blocked', 'independent benchmark detects production drift');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:pointLoad')), 'production drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:designM')), 'RC column P-M production drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('rc-column-cover-deviation-four-direction:benchmark-value-mismatch:directions.0.measured.phiMnTfm')), 'RC column cover-deviation production drift identifies the mismatched directional capacity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:phiVnEffective')), 'RC beam seismic shear drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('rc-deep-beam-stm-strength:benchmark-value-mismatch:tieDemand')), 'deep-beam STM tie-force drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('rc-deep-beam-stm-minimum-steel-four-row:benchmark-value-mismatch:tieDemand')), 'four-row deep-beam STM tie-force drift identifies the mismatched quantity');

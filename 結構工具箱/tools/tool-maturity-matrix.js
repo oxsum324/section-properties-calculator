@@ -109,7 +109,7 @@ const GLOBAL_GOVERNANCE_GATES = [
     key: 'rendered-delivery-evidence',
     label: '實際交付物渲染佐證',
     contract: '結構工具箱/tools/rendered-delivery-evidence.contract.test.js',
-    scope: '首頁 37 個正式工具的 PDF、DOCX 或 workbook，加上動力分析摘要 PDF 與開挖本機服務 PDF / DOCX / 最新下載的當輪實際產出與文字 / 版面驗證',
+    scope: '首頁 38 個正式工具的 PDF、DOCX 或 workbook，加上動力分析摘要 PDF 與開挖本機服務 PDF / DOCX / 最新下載的當輪實際產出與文字 / 版面驗證',
     catalogFamilies: [],
     minCatalogs: 0
   }
@@ -2098,7 +2098,10 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const excavationResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 11;
   const localQuickResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 12;
   const expandedLocalQuickResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 28;
-  const expectedLocalQuickResultReconciliationCount = expandedLocalQuickResultReconciliationDeclared ? 4 : 3;
+  const columnCoverLocalQuickResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 29;
+  const expectedLocalQuickResultReconciliationCount = columnCoverLocalQuickResultReconciliationDeclared
+    ? 5
+    : (expandedLocalQuickResultReconciliationDeclared ? 4 : 3);
   const expectedCanonicalArtifactIntegrityCount = 48 + (expectedLocalQuickResultReconciliationCount * 6);
   const earthBridgeRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 13;
   const pileGroupLateralRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 14;
@@ -2898,9 +2901,11 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
   );
   const localQuickResultReconciliationRequired = localQuickResultReconciliationDeclared ? compactNumber(localQuickResultReconciliation.required) : 0;
   const localQuickResultReconciliationComplete = localQuickResultReconciliationDeclared ? compactNumber(localQuickResultReconciliation.complete) : 0;
-  const localQuickResultReconciliationToolLabels = localQuickResultReconciliationRequired >= 4
-    ? '基礎、設備荷重、擋土土壓與地坪 Westergaard'
-    : '基礎、設備荷重與擋土土壓';
+  const localQuickResultReconciliationToolLabels = localQuickResultReconciliationRequired >= 5
+    ? '基礎、設備荷重、擋土土壓、地坪 Westergaard 與柱保護層偏差強度評估'
+    : (localQuickResultReconciliationRequired >= 4
+      ? '基礎、設備荷重、擋土土壓與地坪 Westergaard'
+      : '基礎、設備荷重與擋土土壓');
   const localQuickResultReconciliationIssueCount = !localQuickResultReconciliationDeclared
     ? 0
     : localQuickResultReconciliation.pass === true
@@ -3421,10 +3426,10 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(markdown.includes('rendered-delivery-evidence'), 'tool maturity matrix markdown exposes rendered delivery evidence gate');
   assert.ok(payload.independentBenchmarkCoverage && typeof payload.independentBenchmarkCoverage === 'object', 'tool maturity matrix independent benchmark coverage object');
   assert.equal(payload.independentBenchmarkCoverage.status, 'ready', 'tool maturity matrix independent benchmark pilot ready');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 37, 'tool maturity matrix independent benchmark pilot verified');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 37, 'tool maturity matrix independent benchmark pilot required');
-  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 37, 'tool maturity matrix independent benchmark verified route count');
-  assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 37, 'tool maturity matrix independent benchmark eligible route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 38, 'tool maturity matrix independent benchmark pilot verified');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 38, 'tool maturity matrix independent benchmark pilot required');
+  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 38, 'tool maturity matrix independent benchmark verified route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 38, 'tool maturity matrix independent benchmark eligible route count');
   assert.equal(payload.independentBenchmarkCoverage.summary.candidateRequired, 21, 'tool maturity matrix requires twenty-one supplemental STM boundary cases');
   assert.equal(payload.independentBenchmarkCoverage.summary.candidateVerified, 21, 'tool maturity matrix verifies twenty-one supplemental STM boundary cases');
   assert.equal(payload.independentBenchmarkCoverage.summary.candidatePassRequired, 12, 'tool maturity matrix requires twelve expected passing STM boundary cases');
@@ -3583,7 +3588,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(String(homepageReportReadinessStatus.reportTextSmokeScope || '').includes('矩陣外工具家族'), 'homepage report readiness report text scope keeps other-family boundary');
   assert.ok(String(homepageReportReadinessStatus.compactSummary || '').includes('頁面診斷明細不進計算書'), 'homepage report readiness compact summary keeps page-only wording');
   assert.ok(String(homepageReportReadinessStatus.compactSummary || '').includes('兩者皆可列印'), 'homepage report readiness compact summary keeps printable approval boundary');
-  assert.ok([31, 32, 33, 36, 37].includes(homepageReportReadinessStatus.independentBenchmarkEligible), 'homepage report readiness preserves a supported independent benchmark portfolio');
+  assert.ok([31, 32, 33, 36, 37, 38].includes(homepageReportReadinessStatus.independentBenchmarkEligible), 'homepage report readiness preserves a supported independent benchmark portfolio');
   if (preserveHomepageStatus) {
     assert.ok(Number.isInteger(homepageReportReadinessStatus.independentBenchmarkVerified), 'preserved homepage report readiness independent benchmark verified routes integer');
     assert.ok(homepageReportReadinessStatus.independentBenchmarkVerified >= 0
@@ -3617,7 +3622,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), true, 'homepage report readiness rendered delivery required integer');
   assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceComplete), true, 'homepage report readiness rendered delivery complete integer');
   assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceIssueCount), true, 'homepage report readiness rendered delivery issue integer');
-  assert.ok([31, 32, 33, 36, 37].includes(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), 'homepage report readiness preserves a supported rendered delivery portfolio');
+  assert.ok([31, 32, 33, 36, 37, 38].includes(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), 'homepage report readiness preserves a supported rendered delivery portfolio');
   assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceComplete, homepageReportReadinessStatus.renderedDeliveryEvidenceRequired, 'homepage report readiness rendered delivery evidence complete');
   assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceIssueCount, 0, 'homepage report readiness rendered delivery evidence issues empty');
   assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'homepage report readiness rendered delivery runId');
@@ -3627,7 +3632,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'homepage report readiness rendered delivery source hash');
   assert.ok(String(homepageReportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'homepage report readiness rendered delivery summary');
   if (Number.isInteger(homepageReportReadinessStatus.deliveryFileIntegrityRequired)) {
-    assert.ok([135, 137, 139, 141, 143, 145, 151].includes(homepageReportReadinessStatus.deliveryFileIntegrityRequired), 'homepage report readiness exposes a supported verified delivery-file transition count');
+    assert.ok([135, 137, 139, 141, 143, 145, 151, 157].includes(homepageReportReadinessStatus.deliveryFileIntegrityRequired), 'homepage report readiness exposes a supported verified delivery-file transition count');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityVerified, homepageReportReadinessStatus.deliveryFileIntegrityRequired, 'homepage report readiness verifies every delivery file');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'homepage report readiness delivery file integrity issues empty');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityPass, true, 'homepage report readiness delivery file integrity passes');

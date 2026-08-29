@@ -6,6 +6,7 @@
 <title>RC 補強斷面性質計算 V1.7</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="鋼筋混凝土/shared/direct-print-boundary.css">
+<link rel="stylesheet" href="結構工具箱/core/report-readiness.css">
 <style>
   :root {
     --primary: #2563eb;
@@ -63,22 +64,6 @@
   .report-status { display: none; margin-top: 10px; padding: 8px 12px; border-radius: 8px; font-size: 0.84em; line-height: 1.45; }
   .report-status.warn { display: block; background: #fffbeb; color: #92400e; }
   .report-status.error { display: block; background: #fef2f2; color: #dc2626; }
-  .report-readiness { display: grid; gap: 10px; margin-top: 12px; padding: 12px; border: 1px solid #fde68a; border-radius: 8px; background: #fffbeb; color: #78350f; }
-  .report-readiness.blocked { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
-  .report-readiness.ready { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
-  .report-readiness-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-  .report-readiness-kicker { margin: 0 0 2px; font-size: 0.74em; color: var(--text-light); font-weight: 700; }
-  .report-readiness h3 { margin: 0; font-size: 0.94em; color: inherit; }
-  .report-readiness-badge { flex: 0 0 auto; border: 1px solid currentColor; border-radius: 999px; padding: 3px 8px; font-size: 0.74em; font-weight: 700; white-space: nowrap; }
-  .report-readiness-summary { margin: 0; font-size: 0.84em; line-height: 1.65; }
-  .report-readiness-priority { display: grid; gap: 2px; padding: 9px 10px; border-radius: 8px; background: rgba(255,255,255,0.72); border: 1px solid rgba(120,53,15,0.18); }
-  .report-readiness-priority span { font-size: 0.74em; font-weight: 700; color: var(--text-light); }
-  .report-readiness-priority strong { font-size: 0.9em; color: inherit; }
-  .report-readiness-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; }
-  .report-readiness-item { min-height: 58px; padding: 8px 9px; border-radius: 8px; background: rgba(255,255,255,0.7); border: 1px solid rgba(120,53,15,0.14); }
-  .report-readiness-item span { display: block; font-size: 0.72em; font-weight: 700; color: var(--text-light); }
-  .report-readiness-item strong { display: block; margin-top: 2px; font-size: 0.84em; color: var(--text); line-height: 1.35; }
-  .report-readiness-notes { margin: 0; padding-left: 18px; font-size: 0.78em; color: #57534e; line-height: 1.65; }
   .case-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
   .btn-case { padding:6px 12px; background:#475569; color:white; border:none; border-radius:7px; font-size:0.8em; font-weight:700; cursor:pointer; font-family:inherit; }
   .btn-case:hover { background:#334155; }

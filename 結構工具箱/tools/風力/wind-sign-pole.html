@@ -7,6 +7,7 @@
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../core/style.css">
 <link rel="stylesheet" href="../../core/direct-print-boundary.css">
+<link rel="stylesheet" href="../../core/report-readiness.css">
 <style>
   .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px; font-size:0.6em; font-weight:700; vertical-align:middle; background:#0f766e; color:#fff; }
   .case-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
@@ -22,18 +23,6 @@
   .mode-segment { border:1px solid #5eead4; background:#fff; color:#0f766e; border-radius:8px; padding:7px 12px; font-weight:700; cursor:pointer; min-width:86px; }
   .mode-segment.active, .mode-segment[aria-pressed="true"] { background:#0f766e; color:#fff; border-color:#0f766e; box-shadow:0 4px 10px rgba(15,118,110,.18); }
   .report-mode-hint { flex-basis:100%; color:#64748b; font-size:0.92em; }
-  .report-readiness { margin-top:10px; border:1px solid #99f6e4; border-radius:10px; background:#f0fdfa; padding:12px 14px; color:#115e59; line-height:1.6; }
-  .report-readiness.ready { border-color:#bbf7d0; background:#f0fdf4; color:#166534; }
-  .report-readiness.review { border-color:#fde68a; background:#fffbeb; color:#92400e; }
-  .report-readiness.blocked { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
-  .report-readiness-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:8px; }
-  .report-readiness-kicker { margin:0 0 2px; font-size:0.76em; font-weight:700; color:#64748b; }
-  .report-readiness-title { margin:0; font-size:1em; font-weight:800; color:inherit; }
-  .report-readiness-badge { display:inline-flex; align-items:center; border-radius:999px; padding:4px 9px; background:rgba(255,255,255,.78); border:1px solid currentColor; font-size:0.78em; font-weight:800; white-space:nowrap; }
-  .report-readiness-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
-  .report-readiness-item { border:1px solid rgba(148,163,184,.45); border-radius:8px; background:rgba(255,255,255,.72); padding:8px 10px; font-size:0.82em; }
-  .report-readiness-item strong { display:block; margin-bottom:2px; color:#334155; }
-  .report-readiness-note { margin-top:8px; padding-top:8px; border-top:1px dashed rgba(100,116,139,.38); color:#475569; font-size:0.82em; }
   .form-error { display:none; margin-top:10px; padding:9px 11px; border:1px solid #fca5a5; border-radius:9px; background:#fef2f2; color:#991b1b; font-size:0.84em; line-height:1.6; }
   .form-error.show { display:block; }
   .hint-panel { margin-top:8px; padding:9px 11px; border-radius:9px; border:1px solid #bfdbfe; background:#eff6ff; color:#1e3a8a; font-size:0.82em; line-height:1.65; }
@@ -63,7 +52,6 @@
   .form-group input, .form-group select { min-width:0; }
   @media (max-width:768px) {
     .main-layout { grid-template-columns:1fr; }
-    .report-readiness-grid { grid-template-columns:1fr; }
     .case-actions button { flex:1 1 120px; }
     .inline-actions { flex-direction:column; }
     .inline-actions .btn-calc { width:100%; flex:1 1 auto; }
@@ -298,6 +286,7 @@
 <script src="../../core/loads/wind.js"></script>
 <script src="../../core/ui/report.js?v=7"></script>
 <script src="../formal-tool-metadata.js"></script>
+<script src="../project-storage.js?v=0.4.0" data-auto-bind="false"></script>
 <script>
 const W = window.Wind;
 const PUBLIC_TOOL_VERSION = window.FormalToolMetadata['wind-sign-pole'].version;
@@ -539,71 +528,26 @@ function exportCaseJson() {
 
 
 const CASE_BROWSER_DRAFT_KEY = 'toolCaseDraft:' + location.pathname + ':' + (typeof CASE_SCHEMA_VERSION !== 'undefined' ? CASE_SCHEMA_VERSION : 'v1');
-function setCaseDraftStatus(message, tone = 'ok') {
-  if (typeof setCaseStatus === 'function') {
-    setCaseStatus(message, tone === 'warn' ? 'warn' : '');
-    return;
-  }
-  const node = document.getElementById('caseStatus') || document.getElementById('staticImportStatus') || document.getElementById('inputStatus');
-  if (node) {
-    node.textContent = message;
-    node.classList.toggle('warn', tone === 'warn');
-    return;
-  }
-  if (typeof setInputStatus === 'function') setInputStatus(message);
-}
-function buildCaseDraftPayload() {
-  let payload = null;
-  if (typeof buildCasePayload === 'function') payload = buildCasePayload();
-  if (!payload && typeof readCaseInputs === 'function') {
-    payload = {
-      schema: typeof CASE_SCHEMA_VERSION !== 'undefined' ? CASE_SCHEMA_VERSION : 'case-draft.v1',
-      tool: { id: location.pathname.split('/').pop().replace(/\.html$/i, '') },
-      generatedAt: new Date().toISOString(),
-      ...readCaseInputs(),
-      result: typeof readExportResultSummary === 'function'
-        ? readExportResultSummary()
-        : (typeof lastResult !== 'undefined' ? lastResult : null)
-    };
-  }
-  if (!payload) throw new Error('目前輸入尚未通過檢核，無法暫存。');
-  return payload;
-}
-function refreshCaseAfterDraftLoad() {
-  const refreshers = [
-    'calc', 'calcDynamic', 'calcAppendagePage', 'calcMiscPage',
-    'calcMiscSeismicFull', 'runCheck', 'renderSummary'
-  ];
-  for (const name of refreshers) {
-    if (typeof window[name] === 'function') {
-      try { window[name](); } catch (err) {}
-      return;
-    }
-  }
-}
+const caseDraftController = window.ToolProjectStorage.createCaseDraftController({
+  storageKey: CASE_BROWSER_DRAFT_KEY,
+  buildPayload: () => ({
+    schema: CASE_SCHEMA_VERSION,
+    tool: { id: location.pathname.split('/').pop().replace(/\.html$/i, '') },
+    generatedAt: new Date().toISOString(),
+    ...readCaseInputs(),
+    result: typeof readExportResultSummary === 'function'
+      ? readExportResultSummary()
+      : (typeof lastResult !== 'undefined' ? lastResult : null)
+  }),
+  applyPayload: payload => applyCaseInputs(payload.inputs || payload),
+  refresh: () => calc(),
+  setStatus: (message, tone) => setCaseStatus(message, tone === 'warn' ? 'warn' : '')
+});
 function saveCaseDraft() {
-  try {
-    const payload = buildCaseDraftPayload();
-    localStorage.setItem(CASE_BROWSER_DRAFT_KEY, JSON.stringify(payload));
-    setCaseDraftStatus('已暫存目前案件到此瀏覽器。');
-  } catch (err) {
-    setCaseDraftStatus('暫存失敗：' + (err.message || err), 'warn');
-  }
+  return caseDraftController.save();
 }
 function loadCaseDraft() {
-  try {
-    const raw = localStorage.getItem(CASE_BROWSER_DRAFT_KEY);
-    if (!raw) {
-      setCaseDraftStatus('尚無可讀取的瀏覽器暫存。', 'warn');
-      return;
-    }
-    const payload = JSON.parse(raw);
-    applyCaseInputs(payload.inputs || payload);
-    refreshCaseAfterDraftLoad();
-    setCaseDraftStatus('已讀取瀏覽器暫存，並依目前頁面重新整理。');
-  } catch (err) {
-    setCaseDraftStatus('讀取暫存失敗：' + (err.message || err), 'warn');
-  }
+  return caseDraftController.load();
 }
 
 function importCaseJsonFile(file) {

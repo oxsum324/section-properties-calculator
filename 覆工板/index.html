@@ -6,6 +6,7 @@
 <title>覆工板系統計算工具</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
+<link rel="stylesheet" href="../結構工具箱/core/report-readiness.css">
 <style>
   :root {
     --c-bg: #f5f6f8;
@@ -321,110 +322,6 @@
     border-color: #8f1d1d;
     color: #fff;
   }
-  .report-readiness {
-    display: grid;
-    gap: 12px;
-    margin: 12px 0 16px;
-    padding: 14px;
-    border: 1px solid #cfd8e3;
-    border-radius: 6px;
-    background: #f8fbff;
-  }
-  .report-readiness-head {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    justify-content: space-between;
-  }
-  .report-readiness-kicker {
-    margin: 0 0 3px;
-    color: #64748b;
-    font-size: 12px;
-    font-weight: 700;
-  }
-  .report-readiness h3 {
-    margin: 0;
-    color: var(--c-primary);
-    font-size: 15px;
-  }
-  .report-readiness-badge {
-    flex: 0 0 auto;
-    padding: 4px 9px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 700;
-    white-space: nowrap;
-  }
-  .report-readiness-summary {
-    margin: 0;
-    color: #334155;
-  }
-  .report-readiness-priority {
-    display: grid;
-    gap: 4px;
-    padding: 10px 12px;
-    border: 1px solid rgba(26,68,128,.16);
-    border-radius: 6px;
-    background: #fff;
-  }
-  .report-readiness-priority span {
-    color: #64748b;
-    font-size: 12px;
-    font-weight: 700;
-  }
-  .report-readiness-priority strong {
-    color: #17324d;
-    font-size: 14px;
-  }
-  .report-readiness-grid {
-    display: grid;
-    gap: 8px;
-    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
-  }
-  .report-readiness-item {
-    min-height: 64px;
-    padding: 9px 10px;
-    border: 1px solid rgba(26,68,128,.14);
-    border-radius: 6px;
-    background: #fff;
-  }
-  .report-readiness-item span {
-    display: block;
-    color: #64748b;
-    font-size: 12px;
-    font-weight: 700;
-  }
-  .report-readiness-item strong {
-    display: block;
-    margin-top: 3px;
-    color: #111827;
-    font-size: 14px;
-  }
-  .report-readiness-notes {
-    margin: 0;
-    padding-left: 18px;
-    color: #475569;
-    font-size: 13px;
-  }
-  .report-readiness.ready,
-  .report-readiness.ready .report-readiness-badge {
-    border-color: #b7e1c2;
-    background: #f0fff4;
-    color: var(--c-ok);
-  }
-  .report-readiness.review,
-  .report-readiness.review .report-readiness-badge {
-    border-color: #f3d39b;
-    background: #fff8e6;
-    color: #8a5a00;
-  }
-  .report-readiness.blocked,
-  .report-readiness.blocked .report-readiness-badge {
-    border-color: #e9a4a4;
-    background: #fff1f1;
-    color: var(--c-ng);
-  }
-
   /* 自動連動標示 */
   .field input.linked {
     border-left: 3px solid var(--c-accent);

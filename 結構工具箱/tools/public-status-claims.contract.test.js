@@ -116,7 +116,7 @@ const stoneVersionContext = { window: {} };
 vm.runInNewContext(stoneVersionSource, stoneVersionContext, { timeout: 1000, filename: 'stone-public-metadata' });
 const stoneMetadata = stoneVersionContext.window.StonePublicMetadata;
 
-assert.equal(homeTools.length, 49, 'canonical homepage tool inventory count');
+assert.equal(homeTools.length, 50, 'canonical homepage tool inventory count');
 assert.equal(new Set(homeTools.map(tool => tool.href)).size, homeTools.length, 'canonical homepage routes are unique');
 for (const tool of homeTools) {
   assert.ok(tool.title && tool.version && tool.state && tool.output && tool.summary && tool.fit && tool.limit, `canonical public claim complete: ${tool.href}`);
@@ -229,15 +229,18 @@ for (const [toolKey, metadata] of Object.entries(formalToolMetadata)) {
   assert.ok(page.includes(metadata.version), `formal-family page exposes canonical version: ${metadata.route}`);
 }
 
-assert.equal(Object.keys(localQuickToolMetadata).length, 4, 'local quick public metadata covers every local quick route');
+assert.equal(Object.keys(localQuickToolMetadata).length, 5, 'local quick public metadata covers every local quick route');
 for (const [toolKey, metadata] of Object.entries(localQuickToolMetadata)) {
   const tool = canonicalTool(metadata.route);
   const folder = toolKey === 'foundation-local'
     ? 'foundation'
     : (toolKey === 'equipment-load'
       ? 'equipment'
-      : (toolKey === 'floor-slab-westergaard' ? 'floor-slab' : 'earth'));
-  const page = readText(`結構工具箱/tools/${folder}/${toolKey}.html`);
+      : (toolKey === 'floor-slab-westergaard'
+        ? 'floor-slab'
+        : (toolKey === 'rc-column-cover-deviation' ? 'rc' : 'earth')));
+  const pageName = toolKey === 'rc-column-cover-deviation' ? 'column-cover-deviation' : toolKey;
+  const page = readText(`結構工具箱/tools/${folder}/${pageName}.html`);
   assert.equal(tool.version, metadata.version, `local-quick public version matches canonical claim: ${metadata.route}`);
   assert.equal(tool.state, metadata.state, `local-quick public state matches canonical claim: ${metadata.route}`);
   assert.equal(tool.governance, metadata.governance, `local-quick governance matches canonical claim: ${metadata.route}`);

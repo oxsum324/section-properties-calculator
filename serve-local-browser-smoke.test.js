@@ -16,6 +16,35 @@ const browserCandidates = [
   'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
 ].filter(Boolean);
 
+const reportReadinessPages = [
+  'RC補強斷面性質.html',
+  '合成斷面性質.html',
+  '連續梁分析.html',
+  '覆工板/index.html',
+  '鋼架/平面剛架分析.html',
+  '結構工具箱/tools/earth/earth-pressure.html',
+  '結構工具箱/tools/equipment/equipment-load.html',
+  '結構工具箱/tools/foundation/foundation-local.html',
+  '結構工具箱/tools/鋼構/steel-beam.html',
+  '結構工具箱/tools/鋼構/steel-column.html',
+  '結構工具箱/tools/地震力/seismic-appendage.html',
+  '結構工具箱/tools/地震力/seismic-dynamic.html',
+  '結構工具箱/tools/地震力/seismic-force.html',
+  '結構工具箱/tools/地震力/seismic-misc.html',
+  '結構工具箱/tools/風力/wind-cc.html',
+  '結構工具箱/tools/風力/wind-fence-sign.html',
+  '結構工具箱/tools/風力/wind-force.html',
+  '結構工具箱/tools/風力/wind-kzt.html',
+  '結構工具箱/tools/風力/wind-lattice-tower.html',
+  '結構工具箱/tools/風力/wind-object-frame.html',
+  '結構工具箱/tools/風力/wind-object-solid.html',
+  '結構工具箱/tools/風力/wind-object-tower.html',
+  '結構工具箱/tools/風力/wind-open-roof.html',
+  '結構工具箱/tools/風力/wind-parapet.html',
+  '結構工具箱/tools/風力/wind-sign-pole.html',
+  '結構工具箱/tools/風力/wind-special.html',
+];
+
 function browserLaunchOptions() {
   const executablePath = browserCandidates.find(file => fs.existsSync(file));
   return executablePath ? { executablePath } : {};
@@ -99,6 +128,92 @@ async function verifyRoute(page, base, route, verify) {
     page.off('pageerror', onPageError);
     page.off('requestfailed', onRequestFailed);
     page.off('response', onResponse);
+  }
+}
+
+async function verifySharedReportReadinessStyles(page, base) {
+  assert.equal(reportReadinessPages.length, 26, 'report-readiness browser inventory stays explicit');
+  for (const route of reportReadinessPages) {
+    const response = await page.goto(new URL(route, base).href, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    assert.ok(response && response.status() < 400, `${route} readiness smoke navigation`);
+    await page.waitForFunction(() => Array.from(document.styleSheets)
+      .some(sheet => String(sheet.href || '').endsWith('/core/report-readiness.css')));
+    await page.waitForFunction(() => document.querySelector('.report-readiness'));
+    if (route === '覆工板/index.html') {
+      await page.locator('nav.tabs button[data-tab="report"]').click();
+    }
+    await page.waitForFunction(() => Array.from(document.querySelectorAll('.report-readiness'))
+      .some(node => node.getClientRects().length > 0));
+
+    const screenState = await page.evaluate(() => {
+      const sheets = Array.from(document.styleSheets);
+      const sharedSheet = sheets.find(sheet => String(sheet.href || '').endsWith('/core/report-readiness.css'));
+      const nodes = Array.from(document.querySelectorAll('.report-readiness'));
+      const fixture = document.createElement('div');
+      fixture.className = 'report-readiness';
+      fixture.setAttribute('data-readiness-style-smoke', '');
+      fixture.innerHTML = `
+        <div class="report-readiness-grid">
+          <div class="report-readiness-item"><span>標籤 A</span><strong>值 A</strong></div>
+          <div class="report-readiness-item"><strong>標籤 B</strong><span>值 B</span></div>
+        </div>`;
+      document.body.appendChild(fixture);
+      const items = Array.from(fixture.querySelectorAll('.report-readiness-item'));
+      const itemRoles = items.map(item => {
+        const first = item.firstElementChild;
+        const last = item.lastElementChild;
+        return {
+          order: `${first.tagName}:${last.tagName}`,
+          firstWeight: getComputedStyle(first).fontWeight,
+          lastWeight: getComputedStyle(last).fontWeight,
+          firstMarginTop: getComputedStyle(first).marginTop,
+          lastMarginTop: getComputedStyle(last).marginTop,
+        };
+      });
+      fixture.remove();
+      return {
+        stylesheetHref: sharedSheet?.href || '',
+        stylesheetRuleCount: (() => {
+          try { return sharedSheet?.cssRules?.length || 0; } catch { return 0; }
+        })(),
+        panelCount: nodes.length,
+        visiblePanelCount: nodes.filter(node => node.getClientRects().length > 0).length,
+        allPanelsUseGrid: nodes.every(node => getComputedStyle(node).display === 'grid'),
+        itemRoles,
+      };
+    });
+
+    assert.ok(screenState.stylesheetHref.endsWith('/core/report-readiness.css'), `${route} loads shared readiness CSS`);
+    assert.ok(screenState.stylesheetRuleCount > 10, `${route} shared readiness CSS rules are readable`);
+    assert.ok(screenState.panelCount > 0, `${route} renders a readiness panel`);
+    assert.ok(screenState.visiblePanelCount > 0, `${route} readiness panel is visible on screen`);
+    assert.equal(screenState.allPanelsUseGrid, true, `${route} readiness panels use the shared grid layout`);
+    assert.deepEqual(
+      screenState.itemRoles.map(item => item.order),
+      ['SPAN:STRONG', 'STRONG:SPAN'],
+      `${route} smoke covers both readiness item markup orders`
+    );
+    screenState.itemRoles.forEach((item, index) => {
+      assert.equal(item.firstWeight, '700', `${route} readiness item ${index + 1} first child is the label`);
+      assert.equal(item.lastWeight, '800', `${route} readiness item ${index + 1} last child is the value`);
+      assert.equal(item.firstMarginTop, '0px', `${route} readiness item ${index + 1} label has no value offset`);
+      assert.equal(item.lastMarginTop, '2px', `${route} readiness item ${index + 1} value keeps the downward offset`);
+    });
+
+    await page.emulateMedia({ media: 'print' });
+    try {
+      const printState = await page.evaluate(() => {
+        const nodes = Array.from(document.querySelectorAll('.page-only-report-status'));
+        return {
+          count: nodes.length,
+          visibleCount: nodes.filter(node => node.getClientRects().length > 0).length,
+        };
+      });
+      assert.ok(printState.count > 0, `${route} keeps page-only readiness nodes in print DOM`);
+      assert.equal(printState.visibleCount, 0, `${route} hides page-only readiness from print layout`);
+    } finally {
+      await page.emulateMedia({ media: 'screen' });
+    }
   }
 }
 
@@ -263,6 +378,16 @@ async function main() {
   try {
     const base = await ready;
     browser = await chromium.launch({ headless: true, ...browserLaunchOptions() });
+    const readinessContext = await browser.newContext({
+      viewport: { width: 1280, height: 800 },
+      locale: 'zh-TW',
+    });
+    try {
+      await verifySharedReportReadinessStyles(await readinessContext.newPage(), base);
+      process.stdout.write(`PASS | ${reportReadinessPages.length} shared report-readiness pages\n`);
+    } finally {
+      await readinessContext.close();
+    }
     for (const viewport of [
       { name: 'desktop', width: 1280, height: 800 },
       { name: 'mobile', width: 390, height: 844 },
@@ -276,7 +401,7 @@ async function main() {
       await context.close();
       process.stdout.write(`PASS | ${viewport.name} local entrypoints\n`);
     }
-    console.log('serve-local browser smoke OK (5 routes x 2 viewports; section 10 primary + 32 geometry shapes)');
+    console.log(`serve-local browser smoke OK (5 routes x 2 viewports; ${reportReadinessPages.length} shared readiness pages; section 10 primary + 32 geometry shapes)`);
   } finally {
     if (browser) await browser.close();
     await stopLocalServer(child);

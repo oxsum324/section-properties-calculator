@@ -748,7 +748,7 @@ async function main() {
   assert.ok(String(reportReadinessStatus.compactSummary || '').includes('頁面診斷明細不進計算書'), 'report readiness compact summary keeps page-only wording');
   assert.ok(String(reportReadinessStatus.compactSummary || '').includes('文件預設內部審閱，明確核可後為正式附件'), 'report readiness compact summary keeps approval-based document classification');
   assert.ok(String(reportReadinessStatus.compactSummary || '').includes('兩者皆可列印'), 'report readiness compact summary keeps printable approval boundary');
-  assert.ok([32, 33, 36, 37].includes(reportReadinessStatus.renderedDeliveryEvidenceRequired), 'report readiness rendered delivery covers a supported formal homepage portfolio');
+  assert.ok([32, 33, 36, 37, 38].includes(reportReadinessStatus.renderedDeliveryEvidenceRequired), 'report readiness rendered delivery covers a supported formal homepage portfolio');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceComplete, reportReadinessStatus.renderedDeliveryEvidenceRequired, 'report readiness rendered delivery fully covered');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceIssueCount, 0, 'report readiness rendered delivery issues empty');
   assert.match(reportReadinessStatus.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'report readiness rendered delivery runId');
@@ -757,7 +757,7 @@ async function main() {
   assert.ok(String(reportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'report readiness rendered delivery summary');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatus.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'report readiness rendered delivery source path');
   assert.match(reportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'report readiness rendered delivery source hash');
-  assert.ok([143, 145, 151].includes(reportReadinessStatus.deliveryFileIntegrityRequired), 'report readiness exposes a supported complete redacted delivery file count');
+  assert.ok([143, 145, 151, 157].includes(reportReadinessStatus.deliveryFileIntegrityRequired), 'report readiness exposes a supported complete redacted delivery file count');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityVerified, reportReadinessStatus.deliveryFileIntegrityRequired, 'report readiness verifies every redacted delivery file');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'report readiness delivery file integrity issues empty');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityPass, true, 'report readiness delivery file integrity passes');
@@ -895,7 +895,7 @@ async function main() {
   assert.equal(reportReadinessStatus.excavationResultReconciliationPass, true, 'report readiness excavation result reconciliation passes');
   assert.equal(reportReadinessJson.includes('"excavationResultReconciliation":'), false, 'report readiness omits the private excavation reconciliation aggregate');
   assert.equal(/excavation-project-state-replay-to-pdf-docx-hash|sourceProjectSha256|resultSha256|excavation-project-state\.json/.test(reportReadinessJson), false, 'report readiness omits private excavation reconciliation scope and hashes');
-  assert.ok([3, 4].includes(reportReadinessStatus.localQuickResultReconciliationRequired), 'report readiness uses the supported 3-to-4 local quick result reconciliation transition');
+  assert.ok([3, 4, 5].includes(reportReadinessStatus.localQuickResultReconciliationRequired), 'report readiness uses the supported 3-to-5 local quick result reconciliation transition');
   assert.equal(reportReadinessStatus.localQuickResultReconciliationComplete, reportReadinessStatus.localQuickResultReconciliationRequired, 'report readiness completes every local quick result reconciliation');
   assert.equal(reportReadinessStatus.localQuickResultReconciliationIssueCount, 0, 'report readiness local quick result reconciliation issues empty');
   assert.equal(reportReadinessStatus.localQuickResultReconciliationPass, true, 'report readiness local quick result reconciliation passes');

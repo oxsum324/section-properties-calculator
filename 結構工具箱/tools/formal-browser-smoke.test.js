@@ -42,6 +42,16 @@ const renderedEvidenceDir = resolveEvidenceDir(repoRoot, 'formal-tools');
 const directPrintOutputDir = path.join(repoRoot, 'output', 'playwright', 'formal-direct-print-block');
 const textExportOutputDir = path.join(renderedEvidenceDir, 'text-exports');
 const SHARED_CASE_DRAFT_TOOL_KEYS = new Set([
+  'wind-force',
+  'wind-cc',
+  'wind-open-roof',
+  'wind-parapet',
+  'wind-fence-sign',
+  'wind-object-solid',
+  'wind-object-frame',
+  'wind-object-tower',
+  'wind-lattice-tower',
+  'wind-sign-pole',
   'seismic-force',
   'seismic-dynamic',
   'seismic-appendage',

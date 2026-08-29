@@ -51,7 +51,7 @@ function escapeRegex(text) {
 
 function assertPrintHidesSelectors(text, selectors, label) {
   selectors.forEach(selector => {
-    const pattern = new RegExp(`@media\\s+print[\\s\\S]*${escapeRegex(selector)}[\\s\\S]*display:none\\s*!important`);
+    const pattern = new RegExp(`@media\\s+print[\\s\\S]*${escapeRegex(selector)}[\\s\\S]*display\\s*:\\s*none\\s*!important`);
     assert.ok(pattern.test(text), `${label} print hides ${selector}`);
   });
 }
@@ -203,6 +203,7 @@ const browserSmokeTestPath = assertFile(manifest.shared.browserSmokeTest);
 const publicMetadataPath = assertFile(manifest.shared.publicMetadata);
 const documentStateHelperPath = assertFile(manifest.shared.documentStateHelper);
 const directPrintBoundaryPath = assertFile(manifest.shared.directPrintBoundaryStylesheet);
+const reportReadinessPath = assertFile(manifest.shared.reportReadinessStylesheet);
 const formalBrowserSmokeTestPath = assertFile('tools/formal-browser-smoke.test.js');
 const runnerText = readText(runnerPath);
 const exportHelperText = readText(exportHelperPath);
@@ -213,6 +214,7 @@ const browserSmokeTestText = readText(browserSmokeTestPath);
 const publicMetadata = require(publicMetadataPath);
 const documentStateHelperText = readText(documentStateHelperPath);
 const directPrintBoundaryText = readText(directPrintBoundaryPath);
+const reportReadinessText = readText(reportReadinessPath);
 const formalBrowserSmokeTestText = readText(formalBrowserSmokeTestPath);
 const ExportHelper = require(exportHelperPath);
 
@@ -227,6 +229,7 @@ const ExportHelper = require(exportHelperPath);
   '"documentStateHelper"',
   '"documentStateBuilder"',
   '"documentStateRequired"',
+  '"reportReadinessStylesheet"',
   '"textExportHelper"',
   '"textExportMode"',
   '"textExportRequired"',
@@ -238,6 +241,7 @@ const ExportHelper = require(exportHelperPath);
   '"equipment-load"',
   '"earth-pressure"',
   '"floor-slab-westergaard"',
+  '"rc-column-cover-deviation"',
   '"jsonRoundTrip"',
 ].forEach(needle => assertIncludes(manifestText, needle, 'local quick tools manifest'));
 
@@ -281,6 +285,7 @@ assertIncludes(
   'local quick direct-print CSS renders only boundary notice'
 );
 assert.equal(directPrintBoundaryText.includes('content: "DRAFT"'), false, 'local quick direct print is not a draft calculation book');
+assertPrintHidesSelectors(reportReadinessText, ['.page-only-report-status'], 'shared report-readiness CSS');
 
 [
   'local quick tools manifest runner OK',
@@ -1678,6 +1683,20 @@ for (const tool of tools) {
     `class="${manifest.shared.directPrintBodyClass}"`,
     `class="${manifest.shared.directPrintBoundaryClass}"`,
   ].forEach(needle => assertIncludes(html, needle, `${tool.key} html`));
+  const linkedReadinessStylesheet = `href="../../${manifest.shared.reportReadinessStylesheet}"`;
+  const inlineReadinessPrintBoundary = /@media\s+print[\s\S]*\.page-only-report-status/.test(html);
+  assert.ok(
+    html.includes(linkedReadinessStylesheet) || inlineReadinessPrintBoundary,
+    `${tool.key} page-only readiness is hidden by the shared stylesheet or legacy inline boundary`
+  );
+  if (tool.key === 'rc-column-cover-deviation') {
+    assertIncludes(html, linkedReadinessStylesheet, `${tool.key} shared report-readiness stylesheet`);
+    assertIncludes(html, "const CASE_SCHEMA_VERSION = 'rc-column-cover-deviation.case.v1'", `${tool.key} guarded case schema`);
+    assertIncludes(html, 'ReportUI.replayCalculationCasePayload', `${tool.key} validates and replays imported case JSON`);
+    assertIncludes(html, 'ReportUI.validateCalculationCasePayload', `${tool.key} validates schema, tool and page version before replay`);
+    assertIncludes(html, '缺少計算引擎版本', `${tool.key} rejects missing calculation-engine identity`);
+    assertIncludes(html, '已保留原輸入', `${tool.key} reports rollback boundary`);
+  }
   manifest.shared.directPrintBoundaryNeedles.forEach(needle => assertIncludes(html, needle, `${tool.key} direct-print boundary`));
   tool.reportNeedles.forEach(needle => assertIncludes(html, needle, `${tool.key} report needle source`));
   [
@@ -1685,7 +1704,6 @@ for (const tool of tools) {
     '優先閱讀',
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, `${tool.key} page-only readiness copy`));
-  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), `${tool.key} page-only readiness hidden from print`);
   if (['foundation-local', 'earth-pressure', 'equipment-load', 'floor-slab-westergaard'].includes(tool.key)) {
     assertPrintHidesSelectors(html, ['.case-actions'], `${tool.key} print-only case helper boundary`);
   }

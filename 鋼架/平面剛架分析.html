@@ -6,6 +6,7 @@
 <title>平面剛架分析</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
+<link rel="stylesheet" href="../結構工具箱/core/report-readiness.css">
 <style>
   :root {
     --primary: #2563eb;
@@ -85,20 +86,6 @@
   .report-status { min-height: 20px; flex-basis: 100%; color: var(--warn); font-size: 0.8em; line-height: 1.5; }
   .report-status:empty { display: none; }
   .report-link { display: none; color: var(--primary); font-size: 0.8em; font-weight: 700; text-decoration: none; }
-  .report-readiness { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--border); border-left: 4px solid var(--warn); border-radius: 8px; background: #fff; font-size: 0.82em; box-shadow: 0 1px 2px rgba(15,23,42,0.06); }
-  .report-readiness.ready { border-left-color: var(--accent); background: #f0fdf4; }
-  .report-readiness.review { border-left-color: var(--warn); background: #fffbeb; }
-  .report-readiness.blocked { border-left-color: var(--danger); background: #fef2f2; }
-  .report-readiness-head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; margin-bottom: 6px; }
-  .report-readiness-eyebrow { color: var(--text-light); font-size: 0.75em; font-weight: 700; }
-  .report-readiness-title { font-weight: 700; color: var(--text); }
-  .report-readiness-badge { flex: 0 0 auto; border: 1px solid currentColor; border-radius: 999px; padding: 2px 8px; font-size: 0.72em; font-weight: 700; }
-  .report-readiness.ready .report-readiness-badge { color: var(--accent); background: #dcfce7; }
-  .report-readiness.review .report-readiness-badge { color: var(--warn); background: #fef3c7; }
-  .report-readiness.blocked .report-readiness-badge { color: var(--danger); background: #fee2e2; }
-  .report-readiness ul { margin: 6px 0 0 18px; padding: 0; }
-  .report-readiness li { margin: 2px 0; }
-  .report-readiness-note { margin-top: 6px; color: var(--text-light); font-size: 0.76em; }
   .check-panel { display: grid; gap: 6px; font-size: 0.8em; }
   .check-line { border-left: 3px solid var(--border); background: #f8fafc; padding: 6px 8px; border-radius: 4px; }
   .check-line.ok { border-color: var(--accent); }

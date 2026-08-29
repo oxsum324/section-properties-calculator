@@ -8,7 +8,7 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.RC_INDEX_SMOKE_PORT || 0);
 const OUT_DIR = path.resolve(process.env.RC_INDEX_SMOKE_OUT || path.join(ROOT, 'output', 'playwright'));
 const INDEX_PATH = '/鋼筋混凝土/index.html';
-const EXPECTED_CARD_COUNT = 11;
+const EXPECTED_CARD_COUNT = 12;
 const FORMAL_PRINT_KEYS = new Map([
   ['tools/beam.html', 'beam'],
   ['tools/deep-beam-stm.html', 'deep-beam-stm'],
@@ -21,6 +21,7 @@ const FORMAL_PRINT_KEYS = new Map([
   ['tools/pile-cap-3d-stm.html', 'pile-cap-3d-stm'],
   ['tools/single-pile-designer.html', 'single-pile'],
   ['../RC補強斷面性質.html', 'retrofit'],
+  ['../結構工具箱/tools/rc/column-cover-deviation.html', 'column-cover-deviation'],
 ]);
 
 const CHROME_CANDIDATES = [
@@ -181,32 +182,45 @@ async function main() {
 
       const printKey = FORMAL_PRINT_KEYS.get(card.href);
       assert(!!printKey, `menu target has formal print key: ${card.href}`, printKey || '(missing)');
-      const screenBoundary = await page.evaluate(() => {
-        const boundary = document.querySelector('.rc-direct-print-boundary');
+      const boundaryProfile = card.href === '../結構工具箱/tools/rc/column-cover-deviation.html'
+        ? {
+          selector: '.local-quick-direct-print-boundary',
+          boundaryClass: 'local-quick-direct-print-boundary',
+          bodyClass: 'local-quick-output-page',
+          needles: ['局部快算主頁列印已封鎖', '此頁是操作介面，不是計算書', '本頁不得作為附件'],
+        }
+        : {
+          selector: '.rc-direct-print-boundary',
+          boundaryClass: 'rc-direct-print-boundary',
+          bodyClass: 'rc-formal-output-page',
+          needles: ['RC 工具主頁列印已封鎖', '此頁是操作介面，不是計算書', '本頁不得作為附件'],
+        };
+      const screenBoundary = await page.evaluate(profile => {
+        const boundary = document.querySelector(profile.selector);
         return {
-          bodyClass: document.body.classList.contains('rc-formal-output-page'),
+          bodyClass: document.body.classList.contains(profile.bodyClass),
           display: boundary ? getComputedStyle(boundary).display : '',
           rects: boundary?.getClientRects().length || 0,
         };
-      });
+      }, boundaryProfile);
       assert(screenBoundary.bodyClass, `menu target declares formal-output page: ${card.href}`, JSON.stringify(screenBoundary));
       assert(screenBoundary.display === 'none' && screenBoundary.rects === 0, `blocked-print notice stays screen-hidden: ${card.href}`, JSON.stringify(screenBoundary));
 
       if (printKey) {
         const directPrintPdfPath = path.join(OUT_DIR, `rc-direct-print-block-${printKey}.pdf`);
         await page.emulateMedia({ media: 'print' });
-        const directPrintState = await page.evaluate(() => {
-          const boundary = document.querySelector('.rc-direct-print-boundary');
+        const directPrintState = await page.evaluate(profile => {
+          const boundary = document.querySelector(profile.selector);
           return {
             boundaryRects: boundary?.getClientRects().length || 0,
             boundaryText: boundary?.textContent?.replace(/\s+/g, ' ').trim() || '',
             visiblePageChildren: Array.from(document.body.children)
-              .filter(el => !el.classList.contains('rc-direct-print-boundary') && el.getClientRects().length > 0)
+              .filter(el => !el.classList.contains(profile.boundaryClass) && el.getClientRects().length > 0)
               .map(el => el.id || el.className || el.tagName),
             beforeContent: getComputedStyle(document.body, '::before').content,
             afterContent: getComputedStyle(document.body, '::after').content,
           };
-        });
+        }, boundaryProfile);
         await page.pdf({
           path: directPrintPdfPath,
           format: 'A4',
@@ -220,7 +234,7 @@ async function main() {
         assert(directPrintState.visiblePageChildren.length === 0, `direct print hides complete work page: ${card.href}`, JSON.stringify(directPrintState.visiblePageChildren));
         assert(!directPrintState.beforeContent.includes('DRAFT') && !directPrintState.afterContent.includes('DRAFT'), `direct print has no draft-report watermark: ${card.href}`, `${directPrintState.beforeContent} / ${directPrintState.afterContent}`);
         assert(directPrintPdfText.pages === 1, `blocked-print PDF is one page: ${card.href}`, `pages=${directPrintPdfText.pages}`);
-        for (const needle of ['RC 工具主頁列印已封鎖', '此頁是操作介面，不是計算書', '本頁不得作為附件']) {
+        for (const needle of boundaryProfile.needles) {
           assert(directPrintPdfText.text.includes(needle), `blocked-print PDF includes boundary: ${card.href}`, needle);
         }
         assert(!directPrintPdfText.text.includes(card.title), `blocked-print PDF excludes work-page title: ${card.href}`, card.title);

@@ -583,7 +583,7 @@ assert.deepEqual(reportReadinessStatusSnapshot.reportTextSmokeEvidenceUnmappedFa
 assert.ok(reportReadinessStatusSnapshot.reportTextSmokeEvidenceGates.every(gate => gate.pass && gate.complete === gate.required), 'tracked report readiness snapshot report text runtime evidence gates pass');
 assert.ok(reportReadinessStatusSnapshot.reportTextSmokeScope.includes('風力 / 地震正式工具') && reportReadinessStatusSnapshot.reportTextSmokeScope.includes('局部快算'), 'tracked report readiness snapshot names report text scope');
 assert.ok(reportReadinessStatusSnapshot.reportTextSmokeScope.includes('矩陣外工具家族'), 'tracked report readiness snapshot keeps other-family report boundary');
-assert.ok([31, 32, 33, 36, 37].includes(reportReadinessStatusSnapshot.renderedDeliveryEvidenceRequired), 'tracked report readiness snapshot covers a supported formal homepage portfolio');
+assert.ok([31, 32, 33, 36, 37, 38].includes(reportReadinessStatusSnapshot.renderedDeliveryEvidenceRequired), 'tracked report readiness snapshot covers a supported formal homepage portfolio');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceComplete, reportReadinessStatusSnapshot.renderedDeliveryEvidenceRequired, 'tracked report readiness snapshot rendered delivery complete');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceIssueCount, 0, 'tracked report readiness snapshot rendered delivery issues empty');
 assert.match(reportReadinessStatusSnapshot.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'tracked report readiness snapshot rendered delivery runId');
@@ -592,7 +592,7 @@ assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceFamilies.redu
 assert.ok(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSummary.includes('實際交付物渲染'), 'tracked report readiness snapshot rendered delivery summary');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatusSnapshot.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'tracked report readiness snapshot rendered delivery source path');
 assert.match(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'tracked report readiness snapshot rendered delivery source hash');
-assert.ok([135, 137, 139, 141, 143, 145, 151].includes(reportReadinessStatusSnapshot.deliveryFileIntegrityRequired), 'tracked report readiness snapshot exposes a supported delivery-file transition count');
+assert.ok([135, 137, 139, 141, 143, 145, 151, 157].includes(reportReadinessStatusSnapshot.deliveryFileIntegrityRequired), 'tracked report readiness snapshot exposes a supported delivery-file transition count');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityVerified, reportReadinessStatusSnapshot.deliveryFileIntegrityRequired, 'tracked report readiness snapshot verifies every delivery file');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityIssueCount, 0, 'tracked report readiness snapshot delivery file integrity issues empty');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityPass, true, 'tracked report readiness snapshot delivery file integrity passes');
@@ -611,6 +611,7 @@ assert.ok(
     [[64, 64], [66, 66], [13, 13]],
     [[66, 66], [66, 66], [13, 13]],
     [[72, 72], [66, 66], [13, 13]],
+    [[78, 78], [66, 66], [13, 13]],
   ].some(expected => JSON.stringify(expected) === JSON.stringify(trackedDeliveryCounts)),
   'tracked report readiness snapshot preserves supported redacted delivery counts'
 );
@@ -673,7 +674,7 @@ if (Number.isInteger(reportReadinessStatusSnapshot.deckingResultReconciliationRe
   assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊'), 'tracked report readiness snapshot keeps decking evidence private');
 }
 if (Number.isInteger(reportReadinessStatusSnapshot.localQuickResultReconciliationRequired)) {
-  assert.ok([3, 4].includes(reportReadinessStatusSnapshot.localQuickResultReconciliationRequired), 'tracked report readiness snapshot uses the supported 3-to-4 local quick result reconciliation transition');
+  assert.ok([3, 4, 5].includes(reportReadinessStatusSnapshot.localQuickResultReconciliationRequired), 'tracked report readiness snapshot uses the supported 3-to-5 local quick result reconciliation transition');
   assert.equal(reportReadinessStatusSnapshot.localQuickResultReconciliationComplete, reportReadinessStatusSnapshot.localQuickResultReconciliationRequired, 'tracked report readiness snapshot completes every local quick result reconciliation');
   assert.equal(reportReadinessStatusSnapshot.localQuickResultReconciliationIssueCount, 0, 'tracked report readiness snapshot local quick result reconciliation issues empty');
   assert.equal(reportReadinessStatusSnapshot.localQuickResultReconciliationPass, true, 'tracked report readiness snapshot local quick result reconciliation passes');

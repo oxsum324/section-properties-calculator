@@ -1261,6 +1261,11 @@ node section-tools.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$reportReadinessStyleContractCommand = @'
+node report-readiness-style.contract.test.js
+exit $LASTEXITCODE
+'@
+
 $srcFormalRegressionCommand = @'
 node SRC工具/src-beam-core.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -2476,6 +2481,13 @@ $checks = @(
     label = "Section tools feedback contract"
     workdir = $root
     command = $sectionToolsContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "report-readiness-style-contract"
+    label = "Shared page-only report readiness stylesheet contract"
+    workdir = $root
+    command = $reportReadinessStyleContractCommand
     slow = $false
   },
   [pscustomobject]@{

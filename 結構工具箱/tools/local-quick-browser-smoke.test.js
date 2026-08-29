@@ -1307,10 +1307,10 @@ function jsonImportExpression(tool, payload) {
     const waitForImportStatus = async () => {
       const started = Date.now();
       while (Date.now() - started < 1000) {
-        if (readStatus().includes('已匯入') || readStatus().includes('回讀')) return true;
+        if (readStatus().includes('已匯入') || readStatus().includes('已讀取') || readStatus().includes('回讀')) return true;
         await new Promise(resolve => setTimeout(resolve, 25));
       }
-      return readStatus().includes('已匯入') || readStatus().includes('回讀');
+      return readStatus().includes('已匯入') || readStatus().includes('已讀取') || readStatus().includes('回讀');
     };
     const tool = ${JSON.stringify({ key: tool.key })};
     const payload = ${JSON.stringify(payload)};
@@ -1332,6 +1332,10 @@ function jsonImportExpression(tool, payload) {
     if (tool.key === 'floor-slab-westergaard') {
       document.getElementById('slabThicknessMm').value = '999';
       document.getElementById('subgradeModulusMNm3').value = '999';
+    }
+    if (tool.key === 'rc-column-cover-deviation') {
+      document.getElementById('sectionWidthMm').value = '999';
+      document.getElementById('measuredTopMm').value = '199';
     }
     const fileInput = document.getElementById('jsonFile');
     const file = new File([JSON.stringify(payload)], tool.key + '-import.json', { type: 'application/json' });
@@ -1372,6 +1376,19 @@ function jsonImportExpression(tool, payload) {
         banner: document.getElementById('bannerStatus')?.textContent || '',
         metricText: document.getElementById('metricGrid')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
         checkText: document.getElementById('checkList')?.textContent?.replace(/\\s+/g, ' ').trim() || ''
+      };
+    }
+    if (tool.key === 'rc-column-cover-deviation') {
+      return {
+        tool: tool.key,
+        sectionWidthMm: document.getElementById('sectionWidthMm').value,
+        measuredTopMm: document.getElementById('measuredTopMm').value,
+        measurementMode: document.getElementById('measurementMode').value,
+        projectName: document.getElementById('projName').value,
+        jsonStatus: document.getElementById('jsonStatus')?.textContent || '',
+        banner: document.getElementById('bannerStatus')?.textContent || '',
+        metricText: document.getElementById('metricGrid')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+        checkText: document.getElementById('checkList')?.textContent?.replace(/\s+/g, ' ').trim() || ''
       };
     }
     return {
@@ -1521,6 +1538,7 @@ function reportExpression(mode = null, projectMetaState = 'complete', calculatio
           setProjectField('surcharge', '100.00');
         }
         if (requestedToolKey === 'floor-slab-westergaard') setProjectField('allowableStressMpa', '0.10');
+        if (requestedToolKey === 'rc-column-cover-deviation') setProjectField('minimumRetentionRatio', '1.50');
         document.getElementById('btnCalc').click();
       }
       const pageReadinessLevel = window.ToolReportUI?.getPageReportReadinessLevel(document) || '';
@@ -2422,6 +2440,49 @@ function assertJsonExportState(state, tool, label) {
     assert.equal(state.payload.input.subgradeModulusMNm3, 50, `${label} ${tool.key} payload subgrade modulus`);
     assert.equal(state.payload.input.loadGroups.length, 1, `${label} ${tool.key} payload load groups`);
   }
+  if (tool.key === 'rc-column-cover-deviation') {
+    assert.equal(state.payload.schema, 'rc-column-cover-deviation.case.v1', `${label} ${tool.key} payload case schema`);
+    assert.equal(state.payload.tool.version, tool.pageVersion, `${label} ${tool.key} payload replay version`);
+    assert.match(state.payload.calculationFingerprint, /^CF-[0-9A-F]{16}$/, `${label} ${tool.key} payload calculation fingerprint`);
+    assert.equal(state.payload.input.sectionWidthMm, 500, `${label} ${tool.key} payload section width`);
+    assert.equal(state.payload.input.measurementMode, 'bar-center', `${label} ${tool.key} payload measurement mode`);
+    assert.equal(state.payload.result.barLayout.totalBars, 12, `${label} ${tool.key} corner bars are counted once`);
+    assert.equal(state.payload.result.calculationPolicy.enhancedExistingStructurePhiApplied, false, `${label} ${tool.key} keeps general chapter 21 phi`);
+  }
+}
+
+function columnCoverRejectedJsonImportExpression(payload, mutation, currentState = 'valid') {
+  return `(async () => {
+    const rejected = ${JSON.stringify(payload)};
+    const mutation = ${JSON.stringify(mutation)};
+    const currentState = ${JSON.stringify(currentState)};
+    if (mutation === 'version') rejected.tool.version = 'V9.9';
+    if (mutation === 'fingerprint') rejected.calculationFingerprint = 'CF-0000000000000000';
+    if (mutation === 'engine') rejected.tool.calculationEngine = '9.9.9';
+    if (mutation === 'engine-missing') delete rejected.tool.calculationEngine;
+    if (mutation === 'identity-missing') { delete rejected.schema; delete rejected.tool; }
+    if (mutation === 'input-tamper') rejected.input.sectionWidthMm = Number(rejected.input.sectionWidthMm) + 20;
+    document.getElementById('sectionWidthMm').value = currentState === 'invalid' ? '' : '777';
+    document.getElementById('measuredTopMm').value = currentState === 'invalid' ? '' : '177';
+    document.getElementById('projName').value = currentState === 'invalid' ? '  拒絕前保留案  ' : '拒絕前保留案';
+    document.getElementById('jsonStatus').textContent = '等待拒絕測試';
+    const fileInput = document.getElementById('jsonFile');
+    const file = new File([JSON.stringify(rejected)], 'rc-column-cover-deviation-rejected.json', { type: 'application/json' });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    fileInput.files = transfer.files;
+    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+    const started = Date.now();
+    while (Date.now() - started < 1500 && !(document.getElementById('jsonStatus')?.textContent || '').includes('讀取失敗')) {
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    return {
+      sectionWidthMm: document.getElementById('sectionWidthMm').value,
+      measuredTopMm: document.getElementById('measuredTopMm').value,
+      projectName: document.getElementById('projName').value,
+      jsonStatus: document.getElementById('jsonStatus')?.textContent || ''
+    };
+  })()`;
 }
 
 function assertPlaceholderJsonExportState(state, tool, label) {
@@ -2481,6 +2542,17 @@ function assertFloorSlabJsonImportState(state, label) {
   assert.ok(state.banner && state.banner !== '尚未計算', `${label} floor slab import recalculates`);
   assert.ok(state.metricText.includes('相對勁度半徑'), `${label} floor slab import metrics`);
   assert.ok(state.checkText.includes('Westergaard 閉式解適用性'), `${label} floor slab import checks`);
+}
+
+function assertColumnCoverJsonImportState(state, label) {
+  assert.equal(state.sectionWidthMm, '500', `${label} column cover import section width`);
+  assert.equal(state.measuredTopMm, '80', `${label} column cover import measured top center`);
+  assert.equal(state.measurementMode, 'bar-center', `${label} column cover import measurement mode`);
+  assert.equal(state.projectName, '回讀測試案', `${label} column cover import project`);
+  assert.ok(state.jsonStatus.includes('已讀取 JSON') && state.jsonStatus.includes('已重現計算指紋'), `${label} column cover import validates replay fingerprint`);
+  assert.ok(state.banner && state.banner !== '尚未計算', `${label} column cover import recalculates`);
+  assert.ok(state.metricText.includes('最小容量保留比'), `${label} column cover import metrics`);
+  assert.ok(state.checkText.includes('尺寸、材料、鋼筋位置與需求來源'), `${label} column cover import checks`);
 }
 
 function assertReportContentState(state, tool, label, mode = 'detailed') {
@@ -3336,6 +3408,37 @@ async function main() {
               if (tool.key === 'equipment-load') assertEquipmentJsonImportState(importState, interactionLabel);
               if (tool.key === 'earth-pressure') assertEarthJsonImportState(importState, interactionLabel);
               if (tool.key === 'floor-slab-westergaard') assertFloorSlabJsonImportState(importState, interactionLabel);
+              if (tool.key === 'rc-column-cover-deviation') assertColumnCoverJsonImportState(importState, interactionLabel);
+              if (tool.key === 'rc-column-cover-deviation') {
+                const wrongVersionState = await evaluate(client, sessionId, columnCoverRejectedJsonImportExpression(exportState.payload, 'version'));
+                assert.equal(wrongVersionState.sectionWidthMm, '777', `${interactionLabel} ${tool.key} wrong-version import preserves section width`);
+                assert.equal(wrongVersionState.measuredTopMm, '177', `${interactionLabel} ${tool.key} wrong-version import preserves measured position`);
+                assert.equal(wrongVersionState.projectName, '拒絕前保留案', `${interactionLabel} ${tool.key} wrong-version import preserves project`);
+                assert.ok(wrongVersionState.jsonStatus.includes('工具版本不符'), `${interactionLabel} ${tool.key} wrong-version import is rejected`);
+                const wrongFingerprintState = await evaluate(client, sessionId, columnCoverRejectedJsonImportExpression(exportState.payload, 'fingerprint'));
+                assert.equal(wrongFingerprintState.sectionWidthMm, '777', `${interactionLabel} ${tool.key} wrong-fingerprint import rolls back section width`);
+                assert.equal(wrongFingerprintState.measuredTopMm, '177', `${interactionLabel} ${tool.key} wrong-fingerprint import rolls back measured position`);
+                assert.equal(wrongFingerprintState.projectName, '拒絕前保留案', `${interactionLabel} ${tool.key} wrong-fingerprint import rolls back project`);
+                assert.ok(wrongFingerprintState.jsonStatus.includes('重現失敗') && wrongFingerprintState.jsonStatus.includes('已保留原輸入'), `${interactionLabel} ${tool.key} wrong-fingerprint import is rejected and rolled back`);
+                const missingIdentityState = await evaluate(client, sessionId, columnCoverRejectedJsonImportExpression(exportState.payload, 'identity-missing', 'invalid'));
+                assert.equal(missingIdentityState.sectionWidthMm, '', `${interactionLabel} ${tool.key} missing-identity import preserves invalid raw width`);
+                assert.equal(missingIdentityState.measuredTopMm, '', `${interactionLabel} ${tool.key} missing-identity import preserves invalid raw measurement`);
+                assert.equal(missingIdentityState.projectName, '  拒絕前保留案  ', `${interactionLabel} ${tool.key} missing-identity import preserves raw project text`);
+                assert.ok(missingIdentityState.jsonStatus.includes('缺少案件 schema') && missingIdentityState.jsonStatus.includes('已保留原輸入'), `${interactionLabel} ${tool.key} missing schema/tool identity is rejected`);
+                const tamperedInputState = await evaluate(client, sessionId, columnCoverRejectedJsonImportExpression(exportState.payload, 'input-tamper', 'invalid'));
+                assert.equal(tamperedInputState.sectionWidthMm, '', `${interactionLabel} ${tool.key} stale-fingerprint input tamper restores invalid raw width`);
+                assert.equal(tamperedInputState.measuredTopMm, '', `${interactionLabel} ${tool.key} stale-fingerprint input tamper restores invalid raw measurement`);
+                assert.equal(tamperedInputState.projectName, '  拒絕前保留案  ', `${interactionLabel} ${tool.key} stale-fingerprint input tamper restores raw project text`);
+                assert.ok(tamperedInputState.jsonStatus.includes('重現失敗') && tamperedInputState.jsonStatus.includes('已保留原輸入'), `${interactionLabel} ${tool.key} tampered input with stale fingerprint is rejected and rolled back`);
+                const missingEngineState = await evaluate(client, sessionId, columnCoverRejectedJsonImportExpression(exportState.payload, 'engine-missing', 'invalid'));
+                assert.equal(missingEngineState.sectionWidthMm, '', `${interactionLabel} ${tool.key} missing-engine import preserves invalid raw width`);
+                assert.equal(missingEngineState.projectName, '  拒絕前保留案  ', `${interactionLabel} ${tool.key} missing-engine import preserves raw project text`);
+                assert.ok(missingEngineState.jsonStatus.includes('缺少計算引擎版本') && missingEngineState.jsonStatus.includes('已保留原輸入'), `${interactionLabel} ${tool.key} missing engine identity is rejected`);
+                const mismatchedEngineState = await evaluate(client, sessionId, columnCoverRejectedJsonImportExpression(exportState.payload, 'engine', 'invalid'));
+                assert.equal(mismatchedEngineState.sectionWidthMm, '', `${interactionLabel} ${tool.key} mismatched-engine import preserves invalid raw width`);
+                assert.equal(mismatchedEngineState.projectName, '  拒絕前保留案  ', `${interactionLabel} ${tool.key} mismatched-engine import preserves raw project text`);
+                assert.ok(mismatchedEngineState.jsonStatus.includes('計算引擎版本不符') && mismatchedEngineState.jsonStatus.includes('已保留原輸入'), `${interactionLabel} ${tool.key} mismatched engine identity is rejected`);
+              }
             }
             if (tool.key === 'earth-pressure') {
               const wallTypeState = await evaluate(client, sessionId, earthWallTypeExpression());
@@ -3352,6 +3455,7 @@ async function main() {
               if (tool.key === 'equipment-load') assertEquipmentJsonImportState(replayImportState, `${interactionLabel} report replay`);
               if (tool.key === 'earth-pressure') assertEarthJsonImportState(replayImportState, `${interactionLabel} report replay`);
               if (tool.key === 'floor-slab-westergaard') assertFloorSlabJsonImportState(replayImportState, `${interactionLabel} report replay`);
+              if (tool.key === 'rc-column-cover-deviation') assertColumnCoverJsonImportState(replayImportState, `${interactionLabel} report replay`);
               const replayExportState = await evaluate(client, sessionId, jsonExportExpression('preserve'));
               assert.equal(replayExportState.downloadCount, 1, `${interactionLabel} ${tool.key} report replay JSON click count`);
               assert.equal(replayExportState.blobCount, 1, `${interactionLabel} ${tool.key} report replay JSON blob count`);

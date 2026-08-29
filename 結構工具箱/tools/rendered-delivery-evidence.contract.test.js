@@ -1272,7 +1272,7 @@ function newestMatchingPdf(directory, prefix) {
 }
 
 assert.equal(inventory.version, 2, 'rendered delivery inventory version');
-assert.equal(inventory.tools.length, 37, 'rendered delivery inventory covers all homepage formal tools');
+assert.equal(inventory.tools.length, 38, 'rendered delivery inventory covers all homepage formal tools');
 const homeTools = vm.runInNewContext(`(${extractConstLiteral(homeSource, 'tools')})`);
 const formalHomeTools = homeTools.filter(tool => tool.state === 'formal');
 const formalRoutes = formalHomeTools.map(tool => tool.href).sort();
@@ -2926,7 +2926,7 @@ assert.equal(xlsxDualSeal.contentComplete, xlsxDualSeal.contentRequired, 'releas
 assert.equal(xlsxDualSeal.approvalComplete, xlsxDualSeal.approvalRequired, 'release verifies the formal XLSX approval seal');
 assert.equal(xlsxDualSeal.pass, true, 'release passes formal XLSX dual seal integrity');
 const aggregate = {
-  schemaVersion: 28,
+  schemaVersion: 29,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),

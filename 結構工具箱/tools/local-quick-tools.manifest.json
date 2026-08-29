@@ -23,6 +23,7 @@
     "readyDocumentLabel": "文件狀態：正式附件",
     "internalReviewLabel": "文件狀態：內部審閱",
     "directPrintBoundaryStylesheet": "core/direct-print-boundary.css",
+    "reportReadinessStylesheet": "core/report-readiness.css",
     "directPrintBodyClass": "local-quick-output-page",
     "directPrintBoundaryClass": "local-quick-direct-print-boundary",
     "directPrintBoundaryNeedles": [
@@ -184,6 +185,50 @@
       "reportNeedles": [
         "Winkler 彈性地基",
         "接縫傳力"
+      ]
+    },
+    {
+      "key": "rc-column-cover-deviation",
+      "label": "柱保護層偏差強度評估",
+      "route": "/rc-column-cover-deviation",
+      "html": "tools/rc/column-cover-deviation.html",
+      "core": "tools/rc/column-cover-deviation-core.js",
+      "test": "tools/rc/column-cover-deviation-core.test.js",
+      "golden": "tools/rc/column-cover-deviation-golden-cases.js",
+      "smoke": "rc-column-cover-deviation-smoke",
+      "title": "<title>柱保護層偏差強度評估 V0.1</title>",
+      "pageVersion": "V0.1",
+      "calcFunction": "function calculateColumnCoverDeviation",
+      "coreGlobal": "RcColumnCoverDeviationCore",
+      "indexHref": "/rc-column-cover-deviation",
+      "boundaryPath": "結構工具箱/tools/rc/",
+      "jsonRoundTrip": true,
+      "reportMode": true,
+      "textExport": true,
+      "reportTitleNeedle": "柱保護層偏差強度評估計算書",
+      "reportModeControls": {
+        "selectId": "reportMode",
+        "simpleValue": "summary",
+        "detailValue": "detailed"
+      },
+      "diagramSelector": "#columnCoverDiagram",
+      "diagramRoleNeedles": [
+        "section",
+        "design-bars",
+        "measured-bars",
+        "measurement"
+      ],
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
+      },
+      "reportNeedles": [
+        "capacity OK 不等於保護層厚度合規",
+        "27.3.1.1～27.3.1.2",
+        "四向需求為獨立幅值",
+        "實測需求檢核",
+        "雙軸同時作用",
+        "耐火與耐久性"
       ]
     }
   ]

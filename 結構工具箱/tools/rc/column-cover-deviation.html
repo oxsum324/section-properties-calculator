@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>柱保護層偏差強度評估 V0.1</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../../core/style.css">
+  <link rel="stylesheet" href="../../core/direct-print-boundary.css">
+  <link rel="stylesheet" href="../../core/report-readiness.css">
+  <style>
+    :root{--rc:#7c3aed;--rc-dark:#4c1d95;--rc-soft:#f5f3ff;--line:#ddd6fe;--ink:#1f2937}
+    *{box-sizing:border-box}body{margin:0;background:#f6f5fa;color:var(--ink);font-family:"Microsoft JhengHei",Arial,sans-serif;line-height:1.58}.page{max-width:1420px;margin:0 auto;padding:22px}
+    .hero{background:linear-gradient(135deg,var(--rc-dark),var(--rc));color:#fff;border-radius:16px;padding:22px 24px;box-shadow:0 12px 32px rgba(76,29,149,.2)}.hero h1{margin:0;font-size:clamp(1.45rem,3vw,2rem)}.hero p{margin:8px 0 0;color:#ede9fe}.hero-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.tag{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:4px 9px;font-size:.84rem}
+    .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 3px 14px rgba(15,23,42,.05)}.case-card{margin-top:16px}.section-title{font-weight:900;color:var(--rc-dark);margin:0 0 12px;font-size:1.05rem}.sub-title{font-weight:900;color:#5b21b6;margin:15px 0 8px;font-size:.93rem}
+    .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.field label{display:block;font-weight:800;font-size:.86rem;margin-bottom:5px}.field input,.field select{width:100%;border:1px solid #c4b5fd;border-radius:8px;padding:9px 10px;background:#fff;font:inherit}.field small{display:block;color:#64748b;margin-top:4px}.span-2{grid-column:span 2}.span-4{grid-column:1/-1}
+    .case-actions,.output-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.case-actions{margin-top:12px}.btn{border:0;border-radius:8px;padding:9px 13px;font-weight:800;cursor:pointer}.btn-primary{background:var(--rc);color:#fff}.btn-secondary{background:#ede9fe;color:var(--rc-dark)}.btn-danger{background:#fff1f2;color:#9f1239;border:1px solid #fecdd3}.btn:focus{outline:3px solid rgba(124,58,237,.25)}
+    .main-layout{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(400px,.82fr);gap:16px;margin-top:16px}.stack{display:grid;gap:16px}.scope-box{background:var(--rc-soft);border-left:4px solid var(--rc);padding:11px 13px;border-radius:8px;color:#4c1d95}.warning-box{background:#fff7ed;border-left:4px solid #f97316;padding:11px 13px;border-radius:8px;color:#7c2d12}.danger-box{background:#fef2f2;border-left:4px solid #dc2626;padding:11px 13px;border-radius:8px;color:#991b1b}
+    .banner-status{font-weight:900;padding:11px 13px;border-radius:9px;background:#eef2ff}.banner-status.ok{background:#ecfdf5;color:#065f46}.banner-status.fail{background:#fef2f2;color:#991b1b}.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.metric{border:1px solid #e5e7eb;border-left:4px solid #94a3b8;border-radius:9px;padding:10px;background:#fff}.metric.ok{border-left-color:#10b981}.metric.fail{border-left-color:#ef4444}.metric.warn{border-left-color:#f59e0b}.metric .label{display:block;color:#64748b;font-size:.82rem}.metric .value{display:block;font-size:1.13rem;font-weight:900;color:#4c1d95}.muted{color:#64748b;font-size:.82rem}.check-list{display:grid;gap:8px}.check-item{border:1px solid #e5e7eb;border-radius:8px;padding:9px 10px}.check-item.ok{border-left:4px solid #10b981}.check-item.fail{border-left:4px solid #ef4444}.check-item.warn{border-left:4px solid #f59e0b}.check-item .k{font-weight:900;display:block}.check-item .v{font-size:.86rem;color:#526168}
+    .diagram-wrap{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fdfcff}.diagram-wrap svg{width:100%;height:auto;min-height:300px;display:block}.formula-list{font-size:.9rem}.formula-list code{font-family:Consolas,monospace;background:#f1f5f9;border-radius:4px;padding:2px 5px}.formula-list p{margin:8px 0}.output-actions{margin-top:12px}.output-actions select{border:1px solid #c4b5fd;border-radius:8px;padding:8px}.json-status{font-size:.84rem;color:#526168}.direct-print-note{margin:0}.source-link{color:#5b21b6;font-weight:800}
+    @media(max-width:1000px){.main-layout{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr 1fr}.span-4{grid-column:1/-1}}
+    @media(max-width:580px){.page{padding:10px}.form-grid,.metrics{grid-template-columns:1fr}.span-2,.span-4{grid-column:auto}.hero{padding:18px}.btn{width:100%}}
+  </style>
+</head>
+<body class="local-quick-output-page">
+  <div class="local-quick-direct-print-boundary" aria-hidden="true">
+    <h1>局部快算主頁列印已封鎖</h1>
+    <p>此頁是操作介面，不是計算書；本頁不得作為附件。</p>
+    <p>請回工具頁按「列印計算書」，在獨立計算書視窗列印或存成 PDF。</p>
+  </div>
+  <main class="page">
+    <header class="hero" data-smoke="rc-column-cover-deviation-smoke">
+      <h1>柱保護層偏差強度評估</h1>
+      <p>比較設計與實測縱向主筋中心位置的四方向單軸 P-M 斷面強度；僅作現況斷面初估，不判定保護層厚度合規。</p>
+      <div class="hero-meta"><span class="tag">RC 現況評估</span><span class="tag">繫筋矩形柱</span><span class="tag" id="coreVersion">Core v0.1.0</span><span class="tag">公開版本 V0.1</span></div>
+    </header>
+
+    <section class="card case-card">
+      <h2 class="section-title">案件資料與案例管理</h2>
+      <div class="form-grid">
+        <div class="field"><label for="projName">計畫名稱</label><input id="projName" autocomplete="off"></div>
+        <div class="field"><label for="projNo">計畫編號</label><input id="projNo" autocomplete="off"></div>
+        <div class="field"><label for="projDesigner">設計／整理人</label><input id="projDesigner" autocomplete="off"></div>
+      </div>
+      <div class="case-actions">
+        <button class="btn btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
+        <button class="btn btn-secondary" id="btnSaveProject" type="button">另存案件 JSON</button>
+        <button class="btn btn-secondary" id="btnSaveDraft" type="button">暫存瀏覽器</button>
+        <button class="btn btn-secondary" id="btnLoadDraft" type="button">讀取暫存</button>
+        <button class="btn btn-danger" id="btnReset" type="button">恢復示例</button>
+        <input id="jsonFile" type="file" accept="application/json,.json" hidden>
+        <span class="json-status" id="jsonStatus">JSON 內嵌 result 只供備查、匯入時一律忽略；本頁會用目前 core 重算 input 並核對版本／指紋，重新匯出時取代舊 result。</span>
+      </div>
+    </section>
+
+    <div class="main-layout column-cover-shell">
+      <div class="stack">
+        <section class="card">
+          <h2 class="section-title">① 臨界斷面與材料證據</h2>
+          <div class="scope-box">依 27.3.1.1 現場驗證臨界斷面尺寸；依 27.3.1.2 量測確認鋼筋位置與尺寸。輸入必須能回連量測紀錄、原圖或試驗資料。</div>
+          <div class="form-grid" style="margin-top:12px">
+            <div class="field"><label for="sectionWidthMm">柱寬 b (mm)</label><input id="sectionWidthMm" type="number" min="200" step="1" value="500"></div>
+            <div class="field"><label for="sectionDepthMm">柱深 h (mm)</label><input id="sectionDepthMm" type="number" min="200" step="1" value="600"></div>
+            <div class="field"><label for="fcKgfCm2">fc′ (kgf/cm²)</label><input id="fcKgfCm2" type="number" min="175" step="1" value="280"></div>
+            <div class="field"><label for="fyKgfCm2">fy (kgf/cm²)</label><input id="fyKgfCm2" type="number" min="2000" max="5600" step="10" value="4200"><small>本版普通變形鋼筋防呆範圍 2,000～5,600；特殊或舊式鋼筋另案審查。</small></div>
+            <div class="field"><label for="esKgfCm2">Es (kgf/cm²)</label><input id="esKgfCm2" type="number" value="2040000" readonly><small>依 112 年版混凝土規範 20.2.2.2，固定採 2.04×10⁶ kgf/cm²。</small></div>
+            <div class="field span-4"><label for="sectionDimensionBasis">斷面尺寸依據</label><input id="sectionDimensionBasis" value="現場複測紀錄 SD-01：臨界斷面四邊尺寸"><small>不得只填「不明／待確認」。</small></div>
+            <div class="field span-4"><label for="materialBasis">材料強度依據</label><input id="materialBasis" value="原設計圖 S-101 與材料試驗報告 MT-01"><small>代表性不足時不得採用；本頁不自動提高既有結構 φ。</small></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2 class="section-title">② 配筋與設計主筋中心位置</h2>
+          <div class="warning-box">四角筋只算一次：上、下每面支數「包含」兩支角筋；左、右僅輸入「不含角筋」的中間筋。As 與 db 必須符合圓面積 πdb²/4，容許相對差 5%；V0.1 限普通柱配筋 db=6～80 mm、dtie=4～40 mm，微型或非標準補強筋不在範圍。幾何檢查只排除主筋出界、重合及中心距小於 db，不是規範淨間距或施工細節檢核。</div>
+          <div class="form-grid" style="margin-top:12px">
+            <div class="field"><label for="barAreaCm2">單支主筋面積 As (cm²)</label><input id="barAreaCm2" type="number" min="0.01" step="0.001" value="5.067"></div>
+            <div class="field"><label for="mainBarDiameterMm">主筋直徑 db (mm)</label><input id="mainBarDiameterMm" type="number" min="6" max="80" step="0.1" value="25.4"></div>
+            <div class="field"><label for="stirrupDiameterMm">箍筋直徑 dtie (mm)</label><input id="stirrupDiameterMm" type="number" min="4" max="40" step="0.1" value="10"></div>
+            <div class="field"><label for="barsPerTopBottomFace">上、下每面支數（含角筋）</label><input id="barsPerTopBottomFace" type="number" min="2" step="1" value="4"></div>
+            <div class="field"><label for="intermediateBarsPerSide">左、右每側中間筋（不含角筋）</label><input id="intermediateBarsPerSide" type="number" min="0" step="1" value="2"></div>
+          </div>
+          <h3 class="sub-title">設計圖：混凝土面至縱向主筋中心</h3>
+          <div class="form-grid">
+            <div class="field"><label for="designCenterTopMm">上面 ctop,design (mm)</label><input id="designCenterTopMm" type="number" min="0.1" step="0.1" value="65"></div>
+            <div class="field"><label for="designCenterBottomMm">下面 cbottom,design (mm)</label><input id="designCenterBottomMm" type="number" min="0.1" step="0.1" value="65"></div>
+            <div class="field"><label for="designCenterLeftMm">左面 cleft,design (mm)</label><input id="designCenterLeftMm" type="number" min="0.1" step="0.1" value="65"></div>
+            <div class="field"><label for="designCenterRightMm">右面 cright,design (mm)</label><input id="designCenterRightMm" type="number" min="0.1" step="0.1" value="65"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2 class="section-title">③ 四面實測位置與量測基準</h2>
+          <div class="danger-box">cover meter 可能回報至最外層箍筋、主筋表面或主筋中心。不得默認其數值就是「混凝土面至縱向主筋中心」；基準不明時本工具拒絕計算。</div>
+          <div class="form-grid" style="margin-top:12px">
+            <div class="field span-2"><label for="measurementMode">輸入量測基準</label><select id="measurementMode"><option value="bar-center">已確認：混凝土面至縱向主筋中心</option><option value="clear-cover">已確認：混凝土面至箍筋外緣淨保護層</option></select><small id="measurementModeHelp">直接使用四面縱向主筋中心距。</small></div>
+            <div class="field"><label id="measuredTopLabel" for="measuredTopMm">上面主筋中心距 (mm)</label><input id="measuredTopMm" type="number" min="0.1" step="0.1" value="80"></div>
+            <div class="field"><label id="measuredBottomLabel" for="measuredBottomMm">下面主筋中心距 (mm)</label><input id="measuredBottomMm" type="number" min="0.1" step="0.1" value="65"></div>
+            <div class="field"><label id="measuredLeftLabel" for="measuredLeftMm">左面主筋中心距 (mm)</label><input id="measuredLeftMm" type="number" min="0.1" step="0.1" value="70"></div>
+            <div class="field"><label id="measuredRightLabel" for="measuredRightMm">右面主筋中心距 (mm)</label><input id="measuredRightMm" type="number" min="0.1" step="0.1" value="65"></div>
+            <div class="field span-4"><label for="measurementBasis">鋼筋位置量測依據</label><input id="measurementBasis" value="掃描紀錄 SC-01：四面混凝土面至縱向主筋中心"><small>由淨保護層換算時固定採 ccenter = cclear + dtie + db/2；請確認量測確實至箍筋外緣。</small></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2 class="section-title">④ 共同比較 Pu 與四向需求幅值</h2>
+          <div class="scope-box">適用前提：矩形、繫筋、非預力 RC 短柱。本頁在同一個共同比較 Pu 下，分別檢查四個獨立方向的 Mu 幅值；這不是一組同時作用的有號 P-Mx-My 載重 tuple。</div>
+          <div class="form-grid">
+            <div class="field"><label for="puTf">Pu (tf，壓力為正)</label><input id="puTf" type="number" step="1" value="120"></div>
+            <div class="field"><label for="muXPositiveTfm">+Mx 需求 (tf-m)</label><input id="muXPositiveTfm" type="number" min="0" step="1" value="28"></div>
+            <div class="field"><label for="muXNegativeTfm">−Mx 需求幅值 (tf-m)</label><input id="muXNegativeTfm" type="number" min="0" step="1" value="22"></div>
+            <div class="field"><label for="muYPositiveTfm">+My 需求 (tf-m)</label><input id="muYPositiveTfm" type="number" min="0" step="1" value="20"></div>
+            <div class="field"><label for="muYNegativeTfm">−My 需求幅值 (tf-m)</label><input id="muYNegativeTfm" type="number" min="0" step="1" value="18"></div>
+            <div class="field"><label for="minimumRetentionRatio">最低容量保留比（專案指定）</label><input id="minimumRetentionRatio" type="number" min="0.01" max="1.5" step="0.01" value="0.90"></div>
+            <div class="field span-4"><label for="demandBasis">需求內力來源</label><input id="demandBasis" value="結構分析模型 A：共同比較 Pu 與四向獨立 Mu 幅值"><small>四向 Mu 是各自的非負需求幅值，不是同時作用的有號 P-Mx-My tuple；本頁逐向做單軸 P-M。</small></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2 class="section-title">⑤ 計算與輸出</h2>
+          <div class="danger-box"><strong>capacity OK 不等於保護層厚度合規。</strong>耐火與耐久性、防火細部、施工容許差、握裹／裂縫與箍筋包覆須獨立判定；雙軸同時作用、二階、剪力、接頭及整體結構安全也不在本頁範圍。</div>
+          <div class="output-actions">
+            <button class="btn btn-primary" id="btnCalc" type="button">計算斷面強度偏差</button>
+            <button class="btn btn-secondary" id="btnPrint" type="button">列印計算書</button>
+            <button class="btn btn-secondary" id="btnJson" type="button">下載 JSON</button>
+            <label for="reportMode">計算書：</label><select id="reportMode"><option value="detailed">詳算式</option><option value="summary">簡易結果</option></select>
+          </div>
+        </section>
+
+        <section class="card page-only-report-status" id="columnCoverReportReadiness" data-report-readiness="blocked" data-report-readiness-scope="page-only"></section>
+      </div>
+
+      <aside class="stack">
+        <section class="card"><div class="banner-status" id="bannerStatus">尚未計算</div></section>
+        <section class="card"><h2 class="section-title">控制結果</h2><div class="metrics" id="metricGrid"></div></section>
+        <section class="card"><h2 class="section-title">檢核清單</h2><div class="check-list" id="checkList"></div></section>
+        <section class="card"><h2 class="section-title">設計／實測配筋示意</h2><div class="diagram-wrap"><svg id="columnCoverDiagram" viewBox="0 0 640 430" role="img" aria-label="柱斷面設計與實測主筋中心位置比較"></svg></div></section>
+        <section class="card"><h2 class="section-title">計算內容</h2><div class="formula-list" id="stepBody"></div></section>
+        <section class="card"><h2 class="section-title">規範與人工審查</h2><p>規範判定：建築物混凝土結構設計規範（112 年版）20.2.2.2、21.2.2、22.2.2.4、22.4.2、27.3.1.1、27.3.1.2、27.3.2.1。</p><p><a class="source-link" href="https://www.nlma.gov.tw/uploads/files/011d9249cac7d6c5547786aa348e352a.pdf" target="_blank" rel="noopener noreferrer">內政部國土署官方 PDF</a></p><p class="muted">Es 依 20.2.2.2 固定採 2.04×10⁶ kgf/cm²；強度折減採第 21 章一般 φ，不自動採表 27.3.2.1 提高值；材料、尺寸與位置證據代表性由專案工程師審查。</p></section>
+      </aside>
+    </div>
+  </main>
+
+  <script src="../local-quick-tool-metadata.js"></script>
+  <script src="../../core/ui/report.js"></script>
+  <script src="../local-quick-export.js?v=0.2.0"></script>
+  <script src="../../../鋼筋混凝土/shared/pmsection.js"></script>
+  <script src="column-cover-deviation-core.js?v=0.1.0"></script>
+  <script>
+  (function () {
+    'use strict';
+    const Core = window.RcColumnCoverDeviationCore;
+    if (!Core) throw new Error('RcColumnCoverDeviationCore is not loaded.');
+    const PUBLIC_TOOL_VERSION = window.LocalQuickToolMetadata['rc-column-cover-deviation'].version;
+    const Exporter = window.LocalQuickExport;
+    const ReportUI = window.ToolReportUI;
+    if (!Exporter || !ReportUI) throw new Error('Local quick shared helpers are not loaded.');
+    const STORAGE_KEY = 'rc-column-cover-deviation-project-meta-v1';
+    const PROJECT_DRAFT_KEY = 'rc-column-cover-deviation-project-draft-v1';
+    const CASE_SCHEMA_VERSION = 'rc-column-cover-deviation.case.v1';
+    const DEFAULT_INPUT = Object.freeze({
+      sectionWidthMm:500,sectionDepthMm:600,sectionDimensionBasis:'現場複測紀錄 SD-01：臨界斷面四邊尺寸',fcKgfCm2:280,fyKgfCm2:4200,esKgfCm2:2040000,materialBasis:'原設計圖 S-101 與材料試驗報告 MT-01',barAreaCm2:5.067,mainBarDiameterMm:25.4,stirrupDiameterMm:10,barsPerTopBottomFace:4,intermediateBarsPerSide:2,designCenterTopMm:65,designCenterBottomMm:65,designCenterLeftMm:65,designCenterRightMm:65,measurementMode:'bar-center',measuredTopMm:80,measuredBottomMm:65,measuredLeftMm:70,measuredRightMm:65,measurementBasis:'掃描紀錄 SC-01：四面混凝土面至縱向主筋中心',puTf:120,muXPositiveTfm:28,muXNegativeTfm:22,muYPositiveTfm:20,muYNegativeTfm:18,demandBasis:'結構分析模型 A：共同比較 Pu 與四向獨立 Mu 幅值',minimumRetentionRatio:.9
+    });
+    const INPUT_IDS = Object.keys(DEFAULT_INPUT);
+    let lastResult = null;
+    let lastValidationMessage = '';
+
+    function $(id) { return document.getElementById(id); }
+    function num(id) { const raw = String($(id).value == null ? '' : $(id).value).trim(); return raw ? Number(raw) : NaN; }
+    function fmt(value, digits) { return Number.isFinite(value) ? Number(value).toFixed(digits == null ? 3 : digits) : '—'; }
+    function pct(value, digits) { return Number.isFinite(value) ? `${(100 * value).toFixed(digits == null ? 1 : digits)}%` : '—'; }
+    function escapeHtml(text) { return String(text == null ? '' : text).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]); }
+    function statusClass(value) { return value === true ? 'ok' : (value === false ? 'fail' : 'warn'); }
+    function reportModeLabel() { return $('reportMode').value === 'summary' ? '簡易結果' : '詳算式'; }
+
+    function gatherInputs() {
+      return {
+        sectionWidthMm:num('sectionWidthMm'),sectionDepthMm:num('sectionDepthMm'),sectionDimensionBasis:$('sectionDimensionBasis').value.trim(),fcKgfCm2:num('fcKgfCm2'),fyKgfCm2:num('fyKgfCm2'),esKgfCm2:num('esKgfCm2'),materialBasis:$('materialBasis').value.trim(),barAreaCm2:num('barAreaCm2'),mainBarDiameterMm:num('mainBarDiameterMm'),stirrupDiameterMm:num('stirrupDiameterMm'),barsPerTopBottomFace:num('barsPerTopBottomFace'),intermediateBarsPerSide:num('intermediateBarsPerSide'),designCenterTopMm:num('designCenterTopMm'),designCenterBottomMm:num('designCenterBottomMm'),designCenterLeftMm:num('designCenterLeftMm'),designCenterRightMm:num('designCenterRightMm'),measurementMode:$('measurementMode').value,measuredTopMm:num('measuredTopMm'),measuredBottomMm:num('measuredBottomMm'),measuredLeftMm:num('measuredLeftMm'),measuredRightMm:num('measuredRightMm'),measurementBasis:$('measurementBasis').value.trim(),puTf:num('puTf'),muXPositiveTfm:num('muXPositiveTfm'),muXNegativeTfm:num('muXNegativeTfm'),muYPositiveTfm:num('muYPositiveTfm'),muYNegativeTfm:num('muYNegativeTfm'),demandBasis:$('demandBasis').value.trim(),minimumRetentionRatio:num('minimumRetentionRatio')
+      };
+    }
+    function gatherProjectInfo() {
+      return { name:Exporter.normalizeProjectFieldValue($('projName').value), no:Exporter.normalizeProjectFieldValue($('projNo').value), designer:Exporter.normalizeProjectFieldValue($('projDesigner').value) };
+    }
+
+    function updateMeasurementModeUi() {
+      const clear = $('measurementMode').value === 'clear-cover';
+      const suffix = clear ? '淨保護層（至箍筋外緣）' : '縱向主筋中心距';
+      ['Top','Bottom','Left','Right'].forEach((face, index) => { $(`measured${face}Label`).textContent = `${['上','下','左','右'][index]}面${suffix} (mm)`; });
+      $('measurementModeHelp').textContent = clear
+        ? `換算 ccenter = cclear + dtie + db/2；目前偏移量 = ${fmt(num('stirrupDiameterMm') + num('mainBarDiameterMm') / 2,2)} mm。`
+        : '直接使用四面「混凝土面至縱向主筋中心」距離。';
+    }
+
+    function renderReadiness(validationMessage) {
+      const target = $('columnCoverReportReadiness');
+      if (!target) return;
+      const message = typeof validationMessage === 'string' ? validationMessage : lastValidationMessage;
+      let readinessLevel = 'blocked';
+      let title = '尚未完成計算，先不要產生計算書。';
+      const items = [];
+      if (message) {
+        title = '輸入或量測基準尚未通過檢查，禁止產生貌似精確的容量。';
+        items.push({ label:'優先處理 1', value:message });
+      } else if (lastResult) {
+        const failed = lastResult.checks.filter(check => check.passed === false);
+        const level = !lastResult.overallOk ? 'blocked' : 'review';
+        readinessLevel = level;
+        title = level === 'review' ? '單軸 P-M 數值已完成；僅可作內部審閱，須人工核對現況證據與未涵蓋行為。' : '至少一項數值或依據未通過；僅可產生內部檢討版。';
+        items.push({ label:'控制方向', value:`${lastResult.governingDemandDirectionLabel}；利用率=${fmt(lastResult.maximumMeasuredUtilization,3)}` });
+        items.push({ label:'容量保留比', value:`${fmt(lastResult.minimumRetentionRatio,3)}（門檻 ${fmt(lastResult.input.minimumRetentionRatio,3)}）` });
+        items.push({ label:'人工審查', value:'尺寸、材料、位置代表性；雙軸、二階、耐久與防火' });
+        if (failed[0]) items.push({ label:'優先處理 1', value:failed[0].detail });
+      }
+      items.push({ label:'計算書模式', value:reportModeLabel() });
+      items.push({ label:'輸出邊界', value:'頁面顯示，不進計算書、列印或 PDF' });
+      Exporter.renderStatusGridPanel({
+        target, level:readinessLevel, containerClassName:'page-only-report-status report-readiness', eyebrow:'頁面輔助｜產報前檢查｜優先閱讀', title,
+        badge:readinessLevel === 'review' ? '待人工審查' : '暫勿作附件', items,
+        note:'此面板只供產報前檢查，不會寫入計算書或列印 PDF；capacity OK 不等於保護層厚度合規。'
+      });
+    }
+
+    function renderBanner(r) { $('bannerStatus').className = `banner-status ${r.overallOk ? 'ok' : 'fail'}`; $('bannerStatus').textContent = r.summary.headline; }
+    function renderMetrics(r) {
+      const d = r.directions.find(item => item.key === r.governingDemandDirection);
+      const c = r.directions.find(item => item.key === r.criticalRetentionDirection);
+      const metrics = [
+        ['最小容量保留比',fmt(r.minimumRetentionRatio,3),`${c.label}；門檻 ${fmt(r.input.minimumRetentionRatio,3)}`,r.retentionOk],
+        ['實測最大利用率',fmt(r.maximumMeasuredUtilization,3),`${d.label}；Mu=${fmt(d.demandTfm,2)} tf-m`,r.allMeasuredDemandOk],
+        ['控制實測 φMn',`${fmt(d.measured.phiMnTfm,2)} tf-m`,`設計位置 ${fmt(d.design.phiMnTfm,2)} tf-m`,d.measured.ok],
+        ['縱向主筋總數',`${r.barLayout.totalBars} 支`,`四角筋只算一次；Ast=${fmt(r.barLayout.totalSteelAreaCm2,3)} cm²`,true],
+        ['縱向鋼筋比',pct(r.barLayout.steelRatio,2),`Ag=${fmt(r.barLayout.grossAreaCm2,1)} cm²`,true],
+        ['量測換算偏移',`${fmt(r.measurement.conversionOffsetMm,2)} mm`,r.measurement.conversionFormula,true],
+        ['一般 φ 政策','0.65 → 0.90','第 21 章；未採表 27.3.2.1 提高值',true],
+        ['文件判讀','人工審查','非保護層合規或整體安全結論',null]
+      ];
+      $('metricGrid').innerHTML = metrics.map(m => `<div class="metric ${statusClass(m[3])}"><span class="label">${escapeHtml(m[0])}</span><span class="value">${escapeHtml(m[1])}</span><div class="muted">${escapeHtml(m[2])}</div></div>`).join('');
+    }
+    function renderChecks(r) {
+      $('checkList').innerHTML = r.checks.map(check => `<div class="check-item ${statusClass(check.passed)}"><span class="k">${escapeHtml(check.label)}｜${check.passed === true ? '通過' : (check.passed === false ? '不通過' : '人工審查')}</span><span class="v">${escapeHtml(check.detail)}</span></div>`).join('');
+    }
+    function renderSteps(r) {
+      const centers = r.measurement.measuredCentersMm;
+      const deviation = r.measurement.deviationsMm;
+      const directionRows = r.directions.map(item => `<tr><td>${escapeHtml(item.label)}</td><td>${fmt(item.demandTfm,2)}</td><td>${fmt(item.design.phiMnTfm,2)}</td><td>${fmt(item.measured.phiMnTfm,2)}</td><td>${fmt(item.retentionRatio,3)}</td><td>${fmt(item.measured.utilization,3)}</td></tr>`).join('');
+      $('stepBody').innerHTML = `
+        <p><b>1. 量測語意</b><br><code>${escapeHtml(r.measurement.conversionFormula)}</code><br>實測主筋中心距（上／下／左／右）=${fmt(centers.top,1)}／${fmt(centers.bottom,1)}／${fmt(centers.left,1)}／${fmt(centers.right,1)} mm；偏差=${fmt(deviation.top,1)}／${fmt(deviation.bottom,1)}／${fmt(deviation.left,1)}／${fmt(deviation.right,1)} mm。</p>
+        <p><b>2. 配筋幾何</b><br><code>Nbar = 2×${r.input.barsPerTopBottomFace} + 2×${r.input.intermediateBarsPerSide} = ${r.barLayout.totalBars}</code>；上、下含角筋，左右只含中間筋，四角筋不重複。</p>
+        <p><b>3. 應變相容與等值壓力塊</b><br><code>εcu=0.003；fs=clip(Es·εs, ±fy)；a=β1c；Cc=0.85fc′ba</code></p>
+        <p><b>4. 強度折減與軸壓上限</b><br><code>φ=0.65（壓控）至 0.90（拉控）；φPn,max=0.65×0.80×Po</code><br>固定採第 21 章一般 φ，未自動採表 27.3.2.1 提高值。</p>
+        <div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem"><tr><th>方向</th><th>Mu</th><th>設計 φMn</th><th>實測 φMn</th><th>保留比</th><th>利用率</th></tr>${directionRows}</table></div>
+        <div class="danger-box" style="margin-top:10px">${escapeHtml(r.complianceBoundary)}</div>`;
+    }
+
+    function drawDiagram(r) {
+      const svg = $('columnCoverDiagram');
+      const width = r ? r.input.sectionWidthMm / 10 : 50;
+      const depth = r ? r.input.sectionDepthMm / 10 : 60;
+      const scale = Math.min(330 / width, 300 / depth);
+      const ox = 60 + (340 - width * scale) / 2;
+      const oy = 48 + (310 - depth * scale) / 2;
+      const circles = (bars, color, fill, radius, dash) => bars.map(bar => `<circle cx="${(ox + bar.x * scale).toFixed(2)}" cy="${(oy + bar.y * scale).toFixed(2)}" r="${radius}" fill="${fill}" stroke="${color}" stroke-width="2" ${dash ? 'stroke-dasharray="4 2"' : ''}/>`).join('');
+      const designBars = r ? circles(r.layouts.design.bars,'#2563eb','#dbeafe',5,true) : '';
+      const measuredBars = r ? circles(r.layouts.measured.bars,r.overallOk?'#059669':'#dc2626','#fff',3.5,false) : '';
+      const measurementQuantityText = r ? r.measurement.enteredQuantity : '尚未計算';
+      const measurementOffsetText = r ? `換算偏移：${fmt(r.measurement.conversionOffsetMm,1)} mm` : '';
+      svg.innerHTML = `
+        <g data-diagram-role="section"><rect x="${ox}" y="${oy}" width="${(width*scale).toFixed(2)}" height="${(depth*scale).toFixed(2)}" fill="#faf5ff" stroke="#4c1d95" stroke-width="3"/><text x="230" y="24" text-anchor="middle" font-size="13" font-weight="800">臨界斷面 ${fmt(width*10,0)} × ${fmt(depth*10,0)} mm</text></g>
+        <g data-diagram-role="design-bars">${designBars}<rect x="430" y="66" width="14" height="14" rx="7" fill="#dbeafe" stroke="#2563eb" stroke-dasharray="4 2"/><text x="452" y="78" font-size="12">設計主筋中心</text></g>
+        <g data-diagram-role="measured-bars">${measuredBars}<circle cx="437" cy="108" r="5" fill="#fff" stroke="${r&&r.overallOk?'#059669':'#dc2626'}" stroke-width="2"/><text x="452" y="112" font-size="12">實測主筋中心</text></g>
+        <g data-diagram-role="measurement"><rect x="420" y="145" width="195" height="162" rx="9" fill="#f8fafc" stroke="#c4b5fd"/><text x="435" y="169" font-size="12" font-weight="800">量測與配筋語意</text><text x="435" y="191" font-size="11">${escapeHtml(measurementQuantityText)}</text><text x="435" y="211" font-size="11">${escapeHtml(measurementOffsetText)}</text><text x="435" y="233" font-size="11">上、下支數包含角筋</text><text x="435" y="253" font-size="11">左右支數排除角筋</text><text x="435" y="273" font-size="11">總支數：${r?r.barLayout.totalBars:'—'}（角筋不重複）</text><text x="435" y="295" font-size="11" fill="#991b1b">非保護層厚度合規判定</text></g>
+        <text x="230" y="390" text-anchor="middle" font-size="12" fill="#475569">+Mx：上緣受壓；+My：左緣受壓（負向反轉座標）</text>`;
+    }
+
+    function calculateColumnCoverDeviation() {
+      updateMeasurementModeUi();
+      const input = gatherInputs();
+      const errors = Core.validateInput(input);
+      if (errors.length) {
+        lastResult = null; lastValidationMessage = errors.join(' ');
+        $('bannerStatus').className = 'banner-status fail'; $('bannerStatus').textContent = lastValidationMessage;
+        $('metricGrid').innerHTML = '<div class="metric fail"><span class="label">輸入狀態</span><span class="value">已封鎖</span><div class="muted">量測語意或幾何未通過，未計算容量。</div></div>';
+        $('checkList').innerHTML = `<div class="check-item fail"><span class="k">輸入檢核｜不通過</span><span class="v">${escapeHtml(lastValidationMessage)}</span></div>`;
+        $('stepBody').innerHTML = `<div class="danger-box">${escapeHtml(lastValidationMessage)}</div>`;
+        drawDiagram(null); renderReadiness(lastValidationMessage); return null;
+      }
+      const result = Core.calculate(input); lastResult = result; lastValidationMessage = '';
+      renderBanner(result); renderMetrics(result); renderChecks(result); renderSteps(result); drawDiagram(result); renderReadiness('');
+      return result;
+    }
+
+    function setJsonStatus(message, isError) { $('jsonStatus').textContent = message; $('jsonStatus').style.color = isError ? '#991b1b' : ''; }
+    function applyProjectInfo(project) {
+      const data = project || {};
+      if (data.name != null) $('projName').value = Exporter.normalizeProjectFieldValue(data.name);
+      if (data.no != null) $('projNo').value = Exporter.normalizeProjectFieldValue(data.no);
+      if (data.designer != null) $('projDesigner').value = Exporter.normalizeProjectFieldValue(data.designer);
+      saveProjectInfo();
+    }
+      function applyCaseSnapshot(snapshot) {
+        const source = snapshot || {};
+        const normalized = Core.normalizeInput(source.input);
+        const errors = Core.validateInput(normalized); if (errors.length) throw new Error(errors.join(' '));
+        INPUT_IDS.forEach(id => { if ($(id)) $(id).value = normalized[id]; });
+        updateMeasurementModeUi(); applyProjectInfo(source.project);
+      }
+      function captureCaseSnapshot() {
+        return {
+          project:{name:$('projName').value,no:$('projNo').value,designer:$('projDesigner').value},
+          inputValues:Object.fromEntries(INPUT_IDS.map(id => [id, $(id) ? $(id).value : '']))
+        };
+      }
+      function restoreRawCaseSnapshot(snapshot) {
+        const source = snapshot || {};
+        const project = source.project || {};
+        $('projName').value = project.name == null ? '' : String(project.name);
+        $('projNo').value = project.no == null ? '' : String(project.no);
+        $('projDesigner').value = project.designer == null ? '' : String(project.designer);
+        const values = source.inputValues || {};
+        INPUT_IDS.forEach(id => { if ($(id) && Object.prototype.hasOwnProperty.call(values,id)) $(id).value = values[id]; });
+        updateMeasurementModeUi(); saveProjectInfo(); calculateColumnCoverDeviation();
+      }
+      function buildColumnCoverReportTrace(r) {
+        return ReportUI.buildReportTrace({
+          title:'柱保護層偏差強度評估計算書',
+          outputSource:{tool:'柱保護層偏差強度評估',version:PUBLIC_TOOL_VERSION},
+          snapshot:{calculationEngine:Core.version,input:r.input,result:r}
+        });
+      }
+      function applyImportedCase(payload, fileName) {
+        try {
+          ReportUI.validateCalculationCasePayload(payload, {
+            expectedSchema:CASE_SCHEMA_VERSION,
+            expectedToolId:'rc-column-cover-deviation',
+            expectedVersion:PUBLIC_TOOL_VERSION
+          });
+        } catch (error) {
+          const message = String(error && error.message || error || '案件 JSON 驗證失敗').replace(/[。；\s]+$/,'');
+          throw new Error(`${message}；已保留原輸入。`);
+        }
+        const importedEngine = String(payload && payload.tool && payload.tool.calculationEngine || '').trim();
+        if (!importedEngine) throw new Error('案件 JSON 驗證失敗：缺少計算引擎版本；已保留原輸入。');
+        if (importedEngine !== String(Core.version)) throw new Error(`案件 JSON 驗證失敗：計算引擎版本不符（來源 ${importedEngine}，目前 ${Core.version}）；已保留原輸入。`);
+        const replay = ReportUI.replayCalculationCasePayload(payload, {
+          expectedSchema:CASE_SCHEMA_VERSION,
+          expectedToolId:'rc-column-cover-deviation',
+          expectedVersion:PUBLIC_TOOL_VERSION,
+          capture:captureCaseSnapshot,
+          apply:source => applyCaseSnapshot({project:source.project,input:source.input}),
+          recalculate:() => Boolean(calculateColumnCoverDeviation()),
+          getFingerprint:() => lastResult ? buildColumnCoverReportTrace(lastResult).calculationFingerprint : '',
+          restore:restoreRawCaseSnapshot
+        });
+        setJsonStatus(`已讀取 JSON：${fileName || '案例檔'}；已重現計算指紋 ${replay.calculationFingerprint}。`, false);
+      }
+    async function importJsonFile(file) {
+      if (!file) return;
+      try { applyImportedCase(JSON.parse(await file.text()), file.name); } catch (error) { setJsonStatus(`讀取失敗：${error.message || error}`, true); }
+      finally { $('jsonFile').value = ''; }
+    }
+      function buildProjectPayload() {
+        const r = lastResult || calculateColumnCoverDeviation();
+        if (!r) return null;
+        const reportTrace = buildColumnCoverReportTrace(r);
+        const payload = Exporter.buildPayload({
+          tool:{ id: 'rc-column-cover-deviation', name: '柱保護層偏差強度評估', version: PUBLIC_TOOL_VERSION, pageVersion: PUBLIC_TOOL_VERSION, calculationEngine: Core.version },
+          project:gatherProjectInfo(), input:gatherInputs(), result:r, generatedAt:new Date().toISOString()
+        });
+        payload.schema = CASE_SCHEMA_VERSION;
+        payload.calculationFingerprint = reportTrace.calculationFingerprint;
+        return payload;
+      }
+    function downloadResultJson() { const payload=buildProjectPayload(); if(!payload||!payload.result)return; Exporter.downloadJson(`rc-column-cover-deviation-${payload.generatedAt.slice(0,10)}.json`,payload); setJsonStatus('已產生含 schema、版本與計算指紋的 JSON，可用「讀取 JSON」驗證回復本頁案例。',false); }
+    function downloadProjectJson() { const payload=buildProjectPayload(); if(!payload||!payload.result)return; Exporter.downloadJson(`rc-column-cover-deviation-project-${payload.generatedAt.slice(0,10)}.json`,payload); setJsonStatus('已存檔含 schema、版本與計算指紋的案件 JSON；回讀時會重算核對。',false); }
+
+    function reportRows(rows) { return rows.map(row => `<tr><th>${escapeHtml(row[0])}</th><td>${escapeHtml(row[1])}</td></tr>`).join(''); }
+    function reportDiagram(r) { drawDiagram(r); return $('columnCoverDiagram').outerHTML; }
+    function conditionRows(r) {
+      const c = r.measurement.measuredCentersMm; const d = r.measurement.designCentersMm;
+      return [
+        ['臨界斷面',`${fmt(r.input.sectionWidthMm,0)} × ${fmt(r.input.sectionDepthMm,0)} mm；${r.input.sectionDimensionBasis}`],
+        ['材料',`fc′=${fmt(r.input.fcKgfCm2,0)}、fy=${fmt(r.input.fyKgfCm2,0)}、Es=${fmt(r.input.esKgfCm2,0)} kgf/cm²；${r.input.materialBasis}`],
+        ['配筋',`${r.barLayout.totalBars} 支 × ${fmt(r.input.barAreaCm2,3)} cm²；db=${fmt(r.input.mainBarDiameterMm,1)} mm；As 與 πdb²/4 相對差 ${pct(r.barLayout.areaDiameterRelativeDifference,2)}（限值 5%）；上、下各 ${r.input.barsPerTopBottomFace} 支含角筋；左右各 ${r.input.intermediateBarsPerSide} 支中間筋不含角筋`],
+        ['設計主筋中心距（上／下／左／右）',`${fmt(d.top,1)}／${fmt(d.bottom,1)}／${fmt(d.left,1)}／${fmt(d.right,1)} mm`],
+        ['實測輸入與換算',`${r.measurement.enteredQuantity}；${r.measurement.conversionFormula}；偏移 ${fmt(r.measurement.conversionOffsetMm,2)} mm`],
+        ['實測主筋中心距（上／下／左／右）',`${fmt(c.top,1)}／${fmt(c.bottom,1)}／${fmt(c.left,1)}／${fmt(c.right,1)} mm；${r.input.measurementBasis}`],
+        ['適用前提',r.scope.applicable],
+        ['需求',`共同比較 Pu=${fmt(r.input.puTf,2)} tf；四向需求為獨立幅值 +Mx/−Mx/+My/−My=${fmt(r.input.muXPositiveTfm,2)}/${fmt(r.input.muXNegativeTfm,2)}/${fmt(r.input.muYPositiveTfm,2)}/${fmt(r.input.muYNegativeTfm,2)} tf-m，不是同時作用的有號 P-Mx-My tuple；${r.input.demandBasis}`],
+        ['專案門檻',`最低容量保留比 ${fmt(r.input.minimumRetentionRatio,3)}`]
+      ];
+    }
+    function resultRows(r) {
+      return [
+        ['最小容量保留比',`${fmt(r.minimumRetentionRatio,3)}；${r.criticalRetentionDirectionLabel}；${r.retentionOk?'通過':'不通過'}`],
+        ['實測斷面最大利用率',`${fmt(r.maximumMeasuredUtilization,3)}；${r.governingDemandDirectionLabel}；${r.allMeasuredDemandOk?'通過':'不通過'}`],
+        ['軸力封包',r.allAxialOk?'Pu 位於設計與實測四方向封包':'Pu 超出至少一組封包'],
+        ['折減政策','φc=0.65、φt=0.90、繫筋柱 Pn,max=0.80Po；未採表 27.3.2.1 提高值'],
+        ['總結',r.summary.headline]
+      ];
+    }
+    function directionTable(r) {
+      return `<table><thead><tr><th>方向</th><th>Mu (tf-m)</th><th>設計 φMn</th><th>實測 φMn</th><th>容量保留比</th><th>實測利用率</th><th>實測需求檢核</th></tr></thead><tbody>${r.directions.map(item => `<tr><td>${escapeHtml(item.label)}</td><td>${fmt(item.demandTfm,2)}</td><td>${fmt(item.design.phiMnTfm,2)}</td><td>${fmt(item.measured.phiMnTfm,2)}</td><td>${fmt(item.retentionRatio,3)}</td><td>${fmt(item.measured.utilization,3)}</td><td>${item.measured.ok?'通過':'不通過'}</td></tr>`).join('')}</tbody></table>`;
+    }
+    function boundaryNote(r) { return `${r.complianceBoundary} 依 27.3.1.1～27.3.1.2 現場驗證臨界斷面尺寸與鋼筋位置／尺寸；材料、尺寸與位置代表性仍須人工審查。`; }
+    function detailedBody(r, svgHtml) {
+      const prov = r.provenance || (Core.provenance ? Core.provenance() : {});
+      return `<p>本頁為既有柱縱向主筋位置偏差的單軸 P-M 斷面強度初估。</p><h2>設計條件</h2><table>${reportRows(conditionRows(r))}</table><h2>計算示意圖</h2><div class="rpt-diagram">${svgHtml}</div><h2>計算內容</h2>
+      <div class="rpt-step"><h3>1. 量測基準與中心距</h3><p><code>${escapeHtml(r.measurement.conversionFormula)}</code>；四面量測必須明確對應混凝土面至縱向主筋中心。淨保護層路線另加箍筋直徑與主筋半徑。</p></div>
+      <div class="rpt-step"><h3>2. 面積／直徑一致性與角筋不重複</h3><p><code>As ≈ πdb²/4</code>，相對差 ${pct(r.barLayout.areaDiameterRelativeDifference,2)}，不得超過 5%；<code>Nbar=2Ntop/bottom+2Nside,intermediate=${r.barLayout.totalBars}</code>，四角筋只在上、下面列中各出現一次。</p></div>
+      <div class="rpt-step"><h3>3. 應變相容與等值壓力塊</h3><p><code>εcu=0.003；fs=clip(Esεs,±fy)；a=β1c；Cc=0.85fc′ba</code>。壓力塊內鋼筋扣除被排擠混凝土應力。</p></div>
+      <div class="rpt-step"><h3>4. 強度折減與軸壓上限</h3><p><code>φ=0.65（壓控）至 0.90（拉控）；φPn,max=0.65×0.80×Po</code>。採第 21 章一般 φ，不自動採表 27.3.2.1 提高值。</p></div>
+      <div class="rpt-step"><h3>5. 共同比較 Pu 下的四方向單軸比較</h3><p>四向 Mu 為各自獨立需求幅值，不代表同時作用的有號 P-Mx-My tuple；方向表的「實測需求檢核」只判斷該向需求／實測容量，容量保留比另由專案門檻判定。</p>${directionTable(r)}</div>
+      <h2>工具與責任邊界</h2><h3>適用範圍</h3><p>${escapeHtml(r.scope.applicable)}</p><h3>不適用範圍</h3><p>${escapeHtml(r.scope.excluded)}</p><p><b>計算核心：</b>${escapeHtml(prov.productionDependency)}；版本 ${escapeHtml(Core.version)}。<br><b>輸入格式：</b>${escapeHtml(Core.inputSchemaVersion)}；結果 ${escapeHtml(Core.resultSchemaVersion)}。<br><b>計算指紋：</b>見文件首部追溯欄。</p>
+      <h2>規範與來源</h2><p>規範判定：內政部國土署《建築物混凝土結構設計規範（112 年版）》20.2.2.2、21.2.2、22.2.2.4、22.4.2、27.3.1.1、27.3.1.2、27.3.2.1。官方 PDF：${escapeHtml(Core.OFFICIAL_REFERENCE_URL)}</p><div class="note">${escapeHtml(boundaryNote(r))}</div>
+      <h2>檢核結論</h2><table>${reportRows(resultRows(r))}</table><div class="conclusion">${escapeHtml(r.summary.headline)}</div>`;
+    }
+    function summaryBody(r, svgHtml) {
+      const checks = r.checks.map(check => `<tr><th>${escapeHtml(check.label)}</th><td>${check.passed === true?'通過':(check.passed === false?'不通過':'人工審查')}</td></tr>`).join('');
+      return `<h2>設計條件</h2><table>${reportRows(conditionRows(r))}</table><h2>計算示意圖</h2><div class="rpt-diagram">${svgHtml}</div><h2>控制結果</h2><table>${reportRows(resultRows(r))}</table>${directionTable(r)}<table><tr><th>檢核項目</th><th>結果</th></tr>${checks}</table><h2>本次評估邊界</h2><p>${escapeHtml(r.scope.applicable)}</p><h3>未涵蓋事項</h3><p>${escapeHtml(r.scope.excluded)}</p><div class="note">${escapeHtml(boundaryNote(r))}</div><h2>檢核結論</h2><div class="conclusion">${escapeHtml(r.summary.headline)}</div>`;
+    }
+    function openReport() {
+      const r=lastResult||calculateColumnCoverDeviation(); if(!r)return;
+      const proj=gatherProjectInfo(); const mode=$('reportMode').value==='summary'?'summary':'detailed'; const svgHtml=reportDiagram(r);
+      const reportTrace=buildColumnCoverReportTrace(r);
+      const documentStateReport=ReportUI.buildFormalDocumentStateReport({project:proj,calculated:true,readinessLevel:ReportUI.getPageReportReadinessLevel(document),calculationFingerprint:reportTrace.calculationFingerprint,textExport:true});
+      const body=mode==='summary'?summaryBody(r,svgHtml):detailedBody(r,svgHtml);
+      const reportHtml=`<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="UTF-8"><title>柱保護層偏差強度評估計算書</title><style>
+      body{font-family:"Microsoft JhengHei",Arial,sans-serif;background:#f8fafc;color:#111827;margin:0;line-height:1.65}.toolbar{position:sticky;top:0;background:#4c1d95;color:white;padding:10px 16px}.toolbar button{padding:8px 12px;margin-right:8px;border:0;border-radius:6px}.paper{max-width:920px;margin:20px auto;background:white;padding:30px 34px;box-shadow:0 2px 12px #0002}h1{font-size:1.45rem;margin:0 0 8px}h2{font-size:1.05rem;border-bottom:2px solid #e9d5ff;padding-bottom:5px;margin-top:22px;color:#6d28d9}h3{font-size:.95rem;color:#4c1d95;margin:12px 0 4px}.case-head{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.88rem;color:#334155;border-bottom:1px solid #e5e7eb;padding-bottom:8px}table{width:100%;border-collapse:collapse;font-size:.84rem;margin-top:8px}th,td{border:1px solid #d1d5db;padding:7px 8px;text-align:left;vertical-align:top}th{background:#faf5ff}code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 4px;border-radius:4px}.rpt-diagram{border:1px solid #ddd6fe;border-radius:8px;padding:8px}.rpt-diagram svg{width:100%;max-width:640px;height:auto;display:block;margin:auto}.conclusion{padding:12px;border:2px solid ${r.overallOk?'#10b981':'#ef4444'};background:${r.overallOk?'#ecfdf5':'#fef2f2'};border-radius:8px;font-weight:800}.note{margin-top:14px;padding:10px 12px;border-left:4px solid #dc2626;background:#fef2f2}.rpt-step{break-inside:avoid-page;page-break-inside:avoid}h2,h3{break-after:avoid-page;page-break-after:avoid}tr{break-inside:avoid-page;page-break-inside:avoid}thead{display:table-header-group}@media print{.toolbar{display:none}.paper{box-shadow:none;margin:0;max-width:none}body{background:white}}</style></head><body><div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div><main class="paper"><h1>柱保護層偏差強度評估計算書</h1>${documentStateReport.html}<div class="case-head">${proj.name?`<span>計畫：${escapeHtml(proj.name)}</span>`:''}${proj.no?`<span>編號：${escapeHtml(proj.no)}</span>`:''}${proj.designer?`<span>整理人：${escapeHtml(proj.designer)}</span>`:''}<span>產出工具：${escapeHtml(reportTrace.sourceTrace.tool)}</span><span>工具版本：${escapeHtml(PUBLIC_TOOL_VERSION)}</span><span>計算引擎：${escapeHtml(Core.version)}</span><span>輸出時間：${escapeHtml(reportTrace.generatedAt)}</span><span>計算指紋：${escapeHtml(reportTrace.calculationFingerprint)}</span></div>${body}</main></body></html>`;
+      const win=window.open('','_blank'); if(!win)return; win.document.open(); win.document.write(reportHtml); win.document.close();
+    }
+
+    function saveProjectInfo(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(gatherProjectInfo()));}catch(_){}}
+    function loadProjectInfo(){try{applyProjectInfo(JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}'));}catch(_){}}
+    function resetDefaults(){INPUT_IDS.forEach(id=>{if($(id))$(id).value=DEFAULT_INPUT[id];});updateMeasurementModeUi();calculateColumnCoverDeviation();}
+
+    $('btnCalc').addEventListener('click',calculateColumnCoverDeviation); $('btnPrint').addEventListener('click',openReport); $('btnJson').addEventListener('click',downloadResultJson); $('btnSaveProject').addEventListener('click',downloadProjectJson);
+    $('btnImportJson').addEventListener('click',()=>$('jsonFile').click()); $('jsonFile').addEventListener('change',event=>importJsonFile(event.target.files&&event.target.files[0]));
+    $('btnSaveDraft').addEventListener('click',function(){Exporter.saveDraft(PROJECT_DRAFT_KEY,buildProjectPayload());setJsonStatus('已暫存目前案例到此瀏覽器。',false);});
+    $('btnLoadDraft').addEventListener('click',function(){const payload=Exporter.loadDraft(PROJECT_DRAFT_KEY);if(!payload){setJsonStatus('尚無可讀取的瀏覽器暫存。',true);return;}try{applyImportedCase(payload,'瀏覽器暫存');}catch(error){setJsonStatus(`讀取失敗：${error.message||error}`,true);}});
+    $('btnReset').addEventListener('click',resetDefaults); $('reportMode').addEventListener('change',()=>renderReadiness());
+    INPUT_IDS.forEach(id=>{if(!$(id))return;$(id).addEventListener('input',calculateColumnCoverDeviation);$(id).addEventListener('change',calculateColumnCoverDeviation);});
+    ['projName','projNo','projDesigner'].forEach(id=>{$(id).addEventListener('input',saveProjectInfo);$(id).addEventListener('change',saveProjectInfo);});
+    $('coreVersion').textContent=`Core v${Core.version}`; updateMeasurementModeUi(); loadProjectInfo(); calculateColumnCoverDeviation();
+  })();
+  </script>
+  <script src="../project-meta-profile.js"></script>
+</body>
+</html>

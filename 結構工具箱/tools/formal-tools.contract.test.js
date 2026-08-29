@@ -1406,6 +1406,16 @@ for (const tool of manifest.tools) {
 }
 
 for (const relativePath of [
+  'tools/風力/wind-force.html',
+  'tools/風力/wind-cc.html',
+  'tools/風力/wind-open-roof.html',
+  'tools/風力/wind-parapet.html',
+  'tools/風力/wind-fence-sign.html',
+  'tools/風力/wind-object-solid.html',
+  'tools/風力/wind-object-frame.html',
+  'tools/風力/wind-object-tower.html',
+  'tools/風力/wind-lattice-tower.html',
+  'tools/風力/wind-sign-pole.html',
   'tools/地震力/seismic-force.html',
   'tools/地震力/seismic-dynamic.html',
   'tools/地震力/seismic-appendage.html',
