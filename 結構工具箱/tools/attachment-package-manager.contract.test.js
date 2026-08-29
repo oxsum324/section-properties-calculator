@@ -475,6 +475,7 @@ assert.match(verifyHandler, /Get-EligibleBuildRecoveryReceipts[\s\S]*?outputPath
 assert.doesNotMatch(verifyHandler, /Invoke-AttachmentWorker/, 'package verification never synchronously waits on the UI thread');
 const completeReadOnly = managerPs.match(/function Complete-ReadOnlyOperation \{[\s\S]*?(?=\nfunction Cancel-ReadOnlyOperation)/)?.[0] || '';
 assert.doesNotMatch(completeReadOnly, /ReadToEnd|WaitForExit/, 'normal read-only completion is timer-polled and never synchronously waits on the UI thread');
+assert.match(managerPs, /if \(\$SmokeKeyboard\)[\s\S]*?workerExitDeadline = \[DateTime\]::UtcNow\.AddSeconds\(3\)[\s\S]*?Start-Sleep -Milliseconds 50[\s\S]*?while \(\[DateTime\]::UtcNow -lt \$workerExitDeadline\)/, 'keyboard smoke tolerates delayed Windows process-table cleanup while still requiring the worker to exit');
 const buildHandler = managerPs.match(/\$script:BtnBuild\.Add_Click\(\{[\s\S]*?(?=\n\}\)\n\n\$script:BtnVerify\.Add_Click)/)?.[0] || '';
 assert.match(buildHandler, /Start-BuildOperation/, 'formal package creation starts the dedicated background atomic build path');
 assert.doesNotMatch(buildHandler, /Invoke-AttachmentWorker|Start-ReadOnlyOperation/, 'the UI never synchronously waits or mixes build into the cancellable read-only path');

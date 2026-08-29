@@ -2166,7 +2166,13 @@ if ($SmokeKeyboard) {
       $escapeEvent = New-Object System.Windows.Forms.KeyEventArgs([System.Windows.Forms.Keys]::Escape)
       Invoke-ManagerKeyDown -EventArgs $escapeEvent
       [System.Windows.Forms.Application]::DoEvents()
-      $workerExited = $state.workerPid -gt 0 -and -not (Get-Process -Id $state.workerPid -ErrorAction SilentlyContinue)
+      $workerExitDeadline = [DateTime]::UtcNow.AddSeconds(3)
+      do {
+        $workerExited = $state.workerPid -gt 0 -and -not (Get-Process -Id $state.workerPid -ErrorAction SilentlyContinue)
+        if ($workerExited) { break }
+        Start-Sleep -Milliseconds 50
+        [System.Windows.Forms.Application]::DoEvents()
+      } while ([DateTime]::UtcNow -lt $workerExitDeadline)
       $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\')
       $sourceTemps = @(Get-ChildItem -LiteralPath $tempRoot -Directory -Filter "formal-source-$($state.workerPid)-*" -Force -ErrorAction SilentlyContinue)
       $script:BtnBuild.Enabled = $true
