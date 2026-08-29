@@ -765,6 +765,7 @@ async function main() {
     JSON.stringify([['formalPdfEvidence', 64, 64], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]]),
     JSON.stringify([['formalPdfEvidence', 66, 66], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]]),
     JSON.stringify([['formalPdfEvidence', 72, 72], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]]),
+    JSON.stringify([['formalPdfEvidence', 78, 78], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]]),
   ].includes(JSON.stringify(reportReadinessStatus.deliveryFileIntegrityBreakdown.map(item => [item.key, item.required, item.verified]))), 'report readiness exposes the three redacted delivery integrity groups');
   assert.ok(reportReadinessStatus.deliveryFileIntegrityBreakdown.every(item => item.pass && item.issueCount === 0), 'report readiness delivery integrity groups pass');
   const deliveryFileIntegrityJson = JSON.stringify(reportReadinessStatus.deliveryFileIntegrityBreakdown);

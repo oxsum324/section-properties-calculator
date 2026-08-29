@@ -3651,6 +3651,7 @@ function checkMatrix(payload, markdown, options = {}) {
         [[64, 64], [66, 66], [13, 13]],
         [[66, 66], [66, 66], [13, 13]],
         [[72, 72], [66, 66], [13, 13]],
+        [[78, 78], [66, 66], [13, 13]],
       ].some(expected => JSON.stringify(expected) === JSON.stringify(homepageDeliveryCounts)),
       'homepage report readiness preserves supported redacted delivery counts'
     );
