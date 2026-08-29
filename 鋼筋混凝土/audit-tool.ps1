@@ -298,7 +298,7 @@ function Run-AuditPass {
     @{ Label = "Retaining base demand unit tests"; Command = "Set-Location '$root'; node '.\shared\retaining-base-demand.test.js'"; Workdir = $root },
     @{ Label = "RC traceability catalog contract"; Command = "Set-Location '$toolsDir'; node '.\rc-traceability.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "RC project/report calculation fingerprint contract"; Command = "Set-Location '$toolsDir'; node '.\rc-project-fingerprint.contract.test.js'"; Workdir = $toolsDir },
-    @{ Label = "Audit status metadata contract"; Command = "Set-Location '$toolsDir'; node '.\audit-status.contract.test.js'"; Workdir = $toolsDir },
+    @{ Label = "Audit status metadata contract"; Command = "Set-Location '$toolsDir'; node '.\audit-status.contract.test.js'; if (`$LASTEXITCODE -ne 0) { exit `$LASTEXITCODE }"; Workdir = $toolsDir },
     @{ Label = "RC STM independent engineering benchmarks"; Command = "node '.\rc-stm-independent-engineering-gate.test.js'; if (`$LASTEXITCODE -ne 0) { exit `$LASTEXITCODE }"; Workdir = $toolsDir; TimeoutSeconds = 120 },
     @{ Label = "RC index menu browser smoke"; Command = "& '$toolsDir\test-rc-index-menu.ps1'"; Workdir = $toolsDir },
     @{ Label = "Beam report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\beam-report-visual.contract.test.js'"; Workdir = $toolsDir },

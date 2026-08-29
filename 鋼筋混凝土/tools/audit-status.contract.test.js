@@ -19,6 +19,7 @@ const testShearWallReportPath = path.join(ROOT, 'tools', 'test-shear-wall-report
 const ensurePlaywrightDepsPath = path.join(ROOT, 'tools', 'ensure-playwright-deps.ps1');
 const sharedReportPath = path.join(ROOT, 'shared', 'report.js');
 const directPrintBoundaryPath = path.join(ROOT, 'shared', 'direct-print-boundary.css');
+const localQuickDirectPrintBoundaryPath = path.resolve(ROOT, '..', '結構工具箱', 'core', 'direct-print-boundary.css');
 const rcTraceCatalogPath = path.join(ROOT, 'tools', 'rc-traceability.catalog.json');
 const rcStmIndependentGatePath = path.join(ROOT, 'tools', 'rc-stm-independent-engineering-gate.test.js');
 
@@ -173,11 +174,13 @@ const expectedHrefs = [
   'tools/foundation.html',
   'tools/single-pile-designer.html',
 ];
+const columnCoverDeviationHref = '../結構工具箱/tools/rc/column-cover-deviation.html';
 const expectedAuxiliaryCards = [
   { href: 'tools/deep-beam-stm.html', title: '深梁 STM' },
   { href: 'tools/foundation-deep-beam-stm.html', title: '基礎深梁 STM' },
   { href: 'tools/pile-cap-3d-stm.html', title: '樁帽三維 STM' },
   { href: '../RC補強斷面性質.html', title: 'RC 補強斷面' },
+  { href: columnCoverDeviationHref, title: '柱保護層偏差強度評估' },
 ];
 const auditModules = parseAuditModules(audit);
 const indexLabels = parseIndexLabels(index);
@@ -334,10 +337,24 @@ for (const card of menuCards) {
   for (const resource of resources) {
     assert(fs.existsSync(resource.target), `${path.basename(target)} ${resource.kind} exists`, resource.href);
   }
-  assert(/<body\b[^>]*\bclass="[^"]*\brc-formal-output-page\b/.test(html), `menu target blocks direct work-page print: ${card.href}`, path.basename(target));
-  assert(html.includes('class="rc-direct-print-boundary"'), `menu target has direct-print boundary: ${card.href}`, path.basename(target));
-  assert(html.includes('RC 工具主頁列印已封鎖') && html.includes('本頁不得作為附件'), `menu target explains blocked direct print: ${card.href}`, path.basename(target));
-  assert(resources.some(resource => path.resolve(resource.target) === path.resolve(directPrintBoundaryPath)), `menu target loads shared direct-print boundary: ${card.href}`, path.basename(target));
+  const printProfile = card.href === columnCoverDeviationHref
+    ? {
+        bodyClass: 'local-quick-output-page',
+        boundaryClass: 'local-quick-direct-print-boundary',
+        notice: '局部快算主頁列印已封鎖',
+        stylesheetPath: localQuickDirectPrintBoundaryPath,
+      }
+    : {
+        bodyClass: 'rc-formal-output-page',
+        boundaryClass: 'rc-direct-print-boundary',
+        notice: 'RC 工具主頁列印已封鎖',
+        stylesheetPath: directPrintBoundaryPath,
+      };
+  const bodyClassPattern = new RegExp(`<body\\b[^>]*\\bclass="[^"]*\\b${printProfile.bodyClass}\\b`);
+  assert(bodyClassPattern.test(html), `menu target blocks direct work-page print: ${card.href}`, path.basename(target));
+  assert(html.includes(`class="${printProfile.boundaryClass}"`), `menu target has direct-print boundary: ${card.href}`, path.basename(target));
+  assert(html.includes(printProfile.notice) && html.includes('本頁不得作為附件'), `menu target explains blocked direct print: ${card.href}`, path.basename(target));
+  assert(resources.some(resource => path.resolve(resource.target) === path.resolve(printProfile.stylesheetPath)), `menu target loads shared direct-print boundary: ${card.href}`, path.basename(target));
 }
 
 for (const rel of requiredQaArtifacts) {
@@ -388,6 +405,7 @@ assertIncludes(audit, '.\\rc-stm-independent-engineering-gate.test.js', 'audit r
 assertIncludes(audit, 'recordCount = $auditRecords.Count', 'audit status records the exact completed gate count');
 assertIncludes(audit, 'TimeoutSeconds = 120', 'audit gives the RC STM independent benchmark a bounded timeout');
 assert((audit.split('if (`$LASTEXITCODE -ne 0) { exit `$LASTEXITCODE }').length - 1) >= 1, 'audit fails closed when the RC STM independent benchmark exits nonzero');
+assertIncludes(audit, "node '.\\audit-status.contract.test.js'; if (`$LASTEXITCODE -ne 0) { exit `$LASTEXITCODE }", 'audit fails closed when the audit metadata contract exits nonzero');
 const auditCommandLabels = [...audit.matchAll(/@\{\s*Label\s*=\s*"([^"]+)"/g)].map(match => match[1]);
 assert(auditCommandLabels.length === 25, 'audit retains exactly twenty-five governed commands', JSON.stringify(auditCommandLabels));
 assert(auditCommandLabels[6] === 'RC STM independent engineering benchmarks', 'STM independent benchmark gate runs after metadata contract and before browser suites', JSON.stringify(auditCommandLabels.slice(4, 9)));
