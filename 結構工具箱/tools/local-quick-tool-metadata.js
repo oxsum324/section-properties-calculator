@@ -10,6 +10,7 @@
     'equipment-load': { route: '/equipment-load', discipline: 'equipment', version: 'V0.3', state: 'formal', governance: 'local-quick-contract' },
     'earth-pressure': { route: '/earth-pressure', discipline: 'geotechnical', version: 'V0.6', state: 'formal', governance: 'local-quick-contract' },
     'floor-slab-westergaard': { route: '/floor-slab-westergaard', discipline: 'floor-slab', version: 'V0.1', state: 'formal', governance: 'local-quick-contract' },
+    'cable-tension-frequency': { route: '/cable-tension-frequency', discipline: 'cable', version: 'V0.1', state: 'formal', governance: 'local-quick-contract' },
     'rc-column-cover-deviation': { route: '/rc-column-cover-deviation', discipline: 'reinforced-concrete', version: 'V0.1', state: 'formal', governance: 'local-quick-contract' },
   };
 

@@ -13,16 +13,34 @@
   const IS_STANDALONE_PLATE = location.pathname.toLowerCase().includes("plate-check");
   const STORAGE_KEY = IS_STANDALONE_PLATE
     ? "steel-plate-check-draft-v2"
-    : "steel-connection-suite-draft-v3";
+    : "steel-connection-suite-draft-v5";
   const UI_PREFS_KEY = IS_STANDALONE_PLATE
     ? "steel-plate-check-ui-v1"
     : "steel-connection-suite-ui-v1";
+  const SINGLE_PLATE_SOURCE_FIELD_KEYS = [
+    "projectName", "connectionTag", "designer", "notes", "designMethod", "connectionType", "exposureCondition",
+    "requiredAxial", "requiredShear", "requiredMoment", "eccentricity",
+    "boltDiameter", "holeType", "holeDiameter", "edgeFabrication", "boltUltimateStrength", "boltGrade", "threadsCondition", "deformationConsidered",
+    "boltCount", "shearPlanes", "endDistance", "pitch", "plateThickness", "plateYieldStrength", "plateUltimateStrength", "transverseEdgeDistance",
+    "plateHeight", "boltLineToWeldDistance", "weldEccentricity",
+    "beamWebThickness", "beamWebYieldStrength", "beamWebUltimateStrength", "beamWebEndDistance", "beamWebEdgeDistance",
+    "supportThickness", "supportYieldStrength", "supportUltimateStrength",
+    "fillerThickness", "fillerExtended", "weldSize", "weldLength", "weldLineCount", "weldElectrodeStrength",
+    "demandBasis", "geometryBasis", "materialBasis", "eccentricityBasis", "conventionalMaterialConfirmed", "connectionModelConfirmed",
+  ];
+  const SINGLE_PLATE_NUMBER_FIELDS = [
+    "requiredAxial", "requiredShear", "requiredMoment", "eccentricity", "boltDiameter", "holeDiameter", "boltUltimateStrength",
+    "boltCount", "shearPlanes", "endDistance", "pitch", "plateThickness", "plateYieldStrength", "plateUltimateStrength", "transverseEdgeDistance",
+    "plateHeight", "boltLineToWeldDistance", "weldEccentricity", "beamWebThickness", "beamWebYieldStrength", "beamWebUltimateStrength",
+    "beamWebEndDistance", "beamWebEdgeDistance", "supportThickness", "supportYieldStrength", "supportUltimateStrength", "fillerThickness",
+    "weldSize", "weldLength", "weldLineCount", "weldElectrodeStrength",
+  ];
 
   const glossaryItems = [
     ["Pu / Pa", "需求軸力", "kN", "接頭於設計載重組合下應傳遞之軸力。", "柱續接、支撐接頭主控需求。"],
     ["Vu / Va", "需求剪力", "kN", "接頭於設計載重組合下應傳遞之剪力。", "剪力接頭、柱腹續接、梁柱腹板傳力。"],
     ["Mu / Ma", "需求彎矩", "kN-m", "接頭於設計載重組合下應傳遞之彎矩。", "柱續接與梁柱彎矩接頭主控需求。"],
-    ["eec", "偏心距", "mm", "力作用線與接頭重心間之距離。", "本版列為提醒，不直接納入栓群偏心分析。"],
+    ["e_b / e_w", "栓群 / 銲群有效偏心", "mm", "力作用線分別至栓群與銲群重心之專案採用距離。", "Shear Tab 的彈性栓群、彈性銲群及板彎剪分析。"],
     ["db", "螺栓直徑", "mm", "螺栓標稱直徑。", "螺栓強度、孔距、邊距。"],
     ["dh", "螺栓孔徑", "mm", "螺栓孔之標稱孔徑。", "孔承壓、孔距、邊距；淨斷面另應依條文採用淨孔寬。"],
     ["Fub", "螺栓抗拉強度", "MPa", "螺栓材料規定最小抗拉強度。", "螺栓剪力與拉力。"],
@@ -72,14 +90,15 @@
       connectionType: "single_plate",
       exposureCondition: "painted",
       requiredAxial: 0,
-      requiredShear: 250,
+      requiredShear: 180,
       requiredMoment: 0,
-      eccentricity: 0,
+      eccentricity: 35,
       boltDiameter: 20,
-      holeDiameter: 22,
+      holeDiameter: 21.5,
       holeType: "standard",
       edgeFabrication: "rolled",
       boltUltimateStrength: 1000,
+      boltGrade: "F10T",
       threadsCondition: "included",
       deformationConsidered: "true",
       boltCount: 4,
@@ -90,14 +109,29 @@
       plateYieldStrength: 325,
       plateUltimateStrength: 490,
       transverseEdgeDistance: 60,
+      plateHeight: 300,
+      boltLineToWeldDistance: 65,
+      weldEccentricity: 65,
       beamWebThickness: 9,
+      beamWebYieldStrength: 325,
       beamWebUltimateStrength: 490,
+      beamWebEndDistance: 45,
+      beamWebEdgeDistance: 60,
+      supportThickness: 16,
+      supportYieldStrength: 325,
+      supportUltimateStrength: 490,
       fillerThickness: 0,
       fillerExtended: "true",
       weldSize: 8,
-      weldLength: 220,
+      weldLength: 260,
       weldLineCount: 2,
       weldElectrodeStrength: 490,
+      demandBasis: "示例資料（請依專案覆寫）",
+      geometryBasis: "示例資料（請依專案覆寫）",
+      materialBasis: "示例資料（請依專案覆寫）",
+      eccentricityBasis: "示例資料（請依專案覆寫）",
+      conventionalMaterialConfirmed: "false",
+      connectionModelConfirmed: "false",
     },
     column_splice: {
       projectName: "示範柱續接",
@@ -488,12 +522,13 @@
         ["projectName", "計畫名稱"],
         ["connectionTag", "接頭編號"],
         ["designer", "設計人"],
+        ["notes", "設計備註"],
         ["designMethod", "設計法"],
         ["connectionType", "接頭型式"],
         ["requiredAxial", "需求軸力", "kN"],
         ["requiredShear", "需求剪力", "kN"],
         ["requiredMoment", "需求彎矩", "kN-m"],
-        ["eccentricity", "偏心距", "mm"],
+        ["eccentricity", "栓群有效偏心 e_b", "mm"],
         ["exposureCondition", "暴露條件"],
       ],
     },
@@ -506,7 +541,7 @@
         ["edgeFabrication", "邊緣加工型式"],
         ["boltUltimateStrength", "Fub", "MPa"],
         ["threadsCondition", "螺紋是否位於剪斷面"],
-        ["deformationConsidered", "承壓變形允許"],
+        ["deformationConsidered", "使用載重下承壓變形為設計考量"],
       ],
     },
   ];
@@ -516,22 +551,38 @@
       {
         title: "剪力接頭資料",
         items: [
+          ["boltGrade", "螺栓規格等級"],
           ["boltCount", "螺栓數量", "支"],
           ["shearPlanes", "剪斷面數"],
           ["endDistance", "端距 e", "mm"],
           ["pitch", "孔距 s", "mm"],
           ["plateThickness", "板厚 tp", "mm"],
           ["transverseEdgeDistance", "自由邊距 g", "mm"],
+          ["plateHeight", "剪力板高度 hp", "mm"],
+          ["boltLineToWeldDistance", "栓列至銲線距離 a", "mm"],
+          ["weldEccentricity", "銲群有效偏心 e_w", "mm"],
           ["plateYieldStrength", "Fy,p", "MPa"],
           ["plateUltimateStrength", "Fu,p", "MPa"],
           ["beamWebThickness", "腹板厚 tw", "mm"],
+          ["beamWebYieldStrength", "Fy,w", "MPa"],
           ["beamWebUltimateStrength", "Fu,w", "MPa"],
+          ["beamWebEndDistance", "梁腹板端距 e_bw", "mm"],
+          ["beamWebEdgeDistance", "梁腹板最小橫向邊距 g_bw", "mm"],
+          ["supportThickness", "支承材厚 ts", "mm"],
+          ["supportYieldStrength", "Fy,s", "MPa"],
+          ["supportUltimateStrength", "Fu,s", "MPa"],
           ["fillerThickness", "填板厚度", "mm"],
           ["fillerExtended", "填板延伸"],
           ["weldSize", "銲腳尺寸 a", "mm"],
           ["weldLength", "有效銲長 Le", "mm"],
           ["weldLineCount", "銲道數量"],
           ["weldElectrodeStrength", "FEXX", "MPa"],
+          ["demandBasis", "剪力需求來源"],
+          ["geometryBasis", "幾何資料來源"],
+          ["materialBasis", "材料資料來源"],
+          ["eccentricityBasis", "偏心模型來源"],
+          ["conventionalMaterialConfirmed", "AISC conventional 材料延性等同性確認"],
+          ["connectionModelConfirmed", "工程師確認模型"],
         ],
       },
     ],
@@ -618,7 +669,7 @@
       {
         title: "連接板基本資料",
         items: [
-          ["plateInputMode", "輸入模式"],
+          ["plateInputMode", "板件面積採用方式"],
           ["requiredTension", "需求拉力", "kN"],
           ["loadDirection", "主受力方向"],
           ["plateThickness", "板厚 t", "mm"],
@@ -670,7 +721,7 @@
           ["requiredTension", "需求拉力 Tu / Ta", "kN"],
           ["tensionConnectionMode", "接合方式"],
           ["tensionSectionType", "構材 / 接合分類"],
-          ["tensionAreaInput", "輸入模式"],
+          ["tensionAreaInput", "斷面面積採用方式"],
           ["memberYieldStrength", "Fy", "MPa"],
           ["memberUltimateStrength", "Fu", "MPa"],
           ["unsupportedLength", "未支撐長度 L", "mm"],
@@ -745,7 +796,7 @@
     connectionType: {
       plate_check: "連接板檢核｜Connection Plate",
       tension_member: "拉力構件｜Tension Member",
-      single_plate: "剪力接頭｜單剪力板 Shear Tab｜開發中",
+      single_plate: "剪力接頭｜單剪力板 Shear Tab｜LRFD 正式模組",
       column_splice: "柱續接｜Column Splice｜開發中",
       brace_gusset: "支撐 / Gusset 接頭｜開發中",
       beam_column_moment: "梁柱彎矩接頭｜開發中",
@@ -761,8 +812,10 @@
     },
     edgeFabrication: { rolled: "軋壓邊或熱切割邊", sheared: "剪斷邊" },
     threadsCondition: { included: "螺紋在剪斷面", excluded: "螺紋不在剪斷面" },
-    deformationConsidered: { true: "允許一般變形", false: "不允許明顯變形" },
+    deformationConsidered: { true: "變形為設計考量｜1.2Lc / 2.4db", false: "變形非設計考量｜1.5Lc / 3.0db" },
     fillerExtended: { true: "已延伸至連接板外", false: "未延伸至連接板外" },
+    conventionalMaterialConfirmed: { true: "已依核定材料規範確認", false: "尚未確認" },
+    connectionModelConfirmed: { true: "已確認", false: "尚未確認" },
     spliceBearingTransfer: { true: "是，可由承壓面直接傳遞", false: "否，保守由續接元件承擔" },
     plateInputMode: { geometry: "幾何推導", area_manual: "面積直輸" },
     loadDirection: { horizontal: "水平", vertical: "垂直" },
@@ -862,6 +915,9 @@
   const tensionDerivedAreaBody = document.getElementById("tensionDerivedAreaBody");
   const tensionPathSummary = document.getElementById("tensionPathSummary");
   const tensionSketchWrap = document.getElementById("tensionSketchWrap");
+  const shearTabExtrasBlock = document.getElementById("shearTabExtrasBlock");
+  const shearTabDerivedAreaBody = document.getElementById("shearTabDerivedAreaBody");
+  const shearTabPathSummary = document.getElementById("shearTabPathSummary");
   let mobileFab = null;
   let methodFab = null;
   let quickNavTicking = false;
@@ -1499,11 +1555,11 @@
     inputSummaryTables.innerHTML = getInputGroups(result.state.connectionType).map((group) => `
       <div class="report-subtable">
         <table class="report-table">
-          <thead><tr><th colspan="2">${group.title}</th></tr></thead>
+          <thead><tr><th colspan="2">${SteelFormalUI.escapeHtml(group.title)}</th></tr></thead>
           <tbody>${group.items.map(([key, label, unit]) => `
             <tr>
-              <th>${label}</th>
-              <td>${mapValue(key, result.state[key])}${unit ? ` <span class="unit">${unit}</span>` : ""}</td>
+              <th>${SteelFormalUI.escapeHtml(label)}</th>
+              <td>${SteelFormalUI.escapeHtml(mapValue(key, result.state[key]))}${unit ? ` <span class="unit">${SteelFormalUI.escapeHtml(unit)}</span>` : ""}</td>
             </tr>
           `).join("")}</tbody>
         </table>
@@ -1523,8 +1579,8 @@
     ];
     reviewBriefBody.innerHTML = rows.map(([label, value]) => `
       <tr>
-        <th>${label}</th>
-        <td>${value}</td>
+        <th>${SteelFormalUI.escapeHtml(label)}</th>
+        <td>${SteelFormalUI.escapeHtml(value)}</td>
       </tr>
     `).join("");
   }
@@ -1566,8 +1622,8 @@
 
     reportHealthBar.innerHTML = chips.map((chip) => `
       <div class="health-chip ${chip.tone}">
-        <span class="health-chip__label">${chip.label}</span>
-        <span class="health-chip__value">${chip.value}</span>
+        <span class="health-chip__label">${SteelFormalUI.escapeHtml(chip.label)}</span>
+        <span class="health-chip__value">${SteelFormalUI.escapeHtml(chip.value)}</span>
       </div>
     `).join("");
   }
@@ -1727,8 +1783,8 @@
       if (!items.length) return "";
       return `
         <div class="review-section${inline ? " review-section--print" : ""}">
-          <div class="review-section__title">${title}</div>
-          <ul>${items.map((item) => `<li>${item}</li>`).join("")}</ul>
+          <div class="review-section__title">${SteelFormalUI.escapeHtml(title)}</div>
+          <ul>${items.map((item) => `<li>${SteelFormalUI.escapeHtml(item)}</li>`).join("")}</ul>
         </div>
       `;
     };
@@ -1940,7 +1996,7 @@
         <div><b>控制式號</b><span>${result.governing?.equationRef || "—"}</span></div>
         <div><b>淨斷面路徑</b><span>${result.pathSummary?.netSection || "—"}</span></div>
         <div><b>區塊剪力路徑</b><span>${result.pathSummary?.blockShear || "—"}</span></div>
-        <div><b>輸入模式</b><span>${mapValue("plateInputMode", result.state.plateInputMode)}</span></div>
+        <div><b>板件面積採用方式</b><span>${mapValue("plateInputMode", result.state.plateInputMode)}</span></div>
       </div>
     `;
 
@@ -1974,7 +2030,7 @@
       <div class="plate-path-grid">
         <div><b>構材斷面</b><span>${result.tensionGeometrySummary?.size || "—"}</span></div>
         <div><b>接合配置</b><span>${result.tensionGeometrySummary?.connection || "—"}</span></div>
-        <div><b>輸入模式</b><span>${result.tensionGeometrySummary?.areaInput || mapValue("tensionAreaInput", result.state.tensionAreaInput)}</span></div>
+        <div><b>斷面面積採用方式</b><span>${result.tensionGeometrySummary?.areaInput || mapValue("tensionAreaInput", result.state.tensionAreaInput)}</span></div>
         <div><b>接合方式</b><span>${mapValue("tensionConnectionMode", result.state.tensionConnectionMode)}</span></div>
         <div><b>剪力遲滯係數 U</b><span>${formatNumber(result.derivedAreas?.U, 3)}</span></div>
         <div><b>有效淨面積 Ae</b><span>${formatNumber(result.derivedAreas?.Ae, 2)} mm²</span></div>
@@ -1984,6 +2040,32 @@
     `;
 
     tensionSketchWrap.innerHTML = buildTensionSketchMarkup(result);
+  }
+
+  function renderShearTabExtras(result) {
+    if (!shearTabExtrasBlock || !shearTabDerivedAreaBody || !shearTabPathSummary) return;
+    const isShearTab = result.state.connectionType === "single_plate";
+    shearTabExtrasBlock.classList.toggle("is-hidden", !isShearTab);
+    if (!isShearTab) {
+      shearTabDerivedAreaBody.innerHTML = "";
+      shearTabPathSummary.innerHTML = "";
+      return;
+    }
+    const derived = result.derivedAreas || {};
+    shearTabDerivedAreaBody.innerHTML = [
+      ["板全剪力面積 Agv", derived.Agv], ["板淨剪力面積 Anv", derived.Anv],
+      ["板 block Agv", derived.plateBlockAgv], ["板 block Anv", derived.plateBlockAnv],
+      ["梁腹板 block Agv", derived.beamBlockAgv], ["梁腹板 block Anv", derived.beamBlockAnv],
+    ].map(([label, value]) => `<tr><th>${label}</th><td>${formatNumber(value, 2)} mm²</td></tr>`).join("");
+    shearTabPathSummary.innerHTML = `
+      <div class="plate-path-grid">
+        <div><b>剪力板尺寸</b><span>${SteelFormalUI.escapeHtml(result.plateGeometrySummary?.size || "—")}</span></div>
+        <div><b>栓群配置</b><span>${SteelFormalUI.escapeHtml(result.plateGeometrySummary?.holePattern || "—")}</span></div>
+        <div><b>採用偏心</b><span>${SteelFormalUI.escapeHtml(result.plateGeometrySummary?.eccentricity || "—")}</span></div>
+        <div><b>採用設計剪力</b><span>${formatNumber(result.designDemand?.adoptedShear, 3)} kN</span></div>
+        <div><b>剪力面說明</b><span>${SteelFormalUI.escapeHtml(result.pathSummary?.netSection || "—")}</span></div>
+        <div><b>block 路徑</b><span>${SteelFormalUI.escapeHtml(result.pathSummary?.blockShear || "—")}</span></div>
+      </div>`;
   }
 
   function getCheckStatus(check) {
@@ -2001,7 +2083,7 @@
       const status = getCheckStatus(check);
       return `
         <tr data-check-key="${check.key}" class="${result.governing.key === check.key ? "is-governing" : ""}">
-          <td data-label="檢核項目">${check.label}${buildCheckReferenceMarkup(check)}</td>
+          <td data-label="檢核項目">${SteelFormalUI.escapeHtml(check.label)}${buildCheckReferenceMarkup(check)}</td>
           <td data-label="需求值">${formatNumber(check.demand)} kN</td>
           <td data-label="可用強度">${formatNumber(check.available)} kN</td>
           <td data-label="DCR">${formatNumber(check.ratio, 3)}</td>
@@ -2014,11 +2096,11 @@
   function renderDetailChecks(result) {
     detailCheckTableBody.innerHTML = result.detailChecks.map((item) => `
       <tr data-detail-key="${item.key || item.label}" class="${item.passes ? "" : "is-failing"}">
-        <td data-label="檢核項目">${item.label}</td>
-        <td data-label="規定條文">${item.codeRef}</td>
-        <td data-label="提供值">${formatDetailField(item.provided)}</td>
-        <td data-label="規定值">${formatDetailField(item.required)}</td>
-        <td data-label="檢核說明">${item.note}<div class="check-coderef">${buildDetailDecisionSentence(item)}</div></td>
+        <td data-label="檢核項目">${SteelFormalUI.escapeHtml(item.label)}</td>
+        <td data-label="規定條文">${SteelFormalUI.escapeHtml(item.codeRef)}</td>
+        <td data-label="提供值">${SteelFormalUI.escapeHtml(formatDetailField(item.provided))}</td>
+        <td data-label="規定值">${SteelFormalUI.escapeHtml(formatDetailField(item.required))}</td>
+        <td data-label="檢核說明">${SteelFormalUI.escapeHtml(item.note)}<div class="check-coderef">${SteelFormalUI.escapeHtml(buildDetailDecisionSentence(item))}</div></td>
         <td data-label="判定">${statusPill(item.passes ? { text: "OK", className: "ok" } : { text: "NG", className: "fail" })}</td>
       </tr>
     `).join("");
@@ -2051,13 +2133,13 @@
       return `
         <div class="equation-math-wrap">
           <div class="equation-math">
-            ${check.latexLines.map((line) => `<div class="equation-math__line">\\[${line}\\]</div>`).join("")}
+            ${check.latexLines.map((line) => `<div class="equation-math__line">\\[${SteelFormalUI.escapeHtml(line)}\\]</div>`).join("")}
           </div>
-          <ul class="equation-list equation-list--fallback">${(check.equationLines || []).map((line) => `<li>${line}</li>`).join("")}</ul>
+          <ul class="equation-list equation-list--fallback">${(check.equationLines || []).map((line) => `<li>${SteelFormalUI.escapeHtml(line)}</li>`).join("")}</ul>
         </div>
       `;
     }
-    return `<ul class="equation-list">${(check.equationLines || []).map((line) => `<li>${line}</li>`).join("")}</ul>`;
+    return `<ul class="equation-list">${(check.equationLines || []).map((line) => `<li>${SteelFormalUI.escapeHtml(line)}</li>`).join("")}</ul>`;
   }
 
   function buildCheckReferenceMarkup(check) {
@@ -2065,7 +2147,7 @@
     const parts = [];
     if (check.codeRef) parts.push(`條文：${check.codeRef}`);
     if (check.equationRef) parts.push(`式號：${check.equationRef}`);
-    return `<div class="check-coderef">${parts.join("｜")}</div>`;
+    return `<div class="check-coderef">${SteelFormalUI.escapeHtml(parts.join("｜"))}</div>`;
   }
 
   function buildDecisionSentence(check) {
@@ -2115,12 +2197,12 @@
         <article class="flow-card">
           <div class="flow-card-head">
             <div>
-              <h3>${check.label}</h3>
+              <h3>${SteelFormalUI.escapeHtml(check.label)}</h3>
               ${buildCheckReferenceMarkup(check)}
             </div>
             ${statusPill(status)}
           </div>
-          <p>${check.note}</p>
+          <p>${SteelFormalUI.escapeHtml(check.note)}</p>
           <div class="flow-metrics">
             <div class="flow-metric"><span class="label">需求值</span><span class="value">${formatNumber(check.demand)} kN</span></div>
             <div class="flow-metric"><span class="label">可用強度</span><span class="value">${formatNumber(check.available)} kN</span></div>
@@ -2213,6 +2295,28 @@
     }
   }
 
+  function pickSourceFields(state, keys) {
+    return Object.fromEntries(keys.map((key) => [key, state[key]]));
+  }
+
+  function getReportSnapshotState(result) {
+    return result.state.connectionType === "single_plate"
+      ? pickSourceFields(result.state, SINGLE_PLATE_SOURCE_FIELD_KEYS)
+      : result.state;
+  }
+
+  function canonicalJson(value) {
+    if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+    if (value && typeof value === "object") {
+      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+    }
+    return JSON.stringify(value);
+  }
+
+  function jsonSerializableClone(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
   function buildConnectionReportConfig(result) {
     const outputSource = getFormalToolMetadata(result.state.connectionType);
     return {
@@ -2223,10 +2327,14 @@
       checks: result.checks,
       summary: { ok: result.passes, text: reportBanner.textContent },
       snapshot: {
-        state: result.state,
+        state: getReportSnapshotState(result),
         governing: result.governing,
         detailChecks: result.detailChecks,
         derivedAreas: result.derivedAreas,
+        designDemand: result.designDemand,
+        assumptions: result.assumptions,
+        references: result.references,
+        pathSummary: result.pathSummary,
       },
     };
   }
@@ -2254,7 +2362,7 @@
       },
       connectionType: result.state.connectionType,
       designMethod: result.state.designMethod,
-      fields: { ...result.state },
+      fields: { ...reportConfig.snapshot.state },
       calculationFingerprint: reportTrace.calculationFingerprint,
       report: {
         title: reportConfig.title,
@@ -2287,16 +2395,58 @@
     setExportReportStatus(`已匯出來源 JSON｜計算指紋 ${payload.calculationFingerprint}`);
   }
 
+  function validateSinglePlateSourceFields(payload) {
+    const fields = payload.fields;
+    const expectedKeys = [...SINGLE_PLATE_SOURCE_FIELD_KEYS].sort();
+    const actualKeys = Object.keys(fields || {}).sort();
+    if (canonicalJson(actualKeys) !== canonicalJson(expectedKeys)) {
+      const missing = expectedKeys.filter((key) => !actualKeys.includes(key));
+      const extra = actualKeys.filter((key) => !expectedKeys.includes(key));
+      throw new Error(`來源 JSON 驗證失敗：Shear Tab 欄位集合不符（缺少 ${missing.join(",") || "無"}；多出 ${extra.join(",") || "無"}）。`);
+    }
+    SINGLE_PLATE_NUMBER_FIELDS.forEach((key) => {
+      if (typeof fields[key] !== "number" || !Number.isFinite(fields[key])) throw new Error(`來源 JSON 驗證失敗：${key} 必須為有限數值。`);
+    });
+    ["deformationConsidered", "fillerExtended", "conventionalMaterialConfirmed", "connectionModelConfirmed"].forEach((key) => {
+      if (typeof fields[key] !== "boolean") throw new Error(`來源 JSON 驗證失敗：${key} 必須為布林值。`);
+    });
+    ["projectName", "connectionTag", "designer", "notes", "demandBasis", "geometryBasis", "materialBasis", "eccentricityBasis"].forEach((key) => {
+      if (typeof fields[key] !== "string") throw new Error(`來源 JSON 驗證失敗：${key} 必須為文字。`);
+    });
+    const enums = {
+      designMethod: ["LRFD", "ASD"], connectionType: ["single_plate"], exposureCondition: ["painted", "weathering"],
+      holeType: ["standard", "oversized", "short_slot_parallel", "short_slot_perpendicular", "long_slot_parallel", "long_slot_perpendicular"],
+      edgeFabrication: ["rolled", "sheared"], boltGrade: ["F10T"], threadsCondition: ["included", "excluded"],
+    };
+    Object.entries(enums).forEach(([key, allowed]) => {
+      if (!allowed.includes(fields[key])) throw new Error(`來源 JSON 驗證失敗：${key} 列舉值不支援。`);
+    });
+    if (!Number.isInteger(fields.boltCount) || fields.boltCount < 1 || fields.boltCount > 12) throw new Error("來源 JSON 驗證失敗：boltCount 必須為 1 至 12 的整數。");
+    if (!Number.isInteger(fields.shearPlanes) || ![1, 2].includes(fields.shearPlanes)) throw new Error("來源 JSON 驗證失敗：shearPlanes 必須為 1 或 2。");
+    if (!Number.isInteger(fields.weldLineCount) || ![1, 2].includes(fields.weldLineCount)) throw new Error("來源 JSON 驗證失敗：weldLineCount 必須為 1 或 2。");
+    const unconstrainedDemandFields = new Set(["requiredAxial", "requiredShear", "requiredMoment"]);
+    const nonnegative = new Set(["eccentricity", "weldEccentricity", "fillerThickness"]);
+    SINGLE_PLATE_NUMBER_FIELDS.forEach((key) => {
+      if (unconstrainedDemandFields.has(key)) return;
+      if (nonnegative.has(key) ? fields[key] < 0 : fields[key] <= 0) throw new Error(`來源 JSON 驗證失敗：${key} 超出允許範圍。`);
+    });
+    if (payload.project?.name !== normalizeProjectMetaValue(fields.projectName)
+      || payload.project?.no !== normalizeProjectMetaValue(fields.connectionTag)
+      || payload.project?.designer !== normalizeProjectMetaValue(fields.designer)) {
+      throw new Error("來源 JSON 驗證失敗：project 與 fields 專案資料不一致。");
+    }
+  }
+
   function validateConnectionSourcePayload(payload) {
     const expectedMetadata = getFormalToolMetadata(payload.connectionType);
     const allowedToolIds = IS_STANDALONE_PLATE
       ? [STEEL_TOOL_METADATA.plate.id]
-      : [STEEL_TOOL_METADATA.plate.id, STEEL_TOOL_METADATA.tension.id];
+      : [STEEL_TOOL_METADATA.plate.id, STEEL_TOOL_METADATA.tension.id, STEEL_TOOL_METADATA.connection.id];
     SteelFormalUI.validateCalculationSourcePayload(payload, {
       expectedToolIds: allowedToolIds,
       expectedVersion: expectedMetadata.version,
     });
-    if (!['plate_check', 'tension_member'].includes(payload.connectionType)) {
+    if (!['plate_check', 'tension_member', 'single_plate'].includes(payload.connectionType)) {
       throw new Error('來源 JSON 驗證失敗：不支援此檢核模組。');
     }
     if (payload.tool.id !== expectedMetadata.id || payload.fields.connectionType !== payload.connectionType) {
@@ -2305,6 +2455,7 @@
     if (!['LRFD', 'ASD'].includes(payload.designMethod) || payload.fields.designMethod !== payload.designMethod) {
       throw new Error('來源 JSON 驗證失敗：設計方法不一致。');
     }
+    if (payload.connectionType === 'single_plate') validateSinglePlateSourceFields(payload);
     return payload;
   }
 
@@ -2315,14 +2466,18 @@
       const payload = validateConnectionSourcePayload(await SteelFormalUI.readCalculationSourceFile(file, {
         expectedToolIds: IS_STANDALONE_PLATE
           ? [STEEL_TOOL_METADATA.plate.id]
-          : [STEEL_TOOL_METADATA.plate.id, STEEL_TOOL_METADATA.tension.id],
+          : [STEEL_TOOL_METADATA.plate.id, STEEL_TOOL_METADATA.tension.id, STEEL_TOOL_METADATA.connection.id],
         expectedVersion: STEEL_TOOL_METADATA.plate.version,
       }));
       stateChanged = true;
-      setFormState(payload.fields, false);
+      setFormState(payload.connectionType === 'single_plate' ? { ...defaultState, ...payload.fields } : payload.fields, false);
       const replay = buildConnectionSourcePayload();
       if (replay.calculationFingerprint !== payload.calculationFingerprint) {
         throw new Error(`重現指紋不一致（來源 ${payload.calculationFingerprint}，重算 ${replay.calculationFingerprint}）。`);
+      }
+      if (payload.connectionType === 'single_plate'
+        && canonicalJson(jsonSerializableClone(replay.report)) !== canonicalJson(payload.report)) {
+        throw new Error('來源 JSON 驗證失敗：內嵌報告內容與來源欄位重算結果不一致。');
       }
       setExportReportStatus(`已匯入並重現計算｜計算指紋 ${replay.calculationFingerprint}`);
     } catch (error) {
@@ -2343,38 +2498,50 @@
       },
       calculated: true,
       readinessLevel: result.passes ? (result.overallStatus === "warn" ? "review" : "ready") : "blocked",
+      formalApprovalAllowed: result.passes,
       calculationFingerprint: reportTrace.calculationFingerprint,
       textExport: true,
     });
     const escReport = SteelFormalUI.escapeHtml;
+    const inputTablesHtml = getInputGroups(result.state.connectionType).map((group) => `
+      <section class="block"><h3>採用輸入｜${escReport(group.title)}</h3><table><tbody>
+        ${group.items.map(([key, label, unit]) => `<tr><th>${escReport(label)}</th><td>${escReport(mapValue(key, result.state[key]))}${unit ? ` ${escReport(unit)}` : ""}</td></tr>`).join("")}
+      </tbody></table></section>
+    `).join("");
+    const scopeHtml = `
+      <section class="block"><h3>適用範圍、限制與人工複核責任</h3>
+        <div class="review-section"><div class="review-section__title">規範判定與採用模型</div><ul>${(result.assumptions || []).map((item) => `<li>${escReport(item)}</li>`).join("")}</ul></div>
+        <div class="review-section"><div class="review-section__title">引用依據</div><ul>${(result.references || []).map((item) => `<li>${escReport(item)}</li>`).join("")}</ul></div>
+        <div class="review-section"><div class="review-section__title">人工複核責任</div><p>本附件只涵蓋表列模型與極限狀態；設計者仍須核對核定圖說、力流、材料證明、施工條件及所有排除事項，並對專案採用負責。</p></div>
+      </section>`;
     const strengthRows = result.checks.map((check) => `
       <tr>
-        <td>${check.label}${buildCheckReferenceMarkup(check)}</td>
+        <td>${escReport(check.label)}${buildCheckReferenceMarkup(check)}</td>
         <td>${formatNumber(check.demand)} kN</td>
         <td>${formatNumber(check.available)} kN</td>
         <td>${formatNumber(check.ratio, 3)}</td>
-        <td>${getCheckStatus(check).text}</td>
+        <td>${escReport(getCheckStatus(check).text)}</td>
       </tr>
     `).join("");
     const detailRows = result.detailChecks.map((item) => `
       <tr>
-        <td>${item.label}</td>
-        <td>${item.codeRef}</td>
-        <td>${formatDetailField(item.provided)}</td>
-        <td>${formatDetailField(item.required)}</td>
-        <td>${item.note}<div class="check-coderef">${buildDetailDecisionSentence(item)}</div></td>
+        <td>${escReport(item.label)}</td>
+        <td>${escReport(item.codeRef)}</td>
+        <td>${escReport(formatDetailField(item.provided))}</td>
+        <td>${escReport(formatDetailField(item.required))}</td>
+        <td>${escReport(item.note)}<div class="check-coderef">${escReport(buildDetailDecisionSentence(item))}</div></td>
         <td>${item.passes ? "OK" : "NG"}</td>
       </tr>
     `).join("");
-    const flowSections = showFlow.checked ? result.checks.map((check) => `
+    const flowSections = result.checks.map((check) => `
       <section class="block">
-        <h3>${check.label}${check.codeRef || check.equationRef ? `｜${[check.codeRef, check.equationRef].filter(Boolean).join("｜")}` : ""}</h3>
-        <p style="font-size:12px;color:#555;margin:0 0 8px;">${buildDecisionSentence(check)}</p>
+        <h3>${escReport(check.label)}${check.codeRef || check.equationRef ? `｜${escReport([check.codeRef, check.equationRef].filter(Boolean).join("｜"))}` : ""}</h3>
+        <p style="font-size:12px;color:#555;margin:0 0 8px;">${escReport(buildDecisionSentence(check))}</p>
         ${check.latexLines?.length
-          ? `<div class="equation-math-wrap equation-math-wrap--print"><div class="equation-math equation-math--print">${check.latexLines.map((line) => `<div class="equation-math__line">\\[${line}\\]</div>`).join("")}</div><div class="mono mono--fallback">${(check.equationLines || []).join("<br>")}</div></div>`
-          : `<div class="mono">${(check.equationLines || []).join("<br>")}</div>`}
+          ? `<div class="equation-math-wrap equation-math-wrap--print"><div class="equation-math equation-math--print">${check.latexLines.map((line) => `<div class="equation-math__line">\\[${line}\\]</div>`).join("")}</div><div class="mono mono--fallback">${(check.equationLines || []).map(escReport).join("<br>")}</div></div>`
+          : `<div class="mono">${(check.equationLines || []).map(escReport).join("<br>")}</div>`}
       </section>
-    `) : [];
+    `);
     const flowHtml = flowSections.slice(0, -1).join("");
     const endingFlowHtml = flowSections.at(-1) || "";
     const plateAreaTable = result.state.connectionType === "plate_check" && result.derivedAreas
@@ -2401,6 +2568,16 @@
           <tr><th>Ant</th><td>${formatNumber(result.derivedAreas.Ant, 2)} mm²</td></tr>
         </tbody></table><div style="margin-top:8px;font-size:12px;color:#555;">${result.pathSummary?.netSection || ""}<br>${result.pathSummary?.blockShear || ""}</div></section>
         <section class="block report-sketch-block"><h3>構材與接合示意</h3>${buildTensionSketchMarkup(result, { inline: true })}</section>`
+      : "";
+    const shearTabAreaTable = result.state.connectionType === "single_plate" && result.derivedAreas
+      ? `<section class="block"><h3>Shear Tab 派生幾何與面積</h3><table><tbody>
+          <tr><th>剪力板尺寸</th><td>${escReport(result.plateGeometrySummary?.size || "—")}</td></tr>
+          <tr><th>栓群配置</th><td>${escReport(result.plateGeometrySummary?.holePattern || "—")}</td></tr>
+          <tr><th>採用偏心</th><td>${escReport(result.plateGeometrySummary?.eccentricity || "—")}</td></tr>
+          <tr><th>板全剪力面積 Agv</th><td>${formatNumber(result.derivedAreas.Agv, 2)} mm²</td></tr>
+          <tr><th>板淨剪力面積 Anv</th><td>${formatNumber(result.derivedAreas.Anv, 2)} mm²</td></tr>
+          <tr><th>採用設計剪力 Vd</th><td>${formatNumber(result.designDemand?.adoptedShear, 3)} kN</td></tr>
+        </tbody></table><div style="margin-top:8px;font-size:12px;color:#555;">${escReport(result.pathSummary?.netSection || "")}<br>${escReport(result.pathSummary?.blockShear || "")}</div></section>`
       : "";
     return `<!doctype html>
 <html lang="zh-Hant">
@@ -2453,11 +2630,14 @@ ${reportDocument.html}
 </div>
 <section class="block"><h3>強度檢核總表</h3><table><thead><tr><th>檢核項目</th><th>需求值</th><th>可用強度</th><th>DCR</th><th>判定</th></tr></thead><tbody>${strengthRows}</tbody></table></section>
 <section class="block"><h3>細部規定檢核</h3><table><thead><tr><th>檢核項目</th><th>規定條文</th><th>提供值</th><th>規定值</th><th>檢核說明</th><th>判定</th></tr></thead><tbody>${detailRows}</tbody></table></section>
+${inputTablesHtml}
 ${plateAreaTable}
 ${tensionAreaTable}
+${shearTabAreaTable}
 ${flowHtml}
 <div class="report-ending">
 ${endingFlowHtml}
+${scopeHtml}
 <section class="block"><h3>檢核結論</h3><div class="banner">${reportBanner.textContent}</div></section>
 </div>
 </div>
@@ -2503,6 +2683,7 @@ ${endingFlowHtml}
     renderFlow(result);
     renderPlateExtras(result);
     renderTensionExtras(result);
+    renderShearTabExtras(result);
     updateReportJumpButtons(result);
     window.latestSteelConnectionResult = result;
     if (autoSave) persistDraft(state);

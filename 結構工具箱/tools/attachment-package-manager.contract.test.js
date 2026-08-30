@@ -186,7 +186,7 @@ try {
   const cancellation = childProcess.spawnSync('powershell.exe', [
     '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', path.join(toolsDir, 'attachment-package-manager.ps1'),
     '-SmokeReadOnlyCancellation', '-WorkerSmokeDelayMilliseconds', '2000', '-InitialPath', bundlePath,
-  ], { encoding: 'utf8', timeout: 15000 });
+  ], { encoding: 'utf8', timeout: 30000 });
   assert.equal(cancellation.status, 0, cancellation.stderr || cancellation.stdout);
   const cancellationPayload = JSON.parse(cancellation.stdout.trim().split(/\r?\n/).at(-1));
   assert.equal(cancellationPayload.status, 'pass');

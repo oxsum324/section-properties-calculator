@@ -1284,8 +1284,8 @@ if (fs.existsSync(maturityMatrixPath)) {
   assert.deepEqual(independentBenchmarkGate.catalogFamilies, [], 'maturity globalGovernance independent engineering benchmark relevant families empty');
   assert.deepEqual(independentBenchmarkGate.issues, [], 'maturity globalGovernance independent engineering benchmark issues empty');
   assert.equal(matrix.independentBenchmarkCoverage?.status, 'ready', 'maturity independent engineering benchmark pilot ready');
-  assert.ok([37, 38].includes(matrix.independentBenchmarkCoverage?.summary?.pilotVerified), 'maturity independent engineering benchmark pilot verified uses a supported transition count');
-  assert.ok([37, 38].includes(matrix.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes), 'maturity independent engineering benchmark eligible formal routes use a supported transition count');
+  assert.ok([37, 38, 39].includes(matrix.independentBenchmarkCoverage?.summary?.pilotVerified), 'maturity independent engineering benchmark pilot verified uses a supported transition count');
+  assert.ok([37, 38, 39].includes(matrix.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes), 'maturity independent engineering benchmark eligible formal routes use a supported transition count');
   assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidateRequired, 21, 'maturity independent engineering candidate cases required');
   assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidateVerified, 21, 'maturity independent engineering candidate cases verified');
   assert.equal(matrix.independentBenchmarkCoverage?.summary?.candidatePassRequired, 12, 'maturity independent engineering passing candidate cases required');

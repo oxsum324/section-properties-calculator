@@ -25,7 +25,7 @@
       <a class="page-header__link" href="./steel-column-formal.html">鋼柱正式頁</a>
     </nav>
     <h1 id="pageTitle">鋼構正式規範核算工具 V1.0</h1>
-    <p id="pageDescription">正式核算模組：連接板、拉力構件｜左輸入、右報表、計算流程、核可判讀一體化</p>
+    <p id="pageDescription">正式核算模組：連接板、拉力構件、單剪力板 Shear Tab｜左輸入、右報表、計算流程、核可判讀一體化</p>
   </header>
 
   <main class="container">
@@ -35,7 +35,7 @@
           <select name="connectionType" form="connectionForm" title="檢核模組">
             <option value="plate_check">連接板檢核｜Connection Plate</option>
             <option value="tension_member">拉力構件｜Tension Member</option>
-            <option value="single_plate" disabled>剪力接頭｜單剪力板 Shear Tab｜開發中</option>
+            <option value="single_plate">剪力接頭｜單剪力板 Shear Tab｜LRFD</option>
             <option value="column_splice" disabled>柱續接｜Column Splice｜開發中</option>
             <option value="brace_gusset" disabled>支撐 / Gusset 接頭｜開發中</option>
             <option value="beam_column_moment" disabled>梁柱彎矩接頭｜開發中</option>
@@ -105,13 +105,13 @@
                 <input name="requiredMoment" type="number" step="0.1">
               </div>
               <div class="form-group">
-                <label>偏心 eec (mm)</label>
+                <label>栓群有效偏心 e_b (mm)</label>
                 <input name="eccentricity" type="number" min="0" step="0.1">
               </div>
             </div>
             <div class="checkbox-row">
               <input id="showFlow" type="checkbox" checked>
-              <label for="showFlow">報表中顯示計算流程與公式代入</label>
+              <label for="showFlow">工作頁顯示計算流程（正式計算書固定完整輸出公式）</label>
             </div>
           </div>
 
@@ -162,16 +162,23 @@
               </div>
             </div>
             <div class="form-group">
-              <label>承壓變形是否允許</label>
+              <label>使用載重下承壓變形是否為設計考量</label>
               <select name="deformationConsidered">
-                <option value="true">允許一般變形</option>
-                <option value="false">不允許明顯變形</option>
+                <option value="true">是｜採 1.2Lc / 2.4db 保守式</option>
+                <option value="false">否｜採 1.5Lc / 3.0db 上限式</option>
               </select>
             </div>
           </div>
 
           <div class="card" data-connection="single_plate">
             <h2>剪力接頭資料</h2>
+            <p class="section-note">正式範圍限 LRFD、單列 2–12 栓、單剪、標準孔、靜力承壓型與純剪力；偏心栓群、銲群及板彎剪均納入。範例資料在專案來源與模型確認完成前不允許核可。</p>
+            <div class="form-group">
+              <label>螺栓規格等級</label>
+              <select name="boltGrade">
+                <option value="F10T">CNS F10T｜本版正式路線</option>
+              </select>
+            </div>
             <div class="form-row">
               <div class="form-group">
                 <label>螺栓數量 n (支)</label>
@@ -207,6 +214,26 @@
             </div>
             <div class="form-row">
               <div class="form-group">
+                <label>剪力板高度 hp (mm)</label>
+                <input name="plateHeight" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>栓列至銲線距離 a (mm)</label>
+                <input name="boltLineToWeldDistance" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>銲群有效偏心 e_w (mm)</label>
+                <input name="weldEccentricity" type="number" min="0" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>梁腹板端距 e_bw (mm)</label>
+                <input name="beamWebEndDistance" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
                 <label>鋼材降伏強度 Fy,p (MPa)</label>
                 <input name="plateYieldStrength" type="number" min="1" step="1">
               </div>
@@ -221,8 +248,31 @@
                 <input name="beamWebThickness" type="number" min="1" step="0.1">
               </div>
               <div class="form-group">
+                <label>腹板最小橫向邊距 g_bw (mm)</label>
+                <input name="beamWebEdgeDistance" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>腹板降伏強度 Fy,w (MPa)</label>
+                <input name="beamWebYieldStrength" type="number" min="1" step="1">
+              </div>
+              <div class="form-group">
                 <label>腹板抗拉強度 Fu,w (MPa)</label>
                 <input name="beamWebUltimateStrength" type="number" min="1" step="1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>支承材厚 ts (mm)</label>
+                <input name="supportThickness" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>支承材 Fy,s / Fu,s (MPa)</label>
+                <div class="form-row form-row--nested">
+                  <input name="supportYieldStrength" aria-label="支承材降伏強度" type="number" min="1" step="1">
+                  <input name="supportUltimateStrength" aria-label="支承材抗拉強度" type="number" min="1" step="1">
+                </div>
               </div>
             </div>
             <div class="form-row">
@@ -260,6 +310,38 @@
                 <label>銲材抗拉強度 FEXX (MPa)</label>
                 <input name="weldElectrodeStrength" type="number" min="1" step="1">
               </div>
+            </div>
+            <h3>專案來源與模型確認</h3>
+            <div class="form-group">
+              <label>剪力需求來源</label>
+              <input name="demandBasis" type="text" placeholder="例如：分析模型 LC-ULS-07／節點反力表">
+            </div>
+            <div class="form-group">
+              <label>幾何資料來源</label>
+              <input name="geometryBasis" type="text" placeholder="例如：核定圖 S-502／接頭 ST-01">
+            </div>
+            <div class="form-group">
+              <label>材料資料來源</label>
+              <input name="materialBasis" type="text" placeholder="例如：鋼材規格表與螺栓證明文件">
+            </div>
+            <div class="form-group">
+              <label>偏心模型來源</label>
+              <input name="eccentricityBasis" type="text" placeholder="說明 e_b、e_w 與栓列—銲線距離之採用依據">
+            </div>
+            <div class="form-group">
+              <label>AISC conventional 材料延性等同性確認</label>
+              <select name="conventionalMaterialConfirmed">
+                <option value="false">尚未確認｜禁止正式核可</option>
+                <option value="true">已依核定材料規範確認 Fy 36/50 ksi 或等效延性材料</option>
+              </select>
+              <p class="section-note">限剪力板與梁腹板 Fy ≤ 345 MPa；此確認不得用於高強或低延性鋼材，也不涵蓋耐震塑鉸、疲勞或反覆載重。</p>
+            </div>
+            <div class="form-group">
+              <label>工程師確認接頭模型</label>
+              <select name="connectionModelConfirmed">
+                <option value="false">尚未確認｜禁止正式核可</option>
+                <option value="true">已確認單列、單剪、純剪力與彈性偏心模型適用</option>
+              </select>
             </div>
           </div>
 
@@ -1124,6 +1206,14 @@
             <section class="report-block is-hidden" id="tensionSketchBlock">
               <h3>構材與接合示意</h3>
               <div id="tensionSketchWrap" class="plate-sketch-wrap"></div>
+            </section>
+
+            <section class="report-block is-hidden" id="shearTabExtrasBlock">
+              <h3>Shear Tab 派生幾何與面積</h3>
+              <div class="plate-extras-grid">
+                <table class="report-table"><tbody id="shearTabDerivedAreaBody"></tbody></table>
+                <div id="shearTabPathSummary" class="plate-path-summary"></div>
+              </div>
             </section>
 
             <section class="report-block" id="strengthSection">

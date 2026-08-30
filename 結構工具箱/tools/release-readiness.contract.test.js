@@ -538,7 +538,7 @@ assertIncludes(reportGuide, '不得誤稱為舊版', 'report guide distinguishes
 ].forEach(needle => assertIncludes(deliveryArtifactsContract, needle, `delivery artifact contract preserves extracted Office evidence ${needle}`));
 
 [
-  'inventory.tools.length, 38',
+  'inventory.tools.length, 39',
   "process.env.PREFLIGHT_RELEASE === '1'",
   "['formal-tools', 'local-quick-tools', 'steel-formal', 'src-formal']",
   "family === 'rc-formal'",
@@ -554,12 +554,14 @@ assertIncludes(reportGuide, '不得誤稱為舊版', 'report guide distinguishes
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 29',
+  'schemaVersion: 31',
   'rcSupplementalAttachments',
   'rcStmFormalAttachment',
   "scope:'rc-stm-supplemental-formal-attachments'",
   'rcStmFormalAttachment=',
   'canonicalArtifactIntegrity',
+  'steelShearTabCanonicalArtifactRequired = 2',
+  'canonicalArtifactIntegrityRequired, 86',
   'docxPackageIntegrity',
   "scope: 'formal-docx-clean-ooxml-package'",
   'docxPackageIntegrity=',
@@ -616,7 +618,7 @@ assertIncludes(reportGuide, '不得誤稱為舊版', 'report guide distinguishes
   'anchorHtmlApprovalSeal=',
   'steelResultReconciliation',
   "scope: 'steel-source-replay-to-report-fingerprint'",
-  'required: 5',
+  'required: 6',
   'steelResultReconciliation=',
   'stoneResultReconciliation',
   "scope: 'stone-golden-replay-to-pdf-docx-hash'",
@@ -635,7 +637,7 @@ assertIncludes(reportGuide, '不得誤稱為舊版', 'report guide distinguishes
   'localQuickResultReconciliation=',
   'rendered-delivery-evidence-summary.json',
 ].forEach(needle => assertIncludes(renderedEvidenceContract, needle, `rendered evidence aggregate contract preserves ${needle}`));
-assert(JSON.parse(renderedEvidenceInventory).tools.length === 38, 'rendered evidence inventory has 38 formal tools', 'rendered-delivery-evidence.inventory.json');
+assert(JSON.parse(renderedEvidenceInventory).tools.length === 39, 'rendered evidence inventory has 39 formal tools', 'rendered-delivery-evidence.inventory.json');
 assert(JSON.parse(renderedEvidenceInventory).rcSupplementalAttachments.length === 3, 'rendered evidence inventory has three RC STM dedicated formal-entry attachments', 'rendered-delivery-evidence.inventory.json');
 assert(rcStmAtomicChangeSet.kind === 'rc-stm-atomic-change-set' && rcStmAtomicChangeSet.schemaVersion === 2, 'release governance reads the RC STM atomic change-set manifest with governed handoff edges');
 assert(Array.isArray(rcStmAtomicChangeSet.handoffs) && rcStmAtomicChangeSet.handoffs.length === 4, 'RC STM atomic change set declares all four cross-tool handoffs');
@@ -736,15 +738,17 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   "evidence.formalHtmlApprovalSeal?.scope === 'formal-tools-html-reproducible-approval-sha256'",
   'evidence.formalHtmlApprovalSeal.required === 14',
   "evidence.steelHtmlContentSeal?.scope === 'steel-formal-html-reproducible-content-sha256'",
-  'evidence.steelHtmlContentSeal.required === 5',
+  'expectedSteelFormalEvidenceCount',
+  'shearTabSteelFormalEvidenceDeclared',
+  'evidence.steelHtmlContentSeal.required === expectedSteelFormalEvidenceCount',
   "evidence.steelHtmlApprovalSeal?.scope === 'steel-formal-html-reproducible-approval-sha256'",
-  'evidence.steelHtmlApprovalSeal.required === 5',
+  'evidence.steelHtmlApprovalSeal.required === expectedSteelFormalEvidenceCount',
   "evidence.anchorHtmlContentSeal?.scope === 'anchor-formal-html-reproducible-content-sha256'",
   'evidence.anchorHtmlContentSeal.required === 1',
   "evidence.anchorHtmlApprovalSeal?.scope === 'anchor-formal-html-reproducible-approval-sha256'",
   'evidence.anchorHtmlApprovalSeal.required === 1',
   "evidence.steelResultReconciliation?.scope === 'steel-source-replay-to-report-fingerprint'",
-  'evidence.steelResultReconciliation.required === 5',
+  'evidence.steelResultReconciliation.required === expectedSteelFormalEvidenceCount',
   "evidence.stoneResultReconciliation?.scope === 'stone-golden-replay-to-pdf-docx-hash'",
   'evidence.stoneResultReconciliation.required === 1',
   "evidence.anchorResultReconciliation?.scope === 'anchor-workspace-replay-to-html-docx-xlsx-hash'",
@@ -934,7 +938,7 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
 
 [
   'independent-engineering-benchmarks.catalog.json',
-  '38 / 38',
+  '39 / 39',
   '/src-beam',
   '/src-column',
   '石材固定',
@@ -997,8 +1001,17 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   assertIncludes(source, 'Schema v25', `${label} documents formal XLSX dual seal release evidence schema`);
   assertIncludes(source, 'XLSX', `${label} documents formal XLSX dual seal family`);
   assertIncludes(source, 'Schema v27', `${label} documents RC STM supplemental formal attachment release evidence schema`);
-  assertIncludes(source, 'Schema v29', `${label} documents five-tool local quick result reconciliation release evidence schema`);
-  assertIncludes(source, '5/5', `${label} documents five local quick result reconciliations`);
+  assertIncludes(source, 'Schema v29', `${label} preserves the historical five-tool local quick release evidence schema`);
+  assertIncludes(source, '157/157', `${label} preserves the historical Schema v29 public delivery integrity count`);
+  assertIncludes(source, 'Schema v30', `${label} documents six-tool local quick result reconciliation release evidence schema`);
+  assertIncludes(source, '6/6', `${label} documents six local quick result reconciliations`);
+  assertIncludes(source, '163/163', `${label} documents the Schema v30 public delivery integrity count`);
+  assert(/Schema v29[^\r\n]*157\/157/.test(source), `${label} keeps Schema v29 and 157/157 in the same historical governance block`);
+  assert(/Schema v30[^\r\n]*84\/84[^\r\n]*163\/163/.test(source), `${label} keeps Schema v30 with canonical 84/84 and public 163/163 in the same governance block`);
+  assertIncludes(source, 'Schema v31', `${label} documents the six-tool steel formal release evidence schema`);
+  assertIncludes(source, '165/165', `${label} documents the Schema v31 public delivery integrity count`);
+  assert(/Schema v31[^\r\n]*86\/86[^\r\n]*165\/165/.test(source), `${label} keeps Schema v31 with canonical 86/86 and public 165/165 in the same governance block`);
+  assert(/Schema v31[^\r\n]*鋼構[^\r\n]*6\/6/.test(source), `${label} keeps Schema v31 with the six steel formal result and seal scope`);
   assertIncludes(source, 'rc-stm-formal', `${label} documents RC STM release evidence directory`);
   assertIncludes(source, 'rc-stm-atomic-change-set.manifest.json', `${label} documents the RC STM machine-readable atomic change set`);
   assertIncludes(source, 'rc-stm-atomic-change-set-review.js', `${label} documents the RC STM human-readable atomic review`);

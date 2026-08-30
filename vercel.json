@@ -53,6 +53,7 @@
     { "source": "/equipment-load", "destination": "/結構工具箱/tools/equipment/equipment-load", "permanent": true },
     { "source": "/earth-pressure", "destination": "/結構工具箱/tools/earth/earth-pressure", "permanent": true },
     { "source": "/floor-slab-westergaard", "destination": "/結構工具箱/tools/floor-slab/floor-slab-westergaard", "permanent": true },
+    { "source": "/cable-tension-frequency", "destination": "/結構工具箱/tools/cable-tension/cable-tension-frequency", "permanent": true },
     { "source": "/rc-column-cover-deviation", "destination": "/結構工具箱/tools/rc/column-cover-deviation", "permanent": true },
 
     { "source": "/platform", "destination": "/結構工具箱/", "permanent": true },

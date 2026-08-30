@@ -6,7 +6,7 @@
     {
       "key": "steel-main",
       "label": "鋼構正式規範主工具",
-      "scope": "主工具中已收斂為正式核算的連接板與拉力構件流程；剪力板、柱續接、Gusset 與梁柱彎矩接頭仍列為開發中邊界。",
+      "scope": "主工具中已收斂為正式核算的連接板、拉力構件與單剪力板 Shear Tab 流程；柱續接、Gusset 與梁柱彎矩接頭仍列為開發中邊界。",
       "status": "covered",
       "traces": [
         {
@@ -30,14 +30,24 @@
           "manualReview": ["手動 U、有效淨斷面、銲接有效面積、特殊交錯孔群與組合銲道須由試驗、學理分析、施工圖或專案文件人工複核。"]
         },
         {
+          "id": "steel-main-single-plate-shear-tab",
+          "clause": "鋼構造建築物鋼結構設計技術規範第 10.1.1 / 10.2.2 / 10.2.4 / 10.3.3 / 10.3.8 / 10.3.9 / 10.3.11 / 10.3.12 / 10.3.13 / 10.4 / 10.5.1 / 10.5.2 / 10.6 節；傳統單剪力板之 e_b、幾何與雙面銲細部採專案指定之 AISC Engineering Journal 2011 procedure",
+          "purpose": "單剪力板 Shear Tab 在明確的 LRFD、單列、單剪、表列標準孔、雙面填角銲、純剪力及 conventional 材料適用範圍內，整合最低設計剪力、偏心栓群、孔承壓、板件與梁腹板、偏心銲群及接合細部；專案來源、材料延性等同性與接頭模型未確認時禁止核可。",
+          "inputs": ["connectionType", "designMethod", "requiredAxial", "requiredShear", "requiredMoment", "eccentricity", "boltGrade", "boltUltimateStrength", "boltDiameter", "holeType", "holeDiameter", "boltCount", "shearPlanes", "endDistance", "pitch", "plateThickness", "plateYieldStrength", "plateUltimateStrength", "plateHeight", "transverseEdgeDistance", "boltLineToWeldDistance", "weldEccentricity", "beamWebThickness", "beamWebYieldStrength", "beamWebUltimateStrength", "beamWebEndDistance", "beamWebEdgeDistance", "supportThickness", "supportYieldStrength", "supportUltimateStrength", "weldSize", "weldLength", "weldLineCount", "weldElectrodeStrength", "demandBasis", "geometryBasis", "materialBasis", "eccentricityBasis", "conventionalMaterialConfirmed", "connectionModelConfirmed"],
+          "calculation": ["Vd = max(|Vu|, 4.5 tf)", "Table 10.3-5 standard-hole maximum", "elastic eccentric bolt-group distribution with Table 1 lower bound", "bolt shear with filler reduction", "plate / beam-web eccentric hole bearing", "plate gross shear yielding", "plate net shear rupture", "plate / beam-web one-shear-plane L-path block shear", "single-plate V·ep flexure with ep=max(eb,ew)", "eccentric weld-metal strength", "eccentric base-metal strength", "Fu >= Fy material consistency", "plate / beam-web Fy <= 345 MPa hard caps", "project material-ductility equivalency confirmation", "pitch <= 76.2 mm and plate height <= 914.4 mm conventional envelope", "double fillet weld and 5/8 tp lower bound", "complianceReady=true"],
+          "report": ["剪力接頭檢核計算書", "剪力板與梁腹板幾何摘要", "偏心栓群與孔承壓", "剪力板全斷面剪力降伏與淨斷面剪力斷裂", "剪力板與梁腹板塊狀撕裂", "剪力板彎剪", "偏心銲群銲材與母材強度", "適用範圍與專案資料來源", "計算書"],
+          "evidence": ["calculator.js", "calculator.smoke-test.js", "app.js", "steel-formal.regression-test.js", "steel-audit-browser-runner.js"],
+          "manualReview": ["設計者須依分析模型、核定施工圖、材料證明與接頭配置確認 Vu、e_b、e_w、栓列至銲線距離、彈性偏心模型及 AISC conventional 材料延性等同性；Fy > 345 MPa、栓距 > 76.2 mm、板高 > 914.4 mm、高強或低延性鋼材、延伸型構造、滑動臨界、疲勞、反覆載重、耐震特別規定、火害、腐蝕、梁端削切與支承構件整體或局部極限狀態須另以專案文件人工複核。"]
+        },
+        {
           "id": "steel-main-scope-boundary",
           "clause": "鋼構造建築物鋼結構設計技術規範正式核算範圍管理與第 10 章接合規定",
-          "purpose": "主工具保留開發中接頭表單，但 audit 與報告需阻止其被誤用為正式規範覆核結果。",
+          "purpose": "主工具保留柱續接、Gusset 與梁柱彎矩三個開發中接頭表單，但 audit 與報告需阻止其被誤用為正式規範覆核結果。",
           "inputs": ["connectionType", "validations", "complianceReady", "passes", "moduleBoundary"],
           "calculation": ["development-module guard", "complianceReady=false", "blocked formal report export", "inline status message"],
           "report": ["此模組尚未收斂到完整規範覆核範圍", "現階段不提供正式規範核算", "inline toolbar status"],
           "evidence": ["calculator.js", "calculator.smoke-test.js", "app.js", "steel-formal.regression-test.js"],
-          "manualReview": ["單剪力板、柱續接、Gusset 與梁柱彎矩接頭若需送審，須另以正式設計流程、施工圖與專案模型完成檢核。"]
+          "manualReview": ["柱續接、Gusset 與梁柱彎矩接頭若需送審，須另以正式設計流程、施工圖與專案模型完成檢核。"]
         }
       ]
     },

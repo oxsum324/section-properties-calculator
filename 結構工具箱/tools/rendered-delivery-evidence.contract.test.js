@@ -44,9 +44,12 @@ const localQuickResultReconciliationRequired = new Set(
 ).size;
 // The fixed formal/steel/SRC and shared local scenarios contribute 48 canonical
 // PDF/evidence files. Each local quick tool adds detailed, internal-review and
-// blocked-boundary PDF/evidence pairs (six files per inventory entry).
-const canonicalArtifactIntegrityRequired = 48 + (localQuickResultReconciliationRequired * 6);
-assert.ok(localQuickResultReconciliationRequired > 0, 'rendered delivery evidence inventory declares local quick tools');
+// blocked-boundary PDF/evidence pairs (six files per inventory entry). Schema v31
+// additionally makes the steel Shear Tab PDF/evidence pair canonical.
+const steelShearTabCanonicalArtifactRequired = 2;
+const canonicalArtifactIntegrityRequired = 48 + (localQuickResultReconciliationRequired * 6) + steelShearTabCanonicalArtifactRequired;
+assert.equal(localQuickResultReconciliationRequired, 6, 'rendered delivery evidence inventory preserves all 6 local quick tools');
+assert.equal(canonicalArtifactIntegrityRequired, 86, 'Schema v31 requires 86 canonical PDF and evidence files');
 
 for (const needle of ['計算層級 / 複核邊界', '條文對照 ＆ 方法分級', '規範覆蓋矩陣']) {
   assert.ok(DEFAULT_FORBIDDEN.includes(needle), `rendered delivery evidence shares calculation-book boundary: ${needle}`);
@@ -1272,7 +1275,7 @@ function newestMatchingPdf(directory, prefix) {
 }
 
 assert.equal(inventory.version, 2, 'rendered delivery inventory version');
-assert.equal(inventory.tools.length, 38, 'rendered delivery inventory covers all homepage formal tools');
+assert.equal(inventory.tools.length, 39, 'rendered delivery inventory covers all homepage formal tools');
 const homeTools = vm.runInNewContext(`(${extractConstLiteral(homeSource, 'tools')})`);
 const formalHomeTools = homeTools.filter(tool => tool.state === 'formal');
 const formalRoutes = formalHomeTools.map(tool => tool.href).sort();
@@ -2704,10 +2707,10 @@ assert.equal(formalHtmlApprovalSeal.pass, true, 'release rendered evidence passe
 const steelHtmlContentSeal = {
   schemaVersion: 1,
   scope: 'steel-formal-html-reproducible-content-sha256',
-  required: 5,
+  required: 6,
   complete: steelHtmlDualSealRecords.length,
-  issueCount: Math.max(0, 5 - steelHtmlDualSealRecords.length),
-  pass: steelHtmlDualSealRecords.length === 5,
+  issueCount: Math.max(0, 6 - steelHtmlDualSealRecords.length),
+  pass: steelHtmlDualSealRecords.length === 6,
   setSha256: formalHtmlSealSetHash(steelHtmlDualSealRecords, 'content'),
   records: steelHtmlDualSealRecords.map(record => ({
     key: record.key,
@@ -2720,10 +2723,10 @@ const steelHtmlContentSeal = {
 const steelHtmlApprovalSeal = {
   schemaVersion: 1,
   scope: 'steel-formal-html-reproducible-approval-sha256',
-  required: 5,
+  required: 6,
   complete: steelHtmlDualSealRecords.length,
-  issueCount: Math.max(0, 5 - steelHtmlDualSealRecords.length),
-  pass: steelHtmlDualSealRecords.length === 5,
+  issueCount: Math.max(0, 6 - steelHtmlDualSealRecords.length),
+  pass: steelHtmlDualSealRecords.length === 6,
   setSha256: formalHtmlSealSetHash(steelHtmlDualSealRecords, 'approval'),
   records: steelHtmlDualSealRecords.map(record => ({
     key: record.key,
@@ -2734,8 +2737,8 @@ const steelHtmlApprovalSeal = {
   })),
 };
 assert.equal(new Set(steelHtmlDualSealRecords.map(record => record.key)).size, steelHtmlDualSealRecords.length, 'release rendered evidence steel formal HTML seal identities are unique');
-assert.equal(steelHtmlContentSeal.complete, steelHtmlContentSeal.required, 'release rendered evidence independently verifies all 5 steel formal HTML content seals');
-assert.equal(steelHtmlApprovalSeal.complete, steelHtmlApprovalSeal.required, 'release rendered evidence independently verifies all 5 steel formal HTML approval seals');
+assert.equal(steelHtmlContentSeal.complete, steelHtmlContentSeal.required, 'release rendered evidence independently verifies all 6 steel formal HTML content seals');
+assert.equal(steelHtmlApprovalSeal.complete, steelHtmlApprovalSeal.required, 'release rendered evidence independently verifies all 6 steel formal HTML approval seals');
 assert.equal(steelHtmlContentSeal.pass, true, 'release rendered evidence passes steel formal HTML content seal verification');
 assert.equal(steelHtmlApprovalSeal.pass, true, 'release rendered evidence passes steel formal HTML approval seal verification');
 const anchorHtmlContentSeal = {
@@ -2778,15 +2781,15 @@ assert.equal(anchorHtmlApprovalSeal.pass, true, 'release rendered evidence passe
 const steelResultReconciliation = {
   schemaVersion: 1,
   scope: 'steel-source-replay-to-report-fingerprint',
-  required: 5,
+  required: 6,
   complete: steelResultReconciliationRecords.length,
-  issueCount: Math.max(0, 5 - steelResultReconciliationRecords.length),
-  pass: steelResultReconciliationRecords.length === 5,
+  issueCount: Math.max(0, 6 - steelResultReconciliationRecords.length),
+  pass: steelResultReconciliationRecords.length === 6,
   setSha256: steelResultReconciliationSetHash(steelResultReconciliationRecords),
   records: steelResultReconciliationRecords,
 };
 assert.equal(new Set(steelResultReconciliationRecords.map(record => record.key)).size, steelResultReconciliationRecords.length, 'release rendered evidence steel result reconciliation identities are unique');
-assert.equal(steelResultReconciliation.complete, steelResultReconciliation.required, 'release rendered evidence reconciles all 5 steel source replays to report fingerprints');
+assert.equal(steelResultReconciliation.complete, steelResultReconciliation.required, 'release rendered evidence reconciles all 6 steel source replays to report fingerprints');
 assert.equal(steelResultReconciliation.pass, true, 'release rendered evidence passes steel result reconciliation');
 const stoneResultReconciliation = {
   schemaVersion: 1,
@@ -2926,7 +2929,7 @@ assert.equal(xlsxDualSeal.contentComplete, xlsxDualSeal.contentRequired, 'releas
 assert.equal(xlsxDualSeal.approvalComplete, xlsxDualSeal.approvalRequired, 'release verifies the formal XLSX approval seal');
 assert.equal(xlsxDualSeal.pass, true, 'release passes formal XLSX dual seal integrity');
 const aggregate = {
-  schemaVersion: 29,
+  schemaVersion: 31,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),

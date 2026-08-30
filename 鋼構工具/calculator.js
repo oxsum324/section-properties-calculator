@@ -81,9 +81,9 @@
     single_plate: {
       reportTitle: "剪力接頭檢核計算書",
       reportSubtitle: "Single Plate Shear Connection Report",
-      pageTitle: "鋼構剪力接頭設計與檢核",
-      pageDescription: "單剪力板 Shear Tab｜承壓型螺栓、孔承壓、塊狀撕裂、銲接與細部規定整合",
-      complianceReady: false,
+      pageTitle: "鋼構單剪力板正式規範核算工具",
+      pageDescription: "單剪力板 Shear Tab｜LRFD 單列單剪承壓型接頭｜偏心栓群、板件、腹板、銲群與細部規定整合",
+      complianceReady: true,
     },
     column_splice: {
       reportTitle: "柱續接檢核計算書",
@@ -177,6 +177,14 @@
 
   function netHoleWidth(holeDiameter) {
     return holeDiameter + 1.5;
+  }
+
+  function getMaximumStandardHoleDiameter(boltDiameter) {
+    const table = new Map([[12, 13.5], [16, 17.5], [20, 21.5], [22, 23.5], [24, 25.5]]);
+    for (const [nominalDiameter, maximumHoleDiameter] of table.entries()) {
+      if (Math.abs(boltDiameter - nominalDiameter) <= 1e-9) return maximumHoleDiameter;
+    }
+    return boltDiameter >= 27 ? boltDiameter + 1.5 : null;
   }
 
   function getBaseMinimumEdgeDistance(db, edgeFabrication) {
@@ -319,6 +327,212 @@ L_{c,\mathrm{int}} &= s - d_h = ${formatEquationNumber(pitch)} - ${formatEquatio
 R_n &= \sum \min\!\left(c_1 L_c t F_u,\ c_2 d_b t F_u\right) = ${formatEquationNumber(nominal)}\ \text{kN}\\
 ${buildAvailableStrengthLatex(designMethod, "bearing", nominal)}
 \end{aligned}`,
+      ],
+    });
+  }
+
+  function getSinglePlateBoltDistribution(state) {
+    const count = Math.max(state.boltCount, 1);
+    const ordinates = Array.from({ length: count }, (_, index) => (index - (count - 1) / 2) * state.pitch);
+    const polarSum = ordinates.reduce((sum, ordinate) => sum + ordinate * ordinate, 0);
+    const coefficients = ordinates.map((ordinate) => {
+      const direct = 1 / count;
+      const moment = state.eccentricity > 0
+        ? (polarSum > 0 ? state.eccentricity * ordinate / polarSum : Infinity)
+        : 0;
+      return { ordinate, direct, moment, resultant: Math.hypot(direct, moment) };
+    });
+    const maxCoefficient = coefficients.reduce((maximum, item) => Math.max(maximum, item.resultant), 0);
+    return { count, ordinates, polarSum, coefficients, maxCoefficient };
+  }
+
+  function buildSinglePlateBoltShearCheck(state, fillerReduction, distribution) {
+    const area = boltArea(state.boltDiameter);
+    const tableStressTfCm2 = state.threadsCondition === "excluded" ? 5.00 : 4.00;
+    const nominalShearStress = tableStressTfCm2 * 98.0665;
+    const reduction = fillerReduction.applies ? fillerReduction.reductionFactor : 1;
+    const nominalPerBolt = mm2ToKn(nominalShearStress, area * state.shearPlanes * reduction);
+    const availablePerBolt = 0.75 * nominalPerBolt;
+    const available = distribution.maxCoefficient > 0 && Number.isFinite(distribution.maxCoefficient)
+      ? availablePerBolt / distribution.maxCoefficient
+      : 0;
+    const nominal = available / 0.75;
+    return createCheck({
+      key: "boltShearEccentric",
+      label: "偏心栓群螺栓剪力",
+      demand: state.requiredShear,
+      nominal,
+      available,
+      note: `單列栓群採彈性法分配直接剪力與 V·e 彎矩；CNS F10T 螺栓標稱剪應力依表取 ${formatEquationNumber(tableStressTfCm2)} tf/cm²（${formatEquationNumber(nominalShearStress)} MPa）。${fillerReduction.applies ? ` 填板折減係數 ${formatEquationNumber(reduction)} 已納入。` : ""}`,
+      codeRef: "10.1.1、10.3.3",
+      equationRef: "式(10.3-1)＋專案指定彈性栓群模型",
+      equationLines: [
+        `Σyi² = ${formatEquationNumber(distribution.polarSum)} mm²`,
+        `Cv = 1/n，Ch,i = e_b yi / Σyi²，Cmax = max√(Cv² + Ch,i²) = ${formatEquationNumber(distribution.maxCoefficient)}`,
+        `Ab = πdb²/4 = ${formatEquationNumber(area)} mm²，Rn,bolt = Fnv Ab ns r = ${formatEquationNumber(nominalPerBolt)} kN/支`,
+        `φRn,group = 0.75 Rn,bolt / Cmax = ${formatEquationNumber(available)} kN`,
+      ],
+      latexLines: [String.raw`\begin{aligned}
+\sum y_i^2 &= ${formatEquationNumber(distribution.polarSum)}\ \text{mm}^2\\
+C_{v} &= \frac{1}{n},\quad C_{h,i}=\frac{e_b y_i}{\sum y_i^2},\quad C_{\max}=${formatEquationNumber(distribution.maxCoefficient)}\\
+A_b &= \frac{\pi d_b^2}{4}=${formatEquationNumber(area)}\ \text{mm}^2\\
+F_{nv} &= ${formatEquationNumber(tableStressTfCm2)}\ \text{tf/cm}^2=${formatEquationNumber(nominalShearStress)}\ \text{MPa}\\
+R_{n,b} &= F_{nv}A_b n_s r=${formatEquationNumber(nominalPerBolt)}\ \text{kN/bolt}\\
+\phi R_{n,g} &= \frac{0.75R_{n,b}}{C_{\max}}=${formatEquationNumber(available)}\ \text{kN}
+\end{aligned}`],
+    });
+  }
+
+  function buildSinglePlateEccentricBearingCheck({ key, label, state, distribution, endDistance, sideDistance, thickness, fu, note }) {
+    const verticalEndLc = Math.max(endDistance - state.holeDiameter / 2, 0);
+    const verticalInteriorLc = Math.max(state.pitch - state.holeDiameter, 0);
+    const horizontalLc = Math.max(sideDistance - state.holeDiameter / 2, 0);
+    const verticalEnd = 0.75 * bearingNominalPerBolt(verticalEndLc, thickness, fu, state.boltDiameter, state.deformationConsidered);
+    const verticalInterior = 0.75 * bearingNominalPerBolt(verticalInteriorLc, thickness, fu, state.boltDiameter, state.deformationConsidered);
+    const horizontal = 0.75 * bearingNominalPerBolt(horizontalLc, thickness, fu, state.boltDiameter, state.deformationConsidered);
+    const interactions = distribution.coefficients.map((coefficient, index) => {
+      const verticalAvailable = index === distribution.count - 1 ? verticalEnd : verticalInterior;
+      return verticalAvailable > 0 && horizontal > 0
+        ? Math.abs(coefficient.direct) / verticalAvailable + Math.abs(coefficient.moment) / horizontal
+        : Infinity;
+    });
+    const maxInteractionPerKn = interactions.reduce((maximum, value) => Math.max(maximum, value), 0);
+    const available = maxInteractionPerKn > 0 && Number.isFinite(maxInteractionPerKn) ? 1 / maxInteractionPerKn : 0;
+    return createCheck({
+      key,
+      label,
+      demand: state.requiredShear,
+      nominal: available / 0.75,
+      available,
+      note: `${note} 各栓以 |Fv|/φRn,v + |Fh|/φRn,h ≤ 1.0 作保守線性互制。`,
+      codeRef: "10.1.1、10.3.9",
+      equationRef: "式(10.3-2)~式(10.3-4)＋專案指定承壓互制",
+      equationLines: [
+        `Lc,end = ${formatEquationNumber(verticalEndLc)} mm，Lc,int = ${formatEquationNumber(verticalInteriorLc)} mm，Lc,h = ${formatEquationNumber(horizontalLc)} mm`,
+        `φRn,v,end = ${formatEquationNumber(verticalEnd)} kN/栓，φRn,v,int = ${formatEquationNumber(verticalInterior)} kN/栓`,
+        `φRn,h = ${formatEquationNumber(horizontal)} kN/栓`,
+        `max[|Cv|/φRn,v + |Ch,i|/φRn,h] = ${formatEquationNumber(maxInteractionPerKn)} 1/kN`,
+        `Vavailable = 1 / max(interaction per unit V) = ${formatEquationNumber(available)} kN`,
+      ],
+    });
+  }
+
+  function buildSinglePlateShearRuptureCheck({ state, area }) {
+    const nominal = mm2ToKn(0.6 * state.plateUltimateStrength, area);
+    const available = 0.75 * nominal;
+    return createCheck({
+      key: "plateNetShearRupture",
+      label: "剪力板淨斷面剪力斷裂",
+      demand: state.requiredShear,
+      nominal,
+      available,
+      note: "扣除單列栓孔之規範淨孔寬後，檢核連接元件剪力斷裂。",
+      codeRef: "10.5.2",
+      equationRef: "φ = 0.75，Rn = 0.6FuAnv",
+      equationLines: [
+        `Anv = ${formatEquationNumber(area)} mm²`,
+        `Rn = 0.6 Fu Anv = ${formatEquationNumber(nominal)} kN`,
+        `φRn = 0.75 Rn = ${formatEquationNumber(available)} kN`,
+      ],
+    });
+  }
+
+  function buildSinglePlateBlockShearCheck({ key, label, state, endDistance, edgeDistance, thickness, fy, fu, note }) {
+    const holeWidth = netHoleWidth(state.holeDiameter);
+    const shearLength = endDistance + Math.max(state.boltCount - 1, 0) * state.pitch;
+    const agv = Math.max(shearLength, 0) * thickness;
+    const anv = Math.max(shearLength - (state.boltCount - 0.5) * holeWidth, 0) * thickness;
+    const agt = Math.max(edgeDistance, 0) * thickness;
+    const ant = Math.max(edgeDistance - holeWidth / 2, 0) * thickness;
+    const tensionRupture = mm2ToKn(fu, ant);
+    const shearRupture = mm2ToKn(0.6 * fu, anv);
+    const shearYield = mm2ToKn(0.6 * fy, agv);
+    const tensionYield = mm2ToKn(fy, agt);
+    const tensionControls = tensionRupture >= shearRupture;
+    const nominal = tensionControls
+      ? Math.min(shearYield + tensionRupture, shearRupture + tensionRupture)
+      : Math.min(shearRupture + tensionYield, shearRupture + tensionRupture);
+    const available = 0.75 * nominal;
+    return {
+      check: createCheck({
+        key,
+        label,
+        demand: state.requiredShear,
+        nominal,
+        available,
+        note: `${note} 採單一縱向剪力面與一個橫向拉力面之 L 形候選路徑。`,
+        codeRef: "10.4",
+        equationRef: tensionControls ? "式(10.4-3)" : "式(10.4-4)",
+        equationLines: [
+          `Agv = ${formatEquationNumber(agv)} mm²，Anv = ${formatEquationNumber(anv)} mm²`,
+          `Agt = ${formatEquationNumber(agt)} mm²，Ant = ${formatEquationNumber(ant)} mm²`,
+          `Rn = ${formatEquationNumber(nominal)} kN，φRn = 0.75Rn = ${formatEquationNumber(available)} kN`,
+        ],
+      }),
+      areas: { Agv: agv, Anv: anv, Agt: agt, Ant: ant },
+    };
+  }
+
+  function getVerticalLineGroupCoefficient(length, lineCount, eccentricity) {
+    const count = Math.max(lineCount, 1);
+    const direct = length > 0 ? 1 / (count * length) : Infinity;
+    const polar = count * Math.pow(length, 3) / 12;
+    const moment = eccentricity > 0 && polar > 0 ? eccentricity * length / 2 / polar : 0;
+    return { direct, moment, maximum: Math.hypot(direct, moment), polar };
+  }
+
+  function buildSinglePlateEccentricWeldCheck({ state, key, label, strengthPerLength, nominalStrengthPerLength, note }) {
+    const distribution = getVerticalLineGroupCoefficient(state.weldLength, state.weldLineCount, state.weldEccentricity);
+    const available = distribution.maximum > 0 && Number.isFinite(distribution.maximum)
+      ? strengthPerLength / distribution.maximum
+      : 0;
+    const nominal = distribution.maximum > 0 && Number.isFinite(distribution.maximum)
+      ? nominalStrengthPerLength / distribution.maximum
+      : 0;
+    return createCheck({
+      key,
+      label,
+      demand: state.requiredShear,
+      nominal,
+      available,
+      note: `${note} 垂直線群採彈性法合成直接剪流與 V·e_w 扭矩剪流。`,
+      codeRef: "10.1.1、10.2.4",
+      equationRef: "表10.2-5＋專案指定彈性銲群模型",
+      equationLines: [
+        `Jw = nline Le³/12 = ${formatEquationNumber(distribution.polar)} mm³`,
+        `Cq,v = 1/(nline Le) = ${formatEquationNumber(distribution.direct)} 1/mm`,
+        `Cq,m = ew Le/(2Jw) = ${formatEquationNumber(distribution.moment)} 1/mm`,
+        `Cq,max = √(Cq,v² + Cq,m²) = ${formatEquationNumber(distribution.maximum)} 1/mm`,
+        `Vavailable = qavailable / Cq,max = ${formatEquationNumber(available)} kN`,
+      ],
+    });
+  }
+
+  function buildSinglePlateFlexureCheck(state) {
+    const plasticModulus = state.plateThickness * Math.pow(state.plateHeight, 2) / 4;
+    const nominalMoment = state.plateYieldStrength * plasticModulus / 1e6;
+    const availableMoment = 0.9 * nominalMoment;
+    const plateEccentricity = Math.max(state.eccentricity, state.weldEccentricity);
+    const available = plateEccentricity > 0
+      ? availableMoment * 1000 / plateEccentricity
+      : Number.MAX_SAFE_INTEGER;
+    const nominal = available / 0.9;
+    return createCheck({
+      key: "plateFlexure",
+      label: "剪力板偏心彎曲",
+      demand: state.requiredShear,
+      nominal,
+      available,
+      note: "依 10.5.1 與 AISC EJ 2011 對螺栓及剪力板採用 e_b 之要求，板彎曲取 e_p = max(e_b, e_w)；採專案確認之矩形板塑性斷面模數 Zp = tp hp²/4。",
+      codeRef: "10.5.1",
+      equationRef: "專案指定塑性彎曲模型",
+      equationLines: [
+        `Zp = tp hp²/4 = ${formatEquationNumber(plasticModulus)} mm³`,
+        `Mn = Fy Zp = ${formatEquationNumber(nominalMoment)} kN-m，φMn = 0.90Mn = ${formatEquationNumber(availableMoment)} kN-m`,
+        `e_p = max(e_b, e_w) = max(${formatEquationNumber(state.eccentricity)}, ${formatEquationNumber(state.weldEccentricity)}) = ${formatEquationNumber(plateEccentricity)} mm`,
+        plateEccentricity > 0
+          ? `Vavailable = φMn × 1000 / e_p = ${formatEquationNumber(available)} kN`
+          : "e_p = 0，無偏心板彎矩需求。",
       ],
     });
   }
@@ -671,6 +885,7 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
       holeDiameter: positive(rawState.holeDiameter),
       edgeFabrication: rawState.edgeFabrication || "rolled",
       boltUltimateStrength: positive(rawState.boltUltimateStrength),
+      boltGrade: rawState.boltGrade || "F10T",
       threadsCondition: rawState.threadsCondition || "included",
       deformationConsidered: rawState.deformationConsidered === true || rawState.deformationConsidered === "true",
       boltCount: toInteger(rawState.boltCount, 1),
@@ -681,14 +896,29 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
       plateYieldStrength: positive(rawState.plateYieldStrength),
       plateUltimateStrength: positive(rawState.plateUltimateStrength),
       transverseEdgeDistance: positive(rawState.transverseEdgeDistance),
+      plateHeight: positive(rawState.plateHeight),
+      boltLineToWeldDistance: positive(rawState.boltLineToWeldDistance),
+      weldEccentricity: positive(rawState.weldEccentricity),
       beamWebThickness: positive(rawState.beamWebThickness),
+      beamWebYieldStrength: positive(rawState.beamWebYieldStrength),
       beamWebUltimateStrength: positive(rawState.beamWebUltimateStrength),
+      beamWebEndDistance: positive(rawState.beamWebEndDistance),
+      beamWebEdgeDistance: positive(rawState.beamWebEdgeDistance),
+      supportThickness: positive(rawState.supportThickness),
+      supportYieldStrength: positive(rawState.supportYieldStrength),
+      supportUltimateStrength: positive(rawState.supportUltimateStrength),
       fillerThickness: positive(rawState.fillerThickness),
       fillerExtended: rawState.fillerExtended === true || rawState.fillerExtended === "true",
       weldSize: positive(rawState.weldSize),
       weldLength: positive(rawState.weldLength),
       weldLineCount: toInteger(rawState.weldLineCount, 1),
       weldElectrodeStrength: positive(rawState.weldElectrodeStrength),
+      demandBasis: rawState.demandBasis || "",
+      geometryBasis: rawState.geometryBasis || "",
+      materialBasis: rawState.materialBasis || "",
+      eccentricityBasis: rawState.eccentricityBasis || "",
+      conventionalMaterialConfirmed: rawState.conventionalMaterialConfirmed === true || rawState.conventionalMaterialConfirmed === "true",
+      connectionModelConfirmed: rawState.connectionModelConfirmed === true || rawState.connectionModelConfirmed === "true",
       spliceLeverArm: positive(rawState.spliceLeverArm),
       spliceBearingTransfer: rawState.spliceBearingTransfer === true || rawState.spliceBearingTransfer === "true",
       flangeBoltCount: toInteger(rawState.flangeBoltCount, 1),
@@ -824,7 +1054,7 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
     const skipHoleValidation = (state.connectionType === "plate_check" && state.plateInputMode === "area_manual")
       || (state.connectionType === "tension_member" && (state.tensionConnectionMode === "welded" || state.tensionAreaInput === "manual"));
     if (!skipHoleValidation && state.holeDiameter <= state.boltDiameter) validations.push("孔徑 dh 應大於螺栓直徑 db。");
-    if (state.eccentricity > 0) validations.push("本版未將偏心造成之栓群附加力納入，偏心接頭請再以栓群分析確認。");
+    if (state.eccentricity > 0 && state.connectionType !== "single_plate") validations.push("本版未將偏心造成之栓群附加力納入，偏心接頭請再以栓群分析確認。");
     return validations;
   }
 
@@ -1664,111 +1894,181 @@ ${buildAvailableStrengthLatex(state.designMethod, "bearing", totalBearingNominal
   }
 
   function calculateSinglePlate(state) {
+    const enteredShear = state.requiredShear;
+    const minimumConnectionShear = 4.5 * 9.80665;
+    state = { ...state, requiredShear: Math.max(Math.abs(enteredShear), minimumConnectionShear) };
     const validations = [];
     const fillerReduction = getFillerReduction(state);
-    if (state.pitch <= state.holeDiameter) validations.push("孔距 s 應大於孔徑 dh，否則內部孔淨距會小於等於 0。");
-    if (state.endDistance <= state.holeDiameter / 2) validations.push("端距 e 應大於 dh / 2，否則端部孔淨距會小於等於 0。");
-    if (state.transverseEdgeDistance <= state.holeDiameter / 2) validations.push("自由邊距 g 應大於 dh / 2，否則塊狀撕裂拉力淨面積會小於等於 0。");
-    if (fillerReduction.invalid) validations.push("未延伸填板厚度超過 19 mm，現有螺栓剪力折減規定已不適用。");
+    const distribution = getSinglePlateBoltDistribution(state);
+    const plateWidth = state.boltLineToWeldDistance + state.transverseEdgeDistance;
+    const grossShearArea = state.plateHeight * state.plateThickness;
+    const netShearArea = Math.max(state.plateHeight - state.boltCount * netHoleWidth(state.holeDiameter), 0) * state.plateThickness;
+    const plateBlock = buildSinglePlateBlockShearCheck({
+      key: "plateBlockShear",
+      label: "剪力板塊狀撕裂",
+      state,
+      endDistance: state.endDistance,
+      edgeDistance: state.transverseEdgeDistance,
+      thickness: state.plateThickness,
+      fy: state.plateYieldStrength,
+      fu: state.plateUltimateStrength,
+      note: "剪力板自由邊側典型破壞路徑。",
+    });
+    const beamBlock = buildSinglePlateBlockShearCheck({
+      key: "beamWebBlockShear",
+      label: "梁腹板塊狀撕裂",
+      state,
+      endDistance: state.beamWebEndDistance,
+      edgeDistance: state.beamWebEdgeDistance,
+      thickness: state.beamWebThickness,
+      fy: state.beamWebYieldStrength,
+      fu: state.beamWebUltimateStrength,
+      note: "梁腹板端部之保守單剪力面破壞路徑。",
+    });
 
-    const checks = [
-      buildBoltShearCheck({
-        key: "boltShear",
-        label: "螺栓剪力",
-        demand: state.requiredShear,
-        boltDiameter: state.boltDiameter,
-        boltUltimateStrength: state.boltUltimateStrength,
-        boltCount: state.boltCount,
-        shearPlanes: state.shearPlanes,
-        threadsCondition: state.threadsCondition,
-        designMethod: state.designMethod,
-        reductionFactor: fillerReduction.applies ? fillerReduction.reductionFactor : 1,
-        note: fillerReduction.applies
-          ? `未延伸填板厚度 ${formatEquationNumber(state.fillerThickness)} mm，螺栓剪力已乘折減 ${formatEquationNumber(fillerReduction.reductionFactor)}。`
-          : "以單剪力板承壓型螺栓剪力作為主要傳力機制。",
-      }),
-      buildBoltLineBearingCheck({
+    if (state.pitch <= state.holeDiameter) validations.push("孔距 s 應大於孔徑 dh，否則內部孔淨距會小於等於 0。");
+    if (state.endDistance <= state.holeDiameter / 2) validations.push("剪力板端距 ep 應大於 dh / 2。");
+    if (state.beamWebEndDistance <= state.holeDiameter / 2) validations.push("梁腹板端距 ew 應大於 dh / 2。");
+    if (state.transverseEdgeDistance <= state.holeDiameter / 2) validations.push("剪力板自由邊距 g 應大於 dh / 2。");
+    if (fillerReduction.invalid) validations.push("未延伸填板厚度超過 19 mm，現有螺栓剪力折減規定已不適用。");
+    if (state.designMethod !== "LRFD") validations.push("Shear Tab V1 正式範圍僅支援極限設計法；ASD 需補充螺栓等級與容許應力表後另案核算。");
+    if (Math.abs(state.requiredAxial) > 0 || Math.abs(state.requiredMoment) > 0) validations.push("Shear Tab V1 僅核算剪力；非零軸力或外加彎矩須另建接頭模型。");
+
+    let checks = [
+      buildSinglePlateBoltShearCheck(state, fillerReduction, distribution),
+      buildSinglePlateEccentricBearingCheck({
         key: "plateBearing",
-        label: "剪力板孔承壓",
-        demand: state.requiredShear,
-        count: state.boltCount,
+        label: "剪力板偏心孔承壓",
+        state,
+        distribution,
         endDistance: state.endDistance,
-        pitch: state.pitch,
-        holeDiameter: state.holeDiameter,
+        sideDistance: Math.min(state.transverseEdgeDistance, state.boltLineToWeldDistance),
         thickness: state.plateThickness,
         fu: state.plateUltimateStrength,
-        boltDiameter: state.boltDiameter,
-        deformationConsidered: state.deformationConsidered,
-        designMethod: state.designMethod,
-        note: "剪力板孔承壓採 1 個端部孔與其餘內部孔分別計算。",
+        note: "垂直方向分端部孔與內部孔，水平方向保守採自由邊與銲線側之較小淨距。",
       }),
-      buildBoltLineBearingCheck({
+      buildSinglePlateEccentricBearingCheck({
         key: "beamBearing",
-        label: "梁腹板孔承壓",
-        demand: state.requiredShear,
-        count: state.boltCount,
-        endDistance: state.endDistance,
-        pitch: state.pitch,
-        holeDiameter: state.holeDiameter,
+        label: "梁腹板偏心孔承壓",
+        state,
+        distribution,
+        endDistance: state.beamWebEndDistance,
+        sideDistance: state.beamWebEdgeDistance,
         thickness: state.beamWebThickness,
         fu: state.beamWebUltimateStrength,
-        boltDiameter: state.boltDiameter,
-        deformationConsidered: state.deformationConsidered,
-        designMethod: state.designMethod,
-        note: "腹板孔承壓與剪力板孔承壓分開檢核，不採疊加。",
+        note: "梁腹板採專案確認之端距與最小橫向邊距，與剪力板分開檢核。",
       }),
-      buildBlockShearCheck({
-        key: "blockShear",
-        label: "剪力板塊狀撕裂",
+      buildShearYieldCheck({
+        key: "plateGrossShearYield",
+        label: "剪力板全斷面剪力降伏",
         demand: state.requiredShear,
-        boltCount: state.boltCount,
-        endDistance: state.endDistance,
-        pitch: state.pitch,
-        holeDiameter: state.holeDiameter,
-        edgeDistance: state.transverseEdgeDistance,
-        thickness: state.plateThickness,
         fy: state.plateYieldStrength,
-        fu: state.plateUltimateStrength,
-        designMethod: state.designMethod,
-        note: "依單列栓孔典型塊狀撕裂路徑估算。",
+        area: grossShearArea,
+        designMethod: "LRFD",
+        note: "以沿垂直傳力方向之剪力板全高乘板厚作為連接元件全剪力面積。",
+        codeRef: "10.5.2",
+        equationRef: "φ = 0.90，Rn = 0.6FyAgv",
       }),
-      buildWeldCheck({
-        key: "weldStrength",
-        label: "支承側填角銲",
-        demand: state.requiredShear,
-        weldSize: state.weldSize,
-        weldLength: state.weldLength,
-        weldLineCount: state.weldLineCount,
-        electrodeStrength: state.weldElectrodeStrength,
-        designMethod: state.designMethod,
-        note: "以有效喉厚 0.707a 換算支承側銲道強度。",
-      }),
+      buildSinglePlateShearRuptureCheck({ state, area: netShearArea }),
+      plateBlock.check,
+      beamBlock.check,
+      buildSinglePlateFlexureCheck(state),
     ];
 
-    const detailChecks = [
-      ...buildLinearBoltDetailChecks({
-        prefix: "剪力板",
+    const weldThroat = 0.707 * state.weldSize;
+    const weldNominalPerLength = 0.6 * state.weldElectrodeStrength * weldThroat / 1000;
+    const weldAvailablePerLength = 0.75 * weldNominalPerLength;
+    const plateBaseNominalPerLength = Math.min(0.6 * state.plateYieldStrength, 0.6 * state.plateUltimateStrength) * state.plateThickness / 1000;
+    const supportBaseNominalPerLength = Math.min(0.6 * state.supportYieldStrength, 0.6 * state.supportUltimateStrength) * state.supportThickness / 1000;
+    const baseNominalPerLength = Math.min(plateBaseNominalPerLength, supportBaseNominalPerLength);
+    const baseAvailablePerLength = Math.min(
+      0.9 * 0.6 * state.plateYieldStrength * state.plateThickness,
+      0.75 * 0.6 * state.plateUltimateStrength * state.plateThickness,
+      0.9 * 0.6 * state.supportYieldStrength * state.supportThickness,
+      0.75 * 0.6 * state.supportUltimateStrength * state.supportThickness
+    ) / 1000;
+    checks.push(
+      buildSinglePlateEccentricWeldCheck({
         state,
-        pitch: state.pitch,
-        endDistance: state.endDistance,
-        edgeDistance: state.transverseEdgeDistance,
-        boltDiameter: state.boltDiameter,
-        thickness: state.plateThickness,
-        shortWeld: { weldLength: state.weldLength, weldSize: state.weldSize },
+        key: "weldMetalEccentric",
+        label: "偏心銲群銲材強度",
+        strengthPerLength: weldAvailablePerLength,
+        nominalStrengthPerLength: weldNominalPerLength,
+        note: "填角銲有效喉厚取 0.707a，銲材剪力強度取 φ0.6FEXX。",
       }),
-      makeDetailCheck(
-        "fillerPlate",
-        "填板規定",
-        fillerReduction.invalid ? 0 : 1,
-        true,
-        "custom",
-        fillerReduction.invalid
-          ? "未延伸填板厚度超過 19 mm，須改採延伸填板或重新配置接頭。"
-          : fillerReduction.applies
-            ? `未延伸填板厚度 ${formatEquationNumber(state.fillerThickness)} mm，已對螺栓剪力折減。`
-            : "未觸發填板折減規定。",
-        "10.6"
-      ),
+      buildSinglePlateEccentricWeldCheck({
+        state: { ...state, weldLineCount: 1 },
+        key: "weldBaseMetalEccentric",
+        label: "偏心銲群母材強度",
+        strengthPerLength: baseAvailablePerLength,
+        nominalStrengthPerLength: baseNominalPerLength,
+        note: "剪力板與支承材各採唯一母材剪力面；沿銲線之剪力降伏、剪力斷裂均檢核，採四者可用強度最小值。",
+      })
+    );
+    if (state.designMethod !== "LRFD") {
+      checks = checks.map((check) => ({
+        ...check,
+        available: 0,
+        ratio: Infinity,
+        warning: true,
+        note: `${check.note} ASD 路徑未核算，容量封鎖為 0。`,
+      }));
+    }
+
+    const minWeldSize = getMinimumFilletSize(Math.max(state.plateThickness, state.supportThickness));
+    const maxWeldSize = getMaximumEdgeFilletSize(Math.min(state.plateThickness, state.supportThickness));
+    const conventionalThicknessLimit = state.boltCount <= 5
+      ? state.boltDiameter / 2 + 1.5875
+      : state.boltDiameter / 2 - 1.5875;
+    const conventionalBoltEccentricity = state.boltCount <= 5
+      ? state.boltLineToWeldDistance / 2
+      : state.boltLineToWeldDistance;
+    const conventionalWeldSize = 0.625 * state.plateThickness;
+    const maximumStandardHoleDiameter = getMaximumStandardHoleDiameter(state.boltDiameter);
+    const hasBasis = (value) => Boolean(String(value || "").trim()) && !/示例|請依專案覆寫/.test(String(value));
+    const detailChecks = [
+      makeDetailCheck("singlePlateMethod", "設計法適用範圍", state.designMethod === "LRFD" ? 1 : 0, true, "custom", state.designMethod === "LRFD" ? "Shear Tab V1 採極限設計法。" : "本版未建立 ASD 螺栓等級與容許應力表，禁止核可。", "V1 適用範圍"),
+      makeDetailCheck("singlePlateShearOnlyAxial", "剪力單一作用｜軸力", Math.abs(state.requiredAxial), 0, "lte", "需求軸力必須為 0 kN。", "V1 適用範圍"),
+      makeDetailCheck("singlePlateShearOnlyMoment", "剪力單一作用｜外加彎矩", Math.abs(state.requiredMoment), 0, "lte", "外加彎矩必須為 0 kN-m；偏心 V·e 已由本模組計入。", "V1 適用範圍"),
+      makeDetailCheck("singlePlatePositiveShear", "正剪力需求", state.requiredShear > 0 ? 1 : 0, true, "custom", "剪力需求須大於 0 kN。", "專案指定"),
+      makeDetailCheck("singlePlateBoltCount", "單列栓數適用範圍", state.boltCount >= 2 && state.boltCount <= 12 ? 1 : 0, true, "custom", "本版限單列 2 至 12 支螺栓。", "專案指定"),
+      makeDetailCheck("singlePlateConventionalPitch", "傳統程序栓距上限", state.pitch, 76.2, "lte", "本版 conventional procedure 限栓列中心距 s ≤ 3 in = 76.2 mm；更大栓距須另做轉角延性與延伸型構造檢核。", "專案指定｜AISC EJ 2011"),
+      makeDetailCheck("singlePlateConventionalHeight", "傳統程序板高上限", state.plateHeight, 914.4, "lte", "本版 conventional procedure 限剪力板高度 hp ≤ 36 in = 914.4 mm；超出時須另做板挫屈與延伸型構造檢核。", "專案指定｜AISC EJ 2011"),
+      makeDetailCheck("singlePlateSingleShear", "單剪適用範圍", state.shearPlanes, 1, "lte", "Shear Tab V1 限單剪面。", "專案指定"),
+      makeDetailCheck("singlePlateStandardHole", "標準孔適用範圍", state.holeType === "standard" ? 1 : 0, true, "custom", "本版偏心承壓互制僅對標準孔核可。", "10.3.9"),
+      makeDetailCheck("singlePlateBoltGrade", "螺栓等級", state.boltGrade === "F10T" && Math.abs(state.boltUltimateStrength - 1000) <= 1 ? 1 : 0, true, "custom", "Shear Tab V1 鎖定 CNS F10T、Fub = 1000 MPa；其他等級須新增規範表路線。", "10.3.3、表10.3-2"),
+      makeDetailCheck("singlePlatePlateMaterialOrder", "剪力板材料強度順序", state.plateUltimateStrength >= state.plateYieldStrength ? 1 : 0, true, "custom", "剪力板材料須滿足 Fu,p ≥ Fy,p；強度順序不合理時禁止核可。", "規範判定｜材料物理一致性"),
+      makeDetailCheck("singlePlateBeamWebMaterialOrder", "梁腹板材料強度順序", state.beamWebUltimateStrength >= state.beamWebYieldStrength ? 1 : 0, true, "custom", "梁腹板材料須滿足 Fu,w ≥ Fy,w；強度順序不合理時禁止核可。", "規範判定｜材料物理一致性"),
+      makeDetailCheck("singlePlateSupportMaterialOrder", "支承材材料強度順序", state.supportUltimateStrength >= state.supportYieldStrength ? 1 : 0, true, "custom", "支承材材料須滿足 Fu,s ≥ Fy,s；強度順序不合理時禁止核可。", "規範判定｜材料物理一致性"),
+      makeDetailCheck("singlePlateConventionalPlateFy", "傳統程序剪力板 Fy 上限", state.plateYieldStrength, 345, "lte", "AISC EJ 2011 conventional single-plate procedure 的本版適用範圍限剪力板 Fy,p ≤ 345 MPa；專案確認不得覆寫此硬上限。", "專案指定｜AISC EJ 2011"),
+      makeDetailCheck("singlePlateConventionalBeamWebFy", "傳統程序梁腹板 Fy 上限", state.beamWebYieldStrength, 345, "lte", "AISC EJ 2011 conventional single-plate procedure 的本版適用範圍限梁腹板 Fy,w ≤ 345 MPa；專案確認不得覆寫此硬上限。", "專案指定｜AISC EJ 2011"),
+      makeDetailCheck("singlePlateConventionalMaterialConfirmed", "AISC conventional 材料延性等同性確認", state.conventionalMaterialConfirmed ? 1 : 0, true, "custom", state.conventionalMaterialConfirmed ? "已依核定材料規範確認剪力板與梁腹板之鋼種、規定最小強度與延性，可採用 Fy = 36/50 ksi 所建立之 bolt-plowing／0.03 rad 梁端轉角延性基礎。" : "須由設計者依核定材料規範完成等同性確認；此確認不適用於 Fy > 345 MPa、低延性鋼材、耐震塑鉸、疲勞或反覆載重。", "設計者判斷｜AISC EJ 2011"),
+      makeDetailCheck("singlePlateBoltDiameterTable", "螺栓直徑表列範圍", maximumStandardHoleDiameter !== null ? 1 : 0, true, "custom", maximumStandardHoleDiameter !== null ? `db = ${formatEquationNumber(state.boltDiameter)} mm 可依表 10.3-5 判定標準孔上限。` : "db 須為 12、16、20、22、24 mm 或不小於 27 mm，否則本版無表列標準孔路線。", "10.3.8、表10.3-5"),
+      makeDetailCheck("singlePlateHoleDiameter", "孔徑大於螺栓直徑", state.holeDiameter > state.boltDiameter ? 1 : 0, true, "custom", "標準孔徑須大於螺栓標稱直徑。", "10.3.8"),
+      makeDetailCheck("singlePlateStandardHoleMaximum", "標準孔最大孔徑", state.holeDiameter, maximumStandardHoleDiameter ?? 0, "lte", maximumStandardHoleDiameter === null ? "螺栓直徑不在本版可判定之表列範圍，禁止核可。" : `表 10.3-5 對 db = ${formatEquationNumber(state.boltDiameter)} mm 規定標準孔最大直徑 ${formatEquationNumber(maximumStandardHoleDiameter)} mm。`, "10.3.8、表10.3-5"),
+      ...buildLinearBoltDetailChecks({ prefix: "剪力板", state, pitch: state.pitch, endDistance: state.endDistance, edgeDistance: state.transverseEdgeDistance, boltDiameter: state.boltDiameter, thickness: state.plateThickness }),
+      makeDetailCheck("singlePlateWeldSideEdge", "栓列至銲線距離", state.boltLineToWeldDistance, getMinimumSideEdgeDistance(state, state.boltDiameter), "gte", "栓列至銲線距離至少採側邊距下限，以保守建立水平承壓淨距。", "10.3.12、專案指定"),
+      makeDetailCheck("singlePlateConventionalWidth", "傳統單剪力板栓列—銲線上限", state.boltLineToWeldDistance, 88.9, "lte", "採用之 conventional single-plate procedure 限 a ≤ 3.5 in = 88.9 mm。", "專案指定｜AISC EJ 2011"),
+      makeDetailCheck("singlePlateBoltEccentricity", "栓群有效偏心下限", state.eccentricity, conventionalBoltEccentricity, "gte", `標準孔 ${state.boltCount <= 5 ? "2–5 栓採 e_b ≥ a/2" : "6–12 栓採 e_b ≥ a"}；輸入可採更大之專案分析值，不得低於程序下限。`, "專案指定｜AISC EJ 2011 Table 1"),
+      makeDetailCheck("singlePlateWeldEccentricity", "銲群有效偏心下限", state.weldEccentricity, state.boltLineToWeldDistance, "gte", "銲群彈性檢核至少採栓列至銲線距離 a；更大偏心依專案力流輸入。", "專案指定｜保守彈性銲群模型"),
+      makeDetailCheck("singlePlatePlateHorizontalEdge", "剪力板水平邊距", Math.min(state.transverseEdgeDistance, state.boltLineToWeldDistance), 2 * state.boltDiameter, "gte", "conventional procedure 要求剪力板兩側水平有效邊距至少 2db。", "專案指定｜AISC EJ 2011"),
+      makeDetailCheck("singlePlateBeamHorizontalEdge", "梁腹板水平邊距", state.beamWebEdgeDistance, 2 * state.boltDiameter, "gte", "conventional procedure 要求梁腹板水平有效邊距至少 2db。", "專案指定｜AISC EJ 2011"),
+      makeDetailCheck("singlePlateConventionalThickness", "傳統單剪力板厚度上限", Math.min(state.plateThickness, state.beamWebThickness), conventionalThicknessLimit, "lte", `依標準孔 ${state.boltCount <= 5 ? "2–5 栓" : "6–12 栓"} 分支限制 min(tp, tw)。`, "專案指定｜AISC EJ 2011"),
+      ...buildLinearBoltDetailChecks({ prefix: "梁腹板", state, pitch: state.pitch, endDistance: state.beamWebEndDistance, edgeDistance: state.beamWebEdgeDistance, boltDiameter: state.boltDiameter, thickness: state.beamWebThickness }),
+      makeDetailCheck("singlePlatePlateHeight", "板高容納栓列", state.plateHeight, 2 * state.endDistance + Math.max(state.boltCount - 1, 0) * state.pitch, "gte", "板高需容納上下端距與完整栓列。", "專案指定幾何"),
+      makeDetailCheck("singlePlateWeldLength", "有效銲長不超過板高", state.weldLength, state.plateHeight, "lte", "有效銲長不得大於剪力板實際高度。", "10.2.2、專案指定幾何"),
+      makeDetailCheck("singlePlateShortWeld", "最短有效銲長", state.weldLength, 4 * state.weldSize, "gte", "有效銲長至少為 4a。", "10.2.2"),
+      makeDetailCheck("singlePlateLongWeld", "長銲道適用範圍", state.weldLength, 70 * state.weldSize, "lte", "Shear Tab V1 限 Le ≤ 70a；超出時須另計長銲道強度折減。", "10.2.2、V1 適用範圍"),
+      makeDetailCheck("singlePlateDoubleFilletWeld", "雙面填角銲", state.weldLineCount === 2 ? 1 : 0, true, "custom", "conventional single-plate procedure 採剪力板兩側對稱填角銲；單面銲之板外偏心不在 V1 模型內。", "專案指定｜AISC EJ 2011"),
+      makeDetailCheck("singlePlateConventionalWeldSize", "傳統單剪力板銲腳下限", state.weldSize, conventionalWeldSize, "gte", "雙面填角銲各側銲腳至少取 5/8 tp，以維持程序採用之延性力流。", "專案指定｜AISC EJ 2011"),
+      makeDetailCheck("singlePlateMinWeld", "最小填角銲尺寸", state.weldSize, minWeldSize, "gte", "依較厚連接材厚度判定最小填角銲尺寸。", "10.2.2"),
+      makeDetailCheck("singlePlateMaxWeld", "最大填角銲尺寸", state.weldSize, maxWeldSize, "lte", "依較薄連接材邊緣厚度限制最大填角銲尺寸。", "10.2.2"),
+      makeDetailCheck("singlePlateFiller", "填板規定", fillerReduction.invalid ? 0 : 1, true, "custom", fillerReduction.invalid ? "未延伸填板厚度超過 19 mm，須改採延伸填板或重新配置接頭。" : fillerReduction.applies ? `未延伸填板厚度 ${formatEquationNumber(state.fillerThickness)} mm，已對螺栓剪力折減。` : "未觸發填板折減規定。", "10.6"),
+      makeDetailCheck("singlePlateDemandBasis", "剪力需求來源", hasBasis(state.demandBasis) ? 1 : 0, true, "custom", hasBasis(state.demandBasis) ? state.demandBasis : "請填入專案分析、載重組合或簽核文件來源。", "專案指定"),
+      makeDetailCheck("singlePlateGeometryBasis", "幾何資料來源", hasBasis(state.geometryBasis) ? 1 : 0, true, "custom", hasBasis(state.geometryBasis) ? state.geometryBasis : "請填入核定圖說或量測資料來源。", "專案指定"),
+      makeDetailCheck("singlePlateMaterialBasis", "材料資料來源", hasBasis(state.materialBasis) ? 1 : 0, true, "custom", hasBasis(state.materialBasis) ? state.materialBasis : "請填入材料規格、試驗或證明文件來源。", "專案指定"),
+      makeDetailCheck("singlePlateEccentricityBasis", "偏心模型來源", hasBasis(state.eccentricityBasis) ? 1 : 0, true, "custom", hasBasis(state.eccentricityBasis) ? state.eccentricityBasis : "請說明 e_b、e_w 與栓列至銲線距離之採用依據。", "專案指定"),
+      makeDetailCheck("singlePlateModelConfirmed", "工程師確認接頭模型", state.connectionModelConfirmed ? 1 : 0, true, "custom", state.connectionModelConfirmed ? "已確認單列、單剪、靜力承壓型及彈性偏心分配適用。" : "須由設計者確認模型與實際力流一致。", "設計者判斷"),
     ];
 
     return {
@@ -1777,17 +2077,32 @@ ${buildAvailableStrengthLatex(state.designMethod, "bearing", totalBearingNominal
       detailChecks,
       validations,
       assumptions: [
-        "接頭型式為單剪力板、單列栓孔、承壓型螺栓。",
-        "未納入螺栓剪拉合成、滑動臨界接頭、面板區與耐震特別規定。",
+        "正式適用範圍為 LRFD、單剪力板、單列 2 至 12 栓、栓距不大於 76.2 mm、板高不大於 914.4 mm、單剪、標準孔、靜力承壓型螺栓、雙面填角銲與純剪力作用。",
+        "剪力板及梁腹板 Fy 均不得大於 345 MPa，Fu 須不小於 Fy，且設計者須依核定材料規範確認可採 AISC EJ 2011 conventional single-plate procedure 的材料延性基礎；此專案確認不能覆寫強度硬上限。",
+        "偏心栓群、偏心銲群與剪力板彎剪採專案指定之彈性模型；剪力板彎曲偏心固定取 e_p = max(e_b, e_w)，設計者須確認輸入力線、e_b、e_w 與實際構造一致。",
+        "本附件不含滑動臨界、疲勞、反覆載重、耐震特別規定、火害、腐蝕、梁端削切與支承構件整體或局部極限狀態；各項另由專案設計文件確認。",
       ],
       references: [
-        "10.3.9 螺栓孔承壓",
-        "10.3.11 最小間距",
-        "10.3.12 最小邊距",
-        "10.3.13 最大邊距及間距",
-        "10.4 塊狀撕裂",
-        "10.6 填板",
+        "10.1.1 接合與偏心效應", "10.2.2 填角銲細部", "10.2.4 銲接接合強度", "10.3.3 螺栓剪力強度",
+        "10.3.9 螺栓孔承壓", "10.3.11 最小間距", "10.3.12 最小邊距", "10.3.13 最大邊距及間距",
+        "10.4 塊狀撕裂", "10.5.1 偏心接合", "10.5.2 連接元件剪力降伏與斷裂", "10.6 填板",
+        "專案指定｜AISC Engineering Journal 2011 conventional single-plate procedure：Fy = 36/50 ksi 材料延性基礎、3 in 栓距與 36 in 連接高度驗證包絡、e_b、幾何及 5/8 tp 雙面銲細部",
       ],
+      derivedAreas: {
+        Agv: grossShearArea, Anv: netShearArea,
+        plateBlockAgv: plateBlock.areas.Agv, plateBlockAnv: plateBlock.areas.Anv, plateBlockAgt: plateBlock.areas.Agt, plateBlockAnt: plateBlock.areas.Ant,
+        beamBlockAgv: beamBlock.areas.Agv, beamBlockAnv: beamBlock.areas.Anv, beamBlockAgt: beamBlock.areas.Agt, beamBlockAnt: beamBlock.areas.Ant,
+      },
+      plateGeometrySummary: {
+        size: `${formatEquationNumber(plateWidth)} × ${formatEquationNumber(state.plateHeight)} × ${formatEquationNumber(state.plateThickness)} mm`,
+        holePattern: `單列 ${state.boltCount} 栓 @ ${formatEquationNumber(state.pitch)} mm`,
+        eccentricity: `e_b = ${formatEquationNumber(state.eccentricity)} mm；e_w = ${formatEquationNumber(state.weldEccentricity)} mm；e_p = max(e_b, e_w) = ${formatEquationNumber(Math.max(state.eccentricity, state.weldEccentricity))} mm`,
+      },
+      pathSummary: {
+        netSection: `剪力板全 / 淨剪力面積 ${formatEquationNumber(grossShearArea)} / ${formatEquationNumber(netShearArea)} mm²；設計剪力 Vd = max(|${formatEquationNumber(enteredShear)}|, 4.5 tf) = ${formatEquationNumber(state.requiredShear)} kN。`,
+        blockShear: "剪力板與梁腹板均採單一縱向剪力面加一個橫向拉力面之 L 形候選路徑。",
+      },
+      designDemand: { enteredShear, minimumConnectionShear, adoptedShear: state.requiredShear },
     };
   }
 
@@ -2312,7 +2627,8 @@ ${buildAvailableStrengthLatex(state.designMethod, "bearing", totalBearingNominal
 
     const checks = result.checks || [];
     const detailChecks = result.detailChecks || [];
-    const validations = [...baseValidations, ...(result.validations || [])];
+    const blockingValidations = [...baseValidations, ...(result.validations || [])];
+    const validations = [...blockingValidations];
     const connectionMeta = CONNECTION_META[state.connectionType] || CONNECTION_META.single_plate;
     const complianceReady = Boolean(connectionMeta.complianceReady);
     if (!complianceReady) {
@@ -2326,8 +2642,9 @@ ${buildAvailableStrengthLatex(state.designMethod, "bearing", totalBearingNominal
     const governing = checks.reduce((maxCheck, current) => (!maxCheck || current.ratio > maxCheck.ratio ? current : maxCheck), null);
     const strengthFailure = checks.some((item) => item.ratio > 1.0);
     const detailFailure = detailChecks.some((item) => !item.passes);
+    const validationFailure = state.connectionType === "single_plate" && blockingValidations.length > 0;
     const hasWarning = validations.length > 0 || checks.some((item) => item.warning) || scopeLimited;
-    const overallStatus = !complianceReady || strengthFailure || detailFailure ? "fail" : hasWarning ? "warn" : "ok";
+    const overallStatus = !complianceReady || strengthFailure || detailFailure || validationFailure ? "fail" : hasWarning ? "warn" : "ok";
 
     return {
       state,
@@ -2344,12 +2661,13 @@ ${buildAvailableStrengthLatex(state.designMethod, "bearing", totalBearingNominal
       plateGeometrySummary: result.plateGeometrySummary || null,
       derivedAreas: result.derivedAreas || null,
       pathSummary: result.pathSummary || null,
+      designDemand: result.designDemand || null,
       sketchData: result.sketchData || null,
       complianceReady,
       scopeLimited,
       overallStatus,
-      passes: complianceReady && !(strengthFailure || detailFailure),
-      summary: { strengthFailure, detailFailure },
+      passes: complianceReady && !(strengthFailure || detailFailure || validationFailure),
+      summary: { strengthFailure, detailFailure, validationFailure },
     };
   }
 

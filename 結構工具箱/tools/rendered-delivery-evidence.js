@@ -742,10 +742,18 @@ async function renderAndValidateReportPdf(client, options) {
     assert.ok(pdfBuffer.length > 1024, `${options.label} produced a real PDF`);
     assert.equal(pdfBuffer.subarray(0, 4).toString('ascii'), '%PDF', `${options.label} PDF signature`);
     fs.writeFileSync(pdfPath, pdfBuffer);
+    const keepWithNextLabels = Array.from(new Set([
+      ...(dom.keepWithNextLabels || []),
+      ...(options.keepWithNextLabels || []),
+    ].map(value => String(value || '').trim()).filter(Boolean)));
+    const continuationContextLabels = Array.from(new Set([
+      ...(dom.continuationContextLabels || []),
+      ...(options.continuationContextLabels || []),
+    ].map(value => String(value || '').trim()).filter(Boolean)));
     const pdf = validatePdfFile(pdfPath, {
       ...options,
-      keepWithNextLabels: dom.keepWithNextLabels || [],
-      continuationContextLabels: dom.continuationContextLabels || [],
+      keepWithNextLabels,
+      continuationContextLabels,
     });
     const evidence = {
       kind: CANONICAL_RENDER_EVIDENCE_KIND,
@@ -757,8 +765,8 @@ async function renderAndValidateReportPdf(client, options) {
       renderer: options.renderer || 'browser-print',
       dom: {
         headings: dom.headings,
-        keepWithNextLabels: dom.keepWithNextLabels,
-        continuationContextLabels: dom.continuationContextLabels,
+        keepWithNextLabels,
+        continuationContextLabels,
         tableCount: dom.tableCount,
         tableHeaders: dom.tableHeaders,
         horizontalOverflow: dom.horizontalOverflow,

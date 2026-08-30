@@ -40,6 +40,8 @@ const viewports = [
 const scenarios = [
   { name: 'main-plate', url: '/index.html' },
   { name: 'main-plate-report-popup-placeholder', url: '/index.html', setup: setupMainPlateProjectMetaPlaceholder, assert: assertMainPlateReportPopupPlaceholder },
+  { name: 'main-single-plate', url: '/index.html', setup: setupMainSinglePlate, assert: assertMainSinglePlateReady },
+  { name: 'main-single-plate-report-popup', url: '/index.html', setup: setupMainSinglePlate, assert: assertMainSinglePlateReportPopup },
   { name: 'main-tension', url: '/index.html', setup: setupMainTension },
   { name: 'main-tension-report-popup', url: '/index.html', setup: setupMainTensionReport, assert: assertMainTensionReportPopup },
   { name: 'standalone-plate', url: '/plate-check.html' },
@@ -96,12 +98,85 @@ const LEGACY_STANDALONE_PLATE_PROJECT_META = {
   designer: 'Codex QA',
 };
 
+const SHEAR_TAB_ESCAPE_PROBE = '<img src=x onerror="window.__steelXss=1">';
+
+const SHEAR_TAB_FORMAL_STATE = {
+  projectName: '鋼構單剪力板正式證據驗證案',
+  connectionTag: 'ST-GOLDEN-001',
+  designer: 'Codex QA',
+  notes: '正式證據案例 ST-GOLDEN-001；輸入值與 calculator.smoke-test.js singlePlateBase 一致。',
+  designMethod: 'LRFD',
+  connectionType: 'single_plate',
+  exposureCondition: 'painted',
+  requiredAxial: 0,
+  requiredShear: 200,
+  requiredMoment: 0,
+  eccentricity: 35,
+  boltDiameter: 20,
+  holeDiameter: 21.5,
+  holeType: 'standard',
+  edgeFabrication: 'rolled',
+  boltUltimateStrength: 1000,
+  boltGrade: 'F10T',
+  threadsCondition: 'included',
+  deformationConsidered: 'true',
+  boltCount: 4,
+  shearPlanes: 1,
+  endDistance: 40,
+  pitch: 75,
+  plateThickness: 9,
+  plateYieldStrength: 235,
+  plateUltimateStrength: 490,
+  transverseEdgeDistance: 40,
+  plateHeight: 305,
+  boltLineToWeldDistance: 70,
+  weldEccentricity: 70,
+  beamWebThickness: 8,
+  beamWebYieldStrength: 235,
+  beamWebUltimateStrength: 490,
+  beamWebEndDistance: 40,
+  beamWebEdgeDistance: 40,
+  supportThickness: 12,
+  supportYieldStrength: 325,
+  supportUltimateStrength: 490,
+  fillerThickness: 0,
+  fillerExtended: 'true',
+  weldSize: 6,
+  weldLength: 305,
+  weldLineCount: 2,
+  weldElectrodeStrength: 490,
+  demandBasis: '驗證分析模型 ST-GOLDEN-001／ULS 節點反力表 R-01（Vu = 200 kN）',
+  geometryBasis: '驗證核定圖 S-502／接頭 ST-GOLDEN-001（tp = 9 mm、4-M20 標準孔 dh = 21.5 mm、s = 75 mm）',
+  materialBasis: '驗證材料表 M-01／F10T 螺栓證明 B-01（Fy = 235 MPa、Fu = 490 MPa）',
+  eccentricityBasis: '驗證接頭模型 ST-GOLDEN-001（eb = 35 mm、ew = 70 mm、a = 70 mm）',
+  conventionalMaterialConfirmed: 'true',
+  connectionModelConfirmed: 'true',
+};
+
+const SHEAR_TAB_XSS_STATE = {
+  projectName: `${SHEAR_TAB_FORMAL_STATE.projectName} ${SHEAR_TAB_ESCAPE_PROBE}`,
+  notes: `${SHEAR_TAB_FORMAL_STATE.notes}${SHEAR_TAB_ESCAPE_PROBE}`,
+  demandBasis: `${SHEAR_TAB_FORMAL_STATE.demandBasis}${SHEAR_TAB_ESCAPE_PROBE}`,
+};
+
+const SHEAR_TAB_ARTIFACT_REQUIRED_NEEDLES = [
+  'ST-GOLDEN-001',
+  '工程師確認模型',
+  '偏心栓群螺栓剪力',
+  '偏心銲群銲材強度',
+  '剪力板全斷面剪力降伏',
+  '剪力板淨斷面剪力斷裂',
+  'Shear Tab 派生幾何與面積',
+  '材料延性',
+];
+
 const FORMAL_REPORT_TRACE_LABELS = ['產出工具', '工具版本', '輸出時間', '計算指紋'];
 const FORMAL_REPORT_REFERENCE_NEEDLES = ['功能借鏡', 'SkyCiv', 'ClearCalcs', 'Dlubal'];
+const STEEL_FORMAL_REPORT_INPUT_LABEL_ALLOWLIST = new Set(['適用範圍', '設計備註']);
 const CALCULATION_BOOK_UI_ONLY_NEEDLES = [...new Set([
   ...Object.values(CALCULATION_BOOK_CONTENT_BOUNDARY.forbiddenCategories).flat(),
   '可切換', '面積直輸模式', '面積輸入模式', '設計依據與限制條件', '適用範圍', '限制與不適用事項', '審查提醒', '設計備註',
-])];
+])].filter(needle => !STEEL_FORMAL_REPORT_INPUT_LABEL_ALLOWLIST.has(needle));
 
 function assertFormalReportTraceText(value, label) {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
@@ -383,6 +458,32 @@ async function setupMainTensionReport(cdp, sessionId) {
 
 async function setupStandalonePlateReport(cdp, sessionId) {
   await setupLegacyProjectMeta(cdp, sessionId, LEGACY_STANDALONE_PLATE_PROJECT_META, 'standalone plate project meta setup');
+}
+
+async function setupMainSinglePlate(cdp, sessionId) {
+  await evaluate(cdp, sessionId, `(() => {
+    window.__steelXss = 0;
+    const connectionType = document.querySelector('select[name="connectionType"]');
+    const preset = document.querySelector('#examplePresetSelect');
+    const loadButton = document.querySelector('#loadExampleBtn');
+    if (!connectionType || !preset || !loadButton) throw new Error('missing Shear Tab preset controls');
+    connectionType.value = 'single_plate';
+    connectionType.dispatchEvent(new Event('change', { bubbles: true }));
+    preset.value = 'single_plate_standard';
+    preset.dispatchEvent(new Event('change', { bubbles: true }));
+    loadButton.click();
+
+    const fields = ${JSON.stringify(SHEAR_TAB_FORMAL_STATE)};
+    Object.entries(fields).forEach(([name, value]) => {
+      const input = document.querySelector('[name="' + name + '"]');
+      if (!input) throw new Error('missing [name="' + name + '"]');
+      input.value = value;
+    });
+    const updateTrigger = document.querySelector('[name="connectionModelConfirmed"]');
+    updateTrigger.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`, 'main single plate formal verification setup');
+  await wait(350);
 }
 
 async function setupMainPlateProjectMetaPlaceholder(cdp, sessionId) {
@@ -688,7 +789,7 @@ async function assertMainPlateReportPopupPlaceholder(cdp, sessionId, context = {
       tag: LEGACY_PROJECT_META_PLACEHOLDER.connectionTag,
       designer: LEGACY_PROJECT_META_PLACEHOLDER.designer,
     },
-    absentNeedles: ['未填'],
+    adoptedPlaceholderNeedle: '計畫名稱 未填',
     sourcePayloadBuilder: 'buildSteelConnectionSourcePayload',
     sourceReplay: {
       builder: 'buildSteelConnectionSourcePayload', inputSelector: '#importSourceJsonInput',
@@ -696,6 +797,240 @@ async function assertMainPlateReportPopupPlaceholder(cdp, sessionId, context = {
       statusSelector: '#exportReportStatus', nestedFields: false,
     },
     renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-main-plate' : '',
+  });
+}
+
+async function assertMainSinglePlateReady(cdp, sessionId) {
+  const snapshot = await evaluate(cdp, sessionId, `(() => {
+    const result = window.latestSteelConnectionResult;
+    const payload = window.buildSteelConnectionSourcePayload?.();
+    const calculate = window.ShearConnectionCalculator?.calculateConnection;
+    const summarizeGate = (candidate) => ({
+      passes: candidate?.passes === true,
+      overallStatus: candidate?.overallStatus || '',
+      failingKeys: (candidate?.detailChecks || []).filter(item => !item.passes).map(item => item.key),
+      failingStrengthKeys: (candidate?.checks || []).filter(item => item.ratio > 1).map(item => item.key),
+      plateFlexureAvailable: (candidate?.checks || []).find(item => item.key === 'plateFlexure')?.available,
+    });
+    const gateProbes = typeof calculate === 'function' && result?.state ? {
+      materialUnconfirmed: summarizeGate(calculate({
+        ...result.state,
+        conventionalMaterialConfirmed: false,
+      })),
+      highStrengthConfirmed: summarizeGate(calculate({
+        ...result.state,
+        plateYieldStrength: 690,
+        plateUltimateStrength: 780,
+        beamWebYieldStrength: 690,
+        beamWebUltimateStrength: 780,
+        conventionalMaterialConfirmed: true,
+      })),
+      oversizedPitch: summarizeGate(calculate({ ...result.state, pitch: 76.3 })),
+      oversizedHeight: summarizeGate(calculate({ ...result.state, plateHeight: 914.5 })),
+      boltEccentricityFlexure: summarizeGate(calculate({
+        ...result.state,
+        requiredShear: 45.008108,
+        eccentricity: 400,
+        pitch: 60,
+        plateThickness: 5,
+        plateUltimateStrength: 620,
+        plateHeight: 260,
+        boltLineToWeldDistance: 40,
+        weldEccentricity: 40,
+        beamWebThickness: 5,
+        beamWebUltimateStrength: 620,
+        supportThickness: 5,
+        supportYieldStrength: 235,
+        supportUltimateStrength: 620,
+        weldSize: 3.125,
+        weldLength: 218.75,
+        deformationConsidered: false,
+      })),
+    } : null;
+    return {
+      connectionType: result?.state?.connectionType || '',
+      complianceReady: result?.complianceReady === true,
+      passes: result?.passes === true,
+      checkCount: result?.checks?.length || 0,
+      detailFailureCount: (result?.detailChecks || []).filter(item => !item.passes).length,
+      detailFailures: (result?.detailChecks || []).filter(item => !item.passes).map(item => ({
+        key: item.key, label: item.label, provided: item.provided, required: item.required, note: item.note,
+      })),
+      escapeProbeImageCount: Array.from(document.querySelectorAll('img')).filter(node =>
+        String(node.getAttribute('onerror') || '').includes('__steelXss')).length,
+      escapeProbeExecuted: window.__steelXss === 1,
+      escapeProbeTextVisible: (document.body?.innerText || '').includes(${JSON.stringify(SHEAR_TAB_ESCAPE_PROBE)}),
+      grossShearArea: result?.derivedAreas?.Agv,
+      netShearArea: result?.derivedAreas?.Anv,
+      adoptedShear: result?.designDemand?.adoptedShear,
+      project: payload?.project || null,
+      fields: payload?.fields || null,
+      sourceFingerprint: payload?.calculationFingerprint || '',
+      reportFingerprint: payload?.report?.calculationFingerprint || '',
+      banner: document.querySelector('#reportBanner')?.textContent || '',
+      gateProbes,
+    };
+  })()`, 'main single plate formal verification state');
+  const expectedProject = {
+    name: SHEAR_TAB_FORMAL_STATE.projectName,
+    no: SHEAR_TAB_FORMAL_STATE.connectionTag,
+    designer: SHEAR_TAB_FORMAL_STATE.designer,
+  };
+  if (snapshot.connectionType !== 'single_plate' || !snapshot.complianceReady || !snapshot.passes
+      || snapshot.checkCount !== 10 || snapshot.detailFailureCount !== 0) {
+    throw new Error(`main single plate should be formally ready with ten strength routes: ${JSON.stringify(snapshot)}`);
+  }
+  if (Math.abs(snapshot.grossShearArea - 2745) > 1e-9
+      || Math.abs(snapshot.netShearArea - 1917) > 1e-9
+      || Math.abs(snapshot.adoptedShear - 200) > 1e-9) {
+    throw new Error(`main single plate browser golden values drifted: ${JSON.stringify(snapshot)}`);
+  }
+  if (JSON.stringify(snapshot.project) !== JSON.stringify(expectedProject)) {
+    throw new Error(`main single plate project trace mismatch: ${JSON.stringify(snapshot.project)}`);
+  }
+  if (snapshot.escapeProbeImageCount !== 0 || snapshot.escapeProbeExecuted || snapshot.escapeProbeTextVisible) {
+    throw new Error(`main single plate golden state should be free of the XSS probe literal: ${JSON.stringify(snapshot)}`);
+  }
+  for (const key of ['demandBasis', 'geometryBasis', 'materialBasis', 'eccentricityBasis']) {
+    if (snapshot.fields?.[key] !== SHEAR_TAB_FORMAL_STATE[key] || /示例|請依專案覆寫/.test(String(snapshot.fields?.[key] || ''))) {
+      throw new Error(`main single plate ${key} is not the governed verification value: ${JSON.stringify(snapshot.fields?.[key])}`);
+    }
+  }
+  if (snapshot.fields?.connectionModelConfirmed !== true
+      || snapshot.fields?.conventionalMaterialConfirmed !== true
+      || !/^CF-[0-9A-F]{16}$/.test(snapshot.sourceFingerprint)
+      || snapshot.reportFingerprint !== snapshot.sourceFingerprint) {
+    throw new Error(`main single plate source snapshot/material-model confirmation mismatch: ${JSON.stringify(snapshot)}`);
+  }
+  const gateExpectations = [
+    ['materialUnconfirmed', ['singlePlateConventionalMaterialConfirmed']],
+    ['highStrengthConfirmed', ['singlePlateConventionalPlateFy', 'singlePlateConventionalBeamWebFy']],
+    ['oversizedPitch', ['singlePlateConventionalPitch']],
+    ['oversizedHeight', ['singlePlateConventionalHeight']],
+  ];
+  for (const [probeName, expectedKeys] of gateExpectations) {
+    const probe = snapshot.gateProbes?.[probeName];
+    if (!probe || probe.passes || probe.overallStatus !== 'fail'
+        || expectedKeys.some(key => !probe.failingKeys.includes(key))) {
+      throw new Error(`main single plate ${probeName} should remain fail-closed at the material/geometric hard gate: ${JSON.stringify(snapshot.gateProbes)}`);
+    }
+  }
+  const flexureProbe = snapshot.gateProbes?.boltEccentricityFlexure;
+  if (!flexureProbe || flexureProbe.passes || flexureProbe.overallStatus !== 'fail'
+      || !flexureProbe.failingStrengthKeys.includes('plateFlexure')
+      || Math.abs(flexureProbe.plateFlexureAvailable - 44.679375) > 1e-9) {
+    throw new Error(`main single plate eb=400/ew=40 should be blocked by e_p=max(e_b,e_w) plate flexure: ${JSON.stringify(snapshot.gateProbes)}`);
+  }
+}
+
+async function assertMainSinglePlateXssIsolation(cdp, sessionId) {
+  const injection = await evaluate(cdp, sessionId, `(() => {
+    window.__steelXss = 0;
+    const fields = ${JSON.stringify(SHEAR_TAB_XSS_STATE)};
+    Object.entries(fields).forEach(([name, value]) => {
+      const input = document.querySelector('[name="' + name + '"]');
+      if (!input) throw new Error('missing XSS probe field [name="' + name + '"]');
+      input.value = value;
+    });
+    const updateTrigger = document.querySelector('[name="connectionModelConfirmed"]');
+    if (!updateTrigger) throw new Error('missing XSS probe update trigger');
+    updateTrigger.dispatchEvent(new Event('change', { bubbles: true }));
+    const payload = window.buildSteelConnectionSourcePayload?.();
+    window.__steelSourceReplayPayload = payload;
+    return {
+      passes: window.latestSteelConnectionResult?.passes === true,
+      fields: payload?.fields || null,
+      sourceFingerprint: payload?.calculationFingerprint || '',
+      reportFingerprint: payload?.report?.calculationFingerprint || '',
+      escapeProbeImageCount: Array.from(document.querySelectorAll('img')).filter(node =>
+        String(node.getAttribute('onerror') || '').includes('__steelXss')).length,
+      escapeProbeExecuted: window.__steelXss === 1,
+      escapeProbeTextVisible: (document.body?.innerText || '').includes(${JSON.stringify(SHEAR_TAB_ESCAPE_PROBE)}),
+    };
+  })()`, 'main single plate XSS injection');
+  if (!injection.passes
+      || injection.fields?.projectName !== SHEAR_TAB_XSS_STATE.projectName
+      || injection.fields?.notes !== SHEAR_TAB_XSS_STATE.notes
+      || injection.fields?.demandBasis !== SHEAR_TAB_XSS_STATE.demandBasis
+      || !/^CF-[0-9A-F]{16}$/.test(injection.sourceFingerprint)
+      || injection.reportFingerprint !== injection.sourceFingerprint
+      || injection.escapeProbeImageCount !== 0 || injection.escapeProbeExecuted || !injection.escapeProbeTextVisible) {
+    throw new Error(`main single plate XSS injection should remain escaped and fingerprinted: ${JSON.stringify(injection)}`);
+  }
+
+  await assertSourceJsonReplay(cdp, sessionId, {
+    label: 'main single plate XSS source replay',
+    builder: 'buildSteelConnectionSourcePayload',
+    inputSelector: '#importSourceJsonInput',
+    mutationSelector: 'input[name="plateThickness"]:not([disabled])',
+    sourceFieldKey: 'plateThickness',
+    statusSelector: '#exportReportStatus',
+    nestedFields: false,
+    escapeProbeNeedle: SHEAR_TAB_ESCAPE_PROBE,
+    strictBooleanField: 'conventionalMaterialConfirmed',
+  });
+
+  const popup = await openLegacyReportPopup(cdp, sessionId, 'main single plate XSS popup', '#printReportBtn');
+  try {
+    const snapshot = await evaluate(cdp, popup.sessionId, `(() => ({
+      bodyText: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim(),
+      escapeProbeImageCount: Array.from(document.querySelectorAll('img')).filter(node =>
+        String(node.getAttribute('onerror') || '').includes('__steelXss')).length,
+      escapeProbeExecuted: window.__steelXss === 1,
+    }))()`, 'main single plate XSS popup snapshot');
+    const approvalState = await captureReportApprovalState(cdp, popup.sessionId, 'main single plate XSS popup');
+    verifySteelApprovedHtml(approvalState, 'main single plate XSS popup');
+    const approvedVisibleText = AttachmentPackageChecker.extractHtmlVisibleContent(approvalState.approvedHtml).text;
+    if (snapshot.escapeProbeImageCount !== 0 || snapshot.escapeProbeExecuted
+        || !snapshot.bodyText.includes(SHEAR_TAB_ESCAPE_PROBE)
+        || !approvedVisibleText.includes(SHEAR_TAB_ESCAPE_PROBE)
+        || approvalState.approvedHtml.includes(SHEAR_TAB_ESCAPE_PROBE)) {
+      throw new Error(`main single plate XSS popup should preserve the probe as escaped visible text only: ${JSON.stringify(snapshot)}`);
+    }
+  } finally {
+    await cdp.send('Target.closeTarget', { targetId: popup.targetId }).catch(() => {});
+  }
+}
+
+async function assertMainSinglePlateReportPopup(cdp, sessionId, context = {}) {
+  await assertMainSinglePlateReady(cdp, sessionId);
+  await assertMainSinglePlateXssIsolation(cdp, sessionId);
+  await setupMainSinglePlate(cdp, sessionId);
+  await assertMainSinglePlateReady(cdp, sessionId);
+  return assertLegacyReportPopup(cdp, sessionId, {
+    label: 'main single plate report popup',
+    buttonSelector: '#printReportBtn',
+    titleNeedle: '剪力接頭檢核計算書',
+    expectedProject: {
+      name: SHEAR_TAB_FORMAL_STATE.projectName,
+      tag: SHEAR_TAB_FORMAL_STATE.connectionTag,
+      designer: SHEAR_TAB_FORMAL_STATE.designer,
+    },
+    sourcePayloadBuilder: 'buildSteelConnectionSourcePayload',
+    sourceReplay: {
+      builder: 'buildSteelConnectionSourcePayload', inputSelector: '#importSourceJsonInput',
+      mutationSelector: 'input[name="plateThickness"]:not([disabled])', sourceFieldKey: 'plateThickness',
+      statusSelector: '#exportReportStatus', nestedFields: false,
+      strictBooleanField: 'conventionalMaterialConfirmed',
+    },
+    expectedSourceFields: {
+      requiredShear: 200,
+      holeDiameter: 21.5,
+      plateThickness: 9,
+      weldEccentricity: 70,
+      weldLength: 305,
+      weldLineCount: 2,
+      demandBasis: SHEAR_TAB_FORMAL_STATE.demandBasis,
+      geometryBasis: SHEAR_TAB_FORMAL_STATE.geometryBasis,
+      materialBasis: SHEAR_TAB_FORMAL_STATE.materialBasis,
+      eccentricityBasis: SHEAR_TAB_FORMAL_STATE.eccentricityBasis,
+      conventionalMaterialConfirmed: true,
+      connectionModelConfirmed: true,
+    },
+    artifactRequiredNeedles: SHEAR_TAB_ARTIFACT_REQUIRED_NEEDLES,
+    absentNeedles: [SHEAR_TAB_ESCAPE_PROBE],
+    continuationContextLabels: ['暴露條件', '銲腳尺寸 a', 'φRn,h', 'Vavailable', '自由邊距 g', '板淨剪力面積 Anv', '端距 e', '採用偏心 e_b'],
+    renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-main-shear-tab' : '',
   });
 }
 
@@ -715,6 +1050,7 @@ async function assertMainTensionReportPopup(cdp, sessionId, context = {}) {
       mutationSelector: 'input[name="memberThickness"]:not([disabled])', sourceFieldKey: 'memberThickness',
       statusSelector: '#exportReportStatus', nestedFields: false,
     },
+    continuationContextLabels: ['Fu 490 MPa'],
     renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-main-tension' : '',
   });
 }
@@ -906,6 +1242,7 @@ async function assertFormalProjectMetaPlaceholderRendered(cdp, sessionId, select
 async function assertSourceJsonReplay(cdp, sessionId, options) {
   const state = await evaluate(cdp, sessionId, `(async () => {
     const source = window.__steelSourceReplayPayload;
+    const serializedSource = JSON.parse(JSON.stringify(source));
     const builder = window[${JSON.stringify(options.builder)}];
     const input = document.querySelector(${JSON.stringify(options.inputSelector)});
     const field = document.querySelector(${JSON.stringify(options.mutationSelector)});
@@ -913,10 +1250,54 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
     if (!source || typeof builder !== 'function' || !input || !field || !status) {
       throw new Error('source replay prerequisites missing');
     }
+    const escapeProbeNeedle = ${JSON.stringify(options.escapeProbeNeedle || '')};
     const expectedValue = ${options.nestedFields
       ? `source.fields?.[${JSON.stringify(options.sourceFieldKey)}]?.value`
       : `source.fields?.[${JSON.stringify(options.sourceFieldKey)}]`};
     if (expectedValue === undefined) throw new Error('source replay field missing');
+    const describeValue = (value, present = true) => {
+      if (!present) return { type: 'missing', value: '<missing>' };
+      if (value === undefined) return { type: 'undefined', value: '<undefined>' };
+      if (typeof value === 'number' && !Number.isFinite(value)) return { type: 'non-finite-number', value: String(value) };
+      if (value === null) return { type: 'null', value: null };
+      return { type: Array.isArray(value) ? 'array' : typeof value, value };
+    };
+    const firstDifference = (payloadValue, replayValue, currentPath = 'report') => {
+      if (Object.is(payloadValue, replayValue)) return null;
+      if (Array.isArray(payloadValue) || Array.isArray(replayValue)) {
+        if (!Array.isArray(payloadValue) || !Array.isArray(replayValue)) {
+          return { path: currentPath, payload: describeValue(payloadValue), replay: describeValue(replayValue) };
+        }
+        if (payloadValue.length !== replayValue.length) {
+          return { path: currentPath + '.length', payload: describeValue(payloadValue.length), replay: describeValue(replayValue.length) };
+        }
+        for (let index = 0; index < payloadValue.length; index += 1) {
+          const difference = firstDifference(payloadValue[index], replayValue[index], currentPath + '[' + index + ']');
+          if (difference) return difference;
+        }
+        return null;
+      }
+      const payloadObject = payloadValue && typeof payloadValue === 'object';
+      const replayObject = replayValue && typeof replayValue === 'object';
+      if (!payloadObject || !replayObject) {
+        return { path: currentPath, payload: describeValue(payloadValue), replay: describeValue(replayValue) };
+      }
+      const keys = Array.from(new Set([...Object.keys(payloadValue), ...Object.keys(replayValue)])).sort();
+      for (const key of keys) {
+        const payloadHasKey = Object.prototype.hasOwnProperty.call(payloadValue, key);
+        const replayHasKey = Object.prototype.hasOwnProperty.call(replayValue, key);
+        if (!payloadHasKey || !replayHasKey) {
+          return {
+            path: currentPath + '.' + key,
+            payload: describeValue(payloadValue[key], payloadHasKey),
+            replay: describeValue(replayValue[key], replayHasKey),
+          };
+        }
+        const difference = firstDifference(payloadValue[key], replayValue[key], currentPath + '.' + key);
+        if (difference) return difference;
+      }
+      return null;
+    };
     const triggerImport = async (payload, statusNeedle) => {
       const transfer = new DataTransfer();
       transfer.items.add(new File([JSON.stringify(payload)], 'calculation-source.json', { type: 'application/json' }));
@@ -924,33 +1305,76 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
       input.dispatchEvent(new Event('change', { bubbles: true }));
       const startedAt = Date.now();
       while (Date.now() - startedAt < 5000) {
-        if ((status.textContent || '').includes(statusNeedle)) return status.textContent || '';
+        if ((status.textContent || '').includes(statusNeedle)) return { matched: true, text: status.textContent || '' };
         await new Promise(resolve => setTimeout(resolve, 25));
       }
-      throw new Error('source replay status timeout: ' + (status.textContent || ''));
+      return { matched: false, text: status.textContent || '' };
     };
-    field.value = String(Number(field.value || 0) + 17);
+    let reportDifference = null;
+    if (serializedSource.connectionType === 'single_plate' && ${options.nestedFields ? 'false' : 'true'}) {
+      Object.entries(serializedSource.fields || {}).forEach(([name, value]) => {
+        const sourceField = document.querySelector('[name="' + name + '"]');
+        if (!sourceField) throw new Error('missing strict replay field [name="' + name + '"]');
+        sourceField.value = String(value);
+      });
+      const updateTrigger = document.querySelector('[name="connectionModelConfirmed"]');
+      updateTrigger.dispatchEvent(new Event('change', { bubbles: true }));
+      reportDifference = firstDifference(serializedSource.report, builder()?.report);
+    }
+    field.value = String(Number(expectedValue) + 17);
     field.dispatchEvent(new Event('change', { bubbles: true }));
-    const successStatus = await triggerImport(source, '已匯入並重現計算');
+    const success = await triggerImport(serializedSource, '已匯入並重現計算');
+    if (!success.matched) {
+      return {
+        importFailed: true,
+        successStatus: success.text,
+        reportDifference,
+        sourceFingerprint: serializedSource.calculationFingerprint,
+        inputCleared: input.value === '',
+      };
+    }
     const replay = builder();
     const restoredValue = field.value;
-    const invalid = JSON.parse(JSON.stringify(source));
+    const invalid = JSON.parse(JSON.stringify(serializedSource));
     invalid.tool.version = 'V999.0';
     const beforeReject = builder().calculationFingerprint;
-    const rejectedStatus = await triggerImport(invalid, '工具版本不符');
+    const rejected = await triggerImport(invalid, '工具版本不符');
     const afterReject = builder().calculationFingerprint;
+    const strictBooleanField = ${JSON.stringify(options.strictBooleanField || '')};
+    let booleanRejected = { matched: true, text: '' };
+    let beforeBooleanReject = afterReject;
+    let afterBooleanReject = afterReject;
+    if (strictBooleanField) {
+      const invalidBoolean = JSON.parse(JSON.stringify(serializedSource));
+      invalidBoolean.fields[strictBooleanField] = String(invalidBoolean.fields[strictBooleanField]);
+      beforeBooleanReject = builder().calculationFingerprint;
+      booleanRejected = await triggerImport(invalidBoolean, strictBooleanField + ' 必須為布林值');
+      afterBooleanReject = builder().calculationFingerprint;
+    }
     return {
       expectedValue: String(expectedValue),
       restoredValue: String(restoredValue),
-      sourceFingerprint: source.calculationFingerprint,
+      sourceFingerprint: serializedSource.calculationFingerprint,
       replayFingerprint: replay?.calculationFingerprint || '',
-      successStatus,
-      rejectedStatus,
+      successStatus: success.text,
+      rejectedStatus: rejected.text,
+      booleanRejectedStatus: booleanRejected.text,
+      reportDifference,
       beforeReject,
       afterReject,
+      beforeBooleanReject,
+      afterBooleanReject,
       inputCleared: input.value === '',
+      escapeProbeImageCount: escapeProbeNeedle
+        ? Array.from(document.querySelectorAll('img')).filter(node => String(node.getAttribute('onerror') || '').includes('__steelXss')).length
+        : 0,
+      escapeProbeExecuted: escapeProbeNeedle ? window.__steelXss === 1 : false,
+      escapeProbeTextVisible: escapeProbeNeedle ? (document.body?.innerText || '').includes(escapeProbeNeedle) : true,
     };
   })()`, `${options.label} source JSON replay`);
+  if (state.importFailed) {
+    throw new Error(`${options.label} source replay failed: ${state.successStatus}; first payload.report/replay.report difference=${JSON.stringify(state.reportDifference)}`);
+  }
   if (state.restoredValue !== state.expectedValue || state.replayFingerprint !== state.sourceFingerprint) {
     throw new Error(`${options.label} source replay mismatch: ${JSON.stringify(state)}`);
   }
@@ -959,6 +1383,15 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
   }
   if (state.beforeReject !== state.afterReject || !state.inputCleared) {
     throw new Error(`${options.label} rejected source should preserve state and clear file input: ${JSON.stringify(state)}`);
+  }
+  if (options.strictBooleanField
+      && (!state.booleanRejectedStatus.includes(`${options.strictBooleanField} 必須為布林值`)
+        || !state.booleanRejectedStatus.includes('已保留原輸入')
+        || state.beforeBooleanReject !== state.afterBooleanReject)) {
+    throw new Error(`${options.label} should reject a stringified ${options.strictBooleanField} without changing state: ${JSON.stringify(state)}`);
+  }
+  if (state.escapeProbeImageCount !== 0 || state.escapeProbeExecuted || !state.escapeProbeTextVisible) {
+    throw new Error(`${options.label} source replay should preserve the XSS probe as visible text only: ${JSON.stringify(state)}`);
   }
   return state;
 }
@@ -1110,7 +1543,7 @@ async function waitForDownloadedArtifact(filePath, timeoutMs = 10000) {
   throw new Error(`timed out waiting for downloaded artifact: ${filePath}`);
 }
 
-async function verifySteelTextDownload(cdp, sessionId, label, evidenceKey) {
+async function verifySteelTextDownload(cdp, sessionId, label, evidenceKey, artifactRequiredNeedles = [], artifactForbiddenNeedles = []) {
   const prepared = await evaluate(cdp, sessionId, `(() => {
     const button = document.getElementById('repDownloadCurrentText');
     const builder = window.buildReportText;
@@ -1164,9 +1597,13 @@ async function verifySteelTextDownload(cdp, sessionId, label, evidenceKey) {
     '計算指紋：CF-',
     '文字版限制：不含可列印圖形',
     '文字內容 SHA-256（非數位簽章）：',
+    ...artifactRequiredNeedles,
   ];
   for (const fragment of requiredFragments) {
     if (!content.includes(fragment)) throw new Error(`${label} downloaded TXT missing ${fragment}`);
+  }
+  for (const fragment of artifactForbiddenNeedles) {
+    if (content.includes(fragment)) throw new Error(`${label} downloaded TXT includes forbidden ${fragment}`);
   }
   if (!hasBom || content !== prepared.text || buffer.length <= 1024) {
     throw new Error(`${label} TXT content/BOM/substance mismatch: ${JSON.stringify({ hasBom, bytes: buffer.length, matchesBuilder: content === prepared.text })}`);
@@ -1256,6 +1693,9 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
     header: document.querySelector('.rep-header h1')?.innerText?.trim() || '',
     bodyText: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim(),
     html: document.documentElement?.outerHTML || '',
+    escapeProbeImageCount: Array.from(document.querySelectorAll('img')).filter(node =>
+      String(node.getAttribute('onerror') || '').includes('__steelXss')).length,
+    escapeProbeExecuted: window.__steelXss === 1,
     metaRows: Array.from(document.querySelectorAll('.rep-meta div')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
     sectionHeadings: Array.from(document.querySelectorAll('.rep-paper h3')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
     uiCardCount: document.querySelectorAll('.rep-highlights, .rep-summary-facts').length,
@@ -1396,7 +1836,7 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
   }
   const dualSealEvidence = verifySteelApprovedHtml(approvalState, options.label);
   if (options.renderEvidenceKey) {
-    await verifySteelTextDownload(cdp, popup.sessionId, options.label, options.renderEvidenceKey);
+    await verifySteelTextDownload(cdp, popup.sessionId, options.label, options.renderEvidenceKey, options.artifactRequiredNeedles, options.absentNeedles);
   }
   if (snapshot.bodyText.includes('DRAFT')) {
     throw new Error(`${options.label} should not render a DRAFT banner: ${snapshot.bodyText}`);
@@ -1438,8 +1878,9 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
       renderer: 'steel-formal-attachment',
       contentBoundaryProfile: 'traceable-calculation-book',
       titleNeedle: options.titleNeedle,
-      requiredNeedles: [options.titleNeedle, '計畫名稱', '計算過程明細', '檢核結論', '文件狀態：正式附件', '核可時間', ...FORMAL_REPORT_TRACE_LABELS],
+      requiredNeedles: [options.titleNeedle, '計畫名稱', '計算過程明細', '檢核結論', '文件狀態：正式附件', '核可時間', ...FORMAL_REPORT_TRACE_LABELS, ...(options.artifactRequiredNeedles || [])],
       forbiddenNeedles,
+      continuationContextLabels: options.continuationContextLabels || [],
     });
     assertFormalReportTraceText(fs.readFileSync(evidence.pdf.textPath, 'utf8'), `${options.label} rendered PDF`);
     renderedEvidenceRecords.push({
@@ -1507,13 +1948,22 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
     header: document.querySelector('h1')?.innerText?.trim() || '',
     bodyText: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim(),
     html: document.documentElement?.outerHTML || '',
+    escapeProbeImageCount: Array.from(document.querySelectorAll('img')).filter(node =>
+      String(node.getAttribute('onerror') || '').includes('__steelXss')).length,
+    escapeProbeExecuted: window.__steelXss === 1,
     metaRows: Array.from(document.querySelectorAll('.meta div')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
     sectionHeadings: Array.from(document.querySelectorAll('.paper h3')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
   }))()`, `${options.label} snapshot`);
   const approvalState = await captureReportApprovalState(cdp, popup.sessionId, options.label);
   const dualSealEvidence = verifySteelApprovedHtml(approvalState, options.label);
+  const approvedVisibleText = AttachmentPackageChecker.extractHtmlVisibleContent(approvalState.approvedHtml).text;
+  for (const needle of options.absentNeedles || []) {
+    if (approvedVisibleText.includes(needle) || approvalState.approvedHtml.includes(needle)) {
+      throw new Error(`${options.label} approved HTML should exclude ${needle}`);
+    }
+  }
   if (options.renderEvidenceKey) {
-    await verifySteelTextDownload(cdp, popup.sessionId, options.label, options.renderEvidenceKey);
+    await verifySteelTextDownload(cdp, popup.sessionId, options.label, options.renderEvidenceKey, options.artifactRequiredNeedles, options.absentNeedles);
   }
   if (!snapshot.title.includes(options.titleNeedle) || !snapshot.header.includes(options.titleNeedle)) {
     throw new Error(`${options.label} title mismatch: ${JSON.stringify(snapshot)}`);
@@ -1535,6 +1985,20 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
       throw new Error(`${options.label} should exclude "${needle}": ${snapshot.bodyText}`);
     }
   }
+  for (const needle of options.artifactRequiredNeedles || []) {
+    if (!snapshot.bodyText.includes(needle)) {
+      throw new Error(`${options.label} should include "${needle}": ${snapshot.bodyText}`);
+    }
+  }
+  if (options.escapeProbeNeedle
+      && (snapshot.escapeProbeImageCount !== 0 || snapshot.escapeProbeExecuted || !snapshot.bodyText.includes(options.escapeProbeNeedle))) {
+    throw new Error(`${options.label} should render the XSS probe as visible text only: ${JSON.stringify(snapshot)}`);
+  }
+  if (options.escapeProbeNeedle) {
+    if (!approvedVisibleText.includes(options.escapeProbeNeedle) || approvalState.approvedHtml.includes(options.escapeProbeNeedle)) {
+      throw new Error(`${options.label} approved HTML should preserve escaped XSS-probe text without an executable tag`);
+    }
+  }
   const legacyConclusionIndex = snapshot.sectionHeadings.lastIndexOf('檢核結論');
   if (legacyConclusionIndex < 0 || legacyConclusionIndex !== snapshot.sectionHeadings.length - 1) {
     throw new Error(`${options.label} should place 檢核結論 after calculation content: ${JSON.stringify(snapshot.sectionHeadings)}`);
@@ -1551,6 +2015,9 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
   if (options.expectedProject.designer ? !designerRow.includes(options.expectedProject.designer) : Boolean(designerRow)) {
     throw new Error(`${options.label} project designer mismatch: ${JSON.stringify(snapshot.metaRows)}`);
   }
+  if (options.adoptedPlaceholderNeedle && !snapshot.bodyText.includes(options.adoptedPlaceholderNeedle)) {
+    throw new Error(`${options.label} should preserve the blank adopted input without emitting a project metadata row: ${snapshot.bodyText}`);
+  }
   assertFormalReportTraceText(snapshot.bodyText, options.label);
   if (snapshot.bodyText.includes('DRAFT')) {
     throw new Error(`${options.label} should not render a DRAFT banner: ${snapshot.bodyText}`);
@@ -1566,6 +2033,11 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
     }
     if (sourcePayload.project?.no !== options.expectedProject.tag) {
       throw new Error(`${options.label} source payload project mismatch: ${JSON.stringify(sourcePayload.project)}`);
+    }
+    for (const [key, expectedValue] of Object.entries(options.expectedSourceFields || {})) {
+      if (sourcePayload.fields?.[key] !== expectedValue) {
+        throw new Error(`${options.label} source payload field ${key} mismatch: ${JSON.stringify(sourcePayload.fields?.[key])}`);
+      }
     }
     if (!sourceExport.download?.filename?.endsWith('.json') || !sourceExport.status.includes(sourcePayload.calculationFingerprint)) {
       throw new Error(`${options.label} source JSON download/status mismatch: ${JSON.stringify(sourceExport)}`);
@@ -1591,8 +2063,9 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
       renderer: 'steel-formal-attachment',
       contentBoundaryProfile: 'traceable-calculation-book',
       titleNeedle: options.titleNeedle,
-      requiredNeedles: [options.titleNeedle, ...(options.expectedProject.name ? ['計畫名稱'] : []), '檢核結論', '文件狀態：正式附件', '核可時間', ...FORMAL_REPORT_TRACE_LABELS],
+      requiredNeedles: [options.titleNeedle, ...(options.expectedProject.name ? ['計畫名稱'] : []), ...(options.adoptedPlaceholderNeedle ? [options.adoptedPlaceholderNeedle] : []), '檢核結論', '文件狀態：正式附件', '核可時間', ...FORMAL_REPORT_TRACE_LABELS, ...(options.artifactRequiredNeedles || [])],
       forbiddenNeedles,
+      continuationContextLabels: options.continuationContextLabels || [],
     });
     assertFormalReportTraceText(fs.readFileSync(evidence.pdf.textPath, 'utf8'), `${options.label} rendered PDF`);
     renderedEvidenceRecords.push({
@@ -2063,7 +2536,7 @@ async function main() {
       renderedEvidenceDir,
       'steel-formal',
       renderedEvidenceRecords,
-      ['steel-main-plate', 'steel-main-tension', 'steel-standalone-plate', 'steel-beam-formal', 'steel-column-formal']
+      ['steel-main-plate', 'steel-main-shear-tab', 'steel-main-tension', 'steel-standalone-plate', 'steel-beam-formal', 'steel-column-formal']
     )
     : null;
   if (renderedSummary) {

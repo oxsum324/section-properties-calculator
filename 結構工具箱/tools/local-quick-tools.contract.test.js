@@ -86,7 +86,7 @@ const formalManifestPath = assertFile('tools/formal-tools.manifest.json');
 const formalManifestText = readText(formalManifestPath);
 const formalManifest = JSON.parse(formalManifestText);
 
-assert.equal(manifest.version, '0.5.0', 'local quick tools manifest version');
+assert.equal(manifest.version, '0.6.0', 'local quick tools manifest version');
 assert.equal(manifest.family, 'local-quick-tools', 'local quick tools manifest family');
 assert.ok(Array.isArray(tools), 'local quick tools manifest tools');
 assert.ok(tools.length >= 3, 'local quick tools manifest tool count');
@@ -219,7 +219,7 @@ const formalBrowserSmokeTestText = readText(formalBrowserSmokeTestPath);
 const ExportHelper = require(exportHelperPath);
 
 [
-  '"version": "0.5.0"',
+  '"version": "0.6.0"',
   '"family": "local-quick-tools"',
   '"shared"',
   '"runner"',
@@ -1704,10 +1704,10 @@ for (const tool of tools) {
     '優先閱讀',
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, `${tool.key} page-only readiness copy`));
-  if (['foundation-local', 'earth-pressure', 'equipment-load', 'floor-slab-westergaard'].includes(tool.key)) {
+  if (['foundation-local', 'earth-pressure', 'equipment-load', 'floor-slab-westergaard', 'cable-tension-frequency'].includes(tool.key)) {
     assertPrintHidesSelectors(html, ['.case-actions'], `${tool.key} print-only case helper boundary`);
   }
-  if (['foundation-local', 'earth-pressure', 'equipment-load', 'floor-slab-westergaard'].includes(tool.key)) {
+  if (['foundation-local', 'earth-pressure', 'equipment-load', 'floor-slab-westergaard', 'cable-tension-frequency'].includes(tool.key)) {
     [
       'Exporter.renderStatusGridPanel',
       '產出工具：${escapeHtml(reportTrace.sourceTrace.tool)}',
@@ -1744,11 +1744,25 @@ for (const tool of tools) {
   if (tool.key === 'earth-pressure') assertIncludes(html, 'id="earthReportReadiness"', `${tool.key} page-only readiness target`);
   if (tool.key === 'foundation-local') assertIncludes(html, 'id="foundationReportReadiness"', `${tool.key} page-only readiness target`);
   if (tool.key === 'floor-slab-westergaard') assertIncludes(html, 'id="floorSlabReportReadiness"', `${tool.key} page-only readiness target`);
+  if (tool.key === 'cable-tension-frequency') {
+    [
+      'id="cableTensionReportReadiness"',
+      'id="harmonicToleranceBasis"',
+      'id="targetTensionBasis"',
+      '0.1%–10% 是本頁有效輸入範圍；實際門檻須由專案指定',
+      'function renderCalculationFailure',
+      'try{result=Core.calculate(input);}',
+      '專案指定依據：${r.input.harmonicToleranceBasis}',
+      '容許差 ±${fmt(r.input.targetTolerancePct,2)}%',
+      '上下限 ${fmt(r.target.lowerKn,3)}–${fmt(r.target.upperKn,3)} kN',
+      '逐項檢核與失敗原因',
+    ].forEach(needle => assertIncludes(html, needle, `${tool.key} fail-closed criterion and report disclosure`));
+  }
   // 已正式化的工具（report standard）不再以「初估」標示；尚未正式化者仍須保留
   if (!['foundation-local', 'equipment-load', 'floor-slab-westergaard'].includes(tool.key)) {
     assertIncludes(html, '初估', `${tool.key} html estimate label`);
   }
-  if (!['foundation-local', 'earth-pressure', 'equipment-load', 'floor-slab-westergaard'].includes(tool.key)) {
+  if (!['foundation-local', 'earth-pressure', 'equipment-load', 'floor-slab-westergaard', 'cable-tension-frequency'].includes(tool.key)) {
     [
       '工具與責任邊界',
       '輸入格式',

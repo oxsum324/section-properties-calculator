@@ -10,6 +10,7 @@ const { calculateConnection } = require(productionCorePath);
 for (const token of [
   '<option value="plate_check">連接板檢核｜Connection Plate</option>',
   '<option value="tension_member">拉力構件｜Tension Member</option>',
+  '<option value="single_plate">剪力接頭｜單剪力板 Shear Tab｜LRFD</option>',
   '<script src="./calculator.js"></script>',
   '<script src="./app.js"></script>',
 ]) {
@@ -17,6 +18,7 @@ for (const token of [
 }
 for (const token of [
   'const { calculateConnection } = window.ShearConnectionCalculator;',
+  'exampleStates.single_plate',
   'exampleStates.tension_member',
   'buildConnectionReportConfig(result)',
 ]) {
@@ -60,6 +62,90 @@ function validateInput(input) {
     if (item?.tensionWeldType === 'groove_cjp') {
       validatePositiveFields(item, ['tensionWeldLengthTransverse', 'tensionDirectConnectedArea'], prefix, issues);
     }
+  }
+  const expectedSinglePlateIds = [
+    'singlePlateG1MinimumForce',
+    'singlePlateG2F10TM20Eccentric',
+    'singlePlateNegativeShear',
+    'singlePlateAsdBlocked',
+    'singlePlateGeometryRejected',
+  ];
+  if (!Array.isArray(input?.singlePlateCases) || input.singlePlateCases.length !== expectedSinglePlateIds.length) {
+    issues.push('singlePlateCases:five-required');
+  }
+  const actualSinglePlateIds = (input?.singlePlateCases || []).map(item => item?.id);
+  if (actualSinglePlateIds.join('|') !== expectedSinglePlateIds.join('|')) {
+    issues.push('singlePlateCases:case-order-and-ids');
+  }
+  for (const [index, item] of (input?.singlePlateCases || []).entries()) {
+    const prefix = `singlePlateCases[${index}]`;
+    validatePositiveFields(item, [
+      'boltDiameter', 'holeDiameter', 'boltUltimateStrength', 'boltCount', 'shearPlanes',
+      'endDistance', 'pitch', 'plateThickness', 'plateYieldStrength', 'plateUltimateStrength',
+      'transverseEdgeDistance', 'plateHeight', 'boltLineToWeldDistance', 'beamWebThickness',
+      'beamWebYieldStrength', 'beamWebUltimateStrength', 'beamWebEndDistance', 'beamWebEdgeDistance',
+      'supportThickness', 'supportYieldStrength', 'supportUltimateStrength', 'weldSize', 'weldLength',
+      'weldLineCount', 'weldElectrodeStrength',
+    ], prefix, issues);
+    for (const key of ['requiredAxial', 'requiredShear', 'requiredMoment', 'eccentricity', 'weldEccentricity', 'fillerThickness']) {
+      if (!Number.isFinite(Number(item?.[key]))) issues.push(`${prefix}.${key}:finite-required`);
+    }
+    if (!['LRFD', 'ASD'].includes(item?.designMethod)) issues.push(`${prefix}.designMethod:unsupported`);
+    if (item?.holeType !== 'standard') issues.push(`${prefix}.holeType:standard-required`);
+    if (item?.boltGrade !== 'F10T') issues.push(`${prefix}.boltGrade:F10T-required`);
+    if (!['included', 'excluded'].includes(item?.threadsCondition)) issues.push(`${prefix}.threadsCondition:unsupported`);
+    if (![true, 'true', false, 'false'].includes(item?.deformationConsidered)) issues.push(`${prefix}.deformationConsidered:boolean-required`);
+    if (![true, 'true', false, 'false'].includes(item?.fillerExtended)) issues.push(`${prefix}.fillerExtended:boolean-required`);
+    if (![true, 'true', false, 'false'].includes(item?.conventionalMaterialConfirmed)) issues.push(`${prefix}.conventionalMaterialConfirmed:boolean-required`);
+    if (![true, 'true', false, 'false'].includes(item?.connectionModelConfirmed)) issues.push(`${prefix}.connectionModelConfirmed:boolean-required`);
+    for (const key of ['demandBasis', 'geometryBasis', 'materialBasis', 'eccentricityBasis']) {
+      if (!String(item?.[key] || '').trim()) issues.push(`${prefix}.${key}:basis-required`);
+    }
+  }
+  const singlePlateById = Object.fromEntries((input?.singlePlateCases || []).map(item => [item?.id, item]));
+  if (!(Math.abs(Number(singlePlateById.singlePlateG1MinimumForce?.requiredShear)) < 4.5 * 9.80665)) {
+    issues.push('singlePlateCases:G1-minimum-force-required');
+  }
+  const g2 = singlePlateById.singlePlateG2F10TM20Eccentric;
+  if (!(g2?.boltGrade === 'F10T' && Number(g2?.boltDiameter) === 20 && Number(g2?.holeDiameter) === 21.5
+    && Number(g2?.boltUltimateStrength) === 1000 && Number(g2?.boltCount) === 4
+    && Number(g2?.eccentricity) === Number(g2?.boltLineToWeldDistance) / 2
+    && Number(g2?.weldEccentricity) === Number(g2?.boltLineToWeldDistance)
+    && Number(g2?.weldLineCount) === 2
+    && Number(g2?.weldSize) >= 0.625 * Number(g2?.plateThickness)
+    && g2?.conventionalMaterialConfirmed === true
+    && Number(g2?.plateYieldStrength) <= 345 && Number(g2?.beamWebYieldStrength) <= 345
+    && Number(g2?.pitch) <= 76.2 && Number(g2?.plateHeight) <= 914.4)) {
+    issues.push('singlePlateCases:G2-F10T-M20-eccentric-required');
+  }
+  for (const id of ['singlePlateG1MinimumForce', 'singlePlateG2F10TM20Eccentric', 'singlePlateNegativeShear', 'singlePlateAsdBlocked']) {
+    if (!(Number(singlePlateById[id]?.boltDiameter) === 20 && Number(singlePlateById[id]?.holeDiameter) === 21.5)) {
+      issues.push(`singlePlateCases:${id}:M20-standard-hole-required`);
+    }
+  }
+  if (!(Number(singlePlateById.singlePlateNegativeShear?.requiredShear) < 0)) {
+    issues.push('singlePlateCases:negative-shear-required');
+  }
+  if (singlePlateById.singlePlateAsdBlocked?.designMethod !== 'ASD') {
+    issues.push('singlePlateCases:ASD-block-required');
+  }
+  const rejectedGeometry = singlePlateById.singlePlateGeometryRejected;
+  if (!(Number(rejectedGeometry?.plateHeight) < 2 * Number(rejectedGeometry?.endDistance)
+    + Math.max(Number(rejectedGeometry?.boltCount) - 1, 0) * Number(rejectedGeometry?.pitch))) {
+    issues.push('singlePlateCases:geometry-rejection-required');
+  }
+  if (!(Number(rejectedGeometry?.boltDiameter) === 20 && Number(rejectedGeometry?.holeDiameter) > 21.5
+    && Number(rejectedGeometry?.boltCount) >= 6 && Number(rejectedGeometry?.boltCount) <= 12
+    && Number(rejectedGeometry?.eccentricity) < Number(rejectedGeometry?.boltLineToWeldDistance)
+    && Number(rejectedGeometry?.weldEccentricity) < Number(rejectedGeometry?.boltLineToWeldDistance)
+    && Number(rejectedGeometry?.weldLineCount) !== 2
+    && Number(rejectedGeometry?.weldSize) < 0.625 * Number(rejectedGeometry?.plateThickness)
+    && rejectedGeometry?.conventionalMaterialConfirmed === true
+    && Number(rejectedGeometry?.plateYieldStrength) > 345
+    && Number(rejectedGeometry?.beamWebYieldStrength) > 345
+    && Number(rejectedGeometry?.pitch) > 76.2
+    && Number(rejectedGeometry?.plateHeight) > 914.4)) {
+    issues.push('singlePlateCases:detail-rejection-required');
   }
   return issues;
 }
@@ -177,12 +263,80 @@ function calculateTensionCase(input) {
   return output;
 }
 
+function calculateSinglePlateCase(input) {
+  const result = calculateConnection({ ...input, connectionType: 'single_plate' });
+  const checkPrefixes = {
+    boltShearEccentric: 'bolt',
+    plateBearing: 'plateBearing',
+    beamBearing: 'beamBearing',
+    plateGrossShearYield: 'plateYield',
+    plateNetShearRupture: 'plateRupture',
+    plateBlockShear: 'plateBlock',
+    beamWebBlockShear: 'beamBlock',
+    plateFlexure: 'plateFlexure',
+    weldMetalEccentric: 'weldMetal',
+    weldBaseMetalEccentric: 'weldBase',
+  };
+  const output = {
+    lrfd: result.state.designMethod === 'LRFD' ? 1 : 0,
+    checkCount: result.checks.length,
+    enteredShear: result.designDemand.enteredShear,
+    minimumConnectionShear: result.designDemand.minimumConnectionShear,
+    adoptedShear: result.designDemand.adoptedShear,
+    grossShearArea: result.derivedAreas.Agv,
+    netShearArea: result.derivedAreas.Anv,
+    plateBlockAgv: result.derivedAreas.plateBlockAgv,
+    plateBlockAnv: result.derivedAreas.plateBlockAnv,
+    plateBlockAgt: result.derivedAreas.plateBlockAgt,
+    plateBlockAnt: result.derivedAreas.plateBlockAnt,
+    beamBlockAgv: result.derivedAreas.beamBlockAgv,
+    beamBlockAnv: result.derivedAreas.beamBlockAnv,
+    beamBlockAgt: result.derivedAreas.beamBlockAgt,
+    beamBlockAnt: result.derivedAreas.beamBlockAnt,
+    governingBolt: result.governing?.key === 'boltShearEccentric' ? 1 : 0,
+    methodPass: detailByKey(result, 'singlePlateMethod').passes ? 1 : 0,
+    positiveShearPass: detailByKey(result, 'singlePlatePositiveShear').passes ? 1 : 0,
+    boltDiameterTablePass: detailByKey(result, 'singlePlateBoltDiameterTable').passes ? 1 : 0,
+    holeDiameterPass: detailByKey(result, 'singlePlateHoleDiameter').passes ? 1 : 0,
+    standardHoleMaximum: detailByKey(result, 'singlePlateStandardHoleMaximum').required,
+    standardHoleMaximumPass: detailByKey(result, 'singlePlateStandardHoleMaximum').passes ? 1 : 0,
+    boltEccentricityRequired: detailByKey(result, 'singlePlateBoltEccentricity').required,
+    boltEccentricityPass: detailByKey(result, 'singlePlateBoltEccentricity').passes ? 1 : 0,
+    weldEccentricityRequired: detailByKey(result, 'singlePlateWeldEccentricity').required,
+    weldEccentricityPass: detailByKey(result, 'singlePlateWeldEccentricity').passes ? 1 : 0,
+    doubleFilletWeldPass: detailByKey(result, 'singlePlateDoubleFilletWeld').passes ? 1 : 0,
+    conventionalWeldSizeRequired: detailByKey(result, 'singlePlateConventionalWeldSize').required,
+    conventionalWeldSizePass: detailByKey(result, 'singlePlateConventionalWeldSize').passes ? 1 : 0,
+    plateMaterialOrderPass: detailByKey(result, 'singlePlatePlateMaterialOrder').passes ? 1 : 0,
+    beamWebMaterialOrderPass: detailByKey(result, 'singlePlateBeamWebMaterialOrder').passes ? 1 : 0,
+    supportMaterialOrderPass: detailByKey(result, 'singlePlateSupportMaterialOrder').passes ? 1 : 0,
+    conventionalPlateFyPass: detailByKey(result, 'singlePlateConventionalPlateFy').passes ? 1 : 0,
+    conventionalBeamWebFyPass: detailByKey(result, 'singlePlateConventionalBeamWebFy').passes ? 1 : 0,
+    conventionalMaterialConfirmedPass: detailByKey(result, 'singlePlateConventionalMaterialConfirmed').passes ? 1 : 0,
+    conventionalPitchPass: detailByKey(result, 'singlePlateConventionalPitch').passes ? 1 : 0,
+    conventionalHeightPass: detailByKey(result, 'singlePlateConventionalHeight').passes ? 1 : 0,
+    geometryPass: detailByKey(result, 'singlePlatePlateHeight').passes ? 1 : 0,
+    strengthPass: result.summary.strengthFailure ? 0 : 1,
+    detailPass: result.detailChecks.every(item => item.passes) ? 1 : 0,
+    validationFailure: result.summary.validationFailure ? 1 : 0,
+    complianceReady: result.complianceReady ? 1 : 0,
+    overallPass: result.passes ? 1 : 0,
+  };
+  for (const [key, prefix] of Object.entries(checkPrefixes)) {
+    const check = checkByKey(result, key);
+    output[`${prefix}Available`] = check.available;
+    output[`${prefix}Ratio`] = check.ratio;
+  }
+  return output;
+}
+
 function calculate(input) {
   const issues = validateInput(input);
   if (issues.length) throw new RangeError(`invalid-steel-formal-benchmark-input:${issues.join(',')}`);
   return {
     [input.plateCase.id]: calculatePlateCase(input.plateCase),
     ...Object.fromEntries(input.tensionCases.map(item => [item.id, calculateTensionCase(item)])),
+    ...Object.fromEntries(input.singlePlateCases.map(item => [item.id, calculateSinglePlateCase(item)])),
   };
 }
 

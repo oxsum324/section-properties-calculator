@@ -116,7 +116,7 @@ const stoneVersionContext = { window: {} };
 vm.runInNewContext(stoneVersionSource, stoneVersionContext, { timeout: 1000, filename: 'stone-public-metadata' });
 const stoneMetadata = stoneVersionContext.window.StonePublicMetadata;
 
-assert.equal(homeTools.length, 50, 'canonical homepage tool inventory count');
+assert.equal(homeTools.length, 51, 'canonical homepage tool inventory count');
 assert.equal(new Set(homeTools.map(tool => tool.href)).size, homeTools.length, 'canonical homepage routes are unique');
 for (const tool of homeTools) {
   assert.ok(tool.title && tool.version && tool.state && tool.output && tool.summary && tool.fit && tool.limit, `canonical public claim complete: ${tool.href}`);
@@ -164,6 +164,19 @@ for (const [route, metadataKey] of [
   assert.equal(tool.state, 'formal', `canonical steel claim is formal: ${route}`);
   assert.equal(tool.governance, 'steel-audit', `canonical steel claim uses steel governance: ${route}`);
   assert.equal(steelMetadata[metadataKey].version, tool.version, `steel runtime version matches canonical claim: ${route}`);
+}
+const steelFormalClaim = canonicalTool('/steel-formal');
+assert.ok(
+  ['連接板', '拉力構件', '單剪力板 Shear Tab'].every((needle) => `${steelFormalClaim.output} ${steelFormalClaim.summary}`.includes(needle)),
+  'canonical steel family claim names every formal module without adding a route'
+);
+const singlePlateOption = steelLauncher.match(/<option\s+value="single_plate"[^>]*>[\s\S]*?<\/option>/)?.[0] || '';
+assert.ok(singlePlateOption.includes('Shear Tab'), 'steel launcher exposes Shear Tab in the existing formal family route');
+assert.equal(/\bdisabled\b/.test(singlePlateOption), false, 'steel launcher enables formal Shear Tab');
+assert.ok(steelApp.includes('single_plate: "剪力接頭｜單剪力板 Shear Tab｜LRFD 正式模組"'), 'steel app labels Shear Tab as a formal module');
+for (const value of ['column_splice', 'brace_gusset', 'beam_column_moment']) {
+  const option = steelLauncher.match(new RegExp(`<option\\s+value="${value}"[^>]*>[\\s\\S]*?<\\/option>`))?.[0] || '';
+  assert.ok(option && /\bdisabled\b/.test(option) && option.includes('開發中'), `steel launcher retains development boundary: ${value}`);
 }
 [
   '../結構工具箱/core/direct-print-boundary.css',
@@ -229,7 +242,7 @@ for (const [toolKey, metadata] of Object.entries(formalToolMetadata)) {
   assert.ok(page.includes(metadata.version), `formal-family page exposes canonical version: ${metadata.route}`);
 }
 
-assert.equal(Object.keys(localQuickToolMetadata).length, 5, 'local quick public metadata covers every local quick route');
+assert.equal(Object.keys(localQuickToolMetadata).length, 6, 'local quick public metadata covers every local quick route');
 for (const [toolKey, metadata] of Object.entries(localQuickToolMetadata)) {
   const tool = canonicalTool(metadata.route);
   const folder = toolKey === 'foundation-local'
@@ -238,7 +251,9 @@ for (const [toolKey, metadata] of Object.entries(localQuickToolMetadata)) {
       ? 'equipment'
       : (toolKey === 'floor-slab-westergaard'
         ? 'floor-slab'
-        : (toolKey === 'rc-column-cover-deviation' ? 'rc' : 'earth')));
+        : (toolKey === 'rc-column-cover-deviation'
+          ? 'rc'
+          : (toolKey === 'cable-tension-frequency' ? 'cable-tension' : 'earth'))));
   const pageName = toolKey === 'rc-column-cover-deviation' ? 'column-cover-deviation' : toolKey;
   const page = readText(`結構工具箱/tools/${folder}/${pageName}.html`);
   assert.equal(tool.version, metadata.version, `local-quick public version matches canonical claim: ${metadata.route}`);

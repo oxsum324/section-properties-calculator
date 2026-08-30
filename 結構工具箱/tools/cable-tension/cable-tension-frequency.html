@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>鋼索索力評估（頻率法快算） V0.1</title>
+  <link rel="stylesheet" href="../../core/style.css">
+  <link rel="stylesheet" href="../../core/direct-print-boundary.css">
+  <link rel="stylesheet" href="../../core/report-readiness.css">
+  <style>
+    :root{--cable:#1d4ed8;--cable-dark:#172554;--cable-soft:#eff6ff;--line:#d8e2ef;--ink:#17212b}
+    *{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:var(--ink);font-family:"Microsoft JhengHei",Arial,sans-serif;line-height:1.55}
+    .page{max-width:1360px;margin:0 auto;padding:22px}.hero{background:linear-gradient(135deg,var(--cable-dark),var(--cable));color:#fff;border-radius:16px;padding:22px 24px;box-shadow:0 12px 32px rgba(29,78,216,.18)}
+    .hero h1{margin:0;font-size:clamp(1.45rem,3vw,2rem)}.hero p{margin:8px 0 0;color:#dbeafe}.hero-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.tag{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:4px 9px;font-size:.84rem}
+    .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 3px 14px rgba(15,23,42,.05)}.case-card{margin-top:16px}.section-title{font-weight:900;color:var(--cable-dark);margin:0 0 12px;font-size:1.05rem}
+    .form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.field label{display:block;font-weight:800;font-size:.88rem;margin-bottom:5px}.field input,.field select{width:100%;border:1px solid #bac7d9;border-radius:8px;padding:9px 10px;background:#fff;font:inherit}.field small{display:block;color:#5c6878;margin-top:4px}.span-2{grid-column:span 2}.span-3{grid-column:1/-1}
+    .case-actions,.output-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.case-actions{margin-top:12px}.btn{border:0;border-radius:8px;padding:9px 13px;font-weight:800;cursor:pointer}.btn-primary{background:var(--cable);color:#fff}.btn-secondary{background:#e8eef8;color:var(--cable-dark)}.btn-danger{background:#fff1f2;color:#9f1239;border:1px solid #fecdd3}.btn:focus{outline:3px solid rgba(37,99,235,.25)}
+    .main-layout{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(390px,.92fr);gap:16px;margin-top:16px}.stack{display:grid;gap:16px}.scope-box{background:var(--cable-soft);border-left:4px solid var(--cable);padding:11px 13px;border-radius:8px;color:#1e3a8a}.warning-box{background:#fff7ed;border-left:4px solid #f97316;padding:11px 13px;border-radius:8px;color:#7c2d12}
+    .confirm-row{display:flex;gap:9px;align-items:flex-start;padding:10px 12px;background:#f8fafc;border:1px solid #d9e2ec;border-radius:9px}.confirm-row input{margin-top:4px;transform:scale(1.15)}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}.measure-table{width:100%;min-width:620px;border-collapse:collapse;font-size:.86rem}.measure-table th,.measure-table td{border-bottom:1px solid #e5ebf3;padding:7px;text-align:left;vertical-align:top}.measure-table th{background:#eff4fb;color:#172554;white-space:nowrap}.measure-table input{width:100%;min-width:86px;border:1px solid #c1ccdb;border-radius:6px;padding:7px}.measure-table .row-actions{width:74px;text-align:center}
+    .banner-status{font-weight:900;padding:11px 13px;border-radius:9px;background:#edf2f7}.banner-status.ok{background:#ecfdf5;color:#065f46}.banner-status.fail{background:#fff7ed;color:#9a3412}.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.metric{border:1px solid #dfe6ef;border-left:4px solid #94a3b8;border-radius:9px;padding:10px;background:#fff}.metric.ok{border-left-color:#10b981}.metric.fail{border-left-color:#ef4444}.metric .label{display:block;color:#5f6d7d;font-size:.82rem}.metric .value{display:block;font-size:1.18rem;font-weight:900;color:#172554}.muted{color:#607080;font-size:.82rem}.check-list{display:grid;gap:8px}.check-item{border:1px solid #e1e7ef;border-radius:8px;padding:9px 10px}.check-item.ok{border-left:4px solid #10b981}.check-item.fail{border-left:4px solid #ef4444}.check-item.warn{border-left:4px solid #f59e0b}.check-item .k{font-weight:900;display:block}.check-item .v{font-size:.86rem;color:#526170}
+    .diagram-wrap{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fbfdff}.diagram-wrap svg{width:100%;height:auto;min-height:240px;display:block}.formula-list{font-size:.9rem}.formula-list code{font-family:Consolas,monospace;background:#edf2f7;border-radius:4px;padding:2px 5px}.formula-list p{margin:7px 0}.output-actions{margin-top:12px}.output-actions select{border:1px solid #bac7d9;border-radius:8px;padding:8px}.json-status{font-size:.84rem;color:#526170}
+    @media(max-width:920px){.main-layout{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr 1fr}.span-3{grid-column:1/-1}}
+    @media(max-width:560px){.page{padding:10px}.form-grid,.metrics{grid-template-columns:1fr}.span-2,.span-3{grid-column:auto}.hero{padding:18px}.btn{width:100%}}
+    @media print{.page-only-report-status,.case-actions{display:none!important}}
+  </style>
+</head>
+<body class="local-quick-output-page">
+  <div class="local-quick-direct-print-boundary" aria-hidden="true">
+    <h1>局部快算主頁列印已封鎖</h1>
+    <p>此頁是操作介面，不是計算書；本頁不得作為附件。</p>
+    <p>請回工具頁按「列印計算書」，在獨立計算書視窗列印或存成 PDF。</p>
+  </div>
+  <main class="page">
+    <header class="hero" data-smoke="cable-tension-frequency-smoke">
+      <h1>鋼索索力評估（頻率法快算）</h1>
+      <p>以振動有效長度、單位長度質量與實測固有頻率，依 taut-string 關係式反算軸向索力。</p>
+      <div class="hero-meta"><span class="tag">局部快算</span><span class="tag">現場量測初估</span><span class="tag">SI 單位</span><span class="tag" id="coreVersion">Core v0.1.0</span><span class="tag">公開版本 V0.1</span></div>
+    </header>
+
+    <section class="card case-card">
+      <h2 class="section-title">案件資料與案例管理</h2>
+      <div class="form-grid">
+        <div class="field"><label for="projName">計畫名稱</label><input id="projName" autocomplete="off"></div>
+        <div class="field"><label for="projNo">計畫編號</label><input id="projNo" autocomplete="off"></div>
+        <div class="field"><label for="projDesigner">設計／整理人</label><input id="projDesigner" autocomplete="off"></div>
+      </div>
+      <div class="case-actions">
+        <button class="btn btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
+        <button class="btn btn-secondary" id="btnSaveProject" type="button">另存案件 JSON</button>
+        <button class="btn btn-secondary" id="btnSaveDraft" type="button">暫存瀏覽器</button>
+        <button class="btn btn-secondary" id="btnLoadDraft" type="button">讀取暫存</button>
+        <button class="btn btn-danger" id="btnReset" type="button">恢復示例</button>
+        <input id="jsonFile" type="file" accept="application/json,.json" hidden>
+        <span class="json-status" id="jsonStatus">JSON 可用於保存與回讀本頁案例。</span>
+      </div>
+    </section>
+
+    <div class="main-layout cable-tension-shell">
+      <div class="stack">
+        <section class="card">
+          <h2 class="section-title">① 鋼索與量測基準</h2>
+          <div class="warning-box">目前 L、m、頻率列與判定門檻都是示例資料；請依專案量測與文件覆寫。即使勾選模型確認，只要必要依據仍含「示例資料」或其他不可追溯文字，就只能形成內部審閱，不得升為附件。</div>
+          <div class="form-grid">
+            <div class="field"><label for="effectiveLengthM">振動有效長度 L (m)</label><input id="effectiveLengthM" type="number" min="0.001" step="0.01" value="12"><small>採實際振動邊界間距，不直接等同圖面總長。</small></div>
+            <div class="field"><label for="massPerLengthKgM">單位長度質量 m (kg/m)</label><input id="massPerLengthKgM" type="number" min="0.001" step="0.01" value="4.8"><small>是質量，不是 N/m 或 kN/m；應含護套、填充與附著物。</small></div>
+            <div class="field"><label for="harmonicTolerancePct">諧波偏差容許值 (%)</label><input id="harmonicTolerancePct" type="number" min="0.1" max="10" step="0.1" value="3"><small>0.1%–10% 是本頁有效輸入範圍；實際門檻須由專案指定，並非規範上限或規範容許索力。</small></div>
+            <div class="field span-3"><label for="harmonicToleranceBasis">諧波偏差容許值依據</label><input id="harmonicToleranceBasis" value="示例資料（請依專案覆寫）：量測計畫指定之諧波一致性容許差"><small>請填專案量測計畫、程序書或工程師核定紀錄；待確認、不適用或無資料不得作為可追溯依據。</small></div>
+            <div class="field span-3"><label for="effectiveLengthBasis">有效長度依據</label><input id="effectiveLengthBasis" value="示例資料（請依專案覆寫）：兩端有效振動固定點間距"><small>請記錄量測點位、端部邊界或圖說依據。</small></div>
+            <div class="field span-3"><label for="massBasis">單位長度質量依據</label><input id="massBasis" value="示例資料（請依專案覆寫）：鋼索、護套與填充材合計質量"><small>優先採製造資料或實測秤重；不得以鋼材裸索密度取代整體質量。</small></div>
+            <div class="field span-3"><label for="frequencyBasis">頻率辨識依據</label><input id="frequencyBasis" value="示例資料（請依專案覆寫）：加速度歷時 FFT 峰值，並以振型節點確認 mode n"><small>只看頻譜峰值仍可能誤認振型，建議保留量測檔與振型判讀紀錄。</small></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2 class="section-title">② 實測固有頻率</h2>
+          <div class="scope-box">多振型時以 <code>fₙ = n·a</code> 過原點最小平方法擬合，並逐列比較 <code>fₙ/n</code>。若高振型偏離線性，可能是彎曲勁度、端部柔度、阻尼器、垂度或振型誤認，不應只取平均掩蓋。</div>
+          <div class="table-wrap" style="margin-top:10px">
+            <table class="measure-table">
+              <thead><tr><th>振型 n</th><th>實測頻率 fₙ (Hz)</th><th>量測／辨識備註</th><th></th></tr></thead>
+              <tbody id="measurementRows"></tbody>
+            </table>
+          </div>
+          <button class="btn btn-secondary" id="btnAddMeasurement" type="button" style="margin-top:9px">新增振型</button>
+        </section>
+
+        <section class="card">
+          <h2 class="section-title">③ 比較基準與模型確認</h2>
+          <div class="form-grid">
+            <div class="field"><label for="targetTensionKn">目標／基準索力 (kN，選填)</label><input id="targetTensionKn" type="number" min="0" step="1"><small>留空表示只反算、不做符合性判定。</small></div>
+            <div class="field"><label for="targetTolerancePct">目標索力容許偏差 (%)</label><input id="targetTolerancePct" type="number" min="0.1" max="10" step="0.5" value="5"><small>0.1%–10% 是本頁有效輸入範圍；有目標索力時，實際容許差須由專案指定。</small></div>
+            <div class="field span-3"><label for="targetTensionBasis">目標索力與容許差依據</label><input id="targetTensionBasis"><small>目標索力留空時可不填；有目標索力時須記錄張拉計畫、圖說或核定紀錄。</small></div>
+            <div class="field span-3"><label>模型適用確認</label><div class="confirm-row"><input id="assumptionConfirmed" type="checkbox"><label for="assumptionConfirmed">我已確認此案可先用理想張緊弦初估；垂度、彎曲勁度、端部柔度、斜度、阻尼器／集中質量與振動方向效應已另行評估或可忽略。</label></div></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2 class="section-title">④ 計算與輸出</h2>
+          <div class="warning-box">本頁只反算現況索力，不檢核鋼索強度、疲勞、錨頭、夾具、端部滑移、腐蝕斷絲、施工張拉程序或整體結構安全。若模型確認未勾選、諧波不一致或有阻尼器，結果僅供人工複核，應改採包含幾何與彎曲勁度的專案分析或直接量測。</div>
+          <div class="output-actions">
+            <button class="btn btn-primary" id="btnCalc" type="button">反算鋼索索力</button>
+            <button class="btn btn-secondary" id="btnPrint" type="button">列印計算書</button>
+            <button class="btn btn-secondary" id="btnJson" type="button">下載 JSON</button>
+            <label for="reportMode">計算書：</label><select id="reportMode"><option value="detailed">詳算式</option><option value="summary">簡易結果</option></select>
+          </div>
+        </section>
+
+        <section class="card page-only-report-status" id="cableTensionReportReadiness" data-report-readiness="blocked" data-report-readiness-scope="page-only"></section>
+      </div>
+
+      <aside class="stack">
+        <section class="card"><div class="banner-status" id="bannerStatus">尚未計算</div></section>
+        <section class="card"><h2 class="section-title">控制結果</h2><div class="metrics" id="metricGrid"></div></section>
+        <section class="card"><h2 class="section-title">檢核清單</h2><div class="check-list" id="checkList"></div></section>
+        <section class="card"><h2 class="section-title">頻率法模型示意</h2><div class="diagram-wrap"><svg id="cableTensionDiagram" viewBox="0 0 640 300" role="img" aria-label="鋼索有效長度、張力與振型示意"></svg></div></section>
+        <section class="card"><h2 class="section-title">計算內容</h2><div class="formula-list" id="stepBody"></div></section>
+      </aside>
+    </div>
+  </main>
+
+  <script src="../local-quick-tool-metadata.js"></script>
+  <script src="../../core/ui/report.js"></script>
+  <script src="../local-quick-export.js?v=0.2.0"></script>
+  <script src="cable-tension-frequency-core.js?v=0.1.0"></script>
+  <script>
+  (function () {
+    'use strict';
+    const Core = window.CableTensionFrequencyCore;
+    if (!Core) throw new Error('CableTensionFrequencyCore is not loaded.');
+    const PUBLIC_TOOL_VERSION = window.LocalQuickToolMetadata['cable-tension-frequency'].version;
+    const Exporter = window.LocalQuickExport;
+    const ReportUI = window.ToolReportUI;
+    if (!Exporter || !ReportUI) throw new Error('Local quick shared helpers are not loaded.');
+    const STORAGE_KEY = 'cable-tension-frequency-project-meta-v1';
+    const PROJECT_DRAFT_KEY = 'cable-tension-frequency-project-draft-v1';
+    const CASE_SCHEMA_VERSION = 'cable-tension-frequency.case.v1';
+    const CASE_FIELD_IDS = Object.freeze([
+      'effectiveLengthM','massPerLengthKgM','harmonicTolerancePct',
+      'effectiveLengthBasis','massBasis','frequencyBasis','harmonicToleranceBasis',
+      'targetTensionKn','targetTolerancePct','targetTensionBasis'
+    ]);
+    const DEFAULT_MEASUREMENTS = [
+      { mode:1, frequencyHz:6.588, note:'第一振型' },
+      { mode:2, frequencyHz:13.176, note:'第二振型' },
+      { mode:3, frequencyHz:19.764, note:'第三振型' }
+    ];
+    let lastResult = null;
+    let lastValidationMessage = '';
+
+    function $(id){return document.getElementById(id);}
+    function num(id){const value=Number.parseFloat($(id).value);return Number.isFinite(value)?value:0;}
+    function optionalNum(id){const raw=$(id).value.trim();if(raw==='')return null;const value=Number.parseFloat(raw);return Number.isFinite(value)?value:null;}
+    function fmt(value,digits){if(value==null||!Number.isFinite(value))return '—';return Number(value).toFixed(digits==null?3:digits);}
+    function escapeHtml(text){return String(text==null?'':text).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]);}
+    function statusClass(value){return value===true?'ok':(value===false?'fail':'warn');}
+    function reportModeLabel(){return $('reportMode').value==='summary'?'簡易結果':'詳算式';}
+
+    function measurementRowTemplate(item){
+      const value=Object.assign({mode:1,frequencyHz:1,note:''},item||{});
+      return `<tr class="measurement-row"><td><input data-field="mode" type="number" min="1" step="1" value="${value.mode}"></td><td><input data-field="frequencyHz" type="number" min="0.001" step="0.001" value="${value.frequencyHz}"></td><td><input data-field="note" value="${escapeHtml(value.note||'')}"></td><td class="row-actions"><button class="btn btn-danger remove-measurement" type="button">刪除</button></td></tr>`;
+    }
+    function bindMeasurementRows(){
+      Array.from(document.querySelectorAll('.measurement-row input')).forEach(input=>{input.addEventListener('input',calculateCableTensionFrequency);input.addEventListener('change',calculateCableTensionFrequency);});
+      Array.from(document.querySelectorAll('.remove-measurement')).forEach(button=>button.addEventListener('click',function(){if(document.querySelectorAll('.measurement-row').length<=1)return;button.closest('tr').remove();calculateCableTensionFrequency();}));
+    }
+    function renderMeasurementRows(rows){$('measurementRows').innerHTML=(rows&&rows.length?rows:DEFAULT_MEASUREMENTS).map(measurementRowTemplate).join('');bindMeasurementRows();}
+    function gatherMeasurements(){return Array.from(document.querySelectorAll('.measurement-row')).map(row=>{const field=name=>row.querySelector(`[data-field="${name}"]`).value;return{mode:Number.parseFloat(field('mode'))||0,frequencyHz:Number.parseFloat(field('frequencyHz'))||0,note:field('note').trim()};});}
+    function gatherInputs(){return{
+      effectiveLengthM:num('effectiveLengthM'),massPerLengthKgM:num('massPerLengthKgM'),harmonicTolerancePct:num('harmonicTolerancePct'),
+      effectiveLengthBasis:$('effectiveLengthBasis').value.trim(),massBasis:$('massBasis').value.trim(),frequencyBasis:$('frequencyBasis').value.trim(),harmonicToleranceBasis:$('harmonicToleranceBasis').value.trim(),
+      measurements:gatherMeasurements(),targetTensionKn:optionalNum('targetTensionKn'),targetTolerancePct:num('targetTolerancePct'),targetTensionBasis:$('targetTensionBasis').value.trim(),assumptionConfirmed:$('assumptionConfirmed').checked
+    };}
+    function gatherProjectInfo(){return{name:Exporter.normalizeProjectFieldValue($('projName').value),no:Exporter.normalizeProjectFieldValue($('projNo').value),designer:Exporter.normalizeProjectFieldValue($('projDesigner').value)};}
+
+    function renderReadiness(validationMessage){
+      const target=$('cableTensionReportReadiness');if(!target)return;
+      const message=typeof validationMessage==='string'?validationMessage:lastValidationMessage;let readinessLevel='blocked';let title='尚未完成計算，先不要產生計算書。';const items=[];
+      if(message){title='輸入尚未通過檢查，先不要產生計算書。';items.push({label:'輸入檢核',value:message});}
+      else if(lastResult){const failed=lastResult.checks.filter(check=>check.passed===false);const level = !lastResult.overallOk ? 'blocked' : 'ready';readinessLevel=level;title=lastResult.overallOk?'量測資料與模型確認已通過，可產生計算書附件。':'反算已完成，但仍有人工複核項目，僅可產生內部審閱版。';items.push({label:'反算索力',value:`${fmt(lastResult.fit.tensionKn,2)} kN；f₁,fit=${fmt(lastResult.fit.fundamentalFrequencyHz,3)} Hz`});items.push({label:'工程狀態',value:lastResult.summary.headline});if(failed[0])items.push({label:'優先處理 1',value:failed[0].detail});if(failed[1])items.push({label:'優先處理 2',value:failed[1].detail});}
+      items.push({label:'計算書模式',value:reportModeLabel()});items.push({label:'輸出邊界',value:'頁面顯示，不進計算書、列印或 PDF'});
+      Exporter.renderStatusGridPanel({target,level:readinessLevel,containerClassName:'page-only-report-status report-readiness',eyebrow:'頁面輔助｜產報前檢查｜優先閱讀',title,badge:readinessLevel==='ready'?'可作附件':'暫勿作附件',items,note:'此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認有效長度、整體線質量、振型辨識與 taut-string 模型適用性。'});
+    }
+    function renderBanner(r){$('bannerStatus').className=`banner-status ${r.overallOk?'ok':'fail'}`;$('bannerStatus').textContent=r.summary.headline;}
+    function renderMetrics(r){const targetText=r.target&&r.target.provided?`${fmt(r.target.deviationPct,2)} %`:'未提供';const metrics=[['反算索力 T',`${fmt(r.fit.tensionKn,2)} kN`,`約 ${fmt(r.fit.equivalentTf,2)} tf`,r.overallOk],['擬合基頻 f₁',`${fmt(r.fit.fundamentalFrequencyHz,3)} Hz`,`${r.measurements.length} 個振型`,true],['最大諧波偏差',`${fmt(r.fit.maxFrequencyDeviationPct,2)} %`,`專案門檻 ${fmt(r.input.harmonicTolerancePct,2)} %`,r.fit.maxFrequencyDeviationPct<=r.input.harmonicTolerancePct],['RMS 頻率殘差',`${fmt(r.fit.rmsFrequencyDeviationPct,2)} %`,'相對於擬合頻率',true],['目標索力差異',targetText,r.target&&r.target.provided?`目標 ${fmt(r.input.targetTensionKn,2)} kN ± ${fmt(r.input.targetTolerancePct,2)} %`:'只反算、不判定',r.target&&r.target.provided?r.target.passed:null],['有效長度 / 線質量',`${fmt(r.input.effectiveLengthM,3)} m`,`m=${fmt(r.input.massPerLengthKgM,3)} kg/m`,true]];$('metricGrid').innerHTML=metrics.map(m=>`<div class="metric ${statusClass(m[3])}"><span class="label">${escapeHtml(m[0])}</span><span class="value">${escapeHtml(m[1])}</span><div class="muted">${escapeHtml(m[2])}</div></div>`).join('');}
+    function renderChecks(r){$('checkList').innerHTML=r.checks.map(check=>`<div class="check-item ${statusClass(check.passed)}"><span class="k">${escapeHtml(check.label)}｜${check.passed===true?'通過':(check.passed===false?'不通過':'不適用')}</span><span class="v">${escapeHtml(check.detail)}</span></div>`).join('');}
+    function renderSteps(r){const rows=r.measurements.map(item=>`<tr><td>${item.mode}</td><td>${fmt(item.frequencyHz,3)}</td><td>${fmt(item.predictedFrequencyHz,3)}</td><td>${fmt(item.frequencyDeviationPct,2)} %</td><td>${fmt(item.tensionKn,2)} kN</td></tr>`).join('');$('stepBody').innerHTML=`<p><b>1. 理想張緊弦</b><br><code>fₙ = n/(2L) · √(T/m)</code>，反算 <code>Tₙ(N) = 4mL²(fₙ/n)²</code>。</p><p><b>2. 多振型過原點擬合</b><br><code>a = Σ(nfₙ)/Σ(n²) = ${fmt(r.fit.fundamentalFrequencyHz,5)} Hz</code><br><code>T(kN) = 4mL²a²/1000 = ${fmt(r.fit.tensionKn,3)} kN</code></p><div class="table-wrap"><table class="measure-table"><tr><th>n</th><th>實測 fₙ</th><th>擬合 n·a</th><th>偏差</th><th>單列反算 Tₙ</th></tr>${rows}</table></div><p><b>3. 一致性</b><br>最大諧波偏差 ${fmt(r.fit.maxFrequencyDeviationPct,2)} %；RMS ${fmt(r.fit.rmsFrequencyDeviationPct,2)} %。</p><div class="scope-box">工具與責任邊界：本頁採 taut-string 初估，不含垂度、彎曲勁度、端部柔度、阻尼器、集中質量或幾何非線性修正。</div>`;}
+    function drawDiagram(r){const svg=$('cableTensionDiagram');const mode=r&&r.measurements[0]?Math.max(1,Math.round(r.measurements[0].mode)):1;const points=[];for(let i=0;i<=80;i+=1){const x=80+480*i/80;const y=140-42*Math.sin(mode*Math.PI*i/80);points.push(`${x.toFixed(1)},${y.toFixed(1)}`);}svg.innerHTML=`<defs><marker id="cable-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="#b91c1c"/></marker></defs><g data-diagram-role="span"><rect x="54" y="82" width="26" height="116" rx="4" fill="#cbd5e1" stroke="#475569"/><rect x="560" y="82" width="26" height="116" rx="4" fill="#cbd5e1" stroke="#475569"/><line x1="80" y1="220" x2="560" y2="220" stroke="#64748b"/><line x1="80" y1="210" x2="80" y2="230" stroke="#64748b"/><line x1="560" y1="210" x2="560" y2="230" stroke="#64748b"/><text x="320" y="244" text-anchor="middle" font-size="13">振動有效長度 L = ${r?fmt(r.input.effectiveLengthM,3):'—'} m</text></g><g data-diagram-role="mode-shape"><polyline points="${points.join(' ')}" fill="none" stroke="#1d4ed8" stroke-width="5"/><line x1="80" y1="140" x2="560" y2="140" stroke="#93a4ba" stroke-dasharray="6 5"/><text x="320" y="60" text-anchor="middle" font-size="13" fill="#172554">示意振型 n=${mode}；實測 fₙ${r&&r.measurements[0]?`=${fmt(r.measurements[0].frequencyHz,3)} Hz`:''}</text></g><g data-diagram-role="tension"><line x1="128" y1="106" x2="84" y2="106" stroke="#b91c1c" stroke-width="4" marker-end="url(#cable-arrow)"/><line x1="512" y1="106" x2="556" y2="106" stroke="#b91c1c" stroke-width="4" marker-end="url(#cable-arrow)"/><text x="320" y="102" text-anchor="middle" font-size="14" font-weight="700" fill="#991b1b">T ${r?`≈ ${fmt(r.fit.tensionKn,2)} kN`:'待反算'}</text></g>`;}
+
+    function renderCalculationFailure(message){lastResult=null;lastValidationMessage=String(message||'輸入或衍生計算不合法，已封鎖結果。');$('bannerStatus').className='banner-status fail';$('bannerStatus').textContent=lastValidationMessage;$('metricGrid').innerHTML='';$('checkList').innerHTML='';$('stepBody').innerHTML=`<div class="warning-box">${escapeHtml(lastValidationMessage)}</div>`;drawDiagram(null);renderReadiness(lastValidationMessage);return null;}
+    function calculateCableTensionFrequency(){const input=gatherInputs();const errors=Core.validateInput(input);if(errors.length)return renderCalculationFailure(errors.join(' '));let result;try{result=Core.calculate(input);}catch(error){return renderCalculationFailure(`計算已封鎖：${error&&error.message?error.message:error}`);}lastResult=result;lastValidationMessage='';renderBanner(result);renderMetrics(result);renderChecks(result);renderSteps(result);drawDiagram(result);renderReadiness('');return result;}
+    function setJsonStatus(message,isError){$('jsonStatus').textContent=message;$('jsonStatus').style.color=isError?'#991b1b':'';}
+    function applyProjectInfo(project){const data=project||{};if(data.name!=null)$('projName').value=Exporter.normalizeProjectFieldValue(data.name);if(data.no!=null)$('projNo').value=Exporter.normalizeProjectFieldValue(data.no);if(data.designer!=null)$('projDesigner').value=Exporter.normalizeProjectFieldValue(data.designer);saveProjectInfo();}
+    function applyCaseSnapshot(snapshot){
+      const source=snapshot||{};const normalized=Core.normalizeInput(source.input);const errors=Core.validateInput(normalized);if(errors.length)throw new Error(errors.join(' '));
+      ['effectiveLengthM','massPerLengthKgM','harmonicTolerancePct'].forEach(id=>{$(id).value=normalized[id];});
+      $('targetTensionKn').value=normalized.targetTensionKn==null?'':normalized.targetTensionKn;$('targetTolerancePct').value=normalized.targetTolerancePct==null?5:normalized.targetTolerancePct;
+      ['effectiveLengthBasis','massBasis','frequencyBasis','harmonicToleranceBasis','targetTensionBasis'].forEach(id=>{$(id).value=normalized[id]||'';});$('assumptionConfirmed').checked=normalized.assumptionConfirmed===true;
+      renderMeasurementRows(normalized.measurements);applyProjectInfo(source.project);
+    }
+    function captureCaseSnapshot(){return{
+      project:{name:$('projName').value,no:$('projNo').value,designer:$('projDesigner').value},
+      inputValues:Object.fromEntries(CASE_FIELD_IDS.map(id=>[id,$(id).value])),
+      assumptionConfirmed:$('assumptionConfirmed').checked,
+      measurements:Array.from(document.querySelectorAll('.measurement-row')).map(row=>({
+        mode:row.querySelector('[data-field="mode"]').value,
+        frequencyHz:row.querySelector('[data-field="frequencyHz"]').value,
+        note:row.querySelector('[data-field="note"]').value
+      }))
+    };}
+    function restoreRawCaseSnapshot(snapshot){
+      const source=snapshot||{};const project=source.project||{};
+      $('projName').value=project.name==null?'':String(project.name);$('projNo').value=project.no==null?'':String(project.no);$('projDesigner').value=project.designer==null?'':String(project.designer);
+      const values=source.inputValues||{};CASE_FIELD_IDS.forEach(id=>{if(Object.prototype.hasOwnProperty.call(values,id))$(id).value=values[id];});
+      $('assumptionConfirmed').checked=source.assumptionConfirmed===true;renderMeasurementRows(source.measurements||[]);saveProjectInfo();calculateCableTensionFrequency();
+    }
+    function buildCableTensionReportTrace(r){return ReportUI.buildReportTrace({title:'鋼索索力評估（頻率法快算）計算書',outputSource:{tool:'鋼索索力評估（頻率法快算）',version:PUBLIC_TOOL_VERSION},snapshot:{calculationEngine:Core.version,input:r.input,result:r}});}
+    function applyImportedCase(payload,fileName){
+      try{ReportUI.validateCalculationCasePayload(payload,{expectedSchema:CASE_SCHEMA_VERSION,expectedToolId:'cable-tension-frequency',expectedVersion:PUBLIC_TOOL_VERSION});}
+      catch(error){const message=String(error&&error.message||error||'案件 JSON 驗證失敗').replace(/[。；\s]+$/,'');throw new Error(`${message}；已保留原輸入。`);}
+      const importedEngine=String(payload&&payload.tool&&payload.tool.calculationEngine||'').trim();
+      if(!importedEngine)throw new Error('案件 JSON 驗證失敗：缺少計算引擎版本；已保留原輸入。');
+      if(importedEngine!==String(Core.version))throw new Error(`案件 JSON 驗證失敗：計算引擎版本不符（來源 ${importedEngine}，目前 ${Core.version}）；已保留原輸入。`);
+      const replay=ReportUI.replayCalculationCasePayload(payload,{expectedSchema:CASE_SCHEMA_VERSION,expectedToolId:'cable-tension-frequency',expectedVersion:PUBLIC_TOOL_VERSION,capture:captureCaseSnapshot,apply:source=>applyCaseSnapshot({project:source.project,input:source.input}),recalculate:()=>Boolean(calculateCableTensionFrequency()),getFingerprint:()=>lastResult?buildCableTensionReportTrace(lastResult).calculationFingerprint:'',restore:restoreRawCaseSnapshot});
+      setJsonStatus(`已讀取 JSON：${fileName||'案例檔'}；已重現計算指紋 ${replay.calculationFingerprint}。`,false);
+    }
+    async function importJsonFile(file){if(!file)return;try{applyImportedCase(JSON.parse(await file.text()),file.name);}catch(error){setJsonStatus(`讀取失敗：${error.message||error}`,true);}finally{$('jsonFile').value='';}}
+    function buildProjectPayload(){
+      const r=lastResult||calculateCableTensionFrequency();
+      if(!r)return null;const reportTrace=buildCableTensionReportTrace(r);const payload=Exporter.buildPayload({
+        tool: {
+          id: 'cable-tension-frequency',
+          name: '鋼索索力評估（頻率法快算）',
+          version: PUBLIC_TOOL_VERSION,
+          pageVersion: PUBLIC_TOOL_VERSION,
+          calculationEngine: Core.version
+        },
+        project:gatherProjectInfo(),input:gatherInputs(),result:r,generatedAt:new Date().toISOString()
+      });
+      payload.schema=CASE_SCHEMA_VERSION;payload.calculationFingerprint=reportTrace.calculationFingerprint;return payload;
+    }
+    function downloadResultJson(){const payload=buildProjectPayload();if(!payload||!payload.result)return;Exporter.downloadJson(`cable-tension-frequency-${payload.generatedAt.slice(0,10)}.json`,payload);setJsonStatus('已產生含 schema、版本與計算指紋的 JSON，可用「讀取 JSON」驗證回復本頁案例。',false);}
+    function downloadProjectJson(){const payload=buildProjectPayload();if(!payload||!payload.result)return;Exporter.downloadJson(`cable-tension-frequency-project-${payload.generatedAt.slice(0,10)}.json`,payload);setJsonStatus('已存檔含 schema、版本與計算指紋的案件 JSON；回讀時會重算核對。',false);}
+
+    function reportRows(rows){return rows.map(row=>`<tr><th>${escapeHtml(row[0])}</th><td>${escapeHtml(row[1])}</td></tr>`).join('');}
+    function reportDiagram(r){drawDiagram(r);return $('cableTensionDiagram').outerHTML;}
+    function conditionRows(r){return[['振動有效長度',`${fmt(r.input.effectiveLengthM,3)} m；${r.input.effectiveLengthBasis}`],['單位長度質量',`${fmt(r.input.massPerLengthKgM,3)} kg/m；${r.input.massBasis}`],['頻率辨識',r.input.frequencyBasis],['量測振型',r.measurements.map(item=>`n=${item.mode}, f=${fmt(item.frequencyHz,3)} Hz`).join('；')],['諧波偏差門檻',`${fmt(r.input.harmonicTolerancePct,2)} %；專案指定依據：${r.input.harmonicToleranceBasis}；本頁有效輸入範圍 0.1%–10%`]];}
+    function resultRows(r){const target=r.target&&r.target.provided?`目標 ${fmt(r.input.targetTensionKn,3)} kN；容許差 ±${fmt(r.input.targetTolerancePct,2)}%；上下限 ${fmt(r.target.lowerKn,3)}–${fmt(r.target.upperKn,3)} kN；差異 ${fmt(r.target.deviationPct,2)}%；專案指定依據：${r.input.targetTensionBasis}；${r.target.passed?'符合':'不符合'}專案門檻`:'未提供，只反算不作符合性判定';return[['擬合基頻',`${fmt(r.fit.fundamentalFrequencyHz,5)} Hz`],['反算索力',`${fmt(r.fit.tensionKn,3)} kN（約 ${fmt(r.fit.equivalentTf,3)} tf）`],['諧波一致性',`最大偏差 ${fmt(r.fit.maxFrequencyDeviationPct,3)} %；RMS ${fmt(r.fit.rmsFrequencyDeviationPct,3)} %；門檻 ${fmt(r.input.harmonicTolerancePct,2)}%`],['目標比較',target],['模型確認',r.input.assumptionConfirmed?'已確認':'未確認']];}
+    function reportCheckRows(r){return r.checks.map(check=>`<tr><th>${escapeHtml(check.label)}</th><td>${check.passed===true?'通過':(check.passed===false?'不通過':'不適用')}</td><td>${escapeHtml(check.detail)}</td></tr>`).join('');}
+    function reportScopeNote(){return '採 FHWA 所示理想張緊弦關係 fₙ=n/(2L)√(T/m) 作現況索力初估；多振型只用於過原點擬合與一致性診斷，不自動修正垂度、彎曲勁度、端部柔度、斜度、阻尼器、集中質量或振動方向。鋼索強度、疲勞、錨頭、夾具、腐蝕斷絲、施工張拉與整體結構安全應另由正式詳算及現場調查確認。';}
+    function detailedBody(r,svgHtml){const rows=r.measurements.map(item=>`<tr><td>${item.mode}</td><td>${fmt(item.frequencyHz,4)}</td><td>${fmt(item.predictedFrequencyHz,4)}</td><td>${fmt(item.frequencyDeviationPct,3)} %</td><td>${fmt(item.tensionKn,3)}</td><td>${escapeHtml(item.note||'—')}</td></tr>`).join('');return `<h2>設計條件</h2><table>${reportRows(conditionRows(r))}</table><h2>計算示意圖</h2><div class="rpt-diagram">${svgHtml}</div><h2>計算內容</h2><div class="rpt-step"><h3>1. 理想張緊弦關係</h3><p><code>fₙ=n/(2L)·√(T/m)</code>，故 <code>Tₙ(N)=4mL²(fₙ/n)²</code>。</p></div><div class="rpt-step"><h3>2. 多振型擬合</h3><p><code>a=Σ(nfₙ)/Σ(n²)=${fmt(r.fit.fundamentalFrequencyHz,6)} Hz</code></p><p><code>T(kN)=4×${fmt(r.input.massPerLengthKgM,4)}×${fmt(r.input.effectiveLengthM,4)}²×${fmt(r.fit.fundamentalFrequencyHz,6)}²/1000=${fmt(r.fit.tensionKn,3)} kN</code></p></div><div class="rpt-step"><h3>3. 實測與擬合頻率</h3><table><tr><th>n</th><th>實測 Hz</th><th>擬合 Hz</th><th>偏差</th><th>單列 Tₙ kN</th><th>備註</th></tr>${rows}</table></div><h2>檢核結論</h2><table>${reportRows(resultRows(r))}</table><h3>逐項檢核與失敗原因</h3><table><tr><th>檢核項目</th><th>結果</th><th>說明</th></tr>${reportCheckRows(r)}</table><div class="conclusion">${escapeHtml(r.summary.headline)}</div><h3>方法範圍與排除項目</h3><div class="note">${escapeHtml(reportScopeNote())}</div>`;}
+    function summaryBody(r,svgHtml){return `<h2>設計條件</h2><table>${reportRows(conditionRows(r))}</table><h2>計算示意圖</h2><div class="rpt-diagram">${svgHtml}</div><h2>控制結果</h2><table>${reportRows(resultRows(r))}</table><h3>逐項檢核與失敗原因</h3><table><tr><th>檢核項目</th><th>結果</th><th>說明</th></tr>${reportCheckRows(r)}</table><h3>方法範圍與排除項目</h3><div class="note">${escapeHtml(reportScopeNote())}</div><h2>檢核結論</h2><div class="conclusion">${escapeHtml(r.summary.headline)}</div>`;}
+    function openReport(){const r=lastResult||calculateCableTensionFrequency();if(!r)return;const proj=gatherProjectInfo();const mode=$('reportMode').value==='summary'?'summary':'detailed';const svgHtml=reportDiagram(r);const reportTrace=buildCableTensionReportTrace(r);const documentStateReport=ReportUI.buildFormalDocumentStateReport({project:proj,calculated:true,readinessLevel:ReportUI.getPageReportReadinessLevel(document),calculationFingerprint:reportTrace.calculationFingerprint,textExport:true});const body=mode==='summary'?summaryBody(r,svgHtml):detailedBody(r,svgHtml);const reportHtml = `<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="UTF-8"><title>鋼索索力評估（頻率法快算）計算書</title><style>body{font-family:"Microsoft JhengHei",Arial,sans-serif;background:#f8fafc;color:#111827;margin:0;line-height:1.65}.toolbar{position:sticky;top:0;background:#172554;color:white;padding:10px 16px}.toolbar button{padding:8px 12px;margin-right:8px;border:0;border-radius:6px}.paper{max-width:900px;margin:20px auto;background:white;padding:30px 34px;box-shadow:0 2px 12px #0002}h1{font-size:1.45rem;margin:0 0 8px}h2{font-size:1.05rem;border-bottom:2px solid #dbe5f1;padding-bottom:5px;margin-top:22px;color:#1d4ed8}h3{font-size:.95rem;color:#172554;margin:12px 0 4px}.case-head{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.88rem;color:#334155;border-bottom:1px solid #e5e7eb;padding-bottom:8px}table{width:100%;border-collapse:collapse;font-size:.86rem;margin-top:8px}th,td{border:1px solid #d1d5db;padding:7px 8px;text-align:left;vertical-align:top}th{background:#f8fafc}code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 4px;border-radius:4px}.rpt-diagram{border:1px solid #dce5f0;border-radius:8px;padding:8px}.rpt-diagram svg{width:100%;max-width:640px;height:auto;display:block;margin:auto}.conclusion{padding:12px;border:2px solid ${r.overallOk?'#10b981':'#f97316'};background:${r.overallOk?'#ecfdf5':'#fff7ed'};border-radius:8px;font-weight:800}.note{margin-top:14px;padding:10px 12px;border-left:4px solid #1d4ed8;background:#eff6ff;break-inside:avoid-page;page-break-inside:avoid}.rpt-step{break-inside:avoid-page;page-break-inside:avoid}h2,h3{break-after:avoid-page;page-break-after:avoid}tr{break-inside:avoid-page;page-break-inside:avoid}thead{display:table-header-group}@media print{.toolbar{display:none}.paper{box-shadow:none;margin:0;max-width:none}body{background:white}}</style></head><body><div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div><main class="paper"><h1>鋼索索力評估（頻率法快算）計算書</h1>${documentStateReport.html}<div class="case-head">${proj.name?`<span>計畫：${escapeHtml(proj.name)}</span>`:''}${proj.no?`<span>編號：${escapeHtml(proj.no)}</span>`:''}${proj.designer?`<span>整理人：${escapeHtml(proj.designer)}</span>`:''}<span>產出工具：${escapeHtml(reportTrace.sourceTrace.tool)}</span><span>工具版本：${escapeHtml(PUBLIC_TOOL_VERSION)}</span><span>計算引擎：${escapeHtml(Core.version)}</span><span>輸出時間：${escapeHtml(reportTrace.generatedAt)}</span><span>計算指紋：${escapeHtml(reportTrace.calculationFingerprint)}</span></div>${body}</main></body></html>`;const win=window.open('','_blank');if(!win)return;win.document.open();win.document.write(reportHtml);win.document.close();}
+
+    function saveProjectInfo(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(gatherProjectInfo()));}catch(_) {}}
+    function loadProjectInfo(){try{applyProjectInfo(JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}'));}catch(_) {}}
+    function resetDefaults(){$('effectiveLengthM').value=12;$('massPerLengthKgM').value=4.8;$('harmonicTolerancePct').value=3;$('harmonicToleranceBasis').value='示例資料（請依專案覆寫）：量測計畫指定之諧波一致性容許差';$('effectiveLengthBasis').value='示例資料（請依專案覆寫）：兩端有效振動固定點間距';$('massBasis').value='示例資料（請依專案覆寫）：鋼索、護套與填充材合計質量';$('frequencyBasis').value='示例資料（請依專案覆寫）：加速度歷時 FFT 峰值，並以振型節點確認 mode n';$('targetTensionKn').value='';$('targetTolerancePct').value=5;$('targetTensionBasis').value='';$('assumptionConfirmed').checked=false;renderMeasurementRows(DEFAULT_MEASUREMENTS);calculateCableTensionFrequency();}
+    $('btnAddMeasurement').addEventListener('click',function(){const nextMode=document.querySelectorAll('.measurement-row').length+1;$('measurementRows').insertAdjacentHTML('beforeend',measurementRowTemplate({mode:nextMode,frequencyHz:(6.588*nextMode).toFixed(3),note:`第${nextMode}振型`}));bindMeasurementRows();calculateCableTensionFrequency();});
+    $('btnCalc').addEventListener('click',calculateCableTensionFrequency);$('btnPrint').addEventListener('click',openReport);$('btnJson').addEventListener('click',downloadResultJson);$('btnSaveProject').addEventListener('click',downloadProjectJson);
+    $('btnImportJson').addEventListener('click',()=>$('jsonFile').click());$('jsonFile').addEventListener('change',event=>importJsonFile(event.target.files&&event.target.files[0]));
+    $('btnSaveDraft').addEventListener('click',function(){const payload=buildProjectPayload();if(!payload)return;Exporter.saveDraft(PROJECT_DRAFT_KEY,payload);setJsonStatus('已暫存目前案例到此瀏覽器。',false);});$('btnLoadDraft').addEventListener('click',function(){const payload=Exporter.loadDraft(PROJECT_DRAFT_KEY);if(!payload){setJsonStatus('尚無可讀取的瀏覽器暫存。',true);return;}try{applyImportedCase(payload,'瀏覽器暫存');}catch(error){setJsonStatus(`讀取失敗：${error.message||error}`,true);}});
+    $('btnReset').addEventListener('click',resetDefaults);$('reportMode').addEventListener('change',()=>renderReadiness());
+    ['effectiveLengthM','massPerLengthKgM','harmonicTolerancePct','effectiveLengthBasis','massBasis','frequencyBasis','harmonicToleranceBasis','targetTensionKn','targetTolerancePct','targetTensionBasis','assumptionConfirmed'].forEach(id=>{$(id).addEventListener('input',calculateCableTensionFrequency);$(id).addEventListener('change',calculateCableTensionFrequency);});
+    ['projName','projNo','projDesigner'].forEach(id=>{$(id).addEventListener('input',saveProjectInfo);$(id).addEventListener('change',saveProjectInfo);});
+    $('coreVersion').textContent=`Core v${Core.version}`;renderMeasurementRows(DEFAULT_MEASUREMENTS);loadProjectInfo();calculateCableTensionFrequency();
+  })();
+  </script>
+  <script src="../project-meta-profile.js"></script>
+</body>
+</html>

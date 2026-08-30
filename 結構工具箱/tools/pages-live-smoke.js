@@ -748,7 +748,7 @@ async function main() {
   assert.ok(String(reportReadinessStatus.compactSummary || '').includes('頁面診斷明細不進計算書'), 'report readiness compact summary keeps page-only wording');
   assert.ok(String(reportReadinessStatus.compactSummary || '').includes('文件預設內部審閱，明確核可後為正式附件'), 'report readiness compact summary keeps approval-based document classification');
   assert.ok(String(reportReadinessStatus.compactSummary || '').includes('兩者皆可列印'), 'report readiness compact summary keeps printable approval boundary');
-  assert.ok([32, 33, 36, 37, 38].includes(reportReadinessStatus.renderedDeliveryEvidenceRequired), 'report readiness rendered delivery covers a supported formal homepage portfolio');
+  assert.ok([32, 33, 36, 37, 38, 39].includes(reportReadinessStatus.renderedDeliveryEvidenceRequired), 'report readiness rendered delivery covers a supported formal homepage portfolio');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceComplete, reportReadinessStatus.renderedDeliveryEvidenceRequired, 'report readiness rendered delivery fully covered');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceIssueCount, 0, 'report readiness rendered delivery issues empty');
   assert.match(reportReadinessStatus.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'report readiness rendered delivery runId');
@@ -757,7 +757,7 @@ async function main() {
   assert.ok(String(reportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'report readiness rendered delivery summary');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatus.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'report readiness rendered delivery source path');
   assert.match(reportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'report readiness rendered delivery source hash');
-  assert.ok([143, 145, 151, 157].includes(reportReadinessStatus.deliveryFileIntegrityRequired), 'report readiness exposes a supported complete redacted delivery file count');
+  assert.ok([143, 145, 151, 157, 163, 165].includes(reportReadinessStatus.deliveryFileIntegrityRequired), 'report readiness exposes a supported complete redacted delivery file count');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityVerified, reportReadinessStatus.deliveryFileIntegrityRequired, 'report readiness verifies every redacted delivery file');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'report readiness delivery file integrity issues empty');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityPass, true, 'report readiness delivery file integrity passes');
@@ -766,6 +766,8 @@ async function main() {
     JSON.stringify([['formalPdfEvidence', 66, 66], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]]),
     JSON.stringify([['formalPdfEvidence', 72, 72], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]]),
     JSON.stringify([['formalPdfEvidence', 78, 78], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]]),
+    JSON.stringify([['formalPdfEvidence', 84, 84], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]]),
+    JSON.stringify([['formalPdfEvidence', 86, 86], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]]),
   ].includes(JSON.stringify(reportReadinessStatus.deliveryFileIntegrityBreakdown.map(item => [item.key, item.required, item.verified]))), 'report readiness exposes the three redacted delivery integrity groups');
   assert.ok(reportReadinessStatus.deliveryFileIntegrityBreakdown.every(item => item.pass && item.issueCount === 0), 'report readiness delivery integrity groups pass');
   const deliveryFileIntegrityJson = JSON.stringify(reportReadinessStatus.deliveryFileIntegrityBreakdown);
@@ -844,11 +846,11 @@ async function main() {
   assert.equal(reportReadinessJson.includes('"formalHtmlContentSeal":'), false, 'report readiness omits the private formal-tool HTML content seal aggregate');
   assert.equal(reportReadinessJson.includes('"formalHtmlApprovalSeal":'), false, 'report readiness omits the private formal-tool HTML approval seal aggregate');
   assert.equal(/formal-tools-html-reproducible-(?:content|approval)-sha256|"htmlArtifact"|"contentSha256"|"approvalSha256"/.test(reportReadinessJson), false, 'report readiness omits private formal-tool seal scopes, artifacts, and hashes');
-  assert.equal(reportReadinessStatus.steelHtmlContentSealRequired, 5, 'report readiness expects 5 steel formal HTML content seal checks');
+  assert.ok([5, 6].includes(reportReadinessStatus.steelHtmlContentSealRequired), 'report readiness expects a supported 5-to-6 steel formal HTML content seal transition count');
   assert.equal(reportReadinessStatus.steelHtmlContentSealComplete, reportReadinessStatus.steelHtmlContentSealRequired, 'report readiness completes every steel formal HTML content seal check');
   assert.equal(reportReadinessStatus.steelHtmlContentSealIssueCount, 0, 'report readiness steel formal HTML content seal issues empty');
   assert.equal(reportReadinessStatus.steelHtmlContentSealPass, true, 'report readiness steel formal HTML content seal checks pass');
-  assert.equal(reportReadinessStatus.steelHtmlApprovalSealRequired, 5, 'report readiness expects 5 steel formal HTML approval seal checks');
+  assert.ok([5, 6].includes(reportReadinessStatus.steelHtmlApprovalSealRequired), 'report readiness expects a supported 5-to-6 steel formal HTML approval seal transition count');
   assert.equal(reportReadinessStatus.steelHtmlApprovalSealComplete, reportReadinessStatus.steelHtmlApprovalSealRequired, 'report readiness completes every steel formal HTML approval seal check');
   assert.equal(reportReadinessStatus.steelHtmlApprovalSealIssueCount, 0, 'report readiness steel formal HTML approval seal issues empty');
   assert.equal(reportReadinessStatus.steelHtmlApprovalSealPass, true, 'report readiness steel formal HTML approval seal checks pass');
@@ -866,7 +868,7 @@ async function main() {
   assert.equal(reportReadinessJson.includes('"anchorHtmlContentSeal":'), false, 'report readiness omits the private anchor formal HTML content seal aggregate');
   assert.equal(reportReadinessJson.includes('"anchorHtmlApprovalSeal":'), false, 'report readiness omits the private anchor formal HTML approval seal aggregate');
   assert.equal(/anchor-formal-html-reproducible-(?:content|approval)-sha256/.test(reportReadinessJson), false, 'report readiness omits private anchor formal HTML seal scopes');
-  assert.equal(reportReadinessStatus.steelResultReconciliationRequired, 5, 'report readiness expects 5 steel result reconciliations');
+  assert.ok([5, 6].includes(reportReadinessStatus.steelResultReconciliationRequired), 'report readiness expects a supported 5-to-6 steel result reconciliation transition count');
   assert.equal(reportReadinessStatus.steelResultReconciliationComplete, reportReadinessStatus.steelResultReconciliationRequired, 'report readiness completes every steel result reconciliation');
   assert.equal(reportReadinessStatus.steelResultReconciliationIssueCount, 0, 'report readiness steel result reconciliation issues empty');
   assert.equal(reportReadinessStatus.steelResultReconciliationPass, true, 'report readiness steel result reconciliation passes');
@@ -896,7 +898,7 @@ async function main() {
   assert.equal(reportReadinessStatus.excavationResultReconciliationPass, true, 'report readiness excavation result reconciliation passes');
   assert.equal(reportReadinessJson.includes('"excavationResultReconciliation":'), false, 'report readiness omits the private excavation reconciliation aggregate');
   assert.equal(/excavation-project-state-replay-to-pdf-docx-hash|sourceProjectSha256|resultSha256|excavation-project-state\.json/.test(reportReadinessJson), false, 'report readiness omits private excavation reconciliation scope and hashes');
-  assert.ok([3, 4, 5].includes(reportReadinessStatus.localQuickResultReconciliationRequired), 'report readiness uses the supported 3-to-5 local quick result reconciliation transition');
+  assert.ok([3, 4, 5, 6].includes(reportReadinessStatus.localQuickResultReconciliationRequired), 'report readiness uses the supported 3-to-6 local quick result reconciliation transition');
   assert.equal(reportReadinessStatus.localQuickResultReconciliationComplete, reportReadinessStatus.localQuickResultReconciliationRequired, 'report readiness completes every local quick result reconciliation');
   assert.equal(reportReadinessStatus.localQuickResultReconciliationIssueCount, 0, 'report readiness local quick result reconciliation issues empty');
   assert.equal(reportReadinessStatus.localQuickResultReconciliationPass, true, 'report readiness local quick result reconciliation passes');

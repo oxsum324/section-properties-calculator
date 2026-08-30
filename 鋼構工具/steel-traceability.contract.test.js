@@ -95,7 +95,32 @@ assert(
   'steel calculator preserves formal-scope guardrails',
   'development modules blocked'
 );
-['single_plate', 'column_splice', 'gusset', 'beam_column_moment'].forEach((needle) => {
+const steelMain = catalog.tools.find((tool) => tool.key === 'steel-main');
+const shearTabTrace = steelMain?.traces?.find((trace) => trace.id === 'steel-main-single-plate-shear-tab');
+const developmentBoundary = steelMain?.traces?.find((trace) => trace.id === 'steel-main-scope-boundary');
+assert(Boolean(shearTabTrace), 'steel traceability catalog records formal Shear Tab route', 'steel-main-single-plate-shear-tab');
+assert(
+  shearTabTrace?.calculation?.includes('complianceReady=true') &&
+    shearTabTrace?.report?.includes('剪力接頭檢核計算書') &&
+    shearTabTrace?.calculation?.some((item) => item.includes('eccentric bolt-group')) &&
+    shearTabTrace?.calculation?.some((item) => item.includes('eccentric weld-metal')),
+  'steel Shear Tab trace covers formal state, eccentric bolt group, eccentric weld group, and report',
+  shearTabTrace?.id || 'missing'
+);
+assert(
+  /single_plate:\s*\{[\s\S]*?complianceReady:\s*true/.test(calculator) &&
+    smoke.includes('shear.complianceReady, true') &&
+    smoke.includes('single plate should expose all ten strength routes'),
+  'steel runtime and smoke mark Shear Tab as formal with complete strength routes',
+  'single_plate'
+);
+assert(
+  !developmentBoundary?.manualReview?.some((item) => item.includes('單剪力板')) &&
+    ['柱續接', 'Gusset', '梁柱彎矩'].every((needle) => developmentBoundary?.manualReview?.some((item) => item.includes(needle))),
+  'steel development boundary excludes formal Shear Tab and retains the other three modules',
+  developmentBoundary?.manualReview?.join(' / ') || 'missing'
+);
+['column_splice', 'gusset', 'beam_column_moment'].forEach((needle) => {
   assert(
     smoke.includes(needle) || calculator.includes(needle),
     `steel development module remains explicitly tested or guarded: ${needle}`,

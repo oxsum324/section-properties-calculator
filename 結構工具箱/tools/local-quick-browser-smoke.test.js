@@ -197,6 +197,7 @@ async function verifyGovernedTextExport(client, options) {
       '文字內容 SHA-256（非數位簽章）：',
       options.tool.reportTitleNeedle,
       ...(options.tool.reportNeedles || []),
+      ...(options.requiredNeedles || []),
     ].forEach(needle => assert.ok(content.includes(needle), `${options.label} downloaded TXT includes ${needle}`));
     assert.equal(hasBom, true, `${options.label} downloaded TXT has UTF-8 BOM`);
     assert.equal(content, prepared.text, `${options.label} downloaded TXT matches the in-browser builder`);
@@ -1337,6 +1338,10 @@ function jsonImportExpression(tool, payload) {
       document.getElementById('sectionWidthMm').value = '999';
       document.getElementById('measuredTopMm').value = '199';
     }
+    if (tool.key === 'cable-tension-frequency') {
+      document.getElementById('effectiveLengthM').value = '99';
+      document.getElementById('massPerLengthKgM').value = '99';
+    }
     const fileInput = document.getElementById('jsonFile');
     const file = new File([JSON.stringify(payload)], tool.key + '-import.json', { type: 'application/json' });
     const transfer = new DataTransfer();
@@ -1387,8 +1392,27 @@ function jsonImportExpression(tool, payload) {
         projectName: document.getElementById('projName').value,
         jsonStatus: document.getElementById('jsonStatus')?.textContent || '',
         banner: document.getElementById('bannerStatus')?.textContent || '',
-        metricText: document.getElementById('metricGrid')?.textContent?.replace(/\s+/g, ' ').trim() || '',
-        checkText: document.getElementById('checkList')?.textContent?.replace(/\s+/g, ' ').trim() || ''
+        metricText: document.getElementById('metricGrid')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        checkText: document.getElementById('checkList')?.textContent?.replace(/\\s+/g, ' ').trim() || ''
+      };
+    }
+    if (tool.key === 'cable-tension-frequency') {
+      return {
+        tool: tool.key,
+        effectiveLengthM: document.getElementById('effectiveLengthM').value,
+        massPerLengthKgM: document.getElementById('massPerLengthKgM').value,
+        effectiveLengthBasis: document.getElementById('effectiveLengthBasis').value,
+        massBasis: document.getElementById('massBasis').value,
+        frequencyBasis: document.getElementById('frequencyBasis').value,
+        harmonicToleranceBasis: document.getElementById('harmonicToleranceBasis').value,
+        targetTensionKn: document.getElementById('targetTensionKn').value,
+        targetTolerancePct: document.getElementById('targetTolerancePct').value,
+        targetTensionBasis: document.getElementById('targetTensionBasis').value,
+        projectName: document.getElementById('projName').value,
+        jsonStatus: document.getElementById('jsonStatus')?.textContent || '',
+        banner: document.getElementById('bannerStatus')?.textContent || '',
+        metricText: document.getElementById('metricGrid')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        checkText: document.getElementById('checkList')?.textContent?.replace(/\\s+/g, ' ').trim() || ''
       };
     }
     return {
@@ -1539,6 +1563,12 @@ function reportExpression(mode = null, projectMetaState = 'complete', calculatio
         }
         if (requestedToolKey === 'floor-slab-westergaard') setProjectField('allowableStressMpa', '0.10');
         if (requestedToolKey === 'rc-column-cover-deviation') setProjectField('minimumRetentionRatio', '1.50');
+        if (requestedToolKey === 'cable-tension-frequency') {
+          const confirmation = document.getElementById('assumptionConfirmed');
+          confirmation.checked = false;
+          confirmation.dispatchEvent(new Event('input', { bubbles: true }));
+          confirmation.dispatchEvent(new Event('change', { bubbles: true }));
+        }
         document.getElementById('btnCalc').click();
       }
       const pageReadinessLevel = window.ToolReportUI?.getPageReportReadinessLevel(document) || '';
@@ -1800,7 +1830,7 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload, reportR
     assert.ok(state.reportReadinessStatusMeta.includes('瀏覽器 smoke 2 / 2'), `${label} new home report readiness runtime metric`);
     assert.ok(state.reportReadinessStatusMeta.includes(`成品渲染 ${reportReadinessPayload.renderedDeliveryEvidenceComplete} / ${reportReadinessPayload.renderedDeliveryEvidenceRequired}`), `${label} new home report readiness rendered delivery metric`);
     assert.ok(
-      ['成品檔案完整性 137 / 137', '成品檔案完整性 139 / 139', '成品檔案完整性 141 / 141', '成品檔案完整性 143 / 143', '成品檔案完整性 145 / 145', '成品檔案完整性 151 / 151'].some(metric => state.reportReadinessStatusMeta.includes(metric)),
+      ['成品檔案完整性 137 / 137', '成品檔案完整性 139 / 139', '成品檔案完整性 141 / 141', '成品檔案完整性 143 / 143', '成品檔案完整性 145 / 145', '成品檔案完整性 151 / 151', '成品檔案完整性 157 / 157', '成品檔案完整性 163 / 163', '成品檔案完整性 165 / 165'].some(metric => state.reportReadinessStatusMeta.includes(metric)),
       `${label} new home report readiness delivery file integrity metric`
     );
     assert.ok(state.reportReadinessStatusMeta.includes('Word 乾淨封裝 4 / 4'), `${label} new home report readiness DOCX package integrity metric`);
@@ -2449,6 +2479,55 @@ function assertJsonExportState(state, tool, label) {
     assert.equal(state.payload.result.barLayout.totalBars, 12, `${label} ${tool.key} corner bars are counted once`);
     assert.equal(state.payload.result.calculationPolicy.enhancedExistingStructurePhiApplied, false, `${label} ${tool.key} keeps general chapter 21 phi`);
   }
+  if (tool.key === 'cable-tension-frequency') {
+    assert.equal(state.payload.schema, 'cable-tension-frequency.case.v1', `${label} ${tool.key} payload case schema`);
+    assert.equal(state.payload.tool.version, tool.pageVersion, `${label} ${tool.key} payload replay version`);
+    assert.equal(state.payload.tool.calculationEngine, '0.1.0', `${label} ${tool.key} payload calculation engine`);
+    assert.match(state.payload.calculationFingerprint, /^CF-[0-9A-F]{16}$/, `${label} ${tool.key} payload calculation fingerprint`);
+    assert.equal(state.payload.input.effectiveLengthBasis, '現場量測紀錄 CT-E2E-01：兩端有效振動固定點間距', `${label} ${tool.key} payload effective-length basis`);
+    assert.equal(state.payload.input.massBasis, '製造商型錄 CT-E2E-01：含護套整體單位長質量', `${label} ${tool.key} payload mass basis`);
+    assert.equal(state.payload.input.frequencyBasis, '現場量測計畫 CT-E2E-01：FFT 與振型節點辨識紀錄', `${label} ${tool.key} payload frequency basis`);
+    assert.equal(state.payload.input.harmonicTolerancePct, 3, `${label} ${tool.key} payload harmonic tolerance`);
+    assert.equal(state.payload.input.harmonicToleranceBasis, '量測計畫 CT-E2E-01：諧波偏差容許值 3%', `${label} ${tool.key} payload harmonic tolerance basis`);
+    assert.equal(state.payload.input.targetTensionKn, 120, `${label} ${tool.key} payload target tension`);
+    assert.equal(state.payload.input.targetTolerancePct, 2, `${label} ${tool.key} payload target tolerance`);
+    assert.equal(state.payload.input.targetTensionBasis, '張拉計畫 CT-E2E-01：目標索力 120 kN 與容許差 2%', `${label} ${tool.key} payload target basis`);
+    assert.equal(state.payload.result.overallOk, true, `${label} ${tool.key} traceable target case is ready`);
+    assert.equal(state.payload.result.target.tolerancePct, 2, `${label} ${tool.key} result target tolerance`);
+    assert.ok(Math.abs(state.payload.result.target.lowerKn - 117.6) <= 1e-9, `${label} ${tool.key} result target lower bound`);
+    assert.ok(Math.abs(state.payload.result.target.upperKn - 122.4) <= 1e-9, `${label} ${tool.key} result target upper bound`);
+    assert.equal(state.payload.result.target.passed, true, `${label} ${tool.key} result target branch passes`);
+  }
+}
+
+function cableTensionReadyTargetExpression() {
+  return `(() => {
+    const setValue = (id, value) => {
+      const node = document.getElementById(id);
+      node.value = value;
+      node.dispatchEvent(new Event('input', { bubbles: true }));
+      node.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    setValue('effectiveLengthBasis', '現場量測紀錄 CT-E2E-01：兩端有效振動固定點間距');
+    setValue('massBasis', '製造商型錄 CT-E2E-01：含護套整體單位長質量');
+    setValue('frequencyBasis', '現場量測計畫 CT-E2E-01：FFT 與振型節點辨識紀錄');
+    setValue('harmonicToleranceBasis', '量測計畫 CT-E2E-01：諧波偏差容許值 3%');
+    setValue('targetTensionKn', '120');
+    setValue('targetTolerancePct', '2');
+    setValue('targetTensionBasis', '張拉計畫 CT-E2E-01：目標索力 120 kN 與容許差 2%');
+    const confirmation = document.getElementById('assumptionConfirmed');
+    confirmation.checked = true;
+    confirmation.dispatchEvent(new Event('input', { bubbles: true }));
+    confirmation.dispatchEvent(new Event('change', { bubbles: true }));
+    document.getElementById('btnCalc').click();
+    return {
+      readiness: document.getElementById('cableTensionReportReadiness')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      checks: document.getElementById('checkList')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      banner: document.getElementById('bannerStatus')?.textContent || '',
+      metrics: document.getElementById('metricGrid')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      level: window.ToolReportUI?.getPageReportReadinessLevel(document) || ''
+    };
+  })()`;
 }
 
 function columnCoverRejectedJsonImportExpression(payload, mutation, currentState = 'valid') {
@@ -2479,6 +2558,44 @@ function columnCoverRejectedJsonImportExpression(payload, mutation, currentState
     return {
       sectionWidthMm: document.getElementById('sectionWidthMm').value,
       measuredTopMm: document.getElementById('measuredTopMm').value,
+      projectName: document.getElementById('projName').value,
+      jsonStatus: document.getElementById('jsonStatus')?.textContent || ''
+    };
+  })()`;
+}
+
+function cableTensionRejectedJsonImportExpression(payload, mutation, currentState = 'valid') {
+  return `(async () => {
+    const rejected = ${JSON.stringify(payload)};
+    const mutation = ${JSON.stringify(mutation)};
+    const currentState = ${JSON.stringify(currentState)};
+    if (mutation === 'version') rejected.tool.version = 'V9.9';
+    if (mutation === 'fingerprint') rejected.calculationFingerprint = 'CF-0000000000000000';
+    if (mutation === 'engine') rejected.tool.calculationEngine = '9.9.9';
+    if (mutation === 'engine-missing') delete rejected.tool.calculationEngine;
+    if (mutation === 'identity-missing') { delete rejected.schema; delete rejected.tool; }
+    if (mutation === 'input-tamper') rejected.input.effectiveLengthM = Number(rejected.input.effectiveLengthM) + 1;
+    if (mutation === 'input-boolean') rejected.input.effectiveLengthM = true;
+    if (mutation === 'input-object') rejected.input.massPerLengthKgM = {};
+    if (mutation === 'mode-noninteger') rejected.input.measurements[0].mode = 1.5;
+    document.getElementById('effectiveLengthM').value = currentState === 'invalid' ? '' : '77';
+    document.getElementById('massPerLengthKgM').value = currentState === 'invalid' ? '' : '17';
+    document.getElementById('projName').value = currentState === 'invalid' ? '  鋼索拒絕前保留案  ' : '鋼索拒絕前保留案';
+    document.getElementById('jsonStatus').textContent = '等待拒絕測試';
+    const fileInput = document.getElementById('jsonFile');
+    const file = new File([JSON.stringify(rejected)], 'cable-tension-frequency-rejected.json', { type: 'application/json' });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    fileInput.files = transfer.files;
+    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+    const started = Date.now();
+    while (Date.now() - started < 1500 && !(document.getElementById('jsonStatus')?.textContent || '').includes('讀取失敗')) {
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    return {
+      effectiveLengthM: document.getElementById('effectiveLengthM').value,
+      massPerLengthKgM: document.getElementById('massPerLengthKgM').value,
+      firstMode: document.querySelector('.measurement-row [data-field="mode"]')?.value || '',
       projectName: document.getElementById('projName').value,
       jsonStatus: document.getElementById('jsonStatus')?.textContent || ''
     };
@@ -2555,6 +2672,24 @@ function assertColumnCoverJsonImportState(state, label) {
   assert.ok(state.checkText.includes('尺寸、材料、鋼筋位置與需求來源'), `${label} column cover import checks`);
 }
 
+function assertCableTensionJsonImportState(state, label) {
+  assert.equal(state.effectiveLengthM, '12', `${label} cable tension import effective length`);
+  assert.equal(state.massPerLengthKgM, '4.8', `${label} cable tension import mass per length`);
+  assert.equal(state.effectiveLengthBasis, '現場量測紀錄 CT-E2E-01：兩端有效振動固定點間距', `${label} cable tension import effective-length basis`);
+  assert.equal(state.massBasis, '製造商型錄 CT-E2E-01：含護套整體單位長質量', `${label} cable tension import mass basis`);
+  assert.equal(state.frequencyBasis, '現場量測計畫 CT-E2E-01：FFT 與振型節點辨識紀錄', `${label} cable tension import frequency basis`);
+  assert.equal(state.harmonicToleranceBasis, '量測計畫 CT-E2E-01：諧波偏差容許值 3%', `${label} cable tension import harmonic tolerance basis`);
+  assert.equal(state.targetTensionKn, '120', `${label} cable tension import target tension`);
+  assert.equal(state.targetTolerancePct, '2', `${label} cable tension import target tolerance`);
+  assert.equal(state.targetTensionBasis, '張拉計畫 CT-E2E-01：目標索力 120 kN 與容許差 2%', `${label} cable tension import target basis`);
+  assert.equal(state.projectName, '回讀測試案', `${label} cable tension import project`);
+  assert.ok(state.jsonStatus.includes('已讀取 JSON') && state.jsonStatus.includes('已重現計算指紋'), `${label} cable tension import validates replay fingerprint`);
+  assert.ok(state.banner && state.banner !== '尚未計算', `${label} cable tension import recalculates`);
+  assert.ok(state.metricText.includes('反算索力'), `${label} cable tension import metrics`);
+  assert.ok(state.checkText.includes('諧波一致性'), `${label} cable tension import checks`);
+  assert.ok(state.checkText.includes('目標索力差異') && state.checkText.includes('通過'), `${label} cable tension import target check passes`);
+}
+
 function assertReportContentState(state, tool, label, mode = 'detailed') {
   assert.ok(state.htmlLength > 1500, `${label} ${tool.key} report HTML length`);
   const traceText = reportHtmlText(state.html);
@@ -2601,8 +2736,20 @@ function assertReportContentState(state, tool, label, mode = 'detailed') {
     removedFromLocalReport.forEach(needle => {
       assert.equal(state.html.includes(needle), false, `${label} ${tool.key} report removes ${needle}`);
     });
+  } else if (tool.key === 'cable-tension-frequency') {
+    requiredNeedles.push('計算內容', '計算示意圖', '理想張緊弦', '諧波偏差門檻', '專案指定依據', '逐項檢核與失敗原因');
+    removedFromLocalReport.forEach(needle => {
+      assert.equal(state.html.includes(needle), false, `${label} ${tool.key} report removes ${needle}`);
+    });
   } else {
     requiredNeedles.push('初估', '計算核心', '輸入格式', '計算指紋', '適用範圍', '不適用範圍');
+  }
+  if (tool.key === 'cable-tension-frequency') {
+    requiredNeedles.push(
+      '容許差 ±2.00%',
+      '上下限 117.600–122.400 kN',
+      '張拉計畫 CT-E2E-01：目標索力 120 kN 與容許差 2%'
+    );
   }
   requiredNeedles.forEach(needle => {
     assert.ok(state.html.includes(needle), `${label} ${tool.key} report includes ${needle}`);
@@ -3398,6 +3545,36 @@ async function main() {
           if (directPrintRecord) directPrintRecords.push(directPrintRecord);
           if (toolCase.key === 'route-tool' && viewport.key === 'desktop') {
             const interactionLabel = 'desktop route-tool interaction';
+            if (tool.key === 'cable-tension-frequency') {
+              const exampleReadinessState = await evaluate(client, sessionId, `(() => {
+                const confirmation = document.getElementById('assumptionConfirmed');
+                confirmation.checked = true;
+                confirmation.dispatchEvent(new Event('input', { bubbles: true }));
+                confirmation.dispatchEvent(new Event('change', { bubbles: true }));
+                document.getElementById('btnCalc').click();
+                return {
+                  readiness: document.getElementById('cableTensionReportReadiness')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+                  checks: document.getElementById('checkList')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+                  banner: document.getElementById('bannerStatus')?.textContent || '',
+                  targetTensionKn: document.getElementById('targetTensionKn')?.value || '',
+                  targetTensionBasis: document.getElementById('targetTensionBasis')?.value || '',
+                  level: window.ToolReportUI?.getPageReportReadinessLevel(document) || ''
+                };
+              })()`);
+              assert.equal(exampleReadinessState.level, 'blocked', `${interactionLabel} cable example values remain blocked after assumption confirmation`);
+              assert.ok(exampleReadinessState.readiness.includes('暫勿作附件'), `${interactionLabel} cable example values cannot become an attachment`);
+              assert.ok(exampleReadinessState.checks.includes('專案資料與依據覆寫') && exampleReadinessState.checks.includes('不通過'), `${interactionLabel} cable example provenance check fails closed`);
+              assert.ok(exampleReadinessState.banner.includes('尚未可追溯'), `${interactionLabel} cable example banner explains the blocker`);
+              assert.equal(exampleReadinessState.targetTensionKn, '', `${interactionLabel} cable default target remains blank`);
+              assert.equal(exampleReadinessState.targetTensionBasis, '', `${interactionLabel} cable default target basis remains optional and blank`);
+              const readyTargetState = await evaluate(client, sessionId, cableTensionReadyTargetExpression());
+              assert.equal(readyTargetState.level, 'ready', `${interactionLabel} cable traceable target case reaches attachment readiness`);
+              assert.ok(readyTargetState.readiness.includes('可作附件'), `${interactionLabel} cable traceable target case exposes ready badge`);
+              assert.ok(readyTargetState.checks.includes('專案資料與依據覆寫｜通過'), `${interactionLabel} cable five project bases pass provenance`);
+              assert.ok(readyTargetState.checks.includes('目標索力差異｜通過'), `${interactionLabel} cable target criterion passes`);
+              assert.ok(readyTargetState.banner.includes('理想弦模型估算索力'), `${interactionLabel} cable ready banner retains finite tension result`);
+              assert.ok(readyTargetState.metrics.includes('目標 120.00 kN ± 2.00 %'), `${interactionLabel} cable target metric discloses project tolerance`);
+            }
             const exportState = await evaluate(client, sessionId, jsonExportExpression());
             const placeholderExportState = await evaluate(client, sessionId, jsonExportExpression('placeholder'));
             assertJsonExportState(exportState, tool, interactionLabel);
@@ -3409,6 +3586,7 @@ async function main() {
               if (tool.key === 'earth-pressure') assertEarthJsonImportState(importState, interactionLabel);
               if (tool.key === 'floor-slab-westergaard') assertFloorSlabJsonImportState(importState, interactionLabel);
               if (tool.key === 'rc-column-cover-deviation') assertColumnCoverJsonImportState(importState, interactionLabel);
+              if (tool.key === 'cable-tension-frequency') assertCableTensionJsonImportState(importState, interactionLabel);
               if (tool.key === 'rc-column-cover-deviation') {
                 const wrongVersionState = await evaluate(client, sessionId, columnCoverRejectedJsonImportExpression(exportState.payload, 'version'));
                 assert.equal(wrongVersionState.sectionWidthMm, '777', `${interactionLabel} ${tool.key} wrong-version import preserves section width`);
@@ -3439,6 +3617,51 @@ async function main() {
                 assert.equal(mismatchedEngineState.projectName, '  拒絕前保留案  ', `${interactionLabel} ${tool.key} mismatched-engine import preserves raw project text`);
                 assert.ok(mismatchedEngineState.jsonStatus.includes('計算引擎版本不符') && mismatchedEngineState.jsonStatus.includes('已保留原輸入'), `${interactionLabel} ${tool.key} mismatched engine identity is rejected`);
               }
+              if (tool.key === 'cable-tension-frequency') {
+                const wrongVersionState = await evaluate(client, sessionId, cableTensionRejectedJsonImportExpression(exportState.payload, 'version'));
+                assert.equal(wrongVersionState.effectiveLengthM, '77', `${interactionLabel} ${tool.key} wrong-version import preserves effective length`);
+                assert.equal(wrongVersionState.massPerLengthKgM, '17', `${interactionLabel} ${tool.key} wrong-version import preserves mass`);
+                assert.equal(wrongVersionState.projectName, '鋼索拒絕前保留案', `${interactionLabel} ${tool.key} wrong-version import preserves project`);
+                assert.ok(wrongVersionState.jsonStatus.includes('工具版本不符'), `${interactionLabel} ${tool.key} wrong-version import is rejected`);
+                const wrongFingerprintState = await evaluate(client, sessionId, cableTensionRejectedJsonImportExpression(exportState.payload, 'fingerprint'));
+                assert.equal(wrongFingerprintState.effectiveLengthM, '77', `${interactionLabel} ${tool.key} wrong-fingerprint import rolls back effective length`);
+                assert.equal(wrongFingerprintState.projectName, '鋼索拒絕前保留案', `${interactionLabel} ${tool.key} wrong-fingerprint import rolls back project`);
+                assert.ok(wrongFingerprintState.jsonStatus.includes('重現失敗') && wrongFingerprintState.jsonStatus.includes('已保留原輸入'), `${interactionLabel} ${tool.key} wrong-fingerprint import is rejected and rolled back`);
+                const missingIdentityState = await evaluate(client, sessionId, cableTensionRejectedJsonImportExpression(exportState.payload, 'identity-missing', 'invalid'));
+                assert.equal(missingIdentityState.effectiveLengthM, '', `${interactionLabel} ${tool.key} missing-identity import preserves invalid raw length`);
+                assert.equal(missingIdentityState.massPerLengthKgM, '', `${interactionLabel} ${tool.key} missing-identity import preserves invalid raw mass`);
+                assert.equal(missingIdentityState.projectName, '  鋼索拒絕前保留案  ', `${interactionLabel} ${tool.key} missing-identity import preserves raw project text`);
+                assert.ok(missingIdentityState.jsonStatus.includes('缺少案件 schema') && missingIdentityState.jsonStatus.includes('已保留原輸入'), `${interactionLabel} ${tool.key} missing schema/tool identity is rejected`);
+                const tamperedInputState = await evaluate(client, sessionId, cableTensionRejectedJsonImportExpression(exportState.payload, 'input-tamper', 'invalid'));
+                assert.equal(tamperedInputState.effectiveLengthM, '', `${interactionLabel} ${tool.key} stale-fingerprint input tamper restores invalid raw length`);
+                assert.equal(tamperedInputState.massPerLengthKgM, '', `${interactionLabel} ${tool.key} stale-fingerprint input tamper restores invalid raw mass`);
+                assert.equal(tamperedInputState.projectName, '  鋼索拒絕前保留案  ', `${interactionLabel} ${tool.key} stale-fingerprint input tamper restores raw project text`);
+                assert.ok(tamperedInputState.jsonStatus.includes('重現失敗') && tamperedInputState.jsonStatus.includes('已保留原輸入'), `${interactionLabel} ${tool.key} tampered input with stale fingerprint is rejected and rolled back`);
+                const booleanInputState = await evaluate(client, sessionId, cableTensionRejectedJsonImportExpression(exportState.payload, 'input-boolean', 'invalid'));
+                assert.equal(booleanInputState.effectiveLengthM, '', `${interactionLabel} ${tool.key} boolean input replay restores invalid raw length`);
+                assert.equal(booleanInputState.massPerLengthKgM, '', `${interactionLabel} ${tool.key} boolean input replay restores invalid raw mass`);
+                assert.equal(booleanInputState.projectName, '  鋼索拒絕前保留案  ', `${interactionLabel} ${tool.key} boolean input replay restores raw project text`);
+                assert.ok(booleanInputState.jsonStatus.includes('effectiveLengthM') && booleanInputState.jsonStatus.includes('已保留原輸入'), `${interactionLabel} ${tool.key} boolean numeric replay fails closed and rolls back`);
+                const objectInputState = await evaluate(client, sessionId, cableTensionRejectedJsonImportExpression(exportState.payload, 'input-object', 'invalid'));
+                assert.equal(objectInputState.effectiveLengthM, '', `${interactionLabel} ${tool.key} object input replay restores invalid raw length`);
+                assert.equal(objectInputState.massPerLengthKgM, '', `${interactionLabel} ${tool.key} object input replay restores invalid raw mass`);
+                assert.equal(objectInputState.projectName, '  鋼索拒絕前保留案  ', `${interactionLabel} ${tool.key} object input replay restores raw project text`);
+                assert.ok(objectInputState.jsonStatus.includes('massPerLengthKgM') && objectInputState.jsonStatus.includes('已保留原輸入'), `${interactionLabel} ${tool.key} object numeric replay fails closed and rolls back`);
+                const nonintegerModeState = await evaluate(client, sessionId, cableTensionRejectedJsonImportExpression(exportState.payload, 'mode-noninteger', 'invalid'));
+                assert.equal(nonintegerModeState.effectiveLengthM, '', `${interactionLabel} ${tool.key} noninteger mode replay restores invalid raw length`);
+                assert.equal(nonintegerModeState.massPerLengthKgM, '', `${interactionLabel} ${tool.key} noninteger mode replay restores invalid raw mass`);
+                assert.equal(nonintegerModeState.firstMode, '1', `${interactionLabel} ${tool.key} noninteger mode replay preserves prior mode`);
+                assert.equal(nonintegerModeState.projectName, '  鋼索拒絕前保留案  ', `${interactionLabel} ${tool.key} noninteger mode replay restores raw project text`);
+                assert.ok(nonintegerModeState.jsonStatus.includes('正安全整數') && nonintegerModeState.jsonStatus.includes('已保留原輸入'), `${interactionLabel} ${tool.key} noninteger mode replay fails closed and rolls back`);
+                const missingEngineState = await evaluate(client, sessionId, cableTensionRejectedJsonImportExpression(exportState.payload, 'engine-missing', 'invalid'));
+                assert.equal(missingEngineState.effectiveLengthM, '', `${interactionLabel} ${tool.key} missing-engine import preserves invalid raw length`);
+                assert.equal(missingEngineState.projectName, '  鋼索拒絕前保留案  ', `${interactionLabel} ${tool.key} missing-engine import preserves raw project text`);
+                assert.ok(missingEngineState.jsonStatus.includes('缺少計算引擎版本') && missingEngineState.jsonStatus.includes('已保留原輸入'), `${interactionLabel} ${tool.key} missing engine identity is rejected`);
+                const mismatchedEngineState = await evaluate(client, sessionId, cableTensionRejectedJsonImportExpression(exportState.payload, 'engine', 'invalid'));
+                assert.equal(mismatchedEngineState.effectiveLengthM, '', `${interactionLabel} ${tool.key} mismatched-engine import preserves invalid raw length`);
+                assert.equal(mismatchedEngineState.projectName, '  鋼索拒絕前保留案  ', `${interactionLabel} ${tool.key} mismatched-engine import preserves raw project text`);
+                assert.ok(mismatchedEngineState.jsonStatus.includes('計算引擎版本不符') && mismatchedEngineState.jsonStatus.includes('已保留原輸入'), `${interactionLabel} ${tool.key} mismatched engine identity is rejected`);
+              }
             }
             if (tool.key === 'earth-pressure') {
               const wallTypeState = await evaluate(client, sessionId, earthWallTypeExpression());
@@ -3456,11 +3679,23 @@ async function main() {
               if (tool.key === 'earth-pressure') assertEarthJsonImportState(replayImportState, `${interactionLabel} report replay`);
               if (tool.key === 'floor-slab-westergaard') assertFloorSlabJsonImportState(replayImportState, `${interactionLabel} report replay`);
               if (tool.key === 'rc-column-cover-deviation') assertColumnCoverJsonImportState(replayImportState, `${interactionLabel} report replay`);
+              if (tool.key === 'cable-tension-frequency') assertCableTensionJsonImportState(replayImportState, `${interactionLabel} report replay`);
               const replayExportState = await evaluate(client, sessionId, jsonExportExpression('preserve'));
               assert.equal(replayExportState.downloadCount, 1, `${interactionLabel} ${tool.key} report replay JSON click count`);
               assert.equal(replayExportState.blobCount, 1, `${interactionLabel} ${tool.key} report replay JSON blob count`);
               assert.equal(replayExportState.payload?.tool?.id, tool.key, `${interactionLabel} ${tool.key} report replay JSON tool identity`);
               assert.equal(replayExportState.payload?.project?.name, '回讀測試案', `${interactionLabel} ${tool.key} report replay JSON project identity`);
+              if (tool.key === 'cable-tension-frequency') {
+                assert.equal(replayExportState.payload?.input?.effectiveLengthBasis, '現場量測紀錄 CT-E2E-01：兩端有效振動固定點間距', `${interactionLabel} ${tool.key} replay keeps effective-length basis`);
+                assert.equal(replayExportState.payload?.input?.massBasis, '製造商型錄 CT-E2E-01：含護套整體單位長質量', `${interactionLabel} ${tool.key} replay keeps mass basis`);
+                assert.equal(replayExportState.payload?.input?.frequencyBasis, '現場量測計畫 CT-E2E-01：FFT 與振型節點辨識紀錄', `${interactionLabel} ${tool.key} replay keeps frequency basis`);
+                assert.equal(replayExportState.payload?.input?.harmonicToleranceBasis, '量測計畫 CT-E2E-01：諧波偏差容許值 3%', `${interactionLabel} ${tool.key} replay keeps harmonic criterion basis`);
+                assert.equal(replayExportState.payload?.input?.targetTensionBasis, '張拉計畫 CT-E2E-01：目標索力 120 kN 與容許差 2%', `${interactionLabel} ${tool.key} replay keeps target criterion basis`);
+                assert.equal(replayExportState.payload?.result?.target?.tolerancePct, 2, `${interactionLabel} ${tool.key} replay target tolerance`);
+                assert.ok(Math.abs(replayExportState.payload.result.target.lowerKn - 117.6) <= 1e-9, `${interactionLabel} ${tool.key} replay target lower bound`);
+                assert.ok(Math.abs(replayExportState.payload.result.target.upperKn - 122.4) <= 1e-9, `${interactionLabel} ${tool.key} replay target upper bound`);
+                assert.equal(replayExportState.payload?.result?.target?.passed, true, `${interactionLabel} ${tool.key} replay target branch passes`);
+              }
               const replayComparison = assertLocalQuickReplayPayload(
                 exportState.payload,
                 replayExportState.payload,
@@ -3486,6 +3721,9 @@ async function main() {
                 outputDir: textExportOutputDir,
                 tool,
                 label: `${interactionLabel} ${tool.key}`,
+                requiredNeedles: tool.key === 'cable-tension-frequency'
+                  ? ['容許差 ±2.00%', '上下限 117.600–122.400 kN', '張拉計畫 CT-E2E-01：目標索力 120 kN 與容許差 2%']
+                  : [],
               }));
               if (tool.key === 'equipment-load') {
                 const eccentricState = await evaluate(client, sessionId, equipmentEccentricReactionExpression(0.2, -0.1));
@@ -3554,6 +3792,9 @@ async function main() {
                   tool.reportTitleNeedle,
                   '計畫：',
                   ...(tool.reportNeedles || []),
+                  ...(tool.key === 'cable-tension-frequency'
+                    ? ['容許差 ±2.00%', '上下限 117.600–122.400 kN', '張拉計畫 CT-E2E-01：目標索力 120 kN 與容許差 2%']
+                    : []),
                   '文件狀態：內部審閱',
                   '計算指紋',
                 ],

@@ -7,8 +7,9 @@ const defaultCatalogPath = path.join(toolsRoot, 'independent-engineering-benchma
 const defaultOutputPath = path.join(repoRoot, 'output', 'audit', 'independent-engineering-benchmarks.json');
 
 const ROOT_KEYS = ['schemaVersion', 'kind', 'portfolio', 'benchmarks', 'candidateBenchmarks', 'priorityTargets'];
-const PORTFOLIO_KEYS = ['eligibleState', 'eligibleFormalRoutes', 'scopeNote'];
+const PORTFOLIO_KEYS = ['eligibleState', 'eligibleFormalRoutes', 'eligibleLocalQuickRoutes', 'scopeNote'];
 const BENCHMARK_KEYS = ['id', 'route', 'title', 'productionModule', 'oracle', 'referenceType', 'referenceBasis', 'input', 'assertions'];
+const BENCHMARK_OPTIONAL_KEYS = ['families'];
 const CANDIDATE_KEYS = ['id', 'capability', 'title', 'productionModule', 'oracle', 'referenceType', 'referenceBasis', 'expectedOutcome', 'input', 'assertions'];
 const ASSERTION_KEYS = ['path', 'absTolerance'];
 const TARGET_KEYS = ['route', 'priority', 'evidenceNeeded'];
@@ -170,6 +171,99 @@ function floorSlabWestergaardOracle(i) {
     totalStressMpa,
     governingStressMpa,
     governingRatio: governingStressMpa / i.allowableStressMpa
+  };
+}
+
+function cableTensionFrequencyOracle(i) {
+  const sumModeFrequency = i.measurements.reduce(
+    (sum, measurement) => sum + measurement.mode * measurement.frequencyHz,
+    0
+  );
+  const sumModeSquared = i.measurements.reduce(
+    (sum, measurement) => sum + measurement.mode ** 2,
+    0
+  );
+  const fundamentalFrequencyHz = sumModeFrequency / sumModeSquared;
+  const tensionN = 4 * i.massPerLengthKgM * i.effectiveLengthM ** 2
+    * fundamentalFrequencyHz ** 2;
+  const tensionKn = tensionN / 1000;
+  const measurements = i.measurements.map((measurement) => {
+    const predictedFrequencyHz = measurement.mode * fundamentalFrequencyHz;
+    const frequencyDeviationPct = (
+      (measurement.frequencyHz - predictedFrequencyHz) / predictedFrequencyHz
+    ) * 100;
+    const modalFundamentalFrequencyHz = measurement.frequencyHz / measurement.mode;
+    const modalTensionKn = 4 * i.massPerLengthKgM * i.effectiveLengthM ** 2
+      * modalFundamentalFrequencyHz ** 2 / 1000;
+    return {
+      mode: measurement.mode,
+      frequencyHz: measurement.frequencyHz,
+      predictedFrequencyHz,
+      frequencyDeviationPct,
+      modalFundamentalFrequencyHz,
+      tensionKn: modalTensionKn,
+      tensionDeviationPct: ((modalTensionKn - tensionKn) / tensionKn) * 100
+    };
+  });
+  const maxFrequencyDeviationPct = Math.max(
+    ...measurements.map((measurement) => Math.abs(measurement.frequencyDeviationPct))
+  );
+  const rmsFrequencyDeviationPct = Math.sqrt(
+    measurements.reduce(
+      (sum, measurement) => sum + measurement.frequencyDeviationPct ** 2,
+      0
+    ) / measurements.length
+  );
+  const targetProvided = Number.isFinite(i.targetTensionKn);
+  const targetSignedDeviationPct = targetProvided
+    ? ((tensionKn - i.targetTensionKn) / i.targetTensionKn) * 100
+    : null;
+  const targetDeviationPct = targetProvided ? Math.abs(targetSignedDeviationPct) : null;
+  const targetLowerKn = targetProvided
+    ? i.targetTensionKn * (1 - i.targetTolerancePct / 100)
+    : null;
+  const targetUpperKn = targetProvided
+    ? i.targetTensionKn * (1 + i.targetTolerancePct / 100)
+    : null;
+  const targetPassed = targetProvided
+    ? tensionKn >= targetLowerKn - 1e-12 && tensionKn <= targetUpperKn + 1e-12
+    : true;
+  const harmonicPassed = measurements.length < 2
+    || maxFrequencyDeviationPct <= i.harmonicTolerancePct + 1e-12;
+  const hasTraceableBasis = (basis) => {
+    const text = typeof basis === 'string' ? basis.trim() : '';
+    if (text.length < 8) return false;
+    return !/(?:示例資料|請依專案覆寫|待確認|未確認|尚待確認|不明|未知|不適用|無資料|暫估|待補|待定|未定)/i.test(text)
+      && !/(?:^|[^a-z0-9])(?:n\s*[/.]?\s*a|na|none|tbd|unknown|placeholder)(?:$|[^a-z0-9])/i.test(text);
+  };
+  const projectDataPassed = [
+    i.effectiveLengthBasis,
+    i.massBasis,
+    i.frequencyBasis,
+    i.harmonicToleranceBasis,
+    ...(targetProvided ? [i.targetTensionBasis] : [])
+  ].every(hasTraceableBasis);
+  const assumptionPassed = i.assumptionConfirmed === true;
+  return {
+    sampleCount: measurements.length,
+    fundamentalFrequencyHz,
+    tensionN,
+    tensionKn,
+    equivalentTf: tensionKn / 9.80665,
+    maxFrequencyDeviationPct,
+    rmsFrequencyDeviationPct,
+    measurements,
+    targetProvided: targetProvided ? 1 : 0,
+    targetDeviationPct,
+    targetSignedDeviationPct,
+    targetLowerKn,
+    targetUpperKn,
+    targetPassed: targetPassed ? 1 : 0,
+    projectDataPassed: projectDataPassed ? 1 : 0,
+    assumptionPassed: assumptionPassed ? 1 : 0,
+    measurementSetPassed: 1,
+    harmonicPassed: harmonicPassed ? 1 : 0,
+    overallOk: projectDataPassed && assumptionPassed && harmonicPassed && targetPassed ? 1 : 0
   };
 }
 
@@ -3450,9 +3544,310 @@ function steelFormalOracle(input) {
     return output;
   };
 
+  const singlePlateCase = i => {
+    const minimumConnectionShear = 4.5 * 9.80665;
+    const adoptedShear = Math.max(Math.abs(i.requiredShear), minimumConnectionShear);
+    const boltCount = Math.max(Math.round(i.boltCount), 1);
+    const shearPlanes = Math.max(Math.round(i.shearPlanes), 1);
+    const weldLineCount = Math.max(Math.round(i.weldLineCount), 1);
+    const deformationConsidered = i.deformationConsidered === true || i.deformationConsidered === 'true';
+    const fillerExtended = i.fillerExtended === true || i.fillerExtended === 'true';
+    const conventionalMaterialConfirmed = i.conventionalMaterialConfirmed === true || i.conventionalMaterialConfirmed === 'true';
+    const modelConfirmed = i.connectionModelConfirmed === true || i.connectionModelConfirmed === 'true';
+    const fillerInvalid = !fillerExtended && i.fillerThickness > 19;
+    const fillerReduction = fillerExtended || i.fillerThickness <= 6
+      ? 1
+      : fillerInvalid ? 0 : Math.max(1.1 - 0.016 * i.fillerThickness, 0);
+    const holeWidth = i.holeDiameter + 1.5;
+    const ordinates = Array.from({ length: boltCount }, (_, index) => (index - (boltCount - 1) / 2) * i.pitch);
+    const polarSum = ordinates.reduce((sum, ordinate) => sum + ordinate ** 2, 0);
+    const boltCoefficients = ordinates.map(ordinate => {
+      const direct = 1 / boltCount;
+      const moment = i.eccentricity > 0
+        ? (polarSum > 0 ? i.eccentricity * ordinate / polarSum : Infinity)
+        : 0;
+      return { direct, moment, resultant:Math.hypot(direct, moment) };
+    });
+    const maximumBoltCoefficient = Math.max(...boltCoefficients.map(item => item.resultant));
+    const boltArea = Math.PI * i.boltDiameter ** 2 / 4;
+    const boltTableStressTfCm2 = i.threadsCondition === 'excluded' ? 5 : 4;
+    const boltNominalPerBolt = boltTableStressTfCm2 * 98.0665 * boltArea * shearPlanes * fillerReduction / 1000;
+    const boltAvailable = maximumBoltCoefficient > 0 && Number.isFinite(maximumBoltCoefficient)
+      ? 0.75 * boltNominalPerBolt / maximumBoltCoefficient
+      : 0;
+
+    const bearingNominal = (clearDistance, thickness, ultimateStrength) => Math.min(
+      (deformationConsidered ? 1.2 : 1.5) * Math.max(clearDistance, 0) * thickness * ultimateStrength,
+      (deformationConsidered ? 2.4 : 3.0) * i.boltDiameter * thickness * ultimateStrength,
+    ) / 1000;
+    const bearingAvailable = ({ endDistance, sideDistance, thickness, ultimateStrength }) => {
+      const verticalEnd = 0.75 * bearingNominal(endDistance - i.holeDiameter / 2, thickness, ultimateStrength);
+      const verticalInterior = 0.75 * bearingNominal(i.pitch - i.holeDiameter, thickness, ultimateStrength);
+      const horizontal = 0.75 * bearingNominal(sideDistance - i.holeDiameter / 2, thickness, ultimateStrength);
+      const interactionPerKn = boltCoefficients.map((coefficient, index) => {
+        const vertical = index === boltCount - 1 ? verticalEnd : verticalInterior;
+        return vertical > 0 && horizontal > 0
+          ? Math.abs(coefficient.direct) / vertical + Math.abs(coefficient.moment) / horizontal
+          : Infinity;
+      });
+      const maximumInteraction = Math.max(...interactionPerKn);
+      return maximumInteraction > 0 && Number.isFinite(maximumInteraction) ? 1 / maximumInteraction : 0;
+    };
+    const plateBearingAvailable = bearingAvailable({
+      endDistance:i.endDistance,
+      sideDistance:Math.min(i.transverseEdgeDistance, i.boltLineToWeldDistance),
+      thickness:i.plateThickness,
+      ultimateStrength:i.plateUltimateStrength,
+    });
+    const beamBearingAvailable = bearingAvailable({
+      endDistance:i.beamWebEndDistance,
+      sideDistance:i.beamWebEdgeDistance,
+      thickness:i.beamWebThickness,
+      ultimateStrength:i.beamWebUltimateStrength,
+    });
+
+    const grossShearArea = i.plateHeight * i.plateThickness;
+    const netShearArea = Math.max(i.plateHeight - boltCount * holeWidth, 0) * i.plateThickness;
+    const plateYieldAvailable = 0.9 * 0.6 * i.plateYieldStrength * grossShearArea / 1000;
+    const plateRuptureAvailable = 0.75 * 0.6 * i.plateUltimateStrength * netShearArea / 1000;
+    const blockShear = ({ endDistance, edgeDistance, thickness, yieldStrength, ultimateStrength }) => {
+      const shearLength = endDistance + Math.max(boltCount - 1, 0) * i.pitch;
+      const Agv = Math.max(shearLength, 0) * thickness;
+      const Anv = Math.max(shearLength - (boltCount - 0.5) * holeWidth, 0) * thickness;
+      const Agt = Math.max(edgeDistance, 0) * thickness;
+      const Ant = Math.max(edgeDistance - holeWidth / 2, 0) * thickness;
+      const tensionRupture = ultimateStrength * Ant / 1000;
+      const shearRupture = 0.6 * ultimateStrength * Anv / 1000;
+      const shearYield = 0.6 * yieldStrength * Agv / 1000;
+      const tensionYield = yieldStrength * Agt / 1000;
+      const nominal = tensionRupture >= shearRupture
+        ? Math.min(shearYield + tensionRupture, shearRupture + tensionRupture)
+        : Math.min(shearRupture + tensionYield, shearRupture + tensionRupture);
+      return { Agv, Anv, Agt, Ant, available:0.75 * nominal };
+    };
+    const plateBlock = blockShear({
+      endDistance:i.endDistance,
+      edgeDistance:i.transverseEdgeDistance,
+      thickness:i.plateThickness,
+      yieldStrength:i.plateYieldStrength,
+      ultimateStrength:i.plateUltimateStrength,
+    });
+    const beamBlock = blockShear({
+      endDistance:i.beamWebEndDistance,
+      edgeDistance:i.beamWebEdgeDistance,
+      thickness:i.beamWebThickness,
+      yieldStrength:i.beamWebYieldStrength,
+      ultimateStrength:i.beamWebUltimateStrength,
+    });
+    const platePlasticModulus = i.plateThickness * i.plateHeight ** 2 / 4;
+    const plateAvailableMoment = 0.9 * i.plateYieldStrength * platePlasticModulus / 1e6;
+    const plateEccentricity = Math.max(i.eccentricity, i.weldEccentricity);
+    const plateFlexureAvailable = plateEccentricity > 0
+      ? plateAvailableMoment * 1000 / plateEccentricity
+      : Number.MAX_SAFE_INTEGER;
+    const weldGroupMaximumCoefficient = lineCount => {
+      const polar = lineCount * i.weldLength ** 3 / 12;
+      const direct = i.weldLength > 0 ? 1 / (lineCount * i.weldLength) : Infinity;
+      const moment = i.weldEccentricity > 0 && polar > 0
+        ? i.weldEccentricity * i.weldLength / 2 / polar
+        : 0;
+      return Math.hypot(direct, moment);
+    };
+    const weldMetalMaximumCoefficient = weldGroupMaximumCoefficient(weldLineCount);
+    const weldBaseMaximumCoefficient = weldGroupMaximumCoefficient(1);
+    const weldMetalPerLength = 0.75 * 0.6 * i.weldElectrodeStrength * 0.707 * i.weldSize / 1000;
+    const weldBasePerLength = Math.min(
+      0.9 * 0.6 * i.plateYieldStrength * i.plateThickness,
+      0.75 * 0.6 * i.plateUltimateStrength * i.plateThickness,
+      0.9 * 0.6 * i.supportYieldStrength * i.supportThickness,
+      0.75 * 0.6 * i.supportUltimateStrength * i.supportThickness,
+    ) / 1000;
+    const weldMetalAvailable = weldMetalMaximumCoefficient > 0 && Number.isFinite(weldMetalMaximumCoefficient)
+      ? weldMetalPerLength / weldMetalMaximumCoefficient
+      : 0;
+    const weldBaseAvailable = weldBaseMaximumCoefficient > 0 && Number.isFinite(weldBaseMaximumCoefficient)
+      ? weldBasePerLength / weldBaseMaximumCoefficient
+      : 0;
+
+    const rawChecks = [
+      ['bolt', boltAvailable],
+      ['plateBearing', plateBearingAvailable],
+      ['beamBearing', beamBearingAvailable],
+      ['plateYield', plateYieldAvailable],
+      ['plateRupture', plateRuptureAvailable],
+      ['plateBlock', plateBlock.available],
+      ['beamBlock', beamBlock.available],
+      ['plateFlexure', plateFlexureAvailable],
+      ['weldMetal', weldMetalAvailable],
+      ['weldBase', weldBaseAvailable],
+    ];
+    const checks = rawChecks.map(([key, capacity]) => ({
+      key,
+      available:i.designMethod === 'LRFD' ? capacity : 0,
+      ratio:i.designMethod === 'LRFD' && capacity > 0 ? adoptedShear / capacity : Infinity,
+    }));
+    const governingKey = checks.reduce((best, current) => current.ratio > best.ratio ? current : best, checks[0]).key;
+
+    const minEdge = baseEdgeDistance(i.boltDiameter, i.edgeFabrication);
+    const maxPlateEdge = Math.min(12 * i.plateThickness, 150);
+    const maxBeamEdge = Math.min(12 * i.beamWebThickness, 150);
+    const maxPlateSpacing = i.exposureCondition === 'weathering'
+      ? Math.min(14 * i.plateThickness, 180)
+      : Math.min(24 * i.plateThickness, 300);
+    const maxBeamSpacing = i.exposureCondition === 'weathering'
+      ? Math.min(14 * i.beamWebThickness, 180)
+      : Math.min(24 * i.beamWebThickness, 300);
+    const conventionalThicknessLimit = boltCount <= 5
+      ? i.boltDiameter / 2 + 1.5875
+      : i.boltDiameter / 2 - 1.5875;
+    const standardHoleTable = [[12, 13.5], [16, 17.5], [20, 21.5], [22, 23.5], [24, 25.5]];
+    const standardHoleRow = standardHoleTable.find(([diameter]) => Math.abs(i.boltDiameter - diameter) <= 1e-9);
+    const maximumStandardHoleDiameter = standardHoleRow
+      ? standardHoleRow[1]
+      : i.boltDiameter >= 27 ? i.boltDiameter + 1.5 : 0;
+    const boltDiameterTablePass = Boolean(standardHoleRow) || i.boltDiameter >= 27;
+    const holeDiameterPass = i.holeDiameter > i.boltDiameter;
+    const standardHoleMaximumPass = boltDiameterTablePass && i.holeDiameter <= maximumStandardHoleDiameter;
+    const boltEccentricityRequired = boltCount <= 5 ? i.boltLineToWeldDistance / 2 : i.boltLineToWeldDistance;
+    const boltEccentricityPass = i.eccentricity >= boltEccentricityRequired;
+    const weldEccentricityRequired = i.boltLineToWeldDistance;
+    const weldEccentricityPass = i.weldEccentricity >= weldEccentricityRequired;
+    const doubleFilletWeldPass = weldLineCount === 2;
+    const conventionalWeldSizeRequired = 0.625 * i.plateThickness;
+    const conventionalWeldSizePass = i.weldSize >= conventionalWeldSizeRequired;
+    const plateMaterialOrderPass = i.plateUltimateStrength >= i.plateYieldStrength;
+    const beamWebMaterialOrderPass = i.beamWebUltimateStrength >= i.beamWebYieldStrength;
+    const supportMaterialOrderPass = i.supportUltimateStrength >= i.supportYieldStrength;
+    const conventionalPlateFyPass = i.plateYieldStrength <= 345;
+    const conventionalBeamWebFyPass = i.beamWebYieldStrength <= 345;
+    const conventionalPitchPass = i.pitch <= 76.2;
+    const conventionalHeightPass = i.plateHeight <= 914.4;
+    const thickerWeldPart = Math.max(i.plateThickness, i.supportThickness);
+    const thinnerWeldPart = Math.min(i.plateThickness, i.supportThickness);
+    const minimumWeld = thickerWeldPart <= 6 ? 3 : thickerWeldPart <= 12 ? 5 : thickerWeldPart <= 19 ? 6 : 8;
+    const maximumWeld = thinnerWeldPart < 6 ? thinnerWeldPart : Math.max(thinnerWeldPart - 1.5, 0);
+    const hasBasis = value => Boolean(String(value || '').trim()) && !/示例|請依專案覆寫/.test(String(value));
+    const methodPass = i.designMethod === 'LRFD';
+    const geometryPass = i.plateHeight >= 2 * i.endDistance + Math.max(boltCount - 1, 0) * i.pitch;
+    const detailPass = [
+      methodPass,
+      Math.abs(i.requiredAxial) <= 0,
+      Math.abs(i.requiredMoment) <= 0,
+      adoptedShear > 0,
+      boltCount >= 2 && boltCount <= 12,
+      conventionalPitchPass,
+      conventionalHeightPass,
+      shearPlanes <= 1,
+      i.holeType === 'standard',
+      i.boltGrade === 'F10T' && Math.abs(i.boltUltimateStrength - 1000) <= 1,
+      plateMaterialOrderPass,
+      beamWebMaterialOrderPass,
+      supportMaterialOrderPass,
+      conventionalPlateFyPass,
+      conventionalBeamWebFyPass,
+      conventionalMaterialConfirmed,
+      boltDiameterTablePass,
+      holeDiameterPass,
+      standardHoleMaximumPass,
+      i.pitch >= 3 * i.boltDiameter,
+      i.endDistance >= minEdge,
+      i.transverseEdgeDistance >= minEdge,
+      i.endDistance <= maxPlateEdge,
+      i.transverseEdgeDistance <= maxPlateEdge,
+      i.pitch <= maxPlateSpacing,
+      i.boltLineToWeldDistance >= minEdge,
+      i.boltLineToWeldDistance <= 88.9,
+      boltEccentricityPass,
+      weldEccentricityPass,
+      Math.min(i.transverseEdgeDistance, i.boltLineToWeldDistance) >= 2 * i.boltDiameter,
+      i.beamWebEdgeDistance >= 2 * i.boltDiameter,
+      Math.min(i.plateThickness, i.beamWebThickness) <= conventionalThicknessLimit,
+      i.beamWebEndDistance >= minEdge,
+      i.beamWebEdgeDistance >= minEdge,
+      i.beamWebEndDistance <= maxBeamEdge,
+      i.beamWebEdgeDistance <= maxBeamEdge,
+      i.pitch <= maxBeamSpacing,
+      geometryPass,
+      i.weldLength <= i.plateHeight,
+      i.weldLength >= 4 * i.weldSize,
+      i.weldLength <= 70 * i.weldSize,
+      doubleFilletWeldPass,
+      conventionalWeldSizePass,
+      i.weldSize >= minimumWeld,
+      i.weldSize <= maximumWeld,
+      !fillerInvalid,
+      hasBasis(i.demandBasis),
+      hasBasis(i.geometryBasis),
+      hasBasis(i.materialBasis),
+      hasBasis(i.eccentricityBasis),
+      modelConfirmed,
+    ].every(Boolean);
+    const validationFailure = i.holeDiameter <= i.boltDiameter
+      || i.pitch <= i.holeDiameter
+      || i.endDistance <= i.holeDiameter / 2
+      || i.beamWebEndDistance <= i.holeDiameter / 2
+      || i.transverseEdgeDistance <= i.holeDiameter / 2
+      || fillerInvalid
+      || !methodPass
+      || Math.abs(i.requiredAxial) > 0
+      || Math.abs(i.requiredMoment) > 0;
+    const strengthPass = checks.every(check => check.ratio <= 1);
+    const output = {
+      lrfd:methodPass ? 1 : 0,
+      checkCount:checks.length,
+      enteredShear:i.requiredShear,
+      minimumConnectionShear,
+      adoptedShear,
+      grossShearArea,
+      netShearArea,
+      plateBlockAgv:plateBlock.Agv,
+      plateBlockAnv:plateBlock.Anv,
+      plateBlockAgt:plateBlock.Agt,
+      plateBlockAnt:plateBlock.Ant,
+      beamBlockAgv:beamBlock.Agv,
+      beamBlockAnv:beamBlock.Anv,
+      beamBlockAgt:beamBlock.Agt,
+      beamBlockAnt:beamBlock.Ant,
+      governingBolt:governingKey === 'bolt' ? 1 : 0,
+      methodPass:methodPass ? 1 : 0,
+      positiveShearPass:adoptedShear > 0 ? 1 : 0,
+      boltDiameterTablePass:boltDiameterTablePass ? 1 : 0,
+      holeDiameterPass:holeDiameterPass ? 1 : 0,
+      standardHoleMaximum:maximumStandardHoleDiameter,
+      standardHoleMaximumPass:standardHoleMaximumPass ? 1 : 0,
+      boltEccentricityRequired,
+      boltEccentricityPass:boltEccentricityPass ? 1 : 0,
+      weldEccentricityRequired,
+      weldEccentricityPass:weldEccentricityPass ? 1 : 0,
+      doubleFilletWeldPass:doubleFilletWeldPass ? 1 : 0,
+      conventionalWeldSizeRequired,
+      conventionalWeldSizePass:conventionalWeldSizePass ? 1 : 0,
+      plateMaterialOrderPass:plateMaterialOrderPass ? 1 : 0,
+      beamWebMaterialOrderPass:beamWebMaterialOrderPass ? 1 : 0,
+      supportMaterialOrderPass:supportMaterialOrderPass ? 1 : 0,
+      conventionalPlateFyPass:conventionalPlateFyPass ? 1 : 0,
+      conventionalBeamWebFyPass:conventionalBeamWebFyPass ? 1 : 0,
+      conventionalMaterialConfirmedPass:conventionalMaterialConfirmed ? 1 : 0,
+      conventionalPitchPass:conventionalPitchPass ? 1 : 0,
+      conventionalHeightPass:conventionalHeightPass ? 1 : 0,
+      geometryPass:geometryPass ? 1 : 0,
+      strengthPass:strengthPass ? 1 : 0,
+      detailPass:detailPass ? 1 : 0,
+      validationFailure:validationFailure ? 1 : 0,
+      complianceReady:1,
+      overallPass:strengthPass && detailPass && !validationFailure ? 1 : 0,
+    };
+    for (const check of checks) {
+      output[`${check.key}Available`] = check.available;
+      output[`${check.key}Ratio`] = check.ratio;
+    }
+    return output;
+  };
+
   return {
     [input.plateCase.id]:plateCase(input.plateCase),
     ...Object.fromEntries(input.tensionCases.map(item => [item.id, tensionCase(item)])),
+    ...Object.fromEntries(input.singlePlateCases.map(item => [item.id, singlePlateCase(item)])),
   };
 }
 
@@ -4238,6 +4633,7 @@ const ORACLES = {
   'earth-rankine-dry-active': earthOracle,
   'foundation-external-load-only': foundationOracle,
   'floor-slab-westergaard-three-position': floorSlabWestergaardOracle,
+  'cable-tension-frequency-taut-string': cableTensionFrequencyOracle,
   'rc-column-balanced-nearby-pm-point': rcColumnPmOracle,
   'rc-column-cover-deviation-four-direction': rcColumnCoverDeviationOracle,
   'rc-beam-seismic-strength': rcBeamStrengthOracle,
@@ -4294,6 +4690,7 @@ function validateCatalog(catalog) {
   exactKeys(catalog?.portfolio, PORTFOLIO_KEYS, 'portfolio', issues);
   if (catalog?.portfolio?.eligibleState !== 'formal') issues.push('portfolio:eligible-state');
   if (!Number.isInteger(catalog?.portfolio?.eligibleFormalRoutes) || catalog.portfolio.eligibleFormalRoutes < 1) issues.push('portfolio:eligible-formal-routes');
+  if (!Number.isInteger(catalog?.portfolio?.eligibleLocalQuickRoutes) || catalog.portfolio.eligibleLocalQuickRoutes < 0) issues.push('portfolio:eligible-local-quick-routes');
   if (!String(catalog?.portfolio?.scopeNote || '').includes('golden case')) issues.push('portfolio:scope-note-distinction');
   if (!Array.isArray(catalog?.benchmarks) || catalog.benchmarks.length < 1) issues.push('benchmarks:required');
   if (!Array.isArray(catalog?.candidateBenchmarks)) issues.push('candidate-benchmarks:array-required');
@@ -4301,13 +4698,27 @@ function validateCatalog(catalog) {
 
   const ids = new Set();
   const routes = new Set();
+  let formalRouteCount = 0;
+  let localQuickRouteCount = 0;
   for (const [index, benchmark] of (catalog?.benchmarks || []).entries()) {
     const label = `benchmark[${index}]`;
-    exactKeys(benchmark, BENCHMARK_KEYS, label, issues);
+    const benchmarkKeys = Object.prototype.hasOwnProperty.call(benchmark || {}, 'families')
+      ? [...BENCHMARK_KEYS, ...BENCHMARK_OPTIONAL_KEYS]
+      : BENCHMARK_KEYS;
+    exactKeys(benchmark, benchmarkKeys, label, issues);
     if (!benchmark.id || ids.has(benchmark.id)) issues.push(`${label}:unique-id`);
     ids.add(benchmark.id);
     if (!/^\/[a-z0-9-]+$/.test(String(benchmark.route || '')) || routes.has(benchmark.route)) issues.push(`${label}:unique-route`);
     routes.add(benchmark.route);
+    formalRouteCount += 1;
+    const families = benchmark.families || [];
+    if (!Array.isArray(families)
+      || new Set(families).size !== families.length
+      || families.some((family) => family !== 'local-quick')) {
+      issues.push(`${label}:families`);
+    } else if (families.includes('local-quick')) {
+      localQuickRouteCount += 1;
+    }
     if (!ORACLES[benchmark.oracle]) issues.push(`${label}:known-oracle`);
     if (benchmark.referenceType !== 'closed-form-identity') issues.push(`${label}:reference-type`);
     if (!String(benchmark.referenceBasis || '').trim()) issues.push(`${label}:reference-basis`);
@@ -4322,6 +4733,8 @@ function validateCatalog(catalog) {
       if (!Number.isFinite(assertion.absTolerance) || assertion.absTolerance < 0) issues.push(`${assertionLabel}:abs-tolerance`);
     }
   }
+  if (formalRouteCount !== catalog?.portfolio?.eligibleFormalRoutes) issues.push('portfolio:formal-route-count');
+  if (localQuickRouteCount !== catalog?.portfolio?.eligibleLocalQuickRoutes) issues.push('portfolio:local-quick-route-count');
 
   for (const [index, benchmark] of (catalog?.candidateBenchmarks || []).entries()) {
     const label = `candidateBenchmark[${index}]`;
@@ -4368,6 +4781,10 @@ function closeEnough(actual, expected, absTolerance) {
 
 function runBenchmarks(catalog, options = {}) {
   const catalogIssues = validateCatalog(catalog);
+  const catalogBenchmarks = Array.isArray(catalog?.benchmarks) ? catalog.benchmarks : [];
+  const formalBenchmarkCount = catalogBenchmarks.length;
+  const localQuickBenchmarkCount = catalogBenchmarks
+    .filter((benchmark) => Array.isArray(benchmark?.families) && benchmark.families.includes('local-quick')).length;
   if (catalogIssues.length) {
     return {
       schemaVersion: 3,
@@ -4376,9 +4793,13 @@ function runBenchmarks(catalog, options = {}) {
       status: 'blocked',
       summary: {
         eligibleFormalRoutes: Number(catalog?.portfolio?.eligibleFormalRoutes) || 0,
-        pilotRequired: Array.isArray(catalog?.benchmarks) ? catalog.benchmarks.length : 0,
+        eligibleLocalQuickRoutes: Number(catalog?.portfolio?.eligibleLocalQuickRoutes) || 0,
+        pilotRequired: formalBenchmarkCount,
         pilotVerified: 0,
         independentlyVerifiedRoutes: 0,
+        localQuickRequired: localQuickBenchmarkCount,
+        localQuickVerified: 0,
+        independentlyVerifiedLocalQuickRoutes: 0,
         candidateRequired: Array.isArray(catalog?.candidateBenchmarks) ? catalog.candidateBenchmarks.length : 0,
         candidateVerified: 0,
         candidatePassRequired: Array.isArray(catalog?.candidateBenchmarks)
@@ -4436,8 +4857,9 @@ function runBenchmarks(catalog, options = {}) {
     issues.push(...recordIssues.map(issue => `${benchmark.id}:${issue}`));
     return {
       id: benchmark.id,
-      ...(classification === 'formal' ? { route: benchmark.route } : { capability: benchmark.capability }),
+      ...(classification === 'candidate' ? { capability: benchmark.capability } : { route: benchmark.route }),
       classification,
+      families: Array.isArray(benchmark.families) ? [...benchmark.families] : [],
       ...(classification === 'candidate' ? { expectedOutcome: benchmark.expectedOutcome } : {}),
       title: benchmark.title,
       status: recordIssues.length ? 'blocked' : 'verified',
@@ -4453,7 +4875,10 @@ function runBenchmarks(catalog, options = {}) {
   for (const benchmark of catalog.candidateBenchmarks) {
     candidateRecords.push(executeBenchmark(benchmark, 'candidate'));
   }
-  const pilotVerified = records.filter(record => record.status === 'verified').length;
+  const formalRecords = records.filter(record => record.classification === 'formal');
+  const localQuickRecords = records.filter(record => record.families.includes('local-quick'));
+  const pilotVerified = formalRecords.filter(record => record.status === 'verified').length;
+  const localQuickVerified = localQuickRecords.filter(record => record.status === 'verified').length;
   const candidateVerified = candidateRecords.filter(record => record.status === 'verified').length;
   const candidatePassRecords = candidateRecords.filter(record => record.expectedOutcome === 'strength-pass');
   const candidateRejectionRecords = candidateRecords.filter(record => record.expectedOutcome === 'strength-reject');
@@ -4462,13 +4887,17 @@ function runBenchmarks(catalog, options = {}) {
     kind: 'independent-engineering-benchmarks-result.v3',
     generatedAt: new Date().toISOString(),
     status: issues.length === 0
-      && pilotVerified === catalog.benchmarks.length
+      && records.every(record => record.status === 'verified')
       && candidateVerified === catalog.candidateBenchmarks.length ? 'ready' : 'blocked',
     summary: {
       eligibleFormalRoutes: catalog.portfolio.eligibleFormalRoutes,
-      pilotRequired: catalog.benchmarks.length,
+      eligibleLocalQuickRoutes: catalog.portfolio.eligibleLocalQuickRoutes,
+      pilotRequired: formalRecords.length,
       pilotVerified,
-      independentlyVerifiedRoutes: new Set(records.filter(record => record.status === 'verified').map(record => record.route)).size,
+      independentlyVerifiedRoutes: new Set(formalRecords.filter(record => record.status === 'verified').map(record => record.route)).size,
+      localQuickRequired: localQuickRecords.length,
+      localQuickVerified,
+      independentlyVerifiedLocalQuickRoutes: new Set(localQuickRecords.filter(record => record.status === 'verified').map(record => record.route)).size,
       candidateRequired: catalog.candidateBenchmarks.length,
       candidateVerified,
       candidatePassRequired: candidatePassRecords.length,
@@ -4510,7 +4939,7 @@ function main(argv = process.argv.slice(2)) {
   if (args.json) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } else {
-    process.stdout.write(`Independent engineering benchmarks: ${result.status}; formal pilot ${result.summary.pilotVerified}/${result.summary.pilotRequired}; formal portfolio ${result.summary.independentlyVerifiedRoutes}/${result.summary.eligibleFormalRoutes}; candidate pass ${result.summary.candidatePassVerified}/${result.summary.candidatePassRequired}; candidate rejection ${result.summary.candidateRejectionVerified}/${result.summary.candidateRejectionRequired}; issues ${result.summary.issueCount}\n`);
+    process.stdout.write(`Independent engineering benchmarks: ${result.status}; formal pilot ${result.summary.pilotVerified}/${result.summary.pilotRequired}; formal portfolio ${result.summary.independentlyVerifiedRoutes}/${result.summary.eligibleFormalRoutes}; local-quick ${result.summary.localQuickVerified}/${result.summary.eligibleLocalQuickRoutes}; candidate pass ${result.summary.candidatePassVerified}/${result.summary.candidatePassRequired}; candidate rejection ${result.summary.candidateRejectionVerified}/${result.summary.candidateRejectionRequired}; issues ${result.summary.issueCount}\n`);
   }
   return result.status === 'ready' ? 0 : 2;
 }

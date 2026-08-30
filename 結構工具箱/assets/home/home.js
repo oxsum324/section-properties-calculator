@@ -25,7 +25,7 @@
   const memberSystems = [
     { id: 'all', label: '全部', summary: '依材料系統分段顯示 RC、鋼構與 SRC 構件工具。' },
     { id: 'rc', label: 'RC', summary: '鋼筋混凝土梁、柱、板、牆、基礎、樁與補強構件檢核。' },
-    { id: 'steel', label: '鋼構', summary: '鋼梁、鋼柱、鋼構正式入口與鋼構連接板檢核。' },
+    { id: 'steel', label: '鋼構', summary: '鋼梁、鋼柱、含單剪力板 Shear Tab 的鋼構正式入口與鋼構連接板檢核。' },
     { id: 'src', label: 'SRC', summary: '包覆型 SRC 梁、柱正式檢核、案件重播與精簡計算書。' }
   ];
 
@@ -208,6 +208,7 @@
       '/equipment-load': '2026-08-29',
       '/earth-pressure': '2026-08-29',
       '/floor-slab-westergaard': '2026-08-29',
+      '/cable-tension-frequency': '2026-08-29',
       '/decking': '2026-08-29',
       '/excavation-support': '2026-08-28'
     }
@@ -253,7 +254,7 @@
       '/rc-column-cover-deviation': ['鋼筋混凝土/shared/pmsection.js', '結構工具箱/tools/local-quick-tool-metadata.js', '結構工具箱/tools/local-quick-export.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/src-beam': ['SRC工具/core/src-beam-core.js', 'SRC工具/src-beam.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/src-column': ['SRC工具/core/src-column-core.js', 'SRC工具/src-column.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
-      '/steel-formal': ['鋼構工具/app.js', '鋼構工具/core/ui/report.js'],
+      '/steel-formal': ['鋼構工具/index.html', '鋼構工具/calculator.js', '鋼構工具/app.js', '鋼構工具/steel-traceability.catalog.json', '鋼構工具/core/ui/report.js'],
       '/steel-plate': ['鋼構工具/app.js', '鋼構工具/core/ui/report.js'],
       '/steel-beam-formal': ['鋼構工具/steel-beam-formal.js', '鋼構工具/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/steel-column-formal': ['鋼構工具/steel-column-formal.js', '鋼構工具/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
@@ -279,6 +280,7 @@
       '/equipment-load': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/earth-pressure': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/floor-slab-westergaard': ['結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
+      '/cable-tension-frequency': ['結構工具箱/tools/cable-tension/cable-tension-frequency-core.js', '結構工具箱/tools/local-quick-tool-metadata.js', '結構工具箱/tools/local-quick-export.js', '結構工具箱/core/ui/report.js', '結構工具箱/tools/project-meta-profile.js'],
       '/excavation-support': [
         '開挖擋土支撐/index.html',
         '開挖擋土支撐/README.md',
@@ -544,11 +546,11 @@
       memberSystem: 'steel',
       state: 'formal',
       governance: 'steel-audit',
-      output: '鋼構正式子工具入口、計算書與 TXT 文字備查',
-      summary: '審查摘要、流程與參數詞典保留在操作頁；正式計算書直接呈現採用值、公式代入、檢核結果與結論，連接板與拉力構件可另下載非正式附件的 TXT 文字備查。',
-      fit: '鋼構構件與接合正式核算主入口。',
-      limit: '仍需確認每個子頁的適用情境。',
-      capabilities: ['正式核算', 'TXT 備查', '自巡檢']
+      output: '連接板、拉力構件、單剪力板 Shear Tab 正式核算、計算書與 TXT 文字備查',
+      summary: '審查摘要、流程與參數詞典保留在操作頁；連接板、拉力構件及 LRFD 單剪力板 Shear Tab 的正式計算書直接呈現採用值、公式代入、檢核結果與結論，並可另下載非正式附件的 TXT 文字備查。',
+      fit: '鋼構連接板、拉力構件，以及單列、單剪、標準孔、靜力承壓型、純剪力之 LRFD 單剪力板正式核算主入口。',
+      limit: 'Shear Tab 需由設計者確認偏心模型與專案資料來源；ASD、軸力或外加彎矩、滑動臨界、疲勞、反覆載重、耐震特別規定及支承構件完整檢核不在其正式範圍，其他子頁亦須逐一確認適用情境。',
+      capabilities: ['正式核算', 'Shear Tab', 'TXT 備查', '自巡檢']
     },
     {
       title: 'SRC 梁',
@@ -942,6 +944,19 @@
       capabilities: ['正式核算', '計算書', 'TXT 備查', '多載重疊加']
     },
     {
+      title: '鋼索索力評估（頻率法快算）',
+      version: 'V0.1',
+      href: '/cable-tension-frequency',
+      categories: ['temporary'],
+      state: 'formal',
+      governance: 'local-quick-contract',
+      output: '單一／多振型頻率反算、諧波一致性、目標索力比較、模型示意、兩段式計算書、TXT 文字備查與 JSON',
+      summary: '依 FHWA 理想張緊弦關係式，以振動有效長度、整體單位長度質量及實測固有頻率反算索力；多振型採過原點擬合並顯示逐振型偏差，避免把振型誤認或模型不適用藏在平均值內。',
+      fit: '可合理視為均勻張緊弦、已確認振動有效長度與整體線質量之鋼索現況索力快算。',
+      limit: '不自動修正垂度、彎曲勁度、端部柔度、斜度、阻尼器或集中質量；不取代鋼索強度、疲勞、錨頭／夾具、腐蝕斷絲、施工張拉及整體結構安全詳算。',
+      capabilities: ['索力反算', '多振型診斷', '計算書', 'TXT 備查']
+    },
+    {
       title: '覆工板系統計算',
       version: 'V1.0',
       href: '/decking',
@@ -1026,6 +1041,7 @@
     '/equipment-load': 'tools/equipment/equipment-load.html',
     '/earth-pressure': 'tools/earth/earth-pressure.html',
     '/floor-slab-westergaard': 'tools/floor-slab/floor-slab-westergaard.html',
+    '/cable-tension-frequency': 'tools/cable-tension/cable-tension-frequency.html',
     '/decking': '../覆工板/index.html',
     '/excavation-support': '../開挖擋土支撐/index.html'
   };

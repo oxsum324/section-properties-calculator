@@ -67,7 +67,7 @@ assert.ok(staging.includes('gh run list --workflow "Pages deploy" --limit 1'), '
 assert.ok(staging.includes('workflow run ID 不在本 ledger 硬編碼'), 'staging guide avoids self-staling Pages run ids');
 assert.ok(staging.includes('最新 `Pages deploy` 必須為 completed/success'), 'staging guide requires current Pages deploy success');
 assert.ok(staging.includes('page-only boundary `4/4`') && staging.includes('issue `0`'), 'staging guide records page-only boundary health');
-assert.ok(staging.includes('首頁正式工具實際交付物渲染 `37/37`'), 'staging guide records homepage rendered delivery evidence health');
+assert.ok(staging.includes('首頁正式工具實際交付物渲染數量以 tracked `report-readiness-status.json` 為準'), 'staging guide reads homepage rendered delivery evidence health from the tracked release snapshot');
 assert.ok(staging.includes('補充報告 / 服務成品 `2/2`'), 'staging guide records supplemental report and service delivery evidence health');
 assert.ok(staging.includes('不得附入計算書、列印輸出或 PDF'), 'staging guide keeps report readiness page-only boundary');
 assert.ok(staging.includes('下次同類變更的分包 playbook'), 'staging guide keeps future staging playbook');
@@ -874,7 +874,7 @@ assert.deepEqual(reportReadinessStatus.reportTextSmokeEvidenceUnmappedFamilies, 
 assert.ok(reportReadinessStatus.reportTextSmokeEvidenceGates.every(gate => gate.pass && gate.complete === gate.required), 'report readiness runtime evidence gates pass');
 assert.ok(String(reportReadinessStatus.reportTextSmokeScope || '').includes('風力 / 地震正式工具') && String(reportReadinessStatus.reportTextSmokeScope || '').includes('局部快算'), 'report readiness names report text scope');
 assert.ok(String(reportReadinessStatus.reportTextSmokeScope || '').includes('矩陣外工具家族'), 'report readiness keeps other-family report boundary');
-assert.ok([31, 32, 33, 36, 37].includes(reportReadinessStatus.renderedDeliveryEvidenceRequired), 'report readiness covers the previous release or promoted formal homepage portfolio');
+assert.ok([31, 32, 33, 36, 37, 38, 39].includes(reportReadinessStatus.renderedDeliveryEvidenceRequired), 'report readiness covers the previous release or promoted formal homepage portfolio');
 assert.equal(reportReadinessStatus.renderedDeliveryEvidenceComplete, reportReadinessStatus.renderedDeliveryEvidenceRequired, 'report readiness rendered delivery complete');
 assert.equal(reportReadinessStatus.renderedDeliveryEvidenceIssueCount, 0, 'report readiness rendered delivery issues empty');
 assert.match(reportReadinessStatus.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'report readiness rendered delivery runId');
@@ -883,6 +883,43 @@ assert.equal(reportReadinessStatus.renderedDeliveryEvidenceFamilies.reduce((sum,
 assert.ok(String(reportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'report readiness rendered delivery summary');
 assert.equal(reportReadinessStatus.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatus.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'report readiness rendered delivery source path');
 assert.match(reportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'report readiness rendered delivery source hash');
+if (Number.isInteger(reportReadinessStatus.deliveryFileIntegrityRequired)) {
+  assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165].includes(reportReadinessStatus.deliveryFileIntegrityRequired), 'report readiness supports historical and Schema v31 delivery-file counts');
+  assert.equal(reportReadinessStatus.deliveryFileIntegrityVerified, reportReadinessStatus.deliveryFileIntegrityRequired, 'report readiness verifies every delivery file');
+  assert.equal(reportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'report readiness delivery-file issues empty');
+  assert.equal(reportReadinessStatus.deliveryFileIntegrityPass, true, 'report readiness delivery-file integrity passes');
+  const deliveryCounts = reportReadinessStatus.deliveryFileIntegrityBreakdown.map(item => [item.required, item.verified]);
+  assert.ok([
+    [[60, 60], [62, 62], [13, 13]],
+    [[60, 60], [64, 64], [13, 13]],
+    [[60, 60], [66, 66], [13, 13]],
+    [[62, 62], [66, 66], [13, 13]],
+    [[64, 64], [66, 66], [13, 13]],
+    [[66, 66], [66, 66], [13, 13]],
+    [[72, 72], [66, 66], [13, 13]],
+    [[78, 78], [66, 66], [13, 13]],
+    [[84, 84], [66, 66], [13, 13]],
+    [[86, 86], [66, 66], [13, 13]],
+  ].some(expected => JSON.stringify(expected) === JSON.stringify(deliveryCounts)), 'report readiness supports historical and Schema v31 redacted delivery breakdowns');
+}
+if (Number.isInteger(reportReadinessStatus.steelHtmlContentSealRequired)) {
+  assert.ok([5, 6].includes(reportReadinessStatus.steelHtmlContentSealRequired), 'report readiness supports the 5-to-6 steel HTML content seal transition');
+  assert.equal(reportReadinessStatus.steelHtmlContentSealComplete, reportReadinessStatus.steelHtmlContentSealRequired, 'report readiness completes every steel HTML content seal');
+  assert.equal(reportReadinessStatus.steelHtmlContentSealIssueCount, 0, 'report readiness steel HTML content seal issues empty');
+  assert.equal(reportReadinessStatus.steelHtmlContentSealPass, true, 'report readiness steel HTML content seals pass');
+}
+if (Number.isInteger(reportReadinessStatus.steelHtmlApprovalSealRequired)) {
+  assert.ok([5, 6].includes(reportReadinessStatus.steelHtmlApprovalSealRequired), 'report readiness supports the 5-to-6 steel HTML approval seal transition');
+  assert.equal(reportReadinessStatus.steelHtmlApprovalSealComplete, reportReadinessStatus.steelHtmlApprovalSealRequired, 'report readiness completes every steel HTML approval seal');
+  assert.equal(reportReadinessStatus.steelHtmlApprovalSealIssueCount, 0, 'report readiness steel HTML approval seal issues empty');
+  assert.equal(reportReadinessStatus.steelHtmlApprovalSealPass, true, 'report readiness steel HTML approval seals pass');
+}
+if (Number.isInteger(reportReadinessStatus.steelResultReconciliationRequired)) {
+  assert.ok([5, 6].includes(reportReadinessStatus.steelResultReconciliationRequired), 'report readiness supports the 5-to-6 steel result reconciliation transition');
+  assert.equal(reportReadinessStatus.steelResultReconciliationComplete, reportReadinessStatus.steelResultReconciliationRequired, 'report readiness completes every steel result reconciliation');
+  assert.equal(reportReadinessStatus.steelResultReconciliationIssueCount, 0, 'report readiness steel result reconciliation issues empty');
+  assert.equal(reportReadinessStatus.steelResultReconciliationPass, true, 'report readiness steel result reconciliations pass');
+}
 if (Number.isInteger(reportReadinessStatus.supplementalDeliveryEvidenceRequired)) {
   assert.ok([1, 2].includes(reportReadinessStatus.supplementalDeliveryEvidenceRequired), 'report readiness supplemental delivery uses a supported transition count');
   assert.equal(reportReadinessStatus.supplementalDeliveryEvidenceComplete, reportReadinessStatus.supplementalDeliveryEvidenceRequired, 'report readiness supplemental delivery complete');

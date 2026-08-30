@@ -109,7 +109,7 @@ const GLOBAL_GOVERNANCE_GATES = [
     key: 'rendered-delivery-evidence',
     label: '實際交付物渲染佐證',
     contract: '結構工具箱/tools/rendered-delivery-evidence.contract.test.js',
-    scope: '首頁 38 個正式工具的 PDF、DOCX 或 workbook，加上動力分析摘要 PDF 與開挖本機服務 PDF / DOCX / 最新下載的當輪實際產出與文字 / 版面驗證',
+    scope: '首頁 39 個正式工具的 PDF、DOCX 或 workbook，加上動力分析摘要 PDF 與開挖本機服務 PDF / DOCX / 最新下載的當輪實際產出與文字 / 版面驗證',
     catalogFamilies: [],
     minCatalogs: 0
   }
@@ -1607,7 +1607,7 @@ function buildMarkdown(payload) {
     `- nonMatrixBoundary: complete=${entrypoint.boundaryComplete || 0}/${entrypoint.boundaryRequired || 0}, issues=${entrypoint.boundaryIssueCount || 0}`,
     `- pageOnlyBoundary: complete=${entrypoint.pageOnlyBoundaryComplete || 0}/${entrypoint.pageOnlyBoundaryRequired || 0}, issues=${entrypoint.pageOnlyBoundaryIssueCount || 0}`,
     `- globalGovernance: complete=${payload.globalGovernance?.passed || 0}/${payload.globalGovernance?.required || 0}, issues=${payload.globalGovernance?.issueCount || 0}`,
-    `- independentEngineeringBenchmarks: pilot=${payload.independentBenchmarkCoverage?.summary?.pilotVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.pilotRequired || 0}, formalPortfolio=${payload.independentBenchmarkCoverage?.summary?.independentlyVerifiedRoutes || 0}/${payload.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes || 0}, candidateCases=${payload.independentBenchmarkCoverage?.summary?.candidateVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.candidateRequired || 0}, candidatePass=${payload.independentBenchmarkCoverage?.summary?.candidatePassVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.candidatePassRequired || 0}, candidateRejections=${payload.independentBenchmarkCoverage?.summary?.candidateRejectionVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.candidateRejectionRequired || 0}, candidateCapabilities=${payload.independentBenchmarkCoverage?.summary?.verifiedCandidateCapabilities || 0}, issues=${payload.independentBenchmarkCoverage?.summary?.issueCount || 0}`,
+    `- independentEngineeringBenchmarks: pilot=${payload.independentBenchmarkCoverage?.summary?.pilotVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.pilotRequired || 0}, formalPortfolio=${payload.independentBenchmarkCoverage?.summary?.independentlyVerifiedRoutes || 0}/${payload.independentBenchmarkCoverage?.summary?.eligibleFormalRoutes || 0}, localQuickFamily=${payload.independentBenchmarkCoverage?.summary?.localQuickVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.eligibleLocalQuickRoutes || 0}, candidateCases=${payload.independentBenchmarkCoverage?.summary?.candidateVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.candidateRequired || 0}, candidatePass=${payload.independentBenchmarkCoverage?.summary?.candidatePassVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.candidatePassRequired || 0}, candidateRejections=${payload.independentBenchmarkCoverage?.summary?.candidateRejectionVerified || 0}/${payload.independentBenchmarkCoverage?.summary?.candidateRejectionRequired || 0}, candidateCapabilities=${payload.independentBenchmarkCoverage?.summary?.verifiedCandidateCapabilities || 0}, issues=${payload.independentBenchmarkCoverage?.summary?.issueCount || 0}`,
     `- jointReactionEvidence: status=${payload.jointReactionEvidence?.status || 'unavailable'}, synthetic=${payload.jointReactionEvidence?.synthetic?.count || 0}, observed=${payload.jointReactionEvidence?.observed?.count || 0}, actualCandidates=${payload.jointReactionEvidence?.candidates?.actualObserved || 0}, issues=${payload.jointReactionEvidence?.issueCount || 0}`,
     `- preflightHistoryHealth: completed=${payload.preflightHistoryHealth?.completedCount || 0}/${payload.preflightHistoryHealth?.count || 0}, abnormal=${payload.preflightHistoryHealth?.abnormalCount || 0}, resolvedAbnormal=${payload.preflightHistoryHealth?.resolvedAbnormalCount || 0}, unresolvedAbnormal=${payload.preflightHistoryHealth?.unresolvedAbnormalCount || 0}, incomplete=${payload.preflightHistoryHealth?.incompleteCount || 0}, resolvedIncomplete=${payload.preflightHistoryHealth?.resolvedIncompleteCount || 0}, unresolvedIncomplete=${payload.preflightHistoryHealth?.unresolvedIncompleteCount || 0}, inProgress=${payload.preflightHistoryHealth?.inProgressCount || 0}, latestState=${payload.preflightHistoryHealth?.latestState || '-'}`,
     payload.latestPreflight
@@ -1673,6 +1673,7 @@ function buildMarkdown(payload) {
     '',
     `- pilot: ${independentSummary.pilotVerified || 0} / ${independentSummary.pilotRequired || 0}`,
     `- formal portfolio independently verified: ${independentSummary.independentlyVerifiedRoutes || 0} / ${independentSummary.eligibleFormalRoutes || 0}`,
+    `- overlapping local-quick family independently verified: ${independentSummary.localQuickVerified || 0} / ${independentSummary.eligibleLocalQuickRoutes || 0}`,
     `- non-public candidate cases independently verified: ${independentSummary.candidateVerified || 0} / ${independentSummary.candidateRequired || 0}`,
     `- expected passing candidate cases verified: ${independentSummary.candidatePassVerified || 0} / ${independentSummary.candidatePassRequired || 0}`,
     `- expected rejection candidate cases verified: ${independentSummary.candidateRejectionVerified || 0} / ${independentSummary.candidateRejectionRequired || 0}`,
@@ -2099,10 +2100,17 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const localQuickResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 12;
   const expandedLocalQuickResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 28;
   const columnCoverLocalQuickResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 29;
-  const expectedLocalQuickResultReconciliationCount = columnCoverLocalQuickResultReconciliationDeclared
-    ? 5
-    : (expandedLocalQuickResultReconciliationDeclared ? 4 : 3);
-  const expectedCanonicalArtifactIntegrityCount = 48 + (expectedLocalQuickResultReconciliationCount * 6);
+  const cableTensionLocalQuickResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 30;
+  const shearTabSteelFormalEvidenceDeclared = Number(evidence?.schemaVersion) >= 31;
+  const expectedLocalQuickResultReconciliationCount = cableTensionLocalQuickResultReconciliationDeclared
+    ? 6
+    : (columnCoverLocalQuickResultReconciliationDeclared
+      ? 5
+      : (expandedLocalQuickResultReconciliationDeclared ? 4 : 3));
+  const expectedSteelFormalEvidenceCount = shearTabSteelFormalEvidenceDeclared ? 6 : 5;
+  const expectedCanonicalArtifactIntegrityCount = 48
+    + (expectedLocalQuickResultReconciliationCount * 6)
+    + (shearTabSteelFormalEvidenceDeclared ? 2 : 0);
   const earthBridgeRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 13;
   const pileGroupLateralRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 14;
   const rcSourceReportPackageDeclared = Number(evidence?.schemaVersion) >= 15;
@@ -2284,14 +2292,14 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
     ))
     && (!steelHtmlDualSealDeclared || (
       evidence.steelHtmlContentSeal?.scope === 'steel-formal-html-reproducible-content-sha256'
-      && evidence.steelHtmlContentSeal.required === 5
-      && evidence.steelHtmlContentSeal.complete === 5
+      && evidence.steelHtmlContentSeal.required === expectedSteelFormalEvidenceCount
+      && evidence.steelHtmlContentSeal.complete === expectedSteelFormalEvidenceCount
       && evidence.steelHtmlContentSeal.issueCount === 0
       && evidence.steelHtmlContentSeal.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.steelHtmlContentSeal.setSha256 || ''))
       && evidence.steelHtmlApprovalSeal?.scope === 'steel-formal-html-reproducible-approval-sha256'
-      && evidence.steelHtmlApprovalSeal.required === 5
-      && evidence.steelHtmlApprovalSeal.complete === 5
+      && evidence.steelHtmlApprovalSeal.required === expectedSteelFormalEvidenceCount
+      && evidence.steelHtmlApprovalSeal.complete === expectedSteelFormalEvidenceCount
       && evidence.steelHtmlApprovalSeal.issueCount === 0
       && evidence.steelHtmlApprovalSeal.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.steelHtmlApprovalSeal.setSha256 || ''))
@@ -2312,8 +2320,8 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
     ))
     && (!steelResultReconciliationDeclared || (
       evidence.steelResultReconciliation?.scope === 'steel-source-replay-to-report-fingerprint'
-      && evidence.steelResultReconciliation.required === 5
-      && evidence.steelResultReconciliation.complete === 5
+      && evidence.steelResultReconciliation.required === expectedSteelFormalEvidenceCount
+      && evidence.steelResultReconciliation.complete === expectedSteelFormalEvidenceCount
       && evidence.steelResultReconciliation.issueCount === 0
       && evidence.steelResultReconciliation.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.steelResultReconciliation.setSha256 || ''))
@@ -2831,6 +2839,9 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     : steelResultReconciliation.pass === true
       ? Math.max(0, steelResultReconciliationRequired - steelResultReconciliationComplete)
       : Math.max(1, compactNumber(steelResultReconciliation.issueCount) || steelResultReconciliationRequired - steelResultReconciliationComplete);
+  const steelFormalToolLabels = Math.max(steelResultReconciliationRequired, steelHtmlContentSealRequired) >= 6
+    ? '主工具連接板、主工具拉力構件、主工具單剪力板 Shear Tab、獨立連接板、鋼梁與鋼柱'
+    : '主工具連接板、主工具拉力構件、獨立連接板、鋼梁與鋼柱';
   const stoneResultReconciliation = renderedDeliveryPayload?.stoneResultReconciliation;
   const stoneResultReconciliationDeclared = Boolean(
     Number(renderedDeliveryPayload?.schemaVersion) >= 8
@@ -2901,11 +2912,13 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
   );
   const localQuickResultReconciliationRequired = localQuickResultReconciliationDeclared ? compactNumber(localQuickResultReconciliation.required) : 0;
   const localQuickResultReconciliationComplete = localQuickResultReconciliationDeclared ? compactNumber(localQuickResultReconciliation.complete) : 0;
-  const localQuickResultReconciliationToolLabels = localQuickResultReconciliationRequired >= 5
-    ? '基礎、設備荷重、擋土土壓、地坪 Westergaard 與柱保護層偏差強度評估'
-    : (localQuickResultReconciliationRequired >= 4
-      ? '基礎、設備荷重、擋土土壓與地坪 Westergaard'
-      : '基礎、設備荷重與擋土土壓');
+  const localQuickResultReconciliationToolLabels = localQuickResultReconciliationRequired >= 6
+    ? '基礎、設備荷重、擋土土壓、地坪 Westergaard、柱保護層偏差強度評估與鋼索索力頻率法快算'
+    : (localQuickResultReconciliationRequired >= 5
+      ? '基礎、設備荷重、擋土土壓、地坪 Westergaard 與柱保護層偏差強度評估'
+      : (localQuickResultReconciliationRequired >= 4
+        ? '基礎、設備荷重、擋土土壓與地坪 Westergaard'
+        : '基礎、設備荷重與擋土土壓'));
   const localQuickResultReconciliationIssueCount = !localQuickResultReconciliationDeclared
     ? 0
     : localQuickResultReconciliation.pass === true
@@ -2934,9 +2947,9 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     ...(rcFormalHtmlApprovalSealDeclared ? [`RC 正式 HTML 核可封印：設計與補強共 ${rcFormalHtmlApprovalSealComplete} / ${rcFormalHtmlApprovalSealRequired} 份核可 HTML 已將文件狀態、核可時間、計算指紋、標題與內容封印綁定並由瀏覽器及附件檢查器分別重算；任一欄位變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
     ...(rcStmFormalAttachmentDeclared ? [`RC STM 正式入口附件：深梁、基礎深梁與樁帽三維 STM 共 ${rcStmFormalAttachmentComplete} / ${rcStmFormalAttachmentRequired} 份已驗證內部審閱 PDF／PNG、核可 HTML、內容與核可雙封印、離線重開及正式 PDF 列印；三者現為獨立首頁正式入口，仍保留限定拓樸及 RC 梁／基礎流程銜接。`] : []),
     ...(formalHtmlDualSealDeclared ? [`風力／地震正式 HTML 雙封印：${formalHtmlContentSealComplete} / ${formalHtmlContentSealRequired} 份內容封印與 ${formalHtmlApprovalSealComplete} / ${formalHtmlApprovalSealRequired} 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；計算正文、文件狀態、核可時間、指紋或標題遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
-    ...(steelHtmlDualSealDeclared ? [`鋼構正式 HTML 雙封印：主工具連接板、主工具拉力構件、獨立連接板、鋼梁與鋼柱共 ${steelHtmlContentSealComplete} / ${steelHtmlContentSealRequired} 份內容封印與 ${steelHtmlApprovalSealComplete} / ${steelHtmlApprovalSealRequired} 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；計算正文或核可資料遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
+    ...(steelHtmlDualSealDeclared ? [`鋼構正式 HTML 雙封印：${steelFormalToolLabels}共 ${steelHtmlContentSealComplete} / ${steelHtmlContentSealRequired} 份內容封印與 ${steelHtmlApprovalSealComplete} / ${steelHtmlApprovalSealRequired} 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；計算正文或核可資料遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
     ...(anchorHtmlDualSealDeclared ? [`錨栓正式 HTML 雙封印：${anchorHtmlContentSealComplete} / ${anchorHtmlContentSealRequired} 份內容封印與 ${anchorHtmlApprovalSealComplete} / ${anchorHtmlApprovalSealRequired} 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；工作頁核可後輸出狀態固定，計算正文或核可資料遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
-    ...(steelResultReconciliationDeclared ? [`鋼構正式計算書結果鏈：主工具連接板、主工具拉力構件、獨立連接板、鋼梁與鋼柱共 ${steelResultReconciliationComplete} / ${steelResultReconciliationRequired} 組來源 JSON 已完成匯入重算及不相容版本拒絕，再核對渲染報告的同一計算指紋。公開狀態只顯示完成數，不公開來源資料、來源雜湊或計算指紋。`] : []),
+    ...(steelResultReconciliationDeclared ? [`鋼構正式計算書結果鏈：${steelFormalToolLabels}共 ${steelResultReconciliationComplete} / ${steelResultReconciliationRequired} 組來源 JSON 已完成匯入重算及不相容版本拒絕，再核對渲染報告的同一計算指紋。公開狀態只顯示完成數，不公開來源資料、來源雜湊或計算指紋。`] : []),
     ...(stoneResultReconciliationDeclared ? [`石材正式計算書結果鏈：golden case ${stoneResultReconciliationComplete} / ${stoneResultReconciliationRequired} 已由目前瀏覽器核心重算並核對 PDF、DOCX 與 audit。公開狀態只顯示完成數，不公開 golden 案例資料、來源 payload 雜湊、結果雜湊或成品雜湊。`] : []),
     ...(anchorResultReconciliationDeclared ? [`錨栓正式計算書結果鏈：工作區備份 ${anchorResultReconciliationComplete} / ${anchorResultReconciliationRequired} 已依 v2 案例重現指紋重新計算，並核對正式 HTML、DOCX 與 XLSX。公開狀態只顯示完成數，不公開工作區資料、來源備份雜湊、案例重現指紋、計算指紋或成品雜湊。`] : []),
     ...(deckingResultReconciliationDeclared ? [`覆工板正式計算書結果鏈：來源 JSON ${deckingResultReconciliationComplete} / ${deckingResultReconciliationRequired} 已由目前頁面核心重算 31 項控制結果，再核對 DOCX 的同一計算指紋與成品雜湊。公開狀態只顯示完成數，不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊。`] : []),
@@ -2953,6 +2966,8 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
   const independentBenchmarkVerified = compactNumber(independentBenchmarkSummary.independentlyVerifiedRoutes);
   const independentBenchmarkPilotRequired = compactNumber(independentBenchmarkSummary.pilotRequired);
   const independentBenchmarkPilotVerified = compactNumber(independentBenchmarkSummary.pilotVerified);
+  const independentBenchmarkLocalQuickEligible = compactNumber(independentBenchmarkSummary.eligibleLocalQuickRoutes);
+  const independentBenchmarkLocalQuickVerified = compactNumber(independentBenchmarkSummary.localQuickVerified);
   const independentBenchmarkCandidateRequired = compactNumber(independentBenchmarkSummary.candidateRequired);
   const independentBenchmarkCandidateVerified = compactNumber(independentBenchmarkSummary.candidateVerified);
   const independentBenchmarkCandidatePassRequired = compactNumber(independentBenchmarkSummary.candidatePassRequired);
@@ -2962,6 +2977,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
   const independentBenchmarkCandidateCapabilities = compactNumber(independentBenchmarkSummary.verifiedCandidateCapabilities);
   const independentBenchmarkIssueCount = compactNumber(independentBenchmarkSummary.issueCount);
   details.push(`獨立工程基準：${independentBenchmarkVerified} / ${independentBenchmarkEligible} 個正式工具已具獨立封閉算例。既有重播、結果鏈與家族治理證據仍屬不同證據層級，不取代設計者複核。`);
+  details.push(`local-quick 工具家族獨立基準：${independentBenchmarkLocalQuickVerified} / ${independentBenchmarkLocalQuickEligible}；此為與正式路由重疊的家族切面，不另行加總成正式工具數。`);
   if (independentBenchmarkCandidateRequired > 0) details.push(`候選案例獨立基準：${independentBenchmarkCandidateVerified} / ${independentBenchmarkCandidateRequired}，其中預期合格 ${independentBenchmarkCandidatePassVerified} / ${independentBenchmarkCandidatePassRequired}、預期拒絕 ${independentBenchmarkCandidateRejectionVerified} / ${independentBenchmarkCandidateRejectionRequired}，涵蓋 ${independentBenchmarkCandidateCapabilities} 個候選能力；候選結果只作上線前治理，不計入正式工具 ${independentBenchmarkVerified} / ${independentBenchmarkEligible}。`);
   return {
     publicEvidenceSchemaVersion: publicEvidenceSchema.SCHEMA_VERSION,
@@ -2980,9 +2996,12 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     independentBenchmarkVerified,
     independentBenchmarkPilotRequired,
     independentBenchmarkPilotVerified,
+    independentBenchmarkLocalQuickEligible,
+    independentBenchmarkLocalQuickVerified,
     independentBenchmarkIssueCount,
     independentBenchmarkPass: independentBenchmarkCoverage.status === 'ready'
       && independentBenchmarkPilotVerified === independentBenchmarkPilotRequired
+      && independentBenchmarkLocalQuickVerified === independentBenchmarkLocalQuickEligible
       && independentBenchmarkIssueCount === 0,
     pageOnlyBoundaryRequired: required,
     pageOnlyBoundaryComplete: complete,
@@ -3426,10 +3445,14 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(markdown.includes('rendered-delivery-evidence'), 'tool maturity matrix markdown exposes rendered delivery evidence gate');
   assert.ok(payload.independentBenchmarkCoverage && typeof payload.independentBenchmarkCoverage === 'object', 'tool maturity matrix independent benchmark coverage object');
   assert.equal(payload.independentBenchmarkCoverage.status, 'ready', 'tool maturity matrix independent benchmark pilot ready');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 38, 'tool maturity matrix independent benchmark pilot verified');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 38, 'tool maturity matrix independent benchmark pilot required');
-  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 38, 'tool maturity matrix independent benchmark verified route count');
-  assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 38, 'tool maturity matrix independent benchmark eligible route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 39, 'tool maturity matrix independent benchmark pilot verified');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 39, 'tool maturity matrix independent benchmark pilot required');
+  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 39, 'tool maturity matrix independent benchmark verified route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 39, 'tool maturity matrix independent benchmark eligible route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.localQuickRequired, 6, 'tool maturity matrix requires all six local-quick family benchmarks');
+  assert.equal(payload.independentBenchmarkCoverage.summary.localQuickVerified, 6, 'tool maturity matrix verifies all six local-quick family benchmarks');
+  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedLocalQuickRoutes, 6, 'tool maturity matrix local-quick family verified route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.eligibleLocalQuickRoutes, 6, 'tool maturity matrix local-quick family eligible route count');
   assert.equal(payload.independentBenchmarkCoverage.summary.candidateRequired, 21, 'tool maturity matrix requires twenty-one supplemental STM boundary cases');
   assert.equal(payload.independentBenchmarkCoverage.summary.candidateVerified, 21, 'tool maturity matrix verifies twenty-one supplemental STM boundary cases');
   assert.equal(payload.independentBenchmarkCoverage.summary.candidatePassRequired, 12, 'tool maturity matrix requires twelve expected passing STM boundary cases');
@@ -3440,6 +3463,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, payload.entrypointCoverage.byState.formal, 'tool maturity matrix independent benchmark portfolio matches formal homepage entry count');
   assert.equal(payload.independentBenchmarkCoverage.summary.issueCount, 0, 'tool maturity matrix independent benchmark issues empty');
   assert.ok(markdown.includes('## Independent Engineering Benchmarks'), 'tool maturity matrix markdown exposes independent engineering benchmarks');
+  assert.ok(markdown.includes('overlapping local-quick family independently verified: 6 / 6'), 'tool maturity matrix markdown exposes overlapping local-quick family coverage');
   assert.ok(markdown.includes('golden case、同核心 JSON 重播與結果鏈一致性不等同獨立工程基準'), 'tool maturity matrix markdown distinguishes replay from independent verification');
   assert.ok(markdown.includes('| /src-beam |') && markdown.includes('| /src-column |') && !markdown.includes('| src-beam-core |'), 'tool maturity matrix lists SRC beam and column as formal routes instead of candidate capabilities');
   assert.ok(markdown.includes('| rc-deep-beam-stm |')
@@ -3588,7 +3612,14 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(String(homepageReportReadinessStatus.reportTextSmokeScope || '').includes('矩陣外工具家族'), 'homepage report readiness report text scope keeps other-family boundary');
   assert.ok(String(homepageReportReadinessStatus.compactSummary || '').includes('頁面診斷明細不進計算書'), 'homepage report readiness compact summary keeps page-only wording');
   assert.ok(String(homepageReportReadinessStatus.compactSummary || '').includes('兩者皆可列印'), 'homepage report readiness compact summary keeps printable approval boundary');
-  assert.ok([31, 32, 33, 36, 37, 38].includes(homepageReportReadinessStatus.independentBenchmarkEligible), 'homepage report readiness preserves a supported independent benchmark portfolio');
+  assert.ok([31, 32, 33, 36, 37, 38, 39].includes(homepageReportReadinessStatus.independentBenchmarkEligible), 'homepage report readiness preserves a supported independent benchmark portfolio');
+  if (Number.isInteger(homepageReportReadinessStatus.independentBenchmarkLocalQuickEligible)
+    || Number.isInteger(homepageReportReadinessStatus.independentBenchmarkLocalQuickVerified)) {
+    assert.equal(homepageReportReadinessStatus.independentBenchmarkLocalQuickEligible, 6, 'homepage report readiness exposes six eligible local-quick family benchmarks');
+    assert.equal(homepageReportReadinessStatus.independentBenchmarkLocalQuickVerified, 6, 'homepage report readiness exposes six verified local-quick family benchmarks');
+  } else {
+    assert.equal(preserveHomepageStatus, true, 'only a preserved prior public snapshot may omit local-quick family benchmark counters');
+  }
   if (preserveHomepageStatus) {
     assert.ok(Number.isInteger(homepageReportReadinessStatus.independentBenchmarkVerified), 'preserved homepage report readiness independent benchmark verified routes integer');
     assert.ok(homepageReportReadinessStatus.independentBenchmarkVerified >= 0
@@ -3622,7 +3653,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), true, 'homepage report readiness rendered delivery required integer');
   assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceComplete), true, 'homepage report readiness rendered delivery complete integer');
   assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceIssueCount), true, 'homepage report readiness rendered delivery issue integer');
-  assert.ok([31, 32, 33, 36, 37, 38].includes(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), 'homepage report readiness preserves a supported rendered delivery portfolio');
+  assert.ok([31, 32, 33, 36, 37, 38, 39].includes(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), 'homepage report readiness preserves a supported rendered delivery portfolio');
   assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceComplete, homepageReportReadinessStatus.renderedDeliveryEvidenceRequired, 'homepage report readiness rendered delivery evidence complete');
   assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceIssueCount, 0, 'homepage report readiness rendered delivery evidence issues empty');
   assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'homepage report readiness rendered delivery runId');
@@ -3632,7 +3663,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'homepage report readiness rendered delivery source hash');
   assert.ok(String(homepageReportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'homepage report readiness rendered delivery summary');
   if (Number.isInteger(homepageReportReadinessStatus.deliveryFileIntegrityRequired)) {
-    assert.ok([135, 137, 139, 141, 143, 145, 151, 157].includes(homepageReportReadinessStatus.deliveryFileIntegrityRequired), 'homepage report readiness exposes a supported verified delivery-file transition count');
+    assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165].includes(homepageReportReadinessStatus.deliveryFileIntegrityRequired), 'homepage report readiness exposes a supported verified delivery-file transition count');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityVerified, homepageReportReadinessStatus.deliveryFileIntegrityRequired, 'homepage report readiness verifies every delivery file');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'homepage report readiness delivery file integrity issues empty');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityPass, true, 'homepage report readiness delivery file integrity passes');
@@ -3652,6 +3683,8 @@ function checkMatrix(payload, markdown, options = {}) {
         [[66, 66], [66, 66], [13, 13]],
         [[72, 72], [66, 66], [13, 13]],
         [[78, 78], [66, 66], [13, 13]],
+        [[84, 84], [66, 66], [13, 13]],
+        [[86, 86], [66, 66], [13, 13]],
       ].some(expected => JSON.stringify(expected) === JSON.stringify(homepageDeliveryCounts)),
       'homepage report readiness preserves supported redacted delivery counts'
     );
@@ -3677,7 +3710,7 @@ function checkMatrix(payload, markdown, options = {}) {
     assert.ok(/不公開案例資料、(?:專案|來源)快照雜湊或計算指紋/.test((homepageReportReadinessStatus.details || []).join(' ')), 'homepage report readiness keeps RC reconciliation evidence private');
   }
   if (Number.isInteger(homepageReportReadinessStatus.steelResultReconciliationRequired)) {
-    assert.equal(homepageReportReadinessStatus.steelResultReconciliationRequired, 5, 'homepage report readiness expects 5 steel result reconciliations');
+    assert.ok([5, 6].includes(homepageReportReadinessStatus.steelResultReconciliationRequired), 'homepage report readiness expects a supported 5-to-6 steel result reconciliation transition count');
     assert.equal(homepageReportReadinessStatus.steelResultReconciliationComplete, homepageReportReadinessStatus.steelResultReconciliationRequired, 'homepage report readiness completes every steel result reconciliation');
     assert.equal(homepageReportReadinessStatus.steelResultReconciliationIssueCount, 0, 'homepage report readiness steel result reconciliation issues empty');
     assert.equal(homepageReportReadinessStatus.steelResultReconciliationPass, true, 'homepage report readiness steel result reconciliation passes');

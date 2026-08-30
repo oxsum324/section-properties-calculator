@@ -178,6 +178,10 @@ const directPrintBoundaryPath = path.join(__dirname, "..", "結構工具箱", "c
 const directPrintBoundarySource = fs.readFileSync(directPrintBoundaryPath, "utf8");
 const appPath = path.join(__dirname, "app.js");
 const appSource = fs.readFileSync(appPath, "utf8");
+const calculatorPath = path.join(__dirname, "calculator.js");
+const calculatorSource = fs.readFileSync(calculatorPath, "utf8");
+const independentBenchmarksPath = path.join(__dirname, "..", "結構工具箱", "tools", "independent-engineering-benchmarks.js");
+const independentBenchmarksSource = fs.readFileSync(independentBenchmarksPath, "utf8");
 const indexPath = path.join(__dirname, "index.html");
 const indexSource = fs.readFileSync(indexPath, "utf8");
 const plateCheckPath = path.join(__dirname, "plate-check.html");
@@ -246,13 +250,13 @@ assert.match(
 );
 assert.match(
   appSource,
-  /const flowSections = showFlow\.checked[\s\S]*const endingFlowHtml = flowSections\.at\(-1\) \|\| ""[\s\S]*<div class="report-ending">\s*\$\{endingFlowHtml\}[\s\S]*<h3>檢核結論<\/h3>/s,
-  "legacy report should keep the final calculation step with the conclusion to avoid a sparse final page",
+  /const flowSections = result\.checks\.map[\s\S]*const endingFlowHtml = flowSections\.at\(-1\) \|\| ""[\s\S]*<div class="report-ending">\s*\$\{endingFlowHtml\}[\s\S]*<h3>檢核結論<\/h3>/s,
+  "formal report should always keep every formula and the final calculation step with the conclusion",
 );
-assert.doesNotMatch(
-  appSource.match(/function buildReportHtml\(result\)[\s\S]*?\n  }\n\n  function openReportWindow/)?.[0] || "",
-  /設計依據與限制條件|buildReviewSectionsMarkup|設計備註/,
-  "legacy formal report should keep review explanations on the HTML page instead of exporting them",
+assert.match(
+  appSource,
+  /適用範圍、限制與人工複核責任[\s\S]*規範判定與採用模型[\s\S]*人工複核責任/,
+  "formal report should export its scope, adopted model, exclusions, and human-review responsibility",
 );
 
 for (const needle of pageOnlyReportStatusNeedles) {
@@ -513,14 +517,75 @@ assert.match(
 );
 assert.match(
   mainReportBuilderSource,
-  /function buildConnectionSourcePayload\(result = window\.latestSteelConnectionResult[\s\S]*buildConnectionReportConfig\(result\)[\s\S]*kind: "formal-calculation-source"[\s\S]*fields: \{ \.\.\.result\.state \}[\s\S]*calculationFingerprint: reportTrace\.calculationFingerprint[\s\S]*function buildReportHtml\(result\)[\s\S]*buildConnectionReportTrace\(result\)/s,
-  "connection, tension, and plate source JSON should reuse the formal report configuration and calculation fingerprint",
+  /function buildConnectionSourcePayload\(result = window\.latestSteelConnectionResult[\s\S]*buildConnectionReportConfig\(result\)[\s\S]*kind: "formal-calculation-source"[\s\S]*fields: \{ \.\.\.reportConfig\.snapshot\.state \}[\s\S]*calculationFingerprint: reportTrace\.calculationFingerprint[\s\S]*function buildReportHtml\(result\)[\s\S]*buildConnectionReportTrace\(result\)/s,
+  "connection, tension, plate, and Shear Tab source JSON should reuse the governed report snapshot and calculation fingerprint",
+);
+assert.match(
+  calculatorSource,
+  /function getMaximumStandardHoleDiameter\(boltDiameter\)[\s\S]*\[20, 21\.5\][\s\S]*singlePlateStandardHoleMaximum[\s\S]*表10\.3-5/s,
+  "Shear Tab should cap an M20 standard hole at 21.5 mm using Table 10.3-5",
+);
+assert.match(
+  calculatorSource,
+  /singlePlateConventionalPitch[\s\S]*state\.pitch, 76\.2, "lte"[\s\S]*s ≤ 3 in = 76\.2 mm[\s\S]*singlePlateConventionalHeight[\s\S]*state\.plateHeight, 914\.4, "lte"[\s\S]*hp ≤ 36 in = 914\.4 mm/s,
+  "Shear Tab conventional procedure should fail closed above 76.2 mm pitch or 914.4 mm plate height",
+);
+assert.match(
+  calculatorSource,
+  /singlePlatePlateMaterialOrder[\s\S]*state\.plateUltimateStrength >= state\.plateYieldStrength[\s\S]*Fu,p ≥ Fy,p[\s\S]*singlePlateBeamWebMaterialOrder[\s\S]*state\.beamWebUltimateStrength >= state\.beamWebYieldStrength[\s\S]*Fu,w ≥ Fy,w[\s\S]*singlePlateSupportMaterialOrder[\s\S]*state\.supportUltimateStrength >= state\.supportYieldStrength[\s\S]*Fu,s ≥ Fy,s/s,
+  "Shear Tab should require Fu at least Fy for the plate, beam web, and support material independently",
+);
+assert.match(
+  calculatorSource,
+  /singlePlateConventionalPlateFy[\s\S]*state\.plateYieldStrength, 345, "lte"[\s\S]*專案確認不得覆寫此硬上限[\s\S]*singlePlateConventionalBeamWebFy[\s\S]*state\.beamWebYieldStrength, 345, "lte"[\s\S]*專案確認不得覆寫此硬上限[\s\S]*singlePlateConventionalMaterialConfirmed[\s\S]*state\.conventionalMaterialConfirmed \? 1 : 0/s,
+  "Shear Tab material confirmation should remain separate from and unable to override the 345 MPa plate/web Fy hard caps",
+);
+assert.match(
+  calculatorSource,
+  /conventionalMaterialConfirmed:\s*rawState\.conventionalMaterialConfirmed === true \|\| rawState\.conventionalMaterialConfirmed === "true"/,
+  "Shear Tab calculator state should normalize the explicit conventional-material confirmation",
+);
+assert.match(
+  calculatorSource,
+  /const conventionalBoltEccentricity = state\.boltCount <= 5[\s\S]*state\.boltLineToWeldDistance \/ 2[\s\S]*state\.boltLineToWeldDistance[\s\S]*singlePlateBoltEccentricity[\s\S]*e_b ≥ a\/2[\s\S]*e_b ≥ a/s,
+  "Shear Tab should enforce the standard-hole e_b branch for 2-5 versus 6-12 bolts",
+);
+assert.match(
+  calculatorSource,
+  /singlePlateWeldEccentricity[\s\S]*state\.weldEccentricity, state\.boltLineToWeldDistance, "gte"[\s\S]*singlePlateDoubleFilletWeld[\s\S]*state\.weldLineCount === 2[\s\S]*singlePlateConventionalWeldSize[\s\S]*conventionalWeldSize/s,
+  "Shear Tab should require e_w at least a, two-sided fillet welds, and the conventional weld-size check",
+);
+assert.match(
+  calculatorSource,
+  /const conventionalWeldSize = 0\.625 \* state\.plateThickness[\s\S]*雙面填角銲各側銲腳至少取 5\/8 tp/s,
+  "Shear Tab conventional weld size should be at least 5/8 tp on each side",
+);
+assert.match(
+  calculatorSource,
+  /const plateEccentricity = Math\.max\(state\.eccentricity, state\.weldEccentricity\)[\s\S]*availableMoment \* 1000 \/ plateEccentricity[\s\S]*e_p = max\(e_b, e_w\)[\s\S]*e_p = max\(e_b, e_w\) = max\(\$\{formatEquationNumber\(state\.eccentricity\)\}, \$\{formatEquationNumber\(state\.weldEccentricity\)\}\)/s,
+  "Shear Tab production plate flexure should use and report e_p=max(e_b,e_w)",
+);
+assert.match(
+  independentBenchmarksSource,
+  /const plateEccentricity = Math\.max\(i\.eccentricity, i\.weldEccentricity\)[\s\S]*plateAvailableMoment \* 1000 \/ plateEccentricity[\s\S]*\['plateFlexure', plateFlexureAvailable\]/s,
+  "the independent Shear Tab benchmark should derive plate flexure from the same e_p=max(e_b,e_w) model",
+);
+assert.match(
+  calculatorSource,
+  /function bearingNominalPerBolt\([\s\S]*const c1 = deformationConsidered \? 1\.2 : 1\.5[\s\S]*const c2 = deformationConsidered \? 2\.4 : 3\.0/s,
+  "bearing strength should use the deformation-considered 1.2Lc/2.4db branch and the non-considered 1.5Lc/3.0db branch",
+);
+assert.match(
+  appSource,
+  /\["deformationConsidered", "使用載重下承壓變形為設計考量"\][\s\S]*deformationConsidered:\s*\{ true: "變形為設計考量｜1\.2Lc \/ 2\.4db", false: "變形非設計考量｜1\.5Lc \/ 3\.0db" \}/s,
+  "the Shear Tab input and report wording should express the deformation-considered boolean with the correct bearing-equation semantics",
 );
 assert.match(
   mainReportBuilderSource,
   /function buildReportHtml\(result\)[\s\S]*SteelFormalUI\.buildFormalDocumentStateReport\([\s\S]*calculationFingerprint:\s*reportTrace\.calculationFingerprint[\s\S]*\$\{reportDocument\.html\}/s,
   "connection, tension, and plate reports should use shared printable review, approval, and dual-seal governance",
 );
+assert.match(mainReportBuilderSource, /formalApprovalAllowed:\s*result\.passes/, "failed or incomplete modules must not expose formal attachment approval");
 assert.match(
   mainReportBuilderSource,
   /normalizeProjectMetaValue\(result\.state\.projectName\)\s*\?[^\n]*計畫名稱[\s\S]*normalizeProjectMetaValue\(result\.state\.connectionTag\)\s*\?[^\n]*計畫編號[\s\S]*normalizeProjectMetaValue\(result\.state\.designer\)\s*\?[^\n]*設計人員/s,
@@ -535,6 +600,46 @@ assert.match(
   appSource,
   /function validateConnectionSourcePayload\(payload\)[\s\S]*validateCalculationSourcePayload[\s\S]*工具種類與檢核模組不一致[\s\S]*function importConnectionSourceJson\(file\)[\s\S]*replay\.calculationFingerprint !== payload\.calculationFingerprint[\s\S]*setFormState\(previous\.fields, false\)[\s\S]*importSourceJsonInput\.addEventListener\("change"/s,
   "connection source import should validate, replay, compare fingerprints, and restore the prior state on failure",
+);
+assert.match(
+  appSource,
+  /function jsonSerializableClone\(value\)\s*\{\s*return JSON\.parse\(JSON\.stringify\(value\)\);\s*\}[\s\S]*canonicalJson\(jsonSerializableClone\(replay\.report\)\) !== canonicalJson\(payload\.report\)/s,
+  "Shear Tab source replay should compare the JSON-serializable report representation used by the downloaded source file",
+);
+assert.match(
+  appSource,
+  /\["deformationConsidered", "fillerExtended", "conventionalMaterialConfirmed", "connectionModelConfirmed"\]\.forEach\(\(key\) => \{[\s\S]*typeof fields\[key\] !== "boolean"[\s\S]*\$\{key\} 必須為布林值/s,
+  "Shear Tab source replay should reject stringified confirmation flags instead of coercing them",
+);
+assert.match(
+  appSource,
+  /function renderInputSummary\(result\)[\s\S]*escapeHtml\(group\.title\)[\s\S]*escapeHtml\(label\)[\s\S]*escapeHtml\(mapValue\(key, result\.state\[key\]\)\)[\s\S]*escapeHtml\(unit\)/s,
+  "work-page input summaries should escape group titles, labels, adopted values, and units",
+);
+assert.match(
+  appSource,
+  /function renderReviewBrief\(result\)[\s\S]*escapeHtml\(label\)[\s\S]*escapeHtml\(value\)[\s\S]*function renderReportHealthBar\(result\)[\s\S]*escapeHtml\(chip\.label\)[\s\S]*escapeHtml\(chip\.value\)/s,
+  "work-page review and health summaries should escape every interpolated label and value",
+);
+assert.match(
+  appSource,
+  /function renderShearTabExtras\(result\)[\s\S]*escapeHtml\(result\.plateGeometrySummary\?\.size[\s\S]*escapeHtml\(result\.plateGeometrySummary\?\.holePattern[\s\S]*escapeHtml\(result\.plateGeometrySummary\?\.eccentricity[\s\S]*escapeHtml\(result\.pathSummary\?\.netSection[\s\S]*escapeHtml\(result\.pathSummary\?\.blockShear/s,
+  "Shear Tab derived geometry and path summaries should defensively escape calculator text",
+);
+assert.match(
+  appSource,
+  /function renderStrengthChecks\(result\)[\s\S]*escapeHtml\(check\.label\)[\s\S]*function renderDetailChecks\(result\)[\s\S]*escapeHtml\(item\.label\)[\s\S]*escapeHtml\(item\.codeRef\)[\s\S]*escapeHtml\(item\.note\)[\s\S]*function buildEquationMarkup\(check\)[\s\S]*escapeHtml\(line\)[\s\S]*function renderFlow\(result\)[\s\S]*escapeHtml\(check\.label\)[\s\S]*escapeHtml\(check\.note\)/s,
+  "strength, detail, equation, and flow renderers should escape calculator-provided text before innerHTML insertion",
+);
+assert.match(
+  appSource,
+  /\["notes", "設計備註"\][\s\S]*const escReport = SteelFormalUI\.escapeHtml[\s\S]*escReport\(mapValue\(key, result\.state\[key\]\)\)/s,
+  "formal Shear Tab adopted notes should pass through the report HTML escaper",
+);
+assert.match(
+  mainReportBuilderSource,
+  /const escReport = SteelFormalUI\.escapeHtml[\s\S]*normalizeProjectMetaValue\(result\.state\.projectName\)[\s\S]*escReport\(normalizeProjectMetaValue\(result\.state\.projectName\)\)[\s\S]*escReport\(reportTrace\.sourceTrace\.tool\)[\s\S]*escReport\(reportTrace\.calculationFingerprint\)/s,
+  "formal Shear Tab project and output provenance should be HTML-escaped before insertion into the report",
 );
 for (const needle of reportTraceLabels) {
   assert.ok(mainReportBuilderSource.includes(needle), `connection and plate report builder should include ${needle}`);
@@ -1087,6 +1192,48 @@ assert.match(
 );
 assert.match(
   browserRunnerSource,
+  /main-single-plate'[\s\S]*setup:\s*setupMainSinglePlate[\s\S]*assert:\s*assertMainSinglePlateReady[\s\S]*main-single-plate-report-popup'[\s\S]*setup:\s*setupMainSinglePlate[\s\S]*assert:\s*assertMainSinglePlateReportPopup/s,
+  "steel-audit-browser-runner.js should run dedicated Shear Tab page and report-popup scenarios",
+);
+assert.match(
+  browserRunnerSource,
+  /STEEL_FORMAL_REPORT_INPUT_LABEL_ALLOWLIST\s*=\s*new Set\(\['適用範圍', '設計備註'\]\)[\s\S]*CALCULATION_BOOK_UI_ONLY_NEEDLES[\s\S]*\.filter\(needle => !STEEL_FORMAL_REPORT_INPUT_LABEL_ALLOWLIST\.has\(needle\)\)/s,
+  "steel report boundary should allow governed adopted-input and scope headings while still excluding page-only guidance",
+);
+const shearTabFormalStateSource = browserRunnerSource.match(/const SHEAR_TAB_FORMAL_STATE = \{[\s\S]*?\n\};/)?.[0] || "";
+assert.ok(shearTabFormalStateSource, "steel browser runner should expose a statically inspectable Shear Tab golden state");
+assert.match(
+  shearTabFormalStateSource,
+  /projectName:\s*'鋼構單剪力板正式證據驗證案'[\s\S]*notes:\s*'正式證據案例 ST-GOLDEN-001；輸入值與 calculator\.smoke-test\.js singlePlateBase 一致。'[\s\S]*demandBasis:\s*'驗證分析模型 ST-GOLDEN-001／ULS 節點反力表 R-01（Vu = 200 kN）'/s,
+  "steel Shear Tab final evidence should use clean governed project, notes, and demand-basis values",
+);
+assert.doesNotMatch(
+  shearTabFormalStateSource,
+  /SHEAR_TAB_ESCAPE_PROBE|<img|onerror/,
+  "steel Shear Tab final golden state must not contain the XSS probe",
+);
+assert.match(
+  browserRunnerSource,
+  /SHEAR_TAB_FORMAL_STATE[\s\S]*ST-GOLDEN-001[\s\S]*requiredShear:\s*200[\s\S]*holeDiameter:\s*21\.5[\s\S]*plateThickness:\s*9[\s\S]*weldEccentricity:\s*70[\s\S]*weldLength:\s*305[\s\S]*demandBasis:\s*'驗證分析模型[^']*Vu = 200 kN[^']*'[\s\S]*geometryBasis:\s*'驗證核定圖[^']*tp = 9 mm[^']*dh = 21\.5 mm[^']*'[\s\S]*materialBasis:\s*'驗證材料表[^']*F10T[^']*'[\s\S]*eccentricityBasis:\s*'驗證接頭模型[^']*eb = 35 mm[^']*ew = 70 mm[^']*'[\s\S]*conventionalMaterialConfirmed:\s*'true'[\s\S]*connectionModelConfirmed:\s*'true'/s,
+  "steel Shear Tab browser evidence should replace example authority with concrete project-basis values and explicit material/model confirmations",
+);
+assert.match(
+  browserRunnerSource,
+  /SHEAR_TAB_ESCAPE_PROBE\s*=\s*'<img src=x onerror="window\.__steelXss=1">'[\s\S]*SHEAR_TAB_XSS_STATE[\s\S]*projectName:[^\n]*SHEAR_TAB_ESCAPE_PROBE[\s\S]*notes:[^\n]*SHEAR_TAB_ESCAPE_PROBE[\s\S]*demandBasis:[^\n]*SHEAR_TAB_ESCAPE_PROBE[\s\S]*function assertMainSinglePlateXssIsolation[\s\S]*escapeProbeImageCount[\s\S]*escapeProbeExecuted[\s\S]*escapeProbeTextVisible[\s\S]*main single plate XSS source replay[\s\S]*main single plate XSS popup[\s\S]*approvedVisibleText[\s\S]*function assertMainSinglePlateReportPopup[\s\S]*assertMainSinglePlateXssIsolation[\s\S]*setupMainSinglePlate\(cdp, sessionId\)[\s\S]*assertMainSinglePlateReady\(cdp, sessionId\)[\s\S]*absentNeedles:\s*\[SHEAR_TAB_ESCAPE_PROBE\]/s,
+  "Shear Tab browser evidence should isolate the XSS injection/replay/popup probe, restore the clean golden state, and forbid probe literals in final artifacts",
+);
+assert.match(
+  browserRunnerSource,
+  /function verifySteelTextDownload\([^)]*artifactForbiddenNeedles = \[\][\s\S]*downloaded TXT includes forbidden[\s\S]*verifySteelTextDownload\([^\n]*options\.absentNeedles/s,
+  "steel TXT evidence should enforce the same final-artifact probe exclusions as HTML and PDF",
+);
+assert.match(
+  browserRunnerSource,
+  /function assertMainSinglePlateReady[\s\S]*complianceReady[\s\S]*checkCount !== 10[\s\S]*grossShearArea - 2745[\s\S]*netShearArea - 1917[\s\S]*materialUnconfirmed[\s\S]*singlePlateConventionalMaterialConfirmed[\s\S]*highStrengthConfirmed[\s\S]*singlePlateConventionalPlateFy[\s\S]*singlePlateConventionalBeamWebFy[\s\S]*oversizedPitch[\s\S]*singlePlateConventionalPitch[\s\S]*oversizedHeight[\s\S]*singlePlateConventionalHeight[\s\S]*boltEccentricityFlexure[\s\S]*plateFlexure[\s\S]*44\.679375[\s\S]*function assertMainSinglePlateReportPopup[\s\S]*sourceReplay:[\s\S]*strictBooleanField:\s*'conventionalMaterialConfirmed'[\s\S]*expectedSourceFields:[\s\S]*holeDiameter:\s*21\.5[\s\S]*conventionalMaterialConfirmed:\s*true[\s\S]*connectionModelConfirmed:\s*true[\s\S]*artifactRequiredNeedles:\s*SHEAR_TAB_ARTIFACT_REQUIRED_NEEDLES[\s\S]*continuationContextLabels:\s*\['暴露條件', '銲腳尺寸 a', 'φRn,h', 'Vavailable', '自由邊距 g', '板淨剪力面積 Anv', '端距 e', '採用偏心 e_b'\][\s\S]*steel-main-shear-tab/s,
+  "steel Shear Tab browser evidence should verify the golden result, material/geometric/plate-flexure blockers, strict Boolean replay, and formal report artifacts",
+);
+assert.match(
+  browserRunnerSource,
   /scenarioTimeoutMs[\s\S]*withTimeout[\s\S]*runSnapshot/s,
   "steel-audit-browser-runner.js should bound each browser scenario instead of allowing hangs",
 );
@@ -1122,8 +1269,13 @@ assert.match(
 );
 assert.match(
   browserRunnerSource,
-  /LEGACY_PROJECT_META_PLACEHOLDER[\s\S]*projectName:\s*'未填'[\s\S]*setupMainPlateProjectMetaPlaceholder[\s\S]*plate_geometry[\s\S]*assertMainPlateProjectMetaPlaceholderRendered[\s\S]*#metaProjectName[\s\S]*assertMainPlateSummaryCopyPlaceholder[\s\S]*計畫：—[\s\S]*接頭：\$\{LEGACY_PROJECT_META_PLACEHOLDER\.connectionTag\}[\s\S]*assertLegacyReportPopup[\s\S]*buttonSelector:\s*'#printReportBtn'[\s\S]*titleNeedle:\s*'連接板檢核計算書'[\s\S]*absentNeedles:\s*\['未填'\]/s,
-  "steel-audit-browser-runner.js should verify the legacy main result action scrubs placeholder project text and opens the traceable report popup",
+  /LEGACY_PROJECT_META_PLACEHOLDER[\s\S]*projectName:\s*'未填'[\s\S]*setupMainPlateProjectMetaPlaceholder[\s\S]*plate_geometry[\s\S]*assertMainPlateProjectMetaPlaceholderRendered[\s\S]*#metaProjectName[\s\S]*assertMainPlateSummaryCopyPlaceholder[\s\S]*計畫：—[\s\S]*接頭：\$\{LEGACY_PROJECT_META_PLACEHOLDER\.connectionTag\}[\s\S]*assertLegacyReportPopup[\s\S]*buttonSelector:\s*'#printReportBtn'[\s\S]*titleNeedle:\s*'連接板檢核計算書'[\s\S]*adoptedPlaceholderNeedle:\s*'計畫名稱 未填'/s,
+  "steel-audit-browser-runner.js should scrub placeholder project metadata while preserving the governed adopted-input value in the traceable report popup",
+);
+assert.match(
+  browserRunnerSource,
+  /assertMainTensionReportPopup[\s\S]*continuationContextLabels:\s*\['Fu 490 MPa'\][\s\S]*renderAndValidateReportPdf[\s\S]*continuationContextLabels:\s*options\.continuationContextLabels \|\| \[\]/s,
+  "steel PDF evidence should recognize exact governed table/formula continuation contexts without weakening the global forbidden-content boundary",
 );
 assert.match(
   browserRunnerSource,
@@ -1139,6 +1291,11 @@ assert.match(
   browserRunnerSource,
   /main-tension-report-popup[\s\S]*standalone-plate-report-popup[\s\S]*sourcePayloadBuilder:\s*'buildSteelConnectionSourcePayload'[\s\S]*#exportSourceJsonBtn[\s\S]*button\.click\(\)[\s\S]*sourcePayload\.project\?\.no !== options\.expectedProject\.tag[\s\S]*sourcePayload\.calculationFingerprint !== reportFingerprint[\s\S]*steel-main-tension[\s\S]*steel-standalone-plate/s,
   "steel-audit-browser-runner.js should download connection/tension/plate source JSON and compare it with each rendered calculation book",
+);
+assert.match(
+  browserRunnerSource,
+  /expectedSourceFields[\s\S]*function verifySteelTextDownload[\s\S]*artifactRequiredNeedles[\s\S]*non-formal-reference-text[\s\S]*sourcePayload\.fields\?\.\[key\] !== expectedValue[\s\S]*buildSteelResultReconciliation[\s\S]*requiredNeedles:[^\n]*artifactRequiredNeedles/s,
+  "steel Shear Tab report evidence should reconcile source fields and fingerprint while keeping HTML/PDF formal and TXT non-formal",
 );
 assert.match(
   browserRunnerSource,
@@ -1173,7 +1330,12 @@ assert.match(
 assert.match(
   browserRunnerSource,
   /function verifySteelTextDownload\([\s\S]*repDownloadCurrentText[\s\S]*hasBom[\s\S]*文字內容 SHA-256[\s\S]*non-formal-reference-text[\s\S]*textExportEvidenceRecords\.push/s,
-  "steel browser contract should download and validate all five governed non-formal TXT artifacts",
+  "steel browser contract should download and validate all six governed non-formal TXT artifacts",
+);
+assert.match(
+  browserRunnerSource,
+  /\['steel-main-plate', 'steel-main-shear-tab', 'steel-main-tension', 'steel-standalone-plate', 'steel-beam-formal', 'steel-column-formal'\]/,
+  "steel rendered evidence summary should require six artifacts without adding a route",
 );
 for (const needle of formalReportReferenceNeedles) {
   assert.ok(browserRunnerSource.includes(needle), `steel browser contract should forbid ${needle} in formal report output`);

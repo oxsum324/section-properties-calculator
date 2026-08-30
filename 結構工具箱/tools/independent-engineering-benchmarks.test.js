@@ -22,6 +22,29 @@ assert.equal(homepageState('/seismic-dynamic'), 'report', 'dynamic analysis summ
 const rcColumnAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'rc-column-pm.js'), 'utf8');
 assert.ok(rcColumnAdapterSource.includes("require('../../../鋼筋混凝土/shared/pmsection.js')"), 'RC column adapter exercises the production P-M engine');
 assert.ok(!rcColumnAdapterSource.includes('golden'), 'RC column adapter does not replay a golden-case fixture');
+const cableTensionAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'cable-tension-frequency.js'), 'utf8');
+assert.ok(cableTensionAdapterSource.includes("../cable-tension/cable-tension-frequency-core.js"), 'cable tension adapter exercises the production frequency-method core');
+assert.ok(cableTensionAdapterSource.includes("../cable-tension/cable-tension-frequency.html"), 'cable tension adapter guards the public page wiring');
+assert.ok(cableTensionAdapterSource.includes('CableTensionFrequencyCore.calculate(input)'), 'cable tension adapter locks the production calculation call');
+assert.ok(cableTensionAdapterSource.includes('try{result=Core.calculate(input);}'), 'cable tension adapter locks the fail-closed page-to-core calculation call');
+assert.ok(cableTensionAdapterSource.includes("harmonicToleranceBasis:$('harmonicToleranceBasis').value.trim()"), 'cable tension adapter locks the harmonic criterion provenance input');
+assert.ok(cableTensionAdapterSource.includes("targetTensionBasis:$('targetTensionBasis').value.trim()"), 'cable tension adapter locks the target criterion provenance input');
+assert.ok(!cableTensionAdapterSource.includes('golden'), 'cable tension adapter does not replay a golden-case fixture');
+const cableTensionAdapter = require(path.join(toolsRoot, 'independent-engineering-adapters', 'cable-tension-frequency.js'));
+const singleModeCableResult = cableTensionAdapter.calculate({
+  effectiveLengthM: 10,
+  effectiveLengthBasis: '專案量測紀錄：兩端有效振動固定點間距',
+  massPerLengthKgM: 2,
+  massBasis: '製造資料：含護套整體單位長質量',
+  frequencyBasis: '加速度計 FFT 與振型節點確認之第一模態',
+  measurements: [{ mode: 1, frequencyHz: 5 }],
+  assumptionConfirmed: true,
+  harmonicTolerancePct: 3,
+  harmonicToleranceBasis: '專案量測計畫 CT-SM-01：諧波偏差容許值 3%'
+});
+assert.equal(singleModeCableResult.harmonicPassed, null, 'single-mode cable benchmark preserves a not-applicable harmonic check');
+assert.equal(singleModeCableResult.projectDataPassed, 1, 'single-mode cable benchmark retains project-data provenance readiness');
+assert.equal(singleModeCableResult.overallOk, 1, 'single-mode cable benchmark remains supported when all applicable checks pass');
 const rcBeamAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'rc-beam-strength.js'), 'utf8');
 assert.ok(rcBeamAdapterSource.includes("../../../鋼筋混凝土/shared/flexure.js"), 'RC beam adapter exercises the production flexure core');
 assert.ok(rcBeamAdapterSource.includes("../../../鋼筋混凝土/shared/beam-evaluator.js"), 'RC beam adapter exercises the production shear evaluator');
@@ -74,8 +97,83 @@ assert.ok(steelFormalAdapterSource.includes("../../../鋼構工具"), 'steel for
 assert.ok(steelFormalAdapterSource.includes("require(productionCorePath)"), 'steel formal adapter exercises the production connection calculator');
 assert.ok(steelFormalAdapterSource.includes("<option value=\"plate_check\">"), 'steel formal adapter locks the main-page connection-plate route');
 assert.ok(steelFormalAdapterSource.includes("<option value=\"tension_member\">"), 'steel formal adapter locks the main-page tension-member route');
+assert.ok(steelFormalAdapterSource.includes("<option value=\"single_plate\">"), 'steel formal adapter locks the main-page single-plate route');
+assert.ok(steelFormalAdapterSource.includes('calculateSinglePlateCase'), 'steel formal adapter extracts production single-plate checks');
+assert.ok(steelFormalAdapterSource.includes('singlePlateCases'), 'steel formal adapter requires the five single-plate benchmark cases');
+for (const detailKey of [
+  'singlePlateBoltDiameterTable', 'singlePlateHoleDiameter', 'singlePlateStandardHoleMaximum',
+  'singlePlateBoltEccentricity', 'singlePlateWeldEccentricity',
+  'singlePlateDoubleFilletWeld', 'singlePlateConventionalWeldSize',
+  'singlePlatePlateMaterialOrder', 'singlePlateBeamWebMaterialOrder', 'singlePlateSupportMaterialOrder',
+  'singlePlateConventionalPlateFy', 'singlePlateConventionalBeamWebFy', 'singlePlateConventionalMaterialConfirmed',
+  'singlePlateConventionalPitch', 'singlePlateConventionalHeight',
+]) {
+  assert.ok(steelFormalAdapterSource.includes(detailKey), `steel formal adapter extracts ${detailKey}`);
+}
 assert.ok(steelFormalAdapterSource.includes("buildConnectionReportConfig(result)"), 'steel formal adapter locks the production result-to-report route');
 assert.ok(!steelFormalAdapterSource.includes('golden'), 'steel formal adapter does not replay a golden-case fixture');
+const steelFormalBenchmark = catalog.benchmarks.find(item => item.route === '/steel-formal');
+assert.deepEqual(
+  steelFormalBenchmark.input.singlePlateCases.map(item => item.id),
+  ['singlePlateG1MinimumForce', 'singlePlateG2F10TM20Eccentric', 'singlePlateNegativeShear', 'singlePlateAsdBlocked', 'singlePlateGeometryRejected'],
+  'steel formal benchmark locks G1, G2, negative-shear, ASD-block and geometry-rejection cases'
+);
+assert.ok(Math.abs(steelFormalBenchmark.input.singlePlateCases[0].requiredShear) < 4.5 * 9.80665, 'G1 invokes the 4.5 tf minimum connection force');
+assert.ok(
+  steelFormalBenchmark.input.singlePlateCases.slice(0, 4).every(item => item.boltDiameter === 20 && item.holeDiameter === 21.5),
+  'all scoped M20 approval cases use the Table 10.3-5 maximum standard-hole diameter of 21.5 mm'
+);
+assert.deepEqual(
+  {
+    boltGrade:steelFormalBenchmark.input.singlePlateCases[1].boltGrade,
+    boltDiameter:steelFormalBenchmark.input.singlePlateCases[1].boltDiameter,
+    holeDiameter:steelFormalBenchmark.input.singlePlateCases[1].holeDiameter,
+    boltUltimateStrength:steelFormalBenchmark.input.singlePlateCases[1].boltUltimateStrength,
+    boltCount:steelFormalBenchmark.input.singlePlateCases[1].boltCount,
+    eccentricity:steelFormalBenchmark.input.singlePlateCases[1].eccentricity,
+    boltLineToWeldDistance:steelFormalBenchmark.input.singlePlateCases[1].boltLineToWeldDistance,
+    weldEccentricity:steelFormalBenchmark.input.singlePlateCases[1].weldEccentricity,
+    weldLineCount:steelFormalBenchmark.input.singlePlateCases[1].weldLineCount,
+    plateThickness:steelFormalBenchmark.input.singlePlateCases[1].plateThickness,
+    weldSize:steelFormalBenchmark.input.singlePlateCases[1].weldSize,
+    conventionalMaterialConfirmed:steelFormalBenchmark.input.singlePlateCases[1].conventionalMaterialConfirmed,
+  },
+  {
+    boltGrade:'F10T', boltDiameter:20, holeDiameter:21.5, boltUltimateStrength:1000,
+    boltCount:4, eccentricity:35, boltLineToWeldDistance:70, weldEccentricity:70,
+    weldLineCount:2, plateThickness:9, weldSize:6, conventionalMaterialConfirmed:true,
+  },
+  'G2 locks the CNS F10T M20 route plus the 2-5 bolt, weld-eccentricity and conventional double-fillet detail boundaries'
+);
+assert.ok(steelFormalBenchmark.input.singlePlateCases[2].requiredShear < 0, 'negative-shear case preserves the input sign');
+assert.equal(steelFormalBenchmark.input.singlePlateCases[3].designMethod, 'ASD', 'ASD case exercises fail-closed capacity blocking');
+assert.ok(
+  steelFormalBenchmark.input.singlePlateCases[4].plateHeight
+    < 2 * steelFormalBenchmark.input.singlePlateCases[4].endDistance
+      + (steelFormalBenchmark.input.singlePlateCases[4].boltCount - 1) * steelFormalBenchmark.input.singlePlateCases[4].pitch,
+  'geometry-rejection case has insufficient plate height for the bolt line'
+);
+const rejectedSinglePlate = steelFormalBenchmark.input.singlePlateCases[4];
+assert.ok(
+  rejectedSinglePlate.boltCount >= 6 && rejectedSinglePlate.boltCount <= 12
+    && rejectedSinglePlate.eccentricity < rejectedSinglePlate.boltLineToWeldDistance,
+  'geometry-rejection case exercises the 6-12 bolt e_b >= a rejection branch'
+);
+assert.ok(
+  rejectedSinglePlate.holeDiameter > 21.5
+    && rejectedSinglePlate.weldEccentricity < rejectedSinglePlate.boltLineToWeldDistance
+    && rejectedSinglePlate.weldLineCount !== 2
+    && rejectedSinglePlate.weldSize < 0.625 * rejectedSinglePlate.plateThickness,
+  'geometry-rejection case also rejects the standard-hole maximum, e_w >= a, double-fillet and w >= 5/8 tp details'
+);
+assert.ok(
+  rejectedSinglePlate.conventionalMaterialConfirmed === true
+    && rejectedSinglePlate.plateYieldStrength > 345
+    && rejectedSinglePlate.beamWebYieldStrength > 345
+    && rejectedSinglePlate.pitch > 76.2
+    && rejectedSinglePlate.plateHeight > 914.4,
+  'geometry-rejection case proves project confirmation cannot override the conventional material, pitch, or height hard caps'
+);
 const deckingAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'decking.js'), 'utf8');
 assert.ok(deckingAdapterSource.includes("../../../覆工板"), 'decking adapter resolves the production formal tool');
 assert.ok(deckingAdapterSource.includes("productionPageSource.slice(calculationStart, calculationEnd)"), 'decking adapter executes the production calculation functions extracted from the formal page');
@@ -184,10 +282,14 @@ assert.ok(!srcColumnAdapterSource.includes('golden'), 'SRC column adapter does n
 const result = runBenchmarks(catalog);
 assert.equal(result.status, 'ready', JSON.stringify(result.issues));
 assert.equal(result.schemaVersion, 3, 'outcome-aware independent benchmark result is versioned');
-assert.equal(result.summary.eligibleFormalRoutes, 38, 'formal route portfolio is explicit');
-assert.equal(result.summary.pilotRequired, 38, 'thirty-eight independent pilot benchmarks required');
-assert.equal(result.summary.pilotVerified, 38, 'thirty-eight independent pilot benchmarks verified');
-assert.equal(result.summary.independentlyVerifiedRoutes, 38, 'all thirty-eight formal routes independently verified');
+assert.equal(result.summary.eligibleFormalRoutes, 39, 'formal route portfolio is explicit');
+assert.equal(result.summary.pilotRequired, 39, 'thirty-nine independent pilot benchmarks required');
+assert.equal(result.summary.pilotVerified, 39, 'thirty-nine independent pilot benchmarks verified');
+assert.equal(result.summary.independentlyVerifiedRoutes, 39, 'all thirty-nine formal routes independently verified');
+assert.equal(result.summary.eligibleLocalQuickRoutes, 6, 'six formal routes belong to the overlapping local-quick family');
+assert.equal(result.summary.localQuickRequired, 6, 'six local-quick family routes require independent benchmarks');
+assert.equal(result.summary.localQuickVerified, 6, 'all six local-quick family routes are independently verified');
+assert.equal(result.summary.independentlyVerifiedLocalQuickRoutes, 6, 'local-quick family route coverage is explicit');
 assert.equal(result.summary.candidateRequired, 21, 'twenty-one supplemental STM boundary cases require independent benchmarks');
 assert.equal(result.summary.candidateVerified, 21, 'twenty-one supplemental STM boundary cases are independently verified');
 assert.equal(result.summary.candidatePassRequired, 12, 'twelve supplemental STM passing boundary cases are required');
@@ -374,6 +476,18 @@ assert.equal(srcColumnRecord.assertionCount, 38, 'SRC column formal benchmark co
 const rcColumnCoverDeviationRecord = result.records.find(record => record.route === '/rc-column-cover-deviation');
 assert.equal(rcColumnCoverDeviationRecord.status, 'verified', 'RC column cover-deviation four-direction benchmark is verified');
 assert.equal(rcColumnCoverDeviationRecord.assertionCount, 43, 'RC column cover-deviation benchmark covers four-face geometry, four-direction capacity, retention, utilization, phi and axial cap');
+const cableTensionRecord = result.records.find(record => record.route === '/cable-tension-frequency');
+assert.equal(cableTensionRecord.status, 'verified', 'cable tension frequency-method closed-form benchmark is verified');
+assert.equal(cableTensionRecord.assertionCount, 39, 'cable tension benchmark covers origin fit, modal results, residuals, target band, project provenance and final checks');
+assert.deepEqual(cableTensionRecord.families, ['local-quick'], 'cable tension benchmark remains both formal and part of the overlapping local-quick family');
+assert.deepEqual(
+  result.records.filter(record => record.families.includes('local-quick')).map(record => record.route).sort(),
+  ['/cable-tension-frequency', '/earth-pressure', '/equipment-load', '/floor-slab-westergaard', '/foundation-local', '/rc-column-cover-deviation'].sort(),
+  'the six manifest-driven local-quick routes retain explicit independent benchmark family coverage'
+);
+const steelFormalRecord = result.records.find(record => record.route === '/steel-formal');
+assert.equal(steelFormalRecord.status, 'verified', 'steel formal plate, tension-member and single-plate closed-form benchmark is verified');
+assert.ok(steelFormalRecord.assertionCount >= 210, 'steel formal benchmark deeply covers five independent single-plate cases and explicit detail pass/rejection outputs without adding a route');
 
 const runnerText = fs.readFileSync(runnerPath, 'utf8');
 assert.ok(!runnerText.includes('golden-cases.js'), 'independent runner does not import golden case answers');
@@ -418,6 +532,7 @@ const falsePositiveResult = runBenchmarks(catalog, {
       calculate(input) {
         const production = realModule.calculate(input);
         if (relativePath === 'equipment/equipment-load-core.js') production.pointLoad += 0.25;
+        if (relativePath === 'independent-engineering-adapters/cable-tension-frequency.js') production.tensionKn += 0.5;
         if (relativePath === 'independent-engineering-adapters/rc-column-pm.js') production.designM += 0.5;
         if (relativePath === 'rc/column-cover-deviation-core.js') production.directions[0].measured.phiMnTfm += 5;
         if (relativePath === 'independent-engineering-adapters/rc-beam-strength.js') production.phiVnEffective += 500;
@@ -432,7 +547,11 @@ const falsePositiveResult = runBenchmarks(catalog, {
         if (relativePath === 'independent-engineering-adapters/steel-beam-asd.js') production.MnOmegaTfm += 0.5;
         if (relativePath === 'independent-engineering-adapters/steel-column-asd.js') production.IR1 += 0.2;
         if (relativePath === 'independent-engineering-adapters/steel-plate-connection.js') production.manualAsd.blockAvailable += 5;
-        if (relativePath === 'independent-engineering-adapters/steel-formal.js') production.boltedLrfd.bearingAvailable += 5;
+        if (relativePath === 'independent-engineering-adapters/steel-formal.js') {
+          production.boltedLrfd.bearingAvailable += 5;
+          production.singlePlateG2F10TM20Eccentric.boltAvailable += 5;
+          production.singlePlateGeometryRejected.standardHoleMaximumPass = 1;
+        }
         if (relativePath === 'independent-engineering-adapters/decking.js') production.longUnbracedHeavy.girder.PuMax += 5;
         if (relativePath === 'independent-engineering-adapters/stone-fixing.js') production.backAnchorWindCone.panel.localStress += 5;
         if (relativePath === 'independent-engineering-adapters/rc-slab-strength.js') production.endSpan.phiVc += 0.5;
@@ -459,6 +578,7 @@ const falsePositiveResult = runBenchmarks(catalog, {
 });
 assert.equal(falsePositiveResult.status, 'blocked', 'independent benchmark detects production drift');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:pointLoad')), 'production drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('cable-tension-frequency-taut-string:benchmark-value-mismatch:tensionKn')), 'cable frequency-method production drift identifies the mismatched tension');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:designM')), 'RC column P-M production drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('rc-column-cover-deviation-four-direction:benchmark-value-mismatch:directions.0.measured.phiMnTfm')), 'RC column cover-deviation production drift identifies the mismatched directional capacity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:phiVnEffective')), 'RC beam seismic shear drift identifies the mismatched quantity');
@@ -480,6 +600,8 @@ assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-val
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:IR1')), 'steel column ASD interaction drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:manualAsd.blockAvailable')), 'steel plate ASD block-shear drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:boltedLrfd.bearingAvailable')), 'steel formal bolt-bearing drift identifies the mismatched quantity');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:singlePlateG2F10TM20Eccentric.boltAvailable')), 'steel formal F10T M20 eccentric bolt-group drift is independently detected');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:singlePlateGeometryRejected.standardHoleMaximumPass')), 'steel formal Table 10.3-5 detail-rejection drift is independently detected');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:longUnbracedHeavy.girder.PuMax')), 'decking load-path drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:backAnchorWindCone.panel.localStress')), 'stone-fixing panel and connector load-path drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:endSpan.phiVc')), 'RC slab one-way shear drift identifies the mismatched quantity');
@@ -548,6 +670,14 @@ assert.ok(validateCatalog(duplicateCatalog).some(issue => issue.includes('unique
 const unknownFieldCatalog = JSON.parse(JSON.stringify(catalog));
 unknownFieldCatalog.benchmarks[0].expected = 123;
 assert.ok(validateCatalog(unknownFieldCatalog).some(issue => issue.includes(':keys:')), 'unknown expected-answer fields are rejected');
+
+const duplicateFamilyCatalog = JSON.parse(JSON.stringify(catalog));
+duplicateFamilyCatalog.benchmarks.find(item => item.route === '/cable-tension-frequency').families.push('local-quick');
+assert.ok(validateCatalog(duplicateFamilyCatalog).some(issue => issue.includes(':families')), 'duplicate benchmark family labels are rejected');
+
+const mismatchedLocalQuickCountCatalog = JSON.parse(JSON.stringify(catalog));
+mismatchedLocalQuickCountCatalog.portfolio.eligibleLocalQuickRoutes = 5;
+assert.ok(validateCatalog(mismatchedLocalQuickCountCatalog).some(issue => issue === 'portfolio:local-quick-route-count'), 'local-quick family portfolio count is fail-closed');
 
 const missingOutcomeCatalog = JSON.parse(JSON.stringify(catalog));
 delete missingOutcomeCatalog.candidateBenchmarks[0].expectedOutcome;

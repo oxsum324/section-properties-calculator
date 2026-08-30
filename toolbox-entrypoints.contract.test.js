@@ -583,7 +583,7 @@ assert.deepEqual(reportReadinessStatusSnapshot.reportTextSmokeEvidenceUnmappedFa
 assert.ok(reportReadinessStatusSnapshot.reportTextSmokeEvidenceGates.every(gate => gate.pass && gate.complete === gate.required), 'tracked report readiness snapshot report text runtime evidence gates pass');
 assert.ok(reportReadinessStatusSnapshot.reportTextSmokeScope.includes('風力 / 地震正式工具') && reportReadinessStatusSnapshot.reportTextSmokeScope.includes('局部快算'), 'tracked report readiness snapshot names report text scope');
 assert.ok(reportReadinessStatusSnapshot.reportTextSmokeScope.includes('矩陣外工具家族'), 'tracked report readiness snapshot keeps other-family report boundary');
-assert.ok([31, 32, 33, 36, 37, 38].includes(reportReadinessStatusSnapshot.renderedDeliveryEvidenceRequired), 'tracked report readiness snapshot covers a supported formal homepage portfolio');
+assert.ok([31, 32, 33, 36, 37, 38, 39].includes(reportReadinessStatusSnapshot.renderedDeliveryEvidenceRequired), 'tracked report readiness snapshot covers a supported formal homepage portfolio');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceComplete, reportReadinessStatusSnapshot.renderedDeliveryEvidenceRequired, 'tracked report readiness snapshot rendered delivery complete');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceIssueCount, 0, 'tracked report readiness snapshot rendered delivery issues empty');
 assert.match(reportReadinessStatusSnapshot.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'tracked report readiness snapshot rendered delivery runId');
@@ -592,7 +592,7 @@ assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceFamilies.redu
 assert.ok(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSummary.includes('實際交付物渲染'), 'tracked report readiness snapshot rendered delivery summary');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatusSnapshot.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'tracked report readiness snapshot rendered delivery source path');
 assert.match(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'tracked report readiness snapshot rendered delivery source hash');
-assert.ok([135, 137, 139, 141, 143, 145, 151, 157].includes(reportReadinessStatusSnapshot.deliveryFileIntegrityRequired), 'tracked report readiness snapshot exposes a supported delivery-file transition count');
+assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165].includes(reportReadinessStatusSnapshot.deliveryFileIntegrityRequired), 'tracked report readiness snapshot exposes a supported delivery-file transition count');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityVerified, reportReadinessStatusSnapshot.deliveryFileIntegrityRequired, 'tracked report readiness snapshot verifies every delivery file');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityIssueCount, 0, 'tracked report readiness snapshot delivery file integrity issues empty');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityPass, true, 'tracked report readiness snapshot delivery file integrity passes');
@@ -612,6 +612,8 @@ assert.ok(
     [[66, 66], [66, 66], [13, 13]],
     [[72, 72], [66, 66], [13, 13]],
     [[78, 78], [66, 66], [13, 13]],
+    [[84, 84], [66, 66], [13, 13]],
+    [[86, 86], [66, 66], [13, 13]],
   ].some(expected => JSON.stringify(expected) === JSON.stringify(trackedDeliveryCounts)),
   'tracked report readiness snapshot preserves supported redacted delivery counts'
 );
@@ -646,8 +648,20 @@ if (Number.isInteger(reportReadinessStatusSnapshot.rcFormalHtmlContentSealRequir
   assert.equal(reportReadinessStatusSnapshot.rcFormalHtmlContentSealIssueCount, 0, 'tracked report readiness snapshot RC formal HTML content seal issues empty');
   assert.equal(reportReadinessStatusSnapshot.rcFormalHtmlContentSealPass, true, 'tracked report readiness snapshot RC formal HTML content seal checks pass');
 }
+if (Number.isInteger(reportReadinessStatusSnapshot.steelHtmlContentSealRequired)) {
+  assert.ok([5, 6].includes(reportReadinessStatusSnapshot.steelHtmlContentSealRequired), 'tracked report readiness snapshot expects a supported 5-to-6 steel formal HTML content seal transition count');
+  assert.equal(reportReadinessStatusSnapshot.steelHtmlContentSealComplete, reportReadinessStatusSnapshot.steelHtmlContentSealRequired, 'tracked report readiness snapshot completes every steel formal HTML content seal check');
+  assert.equal(reportReadinessStatusSnapshot.steelHtmlContentSealIssueCount, 0, 'tracked report readiness snapshot steel formal HTML content seal issues empty');
+  assert.equal(reportReadinessStatusSnapshot.steelHtmlContentSealPass, true, 'tracked report readiness snapshot steel formal HTML content seals pass');
+}
+if (Number.isInteger(reportReadinessStatusSnapshot.steelHtmlApprovalSealRequired)) {
+  assert.ok([5, 6].includes(reportReadinessStatusSnapshot.steelHtmlApprovalSealRequired), 'tracked report readiness snapshot expects a supported 5-to-6 steel formal HTML approval seal transition count');
+  assert.equal(reportReadinessStatusSnapshot.steelHtmlApprovalSealComplete, reportReadinessStatusSnapshot.steelHtmlApprovalSealRequired, 'tracked report readiness snapshot completes every steel formal HTML approval seal check');
+  assert.equal(reportReadinessStatusSnapshot.steelHtmlApprovalSealIssueCount, 0, 'tracked report readiness snapshot steel formal HTML approval seal issues empty');
+  assert.equal(reportReadinessStatusSnapshot.steelHtmlApprovalSealPass, true, 'tracked report readiness snapshot steel formal HTML approval seals pass');
+}
 if (Number.isInteger(reportReadinessStatusSnapshot.steelResultReconciliationRequired)) {
-  assert.equal(reportReadinessStatusSnapshot.steelResultReconciliationRequired, 5, 'tracked report readiness snapshot expects 5 steel result reconciliations');
+  assert.ok([5, 6].includes(reportReadinessStatusSnapshot.steelResultReconciliationRequired), 'tracked report readiness snapshot expects a supported 5-to-6 steel result reconciliation transition count');
   assert.equal(reportReadinessStatusSnapshot.steelResultReconciliationComplete, reportReadinessStatusSnapshot.steelResultReconciliationRequired, 'tracked report readiness snapshot completes every steel result reconciliation');
   assert.equal(reportReadinessStatusSnapshot.steelResultReconciliationIssueCount, 0, 'tracked report readiness snapshot steel result reconciliation issues empty');
   assert.equal(reportReadinessStatusSnapshot.steelResultReconciliationPass, true, 'tracked report readiness snapshot steel result reconciliation passes');
@@ -674,7 +688,7 @@ if (Number.isInteger(reportReadinessStatusSnapshot.deckingResultReconciliationRe
   assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊'), 'tracked report readiness snapshot keeps decking evidence private');
 }
 if (Number.isInteger(reportReadinessStatusSnapshot.localQuickResultReconciliationRequired)) {
-  assert.ok([3, 4, 5].includes(reportReadinessStatusSnapshot.localQuickResultReconciliationRequired), 'tracked report readiness snapshot uses the supported 3-to-5 local quick result reconciliation transition');
+  assert.ok([3, 4, 5, 6].includes(reportReadinessStatusSnapshot.localQuickResultReconciliationRequired), 'tracked report readiness snapshot uses the supported 3-to-6 local quick result reconciliation transition');
   assert.equal(reportReadinessStatusSnapshot.localQuickResultReconciliationComplete, reportReadinessStatusSnapshot.localQuickResultReconciliationRequired, 'tracked report readiness snapshot completes every local quick result reconciliation');
   assert.equal(reportReadinessStatusSnapshot.localQuickResultReconciliationIssueCount, 0, 'tracked report readiness snapshot local quick result reconciliation issues empty');
   assert.equal(reportReadinessStatusSnapshot.localQuickResultReconciliationPass, true, 'tracked report readiness snapshot local quick result reconciliation passes');
@@ -740,7 +754,7 @@ assert.ok(staging.includes('gh run list --workflow "Pages deploy" --limit 1'), '
 assert.ok(staging.includes('workflow run ID 不在本 ledger 硬編碼'), 'STAGING_GROUPS avoids self-staling Pages run ids');
 assert.ok(staging.includes('最新 `Pages deploy` 必須為 completed/success'), 'STAGING_GROUPS requires current Pages deploy success');
 assert.ok(staging.includes('page-only boundary `4/4`') && staging.includes('issue `0`'), 'STAGING_GROUPS records page-only boundary health');
-assert.ok(staging.includes('首頁正式工具實際交付物渲染 `37/37`'), 'STAGING_GROUPS records homepage rendered delivery evidence health');
+assert.ok(staging.includes('首頁正式工具實際交付物渲染數量以 tracked `report-readiness-status.json` 為準'), 'STAGING_GROUPS reads homepage rendered delivery evidence health from the tracked release snapshot');
 assert.ok(staging.includes('補充報告 / 服務成品 `2/2`'), 'STAGING_GROUPS records supplemental report and service delivery evidence health');
 assert.ok(staging.includes('不得附入計算書、列印輸出或 PDF'), 'STAGING_GROUPS keeps report readiness page-only boundary');
 assert.ok(staging.includes('下次同類變更的分包 playbook'), 'STAGING_GROUPS keeps future staging playbook');

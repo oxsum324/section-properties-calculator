@@ -70,6 +70,7 @@
     { "href": "/equipment-load", "title": "設備局部荷重", "family": "local-quick-tools", "evidenceKey": "equipment-load" },
     { "href": "/earth-pressure", "title": "擋土土壓局部快算", "family": "local-quick-tools", "evidenceKey": "earth-pressure" },
     { "href": "/floor-slab-westergaard", "title": "地坪承載檢核（Westergaard）", "family": "local-quick-tools", "evidenceKey": "floor-slab-westergaard" },
+    { "href": "/cable-tension-frequency", "title": "鋼索索力評估（頻率法快算）", "family": "local-quick-tools", "evidenceKey": "cable-tension-frequency" },
     { "href": "/rc-column-cover-deviation", "title": "柱保護層偏差強度評估", "family": "local-quick-tools", "evidenceKey": "rc-column-cover-deviation" },
     { "href": "/decking", "title": "覆工板系統計算", "family": "decking-formal", "evidenceKey": "decking-report" }
   ]
