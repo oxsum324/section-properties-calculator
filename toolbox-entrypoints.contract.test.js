@@ -225,9 +225,16 @@ function latestCommittedDate(relativeFile) {
     encoding: 'utf8',
     windowsHide: true
   });
-  if (result.status !== 0) return null;
+  if (result.error) {
+    throw new Error(`git log failed for ${relativeFile}: ${result.error.message}`);
+  }
+  if (result.status !== 0) {
+    throw new Error(`git log failed for ${relativeFile} with exit ${result.status}: ${String(result.stderr || '').trim()}`);
+  }
   const value = String(result.stdout || '').trim();
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+  if (!value) return null;
+  assert.match(value, /^\d{4}-\d{2}-\d{2}$/, `git log date for ${relativeFile}`);
+  return value;
 }
 
 function hasWorkingTreeChange(relativeFile) {
@@ -236,7 +243,13 @@ function hasWorkingTreeChange(relativeFile) {
     encoding: 'utf8',
     windowsHide: true
   });
-  return result.status === 0 && String(result.stdout || '').trim().length > 0;
+  if (result.error) {
+    throw new Error(`git status failed for ${relativeFile}: ${result.error.message}`);
+  }
+  if (result.status !== 0) {
+    throw new Error(`git status failed for ${relativeFile} with exit ${result.status}: ${String(result.stderr || '').trim()}`);
+  }
+  return String(result.stdout || '').trim().length > 0;
 }
 
 assert.equal(
@@ -1210,6 +1223,26 @@ const manifestRouteSet = new Set([
   ...formalManifest.tools.map(tool => tool.route),
   ...localQuickManifest.tools.map(tool => tool.route)
 ]);
+
+const localQuickSharedUpdateDependencies = [
+  localQuickManifest.shared.publicMetadata,
+  localQuickManifest.shared.exportHelper,
+  localQuickManifest.shared.documentStateHelper
+].map(relativePath => `結構工具箱/${relativePath}`);
+for (const tool of localQuickManifest.tools) {
+  const declaredDependencies = homeToolUpdateDependencies.routes[tool.route] || [];
+  const requiredDependencies = [
+    `結構工具箱/${tool.core}`,
+    ...localQuickSharedUpdateDependencies,
+    '結構工具箱/tools/project-meta-profile.js'
+  ];
+  for (const dependency of requiredDependencies) {
+    assert.ok(
+      declaredDependencies.includes(dependency),
+      `${tool.label} home update dependencies must include local-quick runtime: ${dependency}`
+    );
+  }
+}
 
 const deployedRoutes = new Map();
 for (const route of [...vercel.rewrites, ...vercel.redirects]) {
