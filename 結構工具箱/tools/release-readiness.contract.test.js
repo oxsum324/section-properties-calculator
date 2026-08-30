@@ -314,6 +314,13 @@ assert(
   'Independent engineering benchmarks',
 ].forEach(needle => assertIncludes(preflight, needle, `preflight preserves release readiness ${needle}`));
 
+const frameAnalysisBrowserCacheBlock = /\$frameAnalysisBrowserCache = \[pscustomobject\]@\{([\s\S]*?)\r?\n\}/.exec(preflight)?.[1] || '';
+assertIncludes(
+  frameAnalysisBrowserCacheBlock,
+  "excludePatterns = @('\\\\output\\\\', '\\\\node_modules\\\\')",
+  'frame analysis browser cache uses valid literal-backslash regex exclusions',
+);
+
 [
   '$postSummaryMatrixArgs = @(',
   'if (-not $isReleaseMode) { $postSummaryMatrixArgs += "--preserve-homepage-status" }',

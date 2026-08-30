@@ -2479,7 +2479,7 @@ $frameAnalysisBrowserCache = [pscustomobject]@{
     '結構工具箱\core\ui\force-picker.js'
   )
   extensions = @('.html', '.js', '.json', '.css', '.md')
-  excludePatterns = @('\output\', '\node_modules\')
+  excludePatterns = @('\\output\\', '\\node_modules\\')
 }
 
 $checks = @(
