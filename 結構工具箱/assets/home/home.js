@@ -106,7 +106,8 @@
     'frame-analysis': {
       label: 'Frame analysis boundary',
       preflightKeys: ['frame-analysis-contract'],
-      cardTag: '計算書邊界'
+      fullPreflightKeys: ['frame-analysis-browser-smoke'],
+      cardTag: '正式附件邊界'
     },
     'section-tools': {
       label: 'Section tools boundary',
@@ -160,11 +161,11 @@
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
-      '/beam-analysis': '2026-08-29',
-      '/frame-analysis': '2026-08-29',
+      '/beam-analysis': '2026-08-30',
+      '/frame-analysis': '2026-08-30',
       '/struct-dx': '2026-08-13',
-      '/section': '2026-08-29',
-      '/composite-section': '2026-08-29',
+      '/section': '2026-08-30',
+      '/composite-section': '2026-08-30',
       '/rc-beam': '2026-08-29',
       '/rc-deep-beam-stm': '2026-08-28',
       '/rc-column': '2026-08-29',
@@ -321,16 +322,16 @@
     },
     {
       title: '平面剛架分析',
-      version: 'V1.6',
+      version: 'V2.0',
       href: '/frame-analysis',
       categories: ['analysis'],
-      state: 'assist',
+      state: 'formal',
       governance: 'frame-analysis',
-      output: '位移、反力、具名組合包絡、基礎 D/L/W/E 分量 JSON、內力圖、計算書與專案 JSON',
-      summary: '2D 剛架直接勁度法：節點／集中／均布／自重載重、端部鉸接釋放，支援具名載重組合與 JSON 重播；全部組合可形成樓層、節點、支承與桿件 N/V/M 包絡。可指定基礎節點及 D/L/W/E 案例，逐案重算支承反力並以 loadcombo-components-v1 候選傳送至樁帽三維 STM。計算書同步列出組合矩陣及包絡結果。',
-      fit: '簡化剛架模型、連續梁與手算前後校核。',
-      limit: '複雜工程模型仍應回正式分析軟體。',
-      capabilities: ['具名載重組合', '樓層反應包絡', '節點／支承包絡', '桿件內力包絡', '跨工具基本分量', '互動驗證案例', '計算書']
+      output: '位移、反力、具名組合包絡、基礎 D/L/W/E 分量 JSON、M/V/N 圖、正式 HTML/PDF 計算書、案例 JSON 與非正式 TXT 備查',
+      summary: '一階線彈性 2D 平面剛架直接勁度法：節點／集中／均布／自重載重、端部鉸接釋放與彈性支承，支援具名載重組合、完整平衡與求解殘差檢核；全部組合可形成樓層、節點、支承與桿件 N/V/M 包絡。正式案例 JSON 與計算書共用計算指紋，並可將指定基礎節點的 D/L/W/E 反力分量作為候選傳至樁帽三維 STM。',
+      fit: '二維、一階、線彈性平面剛架與連續梁分析；可作專案分析附件，支承、釋放、彈簧與載重組合仍由專案指定。',
+      limit: '不含 3D／扭轉、P-Δ、挫屈穩定、剪力變形、剛域、溫度／沉陷、材料或幾何非線性、動力分析及構件／接頭規範設計。',
+      capabilities: ['正式 HTML/PDF', '案例 JSON 指紋重播', 'TXT 備查', '具名載重組合', '樓層反應包絡', '節點／支承包絡', '桿件內力包絡', '跨工具基本分量', '獨立工程基準']
     },
     {
       title: 'struct.dx 解題套件',

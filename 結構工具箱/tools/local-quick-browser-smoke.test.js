@@ -1827,10 +1827,13 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload, reportR
       state.reportReadinessStatusMeta.includes(`可讀文字 ${reportReadinessPayload.reportTextSmokeComplete} / ${reportReadinessPayload.reportTextSmokeRequired}`),
       `${label} new home report readiness report-text metric`
     );
-    assert.ok(state.reportReadinessStatusMeta.includes('瀏覽器 smoke 2 / 2'), `${label} new home report readiness runtime metric`);
+    assert.ok(
+      state.reportReadinessStatusMeta.includes(`瀏覽器 smoke ${reportReadinessPayload.reportTextSmokeEvidenceComplete} / ${reportReadinessPayload.reportTextSmokeEvidenceRequired}`),
+      `${label} new home report readiness runtime metric`
+    );
     assert.ok(state.reportReadinessStatusMeta.includes(`成品渲染 ${reportReadinessPayload.renderedDeliveryEvidenceComplete} / ${reportReadinessPayload.renderedDeliveryEvidenceRequired}`), `${label} new home report readiness rendered delivery metric`);
     assert.ok(
-      ['成品檔案完整性 137 / 137', '成品檔案完整性 139 / 139', '成品檔案完整性 141 / 141', '成品檔案完整性 143 / 143', '成品檔案完整性 145 / 145', '成品檔案完整性 151 / 151', '成品檔案完整性 157 / 157', '成品檔案完整性 163 / 163', '成品檔案完整性 165 / 165'].some(metric => state.reportReadinessStatusMeta.includes(metric)),
+      ['成品檔案完整性 137 / 137', '成品檔案完整性 139 / 139', '成品檔案完整性 141 / 141', '成品檔案完整性 143 / 143', '成品檔案完整性 145 / 145', '成品檔案完整性 151 / 151', '成品檔案完整性 157 / 157', '成品檔案完整性 163 / 163', '成品檔案完整性 165 / 165', '成品檔案完整性 167 / 167'].some(metric => state.reportReadinessStatusMeta.includes(metric)),
       `${label} new home report readiness delivery file integrity metric`
     );
     assert.ok(state.reportReadinessStatusMeta.includes('Word 乾淨封裝 4 / 4'), `${label} new home report readiness DOCX package integrity metric`);

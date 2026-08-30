@@ -1205,6 +1205,14 @@ node frame-analysis.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$frameAnalysisBrowserSmokeCommand = @'
+if ($env:PREFLIGHT_RUN_DIR) {
+  $env:FRAME_ANALYSIS_BROWSER_OUT = Join-Path $env:PREFLIGHT_RUN_DIR 'rendered-delivery-evidence\frame-analysis-formal'
+}
+node frame-analysis-browser-smoke.test.js
+exit $LASTEXITCODE
+'@
+
 $generatedArtifactBoundaryCommand = @'
 $tracked = git -c core.quotePath=false ls-files
 if ($LASTEXITCODE -ne 0) {
@@ -2457,6 +2465,23 @@ $formalRunnerCache = [pscustomobject]@{
   excludePatterns = @('\\output\\', '\\node_modules\\')
 }
 
+$frameAnalysisBrowserCache = [pscustomobject]@{
+  roots = @(
+    'frame-analysis-browser-smoke.test.js',
+    'frame-analysis.contract.test.js',
+    '鋼架\平面剛架分析.html',
+    '結構工具箱\tools\analysis-section-tool-metadata.js',
+    '結構工具箱\tools\project-meta-profile.js',
+    '結構工具箱\tools\rendered-delivery-evidence.js',
+    '結構工具箱\tools\attachment-package-check.js',
+    '結構工具箱\core\ui\report.js',
+    '結構工具箱\core\loads\loadcombo.js',
+    '結構工具箱\core\ui\force-picker.js'
+  )
+  extensions = @('.html', '.js', '.json', '.css', '.md')
+  excludePatterns = @('\output\', '\node_modules\')
+}
+
 $checks = @(
   [pscustomobject]@{
     key = "platform-audit"
@@ -3030,6 +3055,15 @@ $checks = @(
     workdir = $root
     command = $frameAnalysisContractCommand
     slow = $false
+  },
+  [pscustomobject]@{
+    key = "frame-analysis-browser-smoke"
+    label = "Frame analysis formal attachment browser smoke"
+    workdir = $root
+    command = $frameAnalysisBrowserSmokeCommand
+    slow = $true
+    cache = $frameAnalysisBrowserCache
+    timeoutSeconds = 240
   },
   [pscustomobject]@{
     key = "local-quick-tools-static"

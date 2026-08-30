@@ -45,6 +45,29 @@ const singleModeCableResult = cableTensionAdapter.calculate({
 assert.equal(singleModeCableResult.harmonicPassed, null, 'single-mode cable benchmark preserves a not-applicable harmonic check');
 assert.equal(singleModeCableResult.projectDataPassed, 1, 'single-mode cable benchmark retains project-data provenance readiness');
 assert.equal(singleModeCableResult.overallOk, 1, 'single-mode cable benchmark remains supported when all applicable checks pass');
+const frameAnalysisAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'frame-analysis.js'), 'utf8');
+assert.ok(frameAnalysisAdapterSource.includes("../../../鋼架/平面剛架分析.html"), 'frame-analysis adapter reads the production formal page');
+assert.ok(frameAnalysisAdapterSource.includes('extractFunctionDeclaration'), 'frame-analysis adapter extracts declarations from the production page');
+assert.ok(frameAnalysisAdapterSource.includes("'solveLinear'"), 'frame-analysis adapter executes the production linear solver');
+assert.ok(frameAnalysisAdapterSource.includes("'analyze'"), 'frame-analysis adapter executes the production frame assembly and recovery solver');
+assert.ok(frameAnalysisAdapterSource.includes('context.__productionAnalyze({ 1:1 })'), 'frame-analysis adapter invokes the extracted production solver with the benchmark load case');
+assert.ok(!frameAnalysisAdapterSource.includes('Math.pow(lengthM, 3)'), 'frame-analysis adapter does not embed the cantilever deflection oracle');
+assert.ok(!frameAnalysisAdapterSource.includes('golden'), 'frame-analysis adapter does not replay a golden-case fixture');
+const frameAnalysisAdapter = require(path.join(toolsRoot, 'independent-engineering-adapters', 'frame-analysis.js'));
+const frameBenchmarkInput = {
+  lengthM:4,
+  tipLoadTf:6,
+  elasticModulusTfCm2:2040,
+  areaCm2:100,
+  inertiaCm4:8000,
+};
+const frameBaseline = frameAnalysisAdapter.calculate(frameBenchmarkInput);
+const frameDoubleLoad = frameAnalysisAdapter.calculate({ ...frameBenchmarkInput, tipLoadTf:12 });
+const frameDoubleInertia = frameAnalysisAdapter.calculate({ ...frameBenchmarkInput, inertiaCm4:16000 });
+assert.ok(Math.abs(frameDoubleLoad.tipVerticalDisplacementM - 2 * frameBaseline.tipVerticalDisplacementM) < 1e-12, 'production frame solver responds linearly to a load mutation');
+assert.ok(Math.abs(frameDoubleLoad.baseReactionMomentTfM - 2 * frameBaseline.baseReactionMomentTfM) < 1e-12, 'production frame support moment responds to a load mutation');
+assert.ok(Math.abs(frameDoubleInertia.tipVerticalDisplacementM - 0.5 * frameBaseline.tipVerticalDisplacementM) < 1e-12, 'production frame displacement responds inversely to an inertia mutation');
+assert.ok(Math.abs(frameDoubleInertia.baseReactionMomentTfM - frameBaseline.baseReactionMomentTfM) < 1e-12, 'production frame statics remain independent of stiffness mutation');
 const rcBeamAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'rc-beam-strength.js'), 'utf8');
 assert.ok(rcBeamAdapterSource.includes("../../../鋼筋混凝土/shared/flexure.js"), 'RC beam adapter exercises the production flexure core');
 assert.ok(rcBeamAdapterSource.includes("../../../鋼筋混凝土/shared/beam-evaluator.js"), 'RC beam adapter exercises the production shear evaluator');
@@ -282,10 +305,10 @@ assert.ok(!srcColumnAdapterSource.includes('golden'), 'SRC column adapter does n
 const result = runBenchmarks(catalog);
 assert.equal(result.status, 'ready', JSON.stringify(result.issues));
 assert.equal(result.schemaVersion, 3, 'outcome-aware independent benchmark result is versioned');
-assert.equal(result.summary.eligibleFormalRoutes, 39, 'formal route portfolio is explicit');
-assert.equal(result.summary.pilotRequired, 39, 'thirty-nine independent pilot benchmarks required');
-assert.equal(result.summary.pilotVerified, 39, 'thirty-nine independent pilot benchmarks verified');
-assert.equal(result.summary.independentlyVerifiedRoutes, 39, 'all thirty-nine formal routes independently verified');
+assert.equal(result.summary.eligibleFormalRoutes, 40, 'formal route portfolio is explicit');
+assert.equal(result.summary.pilotRequired, 40, 'forty independent pilot benchmarks required');
+assert.equal(result.summary.pilotVerified, 40, 'forty independent pilot benchmarks verified');
+assert.equal(result.summary.independentlyVerifiedRoutes, 40, 'all forty formal routes independently verified');
 assert.equal(result.summary.eligibleLocalQuickRoutes, 6, 'six formal routes belong to the overlapping local-quick family');
 assert.equal(result.summary.localQuickRequired, 6, 'six local-quick family routes require independent benchmarks');
 assert.equal(result.summary.localQuickVerified, 6, 'all six local-quick family routes are independently verified');
@@ -480,6 +503,9 @@ const cableTensionRecord = result.records.find(record => record.route === '/cabl
 assert.equal(cableTensionRecord.status, 'verified', 'cable tension frequency-method closed-form benchmark is verified');
 assert.equal(cableTensionRecord.assertionCount, 39, 'cable tension benchmark covers origin fit, modal results, residuals, target band, project provenance and final checks');
 assert.deepEqual(cableTensionRecord.families, ['local-quick'], 'cable tension benchmark remains both formal and part of the overlapping local-quick family');
+const frameAnalysisRecord = result.records.find(record => record.route === '/frame-analysis');
+assert.equal(frameAnalysisRecord.status, 'verified', 'frame-analysis cantilever closed-form benchmark is verified');
+assert.equal(frameAnalysisRecord.assertionCount, 12, 'frame-analysis benchmark covers displacement, rotation, reactions, member end forces and equilibrium');
 assert.deepEqual(
   result.records.filter(record => record.families.includes('local-quick')).map(record => record.route).sort(),
   ['/cable-tension-frequency', '/earth-pressure', '/equipment-load', '/floor-slab-westergaard', '/foundation-local', '/rc-column-cover-deviation'].sort(),
@@ -533,6 +559,7 @@ const falsePositiveResult = runBenchmarks(catalog, {
         const production = realModule.calculate(input);
         if (relativePath === 'equipment/equipment-load-core.js') production.pointLoad += 0.25;
         if (relativePath === 'independent-engineering-adapters/cable-tension-frequency.js') production.tensionKn += 0.5;
+        if (relativePath === 'independent-engineering-adapters/frame-analysis.js') production.tipVerticalDisplacementM += 0.01;
         if (relativePath === 'independent-engineering-adapters/rc-column-pm.js') production.designM += 0.5;
         if (relativePath === 'rc/column-cover-deviation-core.js') production.directions[0].measured.phiMnTfm += 5;
         if (relativePath === 'independent-engineering-adapters/rc-beam-strength.js') production.phiVnEffective += 500;
@@ -579,6 +606,7 @@ const falsePositiveResult = runBenchmarks(catalog, {
 assert.equal(falsePositiveResult.status, 'blocked', 'independent benchmark detects production drift');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:pointLoad')), 'production drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('cable-tension-frequency-taut-string:benchmark-value-mismatch:tensionKn')), 'cable frequency-method production drift identifies the mismatched tension');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('frame-analysis-cantilever-tip-load:benchmark-value-mismatch:tipVerticalDisplacementM')), 'frame-analysis solver drift identifies the mismatched tip displacement');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:designM')), 'RC column P-M production drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('rc-column-cover-deviation-four-direction:benchmark-value-mismatch:directions.0.measured.phiMnTfm')), 'RC column cover-deviation production drift identifies the mismatched directional capacity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:phiVnEffective')), 'RC beam seismic shear drift identifies the mismatched quantity');

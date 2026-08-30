@@ -78,8 +78,13 @@ function captureFrameReportHtml(source, project = {}, runtimeState = null) {
     ['projNo', { value: project.no || '' }],
     ['projDesigner', { value: project.designer || '' }],
     ['projNote', { value: project.note || '' }],
+    ['projBasis', { value: project.basis || '' }],
+    ['defE', { value: '2040' }],
+    ['defA', { value: '63.1' }],
+    ['defI', { value: '13600' }],
     ['errorMsg', { textContent: '', style: { display: 'none' } }],
     ['selfWeight', { checked: false }],
+    ['density', { value: '7.85' }],
     ['reportStatus', reportStatus],
     ['reportLink', reportLink],
     ['geomCanvas', { toDataURL() { return 'data:image/png;base64,geom'; } }],
@@ -90,6 +95,8 @@ function captureFrameReportHtml(source, project = {}, runtimeState = null) {
   const context = {
     FRAME_PUBLIC_VERSION: frameMetadata.version,
     FRAME_CALCULATION_ENGINE: frameMetadata.calculationEngine,
+    FRAME_CASE_SCHEMA: 'plane-frame.case.v2',
+    FRAME_LEGACY_PROJECT_SCHEMA: 'plane-frame.project.v1',
     FOUNDATION_TRANSFER_LOAD_KEYS: ['D', 'L', 'W', 'E'],
     state: runtimeState ? JSON.parse(JSON.stringify(runtimeState)) : {
       nodes: [
@@ -115,12 +122,22 @@ function captureFrameReportHtml(source, project = {}, runtimeState = null) {
           support: { Fx: 0, Fy: 20, M: 72 },
           residual: { Fx: 0, Fy: 0, M: 0 },
         },
+        solverDiagnostics: {
+          passed: true,
+          freeDofCount: 3,
+          constrainedDofCount: 3,
+          inactiveDofs: [],
+          minScaledPivot: 0.25,
+          algebraicResidualMax: 1e-13,
+          algebraicResidualRatio: 1e-14,
+        },
         d: [0, 0, 0, 0.0012, -0.0034, 0.0008],
         reactions: [0, 12, 36, 0, 8, 0],
         elems: [
           {
             m: { id: 1, i: 1, j: 2 },
             L: 6,
+            qLocal: [3, 12, 36, -1, -4, -12],
             diag: {
               xs: [0, 3, 6],
               Ms: [0, 18, -12],
@@ -212,7 +229,14 @@ function captureFrameReportHtml(source, project = {}, runtimeState = null) {
     'activeFrameLoadCount',
     'getFrameProjectInfo',
     'missingFrameProjectFields',
+    'validateFrameProjectData',
     'frameReportReadinessModel',
+    'automaticFoundationLoadCaseId',
+    'normalizeFoundationTransferSettings',
+    'frameCalculationModelSnapshot',
+    'frameSolutionTraceSnapshot',
+    'frameCalculationResultSnapshot',
+    'buildFrameCalculationTrace',
     'setReportLink',
     'setReportStatus',
     'printReport',
@@ -243,6 +267,7 @@ function createFrameAnalysisContext(source) {
     ['projNo', { value: '' }],
     ['projDesigner', { value: '' }],
     ['projNote', { value: '' }],
+    ['projBasis', { value: '' }],
     ['defE', { value: '2040' }],
     ['defA', { value: '63.1' }],
     ['defI', { value: '13600' }],
@@ -252,6 +277,8 @@ function createFrameAnalysisContext(source) {
   const context = {
     FRAME_PUBLIC_VERSION: frameMetadata.version,
     FRAME_CALCULATION_ENGINE: frameMetadata.calculationEngine,
+    FRAME_CASE_SCHEMA: 'plane-frame.case.v2',
+    FRAME_LEGACY_PROJECT_SCHEMA: 'plane-frame.project.v1',
     FOUNDATION_TRANSFER_LOAD_KEYS: ['D', 'L', 'W', 'E'],
     state: {
       nodes: [], members: [], loadCases: [], comboFactors: {}, loadCombinations: [], activeCombinationId: null,
@@ -293,6 +320,7 @@ function createFrameAnalysisContext(source) {
     isFinite,
   };
   vm.createContext(context);
+  vm.runInContext(sharedReportSource, context, { filename: 'shared-report-analysis-runtime' });
   [
     'asNonNegativeNumber', 'makeNode', 'springValue', 'activeSpring', 'hasSupportDof',
     'ensureLoadCases', 'normalizedCombinationFactors', 'ensureLoadCombinations', 'currentLoadCombination',
@@ -303,9 +331,12 @@ function createFrameAnalysisContext(source) {
     'formatCombinationFactors', 'formatActiveCombination', 'activeLoadFactors', 'momentAboutOrigin',
     'computeAppliedResultant', 'validateModel', 'zeros', 'matmul', 'matvec',
     'transpose', 'subtractMat', 'invSmall', 'condenseReleases', 'solveLinear',
-    'analyze', 'frameStoryResponseModel', 'frameCombinationAnalysisSet', 'frameStoryCombinationEnvelopeModel', 'frameNodeEnvelopeComponents', 'frameNodeCombinationEnvelopeModel', 'frameMemberEnvelopeComponents', 'frameMemberCombinationEnvelopeModel', 'formatFrameStoryRatio', 'getFrameProjectInfo', 'getFrameBenchmarkDefinition',
+    'analyze', 'frameStoryResponseModel', 'frameCombinationAnalysisSet', 'frameStoryCombinationEnvelopeModel', 'frameNodeEnvelopeComponents', 'frameNodeCombinationEnvelopeModel', 'frameMemberEnvelopeComponents', 'frameMemberCombinationEnvelopeModel', 'formatFrameStoryRatio', 'hasAnySpring', 'activeFrameLoadCount', 'getFrameProjectInfo', 'missingFrameProjectFields', 'frameReportReadinessModel', 'getFrameBenchmarkDefinition',
     'frameBenchmarkProjectData', 'resolveFrameBenchmarkMetric', 'frameBenchmarkResultModel',
-    'resetAll', 'validateFrameProjectData', 'collectProjectData', 'loadFromData',
+    'setReportStatus', 'resetAll', 'validateFrameProjectData', 'updateNode', 'frameCalculationModelSnapshot', 'frameSolutionTraceSnapshot',
+    'frameCalculationResultSnapshot', 'buildFrameCalculationTrace', 'buildFrameCasePayload',
+    'canonicalFrameValue', 'canonicalFrameJson', 'cloneFrameWorkspaceValue', 'captureFrameWorkspaceSnapshot',
+    'restoreFrameWorkspaceSnapshot', 'collectProjectData', 'applyImportedFrameCase', 'loadFromData',
   ].forEach(name => {
     vm.runInContext(functionSource(source, name), context, { filename: `frame-analysis:${name}` });
   });
@@ -455,8 +486,11 @@ assertIncludesAll(frameAnalysisHtml, [
   'id="projDesigner"',
   '../結構工具箱/core/ui/report.js',
   'function getFrameProjectInfo',
-  'assessFormalAttachment',
+  'buildFormalDocumentStateReport',
   'buildReportTrace',
+  'function buildFrameCalculationTrace',
+  "const FRAME_CASE_SCHEMA = 'plane-frame.case.v2'",
+  'id="projBasis"',
   'page-only-report-status',
   'page-only-tool-actions',
   'page-only-frame-benchmark',
@@ -528,7 +562,7 @@ const frameReportText = assertReportHtmlText(frameReportRuntime.html, 'rigid fra
 assert(frameReportRuntime.html.includes('平面剛架分析 計算書'), 'rigid frame runtime report title', '平面剛架分析 計算書');
 assert(frameReportRuntime.html.includes(`<b>工具版本</b>${frameMetadata.version}`), 'rigid frame report preserves canonical public version casing', frameMetadata.version);
 assert(frameReportRuntime.html.includes(`<b>計算引擎</b>${frameMetadata.calculationEngine}`), 'rigid frame report identifies calculation engine', frameMetadata.calculationEngine);
-assert(frameReportRuntime.html.includes('載重</h2>'), 'rigid frame runtime report keeps load table', '載重');
+assert(frameReportRuntime.html.includes('<h3>載重</h3>'), 'rigid frame runtime report keeps load table', '載重');
 assert(frameReportRuntime.html.includes('平衡檢核'), 'rigid frame runtime report keeps equilibrium section', '平衡檢核');
 assert(!frameReportRuntime.html.includes('樓層反應摘要'), 'non-story beam report omits inapplicable story-response section', 'no horizontal floor above the support level');
 assert(frameReportRuntime.html.includes('文件狀態：內部審閱'), 'rigid frame report defaults to printable internal review', '文件狀態：內部審閱');
@@ -621,6 +655,128 @@ assert(replayFrameFingerprint === sourceFrameFingerprint, 'rigid frame JSON repl
 assert(sourceFrameReport.html.includes('目前組合樓層反應'), 'portal-frame report includes applicable story-response results', '目前組合樓層反應');
 assert(sourceFrameReport.html.includes('層剪力 Vx(tf)'), 'portal-frame report includes story-shear result column', '層剪力 Vx(tf)');
 
+const formalCasePayload = frameRuntime.context.buildFrameCasePayload();
+const formalBaselineFingerprint = formalCasePayload.calculationFingerprint;
+assert(formalCasePayload.schema === 'plane-frame.case.v2', 'rigid frame formal JSON declares V2 case schema', formalCasePayload.schema);
+assert(formalCasePayload.tool.id === 'frame-analysis', 'rigid frame formal JSON records stable tool id', formalCasePayload.tool.id);
+assert(formalCasePayload.tool.calculationEngine === frameMetadata.calculationEngine, 'rigid frame formal JSON records calculation engine', formalCasePayload.tool.calculationEngine);
+assert(formalCasePayload.report.calculationFingerprint === formalBaselineFingerprint, 'rigid frame formal JSON links report and source fingerprints', formalBaselineFingerprint);
+assert(formalBaselineFingerprint === sourceFrameFingerprint, 'rigid frame report and formal JSON share one complete calculation fingerprint', formalBaselineFingerprint);
+
+frameRuntime.elements.get('projName').value = 'Metadata-only mutation';
+frameRuntime.elements.get('projNo').value = 'META-002';
+frameRuntime.elements.get('projDesigner').value = 'Different reviewer';
+frameRuntime.elements.get('projBasis').value = 'S-202 Rev.4';
+const metadataOnlyFingerprint = frameRuntime.context.buildFrameCalculationTrace().calculationFingerprint;
+assert(metadataOnlyFingerprint === formalBaselineFingerprint, 'rigid frame calculation fingerprint excludes display metadata and project basis', metadataOnlyFingerprint);
+
+const resultMutationOriginal = frameRuntime.context.state.solution.d[3];
+frameRuntime.context.state.solution.d[3] = resultMutationOriginal + 1e-5;
+const resultMutationFingerprint = frameRuntime.context.buildFrameCalculationTrace().calculationFingerprint;
+assert(resultMutationFingerprint !== formalBaselineFingerprint, 'rigid frame calculation fingerprint includes solved results', `${formalBaselineFingerprint} -> ${resultMutationFingerprint}`);
+frameRuntime.context.state.solution.d[3] = resultMutationOriginal;
+
+frameRuntime.context.state.nodalLoads[0].Fx += 0.25;
+frameRuntime.context.runAnalysis();
+const loadMutationFingerprint = frameRuntime.context.buildFrameCalculationTrace().calculationFingerprint;
+assert(loadMutationFingerprint !== formalBaselineFingerprint, 'rigid frame calculation fingerprint changes with load input', `${formalBaselineFingerprint} -> ${loadMutationFingerprint}`);
+frameRuntime.context.loadFromData(JSON.parse(JSON.stringify(sourceProjectJson)));
+
+frameRuntime.elements.get('selfWeight').checked = true;
+frameRuntime.elements.get('density').value = '7.70';
+frameRuntime.context.runAnalysis();
+const selfWeightFingerprint = frameRuntime.context.buildFrameCalculationTrace().calculationFingerprint;
+assert(selfWeightFingerprint !== formalBaselineFingerprint, 'rigid frame calculation fingerprint changes with self weight and density', `${formalBaselineFingerprint} -> ${selfWeightFingerprint}`);
+frameRuntime.context.loadFromData(JSON.parse(JSON.stringify(sourceProjectJson)));
+
+frameRuntime.context.state.nodalLoads = [{ caseId: 1, node: 2, Fx: 1e-300, Fy: 0, M: 0 }];
+frameRuntime.context.state.memberLoads = [];
+frameRuntime.context.state.memberPointLoads = [];
+frameRuntime.elements.get('selfWeight').checked = true;
+frameRuntime.elements.get('density').value = '1e-300';
+frameRuntime.context.runAnalysis();
+const zeroDensitySelfWeightReadiness = frameRuntime.context.frameReportReadinessModel(frameRuntime.context.state.solution.validation);
+assert(zeroDensitySelfWeightReadiness.level === 'blocked', 'rigid frame negligible nodal load and self weight cannot disguise an empty formal model', zeroDensitySelfWeightReadiness.failedItems.join('；'));
+assert(zeroDensitySelfWeightReadiness.failedItems.some(item => item.includes('沒有啟用的外力或自重')), 'rigid frame empty-load boundary reports the governing failure', zeroDensitySelfWeightReadiness.failedItems.join('；'));
+frameRuntime.context.loadFromData(JSON.parse(JSON.stringify(sourceProjectJson)));
+
+frameRuntime.context.state.nodes[1].kx = 500;
+frameRuntime.context.updateNode(1, 'cx', true);
+assert(frameRuntime.context.state.nodes[1].kx === 0, 'rigid frame fixed support toggle clears the mutually exclusive spring', JSON.stringify(frameRuntime.context.state.nodes[1]));
+const fixedTogglePayload = frameRuntime.context.buildFrameCasePayload();
+const fixedToggleReplay = frameRuntime.context.applyImportedFrameCase(JSON.parse(JSON.stringify(fixedTogglePayload)), 'fixed-toggle.json');
+assert(fixedToggleReplay.calculationFingerprint === fixedTogglePayload.calculationFingerprint, 'rigid frame self-produced fixed-support case remains replayable', fixedToggleReplay.calculationFingerprint);
+frameRuntime.context.loadFromData(JSON.parse(JSON.stringify(sourceProjectJson)));
+
+frameRuntime.context.state.nodes[1].kx = 750;
+frameRuntime.context.runAnalysis();
+frameRuntime.elements.get('projBasis').value = '';
+const unresolvedSpringReadiness = frameRuntime.context.frameReportReadinessModel(frameRuntime.context.state.solution.validation);
+assert(unresolvedSpringReadiness.level === 'review', 'rigid frame spring assumption without project basis remains review', unresolvedSpringReadiness.level);
+const unresolvedSpringReport = captureFrameReportHtml(frameAnalysisHtml, frameRuntime.context.getFrameProjectInfo(), frameRuntime.context.state);
+assert(unresolvedSpringReport.html.includes('data-formal-approval-allowed="false"'), 'rigid frame review report disables formal approval', 'data-formal-approval-allowed="false"');
+frameRuntime.elements.get('projBasis').value = '結構分析模型 S-202 Rev.4，專案指定水平彈簧剛度';
+const resolvedSpringReadiness = frameRuntime.context.frameReportReadinessModel(frameRuntime.context.state.solution.validation);
+assert(resolvedSpringReadiness.level === 'ready', 'rigid frame project basis resolves documented spring assumption', resolvedSpringReadiness.level);
+const resolvedSpringReport = captureFrameReportHtml(frameAnalysisHtml, frameRuntime.context.getFrameProjectInfo(), frameRuntime.context.state);
+assert(resolvedSpringReport.html.includes('data-formal-approval-allowed="true"'), 'rigid frame ready report enables explicit formal approval', 'data-formal-approval-allowed="true"');
+frameRuntime.context.loadFromData(JSON.parse(JSON.stringify(sourceProjectJson)));
+
+frameRuntime.context.state.nodes[2].x = 7.25;
+frameRuntime.context.runAnalysis();
+const beforeFormalReplay = stableSha256(frameResultSnapshot(frameRuntime.context));
+const replayedFormalCase = frameRuntime.context.applyImportedFrameCase(JSON.parse(JSON.stringify(formalCasePayload)), 'formal-case.json');
+assert(replayedFormalCase.calculationFingerprint === formalBaselineFingerprint, 'rigid frame V2 JSON replay reproduces the governed fingerprint', replayedFormalCase.calculationFingerprint);
+
+frameRuntime.context.state.nodes[2].x = 7.5;
+frameRuntime.context.runAnalysis();
+const beforeMismatchRollback = stableSha256(frameResultSnapshot(frameRuntime.context));
+const mismatchedFormalCase = JSON.parse(JSON.stringify(formalCasePayload));
+mismatchedFormalCase.calculationFingerprint = 'CF-0000000000000000';
+mismatchedFormalCase.report.calculationFingerprint = mismatchedFormalCase.calculationFingerprint;
+let mismatchError = '';
+try {
+  frameRuntime.context.applyImportedFrameCase(mismatchedFormalCase, 'mismatch.json');
+} catch (error) {
+  mismatchError = String(error.message || error);
+}
+const afterMismatchRollback = stableSha256(frameResultSnapshot(frameRuntime.context));
+assert(mismatchError.includes('案件 JSON 重現失敗') && mismatchError.includes('已保留原輸入'), 'rigid frame rejects mismatched V2 fingerprint with rollback notice', mismatchError);
+assert(afterMismatchRollback === beforeMismatchRollback, 'rigid frame mismatched V2 replay restores the complete prior model and result', `${beforeMismatchRollback} / ${afterMismatchRollback}`);
+assert(beforeFormalReplay !== stableSha256(frameResultSnapshot(frameRuntime.context)), 'rigid frame successful formal replay replaced the pre-replay mutation before rollback scenario', beforeFormalReplay);
+
+const beforeResultTamperRollback = stableSha256(frameResultSnapshot(frameRuntime.context));
+const resultTamperedFormalCase = JSON.parse(JSON.stringify(formalCasePayload));
+resultTamperedFormalCase.result.combinations[0].d[3] += 999999;
+let resultTamperError = '';
+try {
+  frameRuntime.context.applyImportedFrameCase(resultTamperedFormalCase, 'result-tamper.json');
+} catch (error) {
+  resultTamperError = String(error.message || error);
+}
+const afterResultTamperRollback = stableSha256(frameResultSnapshot(frameRuntime.context));
+assert(resultTamperError.includes('來源結果快照與重新計算結果不一致') && resultTamperError.includes('已保留原輸入'), 'rigid frame rejects a tampered claimed result even when fingerprints are unchanged', resultTamperError);
+assert(afterResultTamperRollback === beforeResultTamperRollback, 'rigid frame result-tampered V2 replay restores the complete prior model and result', `${beforeResultTamperRollback} / ${afterResultTamperRollback}`);
+
+frameRuntime.elements.get('projName').value = 'UNSAVED-WIP';
+frameRuntime.context.state.members[0].E = 0;
+frameRuntime.context.invalidateAnalysisState();
+const beforeInvalidWipRollback = stableSha256(frameResultSnapshot(frameRuntime.context));
+const invalidWipTamperedCase = JSON.parse(JSON.stringify(formalCasePayload));
+invalidWipTamperedCase.result.combinations[0].d[3] += 999;
+let invalidWipTamperError = '';
+try {
+  frameRuntime.context.applyImportedFrameCase(invalidWipTamperedCase, 'result-tamper-over-wip.json');
+} catch (error) {
+  invalidWipTamperError = String(error.message || error);
+}
+const afterInvalidWipRollback = stableSha256(frameResultSnapshot(frameRuntime.context));
+assert(invalidWipTamperError.includes('來源結果快照與重新計算結果不一致') && invalidWipTamperError.includes('已保留原輸入'), 'rigid frame rejects a tampered V2 result over an invalid unsaved WIP', invalidWipTamperError);
+assert(!invalidWipTamperError.includes('原輸入復原失敗'), 'rigid frame raw rollback does not revalidate an invalid unsaved WIP', invalidWipTamperError);
+assert(afterInvalidWipRollback === beforeInvalidWipRollback, 'rigid frame invalid WIP rollback preserves the complete raw workspace', `${beforeInvalidWipRollback} / ${afterInvalidWipRollback}`);
+assert(frameRuntime.elements.get('projName').value === 'UNSAVED-WIP' && frameRuntime.context.state.members[0].E === 0 && frameRuntime.context.state.solution === null, 'rigid frame invalid WIP rollback preserves project text, invalid member input and unsolved state', `${frameRuntime.elements.get('projName').value} / ${frameRuntime.context.state.members[0].E} / ${Boolean(frameRuntime.context.state.solution)}`);
+frameRuntime.context.loadFromData(JSON.parse(JSON.stringify(sourceProjectJson)));
+
 function runClosedFormFrameCase(caseData) {
   const runtime = createFrameAnalysisContext(frameAnalysisHtml);
   runtime.context.loadFromData({
@@ -631,8 +787,8 @@ function runClosedFormFrameCase(caseData) {
     unit: 'tf-m',
     project: { name: '', no: '', designer: '', note: caseData.id },
     defaults: { E: caseData.E, A: caseData.A, I: caseData.I },
-    selfWeight: false,
-    density: 7.85,
+    selfWeight: caseData.selfWeight === true,
+    density: caseData.density == null ? 7.85 : caseData.density,
     loadCases: [{ id: 1, name: 'D' }],
     comboFactors: { 1: 1 },
     nodes: caseData.nodes,
@@ -721,6 +877,148 @@ assertNear(releasedEndSolution.reactions[2], uniformLoad * simpleSpan ** 2 / 8, 
 assertNear(releasedEndSolution.elems[0].qLocal[5], 0, 1e-10, 'released member end moment is zero after static condensation');
 assertNear(Math.min(...releasedEndSolution.elems[0].diag.Ms), -uniformLoad * simpleSpan ** 2 / 8, 1e-10, 'fixed-pinned beam hogging moment matches -wL^2/8');
 assertNear(Math.max(...releasedEndSolution.elems[0].diag.Ms), 9 * uniformLoad * simpleSpan ** 2 / 128, 1e-10, 'fixed-pinned beam positive moment matches 9wL^2/128');
+
+const verticalUdlLength = 5;
+const verticalUdl = 2.4;
+const uniformClosedFormEA = closedFormMaterial.E * closedFormMaterial.A;
+const verticalUdlSolution = runClosedFormFrameCase({
+  id: 'vertical-cantilever-global-y-uniform-load',
+  ...closedFormMaterial,
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: 0, y: verticalUdlLength, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [{ id: 1, i: 1, j: 2, ...closedFormMaterial, relI: false, relJ: false }],
+  memberLoads: [{ caseId: 1, member: 1, w: verticalUdl, dir: 'globalY' }],
+});
+assertNear(verticalUdlSolution.reactions[1], verticalUdl * verticalUdlLength, 1e-10, 'vertical member global-Y UDL retains the complete vertical resultant');
+assertNear(verticalUdlSolution.d[4], -verticalUdl * verticalUdlLength ** 2 / (2 * uniformClosedFormEA), 1e-12, 'vertical member global-Y UDL axial shortening matches wL^2/(2EA)');
+assertNear(verticalUdlSolution.elems[0].diag.Ns[0], -verticalUdl * verticalUdlLength, 1e-10, 'vertical member global-Y UDL base axial force is compression wL');
+assertNear(verticalUdlSolution.elems[0].diag.Ns.at(-1), 0, 1e-10, 'vertical member global-Y UDL axial diagram closes to zero at the free end');
+
+const selfWeightDensity = 7.85;
+const selfWeightPerLength = selfWeightDensity * closedFormMaterial.A * 1e-4;
+const verticalSelfWeightSolution = runClosedFormFrameCase({
+  id: 'vertical-cantilever-self-weight',
+  ...closedFormMaterial,
+  selfWeight: true,
+  density: selfWeightDensity,
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: 0, y: verticalUdlLength, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [{ id: 1, i: 1, j: 2, ...closedFormMaterial, relI: false, relJ: false }],
+});
+assertNear(verticalSelfWeightSolution.reactions[1], selfWeightPerLength * verticalUdlLength, 1e-10, 'vertical member self weight retains the complete vertical resultant');
+assertNear(verticalSelfWeightSolution.d[4], -selfWeightPerLength * verticalUdlLength ** 2 / (2 * uniformClosedFormEA), 1e-12, 'vertical member self weight axial shortening matches gL^2/(2EA)');
+assertNear(verticalSelfWeightSolution.elems[0].diag.Ns[0], -selfWeightPerLength * verticalUdlLength, 1e-10, 'vertical member self-weight base axial force is compression gL');
+
+const inclinedUdlDx = 3;
+const inclinedUdlDy = 4;
+const inclinedUdlLength = 5;
+const inclinedGlobalUdl = 1.7;
+const inclinedC = inclinedUdlDx / inclinedUdlLength;
+const inclinedS = inclinedUdlDy / inclinedUdlLength;
+const inclinedQx = -inclinedGlobalUdl * inclinedS;
+const inclinedQy = -inclinedGlobalUdl * inclinedC;
+const inclinedTipAxial = inclinedQx * inclinedUdlLength ** 2 / (2 * uniformClosedFormEA);
+const inclinedTipTransverse = inclinedQy * inclinedUdlLength ** 4 / (8 * closedFormEI);
+const inclinedUdlSolution = runClosedFormFrameCase({
+  id: 'inclined-cantilever-global-y-uniform-load',
+  ...closedFormMaterial,
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: inclinedUdlDx, y: inclinedUdlDy, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [{ id: 1, i: 1, j: 2, ...closedFormMaterial, relI: false, relJ: false }],
+  memberLoads: [{ caseId: 1, member: 1, w: inclinedGlobalUdl, dir: 'globalY' }],
+});
+assertNear(inclinedUdlSolution.d[3], inclinedC * inclinedTipAxial - inclinedS * inclinedTipTransverse, 1e-10, 'inclined member UDL global uX includes axial and flexural projections');
+assertNear(inclinedUdlSolution.d[4], inclinedS * inclinedTipAxial + inclinedC * inclinedTipTransverse, 1e-10, 'inclined member UDL global uY includes axial and flexural projections');
+assertNear(inclinedUdlSolution.d[5], inclinedQy * inclinedUdlLength ** 3 / (6 * closedFormEI), 1e-10, 'inclined member UDL rotation matches qyL^3/(6EI)');
+assertNear(inclinedUdlSolution.reactions[1], inclinedGlobalUdl * inclinedUdlLength, 1e-10, 'inclined member UDL vertical reaction matches wL');
+assertNear(inclinedUdlSolution.reactions[2], inclinedGlobalUdl * inclinedUdlLength * inclinedUdlDx / 2, 1e-10, 'inclined member UDL base moment matches resultant lever arm');
+
+const doubleReleasedSolution = runClosedFormFrameCase({
+  id: 'double-released-simple-beam-uniform-load',
+  ...closedFormMaterial,
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: simpleSpan, y: 0, cx: false, cy: true, crz: false, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [{ id: 1, i: 1, j: 2, ...closedFormMaterial, relI: true, relJ: true }],
+  memberLoads: [{ caseId: 1, member: 1, w: uniformLoad, dir: 'globalY' }],
+});
+assertNear(doubleReleasedSolution.reactions[1], uniformLoad * simpleSpan / 2, 1e-10, 'double-released simple beam left reaction matches wL/2');
+assertNear(doubleReleasedSolution.reactions[4], uniformLoad * simpleSpan / 2, 1e-10, 'double-released simple beam right reaction matches wL/2');
+assert(doubleReleasedSolution.inactiveDofs.includes(2) && doubleReleasedSolution.inactiveDofs.includes(5), 'double-released simple beam records only redundant nodal rotations as inactive', JSON.stringify(doubleReleasedSolution.inactiveDofs));
+assertNear(doubleReleasedSolution.elems[0].qLocal[2], 0, 1e-10, 'double-released simple beam i-end moment is zero');
+assertNear(doubleReleasedSolution.elems[0].qLocal[5], 0, 1e-10, 'double-released simple beam j-end moment is zero');
+
+function runBlockedFrameCase(caseData) {
+  const runtime = createFrameAnalysisContext(frameAnalysisHtml);
+  let thrownMessage = '';
+  try {
+    runtime.context.loadFromData({
+      schema: 'plane-frame.project.v1', tool: '平面剛架分析', version: frameMetadata.version,
+      calculationEngine: frameMetadata.calculationEngine, unit: 'tf-m',
+      project: { name: '', no: '', designer: '', note: caseData.id },
+      defaults: { ...closedFormMaterial }, selfWeight: false, density: 7.85,
+      loadCases: [{ id: 1, name: 'D' }], comboFactors: { 1: 1 },
+      nodes: caseData.nodes, members: caseData.members,
+      nodalLoads: caseData.nodalLoads || [], memberLoads: caseData.memberLoads || [], memberPointLoads: caseData.memberPointLoads || [],
+    });
+  } catch (error) {
+    thrownMessage = String(error?.message || error);
+    runtime.context.state.solution = null;
+  }
+  const errorText = thrownMessage || runtime.elements.get('errorMsg').textContent;
+  assert(runtime.context.state.solution === null, `${caseData.id} unstable or invalid model is blocked`, errorText);
+  return errorText;
+}
+
+const releasedColumnMechanismError = runBlockedFrameCase({
+  id: 'double-released-column-sway-mechanism',
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: 0, y: 4, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [{ id: 1, i: 1, j: 2, ...closedFormMaterial, relI: true, relJ: true }],
+});
+assert(releasedColumnMechanismError.includes('X 位移自由度沒有有效勁度'), 'double-released column translational mechanism is not hidden as a gauge', releasedColumnMechanismError);
+
+const isolatedNodeError = runBlockedFrameCase({
+  id: 'isolated-node-mechanism',
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: true, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: 4, y: 0, cx: false, cy: true, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 3, x: 8, y: 3, cx: false, cy: false, crz: false, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [{ id: 1, i: 1, j: 2, ...closedFormMaterial, relI: false, relJ: false }],
+});
+assert(isolatedNodeError.includes('沒有有效勁度'), 'isolated node is blocked as an unstable model', isolatedNodeError);
+
+const releasedMomentError = runBlockedFrameCase({
+  id: 'released-rotation-with-nodal-moment',
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: simpleSpan, y: 0, cx: false, cy: true, crz: false, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [{ id: 1, i: 1, j: 2, ...closedFormMaterial, relI: true, relJ: true }],
+  nodalLoads: [{ caseId: 1, node: 2, Fx: 0, Fy: 0, M: 3 }],
+});
+assert(releasedMomentError.includes('已由相接桿件釋放但仍承受外力'), 'moment on an inactive released rotation is blocked', releasedMomentError);
+
+const outOfRangePointError = runBlockedFrameCase({
+  id: 'member-point-load-outside-span',
+  nodes: [
+    { id: 1, x: 0, y: 0, cx: true, cy: true, crz: false, kx: 0, ky: 0, krz: 0 },
+    { id: 2, x: simpleSpan, y: 0, cx: false, cy: true, crz: false, kx: 0, ky: 0, krz: 0 },
+  ],
+  members: [{ id: 1, i: 1, j: 2, ...closedFormMaterial, relI: false, relJ: false }],
+  memberPointLoads: [{ caseId: 1, member: 1, P: 5, a: simpleSpan + 0.5, dir: 'globalY' }],
+});
+assert(outOfRangePointError.includes('超出桿長'), 'out-of-range member point load is a fail-closed validation error', outOfRangePointError);
 
 const springSpan = 5;
 const springLoad = 20;

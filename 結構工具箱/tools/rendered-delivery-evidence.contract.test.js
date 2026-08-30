@@ -45,11 +45,13 @@ const localQuickResultReconciliationRequired = new Set(
 // The fixed formal/steel/SRC and shared local scenarios contribute 48 canonical
 // PDF/evidence files. Each local quick tool adds detailed, internal-review and
 // blocked-boundary PDF/evidence pairs (six files per inventory entry). Schema v31
-// additionally makes the steel Shear Tab PDF/evidence pair canonical.
+// additionally makes the steel Shear Tab PDF/evidence pair canonical. Schema v32
+// adds the independently governed frame-analysis PDF/evidence pair.
 const steelShearTabCanonicalArtifactRequired = 2;
-const canonicalArtifactIntegrityRequired = 48 + (localQuickResultReconciliationRequired * 6) + steelShearTabCanonicalArtifactRequired;
+const frameAnalysisCanonicalArtifactRequired = 2;
+const canonicalArtifactIntegrityRequired = 48 + (localQuickResultReconciliationRequired * 6) + steelShearTabCanonicalArtifactRequired + frameAnalysisCanonicalArtifactRequired;
 assert.equal(localQuickResultReconciliationRequired, 6, 'rendered delivery evidence inventory preserves all 6 local quick tools');
-assert.equal(canonicalArtifactIntegrityRequired, 86, 'Schema v31 requires 86 canonical PDF and evidence files');
+assert.equal(canonicalArtifactIntegrityRequired, 88, 'Schema v32 requires 88 canonical PDF and evidence files');
 
 for (const needle of ['計算層級 / 複核邊界', '條文對照 ＆ 方法分級', '規範覆蓋矩陣']) {
   assert.ok(DEFAULT_FORBIDDEN.includes(needle), `rendered delivery evidence shares calculation-book boundary: ${needle}`);
@@ -580,6 +582,21 @@ function formalHtmlSealSetHash(records, kind) {
     .digest('hex');
 }
 
+function frameResultReconciliationSetHash(records) {
+  return createHash('sha256')
+    .update(records
+      .map(record => [
+        record.key,
+        record.caseId,
+        record.sourceSnapshotSha256,
+        record.calculationFingerprint,
+        record.verifiedAssertionCount,
+      ].join('\u0000'))
+      .sort()
+      .join('\n'), 'utf8')
+    .digest('hex');
+}
+
 function steelResultReconciliationSetHash(records) {
   return createHash('sha256')
     .update(records
@@ -1084,6 +1101,112 @@ function validateAnchorResultReconciliationRecord(record, directory, renderedTex
   return { key: record.key, ...reconciliation };
 }
 
+function validateFrameAnalysisFormalRecord(record, directory, label) {
+  assert.equal(record?.key, 'frame-analysis', `${label} evidence identity`);
+  assert.equal(record?.evidenceRole, 'approved-formal-attachment', `${label} evidence role`);
+  assert.match(String(record?.calculationFingerprint || ''), /^CF-[0-9A-F]{16}$/i, `${label} calculation fingerprint`);
+
+  const sourceArtifact = String(record?.sourceArtifact || '');
+  assert.equal(path.basename(sourceArtifact), sourceArtifact, `${label} source JSON uses a local artifact name`);
+  const sourcePath = path.join(directory, sourceArtifact);
+  assert.ok(fs.existsSync(sourcePath), `${label} source JSON exists`);
+  assert.equal(record?.sourceArtifactBytes, fs.statSync(sourcePath).size, `${label} source JSON byte count`);
+  assert.equal(record?.sourceArtifactSha256, sha256File(sourcePath), `${label} source JSON SHA-256`);
+  assert.doesNotThrow(() => readJson(sourcePath), `${label} source artifact is valid JSON`);
+
+  const htmlArtifact = String(record?.htmlArtifact || '');
+  assert.equal(path.basename(htmlArtifact), htmlArtifact, `${label} approved HTML uses a local artifact name`);
+  const htmlPath = path.join(directory, htmlArtifact);
+  assert.ok(fs.existsSync(htmlPath), `${label} approved HTML exists`);
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  const htmlSha256 = sha256File(htmlPath);
+  const visibleHtml = AttachmentPackageChecker.extractHtmlVisibleContent(html).text;
+  assert.ok(visibleHtml.includes('文件狀態：正式附件'), `${label} approved HTML preserves its static document state`);
+  assert.ok(visibleHtml.includes(record.calculationFingerprint), `${label} approved HTML preserves the calculation fingerprint`);
+  const contentSeal = AttachmentPackageChecker.verifyFormalHtmlContentSeal(html);
+  const approvalSeal = AttachmentPackageChecker.verifyFormalHtmlApprovalSeal(html);
+  assert.equal(contentSeal.status, 'verified', `${label} HTML content seal verifies`);
+  assert.equal(approvalSeal.status, 'verified', `${label} HTML approval seal verifies`);
+  assert.equal(record?.portableHtml?.documentClass, 'formal-attachment', `${label} portable HTML document class`);
+  assert.equal(record?.portableHtml?.calculationFingerprint, record.calculationFingerprint, `${label} portable HTML fingerprint matches report`);
+  assert.equal(record?.portableHtml?.contentSealScope, contentSeal.scope, `${label} content seal scope`);
+  assert.equal(record?.portableHtml?.contentSealSha256, contentSeal.actualSha256, `${label} content seal SHA-256`);
+  assert.equal(record?.portableHtml?.approvalSealScope, approvalSeal.scope, `${label} approval seal scope`);
+  assert.equal(record?.portableHtml?.approvalSealSha256, approvalSeal.actualSha256, `${label} approval seal SHA-256`);
+
+  const reconciliation = record?.resultReconciliation;
+  assert.equal(reconciliation?.schemaVersion, 1, `${label} result reconciliation schema`);
+  assert.equal(reconciliation?.strategy, 'frame-source-replay-to-report-fingerprint', `${label} result reconciliation strategy`);
+  assert.equal(reconciliation?.caseId, 'cantilever-tip-load', `${label} result reconciliation case`);
+  assert.equal(reconciliation?.sourceSnapshotSha256, record.sourceArtifactSha256, `${label} replay source matches preserved source JSON`);
+  assert.ok(Number.isInteger(reconciliation?.verifiedAssertionCount) && reconciliation.verifiedAssertionCount > 0, `${label} verified result assertions`);
+  assert.equal(reconciliation?.calculationFingerprint, record.calculationFingerprint, `${label} replay fingerprint matches report`);
+  assert.equal(reconciliation?.calculationFingerprint, record.portableHtml.calculationFingerprint, `${label} replay fingerprint matches approved HTML`);
+  assert.equal(reconciliation?.pass, true, `${label} result reconciliation passes`);
+
+  const evidencePath = path.join(directory, String(record?.evidence || ''));
+  assert.ok(fs.existsSync(evidencePath), `${label} render evidence exists`);
+  const evidence = readJson(evidencePath);
+  assert.equal(evidence?.kind, 'attachment-canonical-render-evidence.v1', `${label} canonical evidence kind`);
+  assert.equal(evidence?.artifact, record.artifact, `${label} evidence names the report PDF`);
+  assert.equal(evidence?.artifactSha256, record.artifactSha256, `${label} evidence PDF hash matches family summary`);
+  assert.equal(evidence?.sourceHtmlSha256, htmlSha256, `${label} evidence HTML hash matches approved attachment`);
+  assert.equal(String(evidence?.documentState?.documentClass || evidence?.documentState || ''), 'formal-attachment', `${label} evidence records formal-attachment state`);
+  assert.equal(evidence?.dom?.horizontalOverflow, false, `${label} report has no horizontal overflow`);
+  assert.ok(Number.isInteger(evidence?.dom?.tableCount) && evidence.dom.tableCount >= 4, `${label} report preserves populated tables`);
+
+  const pdfPath = path.join(directory, String(record?.artifact || ''));
+  const pdf = validatePdfFile(pdfPath, {
+    label,
+    minTextLength: 1200,
+    titleNeedle: '平面剛架分析',
+    projectNeedle: '__skip_project_order__',
+    requiredNeedles: ['平面剛架分析', '產出工具', '計算指紋', record.calculationFingerprint, '文件狀態：正式附件'],
+    contentBoundaryProfile: 'traceable-calculation-book',
+    keepWithNextLabels: [
+      '分析方法、符號與適用範圍', '載重組合矩陣', '節點', '桿件', '載重',
+      '模型自檢與求解診斷', '分量式平衡檢核', '節點位移 / 反力',
+      '桿件端力（局部座標）', '桿件極值',
+    ],
+    continuationContextLabels: [
+      '案件資料', '分析方法、符號與適用範圍', '載重組合矩陣', '節點', '桿件', '載重',
+      '模型自檢與求解診斷', '分量式平衡檢核', '幾何 / 變形圖',
+      '彎矩圖 M (tf·m)', '剪力圖 V (tf)', '軸力圖 N (tf)',
+      '節點位移 / 反力', '桿件端力（局部座標）', '桿件極值',
+    ],
+  });
+  assert.equal(evidence?.pdf?.pageCount, pdf.pageCount, `${label} evidence page count matches independently parsed PDF`);
+  assert.equal(evidence?.pdf?.textLength, pdf.textLength, `${label} evidence text length matches independently parsed PDF`);
+  assert.equal(evidence?.pdf?.orphanHeadingCount, 0, `${label} report has no orphan headings`);
+  assert.equal(evidence?.pdf?.uncontextualPageStartCount, 0, `${label} continuation pages preserve context`);
+
+  return {
+    record: {
+      href: '/frame-analysis',
+      title: '平面剛架分析',
+      family: 'frame-analysis-formal',
+      evidenceKey: 'frame-analysis',
+      artifact: record.artifact,
+      evidence: record.evidence,
+      htmlArtifact,
+      sourceArtifact,
+      calculationFingerprint: record.calculationFingerprint,
+      pageCount: pdf.pageCount,
+      textLength: pdf.textLength,
+    },
+    reconciliation: { key: record.key, ...reconciliation },
+    dualSeal: {
+      key: record.key,
+      htmlArtifact,
+      htmlArtifactSha256: htmlSha256,
+      contentSealScope: contentSeal.scope,
+      contentSha256: contentSeal.actualSha256,
+      approvalSealScope: approvalSeal.scope,
+      approvalSha256: approvalSeal.actualSha256,
+    },
+  };
+}
+
 function validateFamilySummary(runDir, family, expectedKeys) {
   const summaryPath = path.join(runDir, 'rendered-delivery-evidence', family, 'rendered-delivery-evidence-summary.json');
   assert.ok(fs.existsSync(summaryPath), `${family} current-run rendered summary exists`);
@@ -1275,7 +1398,7 @@ function newestMatchingPdf(directory, prefix) {
 }
 
 assert.equal(inventory.version, 2, 'rendered delivery inventory version');
-assert.equal(inventory.tools.length, 39, 'rendered delivery inventory covers all homepage formal tools');
+assert.equal(inventory.tools.length, 40, 'rendered delivery inventory covers all homepage formal tools');
 const homeTools = vm.runInNewContext(`(${extractConstLiteral(homeSource, 'tools')})`);
 const formalHomeTools = homeTools.filter(tool => tool.state === 'formal');
 const formalRoutes = formalHomeTools.map(tool => tool.href).sort();
@@ -1674,6 +1797,8 @@ const supplementalRecords = [];
 const canonicalArtifactRecords = [];
 const formalResultReconciliationRecords = [];
 const formalHtmlDualSealRecords = [];
+const frameResultReconciliationRecords = [];
+const frameHtmlDualSealRecords = [];
 const steelHtmlDualSealRecords = [];
 const anchorHtmlDualSealRecords = [];
 const localQuickResultReconciliationRecords = [];
@@ -1756,6 +1881,25 @@ for (const family of ['formal-tools', 'local-quick-tools', 'steel-formal', 'src-
     records.push({ href: tool.href, title: tool.title, family, evidenceKey: tool.evidenceKey, artifact: evidence?.artifact || '', ...pdfEvidence });
   }
 }
+
+const frameTool = inventory.tools.find(tool => tool.family === 'frame-analysis-formal');
+assert.ok(frameTool, 'rendered delivery inventory includes the independently governed frame-analysis formal tool');
+const { summary: frameSummary, directory: frameEvidenceDir } = validateArtifactFamilySummary(
+  runDir,
+  'frame-analysis-formal',
+  [frameTool.evidenceKey]
+);
+assert.equal(frameSummary.records.length, 1, 'frame-analysis formal family has exactly one canonical record');
+const frameEvidence = frameSummary.records.find(record => record.key === frameTool.evidenceKey);
+const frameCanonical = verifyCanonicalRenderedArtifact(frameEvidenceDir, frameEvidence, 'frame-analysis formal attachment');
+canonicalArtifactRecords.push(
+  { family: frameTool.family, role: 'reportPdf', name: frameEvidence.artifact, bytes: frameCanonical.artifactBytes, sha256: frameCanonical.artifactSha256 },
+  { family: frameTool.family, role: 'renderEvidence', name: frameEvidence.evidence, bytes: frameCanonical.evidenceBytes, sha256: frameCanonical.evidenceSha256 },
+);
+const frameValidation = validateFrameAnalysisFormalRecord(frameEvidence, frameEvidenceDir, frameTool.title);
+frameResultReconciliationRecords.push(frameValidation.reconciliation);
+frameHtmlDualSealRecords.push(frameValidation.dualSeal);
+records.push(frameValidation.record);
 
 const rcDir = path.join(runDir, 'rendered-delivery-evidence', 'rc-formal');
 for (const tool of inventory.tools.filter(item => item.family === 'rc-formal')) {
@@ -2586,6 +2730,55 @@ const formalResultReconciliation = {
 };
 assert.equal(formalResultReconciliation.complete, formalResultReconciliation.required, 'release rendered evidence reconciles all 14 formal golden results to report fingerprints');
 assert.equal(formalResultReconciliation.pass, true, 'release rendered evidence passes formal result reconciliation');
+const frameResultReconciliation = {
+  schemaVersion: 1,
+  scope: 'frame-source-replay-to-report-fingerprint',
+  required: 1,
+  complete: frameResultReconciliationRecords.length,
+  issueCount: Math.max(0, 1 - frameResultReconciliationRecords.length),
+  pass: frameResultReconciliationRecords.length === 1,
+  setSha256: frameResultReconciliationSetHash(frameResultReconciliationRecords),
+  records: frameResultReconciliationRecords,
+};
+assert.equal(new Set(frameResultReconciliationRecords.map(record => record.key)).size, frameResultReconciliationRecords.length, 'release rendered evidence frame result reconciliation identities are unique');
+assert.equal(frameResultReconciliation.complete, frameResultReconciliation.required, 'release rendered evidence reconciles the frame source replay to its report fingerprint');
+assert.equal(frameResultReconciliation.pass, true, 'release rendered evidence passes frame result reconciliation');
+const frameHtmlContentSeal = {
+  schemaVersion: 1,
+  scope: 'frame-analysis-html-reproducible-content-sha256',
+  required: 1,
+  complete: frameHtmlDualSealRecords.length,
+  issueCount: Math.max(0, 1 - frameHtmlDualSealRecords.length),
+  pass: frameHtmlDualSealRecords.length === 1,
+  setSha256: formalHtmlSealSetHash(frameHtmlDualSealRecords, 'content'),
+  records: frameHtmlDualSealRecords.map(record => ({
+    key: record.key,
+    htmlArtifact: record.htmlArtifact,
+    htmlArtifactSha256: record.htmlArtifactSha256,
+    scope: record.contentSealScope,
+    contentSha256: record.contentSha256,
+  })),
+};
+const frameHtmlApprovalSeal = {
+  schemaVersion: 1,
+  scope: 'frame-analysis-html-reproducible-approval-sha256',
+  required: 1,
+  complete: frameHtmlDualSealRecords.length,
+  issueCount: Math.max(0, 1 - frameHtmlDualSealRecords.length),
+  pass: frameHtmlDualSealRecords.length === 1,
+  setSha256: formalHtmlSealSetHash(frameHtmlDualSealRecords, 'approval'),
+  records: frameHtmlDualSealRecords.map(record => ({
+    key: record.key,
+    htmlArtifact: record.htmlArtifact,
+    htmlArtifactSha256: record.htmlArtifactSha256,
+    scope: record.approvalSealScope,
+    approvalSha256: record.approvalSha256,
+  })),
+};
+assert.equal(frameHtmlContentSeal.complete, frameHtmlContentSeal.required, 'release rendered evidence independently verifies the frame formal HTML content seal');
+assert.equal(frameHtmlApprovalSeal.complete, frameHtmlApprovalSeal.required, 'release rendered evidence independently verifies the frame formal HTML approval seal');
+assert.equal(frameHtmlContentSeal.pass, true, 'release rendered evidence passes the frame formal HTML content seal');
+assert.equal(frameHtmlApprovalSeal.pass, true, 'release rendered evidence passes the frame formal HTML approval seal');
 const localQuickResultReconciliation = {
   schemaVersion: 1,
   scope: 'local-quick-json-replay-to-pdf-hash',
@@ -2929,7 +3122,7 @@ assert.equal(xlsxDualSeal.contentComplete, xlsxDualSeal.contentRequired, 'releas
 assert.equal(xlsxDualSeal.approvalComplete, xlsxDualSeal.approvalRequired, 'release verifies the formal XLSX approval seal');
 assert.equal(xlsxDualSeal.pass, true, 'release passes formal XLSX dual seal integrity');
 const aggregate = {
-  schemaVersion: 31,
+  schemaVersion: 32,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),
@@ -2938,7 +3131,7 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && rcStmFormalAttachment.pass && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && docxPackageIntegrity.pass && xlsxPackageIntegrity.pass && xlsxPrintVisual.pass && xlsxDualSeal.pass && formalResultReconciliation.pass && formalHtmlContentSeal.pass && formalHtmlApprovalSeal.pass && steelHtmlContentSeal.pass && steelHtmlApprovalSeal.pass && anchorHtmlContentSeal.pass && anchorHtmlApprovalSeal.pass && localQuickResultReconciliation.pass && rcResultReconciliation.pass && rcSourceReportPackage.pass && rcStandaloneFormalHtmlPrint.pass && rcFormalHtmlContentSeal.pass && rcFormalHtmlApprovalSeal.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && rcStmFormalAttachment.pass && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && docxPackageIntegrity.pass && xlsxPackageIntegrity.pass && xlsxPrintVisual.pass && xlsxDualSeal.pass && formalResultReconciliation.pass && frameResultReconciliation.pass && frameHtmlContentSeal.pass && frameHtmlApprovalSeal.pass && formalHtmlContentSeal.pass && formalHtmlApprovalSeal.pass && steelHtmlContentSeal.pass && steelHtmlApprovalSeal.pass && anchorHtmlContentSeal.pass && anchorHtmlApprovalSeal.pass && localQuickResultReconciliation.pass && rcResultReconciliation.pass && rcSourceReportPackage.pass && rcStandaloneFormalHtmlPrint.pass && rcFormalHtmlContentSeal.pass && rcFormalHtmlApprovalSeal.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
   rcStmFormalAttachment,
   attachmentIntegrity,
   mixedArtifactIntegrity,
@@ -2949,6 +3142,9 @@ const aggregate = {
   xlsxPrintVisual,
   xlsxDualSeal,
   formalResultReconciliation,
+  frameResultReconciliation,
+  frameHtmlContentSeal,
+  frameHtmlApprovalSeal,
   formalHtmlContentSeal,
   formalHtmlApprovalSeal,
   steelHtmlContentSeal,
@@ -2972,4 +3168,4 @@ const aggregate = {
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, rcStmFormalAttachment=${rcStmFormalAttachment.complete}/${rcStmFormalAttachment.required}, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, docxPackageIntegrity=${docxPackageIntegrity.complete}/${docxPackageIntegrity.required}, xlsxPackageIntegrity=${xlsxPackageIntegrity.complete}/${xlsxPackageIntegrity.required}, xlsxPrintVisual=${xlsxPrintVisual.complete}/${xlsxPrintVisual.required}, xlsxContentSeal=${xlsxDualSeal.contentComplete}/${xlsxDualSeal.contentRequired}, xlsxApprovalSeal=${xlsxDualSeal.approvalComplete}/${xlsxDualSeal.approvalRequired}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, formalHtmlContentSeal=${formalHtmlContentSeal.complete}/${formalHtmlContentSeal.required}, formalHtmlApprovalSeal=${formalHtmlApprovalSeal.complete}/${formalHtmlApprovalSeal.required}, steelHtmlContentSeal=${steelHtmlContentSeal.complete}/${steelHtmlContentSeal.required}, steelHtmlApprovalSeal=${steelHtmlApprovalSeal.complete}/${steelHtmlApprovalSeal.required}, anchorHtmlContentSeal=${anchorHtmlContentSeal.complete}/${anchorHtmlContentSeal.required}, anchorHtmlApprovalSeal=${anchorHtmlApprovalSeal.complete}/${anchorHtmlApprovalSeal.required}, localQuickResultReconciliation=${localQuickResultReconciliation.complete}/${localQuickResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, rcSourceReportPackage=${rcSourceReportPackage.complete}/${rcSourceReportPackage.required}, rcStandaloneFormalHtmlPrint=${rcStandaloneFormalHtmlPrint.complete}/${rcStandaloneFormalHtmlPrint.required}, rcFormalHtmlContentSeal=${rcFormalHtmlContentSeal.complete}/${rcFormalHtmlContentSeal.required}, rcFormalHtmlApprovalSeal=${rcFormalHtmlApprovalSeal.complete}/${rcFormalHtmlApprovalSeal.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, rcStmFormalAttachment=${rcStmFormalAttachment.complete}/${rcStmFormalAttachment.required}, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, docxPackageIntegrity=${docxPackageIntegrity.complete}/${docxPackageIntegrity.required}, xlsxPackageIntegrity=${xlsxPackageIntegrity.complete}/${xlsxPackageIntegrity.required}, xlsxPrintVisual=${xlsxPrintVisual.complete}/${xlsxPrintVisual.required}, xlsxContentSeal=${xlsxDualSeal.contentComplete}/${xlsxDualSeal.contentRequired}, xlsxApprovalSeal=${xlsxDualSeal.approvalComplete}/${xlsxDualSeal.approvalRequired}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, frameResultReconciliation=${frameResultReconciliation.complete}/${frameResultReconciliation.required}, frameHtmlContentSeal=${frameHtmlContentSeal.complete}/${frameHtmlContentSeal.required}, frameHtmlApprovalSeal=${frameHtmlApprovalSeal.complete}/${frameHtmlApprovalSeal.required}, formalHtmlContentSeal=${formalHtmlContentSeal.complete}/${formalHtmlContentSeal.required}, formalHtmlApprovalSeal=${formalHtmlApprovalSeal.complete}/${formalHtmlApprovalSeal.required}, steelHtmlContentSeal=${steelHtmlContentSeal.complete}/${steelHtmlContentSeal.required}, steelHtmlApprovalSeal=${steelHtmlApprovalSeal.complete}/${steelHtmlApprovalSeal.required}, anchorHtmlContentSeal=${anchorHtmlContentSeal.complete}/${anchorHtmlContentSeal.required}, anchorHtmlApprovalSeal=${anchorHtmlApprovalSeal.complete}/${anchorHtmlApprovalSeal.required}, localQuickResultReconciliation=${localQuickResultReconciliation.complete}/${localQuickResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, rcSourceReportPackage=${rcSourceReportPackage.complete}/${rcSourceReportPackage.required}, rcStandaloneFormalHtmlPrint=${rcStandaloneFormalHtmlPrint.complete}/${rcStandaloneFormalHtmlPrint.required}, rcFormalHtmlContentSeal=${rcFormalHtmlContentSeal.complete}/${rcFormalHtmlContentSeal.required}, rcFormalHtmlApprovalSeal=${rcFormalHtmlApprovalSeal.complete}/${rcFormalHtmlApprovalSeal.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);

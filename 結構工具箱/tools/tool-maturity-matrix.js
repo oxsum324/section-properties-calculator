@@ -54,6 +54,15 @@ const REPORT_TEXT_SMOKE_EVIDENCE_GATES = [
     label: '局部快算 manifest runner',
     family: 'local-quick-tools',
     scopeLabel: '局部快算'
+  },
+  {
+    key: 'frame-analysis-browser-smoke',
+    label: '平面剛架正式附件瀏覽器 smoke',
+    family: 'frame-analysis-formal',
+    scopeLabel: '矩陣外平面剛架正式工具',
+    contract: 'frame-analysis-browser-smoke.test.js',
+    route: '/frame-analysis',
+    matrixExternalRequired: 1
   }
 ];
 const GLOBAL_GOVERNANCE_GATES = [
@@ -109,7 +118,7 @@ const GLOBAL_GOVERNANCE_GATES = [
     key: 'rendered-delivery-evidence',
     label: '實際交付物渲染佐證',
     contract: '結構工具箱/tools/rendered-delivery-evidence.contract.test.js',
-    scope: '首頁 39 個正式工具的 PDF、DOCX 或 workbook，加上動力分析摘要 PDF 與開挖本機服務 PDF / DOCX / 最新下載的當輪實際產出與文字 / 版面驗證',
+    scope: '首頁 40 個正式工具的 PDF、DOCX 或 workbook，加上動力分析摘要 PDF 與開挖本機服務 PDF / DOCX / 最新下載的當輪實際產出與文字 / 版面驗證',
     catalogFamilies: [],
     minCatalogs: 0
   }
@@ -2102,6 +2111,7 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const columnCoverLocalQuickResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 29;
   const cableTensionLocalQuickResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 30;
   const shearTabSteelFormalEvidenceDeclared = Number(evidence?.schemaVersion) >= 31;
+  const frameAnalysisFormalEvidenceDeclared = Number(evidence?.schemaVersion) >= 32;
   const expectedLocalQuickResultReconciliationCount = cableTensionLocalQuickResultReconciliationDeclared
     ? 6
     : (columnCoverLocalQuickResultReconciliationDeclared
@@ -2110,7 +2120,8 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const expectedSteelFormalEvidenceCount = shearTabSteelFormalEvidenceDeclared ? 6 : 5;
   const expectedCanonicalArtifactIntegrityCount = 48
     + (expectedLocalQuickResultReconciliationCount * 6)
-    + (shearTabSteelFormalEvidenceDeclared ? 2 : 0);
+    + (shearTabSteelFormalEvidenceDeclared ? 2 : 0)
+    + (frameAnalysisFormalEvidenceDeclared ? 2 : 0);
   const earthBridgeRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 13;
   const pileGroupLateralRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 14;
   const rcSourceReportPackageDeclared = Number(evidence?.schemaVersion) >= 15;
@@ -2233,6 +2244,30 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       && evidence.formalResultReconciliation.issueCount === 0
       && evidence.formalResultReconciliation.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.formalResultReconciliation.setSha256 || ''))
+    ))
+    && (!frameAnalysisFormalEvidenceDeclared || (
+      evidence.required === 40
+      && evidence.complete === 40
+      && Array.isArray(evidence.records)
+      && evidence.records.filter(record => record?.family === 'frame-analysis-formal' && record?.evidenceKey === 'frame-analysis').length === 1
+      && evidence.frameResultReconciliation?.scope === 'frame-source-replay-to-report-fingerprint'
+      && evidence.frameResultReconciliation.required === 1
+      && evidence.frameResultReconciliation.complete === 1
+      && evidence.frameResultReconciliation.issueCount === 0
+      && evidence.frameResultReconciliation.pass === true
+      && /^[0-9a-f]{64}$/i.test(String(evidence.frameResultReconciliation.setSha256 || ''))
+      && evidence.frameHtmlContentSeal?.scope === 'frame-analysis-html-reproducible-content-sha256'
+      && evidence.frameHtmlContentSeal.required === 1
+      && evidence.frameHtmlContentSeal.complete === 1
+      && evidence.frameHtmlContentSeal.issueCount === 0
+      && evidence.frameHtmlContentSeal.pass === true
+      && /^[0-9a-f]{64}$/i.test(String(evidence.frameHtmlContentSeal.setSha256 || ''))
+      && evidence.frameHtmlApprovalSeal?.scope === 'frame-analysis-html-reproducible-approval-sha256'
+      && evidence.frameHtmlApprovalSeal.required === 1
+      && evidence.frameHtmlApprovalSeal.complete === 1
+      && evidence.frameHtmlApprovalSeal.issueCount === 0
+      && evidence.frameHtmlApprovalSeal.pass === true
+      && /^[0-9a-f]{64}$/i.test(String(evidence.frameHtmlApprovalSeal.setSha256 || ''))
     ))
     && (!rcResultReconciliationDeclared || (
       evidence.rcResultReconciliation?.scope === (expandedRcResultReconciliationDeclared
@@ -2426,11 +2461,22 @@ function resolveRenderedDeliveryEvidenceSource() {
 function buildReportTextSmokeEvidence(matrixPayload, preflightPayload = null) {
   const rows = Array.isArray(matrixPayload?.rows) ? matrixPayload.rows : [];
   const records = Array.isArray(preflightPayload?.records) ? preflightPayload.records : [];
+  const otherGovernanceRoutes = Array.isArray(matrixPayload?.entrypointCoverage?.otherGovernanceRoutes)
+    ? matrixPayload.entrypointCoverage.otherGovernanceRoutes
+    : [];
   const governedFamilies = new Set(REPORT_TEXT_SMOKE_EVIDENCE_GATES.map(gate => gate.family));
   const gates = REPORT_TEXT_SMOKE_EVIDENCE_GATES.map(spec => {
     const familyRows = rows.filter(row => row.family === spec.family && row.coverage?.reportModes === true);
-    const required = familyRows.length;
-    const staticComplete = familyRows.filter(row => row.coverage?.reportTextSmoke === true).length;
+    const matrixExternalActive = Number.isInteger(spec.matrixExternalRequired)
+      && spec.matrixExternalRequired > 0
+      && otherGovernanceRoutes.some(item => item?.route === spec.route);
+    const matrixExternalRequired = matrixExternalActive
+      ? spec.matrixExternalRequired
+      : 0;
+    const required = matrixExternalRequired || familyRows.length;
+    const staticComplete = matrixExternalRequired
+      ? (spec.contract && fs.existsSync(path.join(repoRoot, spec.contract)) ? matrixExternalRequired : 0)
+      : familyRows.filter(row => row.coverage?.reportTextSmoke === true).length;
     const record = records.find(item => item && item.key === spec.key) || null;
     const runtimePass = Boolean(preflightPayload?.pass && record?.pass);
     const complete = runtimePass ? Math.min(required, staticComplete) : 0;
@@ -2439,13 +2485,14 @@ function buildReportTextSmokeEvidence(matrixPayload, preflightPayload = null) {
       label: spec.label,
       family: spec.family,
       scopeLabel: spec.scopeLabel,
+      matrixExternal: matrixExternalRequired > 0,
       required,
       complete,
       pass: required > 0 && staticComplete === required && runtimePass,
       reused: Boolean(record?.reused),
       seconds: compactNumber(record?.seconds)
     };
-  });
+  }).filter(gate => gate.required > 0);
   const unmappedRows = rows.filter(row => row.coverage?.reportModes === true && !governedFamilies.has(row.family));
   const required = gates.reduce((sum, gate) => sum + gate.required, 0) + unmappedRows.length;
   const complete = gates.reduce((sum, gate) => sum + gate.complete, 0);
@@ -2463,7 +2510,7 @@ function buildReportTextSmokeEvidence(matrixPayload, preflightPayload = null) {
     runId: String(preflightPayload?.runId || ''),
     gates,
     scope: scopeItems.length
-      ? `正式計算書可讀文字抽檢範圍：成熟度矩陣：${scopeItems.join('、')}。矩陣外工具家族仍以各自報告合約治理。`
+      ? `正式計算書可讀文字抽檢範圍：成熟度矩陣與獨立正式家族：${scopeItems.join('、')}。矩陣外工具家族仍以各自報告合約治理。`
       : '正式計算書可讀文字抽檢範圍：成熟度矩陣目前沒有可讀文字抽檢範圍。',
     unmappedFamilies: Array.from(new Set(unmappedRows.map(row => String(row.family || '')).filter(Boolean)))
   };
@@ -2656,6 +2703,42 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     : formalResultReconciliation.pass === true
       ? Math.max(0, formalResultReconciliationRequired - formalResultReconciliationComplete)
       : Math.max(1, compactNumber(formalResultReconciliation.issueCount) || formalResultReconciliationRequired - formalResultReconciliationComplete);
+  const frameResultReconciliation = renderedDeliveryPayload?.frameResultReconciliation;
+  const frameHtmlContentSeal = renderedDeliveryPayload?.frameHtmlContentSeal;
+  const frameHtmlApprovalSeal = renderedDeliveryPayload?.frameHtmlApprovalSeal;
+  const frameAnalysisFormalEvidenceDeclared = Boolean(
+    Number(renderedDeliveryPayload?.schemaVersion) >= 32
+    && frameResultReconciliation?.scope === 'frame-source-replay-to-report-fingerprint'
+    && frameHtmlContentSeal?.scope === 'frame-analysis-html-reproducible-content-sha256'
+    && frameHtmlApprovalSeal?.scope === 'frame-analysis-html-reproducible-approval-sha256'
+    && Number.isInteger(frameResultReconciliation.required)
+    && Number.isInteger(frameResultReconciliation.complete)
+    && Number.isInteger(frameHtmlContentSeal.required)
+    && Number.isInteger(frameHtmlContentSeal.complete)
+    && Number.isInteger(frameHtmlApprovalSeal.required)
+    && Number.isInteger(frameHtmlApprovalSeal.complete)
+  );
+  const frameResultReconciliationRequired = frameAnalysisFormalEvidenceDeclared ? compactNumber(frameResultReconciliation.required) : 0;
+  const frameResultReconciliationComplete = frameAnalysisFormalEvidenceDeclared ? compactNumber(frameResultReconciliation.complete) : 0;
+  const frameResultReconciliationIssueCount = !frameAnalysisFormalEvidenceDeclared
+    ? 0
+    : frameResultReconciliation.pass === true
+      ? Math.max(0, frameResultReconciliationRequired - frameResultReconciliationComplete)
+      : Math.max(1, compactNumber(frameResultReconciliation.issueCount) || frameResultReconciliationRequired - frameResultReconciliationComplete);
+  const frameHtmlContentSealRequired = frameAnalysisFormalEvidenceDeclared ? compactNumber(frameHtmlContentSeal.required) : 0;
+  const frameHtmlContentSealComplete = frameAnalysisFormalEvidenceDeclared ? compactNumber(frameHtmlContentSeal.complete) : 0;
+  const frameHtmlContentSealIssueCount = !frameAnalysisFormalEvidenceDeclared
+    ? 0
+    : frameHtmlContentSeal.pass === true
+      ? Math.max(0, frameHtmlContentSealRequired - frameHtmlContentSealComplete)
+      : Math.max(1, compactNumber(frameHtmlContentSeal.issueCount) || frameHtmlContentSealRequired - frameHtmlContentSealComplete);
+  const frameHtmlApprovalSealRequired = frameAnalysisFormalEvidenceDeclared ? compactNumber(frameHtmlApprovalSeal.required) : 0;
+  const frameHtmlApprovalSealComplete = frameAnalysisFormalEvidenceDeclared ? compactNumber(frameHtmlApprovalSeal.complete) : 0;
+  const frameHtmlApprovalSealIssueCount = !frameAnalysisFormalEvidenceDeclared
+    ? 0
+    : frameHtmlApprovalSeal.pass === true
+      ? Math.max(0, frameHtmlApprovalSealRequired - frameHtmlApprovalSealComplete)
+      : Math.max(1, compactNumber(frameHtmlApprovalSeal.issueCount) || frameHtmlApprovalSealRequired - frameHtmlApprovalSealComplete);
   const rcResultReconciliation = renderedDeliveryPayload?.rcResultReconciliation;
   const expandedRcResultReconciliationDeclared = Number(renderedDeliveryPayload?.schemaVersion) >= 7;
   const rcResultReconciliationDeclared = Boolean(
@@ -2940,6 +3023,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     ...(xlsxPrintVisualDeclared ? [`正式 Excel 列印成品：錨栓檢討 ${xlsxPrintVisualComplete} / ${xlsxPrintVisualRequired} 份 XLSX、${xlsxPrintVisualSheetComplete} / ${xlsxPrintVisualSheetRequired} 張工作表已由 Microsoft Excel 以原始列印設定逐張輸出 PDF，確認 A4、寬表橫向、單頁寬、續頁重複表頭、可讀文字、非空白頁、無頁緣裁切及無橫向溢出頁。公開狀態只顯示完成數，不公開工作表名稱、列印 PDF、逐頁指標或雜湊。`] : []),
     ...(xlsxDualSealDeclared ? [`正式 Excel 雙封印：錨栓檢討 ${xlsxContentSealComplete} / ${xlsxContentSealRequired} 份內容封印與 ${xlsxApprovalSealComplete} / ${xlsxApprovalSealRequired} 份核可封印已從實際 XLSX 的可見儲存格、公式與快取結果獨立重算；計算內容、公式、文件狀態、核可時間、計算指紋或工具身分變更會被辨識。此封印是 SHA-256 防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數，不公開封印值、工作表內容或竄改樣本。`] : []),
     ...(formalResultReconciliationDeclared ? [`正式計算書結果鏈：風力／地震正式工具 ${formalResultReconciliationComplete} / ${formalResultReconciliationRequired} 已先完成 golden case 精確結果重算，再以同一計算狀態的指紋產生正式附件。公開狀態只顯示完成數，不公開案例輸入、預期數值、案例雜湊或計算指紋。`] : []),
+    ...(frameAnalysisFormalEvidenceDeclared ? [`平面剛架正式附件結果鏈與雙封印：來源 JSON 重播 ${frameResultReconciliationComplete} / ${frameResultReconciliationRequired}、內容封印 ${frameHtmlContentSealComplete} / ${frameHtmlContentSealRequired}、核可封印 ${frameHtmlApprovalSealComplete} / ${frameHtmlApprovalSealRequired} 已由矩陣外獨立瀏覽器 gate 與 release aggregate 驗證。公開狀態只顯示完成數，不公開模型、來源雜湊、封印值或計算指紋。`] : []),
     ...(rcResultReconciliationDeclared ? [`RC 正式計算書結果鏈：梁、柱、板、牆、剪力牆、基礎、單樁${expandedRcResultReconciliationDeclared ? '與梁／柱補強' : ''}共 ${rcResultReconciliationComplete} / ${rcResultReconciliationRequired} 組瀏覽器回歸案例已完成來源資料重現，再核對 PDF 與正式 HTML 的同一計算指紋。公開狀態只顯示完成數，不公開案例資料、來源快照雜湊或計算指紋。`] : []),
     ...(rcSourceReportPackageDeclared ? [`RC 來源／正式 HTML 組包：梁、柱、板、牆、剪力牆、基礎與單樁共 ${rcSourceReportPackageComplete} / ${rcSourceReportPackageRequired} 組真實專案 JSON 已與核可後 HTML 通過附件檢查器，並驗證唯一來源／報告配對。公開狀態只顯示完成數，不公開案件資料、檔名、工具版本或計算指紋。`] : []),
     ...(rcStandaloneFormalHtmlPrintDeclared ? [`RC 核可 HTML 獨立列印：設計與補強共 ${rcStandaloneFormalHtmlPrintComplete} / ${rcStandaloneFormalHtmlPrintRequired} 份核可後 HTML 已在無外部網路請求下重新開啟並列印成 PDF，且通過正式狀態、工程內容與分頁檢查。公開狀態只顯示完成數，不公開案件、檔名、成品雜湊或計算指紋。`] : []),
@@ -2985,8 +3069,8 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     kind: 'report-readiness-status',
     generatedAt: String(matrixPayload.generatedAt || ''),
     runId: String(preflightStatus?.runId || matrixPayload.latestPreflight?.runId || ''),
-    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && docxPackageIntegrityIssueCount === 0 && xlsxPackageIntegrityIssueCount === 0 && xlsxPrintVisualIssueCount === 0 && xlsxDualSealIssueCount === 0 && formalResultReconciliationIssueCount === 0 && formalHtmlContentSealIssueCount === 0 && formalHtmlApprovalSealIssueCount === 0 && steelHtmlContentSealIssueCount === 0 && steelHtmlApprovalSealIssueCount === 0 && anchorHtmlContentSealIssueCount === 0 && anchorHtmlApprovalSealIssueCount === 0 && rcResultReconciliationIssueCount === 0 && rcSourceReportPackageIssueCount === 0 && rcStandaloneFormalHtmlPrintIssueCount === 0 && rcFormalHtmlContentSealIssueCount === 0 && rcFormalHtmlApprovalSealIssueCount === 0 && rcStmFormalAttachmentIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
-    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + docxPackageIntegrityIssueCount + xlsxPackageIntegrityIssueCount + xlsxPrintVisualIssueCount + xlsxDualSealIssueCount + formalResultReconciliationIssueCount + formalHtmlContentSealIssueCount + formalHtmlApprovalSealIssueCount + steelHtmlContentSealIssueCount + steelHtmlApprovalSealIssueCount + anchorHtmlContentSealIssueCount + anchorHtmlApprovalSealIssueCount + rcResultReconciliationIssueCount + rcSourceReportPackageIssueCount + rcStandaloneFormalHtmlPrintIssueCount + rcFormalHtmlContentSealIssueCount + rcFormalHtmlApprovalSealIssueCount + rcStmFormalAttachmentIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
+    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && docxPackageIntegrityIssueCount === 0 && xlsxPackageIntegrityIssueCount === 0 && xlsxPrintVisualIssueCount === 0 && xlsxDualSealIssueCount === 0 && formalResultReconciliationIssueCount === 0 && frameResultReconciliationIssueCount === 0 && frameHtmlContentSealIssueCount === 0 && frameHtmlApprovalSealIssueCount === 0 && formalHtmlContentSealIssueCount === 0 && formalHtmlApprovalSealIssueCount === 0 && steelHtmlContentSealIssueCount === 0 && steelHtmlApprovalSealIssueCount === 0 && anchorHtmlContentSealIssueCount === 0 && anchorHtmlApprovalSealIssueCount === 0 && rcResultReconciliationIssueCount === 0 && rcSourceReportPackageIssueCount === 0 && rcStandaloneFormalHtmlPrintIssueCount === 0 && rcFormalHtmlContentSealIssueCount === 0 && rcFormalHtmlApprovalSealIssueCount === 0 && rcStmFormalAttachmentIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
+    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + docxPackageIntegrityIssueCount + xlsxPackageIntegrityIssueCount + xlsxPrintVisualIssueCount + xlsxDualSealIssueCount + formalResultReconciliationIssueCount + frameResultReconciliationIssueCount + frameHtmlContentSealIssueCount + frameHtmlApprovalSealIssueCount + formalHtmlContentSealIssueCount + formalHtmlApprovalSealIssueCount + steelHtmlContentSealIssueCount + steelHtmlApprovalSealIssueCount + anchorHtmlContentSealIssueCount + anchorHtmlApprovalSealIssueCount + rcResultReconciliationIssueCount + rcSourceReportPackageIssueCount + rcStandaloneFormalHtmlPrintIssueCount + rcFormalHtmlContentSealIssueCount + rcFormalHtmlApprovalSealIssueCount + rcStmFormalAttachmentIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
@@ -3076,6 +3160,26 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       formalResultReconciliationPass: formalResultReconciliation.pass === true
         && formalResultReconciliationComplete === formalResultReconciliationRequired
         && formalResultReconciliationIssueCount === 0,
+    } : {}),
+    ...(frameAnalysisFormalEvidenceDeclared ? {
+      frameResultReconciliationRequired,
+      frameResultReconciliationComplete,
+      frameResultReconciliationIssueCount,
+      frameResultReconciliationPass: frameResultReconciliation.pass === true
+        && frameResultReconciliationComplete === frameResultReconciliationRequired
+        && frameResultReconciliationIssueCount === 0,
+      frameHtmlContentSealRequired,
+      frameHtmlContentSealComplete,
+      frameHtmlContentSealIssueCount,
+      frameHtmlContentSealPass: frameHtmlContentSeal.pass === true
+        && frameHtmlContentSealComplete === frameHtmlContentSealRequired
+        && frameHtmlContentSealIssueCount === 0,
+      frameHtmlApprovalSealRequired,
+      frameHtmlApprovalSealComplete,
+      frameHtmlApprovalSealIssueCount,
+      frameHtmlApprovalSealPass: frameHtmlApprovalSeal.pass === true
+        && frameHtmlApprovalSealComplete === frameHtmlApprovalSealRequired
+        && frameHtmlApprovalSealIssueCount === 0,
     } : {}),
     ...(formalHtmlDualSealDeclared ? {
       formalHtmlContentSealRequired,
@@ -3445,10 +3549,10 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(markdown.includes('rendered-delivery-evidence'), 'tool maturity matrix markdown exposes rendered delivery evidence gate');
   assert.ok(payload.independentBenchmarkCoverage && typeof payload.independentBenchmarkCoverage === 'object', 'tool maturity matrix independent benchmark coverage object');
   assert.equal(payload.independentBenchmarkCoverage.status, 'ready', 'tool maturity matrix independent benchmark pilot ready');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 39, 'tool maturity matrix independent benchmark pilot verified');
-  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 39, 'tool maturity matrix independent benchmark pilot required');
-  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 39, 'tool maturity matrix independent benchmark verified route count');
-  assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 39, 'tool maturity matrix independent benchmark eligible route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotVerified, 40, 'tool maturity matrix independent benchmark pilot verified');
+  assert.equal(payload.independentBenchmarkCoverage.summary.pilotRequired, 40, 'tool maturity matrix independent benchmark pilot required');
+  assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedRoutes, 40, 'tool maturity matrix independent benchmark verified route count');
+  assert.equal(payload.independentBenchmarkCoverage.summary.eligibleFormalRoutes, 40, 'tool maturity matrix independent benchmark eligible route count');
   assert.equal(payload.independentBenchmarkCoverage.summary.localQuickRequired, 6, 'tool maturity matrix requires all six local-quick family benchmarks');
   assert.equal(payload.independentBenchmarkCoverage.summary.localQuickVerified, 6, 'tool maturity matrix verifies all six local-quick family benchmarks');
   assert.equal(payload.independentBenchmarkCoverage.summary.independentlyVerifiedLocalQuickRoutes, 6, 'tool maturity matrix local-quick family verified route count');
@@ -3612,7 +3716,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok(String(homepageReportReadinessStatus.reportTextSmokeScope || '').includes('矩陣外工具家族'), 'homepage report readiness report text scope keeps other-family boundary');
   assert.ok(String(homepageReportReadinessStatus.compactSummary || '').includes('頁面診斷明細不進計算書'), 'homepage report readiness compact summary keeps page-only wording');
   assert.ok(String(homepageReportReadinessStatus.compactSummary || '').includes('兩者皆可列印'), 'homepage report readiness compact summary keeps printable approval boundary');
-  assert.ok([31, 32, 33, 36, 37, 38, 39].includes(homepageReportReadinessStatus.independentBenchmarkEligible), 'homepage report readiness preserves a supported independent benchmark portfolio');
+  assert.ok([31, 32, 33, 36, 37, 38, 39, 40].includes(homepageReportReadinessStatus.independentBenchmarkEligible), 'homepage report readiness preserves a supported independent benchmark portfolio');
   if (Number.isInteger(homepageReportReadinessStatus.independentBenchmarkLocalQuickEligible)
     || Number.isInteger(homepageReportReadinessStatus.independentBenchmarkLocalQuickVerified)) {
     assert.equal(homepageReportReadinessStatus.independentBenchmarkLocalQuickEligible, 6, 'homepage report readiness exposes six eligible local-quick family benchmarks');
@@ -3645,7 +3749,10 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(homepageReportReadinessStatus.independentBenchmarkIssueCount, 0, 'homepage report readiness independent benchmark issues empty');
   assert.equal(homepageReportReadinessStatus.independentBenchmarkPass, true, 'homepage report readiness independent benchmark pilot passes');
   assert.equal(Array.isArray(homepageReportReadinessStatus.reportTextSmokeEvidenceGates), true, 'homepage report readiness report text evidence gates array');
-  assert.deepEqual(homepageReportReadinessStatus.reportTextSmokeEvidenceGates.map(gate => gate.key).sort(), REPORT_TEXT_SMOKE_EVIDENCE_GATES.map(gate => gate.key).sort(), 'homepage report readiness report text evidence gates match expected');
+  const expectedReportTextSmokeGateKeys = homepageReportReadinessStatus.renderedDeliveryEvidenceRequired >= 40
+    ? REPORT_TEXT_SMOKE_EVIDENCE_GATES.map(gate => gate.key)
+    : REPORT_TEXT_SMOKE_EVIDENCE_GATES.filter(gate => gate.key !== 'frame-analysis-browser-smoke').map(gate => gate.key);
+  assert.deepEqual(homepageReportReadinessStatus.reportTextSmokeEvidenceGates.map(gate => gate.key).sort(), expectedReportTextSmokeGateKeys.sort(), 'homepage report readiness report text evidence gates match its release schema');
   for (const gate of homepageReportReadinessStatus.reportTextSmokeEvidenceGates) {
     assert.equal(gate.pass, true, `homepage report readiness report text evidence gate pass: ${gate.key}`);
     assert.equal(gate.complete, gate.required, `homepage report readiness report text evidence gate coverage: ${gate.key}`);
@@ -3653,7 +3760,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), true, 'homepage report readiness rendered delivery required integer');
   assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceComplete), true, 'homepage report readiness rendered delivery complete integer');
   assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceIssueCount), true, 'homepage report readiness rendered delivery issue integer');
-  assert.ok([31, 32, 33, 36, 37, 38, 39].includes(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), 'homepage report readiness preserves a supported rendered delivery portfolio');
+  assert.ok([31, 32, 33, 36, 37, 38, 39, 40].includes(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), 'homepage report readiness preserves a supported rendered delivery portfolio');
   assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceComplete, homepageReportReadinessStatus.renderedDeliveryEvidenceRequired, 'homepage report readiness rendered delivery evidence complete');
   assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceIssueCount, 0, 'homepage report readiness rendered delivery evidence issues empty');
   assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'homepage report readiness rendered delivery runId');
@@ -3663,7 +3770,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'homepage report readiness rendered delivery source hash');
   assert.ok(String(homepageReportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'homepage report readiness rendered delivery summary');
   if (Number.isInteger(homepageReportReadinessStatus.deliveryFileIntegrityRequired)) {
-    assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165].includes(homepageReportReadinessStatus.deliveryFileIntegrityRequired), 'homepage report readiness exposes a supported verified delivery-file transition count');
+    assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165, 167].includes(homepageReportReadinessStatus.deliveryFileIntegrityRequired), 'homepage report readiness exposes a supported verified delivery-file transition count');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityVerified, homepageReportReadinessStatus.deliveryFileIntegrityRequired, 'homepage report readiness verifies every delivery file');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'homepage report readiness delivery file integrity issues empty');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityPass, true, 'homepage report readiness delivery file integrity passes');
@@ -3685,6 +3792,7 @@ function checkMatrix(payload, markdown, options = {}) {
         [[78, 78], [66, 66], [13, 13]],
         [[84, 84], [66, 66], [13, 13]],
         [[86, 86], [66, 66], [13, 13]],
+        [[88, 88], [66, 66], [13, 13]],
       ].some(expected => JSON.stringify(expected) === JSON.stringify(homepageDeliveryCounts)),
       'homepage report readiness preserves supported redacted delivery counts'
     );
@@ -3700,6 +3808,21 @@ function checkMatrix(payload, markdown, options = {}) {
     assert.equal(homepageReportReadinessStatus.formalResultReconciliationPass, true, 'homepage report readiness formal result reconciliation passes');
     assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('正式計算書結果鏈'), 'homepage report readiness explains formal result reconciliation');
     assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('不公開案例輸入、預期數值、案例雜湊或計算指紋'), 'homepage report readiness keeps reconciliation evidence private');
+  }
+  if (Number.isInteger(homepageReportReadinessStatus.frameResultReconciliationRequired)) {
+    assert.equal(homepageReportReadinessStatus.frameResultReconciliationRequired, 1, 'homepage report readiness expects one frame result reconciliation');
+    assert.equal(homepageReportReadinessStatus.frameResultReconciliationComplete, 1, 'homepage report readiness completes the frame result reconciliation');
+    assert.equal(homepageReportReadinessStatus.frameResultReconciliationIssueCount, 0, 'homepage report readiness frame result reconciliation issues empty');
+    assert.equal(homepageReportReadinessStatus.frameResultReconciliationPass, true, 'homepage report readiness frame result reconciliation passes');
+    assert.equal(homepageReportReadinessStatus.frameHtmlContentSealRequired, 1, 'homepage report readiness expects one frame content seal');
+    assert.equal(homepageReportReadinessStatus.frameHtmlContentSealComplete, 1, 'homepage report readiness completes the frame content seal');
+    assert.equal(homepageReportReadinessStatus.frameHtmlContentSealIssueCount, 0, 'homepage report readiness frame content seal issues empty');
+    assert.equal(homepageReportReadinessStatus.frameHtmlContentSealPass, true, 'homepage report readiness frame content seal passes');
+    assert.equal(homepageReportReadinessStatus.frameHtmlApprovalSealRequired, 1, 'homepage report readiness expects one frame approval seal');
+    assert.equal(homepageReportReadinessStatus.frameHtmlApprovalSealComplete, 1, 'homepage report readiness completes the frame approval seal');
+    assert.equal(homepageReportReadinessStatus.frameHtmlApprovalSealIssueCount, 0, 'homepage report readiness frame approval seal issues empty');
+    assert.equal(homepageReportReadinessStatus.frameHtmlApprovalSealPass, true, 'homepage report readiness frame approval seal passes');
+    assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('平面剛架正式附件結果鏈與雙封印'), 'homepage report readiness explains frame formal evidence');
   }
   if (Number.isInteger(homepageReportReadinessStatus.rcResultReconciliationRequired)) {
     assert.ok([30, 32, 33, 34].includes(homepageReportReadinessStatus.rcResultReconciliationRequired), 'homepage report readiness expects a supported RC result reconciliation transition count');

@@ -3,7 +3,7 @@
   "kind": "independent-engineering-benchmarks.v3",
   "portfolio": {
     "eligibleState": "formal",
-    "eligibleFormalRoutes": 39,
+    "eligibleFormalRoutes": 40,
     "eligibleLocalQuickRoutes": 6,
     "scopeNote": "本目錄只計入具有獨立推導預期值的案例；既有 golden case 與同核心重播不視為獨立工程基準。local-quick 是與正式路由重疊的工具家族統計。"
   },
@@ -248,6 +248,36 @@
         { "path": "measurementSetPassed", "absTolerance": 0 },
         { "path": "harmonicPassed", "absTolerance": 0 },
         { "path": "overallOk", "absTolerance": 0 }
+      ]
+    },
+    {
+      "id": "frame-analysis-cantilever-tip-load",
+      "route": "/frame-analysis",
+      "title": "平面剛架固定端懸臂自由端集中力",
+      "productionModule": "independent-engineering-adapters/frame-analysis.js",
+      "oracle": "frame-analysis-cantilever-tip-load",
+      "referenceType": "closed-form-identity",
+      "referenceBasis": "以 Euler–Bernoulli 等斷面懸臂梁封閉解獨立推導自由端位移 PL³/(3EI)、轉角 PL²/(2EI)、固定端剪力 P 與固定端彎矩 PL；production adapter 直接從正式頁擷取並執行矩陣位移法 solver，不讀取或重播預期答案。",
+      "input": {
+        "lengthM": 4,
+        "tipLoadTf": 6,
+        "elasticModulusTfCm2": 2040,
+        "areaCm2": 100,
+        "inertiaCm4": 8000
+      },
+      "assertions": [
+        { "path": "tipHorizontalDisplacementM", "absTolerance": 1e-12 },
+        { "path": "tipVerticalDisplacementM", "absTolerance": 1e-12 },
+        { "path": "tipRotationRad", "absTolerance": 1e-12 },
+        { "path": "baseReactionFxTf", "absTolerance": 1e-10 },
+        { "path": "baseReactionFyTf", "absTolerance": 1e-10 },
+        { "path": "baseReactionMomentTfM", "absTolerance": 1e-10 },
+        { "path": "memberIEndShearTf", "absTolerance": 1e-10 },
+        { "path": "memberIEndMomentTfM", "absTolerance": 1e-10 },
+        { "path": "equilibriumResidualFxTf", "absTolerance": 1e-10 },
+        { "path": "equilibriumResidualFyTf", "absTolerance": 1e-10 },
+        { "path": "equilibriumResidualMomentTfM", "absTolerance": 1e-10 },
+        { "path": "equilibriumPassed", "absTolerance": 0 }
       ]
     },
     {

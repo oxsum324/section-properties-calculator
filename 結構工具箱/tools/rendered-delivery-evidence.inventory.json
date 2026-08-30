@@ -47,6 +47,7 @@
     { "href": "/rc-retrofit-section", "title": "RC 補強斷面", "family": "rc-retrofit", "evidenceKey": "rc-retrofit-section", "htmlExpected": 2 },
     { "href": "/src-beam", "title": "SRC 梁", "family": "src-formal", "evidenceKey": "src-beam" },
     { "href": "/src-column", "title": "SRC 柱", "family": "src-formal", "evidenceKey": "src-column" },
+    { "href": "/frame-analysis", "title": "平面剛架分析", "family": "frame-analysis-formal", "evidenceKey": "frame-analysis" },
     { "href": "/steel-formal", "title": "鋼構正式規範工具", "family": "steel-formal", "evidenceKey": "steel-main-plate" },
     { "href": "/steel-beam-formal", "title": "鋼梁正式頁", "family": "steel-formal", "evidenceKey": "steel-beam-formal" },
     { "href": "/steel-column-formal", "title": "鋼柱正式頁", "family": "steel-formal", "evidenceKey": "steel-column-formal" },

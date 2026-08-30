@@ -4628,12 +4628,33 @@ function srcColumnFormalOracle(input) {
   return Object.fromEntries(input.cases.map(item => [item.id, calculateCase(item)]));
 }
 
+function frameAnalysisCantileverTipLoadOracle(input) {
+  const lengthM = Number(input.lengthM);
+  const tipLoadTf = Number(input.tipLoadTf);
+  const flexuralRigidityTfM2 = Number(input.elasticModulusTfCm2) * Number(input.inertiaCm4) * 1e-4;
+  return {
+    tipHorizontalDisplacementM: 0,
+    tipVerticalDisplacementM: -tipLoadTf * Math.pow(lengthM, 3) / (3 * flexuralRigidityTfM2),
+    tipRotationRad: -tipLoadTf * Math.pow(lengthM, 2) / (2 * flexuralRigidityTfM2),
+    baseReactionFxTf: 0,
+    baseReactionFyTf: tipLoadTf,
+    baseReactionMomentTfM: tipLoadTf * lengthM,
+    memberIEndShearTf: tipLoadTf,
+    memberIEndMomentTfM: tipLoadTf * lengthM,
+    equilibriumResidualFxTf: 0,
+    equilibriumResidualFyTf: 0,
+    equilibriumResidualMomentTfM: 0,
+    equilibriumPassed: 1,
+  };
+}
+
 const ORACLES = {
   'equipment-basic-load-path': equipmentOracle,
   'earth-rankine-dry-active': earthOracle,
   'foundation-external-load-only': foundationOracle,
   'floor-slab-westergaard-three-position': floorSlabWestergaardOracle,
   'cable-tension-frequency-taut-string': cableTensionFrequencyOracle,
+  'frame-analysis-cantilever-tip-load': frameAnalysisCantileverTipLoadOracle,
   'rc-column-balanced-nearby-pm-point': rcColumnPmOracle,
   'rc-column-cover-deviation-four-direction': rcColumnCoverDeviationOracle,
   'rc-beam-seismic-strength': rcBeamStrengthOracle,

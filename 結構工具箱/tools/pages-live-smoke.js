@@ -45,7 +45,7 @@ const PUBLIC_ROUTE_SAMPLES = [
   { path: 'RC補強斷面性質.html', needles: ['RC 補強斷面性質計算', '鋼筋混凝土/shared/direct-print-boundary.css', 'rc-formal-output-page', 'RC 工具主頁列印已封鎖'] },
   { path: '結構工具箱/tools/formal-tool-metadata.js', needles: ["'wind-force':", "route: '/wind-force'", "version: 'V3'", "'seismic-dynamic':", "version: 'V3.8'"] },
   { path: '結構工具箱/tools/local-quick-tool-metadata.js', needles: ["'foundation-local':", "version: 'V0.6'", "'equipment-load':", "version: 'V0.3'", "'earth-pressure':", "governance: 'local-quick-contract'"] },
-  { path: '結構工具箱/tools/analysis-section-tool-metadata.js', needles: ["'continuous-beam':", "route: '/beam-analysis'", "'frame-analysis':", "route: '/frame-analysis'", "calculationEngine: 'section-properties.inline.v2.1.0'", "'composite-section':"] },
+  { path: '結構工具箱/tools/analysis-section-tool-metadata.js', needles: ["'continuous-beam':", "route: '/beam-analysis'", "'frame-analysis':", "route: '/frame-analysis'", "version: 'V2.0'", "calculationEngine: 'plane-frame.inline.v1.0.0'", "state: 'formal'", "calculationEngine: 'section-properties.inline.v2.1.0'", "'composite-section':"] },
   { path: '結構工具箱/tools/風力/wind-force.html', needles: ['矩形建物 MWFRS', '建築物耐風設計', '../formal-tool-metadata.js', "FormalToolMetadata['wind-force'].version", '../../core/direct-print-boundary.css', 'formal-tool-output-page', '正式工具主頁列印已封鎖'] },
   { path: '結構工具箱/tools/風力/wind-object-solid.html', needles: ['實體標示物風力', '表 2.10', '../formal-tool-metadata.js', 'version: PUBLIC_TOOL_VERSION', 'calculationEngine: TOOL_VERSION', '<b>計算引擎</b>', '../../core/direct-print-boundary.css', 'formal-tool-output-page', '此頁是操作介面，不是計算書'] },
   { path: '結構工具箱/tools/地震力/seismic-force.html', needles: ['等值靜力分析', '建築物耐震設計', '../formal-tool-metadata.js', 'version: PUBLIC_TOOL_VERSION', 'calculationEngine: TOOL_VERSION', '<b>計算引擎</b>', '../../core/direct-print-boundary.css', 'formal-tool-output-page', '本頁不得作為附件'] },
@@ -61,13 +61,16 @@ const CLEAN_ROUTE_SAMPLES = [
   { path: 'steel-beam-formal/', source: '/steel-beam-formal', targetNeedle: 'steel-beam-formal.html' },
   { path: 'src-beam/', source: '/src-beam', targetNeedle: 'src-beam.html' },
   { path: 'src-column/', source: '/src-column', targetNeedle: 'src-column.html' },
+  { path: 'frame-analysis/', source: '/frame-analysis', targetNeedle: '平面剛架分析.html' },
 ];
 const PRIVATE_PATHS = [
   '鋼構工具/core/formal-core-manifest.json',
   '結構工具箱/tools/independent-engineering-adapters/rc-stm-strength.js',
+  '結構工具箱/tools/independent-engineering-adapters/frame-analysis.js',
   '結構工具箱/tools/independent-engineering-benchmarks.js',
   '結構工具箱/tools/independent-engineering-benchmarks.catalog.json',
   '結構工具箱/tools/independent-engineering-benchmarks.test.js',
+  'frame-analysis-browser-smoke.test.js',
   '啟動案件附件工作台.bat',
   '安裝案件附件工作台捷徑.bat',
   '檢查案件附件工作台捷徑.bat',
@@ -748,7 +751,7 @@ async function main() {
   assert.ok(String(reportReadinessStatus.compactSummary || '').includes('頁面診斷明細不進計算書'), 'report readiness compact summary keeps page-only wording');
   assert.ok(String(reportReadinessStatus.compactSummary || '').includes('文件預設內部審閱，明確核可後為正式附件'), 'report readiness compact summary keeps approval-based document classification');
   assert.ok(String(reportReadinessStatus.compactSummary || '').includes('兩者皆可列印'), 'report readiness compact summary keeps printable approval boundary');
-  assert.ok([32, 33, 36, 37, 38, 39].includes(reportReadinessStatus.renderedDeliveryEvidenceRequired), 'report readiness rendered delivery covers a supported formal homepage portfolio');
+  assert.ok([32, 33, 36, 37, 38, 39, 40].includes(reportReadinessStatus.renderedDeliveryEvidenceRequired), 'report readiness rendered delivery covers a supported formal homepage portfolio');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceComplete, reportReadinessStatus.renderedDeliveryEvidenceRequired, 'report readiness rendered delivery fully covered');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceIssueCount, 0, 'report readiness rendered delivery issues empty');
   assert.match(reportReadinessStatus.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'report readiness rendered delivery runId');
@@ -757,7 +760,7 @@ async function main() {
   assert.ok(String(reportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'report readiness rendered delivery summary');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatus.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'report readiness rendered delivery source path');
   assert.match(reportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'report readiness rendered delivery source hash');
-  assert.ok([143, 145, 151, 157, 163, 165].includes(reportReadinessStatus.deliveryFileIntegrityRequired), 'report readiness exposes a supported complete redacted delivery file count');
+  assert.ok([143, 145, 151, 157, 163, 165, 167].includes(reportReadinessStatus.deliveryFileIntegrityRequired), 'report readiness exposes a supported complete redacted delivery file count');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityVerified, reportReadinessStatus.deliveryFileIntegrityRequired, 'report readiness verifies every redacted delivery file');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'report readiness delivery file integrity issues empty');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityPass, true, 'report readiness delivery file integrity passes');
@@ -768,6 +771,7 @@ async function main() {
     JSON.stringify([['formalPdfEvidence', 78, 78], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]]),
     JSON.stringify([['formalPdfEvidence', 84, 84], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]]),
     JSON.stringify([['formalPdfEvidence', 86, 86], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]]),
+    JSON.stringify([['formalPdfEvidence', 88, 88], ['rcRenderedVisual', 66, 66], ['mixedFormat', 13, 13]]),
   ].includes(JSON.stringify(reportReadinessStatus.deliveryFileIntegrityBreakdown.map(item => [item.key, item.required, item.verified]))), 'report readiness exposes the three redacted delivery integrity groups');
   assert.ok(reportReadinessStatus.deliveryFileIntegrityBreakdown.every(item => item.pass && item.issueCount === 0), 'report readiness delivery integrity groups pass');
   const deliveryFileIntegrityJson = JSON.stringify(reportReadinessStatus.deliveryFileIntegrityBreakdown);
@@ -805,6 +809,22 @@ async function main() {
   assert.equal(reportReadinessStatus.formalResultReconciliationPass, true, 'report readiness formal result reconciliation passes');
   assert.equal(reportReadinessJson.includes('"formalResultReconciliation":'), false, 'report readiness omits the private reconciliation aggregate');
   assert.equal(/formal-golden-result-to-report-fingerprint|goldenCase|calculationFingerprint/.test(reportReadinessJson), false, 'report readiness omits private reconciliation scope, case identity and fingerprints');
+  if (Number.isInteger(reportReadinessStatus.frameResultReconciliationRequired)) {
+    assert.equal(reportReadinessStatus.frameResultReconciliationRequired, 1, 'report readiness expects one frame result reconciliation');
+    assert.equal(reportReadinessStatus.frameResultReconciliationComplete, 1, 'report readiness completes the frame result reconciliation');
+    assert.equal(reportReadinessStatus.frameResultReconciliationIssueCount, 0, 'report readiness frame result reconciliation issues empty');
+    assert.equal(reportReadinessStatus.frameResultReconciliationPass, true, 'report readiness frame result reconciliation passes');
+    assert.equal(reportReadinessStatus.frameHtmlContentSealRequired, 1, 'report readiness expects one frame content seal');
+    assert.equal(reportReadinessStatus.frameHtmlContentSealComplete, 1, 'report readiness completes the frame content seal');
+    assert.equal(reportReadinessStatus.frameHtmlContentSealIssueCount, 0, 'report readiness frame content seal issues empty');
+    assert.equal(reportReadinessStatus.frameHtmlContentSealPass, true, 'report readiness frame content seal passes');
+    assert.equal(reportReadinessStatus.frameHtmlApprovalSealRequired, 1, 'report readiness expects one frame approval seal');
+    assert.equal(reportReadinessStatus.frameHtmlApprovalSealComplete, 1, 'report readiness completes the frame approval seal');
+    assert.equal(reportReadinessStatus.frameHtmlApprovalSealIssueCount, 0, 'report readiness frame approval seal issues empty');
+    assert.equal(reportReadinessStatus.frameHtmlApprovalSealPass, true, 'report readiness frame approval seal passes');
+  }
+  assert.equal(reportReadinessJson.includes('"frameResultReconciliation":'), false, 'report readiness omits the private frame reconciliation aggregate');
+  assert.equal(/frame-source-replay-to-report-fingerprint|frame-analysis-html-reproducible-(?:content|approval)-sha256|sourceSnapshotSha256/.test(reportReadinessJson), false, 'report readiness omits private frame scopes, source hashes and seal values');
   assert.equal(reportReadinessStatus.rcResultReconciliationRequired, 34, 'report readiness expects 34 RC design and retrofit result reconciliations');
   assert.equal(reportReadinessStatus.rcResultReconciliationComplete, reportReadinessStatus.rcResultReconciliationRequired, 'report readiness completes every RC result reconciliation');
   assert.equal(reportReadinessStatus.rcResultReconciliationIssueCount, 0, 'report readiness RC result reconciliation issues empty');

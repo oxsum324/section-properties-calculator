@@ -238,18 +238,36 @@ function latestCommittedDate(relativeFile) {
 }
 
 function hasWorkingTreeChange(relativeFile) {
-  const result = spawnSync('git', ['status', '--porcelain', '--untracked-files=all', '--', relativeFile], {
+  const statusResult = spawnSync('git', ['status', '--porcelain', '--untracked-files=all', '--', relativeFile], {
     cwd: repoRoot,
     encoding: 'utf8',
     windowsHide: true
   });
-  if (result.error) {
-    throw new Error(`git status failed for ${relativeFile}: ${result.error.message}`);
+  if (statusResult.error) {
+    throw new Error(`git status failed for ${relativeFile}: ${statusResult.error.message}`);
   }
-  if (result.status !== 0) {
-    throw new Error(`git status failed for ${relativeFile} with exit ${result.status}: ${String(result.stderr || '').trim()}`);
+  if (statusResult.status !== 0) {
+    throw new Error(`git status failed for ${relativeFile} with exit ${statusResult.status}: ${String(statusResult.stderr || '').trim()}`);
   }
-  return String(result.stdout || '').trim().length > 0;
+  const statusText = String(statusResult.stdout || '').trim();
+  if (!statusText) return false;
+  if (statusText.startsWith('??')) return true;
+
+  // `git status` can temporarily retain a stat-only modification after an
+  // apply_patch round trip even when the filtered working-tree blob is byte-
+  // identical to the index. Use the content-aware diff exit code for tracked
+  // files so a phantom stat change does not bump every dependent home card.
+  const diffResult = spawnSync('git', ['diff', '--quiet', '--no-ext-diff', '--', relativeFile], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    windowsHide: true
+  });
+  if (diffResult.error) {
+    throw new Error(`git diff failed for ${relativeFile}: ${diffResult.error.message}`);
+  }
+  if (diffResult.status === 0) return false;
+  if (diffResult.status === 1) return true;
+  throw new Error(`git diff failed for ${relativeFile} with exit ${diffResult.status}: ${String(diffResult.stderr || '').trim()}`);
 }
 
 assert.equal(
@@ -403,7 +421,8 @@ const EXPECTED_GOVERNANCE_SOURCE_KEYS = {
     preflightKeys: ['continuous-beam']
   },
   'frame-analysis': {
-    preflightKeys: ['frame-analysis-contract']
+    preflightKeys: ['frame-analysis-contract'],
+    fullPreflightKeys: ['frame-analysis-browser-smoke']
   },
   'section-tools': {
     preflightKeys: ['section-tools-contract']
@@ -425,6 +444,7 @@ const preflight = readText(path.join(repoRoot, 'preflight-tools.ps1'));
 const releaseWrapper = readText(path.join(repoRoot, 'run-preflight-tools-release.bat'));
 const auditAll = readText(path.join(repoRoot, 'audit-all.ps1'));
 const maturityMatrix = readText(path.join(toolboxRoot, 'tools/tool-maturity-matrix.js'));
+const frameAnalysisPage = readText(path.join(repoRoot, '鋼架', '平面剛架分析.html'));
 const pagesLiveSmoke = readText(path.join(toolboxRoot, 'tools/pages-live-smoke.js'));
 const pagesLiveBrowserSmoke = readText(path.join(toolboxRoot, 'tools/pages-live-browser-smoke.js'));
 const pagesBrowserRunner = readText(path.join(toolboxRoot, 'tools/run-pages-browser-smoke.sh'));
@@ -533,7 +553,10 @@ assert.equal(governanceSources['stone-v2'].cardTag, 'Word/PDF 邊界', 'stone go
 assert.equal(governanceSources['decking-contract'].cardTag, 'Word 邊界', 'decking governance source exposes Word boundary chip');
 assert.equal(governanceSources['excavation-service'].cardTag, 'PDF/DOCX 邊界', 'excavation governance source exposes PDF/DOCX boundary chip');
 assert.equal(governanceSources['continuous-beam'].cardTag, '計算書邊界', 'continuous beam governance source exposes calculation-book boundary chip');
-assert.equal(governanceSources['frame-analysis'].cardTag, '計算書邊界', 'frame analysis governance source exposes calculation-book boundary chip');
+assert.equal(governanceSources['frame-analysis'].cardTag, '正式附件邊界', 'frame analysis governance source exposes formal-attachment boundary chip');
+assert.ok(frameAnalysisPage.includes('class="project-meta rep-meta"'), 'frame report metadata reuses the shared TXT rep-meta selector');
+assert.match(frameAnalysisPage, /<section class="rep-block[^>]*"><h3>/, 'frame report sections reuse the shared TXT h3 section selector');
+assert.match(frameAnalysisPage, /<figure class="rep-figure rep-block"><h3>/, 'frame figures reuse the shared TXT rep-block section selector');
 assert.equal(governanceSources['section-tools'].cardTag, '報表邊界', 'section tools governance source exposes report boundary chip');
 assert.equal(governanceSources['local-quick-contract'].cardTag, 'JSON/計算書/文字 邊界', 'local quick governance source exposes JSON/calculation-book/text boundary chip');
 for (const [sourceKey, source] of Object.entries(governanceSources)) {
@@ -596,7 +619,7 @@ assert.deepEqual(reportReadinessStatusSnapshot.reportTextSmokeEvidenceUnmappedFa
 assert.ok(reportReadinessStatusSnapshot.reportTextSmokeEvidenceGates.every(gate => gate.pass && gate.complete === gate.required), 'tracked report readiness snapshot report text runtime evidence gates pass');
 assert.ok(reportReadinessStatusSnapshot.reportTextSmokeScope.includes('風力 / 地震正式工具') && reportReadinessStatusSnapshot.reportTextSmokeScope.includes('局部快算'), 'tracked report readiness snapshot names report text scope');
 assert.ok(reportReadinessStatusSnapshot.reportTextSmokeScope.includes('矩陣外工具家族'), 'tracked report readiness snapshot keeps other-family report boundary');
-assert.ok([31, 32, 33, 36, 37, 38, 39].includes(reportReadinessStatusSnapshot.renderedDeliveryEvidenceRequired), 'tracked report readiness snapshot covers a supported formal homepage portfolio');
+assert.ok([31, 32, 33, 36, 37, 38, 39, 40].includes(reportReadinessStatusSnapshot.renderedDeliveryEvidenceRequired), 'tracked report readiness snapshot covers a supported formal homepage portfolio');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceComplete, reportReadinessStatusSnapshot.renderedDeliveryEvidenceRequired, 'tracked report readiness snapshot rendered delivery complete');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceIssueCount, 0, 'tracked report readiness snapshot rendered delivery issues empty');
 assert.match(reportReadinessStatusSnapshot.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'tracked report readiness snapshot rendered delivery runId');
@@ -605,7 +628,7 @@ assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceFamilies.redu
 assert.ok(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSummary.includes('實際交付物渲染'), 'tracked report readiness snapshot rendered delivery summary');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatusSnapshot.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'tracked report readiness snapshot rendered delivery source path');
 assert.match(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'tracked report readiness snapshot rendered delivery source hash');
-assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165].includes(reportReadinessStatusSnapshot.deliveryFileIntegrityRequired), 'tracked report readiness snapshot exposes a supported delivery-file transition count');
+assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165, 167].includes(reportReadinessStatusSnapshot.deliveryFileIntegrityRequired), 'tracked report readiness snapshot exposes a supported delivery-file transition count');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityVerified, reportReadinessStatusSnapshot.deliveryFileIntegrityRequired, 'tracked report readiness snapshot verifies every delivery file');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityIssueCount, 0, 'tracked report readiness snapshot delivery file integrity issues empty');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityPass, true, 'tracked report readiness snapshot delivery file integrity passes');
@@ -627,6 +650,7 @@ assert.ok(
     [[78, 78], [66, 66], [13, 13]],
     [[84, 84], [66, 66], [13, 13]],
     [[86, 86], [66, 66], [13, 13]],
+    [[88, 88], [66, 66], [13, 13]],
   ].some(expected => JSON.stringify(expected) === JSON.stringify(trackedDeliveryCounts)),
   'tracked report readiness snapshot preserves supported redacted delivery counts'
 );
@@ -636,6 +660,20 @@ if (Number.isInteger(reportReadinessStatusSnapshot.formalResultReconciliationReq
   assert.equal(reportReadinessStatusSnapshot.formalResultReconciliationComplete, reportReadinessStatusSnapshot.formalResultReconciliationRequired, 'tracked report readiness snapshot completes every formal result reconciliation');
   assert.equal(reportReadinessStatusSnapshot.formalResultReconciliationIssueCount, 0, 'tracked report readiness snapshot formal result reconciliation issues empty');
   assert.equal(reportReadinessStatusSnapshot.formalResultReconciliationPass, true, 'tracked report readiness snapshot formal result reconciliation passes');
+}
+if (Number.isInteger(reportReadinessStatusSnapshot.frameResultReconciliationRequired)) {
+  assert.equal(reportReadinessStatusSnapshot.frameResultReconciliationRequired, 1, 'tracked report readiness snapshot expects one frame result reconciliation');
+  assert.equal(reportReadinessStatusSnapshot.frameResultReconciliationComplete, 1, 'tracked report readiness snapshot completes the frame result reconciliation');
+  assert.equal(reportReadinessStatusSnapshot.frameResultReconciliationIssueCount, 0, 'tracked report readiness snapshot frame result reconciliation issues empty');
+  assert.equal(reportReadinessStatusSnapshot.frameResultReconciliationPass, true, 'tracked report readiness snapshot frame result reconciliation passes');
+  assert.equal(reportReadinessStatusSnapshot.frameHtmlContentSealRequired, 1, 'tracked report readiness snapshot expects one frame content seal');
+  assert.equal(reportReadinessStatusSnapshot.frameHtmlContentSealComplete, 1, 'tracked report readiness snapshot completes the frame content seal');
+  assert.equal(reportReadinessStatusSnapshot.frameHtmlContentSealIssueCount, 0, 'tracked report readiness snapshot frame content seal issues empty');
+  assert.equal(reportReadinessStatusSnapshot.frameHtmlContentSealPass, true, 'tracked report readiness snapshot frame content seal passes');
+  assert.equal(reportReadinessStatusSnapshot.frameHtmlApprovalSealRequired, 1, 'tracked report readiness snapshot expects one frame approval seal');
+  assert.equal(reportReadinessStatusSnapshot.frameHtmlApprovalSealComplete, 1, 'tracked report readiness snapshot completes the frame approval seal');
+  assert.equal(reportReadinessStatusSnapshot.frameHtmlApprovalSealIssueCount, 0, 'tracked report readiness snapshot frame approval seal issues empty');
+  assert.equal(reportReadinessStatusSnapshot.frameHtmlApprovalSealPass, true, 'tracked report readiness snapshot frame approval seal passes');
 }
 if (Number.isInteger(reportReadinessStatusSnapshot.rcResultReconciliationRequired)) {
   assert.ok([30, 32, 33, 34].includes(reportReadinessStatusSnapshot.rcResultReconciliationRequired), 'tracked report readiness snapshot expects a supported RC result reconciliation transition count');

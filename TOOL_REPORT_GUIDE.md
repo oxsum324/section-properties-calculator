@@ -331,6 +331,8 @@ Schema v30 將鋼索索力評估（頻率法快算）納入局部快算結果鏈
 
 Schema v31 將鋼構主工具單剪力板 Shear Tab 納入渲染、鋼構結果鏈與內容／核可雙封印，三項都要求 `6/6`；新增 PDF／evidence pair 使 canonical 完整性成為 `86/86`、公開成品合計成為 `165/165`。首頁 formal routes 維持 `39/39`、局部快算維持 `6/6`；Schema v30 的鋼構 `5/5`、canonical `84/84`、公開 `163/163` 與更舊快照只作過渡，不得滿足 Schema v31。Shear Tab 計算書及匯出附件須保留來源 JSON 重播、計算指紋、內容與核可封印及責任邊界；缺任一證據不得組包。
 
+Schema v32 將平面剛架升格為首頁第 40 個正式入口，但維持在成熟度矩陣外的獨立 `frame-analysis-formal` 家族。`frame-analysis-browser-smoke` 必須以懸臂端點力來源 JSON 重播求解結果，核對同一計算指紋的正式 PDF、canonical evidence 與核可 HTML，並從實際 HTML 重算內容／核可雙封印；三條證據鏈都要求 `1/1`。新增 PDF／evidence pair 使 canonical 為 `88/88`、公開成品合計為 `167/167`、首頁 formal routes 為 `40/40`。來源模型、來源雜湊、封印值與指紋只留在私人 release 證據；Pages 只發布完成數。Schema v31 的 `39/39`、`86/86` 與 `165/165` 只供 lineage 查核，不得滿足 Schema v32。
+
 Shear Tab 計算書的「適用性與材料邊界」必須以規範判定標示連接板與梁腹板 `Fy ≤ 345 MPa`、連接板／梁腹板／支承材料各自 `Fu ≥ Fy`、`pitch ≤ 76.2 mm` 與 `plateHeight ≤ 914.4 mm`，並顯示逐項輸入、限制、判定及失敗原因。一般延性材料確認必須獨立列為「專案材料文件／設計者確認」並寫入 `conventionalMaterialConfirmed`；不得把它寫成規範數值的例外，也不得用來覆寫上述硬閘門。「板彎曲」公式鏈必須分別列出 `e_b`、`e_w`，採 `e_p = max(e_b, e_w)` 並標示控制側；詳算、內部審閱與正式附件不得只顯示最後 DCR 而省略這條追溯。
 
 ### 採用依據文字

@@ -528,11 +528,14 @@ assert.ok(artifactBuilder.includes('joint-reaction-fixture-sanitizer.js') && art
 assert.ok(artifactBuilder.includes('結構工具箱/tools/independent-engineering-'), 'shared artifact builder keeps the complete independent engineering governance tree private');
 assert.ok(pagesSmoke.includes('joint-reaction-fixture-sanitizer.js') && pagesSmoke.includes('joint-reaction-fixture-promotion-gate.js') && pagesSmoke.includes('joint-reaction-observed-intake.js') && pagesSmoke.includes('joint-reaction-observed-review.template.json') && pagesSmoke.includes('shared/fixtures/joint-reactions/observed-manifest.json'), 'Pages smoke probes Joint Reactions private governance assets');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/independent-engineering-adapters/rc-stm-strength.js')
+  && pagesSmoke.includes('結構工具箱/tools/independent-engineering-adapters/frame-analysis.js')
   && pagesSmoke.includes('結構工具箱/tools/independent-engineering-benchmarks.js')
   && pagesSmoke.includes('結構工具箱/tools/independent-engineering-benchmarks.catalog.json')
   && pagesSmoke.includes('結構工具箱/tools/independent-engineering-benchmarks.test.js'), 'Pages smoke probes the complete private independent engineering governance boundary');
+assert.ok(pagesSmoke.includes("path: 'frame-analysis/'") && pagesSmoke.includes("source: '/frame-analysis'") && pagesSmoke.includes("'frame-analysis-browser-smoke.test.js'"), 'Pages smoke verifies the promoted frame route and keeps its browser producer private');
 assert.ok(pagesSmoke.includes("path: 'SRC工具/src-column.html'") && pagesSmoke.includes("source: '/src-column'") && pagesSmoke.includes('SRC工具/core/src-column-oracle.js') && pagesSmoke.includes('SRC工具/src-column-page.contract.test.js') && pagesSmoke.includes('SRC工具/src-column-browser-smoke.test.js') && pagesSmoke.includes('SRC工具/src-column-core.test.js') && pagesSmoke.includes('SRC工具/src-column-h-section-catalog.test.js') && pagesSmoke.includes('SRC工具/src-column-rc-biaxial.test.js') && pagesSmoke.includes('SRC工具/src-column-shear.test.js') && pagesSmoke.includes('SRC工具/src-column-seismic-axial.test.js') && pagesSmoke.includes('SRC工具/src-column-seismic-detailing.test.js') && pagesSmoke.includes('SRC工具/src-column-oracle.test.js') && pagesSmoke.includes('SRC工具/src-column-traceability.catalog.json'), 'Pages smoke treats SRC column production assets as public and probes private oracle/test assets');
 const { classifyPublishedPath } = require(artifactBuilderPath);
+assert.deepEqual(classifyPublishedPath('鋼架/平面剛架分析.html'), { publish: true, reason: 'published' }, 'frame-analysis production page remains published');
 for (const publicPath of ['SRC工具/core/src-column-core.js', 'SRC工具/core/src-column-h-section-catalog.js', 'SRC工具/core/src-column-rc-biaxial.js', 'SRC工具/core/src-column-shear.js', 'SRC工具/core/src-column-weak-axis-shear-reference.js', 'SRC工具/core/src-column-seismic-axial.js', 'SRC工具/core/src-column-seismic-detailing.js', 'SRC工具/src-column.html', 'SRC工具/src-column.css', 'SRC工具/src-column.js']) {
   assert.deepEqual(classifyPublishedPath(publicPath), { publish: true, reason: 'published' }, `${publicPath} is published by the SRC formal route`);
 }
@@ -548,9 +551,10 @@ for (const privatePath of ['鋼筋混凝土/shared/joint-reaction-fixture-saniti
 for (const privatePath of ['鋼筋混凝土/shared/fixtures/joint-reactions/manifest.json', '鋼筋混凝土/shared/fixtures/joint-reactions/observed-manifest.json']) {
   assert.deepEqual(classifyPublishedPath(privatePath), { publish: false, reason: 'private-source-tree' }, `${privatePath} is excluded with the private Joint Reactions fixture tree`);
 }
-for (const privatePath of ['結構工具箱/tools/independent-engineering-adapters/rc-column-pm.js', '結構工具箱/tools/independent-engineering-adapters/rc-stm-strength.js', '結構工具箱/tools/independent-engineering-adapters/src-column.js', '結構工具箱/tools/independent-engineering-benchmarks.js', '結構工具箱/tools/independent-engineering-benchmarks.catalog.json', '結構工具箱/tools/independent-engineering-benchmarks.test.js']) {
+for (const privatePath of ['結構工具箱/tools/independent-engineering-adapters/rc-column-pm.js', '結構工具箱/tools/independent-engineering-adapters/rc-stm-strength.js', '結構工具箱/tools/independent-engineering-adapters/src-column.js', '結構工具箱/tools/independent-engineering-adapters/frame-analysis.js', '結構工具箱/tools/independent-engineering-benchmarks.js', '結構工具箱/tools/independent-engineering-benchmarks.catalog.json', '結構工具箱/tools/independent-engineering-benchmarks.test.js']) {
   assert.deepEqual(classifyPublishedPath(privatePath), { publish: false, reason: 'private-source-tree' }, `${privatePath} is excluded with the private independent engineering governance tree`);
 }
+assert.deepEqual(classifyPublishedPath('frame-analysis-browser-smoke.test.js'), { publish: false, reason: 'private-source-file' }, 'frame-analysis browser evidence producer is excluded from Pages');
 assert.deepEqual(
   classifyPublishedPath('鋼構工具/core/formal-core-manifest.json'),
   { publish: false, reason: 'private-tooling' },
@@ -874,7 +878,7 @@ assert.deepEqual(reportReadinessStatus.reportTextSmokeEvidenceUnmappedFamilies, 
 assert.ok(reportReadinessStatus.reportTextSmokeEvidenceGates.every(gate => gate.pass && gate.complete === gate.required), 'report readiness runtime evidence gates pass');
 assert.ok(String(reportReadinessStatus.reportTextSmokeScope || '').includes('風力 / 地震正式工具') && String(reportReadinessStatus.reportTextSmokeScope || '').includes('局部快算'), 'report readiness names report text scope');
 assert.ok(String(reportReadinessStatus.reportTextSmokeScope || '').includes('矩陣外工具家族'), 'report readiness keeps other-family report boundary');
-assert.ok([31, 32, 33, 36, 37, 38, 39].includes(reportReadinessStatus.renderedDeliveryEvidenceRequired), 'report readiness covers the previous release or promoted formal homepage portfolio');
+assert.ok([31, 32, 33, 36, 37, 38, 39, 40].includes(reportReadinessStatus.renderedDeliveryEvidenceRequired), 'report readiness covers the previous release or promoted formal homepage portfolio');
 assert.equal(reportReadinessStatus.renderedDeliveryEvidenceComplete, reportReadinessStatus.renderedDeliveryEvidenceRequired, 'report readiness rendered delivery complete');
 assert.equal(reportReadinessStatus.renderedDeliveryEvidenceIssueCount, 0, 'report readiness rendered delivery issues empty');
 assert.match(reportReadinessStatus.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'report readiness rendered delivery runId');
@@ -884,7 +888,7 @@ assert.ok(String(reportReadinessStatus.renderedDeliveryEvidenceSummary || '').in
 assert.equal(reportReadinessStatus.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatus.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'report readiness rendered delivery source path');
 assert.match(reportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'report readiness rendered delivery source hash');
 if (Number.isInteger(reportReadinessStatus.deliveryFileIntegrityRequired)) {
-  assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165].includes(reportReadinessStatus.deliveryFileIntegrityRequired), 'report readiness supports historical and Schema v31 delivery-file counts');
+  assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165, 167].includes(reportReadinessStatus.deliveryFileIntegrityRequired), 'report readiness supports historical and current delivery-file counts');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityVerified, reportReadinessStatus.deliveryFileIntegrityRequired, 'report readiness verifies every delivery file');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'report readiness delivery-file issues empty');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityPass, true, 'report readiness delivery-file integrity passes');
@@ -900,6 +904,7 @@ if (Number.isInteger(reportReadinessStatus.deliveryFileIntegrityRequired)) {
     [[78, 78], [66, 66], [13, 13]],
     [[84, 84], [66, 66], [13, 13]],
     [[86, 86], [66, 66], [13, 13]],
+    [[88, 88], [66, 66], [13, 13]],
   ].some(expected => JSON.stringify(expected) === JSON.stringify(deliveryCounts)), 'report readiness supports historical and Schema v31 redacted delivery breakdowns');
 }
 if (Number.isInteger(reportReadinessStatus.steelHtmlContentSealRequired)) {
@@ -919,6 +924,14 @@ if (Number.isInteger(reportReadinessStatus.steelResultReconciliationRequired)) {
   assert.equal(reportReadinessStatus.steelResultReconciliationComplete, reportReadinessStatus.steelResultReconciliationRequired, 'report readiness completes every steel result reconciliation');
   assert.equal(reportReadinessStatus.steelResultReconciliationIssueCount, 0, 'report readiness steel result reconciliation issues empty');
   assert.equal(reportReadinessStatus.steelResultReconciliationPass, true, 'report readiness steel result reconciliations pass');
+}
+if (Number.isInteger(reportReadinessStatus.frameResultReconciliationRequired)) {
+  for (const prefix of ['frameResultReconciliation', 'frameHtmlContentSeal', 'frameHtmlApprovalSeal']) {
+    assert.equal(reportReadinessStatus[`${prefix}Required`], 1, `report readiness ${prefix} required count`);
+    assert.equal(reportReadinessStatus[`${prefix}Complete`], 1, `report readiness ${prefix} complete count`);
+    assert.equal(reportReadinessStatus[`${prefix}IssueCount`], 0, `report readiness ${prefix} issues empty`);
+    assert.equal(reportReadinessStatus[`${prefix}Pass`], true, `report readiness ${prefix} passes`);
+  }
 }
 if (Number.isInteger(reportReadinessStatus.supplementalDeliveryEvidenceRequired)) {
   assert.ok([1, 2].includes(reportReadinessStatus.supplementalDeliveryEvidenceRequired), 'report readiness supplemental delivery uses a supported transition count');

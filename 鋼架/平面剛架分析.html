@@ -163,15 +163,15 @@
         <div class="row3">
           <div>
             <label>預設 E (tf/cm²)</label>
-            <input type="number" id="defE" value="2040" step="10">
+            <input type="number" id="defE" value="2040" step="10" oninput="invalidateFrameReportArtifact()">
           </div>
           <div>
             <label>預設 A (cm²)</label>
-            <input type="number" id="defA" value="63.1" step="0.1">
+            <input type="number" id="defA" value="63.1" step="0.1" oninput="invalidateFrameReportArtifact()">
           </div>
           <div>
             <label>預設 I (cm⁴)</label>
-            <input type="number" id="defI" value="13600" step="100">
+            <input type="number" id="defI" value="13600" step="100" oninput="invalidateFrameReportArtifact()">
           </div>
         </div>
         <div class="hint">鋼材 E ≈ 2040 tf/cm² (200 GPa)。範例斷面：H350×175×7×11。</div>
@@ -179,21 +179,26 @@
         <div class="row2">
           <div>
             <label>計畫名稱</label>
-            <input type="text" id="projName" placeholder="例：XX 大樓新建工程" oninput="renderFrameReportReadiness()">
+            <input type="text" id="projName" placeholder="例：XX 大樓新建工程" oninput="invalidateFrameReportArtifact();renderFrameReportReadiness()">
           </div>
           <div>
             <label>計畫編號</label>
-            <input type="text" id="projNo" placeholder="例：2026-001" oninput="renderFrameReportReadiness()">
+            <input type="text" id="projNo" placeholder="例：2026-001" oninput="invalidateFrameReportArtifact();renderFrameReportReadiness()">
           </div>
+        </div>
+        <div style="margin-top:8px;">
+          <label>分析模型／圖說／專案文件依據</label>
+          <input type="text" id="projBasis" placeholder="例：S-201、結構分析模型 Rev.3；採專案指定支承、釋放與彈簧" oninput="invalidateFrameReportArtifact();renderFrameReportReadiness()">
+          <div class="hint">使用端部釋放、彈性支承或其他需人工確認的分析假設時，須填入專案指定依據，才可核可正式附件。</div>
         </div>
         <div class="row2">
           <div>
             <label>設計人員</label>
-            <input type="text" id="projDesigner" placeholder="姓名" oninput="renderFrameReportReadiness()">
+            <input type="text" id="projDesigner" placeholder="姓名" oninput="invalidateFrameReportArtifact();renderFrameReportReadiness()">
           </div>
           <div>
             <label>專案備註</label>
-            <input type="text" id="projNote" placeholder="選填">
+            <input type="text" id="projNote" placeholder="選填" oninput="invalidateFrameReportArtifact()">
           </div>
         </div>
         <div class="flex-row page-only-tool-actions" style="margin-top:8px;">
@@ -222,20 +227,20 @@
         </div>
         <div class="flex-row" style="margin-top:10px; gap:12px; align-items:center;">
           <label style="display:inline-flex;align-items:center;gap:5px;font-weight:600;">
-            <input type="checkbox" id="selfWeight" style="width:14px;height:14px;"> 含自重
+            <input type="checkbox" id="selfWeight" style="width:14px;height:14px;" onchange="invalidateAnalysisState()"> 含自重
           </label>
           <span style="display:inline-flex;align-items:center;gap:5px;">
             <label>γ (tf/m³)</label>
-            <input type="number" id="density" value="7.85" step="0.05" style="width:60px;">
+            <input type="number" id="density" value="7.85" step="0.05" style="width:60px;" oninput="invalidateAnalysisState()">
           </span>
         </div>
         <div class="flex-row page-only-tool-actions" style="margin-top:8px;">
-          <button class="btn btn-accent btn-sm" onclick="exportJSON()">存檔 JSON</button>
-          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('jsonFile').click()">讀取 JSON</button>
+          <button class="btn btn-accent btn-sm" id="btnExportCase" onclick="exportJSON()">存檔 JSON</button>
+          <button class="btn btn-ghost btn-sm" id="btnImportCase" onclick="document.getElementById('jsonFile').click()">讀取 JSON</button>
           <input type="file" id="jsonFile" accept=".json,application/json" style="display:none" onchange="importJSONFile(this)">
-          <button class="btn btn-ghost btn-sm" onclick="saveDraft()">暫存</button>
-          <button class="btn btn-ghost btn-sm" onclick="loadDraft()">讀取暫存</button>
-          <button class="btn btn-ghost btn-sm" onclick="printReport()">列印計算書</button>
+          <button class="btn btn-ghost btn-sm" id="btnSaveDraft" onclick="saveDraft()">暫存</button>
+          <button class="btn btn-ghost btn-sm" id="btnLoadDraft" onclick="loadDraft()">讀取暫存</button>
+          <button class="btn btn-ghost btn-sm" id="btnReport" onclick="printReport()">列印計算書</button>
           <span id="reportStatus" class="report-status" role="status" aria-live="polite"></span>
           <a id="reportLink" class="report-link" href="#" target="_blank" rel="noopener">開啟計算書</a>
         </div>
@@ -376,7 +381,7 @@
         <div class="hint">a = 自 i 端沿桿件之距離 (0 ≤ a ≤ L)。全域 -Y = 重力向下；局部 +y = 垂直桿軸；局部 +x = 沿桿軸。</div>
       </div>
 
-      <button class="btn-calc" onclick="runAnalysis()">▶ 執行分析</button>
+      <button class="btn-calc" id="btnCalc" onclick="runAnalysis()">▶ 執行分析</button>
       <div class="error-msg" id="errorMsg"></div>
       <div class="warn-msg" id="warnMsg"></div>
       <div class="report-readiness page-only-report-status blocked" id="frameReportReadiness" role="status" aria-live="polite"></div>
@@ -502,6 +507,8 @@ const FRAME_ANALYSIS_METADATA = window.AnalysisSectionToolMetadata?.['frame-anal
 if (!FRAME_ANALYSIS_METADATA) throw new Error('平面剛架工具版本資料未載入');
 const FRAME_PUBLIC_VERSION = FRAME_ANALYSIS_METADATA.version;
 const FRAME_CALCULATION_ENGINE = FRAME_ANALYSIS_METADATA.calculationEngine;
+const FRAME_CASE_SCHEMA = 'plane-frame.case.v2';
+const FRAME_LEGACY_PROJECT_SCHEMA = 'plane-frame.project.v1';
 document.title = `平面剛架分析 ${FRAME_PUBLIC_VERSION}`;
 document.getElementById('frameAnalysisVersion').textContent = FRAME_PUBLIC_VERSION;
 const state = {
@@ -694,6 +701,8 @@ function updateLoadCombinationName(value) {
     const option = Array.from(select.options).find(item => parseInt(item.value) === active.id);
     if (option) option.textContent = active.name;
   }
+  invalidateFrameReportArtifact();
+  renderFrameReportReadiness();
 }
 
 function firstLoadCaseId() {
@@ -815,6 +824,7 @@ function updateFoundationTransferSetting(key, value) {
   if (key === 'momentSign') state.foundationTransfer.momentSign = Number(value) === -1 ? -1 : 1;
   state.foundationTransfer = normalizeFoundationTransferSettings(state.foundationTransfer);
   showFoundationTransferPreview('設定已變更；請重新預覽或傳送。');
+  invalidateFrameReportArtifact();
 }
 
 function updateFoundationTransferCase(loadKey, value) {
@@ -822,6 +832,7 @@ function updateFoundationTransferCase(loadKey, value) {
   state.foundationTransfer = normalizeFoundationTransferSettings(state.foundationTransfer);
   state.foundationTransfer.caseMap[loadKey] = value === '' ? null : (parseInt(value) || null);
   showFoundationTransferPreview('案例對應已變更；請重新預覽或傳送。');
+  invalidateFrameReportArtifact();
 }
 
 function showFoundationTransferPreview(message, tone = '') {
@@ -863,6 +874,12 @@ function buildFoundationLoadComponentPackage() {
     if (!Number.isInteger(caseId)) return;
     const factors = Object.fromEntries(state.loadCases.map(loadCase => [loadCase.id, loadCase.id === caseId ? 1 : 0]));
     const solution = analyze(factors);
+    if (!solution.solverDiagnostics?.passed || !solution.equilibrium?.ok) {
+      throw new Error(`${loadKey} 基本載重案例未通過求解診斷或分量式平衡檢核，不得傳送基礎反力。`);
+    }
+    if (![solution.reactions[nodeIndex * 3 + 1], solution.reactions[nodeIndex * 3 + 2]].every(Number.isFinite)) {
+      throw new Error(`${loadKey} 基本載重案例的支承反力不是有限數值，不得傳送。`);
+    }
     const supportRy = clean(solution.reactions[nodeIndex * 3 + 1]);
     const supportMz = clean(solution.reactions[nodeIndex * 3 + 2]);
     forces.P[loadKey] = supportRy;
@@ -1074,7 +1091,7 @@ function validateModel() {
     if (!m) { add('error', `集中載重參考不存在的桿件 M${l.member}。`); continue; }
     const ni = state.nodes.find(n => n.id === m.i), nj = state.nodes.find(n => n.id === m.j);
     const L = ni && nj ? Math.hypot(nj.x - ni.x, nj.y - ni.y) : 0;
-    if (l.a < 0 || l.a > L) add('warn', `桿件 M${l.member} 的集中載重 a=${l.a} m 超出桿長，分析時會夾限至桿件範圍。`);
+    if (l.a < 0 || l.a > L) add('error', `桿件 M${l.member} 的集中載重 a=${l.a} m 超出桿長 0～${L.toFixed(3)} m，請修正載重位置。`);
   }
   if (!checks.some(c => c.level === 'error' || c.level === 'warn')) add('ok', '模型基本自檢通過。');
   return { checks, hasErrors: checks.some(c => c.level === 'error') };
@@ -1122,6 +1139,10 @@ function renderNodeTable() {
 function updateNode(idx, key, val) {
   if (key === 'cx' || key === 'cy' || key === 'crz') {
     state.nodes[idx][key] = !!val;
+    if (state.nodes[idx][key]) {
+      const springKey = { cx:'kx', cy:'ky', crz:'krz' }[key];
+      state.nodes[idx][springKey] = 0;
+    }
     renderNodeTable();
   } else {
     state.nodes[idx][key] = key === 'kx' || key === 'ky' || key === 'krz'
@@ -1148,7 +1169,7 @@ function addMemberRow(data) {
   const d = data || {};
   const id = ++memberIdCnt;
   const defE = parseFloat(document.getElementById('defE').value) || 2040;
-  const defA = parseFloat(document.getElementById('defA').value) || 63;
+  const defA = parseFloat(document.getElementById('defA').value) || 63.1;
   const defI = parseFloat(document.getElementById('defI').value) || 13600;
   const firstNode = state.nodes[0]?.id || 0;
   const secondNode = state.nodes[1]?.id || 0;
@@ -1492,14 +1513,25 @@ function solveLinear(Ain, bin) {
   const n = Ain.length;
   const A = Ain.map(r => r.slice());
   const b = bin.slice();
+  const rowScales = A.map(row => Math.max(...row.map(value => Math.abs(value))));
+  if (rowScales.some(scale => !Number.isFinite(scale) || scale <= 0)) throw new Error('勁度矩陣含零列或非有限數值，模型不穩定。');
+  let minScaledPivot = Infinity;
   for (let k = 0; k < n; k++) {
-    // partial pivoting
-    let maxRow = k, maxVal = Math.abs(A[k][k]);
+    // scaled partial pivoting: 避免不同平移／轉角剛度尺度掩蓋近奇異 pivot。
+    let maxRow = k, maxVal = Math.abs(A[k][k]), maxScore = maxVal / rowScales[k];
     for (let i = k + 1; i < n; i++) {
-      if (Math.abs(A[i][k]) > maxVal) { maxVal = Math.abs(A[i][k]); maxRow = i; }
+      const candidate = Math.abs(A[i][k]);
+      const score = candidate / rowScales[i];
+      if (score > maxScore) { maxScore = score; maxVal = candidate; maxRow = i; }
     }
-    if (maxVal < 1e-18) throw new Error('勁度矩陣奇異 (可能支承不足或機構失穩)');
-    if (maxRow !== k) { [A[k], A[maxRow]] = [A[maxRow], A[k]]; [b[k], b[maxRow]] = [b[maxRow], b[k]]; }
+    if (!Number.isFinite(maxScore) || maxScore <= Number.EPSILON * Math.max(32, n * 8)) throw new Error('勁度矩陣奇異 (可能支承不足或機構失穩)');
+    if (maxRow !== k) {
+      [A[k], A[maxRow]] = [A[maxRow], A[k]];
+      [b[k], b[maxRow]] = [b[maxRow], b[k]];
+      [rowScales[k], rowScales[maxRow]] = [rowScales[maxRow], rowScales[k]];
+    }
+    const scaledPivot = Math.abs(A[k][k]) / rowScales[k];
+    minScaledPivot = Math.min(minScaledPivot, scaledPivot);
     for (let i = k + 1; i < n; i++) {
       const f = A[i][k] / A[k][k];
       if (f === 0) continue;
@@ -1513,6 +1545,10 @@ function solveLinear(Ain, bin) {
     for (let j = i + 1; j < n; j++) s -= A[i][j] * x[j];
     x[i] = s / A[i][i];
   }
+  Object.defineProperty(x, 'solverDiagnostics', {
+    value: { minScaledPivot: Number.isFinite(minScaledPivot) ? minScaledPivot : 1 },
+    enumerable: false,
+  });
   return x;
 }
 
@@ -1596,19 +1632,29 @@ function analyze(loadFactorOverride = null) {
     ];
     const Tt = transpose(T);
 
-    // ---- 桿件均布載重 → 局部 +y 強度 wLocal ----
+    // ---- 桿件均布載重 → 局部 +x / +y 強度 ----
+    // globalY 正值代表全域向下 (0,-w)，投影後 qx=-w·s、qy=-w·c。
+    // 軸向分量不可省略，否則斜桿／直柱的外力與支承反力會失衡。
+    let qxLocal = 0;
     let wLocal = 0;
     for (const ml of state.memberLoads) {
       if (ml.member !== m.id) continue;
       const w = ml.w * (loadFactors[normalizeLoadCaseId(ml.caseId)] ?? 0);
       if (ml.dir === 'localY') wLocal += w;
-      else wLocal += -w * c;   // globalY 向下 (0,-w) 投影到局部 +y = -w·c
+      else {
+        qxLocal += -w * s;
+        wLocal += -w * c;
+      }
     }
-    if (selfWeightOn && density > 0) wLocal += -(density * m.A * 1e-4) * c * (loadFactors[firstLoadCaseId()] ?? 0);  // 自重 g=γ·A → globalY 向下
-    // 均布固端力 f_FEM_local = [0, -wL/2, -wL²/12, 0, -wL/2, +wL²/12]
+    if (selfWeightOn && density > 0) {
+      const selfWeight = (density * m.A * 1e-4) * (loadFactors[firstLoadCaseId()] ?? 0);
+      qxLocal += -selfWeight * s;
+      wLocal += -selfWeight * c;
+    }
+    // 均布固端力 f_FEM_local = [-qxL/2, -qyL/2, -qyL²/12, -qxL/2, -qyL/2, +qyL²/12]
     const fFEMlocal = [
-      0, -wLocal * L / 2, -wLocal * L * L / 12,
-      0, -wLocal * L / 2, +wLocal * L * L / 12
+      -qxLocal * L / 2, -wLocal * L / 2, -wLocal * L * L / 12,
+      -qxLocal * L / 2, -wLocal * L / 2, +wLocal * L * L / 12
     ];
 
     // ---- 桿件集中載重 → 局部分量 (Pxl 軸向, Pyl 橫向) + 固端力 ----
@@ -1656,7 +1702,7 @@ function analyze(loadFactorOverride = null) {
       for (let b = 0; b < 6; b++) K[dofs[a]][dofs[b]] += kG[a][b];
     }
 
-    elemResults.push({ m, L, c, s, T, kL, fFEMlocal, dofs, wLocal, ptLocal, condInfo });
+    elemResults.push({ m, L, c, s, T, kL, fFEMlocal, dofs, qxLocal, wLocal, ptLocal, condInfo });
   }
 
   // 保存桿件原始 K 以便計算固定支承反力；彈簧支承另以 -k·d 顯示。
@@ -1674,15 +1720,69 @@ function analyze(loadFactorOverride = null) {
     if (krz > 0) K[i * 3 + 2][i * 3 + 2] += krz;
   }
 
-  // 套用支承 (大數法)
-  const PEN = 1e20;
-  for (let i = 0; i < nodes.length; i++) {
-    if (nodes[i].cx) K[i * 3 + 0][i * 3 + 0] += PEN;
-    if (nodes[i].cy) K[i * 3 + 1][i * 3 + 1] += PEN;
-    if (nodes[i].crz) K[i * 3 + 2][i * 3 + 2] += PEN;
+  // 端部釋放可能留下「所有相接桿端皆已釋放」的冗餘節點轉角。
+  // 只有這個可由拓樸明確認定的 θ gauge 能固定為 0；任何 X/Y 零列、孤立節點或
+  // 未釋放轉角零列都是真正機構，不能靠數值門檻悄悄穩定化。
+  const inactiveDofs = [];
+  const stiffnessScale = Math.max(1, ...K.flat().map(value => Math.abs(value)));
+  const zeroTolerance = stiffnessScale * Number.EPSILON * Math.max(8, nDof);
+  const forceScale = Math.max(1, ...F.map(value => Math.abs(value)));
+  const forceTolerance = forceScale * Number.EPSILON * Math.max(8, nDof);
+  const fixedByComponent = [node => node.cx, node => node.cy, node => node.crz];
+  for (let dof = 0; dof < nDof; dof++) {
+    const rowMax = Math.max(...K[dof].map(value => Math.abs(value)));
+    if (rowMax > zeroTolerance) continue;
+    const nodeIndex = Math.floor(dof / 3);
+    const componentIndex = dof % 3;
+    const node = nodes[nodeIndex];
+    if (fixedByComponent[componentIndex](node)) continue;
+    const incidentEnds = members.flatMap(member => {
+      const ends = [];
+      if (member.i === node.id) ends.push({ member, released: !!member.relI });
+      if (member.j === node.id) ends.push({ member, released: !!member.relJ });
+      return ends;
+    });
+    const redundantReleasedRotation = componentIndex === 2
+      && incidentEnds.length > 0
+      && incidentEnds.every(end => end.released)
+      && activeSpring(node, 'crz', 'krz') <= 0;
+    const component = ['X 位移', 'Y 位移', 'Z 轉角'][componentIndex];
+    if (!redundantReleasedRotation) {
+      throw new Error(`節點 N${node.id} 的${component}自由度沒有有效勁度，模型不穩定。`);
+    }
+    if (Math.abs(F[dof]) > forceTolerance) {
+      throw new Error(`節點 N${node.id} 的${component}自由度已由相接桿件釋放但仍承受外力，模型不穩定。`);
+    }
+    inactiveDofs.push(dof);
   }
 
-  const d = solveLinear(K, F);
+  // 直接消除固定與冗餘自由度，解 Kff·df=Ff；避免大數法混入位移與反力誤差。
+  const constrainedDofs = new Set(inactiveDofs);
+  for (let i = 0; i < nodes.length; i++) {
+    if (nodes[i].cx) constrainedDofs.add(i * 3 + 0);
+    if (nodes[i].cy) constrainedDofs.add(i * 3 + 1);
+    if (nodes[i].crz) constrainedDofs.add(i * 3 + 2);
+  }
+  const freeDofs = Array.from({ length: nDof }, (_, dof) => dof).filter(dof => !constrainedDofs.has(dof));
+  const Kff = freeDofs.map(row => freeDofs.map(column => K[row][column]));
+  const Ff = freeDofs.map(dof => F[dof]);
+  const df = freeDofs.length ? solveLinear(Kff, Ff) : [];
+  const minScaledPivot = freeDofs.length ? (df.solverDiagnostics?.minScaledPivot ?? 0) : 1;
+  if (!Number.isFinite(minScaledPivot) || minScaledPivot < 1e-12) {
+    throw new Error(`勁度矩陣最小尺度化 pivot ${minScaledPivot.toExponential(3)} 低於 1.0e-12，模型可能近機構或剛度尺度不當。`);
+  }
+  if (df.some(value => !Number.isFinite(value))) throw new Error('線性方程求解產生非有限位移，模型可能不穩定或剛度尺度不當。');
+  const d = zeros(nDof);
+  freeDofs.forEach((dof, index) => { d[dof] = df[index]; });
+  const algebraicResidual = freeDofs.length
+    ? matvec(Kff, df).map((value, index) => value - Ff[index])
+    : [];
+  const algebraicResidualMax = algebraicResidual.length ? Math.max(...algebraicResidual.map(Math.abs)) : 0;
+  const algebraicReference = Math.max(1, ...Ff.map(Math.abs));
+  const algebraicResidualRatio = algebraicResidualMax / algebraicReference;
+  if (!Number.isFinite(algebraicResidualRatio) || algebraicResidualRatio > 1e-8) {
+    throw new Error(`線性方程殘差比 ${algebraicResidualRatio.toExponential(3)} 超過 1.0e-8，模型可能病態。`);
+  }
 
   // 反力: 固定 DOF 取 K_member·d − F；彈簧 DOF 取支承作用於結構的 -k·d。
   const KdOrig = matvec(Korig, d);
@@ -1720,11 +1820,15 @@ function analyze(loadFactorOverride = null) {
     Fy: applied.Fy + support.Fy,
     M: applied.M + support.M
   };
-  const residualAbs = Math.max(Math.abs(residual.Fx), Math.abs(residual.Fy), Math.abs(residual.M));
-  const referenceAbs = Math.max(1, Math.abs(applied.Fx), Math.abs(applied.Fy), Math.abs(applied.M));
+  const componentChecks = {
+    Fx: Math.abs(residual.Fx) <= Math.max(1e-7, Math.max(1, Math.abs(applied.Fx), Math.abs(support.Fx)) * 1e-7),
+    Fy: Math.abs(residual.Fy) <= Math.max(1e-7, Math.max(1, Math.abs(applied.Fy), Math.abs(support.Fy)) * 1e-7),
+    M: Math.abs(residual.M) <= Math.max(1e-7, Math.max(1, Math.abs(applied.M), Math.abs(support.M)) * 1e-7),
+  };
   const equilibrium = {
     applied, support, residual,
-    ok: residualAbs <= Math.max(1e-5, referenceAbs * 1e-5)
+    componentChecks,
+    ok: componentChecks.Fx && componentChecks.Fy && componentChecks.M
   };
 
   // 各桿件端力 (局部座標) + 內力沿桿件離散化
@@ -1747,13 +1851,14 @@ function analyze(loadFactorOverride = null) {
     e.dLocal = dFull;
 
     // 沿桿件內力 (x 從 0 到 L): 端力 + 均布 + 集中載重 (Heaviside)
-    //   N(x) = -q[0] − Σ Pxl(a≤x)
+    //   N(x) = -q[0] − qx·x − Σ Pxl(a≤x)
     //   V(x) = q[1] + wLocal·x + Σ Pyl(a≤x)
     //   M(x) = -q[2] + q[1]·x + wLocal·x²/2 + Σ Pyl·(x−a)(a≤x)
     const N_steps = 24;
     const xset = new Set();
     for (let k = 0; k <= N_steps; k++) xset.add(e.L * k / N_steps);
-    for (const p of e.ptLocal) {   // 集中載重兩側各取一點以呈現剪力跳躍
+    for (const p of e.ptLocal) {   // 保留精確載重站及兩側點：彎矩取精確值，剪／軸力呈現跳躍
+      xset.add(p.a);
       xset.add(Math.max(0, p.a - 1e-6));
       xset.add(Math.min(e.L, p.a + 1e-6));
     }
@@ -1777,14 +1882,23 @@ function analyze(loadFactorOverride = null) {
       for (const p of e.ptLocal) {
         if (p.a <= x + 1e-9) { sumPx += p.Pxl; sumPy += p.Pyl; sumMom += p.Pyl * (x - p.a); }
       }
-      Ns.push(-e.qLocal[0] - sumPx);
+      Ns.push(-e.qLocal[0] - e.qxLocal * x - sumPx);
       Vs.push(e.qLocal[1] + e.wLocal * x + sumPy);
       Ms.push(-e.qLocal[2] + e.qLocal[1] * x + 0.5 * e.wLocal * x * x + sumMom);
     }
     e.diag = { xs, Ns, Vs, Ms };
   }
 
-  return { d, reactions, springForces, elems: elemResults, validation, equilibrium, loadFactors, comboText: formatCombinationFactors(loadFactors) };
+  const solverDiagnostics = {
+    freeDofCount: freeDofs.length,
+    constrainedDofCount: constrainedDofs.size,
+    inactiveDofs: inactiveDofs.slice(),
+    algebraicResidualMax,
+    algebraicResidualRatio,
+    minScaledPivot,
+    passed: Number.isFinite(algebraicResidualRatio) && algebraicResidualRatio <= 1e-8 && minScaledPivot >= 1e-12,
+  };
+  return { d, reactions, springForces, inactiveDofs, solverDiagnostics, elems: elemResults, validation, equilibrium, loadFactors, comboText: formatCombinationFactors(loadFactors) };
 }
 
 // ============================================================
@@ -2416,6 +2530,10 @@ function frameNodeCombinationEnvelopeModel(analysisSetOverride = null) {
   for (let nodeIndex = 0; nodeIndex < state.nodes.length; nodeIndex++) {
     const node = state.nodes[nodeIndex];
     for (const component of frameNodeEnvelopeComponents(node)) {
+      const componentDof = nodeIndex * 3 + component.offset;
+      if (component.valuesKey === 'd' && analysisSet.analyses.every(analysis => (analysis.solution?.inactiveDofs || []).includes(componentDof))) {
+        continue;
+      }
       let maximum = null;
       let minimum = null;
       for (const analysis of analysisSet.analyses) {
@@ -2669,13 +2787,14 @@ function renderResults() {
   for (let i = 0; i < state.nodes.length; i++) {
     const n = state.nodes[i];
     const u = sol.d[i * 3], v = sol.d[i * 3 + 1], r = sol.d[i * 3 + 2];
+    const rotationInactive = (sol.inactiveDofs || []).includes(i * 3 + 2);
     const Rx = sol.reactions[i * 3], Ry = sol.reactions[i * 3 + 1], Mz = sol.reactions[i * 3 + 2];
     const cell = (val, show) => show ? val.toFixed(3) : '—';
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>N${n.id}</td>
       <td>${(u * 1000).toFixed(3)}</td>
       <td>${(v * 1000).toFixed(3)}</td>
-      <td>${(r * 1000).toFixed(3)}</td>
+      <td>${rotationInactive ? '—（釋放）' : (r * 1000).toFixed(3)}</td>
       <td>${cell(Rx, hasSupportDof(n, 'cx', 'kx'))}</td>
       <td>${cell(Ry, hasSupportDof(n, 'cy', 'ky'))}</td>
       <td>${cell(Mz, hasSupportDof(n, 'crz', 'krz'))}</td>`;
@@ -3079,11 +3198,16 @@ function renderFrameBenchmarkPanel() {
 }
 
 function activeFrameLoadCount() {
-  const activeCases = new Set(state.loadCases.filter(lc => Math.abs(comboFactor(lc.id)) > 1e-12).map(lc => lc.id));
-  const nodal = state.nodalLoads.filter(l => activeCases.has(normalizeLoadCaseId(l.caseId)) && ((+l.Fx || 0) || (+l.Fy || 0) || (+l.M || 0))).length;
-  const member = state.memberLoads.filter(l => activeCases.has(normalizeLoadCaseId(l.caseId)) && Math.abs(+l.w || 0) > 1e-12).length;
-  const point = state.memberPointLoads.filter(l => activeCases.has(normalizeLoadCaseId(l.caseId)) && Math.abs(+l.P || 0) > 1e-12).length;
-  const selfWeight = document.getElementById('selfWeight')?.checked && activeCases.has(firstLoadCaseId()) && state.members.some(m => (+m.A || 0) > 0) ? 1 : 0;
+  const threshold = 1e-12;
+  const factoredMagnitude = (value, caseId) => Math.abs((Number(value) || 0) * (Number(comboFactor(normalizeLoadCaseId(caseId))) || 0));
+  const nodal = state.nodalLoads.filter(load => ['Fx', 'Fy', 'M'].some(key => factoredMagnitude(load[key], load.caseId) > threshold)).length;
+  const member = state.memberLoads.filter(load => factoredMagnitude(load.w, load.caseId) > threshold).length;
+  const point = state.memberPointLoads.filter(load => factoredMagnitude(load.P, load.caseId) > threshold).length;
+  const density = Number(document.getElementById('density')?.value);
+  const selfWeightFactor = Number(comboFactor(firstLoadCaseId())) || 0;
+  const selfWeight = document.getElementById('selfWeight')?.checked
+    && Number.isFinite(density) && density > 0
+    && state.members.some(memberItem => Math.abs(density * (Number(memberItem.A) || 0) * 1e-4 * selfWeightFactor) > threshold) ? 1 : 0;
   return nodal + member + point + selfWeight;
 }
 
@@ -3096,6 +3220,7 @@ function getFrameProjectInfo() {
     no: normalize(document.getElementById('projNo')?.value),
     designer: normalize(document.getElementById('projDesigner')?.value),
     note: normalize(document.getElementById('projNote')?.value),
+    basis: normalize(document.getElementById('projBasis')?.value),
   };
 }
 
@@ -3138,28 +3263,63 @@ function frameReportReadinessModel(validationOverride) {
   }
 
   const activeCases = state.loadCases.filter(lc => Math.abs(comboFactor(lc.id)) > 1e-12).length;
-  const reviewItems = [];
+  const failedItems = [];
+  const assumptionItems = [];
   const warnings = (validation.checks || []).filter(item => item.level === 'warn');
-  if (warnings.length) reviewItems.push(`模型自檢有 ${warnings.length} 項警示：${warnings.slice(0, 2).map(item => item.text).join('；')}`);
-  if (activeCases === 0) reviewItems.push('所有載重案例因子為 0，請確認分析組合。');
-  if (activeFrameLoadCount() === 0) reviewItems.push('沒有啟用的外力或自重，附件可能只代表空載模型。');
-  if (state.members.some(m => m.relI || m.relJ)) reviewItems.push('存在端部釋放，請確認鉸接位置與設計假設。');
-  if (state.nodes.some(hasAnySpring)) reviewItems.push('存在彈性支承，請確認彈簧剛度來源與適用性。');
-  if (sol.equilibrium && !sol.equilibrium.ok) reviewItems.push(`平衡檢核需檢查：殘差 Fx/Fy/M = ${fmtCheck(sol.equilibrium.residual.Fx)} / ${fmtCheck(sol.equilibrium.residual.Fy)} / ${fmtCheck(sol.equilibrium.residual.M)}。`);
+  if (warnings.length) assumptionItems.push(`模型自檢有 ${warnings.length} 項警示：${warnings.slice(0, 2).map(item => item.text).join('；')}`);
+  if (activeCases === 0) failedItems.push('所有載重案例因子為 0，正式分析附件不得為零組合。');
+  if (activeFrameLoadCount() === 0) failedItems.push('沒有啟用的外力或自重，正式分析附件不得只代表空載模型。');
+  if (state.members.some(m => m.relI || m.relJ)) assumptionItems.push('存在端部釋放，須由專案指定依據確認鉸接位置與設計假設。');
+  if (state.nodes.some(hasAnySpring)) assumptionItems.push('存在彈性支承，須由專案指定依據確認彈簧剛度來源與適用性。');
+  if (!sol.solverDiagnostics?.passed) failedItems.push('線性方程求解診斷未通過。');
+  if (sol.equilibrium && !sol.equilibrium.ok) failedItems.push(`平衡檢核不符：殘差 Fx/Fy/M = ${fmtCheck(sol.equilibrium.residual.Fx)} / ${fmtCheck(sol.equilibrium.residual.Fy)} / ${fmtCheck(sol.equilibrium.residual.M)}。`);
+  const finiteResults = [...(sol.d || []), ...(sol.reactions || []), ...(sol.elems || []).flatMap(item => item.qLocal || [])].every(Number.isFinite);
+  if (!finiteResults) failedItems.push('分析結果包含非有限數值。');
+  try {
+    validateFrameProjectData({
+      schema: FRAME_LEGACY_PROJECT_SCHEMA,
+      tool: '平面剛架分析',
+      project: getFrameProjectInfo(),
+      ...frameCalculationModelSnapshot(),
+    });
+  } catch (error) {
+    failedItems.push(`案件模型資料檢核未通過：${error.message || error}`);
+  }
+  if (state.loadCombinations.length > 1) {
+    for (const combo of state.loadCombinations) {
+      try {
+        const comboSolution = combo.id === currentLoadCombination().id ? sol : analyze(combo.factors);
+        if (!comboSolution.equilibrium?.ok || !comboSolution.solverDiagnostics?.passed) failedItems.push(`分析組合「${combo.name}」的求解或平衡檢核未通過。`);
+      } catch (error) {
+        failedItems.push(`分析組合「${combo.name}」無法完成：${error.message || error}`);
+      }
+    }
+  }
+  const project = getFrameProjectInfo();
+  const reviewItems = assumptionItems.length && !project.basis
+    ? [...assumptionItems, '請填寫「分析模型／圖說／專案文件依據」後重新確認。']
+    : [];
   const missingMetadata = missingFrameProjectFields();
-  const readinessItems = [...reviewItems];
+  const level = failedItems.length ? 'blocked' : (reviewItems.length ? 'review' : 'ready');
+  const readinessItems = failedItems.length ? failedItems : reviewItems;
 
   return {
-    level: readinessItems.length ? 'review' : 'ready',
-    badge: readinessItems.length ? '優先複核' : '可作附件',
-    title: readinessItems.length ? '分析已完成，但產報前建議優先閱讀下列項目。' : '分析已完成，可產生計算書附件。',
-    failedItems: [],
+    level,
+    badge: level === 'blocked' ? '暫勿作附件' : (level === 'review' ? '優先複核' : '可作附件'),
+    title: level === 'blocked'
+      ? '分析結果尚未通過正式附件必要檢核。'
+      : (level === 'review' ? '分析假設尚待專案依據確認。' : '分析已完成，可產生計算書附件。'),
+    failedItems,
     reviewItems,
-    items: readinessItems.length ? readinessItems : ['模型自檢與平衡檢核未顯示需優先處理事項。'],
+    resolvedAssumptionItems: assumptionItems.length && project.basis ? assumptionItems : [],
+    items: readinessItems.length
+      ? readinessItems
+      : [assumptionItems.length ? `分析假設已由專案依據承接：${project.basis}` : '模型自檢、求解診斷與分量式平衡檢核均已通過。'],
     meta: [
       `節點 / 桿件：${state.nodes.length} / ${state.members.length}`,
       `載重案例：${activeCases}/${state.loadCases.length} 啟用`,
       `分析組合：${sol.comboText || formatActiveCombination()}`,
+      `求解殘差比：${Number(sol.solverDiagnostics?.algebraicResidualRatio || 0).toExponential(3)}`,
       missingMetadata.length ? `案件識別資料由主文承接：${missingMetadata.join('、')}` : '案件識別資料已填'
     ]
   };
@@ -3185,8 +3345,19 @@ function renderFrameReportReadiness(validationOverride) {
     <div class="report-readiness-note">此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；支承模型、端部釋放、彈簧設定、載重組合與後續規範設計仍須由設計者確認。</div>`;
 }
 
+function invalidateFrameReportArtifact(message = '模型或案件資料已變更；舊計算書已失效，請重新分析並產生。') {
+  if (lastReportObjectUrl) {
+    URL.revokeObjectURL(lastReportObjectUrl);
+    lastReportObjectUrl = null;
+  }
+  setReportLink('');
+  const status = document.getElementById('reportStatus');
+  if (status) status.textContent = message;
+}
+
 function invalidateAnalysisState() {
   state.solution = null;
+  invalidateFrameReportArtifact();
   renderFrameReportReadiness();
   renderFrameBenchmarkPanel();
   const combinationAnalyses = frameCombinationAnalysisSet();
@@ -3261,34 +3432,212 @@ function resetAll() {
 const FRAME_DRAFT_KEY = 'planeFrame.projectDraft.v1';
 let lastReportObjectUrl = null;
 
-function collectProjectData() {
+function frameCalculationModelSnapshot() {
   syncLoadCaseTableFromDom();
   return {
-    schema: 'plane-frame.project.v1',
-    tool: '平面剛架分析', version: FRAME_PUBLIC_VERSION, calculationEngine: FRAME_CALCULATION_ENGINE, unit: 'tf-m',
-    project: getFrameProjectInfo(),
     defaults: {
-      E: parseFloat(document.getElementById('defE').value) || 0,
-      A: parseFloat(document.getElementById('defA').value) || 0,
-      I: parseFloat(document.getElementById('defI').value) || 0
+      E: parseFloat(document.getElementById('defE').value) || 2040,
+      A: parseFloat(document.getElementById('defA').value) || 63.1,
+      I: parseFloat(document.getElementById('defI').value) || 13600,
     },
     selfWeight: !!document.getElementById('selfWeight').checked,
     density: parseFloat(document.getElementById('density').value) || 0,
-    loadCases: state.loadCases,
-    comboFactors: state.comboFactors,
-    loadCombinations: state.loadCombinations,
+    loadCases: state.loadCases.map(item => ({ id: item.id, name: item.name })),
+    comboFactors: normalizedCombinationFactors(state.comboFactors),
+    loadCombinations: state.loadCombinations.map(combo => ({ id: combo.id, name: combo.name, factors: normalizedCombinationFactors(combo.factors) })),
     activeCombinationId: state.activeCombinationId,
-    nodes: state.nodes,
-    members: state.members,
-    nodalLoads: state.nodalLoads,
-    memberLoads: state.memberLoads,
-    memberPointLoads: state.memberPointLoads,
-    foundationTransfer: normalizeFoundationTransferSettings(state.foundationTransfer)
+    nodes: state.nodes.map(node => ({ ...node })),
+    members: state.members.map(member => ({ ...member })),
+    nodalLoads: state.nodalLoads.map(load => ({ ...load })),
+    memberLoads: state.memberLoads.map(load => ({ ...load })),
+    memberPointLoads: state.memberPointLoads.map(load => ({ ...load })),
+    foundationTransfer: normalizeFoundationTransferSettings(state.foundationTransfer),
+  };
+}
+
+function frameSolutionTraceSnapshot(solution) {
+  return {
+    d: solution.d.map(value => Number(value)),
+    reactions: solution.reactions.map(value => Number(value)),
+    inactiveDofs: (solution.inactiveDofs || []).slice(),
+    equilibrium: solution.equilibrium,
+    solverDiagnostics: solution.solverDiagnostics,
+    members: solution.elems.map(element => ({
+      id: element.m.id,
+      qLocal: element.qLocal.map(value => Number(value)),
+      extrema: {
+        Mmax: Math.max(...element.diag.Ms.map(Math.abs)),
+        Vmax: Math.max(...element.diag.Vs.map(Math.abs)),
+        Nmax: Math.max(...element.diag.Ns.map(Math.abs)),
+      },
+    })),
+  };
+}
+
+function frameCalculationResultSnapshot() {
+  ensureLoadCombinations();
+  return {
+    combinations: state.loadCombinations.map(combo => {
+      const solution = combo.id === currentLoadCombination().id && state.solution
+        ? state.solution
+        : analyze(combo.factors);
+      if (!solution.equilibrium?.ok || !solution.solverDiagnostics?.passed) throw new Error(`分析組合「${combo.name}」未通過求解或平衡檢核。`);
+      return {
+        id: combo.id,
+        name: combo.name,
+        factors: normalizedCombinationFactors(combo.factors),
+        ...frameSolutionTraceSnapshot(solution),
+      };
+    }),
+  };
+}
+
+function buildFrameCalculationTrace() {
+  if (!state.solution) throw new Error('尚未完成可追溯的平面剛架分析。');
+  return window.ToolReportUI.buildReportTrace({
+    title: '平面剛架分析計算書',
+    outputSource: { tool: '平面剛架分析', version: FRAME_PUBLIC_VERSION, calculationEngine: FRAME_CALCULATION_ENGINE },
+    snapshot: {
+      calculationEngine: FRAME_CALCULATION_ENGINE,
+      method: '2D-first-order-linear-elastic-direct-stiffness',
+      model: frameCalculationModelSnapshot(),
+      result: frameCalculationResultSnapshot(),
+    },
+  });
+}
+
+function buildFrameCasePayload() {
+  runAnalysis();
+  if (!state.solution) return null;
+  const readiness = frameReportReadinessModel(state.solution.validation);
+  if (readiness.level === 'blocked') throw new Error(`案例尚未通過正式分析檢核：${readiness.failedItems.join('；')}`);
+  const model = frameCalculationModelSnapshot();
+  validateFrameProjectData({
+    schema: FRAME_LEGACY_PROJECT_SCHEMA,
+    tool: '平面剛架分析',
+    project: getFrameProjectInfo(),
+    ...model,
+  });
+  const reportTrace = buildFrameCalculationTrace();
+  const project = getFrameProjectInfo();
+  return {
+    schema: FRAME_CASE_SCHEMA,
+    tool: {
+      id: 'frame-analysis',
+      name: '平面剛架分析',
+      version: FRAME_PUBLIC_VERSION,
+      calculationEngine: FRAME_CALCULATION_ENGINE,
+    },
+    generatedAt: new Date().toISOString(),
+    project,
+    model,
+    result: frameCalculationResultSnapshot(),
+    calculationFingerprint: reportTrace.calculationFingerprint,
+    report: { calculationFingerprint: reportTrace.calculationFingerprint },
+  };
+}
+
+function canonicalFrameValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalFrameValue);
+  if (value && typeof value === 'object') {
+    return Object.keys(value).sort().reduce((normalized, key) => {
+      normalized[key] = canonicalFrameValue(value[key]);
+      return normalized;
+    }, {});
+  }
+  return value;
+}
+
+function canonicalFrameJson(value) {
+  return JSON.stringify(canonicalFrameValue(value));
+}
+
+function cloneFrameWorkspaceValue(value) {
+  if (Array.isArray(value)) return value.map(cloneFrameWorkspaceValue);
+  if (value && typeof value === 'object') {
+    return Object.keys(value).reduce((copy, key) => {
+      copy[key] = cloneFrameWorkspaceValue(value[key]);
+      return copy;
+    }, {});
+  }
+  return value;
+}
+
+function captureFrameWorkspaceSnapshot() {
+  const fields = {};
+  ['projName', 'projNo', 'projDesigner', 'projNote', 'projBasis', 'defE', 'defA', 'defI', 'density', 'selfWeight'].forEach(id => {
+    const node = document.getElementById(id);
+    if (!node) return;
+    fields[id] = {};
+    if ('value' in node) fields[id].value = node.value;
+    if ('checked' in node) fields[id].checked = !!node.checked;
+  });
+  return {
+    state: cloneFrameWorkspaceValue(state),
+    counters: { nodeIdCnt, memberIdCnt, loadCaseIdCnt, loadCombinationIdCnt },
+    fields,
+  };
+}
+
+function restoreFrameWorkspaceSnapshot(snapshot) {
+  if (!snapshot || !snapshot.state) throw new Error('缺少可復原的工作區快照。');
+  Object.keys(state).forEach(key => { delete state[key]; });
+  Object.assign(state, cloneFrameWorkspaceValue(snapshot.state));
+  nodeIdCnt = Number(snapshot.counters?.nodeIdCnt) || 0;
+  memberIdCnt = Number(snapshot.counters?.memberIdCnt) || 0;
+  loadCaseIdCnt = Number(snapshot.counters?.loadCaseIdCnt) || 0;
+  loadCombinationIdCnt = Number(snapshot.counters?.loadCombinationIdCnt) || 0;
+  Object.entries(snapshot.fields || {}).forEach(([id, saved]) => {
+    const node = document.getElementById(id);
+    if (!node) return;
+    if (Object.prototype.hasOwnProperty.call(saved, 'value')) node.value = saved.value;
+    if (Object.prototype.hasOwnProperty.call(saved, 'checked')) node.checked = !!saved.checked;
+  });
+
+  const safeRender = (label, callback) => {
+    try { callback(); } catch (error) { console.warn(`工作區已復原，但 ${label} 畫面更新失敗：`, error); }
+  };
+  if (typeof invalidateFrameReportArtifact === 'function') safeRender('舊報告失效', () => invalidateFrameReportArtifact());
+  if (typeof renderLoadCombinationControls === 'function') safeRender('載重組合', () => renderLoadCombinationControls());
+  if (typeof renderLoadCaseTable === 'function') safeRender('載重案例', () => renderLoadCaseTable());
+  if (typeof renderNodeTable === 'function') safeRender('節點表', () => renderNodeTable());
+  if (typeof renderMemberTable === 'function') safeRender('桿件表', () => renderMemberTable());
+  if (typeof renderNodalLoadTable === 'function') safeRender('節點載重表', () => renderNodalLoadTable());
+  if (typeof renderMemberLoadTable === 'function') safeRender('桿件均布載重表', () => renderMemberLoadTable());
+  if (typeof renderMemberPointLoadTable === 'function') safeRender('桿件集中載重表', () => renderMemberPointLoadTable());
+  if (typeof refreshNodeSelectors === 'function') safeRender('節點選單', () => refreshNodeSelectors());
+  if (typeof renderFoundationTransferControls === 'function') safeRender('基礎傳遞設定', () => renderFoundationTransferControls());
+  if (typeof drawGeometry === 'function') safeRender('幾何圖', () => drawGeometry());
+  if (typeof drawDiagram === 'function') {
+    safeRender('彎矩圖', () => drawDiagram('momCanvas', diagram => diagram.Ms.map(value => -value), '#fecaca', '#bfdbfe', 'tf·m'));
+    safeRender('剪力圖', () => drawDiagram('shearCanvas', diagram => diagram.Vs, '#fed7aa', '#ddd6fe', 'tf'));
+    safeRender('軸力圖', () => drawDiagram('axialCanvas', diagram => diagram.Ns, '#fecaca', '#bfdbfe', 'tf'));
+  }
+  if (typeof renderResults === 'function') safeRender('分析結果', () => renderResults());
+  if (typeof renderModelChecks === 'function') safeRender('模型自檢', () => renderModelChecks(state.solution, state.solution?.validation));
+  if (typeof renderFrameReportReadiness === 'function') safeRender('附件狀態', () => renderFrameReportReadiness(state.solution?.validation));
+  if (typeof renderFrameBenchmarkPanel === 'function') safeRender('驗證案例', () => renderFrameBenchmarkPanel());
+}
+
+function collectProjectData() {
+  const model = frameCalculationModelSnapshot();
+  return {
+    schema: FRAME_LEGACY_PROJECT_SCHEMA,
+    tool: '平面剛架分析', version: FRAME_PUBLIC_VERSION, calculationEngine: FRAME_CALCULATION_ENGINE, unit: 'tf-m',
+    project: getFrameProjectInfo(),
+    ...model,
   };
 }
 
 function exportJSON() {
-  const data = collectProjectData();
+  let data;
+  try {
+    data = buildFrameCasePayload();
+    if (!data) return;
+  } catch (error) {
+    setReportStatus(`無法匯出正式案例 JSON：${error.message || error}`);
+    return;
+  }
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -3298,19 +3647,72 @@ function exportJSON() {
   URL.revokeObjectURL(url);
   setReportStatus('已存檔 JSON，可用「讀取 JSON」回復。');
 }
-function importJSONFile(input) {
+async function importJSONFile(input) {
   const file = input.files && input.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    try { loadFromData(JSON.parse(ev.target.result)); }
-    catch (e) {
-      const err = document.getElementById('errorMsg');
-      err.textContent = '讀取 JSON 失敗: ' + e.message; err.style.display = 'block';
-    }
+  try {
+    const payload = JSON.parse(await file.text());
+    applyImportedFrameCase(payload, file.name);
+  } catch (error) {
+    const err = document.getElementById('errorMsg');
+    err.textContent = '讀取 JSON 失敗: ' + (error.message || error); err.style.display = 'block';
+    setReportStatus(`讀取 JSON 失敗：${error.message || error}`);
+  } finally {
     input.value = '';
-  };
-  reader.readAsText(file);
+  }
+}
+
+function applyImportedFrameCase(payload, fileName = '案例檔') {
+  if (payload?.schema !== FRAME_CASE_SCHEMA) {
+    validateFrameProjectData(payload);
+    const previous = captureFrameWorkspaceSnapshot();
+    try {
+      loadFromData(payload);
+      if (!state.solution) throw new Error('舊版專案重新分析未通過輸入、求解或平衡檢核');
+      setReportStatus(`已讀取舊版專案 JSON：${fileName}；此檔沒有正式計算指紋，須重新複核後另存 V2 案例。`);
+      return { legacy: true, calculationFingerprint: '' };
+    } catch (error) {
+      restoreFrameWorkspaceSnapshot(previous);
+      const message = String(error?.message || error || '未知錯誤').replace(/[。；\s]+$/, '');
+      throw new Error(`${message}；已保留原輸入。`);
+    }
+  }
+  window.ToolReportUI.validateCalculationCasePayload(payload, {
+    expectedSchema: FRAME_CASE_SCHEMA,
+    expectedToolId: 'frame-analysis',
+    expectedVersion: FRAME_PUBLIC_VERSION,
+  });
+  if (String(payload.tool?.calculationEngine || '') !== FRAME_CALCULATION_ENGINE) {
+    throw new Error(`案件 JSON 驗證失敗：計算引擎版本不符（來源 ${payload.tool?.calculationEngine || '未提供'}，目前 ${FRAME_CALCULATION_ENGINE}）；已保留原輸入。`);
+  }
+  if (!payload.model || typeof payload.model !== 'object' || Array.isArray(payload.model)) {
+    throw new Error('案件 JSON 驗證失敗：缺少可重現的平面剛架模型；已保留原輸入。');
+  }
+  if (!payload.result || typeof payload.result !== 'object' || Array.isArray(payload.result)) {
+    throw new Error('案件 JSON 驗證失敗：缺少可核對的平面剛架結果快照；已保留原輸入。');
+  }
+  if (payload.report?.calculationFingerprint !== payload.calculationFingerprint) {
+    throw new Error('案件 JSON 驗證失敗：來源與報告計算指紋不一致；已保留原輸入。');
+  }
+  const replay = window.ToolReportUI.replayCalculationCasePayload(payload, {
+    expectedSchema: FRAME_CASE_SCHEMA,
+    expectedToolId: 'frame-analysis',
+    expectedVersion: FRAME_PUBLIC_VERSION,
+    capture: () => captureFrameWorkspaceSnapshot(),
+    apply: source => loadFromData({ schema: FRAME_LEGACY_PROJECT_SCHEMA, tool: '平面剛架分析', project: source.project, ...source.model }),
+    recalculate: () => {
+      if (!state.solution) return false;
+      const replayedResult = frameCalculationResultSnapshot();
+      if (canonicalFrameJson(payload.result) !== canonicalFrameJson(replayedResult)) {
+        throw new Error('案件 JSON 重現失敗：來源結果快照與重新計算結果不一致。');
+      }
+      return true;
+    },
+    getFingerprint: () => state.solution ? buildFrameCalculationTrace().calculationFingerprint : '',
+    restore: previous => restoreFrameWorkspaceSnapshot(previous),
+  });
+  setReportStatus(`已匯入案件 JSON：${fileName}；已重現計算指紋 ${replay.calculationFingerprint}。`);
+  return { legacy: false, calculationFingerprint: replay.calculationFingerprint };
 }
 function saveDraft() {
   try {
@@ -3335,6 +3737,7 @@ function loadDraft() {
 }
 function validateFrameProjectData(data) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('案例內容不是有效物件。');
+  if (data.schema === 'plane-frame.case.v2') data = { schema: 'plane-frame.project.v1', tool: '平面剛架分析', project: data.project, ...data.model };
   if (data.schema && data.schema !== 'plane-frame.project.v1') throw new Error('不支援的平面剛架案例版本: ' + data.schema);
   if (data.tool && data.tool !== '平面剛架分析') throw new Error('此 JSON 不屬於平面剛架分析工具。');
   if (data.project != null && (typeof data.project !== 'object' || Array.isArray(data.project))) throw new Error('專案資料格式不正確。');
@@ -3357,21 +3760,96 @@ function validateFrameProjectData(data) {
   assertUniqueFiniteIds(data.loadCombinations || [], '載重組合');
   assertUniqueFiniteIds(data.nodes || [], '節點');
   assertUniqueFiniteIds(data.members || [], '桿件');
+  const assertFinite = (value, label) => {
+    if (!Number.isFinite(Number(value))) throw new Error(label + '必須是有限數值。');
+    return Number(value);
+  };
+  const assertPositive = (value, label) => {
+    if (!(assertFinite(value, label) > 0)) throw new Error(label + '必須大於 0。');
+  };
+  const loadCaseIds = new Set((data.loadCases || []).map(item => Number(item.id)));
+  const nodeIds = new Set((data.nodes || []).map(item => Number(item.id)));
+  const memberIds = new Set((data.members || []).map(item => Number(item.id)));
+  const combinationIds = new Set((data.loadCombinations || []).map(item => Number(item.id)));
+  const assertLoadCaseReference = (item, label) => {
+    const caseId = Number(item.caseId ?? (data.loadCases || [])[0]?.id);
+    if (!loadCaseIds.has(caseId)) throw new Error(`${label}參考不存在的載重案例 LC${caseId}。`);
+  };
+  if (data.defaults) {
+    assertPositive(data.defaults.E, '預設 E ');
+    assertPositive(data.defaults.A, '預設 A ');
+    assertPositive(data.defaults.I, '預設 I ');
+  }
+  if (data.density != null) {
+    const density = assertFinite(data.density, '材料單位重 ');
+    if (density < 0) throw new Error('材料單位重不得小於 0。');
+    if (data.selfWeight && density <= 0) throw new Error('勾選含自重時，材料單位重必須大於 0。');
+  } else if (data.selfWeight) {
+    throw new Error('勾選含自重時，必須提供材料單位重。');
+  }
+  const loadCaseNames = (data.loadCases || []).map(item => String(item.name || '').trim());
+  if (loadCaseNames.some(name => !name)) throw new Error('載重案例名稱不得空白。');
+  if (new Set(loadCaseNames).size !== loadCaseNames.length) throw new Error('載重案例名稱不得重複。');
+  const combinationNames = (data.loadCombinations || []).map(item => String(item.name || '').trim());
+  if (combinationNames.some(name => !name)) throw new Error('載重組合名稱不得空白。');
+  if (new Set(combinationNames).size !== combinationNames.length) throw new Error('載重組合名稱不得重複。');
+  for (const [key, value] of Object.entries(data.comboFactors || {})) {
+    if (!loadCaseIds.has(Number(key))) throw new Error(`目前載重組合含不存在的載重案例 LC${key}。`);
+    assertFinite(value, `目前載重組合 LC${key} 係數 `);
+  }
   (data.nodes || []).forEach(node => {
     if (!Number.isFinite(Number(node.x)) || !Number.isFinite(Number(node.y))) throw new Error('節點座標必須是有限數值。');
+    for (const [springKey, fixedKey, label] of [['kx', 'cx', 'kX'], ['ky', 'cy', 'kY'], ['krz', 'crz', 'kθ']]) {
+      const stiffness = assertFinite(node[springKey] ?? 0, `節點 N${node.id} ${label} `);
+      if (stiffness < 0) throw new Error(`節點 N${node.id} ${label} 不得小於 0。`);
+      if (node[fixedKey] && stiffness > 0) throw new Error(`節點 N${node.id} 的固定自由度不可同時指定 ${label} 彈簧。`);
+    }
   });
   (data.members || []).forEach(member => {
     if (!Number.isInteger(Number(member.i)) || !Number.isInteger(Number(member.j))) throw new Error('桿件端點編號必須是整數。');
+    if (!nodeIds.has(Number(member.i)) || !nodeIds.has(Number(member.j))) throw new Error(`桿件 M${member.id} 參考不存在的節點。`);
+    assertPositive(member.E, `桿件 M${member.id} E `);
+    assertPositive(member.A, `桿件 M${member.id} A `);
+    assertPositive(member.I, `桿件 M${member.id} I `);
+  });
+  (data.nodalLoads || []).forEach((load, index) => {
+    assertLoadCaseReference(load, `節點載重 ${index + 1} `);
+    if (!nodeIds.has(Number(load.node))) throw new Error(`節點載重 ${index + 1} 參考不存在的節點 N${load.node}。`);
+    ['Fx', 'Fy', 'M'].forEach(key => assertFinite(load[key] ?? 0, `節點載重 ${index + 1} ${key} `));
+  });
+  (data.memberLoads || []).forEach((load, index) => {
+    assertLoadCaseReference(load, `桿件均布載重 ${index + 1} `);
+    if (!memberIds.has(Number(load.member))) throw new Error(`桿件均布載重 ${index + 1} 參考不存在的桿件 M${load.member}。`);
+    assertFinite(load.w, `桿件均布載重 ${index + 1} w `);
+    if (!['globalY', 'localY'].includes(load.dir || 'globalY')) throw new Error(`桿件均布載重 ${index + 1} 的方向不受支援。`);
+  });
+  (data.memberPointLoads || []).forEach((load, index) => {
+    assertLoadCaseReference(load, `桿件集中載重 ${index + 1} `);
+    const member = (data.members || []).find(item => Number(item.id) === Number(load.member));
+    if (!member) throw new Error(`桿件集中載重 ${index + 1} 參考不存在的桿件 M${load.member}。`);
+    assertFinite(load.P, `桿件集中載重 ${index + 1} P `);
+    const distance = assertFinite(load.a, `桿件集中載重 ${index + 1} a `);
+    if (!['globalY', 'globalX', 'localY', 'localX'].includes(load.dir || 'globalY')) throw new Error(`桿件集中載重 ${index + 1} 的方向不受支援。`);
+    const ni = (data.nodes || []).find(item => Number(item.id) === Number(member.i));
+    const nj = (data.nodes || []).find(item => Number(item.id) === Number(member.j));
+    const length = ni && nj ? Math.hypot(Number(nj.x) - Number(ni.x), Number(nj.y) - Number(ni.y)) : 0;
+    if (distance < 0 || distance > length) throw new Error(`桿件 M${member.id} 的集中載重 a=${distance} m 超出桿長 0～${length.toFixed(3)} m。`);
   });
   (data.loadCombinations || []).forEach(combo => {
     if (combo.factors == null || typeof combo.factors !== 'object' || Array.isArray(combo.factors)) throw new Error('載重組合因子格式不正確。');
+    for (const [key, value] of Object.entries(combo.factors)) {
+      if (!loadCaseIds.has(Number(key))) throw new Error(`載重組合「${combo.name || combo.id}」含不存在的載重案例 LC${key}。`);
+      assertFinite(value, `載重組合「${combo.name || combo.id}」係數 `);
+    }
   });
   if (data.activeCombinationId != null && (!Number.isInteger(Number(data.activeCombinationId)) || Number(data.activeCombinationId) <= 0)) {
     throw new Error('目前載重組合編號必須是正整數。');
   }
+  if (data.activeCombinationId != null && combinationIds.size && !combinationIds.has(Number(data.activeCombinationId))) throw new Error('目前載重組合不存在。');
   return data;
 }
 function loadFromData(data) {
+  if (data?.schema === 'plane-frame.case.v2') data = { schema: 'plane-frame.project.v1', tool: '平面剛架分析', project: data.project, ...data.model };
   validateFrameProjectData(data);
   resetAll();
   const project = data.project || {};
@@ -3379,6 +3857,8 @@ function loadFromData(data) {
   document.getElementById('projNo').value = project.no || '';
   document.getElementById('projDesigner').value = project.designer || '';
   document.getElementById('projNote').value = project.note || '';
+  const projectBasisNode = document.getElementById('projBasis');
+  if (projectBasisNode) projectBasisNode.value = project.basis || '';
   if (data.defaults) {
     if (data.defaults.E != null) document.getElementById('defE').value = data.defaults.E;
     if (data.defaults.A != null) document.getElementById('defA').value = data.defaults.A;
@@ -3406,11 +3886,11 @@ function loadFromData(data) {
   }
   state.activeCombinationId = parseInt(data.activeCombinationId);
   ensureLoadCombinations();
-  state.nodes = (data.nodes || []).map(n => ({ id: n.id, ...makeNode(n) }));
-  state.members = (data.members || []).map(m => ({ id: m.id, i: m.i, j: m.j, E: +m.E || 0, A: +m.A || 0, I: +m.I || 0, relI: !!m.relI, relJ: !!m.relJ }));
-  state.nodalLoads = (data.nodalLoads || []).map(l => ({ caseId: normalizeLoadCaseId(l.caseId), node: l.node, Fx: +l.Fx || 0, Fy: +l.Fy || 0, M: +l.M || 0 }));
-  state.memberLoads = (data.memberLoads || []).map(l => ({ caseId: normalizeLoadCaseId(l.caseId), member: l.member, w: +l.w || 0, dir: l.dir || 'globalY' }));
-  state.memberPointLoads = (data.memberPointLoads || []).map(l => ({ caseId: normalizeLoadCaseId(l.caseId), member: l.member, P: +l.P || 0, a: +l.a || 0, dir: l.dir || 'globalY' }));
+  state.nodes = (data.nodes || []).map(n => ({ id: Number(n.id), ...makeNode(n) }));
+  state.members = (data.members || []).map(m => ({ id: Number(m.id), i: Number(m.i), j: Number(m.j), E: +m.E || 0, A: +m.A || 0, I: +m.I || 0, relI: !!m.relI, relJ: !!m.relJ }));
+  state.nodalLoads = (data.nodalLoads || []).map(l => ({ caseId: normalizeLoadCaseId(l.caseId), node: Number(l.node), Fx: +l.Fx || 0, Fy: +l.Fy || 0, M: +l.M || 0 }));
+  state.memberLoads = (data.memberLoads || []).map(l => ({ caseId: normalizeLoadCaseId(l.caseId), member: Number(l.member), w: +l.w || 0, dir: l.dir || 'globalY' }));
+  state.memberPointLoads = (data.memberPointLoads || []).map(l => ({ caseId: normalizeLoadCaseId(l.caseId), member: Number(l.member), P: +l.P || 0, a: +l.a || 0, dir: l.dir || 'globalY' }));
   state.foundationTransfer = normalizeFoundationTransferSettings(data.foundationTransfer);
   nodeIdCnt = state.nodes.reduce((mx, n) => Math.max(mx, n.id), 0);
   memberIdCnt = state.members.reduce((mx, m) => Math.max(mx, m.id), 0);
@@ -3438,11 +3918,14 @@ function printReport() {
     <td>${escapeHtml(combo.name)}${combo.id === activeCombination.id ? '（目前圖表）' : ''}</td>
     ${state.loadCases.map(lc => `<td>${Number(combo.factors[lc.id]) || 0}</td>`).join('')}
   </tr>`).join('');
-  const loadRows = []
+  const selfWeightEnabled = !!document.getElementById('selfWeight')?.checked;
+  const materialDensity = parseFloat(document.getElementById('density')?.value) || 0;
+  const loadRowItems = []
     .concat(state.nodalLoads.map(l => `<tr><td>${escapeHtml(loadCaseName(l.caseId))}</td><td>節點 N${l.node}</td><td>Fx=${l.Fx}, Fy=${l.Fy}, M=${l.M}</td></tr>`))
     .concat(state.memberLoads.map(l => `<tr><td>${escapeHtml(loadCaseName(l.caseId))}</td><td>桿件 M${l.member} 均布</td><td>w=${l.w} (${l.dir})</td></tr>`))
-    .concat(state.memberPointLoads.map(l => `<tr><td>${escapeHtml(loadCaseName(l.caseId))}</td><td>桿件 M${l.member} 集中</td><td>P=${l.P} @ a=${l.a} (${l.dir})</td></tr>`))
-    .join('') || '<tr><td colspan="3">無</td></tr>';
+    .concat(state.memberPointLoads.map(l => `<tr><td>${escapeHtml(loadCaseName(l.caseId))}</td><td>桿件 M${l.member} 集中</td><td>P=${l.P} @ a=${l.a} (${l.dir})</td></tr>`));
+  if (selfWeightEnabled) loadRowItems.push(`<tr><td>${escapeHtml(loadCaseName(firstLoadCaseId()))}</td><td>桿件自重</td><td>材料單位重 ${materialDensity} tf/m³；依各桿件 A 自動換算全域 Y 向下均布載重</td></tr>`);
+  const loadRows = loadRowItems.join('') || '<tr><td colspan="3">無</td></tr>';
   const checkRows = (sol.validation?.checks || []).map(item =>
     `<tr><td>${item.level}</td><td>${escapeHtml(item.text)}</td></tr>`).join('');
   const eq = sol.equilibrium;
@@ -3450,12 +3933,14 @@ function printReport() {
     <tr><td>Σ外力</td><td>${fmtCheck(eq.applied.Fx)}</td><td>${fmtCheck(eq.applied.Fy)}</td><td>${fmtCheck(eq.applied.M)}</td></tr>
     <tr><td>Σ支承</td><td>${fmtCheck(eq.support.Fx)}</td><td>${fmtCheck(eq.support.Fy)}</td><td>${fmtCheck(eq.support.M)}</td></tr>
     <tr><td>殘差</td><td>${fmtCheck(eq.residual.Fx)}</td><td>${fmtCheck(eq.residual.Fy)}</td><td>${fmtCheck(eq.residual.M)}</td></tr>` : '';
+  const inactiveDofs = new Set(sol.inactiveDofs || []);
   const dispRows = state.nodes.map((n, i) => {
     const u = sol.d[i*3]*1000, v = sol.d[i*3+1]*1000, r = sol.d[i*3+2]*1000;
     const Rx = hasSupportDof(n, 'cx', 'kx') ? sol.reactions[i*3].toFixed(3) : '—';
     const Ry = hasSupportDof(n, 'cy', 'ky') ? sol.reactions[i*3+1].toFixed(3) : '—';
     const Mz = hasSupportDof(n, 'crz', 'krz') ? sol.reactions[i*3+2].toFixed(3) : '—';
-    return `<tr><td>N${n.id}</td><td>${u.toFixed(3)}</td><td>${v.toFixed(3)}</td><td>${r.toFixed(3)}</td><td>${Rx}</td><td>${Ry}</td><td>${Mz}</td></tr>`;
+    const rotation = inactiveDofs.has(i * 3 + 2) ? '—（釋放）' : r.toFixed(3);
+    return `<tr><td>N${n.id}</td><td>${u.toFixed(3)}</td><td>${v.toFixed(3)}</td><td>${rotation}</td><td>${Rx}</td><td>${Ry}</td><td>${Mz}</td></tr>`;
   }).join('');
   const extrRows = sol.elems.map(e => {
     const mMax = Math.max(...e.diag.Ms.map(Math.abs));
@@ -3463,6 +3948,12 @@ function printReport() {
     const nMax = Math.max(...e.diag.Ns.map(Math.abs));
     return `<tr><td>M${e.m.id}</td><td>${e.L.toFixed(3)}</td><td>${mMax.toFixed(3)}</td><td>${vMax.toFixed(3)}</td><td>${nMax.toFixed(3)}</td></tr>`;
   }).join('');
+  const endForceRows = sol.elems.map(e => `<tr><td>M${e.m.id}</td><td>${e.qLocal[0].toFixed(3)}</td><td>${e.qLocal[1].toFixed(3)}</td><td>${e.qLocal[2].toFixed(3)}</td><td>${e.qLocal[3].toFixed(3)}</td><td>${e.qLocal[4].toFixed(3)}</td><td>${e.qLocal[5].toFixed(3)}</td></tr>`).join('');
+  const activeResultLabel = `${activeCombination.name}（${formatActiveCombination()}）`;
+  const maxUxMm = Math.max(0, ...state.nodes.map((_, index) => Math.abs(Number(sol.d[index * 3]) || 0) * 1000));
+  const maxUyMm = Math.max(0, ...state.nodes.map((_, index) => Math.abs(Number(sol.d[index * 3 + 1]) || 0) * 1000));
+  const maxReactionMoment = Math.max(0, ...state.nodes.map((_, index) => Math.abs(Number(sol.reactions[index * 3 + 2]) || 0)));
+  const maxMemberMoment = Math.max(0, ...sol.elems.flatMap(element => element.diag.Ms.map(value => Math.abs(Number(value) || 0))));
   const combinationAnalyses = frameCombinationAnalysisSet();
   const storyResponse = frameStoryResponseModel(sol);
   const governingStory = storyResponse.active ? storyResponse.rows.find(row => row.governing) : null;
@@ -3472,7 +3963,7 @@ function printReport() {
     <td>${(row.drift * 1000).toFixed(3)}</td><td>${formatFrameStoryRatio(row.driftRatio)}</td>
     <td>${row.storyShear.toFixed(3)}</td><td>${row.governing ? '控制' : ''}</td>
   </tr>`).join('') : '';
-  const storySection = storyResponse.active ? `<h2>目前組合樓層反應</h2>
+  const storySection = storyResponse.active ? `<h3>目前組合樓層反應</h3>
     <p class="result-summary"><b>分析組合</b> ${escapeHtml(activeCombination.name)}（${escapeHtml(formatActiveCombination())}）　<b>控制樓層</b> 第 ${storyResponse.governingStory} 層　<b>最大層間位移角</b> ${formatFrameStoryRatio(storyResponse.maxDriftRatio)}　<b>該層層剪力 Vx</b> ${governingStory.storyShear.toFixed(3)} tf</p>
     <table><tr><th>樓層</th><th>高程(m)</th><th>層高(m)</th><th>平均 uX(mm)</th><th>層間位移 Δ(mm)</th><th>層間位移角</th><th>層剪力 Vx(tf)</th><th>控制</th></tr>${storyRows}</table>` : '';
   const storyEnvelope = frameStoryCombinationEnvelopeModel(combinationAnalyses);
@@ -3481,7 +3972,7 @@ function printReport() {
     <td>${row.height.toFixed(3)}</td><td>${(row.drift * 1000).toFixed(3)}</td><td>${formatFrameStoryRatio(row.driftRatio)}</td>
     <td>${escapeHtml(row.driftCombinationName)}</td><td>${row.storyShear.toFixed(3)}</td><td>${escapeHtml(row.shearCombinationName)}</td>
   </tr>`).join('') : '';
-  const envelopeSection = storyEnvelope.active ? `<h2>多組合樓層反應包絡</h2>
+  const envelopeSection = storyEnvelope.active ? `<h3>多組合樓層反應包絡</h3>
     <p class="result-summary"><b>位移角控制</b> 第 ${storyEnvelope.governingDrift.story} 層／${escapeHtml(storyEnvelope.governingDrift.driftCombinationName)}：${formatFrameStoryRatio(storyEnvelope.governingDrift.driftRatio)}　<b>最大 |Vx|</b> 第 ${storyEnvelope.governingShear.story} 層／${escapeHtml(storyEnvelope.governingShear.shearCombinationName)}：${Math.abs(storyEnvelope.governingShear.storyShear).toFixed(3)} tf</p>
     <table><tr><th>樓層</th><th>高程(m)</th><th>層高(m)</th><th>包絡 Δ(mm)</th><th>包絡位移角</th><th>位移控制組合</th><th>包絡 Vx(tf)</th><th>剪力控制組合</th></tr>${envelopeRows}</table>` : '';
   const nodeEnvelope = frameNodeCombinationEnvelopeModel(combinationAnalyses);
@@ -3490,7 +3981,7 @@ function printReport() {
     <td>${row.maxValue.toFixed(3)}</td><td>${escapeHtml(row.maxCombinationName)}</td>
     <td>${row.minValue.toFixed(3)}</td><td>${escapeHtml(row.minCombinationName)}</td><td>${escapeHtml(row.unit)}</td>
   </tr>`).join('') : '';
-  const nodeEnvelopeSection = nodeEnvelope.active ? `<h2>多組合節點位移／支承反力包絡</h2>
+  const nodeEnvelopeSection = nodeEnvelope.active ? `<h3>多組合節點位移／支承反力包絡</h3>
     <p class="result-summary">${[
       { label: '節點位移', keys: ['uX', 'uY', 'thetaZ'] },
       { label: '支承反力', keys: ['Rx', 'Ry', 'Mz'] },
@@ -3506,7 +3997,7 @@ function printReport() {
     <td>${row.maxValue.toFixed(3)}</td><td>${row.maxX.toFixed(3)}</td><td>${escapeHtml(row.maxCombinationName)}</td>
     <td>${row.minValue.toFixed(3)}</td><td>${row.minX.toFixed(3)}</td><td>${escapeHtml(row.minCombinationName)}</td><td>${escapeHtml(row.unit)}</td>
   </tr>`).join('') : '';
-  const memberEnvelopeSection = memberEnvelope.active ? `<h2>多組合桿件內力包絡</h2>
+  const memberEnvelopeSection = memberEnvelope.active ? `<h3>多組合桿件內力包絡</h3>
     <p class="result-summary">${['M', 'V', 'N'].map(key => {
       const row = memberEnvelope.governingByComponent[key];
       return `<b>|${key}| 控制</b> M${row.memberId}／${escapeHtml(row.absoluteCombinationName)}：${Math.abs(row.absoluteValue).toFixed(3)} ${escapeHtml(row.unit)} @ x=${row.absoluteX.toFixed(3)} m`;
@@ -3515,68 +4006,62 @@ function printReport() {
   const img = id => { try { return document.getElementById(id).toDataURL('image/png'); } catch (e) { return ''; } };
   const project = getFrameProjectInfo();
   const reportReadiness = frameReportReadinessModel(sol.validation);
-  const attachmentReadiness = window.ToolReportUI.assessFormalAttachment({
+  const reportTrace = buildFrameCalculationTrace();
+  const formalState = window.ToolReportUI.buildFormalDocumentStateReport({
     project,
     calculated: true,
+    readinessLevel: reportReadiness.level,
     failedItems: reportReadiness.failedItems,
     reviewItems: reportReadiness.reviewItems,
-  });
-  const reportTrace = window.ToolReportUI.buildReportTrace({
-    title: '平面剛架分析計算書',
-    outputSource: { tool: '平面剛架分析', version: FRAME_PUBLIC_VERSION, calculationEngine: FRAME_CALCULATION_ENGINE },
-    snapshot: {
-      calculationEngine: FRAME_CALCULATION_ENGINE,
-      project,
-      loadCases: state.loadCases,
-      comboFactors: state.comboFactors,
-      loadCombinations: state.loadCombinations,
-      activeCombinationId: state.activeCombinationId,
-      nodes: state.nodes,
-      members: state.members,
-      nodalLoads: state.nodalLoads,
-      memberLoads: state.memberLoads,
-      memberPointLoads: state.memberPointLoads,
-    },
-  });
-  const approvalReport = window.ToolReportUI.buildAttachmentApprovalReport({
+    formalApprovalAllowed: reportReadiness.level === 'ready',
     calculationFingerprint: reportTrace.calculationFingerprint,
+    textExport: true,
   });
+  const solver = sol.solverDiagnostics || {};
+  const resolvedAssumptions = reportReadiness.resolvedAssumptionItems || [];
   const html = `<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><title>平面剛架分析計算書 ${today}</title>
-<style>body{font-family:'Microsoft JhengHei',sans-serif;margin:24px;color:#1e293b;font-size:13px;}
-h1{font-size:18px;border-bottom:2px solid #2563eb;padding-bottom:6px;margin:0 0 4px;}
-h2{font-size:14px;color:#2563eb;margin:16px 0 6px;}
-table{border-collapse:collapse;width:100%;margin-bottom:8px;}
-th,td{border:1px solid #cbd5e1;padding:4px 8px;text-align:center;font-size:12px;}
-th{background:#f1f5f9;} img{max-width:100%;border:1px solid #e2e8f0;margin:4px 0;}
-.meta{color:#64748b;font-size:12px;margin:2px 0;} button{padding:6px 14px;margin:6px 0;cursor:pointer;}.rep-toolbar{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:8px}.rep-footer{margin-top:12px;color:#64748b;font-size:10px;text-align:right;}
-.project-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:5px 14px;margin:12px 0 16px;font-size:11px;}
-  .project-meta div{border-bottom:1px dotted #94a3b8;padding:3px 0;}.project-meta b{display:inline-block;min-width:62px;color:#475569;}.result-summary{padding:7px 9px;background:#eff6ff;border-left:4px solid #2563eb;}
-@media print{.rep-toolbar{display:none}}</style></head><body data-document-class="internal-review">
+<style>${formalState.css}
+@page{size:A4;margin:12mm 10mm 14mm;}*{box-sizing:border-box;}html,body{padding:0;margin:0;color:#1e293b;background:#fff;}body{font-family:'Microsoft JhengHei',sans-serif;font-size:11px;line-height:1.42;}
+h1{font-size:18px;border-bottom:2px solid #2563eb;padding-bottom:6px;margin:0 0 4px;}h3{font-size:13px;color:#1d4ed8;margin:0 0 5px;break-after:avoid-page;page-break-after:avoid;}p{margin:4px 0 7px;}
+table{border-collapse:collapse;width:100%;margin:0 0 7px;table-layout:auto;}thead{display:table-header-group;}tr{break-inside:avoid-page;page-break-inside:avoid;}th,td{border:1px solid #cbd5e1;padding:3px 5px;text-align:center;font-size:9.5px;vertical-align:top;}th{background:#f1f5f9;font-weight:700;}
+img{display:block;max-width:100%;max-height:82mm;object-fit:contain;border:1px solid #e2e8f0;margin:3px auto 0;}figcaption{margin:3px 0 0;color:#475569;font-size:9.5px;text-align:center;}.meta{color:#64748b;font-size:10.5px;margin:2px 0;}button{padding:6px 14px;margin:4px 0;cursor:pointer;}
+.rep-toolbar{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin:0 0 6px;}.rep-block{margin:0 0 9px;}.rep-block--keep,.rep-figure{break-inside:avoid-page;page-break-inside:avoid;}.rep-figure{margin:0 0 8px;}.rep-footer{margin-top:10px;color:#64748b;font-size:9px;text-align:right;break-inside:avoid-page;}
+.project-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 12px;margin:8px 0 10px;font-size:9.5px;}.project-meta div{border-bottom:1px dotted #94a3b8;padding:2px 0;overflow-wrap:anywhere;}.project-meta b{display:inline-block;min-width:58px;color:#475569;}.project-meta .wide{grid-column:1/-1;}.result-summary{padding:5px 7px;background:#eff6ff;border-left:3px solid #2563eb;}.scope-list{margin:3px 0 0;padding-left:18px;}.scope-list li{margin:2px 0;}.status-pass{color:#166534;font-weight:700;}.status-blocked{color:#b91c1c;font-weight:700;}
+@media print{.rep-toolbar{display:none!important;}}</style></head><body data-document-class="${escapeHtml(formalState.documentClass.key)}">
 <div class="rep-toolbar"><button onclick="window.print()">列印 / 另存 PDF</button><button onclick="window.close()">關閉</button></div>
 <h1>平面剛架分析 計算書</h1>
-<p class="meta">直接勁度法 (Direct Stiffness Method) ‧ 單位 tf-m</p>
-${approvalReport.html}
-<div class="project-meta">
+<p class="meta">二維、一階、線彈性平面剛架直接勁度法（Direct Stiffness Method）｜單位 tf-m</p>
+${formalState.html}
+<div class="project-meta rep-meta">
 ${project.name ? `<div><b>計畫名稱</b>${escapeHtml(project.name)}</div>` : ''}${project.no ? `<div><b>計畫編號</b>${escapeHtml(project.no)}</div>` : ''}${project.designer ? `<div><b>設計人員</b>${escapeHtml(project.designer)}</div>` : ''}
 <div><b>產出工具</b>${escapeHtml(reportTrace.sourceTrace.tool)}</div><div><b>工具版本</b>${escapeHtml(FRAME_PUBLIC_VERSION)}</div><div><b>計算引擎</b>${escapeHtml(FRAME_CALCULATION_ENGINE)}</div><div><b>輸出時間</b>${escapeHtml(reportTrace.generatedAt)}</div>
-<div><b>計算指紋</b>${escapeHtml(reportTrace.calculationFingerprint)}</div>${project.note ? `<div><b>專案備註</b>${escapeHtml(project.note)}</div>` : ''}
+<div><b>計算指紋</b>${escapeHtml(reportTrace.calculationFingerprint)}</div>${project.note ? `<div><b>專案備註</b>${escapeHtml(project.note)}</div>` : ''}${project.basis ? `<div class="wide"><b>專案依據</b>${escapeHtml(project.basis)}</div>` : ''}
 </div>
-  <h2>載重組合矩陣</h2><table><tr><th>組合</th>${comboHeaderCells}</tr>${comboRows}</table>
-<h2>節點</h2><table><tr><th>節點</th><th>X(m)</th><th>Y(m)</th><th>支承</th></tr>${nodesRows}</table>
-<h2>桿件</h2><table><tr><th>桿件</th><th>i→j</th><th>E(tf/cm²)</th><th>A(cm²)</th><th>I(cm⁴)</th><th>端鉸接</th></tr>${memRows}</table>
-<h2>載重</h2><table><tr><th>案例</th><th>項目</th><th>內容</th></tr>${loadRows}</table>
-  <h2>模型自檢</h2><table><tr><th>層級</th><th>內容</th></tr>${checkRows}</table>
-  <h2>平衡檢核</h2><table><tr><th>項目</th><th>Fx(tf)</th><th>Fy(tf)</th><th>M(tf·m)</th></tr>${eqRows}</table>
-  ${storySection}
-  ${envelopeSection}
-  <h2>幾何 / 變形圖</h2><img src="${img('geomCanvas')}">
-<h2>彎矩圖 M (tf·m)</h2><img src="${img('momCanvas')}">
-<h2>剪力圖 V (tf)</h2><img src="${img('shearCanvas')}">
-<h2>軸力圖 N (tf)</h2><img src="${img('axialCanvas')}">
-<h2>節點位移 / 反力</h2><table><tr><th>節點</th><th>uX(mm)</th><th>uY(mm)</th><th>θZ(×10⁻³rad)</th><th>Rx(tf)</th><th>Ry(tf)</th><th>Mz(tf·m)</th></tr>${dispRows}</table>
-${nodeEnvelopeSection}
-<h2>桿件極值</h2><table><tr><th>桿件</th><th>L(m)</th><th>|M|max(tf·m)</th><th>|V|max(tf)</th><th>|N|max(tf)</th></tr>${extrRows}</table>
-${memberEnvelopeSection}
+<section class="rep-block rep-block--keep"><h3>分析方法、符號與適用範圍</h3><ul class="scope-list mono">
+<li>分析模型：二維、一階、線彈性平面剛架；每節點自由度為 uX、uY、θZ，正方向依全域 X/Y 與逆時針正轉角。</li>
+<li>求解方法：桿件局部勁度轉換至全域座標，固定自由度與允許的冗餘釋放轉角採直接消去；支承反力由完整平衡方程回算。</li>
+<li>檢核方法：最小尺度化 pivot ${Number(solver.minScaledPivot ?? 0).toExponential(3)}、代數殘差比 ${Number(solver.algebraicResidualRatio || 0).toExponential(3)}，並分別核對 Fx、Fy 與關於原點之 M 平衡。</li>
+<li>支承、端部釋放、彈簧剛度、材料與斷面性質、載重案例及組合均屬專案指定，應由設計者依分析模型／圖說／專案文件確認。</li>
+<li>不含三維行為、扭轉、P-Delta、穩定與挫屈、材料或幾何非線性、剪力變形、剛域、溫度／沉陷、動力分析及構件或接頭設計檢核。</li>
+</ul>${resolvedAssumptions.length ? `<p class="result-summary"><b>專案依據已承接之分析假設：</b>${resolvedAssumptions.map(escapeHtml).join('；')}｜依據：${escapeHtml(project.basis)}</p>` : ''}</section>
+<section class="rep-block"><h3>載重組合矩陣</h3><table><thead><tr><th>組合</th>${comboHeaderCells}</tr></thead><tbody>${comboRows}</tbody></table></section>
+<section class="rep-block"><h3>節點</h3><table><thead><tr><th>節點</th><th>X(m)</th><th>Y(m)</th><th>支承</th></tr></thead><tbody>${nodesRows}</tbody></table></section>
+<section class="rep-block"><h3>桿件</h3><table><thead><tr><th>桿件</th><th>i→j</th><th>E(tf/cm²)</th><th>A(cm²)</th><th>I(cm⁴)</th><th>端鉸接</th></tr></thead><tbody>${memRows}</tbody></table></section>
+<section class="rep-block"><h3>載重</h3><table><thead><tr><th>案例</th><th>項目</th><th>內容</th></tr></thead><tbody>${loadRows}</tbody></table></section>
+<section class="rep-block"><h3>模型自檢與求解診斷</h3><table><thead><tr><th>層級</th><th>內容</th></tr></thead><tbody>${checkRows}<tr><td>${solver.passed ? 'ok' : 'error'}</td><td>自由／約束自由度 ${solver.freeDofCount ?? '—'} / ${solver.constrainedDofCount ?? '—'}；冗餘釋放轉角 ${(solver.inactiveDofs || []).length}；最小尺度化 pivot ${Number(solver.minScaledPivot ?? 0).toExponential(3)}；代數殘差 ${Number(solver.algebraicResidualMax || 0).toExponential(3)}；殘差比 ${Number(solver.algebraicResidualRatio || 0).toExponential(3)}</td></tr></tbody></table></section>
+<section class="rep-block rep-block--keep"><h3>分量式平衡檢核</h3><p class="${eq?.ok ? 'status-pass' : 'status-blocked'}">${eq?.ok ? 'Fx、Fy、M 平衡檢核通過' : '平衡檢核未通過，不得核可為正式附件'}</p><table><thead><tr><th>項目</th><th>Fx(tf)</th><th>Fy(tf)</th><th>M(tf·m)</th></tr></thead><tbody>${eqRows}</tbody></table></section>
+<section class="rep-block rep-block--keep"><h3>結構計算結果</h3><p class="result-summary mono"><b>目前圖表、節點位移／反力與桿件端力採用組合：</b>${escapeHtml(activeResultLabel)}。<br>結構計算結果：最大 |uX| = ${maxUxMm.toFixed(3)} mm；最大 |uY| = ${maxUyMm.toFixed(3)} mm；最大 |Mz| = ${maxReactionMoment.toFixed(3)} tf·m；最大 |M| = ${maxMemberMoment.toFixed(3)} tf·m。</p></section>
+${storySection ? `<section class="rep-block">${storySection}</section>` : ''}
+${envelopeSection ? `<section class="rep-block">${envelopeSection}</section>` : ''}
+<figure class="rep-figure rep-block"><h3>幾何 / 變形圖</h3><img alt="幾何與變形圖" src="${img('geomCanvas')}"><figcaption>目前圖表採用組合：${escapeHtml(activeResultLabel)}</figcaption></figure>
+<figure class="rep-figure rep-block"><h3>彎矩圖 M (tf·m)</h3><img alt="彎矩圖" src="${img('momCanvas')}"><figcaption>目前圖表採用組合：${escapeHtml(activeResultLabel)}</figcaption></figure>
+<figure class="rep-figure rep-block"><h3>剪力圖 V (tf)</h3><img alt="剪力圖" src="${img('shearCanvas')}"><figcaption>目前圖表採用組合：${escapeHtml(activeResultLabel)}</figcaption></figure>
+<figure class="rep-figure rep-block"><h3>軸力圖 N (tf)</h3><img alt="軸力圖" src="${img('axialCanvas')}"><figcaption>目前圖表採用組合：${escapeHtml(activeResultLabel)}</figcaption></figure>
+<section class="rep-block"><h3>節點位移 / 反力</h3><p class="meta"><b>目前結果組合：</b>${escapeHtml(activeResultLabel)}</p><table><thead><tr><th>節點</th><th>uX(mm)</th><th>uY(mm)</th><th>θZ(×10⁻³rad)</th><th>Rx(tf)</th><th>Ry(tf)</th><th>Mz(tf·m)</th></tr></thead><tbody>${dispRows}</tbody></table></section>
+${nodeEnvelopeSection ? `<section class="rep-block">${nodeEnvelopeSection}</section>` : ''}
+<section class="rep-block"><h3>桿件端力（局部座標）</h3><p class="meta"><b>目前結果組合：</b>${escapeHtml(activeResultLabel)}</p><table><thead><tr><th>桿件</th><th>Ni(tf)</th><th>Vi(tf)</th><th>Mi(tf·m)</th><th>Nj(tf)</th><th>Vj(tf)</th><th>Mj(tf·m)</th></tr></thead><tbody>${endForceRows}</tbody></table></section>
+<section class="rep-block"><h3>桿件極值</h3><p class="meta"><b>目前結果組合：</b>${escapeHtml(activeResultLabel)}</p><table><thead><tr><th>桿件</th><th>L(m)</th><th>|M|max(tf·m)</th><th>|V|max(tf)</th><th>|N|max(tf)</th></tr></thead><tbody>${extrRows}</tbody></table></section>
+${memberEnvelopeSection ? `<section class="rep-block">${memberEnvelopeSection}</section>` : ''}
 <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>
 </body></html>`;
   if (lastReportObjectUrl) URL.revokeObjectURL(lastReportObjectUrl);
