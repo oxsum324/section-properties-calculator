@@ -402,10 +402,17 @@ assertIncludes(steelSharedReport, '核可完整性：此預覽頁尚未封印；
   'writeEvidenceSummary',
   'new home preflight source commit',
   'new home preflight clean source',
-  '成品檔案完整性',
-  '145 / 145',
-  '151 / 151',
 ].forEach(needle => assertIncludes(localQuickBrowserSmoke, needle, `local quick browser smoke preserves rendered evidence ${needle}`));
+assertIncludes(
+  localQuickBrowserSmoke,
+  'state.reportReadinessStatusMeta.includes(`成品檔案完整性 ${reportReadinessPayload.deliveryFileIntegrityVerified} / ${reportReadinessPayload.deliveryFileIntegrityRequired}`)',
+  'local quick browser smoke binds the displayed delivery integrity count to the current readiness payload'
+);
+assert(
+  !/成品檔案完整性 \d+ \/ \d+/.test(localQuickBrowserSmoke),
+  'local quick browser smoke does not restore a hard-coded delivery integrity allowlist',
+  'delivery integrity counts must come from the current readiness payload'
+);
 
 [
   'steel-main-plate',
@@ -1036,6 +1043,10 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   assertIncludes(source, 'Schema v25', `${label} documents formal XLSX dual seal release evidence schema`);
   assertIncludes(source, 'XLSX', `${label} documents formal XLSX dual seal family`);
   assertIncludes(source, 'Schema v27', `${label} documents RC STM supplemental formal attachment release evidence schema`);
+  assert(
+    /145\/145[^\r\n]*Schema v28[^\r\n]*151\/151/.test(source) || /Schema v28[^\r\n]*145\/145[^\r\n]*151\/151/.test(source),
+    `${label} preserves the historical Schema v28 delivery integrity progression from 145/145 to 151/151`
+  );
   assertIncludes(source, 'Schema v29', `${label} preserves the historical five-tool local quick release evidence schema`);
   assertIncludes(source, '157/157', `${label} preserves the historical Schema v29 public delivery integrity count`);
   assertIncludes(source, 'Schema v30', `${label} documents six-tool local quick result reconciliation release evidence schema`);
