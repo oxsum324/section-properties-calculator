@@ -167,14 +167,18 @@ for (const [route, metadataKey] of [
 }
 const steelFormalClaim = canonicalTool('/steel-formal');
 assert.ok(
-  ['連接板', '拉力構件', '單剪力板 Shear Tab'].every((needle) => `${steelFormalClaim.output} ${steelFormalClaim.summary}`.includes(needle)),
+  ['連接板', '拉力構件', '單剪力板 Shear Tab', '平板支撐 Gusset 拉力接頭'].every((needle) => `${steelFormalClaim.output} ${steelFormalClaim.summary}`.includes(needle)),
   'canonical steel family claim names every formal module without adding a route'
 );
 const singlePlateOption = steelLauncher.match(/<option\s+value="single_plate"[^>]*>[\s\S]*?<\/option>/)?.[0] || '';
 assert.ok(singlePlateOption.includes('Shear Tab'), 'steel launcher exposes Shear Tab in the existing formal family route');
 assert.equal(/\bdisabled\b/.test(singlePlateOption), false, 'steel launcher enables formal Shear Tab');
 assert.ok(steelApp.includes('single_plate: "剪力接頭｜單剪力板 Shear Tab｜LRFD 正式模組"'), 'steel app labels Shear Tab as a formal module');
-for (const value of ['column_splice', 'brace_gusset', 'beam_column_moment']) {
+const gussetOption = steelLauncher.match(/<option\s+value="brace_gusset"[^>]*>[\s\S]*?<\/option>/)?.[0] || '';
+assert.ok(gussetOption.includes('Gusset'), 'steel launcher exposes the Gusset tension connection in the existing formal family route');
+assert.equal(/\bdisabled\b/.test(gussetOption), false, 'steel launcher enables the formal Gusset tension connection');
+assert.ok(steelApp.includes('brace_gusset: "支撐接頭｜平板支撐 Gusset 拉力接頭｜LRFD 正式模組"'), 'steel app labels the flat-plate-brace Gusset tension connection as a formal module');
+for (const value of ['column_splice', 'beam_column_moment']) {
   const option = steelLauncher.match(new RegExp(`<option\\s+value="${value}"[^>]*>[\\s\\S]*?<\\/option>`))?.[0] || '';
   assert.ok(option && /\bdisabled\b/.test(option) && option.includes('開發中'), `steel launcher retains development boundary: ${value}`);
 }

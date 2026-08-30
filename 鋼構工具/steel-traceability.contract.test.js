@@ -7,6 +7,8 @@ const readmePath = path.join(ROOT, 'README.md');
 const auditPath = path.join(ROOT, 'audit-tool.ps1');
 const mainCalculatorPath = path.join(ROOT, 'calculator.js');
 const mainSmokePath = path.join(ROOT, 'calculator.smoke-test.js');
+const mainAppPath = path.join(ROOT, 'app.js');
+const mainIndexPath = path.join(ROOT, 'index.html');
 
 let failed = 0;
 
@@ -43,10 +45,12 @@ const readme = fs.readFileSync(readmePath, 'utf8');
 const audit = fs.readFileSync(auditPath, 'utf8');
 const calculator = fs.readFileSync(mainCalculatorPath, 'utf8');
 const smoke = fs.readFileSync(mainSmokePath, 'utf8');
+const app = fs.readFileSync(mainAppPath, 'utf8');
+const index = fs.readFileSync(mainIndexPath, 'utf8');
 
 const expectedTools = ['steel-main', 'steel-plate', 'steel-beam-formal', 'steel-column-formal'];
 
-assert(catalog.version === '0.1.0', 'steel traceability catalog version', catalog.version);
+assert(catalog.version === '0.2.0', 'steel traceability catalog version', catalog.version);
 assert(catalog.family === 'steel-traceability', 'steel traceability catalog family', catalog.family);
 assertString(catalog.description, 'steel traceability catalog description');
 assert(Array.isArray(catalog.tools), 'steel traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -97,6 +101,7 @@ assert(
 );
 const steelMain = catalog.tools.find((tool) => tool.key === 'steel-main');
 const shearTabTrace = steelMain?.traces?.find((trace) => trace.id === 'steel-main-single-plate-shear-tab');
+const gussetTrace = steelMain?.traces?.find((trace) => trace.id === 'steel-main-brace-gusset-tension');
 const developmentBoundary = steelMain?.traces?.find((trace) => trace.id === 'steel-main-scope-boundary');
 assert(Boolean(shearTabTrace), 'steel traceability catalog records formal Shear Tab route', 'steel-main-single-plate-shear-tab');
 assert(
@@ -115,12 +120,35 @@ assert(
   'single_plate'
 );
 assert(
-  !developmentBoundary?.manualReview?.some((item) => item.includes('單剪力板')) &&
-    ['柱續接', 'Gusset', '梁柱彎矩'].every((needle) => developmentBoundary?.manualReview?.some((item) => item.includes(needle))),
-  'steel development boundary excludes formal Shear Tab and retains the other three modules',
+  Boolean(gussetTrace) &&
+    gussetTrace.calculation?.includes('complianceReady=true') &&
+    gussetTrace.report?.includes('支撐 / Gusset 接頭檢核計算書') &&
+    gussetTrace.calculation?.some((item) => item.includes('Whitmore effective width')) &&
+    gussetTrace.calculation?.includes('Whitmore theoretical width = 2Lconn tan30 degrees') &&
+    gussetTrace.calculation?.includes('flat-plate brace U = 1.0 and Ae = An') &&
+    gussetTrace.calculation?.includes('bolted Gusset Ae = min(An, 0.85Ag)') &&
+    gussetTrace.calculation?.some((item) => item.includes('4.00 tf/cm2') && item.includes('5.00 tf/cm2')) &&
+    gussetTrace.calculation?.some((item) => item.includes('Lconn <= 1250 mm') && item.includes('note [e]')) &&
+    gussetTrace.calculation?.some((item) => item.includes('strict exact-field source replay')),
+  'steel Gusset trace covers formal state, capped Whitmore width, strict replay, and report',
+  gussetTrace?.id || 'missing'
+);
+assert(
+  /brace_gusset:\s*\{[\s\S]*?complianceReady:\s*true/.test(calculator) &&
+    smoke.includes('complete Gusset V1 golden case should pass') &&
+    smoke.includes('Gusset V1 should expose all thirteen required strength routes') &&
+    app.includes('brace_gusset: "支撐接頭｜平板支撐 Gusset 拉力接頭｜LRFD 正式模組"') &&
+    /<option value="brace_gusset">支撐接頭｜平板支撐 Gusset 拉力接頭｜LRFD 正式模組<\/option>/.test(index),
+  'steel runtime, smoke, UI, and option mark Gusset V1 as formal',
+  'brace_gusset'
+);
+assert(
+  !developmentBoundary?.manualReview?.some((item) => item.includes('單剪力板') || item.includes('Gusset')) &&
+    ['柱續接', '梁柱彎矩'].every((needle) => developmentBoundary?.manualReview?.some((item) => item.includes(needle))),
+  'steel development boundary excludes formal Shear Tab and Gusset while retaining two modules',
   developmentBoundary?.manualReview?.join(' / ') || 'missing'
 );
-['column_splice', 'gusset', 'beam_column_moment'].forEach((needle) => {
+['column_splice', 'beam_column_moment'].forEach((needle) => {
   assert(
     smoke.includes(needle) || calculator.includes(needle),
     `steel development module remains explicitly tested or guarded: ${needle}`,

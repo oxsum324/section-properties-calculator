@@ -95,9 +95,9 @@
     brace_gusset: {
       reportTitle: "支撐 / Gusset 接頭檢核計算書",
       reportSubtitle: "Brace Gusset Connection Report",
-      pageTitle: "鋼構支撐 Gusset 接頭設計與檢核",
-      pageDescription: "支撐軸力、Gusset 板、Whitmore 有效寬度、螺栓、塊狀撕裂與銲接檢核",
-      complianceReady: false,
+      pageTitle: "鋼構平板支撐 Gusset 接頭設計與檢核",
+      pageDescription: "LRFD 正軸向拉力｜扁鋼 / 平板支撐—Gusset 單列承壓螺栓與 Gusset—支承材雙面縱向填角銲",
+      complianceReady: true,
     },
     beam_column_moment: {
       reportTitle: "梁柱彎矩接頭檢核計算書",
@@ -164,7 +164,9 @@
   }
 
   function safeRatio(demand, available) {
-    return available > 0 ? demand / available : Infinity;
+    if (!Number.isFinite(demand) || !Number.isFinite(available) || available <= 0) return Infinity;
+    const ratio = demand / available;
+    return Number.isFinite(ratio) ? ratio : Infinity;
   }
 
   function formatEquationNumber(value) {
@@ -331,6 +333,45 @@ ${buildAvailableStrengthLatex(designMethod, "bearing", nominal)}
     });
   }
 
+  function getF10TBearingBoltShearStress(threadsCondition) {
+    const tableStressTfCm2 = threadsCondition === "excluded" ? 5.00 : 4.00;
+    return {
+      tableStressTfCm2,
+      nominalShearStress: tableStressTfCm2 * 98.0665,
+    };
+  }
+
+  function buildF10TBearingBoltShearCheck({ key, label, demand, boltDiameter, boltCount, shearPlanes, threadsCondition, designMethod, note }) {
+    const area = boltArea(boltDiameter);
+    const { tableStressTfCm2, nominalShearStress } = getF10TBearingBoltShearStress(threadsCondition);
+    const nominal = mm2ToKn(nominalShearStress, area * boltCount * shearPlanes);
+    const available = applyDesignStrength(nominal, designMethod, "boltShear");
+    return createCheck({
+      key,
+      label,
+      demand,
+      nominal,
+      available,
+      note: `${note} CNS F10T 承壓式螺栓依表 10.3-2 採 ${tableStressTfCm2.toFixed(2)} tf/cm²（${formatEquationNumber(nominalShearStress)} MPa）；LRFD φ = 0.75。`,
+      codeRef: "10.3.3、表10.3-2",
+      equationRef: "表10.3-2",
+      equationLines: [
+        `Ab = π db² / 4 = ${formatEquationNumber(area)} mm²`,
+        `Fnv = ${tableStressTfCm2.toFixed(2)} tf/cm² × 98.0665 = ${formatEquationNumber(nominalShearStress)} MPa`,
+        `Rn = Fnv × Ab × n × ns = ${formatEquationNumber(nominal)} kN`,
+        `φRn = 0.75 × Rn = ${formatEquationNumber(available)} kN`,
+      ],
+      latexLines: [
+        String.raw`\begin{aligned}
+A_b &= \frac{\pi d_b^2}{4} = \frac{\pi (${formatEquationNumber(boltDiameter)})^2}{4} = ${formatEquationNumber(area)}\ \text{mm}^2\\
+F_{nv} &= ${tableStressTfCm2.toFixed(2)}\ \text{tf/cm}^2 \times 98.0665 = ${formatEquationNumber(nominalShearStress)}\ \text{MPa}\\
+R_n &= F_{nv} A_b n n_s = ${formatEquationNumber(nominal)}\ \text{kN}\\
+${buildAvailableStrengthLatex(designMethod, "boltShear", nominal)}
+\end{aligned}`,
+      ],
+    });
+  }
+
   function getSinglePlateBoltDistribution(state) {
     const count = Math.max(state.boltCount, 1);
     const ordinates = Array.from({ length: count }, (_, index) => (index - (count - 1) / 2) * state.pitch);
@@ -348,8 +389,7 @@ ${buildAvailableStrengthLatex(designMethod, "bearing", nominal)}
 
   function buildSinglePlateBoltShearCheck(state, fillerReduction, distribution) {
     const area = boltArea(state.boltDiameter);
-    const tableStressTfCm2 = state.threadsCondition === "excluded" ? 5.00 : 4.00;
-    const nominalShearStress = tableStressTfCm2 * 98.0665;
+    const { tableStressTfCm2, nominalShearStress } = getF10TBearingBoltShearStress(state.threadsCondition);
     const reduction = fillerReduction.applies ? fillerReduction.reductionFactor : 1;
     const nominalPerBolt = mm2ToKn(nominalShearStress, area * state.shearPlanes * reduction);
     const availablePerBolt = 0.75 * nominalPerBolt;
@@ -365,7 +405,7 @@ ${buildAvailableStrengthLatex(designMethod, "bearing", nominal)}
       available,
       note: `單列栓群採彈性法分配直接剪力與 V·e 彎矩；CNS F10T 螺栓標稱剪應力依表取 ${formatEquationNumber(tableStressTfCm2)} tf/cm²（${formatEquationNumber(nominalShearStress)} MPa）。${fillerReduction.applies ? ` 填板折減係數 ${formatEquationNumber(reduction)} 已納入。` : ""}`,
       codeRef: "10.1.1、10.3.3",
-      equationRef: "式(10.3-1)＋專案指定彈性栓群模型",
+      equationRef: "表10.3-2＋專案指定彈性栓群模型",
       equationLines: [
         `Σyi² = ${formatEquationNumber(distribution.polarSum)} mm²`,
         `Cv = 1/n，Ch,i = e_b yi / Σyi²，Cmax = max√(Cv² + Ch,i²) = ${formatEquationNumber(distribution.maxCoefficient)}`,
@@ -663,13 +703,52 @@ ${buildAvailableStrengthLatex(designMethod, "weld", nominal)}
     });
   }
 
-  function buildBlockShearCheck({ key, label, demand, boltCount, endDistance, pitch, holeDiameter, edgeDistance, thickness, fy, fu, designMethod, note, codeRef = "10.4" }) {
+  function buildLongitudinalBaseMetalWeldCheck({ key, label, demand, thickness, fy, fu, weldLength, weldLineCount, designMethod, note }) {
+    const effectiveArea = thickness * weldLength * weldLineCount;
+    const nominalYield = mm2ToKn(0.6 * fy, effectiveArea);
+    const nominalRupture = mm2ToKn(0.6 * fu, effectiveArea);
+    const availableYield = applyDesignStrength(nominalYield, designMethod, "shearYield");
+    const availableRupture = applyDesignStrength(nominalRupture, designMethod, "netRupture");
+    const available = Math.min(availableYield, availableRupture);
+    const nominal = availableYield <= availableRupture ? nominalYield : nominalRupture;
+    return createCheck({
+      key,
+      label,
+      demand,
+      nominal,
+      available,
+      note: `${note} 母材剪力降伏與剪力斷裂分別核算，採可用強度較小值。`,
+      codeRef: "10.2.4、10.5.2",
+      equationRef: "表10.2-5",
+      equationLines: [
+        `Abase = t × Le × nline = ${formatEquationNumber(effectiveArea)} mm²`,
+        `φRn,y = 0.90 × 0.6FyAbase = ${formatEquationNumber(availableYield)} kN`,
+        `φRn,u = 0.75 × 0.6FuAbase = ${formatEquationNumber(availableRupture)} kN`,
+        `採控制可用強度 = ${formatEquationNumber(available)} kN`,
+      ],
+      latexLines: [
+        String.raw`\begin{aligned}
+A_{\mathrm{base}} &= t L_e n = ${formatEquationNumber(effectiveArea)}\ \text{mm}^2\\
+\phi R_{n,y} &= 0.90(0.6F_yA_{\mathrm{base}}) = ${formatEquationNumber(availableYield)}\ \text{kN}\\
+\phi R_{n,u} &= 0.75(0.6F_uA_{\mathrm{base}}) = ${formatEquationNumber(availableRupture)}\ \text{kN}\\
+\phi R_n &= \min(\phi R_{n,y},\phi R_{n,u}) = ${formatEquationNumber(available)}\ \text{kN}
+\end{aligned}`,
+      ],
+    });
+  }
+
+  function getLinearBlockShearAreas({ boltCount, endDistance, pitch, holeDiameter, edgeDistance, thickness, shearPlaneCount = 2 }) {
     const holeWidth = netHoleWidth(holeDiameter);
     const lv = endDistance + Math.max(boltCount - 1, 0) * pitch;
-    const agv = 2 * lv * thickness;
-    const anv = 2 * Math.max(lv - (boltCount - 0.5) * holeWidth, 0) * thickness;
+    const agv = shearPlaneCount * lv * thickness;
+    const anv = shearPlaneCount * Math.max(lv - (boltCount - 0.5) * holeWidth, 0) * thickness;
     const agt = edgeDistance * thickness;
     const ant = Math.max(edgeDistance - holeWidth / 2, 0) * thickness;
+    return { Agv: agv, Anv: anv, Agt: agt, Ant: ant };
+  }
+
+  function buildBlockShearCheck({ key, label, demand, boltCount, endDistance, pitch, holeDiameter, edgeDistance, thickness, fy, fu, designMethod, note, shearPlaneCount = 2, codeRef = "10.4" }) {
+    const { Agv: agv, Anv: anv, Agt: agt, Ant: ant } = getLinearBlockShearAreas({ boltCount, endDistance, pitch, holeDiameter, edgeDistance, thickness, shearPlaneCount });
     const tensionRupture = mm2ToKn(fu, ant);
     const shearRupture = mm2ToKn(0.6 * fu, anv);
     const shearYield = mm2ToKn(0.6 * fy, agv);
@@ -879,7 +958,7 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
       requiredAxial: toNumber(rawState.requiredAxial),
       requiredShear: toNumber(rawState.requiredShear),
       requiredMoment: toNumber(rawState.requiredMoment),
-      eccentricity: positive(rawState.eccentricity),
+      eccentricity: toNumber(rawState.eccentricity),
       boltDiameter: positive(rawState.boltDiameter),
       holeType: rawState.holeType || "standard",
       holeDiameter: positive(rawState.holeDiameter),
@@ -911,7 +990,7 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
       fillerExtended: rawState.fillerExtended === true || rawState.fillerExtended === "true",
       weldSize: positive(rawState.weldSize),
       weldLength: positive(rawState.weldLength),
-      weldLineCount: toInteger(rawState.weldLineCount, 1),
+      weldLineCount: toNumber(rawState.weldLineCount),
       weldElectrodeStrength: positive(rawState.weldElectrodeStrength),
       demandBasis: rawState.demandBasis || "",
       geometryBasis: rawState.geometryBasis || "",
@@ -943,8 +1022,8 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
       spliceWeldLength: positive(rawState.spliceWeldLength),
       spliceWeldLineCount: toInteger(rawState.spliceWeldLineCount, 1),
       spliceWeldElectrodeStrength: positive(rawState.spliceWeldElectrodeStrength),
-      gussetBoltCount: toInteger(rawState.gussetBoltCount, 1),
-      gussetShearPlanes: toInteger(rawState.gussetShearPlanes, 1),
+      gussetBoltCount: toNumber(rawState.gussetBoltCount),
+      gussetShearPlanes: toNumber(rawState.gussetShearPlanes),
       gussetEndDistance: positive(rawState.gussetEndDistance),
       gussetPitch: positive(rawState.gussetPitch),
       gussetEdgeDistance: positive(rawState.gussetEdgeDistance),
@@ -953,11 +1032,25 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
       gussetUltimateStrength: positive(rawState.gussetUltimateStrength),
       gussetNetWidth: positive(rawState.gussetNetWidth),
       gussetConnectionWidth: positive(rawState.gussetConnectionWidth),
-      gussetWhitmoreLength: positive(rawState.gussetWhitmoreLength),
-      gussetWeldSize: positive(rawState.gussetWeldSize),
-      gussetWeldLength: positive(rawState.gussetWeldLength),
-      gussetWeldLineCount: toInteger(rawState.gussetWeldLineCount, 1),
-      gussetWeldElectrodeStrength: positive(rawState.gussetWeldElectrodeStrength),
+      gussetWhitmoreConnectionLength: positive(rawState.gussetWhitmoreConnectionLength),
+      gussetAvailableWidth: positive(rawState.gussetAvailableWidth),
+      braceSectionType: rawState.braceSectionType || "flat_plate",
+      braceEndDistance: positive(rawState.braceEndDistance),
+      braceEdgeDistance: positive(rawState.braceEdgeDistance),
+      braceThickness: positive(rawState.braceThickness),
+      braceFy: positive(rawState.braceFy),
+      braceFu: positive(rawState.braceFu),
+      braceGrossWidth: positive(rawState.braceGrossWidth),
+      braceNetWidth: positive(rawState.braceNetWidth),
+      weldFexx: positive(rawState.weldFexx),
+      supportFy: positive(rawState.supportFy),
+      supportFu: positive(rawState.supportFu),
+      gussetDemandBasis: rawState.gussetDemandBasis || "",
+      gussetGeometryBasis: rawState.gussetGeometryBasis || "",
+      gussetMaterialBasis: rawState.gussetMaterialBasis || "",
+      gussetModelBasis: rawState.gussetModelBasis || "",
+      gussetStaticNonseismicConfirmed: rawState.gussetStaticNonseismicConfirmed === true || rawState.gussetStaticNonseismicConfirmed === "true",
+      gussetLoadPathConfirmed: rawState.gussetLoadPathConfirmed === true || rawState.gussetLoadPathConfirmed === "true",
       momentLeverArm: positive(rawState.momentLeverArm),
       momentBoltCount: toInteger(rawState.momentBoltCount, 1),
       momentEndDistance: positive(rawState.momentEndDistance),
@@ -2242,32 +2335,115 @@ ${buildAvailableStrengthLatex(state.designMethod, "bearing", totalBearingNominal
   }
 
   function calculateBraceGusset(state) {
-    const axialDemand = Math.abs(state.requiredAxial);
-    const grossArea = state.gussetConnectionWidth * state.gussetThickness;
-    const netArea = state.gussetNetWidth * state.gussetThickness;
-    const whitmoreWidth = state.gussetConnectionWidth + 2 * state.gussetWhitmoreLength * Math.tan(Math.PI / 6);
-    const whitmoreArea = whitmoreWidth * state.gussetThickness;
+    const axialDemand = Math.max(state.requiredAxial, 0);
+    const gussetGrossArea = state.gussetConnectionWidth * state.gussetThickness;
+    const gussetNetArea = state.gussetNetWidth * state.gussetThickness;
+    const gussetEffectiveNetArea = Math.min(gussetNetArea, 0.85 * gussetGrossArea);
+    const braceGrossArea = state.braceGrossWidth * state.braceThickness;
+    const braceNetArea = state.braceNetWidth * state.braceThickness;
+    const expectedWhitmoreConnectionLength = (state.gussetBoltCount - 1) * state.gussetPitch;
+    const whitmoreConnectionLengthMatches = state.gussetWhitmoreConnectionLength > 0
+      && Math.abs(state.gussetWhitmoreConnectionLength - expectedWhitmoreConnectionLength) <= 1e-9;
+    const gussetWhitmoreTheoreticalWidth = 2 * state.gussetWhitmoreConnectionLength * Math.tan(Math.PI / 6);
+    const gussetWhitmoreEffectiveWidth = Math.min(gussetWhitmoreTheoreticalWidth, state.gussetAvailableWidth);
+    const gussetWhitmoreArea = gussetWhitmoreEffectiveWidth * state.gussetThickness;
+    const maximumStandardHoleDiameter = getMaximumStandardHoleDiameter(state.boltDiameter);
+    const minimumWeldSize = getMinimumFilletSize(Math.max(state.gussetThickness, state.supportThickness));
+    const maximumWeldSize = getMaximumEdgeFilletSize(Math.min(state.gussetThickness, state.supportThickness));
+    const maximumGussetNetWidth = Math.min(
+      state.gussetConnectionWidth - netHoleWidth(state.holeDiameter),
+      gussetWhitmoreEffectiveWidth
+    );
+    const maximumBraceNetWidth = state.braceGrossWidth - netHoleWidth(state.holeDiameter);
+    const gussetBlockAreas = getLinearBlockShearAreas({
+      boltCount: state.gussetBoltCount,
+      endDistance: state.gussetEndDistance,
+      pitch: state.gussetPitch,
+      holeDiameter: state.holeDiameter,
+      edgeDistance: state.gussetEdgeDistance,
+      thickness: state.gussetThickness,
+      shearPlaneCount: 1,
+    });
+    const braceBlockAreas = getLinearBlockShearAreas({
+      boltCount: state.gussetBoltCount,
+      endDistance: state.braceEndDistance,
+      pitch: state.gussetPitch,
+      holeDiameter: state.holeDiameter,
+      edgeDistance: state.braceEdgeDistance,
+      thickness: state.braceThickness,
+      shearPlaneCount: 1,
+    });
+    const hasBasis = (value) => Boolean(String(value || "").trim()) && !/示例|請依專案覆寫|請填|待補|未填|placeholder/i.test(String(value));
     const validations = [];
 
-    if (state.requiredAxial === 0) validations.push("支撐 / Gusset 接頭通常以軸力為主控；目前 Pu / Pa 為 0。");
+    if (state.designMethod !== "LRFD") validations.push("Gusset V1 正式範圍僅支援 LRFD。");
+    if (!(state.requiredAxial > 0)) validations.push("Gusset V1 僅接受大於 0 kN 的設計拉力 Pu；壓力、零需求與正負包絡不得套用。");
+    if (Math.abs(state.requiredShear) > 0) validations.push("Gusset V1 限純軸向拉力，requiredShear 必須為 0。");
+    if (Math.abs(state.requiredMoment) > 0) validations.push("Gusset V1 限純軸向拉力，requiredMoment 必須為 0。");
+    if (state.eccentricity !== 0) validations.push("Gusset V1 限同心軸向拉力，eccentricity 必須精確為 0。");
+    if (state.boltGrade !== "F10T" || Math.abs(state.boltUltimateStrength - 1000) > 1) validations.push("Gusset V1 鎖定 CNS F10T、Fub = 1000 MPa。");
+    if (state.holeType !== "standard" || maximumStandardHoleDiameter === null || state.holeDiameter > (maximumStandardHoleDiameter ?? 0)) validations.push("Gusset V1 僅接受表列標準孔及其最大孔徑。");
+    if (state.gussetShearPlanes !== 1) validations.push("Gusset V1 限單剪螺栓。");
+    if (!Number.isInteger(state.gussetBoltCount) || state.gussetBoltCount < 2 || state.gussetBoltCount > 12) validations.push("Gusset V1 限單一直線 2 至 12 支整數螺栓。");
+    if (!whitmoreConnectionLengthMatches) validations.push("Whitmore 連接長度 Lconn 必須大於 0，且精確等於 (gussetBoltCount − 1) × gussetPitch。");
+    if (state.gussetWhitmoreConnectionLength > 1250) validations.push("表 10.3-2 註 [e] 針對承壓式接合之續接拉力構材，規定平行拉力方向接合長度大於 125 cm 時表列螺栓強度須降 20%；本 Gusset 為端部接合，V1 在尚未實作長接合路線前保守援用 Lconn ≤ 1250 mm 的適用範圍，並非將該註解泛化為所有接合的條文上限。");
+    if (state.braceSectionType !== "flat_plate") validations.push("Gusset V1 僅適用扁鋼 / 平板支撐之矩形截面；angle、WT、HSS 與需考慮剪力遲滯之斷面禁止核可。");
     if (state.gussetPitch <= state.holeDiameter) validations.push("Gusset 孔距 sg 應大於孔徑 dh。");
-    if (state.gussetNetWidth > whitmoreWidth) validations.push("淨寬 bnet 大於 Whitmore 展開寬度時，請確認淨斷面定義是否正確。");
+    if (state.gussetEndDistance <= state.holeDiameter / 2 || state.braceEndDistance <= state.holeDiameter / 2) validations.push("Gusset 與支撐材端距均須大於 dh / 2。");
+    if (state.gussetUltimateStrength < state.gussetYieldStrength) validations.push("Gusset 材料須滿足 Fu ≥ Fy。");
+    if (state.braceFu < state.braceFy) validations.push("支撐材須滿足 Fu ≥ Fy。");
+    if (state.supportFu < state.supportFy) validations.push("支承材須滿足 Fu ≥ Fy。");
+    if (!(state.gussetNetWidth > 0 && state.gussetNetWidth <= maximumGussetNetWidth)) validations.push("Gusset 淨寬須為正值，且同時不得大於栓孔斷面總寬扣孔後之寬度與實際可用 Whitmore 寬度。");
+    if (!(state.braceNetWidth > 0 && state.braceNetWidth <= maximumBraceNetWidth)) validations.push("支撐材淨寬須為正值，且不得大於扣除單列孔後之總寬。");
+    if (!(state.gussetAvailableWidth > 0)) validations.push("Whitmore 可用板寬必須大於 0，並作為理論展開寬度之上限。");
+    if (state.weldLineCount !== 2) validations.push("Gusset V1 限兩側對稱縱向填角銲。");
+    if (state.weldSize < minimumWeldSize || state.weldSize > maximumWeldSize) validations.push("Gusset 銲腳不符合較厚材最小值或較薄材最大值。");
+    if (state.weldLength < 4 * state.weldSize || state.weldLength > 70 * state.weldSize) validations.push("Gusset V1 有效銲長須介於 4a 與 70a 之間。");
+    if (!hasBasis(state.gussetDemandBasis) || !hasBasis(state.gussetGeometryBasis) || !hasBasis(state.gussetMaterialBasis) || !hasBasis(state.gussetModelBasis)) validations.push("Gusset 正式附件須提供非占位之需求、幾何、材料與模型依據。");
+    if (!state.gussetStaticNonseismicConfirmed) validations.push("須確認本案為靜力、非耐震、非 BRB 接頭。");
+    if (!state.gussetLoadPathConfirmed) validations.push("須確認單列螺栓及雙側縱向填角銲之串聯力流與實際構造一致。");
+
+    const gussetNetRuptureCheck = buildEffectiveNetRuptureCheck({
+      key: "gussetNetRupture",
+      label: "Gusset 有效淨斷面斷裂",
+      demand: axialDemand,
+      fu: state.gussetUltimateStrength,
+      effectiveNetArea: gussetEffectiveNetArea,
+      designMethod: state.designMethod,
+      note: "Gusset 屬栓接接續／連接板，依 4.3 採 Ae = min(An, 0.85Ag)；gussetConnectionWidth 僅為栓孔斷面 gross plate width。",
+      codeRef: "4.3、5.2",
+      equationRef: "式(5.2-2)",
+    });
+    gussetNetRuptureCheck.equationLines = [
+      `Ag = ${formatEquationNumber(gussetGrossArea)} mm²`,
+      `An = ${formatEquationNumber(gussetNetArea)} mm²`,
+      `Ae = min(An, 0.85Ag) = min(${formatEquationNumber(gussetNetArea)}, ${formatEquationNumber(0.85 * gussetGrossArea)}) = ${formatEquationNumber(gussetEffectiveNetArea)} mm²`,
+      `Rn = Fu × Ae = ${formatEquationNumber(gussetNetRuptureCheck.nominal)} kN`,
+    ];
+    gussetNetRuptureCheck.latexLines = [
+      String.raw`\begin{aligned}
+A_g &= ${formatEquationNumber(gussetGrossArea)}\ \text{mm}^2\\
+A_n &= ${formatEquationNumber(gussetNetArea)}\ \text{mm}^2\\
+A_e &= \min(A_n,\ 0.85A_g) = \min(${formatEquationNumber(gussetNetArea)},\ ${formatEquationNumber(0.85 * gussetGrossArea)}) = ${formatEquationNumber(gussetEffectiveNetArea)}\ \text{mm}^2\\
+R_n &= F_u A_e = ${formatEquationNumber(gussetNetRuptureCheck.nominal)}\ \text{kN}\\
+${buildAvailableStrengthLatex(state.designMethod, "netRupture", gussetNetRuptureCheck.nominal)}
+\end{aligned}`,
+    ];
 
     const checks = [
-      buildBoltShearCheck({
+      buildF10TBearingBoltShearCheck({
         key: "gussetBoltShear",
         label: "Gusset 螺栓剪力",
         demand: axialDemand,
         boltDiameter: state.boltDiameter,
-        boltUltimateStrength: state.boltUltimateStrength,
         boltCount: state.gussetBoltCount,
         shearPlanes: state.gussetShearPlanes,
         threadsCondition: state.threadsCondition,
         designMethod: state.designMethod,
-        note: "假設支撐軸力由螺栓群以剪力方式傳遞。",
+        note: "支撐軸力由單列螺栓群以剪力方式傳遞。",
       }),
       buildBoltLineBearingCheck({
-        key: "gussetBearing",
+        key: "gussetBoltBearing",
         label: "Gusset 孔承壓",
         demand: axialDemand,
         count: state.gussetBoltCount,
@@ -2281,24 +2457,31 @@ ${buildAvailableStrengthLatex(state.designMethod, "bearing", totalBearingNominal
         designMethod: state.designMethod,
         note: "以單列栓孔方向之孔承壓強度檢核 Gusset 板。",
       }),
+      buildBoltLineBearingCheck({
+        key: "braceBoltBearing",
+        label: "支撐材孔承壓",
+        demand: axialDemand,
+        count: state.gussetBoltCount,
+        endDistance: state.braceEndDistance,
+        pitch: state.gussetPitch,
+        holeDiameter: state.holeDiameter,
+        thickness: state.braceThickness,
+        fu: state.braceFu,
+        boltDiameter: state.boltDiameter,
+        deformationConsidered: state.deformationConsidered,
+        designMethod: state.designMethod,
+        note: "支撐材與 Gusset 分別依其端距、厚度與 Fu 檢核孔承壓。",
+      }),
       buildGrossYieldCheck({
         key: "gussetGrossYield",
         label: "Gusset 總斷面降伏",
         demand: axialDemand,
         fy: state.gussetYieldStrength,
-        grossArea,
+        grossArea: gussetGrossArea,
         designMethod: state.designMethod,
-        note: "以連接區初始寬度 b0 乘厚度估算 gross section yielding。",
+        note: "以 Gusset 在栓孔斷面之 gross plate width 乘厚度估算總斷面降伏；此寬度不是 Whitmore 初始寬度。",
       }),
-      buildNetRuptureCheck({
-        key: "gussetNetRupture",
-        label: "Gusset 淨斷面斷裂",
-        demand: axialDemand,
-        fu: state.gussetUltimateStrength,
-        netArea,
-        designMethod: state.designMethod,
-        note: "以輸入之有效淨寬 bnet 乘厚度估算淨斷面抗拉。",
-      }),
+      gussetNetRuptureCheck,
       buildBlockShearCheck({
         key: "gussetBlockShear",
         label: "Gusset 塊狀撕裂",
@@ -2312,55 +2495,202 @@ ${buildAvailableStrengthLatex(state.designMethod, "bearing", totalBearingNominal
         fy: state.gussetYieldStrength,
         fu: state.gussetUltimateStrength,
         designMethod: state.designMethod,
-        note: "採單列栓孔典型 Gusset 塊狀撕裂破壞路徑。",
+        note: "單一直線栓列採一個縱向剪力面與一個橫向拉力面之 L 形塊狀撕裂候選路徑。",
+        shearPlaneCount: 1,
       }),
       buildGrossYieldCheck({
-        key: "whitmoreYield",
+        key: "braceGrossYield",
+        label: "支撐材總斷面降伏",
+        demand: axialDemand,
+        fy: state.braceFy,
+        grossArea: braceGrossArea,
+        designMethod: state.designMethod,
+        note: "以支撐材總寬 bg 乘厚度檢核總斷面降伏。",
+      }),
+      buildNetRuptureCheck({
+        key: "braceNetRupture",
+        label: "支撐材淨斷面斷裂",
+        demand: axialDemand,
+        fu: state.braceFu,
+        netArea: braceNetArea,
+        designMethod: state.designMethod,
+        note: "扁鋼 / 平板支撐為矩形截面且全截面元素由單列栓直接連接，U = 1.0、Ae = An；以 bn × tb 檢核淨斷面斷裂。",
+      }),
+      buildBlockShearCheck({
+        key: "braceBlockShear",
+        label: "支撐材塊狀撕裂",
+        demand: axialDemand,
+        boltCount: state.gussetBoltCount,
+        endDistance: state.braceEndDistance,
+        pitch: state.gussetPitch,
+        holeDiameter: state.holeDiameter,
+        edgeDistance: state.braceEdgeDistance,
+        thickness: state.braceThickness,
+        fy: state.braceFy,
+        fu: state.braceFu,
+        designMethod: state.designMethod,
+        note: "支撐材採與 Gusset 對應之一個縱向剪力面與一個橫向拉力面 L 形路徑。",
+        shearPlaneCount: 1,
+      }),
+      buildGrossYieldCheck({
+        key: "gussetWhitmoreYield",
         label: "Whitmore 有效寬度降伏",
         demand: axialDemand,
         fy: state.gussetYieldStrength,
-        grossArea: whitmoreArea,
+        grossArea: gussetWhitmoreArea,
         designMethod: state.designMethod,
-        note: "Whitmore 寬度 = b0 + 2L tan30°。",
+        note: "單一直線栓列之 fastener-group 起始寬度為 0；bW = 2Lconn tan30°，有效寬度再取理論值與實際可用板寬之較小值。",
       }),
       buildWeldCheck({
-        key: "gussetWeld",
-        label: "Gusset 傳力銲道",
+        key: "gussetWeldMetal",
+        label: "Gusset 縱向填角銲銲材",
         demand: axialDemand,
-        weldSize: state.gussetWeldSize,
-        weldLength: state.gussetWeldLength,
-        weldLineCount: state.gussetWeldLineCount,
-        electrodeStrength: state.gussetWeldElectrodeStrength,
+        weldSize: state.weldSize,
+        weldLength: state.weldLength,
+        weldLineCount: state.weldLineCount,
+        electrodeStrength: state.weldFexx,
         designMethod: state.designMethod,
-        note: "銲道與螺栓不併算，個別檢核其是否可獨立承擔需求。",
+        note: "Gusset 至支承材採兩側對稱縱向填角銲；銲材有效喉厚取 0.707a。",
       }),
+      buildLongitudinalBaseMetalWeldCheck({
+        key: "gussetWeldBaseGusset",
+        label: "Gusset 銲線母材",
+        demand: axialDemand,
+        thickness: state.gussetThickness,
+        fy: state.gussetYieldStrength,
+        fu: state.gussetUltimateStrength,
+        weldLength: state.weldLength,
+        weldLineCount: state.weldLineCount,
+        designMethod: state.designMethod,
+        note: "Gusset 板沿兩條縱向銲線之母材傳力面。",
+      }),
+      buildLongitudinalBaseMetalWeldCheck({
+        key: "gussetWeldBaseSupport",
+        label: "支承材銲線母材",
+        demand: axialDemand,
+        thickness: state.supportThickness,
+        fy: state.supportFy,
+        fu: state.supportFu,
+        weldLength: state.weldLength,
+        weldLineCount: state.weldLineCount,
+        designMethod: state.designMethod,
+        note: "支承材沿兩條縱向銲線之母材傳力面。",
+      }),
+    ];
+
+    const requiredDerivedResults = {
+      gussetGrossArea,
+      gussetNetArea,
+      gussetEffectiveNetArea,
+      braceGrossArea,
+      braceNetArea,
+      gussetBlockAgv: gussetBlockAreas.Agv,
+      gussetBlockAnv: gussetBlockAreas.Anv,
+      gussetBlockAgt: gussetBlockAreas.Agt,
+      gussetBlockAnt: gussetBlockAreas.Ant,
+      braceBlockAgv: braceBlockAreas.Agv,
+      braceBlockAnv: braceBlockAreas.Anv,
+      braceBlockAgt: braceBlockAreas.Agt,
+      braceBlockAnt: braceBlockAreas.Ant,
+      gussetWhitmoreTheoreticalWidth,
+      gussetWhitmoreEffectiveWidth,
+      gussetWhitmoreArea,
+    };
+    const finiteDerivedResults = Object.values(requiredDerivedResults).every(Number.isFinite);
+    const finiteStrengthResults = checks.every((check) => Number.isFinite(check.demand)
+      && check.demand > 0
+      && Number.isFinite(check.nominal)
+      && check.nominal > 0
+      && Number.isFinite(check.available)
+      && check.available > 0
+      && Number.isFinite(check.ratio)
+      && check.ratio >= 0);
+    if (!finiteDerivedResults) validations.push("Gusset 派生寬度或面積出現非有限值；輸入雖可解析為有限數，組合運算已發生數值溢位，禁止核可與正式輸出。");
+    if (!finiteStrengthResults) validations.push("Gusset 強度結果之需求、標稱強度、可用強度或 DCR 出現非有限／非正值；禁止核可與正式輸出。");
+
+    const detailChecks = [
+      makeDetailCheck("gussetMethod", "設計法適用範圍", state.designMethod === "LRFD" ? 1 : 0, true, "custom", "Gusset V1 僅採 LRFD。", "V1 適用範圍"),
+      makeDetailCheck("gussetPositiveTension", "正軸向拉力", state.requiredAxial > 0 ? 1 : 0, true, "custom", "Pu 必須大於 0；壓力與零需求不在本版範圍。", "V1 適用範圍"),
+      makeDetailCheck("gussetZeroShear", "零剪力需求", Math.abs(state.requiredShear), 0, "lte", "requiredShear 必須為 0 kN。", "V1 適用範圍"),
+      makeDetailCheck("gussetZeroMoment", "零彎矩需求", Math.abs(state.requiredMoment), 0, "lte", "requiredMoment 必須為 0 kN-m。", "V1 適用範圍"),
+      makeDetailCheck("gussetConcentric", "同心軸力", state.eccentricity === 0 ? 1 : 0, true, "custom", "eccentricity 必須精確為 0 mm，正負偏心均禁止核可。", "V1 適用範圍"),
+      makeDetailCheck("gussetStaticNonseismicConfirmed", "靜力非耐震確認", state.gussetStaticNonseismicConfirmed ? 1 : 0, true, "custom", state.gussetStaticNonseismicConfirmed ? "已確認為靜力、非耐震、非 BRB 接頭。" : "須由設計者確認靜力、非耐震且非 BRB。", "設計者判斷"),
+      makeDetailCheck("gussetLoadPathConfirmed", "串聯力流確認", state.gussetLoadPathConfirmed ? 1 : 0, true, "custom", state.gussetLoadPathConfirmed ? "已確認支撐—Gusset 螺栓與 Gusset—支承材銲道串聯傳力。" : "須確認本模型之串聯力流與實際構造一致。", "設計者判斷"),
+      makeDetailCheck("gussetBoltGrade", "螺栓等級", state.boltGrade === "F10T" && Math.abs(state.boltUltimateStrength - 1000) <= 1 ? 1 : 0, true, "custom", "本版鎖定 CNS F10T、Fub = 1000 MPa。", "10.3.3、表10.3-2"),
+      makeDetailCheck("gussetStandardHole", "標準孔", state.holeType === "standard" ? 1 : 0, true, "custom", "本版限標準孔承壓型接頭。", "10.3.8"),
+      makeDetailCheck("gussetBoltDiameterTable", "螺栓直徑表列範圍", maximumStandardHoleDiameter !== null ? 1 : 0, true, "custom", maximumStandardHoleDiameter !== null ? "螺栓直徑可依表 10.3-5 判定標準孔上限。" : "螺栓直徑不在本版表列路線。", "10.3.8、表10.3-5"),
+      makeDetailCheck("gussetHoleDiameter", "孔徑大於螺栓直徑", state.holeDiameter > state.boltDiameter ? 1 : 0, true, "custom", "標準孔徑須大於螺栓直徑。", "10.3.8"),
+      makeDetailCheck("gussetStandardHoleMaximum", "標準孔最大孔徑", state.holeDiameter, maximumStandardHoleDiameter ?? 0, "lte", maximumStandardHoleDiameter === null ? "無可採之表列孔徑上限。" : `標準孔最大直徑 = ${formatEquationNumber(maximumStandardHoleDiameter)} mm。`, "10.3.8、表10.3-5"),
+      makeDetailCheck("gussetSingleShear", "單剪適用範圍", state.gussetShearPlanes === 1 ? 1 : 0, true, "custom", "本版限單剪面。", "V1 適用範圍"),
+      makeDetailCheck("gussetBoltCount", "單列栓數適用範圍", Number.isInteger(state.gussetBoltCount) && state.gussetBoltCount >= 2 && state.gussetBoltCount <= 12 ? 1 : 0, true, "custom", "本版限 2 至 12 支整數螺栓。", "V1 適用範圍"),
+      makeDetailCheck("gussetSingleStraightBoltLine", "單一直線栓列", state.gussetLoadPathConfirmed && state.gussetShearPlanes === 1 ? 1 : 0, true, "custom", "V1 模型僅有一條直線栓列，不含多排、錯列或偏心栓群。", "專案指定"),
+      makeDetailCheck("gussetWhitmoreConnectionLength", "Whitmore 栓群連接長度", whitmoreConnectionLengthMatches ? 1 : 0, true, "custom", `Lconn 必須大於 0，且等於 (n − 1)s = (${formatEquationNumber(state.gussetBoltCount)} − 1) × ${formatEquationNumber(state.gussetPitch)} = ${formatEquationNumber(expectedWhitmoreConnectionLength)} mm；單列栓起始寬度取 0。`, "專案指定｜Whitmore 30° 模型"),
+      makeDetailCheck("gussetBearingConnectionLength", "承壓式螺栓接合長度", state.gussetWhitmoreConnectionLength, 1250, "lte", "表 10.3-2 註 [e] 對象為承壓式接合之續接拉力構材；本 Gusset 為端部接合，V1 在尚未實作長接合路線前保守援用 Lconn ≤ 1250 mm，並非一般接合的條文上限。", "表10.3-2 註[e]｜V1 保守適用範圍"),
+      makeDetailCheck("gussetFiniteDerivedResults", "派生幾何有限值", finiteDerivedResults ? 1 : 0, true, "custom", finiteDerivedResults ? "所有正式報告所需之派生寬度與面積均為有限值。" : "至少一個派生寬度或面積為 NaN／Infinity；禁止核可與正式輸出。", "V1 數值安全閘門"),
+      makeDetailCheck("gussetFiniteStrengthResults", "強度結果有限值與正容量", finiteStrengthResults ? 1 : 0, true, "custom", finiteStrengthResults ? "13 條強度路線之需求、標稱強度、可用強度與 DCR 均為有限值，且 Pu > 0 時容量為正。" : "至少一條強度路線含 NaN／Infinity、非正容量或非有限 DCR；禁止核可與正式輸出。", "V1 數值安全閘門"),
+      makeDetailCheck("gussetFlatPlateBrace", "平板支撐截面與 Ae = An", state.braceSectionType === "flat_plate" ? 1 : 0, true, "custom", "V1 限扁鋼 / 平板支撐矩形截面，所有截面元素由單列栓直接連接，U = 1.0、Ae = An；angle、WT、HSS 與剪力遲滯不適用。", "V1 適用範圍｜5.2"),
+      makeDetailCheck("gussetMaterialOrder", "Gusset 材料強度順序", state.gussetUltimateStrength >= state.gussetYieldStrength ? 1 : 0, true, "custom", "Gusset 須滿足 Fu ≥ Fy。", "規範判定｜材料物理一致性"),
+      makeDetailCheck("braceMaterialOrder", "支撐材材料強度順序", state.braceFu >= state.braceFy ? 1 : 0, true, "custom", "支撐材須滿足 Fu ≥ Fy。", "規範判定｜材料物理一致性"),
+      makeDetailCheck("gussetSupportMaterialOrder", "支承材材料強度順序", state.supportFu >= state.supportFy ? 1 : 0, true, "custom", "支承材須滿足 Fu ≥ Fy。", "規範判定｜材料物理一致性"),
+      makeDetailCheck("gussetNetGeometry", "Gusset 淨斷面幾何", state.gussetNetWidth > 0 && state.gussetNetWidth <= maximumGussetNetWidth ? 1 : 0, true, "custom", `bnet 同時受栓孔斷面 gross plate width 扣孔後之寬度與實際可用 Whitmore 寬限制；min(${formatEquationNumber(state.gussetConnectionWidth - netHoleWidth(state.holeDiameter))}, ${formatEquationNumber(gussetWhitmoreEffectiveWidth)}) = ${formatEquationNumber(maximumGussetNetWidth)} mm。`, "規範判定｜專案指定幾何"),
+      makeDetailCheck("braceNetGeometry", "支撐材淨斷面幾何", state.braceNetWidth > 0 && state.braceNetWidth <= maximumBraceNetWidth ? 1 : 0, true, "custom", `bn 應不大於 bg − 孔扣除 = ${formatEquationNumber(maximumBraceNetWidth)} mm。`, "規範判定｜專案指定幾何"),
+      makeDetailCheck("gussetAvailableWidth", "Whitmore 可用板寬", state.gussetAvailableWidth > 0 ? 1 : 0, true, "custom", `單列栓起始寬度為 0；bW = 2Lconn tan30° = ${formatEquationNumber(gussetWhitmoreTheoreticalWidth)} mm，有效寬度取 min(${formatEquationNumber(gussetWhitmoreTheoreticalWidth)}, ${formatEquationNumber(state.gussetAvailableWidth)}) = ${formatEquationNumber(gussetWhitmoreEffectiveWidth)} mm。`, "專案指定幾何"),
+      ...buildLinearBoltDetailChecks({ prefix: "gussetBoltLine", state, pitch: state.gussetPitch, endDistance: state.gussetEndDistance, edgeDistance: state.gussetEdgeDistance, boltDiameter: state.boltDiameter, thickness: state.gussetThickness }),
+      ...buildLinearBoltDetailChecks({ prefix: "braceBoltLine", state, pitch: state.gussetPitch, endDistance: state.braceEndDistance, edgeDistance: state.braceEdgeDistance, boltDiameter: state.boltDiameter, thickness: state.braceThickness }),
+      makeDetailCheck("gussetDoubleFilletWeld", "雙側縱向填角銲", state.weldLineCount === 2 ? 1 : 0, true, "custom", "本版限兩側對稱、等長縱向填角銲。", "V1 適用範圍"),
+      makeDetailCheck("gussetMinWeldSize", "最小填角銲尺寸", state.weldSize, minimumWeldSize, "gte", "依較厚連接材厚度判定最小填角銲尺寸。", "10.2.2"),
+      makeDetailCheck("gussetMaxWeldSize", "最大填角銲尺寸", state.weldSize, maximumWeldSize, "lte", "依較薄連接材邊緣厚度限制最大填角銲尺寸。", "10.2.2"),
+      makeDetailCheck("gussetShortWeld", "最短有效銲長", state.weldLength, 4 * state.weldSize, "gte", "有效銲長至少為 4a。", "10.2.2"),
+      makeDetailCheck("gussetLongWeld", "長銲道適用範圍", state.weldLength, 70 * state.weldSize, "lte", "Gusset V1 限 Le ≤ 70a；超出須另計長銲道折減。", "10.2.2、V1 適用範圍"),
+      makeDetailCheck("gussetDemandBasis", "設計拉力來源", hasBasis(state.gussetDemandBasis) ? 1 : 0, true, "custom", hasBasis(state.gussetDemandBasis) ? state.gussetDemandBasis : "請填入核定分析模型與載重組合來源。", "專案指定"),
+      makeDetailCheck("gussetGeometryBasis", "幾何資料來源", hasBasis(state.gussetGeometryBasis) ? 1 : 0, true, "custom", hasBasis(state.gussetGeometryBasis) ? state.gussetGeometryBasis : "請填入核定圖說或量測來源。", "專案指定"),
+      makeDetailCheck("gussetMaterialBasis", "材料資料來源", hasBasis(state.gussetMaterialBasis) ? 1 : 0, true, "custom", hasBasis(state.gussetMaterialBasis) ? state.gussetMaterialBasis : "請填入鋼材、螺栓與銲材規格來源。", "專案指定"),
+      makeDetailCheck("gussetModelBasis", "接頭模型來源", hasBasis(state.gussetModelBasis) ? 1 : 0, true, "custom", hasBasis(state.gussetModelBasis) ? state.gussetModelBasis : "請說明同心單列栓與雙側縱向銲之力流模型。", "專案指定"),
     ];
 
     return {
       ...CONNECTION_META.brace_gusset,
       checks,
-      detailChecks: buildLinearBoltDetailChecks({
-        prefix: "Gusset",
-        state,
-        pitch: state.gussetPitch,
-        endDistance: state.gussetEndDistance,
-        edgeDistance: state.gussetEdgeDistance,
-        boltDiameter: state.boltDiameter,
-        thickness: state.gussetThickness,
-        shortWeld: { weldLength: state.gussetWeldLength, weldSize: state.gussetWeldSize },
-      }),
+      detailChecks,
       validations,
       assumptions: [
-        "支撐接頭以軸力傳遞為主，未納入壓桿挫屈與 Gusset 折角外移分析。",
-        "Whitmore 有效寬度依 30 度展開估算，僅作第一階段設計檢核。",
-        "未納入 brace outstanding leg、偏心接合與耐震 BRB 特別規定。",
+        "正式適用範圍為 LRFD、扁鋼 / 平板支撐矩形截面、正軸向同心拉力、靜力非耐震且非 BRB、F10T 標準孔單剪、單一直線 2 至 12 栓與兩側對稱縱向填角銲。",
+        "平板支撐之所有截面元素由單列栓直接連接，U = 1.0、Ae = An；angle、WT、HSS 與任何需剪力遲滯折減之支撐截面均排除。",
+        "力流依序由支撐材經承壓螺栓傳至 Gusset，再由 Gusset 兩側縱向填角銲傳至支承材；三段不得視為並聯容量。",
+        "單一直線栓列之 Whitmore fastener-group 起始寬度取 0，Lconn = (n − 1)s，bW = 2Lconn tan30°；有效寬度再取理論值與專案實際可用板寬之較小值。",
+        "F10T 承壓式螺栓標稱剪應力依表 10.3-2 採含牙 4.00 tf/cm²、不含牙 5.00 tf/cm²。註 [e] 的 20% 長接合折減原針對承壓式接合之續接拉力構材；本 Gusset 為端部接合，V1 在尚未實作長接合路線前保守援用 Lconn ≤ 1250 mm，並非一般接合的條文上限。",
+        "本附件不含壓桿挫屈、Gusset 壓力屈曲、折角外移、偏心、疲勞、反覆載重、耐震特別規定、BRB、支承構件整體或局部極限狀態。",
       ],
       references: [
-        "10.3 螺栓與孔承壓",
+        "5.2 拉力構件之降伏與斷裂",
+        "10.2.2 填角銲細部",
+        "10.2.4 銲接接合強度",
+        "10.3.3 螺栓剪力強度",
+        "表10.3-2 F10T 承壓式螺栓標稱剪應力與註[e]長接合折減",
+        "10.3.8 標準孔",
+        "10.3.9 螺栓孔承壓",
         "10.3.11~10.3.13 孔距與邊距",
         "10.4 塊狀撕裂",
-        "Whitmore section 工程實務概念",
+        "專案指定｜單列栓起始寬度 0、Lconn = (n − 1)s 之 Whitmore 30° 有效寬度模型與可用板寬上限",
       ],
+      derivedAreas: {
+        gussetGrossArea,
+        gussetNetArea,
+        gussetEffectiveNetArea,
+        braceGrossArea,
+        braceNetArea,
+        gussetBlockAgv: gussetBlockAreas.Agv,
+        gussetBlockAnv: gussetBlockAreas.Anv,
+        gussetBlockAgt: gussetBlockAreas.Agt,
+        gussetBlockAnt: gussetBlockAreas.Ant,
+        braceBlockAgv: braceBlockAreas.Agv,
+        braceBlockAnv: braceBlockAreas.Anv,
+        braceBlockAgt: braceBlockAreas.Agt,
+        braceBlockAnt: braceBlockAreas.Ant,
+        gussetWhitmoreTheoreticalWidth,
+        gussetWhitmoreEffectiveWidth,
+        gussetWhitmoreArea,
+      },
     };
   }
 
@@ -2640,9 +2970,13 @@ ${buildAvailableStrengthLatex(state.designMethod, "bearing", totalBearingNominal
       validations.push("本模組仍含範圍受限或簡化條件，結果不得直接視為完整規範覆核。");
     }
     const governing = checks.reduce((maxCheck, current) => (!maxCheck || current.ratio > maxCheck.ratio ? current : maxCheck), null);
-    const strengthFailure = checks.some((item) => item.ratio > 1.0);
+    const strengthFailure = checks.some((item) => {
+      const numericResultsAreFinite = [item.demand, item.nominal, item.available, item.ratio].every(Number.isFinite);
+      const positiveDemandHasPositiveCapacity = item.demand <= 0 || (item.nominal > 0 && item.available > 0);
+      return !numericResultsAreFinite || !positiveDemandHasPositiveCapacity || item.ratio > 1.0;
+    });
     const detailFailure = detailChecks.some((item) => !item.passes);
-    const validationFailure = state.connectionType === "single_plate" && blockingValidations.length > 0;
+    const validationFailure = ["single_plate", "brace_gusset"].includes(state.connectionType) && blockingValidations.length > 0;
     const hasWarning = validations.length > 0 || checks.some((item) => item.warning) || scopeLimited;
     const overallStatus = !complianceReady || strengthFailure || detailFailure || validationFailure ? "fail" : hasWarning ? "warn" : "ok";
 

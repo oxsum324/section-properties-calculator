@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>鋼構正式規範核算工具 V1.0</title>
+  <title>鋼構正式規範核算工具 V1.1</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230e7490'/%3E%3Cpath d='M16 18h32v8H16zm0 20h32v8H16zm12-20h8v28h-8z' fill='%23ecfeff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
@@ -24,8 +24,8 @@
       <a class="page-header__link" href="./steel-beam-formal.html">鋼梁正式頁</a>
       <a class="page-header__link" href="./steel-column-formal.html">鋼柱正式頁</a>
     </nav>
-    <h1 id="pageTitle">鋼構正式規範核算工具 V1.0</h1>
-    <p id="pageDescription">正式核算模組：連接板、拉力構件、單剪力板 Shear Tab｜左輸入、右報表、計算流程、核可判讀一體化</p>
+    <h1 id="pageTitle">鋼構正式規範核算工具 V1.1</h1>
+    <p id="pageDescription">正式核算模組：連接板、拉力構件、單剪力板 Shear Tab、平板支撐 Gusset 拉力接頭｜左輸入、右報表、計算流程、核可判讀一體化</p>
   </header>
 
   <main class="container">
@@ -37,7 +37,7 @@
             <option value="tension_member">拉力構件｜Tension Member</option>
             <option value="single_plate">剪力接頭｜單剪力板 Shear Tab｜LRFD</option>
             <option value="column_splice" disabled>柱續接｜Column Splice｜開發中</option>
-            <option value="brace_gusset" disabled>支撐 / Gusset 接頭｜開發中</option>
+            <option value="brace_gusset">支撐接頭｜平板支撐 Gusset 拉力接頭｜LRFD 正式模組</option>
             <option value="beam_column_moment" disabled>梁柱彎矩接頭｜開發中</option>
           </select>
         </div>
@@ -476,42 +476,47 @@
           </div>
 
           <div class="card" data-connection="brace_gusset">
-            <h2>支撐 / Gusset 接頭資料</h2>
-            <p class="section-note">以支撐軸力為主控，檢核螺栓剪力、孔承壓、淨斷面、塊狀撕裂、Whitmore 有效寬度屈服與銲道強度。</p>
+            <h2>支撐接頭｜平板支撐 Gusset 拉力接頭｜LRFD 正式模組</h2>
+            <p class="section-note">限扁鋼／平板支撐矩形截面且全截面元素由單列栓直接連接（U = 1.0、Ae = An）、正軸向同心拉力、靜力非耐震且非 BRB；angle、WT、HSS 與剪力遲滯不適用。F10T 標準孔單剪、單一直線 2–12 栓，支撐材先以承壓螺栓傳至 Gusset，再由兩側縱向填角銲傳至支承材。</p>
             <div class="form-row">
               <div class="form-group">
-                <label>Gusset 螺栓數 nbg (支)</label>
-                <input name="gussetBoltCount" type="number" min="1" step="1">
+                <label>螺栓等級</label>
+                <select name="boltGrade">
+                  <option value="F10T">CNS F10T｜Fub = 1000 MPa</option>
+                </select>
               </div>
               <div class="form-group">
-                <label>剪斷面數 nsg</label>
-                <select name="gussetShearPlanes">
-                  <option value="1">單剪</option>
-                  <option value="2">雙剪</option>
-                </select>
+                <label>Gusset 螺栓數 nbg (支)</label>
+                <input name="gussetBoltCount" type="number" min="2" max="12" step="1">
               </div>
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>端距 eg (mm)</label>
-                <input name="gussetEndDistance" type="number" min="1" step="0.1">
+                <label>剪斷面數 nsg</label>
+                <select name="gussetShearPlanes">
+                  <option value="1">單剪</option>
+                </select>
               </div>
               <div class="form-group">
-                <label>孔距 sg (mm)</label>
+                <label>共同孔距 sg (mm)</label>
                 <input name="gussetPitch" type="number" min="1" step="0.1">
               </div>
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>側邊距 gg (mm)</label>
-                <input name="gussetEdgeDistance" type="number" min="1" step="0.1">
+                <label>Gusset 端距 eg (mm)</label>
+                <input name="gussetEndDistance" type="number" min="1" step="0.1">
               </div>
               <div class="form-group">
-                <label>Gusset 厚 tg (mm)</label>
-                <input name="gussetThickness" type="number" min="1" step="0.1">
+                <label>Gusset 側邊距 gg (mm)</label>
+                <input name="gussetEdgeDistance" type="number" min="1" step="0.1">
               </div>
             </div>
             <div class="form-row">
+              <div class="form-group">
+                <label>Gusset 厚度 tg (mm)</label>
+                <input name="gussetThickness" type="number" min="1" step="0.1">
+              </div>
               <div class="form-group">
                 <label>Gusset Fy / Fu (MPa)</label>
                 <div class="form-row compact">
@@ -519,42 +524,134 @@
                   <input name="gussetUltimateStrength" type="number" min="1" step="1" placeholder="Fu">
                 </div>
               </div>
+            </div>
+            <div class="form-row">
               <div class="form-group">
-                <label>有效淨寬 bnet (mm)</label>
+                <label>Gusset 栓孔斷面總寬 bg,gusset (mm)</label>
+                <input name="gussetConnectionWidth" type="number" min="1" step="0.1">
+                <p class="section-note">僅用於 Gusset 栓孔斷面 Ag／An；不是 Whitmore 初始寬度。</p>
+              </div>
+              <div class="form-group">
+                <label>Gusset 有效淨寬 bnet (mm)</label>
                 <input name="gussetNetWidth" type="number" min="1" step="0.1">
               </div>
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>連接初始寬度 b0 (mm)</label>
-                <input name="gussetConnectionWidth" type="number" min="1" step="0.1">
+                <label>Whitmore 栓群連接長度 Lconn = (n−1)sg (mm)</label>
+                <input name="gussetWhitmoreConnectionLength" type="number" min="1" max="1250" step="0.1">
+                <p class="section-note">亦為本端部接合沿拉力方向之栓群長度。表 10.3-2 註 [e] 原針對承壓式接合之續接拉力構材；Gusset V1 在尚未實作長接合路線前保守援用 Lconn ≤ 1250 mm，並非一般接合的條文上限。</p>
               </div>
               <div class="form-group">
-                <label>Whitmore 展開長度 Lw (mm)</label>
-                <input name="gussetWhitmoreLength" type="number" min="1" step="0.1">
+                <label>Whitmore 可用板寬 bavail (mm)</label>
+                <input name="gussetAvailableWidth" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>支撐材截面型式</label>
+              <select name="braceSectionType">
+                <option value="flat_plate">扁鋼／平板支撐｜矩形截面｜U = 1.0、Ae = An</option>
+              </select>
+              <p class="section-note">V1 不接受 angle、WT、HSS 或任何需考慮剪力遲滯之截面。</p>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>支撐材端距 eb (mm)</label>
+                <input name="braceEndDistance" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>支撐材側邊距 gb (mm)</label>
+                <input name="braceEdgeDistance" type="number" min="1" step="0.1">
               </div>
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>銲腳尺寸 a (mm)</label>
-                <input name="gussetWeldSize" type="number" min="1" step="0.1">
+                <label>支撐材厚度 tb (mm)</label>
+                <input name="braceThickness" type="number" min="1" step="0.1">
               </div>
               <div class="form-group">
-                <label>單道有效長 Le (mm)</label>
-                <input name="gussetWeldLength" type="number" min="1" step="0.1">
+                <label>支撐材 Fy / Fu (MPa)</label>
+                <div class="form-row compact">
+                  <input name="braceFy" type="number" min="1" step="1" placeholder="Fy">
+                  <input name="braceFu" type="number" min="1" step="1" placeholder="Fu">
+                </div>
               </div>
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>銲道數量</label>
-                <select name="gussetWeldLineCount">
-                  <option value="2">雙側銲</option>
-                  <option value="1">單側銲</option>
+                <label>支撐材總寬 bg (mm)</label>
+                <input name="braceGrossWidth" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>支撐材淨寬 bn (mm)</label>
+                <input name="braceNetWidth" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>雙側縱向銲腳 a (mm)</label>
+                <input name="weldSize" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>各側有效銲長 Le (mm)</label>
+                <input name="weldLength" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>縱向銲道數量</label>
+                <select name="weldLineCount">
+                  <option value="2">兩側對稱縱向銲</option>
                 </select>
               </div>
               <div class="form-group">
                 <label>銲材 FEXX (MPa)</label>
-                <input name="gussetWeldElectrodeStrength" type="number" min="1" step="1">
+                <input name="weldFexx" type="number" min="1" step="1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>支承材厚度 ts (mm)</label>
+                <input name="supportThickness" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>支承材 Fy / Fu (MPa)</label>
+                <div class="form-row compact">
+                  <input name="supportFy" type="number" min="1" step="1" placeholder="Fy">
+                  <input name="supportFu" type="number" min="1" step="1" placeholder="Fu">
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>設計拉力來源</label>
+              <textarea name="gussetDemandBasis" rows="2" placeholder="例：分析模型、ULS 載重組合與反力表編號"></textarea>
+            </div>
+            <div class="form-group">
+              <label>幾何資料來源</label>
+              <textarea name="gussetGeometryBasis" rows="2" placeholder="例：核定接頭圖、詳圖編號或量測紀錄"></textarea>
+            </div>
+            <div class="form-group">
+              <label>材料資料來源</label>
+              <textarea name="gussetMaterialBasis" rows="2" placeholder="例：鋼材、F10T 螺栓與銲材規格證明"></textarea>
+            </div>
+            <div class="form-group">
+              <label>接頭模型來源</label>
+              <textarea name="gussetModelBasis" rows="2" placeholder="說明同心單列栓與兩側縱向銲之串聯力流依據"></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>靜力、非耐震、非 BRB 確認</label>
+                <select name="gussetStaticNonseismicConfirmed">
+                  <option value="true">已依專案文件確認</option>
+                  <option value="false">尚未確認｜禁止核可</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>串聯力流與單一直線栓列確認</label>
+                <select name="gussetLoadPathConfirmed">
+                  <option value="true">已依核定圖說確認</option>
+                  <option value="false">尚未確認｜禁止核可</option>
+                </select>
               </div>
             </div>
           </div>

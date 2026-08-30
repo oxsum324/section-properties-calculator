@@ -3844,10 +3844,287 @@ function steelFormalOracle(input) {
     return output;
   };
 
+  const gussetCase = i => {
+    const axialDemand = Math.max(i.requiredAxial, 0);
+    const boltCount = Math.max(Math.round(i.gussetBoltCount), 1);
+    const shearPlanes = Math.max(Math.round(i.gussetShearPlanes), 1);
+    const weldLineCount = Math.max(Math.round(i.weldLineCount), 1);
+    const deformationConsidered = i.deformationConsidered === true || i.deformationConsidered === 'true';
+    const staticNonseismicConfirmed = i.gussetStaticNonseismicConfirmed === true || i.gussetStaticNonseismicConfirmed === 'true';
+    const loadPathConfirmed = i.gussetLoadPathConfirmed === true || i.gussetLoadPathConfirmed === 'true';
+    const holeWidth = i.holeDiameter + 1.5;
+    const gussetGrossArea = i.gussetConnectionWidth * i.gussetThickness;
+    const gussetNetArea = i.gussetNetWidth * i.gussetThickness;
+    const gussetEffectiveNetArea = Math.min(gussetNetArea, 0.85 * gussetGrossArea);
+    const braceGrossArea = i.braceGrossWidth * i.braceThickness;
+    const braceNetArea = i.braceNetWidth * i.braceThickness;
+    const expectedWhitmoreConnectionLength = Math.max(boltCount - 1, 0) * i.gussetPitch;
+    const gussetWhitmoreTheoreticalWidth = 2 * i.gussetWhitmoreConnectionLength * Math.tan(Math.PI / 6);
+    const gussetWhitmoreEffectiveWidth = Math.min(gussetWhitmoreTheoreticalWidth, i.gussetAvailableWidth);
+    const gussetWhitmoreArea = gussetWhitmoreEffectiveWidth * i.gussetThickness;
+
+    const boltArea = Math.PI * i.boltDiameter ** 2 / 4;
+    const boltShearStress = (i.threadsCondition === 'excluded' ? 5.00 : 4.00) * 98.0665;
+    const boltNominal = boltShearStress * boltArea * boltCount * shearPlanes / 1000;
+    const boltAvailable = available(boltNominal, i.designMethod, 0.75, 2);
+
+    const bearingNominalPerBolt = (clearDistance, thickness, ultimateStrength) => Math.min(
+      (deformationConsidered ? 1.2 : 1.5) * Math.max(clearDistance, 0) * thickness * ultimateStrength,
+      (deformationConsidered ? 2.4 : 3.0) * i.boltDiameter * thickness * ultimateStrength,
+    ) / 1000;
+    const lineBearing = (endDistance, thickness, ultimateStrength) => {
+      const endNominal = bearingNominalPerBolt(endDistance - i.holeDiameter / 2, thickness, ultimateStrength);
+      const interiorNominal = bearingNominalPerBolt(i.gussetPitch - i.holeDiameter, thickness, ultimateStrength);
+      const nominal = endNominal + Math.max(boltCount - 1, 0) * interiorNominal;
+      return { nominal, available:available(nominal, i.designMethod, 0.75, 2) };
+    };
+    const gussetBearing = lineBearing(i.gussetEndDistance, i.gussetThickness, i.gussetUltimateStrength);
+    const braceBearing = lineBearing(i.braceEndDistance, i.braceThickness, i.braceFu);
+
+    const blockShear = (endDistance, edgeDistance, thickness, yieldStrength, ultimateStrength) => {
+      const shearLength = endDistance + Math.max(boltCount - 1, 0) * i.gussetPitch;
+      const Agv = shearLength * thickness;
+      const Anv = Math.max(shearLength - (boltCount - 0.5) * holeWidth, 0) * thickness;
+      const Agt = edgeDistance * thickness;
+      const Ant = Math.max(edgeDistance - holeWidth / 2, 0) * thickness;
+      const tensionRupture = ultimateStrength * Ant / 1000;
+      const shearRupture = 0.6 * ultimateStrength * Anv / 1000;
+      const shearYield = 0.6 * yieldStrength * Agv / 1000;
+      const tensionYield = yieldStrength * Agt / 1000;
+      const equation3 = tensionRupture >= shearRupture;
+      const nominal = equation3
+        ? Math.min(shearYield + tensionRupture, shearRupture + tensionRupture)
+        : Math.min(shearRupture + tensionYield, shearRupture + tensionRupture);
+      return {
+        Agv, Anv, Agt, Ant, nominal,
+        available:available(nominal, i.designMethod, 0.75, 2),
+        equation3,
+      };
+    };
+    const gussetBlock = blockShear(
+      i.gussetEndDistance, i.gussetEdgeDistance, i.gussetThickness,
+      i.gussetYieldStrength, i.gussetUltimateStrength,
+    );
+    const braceBlock = blockShear(
+      i.braceEndDistance, i.braceEdgeDistance, i.braceThickness,
+      i.braceFy, i.braceFu,
+    );
+
+    const grossStrength = (area, yieldStrength) => {
+      const nominal = yieldStrength * area / 1000;
+      return { nominal, available:available(nominal, i.designMethod, 0.9, 1.67) };
+    };
+    const netStrength = (area, ultimateStrength) => {
+      const nominal = ultimateStrength * area / 1000;
+      return { nominal, available:available(nominal, i.designMethod, 0.75, 2) };
+    };
+    const gussetGross = grossStrength(gussetGrossArea, i.gussetYieldStrength);
+    const gussetNet = netStrength(gussetEffectiveNetArea, i.gussetUltimateStrength);
+    const braceGross = grossStrength(braceGrossArea, i.braceFy);
+    const braceNet = netStrength(braceNetArea, i.braceFu);
+    const whitmore = grossStrength(gussetWhitmoreArea, i.gussetYieldStrength);
+
+    const weldMetalNominal = 0.6 * i.weldFexx * 0.707 * i.weldSize * i.weldLength * weldLineCount / 1000;
+    const weldMetal = {
+      nominal:weldMetalNominal,
+      available:available(weldMetalNominal, i.designMethod, 0.75, 2),
+    };
+    const baseMetalWeld = (thickness, yieldStrength, ultimateStrength) => {
+      const area = thickness * i.weldLength * weldLineCount;
+      const nominalYield = 0.6 * yieldStrength * area / 1000;
+      const nominalRupture = 0.6 * ultimateStrength * area / 1000;
+      const availableYield = available(nominalYield, i.designMethod, 0.9, 1.67);
+      const availableRupture = available(nominalRupture, i.designMethod, 0.75, 2);
+      return availableYield <= availableRupture
+        ? { nominal:nominalYield, available:availableYield }
+        : { nominal:nominalRupture, available:availableRupture };
+    };
+    const weldGussetBase = baseMetalWeld(i.gussetThickness, i.gussetYieldStrength, i.gussetUltimateStrength);
+    const weldSupportBase = baseMetalWeld(i.supportThickness, i.supportFy, i.supportFu);
+
+    const rawChecks = [
+      ['bolt', { nominal:boltNominal, available:boltAvailable }],
+      ['gussetBearing', gussetBearing],
+      ['braceBearing', braceBearing],
+      ['gussetGross', gussetGross],
+      ['gussetNet', gussetNet],
+      ['gussetBlock', gussetBlock],
+      ['braceGross', braceGross],
+      ['braceNet', braceNet],
+      ['braceBlock', braceBlock],
+      ['whitmore', whitmore],
+      ['weldMetal', weldMetal],
+      ['weldGussetBase', weldGussetBase],
+      ['weldSupportBase', weldSupportBase],
+    ];
+    const checks = rawChecks.map(([key, check]) => ({
+      key,
+      nominal:check.nominal,
+      available:check.available,
+      ratio:check.available > 0 ? axialDemand / check.available : Infinity,
+    }));
+    const governingKey = checks.reduce((best, current) => current.ratio > best.ratio ? current : best, checks[0]).key;
+
+    const maximumStandardHoleDiameter = new Map([[12, 13.5], [16, 17.5], [20, 21.5], [22, 23.5], [24, 25.5]]).get(i.boltDiameter)
+      ?? (i.boltDiameter >= 27 ? i.boltDiameter + 1.5 : null);
+    const minimumGussetEdge = baseEdgeDistance(i.boltDiameter, i.edgeFabrication);
+    const minimumBraceEdge = baseEdgeDistance(i.boltDiameter, i.edgeFabrication);
+    const maximumGussetEdge = Math.min(12 * i.gussetThickness, 150);
+    const maximumBraceEdge = Math.min(12 * i.braceThickness, 150);
+    const maximumGussetSpacing = i.exposureCondition === 'weathering'
+      ? Math.min(14 * i.gussetThickness, 180) : Math.min(24 * i.gussetThickness, 300);
+    const maximumBraceSpacing = i.exposureCondition === 'weathering'
+      ? Math.min(14 * i.braceThickness, 180) : Math.min(24 * i.braceThickness, 300);
+    const maximumGussetNetWidth = Math.min(i.gussetConnectionWidth - holeWidth, gussetWhitmoreEffectiveWidth);
+    const maximumBraceNetWidth = i.braceGrossWidth - holeWidth;
+    const thickerWeldPart = Math.max(i.gussetThickness, i.supportThickness);
+    const thinnerWeldPart = Math.min(i.gussetThickness, i.supportThickness);
+    const minimumWeldSize = thickerWeldPart <= 6 ? 3 : thickerWeldPart <= 12 ? 5 : thickerWeldPart <= 19 ? 6 : 8;
+    const maximumWeldSize = thinnerWeldPart < 6 ? thinnerWeldPart : Math.max(thinnerWeldPart - 1.5, 0);
+    const hasBasis = value => Boolean(String(value || '').trim())
+      && !/示例|請依專案覆寫|請填|待補|未填|placeholder/i.test(String(value));
+    const methodPass = i.designMethod === 'LRFD';
+    const positiveTensionPass = i.requiredAxial > 0;
+    const zeroShearPass = Math.abs(i.requiredShear) <= 0;
+    const zeroMomentPass = Math.abs(i.requiredMoment) <= 0;
+    const concentricPass = Math.abs(i.eccentricity) <= 0;
+    const boltGradePass = i.boltGrade === 'F10T' && Math.abs(i.boltUltimateStrength - 1000) <= 1;
+    const standardHolePass = i.holeType === 'standard';
+    const boltDiameterTablePass = maximumStandardHoleDiameter !== null;
+    const holeDiameterPass = i.holeDiameter > i.boltDiameter;
+    const standardHoleMaximumPass = boltDiameterTablePass && i.holeDiameter <= maximumStandardHoleDiameter;
+    const singleShearPass = shearPlanes === 1;
+    const boltCountPass = boltCount >= 2 && boltCount <= 12;
+    const singleStraightBoltLinePass = loadPathConfirmed && singleShearPass;
+    const gussetMaterialOrderPass = i.gussetUltimateStrength >= i.gussetYieldStrength;
+    const braceMaterialOrderPass = i.braceFu >= i.braceFy;
+    const supportMaterialOrderPass = i.supportFu >= i.supportFy;
+    const gussetNetGeometryPass = i.gussetNetWidth > 0 && i.gussetNetWidth <= maximumGussetNetWidth;
+    const braceNetGeometryPass = i.braceNetWidth > 0 && i.braceNetWidth <= maximumBraceNetWidth;
+    const availableWidthPass = i.gussetAvailableWidth > 0;
+    const whitmoreConnectionLengthPass = i.gussetWhitmoreConnectionLength > 0
+      && Math.abs(i.gussetWhitmoreConnectionLength - expectedWhitmoreConnectionLength) <= 1e-9;
+    const bearingConnectionLengthPass = i.gussetWhitmoreConnectionLength <= 1250;
+    const flatPlateBracePass = i.braceSectionType === 'flat_plate';
+    const gussetBoltLine = {
+      holeCompatibilityPass:standardHolePass,
+      minSpacingPass:i.gussetPitch >= 3 * i.boltDiameter,
+      minEndPass:i.gussetEndDistance >= minimumGussetEdge,
+      minEdgePass:i.gussetEdgeDistance >= minimumGussetEdge,
+      maxEndPass:i.gussetEndDistance <= maximumGussetEdge,
+      maxEdgePass:i.gussetEdgeDistance <= maximumGussetEdge,
+      maxSpacingPass:i.gussetPitch <= maximumGussetSpacing,
+    };
+    const braceBoltLine = {
+      holeCompatibilityPass:standardHolePass,
+      minSpacingPass:i.gussetPitch >= 3 * i.boltDiameter,
+      minEndPass:i.braceEndDistance >= minimumBraceEdge,
+      minEdgePass:i.braceEdgeDistance >= minimumBraceEdge,
+      maxEndPass:i.braceEndDistance <= maximumBraceEdge,
+      maxEdgePass:i.braceEdgeDistance <= maximumBraceEdge,
+      maxSpacingPass:i.gussetPitch <= maximumBraceSpacing,
+    };
+    const doubleFilletWeldPass = weldLineCount === 2;
+    const minWeldSizePass = i.weldSize >= minimumWeldSize;
+    const maxWeldSizePass = i.weldSize <= maximumWeldSize;
+    const shortWeldPass = i.weldLength >= 4 * i.weldSize;
+    const longWeldPass = i.weldLength <= 70 * i.weldSize;
+    const demandBasisPass = hasBasis(i.gussetDemandBasis);
+    const geometryBasisPass = hasBasis(i.gussetGeometryBasis);
+    const materialBasisPass = hasBasis(i.gussetMaterialBasis);
+    const modelBasisPass = hasBasis(i.gussetModelBasis);
+    const detailPass = [
+      methodPass, positiveTensionPass, zeroShearPass, zeroMomentPass, concentricPass,
+      staticNonseismicConfirmed, loadPathConfirmed, boltGradePass, standardHolePass,
+      boltDiameterTablePass, holeDiameterPass, standardHoleMaximumPass, singleShearPass,
+      boltCountPass, singleStraightBoltLinePass, gussetMaterialOrderPass, braceMaterialOrderPass,
+      supportMaterialOrderPass, gussetNetGeometryPass, braceNetGeometryPass, availableWidthPass,
+      whitmoreConnectionLengthPass, bearingConnectionLengthPass, flatPlateBracePass,
+      ...Object.values(gussetBoltLine), ...Object.values(braceBoltLine),
+      doubleFilletWeldPass, minWeldSizePass, maxWeldSizePass, shortWeldPass, longWeldPass,
+      demandBasisPass, geometryBasisPass, materialBasisPass, modelBasisPass,
+    ].every(Boolean);
+    const validationFailure = !detailPass;
+    const strengthPass = checks.every(check => check.ratio <= 1);
+    const output = {
+      lrfd:methodPass ? 1 : 0,
+      checkCount:checks.length,
+      gussetGrossArea,
+      gussetNetArea,
+      gussetEffectiveNetArea,
+      braceGrossArea,
+      braceNetArea,
+      gussetBlockAgv:gussetBlock.Agv,
+      gussetBlockAnv:gussetBlock.Anv,
+      gussetBlockAgt:gussetBlock.Agt,
+      gussetBlockAnt:gussetBlock.Ant,
+      braceBlockAgv:braceBlock.Agv,
+      braceBlockAnv:braceBlock.Anv,
+      braceBlockAgt:braceBlock.Agt,
+      braceBlockAnt:braceBlock.Ant,
+      gussetWhitmoreTheoreticalWidth,
+      gussetWhitmoreEffectiveWidth,
+      gussetWhitmoreArea,
+      gussetBlockEquation3:gussetBlock.equation3 ? 1 : 0,
+      braceBlockEquation3:braceBlock.equation3 ? 1 : 0,
+      governingBraceGross:governingKey === 'braceGross' ? 1 : 0,
+      methodPass:methodPass ? 1 : 0,
+      positiveTensionPass:positiveTensionPass ? 1 : 0,
+      zeroShearPass:zeroShearPass ? 1 : 0,
+      zeroMomentPass:zeroMomentPass ? 1 : 0,
+      concentricPass:concentricPass ? 1 : 0,
+      staticNonseismicConfirmedPass:staticNonseismicConfirmed ? 1 : 0,
+      loadPathConfirmedPass:loadPathConfirmed ? 1 : 0,
+      boltGradePass:boltGradePass ? 1 : 0,
+      standardHolePass:standardHolePass ? 1 : 0,
+      boltDiameterTablePass:boltDiameterTablePass ? 1 : 0,
+      holeDiameterPass:holeDiameterPass ? 1 : 0,
+      standardHoleMaximum:maximumStandardHoleDiameter ?? 0,
+      standardHoleMaximumPass:standardHoleMaximumPass ? 1 : 0,
+      singleShearPass:singleShearPass ? 1 : 0,
+      boltCountPass:boltCountPass ? 1 : 0,
+      singleStraightBoltLinePass:singleStraightBoltLinePass ? 1 : 0,
+      gussetMaterialOrderPass:gussetMaterialOrderPass ? 1 : 0,
+      braceMaterialOrderPass:braceMaterialOrderPass ? 1 : 0,
+      supportMaterialOrderPass:supportMaterialOrderPass ? 1 : 0,
+      gussetNetGeometryPass:gussetNetGeometryPass ? 1 : 0,
+      braceNetGeometryPass:braceNetGeometryPass ? 1 : 0,
+      availableWidthPass:availableWidthPass ? 1 : 0,
+      whitmoreConnectionLengthPass:whitmoreConnectionLengthPass ? 1 : 0,
+      bearingConnectionLengthPass:bearingConnectionLengthPass ? 1 : 0,
+      flatPlateBracePass:flatPlateBracePass ? 1 : 0,
+      ...Object.fromEntries(Object.entries(gussetBoltLine).map(([key, value]) => [`gussetBoltLine${key[0].toUpperCase()}${key.slice(1)}`, value ? 1 : 0])),
+      ...Object.fromEntries(Object.entries(braceBoltLine).map(([key, value]) => [`braceBoltLine${key[0].toUpperCase()}${key.slice(1)}`, value ? 1 : 0])),
+      minimumWeldSize,
+      maximumWeldSize,
+      doubleFilletWeldPass:doubleFilletWeldPass ? 1 : 0,
+      minWeldSizePass:minWeldSizePass ? 1 : 0,
+      maxWeldSizePass:maxWeldSizePass ? 1 : 0,
+      shortWeldPass:shortWeldPass ? 1 : 0,
+      longWeldPass:longWeldPass ? 1 : 0,
+      demandBasisPass:demandBasisPass ? 1 : 0,
+      geometryBasisPass:geometryBasisPass ? 1 : 0,
+      materialBasisPass:materialBasisPass ? 1 : 0,
+      modelBasisPass:modelBasisPass ? 1 : 0,
+      strengthPass:strengthPass ? 1 : 0,
+      detailPass:detailPass ? 1 : 0,
+      validationFailure:validationFailure ? 1 : 0,
+      complianceReady:1,
+      overallPass:strengthPass && detailPass && !validationFailure ? 1 : 0,
+    };
+    for (const check of checks) {
+      output[`${check.key}Nominal`] = check.nominal;
+      output[`${check.key}Available`] = check.available;
+      output[`${check.key}Ratio`] = check.ratio;
+    }
+    return output;
+  };
+
   return {
     [input.plateCase.id]:plateCase(input.plateCase),
     ...Object.fromEntries(input.tensionCases.map(item => [item.id, tensionCase(item)])),
     ...Object.fromEntries(input.singlePlateCases.map(item => [item.id, singlePlateCase(item)])),
+    ...Object.fromEntries(input.gussetCases.map(item => [item.id, gussetCase(item)])),
   };
 }
 

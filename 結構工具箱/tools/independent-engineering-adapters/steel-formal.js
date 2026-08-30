@@ -11,6 +11,7 @@ for (const token of [
   '<option value="plate_check">連接板檢核｜Connection Plate</option>',
   '<option value="tension_member">拉力構件｜Tension Member</option>',
   '<option value="single_plate">剪力接頭｜單剪力板 Shear Tab｜LRFD</option>',
+  '<option value="brace_gusset">',
   '<script src="./calculator.js"></script>',
   '<script src="./app.js"></script>',
 ]) {
@@ -20,6 +21,7 @@ for (const token of [
   'const { calculateConnection } = window.ShearConnectionCalculator;',
   'exampleStates.single_plate',
   'exampleStates.tension_member',
+  'exampleStates.brace_gusset',
   'buildConnectionReportConfig(result)',
 ]) {
   if (!productionAppSource.includes(token)) throw new Error(`steel-formal-app-contract-missing:${token}`);
@@ -146,6 +148,120 @@ function validateInput(input) {
     && Number(rejectedGeometry?.pitch) > 76.2
     && Number(rejectedGeometry?.plateHeight) > 914.4)) {
     issues.push('singlePlateCases:detail-rejection-required');
+  }
+  const expectedGussetIds = [
+    'gussetLrfdConcentric',
+    'gussetCompressionBlocked',
+    'gussetAsdBlocked',
+    'gussetNonConcentricBlocked',
+    'gussetGovernanceRejected',
+  ];
+  if (!Array.isArray(input?.gussetCases) || input.gussetCases.length !== expectedGussetIds.length) {
+    issues.push('gussetCases:five-required');
+  }
+  const actualGussetIds = (input?.gussetCases || []).map(item => item?.id);
+  if (actualGussetIds.join('|') !== expectedGussetIds.join('|')) {
+    issues.push('gussetCases:case-order-and-ids');
+  }
+  for (const [index, item] of (input?.gussetCases || []).entries()) {
+    const prefix = `gussetCases[${index}]`;
+    validatePositiveFields(item, [
+      'boltDiameter', 'holeDiameter', 'boltUltimateStrength', 'gussetBoltCount', 'gussetShearPlanes',
+      'gussetEndDistance', 'gussetPitch', 'gussetEdgeDistance', 'gussetThickness',
+      'gussetYieldStrength', 'gussetUltimateStrength', 'gussetConnectionWidth', 'gussetNetWidth',
+      'gussetWhitmoreConnectionLength', 'gussetAvailableWidth', 'braceEndDistance', 'braceEdgeDistance',
+      'braceThickness', 'braceFy', 'braceFu', 'braceGrossWidth', 'braceNetWidth',
+      'weldSize', 'weldLength', 'weldLineCount', 'weldFexx',
+      'supportThickness', 'supportFy', 'supportFu',
+    ], prefix, issues);
+    for (const key of ['requiredAxial', 'requiredShear', 'requiredMoment', 'eccentricity']) {
+      if (!Number.isFinite(Number(item?.[key]))) issues.push(`${prefix}.${key}:finite-required`);
+    }
+    if (!['LRFD', 'ASD'].includes(item?.designMethod)) issues.push(`${prefix}.designMethod:unsupported`);
+    if (item?.holeType !== 'standard') issues.push(`${prefix}.holeType:standard-required`);
+    if (item?.boltGrade !== 'F10T') issues.push(`${prefix}.boltGrade:F10T-required`);
+    if (!['flat_plate', 'angle'].includes(item?.braceSectionType)) issues.push(`${prefix}.braceSectionType:unsupported`);
+    if (!['included', 'excluded'].includes(item?.threadsCondition)) issues.push(`${prefix}.threadsCondition:unsupported`);
+    if (![true, 'true', false, 'false'].includes(item?.deformationConsidered)) issues.push(`${prefix}.deformationConsidered:boolean-required`);
+    if (![true, 'true', false, 'false'].includes(item?.gussetStaticNonseismicConfirmed)) issues.push(`${prefix}.gussetStaticNonseismicConfirmed:boolean-required`);
+    if (![true, 'true', false, 'false'].includes(item?.gussetLoadPathConfirmed)) issues.push(`${prefix}.gussetLoadPathConfirmed:boolean-required`);
+    for (const key of ['gussetDemandBasis', 'gussetGeometryBasis', 'gussetMaterialBasis', 'gussetModelBasis']) {
+      if (!String(item?.[key] || '').trim()) issues.push(`${prefix}.${key}:basis-required`);
+    }
+  }
+  const gussetById = Object.fromEntries((input?.gussetCases || []).map(item => [item?.id, item]));
+  const gussetGolden = gussetById.gussetLrfdConcentric;
+  if (!(gussetGolden?.designMethod === 'LRFD'
+    && Number(gussetGolden?.requiredAxial) === 400
+    && Number(gussetGolden?.requiredShear) === 0
+    && Number(gussetGolden?.requiredMoment) === 0
+    && Number(gussetGolden?.eccentricity) === 0
+    && gussetGolden?.boltGrade === 'F10T'
+    && Number(gussetGolden?.boltDiameter) === 20
+    && Number(gussetGolden?.holeDiameter) === 21.5
+    && Number(gussetGolden?.boltUltimateStrength) === 1000
+    && Number(gussetGolden?.gussetBoltCount) === 6
+    && Number(gussetGolden?.gussetShearPlanes) === 1
+    && Number(gussetGolden?.gussetEndDistance) === 50
+    && Number(gussetGolden?.gussetPitch) === 70
+    && Number(gussetGolden?.gussetEdgeDistance) === 60
+    && Number(gussetGolden?.gussetThickness) === 14
+    && Number(gussetGolden?.gussetYieldStrength) === 325
+    && Number(gussetGolden?.gussetUltimateStrength) === 490
+    && Number(gussetGolden?.gussetConnectionWidth) === 180
+    && Number(gussetGolden?.gussetNetWidth) === 156.5
+    && Number(gussetGolden?.gussetWhitmoreConnectionLength) === 350
+    && gussetGolden?.braceSectionType === 'flat_plate'
+    && Number(gussetGolden?.gussetAvailableWidth) === 400
+    && Number(gussetGolden?.braceEndDistance) === 50
+    && Number(gussetGolden?.braceEdgeDistance) === 60
+    && Number(gussetGolden?.braceThickness) === 12
+    && Number(gussetGolden?.braceFy) === 325
+    && Number(gussetGolden?.braceFu) === 490
+    && Number(gussetGolden?.braceGrossWidth) === 160
+    && Number(gussetGolden?.braceNetWidth) === 136.5
+    && Number(gussetGolden?.weldSize) === 8
+    && Number(gussetGolden?.weldLength) === 250
+    && Number(gussetGolden?.weldLineCount) === 2
+    && Number(gussetGolden?.weldFexx) === 490
+    && Number(gussetGolden?.supportThickness) === 16
+    && Number(gussetGolden?.supportFy) === 325
+    && Number(gussetGolden?.supportFu) === 490
+    && gussetGolden?.gussetStaticNonseismicConfirmed === true
+    && gussetGolden?.gussetLoadPathConfirmed === true)) {
+    issues.push('gussetCases:LRFD-concentric-reference-required');
+  }
+  if (!(Number(gussetById.gussetCompressionBlocked?.requiredAxial) < 0)) {
+    issues.push('gussetCases:compression-block-required');
+  }
+  if (gussetById.gussetAsdBlocked?.designMethod !== 'ASD') {
+    issues.push('gussetCases:ASD-block-required');
+  }
+  const nonConcentric = gussetById.gussetNonConcentricBlocked;
+  if (!(Number(nonConcentric?.requiredShear) !== 0
+    && Number(nonConcentric?.requiredMoment) !== 0
+    && Number(nonConcentric?.eccentricity) !== 0)) {
+    issues.push('gussetCases:nonconcentric-V-M-e-required');
+  }
+  const governanceRejected = gussetById.gussetGovernanceRejected;
+  if (!(Number(governanceRejected?.gussetUltimateStrength) < Number(governanceRejected?.gussetYieldStrength)
+    && Number(governanceRejected?.braceFu) < Number(governanceRejected?.braceFy)
+    && Number(governanceRejected?.supportFu) < Number(governanceRejected?.supportFy)
+    && Number(governanceRejected?.holeDiameter) > 21.5
+    && Number(governanceRejected?.gussetPitch) < 3 * Number(governanceRejected?.boltDiameter)
+    && Number(governanceRejected?.gussetEndDistance) < 25
+    && Number(governanceRejected?.braceEndDistance) < 25
+    && Number(governanceRejected?.gussetNetWidth) > Number(governanceRejected?.gussetConnectionWidth)
+    && Number(governanceRejected?.braceNetWidth) > Number(governanceRejected?.braceGrossWidth)
+    && Number(governanceRejected?.gussetShearPlanes) !== 1
+    && Number(governanceRejected?.gussetWhitmoreConnectionLength) !== (Number(governanceRejected?.gussetBoltCount) - 1) * Number(governanceRejected?.gussetPitch)
+    && Number(governanceRejected?.gussetWhitmoreConnectionLength) > 1250
+    && governanceRejected?.braceSectionType !== 'flat_plate'
+    && Number(governanceRejected?.weldLineCount) !== 2
+    && Number(governanceRejected?.weldLength) < 4 * Number(governanceRejected?.weldSize)
+    && governanceRejected?.gussetStaticNonseismicConfirmed === false
+    && governanceRejected?.gussetLoadPathConfirmed === false)) {
+    issues.push('gussetCases:material-geometry-confirmation-rejection-required');
   }
   return issues;
 }
@@ -330,6 +446,116 @@ function calculateSinglePlateCase(input) {
   return output;
 }
 
+function calculateGussetCase(input) {
+  const result = calculateConnection({ ...input, connectionType: 'brace_gusset' });
+  const checkPrefixes = {
+    gussetBoltShear:'bolt',
+    gussetBoltBearing:'gussetBearing',
+    braceBoltBearing:'braceBearing',
+    gussetGrossYield:'gussetGross',
+    gussetNetRupture:'gussetNet',
+    gussetBlockShear:'gussetBlock',
+    braceGrossYield:'braceGross',
+    braceNetRupture:'braceNet',
+    braceBlockShear:'braceBlock',
+    gussetWhitmoreYield:'whitmore',
+    gussetWeldMetal:'weldMetal',
+    gussetWeldBaseGusset:'weldGussetBase',
+    gussetWeldBaseSupport:'weldSupportBase',
+  };
+  const detailPrefixes = {
+    gussetMethod:'methodPass',
+    gussetPositiveTension:'positiveTensionPass',
+    gussetZeroShear:'zeroShearPass',
+    gussetZeroMoment:'zeroMomentPass',
+    gussetConcentric:'concentricPass',
+    gussetStaticNonseismicConfirmed:'staticNonseismicConfirmedPass',
+    gussetLoadPathConfirmed:'loadPathConfirmedPass',
+    gussetBoltGrade:'boltGradePass',
+    gussetStandardHole:'standardHolePass',
+    gussetBoltDiameterTable:'boltDiameterTablePass',
+    gussetHoleDiameter:'holeDiameterPass',
+    gussetStandardHoleMaximum:'standardHoleMaximumPass',
+    gussetSingleShear:'singleShearPass',
+    gussetBoltCount:'boltCountPass',
+    gussetSingleStraightBoltLine:'singleStraightBoltLinePass',
+    gussetMaterialOrder:'gussetMaterialOrderPass',
+    braceMaterialOrder:'braceMaterialOrderPass',
+    gussetSupportMaterialOrder:'supportMaterialOrderPass',
+    gussetNetGeometry:'gussetNetGeometryPass',
+    braceNetGeometry:'braceNetGeometryPass',
+    gussetAvailableWidth:'availableWidthPass',
+    gussetWhitmoreConnectionLength:'whitmoreConnectionLengthPass',
+    gussetBearingConnectionLength:'bearingConnectionLengthPass',
+    gussetFlatPlateBrace:'flatPlateBracePass',
+    gussetBoltLine_holeCompatibility:'gussetBoltLineHoleCompatibilityPass',
+    gussetBoltLine_minSpacing:'gussetBoltLineMinSpacingPass',
+    gussetBoltLine_minEnd:'gussetBoltLineMinEndPass',
+    gussetBoltLine_minEdge:'gussetBoltLineMinEdgePass',
+    gussetBoltLine_maxEnd:'gussetBoltLineMaxEndPass',
+    gussetBoltLine_maxEdge:'gussetBoltLineMaxEdgePass',
+    gussetBoltLine_maxSpacing:'gussetBoltLineMaxSpacingPass',
+    braceBoltLine_holeCompatibility:'braceBoltLineHoleCompatibilityPass',
+    braceBoltLine_minSpacing:'braceBoltLineMinSpacingPass',
+    braceBoltLine_minEnd:'braceBoltLineMinEndPass',
+    braceBoltLine_minEdge:'braceBoltLineMinEdgePass',
+    braceBoltLine_maxEnd:'braceBoltLineMaxEndPass',
+    braceBoltLine_maxEdge:'braceBoltLineMaxEdgePass',
+    braceBoltLine_maxSpacing:'braceBoltLineMaxSpacingPass',
+    gussetDoubleFilletWeld:'doubleFilletWeldPass',
+    gussetMinWeldSize:'minWeldSizePass',
+    gussetMaxWeldSize:'maxWeldSizePass',
+    gussetShortWeld:'shortWeldPass',
+    gussetLongWeld:'longWeldPass',
+    gussetDemandBasis:'demandBasisPass',
+    gussetGeometryBasis:'geometryBasisPass',
+    gussetMaterialBasis:'materialBasisPass',
+    gussetModelBasis:'modelBasisPass',
+  };
+  const areas = result.derivedAreas || {};
+  const output = {
+    lrfd:result.state.designMethod === 'LRFD' ? 1 : 0,
+    checkCount:result.checks.length,
+    gussetGrossArea:areas.gussetGrossArea,
+    gussetNetArea:areas.gussetNetArea,
+    gussetEffectiveNetArea:areas.gussetEffectiveNetArea,
+    braceGrossArea:areas.braceGrossArea,
+    braceNetArea:areas.braceNetArea,
+    gussetBlockAgv:areas.gussetBlockAgv,
+    gussetBlockAnv:areas.gussetBlockAnv,
+    gussetBlockAgt:areas.gussetBlockAgt,
+    gussetBlockAnt:areas.gussetBlockAnt,
+    braceBlockAgv:areas.braceBlockAgv,
+    braceBlockAnv:areas.braceBlockAnv,
+    braceBlockAgt:areas.braceBlockAgt,
+    braceBlockAnt:areas.braceBlockAnt,
+    gussetWhitmoreTheoreticalWidth:areas.gussetWhitmoreTheoreticalWidth,
+    gussetWhitmoreEffectiveWidth:areas.gussetWhitmoreEffectiveWidth,
+    gussetWhitmoreArea:areas.gussetWhitmoreArea,
+    gussetBlockEquation3:checkByKey(result, 'gussetBlockShear').equationRef === '式(10.4-3)' ? 1 : 0,
+    braceBlockEquation3:checkByKey(result, 'braceBlockShear').equationRef === '式(10.4-3)' ? 1 : 0,
+    governingBraceGross:result.governing?.key === 'braceGrossYield' ? 1 : 0,
+    standardHoleMaximum:detailByKey(result, 'gussetStandardHoleMaximum').required,
+    minimumWeldSize:detailByKey(result, 'gussetMinWeldSize').required,
+    maximumWeldSize:detailByKey(result, 'gussetMaxWeldSize').required,
+    strengthPass:result.summary.strengthFailure ? 0 : 1,
+    detailPass:result.detailChecks.every(item => item.passes) ? 1 : 0,
+    validationFailure:result.summary.validationFailure ? 1 : 0,
+    complianceReady:result.complianceReady ? 1 : 0,
+    overallPass:result.passes ? 1 : 0,
+  };
+  for (const [key, prefix] of Object.entries(checkPrefixes)) {
+    const check = checkByKey(result, key);
+    output[`${prefix}Nominal`] = check.nominal;
+    output[`${prefix}Available`] = check.available;
+    output[`${prefix}Ratio`] = check.ratio;
+  }
+  for (const [key, outputKey] of Object.entries(detailPrefixes)) {
+    output[outputKey] = detailByKey(result, key).passes ? 1 : 0;
+  }
+  return output;
+}
+
 function calculate(input) {
   const issues = validateInput(input);
   if (issues.length) throw new RangeError(`invalid-steel-formal-benchmark-input:${issues.join(',')}`);
@@ -337,6 +563,7 @@ function calculate(input) {
     [input.plateCase.id]: calculatePlateCase(input.plateCase),
     ...Object.fromEntries(input.tensionCases.map(item => [item.id, calculateTensionCase(item)])),
     ...Object.fromEntries(input.singlePlateCases.map(item => [item.id, calculateSinglePlateCase(item)])),
+    ...Object.fromEntries(input.gussetCases.map(item => [item.id, calculateGussetCase(item)])),
   };
 }
 

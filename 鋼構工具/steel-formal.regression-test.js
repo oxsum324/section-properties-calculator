@@ -240,7 +240,7 @@ assert.match(
 );
 assert.match(
   appSource,
-  /\.block h3\{break-after:avoid-page;page-break-after:avoid\}\.report-sketch-block,\.report-ending,tr\{break-inside:avoid-page;page-break-inside:avoid\}thead\{display:table-header-group\}/,
+  /\.block h3,\.input-context-header\{break-after:avoid-page;page-break-after:avoid\}\.report-sketch-block,\.report-ending,tr\{break-inside:avoid-page;page-break-inside:avoid\}thead\{display:table-header-group\}/,
   "legacy report print CSS should prevent orphan headings, split sketch blocks, and isolated conclusions while repeating table headers",
 );
 assert.match(
@@ -312,7 +312,7 @@ for (const key of ["connection", "plate", "tension", "beam", "column"]) {
   const metadata = toolMetadataRuntime.SteelToolMetadata?.[key];
   assert.ok(metadata, `tool-metadata.js should expose ${key} metadata`);
   assert.match(metadata.name, /正式規範核算工具$/, `${key} metadata should expose a report-ready tool name`);
-  assert.equal(metadata.version, "V1.0", `${key} metadata should expose the canonical steel formal version`);
+  assert.equal(metadata.version, key === "connection" ? "V1.1" : "V1.0", `${key} metadata should expose its canonical steel formal version`);
 }
 const sharedReportHtml = renderReportHtml(sharedReportSource, sharedReportPath, { name: "未填", no: "FORMAL-VERIFY-001", designer: "Codex QA" });
 const localReportHtml = renderReportHtml(localReportCoreSource, localReportCorePath, { name: "未填", no: "FORMAL-VERIFY-001", designer: "Codex QA" });
@@ -430,15 +430,15 @@ for (const [label, html] of [["main", indexSource], ["standalone plate", plateCh
     `${label} page should expose a calculation-source JSON import`,
   );
 }
-for (const [label, html] of [
-  ["steel main", indexSource],
-  ["steel plate", plateCheckSource],
-  ["steel beam", beamFormalHtmlSource],
-  ["steel column", columnFormalHtmlSource],
+for (const [label, html, expectedVersion] of [
+  ["steel main", indexSource, "V1.1"],
+  ["steel plate", plateCheckSource, "V1.0"],
+  ["steel beam", beamFormalHtmlSource, "V1.0"],
+  ["steel column", columnFormalHtmlSource, "V1.0"],
 ]) {
   const title = html.match(/<title>([^<]+)<\/title>/)?.[1]?.trim() || "";
   const heading = html.match(/<h1(?:\s+[^>]*)?>([^<]+)<\/h1>/)?.[1]?.trim() || "";
-  assert.ok(title.endsWith("V1.0"), `${label} document title should visibly expose V1.0`);
+  assert.ok(title.endsWith(expectedVersion), `${label} document title should visibly expose ${expectedVersion}`);
   assert.equal(heading, title, `${label} document title and H1 should expose the same canonical version`);
   assert.match(
     html,
@@ -518,7 +518,7 @@ assert.match(
 assert.match(
   mainReportBuilderSource,
   /function buildConnectionSourcePayload\(result = window\.latestSteelConnectionResult[\s\S]*buildConnectionReportConfig\(result\)[\s\S]*kind: "formal-calculation-source"[\s\S]*fields: \{ \.\.\.reportConfig\.snapshot\.state \}[\s\S]*calculationFingerprint: reportTrace\.calculationFingerprint[\s\S]*function buildReportHtml\(result\)[\s\S]*buildConnectionReportTrace\(result\)/s,
-  "connection, tension, plate, and Shear Tab source JSON should reuse the governed report snapshot and calculation fingerprint",
+  "connection, tension, plate, Shear Tab, and Gusset source JSON should reuse the governed report snapshot and calculation fingerprint",
 );
 assert.match(
   calculatorSource,
@@ -585,6 +585,11 @@ assert.match(
   /function buildReportHtml\(result\)[\s\S]*SteelFormalUI\.buildFormalDocumentStateReport\([\s\S]*calculationFingerprint:\s*reportTrace\.calculationFingerprint[\s\S]*\$\{reportDocument\.html\}/s,
   "connection, tension, and plate reports should use shared printable review, approval, and dual-seal governance",
 );
+assert.match(
+  mainReportBuilderSource,
+  /const inputTablesHtml = getInputGroups\(result\.state\.connectionType\)\.map[\s\S]*<table class="input-table"><thead>[\s\S]*<tr class="input-context-header"><th colspan="2">採用輸入｜\$\{escReport\(group\.title\)\}<\/th><\/tr>[\s\S]*<\/thead><tbody>[\s\S]*\.input-context-header th[\s\S]*@media print[\s\S]*thead\{display:table-header-group\}/s,
+  "each adopted-input table should repeat its contextual group header when Chrome print continues the table on another page",
+);
 assert.match(mainReportBuilderSource, /formalApprovalAllowed:\s*result\.passes/, "failed or incomplete modules must not expose formal attachment approval");
 assert.match(
   mainReportBuilderSource,
@@ -598,18 +603,158 @@ assert.match(
 );
 assert.match(
   appSource,
-  /function validateConnectionSourcePayload\(payload\)[\s\S]*validateCalculationSourcePayload[\s\S]*工具種類與檢核模組不一致[\s\S]*function importConnectionSourceJson\(file\)[\s\S]*replay\.calculationFingerprint !== payload\.calculationFingerprint[\s\S]*setFormState\(previous\.fields, false\)[\s\S]*importSourceJsonInput\.addEventListener\("change"/s,
+  /function validateConnectionSourcePayload\(payload\)[\s\S]*validateCalculationSourcePayload[\s\S]*工具種類與檢核模組不一致[\s\S]*function importConnectionSourceJson\(file\)[\s\S]*const previousFields = collectFormState\(\)[\s\S]*replay\.calculationFingerprint !== payload\.calculationFingerprint[\s\S]*setFormState\(previousFields, false\)[\s\S]*importSourceJsonInput\.addEventListener\("change"/s,
   "connection source import should validate, replay, compare fingerprints, and restore the prior state on failure",
 );
 assert.match(
   appSource,
   /function jsonSerializableClone\(value\)\s*\{\s*return JSON\.parse\(JSON\.stringify\(value\)\);\s*\}[\s\S]*canonicalJson\(jsonSerializableClone\(replay\.report\)\) !== canonicalJson\(payload\.report\)/s,
-  "Shear Tab source replay should compare the JSON-serializable report representation used by the downloaded source file",
+  "Shear Tab and Gusset source replay should compare the JSON-serializable report representation used by the downloaded source file",
 );
 assert.match(
   appSource,
   /\["deformationConsidered", "fillerExtended", "conventionalMaterialConfirmed", "connectionModelConfirmed"\]\.forEach\(\(key\) => \{[\s\S]*typeof fields\[key\] !== "boolean"[\s\S]*\$\{key\} 必須為布林值/s,
   "Shear Tab source replay should reject stringified confirmation flags instead of coercing them",
+);
+assert.match(
+  indexSource,
+  /<option value="brace_gusset">支撐接頭｜平板支撐 Gusset 拉力接頭｜LRFD 正式模組<\/option>[\s\S]*<option value="beam_column_moment" disabled>/s,
+  "Gusset V1 should be enabled while the beam-column moment module remains disabled",
+);
+assert.match(indexSource, /<option value="column_splice" disabled>/, "column splice should remain disabled after the Gusset release");
+assert.ok(appSource.includes('brace_gusset: "支撐接頭｜平板支撐 Gusset 拉力接頭｜LRFD 正式模組"'), "app label should expose the exact governed flat-plate Gusset V1 title");
+assert.match(
+  calculatorSource,
+  /brace_gusset:\s*\{[\s\S]*?complianceReady:\s*true[\s\S]*?beam_column_moment:\s*\{[\s\S]*?complianceReady:\s*false/s,
+  "Gusset should be compliance-ready without enabling the moment module",
+);
+for (const fieldName of [
+  "gussetAvailableWidth", "gussetWhitmoreConnectionLength", "braceSectionType", "braceEndDistance", "braceEdgeDistance", "braceThickness", "braceFy", "braceFu", "braceGrossWidth", "braceNetWidth",
+  "weldSize", "weldLength", "weldLineCount", "weldFexx", "supportThickness", "supportFy", "supportFu",
+  "gussetDemandBasis", "gussetGeometryBasis", "gussetMaterialBasis", "gussetModelBasis", "gussetStaticNonseismicConfirmed", "gussetLoadPathConfirmed",
+]) {
+  assert.ok(appSource.includes(`"${fieldName}"`) && indexSource.includes(`name="${fieldName}"`) && calculatorSource.includes(`${fieldName}:`), `Gusset field ${fieldName} should remain aligned through UI, source, and normalization`);
+}
+assert.doesNotMatch(
+  `${calculatorSource}\n${appSource}\n${indexSource}`,
+  /\b(?:gussetWhitmoreLength|braceYieldStrength|braceUltimateStrength|gussetWeldSize|gussetWeldLength|gussetWeldLineCount|gussetWeldElectrodeStrength|gussetSupportThickness|gussetSupportYieldStrength|gussetSupportUltimateStrength)\b/,
+  "Gusset V1 should expose only the fixed source schema without legacy aliases",
+);
+for (const checkKey of [
+  "gussetBoltShear", "gussetBoltBearing", "braceBoltBearing", "gussetGrossYield", "gussetNetRupture", "gussetBlockShear",
+  "braceGrossYield", "braceNetRupture", "braceBlockShear", "gussetWhitmoreYield", "gussetWeldMetal", "gussetWeldBaseGusset", "gussetWeldBaseSupport",
+]) {
+  assert.ok(calculatorSource.includes(`key: "${checkKey}"`), `Gusset V1 should expose strength route ${checkKey}`);
+}
+for (const detailKey of [
+  "gussetMethod", "gussetPositiveTension", "gussetZeroShear", "gussetZeroMoment", "gussetConcentric", "gussetStaticNonseismicConfirmed", "gussetLoadPathConfirmed",
+  "gussetBoltGrade", "gussetStandardHole", "gussetStandardHoleMaximum", "gussetSingleShear", "gussetBoltCount", "gussetSingleStraightBoltLine",
+  "gussetWhitmoreConnectionLength", "gussetBearingConnectionLength", "gussetFlatPlateBrace", "gussetFiniteDerivedResults", "gussetFiniteStrengthResults", "gussetMaterialOrder", "braceMaterialOrder", "gussetSupportMaterialOrder", "gussetNetGeometry", "braceNetGeometry", "gussetAvailableWidth",
+  "gussetDoubleFilletWeld", "gussetMinWeldSize", "gussetMaxWeldSize", "gussetShortWeld", "gussetLongWeld",
+  "gussetDemandBasis", "gussetGeometryBasis", "gussetMaterialBasis", "gussetModelBasis",
+]) {
+  assert.ok(calculatorSource.includes(`"${detailKey}"`), `Gusset V1 should expose hard gate ${detailKey}`);
+}
+for (const areaKey of [
+  "gussetGrossArea", "gussetNetArea", "gussetEffectiveNetArea", "braceGrossArea", "braceNetArea",
+  "gussetBlockAgv", "gussetBlockAnv", "gussetBlockAgt", "gussetBlockAnt", "braceBlockAgv", "braceBlockAnv", "braceBlockAgt", "braceBlockAnt",
+  "gussetWhitmoreTheoreticalWidth", "gussetWhitmoreEffectiveWidth", "gussetWhitmoreArea",
+]) {
+  assert.ok(calculatorSource.includes(areaKey) && appSource.includes(areaKey), `Gusset derived value ${areaKey} should remain traceable in the calculation report`);
+}
+assert.ok(
+  (calculatorSource.match(/shearPlaneCount:\s*1/g) || []).length >= 4
+    && calculatorSource.includes("單一直線栓列採一個縱向剪力面與一個橫向拉力面之 L 形塊狀撕裂候選路徑。")
+    && calculatorSource.includes("支撐材採與 Gusset 對應之一個縱向剪力面與一個橫向拉力面 L 形路徑。"),
+  "Gusset single straight bolt line should lock both derived areas and strength checks to a one-shear-plane L-path",
+);
+assert.match(
+  calculatorSource,
+  /const expectedWhitmoreConnectionLength = \(state\.gussetBoltCount - 1\) \* state\.gussetPitch[\s\S]*const gussetWhitmoreTheoreticalWidth = 2 \* state\.gussetWhitmoreConnectionLength \* Math\.tan\(Math\.PI \/ 6\)[\s\S]*const gussetWhitmoreEffectiveWidth = Math\.min\(gussetWhitmoreTheoreticalWidth, state\.gussetAvailableWidth\)[\s\S]*\["single_plate", "brace_gusset"\]\.includes\(state\.connectionType\) && blockingValidations\.length > 0/s,
+  "Gusset should lock Lconn to the bolt line, use zero fastener-group starting width, cap Whitmore width, and block every validation",
+);
+assert.match(
+  calculatorSource,
+  /表 10\.3-2 註 \[e\] 針對承壓式接合之續接拉力構材[\s\S]*本 Gusset 為端部接合[\s\S]*並非將該註解泛化為所有接合的條文上限[\s\S]*makeDetailCheck\("gussetBearingConnectionLength"[\s\S]*並非一般接合的條文上限/s,
+  "the note [e] 1250-mm guard should be disclosed as a conservative Gusset V1 boundary, not a universal connection limit",
+);
+assert.match(
+  calculatorSource,
+  /const requiredDerivedResults = \{[\s\S]*const finiteDerivedResults = Object\.values\(requiredDerivedResults\)\.every\(Number\.isFinite\)[\s\S]*const finiteStrengthResults = checks\.every[\s\S]*Number\.isFinite\(check\.nominal\)[\s\S]*check\.nominal > 0[\s\S]*Number\.isFinite\(check\.available\)[\s\S]*check\.available > 0[\s\S]*Number\.isFinite\(check\.ratio\)[\s\S]*makeDetailCheck\("gussetFiniteDerivedResults"[\s\S]*makeDetailCheck\("gussetFiniteStrengthResults"/s,
+  "Gusset result layer should fail closed on overflowed derived geometry, strength, capacity, or DCR values",
+);
+assert.match(
+  calculatorSource,
+  /function safeRatio\(demand, available\)[\s\S]*!Number\.isFinite\(demand\)[\s\S]*!Number\.isFinite\(available\)[\s\S]*available <= 0[\s\S]*const ratio = demand \/ available[\s\S]*Number\.isFinite\(ratio\) \? ratio : Infinity[\s\S]*const strengthFailure = checks\.some[\s\S]*\[item\.demand, item\.nominal, item\.available, item\.ratio\]\.every\(Number\.isFinite\)[\s\S]*item\.demand <= 0 \|\| \(item\.nominal > 0 && item\.available > 0\)/s,
+  "strength summary should classify non-finite results and non-positive capacity under positive demand as NG",
+);
+assert.match(
+  appSource,
+  /function formatNumber\(value, digits = 1\)[\s\S]*!Number\.isFinite\(value\)\) return "—"[\s\S]*function getCheckStatus\(check\)[\s\S]*\[check\.demand, check\.nominal, check\.available, check\.ratio\]\.every\(Number\.isFinite\)[\s\S]*check\.demand <= 0 \|\| \(check\.nominal > 0 && check\.available > 0\)[\s\S]*return \{ text: "NG", className: "fail" \}[\s\S]*function buildDecisionSentence\(check\)[\s\S]*DCR 含非有限值/s,
+  "reading state should show non-finite or non-positive-capacity rows as NG and render their DCR as an em dash",
+);
+assert.match(
+  calculatorSource,
+  /function getF10TBearingBoltShearStress\(threadsCondition\)[\s\S]*5\.00\s*:\s*4\.00[\s\S]*tableStressTfCm2 \* 98\.0665[\s\S]*function buildF10TBearingBoltShearCheck[\s\S]*equationRef: "表10\.3-2"[\s\S]*key: "gussetBoltShear"[\s\S]*makeDetailCheck\("gussetBearingConnectionLength"[\s\S]*1250[\s\S]*表 10\.3-2 註 \[e\]/s,
+  "Gusset bolt shear should use the F10T table 10.3-2 4/5 tf per cm2 route and fail closed beyond 1250 mm",
+);
+assert.match(
+  calculatorSource,
+  /function buildSinglePlateBoltShearCheck\(state, fillerReduction, distribution\)[\s\S]*getF10TBearingBoltShearStress\(state\.threadsCondition\)[\s\S]*equationRef: "表10\.3-2＋專案指定彈性栓群模型"/s,
+  "Shear Tab should cite table 10.3-2 for the same F10T bearing-bolt nominal shear stress route",
+);
+assert.match(
+  calculatorSource,
+  /const gussetEffectiveNetArea = Math\.min\(gussetNetArea, 0\.85 \* gussetGrossArea\)[\s\S]*key: "gussetNetRupture"[\s\S]*Ae = min\(An, 0\.85Ag\)[\s\S]*gussetEffectiveNetArea,/s,
+  "bolted Gusset net rupture should use and report Ae=min(An,0.85Ag) while preserving An",
+);
+assert.match(
+  appSource,
+  /const GUSSET_SOURCE_FIELD_KEYS = \[[\s\S]*"gussetWhitmoreConnectionLength"[\s\S]*"braceSectionType", "braceEndDistance"[\s\S]*"braceFy", "braceFu"[\s\S]*"weldSize", "weldLength", "weldLineCount", "weldFexx", "supportThickness", "supportFy", "supportFu"[\s\S]*function validateGussetSourceFields\(payload\)[\s\S]*Gusset 欄位集合不符[\s\S]*"gussetStaticNonseismicConfirmed", "gussetLoadPathConfirmed"[\s\S]*typeof fields\[key\] !== "boolean"[\s\S]*braceSectionType: \["flat_plate"\]/s,
+  "Gusset source replay should enforce an exact field set and strict confirmation booleans",
+);
+assert.match(
+  appSource,
+  /GUSSET_NUMBER_FIELDS\.forEach\(\(key\) => \{[\s\S]*typeof fields\[key\] !== "number" \|\| !Number\.isFinite\(fields\[key\]\)[\s\S]*const finiteProbe = calculateConnection\(fields\)[\s\S]*Gusset 結果含非有限值或數值溢位/s,
+  "Gusset source validation should retain raw finite checks and reject finite inputs whose derived report overflows",
+);
+assert.match(appSource, /function assertGussetFiniteFormalResult\(result\)[\s\S]*禁止核可、正式報告與來源 JSON/s, "Gusset formal-output guard should reject every non-finite report result");
+assert.match(
+  appSource,
+  /function buildConnectionSourcePayload[\s\S]*assertGussetFiniteFormalResult\(result\)[\s\S]*function exportConnectionSourceJson[\s\S]*來源 JSON 未匯出[\s\S]*function exportReport\(\)[\s\S]*assertGussetFiniteFormalResult\(result\)[\s\S]*正式報告未開啟/s,
+  "overflowed Gusset state should not serialize Infinity as null or open a formal report",
+);
+assert.match(
+  appSource,
+  /const expectedWhitmoreConnectionLength = \(fields\.gussetBoltCount - 1\) \* fields\.gussetPitch[\s\S]*gussetWhitmoreConnectionLength - expectedWhitmoreConnectionLength[\s\S]*gussetWhitmoreConnectionLength > 1250[\s\S]*表 10\.3-2 註 \[e\]/s,
+  "Gusset strict source validation should reject mismatched, zero, and over-1250-mm connection lengths",
+);
+assert.match(
+  appSource,
+  /\['single_plate', 'brace_gusset'\]\.includes\(payload\.connectionType\)[\s\S]*canonicalJson\(jsonSerializableClone\(replay\.report\)\) !== canonicalJson\(payload\.report\)/s,
+  "Gusset source replay should transactionally compare the complete embedded report",
+);
+assert.doesNotMatch(
+  appSource,
+  /readCalculationSourceFile\(file,[\s\S]{0,400}expectedVersion:\s*STEEL_TOOL_METADATA\.plate\.version/,
+  "connection import should not reject V1.1 Gusset sources using the standalone plate V1.0 precheck",
+);
+assert.ok(mainReportBuilderSource.includes("Gusset V1 派生幾何與面積"), "Gusset report should print its full derived-area audit trail");
+assert.ok(
+  appSource.includes('brace_gusset: "支撐接頭｜平板支撐 Gusset 拉力接頭｜LRFD 正式模組"')
+    && calculatorSource.includes("U = 1.0、Ae = An")
+    && calculatorSource.includes("angle、WT、HSS"),
+  "Gusset V1 should be hard-labelled and reported as a directly connected flat-plate brace without shear lag",
+);
+assert.match(
+  appSource,
+  /case "brace_gusset":\s*return "LRFD｜第五章受拉構材、第十章接合設計";/,
+  "Gusset report basis should cover both Chapter 5 tension members and Chapter 10 connections",
+);
+assert.match(
+  appSource,
+  /function update\(autoSave = true\) \{\s*updateVisibility\(\);\s*const state = collectFormState\(\);[\s\S]*function setFormState\(state, autoSave = false\) \{[\s\S]*updateVisibility\(\);\s*update\(autoSave\);/s,
+  "cross-module source replay and rollback should synchronize the selected module visibility before collecting fields",
 );
 assert.match(
   appSource,
@@ -1330,12 +1475,12 @@ assert.match(
 assert.match(
   browserRunnerSource,
   /function verifySteelTextDownload\([\s\S]*repDownloadCurrentText[\s\S]*hasBom[\s\S]*文字內容 SHA-256[\s\S]*non-formal-reference-text[\s\S]*textExportEvidenceRecords\.push/s,
-  "steel browser contract should download and validate all six governed non-formal TXT artifacts",
+  "steel browser contract should download and validate all seven governed non-formal TXT artifacts",
 );
 assert.match(
   browserRunnerSource,
-  /\['steel-main-plate', 'steel-main-shear-tab', 'steel-main-tension', 'steel-standalone-plate', 'steel-beam-formal', 'steel-column-formal'\]/,
-  "steel rendered evidence summary should require six artifacts without adding a route",
+  /\['steel-main-plate', 'steel-main-shear-tab', 'steel-main-gusset', 'steel-main-tension', 'steel-standalone-plate', 'steel-beam-formal', 'steel-column-formal'\]/,
+  "steel rendered evidence summary should require seven artifacts while reusing the main connection route",
 );
 for (const needle of formalReportReferenceNeedles) {
   assert.ok(browserRunnerSource.includes(needle), `steel browser contract should forbid ${needle} in formal report output`);

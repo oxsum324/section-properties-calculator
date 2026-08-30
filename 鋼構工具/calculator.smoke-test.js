@@ -62,6 +62,61 @@ const singlePlateBase = {
   connectionModelConfirmed: "true",
 };
 
+const gussetBase = {
+  projectName: "Gusset V1 正式算例",
+  connectionTag: "BG-01",
+  designer: "QA",
+  notes: "LRFD 正軸向同心拉力",
+  connectionType: "brace_gusset",
+  designMethod: "LRFD",
+  exposureCondition: "painted",
+  requiredAxial: 400,
+  requiredShear: 0,
+  requiredMoment: 0,
+  eccentricity: 0,
+  boltDiameter: 20,
+  holeDiameter: 21.5,
+  holeType: "standard",
+  edgeFabrication: "rolled",
+  boltUltimateStrength: 1000,
+  boltGrade: "F10T",
+  threadsCondition: "included",
+  deformationConsidered: true,
+  gussetBoltCount: 6,
+  gussetShearPlanes: 1,
+  gussetEndDistance: 50,
+  gussetPitch: 70,
+  gussetEdgeDistance: 60,
+  gussetThickness: 14,
+  gussetYieldStrength: 325,
+  gussetUltimateStrength: 490,
+  gussetConnectionWidth: 180,
+  gussetNetWidth: 156.5,
+  gussetWhitmoreConnectionLength: 350,
+  gussetAvailableWidth: 400,
+  braceSectionType: "flat_plate",
+  braceEndDistance: 50,
+  braceEdgeDistance: 60,
+  braceThickness: 12,
+  braceFy: 325,
+  braceFu: 490,
+  braceGrossWidth: 160,
+  braceNetWidth: 136.5,
+  weldSize: 8,
+  weldLength: 250,
+  weldLineCount: 2,
+  weldFexx: 490,
+  supportThickness: 16,
+  supportFy: 325,
+  supportFu: 490,
+  gussetDemandBasis: "分析模型 STR-GS-01／ULS 拉力包絡",
+  gussetGeometryBasis: "核定接頭圖 S-503／BG-01",
+  gussetMaterialBasis: "材料證明 M-01／F10T 與 E70 銲材證明",
+  gussetModelBasis: "核定圖確認平板支撐矩形截面全元素直接連接、單一直線栓列與雙側縱向銲串聯力流",
+  gussetStaticNonseismicConfirmed: true,
+  gussetLoadPathConfirmed: true,
+};
+
 const shear = calculateConnection(singlePlateBase);
 assert.equal(shear.complianceReady, true, "single plate should be a formal scoped module");
 assert.equal(shear.passes, true, "complete LRFD single plate case should pass");
@@ -247,29 +302,47 @@ assert.equal(splice.passes, false, "column splice example should be blocked from
 assert.equal(splice.complianceReady, false, "column splice should be marked as non-compliance-ready");
 assert.equal(splice.reportTitle, "柱續接檢核計算書");
 
-const gusset = calculateConnection({
-  ...shared,
-  connectionType: "brace_gusset",
-  requiredAxial: 700,
-  gussetBoltCount: 6,
-  gussetShearPlanes: 1,
-  gussetEndDistance: 55,
-  gussetPitch: 80,
-  gussetEdgeDistance: 70,
-  gussetThickness: 14,
-  gussetYieldStrength: 325,
-  gussetUltimateStrength: 490,
-  gussetNetWidth: 220,
-  gussetConnectionWidth: 180,
-  gussetWhitmoreLength: 240,
-  gussetWeldSize: 10,
-  gussetWeldLength: 320,
-  gussetWeldLineCount: 2,
-  gussetWeldElectrodeStrength: 490,
-});
-assert.equal(gusset.passes, false, "gusset example should be blocked from formal code check");
-assert.equal(gusset.complianceReady, false, "gusset should be marked as non-compliance-ready");
-assert.ok(gusset.checks.some((item) => item.label.includes("Whitmore")), "gusset should include Whitmore check");
+const gusset = calculateConnection(gussetBase);
+assert.equal(gusset.passes, true, "complete Gusset V1 golden case should pass its formal scope");
+assert.equal(gusset.complianceReady, true, "Gusset V1 should be marked compliance-ready");
+assert.equal(gusset.checks.length, 13, "Gusset V1 should expose all thirteen required strength routes");
+assert.deepEqual(gusset.checks.map((item) => item.key), [
+  "gussetBoltShear", "gussetBoltBearing", "braceBoltBearing", "gussetGrossYield", "gussetNetRupture", "gussetBlockShear",
+  "braceGrossYield", "braceNetRupture", "braceBlockShear", "gussetWhitmoreYield", "gussetWeldMetal", "gussetWeldBaseGusset", "gussetWeldBaseSupport",
+], "Gusset V1 strength keys should remain a stable report/benchmark contract");
+assert.equal(gusset.derivedAreas.gussetGrossArea, 2520, "Gusset gross area golden");
+assert.equal(gusset.derivedAreas.gussetNetArea, 2191, "Gusset net area golden");
+assert.equal(gusset.derivedAreas.gussetEffectiveNetArea, 2142, "bolted Gusset effective net area should use min(An, 0.85Ag)");
+assert.equal(gusset.derivedAreas.braceGrossArea, 1920, "brace gross area golden");
+assert.equal(gusset.derivedAreas.braceNetArea, 1638, "brace net area golden");
+assert.equal(gusset.derivedAreas.gussetBlockAgv, 5600, "Gusset single-line L-path block-shear Agv golden");
+assert.equal(gusset.derivedAreas.gussetBlockAnv, 3829, "Gusset single-line L-path block-shear Anv golden");
+assert.equal(gusset.derivedAreas.gussetBlockAgt, 840, "Gusset block-shear Agt golden");
+assert.equal(gusset.derivedAreas.gussetBlockAnt, 679, "Gusset block-shear Ant golden");
+assert.equal(gusset.derivedAreas.braceBlockAgv, 4800, "brace single-line L-path block-shear Agv golden");
+assert.equal(gusset.derivedAreas.braceBlockAnv, 3282, "brace single-line L-path block-shear Anv golden");
+assert.equal(gusset.derivedAreas.braceBlockAgt, 720, "brace block-shear Agt golden");
+assert.equal(gusset.derivedAreas.braceBlockAnt, 582, "brace block-shear Ant golden");
+assert.ok(Math.abs(gusset.derivedAreas.gussetWhitmoreTheoreticalWidth - 404.145188432738) < 1e-12, "single-line Whitmore theoretical width should start at zero and use 2Lconn tan30 degrees");
+assert.equal(gusset.derivedAreas.gussetWhitmoreEffectiveWidth, 400, "Whitmore effective width should be capped by available plate width");
+assert.equal(gusset.derivedAreas.gussetWhitmoreArea, 5600, "Whitmore effective area golden");
+assert.ok(Math.abs(gusset.checks.find((item) => item.key === "gussetWhitmoreYield").available - 1638) < 1e-9, "Whitmore yielding capacity golden");
+assert.ok(Math.abs(gusset.checks.find((item) => item.key === "gussetBoltShear").nominal - 739.4039903118323) < 1e-9, "F10T included-thread table 10.3-2 nominal bolt shear golden");
+assert.ok(Math.abs(gusset.checks.find((item) => item.key === "gussetBoltShear").available - 554.5529927338742) < 1e-9, "F10T included-thread table 10.3-2 LRFD bolt shear golden");
+assert.ok(gusset.checks.find((item) => item.key === "gussetBoltShear").equationLines.some((line) => line.includes("4.00 tf/cm²") && line.includes("392.266 MPa")), "Gusset report equations should expose the adopted table 10.3-2 stress");
+assert.ok(Math.abs(gusset.checks.find((item) => item.key === "gussetNetRupture").available - 787.185) < 1e-9, "Gusset effective-net rupture should use Ae=min(An,0.85Ag)");
+assert.ok(Math.abs(gusset.checks.find((item) => item.key === "gussetBlockShear").available - 1049.0445) < 1e-9, "Gusset single-line L-path block-shear capacity golden");
+assert.ok(Math.abs(gusset.checks.find((item) => item.key === "braceBlockShear").available - 899.181) < 1e-9, "brace single-line L-path block-shear capacity golden");
+assert.ok(Math.abs(gusset.checks.find((item) => item.key === "gussetWeldMetal").available - 623.574) < 1e-9, "weld metal capacity golden");
+assert.ok(Math.abs(gusset.checks.find((item) => item.key === "gussetWeldBaseGusset").available - 1228.5) < 1e-9, "Gusset base-metal weld-line capacity golden");
+assert.ok(Math.abs(gusset.checks.find((item) => item.key === "gussetWeldBaseSupport").available - 1404) < 1e-9, "support base-metal weld-line capacity golden");
+assert.equal(gusset.detailChecks.find((item) => item.key === "gussetWhitmoreConnectionLength")?.passes, true, "golden Lconn should equal (n-1) times pitch");
+assert.equal(gusset.detailChecks.find((item) => item.key === "gussetFlatPlateBrace")?.passes, true, "golden brace should be a directly connected flat plate with Ae=An");
+assert.ok(gusset.assumptions.some((item) => item.includes("fastener-group 起始寬度取 0") && item.includes("bW = 2Lconn tan30°")), "report assumptions should lock the zero-start Whitmore formula");
+assert.ok(gusset.assumptions.some((item) => item.includes("U = 1.0、Ae = An") && item.includes("angle、WT、HSS")), "report assumptions should lock the flat-plate brace and shear-lag boundary");
+const gussetThreadsExcluded = calculateConnection({ ...gussetBase, threadsCondition: "excluded" });
+assert.ok(Math.abs(gussetThreadsExcluded.checks.find((item) => item.key === "gussetBoltShear").available - 693.1912409173427) < 1e-9, "F10T excluded-thread table 10.3-2 LRFD bolt shear golden");
+assert.ok(gussetThreadsExcluded.checks.find((item) => item.key === "gussetBoltShear").equationLines.some((line) => line.includes("5.00 tf/cm²") && line.includes("490.333 MPa")), "excluded-thread Gusset report should expose the 5.00 tf/cm² table value");
 
 const moment = calculateConnection({
   ...shared,
@@ -402,27 +475,64 @@ assert.equal(plateAreaManual.passes, true, "manual area input should pass with c
 assert.equal(plateAreaManual.sketchData.mode, "manual_area", "manual area mode should switch sketch mode");
 
 const detailFail = calculateConnection({
-  ...shared,
-  connectionType: "brace_gusset",
-  requiredAxial: 700,
-  gussetBoltCount: 6,
-  gussetShearPlanes: 1,
+  ...gussetBase,
   gussetEndDistance: 20,
   gussetPitch: 50,
   gussetEdgeDistance: 20,
-  gussetThickness: 14,
-  gussetYieldStrength: 325,
-  gussetUltimateStrength: 490,
-  gussetNetWidth: 220,
-  gussetConnectionWidth: 180,
-  gussetWhitmoreLength: 240,
-  gussetWeldSize: 8,
-  gussetWeldLength: 260,
-  gussetWeldLineCount: 2,
-  gussetWeldElectrodeStrength: 490,
+  braceEndDistance: 20,
+  braceEdgeDistance: 20,
 });
 assert.equal(detailFail.passes, false, "undersized gusset geometry should fail");
 assert.ok(detailFail.detailChecks.some((item) => !item.passes), "detail checks should catch tight spacing/edge distance");
+
+const gussetScopeFailures = [
+  ["positive tension", { requiredAxial: -400 }, "gussetPositiveTension"],
+  ["zero shear", { requiredShear: 1 }, "gussetZeroShear"],
+  ["zero moment", { requiredMoment: 1 }, "gussetZeroMoment"],
+  ["concentricity", { eccentricity: 1 }, "gussetConcentric"],
+  ["negative eccentricity", { eccentricity: -1 }, "gussetConcentric"],
+  ["LRFD", { designMethod: "ASD" }, "gussetMethod"],
+  ["F10T", { boltGrade: "A325" }, "gussetBoltGrade"],
+  ["standard hole", { holeType: "oversized" }, "gussetStandardHole"],
+  ["standard-hole maximum", { holeDiameter: 22 }, "gussetStandardHoleMaximum"],
+  ["single shear", { gussetShearPlanes: 2 }, "gussetSingleShear"],
+  ["2-12 bolt line", { gussetBoltCount: 13 }, "gussetBoltCount"],
+  ["integer bolt count", { gussetBoltCount: 6.5 }, "gussetBoltCount"],
+  ["Gusset Fu >= Fy", { gussetUltimateStrength: 300 }, "gussetMaterialOrder"],
+  ["brace Fu >= Fy", { braceFu: 300 }, "braceMaterialOrder"],
+  ["support Fu >= Fy", { supportFu: 300 }, "gussetSupportMaterialOrder"],
+  ["Gusset net geometry", { gussetNetWidth: 180 }, "gussetNetGeometry"],
+  ["brace net geometry", { braceNetWidth: 160 }, "braceNetGeometry"],
+  ["available Whitmore width", { gussetAvailableWidth: 0 }, "gussetAvailableWidth"],
+  ["zero Whitmore connection length", { gussetWhitmoreConnectionLength: 0 }, "gussetWhitmoreConnectionLength"],
+  ["mismatched Whitmore connection length", { gussetWhitmoreConnectionLength: 349 }, "gussetWhitmoreConnectionLength"],
+  ["long bearing connection", { gussetPitch: 250.2, gussetWhitmoreConnectionLength: 1251 }, "gussetBearingConnectionLength"],
+  ["flat-plate brace scope", { braceSectionType: "angle" }, "gussetFlatPlateBrace"],
+  ["finite-result overflow", { gussetThickness: Number.MAX_VALUE }, "gussetFiniteDerivedResults"],
+  ["demand basis", { gussetDemandBasis: "請依專案覆寫" }, "gussetDemandBasis"],
+  ["geometry basis", { gussetGeometryBasis: "" }, "gussetGeometryBasis"],
+  ["material basis", { gussetMaterialBasis: "示例" }, "gussetMaterialBasis"],
+  ["model basis", { gussetModelBasis: "待補" }, "gussetModelBasis"],
+  ["static nonseismic confirmation", { gussetStaticNonseismicConfirmed: false }, "gussetStaticNonseismicConfirmed"],
+  ["load-path confirmation", { gussetLoadPathConfirmed: false }, "gussetLoadPathConfirmed"],
+  ["double fillet weld", { weldLineCount: 1 }, "gussetDoubleFilletWeld"],
+  ["integer weld topology", { weldLineCount: 2.4 }, "gussetDoubleFilletWeld"],
+  ["minimum weld", { weldSize: 4 }, "gussetMinWeldSize"],
+  ["maximum weld", { weldSize: 14 }, "gussetMaxWeldSize"],
+  ["short weld", { weldLength: 31 }, "gussetShortWeld"],
+  ["long weld", { weldLength: 561 }, "gussetLongWeld"],
+];
+for (const [label, mutation, detailKey] of gussetScopeFailures) {
+  const failed = calculateConnection({ ...gussetBase, ...mutation });
+  assert.equal(failed.passes, false, `Gusset V1 should fail closed for ${label}`);
+  assert.equal(failed.detailChecks.find((item) => item.key === detailKey)?.passes, false, `${detailKey} should expose the rejection`);
+  assert.equal(failed.summary.validationFailure, true, `${label} should be a blocking Gusset validation failure`);
+}
+const gussetOverflow = calculateConnection({ ...gussetBase, gussetThickness: Number.MAX_VALUE });
+assert.equal(gussetOverflow.detailChecks.find((item) => item.key === "gussetFiniteStrengthResults")?.passes, false, "overflowed Gusset strength results should fail closed");
+assert.ok(gussetOverflow.validations.some((item) => item.includes("數值溢位")), "overflow should remain a blocking, visible validation instead of becoming DCR zero");
+assert.equal(gussetOverflow.summary.strengthFailure, true, "overflowed capacity should be a strength failure, not only a detail failure");
+assert.equal(gussetOverflow.checks.find((item) => item.key === "gussetGrossYield")?.ratio, Infinity, "overflowed capacity should retain a non-finite DCR that the reading layer renders as an em dash");
 
 const plateInvalid = calculateConnection({
   ...shared,

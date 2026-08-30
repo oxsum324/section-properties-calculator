@@ -121,8 +121,11 @@ assert.ok(steelFormalAdapterSource.includes("require(productionCorePath)"), 'ste
 assert.ok(steelFormalAdapterSource.includes("<option value=\"plate_check\">"), 'steel formal adapter locks the main-page connection-plate route');
 assert.ok(steelFormalAdapterSource.includes("<option value=\"tension_member\">"), 'steel formal adapter locks the main-page tension-member route');
 assert.ok(steelFormalAdapterSource.includes("<option value=\"single_plate\">"), 'steel formal adapter locks the main-page single-plate route');
+assert.ok(steelFormalAdapterSource.includes("<option value=\"brace_gusset\">"), 'steel formal adapter locks the main-page Gusset route');
 assert.ok(steelFormalAdapterSource.includes('calculateSinglePlateCase'), 'steel formal adapter extracts production single-plate checks');
 assert.ok(steelFormalAdapterSource.includes('singlePlateCases'), 'steel formal adapter requires the five single-plate benchmark cases');
+assert.ok(steelFormalAdapterSource.includes('calculateGussetCase'), 'steel formal adapter extracts production Gusset checks');
+assert.ok(steelFormalAdapterSource.includes('gussetCases'), 'steel formal adapter requires the five Gusset benchmark cases');
 for (const detailKey of [
   'singlePlateBoltDiameterTable', 'singlePlateHoleDiameter', 'singlePlateStandardHoleMaximum',
   'singlePlateBoltEccentricity', 'singlePlateWeldEccentricity',
@@ -130,6 +133,28 @@ for (const detailKey of [
   'singlePlatePlateMaterialOrder', 'singlePlateBeamWebMaterialOrder', 'singlePlateSupportMaterialOrder',
   'singlePlateConventionalPlateFy', 'singlePlateConventionalBeamWebFy', 'singlePlateConventionalMaterialConfirmed',
   'singlePlateConventionalPitch', 'singlePlateConventionalHeight',
+]) {
+  assert.ok(steelFormalAdapterSource.includes(detailKey), `steel formal adapter extracts ${detailKey}`);
+}
+for (const strengthKey of [
+  'gussetBoltShear', 'gussetBoltBearing', 'braceBoltBearing',
+  'gussetGrossYield', 'gussetNetRupture', 'gussetBlockShear',
+  'braceGrossYield', 'braceNetRupture', 'braceBlockShear', 'gussetWhitmoreYield',
+  'gussetWeldMetal', 'gussetWeldBaseGusset', 'gussetWeldBaseSupport',
+]) {
+  assert.ok(steelFormalAdapterSource.includes(strengthKey), `steel formal adapter extracts ${strengthKey}`);
+}
+for (const detailKey of [
+  'gussetMethod', 'gussetPositiveTension', 'gussetZeroShear', 'gussetZeroMoment', 'gussetConcentric',
+  'gussetStaticNonseismicConfirmed', 'gussetLoadPathConfirmed', 'gussetBoltGrade',
+  'gussetStandardHole', 'gussetBoltDiameterTable', 'gussetHoleDiameter', 'gussetStandardHoleMaximum',
+  'gussetSingleShear', 'gussetBoltCount', 'gussetSingleStraightBoltLine',
+  'gussetMaterialOrder', 'braceMaterialOrder', 'gussetSupportMaterialOrder',
+  'gussetNetGeometry', 'braceNetGeometry', 'gussetAvailableWidth', 'gussetWhitmoreConnectionLength', 'gussetBearingConnectionLength', 'gussetFlatPlateBrace',
+  'gussetDoubleFilletWeld', 'gussetMinWeldSize', 'gussetMaxWeldSize', 'gussetShortWeld', 'gussetLongWeld',
+  'gussetDemandBasis', 'gussetGeometryBasis', 'gussetMaterialBasis', 'gussetModelBasis',
+  'gussetBoltLine_minSpacing', 'gussetBoltLine_minEnd', 'gussetBoltLine_minEdge',
+  'braceBoltLine_minSpacing', 'braceBoltLine_minEnd', 'braceBoltLine_minEdge',
 ]) {
   assert.ok(steelFormalAdapterSource.includes(detailKey), `steel formal adapter extracts ${detailKey}`);
 }
@@ -196,6 +221,111 @@ assert.ok(
     && rejectedSinglePlate.pitch > 76.2
     && rejectedSinglePlate.plateHeight > 914.4,
   'geometry-rejection case proves project confirmation cannot override the conventional material, pitch, or height hard caps'
+);
+assert.deepEqual(
+  steelFormalBenchmark.input.gussetCases.map(item => item.id),
+  ['gussetLrfdConcentric', 'gussetCompressionBlocked', 'gussetAsdBlocked', 'gussetNonConcentricBlocked', 'gussetGovernanceRejected'],
+  'steel formal benchmark locks Gusset LRFD concentric, compression, ASD, nonconcentric and governance-rejection cases'
+);
+const gussetGolden = steelFormalBenchmark.input.gussetCases[0];
+assert.deepEqual(
+  {
+    designMethod:gussetGolden.designMethod,
+    requiredAxial:gussetGolden.requiredAxial,
+    requiredShear:gussetGolden.requiredShear,
+    requiredMoment:gussetGolden.requiredMoment,
+    eccentricity:gussetGolden.eccentricity,
+    boltGrade:gussetGolden.boltGrade,
+    boltDiameter:gussetGolden.boltDiameter,
+    holeDiameter:gussetGolden.holeDiameter,
+    boltUltimateStrength:gussetGolden.boltUltimateStrength,
+    gussetBoltCount:gussetGolden.gussetBoltCount,
+    gussetShearPlanes:gussetGolden.gussetShearPlanes,
+    gussetEndDistance:gussetGolden.gussetEndDistance,
+    gussetPitch:gussetGolden.gussetPitch,
+    gussetEdgeDistance:gussetGolden.gussetEdgeDistance,
+    gussetThickness:gussetGolden.gussetThickness,
+    gussetYieldStrength:gussetGolden.gussetYieldStrength,
+    gussetUltimateStrength:gussetGolden.gussetUltimateStrength,
+    gussetConnectionWidth:gussetGolden.gussetConnectionWidth,
+    gussetNetWidth:gussetGolden.gussetNetWidth,
+    gussetWhitmoreConnectionLength:gussetGolden.gussetWhitmoreConnectionLength,
+    braceSectionType:gussetGolden.braceSectionType,
+    gussetAvailableWidth:gussetGolden.gussetAvailableWidth,
+    braceEndDistance:gussetGolden.braceEndDistance,
+    braceEdgeDistance:gussetGolden.braceEdgeDistance,
+    braceThickness:gussetGolden.braceThickness,
+    braceFy:gussetGolden.braceFy,
+    braceFu:gussetGolden.braceFu,
+    braceGrossWidth:gussetGolden.braceGrossWidth,
+    braceNetWidth:gussetGolden.braceNetWidth,
+    weldSize:gussetGolden.weldSize,
+    weldLength:gussetGolden.weldLength,
+    weldLineCount:gussetGolden.weldLineCount,
+    weldFexx:gussetGolden.weldFexx,
+    supportThickness:gussetGolden.supportThickness,
+    supportFy:gussetGolden.supportFy,
+    supportFu:gussetGolden.supportFu,
+    gussetStaticNonseismicConfirmed:gussetGolden.gussetStaticNonseismicConfirmed,
+    gussetLoadPathConfirmed:gussetGolden.gussetLoadPathConfirmed,
+  },
+  {
+    designMethod:'LRFD', requiredAxial:400, requiredShear:0, requiredMoment:0, eccentricity:0,
+    boltGrade:'F10T', boltDiameter:20, holeDiameter:21.5, boltUltimateStrength:1000,
+    gussetBoltCount:6, gussetShearPlanes:1, gussetEndDistance:50, gussetPitch:70,
+    gussetEdgeDistance:60, gussetThickness:14, gussetYieldStrength:325, gussetUltimateStrength:490,
+    gussetConnectionWidth:180, gussetNetWidth:156.5, gussetWhitmoreConnectionLength:350, gussetAvailableWidth:400,
+    braceSectionType:'flat_plate',
+    braceEndDistance:50, braceEdgeDistance:60, braceThickness:12, braceFy:325, braceFu:490,
+    braceGrossWidth:160, braceNetWidth:136.5, weldSize:8, weldLength:250, weldLineCount:2,
+    weldFexx:490, supportThickness:16, supportFy:325, supportFu:490,
+    gussetStaticNonseismicConfirmed:true, gussetLoadPathConfirmed:true,
+  },
+  'Gusset golden case locks the formal LRFD concentric F10T M20 strength and governance scope'
+);
+assert.ok(
+  2 * gussetGolden.gussetWhitmoreConnectionLength * Math.tan(Math.PI / 6)
+    > gussetGolden.gussetAvailableWidth,
+  'Gusset golden case forces the available-width cap to govern the Whitmore effective width'
+);
+assert.equal(
+  gussetGolden.gussetWhitmoreConnectionLength,
+  (gussetGolden.gussetBoltCount - 1) * gussetGolden.gussetPitch,
+  'Gusset Whitmore connection length equals the first-to-last bolt-center distance for one straight bolt line'
+);
+assert.ok(steelFormalBenchmark.input.gussetCases[1].requiredAxial < 0, 'Gusset compression case exercises the positive-tension hard gate');
+assert.equal(steelFormalBenchmark.input.gussetCases[2].designMethod, 'ASD', 'Gusset ASD case exercises the LRFD-only hard gate');
+assert.ok(
+  steelFormalBenchmark.input.gussetCases[3].requiredShear !== 0
+    && steelFormalBenchmark.input.gussetCases[3].requiredMoment !== 0
+    && steelFormalBenchmark.input.gussetCases[3].eccentricity < 0,
+  'Gusset nonconcentric case exercises all V, M and signed-negative e hard gates'
+);
+const rejectedGusset = steelFormalBenchmark.input.gussetCases[4];
+assert.equal(rejectedGusset.braceSectionType, 'angle', 'Gusset governance-rejection case exercises the flat-plate-brace hard gate');
+assert.ok(rejectedGusset.gussetWhitmoreConnectionLength > 1250, 'Gusset governance-rejection case exercises the Table 10.3-2 long bearing-connection hard gate');
+assert.ok(
+  rejectedGusset.gussetUltimateStrength < rejectedGusset.gussetYieldStrength
+    && rejectedGusset.braceFu < rejectedGusset.braceFy
+    && rejectedGusset.supportFu < rejectedGusset.supportFy,
+  'Gusset governance-rejection case invalidates all three material-strength order checks'
+);
+assert.ok(
+  rejectedGusset.gussetPitch < 3 * rejectedGusset.boltDiameter
+    && rejectedGusset.gussetEndDistance < 25
+    && rejectedGusset.braceEndDistance < 25
+    && rejectedGusset.gussetNetWidth > rejectedGusset.gussetConnectionWidth
+    && rejectedGusset.braceNetWidth > rejectedGusset.braceGrossWidth,
+  'Gusset governance-rejection case invalidates bolt spacing, edge distance and both net-width checks'
+);
+assert.ok(
+  rejectedGusset.gussetStaticNonseismicConfirmed === false
+    && rejectedGusset.gussetLoadPathConfirmed === false
+    && rejectedGusset.gussetDemandBasis === '請依專案覆寫'
+    && rejectedGusset.gussetGeometryBasis === '請依專案覆寫'
+    && rejectedGusset.gussetMaterialBasis === '請依專案覆寫'
+    && rejectedGusset.gussetModelBasis === '請依專案覆寫',
+  'Gusset governance-rejection case fails both confirmations and all four non-placeholder basis gates'
 );
 const deckingAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'decking.js'), 'utf8');
 assert.ok(deckingAdapterSource.includes("../../../覆工板"), 'decking adapter resolves the production formal tool');
@@ -512,8 +642,8 @@ assert.deepEqual(
   'the six manifest-driven local-quick routes retain explicit independent benchmark family coverage'
 );
 const steelFormalRecord = result.records.find(record => record.route === '/steel-formal');
-assert.equal(steelFormalRecord.status, 'verified', 'steel formal plate, tension-member and single-plate closed-form benchmark is verified');
-assert.ok(steelFormalRecord.assertionCount >= 210, 'steel formal benchmark deeply covers five independent single-plate cases and explicit detail pass/rejection outputs without adding a route');
+assert.equal(steelFormalRecord.status, 'verified', 'steel formal plate, tension-member, single-plate and Gusset closed-form benchmark is verified');
+assert.equal(steelFormalRecord.assertionCount, 410, 'steel formal benchmark deeply covers five Gusset cases without adding a formal route');
 
 const runnerText = fs.readFileSync(runnerPath, 'utf8');
 assert.ok(!runnerText.includes('golden-cases.js'), 'independent runner does not import golden case answers');
@@ -578,6 +708,9 @@ const falsePositiveResult = runBenchmarks(catalog, {
           production.boltedLrfd.bearingAvailable += 5;
           production.singlePlateG2F10TM20Eccentric.boltAvailable += 5;
           production.singlePlateGeometryRejected.standardHoleMaximumPass = 1;
+          production.gussetLrfdConcentric.whitmoreAvailable += 5;
+          production.gussetLrfdConcentric.boltAvailable += 5;
+          production.gussetGovernanceRejected.gussetMaterialOrderPass = 1;
         }
         if (relativePath === 'independent-engineering-adapters/decking.js') production.longUnbracedHeavy.girder.PuMax += 5;
         if (relativePath === 'independent-engineering-adapters/stone-fixing.js') production.backAnchorWindCone.panel.localStress += 5;
@@ -630,6 +763,9 @@ assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-val
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:boltedLrfd.bearingAvailable')), 'steel formal bolt-bearing drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:singlePlateG2F10TM20Eccentric.boltAvailable')), 'steel formal F10T M20 eccentric bolt-group drift is independently detected');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:singlePlateGeometryRejected.standardHoleMaximumPass')), 'steel formal Table 10.3-5 detail-rejection drift is independently detected');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:gussetLrfdConcentric.whitmoreAvailable')), 'steel formal Gusset Whitmore available-width drift is independently detected');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:gussetLrfdConcentric.boltAvailable')), 'steel formal Gusset Table 10.3-2 bolt-shear drift is independently detected');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:gussetGovernanceRejected.gussetMaterialOrderPass')), 'steel formal Gusset governance-gate drift is independently detected');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:longUnbracedHeavy.girder.PuMax')), 'decking load-path drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:backAnchorWindCone.panel.localStress')), 'stone-fixing panel and connector load-path drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:endSpan.phiVc')), 'RC slab one-way shear drift identifies the mismatched quantity');

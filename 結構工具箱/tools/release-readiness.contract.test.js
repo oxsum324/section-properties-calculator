@@ -409,6 +409,7 @@ assertIncludes(steelSharedReport, '核可完整性：此預覽頁尚未封印；
 
 [
   'steel-main-plate',
+  'steel-main-gusset',
   'steel-beam-formal',
   'steel-column-formal',
   'renderAndValidateReportPdf',
@@ -566,7 +567,7 @@ assertIncludes(reportGuide, '不得誤稱為舊版', 'report guide distinguishes
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 32',
+  'schemaVersion: 33',
   'rcSupplementalAttachments',
   'rcStmFormalAttachment',
   "scope:'rc-stm-supplemental-formal-attachments'",
@@ -574,7 +575,8 @@ assertIncludes(reportGuide, '不得誤稱為舊版', 'report guide distinguishes
   'canonicalArtifactIntegrity',
   'steelShearTabCanonicalArtifactRequired = 2',
   'frameAnalysisCanonicalArtifactRequired = 2',
-  'canonicalArtifactIntegrityRequired, 88',
+  'steelGussetCanonicalArtifactRequired = 2',
+  'canonicalArtifactIntegrityRequired, 90',
   'docxPackageIntegrity',
   "scope: 'formal-docx-clean-ooxml-package'",
   'docxPackageIntegrity=',
@@ -770,6 +772,7 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   "evidence.steelHtmlContentSeal?.scope === 'steel-formal-html-reproducible-content-sha256'",
   'expectedSteelFormalEvidenceCount',
   'shearTabSteelFormalEvidenceDeclared',
+  'gussetSteelFormalEvidenceDeclared',
   'evidence.steelHtmlContentSeal.required === expectedSteelFormalEvidenceCount',
   "evidence.steelHtmlApprovalSeal?.scope === 'steel-formal-html-reproducible-approval-sha256'",
   'evidence.steelHtmlApprovalSeal.required === expectedSteelFormalEvidenceCount',
@@ -1048,6 +1051,10 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   assertIncludes(source, '167/167', `${label} documents the Schema v32 public delivery integrity count`);
   assert(/Schema v32[^\r\n]*88\/88[^\r\n]*167\/167/.test(source), `${label} keeps Schema v32 with canonical 88/88 and public 167/167 in the same governance block`);
   assert(/Schema v32[^\r\n]*(?:平面剛架|frame-analysis-formal)[^\r\n]*1\/1/.test(source), `${label} keeps Schema v32 with the frame-analysis result and seal scope`);
+  assertIncludes(source, 'Schema v33', `${label} documents the seven-tool steel formal release evidence schema`);
+  assertIncludes(source, '169/169', `${label} documents the Schema v33 public delivery integrity count`);
+  assert(/Schema v33[^\r\n]*90\/90[^\r\n]*169\/169/.test(source), `${label} keeps Schema v33 with canonical 90/90 and public 169/169 in the same governance block`);
+  assert(/Schema v33[^\r\n]*鋼構[^\r\n]*7\/7/.test(source), `${label} keeps Schema v33 with the seven steel formal result and seal scope`);
   assertIncludes(source, 'rc-stm-formal', `${label} documents RC STM release evidence directory`);
   assertIncludes(source, 'rc-stm-atomic-change-set.manifest.json', `${label} documents the RC STM machine-readable atomic change set`);
   assertIncludes(source, 'rc-stm-atomic-change-set-review.js', `${label} documents the RC STM human-readable atomic review`);

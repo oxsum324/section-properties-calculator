@@ -13,7 +13,7 @@
   const IS_STANDALONE_PLATE = location.pathname.toLowerCase().includes("plate-check");
   const STORAGE_KEY = IS_STANDALONE_PLATE
     ? "steel-plate-check-draft-v2"
-    : "steel-connection-suite-draft-v5";
+    : "steel-connection-suite-draft-v6";
   const UI_PREFS_KEY = IS_STANDALONE_PLATE
     ? "steel-plate-check-ui-v1"
     : "steel-connection-suite-ui-v1";
@@ -34,6 +34,23 @@
     "plateHeight", "boltLineToWeldDistance", "weldEccentricity", "beamWebThickness", "beamWebYieldStrength", "beamWebUltimateStrength",
     "beamWebEndDistance", "beamWebEdgeDistance", "supportThickness", "supportYieldStrength", "supportUltimateStrength", "fillerThickness",
     "weldSize", "weldLength", "weldLineCount", "weldElectrodeStrength",
+  ];
+  const GUSSET_SOURCE_FIELD_KEYS = [
+    "projectName", "connectionTag", "designer", "notes", "designMethod", "connectionType", "exposureCondition",
+    "requiredAxial", "requiredShear", "requiredMoment", "eccentricity",
+    "boltDiameter", "holeType", "holeDiameter", "edgeFabrication", "boltUltimateStrength", "boltGrade", "threadsCondition", "deformationConsidered",
+    "gussetBoltCount", "gussetShearPlanes", "gussetEndDistance", "gussetPitch", "gussetEdgeDistance",
+    "gussetThickness", "gussetYieldStrength", "gussetUltimateStrength", "gussetConnectionWidth", "gussetNetWidth", "gussetWhitmoreConnectionLength", "gussetAvailableWidth",
+    "braceSectionType", "braceEndDistance", "braceEdgeDistance", "braceThickness", "braceFy", "braceFu", "braceGrossWidth", "braceNetWidth",
+    "weldSize", "weldLength", "weldLineCount", "weldFexx", "supportThickness", "supportFy", "supportFu",
+    "gussetDemandBasis", "gussetGeometryBasis", "gussetMaterialBasis", "gussetModelBasis", "gussetStaticNonseismicConfirmed", "gussetLoadPathConfirmed",
+  ];
+  const GUSSET_NUMBER_FIELDS = [
+    "requiredAxial", "requiredShear", "requiredMoment", "eccentricity", "boltDiameter", "holeDiameter", "boltUltimateStrength",
+    "gussetBoltCount", "gussetShearPlanes", "gussetEndDistance", "gussetPitch", "gussetEdgeDistance",
+    "gussetThickness", "gussetYieldStrength", "gussetUltimateStrength", "gussetConnectionWidth", "gussetNetWidth", "gussetWhitmoreConnectionLength", "gussetAvailableWidth",
+    "braceEndDistance", "braceEdgeDistance", "braceThickness", "braceFy", "braceFu", "braceGrossWidth", "braceNetWidth",
+    "weldSize", "weldLength", "weldLineCount", "weldFexx", "supportThickness", "supportFy", "supportFu",
   ];
 
   const glossaryItems = [
@@ -58,9 +75,9 @@
     ["hsp", "柱續接槓桿臂", "mm", "柱翼壓拉偶力之力臂。", "柱續接由彎矩換算翼板拉力。"],
     ["bfp / bfn", "翼板總寬 / 淨寬", "mm", "柱翼續接板總寬及扣孔後有效淨寬。", "續接板降伏與斷裂。"],
     ["hw", "腹板續接板深度", "mm", "柱腹續接板可傳遞剪力之有效高度。", "腹板剪力降伏。"],
-    ["b0", "Whitmore 初始寬度", "mm", "支撐連接於 Gusset 板起始之寬度。", "Whitmore 展開寬度。"],
+    ["bg,gusset", "Gusset 栓孔斷面總寬", "mm", "Gusset 在栓孔斷面之 gross plate width，僅用於 Ag 與扣孔後 An；不是 Whitmore 初始寬度。", "Gusset 總／淨斷面。"],
     ["bnet", "Gusset 淨寬", "mm", "扣除孔洞後之有效淨寬。", "Gusset 淨斷面斷裂。"],
-    ["Lw", "Whitmore 展開長度", "mm", "沿受力方向向外展開之評估長度。", "Whitmore 有效寬度。"],
+    ["Lconn", "Whitmore 栓群連接長度", "mm", "單一直線栓列首末螺栓中心距，必須等於 (n−1)s；fastener-group 起始寬度取 0。", "bW = 2Lconn tan30°。"],
     ["hm", "彎矩接頭槓桿臂", "mm", "梁翼張壓偶力之力臂。", "將彎矩換算拉側需求。"],
     ["bmp / bmn", "端板總寬 / 淨寬", "mm", "梁柱彎矩接頭端板總寬與淨寬。", "端板降伏與斷裂。"],
     ["Vpz", "Panel Zone 可用容量", "kN", "由工程師或外部模型提供之 panel zone 可用等效容量。", "梁柱接頭 panel zone 篩選。"],
@@ -178,39 +195,58 @@
       spliceWeldElectrodeStrength: 490,
     },
     brace_gusset: {
-      projectName: "示範支撐 Gusset",
+      projectName: "Gusset V1 正式算例",
       connectionTag: "BG-01",
       designer: "",
-      notes: "支撐 / Gusset 接頭以軸力傳遞為主",
+      notes: "LRFD 平板支撐正軸向同心拉力；U=1.0、Ae=An；靜力、非耐震、非 BRB。",
       designMethod: "LRFD",
       connectionType: "brace_gusset",
       exposureCondition: "painted",
-      requiredAxial: 700,
+      requiredAxial: 400,
       requiredShear: 0,
       requiredMoment: 0,
       eccentricity: 0,
-      boltDiameter: 22,
-      holeDiameter: 24,
+      boltDiameter: 20,
+      holeDiameter: 21.5,
       holeType: "standard",
       edgeFabrication: "rolled",
       boltUltimateStrength: 1000,
+      boltGrade: "F10T",
       threadsCondition: "included",
       deformationConsidered: "true",
       gussetBoltCount: 6,
       gussetShearPlanes: 1,
-      gussetEndDistance: 55,
-      gussetPitch: 80,
-      gussetEdgeDistance: 70,
+      gussetEndDistance: 50,
+      gussetPitch: 70,
+      gussetEdgeDistance: 60,
       gussetThickness: 14,
       gussetYieldStrength: 325,
       gussetUltimateStrength: 490,
-      gussetNetWidth: 220,
       gussetConnectionWidth: 180,
-      gussetWhitmoreLength: 240,
-      gussetWeldSize: 10,
-      gussetWeldLength: 320,
-      gussetWeldLineCount: 2,
-      gussetWeldElectrodeStrength: 490,
+      gussetNetWidth: 156.5,
+      gussetWhitmoreConnectionLength: 350,
+      gussetAvailableWidth: 400,
+      braceSectionType: "flat_plate",
+      braceEndDistance: 50,
+      braceEdgeDistance: 60,
+      braceThickness: 12,
+      braceFy: 325,
+      braceFu: 490,
+      braceGrossWidth: 160,
+      braceNetWidth: 136.5,
+      weldSize: 8,
+      weldLength: 250,
+      weldLineCount: 2,
+      weldFexx: 490,
+      supportThickness: 16,
+      supportFy: 325,
+      supportFu: 490,
+      gussetDemandBasis: "分析模型 STR-GS-01／ULS 拉力包絡 Pu = 400 kN",
+      gussetGeometryBasis: "核定接頭圖 S-503／BG-01 尺寸表",
+      gussetMaterialBasis: "鋼材規格 Fy=325、Fu=490 MPa；F10T 螺栓與 E70 系列銲材證明",
+      gussetModelBasis: "專案接頭圖確認平板支撐矩形截面全元素直接連接、單一直線承壓栓列與 Gusset 兩側縱向填角銲串聯力流",
+      gussetStaticNonseismicConfirmed: "true",
+      gussetLoadPathConfirmed: "true",
     },
     beam_column_moment: {
       projectName: "示範梁柱彎矩接頭",
@@ -374,7 +410,7 @@
       { id: "column_splice_standard", label: "柱續接｜翼板 + 腹板續接", state: exampleStates.column_splice },
     ],
     brace_gusset: [
-      { id: "brace_gusset_standard", label: "Gusset｜支撐軸力接頭", state: exampleStates.brace_gusset },
+      { id: "brace_gusset_standard", label: "Gusset｜平板支撐軸力接頭", state: exampleStates.brace_gusset },
     ],
     beam_column_moment: [
       { id: "beam_column_moment_standard", label: "梁柱彎矩｜簡化力偶模型", state: exampleStates.beam_column_moment },
@@ -619,23 +655,42 @@
     ],
     brace_gusset: [
       {
-        title: "Gusset 接頭資料",
+        title: "平板支撐 Gusset V1 接頭資料",
         items: [
+          ["boltGrade", "螺栓規格等級"],
           ["gussetBoltCount", "Gusset 螺栓數", "支"],
           ["gussetShearPlanes", "剪斷面數"],
-          ["gussetEndDistance", "端距", "mm"],
-          ["gussetPitch", "孔距", "mm"],
-          ["gussetEdgeDistance", "邊距", "mm"],
-          ["gussetThickness", "板厚", "mm"],
-          ["gussetYieldStrength", "Fy", "MPa"],
-          ["gussetUltimateStrength", "Fu", "MPa"],
-          ["gussetNetWidth", "有效淨寬", "mm"],
-          ["gussetConnectionWidth", "初始寬度 b0", "mm"],
-          ["gussetWhitmoreLength", "Whitmore 展開長度", "mm"],
-          ["gussetWeldSize", "銲腳尺寸", "mm"],
-          ["gussetWeldLength", "有效銲長", "mm"],
-          ["gussetWeldLineCount", "銲道數量"],
-          ["gussetWeldElectrodeStrength", "FEXX", "MPa"],
+          ["gussetEndDistance", "Gusset 端距 eg", "mm"],
+          ["gussetPitch", "共同孔距 sg", "mm"],
+          ["gussetEdgeDistance", "Gusset 邊距 gg", "mm"],
+          ["gussetThickness", "Gusset 厚度 tg", "mm"],
+          ["gussetYieldStrength", "Gusset Fy", "MPa"],
+          ["gussetUltimateStrength", "Gusset Fu", "MPa"],
+          ["gussetConnectionWidth", "Gusset 栓孔斷面總寬 bg,gusset", "mm"],
+          ["gussetNetWidth", "Gusset 有效淨寬 bnet", "mm"],
+          ["gussetWhitmoreConnectionLength", "Whitmore 栓群連接長度 Lconn=(n−1)s", "mm"],
+          ["gussetAvailableWidth", "Whitmore 可用板寬", "mm"],
+          ["braceSectionType", "支撐材截面型式"],
+          ["braceEndDistance", "支撐材端距 eb", "mm"],
+          ["braceEdgeDistance", "支撐材邊距 gb", "mm"],
+          ["braceThickness", "支撐材厚度 tb", "mm"],
+          ["braceFy", "支撐材 Fy", "MPa"],
+          ["braceFu", "支撐材 Fu", "MPa"],
+          ["braceGrossWidth", "支撐材總寬 bg", "mm"],
+          ["braceNetWidth", "支撐材淨寬 bn", "mm"],
+          ["weldSize", "雙側縱向銲腳 a", "mm"],
+          ["weldLength", "各側有效銲長 Le", "mm"],
+          ["weldLineCount", "縱向銲道數量"],
+          ["weldFexx", "銲材 FEXX", "MPa"],
+          ["supportThickness", "支承材厚度 ts", "mm"],
+          ["supportFy", "支承材 Fy", "MPa"],
+          ["supportFu", "支承材 Fu", "MPa"],
+          ["gussetDemandBasis", "設計拉力來源"],
+          ["gussetGeometryBasis", "幾何資料來源"],
+          ["gussetMaterialBasis", "材料資料來源"],
+          ["gussetModelBasis", "接頭模型來源"],
+          ["gussetStaticNonseismicConfirmed", "靜力、非耐震、非 BRB 確認"],
+          ["gussetLoadPathConfirmed", "串聯力流與單一直線栓列確認"],
         ],
       },
     ],
@@ -798,7 +853,7 @@
       tension_member: "拉力構件｜Tension Member",
       single_plate: "剪力接頭｜單剪力板 Shear Tab｜LRFD 正式模組",
       column_splice: "柱續接｜Column Splice｜開發中",
-      brace_gusset: "支撐 / Gusset 接頭｜開發中",
+      brace_gusset: "支撐接頭｜平板支撐 Gusset 拉力接頭｜LRFD 正式模組",
       beam_column_moment: "梁柱彎矩接頭｜開發中",
     },
     exposureCondition: { painted: "塗裝或不受腐蝕環境", weathering: "耐候鋼且暴露大氣" },
@@ -816,6 +871,9 @@
     fillerExtended: { true: "已延伸至連接板外", false: "未延伸至連接板外" },
     conventionalMaterialConfirmed: { true: "已依核定材料規範確認", false: "尚未確認" },
     connectionModelConfirmed: { true: "已確認", false: "尚未確認" },
+    gussetStaticNonseismicConfirmed: { true: "已確認為靜力、非耐震、非 BRB", false: "尚未確認" },
+    gussetLoadPathConfirmed: { true: "已確認單列栓與雙側縱向銲串聯力流", false: "尚未確認" },
+    braceSectionType: { flat_plate: "扁鋼／平板支撐｜矩形截面｜U = 1.0、Ae = An" },
     spliceBearingTransfer: { true: "是，可由承壓面直接傳遞", false: "否，保守由續接元件承擔" },
     plateInputMode: { geometry: "幾何推導", area_manual: "面積直輸" },
     loadDirection: { horizontal: "水平", vertical: "垂直" },
@@ -1008,9 +1066,10 @@
         return `${methodLabel}｜第四章一般要求、第五章受拉構材、第十章接合設計`;
       case "plate_check":
         return `${methodLabel}｜第四章一般要求、第十章接合設計`;
+      case "brace_gusset":
+        return "LRFD｜第五章受拉構材、第十章接合設計";
       case "single_plate":
       case "column_splice":
-      case "brace_gusset":
       case "beam_column_moment":
       default:
         return `${methodLabel}｜第十章接合設計`;
@@ -1551,6 +1610,18 @@
     syncVisibleFieldState();
   }
 
+  function updateVisibility() {
+    const type = getCurrentConnectionType();
+    toggleConnectionSections(type);
+    toggleConditionalSections(
+      type,
+      form.elements.namedItem("plateInputMode")?.value || "geometry",
+      form.elements.namedItem("tensionAreaInput")?.value || "geometry",
+      form.elements.namedItem("tensionConnectionMode")?.value || "bolted",
+      form.elements.namedItem("tensionWeldType")?.value || "fillet",
+    );
+  }
+
   function renderInputSummary(result) {
     inputSummaryTables.innerHTML = getInputGroups(result.state.connectionType).map((group) => `
       <div class="report-subtable">
@@ -2069,6 +2140,9 @@
   }
 
   function getCheckStatus(check) {
+    const numericResultsAreFinite = [check.demand, check.nominal, check.available, check.ratio].every(Number.isFinite);
+    const positiveDemandHasPositiveCapacity = check.demand <= 0 || (check.nominal > 0 && check.available > 0);
+    if (!numericResultsAreFinite || !positiveDemandHasPositiveCapacity) return { text: "NG", className: "fail" };
     if (check.ratio > 1) return { text: "NG", className: "fail" };
     if (check.warning) return { text: "注意", className: "warn" };
     return { text: "OK", className: "ok" };
@@ -2152,6 +2226,13 @@
 
   function buildDecisionSentence(check) {
     const status = getCheckStatus(check);
+    const numericResultsAreFinite = [check.demand, check.nominal, check.available, check.ratio].every(Number.isFinite);
+    if (!numericResultsAreFinite) {
+      return "需求值、標稱強度、可用強度或 DCR 含非有限值，故本項檢核不符合。";
+    }
+    if (check.demand > 0 && (check.nominal <= 0 || check.available <= 0)) {
+      return "正需求下標稱強度或可用強度不是正值，故本項檢核不符合。";
+    }
     if (status.className === "fail") {
       return `需求值 ${formatNumber(check.demand)} kN 大於可用強度 ${formatNumber(check.available)} kN，故本項檢核不符合。`;
     }
@@ -2300,9 +2381,9 @@
   }
 
   function getReportSnapshotState(result) {
-    return result.state.connectionType === "single_plate"
-      ? pickSourceFields(result.state, SINGLE_PLATE_SOURCE_FIELD_KEYS)
-      : result.state;
+    if (result.state.connectionType === "single_plate") return pickSourceFields(result.state, SINGLE_PLATE_SOURCE_FIELD_KEYS);
+    if (result.state.connectionType === "brace_gusset") return pickSourceFields(result.state, GUSSET_SOURCE_FIELD_KEYS);
+    return result.state;
   }
 
   function canonicalJson(value) {
@@ -2315,6 +2396,27 @@
 
   function jsonSerializableClone(value) {
     return JSON.parse(JSON.stringify(value));
+  }
+
+  function containsNonFiniteNumber(value, seen = new Set()) {
+    if (typeof value === "number") return !Number.isFinite(value);
+    if (!value || typeof value !== "object") return false;
+    if (seen.has(value)) return false;
+    seen.add(value);
+    return Object.values(value).some((item) => containsNonFiniteNumber(item, seen));
+  }
+
+  function assertGussetFiniteFormalResult(result) {
+    if (result?.state?.connectionType !== "brace_gusset") return;
+    const finiteDerived = result.detailChecks?.find((item) => item.key === "gussetFiniteDerivedResults")?.passes === true;
+    const finiteStrength = result.detailChecks?.find((item) => item.key === "gussetFiniteStrengthResults")?.passes === true;
+    if (!finiteDerived || !finiteStrength || containsNonFiniteNumber({
+      checks: result.checks,
+      governing: result.governing,
+      derivedAreas: result.derivedAreas,
+    })) {
+      throw new Error("Gusset 結果含非有限值或數值溢位，禁止核可、正式報告與來源 JSON；未建立含 Infinity 或以 null 代換的正式資料。");
+    }
   }
 
   function buildConnectionReportConfig(result) {
@@ -2344,6 +2446,7 @@
   }
 
   function buildConnectionSourcePayload(result = window.latestSteelConnectionResult || calculateConnection(collectFormState())) {
+    assertGussetFiniteFormalResult(result);
     const reportConfig = buildConnectionReportConfig(result);
     const reportTrace = SteelFormalUI.buildReportTrace(reportConfig);
     return {
@@ -2382,17 +2485,21 @@
   }
 
   function exportConnectionSourceJson() {
-    const payload = buildConnectionSourcePayload();
-    const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = sourceJsonFilename(payload);
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-    setExportReportStatus(`已匯出來源 JSON｜計算指紋 ${payload.calculationFingerprint}`);
+    try {
+      const payload = buildConnectionSourcePayload();
+      const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = sourceJsonFilename(payload);
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setExportReportStatus(`已匯出來源 JSON｜計算指紋 ${payload.calculationFingerprint}`);
+    } catch (error) {
+      setExportReportStatus(`來源 JSON 未匯出｜${error?.message || "未知錯誤"}`);
+    }
   }
 
   function validateSinglePlateSourceFields(payload) {
@@ -2437,6 +2544,63 @@
     }
   }
 
+  function validateGussetSourceFields(payload) {
+    const fields = payload.fields;
+    const expectedKeys = [...GUSSET_SOURCE_FIELD_KEYS].sort();
+    const actualKeys = Object.keys(fields || {}).sort();
+    if (canonicalJson(actualKeys) !== canonicalJson(expectedKeys)) {
+      const missing = expectedKeys.filter((key) => !actualKeys.includes(key));
+      const extra = actualKeys.filter((key) => !expectedKeys.includes(key));
+      throw new Error(`來源 JSON 驗證失敗：Gusset 欄位集合不符（缺少 ${missing.join(",") || "無"}；多出 ${extra.join(",") || "無"}）。`);
+    }
+    GUSSET_NUMBER_FIELDS.forEach((key) => {
+      if (typeof fields[key] !== "number" || !Number.isFinite(fields[key])) throw new Error(`來源 JSON 驗證失敗：${key} 必須為有限數值。`);
+    });
+    ["deformationConsidered", "gussetStaticNonseismicConfirmed", "gussetLoadPathConfirmed"].forEach((key) => {
+      if (typeof fields[key] !== "boolean") throw new Error(`來源 JSON 驗證失敗：${key} 必須為布林值。`);
+    });
+    ["projectName", "connectionTag", "designer", "notes", "gussetDemandBasis", "gussetGeometryBasis", "gussetMaterialBasis", "gussetModelBasis"].forEach((key) => {
+      if (typeof fields[key] !== "string") throw new Error(`來源 JSON 驗證失敗：${key} 必須為文字。`);
+    });
+    const enums = {
+      designMethod: ["LRFD"], connectionType: ["brace_gusset"], exposureCondition: ["painted", "weathering"],
+      holeType: ["standard"], edgeFabrication: ["rolled", "sheared"], boltGrade: ["F10T"], threadsCondition: ["included", "excluded"],
+      braceSectionType: ["flat_plate"],
+    };
+    Object.entries(enums).forEach(([key, allowed]) => {
+      if (!allowed.includes(fields[key])) throw new Error(`來源 JSON 驗證失敗：${key} 列舉值不支援。`);
+    });
+    if (!Number.isInteger(fields.gussetBoltCount) || fields.gussetBoltCount < 2 || fields.gussetBoltCount > 12) throw new Error("來源 JSON 驗證失敗：gussetBoltCount 必須為 2 至 12 的整數。");
+    if (fields.gussetShearPlanes !== 1) throw new Error("來源 JSON 驗證失敗：gussetShearPlanes 必須為 1。");
+    if (fields.weldLineCount !== 2) throw new Error("來源 JSON 驗證失敗：weldLineCount 必須為 2。");
+    const expectedWhitmoreConnectionLength = (fields.gussetBoltCount - 1) * fields.gussetPitch;
+    if (!(fields.gussetWhitmoreConnectionLength > 0)
+      || Math.abs(fields.gussetWhitmoreConnectionLength - expectedWhitmoreConnectionLength) > 1e-9) {
+      throw new Error("來源 JSON 驗證失敗：gussetWhitmoreConnectionLength 必須大於 0 且等於 (gussetBoltCount − 1) × gussetPitch。");
+    }
+    if (fields.gussetWhitmoreConnectionLength > 1250) throw new Error("來源 JSON 驗證失敗：表 10.3-2 註 [e] 原針對承壓式接合之續接拉力構材；本 Gusset 為端部接合，V1 在尚未實作長接合路線前保守援用 Lconn ≤ 1250 mm，並非一般接合的條文上限。");
+    if (!(fields.requiredAxial > 0)) throw new Error("來源 JSON 驗證失敗：requiredAxial 必須為正拉力。");
+    for (const key of ["requiredShear", "requiredMoment", "eccentricity"]) {
+      if (fields[key] !== 0) throw new Error(`來源 JSON 驗證失敗：${key} 必須為 0。`);
+    }
+    const positiveFields = GUSSET_NUMBER_FIELDS.filter((key) => !["requiredAxial", "requiredShear", "requiredMoment", "eccentricity", "gussetBoltCount", "gussetShearPlanes", "weldLineCount"].includes(key));
+    positiveFields.forEach((key) => {
+      if (!(fields[key] > 0)) throw new Error(`來源 JSON 驗證失敗：${key} 必須大於 0。`);
+    });
+    if (Math.abs(fields.boltUltimateStrength - 1000) > 1) throw new Error("來源 JSON 驗證失敗：F10T 的 boltUltimateStrength 必須為 1000 MPa。");
+    const finiteProbe = calculateConnection(fields);
+    if (finiteProbe.detailChecks.find((item) => item.key === "gussetFiniteDerivedResults")?.passes !== true
+      || finiteProbe.detailChecks.find((item) => item.key === "gussetFiniteStrengthResults")?.passes !== true
+      || containsNonFiniteNumber({ checks: finiteProbe.checks, governing: finiteProbe.governing, derivedAreas: finiteProbe.derivedAreas })) {
+      throw new Error("來源 JSON 驗證失敗：Gusset 結果含非有限值或數值溢位；拒絕以 Infinity 或 JSON null 代換建立正式來源。");
+    }
+    if (payload.project?.name !== normalizeProjectMetaValue(fields.projectName)
+      || payload.project?.no !== normalizeProjectMetaValue(fields.connectionTag)
+      || payload.project?.designer !== normalizeProjectMetaValue(fields.designer)) {
+      throw new Error("來源 JSON 驗證失敗：project 與 fields 專案資料不一致。");
+    }
+  }
+
   function validateConnectionSourcePayload(payload) {
     const expectedMetadata = getFormalToolMetadata(payload.connectionType);
     const allowedToolIds = IS_STANDALONE_PLATE
@@ -2446,7 +2610,7 @@
       expectedToolIds: allowedToolIds,
       expectedVersion: expectedMetadata.version,
     });
-    if (!['plate_check', 'tension_member', 'single_plate'].includes(payload.connectionType)) {
+    if (!['plate_check', 'tension_member', 'single_plate', 'brace_gusset'].includes(payload.connectionType)) {
       throw new Error('來源 JSON 驗證失敗：不支援此檢核模組。');
     }
     if (payload.tool.id !== expectedMetadata.id || payload.fields.connectionType !== payload.connectionType) {
@@ -2456,32 +2620,32 @@
       throw new Error('來源 JSON 驗證失敗：設計方法不一致。');
     }
     if (payload.connectionType === 'single_plate') validateSinglePlateSourceFields(payload);
+    if (payload.connectionType === 'brace_gusset') validateGussetSourceFields(payload);
     return payload;
   }
 
   async function importConnectionSourceJson(file) {
-    const previous = buildConnectionSourcePayload();
+    const previousFields = collectFormState();
     let stateChanged = false;
     try {
       const payload = validateConnectionSourcePayload(await SteelFormalUI.readCalculationSourceFile(file, {
         expectedToolIds: IS_STANDALONE_PLATE
           ? [STEEL_TOOL_METADATA.plate.id]
           : [STEEL_TOOL_METADATA.plate.id, STEEL_TOOL_METADATA.tension.id, STEEL_TOOL_METADATA.connection.id],
-        expectedVersion: STEEL_TOOL_METADATA.plate.version,
       }));
       stateChanged = true;
-      setFormState(payload.connectionType === 'single_plate' ? { ...defaultState, ...payload.fields } : payload.fields, false);
+      setFormState(['single_plate', 'brace_gusset'].includes(payload.connectionType) ? { ...defaultState, ...payload.fields } : payload.fields, false);
       const replay = buildConnectionSourcePayload();
       if (replay.calculationFingerprint !== payload.calculationFingerprint) {
         throw new Error(`重現指紋不一致（來源 ${payload.calculationFingerprint}，重算 ${replay.calculationFingerprint}）。`);
       }
-      if (payload.connectionType === 'single_plate'
+      if (['single_plate', 'brace_gusset'].includes(payload.connectionType)
         && canonicalJson(jsonSerializableClone(replay.report)) !== canonicalJson(payload.report)) {
         throw new Error('來源 JSON 驗證失敗：內嵌報告內容與來源欄位重算結果不一致。');
       }
       setExportReportStatus(`已匯入並重現計算｜計算指紋 ${replay.calculationFingerprint}`);
     } catch (error) {
-      if (stateChanged) setFormState(previous.fields, false);
+      if (stateChanged) setFormState(previousFields, false);
       setExportReportStatus(`匯入失敗，已保留原輸入｜${error?.message || '未知錯誤'}`);
     } finally {
       if (importSourceJsonInput) importSourceJsonInput.value = '';
@@ -2504,7 +2668,9 @@
     });
     const escReport = SteelFormalUI.escapeHtml;
     const inputTablesHtml = getInputGroups(result.state.connectionType).map((group) => `
-      <section class="block"><h3>採用輸入｜${escReport(group.title)}</h3><table><tbody>
+      <section class="block input-block"><table class="input-table"><thead>
+        <tr class="input-context-header"><th colspan="2">採用輸入｜${escReport(group.title)}</th></tr>
+      </thead><tbody>
         ${group.items.map(([key, label, unit]) => `<tr><th>${escReport(label)}</th><td>${escReport(mapValue(key, result.state[key]))}${unit ? ` ${escReport(unit)}` : ""}</td></tr>`).join("")}
       </tbody></table></section>
     `).join("");
@@ -2579,6 +2745,16 @@
           <tr><th>採用設計剪力 Vd</th><td>${formatNumber(result.designDemand?.adoptedShear, 3)} kN</td></tr>
         </tbody></table><div style="margin-top:8px;font-size:12px;color:#555;">${escReport(result.pathSummary?.netSection || "")}<br>${escReport(result.pathSummary?.blockShear || "")}</div></section>`
       : "";
+    const gussetAreaTable = result.state.connectionType === "brace_gusset" && result.derivedAreas
+      ? `<section class="block"><h3>Gusset V1 派生幾何與面積</h3><table><tbody>
+          <tr><th>Gusset 栓孔斷面 Ag / An / Ae</th><td>${formatNumber(result.derivedAreas.gussetGrossArea, 2)} / ${formatNumber(result.derivedAreas.gussetNetArea, 2)} / ${formatNumber(result.derivedAreas.gussetEffectiveNetArea, 2)} mm²；Ae = min(An, 0.85Ag)，Ag 採栓孔斷面 gross plate width，非 Whitmore 初始寬度</td></tr>
+          <tr><th>平板支撐 Ag / An / Ae</th><td>${formatNumber(result.derivedAreas.braceGrossArea, 2)} / ${formatNumber(result.derivedAreas.braceNetArea, 2)} / ${formatNumber(result.derivedAreas.braceNetArea, 2)} mm²；矩形截面全元素直接連接，U = 1.0、Ae = An</td></tr>
+          <tr><th>Gusset 塊狀撕裂 Agv / Anv / Agt / Ant</th><td>${formatNumber(result.derivedAreas.gussetBlockAgv, 2)} / ${formatNumber(result.derivedAreas.gussetBlockAnv, 2)} / ${formatNumber(result.derivedAreas.gussetBlockAgt, 2)} / ${formatNumber(result.derivedAreas.gussetBlockAnt, 2)} mm²</td></tr>
+          <tr><th>支撐材塊狀撕裂 Agv / Anv / Agt / Ant</th><td>${formatNumber(result.derivedAreas.braceBlockAgv, 2)} / ${formatNumber(result.derivedAreas.braceBlockAnv, 2)} / ${formatNumber(result.derivedAreas.braceBlockAgt, 2)} / ${formatNumber(result.derivedAreas.braceBlockAnt, 2)} mm²</td></tr>
+          <tr><th>Whitmore Lconn / 理論 / 可用有效寬度</th><td>${formatNumber(result.state.gussetWhitmoreConnectionLength, 2)} / ${formatNumber(result.derivedAreas.gussetWhitmoreTheoreticalWidth, 2)} / ${formatNumber(result.derivedAreas.gussetWhitmoreEffectiveWidth, 2)} mm；單列栓起始寬度 = 0，bW = 2Lconn tan30°</td></tr>
+          <tr><th>Whitmore 有效面積</th><td>${formatNumber(result.derivedAreas.gussetWhitmoreArea, 2)} mm²</td></tr>
+        </tbody></table></section>`
+      : "";
     return `<!doctype html>
 <html lang="zh-Hant">
 <head>
@@ -2599,6 +2775,7 @@ h1{margin:0 0 6px;font-size:24px}.sub{color:#555;margin-bottom:16px}
 table{width:100%;border-collapse:collapse;font-size:12px}
 th,td{border:1px solid #999;padding:6px 8px;text-align:left;vertical-align:top}
 th{background:#eef2f6}
+.input-context-header th{padding:4px 8px;background:#1a3d5c;color:#fff;border-color:#1a3d5c;font-size:14px}
 .check-coderef{margin-top:4px;font-size:11px;color:#64748b}
 .flow-decision{font-size:12px;color:#334155;font-weight:700;margin:0 0 8px}
 .mono{white-space:pre-wrap;font-family:"Cascadia Code","Consolas",monospace;background:#faf5ff;border:1px solid #e9d5ff;border-radius:4px;padding:10px;color:#3b0764;font-size:11px;line-height:1.6}
@@ -2607,7 +2784,7 @@ th{background:#eef2f6}
 .card-placeholder{padding:14px;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#64748b}
 .plate-sketch{width:100%;height:auto;min-height:220px}.sketch-plate,.sketch-member{fill:rgba(14,116,144,.08);stroke:#0e7490;stroke-width:2}.sketch-hole{fill:#fff;stroke:#1e293b;stroke-width:1.5}.sketch-net{fill:none;stroke:#c0392b;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:8 6}.sketch-block{fill:rgba(217,119,6,.12);stroke:#d97706;stroke-width:2.5}.sketch-arrow{stroke:#0e7490;stroke-width:2.5}.sketch-label{fill:#0f172a;font-size:12px;font-weight:700}.sketch-note{fill:#475569;font-size:11px}.sketch-weld{stroke:#b45309;stroke-width:5;stroke-linecap:round}.sketch-weld--transverse{stroke:#c2410c}.sketch-dim{stroke:#64748b;stroke-width:1.4}.sketch-dim-label{fill:#475569;font-size:10px;font-weight:700}
 ul{margin:0;padding-left:20px}.toolbar{max-width:820px;margin:0 auto 12px;text-align:right}.toolbar button{padding:8px 18px}
-@media print{body{background:#fff;padding:0}.toolbar{display:none}.paper{box-shadow:none;max-width:none;padding:0}.block h3{break-after:avoid-page;page-break-after:avoid}.report-sketch-block,.report-ending,tr{break-inside:avoid-page;page-break-inside:avoid}thead{display:table-header-group}}
+@media print{body{background:#fff;padding:0}.toolbar{display:none}.paper{box-shadow:none;max-width:none;padding:0}.block h3,.input-context-header{break-after:avoid-page;page-break-after:avoid}.report-sketch-block,.report-ending,tr{break-inside:avoid-page;page-break-inside:avoid}thead{display:table-header-group}}
 </style>
 </head>
 <body>
@@ -2634,6 +2811,7 @@ ${inputTablesHtml}
 ${plateAreaTable}
 ${tensionAreaTable}
 ${shearTabAreaTable}
+${gussetAreaTable}
 ${flowHtml}
 <div class="report-ending">
 ${endingFlowHtml}
@@ -2648,6 +2826,12 @@ ${scopeHtml}
   function exportReport() {
     const result = window.latestSteelConnectionResult || calculateConnection(collectFormState());
     setExportReportStatus("");
+    try {
+      assertGussetFiniteFormalResult(result);
+    } catch (error) {
+      setExportReportStatus(`正式報告未開啟｜${error?.message || "未知錯誤"}`);
+      return;
+    }
     const reportWindow = window.open("", "_blank", "width=980,height=1100,scrollbars=yes");
     if (!reportWindow) {
       setExportReportStatus("請允許彈出視窗以輸出報表。");
@@ -2668,6 +2852,7 @@ ${scopeHtml}
   }
 
   function update(autoSave = true) {
+    updateVisibility();
     const state = collectFormState();
     const result = calculateConnection(state);
     renderSummary(result);
@@ -2700,6 +2885,7 @@ ${scopeHtml}
         field.value = value;
       });
     });
+    updateVisibility();
     update(autoSave);
   }
 

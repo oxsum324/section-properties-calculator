@@ -628,7 +628,7 @@ assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceFamilies.redu
 assert.ok(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSummary.includes('實際交付物渲染'), 'tracked report readiness snapshot rendered delivery summary');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatusSnapshot.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'tracked report readiness snapshot rendered delivery source path');
 assert.match(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'tracked report readiness snapshot rendered delivery source hash');
-assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165, 167].includes(reportReadinessStatusSnapshot.deliveryFileIntegrityRequired), 'tracked report readiness snapshot exposes a supported delivery-file transition count');
+assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165, 167, 169].includes(reportReadinessStatusSnapshot.deliveryFileIntegrityRequired), 'tracked report readiness snapshot exposes a supported delivery-file transition count');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityVerified, reportReadinessStatusSnapshot.deliveryFileIntegrityRequired, 'tracked report readiness snapshot verifies every delivery file');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityIssueCount, 0, 'tracked report readiness snapshot delivery file integrity issues empty');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityPass, true, 'tracked report readiness snapshot delivery file integrity passes');
@@ -651,6 +651,7 @@ assert.ok(
     [[84, 84], [66, 66], [13, 13]],
     [[86, 86], [66, 66], [13, 13]],
     [[88, 88], [66, 66], [13, 13]],
+    [[90, 90], [66, 66], [13, 13]],
   ].some(expected => JSON.stringify(expected) === JSON.stringify(trackedDeliveryCounts)),
   'tracked report readiness snapshot preserves supported redacted delivery counts'
 );
@@ -700,19 +701,19 @@ if (Number.isInteger(reportReadinessStatusSnapshot.rcFormalHtmlContentSealRequir
   assert.equal(reportReadinessStatusSnapshot.rcFormalHtmlContentSealPass, true, 'tracked report readiness snapshot RC formal HTML content seal checks pass');
 }
 if (Number.isInteger(reportReadinessStatusSnapshot.steelHtmlContentSealRequired)) {
-  assert.ok([5, 6].includes(reportReadinessStatusSnapshot.steelHtmlContentSealRequired), 'tracked report readiness snapshot expects a supported 5-to-6 steel formal HTML content seal transition count');
+  assert.ok([5, 6, 7].includes(reportReadinessStatusSnapshot.steelHtmlContentSealRequired), 'tracked report readiness snapshot expects a supported 5-to-7 steel formal HTML content seal transition count');
   assert.equal(reportReadinessStatusSnapshot.steelHtmlContentSealComplete, reportReadinessStatusSnapshot.steelHtmlContentSealRequired, 'tracked report readiness snapshot completes every steel formal HTML content seal check');
   assert.equal(reportReadinessStatusSnapshot.steelHtmlContentSealIssueCount, 0, 'tracked report readiness snapshot steel formal HTML content seal issues empty');
   assert.equal(reportReadinessStatusSnapshot.steelHtmlContentSealPass, true, 'tracked report readiness snapshot steel formal HTML content seals pass');
 }
 if (Number.isInteger(reportReadinessStatusSnapshot.steelHtmlApprovalSealRequired)) {
-  assert.ok([5, 6].includes(reportReadinessStatusSnapshot.steelHtmlApprovalSealRequired), 'tracked report readiness snapshot expects a supported 5-to-6 steel formal HTML approval seal transition count');
+  assert.ok([5, 6, 7].includes(reportReadinessStatusSnapshot.steelHtmlApprovalSealRequired), 'tracked report readiness snapshot expects a supported 5-to-7 steel formal HTML approval seal transition count');
   assert.equal(reportReadinessStatusSnapshot.steelHtmlApprovalSealComplete, reportReadinessStatusSnapshot.steelHtmlApprovalSealRequired, 'tracked report readiness snapshot completes every steel formal HTML approval seal check');
   assert.equal(reportReadinessStatusSnapshot.steelHtmlApprovalSealIssueCount, 0, 'tracked report readiness snapshot steel formal HTML approval seal issues empty');
   assert.equal(reportReadinessStatusSnapshot.steelHtmlApprovalSealPass, true, 'tracked report readiness snapshot steel formal HTML approval seals pass');
 }
 if (Number.isInteger(reportReadinessStatusSnapshot.steelResultReconciliationRequired)) {
-  assert.ok([5, 6].includes(reportReadinessStatusSnapshot.steelResultReconciliationRequired), 'tracked report readiness snapshot expects a supported 5-to-6 steel result reconciliation transition count');
+  assert.ok([5, 6, 7].includes(reportReadinessStatusSnapshot.steelResultReconciliationRequired), 'tracked report readiness snapshot expects a supported 5-to-7 steel result reconciliation transition count');
   assert.equal(reportReadinessStatusSnapshot.steelResultReconciliationComplete, reportReadinessStatusSnapshot.steelResultReconciliationRequired, 'tracked report readiness snapshot completes every steel result reconciliation');
   assert.equal(reportReadinessStatusSnapshot.steelResultReconciliationIssueCount, 0, 'tracked report readiness snapshot steel result reconciliation issues empty');
   assert.equal(reportReadinessStatusSnapshot.steelResultReconciliationPass, true, 'tracked report readiness snapshot steel result reconciliation passes');

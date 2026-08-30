@@ -1,12 +1,12 @@
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
   "family": "steel-traceability",
   "description": "鋼構正式工具的條文語意追蹤表。每筆 trace 將規範來源、輸入欄位、計算路線、報告落點、測試證據與人工複核邊界對齊，避免只因 audit gate 通過就誤判為所有工程依據都已可追溯。",
   "tools": [
     {
       "key": "steel-main",
       "label": "鋼構正式規範主工具",
-      "scope": "主工具中已收斂為正式核算的連接板、拉力構件與單剪力板 Shear Tab 流程；柱續接、Gusset 與梁柱彎矩接頭仍列為開發中邊界。",
+      "scope": "主工具中已收斂為正式核算的連接板、拉力構件、單剪力板 Shear Tab 與平板支撐 Gusset 拉力接頭流程；柱續接與梁柱彎矩接頭仍列為開發中邊界。",
       "status": "covered",
       "traces": [
         {
@@ -40,14 +40,24 @@
           "manualReview": ["設計者須依分析模型、核定施工圖、材料證明與接頭配置確認 Vu、e_b、e_w、栓列至銲線距離、彈性偏心模型及 AISC conventional 材料延性等同性；Fy > 345 MPa、栓距 > 76.2 mm、板高 > 914.4 mm、高強或低延性鋼材、延伸型構造、滑動臨界、疲勞、反覆載重、耐震特別規定、火害、腐蝕、梁端削切與支承構件整體或局部極限狀態須另以專案文件人工複核。"]
         },
         {
+          "id": "steel-main-brace-gusset-tension",
+          "clause": "鋼構造建築物鋼結構設計技術規範第 4.3 / 5.2 / 10.2.2 / 10.2.4 / 10.3.3 與表 10.3-2 / 10.3.8 / 10.3.9 / 10.3.11 / 10.3.12 / 10.3.13 / 10.4 節；Whitmore 30 度有效寬度依專案指定模型",
+          "purpose": "Gusset V1 在 LRFD、扁鋼 / 平板支撐矩形截面且全截面元素直接連接（U = 1.0、Ae = An）、正軸向同心拉力、靜力非耐震且非 BRB、F10T 標準孔單剪、單一直線 2 至 12 栓與雙側縱向填角銲範圍內，將支撐材—Gusset 螺栓與 Gusset—支承材銲道視為串聯力流並分段檢核。",
+          "inputs": ["connectionType", "designMethod", "requiredAxial", "requiredShear", "requiredMoment", "eccentricity", "boltGrade", "boltUltimateStrength", "boltDiameter", "holeType", "holeDiameter", "gussetBoltCount", "gussetShearPlanes", "gussetEndDistance", "gussetPitch", "gussetEdgeDistance", "gussetThickness", "gussetYieldStrength", "gussetUltimateStrength", "gussetConnectionWidth", "gussetNetWidth", "gussetWhitmoreConnectionLength", "gussetAvailableWidth", "braceSectionType", "braceEndDistance", "braceEdgeDistance", "braceThickness", "braceFy", "braceFu", "braceGrossWidth", "braceNetWidth", "weldSize", "weldLength", "weldLineCount", "weldFexx", "supportThickness", "supportFy", "supportFu", "gussetDemandBasis", "gussetGeometryBasis", "gussetMaterialBasis", "gussetModelBasis", "gussetStaticNonseismicConfirmed", "gussetLoadPathConfirmed"],
+          "calculation": ["F10T bearing-bolt nominal shear stress = 4.00 tf/cm2 with threads included or 5.00 tf/cm2 with threads excluded per table 10.3-2", "table 10.3-2 note [e] originally addresses bearing-type splices of tension members; this Gusset end connection conservatively borrows the Lconn <= 1250 mm boundary for V1 pending an implemented long-connection route", "bolt shear", "Gusset / brace hole bearing", "Gusset / brace gross yielding", "bolted Gusset Ae = min(An, 0.85Ag)", "flat-plate brace U = 1.0 and Ae = An", "Gusset / brace net rupture", "Gusset / brace one-shear-plane L-path block shear Agv / Anv / Agt / Ant", "single-line Whitmore Lconn = (n - 1)s and fastener-group starting width = 0", "Whitmore theoretical width = 2Lconn tan30 degrees", "Whitmore effective width = min(theoretical, available)", "Gusset net width capped by gross plate width minus hole and actual available Whitmore width", "weld-metal strength", "Gusset / support base-metal strength", "Fu >= Fy and net-geometry hard gates", "minimum / maximum / short / long weld gates", "strict exact-field source replay and embedded-report equality", "complianceReady=true"],
+          "report": ["支撐 / Gusset 接頭檢核計算書", "LRFD｜第五章受拉構材、第十章接合設計", "Gusset V1 派生幾何與面積", "Gusset 栓孔斷面 Ag / An / Ae 與 Ae = min(An, 0.85Ag)", "平板支撐 U = 1.0 與 Ae = An", "Gusset 與支撐材斷面及塊狀撕裂面積", "Whitmore Lconn、起始寬度 0、理論與有效寬度", "表 10.3-2 F10T 4.00 / 5.00 tf/cm2；註 [e] 原適用承壓式接合之續接拉力構材，Gusset 端部接合僅保守援用 V1 長接合邊界", "螺栓剪力與兩側孔承壓", "銲材、Gusset 母材與支承材母材強度", "適用範圍、四項專案依據與兩項工程師確認", "計算指紋與來源 JSON"],
+          "evidence": ["calculator.js", "calculator.smoke-test.js", "app.js", "steel-formal.regression-test.js", "steel-audit-browser-runner.js"],
+          "manualReview": ["設計者須依分析模型、核定施工圖、材料證明與接頭配置確認 Pu、平板支撐矩形截面全元素直接連接、單一直線栓列、Lconn = (n − 1)s、Whitmore 可用板寬及螺栓—銲道串聯力流；表 10.3-2 註 [e] 原針對承壓式接合之續接拉力構材，並非一般接合的普遍長度上限。本 Gusset 為端部接合，V1 在尚未實作長接合路線前僅保守援用 Lconn ≤ 1250 mm；超出者須另建模與人工複核。angle、WT、HSS、剪力遲滯、壓力、偏心、剪力、彎矩、疲勞、反覆載重、耐震接頭、BRB、Gusset 壓力屈曲、折角外移與支承構件整體或局部極限狀態須另由專案模型人工複核。"]
+        },
+        {
           "id": "steel-main-scope-boundary",
           "clause": "鋼構造建築物鋼結構設計技術規範正式核算範圍管理與第 10 章接合規定",
-          "purpose": "主工具保留柱續接、Gusset 與梁柱彎矩三個開發中接頭表單，但 audit 與報告需阻止其被誤用為正式規範覆核結果。",
+          "purpose": "主工具保留柱續接與梁柱彎矩兩個開發中接頭表單，但 audit 與報告需阻止其被誤用為正式規範覆核結果。",
           "inputs": ["connectionType", "validations", "complianceReady", "passes", "moduleBoundary"],
           "calculation": ["development-module guard", "complianceReady=false", "blocked formal report export", "inline status message"],
           "report": ["此模組尚未收斂到完整規範覆核範圍", "現階段不提供正式規範核算", "inline toolbar status"],
           "evidence": ["calculator.js", "calculator.smoke-test.js", "app.js", "steel-formal.regression-test.js"],
-          "manualReview": ["柱續接、Gusset 與梁柱彎矩接頭若需送審，須另以正式設計流程、施工圖與專案模型完成檢核。"]
+          "manualReview": ["柱續接與梁柱彎矩接頭若需送審，須另以正式設計流程、施工圖與專案模型完成檢核。"]
         }
       ]
     },

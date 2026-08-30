@@ -25,7 +25,7 @@
   const memberSystems = [
     { id: 'all', label: '全部', summary: '依材料系統分段顯示 RC、鋼構與 SRC 構件工具。' },
     { id: 'rc', label: 'RC', summary: '鋼筋混凝土梁、柱、板、牆、基礎、樁與補強構件檢核。' },
-    { id: 'steel', label: '鋼構', summary: '鋼梁、鋼柱、含單剪力板 Shear Tab 的鋼構正式入口與鋼構連接板檢核。' },
+    { id: 'steel', label: '鋼構', summary: '鋼梁、鋼柱、含單剪力板 Shear Tab 與平板支撐 Gusset 拉力接頭的鋼構正式入口及鋼構連接板檢核。' },
     { id: 'src', label: 'SRC', summary: '包覆型 SRC 梁、柱正式檢核、案件重播與精簡計算書。' }
   ];
 
@@ -541,17 +541,17 @@
     },
     {
       title: '鋼構正式規範工具',
-      version: 'V1.0',
+      version: 'V1.1',
       href: '/steel-formal',
       categories: ['member'],
       memberSystem: 'steel',
       state: 'formal',
       governance: 'steel-audit',
-      output: '連接板、拉力構件、單剪力板 Shear Tab 正式核算、計算書與 TXT 文字備查',
-      summary: '審查摘要、流程與參數詞典保留在操作頁；連接板、拉力構件及 LRFD 單剪力板 Shear Tab 的正式計算書直接呈現採用值、公式代入、檢核結果與結論，並可另下載非正式附件的 TXT 文字備查。',
-      fit: '鋼構連接板、拉力構件，以及單列、單剪、標準孔、靜力承壓型、純剪力之 LRFD 單剪力板正式核算主入口。',
-      limit: 'Shear Tab 需由設計者確認偏心模型與專案資料來源；ASD、軸力或外加彎矩、滑動臨界、疲勞、反覆載重、耐震特別規定及支承構件完整檢核不在其正式範圍，其他子頁亦須逐一確認適用情境。',
-      capabilities: ['正式核算', 'Shear Tab', 'TXT 備查', '自巡檢']
+      output: '連接板、拉力構件、單剪力板 Shear Tab、平板支撐 Gusset 拉力接頭正式核算、計算書與 TXT 文字備查',
+      summary: '審查摘要、流程與參數詞典保留在操作頁；連接板、拉力構件、LRFD 單剪力板 Shear Tab 及平板支撐 Gusset 拉力接頭的正式計算書直接呈現採用值、公式代入、檢核結果與結論，並可另下載非正式附件的 TXT 文字備查。',
+      fit: '鋼構連接板、拉力構件、單列單剪標準孔靜力承壓型純剪力 Shear Tab，以及同心純拉力、扁鋼／平板支撐、單列單剪標準孔並以雙側縱向填角銲接至支承的 LRFD Gusset 接頭。',
+      limit: 'Shear Tab 需由設計者確認偏心模型與專案資料來源；Gusset 需由專案文件與設計者確認靜力非耐震、非 BRB、同心純拉力及明確力流。ASD、壓力、偏心、外加剪力／彎矩、角鋼／WT／HSS 支撐、剪力遲滯、滑動臨界、疲勞、反覆載重、耐震特別規定及支承構件完整檢核不在相應正式範圍。',
+      capabilities: ['正式核算', 'Shear Tab', '平板支撐 Gusset', 'TXT 備查', '自巡檢']
     },
     {
       title: 'SRC 梁',

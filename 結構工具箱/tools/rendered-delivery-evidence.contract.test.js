@@ -46,12 +46,14 @@ const localQuickResultReconciliationRequired = new Set(
 // PDF/evidence files. Each local quick tool adds detailed, internal-review and
 // blocked-boundary PDF/evidence pairs (six files per inventory entry). Schema v31
 // additionally makes the steel Shear Tab PDF/evidence pair canonical. Schema v32
-// adds the independently governed frame-analysis PDF/evidence pair.
+// adds the independently governed frame-analysis PDF/evidence pair. Schema v33
+// adds the bounded steel Gusset tension-connection PDF/evidence pair.
 const steelShearTabCanonicalArtifactRequired = 2;
 const frameAnalysisCanonicalArtifactRequired = 2;
-const canonicalArtifactIntegrityRequired = 48 + (localQuickResultReconciliationRequired * 6) + steelShearTabCanonicalArtifactRequired + frameAnalysisCanonicalArtifactRequired;
+const steelGussetCanonicalArtifactRequired = 2;
+const canonicalArtifactIntegrityRequired = 48 + (localQuickResultReconciliationRequired * 6) + steelShearTabCanonicalArtifactRequired + frameAnalysisCanonicalArtifactRequired + steelGussetCanonicalArtifactRequired;
 assert.equal(localQuickResultReconciliationRequired, 6, 'rendered delivery evidence inventory preserves all 6 local quick tools');
-assert.equal(canonicalArtifactIntegrityRequired, 88, 'Schema v32 requires 88 canonical PDF and evidence files');
+assert.equal(canonicalArtifactIntegrityRequired, 90, 'Schema v33 requires 90 canonical PDF and evidence files');
 
 for (const needle of ['計算層級 / 複核邊界', '條文對照 ＆ 方法分級', '規範覆蓋矩陣']) {
   assert.ok(DEFAULT_FORBIDDEN.includes(needle), `rendered delivery evidence shares calculation-book boundary: ${needle}`);
@@ -2900,10 +2902,10 @@ assert.equal(formalHtmlApprovalSeal.pass, true, 'release rendered evidence passe
 const steelHtmlContentSeal = {
   schemaVersion: 1,
   scope: 'steel-formal-html-reproducible-content-sha256',
-  required: 6,
+  required: 7,
   complete: steelHtmlDualSealRecords.length,
-  issueCount: Math.max(0, 6 - steelHtmlDualSealRecords.length),
-  pass: steelHtmlDualSealRecords.length === 6,
+  issueCount: Math.max(0, 7 - steelHtmlDualSealRecords.length),
+  pass: steelHtmlDualSealRecords.length === 7,
   setSha256: formalHtmlSealSetHash(steelHtmlDualSealRecords, 'content'),
   records: steelHtmlDualSealRecords.map(record => ({
     key: record.key,
@@ -2916,10 +2918,10 @@ const steelHtmlContentSeal = {
 const steelHtmlApprovalSeal = {
   schemaVersion: 1,
   scope: 'steel-formal-html-reproducible-approval-sha256',
-  required: 6,
+  required: 7,
   complete: steelHtmlDualSealRecords.length,
-  issueCount: Math.max(0, 6 - steelHtmlDualSealRecords.length),
-  pass: steelHtmlDualSealRecords.length === 6,
+  issueCount: Math.max(0, 7 - steelHtmlDualSealRecords.length),
+  pass: steelHtmlDualSealRecords.length === 7,
   setSha256: formalHtmlSealSetHash(steelHtmlDualSealRecords, 'approval'),
   records: steelHtmlDualSealRecords.map(record => ({
     key: record.key,
@@ -2930,8 +2932,8 @@ const steelHtmlApprovalSeal = {
   })),
 };
 assert.equal(new Set(steelHtmlDualSealRecords.map(record => record.key)).size, steelHtmlDualSealRecords.length, 'release rendered evidence steel formal HTML seal identities are unique');
-assert.equal(steelHtmlContentSeal.complete, steelHtmlContentSeal.required, 'release rendered evidence independently verifies all 6 steel formal HTML content seals');
-assert.equal(steelHtmlApprovalSeal.complete, steelHtmlApprovalSeal.required, 'release rendered evidence independently verifies all 6 steel formal HTML approval seals');
+assert.equal(steelHtmlContentSeal.complete, steelHtmlContentSeal.required, 'release rendered evidence independently verifies all 7 steel formal HTML content seals');
+assert.equal(steelHtmlApprovalSeal.complete, steelHtmlApprovalSeal.required, 'release rendered evidence independently verifies all 7 steel formal HTML approval seals');
 assert.equal(steelHtmlContentSeal.pass, true, 'release rendered evidence passes steel formal HTML content seal verification');
 assert.equal(steelHtmlApprovalSeal.pass, true, 'release rendered evidence passes steel formal HTML approval seal verification');
 const anchorHtmlContentSeal = {
@@ -2974,15 +2976,15 @@ assert.equal(anchorHtmlApprovalSeal.pass, true, 'release rendered evidence passe
 const steelResultReconciliation = {
   schemaVersion: 1,
   scope: 'steel-source-replay-to-report-fingerprint',
-  required: 6,
+  required: 7,
   complete: steelResultReconciliationRecords.length,
-  issueCount: Math.max(0, 6 - steelResultReconciliationRecords.length),
-  pass: steelResultReconciliationRecords.length === 6,
+  issueCount: Math.max(0, 7 - steelResultReconciliationRecords.length),
+  pass: steelResultReconciliationRecords.length === 7,
   setSha256: steelResultReconciliationSetHash(steelResultReconciliationRecords),
   records: steelResultReconciliationRecords,
 };
 assert.equal(new Set(steelResultReconciliationRecords.map(record => record.key)).size, steelResultReconciliationRecords.length, 'release rendered evidence steel result reconciliation identities are unique');
-assert.equal(steelResultReconciliation.complete, steelResultReconciliation.required, 'release rendered evidence reconciles all 6 steel source replays to report fingerprints');
+assert.equal(steelResultReconciliation.complete, steelResultReconciliation.required, 'release rendered evidence reconciles all 7 steel source replays to report fingerprints');
 assert.equal(steelResultReconciliation.pass, true, 'release rendered evidence passes steel result reconciliation');
 const stoneResultReconciliation = {
   schemaVersion: 1,
@@ -3122,7 +3124,7 @@ assert.equal(xlsxDualSeal.contentComplete, xlsxDualSeal.contentRequired, 'releas
 assert.equal(xlsxDualSeal.approvalComplete, xlsxDualSeal.approvalRequired, 'release verifies the formal XLSX approval seal');
 assert.equal(xlsxDualSeal.pass, true, 'release passes formal XLSX dual seal integrity');
 const aggregate = {
-  schemaVersion: 32,
+  schemaVersion: 33,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),

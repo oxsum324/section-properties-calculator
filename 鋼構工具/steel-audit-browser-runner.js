@@ -42,6 +42,8 @@ const scenarios = [
   { name: 'main-plate-report-popup-placeholder', url: '/index.html', setup: setupMainPlateProjectMetaPlaceholder, assert: assertMainPlateReportPopupPlaceholder },
   { name: 'main-single-plate', url: '/index.html', setup: setupMainSinglePlate, assert: assertMainSinglePlateReady },
   { name: 'main-single-plate-report-popup', url: '/index.html', setup: setupMainSinglePlate, assert: assertMainSinglePlateReportPopup },
+  { name: 'main-gusset', url: '/index.html', setup: setupMainGusset, assert: assertMainGussetReady },
+  { name: 'main-gusset-report-popup', url: '/index.html', setup: setupMainGusset, assert: assertMainGussetReportPopup },
   { name: 'main-tension', url: '/index.html', setup: setupMainTension },
   { name: 'main-tension-report-popup', url: '/index.html', setup: setupMainTensionReport, assert: assertMainTensionReportPopup },
   { name: 'standalone-plate', url: '/plate-check.html' },
@@ -62,7 +64,7 @@ const scenarios = [
 const STEEL_DIRECT_PRINT_TITLE = '鋼構正式工具主頁列印已封鎖';
 const STEEL_DIRECT_PRINT_BODY = '此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「產生計算書」按鈕開啟可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。';
 const steelDirectPrintPages = [
-  { key: 'steel-main-formal', url: '/index.html', pageTitle: '鋼構正式規範核算工具 V1.0' },
+  { key: 'steel-main-formal', url: '/index.html', pageTitle: '鋼構正式規範核算工具 V1.1' },
   { key: 'steel-plate-formal', url: '/plate-check.html', pageTitle: '鋼構連接板正式規範核算工具 V1.0' },
   { key: 'steel-beam-formal', url: '/steel-beam-formal.html', pageTitle: '鋼梁正式規範核算工具 V1.0' },
   { key: 'steel-column-formal', url: '/steel-column-formal.html', pageTitle: '鋼柱正式規範核算工具 V1.0' },
@@ -168,6 +170,108 @@ const SHEAR_TAB_ARTIFACT_REQUIRED_NEEDLES = [
   '剪力板淨斷面剪力斷裂',
   'Shear Tab 派生幾何與面積',
   '材料延性',
+];
+
+const GUSSET_ESCAPE_PROBE = '<img src=x onerror="window.__steelXss=1">';
+
+const GUSSET_FORMAL_STATE = {
+  projectName: '鋼構支撐 Gusset 正式證據驗證案',
+  connectionTag: 'BG-GOLDEN-001',
+  designer: 'Codex QA',
+  notes: '正式證據案例 BG-GOLDEN-001；平板支撐同心拉力、單列六支螺栓與雙線填角銲。',
+  designMethod: 'LRFD',
+  connectionType: 'brace_gusset',
+  exposureCondition: 'painted',
+  requiredAxial: 400,
+  requiredShear: 0,
+  requiredMoment: 0,
+  eccentricity: 0,
+  boltDiameter: 20,
+  holeDiameter: 21.5,
+  holeType: 'standard',
+  edgeFabrication: 'rolled',
+  boltUltimateStrength: 1000,
+  boltGrade: 'F10T',
+  threadsCondition: 'included',
+  deformationConsidered: 'true',
+  gussetBoltCount: 6,
+  gussetShearPlanes: 1,
+  gussetEndDistance: 50,
+  gussetPitch: 70,
+  gussetEdgeDistance: 60,
+  gussetThickness: 14,
+  gussetYieldStrength: 325,
+  gussetUltimateStrength: 490,
+  gussetConnectionWidth: 180,
+  gussetNetWidth: 156.5,
+  gussetWhitmoreConnectionLength: 350,
+  gussetAvailableWidth: 400,
+  braceSectionType: 'flat_plate',
+  braceEndDistance: 50,
+  braceEdgeDistance: 60,
+  braceThickness: 12,
+  braceFy: 325,
+  braceFu: 490,
+  braceGrossWidth: 160,
+  braceNetWidth: 136.5,
+  weldSize: 8,
+  weldLength: 250,
+  weldLineCount: 2,
+  weldFexx: 490,
+  supportThickness: 16,
+  supportFy: 325,
+  supportFu: 490,
+  gussetDemandBasis: '驗證分析模型 BG-GOLDEN-001／ULS 支撐軸力表 R-01（Pu = 400 kN 拉力）',
+  gussetGeometryBasis: '驗證核定圖 S-601／接頭 BG-GOLDEN-001（6-M20 標準孔、Lconn = 350 mm、Gusset tg = 14 mm）',
+  gussetMaterialBasis: '驗證材料表 M-02／F10T 螺栓證明 B-02（Fy = 325 MPa、Fu = 490 MPa）',
+  gussetModelBasis: '驗證接頭模型 BG-GOLDEN-001（平板支撐矩形截面全元素由單列栓直接連接，U = 1.0、Ae = An；同心拉力、單列單剪螺栓、雙線填角銲）',
+  gussetStaticNonseismicConfirmed: 'true',
+  gussetLoadPathConfirmed: 'true',
+};
+
+const GUSSET_XSS_STATE = {
+  projectName: `${GUSSET_FORMAL_STATE.projectName} ${GUSSET_ESCAPE_PROBE}`,
+  notes: `${GUSSET_FORMAL_STATE.notes}${GUSSET_ESCAPE_PROBE}`,
+  gussetDemandBasis: `${GUSSET_FORMAL_STATE.gussetDemandBasis}${GUSSET_ESCAPE_PROBE}`,
+};
+
+const GUSSET_STRENGTH_KEYS = [
+  'gussetBoltShear',
+  'gussetBoltBearing',
+  'braceBoltBearing',
+  'gussetGrossYield',
+  'gussetNetRupture',
+  'gussetBlockShear',
+  'braceGrossYield',
+  'braceNetRupture',
+  'braceBlockShear',
+  'gussetWhitmoreYield',
+  'gussetWeldMetal',
+  'gussetWeldBaseGusset',
+  'gussetWeldBaseSupport',
+];
+
+const GUSSET_ARTIFACT_REQUIRED_NEEDLES = [
+  'BG-GOLDEN-001',
+  'Gusset 螺栓剪力',
+  '表 10.3-2',
+  '表10.3-2',
+  '4.00 tf/cm²',
+  'Gusset 孔承壓',
+  '支撐材孔承壓',
+  'Gusset 塊狀撕裂',
+  '支撐材塊狀撕裂',
+  'Whitmore 有效寬度降伏',
+  'Gusset V1 派生幾何與面積',
+  'Gusset 栓孔斷面 Ag / An / Ae',
+  'Ae = min(An, 0.85Ag)',
+  '平板支撐 Ag / An / Ae',
+  '350 / 404.15 / 400 mm',
+  'Gusset 縱向填角銲銲材',
+  'Gusset 銲線母材',
+  '支承材銲線母材',
+  '靜力非耐震確認',
+  '串聯力流確認',
 ];
 
 const FORMAL_REPORT_TRACE_LABELS = ['產出工具', '工具版本', '輸出時間', '計算指紋'];
@@ -483,6 +587,33 @@ async function setupMainSinglePlate(cdp, sessionId) {
     updateTrigger.dispatchEvent(new Event('change', { bubbles: true }));
     return true;
   })()`, 'main single plate formal verification setup');
+  await wait(350);
+}
+
+async function setupMainGusset(cdp, sessionId) {
+  await evaluate(cdp, sessionId, `(() => {
+    window.__steelXss = 0;
+    const connectionType = document.querySelector('select[name="connectionType"]');
+    const preset = document.querySelector('#examplePresetSelect');
+    const loadButton = document.querySelector('#loadExampleBtn');
+    if (!connectionType || !preset || !loadButton) throw new Error('missing Gusset preset controls');
+    connectionType.value = 'brace_gusset';
+    connectionType.dispatchEvent(new Event('change', { bubbles: true }));
+    preset.value = 'brace_gusset_standard';
+    preset.dispatchEvent(new Event('change', { bubbles: true }));
+    loadButton.click();
+
+    const fields = ${JSON.stringify(GUSSET_FORMAL_STATE)};
+    Object.entries(fields).forEach(([name, value]) => {
+      const input = document.querySelector('[name="' + name + '"]');
+      if (!input) throw new Error('missing [name="' + name + '"]');
+      input.value = value;
+    });
+    const updateTrigger = document.querySelector('[name="gussetLoadPathConfirmed"]');
+    if (!updateTrigger) throw new Error('missing Gusset load-path confirmation trigger');
+    updateTrigger.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`, 'main Gusset formal verification setup');
   await wait(350);
 }
 
@@ -1034,6 +1165,534 @@ async function assertMainSinglePlateReportPopup(cdp, sessionId, context = {}) {
   });
 }
 
+async function assertMainGussetReady(cdp, sessionId) {
+  const snapshot = await evaluate(cdp, sessionId, `(() => {
+    const result = window.latestSteelConnectionResult;
+    const payload = window.buildSteelConnectionSourcePayload?.();
+    const calculate = window.ShearConnectionCalculator?.calculateConnection;
+    const summarizeGate = (candidate) => ({
+      passes: candidate?.passes === true,
+      complianceReady: candidate?.complianceReady === true,
+      overallStatus: candidate?.overallStatus || '',
+      validationFailure: candidate?.summary?.validationFailure === true,
+      strengthFailure: candidate?.summary?.strengthFailure === true,
+      detailFailure: candidate?.summary?.detailFailure === true,
+      failingKeys: (candidate?.detailChecks || []).filter(item => !item.passes).map(item => item.key),
+      validations: candidate?.validations || [],
+    });
+    const probe = (overrides) => summarizeGate(calculate({ ...result.state, ...overrides }));
+    const gateProbes = typeof calculate === 'function' && result?.state ? {
+      compression: probe({ requiredAxial: -400 }),
+      asd: probe({ designMethod: 'ASD' }),
+      nonzeroShear: probe({ requiredShear: 1 }),
+      nonzeroMoment: probe({ requiredMoment: 1 }),
+      nonzeroEccentricity: probe({ eccentricity: 1 }),
+      negativeEccentricity: probe({ eccentricity: -1 }),
+      badGussetMaterialOrder: probe({ gussetYieldStrength: 491 }),
+      badBraceMaterialOrder: probe({ braceFy: 491 }),
+      badSupportMaterialOrder: probe({ supportFy: 491 }),
+      badGussetGeometry: probe({ gussetNetWidth: 180.1 }),
+      badBraceGeometry: probe({ braceNetWidth: 160.1 }),
+      staticNonseismicUnconfirmed: probe({ gussetStaticNonseismicConfirmed: false }),
+      loadPathUnconfirmed: probe({ gussetLoadPathConfirmed: false }),
+      nonstandardHole: probe({ holeType: 'oversized' }),
+      invalidStandardHole: probe({ holeDiameter: 25 }),
+      unsupportedShearTopology: probe({ gussetShearPlanes: 2 }),
+      unsupportedWeldTopology: probe({ weldLineCount: 1 }),
+      unsupportedBraceSection: probe({ braceSectionType: 'angle' }),
+      mismatchedWhitmoreConnectionLength: probe({ gussetWhitmoreConnectionLength: 349 }),
+      overlongWhitmoreConnectionLength: probe({ gussetWhitmoreConnectionLength: 1251, gussetPitch: 250.2 }),
+      numericOverflow: probe({ gussetThickness: Number.MAX_VALUE }),
+    } : null;
+    return {
+      connectionType: result?.state?.connectionType || '',
+      complianceReady: result?.complianceReady === true,
+      passes: result?.passes === true,
+      checkKeys: (result?.checks || []).map(item => item.key),
+      strengthAvailable: Object.fromEntries((result?.checks || []).map(item => [item.key, item.available])),
+      strengthEvidence: Object.fromEntries((result?.checks || []).map(item => [item.key, {
+        nominal: item.nominal,
+        available: item.available,
+        ratio: item.ratio,
+        note: item.note || '',
+        codeRef: item.codeRef || '',
+        equationRef: item.equationRef || '',
+        equationLines: item.equationLines || [],
+      }])),
+      governingKey: result?.governing?.key || '',
+      governingRatio: result?.governing?.ratio,
+      detailFailureCount: (result?.detailChecks || []).filter(item => !item.passes).length,
+      validationFailure: result?.summary?.validationFailure === true,
+      derivedAreas: result?.derivedAreas || null,
+      project: payload?.project || null,
+      tool: payload?.tool || null,
+      fields: payload?.fields || null,
+      sourceFingerprint: payload?.calculationFingerprint || '',
+      reportFingerprint: payload?.report?.calculationFingerprint || '',
+      escapeProbeImageCount: Array.from(document.querySelectorAll('img')).filter(node =>
+        String(node.getAttribute('onerror') || '').includes('__steelXss')).length,
+      escapeProbeExecuted: window.__steelXss === 1,
+      escapeProbeTextVisible: (document.body?.innerText || '').includes(${JSON.stringify(GUSSET_ESCAPE_PROBE)}),
+      banner: document.querySelector('#reportBanner')?.textContent || '',
+      moduleLabel: document.querySelector('[data-connection="brace_gusset"] h2')?.textContent?.trim() || '',
+      gateProbes,
+    };
+  })()`, 'main Gusset formal verification state');
+  const expectedProject = {
+    name: GUSSET_FORMAL_STATE.projectName,
+    no: GUSSET_FORMAL_STATE.connectionTag,
+    designer: GUSSET_FORMAL_STATE.designer,
+  };
+  const actualStrengthKeys = [...snapshot.checkKeys].sort();
+  const expectedStrengthKeys = [...GUSSET_STRENGTH_KEYS].sort();
+  if (snapshot.connectionType !== 'brace_gusset' || !snapshot.complianceReady || !snapshot.passes
+      || snapshot.validationFailure || snapshot.detailFailureCount !== 0
+      || JSON.stringify(actualStrengthKeys) !== JSON.stringify(expectedStrengthKeys)) {
+    throw new Error(`main Gusset should be formally ready with the complete V1 strength routes: ${JSON.stringify(snapshot)}`);
+  }
+  if (snapshot.governingKey !== 'gussetBoltShear'
+      || Math.abs(Number(snapshot.governingRatio) - 0.7213016704283786) > 1e-12) {
+    throw new Error(`main Gusset governing golden value drifted: ${JSON.stringify({ key: snapshot.governingKey, ratio: snapshot.governingRatio })}`);
+  }
+  const boltShearEvidence = snapshot.strengthEvidence?.gussetBoltShear || {};
+  if (Math.abs(Number(boltShearEvidence.nominal) - 739.4039903118323) > 1e-9
+      || Math.abs(Number(boltShearEvidence.available) - 554.5529927338742) > 1e-9
+      || Math.abs(Number(boltShearEvidence.ratio) - (400 / 554.5529927338742)) > 1e-12
+      || boltShearEvidence.codeRef !== '10.3.3、表10.3-2'
+      || boltShearEvidence.equationRef !== '表10.3-2'
+      || !boltShearEvidence.note.includes('表 10.3-2')
+      || /式\s*\(?10\.3-1\)?/.test(boltShearEvidence.note)
+      || !boltShearEvidence.note.includes('4.00 tf/cm²')
+      || !boltShearEvidence.note.includes('392.266 MPa')
+      || !boltShearEvidence.equationLines.some(line => line.includes('4.00 tf/cm²') && line.includes('392.266 MPa'))) {
+    throw new Error(`main Gusset F10T table shear stress/capacity evidence drifted: ${JSON.stringify(boltShearEvidence)}`);
+  }
+  const expectedDerived = {
+    gussetGrossArea: 2520,
+    gussetNetArea: 2191,
+    gussetEffectiveNetArea: 2142,
+    braceGrossArea: 1920,
+    braceNetArea: 1638,
+    gussetBlockAgv: 5600,
+    gussetBlockAnv: 3829,
+    gussetBlockAgt: 840,
+    gussetBlockAnt: 679,
+    braceBlockAgv: 4800,
+    braceBlockAnv: 3282,
+    braceBlockAgt: 720,
+    braceBlockAnt: 582,
+    gussetWhitmoreTheoreticalWidth: 2 * 350 * Math.tan(Math.PI / 6),
+    gussetWhitmoreEffectiveWidth: 400,
+    gussetWhitmoreArea: 5600,
+  };
+  for (const [key, expected] of Object.entries(expectedDerived)) {
+    if (Math.abs(Number(snapshot.derivedAreas?.[key]) - expected) > 1e-9) {
+      throw new Error(`main Gusset browser golden ${key} drifted: ${JSON.stringify(snapshot.derivedAreas)}`);
+    }
+  }
+  const expectedBlockShearAvailable = {
+    gussetBlockShear: 1049.0445,
+    braceBlockShear: 899.181,
+  };
+  for (const [key, expected] of Object.entries(expectedBlockShearAvailable)) {
+    if (Math.abs(Number(snapshot.strengthAvailable?.[key]) - expected) > 1e-9) {
+      throw new Error(`main Gusset browser golden ${key} capacity drifted: ${JSON.stringify(snapshot.strengthAvailable)}`);
+    }
+  }
+  if (JSON.stringify(snapshot.project) !== JSON.stringify(expectedProject)) {
+    throw new Error(`main Gusset project trace mismatch: ${JSON.stringify(snapshot.project)}`);
+  }
+  if (String(snapshot.tool?.version || '').toUpperCase() !== 'V1.1') {
+    throw new Error(`main Gusset source should use the formal connection V1.1 contract: ${JSON.stringify(snapshot.tool)}`);
+  }
+  if (snapshot.moduleLabel !== '支撐接頭｜平板支撐 Gusset 拉力接頭｜LRFD 正式模組') {
+    throw new Error(`main Gusset formal module label drifted: ${JSON.stringify(snapshot.moduleLabel)}`);
+  }
+  if (snapshot.escapeProbeImageCount !== 0 || snapshot.escapeProbeExecuted || snapshot.escapeProbeTextVisible) {
+    throw new Error(`main Gusset golden state should be free of the XSS probe literal: ${JSON.stringify(snapshot)}`);
+  }
+  for (const key of ['gussetDemandBasis', 'gussetGeometryBasis', 'gussetMaterialBasis', 'gussetModelBasis']) {
+    if (snapshot.fields?.[key] !== GUSSET_FORMAL_STATE[key] || /示例|請依專案覆寫/.test(String(snapshot.fields?.[key] || ''))) {
+      throw new Error(`main Gusset ${key} is not the governed verification value: ${JSON.stringify(snapshot.fields?.[key])}`);
+    }
+  }
+  if (snapshot.fields?.gussetStaticNonseismicConfirmed !== true
+      || snapshot.fields?.gussetLoadPathConfirmed !== true
+      || !/^CF-[0-9A-F]{16}$/.test(snapshot.sourceFingerprint)
+      || snapshot.reportFingerprint !== snapshot.sourceFingerprint) {
+    throw new Error(`main Gusset source snapshot/confirmation mismatch: ${JSON.stringify(snapshot)}`);
+  }
+  for (const [probeName, probe] of Object.entries(snapshot.gateProbes || {})) {
+    if (!probe || probe.passes || !probe.complianceReady || probe.overallStatus !== 'fail' || !probe.validationFailure) {
+      throw new Error(`main Gusset ${probeName} should remain fail-closed at the V1 hard gate: ${JSON.stringify(snapshot.gateProbes)}`);
+    }
+  }
+  if (!snapshot.gateProbes?.overlongWhitmoreConnectionLength?.failingKeys?.includes('gussetBearingConnectionLength')) {
+    throw new Error(`main Gusset Lconn > 1250 mm should fail specifically at the Table 10.3-2 note [e] envelope: ${JSON.stringify(snapshot.gateProbes?.overlongWhitmoreConnectionLength)}`);
+  }
+  const longConnectionValidations = snapshot.gateProbes.overlongWhitmoreConnectionLength.validations || [];
+  if (!longConnectionValidations.some(message => message.includes('表 10.3-2 註 [e]')
+      && message.includes('本 Gusset 為端部接合')
+      && message.includes('V1 在尚未實作長接合路線前保守援用 Lconn ≤ 1250 mm')
+      && message.includes('並非將該註解泛化為所有接合的條文上限'))) {
+    throw new Error(`main Gusset Lconn > 1250 mm wording must identify the conservative V1 applicability boundary instead of a universal prohibition: ${JSON.stringify(longConnectionValidations)}`);
+  }
+  const overflowProbe = snapshot.gateProbes.numericOverflow;
+  for (const key of ['gussetFiniteDerivedResults', 'gussetFiniteStrengthResults']) {
+    if (!overflowProbe?.failingKeys?.includes(key)) {
+      throw new Error(`main Gusset numeric overflow should fail ${key}: ${JSON.stringify(overflowProbe)}`);
+    }
+  }
+}
+
+async function assertMainGussetXssIsolation(cdp, sessionId) {
+  const injection = await evaluate(cdp, sessionId, `(() => {
+    window.__steelXss = 0;
+    const fields = ${JSON.stringify(GUSSET_XSS_STATE)};
+    Object.entries(fields).forEach(([name, value]) => {
+      const input = document.querySelector('[name="' + name + '"]');
+      if (!input) throw new Error('missing Gusset XSS probe field [name="' + name + '"]');
+      input.value = value;
+    });
+    const updateTrigger = document.querySelector('[name="gussetLoadPathConfirmed"]');
+    if (!updateTrigger) throw new Error('missing Gusset XSS update trigger');
+    updateTrigger.dispatchEvent(new Event('change', { bubbles: true }));
+    const payload = window.buildSteelConnectionSourcePayload?.();
+    window.__steelSourceReplayPayload = payload;
+    return {
+      passes: window.latestSteelConnectionResult?.passes === true,
+      fields: payload?.fields || null,
+      sourceFingerprint: payload?.calculationFingerprint || '',
+      reportFingerprint: payload?.report?.calculationFingerprint || '',
+      escapeProbeImageCount: Array.from(document.querySelectorAll('img')).filter(node =>
+        String(node.getAttribute('onerror') || '').includes('__steelXss')).length,
+      escapeProbeExecuted: window.__steelXss === 1,
+      escapeProbeTextVisible: (document.body?.innerText || '').includes(${JSON.stringify(GUSSET_ESCAPE_PROBE)}),
+    };
+  })()`, 'main Gusset XSS injection');
+  if (!injection.passes
+      || injection.fields?.projectName !== GUSSET_XSS_STATE.projectName
+      || injection.fields?.notes !== GUSSET_XSS_STATE.notes
+      || injection.fields?.gussetDemandBasis !== GUSSET_XSS_STATE.gussetDemandBasis
+      || !/^CF-[0-9A-F]{16}$/.test(injection.sourceFingerprint)
+      || injection.reportFingerprint !== injection.sourceFingerprint
+      || injection.escapeProbeImageCount !== 0 || injection.escapeProbeExecuted || !injection.escapeProbeTextVisible) {
+    throw new Error(`main Gusset XSS injection should remain escaped and fingerprinted: ${JSON.stringify(injection)}`);
+  }
+
+  await assertSourceJsonReplay(cdp, sessionId, {
+    label: 'main Gusset XSS source replay',
+    builder: 'buildSteelConnectionSourcePayload',
+    inputSelector: '#importSourceJsonInput',
+    mutationSelector: 'input[name="gussetThickness"]:not([disabled])',
+    sourceFieldKey: 'gussetThickness',
+    statusSelector: '#exportReportStatus',
+    nestedFields: false,
+    escapeProbeNeedle: GUSSET_ESCAPE_PROBE,
+    strictBooleanField: 'gussetStaticNonseismicConfirmed',
+    updateTriggerSelector: '[name="gussetLoadPathConfirmed"]',
+  });
+
+  const popup = await openLegacyReportPopup(cdp, sessionId, 'main Gusset XSS popup', '#printReportBtn');
+  try {
+    const popupSnapshot = await evaluate(cdp, popup.sessionId, `(() => ({
+      bodyText: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim(),
+      escapeProbeImageCount: Array.from(document.querySelectorAll('img')).filter(node =>
+        String(node.getAttribute('onerror') || '').includes('__steelXss')).length,
+      escapeProbeExecuted: window.__steelXss === 1,
+    }))()`, 'main Gusset XSS popup snapshot');
+    const approvalState = await captureReportApprovalState(cdp, popup.sessionId, 'main Gusset XSS popup');
+    verifySteelApprovedHtml(approvalState, 'main Gusset XSS popup');
+    const approvedVisibleText = AttachmentPackageChecker.extractHtmlVisibleContent(approvalState.approvedHtml).text;
+    if (popupSnapshot.escapeProbeImageCount !== 0 || popupSnapshot.escapeProbeExecuted
+        || !popupSnapshot.bodyText.includes(GUSSET_ESCAPE_PROBE)
+        || !approvedVisibleText.includes(GUSSET_ESCAPE_PROBE)
+        || approvalState.approvedHtml.includes(GUSSET_ESCAPE_PROBE)) {
+      throw new Error(`main Gusset XSS popup should preserve the probe as escaped visible text only: ${JSON.stringify(popupSnapshot)}`);
+    }
+  } finally {
+    await cdp.send('Target.closeTarget', { targetId: popup.targetId }).catch(() => {});
+  }
+}
+
+async function assertMainGussetOverflowIsolation(cdp, sessionId) {
+  const blocked = await evaluate(cdp, sessionId, `(async () => {
+    const overflowField = document.querySelector('input[name="gussetThickness"]:not([disabled])');
+    const exportButton = document.querySelector('#exportSourceJsonBtn');
+    const reportButton = document.querySelector('#printReportBtn');
+    const status = document.querySelector('#exportReportStatus');
+    if (!overflowField || !exportButton || !reportButton || !status) throw new Error('missing Gusset overflow controls');
+    overflowField.value = String(Number.MAX_VALUE);
+    overflowField.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    const result = window.latestSteelConnectionResult;
+    const nonFiniteCheckKeys = (result?.checks || []).filter(check =>
+      [check.demand, check.nominal, check.available, check.ratio].some(value => !Number.isFinite(value))
+    ).map(check => check.key);
+    const nonFiniteRows = nonFiniteCheckKeys.map(key => {
+      const row = document.querySelector('#strengthCheckTableBody [data-check-key="' + key + '"]');
+      return {
+        key,
+        dcr: row?.querySelector('[data-label="DCR"]')?.textContent?.trim() || '',
+        status: row?.querySelector('[data-label="判定"]')?.textContent?.trim() || '',
+      };
+    });
+    const collectNonFinitePaths = (value, path = '$', seen = new Set(), found = []) => {
+      if (typeof value === 'number') {
+        if (!Number.isFinite(value)) found.push(path);
+        return found;
+      }
+      if (!value || typeof value !== 'object' || seen.has(value)) return found;
+      seen.add(value);
+      Object.entries(value).forEach(([key, item]) => collectNonFinitePaths(item, path + '.' + key, seen, found));
+      return found;
+    };
+    const nonFinitePaths = collectNonFinitePaths({
+      checks: result?.checks,
+      governing: result?.governing,
+      derivedAreas: result?.derivedAreas,
+    });
+    let builderError = '';
+    let builderJson = '';
+    try {
+      builderJson = JSON.stringify(window.buildSteelConnectionSourcePayload?.());
+    } catch (error) {
+      builderError = error?.message || String(error);
+    }
+
+    let sourceDownloadClicks = 0;
+    const originalAnchorClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function captureOverflowSourceDownload() {
+      if (String(this.download || '').toLowerCase().endsWith('.json')) {
+        sourceDownloadClicks += 1;
+        return undefined;
+      }
+      return originalAnchorClick.apply(this, arguments);
+    };
+    try {
+      exportButton.click();
+      const startedAt = Date.now();
+      while (Date.now() - startedAt < 5000 && !(status.textContent || '').includes('來源 JSON 未匯出')) {
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+    } finally {
+      HTMLAnchorElement.prototype.click = originalAnchorClick;
+    }
+    const sourceStatus = status.textContent || '';
+
+    let reportOpenCount = 0;
+    const originalWindowOpen = window.open;
+    window.open = () => {
+      reportOpenCount += 1;
+      return null;
+    };
+    try {
+      reportButton.click();
+      const startedAt = Date.now();
+      while (Date.now() - startedAt < 5000 && !(status.textContent || '').includes('正式報告未開啟')) {
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+    } finally {
+      window.open = originalWindowOpen;
+    }
+    const reportStatus = status.textContent || '';
+    return {
+      complianceReady: result?.complianceReady === true,
+      passes: result?.passes === true,
+      overallStatus: result?.overallStatus || '',
+      strengthFailure: result?.summary?.strengthFailure === true,
+      validationFailure: result?.summary?.validationFailure === true,
+      failingKeys: (result?.detailChecks || []).filter(item => !item.passes).map(item => item.key),
+      validations: result?.validations || [],
+      nonFinitePaths,
+      nonFiniteRows,
+      builderError,
+      builderJson,
+      sourceDownloadClicks,
+      sourceStatus,
+      reportOpenCount,
+      reportStatus,
+      approvalStamp: document.querySelector('#approvalStamp')?.textContent || '',
+      reportBanner: document.querySelector('#reportBanner')?.textContent?.trim() || '',
+      overallMessage: document.querySelector('#overallMessage')?.textContent?.trim() || '',
+    };
+  })()`, 'main Gusset numeric-overflow formal output block');
+  const finiteKeys = ['gussetFiniteDerivedResults', 'gussetFiniteStrengthResults'];
+  if (!blocked.complianceReady || blocked.passes || blocked.overallStatus !== 'fail'
+      || !blocked.strengthFailure || !blocked.validationFailure
+      || finiteKeys.some(key => !blocked.failingKeys.includes(key))
+      || blocked.nonFinitePaths.length === 0
+      || blocked.nonFiniteRows.length === 0
+      || blocked.nonFiniteRows.some(row => row.dcr !== '—' || row.status !== 'NG')
+      || blocked.builderJson !== ''
+      || !blocked.builderError.includes('未建立含 Infinity 或以 null 代換的正式資料')
+      || blocked.sourceDownloadClicks !== 0
+      || !blocked.sourceStatus.includes('來源 JSON 未匯出')
+      || !blocked.sourceStatus.includes('未建立含 Infinity 或以 null 代換的正式資料')
+      || blocked.reportOpenCount !== 0
+      || !blocked.reportStatus.includes('正式報告未開啟')
+      || !blocked.reportStatus.includes('未建立含 Infinity 或以 null 代換的正式資料')
+      || blocked.approvalStamp !== '不核可'
+      || blocked.reportBanner !== '檢核未通過'
+      || blocked.reportBanner.includes('強度可行')
+      || blocked.overallMessage.includes('強度可行')) {
+    throw new Error(`main Gusset overflow must block calculation approval, source JSON, and formal report before Infinity can serialize as null: ${JSON.stringify(blocked)}`);
+  }
+
+  await setupMainGusset(cdp, sessionId);
+  const replay = await evaluate(cdp, sessionId, `(async () => {
+    const builder = window.buildSteelConnectionSourcePayload;
+    const input = document.querySelector('#importSourceJsonInput');
+    const status = document.querySelector('#exportReportStatus');
+    const thickness = document.querySelector('input[name="gussetThickness"]:not([disabled])');
+    if (typeof builder !== 'function' || !input || !status || !thickness) throw new Error('missing Gusset overflow replay controls');
+    const baseline = builder();
+    const collectNullPaths = (value, path = '$', found = []) => {
+      if (value === null) {
+        found.push(path);
+        return found;
+      }
+      if (!value || typeof value !== 'object') return found;
+      Object.entries(value).forEach(([key, item]) => collectNullPaths(item, path + '.' + key, found));
+      return found;
+    };
+    const baselineNullPaths = collectNullPaths(baseline);
+    const overflowSource = JSON.parse(JSON.stringify(baseline));
+    overflowSource.fields.gussetThickness = Number.MAX_VALUE;
+    const overflowJson = JSON.stringify(overflowSource);
+    const overflowNullPaths = collectNullPaths(JSON.parse(overflowJson));
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([overflowJson], 'gusset-overflow-source.json', { type: 'application/json' }));
+    input.files = transfer.files;
+    status.textContent = '';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < 5000
+        && !((status.textContent || '').includes('匯入失敗')
+          && (status.textContent || '').includes('Gusset 結果含非有限值或數值溢位'))) {
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    const after = builder();
+    const afterJson = JSON.stringify(after);
+    return {
+      baselineFingerprint: baseline.calculationFingerprint,
+      afterFingerprint: after.calculationFingerprint,
+      thicknessValue: thickness.value,
+      status: status.textContent || '',
+      inputCleared: input.value === '',
+      overflowFieldSerializedAsFiniteNumber: overflowJson.includes('"gussetThickness":1.7976931348623157e+308'),
+      overflowJsonContainsInfinity: overflowJson.includes('Infinity'),
+      baselineNullPaths,
+      overflowNullPaths,
+      afterJsonContainsInfinity: afterJson.includes('Infinity'),
+      afterNullPaths: collectNullPaths(JSON.parse(afterJson)),
+      selectedType: document.querySelector('select[name="connectionType"]')?.value || '',
+      gussetVisible: !document.querySelector('[data-connection="brace_gusset"]')?.classList.contains('is-hidden'),
+    };
+  })()`, 'main Gusset numeric-overflow source replay rejection');
+  if (replay.afterFingerprint !== replay.baselineFingerprint
+      || replay.thicknessValue !== String(GUSSET_FORMAL_STATE.gussetThickness)
+      || !replay.status.includes('匯入失敗，已保留原輸入')
+      || !replay.status.includes('拒絕以 Infinity 或 JSON null 代換建立正式來源')
+      || !replay.inputCleared
+      || !replay.overflowFieldSerializedAsFiniteNumber
+      || replay.overflowJsonContainsInfinity
+      || JSON.stringify(replay.overflowNullPaths) !== JSON.stringify(replay.baselineNullPaths)
+      || replay.afterJsonContainsInfinity
+      || JSON.stringify(replay.afterNullPaths) !== JSON.stringify(replay.baselineNullPaths)
+      || replay.selectedType !== 'brace_gusset'
+      || !replay.gussetVisible) {
+    throw new Error(`main Gusset overflow source import must reject transactionally without Infinity-to-null serialization: ${JSON.stringify(replay)}`);
+  }
+}
+
+async function assertMainGussetReportPopup(cdp, sessionId, context = {}) {
+  await assertMainGussetReady(cdp, sessionId);
+  await assertMainGussetOverflowIsolation(cdp, sessionId);
+  await assertMainGussetReady(cdp, sessionId);
+  await assertMainGussetXssIsolation(cdp, sessionId);
+  await setupMainGusset(cdp, sessionId);
+  await assertMainGussetReady(cdp, sessionId);
+  return assertLegacyReportPopup(cdp, sessionId, {
+    label: 'main Gusset report popup',
+    buttonSelector: '#printReportBtn',
+    titleNeedle: 'Gusset 接頭檢核計算書',
+    headerNeedle: '支撐 / Gusset 接頭檢核計算書',
+    expectedProject: {
+      name: GUSSET_FORMAL_STATE.projectName,
+      tag: GUSSET_FORMAL_STATE.connectionTag,
+      designer: GUSSET_FORMAL_STATE.designer,
+    },
+    sourcePayloadBuilder: 'buildSteelConnectionSourcePayload',
+    sourceReplay: {
+      builder: 'buildSteelConnectionSourcePayload', inputSelector: '#importSourceJsonInput',
+      mutationSelector: 'input[name="gussetThickness"]:not([disabled])', sourceFieldKey: 'gussetThickness',
+      statusSelector: '#exportReportStatus', nestedFields: false,
+      strictBooleanField: 'gussetStaticNonseismicConfirmed',
+      updateTriggerSelector: '[name="gussetLoadPathConfirmed"]',
+      reportTamper: true,
+      crossModuleBeforeImport: 'single_plate',
+    },
+    expectedSourceFields: {
+      connectionType: 'brace_gusset',
+      requiredAxial: 400,
+      requiredShear: 0,
+      requiredMoment: 0,
+      eccentricity: 0,
+      boltDiameter: 20,
+      holeDiameter: 21.5,
+      boltUltimateStrength: 1000,
+      boltGrade: 'F10T',
+      gussetBoltCount: 6,
+      gussetShearPlanes: 1,
+      gussetEndDistance: 50,
+      gussetPitch: 70,
+      gussetEdgeDistance: 60,
+      gussetThickness: 14,
+      gussetYieldStrength: 325,
+      gussetUltimateStrength: 490,
+      gussetConnectionWidth: 180,
+      gussetNetWidth: 156.5,
+      gussetWhitmoreConnectionLength: 350,
+      gussetAvailableWidth: 400,
+      braceSectionType: 'flat_plate',
+      braceEndDistance: 50,
+      braceEdgeDistance: 60,
+      braceThickness: 12,
+      braceFy: 325,
+      braceFu: 490,
+      braceGrossWidth: 160,
+      braceNetWidth: 136.5,
+      weldSize: 8,
+      weldLength: 250,
+      weldLineCount: 2,
+      weldFexx: 490,
+      supportThickness: 16,
+      supportFy: 325,
+      supportFu: 490,
+      gussetDemandBasis: GUSSET_FORMAL_STATE.gussetDemandBasis,
+      gussetGeometryBasis: GUSSET_FORMAL_STATE.gussetGeometryBasis,
+      gussetMaterialBasis: GUSSET_FORMAL_STATE.gussetMaterialBasis,
+      gussetModelBasis: GUSSET_FORMAL_STATE.gussetModelBasis,
+      gussetStaticNonseismicConfirmed: true,
+      gussetLoadPathConfirmed: true,
+    },
+    artifactRequiredNeedles: GUSSET_ARTIFACT_REQUIRED_NEEDLES,
+    reportOnlyRequiredNeedles: [
+      '支撐 / Gusset 接頭檢核計算書',
+      'F10T 承壓式螺栓標稱剪應力依表 10.3-2',
+      '含牙 4.00 tf/cm²、不含牙 5.00 tf/cm²',
+      'V1 在尚未實作長接合路線前保守援用 Lconn ≤ 1250 mm，並非一般接合的條文上限',
+      '三段不得視為並聯容量',
+    ],
+    domAndTextRequiredNeedles: ['392.266 MPa', 'Whitmore Lconn / 理論 / 可用有效寬度'],
+    absentNeedles: [GUSSET_ESCAPE_PROBE],
+    continuationContextLabels: ['Fub 1000 MPa', '材料資料來源', 'Whitmore 有效寬度', 'Gusset 塊狀撕裂', '支撐材塊狀撕裂', '銲腳尺寸 a'],
+    renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-main-gusset' : '',
+  });
+}
+
 async function assertMainTensionReportPopup(cdp, sessionId, context = {}) {
   return assertLegacyReportPopup(cdp, sessionId, {
     label: 'main tension report popup',
@@ -1311,15 +1970,64 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
       return { matched: false, text: status.textContent || '' };
     };
     let reportDifference = null;
-    if (serializedSource.connectionType === 'single_plate' && ${options.nestedFields ? 'false' : 'true'}) {
+    if (['single_plate', 'brace_gusset'].includes(serializedSource.connectionType) && ${options.nestedFields ? 'false' : 'true'}) {
       Object.entries(serializedSource.fields || {}).forEach(([name, value]) => {
         const sourceField = document.querySelector('[name="' + name + '"]');
         if (!sourceField) throw new Error('missing strict replay field [name="' + name + '"]');
         sourceField.value = String(value);
       });
-      const updateTrigger = document.querySelector('[name="connectionModelConfirmed"]');
+      const updateTrigger = document.querySelector(${JSON.stringify(options.updateTriggerSelector || '[name="connectionModelConfirmed"]')});
+      if (!updateTrigger) throw new Error('missing strict replay update trigger');
       updateTrigger.dispatchEvent(new Event('change', { bubbles: true }));
-      reportDifference = firstDifference(serializedSource.report, builder()?.report);
+      reportDifference = firstDifference(
+        serializedSource.report,
+        JSON.parse(JSON.stringify(builder()?.report || null))
+      );
+    }
+    const snapshotModuleState = () => {
+      const current = builder();
+      const selectedType = document.querySelector('select[name="connectionType"]')?.value || '';
+      const gussetCard = document.querySelector('[data-connection="brace_gusset"]');
+      const shearTabCard = document.querySelector('[data-connection="single_plate"]');
+      return {
+        connectionType: current?.connectionType || '',
+        calculationFingerprint: current?.calculationFingerprint || '',
+        selectedType,
+        gussetVisible: Boolean(gussetCard && !gussetCard.classList.contains('is-hidden')),
+        shearTabVisible: Boolean(shearTabCard && !shearTabCard.classList.contains('is-hidden')),
+      };
+    };
+    const crossModuleBeforeImport = ${JSON.stringify(options.crossModuleBeforeImport || '')};
+    let crossModule = null;
+    if (crossModuleBeforeImport) {
+      const connectionTypeSelect = document.querySelector('select[name="connectionType"]');
+      const preset = document.querySelector('#examplePresetSelect');
+      const loadButton = document.querySelector('#loadExampleBtn');
+      if (!connectionTypeSelect || !preset || !loadButton) throw new Error('cross-module replay controls missing');
+      connectionTypeSelect.value = crossModuleBeforeImport;
+      connectionTypeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      preset.value = crossModuleBeforeImport === 'single_plate' ? 'single_plate_standard' : '';
+      preset.dispatchEvent(new Event('change', { bubbles: true }));
+      loadButton.click();
+      await new Promise(resolve => setTimeout(resolve, 50));
+      const baseline = snapshotModuleState();
+
+      const invalidCrossVersion = JSON.parse(JSON.stringify(serializedSource));
+      invalidCrossVersion.tool.version = 'V999.0';
+      const versionRejected = await triggerImport(invalidCrossVersion, '工具版本不符');
+      const afterVersionReject = snapshotModuleState();
+
+      const invalidCrossReport = JSON.parse(JSON.stringify(serializedSource));
+      invalidCrossReport.report.title = String(invalidCrossReport.report.title || '') + ' [cross-module-tampered]';
+      const reportRejected = await triggerImport(invalidCrossReport, '內嵌報告內容與來源欄位重算結果不一致');
+      const afterReportReject = snapshotModuleState();
+      crossModule = {
+        baseline,
+        versionRejectedStatus: versionRejected.text,
+        afterVersionReject,
+        reportRejectedStatus: reportRejected.text,
+        afterReportReject,
+      };
     }
     field.value = String(Number(expectedValue) + 17);
     field.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1335,6 +2043,7 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
     }
     const replay = builder();
     const restoredValue = field.value;
+    const afterSuccessfulReplay = snapshotModuleState();
     const invalid = JSON.parse(JSON.stringify(serializedSource));
     invalid.tool.version = 'V999.0';
     const beforeReject = builder().calculationFingerprint;
@@ -1351,6 +2060,17 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
       booleanRejected = await triggerImport(invalidBoolean, strictBooleanField + ' 必須為布林值');
       afterBooleanReject = builder().calculationFingerprint;
     }
+    const reportTamper = ${options.reportTamper ? 'true' : 'false'};
+    let reportTamperRejected = { matched: true, text: '' };
+    let beforeReportTamperReject = afterBooleanReject;
+    let afterReportTamperReject = afterBooleanReject;
+    if (reportTamper) {
+      const invalidReport = JSON.parse(JSON.stringify(serializedSource));
+      invalidReport.report.title = String(invalidReport.report.title || '') + ' [tampered]';
+      beforeReportTamperReject = builder().calculationFingerprint;
+      reportTamperRejected = await triggerImport(invalidReport, '內嵌報告內容與來源欄位重算結果不一致');
+      afterReportTamperReject = builder().calculationFingerprint;
+    }
     return {
       expectedValue: String(expectedValue),
       restoredValue: String(restoredValue),
@@ -1359,11 +2079,16 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
       successStatus: success.text,
       rejectedStatus: rejected.text,
       booleanRejectedStatus: booleanRejected.text,
+      reportTamperRejectedStatus: reportTamperRejected.text,
       reportDifference,
+      crossModule,
+      afterSuccessfulReplay,
       beforeReject,
       afterReject,
       beforeBooleanReject,
       afterBooleanReject,
+      beforeReportTamperReject,
+      afterReportTamperReject,
       inputCleared: input.value === '',
       escapeProbeImageCount: escapeProbeNeedle
         ? Array.from(document.querySelectorAll('img')).filter(node => String(node.getAttribute('onerror') || '').includes('__steelXss')).length
@@ -1375,6 +2100,9 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
   if (state.importFailed) {
     throw new Error(`${options.label} source replay failed: ${state.successStatus}; first payload.report/replay.report difference=${JSON.stringify(state.reportDifference)}`);
   }
+  if (state.reportDifference) {
+    throw new Error(`${options.label} source report did not reproduce from its fields before import: ${JSON.stringify(state.reportDifference)}`);
+  }
   if (state.restoredValue !== state.expectedValue || state.replayFingerprint !== state.sourceFingerprint) {
     throw new Error(`${options.label} source replay mismatch: ${JSON.stringify(state)}`);
   }
@@ -1384,11 +2112,38 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
   if (state.beforeReject !== state.afterReject || !state.inputCleared) {
     throw new Error(`${options.label} rejected source should preserve state and clear file input: ${JSON.stringify(state)}`);
   }
+  if (options.crossModuleBeforeImport) {
+    const baseline = state.crossModule?.baseline;
+    const expectedBaseline = {
+      connectionType: options.crossModuleBeforeImport,
+      calculationFingerprint: baseline?.calculationFingerprint || '',
+      selectedType: options.crossModuleBeforeImport,
+      gussetVisible: false,
+      shearTabVisible: options.crossModuleBeforeImport === 'single_plate',
+    };
+    if (!baseline || JSON.stringify(baseline) !== JSON.stringify(expectedBaseline)
+        || JSON.stringify(state.crossModule.afterVersionReject) !== JSON.stringify(baseline)
+        || JSON.stringify(state.crossModule.afterReportReject) !== JSON.stringify(baseline)
+        || !state.crossModule.versionRejectedStatus.includes('已保留原輸入')
+        || !state.crossModule.reportRejectedStatus.includes('已保留原輸入')
+        || state.afterSuccessfulReplay?.connectionType !== 'brace_gusset'
+        || state.afterSuccessfulReplay?.selectedType !== 'brace_gusset'
+        || !state.afterSuccessfulReplay?.gussetVisible
+        || state.afterSuccessfulReplay?.shearTabVisible) {
+      throw new Error(`${options.label} cross-module Gusset replay should reject transactionally, then switch state and visibility on valid import: ${JSON.stringify({ crossModule: state.crossModule, afterSuccessfulReplay: state.afterSuccessfulReplay })}`);
+    }
+  }
   if (options.strictBooleanField
       && (!state.booleanRejectedStatus.includes(`${options.strictBooleanField} 必須為布林值`)
         || !state.booleanRejectedStatus.includes('已保留原輸入')
         || state.beforeBooleanReject !== state.afterBooleanReject)) {
     throw new Error(`${options.label} should reject a stringified ${options.strictBooleanField} without changing state: ${JSON.stringify(state)}`);
+  }
+  if (options.reportTamper
+      && (!state.reportTamperRejectedStatus.includes('內嵌報告內容與來源欄位重算結果不一致')
+        || !state.reportTamperRejectedStatus.includes('已保留原輸入')
+        || state.beforeReportTamperReject !== state.afterReportTamperReject)) {
+    throw new Error(`${options.label} should reject a tampered embedded report without changing state: ${JSON.stringify(state)}`);
   }
   if (state.escapeProbeImageCount !== 0 || state.escapeProbeExecuted || !state.escapeProbeTextVisible) {
     throw new Error(`${options.label} source replay should preserve the XSS probe as visible text only: ${JSON.stringify(state)}`);
@@ -1755,7 +2510,8 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
       internalDocumentTitle,
     };
   })()`, `${options.label} approval state`);
-  if (!snapshot.title.includes(options.titleNeedle) || !snapshot.header.includes(options.titleNeedle)) {
+  const headerNeedle = options.headerNeedle || options.titleNeedle;
+  if (!snapshot.title.includes(options.titleNeedle) || !snapshot.header.includes(headerNeedle)) {
     throw new Error(`${options.label} title mismatch: ${JSON.stringify(snapshot)}`);
   }
   const forbiddenNeedles = [
@@ -1963,9 +2719,17 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
     }
   }
   if (options.renderEvidenceKey) {
-    await verifySteelTextDownload(cdp, popup.sessionId, options.label, options.renderEvidenceKey, options.artifactRequiredNeedles, options.absentNeedles);
+    await verifySteelTextDownload(
+      cdp,
+      popup.sessionId,
+      options.label,
+      options.renderEvidenceKey,
+      [...(options.artifactRequiredNeedles || []), ...(options.domAndTextRequiredNeedles || [])],
+      options.absentNeedles
+    );
   }
-  if (!snapshot.title.includes(options.titleNeedle) || !snapshot.header.includes(options.titleNeedle)) {
+  const headerNeedle = options.headerNeedle || options.titleNeedle;
+  if (!snapshot.title.includes(options.titleNeedle) || !snapshot.header.includes(headerNeedle)) {
     throw new Error(`${options.label} title mismatch: ${JSON.stringify(snapshot)}`);
   }
   const forbiddenNeedles = [
@@ -1985,7 +2749,11 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
       throw new Error(`${options.label} should exclude "${needle}": ${snapshot.bodyText}`);
     }
   }
-  for (const needle of options.artifactRequiredNeedles || []) {
+  for (const needle of [
+    ...(options.artifactRequiredNeedles || []),
+    ...(options.reportOnlyRequiredNeedles || []),
+    ...(options.domAndTextRequiredNeedles || []),
+  ]) {
     if (!snapshot.bodyText.includes(needle)) {
       throw new Error(`${options.label} should include "${needle}": ${snapshot.bodyText}`);
     }
@@ -2063,7 +2831,7 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
       renderer: 'steel-formal-attachment',
       contentBoundaryProfile: 'traceable-calculation-book',
       titleNeedle: options.titleNeedle,
-      requiredNeedles: [options.titleNeedle, ...(options.expectedProject.name ? ['計畫名稱'] : []), ...(options.adoptedPlaceholderNeedle ? [options.adoptedPlaceholderNeedle] : []), '檢核結論', '文件狀態：正式附件', '核可時間', ...FORMAL_REPORT_TRACE_LABELS, ...(options.artifactRequiredNeedles || [])],
+      requiredNeedles: [options.titleNeedle, ...(options.expectedProject.name ? ['計畫名稱'] : []), ...(options.adoptedPlaceholderNeedle ? [options.adoptedPlaceholderNeedle] : []), '檢核結論', '文件狀態：正式附件', '核可時間', ...FORMAL_REPORT_TRACE_LABELS, ...(options.artifactRequiredNeedles || []), ...(options.reportOnlyRequiredNeedles || [])],
       forbiddenNeedles,
       continuationContextLabels: options.continuationContextLabels || [],
     });
@@ -2536,7 +3304,7 @@ async function main() {
       renderedEvidenceDir,
       'steel-formal',
       renderedEvidenceRecords,
-      ['steel-main-plate', 'steel-main-shear-tab', 'steel-main-tension', 'steel-standalone-plate', 'steel-beam-formal', 'steel-column-formal']
+      ['steel-main-plate', 'steel-main-shear-tab', 'steel-main-gusset', 'steel-main-tension', 'steel-standalone-plate', 'steel-beam-formal', 'steel-column-formal']
     )
     : null;
   if (renderedSummary) {
