@@ -2,8 +2,8 @@
   "publicEvidenceSchemaVersion": 3,
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-08-30T21:20:44.269Z",
-  "runId": "20260831-044312",
+  "generatedAt": "2026-08-30T22:43:10.225Z",
+  "runId": "20260831-060452",
   "pass": true,
   "failureCount": 0,
   "badge": "頁面專用",
@@ -13,7 +13,7 @@
   "details": [
     "目前覆蓋 過渡工具 / 輔助查詢 入口：鋼梁舊案延續頁、鋼柱舊案延續頁、Kzt 地形係數、特殊修正 / 折減。",
     "正式計算書可讀文字抽檢：21 / 21 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 3 / 3。本項確認輸出可讀文字、頁面診斷明細排除，以及內部審閱／正式附件核可狀態。",
-    "正式放行實際交付物渲染佐證：40 / 40 個首頁正式工具已完成，涵蓋 11 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20260831-044312。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
+    "正式放行實際交付物渲染佐證：40 / 40 個首頁正式工具已完成，涵蓋 11 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20260831-060452。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
     "正式交付檔案完整性：正式 PDF 與渲染證據 90 / 90、RC PDF / PNG 成品 66 / 66、混合格式附件 13 / 13；合計 169 / 169。公開狀態只提供類別、數量與通過狀態，不公開檔名、逐檔雜湊或完整性集合。",
     "正式 Word 附件乾淨封裝：石材、錨栓、覆工板與開挖擋土支撐共 4 / 4 份 DOCX 已確認沒有未引用媒體或頁首頁尾、實際批註、未接受修訂、外掛範本、外部圖片、嵌入物件、巨集或非預期 custom XML。公開狀態只顯示完成數，不公開檔名、封裝清冊或逐檔細節。",
     "正式 Excel 附件乾淨封裝：錨栓檢討 1 / 1 份 XLSX 已確認工作表全數可見、公式具快取結果，且沒有外部關聯／公式／連線、公式錯誤、隱藏資料、批註、嵌入物件、巨集、孤兒媒體或非預期 custom XML。公開狀態只顯示完成數，不公開檔名、工作表清冊、公式或逐檔細節。",
@@ -61,7 +61,7 @@
   "reportTextSmokeEvidenceRequired": 3,
   "reportTextSmokeEvidenceComplete": 3,
   "reportTextSmokeEvidenceIssueCount": 0,
-  "reportTextSmokeEvidenceRunId": "20260831-044312",
+  "reportTextSmokeEvidenceRunId": "20260831-060452",
   "reportTextSmokeEvidenceGates": [
     {
       "key": "formal-browser-smoke",
@@ -73,7 +73,7 @@
       "complete": 14,
       "pass": true,
       "reused": false,
-      "seconds": 102.8
+      "seconds": 103.1
     },
     {
       "key": "local-quick-tools-runner",
@@ -85,7 +85,7 @@
       "complete": 6,
       "pass": true,
       "reused": false,
-      "seconds": 96.4
+      "seconds": 94.9
     },
     {
       "key": "frame-analysis-browser-smoke",
@@ -97,7 +97,7 @@
       "complete": 1,
       "pass": true,
       "reused": false,
-      "seconds": 7.9
+      "seconds": 8.6
     }
   ],
   "reportTextSmokeEvidenceUnmappedFamilies": [],
@@ -105,7 +105,7 @@
   "renderedDeliveryEvidenceRequired": 40,
   "renderedDeliveryEvidenceComplete": 40,
   "renderedDeliveryEvidenceIssueCount": 0,
-  "renderedDeliveryEvidenceRunId": "20260831-044312",
+  "renderedDeliveryEvidenceRunId": "20260831-060452",
   "renderedDeliveryEvidenceFamilies": [
     {
       "family": "anchor-formal",
@@ -153,8 +153,8 @@
     }
   ],
   "renderedDeliveryEvidenceSummary": "最新正式放行實際交付物渲染：首頁正式工具 40 / 40；補充報告 / 服務成品 2 / 2；RC STM 正式入口附件 3 / 3。",
-  "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260831-044312/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
-  "renderedDeliveryEvidenceSourceHash": "8d5056fcaa7756bc7bc3f72c1f874776591fec6bf4ee9c9882772ef3e6154769",
+  "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260831-060452/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
+  "renderedDeliveryEvidenceSourceHash": "84bc07cf790e4d365092bf8f11b20e46ea725268dd0812b3fee7c1ccf4c5a121",
   "deliveryFileIntegrityRequired": 169,
   "deliveryFileIntegrityVerified": 169,
   "deliveryFileIntegrityIssueCount": 0,
@@ -421,6 +421,6 @@
     }
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
-  "preflightStatusSourcePath": "output/preflight/history/20260831-044312/preflight-summary.json",
-  "sourceHash": "86b7d6beaa5365b0f8b84feb800fd9d5b9421a4136ff63621a22a1326ff45815"
+  "preflightStatusSourcePath": "output/preflight/history/20260831-060452/preflight-summary.json",
+  "sourceHash": "6f9c0d7fbe91dcb8e5687f66498c0e1e5a5f11edaa25526ec71eea701cc7f49a"
 }
