@@ -61,7 +61,7 @@ const CLEAN_ROUTE_SAMPLES = [
   { path: 'steel-beam-formal/', source: '/steel-beam-formal', targetNeedle: 'steel-beam-formal.html' },
   { path: 'src-beam/', source: '/src-beam', targetNeedle: 'src-beam.html' },
   { path: 'src-column/', source: '/src-column', targetNeedle: 'src-column.html' },
-  { path: 'frame-analysis/', source: '/frame-analysis', targetNeedle: '平面剛架分析.html' },
+  { path: 'frame-analysis/', source: '/frame-analysis', targetNeedle: encodeURIComponent('平面剛架分析.html') },
 ];
 const PRIVATE_PATHS = [
   '鋼構工具/core/formal-core-manifest.json',
