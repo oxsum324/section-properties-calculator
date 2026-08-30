@@ -10,6 +10,7 @@
       ? STEEL_TOOL_METADATA.tension
       : STEEL_TOOL_METADATA.connection;
   const withFormalToolVersion = (title, metadata) => `${title} ${metadata.version}`;
+  const MAIN_SUITE_PAGE_TITLE = "鋼構正式規範核算工具";
   const IS_STANDALONE_PLATE = location.pathname.toLowerCase().includes("plate-check");
   const STORAGE_KEY = IS_STANDALONE_PLATE
     ? "steel-plate-check-draft-v2"
@@ -2307,7 +2308,9 @@
 
   function renderSummary(result) {
     const currentToolMetadata = getFormalToolMetadata(result.state.connectionType);
-    const versionedPageTitle = withFormalToolVersion(result.pageTitle, currentToolMetadata);
+    const pageToolMetadata = IS_STANDALONE_PLATE ? currentToolMetadata : STEEL_TOOL_METADATA.connection;
+    const visiblePageTitle = IS_STANDALONE_PLATE ? result.pageTitle : MAIN_SUITE_PAGE_TITLE;
+    const versionedPageTitle = withFormalToolVersion(visiblePageTitle, pageToolMetadata);
     pageTitle.textContent = versionedPageTitle;
     pageDescription.textContent = result.pageDescription;
     document.title = versionedPageTitle;

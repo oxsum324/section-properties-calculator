@@ -63,6 +63,7 @@ const scenarios = [
 
 const STEEL_DIRECT_PRINT_TITLE = '鋼構正式工具主頁列印已封鎖';
 const STEEL_DIRECT_PRINT_BODY = '此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「產生計算書」按鈕開啟可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。';
+const MAIN_ROUTE_CANONICAL_PAGE_TITLE = '鋼構正式規範核算工具 V1.1';
 const steelDirectPrintPages = [
   { key: 'steel-main-formal', url: '/index.html', pageTitle: '鋼構正式規範核算工具 V1.1' },
   { key: 'steel-plate-formal', url: '/plate-check.html', pageTitle: '鋼構連接板正式規範核算工具 V1.0' },
@@ -3071,6 +3072,15 @@ async function runSnapshot(cdp, scenario, viewport) {
     await loadEvent;
     await wait(300);
     if (scenario.setup) await scenario.setup(cdp, sessionId);
+    if (scenario.url === '/index.html') {
+      const pageIdentity = await evaluate(cdp, sessionId, `(() => ({
+        heading: String(document.querySelector('h1')?.textContent || '').replace(/\\s+/g, ' ').trim(),
+        title: String(document.title || '').replace(/\\s+/g, ' ').trim(),
+      }))()`, `${label} canonical page identity`);
+      if (pageIdentity.heading !== MAIN_ROUTE_CANONICAL_PAGE_TITLE || pageIdentity.title !== MAIN_ROUTE_CANONICAL_PAGE_TITLE) {
+        throw new Error(`${label} should preserve canonical main route title ${MAIN_ROUTE_CANONICAL_PAGE_TITLE}: ${JSON.stringify(pageIdentity)}`);
+      }
+    }
     if (scenario.assert) {
       const assertResult = await scenario.assert(cdp, sessionId, { scenario, viewport });
       if (assertResult?.captureSessionId) captureSessionId = assertResult.captureSessionId;

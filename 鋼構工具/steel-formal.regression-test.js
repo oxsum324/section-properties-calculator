@@ -500,8 +500,8 @@ for (const [label, source] of [["beam", beamFormalSource], ["column", columnForm
 }
 assert.match(
   appSource,
-  /const getFormalToolMetadata =[\s\S]*const withFormalToolVersion =[\s\S]*function renderSummary\(result\)[\s\S]*versionedPageTitle[\s\S]*pageTitle\.textContent = versionedPageTitle[\s\S]*document\.title = versionedPageTitle/s,
-  "the connection suite should preserve the canonical visible version when the active module changes",
+  /const getFormalToolMetadata =[\s\S]*const withFormalToolVersion =[\s\S]*const MAIN_SUITE_PAGE_TITLE = "鋼構正式規範核算工具";[\s\S]*function renderSummary\(result\)[\s\S]*pageToolMetadata = IS_STANDALONE_PLATE \? currentToolMetadata : STEEL_TOOL_METADATA\.connection[\s\S]*visiblePageTitle = IS_STANDALONE_PLATE \? result\.pageTitle : MAIN_SUITE_PAGE_TITLE[\s\S]*versionedPageTitle[\s\S]*pageTitle\.textContent = versionedPageTitle[\s\S]*document\.title = versionedPageTitle/s,
+  "the aggregate connection route should preserve its canonical V1.1 heading while the standalone plate route keeps the module version",
 );
 const mainReportBuilderSource = appSource.match(/function buildConnectionReportConfig\(result\)\s*\{[\s\S]*?\n\s*function exportReport\(\)/)?.[0] || "";
 assert.ok(mainReportBuilderSource, "app.js should expose a statically inspectable formal report builder");
