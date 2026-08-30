@@ -308,9 +308,36 @@ function extractStagingPaths(source) {
   return [...new Set(paths)].sort();
 }
 
+let trackedStagingPathSet = null;
+
+function getTrackedStagingPathSet() {
+  if (trackedStagingPathSet) return trackedStagingPathSet;
+  const result = spawnSync('git', ['-c', 'core.quotePath=false', 'ls-files'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    windowsHide: true
+  });
+  if (result.error) {
+    throw new Error(`git ls-files failed while validating STAGING_GROUPS: ${result.error.message}`);
+  }
+  if (result.status !== 0) {
+    throw new Error(`git ls-files failed while validating STAGING_GROUPS with exit ${result.status}: ${String(result.stderr || '').trim()}`);
+  }
+  trackedStagingPathSet = new Set(
+    String(result.stdout || '')
+      .split(/\r?\n/)
+      .map(value => normalizeSlash(value.trim()))
+      .filter(Boolean)
+  );
+  return trackedStagingPathSet;
+}
+
 function assertStagingPathIsUsable(relativePath) {
   const absolutePath = path.join(repoRoot, ...relativePath.split('/'));
-  assert.ok(fs.existsSync(absolutePath), `STAGING_GROUPS path must exist in checkout: ${relativePath}`);
+  assert.ok(
+    fs.existsSync(absolutePath) || getTrackedStagingPathSet().has(normalizeSlash(relativePath)),
+    `STAGING_GROUPS path must exist in checkout or be a tracked deletion: ${relativePath}`
+  );
 }
 
 function hasUtf8Bom(buffer) {
