@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 
 const ROOT = __dirname;
 const catalogPath = path.join(ROOT, 'steel-traceability.catalog.json');
@@ -9,6 +10,7 @@ const mainCalculatorPath = path.join(ROOT, 'calculator.js');
 const mainSmokePath = path.join(ROOT, 'calculator.smoke-test.js');
 const mainAppPath = path.join(ROOT, 'app.js');
 const mainIndexPath = path.join(ROOT, 'index.html');
+const toolMetadataPath = path.join(ROOT, 'tool-metadata.js');
 
 let failed = 0;
 
@@ -47,10 +49,14 @@ const calculator = fs.readFileSync(mainCalculatorPath, 'utf8');
 const smoke = fs.readFileSync(mainSmokePath, 'utf8');
 const app = fs.readFileSync(mainAppPath, 'utf8');
 const index = fs.readFileSync(mainIndexPath, 'utf8');
+const toolMetadataSource = fs.readFileSync(toolMetadataPath, 'utf8');
+const toolMetadataContext = {};
+vm.runInNewContext(toolMetadataSource, toolMetadataContext, { timeout: 1000, filename: 'steel-tool-metadata' });
+const connectionMetadata = toolMetadataContext.SteelToolMetadata?.connection;
 
 const expectedTools = ['steel-main', 'steel-plate', 'steel-beam-formal', 'steel-column-formal'];
 
-assert(catalog.version === '0.2.0', 'steel traceability catalog version', catalog.version);
+assert(catalog.version === '0.4.0', 'steel traceability catalog version', catalog.version);
 assert(catalog.family === 'steel-traceability', 'steel traceability catalog family', catalog.family);
 assertString(catalog.description, 'steel traceability catalog description');
 assert(Array.isArray(catalog.tools), 'steel traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -89,9 +95,9 @@ for (const tool of catalog.tools || []) {
 }
 
 assert(
-  catalogText.includes('steel-main-scope-boundary') && catalogText.includes('complianceReady=false'),
-  'steel traceability catalog records development-module boundary',
-  'steel-main-scope-boundary'
+  catalogText.includes('steel-main-column-splice-cjp-seismic-review') && catalogText.includes('asBuiltAcceptance=false'),
+  'steel traceability catalog records bounded formal CJP column-splice review',
+  'steel-main-column-splice-cjp-seismic-review'
 );
 assert(
   calculator.includes('此模組尚未收斂到完整規範覆核範圍') &&
@@ -102,7 +108,18 @@ assert(
 const steelMain = catalog.tools.find((tool) => tool.key === 'steel-main');
 const shearTabTrace = steelMain?.traces?.find((trace) => trace.id === 'steel-main-single-plate-shear-tab');
 const gussetTrace = steelMain?.traces?.find((trace) => trace.id === 'steel-main-brace-gusset-tension');
-const developmentBoundary = steelMain?.traces?.find((trace) => trace.id === 'steel-main-scope-boundary');
+const momentTrace = steelMain?.traces?.find((trace) => trace.id === 'steel-main-beam-column-moment-seismic-review');
+const spliceTrace = steelMain?.traces?.find((trace) => trace.id === 'steel-main-column-splice-cjp-seismic-review');
+const momentSourceLiteral = app.match(/const MOMENT_SOURCE_FIELD_KEYS = \[([\s\S]*?)\n  \];/)?.[1] || '';
+const productionMomentSourceFields = Array.from(momentSourceLiteral.matchAll(/"([^"]+)"/g), (match) => match[1]);
+const traceMetadataFields = new Set(['projectName', 'connectionTag', 'designer', 'notes', 'exposureCondition']);
+const expectedMomentTraceInputs = productionMomentSourceFields.filter((field) => !traceMetadataFields.has(field));
+assert(productionMomentSourceFields.length === 88, 'steel moment production source schema field count', String(productionMomentSourceFields.length));
+assert(
+  expectedMomentTraceInputs.length === 83 && sameArray(momentTrace?.inputs || [], expectedMomentTraceInputs),
+  'steel moment trace inputs align with all engineering fields in the production 88-field source schema',
+  `trace=${momentTrace?.inputs?.length || 0}; expected=${expectedMomentTraceInputs.length}`
+);
 assert(Boolean(shearTabTrace), 'steel traceability catalog records formal Shear Tab route', 'steel-main-single-plate-shear-tab');
 assert(
   shearTabTrace?.calculation?.includes('complianceReady=true') &&
@@ -143,18 +160,68 @@ assert(
   'brace_gusset'
 );
 assert(
-  !developmentBoundary?.manualReview?.some((item) => item.includes('單剪力板') || item.includes('Gusset')) &&
-    ['柱續接', '梁柱彎矩'].every((needle) => developmentBoundary?.manualReview?.some((item) => item.includes(needle))),
-  'steel development boundary excludes formal Shear Tab and Gusset while retaining two modules',
-  developmentBoundary?.manualReview?.join(' / ') || 'missing'
+  Boolean(momentTrace) &&
+    momentTrace.calculation?.includes('complianceReady=true') &&
+    momentTrace.calculation?.includes('completeJointDesign=false') &&
+    momentTrace.report?.includes('梁柱彎矩接頭耐震能力審查附件') &&
+    momentTrace.report?.includes('非 AISC 358 預認證聲明') &&
+    momentTrace.report?.includes('正交方向另案') &&
+    momentTrace.manualReview?.some((item) => item.includes('外部受控來源') && item.includes('prying action') && item.includes('yield-line')) &&
+    momentTrace.manualReview?.some((item) => item.includes('不宣稱 AISC 358 預認證') && item.includes('不構成完整接頭設計')),
+  'steel moment trace locks the selected-plane seismic review and incomplete-joint boundary',
+  momentTrace?.id || 'missing'
 );
-['column_splice', 'beam_column_moment'].forEach((needle) => {
-  assert(
-    smoke.includes(needle) || calculator.includes(needle),
-    `steel development module remains explicitly tested or guarded: ${needle}`,
-    needle
-  );
-});
+assert(
+  /beam_column_moment:\s*\{[\s\S]*?complianceReady:\s*true/.test(calculator) &&
+    smoke.includes('beam-column moment V1 should now be a formal scoped module') &&
+    smoke.includes('completeJointDesign, false') &&
+    index.includes('value="beam_column_moment"') &&
+    !index.match(/<option\s+value="beam_column_moment"[^>]*>/)?.[0]?.includes('disabled'),
+  'steel runtime, smoke, and launcher expose the scoped formal beam-column moment review',
+  'beam_column_moment'
+);
+assert(
+  connectionMetadata?.version === 'V1.3' &&
+    connectionMetadata.modules?.beamColumnMoment?.state === 'formal' &&
+    connectionMetadata.modules?.beamColumnMoment?.designMethod === 'LRFD' &&
+    connectionMetadata.modules?.beamColumnMoment?.deliverable === 'selected-frame-plane-seismic-capacity-review-attachment' &&
+    sameArray(Array.from(connectionMetadata.modules?.beamColumnMoment?.frameSystems || []), ['smrf', 'imrf']) &&
+    connectionMetadata.modules?.beamColumnMoment?.connectionDesignRoute === 'reinforced' &&
+    connectionMetadata.modules?.beamColumnMoment?.scwbBeamTerm === 'ZbFyb-plus-Vp-x' &&
+    connectionMetadata.modules?.beamColumnMoment?.imrfScwbAuthority === 'project-specified-conservative' &&
+    connectionMetadata.modules?.beamColumnMoment?.completeJointDesign === false &&
+    connectionMetadata.modules?.beamColumnMoment?.requiresExternalHardwareCapacityEvidence === true &&
+    connectionMetadata.modules?.beamColumnMoment?.claimsAisc358Prequalification === false &&
+    connectionMetadata.modules?.beamColumnMoment?.orthogonalDirection === 'separate-review' &&
+    connectionMetadata.modules?.columnSplice?.state === 'formal' &&
+    connectionMetadata.modules?.columnSplice?.designMethod === 'LRFD' &&
+    connectionMetadata.modules?.columnSplice?.completeColumnMemberDesign === false &&
+    connectionMetadata.modules?.columnSplice?.asBuiltAcceptance === false &&
+    connectionMetadata.modules?.columnSplice?.topology === 'same-material-identical-aligned-rolled-h-full-profile-cjp' &&
+    connectionMetadata.modules?.columnSplice?.materialRoute === 'same-material',
+  'steel canonical metadata locks both bounded seismic connection review attachments',
+  connectionMetadata?.version || 'missing'
+);
+assert(
+  Boolean(spliceTrace) &&
+    spliceTrace.calculation?.includes('complianceReady=true') &&
+    spliceTrace.calculation?.includes('completeColumnMemberDesign=false') &&
+    spliceTrace.calculation?.includes('asBuiltAcceptance=false') &&
+    spliceTrace.report?.includes('全斷面 CJP 耐震柱續接能力審查附件') &&
+    spliceTrace.manualReview?.some((item) => item.includes('1.25') && item.includes('相鄰梁與斜撐')) &&
+    spliceTrace.manualReview?.some((item) => item.includes('高強螺栓') && item.includes('完工 UT / RT')),
+  'steel column-splice trace locks the CJP topology, transfer cap, and as-built boundary',
+  spliceTrace?.id || 'missing'
+);
+assert(
+  /column_splice:\s*\{[\s\S]*?complianceReady:\s*true/.test(calculator) &&
+    smoke.includes('column_splice') &&
+    app.includes('column_splice: "柱續接｜全斷面 CJP 耐震能力審查｜LRFD 正式模組"') &&
+    index.includes('value="column_splice"') &&
+    !index.match(/<option\s+value="column_splice"[^>]*>/)?.[0]?.includes('disabled'),
+  'steel runtime, smoke, UI, and launcher expose the bounded formal CJP column-splice review',
+  'column_splice'
+);
 assert(
   audit.includes('Steel traceability catalog contract') && audit.includes('steel-traceability.contract.test.js'),
   'steel audit runs traceability catalog contract',

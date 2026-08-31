@@ -1,12 +1,12 @@
 {
-  "version": "0.2.0",
+  "version": "0.4.0",
   "family": "steel-traceability",
   "description": "鋼構正式工具的條文語意追蹤表。每筆 trace 將規範來源、輸入欄位、計算路線、報告落點、測試證據與人工複核邊界對齊，避免只因 audit gate 通過就誤判為所有工程依據都已可追溯。",
   "tools": [
     {
       "key": "steel-main",
       "label": "鋼構正式規範主工具",
-      "scope": "主工具中已收斂為正式核算的連接板、拉力構件、單剪力板 Shear Tab 與平板支撐 Gusset 拉力接頭流程；柱續接與梁柱彎矩接頭仍列為開發中邊界。",
+      "scope": "主工具中已收斂為正式核算的連接板、拉力構件、單剪力板 Shear Tab、平板支撐 Gusset 拉力接頭、LRFD 單一選定構架面梁柱彎矩接頭耐震能力審查附件，以及 LRFD 全斷面 CJP 耐震柱續接能力審查附件。",
       "status": "covered",
       "traces": [
         {
@@ -50,14 +50,24 @@
           "manualReview": ["設計者須依分析模型、核定施工圖、材料證明與接頭配置確認 Pu、平板支撐矩形截面全元素直接連接、單一直線栓列、Lconn = (n − 1)s、Whitmore 可用板寬及螺栓—銲道串聯力流；表 10.3-2 註 [e] 原針對承壓式接合之續接拉力構材，並非一般接合的普遍長度上限。本 Gusset 為端部接合，V1 在尚未實作長接合路線前僅保守援用 Lconn ≤ 1250 mm；超出者須另建模與人工複核。angle、WT、HSS、剪力遲滯、壓力、偏心、剪力、彎矩、疲勞、反覆載重、耐震接頭、BRB、Gusset 壓力屈曲、折角外移與支承構件整體或局部極限狀態須另由專案模型人工複核。"]
         },
         {
-          "id": "steel-main-scope-boundary",
-          "clause": "鋼構造建築物鋼結構設計技術規範正式核算範圍管理與第 10 章接合規定",
-          "purpose": "主工具保留柱續接與梁柱彎矩兩個開發中接頭表單，但 audit 與報告需阻止其被誤用為正式規範覆核結果。",
-          "inputs": ["connectionType", "validations", "complianceReady", "passes", "moduleBoundary"],
-          "calculation": ["development-module guard", "complianceReady=false", "blocked formal report export", "inline status message"],
-          "report": ["此模組尚未收斂到完整規範覆核範圍", "現階段不提供正式規範核算", "inline toolbar status"],
-          "evidence": ["calculator.js", "calculator.smoke-test.js", "app.js", "steel-formal.regression-test.js"],
-          "manualReview": ["柱續接與梁柱彎矩接頭若需送審，須另以正式設計流程、施工圖與專案模型完成檢核。"]
+          "id": "steel-main-beam-column-moment-seismic-review",
+          "clause": "鋼構造建築物鋼結構設計技術規範第 13.6.1 至 13.6.5 節、第 13.7.2 節及第 10 章接合規定",
+          "purpose": "梁柱彎矩接頭 V1 只在 LRFD、SMRF / IMRF、補強式接頭且單一選定構架面範圍內，核對塑鉸容量設計需求、接頭外部受控彎矩與剪力容量證據、塑性轉角資格、Panel Zone、Continuity Plate，以及依 13.6.5 解說將各梁項採 ZbFyb + Vp x 的順逆向強柱弱梁比；IMRF 的強柱弱梁檢核屬專案保守加做，不冒充 13.7.2 規範要求。它是耐震能力審查附件，不是完整接頭設計。",
+          "inputs": ["designMethod", "connectionType", "momentFrameSystem", "momentAxis", "momentConnectionDesignRoute", "momentBeamPlasticModulus", "momentBeamYieldStrength", "momentExpectedStrengthFactor", "momentCriticalSectionDistance", "momentPlasticHingeSpan", "momentFarCriticalSectionExpectedMoment", "momentGravityShear", "momentAmplifiedShear", "momentAvailableFlexuralStrength", "momentAvailableShearStrength", "momentRotationDemandMethod", "momentQualifiedPlasticRotation", "momentNonlinearPlasticRotation", "momentSystemDuctilityR", "momentElasticStoryDrift", "momentQualificationRoute", "momentQualificationTestCount", "momentDesignBeamFlangeThickness", "momentTestBeamFlangeThickness", "momentDesignFlangePlasticRatio", "momentTestFlangePlasticRatio", "momentThirdPartyReviewConfirmed", "momentColumnWebYieldStrength", "momentColumnDepth", "momentPanelZoneThickness", "momentPanelZoneClearDepth", "momentPanelZoneClearWidth", "momentPanelZoneAnalysisDemand", "momentPanelZoneBeamMomentSum", "momentPanelZoneLeverArm", "momentDoublerPresent", "momentDoublerAttachmentConfirmed", "momentBeamFlangeWidth", "momentBeamFlangeThickness", "momentColumnFlangeLocalNominalStrength", "momentContinuityPlateProvidedConfirmed", "momentContinuityPlateWeldConfirmed", "momentBeamFlangeCompactnessRatio", "momentBeamWebCompactnessRatio", "momentBeamFlangePlasticModulusRatio", "momentCwUpperColumnMoment", "momentCwLowerColumnMoment", "momentCwLeftBeamMoment", "momentCwRightBeamMoment", "momentCcwUpperColumnMoment", "momentCcwLowerColumnMoment", "momentCcwLeftBeamMoment", "momentCcwRightBeamMoment", "momentDemandBasis", "momentGeometryBasis", "momentMaterialBasis", "momentCapacityBasis", "momentPanelZoneBasis", "momentStrongColumnBasis", "momentQualificationBasis", "momentQualificationEvidenceSha256", "momentCapacityEvidenceSha256", "momentQualificationConfigurationConfirmed", "momentQualificationMaterialConfirmed", "momentQualificationWeldingConfirmed", "momentQualificationGeometryConfirmed", "momentQualificationFabricationConfirmed", "momentQualificationProcedureConfirmed", "momentPlasticZoneGeometryConfirmed", "momentPlasticZoneOpeningsAbsentConfirmed", "momentSeismicMaterialConfirmed", "momentMatchingWeldConfirmed", "momentCns3506WeldConfirmed", "momentEndTabsRemovedGroundConfirmed", "momentWeldProcedureMatchesQualificationConfirmed", "momentJointLateralRestraintConfirmed", "momentBeamLateralBracingConfirmed", "momentAllMembersIncludedConfirmed", "momentColumnStrengthsAtGoverningAxialConfirmed", "momentOpposingDirectionsConfirmed", "momentOrthogonalDirectionSeparateConfirmed", "momentConnectionHardwareVerifiedConfirmed", "momentSelectedAxisScopeConfirmed"],
+          "calculation": ["Mp = Zb Fyb", "Mpr = beta Mp", "Vp = (Mpr + Mpr,far) / Lh", "Mu,face = Mpr + Vp x", "Vu,req = min(|Vgravity| + Vp, |Vamplified|)", "plastic-rotation demand and qualification", "Vpz,req = max(Vpz,analysis, sumMp / hpz)", "Vpz,n = 0.6 Fyc dc tp", "tz >= (dz + wz) / 90", "continuity-plate threshold", "reinforced-route clockwise and counterclockwise strong-column weak-beam ratio with each beam term Zb Fyb + Vp x >= 1.25", "strict source-evidence SHA-256 and confirmation gates", "complianceReady=true", "completeJointDesign=false"],
+          "report": ["梁柱彎矩接頭耐震能力審查附件", "LRFD｜單一選定構架面", "塑鉸與梁端面彎矩需求", "接頭外部受控彎矩與剪力容量", "塑性轉角資格", "Panel Zone 與 Continuity Plate", "強柱弱梁比 CW / CCW", "資格與容量證據 SHA-256", "正交方向另案", "非 AISC 358 預認證聲明", "completeJointDesign = false", "計算指紋與來源 JSON"],
+          "evidence": ["calculator.js", "calculator.smoke-test.js", "app.js", "steel-formal.regression-test.js", "steel-audit-browser-runner.js"],
+          "manualReview": ["設計者須以分析模型、核定圖說、材料文件、試驗或第三方審查資料，確認選定構架面、塑鉸位置、SMRF / IMRF 適用性、接頭資格、Panel Zone、Continuity Plate、Doubler、側向支撐、正反向強柱弱梁比與施工細節；接頭螺栓、端板、prying action、yield-line、銲道、局部破壞及其他硬體容量必須由外部受控來源完整檢核並提供可追溯證據。", "本附件不宣稱 AISC 358 預認證，也不構成完整接頭設計；正交方向、NDT、施工程序與未列入之外部接頭硬體極限狀態須另案人工複核。"]
+        },
+        {
+          "id": "steel-main-column-splice-cjp-seismic-review",
+          "clause": "鋼構造建築物鋼結構設計技術規範第 10.2.4 / 10.2.6 / 10.7.2 / 13.4.1 / 13.4.2 / 13.10 節",
+          "purpose": "柱續接 V1 只在 LRFD、抗震受力柱、上下同一熱軋 H 形斷面與材質、重心及主軸對齊、最大板厚不超過 40 mm、距最近梁翼至少 1.2 m 與全斷面 CJP 範圍內，重算 13.4.1 壓拉軸力組合，並核對 13.4.2 全斷面強度與 13.10 UT / RT 計畫；它是設計階段能力審查附件，不是完整柱構材設計或完工驗收。",
+          "inputs": ["connectionType", "designMethod", "spliceFrameRole", "spliceDesignRoute", "spliceLocationRoute", "spliceDistanceToNearestBeamFlange", "spliceDeadAxial", "spliceLiveAxial", "spliceSeismicAxial", "spliceLiveLoadFactor", "spliceSeismicReductionFu", "spliceTransferCapRoute", "spliceMaxTransferableAxial", "spliceAg", "spliceZx", "spliceZy", "spliceAvx", "spliceAvy", "spliceFy", "spliceFexx", "spliceMaxThickness", "spliceFabricationLocation", "spliceNdtMethod", "spliceDemandBasis", "spliceGeometryBasis", "spliceMaterialBasis", "spliceWpsBasis", "spliceNdtPlanBasis", "spliceDemandEvidenceSha256", "spliceDetailEvidenceSha256", "spliceWpsEvidenceSha256", "spliceNdtPlanEvidenceSha256", "spliceIdenticalSectionsAndMaterialConfirmed", "spliceAlignedAxesConfirmed", "spliceFullProfileCjpConfirmed", "spliceMatchingFillerConfirmed", "spliceWpsApprovedConfirmed", "spliceNdtFullCoverageConfirmed", "spliceNoPjpConfirmed", "spliceNoMixedLoadSharingConfirmed", "spliceSeismicColumnConfirmed", "spliceLocationScopeConfirmed", "spliceAllAdjacentTransferSourcesIncludedConfirmed", "spliceAsBuiltBoundaryConfirmed"],
+          "calculation": ["tension-positive / compression-negative signed PD, PL, PE", "Eamp,raw = 1.4 Fu |PE| with 0 < seismic-system Fu <= 2.5", "qualified cap only: Eamp = min(Eamp,raw, 1.25 Ptransfer)", "13.4.1 compression envelope from 1.2PD + alphaL PL +/- Eamp", "13.4.1 tension envelope from 0.9PD +/- Eamp", "CJP normal available strength = 0.90 Fy Ag", "major / minor full-section flexural available strength = 0.90 Fy Z", "major / minor full-section shear available strength = min(0.90 x 0.6 Fy Av, 0.80 x 0.6 FEXX Av)", "distance to nearest beam flange >= 1200 mm", "matching filler, approved WPS, full-coverage UT / RT plan and SHA-256 evidence hard gates", "strict exact-field source replay and embedded-report equality", "complianceReady=true", "completeColumnMemberDesign=false", "asBuiltAcceptance=false"],
+          "report": ["全斷面 CJP 耐震柱續接能力審查附件", "13.4.1 壓拉軸力組合與放大地震項", "相鄰構材傳力上限採用狀態", "CJP 法向、強弱軸彎曲與雙向剪力全斷面強度", "距最近梁翼 1.2 m 位置檢核", "相稱銲材與 WPS", "全覆蓋 UT / RT 計畫", "需求、圖說、WPS 與 NDT 計畫證據 SHA-256", "completeColumnMemberDesign = false", "asBuiltAcceptance = false", "計算指紋與來源 JSON"],
+          "evidence": ["calculator.js", "calculator.smoke-test.js", "app.js", "steel-formal.regression-test.js", "steel-audit-browser-runner.js"],
+          "manualReview": ["設計者須以完整分析模型、核定圖說、材料文件與銲接程序確認採拉力正／壓力負之 PD、PL、PE、13.4.1 結構系統地震力折減係數 Fu（不是材料抗拉強度）、活載重係數、上下柱完全相同且同軸、全斷面 CJP、材料、斷面性質、位置、WPS、相稱銲材與 NDT 計畫；只有相鄰梁與斜撐的全部傳力來源均納入受控依據時，才能使用 1.25 倍最大可傳軸力上限。", "高強螺栓續接、柱淨高 1/2 位置路線、變截面、錯位、箱柱、組合柱、墊片、最大板厚超過 40 mm 的巨型斷面、PJP、混合栓銲分擔、非軸力 13.4.1 以外的完整柱構材檢核，以及完工 UT / RT 報告與缺失處置均須另案人工複核；本附件不是 as-built acceptance。"]
         }
       ]
     },

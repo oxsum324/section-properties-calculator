@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>鋼構正式規範核算工具 V1.1</title>
+  <title>鋼構正式規範核算工具 V1.3</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230e7490'/%3E%3Cpath d='M16 18h32v8H16zm0 20h32v8H16zm12-20h8v28h-8z' fill='%23ecfeff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
@@ -24,8 +24,8 @@
       <a class="page-header__link" href="./steel-beam-formal.html">鋼梁正式頁</a>
       <a class="page-header__link" href="./steel-column-formal.html">鋼柱正式頁</a>
     </nav>
-    <h1 id="pageTitle">鋼構正式規範核算工具 V1.1</h1>
-    <p id="pageDescription">正式核算模組：連接板、拉力構件、單剪力板 Shear Tab、平板支撐 Gusset 拉力接頭｜左輸入、右報表、計算流程、核可判讀一體化</p>
+    <h1 id="pageTitle">鋼構正式規範核算工具 V1.3</h1>
+    <p id="pageDescription">正式核算模組：連接板、拉力構件、單剪力板 Shear Tab、平板支撐 Gusset 拉力接頭、梁柱彎矩接頭耐震能力審查附件、全斷面 CJP 耐震柱續接能力審查附件｜左輸入、右報表、計算流程、核可判讀一體化</p>
   </header>
 
   <main class="container">
@@ -36,9 +36,9 @@
             <option value="plate_check">連接板檢核｜Connection Plate</option>
             <option value="tension_member">拉力構件｜Tension Member</option>
             <option value="single_plate">剪力接頭｜單剪力板 Shear Tab｜LRFD</option>
-            <option value="column_splice" disabled>柱續接｜Column Splice｜開發中</option>
+            <option value="column_splice">柱續接｜全斷面 CJP 耐震能力審查｜LRFD 正式模組</option>
             <option value="brace_gusset">支撐接頭｜平板支撐 Gusset 拉力接頭｜LRFD 正式模組</option>
-            <option value="beam_column_moment" disabled>梁柱彎矩接頭｜開發中</option>
+            <option value="beam_column_moment">梁柱彎矩接頭｜耐震能力審查｜LRFD 正式模組</option>
           </select>
         </div>
         <strong class="mode-bar__label">設計方法：</strong>
@@ -346,133 +346,66 @@
           </div>
 
           <div class="card" data-connection="column_splice">
-            <h2>柱續接資料</h2>
-            <p class="section-note">以柱腹與柱翼續接板之簡化力流進行檢核，將軸力與彎矩分配為翼板拉力，剪力由腹板續接處傳遞。</p>
+            <h2>全斷面 CJP 耐震柱續接能力審查附件</h2>
+            <p class="section-note">限耐震力抵抗系統中、上下柱為相同軋製 H 形斷面且形心軸對齊之全斷面 CJP 路線。依 13.4.1 建立地震軸力包絡，並依 13.4.2、10.2.1、10.2.4、表 10.2-5 與 10.2.6 核對全斷面正應力、強軸／弱軸彎曲與雙向剪力能力；NDT 計畫依 13.10。高強度螺栓續接、PJP、混合分擔、柱構件整體穩定或既有銲道驗收不在範圍內。</p>
+
+            <h3>適用路線與續接位置</h3>
             <div class="form-row">
-              <div class="form-group">
-                <label>柱翼受力槓桿臂 hsp (mm)</label>
-                <input name="spliceLeverArm" type="number" min="1" step="0.1">
-              </div>
-              <div class="form-group">
-                <label>壓力是否可直接承壓傳遞</label>
-                <select name="spliceBearingTransfer">
-                  <option value="true">是，可由承壓面直接傳遞</option>
-                  <option value="false">否，保守視為由續接元件承擔</option>
-                </select>
-              </div>
+              <div class="form-group"><label>構架角色</label><select name="spliceFrameRole"><option value="seismic_force_resisting">耐震力抵抗系統柱</option></select></div>
+              <div class="form-group"><label>續接設計路線</label><select name="spliceDesignRoute"><option value="cjp_full_section_identical_rolled_h">相同軋製 H 形柱｜全斷面 CJP</option></select></div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <label>拉側有效翼板螺栓數 nbf (支)</label>
-                <input name="flangeBoltCount" type="number" min="1" step="1">
-              </div>
-              <div class="form-group">
-                <label>翼板端距 ef (mm)</label>
-                <input name="flangeEndDistance" type="number" min="1" step="0.1">
-              </div>
+              <div class="form-group"><label>位置符合路線</label><select name="spliceLocationRoute"><option value="beam_flange_1200">距最近梁翼緣至少 1,200 mm</option></select></div>
+              <div class="form-group"><label>至最近梁翼緣距離 (mm)</label><input name="spliceDistanceToNearestBeamFlange" type="number" min="1200" step="1"></div>
+            </div>
+
+            <h3>13.4.1 地震軸力包絡</h3>
+            <p class="section-note">軸力統一採拉力為正、壓力為負 (kN)，PE 進入正負包絡。工具採 Eamp,raw = 1.4Fu|PE|；qualified 路線再取 min(Eamp,raw, 1.25Ptransfer)，並由 1.2PD + αLPL ± Eamp 與 0.9PD ± Eamp 分別取得壓力與拉力需求。</p>
+            <div class="form-row">
+              <div class="form-group"><label>死載軸力 D｜拉正壓負 (kN)</label><input name="spliceDeadAxial" type="number" step="0.1"></div>
+              <div class="form-group"><label>活載軸力 L｜拉正壓負 (kN)</label><input name="spliceLiveAxial" type="number" step="0.1"></div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <label>翼板孔距 sf (mm)</label>
-                <input name="flangePitch" type="number" min="1" step="0.1">
-              </div>
-              <div class="form-group">
-                <label>翼板側邊距 gf (mm)</label>
-                <input name="flangeEdgeDistance" type="number" min="1" step="0.1">
-              </div>
+              <div class="form-group"><label>未放大地震軸力 E｜拉正壓負 (kN)</label><input name="spliceSeismicAxial" type="number" step="0.1"></div>
+              <div class="form-group"><label>活載係數 fL</label><select name="spliceLiveLoadFactor"><option value="0.5">0.5</option><option value="1">1.0</option></select></div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <label>翼板厚 tfp (mm)</label>
-                <input name="flangePlateThickness" type="number" min="1" step="0.1">
-              </div>
-              <div class="form-group">
-                <label>翼板總寬 bfp (mm)</label>
-                <input name="flangePlateWidth" type="number" min="1" step="0.1">
-              </div>
+              <div class="form-group"><label>13.4.1 結構系統地震力折減係數 Fu</label><input name="spliceSeismicReductionFu" type="number" min="0.01" max="2.5" step="0.01"></div>
+              <div class="form-group"><label>相鄰構件最大可傳遞軸力路線</label><select name="spliceTransferCapRoute"><option value="uncapped">不設上限｜完整採 1.4Fu|PE|</option><option value="qualified">採受控證據之最大可傳遞軸力</option></select></div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <label>翼板淨寬 bfn (mm)</label>
-                <input name="flangePlateNetWidth" type="number" min="1" step="0.1">
-              </div>
-              <div class="form-group">
-                <label>翼板 Fy / Fu (MPa)</label>
-                <div class="form-row compact">
-                  <input name="flangePlateYieldStrength" type="number" min="1" step="1" placeholder="Fy">
-                  <input name="flangePlateUltimateStrength" type="number" min="1" step="1" placeholder="Fu">
-                </div>
-              </div>
+              <div class="form-group"><label>最大可傳遞軸力 Ptransfer,max (kN)</label><input name="spliceMaxTransferableAxial" type="number" min="0" step="0.1"></div>
+              <div class="form-group"><p class="section-note">只有 qualified 路線會採此上限；需求證據必須涵蓋所有相鄰構件與接合來源。</p></div>
+            </div>
+
+            <h3>相同柱斷面與全斷面 CJP</h3>
+            <div class="form-row">
+              <div class="form-group"><label>全斷面面積 Ag (mm²)</label><input name="spliceAg" type="number" min="1" step="1"></div>
+              <div class="form-group"><label>塑性模數 Zx／Zy (mm³)</label><div class="form-row compact"><input name="spliceZx" type="number" min="1" step="1" placeholder="Zx"><input name="spliceZy" type="number" min="1" step="1" placeholder="Zy"></div></div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <label>腹板續接螺栓數 nbw (支)</label>
-                <input name="webBoltCount" type="number" min="1" step="1">
-              </div>
-              <div class="form-group">
-                <label>腹板剪斷面數 nsw</label>
-                <select name="webShearPlanes">
-                  <option value="1">單剪</option>
-                  <option value="2">雙剪</option>
-                </select>
-              </div>
+              <div class="form-group"><label>有效剪力面積 Avx／Avy (mm²)</label><div class="form-row compact"><input name="spliceAvx" type="number" min="1" step="1" placeholder="Avx"><input name="spliceAvy" type="number" min="1" step="1" placeholder="Avy"></div></div>
+              <div class="form-group"><label>柱鋼材 Fy (MPa)</label><input name="spliceFy" type="number" min="1" step="1"></div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <label>腹板端距 ew (mm)</label>
-                <input name="webEndDistance" type="number" min="1" step="0.1">
-              </div>
-              <div class="form-group">
-                <label>腹板孔距 sw (mm)</label>
-                <input name="webPitch" type="number" min="1" step="0.1">
-              </div>
+              <div class="form-group"><label>相稱銲材 FEXX (MPa)</label><input name="spliceFexx" type="number" min="1" step="1"></div>
+              <div class="form-group"><label>接合最大母材厚度 (mm)</label><input name="spliceMaxThickness" type="number" min="1" max="40" step="0.1"><p class="section-note">V1 限最大板厚不超過 40 mm；巨型斷面與 10.7.2 額外要求另案。</p></div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <label>腹板側邊距 gw (mm)</label>
-                <input name="webEdgeDistance" type="number" min="1" step="0.1">
-              </div>
-              <div class="form-group">
-                <label>腹板續接板深度 hw (mm)</label>
-                <input name="webPlateDepth" type="number" min="1" step="0.1">
-              </div>
+              <div class="form-group"><label>製作位置</label><select name="spliceFabricationLocation"><option value="shop">工廠銲接</option><option value="field">工地銲接</option></select></div>
+              <div class="form-group"><label>全覆蓋非破壞檢測</label><select name="spliceNdtMethod"><option value="UT">超音波檢測 UT</option><option value="RT">放射線檢測 RT</option></select></div>
             </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>腹板厚 twp (mm)</label>
-                <input name="webPlateThickness" type="number" min="1" step="0.1">
-              </div>
-              <div class="form-group">
-                <label>腹板 Fy / Fu (MPa)</label>
-                <div class="form-row compact">
-                  <input name="webPlateYieldStrength" type="number" min="1" step="1" placeholder="Fy">
-                  <input name="webPlateUltimateStrength" type="number" min="1" step="1" placeholder="Fu">
-                </div>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>續接銲腳 a (mm)</label>
-                <input name="spliceWeldSize" type="number" min="1" step="0.1">
-              </div>
-              <div class="form-group">
-                <label>單道有效長 Lw (mm)</label>
-                <input name="spliceWeldLength" type="number" min="1" step="0.1">
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>續接銲道數量</label>
-                <select name="spliceWeldLineCount">
-                  <option value="2">雙側銲</option>
-                  <option value="1">單側銲</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>續接銲材 FEXX (MPa)</label>
-                <input name="spliceWeldElectrodeStrength" type="number" min="1" step="1">
-              </div>
-            </div>
+
+            <h3>專案依據與可重現證據</h3>
+            <div class="form-group"><label>需求／幾何／材料依據</label><div class="form-row compact"><textarea name="spliceDemandBasis" rows="2" placeholder="分析模型、13.4.1 組合與相鄰構件轉移上限"></textarea><textarea name="spliceGeometryBasis" rows="2" placeholder="核定續接圖與斷面資料"></textarea><textarea name="spliceMaterialBasis" rows="2" placeholder="上下柱母材與相稱銲材證明"></textarea></div></div>
+            <div class="form-group"><label>WPS／NDT 計畫依據</label><div class="form-row compact"><textarea name="spliceWpsBasis" rows="2" placeholder="核定 WPS／PQR"></textarea><textarea name="spliceNdtPlanBasis" rows="2" placeholder="UT／RT 全覆蓋檢測計畫"></textarea></div></div>
+            <div class="form-row"><div class="form-group"><label>需求證據 SHA-256</label><input name="spliceDemandEvidenceSha256" type="text" maxlength="64"></div><div class="form-group"><label>續接細部證據 SHA-256</label><input name="spliceDetailEvidenceSha256" type="text" maxlength="64"></div></div>
+            <div class="form-row"><div class="form-group"><label>WPS 證據 SHA-256</label><input name="spliceWpsEvidenceSha256" type="text" maxlength="64"></div><div class="form-group"><label>NDT 計畫證據 SHA-256</label><input name="spliceNdtPlanEvidenceSha256" type="text" maxlength="64"></div></div>
+
+            <h3>失敗封閉確認與附件邊界</h3>
+            <div class="form-row"><div class="form-group"><label>斷面、材質與軸線</label><select name="spliceIdenticalSectionsAndMaterialConfirmed"><option value="true">上下柱為同材質、相同軋製 H 形斷面</option><option value="false">尚未確認｜禁止核可</option></select><select name="spliceAlignedAxesConfirmed"><option value="true">形心軸與構件軸線對齊</option><option value="false">尚未確認｜禁止核可</option></select></div><div class="form-group"><label>全斷面銲接路線</label><select name="spliceFullProfileCjpConfirmed"><option value="true">翼板與腹板均採全斷面 CJP</option><option value="false">尚未確認｜禁止核可</option></select><select name="spliceMatchingFillerConfirmed"><option value="true">銲材與母材相稱</option><option value="false">尚未確認｜禁止核可</option></select></div></div>
+            <div class="form-row"><div class="form-group"><label>WPS 與 NDT</label><select name="spliceWpsApprovedConfirmed"><option value="true">WPS／PQR 已核定</option><option value="false">尚未確認｜禁止核可</option></select><select name="spliceNdtFullCoverageConfirmed"><option value="true">CJP 全長採指定 UT／RT</option><option value="false">尚未確認｜禁止核可</option></select></div><div class="form-group"><label>排除不完整力流</label><select name="spliceNoPjpConfirmed"><option value="true">未採 PJP</option><option value="false">含 PJP｜禁止核可</option></select><select name="spliceNoMixedLoadSharingConfirmed"><option value="true">未與螺栓／承壓混合分擔</option><option value="false">混合分擔｜禁止核可</option></select></div></div>
+            <div class="form-row"><div class="form-group"><label>耐震與位置範圍</label><select name="spliceSeismicColumnConfirmed"><option value="true">已確認為耐震力抵抗系統柱</option><option value="false">尚未確認｜禁止核可</option></select><select name="spliceLocationScopeConfirmed"><option value="true">已接受 1,200 mm 位置路線</option><option value="false">尚未確認｜禁止核可</option></select></div><div class="form-group"><label>需求完整性與既有構造邊界</label><select name="spliceAllAdjacentTransferSourcesIncludedConfirmed"><option value="true">qualified：全部相鄰構件轉移來源已納入</option><option value="false">未主張相鄰構材上限（uncapped 可用）</option></select><select name="spliceAsBuiltBoundaryConfirmed"><option value="true">接受本附件不作既有銲道驗收</option><option value="false">不接受附件邊界｜禁止核可</option></select></div></div>
           </div>
 
           <div class="card" data-connection="brace_gusset">
@@ -657,107 +590,105 @@
           </div>
 
           <div class="card" data-connection="beam_column_moment">
-            <h2>梁柱彎矩接頭資料</h2>
-            <p class="section-note">本版採簡化梁端拉壓偶力模型，先檢核拉側螺栓、端板張力、腹板剪力傳遞與 panel zone 容量，不含 prying action 與耐震塑鉸細部。</p>
+            <h2>梁柱彎矩接頭耐震能力審查</h2>
+            <p class="section-note">正式範圍限 LRFD、補強式接頭與單一選定構架面。工具核對第 13.6／13.7 節之接頭面彎矩、容量設計剪力、塑性轉角、Panel Zone 與連續板；強柱弱梁對 SMRF 採 13.6.5，IMRF 則是本 V1 的專案保守加做門檻，不冒充 13.7.2 規範要求。接頭螺栓、端板、prying、yield-line、銲道及 AISC 358 接頭族資格須由受控外部計算與試驗證據提供，本頁不宣稱完整接頭設計或預認證。</p>
+
+            <h3>審查範圍與接頭面容量</h3>
             <div class="form-row">
-              <div class="form-group">
-                <label>梁翼力偶槓桿臂 hm (mm)</label>
-                <input name="momentLeverArm" type="number" min="1" step="0.1">
-              </div>
-              <div class="form-group">
-                <label>拉側有效螺栓數 nbm (支)</label>
-                <input name="momentBoltCount" type="number" min="1" step="1">
-              </div>
+              <div class="form-group"><label>構架系統</label><select name="momentFrameSystem"><option value="smrf">韌性抗彎矩構架｜13.6</option><option value="imrf">部分韌性抗彎矩構架｜13.7</option></select></div>
+              <div class="form-group"><label>選定構架面</label><select name="momentAxis"><option value="x">X 向</option><option value="y">Y 向</option></select></div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <label>端板端距 em (mm)</label>
-                <input name="momentEndDistance" type="number" min="1" step="0.1">
-              </div>
-              <div class="form-group">
-                <label>端板孔距 sm (mm)</label>
-                <input name="momentPitch" type="number" min="1" step="0.1">
-              </div>
+              <div class="form-group"><label>接頭設計路線</label><select name="momentConnectionDesignRoute"><option value="reinforced">補強式接頭｜V1 正式路線</option></select></div>
+              <div class="form-group"><label>梁塑性模數 Zb (mm³)</label><input name="momentBeamPlasticModulus" type="number" min="1" step="1"></div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <label>端板側邊距 gm (mm)</label>
-                <input name="momentEdgeDistance" type="number" min="1" step="0.1">
-              </div>
-              <div class="form-group">
-                <label>端板厚 tmp (mm)</label>
-                <input name="momentPlateThickness" type="number" min="1" step="0.1">
-              </div>
+              <div class="form-group"><label>梁鋼材 Fyb (MPa)</label><input name="momentBeamYieldStrength" type="number" min="1" step="1"></div>
+              <div class="form-group"><label>預期強度／應變硬化係數 β</label><input name="momentExpectedStrengthFactor" type="number" min="1" step="0.01"></div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <label>端板總寬 bmp (mm)</label>
-                <input name="momentPlateWidth" type="number" min="1" step="0.1">
-              </div>
-              <div class="form-group">
-                <label>端板淨寬 bmn (mm)</label>
-                <input name="momentPlateNetWidth" type="number" min="1" step="0.1">
-              </div>
+              <div class="form-group"><label>臨界斷面至柱面 x (mm)</label><input name="momentCriticalSectionDistance" type="number" min="0" step="1"></div>
+              <div class="form-group"><label>塑鉸間距 Lh (mm)</label><input name="momentPlasticHingeSpan" type="number" min="1" step="1"></div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <label>端板 Fy / Fu (MPa)</label>
-                <div class="form-row compact">
-                  <input name="momentPlateYieldStrength" type="number" min="1" step="1" placeholder="Fy">
-                  <input name="momentPlateUltimateStrength" type="number" min="1" step="1" placeholder="Fu">
-                </div>
-              </div>
-              <div class="form-group">
-                <label>腹板剪力螺栓數 nbv (支)</label>
-                <input name="momentShearBoltCount" type="number" min="0" step="1">
-              </div>
+              <div class="form-group"><label>對端臨界斷面預期塑性彎矩 Mpr,far (kN-m)</label><input name="momentFarCriticalSectionExpectedMoment" type="number" min="0" step="0.1"></div>
+              <div class="form-group"><p class="section-note">容量設計剪力採 Vp = (Mpr + Mpr,far) / Lh；不得無條件假設兩端梁與塑鉸強度相同。</p></div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <label>腹板剪斷面數 nsv</label>
-                <select name="momentShearPlanes">
-                  <option value="1">單剪</option>
-                  <option value="2">雙剪</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>腹板剪力板厚 tvp (mm)</label>
-                <input name="momentShearPlateThickness" type="number" min="1" step="0.1">
-              </div>
+              <div class="form-group"><label>1.2D+0.5L 重力剪力 (kN)</label><input name="momentGravityShear" type="number" step="0.1"></div>
+              <div class="form-group"><label>13.3-1 放大組合剪力上限 (kN)</label><input name="momentAmplifiedShear" type="number" min="0" step="0.1"></div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <label>腹板剪力板 Fu (MPa)</label>
-                <input name="momentShearPlateUltimateStrength" type="number" min="1" step="1">
-              </div>
-              <div class="form-group">
-                <label>Panel Zone 可用容量 Vpz (kN)</label>
-                <input name="panelZoneCapacity" type="number" min="1" step="0.1">
-              </div>
+              <div class="form-group"><label>外部接頭可用撓曲強度 (kN-m)</label><input name="momentAvailableFlexuralStrength" type="number" min="1" step="0.1"></div>
+              <div class="form-group"><label>外部接頭可用剪力強度 (kN)</label><input name="momentAvailableShearStrength" type="number" min="1" step="0.1"></div>
+            </div>
+
+            <h3>塑性轉角與資格證據</h3>
+            <div class="form-row">
+              <div class="form-group"><label>轉角需求決定方式</label><select name="momentRotationDemandMethod"><option value="default">規範固定值</option><option value="nonlinear">非線性分析 + 0.005 rad</option><option value="formula">1.1(R-1)θE</option></select></div>
+              <div class="form-group"><label>試驗可提供塑性轉角 (rad)</label><input name="momentQualifiedPlasticRotation" type="number" min="0" step="0.001"></div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <label>腹板傳力銲腳 a (mm)</label>
-                <input name="momentWeldSize" type="number" min="1" step="0.1">
-              </div>
-              <div class="form-group">
-                <label>單道有效長 Le (mm)</label>
-                <input name="momentWeldLength" type="number" min="1" step="0.1">
-              </div>
+              <div class="form-group"><label>非線性分析最大塑性轉角 (rad)</label><input name="momentNonlinearPlasticRotation" type="number" min="0" step="0.001"></div>
+              <div class="form-group"><label>系統韌性容量 R</label><input name="momentSystemDuctilityR" type="number" min="1" step="0.1"></div>
             </div>
             <div class="form-row">
-              <div class="form-group">
-                <label>腹板傳力銲道數量</label>
-                <select name="momentWeldLineCount">
-                  <option value="2">雙側銲</option>
-                  <option value="1">單側銲</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>腹板傳力銲材 FEXX (MPa)</label>
-                <input name="momentWeldElectrodeStrength" type="number" min="1" step="1">
-              </div>
+              <div class="form-group"><label>設計地震最大層間變位角 θE</label><input name="momentElasticStoryDrift" type="number" min="0" step="0.0001"></div>
+              <div class="form-group"><label>資格證據路線</label><select name="momentQualificationRoute"><option value="direct_test">案件代表性反覆載重試驗</option><option value="prior_test_similarity">既有破壞試驗相似性</option><option value="third_party_review">分析／計算 + 公正第三者審查</option></select></div>
             </div>
+            <div class="form-row">
+              <div class="form-group"><label>代表性試體數</label><input name="momentQualificationTestCount" type="number" min="0" step="1"></div>
+              <div class="form-group"><label>設計／試驗梁翼厚 (mm)</label><div class="form-row compact"><input name="momentDesignBeamFlangeThickness" type="number" min="1" step="0.1" placeholder="設計"><input name="momentTestBeamFlangeThickness" type="number" min="1" step="0.1" placeholder="試驗"></div></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>設計／試驗梁翼 Z 比</label><div class="form-row compact"><input name="momentDesignFlangePlasticRatio" type="number" min="0" max="1" step="0.01" placeholder="設計"><input name="momentTestFlangePlasticRatio" type="number" min="0" max="1" step="0.01" placeholder="試驗"></div></div>
+              <div class="form-group"><label>第三者審查確認</label><select name="momentThirdPartyReviewConfirmed"><option value="true">已完成並附證據</option><option value="false">尚未完成｜禁止核可</option></select></div>
+            </div>
+
+            <h3>Panel Zone、連續板與梁斷面</h3>
+            <div class="form-row">
+              <div class="form-group"><label>柱腹板 Fy (MPa)</label><input name="momentColumnWebYieldStrength" type="number" min="1" step="1"></div>
+              <div class="form-group"><label>柱深 dc (mm)</label><input name="momentColumnDepth" type="number" min="1" step="1"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Panel Zone 總厚 tp (mm)</label><input name="momentPanelZoneThickness" type="number" min="1" step="0.1"></div>
+              <div class="form-group"><label>dz／wz (mm)</label><div class="form-row compact"><input name="momentPanelZoneClearDepth" type="number" min="1" step="1" placeholder="dz"><input name="momentPanelZoneClearWidth" type="number" min="1" step="1" placeholder="wz"></div></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>分析 Panel Zone 需求 (kN)</label><input name="momentPanelZoneAnalysisDemand" type="number" min="0" step="0.1"></div>
+              <div class="form-group"><label>ΣMp／等效力臂 (kN-m／mm)</label><div class="form-row compact"><input name="momentPanelZoneBeamMomentSum" type="number" min="1" step="0.1" placeholder="ΣMp"><input name="momentPanelZoneLeverArm" type="number" min="1" step="1" placeholder="力臂"></div></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Panel Zone 置合板</label><select name="momentDoublerPresent"><option value="false">無</option><option value="true">有</option></select></div>
+              <div class="form-group"><label>置合板塞銲／翼板滲透銲確認</label><select name="momentDoublerAttachmentConfirmed"><option value="true">已依 13.6.2 確認</option><option value="false">尚未確認｜禁止核可</option></select></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>梁翼寬 bfb／厚 tfb (mm)</label><div class="form-row compact"><input name="momentBeamFlangeWidth" type="number" min="1" step="1" placeholder="bfb"><input name="momentBeamFlangeThickness" type="number" min="1" step="0.1" placeholder="tfb"></div></div>
+              <div class="form-group"><label>柱翼板局部標稱拉力強度 Rn (kN)</label><input name="momentColumnFlangeLocalNominalStrength" type="number" min="0" step="0.1"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>連續板設置確認</label><select name="momentContinuityPlateProvidedConfirmed"><option value="true">已設置／計算判定不需設置</option><option value="false">未設置</option></select></div>
+              <div class="form-group"><label>連續板銲接確認</label><select name="momentContinuityPlateWeldConfirmed"><option value="true">已依 13.6.4 確認</option><option value="false">尚未確認</option></select></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>梁翼／腹 λ/λpd</label><div class="form-row compact"><input name="momentBeamFlangeCompactnessRatio" type="number" min="0" step="0.01" placeholder="翼"><input name="momentBeamWebCompactnessRatio" type="number" min="0" step="0.01" placeholder="腹"></div></div>
+              <div class="form-group"><label>梁翼塑性模數／全斷面塑性模數</label><input name="momentBeamFlangePlasticModulusRatio" type="number" min="0" max="1" step="0.01"></div>
+            </div>
+
+            <h3>選定構架面強柱弱梁（kN-m）</h3>
+            <p class="section-note">輸入式 (13.6-3) 在接頭面之各構件名義強度項：柱採 Zc(Fyc−Puc/Ag)；本頁固定為補強式接頭，依 13.6.5 解說將每支梁項採 ZbFyb + Vp·x，不得只填 ZbFyb，也不是分析模型的構件端需求彎矩。順、逆向應分別採各自控制柱軸力與各梁實際 Vp、塑鉸至柱面距離 x，並由「強柱弱梁依據」追溯原始 Z、F、P、Ag、Vp、x；不存在的外柱／屋頂節點構件可填 0，但每一方向的柱、梁項總和都必須大於 0。IMRF 採本項時屬專案指定的保守門檻。</p>
+            <div class="form-row"><div class="form-group"><label>順時針：上／下柱 Zc(Fyc−Puc/Ag)</label><div class="form-row compact"><input name="momentCwUpperColumnMoment" type="number" min="0" step="0.1"><input name="momentCwLowerColumnMoment" type="number" min="0" step="0.1"></div></div><div class="form-group"><label>順時針：左／右梁 ZbFyb + Vp·x</label><div class="form-row compact"><input name="momentCwLeftBeamMoment" type="number" min="0" step="0.1"><input name="momentCwRightBeamMoment" type="number" min="0" step="0.1"></div></div></div>
+            <div class="form-row"><div class="form-group"><label>逆時針：上／下柱 Zc(Fyc−Puc/Ag)</label><div class="form-row compact"><input name="momentCcwUpperColumnMoment" type="number" min="0" step="0.1"><input name="momentCcwLowerColumnMoment" type="number" min="0" step="0.1"></div></div><div class="form-group"><label>逆時針：左／右梁 ZbFyb + Vp·x</label><div class="form-row compact"><input name="momentCcwLeftBeamMoment" type="number" min="0" step="0.1"><input name="momentCcwRightBeamMoment" type="number" min="0" step="0.1"></div></div></div>
+
+            <h3>專案依據與失敗封閉確認</h3>
+            <div class="form-group"><label>需求／幾何／材料依據</label><div class="form-row compact"><textarea name="momentDemandBasis" rows="2" placeholder="分析模型與控制組合"></textarea><textarea name="momentGeometryBasis" rows="2" placeholder="核定接頭圖"></textarea><textarea name="momentMaterialBasis" rows="2" placeholder="材料與銲材證明"></textarea></div></div>
+            <div class="form-group"><label>容量／Panel Zone／強柱弱梁依據</label><div class="form-row compact"><textarea name="momentCapacityBasis" rows="2" placeholder="接頭硬體詳算"></textarea><textarea name="momentPanelZoneBasis" rows="2" placeholder="交會區分析"></textarea><textarea name="momentStrongColumnBasis" rows="2" placeholder="柱項與各梁 ZbFyb + Vp·x 來源"></textarea></div></div>
+            <div class="form-group"><label>資格證據說明</label><textarea name="momentQualificationBasis" rows="2" placeholder="試驗報告、相似性矩陣或第三者審查文件"></textarea></div>
+            <div class="form-row"><div class="form-group"><label>資格證據 SHA-256</label><input name="momentQualificationEvidenceSha256" type="text" maxlength="64"></div><div class="form-group"><label>接頭容量證據 SHA-256</label><input name="momentCapacityEvidenceSha256" type="text" maxlength="64"></div></div>
+            <div class="form-row"><div class="form-group"><label>試驗配置／材料／銲接一致</label><select name="momentQualificationConfigurationConfirmed"><option value="true">配置一致</option><option value="false">未確認</option></select><select name="momentQualificationMaterialConfirmed"><option value="true">材料一致</option><option value="false">未確認</option></select><select name="momentQualificationWeldingConfirmed"><option value="true">銲接一致</option><option value="false">未確認</option></select></div><div class="form-group"><label>尺寸／施工方法／流程一致</label><select name="momentQualificationGeometryConfirmed"><option value="true">尺寸一致</option><option value="false">未確認</option></select><select name="momentQualificationFabricationConfirmed"><option value="true">施工方法一致</option><option value="false">未確認</option></select><select name="momentQualificationProcedureConfirmed"><option value="true">施工流程一致</option><option value="false">未確認</option></select></div></div>
+            <div class="form-row"><div class="form-group"><label>塑性區斷面與開孔</label><select name="momentPlasticZoneGeometryConfirmed"><option value="true">斷面變化已有試驗依據／無不利變化</option><option value="false">尚未確認</option></select><select name="momentPlasticZoneOpeningsAbsentConfirmed"><option value="true">無未驗證開孔</option><option value="false">有未驗證開孔</option></select></div><div class="form-group"><label>耐震材料與銲接</label><select name="momentSeismicMaterialConfirmed"><option value="true">材料符合 13.2</option><option value="false">尚未確認</option></select><select name="momentMatchingWeldConfirmed"><option value="true">銲材與母材相稱</option><option value="false">尚未確認</option></select><select name="momentCns3506WeldConfirmed"><option value="true">銲材 CNS 3506 級以上</option><option value="false">尚未確認</option></select></div></div>
+            <div class="form-row"><div class="form-group"><label>試驗一致施工細部</label><select name="momentEndTabsRemovedGroundConfirmed"><option value="true">導銲板已切除磨平</option><option value="false">尚未確認</option></select><select name="momentWeldProcedureMatchesQualificationConfirmed"><option value="true">銲接程序符合資格證據</option><option value="false">尚未確認</option></select></div><div class="form-group"><label>側向支撐</label><select name="momentJointLateralRestraintConfirmed"><option value="true">接頭側向束制已確認</option><option value="false">尚未確認</option></select><select name="momentBeamLateralBracingConfirmed"><option value="true">梁／塑鉸側向支撐已確認</option><option value="false">尚未確認</option></select></div></div>
+            <div class="form-row"><div class="form-group"><label>強柱弱梁資料</label><select name="momentAllMembersIncludedConfirmed"><option value="true">已納入選定構架面全部相接梁柱</option><option value="false">尚未納入完整</option></select><select name="momentColumnStrengthsAtGoverningAxialConfirmed"><option value="true">柱採控制軸力下強度</option><option value="false">尚未確認</option></select><select name="momentOpposingDirectionsConfirmed"><option value="true">梁柱合力方向已確認</option><option value="false">尚未確認</option></select></div><div class="form-group"><label>附件邊界</label><select name="momentOrthogonalDirectionSeparateConfirmed"><option value="true">正交方向另案</option><option value="false">尚未另案</option></select><select name="momentConnectionHardwareVerifiedConfirmed"><option value="true">接頭硬體詳算已由容量證據涵蓋</option><option value="false">詳算未完成</option></select><select name="momentSelectedAxisScopeConfirmed"><option value="true">接受單一選定方向審查邊界</option><option value="false">不接受｜禁止核可</option></select></div></div>
           </div>
 
           <div class="card" data-connection="plate_check">

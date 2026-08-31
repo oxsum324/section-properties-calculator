@@ -13,6 +13,57 @@ const shared = {
   deformationConsidered: "true",
 };
 
+const columnSpliceBase = {
+  projectName: "CJP 耐震柱續接正式算例",
+  connectionTag: "CS-CJP-01",
+  designer: "QA",
+  notes: "拉力正、壓力負；全斷面 CJP 設計階段能力審查",
+  connectionType: "column_splice",
+  designMethod: "LRFD",
+  spliceFrameRole: "seismic_force_resisting",
+  spliceDesignRoute: "cjp_full_section_identical_rolled_h",
+  spliceLocationRoute: "beam_flange_1200",
+  spliceDistanceToNearestBeamFlange: 1500,
+  spliceDeadAxial: -600,
+  spliceLiveAxial: -200,
+  spliceSeismicAxial: 400,
+  spliceLiveLoadFactor: 0.5,
+  spliceSeismicReductionFu: 1.5,
+  spliceTransferCapRoute: "uncapped",
+  spliceMaxTransferableAxial: 0,
+  spliceAg: 30000,
+  spliceZx: 5000000,
+  spliceZy: 2000000,
+  spliceAvx: 10000,
+  spliceAvy: 12000,
+  spliceFy: 345,
+  spliceFexx: 490,
+  spliceMaxThickness: 36,
+  spliceFabricationLocation: "field",
+  spliceNdtMethod: "UT",
+  spliceDemandBasis: "分析模型 STR-CS-01／13.4.1 軸力分項與方向包絡",
+  spliceGeometryBasis: "核定圖 S-701／CS-CJP-01 同斷面熱軋 H 形柱",
+  spliceMaterialBasis: "材料證明 M-CS-01／Fy 345 MPa 與 E70 銲材",
+  spliceWpsBasis: "核定 WPS/PQR WPS-CS-01／全斷面 CJP",
+  spliceNdtPlanBasis: "檢驗計畫 ITP-CS-01／工地 CJP 100% UT",
+  spliceDemandEvidenceSha256: "a".repeat(64),
+  spliceDetailEvidenceSha256: "b".repeat(64),
+  spliceWpsEvidenceSha256: "c".repeat(64),
+  spliceNdtPlanEvidenceSha256: "d".repeat(64),
+  spliceIdenticalSectionsAndMaterialConfirmed: true,
+  spliceAlignedAxesConfirmed: true,
+  spliceFullProfileCjpConfirmed: true,
+  spliceMatchingFillerConfirmed: true,
+  spliceWpsApprovedConfirmed: true,
+  spliceNdtFullCoverageConfirmed: true,
+  spliceNoPjpConfirmed: true,
+  spliceNoMixedLoadSharingConfirmed: true,
+  spliceSeismicColumnConfirmed: true,
+  spliceLocationScopeConfirmed: true,
+  spliceAllAdjacentTransferSourcesIncludedConfirmed: false,
+  spliceAsBuiltBoundaryConfirmed: true,
+};
+
 const singlePlateBase = {
   connectionType: "single_plate",
   designMethod: "LRFD",
@@ -115,6 +166,100 @@ const gussetBase = {
   gussetModelBasis: "核定圖確認平板支撐矩形截面全元素直接連接、單一直線栓列與雙側縱向銲串聯力流",
   gussetStaticNonseismicConfirmed: true,
   gussetLoadPathConfirmed: true,
+};
+
+const momentBase = {
+  ...shared,
+  projectName: "Moment V1 正式算例",
+  connectionTag: "MC-01",
+  designer: "QA",
+  notes: "補強式梁柱彎矩接頭耐震能力審查附件",
+  connectionType: "beam_column_moment",
+  requiredAxial: 900,
+  requiredShear: 0,
+  requiredMoment: 0,
+  eccentricity: 0,
+  momentFrameSystem: "smrf",
+  momentAxis: "x",
+  momentConnectionDesignRoute: "reinforced",
+  momentRotationDemandMethod: "default",
+  momentNonlinearPlasticRotation: 0.02,
+  momentSystemDuctilityR: 8,
+  momentElasticStoryDrift: 0.025,
+  momentBeamPlasticModulus: 2000000,
+  momentBeamYieldStrength: 350,
+  momentExpectedStrengthFactor: 1.1,
+  momentCriticalSectionDistance: 300,
+  momentPlasticHingeSpan: 3500,
+  momentFarCriticalSectionExpectedMoment: 770,
+  momentGravityShear: 120,
+  momentAmplifiedShear: 700,
+  momentAvailableFlexuralStrength: 950,
+  momentAvailableShearStrength: 600,
+  momentQualifiedPlasticRotation: 0.04,
+  momentQualificationRoute: "prior_test_similarity",
+  momentQualificationTestCount: 3,
+  momentDesignBeamFlangeThickness: 16,
+  momentTestBeamFlangeThickness: 18,
+  momentDesignFlangePlasticRatio: 0.76,
+  momentTestFlangePlasticRatio: 0.75,
+  momentColumnWebYieldStrength: 325,
+  momentColumnDepth: 600,
+  momentPanelZoneThickness: 20,
+  momentPanelZoneClearDepth: 540,
+  momentPanelZoneClearWidth: 360,
+  momentPanelZoneAnalysisDemand: 2100,
+  momentPanelZoneBeamMomentSum: 1540,
+  momentPanelZoneLeverArm: 700,
+  momentDoublerPresent: "true",
+  momentDoublerAttachmentConfirmed: "true",
+  momentBeamFlangeWidth: 250,
+  momentBeamFlangeThickness: 16,
+  momentColumnFlangeLocalNominalStrength: 2400,
+  momentContinuityPlateProvidedConfirmed: true,
+  momentContinuityPlateWeldConfirmed: true,
+  momentBeamFlangeCompactnessRatio: 0.95,
+  momentBeamWebCompactnessRatio: 0.85,
+  momentBeamFlangePlasticModulusRatio: 0.75,
+  momentCwUpperColumnMoment: 1200,
+  momentCwLowerColumnMoment: 1100,
+  momentCwLeftBeamMoment: 840,
+  momentCwRightBeamMoment: 830,
+  momentCcwUpperColumnMoment: 1220,
+  momentCcwLowerColumnMoment: 1120,
+  momentCcwLeftBeamMoment: 850,
+  momentCcwRightBeamMoment: 825,
+  momentDemandBasis: "ETABS ULS 包絡與節點剪力整理表",
+  momentGeometryBasis: "核定鋼構詳圖 S-601 / MC-01",
+  momentMaterialBasis: "梁柱鋼材與銲材材料證明 M-21",
+  momentCapacityBasis: "受控接頭容量表 MC-01-R1",
+  momentPanelZoneBasis: "Panel Zone 分析書 MC-PZ-01",
+  momentStrongColumnBasis: "柱梁彎矩比整理表 MC-SCWB-01，含各梁 ZbFyb + Vp·x",
+  momentQualificationBasis: "耐震資格試驗比對報告 MC-QUAL-01",
+  momentQualificationEvidenceSha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  momentCapacityEvidenceSha256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  momentQualificationConfigurationConfirmed: true,
+  momentQualificationMaterialConfirmed: true,
+  momentQualificationWeldingConfirmed: true,
+  momentQualificationGeometryConfirmed: true,
+  momentQualificationFabricationConfirmed: true,
+  momentQualificationProcedureConfirmed: true,
+  momentThirdPartyReviewConfirmed: true,
+  momentPlasticZoneGeometryConfirmed: true,
+  momentPlasticZoneOpeningsAbsentConfirmed: true,
+  momentSeismicMaterialConfirmed: true,
+  momentMatchingWeldConfirmed: true,
+  momentCns3506WeldConfirmed: true,
+  momentEndTabsRemovedGroundConfirmed: true,
+  momentWeldProcedureMatchesQualificationConfirmed: true,
+  momentJointLateralRestraintConfirmed: true,
+  momentBeamLateralBracingConfirmed: true,
+  momentAllMembersIncludedConfirmed: true,
+  momentColumnStrengthsAtGoverningAxialConfirmed: true,
+  momentOpposingDirectionsConfirmed: true,
+  momentOrthogonalDirectionSeparateConfirmed: true,
+  momentConnectionHardwareVerifiedConfirmed: true,
+  momentSelectedAxisScopeConfirmed: true,
 };
 
 const shear = calculateConnection(singlePlateBase);
@@ -267,40 +412,129 @@ const extendedHeight = calculateConnection({ ...singlePlateBase, plateHeight: 92
 assert.equal(extendedHeight.detailChecks.find((item) => item.key === "singlePlateConventionalHeight").passes, false, "plate height above 36 in must fail the conventional procedure envelope");
 assert.equal(extendedHeight.passes, false, "extended plate height must require separate plate-buckling and rotational-ductility checks");
 
-const splice = calculateConnection({
+const splice = calculateConnection(columnSpliceBase);
+assert.equal(splice.passes, true, "complete bounded CJP seismic column-splice review should pass");
+assert.equal(splice.complianceReady, true, "CJP seismic column-splice review should be compliance-ready within its fixed scope");
+assert.equal(splice.overallStatus, "ok", "complete CJP column-splice golden case should be formal OK");
+assert.equal(splice.reportTitle, "全斷面 CJP 耐震柱續接能力審查附件");
+assert.equal(splice.completeJointDesign, false, "column-splice attachment must not claim a complete joint design");
+assert.equal(splice.completeColumnMemberDesign, false, "column-splice attachment must not claim complete column-member design");
+assert.equal(splice.asBuiltAcceptance, false, "design-stage attachment must not claim as-built acceptance");
+assert.equal(splice.scopeLimited, false, "the bounded attachment should be complete within its advertised scope");
+assert.deepEqual(splice.checks.map((item) => item.key), [
+  "spliceAxialCompression13_4_1",
+  "spliceAxialTension13_4_1",
+  "spliceFullSectionNormal",
+  "spliceFullSectionMajorFlexure",
+  "spliceFullSectionMinorFlexure",
+  "spliceFullSectionMajorShear",
+  "spliceFullSectionMinorShear",
+], "column-splice V1 strength routes should remain a stable report/benchmark contract");
+assert.deepEqual(splice.detailChecks.map((item) => item.key), [
+  "spliceLrfdMethod",
+  "spliceSeismicColumn",
+  "spliceCjpRoute",
+  "spliceTopologyScope",
+  "spliceLocation1200",
+  "spliceNonJumbo",
+  "spliceLoadInputs",
+  "spliceTransferCap",
+  "spliceMatchingFiller",
+  "spliceWps",
+  "spliceNdtPlan",
+  "spliceEvidence",
+  "spliceAsBuiltBoundary",
+], "column-splice V1 hard-gate keys should remain stable");
+assert.ok(Math.abs(splice.spliceReview.EampRaw - 840) < 1e-9, "13.4.1 Eamp raw golden");
+assert.ok(Math.abs(splice.spliceReview.EampAdopted - 840) < 1e-9, "uncapped route should keep full amplified seismic axial term");
+assert.ok(Math.abs(splice.spliceReview.compressionCombinations[0] - 20) < 1e-9 && Math.abs(splice.spliceReview.compressionCombinations[1] + 1660) < 1e-9, "compression signed combinations golden");
+assert.ok(Math.abs(splice.spliceReview.tensionCombinations[0] - 300) < 1e-9 && Math.abs(splice.spliceReview.tensionCombinations[1] + 1380) < 1e-9, "tension signed combinations golden");
+assert.ok(Math.abs(splice.spliceReview.PuCompression - 1660) < 1e-9, "13.4.1 controlling compression golden");
+assert.ok(Math.abs(splice.spliceReview.TuTension - 300) < 1e-9, "13.4.1 controlling tension golden");
+assert.equal(splice.spliceReview.normalCapacity, 9315, "full-section CJP normal capacity golden");
+assert.equal(splice.spliceReview.majorFlexuralCapacity, 1552.5, "full-section CJP major flexural capacity golden");
+assert.equal(splice.spliceReview.minorFlexuralCapacity, 621, "full-section CJP minor flexural capacity golden");
+assert.equal(splice.spliceReview.majorShearCapacity, 1863, "full-section CJP major shear capacity golden");
+assert.ok(Math.abs(splice.spliceReview.minorShearCapacity - 2235.6) < 1e-12, "full-section CJP minor shear capacity golden");
+assert.ok(splice.checks.every((item) => Number.isFinite(item.ratio)), "column-splice strength DCR values should all be finite");
+assert.ok(splice.checks.find((item) => item.key === "spliceAxialCompression13_4_1").equationLines.join(" ").includes("1.4 × Fu") && splice.checks.find((item) => item.key === "spliceAxialCompression13_4_1").equationLines.join(" ").includes("1660"), "report equations should expose amplified axial-force derivation");
+assert.ok(splice.checks.find((item) => item.key === "spliceFullSectionMajorShear").equationLines.some((line) => line.includes("0.80 × 0.6FEXX")), "report equations should expose table 10.2-5 weld-metal shear route");
+
+const spliceQualifiedCap = calculateConnection({
+  ...columnSpliceBase,
+  spliceTransferCapRoute: "qualified",
+  spliceMaxTransferableAxial: 500,
+  spliceAllAdjacentTransferSourcesIncludedConfirmed: true,
+});
+assert.equal(spliceQualifiedCap.passes, true, "qualified transfer cap with complete evidence should pass");
+assert.ok(Math.abs(spliceQualifiedCap.spliceReview.EampRaw - 840) < 1e-9, "qualified cap preserves raw amplified term");
+assert.equal(spliceQualifiedCap.spliceReview.EampAdopted, 625, "qualified cap should adopt 1.25Ptransfer when governing");
+assert.equal(spliceQualifiedCap.spliceReview.transferCapApplied, true, "qualified governing cap should be disclosed");
+assert.equal(spliceQualifiedCap.spliceReview.PuCompression, 1445, "qualified-cap compression demand golden");
+assert.equal(spliceQualifiedCap.spliceReview.TuTension, 85, "qualified-cap tension demand golden");
+
+const spliceInvalidCap = calculateConnection({
+  ...columnSpliceBase,
+  spliceTransferCapRoute: "qualified",
+  spliceMaxTransferableAxial: 500,
+  spliceAllAdjacentTransferSourcesIncludedConfirmed: false,
+});
+assert.equal(spliceInvalidCap.passes, false, "qualified cap without all adjacent transfer sources must fail closed");
+assert.ok(Math.abs(spliceInvalidCap.spliceReview.EampAdopted - 840) < 1e-9, "invalid qualified cap must revert to the uncapped demand");
+assert.equal(spliceInvalidCap.summary.validationFailure, true, "invalid qualified cap should create a blocking validation");
+
+const spliceOverstrengthDemand = calculateConnection({ ...columnSpliceBase, spliceSeismicAxial: 5000 });
+assert.equal(spliceOverstrengthDemand.passes, false, "axial demand above CJP normal capacity must fail");
+assert.ok(spliceOverstrengthDemand.checks.some((item) => item.ratio > 1), "overstrength demand should fail through a numeric DCR");
+
+const spliceWeakFiller = calculateConnection({ ...columnSpliceBase, spliceFexx: 300 });
+assert.equal(spliceWeakFiller.passes, false, "weld metal weaker than the full-section base shear route must fail");
+assert.equal(spliceWeakFiller.detailChecks.find((item) => item.key === "spliceMatchingFiller").passes, false, "matching-filler gate should also fail the weak weld-metal case");
+assert.ok(spliceWeakFiller.checks.find((item) => item.key === "spliceFullSectionMajorShear").ratio > 1, "weak filler should fail the independent shear-capacity equality");
+
+const spliceShortLocation = calculateConnection({ ...columnSpliceBase, spliceDistanceToNearestBeamFlange: 1199 });
+assert.equal(spliceShortLocation.passes, false, "splice closer than 1200 mm to the nearest beam flange must fail");
+assert.equal(spliceShortLocation.detailChecks.find((item) => item.key === "spliceLocation1200").passes, false, "location hard gate should identify the 1.2 m breach");
+
+const splicePjp = calculateConnection({ ...columnSpliceBase, spliceFullProfileCjpConfirmed: false, spliceNoPjpConfirmed: false });
+assert.equal(splicePjp.passes, false, "PJP or incomplete-profile welding must never pass the CJP attachment");
+assert.equal(splicePjp.detailChecks.find((item) => item.key === "spliceCjpRoute").passes, false, "CJP route hard gate should identify PJP scope escape");
+
+const spliceMissingNdt = calculateConnection({ ...columnSpliceBase, spliceNdtPlanEvidenceSha256: "missing" });
+assert.equal(spliceMissingNdt.passes, false, "missing NDT plan evidence must fail formal approval");
+assert.equal(spliceMissingNdt.detailChecks.find((item) => item.key === "spliceNdtPlan").passes, false, "NDT gate should reject a malformed evidence hash");
+assert.equal(spliceMissingNdt.detailChecks.find((item) => item.key === "spliceEvidence").passes, false, "aggregate evidence gate should also reject malformed NDT evidence");
+
+const spliceJumbo = calculateConnection({ ...columnSpliceBase, spliceMaxThickness: 41 });
+assert.equal(spliceJumbo.passes, false, "rolled H section above the V1 40 mm jumbo boundary must fail");
+assert.equal(spliceJumbo.detailChecks.find((item) => item.key === "spliceNonJumbo").passes, false, "jumbo-section hard gate should identify the excluded route");
+
+const spliceInvalidFinite = calculateConnection({ ...columnSpliceBase, spliceDeadAxial: "not-a-number" });
+assert.equal(spliceInvalidFinite.passes, false, "non-finite source demand must fail despite normalization to zero");
+assert.equal(spliceInvalidFinite.summary.validationFailure, true, "non-finite source demand should be a blocking validation");
+
+const spliceZeroSeismicAxial = calculateConnection({ ...columnSpliceBase, spliceSeismicAxial: 0 });
+assert.equal(spliceZeroSeismicAxial.passes, true, "a controlled analysis result with PE = 0 should remain a valid 13.4.1 envelope");
+assert.equal(spliceZeroSeismicAxial.spliceReview.EampRaw, 0, "PE = 0 should produce a finite zero amplified seismic term");
+assert.equal(spliceZeroSeismicAxial.spliceReview.EampAdopted, 0, "uncapped PE = 0 should keep a finite zero adopted term");
+
+const spliceAsd = calculateConnection({ ...columnSpliceBase, designMethod: "ASD" });
+assert.equal(spliceAsd.passes, false, "ASD must fail the LRFD-only column-splice attachment");
+assert.equal(spliceAsd.detailChecks.find((item) => item.key === "spliceLrfdMethod").passes, false, "LRFD hard gate should identify ASD scope escape");
+
+const legacySplice = calculateConnection({
   ...shared,
   connectionType: "column_splice",
   requiredAxial: 850,
   requiredShear: 180,
   requiredMoment: 120,
   spliceLeverArm: 420,
-  spliceBearingTransfer: "true",
   flangeBoltCount: 8,
-  flangeEndDistance: 55,
-  flangePitch: 90,
-  flangeEdgeDistance: 70,
-  flangePlateThickness: 20,
-  flangePlateWidth: 240,
-  flangePlateNetWidth: 180,
-  flangePlateYieldStrength: 325,
-  flangePlateUltimateStrength: 490,
   webBoltCount: 8,
-  webShearPlanes: 2,
-  webEndDistance: 50,
-  webPitch: 80,
-  webEdgeDistance: 60,
-  webPlateDepth: 420,
-  webPlateThickness: 14,
-  webPlateYieldStrength: 325,
-  webPlateUltimateStrength: 490,
   spliceWeldSize: 10,
-  spliceWeldLength: 320,
-  spliceWeldLineCount: 2,
-  spliceWeldElectrodeStrength: 490,
 });
-assert.equal(splice.passes, false, "column splice example should be blocked from formal code check");
-assert.equal(splice.complianceReady, false, "column splice should be marked as non-compliance-ready");
-assert.equal(splice.reportTitle, "柱續接檢核計算書");
+assert.equal(legacySplice.passes, false, "legacy Mu/h plus flange/web splice-plate fields must not unlock the formal CJP route");
+assert.equal(legacySplice.summary.validationFailure, true, "legacy splice payload should fail blocking finite/section validations");
 
 const gusset = calculateConnection(gussetBase);
 assert.equal(gusset.passes, true, "complete Gusset V1 golden case should pass its formal scope");
@@ -344,34 +578,129 @@ const gussetThreadsExcluded = calculateConnection({ ...gussetBase, threadsCondit
 assert.ok(Math.abs(gussetThreadsExcluded.checks.find((item) => item.key === "gussetBoltShear").available - 693.1912409173427) < 1e-9, "F10T excluded-thread table 10.3-2 LRFD bolt shear golden");
 assert.ok(gussetThreadsExcluded.checks.find((item) => item.key === "gussetBoltShear").equationLines.some((line) => line.includes("5.00 tf/cm²") && line.includes("490.333 MPa")), "excluded-thread Gusset report should expose the 5.00 tf/cm² table value");
 
-const moment = calculateConnection({
-  ...shared,
-  connectionType: "beam_column_moment",
-  requiredShear: 160,
-  requiredMoment: 420,
-  momentLeverArm: 550,
-  momentBoltCount: 8,
-  momentEndDistance: 55,
-  momentPitch: 90,
-  momentEdgeDistance: 85,
-  momentPlateThickness: 28,
-  momentPlateWidth: 320,
-  momentPlateNetWidth: 240,
-  momentPlateYieldStrength: 325,
-  momentPlateUltimateStrength: 490,
-  momentShearBoltCount: 4,
-  momentShearPlanes: 1,
-  momentShearPlateThickness: 16,
-  momentShearPlateUltimateStrength: 490,
-  panelZoneCapacity: 980,
-  momentWeldSize: 10,
-  momentWeldLength: 280,
-  momentWeldLineCount: 2,
-  momentWeldElectrodeStrength: 490,
+const moment = calculateConnection(momentBase);
+assert.equal(moment.complianceReady, true, "beam-column moment V1 should now be a formal scoped module");
+assert.equal(moment.passes, true, "complete reinforced moment connection review should pass");
+assert.equal(moment.reportTitle, "梁柱彎矩接頭耐震能力審查附件");
+assert.equal(moment.completeJointDesign, false, "formal attachment should still disclose incomplete joint design boundary");
+assert.equal(moment.scopeLimited, false, "boundary disclosure should not auto-lock the formal moment module");
+assert.ok(Math.abs(moment.seismicReview.Mp - 700) < 1e-12, "Mp = Zb*Fyb/1e6 golden");
+assert.ok(Math.abs(moment.seismicReview.Mpr - 770) < 1e-12, "Mpr = beta*Mp golden");
+assert.ok(Math.abs(moment.seismicReview.MprFar - 770) < 1e-12, "Mpr,far demand-model input should be exposed in seismic review");
+assert.ok(Math.abs(moment.seismicReview.Vp - 440) < 1e-12, "Vp = (Mpr+Mpr,far)*1000/Lh golden");
+assert.ok(Math.abs(moment.seismicReview.MuFace - 902) < 1e-12, "Mu_face = Mpr + Vp*x/1000 golden");
+assert.ok(Math.abs(moment.seismicReview.VuRequired - 560) < 1e-12, "Vu_req = min(abs(Vgravity)+Vp, abs(Vamplified)) golden");
+assert.ok(Math.abs(moment.seismicReview.rotationDemand - 0.03) < 1e-12, "default SMRF plastic rotation demand should be 0.03 rad");
+assert.ok(Math.abs(moment.seismicReview.VpzMin - 2200) < 1e-12, "Vpz_min = sumMp*1000/hpz golden");
+assert.ok(Math.abs(moment.seismicReview.VpzRequired - 2200) < 1e-12, "Vpz_req = max(analysis, min) golden");
+assert.ok(Math.abs(moment.seismicReview.VpzNominal - 2340) < 1e-12, "Vpz_n = 0.6*Fyc*dc*tp/1000 golden");
+assert.ok(Math.abs(moment.seismicReview.panelThicknessRequired - 10) < 1e-12, "tz_req = (dz+wz)/90 golden");
+assert.ok(Math.abs(moment.seismicReview.continuityThreshold - 2520) < 1e-12, "continuity threshold golden");
+assert.ok(Math.abs(moment.seismicReview.scwbCw - (2300 / 1670)) < 1e-12, "CW SCWB ratio golden");
+assert.ok(Math.abs(moment.seismicReview.scwbCcw - (2340 / 1675)) < 1e-12, "CCW SCWB ratio golden");
+assert.equal(moment.checks.find((item) => item.key === "momentFlexuralStrength")?.unit, "kN-m", "moment flexural check should expose units");
+assert.equal(moment.checks.find((item) => item.key === "momentPlasticRotation")?.unit, "rad", "plastic rotation check should expose units");
+assert.ok(moment.checks.find((item) => item.key === "momentStrongColumnCw")?.equationLines.join(" ").includes("ZbFyb + Vp x"), "reinforced SCWB beam terms should explicitly include Vp x");
+assert.ok(moment.assumptions.some((item) => item.includes("單一選定方向")), "assumptions should disclose single-axis formal attachment scope");
+assert.ok(moment.assumptions.some((item) => item.includes("Mpr,far") && item.includes("需求/構架模型")), "assumptions should disclose that the far-end expected moment comes from demand or frame modeling");
+assert.ok(moment.assumptions.some((item) => item.includes("AISC 358 family / prequalification")), "assumptions should disclose excluded prequalification scope");
+assert.ok(moment.references.some((item) => item.includes("13.6.1~13.6.5")), "moment references should cite the seismic connection clauses");
+assert.equal(moment.checks.find((item) => item.key === "momentStrongColumnCw")?.codeRef, "規範判定｜13.6.5", "SCWB code ref should align with 13.6.5");
+assert.equal(moment.checks.find((item) => item.key === "momentPlasticRotation")?.equationRef, "13.6.1＋專案指定需求法", "SMRF rotation equation ref should point to 13.6.1");
+
+const momentPanelZoneFail = calculateConnection({ ...momentBase, momentPanelZoneThickness: 12 });
+assert.equal(momentPanelZoneFail.passes, false, "insufficient panel zone shear strength should fail");
+assert.equal(momentPanelZoneFail.summary.strengthFailure, true, "panel zone understrength should be a strength failure");
+assert.ok(momentPanelZoneFail.checks.find((item) => item.key === "momentPanelZoneShear")?.ratio > 1, "panel zone ratio should exceed 1.0 when understrength");
+
+const momentRotationFail = calculateConnection({ ...momentBase, momentQualifiedPlasticRotation: 0.02 });
+assert.equal(momentRotationFail.passes, false, "insufficient qualified plastic rotation should fail");
+assert.equal(momentRotationFail.summary.strengthFailure, true, "rotation shortfall should be a strength failure");
+assert.ok(momentRotationFail.checks.find((item) => item.key === "momentPlasticRotation")?.ratio > 1, "rotation demand/capacity ratio should exceed 1.0 when underqualified");
+
+const momentQualificationSimilarityFail = calculateConnection({ ...momentBase, momentDesignBeamFlangeThickness: 23 });
+assert.equal(momentQualificationSimilarityFail.passes, false, "qualification similarity thickness overrun should fail");
+assert.equal(momentQualificationSimilarityFail.summary.detailFailure, true, "qualification similarity thickness overrun should be a detail failure");
+assert.equal(momentQualificationSimilarityFail.detailChecks.find((item) => item.key === "momentQualificationThicknessSimilarity")?.passes, false, "qualification similarity failure should be exposed explicitly");
+
+const momentDirectTestCountFail = calculateConnection({
+  ...momentBase,
+  momentQualificationRoute: "direct_test",
+  momentQualificationTestCount: 1,
+  momentDesignBeamFlangeThickness: 60,
 });
-assert.equal(moment.passes, false, "moment example should be blocked from formal code check");
-assert.equal(moment.complianceReady, false, "moment example should be marked as non-compliance-ready");
-assert.ok(moment.checks.some((item) => item.label.includes("Panel Zone")), "moment connection should include panel zone check");
+assert.equal(momentDirectTestCountFail.passes, false, "direct-test route should fail when fewer than two specimens are provided");
+assert.equal(momentDirectTestCountFail.detailChecks.find((item) => item.key === "momentQualificationTestCount")?.passes, false, "direct-test specimen count gate should reject fewer than two specimens");
+assert.equal(momentDirectTestCountFail.detailChecks.find((item) => item.key === "momentQualificationThicknessSimilarity")?.passes, true, "direct-test route should not be blocked by the 45 mm thickness cap");
+
+const momentPriorTestCountNonBlocking = calculateConnection({
+  ...momentBase,
+  momentQualificationRoute: "prior_test_similarity",
+  momentQualificationTestCount: 1,
+});
+assert.equal(momentPriorTestCountNonBlocking.passes, true, "prior-test route should not hard-fail solely due to specimen count");
+assert.equal(momentPriorTestCountNonBlocking.detailChecks.find((item) => item.key === "momentQualificationTestCount")?.passes, true, "prior-test route should treat specimen count as non-blocking in the current contract");
+
+const momentThirdPartyThicknessFail = calculateConnection({
+  ...momentBase,
+  momentQualificationRoute: "third_party_review",
+  momentDesignBeamFlangeThickness: 46,
+});
+assert.equal(momentThirdPartyThicknessFail.passes, false, "third-party review route should fail above the 45 mm thickness cap");
+assert.equal(momentThirdPartyThicknessFail.detailChecks.find((item) => item.key === "momentQualificationThicknessSimilarity")?.passes, false, "third-party thickness cap should be enforced directly");
+
+const momentBetaFail = calculateConnection({ ...momentBase, momentExpectedStrengthFactor: 0.95 });
+assert.equal(momentBetaFail.passes, false, "beta below 1.0 should fail");
+assert.equal(momentBetaFail.detailChecks.find((item) => item.key === "momentExpectedStrengthFactor")?.passes, false, "beta gate should reject values below 1.0");
+
+const momentFarMomentZero = calculateConnection({ ...momentBase, momentFarCriticalSectionExpectedMoment: 0 });
+assert.equal(momentFarMomentZero.passes, true, "zero far-end expected moment should still be allowed");
+assert.ok(Math.abs(momentFarMomentZero.seismicReview.Vp - 220) < 1e-12, "Vp should remain positive from the near-end Mpr when Mpr,far is zero");
+
+const momentExteriorJointZeroMember = calculateConnection({
+  ...momentBase,
+  momentCwRightBeamMoment: 0,
+  momentCcwRightBeamMoment: 0,
+});
+assert.equal(momentExteriorJointZeroMember.passes, true, "an absent exterior-joint beam may be represented by a zero member term when each directional SCWB sum remains positive");
+
+const momentFarMomentNegativeInvalid = calculateConnection({ ...momentBase, momentFarCriticalSectionExpectedMoment: -10 });
+assert.equal(momentFarMomentNegativeInvalid.passes, false, "negative far-end expected moment should fail visibly after normalization");
+assert.equal(momentFarMomentNegativeInvalid.summary.validationFailure, true, "negative far-end expected moment should be a blocking validation failure");
+assert.equal(momentFarMomentNegativeInvalid.detailChecks.find((item) => item.key === "momentFarCriticalSectionExpectedMoment")?.passes, false, "negative far-end input should fail the explicit demand-model gate");
+assert.ok(momentFarMomentNegativeInvalid.validations.some((item) => item.includes("Mpr,far")), "negative far-end expected moment should produce a visible validation message");
+
+const momentFarMomentNaNInvalid = calculateConnection({ ...momentBase, momentFarCriticalSectionExpectedMoment: "not-a-number" });
+assert.equal(momentFarMomentNaNInvalid.passes, false, "non-finite far-end expected moment should fail visibly after normalization");
+assert.equal(momentFarMomentNaNInvalid.summary.validationFailure, true, "non-finite far-end expected moment should be a blocking validation failure");
+assert.equal(momentFarMomentNaNInvalid.detailChecks.find((item) => item.key === "momentFarCriticalSectionExpectedMoment")?.passes, false, "non-finite far-end input should fail the explicit demand-model gate");
+
+const momentScwbFail = calculateConnection({
+  ...momentBase,
+  momentCwUpperColumnMoment: 400,
+  momentCwLowerColumnMoment: 400,
+  momentCcwUpperColumnMoment: 420,
+  momentCcwLowerColumnMoment: 420,
+});
+assert.equal(momentScwbFail.passes, false, "SCWB ratio below 1.25 should fail");
+assert.equal(momentScwbFail.summary.strengthFailure, true, "SCWB shortfall should be a strength failure");
+assert.ok(momentScwbFail.checks.find((item) => item.key === "momentStrongColumnCw")?.ratio > 1, "CW ratio should exceed 1.0 when SCWB is insufficient");
+assert.ok(momentScwbFail.checks.find((item) => item.key === "momentStrongColumnCcw")?.ratio > 1, "CCW ratio should exceed 1.0 when SCWB is insufficient");
+
+const momentImrf = calculateConnection({
+  ...momentBase,
+  momentFrameSystem: "imrf",
+  momentRotationDemandMethod: "default",
+});
+assert.equal(momentImrf.checks.find((item) => item.key === "momentPlasticRotation")?.equationRef, "13.7.2＋專案指定需求法", "IMRF rotation equation ref should point to 13.7.2");
+assert.ok(momentImrf.references.some((item) => item.includes("13.7.2 IMRF")), "IMRF references should include the IMRF connection clause");
+assert.ok(momentImrf.checks.find((item) => item.key === "momentStrongColumnCw")?.note.includes("專案額外採用"), "IMRF SCWB note should disclose the extra-project adoption");
+assert.ok(momentImrf.checks.find((item) => item.key === "momentStrongColumnCw")?.codeRef.includes("專案指定｜IMRF"), "IMRF SCWB should not be mislabeled as a direct 13.6.5 code requirement");
+
+const momentInvalid = calculateConnection({ ...momentBase, momentBeamPlasticModulus: 0 });
+assert.equal(momentInvalid.passes, false, "zero/non-finite seismic review inputs should fail closed");
+assert.equal(momentInvalid.summary.validationFailure, true, "zero/non-finite seismic review inputs should be a blocking validation failure");
+assert.ok(momentInvalid.validations.some((item) => item.includes("有限正值")), "invalid moment inputs should remain visibly blocked by finite positive validation");
 
 const plateGeometry = calculateConnection({
   ...shared,

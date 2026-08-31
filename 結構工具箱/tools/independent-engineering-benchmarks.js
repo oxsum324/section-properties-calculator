@@ -4120,11 +4120,292 @@ function steelFormalOracle(input) {
     return output;
   };
 
+  const momentCase = i => {
+    const bool = value => value ? 1 : 0;
+    const hasBasis = value => Boolean(String(value || '').trim())
+      && !/示例|請依專案覆寫|請填|待補|未填|placeholder/i.test(String(value));
+    const isSha256 = value => /^[a-f0-9]{64}$/i.test(String(value || ''));
+    const rotationDemand = i.momentRotationDemandMethod === 'nonlinear'
+      ? i.momentNonlinearPlasticRotation + 0.005
+      : i.momentRotationDemandMethod === 'formula'
+        ? 1.1 * (i.momentSystemDuctilityR - 1) * i.momentElasticStoryDrift
+        : i.momentFrameSystem === 'smrf' ? 0.03 : i.momentFrameSystem === 'imrf' ? 0.01 : 0;
+    const Mp = i.momentBeamPlasticModulus * i.momentBeamYieldStrength / 1e6;
+    const Mpr = i.momentExpectedStrengthFactor * Mp;
+    const MprFar = i.momentFarCriticalSectionExpectedMoment;
+    const Vp = (Mpr + MprFar) * 1000 / i.momentPlasticHingeSpan;
+    const MuFace = Mpr + Vp * i.momentCriticalSectionDistance / 1000;
+    const VuRequired = Math.min(Math.abs(i.momentGravityShear) + Vp, Math.abs(i.momentAmplifiedShear));
+    const VpzMin = i.momentPanelZoneBeamMomentSum * 1000 / i.momentPanelZoneLeverArm;
+    const VpzRequired = Math.max(i.momentPanelZoneAnalysisDemand, VpzMin);
+    const VpzNominal = 0.6 * i.momentColumnWebYieldStrength * i.momentColumnDepth * i.momentPanelZoneThickness / 1000;
+    const VpzAvailable = i.designMethod === 'LRFD' ? VpzNominal : VpzNominal / 1.5;
+    const panelThicknessRequired = (i.momentPanelZoneClearDepth + i.momentPanelZoneClearWidth) / 90;
+    const continuityThreshold = 1.8 * i.momentBeamYieldStrength
+      * i.momentBeamFlangeWidth * i.momentBeamFlangeThickness / 1000;
+    const continuityRequired = i.momentColumnFlangeLocalNominalStrength < continuityThreshold;
+    const scwbCwColumnSum = i.momentCwUpperColumnMoment + i.momentCwLowerColumnMoment;
+    const scwbCwBeamTermSum = i.momentCwLeftBeamMoment + i.momentCwRightBeamMoment;
+    const scwbCcwColumnSum = i.momentCcwUpperColumnMoment + i.momentCcwLowerColumnMoment;
+    const scwbCcwBeamTermSum = i.momentCcwLeftBeamMoment + i.momentCcwRightBeamMoment;
+    const scwbCw = scwbCwBeamTermSum > 0 ? scwbCwColumnSum / scwbCwBeamTermSum : 0;
+    const scwbCcw = scwbCcwBeamTermSum > 0 ? scwbCcwColumnSum / scwbCcwBeamTermSum : 0;
+    const flexuralRatio = MuFace / i.momentAvailableFlexuralStrength;
+    const shearRatio = VuRequired / i.momentAvailableShearStrength;
+    const rotationRatio = rotationDemand / i.momentQualifiedPlasticRotation;
+    const panelZoneRatio = VpzRequired / VpzAvailable;
+    const scwbCwRatio = 1.25 / scwbCw;
+    const scwbCcwRatio = 1.25 / scwbCcw;
+
+    const qualificationRoutePass = ['direct_test', 'prior_test_similarity', 'third_party_review']
+      .includes(i.momentQualificationRoute);
+    const qualificationTestCountPass = i.momentQualificationRoute !== 'direct_test'
+      || i.momentQualificationTestCount >= 2;
+    const qualificationThicknessSimilarityPass = i.momentQualificationRoute === 'prior_test_similarity'
+      ? i.momentDesignBeamFlangeThickness <= 1.25 * i.momentTestBeamFlangeThickness
+      : i.momentQualificationRoute === 'third_party_review'
+        ? i.momentDesignBeamFlangeThickness <= 45 : true;
+    const qualificationPlasticRatioSimilarityPass = i.momentQualificationRoute !== 'prior_test_similarity'
+      || i.momentDesignFlangePlasticRatio >= i.momentTestFlangePlasticRatio;
+    const thirdPartyReviewPass = i.momentQualificationRoute !== 'third_party_review'
+      || i.momentThirdPartyReviewConfirmed;
+    const detailFlags = {
+      lrfdPass:i.designMethod === 'LRFD',
+      frameSystemPass:['smrf', 'imrf'].includes(i.momentFrameSystem),
+      axisPass:['x', 'y'].includes(i.momentAxis),
+      designRoutePass:i.momentConnectionDesignRoute === 'reinforced',
+      farCriticalMomentPass:Number.isFinite(MprFar) && MprFar >= 0,
+      expectedStrengthFactorPass:i.momentExpectedStrengthFactor >= 1,
+      beamFlangeCompactnessPass:i.momentBeamFlangeCompactnessRatio <= 1,
+      beamWebCompactnessPass:i.momentBeamWebCompactnessRatio <= 1,
+      beamFlangePlasticModulusPass:i.momentBeamFlangePlasticModulusRatio >= 0.7,
+      panelZoneThicknessPass:i.momentPanelZoneThickness >= panelThicknessRequired,
+      doublerAttachmentPass:!i.momentDoublerPresent || i.momentDoublerAttachmentConfirmed,
+      continuityPlateRequirementPass:!continuityRequired || i.momentContinuityPlateProvidedConfirmed,
+      continuityPlateWeldPass:!continuityRequired || i.momentContinuityPlateWeldConfirmed,
+      qualificationRoutePass,
+      qualificationTestCountPass,
+      qualificationThicknessSimilarityPass,
+      qualificationPlasticRatioSimilarityPass,
+      thirdPartyReviewPass,
+      qualificationConfigurationPass:i.momentQualificationConfigurationConfirmed,
+      qualificationMaterialPass:i.momentQualificationMaterialConfirmed,
+      qualificationWeldingPass:i.momentQualificationWeldingConfirmed,
+      qualificationGeometryPass:i.momentQualificationGeometryConfirmed,
+      qualificationFabricationPass:i.momentQualificationFabricationConfirmed,
+      qualificationProcedurePass:i.momentQualificationProcedureConfirmed,
+      plasticZoneGeometryPass:i.momentPlasticZoneGeometryConfirmed,
+      plasticZoneOpeningsPass:i.momentPlasticZoneOpeningsAbsentConfirmed,
+      seismicMaterialPass:i.momentSeismicMaterialConfirmed,
+      matchingWeldPass:i.momentMatchingWeldConfirmed,
+      cns3506WeldPass:i.momentCns3506WeldConfirmed,
+      endTabsPass:i.momentEndTabsRemovedGroundConfirmed,
+      weldProcedurePass:i.momentWeldProcedureMatchesQualificationConfirmed,
+      jointLateralRestraintPass:i.momentJointLateralRestraintConfirmed,
+      beamLateralBracingPass:i.momentBeamLateralBracingConfirmed,
+      allMembersIncludedPass:i.momentAllMembersIncludedConfirmed,
+      governingAxialPass:i.momentColumnStrengthsAtGoverningAxialConfirmed,
+      opposingDirectionsPass:i.momentOpposingDirectionsConfirmed,
+      orthogonalSeparatePass:i.momentOrthogonalDirectionSeparateConfirmed,
+      hardwareVerifiedPass:i.momentConnectionHardwareVerifiedConfirmed,
+      selectedAxisScopePass:i.momentSelectedAxisScopeConfirmed,
+      demandBasisPass:hasBasis(i.momentDemandBasis),
+      geometryBasisPass:hasBasis(i.momentGeometryBasis),
+      materialBasisPass:hasBasis(i.momentMaterialBasis),
+      capacityBasisPass:hasBasis(i.momentCapacityBasis),
+      panelZoneBasisPass:hasBasis(i.momentPanelZoneBasis),
+      strongColumnBasisPass:hasBasis(i.momentStrongColumnBasis),
+      qualificationBasisPass:hasBasis(i.momentQualificationBasis),
+      qualificationEvidenceShaPass:isSha256(i.momentQualificationEvidenceSha256),
+      capacityEvidenceShaPass:isSha256(i.momentCapacityEvidenceSha256),
+    };
+    const positiveValues = [
+      i.momentBeamPlasticModulus, i.momentBeamYieldStrength, i.momentExpectedStrengthFactor,
+      i.momentCriticalSectionDistance, i.momentPlasticHingeSpan,
+      i.momentAvailableFlexuralStrength, i.momentAvailableShearStrength,
+      i.momentQualifiedPlasticRotation, i.momentColumnWebYieldStrength, i.momentColumnDepth,
+      i.momentPanelZoneThickness, i.momentPanelZoneClearDepth, i.momentPanelZoneClearWidth,
+      i.momentPanelZoneAnalysisDemand, i.momentPanelZoneBeamMomentSum, i.momentPanelZoneLeverArm,
+      i.momentBeamFlangeWidth, i.momentBeamFlangeThickness,
+      i.momentColumnFlangeLocalNominalStrength, i.momentDesignBeamFlangeThickness,
+      i.momentTestBeamFlangeThickness, i.momentDesignFlangePlasticRatio,
+      i.momentTestFlangePlasticRatio,
+    ];
+    const derivedValues = [
+      Mp, Mpr, Vp, MuFace, VuRequired, rotationDemand, VpzMin, VpzRequired,
+      VpzNominal, panelThicknessRequired, continuityThreshold, scwbCw, scwbCcw,
+    ];
+    const validationFailure = !(Number.isFinite(MprFar) && MprFar >= 0)
+      || positiveValues.some(value => !(Number.isFinite(value) && value > 0))
+      || derivedValues.some(value => !(Number.isFinite(value) && value > 0));
+    const strengthRatios = [
+      flexuralRatio, shearRatio, rotationRatio, panelZoneRatio, scwbCwRatio, scwbCcwRatio,
+    ];
+    const strengthPass = strengthRatios.every(value => Number.isFinite(value) && value <= 1);
+    const detailPass = Object.values(detailFlags).every(Boolean);
+    return {
+      sourceFieldCount:88,
+      checkCount:6,
+      Mp, Mpr, MprFar, Vp, MuFace, VuRequired, rotationDemand,
+      qualifiedRotation:i.momentQualifiedPlasticRotation,
+      VpzMin, VpzRequired, VpzNominal, VpzAvailable,
+      panelThicknessRequired, continuityThreshold,
+      continuityRequired:bool(continuityRequired), scwbCw, scwbCcw,
+      flexuralRatio, shearRatio, rotationRatio, panelZoneRatio, scwbCwRatio, scwbCcwRatio,
+      ...Object.fromEntries(Object.entries(detailFlags).map(([key, value]) => [key, bool(value)])),
+      strengthPass:bool(strengthPass),
+      detailPass:bool(detailPass),
+      validationFailure:bool(validationFailure),
+      complianceReady:1,
+      completeJointDesign:0,
+      passes:bool(strengthPass && detailPass && !validationFailure),
+    };
+  };
+
+  const spliceCase = i => {
+    const bool = value => value ? 1 : 0;
+    const hasBasis = value => Boolean(String(value || '').trim())
+      && !/示例|請依專案覆寫|請填|待補|未填|placeholder/i.test(String(value));
+    const isSha256 = value => /^[a-f0-9]{64}$/i.test(String(value || ''));
+    const loadInputsFinite = [i.spliceDeadAxial, i.spliceLiveAxial, i.spliceSeismicAxial]
+      .every(value => Number.isFinite(value));
+    const liveFactorValid = i.spliceLiveLoadFactor === 0.5 || i.spliceLiveLoadFactor === 1;
+    const seismicFactorValid = Number.isFinite(i.spliceSeismicReductionFu)
+      && i.spliceSeismicReductionFu > 0 && i.spliceSeismicReductionFu <= 2.5;
+    const seismicInputValid = Number.isFinite(i.spliceSeismicAxial);
+    const EampRaw = 1.4 * i.spliceSeismicReductionFu * Math.abs(i.spliceSeismicAxial);
+    const qualifiedTransferCap = i.spliceTransferCapRoute === 'qualified';
+    const qualifiedTransferCapValid = qualifiedTransferCap
+      && Number.isFinite(i.spliceMaxTransferableAxial)
+      && i.spliceMaxTransferableAxial > 0
+      && i.spliceAllAdjacentTransferSourcesIncludedConfirmed;
+    const EampAdopted = qualifiedTransferCapValid
+      ? Math.min(EampRaw, 1.25 * i.spliceMaxTransferableAxial)
+      : EampRaw;
+    const compressionBase = 1.2 * i.spliceDeadAxial + i.spliceLiveLoadFactor * i.spliceLiveAxial;
+    const tensionBase = 0.9 * i.spliceDeadAxial;
+    const compressionPlus = compressionBase + EampAdopted;
+    const compressionMinus = compressionBase - EampAdopted;
+    const tensionPlus = tensionBase + EampAdopted;
+    const tensionMinus = tensionBase - EampAdopted;
+    const PuCompression = Math.max(0, -compressionPlus, -compressionMinus);
+    const TuTension = Math.max(0, tensionPlus, tensionMinus);
+
+    const normalNominal = i.spliceFy * i.spliceAg / 1000;
+    const normalCapacity = 0.9 * normalNominal;
+    const majorFlexuralNominal = i.spliceFy * i.spliceZx / 1e6;
+    const majorFlexuralCapacity = 0.9 * majorFlexuralNominal;
+    const minorFlexuralNominal = i.spliceFy * i.spliceZy / 1e6;
+    const minorFlexuralCapacity = 0.9 * minorFlexuralNominal;
+    const majorShearBaseCapacity = 0.9 * 0.6 * i.spliceFy * i.spliceAvx / 1000;
+    const majorShearWeldCapacity = 0.8 * 0.6 * i.spliceFexx * i.spliceAvx / 1000;
+    const majorShearCapacity = Math.min(majorShearBaseCapacity, majorShearWeldCapacity);
+    const minorShearBaseCapacity = 0.9 * 0.6 * i.spliceFy * i.spliceAvy / 1000;
+    const minorShearWeldCapacity = 0.8 * 0.6 * i.spliceFexx * i.spliceAvy / 1000;
+    const minorShearCapacity = Math.min(minorShearBaseCapacity, minorShearWeldCapacity);
+    const strengthRatios = {
+      axialCompressionRatio:PuCompression / normalCapacity,
+      axialTensionRatio:TuTension / normalCapacity,
+      normalRatio:normalCapacity / normalCapacity,
+      majorFlexuralRatio:majorFlexuralCapacity / majorFlexuralCapacity,
+      minorFlexuralRatio:minorFlexuralCapacity / minorFlexuralCapacity,
+      majorShearRatio:majorShearBaseCapacity / majorShearCapacity,
+      minorShearRatio:minorShearBaseCapacity / minorShearCapacity,
+    };
+
+    const evidenceComplete = [
+      i.spliceDemandBasis, i.spliceGeometryBasis, i.spliceMaterialBasis,
+      i.spliceWpsBasis, i.spliceNdtPlanBasis,
+    ].every(hasBasis) && [
+      i.spliceDemandEvidenceSha256, i.spliceDetailEvidenceSha256,
+      i.spliceWpsEvidenceSha256, i.spliceNdtPlanEvidenceSha256,
+    ].every(isSha256);
+    const cjpRouteComplete = i.spliceDesignRoute === 'cjp_full_section_identical_rolled_h'
+      && i.spliceFullProfileCjpConfirmed && i.spliceNoPjpConfirmed
+      && i.spliceNoMixedLoadSharingConfirmed;
+    const topologyComplete = i.spliceIdenticalSectionsAndMaterialConfirmed && i.spliceAlignedAxesConfirmed;
+    const locationComplete = i.spliceLocationRoute === 'beam_flange_1200'
+      && i.spliceDistanceToNearestBeamFlange >= 1200 && i.spliceLocationScopeConfirmed;
+    const seismicColumnComplete = i.spliceFrameRole === 'seismic_force_resisting'
+      && i.spliceSeismicColumnConfirmed;
+    const matchingFillerComplete = i.spliceMatchingFillerConfirmed
+      && majorShearWeldCapacity >= majorShearBaseCapacity
+      && minorShearWeldCapacity >= minorShearBaseCapacity;
+    const wpsComplete = i.spliceWpsApprovedConfirmed
+      && hasBasis(i.spliceWpsBasis) && isSha256(i.spliceWpsEvidenceSha256);
+    const ndtPlanComplete = ['shop', 'field'].includes(i.spliceFabricationLocation)
+      && ['UT', 'RT'].includes(i.spliceNdtMethod)
+      && i.spliceNdtFullCoverageConfirmed
+      && hasBasis(i.spliceNdtPlanBasis) && isSha256(i.spliceNdtPlanEvidenceSha256);
+    const loadInputsComplete = loadInputsFinite && liveFactorValid
+      && seismicFactorValid && seismicInputValid;
+    const transferCapComplete = ['uncapped', 'qualified'].includes(i.spliceTransferCapRoute)
+      && (!qualifiedTransferCap || qualifiedTransferCapValid);
+    const detailFlags = {
+      lrfdPass:i.designMethod === 'LRFD',
+      seismicColumnPass:seismicColumnComplete,
+      cjpRoutePass:cjpRouteComplete,
+      topologyPass:topologyComplete,
+      locationPass:locationComplete,
+      nonJumboPass:i.spliceMaxThickness > 0 && i.spliceMaxThickness <= 40,
+      loadInputsPass:loadInputsComplete,
+      transferCapPass:transferCapComplete,
+      matchingFillerPass:matchingFillerComplete,
+      wpsPass:wpsComplete,
+      ndtPlanPass:ndtPlanComplete,
+      evidencePass:evidenceComplete,
+      asBuiltBoundaryPass:i.spliceAsBuiltBoundaryConfirmed,
+    };
+    const positiveInputs = [
+      i.spliceAg, i.spliceZx, i.spliceZy, i.spliceAvx, i.spliceAvy,
+      i.spliceFy, i.spliceFexx, i.spliceMaxThickness,
+      i.spliceDistanceToNearestBeamFlange,
+    ];
+    const derivedNonnegative = [EampRaw, EampAdopted, PuCompression, TuTension];
+    const derivedPositive = [
+      normalCapacity, majorFlexuralCapacity, minorFlexuralCapacity,
+      majorShearCapacity, minorShearCapacity,
+    ];
+    const validationFailure = !loadInputsComplete
+      || positiveInputs.some(value => !(Number.isFinite(value) && value > 0))
+      || (qualifiedTransferCap && !qualifiedTransferCapValid)
+      || derivedNonnegative.some(value => !(Number.isFinite(value) && value >= 0))
+      || derivedPositive.some(value => !(Number.isFinite(value) && value > 0));
+    const strengthPass = Object.values(strengthRatios)
+      .every(value => Number.isFinite(value) && value <= 1);
+    const detailPass = Object.values(detailFlags).every(Boolean);
+    return {
+      sourceFieldCount:49,
+      checkCount:7,
+      EampRaw, EampAdopted,
+      transferCapApplied:bool(qualifiedTransferCapValid && EampAdopted < EampRaw),
+      compressionPlus, compressionMinus, tensionPlus, tensionMinus,
+      PuCompression, TuTension,
+      normalNominal, normalCapacity,
+      majorFlexuralNominal, majorFlexuralCapacity,
+      minorFlexuralNominal, minorFlexuralCapacity,
+      majorShearBaseCapacity, majorShearWeldCapacity, majorShearCapacity,
+      minorShearBaseCapacity, minorShearWeldCapacity, minorShearCapacity,
+      ...strengthRatios,
+      ...Object.fromEntries(Object.entries(detailFlags).map(([key, value]) => [key, bool(value)])),
+      strengthPass:bool(strengthPass),
+      detailPass:bool(detailPass),
+      validationFailure:bool(validationFailure),
+      complianceReady:1,
+      completeJointDesign:0,
+      completeColumnMemberDesign:0,
+      asBuiltAcceptance:0,
+      passes:bool(strengthPass && detailPass && !validationFailure),
+    };
+  };
+
   return {
     [input.plateCase.id]:plateCase(input.plateCase),
     ...Object.fromEntries(input.tensionCases.map(item => [item.id, tensionCase(item)])),
     ...Object.fromEntries(input.singlePlateCases.map(item => [item.id, singlePlateCase(item)])),
     ...Object.fromEntries(input.gussetCases.map(item => [item.id, gussetCase(item)])),
+    ...Object.fromEntries(input.momentCases.map(item => [item.id, momentCase(item)])),
+    ...Object.fromEntries(input.spliceCases.map(item => [item.id, spliceCase(item)])),
   };
 }
 

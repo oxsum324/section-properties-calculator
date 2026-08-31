@@ -1,7 +1,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const { validateCatalog, runBenchmarks } = require('./independent-engineering-benchmarks.js');
+const { ORACLES, validateCatalog, runBenchmarks } = require('./independent-engineering-benchmarks.js');
 
 const toolsRoot = __dirname;
 const catalogPath = path.join(toolsRoot, 'independent-engineering-benchmarks.catalog.json');
@@ -122,10 +122,27 @@ assert.ok(steelFormalAdapterSource.includes("<option value=\"plate_check\">"), '
 assert.ok(steelFormalAdapterSource.includes("<option value=\"tension_member\">"), 'steel formal adapter locks the main-page tension-member route');
 assert.ok(steelFormalAdapterSource.includes("<option value=\"single_plate\">"), 'steel formal adapter locks the main-page single-plate route');
 assert.ok(steelFormalAdapterSource.includes("<option value=\"brace_gusset\">"), 'steel formal adapter locks the main-page Gusset route');
+assert.ok(steelFormalAdapterSource.includes("<option value=\"beam_column_moment\">"), 'steel formal adapter locks the enabled main-page beam-column moment route');
+assert.ok(steelFormalAdapterSource.includes("<option value=\"column_splice\">"), 'steel formal adapter locks the enabled main-page full-section CJP column-splice route');
 assert.ok(steelFormalAdapterSource.includes('calculateSinglePlateCase'), 'steel formal adapter extracts production single-plate checks');
 assert.ok(steelFormalAdapterSource.includes('singlePlateCases'), 'steel formal adapter requires the five single-plate benchmark cases');
 assert.ok(steelFormalAdapterSource.includes('calculateGussetCase'), 'steel formal adapter extracts production Gusset checks');
 assert.ok(steelFormalAdapterSource.includes('gussetCases'), 'steel formal adapter requires the five Gusset benchmark cases');
+assert.ok(steelFormalAdapterSource.includes('calculateMomentCase'), 'steel formal adapter extracts the production beam-column moment review');
+assert.ok(steelFormalAdapterSource.includes('momentCases'), 'steel formal adapter requires the six fixed moment benchmark cases');
+assert.ok(steelFormalAdapterSource.includes('MOMENT_SOURCE_FIELDS.length !== 88'), 'steel formal adapter fail-closes the 88-field moment source contract');
+assert.ok(steelFormalAdapterSource.includes('productionMomentSourceFields.join'), 'steel formal adapter compares its moment shape with the production UI source contract');
+assert.ok(steelFormalAdapterSource.includes('exact-88-source-field-shape-required'), 'steel formal adapter fail-closes the exact moment input shape');
+assert.ok(steelFormalAdapterSource.includes('calculateSpliceCase'), 'steel formal adapter extracts the production full-section CJP column-splice review');
+assert.ok(steelFormalAdapterSource.includes('spliceCases'), 'steel formal adapter requires the six fixed column-splice benchmark cases');
+assert.ok(steelFormalAdapterSource.includes('SPLICE_SOURCE_FIELDS.length !== 49'), 'steel formal adapter fail-closes the 49-field column-splice source contract');
+assert.ok(steelFormalAdapterSource.includes('productionSpliceSourceFields.join'), 'steel formal adapter compares its column-splice shape with the production UI source contract');
+const legacySpliceTopologyField = ['spliceIdenticalSections', 'Confirmed'].join('');
+assert.ok(
+  steelFormalAdapterSource.includes('spliceIdenticalSectionsAndMaterialConfirmed')
+    && !steelFormalAdapterSource.includes(legacySpliceTopologyField),
+  'steel formal adapter locks the combined identical-section-and-material confirmation field name'
+);
 for (const detailKey of [
   'singlePlateBoltDiameterTable', 'singlePlateHoleDiameter', 'singlePlateStandardHoleMaximum',
   'singlePlateBoltEccentricity', 'singlePlateWeldEccentricity',
@@ -133,6 +150,35 @@ for (const detailKey of [
   'singlePlatePlateMaterialOrder', 'singlePlateBeamWebMaterialOrder', 'singlePlateSupportMaterialOrder',
   'singlePlateConventionalPlateFy', 'singlePlateConventionalBeamWebFy', 'singlePlateConventionalMaterialConfirmed',
   'singlePlateConventionalPitch', 'singlePlateConventionalHeight',
+]) {
+  assert.ok(steelFormalAdapterSource.includes(detailKey), `steel formal adapter extracts ${detailKey}`);
+}
+for (const strengthKey of [
+  'spliceAxialCompression13_4_1', 'spliceAxialTension13_4_1', 'spliceFullSectionNormal',
+  'spliceFullSectionMajorFlexure', 'spliceFullSectionMinorFlexure',
+  'spliceFullSectionMajorShear', 'spliceFullSectionMinorShear',
+]) {
+  assert.ok(steelFormalAdapterSource.includes(strengthKey), `steel formal adapter extracts fixed column-splice strength key ${strengthKey}`);
+}
+for (const detailKey of [
+  'spliceLrfdMethod', 'spliceSeismicColumn', 'spliceCjpRoute', 'spliceTopologyScope',
+  'spliceLocation1200', 'spliceNonJumbo', 'spliceLoadInputs', 'spliceTransferCap',
+  'spliceMatchingFiller', 'spliceWps', 'spliceNdtPlan', 'spliceEvidence', 'spliceAsBuiltBoundary',
+]) {
+  assert.ok(steelFormalAdapterSource.includes(detailKey), `steel formal adapter extracts fixed column-splice detail key ${detailKey}`);
+}
+for (const strengthKey of [
+  'momentFlexuralStrength', 'momentShearStrength', 'momentPlasticRotation',
+  'momentPanelZoneShear', 'momentStrongColumnCw', 'momentStrongColumnCcw',
+]) {
+  assert.ok(steelFormalAdapterSource.includes(strengthKey), `steel formal adapter extracts ${strengthKey}`);
+}
+for (const detailKey of [
+  'momentFarCriticalSectionExpectedMoment', 'momentPanelZoneThickness',
+  'momentContinuityPlateRequirement', 'momentQualificationThicknessSimilarity',
+  'momentQualificationPlasticRatioSimilarity', 'momentThirdPartyReviewConfirmed',
+  'momentConnectionHardwareVerifiedConfirmed', 'momentSelectedAxisScopeConfirmed',
+  'momentQualificationEvidenceSha256', 'momentCapacityEvidenceSha256',
 ]) {
   assert.ok(steelFormalAdapterSource.includes(detailKey), `steel formal adapter extracts ${detailKey}`);
 }
@@ -327,6 +373,297 @@ assert.ok(
     && rejectedGusset.gussetModelBasis === '請依專案覆寫',
   'Gusset governance-rejection case fails both confirmations and all four non-placeholder basis gates'
 );
+assert.deepEqual(
+  steelFormalBenchmark.input.momentCases.map(item => item.id),
+  [
+    'momentPriorTestSmrfPass', 'momentPanelZoneFail', 'momentRotationFail',
+    'momentScwbFail', 'momentThirdPartyThicknessFail', 'momentGovernanceRejected',
+  ],
+  'steel formal benchmark locks the fixed prior-test, Panel Zone, rotation, SCWB, third-party and governance moment cases'
+);
+for (const item of steelFormalBenchmark.input.momentCases) {
+  assert.equal(Object.keys(item).length, 89, `${item.id} contains id plus the exact 88-field production source contract`);
+  assert.ok(
+    item.connectionType === 'beam_column_moment'
+      && ['painted', 'weathering'].includes(item.exposureCondition)
+      && ['projectName', 'connectionTag', 'designer', 'notes'].every(key => typeof item[key] === 'string')
+      && !['boltDiameter', 'holeDiameter', 'eccentricity'].some(key => Object.hasOwn(item, key)),
+    `${item.id} carries the six common source fields and excludes legacy bolt, hole and eccentricity fields`
+  );
+}
+const momentPositive = steelFormalBenchmark.input.momentCases[0];
+assert.deepEqual(
+  {
+    designMethod:momentPositive.designMethod,
+    frameSystem:momentPositive.momentFrameSystem,
+    axis:momentPositive.momentAxis,
+    designRoute:momentPositive.momentConnectionDesignRoute,
+    rotationMethod:momentPositive.momentRotationDemandMethod,
+    qualificationRoute:momentPositive.momentQualificationRoute,
+    MprFar:momentPositive.momentFarCriticalSectionExpectedMoment,
+  },
+  {
+    designMethod:'LRFD', frameSystem:'smrf', axis:'x', designRoute:'reinforced',
+    rotationMethod:'default', qualificationRoute:'prior_test_similarity', MprFar:770,
+  },
+  'moment positive case locks the reinforced single-axis SMRF prior-test route and explicit far-end expected moment'
+);
+assert.deepEqual(
+  {
+    cwColumns:[momentPositive.momentCwUpperColumnMoment, momentPositive.momentCwLowerColumnMoment],
+    cwBeamTerms:[momentPositive.momentCwLeftBeamMoment, momentPositive.momentCwRightBeamMoment],
+    ccwColumns:[momentPositive.momentCcwUpperColumnMoment, momentPositive.momentCcwLowerColumnMoment],
+    ccwBeamTerms:[momentPositive.momentCcwLeftBeamMoment, momentPositive.momentCcwRightBeamMoment],
+  },
+  {
+    cwColumns:[1200, 1100], cwBeamTerms:[840, 830],
+    ccwColumns:[1220, 1120], ccwBeamTerms:[850, 825],
+  },
+  'moment reference case locks physically sourced CW/CCW column terms and each ZbFyb plus Vp-x beam term'
+);
+assert.ok(
+  ['ZbFyb=700', 'Vp·x=132', '(708+132)=840', '(698+132)=830', '(718+132)=850', '(693+132)=825']
+    .every(token => momentPositive.momentStrongColumnBasis.includes(token)),
+  'moment reference basis explicitly decomposes every beam term into ZbFyb plus Vp-x'
+);
+assert.ok(
+  Math.abs((momentPositive.momentBeamPlasticModulus * momentPositive.momentBeamYieldStrength / 1e6) - 700) <= 1e-12
+    && Math.abs(((1.1 * 700 + 770) * 1000 / 3500) * 300 / 1000 - 132) <= 1e-12,
+  'moment reference case independently derives ZbFyb=700 and Vp-x=132 kN-m'
+);
+const momentPanelFail = steelFormalBenchmark.input.momentCases[1];
+const momentPanelRequired = Math.max(
+  momentPanelFail.momentPanelZoneAnalysisDemand,
+  momentPanelFail.momentPanelZoneBeamMomentSum * 1000 / momentPanelFail.momentPanelZoneLeverArm,
+);
+const momentPanelAvailable = 0.6 * momentPanelFail.momentColumnWebYieldStrength
+  * momentPanelFail.momentColumnDepth * momentPanelFail.momentPanelZoneThickness / 1000;
+assert.ok(momentPanelAvailable < momentPanelRequired, 'moment Panel Zone case isolates an understrength panel-zone branch');
+assert.ok(
+  steelFormalBenchmark.input.momentCases[2].momentQualifiedPlasticRotation < 0.03,
+  'moment rotation case supplies less than the default SMRF plastic-rotation demand'
+);
+const momentScwbFail = steelFormalBenchmark.input.momentCases[3];
+assert.ok(
+  (momentScwbFail.momentCwUpperColumnMoment + momentScwbFail.momentCwLowerColumnMoment)
+      / (momentScwbFail.momentCwLeftBeamMoment + momentScwbFail.momentCwRightBeamMoment) < 1.25
+    && (momentScwbFail.momentCcwUpperColumnMoment + momentScwbFail.momentCcwLowerColumnMoment)
+      / (momentScwbFail.momentCcwLeftBeamMoment + momentScwbFail.momentCcwRightBeamMoment) < 1.25,
+  'moment SCWB case rejects both clockwise and counterclockwise ratios after near-threshold recalibration'
+);
+assert.deepEqual(
+  {
+    cwColumns:[momentScwbFail.momentCwUpperColumnMoment, momentScwbFail.momentCwLowerColumnMoment],
+    cwBeamTerms:[momentScwbFail.momentCwLeftBeamMoment, momentScwbFail.momentCwRightBeamMoment],
+    ccwColumns:[momentScwbFail.momentCcwUpperColumnMoment, momentScwbFail.momentCcwLowerColumnMoment],
+    ccwBeamTerms:[momentScwbFail.momentCcwLeftBeamMoment, momentScwbFail.momentCcwRightBeamMoment],
+  },
+  {
+    cwColumns:[1050, 1000], cwBeamTerms:[840, 830],
+    ccwColumns:[1060, 1010], ccwBeamTerms:[850, 825],
+  },
+  'moment SCWB failure keeps the physical beam terms and changes only column terms'
+);
+assert.ok(
+  steelFormalBenchmark.input.momentCases[4].momentQualificationRoute === 'third_party_review'
+    && steelFormalBenchmark.input.momentCases[4].momentDesignBeamFlangeThickness > 45,
+  'moment third-party case isolates the 45 mm flange-thickness cap'
+);
+const momentRoofNode = steelFormalBenchmark.input.momentCases[4];
+assert.ok(
+  momentRoofNode.momentCwUpperColumnMoment === 0
+    && momentRoofNode.momentCcwUpperColumnMoment === 0
+    && momentRoofNode.momentCwLowerColumnMoment > 0
+    && momentRoofNode.momentCcwLowerColumnMoment > 0
+    && momentRoofNode.momentCwLeftBeamMoment + momentRoofNode.momentCwRightBeamMoment > 0
+    && momentRoofNode.momentCcwLeftBeamMoment + momentRoofNode.momentCcwRightBeamMoment > 0,
+  'moment third-party case is a legal roof node with zero upper-column items and positive directional sums'
+);
+const momentGovernance = steelFormalBenchmark.input.momentCases[5];
+assert.ok(
+  [
+    'momentDemandBasis', 'momentGeometryBasis', 'momentMaterialBasis', 'momentCapacityBasis',
+    'momentPanelZoneBasis', 'momentStrongColumnBasis', 'momentQualificationBasis',
+  ].every(key => momentGovernance[key] === '請依專案覆寫')
+    && !/^[a-f0-9]{64}$/i.test(momentGovernance.momentQualificationEvidenceSha256)
+    && !/^[a-f0-9]{64}$/i.test(momentGovernance.momentCapacityEvidenceSha256)
+    && momentGovernance.momentConnectionHardwareVerifiedConfirmed === false
+    && momentGovernance.momentSelectedAxisScopeConfirmed === false,
+  'moment governance case fails all basis, both SHA-256, hardware and selected-axis gates'
+);
+const steelFormalAdapter = require(path.join(toolsRoot, 'independent-engineering-adapters', 'steel-formal.js'));
+assert.deepEqual(
+  steelFormalAdapter.validateInput(steelFormalBenchmark.input),
+  [],
+  'steel formal adapter accepts legal zero SCWB member items when each directional sum remains positive'
+);
+const momentProductionCases = steelFormalAdapter.calculate(steelFormalBenchmark.input);
+const momentOracleCases = ORACLES['steel-formal-strength'](steelFormalBenchmark.input);
+assert.deepEqual(
+  {
+    productionCw:momentProductionCases.momentThirdPartyThicknessFail.scwbCw,
+    productionCcw:momentProductionCases.momentThirdPartyThicknessFail.scwbCcw,
+    productionValidation:momentProductionCases.momentThirdPartyThicknessFail.validationFailure,
+  },
+  {
+    productionCw:momentOracleCases.momentThirdPartyThicknessFail.scwbCw,
+    productionCcw:momentOracleCases.momentThirdPartyThicknessFail.scwbCcw,
+    productionValidation:momentOracleCases.momentThirdPartyThicknessFail.validationFailure,
+  },
+  'legal roof-node zero SCWB items agree between the production adapter and independent oracle without validation drift'
+);
+assert.equal(momentProductionCases.momentThirdPartyThicknessFail.validationFailure, 0, 'legal roof-node zero SCWB items do not create a production validation failure');
+assert.equal(momentProductionCases.momentPriorTestSmrfPass.sourceFieldCount, 88, 'production adapter reports the exact 88-field moment source contract');
+assert.equal(momentOracleCases.momentPriorTestSmrfPass.sourceFieldCount, 88, 'independent oracle reports the exact 88-field moment source contract');
+const momentStrengthRatioKeys = [
+  'flexuralRatio', 'shearRatio', 'rotationRatio', 'panelZoneRatio', 'scwbCwRatio', 'scwbCcwRatio',
+];
+const failingMomentStrengthRatios = id => momentStrengthRatioKeys
+  .filter(key => momentProductionCases[id][key] > 1);
+assert.deepEqual(failingMomentStrengthRatios('momentPriorTestSmrfPass'), [], 'moment reference case passes all six strength ratios');
+assert.deepEqual(failingMomentStrengthRatios('momentPanelZoneFail'), ['panelZoneRatio'], 'moment Panel Zone case isolates only Panel Zone strength');
+assert.deepEqual(failingMomentStrengthRatios('momentRotationFail'), ['rotationRatio'], 'moment rotation case isolates only qualified plastic rotation');
+assert.deepEqual(failingMomentStrengthRatios('momentScwbFail'), ['scwbCwRatio', 'scwbCcwRatio'], 'moment SCWB case isolates only the two required loading directions');
+const momentDetailGateKeys = Object.keys(momentProductionCases.momentPriorTestSmrfPass)
+  .filter(key => key.endsWith('Pass') && !['strengthPass', 'detailPass'].includes(key));
+assert.deepEqual(
+  momentDetailGateKeys.filter(key => momentProductionCases.momentThirdPartyThicknessFail[key] === 0),
+  ['qualificationThicknessSimilarityPass'],
+  'moment third-party case keeps the legal zero-item node and isolates only the 45 mm qualification thickness gate'
+);
+const strictMomentShapeMutation = structuredClone(steelFormalBenchmark.input);
+strictMomentShapeMutation.momentCases[0].unexpectedMomentField = 1;
+assert.ok(
+  steelFormalAdapter.validateInput(strictMomentShapeMutation).some(issue => issue.includes('exact-88-source-field-shape-required')),
+  'steel formal adapter rejects extra moment input fields instead of silently accepting shape drift'
+);
+const missingMomentShapeMutation = structuredClone(steelFormalBenchmark.input);
+delete missingMomentShapeMutation.momentCases[0].momentDemandBasis;
+assert.ok(
+  steelFormalAdapter.validateInput(missingMomentShapeMutation).some(issue => issue.includes('exact-88-source-field-shape-required')),
+  'steel formal adapter rejects missing moment source fields instead of silently accepting shape drift'
+);
+const runnerSourceForMoment = fs.readFileSync(runnerPath, 'utf8');
+const momentOracleStart = runnerSourceForMoment.indexOf('const momentCase = i => {', runnerSourceForMoment.indexOf('function steelFormalOracle'));
+const momentOracleEnd = runnerSourceForMoment.indexOf('\n  return {', momentOracleStart);
+const momentOracleSource = runnerSourceForMoment.slice(momentOracleStart, momentOracleEnd);
+assert.ok(momentOracleStart > 0 && momentOracleEnd > momentOracleStart, 'steel formal oracle exposes a dedicated independent moment branch');
+assert.ok(momentOracleSource.includes('const Vp = (Mpr + MprFar) * 1000 / i.momentPlasticHingeSpan;'), 'moment oracle independently locks the two-end plastic-hinge shear equation');
+assert.ok(momentOracleSource.includes('const VpzNominal = 0.6 * i.momentColumnWebYieldStrength'), 'moment oracle independently locks the Panel Zone nominal shear equation');
+assert.ok(momentOracleSource.includes('sourceFieldCount:88'), 'moment oracle independently reports the exact production source field count');
+assert.ok(!momentOracleSource.includes('i.holeDiameter') && !momentOracleSource.includes('i.boltDiameter') && !momentOracleSource.includes('i.eccentricity'), 'moment oracle does not retain legacy common bolt, hole or eccentricity dependencies');
+assert.ok(!momentOracleSource.includes('calculateConnection') && !momentOracleSource.includes('productionCorePath') && !momentOracleSource.includes('golden'), 'moment oracle does not call production or replay golden answers');
+assert.deepEqual(
+  steelFormalBenchmark.input.spliceCases.map(item => item.id),
+  [
+    'spliceUncappedReferencePass', 'spliceQualifiedCapPass', 'spliceAxialDemandFail',
+    'spliceWeakFillerShearFail', 'spliceLocationNdtEvidenceFail', 'spliceGovernanceFuRejected',
+  ],
+  'steel formal benchmark locks uncapped, qualified-cap, axial, filler, detail-evidence and governance column-splice cases'
+);
+assert.ok(
+  steelFormalBenchmark.input.spliceCases.every(item => Object.keys(item).length === 50
+    && Object.keys(item).filter(key => key !== 'id').length === 49),
+  'each column-splice case contains exactly the 49 production source fields plus one benchmark id'
+);
+const spliceReference = steelFormalBenchmark.input.spliceCases[0];
+const spliceReferenceEamp = 1.4 * spliceReference.spliceSeismicReductionFu * Math.abs(spliceReference.spliceSeismicAxial);
+const spliceReferenceCompressionBase = 1.2 * spliceReference.spliceDeadAxial
+  + spliceReference.spliceLiveLoadFactor * spliceReference.spliceLiveAxial;
+const spliceReferenceTensionBase = 0.9 * spliceReference.spliceDeadAxial;
+assert.deepEqual(
+  {
+    Eamp:spliceReferenceEamp,
+    compressionPlus:spliceReferenceCompressionBase + spliceReferenceEamp,
+    compressionMinus:spliceReferenceCompressionBase - spliceReferenceEamp,
+    tensionPlus:spliceReferenceTensionBase + spliceReferenceEamp,
+    tensionMinus:spliceReferenceTensionBase - spliceReferenceEamp,
+  },
+  { Eamp:839.9999999999999, compressionPlus:19.999999999999886, compressionMinus:-1660, tensionPlus:299.9999999999999, tensionMinus:-1380 },
+  'uncapped column-splice reference locks the signed 13.4.1 compression and tension combinations'
+);
+assert.deepEqual(
+  {
+    normal:0.9 * spliceReference.spliceFy * spliceReference.spliceAg / 1000,
+    majorFlexure:0.9 * spliceReference.spliceFy * spliceReference.spliceZx / 1e6,
+    minorFlexure:0.9 * spliceReference.spliceFy * spliceReference.spliceZy / 1e6,
+    majorShear:Math.min(
+      0.9 * 0.6 * spliceReference.spliceFy * spliceReference.spliceAvx / 1000,
+      0.8 * 0.6 * spliceReference.spliceFexx * spliceReference.spliceAvx / 1000,
+    ),
+    minorShear:Math.min(
+      0.9 * 0.6 * spliceReference.spliceFy * spliceReference.spliceAvy / 1000,
+      0.8 * 0.6 * spliceReference.spliceFexx * spliceReference.spliceAvy / 1000,
+    ),
+  },
+  { normal:9315, majorFlexure:1552.5, minorFlexure:621, majorShear:1863, minorShear:2235.6 },
+  'uncapped column-splice reference locks full-section CJP normal, biaxial flexural and biaxial shear capacities'
+);
+const spliceQualified = steelFormalBenchmark.input.spliceCases[1];
+assert.equal(
+  Math.min(1.4 * spliceQualified.spliceSeismicReductionFu * Math.abs(spliceQualified.spliceSeismicAxial), 1.25 * spliceQualified.spliceMaxTransferableAxial),
+  625,
+  'qualified column-splice case is controlled by 1.25 times the evidenced transferable axial capacity'
+);
+const spliceAxialFail = steelFormalBenchmark.input.spliceCases[2];
+assert.ok(
+  Math.max(0,
+    -(1.2 * spliceAxialFail.spliceDeadAxial + spliceAxialFail.spliceLiveLoadFactor * spliceAxialFail.spliceLiveAxial + 1.4 * spliceAxialFail.spliceSeismicReductionFu * Math.abs(spliceAxialFail.spliceSeismicAxial)),
+    -(1.2 * spliceAxialFail.spliceDeadAxial + spliceAxialFail.spliceLiveLoadFactor * spliceAxialFail.spliceLiveAxial - 1.4 * spliceAxialFail.spliceSeismicReductionFu * Math.abs(spliceAxialFail.spliceSeismicAxial)),
+  ) > 0.9 * spliceAxialFail.spliceFy * spliceAxialFail.spliceAg / 1000,
+  'column-splice axial failure case exceeds the full-section CJP normal capacity'
+);
+const spliceWeakFiller = steelFormalBenchmark.input.spliceCases[3];
+assert.ok(0.8 * spliceWeakFiller.spliceFexx < 0.9 * spliceWeakFiller.spliceFy, 'column-splice filler failure case makes weld shear weaker than the base full section');
+const spliceDetailFail = steelFormalBenchmark.input.spliceCases[4];
+assert.ok(
+  spliceDetailFail.spliceDistanceToNearestBeamFlange < 1200
+    && spliceDetailFail.spliceNdtFullCoverageConfirmed === false
+    && spliceDetailFail.spliceNdtPlanBasis === '請依專案覆寫'
+    && !/^[a-f0-9]{64}$/i.test(spliceDetailFail.spliceNdtPlanEvidenceSha256),
+  'column-splice detail case fails location, full-coverage NDT and controlled evidence together'
+);
+const spliceGovernance = steelFormalBenchmark.input.spliceCases[5];
+assert.ok(
+  spliceGovernance.spliceSeismicReductionFu > 2.5
+    && ['spliceDemandBasis', 'spliceGeometryBasis', 'spliceMaterialBasis', 'spliceWpsBasis', 'spliceNdtPlanBasis']
+      .every(key => spliceGovernance[key] === '請依專案覆寫')
+    && ['spliceDemandEvidenceSha256', 'spliceDetailEvidenceSha256', 'spliceWpsEvidenceSha256', 'spliceNdtPlanEvidenceSha256']
+      .every(key => !/^[a-f0-9]{64}$/i.test(spliceGovernance[key]))
+    && spliceGovernance.spliceWpsApprovedConfirmed === false
+    && spliceGovernance.spliceNdtFullCoverageConfirmed === false
+    && spliceGovernance.spliceAsBuiltBoundaryConfirmed === false,
+  'column-splice governance case rejects Fu above 2.5 and incomplete controlled evidence, WPS, NDT and attachment boundary'
+);
+const strictSpliceShapeMutation = structuredClone(steelFormalBenchmark.input);
+strictSpliceShapeMutation.spliceCases[0].unexpectedSpliceField = 1;
+assert.ok(
+  steelFormalAdapter.validateInput(strictSpliceShapeMutation).some(issue => issue.includes('exact-49-source-field-shape-required')),
+  'steel formal adapter rejects extra column-splice fields instead of silently accepting source-shape drift'
+);
+const missingSpliceShapeMutation = structuredClone(steelFormalBenchmark.input);
+delete missingSpliceShapeMutation.spliceCases[0].spliceNdtMethod;
+assert.ok(
+  steelFormalAdapter.validateInput(missingSpliceShapeMutation).some(issue => issue.includes('exact-49-source-field-shape-required')),
+  'steel formal adapter rejects missing column-splice fields instead of silently defaulting source-shape drift'
+);
+const zeroPeMutation = structuredClone(steelFormalBenchmark.input);
+zeroPeMutation.spliceCases[0].spliceSeismicAxial = 0;
+assert.deepEqual(steelFormalAdapter.validateInput(zeroPeMutation), [], 'column-splice adapter accepts finite zero PE under the signed 13.4.1 input contract');
+const zeroPeProduction = steelFormalAdapter.calculate(zeroPeMutation).spliceUncappedReferencePass;
+assert.equal(zeroPeProduction.EampRaw, 0, 'column-splice production adapter preserves zero amplified seismic axial demand when PE is zero');
+assert.equal(zeroPeProduction.EampAdopted, 0, 'column-splice production adapter preserves zero adopted amplified demand when PE is zero');
+assert.equal(zeroPeProduction.validationFailure, 0, 'finite zero PE does not create a column-splice validation failure');
+const runnerSourceForSplice = fs.readFileSync(runnerPath, 'utf8');
+const spliceOracleStart = runnerSourceForSplice.indexOf('const spliceCase = i => {', runnerSourceForSplice.indexOf('function steelFormalOracle'));
+const spliceOracleEnd = runnerSourceForSplice.indexOf('\n  return {', spliceOracleStart);
+const spliceOracleSource = runnerSourceForSplice.slice(spliceOracleStart, spliceOracleEnd);
+assert.ok(spliceOracleStart > 0 && spliceOracleEnd > spliceOracleStart, 'steel formal oracle exposes a dedicated independent column-splice branch');
+assert.ok(spliceOracleSource.includes('const EampRaw = 1.4 * i.spliceSeismicReductionFu * Math.abs(i.spliceSeismicAxial);'), 'column-splice oracle independently locks the 13.4.1 amplified seismic axial equation');
+assert.ok(spliceOracleSource.includes('const PuCompression = Math.max(0, -compressionPlus, -compressionMinus);'), 'column-splice oracle independently locks the signed controlling compression demand');
+assert.ok(spliceOracleSource.includes('const majorShearCapacity = Math.min(majorShearBaseCapacity, majorShearWeldCapacity);'), 'column-splice oracle independently locks the base-metal versus weld-metal shear minimum');
+assert.ok(spliceOracleSource.includes('const derivedNonnegative = [EampRaw, EampAdopted, PuCompression, TuTension];'), 'column-splice oracle explicitly permits finite zero PE-derived demand values');
+assert.ok(!spliceOracleSource.includes('calculateConnection') && !spliceOracleSource.includes('productionCorePath') && !spliceOracleSource.includes('golden'), 'column-splice oracle does not call production or replay golden answers');
 const deckingAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'decking.js'), 'utf8');
 assert.ok(deckingAdapterSource.includes("../../../覆工板"), 'decking adapter resolves the production formal tool');
 assert.ok(deckingAdapterSource.includes("productionPageSource.slice(calculationStart, calculationEnd)"), 'decking adapter executes the production calculation functions extracted from the formal page');
@@ -642,8 +979,8 @@ assert.deepEqual(
   'the six manifest-driven local-quick routes retain explicit independent benchmark family coverage'
 );
 const steelFormalRecord = result.records.find(record => record.route === '/steel-formal');
-assert.equal(steelFormalRecord.status, 'verified', 'steel formal plate, tension-member, single-plate and Gusset closed-form benchmark is verified');
-assert.equal(steelFormalRecord.assertionCount, 410, 'steel formal benchmark deeply covers five Gusset cases without adding a formal route');
+assert.equal(steelFormalRecord.status, 'verified', 'steel formal plate, tension-member, single-plate, Gusset, beam-column moment and CJP column-splice closed-form benchmark is verified');
+assert.equal(steelFormalRecord.assertionCount, 645, 'steel formal benchmark locks exact source-field counts for both moment and column-splice cases without adding a formal route');
 
 const runnerText = fs.readFileSync(runnerPath, 'utf8');
 assert.ok(!runnerText.includes('golden-cases.js'), 'independent runner does not import golden case answers');
@@ -711,6 +1048,11 @@ const falsePositiveResult = runBenchmarks(catalog, {
           production.gussetLrfdConcentric.whitmoreAvailable += 5;
           production.gussetLrfdConcentric.boltAvailable += 5;
           production.gussetGovernanceRejected.gussetMaterialOrderPass = 1;
+          production.momentPriorTestSmrfPass.Vp += 5;
+          production.momentGovernanceRejected.hardwareVerifiedPass = 1;
+          production.spliceUncappedReferencePass.EampAdopted += 5;
+          production.spliceWeakFillerShearFail.matchingFillerPass = 1;
+          production.spliceGovernanceFuRejected.loadInputsPass = 1;
         }
         if (relativePath === 'independent-engineering-adapters/decking.js') production.longUnbracedHeavy.girder.PuMax += 5;
         if (relativePath === 'independent-engineering-adapters/stone-fixing.js') production.backAnchorWindCone.panel.localStress += 5;
@@ -766,6 +1108,11 @@ assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-val
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:gussetLrfdConcentric.whitmoreAvailable')), 'steel formal Gusset Whitmore available-width drift is independently detected');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:gussetLrfdConcentric.boltAvailable')), 'steel formal Gusset Table 10.3-2 bolt-shear drift is independently detected');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:gussetGovernanceRejected.gussetMaterialOrderPass')), 'steel formal Gusset governance-gate drift is independently detected');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:momentPriorTestSmrfPass.Vp')), 'steel formal moment plastic-hinge shear drift is independently detected');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:momentGovernanceRejected.hardwareVerifiedPass')), 'steel formal moment governance-gate drift is independently detected');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:spliceUncappedReferencePass.EampAdopted')), 'steel formal column-splice amplified-demand drift is independently detected');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:spliceWeakFillerShearFail.matchingFillerPass')), 'steel formal column-splice filler-strength gate drift is independently detected');
+assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:spliceGovernanceFuRejected.loadInputsPass')), 'steel formal column-splice Fu governance-gate drift is independently detected');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:longUnbracedHeavy.girder.PuMax')), 'decking load-path drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:backAnchorWindCone.panel.localStress')), 'stone-fixing panel and connector load-path drift identifies the mismatched quantity');
 assert.ok(falsePositiveResult.issues.some(issue => issue.includes('benchmark-value-mismatch:endSpan.phiVc')), 'RC slab one-way shear drift identifies the mismatched quantity');

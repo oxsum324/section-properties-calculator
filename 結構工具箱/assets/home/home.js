@@ -25,7 +25,7 @@
   const memberSystems = [
     { id: 'all', label: '全部', summary: '依材料系統分段顯示 RC、鋼構與 SRC 構件工具。' },
     { id: 'rc', label: 'RC', summary: '鋼筋混凝土梁、柱、板、牆、基礎、樁與補強構件檢核。' },
-    { id: 'steel', label: '鋼構', summary: '鋼梁、鋼柱、含單剪力板 Shear Tab 與平板支撐 Gusset 拉力接頭的鋼構正式入口及鋼構連接板檢核。' },
+    { id: 'steel', label: '鋼構', summary: '鋼梁、鋼柱，以及含 Shear Tab、平板支撐 Gusset、梁柱彎矩接頭與全斷面 CJP 耐震柱續接能力審查附件的鋼構正式入口。' },
     { id: 'src', label: 'SRC', summary: '包覆型 SRC 梁、柱正式檢核、案件重播與精簡計算書。' }
   ];
 
@@ -541,17 +541,17 @@
     },
     {
       title: '鋼構正式規範工具',
-      version: 'V1.1',
+      version: 'V1.3',
       href: '/steel-formal',
       categories: ['member'],
       memberSystem: 'steel',
       state: 'formal',
       governance: 'steel-audit',
-      output: '連接板、拉力構件、單剪力板 Shear Tab、平板支撐 Gusset 拉力接頭正式核算、計算書與 TXT 文字備查',
-      summary: '審查摘要、流程與參數詞典保留在操作頁；連接板、拉力構件、LRFD 單剪力板 Shear Tab 及平板支撐 Gusset 拉力接頭的正式計算書直接呈現採用值、公式代入、檢核結果與結論，並可另下載非正式附件的 TXT 文字備查。',
-      fit: '鋼構連接板、拉力構件、單列單剪標準孔靜力承壓型純剪力 Shear Tab，以及同心純拉力、扁鋼／平板支撐、單列單剪標準孔並以雙側縱向填角銲接至支承的 LRFD Gusset 接頭。',
-      limit: 'Shear Tab 需由設計者確認偏心模型與專案資料來源；Gusset 需由專案文件與設計者確認靜力非耐震、非 BRB、同心純拉力及明確力流。ASD、壓力、偏心、外加剪力／彎矩、角鋼／WT／HSS 支撐、剪力遲滯、滑動臨界、疲勞、反覆載重、耐震特別規定及支承構件完整檢核不在相應正式範圍。',
-      capabilities: ['正式核算', 'Shear Tab', '平板支撐 Gusset', 'TXT 備查', '自巡檢']
+      output: '連接板、拉力構件、Shear Tab、平板支撐 Gusset、梁柱彎矩及全斷面 CJP 耐震柱續接能力審查附件、計算書與 TXT 文字備查',
+      summary: '審查摘要、流程與參數詞典保留在操作頁；除既有靜力接頭與單一選定構架面梁柱彎矩耐震審查外，新增全斷面 CJP 耐震柱續接能力審查，重算 13.4.1 壓拉軸力組合並核對 13.4.2 全斷面強度、1.2 m 位置、相稱銲材、WPS、NDT 計畫與證據追溯。',
+      fit: '鋼構連接板、拉力構件、既有 Shear Tab／平板支撐 Gusset、SMRF／IMRF 補強式梁柱彎矩接頭單一構架面，以及同斷面同材質同軸熱軋 H 形柱之全斷面 CJP 耐震柱續接能力審查。',
+      limit: '梁柱彎矩附件不宣稱 AISC 358 預認證且 completeJointDesign = false。柱續接附件只支援距最近梁翼至少 1.2 m、最大板厚不超過 40 mm 的全斷面 CJP 設計階段審查；高強螺栓、變截面、箱柱、巨型斷面、完工 NDT 驗收及完整柱構材設計另案，completeColumnMemberDesign = false、asBuiltAcceptance = false。',
+      capabilities: ['正式核算', 'Shear Tab', '平板支撐 Gusset', '梁柱彎矩耐震審查', 'CJP 柱續接耐震審查', 'TXT 備查', '自巡檢']
     },
     {
       title: 'SRC 梁',

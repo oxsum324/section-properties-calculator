@@ -25,6 +25,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const renderedEvidenceDir = resolveEvidenceDir(repoRoot, 'steel-formal');
 const renderedEvidenceRecords = [];
 const textExportEvidenceRecords = [];
+const ngSourceEvidenceRecords = [];
 const directPrintOutputDir = path.resolve(String(
   args['direct-print-output-dir']
     || path.join(repoRoot, 'output', 'playwright', 'steel-formal-direct-print-block')
@@ -42,8 +43,14 @@ const scenarios = [
   { name: 'main-plate-report-popup-placeholder', url: '/index.html', setup: setupMainPlateProjectMetaPlaceholder, assert: assertMainPlateReportPopupPlaceholder },
   { name: 'main-single-plate', url: '/index.html', setup: setupMainSinglePlate, assert: assertMainSinglePlateReady },
   { name: 'main-single-plate-report-popup', url: '/index.html', setup: setupMainSinglePlate, assert: assertMainSinglePlateReportPopup },
+  { name: 'main-column-splice-preset-fail-closed', url: '/index.html', setup: setupMainColumnSplicePresetFailClosed, assert: assertMainColumnSplicePresetFailClosed },
+  { name: 'main-column-splice', url: '/index.html', setup: setupMainColumnSplice, assert: assertMainColumnSpliceReady },
+  { name: 'main-column-splice-report-popup', url: '/index.html', setup: setupMainColumnSplice, assert: assertMainColumnSpliceReportPopup },
   { name: 'main-gusset', url: '/index.html', setup: setupMainGusset, assert: assertMainGussetReady },
   { name: 'main-gusset-report-popup', url: '/index.html', setup: setupMainGusset, assert: assertMainGussetReportPopup },
+  { name: 'main-moment-preset-fail-closed', url: '/index.html', setup: setupMainMomentPresetFailClosed, assert: assertMainMomentPresetFailClosed },
+  { name: 'main-moment', url: '/index.html', setup: setupMainMoment, assert: assertMainMomentReady },
+  { name: 'main-moment-report-popup', url: '/index.html', setup: setupMainMoment, assert: assertMainMomentReportPopup },
   { name: 'main-tension', url: '/index.html', setup: setupMainTension },
   { name: 'main-tension-report-popup', url: '/index.html', setup: setupMainTensionReport, assert: assertMainTensionReportPopup },
   { name: 'standalone-plate', url: '/plate-check.html' },
@@ -63,9 +70,9 @@ const scenarios = [
 
 const STEEL_DIRECT_PRINT_TITLE = '鋼構正式工具主頁列印已封鎖';
 const STEEL_DIRECT_PRINT_BODY = '此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「產生計算書」按鈕開啟可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。';
-const MAIN_ROUTE_CANONICAL_PAGE_TITLE = '鋼構正式規範核算工具 V1.1';
+const MAIN_ROUTE_CANONICAL_PAGE_TITLE = '鋼構正式規範核算工具 V1.3';
 const steelDirectPrintPages = [
-  { key: 'steel-main-formal', url: '/index.html', pageTitle: '鋼構正式規範核算工具 V1.1' },
+  { key: 'steel-main-formal', url: '/index.html', pageTitle: '鋼構正式規範核算工具 V1.3' },
   { key: 'steel-plate-formal', url: '/plate-check.html', pageTitle: '鋼構連接板正式規範核算工具 V1.0' },
   { key: 'steel-beam-formal', url: '/steel-beam-formal.html', pageTitle: '鋼梁正式規範核算工具 V1.0' },
   { key: 'steel-column-formal', url: '/steel-column-formal.html', pageTitle: '鋼柱正式規範核算工具 V1.0' },
@@ -273,6 +280,217 @@ const GUSSET_ARTIFACT_REQUIRED_NEEDLES = [
   '支承材銲線母材',
   '靜力非耐震確認',
   '串聯力流確認',
+];
+
+const COLUMN_SPLICE_FORMAL_STATE = {
+  projectName: '全斷面 CJP 耐震柱續接正式證據驗證案',
+  connectionTag: 'CS-GOLDEN-001',
+  designer: 'Codex QA',
+  notes: '正式證據案例 CS-GOLDEN-001；拉力正、壓力負，同斷面熱軋 H 形柱全斷面 CJP 設計階段能力審查。',
+  designMethod: 'LRFD',
+  connectionType: 'column_splice',
+  exposureCondition: 'painted',
+  spliceFrameRole: 'seismic_force_resisting',
+  spliceDesignRoute: 'cjp_full_section_identical_rolled_h',
+  spliceLocationRoute: 'beam_flange_1200',
+  spliceDistanceToNearestBeamFlange: 1500,
+  spliceDeadAxial: -600,
+  spliceLiveAxial: -200,
+  spliceSeismicAxial: 400,
+  spliceLiveLoadFactor: 0.5,
+  spliceSeismicReductionFu: 1.5,
+  spliceTransferCapRoute: 'uncapped',
+  spliceMaxTransferableAxial: 0,
+  spliceAg: 30000,
+  spliceZx: 5000000,
+  spliceZy: 2000000,
+  spliceAvx: 10000,
+  spliceAvy: 12000,
+  spliceFy: 345,
+  spliceFexx: 490,
+  spliceMaxThickness: 36,
+  spliceFabricationLocation: 'field',
+  spliceNdtMethod: 'UT',
+  spliceDemandBasis: '分析模型 STR-CS-GOLDEN-001／13.4.1 軸力分項與方向包絡',
+  spliceGeometryBasis: '核定圖 S-701／CS-GOLDEN-001 同斷面熱軋 H 形柱',
+  spliceMaterialBasis: '材料證明 M-CS-01／Fy 345 MPa 與 E70 銲材',
+  spliceWpsBasis: '核定 WPS/PQR WPS-CS-GOLDEN-001／全斷面 CJP',
+  spliceNdtPlanBasis: '檢驗計畫 ITP-CS-GOLDEN-001／工地 CJP 100% UT',
+  spliceDemandEvidenceSha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  spliceDetailEvidenceSha256: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  spliceWpsEvidenceSha256: 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+  spliceNdtPlanEvidenceSha256: 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+  spliceIdenticalSectionsAndMaterialConfirmed: 'true',
+  spliceAlignedAxesConfirmed: 'true',
+  spliceFullProfileCjpConfirmed: 'true',
+  spliceMatchingFillerConfirmed: 'true',
+  spliceWpsApprovedConfirmed: 'true',
+  spliceNdtFullCoverageConfirmed: 'true',
+  spliceNoPjpConfirmed: 'true',
+  spliceNoMixedLoadSharingConfirmed: 'true',
+  spliceSeismicColumnConfirmed: 'true',
+  spliceLocationScopeConfirmed: 'true',
+  spliceAllAdjacentTransferSourcesIncludedConfirmed: 'false',
+  spliceAsBuiltBoundaryConfirmed: 'true',
+};
+
+const COLUMN_SPLICE_EXPECTED_SOURCE_FIELDS = Object.fromEntries(
+  Object.entries(COLUMN_SPLICE_FORMAL_STATE).map(([key, value]) => [
+    key,
+    value === 'true' ? true : value === 'false' ? false : value,
+  ])
+);
+
+const COLUMN_SPLICE_STRENGTH_KEYS = [
+  'spliceAxialCompression13_4_1',
+  'spliceAxialTension13_4_1',
+  'spliceFullSectionNormal',
+  'spliceFullSectionMajorFlexure',
+  'spliceFullSectionMinorFlexure',
+  'spliceFullSectionMajorShear',
+  'spliceFullSectionMinorShear',
+];
+
+const COLUMN_SPLICE_ARTIFACT_REQUIRED_NEEDLES = [
+  'CS-GOLDEN-001',
+  '全斷面 CJP 耐震柱續接派生稽核',
+  '13.4.1 控制軸壓力',
+  '13.4.1 控制軸拉力',
+  '全斷面 CJP 法向強度等同性',
+  '全斷面 CJP 強軸彎曲強度等同性',
+  '全斷面 CJP 弱軸彎曲強度等同性',
+  '全斷面 CJP 強軸剪力強度',
+  '全斷面 CJP 弱軸剪力強度',
+  'Eamp,raw = 1.4 × Fu × |PE| = 840 kN',
+  'Eamp,adopted = 840 kN',
+  'completeColumnMemberDesign = false',
+  'asBuiltAcceptance = false',
+  'WPS SHA-256',
+  'NDT SHA-256',
+];
+
+const MOMENT_FORMAL_STATE = {
+  projectName: '梁柱彎矩接頭正式證據驗證案',
+  connectionTag: 'BM-GOLDEN-001',
+  designer: 'Codex QA',
+  notes: '正式證據案例 BM-GOLDEN-001；SMRF 補強式接頭、X 向單一構架面，外部受控容量與耐震資格證據均已鎖定。',
+  designMethod: 'LRFD',
+  connectionType: 'beam_column_moment',
+  exposureCondition: 'painted',
+  momentFrameSystem: 'smrf',
+  momentAxis: 'x',
+  momentConnectionDesignRoute: 'reinforced',
+  momentBeamPlasticModulus: 2000000,
+  momentBeamYieldStrength: 350,
+  momentExpectedStrengthFactor: 1.1,
+  momentCriticalSectionDistance: 300,
+  momentPlasticHingeSpan: 3500,
+  momentFarCriticalSectionExpectedMoment: 770,
+  momentGravityShear: 120,
+  momentAmplifiedShear: 700,
+  momentAvailableFlexuralStrength: 950,
+  momentAvailableShearStrength: 600,
+  momentRotationDemandMethod: 'default',
+  momentQualifiedPlasticRotation: 0.04,
+  momentNonlinearPlasticRotation: 0.02,
+  momentSystemDuctilityR: 8,
+  momentElasticStoryDrift: 0.025,
+  momentQualificationRoute: 'prior_test_similarity',
+  momentQualificationTestCount: 3,
+  momentDesignBeamFlangeThickness: 16,
+  momentTestBeamFlangeThickness: 18,
+  momentDesignFlangePlasticRatio: 0.76,
+  momentTestFlangePlasticRatio: 0.75,
+  momentThirdPartyReviewConfirmed: 'true',
+  momentColumnWebYieldStrength: 325,
+  momentColumnDepth: 600,
+  momentPanelZoneThickness: 20,
+  momentPanelZoneClearDepth: 540,
+  momentPanelZoneClearWidth: 360,
+  momentPanelZoneAnalysisDemand: 2100,
+  momentPanelZoneBeamMomentSum: 1540,
+  momentPanelZoneLeverArm: 700,
+  momentDoublerPresent: 'true',
+  momentDoublerAttachmentConfirmed: 'true',
+  momentBeamFlangeWidth: 250,
+  momentBeamFlangeThickness: 16,
+  momentColumnFlangeLocalNominalStrength: 2400,
+  momentContinuityPlateProvidedConfirmed: 'true',
+  momentContinuityPlateWeldConfirmed: 'true',
+  momentBeamFlangeCompactnessRatio: 0.95,
+  momentBeamWebCompactnessRatio: 0.85,
+  momentBeamFlangePlasticModulusRatio: 0.75,
+  momentCwUpperColumnMoment: 1200,
+  momentCwLowerColumnMoment: 1100,
+  momentCwLeftBeamMoment: 840,
+  momentCwRightBeamMoment: 830,
+  momentCcwUpperColumnMoment: 1220,
+  momentCcwLowerColumnMoment: 1120,
+  momentCcwLeftBeamMoment: 850,
+  momentCcwRightBeamMoment: 825,
+  momentDemandBasis: 'ETABS ULS 包絡與節點剪力整理表 BM-GOLDEN-001-R1',
+  momentGeometryBasis: '核定鋼構詳圖 S-601／BM-GOLDEN-001',
+  momentMaterialBasis: '梁柱鋼材與銲材材料證明 M-21',
+  momentCapacityBasis: '受控接頭容量表 BM-GOLDEN-001-CAP-R1，涵蓋接頭零組件、prying、yield-line、螺栓與銲道',
+  momentPanelZoneBasis: 'Panel Zone 分析書 BM-GOLDEN-001-PZ-R1',
+  momentStrongColumnBasis: '柱梁彎矩比整理表 BM-GOLDEN-001-SCWB-R1，含四個補強式梁項 ZbFyb + Vp·x',
+  momentQualificationBasis: '耐震資格試驗相似性比對報告 BM-GOLDEN-001-QUAL-R1',
+  momentQualificationEvidenceSha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  momentCapacityEvidenceSha256: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  momentQualificationConfigurationConfirmed: 'true',
+  momentQualificationMaterialConfirmed: 'true',
+  momentQualificationWeldingConfirmed: 'true',
+  momentQualificationGeometryConfirmed: 'true',
+  momentQualificationFabricationConfirmed: 'true',
+  momentQualificationProcedureConfirmed: 'true',
+  momentPlasticZoneGeometryConfirmed: 'true',
+  momentPlasticZoneOpeningsAbsentConfirmed: 'true',
+  momentSeismicMaterialConfirmed: 'true',
+  momentMatchingWeldConfirmed: 'true',
+  momentCns3506WeldConfirmed: 'true',
+  momentEndTabsRemovedGroundConfirmed: 'true',
+  momentWeldProcedureMatchesQualificationConfirmed: 'true',
+  momentJointLateralRestraintConfirmed: 'true',
+  momentBeamLateralBracingConfirmed: 'true',
+  momentAllMembersIncludedConfirmed: 'true',
+  momentColumnStrengthsAtGoverningAxialConfirmed: 'true',
+  momentOpposingDirectionsConfirmed: 'true',
+  momentOrthogonalDirectionSeparateConfirmed: 'true',
+  momentConnectionHardwareVerifiedConfirmed: 'true',
+  momentSelectedAxisScopeConfirmed: 'true',
+};
+
+const MOMENT_STRENGTH_KEYS = [
+  'momentFlexuralStrength',
+  'momentShearStrength',
+  'momentPlasticRotation',
+  'momentPanelZoneShear',
+  'momentStrongColumnCw',
+  'momentStrongColumnCcw',
+];
+
+const MOMENT_EXPECTED_SOURCE_FIELDS = Object.fromEntries(
+  Object.entries(MOMENT_FORMAL_STATE).map(([key, value]) => [
+    key,
+    value === 'true' ? true : value === 'false' ? false : value,
+  ])
+);
+
+const MOMENT_ARTIFACT_REQUIRED_NEEDLES = [
+  'BM-GOLDEN-001',
+  '梁柱彎矩耐震能力審查派生稽核',
+  '接頭彎矩容量',
+  '接頭剪力容量',
+  '塑性轉角資格',
+  'Panel Zone 剪力',
+  '強柱弱梁比 CW',
+  '強柱弱梁比 CCW',
+  'ZbFyb + Vp·x',
+  'Mpr,far',
+  'completeJointDesign = false',
+  '本附件不宣稱 AISC 358 預認證',
+  '外部容量證據',
+  '正交方向另案',
 ];
 
 const FORMAL_REPORT_TRACE_LABELS = ['產出工具', '工具版本', '輸出時間', '計算指紋'];
@@ -517,7 +735,7 @@ async function evaluate(cdp, sessionId, expression, label) {
     userGesture: true,
   }, sessionId);
   if (result.exceptionDetails) {
-    const text = result.exceptionDetails.text || result.exceptionDetails.exception?.description || label;
+    const text = result.exceptionDetails.exception?.description || result.exceptionDetails.text || label;
     throw new Error(`${label}: ${text}`);
   }
   return result.result?.value;
@@ -591,6 +809,65 @@ async function setupMainSinglePlate(cdp, sessionId) {
   await wait(350);
 }
 
+async function setupMainFailClosedPreset(cdp, sessionId, options) {
+  await evaluate(cdp, sessionId, `(() => {
+    const options = ${JSON.stringify(options)};
+    const connectionType = document.querySelector('select[name="connectionType"]');
+    const preset = document.querySelector('#examplePresetSelect');
+    const loadButton = document.querySelector('#loadExampleBtn');
+    if (!connectionType || !preset || !loadButton) {
+      throw new Error('missing fail-closed preset controls');
+    }
+    connectionType.value = options.connectionType;
+    connectionType.dispatchEvent(new Event('change', { bubbles: true }));
+    preset.value = options.presetId;
+    preset.dispatchEvent(new Event('change', { bubbles: true }));
+    if (preset.value !== options.presetId) {
+      throw new Error('missing built-in preset ' + options.presetId);
+    }
+    loadButton.click();
+    return true;
+  })()`, `${options.label} setup`);
+  await wait(350);
+}
+
+async function setupMainColumnSplicePresetFailClosed(cdp, sessionId) {
+  return setupMainFailClosedPreset(cdp, sessionId, {
+    connectionType: 'column_splice',
+    presetId: 'column_splice_cjp_seismic',
+    label: 'main column splice built-in fail-closed preset',
+  });
+}
+
+async function setupMainMomentPresetFailClosed(cdp, sessionId) {
+  return setupMainFailClosedPreset(cdp, sessionId, {
+    connectionType: 'beam_column_moment',
+    presetId: 'beam_column_moment_seismic_review',
+    label: 'main beam-column moment built-in fail-closed preset',
+  });
+}
+
+async function setupMainColumnSplice(cdp, sessionId) {
+  await evaluate(cdp, sessionId, `(() => {
+    const connectionType = document.querySelector('select[name="connectionType"]');
+    if (!connectionType) throw new Error('missing column splice connectionType control');
+    connectionType.value = 'column_splice';
+    connectionType.dispatchEvent(new Event('change', { bubbles: true }));
+
+    const fields = ${JSON.stringify(COLUMN_SPLICE_FORMAL_STATE)};
+    Object.entries(fields).forEach(([name, value]) => {
+      const input = document.querySelector('[name="' + name + '"]');
+      if (!input) throw new Error('missing column splice field [name="' + name + '"]');
+      input.value = value;
+    });
+    const updateTrigger = document.querySelector('[name="spliceAsBuiltBoundaryConfirmed"]');
+    if (!updateTrigger) throw new Error('missing column splice as-built boundary trigger');
+    updateTrigger.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`, 'main column splice formal verification setup');
+  await wait(350);
+}
+
 async function setupMainGusset(cdp, sessionId) {
   await evaluate(cdp, sessionId, `(() => {
     window.__steelXss = 0;
@@ -615,6 +892,27 @@ async function setupMainGusset(cdp, sessionId) {
     updateTrigger.dispatchEvent(new Event('change', { bubbles: true }));
     return true;
   })()`, 'main Gusset formal verification setup');
+  await wait(350);
+}
+
+async function setupMainMoment(cdp, sessionId) {
+  await evaluate(cdp, sessionId, `(() => {
+    const connectionType = document.querySelector('select[name="connectionType"]');
+    if (!connectionType) throw new Error('missing beam-column moment connectionType control');
+    connectionType.value = 'beam_column_moment';
+    connectionType.dispatchEvent(new Event('change', { bubbles: true }));
+
+    const fields = ${JSON.stringify(MOMENT_FORMAL_STATE)};
+    Object.entries(fields).forEach(([name, value]) => {
+      const input = document.querySelector('[name="' + name + '"]');
+      if (!input) throw new Error('missing beam-column moment field [name="' + name + '"]');
+      input.value = value;
+    });
+    const updateTrigger = document.querySelector('[name="momentSelectedAxisScopeConfirmed"]');
+    if (!updateTrigger) throw new Error('missing beam-column moment scope confirmation trigger');
+    updateTrigger.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`, 'main beam-column moment formal verification setup');
   await wait(350);
 }
 
@@ -1166,6 +1464,324 @@ async function assertMainSinglePlateReportPopup(cdp, sessionId, context = {}) {
   });
 }
 
+async function assertMainFailClosedPreset(cdp, sessionId, options) {
+  const snapshot = await evaluate(cdp, sessionId, `(() => {
+    const options = ${JSON.stringify(options)};
+    const clean = value => String(value || '').replace(/\\s+/g, ' ').trim();
+    const result = window.latestSteelConnectionResult;
+    const preset = document.querySelector('#examplePresetSelect');
+    const connectionCard = document.querySelector('[data-connection="' + options.connectionType + '"]');
+    const fieldValue = name => document.querySelector('[name="' + name + '"]')?.value ?? null;
+    return {
+      connectionType: result?.state?.connectionType || '',
+      selectedType: document.querySelector('select[name="connectionType"]')?.value || '',
+      presetId: preset?.value || '',
+      presetLabel: clean(preset?.selectedOptions?.[0]?.textContent),
+      presetVisible: (preset?.getClientRects().length || 0) > 0,
+      connectionCardVisible: Boolean(connectionCard && !connectionCard.classList.contains('is-hidden')),
+      complianceReady: result?.complianceReady === true,
+      passes: result?.passes === true,
+      overallStatus: result?.overallStatus || '',
+      detailFailure: result?.summary?.detailFailure === true,
+      failingDetailKeys: (result?.detailChecks || []).filter(item => !item.passes).map(item => item.key),
+      basisValues: Object.fromEntries(options.basisFields.map(name => [name, fieldValue(name)])),
+      confirmationValues: Object.fromEntries(options.unconfirmedFields.map(name => [name, result?.state?.[name]])),
+      evidenceHashValues: Object.fromEntries(options.emptyHashFields.map(name => [name, result?.state?.[name]])),
+      reportBanner: clean(document.querySelector('#reportBanner')?.textContent),
+      approvalStamp: clean(document.querySelector('#approvalStamp')?.textContent),
+      approvalDecision: clean(document.querySelector('#approvalDecision')?.textContent),
+      projectName: fieldValue('projectName'),
+    };
+  })()`, `${options.label} state`);
+
+  if (snapshot.connectionType !== options.connectionType || snapshot.selectedType !== options.connectionType
+      || snapshot.presetId !== options.presetId || !snapshot.presetVisible || !snapshot.connectionCardVisible) {
+    throw new Error(`${options.label} must visibly load the intended built-in preset: ${JSON.stringify(snapshot)}`);
+  }
+  if (!snapshot.presetLabel.includes('示例｜需依專案覆寫證據後才可核可')) {
+    throw new Error(`${options.label} must visibly disclose its non-formal example boundary: ${JSON.stringify(snapshot)}`);
+  }
+  for (const [name, value] of Object.entries(snapshot.basisValues || {})) {
+    if (!String(value || '').includes('示例資料（請依專案覆寫')) {
+      throw new Error(`${options.label} field ${name} must retain visible example-source wording: ${JSON.stringify(snapshot)}`);
+    }
+  }
+  for (const [name, value] of Object.entries(snapshot.confirmationValues || {})) {
+    if (value !== false) {
+      throw new Error(`${options.label} confirmation ${name} must start unconfirmed: ${JSON.stringify(snapshot)}`);
+    }
+  }
+  for (const [name, value] of Object.entries(snapshot.evidenceHashValues || {})) {
+    if (value !== '') {
+      throw new Error(`${options.label} evidence ${name} must start empty: ${JSON.stringify(snapshot)}`);
+    }
+  }
+  const missingFailures = options.expectedFailingDetailKeys.filter(key => !snapshot.failingDetailKeys.includes(key));
+  if (!snapshot.complianceReady || snapshot.passes || snapshot.overallStatus !== 'fail' || !snapshot.detailFailure
+      || missingFailures.length > 0
+      || !['強度可行，但細部規定未通過', '檢核未通過'].includes(snapshot.reportBanner)
+      || !['退回修正', '不核可'].includes(snapshot.approvalStamp)
+      || !['細部不符', '不核可'].includes(snapshot.approvalDecision)) {
+    throw new Error(`${options.label} must remain non-approvable until project evidence and confirmations are replaced: ${JSON.stringify({ ...snapshot, missingFailures })}`);
+  }
+}
+
+async function assertMainColumnSplicePresetFailClosed(cdp, sessionId) {
+  return assertMainFailClosedPreset(cdp, sessionId, {
+    label: 'main column splice built-in fail-closed preset',
+    connectionType: 'column_splice',
+    presetId: 'column_splice_cjp_seismic',
+    basisFields: [
+      'spliceDemandBasis', 'spliceGeometryBasis', 'spliceMaterialBasis', 'spliceWpsBasis', 'spliceNdtPlanBasis',
+    ],
+    unconfirmedFields: [
+      'spliceIdenticalSectionsAndMaterialConfirmed', 'spliceWpsApprovedConfirmed',
+      'spliceNdtFullCoverageConfirmed', 'spliceSeismicColumnConfirmed',
+      'spliceLocationScopeConfirmed', 'spliceAsBuiltBoundaryConfirmed',
+    ],
+    emptyHashFields: [
+      'spliceDemandEvidenceSha256', 'spliceDetailEvidenceSha256',
+      'spliceWpsEvidenceSha256', 'spliceNdtPlanEvidenceSha256',
+    ],
+    expectedFailingDetailKeys: ['spliceTopologyScope', 'spliceEvidence', 'spliceAsBuiltBoundary'],
+  });
+}
+
+async function assertMainMomentPresetFailClosed(cdp, sessionId) {
+  return assertMainFailClosedPreset(cdp, sessionId, {
+    label: 'main beam-column moment built-in fail-closed preset',
+    connectionType: 'beam_column_moment',
+    presetId: 'beam_column_moment_seismic_review',
+    basisFields: [
+      'momentDemandBasis', 'momentGeometryBasis', 'momentMaterialBasis', 'momentCapacityBasis',
+      'momentPanelZoneBasis', 'momentStrongColumnBasis', 'momentQualificationBasis',
+    ],
+    unconfirmedFields: [
+      'momentQualificationConfigurationConfirmed', 'momentQualificationMaterialConfirmed',
+      'momentQualificationWeldingConfirmed', 'momentQualificationGeometryConfirmed',
+      'momentQualificationFabricationConfirmed', 'momentQualificationProcedureConfirmed',
+      'momentConnectionHardwareVerifiedConfirmed', 'momentSelectedAxisScopeConfirmed',
+    ],
+    emptyHashFields: ['momentQualificationEvidenceSha256', 'momentCapacityEvidenceSha256'],
+    expectedFailingDetailKeys: [
+      'momentQualificationConfigurationConfirmed', 'momentConnectionHardwareVerifiedConfirmed',
+      'momentSelectedAxisScopeConfirmed', 'momentQualificationEvidenceSha256', 'momentCapacityEvidenceSha256',
+    ],
+  });
+}
+
+async function assertMainColumnSpliceReady(cdp, sessionId) {
+  const snapshot = await evaluate(cdp, sessionId, `(() => {
+    const result = window.latestSteelConnectionResult;
+    const payload = window.buildSteelConnectionSourcePayload?.();
+    const calculate = window.ShearConnectionCalculator?.calculateConnection;
+    const summarize = (candidate) => ({
+      passes: candidate?.passes === true,
+      overallStatus: candidate?.overallStatus || '',
+      failingKeys: (candidate?.detailChecks || []).filter(item => !item.passes).map(item => item.key),
+      validationFailure: candidate?.summary?.validationFailure === true,
+      spliceReview: candidate?.spliceReview || null,
+    });
+    const probe = (overrides) => summarize(calculate({ ...result.state, ...overrides }));
+    const probes = typeof calculate === 'function' && result?.state ? {
+      qualifiedCap: probe({
+        spliceTransferCapRoute: 'qualified',
+        spliceMaxTransferableAxial: 500,
+        spliceAllAdjacentTransferSourcesIncludedConfirmed: true,
+      }),
+      incompleteQualifiedCap: probe({
+        spliceTransferCapRoute: 'qualified',
+        spliceMaxTransferableAxial: 500,
+        spliceAllAdjacentTransferSourcesIncludedConfirmed: false,
+      }),
+      invalidNdtHash: probe({ spliceNdtPlanEvidenceSha256: 'not-a-sha256' }),
+      asBuiltBoundaryUnconfirmed: probe({ spliceAsBuiltBoundaryConfirmed: false }),
+    } : null;
+    const review = result?.spliceReview || null;
+    const finiteReviewPaths = [];
+    const visit = (value, path) => {
+      if (typeof value === 'number') {
+        if (!Number.isFinite(value)) finiteReviewPaths.push(path);
+        return;
+      }
+      if (Array.isArray(value)) {
+        value.forEach((item, index) => visit(item, path + '[' + index + ']'));
+      }
+    };
+    Object.entries(review || {}).forEach(([key, value]) => visit(value, 'spliceReview.' + key));
+    return {
+      connectionType: result?.state?.connectionType || '',
+      complianceReady: result?.complianceReady === true,
+      passes: result?.passes === true,
+      completeJointDesign: result?.completeJointDesign,
+      completeColumnMemberDesign: result?.completeColumnMemberDesign,
+      asBuiltAcceptance: result?.asBuiltAcceptance,
+      scopeLimited: result?.scopeLimited,
+      checkKeys: (result?.checks || []).map(item => item.key),
+      detailFailureCount: (result?.detailChecks || []).filter(item => !item.passes).length,
+      validationFailure: result?.summary?.validationFailure === true,
+      spliceReview: review,
+      finiteReviewPaths,
+      project: payload?.project || null,
+      tool: payload?.tool || null,
+      fields: payload?.fields || null,
+      sourceFingerprint: payload?.calculationFingerprint || '',
+      reportFingerprint: payload?.report?.calculationFingerprint || '',
+      selectedType: document.querySelector('select[name="connectionType"]')?.value || '',
+      optionDisabled: document.querySelector('select[name="connectionType"] option[value="column_splice"]')?.disabled === true,
+      spliceCardVisible: !document.querySelector('[data-connection="column_splice"]')?.classList.contains('is-hidden'),
+      strengthRows: Array.from(document.querySelectorAll('#strengthCheckTableBody [data-check-key]')).map(row => row.dataset.checkKey),
+      probes,
+    };
+  })()`, 'main column splice formal verification state');
+
+  const expectedProject = {
+    name: COLUMN_SPLICE_FORMAL_STATE.projectName,
+    no: COLUMN_SPLICE_FORMAL_STATE.connectionTag,
+    designer: COLUMN_SPLICE_FORMAL_STATE.designer,
+  };
+  if (snapshot.connectionType !== 'column_splice' || snapshot.selectedType !== 'column_splice'
+      || snapshot.optionDisabled || !snapshot.spliceCardVisible || !snapshot.complianceReady || !snapshot.passes
+      || snapshot.completeJointDesign !== false || snapshot.completeColumnMemberDesign !== false
+      || snapshot.asBuiltAcceptance !== false || snapshot.scopeLimited !== false
+      || snapshot.validationFailure || snapshot.detailFailureCount !== 0 || snapshot.finiteReviewPaths.length !== 0) {
+    throw new Error(`main column splice should be a ready finite formal design attachment with explicit member/as-built boundaries: ${JSON.stringify(snapshot)}`);
+  }
+  const expectedStrengthKeys = [...COLUMN_SPLICE_STRENGTH_KEYS].sort();
+  if (JSON.stringify([...snapshot.checkKeys].sort()) !== JSON.stringify(expectedStrengthKeys)
+      || JSON.stringify([...snapshot.strengthRows].sort()) !== JSON.stringify(expectedStrengthKeys)) {
+    throw new Error(`main column splice should expose exactly seven fixed capacity routes in both result and rendered table: ${JSON.stringify(snapshot)}`);
+  }
+  const review = snapshot.spliceReview || {};
+  const uncappedGolden = {
+    EampRaw: 840,
+    EampAdopted: 840,
+    PuCompression: 1660,
+    TuTension: 300,
+    normalCapacity: 9315,
+    majorFlexuralCapacity: 1552.5,
+    minorFlexuralCapacity: 621,
+    majorShearCapacity: 1863,
+    minorShearCapacity: 2235.6,
+  };
+  for (const [key, expectedValue] of Object.entries(uncappedGolden)) {
+    if (Math.abs(Number(review[key]) - expectedValue) > 1e-9) {
+      throw new Error(`main column splice uncapped golden ${key} drifted: ${JSON.stringify({ expectedValue, actualValue: review[key], review })}`);
+    }
+  }
+  if (review.transferCapApplied !== false
+      || Math.abs(Number(review.compressionCombinations?.[0]) - 20) > 1e-9
+      || Math.abs(Number(review.compressionCombinations?.[1]) + 1660) > 1e-9
+      || Math.abs(Number(review.tensionCombinations?.[0]) - 300) > 1e-9
+      || Math.abs(Number(review.tensionCombinations?.[1]) + 1380) > 1e-9) {
+    throw new Error(`main column splice uncapped signed combinations/cap disclosure drifted: ${JSON.stringify(review)}`);
+  }
+  const qualified = snapshot.probes?.qualifiedCap;
+  if (!qualified?.passes || qualified.overallStatus === 'fail'
+      || qualified.spliceReview?.transferCapApplied !== true
+      || Math.abs(Number(qualified.spliceReview?.EampRaw) - 840) > 1e-9
+      || Math.abs(Number(qualified.spliceReview?.EampAdopted) - 625) > 1e-9
+      || Math.abs(Number(qualified.spliceReview?.PuCompression) - 1445) > 1e-9
+      || Math.abs(Number(qualified.spliceReview?.TuTension) - 85) > 1e-9) {
+    throw new Error(`main column splice qualified-cap golden drifted: ${JSON.stringify(qualified)}`);
+  }
+  const failClosedProbes = {
+    incompleteQualifiedCap: 'spliceTransferCap',
+    invalidNdtHash: 'spliceNdtPlan',
+    asBuiltBoundaryUnconfirmed: 'spliceAsBuiltBoundary',
+  };
+  for (const [probeName, failingKey] of Object.entries(failClosedProbes)) {
+    const probeResult = snapshot.probes?.[probeName];
+    if (!probeResult || probeResult.passes || probeResult.overallStatus !== 'fail' || !probeResult.failingKeys.includes(failingKey)) {
+      throw new Error(`main column splice ${probeName} must fail closed at ${failingKey}: ${JSON.stringify(snapshot.probes)}`);
+    }
+  }
+  if (Math.abs(Number(snapshot.probes?.incompleteQualifiedCap?.spliceReview?.EampAdopted) - 840) > 1e-9
+      || snapshot.probes?.incompleteQualifiedCap?.validationFailure !== true) {
+    throw new Error(`main column splice invalid qualified cap must revert to uncapped demand and block formal output: ${JSON.stringify(snapshot.probes?.incompleteQualifiedCap)}`);
+  }
+  if (JSON.stringify(snapshot.project) !== JSON.stringify(expectedProject)
+      || String(snapshot.tool?.version || '').toUpperCase() !== 'V1.3'
+      || Object.keys(snapshot.fields || {}).length !== 49
+      || !/^CF-[0-9A-F]{16}$/.test(snapshot.sourceFingerprint)
+      || snapshot.reportFingerprint !== snapshot.sourceFingerprint) {
+    throw new Error(`main column splice 49-field source/project/version/fingerprint trace mismatch: ${JSON.stringify(snapshot)}`);
+  }
+  for (const [key, expectedValue] of Object.entries(COLUMN_SPLICE_EXPECTED_SOURCE_FIELDS)) {
+    if (snapshot.fields?.[key] !== expectedValue) {
+      throw new Error(`main column splice source field ${key} mismatch: ${JSON.stringify({ expectedValue, actualValue: snapshot.fields?.[key] })}`);
+    }
+  }
+}
+
+async function assertMainColumnSpliceReportPopup(cdp, sessionId, context = {}) {
+  await assertMainColumnSpliceReady(cdp, sessionId);
+  if (context.viewport?.label === 'desktop') {
+    await verifySteelNgSourceFileRoundTrip(cdp, sessionId, {
+      key: 'steel-main-column-splice-ng-source',
+      label: 'main column splice self-produced NG source',
+      ngOverrides: {
+        spliceDistanceToNearestBeamFlange: 1000,
+        spliceMaxThickness: 50,
+      },
+      recoveryOverrides: {
+        spliceDistanceToNearestBeamFlange: 1500,
+        spliceMaxThickness: 36,
+      },
+      updateTriggerSelector: '[name="spliceAsBuiltBoundaryConfirmed"]',
+      expectedFailingDetailKeys: ['spliceLocation1200', 'spliceNonJumbo'],
+      expectedFailingStrengthKeys: [],
+      expectedNgStateValues: {
+        spliceDistanceToNearestBeamFlange: 1000,
+        spliceMaxThickness: 50,
+      },
+    });
+    await setupMainColumnSplice(cdp, sessionId);
+    await assertMainColumnSpliceReady(cdp, sessionId);
+  }
+  return assertLegacyReportPopup(cdp, sessionId, {
+    label: 'main column splice report popup',
+    buttonSelector: '#printReportBtn',
+    titleNeedle: '全斷面 CJP 耐震柱續接能力審查附件',
+    expectedProject: {
+      name: COLUMN_SPLICE_FORMAL_STATE.projectName,
+      tag: COLUMN_SPLICE_FORMAL_STATE.connectionTag,
+      designer: COLUMN_SPLICE_FORMAL_STATE.designer,
+    },
+    sourcePayloadBuilder: 'buildSteelConnectionSourcePayload',
+    sourceReplay: {
+      builder: 'buildSteelConnectionSourcePayload', inputSelector: '#importSourceJsonInput',
+      mutationSelector: 'input[name="spliceAg"]:not([disabled])', sourceFieldKey: 'spliceAg',
+      statusSelector: '#exportReportStatus', nestedFields: false,
+      strictBooleanField: 'spliceAsBuiltBoundaryConfirmed',
+      updateTriggerSelector: '[name="spliceAsBuiltBoundaryConfirmed"]',
+      reportTamper: true,
+      crossModuleBeforeImport: 'single_plate',
+      exactFieldSchemaProbes: true,
+      schemaProbeMissingField: 'spliceAg',
+      wrongEnumField: 'spliceNdtMethod',
+      wrongEnumValue: 'VT',
+    },
+    expectedSourceFields: COLUMN_SPLICE_EXPECTED_SOURCE_FIELDS,
+    expectedSourceFieldCount: 49,
+    visibleCalculationCheckKeys: COLUMN_SPLICE_STRENGTH_KEYS,
+    artifactRequiredNeedles: COLUMN_SPLICE_ARTIFACT_REQUIRED_NEEDLES,
+    domAndTextRequiredNeedles: [
+      'Eamp 原始／採用',
+      'WPS／NDT 證據',
+      '本附件不取代柱構件整體穩定、梁柱交會區、基礎力流、施工可行性或既有銲道驗收',
+    ],
+    reportOnlyRequiredNeedles: [
+      'completeColumnMemberDesign = false；asBuiltAcceptance = false',
+      '本附件不取代柱構件整體穩定',
+      '既有銲道驗收',
+      '相接梁或斜撐極限狀態可傳軸力上限只有在 qualified 路線',
+    ],
+    continuationContextLabels: ['13.4.1', '全斷面 CJP', 'Eamp', 'Nuc,+/-', 'WPS/PQR', 'NDT 計畫'],
+    renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-main-column-splice' : '',
+  });
+}
+
 async function assertMainGussetReady(cdp, sessionId) {
   const snapshot = await evaluate(cdp, sessionId, `(() => {
     const result = window.latestSteelConnectionResult;
@@ -1303,8 +1919,8 @@ async function assertMainGussetReady(cdp, sessionId) {
   if (JSON.stringify(snapshot.project) !== JSON.stringify(expectedProject)) {
     throw new Error(`main Gusset project trace mismatch: ${JSON.stringify(snapshot.project)}`);
   }
-  if (String(snapshot.tool?.version || '').toUpperCase() !== 'V1.1') {
-    throw new Error(`main Gusset source should use the formal connection V1.1 contract: ${JSON.stringify(snapshot.tool)}`);
+  if (String(snapshot.tool?.version || '').toUpperCase() !== 'V1.3') {
+    throw new Error(`main Gusset source should use the formal connection V1.3 contract: ${JSON.stringify(snapshot.tool)}`);
   }
   if (snapshot.moduleLabel !== '支撐接頭｜平板支撐 Gusset 拉力接頭｜LRFD 正式模組') {
     throw new Error(`main Gusset formal module label drifted: ${JSON.stringify(snapshot.moduleLabel)}`);
@@ -1694,6 +2310,188 @@ async function assertMainGussetReportPopup(cdp, sessionId, context = {}) {
   });
 }
 
+async function assertMainMomentReady(cdp, sessionId) {
+  const snapshot = await evaluate(cdp, sessionId, `(() => {
+    const result = window.latestSteelConnectionResult;
+    const payload = window.buildSteelConnectionSourcePayload?.();
+    const calculate = window.ShearConnectionCalculator?.calculateConnection;
+    const summarizeGate = (candidate) => ({
+      passes: candidate?.passes === true,
+      overallStatus: candidate?.overallStatus || '',
+      failingKeys: (candidate?.detailChecks || []).filter(item => !item.passes).map(item => item.key),
+    });
+    const probe = (overrides) => summarizeGate(calculate({ ...result.state, ...overrides }));
+    const gateProbes = typeof calculate === 'function' && result?.state ? {
+      hardwareUnconfirmed: probe({ momentConnectionHardwareVerifiedConfirmed: false }),
+      orthogonalDirectionUnconfirmed: probe({ momentOrthogonalDirectionSeparateConfirmed: false }),
+      invalidQualificationHash: probe({ momentQualificationEvidenceSha256: 'not-a-sha256' }),
+      invalidCapacityHash: probe({ momentCapacityEvidenceSha256: 'not-a-sha256' }),
+    } : null;
+    return {
+      connectionType: result?.state?.connectionType || '',
+      complianceReady: result?.complianceReady === true,
+      passes: result?.passes === true,
+      completeJointDesign: result?.completeJointDesign,
+      scopeLimited: result?.scopeLimited,
+      checkKeys: (result?.checks || []).map(item => item.key),
+      detailFailureCount: (result?.detailChecks || []).filter(item => !item.passes).length,
+      validationFailure: result?.summary?.validationFailure === true,
+      seismicReview: result?.seismicReview || null,
+      project: payload?.project || null,
+      tool: payload?.tool || null,
+      fields: payload?.fields || null,
+      sourceFingerprint: payload?.calculationFingerprint || '',
+      reportFingerprint: payload?.report?.calculationFingerprint || '',
+      selectedType: document.querySelector('select[name="connectionType"]')?.value || '',
+      optionDisabled: document.querySelector('select[name="connectionType"] option[value="beam_column_moment"]')?.disabled === true,
+      momentCardVisible: !document.querySelector('[data-connection="beam_column_moment"]')?.classList.contains('is-hidden'),
+      strengthRows: Array.from(document.querySelectorAll('#strengthCheckTableBody [data-check-key]')).map(row => row.dataset.checkKey),
+      reportBanner: document.querySelector('#reportBanner')?.textContent?.trim() || '',
+      gateProbes,
+    };
+  })()`, 'main beam-column moment formal verification state');
+
+  const expectedProject = {
+    name: MOMENT_FORMAL_STATE.projectName,
+    no: MOMENT_FORMAL_STATE.connectionTag,
+    designer: MOMENT_FORMAL_STATE.designer,
+  };
+  if (snapshot.connectionType !== 'beam_column_moment' || snapshot.selectedType !== 'beam_column_moment'
+      || snapshot.optionDisabled || !snapshot.momentCardVisible || !snapshot.complianceReady || !snapshot.passes
+      || snapshot.completeJointDesign !== false || snapshot.scopeLimited !== false
+      || snapshot.validationFailure || snapshot.detailFailureCount !== 0) {
+    throw new Error(`main beam-column moment should be a ready fail-closed formal attachment with explicit incomplete-joint boundary: ${JSON.stringify(snapshot)}`);
+  }
+  const expectedStrengthKeys = [...MOMENT_STRENGTH_KEYS].sort();
+  if (JSON.stringify([...snapshot.checkKeys].sort()) !== JSON.stringify(expectedStrengthKeys)
+      || JSON.stringify([...snapshot.strengthRows].sort()) !== JSON.stringify(expectedStrengthKeys)) {
+    throw new Error(`main beam-column moment should expose exactly six fixed strength routes in both result and rendered table: ${JSON.stringify(snapshot)}`);
+  }
+  const seismic = snapshot.seismicReview || {};
+  const goldenValues = {
+    Mp: 700,
+    Mpr: 770,
+    MprFar: 770,
+    Vp: 440,
+    MuFace: 902,
+    VuRequired: 560,
+    rotationDemand: 0.03,
+    VpzMin: 2200,
+    VpzRequired: 2200,
+    VpzNominal: 2340,
+    panelThicknessRequired: 10,
+    continuityThreshold: 2520,
+    scwbCw: 2300 / 1670,
+    scwbCcw: 2340 / 1675,
+  };
+  for (const [key, expectedValue] of Object.entries(goldenValues)) {
+    if (Math.abs(Number(seismic[key]) - expectedValue) > 1e-12) {
+      throw new Error(`main beam-column moment seismic golden ${key} drifted: ${JSON.stringify({ expectedValue, actualValue: seismic[key], seismic })}`);
+    }
+  }
+  if (JSON.stringify(snapshot.project) !== JSON.stringify(expectedProject)
+      || String(snapshot.tool?.version || '').toUpperCase() !== 'V1.3'
+      || Object.keys(snapshot.fields || {}).length !== 88
+      || snapshot.fields?.momentFarCriticalSectionExpectedMoment !== 770
+      || snapshot.fields?.momentQualificationEvidenceSha256 !== MOMENT_FORMAL_STATE.momentQualificationEvidenceSha256
+      || snapshot.fields?.momentCapacityEvidenceSha256 !== MOMENT_FORMAL_STATE.momentCapacityEvidenceSha256
+      || !/^CF-[0-9A-F]{16}$/.test(snapshot.sourceFingerprint)
+      || snapshot.reportFingerprint !== snapshot.sourceFingerprint) {
+    throw new Error(`main beam-column moment 88-field source/project/version/fingerprint trace mismatch: ${JSON.stringify(snapshot)}`);
+  }
+  for (const [key, expectedValue] of Object.entries(MOMENT_EXPECTED_SOURCE_FIELDS)) {
+    if (snapshot.fields?.[key] !== expectedValue) {
+      throw new Error(`main beam-column moment source field ${key} mismatch: ${JSON.stringify({ expectedValue, actualValue: snapshot.fields?.[key] })}`);
+    }
+  }
+  const gateExpectations = {
+    hardwareUnconfirmed: 'momentConnectionHardwareVerifiedConfirmed',
+    orthogonalDirectionUnconfirmed: 'momentOrthogonalDirectionSeparateConfirmed',
+    invalidQualificationHash: 'momentQualificationEvidenceSha256',
+    invalidCapacityHash: 'momentCapacityEvidenceSha256',
+  };
+  for (const [probeName, failingKey] of Object.entries(gateExpectations)) {
+    const probeResult = snapshot.gateProbes?.[probeName];
+    if (!probeResult || probeResult.passes || probeResult.overallStatus !== 'fail' || !probeResult.failingKeys.includes(failingKey)) {
+      throw new Error(`main beam-column moment ${probeName} must fail closed at ${failingKey}: ${JSON.stringify(snapshot.gateProbes)}`);
+    }
+  }
+}
+
+async function assertMainMomentReportPopup(cdp, sessionId, context = {}) {
+  await assertMainMomentReady(cdp, sessionId);
+  if (context.viewport?.label === 'desktop') {
+    await verifySteelNgSourceFileRoundTrip(cdp, sessionId, {
+      key: 'steel-main-moment-ng-source',
+      label: 'main beam-column moment self-produced NG source',
+      ngOverrides: {
+        momentCwRightBeamMoment: 0,
+        momentAvailableFlexuralStrength: 800,
+        momentConnectionHardwareVerifiedConfirmed: 'false',
+      },
+      recoveryOverrides: {
+        momentCwRightBeamMoment: 830,
+        momentAvailableFlexuralStrength: 950,
+        momentConnectionHardwareVerifiedConfirmed: 'true',
+      },
+      updateTriggerSelector: '[name="momentSelectedAxisScopeConfirmed"]',
+      expectedFailingDetailKeys: ['momentConnectionHardwareVerifiedConfirmed'],
+      expectedFailingStrengthKeys: ['momentFlexuralStrength'],
+      expectedNgStateValues: {
+        momentCwRightBeamMoment: 0,
+        momentAvailableFlexuralStrength: 800,
+        momentConnectionHardwareVerifiedConfirmed: false,
+      },
+    });
+    await setupMainMoment(cdp, sessionId);
+    await assertMainMomentReady(cdp, sessionId);
+  }
+  return assertLegacyReportPopup(cdp, sessionId, {
+    label: 'main beam-column moment report popup',
+    buttonSelector: '#printReportBtn',
+    titleNeedle: '梁柱彎矩接頭耐震能力審查附件',
+    expectedProject: {
+      name: MOMENT_FORMAL_STATE.projectName,
+      tag: MOMENT_FORMAL_STATE.connectionTag,
+      designer: MOMENT_FORMAL_STATE.designer,
+    },
+    sourcePayloadBuilder: 'buildSteelConnectionSourcePayload',
+    sourceReplay: {
+      builder: 'buildSteelConnectionSourcePayload', inputSelector: '#importSourceJsonInput',
+      mutationSelector: 'input[name="momentPanelZoneThickness"]:not([disabled])', sourceFieldKey: 'momentPanelZoneThickness',
+      statusSelector: '#exportReportStatus', nestedFields: false,
+      strictBooleanField: 'momentSelectedAxisScopeConfirmed',
+      updateTriggerSelector: '[name="momentSelectedAxisScopeConfirmed"]',
+      reportTamper: true,
+      crossModuleBeforeImport: 'single_plate',
+      exactFieldSchemaProbes: true,
+      schemaProbeMissingField: 'momentBeamPlasticModulus',
+      wrongEnumField: 'momentFrameSystem',
+      wrongEnumValue: 'brbf',
+    },
+    expectedSourceFields: MOMENT_EXPECTED_SOURCE_FIELDS,
+    expectedSourceFieldCount: 88,
+    visibleCalculationCheckKeys: MOMENT_STRENGTH_KEYS,
+    artifactRequiredNeedles: MOMENT_ARTIFACT_REQUIRED_NEEDLES,
+    domAndTextRequiredNeedles: [
+      'Mpr,far / Vp / Mu,face / Vu,req',
+      '提供值 0.95 未超過規定上限 1',
+      '提供值 0.76 已不小於規定值 0.75',
+    ],
+    textOnlyRequiredNeedles: ['需求值：0.03 rad｜可用強度：0.04 rad'],
+    expectedCheckRows: [
+      { label: '塑性轉角資格', demand: '0.03 rad', available: '0.04 rad' },
+    ],
+    reportOnlyRequiredNeedles: [
+      'AISC 358 family / prequalification',
+      'Mpr,far 屬需求/構架模型輸入',
+      '接頭螺栓、端板、prying action、yield-line、焊道與其他局部容量均由外部受控來源提供',
+    ],
+    continuationContextLabels: ['Mpr,far', 'Panel Zone', 'Continuity Plate', '資格證據 SHA-256', '容量證據 SHA-256'],
+    renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-main-moment' : '',
+  });
+}
+
 async function assertMainTensionReportPopup(cdp, sessionId, context = {}) {
   return assertLegacyReportPopup(cdp, sessionId, {
     label: 'main tension report popup',
@@ -1962,6 +2760,7 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
       const transfer = new DataTransfer();
       transfer.items.add(new File([JSON.stringify(payload)], 'calculation-source.json', { type: 'application/json' }));
       input.files = transfer.files;
+      status.textContent = '';
       input.dispatchEvent(new Event('change', { bubbles: true }));
       const startedAt = Date.now();
       while (Date.now() - startedAt < 5000) {
@@ -1971,7 +2770,7 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
       return { matched: false, text: status.textContent || '' };
     };
     let reportDifference = null;
-    if (['single_plate', 'brace_gusset'].includes(serializedSource.connectionType) && ${options.nestedFields ? 'false' : 'true'}) {
+    if (['single_plate', 'column_splice', 'brace_gusset', 'beam_column_moment'].includes(serializedSource.connectionType) && ${options.nestedFields ? 'false' : 'true'}) {
       Object.entries(serializedSource.fields || {}).forEach(([name, value]) => {
         const sourceField = document.querySelector('[name="' + name + '"]');
         if (!sourceField) throw new Error('missing strict replay field [name="' + name + '"]');
@@ -1990,12 +2789,16 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
       const selectedType = document.querySelector('select[name="connectionType"]')?.value || '';
       const gussetCard = document.querySelector('[data-connection="brace_gusset"]');
       const shearTabCard = document.querySelector('[data-connection="single_plate"]');
+      const momentCard = document.querySelector('[data-connection="beam_column_moment"]');
+      const spliceCard = document.querySelector('[data-connection="column_splice"]');
       return {
         connectionType: current?.connectionType || '',
         calculationFingerprint: current?.calculationFingerprint || '',
         selectedType,
         gussetVisible: Boolean(gussetCard && !gussetCard.classList.contains('is-hidden')),
         shearTabVisible: Boolean(shearTabCard && !shearTabCard.classList.contains('is-hidden')),
+        momentVisible: Boolean(momentCard && !momentCard.classList.contains('is-hidden')),
+        spliceVisible: Boolean(spliceCard && !spliceCard.classList.contains('is-hidden')),
       };
     };
     const crossModuleBeforeImport = ${JSON.stringify(options.crossModuleBeforeImport || '')};
@@ -2072,7 +2875,41 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
       reportTamperRejected = await triggerImport(invalidReport, '內嵌報告內容與來源欄位重算結果不一致');
       afterReportTamperReject = builder().calculationFingerprint;
     }
+    const exactFieldSchemaProbes = ${options.exactFieldSchemaProbes ? 'true' : 'false'};
+    const schemaProbeMissingField = ${JSON.stringify(options.schemaProbeMissingField || '')};
+    let extraFieldRejected = { matched: true, text: '' };
+    let missingFieldRejected = { matched: true, text: '' };
+    let beforeExtraFieldReject = afterReportTamperReject;
+    let afterExtraFieldReject = afterReportTamperReject;
+    let beforeMissingFieldReject = afterReportTamperReject;
+    let afterMissingFieldReject = afterReportTamperReject;
+    if (exactFieldSchemaProbes) {
+      const invalidExtraField = JSON.parse(JSON.stringify(serializedSource));
+      invalidExtraField.fields.__unexpectedFormalField = 1;
+      beforeExtraFieldReject = builder().calculationFingerprint;
+      extraFieldRejected = await triggerImport(invalidExtraField, '欄位集合不符');
+      afterExtraFieldReject = builder().calculationFingerprint;
+
+      const invalidMissingField = JSON.parse(JSON.stringify(serializedSource));
+      delete invalidMissingField.fields[schemaProbeMissingField];
+      beforeMissingFieldReject = builder().calculationFingerprint;
+      missingFieldRejected = await triggerImport(invalidMissingField, '欄位集合不符');
+      afterMissingFieldReject = builder().calculationFingerprint;
+    }
+    const wrongEnumField = ${JSON.stringify(options.wrongEnumField || '')};
+    const wrongEnumValue = ${JSON.stringify(options.wrongEnumValue || '')};
+    let wrongEnumRejected = { matched: true, text: '' };
+    let beforeWrongEnumReject = afterMissingFieldReject;
+    let afterWrongEnumReject = afterMissingFieldReject;
+    if (wrongEnumField) {
+      const invalidEnum = JSON.parse(JSON.stringify(serializedSource));
+      invalidEnum.fields[wrongEnumField] = wrongEnumValue;
+      beforeWrongEnumReject = builder().calculationFingerprint;
+      wrongEnumRejected = await triggerImport(invalidEnum, wrongEnumField + ' 列舉值不支援');
+      afterWrongEnumReject = builder().calculationFingerprint;
+    }
     return {
+      sourceConnectionType: serializedSource.connectionType,
       expectedValue: String(expectedValue),
       restoredValue: String(restoredValue),
       sourceFingerprint: serializedSource.calculationFingerprint,
@@ -2081,6 +2918,9 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
       rejectedStatus: rejected.text,
       booleanRejectedStatus: booleanRejected.text,
       reportTamperRejectedStatus: reportTamperRejected.text,
+      extraFieldRejectedStatus: extraFieldRejected.text,
+      missingFieldRejectedStatus: missingFieldRejected.text,
+      wrongEnumRejectedStatus: wrongEnumRejected.text,
       reportDifference,
       crossModule,
       afterSuccessfulReplay,
@@ -2090,6 +2930,12 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
       afterBooleanReject,
       beforeReportTamperReject,
       afterReportTamperReject,
+      beforeExtraFieldReject,
+      afterExtraFieldReject,
+      beforeMissingFieldReject,
+      afterMissingFieldReject,
+      beforeWrongEnumReject,
+      afterWrongEnumReject,
       inputCleared: input.value === '',
       escapeProbeImageCount: escapeProbeNeedle
         ? Array.from(document.querySelectorAll('img')).filter(node => String(node.getAttribute('onerror') || '').includes('__steelXss')).length
@@ -2121,17 +2967,28 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
       selectedType: options.crossModuleBeforeImport,
       gussetVisible: false,
       shearTabVisible: options.crossModuleBeforeImport === 'single_plate',
+      momentVisible: false,
+      spliceVisible: false,
     };
+    const targetConnectionType = state.sourceConnectionType || '';
+    const targetVisibilityMatches = targetConnectionType === 'brace_gusset'
+      ? state.afterSuccessfulReplay?.gussetVisible && !state.afterSuccessfulReplay?.shearTabVisible && !state.afterSuccessfulReplay?.momentVisible && !state.afterSuccessfulReplay?.spliceVisible
+      : targetConnectionType === 'beam_column_moment'
+        ? state.afterSuccessfulReplay?.momentVisible && !state.afterSuccessfulReplay?.gussetVisible && !state.afterSuccessfulReplay?.shearTabVisible && !state.afterSuccessfulReplay?.spliceVisible
+        : targetConnectionType === 'column_splice'
+          ? state.afterSuccessfulReplay?.spliceVisible && !state.afterSuccessfulReplay?.gussetVisible && !state.afterSuccessfulReplay?.shearTabVisible && !state.afterSuccessfulReplay?.momentVisible
+        : targetConnectionType === 'single_plate'
+          ? state.afterSuccessfulReplay?.shearTabVisible && !state.afterSuccessfulReplay?.gussetVisible && !state.afterSuccessfulReplay?.momentVisible && !state.afterSuccessfulReplay?.spliceVisible
+          : false;
     if (!baseline || JSON.stringify(baseline) !== JSON.stringify(expectedBaseline)
         || JSON.stringify(state.crossModule.afterVersionReject) !== JSON.stringify(baseline)
         || JSON.stringify(state.crossModule.afterReportReject) !== JSON.stringify(baseline)
         || !state.crossModule.versionRejectedStatus.includes('已保留原輸入')
         || !state.crossModule.reportRejectedStatus.includes('已保留原輸入')
-        || state.afterSuccessfulReplay?.connectionType !== 'brace_gusset'
-        || state.afterSuccessfulReplay?.selectedType !== 'brace_gusset'
-        || !state.afterSuccessfulReplay?.gussetVisible
-        || state.afterSuccessfulReplay?.shearTabVisible) {
-      throw new Error(`${options.label} cross-module Gusset replay should reject transactionally, then switch state and visibility on valid import: ${JSON.stringify({ crossModule: state.crossModule, afterSuccessfulReplay: state.afterSuccessfulReplay })}`);
+        || state.afterSuccessfulReplay?.connectionType !== targetConnectionType
+        || state.afterSuccessfulReplay?.selectedType !== targetConnectionType
+        || !targetVisibilityMatches) {
+      throw new Error(`${options.label} cross-module replay should reject transactionally, then switch state and visibility on valid import: ${JSON.stringify({ crossModule: state.crossModule, afterSuccessfulReplay: state.afterSuccessfulReplay })}`);
     }
   }
   if (options.strictBooleanField
@@ -2145,6 +3002,23 @@ async function assertSourceJsonReplay(cdp, sessionId, options) {
         || !state.reportTamperRejectedStatus.includes('已保留原輸入')
         || state.beforeReportTamperReject !== state.afterReportTamperReject)) {
     throw new Error(`${options.label} should reject a tampered embedded report without changing state: ${JSON.stringify(state)}`);
+  }
+  if (options.exactFieldSchemaProbes
+      && (!state.extraFieldRejectedStatus.includes('欄位集合不符')
+        || !state.extraFieldRejectedStatus.includes('多出 __unexpectedFormalField')
+        || !state.extraFieldRejectedStatus.includes('已保留原輸入')
+        || state.beforeExtraFieldReject !== state.afterExtraFieldReject
+        || !state.missingFieldRejectedStatus.includes('欄位集合不符')
+        || !state.missingFieldRejectedStatus.includes(`缺少 ${options.schemaProbeMissingField}`)
+        || !state.missingFieldRejectedStatus.includes('已保留原輸入')
+        || state.beforeMissingFieldReject !== state.afterMissingFieldReject)) {
+    throw new Error(`${options.label} should reject extra and missing formal source fields transactionally: ${JSON.stringify(state)}`);
+  }
+  if (options.wrongEnumField
+      && (!state.wrongEnumRejectedStatus.includes(`${options.wrongEnumField} 列舉值不支援`)
+        || !state.wrongEnumRejectedStatus.includes('已保留原輸入')
+        || state.beforeWrongEnumReject !== state.afterWrongEnumReject)) {
+    throw new Error(`${options.label} should reject unsupported ${options.wrongEnumField} transactionally: ${JSON.stringify(state)}`);
   }
   if (state.escapeProbeImageCount !== 0 || state.escapeProbeExecuted || !state.escapeProbeTextVisible) {
     throw new Error(`${options.label} source replay should preserve the XSS probe as visible text only: ${JSON.stringify(state)}`);
@@ -2173,6 +3047,11 @@ async function captureReportApprovalState(cdp, sessionId, label) {
     const approvedCalculationFingerprint = calculationFingerprint();
     const approvedDocumentTitle = document.title || '';
     const approvedHtml = serializerAvailable ? serializeReportDocumentHtml() : '';
+    const approvedDocument = approvedHtml ? new DOMParser().parseFromString(approvedHtml, 'text/html') : null;
+    const approvedTableRows = approvedDocument
+      ? Array.from(approvedDocument.querySelectorAll('table tbody tr')).map((row) =>
+        Array.from(row.querySelectorAll('th, td')).map((cell) => (cell.textContent || '').replace(/\s+/g, ' ').trim()))
+      : [];
     let downloadedFileName = '';
     if (downloadButton) {
       const originalAnchorClick = HTMLAnchorElement.prototype.click;
@@ -2204,6 +3083,7 @@ async function captureReportApprovalState(cdp, sessionId, label) {
       approvedCalculationFingerprint,
       approvedDocumentTitle,
       approvedHtml,
+      approvedTableRows,
       downloadedFileName,
       internalDocumentTitle,
     };
@@ -2297,6 +3177,177 @@ async function waitForDownloadedArtifact(filePath, timeoutMs = 10000) {
     await wait(100);
   }
   throw new Error(`timed out waiting for downloaded artifact: ${filePath}`);
+}
+
+function normalizeExactFailureKeySet(keys) {
+  return [...new Set(Array.isArray(keys) ? keys : [])].sort();
+}
+
+async function verifySteelNgSourceFileRoundTrip(cdp, sessionId, options) {
+  const prepared = await evaluate(cdp, sessionId, `(async () => {
+    const overrides = ${JSON.stringify(options.ngOverrides || {})};
+    Object.entries(overrides).forEach(([name, value]) => {
+      const field = document.querySelector('[name="' + name + '"]');
+      if (!field) throw new Error('missing NG source field [name="' + name + '"]');
+      field.value = String(value);
+    });
+    const trigger = document.querySelector(${JSON.stringify(options.updateTriggerSelector)});
+    if (!trigger) throw new Error('missing NG source update trigger');
+    trigger.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const result = window.latestSteelConnectionResult;
+    const payload = window.buildSteelConnectionSourcePayload?.();
+    return {
+      payload,
+      passes: result?.passes === true,
+      overallStatus: result?.overallStatus || '',
+      validationFailure: result?.summary?.validationFailure === true,
+      failingDetailKeys: (result?.detailChecks || []).filter(item => !item.passes).map(item => item.key),
+      failingStrengthKeys: (result?.checks || []).filter(item => item.ratio > 1).map(item => item.key),
+      stateValues: Object.fromEntries(Object.keys(overrides).map(key => [key, result?.state?.[key]])),
+      reportFingerprint: payload?.report?.calculationFingerprint || '',
+    };
+  })()`, `${options.label} prepare self-produced NG source`);
+
+  const payload = prepared.payload;
+  if (!payload || prepared.passes || prepared.overallStatus !== 'fail' || prepared.validationFailure
+      || !/^CF-[0-9A-F]{16}$/.test(payload.calculationFingerprint)
+      || prepared.reportFingerprint !== payload.calculationFingerprint) {
+    throw new Error(`${options.label} self-produced NG source must remain finite, reportable, fingerprinted, and NG: ${JSON.stringify(prepared)}`);
+  }
+  const expectedDetailFailureSet = normalizeExactFailureKeySet(options.expectedFailingDetailKeys);
+  const expectedStrengthFailureSet = normalizeExactFailureKeySet(options.expectedFailingStrengthKeys);
+  const preparedDetailFailureSet = normalizeExactFailureKeySet(prepared.failingDetailKeys);
+  const preparedStrengthFailureSet = normalizeExactFailureKeySet(prepared.failingStrengthKeys);
+  if (JSON.stringify(preparedDetailFailureSet) !== JSON.stringify(expectedDetailFailureSet)
+      || JSON.stringify(preparedStrengthFailureSet) !== JSON.stringify(expectedStrengthFailureSet)) {
+    throw new Error(`${options.label} self-produced NG source detail/strength failure sets must match exactly: ${JSON.stringify({ expectedDetailFailureSet, preparedDetailFailureSet, expectedStrengthFailureSet, preparedStrengthFailureSet })}`);
+  }
+  for (const [key, expectedValue] of Object.entries(options.expectedNgStateValues || {})) {
+    if (prepared.stateValues?.[key] !== expectedValue) {
+      throw new Error(`${options.label} self-produced NG state ${key} mismatch: ${JSON.stringify(prepared.stateValues)}`);
+    }
+  }
+
+  const identity = payload.project?.no || payload.project?.name || 'source';
+  const safeIdentity = String(identity).trim().replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '') || 'source';
+  const fileName = `${payload.tool.id}-${safeIdentity}.json`;
+  const filePath = path.resolve(outputDir, fileName);
+  if (path.dirname(filePath) !== outputDir) throw new Error(`${options.label} NG source filename escapes audit output directory`);
+  for (const candidate of [filePath, `${filePath}.crdownload`]) {
+    if (fs.existsSync(candidate)) fs.unlinkSync(candidate);
+  }
+
+  const downloadStatus = await evaluate(cdp, sessionId, `(async () => {
+    const button = document.querySelector('#exportSourceJsonBtn');
+    const status = document.querySelector('#exportReportStatus');
+    if (!button || !status) throw new Error('missing NG source export controls');
+    status.textContent = '';
+    button.click();
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < 5000 && !(status.textContent || '').includes('已匯出來源 JSON')) {
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    return status.textContent || '';
+  })()`, `${options.label} download self-produced NG source`);
+  if (!downloadStatus.includes(payload.calculationFingerprint)) {
+    throw new Error(`${options.label} NG source download status/fingerprint mismatch: ${downloadStatus}`);
+  }
+  await waitForDownloadedArtifact(filePath);
+  const buffer = fs.readFileSync(filePath);
+  const downloadedText = buffer.toString('utf8');
+  let downloadedPayload;
+  try {
+    downloadedPayload = JSON.parse(downloadedText);
+  } catch (error) {
+    throw new Error(`${options.label} downloaded NG source is not JSON: ${error.message}`);
+  }
+  if (buffer.length <= 1024
+      || downloadedPayload.calculationFingerprint !== payload.calculationFingerprint
+      || downloadedPayload.report?.calculationFingerprint !== payload.calculationFingerprint
+      || JSON.stringify(downloadedPayload.fields) !== JSON.stringify(payload.fields)
+      || JSON.stringify(downloadedPayload.report) !== JSON.stringify(payload.report)) {
+    throw new Error(`${options.label} downloaded NG source does not exactly preserve fields/report/fingerprint: ${JSON.stringify({ bytes: buffer.length, prepared: payload.calculationFingerprint, downloaded: downloadedPayload.calculationFingerprint })}`);
+  }
+
+  const replay = await evaluate(cdp, sessionId, `(async () => {
+    const recovery = ${JSON.stringify(options.recoveryOverrides || {})};
+    Object.entries(recovery).forEach(([name, value]) => {
+      const field = document.querySelector('[name="' + name + '"]');
+      if (!field) throw new Error('missing NG recovery field [name="' + name + '"]');
+      field.value = String(value);
+    });
+    const trigger = document.querySelector(${JSON.stringify(options.updateTriggerSelector)});
+    const input = document.querySelector('#importSourceJsonInput');
+    const status = document.querySelector('#exportReportStatus');
+    if (!trigger || !input || !status) throw new Error('missing NG source replay controls');
+    trigger.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const passBeforeImport = window.latestSteelConnectionResult?.passes === true;
+
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([${JSON.stringify(downloadedText)}], ${JSON.stringify(fileName)}, { type: 'application/json' }));
+    input.files = transfer.files;
+    status.textContent = '';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < 5000
+        && !(status.textContent || '').includes('已匯入並重現計算')
+        && !(status.textContent || '').includes('匯入失敗')) {
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    const result = window.latestSteelConnectionResult;
+    const replayPayload = window.buildSteelConnectionSourcePayload?.();
+    return {
+      passBeforeImport,
+      status: status.textContent || '',
+      passes: result?.passes === true,
+      overallStatus: result?.overallStatus || '',
+      validationFailure: result?.summary?.validationFailure === true,
+      failingDetailKeys: (result?.detailChecks || []).filter(item => !item.passes).map(item => item.key),
+      failingStrengthKeys: (result?.checks || []).filter(item => item.ratio > 1).map(item => item.key),
+      stateValues: Object.fromEntries(Object.keys(${JSON.stringify(options.ngOverrides || {})}).map(key => [key, result?.state?.[key]])),
+      replayPayload,
+      inputCleared: input.value === '',
+    };
+  })()`, `${options.label} replay downloaded NG source file`);
+  if (!replay.passBeforeImport || replay.passes || replay.overallStatus !== 'fail' || replay.validationFailure
+      || !replay.status.includes('已匯入並重現計算')
+      || !replay.status.includes(downloadedPayload.calculationFingerprint)
+      || replay.replayPayload?.calculationFingerprint !== downloadedPayload.calculationFingerprint
+      || replay.replayPayload?.report?.calculationFingerprint !== downloadedPayload.calculationFingerprint
+      || JSON.stringify(replay.replayPayload?.fields) !== JSON.stringify(downloadedPayload.fields)
+      || JSON.stringify(replay.replayPayload?.report) !== JSON.stringify(downloadedPayload.report)
+      || !replay.inputCleared) {
+    throw new Error(`${options.label} downloaded NG source must replay transactionally to the same NG report and fingerprint: ${JSON.stringify(replay)}`);
+  }
+  const replayDetailFailureSet = normalizeExactFailureKeySet(replay.failingDetailKeys);
+  const replayStrengthFailureSet = normalizeExactFailureKeySet(replay.failingStrengthKeys);
+  if (JSON.stringify(replayDetailFailureSet) !== JSON.stringify(expectedDetailFailureSet)
+      || JSON.stringify(replayStrengthFailureSet) !== JSON.stringify(expectedStrengthFailureSet)) {
+    throw new Error(`${options.label} replayed NG source detail/strength failure sets must match exactly: ${JSON.stringify({ expectedDetailFailureSet, replayDetailFailureSet, expectedStrengthFailureSet, replayStrengthFailureSet })}`);
+  }
+  for (const [key, expectedValue] of Object.entries(options.expectedNgStateValues || {})) {
+    if (replay.stateValues?.[key] !== expectedValue) {
+      throw new Error(`${options.label} replayed NG state ${key} mismatch: ${JSON.stringify(replay.stateValues)}`);
+    }
+  }
+
+  const record = {
+    key: options.key,
+    artifact: path.basename(filePath),
+    bytes: buffer.length,
+    sha256: crypto.createHash('sha256').update(buffer).digest('hex'),
+    calculationFingerprint: downloadedPayload.calculationFingerprint,
+    connectionType: downloadedPayload.connectionType,
+    overallStatus: replay.overallStatus,
+    failingDetailKeys: replayDetailFailureSet,
+    failingStrengthKeys: replayStrengthFailureSet,
+    exactFailureSetsVerified: true,
+    reportRoundTripExact: true,
+  };
+  ngSourceEvidenceRecords.push(record);
+  return record;
 }
 
 async function verifySteelTextDownload(cdp, sessionId, label, evidenceKey, artifactRequiredNeedles = [], artifactForbiddenNeedles = []) {
@@ -2662,6 +3713,168 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
   };
 }
 
+function normalizeVisibleCalculationText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function parseVisibleCalculationNumber(text, label) {
+  const normalized = normalizeVisibleCalculationText(text);
+  const match = normalized.replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
+  if (!match) throw new Error(`${label} does not expose a finite visible number: ${normalized}`);
+  const value = Number(match[0]);
+  if (!Number.isFinite(value)) throw new Error(`${label} visible number is not finite: ${normalized}`);
+  return value;
+}
+
+function visibleCalculationTolerance(text) {
+  const normalized = normalizeVisibleCalculationText(text).replace(/,/g, '');
+  const match = normalized.match(/-?\d+(?:\.(\d+))?/);
+  if (!match) return Number.NaN;
+  const decimals = match[1]?.length || 0;
+  return (0.5 * (10 ** -decimals)) + 1e-12;
+}
+
+function visibleTextsOccurInOrder(haystack, needles) {
+  let cursor = 0;
+  for (const needle of needles) {
+    const normalizedNeedle = normalizeVisibleCalculationText(needle);
+    const index = haystack.indexOf(normalizedNeedle, cursor);
+    if (index < 0) return false;
+    cursor = index + normalizedNeedle.length;
+  }
+  return true;
+}
+
+function buildSteelVisibleCalculationAssertions(options) {
+  const {
+    sourcePayload,
+    tableRows,
+    approvedTableRows,
+    popupBodyText,
+    approvedVisibleText,
+    renderedPdfText,
+    expectedCheckKeys,
+    label,
+  } = options;
+  const checks = Array.isArray(sourcePayload?.report?.checks) ? sourcePayload.report.checks : [];
+  const expectedKeys = [...(expectedCheckKeys || [])].sort();
+  const actualKeys = checks.map(check => check?.key).sort();
+  if (JSON.stringify(actualKeys) !== JSON.stringify(expectedKeys)) {
+    throw new Error(`${label} visible reconciliation source check keys mismatch: ${JSON.stringify({ expectedKeys, actualKeys })}`);
+  }
+  const normalizedPopup = normalizeVisibleCalculationText(popupBodyText);
+  const normalizedApproved = normalizeVisibleCalculationText(approvedVisibleText);
+  const normalizedPdf = normalizeVisibleCalculationText(renderedPdfText);
+  const pdfLines = String(renderedPdfText || '')
+    .split(/[\r\n\f]+/)
+    .map(normalizeVisibleCalculationText)
+    .filter(Boolean);
+  const assertions = [];
+  for (const [checkIndex, check] of checks.entries()) {
+    const normalizedLabel = normalizeVisibleCalculationText(check.label);
+    const popupRows = (tableRows || []).filter(cells => normalizeVisibleCalculationText(cells?.[0]).startsWith(normalizedLabel));
+    const htmlRows = (approvedTableRows || []).filter(cells => normalizeVisibleCalculationText(cells?.[0]).startsWith(normalizedLabel));
+    if (popupRows.length !== 1 || htmlRows.length !== 1) {
+      throw new Error(`${label} visible reconciliation requires exactly one popup and approved-HTML strength row for ${check.key}: ${JSON.stringify({ popupRows, htmlRows })}`);
+    }
+    const popupRow = popupRows[0];
+    const htmlRow = htmlRows[0];
+    const pdfRows = pdfLines.filter(line => visibleTextsOccurInOrder(line, [normalizedLabel, popupRow[1], popupRow[2], popupRow[3]]));
+    if (pdfRows.length !== 1) {
+      throw new Error(`${label} rendered PDF must expose exactly one ordered strength row for ${check.key}: ${JSON.stringify({ expected: [normalizedLabel, popupRow[1], popupRow[2], popupRow[3]], pdfRows })}`);
+    }
+    const pdfRow = pdfRows[0];
+    const pdfDetailStart = normalizedPdf.lastIndexOf(normalizedLabel);
+    const nextLabel = normalizeVisibleCalculationText(checks[checkIndex + 1]?.label);
+    const nextDetailStart = nextLabel ? normalizedPdf.lastIndexOf(nextLabel) : -1;
+    const pdfDetailEnd = nextDetailStart > pdfDetailStart ? nextDetailStart : normalizedPdf.length;
+    const pdfDetailText = pdfDetailStart >= 0 ? normalizedPdf.slice(pdfDetailStart, pdfDetailEnd) : '';
+    if (!pdfDetailText) {
+      throw new Error(`${label} rendered PDF calculation detail missing for ${check.key}`);
+    }
+    const unit = String(check.unit || '');
+    const numericFields = [
+      { quantity: 'demand', sourceValue: check.demand, popupText: popupRow[1], htmlText: htmlRow[1], unit },
+      { quantity: 'available', sourceValue: check.available, popupText: popupRow[2], htmlText: htmlRow[2], unit },
+      { quantity: 'ratio', sourceValue: check.ratio, popupText: popupRow[3], htmlText: htmlRow[3], unit: '' },
+    ];
+    for (const item of numericFields) {
+      const sourceValue = Number(item.sourceValue);
+      const surfaces = [
+        { id: 'report-popup', surface: 'report-popup-strength-table', visibleText: normalizeVisibleCalculationText(item.popupText), boundText: normalizedPopup },
+        { id: 'approved-html', surface: 'approved-html-strength-table', visibleText: normalizeVisibleCalculationText(item.htmlText), boundText: normalizedApproved },
+        { id: 'rendered-pdf', surface: 'rendered-pdf-extracted-text-strength-table', visibleText: normalizeVisibleCalculationText(item.popupText), boundText: pdfRow },
+      ];
+      for (const surface of surfaces) {
+        const visibleValue = parseVisibleCalculationNumber(surface.visibleText, `${label} ${check.key}.${item.quantity} ${surface.id}`);
+        const tolerance = visibleCalculationTolerance(surface.visibleText);
+        if (!Number.isFinite(sourceValue) || !Number.isFinite(tolerance) || Math.abs(sourceValue - visibleValue) > tolerance) {
+          throw new Error(`${label} ${check.key}.${item.quantity} ${surface.id} visible value mismatch: ${JSON.stringify({ sourceValue, visibleValue, visibleText: surface.visibleText, tolerance })}`);
+        }
+        if (item.unit && !surface.visibleText.endsWith(item.unit)) {
+          throw new Error(`${label} ${check.key}.${item.quantity} ${surface.id} visible unit mismatch: ${surface.visibleText}`);
+        }
+        if (!surface.boundText.includes(surface.visibleText) || !surface.boundText.includes(normalizedLabel)) {
+          throw new Error(`${label} ${check.key}.${item.quantity} must remain bound to its ${surface.id} row: ${surface.visibleText}`);
+        }
+        assertions.push({
+          assertionId: `${check.key}:${item.quantity}:${surface.id}`,
+          sourcePath: `report.checks.${check.key}.${item.quantity}`,
+          surface: surface.surface,
+          comparison: 'numeric-within-tolerance',
+          sourceValue,
+          visibleValue,
+          visibleText: surface.visibleText,
+          tolerance,
+        });
+      }
+    }
+    for (const [index, equationLine] of (check.equationLines || []).entries()) {
+      const expectedText = normalizeVisibleCalculationText(equationLine);
+      const surfaces = [
+        { id: 'report-popup', surface: 'report-popup-calculation-detail', visibleText: normalizedPopup },
+        { id: 'approved-html', surface: 'approved-html-calculation-detail', visibleText: normalizedApproved },
+      ];
+      for (const surface of surfaces) {
+        if (!expectedText || !surface.visibleText.includes(expectedText)) {
+          throw new Error(`${label} ${check.key} equation ${index + 1} must match source on ${surface.id}: ${expectedText}`);
+        }
+        assertions.push({
+          assertionId: `${check.key}:equation:${index + 1}:${surface.id}`,
+          sourcePath: `report.checks.${check.key}.equationLines.${index}`,
+          surface: surface.surface,
+          comparison: 'exact-visible-text',
+          sourceValue: expectedText,
+          visibleValue: expectedText,
+          visibleText: expectedText,
+        });
+      }
+      const numericTokens = [...new Set(expectedText.match(/-?\d[\d,.]*(?:\s*(?:kN-m|kN|rad))?/g) || [])];
+      if (numericTokens.length === 0) {
+        throw new Error(`${label} ${check.key} equation ${index + 1} lacks a source-derived PDF formula token: ${expectedText}`);
+      }
+      for (const [tokenIndex, token] of numericTokens.entries()) {
+        if (!pdfDetailText.includes(token)) {
+          throw new Error(`${label} ${check.key} equation ${index + 1} rendered PDF detail missing numeric token ${token}: ${pdfDetailText}`);
+        }
+        assertions.push({
+          assertionId: `${check.key}:equation:${index + 1}:rendered-pdf-token:${tokenIndex + 1}`,
+          sourcePath: `report.checks.${check.key}.equationLines.${index}.numericTokens.${tokenIndex}`,
+          surface: 'rendered-pdf-extracted-text-calculation-token',
+          comparison: 'exact-visible-text',
+          sourceValue: token,
+          visibleValue: token,
+          visibleText: token,
+        });
+      }
+    }
+  }
+  if (assertions.length <= 8) {
+    throw new Error(`${label} visible calculation reconciliation must record more than eight actual comparisons: ${assertions.length}`);
+  }
+  return assertions;
+}
+
 async function assertLegacyReportPopup(cdp, sessionId, options) {
   const sourceExport = options.sourcePayloadBuilder
     ? await evaluate(cdp, sessionId, `(() => {
@@ -2710,6 +3923,8 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
     escapeProbeExecuted: window.__steelXss === 1,
     metaRows: Array.from(document.querySelectorAll('.meta div')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
     sectionHeadings: Array.from(document.querySelectorAll('.paper h3')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
+    tableRows: Array.from(document.querySelectorAll('table tbody tr')).map((row) =>
+      Array.from(row.querySelectorAll('th, td')).map((cell) => (cell.innerText || '').replace(/\\s+/g, ' ').trim())),
   }))()`, `${options.label} snapshot`);
   const approvalState = await captureReportApprovalState(cdp, popup.sessionId, options.label);
   const dualSealEvidence = verifySteelApprovedHtml(approvalState, options.label);
@@ -2725,7 +3940,11 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
       popup.sessionId,
       options.label,
       options.renderEvidenceKey,
-      [...(options.artifactRequiredNeedles || []), ...(options.domAndTextRequiredNeedles || [])],
+      [
+        ...(options.artifactRequiredNeedles || []),
+        ...(options.domAndTextRequiredNeedles || []),
+        ...(options.textOnlyRequiredNeedles || []),
+      ],
       options.absentNeedles
     );
   }
@@ -2757,6 +3976,17 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
   ]) {
     if (!snapshot.bodyText.includes(needle)) {
       throw new Error(`${options.label} should include "${needle}": ${snapshot.bodyText}`);
+    }
+  }
+  for (const expectedRow of options.expectedCheckRows || []) {
+    const row = snapshot.tableRows.find((cells) => cells[0]?.startsWith(expectedRow.label));
+    if (!row) {
+      throw new Error(`${options.label} should include check row ${expectedRow.label}: ${JSON.stringify(snapshot.tableRows)}`);
+    }
+    if (row[1] !== expectedRow.demand || row[2] !== expectedRow.available) {
+      throw new Error(
+        `${options.label} ${expectedRow.label} value mismatch: expected ${expectedRow.demand} / ${expectedRow.available}, got ${row[1]} / ${row[2]}`,
+      );
     }
   }
   if (options.escapeProbeNeedle
@@ -2808,6 +4038,10 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
         throw new Error(`${options.label} source payload field ${key} mismatch: ${JSON.stringify(sourcePayload.fields?.[key])}`);
       }
     }
+    if (Number.isInteger(options.expectedSourceFieldCount)
+        && Object.keys(sourcePayload.fields || {}).length !== options.expectedSourceFieldCount) {
+      throw new Error(`${options.label} source payload must contain exactly ${options.expectedSourceFieldCount} fields: ${Object.keys(sourcePayload.fields || {}).length}`);
+    }
     if (!sourceExport.download?.filename?.endsWith('.json') || !sourceExport.status.includes(sourcePayload.calculationFingerprint)) {
       throw new Error(`${options.label} source JSON download/status mismatch: ${JSON.stringify(sourceExport)}`);
     }
@@ -2817,13 +4051,6 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
   }
   if (options.renderEvidenceKey) {
     const htmlEvidence = saveSteelApprovedHtml(options.renderEvidenceKey, approvalState.approvedHtml);
-    const resultReconciliation = buildSteelResultReconciliation({
-      caseId: options.renderEvidenceKey,
-      sourcePayload,
-      replayCalculationFingerprint: sourceReplayState?.replayFingerprint,
-      reportCalculationFingerprint: reportFingerprint,
-      verifiedAssertionCount: 8,
-    });
     const evidence = await renderAndValidateReportPdf(cdp, {
       html: approvalState.approvedHtml,
       outputDir: renderedEvidenceDir,
@@ -2836,7 +4063,28 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
       forbiddenNeedles,
       continuationContextLabels: options.continuationContextLabels || [],
     });
-    assertFormalReportTraceText(fs.readFileSync(evidence.pdf.textPath, 'utf8'), `${options.label} rendered PDF`);
+    const renderedPdfText = fs.readFileSync(evidence.pdf.textPath, 'utf8');
+    assertFormalReportTraceText(renderedPdfText, `${options.label} rendered PDF`);
+    const visibleCalculationAssertions = options.visibleCalculationCheckKeys
+      ? buildSteelVisibleCalculationAssertions({
+        sourcePayload,
+        tableRows: snapshot.tableRows,
+        approvedTableRows: approvalState.approvedTableRows,
+        popupBodyText: snapshot.bodyText,
+        approvedVisibleText,
+        renderedPdfText,
+        expectedCheckKeys: options.visibleCalculationCheckKeys,
+        label: options.label,
+      })
+      : null;
+    const resultReconciliation = buildSteelResultReconciliation({
+      caseId: options.renderEvidenceKey,
+      sourcePayload,
+      replayCalculationFingerprint: sourceReplayState?.replayFingerprint,
+      reportCalculationFingerprint: reportFingerprint,
+      verifiedAssertionCount: visibleCalculationAssertions?.length || 8,
+      ...(visibleCalculationAssertions ? { verifiedAssertions: visibleCalculationAssertions } : {}),
+    });
     renderedEvidenceRecords.push({
       key: options.renderEvidenceKey,
       renderer: evidence.renderer,
@@ -2846,6 +4094,7 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
       textLength: evidence.pdf.textLength,
       calculationFingerprint: reportFingerprint,
       resultReconciliation,
+      requiredNeedles: [options.titleNeedle, ...(options.artifactRequiredNeedles || [])],
       evidenceRole: 'approved-formal-attachment',
       documentClass: 'formal-attachment',
       approvedAt: approvalState.approvedAt,
@@ -3298,6 +4547,7 @@ async function main() {
     records,
     directPrintRecords,
     textExportEvidenceRecords,
+    ngSourceEvidenceRecords,
     failures,
     summaryLines,
     cleanupWarnings,
@@ -3314,7 +4564,7 @@ async function main() {
       renderedEvidenceDir,
       'steel-formal',
       renderedEvidenceRecords,
-      ['steel-main-plate', 'steel-main-shear-tab', 'steel-main-gusset', 'steel-main-tension', 'steel-standalone-plate', 'steel-beam-formal', 'steel-column-formal']
+      ['steel-main-plate', 'steel-main-shear-tab', 'steel-main-column-splice', 'steel-main-gusset', 'steel-main-moment', 'steel-main-tension', 'steel-standalone-plate', 'steel-beam-formal', 'steel-column-formal']
     )
     : null;
   if (renderedSummary) {
@@ -3330,7 +4580,7 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  console.log(`steel browser runner OK (records=${records.length}, directPrintBlocks=${directPrintRecords.length}, textExports=${textExportEvidenceRecords.length}, runner=edge-cdp)`);
+  console.log(`steel browser runner OK (records=${records.length}, directPrintBlocks=${directPrintRecords.length}, textExports=${textExportEvidenceRecords.length}, ngSourceRoundTrips=${ngSourceEvidenceRecords.length}, runner=edge-cdp)`);
 }
 
 main().catch(error => {

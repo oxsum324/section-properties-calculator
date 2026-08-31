@@ -86,11 +86,11 @@
       complianceReady: true,
     },
     column_splice: {
-      reportTitle: "柱續接檢核計算書",
-      reportSubtitle: "Column Splice Connection Report",
-      pageTitle: "鋼構柱續接設計與檢核",
-      pageDescription: "柱翼 / 柱腹續接板｜軸力、剪力、彎矩分流，搭配螺栓、板件與銲接檢核",
-      complianceReady: false,
+      reportTitle: "全斷面 CJP 耐震柱續接能力審查附件",
+      reportSubtitle: "Full-Section CJP Seismic Column Splice Capacity Review Attachment",
+      pageTitle: "全斷面 CJP 耐震柱續接能力審查",
+      pageDescription: "LRFD｜同斷面熱軋 H 形柱｜距梁翼 1.2 m 以上｜13.4.1 軸力、全斷面 CJP 強度與 NDT 計畫治理",
+      complianceReady: true,
     },
     brace_gusset: {
       reportTitle: "支撐 / Gusset 接頭檢核計算書",
@@ -100,11 +100,11 @@
       complianceReady: true,
     },
     beam_column_moment: {
-      reportTitle: "梁柱彎矩接頭檢核計算書",
-      reportSubtitle: "Beam-Column Moment Connection Report",
-      pageTitle: "鋼構梁柱彎矩接頭設計與檢核",
-      pageDescription: "簡化力偶模型｜拉側螺栓、端板張力、腹板剪力傳遞與 Panel Zone 容量檢核",
-      complianceReady: false,
+      reportTitle: "梁柱彎矩接頭耐震能力審查附件",
+      reportSubtitle: "Beam-Column Moment Seismic Review Attachment",
+      pageTitle: "鋼構補強式梁柱彎矩接頭耐震能力審查附件",
+      pageDescription: "LRFD｜單一選定構架面｜補強式梁柱彎矩接頭耐震能力審查附件，不宣稱 AISC 358 預認證或完整接頭設計",
+      complianceReady: true,
     },
     plate_check: {
       reportTitle: "連接板檢核計算書",
@@ -139,6 +139,10 @@
 
   function positive(value) {
     return Math.max(toNumber(value), 0);
+  }
+
+  function toText(value) {
+    return value == null ? "" : String(value);
   }
 
   function mm2ToKn(stressMpa, areaMm2) {
@@ -228,8 +232,8 @@
     return { reductionFactor: Math.max(1.1 - 0.016 * state.fillerThickness, 0), applies: true, invalid: false };
   }
 
-  function createCheck({ key, label, demand, nominal, available, note, equationLines, latexLines, codeRef, equationRef, warning }) {
-    return { key, label, demand, nominal, available, ratio: safeRatio(demand, available), note, equationLines, latexLines, codeRef, equationRef, warning: Boolean(warning) };
+  function createCheck({ key, label, demand, nominal, available, note, equationLines, latexLines, codeRef, equationRef, warning, unit = "" }) {
+    return { key, label, demand, nominal, available, ratio: safeRatio(demand, available), note, equationLines, latexLines, codeRef, equationRef, warning: Boolean(warning), unit };
   }
 
   function makeDetailCheck(key, label, provided, required, comparator, note, codeRef) {
@@ -998,30 +1002,51 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
       eccentricityBasis: rawState.eccentricityBasis || "",
       conventionalMaterialConfirmed: rawState.conventionalMaterialConfirmed === true || rawState.conventionalMaterialConfirmed === "true",
       connectionModelConfirmed: rawState.connectionModelConfirmed === true || rawState.connectionModelConfirmed === "true",
-      spliceLeverArm: positive(rawState.spliceLeverArm),
-      spliceBearingTransfer: rawState.spliceBearingTransfer === true || rawState.spliceBearingTransfer === "true",
-      flangeBoltCount: toInteger(rawState.flangeBoltCount, 1),
-      flangeEndDistance: positive(rawState.flangeEndDistance),
-      flangePitch: positive(rawState.flangePitch),
-      flangeEdgeDistance: positive(rawState.flangeEdgeDistance),
-      flangePlateThickness: positive(rawState.flangePlateThickness),
-      flangePlateWidth: positive(rawState.flangePlateWidth),
-      flangePlateNetWidth: positive(rawState.flangePlateNetWidth),
-      flangePlateYieldStrength: positive(rawState.flangePlateYieldStrength),
-      flangePlateUltimateStrength: positive(rawState.flangePlateUltimateStrength),
-      webBoltCount: toInteger(rawState.webBoltCount, 1),
-      webShearPlanes: toInteger(rawState.webShearPlanes, 1),
-      webEndDistance: positive(rawState.webEndDistance),
-      webPitch: positive(rawState.webPitch),
-      webEdgeDistance: positive(rawState.webEdgeDistance),
-      webPlateDepth: positive(rawState.webPlateDepth),
-      webPlateThickness: positive(rawState.webPlateThickness),
-      webPlateYieldStrength: positive(rawState.webPlateYieldStrength),
-      webPlateUltimateStrength: positive(rawState.webPlateUltimateStrength),
-      spliceWeldSize: positive(rawState.spliceWeldSize),
-      spliceWeldLength: positive(rawState.spliceWeldLength),
-      spliceWeldLineCount: toInteger(rawState.spliceWeldLineCount, 1),
-      spliceWeldElectrodeStrength: positive(rawState.spliceWeldElectrodeStrength),
+      spliceFrameRole: toText(rawState.spliceFrameRole),
+      spliceDesignRoute: toText(rawState.spliceDesignRoute),
+      spliceLocationRoute: toText(rawState.spliceLocationRoute),
+      spliceDistanceToNearestBeamFlange: positive(rawState.spliceDistanceToNearestBeamFlange),
+      spliceDeadAxial: toNumber(rawState.spliceDeadAxial),
+      spliceDeadAxialRaw: toText(rawState.spliceDeadAxial),
+      spliceLiveAxial: toNumber(rawState.spliceLiveAxial),
+      spliceLiveAxialRaw: toText(rawState.spliceLiveAxial),
+      spliceSeismicAxial: toNumber(rawState.spliceSeismicAxial),
+      spliceSeismicAxialRaw: toText(rawState.spliceSeismicAxial),
+      spliceLiveLoadFactor: positive(rawState.spliceLiveLoadFactor),
+      spliceSeismicReductionFu: positive(rawState.spliceSeismicReductionFu),
+      spliceTransferCapRoute: toText(rawState.spliceTransferCapRoute || "uncapped"),
+      spliceMaxTransferableAxial: positive(rawState.spliceMaxTransferableAxial),
+      spliceAg: positive(rawState.spliceAg),
+      spliceZx: positive(rawState.spliceZx),
+      spliceZy: positive(rawState.spliceZy),
+      spliceAvx: positive(rawState.spliceAvx),
+      spliceAvy: positive(rawState.spliceAvy),
+      spliceFy: positive(rawState.spliceFy),
+      spliceFexx: positive(rawState.spliceFexx),
+      spliceMaxThickness: positive(rawState.spliceMaxThickness),
+      spliceFabricationLocation: toText(rawState.spliceFabricationLocation),
+      spliceNdtMethod: toText(rawState.spliceNdtMethod),
+      spliceDemandBasis: toText(rawState.spliceDemandBasis),
+      spliceGeometryBasis: toText(rawState.spliceGeometryBasis),
+      spliceMaterialBasis: toText(rawState.spliceMaterialBasis),
+      spliceWpsBasis: toText(rawState.spliceWpsBasis),
+      spliceNdtPlanBasis: toText(rawState.spliceNdtPlanBasis),
+      spliceDemandEvidenceSha256: toText(rawState.spliceDemandEvidenceSha256),
+      spliceDetailEvidenceSha256: toText(rawState.spliceDetailEvidenceSha256),
+      spliceWpsEvidenceSha256: toText(rawState.spliceWpsEvidenceSha256),
+      spliceNdtPlanEvidenceSha256: toText(rawState.spliceNdtPlanEvidenceSha256),
+      spliceIdenticalSectionsAndMaterialConfirmed: rawState.spliceIdenticalSectionsAndMaterialConfirmed === true || rawState.spliceIdenticalSectionsAndMaterialConfirmed === "true",
+      spliceAlignedAxesConfirmed: rawState.spliceAlignedAxesConfirmed === true || rawState.spliceAlignedAxesConfirmed === "true",
+      spliceFullProfileCjpConfirmed: rawState.spliceFullProfileCjpConfirmed === true || rawState.spliceFullProfileCjpConfirmed === "true",
+      spliceMatchingFillerConfirmed: rawState.spliceMatchingFillerConfirmed === true || rawState.spliceMatchingFillerConfirmed === "true",
+      spliceWpsApprovedConfirmed: rawState.spliceWpsApprovedConfirmed === true || rawState.spliceWpsApprovedConfirmed === "true",
+      spliceNdtFullCoverageConfirmed: rawState.spliceNdtFullCoverageConfirmed === true || rawState.spliceNdtFullCoverageConfirmed === "true",
+      spliceNoPjpConfirmed: rawState.spliceNoPjpConfirmed === true || rawState.spliceNoPjpConfirmed === "true",
+      spliceNoMixedLoadSharingConfirmed: rawState.spliceNoMixedLoadSharingConfirmed === true || rawState.spliceNoMixedLoadSharingConfirmed === "true",
+      spliceSeismicColumnConfirmed: rawState.spliceSeismicColumnConfirmed === true || rawState.spliceSeismicColumnConfirmed === "true",
+      spliceLocationScopeConfirmed: rawState.spliceLocationScopeConfirmed === true || rawState.spliceLocationScopeConfirmed === "true",
+      spliceAllAdjacentTransferSourcesIncludedConfirmed: rawState.spliceAllAdjacentTransferSourcesIncludedConfirmed === true || rawState.spliceAllAdjacentTransferSourcesIncludedConfirmed === "true",
+      spliceAsBuiltBoundaryConfirmed: rawState.spliceAsBuiltBoundaryConfirmed === true || rawState.spliceAsBuiltBoundaryConfirmed === "true",
       gussetBoltCount: toNumber(rawState.gussetBoltCount),
       gussetShearPlanes: toNumber(rawState.gussetShearPlanes),
       gussetEndDistance: positive(rawState.gussetEndDistance),
@@ -1070,6 +1095,88 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
       momentWeldLength: positive(rawState.momentWeldLength),
       momentWeldLineCount: toInteger(rawState.momentWeldLineCount, 1),
       momentWeldElectrodeStrength: positive(rawState.momentWeldElectrodeStrength),
+      momentFrameSystem: toText(rawState.momentFrameSystem),
+      momentAxis: toText(rawState.momentAxis),
+      momentConnectionDesignRoute: toText(rawState.momentConnectionDesignRoute || "reinforced"),
+      momentRotationDemandMethod: toText(rawState.momentRotationDemandMethod || "default"),
+      momentNonlinearPlasticRotation: positive(rawState.momentNonlinearPlasticRotation),
+      momentSystemDuctilityR: positive(rawState.momentSystemDuctilityR),
+      momentElasticStoryDrift: positive(rawState.momentElasticStoryDrift),
+      momentBeamPlasticModulus: positive(rawState.momentBeamPlasticModulus),
+      momentBeamYieldStrength: positive(rawState.momentBeamYieldStrength),
+      momentExpectedStrengthFactor: positive(rawState.momentExpectedStrengthFactor),
+      momentCriticalSectionDistance: positive(rawState.momentCriticalSectionDistance),
+      momentPlasticHingeSpan: positive(rawState.momentPlasticHingeSpan),
+      momentFarCriticalSectionExpectedMoment: Math.max(toNumber(rawState.momentFarCriticalSectionExpectedMoment), 0),
+      momentFarCriticalSectionExpectedMomentRaw: toText(rawState.momentFarCriticalSectionExpectedMoment),
+      momentGravityShear: toNumber(rawState.momentGravityShear),
+      momentAmplifiedShear: toNumber(rawState.momentAmplifiedShear),
+      momentAvailableFlexuralStrength: positive(rawState.momentAvailableFlexuralStrength),
+      momentAvailableShearStrength: positive(rawState.momentAvailableShearStrength),
+      momentQualifiedPlasticRotation: positive(rawState.momentQualifiedPlasticRotation),
+      momentQualificationRoute: toText(rawState.momentQualificationRoute),
+      momentQualificationTestCount: toInteger(rawState.momentQualificationTestCount, 0),
+      momentDesignBeamFlangeThickness: positive(rawState.momentDesignBeamFlangeThickness),
+      momentTestBeamFlangeThickness: positive(rawState.momentTestBeamFlangeThickness),
+      momentDesignFlangePlasticRatio: positive(rawState.momentDesignFlangePlasticRatio),
+      momentTestFlangePlasticRatio: positive(rawState.momentTestFlangePlasticRatio),
+      momentColumnWebYieldStrength: positive(rawState.momentColumnWebYieldStrength),
+      momentColumnDepth: positive(rawState.momentColumnDepth),
+      momentPanelZoneThickness: positive(rawState.momentPanelZoneThickness),
+      momentPanelZoneClearDepth: positive(rawState.momentPanelZoneClearDepth),
+      momentPanelZoneClearWidth: positive(rawState.momentPanelZoneClearWidth),
+      momentPanelZoneAnalysisDemand: positive(rawState.momentPanelZoneAnalysisDemand),
+      momentPanelZoneBeamMomentSum: positive(rawState.momentPanelZoneBeamMomentSum),
+      momentPanelZoneLeverArm: positive(rawState.momentPanelZoneLeverArm),
+      momentDoublerPresent: rawState.momentDoublerPresent === true || rawState.momentDoublerPresent === "true",
+      momentDoublerAttachmentConfirmed: rawState.momentDoublerAttachmentConfirmed === true || rawState.momentDoublerAttachmentConfirmed === "true",
+      momentBeamFlangeWidth: positive(rawState.momentBeamFlangeWidth),
+      momentBeamFlangeThickness: positive(rawState.momentBeamFlangeThickness),
+      momentColumnFlangeLocalNominalStrength: positive(rawState.momentColumnFlangeLocalNominalStrength),
+      momentContinuityPlateProvidedConfirmed: rawState.momentContinuityPlateProvidedConfirmed === true || rawState.momentContinuityPlateProvidedConfirmed === "true",
+      momentContinuityPlateWeldConfirmed: rawState.momentContinuityPlateWeldConfirmed === true || rawState.momentContinuityPlateWeldConfirmed === "true",
+      momentBeamFlangeCompactnessRatio: positive(rawState.momentBeamFlangeCompactnessRatio),
+      momentBeamWebCompactnessRatio: positive(rawState.momentBeamWebCompactnessRatio),
+      momentBeamFlangePlasticModulusRatio: positive(rawState.momentBeamFlangePlasticModulusRatio),
+      momentCwUpperColumnMoment: positive(rawState.momentCwUpperColumnMoment),
+      momentCwLowerColumnMoment: positive(rawState.momentCwLowerColumnMoment),
+      momentCwLeftBeamMoment: positive(rawState.momentCwLeftBeamMoment),
+      momentCwRightBeamMoment: positive(rawState.momentCwRightBeamMoment),
+      momentCcwUpperColumnMoment: positive(rawState.momentCcwUpperColumnMoment),
+      momentCcwLowerColumnMoment: positive(rawState.momentCcwLowerColumnMoment),
+      momentCcwLeftBeamMoment: positive(rawState.momentCcwLeftBeamMoment),
+      momentCcwRightBeamMoment: positive(rawState.momentCcwRightBeamMoment),
+      momentDemandBasis: toText(rawState.momentDemandBasis),
+      momentGeometryBasis: toText(rawState.momentGeometryBasis),
+      momentMaterialBasis: toText(rawState.momentMaterialBasis),
+      momentCapacityBasis: toText(rawState.momentCapacityBasis),
+      momentPanelZoneBasis: toText(rawState.momentPanelZoneBasis),
+      momentStrongColumnBasis: toText(rawState.momentStrongColumnBasis),
+      momentQualificationBasis: toText(rawState.momentQualificationBasis),
+      momentQualificationEvidenceSha256: toText(rawState.momentQualificationEvidenceSha256),
+      momentCapacityEvidenceSha256: toText(rawState.momentCapacityEvidenceSha256),
+      momentQualificationConfigurationConfirmed: rawState.momentQualificationConfigurationConfirmed === true || rawState.momentQualificationConfigurationConfirmed === "true",
+      momentQualificationMaterialConfirmed: rawState.momentQualificationMaterialConfirmed === true || rawState.momentQualificationMaterialConfirmed === "true",
+      momentQualificationWeldingConfirmed: rawState.momentQualificationWeldingConfirmed === true || rawState.momentQualificationWeldingConfirmed === "true",
+      momentQualificationGeometryConfirmed: rawState.momentQualificationGeometryConfirmed === true || rawState.momentQualificationGeometryConfirmed === "true",
+      momentQualificationFabricationConfirmed: rawState.momentQualificationFabricationConfirmed === true || rawState.momentQualificationFabricationConfirmed === "true",
+      momentQualificationProcedureConfirmed: rawState.momentQualificationProcedureConfirmed === true || rawState.momentQualificationProcedureConfirmed === "true",
+      momentThirdPartyReviewConfirmed: rawState.momentThirdPartyReviewConfirmed === true || rawState.momentThirdPartyReviewConfirmed === "true",
+      momentPlasticZoneGeometryConfirmed: rawState.momentPlasticZoneGeometryConfirmed === true || rawState.momentPlasticZoneGeometryConfirmed === "true",
+      momentPlasticZoneOpeningsAbsentConfirmed: rawState.momentPlasticZoneOpeningsAbsentConfirmed === true || rawState.momentPlasticZoneOpeningsAbsentConfirmed === "true",
+      momentSeismicMaterialConfirmed: rawState.momentSeismicMaterialConfirmed === true || rawState.momentSeismicMaterialConfirmed === "true",
+      momentMatchingWeldConfirmed: rawState.momentMatchingWeldConfirmed === true || rawState.momentMatchingWeldConfirmed === "true",
+      momentCns3506WeldConfirmed: rawState.momentCns3506WeldConfirmed === true || rawState.momentCns3506WeldConfirmed === "true",
+      momentEndTabsRemovedGroundConfirmed: rawState.momentEndTabsRemovedGroundConfirmed === true || rawState.momentEndTabsRemovedGroundConfirmed === "true",
+      momentWeldProcedureMatchesQualificationConfirmed: rawState.momentWeldProcedureMatchesQualificationConfirmed === true || rawState.momentWeldProcedureMatchesQualificationConfirmed === "true",
+      momentJointLateralRestraintConfirmed: rawState.momentJointLateralRestraintConfirmed === true || rawState.momentJointLateralRestraintConfirmed === "true",
+      momentBeamLateralBracingConfirmed: rawState.momentBeamLateralBracingConfirmed === true || rawState.momentBeamLateralBracingConfirmed === "true",
+      momentAllMembersIncludedConfirmed: rawState.momentAllMembersIncludedConfirmed === true || rawState.momentAllMembersIncludedConfirmed === "true",
+      momentColumnStrengthsAtGoverningAxialConfirmed: rawState.momentColumnStrengthsAtGoverningAxialConfirmed === true || rawState.momentColumnStrengthsAtGoverningAxialConfirmed === "true",
+      momentOpposingDirectionsConfirmed: rawState.momentOpposingDirectionsConfirmed === true || rawState.momentOpposingDirectionsConfirmed === "true",
+      momentOrthogonalDirectionSeparateConfirmed: rawState.momentOrthogonalDirectionSeparateConfirmed === true || rawState.momentOrthogonalDirectionSeparateConfirmed === "true",
+      momentConnectionHardwareVerifiedConfirmed: rawState.momentConnectionHardwareVerifiedConfirmed === true || rawState.momentConnectionHardwareVerifiedConfirmed === "true",
+      momentSelectedAxisScopeConfirmed: rawState.momentSelectedAxisScopeConfirmed === true || rawState.momentSelectedAxisScopeConfirmed === "true",
       plateInputMode: rawState.plateInputMode || "geometry",
       requiredTension: positive(rawState.requiredTension),
       loadDirection: rawState.loadDirection || "horizontal",
@@ -1145,9 +1252,10 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
   function validateBaseState(state) {
     const validations = [];
     const skipHoleValidation = (state.connectionType === "plate_check" && state.plateInputMode === "area_manual")
-      || (state.connectionType === "tension_member" && (state.tensionConnectionMode === "welded" || state.tensionAreaInput === "manual"));
+      || (state.connectionType === "tension_member" && (state.tensionConnectionMode === "welded" || state.tensionAreaInput === "manual"))
+      || ["column_splice", "beam_column_moment"].includes(state.connectionType);
     if (!skipHoleValidation && state.holeDiameter <= state.boltDiameter) validations.push("孔徑 dh 應大於螺栓直徑 db。");
-    if (state.eccentricity > 0 && state.connectionType !== "single_plate") validations.push("本版未將偏心造成之栓群附加力納入，偏心接頭請再以栓群分析確認。");
+    if (state.eccentricity > 0 && !["single_plate", "column_splice"].includes(state.connectionType)) validations.push("本版未將偏心造成之栓群附加力納入，偏心接頭請再以栓群分析確認。");
     return validations;
   }
 
@@ -2200,119 +2308,255 @@ ${buildAvailableStrengthLatex(state.designMethod, "bearing", totalBearingNominal
   }
 
   function calculateColumnSplice(state) {
-    const momentTension = state.spliceLeverArm > 0 ? Math.abs(state.requiredMoment) * 1000 / state.spliceLeverArm : 0;
-    const axialContribution = state.spliceBearingTransfer ? Math.max(state.requiredAxial, 0) / 2 : Math.abs(state.requiredAxial) / 2;
-    const flangeDemand = momentTension + axialContribution;
-    const webDemand = Math.abs(state.requiredShear);
-    const flangeGrossArea = state.flangePlateWidth * state.flangePlateThickness;
-    const flangeNetArea = state.flangePlateNetWidth * state.flangePlateThickness;
-    const webArea = state.webPlateDepth * state.webPlateThickness;
+    const hasBasis = (value) => Boolean(String(value || "").trim()) && !/示例|請依專案覆寫|請填|待補|未填|placeholder/i.test(String(value));
+    const isSha256 = (value) => /^[a-f0-9]{64}$/i.test(String(value || ""));
+    const hasFiniteRawNumber = (value) => String(value ?? "").trim() !== "" && Number.isFinite(Number(value));
+    const rawLoadInputsValid = [
+      state.spliceDeadAxialRaw,
+      state.spliceLiveAxialRaw,
+      state.spliceSeismicAxialRaw,
+    ].every(hasFiniteRawNumber);
+    const liveFactorValid = state.spliceLiveLoadFactor === 0.5 || state.spliceLiveLoadFactor === 1.0;
+    const seismicFactorValid = Number.isFinite(state.spliceSeismicReductionFu)
+      && state.spliceSeismicReductionFu > 0
+      && state.spliceSeismicReductionFu <= 2.5;
+    const seismicInputValid = Number.isFinite(state.spliceSeismicAxial);
+    const EampRaw = 1.4 * state.spliceSeismicReductionFu * Math.abs(state.spliceSeismicAxial);
+    const qualifiedTransferCap = state.spliceTransferCapRoute === "qualified";
+    const qualifiedTransferCapValid = qualifiedTransferCap
+      && Number.isFinite(state.spliceMaxTransferableAxial)
+      && state.spliceMaxTransferableAxial > 0
+      && state.spliceAllAdjacentTransferSourcesIncludedConfirmed;
+    const EampAdopted = qualifiedTransferCapValid
+      ? Math.min(EampRaw, 1.25 * state.spliceMaxTransferableAxial)
+      : EampRaw;
+    const compressionBase = 1.2 * state.spliceDeadAxial + state.spliceLiveLoadFactor * state.spliceLiveAxial;
+    const tensionBase = 0.9 * state.spliceDeadAxial;
+    const compressionCombinations = [compressionBase + EampAdopted, compressionBase - EampAdopted];
+    const tensionCombinations = [tensionBase + EampAdopted, tensionBase - EampAdopted];
+    const PuCompression = Math.max(0, ...compressionCombinations.map((value) => -value));
+    const TuTension = Math.max(0, ...tensionCombinations);
+
+    const normalNominal = state.spliceFy * state.spliceAg / 1000;
+    const normalCapacity = 0.9 * normalNominal;
+    const majorFlexuralNominal = state.spliceFy * state.spliceZx / 1e6;
+    const majorFlexuralCapacity = 0.9 * majorFlexuralNominal;
+    const minorFlexuralNominal = state.spliceFy * state.spliceZy / 1e6;
+    const minorFlexuralCapacity = 0.9 * minorFlexuralNominal;
+    const majorShearBaseNominal = 0.6 * state.spliceFy * state.spliceAvx / 1000;
+    const majorShearWeldNominal = 0.6 * state.spliceFexx * state.spliceAvx / 1000;
+    const majorShearBaseCapacity = 0.9 * majorShearBaseNominal;
+    const majorShearWeldCapacity = 0.8 * majorShearWeldNominal;
+    const majorShearCapacity = Math.min(majorShearBaseCapacity, majorShearWeldCapacity);
+    const minorShearBaseNominal = 0.6 * state.spliceFy * state.spliceAvy / 1000;
+    const minorShearWeldNominal = 0.6 * state.spliceFexx * state.spliceAvy / 1000;
+    const minorShearBaseCapacity = 0.9 * minorShearBaseNominal;
+    const minorShearWeldCapacity = 0.8 * minorShearWeldNominal;
+    const minorShearCapacity = Math.min(minorShearBaseCapacity, minorShearWeldCapacity);
     const validations = [];
 
-    if (state.spliceLeverArm <= 0) validations.push("柱翼受力槓桿臂 hsp 必須大於 0。");
-    if (state.flangePlateNetWidth > state.flangePlateWidth) validations.push("翼板淨寬 bfn 不應大於翼板總寬 bfp。");
-    if (state.webPitch <= state.holeDiameter) validations.push("腹板續接孔距 sw 應大於孔徑 dh。");
-    if (state.flangePitch <= state.holeDiameter) validations.push("翼板孔距 sf 應大於孔徑 dh。");
-    if (state.requiredAxial < 0 && !state.spliceBearingTransfer) validations.push("壓力未採直接承壓傳遞時，本版會保守將壓力也分配給續接元件。");
+    if (!rawLoadInputsValid || !liveFactorValid || !seismicFactorValid || !seismicInputValid) {
+      validations.push("柱續接 13.4.1 需求輸入須為有限值；活載係數限 0.5 或 1.0，且結構系統地震力折減係數 Fu 須大於 0 且不超過 2.5。PE 得為 0，但仍須由受控分析來源明確提供。");
+    }
+    const positiveSectionInputs = [
+      ["全斷面積 Ag", state.spliceAg],
+      ["強軸塑性斷面模數 Zx", state.spliceZx],
+      ["弱軸塑性斷面模數 Zy", state.spliceZy],
+      ["強軸剪力面積 Avx", state.spliceAvx],
+      ["弱軸剪力面積 Avy", state.spliceAvy],
+      ["母材降伏強度 Fy", state.spliceFy],
+      ["銲材標稱拉力強度 FEXX", state.spliceFexx],
+      ["最大板厚", state.spliceMaxThickness],
+      ["距最近梁翼距離", state.spliceDistanceToNearestBeamFlange],
+    ];
+    const invalidSectionInputs = positiveSectionInputs.filter(([, value]) => !(Number.isFinite(value) && value > 0));
+    if (invalidSectionInputs.length > 0) {
+      validations.push(`柱續接幾何與材料輸入須為有限正值：${invalidSectionInputs.map(([label]) => label).join("、")}。`);
+    }
+    if (qualifiedTransferCap && !qualifiedTransferCapValid) {
+      validations.push("採 13.4.1 相接梁／斜撐極限狀態軸力上限時，最大可傳軸力須為有限正值，且須確認所有相接構材均已納入受控來源。");
+    }
+    const derivedValues = [
+      ["EampRaw", EampRaw, "nonnegative"],
+      ["EampAdopted", EampAdopted, "nonnegative"],
+      ["PuCompression", PuCompression, "nonnegative"],
+      ["TuTension", TuTension, "nonnegative"],
+      ["normalCapacity", normalCapacity, "positive"],
+      ["majorFlexuralCapacity", majorFlexuralCapacity, "positive"],
+      ["minorFlexuralCapacity", minorFlexuralCapacity, "positive"],
+      ["majorShearCapacity", majorShearCapacity, "positive"],
+      ["minorShearCapacity", minorShearCapacity, "positive"],
+    ];
+    const invalidDerivedValues = derivedValues.filter(([, value, requirement]) => !Number.isFinite(value)
+      || (requirement === "positive" ? value <= 0 : value < 0));
+    if (invalidDerivedValues.length > 0) {
+      validations.push(`柱續接派生需求或容量出現非有限／非正值：${invalidDerivedValues.map(([label]) => label).join("、")}。`);
+    }
+
+    const evidenceItems = [
+      ["需求來源", hasBasis(state.spliceDemandBasis)],
+      ["幾何來源", hasBasis(state.spliceGeometryBasis)],
+      ["材料來源", hasBasis(state.spliceMaterialBasis)],
+      ["WPS/PQR 來源", hasBasis(state.spliceWpsBasis)],
+      ["NDT 計畫來源", hasBasis(state.spliceNdtPlanBasis)],
+      ["需求證據 SHA-256", isSha256(state.spliceDemandEvidenceSha256)],
+      ["接頭細節證據 SHA-256", isSha256(state.spliceDetailEvidenceSha256)],
+      ["WPS/PQR 證據 SHA-256", isSha256(state.spliceWpsEvidenceSha256)],
+      ["NDT 計畫證據 SHA-256", isSha256(state.spliceNdtPlanEvidenceSha256)],
+    ];
+    const evidenceComplete = evidenceItems.every(([, ok]) => ok);
+    const cjpRouteComplete = state.spliceDesignRoute === "cjp_full_section_identical_rolled_h"
+      && state.spliceFullProfileCjpConfirmed
+      && state.spliceNoPjpConfirmed
+      && state.spliceNoMixedLoadSharingConfirmed;
+    const topologyComplete = state.spliceIdenticalSectionsAndMaterialConfirmed && state.spliceAlignedAxesConfirmed;
+    const locationComplete = state.spliceLocationRoute === "beam_flange_1200"
+      && state.spliceDistanceToNearestBeamFlange >= 1200
+      && state.spliceLocationScopeConfirmed;
+    const seismicColumnComplete = state.spliceFrameRole === "seismic_force_resisting" && state.spliceSeismicColumnConfirmed;
+    const matchingFillerComplete = state.spliceMatchingFillerConfirmed
+      && majorShearWeldCapacity >= majorShearBaseCapacity
+      && minorShearWeldCapacity >= minorShearBaseCapacity;
+    const wpsComplete = state.spliceWpsApprovedConfirmed
+      && hasBasis(state.spliceWpsBasis)
+      && isSha256(state.spliceWpsEvidenceSha256);
+    const ndtPlanComplete = ["shop", "field"].includes(state.spliceFabricationLocation)
+      && ["UT", "RT"].includes(state.spliceNdtMethod)
+      && state.spliceNdtFullCoverageConfirmed
+      && hasBasis(state.spliceNdtPlanBasis)
+      && isSha256(state.spliceNdtPlanEvidenceSha256);
+    const loadInputsComplete = rawLoadInputsValid && liveFactorValid && seismicFactorValid && seismicInputValid;
+    const transferCapComplete = ["uncapped", "qualified"].includes(state.spliceTransferCapRoute)
+      && (!qualifiedTransferCap || qualifiedTransferCapValid);
 
     const checks = [
-      buildBoltTensionCheck({
-        key: "flangeBoltTension",
-        label: "柱翼續接螺栓拉力",
-        demand: flangeDemand,
-        boltDiameter: state.boltDiameter,
-        boltUltimateStrength: state.boltUltimateStrength,
-        boltCount: state.flangeBoltCount,
-        designMethod: state.designMethod,
-        note: "拉側有效翼板螺栓群承受由 Mu / hsp 與軸力分配而來之張力。",
+      createCheck({
+        key: "spliceAxialCompression13_4_1",
+        label: "13.4.1 控制軸壓力",
+        demand: PuCompression,
+        nominal: normalNominal,
+        available: normalCapacity,
+        note: "採拉力為正、壓力為負之符號，依 13.4.1 放大地震軸力組合取得控制壓力。",
+        codeRef: "規範判定｜13.4.1、13.4.2",
+        equationRef: "式(13.4-1)",
+        unit: "kN",
+        equationLines: [
+          `Eamp,raw = 1.4 × Fu × |PE| = ${formatEquationNumber(EampRaw)} kN`,
+          `Eamp,adopted = ${formatEquationNumber(EampAdopted)} kN${qualifiedTransferCapValid ? "（受 1.25 倍相接構材極限狀態可傳軸力上限控制）" : "（未採可傳軸力上限）"}`,
+          `Nuc,+/- = 1.2PD + alphaL PL +/- Eamp = ${formatEquationNumber(compressionCombinations[0])} / ${formatEquationNumber(compressionCombinations[1])} kN（拉力為正）`,
+          `Pu,compression = max(0, -Nuc,+, -Nuc,-) = ${formatEquationNumber(PuCompression)} kN`,
+          `phi Pn,CJP = 0.90 × Fy × Ag / 1000 = ${formatEquationNumber(normalCapacity)} kN`,
+        ],
       }),
-      buildGrossYieldCheck({
-        key: "flangePlateYield",
-        label: "柱翼續接板降伏",
-        demand: flangeDemand,
-        fy: state.flangePlateYieldStrength,
-        grossArea: flangeGrossArea,
-        designMethod: state.designMethod,
-        note: "以翼板總寬乘厚度檢核 gross section yielding。",
+      createCheck({
+        key: "spliceAxialTension13_4_1",
+        label: "13.4.1 控制軸拉力",
+        demand: TuTension,
+        nominal: normalNominal,
+        available: normalCapacity,
+        note: "依 0.9D +/- 放大地震軸力組合取得控制拉力；活載不列入式(13.4-2)。",
+        codeRef: "規範判定｜13.4.1、13.4.2",
+        equationRef: "式(13.4-2)",
+        unit: "kN",
+        equationLines: [
+          `Nut,+/- = 0.9PD +/- Eamp = ${formatEquationNumber(tensionCombinations[0])} / ${formatEquationNumber(tensionCombinations[1])} kN（拉力為正）`,
+          `Tu,tension = max(0, Nut,+, Nut,-) = ${formatEquationNumber(TuTension)} kN`,
+          `phi Pn,CJP = 0.90 × Fy × Ag / 1000 = ${formatEquationNumber(normalCapacity)} kN`,
+        ],
       }),
-      buildNetRuptureCheck({
-        key: "flangePlateRupture",
-        label: "柱翼續接板淨斷面斷裂",
-        demand: flangeDemand,
-        fu: state.flangePlateUltimateStrength,
-        netArea: flangeNetArea,
-        designMethod: state.designMethod,
-        note: "以翼板淨寬乘厚度檢核淨斷面抗拉。",
+      createCheck({
+        key: "spliceFullSectionNormal",
+        label: "全斷面 CJP 法向強度等同性",
+        demand: normalCapacity,
+        nominal: normalNominal,
+        available: normalCapacity,
+        note: "全斷面 CJP 有效喉厚等於較薄母材厚度，法向設計強度依母材 0.90Fy 控制。",
+        codeRef: "規範判定｜10.2.1、表10.2-5、10.2.6、13.4.2",
+        equationRef: "表10.2-5 全滲透開槽銲",
+        unit: "kN",
+        equationLines: [
+          `母材全斷面可用法向強度 = 0.90 × Fy × Ag / 1000 = ${formatEquationNumber(normalCapacity)} kN`,
+          `全斷面 CJP 可用法向強度 = ${formatEquationNumber(normalCapacity)} kN`,
+        ],
       }),
-      buildBoltShearCheck({
-        key: "webBoltShear",
-        label: "柱腹續接螺栓剪力",
-        demand: webDemand,
-        boltDiameter: state.boltDiameter,
-        boltUltimateStrength: state.boltUltimateStrength,
-        boltCount: state.webBoltCount,
-        shearPlanes: state.webShearPlanes,
-        threadsCondition: state.threadsCondition,
-        designMethod: state.designMethod,
-        note: "腹板續接螺栓群承擔剪力傳遞。",
+      createCheck({
+        key: "spliceFullSectionMajorFlexure",
+        label: "全斷面 CJP 強軸彎曲強度等同性",
+        demand: majorFlexuralCapacity,
+        nominal: majorFlexuralNominal,
+        available: majorFlexuralCapacity,
+        note: "相同且對齊之 H 形斷面以全斷面 CJP 延續母材法向降伏應力分布。",
+        codeRef: "規範判定｜10.2.1、表10.2-5、10.2.6、13.4.2",
+        equationRef: "Mp = Fy Zx；phi = 0.90",
+        unit: "kN-m",
+        equationLines: [
+          `Mn,x = Fy × Zx / 10^6 = ${formatEquationNumber(majorFlexuralNominal)} kN-m`,
+          `phi Mn,x = 0.90 × Mn,x = ${formatEquationNumber(majorFlexuralCapacity)} kN-m`,
+        ],
       }),
-      buildBoltLineBearingCheck({
-        key: "webPlateBearing",
-        label: "柱腹續接板孔承壓",
-        demand: webDemand,
-        count: state.webBoltCount,
-        endDistance: state.webEndDistance,
-        pitch: state.webPitch,
-        holeDiameter: state.holeDiameter,
-        thickness: state.webPlateThickness,
-        fu: state.webPlateUltimateStrength,
-        boltDiameter: state.boltDiameter,
-        deformationConsidered: state.deformationConsidered,
-        designMethod: state.designMethod,
-        note: "柱腹續接板孔承壓以線性栓列方式估算。",
+      createCheck({
+        key: "spliceFullSectionMinorFlexure",
+        label: "全斷面 CJP 弱軸彎曲強度等同性",
+        demand: minorFlexuralCapacity,
+        nominal: minorFlexuralNominal,
+        available: minorFlexuralCapacity,
+        note: "相同且對齊之 H 形斷面以全斷面 CJP 延續弱軸法向降伏應力分布。",
+        codeRef: "規範判定｜10.2.1、表10.2-5、10.2.6、13.4.2",
+        equationRef: "Mp = Fy Zy；phi = 0.90",
+        unit: "kN-m",
+        equationLines: [
+          `Mn,y = Fy × Zy / 10^6 = ${formatEquationNumber(minorFlexuralNominal)} kN-m`,
+          `phi Mn,y = 0.90 × Mn,y = ${formatEquationNumber(minorFlexuralCapacity)} kN-m`,
+        ],
       }),
-      buildShearYieldCheck({
-        key: "webPlateShearYield",
-        label: "柱腹續接板剪力降伏",
-        demand: webDemand,
-        fy: state.webPlateYieldStrength,
-        area: webArea,
-        designMethod: state.designMethod,
-        note: "以腹板續接板深度乘厚度計算剪力面積。",
+      createCheck({
+        key: "spliceFullSectionMajorShear",
+        label: "全斷面 CJP 強軸剪力強度",
+        demand: majorShearBaseCapacity,
+        nominal: Math.min(majorShearBaseNominal, majorShearWeldNominal),
+        available: majorShearCapacity,
+        note: "CJP 剪力可用強度取母材 0.90(0.6Fy) 與銲材 0.80(0.6FEXX) 較小值，並須至少等於母材全斷面剪力強度。",
+        codeRef: "規範判定｜表10.2-5、10.2.6、13.4.2",
+        equationRef: "表10.2-5 全滲透開槽銲剪應力",
+        unit: "kN",
+        equationLines: [
+          `母材 phi Vn,x = 0.90 × 0.6Fy × Avx / 1000 = ${formatEquationNumber(majorShearBaseCapacity)} kN`,
+          `銲材 phi Vn,x = 0.80 × 0.6FEXX × Avx / 1000 = ${formatEquationNumber(majorShearWeldCapacity)} kN`,
+          `CJP 可用強度 = min(母材, 銲材) = ${formatEquationNumber(majorShearCapacity)} kN`,
+        ],
       }),
-      buildWeldCheck({
-        key: "spliceWeld",
-        label: "柱續接銲道",
-        demand: Math.max(flangeDemand, webDemand),
-        weldSize: state.spliceWeldSize,
-        weldLength: state.spliceWeldLength,
-        weldLineCount: state.spliceWeldLineCount,
-        electrodeStrength: state.spliceWeldElectrodeStrength,
-        designMethod: state.designMethod,
-        note: "續接銲道未與螺栓疊加取用，保守以單獨承受主要需求檢核。",
+      createCheck({
+        key: "spliceFullSectionMinorShear",
+        label: "全斷面 CJP 弱軸剪力強度",
+        demand: minorShearBaseCapacity,
+        nominal: Math.min(minorShearBaseNominal, minorShearWeldNominal),
+        available: minorShearCapacity,
+        note: "弱軸剪力同樣以母材與銲材可用剪應力較小值控制。",
+        codeRef: "規範判定｜表10.2-5、10.2.6、13.4.2",
+        equationRef: "表10.2-5 全滲透開槽銲剪應力",
+        unit: "kN",
+        equationLines: [
+          `母材 phi Vn,y = 0.90 × 0.6Fy × Avy / 1000 = ${formatEquationNumber(minorShearBaseCapacity)} kN`,
+          `銲材 phi Vn,y = 0.80 × 0.6FEXX × Avy / 1000 = ${formatEquationNumber(minorShearWeldCapacity)} kN`,
+          `CJP 可用強度 = min(母材, 銲材) = ${formatEquationNumber(minorShearCapacity)} kN`,
+        ],
       }),
     ];
 
     const detailChecks = [
-      ...buildLinearBoltDetailChecks({
-        prefix: "柱翼續接",
-        state,
-        pitch: state.flangePitch,
-        endDistance: state.flangeEndDistance,
-        edgeDistance: state.flangeEdgeDistance,
-        boltDiameter: state.boltDiameter,
-        thickness: state.flangePlateThickness,
-      }),
-      ...buildLinearBoltDetailChecks({
-        prefix: "柱腹續接",
-        state,
-        pitch: state.webPitch,
-        endDistance: state.webEndDistance,
-        edgeDistance: state.webEdgeDistance,
-        boltDiameter: state.boltDiameter,
-        thickness: state.webPlateThickness,
-        shortWeld: { weldLength: state.spliceWeldLength, weldSize: state.spliceWeldSize },
-      }),
+      makeDetailCheck("spliceLrfdMethod", "LRFD 設計法", state.designMethod === "LRFD" ? 1 : 0, true, "custom", "V1 僅接受 LRFD 耐震柱續接能力審查。", "規範判定｜第十三章"),
+      makeDetailCheck("spliceSeismicColumn", "抗震受力柱適用範圍", seismicColumnComplete ? 1 : 0, true, "custom", "須為抵抗地震力之柱，並由設計者確認此構架角色。", "規範判定｜13.4"),
+      makeDetailCheck("spliceCjpRoute", "全斷面 CJP 路線", cjpRouteComplete ? 1 : 0, true, "custom", "V1 只接受同斷面熱軋 H 形柱全斷面 CJP；PJP、栓接板與栓銲混合分擔均禁止核可。", "規範判定｜13.4.2；10.1.8"),
+      makeDetailCheck("spliceTopologyScope", "同斷面與主軸對齊", topologyComplete ? 1 : 0, true, "custom", "上下柱須為相同熱軋 H 形斷面、相同材料，重心與主軸完全對齊。", "專案指定"),
+      makeDetailCheck("spliceLocation1200", "續接位置距梁翼 1.2 m", locationComplete ? state.spliceDistanceToNearestBeamFlange : 0, 1200, "gte", `V1 只接受距最近梁翼 >= 1200 mm 路線；提供 ${formatEquationNumber(state.spliceDistanceToNearestBeamFlange)} mm。`, "規範判定｜13.4.2"),
+      makeDetailCheck("spliceNonJumbo", "非巨型斷面適用範圍", state.spliceMaxThickness > 0 ? state.spliceMaxThickness : Infinity, 40, "lte", `最大板厚須 <= 40 mm；提供 ${formatEquationNumber(state.spliceMaxThickness)} mm。超出者須另依 10.7.2 完成 CVN、預熱、製作與檢驗規定。`, "規範判定｜10.7.2"),
+      makeDetailCheck("spliceLoadInputs", "13.4.1 需求輸入完整性", loadInputsComplete ? 1 : 0, true, "custom", "PD、PL、PE 須採拉力正／壓力負之有限值；alphaL 限 0.5 或 1.0，0 < Fu <= 2.5。", "規範判定｜13.4.1"),
+      makeDetailCheck("spliceTransferCap", "相接構材可傳軸力上限", transferCapComplete ? 1 : 0, true, "custom", qualifiedTransferCap ? `qualified 路線採 min(1.4Fu|PE|, 1.25Ptransfer)；Ptransfer = ${formatEquationNumber(state.spliceMaxTransferableAxial)} kN。` : "uncapped 路線完整採用 1.4Fu|PE|，不主張相接構材上限。", "規範判定｜13.4.1"),
+      makeDetailCheck("spliceMatchingFiller", "相稱銲材與全斷面剪力", matchingFillerComplete ? 1 : 0, true, "custom", `須確認相稱銲材，且 0.80FEXX >= 0.90Fy；目前 ${formatEquationNumber(0.8 * state.spliceFexx)} / ${formatEquationNumber(0.9 * state.spliceFy)} MPa。`, "規範判定｜表10.2-5、10.2.6"),
+      makeDetailCheck("spliceWps", "WPS/PQR 核定與追溯", wpsComplete ? 1 : 0, true, "custom", wpsComplete ? state.spliceWpsBasis : "須提供已核定 WPS/PQR 來源與 64 碼 SHA-256。", "專案指定｜鋼結構施工規範"),
+      makeDetailCheck("spliceNdtPlan", "CJP 全覆蓋 NDT 計畫", ndtPlanComplete ? 1 : 0, true, "custom", ndtPlanComplete ? `${state.spliceFabricationLocation === "shop" ? "工廠" : "工地"} CJP 採 ${state.spliceNdtMethod} 全覆蓋檢驗計畫。` : "工廠／工地 CJP 均須指定 UT 或 RT 全覆蓋計畫、來源與 64 碼 SHA-256。", "規範判定｜13.10"),
+      makeDetailCheck("spliceEvidence", "需求、圖說、材料、WPS 與 NDT 證據", evidenceComplete ? 1 : 0, true, "custom", evidenceComplete ? "五項依據與四項 SHA-256 已完整提供。" : `缺少或無效：${evidenceItems.filter(([, ok]) => !ok).map(([label]) => label).join("、")}。`, "專案指定"),
+      makeDetailCheck("spliceAsBuiltBoundary", "設計附件／完工驗收邊界", state.spliceAsBuiltBoundaryConfirmed ? 1 : 0, true, "custom", "須確認本附件為設計階段能力審查；asBuiltAcceptance = false，完工 NDT 結果與施工驗收另案。", "專案指定"),
     ];
 
     return {
@@ -2321,16 +2565,49 @@ ${buildAvailableStrengthLatex(state.designMethod, "bearing", totalBearingNominal
       detailChecks,
       validations,
       assumptions: [
-        "柱翼拉力需求採 Mu / hsp 加上軸力分配估算，未考慮 prying action。",
-        "腹板續接板、螺栓與銲道均分別以可單獨承受主要需求之保守方式檢核。",
-        "未納入局部承壓、支承板、勁板與耐震塑性需求。",
+        "V1 正式附件固定為 LRFD、抵抗地震力之柱、上下同一熱軋 H 形斷面與材料、重心及主軸對齊、全斷面 CJP、距最近梁翼至少 1200 mm，且最大板厚不超過 40 mm。",
+        "13.4.1 需求採拉力為正、壓力為負；V1 對所有案例均計入式(13.4-1)與式(13.4-2)，不使用條文所列柱強度比免檢例外。",
+        "相接梁或斜撐極限狀態可傳軸力上限只有在 qualified 路線、正值容量與全構材來源確認齊備時才可降低 Eamp，否則完整採用 1.4Fu|PE|。",
+        "本附件驗證接頭設計階段之規範算術、全斷面 CJP 強度等同性與 NDT 計畫；柱構材本體、整體構架分析、施工品質結果與完工驗收均屬各自受控文件。completeColumnMemberDesign = false；asBuiltAcceptance = false。",
       ],
       references: [
-        "10.3 螺栓與孔承壓",
-        "10.3.11~10.3.13 孔距與邊距",
-        "10.4 塊狀撕裂與板件破壞概念",
-        "第十章接合設計一般規定",
+        "規範判定｜臺灣鋼結構極限設計法 13.4.1 柱強度之放大地震軸力需求",
+        "規範判定｜臺灣鋼結構極限設計法 13.4.2 柱續接位置、CJP／高強度螺栓與全斷面強度",
+        "規範判定｜臺灣鋼結構極限設計法 10.2.1、表10.2-5、10.2.6 全滲透開槽銲有效喉厚、設計強度與相稱銲材",
+        "規範判定｜臺灣鋼結構極限設計法 13.10 工廠／工地 CJP 非破壞檢驗",
+        "專案指定｜同斷面熱軋 H 形柱、1.2 m 位置路線、需求／圖說／材料／WPS／NDT 來源與 SHA-256",
       ],
+      scopeLimited: false,
+      completeJointDesign: false,
+      completeColumnMemberDesign: false,
+      asBuiltAcceptance: false,
+      spliceReview: {
+        frameRole: state.spliceFrameRole,
+        designRoute: state.spliceDesignRoute,
+        locationRoute: state.spliceLocationRoute,
+        fabricationLocation: state.spliceFabricationLocation,
+        ndtMethod: state.spliceNdtMethod,
+        liveLoadFactor: state.spliceLiveLoadFactor,
+        EampRaw,
+        EampAdopted,
+        transferCapApplied: qualifiedTransferCapValid && EampAdopted < EampRaw,
+        compressionCombinations,
+        tensionCombinations,
+        PuCompression,
+        TuTension,
+        normalCapacity,
+        majorFlexuralCapacity,
+        minorFlexuralCapacity,
+        majorShearCapacity,
+        minorShearCapacity,
+        normalNominal,
+        majorFlexuralNominal,
+        minorFlexuralNominal,
+        majorShearBaseCapacity,
+        majorShearWeldCapacity,
+        minorShearBaseCapacity,
+        minorShearWeldCapacity,
+      },
     };
   }
 
@@ -2695,96 +2972,249 @@ ${buildAvailableStrengthLatex(state.designMethod, "netRupture", gussetNetRupture
   }
 
   function calculateMomentConnection(state) {
-    const tensionDemand = state.momentLeverArm > 0 ? Math.abs(state.requiredMoment) * 1000 / state.momentLeverArm : 0;
-    const shearDemand = Math.abs(state.requiredShear);
-    const panelZoneDemand = tensionDemand + 0.5 * shearDemand;
-    const grossArea = state.momentPlateWidth * state.momentPlateThickness;
-    const netArea = state.momentPlateNetWidth * state.momentPlateThickness;
+    const hasBasis = (value) => Boolean(String(value || "").trim()) && !/示例|請依專案覆寫|請填|待補|未填|placeholder/i.test(String(value));
+    const isSha256 = (value) => /^[a-f0-9]{64}$/i.test(String(value || ""));
+    const rotationDemand = state.momentRotationDemandMethod === "nonlinear"
+      ? state.momentNonlinearPlasticRotation + 0.005
+      : state.momentRotationDemandMethod === "formula"
+        ? 1.1 * (state.momentSystemDuctilityR - 1) * state.momentElasticStoryDrift
+        : state.momentFrameSystem === "smrf"
+          ? 0.03
+          : state.momentFrameSystem === "imrf"
+            ? 0.01
+            : 0;
+    const Mp = state.momentBeamPlasticModulus * state.momentBeamYieldStrength / 1e6;
+    const Mpr = state.momentExpectedStrengthFactor * Mp;
+    const farMomentRaw = Number(state.momentFarCriticalSectionExpectedMomentRaw);
+    const farMomentInputValid = Number.isFinite(farMomentRaw) && farMomentRaw >= 0;
+    const MprFar = state.momentFarCriticalSectionExpectedMoment;
+    const Vp = state.momentPlasticHingeSpan > 0 ? (Mpr + MprFar) * 1000 / state.momentPlasticHingeSpan : 0;
+    const MuFace = Mpr + Vp * state.momentCriticalSectionDistance / 1000;
+    const VuRequired = Math.min(Math.abs(state.momentGravityShear) + Vp, Math.abs(state.momentAmplifiedShear));
+    const VpzMin = state.momentPanelZoneLeverArm > 0 ? state.momentPanelZoneBeamMomentSum * 1000 / state.momentPanelZoneLeverArm : 0;
+    const VpzRequired = Math.max(state.momentPanelZoneAnalysisDemand, VpzMin);
+    const VpzNominal = 0.6 * state.momentColumnWebYieldStrength * state.momentColumnDepth * state.momentPanelZoneThickness / 1000;
+    const panelThicknessRequired = (state.momentPanelZoneClearDepth + state.momentPanelZoneClearWidth) / 90;
+    const continuityThreshold = 1.8 * state.momentBeamYieldStrength * state.momentBeamFlangeWidth * state.momentBeamFlangeThickness / 1000;
+    const continuityRequired = state.momentColumnFlangeLocalNominalStrength < continuityThreshold;
+    const scwbCwColumn = state.momentCwUpperColumnMoment + state.momentCwLowerColumnMoment;
+    const scwbCwBeam = state.momentCwLeftBeamMoment + state.momentCwRightBeamMoment;
+    const scwbCcwColumn = state.momentCcwUpperColumnMoment + state.momentCcwLowerColumnMoment;
+    const scwbCcwBeam = state.momentCcwLeftBeamMoment + state.momentCcwRightBeamMoment;
+    const scwbCw = scwbCwBeam > 0 ? scwbCwColumn / scwbCwBeam : 0;
+    const scwbCcw = scwbCcwBeam > 0 ? scwbCcwColumn / scwbCcwBeam : 0;
+    const panelZoneAvailable = applyDesignStrength(VpzNominal, state.designMethod, "panelZone");
     const validations = [];
 
-    if (state.momentLeverArm <= 0) validations.push("梁翼力偶槓桿臂 hm 必須大於 0。");
-    if (state.momentPitch <= state.holeDiameter) validations.push("端板孔距 sm 應大於孔徑 dh。");
-    if (state.momentPlateNetWidth > state.momentPlateWidth) validations.push("端板淨寬 bmn 不應大於端板總寬 bmp。");
-    if (state.momentShearBoltCount === 0 && shearDemand > 0) validations.push("目前腹板剪力螺栓數為 0，剪力將只由腹板傳力銲道與 panel zone 檢核控制。");
+    const positiveInputChecks = [
+      ["梁塑性斷面模數 Zb", state.momentBeamPlasticModulus],
+      ["梁降伏強度 Fyb", state.momentBeamYieldStrength],
+      ["預期強度係數 beta", state.momentExpectedStrengthFactor],
+      ["臨界截面距離 x", state.momentCriticalSectionDistance],
+      ["塑鉸跨距 Lh", state.momentPlasticHingeSpan],
+      ["接頭可用抗彎強度", state.momentAvailableFlexuralStrength],
+      ["接頭可用抗剪強度", state.momentAvailableShearStrength],
+      ["接頭合格塑性轉角", state.momentQualifiedPlasticRotation],
+      ["柱腹板降伏強度 Fyc", state.momentColumnWebYieldStrength],
+      ["柱深 dc", state.momentColumnDepth],
+      ["Panel Zone 厚度 tp", state.momentPanelZoneThickness],
+      ["Panel Zone 淨高 dz", state.momentPanelZoneClearDepth],
+      ["Panel Zone 淨寬 wz", state.momentPanelZoneClearWidth],
+      ["Panel Zone 分析需求", state.momentPanelZoneAnalysisDemand],
+      ["梁端彎矩合計", state.momentPanelZoneBeamMomentSum],
+      ["Panel Zone 槓桿臂 hpz", state.momentPanelZoneLeverArm],
+      ["梁翼板寬 bfb", state.momentBeamFlangeWidth],
+      ["梁翼板厚 tfb", state.momentBeamFlangeThickness],
+      ["柱翼局部標稱拉力強度", state.momentColumnFlangeLocalNominalStrength],
+      ["梁翼緣塑性厚度", state.momentDesignBeamFlangeThickness],
+      ["試體翼緣塑性厚度", state.momentTestBeamFlangeThickness],
+      ["設計翼緣塑性比例", state.momentDesignFlangePlasticRatio],
+      ["試體翼緣塑性比例", state.momentTestFlangePlasticRatio],
+    ];
+    const invalidPositiveInputs = positiveInputChecks.filter(([, value]) => !(Number.isFinite(value) && value > 0));
+    if (invalidPositiveInputs.length > 0) {
+      validations.push(`梁柱彎矩接頭輸入值需為有限正值：${invalidPositiveInputs.map(([label]) => label).join("、")}。`);
+    }
+    if (!farMomentInputValid) {
+      validations.push("對端臨界截面預期塑性彎矩 Mpr,far 需為有限非負值；負值或非數值輸入即使正規化後為 0，仍不得視為有效需求來源。");
+    }
+
+    const invalidDerived = [
+      ["Mp", Mp],
+      ["Mpr", Mpr],
+      ["Vp", Vp],
+      ["Mu_face", MuFace],
+      ["Vu_req", VuRequired],
+      ["theta_req", rotationDemand],
+      ["Vpz_min", VpzMin],
+      ["Vpz_req", VpzRequired],
+      ["Vpz_n", VpzNominal],
+      ["tz_req", panelThicknessRequired],
+      ["continuity threshold", continuityThreshold],
+      ["SCWB cw", scwbCw],
+      ["SCWB ccw", scwbCcw],
+    ].filter(([, value]) => !(Number.isFinite(value) && value > 0));
+    if (invalidDerived.length > 0) {
+      validations.push(`梁柱彎矩接頭派生量需為有限正值：${invalidDerived.map(([label]) => label).join("、")}。`);
+    }
+    if (!(Number.isFinite(MprFar) && MprFar >= 0)) {
+      validations.push("對端臨界截面預期塑性彎矩 Mpr,far 之正規化結果需為有限非負值。");
+    }
+
+    const qualificationSimilarityChecks = [
+      ["momentQualificationConfigurationConfirmed", "資格試驗構造配置一致", state.momentQualificationConfigurationConfirmed],
+      ["momentQualificationMaterialConfirmed", "資格試驗材料一致", state.momentQualificationMaterialConfirmed],
+      ["momentQualificationWeldingConfirmed", "資格試驗銲接一致", state.momentQualificationWeldingConfirmed],
+      ["momentQualificationGeometryConfirmed", "資格試驗幾何一致", state.momentQualificationGeometryConfirmed],
+      ["momentQualificationFabricationConfirmed", "資格試驗製造一致", state.momentQualificationFabricationConfirmed],
+      ["momentQualificationProcedureConfirmed", "資格試驗程序一致", state.momentQualificationProcedureConfirmed],
+    ];
+
+    const detailChecks = [
+      makeDetailCheck("momentLrfdMethod", "LRFD 設計法", state.designMethod === "LRFD" ? 1 : 0, true, "custom", "V1 限 LRFD 正式附件，不接受 ASD。", "規範判定｜第十章"),
+      makeDetailCheck("momentFrameSystem", "構架系統適用範圍", ["smrf", "imrf"].includes(state.momentFrameSystem) ? 1 : 0, true, "custom", "V1 限 SMRF 或 IMRF。", "規範判定｜13.6、13.7"),
+      makeDetailCheck("momentAxis", "單一選定構架面", ["x", "y"].includes(state.momentAxis) ? 1 : 0, true, "custom", "正式附件只涵蓋單一選定構架面之 X 或 Y 方向。", "專案指定"),
+      makeDetailCheck("momentDesignRoute", "補強式接頭路線", state.momentConnectionDesignRoute === "reinforced" ? 1 : 0, true, "custom", "V1 只接受補強式梁柱彎矩接頭。", "專案指定"),
+      makeDetailCheck("momentExpectedStrengthFactor", "預期強度係數 beta", state.momentExpectedStrengthFactor, 1, "gte", "beta 須 >= 1.0；規範解說對 A572 Gr.50 常見建議可採 1.4，或採其他經驗證值，但均須由資格與容量來源追溯。", "設計者判斷｜規範解說"),
+      makeDetailCheck("momentFarCriticalSectionExpectedMoment", "對端臨界截面預期塑性彎矩", farMomentInputValid ? 1 : 0, true, "custom", farMomentInputValid ? "Mpr,far 已依需求/構架模型提供，允許為 0。" : "Mpr,far 須來自需求/構架模型，且原始輸入必須為有限非負值。", "專案指定"),
+      makeDetailCheck("momentBeamFlangeCompactnessRatio", "梁翼緣緊密斷面比", state.momentBeamFlangeCompactnessRatio, 1, "lte", "梁翼緣緊密斷面比須 <= 1；IMRF 由本附件依專案保守同採。", "規範判定｜13.6.3；專案指定｜IMRF 同採"),
+      makeDetailCheck("momentBeamWebCompactnessRatio", "梁腹板緊密斷面比", state.momentBeamWebCompactnessRatio, 1, "lte", "梁腹板緊密斷面比須 <= 1；IMRF 由本附件依專案保守同採。", "規範判定｜13.6.3；專案指定｜IMRF 同採"),
+      makeDetailCheck("momentBeamFlangePlasticModulusRatio", "梁翼緣塑性模數比", state.momentBeamFlangePlasticModulusRatio, 0.7, "gte", "梁翼緣塑性模數比須 >= 0.70；IMRF 由本附件依專案保守同採。", "規範判定｜13.6.3；專案指定｜IMRF 同採"),
+      makeDetailCheck("momentPanelZoneThickness", "Panel Zone 厚度需求", state.momentPanelZoneThickness, panelThicknessRequired, "gte", `tp = ${formatEquationNumber(state.momentPanelZoneThickness)} mm，tz,req = (dz + wz) / 90 = ${formatEquationNumber(panelThicknessRequired)} mm；IMRF 由本附件依專案保守同採。`, "規範判定｜13.6.2；專案指定｜IMRF 同採"),
+      makeDetailCheck("momentDoublerAttachmentConfirmed", "Doubler 板銜接確認", state.momentDoublerPresent ? (state.momentDoublerAttachmentConfirmed ? 1 : 0) : 1, true, "custom", state.momentDoublerPresent ? "設置 doubler 板時，須確認與柱翼/柱腹之傳力銜接。" : "未設 doubler 板時本項不控制。", "設計者判斷"),
+      makeDetailCheck("momentContinuityPlateRequirement", "Continuity Plate 需求", continuityRequired ? (state.momentContinuityPlateProvidedConfirmed ? 1 : 0) : 1, true, "custom", continuityRequired ? `柱翼局部標稱拉力強度 ${formatEquationNumber(state.momentColumnFlangeLocalNominalStrength)} kN 小於門檻 ${formatEquationNumber(continuityThreshold)} kN，需設 continuity plate；IMRF 由本附件依專案保守同採。` : `柱翼局部標稱拉力強度 ${formatEquationNumber(state.momentColumnFlangeLocalNominalStrength)} kN >= 門檻 ${formatEquationNumber(continuityThreshold)} kN。`, "規範判定｜13.6.4；專案指定｜IMRF 同採"),
+      makeDetailCheck("momentContinuityPlateWeldConfirmed", "Continuity Plate 銲接確認", continuityRequired ? (state.momentContinuityPlateWeldConfirmed ? 1 : 0) : 1, true, "custom", continuityRequired ? "需確認 continuity plate 銲接細節已納入核定圖與容量來源。" : "未觸發 continuity plate 需求時本項不控制。", "設計者判斷"),
+      makeDetailCheck("momentQualificationRoute", "資格路線", ["direct_test", "prior_test_similarity", "third_party_review"].includes(state.momentQualificationRoute) ? 1 : 0, true, "custom", "耐震資格路線限直接試驗、既有試驗相似性或第三方審查。", "規範判定｜13.6.1、13.7.2"),
+      makeDetailCheck("momentQualificationTestCount", "資格試驗數量", state.momentQualificationRoute === "direct_test" ? state.momentQualificationTestCount : 2, 2, "gte", state.momentQualificationRoute === "direct_test" ? "直接試驗路線至少 2 組試體，作為本專案保守門檻。" : "既有試驗相似性與第三方審查路線不以本項作為硬性規範門檻。", "專案指定"),
+      makeDetailCheck("momentQualificationThicknessSimilarity", "翼緣厚度相似性", state.momentQualificationRoute === "prior_test_similarity" ? state.momentDesignBeamFlangeThickness : state.momentQualificationRoute === "third_party_review" ? state.momentDesignBeamFlangeThickness : 1, state.momentQualificationRoute === "prior_test_similarity" ? 1.25 * state.momentTestBeamFlangeThickness : state.momentQualificationRoute === "third_party_review" ? 45 : 0, state.momentQualificationRoute === "direct_test" ? "gte" : "lte", state.momentQualificationRoute === "prior_test_similarity" ? `設計翼緣厚度需 <= 1.25 × 試體翼緣厚度 = ${formatEquationNumber(1.25 * state.momentTestBeamFlangeThickness)} mm。` : state.momentQualificationRoute === "third_party_review" ? "第三方審查路線限設計梁翼緣厚度 <= 45 mm。" : "直接試驗路線不以 45 mm 作為此項限制。", "設計者判斷"),
+      makeDetailCheck("momentQualificationPlasticRatioSimilarity", "翼緣塑性比例相似性", state.momentQualificationRoute === "prior_test_similarity" ? state.momentDesignFlangePlasticRatio : 1, state.momentQualificationRoute === "prior_test_similarity" ? state.momentTestFlangePlasticRatio : 0, state.momentQualificationRoute === "prior_test_similarity" ? "gte" : "gte", state.momentQualificationRoute === "prior_test_similarity" ? "既有試驗相似性路線要求設計翼緣塑性比例 >= 試體比例。" : "非既有試驗相似性路線本項不控制。", "設計者判斷"),
+      makeDetailCheck("momentThirdPartyReviewConfirmed", "第三方審查確認", state.momentQualificationRoute === "third_party_review" ? (state.momentThirdPartyReviewConfirmed ? 1 : 0) : 1, true, "custom", state.momentQualificationRoute === "third_party_review" ? "第三方審查路線須提供有效審查確認。" : "非第三方審查路線本項不控制。", "設計者判斷"),
+      ...qualificationSimilarityChecks.map(([key, label, value]) => makeDetailCheck(key, label, value ? 1 : 0, true, "custom", `${label}須明確確認。`, "設計者判斷")),
+      makeDetailCheck("momentPlasticZoneGeometryConfirmed", "塑鉸區幾何確認", state.momentPlasticZoneGeometryConfirmed ? 1 : 0, true, "custom", "須確認塑鉸區幾何與審查附件一致。", "設計者判斷"),
+      makeDetailCheck("momentPlasticZoneOpeningsAbsentConfirmed", "塑鉸區無開孔確認", state.momentPlasticZoneOpeningsAbsentConfirmed ? 1 : 0, true, "custom", "須確認塑鉸區未設置削弱延性之開孔。", "設計者判斷"),
+      makeDetailCheck("momentSeismicMaterialConfirmed", "耐震材料確認", state.momentSeismicMaterialConfirmed ? 1 : 0, true, "custom", "須確認耐震鋼材與材料韌性要求。", "設計者判斷"),
+      makeDetailCheck("momentMatchingWeldConfirmed", "相容銲材確認", state.momentMatchingWeldConfirmed ? 1 : 0, true, "custom", "須確認銲材與母材強度及韌性相容。", "設計者判斷"),
+      makeDetailCheck("momentCns3506WeldConfirmed", "CNS 3506 銲材確認", state.momentCns3506WeldConfirmed ? 1 : 0, true, "custom", "須確認銲材與程序符合 CNS 3506 或專案核定要求。", "規範判定｜第十章"),
+      makeDetailCheck("momentEndTabsRemovedGroundConfirmed", "導銲板處理確認", state.momentEndTabsRemovedGroundConfirmed ? 1 : 0, true, "custom", "須確認導銲板移除與打磨完成。", "設計者判斷"),
+      makeDetailCheck("momentWeldProcedureMatchesQualificationConfirmed", "WPS 與資格一致", state.momentWeldProcedureMatchesQualificationConfirmed ? 1 : 0, true, "custom", "須確認施工 WPS 與資格依據一致。", "設計者判斷"),
+      makeDetailCheck("momentJointLateralRestraintConfirmed", "節點側向拘束確認", state.momentJointLateralRestraintConfirmed ? 1 : 0, true, "custom", "須確認節點附近側向拘束條件。", "設計者判斷"),
+      makeDetailCheck("momentBeamLateralBracingConfirmed", "梁側向支撐確認", state.momentBeamLateralBracingConfirmed ? 1 : 0, true, "custom", "須確認梁塑鉸區側向支撐配置。", "設計者判斷"),
+      makeDetailCheck("momentAllMembersIncludedConfirmed", "選定構架面構件完整性", state.momentAllMembersIncludedConfirmed ? 1 : 0, true, "custom", "須確認選定構架面內之柱、梁均已納入。", "專案指定"),
+      makeDetailCheck("momentColumnStrengthsAtGoverningAxialConfirmed", "柱強度採控制軸力確認", state.momentColumnStrengthsAtGoverningAxialConfirmed ? 1 : 0, true, "custom", "須確認柱強度比採控制軸力組合。", "設計者判斷"),
+      makeDetailCheck("momentOpposingDirectionsConfirmed", "正反向耐震檢核確認", state.momentOpposingDirectionsConfirmed ? 1 : 0, true, "custom", "須確認正向與反向地震作用均已檢核。", "規範判定｜13.6.5"),
+      makeDetailCheck("momentOrthogonalDirectionSeparateConfirmed", "正交方向另案確認", state.momentOrthogonalDirectionSeparateConfirmed ? 1 : 0, true, "custom", "本附件不含正交方向，須另案檢核。", "專案指定"),
+      makeDetailCheck("momentConnectionHardwareVerifiedConfirmed", "接頭零組件核對確認", state.momentConnectionHardwareVerifiedConfirmed ? 1 : 0, true, "custom", "螺栓、端板、補強材與銲材等零組件須由外部受控來源核對。", "專案指定"),
+      makeDetailCheck("momentSelectedAxisScopeConfirmed", "單一方向附件範圍確認", state.momentSelectedAxisScopeConfirmed ? 1 : 0, true, "custom", "正式附件只核對所選單一構架面與單一方向。", "專案指定"),
+      makeDetailCheck("momentDemandBasis", "需求來源", hasBasis(state.momentDemandBasis) ? 1 : 0, true, "custom", hasBasis(state.momentDemandBasis) ? state.momentDemandBasis : "請填入分析模型、組合與簽核來源。", "專案指定"),
+      makeDetailCheck("momentGeometryBasis", "幾何來源", hasBasis(state.momentGeometryBasis) ? 1 : 0, true, "custom", hasBasis(state.momentGeometryBasis) ? state.momentGeometryBasis : "請填入核定圖說或量測來源。", "專案指定"),
+      makeDetailCheck("momentMaterialBasis", "材料來源", hasBasis(state.momentMaterialBasis) ? 1 : 0, true, "custom", hasBasis(state.momentMaterialBasis) ? state.momentMaterialBasis : "請填入鋼材、銲材與材料證明來源。", "專案指定"),
+      makeDetailCheck("momentCapacityBasis", "容量來源", hasBasis(state.momentCapacityBasis) ? 1 : 0, true, "custom", hasBasis(state.momentCapacityBasis) ? state.momentCapacityBasis : "請填入外部受控容量來源。", "專案指定"),
+      makeDetailCheck("momentPanelZoneBasis", "Panel Zone 來源", hasBasis(state.momentPanelZoneBasis) ? 1 : 0, true, "custom", hasBasis(state.momentPanelZoneBasis) ? state.momentPanelZoneBasis : "請填入 Panel Zone 幾何與分析來源。", "專案指定"),
+      makeDetailCheck("momentStrongColumnBasis", "強柱弱梁來源", hasBasis(state.momentStrongColumnBasis) ? 1 : 0, true, "custom", hasBasis(state.momentStrongColumnBasis) ? state.momentStrongColumnBasis : "請填入控制軸力柱項，以及各梁 ZbFyb、Vp 與塑鉸至柱面距離 x 的來源。", "專案指定"),
+      makeDetailCheck("momentQualificationBasis", "資格依據來源", hasBasis(state.momentQualificationBasis) ? 1 : 0, true, "custom", hasBasis(state.momentQualificationBasis) ? state.momentQualificationBasis : "請填入耐震資格試驗或第三方審查來源。", "專案指定"),
+      makeDetailCheck("momentQualificationEvidenceSha256", "資格證據 SHA-256", isSha256(state.momentQualificationEvidenceSha256) ? 1 : 0, true, "custom", isSha256(state.momentQualificationEvidenceSha256) ? "已提供 64 碼 SHA-256。" : "資格證據 SHA-256 須為 64 碼十六進位字串。", "專案指定"),
+      makeDetailCheck("momentCapacityEvidenceSha256", "容量證據 SHA-256", isSha256(state.momentCapacityEvidenceSha256) ? 1 : 0, true, "custom", isSha256(state.momentCapacityEvidenceSha256) ? "已提供 64 碼 SHA-256。" : "容量證據 SHA-256 須為 64 碼十六進位字串。", "專案指定"),
+    ];
 
     const checks = [
-      buildBoltTensionCheck({
-        key: "momentBoltTension",
-        label: "拉側端板螺栓拉力",
-        demand: tensionDemand,
-        boltDiameter: state.boltDiameter,
-        boltUltimateStrength: state.boltUltimateStrength,
-        boltCount: state.momentBoltCount,
-        designMethod: state.designMethod,
-        note: "以 Mu / hm 換算拉側螺栓群總張力，不含 prying action 放大。",
-      }),
-      buildGrossYieldCheck({
-        key: "momentPlateYield",
-        label: "端板總斷面降伏",
-        demand: tensionDemand,
-        fy: state.momentPlateYieldStrength,
-        grossArea,
-        designMethod: state.designMethod,
-        note: "以端板總寬乘厚度估算 gross section yielding。",
-      }),
-      buildNetRuptureCheck({
-        key: "momentPlateRupture",
-        label: "端板淨斷面斷裂",
-        demand: tensionDemand,
-        fu: state.momentPlateUltimateStrength,
-        netArea,
-        designMethod: state.designMethod,
-        note: "以端板淨寬乘厚度估算淨斷面抗拉。",
-      }),
-      buildBoltShearCheck({
-        key: "momentShearBolt",
-        label: "腹板剪力螺栓",
-        demand: shearDemand,
-        boltDiameter: state.boltDiameter,
-        boltUltimateStrength: state.boltUltimateStrength,
-        boltCount: Math.max(state.momentShearBoltCount, 1),
-        shearPlanes: state.momentShearPlanes,
-        threadsCondition: state.threadsCondition,
-        designMethod: state.designMethod,
-        note: state.momentShearBoltCount > 0 ? "以腹板剪力螺栓群傳遞 Vu / Va。" : "未配置腹板剪力螺栓時，此檢核會顯示為不利結果，提醒需仰賴其他傳力元件。",
-      }),
-      buildBoltLineBearingCheck({
-        key: "momentShearBearing",
-        label: "腹板剪力板孔承壓",
-        demand: shearDemand,
-        count: Math.max(state.momentShearBoltCount, 1),
-        endDistance: state.momentEndDistance,
-        pitch: state.momentPitch,
-        holeDiameter: state.holeDiameter,
-        thickness: state.momentShearPlateThickness,
-        fu: state.momentShearPlateUltimateStrength,
-        boltDiameter: state.boltDiameter,
-        deformationConsidered: state.deformationConsidered,
-        designMethod: state.designMethod,
-        note: "暫以腹板剪力板線性栓列模型檢核孔承壓。",
-      }),
-      buildWeldCheck({
-        key: "momentWeld",
-        label: "腹板傳力銲道",
-        demand: shearDemand,
-        weldSize: state.momentWeldSize,
-        weldLength: state.momentWeldLength,
-        weldLineCount: state.momentWeldLineCount,
-        electrodeStrength: state.momentWeldElectrodeStrength,
-        designMethod: state.designMethod,
-        note: "腹板傳力銲道保守視為單獨承受剪力需求。",
+      createCheck({
+        key: "momentFlexuralStrength",
+        label: "接頭彎矩容量",
+        demand: MuFace,
+        nominal: state.momentAvailableFlexuralStrength,
+        available: state.momentAvailableFlexuralStrength,
+        note: "以外部受控來源提供之接頭可用抗彎強度對照梁端面需求。",
+        codeRef: state.momentFrameSystem === "imrf" ? "規範判定｜13.7.2" : "規範判定｜13.6.1",
+        equationRef: "專案指定外部容量",
+        unit: "kN-m",
+        equationLines: [
+          `Mp = Zb × Fyb / 10^6 = ${formatEquationNumber(Mp)} kN-m`,
+          `Mpr = beta × Mp = ${formatEquationNumber(Mpr)} kN-m`,
+          `Mpr,far = ${formatEquationNumber(MprFar)} kN-m`,
+          `Vp = (Mpr + Mpr,far) × 1000 / Lh = ${formatEquationNumber(Vp)} kN`,
+          `Mu,face = Mpr + Vp × x / 1000 = ${formatEquationNumber(MuFace)} kN-m`,
+          `接頭可用抗彎強度 = ${formatEquationNumber(state.momentAvailableFlexuralStrength)} kN-m`,
+        ],
       }),
       createCheck({
-        key: "panelZone",
-        label: "Panel Zone 等效剪力",
-        demand: panelZoneDemand,
-        nominal: state.panelZoneCapacity,
-        available: applyDesignStrength(state.panelZoneCapacity, state.designMethod, "panelZone"),
-        note: "以拉側翼力加半數剪力之簡化等效需求評估 panel zone，可作第一階段篩選。",
+        key: "momentShearStrength",
+        label: "接頭剪力容量",
+        demand: VuRequired,
+        nominal: state.momentAvailableShearStrength,
+        available: state.momentAvailableShearStrength,
+        note: "以外部受控來源提供之接頭可用抗剪強度對照塑鉸機制剪力需求。",
+        codeRef: state.momentFrameSystem === "imrf" ? "規範判定｜13.7.2" : "規範判定｜13.6.1",
+        equationRef: "專案指定外部容量",
+        unit: "kN",
         equationLines: [
-          `T = Mu / hm = ${formatEquationNumber(tensionDemand)} kN`,
-          `Vpz,eq = T + 0.5Vu = ${formatEquationNumber(panelZoneDemand)} kN`,
-          `可用 panel zone 容量 = ${formatEquationNumber(applyDesignStrength(state.panelZoneCapacity, state.designMethod, "panelZone"))} kN`,
+          `Vu,req = min(|Vgravity| + Vp, |Vamplified|) = ${formatEquationNumber(VuRequired)} kN`,
+          `接頭可用抗剪強度 = ${formatEquationNumber(state.momentAvailableShearStrength)} kN`,
+        ],
+      }),
+      createCheck({
+        key: "momentPlasticRotation",
+        label: "塑性轉角資格",
+        demand: rotationDemand,
+        nominal: state.momentQualifiedPlasticRotation,
+        available: state.momentQualifiedPlasticRotation,
+        note: "以所選需求法計算之塑性轉角需求對照資格或審查可接受轉角。",
+        codeRef: state.momentFrameSystem === "imrf" ? "規範判定｜13.7.2" : "規範判定｜13.6.1",
+        equationRef: state.momentFrameSystem === "imrf" ? "13.7.2＋專案指定需求法" : "13.6.1＋專案指定需求法",
+        unit: "rad",
+        equationLines: [
+          state.momentRotationDemandMethod === "nonlinear"
+            ? `theta,req = thetaNL + 0.005 = ${formatEquationNumber(rotationDemand)} rad`
+            : state.momentRotationDemandMethod === "formula"
+              ? `theta,req = 1.1 × (R - 1) × thetaE = ${formatEquationNumber(rotationDemand)} rad`
+              : `theta,req = ${state.momentFrameSystem === "smrf" ? "0.03" : "0.01"} rad`,
+          `資格可接受塑性轉角 = ${formatEquationNumber(state.momentQualifiedPlasticRotation)} rad`,
+        ],
+      }),
+      createCheck({
+        key: "momentPanelZoneShear",
+        label: "Panel Zone 剪力",
+        demand: VpzRequired,
+        nominal: VpzNominal,
+        available: panelZoneAvailable,
+        note: "以梁端面彎矩合計與分析需求較大者控制 Panel Zone 剪力。",
+        codeRef: "規範判定｜13.6.2；專案指定｜IMRF 同採",
+        equationRef: "式(13.6-1)、式(13.6-2)",
+        unit: "kN",
+        equationLines: [
+          `Vpz,min = ΣMp × 1000 / hpz = ${formatEquationNumber(VpzMin)} kN`,
+          `Vpz,req = max(Vpz,analysis, Vpz,min) = ${formatEquationNumber(VpzRequired)} kN`,
+          `Vpz,n = 0.6 × Fyc × dc × tp / 1000 = ${formatEquationNumber(VpzNominal)} kN`,
+          `可用 Panel Zone 強度 = ${formatEquationNumber(panelZoneAvailable)} kN`,
+        ],
+      }),
+      createCheck({
+        key: "momentStrongColumnCw",
+        label: "強柱弱梁比 CW",
+        demand: 1.25,
+        nominal: scwbCw,
+        available: scwbCw,
+        note: state.momentFrameSystem === "imrf" ? "順時針方向以柱項總和 / 補強式梁項總和檢核；每支梁項須已包含 ZbFyb + Vp·x。IMRF 若仍加做本項，視為專案額外採用。" : "順時針方向以柱項總和 / 補強式梁項總和檢核；依 13.6.5 解說，每支梁項須已包含 ZbFyb + Vp·x。",
+        codeRef: state.momentFrameSystem === "imrf" ? "專案指定｜IMRF 保守同採 13.6.5" : "規範判定｜13.6.5",
+        equationRef: state.momentFrameSystem === "imrf" ? "專案指定｜IMRF 同採式(13.6-3)＋補強式接頭解說" : "式(13.6-3)＋13.6.5 補強式接頭解說",
+        unit: "",
+        equationLines: [
+          `CW = sum Zc(Fyc - Puc/Ag) / sum(ZbFyb + Vp x) = ${formatEquationNumber(scwbCw)}`,
+          "需求比值 = 1.25",
+        ],
+      }),
+      createCheck({
+        key: "momentStrongColumnCcw",
+        label: "強柱弱梁比 CCW",
+        demand: 1.25,
+        nominal: scwbCcw,
+        available: scwbCcw,
+        note: state.momentFrameSystem === "imrf" ? "逆時針方向以柱項總和 / 補強式梁項總和檢核；每支梁項須已包含 ZbFyb + Vp·x。IMRF 若仍加做本項，視為專案額外採用。" : "逆時針方向以柱項總和 / 補強式梁項總和檢核；依 13.6.5 解說，每支梁項須已包含 ZbFyb + Vp·x。",
+        codeRef: state.momentFrameSystem === "imrf" ? "專案指定｜IMRF 保守同採 13.6.5" : "規範判定｜13.6.5",
+        equationRef: state.momentFrameSystem === "imrf" ? "專案指定｜IMRF 同採式(13.6-3)＋補強式接頭解說" : "式(13.6-3)＋13.6.5 補強式接頭解說",
+        unit: "",
+        equationLines: [
+          `CCW = sum Zc(Fyc - Puc/Ag) / sum(ZbFyb + Vp x) = ${formatEquationNumber(scwbCcw)}`,
+          "需求比值 = 1.25",
         ],
       }),
     ];
@@ -2792,28 +3222,46 @@ ${buildAvailableStrengthLatex(state.designMethod, "netRupture", gussetNetRupture
     return {
       ...CONNECTION_META.beam_column_moment,
       checks,
-      detailChecks: buildLinearBoltDetailChecks({
-        prefix: "端板",
-        state,
-        pitch: state.momentPitch,
-        endDistance: state.momentEndDistance,
-        edgeDistance: state.momentEdgeDistance,
-        boltDiameter: state.boltDiameter,
-        thickness: state.momentPlateThickness,
-        shortWeld: { weldLength: state.momentWeldLength, weldSize: state.momentWeldSize },
-      }),
+      detailChecks,
       validations,
       assumptions: [
-        "彎矩需求以簡化力偶 Mu / hm 換算拉側需求，不含 prying action、端板彎曲與栓列非線性分配。",
-        "腹板剪力元件、銲道與 panel zone 分別檢核，不採組合增益。",
-        "未納入 continuity plate、panel doubler、耐震 prequalified connection 特別規定。",
+        "正式附件只涵蓋單一選定方向之規範算術、來源證據與耐震能力審查，不延伸為多向或整體構架完整接頭設計。",
+        "塑鉸機制剪力 Vp 依本端與對端臨界截面之預期塑性彎矩共同決定；Mpr,far 屬需求/構架模型輸入，不屬接頭外部容量。",
+        "補強式接頭之強柱弱梁分母依 13.6.5 解說採各梁 ZbFyb + Vp·x；四個梁項為順、逆向分別整理的受控輸入，須追溯各梁自己的 Vp 與塑鉸至柱面距離 x。",
+        "接頭螺栓、端板、prying action、yield-line、焊道與其他局部容量均由外部受控來源提供，本附件僅核對其可用強度與證據追溯。",
+        "AISC 358 family / prequalification、正交方向、NDT 與施工程序為另案控制；completeJointDesign = false。",
       ],
       references: [
-        "10.3 螺栓與孔承壓",
-        "10.3.11~10.3.13 孔距與邊距",
-        "第十章接合設計一般規定",
-        "第十三章耐震接頭應另行補充檢核",
+        "規範判定｜臺灣鋼結構極限設計法 13.6.1~13.6.5 梁柱彎矩接頭耐震能力審查、式(13.6-3)及補強式接頭解說之 ZbFyb + Vp·x 梁項",
+        "規範判定｜臺灣鋼結構極限設計法 第十章 接合設計一般規定",
+        ...(state.momentFrameSystem === "imrf" ? ["規範判定｜臺灣鋼結構極限設計法 13.7.2 IMRF 接頭規定"] : []),
+        "專案指定｜單一選定構架面、需求/構架模型提供之 Mpr,far、外部受控容量來源與 SHA-256 證據追溯",
+        "設計者判斷｜補強式梁柱彎矩接頭資格相似性、第三方審查與施工適用性確認",
       ],
+      seismicReview: {
+        frameSystem: state.momentFrameSystem,
+        axis: state.momentAxis,
+        qualificationRoute: state.momentQualificationRoute,
+        rotationDemandMethod: state.momentRotationDemandMethod,
+        Mp,
+        Mpr,
+        MprFar,
+        Vp,
+        MuFace,
+        VuRequired,
+        rotationDemand,
+        qualifiedRotation: state.momentQualifiedPlasticRotation,
+        VpzMin,
+        VpzRequired,
+        VpzNominal,
+        panelThicknessRequired,
+        continuityThreshold,
+        continuityRequired,
+        scwbCw,
+        scwbCcw,
+      },
+      completeJointDesign: false,
+      scopeLimited: false,
     };
   }
 
@@ -2965,7 +3413,9 @@ ${buildAvailableStrengthLatex(state.designMethod, "netRupture", gussetNetRupture
       validations.push("此模組尚未收斂到完整規範覆核範圍，現階段不提供正式規範核算。");
     }
     const scopeNotes = result.assumptions || [];
-    const scopeLimited = scopeNotes.some((item) => /(未納入|簡化|保守|第一階段|不含)/.test(item));
+    const scopeLimited = Object.prototype.hasOwnProperty.call(result, "scopeLimited")
+      ? Boolean(result.scopeLimited)
+      : scopeNotes.some((item) => /(未納入|簡化|保守|第一階段|不含)/.test(item));
     if (scopeLimited) {
       validations.push("本模組仍含範圍受限或簡化條件，結果不得直接視為完整規範覆核。");
     }
@@ -2976,7 +3426,7 @@ ${buildAvailableStrengthLatex(state.designMethod, "netRupture", gussetNetRupture
       return !numericResultsAreFinite || !positiveDemandHasPositiveCapacity || item.ratio > 1.0;
     });
     const detailFailure = detailChecks.some((item) => !item.passes);
-    const validationFailure = ["single_plate", "brace_gusset"].includes(state.connectionType) && blockingValidations.length > 0;
+    const validationFailure = ["single_plate", "column_splice", "brace_gusset", "beam_column_moment"].includes(state.connectionType) && blockingValidations.length > 0;
     const hasWarning = validations.length > 0 || checks.some((item) => item.warning) || scopeLimited;
     const overallStatus = !complianceReady || strengthFailure || detailFailure || validationFailure ? "fail" : hasWarning ? "warn" : "ok";
 
@@ -2997,6 +3447,11 @@ ${buildAvailableStrengthLatex(state.designMethod, "netRupture", gussetNetRupture
       pathSummary: result.pathSummary || null,
       designDemand: result.designDemand || null,
       sketchData: result.sketchData || null,
+      seismicReview: result.seismicReview || null,
+      spliceReview: result.spliceReview || null,
+      completeJointDesign: Object.prototype.hasOwnProperty.call(result, "completeJointDesign") ? result.completeJointDesign : null,
+      completeColumnMemberDesign: Object.prototype.hasOwnProperty.call(result, "completeColumnMemberDesign") ? result.completeColumnMemberDesign : null,
+      asBuiltAcceptance: Object.prototype.hasOwnProperty.call(result, "asBuiltAcceptance") ? result.asBuiltAcceptance : null,
       complianceReady,
       scopeLimited,
       overallStatus,

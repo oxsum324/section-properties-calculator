@@ -192,6 +192,23 @@ const auditToolPath = path.join(__dirname, "audit-tool.ps1");
 const auditToolSource = fs.readFileSync(auditToolPath, "utf8");
 const browserRunnerPath = path.join(__dirname, "steel-audit-browser-runner.js");
 const browserRunnerSource = fs.readFileSync(browserRunnerPath, "utf8");
+const formattingSourceStart = appSource.indexOf("  function formatNumber(value, digits = 1)");
+const formattingSourceEnd = appSource.indexOf("  function nowLabel()", formattingSourceStart);
+const detailDecisionSourceStart = appSource.indexOf("  function buildDetailDecisionSentence(item)");
+const detailDecisionSourceEnd = appSource.indexOf("  function formatDetailField(value)", detailDecisionSourceStart);
+assert.ok(
+  formattingSourceStart >= 0 && formattingSourceEnd > formattingSourceStart
+    && detailDecisionSourceStart >= 0 && detailDecisionSourceEnd > detailDecisionSourceStart,
+  "steel formal regression should locate the report-formatting helpers",
+);
+const reportFormattingRuntime = {};
+vm.runInNewContext(
+  `${appSource.slice(formattingSourceStart, formattingSourceEnd)}\n`
+    + `${appSource.slice(detailDecisionSourceStart, detailDecisionSourceEnd)}\n`
+    + "this.helpers = { formatCheckValue, formatDetailDecisionValue, buildDetailDecisionSentence };",
+  reportFormattingRuntime,
+  { filename: appPath },
+);
 const syncFormalCorePath = path.join(__dirname, "sync-formal-core.ps1");
 const syncFormalCoreSource = fs.readFileSync(syncFormalCorePath, "utf8");
 const runSyncFormalCoreBatPath = path.join(__dirname, "run-sync-formal-core.bat");
@@ -312,8 +329,22 @@ for (const key of ["connection", "plate", "tension", "beam", "column"]) {
   const metadata = toolMetadataRuntime.SteelToolMetadata?.[key];
   assert.ok(metadata, `tool-metadata.js should expose ${key} metadata`);
   assert.match(metadata.name, /正式規範核算工具$/, `${key} metadata should expose a report-ready tool name`);
-  assert.equal(metadata.version, key === "connection" ? "V1.1" : "V1.0", `${key} metadata should expose its canonical steel formal version`);
+  assert.equal(metadata.version, key === "connection" ? "V1.3" : "V1.0", `${key} metadata should expose its canonical steel formal version`);
 }
+const momentModuleMetadata = toolMetadataRuntime.SteelToolMetadata.connection.modules?.beamColumnMoment;
+assert.equal(momentModuleMetadata?.state, "formal", "connection metadata should mark the scoped beam-column moment review formal");
+assert.equal(momentModuleMetadata?.designMethod, "LRFD", "beam-column moment metadata should lock LRFD");
+assert.equal(momentModuleMetadata?.deliverable, "selected-frame-plane-seismic-capacity-review-attachment", "beam-column moment metadata should describe the bounded review attachment");
+assert.equal(momentModuleMetadata?.completeJointDesign, false, "beam-column moment metadata must not claim complete joint design");
+assert.equal(momentModuleMetadata?.requiresExternalHardwareCapacityEvidence, true, "beam-column moment metadata should require external hardware-capacity evidence");
+assert.equal(momentModuleMetadata?.claimsAisc358Prequalification, false, "beam-column moment metadata must not claim AISC 358 prequalification");
+assert.equal(momentModuleMetadata?.orthogonalDirection, "separate-review", "beam-column moment metadata should keep the orthogonal frame direction separate");
+const columnSpliceModuleMetadata = toolMetadataRuntime.SteelToolMetadata.connection.modules?.columnSplice;
+assert.equal(columnSpliceModuleMetadata?.state, "formal", "connection metadata should mark the scoped CJP column-splice review formal");
+assert.equal(columnSpliceModuleMetadata?.designMethod, "LRFD", "column-splice metadata should lock LRFD");
+assert.equal(columnSpliceModuleMetadata?.deliverable, "full-section-cjp-seismic-column-splice-capacity-review-attachment", "column-splice metadata should describe the bounded review attachment");
+assert.equal(columnSpliceModuleMetadata?.completeColumnMemberDesign, false, "column-splice metadata must not claim complete column-member design");
+assert.equal(columnSpliceModuleMetadata?.asBuiltAcceptance, false, "column-splice metadata must not claim as-built acceptance");
 const sharedReportHtml = renderReportHtml(sharedReportSource, sharedReportPath, { name: "未填", no: "FORMAL-VERIFY-001", designer: "Codex QA" });
 const localReportHtml = renderReportHtml(localReportCoreSource, localReportCorePath, { name: "未填", no: "FORMAL-VERIFY-001", designer: "Codex QA" });
 const sharedReportText = assertReportHtmlText(sharedReportHtml, "shared report generator", [
@@ -431,7 +462,7 @@ for (const [label, html] of [["main", indexSource], ["standalone plate", plateCh
   );
 }
 for (const [label, html, expectedVersion] of [
-  ["steel main", indexSource, "V1.1"],
+  ["steel main", indexSource, "V1.3"],
   ["steel plate", plateCheckSource, "V1.0"],
   ["steel beam", beamFormalHtmlSource, "V1.0"],
   ["steel column", columnFormalHtmlSource, "V1.0"],
@@ -501,7 +532,7 @@ for (const [label, source] of [["beam", beamFormalSource], ["column", columnForm
 assert.match(
   appSource,
   /const getFormalToolMetadata =[\s\S]*const withFormalToolVersion =[\s\S]*const MAIN_SUITE_PAGE_TITLE = "鋼構正式規範核算工具";[\s\S]*function renderSummary\(result\)[\s\S]*pageToolMetadata = IS_STANDALONE_PLATE \? currentToolMetadata : STEEL_TOOL_METADATA\.connection[\s\S]*visiblePageTitle = IS_STANDALONE_PLATE \? result\.pageTitle : MAIN_SUITE_PAGE_TITLE[\s\S]*versionedPageTitle[\s\S]*pageTitle\.textContent = versionedPageTitle[\s\S]*document\.title = versionedPageTitle/s,
-  "the aggregate connection route should preserve its canonical V1.1 heading while the standalone plate route keeps the module version",
+  "the aggregate connection route should expose its canonical V1.3 heading while the standalone plate route keeps the module version",
 );
 const mainReportBuilderSource = appSource.match(/function buildConnectionReportConfig\(result\)\s*\{[\s\S]*?\n\s*function exportReport\(\)/)?.[0] || "";
 assert.ok(mainReportBuilderSource, "app.js should expose a statically inspectable formal report builder");
@@ -618,15 +649,70 @@ assert.match(
 );
 assert.match(
   indexSource,
-  /<option value="brace_gusset">支撐接頭｜平板支撐 Gusset 拉力接頭｜LRFD 正式模組<\/option>[\s\S]*<option value="beam_column_moment" disabled>/s,
-  "Gusset V1 should be enabled while the beam-column moment module remains disabled",
+  /<option value="brace_gusset">支撐接頭｜平板支撐 Gusset 拉力接頭｜LRFD 正式模組<\/option>[\s\S]*<option value="beam_column_moment">梁柱彎矩接頭｜耐震能力審查｜LRFD 正式模組<\/option>/s,
+  "Gusset and the bounded moment seismic review attachment should be enabled in the existing route",
 );
-assert.match(indexSource, /<option value="column_splice" disabled>/, "column splice should remain disabled after the Gusset release");
+assert.match(indexSource, /<option value="column_splice">柱續接｜全斷面 CJP 耐震能力審查｜LRFD 正式模組<\/option>/, "scoped CJP column-splice review should be enabled in the existing route");
 assert.ok(appSource.includes('brace_gusset: "支撐接頭｜平板支撐 Gusset 拉力接頭｜LRFD 正式模組"'), "app label should expose the exact governed flat-plate Gusset V1 title");
 assert.match(
   calculatorSource,
-  /brace_gusset:\s*\{[\s\S]*?complianceReady:\s*true[\s\S]*?beam_column_moment:\s*\{[\s\S]*?complianceReady:\s*false/s,
-  "Gusset should be compliance-ready without enabling the moment module",
+  /column_splice:\s*\{[\s\S]*?complianceReady:\s*true[\s\S]*?brace_gusset:\s*\{[\s\S]*?complianceReady:\s*true[\s\S]*?beam_column_moment:\s*\{[\s\S]*?complianceReady:\s*true/s,
+  "column splice, Gusset, and moment review should all be compliance-ready",
+);
+assert.ok(appSource.includes('beam_column_moment: "梁柱彎矩接頭｜耐震能力審查｜LRFD 正式模組"'), "app label should expose the exact governed beam-column moment review title");
+assert.ok(appSource.includes('column_splice: "柱續接｜全斷面 CJP 耐震能力審查｜LRFD 正式模組"'), "app label should expose the exact governed CJP column-splice review title");
+assert.match(
+  calculatorSource,
+  /beam_column_moment:\s*\{[\s\S]*reportTitle:\s*"梁柱彎矩接頭耐震能力審查附件"[\s\S]*pageDescription:[^\n]*不宣稱 AISC 358 預認證或完整接頭設計[\s\S]*complianceReady:\s*true/s,
+  "beam-column moment runtime metadata should state its seismic-review scope and non-prequalification boundary",
+);
+assert.match(
+  calculatorSource,
+  /momentQualificationEvidenceSha256[\s\S]*momentCapacityEvidenceSha256[\s\S]*momentOrthogonalDirectionSeparateConfirmed[\s\S]*momentConnectionHardwareVerifiedConfirmed[\s\S]*momentSelectedAxisScopeConfirmed[\s\S]*接頭螺栓、端板、prying action、yield-line[\s\S]*AISC 358 family \/ prequalification、正交方向[\s\S]*completeJointDesign:\s*false/s,
+  "beam-column moment review should fail closed on external evidence, selected-plane confirmations, and incomplete-joint disclosure",
+);
+assert.match(indexSource, /補強式接頭[\s\S]*ZbFyb \+ Vp·x[\s\S]*不得只填 ZbFyb/, "reinforced SCWB UI should require the commentary beam term including Vp x");
+assert.match(calculatorSource, /sum\(ZbFyb \+ Vp x\)[\s\S]*13\.6\.5 補強式接頭解說/, "reinforced SCWB report should preserve ZbFyb plus Vp x semantics");
+assert.ok(!appSource.includes("spliceIdenticalSectionsConfirmed") && !calculatorSource.includes("spliceIdenticalSectionsConfirmed"), "column-splice source contract should not retain the ambiguous section-only confirmation key");
+assert.match(appSource, /const signedFields = new Set\(\["momentGravityShear"\]\);[\s\S]*if \(fields\[key\] < 0\)/, "moment replay should permit zero SCWB member terms while retaining nonnegative numeric domains");
+assert.doesNotMatch(appSource, /直接試驗路線至少須有 2 組代表性試體|spliceMaxThickness 不得大於 40 mm|spliceNdtPlanEvidenceSha256[^\n]*必須為 64 碼/, "source schema validation must not reject self-exported finite NG engineering cases before report and fingerprint replay");
+assert.match(calculatorSource, /專案指定｜IMRF 保守同採 13\.6\.5/, "IMRF SCWB should be labeled as a project-adopted conservative gate");
+assert.match(appSource, /column_splice:[\s\S]*spliceDemandBasis: "示例資料（請依專案覆寫[\s\S]*spliceDemandEvidenceSha256: ""[\s\S]*spliceIdenticalSectionsAndMaterialConfirmed: "false"/s, "built-in column-splice example should remain fail-closed until project evidence replaces the sample data");
+assert.match(appSource, /beam_column_moment:[\s\S]*momentDemandBasis: "示例資料（請依專案覆寫[\s\S]*momentQualificationEvidenceSha256: ""[\s\S]*momentQualificationConfigurationConfirmed: "false"[\s\S]*momentConnectionHardwareVerifiedConfirmed: "false"/s, "built-in moment example should remain fail-closed until project evidence replaces the sample data");
+for (const fieldName of [
+  "spliceFrameRole", "spliceDesignRoute", "spliceLocationRoute", "spliceDistanceToNearestBeamFlange",
+  "spliceDeadAxial", "spliceLiveAxial", "spliceSeismicAxial", "spliceLiveLoadFactor", "spliceSeismicReductionFu",
+  "spliceTransferCapRoute", "spliceMaxTransferableAxial", "spliceAg", "spliceZx", "spliceZy", "spliceAvx", "spliceAvy",
+  "spliceFy", "spliceFexx", "spliceMaxThickness", "spliceFabricationLocation", "spliceNdtMethod",
+  "spliceDemandBasis", "spliceGeometryBasis", "spliceMaterialBasis", "spliceWpsBasis", "spliceNdtPlanBasis",
+  "spliceDemandEvidenceSha256", "spliceDetailEvidenceSha256", "spliceWpsEvidenceSha256", "spliceNdtPlanEvidenceSha256",
+  "spliceIdenticalSectionsAndMaterialConfirmed", "spliceAlignedAxesConfirmed", "spliceFullProfileCjpConfirmed", "spliceMatchingFillerConfirmed",
+  "spliceWpsApprovedConfirmed", "spliceNdtFullCoverageConfirmed", "spliceNoPjpConfirmed", "spliceNoMixedLoadSharingConfirmed",
+  "spliceSeismicColumnConfirmed", "spliceLocationScopeConfirmed", "spliceAllAdjacentTransferSourcesIncludedConfirmed", "spliceAsBuiltBoundaryConfirmed",
+]) {
+  assert.ok(appSource.includes(`"${fieldName}"`) && indexSource.includes(`name="${fieldName}"`) && calculatorSource.includes(fieldName), `column-splice field ${fieldName} should remain aligned through UI, strict source, and core`);
+}
+for (const checkKey of [
+  "spliceAxialCompression13_4_1", "spliceAxialTension13_4_1", "spliceFullSectionNormal", "spliceFullSectionMajorFlexure",
+  "spliceFullSectionMinorFlexure", "spliceFullSectionMajorShear", "spliceFullSectionMinorShear",
+]) {
+  assert.ok(calculatorSource.includes(`key: "${checkKey}"`), `column-splice V1 should expose strength route ${checkKey}`);
+}
+for (const detailKey of [
+  "spliceLrfdMethod", "spliceSeismicColumn", "spliceCjpRoute", "spliceTopologyScope", "spliceLocation1200", "spliceNonJumbo",
+  "spliceLoadInputs", "spliceTransferCap", "spliceMatchingFiller", "spliceWps", "spliceNdtPlan", "spliceEvidence", "spliceAsBuiltBoundary",
+]) {
+  assert.ok(calculatorSource.includes(`"${detailKey}"`), `column-splice V1 should expose hard gate ${detailKey}`);
+}
+assert.match(
+  calculatorSource,
+  /state\.spliceSeismicReductionFu <= 2\.5[\s\S]*const EampRaw = 1\.4 \* state\.spliceSeismicReductionFu \* Math\.abs\(state\.spliceSeismicAxial\)[\s\S]*Math\.min\(EampRaw, 1\.25 \* state\.spliceMaxTransferableAxial\)[\s\S]*const PuCompression = Math\.max\(0,[\s\S]*const TuTension = Math\.max\(0,[\s\S]*completeColumnMemberDesign:\s*false[\s\S]*asBuiltAcceptance:\s*false/s,
+  "column-splice core should independently expose 13.4.1 envelopes, qualified cap, and incomplete-deliverable boundaries",
+);
+assert.match(
+  calculatorSource,
+  /majorShearCapacity = Math\.min\(majorShearBaseCapacity, majorShearWeldCapacity\)[\s\S]*minorShearCapacity = Math\.min\(minorShearBaseCapacity, minorShearWeldCapacity\)[\s\S]*spliceMatchingFiller[\s\S]*spliceNdtPlan[\s\S]*13\.10/s,
+  "column-splice CJP review should keep base/weld shear, matching filler, and NDT plan hard gates visible",
 );
 for (const fieldName of [
   "gussetAvailableWidth", "gussetWhitmoreConnectionLength", "braceSectionType", "braceEndDistance", "braceEdgeDistance", "braceThickness", "braceFy", "braceFu", "braceGrossWidth", "braceNetWidth",
@@ -670,7 +756,7 @@ assert.ok(
 );
 assert.match(
   calculatorSource,
-  /const expectedWhitmoreConnectionLength = \(state\.gussetBoltCount - 1\) \* state\.gussetPitch[\s\S]*const gussetWhitmoreTheoreticalWidth = 2 \* state\.gussetWhitmoreConnectionLength \* Math\.tan\(Math\.PI \/ 6\)[\s\S]*const gussetWhitmoreEffectiveWidth = Math\.min\(gussetWhitmoreTheoreticalWidth, state\.gussetAvailableWidth\)[\s\S]*\["single_plate", "brace_gusset"\]\.includes\(state\.connectionType\) && blockingValidations\.length > 0/s,
+  /const expectedWhitmoreConnectionLength = \(state\.gussetBoltCount - 1\) \* state\.gussetPitch[\s\S]*const gussetWhitmoreTheoreticalWidth = 2 \* state\.gussetWhitmoreConnectionLength \* Math\.tan\(Math\.PI \/ 6\)[\s\S]*const gussetWhitmoreEffectiveWidth = Math\.min\(gussetWhitmoreTheoreticalWidth, state\.gussetAvailableWidth\)[\s\S]*\["single_plate", "column_splice", "brace_gusset", "beam_column_moment"\]\.includes\(state\.connectionType\) && blockingValidations\.length > 0/s,
   "Gusset should lock Lconn to the bolt line, use zero fastener-group starting width, cap Whitmore width, and block every validation",
 );
 assert.match(
@@ -692,6 +778,36 @@ assert.match(
   appSource,
   /function formatNumber\(value, digits = 1\)[\s\S]*!Number\.isFinite\(value\)\) return "—"[\s\S]*function getCheckStatus\(check\)[\s\S]*\[check\.demand, check\.nominal, check\.available, check\.ratio\]\.every\(Number\.isFinite\)[\s\S]*check\.demand <= 0 \|\| \(check\.nominal > 0 && check\.available > 0\)[\s\S]*return \{ text: "NG", className: "fail" \}[\s\S]*function buildDecisionSentence\(check\)[\s\S]*DCR 含非有限值/s,
   "reading state should show non-finite or non-positive-capacity rows as NG and render their DCR as an em dash",
+);
+assert.equal(
+  reportFormattingRuntime.helpers.formatCheckValue({ key: "momentPlasticRotation", unit: "rad" }, 0.03),
+  "0.03 rad",
+  "plastic-rotation demand should retain hundredth-radian precision",
+);
+assert.equal(
+  reportFormattingRuntime.helpers.formatCheckValue({ key: "momentPlasticRotation", unit: "rad" }, 0.04),
+  "0.04 rad",
+  "plastic-rotation capacity should retain hundredth-radian precision",
+);
+assert.equal(
+  reportFormattingRuntime.helpers.formatCheckValue({ key: "momentStrongColumnCw" }, 0.95),
+  "0.95",
+  "dimensionless check values should not round 0.95 to 1",
+);
+assert.equal(
+  reportFormattingRuntime.helpers.formatCheckValue({ key: "momentCapacity", unit: "kN-m" }, 1234.56),
+  "1,234.6 kN-m",
+  "ordinary engineering quantities should retain compact grouped one-decimal formatting",
+);
+assert.equal(
+  reportFormattingRuntime.helpers.buildDetailDecisionSentence({ provided: 0.95, required: 1, comparator: "lte", passes: true }),
+  "提供值 0.95 未超過規定上限 1，故本項符合。",
+  "dimensionless upper-limit decisions should preserve the provided value",
+);
+assert.equal(
+  reportFormattingRuntime.helpers.buildDetailDecisionSentence({ provided: 0.76, required: 0.75, comparator: "gte", passes: true }),
+  "提供值 0.76 已不小於規定值 0.75，故本項符合。",
+  "dimensionless lower-limit decisions should preserve both sides of a close comparison",
 );
 assert.match(
   calculatorSource,
@@ -721,8 +837,8 @@ assert.match(
 assert.match(appSource, /function assertGussetFiniteFormalResult\(result\)[\s\S]*禁止核可、正式報告與來源 JSON/s, "Gusset formal-output guard should reject every non-finite report result");
 assert.match(
   appSource,
-  /function buildConnectionSourcePayload[\s\S]*assertGussetFiniteFormalResult\(result\)[\s\S]*function exportConnectionSourceJson[\s\S]*來源 JSON 未匯出[\s\S]*function exportReport\(\)[\s\S]*assertGussetFiniteFormalResult\(result\)[\s\S]*正式報告未開啟/s,
-  "overflowed Gusset state should not serialize Infinity as null or open a formal report",
+  /function assertFormalResultBoundary\(result\)[\s\S]*assertGussetFiniteFormalResult\(result\)[\s\S]*assertMomentFiniteFormalResult\(result\)[\s\S]*function buildConnectionSourcePayload[\s\S]*assertFormalResultBoundary\(result\)[\s\S]*function exportConnectionSourceJson[\s\S]*來源 JSON 未匯出[\s\S]*function exportReport\(\)[\s\S]*assertFormalResultBoundary\(result\)[\s\S]*正式報告未開啟/s,
+  "overflowed Gusset or moment-review state should not serialize Infinity as null or open a formal report",
 );
 assert.match(
   appSource,
@@ -731,13 +847,13 @@ assert.match(
 );
 assert.match(
   appSource,
-  /\['single_plate', 'brace_gusset'\]\.includes\(payload\.connectionType\)[\s\S]*canonicalJson\(jsonSerializableClone\(replay\.report\)\) !== canonicalJson\(payload\.report\)/s,
-  "Gusset source replay should transactionally compare the complete embedded report",
+  /\['single_plate', 'brace_gusset', 'beam_column_moment', 'column_splice'\]\.includes\(payload\.connectionType\)[\s\S]*canonicalJson\(jsonSerializableClone\(replay\.report\)\) !== canonicalJson\(payload\.report\)/s,
+  "Shear Tab, Gusset, moment-review, and column-splice source replay should transactionally compare the complete embedded report",
 );
 assert.doesNotMatch(
   appSource,
   /readCalculationSourceFile\(file,[\s\S]{0,400}expectedVersion:\s*STEEL_TOOL_METADATA\.plate\.version/,
-  "connection import should not reject V1.1 Gusset sources using the standalone plate V1.0 precheck",
+  "connection import should not reject V1.3 connection-family sources using the standalone plate V1.0 precheck",
 );
 assert.ok(mainReportBuilderSource.includes("Gusset V1 派生幾何與面積"), "Gusset report should print its full derived-area audit trail");
 assert.ok(
@@ -1379,6 +1495,11 @@ assert.match(
 );
 assert.match(
   browserRunnerSource,
+  /COLUMN_SPLICE_FORMAL_STATE[\s\S]*spliceDeadAxial:\s*-600[\s\S]*spliceSeismicReductionFu:\s*1\.5[\s\S]*COLUMN_SPLICE_STRENGTH_KEYS[\s\S]*spliceFullSectionMinorShear[\s\S]*function assertMainColumnSpliceReady[\s\S]*EampRaw:\s*840[\s\S]*EampAdopted:\s*840[\s\S]*PuCompression:\s*1660[\s\S]*TuTension:\s*300[\s\S]*EampAdopted\) - 625[\s\S]*PuCompression\) - 1445[\s\S]*TuTension\) - 85[\s\S]*Object\.keys\(snapshot\.fields \|\| \{\}\)\.length !== 49[\s\S]*function assertMainColumnSpliceReportPopup[\s\S]*strictBooleanField:\s*'spliceAsBuiltBoundaryConfirmed'[\s\S]*wrongEnumField:\s*'spliceNdtMethod'[\s\S]*artifactRequiredNeedles:\s*COLUMN_SPLICE_ARTIFACT_REQUIRED_NEEDLES[\s\S]*steel-main-column-splice/s,
+  "steel column-splice browser evidence should verify uncapped/qualified golden results, fixed 49-field replay, fail-closed boundaries, and formal artifacts",
+);
+assert.match(
+  browserRunnerSource,
   /scenarioTimeoutMs[\s\S]*withTimeout[\s\S]*runSnapshot/s,
   "steel-audit-browser-runner.js should bound each browser scenario instead of allowing hangs",
 );
@@ -1475,12 +1596,12 @@ assert.match(
 assert.match(
   browserRunnerSource,
   /function verifySteelTextDownload\([\s\S]*repDownloadCurrentText[\s\S]*hasBom[\s\S]*文字內容 SHA-256[\s\S]*non-formal-reference-text[\s\S]*textExportEvidenceRecords\.push/s,
-  "steel browser contract should download and validate all seven governed non-formal TXT artifacts",
+  "steel browser contract should download and validate all nine governed non-formal TXT artifacts",
 );
 assert.match(
   browserRunnerSource,
-  /\['steel-main-plate', 'steel-main-shear-tab', 'steel-main-gusset', 'steel-main-tension', 'steel-standalone-plate', 'steel-beam-formal', 'steel-column-formal'\]/,
-  "steel rendered evidence summary should require seven artifacts while reusing the main connection route",
+  /\['steel-main-plate', 'steel-main-shear-tab', 'steel-main-column-splice', 'steel-main-gusset', 'steel-main-moment', 'steel-main-tension', 'steel-standalone-plate', 'steel-beam-formal', 'steel-column-formal'\]/,
+  "steel rendered evidence summary should require nine artifacts while reusing the main connection route",
 );
 for (const needle of formalReportReferenceNeedles) {
   assert.ok(browserRunnerSource.includes(needle), `steel browser contract should forbid ${needle} in formal report output`);

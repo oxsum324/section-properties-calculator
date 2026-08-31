@@ -167,7 +167,7 @@ for (const [route, metadataKey] of [
 }
 const steelFormalClaim = canonicalTool('/steel-formal');
 assert.ok(
-  ['連接板', '拉力構件', '單剪力板 Shear Tab', '平板支撐 Gusset 拉力接頭'].every((needle) => `${steelFormalClaim.output} ${steelFormalClaim.summary}`.includes(needle)),
+  ['連接板', '拉力構件', 'Shear Tab', '平板支撐 Gusset', '梁柱彎矩', '全斷面 CJP 耐震柱續接能力審查附件'].every((needle) => `${steelFormalClaim.output} ${steelFormalClaim.summary}`.includes(needle)),
   'canonical steel family claim names every formal module without adding a route'
 );
 const singlePlateOption = steelLauncher.match(/<option\s+value="single_plate"[^>]*>[\s\S]*?<\/option>/)?.[0] || '';
@@ -178,9 +178,36 @@ const gussetOption = steelLauncher.match(/<option\s+value="brace_gusset"[^>]*>[\
 assert.ok(gussetOption.includes('Gusset'), 'steel launcher exposes the Gusset tension connection in the existing formal family route');
 assert.equal(/\bdisabled\b/.test(gussetOption), false, 'steel launcher enables the formal Gusset tension connection');
 assert.ok(steelApp.includes('brace_gusset: "支撐接頭｜平板支撐 Gusset 拉力接頭｜LRFD 正式模組"'), 'steel app labels the flat-plate-brace Gusset tension connection as a formal module');
-for (const value of ['column_splice', 'beam_column_moment']) {
-  const option = steelLauncher.match(new RegExp(`<option\\s+value="${value}"[^>]*>[\\s\\S]*?<\\/option>`))?.[0] || '';
-  assert.ok(option && /\bdisabled\b/.test(option) && option.includes('開發中'), `steel launcher retains development boundary: ${value}`);
+const momentOption = steelLauncher.match(/<option\s+value="beam_column_moment"[^>]*>[\s\S]*?<\/option>/)?.[0] || '';
+assert.ok(momentOption.includes('梁柱彎矩接頭') && momentOption.includes('耐震能力審查'), 'steel launcher exposes the scoped beam-column moment seismic review in the existing formal family route');
+assert.equal(/\bdisabled\b/.test(momentOption), false, 'steel launcher enables the scoped beam-column moment seismic review');
+assert.ok(steelApp.includes('beam_column_moment: "梁柱彎矩接頭｜耐震能力審查｜LRFD 正式模組"'), 'steel app labels the beam-column moment branch as a bounded formal review attachment');
+const columnSpliceOption = steelLauncher.match(/<option\s+value="column_splice"[^>]*>[\s\S]*?<\/option>/)?.[0] || '';
+assert.ok(columnSpliceOption.includes('全斷面 CJP') && columnSpliceOption.includes('耐震能力審查'), 'steel launcher exposes the scoped CJP seismic column-splice review');
+assert.equal(/\bdisabled\b/.test(columnSpliceOption), false, 'steel launcher enables the scoped CJP seismic column-splice review');
+assert.ok(steelApp.includes('column_splice: "柱續接｜全斷面 CJP 耐震能力審查｜LRFD 正式模組"'), 'steel app labels column splice as a bounded formal review attachment');
+const momentMetadata = steelMetadata.connection.modules?.beamColumnMoment;
+assert.equal(momentMetadata?.state, 'formal', 'steel metadata marks the bounded beam-column moment review formal');
+assert.equal(momentMetadata?.designMethod, 'LRFD', 'steel metadata locks the beam-column moment review to LRFD');
+assert.equal(momentMetadata?.deliverable, 'selected-frame-plane-seismic-capacity-review-attachment', 'steel metadata identifies the selected-frame-plane review attachment');
+assert.deepEqual(Array.from(momentMetadata?.frameSystems || []), ['smrf', 'imrf'], 'steel metadata locks the supported moment-frame systems');
+assert.equal(momentMetadata?.connectionDesignRoute, 'reinforced', 'steel metadata locks the moment connection to the reinforced route');
+assert.equal(momentMetadata?.scwbBeamTerm, 'ZbFyb-plus-Vp-x', 'steel metadata preserves the reinforced SCWB beam term');
+assert.equal(momentMetadata?.imrfScwbAuthority, 'project-specified-conservative', 'steel metadata does not mislabel IMRF SCWB as a direct code requirement');
+assert.equal(momentMetadata?.completeJointDesign, false, 'steel metadata does not claim complete joint design');
+assert.equal(momentMetadata?.requiresExternalHardwareCapacityEvidence, true, 'steel metadata requires external connection-hardware capacity evidence');
+assert.equal(momentMetadata?.claimsAisc358Prequalification, false, 'steel metadata does not claim AISC 358 prequalification');
+assert.equal(momentMetadata?.orthogonalDirection, 'separate-review', 'steel metadata keeps the orthogonal direction in a separate review');
+const spliceMetadata = steelMetadata.connection.modules?.columnSplice;
+assert.equal(spliceMetadata?.state, 'formal', 'steel metadata marks the bounded CJP column-splice review formal');
+assert.equal(spliceMetadata?.designMethod, 'LRFD', 'steel metadata locks the column-splice review to LRFD');
+assert.equal(spliceMetadata?.deliverable, 'full-section-cjp-seismic-column-splice-capacity-review-attachment', 'steel metadata identifies the CJP column-splice review attachment');
+assert.equal(spliceMetadata?.completeColumnMemberDesign, false, 'steel metadata does not claim complete column-member design');
+assert.equal(spliceMetadata?.asBuiltAcceptance, false, 'steel metadata does not claim as-built NDT acceptance');
+assert.equal(spliceMetadata?.topology, 'same-material-identical-aligned-rolled-h-full-profile-cjp', 'steel metadata locks the same-material full-profile CJP topology');
+assert.equal(spliceMetadata?.materialRoute, 'same-material', 'steel metadata explicitly requires the same material above and below the splice');
+for (const needle of ['不宣稱 AISC 358 預認證', 'completeJointDesign = false', '全斷面 CJP', '1.2 m', 'completeColumnMemberDesign = false', 'asBuiltAcceptance = false']) {
+  assert.ok(steelFormalClaim.limit.includes(needle), `canonical steel claim keeps seismic connection review boundaries: ${needle}`);
 }
 [
   '../結構工具箱/core/direct-print-boundary.css',

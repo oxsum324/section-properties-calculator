@@ -53,6 +53,84 @@
     "braceEndDistance", "braceEdgeDistance", "braceThickness", "braceFy", "braceFu", "braceGrossWidth", "braceNetWidth",
     "weldSize", "weldLength", "weldLineCount", "weldFexx", "supportThickness", "supportFy", "supportFu",
   ];
+  const MOMENT_SOURCE_FIELD_KEYS = [
+    "projectName", "connectionTag", "designer", "notes", "designMethod", "connectionType", "exposureCondition",
+    "momentFrameSystem", "momentAxis", "momentConnectionDesignRoute",
+    "momentBeamPlasticModulus", "momentBeamYieldStrength", "momentExpectedStrengthFactor", "momentCriticalSectionDistance", "momentPlasticHingeSpan",
+    "momentFarCriticalSectionExpectedMoment",
+    "momentGravityShear", "momentAmplifiedShear", "momentAvailableFlexuralStrength", "momentAvailableShearStrength",
+    "momentRotationDemandMethod", "momentQualifiedPlasticRotation", "momentNonlinearPlasticRotation", "momentSystemDuctilityR", "momentElasticStoryDrift",
+    "momentQualificationRoute", "momentQualificationTestCount", "momentDesignBeamFlangeThickness", "momentTestBeamFlangeThickness",
+    "momentDesignFlangePlasticRatio", "momentTestFlangePlasticRatio", "momentThirdPartyReviewConfirmed",
+    "momentColumnWebYieldStrength", "momentColumnDepth", "momentPanelZoneThickness", "momentPanelZoneClearDepth", "momentPanelZoneClearWidth",
+    "momentPanelZoneAnalysisDemand", "momentPanelZoneBeamMomentSum", "momentPanelZoneLeverArm", "momentDoublerPresent", "momentDoublerAttachmentConfirmed",
+    "momentBeamFlangeWidth", "momentBeamFlangeThickness", "momentColumnFlangeLocalNominalStrength",
+    "momentContinuityPlateProvidedConfirmed", "momentContinuityPlateWeldConfirmed", "momentBeamFlangeCompactnessRatio", "momentBeamWebCompactnessRatio",
+    "momentBeamFlangePlasticModulusRatio", "momentCwUpperColumnMoment", "momentCwLowerColumnMoment", "momentCwLeftBeamMoment", "momentCwRightBeamMoment",
+    "momentCcwUpperColumnMoment", "momentCcwLowerColumnMoment", "momentCcwLeftBeamMoment", "momentCcwRightBeamMoment",
+    "momentDemandBasis", "momentGeometryBasis", "momentMaterialBasis", "momentCapacityBasis", "momentPanelZoneBasis", "momentStrongColumnBasis",
+    "momentQualificationBasis", "momentQualificationEvidenceSha256", "momentCapacityEvidenceSha256",
+    "momentQualificationConfigurationConfirmed", "momentQualificationMaterialConfirmed", "momentQualificationWeldingConfirmed",
+    "momentQualificationGeometryConfirmed", "momentQualificationFabricationConfirmed", "momentQualificationProcedureConfirmed",
+    "momentPlasticZoneGeometryConfirmed", "momentPlasticZoneOpeningsAbsentConfirmed", "momentSeismicMaterialConfirmed", "momentMatchingWeldConfirmed",
+    "momentCns3506WeldConfirmed", "momentEndTabsRemovedGroundConfirmed", "momentWeldProcedureMatchesQualificationConfirmed",
+    "momentJointLateralRestraintConfirmed", "momentBeamLateralBracingConfirmed", "momentAllMembersIncludedConfirmed",
+    "momentColumnStrengthsAtGoverningAxialConfirmed", "momentOpposingDirectionsConfirmed", "momentOrthogonalDirectionSeparateConfirmed",
+    "momentConnectionHardwareVerifiedConfirmed", "momentSelectedAxisScopeConfirmed",
+  ];
+  const MOMENT_NUMBER_FIELDS = [
+    "momentBeamPlasticModulus", "momentBeamYieldStrength", "momentExpectedStrengthFactor", "momentCriticalSectionDistance", "momentPlasticHingeSpan",
+    "momentFarCriticalSectionExpectedMoment",
+    "momentGravityShear", "momentAmplifiedShear", "momentAvailableFlexuralStrength", "momentAvailableShearStrength",
+    "momentQualifiedPlasticRotation", "momentNonlinearPlasticRotation", "momentSystemDuctilityR", "momentElasticStoryDrift", "momentQualificationTestCount",
+    "momentDesignBeamFlangeThickness", "momentTestBeamFlangeThickness", "momentDesignFlangePlasticRatio", "momentTestFlangePlasticRatio",
+    "momentColumnWebYieldStrength", "momentColumnDepth", "momentPanelZoneThickness", "momentPanelZoneClearDepth", "momentPanelZoneClearWidth",
+    "momentPanelZoneAnalysisDemand", "momentPanelZoneBeamMomentSum", "momentPanelZoneLeverArm", "momentBeamFlangeWidth", "momentBeamFlangeThickness",
+    "momentColumnFlangeLocalNominalStrength", "momentBeamFlangeCompactnessRatio", "momentBeamWebCompactnessRatio", "momentBeamFlangePlasticModulusRatio",
+    "momentCwUpperColumnMoment", "momentCwLowerColumnMoment", "momentCwLeftBeamMoment", "momentCwRightBeamMoment",
+    "momentCcwUpperColumnMoment", "momentCcwLowerColumnMoment", "momentCcwLeftBeamMoment", "momentCcwRightBeamMoment",
+  ];
+  const MOMENT_BOOLEAN_FIELDS = [
+    "momentThirdPartyReviewConfirmed", "momentDoublerPresent", "momentDoublerAttachmentConfirmed", "momentContinuityPlateProvidedConfirmed",
+    "momentContinuityPlateWeldConfirmed", "momentQualificationConfigurationConfirmed", "momentQualificationMaterialConfirmed",
+    "momentQualificationWeldingConfirmed", "momentQualificationGeometryConfirmed", "momentQualificationFabricationConfirmed",
+    "momentQualificationProcedureConfirmed", "momentPlasticZoneGeometryConfirmed", "momentPlasticZoneOpeningsAbsentConfirmed",
+    "momentSeismicMaterialConfirmed", "momentMatchingWeldConfirmed", "momentCns3506WeldConfirmed", "momentEndTabsRemovedGroundConfirmed",
+    "momentWeldProcedureMatchesQualificationConfirmed", "momentJointLateralRestraintConfirmed", "momentBeamLateralBracingConfirmed",
+    "momentAllMembersIncludedConfirmed", "momentColumnStrengthsAtGoverningAxialConfirmed", "momentOpposingDirectionsConfirmed",
+    "momentOrthogonalDirectionSeparateConfirmed", "momentConnectionHardwareVerifiedConfirmed", "momentSelectedAxisScopeConfirmed",
+  ];
+  const MOMENT_TEXT_FIELDS = [
+    "projectName", "connectionTag", "designer", "notes", "momentDemandBasis", "momentGeometryBasis", "momentMaterialBasis", "momentCapacityBasis",
+    "momentPanelZoneBasis", "momentStrongColumnBasis", "momentQualificationBasis", "momentQualificationEvidenceSha256", "momentCapacityEvidenceSha256",
+  ];
+  const SPLICE_SOURCE_FIELD_KEYS = [
+    "projectName", "connectionTag", "designer", "notes", "designMethod", "connectionType", "exposureCondition",
+    "spliceFrameRole", "spliceDesignRoute", "spliceLocationRoute", "spliceDistanceToNearestBeamFlange",
+    "spliceDeadAxial", "spliceLiveAxial", "spliceSeismicAxial", "spliceLiveLoadFactor", "spliceSeismicReductionFu",
+    "spliceTransferCapRoute", "spliceMaxTransferableAxial", "spliceAg", "spliceZx", "spliceZy", "spliceAvx", "spliceAvy",
+    "spliceFy", "spliceFexx", "spliceMaxThickness", "spliceFabricationLocation", "spliceNdtMethod",
+    "spliceDemandBasis", "spliceGeometryBasis", "spliceMaterialBasis", "spliceWpsBasis", "spliceNdtPlanBasis",
+    "spliceDemandEvidenceSha256", "spliceDetailEvidenceSha256", "spliceWpsEvidenceSha256", "spliceNdtPlanEvidenceSha256",
+    "spliceIdenticalSectionsAndMaterialConfirmed", "spliceAlignedAxesConfirmed", "spliceFullProfileCjpConfirmed", "spliceMatchingFillerConfirmed",
+    "spliceWpsApprovedConfirmed", "spliceNdtFullCoverageConfirmed", "spliceNoPjpConfirmed", "spliceNoMixedLoadSharingConfirmed",
+    "spliceSeismicColumnConfirmed", "spliceLocationScopeConfirmed", "spliceAllAdjacentTransferSourcesIncludedConfirmed", "spliceAsBuiltBoundaryConfirmed",
+  ];
+  const SPLICE_NUMBER_FIELDS = [
+    "spliceDistanceToNearestBeamFlange", "spliceDeadAxial", "spliceLiveAxial", "spliceSeismicAxial", "spliceLiveLoadFactor",
+    "spliceSeismicReductionFu", "spliceMaxTransferableAxial", "spliceAg", "spliceZx", "spliceZy", "spliceAvx", "spliceAvy",
+    "spliceFy", "spliceFexx", "spliceMaxThickness",
+  ];
+  const SPLICE_BOOLEAN_FIELDS = [
+    "spliceIdenticalSectionsAndMaterialConfirmed", "spliceAlignedAxesConfirmed", "spliceFullProfileCjpConfirmed", "spliceMatchingFillerConfirmed",
+    "spliceWpsApprovedConfirmed", "spliceNdtFullCoverageConfirmed", "spliceNoPjpConfirmed", "spliceNoMixedLoadSharingConfirmed",
+    "spliceSeismicColumnConfirmed", "spliceLocationScopeConfirmed", "spliceAllAdjacentTransferSourcesIncludedConfirmed", "spliceAsBuiltBoundaryConfirmed",
+  ];
+  const SPLICE_TEXT_FIELDS = [
+    "projectName", "connectionTag", "designer", "notes", "spliceDemandBasis", "spliceGeometryBasis", "spliceMaterialBasis",
+    "spliceWpsBasis", "spliceNdtPlanBasis", "spliceDemandEvidenceSha256", "spliceDetailEvidenceSha256", "spliceWpsEvidenceSha256",
+    "spliceNdtPlanEvidenceSha256",
+  ];
 
   const glossaryItems = [
     ["Pu / Pa", "需求軸力", "kN", "接頭於設計載重組合下應傳遞之軸力。", "柱續接、支撐接頭主控需求。"],
@@ -73,15 +151,17 @@
     ["FEXX", "銲材抗拉強度", "MPa", "銲材規定最小抗拉強度。", "銲道可用強度。"],
     ["CJP / PJP", "全 / 部分滲透開槽銲", "-", "依第 10.2 章分類之開槽銲型式。", "拉力構件銲接接合。"],
     ["塞孔銲 / 塞槽銲", "Plug / Slot Weld", "-", "以孔或槽之有效面積傳遞剪力之銲接型式。", "拉力構件銲接接合。"],
-    ["hsp", "柱續接槓桿臂", "mm", "柱翼壓拉偶力之力臂。", "柱續接由彎矩換算翼板拉力。"],
-    ["bfp / bfn", "翼板總寬 / 淨寬", "mm", "柱翼續接板總寬及扣孔後有效淨寬。", "續接板降伏與斷裂。"],
-    ["hw", "腹板續接板深度", "mm", "柱腹續接板可傳遞剪力之有效高度。", "腹板剪力降伏。"],
+    ["Eamp", "放大地震軸力", "kN", "Eamp,raw = 1.4Fu|PE|；qualified 路線得再受 1.25Ptransfer 控制。", "13.4.1 柱續接軸壓力與軸拉力包絡。"],
+    ["Zx / Zy", "強軸 / 弱軸塑性模數", "mm³", "相同且對齊之軋製 H 形柱塑性斷面模數。", "全斷面 CJP 強軸與弱軸彎曲強度等同性。"],
+    ["Avx / Avy", "強軸 / 弱軸剪力面積", "mm²", "核定柱斷面在兩方向採用之有效剪力面積。", "全斷面 CJP 剪力強度。"],
     ["bg,gusset", "Gusset 栓孔斷面總寬", "mm", "Gusset 在栓孔斷面之 gross plate width，僅用於 Ag 與扣孔後 An；不是 Whitmore 初始寬度。", "Gusset 總／淨斷面。"],
     ["bnet", "Gusset 淨寬", "mm", "扣除孔洞後之有效淨寬。", "Gusset 淨斷面斷裂。"],
     ["Lconn", "Whitmore 栓群連接長度", "mm", "單一直線栓列首末螺栓中心距，必須等於 (n−1)s；fastener-group 起始寬度取 0。", "bW = 2Lconn tan30°。"],
-    ["hm", "彎矩接頭槓桿臂", "mm", "梁翼張壓偶力之力臂。", "將彎矩換算拉側需求。"],
-    ["bmp / bmn", "端板總寬 / 淨寬", "mm", "梁柱彎矩接頭端板總寬與淨寬。", "端板降伏與斷裂。"],
-    ["Vpz", "Panel Zone 可用容量", "kN", "由工程師或外部模型提供之 panel zone 可用等效容量。", "梁柱接頭 panel zone 篩選。"],
+    ["Mp / Mpr", "梁塑性／預期塑性彎矩", "kN-m", "Mp = ZbFyb；Mpr 再納入材料變異與應變硬化係數。", "補強式梁柱彎矩接頭之容量設計需求。"],
+    ["Vp / Mu,face", "塑鉸剪力／柱面彎矩需求", "kN / kN-m", "由塑鉸間距與臨界斷面至柱面距離推導。", "接頭外部抗彎與抗剪容量核對。"],
+    ["theta,p", "塑性轉角", "rad", "依構架系統固定值、非線性分析或 1.1(R-1)thetaE 決定。", "反覆載重資格證據核對。"],
+    ["Vpz", "Panel Zone 剪力", "kN", "需求採分析值與梁端彎矩最低需求較大者，容量由柱腹板幾何與材料推導。", "梁柱接頭交會區剪力。"],
+    ["SCWB", "強柱弱梁比", "-", "選定構架面之柱端彎矩總和除以梁端彎矩總和；補強式接頭每支梁項固定採 ZbFyb + Vp·x，正反向分別檢核。", "耐震構架整體能力審查。"],
     ["Tu / Ta", "需求拉力", "kN", "構材或連接板需傳遞之設計拉力需求。", "連接板與拉力構件主控需求。"],
     ["Ae", "有效淨斷面積", "mm²", "考慮剪力遲滯後之有效淨面積。", "受拉構材有效淨斷面斷裂。"],
     ["U", "剪力遲滯係數", "-", "依 4.3 規定、接合型式或試驗決定之折減係數，未必為固定值。", "Ae = UAn 或 Ae = UAg。"],
@@ -152,48 +232,55 @@
       connectionModelConfirmed: "false",
     },
     column_splice: {
-      projectName: "示範柱續接",
+      projectName: "全斷面 CJP 耐震柱續接審查算例",
       connectionTag: "CS-01",
       designer: "",
-      notes: "柱續接以翼板拉力與腹板剪力分流檢核",
+      notes: "相同軋製 H 形柱、形心軸對齊、全斷面 CJP；本附件為耐震能力審查，不是柱構件完整設計或既有銲道驗收。",
       designMethod: "LRFD",
       connectionType: "column_splice",
       exposureCondition: "painted",
-      requiredAxial: 850,
-      requiredShear: 180,
-      requiredMoment: 120,
-      eccentricity: 0,
-      boltDiameter: 22,
-      holeDiameter: 24,
-      holeType: "standard",
-      edgeFabrication: "rolled",
-      boltUltimateStrength: 1000,
-      threadsCondition: "included",
-      deformationConsidered: "true",
-      spliceLeverArm: 420,
-      spliceBearingTransfer: "true",
-      flangeBoltCount: 8,
-      flangeEndDistance: 55,
-      flangePitch: 90,
-      flangeEdgeDistance: 70,
-      flangePlateThickness: 20,
-      flangePlateWidth: 240,
-      flangePlateNetWidth: 180,
-      flangePlateYieldStrength: 325,
-      flangePlateUltimateStrength: 490,
-      webBoltCount: 8,
-      webShearPlanes: 2,
-      webEndDistance: 50,
-      webPitch: 80,
-      webEdgeDistance: 60,
-      webPlateDepth: 420,
-      webPlateThickness: 14,
-      webPlateYieldStrength: 325,
-      webPlateUltimateStrength: 490,
-      spliceWeldSize: 10,
-      spliceWeldLength: 320,
-      spliceWeldLineCount: 2,
-      spliceWeldElectrodeStrength: 490,
+      spliceFrameRole: "seismic_force_resisting",
+      spliceDesignRoute: "cjp_full_section_identical_rolled_h",
+      spliceLocationRoute: "beam_flange_1200",
+      spliceDistanceToNearestBeamFlange: 1500,
+      spliceDeadAxial: -1000,
+      spliceLiveAxial: -300,
+      spliceSeismicAxial: 700,
+      spliceLiveLoadFactor: 0.5,
+      spliceSeismicReductionFu: 1,
+      spliceTransferCapRoute: "uncapped",
+      spliceMaxTransferableAxial: 0,
+      spliceAg: 30000,
+      spliceZx: 8000000,
+      spliceZy: 2500000,
+      spliceAvx: 12000,
+      spliceAvy: 8000,
+      spliceFy: 345,
+      spliceFexx: 490,
+      spliceMaxThickness: 30,
+      spliceFabricationLocation: "field",
+      spliceNdtMethod: "UT",
+      spliceDemandBasis: "示例資料（請依專案覆寫分析模型與 13.4.1 組合）",
+      spliceGeometryBasis: "示例資料（請依專案覆寫核定續接圖與斷面）",
+      spliceMaterialBasis: "示例資料（請依專案覆寫上下柱與銲材證明）",
+      spliceWpsBasis: "示例資料（請依專案覆寫核定 WPS／PQR）",
+      spliceNdtPlanBasis: "示例資料（請依專案覆寫 UT／RT 檢測計畫）",
+      spliceDemandEvidenceSha256: "",
+      spliceDetailEvidenceSha256: "",
+      spliceWpsEvidenceSha256: "",
+      spliceNdtPlanEvidenceSha256: "",
+      spliceIdenticalSectionsAndMaterialConfirmed: "false",
+      spliceAlignedAxesConfirmed: "true",
+      spliceFullProfileCjpConfirmed: "true",
+      spliceMatchingFillerConfirmed: "true",
+      spliceWpsApprovedConfirmed: "false",
+      spliceNdtFullCoverageConfirmed: "false",
+      spliceNoPjpConfirmed: "true",
+      spliceNoMixedLoadSharingConfirmed: "true",
+      spliceSeismicColumnConfirmed: "false",
+      spliceLocationScopeConfirmed: "false",
+      spliceAllAdjacentTransferSourcesIncludedConfirmed: "false",
+      spliceAsBuiltBoundaryConfirmed: "false",
     },
     brace_gusset: {
       projectName: "Gusset V1 正式算例",
@@ -250,43 +337,94 @@
       gussetLoadPathConfirmed: "true",
     },
     beam_column_moment: {
-      projectName: "示範梁柱彎矩接頭",
+      projectName: "梁柱彎矩接頭耐震審查算例",
       connectionTag: "BM-01",
       designer: "",
-      notes: "梁柱彎矩接頭以簡化力偶與腹板剪力模型檢核",
+      notes: "SMRF 補強式接頭、X 向單一構架面；容量採外部受控詳算，本附件不等同完整接頭設計或 AISC 358 預認證。",
       designMethod: "LRFD",
       connectionType: "beam_column_moment",
       exposureCondition: "painted",
-      requiredAxial: 0,
-      requiredShear: 160,
-      requiredMoment: 420,
-      eccentricity: 0,
-      boltDiameter: 22,
-      holeDiameter: 24,
-      holeType: "standard",
-      edgeFabrication: "rolled",
-      boltUltimateStrength: 1000,
-      threadsCondition: "included",
-      deformationConsidered: "true",
-      momentLeverArm: 550,
-      momentBoltCount: 8,
-      momentEndDistance: 55,
-      momentPitch: 90,
-      momentEdgeDistance: 85,
-      momentPlateThickness: 28,
-      momentPlateWidth: 320,
-      momentPlateNetWidth: 240,
-      momentPlateYieldStrength: 325,
-      momentPlateUltimateStrength: 490,
-      momentShearBoltCount: 4,
-      momentShearPlanes: 1,
-      momentShearPlateThickness: 16,
-      momentShearPlateUltimateStrength: 490,
-      panelZoneCapacity: 980,
-      momentWeldSize: 10,
-      momentWeldLength: 280,
-      momentWeldLineCount: 2,
-      momentWeldElectrodeStrength: 490,
+      momentFrameSystem: "smrf",
+      momentAxis: "x",
+      momentConnectionDesignRoute: "reinforced",
+      momentBeamPlasticModulus: 5000000,
+      momentBeamYieldStrength: 325,
+      momentExpectedStrengthFactor: 1.1,
+      momentCriticalSectionDistance: 500,
+      momentPlasticHingeSpan: 8000,
+      momentFarCriticalSectionExpectedMoment: 770,
+      momentGravityShear: 100,
+      momentAmplifiedShear: 600,
+      momentAvailableFlexuralStrength: 2400,
+      momentAvailableShearStrength: 700,
+      momentRotationDemandMethod: "default",
+      momentQualifiedPlasticRotation: 0.04,
+      momentNonlinearPlasticRotation: 0.025,
+      momentSystemDuctilityR: 4,
+      momentElasticStoryDrift: 0.01,
+      momentQualificationRoute: "direct_test",
+      momentQualificationTestCount: 2,
+      momentDesignBeamFlangeThickness: 20,
+      momentTestBeamFlangeThickness: 20,
+      momentDesignFlangePlasticRatio: 0.75,
+      momentTestFlangePlasticRatio: 0.75,
+      momentThirdPartyReviewConfirmed: "false",
+      momentColumnWebYieldStrength: 345,
+      momentColumnDepth: 600,
+      momentPanelZoneThickness: 40,
+      momentPanelZoneClearDepth: 500,
+      momentPanelZoneClearWidth: 400,
+      momentPanelZoneAnalysisDemand: 1600,
+      momentPanelZoneBeamMomentSum: 1000,
+      momentPanelZoneLeverArm: 550,
+      momentDoublerPresent: "false",
+      momentDoublerAttachmentConfirmed: "true",
+      momentBeamFlangeWidth: 250,
+      momentBeamFlangeThickness: 20,
+      momentColumnFlangeLocalNominalStrength: 3200,
+      momentContinuityPlateProvidedConfirmed: "true",
+      momentContinuityPlateWeldConfirmed: "true",
+      momentBeamFlangeCompactnessRatio: 0.9,
+      momentBeamWebCompactnessRatio: 0.9,
+      momentBeamFlangePlasticModulusRatio: 0.75,
+      momentCwUpperColumnMoment: 2500,
+      momentCwLowerColumnMoment: 2500,
+      momentCwLeftBeamMoment: 1850,
+      momentCwRightBeamMoment: 1850,
+      momentCcwUpperColumnMoment: 2500,
+      momentCcwLowerColumnMoment: 2500,
+      momentCcwLeftBeamMoment: 1850,
+      momentCcwRightBeamMoment: 1850,
+      momentDemandBasis: "示例資料（請依專案覆寫分析模型與控制組合）",
+      momentGeometryBasis: "示例資料（請依專案覆寫核定接頭圖）",
+      momentMaterialBasis: "示例資料（請依專案覆寫鋼材與銲材證明）",
+      momentCapacityBasis: "示例資料（請依專案覆寫接頭硬體完整詳算）",
+      momentPanelZoneBasis: "示例資料（請依專案覆寫交會區分析）",
+      momentStrongColumnBasis: "示例資料（請依專案覆寫柱項與各梁 ZbFyb + Vp·x）",
+      momentQualificationBasis: "示例資料（請依專案覆寫反覆載重資格證據）",
+      momentQualificationEvidenceSha256: "",
+      momentCapacityEvidenceSha256: "",
+      momentQualificationConfigurationConfirmed: "false",
+      momentQualificationMaterialConfirmed: "false",
+      momentQualificationWeldingConfirmed: "false",
+      momentQualificationGeometryConfirmed: "false",
+      momentQualificationFabricationConfirmed: "false",
+      momentQualificationProcedureConfirmed: "false",
+      momentPlasticZoneGeometryConfirmed: "true",
+      momentPlasticZoneOpeningsAbsentConfirmed: "true",
+      momentSeismicMaterialConfirmed: "true",
+      momentMatchingWeldConfirmed: "true",
+      momentCns3506WeldConfirmed: "true",
+      momentEndTabsRemovedGroundConfirmed: "true",
+      momentWeldProcedureMatchesQualificationConfirmed: "true",
+      momentJointLateralRestraintConfirmed: "true",
+      momentBeamLateralBracingConfirmed: "true",
+      momentAllMembersIncludedConfirmed: "true",
+      momentColumnStrengthsAtGoverningAxialConfirmed: "true",
+      momentOpposingDirectionsConfirmed: "true",
+      momentOrthogonalDirectionSeparateConfirmed: "true",
+      momentConnectionHardwareVerifiedConfirmed: "false",
+      momentSelectedAxisScopeConfirmed: "false",
     },
     plate_check: {
       projectName: "示範連接板檢核",
@@ -408,13 +546,13 @@
       { id: "single_plate_standard", label: "剪力接頭｜標準單剪力板", state: exampleStates.single_plate },
     ],
     column_splice: [
-      { id: "column_splice_standard", label: "柱續接｜翼板 + 腹板續接", state: exampleStates.column_splice },
+      { id: "column_splice_cjp_seismic", label: "柱續接示例｜需依專案覆寫證據後才可核可", state: exampleStates.column_splice },
     ],
     brace_gusset: [
       { id: "brace_gusset_standard", label: "Gusset｜平板支撐軸力接頭", state: exampleStates.brace_gusset },
     ],
     beam_column_moment: [
-      { id: "beam_column_moment_standard", label: "梁柱彎矩｜簡化力偶模型", state: exampleStates.beam_column_moment },
+      { id: "beam_column_moment_seismic_review", label: "梁柱彎矩示例｜需依專案覆寫證據後才可核可", state: exampleStates.beam_column_moment },
     ],
     plate_check: [
       { id: "plate_geometry", label: "連接板｜幾何推導", state: exampleStates.plate_check },
@@ -625,32 +763,60 @@
     ],
     column_splice: [
       {
-        title: "柱續接資料",
+        title: "13.4 耐震需求與適用路線",
         items: [
-          ["spliceLeverArm", "柱翼槓桿臂 hsp", "mm"],
-          ["spliceBearingTransfer", "壓力直接承壓"],
-          ["flangeBoltCount", "拉側翼板螺栓數", "支"],
-          ["flangeEndDistance", "翼板端距", "mm"],
-          ["flangePitch", "翼板孔距", "mm"],
-          ["flangeEdgeDistance", "翼板邊距", "mm"],
-          ["flangePlateThickness", "翼板厚度", "mm"],
-          ["flangePlateWidth", "翼板總寬", "mm"],
-          ["flangePlateNetWidth", "翼板淨寬", "mm"],
-          ["flangePlateYieldStrength", "翼板 Fy", "MPa"],
-          ["flangePlateUltimateStrength", "翼板 Fu", "MPa"],
-          ["webBoltCount", "腹板螺栓數", "支"],
-          ["webShearPlanes", "腹板剪斷面數"],
-          ["webEndDistance", "腹板端距", "mm"],
-          ["webPitch", "腹板孔距", "mm"],
-          ["webEdgeDistance", "腹板邊距", "mm"],
-          ["webPlateDepth", "腹板續接板深度", "mm"],
-          ["webPlateThickness", "腹板厚度", "mm"],
-          ["webPlateYieldStrength", "腹板 Fy", "MPa"],
-          ["webPlateUltimateStrength", "腹板 Fu", "MPa"],
-          ["spliceWeldSize", "續接銲腳", "mm"],
-          ["spliceWeldLength", "續接有效銲長", "mm"],
-          ["spliceWeldLineCount", "續接銲道數量"],
-          ["spliceWeldElectrodeStrength", "續接 FEXX", "MPa"],
+          ["spliceFrameRole", "構架角色"],
+          ["spliceDesignRoute", "續接設計路線"],
+          ["spliceLocationRoute", "續接位置路線"],
+          ["spliceDistanceToNearestBeamFlange", "至最近梁翼緣距離", "mm"],
+          ["spliceDeadAxial", "死載軸力 D（拉正壓負）", "kN"],
+          ["spliceLiveAxial", "活載軸力 L（拉正壓負）", "kN"],
+          ["spliceSeismicAxial", "未放大地震軸力 E（拉正壓負）", "kN"],
+          ["spliceLiveLoadFactor", "活載係數 fL"],
+          ["spliceSeismicReductionFu", "13.4.1 結構系統地震力折減係數 Fu"],
+          ["spliceTransferCapRoute", "相鄰構件最大可傳遞軸力路線"],
+          ["spliceMaxTransferableAxial", "最大可傳遞軸力", "kN"],
+        ],
+      },
+      {
+        title: "全斷面 CJP 容量資料",
+        items: [
+          ["spliceAg", "全斷面面積 Ag", "mm²"],
+          ["spliceZx", "強軸塑性模數 Zx", "mm³"],
+          ["spliceZy", "弱軸塑性模數 Zy", "mm³"],
+          ["spliceAvx", "強軸剪力有效面積 Avx", "mm²"],
+          ["spliceAvy", "弱軸剪力有效面積 Avy", "mm²"],
+          ["spliceFy", "柱鋼材 Fy", "MPa"],
+          ["spliceFexx", "相稱銲材 FEXX", "MPa"],
+          ["spliceMaxThickness", "接合最大母材厚度", "mm"],
+          ["spliceFabricationLocation", "製作位置"],
+          ["spliceNdtMethod", "全覆蓋 NDT 方法"],
+        ],
+      },
+      {
+        title: "依據、證據與失敗封閉確認",
+        items: [
+          ["spliceDemandBasis", "需求依據"],
+          ["spliceGeometryBasis", "幾何依據"],
+          ["spliceMaterialBasis", "材料依據"],
+          ["spliceWpsBasis", "WPS／PQR 依據"],
+          ["spliceNdtPlanBasis", "NDT 計畫依據"],
+          ["spliceDemandEvidenceSha256", "需求證據 SHA-256"],
+          ["spliceDetailEvidenceSha256", "續接細部證據 SHA-256"],
+          ["spliceWpsEvidenceSha256", "WPS 證據 SHA-256"],
+          ["spliceNdtPlanEvidenceSha256", "NDT 計畫證據 SHA-256"],
+          ["spliceIdenticalSectionsAndMaterialConfirmed", "上下柱同材質、同軋製 H 形斷面確認"],
+          ["spliceAlignedAxesConfirmed", "形心軸對齊確認"],
+          ["spliceFullProfileCjpConfirmed", "全斷面 CJP 確認"],
+          ["spliceMatchingFillerConfirmed", "相稱銲材確認"],
+          ["spliceWpsApprovedConfirmed", "WPS／PQR 核定確認"],
+          ["spliceNdtFullCoverageConfirmed", "NDT 全覆蓋確認"],
+          ["spliceNoPjpConfirmed", "未採 PJP 確認"],
+          ["spliceNoMixedLoadSharingConfirmed", "未採混合分擔確認"],
+          ["spliceSeismicColumnConfirmed", "耐震系統柱確認"],
+          ["spliceLocationScopeConfirmed", "1,200 mm 位置路線確認"],
+          ["spliceAllAdjacentTransferSourcesIncludedConfirmed", "相鄰構件轉移來源完整性"],
+          ["spliceAsBuiltBoundaryConfirmed", "既有銲道驗收排除邊界確認"],
         ],
       },
     ],
@@ -697,27 +863,104 @@
     ],
     beam_column_moment: [
       {
-        title: "梁柱彎矩接頭資料",
+        title: "耐震需求與外部容量",
         items: [
-          ["momentLeverArm", "槓桿臂 hm", "mm"],
-          ["momentBoltCount", "拉側螺栓數", "支"],
-          ["momentEndDistance", "端板端距", "mm"],
-          ["momentPitch", "端板孔距", "mm"],
-          ["momentEdgeDistance", "端板邊距", "mm"],
-          ["momentPlateThickness", "端板厚度", "mm"],
-          ["momentPlateWidth", "端板總寬", "mm"],
-          ["momentPlateNetWidth", "端板淨寬", "mm"],
-          ["momentPlateYieldStrength", "端板 Fy", "MPa"],
-          ["momentPlateUltimateStrength", "端板 Fu", "MPa"],
-          ["momentShearBoltCount", "腹板剪力螺栓數", "支"],
-          ["momentShearPlanes", "腹板剪斷面數"],
-          ["momentShearPlateThickness", "腹板剪力板厚", "mm"],
-          ["momentShearPlateUltimateStrength", "腹板剪力板 Fu", "MPa"],
-          ["panelZoneCapacity", "Panel Zone 可用容量", "kN"],
-          ["momentWeldSize", "腹板銲腳", "mm"],
-          ["momentWeldLength", "腹板有效銲長", "mm"],
-          ["momentWeldLineCount", "腹板銲道數量"],
-          ["momentWeldElectrodeStrength", "腹板 FEXX", "MPa"],
+          ["momentFrameSystem", "構架系統"],
+          ["momentAxis", "選定構架面"],
+          ["momentConnectionDesignRoute", "接頭設計路線"],
+          ["momentBeamPlasticModulus", "梁塑性模數 Zb", "mm³"],
+          ["momentBeamYieldStrength", "梁鋼材 Fyb", "MPa"],
+          ["momentExpectedStrengthFactor", "預期強度／應變硬化係數 beta"],
+          ["momentCriticalSectionDistance", "臨界斷面至柱面 x", "mm"],
+          ["momentPlasticHingeSpan", "塑鉸間距 Lh", "mm"],
+          ["momentFarCriticalSectionExpectedMoment", "對端臨界斷面預期塑性彎矩 Mpr,far", "kN-m"],
+          ["momentGravityShear", "1.2D+0.5L 重力剪力", "kN"],
+          ["momentAmplifiedShear", "13.3-1 放大組合剪力上限", "kN"],
+          ["momentAvailableFlexuralStrength", "外部接頭可用撓曲強度", "kN-m"],
+          ["momentAvailableShearStrength", "外部接頭可用剪力強度", "kN"],
+        ],
+      },
+      {
+        title: "塑性轉角與資格證據",
+        items: [
+          ["momentRotationDemandMethod", "轉角需求決定方式"],
+          ["momentQualifiedPlasticRotation", "資格可提供塑性轉角", "rad"],
+          ["momentNonlinearPlasticRotation", "非線性分析最大塑性轉角", "rad"],
+          ["momentSystemDuctilityR", "系統韌性容量 R"],
+          ["momentElasticStoryDrift", "設計地震最大層間變位角 thetaE", "rad"],
+          ["momentQualificationRoute", "資格證據路線"],
+          ["momentQualificationTestCount", "代表性試體數", "組"],
+          ["momentDesignBeamFlangeThickness", "設計梁翼厚", "mm"],
+          ["momentTestBeamFlangeThickness", "試驗梁翼厚", "mm"],
+          ["momentDesignFlangePlasticRatio", "設計梁翼塑性模數比"],
+          ["momentTestFlangePlasticRatio", "試驗梁翼塑性模數比"],
+          ["momentThirdPartyReviewConfirmed", "公正第三者審查確認"],
+          ["momentQualificationConfigurationConfirmed", "試驗構造配置一致"],
+          ["momentQualificationMaterialConfirmed", "試驗材料一致"],
+          ["momentQualificationWeldingConfirmed", "試驗銲接一致"],
+          ["momentQualificationGeometryConfirmed", "試驗尺寸一致"],
+          ["momentQualificationFabricationConfirmed", "試驗施工方法一致"],
+          ["momentQualificationProcedureConfirmed", "試驗施工流程一致"],
+        ],
+      },
+      {
+        title: "Panel Zone、連續板與梁斷面",
+        items: [
+          ["momentColumnWebYieldStrength", "柱腹板 Fy", "MPa"],
+          ["momentColumnDepth", "柱深 dc", "mm"],
+          ["momentPanelZoneThickness", "Panel Zone 總厚 tp", "mm"],
+          ["momentPanelZoneClearDepth", "Panel Zone dz", "mm"],
+          ["momentPanelZoneClearWidth", "Panel Zone wz", "mm"],
+          ["momentPanelZoneAnalysisDemand", "分析 Panel Zone 需求", "kN"],
+          ["momentPanelZoneBeamMomentSum", "梁端彎矩合計 Sigma Mp", "kN-m"],
+          ["momentPanelZoneLeverArm", "Panel Zone 等效力臂", "mm"],
+          ["momentDoublerPresent", "Panel Zone 置合板"],
+          ["momentDoublerAttachmentConfirmed", "置合板銜接確認"],
+          ["momentBeamFlangeWidth", "梁翼寬 bfb", "mm"],
+          ["momentBeamFlangeThickness", "梁翼厚 tfb", "mm"],
+          ["momentColumnFlangeLocalNominalStrength", "柱翼板局部標稱拉力強度 Rn", "kN"],
+          ["momentContinuityPlateProvidedConfirmed", "連續板設置確認"],
+          ["momentContinuityPlateWeldConfirmed", "連續板銲接確認"],
+          ["momentBeamFlangeCompactnessRatio", "梁翼 lambda/lambda_pd"],
+          ["momentBeamWebCompactnessRatio", "梁腹 lambda/lambda_pd"],
+          ["momentBeamFlangePlasticModulusRatio", "梁翼／全斷面塑性模數比"],
+        ],
+      },
+      {
+        title: "強柱弱梁與附件邊界",
+        items: [
+          ["momentCwUpperColumnMoment", "CW 上柱彎矩", "kN-m"],
+          ["momentCwLowerColumnMoment", "CW 下柱彎矩", "kN-m"],
+          ["momentCwLeftBeamMoment", "CW 左梁 ZbFyb + Vp·x", "kN-m"],
+          ["momentCwRightBeamMoment", "CW 右梁 ZbFyb + Vp·x", "kN-m"],
+          ["momentCcwUpperColumnMoment", "CCW 上柱彎矩", "kN-m"],
+          ["momentCcwLowerColumnMoment", "CCW 下柱彎矩", "kN-m"],
+          ["momentCcwLeftBeamMoment", "CCW 左梁 ZbFyb + Vp·x", "kN-m"],
+          ["momentCcwRightBeamMoment", "CCW 右梁 ZbFyb + Vp·x", "kN-m"],
+          ["momentDemandBasis", "需求依據"],
+          ["momentGeometryBasis", "幾何依據"],
+          ["momentMaterialBasis", "材料依據"],
+          ["momentCapacityBasis", "容量依據"],
+          ["momentPanelZoneBasis", "Panel Zone 依據"],
+          ["momentStrongColumnBasis", "強柱弱梁依據"],
+          ["momentQualificationBasis", "資格證據說明"],
+          ["momentQualificationEvidenceSha256", "資格證據 SHA-256"],
+          ["momentCapacityEvidenceSha256", "接頭容量證據 SHA-256"],
+          ["momentPlasticZoneGeometryConfirmed", "塑性區斷面確認"],
+          ["momentPlasticZoneOpeningsAbsentConfirmed", "塑性區未驗證開孔排除"],
+          ["momentSeismicMaterialConfirmed", "耐震材料確認"],
+          ["momentMatchingWeldConfirmed", "相稱銲材確認"],
+          ["momentCns3506WeldConfirmed", "CNS 3506 銲材確認"],
+          ["momentEndTabsRemovedGroundConfirmed", "導銲板切除磨平確認"],
+          ["momentWeldProcedureMatchesQualificationConfirmed", "WPS 與資格一致"],
+          ["momentJointLateralRestraintConfirmed", "接頭側向束制確認"],
+          ["momentBeamLateralBracingConfirmed", "梁／塑鉸側向支撐確認"],
+          ["momentAllMembersIncludedConfirmed", "選定構架面構件完整性"],
+          ["momentColumnStrengthsAtGoverningAxialConfirmed", "柱控制軸力下強度確認"],
+          ["momentOpposingDirectionsConfirmed", "正反向合力確認"],
+          ["momentOrthogonalDirectionSeparateConfirmed", "正交方向另案確認"],
+          ["momentConnectionHardwareVerifiedConfirmed", "接頭硬體詳算確認"],
+          ["momentSelectedAxisScopeConfirmed", "單一方向附件邊界確認"],
         ],
       },
     ],
@@ -847,15 +1090,16 @@
     ],
   };
 
+  const confirmationLabels = { true: "已確認", false: "未確認｜禁止核可" };
   const labelMap = {
     designMethod: { LRFD: "LRFD 極限設計法", ASD: "ASD 容許應力設計法" },
     connectionType: {
       plate_check: "連接板檢核｜Connection Plate",
       tension_member: "拉力構件｜Tension Member",
       single_plate: "剪力接頭｜單剪力板 Shear Tab｜LRFD 正式模組",
-      column_splice: "柱續接｜Column Splice｜開發中",
+      column_splice: "柱續接｜全斷面 CJP 耐震能力審查｜LRFD 正式模組",
       brace_gusset: "支撐接頭｜平板支撐 Gusset 拉力接頭｜LRFD 正式模組",
-      beam_column_moment: "梁柱彎矩接頭｜開發中",
+      beam_column_moment: "梁柱彎矩接頭｜耐震能力審查｜LRFD 正式模組",
     },
     exposureCondition: { painted: "塗裝或不受腐蝕環境", weathering: "耐候鋼且暴露大氣" },
     holeType: {
@@ -874,8 +1118,65 @@
     connectionModelConfirmed: { true: "已確認", false: "尚未確認" },
     gussetStaticNonseismicConfirmed: { true: "已確認為靜力、非耐震、非 BRB", false: "尚未確認" },
     gussetLoadPathConfirmed: { true: "已確認單列栓與雙側縱向銲串聯力流", false: "尚未確認" },
+    momentFrameSystem: { smrf: "韌性抗彎矩構架｜SMRF", imrf: "部分韌性抗彎矩構架｜IMRF" },
+    momentAxis: { x: "X 向選定構架面", y: "Y 向選定構架面" },
+    momentConnectionDesignRoute: { reinforced: "補強式接頭｜V1 正式路線" },
+    momentRotationDemandMethod: {
+      default: "規範固定值",
+      nonlinear: "非線性分析 + 0.005 rad",
+      formula: "1.1(R-1)thetaE",
+    },
+    momentQualificationRoute: {
+      direct_test: "案件代表性反覆載重試驗",
+      prior_test_similarity: "既有破壞試驗相似性",
+      third_party_review: "分析／計算 + 公正第三者審查",
+    },
+    momentThirdPartyReviewConfirmed: confirmationLabels,
+    momentDoublerPresent: { true: "有置合板", false: "無置合板" },
+    momentDoublerAttachmentConfirmed: confirmationLabels,
+    momentContinuityPlateProvidedConfirmed: confirmationLabels,
+    momentContinuityPlateWeldConfirmed: confirmationLabels,
+    momentQualificationConfigurationConfirmed: confirmationLabels,
+    momentQualificationMaterialConfirmed: confirmationLabels,
+    momentQualificationWeldingConfirmed: confirmationLabels,
+    momentQualificationGeometryConfirmed: confirmationLabels,
+    momentQualificationFabricationConfirmed: confirmationLabels,
+    momentQualificationProcedureConfirmed: confirmationLabels,
+    momentPlasticZoneGeometryConfirmed: confirmationLabels,
+    momentPlasticZoneOpeningsAbsentConfirmed: confirmationLabels,
+    momentSeismicMaterialConfirmed: confirmationLabels,
+    momentMatchingWeldConfirmed: confirmationLabels,
+    momentCns3506WeldConfirmed: confirmationLabels,
+    momentEndTabsRemovedGroundConfirmed: confirmationLabels,
+    momentWeldProcedureMatchesQualificationConfirmed: confirmationLabels,
+    momentJointLateralRestraintConfirmed: confirmationLabels,
+    momentBeamLateralBracingConfirmed: confirmationLabels,
+    momentAllMembersIncludedConfirmed: confirmationLabels,
+    momentColumnStrengthsAtGoverningAxialConfirmed: confirmationLabels,
+    momentOpposingDirectionsConfirmed: confirmationLabels,
+    momentOrthogonalDirectionSeparateConfirmed: confirmationLabels,
+    momentConnectionHardwareVerifiedConfirmed: confirmationLabels,
+    momentSelectedAxisScopeConfirmed: confirmationLabels,
     braceSectionType: { flat_plate: "扁鋼／平板支撐｜矩形截面｜U = 1.0、Ae = An" },
-    spliceBearingTransfer: { true: "是，可由承壓面直接傳遞", false: "否，保守由續接元件承擔" },
+    spliceFrameRole: { seismic_force_resisting: "耐震力抵抗系統柱" },
+    spliceDesignRoute: { cjp_full_section_identical_rolled_h: "相同軋製 H 形柱｜全斷面 CJP" },
+    spliceLocationRoute: { beam_flange_1200: "距最近梁翼緣至少 1,200 mm" },
+    spliceLiveLoadFactor: { 0.5: "0.5", 1: "1.0" },
+    spliceTransferCapRoute: { uncapped: "不設上限｜完整採 1.4Fu|PE|", qualified: "取 min(1.4Fu|PE|, 1.25Ptransfer)" },
+    spliceFabricationLocation: { shop: "工廠銲接", field: "工地銲接" },
+    spliceNdtMethod: { UT: "超音波檢測 UT", RT: "放射線檢測 RT" },
+    spliceIdenticalSectionsAndMaterialConfirmed: confirmationLabels,
+    spliceAlignedAxesConfirmed: confirmationLabels,
+    spliceFullProfileCjpConfirmed: confirmationLabels,
+    spliceMatchingFillerConfirmed: confirmationLabels,
+    spliceWpsApprovedConfirmed: confirmationLabels,
+    spliceNdtFullCoverageConfirmed: confirmationLabels,
+    spliceNoPjpConfirmed: confirmationLabels,
+    spliceNoMixedLoadSharingConfirmed: confirmationLabels,
+    spliceSeismicColumnConfirmed: confirmationLabels,
+    spliceLocationScopeConfirmed: confirmationLabels,
+    spliceAllAdjacentTransferSourcesIncludedConfirmed: { true: "qualified：全部相鄰構件轉移來源已納入", false: "未主張相鄰構材上限（uncapped 可用）" },
+    spliceAsBuiltBoundaryConfirmed: confirmationLabels,
     plateInputMode: { geometry: "幾何推導", area_manual: "面積直輸" },
     loadDirection: { horizontal: "水平", vertical: "垂直" },
     netSectionMode: { straight_only: "直線淨斷面" },
@@ -989,6 +1290,27 @@
     return new Intl.NumberFormat("zh-TW", { minimumFractionDigits: 0, maximumFractionDigits: digits }).format(value);
   }
 
+  function getCheckUnit(check) {
+    if (check?.unit) return check.unit;
+    return /^momentStrongColumn/.test(check?.key || "") ? "" : "kN";
+  }
+
+  function formatCheckValue(check, value, digits = null) {
+    const unit = getCheckUnit(check);
+    const displayDigits = Number.isInteger(digits)
+      ? digits
+      : unit === "rad"
+        ? 4
+        : unit
+          ? 1
+          : 3;
+    return `${formatNumber(value, displayDigits)}${unit ? ` ${unit}` : ""}`;
+  }
+
+  function formatDetailDecisionValue(value) {
+    return formatNumber(value, 3);
+  }
+
   function nowLabel() {
     return new Intl.DateTimeFormat("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date());
   }
@@ -1069,9 +1391,11 @@
         return `${methodLabel}｜第四章一般要求、第十章接合設計`;
       case "brace_gusset":
         return "LRFD｜第五章受拉構材、第十章接合設計";
-      case "single_plate":
-      case "column_splice":
       case "beam_column_moment":
+        return "LRFD｜第十章接合設計、第十三章耐震設計 13.6／13.7｜補強式接頭、單一選定構架面";
+      case "column_splice":
+        return "LRFD｜第十章 10.2.1、10.2.4、表 10.2-5 與 10.2.6；第十三章 13.4.1、13.4.2 與 13.10｜相同軋製 H 形柱、全斷面 CJP";
+      case "single_plate":
       default:
         return `${methodLabel}｜第十章接合設計`;
     }
@@ -1121,7 +1445,8 @@
     const tensionWeldType = form.elements.namedItem("tensionWeldType")?.value || "fillet";
     return [...sharedGroups, ...(specificGroups[type] || [])].filter((group) => {
       if (group.title === "共用螺栓與孔型") {
-        return !((type === "plate_check" && plateMode === "area_manual") || (type === "tension_member" && tensionConnectionMode === "welded"));
+        return !["beam_column_moment", "column_splice"].includes(type)
+          && !((type === "plate_check" && plateMode === "area_manual") || (type === "tension_member" && tensionConnectionMode === "welded"));
       }
       if (!group.modes) return true;
       if (type === "plate_check") return group.modes.includes(plateMode);
@@ -1129,7 +1454,7 @@
       return true;
     }).map((group) => {
       let items = group.items;
-      if (group.title === "基本資料" && (type === "plate_check" || type === "tension_member")) {
+      if (group.title === "基本資料" && ["plate_check", "tension_member", "beam_column_moment", "column_splice"].includes(type)) {
         items = items.filter(([key]) => !["requiredAxial", "requiredShear", "requiredMoment", "eccentricity"].includes(key));
       }
       if (type === "tension_member" && group.title === "銲接接合資料") {
@@ -1573,7 +1898,7 @@
   }
 
   function toggleBasicDemandRows(type) {
-    const showFrameForces = !(type === "plate_check" || type === "tension_member");
+    const showFrameForces = !["plate_check", "tension_member", "beam_column_moment", "column_splice"].includes(type);
     document.querySelectorAll("[data-basic-demand='frame']").forEach((row) => {
       row.classList.toggle("is-hidden", !showFrameForces);
     });
@@ -1601,7 +1926,8 @@
       section.classList.toggle("is-hidden", !visible);
     });
     document.querySelectorAll("[data-common-card='bolt']").forEach((card) => {
-      const visible = !((type === "plate_check" && plateMode === "area_manual") || (type === "tension_member" && tensionConnectionMode === "welded"));
+      const visible = !["beam_column_moment", "column_splice"].includes(type)
+        && !((type === "plate_check" && plateMode === "area_manual") || (type === "tension_member" && tensionConnectionMode === "welded"));
       card.classList.toggle("is-hidden", !visible);
     });
     document.querySelectorAll("[data-weld-type]").forEach((section) => {
@@ -2159,8 +2485,8 @@
       return `
         <tr data-check-key="${check.key}" class="${result.governing.key === check.key ? "is-governing" : ""}">
           <td data-label="檢核項目">${SteelFormalUI.escapeHtml(check.label)}${buildCheckReferenceMarkup(check)}</td>
-          <td data-label="需求值">${formatNumber(check.demand)} kN</td>
-          <td data-label="可用強度">${formatNumber(check.available)} kN</td>
+          <td data-label="需求值">${formatCheckValue(check, check.demand)}</td>
+          <td data-label="可用強度">${formatCheckValue(check, check.available)}</td>
           <td data-label="DCR">${formatNumber(check.ratio, 3)}</td>
           <td data-label="判定">${statusPill(status)}</td>
         </tr>
@@ -2235,25 +2561,25 @@
       return "正需求下標稱強度或可用強度不是正值，故本項檢核不符合。";
     }
     if (status.className === "fail") {
-      return `需求值 ${formatNumber(check.demand)} kN 大於可用強度 ${formatNumber(check.available)} kN，故本項檢核不符合。`;
+      return `需求值 ${formatCheckValue(check, check.demand)} 大於可用強度 ${formatCheckValue(check, check.available)}，故本項檢核不符合。`;
     }
     if (status.className === "warn") {
-      return `需求值 ${formatNumber(check.demand)} kN 未超過可用強度 ${formatNumber(check.available)} kN，但仍需留意警示條件。`;
+      return `需求值 ${formatCheckValue(check, check.demand)} 未超過可用強度 ${formatCheckValue(check, check.available)}，但仍需留意警示條件。`;
     }
-    return `需求值 ${formatNumber(check.demand)} kN 未超過可用強度 ${formatNumber(check.available)} kN，故本項檢核符合。`;
+    return `需求值 ${formatCheckValue(check, check.demand)} 未超過可用強度 ${formatCheckValue(check, check.available)}，故本項檢核符合。`;
   }
 
   function buildDetailDecisionSentence(item) {
     if (Number.isFinite(item.provided) && Number.isFinite(item.required)) {
       if (item.comparator === "gte") {
         return item.passes
-          ? `提供值 ${formatNumber(item.provided)} 已不小於規定值 ${formatNumber(item.required)}，故本項符合。`
-          : `提供值 ${formatNumber(item.provided)} 小於規定值 ${formatNumber(item.required)}，故本項不符合。`;
+          ? `提供值 ${formatDetailDecisionValue(item.provided)} 已不小於規定值 ${formatDetailDecisionValue(item.required)}，故本項符合。`
+          : `提供值 ${formatDetailDecisionValue(item.provided)} 小於規定值 ${formatDetailDecisionValue(item.required)}，故本項不符合。`;
       }
       if (item.comparator === "lte") {
         return item.passes
-          ? `提供值 ${formatNumber(item.provided)} 未超過規定上限 ${formatNumber(item.required)}，故本項符合。`
-          : `提供值 ${formatNumber(item.provided)} 已超過規定上限 ${formatNumber(item.required)}，故本項不符合。`;
+          ? `提供值 ${formatDetailDecisionValue(item.provided)} 未超過規定上限 ${formatDetailDecisionValue(item.required)}，故本項符合。`
+          : `提供值 ${formatDetailDecisionValue(item.provided)} 已超過規定上限 ${formatDetailDecisionValue(item.required)}，故本項不符合。`;
       }
     }
     return item.passes ? "本項檢核符合。" : "本項檢核不符合。";
@@ -2286,8 +2612,8 @@
           </div>
           <p>${SteelFormalUI.escapeHtml(check.note)}</p>
           <div class="flow-metrics">
-            <div class="flow-metric"><span class="label">需求值</span><span class="value">${formatNumber(check.demand)} kN</span></div>
-            <div class="flow-metric"><span class="label">可用強度</span><span class="value">${formatNumber(check.available)} kN</span></div>
+            <div class="flow-metric"><span class="label">需求值</span><span class="value">${formatCheckValue(check, check.demand)}</span></div>
+            <div class="flow-metric"><span class="label">可用強度</span><span class="value">${formatCheckValue(check, check.available)}</span></div>
             <div class="flow-metric"><span class="label">DCR</span><span class="value">${formatNumber(check.ratio, 3)}</span></div>
           </div>
           <p class="flow-decision">${buildDecisionSentence(check)}</p>
@@ -2340,7 +2666,7 @@
 
     overallMessage.textContent = result.validations.length
       ? result.validations.join(" ")
-      : `控制項為「${result.governing.label}」${result.governing.equationRef ? `（${result.governing.equationRef}）` : ""}，需求 ${formatNumber(result.governing.demand)} kN，容量 ${formatNumber(result.governing.available)} kN，DCR = ${formatNumber(result.governing.ratio, 3)}。`;
+      : `控制項為「${result.governing.label}」${result.governing.equationRef ? `（${result.governing.equationRef}）` : ""}，需求 ${formatCheckValue(result.governing, result.governing.demand)}，容量 ${formatCheckValue(result.governing, result.governing.available)}，DCR = ${formatNumber(result.governing.ratio, 3)}。`;
     governingMode.textContent = result.governing.label;
     approvalGoverning.textContent = `${result.governing.label} / DCR ${formatNumber(result.governing.ratio, 3)}`;
     updateMethodPresentation(result.state);
@@ -2386,6 +2712,8 @@
   function getReportSnapshotState(result) {
     if (result.state.connectionType === "single_plate") return pickSourceFields(result.state, SINGLE_PLATE_SOURCE_FIELD_KEYS);
     if (result.state.connectionType === "brace_gusset") return pickSourceFields(result.state, GUSSET_SOURCE_FIELD_KEYS);
+    if (result.state.connectionType === "beam_column_moment") return pickSourceFields(result.state, MOMENT_SOURCE_FIELD_KEYS);
+    if (result.state.connectionType === "column_splice") return pickSourceFields(result.state, SPLICE_SOURCE_FIELD_KEYS);
     return result.state;
   }
 
@@ -2422,6 +2750,79 @@
     }
   }
 
+  function assertMomentFiniteFormalResult(result) {
+    if (result?.state?.connectionType !== "beam_column_moment") return;
+    if (result.validations?.length) {
+      throw new Error(`梁柱彎矩接頭輸入驗證未通過，禁止建立正式報告與來源 JSON：${result.validations.join(" ")}`);
+    }
+    const expectedCheckKeys = [
+      "momentFlexuralStrength", "momentShearStrength", "momentPlasticRotation",
+      "momentPanelZoneShear", "momentStrongColumnCw", "momentStrongColumnCcw",
+    ].sort();
+    const actualCheckKeys = (result.checks || []).map((check) => check?.key).sort();
+    const seismicNumericKeys = [
+      "Mp", "Mpr", "MprFar", "Vp", "MuFace", "VuRequired", "rotationDemand", "qualifiedRotation",
+      "VpzMin", "VpzRequired", "VpzNominal", "panelThicknessRequired", "continuityThreshold", "scwbCw", "scwbCcw",
+    ];
+    const seismicKeysAreFinite = seismicNumericKeys.every((key) => Number.isFinite(result.seismicReview?.[key]));
+    if (result.complianceReady !== true
+      || result.completeJointDesign !== false
+      || !result.seismicReview
+      || typeof result.seismicReview.continuityRequired !== "boolean"
+      || canonicalJson(actualCheckKeys) !== canonicalJson(expectedCheckKeys)
+      || !seismicKeysAreFinite) {
+      throw new Error("梁柱彎矩接頭正式邊界不完整；必須保留 completeJointDesign = false 與耐震審查派生資料，禁止建立正式輸出。");
+    }
+    if (containsNonFiniteNumber({
+      checks: result.checks,
+      governing: result.governing,
+      detailChecks: result.detailChecks,
+      seismicReview: result.seismicReview,
+    })) {
+      throw new Error("梁柱彎矩接頭結果含非有限值或數值溢位，禁止建立正式報告與來源 JSON。");
+    }
+  }
+
+  function assertSpliceFiniteFormalResult(result) {
+    if (result?.state?.connectionType !== "column_splice") return;
+    if (result.validations?.length) {
+      throw new Error(`全斷面 CJP 耐震柱續接輸入驗證未通過，禁止建立正式報告與來源 JSON：${result.validations.join(" ")}`);
+    }
+    const expectedCheckKeys = [
+      "spliceAxialCompression13_4_1", "spliceAxialTension13_4_1", "spliceFullSectionNormal",
+      "spliceFullSectionMajorFlexure", "spliceFullSectionMinorFlexure",
+      "spliceFullSectionMajorShear", "spliceFullSectionMinorShear",
+    ].sort();
+    const actualCheckKeys = (result.checks || []).map((check) => check?.key).sort();
+    const spliceNumericKeys = [
+      "EampRaw", "EampAdopted", "PuCompression", "TuTension", "normalCapacity",
+      "majorFlexuralCapacity", "minorFlexuralCapacity", "majorShearCapacity", "minorShearCapacity",
+    ];
+    const spliceKeysAreFinite = spliceNumericKeys.every((key) => Number.isFinite(result.spliceReview?.[key]));
+    if (result.complianceReady !== true
+      || result.completeColumnMemberDesign !== false
+      || result.asBuiltAcceptance !== false
+      || !result.spliceReview
+      || canonicalJson(actualCheckKeys) !== canonicalJson(expectedCheckKeys)
+      || !spliceKeysAreFinite) {
+      throw new Error("全斷面 CJP 耐震柱續接正式邊界不完整；必須保留 completeColumnMemberDesign = false、asBuiltAcceptance = false 與固定七項能力鏈，禁止建立正式輸出。");
+    }
+    if (containsNonFiniteNumber({
+      checks: result.checks,
+      governing: result.governing,
+      detailChecks: result.detailChecks,
+      spliceReview: result.spliceReview,
+    })) {
+      throw new Error("全斷面 CJP 耐震柱續接結果含非有限值或數值溢位，禁止建立正式報告與來源 JSON。");
+    }
+  }
+
+  function assertFormalResultBoundary(result) {
+    assertGussetFiniteFormalResult(result);
+    assertMomentFiniteFormalResult(result);
+    assertSpliceFiniteFormalResult(result);
+  }
+
   function buildConnectionReportConfig(result) {
     const outputSource = getFormalToolMetadata(result.state.connectionType);
     return {
@@ -2440,6 +2841,15 @@
         assumptions: result.assumptions,
         references: result.references,
         pathSummary: result.pathSummary,
+        ...(result.seismicReview ? {
+          seismicReview: result.seismicReview,
+          completeJointDesign: result.completeJointDesign,
+        } : {}),
+        ...(result.spliceReview ? {
+          spliceReview: result.spliceReview,
+          completeColumnMemberDesign: result.completeColumnMemberDesign,
+          asBuiltAcceptance: result.asBuiltAcceptance,
+        } : {}),
       },
     };
   }
@@ -2449,7 +2859,7 @@
   }
 
   function buildConnectionSourcePayload(result = window.latestSteelConnectionResult || calculateConnection(collectFormState())) {
-    assertGussetFiniteFormalResult(result);
+    assertFormalResultBoundary(result);
     const reportConfig = buildConnectionReportConfig(result);
     const reportTrace = SteelFormalUI.buildReportTrace(reportConfig);
     return {
@@ -2604,7 +3014,125 @@
     }
   }
 
+  function validateMomentSourceFields(payload) {
+    const fields = payload.fields || {};
+    const expectedKeys = [...MOMENT_SOURCE_FIELD_KEYS].sort();
+    const actualKeys = Object.keys(fields || {}).sort();
+    if (canonicalJson(actualKeys) !== canonicalJson(expectedKeys)) {
+      const missing = expectedKeys.filter((key) => !actualKeys.includes(key));
+      const extra = actualKeys.filter((key) => !expectedKeys.includes(key));
+      throw new Error(`來源 JSON 驗證失敗：梁柱彎矩欄位集合不符（缺少 ${missing.join(",") || "無"}；多出 ${extra.join(",") || "無"}）。`);
+    }
+    MOMENT_NUMBER_FIELDS.forEach((key) => {
+      if (typeof fields[key] !== "number" || !Number.isFinite(fields[key])) {
+        throw new Error(`來源 JSON 驗證失敗：${key} 必須為有限數值。`);
+      }
+    });
+    MOMENT_BOOLEAN_FIELDS.forEach((key) => {
+      if (typeof fields[key] !== "boolean") throw new Error(`來源 JSON 驗證失敗：${key} 必須為布林值。`);
+    });
+    MOMENT_TEXT_FIELDS.forEach((key) => {
+      if (typeof fields[key] !== "string") throw new Error(`來源 JSON 驗證失敗：${key} 必須為文字。`);
+    });
+    const enums = {
+      designMethod: ["LRFD"],
+      connectionType: ["beam_column_moment"],
+      exposureCondition: ["painted", "weathering"],
+      momentFrameSystem: ["smrf", "imrf"],
+      momentAxis: ["x", "y"],
+      momentConnectionDesignRoute: ["reinforced"],
+      momentRotationDemandMethod: ["default", "nonlinear", "formula"],
+      momentQualificationRoute: ["direct_test", "prior_test_similarity", "third_party_review"],
+    };
+    Object.entries(enums).forEach(([key, allowed]) => {
+      if (!allowed.includes(fields[key])) throw new Error(`來源 JSON 驗證失敗：${key} 列舉值不支援。`);
+    });
+    if (!Number.isInteger(fields.momentQualificationTestCount) || fields.momentQualificationTestCount < 0) {
+      throw new Error("來源 JSON 驗證失敗：momentQualificationTestCount 必須為非負整數。");
+    }
+    const signedFields = new Set(["momentGravityShear"]);
+    MOMENT_NUMBER_FIELDS.forEach((key) => {
+      if (signedFields.has(key)) return;
+      if (fields[key] < 0) {
+        throw new Error(`來源 JSON 驗證失敗：${key} 超出允許範圍。`);
+      }
+    });
+    if (payload.project?.name !== normalizeProjectMetaValue(fields.projectName)
+      || payload.project?.no !== normalizeProjectMetaValue(fields.connectionTag)
+      || payload.project?.designer !== normalizeProjectMetaValue(fields.designer)) {
+      throw new Error("來源 JSON 驗證失敗：project 與 fields 專案資料不一致。");
+    }
+    const replay = calculateConnection(fields);
+    try {
+      assertMomentFiniteFormalResult(replay);
+    } catch (error) {
+      throw new Error(`來源 JSON 驗證失敗：${error?.message || "梁柱彎矩接頭正式邊界不完整。"}`);
+    }
+  }
+
+  function validateColumnSpliceSourceFields(payload) {
+    const fields = payload.fields || {};
+    const expectedKeys = [...SPLICE_SOURCE_FIELD_KEYS].sort();
+    const actualKeys = Object.keys(fields).sort();
+    if (canonicalJson(actualKeys) !== canonicalJson(expectedKeys)) {
+      const missing = expectedKeys.filter((key) => !actualKeys.includes(key));
+      const extra = actualKeys.filter((key) => !expectedKeys.includes(key));
+      throw new Error(`來源 JSON 驗證失敗：全斷面 CJP 耐震柱續接欄位集合不符（缺少 ${missing.join(",") || "無"}；多出 ${extra.join(",") || "無"}）。`);
+    }
+    SPLICE_NUMBER_FIELDS.forEach((key) => {
+      if (typeof fields[key] !== "number" || !Number.isFinite(fields[key])) {
+        throw new Error(`來源 JSON 驗證失敗：${key} 必須為有限數值。`);
+      }
+    });
+    SPLICE_BOOLEAN_FIELDS.forEach((key) => {
+      if (typeof fields[key] !== "boolean") throw new Error(`來源 JSON 驗證失敗：${key} 必須為布林值。`);
+    });
+    SPLICE_TEXT_FIELDS.forEach((key) => {
+      if (typeof fields[key] !== "string") throw new Error(`來源 JSON 驗證失敗：${key} 必須為文字。`);
+    });
+    const enums = {
+      designMethod: ["LRFD"],
+      connectionType: ["column_splice"],
+      exposureCondition: ["painted", "weathering"],
+      spliceFrameRole: ["seismic_force_resisting"],
+      spliceDesignRoute: ["cjp_full_section_identical_rolled_h"],
+      spliceLocationRoute: ["beam_flange_1200"],
+      spliceLiveLoadFactor: [0.5, 1],
+      spliceTransferCapRoute: ["uncapped", "qualified"],
+      spliceFabricationLocation: ["shop", "field"],
+      spliceNdtMethod: ["UT", "RT"],
+    };
+    Object.entries(enums).forEach(([key, allowed]) => {
+      if (!allowed.includes(fields[key])) throw new Error(`來源 JSON 驗證失敗：${key} 列舉值不支援。`);
+    });
+    if (!(fields.spliceSeismicReductionFu > 0) || fields.spliceSeismicReductionFu > 2.5) {
+      throw new Error("來源 JSON 驗證失敗：spliceSeismicReductionFu 必須大於 0 且不得大於 2.5。");
+    }
+    const positiveFields = ["spliceAg", "spliceZx", "spliceZy", "spliceAvx", "spliceAvy", "spliceFy", "spliceFexx", "spliceMaxThickness"];
+    positiveFields.forEach((key) => {
+      if (!(fields[key] > 0)) throw new Error(`來源 JSON 驗證失敗：${key} 必須大於 0。`);
+    });
+    if (fields.spliceMaxTransferableAxial < 0
+      || (fields.spliceTransferCapRoute === "qualified" && !(fields.spliceMaxTransferableAxial > 0))) {
+      throw new Error("來源 JSON 驗證失敗：spliceMaxTransferableAxial 不得為負，qualified 路線且必須大於 0。");
+    }
+    if (payload.project?.name !== normalizeProjectMetaValue(fields.projectName)
+      || payload.project?.no !== normalizeProjectMetaValue(fields.connectionTag)
+      || payload.project?.designer !== normalizeProjectMetaValue(fields.designer)) {
+      throw new Error("來源 JSON 驗證失敗：project 與 fields 專案資料不一致。");
+    }
+    const replay = calculateConnection(fields);
+    try {
+      assertSpliceFiniteFormalResult(replay);
+    } catch (error) {
+      throw new Error(`來源 JSON 驗證失敗：${error?.message || "全斷面 CJP 耐震柱續接正式邊界不完整。"}`);
+    }
+  }
+
   function validateConnectionSourcePayload(payload) {
+    if (IS_STANDALONE_PLATE && payload?.connectionType !== "plate_check") {
+      throw new Error("來源 JSON 驗證失敗：連接板獨立頁不可匯入梁柱彎矩或其他接頭模組。");
+    }
     const expectedMetadata = getFormalToolMetadata(payload.connectionType);
     const allowedToolIds = IS_STANDALONE_PLATE
       ? [STEEL_TOOL_METADATA.plate.id]
@@ -2613,7 +3141,7 @@
       expectedToolIds: allowedToolIds,
       expectedVersion: expectedMetadata.version,
     });
-    if (!['plate_check', 'tension_member', 'single_plate', 'brace_gusset'].includes(payload.connectionType)) {
+    if (!['plate_check', 'tension_member', 'single_plate', 'brace_gusset', 'beam_column_moment', 'column_splice'].includes(payload.connectionType)) {
       throw new Error('來源 JSON 驗證失敗：不支援此檢核模組。');
     }
     if (payload.tool.id !== expectedMetadata.id || payload.fields.connectionType !== payload.connectionType) {
@@ -2624,6 +3152,8 @@
     }
     if (payload.connectionType === 'single_plate') validateSinglePlateSourceFields(payload);
     if (payload.connectionType === 'brace_gusset') validateGussetSourceFields(payload);
+    if (payload.connectionType === 'beam_column_moment') validateMomentSourceFields(payload);
+    if (payload.connectionType === 'column_splice') validateColumnSpliceSourceFields(payload);
     return payload;
   }
 
@@ -2637,12 +3167,12 @@
           : [STEEL_TOOL_METADATA.plate.id, STEEL_TOOL_METADATA.tension.id, STEEL_TOOL_METADATA.connection.id],
       }));
       stateChanged = true;
-      setFormState(['single_plate', 'brace_gusset'].includes(payload.connectionType) ? { ...defaultState, ...payload.fields } : payload.fields, false);
+      setFormState(['single_plate', 'brace_gusset', 'beam_column_moment', 'column_splice'].includes(payload.connectionType) ? { ...defaultState, ...payload.fields } : payload.fields, false);
       const replay = buildConnectionSourcePayload();
       if (replay.calculationFingerprint !== payload.calculationFingerprint) {
         throw new Error(`重現指紋不一致（來源 ${payload.calculationFingerprint}，重算 ${replay.calculationFingerprint}）。`);
       }
-      if (['single_plate', 'brace_gusset'].includes(payload.connectionType)
+      if (['single_plate', 'brace_gusset', 'beam_column_moment', 'column_splice'].includes(payload.connectionType)
         && canonicalJson(jsonSerializableClone(replay.report)) !== canonicalJson(payload.report)) {
         throw new Error('來源 JSON 驗證失敗：內嵌報告內容與來源欄位重算結果不一致。');
       }
@@ -2686,8 +3216,8 @@
     const strengthRows = result.checks.map((check) => `
       <tr>
         <td>${escReport(check.label)}${buildCheckReferenceMarkup(check)}</td>
-        <td>${formatNumber(check.demand)} kN</td>
-        <td>${formatNumber(check.available)} kN</td>
+        <td>${formatCheckValue(check, check.demand)}</td>
+        <td>${formatCheckValue(check, check.available)}</td>
         <td>${formatNumber(check.ratio, 3)}</td>
         <td>${escReport(getCheckStatus(check).text)}</td>
       </tr>
@@ -2758,6 +3288,35 @@
           <tr><th>Whitmore 有效面積</th><td>${formatNumber(result.derivedAreas.gussetWhitmoreArea, 2)} mm²</td></tr>
         </tbody></table></section>`
       : "";
+    const momentReviewTable = result.state.connectionType === "beam_column_moment" && result.seismicReview
+      ? `<section class="block"><h3>梁柱彎矩耐震能力審查派生稽核</h3><table><tbody>
+          <tr><th>審查範圍</th><td>${escReport(mapValue("momentFrameSystem", result.seismicReview.frameSystem))}｜${escReport(mapValue("momentAxis", result.seismicReview.axis))}｜${escReport(mapValue("momentQualificationRoute", result.seismicReview.qualificationRoute))}</td></tr>
+          <tr><th>Mp / Mpr</th><td>${formatNumber(result.seismicReview.Mp, 3)} / ${formatNumber(result.seismicReview.Mpr, 3)} kN-m</td></tr>
+          <tr><th>Mpr,far / Vp / Mu,face / Vu,req</th><td>${formatNumber(result.state.momentFarCriticalSectionExpectedMoment, 3)} kN-m / ${formatNumber(result.seismicReview.Vp, 3)} kN / ${formatNumber(result.seismicReview.MuFace, 3)} kN-m / ${formatNumber(result.seismicReview.VuRequired, 3)} kN</td></tr>
+          <tr><th>塑性轉角需求／資格</th><td>${formatNumber(result.seismicReview.rotationDemand, 4)} / ${formatNumber(result.seismicReview.qualifiedRotation, 4)} rad｜${escReport(mapValue("momentRotationDemandMethod", result.seismicReview.rotationDemandMethod))}</td></tr>
+          <tr><th>Panel Zone Vpz,min / Vpz,req / Vpz,n</th><td>${formatNumber(result.seismicReview.VpzMin, 3)} / ${formatNumber(result.seismicReview.VpzRequired, 3)} / ${formatNumber(result.seismicReview.VpzNominal, 3)} kN</td></tr>
+          <tr><th>Panel Zone 最低厚度／提供厚度</th><td>${formatNumber(result.seismicReview.panelThicknessRequired, 3)} / ${formatNumber(result.state.momentPanelZoneThickness, 3)} mm</td></tr>
+          <tr><th>Continuity Plate 門檻／判定</th><td>${formatNumber(result.seismicReview.continuityThreshold, 3)} kN｜${result.seismicReview.continuityRequired ? "需設置並核對銲接" : "未觸發最低設置門檻"}</td></tr>
+          <tr><th>強柱弱梁 CW / CCW</th><td>${formatNumber(result.seismicReview.scwbCw, 3)} / ${formatNumber(result.seismicReview.scwbCcw, 3)}｜需求皆為 1.25</td></tr>
+          <tr><th>完整接頭設計聲明</th><td><b>completeJointDesign = ${String(result.completeJointDesign)}</b>；本附件不宣稱 AISC 358 預認證，也不取代接頭零組件、prying、yield-line、銲道、NDT 或正交方向另案。</td></tr>
+          <tr><th>外部容量證據</th><td>${escReport(result.state.momentCapacityBasis)}<br>SHA-256：${escReport(result.state.momentCapacityEvidenceSha256)}</td></tr>
+          <tr><th>資格證據</th><td>${escReport(result.state.momentQualificationBasis)}<br>SHA-256：${escReport(result.state.momentQualificationEvidenceSha256)}</td></tr>
+        </tbody></table></section>`
+      : "";
+    const spliceReviewTable = result.state.connectionType === "column_splice" && result.spliceReview
+      ? `<section class="block"><h3>全斷面 CJP 耐震柱續接派生稽核</h3><table><tbody>
+          <tr><th>審查範圍</th><td>${escReport(mapValue("spliceFrameRole", result.state.spliceFrameRole))}｜${escReport(mapValue("spliceDesignRoute", result.state.spliceDesignRoute))}｜${escReport(mapValue("spliceLocationRoute", result.state.spliceLocationRoute))}</td></tr>
+          <tr><th>Eamp 原始／採用</th><td>${formatNumber(result.spliceReview.EampRaw, 3)} / ${formatNumber(result.spliceReview.EampAdopted, 3)} kN｜${escReport(mapValue("spliceTransferCapRoute", result.state.spliceTransferCapRoute))}</td></tr>
+          <tr><th>13.4.1 壓力／拉力需求</th><td>${formatNumber(result.spliceReview.PuCompression, 3)} / ${formatNumber(result.spliceReview.TuTension, 3)} kN</td></tr>
+          <tr><th>全斷面正向容量</th><td>${formatNumber(result.spliceReview.normalCapacity, 3)} kN</td></tr>
+          <tr><th>強軸／弱軸撓曲容量</th><td>${formatNumber(result.spliceReview.majorFlexuralCapacity, 3)} / ${formatNumber(result.spliceReview.minorFlexuralCapacity, 3)} kN-m</td></tr>
+          <tr><th>強軸／弱軸剪力容量</th><td>${formatNumber(result.spliceReview.majorShearCapacity, 3)} / ${formatNumber(result.spliceReview.minorShearCapacity, 3)} kN</td></tr>
+          <tr><th>製作與全覆蓋 NDT</th><td>${escReport(mapValue("spliceFabricationLocation", result.state.spliceFabricationLocation))}｜${escReport(mapValue("spliceNdtMethod", result.state.spliceNdtMethod))}</td></tr>
+          <tr><th>附件邊界聲明</th><td><b>completeColumnMemberDesign = ${String(result.completeColumnMemberDesign)}；asBuiltAcceptance = ${String(result.asBuiltAcceptance)}</b>；本附件不取代柱構件整體穩定、梁柱交會區、基礎力流、施工可行性或既有銲道驗收。</td></tr>
+          <tr><th>需求／細部證據</th><td>${escReport(result.state.spliceDemandBasis)}<br>需求 SHA-256：${escReport(result.state.spliceDemandEvidenceSha256)}<br>細部 SHA-256：${escReport(result.state.spliceDetailEvidenceSha256)}</td></tr>
+          <tr><th>WPS／NDT 證據</th><td>${escReport(result.state.spliceWpsBasis)}｜${escReport(result.state.spliceNdtPlanBasis)}<br>WPS SHA-256：${escReport(result.state.spliceWpsEvidenceSha256)}<br>NDT SHA-256：${escReport(result.state.spliceNdtPlanEvidenceSha256)}</td></tr>
+        </tbody></table></section>`
+      : "";
     return `<!doctype html>
 <html lang="zh-Hant">
 <head>
@@ -2815,6 +3374,8 @@ ${plateAreaTable}
 ${tensionAreaTable}
 ${shearTabAreaTable}
 ${gussetAreaTable}
+${momentReviewTable}
+${spliceReviewTable}
 ${flowHtml}
 <div class="report-ending">
 ${endingFlowHtml}
@@ -2830,7 +3391,7 @@ ${scopeHtml}
     const result = window.latestSteelConnectionResult || calculateConnection(collectFormState());
     setExportReportStatus("");
     try {
-      assertGussetFiniteFormalResult(result);
+      assertFormalResultBoundary(result);
     } catch (error) {
       setExportReportStatus(`正式報告未開啟｜${error?.message || "未知錯誤"}`);
       return;
@@ -2900,7 +3461,7 @@ ${scopeHtml}
       `接頭：${getProjectMetaDisplayValue(result.state.connectionTag)}`,
       `判定：${reportBanner.textContent}`,
       `控制項：${result.governing.label}`,
-      ...result.checks.map((check) => `${check.label}｜需求 ${formatNumber(check.demand)} kN｜容量 ${formatNumber(check.available)} kN｜DCR ${formatNumber(check.ratio, 3)}`),
+      ...result.checks.map((check) => `${check.label}｜需求 ${formatCheckValue(check, check.demand)}｜容量 ${formatCheckValue(check, check.available)}｜DCR ${formatNumber(check.ratio, 3)}`),
     ];
     try {
       await navigator.clipboard.writeText(lines.join("\n"));
