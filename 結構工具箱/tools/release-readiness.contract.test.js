@@ -65,6 +65,9 @@ const rcReportVisualSources = [
 const deliveryArtifactsContract = readText('結構工具箱/tools/delivery-artifacts.contract.test.js');
 const renderedEvidenceContract = readText('結構工具箱/tools/rendered-delivery-evidence.contract.test.js');
 const renderedEvidenceInventory = readText('結構工具箱/tools/rendered-delivery-evidence.inventory.json');
+const pagesLiveSmoke = readText('結構工具箱/tools/pages-live-smoke.js');
+const pagesReleaseGovernanceContract = readText('pages-release-governance.contract.test.js');
+const toolboxEntrypointsContract = readText('toolbox-entrypoints.contract.test.js');
 const rcStmAtomicChangeSet = JSON.parse(readText('結構工具箱/tools/rc-stm-atomic-change-set.manifest.json'));
 const stoneAutoWordArtifact = readText('石材固定/auto_word_artifact_test.py');
 const anchorReportArtifacts = readText('螺栓檢討/bolt-review-tool/tests/reportArtifacts.test.ts');
@@ -671,6 +674,24 @@ assertIncludes(reportGuide, '不得誤稱為舊版', 'report guide distinguishes
   'localQuickResultReconciliation=',
   'rendered-delivery-evidence-summary.json',
 ].forEach(needle => assertIncludes(renderedEvidenceContract, needle, `rendered evidence aggregate contract preserves ${needle}`));
+[
+  { label: 'maturity matrix', source: maturityMatrix, steelTransitionCount: 1 },
+  { label: 'Pages live smoke', source: pagesLiveSmoke, steelTransitionCount: 3 },
+  { label: 'Pages release governance', source: pagesReleaseGovernanceContract, steelTransitionCount: 3 },
+  { label: 'toolbox entrypoints', source: toolboxEntrypointsContract, steelTransitionCount: 3 },
+].forEach(({ label, source, steelTransitionCount }) => {
+  assertIncludes(source, '169, 173]', `${label} accepts the Schema v34 public delivery count`);
+  assertIncludes(source, '94, 94', `${label} accepts the Schema v34 canonical delivery breakdown`);
+  assert(
+    (source.match(/\[5, 6, 7, 9\]/g) || []).length >= steelTransitionCount,
+    `${label} accepts the Schema v34 steel evidence count`,
+    `required transition arrays: ${steelTransitionCount}`
+  );
+});
+assert(
+  />= 9[\s\S]*梁柱彎矩接頭[\s\S]*柱續接/.test(maturityMatrix),
+  'maturity matrix names all nine Schema v34 steel formal scenarios'
+);
 assert(JSON.parse(renderedEvidenceInventory).tools.length === 40, 'rendered evidence inventory has 40 formal tools', 'rendered-delivery-evidence.inventory.json');
 assert(JSON.parse(renderedEvidenceInventory).rcSupplementalAttachments.length === 3, 'rendered evidence inventory has three RC STM dedicated formal-entry attachments', 'rendered-delivery-evidence.inventory.json');
 assert(rcStmAtomicChangeSet.kind === 'rc-stm-atomic-change-set' && rcStmAtomicChangeSet.schemaVersion === 2, 'release governance reads the RC STM atomic change-set manifest with governed handoff edges');
@@ -1088,6 +1109,10 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   assertIncludes(source, '內容封印', `${label} documents RC formal HTML content seal scope`);
   assertIncludes(source, '數位簽章', `${label} distinguishes content seal from identity signature`);
 });
+
+assertIncludes(readme, 'Vp=(Mpr+MprFar)×1000/Lh', 'README preserves the dimensionally explicit moment-connection panel-zone shear formula');
+assertIncludes(reportGuide, 'Vp=(Mpr+MprFar)×1000/Lh', 'TOOL_REPORT_GUIDE preserves the dimensionally explicit moment-connection panel-zone shear formula');
+assertIncludes(reportGuide, '有限且可計算但不符合強度、細部或適用範圍者則須完整重播為 NG', 'TOOL_REPORT_GUIDE distinguishes transactional source rejection from finite engineering NG replay');
 
 if (failed) {
   console.error(`\n${failed} release readiness checks failed.`);

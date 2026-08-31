@@ -2928,7 +2928,9 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     : steelResultReconciliation.pass === true
       ? Math.max(0, steelResultReconciliationRequired - steelResultReconciliationComplete)
       : Math.max(1, compactNumber(steelResultReconciliation.issueCount) || steelResultReconciliationRequired - steelResultReconciliationComplete);
-  const steelFormalToolLabels = Math.max(steelResultReconciliationRequired, steelHtmlContentSealRequired) >= 7
+  const steelFormalToolLabels = Math.max(steelResultReconciliationRequired, steelHtmlContentSealRequired) >= 9
+    ? '主工具連接板、主工具拉力構件、主工具單剪力板 Shear Tab、主工具平板支撐 Gusset 拉力接頭、主工具梁柱彎矩接頭、主工具全斷面 CJP 耐震柱續接、獨立連接板、鋼梁與鋼柱'
+    : Math.max(steelResultReconciliationRequired, steelHtmlContentSealRequired) >= 7
     ? '主工具連接板、主工具拉力構件、主工具單剪力板 Shear Tab、主工具平板支撐 Gusset 拉力接頭、獨立連接板、鋼梁與鋼柱'
     : Math.max(steelResultReconciliationRequired, steelHtmlContentSealRequired) >= 6
     ? '主工具連接板、主工具拉力構件、主工具單剪力板 Shear Tab、獨立連接板、鋼梁與鋼柱'
@@ -3778,7 +3780,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'homepage report readiness rendered delivery source hash');
   assert.ok(String(homepageReportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'homepage report readiness rendered delivery summary');
   if (Number.isInteger(homepageReportReadinessStatus.deliveryFileIntegrityRequired)) {
-    assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165, 167, 169].includes(homepageReportReadinessStatus.deliveryFileIntegrityRequired), 'homepage report readiness exposes a supported verified delivery-file transition count');
+    assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165, 167, 169, 173].includes(homepageReportReadinessStatus.deliveryFileIntegrityRequired), 'homepage report readiness exposes a supported verified delivery-file transition count');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityVerified, homepageReportReadinessStatus.deliveryFileIntegrityRequired, 'homepage report readiness verifies every delivery file');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'homepage report readiness delivery file integrity issues empty');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityPass, true, 'homepage report readiness delivery file integrity passes');
@@ -3802,6 +3804,7 @@ function checkMatrix(payload, markdown, options = {}) {
         [[86, 86], [66, 66], [13, 13]],
         [[88, 88], [66, 66], [13, 13]],
         [[90, 90], [66, 66], [13, 13]],
+        [[94, 94], [66, 66], [13, 13]],
       ].some(expected => JSON.stringify(expected) === JSON.stringify(homepageDeliveryCounts)),
       'homepage report readiness preserves supported redacted delivery counts'
     );
@@ -3842,7 +3845,7 @@ function checkMatrix(payload, markdown, options = {}) {
     assert.ok(/不公開案例資料、(?:專案|來源)快照雜湊或計算指紋/.test((homepageReportReadinessStatus.details || []).join(' ')), 'homepage report readiness keeps RC reconciliation evidence private');
   }
   if (Number.isInteger(homepageReportReadinessStatus.steelResultReconciliationRequired)) {
-    assert.ok([5, 6, 7].includes(homepageReportReadinessStatus.steelResultReconciliationRequired), 'homepage report readiness expects a supported 5-to-7 steel result reconciliation transition count');
+    assert.ok([5, 6, 7, 9].includes(homepageReportReadinessStatus.steelResultReconciliationRequired), 'homepage report readiness expects a supported 5-to-9 steel result reconciliation transition count');
     assert.equal(homepageReportReadinessStatus.steelResultReconciliationComplete, homepageReportReadinessStatus.steelResultReconciliationRequired, 'homepage report readiness completes every steel result reconciliation');
     assert.equal(homepageReportReadinessStatus.steelResultReconciliationIssueCount, 0, 'homepage report readiness steel result reconciliation issues empty');
     assert.equal(homepageReportReadinessStatus.steelResultReconciliationPass, true, 'homepage report readiness steel result reconciliation passes');

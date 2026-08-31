@@ -888,7 +888,7 @@ assert.ok(String(reportReadinessStatus.renderedDeliveryEvidenceSummary || '').in
 assert.equal(reportReadinessStatus.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatus.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'report readiness rendered delivery source path');
 assert.match(reportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'report readiness rendered delivery source hash');
 if (Number.isInteger(reportReadinessStatus.deliveryFileIntegrityRequired)) {
-  assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165, 167, 169].includes(reportReadinessStatus.deliveryFileIntegrityRequired), 'report readiness supports historical and current delivery-file counts');
+  assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165, 167, 169, 173].includes(reportReadinessStatus.deliveryFileIntegrityRequired), 'report readiness supports historical and current delivery-file counts');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityVerified, reportReadinessStatus.deliveryFileIntegrityRequired, 'report readiness verifies every delivery file');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'report readiness delivery-file issues empty');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityPass, true, 'report readiness delivery-file integrity passes');
@@ -906,22 +906,23 @@ if (Number.isInteger(reportReadinessStatus.deliveryFileIntegrityRequired)) {
     [[86, 86], [66, 66], [13, 13]],
     [[88, 88], [66, 66], [13, 13]],
     [[90, 90], [66, 66], [13, 13]],
-  ].some(expected => JSON.stringify(expected) === JSON.stringify(deliveryCounts)), 'report readiness supports historical and Schema v31 redacted delivery breakdowns');
+    [[94, 94], [66, 66], [13, 13]],
+  ].some(expected => JSON.stringify(expected) === JSON.stringify(deliveryCounts)), 'report readiness supports historical and current redacted delivery breakdowns');
 }
 if (Number.isInteger(reportReadinessStatus.steelHtmlContentSealRequired)) {
-  assert.ok([5, 6, 7].includes(reportReadinessStatus.steelHtmlContentSealRequired), 'report readiness supports the 5-to-7 steel HTML content seal transition');
+  assert.ok([5, 6, 7, 9].includes(reportReadinessStatus.steelHtmlContentSealRequired), 'report readiness supports the 5-to-9 steel HTML content seal transition');
   assert.equal(reportReadinessStatus.steelHtmlContentSealComplete, reportReadinessStatus.steelHtmlContentSealRequired, 'report readiness completes every steel HTML content seal');
   assert.equal(reportReadinessStatus.steelHtmlContentSealIssueCount, 0, 'report readiness steel HTML content seal issues empty');
   assert.equal(reportReadinessStatus.steelHtmlContentSealPass, true, 'report readiness steel HTML content seals pass');
 }
 if (Number.isInteger(reportReadinessStatus.steelHtmlApprovalSealRequired)) {
-  assert.ok([5, 6, 7].includes(reportReadinessStatus.steelHtmlApprovalSealRequired), 'report readiness supports the 5-to-7 steel HTML approval seal transition');
+  assert.ok([5, 6, 7, 9].includes(reportReadinessStatus.steelHtmlApprovalSealRequired), 'report readiness supports the 5-to-9 steel HTML approval seal transition');
   assert.equal(reportReadinessStatus.steelHtmlApprovalSealComplete, reportReadinessStatus.steelHtmlApprovalSealRequired, 'report readiness completes every steel HTML approval seal');
   assert.equal(reportReadinessStatus.steelHtmlApprovalSealIssueCount, 0, 'report readiness steel HTML approval seal issues empty');
   assert.equal(reportReadinessStatus.steelHtmlApprovalSealPass, true, 'report readiness steel HTML approval seals pass');
 }
 if (Number.isInteger(reportReadinessStatus.steelResultReconciliationRequired)) {
-  assert.ok([5, 6, 7].includes(reportReadinessStatus.steelResultReconciliationRequired), 'report readiness supports the 5-to-7 steel result reconciliation transition');
+  assert.ok([5, 6, 7, 9].includes(reportReadinessStatus.steelResultReconciliationRequired), 'report readiness supports the 5-to-9 steel result reconciliation transition');
   assert.equal(reportReadinessStatus.steelResultReconciliationComplete, reportReadinessStatus.steelResultReconciliationRequired, 'report readiness completes every steel result reconciliation');
   assert.equal(reportReadinessStatus.steelResultReconciliationIssueCount, 0, 'report readiness steel result reconciliation issues empty');
   assert.equal(reportReadinessStatus.steelResultReconciliationPass, true, 'report readiness steel result reconciliations pass');
