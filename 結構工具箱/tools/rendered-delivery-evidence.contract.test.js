@@ -47,13 +47,23 @@ const localQuickResultReconciliationRequired = new Set(
 // blocked-boundary PDF/evidence pairs (six files per inventory entry). Schema v31
 // additionally makes the steel Shear Tab PDF/evidence pair canonical. Schema v32
 // adds the independently governed frame-analysis PDF/evidence pair. Schema v33
-// adds the bounded steel Gusset tension-connection PDF/evidence pair.
+// adds the bounded steel Gusset tension-connection PDF/evidence pair. Schema v34
+// adds the governed moment-connection and CJP column-splice PDF/evidence pairs.
 const steelShearTabCanonicalArtifactRequired = 2;
 const frameAnalysisCanonicalArtifactRequired = 2;
 const steelGussetCanonicalArtifactRequired = 2;
-const canonicalArtifactIntegrityRequired = 48 + (localQuickResultReconciliationRequired * 6) + steelShearTabCanonicalArtifactRequired + frameAnalysisCanonicalArtifactRequired + steelGussetCanonicalArtifactRequired;
+const steelMomentConnectionCanonicalArtifactRequired = 2;
+const steelColumnSpliceCanonicalArtifactRequired = 2;
+const steelFormalScenarioRequired = 9;
+const canonicalArtifactIntegrityRequired = 48
+  + (localQuickResultReconciliationRequired * 6)
+  + steelShearTabCanonicalArtifactRequired
+  + frameAnalysisCanonicalArtifactRequired
+  + steelGussetCanonicalArtifactRequired
+  + steelMomentConnectionCanonicalArtifactRequired
+  + steelColumnSpliceCanonicalArtifactRequired;
 assert.equal(localQuickResultReconciliationRequired, 6, 'rendered delivery evidence inventory preserves all 6 local quick tools');
-assert.equal(canonicalArtifactIntegrityRequired, 90, 'Schema v33 requires 90 canonical PDF and evidence files');
+assert.equal(canonicalArtifactIntegrityRequired, 94, 'Schema v34 requires 94 canonical PDF and evidence files');
 
 for (const needle of ['計算層級 / 複核邊界', '條文對照 ＆ 方法分級', '規範覆蓋矩陣']) {
   assert.ok(DEFAULT_FORBIDDEN.includes(needle), `rendered delivery evidence shares calculation-book boundary: ${needle}`);
@@ -2902,10 +2912,10 @@ assert.equal(formalHtmlApprovalSeal.pass, true, 'release rendered evidence passe
 const steelHtmlContentSeal = {
   schemaVersion: 1,
   scope: 'steel-formal-html-reproducible-content-sha256',
-  required: 7,
+  required: steelFormalScenarioRequired,
   complete: steelHtmlDualSealRecords.length,
-  issueCount: Math.max(0, 7 - steelHtmlDualSealRecords.length),
-  pass: steelHtmlDualSealRecords.length === 7,
+  issueCount: Math.max(0, steelFormalScenarioRequired - steelHtmlDualSealRecords.length),
+  pass: steelHtmlDualSealRecords.length === steelFormalScenarioRequired,
   setSha256: formalHtmlSealSetHash(steelHtmlDualSealRecords, 'content'),
   records: steelHtmlDualSealRecords.map(record => ({
     key: record.key,
@@ -2918,10 +2928,10 @@ const steelHtmlContentSeal = {
 const steelHtmlApprovalSeal = {
   schemaVersion: 1,
   scope: 'steel-formal-html-reproducible-approval-sha256',
-  required: 7,
+  required: steelFormalScenarioRequired,
   complete: steelHtmlDualSealRecords.length,
-  issueCount: Math.max(0, 7 - steelHtmlDualSealRecords.length),
-  pass: steelHtmlDualSealRecords.length === 7,
+  issueCount: Math.max(0, steelFormalScenarioRequired - steelHtmlDualSealRecords.length),
+  pass: steelHtmlDualSealRecords.length === steelFormalScenarioRequired,
   setSha256: formalHtmlSealSetHash(steelHtmlDualSealRecords, 'approval'),
   records: steelHtmlDualSealRecords.map(record => ({
     key: record.key,
@@ -2932,8 +2942,8 @@ const steelHtmlApprovalSeal = {
   })),
 };
 assert.equal(new Set(steelHtmlDualSealRecords.map(record => record.key)).size, steelHtmlDualSealRecords.length, 'release rendered evidence steel formal HTML seal identities are unique');
-assert.equal(steelHtmlContentSeal.complete, steelHtmlContentSeal.required, 'release rendered evidence independently verifies all 7 steel formal HTML content seals');
-assert.equal(steelHtmlApprovalSeal.complete, steelHtmlApprovalSeal.required, 'release rendered evidence independently verifies all 7 steel formal HTML approval seals');
+assert.equal(steelHtmlContentSeal.complete, steelHtmlContentSeal.required, `release rendered evidence independently verifies all ${steelFormalScenarioRequired} steel formal HTML content seals`);
+assert.equal(steelHtmlApprovalSeal.complete, steelHtmlApprovalSeal.required, `release rendered evidence independently verifies all ${steelFormalScenarioRequired} steel formal HTML approval seals`);
 assert.equal(steelHtmlContentSeal.pass, true, 'release rendered evidence passes steel formal HTML content seal verification');
 assert.equal(steelHtmlApprovalSeal.pass, true, 'release rendered evidence passes steel formal HTML approval seal verification');
 const anchorHtmlContentSeal = {
@@ -2976,15 +2986,15 @@ assert.equal(anchorHtmlApprovalSeal.pass, true, 'release rendered evidence passe
 const steelResultReconciliation = {
   schemaVersion: 1,
   scope: 'steel-source-replay-to-report-fingerprint',
-  required: 7,
+  required: steelFormalScenarioRequired,
   complete: steelResultReconciliationRecords.length,
-  issueCount: Math.max(0, 7 - steelResultReconciliationRecords.length),
-  pass: steelResultReconciliationRecords.length === 7,
+  issueCount: Math.max(0, steelFormalScenarioRequired - steelResultReconciliationRecords.length),
+  pass: steelResultReconciliationRecords.length === steelFormalScenarioRequired,
   setSha256: steelResultReconciliationSetHash(steelResultReconciliationRecords),
   records: steelResultReconciliationRecords,
 };
 assert.equal(new Set(steelResultReconciliationRecords.map(record => record.key)).size, steelResultReconciliationRecords.length, 'release rendered evidence steel result reconciliation identities are unique');
-assert.equal(steelResultReconciliation.complete, steelResultReconciliation.required, 'release rendered evidence reconciles all 7 steel source replays to report fingerprints');
+assert.equal(steelResultReconciliation.complete, steelResultReconciliation.required, `release rendered evidence reconciles all ${steelFormalScenarioRequired} steel source replays to report fingerprints`);
 assert.equal(steelResultReconciliation.pass, true, 'release rendered evidence passes steel result reconciliation');
 const stoneResultReconciliation = {
   schemaVersion: 1,
