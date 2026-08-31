@@ -3134,7 +3134,7 @@ assert.equal(xlsxDualSeal.contentComplete, xlsxDualSeal.contentRequired, 'releas
 assert.equal(xlsxDualSeal.approvalComplete, xlsxDualSeal.approvalRequired, 'release verifies the formal XLSX approval seal');
 assert.equal(xlsxDualSeal.pass, true, 'release passes formal XLSX dual seal integrity');
 const aggregate = {
-  schemaVersion: 33,
+  schemaVersion: 34,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),

@@ -2113,17 +2113,21 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const shearTabSteelFormalEvidenceDeclared = Number(evidence?.schemaVersion) >= 31;
   const frameAnalysisFormalEvidenceDeclared = Number(evidence?.schemaVersion) >= 32;
   const gussetSteelFormalEvidenceDeclared = Number(evidence?.schemaVersion) >= 33;
+  const finalConnectionSteelFormalEvidenceDeclared = Number(evidence?.schemaVersion) >= 34;
   const expectedLocalQuickResultReconciliationCount = cableTensionLocalQuickResultReconciliationDeclared
     ? 6
     : (columnCoverLocalQuickResultReconciliationDeclared
       ? 5
       : (expandedLocalQuickResultReconciliationDeclared ? 4 : 3));
-  const expectedSteelFormalEvidenceCount = gussetSteelFormalEvidenceDeclared ? 7 : (shearTabSteelFormalEvidenceDeclared ? 6 : 5);
+  const expectedSteelFormalEvidenceCount = finalConnectionSteelFormalEvidenceDeclared
+    ? 9
+    : (gussetSteelFormalEvidenceDeclared ? 7 : (shearTabSteelFormalEvidenceDeclared ? 6 : 5));
   const expectedCanonicalArtifactIntegrityCount = 48
     + (expectedLocalQuickResultReconciliationCount * 6)
     + (shearTabSteelFormalEvidenceDeclared ? 2 : 0)
     + (frameAnalysisFormalEvidenceDeclared ? 2 : 0)
-    + (gussetSteelFormalEvidenceDeclared ? 2 : 0);
+    + (gussetSteelFormalEvidenceDeclared ? 2 : 0)
+    + (finalConnectionSteelFormalEvidenceDeclared ? 4 : 0);
   const earthBridgeRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 13;
   const pileGroupLateralRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 14;
   const rcSourceReportPackageDeclared = Number(evidence?.schemaVersion) >= 15;
