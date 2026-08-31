@@ -109,6 +109,9 @@ class ReshoreCapacityAttachmentTests(unittest.TestCase):
                 "0.717457",
                 "0.223352",
                 "PASS",
+                "產出工具",
+                "工具版本",
+                "檢核公式",
                 self.response["bearingEvidence"]["fileName"],
                 "https://ej.aisc.org/index.php/engj/article/view/214",
             ):
@@ -193,6 +196,9 @@ class ReshoreCapacityAttachmentTests(unittest.TestCase):
                     self.assertEqual(margins.find(f"{W}bottom").attrib[f"{W}w"], "80")
                     self.assertEqual(margins.find(f"{W}left").attrib[f"{W}w"], "120")
                     self.assertEqual(margins.find(f"{W}right").attrib[f"{W}w"], "120")
+
+        repeating_headers = document_root.findall(f".//{W}trPr/{W}tblHeader")
+        self.assertGreaterEqual(len(repeating_headers), 3)
 
         fills = [node.attrib.get(f"{W}fill") for node in document_root.findall(f".//{W}shd")]
         self.assertIn("E8EEF5", fills)

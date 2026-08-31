@@ -2699,7 +2699,14 @@ const receiverPdf = validatePdfFile(receiverPdfPath, {
   titleNeedle: '接收端獨立計算附件',
   projectNeedle: '__skip_project_order__',
   keepWithNextLabels: ['一、文件身分與追溯', '二、採用輸入', '三、需求 P 與控制容量', '四、上下端三項檢核', '五、公式與依據', '六、未涵蓋邊界'],
-  continuationContextLabels: ['接收端獨立計算附件', '上下端三項檢核', '頂端', '底端', '公式與依據', '未涵蓋邊界'],
+  continuationContextLabels: [
+    '接收端獨立計算附件',
+    '四、上下端三項檢核',
+    '頂端',
+    '底端',
+    '五、公式與依據',
+    '六、未涵蓋邊界',
+  ],
 });
 const receiverPdfText = fs.readFileSync(receiverPdf.textPath, 'utf8');
 assert.equal(receiverAttachment.pdfPageCount, receiverPdf.pageCount, 'RSC/RSB summary matches independently parsed PDF pages');

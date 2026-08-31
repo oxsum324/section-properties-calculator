@@ -29,7 +29,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from .config import get_settings
-from .reporting import report_document_metadata
+from .reporting import REPORT_TOOL_NAME, REPORT_TOOL_VERSION, report_document_metadata
 
 
 ATTACHMENT_SCHEMA_VERSION = 1
@@ -360,6 +360,8 @@ def _identity_rows(context: dict[str, Any], document_metadata: dict[str, str]) -
     return [
         ["文件狀態", document_metadata["document_status_label"]],
         ["輸出時間", document_metadata["output_time"]],
+        ["產出工具", REPORT_TOOL_NAME],
+        ["工具版本", REPORT_TOOL_VERSION],
         ["附件種類", ATTACHMENT_KIND],
         ["RSC 版本／指紋", f"v{rsc['schemaVersion']} / {context['rscFingerprint']}"],
         ["RSC JSON／SHA-256", f"{context['rscEvidence']['fileName']} / {context['rscEvidence']['fileSha256']}"],
@@ -465,7 +467,7 @@ def _formula_lines(context: dict[str, Any]) -> list[str]:
     connection = code_basis.get("compressionBearingConnectionBoundary", {})
     support_criteria = support.get("criteria", [])
     return [
-        "P = PERT x imbalance / memberCount + Padd.",
+        "檢核公式：P = PERT x imbalance / memberCount + Padd.",
         *[str(item) for item in support_criteria],
         str(h_section.get("criterion", "")),
         str(plate.get("criterion", "")),
@@ -523,7 +525,12 @@ def _write_pdf(path: Path, context: dict[str, Any], document_metadata: dict[str,
         Paragraph("一、文件身分與追溯", styles["RscHeading"]),
         _pdf_table(_identity_rows(context, document_metadata), [43 * mm, 127 * mm], styles),
         Paragraph("二、採用輸入", styles["RscHeading"]),
-        _pdf_table(_input_rows(context), [51 * mm, 119 * mm], styles),
+        _pdf_table(
+            [["項目", "採用值"], *_input_rows(context)],
+            [51 * mm, 119 * mm],
+            styles,
+            header=True,
+        ),
         Paragraph("三、需求 P 與控制容量", styles["RscHeading"]),
         _pdf_table(_demand_rows(context), [72 * mm, 98 * mm], styles),
         Spacer(1, 2 * mm),
@@ -640,7 +647,12 @@ def _write_docx(path: Path, context: dict[str, Any], document_metadata: dict[str
     _word_heading(document, "一、文件身分與追溯")
     _word_table(document, _identity_rows(context, document_metadata), [2700, 6660])
     _word_heading(document, "二、採用輸入")
-    _word_table(document, _input_rows(context), [2700, 6660])
+    _word_table(
+        document,
+        [["項目", "採用值"], *_input_rows(context)],
+        [2700, 6660],
+        header=True,
+    )
     _word_heading(document, "三、需求 P 與控制容量")
     _word_table(document, _demand_rows(context), [2700, 6660])
     document.add_paragraph().paragraph_format.space_after = Pt(1)

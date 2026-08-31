@@ -157,7 +157,7 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 2,
-    generatedAt: '2026-08-31',
+    generatedAt: '2026-09-01',
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
@@ -211,7 +211,7 @@
       '/floor-slab-westergaard': '2026-08-30',
       '/cable-tension-frequency': '2026-08-30',
       '/decking': '2026-08-29',
-      '/excavation-support': '2026-08-31'
+      '/excavation-support': '2026-09-01'
     }
   };
 
