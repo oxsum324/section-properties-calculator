@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import re
@@ -14,9 +15,16 @@ from docx import Document
 from pypdf import PdfReader
 
 from backend.app.calculations import calculate_project
+from backend.app.pdf_render_evidence import (
+    build_pdf_canonical_render_evidence,
+    build_pdf_formal_source_bundle,
+)
 from backend.app.project_store import ProjectStore
+from backend.app.receiver_capacity import calculate_reshore_member_capacity
+from backend.app.receiver_capacity_attachment import build_reshore_capacity_attachment
+from backend.app.removal_transfer_handoff import build_removal_transfer_handoff
 from backend.app.reporting import build_report, build_word_report, calculation_fingerprint
-from backend.app.schemas import ProjectState
+from backend.app.schemas import AnalysisForceCase, ProjectState, ReshoreMemberCapacityInput
 from backend.app.workbook_loader import load_default_project
 
 
@@ -118,6 +126,88 @@ def verify_replayed_results(expected: dict, actual: dict) -> tuple[int, int, dic
     return check_count, assertion_count, group_counts
 
 
+def build_receiver_capacity_attachment_fixture() -> dict:
+    project = load_default_project().model_copy(deep=True)
+    project.metadata.id = "release-rsc-v4-rsb-v1"
+    project.metadata.name = "正式放行 RSC v4／RSB v1 接收端附件範例"
+    row = project.top_supports[0]
+    row.force_source = "analysis_import"
+    row.analysis_stage_cases = [
+        AnalysisForceCase(
+            stage_index=2,
+            stage_label="第二階開挖",
+            axial_force_t=row.axial_force_t,
+        )
+    ]
+    row.analysis_install_stage_index = 1
+    row.analysis_install_stage_label = "第一道支撐安裝"
+    row.analysis_control_stage_index = 2
+    row.analysis_control_stage_label = "第二階開挖"
+    row.analysis_removal_stage_index = 3
+    row.analysis_removal_stage_label = "第一道支撐拆除"
+    row.removal_transfer_mode = "reshore"
+    row.removal_transfer_target = "B2F R1 重撐群"
+    row.removal_transfer_direction = "沿原支撐軸線傳至 B2F"
+    row.removal_transfer_basis = "拆撐順序圖 CS-04"
+    row.removal_transfer_confirmed = True
+    row.construction_step_label = "第二階開挖完成"
+    row.analysis_mapping_basis = "施工順序圖 CS-02"
+    row.analysis_mapping_confirmed = True
+    project.calculation_results = calculate_project(project)
+    handoff = build_removal_transfer_handoff(
+        project,
+        calculation_fingerprint(project),
+        generated_at="2026-09-01T08:00:00Z",
+    )
+    calculation_input = ReshoreMemberCapacityInput(
+        analysis_mode="pure_axial",
+        section_name="RH300X300X10X15",
+        member_count=2,
+        unbraced_length_x_m=3.0,
+        unbraced_length_y_m=3.0,
+        effective_length_factor_kx=1.0,
+        effective_length_factor_ky=1.0,
+        fy_tf_per_cm2=2.5,
+        e_tf_per_cm2=2040.0,
+        allowable_stress_increase_factor=1.0,
+        imbalance_factor=1.1,
+        additional_axial_load_tf_per_member=1.0,
+        governing_load_combination="拆撐階段 LC-RM-01",
+        effective_length_basis="上下端依施工詳圖視為鉸接，Kx=Ky=1.0",
+        load_distribution_basis="兩支平均分配並以 1.10 不均勻係數放大",
+        additional_load_basis="單支自重及預壓附加軸力 1.0 tf",
+        pure_axial_no_eccentricity_confirmed=True,
+        end_bearing_mode="centered_rectangular_plate",
+        top_end_plate_fy_tf_per_cm2=2.5,
+        top_end_plate_width_cm=45.0,
+        top_end_plate_length_cm=45.0,
+        top_end_plate_thickness_cm=3.0,
+        top_support_material="concrete_full_area",
+        top_support_material_strength_tf_per_cm2=0.28,
+        bottom_end_plate_width_cm=50.0,
+        bottom_end_plate_length_cm=50.0,
+        bottom_end_plate_thickness_cm=3.5,
+        bottom_end_plate_fy_tf_per_cm2=2.5,
+        bottom_support_material="finished_steel",
+        bottom_support_material_strength_tf_per_cm2=2.5,
+        bottom_support_true_plane_confirmed=True,
+        end_bearing_configuration_basis="端板配置與密貼依施工詳圖 EB-01。",
+        end_plate_bending_method_basis="專案指定採均佈反力懸臂板模型及 Fb=0.60Fy。",
+        top_support_bearing_basis="混凝土試驗報告 FC-01，f'c=0.28 tf/cm²；全面積承壓。",
+        bottom_support_bearing_basis="加工鋼支承詳圖 SB-01，Fy=2.5 tf/cm²。",
+        centered_full_contact_end_bearing_confirmed=True,
+        h_section_end_finished_confirmed=True,
+        unperforated_unstiffened_single_plate_confirmed=True,
+    )
+    response = calculate_reshore_member_capacity(
+        handoff,
+        handoff["transfers"][0]["transferId"],
+        calculation_input,
+        generated_at="2026-09-01T09:00:00Z",
+    )
+    return response
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         raise SystemExit("usage: release_report_artifacts.py <output-dir>")
@@ -158,6 +248,7 @@ def main() -> int:
 
     generated_pdf: Path | None = None
     generated_docx: Path | None = None
+    generated_attachment_paths: list[Path] = []
     try:
         generated_pdf = build_report(project, concise_mode=False, approved=True)
         generated_docx = build_word_report(project, concise_mode=False, approved=True)
@@ -234,6 +325,165 @@ def main() -> int:
         require(sha256(latest_pdf_path) == pdf_hash, "latest PDF must match generated PDF")
         require(sha256(latest_docx_path) == docx_hash, "latest DOCX must match generated DOCX")
 
+        receiver_response = build_receiver_capacity_attachment_fixture()
+        receiver_json_paths: dict[str, Path] = {}
+        for key in ("evidence", "bearingEvidence"):
+            envelope = receiver_response[key]
+            evidence_bytes = base64.b64decode(
+                envelope["contentBase64"],
+                validate=True,
+            )
+            evidence_path = output_dir / envelope["fileName"]
+            evidence_path.write_bytes(evidence_bytes)
+            require(
+                sha256(evidence_path) == envelope["fileSha256"],
+                f"receiver {key} JSON SHA-256 must match its exact response envelope",
+            )
+            receiver_json_paths[key] = evidence_path
+        attachment_output_time = datetime.now(timezone.utc)
+        receiver_pdf_artifact = build_reshore_capacity_attachment(
+            receiver_response,
+            report_kind="pdf",
+            output_at=attachment_output_time,
+        )
+        generated_attachment_paths.append(receiver_pdf_artifact.path)
+        receiver_docx_artifact = build_reshore_capacity_attachment(
+            receiver_response,
+            report_kind="docx",
+            output_at=attachment_output_time,
+        )
+        generated_attachment_paths.append(receiver_docx_artifact.path)
+        receiver_render_evidence = build_pdf_canonical_render_evidence(
+            receiver_pdf_artifact.path
+        )
+        generated_attachment_paths.append(receiver_render_evidence)
+        receiver_source_bundle = build_pdf_formal_source_bundle(
+            receiver_pdf_artifact.path,
+            receiver_render_evidence,
+        )
+        generated_attachment_paths.append(receiver_source_bundle)
+
+        receiver_release_paths = {
+            "pdf": output_dir / receiver_pdf_artifact.path.name,
+            "docx": output_dir / receiver_docx_artifact.path.name,
+            "evidence": output_dir / receiver_render_evidence.name,
+            "bundle": output_dir / receiver_source_bundle.name,
+        }
+        for source, destination in (
+            (receiver_pdf_artifact.path, receiver_release_paths["pdf"]),
+            (receiver_docx_artifact.path, receiver_release_paths["docx"]),
+            (receiver_render_evidence, receiver_release_paths["evidence"]),
+            (receiver_source_bundle, receiver_release_paths["bundle"]),
+        ):
+            if source.resolve() != destination.resolve():
+                shutil.copy2(source, destination)
+
+        receiver_pdf_reader = PdfReader(str(receiver_release_paths["pdf"]))
+        receiver_pdf_text = "\n".join(
+            page.extract_text() or "" for page in receiver_pdf_reader.pages
+        )
+        receiver_document = Document(str(receiver_release_paths["docx"]))
+        receiver_docx_text = "\n".join(
+            [paragraph.text for paragraph in receiver_document.paragraphs]
+            + [
+                cell.text
+                for table in receiver_document.tables
+                for row in table.rows
+                for cell in row.cells
+            ]
+        )
+        rsc_fingerprint = receiver_response["calculation"]["calculationFingerprint"]
+        rsb_fingerprint = receiver_response["bearingEvidence"]["documentReference"]
+        for needle in (
+            "RSC v4",
+            "RSB v1",
+            rsc_fingerprint,
+            rsb_fingerprint,
+            receiver_response["evidence"]["fileSha256"],
+            receiver_response["bearingEvidence"]["fileSha256"],
+            "0.298816",
+            "0.717457",
+            "0.223352",
+            "PASS",
+            "https://ej.aisc.org/index.php/engj/article/view/214",
+            "本獨立接收端附件不會寫入或改動來源專案的主 PDF/DOCX 計算書。",
+        ):
+            require(needle in receiver_pdf_text, f"receiver PDF missing required text: {needle}")
+            require(needle in receiver_docx_text, f"receiver DOCX missing required text: {needle}")
+        require(
+            receiver_pdf_artifact.attachment_file_sha256
+            == sha256(receiver_release_paths["pdf"]),
+            "receiver PDF artifact SHA-256 must survive release copy",
+        )
+        require(
+            receiver_docx_artifact.attachment_file_sha256
+            == sha256(receiver_release_paths["docx"]),
+            "receiver DOCX artifact SHA-256 must survive release copy",
+        )
+        receiver_evidence = json.loads(
+            receiver_release_paths["evidence"].read_text(encoding="utf-8")
+        )
+        require(
+            receiver_evidence.get("artifact") == receiver_release_paths["pdf"].name,
+            "receiver canonical evidence must identify the exact PDF",
+        )
+        require(
+            receiver_evidence.get("artifactSha256")
+            == sha256(receiver_release_paths["pdf"]),
+            "receiver canonical evidence must bind the exact PDF SHA-256",
+        )
+        require(
+            receiver_evidence.get("pdf", {}).get("pageCount")
+            == len(receiver_pdf_reader.pages),
+            "receiver canonical evidence page count must match the PDF",
+        )
+        with ZipFile(receiver_release_paths["bundle"]) as receiver_bundle:
+            require(
+                receiver_bundle.namelist()
+                == [
+                    receiver_release_paths["pdf"].name,
+                    receiver_release_paths["evidence"].name,
+                ],
+                "receiver formal source bundle must contain only the PDF/evidence pair",
+            )
+            require(
+                hashlib.sha256(
+                    receiver_bundle.read(receiver_release_paths["pdf"].name)
+                ).hexdigest()
+                == sha256(receiver_release_paths["pdf"]),
+                "receiver formal source bundle PDF bytes must match",
+            )
+
+        receiver_attachment_summary = {
+            "schemaVersion": 1,
+            "kind": "rsc-v4-rsb-independent-calculation-attachment",
+            "documentStatus": "formal-attachment",
+            "rscCalculationFingerprint": rsc_fingerprint,
+            "rscEvidenceFileName": receiver_response["evidence"]["fileName"],
+            "rscEvidenceBytes": receiver_json_paths["evidence"].stat().st_size,
+            "rscEvidenceFileSha256": receiver_response["evidence"]["fileSha256"],
+            "rsbCalculationFingerprint": rsb_fingerprint,
+            "rsbEvidenceFileName": receiver_response["bearingEvidence"]["fileName"],
+            "rsbEvidenceBytes": receiver_json_paths["bearingEvidence"].stat().st_size,
+            "rsbEvidenceFileSha256": receiver_response["bearingEvidence"]["fileSha256"],
+            "artifact": receiver_release_paths["pdf"].name,
+            "artifactBytes": receiver_release_paths["pdf"].stat().st_size,
+            "artifactSha256": sha256(receiver_release_paths["pdf"]),
+            "document": receiver_release_paths["docx"].name,
+            "documentBytes": receiver_release_paths["docx"].stat().st_size,
+            "documentSha256": sha256(receiver_release_paths["docx"]),
+            "canonicalEvidence": receiver_release_paths["evidence"].name,
+            "canonicalEvidenceBytes": receiver_release_paths["evidence"].stat().st_size,
+            "canonicalEvidenceSha256": sha256(receiver_release_paths["evidence"]),
+            "formalSourceBundle": receiver_release_paths["bundle"].name,
+            "formalSourceBundleBytes": receiver_release_paths["bundle"].stat().st_size,
+            "formalSourceBundleSha256": sha256(receiver_release_paths["bundle"]),
+            "pdfPageCount": len(receiver_pdf_reader.pages),
+            "pdfTextLength": len(receiver_pdf_text),
+            "documentTextLength": len(receiver_docx_text),
+            "pass": True,
+        }
+
         summary = {
             "schemaVersion": 1,
             "family": "excavation-formal",
@@ -286,6 +536,7 @@ def main() -> int:
                         "docxSha256": docx_hash,
                         "pass": True,
                     },
+                    "receiverCapacityAttachment": receiver_attachment_summary,
                 }
             ],
         }
@@ -297,7 +548,8 @@ def main() -> int:
             "Excavation release artifacts OK "
             f"(pdfPages={len(reader.pages)}, pdfText={len(pdf_text)}, "
             f"docxText={len(docx_text)}, checks={verified_check_count}, "
-            f"assertions={verified_assertion_count}, output={output_dir})"
+            f"assertions={verified_assertion_count}, receiverAttachment=PDF+DOCX, "
+            f"output={output_dir})"
         )
         return 0
     finally:
@@ -305,6 +557,9 @@ def main() -> int:
             generated_pdf.unlink(missing_ok=True)
         if generated_docx is not None:
             generated_docx.unlink(missing_ok=True)
+        for attachment_path in generated_attachment_paths:
+            if attachment_path.resolve().parent != output_dir:
+                attachment_path.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

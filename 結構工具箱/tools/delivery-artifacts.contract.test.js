@@ -117,6 +117,8 @@ const excavationReportDeliveryApiTests = readText(repoFile('開挖擋土支撐/b
 const excavationStoreTests = readText(repoFile('開挖擋土支撐/backend/tests/test_project_store.py'));
 const excavationReportContract = readText(repoFile('開挖擋土支撐/excavation-report.contract.test.js'));
 const excavationReleaseArtifacts = readText(repoFile('開挖擋土支撐/backend/tests/release_report_artifacts.py'));
+const excavationReceiverAttachment = readText(repoFile('開挖擋土支撐/backend/app/receiver_capacity_attachment.py'));
+const excavationReceiverAttachmentTests = readText(repoFile('開挖擋土支撐/backend/tests/test_receiver_capacity_attachment.py'));
 const excavationReadme = readText(repoFile('開挖擋土支撐/README.md'));
 const anchorReportContract = readText(repoFile('螺栓檢討/anchor-report.contract.test.js'));
 const anchorPackageReadme = readText(repoFile('螺栓檢討/bolt-review-tool/README.md'));
@@ -466,6 +468,31 @@ assertIncludesAny(
 ].forEach(needle => assertIncludes(excavationReleaseArtifacts, needle, `excavation durable release artifact generator keeps ${needle}`));
 
 [
+  'rsc-v4-rsb-independent-calculation-attachment',
+  'build_reshore_capacity_attachment',
+  'calculation_response.get("calculation") != rsc_record',
+  'RSB 無法以單檔輸入重播單支需求 P',
+  '找不到可嵌入的繁中文字型，接收端 PDF 已 fail closed',
+  'RSC v4 / RSB v1 接收端獨立計算附件',
+  '本獨立接收端附件不會寫入或改動來源專案的主 PDF/DOCX 計算書。',
+].forEach(needle => assertIncludes(excavationReceiverAttachment, needle, `excavation receiver formal attachment keeps ${needle}`));
+
+[
+  '/api/removal-transfer/reshore-member-capacity/attachment',
+  'exact_calculation_response_verified',
+  'formal_source_bundle_url',
+  'attachment_download_name_allowed',
+].forEach(needle => assertIncludes(excavationReceiverAttachmentTests, needle, `excavation receiver attachment tests cover ${needle}`));
+
+[
+  'receiverCapacityAttachment',
+  'rsc-v4-rsb-independent-calculation-attachment',
+  'formalSourceBundleSha256',
+  'rscEvidenceFileSha256',
+  'rsbEvidenceFileSha256',
+].forEach(needle => assertIncludes(excavationReleaseArtifacts, needle, `excavation release preserves receiver attachment field ${needle}`));
+
+[
   'PDF／Word 計算書輸出：預設為可列印的內部審閱，明確勾選核可後才標示為正式附件',
   'app_data',
   'Word/PDF 輸出',
@@ -475,6 +502,8 @@ assertIncludesAny(
   '最新下載',
   '.formal-source.zip',
   '不是正式附件包',
+  '獨立正式 PDF／DOCX 接收端附件',
+  'reshoreCapacityFormalAttachment',
 ].forEach(needle => assertIncludes(excavationReadme, needle, `excavation README delivery boundary keeps ${needle}`));
 
 [

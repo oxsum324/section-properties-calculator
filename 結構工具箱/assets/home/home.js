@@ -211,7 +211,7 @@
       '/floor-slab-westergaard': '2026-08-30',
       '/cable-tension-frequency': '2026-08-30',
       '/decking': '2026-08-29',
-      '/excavation-support': '2026-08-28'
+      '/excavation-support': '2026-08-31'
     }
   };
 
@@ -286,6 +286,7 @@
         '開挖擋土支撐/index.html',
         '開挖擋土支撐/README.md',
         '開挖擋土支撐/frontend/src/App.tsx',
+        '開挖擋土支撐/frontend/src/api.ts',
         '開挖擋土支撐/frontend/src/types.ts',
         '開挖擋土支撐/backend/app/parsers.py',
         '開挖擋土支撐/backend/app/main.py',
@@ -297,6 +298,10 @@
         '開挖擋土支撐/excavation-traceability.catalog.json',
         '開挖擋土支撐/backend/app/removal_transfer_handoff.py',
         '開挖擋土支撐/backend/app/receiver_capacity.py',
+        '開挖擋土支撐/backend/app/receiver_capacity_attachment.py',
+        '開挖擋土支撐/backend/tests/test_receiver_capacity.py',
+        '開挖擋土支撐/backend/tests/test_receiver_capacity_attachment.py',
+        '開挖擋土支撐/backend/tests/release_report_artifacts.py',
         '開挖擋土支撐/backend/app/receiver_operator_auth.py',
         '開挖擋土支撐/backend/app/receiver_operator_backup.py',
         '開挖擋土支撐/backend/app/receiver_operator_recovery.py',
@@ -977,11 +982,11 @@
       categories: ['temporary'],
       state: 'service',
       governance: 'excavation-service',
-      output: '支撐構件檢核、鋼板樁橫擋扣抵、重撐軸壓／雙向彎矩承接、PDF/DOCX 報表與案件資料庫',
-      summary: 'FastAPI + React + SQLite 工作流，匯入分析檔、構件與基礎檢核、具斷面來源之鋼板樁 Mwc／Vwc 橫擋扣抵、受限 H 型鋼重撐互制實算，以及 PDF/DOCX 報表。',
+      output: '支撐構件檢核、鋼板樁橫擋扣抵、重撐軸壓／雙向彎矩與受限上下端直接承壓、PDF/DOCX 報表與案件資料庫',
+      summary: 'FastAPI + React + SQLite 工作流，匯入分析檔、構件與基礎檢核、具斷面來源之鋼板樁 Mwc／Vwc 橫擋扣抵、受限 H 型鋼重撐互制與無加勁端板局部彎曲實算，以及 PDF/DOCX 報表。',
       fit: '支撐、橫擋、斜撐、大角撐、鋼板樁橫擋扣抵、分析輸出匯入與 ERH 重撐承接。',
-      limit: '需先啟動本機前後端服務；鋼板樁能力只折減橫擋需求，不是完整壁體設計；重撐實算不含接頭、承壓、基礎／樓版與施工程序。',
-      capabilities: ['本機服務', 'PDF/DOCX', 'RSC v3 證據鏈']
+      limit: '需先啟動本機前後端服務；鋼板樁能力只折減橫擋需求，不是完整壁體設計；重撐端部只涵蓋對心直接承壓與無加勁端板局部彎曲，不含定位接合、銲栓、加勁肋、承接構造本體或施工程序。',
+      capabilities: ['本機服務', 'PDF/DOCX', 'RSC v4／RSB v1 正式附件']
     }
   ];
 

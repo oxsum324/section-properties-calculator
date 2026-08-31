@@ -64,6 +64,9 @@ RECEIVER_SUPPLEMENTAL_CHECKS = {
     "bracing-and-effective-length": "側向支撐與有效長度條件",
     "construction-sequence-and-preload": "施工順序、預載與卸載控制",
 }
+SUPPLEMENTAL_EVIDENCE_PREFIX_CHECK_ALLOWLIST = {
+    "RSB": frozenset({"bearing"}),
+}
 
 _COLLECTIONS = (
     ("top_supports", "support", "top", "上層水平支撐", "include_top_supports", "support_checks"),
@@ -1028,6 +1031,20 @@ def _validated_receiver_supplemental_checks(value: Any) -> tuple[list[dict[str, 
             raise ValueError(f"承接構造回簽的{RECEIVER_SUPPLEMENTAL_CHECKS[check_id]}標示通過時必須連結證據檔。")
         if status == "not-applicable" and evidence is not None:
             raise ValueError(f"承接構造回簽的{RECEIVER_SUPPLEMENTAL_CHECKS[check_id]}標示不適用時不得連結證據檔。")
+        if evidence is not None:
+            machine_reference = re.fullmatch(
+                r"(?P<prefix>[A-Z]{3})-[0-9A-F]{20}",
+                evidence["documentReference"],
+            )
+            if machine_reference is not None:
+                allowed_checks = SUPPLEMENTAL_EVIDENCE_PREFIX_CHECK_ALLOWLIST.get(
+                    machine_reference.group("prefix")
+                )
+                if allowed_checks is not None and check_id not in allowed_checks:
+                    raise ValueError(
+                        f"{machine_reference.group('prefix')} 證據不得作為"
+                        f"{RECEIVER_SUPPLEMENTAL_CHECKS[check_id]}的補充查核證據。"
+                    )
         controlled = {"checkId": check_id, "status": status, "basis": basis}
         if evidence is not None:
             controlled["evidence"] = evidence

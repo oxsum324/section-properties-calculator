@@ -64,6 +64,51 @@ const reducedRcStmResult = schema.validatePublicEvidenceBundle(reducedRcStm);
 assert.equal(reducedRcStmResult.pass, false, 'RC STM public coverage cannot silently shrink from the governed three attachments');
 assert.ok(reducedRcStmResult.errors.includes('readiness.rcStmFormalAttachmentRequired.expected'), 'RC STM governed count drift is identified');
 
+const withReshoreCapacityAttachment = clone(bundle);
+Object.assign(withReshoreCapacityAttachment.reportReadinessStatus, {
+  deliveryFileIntegrityRequired: 179,
+  deliveryFileIntegrityVerified: 179,
+  deliveryFileIntegrityPass: true,
+  reshoreCapacityFormalAttachmentRequired: 1,
+  reshoreCapacityFormalAttachmentComplete: 1,
+  reshoreCapacityFormalAttachmentArtifactRequired: 6,
+  reshoreCapacityFormalAttachmentArtifactVerified: 6,
+  reshoreCapacityFormalAttachmentIssueCount: 0,
+  reshoreCapacityFormalAttachmentPass: true,
+});
+withReshoreCapacityAttachment.preflightStatus.releaseHistory = schema.buildReleaseHistory([], withReshoreCapacityAttachment);
+const withReshoreCapacityAttachmentResult = schema.validatePublicEvidenceBundle(withReshoreCapacityAttachment);
+assert.equal(withReshoreCapacityAttachmentResult.pass, true, `schema v3 accepts the redacted Schema v35 RSC/RSB attachment counters: ${withReshoreCapacityAttachmentResult.errors.join(', ')}`);
+assert.equal(withReshoreCapacityAttachmentResult.metrics.reshoreCapacityAttachment.pass, true, 'RSC/RSB formal attachment 1 / 1 participates in the delivery dimension');
+assert.equal(withReshoreCapacityAttachmentResult.metrics.reshoreCapacityAttachmentArtifacts.pass, true, 'all six RSC/RSB release artifacts participate in the delivery dimension');
+assert.equal(withReshoreCapacityAttachmentResult.releaseHistory.entries.at(-1).metrics.some(metric => metric.id === 'reshoreCapacityAttachment'), false, 'RSC/RSB special attachment counters remain separate from the already-expanded delivery total');
+
+const missingReshoreCapacityAttachment = clone(withReshoreCapacityAttachment);
+for (const key of [
+  'reshoreCapacityFormalAttachmentRequired',
+  'reshoreCapacityFormalAttachmentComplete',
+  'reshoreCapacityFormalAttachmentArtifactRequired',
+  'reshoreCapacityFormalAttachmentArtifactVerified',
+  'reshoreCapacityFormalAttachmentIssueCount',
+  'reshoreCapacityFormalAttachmentPass',
+]) delete missingReshoreCapacityAttachment.reportReadinessStatus[key];
+const missingReshoreCapacityAttachmentResult = schema.validatePublicEvidenceBundle(missingReshoreCapacityAttachment);
+assert.equal(missingReshoreCapacityAttachmentResult.pass, false, 'public delivery total 179 cannot omit the RSC/RSB formal attachment counters');
+assert.ok(missingReshoreCapacityAttachmentResult.errors.includes('readiness.reshoreCapacityFormalAttachment.v35Required'), 'Schema v35 missing RSC/RSB attachment counters report the governed error');
+
+const incompleteReshoreCapacityAttachment = clone(withReshoreCapacityAttachment);
+incompleteReshoreCapacityAttachment.reportReadinessStatus.reshoreCapacityFormalAttachmentArtifactVerified = 5;
+incompleteReshoreCapacityAttachment.reportReadinessStatus.reshoreCapacityFormalAttachmentIssueCount = 1;
+incompleteReshoreCapacityAttachment.reportReadinessStatus.reshoreCapacityFormalAttachmentPass = false;
+const incompleteReshoreCapacityAttachmentResult = schema.validatePublicEvidenceBundle(incompleteReshoreCapacityAttachment);
+assert.equal(incompleteReshoreCapacityAttachmentResult.pass, false, 'five of six RSC/RSB artifacts fail the public delivery dimension closed');
+
+const leakedReshoreCapacityAttachment = clone(withReshoreCapacityAttachment);
+leakedReshoreCapacityAttachment.reportReadinessStatus.reshoreCapacityFormalAttachmentSetSha256 = 'a'.repeat(64);
+const leakedReshoreCapacityAttachmentResult = schema.validatePublicEvidenceBundle(leakedReshoreCapacityAttachment);
+assert.equal(leakedReshoreCapacityAttachmentResult.pass, false, 'public readiness rejects the private RSC/RSB attachment set hash');
+assert.ok(leakedReshoreCapacityAttachmentResult.errors.includes('readiness.reshoreCapacityFormalAttachment.privateFields'), 'RSC/RSB private-field leak reports the governed error');
+
 const rebuiltHistory = schema.buildReleaseHistory([], bundle);
 assert.equal(rebuiltHistory.entries.length, 1, 'history builder can seed a bounded chain from the current release');
 assert.equal(rebuiltHistory.entries[0].runId, bundle.preflightStatus.runId, 'seeded history identifies the current release');
@@ -124,4 +169,4 @@ unusedReason.preflightStatus.releaseHistory.entries.at(-1).change.reasonCode = '
 unusedReason.preflightStatus.releaseHistory.entries.at(-1).change.reason = '沒有縮減時不得附帶可重用的例外理由。';
 assert.equal(schema.validatePublicEvidenceBundle(unusedReason).pass, false, 'non-reduced release cannot carry a reusable reduction reason');
 
-console.log(`public evidence schema OK (v${schema.SCHEMA_VERSION}, history=${valid.releaseHistory.entries.length}/${schema.RELEASE_HISTORY_LIMIT}, dimensions=${schema.DIMENSION_IDS.length}, negativeCases=15)`);
+console.log(`public evidence schema OK (v${schema.SCHEMA_VERSION}, history=${valid.releaseHistory.entries.length}/${schema.RELEASE_HISTORY_LIMIT}, dimensions=${schema.DIMENSION_IDS.length}, negativeCases=18)`);

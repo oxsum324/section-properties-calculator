@@ -65,6 +65,7 @@ import {
   ReceiverTrustRestorePreview,
   ReceiverVerificationAuthority,
   ReceiverVerificationResult,
+  ReshoreMemberCapacityAttachmentPayload,
   ReshoreMemberCapacityCalculationResponse,
   ReshoreMemberCapacityInput,
   ReferenceData,
@@ -666,6 +667,10 @@ function App() {
   const receiverEvidenceTemplatesPersisted = useRef(false);
   const [reshoreCapacityDrafts, setReshoreCapacityDrafts] = useState<Record<string, ReshoreMemberCapacityInput>>({});
   const [reshoreCapacityCalculations, setReshoreCapacityCalculations] = useState<Record<string, ReshoreMemberCapacityCalculationResponse>>({});
+  const [reshoreCapacityAttachments, setReshoreCapacityAttachments] = useState<
+    Record<string, Partial<Record<"pdf" | "docx", ReshoreMemberCapacityAttachmentPayload>>>
+  >({});
+  const reshoreCapacityAttachmentRequestTokens = useRef<Record<string, symbol>>({});
   const [receiverCalculationConfirmed, setReceiverCalculationConfirmed] = useState(false);
   const [receiverIdentityAcknowledged, setReceiverIdentityAcknowledged] = useState(false);
   const [receiverAssistantReceipt, setReceiverAssistantReceipt] = useState<ReceiverCapacityVerificationReceipt | null>(null);
@@ -849,10 +854,7 @@ function App() {
           ? "passed"
           : "failed"
       )
-      && !(
-        result.verificationScope?.otherChecksStatus === "passed"
-        && /^RSC-[0-9A-F]{20}$/.test(result.capacityEvidence?.documentReference ?? "")
-      )
+      && !receiverSupplementalEvidenceReusesCapacitySha(result)
       && result.status === (
         result.adoptedDemandTf / (result.verifiedCapacityTf ?? 1) <= 1.000000001
         && result.verificationScope?.otherChecksStatus === "passed"
@@ -1389,6 +1391,8 @@ function App() {
     setReceiverEvidenceTemplateBindings({});
     setReshoreCapacityDrafts(receiverCapacityDrafts(record, bootstrap?.reference_data));
     setReshoreCapacityCalculations({});
+    setReshoreCapacityAttachments({});
+    reshoreCapacityAttachmentRequestTokens.current = {};
     setReceiverCalculationConfirmed(false);
     setReceiverIdentityAcknowledged(false);
     setReceiverAssistantReceipt(null);
@@ -1525,6 +1529,7 @@ function App() {
     field: keyof ReshoreMemberCapacityInput,
     value: string | boolean,
   ) {
+    reshoreCapacityAttachmentRequestTokens.current[transferId] = Symbol("reshore-attachment-invalidated");
     setReshoreCapacityDrafts((current) => {
       const draft = current[transferId];
       if (!draft) return current;
@@ -1547,6 +1552,16 @@ function App() {
         "moment_gradient_coefficient_cb",
         "moment_amplification_coefficient_cmx",
         "moment_amplification_coefficient_cmy",
+        "top_end_plate_fy_tf_per_cm2",
+        "top_end_plate_width_cm",
+        "top_end_plate_length_cm",
+        "top_end_plate_thickness_cm",
+        "top_support_material_strength_tf_per_cm2",
+        "bottom_end_plate_width_cm",
+        "bottom_end_plate_length_cm",
+        "bottom_end_plate_thickness_cm",
+        "bottom_end_plate_fy_tf_per_cm2",
+        "bottom_support_material_strength_tf_per_cm2",
       ];
       const nextValue = numericFields.includes(field)
         ? Number(value)
@@ -1559,11 +1574,35 @@ function App() {
           nextDraft.transfer_eccentricity_y_m = 0;
           nextDraft.additional_moment_x_tf_m_per_member = 0;
           nextDraft.additional_moment_y_tf_m_per_member = 0;
+        } else {
+          nextDraft.end_bearing_mode = "not_checked";
         }
       }
+      if (field === "end_bearing_mode" && value === "centered_rectangular_plate") {
+        nextDraft.analysis_mode = "pure_axial";
+        nextDraft.allowable_stress_increase_factor = 1;
+        nextDraft.transfer_eccentricity_x_m = 0;
+        nextDraft.transfer_eccentricity_y_m = 0;
+        nextDraft.additional_moment_x_tf_m_per_member = 0;
+        nextDraft.additional_moment_y_tf_m_per_member = 0;
+        nextDraft.pure_axial_no_eccentricity_confirmed = false;
+        nextDraft.centered_full_contact_end_bearing_confirmed = false;
+        nextDraft.h_section_end_finished_confirmed = false;
+        nextDraft.unperforated_unstiffened_single_plate_confirmed = false;
+        nextDraft.top_support_true_plane_confirmed = false;
+        nextDraft.bottom_support_true_plane_confirmed = false;
+      }
+      if (field === "top_support_material") nextDraft.top_support_true_plane_confirmed = false;
+      if (field === "bottom_support_material") nextDraft.bottom_support_true_plane_confirmed = false;
       return { ...current, [transferId]: nextDraft };
     });
     setReshoreCapacityCalculations((current) => {
+      if (!current[transferId]) return current;
+      const next = { ...current };
+      delete next[transferId];
+      return next;
+    });
+    setReshoreCapacityAttachments((current) => {
       if (!current[transferId]) return current;
       const next = { ...current };
       delete next[transferId];
@@ -1577,6 +1616,13 @@ function App() {
     const transfer = receiverAssistantHandoff.transfers[index];
     const draft = reshoreCapacityDrafts[transfer.transferId];
     if (!draft) return;
+    reshoreCapacityAttachmentRequestTokens.current[transfer.transferId] = Symbol("reshore-attachment-invalidated");
+    setReshoreCapacityAttachments((current) => {
+      if (!current[transfer.transferId]) return current;
+      const next = { ...current };
+      delete next[transfer.transferId];
+      return next;
+    });
     try {
       setBusy("計算重撐／回撐 H 型鋼構件容量");
       const response = await api.calculateReshoreMemberCapacity(
@@ -1584,11 +1630,45 @@ function App() {
         transfer.transferId,
         draft,
       );
+      await validateReshoreCapacityEvidence(response);
+      if (draft.end_bearing_mode === "centered_rectangular_plate" && !response.bearingEvidence) {
+        throw new Error("後端未回傳已啟用之上下端直接承壓 RSB 證據，已停止回填。");
+      }
+      if (
+        response.bearingEvidence
+        && response.bearingEvidence.fileSha256.toLowerCase() === response.evidence.fileSha256.toLowerCase()
+      ) {
+        throw new Error("RSC 構件容量與 RSB 直接承壓證據不得共用相同 SHA-256，已停止回填。");
+      }
+      const bearingEvidenceStatus = response.bearingEvidence
+          ? await reshoreBearingEvidenceStatus(
+              response.bearingEvidence,
+              response.calculation.calculationFingerprint,
+              response.evidence.fileName,
+              response.evidence.fileSha256,
+            )
+        : null;
+      const calculatedBearingStatus = response.calculation.results.endBearing
+        ? response.calculation.results.endBearing.top.status === "passed"
+          && response.calculation.results.endBearing.bottom.status === "passed"
+          ? "passed"
+          : "failed"
+        : null;
+      if (bearingEvidenceStatus !== calculatedBearingStatus) {
+        throw new Error("RSC 與 RSB 的上下端直接承壓結果狀態不一致，已停止回填。");
+      }
       downloadBase64File(
         response.evidence.contentBase64,
         response.evidence.fileName,
         response.evidence.mediaType,
       );
+      if (response.bearingEvidence) {
+        downloadBase64File(
+          response.bearingEvidence.contentBase64,
+          response.bearingEvidence.fileName,
+          response.bearingEvidence.mediaType,
+        );
+      }
       setReshoreCapacityCalculations((current) => ({
         ...current,
         [transfer.transferId]: response,
@@ -1623,17 +1703,42 @@ function App() {
             : ["axial", "bending", "stability"],
           otherChecksStatus: "failed",
         };
-        result.supplementalChecks = emptySupplementalChecks();
+        result.supplementalChecks = emptySupplementalChecks().map((check) => (
+          check.checkId === "bearing" && response.bearingEvidence && bearingEvidenceStatus
+            ? {
+                ...check,
+                status: bearingEvidenceStatus,
+                basis: bearingEvidenceStatus === "passed"
+                  ? `RSB ${response.bearingEvidence.documentReference} 已完成上下端直接承壓與無加勁端板局部彎曲檢核；不包含接頭、加勁、錨定或承接結構本體。`
+                  : `RSB ${response.bearingEvidence.documentReference} 之上下端直接承壓或無加勁端板局部彎曲檢核未通過。`,
+                evidence: {
+                  documentReference: response.bearingEvidence.documentReference,
+                  revision: response.bearingEvidence.revision,
+                  issuedDate: response.bearingEvidence.issuedDate,
+                  pageReference: response.bearingEvidence.pageReference,
+                  fileName: response.bearingEvidence.fileName,
+                  fileSha256: response.bearingEvidence.fileSha256,
+                },
+              }
+            : check
+        ));
         result.verificationBasis = [
           draft.analysis_mode === "pure_axial"
             ? "鋼構造建築物鋼結構設計技術規範第四章及第六章"
             : "鋼構造建築物鋼結構設計技術規範第四章及第六至八章",
           `H 型鋼構件計算 ${response.calculation.calculationFingerprint}`,
           `有效長度依據：${draft.effective_length_basis.trim()}`,
+          ...(response.bearingEvidence
+            ? [`上下端直接承壓與無加勁端板局部彎曲證據 ${response.bearingEvidence.documentReference}`]
+            : []),
         ].join("；");
         result.conclusion = response.calculation.results.status === "passed"
-          ? `${draft.analysis_mode === "pure_axial" ? "純軸壓" : "軸壓與雙向彎矩互制"}、整體長細比及局部細長檢核通過；接頭、承壓、基礎／樓版與施工程序尚須另行完成。`
-          : `H 型鋼構件之${draft.analysis_mode === "pure_axial" ? "純軸壓" : "軸壓與雙向彎矩互制"}或穩定適用性檢核未通過，不得採用本次容量。`;
+          ? response.bearingEvidence
+            ? "H 型鋼構件、上下端直接承壓與無加勁端板局部彎曲檢核通過；接頭與銲道、加勁、錨定、承接結構本體及施工程序仍須另行完成。"
+            : `${draft.analysis_mode === "pure_axial" ? "純軸壓" : "軸壓與雙向彎矩互制"}、整體長細比及局部細長檢核通過；接頭、上下端承壓、基礎／樓版與施工程序尚須另行完成。`
+          : response.bearingEvidence
+            ? "H 型鋼構件、上下端直接承壓或無加勁端板局部彎曲檢核未通過，不得採用本次容量。"
+            : `H 型鋼構件之${draft.analysis_mode === "pure_axial" ? "純軸壓" : "軸壓與雙向彎矩互制"}或穩定適用性檢核未通過，不得採用本次容量。`;
         next[index] = result;
         return next;
       });
@@ -1642,6 +1747,80 @@ function App() {
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleGenerateReshoreCapacityAttachment(
+    index: number,
+    reportKind: "pdf" | "docx",
+  ) {
+    if (!receiverAssistantHandoff) return;
+    const transfer = receiverAssistantHandoff.transfers[index];
+    const draft = reshoreCapacityDrafts[transfer.transferId];
+    const calculationResponse = reshoreCapacityCalculations[transfer.transferId];
+    if (
+      !draft
+      || !calculationResponse?.bearingEvidence
+      || !calculationResponse.calculation.results.endBearing
+    ) {
+      setError("正式附件只接受已完成 RSC v4 與 RSB v1 精確證據驗證的上下端直接承壓計算。");
+      return;
+    }
+    const requestToken = Symbol(`reshore-${reportKind}-attachment`);
+    reshoreCapacityAttachmentRequestTokens.current[transfer.transferId] = requestToken;
+    setReshoreCapacityAttachments((current) => {
+      const remaining = { ...(current[transfer.transferId] ?? {}) };
+      delete remaining[reportKind];
+      if (Object.keys(remaining).length === 0) {
+        const next = { ...current };
+        delete next[transfer.transferId];
+        return next;
+      }
+      return { ...current, [transfer.transferId]: remaining };
+    });
+    try {
+      setBusy(`產生 RSC v4／RSB v1 正式 ${reportKind.toUpperCase()} 附件`);
+      await validateReshoreCapacityEvidence(calculationResponse);
+      const bearingStatus = await reshoreBearingEvidenceStatus(
+        calculationResponse.bearingEvidence,
+        calculationResponse.calculation.calculationFingerprint,
+        calculationResponse.evidence.fileName,
+        calculationResponse.evidence.fileSha256,
+      );
+      const calculatedBearingStatus = calculationResponse.calculation.results.endBearing.top.status === "passed"
+        && calculationResponse.calculation.results.endBearing.bottom.status === "passed"
+        ? "passed"
+        : "failed";
+      if (bearingStatus !== calculatedBearingStatus) {
+        throw new Error("RSC v4 與 RSB v1 的端部檢核狀態不一致，不得產生正式附件。");
+      }
+      const attachment = await api.generateReshoreMemberCapacityAttachment(
+        receiverAssistantHandoff,
+        transfer.transferId,
+        draft,
+        calculationResponse,
+        reportKind,
+      );
+      if (reshoreCapacityAttachmentRequestTokens.current[transfer.transferId] !== requestToken) {
+        throw new Error("附件產製期間計算輸入或交接列已變動；舊回應已作廢，請重新計算後再產生附件。");
+      }
+      validateReshoreCapacityAttachmentPayload(attachment, calculationResponse, reportKind);
+      setReshoreCapacityAttachments((current) => ({
+        ...current,
+        [transfer.transferId]: {
+          ...(current[transfer.transferId] ?? {}),
+          [reportKind]: attachment,
+        },
+      }));
+      downloadServerFile(attachment.download_url, attachment.attachment_file_name);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (reshoreCapacityAttachmentRequestTokens.current[transfer.transferId] === requestToken) {
+        delete reshoreCapacityAttachmentRequestTokens.current[transfer.transferId];
+      }
       setBusy("");
     }
   }
@@ -8111,13 +8290,19 @@ function App() {
                           </div>
                           {transfer.receiver.mode === "reshore" && reshoreCapacityDrafts[result.transferId] && (() => {
                             const draft = reshoreCapacityDrafts[result.transferId];
-                            const calculation = reshoreCapacityCalculations[result.transferId]?.calculation;
+                            const calculationResponse = reshoreCapacityCalculations[result.transferId];
+                            const calculation = calculationResponse?.calculation;
+                            const attachments = reshoreCapacityAttachments[result.transferId] ?? {};
+                            const formalAttachmentReady = Boolean(
+                              calculationResponse?.bearingEvidence
+                              && calculation?.results.endBearing,
+                            );
                             return (
                               <section className="reshore-capacity-panel">
                                 <header>
                                   <div>
                                     <strong>重撐／回撐 H 型鋼構件容量</strong>
-                                    <span>可採純軸壓或軸壓＋雙向彎矩互制；本區不檢核接頭、承壓、基礎／樓版或施工程序。</span>
+                                    <span>構件可採純軸壓或軸壓＋雙向彎矩互制；純軸壓可另啟用上下端直接承壓＋無加勁端板局部彎曲，仍不涵蓋接頭、加勁、錨定、承接結構本體或施工程序。</span>
                                   </div>
                                   <span className="status-badge">特定承接實算</span>
                                 </header>
@@ -8131,6 +8316,17 @@ function App() {
                                       <option value="pure_axial">純軸壓</option>
                                       <option value="axial_biaxial_bending">軸壓＋雙向彎矩互制</option>
                                     </select>
+                                  </label>
+                                  <label className="field-block">
+                                    <span>上下端直接承壓檢核</span>
+                                    <select
+                                      value={draft.end_bearing_mode}
+                                      onChange={(event) => updateReshoreCapacityDraft(result.transferId, "end_bearing_mode", event.target.value)}
+                                    >
+                                      <option value="not_checked">不檢核</option>
+                                      <option value="centered_rectangular_plate">對心矩形端板＋支承面</option>
+                                    </select>
+                                    <small>啟用時自動限制為純軸壓與 1.00 容許應力係數。</small>
                                   </label>
                                   <label className="field-block">
                                     <span>H 型鋼斷面</span>
@@ -8185,7 +8381,7 @@ function App() {
                                       onChange={(event) => updateReshoreCapacityDraft(result.transferId, "allowable_stress_increase_factor", event.target.value)}
                                     >
                                       <option value={1}>1.00</option>
-                                      <option value={1.25}>1.25（須填依據）</option>
+                                      <option value={1.25} disabled={draft.end_bearing_mode === "centered_rectangular_plate"}>1.25（須填依據）</option>
                                     </select>
                                   </label>
                                   <NumberField
@@ -8292,14 +8488,160 @@ function App() {
                                     <span>確認本構件為無偏心純軸壓，且無其他彎矩或橫向作用。</span>
                                   </label>
                                 )}
+                                {draft.end_bearing_mode === "centered_rectangular_plate" && (
+                                  <fieldset className="reshore-end-bearing-fieldset">
+                                    <legend>上下端直接承壓＋無加勁端板局部彎曲</legend>
+                                    <p>
+                                      支承材料請輸入原始強度：加工鋼面輸入 Fy，混凝土全面積承壓輸入 f'c；系統再依材料類別推導容許承壓應力。本模組不檢核端板與 H 型鋼接合、加勁、錨定或支承構造本體。
+                                    </p>
+                                    <div className="form-grid receiver-result-fields">
+                                      <NumberField
+                                        label="頂端板寬 B（cm）"
+                                        value={draft.top_end_plate_width_cm}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "top_end_plate_width_cm", value)}
+                                      />
+                                      <NumberField
+                                        label="頂端板長 L（cm）"
+                                        value={draft.top_end_plate_length_cm}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "top_end_plate_length_cm", value)}
+                                      />
+                                      <NumberField
+                                        label="頂端板厚 t（cm）"
+                                        value={draft.top_end_plate_thickness_cm}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "top_end_plate_thickness_cm", value)}
+                                      />
+                                      <NumberField
+                                        label="頂端板 Fy（tf/cm²）"
+                                        value={draft.top_end_plate_fy_tf_per_cm2}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "top_end_plate_fy_tf_per_cm2", value)}
+                                      />
+                                      <label className="field-block">
+                                        <span>頂端支承材料</span>
+                                        <select
+                                          value={draft.top_support_material}
+                                          onChange={(event) => updateReshoreCapacityDraft(result.transferId, "top_support_material", event.target.value)}
+                                        >
+                                          <option value="concrete_full_area">混凝土全面積承壓</option>
+                                          <option value="finished_steel">加工鋼面承壓</option>
+                                        </select>
+                                      </label>
+                                      <NumberField
+                                        label={draft.top_support_material === "finished_steel" ? "頂端支承鋼材原始 Fy（tf/cm²）" : "頂端混凝土原始 f'c（tf/cm²）"}
+                                        value={draft.top_support_material_strength_tf_per_cm2}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "top_support_material_strength_tf_per_cm2", value)}
+                                      />
+                                      <TextAreaField
+                                        label="頂端支承材料強度與承壓依據"
+                                        value={draft.top_support_bearing_basis}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "top_support_bearing_basis", value)}
+                                      />
+                                      {draft.top_support_material === "finished_steel" && (
+                                        <label className="check-field reshore-applicability-check">
+                                          <input
+                                            type="checkbox"
+                                            checked={draft.top_support_true_plane_confirmed}
+                                            onChange={(event) => updateReshoreCapacityDraft(result.transferId, "top_support_true_plane_confirmed", event.target.checked)}
+                                          />
+                                          <span>確認頂端支承鋼面已精確鋸平、研磨或加工至真實平面。</span>
+                                        </label>
+                                      )}
+                                      <NumberField
+                                        label="底端板寬 B（cm）"
+                                        value={draft.bottom_end_plate_width_cm}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "bottom_end_plate_width_cm", value)}
+                                      />
+                                      <NumberField
+                                        label="底端板長 L（cm）"
+                                        value={draft.bottom_end_plate_length_cm}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "bottom_end_plate_length_cm", value)}
+                                      />
+                                      <NumberField
+                                        label="底端板厚 t（cm）"
+                                        value={draft.bottom_end_plate_thickness_cm}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "bottom_end_plate_thickness_cm", value)}
+                                      />
+                                      <NumberField
+                                        label="底端板 Fy（tf/cm²）"
+                                        value={draft.bottom_end_plate_fy_tf_per_cm2}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "bottom_end_plate_fy_tf_per_cm2", value)}
+                                      />
+                                      <label className="field-block">
+                                        <span>底端支承材料</span>
+                                        <select
+                                          value={draft.bottom_support_material}
+                                          onChange={(event) => updateReshoreCapacityDraft(result.transferId, "bottom_support_material", event.target.value)}
+                                        >
+                                          <option value="concrete_full_area">混凝土全面積承壓</option>
+                                          <option value="finished_steel">加工鋼面承壓</option>
+                                        </select>
+                                      </label>
+                                      <NumberField
+                                        label={draft.bottom_support_material === "finished_steel" ? "底端支承鋼材原始 Fy（tf/cm²）" : "底端混凝土原始 f'c（tf/cm²）"}
+                                        value={draft.bottom_support_material_strength_tf_per_cm2}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "bottom_support_material_strength_tf_per_cm2", value)}
+                                      />
+                                      <TextAreaField
+                                        label="底端支承材料強度與承壓依據"
+                                        value={draft.bottom_support_bearing_basis}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "bottom_support_bearing_basis", value)}
+                                      />
+                                      {draft.bottom_support_material === "finished_steel" && (
+                                        <label className="check-field reshore-applicability-check">
+                                          <input
+                                            type="checkbox"
+                                            checked={draft.bottom_support_true_plane_confirmed}
+                                            onChange={(event) => updateReshoreCapacityDraft(result.transferId, "bottom_support_true_plane_confirmed", event.target.checked)}
+                                          />
+                                          <span>確認底端支承鋼面已精確鋸平、研磨或加工至真實平面。</span>
+                                        </label>
+                                      )}
+                                      <TextAreaField
+                                        label="上下端板配置、對心與密貼依據"
+                                        value={draft.end_bearing_configuration_basis}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "end_bearing_configuration_basis", value)}
+                                      />
+                                      <TextAreaField
+                                        label="無加勁端板局部彎曲工程模型採用依據"
+                                        value={draft.end_plate_bending_method_basis}
+                                        onChange={(value) => updateReshoreCapacityDraft(result.transferId, "end_plate_bending_method_basis", value)}
+                                      />
+                                    </div>
+                                    <div className="reshore-end-bearing-confirmations">
+                                      <label className="check-field reshore-applicability-check">
+                                        <input
+                                          type="checkbox"
+                                          checked={draft.centered_full_contact_end_bearing_confirmed}
+                                          onChange={(event) => updateReshoreCapacityDraft(result.transferId, "centered_full_contact_end_bearing_confirmed", event.target.checked)}
+                                        />
+                                        <span>確認兩端均為對心、全板密貼、無拉力、無剪力且無錨栓參與之直接承壓。</span>
+                                      </label>
+                                      <label className="check-field reshore-applicability-check">
+                                        <input
+                                          type="checkbox"
+                                          checked={draft.h_section_end_finished_confirmed}
+                                          onChange={(event) => updateReshoreCapacityDraft(result.transferId, "h_section_end_finished_confirmed", event.target.checked)}
+                                        />
+                                        <span>確認 H 型鋼兩端均已精確鋸平、研磨或加工至真實平面。</span>
+                                      </label>
+                                      <label className="check-field reshore-applicability-check">
+                                        <input
+                                          type="checkbox"
+                                          checked={draft.unperforated_unstiffened_single_plate_confirmed}
+                                          onChange={(event) => updateReshoreCapacityDraft(result.transferId, "unperforated_unstiffened_single_plate_confirmed", event.target.checked)}
+                                        />
+                                        <span>確認兩端均為無孔洞、無加勁、非疊板之單片矩形端板。</span>
+                                      </label>
+                                    </div>
+                                  </fieldset>
+                                )}
                                 <div className="action-row">
                                   <button type="button" onClick={() => void handleCalculateReshoreMemberCapacity(index)}>
-                                    計算、下載證據並回填構件結果
+                                    計算、下載證據並回填構件結果（RSC／RSB）
                                   </button>
                                 </div>
                                 {calculation && (
                                   <div className={`reshore-capacity-result ${calculation.results.status === "passed" ? "ok" : "ng"}`}>
-                                    <strong>{calculation.results.status === "passed" ? "構件容量與穩定檢核通過" : "構件容量或穩定適用性未通過"}</strong>
+                                    <strong>{calculation.results.status === "passed" ? "已啟用之構件／端部檢核通過" : "構件或已啟用之端部檢核未通過"}</strong>
                                     <span>{`控制軸：${calculation.results.controllingAxis}；KL/r = ${fmt(calculation.results.klrMax)}；${calculation.results.analysisMode === "pure_axial" ? "單支軸壓容量" : "單支純軸壓上限"} = ${fmt(calculation.results.perMemberCapacityTf, " tf")}`}</span>
                                     <span>{`可採用移轉容量 = ${fmt(calculation.results.adoptableTransferCapacityTf, " tf")}；利用率 = ${calculation.results.capacityUtilizationRatio == null ? "—" : fmt(calculation.results.capacityUtilizationRatio)}`}</span>
                                     {calculation.results.analysisMode === "axial_biaxial_bending" && (
@@ -8309,7 +8651,94 @@ function App() {
                                         <span>{`容量根控制式：${calculation.results.capacityGoverningInteractionEquation ?? "—"}（互制比 = ${calculation.results.capacityInteractionRatio == null ? "—" : fmt(calculation.results.capacityInteractionRatio)}）`}</span>
                                       </>
                                     )}
-                                    <span>構件證據已下載並回填；其他未涵蓋查核仍維持「尚未完成」。若要整列通過，須在五類補充查核中逐項附上正式文件，RSC 不會被當成其他查核的證據。</span>
+                                    {calculation.results.endBearing && (
+                                      <>
+                                        <span>{`直接承壓控制容量 = ${calculation.results.endBearingTransferCapacityTf == null ? "—" : fmt(calculation.results.endBearingTransferCapacityTf, " tf")}；容量控制 = ${calculation.results.governingCapacityMode === "end_bearing" ? "端部直接承壓／端板" : "H 型鋼構件"}`}</span>
+                                        <span>{`頂端：支承承壓比 ${fmt(calculation.results.endBearing.top.supportBearingUtilizationRatio)}、端板局部彎曲比 ${fmt(calculation.results.endBearing.top.plateBendingUtilizationRatio)}、需求厚度 ${fmt(calculation.results.endBearing.top.requiredPlateThicknessCm, " cm")}；底端：支承承壓比 ${fmt(calculation.results.endBearing.bottom.supportBearingUtilizationRatio)}、端板局部彎曲比 ${fmt(calculation.results.endBearing.bottom.plateBendingUtilizationRatio)}、需求厚度 ${fmt(calculation.results.endBearing.bottom.requiredPlateThicknessCm, " cm")}`}</span>
+                                      </>
+                                    )}
+                                    <span>RSC 構件容量證據已回填為核定承載力文件；啟用端部檢核時，另以不同 SHA-256 的 RSB 回填「承壓」補充查核。若要整列通過，須在五類補充查核中逐項附上正式文件；RSC 不會被當成其他查核的證據。其餘接頭、承接結構本體、側向支撐現況及施工程序仍維持「尚未完成」。</span>
+                                  </div>
+                                )}
+                                {formalAttachmentReady && calculationResponse && (
+                                  <div className="reshore-attachment-panel">
+                                    <div>
+                                      <strong>RSC v4／RSB v1 獨立計算正式附件</strong>
+                                      <span>附件只採用畫面上已驗證且可由同一交接列、輸入與 generatedAt 精確重播的 calculationResponse；輸入、草稿或重算一有變動即清除舊附件。</span>
+                                    </div>
+                                    <div className="action-row">
+                                      <button
+                                        type="button"
+                                        onClick={() => void handleGenerateReshoreCapacityAttachment(index, "pdf")}
+                                        disabled={Boolean(busy)}
+                                      >
+                                        產生並下載正式 PDF（含逐頁證據）
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="secondary"
+                                        onClick={() => void handleGenerateReshoreCapacityAttachment(index, "docx")}
+                                        disabled={Boolean(busy)}
+                                      >
+                                        產生並下載正式 DOCX
+                                      </button>
+                                    </div>
+                                    {(attachments.pdf || attachments.docx) && (
+                                      <div className="generated-report-list">
+                                        {attachments.pdf && (
+                                          <a
+                                            className="generated-report-link"
+                                            href={cacheBustUrl(attachments.pdf.download_url)}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            download
+                                          >
+                                            <strong>重新下載正式 PDF</strong>
+                                            <span>{`${attachments.pdf.attachment_size_bytes.toLocaleString()} bytes；SHA-256 ${attachments.pdf.attachment_file_sha256}`}</span>
+                                            <em>{attachments.pdf.attachment_file_name}</em>
+                                          </a>
+                                        )}
+                                        {attachments.docx && (
+                                          <a
+                                            className="generated-report-link"
+                                            href={cacheBustUrl(attachments.docx.download_url)}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            download
+                                          >
+                                            <strong>重新下載正式 DOCX</strong>
+                                            <span>{`${attachments.docx.attachment_size_bytes.toLocaleString()} bytes；SHA-256 ${attachments.docx.attachment_file_sha256}`}</span>
+                                            <em>{attachments.docx.attachment_file_name}</em>
+                                          </a>
+                                        )}
+                                        {attachments.pdf?.formal_source_bundle_url && (
+                                          <a
+                                            className="generated-report-link"
+                                            href={cacheBustUrl(attachments.pdf.formal_source_bundle_url)}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            download
+                                          >
+                                            <strong>下載 PDF＋逐頁證據來源套件</strong>
+                                            <span>{`來源套件 SHA-256 ${attachments.pdf.formal_source_bundle_sha256}`}</span>
+                                            <em>{extractDownloadFilename(attachments.pdf.formal_source_bundle_url)}</em>
+                                          </a>
+                                        )}
+                                        {attachments.pdf?.canonical_evidence_url && (
+                                          <a
+                                            className="generated-report-link"
+                                            href={cacheBustUrl(attachments.pdf.canonical_evidence_url)}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            download
+                                          >
+                                            <strong>下載 PDF 逐頁可見性證據</strong>
+                                            <span>{`證據 SHA-256 ${attachments.pdf.canonical_evidence_sha256}`}</span>
+                                            <em>{extractDownloadFilename(attachments.pdf.canonical_evidence_url)}</em>
+                                          </a>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </section>
@@ -10052,11 +10481,168 @@ function downloadBase64File(contentBase64: string, filename: string, mediaType: 
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-async function fileSha256Hex(file: File): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+function downloadServerFile(url: string, filename: string): void {
+  const anchor = document.createElement("a");
+  anchor.href = cacheBustUrl(url);
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+}
+
+function validateReshoreCapacityAttachmentPayload(
+  attachment: ReshoreMemberCapacityAttachmentPayload,
+  calculationResponse: ReshoreMemberCapacityCalculationResponse,
+  expectedReportKind: "pdf" | "docx",
+): void {
+  const bearingEvidence = calculationResponse.bearingEvidence;
+  if (!bearingEvidence) {
+    throw new Error("正式附件缺少已驗證的 RSB v1 直接承壓證據。");
+  }
+  const sha256Pattern = /^[0-9a-f]{64}$/;
+  const rscToken = calculationResponse.calculation.calculationFingerprint.replace(/^RSC-/, "");
+  const rsbToken = bearingEvidence.documentReference.replace(/^RSB-/, "");
+  const escapedKind = expectedReportKind === "pdf" ? "pdf" : "docx";
+  const expectedFileNamePattern = new RegExp(
+    `^rsc-v4-rsb-${rscToken}-${rsbToken}-\\d{20}\\.${escapedKind}$`,
+  );
+  if (
+    attachment.schema_version !== 1
+    || attachment.attachment_kind !== "rsc-v4-rsb-independent-calculation-attachment"
+    || attachment.report_kind !== expectedReportKind
+    || attachment.document_status !== "formal-attachment"
+    || attachment.exact_calculation_response_verified !== true
+    || attachment.adopted_calculation_generated_at !== calculationResponse.calculation.generatedAt
+    || attachment.rsc_calculation_fingerprint !== calculationResponse.calculation.calculationFingerprint
+    || attachment.rsc_evidence_file_name !== calculationResponse.evidence.fileName
+    || attachment.rsc_evidence_file_sha256 !== calculationResponse.evidence.fileSha256
+    || attachment.rsb_calculation_fingerprint !== bearingEvidence.documentReference
+    || attachment.rsb_evidence_file_name !== bearingEvidence.fileName
+    || attachment.rsb_evidence_file_sha256 !== bearingEvidence.fileSha256
+    || !expectedFileNamePattern.test(attachment.attachment_file_name)
+    || !sha256Pattern.test(attachment.attachment_file_sha256)
+    || !Number.isInteger(attachment.attachment_size_bytes)
+    || attachment.attachment_size_bytes <= 0
+    || Number.isNaN(Date.parse(attachment.output_time))
+    || !isExpectedAttachmentDownloadUrl(attachment.download_url, attachment.attachment_file_name)
+  ) {
+    throw new Error("正式附件回應與既有 RSC v4／RSB v1 指紋、證據檔或輸出檔身分不一致，已停止下載。");
+  }
+  const pdfBaseName = attachment.attachment_file_name.replace(/\.pdf$/, "");
+  if (expectedReportKind === "pdf") {
+    const evidenceName = `${pdfBaseName}.canonical-render.evidence.json`;
+    const sourceBundleName = `${pdfBaseName}.formal-source.zip`;
+    if (
+      !attachment.canonical_evidence_url
+      || !attachment.formal_source_bundle_url
+      || !sha256Pattern.test(attachment.canonical_evidence_sha256 ?? "")
+      || !sha256Pattern.test(attachment.formal_source_bundle_sha256 ?? "")
+      || !isExpectedAttachmentDownloadUrl(attachment.canonical_evidence_url, evidenceName)
+      || !isExpectedAttachmentDownloadUrl(attachment.formal_source_bundle_url, sourceBundleName)
+    ) {
+      throw new Error("正式 PDF 缺少逐頁可見性證據或單一來源套件，已停止下載。");
+    }
+  } else if (
+    attachment.canonical_evidence_url
+    || attachment.canonical_evidence_sha256
+    || attachment.formal_source_bundle_url
+    || attachment.formal_source_bundle_sha256
+  ) {
+    throw new Error("正式 DOCX 回應夾帶未受本契約接受的 PDF 證據欄位，已停止下載。");
+  }
+}
+
+function isExpectedAttachmentDownloadUrl(url: string, expectedFileName: string): boolean {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const prefix = "/api/removal-transfer/reshore-member-capacity/attachments/";
+    return parsed.origin === window.location.origin
+      && parsed.search === ""
+      && parsed.hash === ""
+      && parsed.pathname.startsWith(prefix)
+      && decodeURIComponent(parsed.pathname.slice(prefix.length)) === expectedFileName;
+  } catch {
+    return false;
+  }
+}
+
+async function reshoreBearingEvidenceStatus(
+  evidence: NonNullable<ReshoreMemberCapacityCalculationResponse["bearingEvidence"]>,
+  expectedReshoreCalculationFingerprint: string,
+  expectedReshoreCalculationEvidenceFileName: string,
+  expectedReshoreCalculationEvidenceSha256: string,
+): Promise<"passed" | "failed"> {
+  const binary = window.atob(evidence.contentBase64);
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  const record = JSON.parse(new TextDecoder().decode(bytes)) as {
+    schemaVersion?: number;
+    kind?: string;
+    calculationFingerprint?: string;
+    source?: {
+      reshoreCalculationFingerprint?: string;
+      reshoreCalculationEvidenceFileName?: string;
+      reshoreCalculationEvidenceFileSha256?: string;
+    };
+    results?: { status?: string };
+  };
+  if (
+    evidence.mediaType !== "application/json"
+    || evidence.contentEncoding !== "base64"
+    || !/^RSB-[0-9A-F]{20}$/.test(evidence.documentReference)
+    || evidence.fileName !== `reshore-end-bearing-${evidence.documentReference}.json`
+    || !/^[0-9a-f]{64}$/.test(evidence.fileSha256)
+    || await bytesSha256Hex(bytes) !== evidence.fileSha256
+    || record.schemaVersion !== 1
+    || record.kind !== "excavation-reshore-end-bearing-evidence"
+    || record.calculationFingerprint !== evidence.documentReference
+    || record.source?.reshoreCalculationFingerprint !== expectedReshoreCalculationFingerprint
+    || record.source?.reshoreCalculationEvidenceFileName !== expectedReshoreCalculationEvidenceFileName
+    || record.source?.reshoreCalculationEvidenceFileSha256 !== expectedReshoreCalculationEvidenceSha256
+    || !["passed", "failed"].includes(record.results?.status ?? "")
+  ) {
+    throw new Error("RSB 直接承壓證據內容、指紋或結果狀態不完整，已停止回填。");
+  }
+  return record.results?.status as "passed" | "failed";
+}
+
+async function validateReshoreCapacityEvidence(
+  response: ReshoreMemberCapacityCalculationResponse,
+): Promise<void> {
+  const evidence = response.evidence;
+  const binary = window.atob(evidence.contentBase64);
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  const record = JSON.parse(new TextDecoder().decode(bytes)) as {
+    schemaVersion?: number;
+    kind?: string;
+    calculationFingerprint?: string;
+    results?: { status?: string };
+  };
+  if (
+    evidence.mediaType !== "application/json"
+    || evidence.contentEncoding !== "base64"
+    || !/^RSC-[0-9A-F]{20}$/.test(evidence.documentReference)
+    || evidence.fileName !== `reshore-member-capacity-${evidence.documentReference}.json`
+    || !/^[0-9a-f]{64}$/.test(evidence.fileSha256)
+    || await bytesSha256Hex(bytes) !== evidence.fileSha256
+    || record.schemaVersion !== 4
+    || record.kind !== "excavation-reshore-member-capacity-calculation"
+    || record.calculationFingerprint !== evidence.documentReference
+    || record.calculationFingerprint !== response.calculation.calculationFingerprint
+    || record.results?.status !== response.calculation.results.status
+  ) {
+    throw new Error("RSC 構件容量證據內容、雜湊、指紋或結果狀態不一致，已停止回填。");
+  }
+}
+
+async function bytesSha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", Uint8Array.from(bytes).buffer);
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+async function fileSha256Hex(file: File): Promise<string> {
+  return bytesSha256Hex(new Uint8Array(await file.arrayBuffer()));
 }
 
 function handoffDesignDemandTf(transfer: RemovalTransferHandoff["transfers"][number]): number {
@@ -10112,6 +10698,17 @@ function receiverEvidenceComplete(evidence?: ReceiverCapacityEvidence): boolean 
     && Boolean(evidence?.pageReference.trim())
     && Boolean(evidence?.fileName.trim())
     && /^[0-9a-f]{64}$/i.test(evidence?.fileSha256 ?? "");
+}
+
+function receiverSupplementalEvidenceReusesCapacitySha(result: ReceiverVerificationResult): boolean {
+  const capacitySha = result.capacityEvidence?.fileSha256.trim().toLowerCase();
+  if (!capacitySha) return false;
+  return result.supplementalChecks?.some(
+    (check) => (
+      check.status === "passed"
+      && check.evidence?.fileSha256.trim().toLowerCase() === capacitySha
+    ),
+  ) ?? false;
 }
 
 function sourceEvidenceMatchKey(transferId: string, evidenceKey: string): string {
@@ -10269,6 +10866,28 @@ function receiverCapacityDrafts(
           bending_stability_basis: "",
           stress_increase_basis: "",
           pure_axial_no_eccentricity_confirmed: false,
+          end_bearing_mode: "not_checked",
+          top_end_plate_fy_tf_per_cm2: basic?.fy_tf_per_cm2 ?? 2.5,
+          top_end_plate_width_cm: 0,
+          top_end_plate_length_cm: 0,
+          top_end_plate_thickness_cm: 0,
+          top_support_material: "concrete_full_area",
+          top_support_material_strength_tf_per_cm2: 0,
+          top_support_true_plane_confirmed: false,
+          bottom_end_plate_width_cm: 0,
+          bottom_end_plate_length_cm: 0,
+          bottom_end_plate_thickness_cm: 0,
+          bottom_end_plate_fy_tf_per_cm2: basic?.fy_tf_per_cm2 ?? 2.5,
+          bottom_support_material: "concrete_full_area",
+          bottom_support_material_strength_tf_per_cm2: 0,
+          bottom_support_true_plane_confirmed: false,
+          end_bearing_configuration_basis: "",
+          end_plate_bending_method_basis: "",
+          top_support_bearing_basis: "",
+          bottom_support_bearing_basis: "",
+          centered_full_contact_end_bearing_confirmed: false,
+          h_section_end_finished_confirmed: false,
+          unperforated_unstiffened_single_plate_confirmed: false,
         } satisfies ReshoreMemberCapacityInput,
       ]),
   );

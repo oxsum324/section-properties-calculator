@@ -85,10 +85,16 @@ const handoff = readUtf8('../結構工具箱/tools/construction-stage-load-hando
 const removalTransferHandoff = readUtf8('backend/app/removal_transfer_handoff.py');
 const receiverCapacity = readUtf8('backend/app/receiver_capacity.py');
 const receiverCapacityTests = readUtf8('backend/tests/test_receiver_capacity.py');
+const receiverCapacityAttachment = readUtf8('backend/app/receiver_capacity_attachment.py');
+const receiverCapacityAttachmentTests = readUtf8('backend/tests/test_receiver_capacity_attachment.py');
+const releaseReportArtifacts = readUtf8('backend/tests/release_report_artifacts.py');
+const renderedDeliveryContract = readUtf8('../結構工具箱/tools/rendered-delivery-evidence.contract.test.js');
 const receiverCapacityBenchmarkText = readUtf8('backend/tests/fixtures/reshore_biaxial_independent_benchmark.json');
 const receiverCapacityBenchmark = JSON.parse(receiverCapacityBenchmarkText);
 const receiverCapacity822BenchmarkText = readUtf8('backend/tests/fixtures/reshore_biaxial_independent_benchmark_822.json');
 const receiverCapacity822Benchmark = JSON.parse(receiverCapacity822BenchmarkText);
+const receiverEndBearingBenchmarkText = readUtf8('backend/tests/fixtures/reshore_end_bearing_independent_benchmark.json');
+const receiverEndBearingBenchmark = JSON.parse(receiverEndBearingBenchmarkText);
 const removalTransferHandoffTests = readUtf8('backend/tests/test_removal_transfer_handoff.py');
 const receiverOfflineSigner = readUtf8('backend/sign_receiver_request.py');
 const receiverSigningLauncher = readUtf8('sign_receiver_request.ps1');
@@ -303,7 +309,7 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
 });
 [
   'excavation-reshore-member-capacity-calculation',
-  'SCHEMA_VERSION = 3',
+  'SCHEMA_VERSION = 4',
   'calculate_reshore_member_capacity',
   'allowable_axial_stress',
   'allowable_fbx',
@@ -321,6 +327,14 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   'governingInteractionEquation',
   'dominantBendingAxis',
   'capacityGoverningInteractionEquation',
+  'BEARING_EVIDENCE_KIND',
+  'excavation-reshore-end-bearing-evidence',
+  'endBearingTransferCapacityTf',
+  'governingCapacityMode',
+  'supportMaterialStrengthTfPerCm2',
+  'hSectionEndBearingUtilizationRatio',
+  'endPlateLocalBending',
+  'RSB',
   'pureAxialNoEccentricityOnly',
   'axialBiaxialBendingInteractionChecked',
   'doesNotAutoApproveReceiverReceipt',
@@ -332,12 +346,73 @@ assert(handoff.includes('construction-stage-decking-load-handoff'), 'excavation 
   assert(receiverCapacity.includes(needle), `excavation reshore capacity keeps ${needle}`, needle);
 });
 [
+  'rsc-v4-rsb-independent-calculation-attachment',
+  'build_reshore_capacity_attachment',
+  'reshoreCalculationEvidenceFileSha256',
+  'transferDemandPerMemberTf',
+  'mechanicsReference',
+  'NotoSansTC-VF.ttf',
+  '找不到可嵌入的繁中文字型',
+  '本獨立接收端附件不會寫入或改動來源專案的主 PDF/DOCX 計算書',
+  'attachment_download_name_allowed',
+].forEach((needle) => {
+  assert(receiverCapacityAttachment.includes(needle), `excavation RSC/RSB attachment keeps ${needle}`, needle);
+});
+[
+  'test_builds_verifiable_pdf_and_compact_reference_docx',
+  'test_ng_remains_finite_and_visible',
+  'test_api_replays_exact_existing_response_and_rejects_tamper',
+  'test_pdf_packaging_failure_removes_artifact_and_partial_evidence',
+  'test_non_bearing_response_and_unrelated_download_names_are_rejected',
+].forEach((needle) => {
+  assert(receiverCapacityAttachmentTests.includes(needle), `excavation RSC/RSB attachment tests keep ${needle}`, needle);
+});
+[
+  'class BuildReshoreMemberCapacityAttachmentRequest',
+  'calculation_response: dict[str, Any]',
+  'formal_attachment_confirmed: Literal[True]',
+  'class ReshoreMemberCapacityAttachmentPayload',
+  'exact_calculation_response_verified: Literal[True]',
+].forEach((needle) => {
+  assert(schemas.includes(needle), `excavation RSC/RSB attachment schema keeps ${needle}`, needle);
+});
+[
+  'supplied_response = request.calculation_response',
+  'calculation_response != supplied_response',
+  '逐 bytes 與 SHA-256 精確重播',
+  '_cleanup_reshore_capacity_attachment_outputs',
+].forEach((needle) => {
+  assert(main.includes(needle), `excavation RSC/RSB attachment API keeps ${needle}`, needle);
+});
+[
+  'receiverCapacityAttachment',
+  'build_receiver_capacity_attachment_fixture',
+  'build_pdf_canonical_render_evidence',
+  'build_pdf_formal_source_bundle',
+  'receiver formal source bundle must contain only the PDF/evidence pair',
+].forEach((needle) => {
+  assert(releaseReportArtifacts.includes(needle), `excavation release producer keeps ${needle}`, needle);
+});
+[
+  'reshoreCapacityFormalAttachment',
+  'rsc-v4-rsb-v1-independent-calculation-attachment',
+  'aggregate independently replays the exact RSC fingerprint',
+  'aggregate independently replays the exact RSB fingerprint',
+  'RSC/RSB formal source bundle contains only its exact PDF/evidence pair',
+].forEach((needle) => {
+  assert(renderedDeliveryContract.includes(needle), `release aggregate keeps ${needle}`, needle);
+});
+[
   'test_golden_short_column_capacity_and_evidence',
   'test_long_column_uses_euler_branch_and_fails_slenderness',
   'test_local_slenderness_failure_is_not_adoptable',
   'test_biaxial_interaction_reduces_adoptable_transfer_capacity',
   'test_independent_biaxial_benchmark_matches_closed_form_reference',
   'test_biaxial_mode_requires_effects_and_engineering_basis',
+  'test_independent_end_bearing_benchmark_and_distinct_evidence',
+  'test_end_bearing_failures_remain_truthful_and_capacity_governing',
+  'test_end_bearing_uses_weaker_contact_material',
+  'test_end_bearing_rejects_inapplicable_or_untraceable_inputs',
   'test_rejects_non_reshore_transfer',
   'test_rejects_tampered_handoff',
 ].forEach((needle) => {
@@ -354,8 +429,15 @@ assert(receiverCapacity822Benchmark.calculationInput.allowable_stress_increase_f
 assert(receiverCapacity822Benchmark.expected.results.dominantBendingAxis === 'Y', 'excavation reshore 8.2-2 benchmark covers weak axis', receiverCapacity822Benchmark.expected.results.dominantBendingAxis);
 assert(receiverCapacity822Benchmark.expected.results.governingInteractionEquation === '8.2-2', 'excavation reshore 8.2-2 benchmark controls current demand', receiverCapacity822Benchmark.expected.results.governingInteractionEquation);
 assert(receiverCapacity822Benchmark.expected.results.capacityGoverningInteractionEquation === '8.2-2', 'excavation reshore 8.2-2 benchmark controls capacity root', receiverCapacity822Benchmark.expected.results.capacityGoverningInteractionEquation);
+assert(receiverEndBearingBenchmark.kind === 'independent-engineering-benchmark', 'excavation end-bearing independent benchmark kind', receiverEndBearingBenchmark.kind);
+assert(receiverEndBearingBenchmark.benchmarkId === 'EXC-RSB-001', 'excavation end-bearing independent benchmark id', receiverEndBearingBenchmark.benchmarkId);
+assert(receiverEndBearingBenchmark.independenceBoundary.includes('不呼叫 receiver_capacity.py'), 'excavation end-bearing benchmark excludes production helpers', receiverEndBearingBenchmark.independenceBoundary);
+assert(receiverEndBearingBenchmark.formulaContract.finishedHEndBearing.includes('0.90 min(Fy,H, Fy,plate)'), 'excavation end-bearing benchmark fixes H-end formula', receiverEndBearingBenchmark.formulaContract.finishedHEndBearing);
+assert(receiverEndBearingBenchmark.formulaContract.plateLocalBending.includes('0.60 Fy'), 'excavation end-bearing benchmark fixes conservative plate bending basis', receiverEndBearingBenchmark.formulaContract.plateLocalBending);
+assert(receiverEndBearingBenchmark.expected.governingCapacityMode === 'end_bearing', 'excavation end-bearing benchmark controls combined capacity', receiverEndBearingBenchmark.expected.governingCapacityMode);
 assert(readme.includes('EXC-RSC-BX-001'), 'excavation README documents reshore independent benchmark', 'EXC-RSC-BX-001');
 assert(readme.includes('EXC-RSC-BX-002'), 'excavation README documents reshore 8.2-2 benchmark', 'EXC-RSC-BX-002');
+assert(readme.includes('EXC-RSB-001'), 'excavation README documents end-bearing independent benchmark', 'EXC-RSB-001');
 [
   'interaction',
   'capacityRoot',
@@ -377,6 +459,8 @@ assert(readme.includes('EXC-RSC-BX-002'), 'excavation README documents reshore 8
   '/api/removal-transfer-receipts/signing-request',
   '/api/removal-transfer-receipts/attach-signature',
   '/api/removal-transfer/reshore-member-capacity',
+  '/api/removal-transfer/reshore-member-capacity/attachment',
+  '/api/removal-transfer/reshore-member-capacity/attachments/{filename}',
   '/api/removal-transfer-trust-keys/enrollments/validate',
   '/api/removal-transfer-trust-keys/enrollments/register',
   '/api/removal-transfer-trust-keys/{key_id}/revoke',
@@ -617,6 +701,9 @@ assert(readme.includes('EXC-RSC-BX-002'), 'excavation README documents reshore 8
   'test_v5_requires_evidence_for_each_passed_supplemental_check',
   'test_v5_derives_other_checks_status_and_sev_v2_covers_every_file',
   'test_v5_rejects_rsc_file_reused_as_supplemental_pass_evidence',
+  'test_v5_accepts_distinct_rbe_as_bearing_supplemental_evidence',
+  'test_v5_rejects_rbe_bearing_when_sha_matches_rsc_capacity_evidence',
+  'test_v5_rejects_rbe_as_non_bearing_supplemental_evidence',
   'test_keeps_legacy_sev_v1_read_compatibility_for_pre_v5_receipt',
   'test_v5_rejects_legacy_sev_v1_partial_evidence_coverage',
   'test_v4_rejects_missing_structured_verification_scope',
@@ -2206,7 +2293,8 @@ assert(receiverTrustStore.includes('pre-restore'), 'excavation receiver trust re
   '已驗證範圍',
   '工程判斷邊界',
   '平台公開巡檢狀態',
-  'RSC v3 證據',
+  'RSC v4 主證據',
+  'RSB v1 承壓證據',
 ].forEach((needle) => {
   assert(launcher.includes(needle), `excavation public launcher keeps ${needle}`, needle);
 });
@@ -2245,9 +2333,9 @@ assert(
   'excavation home governance keeps full backend/frontend gates',
   'excavation-service'
 );
-assert(home.includes('重撐軸壓／雙向彎矩承接'), 'excavation home output names biaxial reshore scope', '重撐軸壓／雙向彎矩承接');
+assert(home.includes('重撐軸壓／雙向彎矩與受限上下端直接承壓'), 'excavation home output names biaxial and bounded end-bearing scope', '受限上下端直接承壓');
 assert(home.includes('構件與基礎檢核'), 'excavation home summary names governed member and foundation scope', '構件與基礎檢核');
-assert(home.includes("capabilities: ['本機服務', 'PDF/DOCX', 'RSC v3 證據鏈']"), 'excavation home names current RSC schema', 'RSC v3 證據鏈');
+assert(home.includes("capabilities: ['本機服務', 'PDF/DOCX', 'RSC v4／RSB v1 正式附件']"), 'excavation home names current RSC and RSB schemas plus the formal attachment', 'RSC v4／RSB v1 正式附件');
 
 assert(readme.includes('excavation-traceability.catalog.json'), 'excavation README documents traceability catalog path', 'README.md');
 assert(readme.includes('規範語意追蹤'), 'excavation README documents traceability purpose', 'README.md');

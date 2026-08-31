@@ -520,11 +520,71 @@ export type ReshoreMemberCapacityInput = {
   bending_stability_basis: string;
   stress_increase_basis: string;
   pure_axial_no_eccentricity_confirmed: boolean;
+  end_bearing_mode: "not_checked" | "centered_rectangular_plate";
+  top_end_plate_fy_tf_per_cm2: number;
+  top_end_plate_width_cm: number;
+  top_end_plate_length_cm: number;
+  top_end_plate_thickness_cm: number;
+  top_support_material: "finished_steel" | "concrete_full_area";
+  top_support_material_strength_tf_per_cm2: number;
+  top_support_true_plane_confirmed: boolean;
+  bottom_end_plate_width_cm: number;
+  bottom_end_plate_length_cm: number;
+  bottom_end_plate_thickness_cm: number;
+  bottom_end_plate_fy_tf_per_cm2: number;
+  bottom_support_material: "finished_steel" | "concrete_full_area";
+  bottom_support_material_strength_tf_per_cm2: number;
+  bottom_support_true_plane_confirmed: boolean;
+  end_bearing_configuration_basis: string;
+  end_plate_bending_method_basis: string;
+  top_support_bearing_basis: string;
+  bottom_support_bearing_basis: string;
+  centered_full_contact_end_bearing_confirmed: boolean;
+  h_section_end_finished_confirmed: boolean;
+  unperforated_unstiffened_single_plate_confirmed: boolean;
+};
+
+export type ReshoreEndBearingResult = {
+  status: "passed" | "failed";
+  plateAreaCm2: number;
+  contactPressureTfPerCm2: number;
+  supportMaterial: "finished_steel" | "concrete_full_area";
+  supportMaterialStrengthTfPerCm2: number;
+  plateFyTfPerCm2: number;
+  supportAllowableBearingTfPerCm2: number;
+  supportBearingUtilizationRatio: number;
+  effectiveLoadedWidthCm: number;
+  effectiveLoadedLengthCm: number;
+  widthProjectionCm: number;
+  lengthProjectionCm: number;
+  governingProjectionCm: number;
+  allowablePlateBendingStressTfPerCm2: number;
+  requiredPlateThicknessCm: number;
+  providedPlateThicknessCm: number;
+  plateBendingUtilizationRatio: number;
+  supportCapacityPerMemberTf: number;
+  plateBendingCapacityPerMemberTf: number;
+  hSectionEndBearingStressTfPerCm2: number;
+  hSectionEndAllowableBearingStressTfPerCm2: number;
+  hSectionEndBearingUtilizationRatio: number;
+  hSectionEndBearingCapacityPerMemberTf: number;
+  governingCapacityPerMemberTf: number;
+  checks: {
+    supportBearing: "passed" | "failed";
+    endPlateLocalBending: "passed" | "failed";
+    hSectionFinishedEndBearing: "passed" | "failed";
+  };
+};
+
+export type ReshoreEvidenceDownload = ReceiverCapacityEvidence & {
+  mediaType: "application/json";
+  contentEncoding: "base64";
+  contentBase64: string;
 };
 
 export type ReshoreMemberCapacityCalculationResponse = {
   calculation: {
-    schemaVersion: 3;
+    schemaVersion: 4;
     kind: "excavation-reshore-member-capacity-calculation";
     generatedAt: string;
     calculationFingerprint: string;
@@ -542,7 +602,9 @@ export type ReshoreMemberCapacityCalculationResponse = {
       transferDemandPerMemberTf: number;
       totalDemandPerMemberTf: number;
       nominalTransferCapacityTf: number;
+      endBearingTransferCapacityTf: number | null;
       adoptableTransferCapacityTf: number;
+      governingCapacityMode: "member" | "end_bearing";
       memberTotalUtilizationRatio: number | null;
       memberInteractionRatio: number | null;
       interaction821Ratio: number | null;
@@ -570,11 +632,18 @@ export type ReshoreMemberCapacityCalculationResponse = {
       flangeSlendernessLimit: number;
       webSlendernessRatio: number;
       webSlendernessLimit: number;
+      endBearing: {
+        mode: "centered_rectangular_plate";
+        top: ReshoreEndBearingResult;
+        bottom: ReshoreEndBearingResult;
+      } | null;
       checks: {
         memberSlenderness: "passed" | "failed";
         localSlenderness: "passed" | "failed";
         axialCapacity: "passed" | "failed";
         memberInteraction: "passed" | "failed";
+        topEndBearing: "passed" | "failed" | "not_checked";
+        bottomEndBearing: "passed" | "failed" | "not_checked";
       };
     };
     verificationScope: {
@@ -583,11 +652,32 @@ export type ReshoreMemberCapacityCalculationResponse = {
       otherChecksStatus: "failed";
     };
   };
-  evidence: ReceiverCapacityEvidence & {
-    mediaType: "application/json";
-    contentEncoding: "base64";
-    contentBase64: string;
-  };
+  evidence: ReshoreEvidenceDownload;
+  bearingEvidence?: ReshoreEvidenceDownload;
+};
+
+export type ReshoreMemberCapacityAttachmentPayload = {
+  schema_version: 1;
+  attachment_kind: "rsc-v4-rsb-independent-calculation-attachment";
+  report_kind: "pdf" | "docx";
+  document_status: "formal-attachment";
+  output_time: string;
+  adopted_calculation_generated_at: string;
+  exact_calculation_response_verified: true;
+  rsc_calculation_fingerprint: string;
+  rsc_evidence_file_name: string;
+  rsc_evidence_file_sha256: string;
+  rsb_calculation_fingerprint: string;
+  rsb_evidence_file_name: string;
+  rsb_evidence_file_sha256: string;
+  attachment_file_name: string;
+  attachment_file_sha256: string;
+  attachment_size_bytes: number;
+  download_url: string;
+  canonical_evidence_url?: string | null;
+  canonical_evidence_sha256?: string | null;
+  formal_source_bundle_url?: string | null;
+  formal_source_bundle_sha256?: string | null;
 };
 
 export type ReceiverCapacityVerificationReceipt = {

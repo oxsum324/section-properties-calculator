@@ -147,6 +147,13 @@
       && readiness.failureCount === 0
       && readiness.runId === preflight?.runId;
     addError(errors, readinessPass, 'readiness.releaseAlignment');
+    const readinessJson = JSON.stringify(readiness || {});
+    addError(errors, ![
+      'reshoreCapacityFormalAttachmentRecords',
+      'reshoreCapacityFormalAttachmentSetSha256',
+      'rscCalculationFingerprint',
+      'rsbCalculationFingerprint',
+    ].some(key => readinessJson.includes(`"${key}"`)), 'readiness.reshoreCapacityFormalAttachment.privateFields');
 
     const metrics = {
       steelResult: coverage(readiness, 'steelResultReconciliationRequired', 'steelResultReconciliationComplete', 'steelResultReconciliationPass', errors),
@@ -156,16 +163,26 @@
       rcPrint: coverage(readiness, 'rcStandaloneFormalHtmlPrintRequired', 'rcStandaloneFormalHtmlPrintComplete', 'rcStandaloneFormalHtmlPrintPass', errors),
       rcPackage: coverage(readiness, 'rcSourceReportPackageRequired', 'rcSourceReportPackageComplete', 'rcSourceReportPackagePass', errors),
       rcStmAttachment: optionalCoverage(readiness, 'rcStmFormalAttachmentRequired', 'rcStmFormalAttachmentComplete', 'rcStmFormalAttachmentIssueCount', 'rcStmFormalAttachmentPass', 3, errors),
+      reshoreCapacityAttachment: optionalCoverage(readiness, 'reshoreCapacityFormalAttachmentRequired', 'reshoreCapacityFormalAttachmentComplete', 'reshoreCapacityFormalAttachmentIssueCount', 'reshoreCapacityFormalAttachmentPass', 1, errors),
+      reshoreCapacityAttachmentArtifacts: optionalCoverage(readiness, 'reshoreCapacityFormalAttachmentArtifactRequired', 'reshoreCapacityFormalAttachmentArtifactVerified', 'reshoreCapacityFormalAttachmentIssueCount', 'reshoreCapacityFormalAttachmentPass', 6, errors),
       formalResult: coverage(readiness, 'formalResultReconciliationRequired', 'formalResultReconciliationComplete', 'formalResultReconciliationPass', errors),
       localQuickResult: coverage(readiness, 'localQuickResultReconciliationRequired', 'localQuickResultReconciliationComplete', 'localQuickResultReconciliationPass', errors),
       rendered: coverage(readiness, 'renderedDeliveryEvidenceRequired', 'renderedDeliveryEvidenceComplete', '', errors),
       delivery: coverage(readiness, 'deliveryFileIntegrityRequired', 'deliveryFileIntegrityVerified', 'deliveryFileIntegrityPass', errors),
     };
+    const reshoreCapacityAttachmentRequired = metrics.delivery.required >= 179;
+    const reshoreCapacityAttachmentPass = !reshoreCapacityAttachmentRequired || (
+      metrics.reshoreCapacityAttachment.declared
+      && metrics.reshoreCapacityAttachment.pass
+      && metrics.reshoreCapacityAttachmentArtifacts.declared
+      && metrics.reshoreCapacityAttachmentArtifacts.pass
+    );
+    addError(errors, reshoreCapacityAttachmentPass, 'readiness.reshoreCapacityFormalAttachment.v35Required');
     const dimensions = [
       { id: 'release', pass: platformPass && preflightPass },
       { id: 'steel', pass: readinessPass && metrics.steelResult.pass && metrics.steelContentSeal.pass && metrics.steelApprovalSeal.pass },
       { id: 'rc', pass: readinessPass && metrics.rcResult.pass && metrics.rcPrint.pass && metrics.rcPackage.pass && metrics.rcStmAttachment.pass },
-      { id: 'delivery', pass: readinessPass && metrics.formalResult.pass && metrics.localQuickResult.pass && metrics.rendered.pass && metrics.delivery.pass },
+      { id: 'delivery', pass: readinessPass && metrics.formalResult.pass && metrics.localQuickResult.pass && metrics.rendered.pass && metrics.delivery.pass && reshoreCapacityAttachmentPass },
     ];
     return {
       schemaVersion: preflight?.publicEvidenceSchemaVersion || 0,

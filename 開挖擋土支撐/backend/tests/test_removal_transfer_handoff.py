@@ -631,6 +631,98 @@ class RemovalTransferHandoffTests(unittest.TestCase):
                 draft["results"],
             )
 
+    def test_v5_accepts_distinct_rbe_as_bearing_supplemental_evidence(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        draft = self.receiver_receipt(handoff, schema_version=5)
+        result = draft["results"][0]
+        result["capacityEvidence"]["documentReference"] = "RSC-1234567890ABCDEF1234"
+        bearing = next(
+            check for check in result["supplementalChecks"] if check["checkId"] == "bearing"
+        )
+        bearing["evidence"].update({
+            "documentReference": "RSB-1234567890ABCDEF1234",
+            "fileName": "reshore-end-bearing-RSB-1234567890ABCDEF1234.json",
+            "fileSha256": "b" * 64,
+        })
+
+        receipt = build_receiver_verification_receipt(
+            handoff,
+            draft["verificationAuthority"],
+            draft["results"],
+        )
+
+        observed_bearing = next(
+            check
+            for check in receipt["results"][0]["supplementalChecks"]
+            if check["checkId"] == "bearing"
+        )
+        self.assertEqual(
+            observed_bearing["evidence"]["documentReference"],
+            "RSB-1234567890ABCDEF1234",
+        )
+        self.assertNotEqual(
+            observed_bearing["evidence"]["fileSha256"],
+            receipt["results"][0]["capacityEvidence"]["fileSha256"],
+        )
+        self.assertEqual(validate_receiver_verification_receipt(receipt, handoff), receipt)
+        evidence_verification = build_source_capacity_evidence_verification(
+            handoff,
+            receipt,
+            {"organization": "來源端", "verifierName": "李工程師", "verifierRole": "覆核"},
+            "逐檔比對 RSC 構件容量與 RSB 端部直接承壓證據",
+            self.source_evidence_matches(receipt),
+        )
+        observed_rbe_check = next(
+            check
+            for check in evidence_verification["checks"]
+            if check["evidenceKey"] == "bearing"
+        )
+        self.assertEqual(observed_rbe_check["evidenceRole"], "supplemental")
+        self.assertEqual(
+            observed_rbe_check["documentReference"],
+            "RSB-1234567890ABCDEF1234",
+        )
+        self.assertEqual(evidence_verification["summary"]["status"], "matched")
+
+    def test_v5_rejects_rbe_bearing_when_sha_matches_rsc_capacity_evidence(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        draft = self.receiver_receipt(handoff, schema_version=5)
+        result = draft["results"][0]
+        capacity = result["capacityEvidence"]
+        capacity["documentReference"] = "RSC-1234567890ABCDEF1234"
+        bearing = next(
+            check for check in result["supplementalChecks"] if check["checkId"] == "bearing"
+        )
+        bearing["evidence"]["documentReference"] = "RSB-1234567890ABCDEF1234"
+        bearing["evidence"]["fileSha256"] = capacity["fileSha256"]
+
+        with self.assertRaisesRegex(ValueError, "RSC 構件容量證據不得重複"):
+            build_receiver_verification_receipt(
+                handoff,
+                draft["verificationAuthority"],
+                draft["results"],
+            )
+
+    def test_v5_rejects_rbe_as_non_bearing_supplemental_evidence(self) -> None:
+        project = self.prepared_project()
+        handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))
+        draft = self.receiver_receipt(handoff, schema_version=5)
+        connection = next(
+            check
+            for check in draft["results"][0]["supplementalChecks"]
+            if check["checkId"] == "connection"
+        )
+        connection["evidence"]["documentReference"] = "RSB-1234567890ABCDEF1234"
+
+        with self.assertRaisesRegex(ValueError, "RSB 證據不得作為接頭與接合"):
+            build_receiver_verification_receipt(
+                handoff,
+                draft["verificationAuthority"],
+                draft["results"],
+            )
+
     def test_v5_rejects_legacy_sev_v1_partial_evidence_coverage(self) -> None:
         project = self.prepared_project()
         handoff = build_removal_transfer_handoff(project, calculation_fingerprint(project))

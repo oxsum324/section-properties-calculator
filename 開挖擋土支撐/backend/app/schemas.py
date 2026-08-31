@@ -470,12 +470,40 @@ class ReshoreMemberCapacityInput(BaseModel):
     bending_stability_basis: str = Field(default="", max_length=400)
     stress_increase_basis: str = Field(default="", max_length=240)
     pure_axial_no_eccentricity_confirmed: bool = False
+    end_bearing_mode: Literal["not_checked", "centered_rectangular_plate"] = "not_checked"
+    top_end_plate_fy_tf_per_cm2: float = Field(default=2.5, gt=0, le=10)
+    top_end_plate_width_cm: float = Field(default=0, ge=0, le=500)
+    top_end_plate_length_cm: float = Field(default=0, ge=0, le=500)
+    top_end_plate_thickness_cm: float = Field(default=0, ge=0, le=20)
+    top_support_material: Literal["finished_steel", "concrete_full_area"] = "concrete_full_area"
+    top_support_material_strength_tf_per_cm2: float = Field(default=0, ge=0, le=10)
+    top_support_true_plane_confirmed: bool = False
+    bottom_end_plate_width_cm: float = Field(default=0, ge=0, le=500)
+    bottom_end_plate_length_cm: float = Field(default=0, ge=0, le=500)
+    bottom_end_plate_thickness_cm: float = Field(default=0, ge=0, le=20)
+    bottom_end_plate_fy_tf_per_cm2: float = Field(default=2.5, gt=0, le=10)
+    bottom_support_material: Literal["finished_steel", "concrete_full_area"] = "concrete_full_area"
+    bottom_support_material_strength_tf_per_cm2: float = Field(default=0, ge=0, le=10)
+    bottom_support_true_plane_confirmed: bool = False
+    end_bearing_configuration_basis: str = Field(default="", max_length=500)
+    end_plate_bending_method_basis: str = Field(default="", max_length=500)
+    top_support_bearing_basis: str = Field(default="", max_length=500)
+    bottom_support_bearing_basis: str = Field(default="", max_length=500)
+    centered_full_contact_end_bearing_confirmed: bool = False
+    h_section_end_finished_confirmed: bool = False
+    unperforated_unstiffened_single_plate_confirmed: bool = False
 
 
 class CalculateReshoreMemberCapacityRequest(BaseModel):
     handoff: dict[str, Any]
     transfer_id: str = Field(pattern=r"^ERT-[0-9A-F]{20}$")
     calculation_input: ReshoreMemberCapacityInput
+
+
+class BuildReshoreMemberCapacityAttachmentRequest(CalculateReshoreMemberCapacityRequest):
+    calculation_response: dict[str, Any]
+    report_kind: Literal["pdf", "docx"] = "pdf"
+    formal_attachment_confirmed: Literal[True]
 
 
 class BuildSourceEvidenceVerificationRequest(BaseModel):
@@ -641,3 +669,27 @@ class ReportPayload(BaseModel):
     approval_time: str | None = None
     canonical_evidence_url: str | None = None
     formal_source_bundle_url: str | None = None
+
+
+class ReshoreMemberCapacityAttachmentPayload(BaseModel):
+    schema_version: Literal[1] = 1
+    attachment_kind: Literal["rsc-v4-rsb-independent-calculation-attachment"]
+    report_kind: Literal["pdf", "docx"]
+    document_status: Literal["formal-attachment"]
+    output_time: str
+    adopted_calculation_generated_at: str
+    exact_calculation_response_verified: Literal[True]
+    rsc_calculation_fingerprint: str = Field(pattern=r"^RSC-[0-9A-F]{20}$")
+    rsc_evidence_file_name: str
+    rsc_evidence_file_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    rsb_calculation_fingerprint: str = Field(pattern=r"^RSB-[0-9A-F]{20}$")
+    rsb_evidence_file_name: str
+    rsb_evidence_file_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    attachment_file_name: str
+    attachment_file_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    attachment_size_bytes: int = Field(gt=0)
+    download_url: str
+    canonical_evidence_url: str | None = None
+    canonical_evidence_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    formal_source_bundle_url: str | None = None
+    formal_source_bundle_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")

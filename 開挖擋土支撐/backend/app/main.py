@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
 import math
 from datetime import datetime
@@ -62,6 +63,11 @@ from .receiver_governance_checkpoint import (
     verify_receiver_governance_checkpoint_against_current,
 )
 from .receiver_capacity import calculate_reshore_member_capacity
+from .receiver_capacity_attachment import (
+    ATTACHMENT_KIND as RESHORE_CAPACITY_ATTACHMENT_KIND,
+    attachment_download_name_allowed,
+    build_reshore_capacity_attachment,
+)
 from .receiver_evidence_template_package import validate_receiver_evidence_template_publisher_package
 from .receiver_key_enrollment import validate_receiver_key_enrollment
 from .receiver_trust_backup import (
@@ -78,6 +84,7 @@ from .schemas import (
     BootstrapPayload,
     BraceRow,
     BuildReceiverReceiptRequest,
+    BuildReshoreMemberCapacityAttachmentRequest,
     CalculateReshoreMemberCapacityRequest,
     ChangeReceiverOperatorPasswordRequest,
     BuildReceiverSigningRequestRequest,
@@ -98,6 +105,7 @@ from .schemas import (
     ReceiverOperatorLoginRequest,
     ResetReceiverOperatorPasswordRequest,
     ReportPayload,
+    ReshoreMemberCapacityAttachmentPayload,
     RegisterReceiverEnrollmentRequest,
     RestoreReceiverTrustRegistryRequest,
     RestoreReceiverOperatorGovernanceBackupRequest,
@@ -1071,6 +1079,162 @@ def calculate_external_reshore_member_capacity(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post(
+    "/api/removal-transfer/reshore-member-capacity/attachment",
+    response_model=ReshoreMemberCapacityAttachmentPayload,
+)
+def generate_external_reshore_member_capacity_attachment(
+    request: BuildReshoreMemberCapacityAttachmentRequest,
+) -> ReshoreMemberCapacityAttachmentPayload:
+    supplied_response = request.calculation_response
+    supplied_calculation = supplied_response.get("calculation")
+    generated_at = (
+        supplied_calculation.get("generatedAt")
+        if isinstance(supplied_calculation, dict)
+        else None
+    )
+    if not isinstance(generated_at, str) or not generated_at.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="接收端附件必須帶入既有 RSC v4 calculationResponse 與 generatedAt。",
+        )
+    try:
+        calculation_response = calculate_reshore_member_capacity(
+            request.handoff,
+            request.transfer_id,
+            request.calculation_input,
+            generated_at=generated_at,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if calculation_response != supplied_response:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "既有 calculationResponse 無法由本次 handoff／transferId／input／generatedAt "
+                "逐 bytes 與 SHA-256 精確重播，不得產生附件。"
+            ),
+        )
+    if "bearingEvidence" not in calculation_response:
+        raise HTTPException(
+            status_code=400,
+            detail="只有啟用上下端直接承壓的 RSC v4 才能產生獨立計算附件。",
+        )
+
+    artifact = None
+    evidence_path: Path | None = None
+    source_bundle_path: Path | None = None
+    try:
+        output_at = datetime.now().astimezone()
+        artifact = build_reshore_capacity_attachment(
+            calculation_response,
+            report_kind=request.report_kind,
+            output_at=output_at,
+        )
+        if artifact.report_kind == "pdf":
+            evidence_path = build_pdf_canonical_render_evidence(artifact.path)
+            source_bundle_path = build_pdf_formal_source_bundle(artifact.path, evidence_path)
+    except Exception as exc:
+        _cleanup_reshore_capacity_attachment_outputs(
+            artifact.path if artifact is not None else None,
+            evidence_path,
+            source_bundle_path,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"接收端獨立計算附件或正式證據組包建立失敗：{exc}",
+        ) from exc
+
+    return ReshoreMemberCapacityAttachmentPayload(
+        attachment_kind=RESHORE_CAPACITY_ATTACHMENT_KIND,
+        report_kind=artifact.report_kind,
+        document_status="formal-attachment",
+        output_time=artifact.output_time,
+        adopted_calculation_generated_at=generated_at,
+        exact_calculation_response_verified=True,
+        rsc_calculation_fingerprint=artifact.rsc_calculation_fingerprint,
+        rsc_evidence_file_name=artifact.rsc_evidence_file_name,
+        rsc_evidence_file_sha256=artifact.rsc_evidence_file_sha256,
+        rsb_calculation_fingerprint=artifact.rsb_calculation_fingerprint,
+        rsb_evidence_file_name=artifact.rsb_evidence_file_name,
+        rsb_evidence_file_sha256=artifact.rsb_evidence_file_sha256,
+        attachment_file_name=artifact.path.name,
+        attachment_file_sha256=artifact.attachment_file_sha256,
+        attachment_size_bytes=artifact.attachment_size_bytes,
+        download_url=(
+            "/api/removal-transfer/reshore-member-capacity/attachments/"
+            f"{artifact.path.name}"
+        ),
+        canonical_evidence_url=(
+            "/api/removal-transfer/reshore-member-capacity/attachments/"
+            f"{evidence_path.name}"
+            if evidence_path is not None
+            else None
+        ),
+        canonical_evidence_sha256=(
+            _sha256_path(evidence_path) if evidence_path is not None else None
+        ),
+        formal_source_bundle_url=(
+            "/api/removal-transfer/reshore-member-capacity/attachments/"
+            f"{source_bundle_path.name}"
+            if source_bundle_path is not None
+            else None
+        ),
+        formal_source_bundle_sha256=(
+            _sha256_path(source_bundle_path) if source_bundle_path is not None else None
+        ),
+    )
+
+
+def _sha256_path(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _cleanup_reshore_capacity_attachment_outputs(
+    artifact_path: Path | None,
+    evidence_path: Path | None,
+    source_bundle_path: Path | None,
+) -> None:
+    candidates = [source_bundle_path, evidence_path, artifact_path]
+    if artifact_path is not None:
+        candidates.extend(
+            [
+                artifact_path.with_name(
+                    f"{artifact_path.stem}.canonical-render.evidence.json"
+                ),
+                artifact_path.with_name(f"{artifact_path.stem}.formal-source.zip"),
+            ]
+        )
+    for path in candidates:
+        if path is not None:
+            path.unlink(missing_ok=True)
+
+
+@app.get("/api/removal-transfer/reshore-member-capacity/attachments/{filename}")
+def download_external_reshore_member_capacity_attachment(filename: str) -> FileResponse:
+    if not attachment_download_name_allowed(filename):
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    path = settings.reports_dir / filename
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    if path.suffix.lower() == ".pdf":
+        media_type = "application/pdf"
+    elif path.suffix.lower() == ".docx":
+        media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    elif filename.endswith(".canonical-render.evidence.json"):
+        media_type = "application/json"
+    elif filename.endswith(".formal-source.zip"):
+        media_type = "application/zip"
+    else:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    return FileResponse(
+        path,
+        media_type=media_type,
+        filename=filename,
+        headers={"Cache-Control": "no-store, no-cache, max-age=0", "Pragma": "no-cache"},
+    )
 
 
 @app.post("/api/removal-transfer-receipts/validate")

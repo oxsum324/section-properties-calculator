@@ -49,11 +49,14 @@ const localQuickResultReconciliationRequired = new Set(
 // adds the independently governed frame-analysis PDF/evidence pair. Schema v33
 // adds the bounded steel Gusset tension-connection PDF/evidence pair. Schema v34
 // adds the governed moment-connection and CJP column-splice PDF/evidence pairs.
+// Schema v35 adds the independent RSC v4 / RSB v1 receiver-capacity
+// attachment PDF/evidence pair.
 const steelShearTabCanonicalArtifactRequired = 2;
 const frameAnalysisCanonicalArtifactRequired = 2;
 const steelGussetCanonicalArtifactRequired = 2;
 const steelMomentConnectionCanonicalArtifactRequired = 2;
 const steelColumnSpliceCanonicalArtifactRequired = 2;
+const reshoreCapacityCanonicalArtifactRequired = 2;
 const steelFormalScenarioRequired = 9;
 const canonicalArtifactIntegrityRequired = 48
   + (localQuickResultReconciliationRequired * 6)
@@ -61,9 +64,10 @@ const canonicalArtifactIntegrityRequired = 48
   + frameAnalysisCanonicalArtifactRequired
   + steelGussetCanonicalArtifactRequired
   + steelMomentConnectionCanonicalArtifactRequired
-  + steelColumnSpliceCanonicalArtifactRequired;
+  + steelColumnSpliceCanonicalArtifactRequired
+  + reshoreCapacityCanonicalArtifactRequired;
 assert.equal(localQuickResultReconciliationRequired, 6, 'rendered delivery evidence inventory preserves all 6 local quick tools');
-assert.equal(canonicalArtifactIntegrityRequired, 94, 'Schema v34 requires 94 canonical PDF and evidence files');
+assert.equal(canonicalArtifactIntegrityRequired, 96, 'Schema v35 requires 96 canonical PDF and evidence files');
 
 for (const needle of ['計算層級 / 複核邊界', '條文對照 ＆ 方法分級', '規範覆蓋矩陣']) {
   assert.ok(DEFAULT_FORBIDDEN.includes(needle), `rendered delivery evidence shares calculation-book boundary: ${needle}`);
@@ -2625,6 +2629,174 @@ assert.equal(excavationEvidence.xmlSectionCount, excavationSectionCount, 'excava
 assert.equal(excavationEvidence.pageBreakCount, excavationPageBreakCount, 'excavation summary matches DOCX page-break count');
 assert.equal(excavationEvidence.drawingCount, excavationDrawingCount, 'excavation summary matches DOCX drawing count');
 assert.equal(excavationEvidence.mediaCount, excavationMediaCount, 'excavation summary matches DOCX media count');
+
+const receiverAttachment = excavationEvidence.receiverCapacityAttachment;
+assert.equal(receiverAttachment?.schemaVersion, 1, 'excavation release summary keeps the RSC/RSB attachment schema');
+assert.equal(receiverAttachment?.kind, 'rsc-v4-rsb-independent-calculation-attachment', 'excavation release summary keeps the RSC/RSB attachment kind');
+assert.equal(receiverAttachment?.documentStatus, 'formal-attachment', 'RSC/RSB release attachment is formally classified');
+assert.equal(receiverAttachment?.pass, true, 'RSC/RSB release attachment producer gate passes');
+assert.match(receiverAttachment?.rscCalculationFingerprint || '', /^RSC-[0-9A-F]{20}$/, 'RSC/RSB release attachment has an RSC v4 fingerprint');
+assert.match(receiverAttachment?.rsbCalculationFingerprint || '', /^RSB-[0-9A-F]{20}$/, 'RSC/RSB release attachment has an RSB v1 fingerprint');
+
+const receiverPdfIntegrity = verifyRecordedArtifact(
+  excavationEvidenceDir,
+  receiverAttachment,
+  { nameField: 'artifact', bytesField: 'artifactBytes', sha256Field: 'artifactSha256' },
+  'RSC/RSB receiver PDF'
+);
+const receiverDocxIntegrity = verifyRecordedArtifact(
+  excavationEvidenceDir,
+  receiverAttachment,
+  { nameField: 'document', bytesField: 'documentBytes', sha256Field: 'documentSha256' },
+  'RSC/RSB receiver DOCX'
+);
+const receiverCanonicalIntegrity = verifyRecordedArtifact(
+  excavationEvidenceDir,
+  receiverAttachment,
+  { nameField: 'canonicalEvidence', bytesField: 'canonicalEvidenceBytes', sha256Field: 'canonicalEvidenceSha256' },
+  'RSC/RSB receiver canonical evidence'
+);
+const receiverBundleIntegrity = verifyRecordedArtifact(
+  excavationEvidenceDir,
+  receiverAttachment,
+  { nameField: 'formalSourceBundle', bytesField: 'formalSourceBundleBytes', sha256Field: 'formalSourceBundleSha256' },
+  'RSC/RSB receiver formal source bundle'
+);
+const receiverRscIntegrity = verifyRecordedArtifact(
+  excavationEvidenceDir,
+  receiverAttachment,
+  { nameField: 'rscEvidenceFileName', bytesField: 'rscEvidenceBytes', sha256Field: 'rscEvidenceFileSha256' },
+  'RSC/RSB exact RSC JSON'
+);
+const receiverRsbIntegrity = verifyRecordedArtifact(
+  excavationEvidenceDir,
+  receiverAttachment,
+  { nameField: 'rsbEvidenceFileName', bytesField: 'rsbEvidenceBytes', sha256Field: 'rsbEvidenceFileSha256' },
+  'RSC/RSB exact RSB JSON'
+);
+
+const receiverPdfPath = path.join(excavationEvidenceDir, receiverAttachment.artifact);
+const receiverDocxPath = path.join(excavationEvidenceDir, receiverAttachment.document);
+const receiverCanonicalPath = path.join(excavationEvidenceDir, receiverAttachment.canonicalEvidence);
+const receiverBundlePath = path.join(excavationEvidenceDir, receiverAttachment.formalSourceBundle);
+const receiverRscPath = path.join(excavationEvidenceDir, receiverAttachment.rscEvidenceFileName);
+const receiverRsbPath = path.join(excavationEvidenceDir, receiverAttachment.rsbEvidenceFileName);
+const receiverPdf = validatePdfFile(receiverPdfPath, {
+  label: 'RSC v4 / RSB v1 接收端獨立計算附件',
+  contentBoundaryProfile: 'traceable-calculation-book',
+  minTextLength: 1200,
+  requiredNeedles: [
+    'RSC v4',
+    'RSB v1',
+    '接收端獨立計算附件',
+    receiverAttachment.rscCalculationFingerprint,
+    receiverAttachment.rsbCalculationFingerprint,
+    '0.298816',
+    '0.717457',
+    '0.223352',
+    'PASS',
+  ],
+  titleNeedle: '接收端獨立計算附件',
+  projectNeedle: '__skip_project_order__',
+  keepWithNextLabels: ['一、文件身分與追溯', '二、採用輸入', '三、需求 P 與控制容量', '四、上下端三項檢核', '五、公式與依據', '六、未涵蓋邊界'],
+  continuationContextLabels: ['接收端獨立計算附件', '上下端三項檢核', '頂端', '底端', '公式與依據', '未涵蓋邊界'],
+});
+const receiverPdfText = fs.readFileSync(receiverPdf.textPath, 'utf8');
+assert.equal(receiverAttachment.pdfPageCount, receiverPdf.pageCount, 'RSC/RSB summary matches independently parsed PDF pages');
+assert.ok(receiverAttachment.pdfTextLength >= 1200, 'RSC/RSB producer records substantial PDF text');
+
+const receiverDocxEntries = readZipEntries(receiverDocxPath, 'RSC/RSB receiver DOCX');
+assert.ok(receiverDocxEntries.has('word/document.xml'), 'RSC/RSB receiver DOCX contains document.xml');
+const receiverDocxPackage = verifyCleanDocxPackage(
+  receiverDocxEntries,
+  'rsc-v4-rsb-v1-receiver-capacity',
+  'RSC/RSB receiver DOCX'
+);
+const receiverDocumentXml = receiverDocxEntries.get('word/document.xml').toString('utf8');
+const receiverDocxText = decodeXmlText(receiverDocumentXml);
+assert.ok(receiverAttachment.documentTextLength >= 1200, 'RSC/RSB producer records substantial DOCX text');
+assert.equal(receiverDocumentXml.includes('<w:pBdr'), false, 'RSC/RSB memo masthead has no forbidden bottom border');
+assert.ok(/<w:pgSz[^>]*w:w="12240"[^>]*w:h="15840"/.test(receiverDocumentXml), 'RSC/RSB DOCX uses US Letter page geometry');
+assert.ok(/<w:pgMar[^>]*w:top="1440"[^>]*w:right="1440"[^>]*w:bottom="1440"[^>]*w:left="1440"/.test(receiverDocumentXml), 'RSC/RSB DOCX uses one-inch margins');
+assert.ok((receiverDocumentXml.match(/<w:tblW[^>]*w:w="9360"/g) || []).length >= 6, 'RSC/RSB DOCX tables use exact 9360 DXA geometry');
+assert.ok((receiverDocumentXml.match(/<w:tblInd[^>]*w:w="120"/g) || []).length >= 6, 'RSC/RSB DOCX tables use exact 120 DXA indentation');
+assert.ok(receiverDocumentXml.includes('w:fill="E8EEF5"'), 'RSC/RSB DOCX uses the governed table-header fill');
+for (const needle of [
+  'RSC v4',
+  'RSB v1',
+  receiverAttachment.rscCalculationFingerprint,
+  receiverAttachment.rsbCalculationFingerprint,
+  receiverAttachment.rscEvidenceFileSha256,
+  receiverAttachment.rsbEvidenceFileSha256,
+  '0.298816',
+  '0.717457',
+  '0.223352',
+  'PASS',
+  'https://ej.aisc.org/index.php/engj/article/view/214',
+  '本獨立接收端附件不會寫入或改動來源專案的主 PDF/DOCX 計算書。',
+]) {
+  assert.ok(receiverPdfText.includes(needle), `RSC/RSB PDF preserves ${needle}`);
+  assert.ok(receiverDocxText.includes(needle), `RSC/RSB DOCX preserves ${needle}`);
+}
+
+const receiverCanonical = verifyCanonicalRenderedArtifact(
+  excavationEvidenceDir,
+  {
+    artifact: receiverAttachment.artifact,
+    artifactBytes: receiverAttachment.artifactBytes,
+    artifactSha256: receiverAttachment.artifactSha256,
+    evidence: receiverAttachment.canonicalEvidence,
+    evidenceBytes: receiverAttachment.canonicalEvidenceBytes,
+    evidenceSha256: receiverAttachment.canonicalEvidenceSha256,
+  },
+  'RSC/RSB receiver canonical PDF'
+);
+canonicalArtifactRecords.push(
+  { family: 'excavation-reshore-capacity-formal', role: 'reportPdf', name: receiverAttachment.artifact, bytes: receiverCanonical.artifactBytes, sha256: receiverCanonical.artifactSha256 },
+  { family: 'excavation-reshore-capacity-formal', role: 'renderEvidence', name: receiverAttachment.canonicalEvidence, bytes: receiverCanonical.evidenceBytes, sha256: receiverCanonical.evidenceSha256 },
+);
+const receiverCanonicalJson = readJson(receiverCanonicalPath);
+assert.equal(receiverCanonicalJson.kind, 'attachment-canonical-render-evidence.v1', 'RSC/RSB canonical evidence kind');
+assert.equal(receiverCanonicalJson.artifact, receiverAttachment.artifact, 'RSC/RSB canonical evidence names the exact PDF');
+assert.equal(receiverCanonicalJson.artifactSha256, receiverAttachment.artifactSha256, 'RSC/RSB canonical evidence binds the exact PDF hash');
+assert.equal(receiverCanonicalJson.pdf?.pageCount, receiverPdf.pageCount, 'RSC/RSB canonical evidence page count matches the independently parsed PDF');
+assert.equal(receiverCanonical.artifactSha256, receiverPdfIntegrity.sha256, 'RSC/RSB canonical verification returns the PDF hash');
+assert.equal(receiverCanonical.evidenceSha256, receiverCanonicalIntegrity.sha256, 'RSC/RSB canonical verification returns the evidence hash');
+
+const receiverBundleEntries = readZipEntries(receiverBundlePath, 'RSC/RSB receiver formal source bundle');
+assert.deepEqual([...receiverBundleEntries.keys()], [receiverAttachment.artifact, receiverAttachment.canonicalEvidence], 'RSC/RSB formal source bundle contains only its exact PDF/evidence pair');
+assert.ok(receiverBundleEntries.get(receiverAttachment.artifact).equals(fs.readFileSync(receiverPdfPath)), 'RSC/RSB formal source bundle PDF bytes match');
+assert.ok(receiverBundleEntries.get(receiverAttachment.canonicalEvidence).equals(fs.readFileSync(receiverCanonicalPath)), 'RSC/RSB formal source bundle evidence bytes match');
+assert.equal(receiverBundleIntegrity.bytes, fs.statSync(receiverBundlePath).size, 'RSC/RSB formal source bundle bytes are independently verified');
+
+const receiverRsc = readJson(receiverRscPath);
+const receiverRsb = readJson(receiverRsbPath);
+assert.equal(fs.readFileSync(receiverRscPath, 'utf8'), `${JSON.stringify(canonicalizeJson(receiverRsc))}\n`, 'RSC release JSON keeps exact canonical bytes');
+assert.equal(fs.readFileSync(receiverRsbPath, 'utf8'), `${JSON.stringify(canonicalizeJson(receiverRsb))}\n`, 'RSB release JSON keeps exact canonical bytes');
+const receiverRscReplay = JSON.parse(JSON.stringify(receiverRsc));
+delete receiverRscReplay.calculationFingerprint;
+const receiverRscReplayedFingerprint = `RSC-${createHash('sha256').update(JSON.stringify(canonicalizeJson(receiverRscReplay)), 'utf8').digest('hex').slice(0, 20).toUpperCase()}`;
+const receiverRsbReplay = JSON.parse(JSON.stringify(receiverRsb));
+delete receiverRsbReplay.calculationFingerprint;
+const receiverRsbReplayedFingerprint = `RSB-${createHash('sha256').update(JSON.stringify(canonicalizeJson(receiverRsbReplay)), 'utf8').digest('hex').slice(0, 20).toUpperCase()}`;
+assert.equal(receiverRscReplayedFingerprint, receiverAttachment.rscCalculationFingerprint, 'aggregate independently replays the exact RSC fingerprint');
+assert.equal(receiverRsbReplayedFingerprint, receiverAttachment.rsbCalculationFingerprint, 'aggregate independently replays the exact RSB fingerprint');
+assert.equal(receiverRsc.kind, 'excavation-reshore-member-capacity-calculation', 'RSC/RSB release fixture preserves exact RSC kind');
+assert.equal(receiverRsc.schemaVersion, 4, 'RSC/RSB release fixture preserves RSC schema v4');
+assert.equal(receiverRsc.calculationFingerprint, receiverAttachment.rscCalculationFingerprint, 'RSC/RSB release fixture exact RSC JSON fingerprint matches summary');
+assert.equal(receiverRsb.kind, 'excavation-reshore-end-bearing-evidence', 'RSC/RSB release fixture preserves exact RSB kind');
+assert.equal(receiverRsb.schemaVersion, 1, 'RSC/RSB release fixture preserves RSB schema v1');
+assert.equal(receiverRsb.calculationFingerprint, receiverAttachment.rsbCalculationFingerprint, 'RSC/RSB release fixture exact RSB JSON fingerprint matches summary');
+assert.equal(receiverRsb.source?.reshoreCalculationFingerprint, receiverAttachment.rscCalculationFingerprint, 'RSB exact JSON links the same RSC fingerprint');
+assert.equal(receiverRsb.source?.reshoreCalculationEvidenceFileName, receiverAttachment.rscEvidenceFileName, 'RSB exact JSON links the same RSC file');
+assert.equal(receiverRsb.source?.reshoreCalculationEvidenceFileSha256, receiverAttachment.rscEvidenceFileSha256, 'RSB exact JSON links the same RSC SHA-256');
+const replayedTransferDemand = receiverRsb.source.receiverTransferDemandTf * receiverRsb.input.imbalanceFactor / receiverRsb.input.memberCount;
+const replayedTotalDemand = replayedTransferDemand + receiverRsb.input.additionalAxialLoadTfPerMember;
+assert.ok(Math.abs(replayedTransferDemand - receiverRsb.results.transferDemandPerMemberTf) <= 1e-6, 'RSB exact JSON independently replays transfer demand per member');
+assert.ok(Math.abs(replayedTotalDemand - receiverRsb.results.totalDemandPerMemberTf) <= 1e-6, 'RSB exact JSON independently replays total demand P');
+assert.equal(receiverDocxIntegrity.sha256, receiverAttachment.documentSha256, 'RSC/RSB DOCX SHA-256 is independently verified');
+assert.equal(receiverRscIntegrity.sha256, receiverAttachment.rscEvidenceFileSha256, 'RSC/RSB exact RSC JSON SHA-256 is independently verified');
+assert.equal(receiverRsbIntegrity.sha256, receiverAttachment.rsbEvidenceFileSha256, 'RSC/RSB exact RSB JSON SHA-256 is independently verified');
 const excavationPdfText = fs.readFileSync(excavationPdf.textPath, 'utf8');
 excavationResultReconciliationRecords.push(validateExcavationResultReconciliationRecord(
   excavationEvidence,
@@ -2694,15 +2866,20 @@ const attachmentIntegrity = {
   setSha256: integritySetHash(attachmentIntegrityGroups.flatMap(group => group.artifacts)),
   groups: attachmentIntegrityGroups,
 };
-const mixedArtifactRecords = [...records, ...supplementalRecords]
-  .flatMap(record => record.artifactIntegrity || []);
+const mixedArtifactRecords = [
+  ...[...records, ...supplementalRecords].flatMap(record => record.artifactIntegrity || []),
+  { ...receiverDocxIntegrity, family: 'excavation-reshore-capacity-formal', role: 'reportDocx' },
+  { ...receiverBundleIntegrity, family: 'excavation-reshore-capacity-formal', role: 'formalSourceBundle' },
+  { ...receiverRscIntegrity, family: 'excavation-reshore-capacity-formal', role: 'rscJson' },
+  { ...receiverRsbIntegrity, family: 'excavation-reshore-capacity-formal', role: 'rsbJson' },
+];
 const mixedArtifactIntegrity = {
   schemaVersion: 1,
   scope: 'mixed-format-release-artifacts',
-  required: 13,
+  required: 17,
   verified: mixedArtifactRecords.length,
-  issueCount: Math.max(0, 13 - mixedArtifactRecords.length),
-  pass: mixedArtifactRecords.length === 13,
+  issueCount: Math.max(0, 17 - mixedArtifactRecords.length),
+  pass: mixedArtifactRecords.length === 17,
   setSha256: integritySetHash(mixedArtifactRecords),
   artifacts: mixedArtifactRecords,
 };
@@ -3052,7 +3229,7 @@ assert.equal(canonicalArtifactIntegrity.verified, canonicalArtifactIntegrity.req
 assert.equal(canonicalArtifactIntegrity.pass, true, 'release rendered evidence passes canonical PDF and evidence integrity');
 assert.equal(rcVisualArtifactIntegrity.verified, rcVisualArtifactIntegrity.required, 'release rendered evidence verifies all 66 RC PDF and PNG visual artifacts');
 assert.equal(rcVisualArtifactIntegrity.pass, true, 'release rendered evidence passes RC PDF and PNG visual artifact integrity');
-assert.equal(mixedArtifactIntegrity.verified, mixedArtifactIntegrity.required, 'release rendered evidence verifies all 13 mixed-format artifacts');
+assert.equal(mixedArtifactIntegrity.verified, mixedArtifactIntegrity.required, 'release rendered evidence verifies all 17 mixed-format artifacts');
 assert.equal(mixedArtifactIntegrity.pass, true, 'release rendered evidence passes mixed-format artifact integrity');
 assert.equal(attachmentIntegrity.required, 34, 'release rendered evidence expects 34 RC HTML attachments');
 assert.equal(attachmentIntegrity.actual, attachmentIntegrity.required, 'release rendered evidence keeps every expected RC HTML attachment');
@@ -3062,14 +3239,14 @@ assert.equal(attachmentIntegrity.pass, true, 'release rendered evidence passes R
 const docxPackageIntegrity = {
   schemaVersion: 1,
   scope: 'formal-docx-clean-ooxml-package',
-  required: 4,
+  required: 5,
   complete: docxPackageIntegrityRecords.length,
   issueCount: docxPackageIntegrityRecords.reduce((sum, record) => sum + record.issueCount, 0),
-  pass: docxPackageIntegrityRecords.length === 4 && docxPackageIntegrityRecords.every(record => record.pass),
+  pass: docxPackageIntegrityRecords.length === 5 && docxPackageIntegrityRecords.every(record => record.pass),
   records: docxPackageIntegrityRecords,
 };
 assert.equal(new Set(docxPackageIntegrityRecords.map(record => record.key)).size, docxPackageIntegrityRecords.length, 'release rendered evidence DOCX package identities are unique');
-assert.equal(docxPackageIntegrity.complete, docxPackageIntegrity.required, 'release rendered evidence verifies all 4 formal DOCX packages');
+assert.equal(docxPackageIntegrity.complete, docxPackageIntegrity.required, 'release rendered evidence verifies all 5 formal DOCX packages');
 assert.equal(docxPackageIntegrity.issueCount, 0, 'release rendered evidence formal DOCX packages contain no hidden package contamination');
 assert.equal(docxPackageIntegrity.pass, true, 'release rendered evidence passes formal DOCX package integrity');
 const xlsxPackageIntegrity = {
@@ -3133,8 +3310,56 @@ const xlsxDualSeal = {
 assert.equal(xlsxDualSeal.contentComplete, xlsxDualSeal.contentRequired, 'release verifies the formal XLSX content seal');
 assert.equal(xlsxDualSeal.approvalComplete, xlsxDualSeal.approvalRequired, 'release verifies the formal XLSX approval seal');
 assert.equal(xlsxDualSeal.pass, true, 'release passes formal XLSX dual seal integrity');
+const reshoreCapacityFormalAttachmentArtifacts = [
+  { ...receiverRscIntegrity, family: 'excavation-reshore-capacity-formal', role: 'rscJson' },
+  { ...receiverRsbIntegrity, family: 'excavation-reshore-capacity-formal', role: 'rsbJson' },
+  { ...receiverPdfIntegrity, family: 'excavation-reshore-capacity-formal', role: 'reportPdf' },
+  { ...receiverDocxIntegrity, family: 'excavation-reshore-capacity-formal', role: 'reportDocx' },
+  { ...receiverCanonicalIntegrity, family: 'excavation-reshore-capacity-formal', role: 'canonicalEvidence' },
+  { ...receiverBundleIntegrity, family: 'excavation-reshore-capacity-formal', role: 'formalSourceBundle' },
+];
+const reshoreCapacityFormalAttachmentPass = receiverAttachment?.pass === true
+  && reshoreCapacityFormalAttachmentArtifacts.length === 6
+  && reshoreCapacityFormalAttachmentArtifacts.every(artifact => artifact.bytes > 0 && /^[0-9a-f]{64}$/i.test(artifact.sha256 || ''))
+  && receiverDocxPackage.pass === true
+  && receiverCanonicalJson.kind === 'attachment-canonical-render-evidence.v1'
+  && receiverCanonicalJson.artifact === receiverAttachment.artifact
+  && receiverCanonicalJson.artifactSha256 === receiverPdfIntegrity.sha256
+  && receiverCanonicalJson.pdf?.pageCount === receiverPdf.pageCount
+  && receiverBundleEntries.size === 2
+  && receiverRscReplayedFingerprint === receiverAttachment.rscCalculationFingerprint
+  && receiverRsbReplayedFingerprint === receiverAttachment.rsbCalculationFingerprint
+  && receiverRsb.source?.reshoreCalculationFingerprint === receiverAttachment.rscCalculationFingerprint
+  && receiverRsb.source?.reshoreCalculationEvidenceFileName === receiverAttachment.rscEvidenceFileName
+  && receiverRsb.source?.reshoreCalculationEvidenceFileSha256 === receiverAttachment.rscEvidenceFileSha256
+  && Math.abs(replayedTransferDemand - receiverRsb.results.transferDemandPerMemberTf) <= 1e-6
+  && Math.abs(replayedTotalDemand - receiverRsb.results.totalDemandPerMemberTf) <= 1e-6;
+const reshoreCapacityFormalAttachment = {
+  schemaVersion: 1,
+  scope: 'rsc-v4-rsb-v1-independent-calculation-attachment',
+  required: 1,
+  complete: reshoreCapacityFormalAttachmentPass ? 1 : 0,
+  issueCount: reshoreCapacityFormalAttachmentPass ? 0 : 1,
+  pass: reshoreCapacityFormalAttachmentPass,
+  artifactRequired: 6,
+  artifactVerified: 6,
+  setSha256: scopedIntegritySetHash(reshoreCapacityFormalAttachmentArtifacts),
+  records: [{
+    key: 'rsc-v4-rsb-v1-receiver-capacity',
+    rscCalculationFingerprint: receiverAttachment.rscCalculationFingerprint,
+    rsbCalculationFingerprint: receiverAttachment.rsbCalculationFingerprint,
+    pdfPageCount: receiverPdf.pageCount,
+    pdfTextLength: receiverPdf.textLength,
+    documentTextLength: receiverDocxText.length,
+    artifacts: reshoreCapacityFormalAttachmentArtifacts,
+  }],
+};
+assert.equal(reshoreCapacityFormalAttachment.complete, reshoreCapacityFormalAttachment.required, 'release rendered evidence verifies the independent RSC v4 / RSB v1 attachment');
+assert.equal(reshoreCapacityFormalAttachment.artifactVerified, reshoreCapacityFormalAttachment.artifactRequired, 'release rendered evidence verifies all six RSC/RSB attachment artifacts');
+assert.equal(reshoreCapacityFormalAttachment.issueCount, 0, 'release rendered evidence has no RSC/RSB attachment integrity issue');
+assert.equal(reshoreCapacityFormalAttachment.pass, true, 'release rendered evidence passes RSC/RSB attachment verification');
 const aggregate = {
-  schemaVersion: 34,
+  schemaVersion: 35,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),
@@ -3143,8 +3368,9 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && rcStmFormalAttachment.pass && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && docxPackageIntegrity.pass && xlsxPackageIntegrity.pass && xlsxPrintVisual.pass && xlsxDualSeal.pass && formalResultReconciliation.pass && frameResultReconciliation.pass && frameHtmlContentSeal.pass && frameHtmlApprovalSeal.pass && formalHtmlContentSeal.pass && formalHtmlApprovalSeal.pass && steelHtmlContentSeal.pass && steelHtmlApprovalSeal.pass && anchorHtmlContentSeal.pass && anchorHtmlApprovalSeal.pass && localQuickResultReconciliation.pass && rcResultReconciliation.pass && rcSourceReportPackage.pass && rcStandaloneFormalHtmlPrint.pass && rcFormalHtmlContentSeal.pass && rcFormalHtmlApprovalSeal.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && rcStmFormalAttachment.pass && reshoreCapacityFormalAttachment.pass && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && docxPackageIntegrity.pass && xlsxPackageIntegrity.pass && xlsxPrintVisual.pass && xlsxDualSeal.pass && formalResultReconciliation.pass && frameResultReconciliation.pass && frameHtmlContentSeal.pass && frameHtmlApprovalSeal.pass && formalHtmlContentSeal.pass && formalHtmlApprovalSeal.pass && steelHtmlContentSeal.pass && steelHtmlApprovalSeal.pass && anchorHtmlContentSeal.pass && anchorHtmlApprovalSeal.pass && localQuickResultReconciliation.pass && rcResultReconciliation.pass && rcSourceReportPackage.pass && rcStandaloneFormalHtmlPrint.pass && rcFormalHtmlContentSeal.pass && rcFormalHtmlApprovalSeal.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
   rcStmFormalAttachment,
+  reshoreCapacityFormalAttachment,
   attachmentIntegrity,
   mixedArtifactIntegrity,
   rcVisualArtifactIntegrity,
@@ -3180,4 +3406,4 @@ const aggregate = {
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, rcStmFormalAttachment=${rcStmFormalAttachment.complete}/${rcStmFormalAttachment.required}, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, docxPackageIntegrity=${docxPackageIntegrity.complete}/${docxPackageIntegrity.required}, xlsxPackageIntegrity=${xlsxPackageIntegrity.complete}/${xlsxPackageIntegrity.required}, xlsxPrintVisual=${xlsxPrintVisual.complete}/${xlsxPrintVisual.required}, xlsxContentSeal=${xlsxDualSeal.contentComplete}/${xlsxDualSeal.contentRequired}, xlsxApprovalSeal=${xlsxDualSeal.approvalComplete}/${xlsxDualSeal.approvalRequired}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, frameResultReconciliation=${frameResultReconciliation.complete}/${frameResultReconciliation.required}, frameHtmlContentSeal=${frameHtmlContentSeal.complete}/${frameHtmlContentSeal.required}, frameHtmlApprovalSeal=${frameHtmlApprovalSeal.complete}/${frameHtmlApprovalSeal.required}, formalHtmlContentSeal=${formalHtmlContentSeal.complete}/${formalHtmlContentSeal.required}, formalHtmlApprovalSeal=${formalHtmlApprovalSeal.complete}/${formalHtmlApprovalSeal.required}, steelHtmlContentSeal=${steelHtmlContentSeal.complete}/${steelHtmlContentSeal.required}, steelHtmlApprovalSeal=${steelHtmlApprovalSeal.complete}/${steelHtmlApprovalSeal.required}, anchorHtmlContentSeal=${anchorHtmlContentSeal.complete}/${anchorHtmlContentSeal.required}, anchorHtmlApprovalSeal=${anchorHtmlApprovalSeal.complete}/${anchorHtmlApprovalSeal.required}, localQuickResultReconciliation=${localQuickResultReconciliation.complete}/${localQuickResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, rcSourceReportPackage=${rcSourceReportPackage.complete}/${rcSourceReportPackage.required}, rcStandaloneFormalHtmlPrint=${rcStandaloneFormalHtmlPrint.complete}/${rcStandaloneFormalHtmlPrint.required}, rcFormalHtmlContentSeal=${rcFormalHtmlContentSeal.complete}/${rcFormalHtmlContentSeal.required}, rcFormalHtmlApprovalSeal=${rcFormalHtmlApprovalSeal.complete}/${rcFormalHtmlApprovalSeal.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, rcStmFormalAttachment=${rcStmFormalAttachment.complete}/${rcStmFormalAttachment.required}, reshoreCapacityFormalAttachment=${reshoreCapacityFormalAttachment.complete}/${reshoreCapacityFormalAttachment.required}, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, docxPackageIntegrity=${docxPackageIntegrity.complete}/${docxPackageIntegrity.required}, xlsxPackageIntegrity=${xlsxPackageIntegrity.complete}/${xlsxPackageIntegrity.required}, xlsxPrintVisual=${xlsxPrintVisual.complete}/${xlsxPrintVisual.required}, xlsxContentSeal=${xlsxDualSeal.contentComplete}/${xlsxDualSeal.contentRequired}, xlsxApprovalSeal=${xlsxDualSeal.approvalComplete}/${xlsxDualSeal.approvalRequired}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, frameResultReconciliation=${frameResultReconciliation.complete}/${frameResultReconciliation.required}, frameHtmlContentSeal=${frameHtmlContentSeal.complete}/${frameHtmlContentSeal.required}, frameHtmlApprovalSeal=${frameHtmlApprovalSeal.complete}/${frameHtmlApprovalSeal.required}, formalHtmlContentSeal=${formalHtmlContentSeal.complete}/${formalHtmlContentSeal.required}, formalHtmlApprovalSeal=${formalHtmlApprovalSeal.complete}/${formalHtmlApprovalSeal.required}, steelHtmlContentSeal=${steelHtmlContentSeal.complete}/${steelHtmlContentSeal.required}, steelHtmlApprovalSeal=${steelHtmlApprovalSeal.complete}/${steelHtmlApprovalSeal.required}, anchorHtmlContentSeal=${anchorHtmlContentSeal.complete}/${anchorHtmlContentSeal.required}, anchorHtmlApprovalSeal=${anchorHtmlApprovalSeal.complete}/${anchorHtmlApprovalSeal.required}, localQuickResultReconciliation=${localQuickResultReconciliation.complete}/${localQuickResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, rcSourceReportPackage=${rcSourceReportPackage.complete}/${rcSourceReportPackage.required}, rcStandaloneFormalHtmlPrint=${rcStandaloneFormalHtmlPrint.complete}/${rcStandaloneFormalHtmlPrint.required}, rcFormalHtmlContentSeal=${rcFormalHtmlContentSeal.complete}/${rcFormalHtmlContentSeal.required}, rcFormalHtmlApprovalSeal=${rcFormalHtmlApprovalSeal.complete}/${rcFormalHtmlApprovalSeal.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);

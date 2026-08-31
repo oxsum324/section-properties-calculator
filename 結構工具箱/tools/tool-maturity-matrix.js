@@ -2094,6 +2094,48 @@ function isCompleteRcStmFormalAttachmentEvidence(evidence) {
   );
 }
 
+function isCompleteReshoreCapacityFormalAttachmentEvidence(evidence) {
+  if (Number(evidence?.schemaVersion) < 35) return true;
+  const attachment = evidence?.reshoreCapacityFormalAttachment;
+  const records = Array.isArray(attachment?.records) ? attachment.records : [];
+  const expectedRoles = ['canonicalEvidence', 'formalSourceBundle', 'reportDocx', 'reportPdf', 'rscJson', 'rsbJson'].sort();
+  return Boolean(
+    attachment?.scope === 'rsc-v4-rsb-v1-independent-calculation-attachment'
+    && attachment.required === 1
+    && attachment.complete === 1
+    && attachment.issueCount === 0
+    && attachment.artifactRequired === 6
+    && attachment.artifactVerified === 6
+    && attachment.pass === true
+    && /^[0-9a-f]{64}$/i.test(String(attachment.setSha256 || ''))
+    && records.length === 1
+    && records.every(record => {
+      const artifacts = Array.isArray(record?.artifacts) ? record.artifacts : [];
+      const roles = artifacts.map(artifact => String(artifact?.role || '')).sort();
+      const names = artifacts.map(artifact => String(artifact?.name || ''));
+      return record?.key === 'rsc-v4-rsb-v1-receiver-capacity'
+        && /^RSC-[0-9A-F]{20}$/.test(String(record?.rscCalculationFingerprint || ''))
+        && /^RSB-[0-9A-F]{20}$/.test(String(record?.rsbCalculationFingerprint || ''))
+        && Number.isInteger(record?.pdfPageCount)
+        && record.pdfPageCount > 0
+        && Number.isInteger(record?.pdfTextLength)
+        && record.pdfTextLength > 0
+        && Number.isInteger(record?.documentTextLength)
+        && record.documentTextLength > 0
+        && artifacts.length === 6
+        && JSON.stringify(roles) === JSON.stringify(expectedRoles)
+        && new Set(names).size === 6
+        && artifacts.every(artifact => (
+          typeof artifact?.name === 'string'
+          && artifact.name.length > 0
+          && Number.isInteger(artifact?.bytes)
+          && artifact.bytes > 0
+          && /^[0-9a-f]{64}$/i.test(String(artifact?.sha256 || ''))
+        ));
+    })
+  );
+}
+
 function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const supplementalDeclared = Number.isInteger(evidence?.supplementalRequired);
   const attachmentIntegrityDeclared = Number(evidence?.schemaVersion) >= 2;
@@ -2114,6 +2156,7 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const frameAnalysisFormalEvidenceDeclared = Number(evidence?.schemaVersion) >= 32;
   const gussetSteelFormalEvidenceDeclared = Number(evidence?.schemaVersion) >= 33;
   const finalConnectionSteelFormalEvidenceDeclared = Number(evidence?.schemaVersion) >= 34;
+  const reshoreCapacityFormalAttachmentDeclared = Number(evidence?.schemaVersion) >= 35;
   const expectedLocalQuickResultReconciliationCount = cableTensionLocalQuickResultReconciliationDeclared
     ? 6
     : (columnCoverLocalQuickResultReconciliationDeclared
@@ -2127,7 +2170,10 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
     + (shearTabSteelFormalEvidenceDeclared ? 2 : 0)
     + (frameAnalysisFormalEvidenceDeclared ? 2 : 0)
     + (gussetSteelFormalEvidenceDeclared ? 2 : 0)
-    + (finalConnectionSteelFormalEvidenceDeclared ? 4 : 0);
+    + (finalConnectionSteelFormalEvidenceDeclared ? 4 : 0)
+    + (reshoreCapacityFormalAttachmentDeclared ? 2 : 0);
+  const expectedMixedArtifactIntegrityCount = reshoreCapacityFormalAttachmentDeclared ? 17 : 13;
+  const expectedDocxPackageIntegrityCount = reshoreCapacityFormalAttachmentDeclared ? 5 : 4;
   const earthBridgeRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 13;
   const pileGroupLateralRcEvidenceDeclared = Number(evidence?.schemaVersion) >= 14;
   const rcSourceReportPackageDeclared = Number(evidence?.schemaVersion) >= 15;
@@ -2156,6 +2202,7 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       && evidence.supplementalPass === true
     ))
     && (!rcStmFormalAttachmentDeclared || isCompleteRcStmFormalAttachmentEvidence(evidence))
+    && (!reshoreCapacityFormalAttachmentDeclared || isCompleteReshoreCapacityFormalAttachmentEvidence(evidence))
     && (!attachmentIntegrityDeclared || (
       evidence.attachmentIntegrity?.pass === true
       && Number.isInteger(evidence.attachmentIntegrity.required)
@@ -2166,8 +2213,8 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
     ))
     && (!completeIntegrityDeclared || (
       evidence.mixedArtifactIntegrity?.scope === 'mixed-format-release-artifacts'
-      && evidence.mixedArtifactIntegrity.required === 13
-      && evidence.mixedArtifactIntegrity.verified === 13
+      && evidence.mixedArtifactIntegrity.required === expectedMixedArtifactIntegrityCount
+      && evidence.mixedArtifactIntegrity.verified === expectedMixedArtifactIntegrityCount
       && evidence.mixedArtifactIntegrity.issueCount === 0
       && evidence.mixedArtifactIntegrity.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.mixedArtifactIntegrity.setSha256 || ''))
@@ -2186,12 +2233,12 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
     ))
     && (!docxPackageIntegrityDeclared || (
       evidence.docxPackageIntegrity?.scope === 'formal-docx-clean-ooxml-package'
-      && evidence.docxPackageIntegrity.required === 4
-      && evidence.docxPackageIntegrity.complete === 4
+      && evidence.docxPackageIntegrity.required === expectedDocxPackageIntegrityCount
+      && evidence.docxPackageIntegrity.complete === expectedDocxPackageIntegrityCount
       && evidence.docxPackageIntegrity.issueCount === 0
       && evidence.docxPackageIntegrity.pass === true
       && Array.isArray(evidence.docxPackageIntegrity.records)
-      && evidence.docxPackageIntegrity.records.length === 4
+      && evidence.docxPackageIntegrity.records.length === expectedDocxPackageIntegrityCount
       && evidence.docxPackageIntegrity.records.every(record => record?.pass === true && record?.issueCount === 0)
     ))
     && (!xlsxPackageIntegrityDeclared || (
@@ -2838,6 +2885,37 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     : rcStmFormalAttachment.pass === true
       ? Math.max(0, rcStmFormalAttachmentRequired - rcStmFormalAttachmentComplete)
       : Math.max(1, compactNumber(rcStmFormalAttachment.issueCount) || rcStmFormalAttachmentRequired - rcStmFormalAttachmentComplete);
+  const reshoreCapacityFormalAttachment = renderedDeliveryPayload?.reshoreCapacityFormalAttachment;
+  const reshoreCapacityFormalAttachmentExpected = Number(renderedDeliveryPayload?.schemaVersion) >= 35;
+  const reshoreCapacityFormalAttachmentDeclared = Boolean(
+    reshoreCapacityFormalAttachmentExpected
+    && reshoreCapacityFormalAttachment
+    && reshoreCapacityFormalAttachment.scope === 'rsc-v4-rsb-v1-independent-calculation-attachment'
+    && Number.isInteger(reshoreCapacityFormalAttachment.required)
+    && Number.isInteger(reshoreCapacityFormalAttachment.complete)
+    && Number.isInteger(reshoreCapacityFormalAttachment.artifactRequired)
+    && Number.isInteger(reshoreCapacityFormalAttachment.artifactVerified)
+  );
+  const reshoreCapacityFormalAttachmentRequired = reshoreCapacityFormalAttachmentDeclared ? compactNumber(reshoreCapacityFormalAttachment.required) : 0;
+  const reshoreCapacityFormalAttachmentComplete = reshoreCapacityFormalAttachmentDeclared ? compactNumber(reshoreCapacityFormalAttachment.complete) : 0;
+  const reshoreCapacityFormalAttachmentArtifactRequired = reshoreCapacityFormalAttachmentDeclared ? compactNumber(reshoreCapacityFormalAttachment.artifactRequired) : 0;
+  const reshoreCapacityFormalAttachmentArtifactVerified = reshoreCapacityFormalAttachmentDeclared ? compactNumber(reshoreCapacityFormalAttachment.artifactVerified) : 0;
+  const reshoreCapacityFormalAttachmentIssueCount = !reshoreCapacityFormalAttachmentExpected
+    ? 0
+    : !reshoreCapacityFormalAttachmentDeclared
+      ? 1
+      : reshoreCapacityFormalAttachment.pass === true
+        ? Math.max(
+          0,
+          reshoreCapacityFormalAttachmentRequired - reshoreCapacityFormalAttachmentComplete,
+          reshoreCapacityFormalAttachmentArtifactRequired - reshoreCapacityFormalAttachmentArtifactVerified
+        )
+        : Math.max(
+          1,
+          compactNumber(reshoreCapacityFormalAttachment.issueCount)
+            || reshoreCapacityFormalAttachmentRequired - reshoreCapacityFormalAttachmentComplete
+            || reshoreCapacityFormalAttachmentArtifactRequired - reshoreCapacityFormalAttachmentArtifactVerified
+        );
   const formalHtmlContentSeal = renderedDeliveryPayload?.formalHtmlContentSeal;
   const formalHtmlApprovalSeal = renderedDeliveryPayload?.formalHtmlApprovalSeal;
   const formalHtmlDualSealDeclared = Boolean(
@@ -3018,7 +3096,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       ? Math.max(0, localQuickResultReconciliationRequired - localQuickResultReconciliationComplete)
       : Math.max(1, compactNumber(localQuickResultReconciliation.issueCount) || localQuickResultReconciliationRequired - localQuickResultReconciliationComplete);
   const renderedDeliverySummary = supplementalDeliveryDeclared
-    ? `最新正式放行實際交付物渲染：首頁正式工具 ${renderedDeliveryComplete} / ${renderedDeliveryRequired}；補充報告 / 服務成品 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired}${rcStmFormalAttachmentDeclared ? `；RC STM 正式入口附件 ${rcStmFormalAttachmentComplete} / ${rcStmFormalAttachmentRequired}` : ''}。`
+    ? `最新正式放行實際交付物渲染：首頁正式工具 ${renderedDeliveryComplete} / ${renderedDeliveryRequired}；補充報告 / 服務成品 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired}${rcStmFormalAttachmentDeclared ? `；RC STM 正式入口附件 ${rcStmFormalAttachmentComplete} / ${rcStmFormalAttachmentRequired}` : ''}${reshoreCapacityFormalAttachmentDeclared ? `；RSC v4／RSB v1 正式附件 ${reshoreCapacityFormalAttachmentComplete} / ${reshoreCapacityFormalAttachmentRequired}、成品 ${reshoreCapacityFormalAttachmentArtifactVerified} / ${reshoreCapacityFormalAttachmentArtifactRequired}` : ''}。`
     : `最新正式放行實際交付物渲染：${renderedDeliveryComplete} / ${renderedDeliveryRequired}。`;
   const summary = `頁面上的「優先建議報告閱讀狀態」診斷明細只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF；計算書預設為可列印的內部審閱，勾選核可後改為正式附件。工程檢核狀態與文件身分分開，空白案件欄位可由主文承接。目前首頁矩陣外 ${complete} / ${required} 個有列印 / 報表表面的入口已完成頁面專用閱讀狀態治理。`;
   const details = [
@@ -3040,6 +3118,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     ...(rcFormalHtmlContentSealDeclared ? [`RC 正式 HTML 內容封印：設計與補強共 ${rcFormalHtmlContentSealComplete} / ${rcFormalHtmlContentSealRequired} 份核可 HTML 已由瀏覽器與附件檢查器分別重算 SHA-256 計算內容封印；內容變更會阻擋組包。此封印不等同核可人數位簽章；公開狀態只顯示完成數。`] : []),
     ...(rcFormalHtmlApprovalSealDeclared ? [`RC 正式 HTML 核可封印：設計與補強共 ${rcFormalHtmlApprovalSealComplete} / ${rcFormalHtmlApprovalSealRequired} 份核可 HTML 已將文件狀態、核可時間、計算指紋、標題與內容封印綁定並由瀏覽器及附件檢查器分別重算；任一欄位變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
     ...(rcStmFormalAttachmentDeclared ? [`RC STM 正式入口附件：深梁、基礎深梁與樁帽三維 STM 共 ${rcStmFormalAttachmentComplete} / ${rcStmFormalAttachmentRequired} 份已驗證內部審閱 PDF／PNG、核可 HTML、內容與核可雙封印、離線重開及正式 PDF 列印；三者現為獨立首頁正式入口，仍保留限定拓樸及 RC 梁／基礎流程銜接。`] : []),
+    ...(reshoreCapacityFormalAttachmentDeclared ? [`RSC v4／RSB v1 接收端正式附件：${reshoreCapacityFormalAttachmentComplete} / ${reshoreCapacityFormalAttachmentRequired} 組附件、${reshoreCapacityFormalAttachmentArtifactVerified} / ${reshoreCapacityFormalAttachmentArtifactRequired} 份實體成品已逐檔驗證；公開狀態只顯示匿名數量與通過狀態，不公開檔名、SHA-256、計算指紋或逐檔 records。`] : []),
     ...(formalHtmlDualSealDeclared ? [`風力／地震正式 HTML 雙封印：${formalHtmlContentSealComplete} / ${formalHtmlContentSealRequired} 份內容封印與 ${formalHtmlApprovalSealComplete} / ${formalHtmlApprovalSealRequired} 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；計算正文、文件狀態、核可時間、指紋或標題遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
     ...(steelHtmlDualSealDeclared ? [`鋼構正式 HTML 雙封印：${steelFormalToolLabels}共 ${steelHtmlContentSealComplete} / ${steelHtmlContentSealRequired} 份內容封印與 ${steelHtmlApprovalSealComplete} / ${steelHtmlApprovalSealRequired} 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；計算正文或核可資料遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
     ...(anchorHtmlDualSealDeclared ? [`錨栓正式 HTML 雙封印：${anchorHtmlContentSealComplete} / ${anchorHtmlContentSealRequired} 份內容封印與 ${anchorHtmlApprovalSealComplete} / ${anchorHtmlApprovalSealRequired} 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；工作頁核可後輸出狀態固定，計算正文或核可資料遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。`] : []),
@@ -3079,8 +3158,8 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     kind: 'report-readiness-status',
     generatedAt: String(matrixPayload.generatedAt || ''),
     runId: String(preflightStatus?.runId || matrixPayload.latestPreflight?.runId || ''),
-    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && docxPackageIntegrityIssueCount === 0 && xlsxPackageIntegrityIssueCount === 0 && xlsxPrintVisualIssueCount === 0 && xlsxDualSealIssueCount === 0 && formalResultReconciliationIssueCount === 0 && frameResultReconciliationIssueCount === 0 && frameHtmlContentSealIssueCount === 0 && frameHtmlApprovalSealIssueCount === 0 && formalHtmlContentSealIssueCount === 0 && formalHtmlApprovalSealIssueCount === 0 && steelHtmlContentSealIssueCount === 0 && steelHtmlApprovalSealIssueCount === 0 && anchorHtmlContentSealIssueCount === 0 && anchorHtmlApprovalSealIssueCount === 0 && rcResultReconciliationIssueCount === 0 && rcSourceReportPackageIssueCount === 0 && rcStandaloneFormalHtmlPrintIssueCount === 0 && rcFormalHtmlContentSealIssueCount === 0 && rcFormalHtmlApprovalSealIssueCount === 0 && rcStmFormalAttachmentIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
-    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + docxPackageIntegrityIssueCount + xlsxPackageIntegrityIssueCount + xlsxPrintVisualIssueCount + xlsxDualSealIssueCount + formalResultReconciliationIssueCount + frameResultReconciliationIssueCount + frameHtmlContentSealIssueCount + frameHtmlApprovalSealIssueCount + formalHtmlContentSealIssueCount + formalHtmlApprovalSealIssueCount + steelHtmlContentSealIssueCount + steelHtmlApprovalSealIssueCount + anchorHtmlContentSealIssueCount + anchorHtmlApprovalSealIssueCount + rcResultReconciliationIssueCount + rcSourceReportPackageIssueCount + rcStandaloneFormalHtmlPrintIssueCount + rcFormalHtmlContentSealIssueCount + rcFormalHtmlApprovalSealIssueCount + rcStmFormalAttachmentIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
+    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && docxPackageIntegrityIssueCount === 0 && xlsxPackageIntegrityIssueCount === 0 && xlsxPrintVisualIssueCount === 0 && xlsxDualSealIssueCount === 0 && formalResultReconciliationIssueCount === 0 && frameResultReconciliationIssueCount === 0 && frameHtmlContentSealIssueCount === 0 && frameHtmlApprovalSealIssueCount === 0 && formalHtmlContentSealIssueCount === 0 && formalHtmlApprovalSealIssueCount === 0 && steelHtmlContentSealIssueCount === 0 && steelHtmlApprovalSealIssueCount === 0 && anchorHtmlContentSealIssueCount === 0 && anchorHtmlApprovalSealIssueCount === 0 && rcResultReconciliationIssueCount === 0 && rcSourceReportPackageIssueCount === 0 && rcStandaloneFormalHtmlPrintIssueCount === 0 && rcFormalHtmlContentSealIssueCount === 0 && rcFormalHtmlApprovalSealIssueCount === 0 && rcStmFormalAttachmentIssueCount === 0 && reshoreCapacityFormalAttachmentIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0 && deckingResultReconciliationIssueCount === 0 && excavationResultReconciliationIssueCount === 0 && localQuickResultReconciliationIssueCount === 0,
+    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + docxPackageIntegrityIssueCount + xlsxPackageIntegrityIssueCount + xlsxPrintVisualIssueCount + xlsxDualSealIssueCount + formalResultReconciliationIssueCount + frameResultReconciliationIssueCount + frameHtmlContentSealIssueCount + frameHtmlApprovalSealIssueCount + formalHtmlContentSealIssueCount + formalHtmlApprovalSealIssueCount + steelHtmlContentSealIssueCount + steelHtmlApprovalSealIssueCount + anchorHtmlContentSealIssueCount + anchorHtmlApprovalSealIssueCount + rcResultReconciliationIssueCount + rcSourceReportPackageIssueCount + rcStandaloneFormalHtmlPrintIssueCount + rcFormalHtmlContentSealIssueCount + rcFormalHtmlApprovalSealIssueCount + rcStmFormalAttachmentIssueCount + reshoreCapacityFormalAttachmentIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount + deckingResultReconciliationIssueCount + excavationResultReconciliationIssueCount + localQuickResultReconciliationIssueCount,
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
@@ -3280,6 +3359,17 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       rcStmFormalAttachmentPass: rcStmFormalAttachment.pass === true
         && rcStmFormalAttachmentComplete === rcStmFormalAttachmentRequired
         && rcStmFormalAttachmentIssueCount === 0,
+    } : {}),
+    ...(reshoreCapacityFormalAttachmentDeclared ? {
+      reshoreCapacityFormalAttachmentRequired,
+      reshoreCapacityFormalAttachmentComplete,
+      reshoreCapacityFormalAttachmentArtifactRequired,
+      reshoreCapacityFormalAttachmentArtifactVerified,
+      reshoreCapacityFormalAttachmentIssueCount,
+      reshoreCapacityFormalAttachmentPass: reshoreCapacityFormalAttachment.pass === true
+        && reshoreCapacityFormalAttachmentComplete === reshoreCapacityFormalAttachmentRequired
+        && reshoreCapacityFormalAttachmentArtifactVerified === reshoreCapacityFormalAttachmentArtifactRequired
+        && reshoreCapacityFormalAttachmentIssueCount === 0,
     } : {}),
     ...(steelResultReconciliationDeclared ? {
       steelResultReconciliationRequired,
@@ -3780,7 +3870,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'homepage report readiness rendered delivery source hash');
   assert.ok(String(homepageReportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'homepage report readiness rendered delivery summary');
   if (Number.isInteger(homepageReportReadinessStatus.deliveryFileIntegrityRequired)) {
-    assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165, 167, 169, 173].includes(homepageReportReadinessStatus.deliveryFileIntegrityRequired), 'homepage report readiness exposes a supported verified delivery-file transition count');
+    assert.ok([135, 137, 139, 141, 143, 145, 151, 157, 163, 165, 167, 169, 173, 179].includes(homepageReportReadinessStatus.deliveryFileIntegrityRequired), 'homepage report readiness exposes a supported verified delivery-file transition count');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityVerified, homepageReportReadinessStatus.deliveryFileIntegrityRequired, 'homepage report readiness verifies every delivery file');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'homepage report readiness delivery file integrity issues empty');
     assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityPass, true, 'homepage report readiness delivery file integrity passes');
@@ -3805,6 +3895,7 @@ function checkMatrix(payload, markdown, options = {}) {
         [[88, 88], [66, 66], [13, 13]],
         [[90, 90], [66, 66], [13, 13]],
         [[94, 94], [66, 66], [13, 13]],
+        [[96, 96], [66, 66], [17, 17]],
       ].some(expected => JSON.stringify(expected) === JSON.stringify(homepageDeliveryCounts)),
       'homepage report readiness preserves supported redacted delivery counts'
     );
@@ -3896,6 +3987,18 @@ function checkMatrix(payload, markdown, options = {}) {
       assert.ok(String(homepageReportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('補充報告 / 服務成品'), 'homepage report readiness rendered delivery summary includes supplemental report and service evidence');
     }
   }
+  const v35PublicDeliveryDeclared = homepageReportReadinessStatus.deliveryFileIntegrityRequired === 179;
+  if (v35PublicDeliveryDeclared || Number.isInteger(homepageReportReadinessStatus.reshoreCapacityFormalAttachmentRequired)) {
+    assert.equal(homepageReportReadinessStatus.reshoreCapacityFormalAttachmentRequired, 1, 'homepage report readiness expects one RSC v4 / RSB v1 formal attachment');
+    assert.equal(homepageReportReadinessStatus.reshoreCapacityFormalAttachmentComplete, 1, 'homepage report readiness completes the RSC v4 / RSB v1 formal attachment');
+    assert.equal(homepageReportReadinessStatus.reshoreCapacityFormalAttachmentArtifactRequired, 6, 'homepage report readiness expects all six RSC/RSB release artifacts');
+    assert.equal(homepageReportReadinessStatus.reshoreCapacityFormalAttachmentArtifactVerified, 6, 'homepage report readiness verifies all six RSC/RSB release artifacts');
+    assert.equal(homepageReportReadinessStatus.reshoreCapacityFormalAttachmentIssueCount, 0, 'homepage report readiness RSC/RSB formal attachment issues empty');
+    assert.equal(homepageReportReadinessStatus.reshoreCapacityFormalAttachmentPass, true, 'homepage report readiness RSC/RSB formal attachment passes');
+    assert.equal(Object.prototype.hasOwnProperty.call(homepageReportReadinessStatus, 'reshoreCapacityFormalAttachmentSetSha256'), false, 'homepage report readiness omits the private RSC/RSB attachment set hash');
+    assert.equal(Object.prototype.hasOwnProperty.call(homepageReportReadinessStatus, 'reshoreCapacityFormalAttachmentRecords'), false, 'homepage report readiness omits private RSC/RSB attachment records');
+    assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('不公開檔名、SHA-256、計算指紋或逐檔 records'), 'homepage report readiness explains the private RSC/RSB attachment evidence boundary');
+  }
   if (Number.isInteger(homepageReportReadinessStatus.attachmentIntegrityRequired)) {
     assert.ok([32, 33, 34].includes(homepageReportReadinessStatus.attachmentIntegrityRequired), 'homepage report readiness expects a supported RC HTML attachment transition count');
     assert.equal(homepageReportReadinessStatus.attachmentIntegrityActual, homepageReportReadinessStatus.attachmentIntegrityRequired, 'homepage report readiness keeps every RC HTML attachment');
@@ -3918,7 +4021,7 @@ function checkMatrix(payload, markdown, options = {}) {
     assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('RC 正式附件 HTML 完整性'), 'homepage report readiness details include RC HTML attachment integrity');
   }
   if (Number.isInteger(homepageReportReadinessStatus.docxPackageIntegrityRequired)) {
-    assert.equal(homepageReportReadinessStatus.docxPackageIntegrityRequired, 4, 'homepage report readiness expects 4 formal DOCX package checks');
+    assert.equal(homepageReportReadinessStatus.docxPackageIntegrityRequired, v35PublicDeliveryDeclared ? 5 : 4, 'homepage report readiness expects the schema-governed formal DOCX package checks');
     assert.equal(homepageReportReadinessStatus.docxPackageIntegrityComplete, homepageReportReadinessStatus.docxPackageIntegrityRequired, 'homepage report readiness completes every formal DOCX package check');
     assert.equal(homepageReportReadinessStatus.docxPackageIntegrityIssueCount, 0, 'homepage report readiness DOCX package issues empty');
     assert.equal(homepageReportReadinessStatus.docxPackageIntegrityPass, true, 'homepage report readiness DOCX package checks pass');
@@ -4095,5 +4198,6 @@ module.exports = {
   buildHomepagePreflightStatus,
   buildHomepageReportReadinessStatus,
   isCompleteRcStmFormalAttachmentEvidence,
+  isCompleteReshoreCapacityFormalAttachmentEvidence,
   resolveRenderedDeliveryEvidenceSource,
 };

@@ -101,6 +101,37 @@ for (const [field, value] of [['complete', 2], ['issueCount', 1], ['artifactVeri
   assert(!maturityMatrixApi.isCompleteRcStmFormalAttachmentEvidence(mutated), `Schema v27 RC STM evidence fails closed when ${field} drifts`);
 }
 
+const reshoreCapacityFormalAttachmentFixture = {
+  schemaVersion: 35,
+  reshoreCapacityFormalAttachment: {
+    scope: 'rsc-v4-rsb-v1-independent-calculation-attachment',
+    required: 1,
+    complete: 1,
+    issueCount: 0,
+    artifactRequired: 6,
+    artifactVerified: 6,
+    pass: true,
+    setSha256: 'd'.repeat(64),
+    records: [{
+      key: 'rsc-v4-rsb-v1-receiver-capacity',
+      rscCalculationFingerprint: 'RSC-0123456789ABCDEF0123',
+      rsbCalculationFingerprint: 'RSB-0123456789ABCDEF0123',
+      pdfPageCount: 4,
+      pdfTextLength: 2400,
+      documentTextLength: 2200,
+      artifacts: ['rscJson', 'rsbJson', 'reportPdf', 'reportDocx', 'canonicalEvidence', 'formalSourceBundle']
+        .map((role, index) => ({ role, name: `private-${index + 1}.bin`, bytes: index + 100, sha256: String(index + 1).repeat(64) })),
+    }],
+  },
+};
+assert(maturityMatrixApi.isCompleteReshoreCapacityFormalAttachmentEvidence(reshoreCapacityFormalAttachmentFixture), 'Schema v35 accepts the complete RSC v4 / RSB v1 formal attachment fixture');
+assert(maturityMatrixApi.isCompleteReshoreCapacityFormalAttachmentEvidence({ schemaVersion: 34 }), 'Schema v34 remains backward compatible without the RSC/RSB formal attachment gate');
+for (const [field, value] of [['complete', 0], ['issueCount', 1], ['artifactVerified', 5], ['pass', false], ['setSha256', 'invalid'], ['records', []]]) {
+  const mutated = JSON.parse(JSON.stringify(reshoreCapacityFormalAttachmentFixture));
+  mutated.reshoreCapacityFormalAttachment[field] = value;
+  assert(!maturityMatrixApi.isCompleteReshoreCapacityFormalAttachmentEvidence(mutated), `Schema v35 RSC/RSB attachment evidence fails closed when ${field} drifts`);
+}
+
 const publicTransitionRunId = '20260826-235959';
 const publicTransitionMatrix = {
   generatedAt: '2026-08-26T23:59:59+08:00',
@@ -172,11 +203,65 @@ const failingPublicTransition = maturityMatrixApi.buildHomepageReportReadinessSt
   failingPublicTransitionEvidence,
 );
 assert(failingPublicTransition.pass === false && failingPublicTransition.failureCount === 1, 'Schema v27 incomplete RC STM evidence fails the public readiness snapshot closed');
+
+const schemaV35TransitionEvidence = {
+  payload: {
+    ...reshoreCapacityFormalAttachmentFixture,
+    kind: 'release-rendered-delivery-evidence',
+    runId: publicTransitionRunId,
+    required: 1,
+    complete: 1,
+    supplementalRequired: 0,
+    supplementalComplete: 0,
+    supplementalPass: true,
+    pass: true,
+    canonicalArtifactIntegrity: { scope: 'canonical-rendered-pdf-evidence', required: 96, verified: 96, issueCount: 0, pass: true },
+    rcVisualArtifactIntegrity: { scope: 'rc-rendered-pdf-png', required: 66, verified: 66, issueCount: 0, pass: true },
+    mixedArtifactIntegrity: { scope: 'mixed-format-release-artifacts', required: 17, verified: 17, issueCount: 0, pass: true },
+    docxPackageIntegrity: { scope: 'formal-docx-clean-ooxml-package', required: 5, complete: 5, issueCount: 0, pass: true },
+  },
+  families: [{ family: 'formal-tools', complete: 1 }],
+  supplementalFamilies: [],
+  sourcePath: 'output/preflight/history/schema-v35/rendered-delivery-evidence/rendered-delivery-evidence-summary.json',
+  sourceHash: 'e'.repeat(64),
+};
+const passingSchemaV35Transition = maturityMatrixApi.buildHomepageReportReadinessStatus(
+  publicTransitionMatrix,
+  'c'.repeat(64),
+  publicTransitionPreflightStatus,
+  publicTransitionPreflightPayload,
+  schemaV35TransitionEvidence,
+);
+assert(passingSchemaV35Transition.pass === true && passingSchemaV35Transition.failureCount === 0, 'Schema v35 complete RSC/RSB attachment keeps the public readiness snapshot green');
+assert(passingSchemaV35Transition.deliveryFileIntegrityRequired === 179 && passingSchemaV35Transition.deliveryFileIntegrityVerified === 179, 'Schema v35 public readiness exposes 179 / 179 anonymous delivery files');
+assert(passingSchemaV35Transition.docxPackageIntegrityRequired === 5 && passingSchemaV35Transition.docxPackageIntegrityComplete === 5, 'Schema v35 public readiness exposes five clean DOCX packages');
+assert(passingSchemaV35Transition.reshoreCapacityFormalAttachmentRequired === 1 && passingSchemaV35Transition.reshoreCapacityFormalAttachmentComplete === 1, 'Schema v35 public readiness exposes the RSC/RSB attachment 1 / 1');
+assert(passingSchemaV35Transition.reshoreCapacityFormalAttachmentArtifactRequired === 6 && passingSchemaV35Transition.reshoreCapacityFormalAttachmentArtifactVerified === 6, 'Schema v35 public readiness exposes six of six RSC/RSB release artifacts');
+const schemaV35PublicJson = JSON.stringify(passingSchemaV35Transition);
+for (const privateNeedle of ['private-1.bin', '0123456789ABCDEF0123', 'reshoreCapacityFormalAttachmentSetSha256', 'reshoreCapacityFormalAttachmentRecords']) {
+  assert(!schemaV35PublicJson.includes(privateNeedle), `Schema v35 public readiness omits private RSC/RSB evidence: ${privateNeedle}`);
+}
+const failingSchemaV35TransitionEvidence = JSON.parse(JSON.stringify(schemaV35TransitionEvidence));
+Object.assign(failingSchemaV35TransitionEvidence.payload.reshoreCapacityFormalAttachment, { artifactVerified: 5, issueCount: 1, pass: false });
+const failingSchemaV35Transition = maturityMatrixApi.buildHomepageReportReadinessStatus(
+  publicTransitionMatrix,
+  'c'.repeat(64),
+  publicTransitionPreflightStatus,
+  publicTransitionPreflightPayload,
+  failingSchemaV35TransitionEvidence,
+);
+assert(failingSchemaV35Transition.pass === false && failingSchemaV35Transition.failureCount === 1, 'Schema v35 incomplete RSC/RSB attachment fails the public readiness snapshot closed');
 [
   'function optionalCoverage',
   "optionalCoverage(readiness, 'rcStmFormalAttachmentRequired'",
   'metrics.rcStmAttachment.pass',
 ].forEach(needle => assertIncludes(publicEvidenceSchema, needle, `public evidence schema governs optional RC STM transition ${needle}`));
+[
+  "optionalCoverage(readiness, 'reshoreCapacityFormalAttachmentRequired'",
+  "optionalCoverage(readiness, 'reshoreCapacityFormalAttachmentArtifactRequired'",
+  'readiness.reshoreCapacityFormalAttachment.v35Required',
+  'readiness.reshoreCapacityFormalAttachment.privateFields',
+].forEach(needle => assertIncludes(publicEvidenceSchema, needle, `public evidence schema governs redacted Schema v35 RSC/RSB attachment ${needle}`));
 
 [
   'node 結構工具箱/tools/xlsx-seal-verifier.test.js',
@@ -577,7 +662,7 @@ assertIncludes(reportGuide, '不得誤稱為舊版', 'report guide distinguishes
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 34',
+  'schemaVersion: 35',
   'rcSupplementalAttachments',
   'rcStmFormalAttachment',
   "scope:'rc-stm-supplemental-formal-attachments'",
@@ -589,7 +674,12 @@ assertIncludes(reportGuide, '不得誤稱為舊版', 'report guide distinguishes
   'steelMomentConnectionCanonicalArtifactRequired = 2',
   'steelColumnSpliceCanonicalArtifactRequired = 2',
   'steelFormalScenarioRequired = 9',
-  'canonicalArtifactIntegrityRequired, 94',
+  'canonicalArtifactIntegrityRequired, 96',
+  'reshoreCapacityFormalAttachment',
+  "scope: 'rsc-v4-rsb-v1-independent-calculation-attachment'",
+  'artifactRequired: 6',
+  'artifactVerified: 6',
+  'reshoreCapacityFormalAttachment=',
   'docxPackageIntegrity',
   "scope: 'formal-docx-clean-ooxml-package'",
   'docxPackageIntegrity=',
@@ -680,8 +770,10 @@ assertIncludes(reportGuide, '不得誤稱為舊版', 'report guide distinguishes
   { label: 'Pages release governance', source: pagesReleaseGovernanceContract, steelTransitionCount: 3 },
   { label: 'toolbox entrypoints', source: toolboxEntrypointsContract, steelTransitionCount: 3 },
 ].forEach(({ label, source, steelTransitionCount }) => {
-  assertIncludes(source, '169, 173]', `${label} accepts the Schema v34 public delivery count`);
+  assertIncludes(source, '173, 179]', `${label} accepts the Schema v35 public delivery count while retaining v34`);
   assertIncludes(source, '94, 94', `${label} accepts the Schema v34 canonical delivery breakdown`);
+  assertIncludes(source, '96, 96', `${label} accepts the Schema v35 canonical delivery breakdown`);
+  assertIncludes(source, '17, 17', `${label} accepts the Schema v35 mixed-format delivery breakdown`);
   assert(
     (source.match(/\[5, 6, 7, 9\]/g) || []).length >= steelTransitionCount,
     `${label} accepts the Schema v34 steel evidence count`,
@@ -740,6 +832,7 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   ".filter(bundle => String(bundle.preflightStatus?.runId || '') !== currentRunId)",
   'function isCompleteRenderedDeliveryEvidence',
   'function isCompleteRcStmFormalAttachmentEvidence',
+  'function isCompleteReshoreCapacityFormalAttachmentEvidence',
   'completeIntegrityDeclared',
   'resultReconciliationDeclared',
   'rcResultReconciliationDeclared',
@@ -755,6 +848,7 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   'xlsxPrintVisualDeclared',
   'xlsxDualSealDeclared',
   'rcStmFormalAttachmentDeclared',
+  'reshoreCapacityFormalAttachmentDeclared',
   'steelResultReconciliationDeclared',
   'frameAnalysisFormalEvidenceDeclared',
   'stoneResultReconciliationDeclared',
@@ -764,6 +858,8 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   'localQuickResultReconciliationDeclared',
   "evidence.canonicalArtifactIntegrity?.scope === 'canonical-rendered-pdf-evidence'",
   'expectedCanonicalArtifactIntegrityCount',
+  'expectedMixedArtifactIntegrityCount',
+  'expectedDocxPackageIntegrityCount',
   'evidence.canonicalArtifactIntegrity.required === expectedCanonicalArtifactIntegrityCount',
   "evidence.frameResultReconciliation?.scope === 'frame-source-replay-to-report-fingerprint'",
   'evidence.required === 40',
@@ -773,7 +869,7 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   "evidence.frameHtmlApprovalSeal?.scope === 'frame-analysis-html-reproducible-approval-sha256'",
   'evidence.frameHtmlApprovalSeal.required === 1',
   "evidence.docxPackageIntegrity?.scope === 'formal-docx-clean-ooxml-package'",
-  'evidence.docxPackageIntegrity.required === 4',
+  'evidence.docxPackageIntegrity.required === expectedDocxPackageIntegrityCount',
   "evidence.xlsxPackageIntegrity?.scope === 'formal-xlsx-clean-ooxml-package-and-formula-cache'",
   'evidence.xlsxPackageIntegrity.required === 1',
   "evidence.xlsxPrintVisual?.scope === 'formal-xlsx-microsoft-excel-pdf-visual-print'",
@@ -784,6 +880,12 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   "evidence.rcStmFormalAttachment?.scope === 'rc-stm-supplemental-formal-attachments'",
   'evidence.rcStmFormalAttachment.required === 3',
   'evidence.rcStmFormalAttachment.artifactRequired === 12',
+  "attachment?.scope === 'rsc-v4-rsb-v1-independent-calculation-attachment'",
+  'attachment.required === 1',
+  'attachment.artifactRequired === 6',
+  'reshoreCapacityFormalAttachmentRequired',
+  'reshoreCapacityFormalAttachmentArtifactRequired',
+  'RSC v4／RSB v1 接收端正式附件',
   "evidence.formalResultReconciliation?.scope === 'formal-golden-result-to-report-fingerprint'",
   'evidence.formalResultReconciliation.required === 14',
   "'rc-source-replay-to-report-fingerprint'",
@@ -1096,6 +1198,10 @@ assertIncludes(preflight, 'node 結構工具箱/tools/regulatory-data.contract.t
   assert(/Schema v34[^\r\n]*94\/94[^\r\n]*173\/173/.test(source), `${label} keeps Schema v34 with canonical 94/94 and public 173/173 in the same governance block`);
   assert(/Schema v34[^\r\n]*鋼構[^\r\n]*9\/9/.test(source), `${label} keeps Schema v34 with the nine steel formal result and seal scope`);
   assert(/Schema v34[^\r\n]*梁柱彎矩[^\r\n]*柱續接/.test(source), `${label} identifies both final steel connection modules in Schema v34`);
+  assertIncludes(source, 'Schema v35', `${label} documents the RSC v4 / RSB v1 formal attachment release evidence schema`);
+  assertIncludes(source, '179/179', `${label} documents the Schema v35 public delivery integrity count`);
+  assert(/Schema v35[^\r\n]*96\/96[^\r\n]*179\/179/.test(source), `${label} keeps Schema v35 with canonical 96/96 and public 179/179 in the same governance block`);
+  assert(/Schema v35[^\r\n]*(?:RSC v4|RSC／RSB)[^\r\n]*(?:RSB v1|1\/1)[^\r\n]*6\/6/.test(source), `${label} keeps Schema v35 with the RSC/RSB formal attachment and six-artifact gate`);
   assertIncludes(source, 'rc-stm-formal', `${label} documents RC STM release evidence directory`);
   assertIncludes(source, 'rc-stm-atomic-change-set.manifest.json', `${label} documents the RC STM machine-readable atomic change set`);
   assertIncludes(source, 'rc-stm-atomic-change-set-review.js', `${label} documents the RC STM human-readable atomic review`);

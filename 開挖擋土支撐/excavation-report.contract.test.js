@@ -39,6 +39,14 @@ function frontendFunctionSource(name, nextName) {
   ['const reportApprovalArtifactKeyRef = useRef(reportApprovalArtifactKey);', 'tracks the previously approved artifact'],
 ].forEach(([needle, label]) => requireFrontendNeedle(needle, label));
 
+[
+  ['formalAttachmentReady', 'shows receiver formal attachments only after an exact RSC/RSB calculation'],
+  ['產生並下載正式 PDF（含逐頁證據）', 'exposes the governed receiver PDF attachment action'],
+  ['產生並下載正式 DOCX', 'exposes the governed receiver DOCX attachment action'],
+  ['delete next[transferId];', 'invalidates stale receiver calculation and attachment state after input changes'],
+  ['validateReshoreCapacityAttachmentPayload(attachment, calculationResponse, reportKind);', 'verifies attachment lineage before download'],
+].forEach(([needle, label]) => requireFrontendNeedle(needle, label));
+
 const reportArtifactEffectStart = frontendApp.indexOf(
   'useEffect(() => {\n    if (reportApprovalArtifactKeyRef.current === reportApprovalArtifactKey) return;',
 );
@@ -81,6 +89,7 @@ const result = spawnSync(
     'backend.tests.test_reporting',
     'backend.tests.test_pdf_render_evidence',
     'backend.tests.test_report_delivery_api',
+    'backend.tests.test_receiver_capacity_attachment',
   ],
   {
     cwd: toolRoot,

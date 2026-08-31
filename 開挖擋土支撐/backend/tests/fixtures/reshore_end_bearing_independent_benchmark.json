@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "kind": "independent-engineering-benchmark",
+  "benchmarkId": "EXC-RSB-001",
+  "description": "對心純軸壓 H 型鋼上下端矩形無加勁端板；頂端混凝土全面積承壓、底端加工鋼面承壓，頂端端板彎曲控制。",
+  "independenceBoundary": "預期值由固定輸入與明列公式獨立手算後固化；不呼叫 receiver_capacity.py 或其端板評估函式。",
+  "sourceDemandTf": 106.0,
+  "section": {
+    "depthCm": 30.0,
+    "flangeWidthCm": 30.0,
+    "areaCm2": 118.0
+  },
+  "calculationInput": {
+    "member_count": 2,
+    "imbalance_factor": 1.1,
+    "additional_axial_load_tf_per_member": 1.0,
+    "fy_tf_per_cm2": 2.5,
+    "top_end_plate_fy_tf_per_cm2": 2.5,
+    "top_end_plate_width_cm": 45.0,
+    "top_end_plate_length_cm": 45.0,
+    "top_end_plate_thickness_cm": 3.0,
+    "top_support_material": "concrete_full_area",
+    "top_support_material_strength_tf_per_cm2": 0.28,
+    "bottom_end_plate_width_cm": 50.0,
+    "bottom_end_plate_length_cm": 50.0,
+    "bottom_end_plate_thickness_cm": 3.5,
+    "bottom_end_plate_fy_tf_per_cm2": 2.5,
+    "bottom_support_material": "finished_steel",
+    "bottom_support_material_strength_tf_per_cm2": 2.5
+  },
+  "formulaContract": {
+    "totalDemandPerMember": "P = sourceDemand * imbalance / memberCount + additionalAxial",
+    "supportBearing": "q = P / (B * L); Fp = 0.35 f'c for concrete full area or 0.90 min(Fy,plate, Fy,support) for finished steel",
+    "finishedHEndBearing": "fp,H = P / Ag <= 0.90 min(Fy,H, Fy,plate)",
+    "plateLocalBending": "m = (L - 0.95d) / 2; n = (B - 0.80bf) / 2; ell = max(m,n); Fb = 0.60 Fy; fb = 3q ell^2 / t^2",
+    "transferCapacity": "(minimum per-member capacity - additionalAxial) * memberCount / imbalance"
+  },
+  "expected": {
+    "absoluteTolerance": 0.000001,
+    "totalDemandPerMemberTf": 59.3,
+    "top": {
+      "contactPressureTfPerCm2": 0.029284,
+      "supportAllowableBearingTfPerCm2": 0.098,
+      "supportBearingUtilizationRatio": 0.298816,
+      "governingProjectionCm": 10.5,
+      "allowablePlateBendingStressTfPerCm2": 1.5,
+      "requiredPlateThicknessCm": 2.541085,
+      "plateBendingUtilizationRatio": 0.717457,
+      "hSectionEndBearingUtilizationRatio": 0.223352,
+      "governingCapacityPerMemberTf": 82.653061
+    },
+    "bottom": {
+      "contactPressureTfPerCm2": 0.02372,
+      "supportAllowableBearingTfPerCm2": 2.25,
+      "supportBearingUtilizationRatio": 0.010542,
+      "governingProjectionCm": 13.0,
+      "allowablePlateBendingStressTfPerCm2": 1.5,
+      "requiredPlateThicknessCm": 2.831494,
+      "plateBendingUtilizationRatio": 0.654478,
+      "hSectionEndBearingUtilizationRatio": 0.223352,
+      "governingCapacityPerMemberTf": 90.606509
+    },
+    "endBearingTransferCapacityTf": 148.460111,
+    "governingCapacityMode": "end_bearing",
+    "status": "passed"
+  }
+}
