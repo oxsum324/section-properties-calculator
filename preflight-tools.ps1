@@ -1530,6 +1530,11 @@ node 結構工具箱/tools/attachment-case-governance-workspace.test.js
 exit $LASTEXITCODE
 '@
 
+$engineeringQualificationCaseBundleCommand = @'
+node 結構工具箱/tools/engineering-qualification-case-bundle.test.js
+exit $LASTEXITCODE
+'@
+
 $releaseReadinessContractCommand = @'
 node 結構工具箱/tools/release-preflight-lock.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -1969,6 +1974,18 @@ $checks = @(
   @{
     Path = '結構工具箱\tools\建立附件治理工作區.bat'
     Needles = @('attachment-case-governance-workspace.js', '%~1', '%~2', '%~3', '%~4', '%~5', '%~6', '%~7', '%~8', '%~9', '--create', '--workspace-name', '--directory', '--ledger', '--history', '--head', '--output', '--reviewer', '--basis', '--previous-config', 'ATTACHMENT_GOVERNANCE_NO_PAUSE')
+  },
+  @{
+    Path = '結構工具箱\tools\建立工程資格化案件工作區.bat'
+    Needles = @('engineering-qualification-case-bundle.js', '--init', '%~1', '--case-id', '%~2', '--case-label', '%~3', '--source-kind', '%~4', 'ENGINEERING_QUALIFICATION_NO_PAUSE')
+  },
+  @{
+    Path = '結構工具箱\tools\封印工程資格化案件包.bat'
+    Needles = @('engineering-qualification-case-bundle.js', '--seal', '%~1', 'ENGINEERING_QUALIFICATION_NO_PAUSE')
+  },
+  @{
+    Path = '結構工具箱\tools\檢查工程資格化案件包.bat'
+    Needles = @('engineering-qualification-case-bundle.js', '--input', '%~1', 'ENGINEERING_QUALIFICATION_NO_PAUSE')
   }
 )
 
@@ -2805,6 +2822,13 @@ $checks = @(
     label = "Single-config attachment governance workspace verification"
     workdir = $root
     command = $attachmentCaseGovernanceWorkspaceCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "engineering-qualification-case-bundle"
+    label = "Private engineering qualification case bundle contract"
+    workdir = $root
+    command = $engineeringQualificationCaseBundleCommand
     slow = $false
   },
   [pscustomobject]@{

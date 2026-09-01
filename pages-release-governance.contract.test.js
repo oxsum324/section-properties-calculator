@@ -20,6 +20,7 @@ function exists(relativePath) {
 }
 
 const staging = readText('STAGING_GROUPS.md');
+const gitignore = readText('.gitignore');
 const toolBoundaries = readText('TOOL_BOUNDARIES.md');
 const readme = readText('README.md');
 const preflightTools = readText('preflight-tools.ps1');
@@ -86,6 +87,7 @@ assert.ok(toolBoundaries.includes('push-pages-release.ps1') && toolBoundaries.in
 assert.ok(toolBoundaries.includes('pages-release-governance.contract.test.js'), 'tool boundaries documents A0 release governance contract');
 assert.ok(toolBoundaries.includes('CONTEXT.md') && toolBoundaries.includes('docs/adr/'), 'tool boundaries keeps page-only docs out of Pages artifact');
 assert.ok(toolBoundaries.includes('output/') && toolBoundaries.includes('.claude') && toolBoundaries.includes('node_modules'), 'tool boundaries documents local artifact exclusions');
+assert.ok(gitignore.includes('case-bundle.draft.json') && gitignore.includes('case-bundle-[Ee][Qq][Bb]-*.json'), 'repository ignore rules block qualification bundle manifests at every depth and case variant');
 assert.ok(toolBoundaries.includes('--allow-local-output') && toolBoundaries.includes('不得用在公開站 smoke'), 'tool boundaries limits local-output allowance');
 assert.ok(readme.includes('v3 manifest') && readme.includes('正式 release runId') && readme.includes('逐檔下載整個公開 artifact'), 'README documents release-bound complete deployed artifact verification');
 assert.ok(readme.includes('一般巡檢新鮮度與正式放行證據拆開') && readme.includes('未對齊'), 'README documents release freshness and deployment alignment semantics');
@@ -178,7 +180,7 @@ assert.ok(
   try {
     childProcess.execFileSync('git', ['init', '--quiet', fixtureRepo]);
     childProcess.execFileSync('git', ['-C', fixtureRepo, 'config', 'core.autocrlf', 'true']);
-    fs.writeFileSync(path.join(fixtureRepo, '.gitignore'), 'ignored.html\n', 'utf8');
+    fs.writeFileSync(path.join(fixtureRepo, '.gitignore'), 'ignored.html\ncase-bundle*.json\n', 'utf8');
     fs.writeFileSync(path.join(fixtureRepo, 'keep.html'), '<p>tracked</p>\n', 'utf8');
     fs.writeFileSync(path.join(fixtureRepo, 'deleted.html'), '<p>delete</p>\n', 'utf8');
     fs.writeFileSync(path.join(fixtureRepo, 'README.md'), '# private\n', 'utf8');
@@ -200,6 +202,14 @@ assert.ok(
     for (const filename of ['gsm-lifecycle-monitor-status.json', 'gsm-lifecycle-monitor-history.json', 'gsm-lifecycle-monitor-task-status.json']) {
       fs.writeFileSync(path.join(privateDashboardOutput, filename), '{"private":"local dashboard state"}\n', 'utf8');
     }
+    const privateQualificationWorkspace = path.join(fixtureRepo, '案件', 'EQ-PRIVATE-001');
+    fs.mkdirSync(path.join(privateQualificationWorkspace, 'outputs'), { recursive: true });
+    fs.writeFileSync(path.join(privateQualificationWorkspace, 'case-bundle.draft.json'), '{"kind":"engineering-qualification-case-bundle.v1"}\n', 'utf8');
+    fs.writeFileSync(path.join(privateQualificationWorkspace, 'outputs', 'private-report.html'), '<p>private qualification evidence</p>\n', 'utf8');
+    const malformedQualificationWorkspace = path.join(fixtureRepo, '案件', 'EQ-PRIVATE-MALFORMED');
+    fs.mkdirSync(path.join(malformedQualificationWorkspace, 'outputs'), { recursive: true });
+    fs.writeFileSync(path.join(malformedQualificationWorkspace, 'case-bundle-eqb-not-canonical.json'), '{"kind":"engineering-qualification-case-bundle.v1"}\n', 'utf8');
+    fs.writeFileSync(path.join(malformedQualificationWorkspace, 'outputs', 'must-stay-private.html'), '<p>private malformed qualification evidence</p>\n', 'utf8');
     const privateBuilder = path.join(fixtureRepo, '結構工具箱', 'tools', 'build-pages-artifact.js');
     fs.mkdirSync(path.dirname(privateBuilder), { recursive: true });
     fs.writeFileSync(privateBuilder, 'module.exports = {};\n', 'utf8');
@@ -217,7 +227,7 @@ assert.ok(
     assert.deepEqual(result.privateContentScan, { scannedFileCount: 2, findingCount: 0 }, 'artifact builder scans every staged public file for private workstation paths');
     assert.equal(fs.readFileSync(path.join(fixtureSite, 'keep.html'), 'utf8'), '<p>working change</p>\n', 'artifact builder applies Git clean filters to tracked changes');
     assert.equal(fs.readFileSync(path.join(fixtureSite, 'new-page.html'), 'utf8'), '<p>new page</p>\n', 'artifact builder applies Git clean filters to new published files');
-    for (const privatePath of ['README.md', 'secret.test.js', 'dev_tools/secret.html', '案件/GSP-外部歸檔生命週期總覽-GSP-00000000000000000000/overview.html', '案件/GSM-外部歸檔生命週期監測-latest.json', '案件/events/GSM-外部歸檔生命週期監測事件-000001-GME-00000000000000000000.json', '案件/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_DASHBOARD_SCHEMA.json', 'output/audit/gsm-lifecycle-monitor-status.json', 'output/audit/gsm-lifecycle-monitor-history.json', 'output/audit/gsm-lifecycle-monitor-task-status.json', '結構工具箱/tools/build-pages-artifact.js', 'ignored.html', 'deleted.html']) {
+    for (const privatePath of ['README.md', 'secret.test.js', 'dev_tools/secret.html', '案件/GSP-外部歸檔生命週期總覽-GSP-00000000000000000000/overview.html', '案件/GSM-外部歸檔生命週期監測-latest.json', '案件/events/GSM-外部歸檔生命週期監測事件-000001-GME-00000000000000000000.json', '案件/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_DASHBOARD_SCHEMA.json', '案件/EQ-PRIVATE-001/case-bundle.draft.json', '案件/EQ-PRIVATE-001/outputs/private-report.html', '案件/EQ-PRIVATE-MALFORMED/case-bundle-eqb-not-canonical.json', '案件/EQ-PRIVATE-MALFORMED/outputs/must-stay-private.html', 'output/audit/gsm-lifecycle-monitor-status.json', 'output/audit/gsm-lifecycle-monitor-history.json', 'output/audit/gsm-lifecycle-monitor-task-status.json', '結構工具箱/tools/build-pages-artifact.js', 'ignored.html', 'deleted.html']) {
       assert.equal(fs.existsSync(path.join(fixtureSite, ...privatePath.split('/'))), false, `artifact builder excludes ${privatePath}`);
     }
 
@@ -239,6 +249,15 @@ assert.ok(
       'artifact builder fails closed on the current build root, including JSON-escaped separators',
     );
     fs.rmSync(path.join(fixtureRepo, 'build-root-leak.json'));
+
+    fs.writeFileSync(path.join(fixtureRepo, 'qualification-kind-leak.json'), '{"kind":"engineering-qualification-case-bundle.v1"}\n', 'utf8');
+    assert.throws(
+      () => stagePagesArtifact({ repoRoot: fixtureRepo, siteRoot: fixtureSite }),
+      error => error instanceof Error
+        && error.message.includes('qualification-kind-leak.json [engineering-qualification-case-bundle]'),
+      'artifact builder fails closed when a published file leaks qualification bundle content',
+    );
+    fs.rmSync(path.join(fixtureRepo, 'qualification-kind-leak.json'));
   } finally {
     fs.rmSync(fixtureRepo, { recursive: true, force: true });
     fs.rmSync(fixtureSite, { recursive: true, force: true });
@@ -526,6 +545,15 @@ assert.ok(artifactBuilder.includes('attachment-package-check.js') && artifactBui
 assert.ok(!artifactBuilder.includes("'SRC工具/core/src-column-core.js'") && !artifactBuilder.includes("'SRC工具/src-column.html'") && artifactBuilder.includes('SRC工具/core/src-column-oracle.js') && artifactBuilder.includes('SRC工具/src-column-page.contract.test.js') && artifactBuilder.includes('SRC工具/src-column-browser-smoke.test.js') && artifactBuilder.includes('SRC工具/src-column-traceability.catalog.json'), 'shared artifact builder publishes the SRC column production page/core while keeping oracle, tests and governance catalog private');
 assert.ok(artifactBuilder.includes('joint-reaction-fixture-sanitizer.js') && artifactBuilder.includes('joint-reaction-fixture-promotion-gate.js') && artifactBuilder.includes('joint-reaction-observed-intake.js') && artifactBuilder.includes('joint-reaction-observed-review.template.json') && artifactBuilder.includes('shared/fixtures/joint-reactions/'), 'shared artifact builder keeps Joint Reactions intake, promotion and fixture evidence private');
 assert.ok(artifactBuilder.includes('結構工具箱/tools/independent-engineering-'), 'shared artifact builder keeps the complete independent engineering governance tree private');
+assert.ok(artifactBuilder.includes('qualificationWorkspacePrefixes') && artifactBuilder.includes('private-qualification-workspace') && artifactBuilder.includes("name: 'engineering-qualification-case-bundle'"), 'shared artifact builder excludes complete private qualification workspaces and fails closed on leaked bundle content');
+assert.ok([
+  'docs/adr/0004-separate-engineering-qualification-from-report-rendering.md',
+  '結構工具箱/tools/engineering-qualification-case-bundle.js',
+  '結構工具箱/tools/engineering-qualification-case-bundle.test.js',
+  '結構工具箱/tools/建立工程資格化案件工作區.bat',
+  '結構工具箱/tools/封印工程資格化案件包.bat',
+  '結構工具箱/tools/檢查工程資格化案件包.bat',
+].every(privatePath => pagesSmoke.includes(`'${privatePath}'`)), 'Pages live smoke pins the exact qualification ADR, code, test and launcher paths as private HTTP probes');
 assert.ok(pagesSmoke.includes('joint-reaction-fixture-sanitizer.js') && pagesSmoke.includes('joint-reaction-fixture-promotion-gate.js') && pagesSmoke.includes('joint-reaction-observed-intake.js') && pagesSmoke.includes('joint-reaction-observed-review.template.json') && pagesSmoke.includes('shared/fixtures/joint-reactions/observed-manifest.json'), 'Pages smoke probes Joint Reactions private governance assets');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/independent-engineering-adapters/rc-stm-strength.js')
   && pagesSmoke.includes('結構工具箱/tools/independent-engineering-adapters/frame-analysis.js')

@@ -66,6 +66,7 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js',
   '結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js',
   '結構工具箱/tools/attachment-case-governance-workspace.js',
+  '結構工具箱/tools/engineering-qualification-case-bundle.js',
   '結構工具箱/tools/rendered-delivery-evidence.js',
   '結構工具箱/tools/rendered-delivery-evidence.inventory.json',
   '結構工具箱/tools/rc-stm-atomic-change-set.manifest.json',
@@ -123,11 +124,13 @@ const PRIVATE_GENERATED_DIRECTORY_PREFIXES = [
 ];
 
 const PRIVATE_GENERATED_FILE_PREFIXES = [
+  'case-bundle-EQB-',
   'GSM-外部歸檔生命週期監測-latest',
   'GSM-外部歸檔生命週期監測事件-',
 ];
 
 const PRIVATE_BASENAMES = new Set([
+  'case-bundle.draft.json',
   'package.json',
   'package-lock.json',
   'requirements.txt',
@@ -150,6 +153,10 @@ const PRIVATE_SUFFIXES = [
 ];
 
 const PRIVATE_CONTENT_PATTERNS = [
+  {
+    name: 'engineering-qualification-case-bundle',
+    pattern: /["']kind["']\s*:\s*["']engineering-qualification-case-bundle\.v1["']/u,
+  },
   {
     name: 'windows-user-profile-path',
     pattern: /(?:^|[^A-Za-z0-9_.-])[A-Za-z]:[\\/]+Users[\\/]+[^\\/\s\"'<>|]+[\\/]+/i,
@@ -218,6 +225,38 @@ function gitCandidates(repoRoot) {
 function isInside(root, candidate) {
   const relative = path.relative(root, candidate);
   return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+}
+
+function isQualificationBundleName(value) {
+  const normalized = String(value || '').toLowerCase();
+  return normalized === 'case-bundle.draft.json' || /^case-bundle-eqb-.+\.json$/u.test(normalized);
+}
+
+function qualificationWorkspacePrefixes(candidates, repoRoot) {
+  const prefixes = new Set();
+  const checkedDirectories = new Set();
+  const root = path.resolve(repoRoot);
+  const checkDirectory = directory => {
+    if (checkedDirectories.has(directory)) return;
+    checkedDirectories.add(directory);
+    const absolute = directory === '.' ? root : path.resolve(root, ...directory.split('/'));
+    if (!isInside(root, absolute) || !fs.existsSync(absolute) || !fs.lstatSync(absolute).isDirectory()) return;
+    const hasBundle = fs.readdirSync(absolute, { withFileTypes: true })
+      .some(entry => isQualificationBundleName(entry.name));
+    if (!hasBundle) return;
+    if (directory === '.') throw new Error('private engineering qualification case bundle cannot be stored at repository root');
+    prefixes.add(`${directory}/`);
+  };
+  for (const candidate of candidates) {
+    const normalized = normalizeSlash(candidate);
+    let directory = path.posix.dirname(normalized);
+    while (true) {
+      checkDirectory(directory);
+      if (directory === '.') break;
+      directory = path.posix.dirname(directory);
+    }
+  }
+  return [...prefixes].sort(compareOrdinal);
 }
 
 function privateContentNeedles(repoRoot) {
@@ -309,12 +348,15 @@ function stagePagesArtifact(options) {
   fs.mkdirSync(siteRoot, { recursive: true });
 
   const candidates = gitCandidates(repoRoot);
+  const qualificationPrefixes = qualificationWorkspacePrefixes(candidates, repoRoot);
   const reasonCounts = {};
   let missingCount = 0;
   const publishedPaths = [];
 
   for (const relativePath of candidates) {
-    const classification = classifyPublishedPath(relativePath);
+    const classification = qualificationPrefixes.some(prefix => relativePath.startsWith(prefix))
+      ? { publish: false, reason: 'private-qualification-workspace' }
+      : classifyPublishedPath(relativePath);
     if (!classification.publish) {
       reasonCounts[classification.reason] = (reasonCounts[classification.reason] || 0) + 1;
       continue;
@@ -426,6 +468,8 @@ module.exports = {
   PRIVATE_GENERATED_DIRECTORY_PREFIXES,
   PRIVATE_GENERATED_FILE_PREFIXES,
   PRIVATE_CONTENT_PATTERNS,
+  isQualificationBundleName,
+  qualificationWorkspacePrefixes,
   classifyPublishedPath,
   gitCandidates,
   privateContentNeedles,

@@ -8,6 +8,7 @@
 
 | 區域 | 建議 | 理由 |
 |---|---|---|
+| `結構工具箱/tools/engineering-qualification-case-bundle.js`、`結構工具箱/tools/engineering-qualification-case-bundle.test.js`、`結構工具箱/tools/建立工程資格化案件工作區.bat`、`結構工具箱/tools/封印工程資格化案件包.bat`、`結構工具箱/tools/檢查工程資格化案件包.bat` | 納入程式碼，排除全部案件包與證據 | 私有 `engineering-qualification-case-bundle.v1` 只負責分層保存單一 run 的 G1 本次計算獨立比較、G2 指定案件適用確認與 G3 本次附件內部採用；G0 發布治理仍由 preflight 證明。案件包是未簽署、自我陳述的內部紀錄，驗證結構、雜湊與實體檔案，不驗證填寫者身分或法律效力；每筆比較值須以 JSON Pointer 從互相分離的正式結果與獨立基準機讀 JSON 實際取得，不能只相信比較摘要。單一 G1 或 1 至 2 件 pilot 不建立整支工具驗證域。G2 只接受綁定來源證據的真實案件且須列用途、限制、排除項、規範與 applicability；G3 再把可解析、可見內容含同次固定 16 位 `CF-`、通過五項複核且有收據的成品精確綁定同一執行輸出，編排後附件也須保留全部 section 的 `CF-`。PDF 另把同資料夾 canonical-render evidence 的路徑、bytes 與 SHA-256 納入案件包，且 visibility 必須由附件檢查器判為 `verified`，不得退回純文字層。案件包不覆寫正式附件核可，報告編排不重算。CLI 拒絕在程式庫內建立、檢查或封印工作區；Pages builder 即使案件包 JSON 被忽略也會排除整個案件根，並以內容掃描失敗關閉。`case-bundle*.json`、`inputs/`、`outputs/`、`references/`、`reports/` 及實案資料一律不進 repo、計算書、正式附件包或 Pages。 |
 | `結構工具箱/tools/pages-live-smoke.js`、`.github/workflows/pages-deploy.yml` 的 live HTTP 暫態策略，以及 `push-pages-release.ps1` failed-log 等待邊界 | 納入 | 正式 live 對單一公開 URL 先以 `PAGES_HTTP_REQUEST_TIMEOUT_MILLISECONDS=15000` 限制等待；遇到逾時、HTTP 5xx 或明列網路暫態錯誤時，再由 `PAGES_HTTP_REQUEST_ATTEMPTS=4` 與 `PAGES_HTTP_REQUEST_RETRY_DELAY_MILLISECONDS=1000` 重試該請求，耗盡後才由既有 `PAGES_HTTP_SMOKE_ATTEMPTS=2`、5 秒間隔完整重跑清冊。任一非暫態錯誤不重試，持續逾時／5xx 在兩層預算耗盡後仍阻擋。staged 與本機 artifact 未設定 request retry，預設單次請求立即失敗，但共用 30000 ms 單一請求逾時。安全推送等待器必須等 Actions API 回傳 run 已 `completed` 才呼叫 `gh run view --log-failed`；未收斂時保留原始 failed-job 錯誤，避免 GitHub aggregate 競態覆寫根因。工作站正式網址複驗同樣每一請求最多 4 次、15 秒逾時，且成功 JSON 回報 request 上限、間隔與逾時。 |
 | 所有直接呼叫 PowerShell 的 `.bat` 啟動器 | 納入 | 統一優先 `pwsh -NoProfile` 並保留 `powershell -NoProfile` 後備；既有 launcher smoke 會自動掃描所有批次檔，避免新增 wrapper 回退成單一路徑。各 wrapper 原有的固定參數、`%*` 透傳與 STA 邊界必須保持不變。 |
 | `preflight-tools.ps1`、`run-preflight-tools.bat`、`run-preflight-tools-quick.bat`、`run-preflight-tools-ci.bat`、`run-preflight-tools-release.bat`、`結構工具箱/tools/release-preflight-lock.ps1`、`結構工具箱/tools/release-preflight-lock.test.js` | 納入 | 已成為跨工具交付前檢查入口；CI / quick / normal / release wrapper 需一起提交。CI 只跑 clean-checkout 可重現 gate，不得冒充完整 quick 或正式 release；release wrapper 固定強制慢檢查與平台 audit，且不得透傳 `%*` 任意參數或被 `-Quick` 覆蓋。正式 release 必須先取得依正規化工作區路徑衍生的 Windows 具名 Mutex；同工作區第二輪立即失敗關閉，程序終止後由 OS 釋放，不使用會殘留的鎖檔，不同工作區及 quick／CI 不互相阻擋。鎖 helper 與真實雙程序競爭／強制終止測試屬私人治理工具，不發布至 Pages；頁面專用 report-readiness / Pages artifact governance 需由 `pages-release-governance-contract` 納入同一輪 preflight 記錄。 |
@@ -256,6 +257,7 @@ RC 梁、柱、板、牆、剪力牆、基礎與單樁的專案 JSON 維持來�
 - `output/`、測試 run log、release bundle
 - 本機專案資料：`app_data/`
 - 大型工程輸出與參考：PDF、Excel、Word、LibreOffice 暫存 profile
+- 工程資格化案件工作區：`case-bundle.draft.json`、`case-bundle-EQB-*.json`、`inputs/`、`outputs/`、`references/`、`reports/` 與所有實案識別／計算證據
 - 反查或抽取資料：`_extracted/`、dump 文字檔、OLE/EMF/WMF 圖檔
 - 名稱剛好命中忽略規則的工具目錄，例如 `結構工具箱/tools/基礎/`；靜態工具應使用不被忽略的英文資料夾，如 `tools/foundation/`。
 
