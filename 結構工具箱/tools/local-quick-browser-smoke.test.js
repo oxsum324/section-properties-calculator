@@ -1822,7 +1822,10 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload, reportR
     assert.equal(state.reportReadinessStatusSource, 'static', `${label} new home report readiness static fallback source`);
   } else {
     assert.equal(state.reportReadinessStatusSource, 'snapshot', `${label} new home report readiness snapshot source`);
-    assert.ok(state.reportReadinessStatusMeta.includes('頁面邊界 4 / 4'), `${label} new home report readiness page-only metric`);
+    assert.ok(
+      state.reportReadinessStatusMeta.includes(`頁面邊界 ${reportReadinessPayload.pageOnlyBoundaryComplete} / ${reportReadinessPayload.pageOnlyBoundaryRequired}`),
+      `${label} new home report readiness page-only metric`,
+    );
     assert.ok(
       state.reportReadinessStatusMeta.includes(`可讀文字 ${reportReadinessPayload.reportTextSmokeComplete} / ${reportReadinessPayload.reportTextSmokeRequired}`),
       `${label} new home report readiness report-text metric`
@@ -1836,16 +1839,53 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload, reportR
       state.reportReadinessStatusMeta.includes(`成品檔案完整性 ${reportReadinessPayload.deliveryFileIntegrityVerified} / ${reportReadinessPayload.deliveryFileIntegrityRequired}`),
       `${label} new home report readiness delivery file integrity metric`
     );
-    assert.ok(state.reportReadinessStatusMeta.includes('Word 乾淨封裝 4 / 4'), `${label} new home report readiness DOCX package integrity metric`);
-    assert.ok(state.reportReadinessStatusMeta.includes('Excel 乾淨封裝 1 / 1'), `${label} new home report readiness XLSX package integrity metric`);
+    if (Number.isInteger(reportReadinessPayload.docxPackageIntegrityRequired)) {
+      assert.ok(Number.isInteger(reportReadinessPayload.docxPackageIntegrityComplete), `${label} report readiness DOCX package integrity payload is complete`);
+      assert.ok(
+        state.reportReadinessStatusMeta.includes(`Word 乾淨封裝 ${reportReadinessPayload.docxPackageIntegrityComplete} / ${reportReadinessPayload.docxPackageIntegrityRequired}`),
+        `${label} new home report readiness DOCX package integrity metric`,
+      );
+    }
+    if (Number.isInteger(reportReadinessPayload.xlsxPackageIntegrityRequired)) {
+      assert.ok(Number.isInteger(reportReadinessPayload.xlsxPackageIntegrityComplete), `${label} report readiness XLSX package integrity payload is complete`);
+      assert.ok(
+        state.reportReadinessStatusMeta.includes(`Excel 乾淨封裝 ${reportReadinessPayload.xlsxPackageIntegrityComplete} / ${reportReadinessPayload.xlsxPackageIntegrityRequired}`),
+        `${label} new home report readiness XLSX package integrity metric`,
+      );
+    }
     if (Number.isInteger(reportReadinessPayload.xlsxPrintVisualSheetRequired)) {
-      assert.ok(state.reportReadinessStatusMeta.includes('Excel 列印成品 9 / 9'), `${label} new home report readiness XLSX Office print visual metric`);
+      assert.ok(Number.isInteger(reportReadinessPayload.xlsxPrintVisualSheetComplete), `${label} report readiness XLSX Office print visual payload is complete`);
+      assert.ok(
+        state.reportReadinessStatusMeta.includes(`Excel 列印成品 ${reportReadinessPayload.xlsxPrintVisualSheetComplete} / ${reportReadinessPayload.xlsxPrintVisualSheetRequired}`),
+        `${label} new home report readiness XLSX Office print visual metric`,
+      );
     }
     if (Number.isInteger(reportReadinessPayload.xlsxContentSealRequired)) {
-      assert.ok(state.reportReadinessStatusMeta.includes('Excel 雙封印 2 / 2'), `${label} new home report readiness XLSX dual seal metric`);
+      assert.ok(
+        [
+          reportReadinessPayload.xlsxContentSealComplete,
+          reportReadinessPayload.xlsxApprovalSealRequired,
+          reportReadinessPayload.xlsxApprovalSealComplete,
+        ].every(Number.isInteger),
+        `${label} report readiness XLSX dual seal payload is complete`,
+      );
+      const xlsxSealComplete = reportReadinessPayload.xlsxContentSealComplete + reportReadinessPayload.xlsxApprovalSealComplete;
+      const xlsxSealRequired = reportReadinessPayload.xlsxContentSealRequired + reportReadinessPayload.xlsxApprovalSealRequired;
+      assert.ok(
+        state.reportReadinessStatusMeta.includes(`Excel 雙封印 ${xlsxSealComplete} / ${xlsxSealRequired}`),
+        `${label} new home report readiness XLSX dual seal metric`,
+      );
     }
     if (options.expectRcStm || Number.isInteger(reportReadinessPayload.rcStmFormalAttachmentRequired)) {
-      assert.ok(state.reportReadinessStatusMeta.includes('RC STM 正式附件 3 / 3'), `${label} new home report readiness RC STM supplemental attachment metric`);
+      assert.ok(
+        Number.isInteger(reportReadinessPayload.rcStmFormalAttachmentComplete)
+          && Number.isInteger(reportReadinessPayload.rcStmFormalAttachmentRequired),
+        `${label} report readiness RC STM supplemental attachment payload is complete`,
+      );
+      assert.ok(
+        state.reportReadinessStatusMeta.includes(`RC STM 正式附件 ${reportReadinessPayload.rcStmFormalAttachmentComplete} / ${reportReadinessPayload.rcStmFormalAttachmentRequired}`),
+        `${label} new home report readiness RC STM supplemental attachment metric`,
+      );
     }
     assert.ok(state.reportReadinessStatusText.includes('風力 / 地震正式工具') && state.reportReadinessStatusText.includes('局部快算'), `${label} new home report text scope`);
   }
