@@ -2,8 +2,8 @@
   "publicEvidenceSchemaVersion": 3,
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-08-31T16:01:33.748Z",
-  "runId": "20260831-232236",
+  "generatedAt": "2026-09-01T02:19:01.727Z",
+  "runId": "20260901-093827",
   "pass": true,
   "failureCount": 0,
   "badge": "頁面專用",
@@ -13,9 +13,9 @@
   "details": [
     "目前覆蓋 過渡工具 / 輔助查詢 入口：鋼梁舊案延續頁、鋼柱舊案延續頁、Kzt 地形係數、特殊修正 / 折減。",
     "正式計算書可讀文字抽檢：21 / 21 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 3 / 3。本項確認輸出可讀文字、頁面診斷明細排除，以及內部審閱／正式附件核可狀態。",
-    "正式放行實際交付物渲染佐證：40 / 40 個首頁正式工具已完成，涵蓋 11 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20260831-232236。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
-    "正式交付檔案完整性：正式 PDF 與渲染證據 94 / 94、RC PDF / PNG 成品 66 / 66、混合格式附件 13 / 13；合計 173 / 173。公開狀態只提供類別、數量與通過狀態，不公開檔名、逐檔雜湊或完整性集合。",
-    "正式 Word 附件乾淨封裝：石材、錨栓、覆工板與開挖擋土支撐共 4 / 4 份 DOCX 已確認沒有未引用媒體或頁首頁尾、實際批註、未接受修訂、外掛範本、外部圖片、嵌入物件、巨集或非預期 custom XML。公開狀態只顯示完成數，不公開檔名、封裝清冊或逐檔細節。",
+    "正式放行實際交付物渲染佐證：40 / 40 個首頁正式工具已完成，涵蓋 11 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20260901-093827。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
+    "正式交付檔案完整性：正式 PDF 與渲染證據 96 / 96、RC PDF / PNG 成品 66 / 66、混合格式附件 17 / 17；合計 179 / 179。公開狀態只提供類別、數量與通過狀態，不公開檔名、逐檔雜湊或完整性集合。",
+    "正式 Word 附件乾淨封裝：石材、錨栓、覆工板與開挖擋土支撐共 5 / 5 份 DOCX 已確認沒有未引用媒體或頁首頁尾、實際批註、未接受修訂、外掛範本、外部圖片、嵌入物件、巨集或非預期 custom XML。公開狀態只顯示完成數，不公開檔名、封裝清冊或逐檔細節。",
     "正式 Excel 附件乾淨封裝：錨栓檢討 1 / 1 份 XLSX 已確認工作表全數可見、公式具快取結果，且沒有外部關聯／公式／連線、公式錯誤、隱藏資料、批註、嵌入物件、巨集、孤兒媒體或非預期 custom XML。公開狀態只顯示完成數，不公開檔名、工作表清冊、公式或逐檔細節。",
     "正式 Excel 列印成品：錨栓檢討 1 / 1 份 XLSX、9 / 9 張工作表已由 Microsoft Excel 以原始列印設定逐張輸出 PDF，確認 A4、寬表橫向、單頁寬、續頁重複表頭、可讀文字、非空白頁、無頁緣裁切及無橫向溢出頁。公開狀態只顯示完成數，不公開工作表名稱、列印 PDF、逐頁指標或雜湊。",
     "正式 Excel 雙封印：錨栓檢討 1 / 1 份內容封印與 1 / 1 份核可封印已從實際 XLSX 的可見儲存格、公式與快取結果獨立重算；計算內容、公式、文件狀態、核可時間、計算指紋或工具身分變更會被辨識。此封印是 SHA-256 防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數，不公開封印值、工作表內容或竄改樣本。",
@@ -27,6 +27,7 @@
     "RC 正式 HTML 內容封印：設計與補強共 34 / 34 份核可 HTML 已由瀏覽器與附件檢查器分別重算 SHA-256 計算內容封印；內容變更會阻擋組包。此封印不等同核可人數位簽章；公開狀態只顯示完成數。",
     "RC 正式 HTML 核可封印：設計與補強共 34 / 34 份核可 HTML 已將文件狀態、核可時間、計算指紋、標題與內容封印綁定並由瀏覽器及附件檢查器分別重算；任一欄位變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。",
     "RC STM 正式入口附件：深梁、基礎深梁與樁帽三維 STM 共 3 / 3 份已驗證內部審閱 PDF／PNG、核可 HTML、內容與核可雙封印、離線重開及正式 PDF 列印；三者現為獨立首頁正式入口，仍保留限定拓樸及 RC 梁／基礎流程銜接。",
+    "RSC v4／RSB v1 接收端正式附件：1 / 1 組附件、6 / 6 份實體成品已逐檔驗證；公開狀態只顯示匿名數量與通過狀態，不公開檔名、SHA-256、計算指紋或逐檔 records。",
     "風力／地震正式 HTML 雙封印：14 / 14 份內容封印與 14 / 14 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；計算正文、文件狀態、核可時間、指紋或標題遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。",
     "鋼構正式 HTML 雙封印：主工具連接板、主工具拉力構件、主工具單剪力板 Shear Tab、主工具平板支撐 Gusset 拉力接頭、主工具梁柱彎矩接頭、主工具全斷面 CJP 耐震柱續接、獨立連接板、鋼梁與鋼柱共 9 / 9 份內容封印與 9 / 9 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；計算正文或核可資料遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。",
     "錨栓正式 HTML 雙封印：1 / 1 份內容封印與 1 / 1 份核可封印已由瀏覽器產生、附件檢查器從實際下載 HTML 重算；工作頁核可後輸出狀態固定，計算正文或核可資料遭變更會阻擋組包。此封印是防竄改證據，不是核可人身分的數位簽章；公開狀態只顯示完成數。",
@@ -61,7 +62,7 @@
   "reportTextSmokeEvidenceRequired": 3,
   "reportTextSmokeEvidenceComplete": 3,
   "reportTextSmokeEvidenceIssueCount": 0,
-  "reportTextSmokeEvidenceRunId": "20260831-232236",
+  "reportTextSmokeEvidenceRunId": "20260901-093827",
   "reportTextSmokeEvidenceGates": [
     {
       "key": "formal-browser-smoke",
@@ -73,7 +74,7 @@
       "complete": 14,
       "pass": true,
       "reused": false,
-      "seconds": 101.9
+      "seconds": 97.6
     },
     {
       "key": "local-quick-tools-runner",
@@ -85,7 +86,7 @@
       "complete": 6,
       "pass": true,
       "reused": false,
-      "seconds": 98.5
+      "seconds": 91.9
     },
     {
       "key": "frame-analysis-browser-smoke",
@@ -97,7 +98,7 @@
       "complete": 1,
       "pass": true,
       "reused": false,
-      "seconds": 8.2
+      "seconds": 7.5
     }
   ],
   "reportTextSmokeEvidenceUnmappedFamilies": [],
@@ -105,7 +106,7 @@
   "renderedDeliveryEvidenceRequired": 40,
   "renderedDeliveryEvidenceComplete": 40,
   "renderedDeliveryEvidenceIssueCount": 0,
-  "renderedDeliveryEvidenceRunId": "20260831-232236",
+  "renderedDeliveryEvidenceRunId": "20260901-093827",
   "renderedDeliveryEvidenceFamilies": [
     {
       "family": "anchor-formal",
@@ -152,19 +153,19 @@
       "complete": 1
     }
   ],
-  "renderedDeliveryEvidenceSummary": "最新正式放行實際交付物渲染：首頁正式工具 40 / 40；補充報告 / 服務成品 2 / 2；RC STM 正式入口附件 3 / 3。",
-  "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260831-232236/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
-  "renderedDeliveryEvidenceSourceHash": "8806ee5bfd00aa55d1da74c5099a4239f1f3878725d878aaa6c2dbac3c7b0672",
-  "deliveryFileIntegrityRequired": 173,
-  "deliveryFileIntegrityVerified": 173,
+  "renderedDeliveryEvidenceSummary": "最新正式放行實際交付物渲染：首頁正式工具 40 / 40；補充報告 / 服務成品 2 / 2；RC STM 正式入口附件 3 / 3；RSC v4／RSB v1 正式附件 1 / 1、成品 6 / 6。",
+  "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260901-093827/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
+  "renderedDeliveryEvidenceSourceHash": "c2593e8b79a9087c039860fd68ebf74dc319cf44026cd39442fa97411b9d275c",
+  "deliveryFileIntegrityRequired": 179,
+  "deliveryFileIntegrityVerified": 179,
   "deliveryFileIntegrityIssueCount": 0,
   "deliveryFileIntegrityPass": true,
   "deliveryFileIntegrityBreakdown": [
     {
       "key": "formalPdfEvidence",
       "label": "正式 PDF 與渲染證據",
-      "required": 94,
-      "verified": 94,
+      "required": 96,
+      "verified": 96,
       "issueCount": 0,
       "pass": true
     },
@@ -179,14 +180,14 @@
     {
       "key": "mixedFormat",
       "label": "混合格式附件",
-      "required": 13,
-      "verified": 13,
+      "required": 17,
+      "verified": 17,
       "issueCount": 0,
       "pass": true
     }
   ],
-  "docxPackageIntegrityRequired": 4,
-  "docxPackageIntegrityComplete": 4,
+  "docxPackageIntegrityRequired": 5,
+  "docxPackageIntegrityComplete": 5,
   "docxPackageIntegrityIssueCount": 0,
   "docxPackageIntegrityPass": true,
   "xlsxPackageIntegrityRequired": 1,
@@ -269,6 +270,12 @@
   "rcStmFormalAttachmentComplete": 3,
   "rcStmFormalAttachmentIssueCount": 0,
   "rcStmFormalAttachmentPass": true,
+  "reshoreCapacityFormalAttachmentRequired": 1,
+  "reshoreCapacityFormalAttachmentComplete": 1,
+  "reshoreCapacityFormalAttachmentArtifactRequired": 6,
+  "reshoreCapacityFormalAttachmentArtifactVerified": 6,
+  "reshoreCapacityFormalAttachmentIssueCount": 0,
+  "reshoreCapacityFormalAttachmentPass": true,
   "steelResultReconciliationRequired": 9,
   "steelResultReconciliationComplete": 9,
   "steelResultReconciliationIssueCount": 0,
@@ -421,6 +428,6 @@
     }
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
-  "preflightStatusSourcePath": "output/preflight/history/20260831-232236/preflight-summary.json",
-  "sourceHash": "41dce574cae4d2713e53132ff8e882ef890464113b3957651df5464747ad090d"
+  "preflightStatusSourcePath": "output/preflight/history/20260901-093827/preflight-summary.json",
+  "sourceHash": "bb662efabb353dae447a1d09da6ca67326b4715c9e26b0af986ede305fece4bb"
 }

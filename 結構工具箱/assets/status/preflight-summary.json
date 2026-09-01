@@ -2,12 +2,12 @@
   "publicEvidenceSchemaVersion": 3,
   "snapshotVersion": 1,
   "kind": "preflight-summary",
-  "generatedAt": "2026-09-01 00:00:59",
-  "runId": "20260831-232236",
+  "generatedAt": "2026-09-01 10:18:34",
+  "runId": "20260901-093827",
   "quick": false,
   "forcePlatformAudit": true,
   "forceSlowChecks": true,
-  "sourceCommitSha": "3214605b013d3bee5c8d529e7d949e4cdc2e0e4d",
+  "sourceCommitSha": "48515fd2e712c0876a4e129bb9d4d553764fc915",
   "sourceBranch": "master",
   "sourceDirty": false,
   "pass": true,
@@ -18,109 +18,18 @@
   "platformAuditReused": false,
   "recordsCount": 89,
   "passedCount": 89,
-  "totalSeconds": 2224.2,
+  "totalSeconds": 2324.5,
   "slowestKey": "platform-audit",
-  "slowestSeconds": 993.9,
+  "slowestSeconds": 1047.6,
   "postCheckCount": 3,
   "postChecksPassedCount": 3,
   "postCheckFailures": [],
-  "sourcePath": "output/preflight/history/20260831-232236/preflight-summary.json",
-  "sourceHash": "62c7607bf0bc6d654e048c78dfc0231588bca12d14b457436944c741b177714a",
+  "sourcePath": "output/preflight/history/20260901-093827/preflight-summary.json",
+  "sourceHash": "67364664dd7a1cc997387c02ec66f83e8e82c338fbd2ffc2ce66547e31d90882",
   "releaseHistory": {
     "schemaVersion": 2,
     "limit": 8,
     "entries": [
-      {
-        "runId": "20260829-183048",
-        "generatedAt": "2026-08-29 19:16:19",
-        "sourceCommitSha": "30586cae48360773f1a702f728a8b4d8059979a0",
-        "records": {
-          "passed": 88,
-          "required": 88
-        },
-        "postChecks": {
-          "passed": 3,
-          "required": 3
-        },
-        "dimensions": [
-          {
-            "id": "release",
-            "pass": true
-          },
-          {
-            "id": "steel",
-            "pass": true
-          },
-          {
-            "id": "rc",
-            "pass": true
-          },
-          {
-            "id": "delivery",
-            "pass": true
-          }
-        ],
-        "metrics": [
-          {
-            "id": "steelResult",
-            "complete": 5,
-            "required": 5
-          },
-          {
-            "id": "steelContentSeal",
-            "complete": 5,
-            "required": 5
-          },
-          {
-            "id": "steelApprovalSeal",
-            "complete": 5,
-            "required": 5
-          },
-          {
-            "id": "rcResult",
-            "complete": 34,
-            "required": 34
-          },
-          {
-            "id": "rcPrint",
-            "complete": 34,
-            "required": 34
-          },
-          {
-            "id": "rcPackage",
-            "complete": 32,
-            "required": 32
-          },
-          {
-            "id": "formalResult",
-            "complete": 14,
-            "required": 14
-          },
-          {
-            "id": "localQuickResult",
-            "complete": 5,
-            "required": 5
-          },
-          {
-            "id": "rendered",
-            "complete": 38,
-            "required": 38
-          },
-          {
-            "id": "delivery",
-            "complete": 157,
-            "required": 157
-          }
-        ],
-        "change": {
-          "policyVersion": 1,
-          "classification": "baseline",
-          "increases": [],
-          "reductions": [],
-          "reasonCode": "",
-          "reason": ""
-        }
-      },
       {
         "runId": "20260830-145720",
         "generatedAt": "2026-08-30 15:32:10",
@@ -205,39 +114,8 @@
         ],
         "change": {
           "policyVersion": 1,
-          "classification": "expanded",
-          "increases": [
-            {
-              "id": "steelResult",
-              "from": 5,
-              "to": 6
-            },
-            {
-              "id": "steelContentSeal",
-              "from": 5,
-              "to": 6
-            },
-            {
-              "id": "steelApprovalSeal",
-              "from": 5,
-              "to": 6
-            },
-            {
-              "id": "localQuickResult",
-              "from": 5,
-              "to": 6
-            },
-            {
-              "id": "rendered",
-              "from": 38,
-              "to": 39
-            },
-            {
-              "id": "delivery",
-              "from": 157,
-              "to": 165
-            }
-          ],
+          "classification": "baseline",
+          "increases": [],
           "reductions": [],
           "reasonCode": "",
           "reason": ""
@@ -840,6 +718,103 @@
               "id": "delivery",
               "from": 169,
               "to": 173
+            }
+          ],
+          "reductions": [],
+          "reasonCode": "",
+          "reason": ""
+        }
+      },
+      {
+        "runId": "20260901-093827",
+        "generatedAt": "2026-09-01 10:18:34",
+        "sourceCommitSha": "48515fd2e712c0876a4e129bb9d4d553764fc915",
+        "records": {
+          "passed": 89,
+          "required": 89
+        },
+        "postChecks": {
+          "passed": 3,
+          "required": 3
+        },
+        "dimensions": [
+          {
+            "id": "release",
+            "pass": true
+          },
+          {
+            "id": "steel",
+            "pass": true
+          },
+          {
+            "id": "rc",
+            "pass": true
+          },
+          {
+            "id": "delivery",
+            "pass": true
+          }
+        ],
+        "metrics": [
+          {
+            "id": "steelResult",
+            "complete": 9,
+            "required": 9
+          },
+          {
+            "id": "steelContentSeal",
+            "complete": 9,
+            "required": 9
+          },
+          {
+            "id": "steelApprovalSeal",
+            "complete": 9,
+            "required": 9
+          },
+          {
+            "id": "rcResult",
+            "complete": 34,
+            "required": 34
+          },
+          {
+            "id": "rcPrint",
+            "complete": 34,
+            "required": 34
+          },
+          {
+            "id": "rcPackage",
+            "complete": 32,
+            "required": 32
+          },
+          {
+            "id": "formalResult",
+            "complete": 14,
+            "required": 14
+          },
+          {
+            "id": "localQuickResult",
+            "complete": 6,
+            "required": 6
+          },
+          {
+            "id": "rendered",
+            "complete": 40,
+            "required": 40
+          },
+          {
+            "id": "delivery",
+            "complete": 179,
+            "required": 179
+          }
+        ],
+        "change": {
+          "policyVersion": 1,
+          "classification": "expanded",
+          "increases": [
+            {
+              "id": "delivery",
+              "from": 173,
+              "to": 179
             }
           ],
           "reductions": [],
