@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 const Checker = require('./attachment-package-check.js');
 const Verifier = require('./attachment-package-verify.js');
@@ -17,9 +18,10 @@ const MAX_EVIDENCE_BYTES = 512 * 1024 * 1024;
 const MAX_FUTURE_SKEW_MILLISECONDS = 5 * 60 * 1000;
 const BOUNDARY_INSTRUCTION = '本案件包只供私有工程資格化與報告附件編排；不得放入計算書、主報告、正式附件包或 Pages。案件包內的資格化決定與採用紀錄不會覆寫計算附件核可，也不等同數位簽章。';
 const COMPARISON_DATA_KIND = 'engineering-qualification-comparison-data.v1';
+const COMPARISON_DATA_KIND_V2 = 'engineering-qualification-comparison-data.v2';
 const SOURCE_KINDS = Object.freeze(['real-case', 'synthetic', 'code-example']);
 const RUN_STATES = Object.freeze(['candidate', 'current', 'stale', 'superseded', 'rejected']);
-const REFERENCE_METHODS = Object.freeze(['hand-calculation', 'independent-spreadsheet', 'published-example', 'third-party-software', 'same-core-replay']);
+const REFERENCE_METHODS = Object.freeze(['hand-calculation', 'closed-form-oracle', 'independent-spreadsheet', 'published-example', 'third-party-software', 'same-core-replay']);
 const ASSERTION_TYPES = Object.freeze(['numeric', 'categorical', 'control-branch', 'decision', 'out-of-scope', 'applicability']);
 const TOLERANCE_MODES = Object.freeze(['exact', 'absolute', 'relative', 'absolute-or-relative']);
 const DISCREPANCY_CATEGORIES = Object.freeze(['tool-defect', 'reference-defect', 'input-interpretation', 'scope-mismatch', 'rounding', 'report-layout', 'other']);
@@ -87,6 +89,86 @@ const COMPARISON_DATA_FIELDS = Object.freeze([
   'schemaVersion', 'kind', 'comparisonId', 'runId', 'productionOutputSha256', 'productionResultDataSha256',
   'referenceArtifactSha256', 'referenceDataArtifactSha256', 'assertions',
 ]);
+const BEAM_COLUMN_MOMENT_PILOT_TOOL_ID = 'steel-connection-formal.beam_column_moment';
+const BEAM_COLUMN_MOMENT_PILOT_COMPARISON_DATA_FIELDS = Object.freeze([
+  ...COMPARISON_DATA_FIELDS,
+  'calculationFingerprint', 'runFingerprint', 'criteriaDefinedAt', 'inputArtifactSha256',
+]);
+const BEAM_COLUMN_MOMENT_PILOT_PRODUCTION_DATA_FIELDS = Object.freeze([
+  'schemaVersion', 'kind', 'benchmarkId', 'benchmarkCaseId', 'productionAdapter',
+  'calculationFingerprint', 'result', 'results', 'comparison',
+]);
+const BEAM_COLUMN_MOMENT_PILOT_REFERENCE_DATA_FIELDS = Object.freeze([
+  'schemaVersion', 'kind', 'benchmarkId', 'benchmarkCaseId', 'oracle',
+  'independentFromProductionCore', 'calculationFingerprint', 'runFingerprint', 'result', 'results', 'comparison',
+]);
+const BEAM_COLUMN_MOMENT_PILOT_RESULT_KEYS = Object.freeze([
+  'Mp', 'Mpr', 'MprFar', 'MuFace', 'Vp', 'VpzAvailable', 'VpzMin', 'VpzNominal', 'VpzRequired', 'VuRequired',
+  'allMembersIncludedPass', 'axisPass', 'beamFlangeCompactnessPass', 'beamFlangePlasticModulusPass',
+  'beamLateralBracingPass', 'beamWebCompactnessPass', 'capacityBasisPass', 'capacityEvidenceShaPass',
+  'checkCount', 'cns3506WeldPass', 'completeJointDesign', 'complianceReady', 'continuityPlateRequirementPass',
+  'continuityPlateWeldPass', 'continuityRequired', 'continuityThreshold', 'demandBasisPass', 'designRoutePass',
+  'detailPass', 'doublerAttachmentPass', 'endTabsPass', 'expectedStrengthFactorPass', 'farCriticalMomentPass',
+  'flexuralRatio', 'frameSystemPass', 'geometryBasisPass', 'governingAxialPass', 'hardwareVerifiedPass',
+  'jointLateralRestraintPass', 'lrfdPass', 'matchingWeldPass', 'materialBasisPass', 'opposingDirectionsPass',
+  'orthogonalSeparatePass', 'panelThicknessRequired', 'panelZoneBasisPass', 'panelZoneRatio',
+  'panelZoneThicknessPass', 'passes', 'plasticZoneGeometryPass', 'plasticZoneOpeningsPass',
+  'qualificationBasisPass', 'qualificationConfigurationPass', 'qualificationEvidenceShaPass',
+  'qualificationFabricationPass', 'qualificationGeometryPass', 'qualificationMaterialPass',
+  'qualificationPlasticRatioSimilarityPass', 'qualificationProcedurePass', 'qualificationRoutePass',
+  'qualificationTestCountPass', 'qualificationThicknessSimilarityPass', 'qualificationWeldingPass',
+  'qualifiedRotation', 'rotationDemand', 'rotationRatio', 'scwbCcw', 'scwbCcwRatio', 'scwbCw', 'scwbCwRatio',
+  'seismicMaterialPass', 'selectedAxisScopePass', 'shearRatio', 'sourceFieldCount', 'strengthPass',
+  'strongColumnBasisPass', 'thirdPartyReviewPass', 'validationFailure', 'weldProcedurePass',
+].sort());
+const BEAM_COLUMN_MOMENT_PILOT_SUPPLEMENTAL_KEYS = Object.freeze([
+  'allMembersIncludedPass', 'cns3506WeldPass', 'endTabsPass', 'governingAxialPass',
+  'matchingWeldPass', 'plasticZoneGeometryPass', 'plasticZoneOpeningsPass', 'thirdPartyReviewPass',
+].sort());
+const BEAM_COLUMN_MOMENT_PILOT_REGISTERED_TOLERANCE_POLICY_SHA256 = 'e7a6e07ac9fa5d0906456a66d1b39653f707b63544acbf5b8be9860ec63dce1a';
+const BEAM_COLUMN_MOMENT_PILOT_SOURCE_FIELDS = Object.freeze(['commit', 'dirty', 'files']);
+const BEAM_COLUMN_MOMENT_PILOT_SOURCE_FILE_FIELDS = Object.freeze([
+  'pilot', 'caseBundle', 'attachmentChecker', 'attachmentVerifier', 'history', 'comparisonContract',
+  'productionAdapter', 'productionCore', 'oracle', 'catalog', 'metadata',
+].sort());
+const BEAM_COLUMN_MOMENT_PILOT_SOURCE_FILE_RECORD_FIELDS = Object.freeze(['path', 'gitBlob', 'gitContentSha256']);
+const BEAM_COLUMN_MOMENT_PILOT_SOURCE_PATHS = Object.freeze({
+  pilot: '結構工具箱/tools/beam-column-moment-g1-pilot.js',
+  caseBundle: '結構工具箱/tools/engineering-qualification-case-bundle.js',
+  attachmentChecker: '結構工具箱/tools/attachment-package-check.js',
+  attachmentVerifier: '結構工具箱/tools/attachment-package-verify.js',
+  history: '結構工具箱/tools/attachment-package-upgrade-history.js',
+  comparisonContract: '結構工具箱/tools/attachment-case-governance-portfolio-compare.js',
+  productionAdapter: '結構工具箱/tools/independent-engineering-adapters/steel-formal.js',
+  productionCore: '鋼構工具/calculator.js',
+  oracle: '結構工具箱/tools/independent-engineering-benchmarks.js',
+  catalog: '結構工具箱/tools/independent-engineering-benchmarks.catalog.json',
+  metadata: '鋼構工具/tool-metadata.js',
+});
+const BEAM_COLUMN_MOMENT_PILOT_INPUT_FIELDS = Object.freeze([
+  'schemaVersion', 'kind', 'benchmarkId', 'benchmarkCaseId', 'input', 'fullBenchmarkInput', 'source', 'boundary', 'criteria',
+]);
+const BEAM_COLUMN_MOMENT_PILOT_CRITERIA_FIELDS = Object.freeze([
+  'definedAt', 'registeredAssertionCount', 'registeredTolerancePolicySha256', 'supplementalClosureKeys', 'qualifiedResultAssertionCount',
+  'numericPolicy', 'controlBranchExpected', 'decisionExpected', 'outOfScopeExpected',
+]);
+const BEAM_COLUMN_MOMENT_PILOT_INPUT_BOUNDARY_FIELDS = Object.freeze([
+  'designMethod', 'frameSystem', 'selectedAxis', 'connectionDesignRoute', 'qualificationRoute',
+  'selectedFramePlaneOnly', 'completeJointDesign', 'claimsAisc358Prequalification',
+  'orthogonalDirection', 'requiresExternalHardwareCapacityEvidence', 'trustedProcessLaunchRequired',
+]);
+const BEAM_COLUMN_MOMENT_PILOT_RESULT_COMPARISON_FIELDS = Object.freeze(['controlBranch', 'decision', 'outOfScope']);
+const BEAM_COLUMN_MOMENT_PILOT_RECEIPT_FIELDS = Object.freeze([
+  'schemaVersion', 'kind', 'decisionId', 'runId', 'comparisonIds', 'claimedLevel', 'basedOnDecisionId',
+  'reviewer', 'basis', 'decidedAt', 'decision', 'sourceKind', 'calculationFingerprint', 'runFingerprint', 'comparisonBindings',
+  'source', 'supportingWorkspaceFiles', 'boundary',
+]);
+const BEAM_COLUMN_MOMENT_PILOT_COMPARISON_BINDING_FIELDS = Object.freeze(['comparisonId', 'comparisonDataArtifact']);
+const BEAM_COLUMN_MOMENT_PILOT_SUPPORTING_FIELDS = Object.freeze(['qualificationProfile', 'realCaseIntakeTemplate']);
+const BEAM_COLUMN_MOMENT_PILOT_BOUNDARY_FIELDS = Object.freeze([
+  'completeJointDesign', 'g2', 'g3', 'legalSignoff', 'trustedProcessLaunchRequired',
+]);
+const VERIFIED_BEAM_COLUMN_MOMENT_PILOT_SOURCES = new Set();
 
 class ContractError extends Error {
   constructor(message) {
@@ -360,7 +442,7 @@ function validateAssertion(record, comparisonLabel, index) {
   return assertionPass(record);
 }
 
-function validateComparison(record, index, runs, updatedAt) {
+function validateComparison(record, index, runs, updatedAt, createdAt) {
   const label = `獨立比較第 ${index + 1} 筆`;
   try { Compare.exactKeys(record, COMPARISON_FIELDS, label); } catch (error) { fail(error.message); }
   requireId(record.comparisonId, `${label} ID`);
@@ -370,6 +452,7 @@ function validateComparison(record, index, runs, updatedAt) {
   requireIso(record.comparedAt, `${label}比較時間`);
   requireIso(record.criteriaDefinedAt, `${label}判定基準建立時間`);
   if (Date.parse(record.comparedAt) > Date.parse(updatedAt) || Date.parse(record.criteriaDefinedAt) > Date.parse(updatedAt)) fail(`${label}時間不得晚於案件包更新時間。`);
+  if (Date.parse(record.criteriaDefinedAt) < Date.parse(createdAt)) fail(`${label}判定基準建立時間不得早於案件包建立時間。`);
   if (Date.parse(record.criteriaDefinedAt) >= Date.parse(run.executedAt)) fail(`${label}容許差與判定基準必須早於工具執行時間固定。`);
   if (Date.parse(record.comparedAt) < Date.parse(run.executedAt)) fail(`${label}比較時間不得早於工具執行時間。`);
   requireEnum(record.referenceMethod, REFERENCE_METHODS, `${label}基準方法`);
@@ -699,13 +782,29 @@ function verifyComparisonData(baseDirectory, comparison, run) {
   const loaded = readStrictJsonFile(evidenceAbsolutePath(baseDirectory, comparison.comparisonDataArtifact), label);
   const productionData = readStrictJsonFile(evidenceAbsolutePath(baseDirectory, run.resultDataArtifact), `計算執行 ${run.runId} 機讀結果`);
   const referenceData = readStrictJsonFile(evidenceAbsolutePath(baseDirectory, comparison.referenceDataArtifact), `獨立比較 ${comparison.comparisonId} 基準機讀資料`);
-  try { Compare.exactKeys(loaded.record, COMPARISON_DATA_FIELDS, label); } catch (error) { fail(error.message); }
+  const isBeamColumnMomentPilot = run.toolId === BEAM_COLUMN_MOMENT_PILOT_TOOL_ID
+    || productionData.record?.kind === 'beam-column-moment-production-result.v1'
+    || referenceData.record?.kind === 'beam-column-moment-independent-reference.v1';
+  if (isBeamColumnMomentPilot && run.toolId !== BEAM_COLUMN_MOMENT_PILOT_TOOL_ID) fail(`${label}不得移除梁柱彎矩試辦工具身分以降級嚴格契約。`);
+  const comparisonDataFields = isBeamColumnMomentPilot
+    ? BEAM_COLUMN_MOMENT_PILOT_COMPARISON_DATA_FIELDS
+    : COMPARISON_DATA_FIELDS;
+  try { Compare.exactKeys(loaded.record, comparisonDataFields, label); } catch (error) { fail(error.message); }
   const data = loaded.record;
-  if (data.schemaVersion !== 1 || data.kind !== COMPARISON_DATA_KIND || data.comparisonId !== comparison.comparisonId || data.runId !== comparison.runId) fail(`${label}版本或比較身分不一致。`);
+  const expectedKind = isBeamColumnMomentPilot ? COMPARISON_DATA_KIND_V2 : COMPARISON_DATA_KIND;
+  const expectedSchemaVersion = isBeamColumnMomentPilot ? 2 : 1;
+  if (data.schemaVersion !== expectedSchemaVersion || data.kind !== expectedKind || data.comparisonId !== comparison.comparisonId || data.runId !== comparison.runId) fail(`${label}版本或比較身分不一致。`);
   if (data.productionOutputSha256 !== run.outputArtifact.sha256
       || data.productionResultDataSha256 !== run.resultDataArtifact.sha256
       || data.referenceArtifactSha256 !== comparison.referenceArtifact.sha256
       || data.referenceDataArtifactSha256 !== comparison.referenceDataArtifact.sha256) fail(`${label}未綁定正式輸出、正式機讀結果、獨立基準與基準機讀資料雜湊。`);
+  if (isBeamColumnMomentPilot
+      && (data.calculationFingerprint !== run.calculationFingerprint
+        || data.runFingerprint !== run.runFingerprint
+        || data.criteriaDefinedAt !== comparison.criteriaDefinedAt
+        || data.inputArtifactSha256 !== run.inputArtifact.sha256)) {
+    fail(`${label}未綁定梁柱彎矩試辦的 CF、QRF、預先判定基準或輸入證據。`);
+  }
   if (!Array.isArray(data.assertions)
       || History.canonicalJson(data.assertions) !== History.canonicalJson(comparison.assertions)) fail(`${label}斷言值未與正規化比較資料一致。`);
   comparison.assertions.forEach(assertion => {
@@ -720,6 +819,301 @@ function verifyComparisonData(baseDirectory, comparison, run) {
   verifyLoadedJsonStability(loaded, label);
   verifyLoadedJsonStability(productionData, `計算執行 ${run.runId} 機讀結果`);
   verifyLoadedJsonStability(referenceData, `獨立比較 ${comparison.comparisonId} 基準機讀資料`);
+}
+
+function exactKeys(record, fields, label) {
+  try { Compare.exactKeys(record, fields, label); } catch (error) { fail(error.message); }
+}
+
+function qualificationGitEnvironment() {
+  const environment = { ...process.env };
+  [
+    'GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY',
+    'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_REPLACE_REF_BASE', 'GIT_NAMESPACE', 'GIT_SHALLOW_FILE',
+    'GIT_ATTR_SOURCE', 'GIT_EXEC_PATH',
+  ]
+    .forEach(name => { delete environment[name]; });
+  Object.keys(environment).filter(name => /^GIT_CONFIG(?:_|$)/iu.test(name))
+    .forEach(name => { delete environment[name]; });
+  environment.GIT_CONFIG_NOSYSTEM = '1';
+  environment.GIT_CONFIG_GLOBAL = process.platform === 'win32' ? 'NUL' : '/dev/null';
+  return environment;
+}
+
+function qualificationGit(args, options = {}) {
+  return execFileSync('git', [
+    '--no-replace-objects', '-c', 'core.fsmonitor=false', '-c', `core.hooksPath=${process.platform === 'win32' ? 'NUL' : '/dev/null'}`,
+    '-c', `core.attributesFile=${process.platform === 'win32' ? 'NUL' : '/dev/null'}`, '-C', REPOSITORY_ROOT, ...args,
+  ], {
+    encoding: options.encoding === null ? null : 'utf8',
+    env: qualificationGitEnvironment(),
+    maxBuffer: 32 * 1024 * 1024,
+    windowsHide: true,
+  });
+}
+
+function verifyBeamColumnMomentPilotSource(source, label) {
+  exactKeys(source, BEAM_COLUMN_MOMENT_PILOT_SOURCE_FIELDS, label);
+  if (!/^[0-9a-f]{40}$/.test(source.commit) || source.dirty !== false || !source.files || typeof source.files !== 'object' || Array.isArray(source.files)) {
+    fail(`${label}必須綁定乾淨且不可注入的 Git 來源。`);
+  }
+  exactKeys(source.files, BEAM_COLUMN_MOMENT_PILOT_SOURCE_FILE_FIELDS, `${label}受治理檔案`);
+  const sourceFiles = Object.entries(source.files);
+  sourceFiles.forEach(([key, item]) => {
+    exactKeys(item, BEAM_COLUMN_MOMENT_PILOT_SOURCE_FILE_RECORD_FIELDS, `${label}受治理檔案 ${key}`);
+    if (item.path !== BEAM_COLUMN_MOMENT_PILOT_SOURCE_PATHS[key] || path.isAbsolute(item.path)
+        || typeof item.gitBlob !== 'string' || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(item.gitBlob)
+        || typeof item.gitContentSha256 !== 'string' || !/^[0-9a-f]{64}$/.test(item.gitContentSha256)) {
+      fail(`${label}受治理檔案 ${key} 的路徑或 SHA-256 無效。`);
+    }
+  });
+  const sourceVerificationKey = History.canonicalJson(source);
+  if (VERIFIED_BEAM_COLUMN_MOMENT_PILOT_SOURCES.has(sourceVerificationKey)) return;
+  try {
+    qualificationGit(['cat-file', '-e', `${source.commit}^{commit}`]);
+  } catch {
+    fail(`${label}引用的 Git commit 不存在於目前 repository。`);
+  }
+  sourceFiles.forEach(([key, item]) => {
+    try {
+      const gitBlob = qualificationGit(['rev-parse', `${source.commit}:${item.path}`]).trim().toLowerCase();
+      const gitContentSha256 = Verifier.sha256Buffer(qualificationGit(['show', `${source.commit}:${item.path}`], { encoding: null }));
+      if (gitBlob !== item.gitBlob || gitContentSha256 !== item.gitContentSha256) {
+        fail(`${label}受治理檔案 ${key} 未對應指定 commit 的 Git 內容。`);
+      }
+    } catch (error) {
+      if (error instanceof ContractError) throw error;
+      fail(`${label}受治理檔案 ${key} 無法由指定 commit 還原。`);
+    }
+  });
+  VERIFIED_BEAM_COLUMN_MOMENT_PILOT_SOURCES.add(sourceVerificationKey);
+}
+
+function verifyBeamColumnMomentPilotResult(payload, fields, label, run, expectedKind) {
+  exactKeys(payload, fields, label);
+  if (payload.schemaVersion !== 1 || payload.kind !== expectedKind
+      || payload.benchmarkId !== 'steel-formal-strength'
+      || payload.benchmarkCaseId !== 'momentPriorTestSmrfPass'
+      || payload.calculationFingerprint !== run.calculationFingerprint) {
+    fail(`${label}版本、benchmark 身分或 CF 未與執行紀錄一致。`);
+  }
+  if (History.canonicalJson(payload.result) !== History.canonicalJson(payload.results)) fail(`${label}的 result 與 results 不一致。`);
+  exactKeys(payload.results, BEAM_COLUMN_MOMENT_PILOT_RESULT_KEYS, `${label}結果鍵`);
+  exactKeys(payload.comparison, BEAM_COLUMN_MOMENT_PILOT_RESULT_COMPARISON_FIELDS, `${label}判定摘要`);
+  const failedGate = BEAM_COLUMN_MOMENT_PILOT_RESULT_KEYS
+    .filter(key => key.endsWith('Pass'))
+    .find(key => payload.results[key] !== 1);
+  if (failedGate || payload.results.strengthPass !== 1 || payload.results.detailPass !== 1
+      || payload.results.passes !== 1 || payload.results.complianceReady !== 1
+      || payload.results.validationFailure !== 0 || payload.results.completeJointDesign !== 0
+      || payload.results.sourceFieldCount !== 88
+      || payload.comparison.controlBranch !== 'smrf|x|reinforced|prior_test_similarity|six-strength-checks'
+      || payload.comparison.decision !== 'pass' || payload.comparison.outOfScope !== 'warning') {
+    fail(`${label}不是登錄的 positive synthetic G1 閉合結果。`);
+  }
+}
+
+function registerBeamColumnMomentPilotReceiptEvidence(baseDirectory, decision, run, observed) {
+  if (run.toolId !== BEAM_COLUMN_MOMENT_PILOT_TOOL_ID) return;
+  const label = `資格化決定 ${decision.decisionId} 梁柱彎矩試辦收據`;
+  const receipt = readStrictJsonFile(evidenceAbsolutePath(baseDirectory, decision.decisionReceipt), label);
+  exactKeys(receipt.record, BEAM_COLUMN_MOMENT_PILOT_RECEIPT_FIELDS, label);
+  exactKeys(receipt.record.supportingWorkspaceFiles, BEAM_COLUMN_MOMENT_PILOT_SUPPORTING_FIELDS, `${label}支援檔案`);
+  Object.entries(receipt.record.supportingWorkspaceFiles).forEach(([key, item]) => {
+    validateEvidence(item, `${label}支援檔案 ${key}`);
+    verifyEvidenceFile(baseDirectory, item, `${label}支援檔案 ${key}`, observed);
+  });
+  verifyLoadedJsonStability(receipt, label);
+}
+
+function verifyBeamColumnMomentPilotBindings(baseDirectory, record, runs, comparisons) {
+  record.calculationRuns.filter(run => run.toolId === BEAM_COLUMN_MOMENT_PILOT_TOOL_ID).forEach(run => {
+    const runComparisons = record.independentComparisons.filter(item => item.runId === run.runId);
+    const runDecisions = record.qualificationDecisions.filter(item => item.runId === run.runId);
+    if (record.case.sourceKind !== 'synthetic' || runComparisons.length !== 1 || runDecisions.length !== 1
+        || runDecisions[0].claimedLevel !== 'G1') fail(`計算執行 ${run.runId} 梁柱彎矩試辦只能是單一 synthetic G1 鏈。`);
+    const comparison = comparisons.get(runComparisons[0].comparisonId);
+    const decision = runDecisions[0];
+    const input = readStrictJsonFile(evidenceAbsolutePath(baseDirectory, run.inputArtifact), `計算執行 ${run.runId} 梁柱彎矩試辦輸入`);
+    const production = readStrictJsonFile(evidenceAbsolutePath(baseDirectory, run.resultDataArtifact), `計算執行 ${run.runId} 梁柱彎矩試辦正式結果`);
+    const reference = readStrictJsonFile(evidenceAbsolutePath(baseDirectory, comparison.referenceDataArtifact), `計算執行 ${run.runId} 梁柱彎矩試辦獨立基準`);
+    const comparisonData = readStrictJsonFile(evidenceAbsolutePath(baseDirectory, comparison.comparisonDataArtifact), `計算執行 ${run.runId} 梁柱彎矩試辦比較資料`);
+    const receipt = readStrictJsonFile(evidenceAbsolutePath(baseDirectory, decision.decisionReceipt), `計算執行 ${run.runId} 梁柱彎矩試辦決策收據`);
+
+    exactKeys(input.record, BEAM_COLUMN_MOMENT_PILOT_INPUT_FIELDS, `計算執行 ${run.runId} 梁柱彎矩試辦輸入`);
+    exactKeys(input.record.criteria, BEAM_COLUMN_MOMENT_PILOT_CRITERIA_FIELDS, `計算執行 ${run.runId} 預先判定基準`);
+    exactKeys(input.record.boundary, BEAM_COLUMN_MOMENT_PILOT_INPUT_BOUNDARY_FIELDS, `計算執行 ${run.runId} 梁柱彎矩試辦範圍`);
+    if (input.record.schemaVersion !== 1 || input.record.kind !== 'beam-column-moment-g1-pilot-input.v1'
+        || input.record.benchmarkId !== 'steel-formal-strength'
+        || input.record.benchmarkCaseId !== 'momentPriorTestSmrfPass'
+        || input.record.input?.id !== 'momentPriorTestSmrfPass'
+        || input.record.criteria.definedAt !== comparison.criteriaDefinedAt
+        || input.record.criteria.registeredAssertionCount !== 71
+        || input.record.criteria.registeredTolerancePolicySha256 !== BEAM_COLUMN_MOMENT_PILOT_REGISTERED_TOLERANCE_POLICY_SHA256
+        || input.record.criteria.qualifiedResultAssertionCount !== 79
+        || !Array.isArray(input.record.criteria.supplementalClosureKeys)
+        || History.canonicalJson([...input.record.criteria.supplementalClosureKeys].sort()) !== History.canonicalJson(BEAM_COLUMN_MOMENT_PILOT_SUPPLEMENTAL_KEYS)
+        || input.record.criteria.numericPolicy !== 'catalog-tolerance-plus-exact-closure'
+        || input.record.criteria.controlBranchExpected !== 'smrf|x|reinforced|prior_test_similarity|six-strength-checks'
+        || input.record.criteria.decisionExpected !== 'pass'
+        || input.record.criteria.outOfScopeExpected !== 'warning'
+        || input.record.boundary.designMethod !== 'LRFD' || input.record.boundary.frameSystem !== 'smrf'
+        || input.record.boundary.selectedAxis !== 'x' || input.record.boundary.connectionDesignRoute !== 'reinforced'
+        || input.record.boundary.qualificationRoute !== 'prior_test_similarity'
+        || input.record.boundary.selectedFramePlaneOnly !== true || input.record.boundary.completeJointDesign !== false
+        || input.record.boundary.claimsAisc358Prequalification !== false
+        || input.record.boundary.orthogonalDirection !== 'separate-review'
+        || input.record.boundary.requiresExternalHardwareCapacityEvidence !== true
+        || input.record.boundary.trustedProcessLaunchRequired !== true) {
+      fail(`計算執行 ${run.runId} 的預先固定判定基準或 benchmark 身分無效。`);
+    }
+    if (!Array.isArray(input.record.fullBenchmarkInput?.momentCases)) fail(`計算執行 ${run.runId} 的完整 benchmark 輸入格式無效。`);
+    const selectedFullInput = input.record.fullBenchmarkInput.momentCases.find(item => item.id === 'momentPriorTestSmrfPass');
+    if (!selectedFullInput || History.canonicalJson(selectedFullInput) !== History.canonicalJson(input.record.input)) {
+      fail(`計算執行 ${run.runId} 的完整 benchmark 輸入未綁定選定案例。`);
+    }
+    verifyBeamColumnMomentPilotSource(input.record.source, `計算執行 ${run.runId} 梁柱彎矩試辦來源`);
+    if (run.engineVersion !== `calculator.js-git-sha256-${input.record.source.files.productionCore.gitContentSha256.slice(0, 16)}`) {
+      fail(`計算執行 ${run.runId} 的 engineVersion 未綁定指定 commit 之 production core。`);
+    }
+    verifyBeamColumnMomentPilotResult(
+      production.record,
+      BEAM_COLUMN_MOMENT_PILOT_PRODUCTION_DATA_FIELDS,
+      `計算執行 ${run.runId} 梁柱彎矩試辦正式結果`,
+      run,
+      'beam-column-moment-production-result.v1',
+    );
+    if (production.record.productionAdapter !== 'independent-engineering-adapters/steel-formal.js') fail(`計算執行 ${run.runId} 正式 adapter 身分錯誤。`);
+    verifyBeamColumnMomentPilotResult(
+      reference.record,
+      BEAM_COLUMN_MOMENT_PILOT_REFERENCE_DATA_FIELDS,
+      `計算執行 ${run.runId} 梁柱彎矩試辦獨立基準`,
+      run,
+      'beam-column-moment-independent-reference.v1',
+    );
+    if (reference.record.oracle !== 'steel-formal-strength' || reference.record.independentFromProductionCore !== true
+        || reference.record.runFingerprint !== run.runFingerprint
+        || comparison.referenceMethod !== 'closed-form-oracle' || comparison.independentFromProductionCore !== true) {
+      fail(`計算執行 ${run.runId} 未使用登錄的獨立閉式 oracle 路徑。`);
+    }
+
+    const expectedCalculationFingerprint = `CF-${Verifier.sha256Buffer(Buffer.from(History.canonicalJson({
+      invocation: input.record,
+      productionResult: production.record.results,
+    }), 'utf8')).slice(0, 16).toUpperCase()}`;
+    if (run.calculationFingerprint !== expectedCalculationFingerprint) fail(`計算執行 ${run.runId} 的 CF 未由本次輸入與正式結果導出。`);
+
+    const numericAssertions = comparison.assertions.filter(item => item.type === 'numeric');
+    const numericKeys = numericAssertions.map(item => item.actualPointer.replace(/^\/results\//u, '')).sort();
+    if (numericAssertions.length !== 79 || History.canonicalJson(numericKeys) !== History.canonicalJson(BEAM_COLUMN_MOMENT_PILOT_RESULT_KEYS)
+        || numericAssertions.some(item => item.expectedPointer !== item.actualPointer || !item.actualPointer.startsWith('/results/'))) {
+      fail(`計算執行 ${run.runId} 必須逐鍵比較 79 個正式與 oracle 結果。`);
+    }
+    numericAssertions.filter(item => BEAM_COLUMN_MOMENT_PILOT_SUPPLEMENTAL_KEYS.includes(item.actualPointer.slice('/results/'.length)))
+      .forEach(item => {
+        if (item.toleranceMode !== 'exact' || item.absoluteTolerance !== 0 || item.relativeTolerance !== 0) {
+          fail(`計算執行 ${run.runId} 的 8 個補充閉合 gate 必須精確比較。`);
+        }
+      });
+    const registeredTolerancePolicy = numericAssertions
+      .filter(item => !BEAM_COLUMN_MOMENT_PILOT_SUPPLEMENTAL_KEYS.includes(item.actualPointer.slice('/results/'.length)))
+      .map(item => ({
+        key: item.actualPointer.slice('/results/'.length),
+        toleranceMode: item.toleranceMode,
+        absoluteTolerance: item.absoluteTolerance,
+        relativeTolerance: item.relativeTolerance,
+      }))
+      .sort((left, right) => left.key < right.key ? -1 : left.key > right.key ? 1 : 0);
+    const registeredTolerancePolicySha256 = Verifier.sha256Buffer(Buffer.from(History.canonicalJson(registeredTolerancePolicy), 'utf8'));
+    if (registeredTolerancePolicy.length !== 71
+        || registeredTolerancePolicySha256 !== BEAM_COLUMN_MOMENT_PILOT_REGISTERED_TOLERANCE_POLICY_SHA256) {
+      fail(`計算執行 ${run.runId} 的 71 項 catalog 容許差政策遭到放寬或漂移。`);
+    }
+
+    exactKeys(comparisonData.record, BEAM_COLUMN_MOMENT_PILOT_COMPARISON_DATA_FIELDS, `計算執行 ${run.runId} 梁柱彎矩試辦比較資料`);
+    if (comparisonData.record.schemaVersion !== 2 || comparisonData.record.kind !== COMPARISON_DATA_KIND_V2
+        || comparisonData.record.calculationFingerprint !== run.calculationFingerprint
+        || comparisonData.record.runFingerprint !== run.runFingerprint
+        || comparisonData.record.criteriaDefinedAt !== comparison.criteriaDefinedAt
+        || comparisonData.record.inputArtifactSha256 !== run.inputArtifact.sha256) {
+      fail(`計算執行 ${run.runId} 的比較資料未綁定 CF、QRF、基準或輸入。`);
+    }
+
+    exactKeys(receipt.record, BEAM_COLUMN_MOMENT_PILOT_RECEIPT_FIELDS, `計算執行 ${run.runId} 梁柱彎矩試辦決策收據`);
+    exactKeys(receipt.record.boundary, BEAM_COLUMN_MOMENT_PILOT_BOUNDARY_FIELDS, `計算執行 ${run.runId} 梁柱彎矩試辦決策邊界`);
+    if (!Array.isArray(receipt.record.comparisonBindings) || receipt.record.comparisonBindings.length !== 1) {
+      fail(`計算執行 ${run.runId} 的決策收據比較綁定無效。`);
+    }
+    exactKeys(receipt.record.comparisonBindings[0], BEAM_COLUMN_MOMENT_PILOT_COMPARISON_BINDING_FIELDS, `計算執行 ${run.runId} 決策收據比較綁定`);
+    const receiptBinding = receipt.record.comparisonBindings[0];
+    exactKeys(receiptBinding.comparisonDataArtifact, EVIDENCE_FIELDS, `計算執行 ${run.runId} 決策收據比較證據`);
+    if (receipt.record.schemaVersion !== 2 || receipt.record.kind !== 'engineering-qualification-g1-decision-receipt.v2'
+        || receipt.record.decisionId !== decision.decisionId || receipt.record.runId !== run.runId
+        || History.canonicalJson(receipt.record.comparisonIds) !== History.canonicalJson(decision.comparisonIds)
+        || receipt.record.claimedLevel !== decision.claimedLevel || receipt.record.basedOnDecisionId !== decision.basedOnDecisionId
+        || receipt.record.reviewer !== decision.reviewer || receipt.record.basis !== decision.basis
+        || receipt.record.decidedAt !== decision.decidedAt || receipt.record.decision !== 'pass'
+        || receipt.record.sourceKind !== record.case.sourceKind || receipt.record.claimedLevel !== decision.claimedLevel
+        || receipt.record.calculationFingerprint !== run.calculationFingerprint
+        || receipt.record.runFingerprint !== run.runFingerprint
+        || receiptBinding.comparisonId !== comparison.comparisonId
+        || History.canonicalJson(receiptBinding.comparisonDataArtifact) !== History.canonicalJson(comparison.comparisonDataArtifact)
+        || History.canonicalJson(receipt.record.source) !== History.canonicalJson(input.record.source)
+        || receipt.record.boundary.completeJointDesign !== false || receipt.record.boundary.g2 !== false
+        || receipt.record.boundary.g3 !== false || receipt.record.boundary.legalSignoff !== false
+        || receipt.record.boundary.trustedProcessLaunchRequired !== true) {
+      fail(`計算執行 ${run.runId} 的決策收據未完整綁定同一次 synthetic G1 鏈。`);
+    }
+
+    const referenceText = fs.readFileSync(evidenceAbsolutePath(baseDirectory, comparison.referenceArtifact), 'utf8');
+    const outputText = fs.readFileSync(evidenceAbsolutePath(baseDirectory, run.outputArtifact), 'utf8');
+    const requiredReadableBoundaries = ['completeJointDesign=false', 'G2=false', 'G3=false', 'trustedProcessLaunchRequired=true'];
+    if (!referenceText.includes(run.calculationFingerprint) || !referenceText.includes(run.runFingerprint)
+        || !referenceText.includes(input.record.source.commit)
+        || requiredReadableBoundaries.some(marker => !referenceText.includes(marker))) {
+      fail(`計算執行 ${run.runId} 的獨立基準可讀檔缺少 CF、QRF、來源或固定邊界。`);
+    }
+    if (!outputText.includes(run.calculationFingerprint) || !outputText.includes(input.record.source.commit)
+        || !outputText.includes('非實案') || !outputText.includes('非簽證')
+        || requiredReadableBoundaries.some(marker => !outputText.includes(marker))
+        || /(?:completeJointDesign|G2|G3)\s*=\s*true/iu.test(outputText)) {
+      fail(`計算執行 ${run.runId} 的可讀輸出缺少或矛盾於固定 synthetic G1 邊界。`);
+    }
+    const profile = readStrictJsonFile(
+      evidenceAbsolutePath(baseDirectory, receipt.record.supportingWorkspaceFiles.qualificationProfile),
+      `計算執行 ${run.runId} 梁柱彎矩試辦 profile`,
+    );
+    const intake = readStrictJsonFile(
+      evidenceAbsolutePath(baseDirectory, receipt.record.supportingWorkspaceFiles.realCaseIntakeTemplate),
+      `計算執行 ${run.runId} 梁柱彎矩實案收件範本`,
+    );
+    if (!profile.record || typeof profile.record !== 'object' || Array.isArray(profile.record)
+        || !intake.record || typeof intake.record !== 'object' || Array.isArray(intake.record)) {
+      fail(`計算執行 ${run.runId} 的 qualification profile 或實案收件範本格式無效。`);
+    }
+    if (profile.record.schemaVersion !== 2 || profile.record.kind !== 'beam-column-moment-g1-pilot-profile.v2'
+        || profile.record.claimedLevel !== 'G1' || profile.record.sourceKind !== 'synthetic'
+        || profile.record.benchmarkAssertionCount !== 71 || profile.record.qualifiedResultAssertionCount !== 79
+        || profile.record.registeredTolerancePolicySha256 !== BEAM_COLUMN_MOMENT_PILOT_REGISTERED_TOLERANCE_POLICY_SHA256
+        || !Array.isArray(profile.record.realCaseIntake?.requiredToolFields)
+        || profile.record.realCaseIntake.requiredToolFields.length !== 88
+        || profile.record.scope?.completeJointDesign !== false
+        || profile.record.scope?.trustedProcessLaunchRequired !== true
+        || intake.record.schemaVersion !== 1 || intake.record.kind !== 'beam-column-moment-real-case-intake-template.v1'
+        || intake.record.status !== 'template-only-no-case-data'
+        || !intake.record.toolInput || typeof intake.record.toolInput !== 'object' || Array.isArray(intake.record.toolInput)
+        || Object.keys(intake.record.toolInput).length !== 88
+        || Object.values(intake.record.toolInput).some(value => value !== null)
+        || History.canonicalJson([...profile.record.realCaseIntake.requiredToolFields].sort())
+          !== History.canonicalJson(Object.keys(intake.record.toolInput).sort())
+        || History.canonicalJson(Object.keys(input.record.input).filter(key => key !== 'id').sort())
+          !== History.canonicalJson(Object.keys(intake.record.toolInput).sort())) {
+      fail(`計算執行 ${run.runId} 的 qualification profile 或實案收件範本邊界無效。`);
+    }
+    verifyFormalArtifact(baseDirectory, run.outputArtifact, `計算執行 ${run.runId} 梁柱彎矩試辦可讀輸出`, [run.calculationFingerprint]);
+    [input, production, reference, comparisonData, receipt, profile, intake]
+      .forEach(item => verifyLoadedJsonStability(item, `計算執行 ${run.runId} 梁柱彎矩試辦 JSON`));
+  });
 }
 
 function verifyFormalArtifact(baseDirectory, evidence, label, expectedFingerprints = [], visibilityEvidenceArtifact = emptyEvidence()) {
@@ -794,7 +1188,7 @@ function validateBundle(record, options = {}) {
 
   validateUniqueIds(record.independentComparisons, 'comparisonId', '獨立比較');
   const comparisons = new Map(record.independentComparisons.map((item, index) => {
-    const validated = validateComparison(item, index, runs, record.updatedAt);
+    const validated = validateComparison(item, index, runs, record.updatedAt, record.createdAt);
     return [item.comparisonId, validated];
   }));
 
@@ -865,7 +1259,10 @@ function validateBundle(record, options = {}) {
       verifyEvidenceFile(options.baseDirectory, item.referenceDataArtifact, `獨立比較 ${item.comparisonId} 基準機讀資料`, observed);
       verifyEvidenceFile(options.baseDirectory, item.comparisonDataArtifact, `獨立比較 ${item.comparisonId} 比較資料`, observed);
     });
-    record.qualificationDecisions.forEach(item => verifyEvidenceFile(options.baseDirectory, item.decisionReceipt, `資格化決定 ${item.decisionId} 收據`, observed));
+    record.qualificationDecisions.forEach(item => {
+      verifyEvidenceFile(options.baseDirectory, item.decisionReceipt, `資格化決定 ${item.decisionId} 收據`, observed);
+      registerBeamColumnMomentPilotReceiptEvidence(options.baseDirectory, item, runs.get(item.runId), observed);
+    });
     record.artifactReviews.forEach(item => {
       verifyEvidenceFile(options.baseDirectory, item.artifact, `附件審閱 ${item.reviewId} 成品`, observed);
       verifyEvidenceFile(options.baseDirectory, item.visibilityEvidenceArtifact, `附件審閱 ${item.reviewId} PDF 可見性證據`, observed);
@@ -878,6 +1275,7 @@ function validateBundle(record, options = {}) {
     if (typeof options.beforeStabilityCheck === 'function') options.beforeStabilityCheck({ observed, record });
     verifyEvidenceStability(observed);
     record.independentComparisons.forEach(item => verifyComparisonData(options.baseDirectory, item, runs.get(item.runId)));
+    verifyBeamColumnMomentPilotBindings(options.baseDirectory, record, runs, comparisons);
     record.artifactReviews.filter(item => item.state === 'pass')
       .forEach(item => verifyFormalArtifact(
         options.baseDirectory,
@@ -1112,6 +1510,7 @@ module.exports = {
   MAX_FUTURE_SKEW_MILLISECONDS,
   BOUNDARY_INSTRUCTION,
   COMPARISON_DATA_KIND,
+  COMPARISON_DATA_KIND_V2,
   SOURCE_KINDS,
   RUN_STATES,
   REFERENCE_METHODS,

@@ -67,6 +67,7 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js',
   '結構工具箱/tools/attachment-case-governance-workspace.js',
   '結構工具箱/tools/engineering-qualification-case-bundle.js',
+  '結構工具箱/tools/beam-column-moment-g1-pilot.js',
   '結構工具箱/tools/rendered-delivery-evidence.js',
   '結構工具箱/tools/rendered-delivery-evidence.inventory.json',
   '結構工具箱/tools/rc-stm-atomic-change-set.manifest.json',
@@ -155,7 +156,11 @@ const PRIVATE_SUFFIXES = [
 const PRIVATE_CONTENT_PATTERNS = [
   {
     name: 'engineering-qualification-case-bundle',
-    pattern: /["']kind["']\s*:\s*["']engineering-qualification-case-bundle\.v1["']/u,
+    pattern: /["']kind["']\s*:\s*["']engineering-qualification-(?:case-bundle\.v1|comparison-data\.v[12])["']/u,
+  },
+  {
+    name: 'beam-column-moment-g1-private-output',
+    pattern: /["']kind["']\s*:\s*["'](?:beam-column-moment-g1-pilot-result\.v2|beam-column-moment-g1-internal-execution-envelope\.v1|beam-column-moment-g1-pilot-input\.v1|beam-column-moment-production-result\.v1|beam-column-moment-independent-reference\.v1|beam-column-moment-g1-pilot-profile\.v2|beam-column-moment-real-case-intake-template\.v1|engineering-qualification-g1-decision-receipt\.v2)["']/u,
   },
   {
     name: 'windows-user-profile-path',

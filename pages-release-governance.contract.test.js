@@ -241,6 +241,15 @@ assert.ok(
     );
     fs.rmSync(path.join(fixtureRepo, 'windows-path-leak.html'));
 
+    fs.writeFileSync(path.join(fixtureRepo, 'pilot-result-leak.json'), '{"kind":"beam-column-moment-g1-pilot-result.v2","workspace":"G:\\\\engineering-private\\\\moment-g1"}\n', 'utf8');
+    assert.throws(
+      () => stagePagesArtifact({ repoRoot: fixtureRepo, siteRoot: fixtureSite }),
+      error => error instanceof Error
+        && error.message.includes('pilot-result-leak.json [beam-column-moment-g1-private-output]'),
+      'artifact builder fails closed on a saved private pilot result even outside a Windows user profile',
+    );
+    fs.rmSync(path.join(fixtureRepo, 'pilot-result-leak.json'));
+
     fs.writeFileSync(path.join(fixtureRepo, 'build-root-leak.json'), `${JSON.stringify({ path: fixtureRepo })}\n`, 'utf8');
     assert.throws(
       () => stagePagesArtifact({ repoRoot: fixtureRepo, siteRoot: fixtureSite }),
@@ -545,15 +554,18 @@ assert.ok(artifactBuilder.includes('attachment-package-check.js') && artifactBui
 assert.ok(!artifactBuilder.includes("'SRC工具/core/src-column-core.js'") && !artifactBuilder.includes("'SRC工具/src-column.html'") && artifactBuilder.includes('SRC工具/core/src-column-oracle.js') && artifactBuilder.includes('SRC工具/src-column-page.contract.test.js') && artifactBuilder.includes('SRC工具/src-column-browser-smoke.test.js') && artifactBuilder.includes('SRC工具/src-column-traceability.catalog.json'), 'shared artifact builder publishes the SRC column production page/core while keeping oracle, tests and governance catalog private');
 assert.ok(artifactBuilder.includes('joint-reaction-fixture-sanitizer.js') && artifactBuilder.includes('joint-reaction-fixture-promotion-gate.js') && artifactBuilder.includes('joint-reaction-observed-intake.js') && artifactBuilder.includes('joint-reaction-observed-review.template.json') && artifactBuilder.includes('shared/fixtures/joint-reactions/'), 'shared artifact builder keeps Joint Reactions intake, promotion and fixture evidence private');
 assert.ok(artifactBuilder.includes('結構工具箱/tools/independent-engineering-'), 'shared artifact builder keeps the complete independent engineering governance tree private');
-assert.ok(artifactBuilder.includes('qualificationWorkspacePrefixes') && artifactBuilder.includes('private-qualification-workspace') && artifactBuilder.includes("name: 'engineering-qualification-case-bundle'"), 'shared artifact builder excludes complete private qualification workspaces and fails closed on leaked bundle content');
+assert.ok(artifactBuilder.includes('qualificationWorkspacePrefixes') && artifactBuilder.includes('private-qualification-workspace') && artifactBuilder.includes("name: 'engineering-qualification-case-bundle'") && artifactBuilder.includes("name: 'beam-column-moment-g1-private-output'"), 'shared artifact builder excludes complete private qualification workspaces and fails closed on leaked bundle or moment-pilot evidence content');
 assert.ok([
   'docs/adr/0004-separate-engineering-qualification-from-report-rendering.md',
   '結構工具箱/tools/engineering-qualification-case-bundle.js',
   '結構工具箱/tools/engineering-qualification-case-bundle.test.js',
+  '結構工具箱/tools/beam-column-moment-g1-pilot.js',
+  '結構工具箱/tools/beam-column-moment-g1-pilot.test.js',
   '結構工具箱/tools/建立工程資格化案件工作區.bat',
   '結構工具箱/tools/封印工程資格化案件包.bat',
   '結構工具箱/tools/檢查工程資格化案件包.bat',
 ].every(privatePath => pagesSmoke.includes(`'${privatePath}'`)), 'Pages live smoke pins the exact qualification ADR, code, test and launcher paths as private HTTP probes');
+assert.ok(artifactBuilder.includes("'結構工具箱/tools/beam-column-moment-g1-pilot.js'"), 'Pages builder keeps the production-backed moment G1 pilot private');
 assert.ok(pagesSmoke.includes('joint-reaction-fixture-sanitizer.js') && pagesSmoke.includes('joint-reaction-fixture-promotion-gate.js') && pagesSmoke.includes('joint-reaction-observed-intake.js') && pagesSmoke.includes('joint-reaction-observed-review.template.json') && pagesSmoke.includes('shared/fixtures/joint-reactions/observed-manifest.json'), 'Pages smoke probes Joint Reactions private governance assets');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/independent-engineering-adapters/rc-stm-strength.js')
   && pagesSmoke.includes('結構工具箱/tools/independent-engineering-adapters/frame-analysis.js')
@@ -563,6 +575,7 @@ assert.ok(pagesSmoke.includes('結構工具箱/tools/independent-engineering-ada
 assert.ok(pagesSmoke.includes("path: 'frame-analysis/'") && pagesSmoke.includes("source: '/frame-analysis'") && pagesSmoke.includes("targetNeedle: encodeURIComponent('平面剛架分析.html')") && pagesSmoke.includes("'frame-analysis-browser-smoke.test.js'"), 'Pages smoke verifies the promoted frame route with its encoded Unicode destination marker and keeps its browser producer private');
 assert.ok(pagesSmoke.includes("path: 'SRC工具/src-column.html'") && pagesSmoke.includes("source: '/src-column'") && pagesSmoke.includes('SRC工具/core/src-column-oracle.js') && pagesSmoke.includes('SRC工具/src-column-page.contract.test.js') && pagesSmoke.includes('SRC工具/src-column-browser-smoke.test.js') && pagesSmoke.includes('SRC工具/src-column-core.test.js') && pagesSmoke.includes('SRC工具/src-column-h-section-catalog.test.js') && pagesSmoke.includes('SRC工具/src-column-rc-biaxial.test.js') && pagesSmoke.includes('SRC工具/src-column-shear.test.js') && pagesSmoke.includes('SRC工具/src-column-seismic-axial.test.js') && pagesSmoke.includes('SRC工具/src-column-seismic-detailing.test.js') && pagesSmoke.includes('SRC工具/src-column-oracle.test.js') && pagesSmoke.includes('SRC工具/src-column-traceability.catalog.json'), 'Pages smoke treats SRC column production assets as public and probes private oracle/test assets');
 const { classifyPublishedPath } = require(artifactBuilderPath);
+assert.deepEqual(classifyPublishedPath('結構工具箱/tools/beam-column-moment-g1-pilot.js'), { publish: false, reason: 'private-tooling' }, 'moment G1 pilot cannot enter the public artifact');
 assert.deepEqual(classifyPublishedPath('鋼架/平面剛架分析.html'), { publish: true, reason: 'published' }, 'frame-analysis production page remains published');
 for (const publicPath of ['SRC工具/core/src-column-core.js', 'SRC工具/core/src-column-h-section-catalog.js', 'SRC工具/core/src-column-rc-biaxial.js', 'SRC工具/core/src-column-shear.js', 'SRC工具/core/src-column-weak-axis-shear-reference.js', 'SRC工具/core/src-column-seismic-axial.js', 'SRC工具/core/src-column-seismic-detailing.js', 'SRC工具/src-column.html', 'SRC工具/src-column.css', 'SRC工具/src-column.js']) {
   assert.deepEqual(classifyPublishedPath(publicPath), { publish: true, reason: 'published' }, `${publicPath} is published by the SRC formal route`);

@@ -1532,6 +1532,8 @@ exit $LASTEXITCODE
 
 $engineeringQualificationCaseBundleCommand = @'
 node 結構工具箱/tools/engineering-qualification-case-bundle.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node 結構工具箱/tools/beam-column-moment-g1-pilot.test.js
 exit $LASTEXITCODE
 '@
 
@@ -2826,7 +2828,7 @@ $checks = @(
   },
   [pscustomobject]@{
     key = "engineering-qualification-case-bundle"
-    label = "Private engineering qualification case bundle contract"
+    label = "Private engineering qualification case bundle and moment G1 pilot contract"
     workdir = $root
     command = $engineeringQualificationCaseBundleCommand
     slow = $false

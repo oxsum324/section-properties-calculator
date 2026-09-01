@@ -22,6 +22,9 @@ const ADOPTED_AT = '2026-01-01T00:50:00.000Z';
 const REPORT_ADOPTED_AT = '2026-01-01T01:00:00.000Z';
 const SEALED_AT = '2026-01-01T01:10:00.000Z';
 
+assert.equal(Bundle.REFERENCE_METHODS.includes('closed-form-oracle'), true, 'closed-form code oracle is not mislabeled as a hand calculation');
+assert.equal(Bundle.COMPARISON_DATA_KIND_V2, 'engineering-qualification-comparison-data.v2', 'pilot comparison V2 is explicit while V1 remains available');
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -559,6 +562,11 @@ try {
   equalCriteria.independentComparisons[0].criteriaDefinedAt = EXECUTED_AT;
   resign(equalCriteria);
   assert.throws(() => Bundle.validateBundle(equalCriteria), /判定基準必須早於工具執行時間固定/);
+
+  const criteriaBeforeCase = clone(synthetic);
+  criteriaBeforeCase.independentComparisons[0].criteriaDefinedAt = '2025-12-31T23:59:59.999Z';
+  resign(criteriaBeforeCase);
+  assert.throws(() => Bundle.validateBundle(criteriaBeforeCase), /不得早於案件包建立時間/);
 
   const equalG1G2Time = clone(realG2);
   equalG1G2Time.qualificationDecisions.find(item => item.claimedLevel === 'G2').decidedAt = G1_AT;

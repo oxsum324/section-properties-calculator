@@ -2,6 +2,14 @@
 
 本檔目前扮演兩個角色：第一，記錄已發布到 `master` / GitHub Pages 的分包與證據；第二，保留下次同類變更可直接套用的 staging playbook。它不是目前待提交清單；若 `git status` 是 clean，以下 `git add` 區塊只作為未來變更時的審查邊界與 preflight coverage 來源。
 
+## 梁柱彎矩 synthetic G1 pilot 分包
+
+新增或調整 `beam-column-moment-g1-pilot.js` 時，必須同批審查專用測試、工程資格化案件包與其測試、preflight 同一 record、Pages artifact／HTTP 私有清冊、Pages release governance contract、`CONTEXT.md`、ADR、README、`TOOL_BOUNDARIES.md` 與 `TOOL_REPORT_GUIDE.md`。pilot 固定只執行 V1.3 `momentPriorTestSmrfPass` 的 production adapter 與同 repo 獨立閉式 oracle，把 71 項固定 tolerance-policy catalog assertion 加上 8 個補充閉合 gate 轉為 79 鍵 JSON Pointer 比較，並封印於 repo 外新工作區。專用測試必須覆蓋 clean-source 正例、dirty source／repo 內路徑／已存路徑拒絕、公開注入 seam、可觀察 Node 啟動／environment 與 Git config 注入拒絕，以及在重算外層 SHA、QRF、comparison、receipt 與 EQB 後，production／reference／comparison／receipt 的 CF、QRF、版本、容許差、來源 commit／blob、可讀邊界或收據綁定篡改仍失敗封閉。可信 parent process／Node／Git 執行檔是外部前提，不得宣稱同一行程可證明任意前置程式碼不存在。不得製造假技師、G2、G3、成品複核或採用記錄。封印案件包與全部證據只留在私有工作區，不得 staging。
+
+```powershell
+git add -- CONTEXT.md README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GROUPS.md "docs/adr/0004-separate-engineering-qualification-from-report-rendering.md" preflight-tools.ps1 pages-release-governance.contract.test.js "結構工具箱/tools/engineering-qualification-case-bundle.js" "結構工具箱/tools/engineering-qualification-case-bundle.test.js" "結構工具箱/tools/beam-column-moment-g1-pilot.js" "結構工具箱/tools/beam-column-moment-g1-pilot.test.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/pages-live-smoke.js"
+```
+
 ## 目前狀態
 
 - 工作樹基準：最新 HEAD 與遠端同步狀態以 `git status -sb`、`git log -1 --oneline` 為準，本文件不硬編碼自我引用的最新 commit hash，避免提交後立即失真。

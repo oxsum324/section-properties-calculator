@@ -449,6 +449,21 @@ Windows 可直接使用三個私有批次入口，或執行相同 CLI：
 
 報告附件編排只能消費案件包內同一次執行、已有 G3 內部採用的成品資料，不得重算工程結果或複製核可；`ready-for-render` 之後的每一節都必須引用同一執行的 G3。範本與編排可以先規劃，但 G2／G3 只是內部證據的必要條件，不是法定簽證的充分條件；即使達 G3，也不構成技師簽證、簽證資格、主管機關認可或其他案件／版本的採用。
 
+梁柱彎矩接頭可另以專用 bridge 把現行 V1.3 production adapter、登錄 `momentPriorTestSmrfPass` 的 88 欄輸入、71 項 catalog 斷言、8 個未登錄但會控制正式判定的補充 gate，以及獨立閉式 oracle 閉合成 repo 外的 synthetic G1：
+
+```powershell
+node .\結構工具箱\tools\beam-column-moment-g1-pilot.js `
+  --workspace "C:\engineering-private\moment-g1-20260901" `
+  --case-id "MOMENT-G1-20260901" `
+  --json
+```
+
+這個命令只接受 clean Git 來源與未觀察到注入的 Node／Git 執行環境；非空 Node 啟動旗標、`NODE_OPTIONS`、`NODE_PATH` 及 Git repository／config override 會在建立工作區前失敗。它在隔離子行程執行 production adapter 與未呼叫 production core 的同 repo 閉式 oracle；Git 讀取禁用 replace objects、system/global config 與 fsmonitor，來源檔不執行 checkout filter，而是將實體 UTF-8 換行正規化後直接核對指定 commit 的 raw content，再綁定可解析 commit object、Git blob 與 commit 內容 SHA-256。71 項 catalog 容許差另以固定 policy digest 登錄，不能在重簽外層證據時放寬。判定基準先寫入輸入證據，再產生分離的機讀 JSON、人讀 dry-run HTML、原始基準、79 鍵 JSON Pointer 比較、收件 profile、空白實案 intake template 與不覆寫的封印案件包；`CF-`、`QRF-`、比較資料、可讀邊界及決策收據必須互相一致。CLI 只回傳不含絕對路徑的檔名與指紋。成功只表示本次 synthetic MC-G1 的 G1 內部證據完整；因 oracle 與 production 仍位於同 repo，它可偵測程式漂移，不能排除共同條文誤讀。案件包固定 `sourceKind=synthetic`、`completeJointDesign=false`、無 G2/G3，不宣稱 AISC 358 預認證、完整接頭設計或簽證。
+
+這條鏈以可信的 parent process、Node 與 Git 執行檔為前提。它會攔截未隱藏的環境污染並清理 calculator child，但任意程式碼若已在 pilot 載入前取得 parent process 控制權，便能改寫行程內觀測；同一 Node 行程不能自我證明此類本機入侵從未發生。正式保存 G1 時應從未配置 preload／loader 的可信終端直接啟動，不接受第三方 wrapper、`NODE_OPTIONS`、自訂 Node 啟動旗標或 PATH 前置的替代執行檔。
+
+實案門檻不得沿用 synthetic benchmark 的 `1e-12` 程式漂移容許差。實案開始前，負責人應在新的 `sourceKind=real-case` 工作區固定數值容許差、控制分支、判定、超範圍處置與 applicability，並使用外部手算、獨立 Excel 或第三方軟體作基準。G2 再綁定真實案號、來源證據、用途、限制、排除項與規範依據；G3 必須由負責人對同一次 `CF-` 的實際附件完成人工複核與內部採用。
+
 ## 巡檢啟動
 
 - 鋼構：

@@ -180,6 +180,8 @@ const PRIVATE_PATHS = [
   '結構工具箱/tools/attachment-case-governance-workspace.js',
   '結構工具箱/tools/engineering-qualification-case-bundle.js',
   '結構工具箱/tools/engineering-qualification-case-bundle.test.js',
+  '結構工具箱/tools/beam-column-moment-g1-pilot.js',
+  '結構工具箱/tools/beam-column-moment-g1-pilot.test.js',
   '結構工具箱/tools/建立工程資格化案件工作區.bat',
   '結構工具箱/tools/封印工程資格化案件包.bat',
   '結構工具箱/tools/檢查工程資格化案件包.bat',
