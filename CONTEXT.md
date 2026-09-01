@@ -53,7 +53,7 @@ _Avoid_: 治理綠、已驗證、敢簽
 _Avoid_: 黃金案例通過、同核心重播、工具驗證域、指定案件適用確認
 
 **梁柱彎矩 synthetic G1 pilot**:
-將登錄的 `momentPriorTestSmrfPass` 本次 production 結果、不呼叫 production core 的同 repo 閉式 oracle、71 項 catalog 斷言加 8 個補充閉合 gate、JSON Pointer 比較與固定超範圍警示閉合成私有案件包的程式漂移檢查。它只接受 clean Git 來源並互綁 CF、QRF、比較資料、可讀邊界及 V2 決策收據；固定是 synthetic G1，不是實案、G2／G3、完整接頭設計或簽證。可信 parent process／Node／Git 執行檔是外部前提，不得宣稱同一行程能證明任意前置程式碼不存在。
+將登錄的 `momentPriorTestSmrfPass` 本次 production 結果、不呼叫 production core 的同 repo 閉式 oracle、71 項 catalog 斷言加 8 個補充閉合 gate、JSON Pointer 比較與固定超範圍警示閉合成私有案件包的程式漂移檢查。它只接受 clean Git 來源、固定 `gitAttributeFiltersAllowed=false`，並互綁 CF、QRF、比較資料、可讀邊界及 V2 決策收據；固定是 synthetic G1，不是實案、G2／G3、完整接頭設計或簽證。可信 parent process／Node／Git 執行檔是外部前提，不得宣稱同一行程能證明任意前置程式碼不存在。
 _Avoid_: 實案驗收、外部手算、完整接頭設計、AISC 358 預認證、可簽證
 
 **工具驗證域**:

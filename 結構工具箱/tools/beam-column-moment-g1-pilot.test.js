@@ -28,6 +28,7 @@ assert.equal(Pilot.PROFILE.benchmarkAssertionCount, 71);
 assert.equal(Pilot.PROFILE.qualifiedResultAssertionCount, 79);
 assert.equal(Pilot.PROFILE.supplementalClosureKeys.length, 8);
 assert.equal(Pilot.PROFILE.scope.trustedProcessLaunchRequired, true);
+assert.equal(Pilot.PROFILE.scope.gitAttributeFiltersAllowed, false);
 assert.equal(Pilot.PROFILE.exclusions.some(item => item.includes('parent process')), true, 'arbitrary pre-execution code is an explicit external trust boundary');
 assert.equal(typeof Pilot.createSyntheticG1Workspace, 'function');
 assert.equal(Object.prototype.hasOwnProperty.call(Pilot, 'runInternalExecution'), false, 'internal calculator carrier is not exported');
@@ -37,6 +38,7 @@ const sourceText = fs.readFileSync(PILOT_PATH, 'utf8');
 assert.doesNotMatch(sourceText, /options\.dependencies|options\.sourceInfo|options\.testSeam/u, 'public producer has no calculator, source, or mutation injection seam');
 assert.match(sourceText, /normalizedGovernedSource[\s\S]*governedGit\(\['show',[\s\S]*governed-source-not-at-head/u, 'governed UTF-8 source bytes must match raw committed content');
 assert.doesNotMatch(sourceText, /cat-file['"],\s*['"]--filters|hash-object['"][\s\S]*--path/u, 'source proof does not execute checkout filter drivers');
+assert.match(sourceText, /git-info-attributes-forbidden[\s\S]*repository-gitattributes-forbidden/u, 'repository and private Git attribute policies are rejected before status');
 assert.match(sourceText, /env:\s*sanitizedChildEnvironment\(\)/u, 'governed child execution receives a sanitized environment');
 assert.throws(
   () => Pilot.createSyntheticG1Workspace(path.join(os.tmpdir(), 'must-not-create-injected-pilot'), { caseId: 'INJECT', dependencies: {} }),
@@ -119,6 +121,7 @@ function assertReadySyntheticG1(workspace, creationResult) {
   assert.equal(input.criteria.registeredTolerancePolicySha256, Pilot.PROFILE.registeredTolerancePolicySha256);
   assert.equal(input.criteria.qualifiedResultAssertionCount, 79);
   assert.equal(input.boundary.trustedProcessLaunchRequired, true);
+  assert.equal(input.boundary.gitAttributeFiltersAllowed, false);
   assert.deepEqual([...input.criteria.supplementalClosureKeys].sort(), [...Pilot.SUPPLEMENTAL_CLOSURE_KEYS].sort());
   assert.equal(Date.parse(record.createdAt) <= Date.parse(comparison.criteriaDefinedAt), true);
   assert.equal(Date.parse(comparison.criteriaDefinedAt) < Date.parse(run.executedAt), true);
@@ -141,6 +144,7 @@ function assertReadySyntheticG1(workspace, creationResult) {
   assert.equal(receipt.calculationFingerprint, run.calculationFingerprint);
   assert.equal(receipt.runFingerprint, run.runFingerprint);
   assert.equal(receipt.boundary.trustedProcessLaunchRequired, true);
+  assert.equal(receipt.boundary.gitAttributeFiltersAllowed, false);
   assert.deepEqual(receipt.comparisonBindings[0].comparisonDataArtifact, comparison.comparisonDataArtifact);
 
   const numeric = comparison.assertions.filter(item => item.type === 'numeric');

@@ -155,7 +155,7 @@ const BEAM_COLUMN_MOMENT_PILOT_CRITERIA_FIELDS = Object.freeze([
 const BEAM_COLUMN_MOMENT_PILOT_INPUT_BOUNDARY_FIELDS = Object.freeze([
   'designMethod', 'frameSystem', 'selectedAxis', 'connectionDesignRoute', 'qualificationRoute',
   'selectedFramePlaneOnly', 'completeJointDesign', 'claimsAisc358Prequalification',
-  'orthogonalDirection', 'requiresExternalHardwareCapacityEvidence', 'trustedProcessLaunchRequired',
+  'orthogonalDirection', 'requiresExternalHardwareCapacityEvidence', 'trustedProcessLaunchRequired', 'gitAttributeFiltersAllowed',
 ]);
 const BEAM_COLUMN_MOMENT_PILOT_RESULT_COMPARISON_FIELDS = Object.freeze(['controlBranch', 'decision', 'outOfScope']);
 const BEAM_COLUMN_MOMENT_PILOT_RECEIPT_FIELDS = Object.freeze([
@@ -166,7 +166,7 @@ const BEAM_COLUMN_MOMENT_PILOT_RECEIPT_FIELDS = Object.freeze([
 const BEAM_COLUMN_MOMENT_PILOT_COMPARISON_BINDING_FIELDS = Object.freeze(['comparisonId', 'comparisonDataArtifact']);
 const BEAM_COLUMN_MOMENT_PILOT_SUPPORTING_FIELDS = Object.freeze(['qualificationProfile', 'realCaseIntakeTemplate']);
 const BEAM_COLUMN_MOMENT_PILOT_BOUNDARY_FIELDS = Object.freeze([
-  'completeJointDesign', 'g2', 'g3', 'legalSignoff', 'trustedProcessLaunchRequired',
+  'completeJointDesign', 'g2', 'g3', 'legalSignoff', 'trustedProcessLaunchRequired', 'gitAttributeFiltersAllowed',
 ]);
 const VERIFIED_BEAM_COLUMN_MOMENT_PILOT_SOURCES = new Set();
 
@@ -964,7 +964,8 @@ function verifyBeamColumnMomentPilotBindings(baseDirectory, record, runs, compar
         || input.record.boundary.claimsAisc358Prequalification !== false
         || input.record.boundary.orthogonalDirection !== 'separate-review'
         || input.record.boundary.requiresExternalHardwareCapacityEvidence !== true
-        || input.record.boundary.trustedProcessLaunchRequired !== true) {
+        || input.record.boundary.trustedProcessLaunchRequired !== true
+        || input.record.boundary.gitAttributeFiltersAllowed !== false) {
       fail(`計算執行 ${run.runId} 的預先固定判定基準或 benchmark 身分無效。`);
     }
     if (!Array.isArray(input.record.fullBenchmarkInput?.momentCases)) fail(`計算執行 ${run.runId} 的完整 benchmark 輸入格式無效。`);
@@ -1061,13 +1062,16 @@ function verifyBeamColumnMomentPilotBindings(baseDirectory, record, runs, compar
         || History.canonicalJson(receipt.record.source) !== History.canonicalJson(input.record.source)
         || receipt.record.boundary.completeJointDesign !== false || receipt.record.boundary.g2 !== false
         || receipt.record.boundary.g3 !== false || receipt.record.boundary.legalSignoff !== false
-        || receipt.record.boundary.trustedProcessLaunchRequired !== true) {
+        || receipt.record.boundary.trustedProcessLaunchRequired !== true
+        || receipt.record.boundary.gitAttributeFiltersAllowed !== false) {
       fail(`計算執行 ${run.runId} 的決策收據未完整綁定同一次 synthetic G1 鏈。`);
     }
 
     const referenceText = fs.readFileSync(evidenceAbsolutePath(baseDirectory, comparison.referenceArtifact), 'utf8');
     const outputText = fs.readFileSync(evidenceAbsolutePath(baseDirectory, run.outputArtifact), 'utf8');
-    const requiredReadableBoundaries = ['completeJointDesign=false', 'G2=false', 'G3=false', 'trustedProcessLaunchRequired=true'];
+    const requiredReadableBoundaries = [
+      'completeJointDesign=false', 'G2=false', 'G3=false', 'trustedProcessLaunchRequired=true', 'gitAttributeFiltersAllowed=false',
+    ];
     if (!referenceText.includes(run.calculationFingerprint) || !referenceText.includes(run.runFingerprint)
         || !referenceText.includes(input.record.source.commit)
         || requiredReadableBoundaries.some(marker => !referenceText.includes(marker))) {
@@ -1099,6 +1103,7 @@ function verifyBeamColumnMomentPilotBindings(baseDirectory, record, runs, compar
         || profile.record.realCaseIntake.requiredToolFields.length !== 88
         || profile.record.scope?.completeJointDesign !== false
         || profile.record.scope?.trustedProcessLaunchRequired !== true
+        || profile.record.scope?.gitAttributeFiltersAllowed !== false
         || intake.record.schemaVersion !== 1 || intake.record.kind !== 'beam-column-moment-real-case-intake-template.v1'
         || intake.record.status !== 'template-only-no-case-data'
         || !intake.record.toolInput || typeof intake.record.toolInput !== 'object' || Array.isArray(intake.record.toolInput)

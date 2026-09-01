@@ -562,7 +562,7 @@ node .\結構工具箱\tests\wind.test.js
 
 ## 工程資格化與報告編排邊界
 
-- `beam-column-moment-g1-pilot.js` 只將 V1.3 的 `momentPriorTestSmrfPass` production adapter 與同 repo 獨立閉式 oracle 閉合成 synthetic G1：88 欄輸入、71 項固定 tolerance-policy catalog 斷言、8 個補充閉合 gate、控制分支、工程判定與 `completeJointDesign=false` 超範圍警示。只接受 clean Git 與未觀察到注入的 Node／Git 執行環境，且判定基準先於執行落檔；來源證據以正規化實體 UTF-8 對 raw commit content，綁定可解析 commit、Git blob 與 commit 內容 SHA，production／reference／comparison 的 CF、reference／comparison／receipt 的 QRF、可讀邊界與 V2 決策收據必須互綁。可信 parent process／Node／Git 執行檔是外部前提；同一 Node 行程不能自證任意前置程式碼不存在。它可找程式漂移，不能排除共同條文誤讀；不得把 synthetic 的 `1e-12` benchmark tolerance 當作實案驗收門檻。實案需在執行前另行固定容許差、判定、控制分支、超範圍處置與 applicability，並以外部手算／Excel／第三方軟體作基準。
+- `beam-column-moment-g1-pilot.js` 只將 V1.3 的 `momentPriorTestSmrfPass` production adapter 與同 repo 獨立閉式 oracle 閉合成 synthetic G1：88 欄輸入、71 項固定 tolerance-policy catalog 斷言、8 個補充閉合 gate、控制分支、工程判定與 `completeJointDesign=false` 超範圍警示。只接受 clean Git 與未觀察到注入的 Node／Git 執行環境，repository／info attributes policy 固定不允許，且判定基準先於執行落檔；來源證據以正規化實體 UTF-8 對 raw commit content，綁定可解析 commit、Git blob 與 commit 內容 SHA，production／reference／comparison 的 CF、reference／comparison／receipt 的 QRF、可讀邊界與 V2 決策收據必須互綁。可信 parent process／Node／Git 執行檔是外部前提；同一 Node 行程不能自證任意前置程式碼不存在。它可找程式漂移，不能排除共同條文誤讀；不得把 synthetic 的 `1e-12` benchmark tolerance 當作實案驗收門檻。實案需在執行前另行固定容許差、判定、控制分支、超範圍處置與 applicability，並以外部手算／Excel／第三方軟體作基準。
 
 - `G0 發布治理通過`、`G1 本次計算獨立比較通過`、`G2 指定案件適用確認`、`G3 本次附件內部採用` 必須分欄記錄；不得以 `complianceReady`、測試綠燈、正式附件文件狀態或單一成熟度分數跨層代答。
 - `engineering-qualification-case-bundle.v1` 是未簽署、自我陳述的私有工作底稿，只保存案件身分、計算執行、獨立比較、差異處置、成品複核、決定與採用收據。它驗證結構、雜湊與檔案一致性，不驗證填寫者身分、法定資格或法律效力；每筆比較值須以 JSON Pointer 從正式結果與獨立基準的分離機讀 JSON 實際取得，不得只相信案件包或比較摘要自報的值。案件包不得被複製到計算書、主報告、正式附件包或 Pages，也不會覆寫既有附件核可。

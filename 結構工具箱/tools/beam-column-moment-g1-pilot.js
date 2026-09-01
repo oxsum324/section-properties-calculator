@@ -94,6 +94,7 @@ const PROFILE = deepFreeze({
     orthogonalDirection: 'separate-review',
     requiresExternalHardwareCapacityEvidence: true,
     trustedProcessLaunchRequired: true,
+    gitAttributeFiltersAllowed: false,
   },
   exclusions: [
     '不是真實案件，不支持 G2 指定案件適用性。',
@@ -205,9 +206,55 @@ function normalizedGovernedSource(buffer, label) {
   return Buffer.from(text.replace(/\r\n/gu, '\n'), 'utf8');
 }
 
+function repositoryGitDirectory() {
+  const marker = path.join(REPOSITORY_ROOT, '.git');
+  if (!fs.existsSync(marker)) throw new Error('beam-column-moment-g1-git-metadata-missing');
+  const stat = fs.lstatSync(marker);
+  if (stat.isSymbolicLink()) throw new Error('beam-column-moment-g1-git-metadata-symlink');
+  if (stat.isDirectory()) return marker;
+  if (!stat.isFile()) throw new Error('beam-column-moment-g1-git-metadata-invalid');
+  const match = fs.readFileSync(marker, 'utf8').trim().match(/^gitdir:\s*(.+)$/iu);
+  if (!match) throw new Error('beam-column-moment-g1-gitdir-pointer-invalid');
+  const gitDirectory = path.resolve(REPOSITORY_ROOT, match[1]);
+  if (!fs.existsSync(gitDirectory) || !fs.lstatSync(gitDirectory).isDirectory() || fs.lstatSync(gitDirectory).isSymbolicLink()) {
+    throw new Error('beam-column-moment-g1-gitdir-target-invalid');
+  }
+  return gitDirectory;
+}
+
+function assertNoGitAttributeFilters() {
+  const gitDirectory = repositoryGitDirectory();
+  const commonDirectoryPointer = path.join(gitDirectory, 'commondir');
+  let commonDirectory = gitDirectory;
+  if (fs.existsSync(commonDirectoryPointer)) {
+    const relativeCommonDirectory = fs.readFileSync(commonDirectoryPointer, 'utf8').trim();
+    commonDirectory = path.resolve(gitDirectory, relativeCommonDirectory);
+    if (!relativeCommonDirectory || !fs.existsSync(commonDirectory) || !fs.lstatSync(commonDirectory).isDirectory()
+        || fs.lstatSync(commonDirectory).isSymbolicLink()) throw new Error('beam-column-moment-g1-git-common-dir-invalid');
+  }
+  const hasInfoAttributes = [...new Set([gitDirectory, commonDirectory])]
+    .some(directory => fs.existsSync(path.join(directory, 'info', 'attributes')));
+  if (hasInfoAttributes) throw new Error('beam-column-moment-g1-git-info-attributes-forbidden');
+  const trackedOutput = governedGit(['ls-files', '-z', '--cached'], { encoding: null });
+  const trackedText = trackedOutput.toString('utf8');
+  if (!Buffer.from(trackedText, 'utf8').equals(trackedOutput)) throw new Error('beam-column-moment-g1-tracked-path-not-utf8');
+  const directories = new Set([REPOSITORY_ROOT]);
+  trackedText.split('\0').filter(Boolean).forEach(relativePath => {
+    let directory = path.dirname(path.resolve(REPOSITORY_ROOT, ...relativePath.replace(/\\/gu, '/').split('/')));
+    while (directory === REPOSITORY_ROOT || directory.startsWith(`${REPOSITORY_ROOT}${path.sep}`)) {
+      directories.add(directory);
+      if (directory === REPOSITORY_ROOT) break;
+      directory = path.dirname(directory);
+    }
+  });
+  const attributesPath = [...directories].map(directory => path.join(directory, '.gitattributes')).find(fs.existsSync);
+  if (attributesPath) throw new Error('beam-column-moment-g1-repository-gitattributes-forbidden');
+}
+
 function sourceSnapshot() {
   assertTrustedRuntime();
   const commit = governedGit(['rev-parse', 'HEAD']).trim().toLowerCase();
+  assertNoGitAttributeFilters();
   const dirtyText = governedGit(['status', '--porcelain', '--untracked-files=all']).trim();
   if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error('beam-column-moment-g1-source-commit-invalid');
   if (dirtyText) throw new Error('beam-column-moment-g1-requires-clean-immutable-source');
@@ -449,7 +496,9 @@ function referenceMarkdown(calculationFingerprint, runFingerprint, input, result
     '- 未建立 G2 案件適用性，也未建立 G3 附件人工複核與內部採用。',
     '- G2=false；G3=false。',
     '- completeJointDesign=false；不宣稱 AISC 358 預認證，正交方向與外部五金容量證據另案負責。', '',
-    `- source commit：${sources.commit}`, '- trustedProcessLaunchRequired=true；本紀錄不自證 parent process 未遭前置程式碼控制。', '',
+    `- source commit：${sources.commit}`,
+    '- trustedProcessLaunchRequired=true；本紀錄不自證 parent process 未遭前置程式碼控制。',
+    '- gitAttributeFiltersAllowed=false；來源檢查不接受 repository 或 info attributes。', '',
   ].join('\n');
 }
 
@@ -474,6 +523,7 @@ claimsAisc358Prequalification=false
 selectedFramePlaneOnly=true
 orthogonalDirection=separate-review
 trustedProcessLaunchRequired=true
+gitAttributeFiltersAllowed=false
 G2=false
 G3=false</pre>
 </body></html>\n`;
@@ -564,7 +614,7 @@ function createSyntheticG1Workspace(workspace, rawOptions = {}) {
     referenceArtifactSha256: referenceArtifact.sha256, referenceDataArtifactSha256: referenceDataArtifact.sha256, assertions,
   }));
 
-  const decisionBasis = '本次 synthetic MC-G1 之 71 項登錄斷言與 8 個補充閉合 gate、控制分支、工程判定及 completeJointDesign=false 超範圍警示全數通過；可信 parent process／Node／Git 執行檔為外部前提；不支持 G2、G3 或簽證。';
+  const decisionBasis = '本次 synthetic MC-G1 之 71 項登錄斷言與 8 個補充閉合 gate、控制分支、工程判定及 completeJointDesign=false 超範圍警示全數通過；可信 parent process／Node／Git 執行檔為外部前提，gitAttributeFiltersAllowed=false；不支持 G2、G3 或簽證。';
   stamp = nextIso(stamp);
   const decidedAt = new Date(stamp).toISOString();
   const decisionReceipt = evidence(root, `references/${DECISION_ID}.receipt.json`, jsonText({
@@ -574,7 +624,10 @@ function createSyntheticG1Workspace(workspace, rawOptions = {}) {
     sourceKind: PROFILE.sourceKind, calculationFingerprint, runFingerprint: run.runFingerprint,
     comparisonBindings: [{ comparisonId: COMPARISON_ID, comparisonDataArtifact }], source: sourceBefore,
     supportingWorkspaceFiles: { qualificationProfile: profileArtifact, realCaseIntakeTemplate: intakeTemplateArtifact },
-    boundary: { completeJointDesign: false, g2: false, g3: false, legalSignoff: false, trustedProcessLaunchRequired: true },
+    boundary: {
+      completeJointDesign: false, g2: false, g3: false, legalSignoff: false,
+      trustedProcessLaunchRequired: true, gitAttributeFiltersAllowed: false,
+    },
   }));
 
   const record = Bundle.readStrictJsonFile(path.join(root, 'case-bundle.draft.json'), '初始 synthetic G1 案件包').record;
