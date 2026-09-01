@@ -315,6 +315,8 @@ SRC 柱已以 `src-column.core.v1.0.0` 升格為限定範圍的正式構材附�
   [attachment-case-governance-workspace.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-workspace.js:1)
 - 私有工程資格化案件包：
   [engineering-qualification-case-bundle.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/engineering-qualification-case-bundle.js:1)
+- 梁柱彎矩實案收件就緒檢查：
+  [beam-column-moment-real-case-intake.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/beam-column-moment-real-case-intake.js:1)
 - 錨栓 `anchor/` 可攜式部署同步（Pages 子路徑與 Vercel `/anchor/` 共用）：
   [sync-anchor-deployment.ps1](/C:/Users/USER/Desktop/AI/小工具製作/sync-anchor-deployment.ps1:1)
 
@@ -462,7 +464,35 @@ node .\結構工具箱\tools\beam-column-moment-g1-pilot.js `
 
 這條鏈以可信的 parent process、Node 與 Git 執行檔為前提。它會攔截未隱藏的環境污染並清理 calculator child，但任意程式碼若已在 pilot 載入前取得 parent process 控制權，便能改寫行程內觀測；同一 Node 行程不能自我證明此類本機入侵從未發生。正式保存 G1 時應從未配置 preload／loader 的可信終端直接啟動，不接受第三方 wrapper、`NODE_OPTIONS`、自訂 Node 啟動旗標或 PATH 前置的替代執行檔。
 
-實案門檻不得沿用 synthetic benchmark 的 `1e-12` 程式漂移容許差。實案開始前，負責人應在新的 `sourceKind=real-case` 工作區固定數值容許差、控制分支、判定、超範圍處置與 applicability，並使用外部手算、獨立 Excel 或第三方軟體作基準。G2 再綁定真實案號、來源證據、用途、限制、排除項與規範依據；G3 必須由負責人對同一次 `CF-` 的實際附件完成人工複核與內部採用。
+實案門檻不得沿用 synthetic benchmark 的 `1e-12` 程式漂移容許差。`beam-column-moment-real-case-intake.js` 先提供一個不執行計算的收件關卡：它只接受 `beam-column-moment-real-case-intake.v1 / candidate-unvalidated`，核對固定 88 欄及型別、固定 LRFD／梁柱彎矩／SMRF／X 向／補強型／既有試驗相似性 scope、案件身分、事前 criteria、規範依據與 `規範判定／專案指定` 等權威標籤，以及外部手算、獨立 Excel 或第三方軟體的人讀 artifact 與分離機讀 JSON。工作區必須與 repo 完全不相交；JSON 重複 key、路徑越界或非 NFC 路徑、符號／硬連結、缺檔、同檔、bytes／SHA-256 不符，以及驗證期間換檔都會失敗封閉。
+
+先從 synthetic G1 工作區取出 producer 建立的候選檔，但不可在該 synthetic 工作區原地填寫。請複製到另一個新建、repo 外的私有實案工作區根目錄，重新命名後才填入真實案件與獨立基準資料：
+
+```powershell
+$realCaseWorkspace = "C:\engineering-private\moment-real-case-001"
+New-Item -ItemType Directory -Path $realCaseWorkspace | Out-Null
+New-Item -ItemType Directory -Path "$realCaseWorkspace\references" | Out-Null
+Copy-Item `
+  "C:\engineering-private\moment-g1-20260901\inputs\real-case-intake.template.json" `
+  "$realCaseWorkspace\beam-column-moment-real-case-intake.json"
+
+# 完成候選 JSON，並把案件來源、人讀外部基準與分離機讀 JSON 放進工作區後，先唯讀檢查：
+node .\結構工具箱\tools\beam-column-moment-real-case-intake.js `
+  --workspace $realCaseWorkspace `
+  --input beam-column-moment-real-case-intake.json `
+  --json
+
+# 僅在唯讀結果確認後，明確建立不覆寫的收件就緒收據：
+node .\結構工具箱\tools\beam-column-moment-real-case-intake.js `
+  --workspace $realCaseWorkspace `
+  --input beam-column-moment-real-case-intake.json `
+  --seal-readiness yes `
+  --json
+```
+
+預設檢查完全唯讀；只有精確指定 `--seal-readiness yes` 才會以不可覆寫方式建立 `references/beam-column-moment-real-case-intake-readiness.receipt.json`。若 exclusive create 後的實體身分或事後驗證失敗，工具為避免路徑競態誤刪他人檔案，不會自動刪除可能留下的空白／部分收據；須先人工檢查並將該固定收據移出工作區，再重新執行。成功狀態固定為 `intake-complete-manual-g1-work-required`，只代表收件資料與證據綁定完整；邊界固定為 `calculatorExecuted=false`、`engineeringResultsCompared=false`、`g1=false`、`g2=false`、`g3=false`、`completeJointDesign=false`、`legalSignoff=false`、`formalAttachmentApproval=false`、`pagesPublication=false`。本版不載入或執行 production，也不做工程比較；下一關才是實案 G1 runner，由案件負責人執行 production、規格化外部基準並完成逐項比較。之後的 G2 才綁定真實案號、來源證據、用途、限制、排除項、規範依據與 applicability；G3 再由負責人對同一次 `CF-` 的實際附件完成人工複核與內部採用。
+
+新的 intake 工具不接受舊 `beam-column-moment-real-case-intake-template.v1 / template-only-no-case-data` 直接升格；既有已封印 synthetic G1 案件包仍由 `engineering-qualification-case-bundle.js` 依原契約相容驗證，不必也不得為了新版候選格式改寫舊封印證據。
 
 ## 巡檢啟動
 

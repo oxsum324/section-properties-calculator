@@ -68,6 +68,8 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/tools/attachment-case-governance-workspace.js',
   '結構工具箱/tools/engineering-qualification-case-bundle.js',
   '結構工具箱/tools/beam-column-moment-g1-pilot.js',
+  '結構工具箱/tools/beam-column-moment-real-case-intake.js',
+  '結構工具箱/tools/beam-column-moment-real-case-intake.test.js',
   '結構工具箱/tools/rendered-delivery-evidence.js',
   '結構工具箱/tools/rendered-delivery-evidence.inventory.json',
   '結構工具箱/tools/rc-stm-atomic-change-set.manifest.json',
@@ -132,6 +134,8 @@ const PRIVATE_GENERATED_FILE_PREFIXES = [
 
 const PRIVATE_BASENAMES = new Set([
   'case-bundle.draft.json',
+  'beam-column-moment-real-case-intake.json',
+  'beam-column-moment-real-case-intake-readiness.receipt.json',
   'package.json',
   'package-lock.json',
   'requirements.txt',
@@ -161,6 +165,14 @@ const PRIVATE_CONTENT_PATTERNS = [
   {
     name: 'beam-column-moment-g1-private-output',
     pattern: /["']kind["']\s*:\s*["'](?:beam-column-moment-g1-pilot-result\.v2|beam-column-moment-g1-internal-execution-envelope\.v1|beam-column-moment-g1-pilot-input\.v1|beam-column-moment-production-result\.v1|beam-column-moment-independent-reference\.v1|beam-column-moment-g1-pilot-profile\.v2|beam-column-moment-real-case-intake-template\.v1|engineering-qualification-g1-decision-receipt\.v2)["']/u,
+  },
+  {
+    name: 'beam-column-moment-real-case-intake',
+    pattern: /["']kind["']\s*:\s*["']beam-column-moment-real-case-intake\.v1["']/u,
+  },
+  {
+    name: 'beam-column-moment-real-case-intake-readiness-receipt',
+    pattern: /["']kind["']\s*:\s*["']beam-column-moment-real-case-intake-readiness-receipt\.v1["']/u,
   },
   {
     name: 'windows-user-profile-path',
@@ -234,7 +246,10 @@ function isInside(root, candidate) {
 
 function isQualificationBundleName(value) {
   const normalized = String(value || '').toLowerCase();
-  return normalized === 'case-bundle.draft.json' || /^case-bundle-eqb-.+\.json$/u.test(normalized);
+  return normalized === 'case-bundle.draft.json'
+    || normalized === 'beam-column-moment-real-case-intake.json'
+    || normalized === 'beam-column-moment-real-case-intake-readiness.receipt.json'
+    || /^case-bundle-eqb-.+\.json$/u.test(normalized);
 }
 
 function qualificationWorkspacePrefixes(candidates, repoRoot) {

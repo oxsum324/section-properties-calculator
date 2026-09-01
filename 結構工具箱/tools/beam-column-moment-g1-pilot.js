@@ -315,18 +315,29 @@ function runtimeProfile(caseFields) {
 function realCaseIntakeTemplate(caseFields) {
   return {
     schemaVersion: 1,
-    kind: 'beam-column-moment-real-case-intake-template.v1',
-    status: 'template-only-no-case-data',
-    instruction: '複製到新建且 sourceKind=real-case 的私有案件工作區；不得直接將本 synthetic 工作區改名成實案。',
+    kind: 'beam-column-moment-real-case-intake.v1',
+    status: 'candidate-unvalidated',
+    boundary: {
+      sourceKind: 'real-case',
+      calculatorExecuted: false,
+      engineeringResultsCompared: false,
+      g1: false,
+      g2: false,
+      g3: false,
+      completeJointDesign: false,
+      legalSignoff: false,
+      formalAttachmentApproval: false,
+      pagesPublication: false,
+    },
     caseIdentity: {
-      externalCaseId: '', projectName: '', projectNo: '', designer: '', intendedUse: '', permissibleUse: '', limitations: [], exclusions: [], governingStandards: [],
+      externalCaseId: '', caseSourceArtifactFile: '', projectName: '', projectNo: '', designer: '', intendedUse: '', permissibleUse: '', limitations: [], exclusions: [], governingStandards: [],
     },
     criteria: {
       definedAt: '', numericToleranceBasis: '', controlBranchExpected: '', decisionExpected: '', outOfScopeExpected: '', applicabilityExpected: '',
     },
     toolInput: Object.fromEntries(caseFields.map(field => [field, null])),
     independentReference: {
-      method: '', author: '', reviewer: '', createdAt: '', basis: '', artifactFile: '', machineDataFile: '',
+      independentFromProductionCore: true, method: '', author: '', reviewer: '', createdAt: '', basis: '', artifactFile: '', machineDataFile: '',
     },
     requiredHumanActions: [PROFILE.realCaseIntake.g2Responsibility, PROFILE.realCaseIntake.g3Responsibility],
   };

@@ -168,6 +168,44 @@ const BEAM_COLUMN_MOMENT_PILOT_SUPPORTING_FIELDS = Object.freeze(['qualification
 const BEAM_COLUMN_MOMENT_PILOT_BOUNDARY_FIELDS = Object.freeze([
   'completeJointDesign', 'g2', 'g3', 'legalSignoff', 'trustedProcessLaunchRequired', 'gitAttributeFiltersAllowed',
 ]);
+const BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_LEGACY_FIELDS = Object.freeze([
+  'schemaVersion', 'kind', 'status', 'instruction', 'caseIdentity', 'criteria', 'toolInput', 'independentReference', 'requiredHumanActions',
+]);
+const BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_FIELDS = Object.freeze([
+  'schemaVersion', 'kind', 'status', 'boundary', 'caseIdentity', 'criteria', 'toolInput', 'independentReference', 'requiredHumanActions',
+]);
+const BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_LEGACY_CASE_IDENTITY_FIELDS = Object.freeze([
+  'externalCaseId', 'projectName', 'projectNo', 'designer', 'intendedUse', 'permissibleUse', 'limitations', 'exclusions', 'governingStandards',
+]);
+const BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_CASE_IDENTITY_FIELDS = Object.freeze([
+  'externalCaseId', 'caseSourceArtifactFile', 'projectName', 'projectNo', 'designer', 'intendedUse', 'permissibleUse', 'limitations', 'exclusions', 'governingStandards',
+]);
+const BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_CRITERIA_FIELDS = Object.freeze([
+  'definedAt', 'numericToleranceBasis', 'controlBranchExpected', 'decisionExpected', 'outOfScopeExpected', 'applicabilityExpected',
+]);
+const BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_LEGACY_REFERENCE_FIELDS = Object.freeze([
+  'method', 'author', 'reviewer', 'createdAt', 'basis', 'artifactFile', 'machineDataFile',
+]);
+const BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_REFERENCE_FIELDS = Object.freeze([
+  'independentFromProductionCore', ...BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_LEGACY_REFERENCE_FIELDS,
+]);
+const BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_BOUNDARY_FIELDS = Object.freeze([
+  'sourceKind', 'calculatorExecuted', 'engineeringResultsCompared', 'g1', 'g2', 'g3', 'completeJointDesign',
+  'legalSignoff', 'formalAttachmentApproval', 'pagesPublication',
+]);
+const BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_BOUNDARY = Object.freeze({
+  sourceKind: 'real-case',
+  calculatorExecuted: false,
+  engineeringResultsCompared: false,
+  g1: false,
+  g2: false,
+  g3: false,
+  completeJointDesign: false,
+  legalSignoff: false,
+  formalAttachmentApproval: false,
+  pagesPublication: false,
+});
+const BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_LEGACY_INSTRUCTION = '複製到新建且 sourceKind=real-case 的私有案件工作區；不得直接將本 synthetic 工作區改名成實案。';
 const VERIFIED_BEAM_COLUMN_MOMENT_PILOT_SOURCES = new Set();
 
 class ContractError extends Error {
@@ -825,6 +863,62 @@ function exactKeys(record, fields, label) {
   try { Compare.exactKeys(record, fields, label); } catch (error) { fail(error.message); }
 }
 
+function validateBeamColumnMomentRealCaseIntake(record, profile, sourceToolFields, label = '梁柱彎矩實案收件候選') {
+  if (!record || typeof record !== 'object' || Array.isArray(record)) fail(`${label}格式無效。`);
+  const legacy = record.schemaVersion === 1
+    && record.kind === 'beam-column-moment-real-case-intake-template.v1'
+    && record.status === 'template-only-no-case-data';
+  const candidate = record.schemaVersion === 1
+    && record.kind === 'beam-column-moment-real-case-intake.v1'
+    && record.status === 'candidate-unvalidated';
+  if (!legacy && !candidate) fail(`${label}版本、種類或狀態無效。`);
+
+  exactKeys(record, legacy ? BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_LEGACY_FIELDS : BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_FIELDS, label);
+  if (!profile || typeof profile !== 'object' || Array.isArray(profile)
+      || !Array.isArray(profile.requiredToolFields) || profile.requiredToolFields.length !== 88
+      || typeof profile.g2Responsibility !== 'string' || !profile.g2Responsibility
+      || typeof profile.g3Responsibility !== 'string' || !profile.g3Responsibility
+      || !Array.isArray(sourceToolFields) || sourceToolFields.length !== 88) {
+    fail(`${label}缺少受治理的 88 欄位清單或人工責任。`);
+  }
+
+  const caseIdentityFields = legacy
+    ? BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_LEGACY_CASE_IDENTITY_FIELDS
+    : BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_CASE_IDENTITY_FIELDS;
+  exactKeys(record.caseIdentity, caseIdentityFields, `${label}案件身分`);
+  exactKeys(record.criteria, BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_CRITERIA_FIELDS, `${label}預定比較準則`);
+  exactKeys(record.independentReference, legacy
+    ? BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_LEGACY_REFERENCE_FIELDS
+    : BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_REFERENCE_FIELDS, `${label}獨立基準`);
+  exactKeys(record.toolInput, profile.requiredToolFields, `${label}工具輸入`);
+
+  const identityStringFields = caseIdentityFields.filter(field => !['limitations', 'exclusions', 'governingStandards'].includes(field));
+  const identityArrays = ['limitations', 'exclusions', 'governingStandards'];
+  const criteriaBlank = BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_CRITERIA_FIELDS.every(field => record.criteria[field] === '');
+  const referenceBlank = BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_LEGACY_REFERENCE_FIELDS.every(field => record.independentReference[field] === '');
+  const expectedHumanActions = [profile.g2Responsibility, profile.g3Responsibility];
+  if (identityStringFields.some(field => record.caseIdentity[field] !== '')
+      || identityArrays.some(field => !Array.isArray(record.caseIdentity[field]) || record.caseIdentity[field].length !== 0)
+      || !criteriaBlank || !referenceBlank
+      || Object.values(record.toolInput).some(value => value !== null)
+      || History.canonicalJson([...profile.requiredToolFields].sort()) !== History.canonicalJson(Object.keys(record.toolInput).sort())
+      || History.canonicalJson([...sourceToolFields].sort()) !== History.canonicalJson(Object.keys(record.toolInput).sort())
+      || History.canonicalJson(record.requiredHumanActions) !== History.canonicalJson(expectedHumanActions)) {
+    fail(`${label}必須保持案件身分、準則、輸入及基準資料空白，且只保留固定人工責任。`);
+  }
+
+  if (legacy) {
+    if (record.instruction !== BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_LEGACY_INSTRUCTION) fail(`${label}舊版固定使用邊界無效。`);
+    return 'legacy-template';
+  }
+  exactKeys(record.boundary, BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_BOUNDARY_FIELDS, `${label}固定邊界`);
+  if (History.canonicalJson(record.boundary) !== History.canonicalJson(BEAM_COLUMN_MOMENT_REAL_CASE_INTAKE_BOUNDARY)
+      || record.independentReference.independentFromProductionCore !== true) {
+    fail(`${label}不是未執行、未比較、未資格化、未核准且不得公開的 fail-closed 候選。`);
+  }
+  return 'candidate';
+}
+
 function qualificationGitEnvironment() {
   const environment = { ...process.env };
   [
@@ -1103,18 +1197,15 @@ function verifyBeamColumnMomentPilotBindings(baseDirectory, record, runs, compar
         || profile.record.realCaseIntake.requiredToolFields.length !== 88
         || profile.record.scope?.completeJointDesign !== false
         || profile.record.scope?.trustedProcessLaunchRequired !== true
-        || profile.record.scope?.gitAttributeFiltersAllowed !== false
-        || intake.record.schemaVersion !== 1 || intake.record.kind !== 'beam-column-moment-real-case-intake-template.v1'
-        || intake.record.status !== 'template-only-no-case-data'
-        || !intake.record.toolInput || typeof intake.record.toolInput !== 'object' || Array.isArray(intake.record.toolInput)
-        || Object.keys(intake.record.toolInput).length !== 88
-        || Object.values(intake.record.toolInput).some(value => value !== null)
-        || History.canonicalJson([...profile.record.realCaseIntake.requiredToolFields].sort())
-          !== History.canonicalJson(Object.keys(intake.record.toolInput).sort())
-        || History.canonicalJson(Object.keys(input.record.input).filter(key => key !== 'id').sort())
-          !== History.canonicalJson(Object.keys(intake.record.toolInput).sort())) {
-      fail(`計算執行 ${run.runId} 的 qualification profile 或實案收件範本邊界無效。`);
+        || profile.record.scope?.gitAttributeFiltersAllowed !== false) {
+      fail(`計算執行 ${run.runId} 的 qualification profile 邊界無效。`);
     }
+    validateBeamColumnMomentRealCaseIntake(
+      intake.record,
+      profile.record.realCaseIntake,
+      Object.keys(input.record.input).filter(key => key !== 'id'),
+      `計算執行 ${run.runId} 梁柱彎矩實案收件候選`,
+    );
     verifyFormalArtifact(baseDirectory, run.outputArtifact, `計算執行 ${run.runId} 梁柱彎矩試辦可讀輸出`, [run.calculationFingerprint]);
     [input, production, reference, comparisonData, receipt, profile, intake]
       .forEach(item => verifyLoadedJsonStability(item, `計算執行 ${run.runId} 梁柱彎矩試辦 JSON`));
@@ -1534,6 +1625,7 @@ module.exports = {
   bundleFingerprint,
   qualificationRunFingerprint,
   assertionPass,
+  validateBeamColumnMomentRealCaseIntake,
   validateBundle,
   readStrictJsonFile,
   verifyLoadedJsonStability,

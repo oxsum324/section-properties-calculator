@@ -303,12 +303,92 @@ function runCli(args) {
   return spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', windowsHide: true });
 }
 
+const REAL_CASE_INTAKE_TOOL_FIELDS = Object.freeze(Array.from({ length: 88 }, (_, index) => `field${String(index + 1).padStart(2, '0')}`));
+const REAL_CASE_INTAKE_PROFILE = Object.freeze({
+  requiredToolFields: REAL_CASE_INTAKE_TOOL_FIELDS,
+  g2Responsibility: '由負責工程師以匿名實案與外部獨立計算完成 G2。',
+  g3Responsibility: '由負責工程師審閱正式附件後完成 G3。',
+});
+
+function realCaseIntakeFixture(legacy = false) {
+  const record = {
+    schemaVersion: 1,
+    kind: legacy ? 'beam-column-moment-real-case-intake-template.v1' : 'beam-column-moment-real-case-intake.v1',
+    status: legacy ? 'template-only-no-case-data' : 'candidate-unvalidated',
+    caseIdentity: {
+      externalCaseId: '',
+      ...(legacy ? {} : { caseSourceArtifactFile: '' }),
+      projectName: '', projectNo: '', designer: '', intendedUse: '', permissibleUse: '', limitations: [], exclusions: [], governingStandards: [],
+    },
+    criteria: {
+      definedAt: '', numericToleranceBasis: '', controlBranchExpected: '', decisionExpected: '', outOfScopeExpected: '', applicabilityExpected: '',
+    },
+    toolInput: Object.fromEntries(REAL_CASE_INTAKE_TOOL_FIELDS.map(field => [field, null])),
+    independentReference: {
+      ...(legacy ? {} : { independentFromProductionCore: true }),
+      method: '', author: '', reviewer: '', createdAt: '', basis: '', artifactFile: '', machineDataFile: '',
+    },
+    requiredHumanActions: [REAL_CASE_INTAKE_PROFILE.g2Responsibility, REAL_CASE_INTAKE_PROFILE.g3Responsibility],
+  };
+  if (legacy) {
+    record.instruction = '複製到新建且 sourceKind=real-case 的私有案件工作區；不得直接將本 synthetic 工作區改名成實案。';
+  } else {
+    record.boundary = {
+      sourceKind: 'real-case', calculatorExecuted: false, engineeringResultsCompared: false,
+      g1: false, g2: false, g3: false, completeJointDesign: false, legalSignoff: false,
+      formalAttachmentApproval: false, pagesPublication: false,
+    };
+  }
+  return record;
+}
+
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'engineering-qualification-case-bundle-'));
 try {
   assert.equal(Bundle.KIND, 'engineering-qualification-case-bundle.v1');
   assert.match(Bundle.BOUNDARY_INSTRUCTION, /不得放入計算書、主報告、正式附件包或 Pages/);
   assert.deepEqual(Bundle.REQUIRED_G1_ASSERTIONS, ['numeric', 'control-branch', 'decision', 'out-of-scope']);
   assert.deepEqual(Bundle.REQUIRED_G2_ASSERTIONS, ['numeric', 'control-branch', 'decision', 'out-of-scope', 'applicability']);
+
+  const candidateIntake = realCaseIntakeFixture(false);
+  const legacyIntake = realCaseIntakeFixture(true);
+  assert.equal(Bundle.validateBeamColumnMomentRealCaseIntake(
+    candidateIntake, REAL_CASE_INTAKE_PROFILE, REAL_CASE_INTAKE_TOOL_FIELDS,
+  ), 'candidate', 'current candidate intake is accepted while still fail-closed');
+  assert.equal(Bundle.validateBeamColumnMomentRealCaseIntake(
+    legacyIntake, REAL_CASE_INTAKE_PROFILE, REAL_CASE_INTAKE_TOOL_FIELDS,
+  ), 'legacy-template', 'already-sealed legacy template remains verifiable');
+  const openBoundaryIntake = clone(candidateIntake);
+  openBoundaryIntake.boundary.g2 = true;
+  assert.throws(
+    () => Bundle.validateBeamColumnMomentRealCaseIntake(openBoundaryIntake, REAL_CASE_INTAKE_PROFILE, REAL_CASE_INTAKE_TOOL_FIELDS),
+    /fail-closed|未資格化/u,
+  );
+  const populatedCandidateIntake = clone(candidateIntake);
+  populatedCandidateIntake.toolInput[REAL_CASE_INTAKE_TOOL_FIELDS[0]] = 0;
+  assert.throws(
+    () => Bundle.validateBeamColumnMomentRealCaseIntake(populatedCandidateIntake, REAL_CASE_INTAKE_PROFILE, REAL_CASE_INTAKE_TOOL_FIELDS),
+    /必須保持.*空白/u,
+  );
+  const nonIndependentCandidate = clone(candidateIntake);
+  nonIndependentCandidate.independentReference.independentFromProductionCore = false;
+  assert.throws(
+    () => Bundle.validateBeamColumnMomentRealCaseIntake(nonIndependentCandidate, REAL_CASE_INTAKE_PROFILE, REAL_CASE_INTAKE_TOOL_FIELDS),
+    /fail-closed|獨立/u,
+  );
+  const populatedLegacyIntake = clone(legacyIntake);
+  populatedLegacyIntake.caseIdentity.externalCaseId = 'MUST-STAY-BLANK';
+  assert.throws(
+    () => Bundle.validateBeamColumnMomentRealCaseIntake(populatedLegacyIntake, REAL_CASE_INTAKE_PROFILE, REAL_CASE_INTAKE_TOOL_FIELDS),
+    /必須保持.*空白/u,
+    'legacy compatibility does not permit case data to enter a synthetic G1 workspace',
+  );
+  const extendedCandidateIntake = clone(candidateIntake);
+  extendedCandidateIntake.unreviewedClaim = true;
+  assert.throws(
+    () => Bundle.validateBeamColumnMomentRealCaseIntake(extendedCandidateIntake, REAL_CASE_INTAKE_PROFILE, REAL_CASE_INTAKE_TOOL_FIELDS),
+    /欄位/u,
+    'candidate top-level keys remain exact',
+  );
 
   const initial = Bundle.buildInitialBundle({
     caseId: 'CASE-DRAFT-001',

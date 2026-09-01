@@ -56,6 +56,10 @@ _Avoid_: 黃金案例通過、同核心重播、工具驗證域、指定案件�
 將登錄的 `momentPriorTestSmrfPass` 本次 production 結果、不呼叫 production core 的同 repo 閉式 oracle、71 項 catalog 斷言加 8 個補充閉合 gate、JSON Pointer 比較與固定超範圍警示閉合成私有案件包的程式漂移檢查。它只接受 clean Git 來源、固定 `gitAttributeFiltersAllowed=false`，並互綁 CF、QRF、比較資料、可讀邊界及 V2 決策收據；固定是 synthetic G1，不是實案、G2／G3、完整接頭設計或簽證。可信 parent process／Node／Git 執行檔是外部前提，不得宣稱同一行程能證明任意前置程式碼不存在。
 _Avoid_: 實案驗收、外部手算、完整接頭設計、AISC 358 預認證、可簽證
 
+**梁柱彎矩實案收件就緒**:
+在與 repo 及 synthetic G1 工作區完全分離的私有工作區，固定並驗證真實案件身分、88 欄輸入型別與 scope、事前 criteria、規範／權威標籤、案件來源，以及外部手算／獨立 Excel／第三方軟體的人讀與機讀證據；成功狀態 `intake-complete-manual-g1-work-required` 只代表收件完整。此關卡不載入 production、不計算、不比較，且固定 G1／G2／G3=false；只有明確 `--seal-readiness yes` 才建立不可覆寫收據。
+_Avoid_: 實案 G1 通過、工程結果已比較、完整接頭設計、正式附件核可、Pages 已發布、可簽證
+
 **工具驗證域**:
 針對指定工具與引擎版本，由多個本次計算獨立比較共同覆蓋的輸入範圍、控制分支、邊界、拒算路徑及未覆蓋範圍；單一 G1 或 1 至 2 件 pilot 不得建立全工具驗證域。
 _Avoid_: 單一案例通過、指定案件適用確認、工具認證

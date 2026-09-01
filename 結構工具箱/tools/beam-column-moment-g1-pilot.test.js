@@ -115,6 +115,8 @@ function assertReadySyntheticG1(workspace, creationResult) {
   const reference = evidenceJson(workspace, comparison.referenceDataArtifact);
   const comparisonData = evidenceJson(workspace, comparison.comparisonDataArtifact);
   const receipt = evidenceJson(workspace, decision.decisionReceipt);
+  const profile = evidenceJson(workspace, receipt.supportingWorkspaceFiles.qualificationProfile);
+  const intake = evidenceJson(workspace, receipt.supportingWorkspaceFiles.realCaseIntakeTemplate);
   assert.deepEqual(input.input, benchmarkCase, 'input is the exact registered case');
   assert.equal(input.source.dirty, false, 'source is immutable and clean');
   assert.equal(input.criteria.registeredAssertionCount, 71);
@@ -146,6 +148,23 @@ function assertReadySyntheticG1(workspace, creationResult) {
   assert.equal(receipt.boundary.trustedProcessLaunchRequired, true);
   assert.equal(receipt.boundary.gitAttributeFiltersAllowed, false);
   assert.deepEqual(receipt.comparisonBindings[0].comparisonDataArtifact, comparison.comparisonDataArtifact);
+  assert.deepEqual(Object.keys(intake).sort(), [
+    'schemaVersion', 'kind', 'status', 'boundary', 'caseIdentity', 'criteria', 'toolInput', 'independentReference', 'requiredHumanActions',
+  ].sort(), 'candidate intake has the exact governed top-level shape');
+  assert.equal(intake.kind, 'beam-column-moment-real-case-intake.v1');
+  assert.equal(intake.status, 'candidate-unvalidated');
+  assert.deepEqual(intake.boundary, {
+    sourceKind: 'real-case', calculatorExecuted: false, engineeringResultsCompared: false,
+    g1: false, g2: false, g3: false, completeJointDesign: false, legalSignoff: false,
+    formalAttachmentApproval: false, pagesPublication: false,
+  });
+  assert.equal(intake.caseIdentity.caseSourceArtifactFile, '');
+  assert.equal(intake.independentReference.independentFromProductionCore, true);
+  assert.equal(Object.keys(intake.toolInput).length, 88);
+  assert.equal(Object.values(intake.toolInput).every(value => value === null), true);
+  assert.equal(Bundle.validateBeamColumnMomentRealCaseIntake(
+    intake, profile.realCaseIntake, Object.keys(input.input).filter(key => key !== 'id'),
+  ), 'candidate');
 
   const numeric = comparison.assertions.filter(item => item.type === 'numeric');
   assert.equal(numeric.length, 79, 'all production/oracle result keys are asserted');
@@ -253,6 +272,11 @@ function createResignedTamper(sourceWorkspace, sourceResult, tempRoot, name, mut
   receipt.source = JSON.parse(JSON.stringify(inputPayload.source));
   receipt.comparisonBindings = [{ comparisonId: comparison.comparisonId, comparisonDataArtifact: { ...comparison.comparisonDataArtifact } }];
   if (mutators.receipt) mutators.receipt(receipt);
+  if (mutators.intake) {
+    const intake = evidenceJson(workspace, receipt.supportingWorkspaceFiles.realCaseIntakeTemplate);
+    mutators.intake(intake);
+    writeEvidenceJson(workspace, receipt.supportingWorkspaceFiles.realCaseIntakeTemplate, intake);
+  }
   writeEvidenceJson(workspace, decision.decisionReceipt, receipt);
 
   record.bundleFingerprint = Bundle.bundleFingerprint(record);
@@ -266,7 +290,7 @@ function expectResignedTamperBlocked(sourceWorkspace, sourceResult, tempRoot, na
   assert.throws(
     () => Bundle.inspectBundleFile(tamperedPath),
     error => error instanceof Bundle.ContractError
-      && /(?:CF|QRF|SHA|指紋|版本|收據|綁定|comparison|比較|正式結果|獨立基準|獨立閉式|oracle|路徑|benchmark|斷言|機讀|容許差|政策|漂移|Git|commit|來源|可讀|邊界)/iu.test(error.message),
+      && /(?:CF|QRF|SHA|指紋|版本|收據|收件|候選|空白|實案|綁定|comparison|比較|正式結果|獨立基準|獨立閉式|oracle|路徑|benchmark|斷言|機讀|容許差|政策|漂移|Git|commit|來源|可讀|邊界)/iu.test(error.message),
     `${name} stays blocked with a governed contract error after outer hashes are recomputed`,
   );
 }
@@ -323,6 +347,38 @@ try {
     fs.writeFileSync(path.join(existingWorkspace, 'sentinel.txt'), 'keep', 'utf8');
     assert.throws(() => Pilot.createSyntheticG1Workspace(existingWorkspace, { caseId: 'CASE-EXISTS' }), /已存在|exists|覆寫/u);
     assert.equal(fs.readFileSync(path.join(existingWorkspace, 'sentinel.txt'), 'utf8'), 'keep');
+
+    const legacyIntakePath = createResignedTamper(workspace, result, tempRoot, 'legacy-intake-compatible', {
+      intake: payload => {
+        payload.kind = 'beam-column-moment-real-case-intake-template.v1';
+        payload.status = 'template-only-no-case-data';
+        payload.instruction = '複製到新建且 sourceKind=real-case 的私有案件工作區；不得直接將本 synthetic 工作區改名成實案。';
+        delete payload.boundary;
+        delete payload.caseIdentity.caseSourceArtifactFile;
+        delete payload.independentReference.independentFromProductionCore;
+      },
+    });
+    assert.equal(Bundle.inspectBundleFile(legacyIntakePath).status, 'ready', 'already-sealed legacy intake remains verifiable');
+    expectResignedTamperBlocked(workspace, result, tempRoot, 'tamper-intake-open-g2', {
+      intake: payload => { payload.boundary.g2 = true; },
+    });
+    expectResignedTamperBlocked(workspace, result, tempRoot, 'tamper-intake-prefilled-input', {
+      intake: payload => { payload.toolInput[Object.keys(payload.toolInput)[0]] = 0; },
+    });
+    expectResignedTamperBlocked(workspace, result, tempRoot, 'tamper-intake-reference-independence', {
+      intake: payload => { payload.independentReference.independentFromProductionCore = false; },
+    });
+    expectResignedTamperBlocked(workspace, result, tempRoot, 'tamper-legacy-intake-prefilled-identity', {
+      intake: payload => {
+        payload.kind = 'beam-column-moment-real-case-intake-template.v1';
+        payload.status = 'template-only-no-case-data';
+        payload.instruction = '複製到新建且 sourceKind=real-case 的私有案件工作區；不得直接將本 synthetic 工作區改名成實案。';
+        delete payload.boundary;
+        delete payload.caseIdentity.caseSourceArtifactFile;
+        delete payload.independentReference.independentFromProductionCore;
+        payload.caseIdentity.externalCaseId = 'MUST-STAY-BLANK';
+      },
+    });
 
     expectResignedTamperBlocked(workspace, result, tempRoot, 'tamper-production-cf', {
       production: payload => { payload.calculationFingerprint = 'CF-0000000000000000'; },

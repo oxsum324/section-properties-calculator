@@ -87,7 +87,13 @@ assert.ok(toolBoundaries.includes('push-pages-release.ps1') && toolBoundaries.in
 assert.ok(toolBoundaries.includes('pages-release-governance.contract.test.js'), 'tool boundaries documents A0 release governance contract');
 assert.ok(toolBoundaries.includes('CONTEXT.md') && toolBoundaries.includes('docs/adr/'), 'tool boundaries keeps page-only docs out of Pages artifact');
 assert.ok(toolBoundaries.includes('output/') && toolBoundaries.includes('.claude') && toolBoundaries.includes('node_modules'), 'tool boundaries documents local artifact exclusions');
-assert.ok(gitignore.includes('case-bundle.draft.json') && gitignore.includes('case-bundle-[Ee][Qq][Bb]-*.json'), 'repository ignore rules block qualification bundle manifests at every depth and case variant');
+assert.ok(
+  gitignore.includes('case-bundle.draft.json')
+    && gitignore.includes('case-bundle-[Ee][Qq][Bb]-*.json')
+    && gitignore.includes('beam-column-moment-real-case-intake.json')
+    && gitignore.includes('beam-column-moment-real-case-intake-readiness.receipt.json'),
+  'repository ignore rules block qualification bundle and moment real-case intake markers at every depth',
+);
 assert.ok(toolBoundaries.includes('--allow-local-output') && toolBoundaries.includes('不得用在公開站 smoke'), 'tool boundaries limits local-output allowance');
 assert.ok(readme.includes('v3 manifest') && readme.includes('正式 release runId') && readme.includes('逐檔下載整個公開 artifact'), 'README documents release-bound complete deployed artifact verification');
 assert.ok(readme.includes('一般巡檢新鮮度與正式放行證據拆開') && readme.includes('未對齊'), 'README documents release freshness and deployment alignment semantics');
@@ -180,7 +186,17 @@ assert.ok(
   try {
     childProcess.execFileSync('git', ['init', '--quiet', fixtureRepo]);
     childProcess.execFileSync('git', ['-C', fixtureRepo, 'config', 'core.autocrlf', 'true']);
-    fs.writeFileSync(path.join(fixtureRepo, '.gitignore'), 'ignored.html\ncase-bundle*.json\n', 'utf8');
+    fs.writeFileSync(
+      path.join(fixtureRepo, '.gitignore'),
+      [
+        'ignored.html',
+        'case-bundle*.json',
+        'beam-column-moment-real-case-intake.json',
+        'beam-column-moment-real-case-intake-readiness.receipt.json',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
     fs.writeFileSync(path.join(fixtureRepo, 'keep.html'), '<p>tracked</p>\n', 'utf8');
     fs.writeFileSync(path.join(fixtureRepo, 'deleted.html'), '<p>delete</p>\n', 'utf8');
     fs.writeFileSync(path.join(fixtureRepo, 'README.md'), '# private\n', 'utf8');
@@ -210,6 +226,23 @@ assert.ok(
     fs.mkdirSync(path.join(malformedQualificationWorkspace, 'outputs'), { recursive: true });
     fs.writeFileSync(path.join(malformedQualificationWorkspace, 'case-bundle-eqb-not-canonical.json'), '{"kind":"engineering-qualification-case-bundle.v1"}\n', 'utf8');
     fs.writeFileSync(path.join(malformedQualificationWorkspace, 'outputs', 'must-stay-private.html'), '<p>private malformed qualification evidence</p>\n', 'utf8');
+    const privateMomentIntakeWorkspace = path.join(fixtureRepo, '案件', 'MOMENT-REAL-CASE-INTAKE');
+    fs.mkdirSync(path.join(privateMomentIntakeWorkspace, 'evidence'), { recursive: true });
+    fs.writeFileSync(
+      path.join(privateMomentIntakeWorkspace, 'beam-column-moment-real-case-intake.json'),
+      '{"kind":"beam-column-moment-real-case-intake.v1"}\n',
+      'utf8',
+    );
+    fs.writeFileSync(path.join(privateMomentIntakeWorkspace, 'evidence', 'source-calculation.pdf'), 'private PDF fixture\n', 'utf8');
+    fs.writeFileSync(path.join(privateMomentIntakeWorkspace, 'evidence', 'source-calculation.xlsx'), 'private XLSX fixture\n', 'utf8');
+    const privateMomentReceiptWorkspace = path.join(fixtureRepo, '案件', 'MOMENT-REAL-CASE-RECEIPT');
+    fs.mkdirSync(path.join(privateMomentReceiptWorkspace, 'outputs'), { recursive: true });
+    fs.writeFileSync(
+      path.join(privateMomentReceiptWorkspace, 'beam-column-moment-real-case-intake-readiness.receipt.json'),
+      '{"kind":"beam-column-moment-real-case-intake-readiness-receipt.v1"}\n',
+      'utf8',
+    );
+    fs.writeFileSync(path.join(privateMomentReceiptWorkspace, 'outputs', 'readiness-summary.html'), '<p>private intake readiness</p>\n', 'utf8');
     const privateBuilder = path.join(fixtureRepo, '結構工具箱', 'tools', 'build-pages-artifact.js');
     fs.mkdirSync(path.dirname(privateBuilder), { recursive: true });
     fs.writeFileSync(privateBuilder, 'module.exports = {};\n', 'utf8');
@@ -227,7 +260,7 @@ assert.ok(
     assert.deepEqual(result.privateContentScan, { scannedFileCount: 2, findingCount: 0 }, 'artifact builder scans every staged public file for private workstation paths');
     assert.equal(fs.readFileSync(path.join(fixtureSite, 'keep.html'), 'utf8'), '<p>working change</p>\n', 'artifact builder applies Git clean filters to tracked changes');
     assert.equal(fs.readFileSync(path.join(fixtureSite, 'new-page.html'), 'utf8'), '<p>new page</p>\n', 'artifact builder applies Git clean filters to new published files');
-    for (const privatePath of ['README.md', 'secret.test.js', 'dev_tools/secret.html', '案件/GSP-外部歸檔生命週期總覽-GSP-00000000000000000000/overview.html', '案件/GSM-外部歸檔生命週期監測-latest.json', '案件/events/GSM-外部歸檔生命週期監測事件-000001-GME-00000000000000000000.json', '案件/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_DASHBOARD_SCHEMA.json', '案件/EQ-PRIVATE-001/case-bundle.draft.json', '案件/EQ-PRIVATE-001/outputs/private-report.html', '案件/EQ-PRIVATE-MALFORMED/case-bundle-eqb-not-canonical.json', '案件/EQ-PRIVATE-MALFORMED/outputs/must-stay-private.html', 'output/audit/gsm-lifecycle-monitor-status.json', 'output/audit/gsm-lifecycle-monitor-history.json', 'output/audit/gsm-lifecycle-monitor-task-status.json', '結構工具箱/tools/build-pages-artifact.js', 'ignored.html', 'deleted.html']) {
+    for (const privatePath of ['README.md', 'secret.test.js', 'dev_tools/secret.html', '案件/GSP-外部歸檔生命週期總覽-GSP-00000000000000000000/overview.html', '案件/GSM-外部歸檔生命週期監測-latest.json', '案件/events/GSM-外部歸檔生命週期監測事件-000001-GME-00000000000000000000.json', '案件/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_DASHBOARD_SCHEMA.json', '案件/EQ-PRIVATE-001/case-bundle.draft.json', '案件/EQ-PRIVATE-001/outputs/private-report.html', '案件/EQ-PRIVATE-MALFORMED/case-bundle-eqb-not-canonical.json', '案件/EQ-PRIVATE-MALFORMED/outputs/must-stay-private.html', '案件/MOMENT-REAL-CASE-INTAKE/beam-column-moment-real-case-intake.json', '案件/MOMENT-REAL-CASE-INTAKE/evidence/source-calculation.pdf', '案件/MOMENT-REAL-CASE-INTAKE/evidence/source-calculation.xlsx', '案件/MOMENT-REAL-CASE-RECEIPT/beam-column-moment-real-case-intake-readiness.receipt.json', '案件/MOMENT-REAL-CASE-RECEIPT/outputs/readiness-summary.html', 'output/audit/gsm-lifecycle-monitor-status.json', 'output/audit/gsm-lifecycle-monitor-history.json', 'output/audit/gsm-lifecycle-monitor-task-status.json', '結構工具箱/tools/build-pages-artifact.js', 'ignored.html', 'deleted.html']) {
       assert.equal(fs.existsSync(path.join(fixtureSite, ...privatePath.split('/'))), false, `artifact builder excludes ${privatePath}`);
     }
 
@@ -267,6 +300,24 @@ assert.ok(
       'artifact builder fails closed when a published file leaks qualification bundle content',
     );
     fs.rmSync(path.join(fixtureRepo, 'qualification-kind-leak.json'));
+
+    fs.writeFileSync(path.join(fixtureRepo, 'moment-intake-kind-leak.json'), '{"kind":"beam-column-moment-real-case-intake.v1"}\n', 'utf8');
+    assert.throws(
+      () => stagePagesArtifact({ repoRoot: fixtureRepo, siteRoot: fixtureSite }),
+      error => error instanceof Error
+        && error.message.includes('moment-intake-kind-leak.json [beam-column-moment-real-case-intake]'),
+      'artifact builder fails closed when published content leaks a real-case intake candidate',
+    );
+    fs.rmSync(path.join(fixtureRepo, 'moment-intake-kind-leak.json'));
+
+    fs.writeFileSync(path.join(fixtureRepo, 'moment-intake-receipt-kind-leak.json'), '{"kind":"beam-column-moment-real-case-intake-readiness-receipt.v1"}\n', 'utf8');
+    assert.throws(
+      () => stagePagesArtifact({ repoRoot: fixtureRepo, siteRoot: fixtureSite }),
+      error => error instanceof Error
+        && error.message.includes('moment-intake-receipt-kind-leak.json [beam-column-moment-real-case-intake-readiness-receipt]'),
+      'artifact builder fails closed when published content leaks a real-case intake readiness receipt',
+    );
+    fs.rmSync(path.join(fixtureRepo, 'moment-intake-receipt-kind-leak.json'));
   } finally {
     fs.rmSync(fixtureRepo, { recursive: true, force: true });
     fs.rmSync(fixtureSite, { recursive: true, force: true });
@@ -554,18 +605,21 @@ assert.ok(artifactBuilder.includes('attachment-package-check.js') && artifactBui
 assert.ok(!artifactBuilder.includes("'SRC工具/core/src-column-core.js'") && !artifactBuilder.includes("'SRC工具/src-column.html'") && artifactBuilder.includes('SRC工具/core/src-column-oracle.js') && artifactBuilder.includes('SRC工具/src-column-page.contract.test.js') && artifactBuilder.includes('SRC工具/src-column-browser-smoke.test.js') && artifactBuilder.includes('SRC工具/src-column-traceability.catalog.json'), 'shared artifact builder publishes the SRC column production page/core while keeping oracle, tests and governance catalog private');
 assert.ok(artifactBuilder.includes('joint-reaction-fixture-sanitizer.js') && artifactBuilder.includes('joint-reaction-fixture-promotion-gate.js') && artifactBuilder.includes('joint-reaction-observed-intake.js') && artifactBuilder.includes('joint-reaction-observed-review.template.json') && artifactBuilder.includes('shared/fixtures/joint-reactions/'), 'shared artifact builder keeps Joint Reactions intake, promotion and fixture evidence private');
 assert.ok(artifactBuilder.includes('結構工具箱/tools/independent-engineering-'), 'shared artifact builder keeps the complete independent engineering governance tree private');
-assert.ok(artifactBuilder.includes('qualificationWorkspacePrefixes') && artifactBuilder.includes('private-qualification-workspace') && artifactBuilder.includes("name: 'engineering-qualification-case-bundle'") && artifactBuilder.includes("name: 'beam-column-moment-g1-private-output'"), 'shared artifact builder excludes complete private qualification workspaces and fails closed on leaked bundle or moment-pilot evidence content');
+assert.ok(artifactBuilder.includes('qualificationWorkspacePrefixes') && artifactBuilder.includes('private-qualification-workspace') && artifactBuilder.includes("name: 'engineering-qualification-case-bundle'") && artifactBuilder.includes("name: 'beam-column-moment-g1-private-output'") && artifactBuilder.includes("name: 'beam-column-moment-real-case-intake'") && artifactBuilder.includes("name: 'beam-column-moment-real-case-intake-readiness-receipt'"), 'shared artifact builder excludes complete private qualification workspaces and fails closed on leaked bundle, moment-pilot, intake or readiness-receipt evidence content');
 assert.ok([
   'docs/adr/0004-separate-engineering-qualification-from-report-rendering.md',
   '結構工具箱/tools/engineering-qualification-case-bundle.js',
   '結構工具箱/tools/engineering-qualification-case-bundle.test.js',
   '結構工具箱/tools/beam-column-moment-g1-pilot.js',
   '結構工具箱/tools/beam-column-moment-g1-pilot.test.js',
+  '結構工具箱/tools/beam-column-moment-real-case-intake.js',
+  '結構工具箱/tools/beam-column-moment-real-case-intake.test.js',
   '結構工具箱/tools/建立工程資格化案件工作區.bat',
   '結構工具箱/tools/封印工程資格化案件包.bat',
   '結構工具箱/tools/檢查工程資格化案件包.bat',
 ].every(privatePath => pagesSmoke.includes(`'${privatePath}'`)), 'Pages live smoke pins the exact qualification ADR, code, test and launcher paths as private HTTP probes');
 assert.ok(artifactBuilder.includes("'結構工具箱/tools/beam-column-moment-g1-pilot.js'"), 'Pages builder keeps the production-backed moment G1 pilot private');
+assert.ok(artifactBuilder.includes("'結構工具箱/tools/beam-column-moment-real-case-intake.js'") && artifactBuilder.includes("'結構工具箱/tools/beam-column-moment-real-case-intake.test.js'"), 'Pages builder keeps the moment real-case intake source and contract private');
 assert.ok(pagesSmoke.includes('joint-reaction-fixture-sanitizer.js') && pagesSmoke.includes('joint-reaction-fixture-promotion-gate.js') && pagesSmoke.includes('joint-reaction-observed-intake.js') && pagesSmoke.includes('joint-reaction-observed-review.template.json') && pagesSmoke.includes('shared/fixtures/joint-reactions/observed-manifest.json'), 'Pages smoke probes Joint Reactions private governance assets');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/independent-engineering-adapters/rc-stm-strength.js')
   && pagesSmoke.includes('結構工具箱/tools/independent-engineering-adapters/frame-analysis.js')
@@ -576,6 +630,10 @@ assert.ok(pagesSmoke.includes("path: 'frame-analysis/'") && pagesSmoke.includes(
 assert.ok(pagesSmoke.includes("path: 'SRC工具/src-column.html'") && pagesSmoke.includes("source: '/src-column'") && pagesSmoke.includes('SRC工具/core/src-column-oracle.js') && pagesSmoke.includes('SRC工具/src-column-page.contract.test.js') && pagesSmoke.includes('SRC工具/src-column-browser-smoke.test.js') && pagesSmoke.includes('SRC工具/src-column-core.test.js') && pagesSmoke.includes('SRC工具/src-column-h-section-catalog.test.js') && pagesSmoke.includes('SRC工具/src-column-rc-biaxial.test.js') && pagesSmoke.includes('SRC工具/src-column-shear.test.js') && pagesSmoke.includes('SRC工具/src-column-seismic-axial.test.js') && pagesSmoke.includes('SRC工具/src-column-seismic-detailing.test.js') && pagesSmoke.includes('SRC工具/src-column-oracle.test.js') && pagesSmoke.includes('SRC工具/src-column-traceability.catalog.json'), 'Pages smoke treats SRC column production assets as public and probes private oracle/test assets');
 const { classifyPublishedPath } = require(artifactBuilderPath);
 assert.deepEqual(classifyPublishedPath('結構工具箱/tools/beam-column-moment-g1-pilot.js'), { publish: false, reason: 'private-tooling' }, 'moment G1 pilot cannot enter the public artifact');
+assert.deepEqual(classifyPublishedPath('結構工具箱/tools/beam-column-moment-real-case-intake.js'), { publish: false, reason: 'private-tooling' }, 'moment real-case intake source cannot enter the public artifact');
+assert.deepEqual(classifyPublishedPath('結構工具箱/tools/beam-column-moment-real-case-intake.test.js'), { publish: false, reason: 'private-tooling' }, 'moment real-case intake contract cannot enter the public artifact');
+assert.deepEqual(classifyPublishedPath('案件/MOMENT-001/beam-column-moment-real-case-intake.json'), { publish: false, reason: 'private-package-file' }, 'moment real-case intake marker cannot enter the public artifact');
+assert.deepEqual(classifyPublishedPath('案件/MOMENT-001/beam-column-moment-real-case-intake-readiness.receipt.json'), { publish: false, reason: 'private-package-file' }, 'moment real-case intake receipt cannot enter the public artifact');
 assert.deepEqual(classifyPublishedPath('鋼架/平面剛架分析.html'), { publish: true, reason: 'published' }, 'frame-analysis production page remains published');
 for (const publicPath of ['SRC工具/core/src-column-core.js', 'SRC工具/core/src-column-h-section-catalog.js', 'SRC工具/core/src-column-rc-biaxial.js', 'SRC工具/core/src-column-shear.js', 'SRC工具/core/src-column-weak-axis-shear-reference.js', 'SRC工具/core/src-column-seismic-axial.js', 'SRC工具/core/src-column-seismic-detailing.js', 'SRC工具/src-column.html', 'SRC工具/src-column.css', 'SRC工具/src-column.js']) {
   assert.deepEqual(classifyPublishedPath(publicPath), { publish: true, reason: 'published' }, `${publicPath} is published by the SRC formal route`);

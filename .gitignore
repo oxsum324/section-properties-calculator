@@ -113,6 +113,8 @@ output/
 # 私有工程資格化案件包；同工作區的其餘證據由工具拒絕放入 repo，Pages builder 另排除整棵案件根。
 case-bundle.draft.json
 case-bundle-[Ee][Qq][Bb]-*.json
+beam-column-moment-real-case-intake.json
+beam-column-moment-real-case-intake-readiness.receipt.json
 GSP-外部歸檔生命週期總覽-*/
 GSM-外部歸檔生命週期監測-latest.json
 GSM-外部歸檔生命週期監測事件-*.json
