@@ -2815,6 +2815,8 @@ function assertReportContentState(state, tool, label, mode = 'detailed') {
   });
   if (tool.key === 'cable-tension-frequency') {
     assert.equal(visibleText.includes('本頁有效輸入範圍'), false, `${label} cable report excludes UI input limits`);
+    assert.equal(visibleText.includes('單項 ±1%'), false, `${label} cable report excludes illustrative sensitivity`);
+    assert.equal(state.html.includes('sensitivityResult'), false, `${label} cable report excludes sensitivity panel`);
     assert.ok(visibleText.indexOf('控制結果') < visibleText.indexOf('計算示意圖'), `${label} cable report presents adopted results before diagram`);
   }
 }
@@ -3606,6 +3608,32 @@ async function main() {
           const result = await navigateAndInspect(client, sessionId, toolCase.url, viewport, toolExpression(tool));
           assert.deepEqual(result.errors, [], `${label} ${tool.key} console errors: ${result.errors.join(' | ')}`);
           assertToolState(result.state, tool, label);
+          if (tool.key === 'cable-tension-frequency') {
+            const sensitivityState = await evaluate(client, sessionId, `(() => {
+              const panel = document.getElementById('sensitivityResult');
+              const initial = panel.textContent;
+              const rows = panel.querySelectorAll('tbody tr').length;
+              const length = document.getElementById('effectiveLengthM');
+              const original = length.value;
+              length.value = '0';
+              document.getElementById('btnCalc').click();
+              const invalid = panel.textContent;
+              const invalidRows = panel.querySelectorAll('tbody tr').length;
+              length.value = original;
+              document.getElementById('btnCalc').click();
+              return { initial, rows, invalid, invalidRows, restored: panel.textContent,
+                pageOnly: panel.closest('.page-only-report-status') !== null };
+            })()`);
+            assert.equal(sensitivityState.rows, 3, `${label} sensitivity has three separate perturbations`);
+            assert.match(sensitivityState.initial, /-1\.99%/);
+            assert.match(sensitivityState.initial, /\+2\.01%/);
+            assert.match(sensitivityState.initial, /-1\.00%/);
+            assert.match(sensitivityState.initial, /\+1\.00%/);
+            assert.equal(sensitivityState.invalidRows, 0, `${label} invalid input clears stale scenarios`);
+            assert.match(sensitivityState.invalid, /輸入無效/);
+            assert.equal(sensitivityState.restored, sensitivityState.initial);
+            assert.equal(sensitivityState.pageOnly, true);
+          }
           const directPrintRecord = await assertLocalQuickDirectPrintBlocked(
             client,
             sessionId,

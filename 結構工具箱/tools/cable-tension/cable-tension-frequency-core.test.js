@@ -330,4 +330,31 @@ for (const goldenCase of goldenCases) {
   assert.ok(excessiveTargetToleranceErrors.some((message) => message.includes('targetTolerancePct')));
 }
 
-console.log('cable tension frequency core regression OK');
+// Independent closed-form oracle: L=10 m, m=2 kg/m, f_n/n=5 Hz gives T=20 kN.
+{
+  const sensitivity = require('./cable-tension-frequency-sensitivity.js');
+  const input = { ...goldenCases[0].input, effectiveLengthM: 10, massPerLengthKgM: 2,
+    measurements: [{ mode: 1, frequencyHz: 5 }, { mode: 3, frequencyHz: 15 }] };
+  const saved = structuredClone(input);
+  const result = sensitivity.calculate(input);
+  approx(result.baselineTensionKn, 20);
+  assert.deepEqual(result.rows.map(row => row.parameter), ['effectiveLengthM', 'massPerLengthKgM', 'frequencyHz']);
+  [[19.602, 20.402], [19.8, 20.2], [19.602, 20.402]].forEach((expected, index) => {
+    expected.forEach((tension, side) => approx(result.rows[index].scenarios[side].tensionKn, tension));
+  });
+  approx(result.rows[0].scenarios[0].tensionChangePct, -1.99);
+  approx(result.rows[0].scenarios[1].tensionChangePct, 2.01);
+  assert.deepEqual(input, saved, 'sensitivity must not mutate the adopted input');
+  assert.deepEqual(CableTensionFrequencyCore.calculate(input), CableTensionFrequencyCore.calculate(saved));
+  assert.throws(() => sensitivity.calculate({ ...input, effectiveLengthM: 0 }));
+  const nearOverflow = { ...input, effectiveLengthM: 100, massPerLengthKgM: 1e300,
+    measurements: [{ mode: 1, frequencyHz: 67 }] };
+  assert.ok(Number.isFinite(CableTensionFrequencyCore.calculate(nearOverflow).fit.tensionKn));
+  assert.throws(() => sensitivity.calculate(nearOverflow), /有限數值/);
+  // Nonconsecutive modes with residuals still scale together; this is not independent per-mode noise.
+  const residual = sensitivity.calculate({ ...input, measurements: [{ mode: 2, frequencyHz: 10.1 }, { mode: 5, frequencyHz: 24.9 }] });
+  approx(residual.rows[2].scenarios[0].tensionKn / residual.baselineTensionKn, 0.9801);
+  approx(residual.rows[2].scenarios[1].tensionKn / residual.baselineTensionKn, 1.0201);
+}
+
+console.log('cable tension frequency core and fixed sensitivity regression OK');
