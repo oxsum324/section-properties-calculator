@@ -189,6 +189,18 @@ try {
   assert.equal(receipt.fieldSchemaSha256, Intake.TOOL_INPUT_SCHEMA_SHA256);
   const receiptText = firstReceiptBytes.toString('utf8');
   assert.doesNotMatch(receiptText, /PRIVATE-CASE|私有實案|私有設計者|claimedLevel|qualificationStatus|"decision"\s*:/u, 'receipt contains hashes and boundaries, not identities or qualification claims');
+  const beforeConsume = fileInventory(positive.workspace);
+  const consumed = Intake.verifySealedReadinessReceipt(positive.workspace, 'beam-column-moment-real-case-intake.json');
+  assert.deepEqual(fileInventory(positive.workspace), beforeConsume, 'sealed readiness consumption is read-only');
+  assert.equal(consumed.receipt.intakeFingerprint, receipt.intakeFingerprint);
+  assert.equal(consumed.candidate.caseIdentity.externalCaseId, BASE_CANDIDATE.caseIdentity.externalCaseId);
+  assert.equal(consumed.referenceData.record.method, 'independent-spreadsheet');
+  assert.equal(consumed.evidence.length, 5, 'candidate, case source, two reference files and receipt share one stable snapshot');
+  assert.throws(
+    () => Intake.verifySealedReadinessReceipt(positive.workspace, 'references/independent-reference.json'),
+    /未與固定收件完成收據綁定/u,
+    'a caller cannot substitute another JSON file for the sealed candidate',
+  );
   assert.throws(
     () => Intake.sealReadiness(positive.workspace, 'beam-column-moment-real-case-intake.json'),
     error => error instanceof Intake.IntakeContractError && /已存在|覆寫/u.test(error.message),
@@ -201,6 +213,25 @@ try {
   const tamperedNextAction = clone(receipt);
   tamperedNextAction.nextAction = 'G1/G2/G3 complete';
   assert.throws(() => Intake.validateReceiptShape(tamperedNextAction), /下一步/u);
+
+  const changedAfterSeal = materialize('changed-after-seal');
+  Intake.sealReadiness(changedAfterSeal.workspace, 'beam-column-moment-real-case-intake.json');
+  changedAfterSeal.candidate.toolInput.notes = 'sealed evidence changed after receipt';
+  writeJson(path.join(changedAfterSeal.workspace, 'beam-column-moment-real-case-intake.json'), changedAfterSeal.candidate);
+  assert.throws(
+    () => Intake.verifySealedReadinessReceipt(changedAfterSeal.workspace, 'beam-column-moment-real-case-intake.json'),
+    /收據不一致|未綁定|無法由目前已封證據重建/u,
+    'a sealed candidate cannot be replaced before production consumption',
+  );
+
+  const changedReferenceAfterSeal = materialize('changed-reference-after-seal');
+  Intake.sealReadiness(changedReferenceAfterSeal.workspace, 'beam-column-moment-real-case-intake.json');
+  writeJson(path.join(changedReferenceAfterSeal.workspace, 'references', 'independent-reference.json'), { result: 654.321, route: 'external-spreadsheet' });
+  assert.throws(
+    () => Intake.verifySealedReadinessReceipt(changedReferenceAfterSeal.workspace, 'beam-column-moment-real-case-intake.json'),
+    /收據不一致|無法由目前已封證據重建/u,
+    'the sealed external machine reference cannot be replaced before production consumption',
+  );
 
   const cli = spawnSync(process.execPath, [
     TOOL_PATH, '--workspace', positive.workspace, '--input', 'beam-column-moment-real-case-intake.json', '--json',

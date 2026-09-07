@@ -1681,7 +1681,7 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         dataScopeNote: document.getElementById('dataScopeNote')?.textContent?.replace(/\s+/g, ' ').trim() || '',
         localDetailLinksVisible: (() => {
           const node = document.getElementById('localDetailLinks');
-          return !!node && !node.hidden && node.getClientRects().length > 0;
+          return !!node && node.getClientRects().length > 0 && getComputedStyle(node).visibility !== 'hidden';
         })(),
         localDiagnosticSectionsVisible: Array.from(document.querySelectorAll('.local-diagnostic-section')).filter(node => node.getClientRects().length > 0).map(node => node.id),
         rows: rows.length,

@@ -317,6 +317,8 @@ SRC 柱已以 `src-column.core.v1.0.0` 升格為限定範圍的正式構材附�
   [engineering-qualification-case-bundle.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/engineering-qualification-case-bundle.js:1)
 - 梁柱彎矩實案收件就緒檢查：
   [beam-column-moment-real-case-intake.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/beam-column-moment-real-case-intake.js:1)
+- 梁柱彎矩實案 G1 執行與封印：
+  [beam-column-moment-real-case-g1-runner.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/beam-column-moment-real-case-g1-runner.js:1)
 - 錨栓 `anchor/` 可攜式部署同步（Pages 子路徑與 Vercel `/anchor/` 共用）：
   [sync-anchor-deployment.ps1](/C:/Users/USER/Desktop/AI/小工具製作/sync-anchor-deployment.ps1:1)
 
@@ -491,6 +493,30 @@ node .\結構工具箱\tools\beam-column-moment-real-case-intake.js `
 ```
 
 預設檢查完全唯讀；只有精確指定 `--seal-readiness yes` 才會以不可覆寫方式建立 `references/beam-column-moment-real-case-intake-readiness.receipt.json`。若 exclusive create 後的實體身分或事後驗證失敗，工具為避免路徑競態誤刪他人檔案，不會自動刪除可能留下的空白／部分收據；須先人工檢查並將該固定收據移出工作區，再重新執行。成功狀態固定為 `intake-complete-manual-g1-work-required`，只代表收件資料與證據綁定完整；邊界固定為 `calculatorExecuted=false`、`engineeringResultsCompared=false`、`g1=false`、`g2=false`、`g3=false`、`completeJointDesign=false`、`legalSignoff=false`、`formalAttachmentApproval=false`、`pagesPublication=false`。本版不載入或執行 production，也不做工程比較；下一關才是實案 G1 runner，由案件負責人執行 production、規格化外部基準並完成逐項比較。之後的 G2 才綁定真實案號、來源證據、用途、限制、排除項、規範依據與 applicability；G3 再由負責人對同一次 `CF-` 的實際附件完成人工複核與內部採用。
+
+實案 G1 runner 只接受已建立 readiness receipt 的收件工作區，並要求一個全新、與 repo 及 intake workspace 彼此不相交的 output workspace。第一段必須明確授權 production 執行：
+
+```powershell
+$intakeWorkspace = "C:\engineering-private\moment-real-case-001"
+$g1Workspace = "C:\engineering-private\moment-real-case-g1-001"
+
+node .\結構工具箱\tools\beam-column-moment-real-case-g1-runner.js `
+  --intake-workspace $intakeWorkspace `
+  --input beam-column-moment-real-case-intake.json `
+  --output-workspace $g1Workspace `
+  --execute-production yes
+```
+
+這一步只產生 production 結果、外部基準正規化資料、comparison、review draft 與空白 decision template；即使全部自動比較通過，仍固定 `g1=false`。案件負責人須在 output workspace 內另由人工審閱結果與差異，再依 template 填妥 `references/beam-column-moment-real-case-g1-decision.json`。只有之後明確要求封印，才可建立 G1 decision receipt 與 sealed bundle：
+
+```powershell
+node .\結構工具箱\tools\beam-column-moment-real-case-g1-runner.js `
+  --output-workspace $g1Workspace `
+  --seal-g1 yes `
+  --decision references/beam-column-moment-real-case-g1-decision.json
+```
+
+封印會重新綁定原 intake／readiness、production、獨立基準、comparison、人工 decision 與實體證據；只有全部契約與人工決定成立時，才可記錄該案該次執行的 G1。G1 仍不建立整支工具驗證域，且 `g2=false`、`g3=false`、`completeJointDesign=false`、`legalSignoff=false`、`formalAttachmentApproval=false`、`pagesPublication=false`。兩個 workspace、decision template/candidate/receipt、input、production JSON、review HTML、comparison、draft／review／sealed bundle 與所有真實案件／外部基準 artifacts 全部只留 repo 外，不得 staging、複製到正式附件或發布至 Pages。
 
 新的 intake 工具不接受舊 `beam-column-moment-real-case-intake-template.v1 / template-only-no-case-data` 直接升格；既有已封印 synthetic G1 案件包仍由 `engineering-qualification-case-bundle.js` 依原契約相容驗證，不必也不得為了新版候選格式改寫舊封印證據。
 

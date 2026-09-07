@@ -820,6 +820,15 @@ function verifyComparisonData(baseDirectory, comparison, run) {
   const loaded = readStrictJsonFile(evidenceAbsolutePath(baseDirectory, comparison.comparisonDataArtifact), label);
   const productionData = readStrictJsonFile(evidenceAbsolutePath(baseDirectory, run.resultDataArtifact), `計算執行 ${run.runId} 機讀結果`);
   const referenceData = readStrictJsonFile(evidenceAbsolutePath(baseDirectory, comparison.referenceDataArtifact), `獨立比較 ${comparison.comparisonId} 基準機讀資料`);
+  const isRealCaseMoment = productionData.record?.kind === 'beam-column-moment-real-case-production-result.v1'
+    || referenceData.record?.kind === 'beam-column-moment-real-case-independent-reference.v1';
+  if (isRealCaseMoment) {
+    if (run.toolId !== BEAM_COLUMN_MOMENT_PILOT_TOOL_ID) fail(`${label}不得移除梁柱彎矩實案工具身分。`);
+    try {
+      require('./beam-column-moment-real-case-g1-runner.js').verifyComparisonBindings(baseDirectory, comparison, run);
+    } catch (error) { fail(`${label}實案綁定失敗：${error.message}`); }
+    return;
+  }
   const isBeamColumnMomentPilot = run.toolId === BEAM_COLUMN_MOMENT_PILOT_TOOL_ID
     || productionData.record?.kind === 'beam-column-moment-production-result.v1'
     || referenceData.record?.kind === 'beam-column-moment-independent-reference.v1';
@@ -1009,6 +1018,13 @@ function verifyBeamColumnMomentPilotResult(payload, fields, label, run, expected
 
 function registerBeamColumnMomentPilotReceiptEvidence(baseDirectory, decision, run, observed) {
   if (run.toolId !== BEAM_COLUMN_MOMENT_PILOT_TOOL_ID) return;
+  const realReceipt = readStrictJsonFile(evidenceAbsolutePath(baseDirectory, decision.decisionReceipt), '梁柱彎矩收據身分');
+  if (realReceipt.record?.kind === 'beam-column-moment-real-case-g1-decision-receipt.v1') {
+    for (const key of ['manualDecisionArtifact', 'intakeReceiptArtifact', 'comparisonDataArtifact']) {
+      verifyEvidenceFile(baseDirectory, realReceipt.record[key], `梁柱彎矩實案 ${key}`, observed);
+    }
+    return;
+  }
   const label = `資格化決定 ${decision.decisionId} 梁柱彎矩試辦收據`;
   const receipt = readStrictJsonFile(evidenceAbsolutePath(baseDirectory, decision.decisionReceipt), label);
   exactKeys(receipt.record, BEAM_COLUMN_MOMENT_PILOT_RECEIPT_FIELDS, label);
@@ -1022,6 +1038,13 @@ function registerBeamColumnMomentPilotReceiptEvidence(baseDirectory, decision, r
 
 function verifyBeamColumnMomentPilotBindings(baseDirectory, record, runs, comparisons) {
   record.calculationRuns.filter(run => run.toolId === BEAM_COLUMN_MOMENT_PILOT_TOOL_ID).forEach(run => {
+    const runInput = readStrictJsonFile(evidenceAbsolutePath(baseDirectory, run.inputArtifact), '梁柱彎矩輸入身分');
+    if (runInput.record?.kind === 'beam-column-moment-real-case-g1-input.v1') {
+      try {
+        require('./beam-column-moment-real-case-g1-runner.js').verifyBundleBindings(baseDirectory, record, run);
+      } catch (error) { fail(`梁柱彎矩實案綁定失敗：${error.message}`); }
+      return;
+    }
     const runComparisons = record.independentComparisons.filter(item => item.runId === run.runId);
     const runDecisions = record.qualificationDecisions.filter(item => item.runId === run.runId);
     if (record.case.sourceKind !== 'synthetic' || runComparisons.length !== 1 || runDecisions.length !== 1
@@ -1349,6 +1372,12 @@ function validateBundle(record, options = {}) {
       verifyEvidenceFile(options.baseDirectory, run.inputArtifact, `計算執行 ${run.runId} 輸入`, observed);
       verifyEvidenceFile(options.baseDirectory, run.resultDataArtifact, `計算執行 ${run.runId} 機讀結果`, observed);
       verifyEvidenceFile(options.baseDirectory, run.outputArtifact, `計算執行 ${run.runId} 輸出`, observed);
+      if (run.toolId === BEAM_COLUMN_MOMENT_PILOT_TOOL_ID) {
+        const savedInput = readStrictJsonFile(evidenceAbsolutePath(options.baseDirectory, run.inputArtifact), '計算輸入身分');
+        if (savedInput.record?.kind === 'beam-column-moment-real-case-g1-input.v1') {
+          Object.values(savedInput.record.intakeEvidence || {}).forEach(item => verifyEvidenceFile(options.baseDirectory, item, '梁柱彎矩實案收件證據', observed));
+        }
+      }
     });
     record.independentComparisons.forEach(item => {
       verifyEvidenceFile(options.baseDirectory, item.referenceArtifact, `獨立比較 ${item.comparisonId} 基準`, observed);
@@ -1372,6 +1401,7 @@ function validateBundle(record, options = {}) {
     verifyEvidenceStability(observed);
     record.independentComparisons.forEach(item => verifyComparisonData(options.baseDirectory, item, runs.get(item.runId)));
     verifyBeamColumnMomentPilotBindings(options.baseDirectory, record, runs, comparisons);
+    verifyEvidenceStability(observed);
     record.artifactReviews.filter(item => item.state === 'pass')
       .forEach(item => verifyFormalArtifact(
         options.baseDirectory,

@@ -673,6 +673,75 @@ function collectAssessment(workspacePath, inputRelativePath) {
   return { workspace, evidence, receipt };
 }
 
+function assertEvidenceDescriptor(actual, expected, label) {
+  if (canonicalJson(evidenceRecord(actual)) !== canonicalJson(expected)) {
+    throw new IntakeContractError(`${label}與已封收件完成收據不一致。`);
+  }
+}
+
+function verifySealedReadinessReceipt(workspacePath, inputRelativePath) {
+  const workspace = physicalWorkspace(workspacePath);
+  const inputRelative = normalizeRelativePath(inputRelativePath, '實案收件 JSON');
+  const receiptLoaded = readStrictJson(workspace, RECEIPT_RELATIVE_PATH, '收件完成收據');
+  if (!receiptLoaded.record || typeof receiptLoaded.record !== 'object' || Array.isArray(receiptLoaded.record)) {
+    throw new IntakeContractError('收件完成收據根值必須是物件。');
+  }
+  const receipt = validateReceiptShape(receiptLoaded.record);
+  if (Date.parse(receipt.validatedAt) > Date.now() + 5 * 60 * 1000) {
+    throw new IntakeContractError('收件完成收據時間晚於目前時間的合理誤差範圍。');
+  }
+  if (receipt.intake.file !== inputRelative) {
+    throw new IntakeContractError('指定收件 JSON 未與固定收件完成收據綁定。');
+  }
+
+  const loaded = readStrictJson(workspace, inputRelative, '實案收件 JSON');
+  if (!loaded.record || typeof loaded.record !== 'object' || Array.isArray(loaded.record)) {
+    throw new IntakeContractError('實案收件 JSON 根值必須是物件。');
+  }
+  validateCandidate(loaded.record, receipt.validatedAt);
+  const caseSource = physicalFile(workspace, loaded.record.caseIdentity.caseSourceArtifactFile, '案件來源證據', MAX_EVIDENCE_BYTES);
+  const referenceArtifact = physicalFile(workspace, loaded.record.independentReference.artifactFile, '外部基準人讀成品', MAX_EVIDENCE_BYTES);
+  const referenceData = readStrictJson(workspace, loaded.record.independentReference.machineDataFile, '外部基準機讀資料');
+  if (!referenceData.record || typeof referenceData.record !== 'object' || Array.isArray(referenceData.record)
+      || !Object.keys(referenceData.record).length) {
+    throw new IntakeContractError('外部基準機讀資料必須是非空 JSON 物件。');
+  }
+  validateFiniteJsonTree(referenceData.record, '外部基準機讀資料');
+
+  assertEvidenceDescriptor(loaded, receipt.intake, '實案收件 JSON');
+  assertEvidenceDescriptor(caseSource, receipt.caseSourceArtifact, '案件來源證據');
+  assertEvidenceDescriptor(referenceArtifact, receipt.referenceArtifact, '外部基準人讀成品');
+  assertEvidenceDescriptor(referenceData, receipt.referenceDataArtifact, '外部基準機讀資料');
+  if (receipt.caseIdentitySha256 !== sha256(Buffer.from(canonicalJson(loaded.record.caseIdentity), 'utf8'))
+      || receipt.criteriaSha256 !== sha256(Buffer.from(canonicalJson(loaded.record.criteria), 'utf8'))
+      || receipt.toolInputSha256 !== sha256(Buffer.from(canonicalJson(loaded.record.toolInput), 'utf8'))) {
+    throw new IntakeContractError('收件完成收據未綁定目前案件身分、事前準則或 88 欄工具輸入。');
+  }
+
+  const evidence = [loaded, caseSource, referenceArtifact, referenceData, receiptLoaded];
+  const pathKeys = evidence.map(item => item.relative.toLowerCase());
+  const hashes = evidence.map(item => item.sha256);
+  if (new Set(pathKeys).size !== pathKeys.length || new Set(hashes).size !== hashes.length) {
+    throw new IntakeContractError('收件完成收據與四份收件證據必須是不同的實體檔案與內容。');
+  }
+  const rebuilt = validateReceiptShape(buildReceipt(loaded, caseSource, referenceArtifact, referenceData, receipt.validatedAt));
+  if (canonicalJson(rebuilt) !== canonicalJson(receipt)) {
+    throw new IntakeContractError('收件完成收據內容無法由目前已封證據重建。');
+  }
+  verifyStable(evidence);
+  return {
+    workspace,
+    receipt,
+    receiptEvidence: receiptLoaded,
+    candidate: loaded.record,
+    candidateEvidence: loaded,
+    caseSource,
+    referenceArtifact,
+    referenceData,
+    evidence,
+  };
+}
+
 function publicResult(receipt, receiptCreated) {
   return {
     status: receipt.status,
@@ -853,6 +922,8 @@ module.exports = {
   receiptBoundary,
   validateCandidate,
   validateReceiptShape,
+  verifySealedReadinessReceipt,
+  consumeSealedReadinessForExecution: verifySealedReadinessReceipt,
   assessIntake,
   sealReadiness,
   parseArgs,

@@ -1535,6 +1535,8 @@ node 結構工具箱/tools/engineering-qualification-case-bundle.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node 結構工具箱/tools/beam-column-moment-real-case-intake.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node 結構工具箱/tools/beam-column-moment-real-case-g1-runner.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node 結構工具箱/tools/beam-column-moment-g1-pilot.test.js
 exit $LASTEXITCODE
 '@
@@ -2830,7 +2832,7 @@ $checks = @(
   },
   [pscustomobject]@{
     key = "engineering-qualification-case-bundle"
-    label = "Private engineering qualification case bundle, moment real-case intake and G1 pilot contract"
+    label = "Private engineering qualification case bundle, moment real-case intake, real-case G1 runner and synthetic G1 pilot contract"
     workdir = $root
     command = $engineeringQualificationCaseBundleCommand
     slow = $false

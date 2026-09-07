@@ -103,7 +103,7 @@ const MOMENT_TEXT_FIELDS = [
   'projectName', 'connectionTag', 'designer', 'notes',
   ...MOMENT_BASIS_FIELDS, ...MOMENT_SHA_FIELDS,
 ];
-const MOMENT_SOURCE_FIELDS = [
+const MOMENT_SOURCE_FIELDS = Object.freeze([
   'projectName', 'connectionTag', 'designer', 'notes', 'designMethod', 'connectionType', 'exposureCondition',
   'momentFrameSystem', 'momentAxis', 'momentConnectionDesignRoute',
   'momentBeamPlasticModulus', 'momentBeamYieldStrength', 'momentExpectedStrengthFactor', 'momentCriticalSectionDistance', 'momentPlasticHingeSpan',
@@ -127,7 +127,7 @@ const MOMENT_SOURCE_FIELDS = [
   'momentJointLateralRestraintConfirmed', 'momentBeamLateralBracingConfirmed', 'momentAllMembersIncludedConfirmed',
   'momentColumnStrengthsAtGoverningAxialConfirmed', 'momentOpposingDirectionsConfirmed', 'momentOrthogonalDirectionSeparateConfirmed',
   'momentConnectionHardwareVerifiedConfirmed', 'momentSelectedAxisScopeConfirmed',
-];
+]);
 if (MOMENT_SOURCE_FIELDS.length !== 88) throw new Error(`steel-formal-moment-source-field-count:${MOMENT_SOURCE_FIELDS.length}`);
 const momentSourceContractMatch = productionAppSource.match(/const MOMENT_SOURCE_FIELD_KEYS = \[([\s\S]*?)\n\s*\];/);
 const productionMomentSourceFields = momentSourceContractMatch
@@ -143,6 +143,76 @@ const momentCategorizedFields = [
 ].sort();
 if (momentCategorizedFields.join('|') !== [...MOMENT_SOURCE_FIELDS].sort().join('|')) {
   throw new Error(`steel-formal-moment-field-categories:${momentCategorizedFields.join('|')}`);
+}
+const MOMENT_SINGLE_CASE_FIXED_SCOPE = Object.freeze({
+  designMethod: 'LRFD',
+  connectionType: 'beam_column_moment',
+  momentFrameSystem: 'smrf',
+  momentAxis: 'x',
+  momentConnectionDesignRoute: 'reinforced',
+  momentQualificationRoute: 'prior_test_similarity',
+});
+const MOMENT_DETAIL_OUTPUTS = Object.freeze({
+  lrfdPass:'momentLrfdMethod',
+  frameSystemPass:'momentFrameSystem',
+  axisPass:'momentAxis',
+  designRoutePass:'momentDesignRoute',
+  farCriticalMomentPass:'momentFarCriticalSectionExpectedMoment',
+  expectedStrengthFactorPass:'momentExpectedStrengthFactor',
+  beamFlangeCompactnessPass:'momentBeamFlangeCompactnessRatio',
+  beamWebCompactnessPass:'momentBeamWebCompactnessRatio',
+  beamFlangePlasticModulusPass:'momentBeamFlangePlasticModulusRatio',
+  panelZoneThicknessPass:'momentPanelZoneThickness',
+  doublerAttachmentPass:'momentDoublerAttachmentConfirmed',
+  continuityPlateRequirementPass:'momentContinuityPlateRequirement',
+  continuityPlateWeldPass:'momentContinuityPlateWeldConfirmed',
+  qualificationRoutePass:'momentQualificationRoute',
+  qualificationTestCountPass:'momentQualificationTestCount',
+  qualificationThicknessSimilarityPass:'momentQualificationThicknessSimilarity',
+  qualificationPlasticRatioSimilarityPass:'momentQualificationPlasticRatioSimilarity',
+  thirdPartyReviewPass:'momentThirdPartyReviewConfirmed',
+  qualificationConfigurationPass:'momentQualificationConfigurationConfirmed',
+  qualificationMaterialPass:'momentQualificationMaterialConfirmed',
+  qualificationWeldingPass:'momentQualificationWeldingConfirmed',
+  qualificationGeometryPass:'momentQualificationGeometryConfirmed',
+  qualificationFabricationPass:'momentQualificationFabricationConfirmed',
+  qualificationProcedurePass:'momentQualificationProcedureConfirmed',
+  plasticZoneGeometryPass:'momentPlasticZoneGeometryConfirmed',
+  plasticZoneOpeningsPass:'momentPlasticZoneOpeningsAbsentConfirmed',
+  seismicMaterialPass:'momentSeismicMaterialConfirmed',
+  matchingWeldPass:'momentMatchingWeldConfirmed',
+  cns3506WeldPass:'momentCns3506WeldConfirmed',
+  endTabsPass:'momentEndTabsRemovedGroundConfirmed',
+  weldProcedurePass:'momentWeldProcedureMatchesQualificationConfirmed',
+  jointLateralRestraintPass:'momentJointLateralRestraintConfirmed',
+  beamLateralBracingPass:'momentBeamLateralBracingConfirmed',
+  allMembersIncludedPass:'momentAllMembersIncludedConfirmed',
+  governingAxialPass:'momentColumnStrengthsAtGoverningAxialConfirmed',
+  opposingDirectionsPass:'momentOpposingDirectionsConfirmed',
+  orthogonalSeparatePass:'momentOrthogonalDirectionSeparateConfirmed',
+  hardwareVerifiedPass:'momentConnectionHardwareVerifiedConfirmed',
+  selectedAxisScopePass:'momentSelectedAxisScopeConfirmed',
+  demandBasisPass:'momentDemandBasis',
+  geometryBasisPass:'momentGeometryBasis',
+  materialBasisPass:'momentMaterialBasis',
+  capacityBasisPass:'momentCapacityBasis',
+  panelZoneBasisPass:'momentPanelZoneBasis',
+  strongColumnBasisPass:'momentStrongColumnBasis',
+  qualificationBasisPass:'momentQualificationBasis',
+  qualificationEvidenceShaPass:'momentQualificationEvidenceSha256',
+  capacityEvidenceShaPass:'momentCapacityEvidenceSha256',
+});
+const MOMENT_NORMALIZED_RESULT_FIELDS = Object.freeze([
+  'sourceFieldCount', 'checkCount',
+  'Mp', 'Mpr', 'MprFar', 'Vp', 'MuFace', 'VuRequired', 'rotationDemand', 'qualifiedRotation',
+  'VpzMin', 'VpzRequired', 'VpzNominal', 'VpzAvailable', 'panelThicknessRequired',
+  'continuityThreshold', 'continuityRequired', 'scwbCw', 'scwbCcw',
+  'flexuralRatio', 'shearRatio', 'rotationRatio', 'panelZoneRatio', 'scwbCwRatio', 'scwbCcwRatio',
+  ...Object.keys(MOMENT_DETAIL_OUTPUTS),
+  'strengthPass', 'detailPass', 'validationFailure', 'complianceReady', 'completeJointDesign', 'passes',
+]);
+if (MOMENT_NORMALIZED_RESULT_FIELDS.length !== 79) {
+  throw new Error(`steel-formal-moment-normalized-result-count:${MOMENT_NORMALIZED_RESULT_FIELDS.length}`);
 }
 
 const SPLICE_CASE_IDS = [
@@ -228,6 +298,55 @@ function validatePositiveFields(item, fields, prefix, issues) {
   for (const key of fields) {
     if (!Number.isFinite(Number(item?.[key])) || Number(item[key]) <= 0) issues.push(`${prefix}.${key}:positive-finite-required`);
   }
+}
+
+function validateBeamColumnMomentCase88(input) {
+  const issues = [];
+  const prefix = 'beamColumnMomentCase88';
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return [`${prefix}:object-required`];
+  }
+
+  const expectedKeys = [...MOMENT_SOURCE_FIELDS].sort();
+  const actualKeys = Object.keys(input).sort();
+  if (actualKeys.length !== expectedKeys.length || actualKeys.some((key, index) => key !== expectedKeys[index])) {
+    const missing = expectedKeys.filter(key => !actualKeys.includes(key));
+    const extra = actualKeys.filter(key => !expectedKeys.includes(key));
+    return [`${prefix}:exact-88-source-field-shape-required:missing=${missing.join(',') || 'none'}:extra=${extra.join(',') || 'none'}`];
+  }
+
+  for (const [key, values] of Object.entries(MOMENT_ENUM_FIELDS)) {
+    if (!values.includes(input[key])) issues.push(`${prefix}.${key}:unsupported`);
+  }
+  for (const [key, expected] of Object.entries(MOMENT_SINGLE_CASE_FIXED_SCOPE)) {
+    if (input[key] !== expected) issues.push(`${prefix}.${key}:fixed-scope-${expected}-required`);
+  }
+  for (const key of MOMENT_FINITE_FIELDS) {
+    if (typeof input[key] !== 'number' || !Number.isFinite(input[key])) {
+      issues.push(`${prefix}.${key}:finite-number-required`);
+    }
+  }
+  if (!Number.isInteger(input.momentQualificationTestCount) || input.momentQualificationTestCount < 0) {
+    issues.push(`${prefix}.momentQualificationTestCount:nonnegative-integer-required`);
+  }
+  if (!(input.momentFarCriticalSectionExpectedMoment >= 0)) {
+    issues.push(`${prefix}.momentFarCriticalSectionExpectedMoment:nonnegative-required`);
+  }
+  for (const key of MOMENT_BOOLEAN_FIELDS) {
+    if (typeof input[key] !== 'boolean') issues.push(`${prefix}.${key}:boolean-required`);
+  }
+  for (const key of MOMENT_TEXT_FIELDS) {
+    if (typeof input[key] !== 'string') issues.push(`${prefix}.${key}:string-required`);
+  }
+  for (const key of MOMENT_BASIS_FIELDS) {
+    if (typeof input[key] !== 'string' || !input[key].trim()) issues.push(`${prefix}.${key}:nonempty-basis-required`);
+  }
+  for (const key of MOMENT_SHA_FIELDS) {
+    if (typeof input[key] !== 'string' || !/^[0-9a-f]{64}$/.test(input[key]) || /^0{64}$/.test(input[key])) {
+      issues.push(`${prefix}.${key}:lowercase-nonzero-sha256-required`);
+    }
+  }
+  return issues;
 }
 
 function validateInput(input) {
@@ -965,8 +1084,7 @@ function calculateGussetCase(input) {
   return output;
 }
 
-function calculateMomentCase(input) {
-  const result = calculateConnection({ ...input, connectionType:'beam_column_moment' });
+function normalizeMomentResult(result) {
   const actualStrengthKeys = result.checks.map(item => item.key);
   if (actualStrengthKeys.join('|') !== MOMENT_STRENGTH_KEYS.join('|')) {
     throw new Error(`steel-formal-production-moment-strength-keys:${actualStrengthKeys.join('|')}`);
@@ -978,56 +1096,6 @@ function calculateMomentCase(input) {
   const panelZone = checkByKey(result, 'momentPanelZoneShear');
   const scwbCw = checkByKey(result, 'momentStrongColumnCw');
   const scwbCcw = checkByKey(result, 'momentStrongColumnCcw');
-  const detailOutputs = {
-    lrfdPass:'momentLrfdMethod',
-    frameSystemPass:'momentFrameSystem',
-    axisPass:'momentAxis',
-    designRoutePass:'momentDesignRoute',
-    farCriticalMomentPass:'momentFarCriticalSectionExpectedMoment',
-    expectedStrengthFactorPass:'momentExpectedStrengthFactor',
-    beamFlangeCompactnessPass:'momentBeamFlangeCompactnessRatio',
-    beamWebCompactnessPass:'momentBeamWebCompactnessRatio',
-    beamFlangePlasticModulusPass:'momentBeamFlangePlasticModulusRatio',
-    panelZoneThicknessPass:'momentPanelZoneThickness',
-    doublerAttachmentPass:'momentDoublerAttachmentConfirmed',
-    continuityPlateRequirementPass:'momentContinuityPlateRequirement',
-    continuityPlateWeldPass:'momentContinuityPlateWeldConfirmed',
-    qualificationRoutePass:'momentQualificationRoute',
-    qualificationTestCountPass:'momentQualificationTestCount',
-    qualificationThicknessSimilarityPass:'momentQualificationThicknessSimilarity',
-    qualificationPlasticRatioSimilarityPass:'momentQualificationPlasticRatioSimilarity',
-    thirdPartyReviewPass:'momentThirdPartyReviewConfirmed',
-    qualificationConfigurationPass:'momentQualificationConfigurationConfirmed',
-    qualificationMaterialPass:'momentQualificationMaterialConfirmed',
-    qualificationWeldingPass:'momentQualificationWeldingConfirmed',
-    qualificationGeometryPass:'momentQualificationGeometryConfirmed',
-    qualificationFabricationPass:'momentQualificationFabricationConfirmed',
-    qualificationProcedurePass:'momentQualificationProcedureConfirmed',
-    plasticZoneGeometryPass:'momentPlasticZoneGeometryConfirmed',
-    plasticZoneOpeningsPass:'momentPlasticZoneOpeningsAbsentConfirmed',
-    seismicMaterialPass:'momentSeismicMaterialConfirmed',
-    matchingWeldPass:'momentMatchingWeldConfirmed',
-    cns3506WeldPass:'momentCns3506WeldConfirmed',
-    endTabsPass:'momentEndTabsRemovedGroundConfirmed',
-    weldProcedurePass:'momentWeldProcedureMatchesQualificationConfirmed',
-    jointLateralRestraintPass:'momentJointLateralRestraintConfirmed',
-    beamLateralBracingPass:'momentBeamLateralBracingConfirmed',
-    allMembersIncludedPass:'momentAllMembersIncludedConfirmed',
-    governingAxialPass:'momentColumnStrengthsAtGoverningAxialConfirmed',
-    opposingDirectionsPass:'momentOpposingDirectionsConfirmed',
-    orthogonalSeparatePass:'momentOrthogonalDirectionSeparateConfirmed',
-    hardwareVerifiedPass:'momentConnectionHardwareVerifiedConfirmed',
-    selectedAxisScopePass:'momentSelectedAxisScopeConfirmed',
-    demandBasisPass:'momentDemandBasis',
-    geometryBasisPass:'momentGeometryBasis',
-    materialBasisPass:'momentMaterialBasis',
-    capacityBasisPass:'momentCapacityBasis',
-    panelZoneBasisPass:'momentPanelZoneBasis',
-    strongColumnBasisPass:'momentStrongColumnBasis',
-    qualificationBasisPass:'momentQualificationBasis',
-    qualificationEvidenceShaPass:'momentQualificationEvidenceSha256',
-    capacityEvidenceShaPass:'momentCapacityEvidenceSha256',
-  };
   return {
     sourceFieldCount:MOMENT_SOURCE_FIELDS.length,
     checkCount:result.checks.length,
@@ -1054,7 +1122,7 @@ function calculateMomentCase(input) {
     panelZoneRatio:panelZone.ratio,
     scwbCwRatio:scwbCw.ratio,
     scwbCcwRatio:scwbCcw.ratio,
-    ...Object.fromEntries(Object.entries(detailOutputs).map(([outputKey, detailKey]) => (
+    ...Object.fromEntries(Object.entries(MOMENT_DETAIL_OUTPUTS).map(([outputKey, detailKey]) => (
       [outputKey, detailByKey(result, detailKey).passes ? 1 : 0]
     ))),
     strengthPass:result.summary.strengthFailure ? 0 : 1,
@@ -1064,6 +1132,33 @@ function calculateMomentCase(input) {
     completeJointDesign:result.completeJointDesign === false ? 0 : 1,
     passes:result.passes ? 1 : 0,
   };
+}
+
+function calculateMomentCase(input) {
+  return normalizeMomentResult(calculateConnection({ ...input, connectionType:'beam_column_moment' }));
+}
+
+function executeBeamColumnMomentCase88(input) {
+  const issues = validateBeamColumnMomentCase88(input);
+  if (issues.length) throw new RangeError(`invalid-steel-formal-beam-column-moment-case88:${issues.join(',')}`);
+
+  const formalResult = calculateConnection({ ...input });
+  const normalizedResult = normalizeMomentResult(formalResult);
+  const actualKeys = Object.keys(normalizedResult).sort();
+  const expectedKeys = [...MOMENT_NORMALIZED_RESULT_FIELDS].sort();
+  if (actualKeys.length !== expectedKeys.length || actualKeys.some((key, index) => key !== expectedKeys[index])) {
+    throw new Error(`steel-formal-production-moment-normalized-keys:${actualKeys.join('|')}`);
+  }
+  if (!Object.values(normalizedResult).every(Number.isFinite)) {
+    throw new Error('steel-formal-production-moment-normalized-nonfinite');
+  }
+  if (normalizedResult.sourceFieldCount !== 88
+      || normalizedResult.checkCount !== MOMENT_STRENGTH_KEYS.length
+      || normalizedResult.completeJointDesign !== 0
+      || normalizedResult.validationFailure !== 0) {
+    throw new Error('steel-formal-production-moment-single-case-boundary');
+  }
+  return { formalResult, normalizedResult };
 }
 
 function calculateSpliceCase(input) {
@@ -1151,4 +1246,10 @@ function calculate(input) {
   };
 }
 
-module.exports = { validateInput, calculate };
+module.exports = {
+  MOMENT_SOURCE_FIELDS,
+  validateBeamColumnMomentCase88,
+  executeBeamColumnMomentCase88,
+  validateInput,
+  calculate,
+};

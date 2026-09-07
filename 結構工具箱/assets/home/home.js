@@ -157,7 +157,7 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 2,
-    generatedAt: '2026-09-01',
+    generatedAt: '2026-09-07',
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
@@ -209,7 +209,7 @@
       '/equipment-load': '2026-08-30',
       '/earth-pressure': '2026-08-30',
       '/floor-slab-westergaard': '2026-08-30',
-      '/cable-tension-frequency': '2026-08-30',
+      '/cable-tension-frequency': '2026-09-07',
       '/decking': '2026-08-29',
       '/excavation-support': '2026-09-01'
     }
@@ -992,7 +992,8 @@
 
   const state = {
     category: 'all',
-    memberSystem: 'all'
+    memberSystem: 'all',
+    query: ''
   };
 
   const categoryMap = new Map(categories.map(category => [category.id, category]));
@@ -1114,7 +1115,11 @@
   }
 
   function matchesState(tool) {
-    return matchesCategoryAndMember(tool);
+    const normalize = value => String(value || '').normalize('NFKC').toLocaleLowerCase().replace(/\s+/g, ' ').trim();
+    const query = normalize(state.query);
+    const text = normalize([tool.title, tool.summary, tool.fit, tool.output, ...(tool.capabilities || []),
+      tool.href === '/steel-formal' ? '剪力板 單剪力板' : ''].join(' '));
+    return matchesCategoryAndMember(tool) && (!query || query.split(' ').every(term => text.includes(term)));
   }
 
   function tag(text, modifier) {
@@ -1355,7 +1360,7 @@
       elements.empty.hidden = true;
       return;
     }
-    renderEmptyState('找不到符合條件的工具', '請切回「全部」，或改從左側分類進入。');
+    renderEmptyState('找不到符合條件的工具', '請清除搜尋、切回「全部」，或改用其他工具名稱。');
     elements.empty.hidden = false;
   }
 
@@ -1625,6 +1630,10 @@
   }
 
   function init() {
+    const search = document.getElementById('toolSearch');
+    const clear = document.getElementById('clearToolSearch');
+    search?.addEventListener('input', () => { state.query = search.value; renderTools(); });
+    clear?.addEventListener('click', () => { search.value = ''; state.query = ''; renderTools(); search.focus(); });
     renderCategoryOverview();
     render();
     renderReportReadinessStatus();

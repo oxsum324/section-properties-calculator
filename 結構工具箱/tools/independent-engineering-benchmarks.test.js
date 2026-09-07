@@ -1,6 +1,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const { ORACLES, validateCatalog, runBenchmarks } = require('./independent-engineering-benchmarks.js');
 
 const toolsRoot = __dirname;
@@ -115,7 +116,8 @@ const steelPlateAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independen
 assert.ok(steelPlateAdapterSource.includes("../../../鋼構工具/calculator.js"), 'steel plate adapter exercises the production connection calculator');
 assert.ok(steelPlateAdapterSource.includes("../../../鋼構工具/plate-check.html"), 'steel plate adapter guards the formal standalone page wiring');
 assert.ok(!steelPlateAdapterSource.includes('golden'), 'steel plate adapter does not replay a golden-case fixture');
-const steelFormalAdapterSource = fs.readFileSync(path.join(toolsRoot, 'independent-engineering-adapters', 'steel-formal.js'), 'utf8');
+const steelFormalAdapterPath = path.join(toolsRoot, 'independent-engineering-adapters', 'steel-formal.js');
+const steelFormalAdapterSource = fs.readFileSync(steelFormalAdapterPath, 'utf8');
 assert.ok(steelFormalAdapterSource.includes("../../../鋼構工具"), 'steel formal adapter resolves the production steel tool');
 assert.ok(steelFormalAdapterSource.includes("require(productionCorePath)"), 'steel formal adapter exercises the production connection calculator');
 assert.ok(steelFormalAdapterSource.includes("<option value=\"plate_check\">"), 'steel formal adapter locks the main-page connection-plate route');
@@ -133,6 +135,16 @@ assert.ok(steelFormalAdapterSource.includes('momentCases'), 'steel formal adapte
 assert.ok(steelFormalAdapterSource.includes('MOMENT_SOURCE_FIELDS.length !== 88'), 'steel formal adapter fail-closes the 88-field moment source contract');
 assert.ok(steelFormalAdapterSource.includes('productionMomentSourceFields.join'), 'steel formal adapter compares its moment shape with the production UI source contract');
 assert.ok(steelFormalAdapterSource.includes('exact-88-source-field-shape-required'), 'steel formal adapter fail-closes the exact moment input shape');
+const isolatedSteelFormalLoad = spawnSync(process.execPath, ['-e', `
+  require(${JSON.stringify(steelFormalAdapterPath)});
+  const forbidden = Object.keys(require.cache).filter(file => /independent-engineering-benchmarks(?:\\.catalog\\.json|\\.js)$/u.test(file.replace(/\\\\/g, '/')));
+  process.stdout.write(JSON.stringify(forbidden));
+`], { encoding: 'utf8', windowsHide: true });
+assert.equal(isolatedSteelFormalLoad.status, 0, isolatedSteelFormalLoad.stderr || 'isolated steel formal adapter load succeeds');
+assert.deepEqual(JSON.parse(isolatedSteelFormalLoad.stdout), [], 'steel formal adapter does not load the benchmark catalog or oracle module');
+const singleMomentExecutorSource = steelFormalAdapterSource.match(/function executeBeamColumnMomentCase88\(input\) \{[\s\S]*?\n\}/u)?.[0] || '';
+assert.ok(singleMomentExecutorSource, 'steel formal adapter exposes the narrow single-case moment executor');
+assert.equal((singleMomentExecutorSource.match(/calculateConnection\(/gu) || []).length, 1, 'single-case moment executor calls the production core exactly once');
 assert.ok(steelFormalAdapterSource.includes('calculateSpliceCase'), 'steel formal adapter extracts the production full-section CJP column-splice review');
 assert.ok(steelFormalAdapterSource.includes('spliceCases'), 'steel formal adapter requires the six fixed column-splice benchmark cases');
 assert.ok(steelFormalAdapterSource.includes('SPLICE_SOURCE_FIELDS.length !== 49'), 'steel formal adapter fail-closes the 49-field column-splice source contract');
@@ -491,13 +503,111 @@ assert.ok(
     && momentGovernance.momentSelectedAxisScopeConfirmed === false,
   'moment governance case fails all basis, both SHA-256, hardware and selected-axis gates'
 );
-const steelFormalAdapter = require(path.join(toolsRoot, 'independent-engineering-adapters', 'steel-formal.js'));
+const steelFormalAdapter = require(steelFormalAdapterPath);
 assert.deepEqual(
   steelFormalAdapter.validateInput(steelFormalBenchmark.input),
   [],
   'steel formal adapter accepts legal zero SCWB member items when each directional sum remains positive'
 );
+const momentSingleCase = structuredClone(momentPositive);
+delete momentSingleCase.id;
+assert.deepEqual(
+  [...steelFormalAdapter.MOMENT_SOURCE_FIELDS].sort(),
+  Object.keys(momentSingleCase).sort(),
+  'narrow moment adapter exports the exact producer-compatible 88-field source contract'
+);
+assert.deepEqual(
+  steelFormalAdapter.validateBeamColumnMomentCase88(momentSingleCase),
+  [],
+  'narrow moment adapter accepts the fixed LRFD SMRF X-axis reinforced prior-test case'
+);
+
+function assertInvalidMomentSingleCase(mutator, expectedIssue, label) {
+  const candidate = structuredClone(momentSingleCase);
+  mutator(candidate);
+  const issues = steelFormalAdapter.validateBeamColumnMomentCase88(candidate);
+  assert.ok(issues.some(issue => issue.includes(expectedIssue)), `${label}: validator reports the governed failure`);
+  assert.throws(
+    () => steelFormalAdapter.executeBeamColumnMomentCase88(candidate),
+    error => error instanceof RangeError && error.message.includes(expectedIssue),
+    `${label}: executor rejects before production normalization`
+  );
+}
+
+assertInvalidMomentSingleCase(
+  candidate => { delete candidate.momentDemandBasis; },
+  'exact-88-source-field-shape-required',
+  'narrow moment adapter rejects a missing source field'
+);
+assertInvalidMomentSingleCase(
+  candidate => { candidate.unexpectedMomentField = 1; },
+  'exact-88-source-field-shape-required',
+  'narrow moment adapter rejects an extra source field'
+);
+assertInvalidMomentSingleCase(
+  candidate => { candidate.momentBeamPlasticModulus = '2000000'; },
+  'momentBeamPlasticModulus:finite-number-required',
+  'narrow moment adapter rejects a numeric string'
+);
+assertInvalidMomentSingleCase(
+  candidate => { candidate.momentBeamPlasticModulus = Number.POSITIVE_INFINITY; },
+  'momentBeamPlasticModulus:finite-number-required',
+  'narrow moment adapter rejects Infinity'
+);
+assertInvalidMomentSingleCase(
+  candidate => { candidate.momentFrameSystem = 'imrf'; },
+  'momentFrameSystem:fixed-scope-smrf-required',
+  'narrow moment adapter rejects a supported production enum outside the fixed single-case scope'
+);
+assertInvalidMomentSingleCase(
+  candidate => { candidate.momentDemandBasis = '   '; },
+  'momentDemandBasis:nonempty-basis-required',
+  'narrow moment adapter rejects a blank basis'
+);
+assertInvalidMomentSingleCase(
+  candidate => { candidate.momentQualificationEvidenceSha256 = 'A'.repeat(64); },
+  'momentQualificationEvidenceSha256:lowercase-nonzero-sha256-required',
+  'narrow moment adapter rejects uppercase evidence SHA-256'
+);
+assertInvalidMomentSingleCase(
+  candidate => { candidate.momentCapacityEvidenceSha256 = '0'.repeat(64); },
+  'momentCapacityEvidenceSha256:lowercase-nonzero-sha256-required',
+  'narrow moment adapter rejects an all-zero evidence SHA-256'
+);
+assertInvalidMomentSingleCase(
+  candidate => { candidate.momentQualificationTestCount = 1.5; },
+  'momentQualificationTestCount:nonnegative-integer-required',
+  'narrow moment adapter rejects a fractional qualification test count'
+);
+assertInvalidMomentSingleCase(
+  candidate => { candidate.momentFarCriticalSectionExpectedMoment = -1; },
+  'momentFarCriticalSectionExpectedMoment:nonnegative-required',
+  'narrow moment adapter rejects a negative far-end critical moment'
+);
+
+const momentSingleExecution = steelFormalAdapter.executeBeamColumnMomentCase88(momentSingleCase);
+assert.equal(Object.keys(momentSingleExecution).length, 2, 'narrow moment execution returns only formal and normalized results');
+assert.equal(momentSingleExecution.formalResult.state.connectionType, 'beam_column_moment', 'narrow moment execution uses the production beam-column route');
+assert.equal(momentSingleExecution.formalResult.checks.length, 6, 'narrow moment execution preserves all six production strength checks');
+assert.equal(momentSingleExecution.formalResult.completeJointDesign, false, 'narrow moment execution preserves the incomplete-joint boundary');
+assert.equal(Object.keys(momentSingleExecution.normalizedResult).length, 79, 'narrow moment execution returns the exact 79-key projection');
+assert.ok(Object.values(momentSingleExecution.normalizedResult).every(Number.isFinite), 'all narrow moment normalized results are finite');
+assert.deepEqual(
+  {
+    sourceFieldCount: momentSingleExecution.normalizedResult.sourceFieldCount,
+    checkCount: momentSingleExecution.normalizedResult.checkCount,
+    completeJointDesign: momentSingleExecution.normalizedResult.completeJointDesign,
+    validationFailure: momentSingleExecution.normalizedResult.validationFailure,
+  },
+  { sourceFieldCount: 88, checkCount: 6, completeJointDesign: 0, validationFailure: 0 },
+  'narrow moment execution enforces the fixed production evidence boundary'
+);
 const momentProductionCases = steelFormalAdapter.calculate(steelFormalBenchmark.input);
+assert.deepEqual(
+  momentSingleExecution.normalizedResult,
+  momentProductionCases.momentPriorTestSmrfPass,
+  'narrow single-case projection remains byte-for-value compatible with the existing benchmark suite API'
+);
 const momentOracleCases = ORACLES['steel-formal-strength'](steelFormalBenchmark.input);
 assert.deepEqual(
   {

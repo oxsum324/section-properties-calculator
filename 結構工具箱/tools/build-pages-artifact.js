@@ -70,6 +70,9 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/tools/beam-column-moment-g1-pilot.js',
   '結構工具箱/tools/beam-column-moment-real-case-intake.js',
   '結構工具箱/tools/beam-column-moment-real-case-intake.test.js',
+  '結構工具箱/tools/beam-column-moment-real-case-g1-contract.js',
+  '結構工具箱/tools/beam-column-moment-real-case-g1-runner.js',
+  '結構工具箱/tools/beam-column-moment-real-case-g1-runner.test.js',
   '結構工具箱/tools/rendered-delivery-evidence.js',
   '結構工具箱/tools/rendered-delivery-evidence.inventory.json',
   '結構工具箱/tools/rc-stm-atomic-change-set.manifest.json',
@@ -136,6 +139,15 @@ const PRIVATE_BASENAMES = new Set([
   'case-bundle.draft.json',
   'beam-column-moment-real-case-intake.json',
   'beam-column-moment-real-case-intake-readiness.receipt.json',
+  'beam-column-moment-real-case-g1-decision.template.json',
+  'beam-column-moment-real-case-g1-decision.json',
+  'beam-column-moment-real-case-g1-decision.receipt.json',
+  'beam-column-moment-real-case-g1.input.json',
+  'beam-column-moment-real-case.production.json',
+  'beam-column-moment-real-case.g1-review.html',
+  'beam-column-moment-real-case-g1.comparison-data.json',
+  'case-bundle.g1.review.json',
+  'case-bundle.g1.draft.json',
   'package.json',
   'package-lock.json',
   'requirements.txt',
@@ -173,6 +185,10 @@ const PRIVATE_CONTENT_PATTERNS = [
   {
     name: 'beam-column-moment-real-case-intake-readiness-receipt',
     pattern: /["']kind["']\s*:\s*["']beam-column-moment-real-case-intake-readiness-receipt\.v1["']/u,
+  },
+  {
+    name: 'beam-column-moment-real-case-g1-private-output',
+    pattern: /["']kind["']\s*:\s*["'](?:beam-column-moment-real-case-g1-input\.v1|beam-column-moment-real-case-production-result\.v1|beam-column-moment-real-case-independent-reference\.v1|beam-column-moment-real-case-g1-decision-candidate\.v1|beam-column-moment-real-case-g1-decision-receipt\.v1|beam-column-moment-real-case-g1-result\.v1)["']/u,
   },
   {
     name: 'windows-user-profile-path',
@@ -249,6 +265,8 @@ function isQualificationBundleName(value) {
   return normalized === 'case-bundle.draft.json'
     || normalized === 'beam-column-moment-real-case-intake.json'
     || normalized === 'beam-column-moment-real-case-intake-readiness.receipt.json'
+    || normalized === 'case-bundle.g1.review.json'
+    || normalized === 'case-bundle.g1.draft.json'
     || /^case-bundle-eqb-.+\.json$/u.test(normalized);
 }
 

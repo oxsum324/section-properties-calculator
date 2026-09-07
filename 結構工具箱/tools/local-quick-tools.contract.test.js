@@ -614,7 +614,7 @@ assertIncludes(repoDocs.indexClassic, '結構工具箱', 'classic home preserved
 assertIncludes(repoDocs.homeHtml, '力量來源與檢核目的', 'new home logic categories copy');
 assertIncludes(repoDocs.homeHtml, 'data-file-href="index-classic.html"', 'new home links to classic menu');
 assert.equal(repoDocs.homeHtml.includes('Tool Finder'), false, 'new home removes Tool Finder');
-assert.equal(repoDocs.homeHtml.includes('id="toolSearch"'), false, 'new home removes search input');
+assert.equal(repoDocs.homeHtml.includes('id="toolSearch"'), true, 'home provides name and alias search');
 assert.equal(repoDocs.homeHtml.includes('id="stateFilterPanel"'), false, 'new home removes state filter panel');
 assert.equal(repoDocs.homeHtml.includes('id="stateFilters"'), false, 'new home removes state filters');
 assertIncludes(repoDocs.homeHtml, 'id="memberSystemPanel"', 'new home member system panel');

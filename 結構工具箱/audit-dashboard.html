@@ -166,6 +166,7 @@
     min-width: 1320px;
     font-size: 0.84em;
   }
+  .toolbar[hidden] { display: none; }
   .history-table.rvr-health-history-table { min-width: 760px; }
   .history-table th,
   .history-table td {
@@ -595,8 +596,10 @@
       本頁會直接讀取各層巡檢的 `audit-status.json` 與 `audit-summary.md`。若以本機伺服器或部署站開啟，
       可即時看到最近一輪巡檢結果；若直接以 `file://` 開啟，狀態讀取會受瀏覽器限制。
     </div>
-    <div class="toolbar" id="localDetailLinks">
+    <div class="toolbar">
       <button id="refreshButton" class="primary" type="button">重新讀取巡檢狀態</button>
+    </div>
+    <div class="toolbar" id="localDetailLinks">
       <a href="../output/audit/platform-summary.md" target="_blank" rel="noreferrer">開啟平台總摘要</a>
       <a href="../鋼構工具/output/audit/audit-summary.md" target="_blank" rel="noreferrer">開啟鋼構摘要</a>
       <a href="../鋼筋混凝土/output/audit/audit-summary.md" target="_blank" rel="noreferrer">開啟 RC 摘要</a>

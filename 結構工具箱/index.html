@@ -73,7 +73,14 @@
             <p class="home-kicker">Tools</p>
             <h2 id="toolsTitle">工具清單</h2>
           </div>
-          <p id="resultCount" class="result-count">讀取中</p>
+          <p id="resultCount" class="result-count" role="status">讀取中</p>
+        </div>
+        <div class="tool-search" role="search" aria-label="搜尋工具">
+          <label for="toolSearch">搜尋工具名稱或別名</label>
+          <div class="tool-search__controls">
+            <input id="toolSearch" type="search" placeholder="例如：鋼索、剪力板、Shear Tab" autocomplete="off">
+            <button id="clearToolSearch" type="button">清除搜尋</button>
+          </div>
         </div>
         <div id="memberSystemPanel" class="member-system-panel" hidden>
           <div id="memberSystemTabs" class="member-system-tabs" role="tablist" aria-label="構件材料分類"></div>

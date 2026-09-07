@@ -184,8 +184,20 @@ const PRIVATE_PATHS = [
   '結構工具箱/tools/beam-column-moment-g1-pilot.test.js',
   '結構工具箱/tools/beam-column-moment-real-case-intake.js',
   '結構工具箱/tools/beam-column-moment-real-case-intake.test.js',
+  '結構工具箱/tools/beam-column-moment-real-case-g1-contract.js',
+  '結構工具箱/tools/beam-column-moment-real-case-g1-runner.js',
+  '結構工具箱/tools/beam-column-moment-real-case-g1-runner.test.js',
   'beam-column-moment-real-case-intake.json',
   'beam-column-moment-real-case-intake-readiness.receipt.json',
+  'beam-column-moment-real-case-g1-decision.template.json',
+  'beam-column-moment-real-case-g1-decision.json',
+  'beam-column-moment-real-case-g1-decision.receipt.json',
+  'beam-column-moment-real-case-g1.input.json',
+  'beam-column-moment-real-case.production.json',
+  'beam-column-moment-real-case.g1-review.html',
+  'beam-column-moment-real-case-g1.comparison-data.json',
+  'case-bundle.g1.review.json',
+  'case-bundle.g1.draft.json',
   '結構工具箱/tools/建立工程資格化案件工作區.bat',
   '結構工具箱/tools/封印工程資格化案件包.bat',
   '結構工具箱/tools/檢查工程資格化案件包.bat',
@@ -244,6 +256,20 @@ const PRIVATE_PATHS = [
   '.github/public-release-decision-anchor.json',
   '.github/workflows/pages-deploy.yml'
 ];
+const REAL_CASE_G1_EXACT_404_PATHS = new Set([
+  '結構工具箱/tools/beam-column-moment-real-case-g1-contract.js',
+  '結構工具箱/tools/beam-column-moment-real-case-g1-runner.js',
+  '結構工具箱/tools/beam-column-moment-real-case-g1-runner.test.js',
+  'beam-column-moment-real-case-g1-decision.template.json',
+  'beam-column-moment-real-case-g1-decision.json',
+  'beam-column-moment-real-case-g1-decision.receipt.json',
+  'beam-column-moment-real-case-g1.input.json',
+  'beam-column-moment-real-case.production.json',
+  'beam-column-moment-real-case.g1-review.html',
+  'beam-column-moment-real-case-g1.comparison-data.json',
+  'case-bundle.g1.review.json',
+  'case-bundle.g1.draft.json',
+]);
 
 function argValue(name) {
   const index = process.argv.indexOf(name);
@@ -592,7 +618,11 @@ async function assertPrivateBoundary(base) {
   for (const path of PRIVATE_PATHS) {
     const url = liveUrl(base, path);
     const response = await fetchResponse(url, { redirect: 'manual', cache: 'no-store' });
-    assert.notEqual(response.status, 200, `${path} should not be published to Pages`);
+    if (REAL_CASE_G1_EXACT_404_PATHS.has(path)) {
+      assert.equal(response.status, 404, `${path} must return the exact private-boundary 404`);
+    } else {
+      assert.notEqual(response.status, 200, `${path} should not be published to Pages`);
+    }
   }
 }
 

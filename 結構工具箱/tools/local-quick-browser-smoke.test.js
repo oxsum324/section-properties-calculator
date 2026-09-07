@@ -1789,7 +1789,7 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload, reportR
   assert.deepEqual(state.duplicateMetaLabels, [], `${label} new home duplicate meta labels`);
   assert.equal(state.hasStateFilterPanel, false, `${label} new home removes state filter panel`);
   assert.equal(state.hasToolFinder, false, `${label} new home removes Tool Finder`);
-  assert.equal(state.hasToolSearch, false, `${label} new home removes search input`);
+  assert.equal(state.hasToolSearch, true, `${label} home provides name and alias search`);
   assert.deepEqual(state.categoryMarks, ['B', 'E', 'F', 'P', 'S', 'T', 'W'], `${label} new home category icon marks`);
   assert.equal(state.toolMarks.every(mark => /^[BEFPSTW]$/.test(mark)), true, `${label} new home tool icon marks`);
   assert.equal(state.hasMemberSystemPanel, true, `${label} new home member system panel`);
@@ -2813,6 +2813,10 @@ function assertReportContentState(state, tool, label, mode = 'detailed') {
   ['製表：', '模式：'].forEach(needle => {
     assert.equal(visibleText.includes(needle), false, `${label} ${tool.key} visible report excludes workflow metadata ${needle}`);
   });
+  if (tool.key === 'cable-tension-frequency') {
+    assert.equal(visibleText.includes('本頁有效輸入範圍'), false, `${label} cable report excludes UI input limits`);
+    assert.ok(visibleText.indexOf('控制結果') < visibleText.indexOf('計算示意圖'), `${label} cable report presents adopted results before diagram`);
+  }
 }
 
 function assertCalculationBookDocumentState(state, tool, label) {
@@ -3203,6 +3207,32 @@ async function main() {
         const home = await navigateAndInspect(client, sessionId, newHomeCase.url, viewport, newHomeExpression(manifest.tools));
         assert.deepEqual(home.errors, [], `${label} console errors: ${home.errors.join(' | ')}`);
         assertNewHomeState(home.state, manifest.tools, label, preflightStatusPayload, reportReadinessPayload, newHomeCase);
+        const searchResults = await evaluate(client, sessionId, `(() => {
+          const input = document.getElementById('toolSearch');
+          const all = document.querySelector('#categoryFilters .filter-button');
+          if (all) all.click();
+          const search = query => {
+            input.value = query; input.dispatchEvent(new Event('input', { bubbles: true }));
+            return Array.from(document.querySelectorAll('.tool-card h3')).map(node => node.textContent);
+          };
+          const cable = search('鋼索');
+          const shear = search('  sHeAr   TaB  ');
+          const alias = search('剪力板');
+          const missing = search('不存在的工具xyz');
+          const emptyVisible = document.getElementById('emptyState').getClientRects().length > 0;
+          document.getElementById('clearToolSearch').click();
+          return { cable, shear, alias, missing, emptyVisible, cleared: input.value === '',
+            restoredCount: document.querySelectorAll('.tool-card').length,
+            overflow: document.documentElement.scrollWidth > innerWidth + 2 };
+        })()`);
+        assert.deepEqual(searchResults.cable, ['鋼索索力評估（頻率法快算）'], `${label} cable name search`);
+        assert.deepEqual(searchResults.shear, ['鋼構正式規範工具'], `${label} normalized English alias search`);
+        assert.deepEqual(searchResults.alias, searchResults.shear, `${label} Chinese alias search`);
+        assert.deepEqual(searchResults.missing, [], `${label} empty search result`);
+        assert.equal(searchResults.emptyVisible, true, `${label} empty result is visible`);
+        assert.equal(searchResults.cleared, true, `${label} clear search`);
+        assert.equal(searchResults.restoredCount, 51, `${label} clear restores inventory`);
+        assert.equal(searchResults.overflow, false, `${label} search controls fit viewport`);
       }
 
       for (const validationCase of legacyInlineValidationCases) {

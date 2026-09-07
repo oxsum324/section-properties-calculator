@@ -115,6 +115,15 @@ case-bundle.draft.json
 case-bundle-[Ee][Qq][Bb]-*.json
 beam-column-moment-real-case-intake.json
 beam-column-moment-real-case-intake-readiness.receipt.json
+beam-column-moment-real-case-g1-decision.template.json
+beam-column-moment-real-case-g1-decision.json
+beam-column-moment-real-case-g1-decision.receipt.json
+beam-column-moment-real-case-g1.input.json
+beam-column-moment-real-case.production.json
+beam-column-moment-real-case.g1-review.html
+beam-column-moment-real-case-g1.comparison-data.json
+case-bundle.g1.review.json
+case-bundle.g1.draft.json
 GSP-外部歸檔生命週期總覽-*/
 GSM-外部歸檔生命週期監測-latest.json
 GSM-外部歸檔生命週期監測事件-*.json

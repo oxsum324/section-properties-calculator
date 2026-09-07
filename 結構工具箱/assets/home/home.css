@@ -515,3 +515,10 @@ a { color: inherit; text-decoration: none; }
   .category-card { border-left: 0 !important; border-top: 1px solid var(--border-default); }
   .category-card:first-child { border-top: 0; }
 }
+/* Search stays inside the existing tool list and shares the category filter. */
+.tool-search { margin: 0 0 20px; }
+.tool-search label { display: block; margin-bottom: 8px; font-weight: 600; }
+.tool-search__controls { display: flex; gap: 8px; }
+.tool-search input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #b7c3d4; border-radius: 4px; font: inherit; }
+.tool-search button { flex-shrink: 0; padding: 10px 12px; border: 1px solid #b7c3d4; border-radius: 4px; background: #fff; color: #123b68; font: inherit; cursor: pointer; }
+.tool-search :focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
