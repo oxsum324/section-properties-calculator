@@ -121,6 +121,13 @@ const surveyTool = homeTools.find(tool => tool.href === '/condition-survey');
 assert.equal(surveyTool?.state, 'workflow', 'survey recorder stays a non-formal workflow');
 assert.equal(surveyTool?.version, 'V0.2.0', 'survey recorder public version');
 assert.equal(surveyTool?.capabilities.includes('正式核算'), false, 'survey recorder does not claim formal calculations');
+const surveyRuntimeVersion = readText('field-survey/model.js').match(/export const VERSION = '([^']+)'/)[1];
+assert.equal(surveyTool.version, `V${surveyRuntimeVersion}`, 'survey home and runtime versions agree');
+const publicRouteSamples = vm.runInNewContext(`(${extractConstLiteral(readText('結構工具箱/tools/pages-live-smoke.js'), 'PUBLIC_ROUTE_SAMPLES')})`);
+for (const sample of publicRouteSamples.filter(sample => sample.path.startsWith('field-survey/'))) {
+  const source = readText(sample.path);
+  for (const marker of sample.needles) assert(source.includes(marker), `survey release probe must match its current source: ${sample.path} / ${marker}`);
+}
 assert.equal(new Set(homeTools.map(tool => tool.href)).size, homeTools.length, 'canonical homepage routes are unique');
 for (const tool of homeTools) {
   assert.ok(tool.title && tool.version && tool.state && tool.output && tool.summary && tool.fit && tool.limit, `canonical public claim complete: ${tool.href}`);

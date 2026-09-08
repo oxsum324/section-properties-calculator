@@ -10,8 +10,9 @@ const TRANSIENT_NETWORK_ERROR_CODES = new Set([
   'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT', 'UND_ERR_SOCKET',
 ]);
 const PUBLIC_ROUTE_SAMPLES = [
-  { path: 'field-survey/recorder.html', needles: ['現況鑑定紀錄 V0.1.0', './manifest.webmanifest', './app.js', '備份還原', '原始照片'], checkAssets: true },
-  { path: 'field-survey/sw.js', needles: ['condition-survey-shell-0.1.0', 'cache.addAll', 'ACTIVATE_UPDATE'] },
+  { path: 'field-survey/recorder.html', needles: ['現況鑑定紀錄 V0.2.0', './manifest.webmanifest', './app.js', '備份還原', '原始照片'], checkAssets: true },
+  { path: 'field-survey/sw.js', needles: ['condition-survey-shell-0.2.0', './sketch.js', 'cache.addAll', 'ACTIVATE_UPDATE'] },
+  { path: 'field-survey/sketch.js', needles: ['createSketcher', 'sketchImage', '未按比例'] },
   {
     path: '鋼筋混凝土/',
     needles: ['鋼筋混凝土構件設計工具箱', 'RC 自動巡檢', '../結構工具箱/assets/status/platform-status.json', '../結構工具箱/audit-dashboard.html', '../結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', 'RC 工具箱入口列印已封鎖', '明確核可後可作為正式附件', 'V1.7'],
