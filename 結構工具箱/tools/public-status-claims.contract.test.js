@@ -119,7 +119,7 @@ const stoneMetadata = stoneVersionContext.window.StonePublicMetadata;
 assert.equal(homeTools.length, 52, 'canonical homepage tool inventory count');
 const surveyTool = homeTools.find(tool => tool.href === '/condition-survey');
 assert.equal(surveyTool?.state, 'workflow', 'survey recorder stays a non-formal workflow');
-assert.equal(surveyTool?.version, 'V0.2.0', 'survey recorder public version');
+assert.equal(surveyTool?.version, 'V0.3.0', 'survey recorder public version');
 assert.equal(surveyTool?.capabilities.includes('正式核算'), false, 'survey recorder does not claim formal calculations');
 const surveyRuntimeVersion = readText('field-survey/model.js').match(/export const VERSION = '([^']+)'/)[1];
 assert.equal(surveyTool.version, `V${surveyRuntimeVersion}`, 'survey home and runtime versions agree');

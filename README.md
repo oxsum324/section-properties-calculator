@@ -1,6 +1,6 @@
 # 結構工具平台 V1.6
 
-現況鑑定現場紀錄 V0.2.0：入口 `/condition-survey`，支援手機直接拍照、裂縫寬度區間或實測值、手繪平面簡圖與方向箭頭、原圖與圈註分存、離線紀錄和完整備份。操作與限制見 [field-survey/README.md](field-survey/README.md)。電腦可用 `啟動現況鑑定紀錄.bat`。
+現況鑑定現場紀錄 V0.3.0：入口 `/condition-survey`，支援鏡頭授權與預覽拍攝、部位複選、≤0.3 mm 裂縫快捷或實測值、點選手繪簡圖與方向箭頭、原圖與圈註分存、離線紀錄和完整備份。操作與限制見 [field-survey/README.md](field-survey/README.md)。電腦可用 `啟動現況鑑定紀錄.bat`。
 
 這個資料夾目前已整理成一套分層式結構工具平台，並正式進入 `V1.6`。工具箱首頁已升級為弘一設計系統新版 `結構工具箱/index.html`（深藍 hero、構件子分頁與治理卡，依 `home.js` 單一資料源驅動）；原公文版主選單保留為 `結構工具箱/index-classic.html` 可隨時回退，本機伺服器 clean route 為 `/toolbox-home`。平台目前區分：
 

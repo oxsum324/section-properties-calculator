@@ -17,7 +17,7 @@ export function drawMarks(svg, marks, width, height) {
 function loadImage(url) { return new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = () => reject(new Error('此裝置無法預覽此影像格式；原檔仍可備份。')); img.src = url; }); }
 export async function createAnnotator(stage, url, initial = [], onChange = () => {}) {
   const img = await loadImage(url), svg = node('svg', { 'aria-label': '圖面圈註區', role: 'img' });
-  let marks = structuredClone(initial), mode = 'circle', text = '', draft = null, start = null;
+  let marks = structuredClone(initial), mode = 'circle', text = '', draft = null, start = null, gesture = 'drag', anchor = null, pointerId = null;
   const history = [], w = img.naturalWidth, h = img.naturalHeight;
   stage.replaceChildren(img, svg);
   const resize = () => { stage.style.width = Math.min(stage.parentElement.clientWidth, innerHeight * .43 * w / h) + 'px'; };
@@ -25,13 +25,23 @@ export async function createAnnotator(stage, url, initial = [], onChange = () =>
   const draw = () => drawMarks(svg, draft ? [...marks, draft] : marks, w, h);
   const point = event => { const r = svg.getBoundingClientRect(); return { x: Math.max(0, Math.min(1, (event.clientX - r.left) / r.width)), y: Math.max(0, Math.min(1, (event.clientY - r.top) / r.height)) }; };
   svg.addEventListener('pointerdown', e => {
-    if (mode === 'view' || e.button > 0 || marks.length >= 500) return;
+    if (mode === 'view' || e.button > 0 || e.isPrimary === false || pointerId !== null || marks.length >= 500) return;
     if (mode === 'text' && !text.trim()) return;
+    e.preventDefault(); pointerId = e.pointerId;
+    if (gesture === 'tap' && mode === 'arrow') { svg.setPointerCapture(e.pointerId); return; }
     svg.setPointerCapture(e.pointerId); start = point(e); draft = { type: mode, points: [start, start] };
     if (mode === 'text') { draft.points = [start]; draft.text = text.slice(0, 120); } draw();
   });
-  svg.addEventListener('pointermove', e => { if (!draft) return; if (mode === 'pen') { if (draft.points.length < 1500) draft.points.push(point(e)); } else if (mode !== 'text') draft.points[1] = point(e); draw(); });
+  svg.addEventListener('pointermove', e => { if (e.pointerId !== pointerId || !draft || (gesture === 'tap' && mode === 'arrow')) return; if (mode === 'pen') { if (draft.points.length < 1500) draft.points.push(point(e)); } else if (mode !== 'text') draft.points[1] = point(e); draw(); });
   const finish = e => {
+    if (e.pointerId !== pointerId) return; pointerId = null;
+    if (e.type === 'pointercancel') { draft = anchor = null; draw(); return; }
+    if (gesture === 'tap' && mode === 'arrow') {
+      const p = point(e);
+      if (!anchor) { anchor = p; draw(); svg.append(node('circle', { cx: p.x * w, cy: p.y * h, r: w / 70, fill: '#df443a' })); return; }
+      if (Math.hypot(anchor.x - p.x, anchor.y - p.y) < .006) return;
+      history.push(structuredClone(marks)); marks.push({ type: 'arrow', points: [anchor, p] }); anchor = null; draw(); onChange(structuredClone(marks)); return;
+    }
     if (!draft) return;
     if (e.type === 'pointercancel') { draft = null; draw(); return; }
     if (mode !== 'text' && mode !== 'pen') draft.points[1] = point(e);
@@ -39,7 +49,7 @@ export async function createAnnotator(stage, url, initial = [], onChange = () =>
     history.push(structuredClone(marks)); marks.push(draft); draft = null; draw(); onChange(structuredClone(marks));
   };
   svg.addEventListener('pointerup', finish); svg.addEventListener('pointercancel', finish); draw();
-  return { get marks() { return structuredClone(marks); }, replace(value) { marks = structuredClone(value); draw(); }, setMode(value) { mode = value; stage.classList.toggle('view', value === 'view'); }, setText(value) { text = value; }, undo() { if (history.length) { marks = history.pop(); draw(); onChange(structuredClone(marks)); } }, clear() { history.push(structuredClone(marks)); marks = []; draw(); onChange([]); }, dispose() { observer.disconnect(); } };
+  return { get pending() { return !!(draft || anchor); }, get marks() { return structuredClone(marks); }, replace(value) { marks = structuredClone(value); draw(); }, setGesture(value) { gesture = value; draft = anchor = null; pointerId = null; draw(); }, setMode(value) { mode = value; draft = anchor = null; pointerId = null; stage.classList.toggle('view', value === 'view'); draw(); }, setText(value) { text = value; }, undo() { if (history.length) { marks = history.pop(); draw(); onChange(structuredClone(marks)); } }, clear() { history.push(structuredClone(marks)); marks = []; draw(); onChange([]); }, dispose() { observer.disconnect(); } };
 }
 export async function markedImage(blob, marks) {
   const source = URL.createObjectURL(blob);

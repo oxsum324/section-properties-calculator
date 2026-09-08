@@ -32,8 +32,8 @@ function paint(svg, sketch, draft = null) {
   }
   svg.append(ink, label('現場示意圖', 24, 36, 26, '#244644'), label('未按比例・僅供辨識位置，尺寸請另行實測', 24, 875, 25, '#667873'));
 }
-export function createSketcher(stage, initial = emptySketch(), onChange = () => {}) {
-  let sketch = structuredClone(validateSketch(initial)), draft = null, pointerId = null, mode = 'line', text = '';
+export function createSketcher(stage, initial = emptySketch(), onChange = () => {}, onHint = () => {}) {
+  let sketch = structuredClone(validateSketch(initial)), draft = null, pointerId = null, mode = 'line', text = '', gesture = 'drag', anchor = null;
   const undo = [], redo = [], svg = node('svg', { role: 'img', 'aria-label': '手繪平面簡圖區' });
   stage.replaceChildren(svg);
   const draw = () => paint(svg, sketch, draft);
@@ -43,37 +43,48 @@ export function createSketcher(stage, initial = emptySketch(), onChange = () => 
     const box = svg.getBoundingClientRect();
     return { x: Math.max(0, Math.min(1, ((event.clientX - box.left) / box.width * 1200 - area.x) / area.width)), y: Math.max(0, Math.min(1, ((event.clientY - box.top) / box.height * 900 - area.y) / area.height)) };
   };
-  const cancel = () => { draft = null; pointerId = null; draw(); };
-  svg.onpointerdown = event => {
+  const cancel = () => { draft = null; anchor = null; pointerId = null; draw(); };
+  stage.onpointerdown = event => {
     if (pointerId !== null || event.isPrimary === false || event.button > 0 || sketch.strokes.length >= 300 || (mode === 'text' && !text.trim())) return;
-    event.preventDefault(); pointerId = event.pointerId; svg.setPointerCapture(pointerId);
+    event.preventDefault(); pointerId = event.pointerId; stage.setPointerCapture(pointerId);
+    if (gesture === 'tap' && ['line', 'rect'].includes(mode)) return;
     const p = point(event); draft = { type: mode, points: mode === 'text' ? [p] : [p, p] };
     if (mode === 'text') draft.text = text.trim().slice(0, 60);
     draw();
   };
-  svg.onpointermove = event => {
+  stage.onpointermove = event => {
+    if (gesture === 'tap' && ['line', 'rect'].includes(mode)) return;
     if (event.pointerId !== pointerId || !draft) return;
     if (mode === 'pen' && draft.points.length < 1500) draft.points.push(point(event));
     else if (mode !== 'text' && mode !== 'pen') draft.points[1] = point(event);
     draw();
   };
-  svg.onpointerup = event => {
+  stage.onpointerup = event => {
+    if (event.pointerId === pointerId && gesture === 'tap' && ['line', 'rect'].includes(mode)) {
+      pointerId = null; const p = point(event);
+      if (!anchor) { anchor = p; draft = { type: mode, points: [p, p] }; draw(); svg.append(node('circle', { cx: area.x + p.x * area.width, cy: area.y + p.y * area.height, r: 14, fill: '#df443a' })); onHint('起點已選好，請點第二個端點／對角'); return; }
+      if (Math.hypot(anchor.x - p.x, anchor.y - p.y) < .006) { onHint('請點另一個位置完成'); return; }
+      remember(); sketch.strokes.push({ type: mode, points: [anchor, p] }); anchor = draft = null; changed(); onHint('已完成一筆；可繼續點下一筆起點'); return;
+    }
     if (event.pointerId !== pointerId || !draft) return;
     if (mode !== 'text' && mode !== 'pen') draft.points[1] = point(event);
     const stroke = draft; draft = null; pointerId = null;
     if (['line', 'rect'].includes(stroke.type) && Math.hypot(stroke.points[0].x - stroke.points[1].x, stroke.points[0].y - stroke.points[1].y) < .006) { draw(); return; }
     remember(); sketch.strokes.push(stroke); changed();
   };
-  svg.onpointercancel = event => { if (event.pointerId === pointerId) cancel(); };
+  stage.onpointercancel = event => { if (event.pointerId === pointerId) cancel(); };
   draw();
   return {
+    get pending() { return !!(draft || anchor); },
     get sketch() { return structuredClone(sketch); },
     setMode(value) { if (['line', 'rect', 'pen', 'text'].includes(value)) { cancel(); mode = value; } },
+    setGesture(value) { cancel(); gesture = value === 'tap' ? 'tap' : 'drag'; },
+    addRoom() { if (sketch.strokes.length >= 300) return; remember(); sketch.strokes.push({ type: 'rect', points: [{ x: .15, y: .15 }, { x: .85, y: .85 }] }); cancel(); changed(); },
     setText(value) { text = value; },
     undo() { if (undo.length) { redo.push(structuredClone(sketch)); sketch = undo.pop(); cancel(); changed(); } },
     redo() { if (redo.length) { undo.push(structuredClone(sketch)); sketch = redo.pop(); cancel(); changed(); } },
     clear() { if (sketch.strokes.length) { remember(); sketch.strokes = []; cancel(); changed(); } },
-    dispose() { svg.onpointerdown = svg.onpointermove = svg.onpointerup = svg.onpointercancel = null; }
+    dispose() { stage.onpointerdown = stage.onpointermove = stage.onpointerup = stage.onpointercancel = null; }
   };
 }
 export async function sketchImage(sketch) {

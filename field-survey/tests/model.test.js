@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { newProject, newUnit, newRecord, id, now, sha256, validateProject, recordIssues, subset, restoredCopy, widthMode, emptySketch, validateSketch } from '../model.js';
+import { newProject, newUnit, newRecord, id, now, sha256, validateProject, recordIssues, subset, restoredCopy, widthMode, recordComponents, emptySketch, validateSketch } from '../model.js';
 import { makeBundle, readBundle, snapshot, makeReceipt, checkReceipt } from '../bundle.js';
 
 async function fixture() {
@@ -42,13 +42,23 @@ test('width ranges preserve uncertainty without inventing an exact threshold rea
   const { p, r, blobs } = await fixture(); r.condition = 'crack'; r.widthMode = 'lt03'; r.crackPattern = 'diagonal';
   validateProject(p); assert.equal(r.width, null); assert(recordIssues(r).includes('裂縫未量測'));
   r.measured = true; r.length = 1.2;
-  for (const mode of ['lt03', 'ge03']) {
+  for (const mode of ['lt03', 'ge03', 'le03', 'gt03']) {
     r.widthMode = mode; validateProject(p); assert(!recordIssues(r).includes('量測尺寸未齊'));
     const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
     assert.equal(restored.project.records[0].width, null); assert.equal(restored.project.records[0].widthMode, mode);
   }
   r.width = .3; assert.throws(() => validateProject(p), /區間不可/);
   r.widthMode = 'exact'; validateProject(p); assert.equal(r.width, .3);
+});
+test('multiple components roundtrip while legacy scalar components remain readable', async () => {
+  const { p, r, blobs } = await fixture(); assert.deepEqual(recordComponents(r), ['牆面']);
+  r.components = ['牆面', '梁', '柱']; validateProject(p);
+  const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
+  assert.deepEqual(recordComponents(restored.project.records[0]), ['牆面', '梁', '柱']);
+  assert(!recordIssues(r).includes('缺部位'));
+  r.components.push('柱'); assert.throws(() => validateProject(p), /部位選項/);
+  r.components = ['梁']; assert.throws(() => validateProject(p), /摘要不一致/);
+  r.components = []; r.component = ''; validateProject(p); assert(recordIssues(r).includes('缺部位'));
 });
 test('legacy backups retain exact measurements and no assumed range', async () => {
   const { p, r, blobs } = await fixture(); Object.assign(r, { condition: 'crack', measured: true, width: .3, length: 1.2 });

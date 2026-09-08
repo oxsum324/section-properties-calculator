@@ -23,7 +23,7 @@ await fs.mkdir(out, { recursive: true });
 let browser;
 try { browser = await chromium.launch({ ...(process.platform === 'win32' ? { channel: 'chrome' } : {}), headless: true, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] }); }
 catch (e) { server?.kill(); throw e; }
-const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, acceptDownloads: true, permissions: ['microphone'] });
+const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, acceptDownloads: true, permissions: ['microphone', 'camera'] });
 const page = await context.newPage(), errors = [], outbound = [];
 page.on('pageerror', e => errors.push(e.message));
 page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
@@ -37,14 +37,27 @@ async function draw(sel, p = page, start = [.22, .28], end = [.72, .68]) {
   await p.mouse.move(box.x + box.width * start[0], box.y + box.height * start[1]); await p.mouse.down();
   await p.mouse.move(box.x + box.width * end[0], box.y + box.height * end[1], { steps: 5 }); await p.mouse.up();
 }
+async function tapPair(sel) {
+  await page.locator(sel).scrollIntoViewIfNeeded(); const b = await page.locator(sel).boundingBox();
+  await page.touchscreen.tap(b.x + b.width * .25, b.y + b.height * .3); await page.touchscreen.tap(b.x + b.width * .7, b.y + b.height * .65);
+}
 try {
   await page.goto(base); await page.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒');
   assert.equal(await page.locator('#errorBar').isVisible(), false);
   await page.screenshot({ path: path.join(out, '01-mobile-start.png'), fullPage: true });
   await click('#startCase'); await page.locator('#caseForm [name=code]').fill('DEMO-001'); await page.locator('#caseForm [name=name]').fill('合成操作測試（非真實鑑定）'); await click('#caseForm button[type=submit]');
   await click('#addUnit'); await page.locator('#unitForm [name=code]').fill('測試 A 戶'); await click('#unitForm button[type=submit]'); await click('#addRecord');
+  await click('#quickSketch'); await page.locator('#planFloor').fill('1F'); await click('#planFloorForm button');
+  await page.locator('#sketchStage').scrollIntoViewIfNeeded();
+  const quickBox = await page.locator('#sketchStage').boundingBox();
+  await page.touchscreen.tap(quickBox.x + quickBox.width * .2, quickBox.y + quickBox.height * .2);
+  assert((await page.locator('#sketchHint').innerText()).includes('起點已選好'));
+  await page.touchscreen.tap(quickBox.x + quickBox.width * .8, quickBox.y + quickBox.height * .8);
+  assert((await page.locator('#sketchCount').innerText()).startsWith('1／'));
+  await click('#addRoomFrame'); assert((await page.locator('#sketchCount').innerText()).startsWith('2／'));
+  await click('#closeModal'); await click('#discardChanges');
   for (const [key, value] of Object.entries({ floor: '1F', space: '客廳', location: '入口右側牆面', notes: '合成測試：裂隙可见範圍紀錄。' })) await page.locator('#' + key).fill(value);
-  await page.locator('#component').selectOption('牆面'); await page.locator('#condition').selectOption('crack'); await click('#saveRecord');
+  for (const value of ['牆面', '梁', '柱']) await page.locator(`#component input[value="${value}"]`).check(); await page.locator('#condition').selectOption('crack'); await click('#saveRecord');
   let p = (await projects())[0]; assert.equal(p.records[0].width, null); assert.equal(p.records[0].measured, false);
   const fixture = await page.evaluate(() => {
     const c = document.createElement('canvas'); c.width = 1000; c.height = 700; const g = c.getContext('2d');
@@ -56,17 +69,36 @@ try {
   const imagePath = path.join(out, 'synthetic-wall.png'); await fs.writeFile(imagePath, Buffer.from(fixture, 'base64'));
   assert.equal(await page.locator('#cameraInput').getAttribute('capture'), 'environment');
   assert.equal(await page.locator('#cameraInput').getAttribute('accept'), 'image/*');
-  const picker = page.waitForEvent('filechooser'); await click('#takePhoto'); await (await picker).setFiles(imagePath); await idle(page);
-  await page.locator('.photo-card img').waitFor(); p = (await projects())[0]; assert.equal(p.media.length, 1); assert.equal(p.media[0].source, 'camera'); const mid = p.media[0].id, hash = p.media[0].sha256;
+  await click('#takePhoto');
+  await page.evaluate(() => { window.realCamera = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices); navigator.mediaDevices.getUserMedia = async () => { throw new DOMException('test denial', 'NotAllowedError'); }; });
+  await click('#startCamera'); await page.waitForFunction(() => document.querySelector('#cameraStatus').textContent.includes('尚未取得相機權限'));
+  assert.equal(await page.locator('#busy').isVisible(), false); assert.equal(await page.locator('#shutter').isDisabled(), true);
+  const picker = page.waitForEvent('filechooser'); await click('#nativeCamera'); await (await picker).setFiles([]);
+  await page.evaluate(() => { navigator.mediaDevices.getUserMedia = window.realCamera; });
+  await page.evaluate(() => { navigator.mediaDevices.getUserMedia = async constraints => { window.lateCameraStream = await window.realCamera(constraints); return new Promise(resolve => { window.resolveCamera = () => resolve(window.lateCameraStream); }); }; });
+  await click('#takePhoto'); await click('#startCamera'); await page.waitForFunction(() => !!window.resolveCamera); await click('#closeModal');
+  await page.evaluate(() => window.resolveCamera()); await page.waitForFunction(() => window.lateCameraStream.getTracks().every(t => t.readyState === 'ended'));
+  await page.evaluate(() => { navigator.mediaDevices.getUserMedia = window.realCamera; });
+  await click('#takePhoto'); await click('#startCamera'); await page.locator('#shutter:enabled').waitFor();
+  await page.evaluate(() => { window.cameraTracks = document.querySelector('#cameraPreview').srcObject.getTracks(); });
+  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide'))); assert(await page.evaluate(() => window.cameraTracks.every(t => t.readyState === 'ended'))); assert(await page.locator('#shutter').isDisabled()); await click('#startCamera'); await page.locator('#shutter:enabled').waitFor(); await page.evaluate(() => { window.cameraTracks = document.querySelector('#cameraPreview').srcObject.getTracks(); });
+  await click('#closeModal'); assert(await page.evaluate(() => window.cameraTracks.every(t => t.readyState === 'ended')));
+  await click('#takePhoto'); await click('#startCamera'); await page.locator('#shutter:enabled').waitFor();
+  await click('#shutter'); await page.locator('#saveCamera').waitFor(); await click('#retakeCamera'); await page.locator('#shutter:enabled').waitFor();
+  await click('#shutter'); await page.locator('#saveCamera').waitFor(); await click('#closeModal'); assert(await page.locator('#discardPrompt').isVisible()); await click('#keepEditing');
+  await page.screenshot({ path: path.join(out, '05-camera-review.png'), fullPage: true }); await click('#saveCamera');
+  await page.locator('.photo-card img').waitFor(); p = (await projects())[0]; assert.equal(p.media.length, 1); assert.equal(p.media[0].source, 'camera-preview'); assert.deepEqual(p.records[0].components, ['牆面', '梁', '柱']); const mid = p.media[0].id, hash = p.media[0].sha256;
   await click('.photo-card'); await page.locator('#photoStage svg').waitFor();
   const imgBox = await page.locator('#photoStage img').boundingBox(), svgBox = await page.locator('#photoStage svg').boundingBox();
-  assert(Math.abs(imgBox.height / imgBox.width - .7) < .01); assert(Math.abs(svgBox.height - imgBox.height) < 1);
+  assert(Math.abs(imgBox.height / imgBox.width - p.media[0].height / p.media[0].width) < .01); assert(Math.abs(svgBox.height - imgBox.height) < 1);
   await draw('#photoStage svg'); await page.locator('#photoCaption').fill('合成測試圈註');
   await click('#closeModal'); assert(await page.locator('#discardPrompt').isVisible()); await click('#keepEditing'); assert(!(await page.locator('#discardPrompt').isVisible()));
   await page.screenshot({ path: path.join(out, '02-mobile-annotation.png'), fullPage: true });
   const markedDownload = page.waitForEvent('download'); await click('#downloadMarked'); const marked = await markedDownload; await marked.saveAs(path.join(out, 'marked-copy.jpg'));
   await click('#savePhoto'); p = (await projects())[0]; assert.equal(p.records[0].photos[0].marks.length, 1); assert.equal(await originalHash(page, mid), hash);
   await click('.photo-card'); await page.locator('#photoStage svg').waitFor(); await draw('#photoStage svg'); await click('#closeModal'); await click('#discardChanges'); assert.equal((await projects())[0].records[0].photos[0].marks.length, 1);
+  await click('[data-width=le03]'); await click('#saveRecord'); p = (await projects())[0]; assert.equal(p.records[0].widthMode, 'le03'); assert.equal(p.records[0].width, null); assert.equal(p.records[0].measured, false);
+  await click('[data-width=gt03]'); await click('#saveRecord'); assert.equal((await projects())[0].records[0].widthMode, 'gt03');
   await page.locator('#widthMode').selectOption('lt03'); await page.locator('#crackPattern').selectOption('diagonal'); await click('#saveRecord');
   p = (await projects())[0]; assert.equal(p.records[0].width, null); assert.equal(p.records[0].measured, false); assert.equal(p.records[0].widthMode, 'lt03');
   await page.locator('#measured').check(); await page.locator('#length').fill('1.2'); await click('#saveRecord'); assert.equal((await projects())[0].records[0].width, null);
@@ -74,10 +106,10 @@ try {
   await page.locator('#widthMode').selectOption('exact'); await page.locator('#width').fill('0.3'); await click('#saveRecord');
   await page.locator('#widthMode').selectOption('lt03'); await click('#saveRecord'); assert.equal(await page.locator('#width').inputValue(), ''); assert.equal((await projects())[0].records[0].width, null);
   await page.locator('#widthMode').selectOption('exact'); await page.locator('#width').fill('0.3'); await click('#saveRecord');
-  await click('#showPlan'); const planPicker = page.waitForEvent('filechooser'); await click('#addPlanImage'); await (await planPicker).setFiles(imagePath); await idle(page); await page.locator('#planStage svg').waitFor(); await draw('#planStage svg'); await click('#savePlacement');
+  await click('#showPlan'); const planPicker = page.waitForEvent('filechooser'); await click('#addPlanImage'); await (await planPicker).setFiles(imagePath); await idle(page); await page.locator('#planStage svg').waitFor(); await tapPair('#planStage svg'); await click('#savePlacement');
   p = (await projects())[0]; assert(p.records[0].placement); assert.equal(p.plans.length, 1);
   const imagePlanId = p.plans[0].id;
-  await click('#showPlan'); await click('#drawPlan'); await page.locator('#sketchStage svg').waitFor();
+  await click('#showPlan'); await click('#drawPlan'); await page.locator('#sketchGesture').selectOption('drag'); await page.locator('#sketchStage svg').waitFor();
   await click('[data-sketch-mode=rect]'); await draw('#sketchStage svg', page, [.1, .13], [.87, .83]);
   await click('[data-sketch-mode=line]'); await draw('#sketchStage svg', page, [.5, .13], [.5, .83]);
   await click('[data-sketch-mode=pen]');
@@ -91,11 +123,11 @@ try {
   await click('#closeModal'); assert(await page.locator('#discardPrompt').isVisible()); await click('#keepEditing');
   await page.screenshot({ path: path.join(out, '04-mobile-sketch.png'), fullPage: true }); await click('#saveSketch');
   await page.locator('#planStage svg').waitFor(); p = (await projects())[0]; assert.equal(p.plans.length, 2); assert.equal(p.plans[1].sketch.strokes.length, 4); assert.equal(p.records[0].placement.planId, imagePlanId);
-  await draw('#planStage svg'); await click('#savePlacement'); p = (await projects())[0]; const sketchPlan = structuredClone(p.plans[1]); assert.equal(p.records[0].placement.planId, sketchPlan.id);
-  await click('#showPlan'); await click('#editSketch'); await click('[data-sketch-mode=line]'); await draw('#sketchStage svg', page, [.5, .5], [.87, .5]); await click('#saveSketch');
+  await tapPair('#planStage svg'); await click('#savePlacement'); p = (await projects())[0]; const sketchPlan = structuredClone(p.plans[1]); assert.equal(p.records[0].placement.planId, sketchPlan.id);
+  await click('#showPlan'); await click('#editSketch'); await page.locator('#sketchGesture').selectOption('drag'); await click('[data-sketch-mode=line]'); await draw('#sketchStage svg', page, [.5, .5], [.87, .5]); await click('#saveSketch');
   await page.locator('#planStage svg').waitFor(); p = (await projects())[0]; assert.equal(p.plans.length, 3); assert.deepEqual(p.plans[1], sketchPlan); assert.equal(p.plans[2].sketch.strokes.length, 5); assert.equal(p.records[0].placement.planId, sketchPlan.id);
-  await draw('#planStage svg'); await click('#savePlacement');
-  console.log('PASS camera input path, crack ranges without invented readings, touch sketch, revision copy and arrow placement');
+  await tapPair('#planStage svg'); await click('#savePlacement');
+  console.log('PASS camera permission denial, late permission, pagehide and close cleanup, retake and save; component selections, width presets, touch sketch and arrow placement');
   console.log('PASS mobile capture, annotation geometry, untouched original, measurements, floorplan');
 
   await page.locator('details summary').click(); await click('#recordAudio');
@@ -105,7 +137,7 @@ try {
   await context.setOffline(true); await page.reload(); await page.locator('.photo-card img').waitFor();
   assert.equal(await page.locator('#width').inputValue(), '0.3'); assert.equal(await page.locator('#notes').inputValue(), '合成測試：裂隙可见範圍紀錄。');
   assert.equal(await page.locator('#crackPattern').inputValue(), 'diagonal');
-  await click('#showPlan'); await click('#editSketch'); await page.locator('#sketchStage svg').waitFor(); await draw('#sketchStage svg'); await click('#closeModal'); await click('#discardChanges');
+  await click('#showPlan'); await click('#editSketch'); await page.locator('#sketchGesture').selectOption('drag'); await page.locator('#sketchStage svg').waitFor(); await draw('#sketchStage svg'); await click('#closeModal'); await click('#discardChanges');
   await page.locator('#notes').fill('離線新增的合成測試紀錄'); await click('#saveRecord'); await page.reload(); await page.locator('#notes').waitFor(); assert.equal(await page.locator('#notes').inputValue(), '離線新增的合成測試紀錄');
   await context.setOffline(false);
   console.log('PASS microphone capture with simulated stream; offline reload and editing');
@@ -120,7 +152,7 @@ try {
   const receiptEvent = receiver.waitForEvent('download'); await click('#downloadReceipt', receiver); const receiptFile = path.join(out, 'receipt.json'); await (await receiptEvent).saveAs(receiptFile);
   await click('#restoreBundle', receiver); const copies = await projects(receiver); assert.equal(copies.length, 1); assert.notEqual(copies[0].id, bundle.project.id);
   assert.equal(await originalHash(receiver, copies[0].records[0].photos[0].mediaId), hash);
-  assert.deepEqual(copies[0].plans[2].sketch, bundle.project.plans[2].sketch); assert.equal(copies[0].records[0].widthMode, 'exact');
+  assert.deepEqual(copies[0].records[0].components, ['牆面', '梁', '柱']); assert.deepEqual(copies[0].plans[2].sketch, bundle.project.plans[2].sketch); assert.equal(copies[0].records[0].widthMode, 'exact');
   await receiver.screenshot({ path: path.join(out, '03-desktop-restored.png'), fullPage: true });
   await page.locator('#receiptInput').setInputFiles(receiptFile); await idle(page); await page.waitForFunction(() => document.querySelector('#exportState').textContent.includes('已匯入本版本'));
   const corrupt = Buffer.from(await fs.readFile(bundlePath)); corrupt[corrupt.length - 1] ^= 1; const corruptPath = path.join(out, 'corrupt.csurvey'); await fs.writeFile(corruptPath, corrupt);

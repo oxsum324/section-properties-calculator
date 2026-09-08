@@ -1,4 +1,4 @@
-export const VERSION = '0.2.0';
+export const VERSION = '0.3.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -6,7 +6,8 @@ export const CONDITIONS = { '': '尚未分類', normal: '一般現況', crack: '
 export const COMPONENTS = ['', '外觀', '牆面', '梁', '柱', '地坪', '平頂', '門窗', '其他'];
 export const UNIT_STATES = { open: '待完成', partial: '部分完成', inaccessible: '無法入內', complete: '本次紀錄完成' };
 export const ROLES = { overview: '位置全景', close: '近照', scale: '量尺照', other: '其他' };
-export const WIDTH_MODES = { unknown: '未確認', lt03: '小於 0.3 mm', ge03: '大於或等於 0.3 mm', exact: '輸入實測值' };
+export const WIDTH_MODES = { unknown: '未確認', le03: '0.3 mm 以下（≤0.3）', gt03: '超過 0.3 mm（>0.3）', exact: '輸入實測值', lt03: '舊紀錄：小於 0.3 mm', ge03: '舊紀錄：大於或等於 0.3 mm' };
+export const recordComponents = r => r.components ?? (r.component ? [r.component] : []);
 export const CRACK_PATTERNS = { '': '尚未選擇', horizontal: '水平裂隙', vertical: '垂直裂隙', diagonal: '斜向裂隙', network: '網狀裂隙', other: '其他（於說明補充）' };
 export const widthMode = r => r.widthMode ?? (r.width !== null ? 'exact' : 'unknown');
 export const emptySketch = () => ({ version: 1, width: 1200, height: 900, strokes: [] });
@@ -22,12 +23,12 @@ export function recordIssues(r) {
   if (!r.floor.trim()) issues.push('缺樓層');
   if (!r.space.trim()) issues.push('缺空間');
   if (!r.location.trim() && !r.placement) issues.push('缺位置說明或圖上位置');
-  if (!r.component) issues.push('缺部位');
+  if (!recordComponents(r).length) issues.push('缺部位');
   if (!r.condition) issues.push('尚未分類現況');
   if (!r.photos.some(p => !p.excluded) && r.visibility !== 'inaccessible') issues.push('尚無採用照片');
   if (r.visibility !== 'visible' && !r.notes.trim()) issues.push('請記錄無法觀察的原因');
   if (r.condition === 'crack' && !r.measured) issues.push('裂縫未量測');
-  if (r.measured && ((r.width === null && !['lt03', 'ge03'].includes(widthMode(r))) || r.length === null)) issues.push('量測尺寸未齊');
+  if (r.measured && ((r.width === null && !['lt03', 'ge03', 'le03', 'gt03'].includes(widthMode(r))) || r.length === null)) issues.push('量測尺寸未齊');
   return issues;
 }
 export function unitIssues(p, u) {
@@ -93,6 +94,11 @@ export function validateProject(p) {
     assert(units.has(r.unitId), '紀錄的戶別不存在');
     for (const k of ['floor', 'space', 'location', 'notes', 'resident', 'createdAt', 'updatedAt']) text(r[k], k);
     assert(COMPONENTS.includes(r.component) && Object.hasOwn(CONDITIONS, r.condition), '現況分類不正確');
+    if (r.components !== undefined) {
+      list(r.components, '部位', COMPONENTS.length - 1);
+      assert(r.components.every(c => c && COMPONENTS.includes(c)) && new Set(r.components).size === r.components.length, '部位選項重複或不正確');
+      assert(r.component === (r.components[0] || ''), '部位摘要不一致');
+    }
     assert(['visible', 'partial', 'inaccessible'].includes(r.visibility), '觀察狀態不正確');
     assert(typeof r.measured === 'boolean', '量測狀態不正確');
     for (const k of ['width', 'length']) assert(r[k] === null || (typeof r[k] === 'number' && Number.isFinite(r[k]) && r[k] >= 0), '尺寸須為非負數值或未量測');
