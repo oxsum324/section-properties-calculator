@@ -10,6 +10,8 @@ const TRANSIENT_NETWORK_ERROR_CODES = new Set([
   'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT', 'UND_ERR_SOCKET',
 ]);
 const PUBLIC_ROUTE_SAMPLES = [
+  { path: 'field-survey/index.html', needles: ['現況鑑定紀錄 V0.1.0', './manifest.webmanifest', './app.js', '備份還原', '原始照片'], checkAssets: true },
+  { path: 'field-survey/sw.js', needles: ['condition-survey-shell-0.1.0', 'cache.addAll', 'ACTIVATE_UPDATE'] },
   {
     path: '鋼筋混凝土/',
     needles: ['鋼筋混凝土構件設計工具箱', 'RC 自動巡檢', '../結構工具箱/assets/status/platform-status.json', '../結構工具箱/audit-dashboard.html', '../結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', 'RC 工具箱入口列印已封鎖', '明確核可後可作為正式附件', 'V1.7'],
@@ -64,6 +66,11 @@ const CLEAN_ROUTE_SAMPLES = [
   { path: 'frame-analysis/', source: '/frame-analysis', targetNeedle: encodeURIComponent('平面剛架分析.html') },
 ];
 const PRIVATE_PATHS = [
+  'field-survey/tests/browser.test.js',
+  'field-survey/tests/model.test.js',
+  'field-survey/README.md',
+  'field-survey/package.json',
+  '啟動現況鑑定紀錄.bat',
   '鋼構工具/core/formal-core-manifest.json',
   '結構工具箱/tools/independent-engineering-adapters/rc-stm-strength.js',
   '結構工具箱/tools/independent-engineering-adapters/frame-analysis.js',

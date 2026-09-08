@@ -547,3 +547,5 @@ git add -- field-survey/ "啟動現況鑑定紀錄.bat" serve-local.js vercel.js
 `field-survey/tests/` 及 README、package.json 依既有 artifact 規則排除；公開只包含操作頁、程式、樣式、離線資源清單及圖示。
 
 本組 preflight 執行入口：`field-survey/tests/model.test.js`、`field-survey/tests/browser.test.js`。
+
+備份的發布排除與改名偵測一併交付：`結構工具箱/tools/build-pages-artifact.js`、`pages-release-governance.contract.test.js`。所有 `.csurvey` 及 `-核對收據.json` 排除發布；改名後仍以資料包標頭或 JSON kind 阻擋。

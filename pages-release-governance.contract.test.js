@@ -215,6 +215,8 @@ assert.ok(
     fs.writeFileSync(path.join(fixtureRepo, 'deleted.html'), '<p>delete</p>\n', 'utf8');
     fs.writeFileSync(path.join(fixtureRepo, 'README.md'), '# private\n', 'utf8');
     fs.writeFileSync(path.join(fixtureRepo, 'secret.test.js'), 'throw new Error("private");\n', 'utf8');
+    fs.writeFileSync(path.join(fixtureRepo, 'survey-private.csurvey'), 'CSURVEY/1\nprivate fixture', 'utf8');
+    fs.writeFileSync(path.join(fixtureRepo, 'DEMO-核對收據.json'), '{"kind":"condition-survey-receipt"}', 'utf8');
     fs.mkdirSync(path.join(fixtureRepo, 'dev_tools'), { recursive: true });
     fs.writeFileSync(path.join(fixtureRepo, 'dev_tools', 'secret.html'), '<p>private</p>\n', 'utf8');
     const privateGsp = path.join(fixtureRepo, '案件', 'GSP-外部歸檔生命週期總覽-GSP-00000000000000000000', 'overview.html');
@@ -290,6 +292,12 @@ assert.ok(
     assert.equal(result.publishedCount, 2, 'artifact builder stages tracked changes and non-ignored new published files only');
     assert.equal(result.missingCount, 1, 'artifact builder omits tracked working-tree deletions');
     assert.deepEqual(result.privateContentScan, { scannedFileCount: 2, findingCount: 0 }, 'artifact builder scans every staged public file for private workstation paths');
+    for (const name of ['survey-private.csurvey', 'DEMO-核對收據.json']) assert.equal(fs.existsSync(path.join(fixtureSite, name)), false, 'survey originals and receipts stay private');
+    for (const content of ['CSURVEY/1\n0000000002\n{}private', '{"kind":"condition-survey-receipt","projectId":"private"}', '{"kind":"condition-survey-bundle","payload":{}}']) {
+      const renamed = path.join(fixtureRepo, 'renamed-survey-data.bin'); fs.writeFileSync(renamed, content);
+      assert.throws(() => stagePagesArtifact({ repoRoot: fixtureRepo, siteRoot: fixtureSite }), /condition-survey-private-data/, 'renamed survey data fails publication closed');
+      fs.rmSync(renamed);
+    }
     assert.equal(fs.readFileSync(path.join(fixtureSite, 'keep.html'), 'utf8'), '<p>working change</p>\n', 'artifact builder applies Git clean filters to tracked changes');
     assert.equal(fs.readFileSync(path.join(fixtureSite, 'new-page.html'), 'utf8'), '<p>new page</p>\n', 'artifact builder applies Git clean filters to new published files');
     for (const privatePath of ['README.md', 'secret.test.js', 'dev_tools/secret.html', '案件/GSP-外部歸檔生命週期總覽-GSP-00000000000000000000/overview.html', '案件/GSM-外部歸檔生命週期監測-latest.json', '案件/events/GSM-外部歸檔生命週期監測事件-000001-GME-00000000000000000000.json', '案件/GOVERNANCE_TRUSTED_ARCHIVE_LIFECYCLE_DASHBOARD_SCHEMA.json', '案件/EQ-PRIVATE-001/case-bundle.draft.json', '案件/EQ-PRIVATE-001/outputs/private-report.html', '案件/EQ-PRIVATE-MALFORMED/case-bundle-eqb-not-canonical.json', '案件/EQ-PRIVATE-MALFORMED/outputs/must-stay-private.html', '案件/MOMENT-REAL-CASE-INTAKE/beam-column-moment-real-case-intake.json', '案件/MOMENT-REAL-CASE-INTAKE/evidence/source-calculation.pdf', '案件/MOMENT-REAL-CASE-INTAKE/evidence/source-calculation.xlsx', '案件/MOMENT-REAL-CASE-RECEIPT/beam-column-moment-real-case-intake-readiness.receipt.json', '案件/MOMENT-REAL-CASE-RECEIPT/outputs/readiness-summary.html', '案件/MOMENT-REAL-CASE-G1/case-bundle.g1.draft.json', '案件/MOMENT-REAL-CASE-G1/outputs/private-production-evidence.html', '案件/MOMENT-REAL-CASE-G1/references/external-reference.xlsx', 'output/audit/gsm-lifecycle-monitor-status.json', 'output/audit/gsm-lifecycle-monitor-history.json', 'output/audit/gsm-lifecycle-monitor-task-status.json', '結構工具箱/tools/build-pages-artifact.js', 'ignored.html', 'deleted.html']) {
@@ -697,6 +705,8 @@ assert.ok(pagesSmoke.includes('結構工具箱/tools/independent-engineering-ada
 assert.ok(pagesSmoke.includes("path: 'frame-analysis/'") && pagesSmoke.includes("source: '/frame-analysis'") && pagesSmoke.includes("targetNeedle: encodeURIComponent('平面剛架分析.html')") && pagesSmoke.includes("'frame-analysis-browser-smoke.test.js'"), 'Pages smoke verifies the promoted frame route with its encoded Unicode destination marker and keeps its browser producer private');
 assert.ok(pagesSmoke.includes("path: 'SRC工具/src-column.html'") && pagesSmoke.includes("source: '/src-column'") && pagesSmoke.includes('SRC工具/core/src-column-oracle.js') && pagesSmoke.includes('SRC工具/src-column-page.contract.test.js') && pagesSmoke.includes('SRC工具/src-column-browser-smoke.test.js') && pagesSmoke.includes('SRC工具/src-column-core.test.js') && pagesSmoke.includes('SRC工具/src-column-h-section-catalog.test.js') && pagesSmoke.includes('SRC工具/src-column-rc-biaxial.test.js') && pagesSmoke.includes('SRC工具/src-column-shear.test.js') && pagesSmoke.includes('SRC工具/src-column-seismic-axial.test.js') && pagesSmoke.includes('SRC工具/src-column-seismic-detailing.test.js') && pagesSmoke.includes('SRC工具/src-column-oracle.test.js') && pagesSmoke.includes('SRC工具/src-column-traceability.catalog.json'), 'Pages smoke treats SRC column production assets as public and probes private oracle/test assets');
 const { classifyPublishedPath } = require(artifactBuilderPath);
+for (const privatePath of ['anywhere/CASE.csurvey', 'anywhere/CASE.CSURVEY', 'CASE-核對收據.json']) assert.equal(classifyPublishedPath(privatePath).publish, false, 'survey backups and receipts cannot be published');
+for (const publicPath of ['field-survey/index.html', 'field-survey/bundle.js', 'field-survey/manifest.webmanifest', 'field-survey/icon-192.png']) assert.equal(classifyPublishedPath(publicPath).publish, true, 'survey runtime stays publishable');
 assert.deepEqual(classifyPublishedPath('結構工具箱/tools/beam-column-moment-g1-pilot.js'), { publish: false, reason: 'private-tooling' }, 'moment G1 pilot cannot enter the public artifact');
 assert.deepEqual(classifyPublishedPath('結構工具箱/tools/beam-column-moment-real-case-intake.js'), { publish: false, reason: 'private-tooling' }, 'moment real-case intake source cannot enter the public artifact');
 assert.deepEqual(classifyPublishedPath('結構工具箱/tools/beam-column-moment-real-case-intake.test.js'), { publish: false, reason: 'private-tooling' }, 'moment real-case intake contract cannot enter the public artifact');

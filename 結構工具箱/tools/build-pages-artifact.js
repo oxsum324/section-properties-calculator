@@ -154,6 +154,8 @@ const PRIVATE_BASENAMES = new Set([
 ]);
 
 const PRIVATE_SUFFIXES = [
+  '.csurvey',
+  '-核對收據.json',
   '.schema.json',
   '_schema.json',
   '.contract.test.js',
@@ -170,6 +172,10 @@ const PRIVATE_SUFFIXES = [
 ];
 
 const PRIVATE_CONTENT_PATTERNS = [
+  {
+    name: 'condition-survey-private-data',
+    pattern: /^CSURVEY\/1\r?\n|["']kind["']\s*:\s*["']condition-survey-(?:bundle|receipt)["']/u,
+  },
   {
     name: 'engineering-qualification-case-bundle',
     pattern: /["']kind["']\s*:\s*["']engineering-qualification-(?:case-bundle\.v1|comparison-data\.v[12])["']/u,
