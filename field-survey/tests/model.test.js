@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { newProject, newUnit, newRecord, id, now, sha256, validateProject, recordIssues, subset, restoredCopy, widthMode, recordComponents, emptySketch, validateSketch } from '../model.js';
+import { newProject, newUnit, newRecord, id, now, sha256, validateProject, recordIssues, unitIssues, subset, restoredCopy, widthMode, recordComponents, emptySketch, validateSketch } from '../model.js';
 import { makeBundle, readBundle, snapshot, makeReceipt, checkReceipt } from '../bundle.js';
 import { resolveSketchPoint, doorGeometry } from '../sketch.js';
 
@@ -38,6 +38,30 @@ test('excluded photo retains media but no longer satisfies photo reminder', asyn
   const { p, r } = await fixture(); r.photos[0].excluded = true;
   assert.throws(() => validateProject(p), /不採用原因/); r.photos[0].excludedReason = '合成測試'; validateProject(p);
   assert(recordIssues(r).includes('尚無採用照片')); assert.equal(p.media.length, 2);
+});
+test('network cracks do not require linear measurements, while other reminders and patterns still apply', async () => {
+  const { p, r, a } = await fixture(); Object.assign(r, { condition: 'crack', crackPattern: 'network' });
+  for (const measured of [false, true]) for (const mode of ['unknown', 'exact', 'lt03', 'ge03', 'le03', 'gt03']) {
+    Object.assign(r, { measured, widthMode: mode }); validateProject(p);
+    assert.deepEqual(recordIssues(r), []); assert.deepEqual(unitIssues(p, a), []);
+    assert.equal(r.width, null); assert.equal(r.length, null);
+  }
+  r.location = ''; r.photos = []; assert.deepEqual(recordIssues(r), ['缺位置說明或圖上位置', '尚無採用照片']);
+  for (const crackPattern of ['', 'horizontal', 'vertical', 'diagonal', 'other']) {
+    Object.assign(r, { crackPattern, measured: false }); assert(recordIssues(r).includes('裂縫未量測'));
+    r.measured = true; assert(recordIssues(r).includes('量測尺寸未齊'));
+  }
+  Object.assign(r, { condition: 'normal', crackPattern: 'network' }); assert(recordIssues(r).includes('量測尺寸未齊'));
+});
+test('optional network measurements preserve blanks and actual values through backup and restore', async () => {
+  const { p, r, blobs } = await fixture(); Object.assign(r, { condition: 'crack', crackPattern: 'network', measured: true, widthMode: 'exact' });
+  for (const [width, length] of [[null, null], [.2, null], [null, 1.2], [0, 0], [.3, 1.2]]) {
+    Object.assign(r, { width, length }); validateProject(p); assert.deepEqual(recordIssues(r), []);
+    const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
+    const copied = restoredCopy(restored.project).project.records[0];
+    assert.equal(copied.crackPattern, 'network'); assert.equal(copied.width, width); assert.equal(copied.length, length); assert.deepEqual(recordIssues(copied), []);
+  }
+  r.width = -1; assert.throws(() => validateProject(p), /非負/);
 });
 test('width ranges preserve uncertainty without inventing an exact threshold reading', async () => {
   const { p, r, blobs } = await fixture(); r.condition = 'crack'; r.widthMode = 'lt03'; r.crackPattern = 'diagonal';

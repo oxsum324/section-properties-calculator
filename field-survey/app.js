@@ -1,4 +1,4 @@
-import { VERSION, id, now, clone, newProject, newUnit, newRecord, CONDITIONS, COMPONENTS, UNIT_STATES, ROLES, WIDTH_MODES, CRACK_PATTERNS, widthMode, recordComponents, emptySketch, recordIssues, unitIssues, sha256, restoredCopy, assert } from './model.js';
+import { VERSION, id, now, clone, newProject, newUnit, newRecord, CONDITIONS, COMPONENTS, UNIT_STATES, ROLES, WIDTH_MODES, CRACK_PATTERNS, widthMode, isNetworkCrack, recordComponents, emptySketch, recordIssues, unitIssues, sha256, restoredCopy, assert } from './model.js';
 import { openStore, allProjects, getProject, getMedia, saveProject, backupState, saveBackupState } from './store.js';
 import { makeBundle, readBundle, makeReceipt, checkReceipt } from './bundle.js';
 import { createAnnotator, markedImage } from './annotation.js';
@@ -76,8 +76,11 @@ async function saveForm() {
 }
 function measurementState() {
   const mode = $('#widthMode').value, measured = $('#measured').checked;
+  const network = isNetworkCrack({ condition: $('#condition').value, crackPattern: $('#crackPattern').value });
   for (const button of $('#widthPresets').querySelectorAll('[data-width]')) button.setAttribute('aria-pressed', String(button.dataset.width === mode));
   $('#width').disabled = !measured || mode !== 'exact'; $('#length').disabled = !measured;
+  $('#widthLabel').textContent = `實測裂縫寬度（mm）${network ? '・選填' : ''}`; $('#lengthLabel').textContent = `實測裂縫長度（m）${network ? '・選填' : ''}`;
+  if (network) { $('#widthHint').textContent = '網狀裂隙以照片圈註與現況說明記錄分布；寬度、長度及實測勾選均可略過，不列尺寸待補。若另有實測值，可勾選實際量測後選填。'; return; }
   $('#widthHint').textContent = ['lt03', 'ge03', 'le03', 'gt03'].includes(mode) ? `${measured ? '已實測區間' : '區間初記，尚未實測'}。只保存區間，不代填 0.3 mm；此界線不是安全判定。` : mode === 'exact' ? measured ? '請輸入裂縫規讀值；寬度用 mm，長度用 m。' : '請勾選已實際量測，再輸入裂縫規讀值。' : '未確認時保留空值；可先記裂隙方向及現況說明。';
 }
 function changed() {
@@ -430,7 +433,7 @@ async function receiveReceipt(file) {
 }
 function helpDialog() {
   openModal('手機使用與保存', `<ol class="help-list"><li>新增案件及戶別。進入每個空間後新增位置，拍全景、近照或量尺照。</li><li>點照片可圈選、畫箭頭與文字；圈註另存，原圖保留。位置圖可加入圖面或草圖照片。</li><li>現況欄位會自動保存。切換位置前會先保存；上方有錯誤時請先處理。</li><li>離開一戶前查看「待補檢查」，無法入內或部分完成請記原因。</li><li>從「備份還原」匯出全案或單戶。在電腦開啟同一工具、核對備份及建立還原副本。</li><li>iPhone 可從瀏覽器分享選單加入主畫面；Android 可從瀏覽器選單安裝。需先在線開啟，等上方顯示「離線已就緒」。手機使用需 HTTPS。</li></ol><p class="modal-note">資料只保存在此瀏覽器及你匯出的備份檔，不自動上傳。換瀏覽器、清除網站資料或移除應用程式前，請先完成外部備份。勿以無痕模式保存工作。</p><p>本工具記錄現場可見情形，不自動判定損害原因、結構安全或責任歸屬。尚須在實際手機上確認相機、容量及中斷操作。</p><p class="help-version">版本 ${VERSION} · 純本機資料 · 現況紀錄工作稿</p><button id="applyUpdate" class="secondary" hidden>保存後套用離線更新</button>`);
-  $('#modalBody').insertAdjacentHTML('afterbegin', '<p class="modal-note">V0.4：簡圖新增開門、開窗、端點／牆線吸附與水平／垂直鎖定。復原一步後才可重做，清空重畫另有按鈕。拍照先同意啟用相機，再於瀏覽器選允許；可預覽、重拍與保存。部位可複選；裂縫可一鍵選 ≤0.3 mm、>0.3 mm。無圖說可直接「手繪簡圖」，點兩下畫房間／線段，保存後點拍攝點及方向標箭頭。簡圖未按比例，寬度區間不代表安全判定。</p>');
+  $('#modalBody').insertAdjacentHTML('afterbegin', '<p class="modal-note">V0.4.1：網狀裂隙的寬度、長度及實測勾選均可略過，不列尺寸待補。簡圖新增開門、開窗、端點／牆線吸附與水平／垂直鎖定。復原一步後才可重做，清空重畫另有按鈕。拍照先同意啟用相機，再於瀏覽器選允許；可預覽、重拍與保存。部位可複選；裂縫可一鍵選 ≤0.3 mm、>0.3 mm。無圖說可直接「手繪簡圖」，點兩下畫房間／線段，保存後點拍攝點及方向標箭頭。簡圖未按比例，寬度區間不代表安全判定。</p>');
   navigator.serviceWorker?.getRegistration().then(reg => { if (reg?.waiting && $('#applyUpdate')) { $('#applyUpdate').hidden = false; $('#applyUpdate').onclick = () => action(async () => { requireNoRecording(); assert(!conflictDraft, '請先另存目前副本，再套用更新'); closeModal(true); navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true }); reg.waiting.postMessage('ACTIVATE_UPDATE'); }); } });
 }
 async function initOffline() {

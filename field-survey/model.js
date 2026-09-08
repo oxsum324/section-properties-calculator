@@ -1,4 +1,4 @@
-export const VERSION = '0.4.0';
+export const VERSION = '0.4.1';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -10,6 +10,7 @@ export const WIDTH_MODES = { unknown: '未確認', le03: '0.3 mm 以下（≤0.3
 export const recordComponents = r => r.components ?? (r.component ? [r.component] : []);
 export const CRACK_PATTERNS = { '': '尚未選擇', horizontal: '水平裂隙', vertical: '垂直裂隙', diagonal: '斜向裂隙', network: '網狀裂隙', other: '其他（於說明補充）' };
 export const widthMode = r => r.widthMode ?? (r.width !== null ? 'exact' : 'unknown');
+export const isNetworkCrack = r => r.condition === 'crack' && r.crackPattern === 'network';
 export const emptySketch = () => ({ version: 1, width: 1200, height: 900, strokes: [] });
 export function newProject(code, name, date) {
   return { id: id(), code: code.trim(), name: name.trim(), date, createdAt: now(), updatedAt: now(), revision: 0, units: [], records: [], plans: [], media: [] };
@@ -27,8 +28,10 @@ export function recordIssues(r) {
   if (!r.condition) issues.push('尚未分類現況');
   if (!r.photos.some(p => !p.excluded) && r.visibility !== 'inaccessible') issues.push('尚無採用照片');
   if (r.visibility !== 'visible' && !r.notes.trim()) issues.push('請記錄無法觀察的原因');
-  if (r.condition === 'crack' && !r.measured) issues.push('裂縫未量測');
-  if (r.measured && ((r.width === null && !['lt03', 'ge03', 'le03', 'gt03'].includes(widthMode(r))) || r.length === null)) issues.push('量測尺寸未齊');
+  if (!isNetworkCrack(r)) {
+    if (r.condition === 'crack' && !r.measured) issues.push('裂縫未量測');
+    if (r.measured && ((r.width === null && !['lt03', 'ge03', 'le03', 'gt03'].includes(widthMode(r))) || r.length === null)) issues.push('量測尺寸未齊');
+  }
   return issues;
 }
 export function unitIssues(p, u) {
