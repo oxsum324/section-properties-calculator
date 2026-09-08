@@ -38,6 +38,11 @@ test('excluded photo retains media but no longer satisfies photo reminder', asyn
   assert.throws(() => validateProject(p), /不採用原因/); r.photos[0].excludedReason = '合成測試'; validateProject(p);
   assert(recordIssues(r).includes('尚無採用照片')); assert.equal(p.media.length, 2);
 });
+test('audio codec parameters support MP4 dotted identifiers and quoted codec lists', async () => {
+  const { p, r } = await fixture(), media = p.media[0]; media.kind = 'audio'; r.audioIds.push(media.id); r.photos = [];
+  for (const type of ['audio/mp4;codecs=mp4a.40.2', 'audio/mp4; codecs="mp4a.40.2"', 'audio/webm;codecs=opus']) { media.type = type; validateProject(p); }
+  media.type = 'text/html'; assert.throws(() => validateProject(p), /媒體格式/);
+});
 test('restoration creates isolated project and media identities without changing source', async () => {
   const { p } = await fixture(), before = structuredClone(p), copy = restoredCopy(p);
   validateProject(copy.project); assert.notEqual(copy.project.id, p.id); assert.equal(copy.project.revision, 0); assert.deepEqual(p, before);

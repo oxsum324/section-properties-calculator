@@ -5,7 +5,7 @@
     { "source": "/section", "destination": "/index.html" }
   ],
   "redirects": [
-    { "source": "/condition-survey", "destination": "/field-survey/index.html", "permanent": true },
+    { "source": "/condition-survey", "destination": "/field-survey/recorder.html", "permanent": true },
     { "source": "/", "destination": "/結構工具箱/", "permanent": true },
     { "source": "/toolbox-home", "destination": "/結構工具箱/", "permanent": true },
     { "source": "/toolbox-classic", "destination": "/結構工具箱/index-classic", "permanent": true },

@@ -116,7 +116,11 @@ const stoneVersionContext = { window: {} };
 vm.runInNewContext(stoneVersionSource, stoneVersionContext, { timeout: 1000, filename: 'stone-public-metadata' });
 const stoneMetadata = stoneVersionContext.window.StonePublicMetadata;
 
-assert.equal(homeTools.length, 51, 'canonical homepage tool inventory count');
+assert.equal(homeTools.length, 52, 'canonical homepage tool inventory count');
+const surveyTool = homeTools.find(tool => tool.href === '/condition-survey');
+assert.equal(surveyTool?.state, 'workflow', 'survey recorder stays a non-formal workflow');
+assert.equal(surveyTool?.version, 'V0.1.0', 'survey recorder public version');
+assert.equal(surveyTool?.capabilities.includes('正式核算'), false, 'survey recorder does not claim formal calculations');
 assert.equal(new Set(homeTools.map(tool => tool.href)).size, homeTools.length, 'canonical homepage routes are unique');
 for (const tool of homeTools) {
   assert.ok(tool.title && tool.version && tool.state && tool.output && tool.summary && tool.fit && tool.limit, `canonical public claim complete: ${tool.href}`);

@@ -549,3 +549,7 @@ git add -- field-survey/ "啟動現況鑑定紀錄.bat" serve-local.js vercel.js
 本組 preflight 執行入口：`field-survey/tests/model.test.js`、`field-survey/tests/browser.test.js`。
 
 備份的發布排除與改名偵測一併交付：`結構工具箱/tools/build-pages-artifact.js`、`pages-release-governance.contract.test.js`。所有 `.csurvey` 及 `-核對收據.json` 排除發布；改名後仍以資料包標頭或 JSON kind 阻擋。
+
+首頁新增工作流卡片後，同步維護 `結構工具箱/tools/public-status-claims.contract.test.js` 與 `結構工具箱/tools/local-quick-browser-smoke.test.js` 的 52 項入口檢查。主頁使用 `field-survey/recorder.html`，維持 clean URL 下相對資源位置一致。
+
+`.gitignore` 也忽略案件備份與核對收據，避免一般 Git staging 收入私人資料。

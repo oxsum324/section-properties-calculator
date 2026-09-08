@@ -1013,7 +1013,7 @@
   const categoryMap = new Map(categories.map(category => [category.id, category]));
   const memberSystemMap = new Map(memberSystems.map(system => [system.id, system]));
   const routeFileMap = {
-    '/condition-survey': '../field-survey/index.html',
+    '/condition-survey': '../field-survey/recorder.html',
     '/beam-analysis': '../連續梁分析.html',
     '/frame-analysis': '../鋼架/平面剛架分析.html',
     '/struct-dx': '../解題/struct_dx/frontend/struct_suite.html',

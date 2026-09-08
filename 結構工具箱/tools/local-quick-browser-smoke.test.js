@@ -3233,7 +3233,7 @@ async function main() {
         assert.deepEqual(searchResults.missing, [], `${label} empty search result`);
         assert.equal(searchResults.emptyVisible, true, `${label} empty result is visible`);
         assert.equal(searchResults.cleared, true, `${label} clear search`);
-        assert.equal(searchResults.restoredCount, 51, `${label} clear restores inventory`);
+        assert.equal(searchResults.restoredCount, 52, `${label} clear restores inventory including the survey workflow`);
         assert.equal(searchResults.overflow, false, `${label} search controls fit viewport`);
       }
 

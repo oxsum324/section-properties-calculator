@@ -11,7 +11,7 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
 const out = path.join(root, 'output', 'field-survey-validation');
 let base = process.env.SURVEY_URL, server;
 if (!base) {
-  server = spawn(process.execPath, [path.join(root, 'serve-local.js'), '--no-open', '--route', '/field-survey/index.html'], { cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  server = spawn(process.execPath, [path.join(root, 'serve-local.js'), '--no-open', '--route', '/field-survey/recorder.html'], { cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   base = await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('Test server did not start')), 10000);
     server.stdout.on('data', data => { const match = String(data).match(/listening on (http:\/\/[^\s]+)/); if (match) { clearTimeout(timer); resolve(match[1]); } });
@@ -60,9 +60,11 @@ try {
   const imgBox = await page.locator('#photoStage img').boundingBox(), svgBox = await page.locator('#photoStage svg').boundingBox();
   assert(Math.abs(imgBox.height / imgBox.width - .7) < .01); assert(Math.abs(svgBox.height - imgBox.height) < 1);
   await draw('#photoStage svg'); await page.locator('#photoCaption').fill('合成測試圈註');
+  await click('#closeModal'); assert(await page.locator('#discardPrompt').isVisible()); await click('#keepEditing'); assert(!(await page.locator('#discardPrompt').isVisible()));
   await page.screenshot({ path: path.join(out, '02-mobile-annotation.png'), fullPage: true });
   const markedDownload = page.waitForEvent('download'); await click('#downloadMarked'); const marked = await markedDownload; await marked.saveAs(path.join(out, 'marked-copy.jpg'));
   await click('#savePhoto'); p = (await projects())[0]; assert.equal(p.records[0].photos[0].marks.length, 1); assert.equal(await originalHash(page, mid), hash);
+  await click('.photo-card'); await page.locator('#photoStage svg').waitFor(); await draw('#photoStage svg'); await click('#closeModal'); await click('#discardChanges'); assert.equal((await projects())[0].records[0].photos[0].marks.length, 1);
   await page.locator('#measured').check(); await page.locator('#width').fill('0.3'); await page.locator('#length').fill('1.2'); await click('#saveRecord');
   await click('#showPlan'); const planPicker = page.waitForEvent('filechooser'); await click('#addPlanImage'); await (await planPicker).setFiles(imagePath); await idle(page); await page.locator('#planStage svg').waitFor(); await draw('#planStage svg'); await click('#savePlacement');
   p = (await projects())[0]; assert(p.records[0].placement); assert.equal(p.plans.length, 1);
@@ -70,6 +72,7 @@ try {
 
   await page.locator('details summary').click(); await click('#recordAudio');
   await page.waitForFunction(() => document.querySelector('#audioStatus').textContent.includes('錄音中'));
+  await page.waitForTimeout(1200); // Let the simulated microphone deliver a real recording chunk.
   await click('#recordAudio'); p = (await projects())[0]; assert.equal(p.records[0].audioIds.length, 1);
   await context.setOffline(true); await page.reload(); await page.locator('.photo-card img').waitFor();
   assert.equal(await page.locator('#width').inputValue(), '0.3'); assert.equal(await page.locator('#notes').inputValue(), '合成測試：裂隙可见範圍紀錄。');
@@ -100,6 +103,19 @@ try {
   await click('#recoverCopy', other); const saved = await projects(other); assert.equal(saved.length, 2);
   assert(saved.some(x => x.records[0].notes === '第一視窗修改')); assert(saved.some(x => x.records[0].notes === '第二視窗保留的修改'));
   await other.close();
+  const photoTab = await context.newPage(); await photoTab.goto(base); await photoTab.locator('#caseSelect').selectOption(bundle.project.id); await idle(photoTab);
+  await click('.photo-card', photoTab); await photoTab.locator('#photoStage svg').waitFor(); await draw('#photoStage svg', photoTab); await photoTab.locator('#photoCaption').fill('衝突圈註副本');
+  await page.locator('#notes').fill('第一視窗再次修改'); await click('#saveRecord');
+  await click('#savePhoto', photoTab); await photoTab.locator('#modalRecover').waitFor(); await click('#modalRecover', photoTab);
+  const markedCopy = (await projects(photoTab)).find(x => x.records[0].photos[0].caption === '衝突圈註副本');
+  assert(markedCopy); assert.equal(markedCopy.records[0].photos[0].marks.length, 2); assert.equal(await originalHash(photoTab, markedCopy.records[0].photos[0].mediaId), hash); await photoTab.close();
+  const captureTab = await context.newPage(); await captureTab.goto(base); await captureTab.locator('#caseSelect').selectOption(bundle.project.id); await idle(captureTab);
+  const extraPath = path.join(out, 'synthetic-extra.png'); await fs.writeFile(extraPath, Buffer.concat([Buffer.from(fixture, 'base64'), Buffer.from([1])]));
+  const extraPicker = captureTab.waitForEvent('filechooser'); await click('#pickPhotos', captureTab);
+  await page.locator('#notes').fill('原案持續保存'); await click('#saveRecord'); await (await extraPicker).setFiles(extraPath); await idle(captureTab); await captureTab.locator('#recoverCopy').waitFor(); await click('#recoverCopy', captureTab);
+  const capturedCopy = (await projects(captureTab)).find(x => x.records[0].photos.length === 2); assert(capturedCopy); assert.equal(capturedCopy.media.length, 4);
+  const extraId = capturedCopy.records[0].photos[1].mediaId; assert.equal(await originalHash(captureTab, extraId), capturedCopy.media.find(m => m.id === extraId).sha256); await captureTab.close();
+  console.log('PASS conflicting annotation and incoming photo both survive isolated-copy recovery');
   await click('.photo-card'); await page.locator('#photoExcluded').check(); await page.locator('#excludedReason').fill('測試排除'); await click('#savePhoto');
   assert((await page.locator('#recordIssues').innerText()).includes('尚無採用照片')); assert.equal(await originalHash(page, mid), hash);
   await click('[data-view=backup]'); assert((await page.locator('#exportState').innerText()).includes('已有修改'));

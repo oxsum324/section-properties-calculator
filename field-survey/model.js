@@ -64,7 +64,7 @@ export function validateProject(p) {
   for (const m of p.media) {
     text(m.name, '檔名', 500); text(m.type, '媒體類型', 100); text(m.importedAt, '取得時間', 100);
     assert(['image', 'audio', 'plan'].includes(m.kind), '媒體用途不正確');
-    assert((m.kind === 'audio' ? /^audio\/(webm|ogg|mp4|mpeg|wav|x-wav|aac)(;codecs=[\w,-]+)?$/ : /^image\/(jpeg|png|webp|heic|heif)$/).test(m.type), '媒體格式不正確');
+    assert((m.kind === 'audio' ? /^audio\/(webm|ogg|mp4|mpeg|wav|x-wav|aac)(;\s*codecs=(?:[\w.,+-]+|"[\w.,+ -]+"))?$/ : /^image\/(jpeg|png|webp|heic|heif)$/).test(m.type), '媒體格式不正確');
     assert(Number.isSafeInteger(m.size) && m.size > 0 && m.size <= 60 * 1024 * 1024, '單一媒體大小超過 60 MB 或為空');
     assert(/^[a-f0-9]{64}$/.test(m.sha256), '媒體指紋不正確');
   }

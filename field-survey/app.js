@@ -9,12 +9,13 @@ const size = bytes => bytes < 1048576 ? `${(bytes / 1024).toFixed(0)} KB` : `${(
 const localDate = () => { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; };
 let project = null, unitId = '', recordId = '', activeView = 'work', dirty = false, editGeneration = 0, saveTimer, formSaving = null, working = false, renderToken = 0;
 let pendingCapture = null, pendingPlan = null, modalCleanup = () => {}, modalDirty = false, recording = null, toastTimer;
+let conflictDraft = null;
 const urls = new Map();
 const currentRecord = () => project?.records.find(r => r.id === recordId);
 const currentUnit = () => project?.units.find(u => u.id === unitId);
 const recordNumber = r => `R-${String(project.records.indexOf(r) + 1).padStart(3, '0')}`;
 function toast(message) { clearTimeout(toastTimer); $('#toast').textContent = message; $('#toast').hidden = false; toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 3500); }
-function fail(error) { console.error(error); $('#recoverCopy').hidden = error?.name !== 'RevisionConflictError'; $('#errorText').textContent = error?.name === 'QuotaExceededError' ? '此裝置儲存空間不足，這次操作未完成。請先匯出已有案件；原有資料不會自動刪除。' : error.message || String(error); $('#errorBar').hidden = false; if ($('#modal').open) { $('#modalError').textContent = $('#errorText').textContent; $('#modalError').hidden = false; $('#modalError').scrollIntoView({ block: 'nearest' }); } $('#saveStatus').textContent = dirty ? '有尚未保存的變更' : '請確認上方提示'; }
+function fail(error) { console.error(error); $('#recoverCopy').hidden = $('#modalRecover').hidden = !conflictDraft; $('#errorText').textContent = error?.name === 'QuotaExceededError' ? '此裝置儲存空間不足，這次操作未完成。請先匯出已有案件；原有資料不會自動刪除。' : error.message || String(error); $('#errorBar').hidden = false; if ($('#modal').open) { $('#modalError').textContent = $('#errorText').textContent; $('#modalError').hidden = false; $('#modalError').scrollIntoView({ block: 'nearest' }); } $('#saveStatus').textContent = dirty ? '有尚未保存的變更' : '請確認上方提示'; }
 function busyText(text) { $('#busyText').textContent = text; }
 async function action(fn, label = '處理中') {
   if (working) return;
@@ -23,10 +24,13 @@ async function action(fn, label = '處理中') {
 }
 function requireNoRecording() { assert(!recording, '請先停止並保存目前錄音，再切換位置或案件。'); }
 function openModal(title, body, cleanup = () => {}) {
-  modalCleanup(); modalCleanup = cleanup; modalDirty = false; $('#modalError').hidden = true; $('#modalTitle').textContent = title; $('#modalBody').innerHTML = body;
+  modalCleanup(); modalCleanup = cleanup; modalDirty = false; $('#modalError').hidden = $('#modalRecover').hidden = $('#discardPrompt').hidden = true; $('#modalTitle').textContent = title; $('#modalBody').innerHTML = body;
   if (!$('#modal').open) $('#modal').showModal();
 }
-function closeModal(force = false) { if (!force && modalDirty && !confirm('圈註尚未保存，確定放棄這次修改？')) return; modalCleanup(); modalCleanup = () => {}; modalDirty = false; $('#modal').close(); }
+function closeModal(force = false) {
+  if (!force && modalDirty) { $('#discardPrompt').hidden = false; $('#keepEditing').focus(); return; }
+  modalCleanup(); modalCleanup = () => {}; modalDirty = false; $('#discardPrompt').hidden = true; $('#modal').close();
+}
 function revokeURLs() { for (const value of urls.values()) URL.revokeObjectURL(value); urls.clear(); }
 async function mediaURL(mediaId, original = false) {
   const key = mediaId + (original ? '-original' : '');
@@ -38,7 +42,9 @@ function download(blob, filename) {
   const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = filename.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_'); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 120000);
 }
 async function commit(mutator, assets = []) {
-  const next = clone(project); mutator(next); project = await saveProject(next, project.revision, assets); $('#saveStatus').textContent = '已保存於本機';
+  const next = clone(project); mutator(next);
+  try { project = await saveProject(next, project.revision, assets); conflictDraft = null; $('#saveStatus').textContent = '已保存於本機'; }
+  catch (e) { if (e.name === 'RevisionConflictError') conflictDraft = { project: next, assets }; throw e; }
 }
 function markUnitOpen(next, record) { const u = next.units.find(x => x.id === record.unitId); if (u?.status === 'complete') u.status = 'open'; record.updatedAt = now(); }
 function formValues() {
@@ -75,7 +81,7 @@ async function projectOptions() {
   if (project) $('#caseSelect').value = project.id;
 }
 async function selectProject(projectId) {
-  requireNoRecording(); revokeURLs(); project = projectId ? await getProject(projectId) : null; dirty = false;
+  requireNoRecording(); revokeURLs(); project = projectId ? await getProject(projectId) : null; dirty = false; conflictDraft = null;
   unitId = project?.units[0]?.id || ''; recordId = project?.records.find(r => r.unitId === unitId)?.id || ''; activeView = 'work'; await render();
 }
 function renderRecordList() {
@@ -212,7 +218,7 @@ async function addPhotos(files, context) {
       const existing = project.media.find(m => m.sha256 === metadata.sha256 && project.records.find(r => r.id === context.recordId).photos.some(p => p.mediaId === m.id));
       if (existing) { errors.push(`${file.name}：此位置已有相同檔案`); continue; }
       await commit(next => { next.media.push(metadata); const r = next.records.find(x => x.id === context.recordId); r.photos.push({ mediaId: metadata.id, role: r.photos.length ? 'close' : 'overview', caption: '', marks: [], excluded: false, excludedReason: '' }); markUnitOpen(next, r); }, [asset]); saved++;
-    } catch (e) { errors.push(`${file.name}：${e.message || '儲存失敗'}`); }
+    } catch (e) { if (e.name === 'RevisionConflictError') { e.message = `${file.name} 尚未保存；已暫留原檔供另存副本，其餘照片請在副本重新加入。${e.message}`; throw e; } errors.push(`${file.name}：${e.message || '儲存失敗'}`); }
   }
   await render(); if (saved) toast(`${saved} 張原始照片已保存於本機`);
   if (errors.length) throw new Error(`已保存 ${saved} 張；其餘 ${errors.length} 張未新增：${errors.slice(0, 5).join('；')}`);
@@ -336,22 +342,24 @@ async function initOffline() {
 async function recoverCopy() {
   if (working) return;
   requireNoRecording(); clearTimeout(saveTimer);
-  working = true; $('#busy').hidden = false; busyText('另存本視窗紀錄');
+  working = true; $('#busy').hidden = false; $('#app').inert = $('#modal').inert = true; busyText('另存本視窗紀錄');
   try {
     if (formSaving) await formSaving.catch(() => {});
-    const candidate = clone(project);
+    const candidate = clone(conflictDraft?.project || project), pendingAssets = new Map((conflictDraft?.assets || []).map(a => [a.id, a]));
     if (dirty && currentRecord()) {
       const r = candidate.records.find(x => x.id === recordId); Object.assign(r, formValues());
       if (r.placement && candidate.plans.find(p => p.id === r.placement.planId)?.floor !== r.floor) r.placement = null;
     }
     const copy = restoredCopy(candidate), assets = [];
     copy.project.name = candidate.name.slice(0, 200) + '（視窗副本）';
-    for (const m of candidate.media) { const asset = await getMedia(m.id); assets.push({ ...asset, id: copy.remap.get(m.id) }); }
-    await saveProject(copy.project, 0, assets); dirty = false; $('#errorBar').hidden = true;
+    for (const m of candidate.media) { const asset = pendingAssets.get(m.id) || await getMedia(m.id); assets.push({ ...asset, id: copy.remap.get(m.id) }); }
+    await saveProject(copy.project, 0, assets); dirty = false; conflictDraft = null; closeModal(true); $('#errorBar').hidden = true;
     await selectProject(copy.project.id); toast('已另存副本，請核對兩個視窗的內容');
-  } catch (e) { fail(e); } finally { working = false; $('#busy').hidden = true; }
+  } catch (e) { fail(e); } finally { working = false; $('#busy').hidden = true; $('#app').inert = $('#modal').inert = false; }
 }
-$('#recoverCopy').onclick = () => recoverCopy().catch(fail);
+$('#recoverCopy').onclick = $('#modalRecover').onclick = () => recoverCopy().catch(fail);
+$('#keepEditing').onclick = () => { $('#discardPrompt').hidden = true; };
+$('#discardChanges').onclick = () => closeModal(true);
 $('#component').innerHTML = opts(Object.fromEntries(COMPONENTS.map(x => [x, x || '請選部位']))); $('#condition').innerHTML = opts(CONDITIONS);
 $('#recordForm').addEventListener('submit', e => e.preventDefault()); $('#recordForm').addEventListener('input', changed); $('#recordForm').addEventListener('change', changed);
 $('#newCase').onclick = $('#startCase').onclick = () => action(caseDialog);
@@ -374,7 +382,7 @@ $('#bundleInput').onchange = e => { const file = e.target.files[0]; e.target.val
 $('#importReceipt').onclick = () => $('#receiptInput').click(); $('#receiptInput').onchange = e => { const file = e.target.files[0]; e.target.value = ''; if (file) action(() => receiveReceipt(file)); };
 $('#persistStorage').onclick = () => action(async () => { const granted = await navigator.storage?.persist?.(); toast(granted ? '已取得持續保存，仍請定期備份' : '瀏覽器未授予持續保存，請完成外部備份'); await renderBackup(); });
 $('#help').onclick = () => action(helpDialog); $('#closeModal').onclick = () => closeModal(); $('#modal').addEventListener('cancel', e => { e.preventDefault(); closeModal(); }); $('#dismissError').onclick = () => { $('#errorBar').hidden = true; };
-window.addEventListener('beforeunload', e => { if (dirty || formSaving || recording) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('beforeunload', e => { if (dirty || formSaving || recording || conflictDraft || modalDirty) { e.preventDefault(); e.returnValue = ''; } });
 document.addEventListener('visibilitychange', () => { if (document.hidden && dirty) saveForm().catch(fail); });
 window.addEventListener('unhandledrejection', e => { e.preventDefault(); fail(e.reason); });
 async function init() {

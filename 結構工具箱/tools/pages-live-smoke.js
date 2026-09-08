@@ -10,7 +10,7 @@ const TRANSIENT_NETWORK_ERROR_CODES = new Set([
   'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT', 'UND_ERR_SOCKET',
 ]);
 const PUBLIC_ROUTE_SAMPLES = [
-  { path: 'field-survey/index.html', needles: ['現況鑑定紀錄 V0.1.0', './manifest.webmanifest', './app.js', '備份還原', '原始照片'], checkAssets: true },
+  { path: 'field-survey/recorder.html', needles: ['現況鑑定紀錄 V0.1.0', './manifest.webmanifest', './app.js', '備份還原', '原始照片'], checkAssets: true },
   { path: 'field-survey/sw.js', needles: ['condition-survey-shell-0.1.0', 'cache.addAll', 'ACTIVATE_UPDATE'] },
   {
     path: '鋼筋混凝土/',
