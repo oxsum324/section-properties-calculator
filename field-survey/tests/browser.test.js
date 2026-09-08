@@ -3,6 +3,9 @@ import { fileURLToPath } from 'node:url';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:http';
+import { createHash } from 'node:crypto';
+import { VERSION } from '../model.js';
 import assert from 'node:assert/strict';
 import { readBundle } from '../bundle.js';
 const require = createRequire(import.meta.url);
@@ -47,7 +50,54 @@ async function tapPair(sel) {
   await page.locator(sel).scrollIntoViewIfNeeded(); const b = await page.locator(sel).boundingBox();
   await page.touchscreen.tap(b.x + b.width * .25, b.y + b.height * .3); await page.touchscreen.tap(b.x + b.width * .7, b.y + b.height * .65);
 }
+async function verifyHttpCachedUpdate() {
+  // Simulate a phone that opened the old release seconds before a deployment.
+  // Fresh max-age=600 HTTP responses must not enter the next offline cache.
+  const worker = await fs.readFile(path.join(root, 'field-survey/sw.js'), 'utf8');
+  const assets = [...worker.match(/const ASSETS = \[([^\]]+)\]/)[1].matchAll(/'([^']+)'/g)].map(match => match[1]);
+  const files = new Map(await Promise.all([...assets, './sw.js'].map(async name => [name, await fs.readFile(path.join(root, 'field-survey', name))])));
+  const cacheName = worker.match(/const CACHE = '([^']+)'/)[1], requestedNew = new Set();
+  let phase = 0;
+  const fixtureServer = createServer((request, response) => {
+    const name = '.' + new URL(request.url, 'http://localhost').pathname.replace(/^\/field-survey/, '');
+    if (!files.has(name)) { response.writeHead(404); response.end(); return; }
+    if (phase) requestedNew.add(name);
+    let bytes = files.get(name);
+    if (!phase && name === './sw.js') bytes = Buffer.from(worker.replace(cacheName, cacheName + '-old-fixture').replace("ASSETS.map(url => new Request(url, { cache: 'reload' }))", 'ASSETS'));
+    else if (!phase && /\.(html|js|css)$/.test(name)) bytes = Buffer.from(bytes.toString().replaceAll(VERSION, VERSION + '-old-fixture') + '\n/* old fixture */');
+    const extension = path.extname(name), mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
+    response.writeHead(200, { 'Content-Type': mime[extension] || 'application/octet-stream', 'Cache-Control': name === './sw.js' ? 'no-store' : 'public, max-age=600' }); response.end(bytes);
+  });
+  await new Promise(resolve => fixtureServer.listen(0, '127.0.0.1', resolve));
+  const upgradeContext = await browser.newContext(), upgrade = await upgradeContext.newPage();
+  try {
+    await upgrade.goto(`http://127.0.0.1:${fixtureServer.address().port}/field-survey/recorder.html`);
+    await upgrade.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒');
+    assert((await upgrade.title()).includes('old-fixture'));
+    const before = await upgrade.evaluate(async () => {
+      const model = await import('./model.js'), store = await import('./store.js');
+      return store.saveProject(model.newProject('CACHE-DEMO', '合成快取更新測試', '2026-09-08'), 0);
+    });
+    phase = 1; await upgrade.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
+    await upgrade.waitForFunction(async () => !!(await navigator.serviceWorker.getRegistration()).waiting);
+    await click('#help', upgrade); await upgrade.locator('#applyUpdate').waitFor({ state: 'visible' });
+    await Promise.all([upgrade.waitForEvent('load'), upgrade.locator('#applyUpdate').click()]);
+    await upgrade.locator('#caseSelect').waitFor(); assert.equal(await upgrade.title(), '現況鑑定紀錄 V' + VERSION);
+    assert.equal(await upgrade.evaluate(async () => (await import('./model.js')).VERSION), VERSION);
+    assert.deepEqual((await projects(upgrade))[0], before);
+    const cached = await upgrade.evaluate(async cacheName => {
+      const cache = await caches.open(cacheName), result = {};
+      for (const request of await cache.keys()) { const buffer = await (await cache.match(request)).arrayBuffer(); result['.' + new URL(request.url).pathname.replace(/^\/field-survey/, '')] = [...new Uint8Array(await crypto.subtle.digest('SHA-256', buffer))].map(b => b.toString(16).padStart(2, '0')).join(''); }
+      return result;
+    }, cacheName);
+    assert.equal(Object.keys(cached).length, assets.length);
+    for (const asset of assets) { assert(requestedNew.has(asset), 'new worker refetches ' + asset); assert.equal(cached[asset], createHash('sha256').update(files.get(asset)).digest('hex'), 'offline cache bytes match current ' + asset); }
+    await upgradeContext.setOffline(true); await upgrade.reload(); await upgrade.locator('#caseSelect').waitFor(); assert.equal(await upgrade.title(), '現況鑑定紀錄 V' + VERSION); assert.deepEqual((await projects(upgrade))[0], before);
+    console.log('PASS update bypasses fresh HTTP cache for every offline asset and preserves existing case');
+  } finally { await upgradeContext.close(); await new Promise(resolve => fixtureServer.close(resolve)); }
+}
 try {
+  await verifyHttpCachedUpdate();
   await page.goto(base); await page.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒');
   assert.equal(await page.locator('#errorBar').isVisible(), false);
   await page.screenshot({ path: path.join(out, '01-mobile-start.png'), fullPage: true });
@@ -262,5 +312,5 @@ try {
   await page.setViewportSize({ width: 390, height: 844 }); assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   assert.deepEqual(errors, []); assert.deepEqual(outbound, []);
   console.log('PASS conflict recovery, exclusion preserves original, stale backup reminder, no external requests');
-  await fs.writeFile(path.join(out, 'result.json'), JSON.stringify({ passed: true, browser: await browser.version(), viewport: '390x844 + 1280x900', physicalPhoneTested: false, pageErrors: errors, externalRequests: outbound, originalHash: hash, packageMediaCount: bundle.media.length, checkedAt: new Date().toISOString() }, null, 2));
+  await fs.writeFile(path.join(out, 'result.json'), JSON.stringify({ passed: true, browser: await browser.version(), viewport: '390x844 + 1280x900', physicalPhoneTested: false, httpCacheUpgradeVerified: true, pageErrors: errors, externalRequests: outbound, originalHash: hash, packageMediaCount: bundle.media.length, checkedAt: new Date().toISOString() }, null, 2));
 } finally { await browser.close(); server?.kill(); }

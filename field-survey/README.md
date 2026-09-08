@@ -81,6 +81,7 @@
 
 - 36 項資料／備份／幾何測試：現況複選及面積還原、舊備份版本相容、四向擴展尺寸保留、視野範圍、縮放後鎖點，網狀裂隙選填尺寸、其他裂縫待補規則、選填讀值及空值還原、門窗符號保存、開啟弧線、端點及牆線吸附、直角約束、部位複選及舊部位相容、空值和零值、裂縫區間與舊版精確讀值、簡圖筆畫及定位還原、單戶分包、完整還原、損壞與截斷、未列入資料、原檔遺失、收據過期、危險媒體格式、關聯及座標驗證。
 - 真實桌機 Chrome 自動操作，模擬 390 × 844 手機尺寸：相簿加入、圈註對位、原圖雜湊、位置圖、量測、模擬麥克風錄音、離線重開與續寫、獨立瀏覽器還原與收據、損壞檔拒收、文字、圈註與新加入照片的視窗衝突副本及無外部資料請求。
+- V0.5.0 驗證舊 HTTP 快取仍在有效期時的更新：重新取得所有離線程式檔、核對快取內容、保留舊案，並可離線重開新版。
 - V0.5.0 增加雙指縮放／移動、不誤畫、放大後落筆對位、四向擴展與復原、擴展副本及備份還原、多現況文字圈註與面積保留的操作驗證。
 - V0.4.1 增加網狀裂隙免填尺寸、待補檢查頁、重開保存、切換裂隙形式與既有讀值保留的操作驗證。
 - V0.4 增加連續復原／重做、清空後復原、新筆畫清除重做分支、未完成起點取消、門窗繪圖及還原、直角鎖定的操作驗證。
@@ -102,3 +103,5 @@
 技術參考：[MDN getUserMedia 相機預覽及權限](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia)、[MDN capture 手機相機入口](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/capture)、[MDN Pointer Events 觸控繪圖](https://developer.mozilla.org/en-US/docs/Web/API/Pointer_events/Using_Pointer_Events)。
 
 縮放與座標技術依據：[W3C Pointer Events 3 的觸控手勢規則](https://www.w3.org/TR/pointerevents3/)、[MDN SVG 座標轉換 getScreenCTM](https://developer.mozilla.org/en-US/docs/Web/API/SVGGraphicsElement/getScreenCTM)。
+
+離線更新會以 `Request.cache = reload` 重新取得程式檔，避免把有效期內的舊 HTTP 回應裝入新版離線快取；技術依據：[MDN Request cache](https://developer.mozilla.org/en-US/docs/Web/API/Request/cache)。
