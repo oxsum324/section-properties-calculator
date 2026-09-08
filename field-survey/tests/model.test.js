@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { newProject, newUnit, newRecord, id, now, sha256, validateProject, recordIssues, subset, restoredCopy } from '../model.js';
+import { newProject, newUnit, newRecord, id, now, sha256, validateProject, recordIssues, subset, restoredCopy, widthMode, emptySketch, validateSketch } from '../model.js';
 import { makeBundle, readBundle, snapshot, makeReceipt, checkReceipt } from '../bundle.js';
 
 async function fixture() {
@@ -37,6 +37,43 @@ test('excluded photo retains media but no longer satisfies photo reminder', asyn
   const { p, r } = await fixture(); r.photos[0].excluded = true;
   assert.throws(() => validateProject(p), /不採用原因/); r.photos[0].excludedReason = '合成測試'; validateProject(p);
   assert(recordIssues(r).includes('尚無採用照片')); assert.equal(p.media.length, 2);
+});
+test('width ranges preserve uncertainty without inventing an exact threshold reading', async () => {
+  const { p, r, blobs } = await fixture(); r.condition = 'crack'; r.widthMode = 'lt03'; r.crackPattern = 'diagonal';
+  validateProject(p); assert.equal(r.width, null); assert(recordIssues(r).includes('裂縫未量測'));
+  r.measured = true; r.length = 1.2;
+  for (const mode of ['lt03', 'ge03']) {
+    r.widthMode = mode; validateProject(p); assert(!recordIssues(r).includes('量測尺寸未齊'));
+    const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
+    assert.equal(restored.project.records[0].width, null); assert.equal(restored.project.records[0].widthMode, mode);
+  }
+  r.width = .3; assert.throws(() => validateProject(p), /區間不可/);
+  r.widthMode = 'exact'; validateProject(p); assert.equal(r.width, .3);
+});
+test('legacy backups retain exact measurements and no assumed range', async () => {
+  const { p, r, blobs } = await fixture(); Object.assign(r, { condition: 'crack', measured: true, width: .3, length: 1.2 });
+  delete r.widthMode; delete r.crackPattern;
+  const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
+  assert.equal(widthMode(restored.project.records[0]), 'exact'); assert.equal(restored.project.records[0].width, .3);
+  r.width = null; assert.equal(widthMode(r), 'unknown');
+});
+test('editable sketches and plan placement survive scoped backup and independent restore', async () => {
+  const { p, r, blobs, a } = await fixture(), mid = id(), planId = id();
+  const blob = new Blob(['synthetic plan bytes'], { type: 'image/png' }), sketch = emptySketch();
+  sketch.strokes.push({ type: 'rect', points: [{ x: .1, y: .1 }, { x: .9, y: .9 }] }, { type: 'text', text: '入口 <script>純文字</script>', points: [{ x: .2, y: .8 }] });
+  p.media.push({ id: mid, kind: 'plan', name: '簡圖.png', type: blob.type, size: blob.size, sha256: await sha256(blob), importedAt: now() }); blobs.set(mid, blob);
+  p.plans.push({ id: planId, unitId: a.id, floor: '1F', title: '現場簡圖', mediaId: mid, sketch });
+  r.placement = { planId, x: .2, y: .3, endX: .5, endY: .6 };
+  const restored = await readBundle((await makeBundle(p, x => blobs.get(x), a.id)).blob), copy = restoredCopy(restored.project);
+  validateProject(copy.project); assert.deepEqual(copy.project.plans[0].sketch, sketch);
+  assert.notEqual(copy.project.plans[0].mediaId, mid); assert.deepEqual(copy.project.records[0].placement, r.placement);
+});
+test('sketch rejects malformed geometry and unknown width or crack choices', async () => {
+  const sketch = emptySketch(); sketch.strokes.push({ type: 'line', points: [{ x: .1, y: .2 }] });
+  assert.throws(() => validateSketch(sketch), /端點/); sketch.strokes[0].points.push({ x: 2, y: .4 }); assert.throws(() => validateSketch(sketch), /超出/);
+  sketch.strokes = [{ type: 'text', text: ' ', points: [{ x: .1, y: .2 }] }]; assert.throws(() => validateSketch(sketch), /不可空白/);
+  const { p, r } = await fixture(); r.widthMode = 'safe'; assert.throws(() => validateProject(p), /寬度選項/);
+  r.widthMode = 'unknown'; r.crackPattern = 'safe'; assert.throws(() => validateProject(p), /方向選項/);
 });
 test('audio codec parameters support MP4 dotted identifiers and quoted codec lists', async () => {
   const { p, r } = await fixture(), media = p.media[0]; media.kind = 'audio'; r.audioIds.push(media.id); r.photos = [];

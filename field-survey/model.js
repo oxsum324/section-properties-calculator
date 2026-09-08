@@ -1,4 +1,4 @@
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -6,6 +6,10 @@ export const CONDITIONS = { '': '尚未分類', normal: '一般現況', crack: '
 export const COMPONENTS = ['', '外觀', '牆面', '梁', '柱', '地坪', '平頂', '門窗', '其他'];
 export const UNIT_STATES = { open: '待完成', partial: '部分完成', inaccessible: '無法入內', complete: '本次紀錄完成' };
 export const ROLES = { overview: '位置全景', close: '近照', scale: '量尺照', other: '其他' };
+export const WIDTH_MODES = { unknown: '未確認', lt03: '小於 0.3 mm', ge03: '大於或等於 0.3 mm', exact: '輸入實測值' };
+export const CRACK_PATTERNS = { '': '尚未選擇', horizontal: '水平裂隙', vertical: '垂直裂隙', diagonal: '斜向裂隙', network: '網狀裂隙', other: '其他（於說明補充）' };
+export const widthMode = r => r.widthMode ?? (r.width !== null ? 'exact' : 'unknown');
+export const emptySketch = () => ({ version: 1, width: 1200, height: 900, strokes: [] });
 export function newProject(code, name, date) {
   return { id: id(), code: code.trim(), name: name.trim(), date, createdAt: now(), updatedAt: now(), revision: 0, units: [], records: [], plans: [], media: [] };
 }
@@ -23,7 +27,7 @@ export function recordIssues(r) {
   if (!r.photos.some(p => !p.excluded) && r.visibility !== 'inaccessible') issues.push('尚無採用照片');
   if (r.visibility !== 'visible' && !r.notes.trim()) issues.push('請記錄無法觀察的原因');
   if (r.condition === 'crack' && !r.measured) issues.push('裂縫未量測');
-  if (r.measured && (r.width === null || r.length === null)) issues.push('量測尺寸未齊');
+  if (r.measured && ((r.width === null && !['lt03', 'ge03'].includes(widthMode(r))) || r.length === null)) issues.push('量測尺寸未齊');
   return issues;
 }
 export function unitIssues(p, u) {
@@ -39,6 +43,18 @@ function identifier(v) { text(v, '識別碼', 100); assert(/^[\w-]+$/.test(v) &&
 function list(v, label, max = 10000) { assert(Array.isArray(v) && v.length <= max, `${label}數量或格式不正確`); }
 function unique(items) { const ids = new Set(); for (const item of items) { identifier(item.id); assert(!ids.has(item.id), '識別碼重複'); ids.add(item.id); } return ids; }
 const finite01 = n => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1;
+export function validateSketch(sketch) {
+  assert(sketch && sketch.version === 1 && sketch.width === 1200 && sketch.height === 900, '簡圖格式不正確');
+  list(sketch.strokes, '簡圖筆畫', 300);
+  for (const stroke of sketch.strokes) {
+    assert(['line', 'rect', 'pen', 'text'].includes(stroke.type), '簡圖筆畫種類不正確');
+    list(stroke.points, '簡圖座標', 1500);
+    assert(stroke.points.length >= 1 && stroke.points.every(p => p && finite01(p.x) && finite01(p.y)), '簡圖座標超出圖面');
+    if (['line', 'rect'].includes(stroke.type)) assert(stroke.points.length === 2, '簡圖端點數量不正確');
+    if (stroke.type === 'text') { assert(stroke.points.length === 1, '簡圖文字位置不正確'); text(stroke.text, '簡圖文字', 60); assert(stroke.text.trim(), '簡圖文字不可空白'); }
+  }
+  return sketch;
+}
 export function validateMarks(marks) {
   list(marks, '圈註', 500);
   for (const m of marks) {
@@ -71,6 +87,7 @@ export function validateProject(p) {
   for (const plan of p.plans) {
     assert(units.has(plan.unitId) && media.has(plan.mediaId) && meta.get(plan.mediaId).kind === 'plan', '位置圖關聯遺失');
     for (const k of ['floor', 'title']) text(plan[k], k, 250);
+    if (plan.sketch !== undefined) validateSketch(plan.sketch);
   }
   for (const r of p.records) {
     assert(units.has(r.unitId), '紀錄的戶別不存在');
@@ -80,6 +97,9 @@ export function validateProject(p) {
     assert(typeof r.measured === 'boolean', '量測狀態不正確');
     for (const k of ['width', 'length']) assert(r[k] === null || (typeof r[k] === 'number' && Number.isFinite(r[k]) && r[k] >= 0), '尺寸須為非負數值或未量測');
     if (!r.measured) assert(r.width === null && r.length === null, '未量測不可夾帶尺寸');
+    assert(Object.hasOwn(WIDTH_MODES, widthMode(r)), '裂縫寬度選項不正確');
+    assert(widthMode(r) === 'exact' || r.width === null, '裂縫區間不可冒用精確寬度');
+    if (r.crackPattern !== undefined) assert(Object.hasOwn(CRACK_PATTERNS, r.crackPattern), '裂隙方向選項不正確');
     list(r.photos, '照片'); list(r.audioIds, '錄音');
     const refs = new Set();
     for (const photo of r.photos) {

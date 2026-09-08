@@ -32,10 +32,10 @@ const idle = p => p.locator('#busy').waitFor({ state: 'hidden' });
 async function click(sel, p = page) { await p.locator(sel).click(); await idle(p); }
 async function projects(p = page) { return p.evaluate(async () => (await import('./store.js')).allProjects()); }
 async function originalHash(p, mid) { return p.evaluate(async mid => { const a = await (await import('./store.js')).getMedia(mid); return (await import('./model.js')).sha256(a.blob); }, mid); }
-async function draw(sel, p = page) {
+async function draw(sel, p = page, start = [.22, .28], end = [.72, .68]) {
   const box = await p.locator(sel).boundingBox(); assert(box?.width > 30);
-  await p.mouse.move(box.x + box.width * .22, box.y + box.height * .28); await p.mouse.down();
-  await p.mouse.move(box.x + box.width * .72, box.y + box.height * .68, { steps: 5 }); await p.mouse.up();
+  await p.mouse.move(box.x + box.width * start[0], box.y + box.height * start[1]); await p.mouse.down();
+  await p.mouse.move(box.x + box.width * end[0], box.y + box.height * end[1], { steps: 5 }); await p.mouse.up();
 }
 try {
   await page.goto(base); await page.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒');
@@ -54,8 +54,10 @@ try {
     g.fillStyle = '#173d3b'; g.font = '32px sans-serif'; g.fillText('SYNTHETIC TEST IMAGE', 45, 650); return c.toDataURL('image/png').split(',')[1];
   });
   const imagePath = path.join(out, 'synthetic-wall.png'); await fs.writeFile(imagePath, Buffer.from(fixture, 'base64'));
-  const picker = page.waitForEvent('filechooser'); await click('#pickPhotos'); await (await picker).setFiles(imagePath); await idle(page);
-  await page.locator('.photo-card img').waitFor(); p = (await projects())[0]; assert.equal(p.media.length, 1); const mid = p.media[0].id, hash = p.media[0].sha256;
+  assert.equal(await page.locator('#cameraInput').getAttribute('capture'), 'environment');
+  assert.equal(await page.locator('#cameraInput').getAttribute('accept'), 'image/*');
+  const picker = page.waitForEvent('filechooser'); await click('#takePhoto'); await (await picker).setFiles(imagePath); await idle(page);
+  await page.locator('.photo-card img').waitFor(); p = (await projects())[0]; assert.equal(p.media.length, 1); assert.equal(p.media[0].source, 'camera'); const mid = p.media[0].id, hash = p.media[0].sha256;
   await click('.photo-card'); await page.locator('#photoStage svg').waitFor();
   const imgBox = await page.locator('#photoStage img').boundingBox(), svgBox = await page.locator('#photoStage svg').boundingBox();
   assert(Math.abs(imgBox.height / imgBox.width - .7) < .01); assert(Math.abs(svgBox.height - imgBox.height) < 1);
@@ -65,9 +67,35 @@ try {
   const markedDownload = page.waitForEvent('download'); await click('#downloadMarked'); const marked = await markedDownload; await marked.saveAs(path.join(out, 'marked-copy.jpg'));
   await click('#savePhoto'); p = (await projects())[0]; assert.equal(p.records[0].photos[0].marks.length, 1); assert.equal(await originalHash(page, mid), hash);
   await click('.photo-card'); await page.locator('#photoStage svg').waitFor(); await draw('#photoStage svg'); await click('#closeModal'); await click('#discardChanges'); assert.equal((await projects())[0].records[0].photos[0].marks.length, 1);
-  await page.locator('#measured').check(); await page.locator('#width').fill('0.3'); await page.locator('#length').fill('1.2'); await click('#saveRecord');
+  await page.locator('#widthMode').selectOption('lt03'); await page.locator('#crackPattern').selectOption('diagonal'); await click('#saveRecord');
+  p = (await projects())[0]; assert.equal(p.records[0].width, null); assert.equal(p.records[0].measured, false); assert.equal(p.records[0].widthMode, 'lt03');
+  await page.locator('#measured').check(); await page.locator('#length').fill('1.2'); await click('#saveRecord'); assert.equal((await projects())[0].records[0].width, null);
+  await page.locator('#widthMode').selectOption('ge03'); await click('#saveRecord'); assert.equal((await projects())[0].records[0].widthMode, 'ge03');
+  await page.locator('#widthMode').selectOption('exact'); await page.locator('#width').fill('0.3'); await click('#saveRecord');
+  await page.locator('#widthMode').selectOption('lt03'); await click('#saveRecord'); assert.equal(await page.locator('#width').inputValue(), ''); assert.equal((await projects())[0].records[0].width, null);
+  await page.locator('#widthMode').selectOption('exact'); await page.locator('#width').fill('0.3'); await click('#saveRecord');
   await click('#showPlan'); const planPicker = page.waitForEvent('filechooser'); await click('#addPlanImage'); await (await planPicker).setFiles(imagePath); await idle(page); await page.locator('#planStage svg').waitFor(); await draw('#planStage svg'); await click('#savePlacement');
   p = (await projects())[0]; assert(p.records[0].placement); assert.equal(p.plans.length, 1);
+  const imagePlanId = p.plans[0].id;
+  await click('#showPlan'); await click('#drawPlan'); await page.locator('#sketchStage svg').waitFor();
+  await click('[data-sketch-mode=rect]'); await draw('#sketchStage svg', page, [.1, .13], [.87, .83]);
+  await click('[data-sketch-mode=line]'); await draw('#sketchStage svg', page, [.5, .13], [.5, .83]);
+  await click('[data-sketch-mode=pen]');
+  const touchBox = await page.locator('#sketchStage svg').boundingBox(), touch = await context.newCDPSession(page), scrollBeforeTouch = await page.evaluate(() => document.querySelector('#modal').scrollTop);
+  await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: touchBox.x + touchBox.width * .16, y: touchBox.y + touchBox.height * .7 }] });
+  await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: touchBox.x + touchBox.width * .28, y: touchBox.y + touchBox.height * .78 }] });
+  await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await touch.detach();
+  assert.equal(await page.evaluate(() => document.querySelector('#modal').scrollTop), scrollBeforeTouch);
+  await page.locator('#sketchText').fill('客廳'); await click('[data-sketch-mode=text]'); await page.locator('#sketchStage svg').click({ position: { x: touchBox.width * .2, y: touchBox.height * .4 } });
+  await click('#undoSketch'); assert((await page.locator('#sketchCount').innerText()).startsWith('3／')); await click('#redoSketch');
+  await click('#closeModal'); assert(await page.locator('#discardPrompt').isVisible()); await click('#keepEditing');
+  await page.screenshot({ path: path.join(out, '04-mobile-sketch.png'), fullPage: true }); await click('#saveSketch');
+  await page.locator('#planStage svg').waitFor(); p = (await projects())[0]; assert.equal(p.plans.length, 2); assert.equal(p.plans[1].sketch.strokes.length, 4); assert.equal(p.records[0].placement.planId, imagePlanId);
+  await draw('#planStage svg'); await click('#savePlacement'); p = (await projects())[0]; const sketchPlan = structuredClone(p.plans[1]); assert.equal(p.records[0].placement.planId, sketchPlan.id);
+  await click('#showPlan'); await click('#editSketch'); await click('[data-sketch-mode=line]'); await draw('#sketchStage svg', page, [.5, .5], [.87, .5]); await click('#saveSketch');
+  await page.locator('#planStage svg').waitFor(); p = (await projects())[0]; assert.equal(p.plans.length, 3); assert.deepEqual(p.plans[1], sketchPlan); assert.equal(p.plans[2].sketch.strokes.length, 5); assert.equal(p.records[0].placement.planId, sketchPlan.id);
+  await draw('#planStage svg'); await click('#savePlacement');
+  console.log('PASS camera input path, crack ranges without invented readings, touch sketch, revision copy and arrow placement');
   console.log('PASS mobile capture, annotation geometry, untouched original, measurements, floorplan');
 
   await page.locator('details summary').click(); await click('#recordAudio');
@@ -76,13 +104,15 @@ try {
   await click('#recordAudio'); p = (await projects())[0]; assert.equal(p.records[0].audioIds.length, 1);
   await context.setOffline(true); await page.reload(); await page.locator('.photo-card img').waitFor();
   assert.equal(await page.locator('#width').inputValue(), '0.3'); assert.equal(await page.locator('#notes').inputValue(), '合成測試：裂隙可见範圍紀錄。');
+  assert.equal(await page.locator('#crackPattern').inputValue(), 'diagonal');
+  await click('#showPlan'); await click('#editSketch'); await page.locator('#sketchStage svg').waitFor(); await draw('#sketchStage svg'); await click('#closeModal'); await click('#discardChanges');
   await page.locator('#notes').fill('離線新增的合成測試紀錄'); await click('#saveRecord'); await page.reload(); await page.locator('#notes').waitFor(); assert.equal(await page.locator('#notes').inputValue(), '離線新增的合成測試紀錄');
   await context.setOffline(false);
   console.log('PASS microphone capture with simulated stream; offline reload and editing');
 
   await click('[data-view=backup]'); const downloadEvent = page.waitForEvent('download'); await click('#exportBackup'); const downloaded = await downloadEvent;
   const bundlePath = path.join(out, 'synthetic-backup.csurvey'); await downloaded.saveAs(bundlePath);
-  const bundle = await readBundle(new Blob([await fs.readFile(bundlePath)])); assert.equal(bundle.media.length, 3); assert.equal(bundle.project.records[0].photos[0].marks.length, 1);
+  const bundle = await readBundle(new Blob([await fs.readFile(bundlePath)])); assert.equal(bundle.media.length, 5); assert.equal(bundle.project.records[0].photos[0].marks.length, 1); assert.equal(bundle.project.plans[2].sketch.strokes.length, 5);
   assert((await page.locator('#exportState').innerText()).includes('待接收端'));
   const receiverContext = await browser.newContext({ viewport: { width: 1280, height: 900 }, acceptDownloads: true }); const receiver = await receiverContext.newPage();
   await receiver.goto(base); await receiver.locator('#startCase').waitFor();
@@ -90,6 +120,7 @@ try {
   const receiptEvent = receiver.waitForEvent('download'); await click('#downloadReceipt', receiver); const receiptFile = path.join(out, 'receipt.json'); await (await receiptEvent).saveAs(receiptFile);
   await click('#restoreBundle', receiver); const copies = await projects(receiver); assert.equal(copies.length, 1); assert.notEqual(copies[0].id, bundle.project.id);
   assert.equal(await originalHash(receiver, copies[0].records[0].photos[0].mediaId), hash);
+  assert.deepEqual(copies[0].plans[2].sketch, bundle.project.plans[2].sketch); assert.equal(copies[0].records[0].widthMode, 'exact');
   await receiver.screenshot({ path: path.join(out, '03-desktop-restored.png'), fullPage: true });
   await page.locator('#receiptInput').setInputFiles(receiptFile); await idle(page); await page.waitForFunction(() => document.querySelector('#exportState').textContent.includes('已匯入本版本'));
   const corrupt = Buffer.from(await fs.readFile(bundlePath)); corrupt[corrupt.length - 1] ^= 1; const corruptPath = path.join(out, 'corrupt.csurvey'); await fs.writeFile(corruptPath, corrupt);
@@ -113,7 +144,7 @@ try {
   const extraPath = path.join(out, 'synthetic-extra.png'); await fs.writeFile(extraPath, Buffer.concat([Buffer.from(fixture, 'base64'), Buffer.from([1])]));
   const extraPicker = captureTab.waitForEvent('filechooser'); await click('#pickPhotos', captureTab);
   await page.locator('#notes').fill('原案持續保存'); await click('#saveRecord'); await (await extraPicker).setFiles(extraPath); await idle(captureTab); await captureTab.locator('#recoverCopy').waitFor(); await click('#recoverCopy', captureTab);
-  const capturedCopy = (await projects(captureTab)).find(x => x.records[0].photos.length === 2); assert(capturedCopy); assert.equal(capturedCopy.media.length, 4);
+  const capturedCopy = (await projects(captureTab)).find(x => x.records[0].photos.length === 2); assert(capturedCopy); assert.equal(capturedCopy.media.length, 6);
   const extraId = capturedCopy.records[0].photos[1].mediaId; assert.equal(await originalHash(captureTab, extraId), capturedCopy.media.find(m => m.id === extraId).sha256); await captureTab.close();
   console.log('PASS conflicting annotation and incoming photo both survive isolated-copy recovery');
   await click('.photo-card'); await page.locator('#photoExcluded').check(); await page.locator('#excludedReason').fill('測試排除'); await click('#savePhoto');
