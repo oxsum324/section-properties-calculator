@@ -157,10 +157,11 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 2,
-    generatedAt: '2026-09-07',
+    generatedAt: '2026-09-08',
     releaseVerifiedAt: null,
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
+      '/condition-survey': '2026-09-08',
       '/beam-analysis': '2026-08-30',
       '/frame-analysis': '2026-08-30',
       '/struct-dx': '2026-08-13',
@@ -237,6 +238,7 @@
   const HOME_TOOL_UPDATE_DEPENDENCIES = {
     version: 1,
     routes: {
+      '/condition-survey': ['field-survey/app.js', 'field-survey/model.js', 'field-survey/store.js', 'field-survey/bundle.js', 'field-survey/annotation.js', 'field-survey/app.css', 'field-survey/sw.js', 'field-survey/manifest.webmanifest'],
       '/beam-analysis': ['結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/analysis-section-tool-metadata.js', '結構工具箱/core/ui/report.js'],
       '/frame-analysis': ['結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/analysis-section-tool-metadata.js', '結構工具箱/core/ui/report.js'],
       '/section': ['結構工具箱/tools/analysis-section-tool-metadata.js', '結構工具箱/core/ui/report.js'],
@@ -312,6 +314,18 @@
   };
 
   const tools = [
+    {
+      title: '現況鑑定紀錄',
+      version: 'V0.1.0',
+      href: '/condition-survey',
+      categories: ['temporary'],
+      state: 'workflow',
+      output: '依戶別及位置整理的現場紀錄、原始媒體與可編輯圈註備份',
+      summary: '手機拍照、圈註、位置圖與語音備忘；可離線紀錄，回電腦核對並還原。',
+      fit: '現況鑑定會勘紀錄與逐戶資料收集，先以少量照片試用。',
+      limit: '本版為現場紀錄工作稿；鑑定結論與正式報告須另行審閱製作，實體手機相機及容量須先試拍確認。',
+      capabilities: ['離線拍照', '圈註定位', '原圖保留', '完整備份']
+    },
     {
       title: '連續梁分析',
       version: 'V1.4',
@@ -999,6 +1013,7 @@
   const categoryMap = new Map(categories.map(category => [category.id, category]));
   const memberSystemMap = new Map(memberSystems.map(system => [system.id, system]));
   const routeFileMap = {
+    '/condition-survey': '../field-survey/index.html',
     '/beam-analysis': '../連續梁分析.html',
     '/frame-analysis': '../鋼架/平面剛架分析.html',
     '/struct-dx': '../解題/struct_dx/frontend/struct_suite.html',

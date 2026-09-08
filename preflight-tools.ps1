@@ -1666,7 +1666,14 @@ node browser-dialogs.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$conditionSurveyBrowserCommand = @'
+node field-survey/tests/browser.test.js
+exit $LASTEXITCODE
+'@
+
 $toolboxEntrypointsContractCommand = @'
+node --test field-survey/tests/model.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node 結構工具箱/tools/rc-stm-atomic-change-set-review.test.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node toolbox-entrypoints.contract.test.js
@@ -2920,6 +2927,14 @@ $checks = @(
     workdir = $root
     command = $browserDialogsContractCommand
     slow = $false
+  },
+  [pscustomobject]@{
+    key = "condition-survey-browser"
+    label = "Condition survey offline capture and backup browser validation"
+    workdir = $root
+    command = $conditionSurveyBrowserCommand
+    slow = $true
+    timeoutSeconds = 180
   },
   [pscustomobject]@{
     key = "toolbox-entrypoints-contract"

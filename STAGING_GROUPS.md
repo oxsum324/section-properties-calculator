@@ -535,3 +535,15 @@ Schema v27 RC STM 補充正式附件：深梁、基礎深梁與樁帽三維 STM 
 清冊的跨工具邊界必須連同 RC 梁最小／最大配筋與多排筋核心、對應回歸案例與獨立工程基準、LoadCombo／ForcePicker 契約，以及平面剛架 V1.6 產生 D／L／W／E 支承反力分量的頁面、contract、metadata 與共用列印依賴同批 staging。前述發送端、中介格式、接收端、重算核心與證據不得分批。
 
 鋼構同步 manifest 的 Pages 私有邊界：`鋼構工具/core/formal-core-manifest.json` 保存工作站絕對路徑與同步雜湊，只供本機 audit，不是公開 runtime。調整此邊界時必須同批 staging `結構工具箱/tools/build-pages-artifact.js`、`結構工具箱/tools/pages-live-smoke.js`、`pages-release-governance.contract.test.js`、`toolbox-entrypoints.contract.test.js`、README 與 `TOOL_BOUNDARIES.md`；測試須同時證明 builder 精確排除、HTTP 私有路徑非 200，且實際暫存 artifact 不含本機帳號或工作區絕對路徑。
+
+## 現況鑑定現場紀錄 V0.1.0
+
+本組只加入現場紀錄工具、首頁入口與驗證，不改既有結構計算結果。原始研究及個案資料留在忽略發布的 `output/`。
+
+```powershell
+git add -- field-survey/ "啟動現況鑑定紀錄.bat" serve-local.js vercel.json preflight-tools.ps1 "結構工具箱/assets/home/home.js" README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md
+```
+
+`field-survey/tests/` 及 README、package.json 依既有 artifact 規則排除；公開只包含操作頁、程式、樣式、離線資源清單及圖示。
+
+本組 preflight 執行入口：`field-survey/tests/model.test.js`、`field-survey/tests/browser.test.js`。

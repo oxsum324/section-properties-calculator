@@ -317,3 +317,9 @@ GCV 的選配可信時間流程必須先重新驗證 GCV 可由全部來源 byte
 
 GTV 的選配外部歸檔流程必須先把同一份已重驗 GTV bytes 封裝成未加密、未壓縮、無子資料夾、無重複可攜式檔名的封閉 `GAP` ZIP，再以 `GAD` 固定保存端、保存庫、GAP SHA-256／大小、不可變模式、最低期限與 legal hold 要求。工具不得自行上傳或把本機複製、一般版本控制、唯讀權限冒充 WORM。外部保存端只有在實際入庫後才能以獨立 Ed25519 金鑰簽發 `GAR`；案件端必須使用由組織另行核定的公開金鑰驗章、保存實際核定證據檔 bytes，且只有 provider／repository、物件／版本、stored、模式、期限與必要 legal hold 全部滿足時才可建立 `GAV`。日後重驗須重新驗證完整 GTV、GAD／GAP、GAR 簽章與六檔封閉 GAV。GAV 只證明指定公開金鑰可驗證的保存端簽章證言，不即時查詢外部物件是否仍存在，也不判讀核定文件、不驗證供應者作業控制、金鑰組織歸屬、工程核可或正式附件資格。GAD、GAP、GAR、公開金鑰、核定證據與 GAV 均不得進入 PDF／DOCX 計算書、正式附件包或公開 Pages。
 鋼索頁面比較 helper `結構工具箱/tools/cable-tension/cable-tension-frequency-sensitivity.js` 納入發布與既有 core regression。僅重算固定單項 ±1% 的有效長度、線質量及全部模態頻率同比例情境；不改動基準輸入、工程判定、案件 JSON 或正式報告。獨立公式斷言與桌機／手機回歸須檢查非連續模態、基準不變、無效輸入清除舊情境及 page-only 範圍。情境不是量測不確定度，也不提升工程資格。
+
+## 現況鑑定紀錄試用工具
+
+驗證入口：`field-survey/tests/model.test.js` 與 `field-survey/tests/browser.test.js`，只用合成資料驗證，不作正式工程計算附件。
+
+`field-survey/` 為 `/condition-survey` 的手機現場紀錄工具，屬工作流入口，公開版本 V0.1.0。保存戶別、位置、照片原檔、獨立圈註、語音備忘與量測；本版不判定安全、原因或責任，不提供正式鑑定報告。案件只保存在瀏覽器與使用者匯出的 `.csurvey`，私人資料及合成測試證據不得放入公開 artifact。資料測試與實際瀏覽器離線／還原測試納入 preflight；實體手機試拍及首案人工核對仍待執行。
