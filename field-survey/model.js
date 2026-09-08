@@ -1,4 +1,4 @@
-export const VERSION = '0.3.0';
+export const VERSION = '0.4.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -48,10 +48,12 @@ export function validateSketch(sketch) {
   assert(sketch && sketch.version === 1 && sketch.width === 1200 && sketch.height === 900, '簡圖格式不正確');
   list(sketch.strokes, '簡圖筆畫', 300);
   for (const stroke of sketch.strokes) {
-    assert(['line', 'rect', 'pen', 'text'].includes(stroke.type), '簡圖筆畫種類不正確');
+    assert(['line', 'rect', 'pen', 'text', 'door', 'window'].includes(stroke.type), '簡圖筆畫種類不正確');
     list(stroke.points, '簡圖座標', 1500);
     assert(stroke.points.length >= 1 && stroke.points.every(p => p && finite01(p.x) && finite01(p.y)), '簡圖座標超出圖面');
-    if (['line', 'rect'].includes(stroke.type)) assert(stroke.points.length === 2, '簡圖端點數量不正確');
+    if (['line', 'rect', 'door', 'window'].includes(stroke.type)) assert(stroke.points.length === 2, '簡圖端點數量不正確');
+    if (['door', 'window'].includes(stroke.type)) assert(Math.hypot(stroke.points[0].x - stroke.points[1].x, stroke.points[0].y - stroke.points[1].y) > 0, '門窗寬度不可為零');
+    if (stroke.type === 'door') assert(stroke.swing === 1 || stroke.swing === -1, '門扇開啟方向不正確');
     if (stroke.type === 'text') { assert(stroke.points.length === 1, '簡圖文字位置不正確'); text(stroke.text, '簡圖文字', 60); assert(stroke.text.trim(), '簡圖文字不可空白'); }
   }
   return sketch;

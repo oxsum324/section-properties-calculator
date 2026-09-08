@@ -208,6 +208,14 @@ dialog{max-height:calc(100dvh - 18px)}
 .sketch-stage svg{display:block;width:100%;height:100%;touch-action:none}
 .sketch-tools{flex-wrap:wrap}
 .sketch-tools button{flex:1;min-width:64px}
+.sketch-history{display:flex;gap:8px;margin:8px 0}
+.sketch-history button{flex:1}
+#sketchSettings{margin:8px 0 12px;padding:8px 12px;background:#edf2ed;border-radius:9px}
+#sketchSettings label{margin:10px 0}
+#sketchSettings summary{cursor:pointer;font-size:13px;font-weight:650}
+#sketchHistoryHint,#sketchSnapStatus{font-size:12px;margin:6px 0}
+#sketchSnapStatus{color:#a0442d;min-height:19px}
+#doorOptions,#sketchTextLabel{margin:10px 0}
 .sketch-footer{display:flex;align-items:center;justify-content:space-between}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}
 }

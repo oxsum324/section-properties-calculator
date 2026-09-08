@@ -37,6 +37,12 @@ async function draw(sel, p = page, start = [.22, .28], end = [.72, .68]) {
   await p.mouse.move(box.x + box.width * start[0], box.y + box.height * start[1]); await p.mouse.down();
   await p.mouse.move(box.x + box.width * end[0], box.y + box.height * end[1], { steps: 5 }); await p.mouse.up();
 }
+async function tapSketch(start, end) {
+  await page.locator('#sketchStage').scrollIntoViewIfNeeded(); const b = await page.locator('#sketchStage svg').boundingBox(); for (const p of [start, end]) await page.touchscreen.tap(b.x + b.width * p[0], b.y + b.height * p[1]);
+}
+async function sketchGesture(value) {
+  await page.locator('#sketchSettings').evaluate(el => { el.open = true; }); await page.locator('#sketchGesture').selectOption(value); await page.locator('#sketchSettings').evaluate(el => { el.open = false; });
+}
 async function tapPair(sel) {
   await page.locator(sel).scrollIntoViewIfNeeded(); const b = await page.locator(sel).boundingBox();
   await page.touchscreen.tap(b.x + b.width * .25, b.y + b.height * .3); await page.touchscreen.tap(b.x + b.width * .7, b.y + b.height * .65);
@@ -48,13 +54,24 @@ try {
   await click('#startCase'); await page.locator('#caseForm [name=code]').fill('DEMO-001'); await page.locator('#caseForm [name=name]').fill('合成操作測試（非真實鑑定）'); await click('#caseForm button[type=submit]');
   await click('#addUnit'); await page.locator('#unitForm [name=code]').fill('測試 A 戶'); await click('#unitForm button[type=submit]'); await click('#addRecord');
   await click('#quickSketch'); await page.locator('#planFloor').fill('1F'); await click('#planFloorForm button');
+  assert(await page.locator('#redoSketch').isDisabled()); assert(await page.locator('#undoSketch').isDisabled());
   await page.locator('#sketchStage').scrollIntoViewIfNeeded();
   const quickBox = await page.locator('#sketchStage').boundingBox();
-  await page.touchscreen.tap(quickBox.x + quickBox.width * .2, quickBox.y + quickBox.height * .2);
-  assert((await page.locator('#sketchHint').innerText()).includes('起點已選好'));
-  await page.touchscreen.tap(quickBox.x + quickBox.width * .8, quickBox.y + quickBox.height * .8);
-  assert((await page.locator('#sketchCount').innerText()).startsWith('1／'));
-  await click('#addRoomFrame'); assert((await page.locator('#sketchCount').innerText()).startsWith('2／'));
+  const quickTap = (x, y) => page.touchscreen.tap(quickBox.x + quickBox.width * x, quickBox.y + quickBox.height * y);
+  await quickTap(.2, .2); assert((await page.locator('#sketchHint').innerText()).includes('起點已選好'));
+  assert(await page.locator('#saveSketch').isDisabled()); await click('#undoSketch');
+  assert((await page.locator('#sketchCount').innerText()).startsWith('0／')); assert(await page.locator('#redoSketch').isDisabled());
+  await quickTap(.2, .2); await quickTap(.8, .3); assert((await page.locator('#sketchCount').innerText()).startsWith('1／'));
+  let line = page.locator('#sketchStage g[clip-path] > line').first(); assert.equal(await line.getAttribute('y1'), await line.getAttribute('y2'));
+  await click('#undoSketch'); assert((await page.locator('#sketchCount').innerText()).startsWith('0／')); assert(await page.locator('#redoSketch').isEnabled());
+  await click('#redoSketch'); assert((await page.locator('#sketchCount').innerText()).startsWith('1／')); assert(await page.locator('#redoSketch').isDisabled());
+  await click('#addRoomFrame'); await click('#undoSketch'); await click('#undoSketch');
+  assert((await page.locator('#sketchCount').innerText()).startsWith('0／'));
+  await click('#redoSketch'); await click('#redoSketch'); assert((await page.locator('#sketchCount').innerText()).startsWith('2／'));
+  await click('#clearSketch'); assert((await page.locator('#sketchCount').innerText()).startsWith('0／'));
+  await click('#undoSketch'); assert((await page.locator('#sketchCount').innerText()).startsWith('2／'));
+  await click('#redoSketch'); assert((await page.locator('#sketchCount').innerText()).startsWith('0／'));
+  await click('#undoSketch'); await click('#addRoomFrame'); assert(await page.locator('#redoSketch').isDisabled());
   await click('#closeModal'); await click('#discardChanges');
   for (const [key, value] of Object.entries({ floor: '1F', space: '客廳', location: '入口右側牆面', notes: '合成測試：裂隙可见範圍紀錄。' })) await page.locator('#' + key).fill(value);
   for (const value of ['牆面', '梁', '柱']) await page.locator(`#component input[value="${value}"]`).check(); await page.locator('#condition').selectOption('crack'); await click('#saveRecord');
@@ -109,7 +126,7 @@ try {
   await click('#showPlan'); const planPicker = page.waitForEvent('filechooser'); await click('#addPlanImage'); await (await planPicker).setFiles(imagePath); await idle(page); await page.locator('#planStage svg').waitFor(); await tapPair('#planStage svg'); await click('#savePlacement');
   p = (await projects())[0]; assert(p.records[0].placement); assert.equal(p.plans.length, 1);
   const imagePlanId = p.plans[0].id;
-  await click('#showPlan'); await click('#drawPlan'); await page.locator('#sketchGesture').selectOption('drag'); await page.locator('#sketchStage svg').waitFor();
+  await click('#showPlan'); await click('#drawPlan'); await sketchGesture('drag'); await page.locator('#sketchStage svg').waitFor();
   await click('[data-sketch-mode=rect]'); await draw('#sketchStage svg', page, [.1, .13], [.87, .83]);
   await click('[data-sketch-mode=line]'); await draw('#sketchStage svg', page, [.5, .13], [.5, .83]);
   await click('[data-sketch-mode=pen]');
@@ -118,16 +135,20 @@ try {
   await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: touchBox.x + touchBox.width * .28, y: touchBox.y + touchBox.height * .78 }] });
   await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await touch.detach();
   assert.equal(await page.evaluate(() => document.querySelector('#modal').scrollTop), scrollBeforeTouch);
-  await page.locator('#sketchText').fill('客廳'); await click('[data-sketch-mode=text]'); await page.locator('#sketchStage svg').click({ position: { x: touchBox.width * .2, y: touchBox.height * .4 } });
+  await click('[data-sketch-mode=text]'); await page.locator('#sketchText').fill('客廳'); await page.locator('#sketchStage svg').click({ position: { x: touchBox.width * .2, y: touchBox.height * .4 } });
   await click('#undoSketch'); assert((await page.locator('#sketchCount').innerText()).startsWith('3／')); await click('#redoSketch');
   await click('#closeModal'); assert(await page.locator('#discardPrompt').isVisible()); await click('#keepEditing');
+  await sketchGesture('tap'); await click('[data-sketch-mode=door]'); await page.locator('#doorSwing').selectOption('1'); await page.locator('#sketchStage').scrollIntoViewIfNeeded();
+  await tapSketch([.2, .13], [.4, .14]); assert.equal(await page.locator('[data-sketch-type=door]').count(), 1);
+  await click('[data-sketch-mode=window]'); await page.locator('#sketchStage').scrollIntoViewIfNeeded(); await tapSketch([.6, .13], [.8, .14]); assert.equal(await page.locator('[data-sketch-type=window]').count(), 1);
+  await click('#undoSketch'); assert.equal(await page.locator('[data-sketch-type=window]').count(), 0); await click('#redoSketch'); assert.equal(await page.locator('[data-sketch-type=window]').count(), 1);
   await page.screenshot({ path: path.join(out, '04-mobile-sketch.png'), fullPage: true }); await click('#saveSketch');
-  await page.locator('#planStage svg').waitFor(); p = (await projects())[0]; assert.equal(p.plans.length, 2); assert.equal(p.plans[1].sketch.strokes.length, 4); assert.equal(p.records[0].placement.planId, imagePlanId);
+  await page.locator('#planStage svg').waitFor(); p = (await projects())[0]; assert.equal(p.plans.length, 2); assert.equal(p.plans[1].sketch.strokes.length, 6); assert.equal(p.plans[1].sketch.strokes[4].type, 'door'); assert.equal(p.plans[1].sketch.strokes[4].swing, 1); assert.equal(p.plans[1].sketch.strokes[5].type, 'window'); assert.equal(p.records[0].placement.planId, imagePlanId);
   await tapPair('#planStage svg'); await click('#savePlacement'); p = (await projects())[0]; const sketchPlan = structuredClone(p.plans[1]); assert.equal(p.records[0].placement.planId, sketchPlan.id);
-  await click('#showPlan'); await click('#editSketch'); await page.locator('#sketchGesture').selectOption('drag'); await click('[data-sketch-mode=line]'); await draw('#sketchStage svg', page, [.5, .5], [.87, .5]); await click('#saveSketch');
-  await page.locator('#planStage svg').waitFor(); p = (await projects())[0]; assert.equal(p.plans.length, 3); assert.deepEqual(p.plans[1], sketchPlan); assert.equal(p.plans[2].sketch.strokes.length, 5); assert.equal(p.records[0].placement.planId, sketchPlan.id);
+  await click('#showPlan'); await click('#editSketch'); assert(await page.locator('#redoSketch').isDisabled()); await sketchGesture('drag'); await click('[data-sketch-mode=line]'); await draw('#sketchStage svg', page, [.5, .5], [.87, .5]); await click('#saveSketch');
+  await page.locator('#planStage svg').waitFor(); p = (await projects())[0]; assert.equal(p.plans.length, 3); assert.deepEqual(p.plans[1], sketchPlan); assert.equal(p.plans[2].sketch.strokes.length, 7); assert.equal(p.records[0].placement.planId, sketchPlan.id);
   await tapPair('#planStage svg'); await click('#savePlacement');
-  console.log('PASS camera permission denial, late permission, pagehide and close cleanup, retake and save; component selections, width presets, touch sketch and arrow placement');
+  console.log('PASS camera and component flows; undo/redo and new-branch history, pending-point cancel, orthogonal touch sketch, doors/windows and arrow placement');
   console.log('PASS mobile capture, annotation geometry, untouched original, measurements, floorplan');
 
   await page.locator('details summary').click(); await click('#recordAudio');
@@ -137,14 +158,14 @@ try {
   await context.setOffline(true); await page.reload(); await page.locator('.photo-card img').waitFor();
   assert.equal(await page.locator('#width').inputValue(), '0.3'); assert.equal(await page.locator('#notes').inputValue(), '合成測試：裂隙可见範圍紀錄。');
   assert.equal(await page.locator('#crackPattern').inputValue(), 'diagonal');
-  await click('#showPlan'); await click('#editSketch'); await page.locator('#sketchGesture').selectOption('drag'); await page.locator('#sketchStage svg').waitFor(); await draw('#sketchStage svg'); await click('#closeModal'); await click('#discardChanges');
+  await click('#showPlan'); await click('#editSketch'); await sketchGesture('drag'); await page.locator('#sketchStage svg').waitFor(); await draw('#sketchStage svg'); await click('#closeModal'); await click('#discardChanges');
   await page.locator('#notes').fill('離線新增的合成測試紀錄'); await click('#saveRecord'); await page.reload(); await page.locator('#notes').waitFor(); assert.equal(await page.locator('#notes').inputValue(), '離線新增的合成測試紀錄');
   await context.setOffline(false);
   console.log('PASS microphone capture with simulated stream; offline reload and editing');
 
   await click('[data-view=backup]'); const downloadEvent = page.waitForEvent('download'); await click('#exportBackup'); const downloaded = await downloadEvent;
   const bundlePath = path.join(out, 'synthetic-backup.csurvey'); await downloaded.saveAs(bundlePath);
-  const bundle = await readBundle(new Blob([await fs.readFile(bundlePath)])); assert.equal(bundle.media.length, 5); assert.equal(bundle.project.records[0].photos[0].marks.length, 1); assert.equal(bundle.project.plans[2].sketch.strokes.length, 5);
+  const bundle = await readBundle(new Blob([await fs.readFile(bundlePath)])); assert.equal(bundle.media.length, 5); assert.equal(bundle.project.records[0].photos[0].marks.length, 1); assert.equal(bundle.project.plans[2].sketch.strokes.length, 7);
   assert((await page.locator('#exportState').innerText()).includes('待接收端'));
   const receiverContext = await browser.newContext({ viewport: { width: 1280, height: 900 }, acceptDownloads: true }); const receiver = await receiverContext.newPage();
   await receiver.goto(base); await receiver.locator('#startCase').waitFor();

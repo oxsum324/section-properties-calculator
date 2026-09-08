@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { newProject, newUnit, newRecord, id, now, sha256, validateProject, recordIssues, subset, restoredCopy, widthMode, recordComponents, emptySketch, validateSketch } from '../model.js';
 import { makeBundle, readBundle, snapshot, makeReceipt, checkReceipt } from '../bundle.js';
+import { resolveSketchPoint, doorGeometry } from '../sketch.js';
 
 async function fixture() {
   const p = newProject('DEMO', '合成測試案件', '2026-09-08'), a = newUnit('A'), b = newUnit('B');
@@ -84,6 +85,39 @@ test('sketch rejects malformed geometry and unknown width or crack choices', asy
   sketch.strokes = [{ type: 'text', text: ' ', points: [{ x: .1, y: .2 }] }]; assert.throws(() => validateSketch(sketch), /不可空白/);
   const { p, r } = await fixture(); r.widthMode = 'safe'; assert.throws(() => validateProject(p), /寬度選項/);
   r.widthMode = 'unknown'; r.crackPattern = 'safe'; assert.throws(() => validateProject(p), /方向選項/);
+});
+test('door and window geometry survive backup and restore; invalid openings fail closed', async () => {
+  const { p, r, blobs, a } = await fixture(), mid = id(), sketch = emptySketch();
+  sketch.strokes = [{ type: 'door', swing: -1, points: [{ x: .2, y: .2 }, { x: .4, y: .2 }] }, { type: 'window', points: [{ x: .6, y: .2 }, { x: .8, y: .2 }] }];
+  const blob = new Blob(['synthetic opening preview'], { type: 'image/png' }); blobs.set(mid, blob);
+  p.media.push({ id: mid, kind: 'plan', name: '門窗.png', type: blob.type, size: blob.size, sha256: await sha256(blob), importedAt: now() });
+  p.plans.push({ id: id(), unitId: a.id, floor: r.floor, title: '門窗簡圖', mediaId: mid, sketch });
+  const restored = await readBundle((await makeBundle(p, x => blobs.get(x))).blob); assert.deepEqual(restoredCopy(restored.project).project.plans[0].sketch, sketch);
+  sketch.strokes[0].swing = 0; assert.throws(() => validateSketch(sketch), /開啟方向/);
+  sketch.strokes[0].swing = 1; sketch.strokes[1].points[1] = { ...sketch.strokes[1].points[0] }; assert.throws(() => validateSketch(sketch), /不可為零/);
+});
+test('object snapping recognizes rectangle corners and wall edges at mobile scale', () => {
+  const sketch = emptySketch(); sketch.strokes.push({ type: 'rect', points: [{ x: .2, y: .2 }, { x: .8, y: .8 }] });
+  let result = resolveSketchPoint(sketch, { x: .81, y: .214 }, { scale: .25 }); assert.equal(result.kind, 'endpoint'); assert.deepEqual(result.point, { x: .8, y: .2 });
+  result = resolveSketchPoint(sketch, { x: .5, y: .206 }, { scale: .25 }); assert.equal(result.kind, 'edge'); assert.deepEqual(result.point, { x: .5, y: .2 });
+  result = resolveSketchPoint(sketch, { x: .5, y: .5 }, { scale: .25 }); assert.equal(result.kind, ''); assert.deepEqual(result.point, { x: .5, y: .5 });
+  result = resolveSketchPoint(sketch, { x: .81, y: .214 }, { snap: false }); assert.deepEqual(result.point, { x: .81, y: .214 });
+});
+test('orthogonal constraint stays exact when snapping and may be disabled for diagonal geometry', () => {
+  const sketch = emptySketch(); sketch.strokes.push({ type: 'rect', points: [{ x: .2, y: .2 }, { x: .8, y: .8 }] });
+  let result = resolveSketchPoint(sketch, { x: .79, y: .25 }, { anchor: { x: .2, y: .2 }, scale: .25 });
+  assert.equal(result.locked, 'horizontal'); assert.deepEqual(result.point, { x: .8, y: .2 });
+  result = resolveSketchPoint(sketch, { x: .25, y: .79 }, { anchor: { x: .2, y: .2 }, scale: .25 }); assert.equal(result.locked, 'vertical'); assert.deepEqual(result.point, { x: .2, y: .8 });
+  result = resolveSketchPoint(sketch, { x: .6, y: .5 }, { anchor: { x: .2, y: .2 }, orthogonal: false }); assert.equal(result.locked, ''); assert.deepEqual(result.point, { x: .6, y: .5 });
+});
+test('orthogonal lines meet sloping wall intersections without pulling endpoints off axis', () => {
+  const sketch = emptySketch(); sketch.strokes.push({ type: 'line', points: [{ x: .4, y: .2 }, { x: .7, y: .8 }] });
+  const result = resolveSketchPoint(sketch, { x: .51, y: .45 }, { anchor: { x: .1, y: .4 } });
+  assert.equal(result.kind, 'edge'); assert(Math.abs(result.point.x - .5) < 1e-10); assert(Math.abs(result.point.y - .4) < 1e-10);
+});
+test('door swing keeps a circular opening with perpendicular leaf for either direction', () => {
+  const a = { x: 10, y: 20 }, b = { x: 90, y: 80 };
+  for (const swing of [-1, 1]) { const g = doorGeometry(a, b, swing); assert.equal(g.radius, 100); assert.equal(Math.hypot(g.open.x - a.x, g.open.y - a.y), 100); assert.equal((b.x - a.x) * (g.open.x - a.x) + (b.y - a.y) * (g.open.y - a.y), 0); assert.equal(g.sweep, swing === 1 ? 1 : 0); }
 });
 test('audio codec parameters support MP4 dotted identifiers and quoted codec lists', async () => {
   const { p, r } = await fixture(), media = p.media[0]; media.kind = 'audio'; r.audioIds.push(media.id); r.photos = [];
