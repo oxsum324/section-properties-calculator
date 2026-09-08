@@ -223,3 +223,5 @@ dialog{max-height:calc(100dvh - 18px)}
 body:after{content:"現場操作頁不供列印。請使用案件備份在桌機接續整理，本頁不是正式鑑定報告。";display:block;padding:40px;font-size:20px}
 }
 
+
+.sketch-navigation{display:flex;align-items:center;gap:8px;margin-top:12px}.sketch-navigation output{min-width:52px;text-align:center;font-variant-numeric:tabular-nums}.sketch-stage{background:#dfe7e5}.sketch-navigation button{min-width:44px;min-height:44px}#areaFields .two-col{margin-top:12px}#conditionLabels{margin-top:8px}

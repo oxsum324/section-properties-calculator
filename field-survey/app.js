@@ -1,4 +1,4 @@
-import { VERSION, id, now, clone, newProject, newUnit, newRecord, CONDITIONS, COMPONENTS, UNIT_STATES, ROLES, WIDTH_MODES, CRACK_PATTERNS, widthMode, isNetworkCrack, recordComponents, emptySketch, recordIssues, unitIssues, sha256, restoredCopy, assert } from './model.js';
+import { VERSION, id, now, clone, newProject, newUnit, newRecord, CONDITIONS, COMPONENTS, UNIT_STATES, ROLES, WIDTH_MODES, CRACK_PATTERNS, widthMode, isNetworkCrack, recordComponents, recordConditions, AREA_CONDITIONS, AREA_METHODS, emptySketch, recordIssues, unitIssues, sha256, restoredCopy, assert } from './model.js';
 import { openStore, allProjects, getProject, getMedia, saveProject, backupState, saveBackupState } from './store.js';
 import { makeBundle, readBundle, makeReceipt, checkReceipt } from './bundle.js';
 import { createAnnotator, markedImage } from './annotation.js';
@@ -50,12 +50,21 @@ async function commit(mutator, assets = []) {
 function markUnitOpen(next, record) { const u = next.units.find(x => x.id === record.unitId); if (u?.status === 'complete') u.status = 'open'; record.updatedAt = now(); }
 function formValues() {
   const values = {};
-  for (const key of ['floor', 'space', 'location', 'condition', 'visibility', 'notes', 'resident']) values[key] = $('#' + key).value;
+  for (const key of ['floor', 'space', 'location', 'visibility', 'notes', 'resident']) values[key] = $('#' + key).value;
   values.components = [...$('#component').querySelectorAll('input:checked')].map(el => el.value); values.component = values.components[0] || '';
-  values.measured = values.condition === 'crack' && $('#measured').checked;
-  values.widthMode = values.condition === 'crack' ? $('#widthMode').value : 'unknown';
-  values.crackPattern = values.condition === 'crack' ? $('#crackPattern').value : '';
+  values.conditions = selectedConditions(); values.condition = values.conditions[0] || '';
+  values.measured = $('#measured').checked;
+  values.widthMode = $('#widthMode').value;
+  values.crackPattern = $('#crackPattern').value;
   for (const key of ['width', 'length']) { const el = $('#' + key), enabled = values.measured && (key === 'length' || values.widthMode === 'exact'); assert(!enabled || !el.validity.badInput, '量測尺寸格式不正確'); values[key] = enabled && el.value !== '' ? Number(el.value) : null; assert(values[key] === null || (Number.isFinite(values[key]) && values[key] >= 0), '量測尺寸須為非負數值'); }
+  values.areas = {};
+  for (const key of Object.keys(AREA_CONDITIONS)) {
+    const el = $('#area-' + key), method = $('#area-method-' + key).value;
+    assert(!el.validity.badInput, '損害面積格式不正確');
+    const value = el.value === '' ? null : Number(el.value);
+    assert(value === null || Number.isFinite(value) && value >= 0, '損害面積須為非負數值');
+    if (value !== null || currentRecord()?.areas?.[key]) values.areas[key] = { value, method };
+  }
   return values;
 }
 async function saveForm() {
@@ -74,18 +83,33 @@ async function saveForm() {
   }).finally(() => { formSaving = null; });
   await formSaving;
 }
+const selectedConditions = () => [...$('#condition').querySelectorAll('input:checked')].map(el => el.value);
+function conditionState() {
+  const selected = selectedConditions();
+  $('#measurement').hidden = !selected.includes('crack');
+  let anyArea = false;
+  for (const key of Object.keys(AREA_CONDITIONS)) {
+    const shown = selected.includes(key) && (key !== 'crack' || $('#crackPattern').value === 'network');
+    $('[data-area="' + key + '"]').hidden = !shown; anyArea ||= shown;
+  }
+  $('#areaMeasurements').hidden = !anyArea;
+}
 function measurementState() {
   const mode = $('#widthMode').value, measured = $('#measured').checked;
-  const network = isNetworkCrack({ condition: $('#condition').value, crackPattern: $('#crackPattern').value });
+  const network = isNetworkCrack({ conditions: selectedConditions(), crackPattern: $('#crackPattern').value });
   for (const button of $('#widthPresets').querySelectorAll('[data-width]')) button.setAttribute('aria-pressed', String(button.dataset.width === mode));
   $('#width').disabled = !measured || mode !== 'exact'; $('#length').disabled = !measured;
   $('#widthLabel').textContent = `實測裂縫寬度（mm）${network ? '・選填' : ''}`; $('#lengthLabel').textContent = `實測裂縫長度（m）${network ? '・選填' : ''}`;
   if (network) { $('#widthHint').textContent = '網狀裂隙以照片圈註與現況說明記錄分布；寬度、長度及實測勾選均可略過，不列尺寸待補。若另有實測值，可勾選實際量測後選填。'; return; }
   $('#widthHint').textContent = ['lt03', 'ge03', 'le03', 'gt03'].includes(mode) ? `${measured ? '已實測區間' : '區間初記，尚未實測'}。只保存區間，不代填 0.3 mm；此界線不是安全判定。` : mode === 'exact' ? measured ? '請輸入裂縫規讀值；寬度用 mm，長度用 m。' : '請勾選已實際量測，再輸入裂縫規讀值。' : '未確認時保留空值；可先記裂隙方向及現況說明。';
 }
-function changed() {
+function changed(event) {
+  const target = event?.target;
+  if (target?.name === 'conditions' && target.checked) {
+    for (const el of $('#condition').querySelectorAll('input')) if (el !== target && (target.value === 'normal' || el.value === 'normal')) el.checked = false;
+  }
   if (!currentRecord()) return; dirty = true; editGeneration++; $('#saveStatus').textContent = '尚未保存'; clearTimeout(saveTimer); saveTimer = setTimeout(() => { saveForm().catch(fail); }, 500);
-  $('#measurement').hidden = $('#condition').value !== 'crack';
+  conditionState();
   measurementState();
 }
 async function projectOptions() {
@@ -128,12 +152,14 @@ async function renderEditor() {
   renderToken++;
   const r = currentRecord(); $('#recordEditor').hidden = !r; $('#recordEmpty').hidden = !!r; if (!r) return;
   $('#recordCode').textContent = recordNumber(r); $('#recordTime').textContent = new Date(r.updatedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
-  for (const key of ['floor', 'space', 'location', 'condition', 'visibility', 'notes', 'resident']) $('#' + key).value = r[key];
+  for (const key of ['floor', 'space', 'location', 'visibility', 'notes', 'resident']) $('#' + key).value = r[key];
   for (const el of $('#component').querySelectorAll('input')) el.checked = recordComponents(r).includes(el.value);
+  for (const el of $('#condition').querySelectorAll('input')) el.checked = recordConditions(r).includes(el.value);
+  for (const key of Object.keys(AREA_CONDITIONS)) { $('#area-' + key).value = r.areas?.[key]?.value ?? ''; $('#area-method-' + key).value = r.areas?.[key]?.method || 'measured'; }
   $('#measured').checked = r.measured;
   $('#widthMode').value = widthMode(r); $('#crackPattern').value = r.crackPattern || '';
   for (const k of ['width', 'length']) { $('#' + k).value = r[k] ?? ''; $('#' + k).disabled = !r.measured; }
-  $('#measurement').hidden = r.condition !== 'crack'; measurementState(); renderRecordIssues(); await renderMedia();
+  conditionState(); measurementState(); renderRecordIssues(); await renderMedia();
 }
 async function render() {
   await projectOptions(); $('#welcome').hidden = !!project; $('#workspace').hidden = !project; $('#bottomNav').hidden = !project;
@@ -288,12 +314,13 @@ async function addPhotos(files, context) {
 async function photoDialog(mediaId) {
   const targetRecord = recordId, photo = currentRecord().photos.find(p => p.mediaId === mediaId), metadata = project.media.find(m => m.id === mediaId), asset = await getMedia(mediaId);
   let annotator = null;
-  openModal('照片圈註', `<div class="annotation-tools"><label>照片用途<select id="photoRole">${opts(ROLES)}</select></label><label>標記文字<input id="markText" maxlength="120" placeholder="選文字工具後點圖面"></label></div><div class="annotation-toolbar" id="photoTools"><button data-mode="circle" class="selected">圈選</button><button data-mode="arrow">箭頭</button><button data-mode="pen">畫線</button><button data-mode="text">文字</button><button data-mode="view">查看</button><button id="undoMark">復原</button></div><div id="photoStage" class="annotation-stage"></div><label>照片說明<input id="photoCaption" maxlength="1000" value="${esc(photo.caption)}" placeholder="可補充拍攝細節"></label><div class="two-col" style="margin-top:12px"><label class="check-label"><input id="photoExcluded" type="checkbox" ${photo.excluded ? 'checked' : ''}>不採用此照片（保留原檔）</label><label>不採用原因<input id="excludedReason" maxlength="500" value="${esc(photo.excludedReason || '')}" placeholder="例如 模糊、重拍"></label></div><p class="micro">${esc(metadata.name)} · ${size(metadata.size)} · 取得於 ${esc(new Date(metadata.importedAt).toLocaleString('zh-TW'))}<br>此時間為工具取得時間；不替代原始拍攝資訊。</p><div class="modal-actions"><button id="downloadOriginal" class="quiet">下載原圖</button><button id="downloadMarked" class="secondary">註記副本</button><button id="savePhoto" class="primary">保存圈註</button></div>`, () => annotator?.dispose());
+  openModal('照片圈註', `<div class="annotation-tools"><label>照片用途<select id="photoRole">${opts(ROLES)}</select></label><label>標記文字<input id="markText" maxlength="120" placeholder="選文字工具後點圖面"></label></div><div class="annotation-toolbar" id="photoTools"><button data-mode="circle" class="selected">圈選</button><button data-mode="arrow">箭頭</button><button data-mode="pen">畫線</button><button data-mode="text">文字</button><button data-mode="view">查看</button><button id="undoMark">復原</button></div><div id="conditionLabels" class="choice-chips" aria-label="現況文字快捷註記">${recordConditions(currentRecord()).filter(c => c !== 'normal').map(c => `<button data-condition-label="${c}">${esc(CONDITIONS[c])}</button>`).join('')}</div><p class="micro">同張照片可分別圈註多種現況。點現況文字，再點照片放置；細節或量尺不清楚時再補拍。</p><div id="photoStage" class="annotation-stage"></div><label>照片說明<input id="photoCaption" maxlength="1000" value="${esc(photo.caption)}" placeholder="可補充拍攝細節"></label><div class="two-col" style="margin-top:12px"><label class="check-label"><input id="photoExcluded" type="checkbox" ${photo.excluded ? 'checked' : ''}>不採用此照片（保留原檔）</label><label>不採用原因<input id="excludedReason" maxlength="500" value="${esc(photo.excludedReason || '')}" placeholder="例如 模糊、重拍"></label></div><p class="micro">${esc(metadata.name)} · ${size(metadata.size)} · 取得於 ${esc(new Date(metadata.importedAt).toLocaleString('zh-TW'))}<br>此時間為工具取得時間；不替代原始拍攝資訊。</p><div class="modal-actions"><button id="downloadOriginal" class="quiet">下載原圖</button><button id="downloadMarked" class="secondary">註記副本</button><button id="savePhoto" class="primary">保存圈註</button></div>`, () => annotator?.dispose());
   $('#photoRole').value = photo.role;
   try { annotator = await createAnnotator($('#photoStage'), await mediaURL(mediaId, true), photo.marks, () => { modalDirty = true; }); }
   catch (e) { $('#photoStage').textContent = e.message; $('#photoTools').hidden = true; $('#downloadMarked').disabled = true; }
   $('#markText').oninput = e => annotator?.setText(e.target.value);
   $('#photoTools').onclick = e => { const b = e.target.closest('[data-mode]'); if (b) { annotator?.setMode(b.dataset.mode); for (const x of $('#photoTools').querySelectorAll('[data-mode]')) x.classList.toggle('selected', x === b); } };
+  $('#conditionLabels').onclick = e => { const b = e.target.closest('[data-condition-label]'); if (!b || !annotator) return; $('#markText').value = CONDITIONS[b.dataset.conditionLabel]; annotator.setText($('#markText').value); $('#photoTools [data-mode="text"]').click(); };
   $('#undoMark').onclick = () => annotator?.undo();
   for (const selector of ['#photoRole', '#photoCaption', '#photoExcluded', '#excludedReason']) $(selector).oninput = () => { modalDirty = true; };
   $('#downloadOriginal').onclick = () => download(asset.blob, metadata.name);
@@ -342,22 +369,27 @@ function sketchDialog(source = null) {
   const context = { projectId: project.id, recordId, unitId, floor: currentRecord().floor };
   let editor;
   const defaultTitle = (source ? `${source.title.replace(/\.png$/i, '')}（修訂）` : `${currentUnit().code} ${context.floor} 現場簡圖`).slice(0, 150);
-  openModal('手繪平面簡圖', `<p class="micro">選工具後指定兩點。門的第一點是門軸，第二點是門洞另一端。${source ? '此次另存副本，原圖與舊定位均保留。' : ''}</p><div id="sketchTools" class="annotation-toolbar sketch-tools"><button data-sketch-mode="line" class="selected" aria-pressed="true">直線</button><button data-sketch-mode="rect" aria-pressed="false">房間框</button><button data-sketch-mode="door" aria-pressed="false">開門</button><button data-sketch-mode="window" aria-pressed="false">開窗</button><button data-sketch-mode="pen" aria-pressed="false">手繪</button><button data-sketch-mode="text" aria-pressed="false">文字</button></div><div class="sketch-history"><button id="undoSketch" class="secondary" disabled>復原一步</button><button id="redoSketch" class="secondary" disabled>重做一步</button></div><p id="sketchHistoryHint" class="micro">先復原一步，才有可重做的步驟。</p><details id="sketchSettings"><summary>名稱與繪圖設定（鎖點／直角）</summary><label>簡圖名稱<input id="sketchTitle" maxlength="150" value="${esc(defaultTitle)}"></label><label>兩點工具操作方式<select id="sketchGesture"><option value="tap">點兩下：起點及終點／對角</option><option value="drag">按住拖曳</option></select></label><label class="check-label"><input type="checkbox" id="sketchSnap" checked>吸附端點及牆線</label><label class="check-label"><input type="checkbox" id="sketchOrtho" checked>直線／門窗鎖定水平或垂直</label><p class="micro">畫斜線或斜牆門窗時，關閉直角鎖定。復原及重做限本次編輯，重新開啟後歷程不保留。</p></details><div id="doorOptions" hidden><label>門扇開啟方向<select id="doorSwing"><option value="-1">由第一點看向第二點的左側</option><option value="1">由第一點看向第二點的右側</option></select></label></div><label id="sketchTextLabel" hidden>標記文字<input id="sketchText" maxlength="60" placeholder="例如 客廳、入口；輸入後點圖面"></label><p id="sketchHint" class="micro" role="status">先點起點，再點終點／對角。手繪則按住拖曳。</p><p id="sketchSnapStatus" class="micro" role="status"></p><div class="sketch-stage" id="sketchStage"></div><div class="sketch-footer"><span id="sketchCount" class="micro"></span><button id="clearSketch" class="quiet" disabled>清空重畫</button></div><button id="addRoomFrame" class="secondary">＋ 插入房間外框</button><p class="micro">未按比例，門窗符號及簡圖只作位置參照；尺寸請另行實測。</p><div class="modal-actions"><button id="saveSketch" class="primary" disabled>保存簡圖並標箭頭 →</button></div>`, () => editor?.dispose());
+  openModal('手繪平面簡圖', `<p class="micro">選工具後指定兩點。門的第一點是門軸，第二點是門洞另一端。${source ? '此次另存副本，原圖與舊定位均保留。' : ''}</p><div id="sketchTools" class="annotation-toolbar sketch-tools"><button data-sketch-mode="line" class="selected" aria-pressed="true">直線</button><button data-sketch-mode="rect" aria-pressed="false">房間框</button><button data-sketch-mode="door" aria-pressed="false">開門</button><button data-sketch-mode="window" aria-pressed="false">開窗</button><button data-sketch-mode="pen" aria-pressed="false">手繪</button><button data-sketch-mode="text" aria-pressed="false">文字</button><button data-sketch-mode="pan" aria-pressed="false">移動畫面</button></div><div class="sketch-history"><button id="undoSketch" class="secondary" disabled>復原一步</button><button id="redoSketch" class="secondary" disabled>重做一步</button></div><p id="sketchHistoryHint" class="micro">先復原一步，才有可重做的步驟。</p><details id="sketchSettings"><summary>名稱與繪圖設定（鎖點／直角）</summary><label>簡圖名稱<input id="sketchTitle" maxlength="150" value="${esc(defaultTitle)}"></label><label>兩點工具操作方式<select id="sketchGesture"><option value="tap">點兩下：起點及終點／對角</option><option value="drag">按住拖曳</option></select></label><label class="check-label"><input type="checkbox" id="sketchSnap" checked>吸附端點及牆線</label><label class="check-label"><input type="checkbox" id="sketchOrtho" checked>直線／門窗鎖定水平或垂直</label><p class="micro">畫斜線或斜牆門窗時，關閉直角鎖定。復原及重做限本次編輯，重新開啟後歷程不保留。</p></details><div id="doorOptions" hidden><label>門扇開啟方向<select id="doorSwing"><option value="-1">由第一點看向第二點的左側</option><option value="1">由第一點看向第二點的右側</option></select></label></div><label id="sketchTextLabel" hidden>標記文字<input id="sketchText" maxlength="60" placeholder="例如 客廳、入口；輸入後點圖面"></label><p id="sketchHint" class="micro" role="status">先點起點，再點終點／對角。手繪則按住拖曳。</p><p id="sketchSnapStatus" class="micro" role="status"></p><div class="sketch-navigation"><button id="zoomOut" aria-label="縮小圖面">−</button><output id="sketchZoom" aria-live="polite">100%</output><button id="zoomIn" aria-label="放大圖面">＋</button><button id="fitSketch">看整張</button></div><p class="micro">雙指撥動可縮放與移動；單指移動請選「移動畫面」。縮放不改變圖紙大小。</p><div class="sketch-stage" id="sketchStage"></div><details id="sketchExpansion"><summary>圖紙不夠大？向外擴展</summary><div id="expandSketch" class="choice-chips"><button data-expand="top">↑ 向上擴展</button><button data-expand="bottom">↓ 向下擴展</button><button data-expand="left">← 向左擴展</button><button data-expand="right">→ 向右擴展</button></div><p class="micro">在指定方向增加空白，原圖形大小保留；可復原／重做。範圍太大時建議依樓層或區域另畫一張。</p></details><div class="sketch-footer"><span id="sketchCount" class="micro"></span><button id="clearSketch" class="quiet" disabled>清空重畫</button></div><button id="addRoomFrame" class="secondary">＋ 插入房間外框</button><p class="micro">未按比例，門窗符號及簡圖只作位置參照；尺寸請另行實測。</p><div class="modal-actions"><button id="saveSketch" class="primary" disabled>保存簡圖並標箭頭 →</button></div>`, () => editor?.dispose());
   const updateState = state => {
     $('#sketchCount').textContent = state.count + '／300 筆畫';
+    $('#sketchZoom').textContent = Math.round(state.zoom * 100) + '%';
+    $('#zoomIn').disabled = state.zoom >= 8; $('#zoomOut').disabled = state.zoom <= 1;
+    for (const b of $('#expandSketch').querySelectorAll('[data-expand]')) b.disabled = state.pending || !state.canExpand[b.dataset.expand];
     $('#undoSketch').disabled = !state.canUndo; $('#redoSketch').disabled = !state.canRedo;
     $('#saveSketch').disabled = state.pending || !state.count; $('#clearSketch').disabled = !state.count && !state.pending;
     $('#sketchHistoryHint').textContent = state.pending ? '目前筆畫尚未完成；復原一步可取消起點。' : state.redoCount ? '可重做 ' + state.redoCount + ' 步；新增筆畫後會改走新的編輯歷程。' : '先復原一步才可重做；要重新畫整張，請用清空重畫。';
     $('#sketchSnapStatus').textContent = state.snapLabel || ($('#sketchSnap').checked ? '靠近端點／牆線時會吸附並顯示圓圈' : '鎖點已關閉');
   };
   editor = createSketcher($('#sketchStage'), source?.sketch || emptySketch(), () => { modalDirty = true; }, hint => { $('#sketchHint').textContent = hint; }, updateState); editor.setGesture('tap');
+  $('#zoomIn').onclick = () => editor.zoomBy(1.4); $('#zoomOut').onclick = () => editor.zoomBy(1 / 1.4); $('#fitSketch').onclick = () => editor.fit();
+  $('#expandSketch').onclick = e => { const b = e.target.closest('[data-expand]'); if (b) editor.expand(b.dataset.expand); };
   $('#sketchGesture').onchange = e => { editor.setGesture(e.target.value); $('#sketchHint').textContent = e.target.value === 'tap' ? '請點起點，再點終點／對角；手繪仍按住拖曳。' : '按住圖面後移動，放開完成一筆。'; };
   $('#sketchSnap').onchange = e => editor.setSnap(e.target.checked); $('#sketchOrtho').onchange = e => editor.setOrthogonal(e.target.checked);
   $('#doorSwing').onchange = e => editor.setSwing(Number(e.target.value));
   $('#addRoomFrame').onclick = () => editor.addRoom();
   $('#sketchTitle').oninput = () => { modalDirty = true; };
   $('#sketchText').oninput = e => editor.setText(e.target.value);
-  $('#sketchTools').onclick = e => { const b = e.target.closest('[data-sketch-mode]'); if (!b) return; const mode = b.dataset.sketchMode; editor.setMode(mode); for (const x of $('#sketchTools').querySelectorAll('[data-sketch-mode]')) { x.classList.toggle('selected', x === b); x.setAttribute('aria-pressed', String(x === b)); } $('#doorOptions').hidden = mode !== 'door'; $('#sketchTextLabel').hidden = mode !== 'text'; $('#sketchHint').textContent = mode === 'text' ? '輸入文字後，點圖面放置文字。' : mode === 'pen' ? '在圖面按住並移動手指，放開完成一筆。' : mode === 'door' ? '第一點為門軸，第二點為門洞另一端；方向可在上方切換。' : mode === 'window' ? '點選窗戶兩端；靠近牆線時可吸附。' : $('#sketchGesture').value === 'tap' ? '先點起點，再點終點／對角。' : '按住並拖曳，放開完成。'; if (mode === 'text' && !$('#sketchText').value.trim()) $('#sketchText').focus(); };
+  $('#sketchTools').onclick = e => { const b = e.target.closest('[data-sketch-mode]'); if (!b) return; const mode = b.dataset.sketchMode; editor.setMode(mode); for (const x of $('#sketchTools').querySelectorAll('[data-sketch-mode]')) { x.classList.toggle('selected', x === b); x.setAttribute('aria-pressed', String(x === b)); } $('#doorOptions').hidden = mode !== 'door'; $('#sketchTextLabel').hidden = mode !== 'text'; $('#sketchHint').textContent = mode === 'pan' ? '用單指或滑鼠拖曳移動；雙指可同時縮放。' : mode === 'text' ? '輸入文字後，點圖面放置文字。' : mode === 'pen' ? '在圖面按住並移動手指，放開完成一筆。' : mode === 'door' ? '第一點為門軸，第二點為門洞另一端；方向可在上方切換。' : mode === 'window' ? '點選窗戶兩端；靠近牆線時可吸附。' : $('#sketchGesture').value === 'tap' ? '先點起點，再點終點／對角。' : '按住並拖曳，放開完成。'; if (mode === 'text' && !$('#sketchText').value.trim()) $('#sketchText').focus(); };
   $('#undoSketch').onclick = () => editor.undo(); $('#redoSketch').onclick = () => editor.redo(); $('#clearSketch').onclick = () => editor.clear();
   $('#saveSketch').onclick = () => action(async () => {
     assert(project.id === context.projectId && recordId === context.recordId && currentRecord().floor === context.floor, '簡圖原先的戶別或樓層已變更，請先另存案件副本');
@@ -432,7 +464,7 @@ async function receiveReceipt(file) {
   state.entries[receipt.scope || 'all'] = await checkReceipt(receipt, project, state); await saveBackupState(state); await renderBackup(); toast('核對收據已記錄');
 }
 function helpDialog() {
-  openModal('手機使用與保存', `<ol class="help-list"><li>新增案件及戶別。進入每個空間後新增位置，拍全景、近照或量尺照。</li><li>點照片可圈選、畫箭頭與文字；圈註另存，原圖保留。位置圖可加入圖面或草圖照片。</li><li>現況欄位會自動保存。切換位置前會先保存；上方有錯誤時請先處理。</li><li>離開一戶前查看「待補檢查」，無法入內或部分完成請記原因。</li><li>從「備份還原」匯出全案或單戶。在電腦開啟同一工具、核對備份及建立還原副本。</li><li>iPhone 可從瀏覽器分享選單加入主畫面；Android 可從瀏覽器選單安裝。需先在線開啟，等上方顯示「離線已就緒」。手機使用需 HTTPS。</li></ol><p class="modal-note">資料只保存在此瀏覽器及你匯出的備份檔，不自動上傳。換瀏覽器、清除網站資料或移除應用程式前，請先完成外部備份。勿以無痕模式保存工作。</p><p>本工具記錄現場可見情形，不自動判定損害原因、結構安全或責任歸屬。尚須在實際手機上確認相機、容量及中斷操作。</p><p class="help-version">版本 ${VERSION} · 純本機資料 · 現況紀錄工作稿</p><button id="applyUpdate" class="secondary" hidden>保存後套用離線更新</button>`);
+  openModal('手機使用與保存', `<ol class="help-list"><li>新增案件及戶別。進入每個空間後新增位置，拍全景、近照或量尺照。</li><li>點照片可圈選、畫箭頭與文字；圈註另存，原圖保留。位置圖可加入圖面或草圖照片；手繪簡圖支援雙指縮放、移動及四向擴展。</li><li>現況可複選並共用照片；白華、剝落等面積各自填 m²，不合計重疊範圍。裂隙寬度用 mm、長度用 m。現況欄位會自動保存。切換位置前會先保存；上方有錯誤時請先處理。</li><li>離開一戶前查看「待補檢查」，無法入內或部分完成請記原因。</li><li>從「備份還原」匯出全案或單戶。在電腦開啟同一工具、核對備份及建立還原副本。</li><li>iPhone 可從瀏覽器分享選單加入主畫面；Android 可從瀏覽器選單安裝。需先在線開啟，等上方顯示「離線已就緒」。手機使用需 HTTPS。</li></ol><p class="modal-note">資料只保存在此瀏覽器及你匯出的備份檔，不自動上傳。換瀏覽器、清除網站資料或移除應用程式前，請先完成外部備份。勿以無痕模式保存工作。</p><p>本工具記錄現場可見情形，不自動判定損害原因、結構安全或責任歸屬。尚須在實際手機上確認相機、容量及中斷操作。</p><p class="help-version">版本 ${VERSION} · 純本機資料 · 現況紀錄工作稿</p><button id="applyUpdate" class="secondary" hidden>保存後套用離線更新</button>`);
   $('#modalBody').insertAdjacentHTML('afterbegin', '<p class="modal-note">V0.4.1：網狀裂隙的寬度、長度及實測勾選均可略過，不列尺寸待補。簡圖新增開門、開窗、端點／牆線吸附與水平／垂直鎖定。復原一步後才可重做，清空重畫另有按鈕。拍照先同意啟用相機，再於瀏覽器選允許；可預覽、重拍與保存。部位可複選；裂縫可一鍵選 ≤0.3 mm、>0.3 mm。無圖說可直接「手繪簡圖」，點兩下畫房間／線段，保存後點拍攝點及方向標箭頭。簡圖未按比例，寬度區間不代表安全判定。</p>');
   navigator.serviceWorker?.getRegistration().then(reg => { if (reg?.waiting && $('#applyUpdate')) { $('#applyUpdate').hidden = false; $('#applyUpdate').onclick = () => action(async () => { requireNoRecording(); assert(!conflictDraft, '請先另存目前副本，再套用更新'); closeModal(true); navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true }); reg.waiting.postMessage('ACTIVATE_UPDATE'); }); } });
 }
@@ -468,7 +500,8 @@ async function recoverCopy() {
 $('#recoverCopy').onclick = $('#modalRecover').onclick = () => recoverCopy().catch(fail);
 $('#keepEditing').onclick = () => { $('#discardPrompt').hidden = true; };
 $('#discardChanges').onclick = () => closeModal(true);
-$('#component').innerHTML = COMPONENTS.filter(Boolean).map(x => `<label><input type="checkbox" name="components" value="${esc(x)}"><span>${esc(x === '牆面' ? '牆' : x)}</span></label>`).join(''); $('#condition').innerHTML = opts(CONDITIONS);
+$('#component').innerHTML = COMPONENTS.filter(Boolean).map(x => `<label><input type="checkbox" name="components" value="${esc(x)}"><span>${esc(x === '牆面' ? '牆' : x)}</span></label>`).join(''); $('#condition').innerHTML = Object.entries(CONDITIONS).filter(([key]) => key).map(([key, label]) => `<label><input type="checkbox" name="conditions" value="${key}"><span>${label}</span></label>`).join('');
+$('#areaFields').innerHTML = Object.entries(AREA_CONDITIONS).map(([key, label]) => `<div data-area="${key}" class="two-col" hidden><label>${label}面積（m²，選填）<input id="area-${key}" type="number" min="0" step="any" inputmode="decimal" placeholder="未記錄"></label><label>取得方式<select id="area-method-${key}">${opts(AREA_METHODS)}</select></label></div>`).join('');
 $('#widthMode').innerHTML = opts(WIDTH_MODES); $('#crackPattern').innerHTML = opts(CRACK_PATTERNS);
 $('#widthMode').onchange = () => { if ($('#widthMode').value !== 'exact') $('#width').value = ''; };
 $('#widthPresets').onclick = e => { const b = e.target.closest('[data-width]'); if (!b) return; $('#widthMode').value = b.dataset.width; if (b.dataset.width !== 'exact') $('#width').value = ''; changed(); };

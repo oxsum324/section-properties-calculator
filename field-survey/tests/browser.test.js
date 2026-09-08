@@ -72,9 +72,41 @@ try {
   await click('#undoSketch'); assert((await page.locator('#sketchCount').innerText()).startsWith('2／'));
   await click('#redoSketch'); assert((await page.locator('#sketchCount').innerText()).startsWith('0／'));
   await click('#undoSketch'); await click('#addRoomFrame'); assert(await page.locator('#redoSketch').isDisabled());
+  const beforeNavigation = await page.locator('#sketchCount').innerText();
+  await click('#zoomIn'); assert.equal(await page.locator('#sketchZoom').innerText(), '140%');
+  const beforePan = await page.locator('#sketchStage svg').getAttribute('viewBox');
+  await click('[data-sketch-mode=pan]'); await page.locator('#sketchStage').scrollIntoViewIfNeeded(); await draw('#sketchStage svg', page, [.5, .5], [.7, .6]);
+  assert.notEqual(await page.locator('#sketchStage svg').getAttribute('viewBox'), beforePan);
+  await click('#fitSketch'); assert.equal(await page.locator('#sketchZoom').innerText(), '100%');
+  await click('[data-sketch-mode=line]'); await tapSketch([.4, .4], [.4, .4]); assert(await page.locator('#saveSketch').isDisabled());
+  await page.locator('#sketchStage').scrollIntoViewIfNeeded(); const pinchBox = await page.locator('#sketchStage svg').boundingBox(), pinch = await context.newCDPSession(page);
+  const fingers = separation => [{ id: 1, x: pinchBox.x + pinchBox.width * (.5 - separation), y: pinchBox.y + pinchBox.height * .5 }, { id: 2, x: pinchBox.x + pinchBox.width * (.5 + separation), y: pinchBox.y + pinchBox.height * .5 }];
+  await pinch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: fingers(.15) });
+  await pinch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: fingers(.3) });
+  await pinch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [fingers(.3)[0]] });
+  await pinch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...fingers(.3)[0], x: fingers(.3)[0].x + 10 }] });
+  await pinch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await pinch.detach();
+  assert(Number.parseInt(await page.locator('#sketchZoom').innerText()) > 190); assert.equal(await page.locator('#sketchCount').innerText(), beforeNavigation); assert(await page.locator('#saveSketch').isEnabled());
+  // Plot at zoomed screen positions and compare the stored SVG world geometry to inverse CTM coordinates.
+  await sketchGesture('drag'); await page.locator('#sketchSettings').evaluate(el => { el.open = true; }); await page.locator('#sketchSnap').uncheck(); await page.locator('#sketchSettings').evaluate(el => { el.open = false; });
+  await page.locator('#sketchStage').scrollIntoViewIfNeeded();
+  const expected = await page.locator('#sketchStage svg').evaluate(svg => { const b = svg.getBoundingClientRect(); return [.4, .6].map(x => { const p = svg.createSVGPoint(); p.x = b.x + b.width * x; p.y = b.y + b.height * .5; const q = p.matrixTransform(svg.getScreenCTM().inverse()); return { x: q.x, y: q.y }; }); });
+  await draw('#sketchStage svg', page, [.4, .5], [.6, .5]);
+  const zoomLine = page.locator('#sketchStage g[clip-path] > line').last();
+  assert(Math.abs(Number(await zoomLine.getAttribute('x1')) - expected[0].x) < 1); assert(Math.abs(Number(await zoomLine.getAttribute('x2')) - expected[1].x) < 1);
+  await click('#undoSketch'); await click('#fitSketch');
+  const inkBefore = await page.locator('#sketchStage g[clip-path]').innerHTML();
+  await page.locator('#sketchExpansion').evaluate(el => { el.open = true; });
+  for (const side of ['top', 'bottom', 'left', 'right']) {
+    const originalSize = await page.locator('#sketchStage svg > rect').evaluate(el => [el.getAttribute('width'), el.getAttribute('height')]);
+    await click('[data-expand=' + side + ']'); const expandedSize = await page.locator('#sketchStage svg > rect').evaluate(el => [el.getAttribute('width'), el.getAttribute('height')]); assert.notDeepEqual(expandedSize, originalSize);
+    await click('#undoSketch'); assert.equal(await page.locator('#sketchStage g[clip-path]').innerHTML(), inkBefore);
+    await click('#redoSketch'); assert.deepEqual(await page.locator('#sketchStage svg > rect').evaluate(el => [el.getAttribute('width'), el.getAttribute('height')]), expandedSize); await click('#undoSketch');
+  }
+  console.log('PASS actual two-finger pinch, single-finger pan, inverse-CTM plotting, four-direction expansion and undo/redo');
   await click('#closeModal'); await click('#discardChanges');
   for (const [key, value] of Object.entries({ floor: '1F', space: '客廳', location: '入口右側牆面', notes: '合成測試：裂隙可见範圍紀錄。' })) await page.locator('#' + key).fill(value);
-  for (const value of ['牆面', '梁', '柱']) await page.locator(`#component input[value="${value}"]`).check(); await page.locator('#condition').selectOption('crack'); await click('#saveRecord');
+  for (const value of ['牆面', '梁', '柱']) await page.locator(`#component input[value="${value}"]`).check(); await page.locator('#condition input[value=crack]').check(); await click('#saveRecord');
   let p = (await projects())[0]; assert.equal(p.records[0].width, null); assert.equal(p.records[0].measured, false);
   const fixture = await page.evaluate(() => {
     const c = document.createElement('canvas'); c.width = 1000; c.height = 700; const g = c.getContext('2d');
@@ -158,9 +190,19 @@ try {
   await page.screenshot({ path: path.join(out, '04-mobile-sketch.png'), fullPage: true }); await click('#saveSketch');
   await page.locator('#planStage svg').waitFor(); p = (await projects())[0]; assert.equal(p.plans.length, 2); assert.equal(p.plans[1].sketch.strokes.length, 6); assert.equal(p.plans[1].sketch.strokes[4].type, 'door'); assert.equal(p.plans[1].sketch.strokes[4].swing, 1); assert.equal(p.plans[1].sketch.strokes[5].type, 'window'); assert.equal(p.records[0].placement.planId, imagePlanId);
   await tapPair('#planStage svg'); await click('#savePlacement'); p = (await projects())[0]; const sketchPlan = structuredClone(p.plans[1]); assert.equal(p.records[0].placement.planId, sketchPlan.id);
-  await click('#showPlan'); await click('#editSketch'); assert(await page.locator('#redoSketch').isDisabled()); await sketchGesture('drag'); await click('[data-sketch-mode=line]'); await draw('#sketchStage svg', page, [.5, .5], [.87, .5]); await click('#saveSketch');
+  await click('#showPlan'); await click('#editSketch'); assert(await page.locator('#redoSketch').isDisabled()); await page.locator('#sketchExpansion').evaluate(el => { el.open = true; }); await click('[data-expand=left]'); await click('[data-expand=top]'); await page.locator('#sketchExpansion').evaluate(el => { el.open = false; }); await sketchGesture('drag'); await click('[data-sketch-mode=line]'); await draw('#sketchStage svg', page, [.5, .5], [.87, .5]); await click('#saveSketch');
   await page.locator('#planStage svg').waitFor(); p = (await projects())[0]; assert.equal(p.plans.length, 3); assert.deepEqual(p.plans[1], sketchPlan); assert.equal(p.plans[2].sketch.strokes.length, 7); assert.equal(p.records[0].placement.planId, sketchPlan.id);
   await tapPair('#planStage svg'); await click('#savePlacement');
+  for (const value of ['damp', 'salt', 'spall']) await page.locator('#condition input[value=' + value + ']').check();
+  await page.locator('#area-damp').fill('1.5'); await page.locator('#area-salt').fill('0.8'); await page.locator('#area-method-salt').selectOption('estimated'); await page.locator('#area-spall').fill('0.25'); await click('#saveRecord');
+  let multi = (await projects())[0].records[0]; assert.deepEqual(multi.conditions, ['crack', 'damp', 'salt', 'spall']); assert.deepEqual(multi.areas.salt, { value: .8, method: 'estimated' }); assert.equal(multi.width, .3); assert.equal(multi.length, 1.2);
+  await page.locator('#condition input[value=normal]').check(); await click('#saveRecord'); assert.deepEqual((await projects())[0].records[0].conditions, ['normal']); assert.equal(await page.locator('#areaMeasurements').isVisible(), false);
+  for (const value of ['crack', 'damp', 'salt', 'spall']) await page.locator('#condition input[value=' + value + ']').check(); await click('#saveRecord');
+  assert.equal(await page.locator('#area-salt').inputValue(), '0.8'); assert.equal(await page.locator('#width').inputValue(), '0.3');
+  await click('.photo-card'); await page.locator('#photoStage svg').waitFor();
+  for (const [i, condition] of ['salt', 'spall'].entries()) { await click('[data-condition-label=' + condition + ']'); await page.locator('#photoStage svg').click({ position: { x: 50 + i * 60, y: 60 + i * 30 } }); }
+  await click('#savePhoto'); multi = (await projects())[0].records[0]; assert.equal(multi.photos.length, 1); assert.deepEqual(multi.photos[0].marks.filter(m => m.type === 'text').map(m => m.text), ['白華', '剝落']); assert.equal(await originalHash(page, mid), hash);
+  await page.screenshot({ path: path.join(out, '07-multiple-conditions.png'), fullPage: true });
   console.log('PASS camera and component flows; undo/redo and new-branch history, pending-point cancel, orthogonal touch sketch, doors/windows and arrow placement');
   console.log('PASS mobile capture, annotation geometry, untouched original, measurements, floorplan');
 
@@ -178,7 +220,7 @@ try {
 
   await click('[data-view=backup]'); const downloadEvent = page.waitForEvent('download'); await click('#exportBackup'); const downloaded = await downloadEvent;
   const bundlePath = path.join(out, 'synthetic-backup.csurvey'); await downloaded.saveAs(bundlePath);
-  const bundle = await readBundle(new Blob([await fs.readFile(bundlePath)])); assert.equal(bundle.media.length, 5); assert.equal(bundle.project.records[0].photos[0].marks.length, 1); assert.equal(bundle.project.plans[2].sketch.strokes.length, 7);
+  const bundle = await readBundle(new Blob([await fs.readFile(bundlePath)])); assert.equal(bundle.media.length, 5); assert.equal(bundle.project.records[0].photos[0].marks.length, 3); assert.equal(bundle.project.plans[2].sketch.strokes.length, 7);
   assert((await page.locator('#exportState').innerText()).includes('待接收端'));
   const receiverContext = await browser.newContext({ viewport: { width: 1280, height: 900 }, acceptDownloads: true }); const receiver = await receiverContext.newPage();
   await receiver.goto(base); await receiver.locator('#startCase').waitFor();
@@ -186,6 +228,7 @@ try {
   const receiptEvent = receiver.waitForEvent('download'); await click('#downloadReceipt', receiver); const receiptFile = path.join(out, 'receipt.json'); await (await receiptEvent).saveAs(receiptFile);
   await click('#restoreBundle', receiver); const copies = await projects(receiver); assert.equal(copies.length, 1); assert.notEqual(copies[0].id, bundle.project.id);
   assert.equal(await originalHash(receiver, copies[0].records[0].photos[0].mediaId), hash);
+  assert.deepEqual(copies[0].records[0].conditions, ['crack', 'damp', 'salt', 'spall']); assert.deepEqual(copies[0].records[0].areas, multi.areas); assert.equal(copies[0].plans[2].sketch.version, 2);
   assert.deepEqual(copies[0].records[0].components, ['牆面', '梁', '柱']); assert.deepEqual(copies[0].plans[2].sketch, bundle.project.plans[2].sketch); assert.equal(copies[0].records[0].widthMode, 'exact');
   await receiver.screenshot({ path: path.join(out, '03-desktop-restored.png'), fullPage: true });
   await page.locator('#receiptInput').setInputFiles(receiptFile); await idle(page); await page.waitForFunction(() => document.querySelector('#exportState').textContent.includes('已匯入本版本'));
@@ -205,7 +248,7 @@ try {
   await page.locator('#notes').fill('第一視窗再次修改'); await click('#saveRecord');
   await click('#savePhoto', photoTab); await photoTab.locator('#modalRecover').waitFor(); await click('#modalRecover', photoTab);
   const markedCopy = (await projects(photoTab)).find(x => x.records[0].photos[0].caption === '衝突圈註副本');
-  assert(markedCopy); assert.equal(markedCopy.records[0].photos[0].marks.length, 2); assert.equal(await originalHash(photoTab, markedCopy.records[0].photos[0].mediaId), hash); await photoTab.close();
+  assert(markedCopy); assert.equal(markedCopy.records[0].photos[0].marks.length, 4); assert.equal(await originalHash(photoTab, markedCopy.records[0].photos[0].mediaId), hash); await photoTab.close();
   const captureTab = await context.newPage(); await captureTab.goto(base); await captureTab.locator('#caseSelect').selectOption(bundle.project.id); await idle(captureTab);
   const extraPath = path.join(out, 'synthetic-extra.png'); await fs.writeFile(extraPath, Buffer.concat([Buffer.from(fixture, 'base64'), Buffer.from([1])]));
   const extraPicker = captureTab.waitForEvent('filechooser'); await click('#pickPhotos', captureTab);

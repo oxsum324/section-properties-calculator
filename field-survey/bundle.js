@@ -16,7 +16,7 @@ export async function makeBundle(project, getBlob, unitId = '', progress = () =>
     parts.push(blob); total += blob.size; assert(total <= MAX_BUNDLE, '資料超過 2 GB，請選擇單戶分包匯出');
     progress(i + 1, payload.assets.length);
   }
-  const manifest = { kind: 'condition-survey-bundle', version: 1, createdAt: now(), payload, digest };
+  const manifest = { kind: 'condition-survey-bundle', version: 2, createdAt: now(), payload, digest };
   const bytes = encode(manifest); assert(bytes.length <= MAX_MANIFEST, '紀錄資料過大，請按戶分包');
   const header = PREFIX + String(bytes.length).padStart(10, '0') + '\n';
   return { blob: new Blob([header, bytes, ...parts], { type: 'application/octet-stream' }), manifest };
@@ -29,7 +29,7 @@ export async function readBundle(blob, progress = () => {}) {
   assert(length > 0 && length <= MAX_MANIFEST && HEADER_SIZE + length <= blob.size, '備份標頭損壞');
   let manifest;
   try { manifest = JSON.parse(await blob.slice(HEADER_SIZE, HEADER_SIZE + length).text()); } catch { throw new Error('備份資料無法讀取'); }
-  assert(manifest.kind === 'condition-survey-bundle' && manifest.version === 1 && manifest.payload, '不支援此備份版本');
+  assert(manifest.kind === 'condition-survey-bundle' && [1, 2].includes(manifest.version) && manifest.payload, '不支援此備份版本，請先更新工具');
   const { payload } = manifest; validateProject(payload.project);
   assert(typeof payload.scope === 'string' && (!payload.scope || payload.project.units.some(u => u.id === payload.scope)), '備份戶別不正確');
   assert(await sha256(encode(payload)) === manifest.digest, '紀錄資料指紋不符，備份未通過核對');

@@ -4,8 +4,9 @@ const completion = tx => new Promise((resolve, reject) => { tx.oncomplete = reso
 let database;
 export async function openStore() {
   if (database) return database;
-  const req = indexedDB.open('condition-survey-v1', 1);
-  req.onupgradeneeded = () => { for (const name of ['projects', 'blobs', 'backups']) req.result.createObjectStore(name, { keyPath: 'id' }); };
+  // Version 2 prevents an already-open older app from overwriting multi-condition records.
+  const req = indexedDB.open('condition-survey-v1', 2);
+  req.onupgradeneeded = () => { for (const name of ['projects', 'blobs', 'backups']) if (!req.result.objectStoreNames.contains(name)) req.result.createObjectStore(name, { keyPath: 'id' }); };
   database = await request(req);
   database.onversionchange = () => { database.close(); database = null; };
   return database;

@@ -1,4 +1,4 @@
-export const VERSION = '0.4.1';
+export const VERSION = '0.5.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -8,9 +8,12 @@ export const UNIT_STATES = { open: '待完成', partial: '部分完成', inacces
 export const ROLES = { overview: '位置全景', close: '近照', scale: '量尺照', other: '其他' };
 export const WIDTH_MODES = { unknown: '未確認', le03: '0.3 mm 以下（≤0.3）', gt03: '超過 0.3 mm（>0.3）', exact: '輸入實測值', lt03: '舊紀錄：小於 0.3 mm', ge03: '舊紀錄：大於或等於 0.3 mm' };
 export const recordComponents = r => r.components ?? (r.component ? [r.component] : []);
+export const recordConditions = r => r.conditions ?? (r.condition ? [r.condition] : []);
+export const AREA_CONDITIONS = { crack: '網狀裂隙分布', damp: '滲水跡', salt: '白華', spall: '剝落', other: '其他損害' };
+export const AREA_METHODS = { measured: '實測', estimated: '估計' };
 export const CRACK_PATTERNS = { '': '尚未選擇', horizontal: '水平裂隙', vertical: '垂直裂隙', diagonal: '斜向裂隙', network: '網狀裂隙', other: '其他（於說明補充）' };
 export const widthMode = r => r.widthMode ?? (r.width !== null ? 'exact' : 'unknown');
-export const isNetworkCrack = r => r.condition === 'crack' && r.crackPattern === 'network';
+export const isNetworkCrack = r => recordConditions(r).includes('crack') && r.crackPattern === 'network';
 export const emptySketch = () => ({ version: 1, width: 1200, height: 900, strokes: [] });
 export function newProject(code, name, date) {
   return { id: id(), code: code.trim(), name: name.trim(), date, createdAt: now(), updatedAt: now(), revision: 0, units: [], records: [], plans: [], media: [] };
@@ -25,11 +28,11 @@ export function recordIssues(r) {
   if (!r.space.trim()) issues.push('缺空間');
   if (!r.location.trim() && !r.placement) issues.push('缺位置說明或圖上位置');
   if (!recordComponents(r).length) issues.push('缺部位');
-  if (!r.condition) issues.push('尚未分類現況');
+  if (!recordConditions(r).length) issues.push('尚未分類現況');
   if (!r.photos.some(p => !p.excluded) && r.visibility !== 'inaccessible') issues.push('尚無採用照片');
   if (r.visibility !== 'visible' && !r.notes.trim()) issues.push('請記錄無法觀察的原因');
-  if (!isNetworkCrack(r)) {
-    if (r.condition === 'crack' && !r.measured) issues.push('裂縫未量測');
+  if (recordConditions(r).includes('crack') && !isNetworkCrack(r)) {
+    if (!r.measured) issues.push('裂縫未量測');
     if (r.measured && ((r.width === null && !['lt03', 'ge03', 'le03', 'gt03'].includes(widthMode(r))) || r.length === null)) issues.push('量測尺寸未齊');
   }
   return issues;
@@ -48,7 +51,7 @@ function list(v, label, max = 10000) { assert(Array.isArray(v) && v.length <= ma
 function unique(items) { const ids = new Set(); for (const item of items) { identifier(item.id); assert(!ids.has(item.id), '識別碼重複'); ids.add(item.id); } return ids; }
 const finite01 = n => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1;
 export function validateSketch(sketch) {
-  assert(sketch && sketch.version === 1 && sketch.width === 1200 && sketch.height === 900, '簡圖格式不正確');
+  assert(sketch && (sketch.version === 1 && sketch.width === 1200 && sketch.height === 900 || sketch.version === 2 && Number.isInteger(sketch.width) && Number.isInteger(sketch.height) && sketch.width >= 1200 && sketch.height >= 900 && sketch.width <= 4800 && sketch.height <= 4800), '簡圖格式不正確');
   list(sketch.strokes, '簡圖筆畫', 300);
   for (const stroke of sketch.strokes) {
     assert(['line', 'rect', 'pen', 'text', 'door', 'window'].includes(stroke.type), '簡圖筆畫種類不正確');
@@ -103,6 +106,20 @@ export function validateProject(p) {
       list(r.components, '部位', COMPONENTS.length - 1);
       assert(r.components.every(c => c && COMPONENTS.includes(c)) && new Set(r.components).size === r.components.length, '部位選項重複或不正確');
       assert(r.component === (r.components[0] || ''), '部位摘要不一致');
+    }
+    if (r.conditions !== undefined) {
+      list(r.conditions, '現況', Object.keys(CONDITIONS).length - 1);
+      assert(r.conditions.every(c => c && Object.hasOwn(CONDITIONS, c)) && new Set(r.conditions).size === r.conditions.length, '現況選項重複或不正確');
+      assert(r.condition === (r.conditions[0] || ''), '現況摘要不一致');
+      assert(!r.conditions.includes('normal') || r.conditions.length === 1, '一般現況不可與損害現況並選');
+    }
+    if (r.areas !== undefined) {
+      assert(r.areas && typeof r.areas === 'object' && !Array.isArray(r.areas), '損害面積格式不正確');
+      for (const [key, value] of Object.entries(r.areas)) {
+        assert(Object.hasOwn(AREA_CONDITIONS, key) && value && typeof value === 'object' && !Array.isArray(value), '損害面積種類不正確');
+        assert(value.value === null || typeof value.value === 'number' && Number.isFinite(value.value) && value.value >= 0, '損害面積須為非負數值或未記錄');
+        assert(Object.hasOwn(AREA_METHODS, value.method), '損害面積量測方式不正確');
+      }
     }
     assert(['visible', 'partial', 'inaccessible'].includes(r.visibility), '觀察狀態不正確');
     assert(typeof r.measured === 'boolean', '量測狀態不正確');

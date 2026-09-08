@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { newProject, newUnit, newRecord, id, now, sha256, validateProject, recordIssues, unitIssues, subset, restoredCopy, widthMode, recordComponents, emptySketch, validateSketch } from '../model.js';
+import { newProject, newUnit, newRecord, id, now, sha256, validateProject, recordIssues, unitIssues, subset, restoredCopy, widthMode, recordComponents, recordConditions, emptySketch, validateSketch } from '../model.js';
 import { makeBundle, readBundle, snapshot, makeReceipt, checkReceipt } from '../bundle.js';
-import { resolveSketchPoint, doorGeometry } from '../sketch.js';
+import { resolveSketchPoint, doorGeometry, expandSketch, sketchArea, sketchView } from '../sketch.js';
 
 async function fixture() {
   const p = newProject('DEMO', '合成測試案件', '2026-09-08'), a = newUnit('A'), b = newUnit('B');
@@ -51,7 +51,7 @@ test('network cracks do not require linear measurements, while other reminders a
     Object.assign(r, { crackPattern, measured: false }); assert(recordIssues(r).includes('裂縫未量測'));
     r.measured = true; assert(recordIssues(r).includes('量測尺寸未齊'));
   }
-  Object.assign(r, { condition: 'normal', crackPattern: 'network' }); assert(recordIssues(r).includes('量測尺寸未齊'));
+  Object.assign(r, { condition: 'normal', crackPattern: 'network' }); assert(!recordIssues(r).includes('量測尺寸未齊')); // Retained inactive dimensions do not create a crack reminder.
 });
 test('optional network measurements preserve blanks and actual values through backup and restore', async () => {
   const { p, r, blobs } = await fixture(); Object.assign(r, { condition: 'crack', crackPattern: 'network', measured: true, widthMode: 'exact' });
@@ -194,3 +194,56 @@ for (const [name, mutate] of [
   ['reserved key', p => p.units[0].id = '__proto__'],
   ['invalid exclusion', p => p.records[0].photos[0].excluded = 'false'],
 ]) test(`invalid model rejected: ${name}`, async () => { const { p } = await fixture(); mutate(p); assert.throws(() => validateProject(p)); });
+
+test('multiple conditions share originals and retain independent measured or estimated areas', async () => {
+  const { p, r, blobs } = await fixture(); assert.deepEqual(recordConditions(r), ['normal']);
+  Object.assign(r, { condition: 'crack', conditions: ['crack', 'damp', 'salt', 'spall'], crackPattern: 'network', areas: { crack: { value: null, method: 'estimated' }, damp: { value: 1.5, method: 'measured' }, salt: { value: .8, method: 'estimated' }, spall: { value: 0, method: 'measured' } } });
+  validateProject(p); assert.deepEqual(recordIssues(r), []);
+  const result = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
+  assert.equal(result.manifest.version, 2); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
+  const copy = restoredCopy(result.project).project.records[0]; assert.deepEqual(copy.conditions, r.conditions); assert.deepEqual(copy.areas, r.areas);
+  r.conditions = ['damp']; r.condition = 'damp'; validateProject(p); assert.equal(r.areas.salt.value, .8); assert.deepEqual(recordIssues(r), []);
+});
+test('multi-condition validation rejects contradictions, unknown choices, duplicates and invalid areas', async () => {
+  const { p, r } = await fixture();
+  for (const conditions of [['normal', 'salt'], ['salt', 'salt'], ['unknown']]) { r.conditions = conditions; r.condition = conditions[0]; assert.throws(() => validateProject(p)); }
+  r.conditions = ['salt']; r.condition = 'damp'; assert.throws(() => validateProject(p), /摘要/); r.condition = 'salt';
+  for (const areas of [{ salt: { value: -1, method: 'measured' } }, { salt: { value: Infinity, method: 'measured' } }, { salt: { value: 1, method: 'automatic' } }, { wrong: { value: 1, method: 'measured' } }]) { r.areas = areas; assert.throws(() => validateProject(p)); }
+});
+test('backup reader accepts version 1 while new exports explicitly require a newer reader', async () => {
+  const { p, blobs } = await fixture(), result = await makeBundle(p, mid => blobs.get(mid));
+  const bytes = new Uint8Array(await result.blob.arrayBuffer()), headerSize = 21, length = Number(new TextDecoder().decode(bytes.slice(10, 20)));
+  const old = structuredClone(result.manifest); old.version = 1;
+  const json = JSON.stringify(old), header = 'CSURVEY/1\n' + String(new TextEncoder().encode(json).length).padStart(10, '0') + '\n';
+  const restored = await readBundle(new Blob([header, json, bytes.slice(headerSize + length)])); assert.deepEqual(restored.project, p);
+});
+test('four-direction paper expansion preserves physical lengths and shifts only the added sides', () => {
+  const original = emptySketch(); original.strokes = [{ type: 'door', swing: 1, points: [{ x: .2, y: .3 }, { x: .4, y: .3 }] }, { type: 'text', text: '入口', points: [{ x: .5, y: .5 }] }];
+  for (const direction of ['left', 'right', 'top', 'bottom']) {
+    const result = expandSketch(original, direction), a = sketchArea(original), b = sketchArea(result);
+    for (let i = 0; i < original.strokes.length; i++) for (let j = 0; j < original.strokes[i].points.length; j++) {
+      const p = original.strokes[i].points[j], q = result.strokes[i].points[j];
+      assert(Math.abs(q.x * b.width - p.x * a.width - (direction === 'left' ? result.width - original.width : 0)) < 1e-8);
+      assert(Math.abs(q.y * b.height - p.y * a.height - (direction === 'top' ? result.height - original.height : 0)) < 1e-8);
+    }
+    assert.equal(result.version, 2); assert.equal(result.strokes[0].swing, 1); assert.equal(original.version, 1);
+  }
+  let max = original; while (max.width < 4800) max = expandSketch(max, 'right'); assert.throws(() => expandSketch(max, 'right'), /上限/);
+  max.height = 4801; assert.throws(() => validateSketch(max), /格式/); assert.throws(() => expandSketch(original, 'diagonal'), /方向/);
+});
+test('view fitting and pan bounds work for wide and tall expanded paper without changing saved geometry', () => {
+  for (const [width, height] of [[1200, 900], [4800, 900], [1200, 4800]]) {
+    const sketch = { version: 2, width, height, strokes: [] }, before = structuredClone(sketch);
+    const fit = sketchView(sketch, 4 / 3); assert(fit.width >= width && fit.height >= height); assert(Math.abs(fit.width / fit.height - 4 / 3) < 1e-8);
+    const zoom = sketchView(sketch, 4 / 3, 4, { x: -10000, y: 10000 }); assert.equal(zoom.width, fit.width / 4);
+    assert.deepEqual(sketch, before);
+  }
+});
+test('expanded paper snapping uses unchanged screen distance tolerance', () => {
+  const sketch = expandSketch(emptySketch(), 'right'); sketch.strokes.push({ type: 'line', points: [{ x: .2, y: .2 }, { x: .5, y: .2 }] });
+  const area = sketchArea(sketch);
+  for (const scale of [.2, 2]) {
+    assert.equal(resolveSketchPoint(sketch, { x: .5 + 10 / scale / area.width, y: .2 }, { scale }).kind, 'endpoint');
+    assert.equal(resolveSketchPoint(sketch, { x: .5 + 15 / scale / area.width, y: .2 }, { scale }).kind, '');
+  }
+});
