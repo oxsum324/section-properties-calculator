@@ -1,14 +1,16 @@
 import { clone, recordIssues, observationText, roomKey, photoIncluded, ROLES, assert, syncRooms } from './model.js';
-import { attachmentIndex, defaultPhotoIds, reportPhotos, renderAttachment, moveRoom, escapeHTML as e } from './report.js';
+import { attachmentIndex, defaultPhotoIds, reportPhotos, renderAttachment, moveRoom, REPORT_FORMATS, escapeHTML as e } from './report.js';
 
 export function createReportController(api) {
   const { $, action, commit, getProject, getMedia, mediaURL, openModal, download, busyText, editPhoto, editRecord } = api;
-  const settings = { unitId: '', start: 1, perPage: 2 };
+  const settings = { unitId: '', start: 1, perPage: 2, format: 'standard' };
   async function render() {
     const p = getProject(); if (!p) return;
     if (settings.unitId && !p.units.some(u => u.id === settings.unitId)) settings.unitId = '';
     $('#reportScope').innerHTML = '<option value="">全案</option>' + p.units.map(u => `<option value="${u.id}">${e(u.code)}</option>`).join('');
     $('#reportScope').value = settings.unitId;
+    $('#reportFormat').value = settings.format;
+    $('#reportFormatHelp').textContent = settings.format === 'standard' ? '每戶依序：各樓整體平面圖 → 照片說明表 → 照片。同一圖面集中標示跨房間的照片編號。' : '依房間依序顯示位置圖、現況說明與照片，方便現場核對。';
     const groups = new Map();
     for (const r of p.records.filter(r => !settings.unitId || r.unitId === settings.unitId)) {
       const key = r.roomId || roomKey(r); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(r);
@@ -28,6 +30,7 @@ export function createReportController(api) {
   }
   async function mutate(fn) { await commit(p => { fn(p); syncRooms(p); }); await render(); }
   $('#reportScope').onchange = () => action(async () => { settings.unitId = $('#reportScope').value; await render(); });
+  $('#reportFormat').onchange = () => action(async () => { settings.format = $('#reportFormat').value; await render(); });
   $('#reportRooms').onchange = event => {
     const input = event.target.closest('[data-report-include]'); if (!input) return;
     const recordId = input.closest('[data-report-record]').dataset.reportRecord, mediaId = input.closest('[data-report-photo]').dataset.reportPhoto, checked = input.checked;
@@ -79,13 +82,15 @@ export function createReportController(api) {
     const p = clone(getProject()); attachmentIndex(p, settings);
     const result = await renderAttachment(p, async mid => (await getMedia(mid))?.blob, settings, (i, n) => busyText(`整理附件照片 ${i}／${n}`));
     const url = URL.createObjectURL(new Blob([result.html], { type: 'text/html;charset=utf-8' }));
-    openModal('附件預覽與下載', '<p>請核對房間、照片順序、位置圖與說明；流水號已同步產生。</p><div class="choice-chips"><button id="printAttachment" class="secondary">列印／另存 PDF</button><button id="downloadAttachment" class="primary">下載附件 HTML</button><button id="downloadMapping" class="secondary">下載編號對照 JSON</button></div><iframe id="attachmentPreview" title="現況照片附件預覽"></iframe>', () => URL.revokeObjectURL(url));
+    const formatName = REPORT_FORMATS[result.index.format];
+    const previewNote = result.index.format === 'standard' ? '圖面、說明表與照片使用同一組編號。' : '依房間核對位置圖、說明與照片。';
+    openModal(formatName + ' · 預覽與下載', `<p>${previewNote}請核對選片、位置與文字後，以 A4、100% 比例列印並關閉瀏覽器頁首頁尾。</p><div class="choice-chips"><button id="printAttachment" class="secondary">列印／另存 PDF</button><button id="downloadAttachment" class="primary">下載附件 HTML</button><button id="downloadMapping" class="secondary">下載編號對照 JSON</button></div><iframe id="attachmentPreview" title="現況照片附件預覽"></iframe>`, () => URL.revokeObjectURL(url));
     $('#printAttachment').disabled = true;
     $('#attachmentPreview').onload = () => { if ($('#printAttachment')) $('#printAttachment').disabled = false; };
     $('#attachmentPreview').src = url;
     $('#printAttachment').onclick = () => $('#attachmentPreview').contentWindow.print();
-    $('#downloadAttachment').onclick = () => download(new Blob([result.html], { type: 'text/html;charset=utf-8' }), `${p.code}-照片附件-r${p.revision}.html`);
-    $('#downloadMapping').onclick = () => download(new Blob([JSON.stringify({ ...result.index, digest: result.digest }, null, 2)], { type: 'application/json' }), `${p.code}-附件編號對照-r${p.revision}.json`);
+    $('#downloadAttachment').onclick = () => download(new Blob([result.html], { type: 'text/html;charset=utf-8' }), `${p.code}-${formatName}-r${p.revision}.html`);
+    $('#downloadMapping').onclick = () => download(new Blob([JSON.stringify({ ...result.index, digest: result.digest }, null, 2)], { type: 'application/json' }), `${p.code}-${formatName}-編號對照-r${p.revision}.json`);
   }, '整理照片附件');
   return { render, saveTextEdits, get dirty() { return !!$('#reportRooms [data-report-text][data-edited="true"]'); } };
 }

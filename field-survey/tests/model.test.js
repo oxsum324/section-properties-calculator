@@ -4,7 +4,7 @@ import { newProject, newUnit, newRecord, id, now, sha256, validateProject, recor
 import { makeBundle, readBundle, snapshot, makeReceipt, checkReceipt } from '../bundle.js';
 import { resolveSketchPoint, doorGeometry, expandSketch, sketchArea, sketchView, hitSketch, deleteSketchSelection } from '../sketch.js';
 import { syncRooms, clearWrongFloor, observationText, tileTotal, photoPlacement } from '../model.js';
-import { attachmentIndex, reportPhotos, groupPlanEntries, moveRoom, textChunks } from '../report.js';
+import { attachmentIndex, attachmentUnits, reportPhotos, groupPlanEntries, moveRoom, textChunks } from '../report.js';
 import { stairGeometry } from '../stairs.js';
 
 test('individual cracks preserve independent units, uncertainty and legacy group through backup', async () => {
@@ -93,6 +93,22 @@ test('photo placements inherit only when unset, stay separate by camera angle, a
   r.observationPin = { ...r.placement, x: .6, endX: .6, y: .7, endY: .7 }; validateProject(p);
   const index = attachmentIndex(p), entries = groupPlanEntries(index.groups[0], planId); assert.equal(entries.length, 2); assert.equal(entries[0].kind, 'observation'); assert.equal(entries[1].placement.x, .4);
   r.floor = '3F'; clearWrongFloor(p, r); assert.equal(r.placement, null); assert.equal(photo.placement, null); assert.equal(r.observationPin, null);
+});
+
+test('both report formats share selected numbering; standard plans consolidate across rooms and isolate units', async () => {
+  const { p, r, a } = await fixture();
+  const second = newRecord(a.id, r.floor, '另一房間'); second.photos.push({ ...structuredClone(r.photos[0]), mediaId: id() });
+  p.media.push({ ...p.media[0], id: second.photos[0].mediaId }); p.records.push(second);
+  const plan = { id: id(), unitId: a.id, floor: r.floor, title: '全層平面圖', mediaId: id() };
+  p.media.push({ ...p.media[0], id: plan.mediaId, kind: 'plan' }); p.plans.push(plan);
+  r.placement = { planId: plan.id, x: .2, y: .3, endX: .6, endY: .7 }; second.placement = { ...r.placement, x: .4 };
+  const before = structuredClone(p), standard = attachmentIndex(p, { start: 7 }), quick = attachmentIndex(p, { start: 7, format: 'quick' });
+  assert.equal(standard.format, 'standard'); assert.equal(standard.version, 2); assert.deepEqual(standard.groups, quick.groups);
+  const units = attachmentUnits(standard, p); assert.equal(units.length, 2); assert.equal(units[0].groups.length, 2); assert.equal(units[0].plans.length, 1); assert.equal(units[1].plans.length, 0);
+  assert.deepEqual(units[0].records.flatMap(r => r.photos.map(p => p.number)), ['007', '008']);
+  assert.deepEqual(groupPlanEntries(units[0], plan.id).map(e => e.label), ['007', '008']);
+  assert.deepEqual(p, before); assert.throws(() => attachmentIndex(p, { format: 'unknown' }));
+  const scoped = attachmentUnits(attachmentIndex(p, { unitId: a.id }), p); assert.equal(scoped.length, 1);
 });
 
 test('eraser selects rectangle edges without selecting empty rooms and preserves other three walls', () => {
