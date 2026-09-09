@@ -124,7 +124,7 @@ function measurementState() {
   const data = { conditions: selectedConditions(), components: [...$('#component').querySelectorAll('input:checked')].map(el => el.value), crackPattern: $('#crackPattern').value, surface: $('#surface').value };
   const network = isNetworkCrack(data), u = isUCrack(data), optional = network || u || isTile(data);
   for (const button of $('#widthPresets').querySelectorAll('[data-width]')) button.setAttribute('aria-pressed', String(button.dataset.width === mode));
-  const individual = !$('#individualCracks').hidden && Array.isArray(crackFields?.read().cracks);
+  const individual = !$('#individualCracks').hidden && crackFields?.active;
   for (const selector of ['#widthPresets', '#widthMode', '#widthHint', '#measured', '#width']) { const el = $(selector); (selector === '#widthMode' || selector === '#measured' ? el.parentElement : selector === '#width' ? el.closest('.two-col') : el).hidden = individual; }
   $('#width').disabled = !measured || mode !== 'exact'; $('#length').disabled = !measured;
   $('#widthLabel').textContent = `實測裂縫寬度（mm）${optional ? '・選填' : ''}`; $('#lengthLabel').textContent = `${u ? '單條 U 型裂縫展開長度' : '實測裂縫長度'}（m）${optional ? '・選填' : ''}`;
@@ -668,7 +668,7 @@ crackFields = createCrackFields($('#individualCracks'), changed, () => {
   const width = measured && widthMode === 'exact' && $('#width').value !== '' ? Number($('#width').value) : null;
   const length = measured && $('#length').value !== '' ? Number($('#length').value) : null;
   return width !== null || length !== null || !['unknown', 'exact'].includes(widthMode) ? { measured, widthMode, width, length, crackPattern: $('#crackPattern').value } : undefined;
-});
+}, fail);
 for (const selector of ['#tileCrackCount', '#tileBrokenCount']) {
   const buttons = document.createElement('div'); buttons.className = 'choice-chips';
   buttons.innerHTML = [1, 2, 5, 10, 15, 20].map(n => `<button type="button" data-value="${n}">${n} 塊</button>`).join('') + [-1, 1, 10].map(n => `<button type="button" data-step="${n}">${n > 0 ? '＋' : '−'}${Math.abs(n)}</button>`).join('');

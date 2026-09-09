@@ -3,7 +3,7 @@ import { id, WIDTH_MODES, CRACK_PATTERNS, assert } from './model.js';
 export const crackLabel = i => String.fromCharCode(65 + i);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const options = (items, value) => Object.entries(items).map(([k, v]) => `<option value="${k}" ${k === value ? 'selected' : ''}>${esc(v)}</option>`).join('');
-export function createCrackFields(root, changed, legacyValues) {
+export function createCrackFields(root, changed, legacyValues, onError) {
   let cracks, legacy;
   function read() {
     if (!cracks) return {};
@@ -31,7 +31,7 @@ export function createCrackFields(root, changed, legacyValues) {
   }
   root.addEventListener('input', state);
   root.addEventListener('change', state);
-  root.onclick = e => {
+  const handleClick = e => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.hasAttribute('data-narrow')) { const card = b.closest('[data-crack-id]'); card.querySelector('[data-key="widthMode"]').value = 'le03'; card.querySelector('[data-key="width"]').value = ''; state(); changed(); return; }
     const current = read(); if (cracks) cracks = current.cracks; else legacy ??= legacyValues();
@@ -48,7 +48,9 @@ export function createCrackFields(root, changed, legacyValues) {
     }
     render(); changed();
   };
+  root.onclick = e => { try { handleClick(e); } catch (error) { onError(error); } };
   return {
+    get active() { return Array.isArray(cracks); },
     read,
     load(r) {
       cracks = r.cracks ? structuredClone(r.cracks) : undefined;

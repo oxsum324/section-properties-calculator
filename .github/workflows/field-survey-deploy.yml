@@ -83,4 +83,9 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v5
       - name: Verify published survey bytes
-        run: node field-survey/release.mjs live
+        run: |
+          for attempt in {1..6}; do
+            if node field-survey/release.mjs live; then exit 0; fi
+            sleep 5
+          done
+          exit 1

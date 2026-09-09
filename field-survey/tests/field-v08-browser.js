@@ -17,7 +17,12 @@ export async function verifyFieldV08Workflow(browser, base, out) {
     for (const [i, values] of [[0, ['le03', '', '1.2']], [1, ['exact', '.45', '2.1']]]) {
       const card = page.locator('[data-crack-id]').nth(i); await card.evaluate(el => { el.open = true; });
       await card.locator('[data-key=measured]').check(); await card.locator('[data-key=widthMode]').selectOption(values[0]);
-      if (values[1]) await card.locator('[data-key=width]').fill(values[1]); await card.locator('[data-key=length]').fill(values[2]);
+      if (values[1]) {
+        const width = card.locator('[data-key=width]'); await width.focus(); await page.keyboard.insertText('-');
+        assert.deepEqual(errors, [], 'Incomplete decimal typing must not throw from layout updates');
+        await width.fill(values[1]);
+      }
+      await card.locator('[data-key=length]').fill(values[2]);
       await card.evaluate(el => { el.open = false; });
     }
     await page.locator('[data-crack-id]').nth(2).locator('[data-key=notes]').fill('窗角未能接近'); await click('#saveRecord');
