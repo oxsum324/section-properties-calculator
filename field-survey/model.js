@@ -45,7 +45,7 @@ export function observationText(r) {
     if (r.measured && r.length !== null) pieces.push(`${r.uScope === 'each' ? '各條實測展開長度均為' : '代表 1 條實測展開長度'} ${r.length} m`);
     if (r.uPartial) pieces.push('裂縫路徑局部可見');
   } else if (conditions.includes('crack') && !isTile(r)) {
-    pieces.push(CRACK_PATTERNS[r.crackPattern] || '裂隙');
+    pieces.push(r.crackPattern ? CRACK_PATTERNS[r.crackPattern] || '裂隙' : '裂隙');
     if (r.measured && r.length !== null) pieces.push(`實測長度 ${r.length} m`);
   }
   if (conditions.includes('crack')) {

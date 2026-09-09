@@ -19,6 +19,15 @@ export function reportPhotos(r) {
   const defaults = defaultPhotoIds(r);
   return r.photos.filter(p => photoIncluded(p) && (p.reportInclude === true || p.reportInclude === undefined && defaults.has(p.mediaId)));
 }
+export function moveRoom(project, roomId, direction, unitId = '') {
+  const key = r => r.roomId || roomKey(r), allKeys = [...new Set(project.records.map(key))];
+  const visible = [...new Set(project.records.filter(r => !unitId || r.unitId === unitId).map(key))];
+  const from = visible.indexOf(roomId), to = from + direction;
+  if (from < 0 || to < 0 || to >= visible.length) return;
+  const a = allKeys.indexOf(visible[from]), b = allKeys.indexOf(visible[to]);
+  [allKeys[a], allKeys[b]] = [allKeys[b], allKeys[a]];
+  project.records.sort((x, y) => allKeys.indexOf(key(x)) - allKeys.indexOf(key(y)));
+}
 export function attachmentIndex(project, { unitId = '', start = 1, perPage = 2 } = {}) {
   validateProject(project);
   assert(!unitId || project.units.some(u => u.id === unitId), '附件戶別不存在');

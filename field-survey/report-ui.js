@@ -1,5 +1,5 @@
 import { clone, recordIssues, observationText, roomKey, photoIncluded, ROLES, assert, syncRooms } from './model.js';
-import { attachmentIndex, defaultPhotoIds, reportPhotos, renderAttachment, escapeHTML as e } from './report.js';
+import { attachmentIndex, defaultPhotoIds, reportPhotos, renderAttachment, moveRoom, escapeHTML as e } from './report.js';
 
 export function createReportController(api) {
   const { $, action, commit, getProject, getMedia, mediaURL, openModal, download, busyText, editPhoto, editRecord } = api;
@@ -68,8 +68,7 @@ export function createReportController(api) {
         if (command.startsWith('photo-')) { const a = r.photos.findIndex(x => x.mediaId === mid), b = a + (command === 'photo-up' ? -1 : 1); if (b >= 0 && b < r.photos.length) [r.photos[a], r.photos[b]] = [r.photos[b], r.photos[a]]; }
         if (command.startsWith('record-')) { const records = p.records.filter(x => roomKey(x) === roomKey(r)), a = records.indexOf(r), other = records[a + (command === 'record-up' ? -1 : 1)]; if (other) { const ia = p.records.indexOf(r), ib = p.records.indexOf(other); [p.records[ia], p.records[ib]] = [p.records[ib], p.records[ia]]; } }
         if (command.startsWith('room-')) {
-          const keys = [...new Set(p.records.map(x => x.roomId || roomKey(x)))], a = keys.indexOf(button.dataset.room), b = a + (command === 'room-up' ? -1 : 1);
-          if (b >= 0 && b < keys.length) { [keys[a], keys[b]] = [keys[b], keys[a]]; p.records.sort((x, y) => keys.indexOf(x.roomId || roomKey(x)) - keys.indexOf(y.roomId || roomKey(y))); }
+          moveRoom(p, button.dataset.room, command === 'room-up' ? -1 : 1, settings.unitId);
         }
       });
     });

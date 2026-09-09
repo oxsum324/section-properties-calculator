@@ -4,7 +4,18 @@ import { newProject, newUnit, newRecord, id, now, sha256, validateProject, recor
 import { makeBundle, readBundle, snapshot, makeReceipt, checkReceipt } from '../bundle.js';
 import { resolveSketchPoint, doorGeometry, expandSketch, sketchArea, sketchView, hitSketch, deleteSketchSelection } from '../sketch.js';
 import { syncRooms, clearWrongFloor, observationText, tileTotal, photoPlacement } from '../model.js';
-import { attachmentIndex, reportPhotos, groupPlanEntries } from '../report.js';
+import { attachmentIndex, reportPhotos, groupPlanEntries, moveRoom, textChunks } from '../report.js';
+
+test('room moves within a selected unit skip intervening rooms from other units', async () => {
+  const { p, r, a } = await fixture(), second = newRecord(a.id, '1F', '浴廁'); p.records.push(second); syncRooms(p);
+  const other = p.records[1], field = second.fieldNumber;
+  moveRoom(p, second.roomId, -1, a.id); assert.deepEqual(p.records.map(x => x.id), [second.id, other.id, r.id]); assert.equal(second.fieldNumber, field);
+  moveRoom(p, second.roomId, -1, a.id); assert.equal(p.records[0].id, second.id);
+});
+test('report prose omits form placeholders and long multiline text can continue without losing content', async () => {
+  const { r } = await fixture(); r.condition = 'crack'; r.crackPattern = ''; assert.match(observationText(r), /裂隙/); assert(!observationText(r).includes('尚未選擇'));
+  const long = '現場補充\n'.repeat(250), chunks = textChunks(long); assert.equal(chunks.join(''), long); assert(chunks.every(s => s.length <= 700 && s.split('\n').length <= 25));
+});
 
 test('U cracks record counts and optional single-path length without total length or forced dimensions', async () => {
   const { p, r } = await fixture(); Object.assign(r, { component: '梁', condition: 'crack', crackPattern: 'u', crackCount: 4 });
