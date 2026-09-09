@@ -7,6 +7,7 @@ import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
 import { VERSION } from '../model.js';
 import assert from 'node:assert/strict';
+import { verifyReportWorkflow } from './report-browser.js';
 import { readBundle } from '../bundle.js';
 const require = createRequire(import.meta.url);
 const { chromium } = require('../../.github/pages-smoke/node_modules/playwright');
@@ -133,7 +134,7 @@ async function verifyPlanFirstWorkflow() {
     await p.locator('#planStage svg').scrollIntoViewIfNeeded(); const box = await p.locator('#planStage svg').boundingBox();
     await p.touchscreen.tap(box.x + box.width * .3, box.y + box.height * .4); await p.touchscreen.tap(box.x + box.width * .6, box.y + box.height * .4); await c('#savePlacement');
     assert.equal((await data()).records[0].placement.planId, saved.id); assert.equal(await p.locator('#recordLocation svg path').count(), 1); assert((await p.locator('#recordLocation').innerText()).includes(saved.title));
-    await c('#unitPlans'); await c(`[data-plan-overview="${saved.id}"]`); assert.equal(await p.locator('#overviewPlan svg path').count(), 1); await c('[data-location-record]'); assert.equal(await p.locator('#recordCode').innerText(), 'R-001');
+    await c('#unitPlans'); await c(`[data-plan-overview="${saved.id}"]`); assert.equal(await p.locator('#overviewPlan svg path').count(), 1); await c('[data-location-record]'); assert.equal(await p.locator('#recordCode').innerText(), '位置 001');
     await p.locator('#floor').fill('2F'); await c('#saveRecord'); assert.equal((await data()).records[0].placement, null); assert.equal(await p.locator('#recordLocation svg').count(), 0);
     await c('#addUnit'); await p.locator('#unitForm [name=code]').fill('圖庫 B 戶'); await c('#unitForm button[type=submit]'); await c('#unitPlans'); assert.equal(await p.locator('[data-plan-overview]').count(), 0); await c('#finishLibrary');
     await ctx.setOffline(true); await p.reload(); await p.locator('#unitPlans').waitFor(); await c('#unitPlans'); assert.equal(await p.locator('[data-plan-overview]').count(), 2); assert.deepEqual((await data()).plans[0], saved);
@@ -309,7 +310,7 @@ try {
   console.log('PASS camera and component flows; undo/redo and new-branch history, pending-point cancel, orthogonal touch sketch, doors/windows and arrow placement');
   console.log('PASS mobile capture, annotation geometry, untouched original, measurements, floorplan');
 
-  await page.locator('details summary').click(); await click('#recordAudio');
+  await page.locator('details:has(#resident) summary').click(); await click('#recordAudio');
   await page.waitForFunction(() => document.querySelector('#audioStatus').textContent.includes('錄音中'));
   await page.waitForTimeout(1200); // Let the simulated microphone deliver a real recording chunk.
   await click('#recordAudio'); p = (await projects())[0]; assert.equal(p.records[0].audioIds.length, 1);
@@ -365,5 +366,6 @@ try {
   await page.setViewportSize({ width: 390, height: 844 }); assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   assert.deepEqual(errors, []); assert.deepEqual(outbound, []);
   console.log('PASS conflict recovery, exclusion preserves original, stale backup reminder, no external requests');
+  await verifyReportWorkflow(browser, base, out);
   await fs.writeFile(path.join(out, 'result.json'), JSON.stringify({ passed: true, browser: await browser.version(), viewport: '390x844 + 1280x900', physicalPhoneTested: false, httpCacheUpgradeVerified: true, pageErrors: errors, externalRequests: outbound, originalHash: hash, packageMediaCount: bundle.media.length, checkedAt: new Date().toISOString() }, null, 2));
 } finally { await browser.close(); server?.kill(); }

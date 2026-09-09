@@ -4,8 +4,8 @@ const completion = tx => new Promise((resolve, reject) => { tx.oncomplete = reso
 let database;
 export async function openStore() {
   if (database) return database;
-  // Version 2 prevents an already-open older app from overwriting multi-condition records.
-  const req = indexedDB.open('condition-survey-v1', 2);
+  // Version 3 closes older connections before room, photo selection and quantity data are saved.
+  const req = indexedDB.open('condition-survey-v1', 3);
   req.onupgradeneeded = () => { for (const name of ['projects', 'blobs', 'backups']) if (!req.result.objectStoreNames.contains(name)) req.result.createObjectStore(name, { keyPath: 'id' }); };
   database = await request(req);
   database.onversionchange = () => { database.close(); database = null; };

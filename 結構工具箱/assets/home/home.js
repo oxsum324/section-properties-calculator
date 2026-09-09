@@ -238,7 +238,7 @@
   const HOME_TOOL_UPDATE_DEPENDENCIES = {
     version: 1,
     routes: {
-      '/condition-survey': ['field-survey/app.js', 'field-survey/model.js', 'field-survey/store.js', 'field-survey/bundle.js', 'field-survey/annotation.js', 'field-survey/sketch.js', 'field-survey/app.css', 'field-survey/sw.js', 'field-survey/manifest.webmanifest'],
+      '/condition-survey': ['field-survey/app.js', 'field-survey/model.js', 'field-survey/report.js', 'field-survey/report-ui.js', 'field-survey/store.js', 'field-survey/bundle.js', 'field-survey/annotation.js', 'field-survey/sketch.js', 'field-survey/app.css', 'field-survey/sw.js', 'field-survey/manifest.webmanifest'],
       '/beam-analysis': ['結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/analysis-section-tool-metadata.js', '結構工具箱/core/ui/report.js'],
       '/frame-analysis': ['結構工具箱/tools/project-meta-profile.js', '結構工具箱/tools/analysis-section-tool-metadata.js', '結構工具箱/core/ui/report.js'],
       '/section': ['結構工具箱/tools/analysis-section-tool-metadata.js', '結構工具箱/core/ui/report.js'],
@@ -316,12 +316,12 @@
   const tools = [
     {
       title: '現況鑑定紀錄',
-      version: 'V0.6.0',
+      version: 'V0.7.0',
       href: '/condition-survey',
       categories: ['temporary'],
       state: 'workflow',
       output: '依戶別及位置整理的現場紀錄、原始媒體與可編輯圈註備份',
-      summary: '先建共用平面圖，再拍照圈註；簡圖可選取刪除，照片旁核對定位，支援離線與完整備份。',
+      summary: 'U 型裂縫條數與磁磚塊數快填，依房間選主照片、排附件並同步編號；支援離線與原圖備份。',
       fit: '現況鑑定會勘紀錄與逐戶資料收集，先以少量照片試用。',
       limit: '本版為現場紀錄工作稿；鑑定結論與正式報告須另行審閱製作，實體手機相機及容量須先試拍確認。',
       capabilities: ['離線拍照', '圈註定位', '原圖保留', '完整備份']

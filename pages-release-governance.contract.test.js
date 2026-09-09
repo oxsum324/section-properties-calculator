@@ -293,7 +293,7 @@ assert.ok(
     assert.equal(result.missingCount, 1, 'artifact builder omits tracked working-tree deletions');
     assert.deepEqual(result.privateContentScan, { scannedFileCount: 2, findingCount: 0 }, 'artifact builder scans every staged public file for private workstation paths');
     for (const name of ['survey-private.csurvey', 'DEMO-核對收據.json']) assert.equal(fs.existsSync(path.join(fixtureSite, name)), false, 'survey originals and receipts stay private');
-    for (const content of ['CSURVEY/1\n0000000002\n{}private', '{"kind":"condition-survey-receipt","projectId":"private"}', '{"kind":"condition-survey-bundle","payload":{}}']) {
+    for (const content of ['CSURVEY/1\n0000000002\n{}private', '{"kind":"condition-survey-receipt","projectId":"private"}', '{"kind":"condition-survey-bundle","payload":{}}', '{"kind":"condition-survey-attachment","groups":[]}', '<!doctype html><html><head><meta name="condition-survey-private" content="attachment"></head><body>private</body></html>']) {
       const renamed = path.join(fixtureRepo, 'renamed-survey-data.bin'); fs.writeFileSync(renamed, content);
       assert.throws(() => stagePagesArtifact({ repoRoot: fixtureRepo, siteRoot: fixtureSite }), /condition-survey-private-data/, 'renamed survey data fails publication closed');
       fs.rmSync(renamed);

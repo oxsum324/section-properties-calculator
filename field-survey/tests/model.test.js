@@ -3,6 +3,46 @@ import assert from 'node:assert/strict';
 import { newProject, newUnit, newRecord, id, now, sha256, validateProject, recordIssues, unitIssues, subset, restoredCopy, widthMode, recordComponents, recordConditions, emptySketch, validateSketch } from '../model.js';
 import { makeBundle, readBundle, snapshot, makeReceipt, checkReceipt } from '../bundle.js';
 import { resolveSketchPoint, doorGeometry, expandSketch, sketchArea, sketchView, hitSketch, deleteSketchSelection } from '../sketch.js';
+import { syncRooms, clearWrongFloor, observationText, tileTotal, photoPlacement } from '../model.js';
+import { attachmentIndex, reportPhotos, groupPlanEntries } from '../report.js';
+
+test('U cracks record counts and optional single-path length without total length or forced dimensions', async () => {
+  const { p, r } = await fixture(); Object.assign(r, { component: '梁', condition: 'crack', crackPattern: 'u', crackCount: 4 });
+  validateProject(p); assert.deepEqual(recordIssues(r), []); assert.match(observationText(r), /4 條/); assert(!observationText(r).includes('總長'));
+  Object.assign(r, { measured: true, length: 1.2, uScope: 'representative' }); assert.deepEqual(recordIssues(r), []); assert.match(observationText(r), /代表 1 條實測展開長度 1.2 m/); assert(!observationText(r).includes('4.8'));
+  r.crackCount = null; assert(recordIssues(r).includes('U 型裂縫條數未記'));
+  for (const n of [-1, 1.5, Infinity, '4']) { r.crackCount = n; assert.throws(() => validateProject(p)); }
+});
+test('tile counts remain distinct from crack length and area; overlapping damage is counted once', async () => {
+  const { p, r } = await fixture(); Object.assign(r, { condition: 'crack', surface: 'tile', tiles: { crack: true, broken: true, approx: false, crackCount: 4, brokenCount: 2, overlapCount: 2 } });
+  validateProject(p); assert.equal(tileTotal(r.tiles), 4); assert.deepEqual(recordIssues(r), []); assert.match(observationText(r), /合計 4 塊/); assert(!observationText(r).includes('m²'));
+  r.tiles.overlapCount = null; assert.equal(tileTotal(r.tiles), null); assert(!observationText(r).includes('合計'));
+  r.tiles.overlapCount = 3; assert.throws(() => validateProject(p), /重疊/);
+});
+test('room identities and field labels survive sorting, partial backup and restored photo identity', async () => {
+  const { p, r, a } = await fixture(); syncRooms(p); const room = r.roomId, label = r.fieldNumber;
+  p.records.reverse(); syncRooms(p); assert.equal(r.roomId, room); assert.equal(r.fieldNumber, label);
+  r.mainPhotoId = r.photos[0].mediaId; r.photos[0].reportInclude = true;
+  const sub = subset(p, a.id); assert.equal(sub.rooms.length, 1); validateProject(sub);
+  const copy = restoredCopy(sub); validateProject(copy.project); assert.equal(copy.project.records[0].roomId, room); assert.equal(copy.project.records[0].mainPhotoId, copy.remap.get(r.mainPhotoId));
+});
+test('report numbering is generated after selection and ordering, never replaces field identities', async () => {
+  const { p, r } = await fixture(); const first = r.photos[0];
+  const extra = { ...structuredClone(first), mediaId: id(), role: 'close', reportInclude: true }; p.media.push({ ...p.media[0], id: extra.mediaId }); r.photos.push(extra); syncRooms(p);
+  r.mainPhotoId = extra.mediaId; const index = attachmentIndex(p, { start: 27 }); assert.deepEqual(index.groups[0].records[0].photos.map(x => x.number), ['027', '028']);
+  first.reportInclude = false; const next = attachmentIndex(p, { start: 27 }); assert.equal(next.groups[0].records[0].photos[0].number, '027'); assert.equal(index.groups[0].records[0].photos.length, 2);
+  extra.excluded = true; extra.excludedReason = '模糊'; delete r.mainPhotoId; assert.equal(reportPhotos(r).length, 0); assert.equal(r.photos.length, 2);
+  assert.throws(() => attachmentIndex(p, { start: 0 }));
+});
+test('photo placements inherit only when unset, stay separate by camera angle, and clear on floor changes', async () => {
+  const { p, r } = await fixture(), photo = r.photos[0], planId = id();
+  p.media.push({ ...p.media[0], id: id(), kind: 'plan' }); p.plans.push({ id: planId, unitId: r.unitId, floor: r.floor, title: '合成平面圖', mediaId: p.media.at(-1).id });
+  r.placement = { planId, x: .1, y: .2, endX: .6, endY: .7 }; assert.deepEqual(photoPlacement(r, photo), r.placement);
+  photo.placement = null; assert.equal(photoPlacement(r, photo), null); photo.placement = { ...r.placement, x: .4 };
+  r.observationPin = { ...r.placement, x: .6, endX: .6, y: .7, endY: .7 }; validateProject(p);
+  const index = attachmentIndex(p), entries = groupPlanEntries(index.groups[0], planId); assert.equal(entries.length, 2); assert.equal(entries[0].kind, 'observation'); assert.equal(entries[1].placement.x, .4);
+  r.floor = '3F'; clearWrongFloor(p, r); assert.equal(r.placement, null); assert.equal(photo.placement, null); assert.equal(r.observationPin, null);
+});
 
 test('eraser selects rectangle edges without selecting empty rooms and preserves other three walls', () => {
   const sketch = emptySketch(); sketch.strokes.push({ type: 'rect', points: [{ x: .1, y: .2 }, { x: .8, y: .9 }] });
@@ -235,7 +275,7 @@ test('multiple conditions share originals and retain independent measured or est
   Object.assign(r, { condition: 'crack', conditions: ['crack', 'damp', 'salt', 'spall'], crackPattern: 'network', areas: { crack: { value: null, method: 'estimated' }, damp: { value: 1.5, method: 'measured' }, salt: { value: .8, method: 'estimated' }, spall: { value: 0, method: 'measured' } } });
   validateProject(p); assert.deepEqual(recordIssues(r), []);
   const result = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
-  assert.equal(result.manifest.version, 2); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
+  assert.equal(result.manifest.version, 3); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
   const copy = restoredCopy(result.project).project.records[0]; assert.deepEqual(copy.conditions, r.conditions); assert.deepEqual(copy.areas, r.areas);
   r.conditions = ['damp']; r.condition = 'damp'; validateProject(p); assert.equal(r.areas.salt.value, .8); assert.deepEqual(recordIssues(r), []);
 });
