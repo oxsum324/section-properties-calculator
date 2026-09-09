@@ -228,3 +228,66 @@ body:after{content:"現場操作頁不供列印。請使用案件備份在桌機
 
 .sketch-navigation{display:flex;align-items:center;gap:8px;margin-top:12px}.sketch-navigation output{min-width:52px;text-align:center;font-variant-numeric:tabular-nums}.sketch-stage{background:#dfe7e5}.sketch-navigation button{min-width:44px;min-height:44px}#areaFields .two-col{margin-top:12px}#conditionLabels{margin-top:8px}
 .plan-workflow{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#eef3eb;border:1px solid #cad8cc;border-radius:12px;padding:14px;margin:0 0 18px}.plan-workflow p{margin:6px 0}.plan-workflow button{flex-shrink:0}.location-card{padding:12px;margin:12px 0;background:#f3f6f2;border:1px solid #d2dfd4;border-radius:10px}.plan-preview{position:relative;line-height:0;margin:12px auto;max-width:100%}.plan-preview img{width:100%;height:auto;display:block}.plan-preview svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.location-thumbnail{max-width:320px}.library-preview{max-width:260px}.library-plan{padding:14px 0;border-top:1px solid #cad8cc;overflow-wrap:anywhere}.latest-plan{border-left:3px solid #38766a;padding-left:10px}#eraseOptions{padding:10px;background:#fff0df;border-radius:8px}#eraseOptions label{margin-bottom:8px}#overviewPlan{max-width:680px}.location-card strong{overflow-wrap:anywhere}@media(max-width:600px){.plan-workflow{align-items:stretch;flex-direction:column}.plan-workflow button{width:100%}}
+/* V0.8 field readability and focused work surfaces. */
+body { font-size: 17px; }
+label, legend, .check-label { font-size: 16px; }
+input, select, textarea { font-size: 18px; }
+button { min-height: 50px; font-size: 16px; }
+.micro, small, .eyebrow { font-size: 14px; }
+body.large-type { font-size: 19px; }
+body.large-type label, body.large-type legend, body.large-type button { font-size: 18px; }
+body.large-type input, body.large-type select, body.large-type textarea { font-size: 20px; }
+.crack-cards details { background: #fff; border: 1px solid #c9d6d1; border-radius: 10px; padding: 10px; margin: 10px 0; }
+.crack-cards summary { font-size: 17px; line-height: 1.5; overflow-wrap: anywhere; }
+dialog[data-mode="camera"], dialog[data-mode="sketch"] { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; padding: 0; overflow: hidden; }
+dialog[data-mode][open] { display: flex; flex-direction: column; }
+dialog[data-mode] .modal-heading { flex: 0 0 auto; padding: 8px max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left)); }
+dialog[data-mode] .modal-heading h2 { font-size: 19px; }
+dialog[data-mode] #modalBody { flex: 1; min-height: 0; min-width: 0; padding: 8px 12px max(8px, env(safe-area-inset-bottom)); }
+dialog[data-mode="camera"] #modalBody { display: flex; flex-direction: column; gap: 8px; }
+dialog[data-mode="camera"] .camera-stage { flex: 1; min-height: 90px; position: relative; background: #101917; }
+dialog[data-mode="camera"] .camera-stage video, dialog[data-mode="camera"] .camera-stage img { position: absolute; inset: 0; width: 100%; height: 100%; max-height: none; object-fit: contain; }
+.camera-controls { flex: 0 0 auto; max-height: 45dvh; overflow: auto; }
+.camera-controls p { margin: 4px 0; font-size: 14px; }
+.camera-controls .camera-actions { margin: 4px 0; }
+dialog[data-mode="sketch"] #modalBody { display: grid; grid-template-rows: auto auto minmax(120px, 1fr) auto auto; gap: 4px; }
+dialog[data-mode="sketch"] .sketch-tools { display: flex; flex-wrap: nowrap; overflow-x: auto; margin: 0; gap: 5px; }
+dialog[data-mode="sketch"] .sketch-tools button { flex: 0 0 auto; padding: 6px 12px; }
+.sketch-controls { max-height: 26dvh; overflow-y: auto; }
+.sketch-controls label { margin: 3px 0; }
+.sketch-controls #stairOptions:not([hidden]) { display: flex; flex-wrap: wrap; gap: 8px; }
+.sketch-controls #stairOptions label { flex: 1 1 100px; min-width: 0; }
+.sketch-controls #stairOptions select { width: 100%; }
+.sketch-controls details { margin: 2px 0; }
+.sketch-controls summary { min-height: 32px; }
+dialog[data-mode="sketch"] .sketch-stage { min-height: 0; height: 100%; aspect-ratio: auto; }
+.sketch-status { display: flex; gap: 8px; overflow: hidden; }
+.sketch-status #sketchHint, .sketch-status #sketchSnapStatus { font-size: 14px; min-height: 0; margin: 0; line-height: 20px; }
+.sketch-status #sketchSnapStatus { display: none; }
+.sketch-dock { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; align-items: center; }
+.sketch-dock .sketch-history { grid-column: 1; grid-row: 1; }
+.sketch-dock .sketch-navigation { grid-column: 1 / 3; grid-row: 2; justify-content: center; }
+.sketch-dock .sketch-history, .sketch-dock .sketch-navigation { margin: 0; gap: 4px; }
+.sketch-dock button { padding: 5px 10px; }
+.sketch-dock #saveSketch { grid-column: 2; grid-row: 1; }
+@media (orientation: landscape) and (max-height: 600px) {
+  dialog[data-mode="camera"] #modalBody { flex-direction: row; }
+  dialog[data-mode="camera"] .camera-controls { width: 230px; max-height: 100%; flex: 0 0 230px; }
+  dialog[data-mode="camera"] .camera-actions { display: grid; grid-template-columns: 1fr; }
+  dialog[data-mode="sketch"] #modalBody { grid-template-columns: 120px minmax(0, 1fr) 220px; grid-template-rows: minmax(0, 1fr) auto; }
+  dialog[data-mode="sketch"] .sketch-tools { grid-column: 1; grid-row: 1 / 3; flex-direction: column; overflow-y: auto; }
+  dialog[data-mode="sketch"] .sketch-stage { grid-column: 2; grid-row: 1 / 3; }
+  dialog[data-mode="sketch"] .sketch-controls { grid-column: 3; grid-row: 1; max-height: none; }
+  dialog[data-mode="sketch"] .sketch-status { grid-column: 2; grid-row: 2; align-self: end; background: #fffdf7e8; z-index: 1; }
+  dialog[data-mode="sketch"] .sketch-dock { grid-column: 3; grid-row: 2; }
+  dialog[data-mode="sketch"] .sketch-dock #saveSketch { grid-column: 1 / 3; grid-row: 3; }
+  dialog[data-mode="sketch"] .sketch-dock .sketch-history { grid-column: 1 / 3; justify-content: center; }
+}
+@media (max-width: 600px) {
+  .app-header { gap: 6px; }
+  .app-header .brand { flex: 1; }
+  .app-header h1 { font-size: 19px; }
+  .app-header .quiet { padding: 5px; font-size: 14px; }
+  .micro, small, .eyebrow, .record-item small, .system-bar { font-size: 14px; }
+  .bottom-nav button { font-size: 14px; }
+}

@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - master
+    paths-ignore:
+      - 'field-survey/**'
+      - '.github/workflows/field-survey-deploy.yml'
   workflow_dispatch:
 
 permissions:

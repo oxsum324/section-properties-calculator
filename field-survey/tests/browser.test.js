@@ -7,6 +7,7 @@ import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
 import { VERSION } from '../model.js';
 import assert from 'node:assert/strict';
+import { verifyFieldV08Workflow } from './field-v08-browser.js';
 import { verifyReportWorkflow } from './report-browser.js';
 import { readBundle } from '../bundle.js';
 const require = createRequire(import.meta.url);
@@ -33,16 +34,18 @@ page.on('pageerror', e => errors.push(e.message));
 page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 context.on('request', r => { if (/^https?:/.test(r.url()) && new URL(r.url()).origin !== new URL(base).origin) outbound.push(r.url()); });
 const idle = p => p.locator('#busy').waitFor({ state: 'hidden' });
-async function click(sel, p = page) { await p.locator(sel).click(); await idle(p); }
+async function click(sel, p = page) { const el = p.locator(sel); await el.evaluate(el => { for (let parent = el.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true; }); await el.click(); await idle(p); if (sel === '#addRoomFrame' || sel === '#clearSketch') await p.locator('#sketchSettings').evaluate(el => { el.open = false; }); }
 async function projects(p = page) { return p.evaluate(async () => (await import('./store.js')).allProjects()); }
 async function originalHash(p, mid) { return p.evaluate(async mid => { const a = await (await import('./store.js')).getMedia(mid); return (await import('./model.js')).sha256(a.blob); }, mid); }
+async function sketchPoint(p, position) { return p.locator('#sketchStage svg').evaluate((svg, pos) => { const paper = svg.firstElementChild, point = svg.createSVGPoint(); point.x = Number(paper.getAttribute('width')) * pos[0]; point.y = Number(paper.getAttribute('height')) * pos[1]; const q = point.matrixTransform(svg.getScreenCTM()); return { x: q.x, y: q.y }; }, position); }
 async function draw(sel, p = page, start = [.22, .28], end = [.72, .68]) {
+  if (sel.includes('sketchStage') && await p.locator('#sketchZoom').textContent() === '100%' && await p.locator('[data-sketch-mode=pan]').getAttribute('aria-pressed') !== 'true') { const a = await sketchPoint(p, start), b = await sketchPoint(p, end); await p.mouse.move(a.x, a.y); await p.mouse.down(); await p.mouse.move(b.x, b.y, { steps: 5 }); await p.mouse.up(); return; }
   const box = await p.locator(sel).boundingBox(); assert(box?.width > 30);
   await p.mouse.move(box.x + box.width * start[0], box.y + box.height * start[1]); await p.mouse.down();
   await p.mouse.move(box.x + box.width * end[0], box.y + box.height * end[1], { steps: 5 }); await p.mouse.up();
 }
 async function tapSketch(start, end) {
-  await page.locator('#sketchStage').scrollIntoViewIfNeeded(); const b = await page.locator('#sketchStage svg').boundingBox(); for (const p of [start, end]) await page.touchscreen.tap(b.x + b.width * p[0], b.y + b.height * p[1]);
+  for (const pos of [start, end]) { const q = await sketchPoint(page, pos); await page.touchscreen.tap(q.x, q.y); }
 }
 async function sketchGesture(value) {
   await page.locator('#sketchSettings').evaluate(el => { el.open = true; }); await page.locator('#sketchGesture').selectOption(value); await page.locator('#sketchSettings').evaluate(el => { el.open = false; });
@@ -113,11 +116,11 @@ async function verifyPlanFirstWorkflow() {
     await c('#unitPlans'); await p.locator('#libraryFloor').fill('3F'); await c('#librarySketch'); await c('#addRoomFrame'); await c('[data-sketch-mode=erase]');
     await tapWorld(600, 450); assert(await p.locator('#deleteSelection').isDisabled());
     await tapWorld(600, 177); assert(await p.locator('#deleteSelection').isEnabled()); assert.equal(await p.locator('[data-selection]').count(), 1);
-    await c('#deleteSelection'); assert((await p.locator('#sketchCount').innerText()).startsWith('3／'));
-    await c('#undoSketch'); assert((await p.locator('#sketchCount').innerText()).startsWith('1／'));
-    await c('#redoSketch'); assert((await p.locator('#sketchCount').innerText()).startsWith('3／'));
-    await c('#zoomIn'); await tapWorld(600, 723); await c('#deleteSelection'); assert((await p.locator('#sketchCount').innerText()).startsWith('2／')); await c('#undoSketch'); await c('#fitSketch');
-    await p.locator('#eraseScope').selectOption('whole'); await tapWorld(196.8, 450); await c('#deleteSelection'); assert((await p.locator('#sketchCount').innerText()).startsWith('2／')); await c('#undoSketch');
+    await c('#deleteSelection'); assert((await p.locator('#sketchCount').textContent()).startsWith('3／'));
+    await c('#undoSketch'); assert((await p.locator('#sketchCount').textContent()).startsWith('1／'));
+    await c('#redoSketch'); assert((await p.locator('#sketchCount').textContent()).startsWith('3／'));
+    await c('#zoomIn'); await tapWorld(600, 723); await c('#deleteSelection'); assert((await p.locator('#sketchCount').textContent()).startsWith('2／')); await c('#undoSketch'); await c('#fitSketch');
+    await p.locator('#eraseScope').selectOption('whole'); await tapWorld(196.8, 450); await c('#deleteSelection'); assert((await p.locator('#sketchCount').textContent()).startsWith('2／')); await c('#undoSketch');
     await p.screenshot({ path: path.join(out, '08-mobile-eraser.png'), fullPage: true });
     await c('#saveSketch'); assert.equal(await p.locator('#modalTitle').innerText(), '本戶共用平面圖庫'); assert.equal((await data()).records.length, 0); assert.equal((await data()).plans.length, 1);
     const saved = (await data()).plans[0]; assert.equal(saved.sketch.strokes.length, 3); assert(saved.sketch.strokes.every(s => s.type === 'line'));
@@ -154,22 +157,22 @@ try {
   assert(await page.locator('#redoSketch').isDisabled()); assert(await page.locator('#undoSketch').isDisabled());
   await page.locator('#sketchStage').scrollIntoViewIfNeeded();
   const quickBox = await page.locator('#sketchStage').boundingBox();
-  const quickTap = (x, y) => page.touchscreen.tap(quickBox.x + quickBox.width * x, quickBox.y + quickBox.height * y);
+  const quickTap = async (x, y) => { const q = await sketchPoint(page, [x, y]); await page.touchscreen.tap(q.x, q.y); };
   await quickTap(.2, .2); assert((await page.locator('#sketchHint').innerText()).includes('起點已選好'));
   assert(await page.locator('#saveSketch').isDisabled()); await click('#undoSketch');
-  assert((await page.locator('#sketchCount').innerText()).startsWith('0／')); assert(await page.locator('#redoSketch').isDisabled());
-  await quickTap(.2, .2); await quickTap(.8, .3); assert((await page.locator('#sketchCount').innerText()).startsWith('1／'));
+  assert((await page.locator('#sketchCount').textContent()).startsWith('0／')); assert(await page.locator('#redoSketch').isDisabled());
+  await quickTap(.2, .2); await quickTap(.8, .3); assert((await page.locator('#sketchCount').textContent()).startsWith('1／'));
   let line = page.locator('#sketchStage g[clip-path] > line').first(); assert.equal(await line.getAttribute('y1'), await line.getAttribute('y2'));
-  await click('#undoSketch'); assert((await page.locator('#sketchCount').innerText()).startsWith('0／')); assert(await page.locator('#redoSketch').isEnabled());
-  await click('#redoSketch'); assert((await page.locator('#sketchCount').innerText()).startsWith('1／')); assert(await page.locator('#redoSketch').isDisabled());
+  await click('#undoSketch'); assert((await page.locator('#sketchCount').textContent()).startsWith('0／')); assert(await page.locator('#redoSketch').isEnabled());
+  await click('#redoSketch'); assert((await page.locator('#sketchCount').textContent()).startsWith('1／')); assert(await page.locator('#redoSketch').isDisabled());
   await click('#addRoomFrame'); await click('#undoSketch'); await click('#undoSketch');
-  assert((await page.locator('#sketchCount').innerText()).startsWith('0／'));
-  await click('#redoSketch'); await click('#redoSketch'); assert((await page.locator('#sketchCount').innerText()).startsWith('2／'));
-  await click('#clearSketch'); assert((await page.locator('#sketchCount').innerText()).startsWith('0／'));
-  await click('#undoSketch'); assert((await page.locator('#sketchCount').innerText()).startsWith('2／'));
-  await click('#redoSketch'); assert((await page.locator('#sketchCount').innerText()).startsWith('0／'));
+  assert((await page.locator('#sketchCount').textContent()).startsWith('0／'));
+  await click('#redoSketch'); await click('#redoSketch'); assert((await page.locator('#sketchCount').textContent()).startsWith('2／'));
+  await click('#clearSketch'); assert((await page.locator('#sketchCount').textContent()).startsWith('0／'));
+  await click('#undoSketch'); assert((await page.locator('#sketchCount').textContent()).startsWith('2／'));
+  await click('#redoSketch'); assert((await page.locator('#sketchCount').textContent()).startsWith('0／'));
   await click('#undoSketch'); await click('#addRoomFrame'); assert(await page.locator('#redoSketch').isDisabled());
-  const beforeNavigation = await page.locator('#sketchCount').innerText();
+  const beforeNavigation = await page.locator('#sketchCount').textContent();
   await click('#zoomIn'); assert.equal(await page.locator('#sketchZoom').innerText(), '140%');
   const beforePan = await page.locator('#sketchStage svg').getAttribute('viewBox');
   await click('[data-sketch-mode=pan]'); await page.locator('#sketchStage').scrollIntoViewIfNeeded(); await draw('#sketchStage svg', page, [.5, .5], [.7, .6]);
@@ -183,7 +186,7 @@ try {
   await pinch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [fingers(.3)[0]] });
   await pinch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...fingers(.3)[0], x: fingers(.3)[0].x + 10 }] });
   await pinch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await pinch.detach();
-  assert(Number.parseInt(await page.locator('#sketchZoom').innerText()) > 190); assert.equal(await page.locator('#sketchCount').innerText(), beforeNavigation); assert(await page.locator('#saveSketch').isEnabled());
+  assert(Number.parseInt(await page.locator('#sketchZoom').innerText()) > 190); assert.equal(await page.locator('#sketchCount').textContent(), beforeNavigation); assert(await page.locator('#saveSketch').isEnabled());
   // Plot at zoomed screen positions and compare the stored SVG world geometry to inverse CTM coordinates.
   await sketchGesture('drag'); await page.locator('#sketchSettings').evaluate(el => { el.open = true; }); await page.locator('#sketchSnap').uncheck(); await page.locator('#sketchSettings').evaluate(el => { el.open = false; });
   await page.locator('#sketchStage').scrollIntoViewIfNeeded();
@@ -278,7 +281,7 @@ try {
   await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await touch.detach();
   assert.equal(await page.evaluate(() => document.querySelector('#modal').scrollTop), scrollBeforeTouch);
   await click('[data-sketch-mode=text]'); await page.locator('#sketchText').fill('客廳'); await page.locator('#sketchStage svg').click({ position: { x: touchBox.width * .2, y: touchBox.height * .4 } });
-  await click('#undoSketch'); assert((await page.locator('#sketchCount').innerText()).startsWith('3／')); await click('#redoSketch');
+  await click('#undoSketch'); assert((await page.locator('#sketchCount').textContent()).startsWith('3／')); await click('#redoSketch');
   await click('#closeModal'); assert(await page.locator('#discardPrompt').isVisible()); await click('#keepEditing');
   await sketchGesture('tap'); await click('[data-sketch-mode=door]'); await page.locator('#doorSwing').selectOption('1'); await page.locator('#sketchStage').scrollIntoViewIfNeeded();
   await tapSketch([.2, .13], [.4, .14]); assert.equal(await page.locator('[data-sketch-type=door]').count(), 1);
@@ -367,5 +370,6 @@ try {
   assert.deepEqual(errors, []); assert.deepEqual(outbound, []);
   console.log('PASS conflict recovery, exclusion preserves original, stale backup reminder, no external requests');
   await verifyReportWorkflow(browser, base, out);
+  await verifyFieldV08Workflow(browser, base, out);
   await fs.writeFile(path.join(out, 'result.json'), JSON.stringify({ passed: true, browser: await browser.version(), viewport: '390x844 + 1280x900', physicalPhoneTested: false, httpCacheUpgradeVerified: true, pageErrors: errors, externalRequests: outbound, originalHash: hash, packageMediaCount: bundle.media.length, checkedAt: new Date().toISOString() }, null, 2));
 } finally { await browser.close(); server?.kill(); }

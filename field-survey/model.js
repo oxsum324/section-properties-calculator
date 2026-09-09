@@ -1,4 +1,4 @@
-export const VERSION = '0.7.0';
+export const VERSION = '0.8.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -16,6 +16,16 @@ export const widthMode = r => r.widthMode ?? (r.width !== null ? 'exact' : 'unkn
 export const isNetworkCrack = r => recordConditions(r).includes('crack') && r.crackPattern === 'network';
 export const isUCrack = r => recordConditions(r).includes('crack') && r.crackPattern === 'u' && recordComponents(r).includes('梁');
 export const isTile = r => r.surface === 'tile';
+export const individualCracks = r => Array.isArray(r.cracks) && recordConditions(r).includes('crack') && !isNetworkCrack(r) && !isUCrack(r) && !isTile(r);
+export const tileQuantityText = (t, kind) => t[kind + 'Text'] || (t[kind + 'Count'] == null ? '（塊數未記）' : `${t.approx ? '約 ' : ''}${t[kind + 'Count']} 塊`);
+export function crackText(c, label) {
+  const pieces = [label, CRACK_PATTERNS[c.pattern] || '', c.measured ? '已量測' : '未量測'];
+  if (c.measured && c.widthMode === 'exact' && c.width !== null) pieces.push(`寬度 ${c.width} mm`);
+  else if (!['unknown', 'exact'].includes(c.widthMode)) pieces.push(`寬度${c.measured ? '實測區間' : '初記'}：${WIDTH_MODES[c.widthMode]}`);
+  if (c.measured && c.length !== null) pieces.push(`長度 ${c.length} m`);
+  if (c.notes) pieces.push(c.notes);
+  return pieces.filter(Boolean).join('，');
+}
 export const photoPlacement = (r, photo) => photo.placement === undefined ? r.placement : photo.placement;
 export const photoIncluded = photo => !photo.excluded && photo.reportInclude !== false;
 export const roomKey = r => JSON.stringify([r.unitId, r.floor.trim(), r.space.trim()]);
@@ -40,7 +50,11 @@ export function clearWrongFloor(p, r) {
 }
 export function observationText(r) {
   const pieces = [], conditions = recordConditions(r), prefix = [r.space, r.location, recordComponents(r).join('、')].filter(Boolean).join(' · ');
-  if (isUCrack(r)) {
+  if (individualCracks(r)) {
+    pieces.push(r.cracks.length ? `裂縫 ${r.cracks.length} 條` : '裂縫（條數未記）');
+    r.cracks.forEach((c, i) => pieces.push(crackText(c, `裂縫 ${String.fromCharCode(65 + i)}`)));
+    if (r.legacyCrack) pieces.push(crackText({ ...r.legacyCrack, pattern: r.legacyCrack.crackPattern }, '原整組紀錄（未分配至單條，供核對）'));
+  } else if (isUCrack(r)) {
     pieces.push(`U 型裂縫${r.crackCount == null ? '' : ` ${r.countApprox ? '約 ' : ''}${r.crackCount} 條`}`);
     if (r.measured && r.length !== null) pieces.push(`${r.uScope === 'each' ? '各條實測展開長度均為' : '代表 1 條實測展開長度'} ${r.length} m`);
     if (r.uPartial) pieces.push('裂縫路徑局部可見');
@@ -48,15 +62,15 @@ export function observationText(r) {
     pieces.push(r.crackPattern ? CRACK_PATTERNS[r.crackPattern] || '裂隙' : '裂隙');
     if (r.measured && r.length !== null) pieces.push(`實測長度 ${r.length} m`);
   }
-  if (conditions.includes('crack')) {
+  if (conditions.includes('crack') && !individualCracks(r)) {
     const mode = widthMode(r), scope = isUCrack(r) ? (r.uScope === 'each' ? '各條' : '代表條') : '';
     if (r.measured && mode === 'exact' && r.width !== null) pieces.push(`${scope}實測寬度 ${r.width} mm`);
     else if (['le03', 'gt03', 'lt03', 'ge03'].includes(mode)) pieces.push(`${scope}寬度${r.measured ? '實測區間' : '初記'}：${WIDTH_MODES[mode]}`);
   }
   if (isTile(r)) {
-    const t = r.tiles || {}, amount = n => n == null ? '（塊數未記）' : ` ${t.approx ? '約 ' : ''}${n} 塊`;
-    if (t.crack) pieces.push('磁磚裂隙' + amount(t.crackCount));
-    if (t.broken) pieces.push('磁磚破損' + amount(t.brokenCount));
+    const t = r.tiles || {};
+    if (t.crack) pieces.push('磁磚裂隙 ' + tileQuantityText(t, 'crack'));
+    if (t.broken) pieces.push('磁磚破損 ' + tileQuantityText(t, 'broken'));
     if (t.crack && t.broken && t.overlapCount != null) pieces.push(`其中同時裂隙及破損 ${t.overlapCount} 塊`);
     const total = tileTotal(t); if (total !== null) pieces.push(`受損磁磚不重複合計 ${t.approx ? '約 ' : ''}${total} 塊`);
   }
@@ -65,6 +79,7 @@ export function observationText(r) {
   return [prefix, pieces.join('；')].filter(Boolean).join('：') + (pieces.length ? '。' : '');
 }
 export function tileTotal(t) {
+  if (t.crack && t.crackText || t.broken && t.brokenText) return null;
   if (t.crack && t.broken) return t.crackCount != null && t.brokenCount != null && t.overlapCount != null ? t.crackCount + t.brokenCount - t.overlapCount : null;
   return t.crack ? t.crackCount ?? null : t.broken ? t.brokenCount ?? null : null;
 }
@@ -86,9 +101,14 @@ export function recordIssues(r) {
   if (!r.photos.some(p => !p.excluded) && r.visibility !== 'inaccessible') issues.push('尚無採用照片');
   if (r.visibility !== 'visible' && !r.notes.trim()) issues.push('請記錄無法觀察的原因');
   if (isUCrack(r) && r.crackCount == null) issues.push('U 型裂縫條數未記');
-  if (isTile(r) && r.tiles?.crack && r.tiles.crackCount == null) issues.push('磁磚裂隙塊數未記');
-  if (isTile(r) && r.tiles?.broken && r.tiles.brokenCount == null) issues.push('磁磚破損塊數未記');
+  if (isTile(r) && r.tiles?.crack && r.tiles.crackCount == null && !r.tiles.crackText) issues.push('磁磚裂隙塊數未記');
+  if (isTile(r) && r.tiles?.broken && r.tiles.brokenCount == null && !r.tiles.brokenText) issues.push('磁磚破損塊數未記');
   if (recordConditions(r).includes('crack') && !isNetworkCrack(r) && !isUCrack(r) && !isTile(r)) {
+    if (individualCracks(r)) {
+      if (!r.cracks.length) issues.push('裂縫條數未記');
+      r.cracks.forEach((c, i) => { const label = `裂縫 ${String.fromCharCode(65 + i)}`; if (!c.measured) issues.push(label + '未量測'); else if ((c.widthMode === 'unknown' || c.widthMode === 'exact' && c.width === null) || c.length === null) issues.push(label + '量測尺寸未齊'); });
+      return issues;
+    }
     if (!r.measured) issues.push('裂縫未量測');
     if (r.measured && ((r.width === null && !['lt03', 'ge03', 'le03', 'gt03'].includes(widthMode(r))) || r.length === null)) issues.push('量測尺寸未齊');
   }
@@ -111,11 +131,18 @@ export function validateSketch(sketch) {
   assert(sketch && (sketch.version === 1 && sketch.width === 1200 && sketch.height === 900 || sketch.version === 2 && Number.isInteger(sketch.width) && Number.isInteger(sketch.height) && sketch.width >= 1200 && sketch.height >= 900 && sketch.width <= 4800 && sketch.height <= 4800), '簡圖格式不正確');
   list(sketch.strokes, '簡圖筆畫', 300);
   for (const stroke of sketch.strokes) {
-    assert(['line', 'rect', 'pen', 'text', 'door', 'window'].includes(stroke.type), '簡圖筆畫種類不正確');
+    assert(['line', 'rect', 'pen', 'text', 'door', 'window', 'stairs'].includes(stroke.type), '簡圖筆畫種類不正確');
     list(stroke.points, '簡圖座標', 1500);
     assert(stroke.points.length >= 1 && stroke.points.every(p => p && finite01(p.x) && finite01(p.y)), '簡圖座標超出圖面');
-    if (['line', 'rect', 'door', 'window'].includes(stroke.type)) assert(stroke.points.length === 2, '簡圖端點數量不正確');
+    if (['line', 'rect', 'door', 'window', 'stairs'].includes(stroke.type)) assert(stroke.points.length === 2, '簡圖端點數量不正確');
     if (['door', 'window'].includes(stroke.type)) assert(Math.hypot(stroke.points[0].x - stroke.points[1].x, stroke.points[0].y - stroke.points[1].y) > 0, '門窗寬度不可為零');
+    if (stroke.type === 'stairs') {
+      assert(['straight', 'l', 'u', 'unequal'].includes(stroke.stairType), '樓梯型式不正確');
+      assert([0, 90, 180, 270].includes(stroke.rotation) && typeof stroke.mirror === 'boolean' && typeof stroke.breakLine === 'boolean', '樓梯方向設定不正確');
+      assert(['unknown', 'up', 'down'].includes(stroke.direction), '樓梯箭頭不正確');
+      assert(typeof stroke.shortRatio === 'number' && Number.isFinite(stroke.shortRatio) && stroke.shortRatio >= .25 && stroke.shortRatio <= 1, '樓梯長短比例不正確');
+      assert(stroke.points[0].x !== stroke.points[1].x && stroke.points[0].y !== stroke.points[1].y, '楼梯範圍不可為零');
+    }
     if (stroke.type === 'door') assert(stroke.swing === 1 || stroke.swing === -1, '門扇開啟方向不正確');
     if (stroke.type === 'text') { assert(stroke.points.length === 1, '簡圖文字位置不正確'); text(stroke.text, '簡圖文字', 60); assert(stroke.text.trim(), '簡圖文字不可空白'); }
   }
@@ -165,6 +192,17 @@ export function validateProject(p) {
   for (const r of p.records) {
     if (r.fieldNumber !== undefined) { assert(Number.isSafeInteger(r.fieldNumber) && r.fieldNumber > 0 && !fieldNumbers.has(r.fieldNumber), '現場代號重複或不正確'); fieldNumbers.add(r.fieldNumber); }
     if (r.roomId !== undefined) assert(p.rooms?.some(x => x.id === r.roomId && x.unitId === r.unitId && x.floor === r.floor.trim() && x.name === r.space.trim()), '房間關聯不一致');
+    const crackMeasurement = c => {
+      assert(c && typeof c.measured === 'boolean' && Object.hasOwn(WIDTH_MODES, c.widthMode), '逐條裂縫量測格式不正確');
+      for (const key of ['width', 'length']) assert(c[key] === null || typeof c[key] === 'number' && Number.isFinite(c[key]) && c[key] >= 0, '逐條裂縫尺寸不正確');
+      assert(c.measured || c.width === null && c.length === null, '未量測不可夾帶逐條尺寸');
+      assert(c.widthMode === 'exact' || c.width === null, '逐條區間不可夾帶精確寬度');
+    };
+    if (r.cracks !== undefined) {
+      list(r.cracks, '逐條裂縫', 26); unique(r.cracks);
+      for (const c of r.cracks) { crackMeasurement(c); text(c.notes, '逐條說明', 1000); assert(Object.hasOwn(CRACK_PATTERNS, c.pattern) && !['network', 'u'].includes(c.pattern), '逐條裂縫型態不正確'); }
+    }
+    if (r.legacyCrack !== undefined) { crackMeasurement(r.legacyCrack); assert(Object.hasOwn(CRACK_PATTERNS, r.legacyCrack.crackPattern), '原整組裂縫型態不正確'); }
     if (r.crackCount !== undefined) assert(count(r.crackCount), '裂縫條數須為非負整數或未記');
     for (const key of ['countApprox', 'uPartial']) if (r[key] !== undefined) assert(typeof r[key] === 'boolean', '裂縫記法不正確');
     if (r.uScope !== undefined) assert(['representative', 'each'].includes(r.uScope), 'U 型裂縫量測範圍不正確');
@@ -174,6 +212,7 @@ export function validateProject(p) {
       const t = r.tiles; assert(t && typeof t === 'object', '磁磚紀錄不正確');
       for (const key of ['crack', 'broken', 'approx']) assert(typeof t[key] === 'boolean', '磁磚狀況不正確');
       for (const key of ['crackCount', 'brokenCount', 'overlapCount']) assert(count(t[key]), '磁磚塊數須為非負整數或未記');
+      for (const kind of ['crack', 'broken']) if (t[kind + 'Text'] !== undefined) { assert(['', '十餘塊', '二十餘塊', '多處'].includes(t[kind + 'Text']), '磁磚概述不正確'); assert(!t[kind + 'Text'] || t[kind + 'Count'] === null, '磁磚概述不可夾帶推算塊數'); }
       if (t.crack && t.broken && t.overlapCount !== null) assert(t.crackCount !== null && t.brokenCount !== null && t.overlapCount <= Math.min(t.crackCount, t.brokenCount), '重疊塊數不可超過任一分類塊數');
     }
     if (r.crackPattern === 'u' && recordConditions(r).includes('crack')) assert(recordComponents(r).includes('梁'), 'U 型裂縫須指定梁部位');

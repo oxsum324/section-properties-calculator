@@ -39,22 +39,22 @@ export async function verifyReportWorkflow(browser, base, out) {
     data = await current(); assert.match(data.records[0].reportText, /人工核對/); assert.equal(data.records[0].mainPhotoId, seed.close); assert.equal(data.records[0].photos[0].mediaId, seed.close); assert.equal(data.records[0].fieldNumber, 1);
     await page.locator('#reportStart').fill('10'); await click('#previewReport'); await page.frameLocator('#attachmentPreview').locator('figure img').first().waitFor();
     const frame = page.frameLocator('#attachmentPreview'); assert.equal(await frame.locator('figure').count(), 3); assert.match(await frame.locator('body').innerText(), /照片 010/); assert(!(await frame.locator('.sheet').allTextContents()).join('').includes('R-')); assert(!(await frame.locator('.sheet').allTextContents()).join('').includes('總長'));
-    const download = page.waitForEvent('download'); await click('#downloadAttachment'); const htmlPath = path.join(out, 'synthetic-attachment-v0.7.html'); await (await download).saveAs(htmlPath);
-    const mappingDownload = page.waitForEvent('download'); await click('#downloadMapping'); const mappingPath = path.join(out, 'synthetic-attachment-v0.7.json'); await (await mappingDownload).saveAs(mappingPath);
+    const download = page.waitForEvent('download'); await click('#downloadAttachment'); const htmlPath = path.join(out, 'synthetic-attachment-v0.8.html'); await (await download).saveAs(htmlPath);
+    const mappingDownload = page.waitForEvent('download'); await click('#downloadMapping'); const mappingPath = path.join(out, 'synthetic-attachment-v0.8.json'); await (await mappingDownload).saveAs(mappingPath);
     const mapping = JSON.parse(await fs.readFile(mappingPath, 'utf8')); assert.equal(mapping.groups[0].records[0].photos[0].number, '010'); assert.equal(mapping.groups[0].records[0].photos[0].mediaId, seed.close); assert(mapping.groups[0].records[0].pin); assert.equal(mapping.assets.length, 4);
-    await page.screenshot({ path: path.join(out, 'v0.7-mobile-attachment.png') });
+    await page.screenshot({ path: path.join(out, 'v0.8-mobile-attachment.png') });
     await click('#closeModal'); await click(row + ' [data-do="main-only"]');
     assert.equal(await page.locator(row + ' [data-report-include]:checked').count(), 1);
     await page.locator(row + ' [data-report-text]').fill('重新整理後的說明'); await click('[data-view="work"]'); assert.equal((await current()).records[0].reportText, '重新整理後的說明');
     const restored = await page.evaluate(async () => { const m = await import('./model.js'), b = await import('./bundle.js'), s = await import('./store.js'), p = (await s.allProjects())[0]; const result = await b.readBundle((await b.makeBundle(p, async id => (await s.getMedia(id)).blob)).blob); const c = m.restoredCopy(result.project); m.validateProject(c.project); return { version: result.manifest.version, equal: JSON.stringify(result.project) === JSON.stringify(p), hash: await m.sha256((await s.getMedia(p.media[0].id)).blob) }; });
-    assert.deepEqual(restored, { version: 3, equal: true, hash: seed.hash });
+    assert.deepEqual(restored, { version: 4, equal: true, hash: seed.hash });
     await context.setOffline(true); await page.reload(); await page.locator('#recordForm').waitFor(); await click('[data-view="report"]'); assert.match(await page.locator(row + ' [data-report-text]').inputValue(), /重新整理/); await context.setOffline(false);
     const standalone = await context.newPage(); await standalone.goto('file:///' + htmlPath.replaceAll('\\', '/')); await standalone.emulateMedia({ media: 'print' });
-    await standalone.pdf({ path: path.join(out, 'synthetic-attachment-v0.7.pdf'), preferCSSPageSize: true, printBackground: true });
+    await standalone.pdf({ path: path.join(out, 'synthetic-attachment-v0.8.pdf'), preferCSSPageSize: true, printBackground: true });
     assert.equal(await standalone.locator('figure').count(), 3); assert.match(await standalone.locator('body').innerText(), /人工核對/); assert(!(await standalone.locator('body').innerText()).includes('重新整理後的說明'));
-    await standalone.screenshot({ path: path.join(out, 'v0.7-attachment-page.png'), fullPage: true });
+    await standalone.screenshot({ path: path.join(out, 'v0.8-attachment-page.png'), fullPage: true });
     await standalone.close(); assert.deepEqual(errors, []);
-    await fs.writeFile(path.join(out, 'report-v0.7-result.json'), JSON.stringify({ passed: true, version: '0.7.0', backupVersion: 3, originalHash: seed.hash, selectedPhotos: 3, physicalPhoneTested: false, checkedAt: new Date().toISOString() }, null, 2));
-    console.log('PASS U count-only/single-path length, tile overlap counts, rooms, separate photo positioning, selected main photo, stable field labels, generated report numbering, standalone frozen attachment, PDF and offline v3 backup');
+    await fs.writeFile(path.join(out, 'report-v0.8-result.json'), JSON.stringify({ passed: true, version: '0.8.0', backupVersion: 4, originalHash: seed.hash, selectedPhotos: 3, physicalPhoneTested: false, checkedAt: new Date().toISOString() }, null, 2));
+    console.log('PASS U count-only/single-path length, tile overlap counts, rooms, separate photo positioning, selected main photo, stable field labels, generated report numbering, standalone frozen attachment, PDF and offline v4 backup');
   } finally { await context.close(); }
 }

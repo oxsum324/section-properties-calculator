@@ -1,14 +1,15 @@
+import { stairGeometry } from './stairs.js';
 import { emptySketch, validateSketch } from './model.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 export const sketchArea = sketch => ({ x: 24, y: 60, width: sketch.width - 48, height: sketch.height - 120 });
-const twoPoint = type => ['line', 'rect', 'door', 'window'].includes(type);
+const twoPoint = type => ['line', 'rect', 'door', 'window', 'stairs'].includes(type);
 const distance = (a, b, area) => Math.hypot((a.x - b.x) * area.width, (a.y - b.y) * area.height);
 function objects(sketch) {
   const endpoints = [], segments = [];
   for (const stroke of sketch.strokes) {
     const a = stroke.points[0], b = stroke.points.at(-1);
-    if (stroke.type === 'rect') {
+    if (['rect', 'stairs'].includes(stroke.type)) {
       const corners = [a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }];
       endpoints.push(...corners); corners.forEach((p, i) => segments.push([p, corners[(i + 1) % 4]]));
     } else if (['line', 'door', 'window'].includes(stroke.type)) { endpoints.push(a, b); segments.push([a, b]); }
@@ -67,6 +68,7 @@ export function hitSketch(sketch, point, scale = 1) {
   for (const { stroke, index } of ordered) {
     let segments = strokeSegments(stroke).map(pair => pair.map(world));
     const a = world(stroke.points[0]);
+    if (stroke.type === 'stairs') { const g = stairGeometry(stroke, a, world(stroke.points[1])); segments = [...g.lines, ...(g.cut ? [g.cut] : []), ...(g.arrow ? [g.arrow] : [])].flatMap(p => p.slice(1).map((q, i) => [p[i], q])); }
     if (stroke.type === 'text') {
       const width = [...stroke.text].reduce((n, c) => n + (/[^\x00-\xff]/.test(c) ? 48 : 29), 0);
       const d = Math.hypot(Math.max(a.x - q.x, 0, q.x - a.x - width), Math.max(a.y - 48 - q.y, 0, q.y - a.y - 8));
@@ -128,6 +130,19 @@ function paint(svg, sketch, draft = null) {
     const before = ink.children.length;
     const points = stroke.points.map(p => ({ x: area.x + p.x * area.width, y: area.y + p.y * area.height }));
     const a = points[0], b = points.at(-1), attrs = { fill: 'none', stroke: '#244644', 'stroke-width': 6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
+    if (stroke.type === 'stairs') {
+      const g = stairGeometry(stroke, a, b), symbol = node('g', { 'data-sketch-type': 'stairs' });
+      const polyline = (p, extra = {}) => symbol.append(node('polyline', { ...attrs, 'stroke-width': 3, points: p.map(q => `${q.x},${q.y}`).join(' '), ...extra }));
+      g.lines.forEach(p => polyline(p));
+      if (g.cut) { polyline(g.cut, { stroke: '#fffdf7', 'stroke-width': 12 }); polyline(g.cut); }
+      if (g.arrow) {
+        polyline(g.arrow, { 'data-stair-arrow': stroke.direction, 'stroke-width': 4 });
+        const tip = g.arrow.at(-1), prev = g.arrow.at(-2), angle = Math.atan2(tip.y-prev.y, tip.x-prev.x), n = Math.min(14, Math.hypot(tip.x-prev.x,tip.y-prev.y)/3);
+        polyline([ { x: tip.x-n*Math.cos(angle-.5), y: tip.y-n*Math.sin(angle-.5) }, tip, { x: tip.x-n*Math.cos(angle+.5), y: tip.y-n*Math.sin(angle+.5) } ]);
+        const start = g.arrow[0]; symbol.append(label(g.label, start.x+8, start.y-8, 24, '#244644'));
+      }
+      ink.append(symbol);
+    }
     if (stroke.type === 'line') ink.append(node('line', { ...attrs, x1: a.x, y1: a.y, x2: b.x, y2: b.y }));
     if (stroke.type === 'rect') ink.append(node('rect', { ...attrs, x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), width: Math.abs(a.x - b.x), height: Math.abs(a.y - b.y) }));
     if (stroke.type === 'pen') ink.append(node('polyline', { ...attrs, points: points.map(p => `${p.x},${p.y}`).join(' ') }));
@@ -177,6 +192,7 @@ export function createSketcher(stage, initial = emptySketch(), onChange = () => 
   let sketch = structuredClone(validateSketch(initial)), draft = null, pointerId = null, mode = 'line', text = '', gesture = 'drag', anchor = null;
   let snap = true, orthogonal = true, swing = -1, snapResult = null, zoom = 1, center = { x: sketch.width / 2, y: sketch.height / 2 };
   let navigating = false, navigation = null, selected = null, wholeSelection = false;
+  let stairOptions = { stairType: 'straight', rotation: 0, mirror: false, direction: 'unknown', breakLine: false, shortRatio: .5 };
   const pointers = new Map(), undoHistory = [], redoHistory = [], svg = node('svg', { role: 'img', 'aria-label': '手繪平面簡圖區' });
   stage.replaceChildren(svg);
   const pending = () => !!(draft || anchor);
@@ -217,10 +233,11 @@ export function createSketcher(stage, initial = emptySketch(), onChange = () => 
   const cancelDraft = () => { pointerId = null; draft = anchor = snapResult = null; };
   const release = id => { pointers.delete(id); if (stage.hasPointerCapture(id)) stage.releasePointerCapture(id); };
   const cancel = () => { cancelDraft(); selected = null; navigating = false; navigation = null; for (const id of [...pointers.keys()]) release(id); };
-  const stroke = (a, b = a) => ({ type: mode, points: mode === 'text' ? [a] : [a, b], ...(mode === 'text' ? { text: text.trim().slice(0, 60) } : {}), ...(mode === 'door' ? { swing } : {}) });
+  const stroke = (a, b = a) => ({ type: mode, points: mode === 'text' ? [a] : [a, b], ...(mode === 'text' ? { text: text.trim().slice(0, 60) } : {}), ...(mode === 'door' ? { swing } : {}), ...(mode === 'stairs' ? stairOptions : {}) });
   const finish = () => {
     const value = draft;
     if (twoPoint(value.type) && distance(value.points[0], value.points[1], sketchArea(sketch)) < 6) { cancelDraft(); draw(); onHint('兩點太近，請重新指定起點及終點'); return; }
+    if (value.type === 'stairs' && (Math.abs(value.points[0].x-value.points[1].x)*sketchArea(sketch).width < 20 || Math.abs(value.points[0].y-value.points[1].y)*sketchArea(sketch).height < 20)) { cancelDraft(); draw(); onHint('請以兩個對角點指定樓梯範圍'); return; }
     remember(); sketch.strokes.push(value); cancelDraft(); changed(); onHint('已完成一筆；可繼續繪製，或復原這一步');
   };
   const touchGeometry = () => {
@@ -290,12 +307,13 @@ export function createSketcher(stage, initial = emptySketch(), onChange = () => 
   const restore = value => { const resized = value.width !== sketch.width || value.height !== sketch.height; sketch = value; cancel(); if (resized) fit(); changed(); };
   return {
     get pending() { return pending(); }, get state() { return state(); }, get sketch() { return structuredClone(sketch); },
-    setMode(value) { if (['line', 'rect', 'pen', 'text', 'door', 'window', 'pan', 'erase'].includes(value)) { cancel(); mode = value; draw(); } },
+    setMode(value) { if (['line', 'rect', 'pen', 'text', 'door', 'window', 'stairs', 'pan', 'erase'].includes(value)) { cancel(); mode = value; draw(); } },
     setSelectionScope(whole) { wholeSelection = !!whole; draw(); },
     deleteSelected() { if (!selected) return; let next; try { next = deleteSketchSelection(sketch, selected, wholeSelection); } catch (e) { onHint(e.message); return; } remember(); sketch = next; cancel(); changed(); onHint('已刪除選取範圍；可復原或切換繪圖工具補畫。'); },
     setGesture(value) { cancel(); gesture = value === 'tap' ? 'tap' : 'drag'; draw(); },
     setSnap(value) { snap = !!value; snapResult = null; draw(); },
     setOrthogonal(value) { orthogonal = !!value; snapResult = null; draw(); },
+    setStairs(value) { stairOptions = { ...stairOptions, ...value }; if (draft?.type === 'stairs') Object.assign(draft, stairOptions); draw(); },
     setSwing(value) { swing = value === 1 ? 1 : -1; if (draft?.type === 'door') draft.swing = swing; draw(); },
     addRoom() { if (sketch.strokes.length >= 300) return; remember(); sketch.strokes.push({ type: 'rect', points: [{ x: .15, y: .15 }, { x: .85, y: .85 }] }); cancel(); changed(); },
     setText(value) { text = value; },

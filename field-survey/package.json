@@ -1,1 +1,1 @@
-{"name":"condition-survey-recorder","version":"0.7.0","private":true,"type":"module","scripts":{"test":"node --test tests/model.test.js","test:browser":"node tests/browser.test.js"}}
+{"name":"condition-survey-recorder","version":"0.8.0","private":true,"type":"module","scripts":{"test":"node --test tests/model.test.js","test:browser":"node tests/browser.test.js"}}

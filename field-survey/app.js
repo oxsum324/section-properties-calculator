@@ -4,6 +4,8 @@ import { makeBundle, readBundle, makeReceipt, checkReceipt } from './bundle.js';
 import { createAnnotator, markedImage, planPreview, photoLocationImage } from './annotation.js';
 import { createSketcher, sketchImage } from './sketch.js';
 import { isUCrack, isTile, syncRooms, clearWrongFloor, observationText, tileTotal, photoPlacement } from './model.js';
+import { createCrackFields, crackLabel } from './cracks.js';
+import { individualCracks } from './model.js';
 import { createReportController } from './report-ui.js';
 
 const $ = selector => document.querySelector(selector), esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -13,7 +15,8 @@ const localDate = () => { const date = new Date(); return `${date.getFullYear()}
 let project = null, unitId = '', recordId = '', activeView = 'work', dirty = false, editGeneration = 0, saveTimer, formSaving = null, working = false, renderToken = 0;
 let pendingCapture = null, pendingPlan = null, modalCleanup = () => {}, modalDirty = false, recording = null, toastTimer;
 let conflictDraft = null;
-let reports;
+let reports, crackFields;
+const preference = { get(key) { try { return localStorage.getItem('survey-' + key); } catch { return null; } }, set(key, value) { try { localStorage.setItem('survey-' + key, value); } catch {} } };
 const urls = new Map();
 const currentRecord = () => project?.records.find(r => r.id === recordId);
 const currentUnit = () => project?.units.find(u => u.id === unitId);
@@ -29,7 +32,7 @@ async function action(fn, label = '處理中') {
 }
 function requireNoRecording() { assert(!recording, '請先停止並保存目前錄音，再切換位置或案件。'); }
 function openModal(title, body, cleanup = () => {}) {
-  modalCleanup(); modalCleanup = cleanup; modalDirty = false; $('#modalError').hidden = $('#modalRecover').hidden = $('#discardPrompt').hidden = true; $('#modalTitle').textContent = title; $('#modalBody').innerHTML = body;
+  modalCleanup(); delete $('#modal').dataset.mode; modalCleanup = cleanup; modalDirty = false; $('#modalError').hidden = $('#modalRecover').hidden = $('#discardPrompt').hidden = true; $('#modalTitle').textContent = title; $('#modalBody').innerHTML = body;
   if (!$('#modal').open) $('#modal').showModal();
 }
 function closeModal(force = false) {
@@ -73,6 +76,13 @@ function formValues() {
     assert(value === null || Number.isFinite(value) && value >= 0, '損害面積須為非負數值');
     if (value !== null || currentRecord()?.areas?.[key]) values.areas[key] = { value, method };
   }
+  Object.assign(values, crackFields?.read());
+  if (individualCracks(values)) { values.measured = false; values.width = values.length = null; values.widthMode = 'unknown'; }
+  for (const [kind, input] of [['crack', '#tileCrackCount'], ['broken', '#tileBrokenCount']]) {
+    values.tiles[kind + 'Text'] = $(input + 'Text')?.value || '';
+    if (values.tiles[kind + 'Text']) values.tiles[kind + 'Count'] = null;
+  }
+  if (values.tiles.crackText || values.tiles.brokenText) values.tiles.overlapCount = null;
   return values;
 }
 async function saveForm() {
@@ -104,7 +114,9 @@ function conditionState() {
   $('#uCrackFields').hidden = !selected.includes('crack') || $('#crackPattern').value !== 'u';
   $('#tileFields').hidden = $('#surface').value !== 'tile';
   $('#tileCrackQuantity').hidden = !$('#tileCrack').checked; $('#tileBrokenQuantity').hidden = !$('#tileBroken').checked;
-  $('#tileOverlapQuantity').hidden = !$('#tileCrack').checked || !$('#tileBroken').checked;
+  $('#tileOverlapQuantity').hidden = !$('#tileCrack').checked || !$('#tileBroken').checked || !!$('#tileCrackCountText').value || !!$('#tileBrokenCountText').value;
+  for (const selector of ['#tileCrackCount', '#tileBrokenCount']) $(selector).disabled = !!$(selector + 'Text').value;
+  $('#individualCracks').hidden = !selected.includes('crack') || ['network', 'u'].includes($('#crackPattern').value) || $('#surface').value === 'tile';
   try { const values = formValues(), total = tileTotal(values.tiles); $('#tileTotal').textContent = total === null ? '重疊情形未確認時，不自動合計塊數。' : `不重複受損磁磚：${total} 塊`; $('#quickDescription').textContent = observationText(values); } catch { $('#quickDescription').textContent = '請先確認數量或尺寸格式。'; }
 }
 function measurementState() {
@@ -112,6 +124,8 @@ function measurementState() {
   const data = { conditions: selectedConditions(), components: [...$('#component').querySelectorAll('input:checked')].map(el => el.value), crackPattern: $('#crackPattern').value, surface: $('#surface').value };
   const network = isNetworkCrack(data), u = isUCrack(data), optional = network || u || isTile(data);
   for (const button of $('#widthPresets').querySelectorAll('[data-width]')) button.setAttribute('aria-pressed', String(button.dataset.width === mode));
+  const individual = !$('#individualCracks').hidden && Array.isArray(crackFields?.read().cracks);
+  for (const selector of ['#widthPresets', '#widthMode', '#widthHint', '#measured', '#width']) { const el = $(selector); (selector === '#widthMode' || selector === '#measured' ? el.parentElement : selector === '#width' ? el.closest('.two-col') : el).hidden = individual; }
   $('#width').disabled = !measured || mode !== 'exact'; $('#length').disabled = !measured;
   $('#widthLabel').textContent = `實測裂縫寬度（mm）${optional ? '・選填' : ''}`; $('#lengthLabel').textContent = `${u ? '單條 U 型裂縫展開長度' : '實測裂縫長度'}（m）${optional ? '・選填' : ''}`;
   if (u || isTile(data)) { $('#widthHint').textContent = u ? '以條數記錄即可。單條展開長度與寬度選填；本工具不計算或列出 U 型裂縫總長。' : '磁磚以受損塊數記錄，寬度與長度選填。'; return; }
@@ -188,6 +202,8 @@ async function renderEditor() {
   for (const [selector, key] of [['#tileCrackCount', 'crackCount'], ['#tileBrokenCount', 'brokenCount'], ['#tileOverlapCount', 'overlapCount']]) $(selector).value = r.tiles?.[key] ?? '';
   $('#spaces').innerHTML = [...new Set(['客廳', '房間', '廚房', '浴廁', '樓梯', '陽台', ...project.records.filter(x => x.unitId === r.unitId && x.floor === r.floor).map(x => x.space)])].filter(Boolean).map(x => `<option value="${esc(x)}">`).join('');
   for (const k of ['width', 'length']) { $('#' + k).value = r[k] ?? ''; $('#' + k).disabled = !r.measured; }
+  crackFields.load(r);
+  for (const [kind, selector] of [['crack', '#tileCrackCountText'], ['broken', '#tileBrokenCountText']]) $(selector).value = r.tiles?.[kind + 'Text'] || '';
   conditionState(); measurementState(); renderRecordIssues(); await renderMedia();
 }
 async function render() {
@@ -280,26 +296,33 @@ function cameraDialog() {
   const context = { projectId: project.id, recordId, source: 'camera-preview' };
   let stream = null, disposed = false, request = 0, shot = null, shotURL = null, facing = 'environment';
   const stop = () => { request++; stream?.getTracks().forEach(track => track.stop()); stream = null; };
-  const pause = () => { stop(); if (!disposed) { video.srcObject = null; shutter.disabled = true; start.disabled = false; status.textContent = shot ? '照片尚未保存' : '相機已暫停，返回後請重新啟用'; } };
+  const pause = () => { stop(); if (!disposed) { video.srcObject = null; shutter.disabled = true; start.disabled = false; start.hidden = !!shot; status.textContent = shot ? '照片尚未保存' : '相機已暫停，返回後請重新啟用'; } };
   const hidden = () => { if (document.hidden) pause(); };
-  openModal('現場拍照', '<p>點選「同意並啟用相機」，再於瀏覽器提示選擇「允許」。鏡頭只用於本次拍照，不會自動上傳。</p><div class="camera-stage"><video id="cameraPreview" autoplay muted playsinline></video><img id="cameraShot" alt="待保存的照片" hidden></div><p id="cameraStatus" role="status">相機尚未啟用</p><button id="startCamera" class="primary full">同意並啟用相機</button><div class="camera-actions"><button id="switchCamera" class="secondary">切換前／後鏡頭</button><button id="shutter" class="primary" disabled>◎ 拍攝</button><button id="retakeCamera" class="secondary" hidden>重拍</button><button id="saveCamera" class="primary" hidden>保存這張照片</button></div><p class="micro">若未出現權限提示，請到瀏覽器的網站設定開啟相機；從 LINE 等程式開啟時，可改用 Safari／Chrome 開啟本頁。也可改用下方的系統相機。</p><button id="nativeCamera" class="text-button">改用系統相機／選檔</button>', () => { disposed = true; stop(); video.srcObject = null; if (shotURL) URL.revokeObjectURL(shotURL); document.removeEventListener('visibilitychange', hidden); window.removeEventListener('pagehide', pause); });
+  openModal('現場拍照', '<p id="cameraPermission">點選「同意並啟用相機」，再於瀏覽器提示選擇「允許」。鏡頭只用於本次拍照，不會自動上傳。</p><div class="camera-stage"><video id="cameraPreview" autoplay muted playsinline></video><img id="cameraShot" alt="待保存的照片" hidden></div><p id="cameraStatus" role="status">相機尚未啟用</p><button id="startCamera" class="primary full">同意並啟用相機</button><div class="camera-actions"><button id="switchCamera" class="secondary">切換前／後鏡頭</button><button id="shutter" class="primary" disabled>◎ 拍攝</button><button id="retakeCamera" class="secondary" hidden>重拍</button><button id="saveCamera" class="primary" hidden>保存這張照片</button></div><p class="micro">若未出現權限提示，請到瀏覽器的網站設定開啟相機；從 LINE 等程式開啟時，可改用 Safari／Chrome 開啟本頁。也可改用下方的系統相機。</p><button id="nativeCamera" class="text-button">改用系統相機／選檔</button>', () => { disposed = true; stop(); video.srcObject = null; if (shotURL) URL.revokeObjectURL(shotURL); document.removeEventListener('visibilitychange', hidden); window.removeEventListener('pagehide', pause); });
+  $('#modal').dataset.mode = 'camera';
+  const cameraControls = document.createElement('div'); cameraControls.className = 'camera-controls';
+  for (const child of [...$('#modalBody').children]) if (!child.classList.contains('camera-stage')) cameraControls.append(child);
+  $('#modalBody').append(cameraControls);
+  const cameraHelp = document.createElement('details'); cameraHelp.innerHTML = '<summary>相機使用說明</summary>';
+  for (const paragraph of [...cameraControls.querySelectorAll('p.micro')]) cameraHelp.append(paragraph); cameraControls.append(cameraHelp);
   const video = $('#cameraPreview'), status = $('#cameraStatus'), start = $('#startCamera'), shutter = $('#shutter'), preview = $('#cameraShot');
   document.addEventListener('visibilitychange', hidden); window.addEventListener('pagehide', pause);
   async function enable() {
     stop(); const token = request; start.disabled = true; shutter.disabled = true; status.textContent = '等待相機權限；請在瀏覽器提示選擇允許。可隨時關閉此視窗。';
     try {
       assert(isSecureContext && navigator.mediaDevices?.getUserMedia, '此開啟方式無法使用鏡頭預覽，請用 HTTPS 網址在 Safari／Chrome 開啟，或改用系統相機');
-      const incoming = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: facing }, width: { ideal: 2560 }, height: { ideal: 1920 } } });
+      const incoming = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: facing }, width: { ideal: 2560 }, height: { ideal: 1920 }, aspectRatio: { ideal: 4 / 3 } } });
       if (disposed || token !== request) { incoming.getTracks().forEach(track => track.stop()); return; }
       stream = incoming; video.srcObject = stream; video.muted = true; await video.play();
       if (disposed || token !== request) return;
       if (!video.videoWidth) await new Promise((resolve, reject) => { const timer = setTimeout(() => reject(new Error('鏡頭沒有傳回畫面，請重試或改用系統相機')), 8000); video.addEventListener('loadeddata', () => { clearTimeout(timer); resolve(); }, { once: true }); });
       if (disposed || token !== request) return;
+      $('#cameraPermission').hidden = true; start.hidden = true;
       shutter.disabled = false; status.textContent = `鏡頭已啟用 · ${video.videoWidth} × ${video.videoHeight} · 對準後點拍攝`;
-      for (const track of stream.getVideoTracks()) track.addEventListener('ended', () => { if (!disposed && stream?.getTracks().includes(track)) { stop(); video.srcObject = null; shutter.disabled = true; start.disabled = false; status.textContent = '相機已中斷，請重新啟用'; } });
+      for (const track of stream.getVideoTracks()) track.addEventListener('ended', () => { if (!disposed && stream?.getTracks().includes(track)) { stop(); video.srcObject = null; shutter.disabled = true; start.disabled = false; start.hidden = false; status.textContent = '相機已中斷，請重新啟用'; } });
     } catch (e) {
       if (disposed || token !== request) return;
-      stop(); video.srcObject = null;
+      stop(); video.srcObject = null; start.hidden = false;
       status.textContent = e.name === 'NotAllowedError' ? '尚未取得相機權限。請在瀏覽器網站設定將相機改為允許，再點下方重新啟用。' : e.name === 'NotFoundError' ? '找不到可用相機，請確認裝置鏡頭或改用系統相機。' : e.name === 'NotReadableError' ? '相機可能正被其他程式使用，請關閉其他拍攝程式後重試。' : e.message || '相機啟用失敗，請重試或改用系統相機。';
     } finally { if (!disposed && !shot) { start.disabled = false; start.textContent = stream ? '重新啟用相機' : '同意並啟用相機'; } }
   }
@@ -396,6 +419,8 @@ async function photoDialog(mediaId) {
   catch (e) { $('#photoStage').textContent = e.message; $('#photoTools').hidden = true; $('#downloadMarked').disabled = true; }
   $('#markText').oninput = e => annotator?.setText(e.target.value);
   $('#photoTools').onclick = e => { const b = e.target.closest('[data-mode]'); if (b) { annotator?.setMode(b.dataset.mode); for (const x of $('#photoTools').querySelectorAll('[data-mode]')) x.classList.toggle('selected', x === b); } };
+  if (individualCracks(currentRecord())) $('#conditionLabels').insertAdjacentHTML('beforeend', currentRecord().cracks.map((c, i) => `<button data-crack-label="${crackLabel(i)}">裂縫 ${crackLabel(i)}</button>`).join(''));
+  $('#conditionLabels').addEventListener('click', e => { const b = e.target.closest('[data-crack-label]'); if (b && annotator) { $('#markText').value = '裂縫 ' + b.dataset.crackLabel; annotator.setText($('#markText').value); $('#photoTools [data-mode="text"]').click(); } });
   $('#conditionLabels').onclick = e => { const b = e.target.closest('[data-condition-label]'); if (!b || !annotator) return; $('#markText').value = CONDITIONS[b.dataset.conditionLabel]; annotator.setText($('#markText').value); $('#photoTools [data-mode="text"]').click(); };
   $('#undoMark').onclick = () => annotator?.undo();
   for (const selector of ['#photoRole', '#photoCaption', '#photoExcluded', '#excludedReason']) $(selector).oninput = () => { modalDirty = true; };
@@ -459,6 +484,21 @@ function sketchDialog(source = null, context = { projectId: project.id, recordId
   let editor;
   const defaultTitle = (source ? `${source.title.replace(/\.png$/i, '')}（修訂）` : `${currentUnit().code} ${context.floor} 現場簡圖`).slice(0, 150);
   openModal('手繪平面簡圖', `<p class="micro">選工具後指定兩點。門的第一點是門軸，第二點是門洞另一端。${source ? '此次另存副本，原圖與舊定位均保留。' : ''}</p><div id="sketchTools" class="annotation-toolbar sketch-tools"><button data-sketch-mode="line" class="selected" aria-pressed="true">直線</button><button data-sketch-mode="rect" aria-pressed="false">房間框</button><button data-sketch-mode="door" aria-pressed="false">開門</button><button data-sketch-mode="window" aria-pressed="false">開窗</button><button data-sketch-mode="pen" aria-pressed="false">手繪</button><button data-sketch-mode="text" aria-pressed="false">文字</button><button data-sketch-mode="pan" aria-pressed="false">移動畫面</button><button data-sketch-mode="erase" aria-pressed="false">選取／橡皮擦</button></div><div id="eraseOptions" hidden><label>刪除範圍<select id="eraseScope"><option value="segment">單段（房間框單側／手繪線段）</option><option value="whole">整個圖形／整筆手繪</option></select></label><button id="deleteSelection" class="secondary" disabled>刪除選取</button><p class="micro">先點圖形，橘色為刪除範圍；門、窗、文字以整個符號刪除。刪除門窗後原牆線會顯示，可再刪牆線。</p></div><div class="sketch-history"><button id="undoSketch" class="secondary" disabled>復原一步</button><button id="redoSketch" class="secondary" disabled>重做一步</button></div><p id="sketchHistoryHint" class="micro">先復原一步，才有可重做的步驟。</p><details id="sketchSettings"><summary>名稱與繪圖設定（鎖點／直角）</summary><label>簡圖名稱<input id="sketchTitle" maxlength="150" value="${esc(defaultTitle)}"></label><label>兩點工具操作方式<select id="sketchGesture"><option value="tap">點兩下：起點及終點／對角</option><option value="drag">按住拖曳</option></select></label><label class="check-label"><input type="checkbox" id="sketchSnap" checked>吸附端點及牆線</label><label class="check-label"><input type="checkbox" id="sketchOrtho" checked>直線／門窗鎖定水平或垂直</label><p class="micro">畫斜線或斜牆門窗時，關閉直角鎖定。復原及重做限本次編輯，重新開啟後歷程不保留。</p></details><div id="doorOptions" hidden><label>門扇開啟方向<select id="doorSwing"><option value="-1">由第一點看向第二點的左側</option><option value="1">由第一點看向第二點的右側</option></select></label></div><label id="sketchTextLabel" hidden>標記文字<input id="sketchText" maxlength="60" placeholder="例如 客廳、入口；輸入後點圖面"></label><p id="sketchHint" class="micro" role="status">先點起點，再點終點／對角。手繪則按住拖曳。</p><p id="sketchSnapStatus" class="micro" role="status"></p><div class="sketch-navigation"><button id="zoomOut" aria-label="縮小圖面">−</button><output id="sketchZoom" aria-live="polite">100%</output><button id="zoomIn" aria-label="放大圖面">＋</button><button id="fitSketch">看整張</button></div><p class="micro">雙指撥動可縮放與移動；單指移動請選「移動畫面」。縮放不改變圖紙大小。</p><div class="sketch-stage" id="sketchStage"></div><details id="sketchExpansion"><summary>圖紙不夠大？向外擴展</summary><div id="expandSketch" class="choice-chips"><button data-expand="top">↑ 向上擴展</button><button data-expand="bottom">↓ 向下擴展</button><button data-expand="left">← 向左擴展</button><button data-expand="right">→ 向右擴展</button></div><p class="micro">在指定方向增加空白，原圖形大小保留；可復原／重做。範圍太大時建議依樓層或區域另畫一張。</p></details><div class="sketch-footer"><span id="sketchCount" class="micro"></span><button id="clearSketch" class="quiet" disabled>清空重畫</button></div><button id="addRoomFrame" class="secondary">＋ 插入房間外框</button><p class="micro">未按比例，門窗符號及簡圖只作位置參照；尺寸請另行實測。</p><div class="modal-actions"><button id="saveSketch" class="primary" disabled>${context.recordId ? '保存簡圖並標箭頭 →' : '保存至本戶平面圖庫'}</button></div>`, () => editor?.dispose());
+  $('#modal').dataset.mode = 'sketch';
+  const body = $('#modalBody'), tools = $('#sketchTools'), canvas = $('#sketchStage');
+  const stairButton = document.createElement('button'); stairButton.dataset.sketchMode = 'stairs'; stairButton.textContent = '樓梯'; stairButton.setAttribute('aria-pressed', 'false'); tools.insertBefore(stairButton, tools.querySelector('[data-sketch-mode="pen"]'));
+  const stairs = document.createElement('div'); stairs.id = 'stairOptions'; stairs.hidden = true;
+  stairs.innerHTML = '<label>樓梯型式<select id="stairType"><option value="straight">直梯</option><option value="l">L 型梯</option><option value="u">折返梯</option><option value="unequal">長短梯</option></select></label><label>箭頭<select id="stairDirection"><option value="unknown">方向未確認</option><option value="up">上</option><option value="down">下</option></select></label><label>旋轉<select id="stairRotation"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select></label><label class="check-label"><input id="stairMirror" type="checkbox">左右鏡射</label><label class="check-label"><input id="stairBreak" type="checkbox">斷線</label><label id="stairRatioLabel" hidden>短梯段比例<select id="stairRatio"><option value="0.25">1/4</option><option value="0.5" selected>1/2</option><option value="0.75">3/4</option><option value="1">等長</option></select></label>';
+  body.append(stairs);
+  const help = document.createElement('details'); help.id = 'sketchHelp'; help.innerHTML = '<summary>顯示操作說明</summary>'; help.open = preference.get('sketch-help') === 'true'; help.ontoggle = () => preference.set('sketch-help', String(help.open));
+  for (const el of [...body.querySelectorAll('p.micro')]) if (!['sketchHint', 'sketchSnapStatus'].includes(el.id)) help.append(el);
+  const settings = $('#sketchSettings'); settings.querySelector('summary').textContent = '設定／圖紙／說明';
+  settings.append($('#sketchExpansion'), $('#addRoomFrame'), body.querySelector('.sketch-footer'), help);
+  const controls = document.createElement('div'); controls.className = 'sketch-controls'; controls.append($('#eraseOptions'), $('#doorOptions'), stairs, $('#sketchTextLabel'), settings);
+  $('#undoSketch').textContent = '復原'; $('#redoSketch').textContent = '重做'; $('#saveSketch').textContent = '保存圖面';
+  const footer = document.createElement('div'); footer.className = 'sketch-dock'; footer.append(body.querySelector('.sketch-history'), body.querySelector('.sketch-navigation'), $('#saveSketch'));
+  const status = document.createElement('div'); status.className = 'sketch-status'; status.append($('#sketchHint'), $('#sketchSnapStatus'));
+  body.replaceChildren(tools, controls, canvas, status, footer);
   const updateState = state => {
     $('#sketchCount').textContent = state.count + '／300 筆畫';
     $('#deleteSelection').disabled = !state.selected;
@@ -477,11 +517,13 @@ function sketchDialog(source = null, context = { projectId: project.id, recordId
   $('#expandSketch').onclick = e => { const b = e.target.closest('[data-expand]'); if (b) editor.expand(b.dataset.expand); };
   $('#sketchGesture').onchange = e => { editor.setGesture(e.target.value); $('#sketchHint').textContent = e.target.value === 'tap' ? '請點起點，再點終點／對角；手繪仍按住拖曳。' : '按住圖面後移動，放開完成一筆。'; };
   $('#sketchSnap').onchange = e => editor.setSnap(e.target.checked); $('#sketchOrtho').onchange = e => editor.setOrthogonal(e.target.checked);
+  const updateStairs = () => { editor.setStairs({ stairType: $('#stairType').value, direction: $('#stairDirection').value, rotation: Number($('#stairRotation').value), mirror: $('#stairMirror').checked, breakLine: $('#stairBreak').checked, shortRatio: Number($('#stairRatio').value) }); $('#stairRatioLabel').hidden = $('#stairType').value !== 'unequal'; $('#sketchHint').textContent = $('#stairDirection').value === 'unknown' ? '' : '點兩個對角，指定樓梯範圍。'; };
+  $('#stairOptions').onchange = updateStairs;
   $('#doorSwing').onchange = e => editor.setSwing(Number(e.target.value));
   $('#addRoomFrame').onclick = () => editor.addRoom();
   $('#sketchTitle').oninput = () => { modalDirty = true; };
   $('#sketchText').oninput = e => editor.setText(e.target.value);
-  $('#sketchTools').onclick = e => { const b = e.target.closest('[data-sketch-mode]'); if (!b) return; const mode = b.dataset.sketchMode; editor.setMode(mode); for (const x of $('#sketchTools').querySelectorAll('[data-sketch-mode]')) { x.classList.toggle('selected', x === b); x.setAttribute('aria-pressed', String(x === b)); } $('#eraseOptions').hidden = mode !== 'erase'; $('#doorOptions').hidden = mode !== 'door'; $('#sketchTextLabel').hidden = mode !== 'text'; $('#sketchHint').textContent = mode === 'erase' ? '先點要刪除的線段或符號，確認橘色範圍後按刪除選取。' : mode === 'pan' ? '用單指或滑鼠拖曳移動；雙指可同時縮放。' : mode === 'text' ? '輸入文字後，點圖面放置文字。' : mode === 'pen' ? '在圖面按住並移動手指，放開完成一筆。' : mode === 'door' ? '第一點為門軸，第二點為門洞另一端；方向可在上方切換。' : mode === 'window' ? '點選窗戶兩端；靠近牆線時可吸附。' : $('#sketchGesture').value === 'tap' ? '先點起點，再點終點／對角。' : '按住並拖曳，放開完成。'; if (mode === 'text' && !$('#sketchText').value.trim()) $('#sketchText').focus(); };
+  $('#sketchTools').onclick = e => { const b = e.target.closest('[data-sketch-mode]'); if (!b) return; const mode = b.dataset.sketchMode; editor.setMode(mode); for (const x of $('#sketchTools').querySelectorAll('[data-sketch-mode]')) { x.classList.toggle('selected', x === b); x.setAttribute('aria-pressed', String(x === b)); } $('#stairOptions').hidden = mode !== 'stairs'; $('#eraseOptions').hidden = mode !== 'erase'; $('#doorOptions').hidden = mode !== 'door'; $('#sketchTextLabel').hidden = mode !== 'text'; $('#sketchHint').textContent = mode === 'erase' ? '先點要刪除的線段或符號，確認橘色範圍後按刪除選取。' : mode === 'pan' ? '用單指或滑鼠拖曳移動；雙指可同時縮放。' : mode === 'text' ? '輸入文字後，點圖面放置文字。' : mode === 'pen' ? '在圖面按住並移動手指，放開完成一筆。' : mode === 'door' ? '第一點為門軸，第二點為門洞另一端；方向可在上方切換。' : mode === 'window' ? '點選窗戶兩端；靠近牆線時可吸附。' : $('#sketchGesture').value === 'tap' ? '先點起點，再點終點／對角。' : '按住並拖曳，放開完成。'; if (mode === 'stairs') updateStairs(); if (mode === 'text' && !$('#sketchText').value.trim()) $('#sketchText').focus(); };
   $('#undoSketch').onclick = () => editor.undo(); $('#redoSketch').onclick = () => editor.redo(); $('#clearSketch').onclick = () => editor.clear();
   $('#saveSketch').onclick = () => action(async () => {
     assertPlanContext(context);
@@ -557,7 +599,7 @@ async function receiveReceipt(file) {
 }
 function helpDialog() {
   openModal('手機使用與保存', `<ol class="help-list"><li>新增案件及戶別。先從「平面圖庫／先建圖」依樓層匯入或手繪，標上入口、樓梯及房間名稱；再進入各空間新增位置，引用圖面標拍攝箭頭，拍全景、近照或量尺照。</li><li>點照片可圈選、畫箭頭與文字；圈註另存，原圖保留。位置圖可加入圖面或草圖照片；手繪簡圖支援雙指縮放、移動、四向擴展及選取刪除。照片旁可核對定位，另可下載照片與位置圖對照副本。</li><li>現況可複選並共用照片；白華、剝落等面積各自填 m²，不合計重疊範圍。裂隙寬度用 mm、長度用 m。現況欄位會自動保存。切換位置前會先保存；上方有錯誤時請先處理。</li><li>離開一戶前查看「待補檢查」，無法入內或部分完成請記原因。</li><li>從「備份還原」匯出全案或單戶。在電腦開啟同一工具、核對備份及建立還原副本。</li><li>iPhone 可從瀏覽器分享選單加入主畫面；Android 可從瀏覽器選單安裝。需先在線開啟，等上方顯示「離線已就緒」。手機使用需 HTTPS。</li></ol><p class="modal-note">資料只保存在此瀏覽器及你匯出的備份檔，不自動上傳。換瀏覽器、清除網站資料或移除應用程式前，請先完成外部備份。勿以無痕模式保存工作。</p><p>本工具記錄現場可見情形，不自動判定損害原因、結構安全或責任歸屬。尚須在實際手機上確認相機、容量及中斷操作。</p><p class="help-version">版本 ${VERSION} · 純本機資料 · 現況紀錄工作稿</p><button id="applyUpdate" class="secondary" hidden>保存後套用離線更新</button>`);
-  $('#modalBody').insertAdjacentHTML('afterbegin', '<p class="modal-note">V0.7.0：梁 U 型裂縫以條數記錄、不列總長；磁磚裂隙與破損可記塊數。在「附件整理」依房間選主照片、排序並自動產生照片流水號與位置圖，可下載 HTML 附件及列印 PDF。照片可各自設定拍攝位置，舊案及舊備份可接續使用。網狀裂隙：網狀裂隙的寬度、長度及實測勾選均可略過，不列尺寸待補。簡圖新增開門、開窗、端點／牆線吸附與水平／垂直鎖定。復原一步後才可重做，清空重畫另有按鈕。拍照先同意啟用相機，再於瀏覽器選允許；可預覽、重拍與保存。部位可複選；裂縫可一鍵選 ≤0.3 mm、>0.3 mm。無圖說可直接「手繪簡圖」，點兩下畫房間／線段，保存後點拍攝點及方向標箭頭。簡圖未按比例，寬度區間不代表安全判定。</p>');
+  $('#modalBody').insertAdjacentHTML('afterbegin', '<p class="modal-note">V0.8.0：一般裂縫可逐條填尺寸並以 A／B／C 圈註；磁磚可選 1／2／5／10／15／20 塊或文字數量。新增大字、橫向拍攝與收合說明的繪圖介面；樓梯提供直梯、L 型、折返及長短梯，方向未確認不加箭頭或文字。梁 U 型裂縫以條數記錄、不列總長；磁磚裂隙與破損可記塊數。在「附件整理」依房間選主照片、排序並自動產生照片流水號與位置圖，可下載 HTML 附件及列印 PDF。照片可各自設定拍攝位置，舊案及舊備份可接續使用。網狀裂隙：網狀裂隙的寬度、長度及實測勾選均可略過，不列尺寸待補。簡圖新增開門、開窗、端點／牆線吸附與水平／垂直鎖定。復原一步後才可重做，清空重畫另有按鈕。拍照先同意啟用相機，再於瀏覽器選允許；可預覽、重拍與保存。部位可複選；裂縫可一鍵選 ≤0.3 mm、>0.3 mm。無圖說可直接「手繪簡圖」，點兩下畫房間／線段，保存後點拍攝點及方向標箭頭。簡圖未按比例，寬度區間不代表安全判定。</p>');
   navigator.serviceWorker?.getRegistration().then(reg => { if (reg?.waiting && $('#applyUpdate')) { $('#applyUpdate').hidden = false; $('#applyUpdate').onclick = () => action(async () => { requireNoRecording(); assert(!conflictDraft, '請先另存目前副本，再套用更新'); closeModal(true); navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true }); reg.waiting.postMessage('ACTIVATE_UPDATE'); }); } });
 }
 async function initOffline() {
@@ -620,12 +662,23 @@ $('#importReceipt').onclick = () => $('#receiptInput').click(); $('#receiptInput
 $('#persistStorage').onclick = () => action(async () => { const granted = await navigator.storage?.persist?.(); toast(granted ? '已取得持續保存，仍請定期備份' : '瀏覽器未授予持續保存，請完成外部備份'); await renderBackup(); });
 $('#fieldLabels').onchange = () => action(async () => { await renderMedia(); });
 $('#crackCountPresets').onclick = e => { const b = e.target.closest('button'); if (!b) return; $('#crackCount').value = b.dataset.count ?? Math.max(0, Math.min(99999, Number($('#crackCount').value || 0) + Number(b.dataset.countStep))); changed(); };
-$('#measurement').prepend($('#uCrackFields'));
+$('#measurement').prepend($('#crackPattern').parentElement, $('#uCrackFields'));
+crackFields = createCrackFields($('#individualCracks'), changed, () => {
+  const measured = $('#measured').checked, widthMode = $('#widthMode').value;
+  const width = measured && widthMode === 'exact' && $('#width').value !== '' ? Number($('#width').value) : null;
+  const length = measured && $('#length').value !== '' ? Number($('#length').value) : null;
+  return width !== null || length !== null || !['unknown', 'exact'].includes(widthMode) ? { measured, widthMode, width, length, crackPattern: $('#crackPattern').value } : undefined;
+});
 for (const selector of ['#tileCrackCount', '#tileBrokenCount']) {
   const buttons = document.createElement('div'); buttons.className = 'choice-chips';
-  buttons.innerHTML = [1, 2, 3, 4, 5].map(n => `<button type="button" data-value="${n}">${n} 塊</button>`).join('');
-  $(selector).parentElement.append(buttons); buttons.onclick = event => { const b = event.target.closest('[data-value]'); if (b) { $(selector).value = b.dataset.value; changed(); } };
+  buttons.innerHTML = [1, 2, 5, 10, 15, 20].map(n => `<button type="button" data-value="${n}">${n} 塊</button>`).join('') + [-1, 1, 10].map(n => `<button type="button" data-step="${n}">${n > 0 ? '＋' : '−'}${Math.abs(n)}</button>`).join('');
+  const description = document.createElement('select'); description.id = selector.slice(1) + 'Text'; description.setAttribute('aria-label', selector.includes('Crack') ? '磁磚裂隙數量記法' : '磁磚破損數量記法'); description.innerHTML = opts({ '': '輸入塊數', '十餘塊': '十餘塊', '二十餘塊': '二十餘塊', '多處': '多處（未計數）' });
+  $(selector).parentElement.append(description, buttons);
+  description.onchange = () => { if (description.value) { $(selector).value = ''; $('#tileOverlapCount').value = ''; } };
+  buttons.onclick = event => { const b = event.target.closest('button'); if (!b) return; if (b.dataset.step && description.value) { toast('請先輸入已確認的塊數，再加減'); return; } description.value = ''; $(selector).value = b.dataset.value ?? Math.max(0, Math.min(99999, Number($(selector).value || 0) + Number(b.dataset.step))); changed(); };
 }
+const applyFont = large => { document.body.classList.toggle('large-type', large); $('#fontSize').setAttribute('aria-pressed', String(large)); $('#fontSize').textContent = large ? '標準字' : '大字'; preference.set('large-type', String(large)); };
+applyFont(preference.get('large-type') === 'true'); $('#fontSize').onclick = () => applyFont(!document.body.classList.contains('large-type'));
 $('#fieldPresets').onclick = e => { const b = e.target.closest('[data-field-preset]'); if (!b) return; $('#condition input[value="normal"]').checked = false; if (b.dataset.fieldPreset === 'u') { $('#component input[value="梁"]').checked = true; $('#condition input[value="crack"]').checked = true; $('#crackPattern').value = 'u'; } else { $('#component input[value="牆面"]').checked = true; $('#surface').value = 'tile'; $('#tileCrack').checked = true; $('#condition input[value="crack"]').checked = true; } changed(); };
 reports = createReportController({ $, action, commit, getProject: () => project, getMedia, mediaURL, openModal, closeModal, download, busyText, editPhoto: async (rid, mid) => { recordId = rid; unitId = currentRecord().unitId; activeView = 'work'; await render(); await photoDialog(mid); }, editRecord: async rid => { recordId = rid; unitId = currentRecord().unitId; activeView = 'work'; await render(); } });
 $('#help').onclick = () => action(helpDialog); $('#closeModal').onclick = () => closeModal(); $('#modal').addEventListener('cancel', e => { e.preventDefault(); closeModal(); }); $('#dismissError').onclick = () => { $('#errorBar').hidden = true; };

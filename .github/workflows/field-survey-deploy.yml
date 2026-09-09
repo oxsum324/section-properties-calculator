@@ -1,0 +1,86 @@
+name: Field survey module deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  survey:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Install survey browser test runtime
+        working-directory: .github/pages-smoke
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Verify survey model and real V0.7 upgrade
+        run: |
+          mkdir -p output/field-survey-validation
+          node --test field-survey/tests/model.test.js
+          node field-survey/tests/upgrade-v08.cjs
+      - name: Download pinned successful base artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          base_run=$(node -p "require('./field-survey/release-baseline.json').runId")
+          base_sha=$(node -p "require('./field-survey/release-baseline.json').commitSha")
+          test "$(gh run view "$base_run" --json conclusion --jq .conclusion)" = success
+          test "$(gh run view "$base_run" --json headSha --jq .headSha)" = "$base_sha"
+          gh run download "$base_run" -n github-pages -D "$RUNNER_TEMP/survey-baseline"
+          mkdir "$RUNNER_TEMP/survey-site"
+          tar -xf "$RUNNER_TEMP/survey-baseline/artifact.tar" -C "$RUNNER_TEMP/survey-site"
+      - name: Stage only survey runtime and verify unchanged surrounding site
+        run: node field-survey/release.mjs stage "$RUNNER_TEMP/survey-site"
+      - name: Verify staged survey workflows
+        env:
+          SURVEY_URL: http://127.0.0.1:4173/field-survey/recorder.html
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory "$RUNNER_TEMP/survey-site" >"$RUNNER_TEMP/survey-server.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" || true' EXIT
+          for n in {1..30}; do curl -fsS "$SURVEY_URL" >/dev/null && break; sleep 1; done
+          node field-survey/tests/browser.test.js
+      - name: Retain survey test evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: field-survey-evidence
+          path: output/field-survey-validation/
+          retention-days: 14
+      - name: Package verified overlay
+        run: |
+          node field-survey/release.mjs baseline
+          tar --dereference --hard-dereference --directory "$RUNNER_TEMP/survey-site" -cf "$RUNNER_TEMP/artifact.tar" .
+      - uses: actions/upload-artifact@v6
+        with:
+          name: github-pages
+          path: ${{ runner.temp }}/artifact.tar
+          retention-days: 14
+          if-no-files-found: error
+      - name: Deploy survey overlay
+        id: deployment
+        uses: actions/deploy-pages@v5
+      - name: Verify published survey bytes
+        run: node field-survey/release.mjs live

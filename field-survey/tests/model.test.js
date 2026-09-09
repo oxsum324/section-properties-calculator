@@ -5,6 +5,46 @@ import { makeBundle, readBundle, snapshot, makeReceipt, checkReceipt } from '../
 import { resolveSketchPoint, doorGeometry, expandSketch, sketchArea, sketchView, hitSketch, deleteSketchSelection } from '../sketch.js';
 import { syncRooms, clearWrongFloor, observationText, tileTotal, photoPlacement } from '../model.js';
 import { attachmentIndex, reportPhotos, groupPlanEntries, moveRoom, textChunks } from '../report.js';
+import { stairGeometry } from '../stairs.js';
+
+test('individual cracks preserve independent units, uncertainty and legacy group through backup', async () => {
+  const { p, r, blobs } = await fixture();
+  r.condition = 'crack'; r.cracks = [
+    { id: id(), measured: true, widthMode: 'le03', width: null, length: 1.2, pattern: 'diagonal', notes: '窗角' },
+    { id: id(), measured: true, widthMode: 'exact', width: .45, length: 2.1, pattern: 'vertical', notes: '' },
+    { id: id(), measured: false, widthMode: 'unknown', width: null, length: null, pattern: '', notes: '未能接近' }
+  ];
+  r.legacyCrack = { measured: true, widthMode: 'exact', width: .2, length: 3, crackPattern: '' };
+  validateProject(p); const prose = observationText(r);
+  assert.match(prose, /裂縫 A.*長度 1.2 m/); assert.match(prose, /裂縫 B.*寬度 0.45 mm.*長度 2.1 m/);
+  assert.match(prose, /原整組紀錄/); assert.deepEqual(recordIssues(r), ['裂縫 C未量測']);
+  const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
+  assert.deepEqual(restored.project.records[0].cracks, r.cracks); assert.deepEqual(restored.project.records[0].legacyCrack, r.legacyCrack);
+  assert.equal(restored.manifest.version, 4);
+  r.cracks[2].width = .3; assert.throws(() => validateProject(p), /未量測/);
+});
+
+test('descriptive tile counts satisfy quantity note without fabricating totals', async () => {
+  const { p, r } = await fixture(); r.condition = 'crack'; r.surface = 'tile';
+  r.tiles = { crack: true, broken: true, approx: false, crackCount: null, brokenCount: 2, overlapCount: null, crackText: '十餘塊', brokenText: '' };
+  validateProject(p); assert.deepEqual(recordIssues(r), []); assert.equal(tileTotal(r.tiles), null);
+  assert.match(observationText(r), /磁磚裂隙 十餘塊/); assert(!observationText(r).includes('合計'));
+  r.tiles.crackCount = 15; assert.throws(() => validateProject(p), /推算塊數/);
+});
+
+test('four stair symbols stay editable and bounded through rotation expansion and whole erasing', () => {
+  for (const stairType of ['straight', 'l', 'u', 'unequal']) for (const rotation of [0, 90, 180, 270]) for (const mirror of [true, false]) {
+    const sketch = emptySketch(), stroke = { type: 'stairs', points: [{ x: .2, y: .2 }, { x: .6, y: .7 }], stairType, rotation, mirror, direction: 'unknown', shortRatio: .5, breakLine: true };
+    sketch.strokes.push(stroke); validateSketch(sketch);
+    const g = stairGeometry(stroke, { x: 10, y: 20 }, { x: 210, y: 320 }); assert.equal(g.arrow, null); assert.equal(g.label, '');
+    assert(g.lines.flat().every(p => p.x >= 10 && p.x <= 210 && p.y >= 20 && p.y <= 320));
+    const expanded = expandSketch(sketch, 'left'); assert.equal(expanded.strokes[0].rotation, rotation);
+    const area = sketchArea(sketch), first = stairGeometry(stroke, { x: .2 * area.width, y: .2 * area.height }, { x: .6 * area.width, y: .7 * area.height }).lines[0][0];
+    const hit = hitSketch(sketch, { x: first.x / area.width, y: first.y / area.height }); assert.equal(hit.index, 0); assert.equal(deleteSketchSelection(sketch, hit).strokes.length, 0);
+    stroke.direction = 'up'; assert.equal(stairGeometry(stroke, { x: 0, y: 0 }, { x: 200, y: 300 }).label, '上');
+  }
+  const invalid = emptySketch(); invalid.strokes = [{ type: 'stairs', points: [{ x: 0, y: 0 }, { x: 1, y: 1 }], stairType: 'scissor' }]; assert.throws(() => validateSketch(invalid));
+});
 
 test('room moves within a selected unit skip intervening rooms from other units', async () => {
   const { p, r, a } = await fixture(), second = newRecord(a.id, '1F', '浴廁'); p.records.push(second); syncRooms(p);
@@ -286,7 +326,7 @@ test('multiple conditions share originals and retain independent measured or est
   Object.assign(r, { condition: 'crack', conditions: ['crack', 'damp', 'salt', 'spall'], crackPattern: 'network', areas: { crack: { value: null, method: 'estimated' }, damp: { value: 1.5, method: 'measured' }, salt: { value: .8, method: 'estimated' }, spall: { value: 0, method: 'measured' } } });
   validateProject(p); assert.deepEqual(recordIssues(r), []);
   const result = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
-  assert.equal(result.manifest.version, 3); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
+  assert.equal(result.manifest.version, 4); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
   const copy = restoredCopy(result.project).project.records[0]; assert.deepEqual(copy.conditions, r.conditions); assert.deepEqual(copy.areas, r.areas);
   r.conditions = ['damp']; r.condition = 'damp'; validateProject(p); assert.equal(r.areas.salt.value, .8); assert.deepEqual(recordIssues(r), []);
 });
