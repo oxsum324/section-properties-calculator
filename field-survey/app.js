@@ -1,7 +1,7 @@
 import { VERSION, id, now, clone, newProject, newUnit, newRecord, CONDITIONS, COMPONENTS, UNIT_STATES, ROLES, WIDTH_MODES, CRACK_PATTERNS, widthMode, isNetworkCrack, recordComponents, recordConditions, AREA_CONDITIONS, AREA_METHODS, emptySketch, recordIssues, unitIssues, sha256, restoredCopy, assert } from './model.js';
 import { openStore, allProjects, getProject, getMedia, saveProject, backupState, saveBackupState } from './store.js';
 import { makeBundle, readBundle, makeReceipt, checkReceipt } from './bundle.js';
-import { createAnnotator, markedImage } from './annotation.js';
+import { createAnnotator, markedImage, planPreview, photoLocationImage } from './annotation.js';
 import { createSketcher, sketchImage } from './sketch.js';
 
 const $ = selector => document.querySelector(selector), esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -75,11 +75,11 @@ async function saveForm() {
   formSaving = commit(next => {
     const r = next.records.find(x => x.id === target); Object.assign(r, values); markUnitOpen(next, r);
     if (r.placement && next.plans.find(p => p.id === r.placement.planId)?.floor !== r.floor) r.placement = null;
-  }).then(() => {
+  }).then(async () => {
     if (generation === editGeneration) dirty = false;
     $('#saveStatus').textContent = dirty ? '尚未保存新變更' : '已保存於本機';
     renderRecordList(); renderRecordIssues();
-    if (beforeFloor !== values.floor && currentRecord()?.placement === null) $('#recordTime').textContent = '樓層變更後請核對位置圖';
+    if (beforeFloor !== values.floor && currentRecord()?.id === target) { $('#recordTime').textContent = '樓層變更後請核對位置圖'; await renderLocationCard($('#recordLocation'), currentRecord()); }
   }).finally(() => { formSaving = null; });
   await formSaving;
 }
@@ -126,6 +126,8 @@ function renderRecordList() {
   $('#recordCount').textContent = records.length;
   $('#recordList').innerHTML = records.length ? records.map(r => `<button class="record-item ${r.id === recordId ? 'active' : ''}" data-record="${esc(r.id)}"><strong>${esc(recordNumber(r))} · ${esc(r.space || '未填空間')}</strong><small>${esc(r.floor || '未填樓層')} · ${r.photos.filter(p => !p.excluded).length} 張照片${recordIssues(r).length ? ' · 待補' : ''}</small></button>`).join('') : '<p class="micro">這一戶尚無位置紀錄</p>';
   $('#addRecord').disabled = !unitId; $('#editUnit').disabled = !unitId;
+  $('#unitPlans').disabled = !unitId;
+  $('#unitPlanSummary').textContent = unitId ? `本戶 ${project.plans.filter(p => p.unitId === unitId).length} 張共用圖面。可先依樓層建圖，再新增位置紀錄。` : '先新增戶別，即可匯入或手繪平面圖。';
 }
 function renderRecordIssues() {
   const r = currentRecord(); if (!r) return;
@@ -136,6 +138,7 @@ async function renderMedia() {
   if (!r) return;
   $('#photoGrid').innerHTML = r.photos.length ? r.photos.map((p, i) => `<button type="button" class="photo-card" data-photo="${esc(p.mediaId)}" aria-label="照片 ${i + 1} 圈註"><span class="photo-placeholder">讀取照片…</span>${p.marks.length ? '<span class="mark-badge">已圈註</span>' : ''}<span class="photo-label"><span>${i + 1} · ${esc(p.excluded ? '不採用' : ROLES[p.role])}</span><span>編輯 ↗</span></span></button>`).join('') : '<div class="photo-empty">先拍一張位置全景，再加入近照或量尺照。</div>';
   $('#audioList').replaceChildren();
+  await renderLocationCard($('#recordLocation'), r); if (token !== renderToken) return;
   for (const photo of r.photos) {
     const url = await mediaURL(photo.mediaId); if (token !== renderToken) return;
     const card = $(`[data-photo="${photo.mediaId}"]`), image = new Image(); image.alt = photo.caption || ROLES[photo.role]; image.loading = 'lazy'; image.src = url;
@@ -311,10 +314,51 @@ async function addPhotos(files, context) {
   await render(); if (saved) toast(`${saved} 張原始照片已保存於本機`);
   if (errors.length) throw new Error(`已保存 ${saved} 張；其餘 ${errors.length} 張未新增：${errors.slice(0, 5).join('；')}`);
 }
+async function renderLocationCard(stage, r, onEdit = () => action(() => planEntry())) {
+  const plan = project.plans.find(p => p.id === r.placement?.planId);
+  stage.innerHTML = `<strong>${esc(recordNumber(r))} · ${esc(r.floor || '未填樓層')} · 位置核對</strong><p class="micro">${plan ? esc(plan.title) + ' · 圓點是拍攝點，箭頭是拍攝方向。' : '尚未定位。可引用本戶同樓層的共用圖面。'}</p>${plan ? '<div class="location-thumbnail"></div>' : ''}<button type="button" class="secondary location-edit">${plan ? '核對／調整位置' : '引用圖面並定位'}</button><p class="micro">同筆照片共用此定位；移到另一拍攝點或改變方向時，請新增位置紀錄。</p>`;
+  stage.querySelector('.location-edit').onclick = onEdit;
+  if (plan) await planPreview(stage.querySelector('.location-thumbnail'), await mediaURL(plan.mediaId, true), [{ placement: r.placement, label: recordNumber(r) }]);
+}
+function assertPlanContext(context) {
+  assert(context && project?.id === context.projectId && unitId === context.unitId && project.units.some(u => u.id === context.unitId), '圖面原先的案件或戶別已變更，請重新選取');
+  if (context.recordId) assert(recordId === context.recordId && currentRecord()?.floor === context.floor, '位置紀錄或樓層已變更，請重新選取');
+  assert(context.floor?.trim(), '請指定圖面樓層');
+}
+async function afterPlanSaved(plan, context) {
+  closeModal(true); renderRecordList();
+  if (context.recordId) { await planDialog(plan.id); toast('圖面已保存，請標拍攝點及方向'); }
+  else { await planLibrary(plan.floor, plan.id); toast('共用圖面已保存；可繼續建圖或新增位置紀錄'); }
+}
+async function planLibrary(floor = currentRecord()?.floor || '', preferred = '') {
+  assert(currentUnit(), '請先新增戶別');
+  const context = { projectId: project.id, unitId, recordId: null }, plans = project.plans.filter(p => p.unitId === unitId);
+  openModal('本戶共用平面圖庫', `<p class="micro">${esc(currentUnit().code)}。先繞看整體，畫出房間、入口、樓梯與固定參照物；再建立各位置紀錄引用。每層或範圍太大的區域可另建一張。</p><label>新圖面樓層<input id="libraryFloor" list="floors" maxlength="100" value="${esc(floor)}" placeholder="例如 1F、2F、RF"></label><div class="plan-actions"><button id="libraryImport" class="secondary">匯入平面圖</button><button id="librarySketch" class="primary">＋ 先畫平面圖</button></div><p class="micro">可匯入 JPG、PNG、WebP，包含紙本草圖照片。樓層名稱需與位置紀錄一致。</p><div id="planLibraryList">${plans.length ? plans.map(p => `<article class="library-plan ${p.id === preferred ? 'latest-plan' : ''}"><strong>${esc(p.floor)} · ${esc(p.title)}</strong><p class="micro">${project.records.filter(r => r.placement?.planId === p.id).length} 筆位置引用${p.sketch ? ' · 現場簡圖，未按比例' : ''}</p><div class="library-preview" data-plan-preview="${esc(p.id)}"></div><div class="plan-actions"><button data-plan-overview="${esc(p.id)}" class="secondary">放大／查看引用位置</button>${p.sketch ? `<button data-library-edit="${esc(p.id)}" class="quiet">編輯簡圖副本</button>` : ''}</div></article>`).join('') : '<p>尚無圖面。可先建圖，不需新增位置紀錄或照片。</p>'}</div><div class="modal-actions"><button id="finishLibrary" class="primary">完成建圖，返回紀錄</button></div>`);
+  const prepare = () => { const ctx = { ...context, floor: $('#libraryFloor').value.trim() }; assertPlanContext(ctx); return ctx; };
+  $('#libraryImport').onclick = () => { try { pendingPlan = prepare(); $('#planInput').click(); } catch (e) { toast(e.message); $('#libraryFloor').focus(); } };
+  $('#librarySketch').onclick = () => action(() => sketchDialog(null, prepare()));
+  $('#finishLibrary').onclick = () => closeModal(true);
+  $('#planLibraryList').onclick = e => { const overview = e.target.closest('[data-plan-overview]'), edit = e.target.closest('[data-library-edit]'); const plan = plans.find(p => p.id === (overview?.dataset.planOverview || edit?.dataset.libraryEdit)); if (!plan) return; action(() => overview ? planOverview(plan) : sketchDialog(plan, { ...context, floor: plan.floor })); };
+  for (const plan of plans) {
+    const stage = $(`[data-plan-preview="${plan.id}"]`); if (!stage) return;
+    await planPreview(stage, await mediaURL(plan.mediaId, true));
+  }
+}
+async function planOverview(plan) {
+  const records = project.records.filter(r => r.placement?.planId === plan.id);
+  openModal('平面位置總覽', `<h3>${esc(currentUnit().code)} · ${esc(plan.floor)} · ${esc(plan.title)}</h3><p class="micro">先核對入口、樓梯、房間相對位置及方向；再對照各紀錄編號。箭頭表示拍攝方向，不代表裂隙方向。</p><div id="overviewPlan"></div><div class="choice-chips">${records.map(r => `<button data-location-record="${esc(r.id)}">${esc(recordNumber(r))} · ${esc(r.space || '未填空間')}</button>`).join('') || '<p>尚無紀錄引用；建圖完成後可返回新增位置紀錄。</p>'}</div><p class="micro">圖面修訂會另存副本；既有紀錄仍引用原圖，須逐筆確認後改選新版並重新標箭頭。</p><button id="backToLibrary" class="secondary">返回平面圖庫</button>`);
+  $('#backToLibrary').onclick = () => action(() => planLibrary(plan.floor, plan.id));
+  for (const b of $('#modalBody').querySelectorAll('[data-location-record]')) b.onclick = () => action(async () => { requireNoRecording(); recordId = b.dataset.locationRecord; closeModal(true); await render(); });
+  await planPreview($('#overviewPlan'), await mediaURL(plan.mediaId, true), records.map(r => ({ placement: r.placement, label: recordNumber(r) })));
+}
 async function photoDialog(mediaId) {
   const targetRecord = recordId, photo = currentRecord().photos.find(p => p.mediaId === mediaId), metadata = project.media.find(m => m.id === mediaId), asset = await getMedia(mediaId);
   let annotator = null;
   openModal('照片圈註', `<div class="annotation-tools"><label>照片用途<select id="photoRole">${opts(ROLES)}</select></label><label>標記文字<input id="markText" maxlength="120" placeholder="選文字工具後點圖面"></label></div><div class="annotation-toolbar" id="photoTools"><button data-mode="circle" class="selected">圈選</button><button data-mode="arrow">箭頭</button><button data-mode="pen">畫線</button><button data-mode="text">文字</button><button data-mode="view">查看</button><button id="undoMark">復原</button></div><div id="conditionLabels" class="choice-chips" aria-label="現況文字快捷註記">${recordConditions(currentRecord()).filter(c => c !== 'normal').map(c => `<button data-condition-label="${c}">${esc(CONDITIONS[c])}</button>`).join('')}</div><p class="micro">同張照片可分別圈註多種現況。點現況文字，再點照片放置；細節或量尺不清楚時再補拍。</p><div id="photoStage" class="annotation-stage"></div><label>照片說明<input id="photoCaption" maxlength="1000" value="${esc(photo.caption)}" placeholder="可補充拍攝細節"></label><div class="two-col" style="margin-top:12px"><label class="check-label"><input id="photoExcluded" type="checkbox" ${photo.excluded ? 'checked' : ''}>不採用此照片（保留原檔）</label><label>不採用原因<input id="excludedReason" maxlength="500" value="${esc(photo.excludedReason || '')}" placeholder="例如 模糊、重拍"></label></div><p class="micro">${esc(metadata.name)} · ${size(metadata.size)} · 取得於 ${esc(new Date(metadata.importedAt).toLocaleString('zh-TW'))}<br>此時間為工具取得時間；不替代原始拍攝資訊。</p><div class="modal-actions"><button id="downloadOriginal" class="quiet">下載原圖</button><button id="downloadMarked" class="secondary">註記副本</button><button id="savePhoto" class="primary">保存圈註</button></div>`, () => annotator?.dispose());
+  $('#photoStage').insertAdjacentHTML('afterend', '<section id="photoLocation" class="location-card"></section>');
+  $('#downloadMarked').insertAdjacentHTML('afterend', '<button id="downloadPhotoLocation" class="secondary">照片＋位置圖副本</button>');
+  const locationPlan = project.plans.find(p => p.id === currentRecord().placement?.planId);
+  $('#downloadPhotoLocation').disabled = !locationPlan;
   $('#photoRole').value = photo.role;
   try { annotator = await createAnnotator($('#photoStage'), await mediaURL(mediaId, true), photo.marks, () => { modalDirty = true; }); }
   catch (e) { $('#photoStage').textContent = e.message; $('#photoTools').hidden = true; $('#downloadMarked').disabled = true; }
@@ -325,11 +369,20 @@ async function photoDialog(mediaId) {
   for (const selector of ['#photoRole', '#photoCaption', '#photoExcluded', '#excludedReason']) $(selector).oninput = () => { modalDirty = true; };
   $('#downloadOriginal').onclick = () => download(asset.blob, metadata.name);
   $('#downloadMarked').onclick = () => action(async () => { download(await markedImage(asset.blob, annotator.marks), metadata.name.replace(/\.[^.]+$/, '') + '-註記.jpg'); toast('已產生註記副本；原圖不變'); });
-  $('#savePhoto').onclick = () => action(async () => {
+  const savePhotoValues = async () => {
+    assert(!annotator?.pending, '請先完成目前圈註');
     const values = { role: $('#photoRole').value, caption: $('#photoCaption').value, marks: annotator?.marks || photo.marks, excluded: $('#photoExcluded').checked, excludedReason: $('#excludedReason').value.trim() };
     assert(!values.excluded || values.excludedReason, '請填寫不採用原因');
     await commit(next => { const r = next.records.find(x => x.id === targetRecord); Object.assign(r.photos.find(x => x.mediaId === mediaId), values); markUnitOpen(next, r); });
-    closeModal(true); await render(); toast('圈註已另存，原圖保留');
+  };
+  $('#savePhoto').onclick = () => action(async () => { await savePhotoValues(); closeModal(true); await render(); toast('圈註已另存，原圖保留'); });
+  await renderLocationCard($('#photoLocation'), currentRecord(), () => action(async () => { await savePhotoValues(); closeModal(true); await render(); await planEntry(); }));
+  $('#photoLocation .location-edit').textContent = locationPlan ? '保存圈註並核對位置' : '保存圈註並引用圖面';
+  $('#downloadPhotoLocation').onclick = () => action(async () => {
+    assert(locationPlan && !annotator?.pending, '請先完成圈註與位置定位');
+    const r = currentRecord(), planAsset = await getMedia(locationPlan.mediaId);
+    const blob = await photoLocationImage(asset.blob, annotator?.marks || photo.marks, planAsset.blob, r.placement, { record: recordNumber(r), heading: `${project.code} · ${currentUnit().code} · ${r.floor} · ${recordNumber(r)}`, location: `${r.space} · ${r.location}`, plan: locationPlan.title });
+    download(blob, metadata.name.replace(/\.[^.]+$/, '') + '-位置對照.jpg'); toast('已產生位置對照副本；原始照片與圖面保留');
   });
 }
 function planEntry(draw = false) {
@@ -361,17 +414,18 @@ async function planDialog(preferredPlanId = '') {
   $('#addPlanImage').onclick = () => { if (!canSwitch()) return; pendingPlan = { projectId: project.id, recordId, unitId, floor: r.floor }; $('#planInput').click(); };
   $('#drawPlan').onclick = () => { if (canSwitch()) sketchDialog(); };
   $('#editSketch').onclick = () => { if (canSwitch()) sketchDialog(plans.find(p => p.id === selected)); };
-  $('#clearPlacement').onclick = () => action(async () => { await commit(next => { const target = next.records.find(x => x.id === r.id); target.placement = null; markUnitOpen(next, target); }); closeModal(true); toast('已移除本筆定位，原圖保留'); });
-  $('#savePlacement').onclick = () => action(async () => { assert(!annotator?.pending, '請先點第二個位置完成箭頭'); assert(point, '請在圖上先點拍攝點，再點方向，或切換拖曳畫出箭頭'); await commit(next => { const target = next.records.find(x => x.id === r.id); target.placement = point; markUnitOpen(next, target); }); closeModal(true); renderRecordIssues(); toast('位置與方向已保存'); });
+  $('#clearPlacement').onclick = () => action(async () => { await commit(next => { const target = next.records.find(x => x.id === r.id); target.placement = null; markUnitOpen(next, target); }); closeModal(true); await renderEditor(); toast('已移除本筆定位，原圖保留'); });
+  $('#savePlacement').onclick = () => action(async () => { assert(!annotator?.pending, '請先點第二個位置完成箭頭'); assert(point, '請在圖上先點拍攝點，再點方向，或切換拖曳畫出箭頭'); await commit(next => { const target = next.records.find(x => x.id === r.id); target.placement = point; markUnitOpen(next, target); }); closeModal(true); await renderEditor(); toast('位置與方向已保存'); });
   if (initial) await loadPlan(initial.id);
 }
-function sketchDialog(source = null) {
-  const context = { projectId: project.id, recordId, unitId, floor: currentRecord().floor };
+function sketchDialog(source = null, context = { projectId: project.id, recordId, unitId, floor: currentRecord()?.floor }) {
+  assertPlanContext(context);
   let editor;
   const defaultTitle = (source ? `${source.title.replace(/\.png$/i, '')}（修訂）` : `${currentUnit().code} ${context.floor} 現場簡圖`).slice(0, 150);
-  openModal('手繪平面簡圖', `<p class="micro">選工具後指定兩點。門的第一點是門軸，第二點是門洞另一端。${source ? '此次另存副本，原圖與舊定位均保留。' : ''}</p><div id="sketchTools" class="annotation-toolbar sketch-tools"><button data-sketch-mode="line" class="selected" aria-pressed="true">直線</button><button data-sketch-mode="rect" aria-pressed="false">房間框</button><button data-sketch-mode="door" aria-pressed="false">開門</button><button data-sketch-mode="window" aria-pressed="false">開窗</button><button data-sketch-mode="pen" aria-pressed="false">手繪</button><button data-sketch-mode="text" aria-pressed="false">文字</button><button data-sketch-mode="pan" aria-pressed="false">移動畫面</button></div><div class="sketch-history"><button id="undoSketch" class="secondary" disabled>復原一步</button><button id="redoSketch" class="secondary" disabled>重做一步</button></div><p id="sketchHistoryHint" class="micro">先復原一步，才有可重做的步驟。</p><details id="sketchSettings"><summary>名稱與繪圖設定（鎖點／直角）</summary><label>簡圖名稱<input id="sketchTitle" maxlength="150" value="${esc(defaultTitle)}"></label><label>兩點工具操作方式<select id="sketchGesture"><option value="tap">點兩下：起點及終點／對角</option><option value="drag">按住拖曳</option></select></label><label class="check-label"><input type="checkbox" id="sketchSnap" checked>吸附端點及牆線</label><label class="check-label"><input type="checkbox" id="sketchOrtho" checked>直線／門窗鎖定水平或垂直</label><p class="micro">畫斜線或斜牆門窗時，關閉直角鎖定。復原及重做限本次編輯，重新開啟後歷程不保留。</p></details><div id="doorOptions" hidden><label>門扇開啟方向<select id="doorSwing"><option value="-1">由第一點看向第二點的左側</option><option value="1">由第一點看向第二點的右側</option></select></label></div><label id="sketchTextLabel" hidden>標記文字<input id="sketchText" maxlength="60" placeholder="例如 客廳、入口；輸入後點圖面"></label><p id="sketchHint" class="micro" role="status">先點起點，再點終點／對角。手繪則按住拖曳。</p><p id="sketchSnapStatus" class="micro" role="status"></p><div class="sketch-navigation"><button id="zoomOut" aria-label="縮小圖面">−</button><output id="sketchZoom" aria-live="polite">100%</output><button id="zoomIn" aria-label="放大圖面">＋</button><button id="fitSketch">看整張</button></div><p class="micro">雙指撥動可縮放與移動；單指移動請選「移動畫面」。縮放不改變圖紙大小。</p><div class="sketch-stage" id="sketchStage"></div><details id="sketchExpansion"><summary>圖紙不夠大？向外擴展</summary><div id="expandSketch" class="choice-chips"><button data-expand="top">↑ 向上擴展</button><button data-expand="bottom">↓ 向下擴展</button><button data-expand="left">← 向左擴展</button><button data-expand="right">→ 向右擴展</button></div><p class="micro">在指定方向增加空白，原圖形大小保留；可復原／重做。範圍太大時建議依樓層或區域另畫一張。</p></details><div class="sketch-footer"><span id="sketchCount" class="micro"></span><button id="clearSketch" class="quiet" disabled>清空重畫</button></div><button id="addRoomFrame" class="secondary">＋ 插入房間外框</button><p class="micro">未按比例，門窗符號及簡圖只作位置參照；尺寸請另行實測。</p><div class="modal-actions"><button id="saveSketch" class="primary" disabled>保存簡圖並標箭頭 →</button></div>`, () => editor?.dispose());
+  openModal('手繪平面簡圖', `<p class="micro">選工具後指定兩點。門的第一點是門軸，第二點是門洞另一端。${source ? '此次另存副本，原圖與舊定位均保留。' : ''}</p><div id="sketchTools" class="annotation-toolbar sketch-tools"><button data-sketch-mode="line" class="selected" aria-pressed="true">直線</button><button data-sketch-mode="rect" aria-pressed="false">房間框</button><button data-sketch-mode="door" aria-pressed="false">開門</button><button data-sketch-mode="window" aria-pressed="false">開窗</button><button data-sketch-mode="pen" aria-pressed="false">手繪</button><button data-sketch-mode="text" aria-pressed="false">文字</button><button data-sketch-mode="pan" aria-pressed="false">移動畫面</button><button data-sketch-mode="erase" aria-pressed="false">選取／橡皮擦</button></div><div id="eraseOptions" hidden><label>刪除範圍<select id="eraseScope"><option value="segment">單段（房間框單側／手繪線段）</option><option value="whole">整個圖形／整筆手繪</option></select></label><button id="deleteSelection" class="secondary" disabled>刪除選取</button><p class="micro">先點圖形，橘色為刪除範圍；門、窗、文字以整個符號刪除。刪除門窗後原牆線會顯示，可再刪牆線。</p></div><div class="sketch-history"><button id="undoSketch" class="secondary" disabled>復原一步</button><button id="redoSketch" class="secondary" disabled>重做一步</button></div><p id="sketchHistoryHint" class="micro">先復原一步，才有可重做的步驟。</p><details id="sketchSettings"><summary>名稱與繪圖設定（鎖點／直角）</summary><label>簡圖名稱<input id="sketchTitle" maxlength="150" value="${esc(defaultTitle)}"></label><label>兩點工具操作方式<select id="sketchGesture"><option value="tap">點兩下：起點及終點／對角</option><option value="drag">按住拖曳</option></select></label><label class="check-label"><input type="checkbox" id="sketchSnap" checked>吸附端點及牆線</label><label class="check-label"><input type="checkbox" id="sketchOrtho" checked>直線／門窗鎖定水平或垂直</label><p class="micro">畫斜線或斜牆門窗時，關閉直角鎖定。復原及重做限本次編輯，重新開啟後歷程不保留。</p></details><div id="doorOptions" hidden><label>門扇開啟方向<select id="doorSwing"><option value="-1">由第一點看向第二點的左側</option><option value="1">由第一點看向第二點的右側</option></select></label></div><label id="sketchTextLabel" hidden>標記文字<input id="sketchText" maxlength="60" placeholder="例如 客廳、入口；輸入後點圖面"></label><p id="sketchHint" class="micro" role="status">先點起點，再點終點／對角。手繪則按住拖曳。</p><p id="sketchSnapStatus" class="micro" role="status"></p><div class="sketch-navigation"><button id="zoomOut" aria-label="縮小圖面">−</button><output id="sketchZoom" aria-live="polite">100%</output><button id="zoomIn" aria-label="放大圖面">＋</button><button id="fitSketch">看整張</button></div><p class="micro">雙指撥動可縮放與移動；單指移動請選「移動畫面」。縮放不改變圖紙大小。</p><div class="sketch-stage" id="sketchStage"></div><details id="sketchExpansion"><summary>圖紙不夠大？向外擴展</summary><div id="expandSketch" class="choice-chips"><button data-expand="top">↑ 向上擴展</button><button data-expand="bottom">↓ 向下擴展</button><button data-expand="left">← 向左擴展</button><button data-expand="right">→ 向右擴展</button></div><p class="micro">在指定方向增加空白，原圖形大小保留；可復原／重做。範圍太大時建議依樓層或區域另畫一張。</p></details><div class="sketch-footer"><span id="sketchCount" class="micro"></span><button id="clearSketch" class="quiet" disabled>清空重畫</button></div><button id="addRoomFrame" class="secondary">＋ 插入房間外框</button><p class="micro">未按比例，門窗符號及簡圖只作位置參照；尺寸請另行實測。</p><div class="modal-actions"><button id="saveSketch" class="primary" disabled>${context.recordId ? '保存簡圖並標箭頭 →' : '保存至本戶平面圖庫'}</button></div>`, () => editor?.dispose());
   const updateState = state => {
     $('#sketchCount').textContent = state.count + '／300 筆畫';
+    $('#deleteSelection').disabled = !state.selected;
     $('#sketchZoom').textContent = Math.round(state.zoom * 100) + '%';
     $('#zoomIn').disabled = state.zoom >= 8; $('#zoomOut').disabled = state.zoom <= 1;
     for (const b of $('#expandSketch').querySelectorAll('[data-expand]')) b.disabled = state.pending || !state.canExpand[b.dataset.expand];
@@ -381,6 +435,8 @@ function sketchDialog(source = null) {
     $('#sketchSnapStatus').textContent = state.snapLabel || ($('#sketchSnap').checked ? '靠近端點／牆線時會吸附並顯示圓圈' : '鎖點已關閉');
   };
   editor = createSketcher($('#sketchStage'), source?.sketch || emptySketch(), () => { modalDirty = true; }, hint => { $('#sketchHint').textContent = hint; }, updateState); editor.setGesture('tap');
+  $('#eraseScope').onchange = e => editor.setSelectionScope(e.target.value === 'whole');
+  $('#deleteSelection').onclick = () => editor.deleteSelected();
   $('#zoomIn').onclick = () => editor.zoomBy(1.4); $('#zoomOut').onclick = () => editor.zoomBy(1 / 1.4); $('#fitSketch').onclick = () => editor.fit();
   $('#expandSketch').onclick = e => { const b = e.target.closest('[data-expand]'); if (b) editor.expand(b.dataset.expand); };
   $('#sketchGesture').onchange = e => { editor.setGesture(e.target.value); $('#sketchHint').textContent = e.target.value === 'tap' ? '請點起點，再點終點／對角；手繪仍按住拖曳。' : '按住圖面後移動，放開完成一筆。'; };
@@ -389,24 +445,24 @@ function sketchDialog(source = null) {
   $('#addRoomFrame').onclick = () => editor.addRoom();
   $('#sketchTitle').oninput = () => { modalDirty = true; };
   $('#sketchText').oninput = e => editor.setText(e.target.value);
-  $('#sketchTools').onclick = e => { const b = e.target.closest('[data-sketch-mode]'); if (!b) return; const mode = b.dataset.sketchMode; editor.setMode(mode); for (const x of $('#sketchTools').querySelectorAll('[data-sketch-mode]')) { x.classList.toggle('selected', x === b); x.setAttribute('aria-pressed', String(x === b)); } $('#doorOptions').hidden = mode !== 'door'; $('#sketchTextLabel').hidden = mode !== 'text'; $('#sketchHint').textContent = mode === 'pan' ? '用單指或滑鼠拖曳移動；雙指可同時縮放。' : mode === 'text' ? '輸入文字後，點圖面放置文字。' : mode === 'pen' ? '在圖面按住並移動手指，放開完成一筆。' : mode === 'door' ? '第一點為門軸，第二點為門洞另一端；方向可在上方切換。' : mode === 'window' ? '點選窗戶兩端；靠近牆線時可吸附。' : $('#sketchGesture').value === 'tap' ? '先點起點，再點終點／對角。' : '按住並拖曳，放開完成。'; if (mode === 'text' && !$('#sketchText').value.trim()) $('#sketchText').focus(); };
+  $('#sketchTools').onclick = e => { const b = e.target.closest('[data-sketch-mode]'); if (!b) return; const mode = b.dataset.sketchMode; editor.setMode(mode); for (const x of $('#sketchTools').querySelectorAll('[data-sketch-mode]')) { x.classList.toggle('selected', x === b); x.setAttribute('aria-pressed', String(x === b)); } $('#eraseOptions').hidden = mode !== 'erase'; $('#doorOptions').hidden = mode !== 'door'; $('#sketchTextLabel').hidden = mode !== 'text'; $('#sketchHint').textContent = mode === 'erase' ? '先點要刪除的線段或符號，確認橘色範圍後按刪除選取。' : mode === 'pan' ? '用單指或滑鼠拖曳移動；雙指可同時縮放。' : mode === 'text' ? '輸入文字後，點圖面放置文字。' : mode === 'pen' ? '在圖面按住並移動手指，放開完成一筆。' : mode === 'door' ? '第一點為門軸，第二點為門洞另一端；方向可在上方切換。' : mode === 'window' ? '點選窗戶兩端；靠近牆線時可吸附。' : $('#sketchGesture').value === 'tap' ? '先點起點，再點終點／對角。' : '按住並拖曳，放開完成。'; if (mode === 'text' && !$('#sketchText').value.trim()) $('#sketchText').focus(); };
   $('#undoSketch').onclick = () => editor.undo(); $('#redoSketch').onclick = () => editor.redo(); $('#clearSketch').onclick = () => editor.clear();
   $('#saveSketch').onclick = () => action(async () => {
-    assert(project.id === context.projectId && recordId === context.recordId && currentRecord().floor === context.floor, '簡圖原先的戶別或樓層已變更，請先另存案件副本');
+    assertPlanContext(context);
     const title = $('#sketchTitle').value.trim(), sketch = editor.sketch;
     assert(title, '請填寫簡圖名稱'); assert(!editor.pending, '請先點第二個位置完成目前筆畫，或切換工具取消'); assert(sketch.strokes.length, '請至少畫一筆房間、隔間或位置文字');
     const file = new File([await sketchImage(sketch)], `${title}.png`, { type: 'image/png' });
     const { metadata, asset } = await prepareAsset(file, 'plan', 'sketch');
     const plan = { id: id(), unitId: context.unitId, floor: context.floor, title, mediaId: metadata.id, sketch };
     await commit(next => { next.media.push(metadata); next.plans.push(plan); }, [asset]);
-    closeModal(true); await planDialog(plan.id); toast('簡圖已保存，請先點拍攝點，再點拍攝方向');
+    await afterPlanSaved(plan, context);
   }, '保存簡圖');
 }
 async function addPlan(file, context) {
-  assert(project.id === context.projectId && recordId === context.recordId && currentRecord().floor === context.floor, '位置圖原先的戶別或樓層已變更，請重新選取');
+  assertPlanContext(context);
   const { metadata, asset } = await prepareAsset(file, 'plan', 'plan'); assert(!metadata.previewUnavailable, '此圖面無法預覽，請改用 JPG 或 PNG');
   const plan = { id: id(), unitId: context.unitId, floor: context.floor, title: file.name, mediaId: metadata.id };
-  await commit(next => { next.media.push(metadata); next.plans.push(plan); }, [asset]); closeModal(true); await planDialog(plan.id);
+  await commit(next => { next.media.push(metadata); next.plans.push(plan); }, [asset]); await afterPlanSaved(plan, context);
 }
 async function audioToggle() {
   if (recording) return stopAudio();
@@ -464,7 +520,7 @@ async function receiveReceipt(file) {
   state.entries[receipt.scope || 'all'] = await checkReceipt(receipt, project, state); await saveBackupState(state); await renderBackup(); toast('核對收據已記錄');
 }
 function helpDialog() {
-  openModal('手機使用與保存', `<ol class="help-list"><li>新增案件及戶別。進入每個空間後新增位置，拍全景、近照或量尺照。</li><li>點照片可圈選、畫箭頭與文字；圈註另存，原圖保留。位置圖可加入圖面或草圖照片；手繪簡圖支援雙指縮放、移動及四向擴展。</li><li>現況可複選並共用照片；白華、剝落等面積各自填 m²，不合計重疊範圍。裂隙寬度用 mm、長度用 m。現況欄位會自動保存。切換位置前會先保存；上方有錯誤時請先處理。</li><li>離開一戶前查看「待補檢查」，無法入內或部分完成請記原因。</li><li>從「備份還原」匯出全案或單戶。在電腦開啟同一工具、核對備份及建立還原副本。</li><li>iPhone 可從瀏覽器分享選單加入主畫面；Android 可從瀏覽器選單安裝。需先在線開啟，等上方顯示「離線已就緒」。手機使用需 HTTPS。</li></ol><p class="modal-note">資料只保存在此瀏覽器及你匯出的備份檔，不自動上傳。換瀏覽器、清除網站資料或移除應用程式前，請先完成外部備份。勿以無痕模式保存工作。</p><p>本工具記錄現場可見情形，不自動判定損害原因、結構安全或責任歸屬。尚須在實際手機上確認相機、容量及中斷操作。</p><p class="help-version">版本 ${VERSION} · 純本機資料 · 現況紀錄工作稿</p><button id="applyUpdate" class="secondary" hidden>保存後套用離線更新</button>`);
+  openModal('手機使用與保存', `<ol class="help-list"><li>新增案件及戶別。先從「平面圖庫／先建圖」依樓層匯入或手繪，標上入口、樓梯及房間名稱；再進入各空間新增位置，引用圖面標拍攝箭頭，拍全景、近照或量尺照。</li><li>點照片可圈選、畫箭頭與文字；圈註另存，原圖保留。位置圖可加入圖面或草圖照片；手繪簡圖支援雙指縮放、移動、四向擴展及選取刪除。照片旁可核對定位，另可下載照片與位置圖對照副本。</li><li>現況可複選並共用照片；白華、剝落等面積各自填 m²，不合計重疊範圍。裂隙寬度用 mm、長度用 m。現況欄位會自動保存。切換位置前會先保存；上方有錯誤時請先處理。</li><li>離開一戶前查看「待補檢查」，無法入內或部分完成請記原因。</li><li>從「備份還原」匯出全案或單戶。在電腦開啟同一工具、核對備份及建立還原副本。</li><li>iPhone 可從瀏覽器分享選單加入主畫面；Android 可從瀏覽器選單安裝。需先在線開啟，等上方顯示「離線已就緒」。手機使用需 HTTPS。</li></ol><p class="modal-note">資料只保存在此瀏覽器及你匯出的備份檔，不自動上傳。換瀏覽器、清除網站資料或移除應用程式前，請先完成外部備份。勿以無痕模式保存工作。</p><p>本工具記錄現場可見情形，不自動判定損害原因、結構安全或責任歸屬。尚須在實際手機上確認相機、容量及中斷操作。</p><p class="help-version">版本 ${VERSION} · 純本機資料 · 現況紀錄工作稿</p><button id="applyUpdate" class="secondary" hidden>保存後套用離線更新</button>`);
   $('#modalBody').insertAdjacentHTML('afterbegin', '<p class="modal-note">V0.4.1：網狀裂隙的寬度、長度及實測勾選均可略過，不列尺寸待補。簡圖新增開門、開窗、端點／牆線吸附與水平／垂直鎖定。復原一步後才可重做，清空重畫另有按鈕。拍照先同意啟用相機，再於瀏覽器選允許；可預覽、重拍與保存。部位可複選；裂縫可一鍵選 ≤0.3 mm、>0.3 mm。無圖說可直接「手繪簡圖」，點兩下畫房間／線段，保存後點拍攝點及方向標箭頭。簡圖未按比例，寬度區間不代表安全判定。</p>');
   navigator.serviceWorker?.getRegistration().then(reg => { if (reg?.waiting && $('#applyUpdate')) { $('#applyUpdate').hidden = false; $('#applyUpdate').onclick = () => action(async () => { requireNoRecording(); assert(!conflictDraft, '請先另存目前副本，再套用更新'); closeModal(true); navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true }); reg.waiting.postMessage('ACTIVATE_UPDATE'); }); } });
 }
@@ -516,6 +572,7 @@ $('#recordList').onclick = e => { const b = e.target.closest('[data-record]'); i
 $('#takePhoto').onclick = () => action(cameraDialog); $('#pickPhotos').onclick = () => { try { capture('gallery'); } catch (e) { fail(e); } };
 for (const selector of ['#cameraInput', '#galleryInput']) $(selector).onchange = e => { const files = [...e.target.files], context = pendingCapture; e.target.value = ''; if (files.length) action(() => addPhotos(files, context), '保存原始照片'); };
 $('#photoGrid').onclick = e => { const b = e.target.closest('[data-photo]'); if (b) action(() => photoDialog(b.dataset.photo)); };
+$('#unitPlans').onclick = () => action(() => planLibrary());
 $('#showPlan').onclick = () => action(() => planEntry(false)); $('#quickSketch').onclick = () => action(() => planEntry(true)); $('#planInput').onchange = e => { const file = e.target.files[0], context = pendingPlan; e.target.value = ''; if (file) action(() => addPlan(file, context)); };
 $('#recordAudio').onclick = () => action(audioToggle, '準備錄音');
 $('#bottomNav').onclick = e => { const b = e.target.closest('[data-view]'); if (b && project) action(async () => { requireNoRecording(); await showView(b.dataset.view); window.scrollTo(0, 0); }); };

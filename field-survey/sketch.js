@@ -49,6 +49,58 @@ export function doorGeometry(a, b, swing) {
   const dx = b.x - a.x, dy = b.y - a.y;
   return { radius: Math.hypot(dx, dy), open: { x: a.x - swing * dy, y: a.y + swing * dx }, sweep: swing === 1 ? 1 : 0 };
 }
+function strokeSegments(stroke) {
+  const p = stroke.points, a = p[0], b = p.at(-1);
+  const points = stroke.type === 'rect' ? [a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }, a] : p;
+  return points.slice(1).map((q, i) => [points[i], q]);
+}
+function segmentDistance(p, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy;
+  const t = d2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / d2)) : 0;
+  return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+}
+// Pick visible geometry using screen-pixel tolerance, independently of paper size or zoom.
+export function hitSketch(sketch, point, scale = 1) {
+  const area = sketchArea(sketch), world = p => ({ x: p.x * area.width, y: p.y * area.height }), q = world(point);
+  let best = 16 / Math.max(.05, scale), hit = null;
+  const ordered = sketch.strokes.map((stroke, index) => ({ stroke, index })).sort((a, b) => Number(['door', 'window', 'text'].includes(a.stroke.type)) - Number(['door', 'window', 'text'].includes(b.stroke.type)));
+  for (const { stroke, index } of ordered) {
+    let segments = strokeSegments(stroke).map(pair => pair.map(world));
+    const a = world(stroke.points[0]);
+    if (stroke.type === 'text') {
+      const width = [...stroke.text].reduce((n, c) => n + (/[^\x00-\xff]/.test(c) ? 48 : 29), 0);
+      const d = Math.hypot(Math.max(a.x - q.x, 0, q.x - a.x - width), Math.max(a.y - 48 - q.y, 0, q.y - a.y - 8));
+      if (d <= best) { best = d; hit = { index, segment: 0 }; } continue;
+    }
+    if (stroke.type === 'door') {
+      const b = world(stroke.points[1]), g = doorGeometry(a, b, stroke.swing), angle = Math.atan2(b.y - a.y, b.x - a.x);
+      const arc = Array.from({ length: 25 }, (_, i) => ({ x: a.x + g.radius * Math.cos(angle + stroke.swing * Math.PI / 2 * i / 24), y: a.y + g.radius * Math.sin(angle + stroke.swing * Math.PI / 2 * i / 24) }));
+      segments.push([a, g.open], ...arc.slice(1).map((p, i) => [arc[i], p]));
+    }
+    if (stroke.type === 'window') {
+      const b = world(stroke.points[1]), length = Math.hypot(b.x - a.x, b.y - a.y), nx = -(b.y - a.y) / length, ny = (b.x - a.x) / length;
+      const offset = (p, n) => ({ x: p.x + nx * n, y: p.y + ny * n });
+      segments.push(...[-8, 8].map(n => [offset(a, n), offset(b, n)]), ...[a, b].map(p => [offset(p, -13), offset(p, 13)]));
+    }
+    segments.forEach(([a, b], segment) => { const d = segmentDistance(q, a, b); if (d <= best + 1e-8) { best = d; hit = { index, segment }; } });
+  }
+  return hit;
+}
+export function deleteSketchSelection(sketch, hit, whole = false) {
+  validateSketch(sketch);
+  if (!hit || !Number.isInteger(hit.index) || !sketch.strokes[hit.index]) throw new Error('請先點選要刪除的圖形');
+  const result = structuredClone(sketch), stroke = result.strokes[hit.index];
+  let remaining = [];
+  if (!whole && ['rect', 'pen'].includes(stroke.type)) {
+    const segments = strokeSegments(stroke);
+    if (!Number.isInteger(hit.segment) || !segments[hit.segment]) throw new Error('請重新點選線段');
+    remaining = stroke.type === 'rect' ? segments.filter((_, i) => i !== hit.segment).map(points => ({ type: 'line', points }))
+      : [stroke.points.slice(0, hit.segment + 1), stroke.points.slice(hit.segment + 1)].filter(points => points.length >= 2).map(points => ({ type: 'pen', points }));
+  }
+  if (result.strokes.length - 1 + remaining.length > 300) throw new Error('拆分後超過 300 筆畫，請改選整個圖形刪除，或先刪除其他筆畫');
+  result.strokes.splice(hit.index, 1, ...remaining);
+  return validateSketch(result);
+}
 const node = (tag, attrs = {}) => {
   const el = document.createElementNS(NS, tag);
   for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, String(value));
@@ -73,6 +125,7 @@ function paint(svg, sketch, draft = null) {
   const strokes = draft ? [...sketch.strokes, draft] : sketch.strokes;
   // Opening symbols are above walls even when a wall is added later.
   for (const stroke of [...strokes.filter(s => !['door', 'window', 'text'].includes(s.type)), ...strokes.filter(s => ['door', 'window', 'text'].includes(s.type))]) {
+    const before = ink.children.length;
     const points = stroke.points.map(p => ({ x: area.x + p.x * area.width, y: area.y + p.y * area.height }));
     const a = points[0], b = points.at(-1), attrs = { fill: 'none', stroke: '#244644', 'stroke-width': 6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
     if (stroke.type === 'line') ink.append(node('line', { ...attrs, x1: a.x, y1: a.y, x2: b.x, y2: b.y }));
@@ -95,6 +148,7 @@ function paint(svg, sketch, draft = null) {
       }
       ink.append(symbol);
     }
+    for (const el of [...ink.children].slice(before)) el.setAttribute('data-stroke-index', sketch.strokes.indexOf(stroke));
   }
   svg.append(ink, label('現場示意圖', 24, 36, 26, '#244644'), label('未按比例・僅供辨識位置，尺寸請另行實測', 24, sketch.height - 25, 25, '#667873'));
 }
@@ -122,11 +176,11 @@ export function sketchView(sketch, aspect, zoom = 1, center = { x: sketch.width 
 export function createSketcher(stage, initial = emptySketch(), onChange = () => {}, onHint = () => {}, onState = () => {}) {
   let sketch = structuredClone(validateSketch(initial)), draft = null, pointerId = null, mode = 'line', text = '', gesture = 'drag', anchor = null;
   let snap = true, orthogonal = true, swing = -1, snapResult = null, zoom = 1, center = { x: sketch.width / 2, y: sketch.height / 2 };
-  let navigating = false, navigation = null;
+  let navigating = false, navigation = null, selected = null, wholeSelection = false;
   const pointers = new Map(), undoHistory = [], redoHistory = [], svg = node('svg', { role: 'img', 'aria-label': '手繪平面簡圖區' });
   stage.replaceChildren(svg);
   const pending = () => !!(draft || anchor);
-  const state = () => ({ undoCount: undoHistory.length, redoCount: redoHistory.length, canUndo: pending() || undoHistory.length > 0, canRedo: redoHistory.length > 0, pending: pending(), count: sketch.strokes.length, zoom,
+  const state = () => ({ selected: !!selected, undoCount: undoHistory.length, redoCount: redoHistory.length, canUndo: pending() || undoHistory.length > 0, canRedo: redoHistory.length > 0, pending: pending(), count: sketch.strokes.length, zoom,
     canExpand: { left: sketch.width < 4800, right: sketch.width < 4800, top: sketch.height < 4800, bottom: sketch.height < 4800 },
     snapLabel: [snapResult?.kind === 'endpoint' ? '端點吸附' : snapResult?.kind === 'edge' ? '牆線吸附' : '', snapResult?.locked === 'horizontal' ? '水平鎖定' : snapResult?.locked === 'vertical' ? '垂直鎖定' : ''].filter(Boolean).join(' · ') });
   const view = () => { const box = svg.getBoundingClientRect(); return sketchView(sketch, box.width / box.height || 4 / 3, zoom, center); };
@@ -136,6 +190,20 @@ export function createSketcher(stage, initial = emptySketch(), onChange = () => 
     paint(svg, sketch, draft); updateView();
     const area = sketchArea(sketch), marker = snapResult?.kind ? snapResult.point : anchor, scale = svg.getScreenCTM()?.a || 1;
     if (marker) svg.append(node('circle', { cx: area.x + marker.x * area.width, cy: area.y + marker.y * area.height, r: 6 / scale, fill: 'none', stroke: '#c94e32', 'stroke-width': 2 / scale, 'data-snap': snapResult?.kind || 'start' }));
+    if (selected) {
+      const stroke = sketch.strokes[selected.index]; let highlight;
+      if (!wholeSelection && ['rect', 'pen'].includes(stroke.type)) {
+        const [a, b] = strokeSegments(stroke)[selected.segment];
+        highlight = node('line', { x1: area.x + a.x * area.width, y1: area.y + a.y * area.height, x2: area.x + b.x * area.width, y2: area.y + b.y * area.height });
+      } else highlight = svg.querySelector(`[data-stroke-index="${selected.index}"]`).cloneNode(true);
+      highlight.removeAttribute('data-stroke-index'); highlight.setAttribute('data-selection', 'true'); highlight.setAttribute('pointer-events', 'none');
+      for (const el of [highlight, ...highlight.querySelectorAll('*')]) {
+        if (el.getAttribute('stroke') === '#fffdf7') { el.remove(); continue; }
+        el.setAttribute('stroke', '#e36c18'); el.setAttribute('stroke-width', '4'); el.setAttribute('vector-effect', 'non-scaling-stroke');
+        el.setAttribute('fill', ['text', 'circle'].includes(el.tagName) ? '#e36c18' : 'none');
+      }
+      svg.append(highlight);
+    }
   };
   const remember = () => { undoHistory.push(structuredClone(sketch)); if (undoHistory.length > 50) undoHistory.shift(); redoHistory.length = 0; };
   const changed = () => { draw(); onChange(structuredClone(sketch)); };
@@ -148,7 +216,7 @@ export function createSketcher(stage, initial = emptySketch(), onChange = () => 
   const inside = event => { const p = world(event), a = sketchArea(sketch); return p.x >= a.x && p.x <= a.x + a.width && p.y >= a.y && p.y <= a.y + a.height; };
   const cancelDraft = () => { pointerId = null; draft = anchor = snapResult = null; };
   const release = id => { pointers.delete(id); if (stage.hasPointerCapture(id)) stage.releasePointerCapture(id); };
-  const cancel = () => { cancelDraft(); navigating = false; navigation = null; for (const id of [...pointers.keys()]) release(id); };
+  const cancel = () => { cancelDraft(); selected = null; navigating = false; navigation = null; for (const id of [...pointers.keys()]) release(id); };
   const stroke = (a, b = a) => ({ type: mode, points: mode === 'text' ? [a] : [a, b], ...(mode === 'text' ? { text: text.trim().slice(0, 60) } : {}), ...(mode === 'door' ? { swing } : {}) });
   const finish = () => {
     const value = draft;
@@ -160,7 +228,7 @@ export function createSketcher(stage, initial = emptySketch(), onChange = () => 
     return { clientX: (a.clientX + b.clientX) / 2, clientY: (a.clientY + b.clientY) / 2, distance: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) };
   };
   const startNavigation = () => {
-    cancelDraft(); navigating = true;
+    cancelDraft(); selected = null; navigating = true;
     const g = touchGeometry(); navigation = { ...g, zoom, world: world(g) }; draw();
   };
   const moveNavigation = () => {
@@ -173,6 +241,7 @@ export function createSketcher(stage, initial = emptySketch(), onChange = () => 
     if (event.button > 0) return;
     event.preventDefault(); pointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY }); stage.setPointerCapture(event.pointerId);
     if (pointers.size > 1 || navigating || mode === 'pan') { startNavigation(); return; }
+    if (mode === 'erase') { pointerId = event.pointerId; return; }
     if (sketch.strokes.length >= 300) { onHint('已達 300 筆畫，請另畫一張簡圖'); return; }
     if (!inside(event)) { onHint('請在格線範圍繪製；空間不足可向外擴展'); return; }
     if (mode === 'text' && !text.trim()) { onHint('請先輸入標記文字，再點圖面'); return; }
@@ -200,6 +269,11 @@ export function createSketcher(stage, initial = emptySketch(), onChange = () => 
     }
     const active = event.pointerId === pointerId; pointerId = null; release(event.pointerId);
     if (!active) return;
+    if (mode === 'erase') {
+      const area = sketchArea(sketch), p = world(event);
+      selected = hitSketch(sketch, { x: (p.x - area.x) / area.width, y: (p.y - area.y) / area.height }, svg.getScreenCTM().a);
+      draw(); onHint(selected ? '橘色為選取範圍，確認後按「刪除選取」；刪錯可復原。' : '此處沒有圖形；請靠近線段、門窗或文字點選，可先放大。'); return;
+    }
     if (gesture === 'tap' && twoPoint(mode)) {
       const p = point(event, anchor);
       if (!anchor) { anchor = p; draft = stroke(p); draw(); onHint(mode === 'door' ? '起點已選好（門軸），請點門洞另一端' : '起點已選好，請點第二個端點／對角'); return; }
@@ -216,7 +290,9 @@ export function createSketcher(stage, initial = emptySketch(), onChange = () => 
   const restore = value => { const resized = value.width !== sketch.width || value.height !== sketch.height; sketch = value; cancel(); if (resized) fit(); changed(); };
   return {
     get pending() { return pending(); }, get state() { return state(); }, get sketch() { return structuredClone(sketch); },
-    setMode(value) { if (['line', 'rect', 'pen', 'text', 'door', 'window', 'pan'].includes(value)) { cancel(); mode = value; draw(); } },
+    setMode(value) { if (['line', 'rect', 'pen', 'text', 'door', 'window', 'pan', 'erase'].includes(value)) { cancel(); mode = value; draw(); } },
+    setSelectionScope(whole) { wholeSelection = !!whole; draw(); },
+    deleteSelected() { if (!selected) return; let next; try { next = deleteSketchSelection(sketch, selected, wholeSelection); } catch (e) { onHint(e.message); return; } remember(); sketch = next; cancel(); changed(); onHint('已刪除選取範圍；可復原或切換繪圖工具補畫。'); },
     setGesture(value) { cancel(); gesture = value === 'tap' ? 'tap' : 'drag'; draw(); },
     setSnap(value) { snap = !!value; snapResult = null; draw(); },
     setOrthogonal(value) { orthogonal = !!value; snapResult = null; draw(); },

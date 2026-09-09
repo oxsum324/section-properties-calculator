@@ -15,6 +15,30 @@ export function drawMarks(svg, marks, width, height) {
   }
 }
 function loadImage(url) { return new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = () => reject(new Error('此裝置無法預覽此影像格式；原檔仍可備份。')); img.src = url; }); }
+export function placementMarks(q, title = '') {
+  return q ? [{ type: 'arrow', points: [{ x: q.x, y: q.y }, { x: q.endX, y: q.endY }] },
+    { type: 'circle', points: [{ x: q.x - .012, y: q.y - .012 }, { x: q.x + .012, y: q.y + .012 }] },
+    ...(title ? [{ type: 'text', text: title, points: [{ x: Math.min(.75, q.x + .02), y: Math.max(.05, q.y - .02) }] }] : [])] : [];
+}
+export async function planPreview(stage, url, entries = []) {
+  const img = await loadImage(url), svg = node('svg', { role: 'img', 'aria-label': '拍攝點、紀錄編號與方向' });
+  img.alt = '平面位置圖'; drawMarks(svg, entries.flatMap(e => placementMarks(e.placement, e.label)), img.naturalWidth, img.naturalHeight);
+  stage.classList.add('plan-preview'); stage.replaceChildren(img, svg);
+}
+export async function photoLocationImage(photoBlob, marks, planBlob, placement, labels) {
+  const blobs = [await markedImage(photoBlob, marks), await markedImage(planBlob, placementMarks(placement, labels.record))], urls = blobs.map(b => URL.createObjectURL(b));
+  try {
+    const images = await Promise.all(urls.map(loadImage)), canvas = document.createElement('canvas'); canvas.width = 1600; canvas.height = 1900;
+    const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const text = (value, y, font = 32) => { ctx.font = `${font}px sans-serif`; ctx.fillStyle = '#244644'; let display = String(value); while (display.length && ctx.measureText(display).width > 1500) display = display.slice(0, -1); ctx.fillText(display.length < String(value).length ? display.slice(0, -1) + '…' : display, 50, y); };
+    const contain = (img, y, height) => { const scale = Math.min(1500 / img.naturalWidth, height / img.naturalHeight); ctx.drawImage(img, (1600 - img.naturalWidth * scale) / 2, y, img.naturalWidth * scale, img.naturalHeight * scale); };
+    text(labels.heading, 55, 36); text(labels.location, 100, 28); contain(images[0], 125, 900);
+    text('位置圖：' + labels.plan, 1080); contain(images[1], 1100, 650);
+    text('圓點＝拍攝點；箭頭＝拍攝方向。同筆照片共用本定位。', 1800, 28);
+    text('照片與位置圖對照副本 · 圖面比例各自獨立 · 原始照片另行保存', 1850, 25);
+    return await new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('位置對照副本產生失敗')), 'image/jpeg', .94));
+  } finally { urls.forEach(url => URL.revokeObjectURL(url)); }
+}
 export async function createAnnotator(stage, url, initial = [], onChange = () => {}) {
   const img = await loadImage(url), svg = node('svg', { 'aria-label': '圖面圈註區', role: 'img' });
   let marks = structuredClone(initial), mode = 'circle', text = '', draft = null, start = null, gesture = 'drag', anchor = null, pointerId = null;

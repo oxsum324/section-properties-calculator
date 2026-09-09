@@ -2,7 +2,42 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { newProject, newUnit, newRecord, id, now, sha256, validateProject, recordIssues, unitIssues, subset, restoredCopy, widthMode, recordComponents, recordConditions, emptySketch, validateSketch } from '../model.js';
 import { makeBundle, readBundle, snapshot, makeReceipt, checkReceipt } from '../bundle.js';
-import { resolveSketchPoint, doorGeometry, expandSketch, sketchArea, sketchView } from '../sketch.js';
+import { resolveSketchPoint, doorGeometry, expandSketch, sketchArea, sketchView, hitSketch, deleteSketchSelection } from '../sketch.js';
+
+test('eraser selects rectangle edges without selecting empty rooms and preserves other three walls', () => {
+  const sketch = emptySketch(); sketch.strokes.push({ type: 'rect', points: [{ x: .1, y: .2 }, { x: .8, y: .9 }] });
+  assert.equal(hitSketch(sketch, { x: .5, y: .5 }), null);
+  const hit = hitSketch(sketch, { x: .4, y: .2 }); assert.deepEqual(hit, { index: 0, segment: 0 });
+  const deleted = deleteSketchSelection(sketch, hit);
+  assert.deepEqual(deleted.strokes.map(s => s.points), [[{ x: .8, y: .2 }, { x: .8, y: .9 }], [{ x: .8, y: .9 }, { x: .1, y: .9 }], [{ x: .1, y: .9 }, { x: .1, y: .2 }]]);
+  assert.equal(sketch.strokes[0].type, 'rect'); assert.equal(deleteSketchSelection(sketch, hit, true).strokes.length, 0);
+});
+test('eraser screen tolerance scales with zoom; visible opening wins over underlying wall', () => {
+  const sketch = emptySketch(); sketch.strokes = [{ type: 'line', points: [{ x: .1, y: .5 }, { x: .9, y: .5 }] }, { type: 'window', points: [{ x: .2, y: .5 }, { x: .3, y: .5 }] }];
+  assert.equal(hitSketch(sketch, { x: .25, y: .5 }).index, 1);
+  assert.equal(hitSketch(sketch, { x: .7, y: .5 + 15 / 780 }, 1).index, 0);
+  assert.equal(hitSketch(sketch, { x: .7, y: .5 + 17 / 780 }, 1), null);
+  assert.equal(hitSketch(sketch, { x: .7, y: .5 + 15 / 780 }, 2), null);
+  const result = deleteSketchSelection(sketch, { index: 1, segment: 0 }); assert.equal(hitSketch(result, { x: .25, y: .5 }).index, 0);
+});
+test('door leaf, arc and text can be selected and deleted as full symbols', () => {
+  const sketch = emptySketch(); sketch.strokes = [{ type: 'door', points: [{ x: .2, y: .5 }, { x: .3, y: .5 }], swing: -1 }, { type: 'text', text: '入口', points: [{ x: .6, y: .7 }] }];
+  assert.equal(hitSketch(sketch, { x: .2, y: .5 - 100 / 780 }).index, 0);
+  assert.equal(hitSketch(sketch, { x: .2 + .1 / Math.sqrt(2), y: .5 - 115.2 / Math.sqrt(2) / 780 }).index, 0);
+  const hit = hitSketch(sketch, { x: .65, y: .68 }); assert.equal(hit.index, 1); assert.equal(deleteSketchSelection(sketch, hit).strokes.length, 1);
+});
+test('erasing a pen segment leaves two disconnected polylines without a bridge', () => {
+  const sketch = emptySketch(), points = [.1, .2, .3, .4, .5].map(x => ({ x, y: .5 })); sketch.strokes = [{ type: 'pen', points }];
+  const split = deleteSketchSelection(sketch, hitSketch(sketch, { x: .25, y: .5 }));
+  assert.deepEqual(split.strokes.map(s => s.points), [points.slice(0, 2), points.slice(2)]);
+  assert.equal(deleteSketchSelection(sketch, { index: 0, segment: 0 }).strokes[0].points.length, 4);
+  assert.throws(() => deleteSketchSelection(sketch, { index: 0, segment: 55 }));
+});
+test('eraser refuses over-capacity rectangle split without mutating input; whole deletion still works', () => {
+  const sketch = emptySketch(); sketch.strokes = Array.from({ length: 300 }, () => ({ type: 'rect', points: [{ x: .1, y: .1 }, { x: .8, y: .8 }] }));
+  assert.throws(() => deleteSketchSelection(sketch, { index: 0, segment: 0 }), /300/); assert.equal(sketch.strokes.length, 300);
+  assert.equal(deleteSketchSelection(sketch, { index: 0, segment: 0 }, true).strokes.length, 299);
+});
 
 async function fixture() {
   const p = newProject('DEMO', '合成測試案件', '2026-09-08'), a = newUnit('A'), b = newUnit('B');

@@ -96,8 +96,54 @@ async function verifyHttpCachedUpdate() {
     console.log('PASS update bypasses fresh HTTP cache for every offline asset and preserves existing case');
   } finally { await upgradeContext.close(); await new Promise(resolve => fixtureServer.close(resolve)); }
 }
+async function verifyPlanFirstWorkflow() {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, acceptDownloads: true }), p = await ctx.newPage(), failures = [];
+  p.on('pageerror', e => failures.push(e.message));
+  const c = selector => click(selector, p), data = async () => (await projects(p))[0];
+  const tapWorld = async (x, y) => {
+    await p.locator('#sketchStage').scrollIntoViewIfNeeded();
+    const screen = await p.locator('#sketchStage svg').evaluate((svg, [x, y]) => { const point = svg.createSVGPoint(); point.x = x; point.y = y; const result = point.matrixTransform(svg.getScreenCTM()); return { x: result.x, y: result.y }; }, [x, y]);
+    await p.touchscreen.tap(screen.x, screen.y);
+  };
+  try {
+    await p.goto(base); await c('#startCase'); await p.locator('#caseForm [name=code]').fill('DEMO-PLANS'); await p.locator('#caseForm [name=name]').fill('合成先建圖測試'); await c('#caseForm button[type=submit]');
+    await c('#addUnit'); await p.locator('#unitForm [name=code]').fill('圖庫 A 戶'); await c('#unitForm button[type=submit]');
+    assert(await p.locator('#unitPlans').isEnabled()); assert.equal((await data()).records.length, 0);
+    await c('#unitPlans'); await p.locator('#libraryFloor').fill('3F'); await c('#librarySketch'); await c('#addRoomFrame'); await c('[data-sketch-mode=erase]');
+    await tapWorld(600, 450); assert(await p.locator('#deleteSelection').isDisabled());
+    await tapWorld(600, 177); assert(await p.locator('#deleteSelection').isEnabled()); assert.equal(await p.locator('[data-selection]').count(), 1);
+    await c('#deleteSelection'); assert((await p.locator('#sketchCount').innerText()).startsWith('3／'));
+    await c('#undoSketch'); assert((await p.locator('#sketchCount').innerText()).startsWith('1／'));
+    await c('#redoSketch'); assert((await p.locator('#sketchCount').innerText()).startsWith('3／'));
+    await c('#zoomIn'); await tapWorld(600, 723); await c('#deleteSelection'); assert((await p.locator('#sketchCount').innerText()).startsWith('2／')); await c('#undoSketch'); await c('#fitSketch');
+    await p.locator('#eraseScope').selectOption('whole'); await tapWorld(196.8, 450); await c('#deleteSelection'); assert((await p.locator('#sketchCount').innerText()).startsWith('2／')); await c('#undoSketch');
+    await p.screenshot({ path: path.join(out, '08-mobile-eraser.png'), fullPage: true });
+    await c('#saveSketch'); assert.equal(await p.locator('#modalTitle').innerText(), '本戶共用平面圖庫'); assert.equal((await data()).records.length, 0); assert.equal((await data()).plans.length, 1);
+    const saved = (await data()).plans[0]; assert.equal(saved.sketch.strokes.length, 3); assert(saved.sketch.strokes.every(s => s.type === 'line'));
+    // A library with no records must be independently backed up and restored.
+    await c('#finishLibrary'); await c('[data-view=backup]'); const backupEvent = p.waitForEvent('download'); await c('#exportBackup'); const backupPath = path.join(out, 'synthetic-plan-only.csurvey'); await (await backupEvent).saveAs(backupPath);
+    const bundle = await readBundle(new Blob([await fs.readFile(backupPath)])); assert.equal(bundle.project.records.length, 0); assert.deepEqual(bundle.project.plans[0].sketch, saved.sketch); assert.equal(bundle.media.length, 1);
+    await c('[data-view=work]'); await c('#unitPlans'); await p.locator('#libraryFloor').fill('2F');
+    const fixture = await p.evaluate(() => { const canvas = document.createElement('canvas'); canvas.width = 800; canvas.height = 600; const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 800, 600); ctx.strokeRect(80, 70, 640, 460); return canvas.toDataURL().split(',')[1]; });
+    const imagePath = path.join(out, 'synthetic-library-plan.png'); await fs.writeFile(imagePath, Buffer.from(fixture, 'base64'));
+    const picker = p.waitForEvent('filechooser'); await c('#libraryImport'); await (await picker).setFiles(imagePath); await idle(p); assert.equal((await data()).plans.length, 2); assert.equal((await data()).records.length, 0);
+    await p.screenshot({ path: path.join(out, '09-mobile-plan-library.png'), fullPage: true }); await c('#finishLibrary');
+    await c('#addRecord'); await p.locator('#floor').fill('3F'); await p.locator('#space').fill('客廳'); await c('#saveRecord'); await c('#showPlan');
+    assert.equal(await p.locator('#planSelect option').count(), 1); assert.equal(await p.locator('#planSelect').inputValue(), saved.id);
+    await p.locator('#planStage svg').scrollIntoViewIfNeeded(); const box = await p.locator('#planStage svg').boundingBox();
+    await p.touchscreen.tap(box.x + box.width * .3, box.y + box.height * .4); await p.touchscreen.tap(box.x + box.width * .6, box.y + box.height * .4); await c('#savePlacement');
+    assert.equal((await data()).records[0].placement.planId, saved.id); assert.equal(await p.locator('#recordLocation svg path').count(), 1); assert((await p.locator('#recordLocation').innerText()).includes(saved.title));
+    await c('#unitPlans'); await c(`[data-plan-overview="${saved.id}"]`); assert.equal(await p.locator('#overviewPlan svg path').count(), 1); await c('[data-location-record]'); assert.equal(await p.locator('#recordCode').innerText(), 'R-001');
+    await p.locator('#floor').fill('2F'); await c('#saveRecord'); assert.equal((await data()).records[0].placement, null); assert.equal(await p.locator('#recordLocation svg').count(), 0);
+    await c('#addUnit'); await p.locator('#unitForm [name=code]').fill('圖庫 B 戶'); await c('#unitForm button[type=submit]'); await c('#unitPlans'); assert.equal(await p.locator('[data-plan-overview]').count(), 0); await c('#finishLibrary');
+    await ctx.setOffline(true); await p.reload(); await p.locator('#unitPlans').waitFor(); await c('#unitPlans'); assert.equal(await p.locator('[data-plan-overview]').count(), 2); assert.deepEqual((await data()).plans[0], saved);
+    assert(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)); assert.deepEqual(failures, []);
+    console.log('PASS plan-first library with no records, segment eraser/undo/redo/zoom, backup, import, floor/unit isolation, overview, stale placement removal and offline reopen');
+  } finally { await ctx.close(); }
+}
 try {
   await verifyHttpCachedUpdate();
+  await verifyPlanFirstWorkflow();
   await page.goto(base); await page.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒');
   assert.equal(await page.locator('#errorBar').isVisible(), false);
   await page.screenshot({ path: path.join(out, '01-mobile-start.png'), fullPage: true });
@@ -251,7 +297,14 @@ try {
   assert.equal(await page.locator('#area-salt').inputValue(), '0.8'); assert.equal(await page.locator('#width').inputValue(), '0.3');
   await click('.photo-card'); await page.locator('#photoStage svg').waitFor();
   for (const [i, condition] of ['salt', 'spall'].entries()) { await click('[data-condition-label=' + condition + ']'); await page.locator('#photoStage svg').click({ position: { x: 50 + i * 60, y: 60 + i * 30 } }); }
-  await click('#savePhoto'); multi = (await projects())[0].records[0]; assert.equal(multi.photos.length, 1); assert.deepEqual(multi.photos[0].marks.filter(m => m.type === 'text').map(m => m.text), ['白華', '剝落']); assert.equal(await originalHash(page, mid), hash);
+  assert.equal(await page.locator('#photoLocation svg path').count(), 1);
+  const compositeEvent = page.waitForEvent('download'); await click('#downloadPhotoLocation'); const compositePath = path.join(out, 'synthetic-photo-location.jpg'); await (await compositeEvent).saveAs(compositePath);
+  const compositeBytes = await fs.readFile(compositePath); assert.equal(compositeBytes.subarray(0, 2).toString('hex'), 'ffd8');
+  const compositeDimensions = await page.evaluate(async bytes => { const img = await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' })); const size = [img.width, img.height]; img.close(); return size; }, [...compositeBytes]); assert.deepEqual(compositeDimensions, [1600, 1900]);
+  assert.equal((await projects())[0].records[0].photos[0].marks.length, 1, 'download does not silently save or change originals');
+  await click('#photoLocation .location-edit'); await page.locator('#planStage svg').waitFor(); await click('#closeModal');
+  multi = (await projects())[0].records[0]; assert.equal(multi.photos.length, 1); assert.deepEqual(multi.photos[0].marks.filter(m => m.type === 'text').map(m => m.text), ['白華', '剝落']); assert.equal(await originalHash(page, mid), hash);
+  console.log('PASS photo location preview, composite JPEG export and save-before-location navigation preserve originals and annotations');
   await page.screenshot({ path: path.join(out, '07-multiple-conditions.png'), fullPage: true });
   console.log('PASS camera and component flows; undo/redo and new-branch history, pending-point cancel, orthogonal touch sketch, doors/windows and arrow placement');
   console.log('PASS mobile capture, annotation geometry, untouched original, measurements, floorplan');

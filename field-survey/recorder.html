@@ -5,12 +5,12 @@
   <meta name="theme-color" content="#173d3b"><meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="description" content="手機現況鑑定紀錄：依戶別及位置拍照、圈註、離線保存與案件備份。">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
-  <title>現況鑑定紀錄 V0.5.0</title>
+  <title>現況鑑定紀錄 V0.6.0</title>
   <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="./icon-192.png">
   <link rel="stylesheet" href="./app.css"><script type="module" src="./app.js"></script>
 </head>
 <body>
-<header class="app-header"><div class="brand"><img src="./icon.svg" width="40" height="40" alt=""><div><span class="eyebrow">弘一工程 · <span id="appVersion">V0.5.0</span></span><h1>現況鑑定紀錄</h1></div></div><button id="help" class="quiet" aria-label="使用說明">使用說明</button></header>
+<header class="app-header"><div class="brand"><img src="./icon.svg" width="40" height="40" alt=""><div><span class="eyebrow">弘一工程 · <span id="appVersion">V0.6.0</span></span><h1>現況鑑定紀錄</h1></div></div><button id="help" class="quiet" aria-label="使用說明">使用說明</button></header>
 <div class="system-bar"><span id="offlineStatus" role="status">離線資源準備中</span><span id="saveStatus" role="status">資料保存在此裝置</span><button id="updateApp" class="quiet" hidden>套用新版</button></div>
 <main id="app">
   <section class="project-bar"><label class="grow">目前案件<select id="caseSelect" aria-label="目前案件"><option value="">尚無案件</option></select></label><button id="newCase" class="secondary">＋ 案件</button></section>
@@ -18,6 +18,7 @@
   <div id="workspace" hidden>
     <section id="workView" class="view">
       <div class="context-bar"><label class="grow">鑑定戶<select id="unitSelect" aria-label="鑑定戶"></select></label><button id="addUnit" class="secondary">＋ 戶別</button><button id="editUnit" class="quiet">戶況</button></div>
+      <div class="plan-workflow"><div><strong>先建立本戶平面位置圖</strong><p id="unitPlanSummary" class="micro">先觀察整體，再依樓層匯入或手繪，供各筆紀錄引用。</p></div><button id="unitPlans" class="secondary" disabled>平面圖庫／先建圖</button></div>
       <div class="work-grid">
         <aside class="records-panel"><div class="section-heading"><h2>位置紀錄</h2><span id="recordCount" class="count">0</span></div><div id="recordList" class="record-list"></div><button id="addRecord" class="primary full">＋ 新增位置紀錄</button><p class="micro">同一位置可加入多張照片。<br>一般現況與未能觀察處也請記錄。</p></aside>
         <section class="editor-panel">
@@ -31,7 +32,7 @@
               <datalist id="spaces"><option value="客廳"><option value="房間"><option value="廚房"><option value="浴廁"><option value="樓梯"><option value="陽台"><option value="騎樓"><option value="外觀"><option value="公設"></datalist>
               <div class="capture-row"><button type="button" id="takePhoto" class="primary camera-button"><span aria-hidden="true">◎</span> 直接拍照</button><button type="button" id="pickPhotos" class="secondary">相簿加入</button><button type="button" id="showPlan" class="secondary">位置圖</button></div>
               <p class="micro capture-help">拍照可先預覽、重拍再保存。沒有圖說可直接<button type="button" id="quickSketch" class="text-button">手繪簡圖</button>，保存後標拍攝箭頭。</p>
-              <div id="photoGrid" class="photo-grid"></div>
+              <div id="photoGrid" class="photo-grid"></div><section id="recordLocation" class="location-card" aria-label="本筆位置圖核對"></section>
               <fieldset class="component-field"><legend>部位（可複選）</legend><div id="component" class="choice-chips"></div></fieldset><fieldset class="component-field"><legend>可見現況（可複選）</legend><div id="condition" class="choice-chips"></div><p class="micro">同一位置可同時記裂隙、滲水、白華與剝落，共用照片並分別圈註；一般現況與損害選項互斥。</p></fieldset>
               <label>觀察範圍<select name="visibility" id="visibility"><option value="visible">可觀察</option><option value="partial">部分遮蔽／受限</option><option value="inaccessible">無法接近／觀察</option></select></label>
               <div id="measurement" class="measurement" hidden>
