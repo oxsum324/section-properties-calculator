@@ -2,7 +2,9 @@ const fs = require('fs'), path = require('path'), { execFileSync } = require('ch
 const { chromium } = require('../../.github/pages-smoke/node_modules/playwright');
 (async () => {
   const { VERSION } = await import('../model.js');
-  const root = path.resolve(__dirname, '../..'), source = '4b324a9cb4c995ef929a504b1a0842828e34a52b', old = new Map(), fresh = new Map();
+  const root = path.resolve(__dirname, '../..');
+  for (const source of ['4b324a9cb4c995ef929a504b1a0842828e34a52b', 'd3eef357001a1a00dbbd0dbbab8263ae2105512d']) {
+  const from = JSON.parse(execFileSync('git', ['show', source + ':field-survey/package.json'], { cwd: root })).version, old = new Map(), fresh = new Map();
   const oldSW = execFileSync('git', ['show', source + ':field-survey/sw.js'], { cwd: root }).toString();
   const names = sw => [...sw.match(/const ASSETS = \[([^\]]+)\]/)[1].matchAll(/'\.\/([^']+)'/g)].map(x => x[1]);
   for (const name of [...names(oldSW), 'sw.js']) old.set(name, execFileSync('git', ['show', source + ':field-survey/' + name], { cwd: root }));
@@ -22,6 +24,7 @@ const { chromium } = require('../../.github/pages-smoke/node_modules/playwright'
     assert.equal(after.records[0].cracks, undefined); assert.equal(after.records[0].length, 3); assert(after.records[0].roomId);assert.equal(after.records[0].fieldNumber,1);const imageHash=await page.evaluate(async mid=>(await import('./model.js')).sha256((await (await import('./store.js')).getMedia(mid)).blob),before.media[0].id);assert.equal(imageHash,before.media[0].sha256);
     const refused=await stale.evaluate(async()=>{try{const s=await import('./store.js');await s.allProjects();return false;}catch(e){return e.name==='VersionError';}});assert(refused);await stale.close();
     await ctx.setOffline(true);await page.reload();await page.locator('[data-field-preset="u"]').click();await page.locator('#crackCountPresets [data-count="3"]').click();await page.locator('#saveRecord').click();await page.locator('#busy').waitFor({state:'hidden'});assert.equal(await page.evaluate(async()=>(await (await import('./store.js')).allProjects())[0].records[0].crackCount),3);
-    fs.writeFileSync(path.join(root,'output/field-survey-validation/upgrade-real-v0.8-result.json'),JSON.stringify({passed:true,from:'0.7.0',to:VERSION,source,oldCasePreserved:true,originalPhotoHash:imageHash,originalPhotoPreserved:true,editableMarksPreserved:true,staleWriterRefused:true,offlineCountSaved:true,checkedAt:new Date().toISOString()},null,2));console.log('PASS real V0.7 source -> V' + VERSION + ' with fresh HTTP cache, room migration, stale DB writer refusal, offline count save');
+    fs.writeFileSync(path.join(root,'output/field-survey-validation/upgrade-from-' + from + '-result.json'),JSON.stringify({passed:true,from,to:VERSION,source,oldCasePreserved:true,originalPhotoHash:imageHash,originalPhotoPreserved:true,editableMarksPreserved:true,staleWriterRefused:true,offlineCountSaved:true,checkedAt:new Date().toISOString()},null,2));console.log('PASS real V' + from + ' source -> V' + VERSION + ' with fresh HTTP cache, room migration, stale DB writer refusal, offline count save');
   } finally {await browser.close();await new Promise(resolve=>server.close(resolve));}
+  }
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1,5 +1,7 @@
-import { assert, clone, now, VERSION, observationText, photoPlacement, photoIncluded, roomKey, ROLES, recordIssues, sha256, validateProject, recordComponents, recordConditions, CONDITIONS } from './model.js';
-import { markedImage, placementMarks } from './annotation.js';
+import { assert, clone, now, VERSION, observationText, photoPlacement, photoIncluded, roomKey, ROLES, recordIssues, sha256, validateProject, recordComponents, recordConditions, recordDateInfo } from './model.js';
+import { markedImage, placementMarks, reportPlanImage } from './annotation.js';
+import { detailImage } from './detail.js';
+import { STANDARD_STYLE, standardPages, segmentKey, dateSummary, splitVolumes, contentsPages } from './report-standard.js';
 
 export const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const REPORT_FORMATS = { standard: '標準鑑定附件', quick: '現場快速預覽' };
@@ -29,35 +31,51 @@ export function moveRoom(project, roomId, direction, unitId = '') {
   [allKeys[a], allKeys[b]] = [allKeys[b], allKeys[a]];
   project.records.sort((x, y) => allKeys.indexOf(key(x)) - allKeys.indexOf(key(y)));
 }
-export function attachmentIndex(project, { unitId = '', start = 1, perPage = 2, format = 'standard' } = {}) {
+export function attachmentIndex(project, { unitId = '', unitIds, start = 1, perPage = 2, format = 'standard', numbering = 'unit', pageStart = 1, pagePrefix = '', plansPerPage = 1, tableRows = 0, includeEmpty = false, publicByFloor = false, toc = false } = {}) {
   validateProject(project);
   assert(!unitId || project.units.some(u => u.id === unitId), '附件戶別不存在');
   assert(Number.isSafeInteger(start) && start > 0 && start <= 999999, '起始編號須為 1 至 999999 的整數');
   assert([1, 2].includes(perPage), '每頁照片數不正確');
   assert(Object.hasOwn(REPORT_FORMATS, format), '附件格式不正確');
+  assert(['unit', 'project'].includes(numbering), '照片編號範圍不正確');
+  assert(Number.isSafeInteger(pageStart) && pageStart >= 1 && pageStart <= 999999 && typeof pagePrefix === 'string' && pagePrefix.length <= 20, '附件頁碼不正確');
+  assert([1, 2, 3].includes(plansPerPage) && [0, 8].includes(tableRows), '圖表版面不正確');
+  assert([includeEmpty, publicByFloor, toc].every(v => typeof v === 'boolean'), '附件選項不正確');
+  assert(unitIds === undefined || Array.isArray(unitIds) && unitIds.length > 0 && new Set(unitIds).size === unitIds.length && unitIds.every(id => project.units.some(u => u.id === id)), '請選擇有效且不重複的戶別');
+  const selectedUnits = unitId ? project.units.filter(u => u.id === unitId) : unitIds ? unitIds.map(id => project.units.find(u => u.id === id)) : project.units;
+  const selectedIds = new Set(selectedUnits.map(u => u.id));
   const groups = new Map();
-  for (const r of project.records.filter(r => !unitId || r.unitId === unitId)) {
+  for (const r of project.records.filter(r => selectedIds.has(r.unitId))) {
     const photos = reportPhotos(r); if (!photos.length) continue;
     const key = r.roomId || roomKey(r), unit = project.units.find(u => u.id === r.unitId);
     if (!groups.has(key)) groups.set(key, { roomId: key, unitId: unit.id, unit: unit.code, address: unit.address, floor: r.floor, room: r.space, records: [] });
-    groups.get(key).records.push({ recordId: r.id, components: clone(recordComponents(r)), conditions: clone(recordConditions(r)), text: r.reportText?.trim() || observationText(r), notes: r.notes, issues: recordIssues(r), pin: clone(r.observationPin || null), photos: photos.map(photo => ({ ...clone(photo), placement: clone(photoPlacement(r, photo) || null), main: r.mainPhotoId ? r.mainPhotoId === photo.mediaId : photo.mediaId === (photos.find(p => p.role === 'close') || photos[0]).mediaId })) });
+    groups.get(key).records.push({ recordId: r.id, fieldNumber: r.fieldNumber, visitId: r.visitId || '', observedOn: r.observedOn || '', dateInfo: recordDateInfo(project, r), detail: clone(r.detail), components: clone(recordComponents(r)), conditions: clone(recordConditions(r)), text: r.reportText?.trim() || observationText(r), notes: r.notes, issues: recordIssues(r), pin: clone(r.observationPin || null), photos: photos.map(photo => ({ ...clone(photo), placement: clone(photoPlacement(r, photo) || null), main: r.mainPhotoId ? r.mainPhotoId === photo.mediaId : photo.mediaId === (photos.find(p => p.role === 'close') || photos[0]).mediaId })) });
   }
   // One numbering source for both formats; keep each unit contiguous even when
   // field records from different units were interleaved during collection.
-  const units = [...new Set([...groups.values()].map(g => g.unitId))];
-  const ordered = units.flatMap(id => [...groups.values()].filter(g => g.unitId === id));
-  let number = start;
-  for (const group of ordered) for (const record of group.records) for (const photo of record.photos) photo.number = String(number++).padStart(3, '0');
-  assert(number > start, '尚未選擇附件照片');
-  return { kind: 'condition-survey-attachment', version: 2, format, toolVersion: VERSION, createdAt: now(), projectId: project.id, sourceRevision: project.revision, code: project.code, name: project.name, date: project.date, start, perPage, groups: ordered };
+  const units = selectedUnits.map(u => u.id);
+  const floorRank = value => { const name = value.trim().toUpperCase(); let m; if ((m = name.match(/^B(\d+)(?:F)?$/))) return -Number(m[1]); if (name === 'MF') return 1.5; if ((m = name.match(/^R(\d*)F$/))) return 10000 + Number(m[1] || 1); if ((m = name.match(/^(\d+)(?:F|樓)?$/))) return Number(m[1]); return 5000; };
+  const ordered = units.flatMap(id => {
+    const found = [...groups.values()].filter(g => g.unitId === id);
+    if (!publicByFloor || project.units.find(u => u.id === id)?.kind !== 'public') return found;
+    const floors = [...new Set(found.map(g => g.floor))].sort((a, b) => floorRank(a) - floorRank(b) || a.localeCompare(b, 'zh-Hant', { numeric: true }));
+    return floors.flatMap(floor => found.filter(g => g.floor === floor));
+  });
+  let number = start, previousUnit = '';
+  for (const group of ordered) { if (numbering === 'unit' && group.unitId !== previousUnit) number = start; previousUnit = group.unitId; for (const record of group.records) for (const photo of record.photos) { assert(number <= 999999, '照片編號超過上限'); photo.number = String(number++).padStart(3, '0'); } }
+  assert(ordered.length || format === 'standard' && includeEmpty && selectedUnits.length, '尚未選擇附件照片');
+  const visitIds = new Set([...ordered.flatMap(g => g.records.map(r => r.visitId)), ...selectedUnits.flatMap(u => (u.visitHistory || []).map(h => h.visitId))]);
+  return { kind: 'condition-survey-attachment', version: 3, format, toolVersion: VERSION, createdAt: now(), projectId: project.id, sourceRevision: project.revision, code: project.code, name: project.name, date: project.date, start, perPage, numbering, pageStart, pagePrefix, plansPerPage, tableRows, includeEmpty, publicByFloor, toc, visits: clone((project.visits || []).filter(v => visitIds.has(v.id))), units: clone(selectedUnits.filter(u => includeEmpty || ordered.some(g => g.unitId === u.id))), groups: ordered };
 }
 export function attachmentUnits(index, project) {
   const units = new Map();
+  for (const u of index.units || []) if (!index.groups.some(g => g.unitId === u.id)) units.set(u.id, { ...clone(u), unitId: u.id, unit: u.code, segmentKey: u.id, groups: [], records: [] });
   for (const group of index.groups) {
-    if (!units.has(group.unitId)) units.set(group.unitId, { unitId: group.unitId, unit: group.unit, address: group.address, groups: [], records: [] });
-    const unit = units.get(group.unitId); unit.groups.push(group); unit.records.push(...group.records);
+    const key = segmentKey(group.unitId, group.floor, index), source = project.units.find(u => u.id === group.unitId);
+    if (!units.has(key)) units.set(key, { ...clone(source), unitId: group.unitId, unit: group.unit, address: group.address, segmentKey: key, segmentFloor: key !== group.unitId ? group.floor : '', groups: [], records: [] });
+    const unit = units.get(key); unit.groups.push(group); unit.records.push(...group.records);
   }
-  return [...units.values()].map(unit => {
+  return [...units.values()].sort((a, b) => (index.units || project.units).findIndex(u => u.id === a.unitId) - (index.units || project.units).findIndex(u => u.id === b.unitId)).map(unit => {
     const referenced = new Set(unit.records.flatMap(r => [r.pin?.planId, ...r.photos.map(p => p.placement?.planId)]).filter(Boolean));
     // Keep distinct indoor/outdoor plans separate, in the saved plan order.
     return { ...unit, plans: project.plans.filter(p => p.unitId === unit.unitId && referenced.has(p.id)) };
@@ -80,114 +98,38 @@ export function observationMarks(q, label = '') {
   return marks;
 }
 const dataURL = blob => new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(new Error('附件影像讀取失敗')); reader.readAsDataURL(blob); });
-// The preview and print use the same paper dimensions. Measure actual font/table
-// layout before freezing the HTML; long descriptions continue without truncation.
-const STANDARD_STYLE = `
-.standard-sheet,.standard-sheet *{box-sizing:border-box}
-.standard-sheet.sheet{width:190mm;height:276mm;min-height:276mm;padding:0;margin:8mm auto;display:flex;flex-direction:column;background:#fff;color:#222;font:14px/1.5 Arial,"Microsoft JhengHei",sans-serif;overflow-wrap:anywhere;break-after:page}
-.standard-sheet header{flex:none;border-bottom:1px solid #333;padding:0 0 3mm;margin:0 0 4mm}
-.standard-sheet h1{font-size:20px;line-height:1.5;margin:0 0 2mm}.standard-sheet h2{font-size:17px;line-height:1.5;margin:0 0 3mm}
-.standard-sheet p{margin:1mm 0;white-space:pre-wrap}.standard-sheet footer{flex:none;margin:3mm 0 0;border-top:1px solid #333;padding:2mm 0 0;font-size:12px}
-.standard-sheet .sheet-content{flex:1;min-height:0}.standard-sheet .plan{display:block;width:100%;height:185mm;max-height:none;object-fit:contain}
-.standard-sheet .legend,.standard-sheet .units-note{font-size:12px;line-height:1.5}
-.standard-sheet table{width:100%;table-layout:fixed;border-collapse:collapse;font:13px/1.5 Arial,"Microsoft JhengHei",sans-serif}
-.standard-sheet th,.standard-sheet td{border:1px solid #555;padding:2mm;vertical-align:top;white-space:pre-wrap;overflow-wrap:anywhere}
-.standard-sheet th{font-weight:bold;background:#f1f3f2}.standard-sheet .photo-no{font-weight:bold;text-align:center}.standard-sheet .continued{font-weight:normal;font-size:11px;display:block}
-.standard-sheet .row-text{white-space:pre-wrap}.standard-sheet figure{margin:0 0 4mm;border:1px solid #555;break-inside:avoid}
-.standard-sheet figcaption{padding:2mm;border:0;border-bottom:1px solid #555;font-size:13px;line-height:1.5}
-.standard-sheet figure img{display:block;width:100%;height:94mm;max-height:none;object-fit:contain;background:white}.standard-sheet .count-1 img{height:193mm;max-height:none}
-@media print{.standard-sheet.sheet{margin:0}.standard-sheet.sheet:last-of-type{break-after:auto}}
-`;
-
-async function standardPages({ index, project, encodeImage, progress }) {
-  const e = escapeHTML, pages = [], sections = [], total = index.groups.flatMap(g => g.records).reduce((n, r) => n + r.photos.length, 0);
-  let imageCount = 0;
-  const host = document.createElement('div');
-  host.style.cssText = 'position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none';
-  document.body.append(host); const shadow = host.attachShadow({ mode: 'closed' });
-  await document.fonts.ready;
-  const sheet = (unit, body, type, number = pages.length + 1) => `<section class="sheet standard-sheet ${type}" data-unit="${e(unit.unitId)}"><header><h1>現況鑑定紀錄附件</h1><div>案號：${e(index.code)}　${e(index.name)}</div><div>戶別：${e(unit.unit)}${unit.address ? '　地址：' + e(unit.address) : ''}</div></header><div class="sheet-content">${body}</div><footer>會勘日期：${e(index.date)}　｜　第 ${number} 頁</footer></section>`;
-  const fits = html => {
-    shadow.innerHTML = `<style>${STANDARD_STYLE}</style>${html}`;
-    const content = shadow.querySelector('.sheet-content');
-    return content.clientHeight > 100 && content.scrollHeight <= content.clientHeight + 1;
-  };
-  const add = (unit, body, type, refs = {}) => {
-    const html = sheet(unit, body, type);
-    assert(fits(html), '附件頁面放不下，請縮短案名、地址或房間名稱後再匯出');
-    pages.push(html); sections.push({ page: pages.length, type, unitId: unit.unitId, ...refs });
-  };
-  const tableBody = rows => `<h2>照片說明表</h2><table><colgroup><col style="width:11%"><col style="width:18%"><col style="width:21%"><col style="width:50%"></colgroup><thead><tr><th>照片編號</th><th>樓層、隔間</th><th>細部示意圖</th><th>照片內容</th></tr></thead><tbody>${rows.join('')}</tbody></table><p class="units-note">單位：裂縫寬度 mm；長度 m；面積 m²；磁磚塊數 塊；梁 U 型裂縫 條。</p>`;
-  try {
-    for (const unit of attachmentUnits(index, project)) {
-      const planPages = new Map();
-      for (const plan of unit.plans) {
-        const entries = groupPlanEntries(unit, plan.id), marks = entries.flatMap(x => x.kind === 'observation' ? observationMarks(x.placement, x.label) : placementMarks(x.placement, x.label));
-        const src = await encodeImage(plan.mediaId, marks);
-        add(unit, `<h2>平面示意及照片位置圖 · ${e(plan.floor)} · ${e(plan.title)}</h2><img class="plan" src="${src}" alt="${e(plan.floor + ' ' + plan.title)}"><p class="legend">圓圈為狀況位置；箭頭起點為拍攝點，箭頭表示拍攝方向。圖上代號對應照片編號，簡圖未按比例。</p>`, 'plan-sheet', { planId: plan.id, entries: clone(entries) });
-        planPages.set(plan.id, pages.length);
-      }
-      const photos = unit.groups.flatMap(group => group.records.flatMap(record => record.photos.map(photo => ({ group, record, photo }))));
-      let rows = [], rowNumbers = [];
-      const flush = () => { if (rows.length) { add(unit, tableBody(rows), 'table-sheet', { photoNumbers: [...rowNumbers] }); rows = []; rowNumbers = []; } };
-      for (const { group, record, photo } of photos) {
-        const refs = [...new Set([record.pin?.planId, photo.placement?.planId].filter(Boolean))].map(id => planPages.get(id));
-        const detail = refs.length ? `詳平面示意圖\n第 ${refs.join('、')} 頁` : '尚未定位\n請核對位置說明';
-        const full = [
-          `部位：${record.components.join('、') || '未填'}　狀況：${record.conditions.map(c => CONDITIONS[c]).join('、') || '未分類'}`,
-          `說明：${record.text}`, record.notes ? `補充：${record.notes}` : '',
-          `${ROLES[photo.role]}${photo.main ? '（主要照片）' : ''}${photo.caption ? '：' + photo.caption : ''}`
-        ].filter(Boolean).join('\n');
-        let remaining = Array.from(full), continuation = false;
-        const row = text => `<tr data-photo-number="${photo.number}"><td class="photo-no">${photo.number}${continuation ? '<span class="continued">（續）</span>' : ''}</td><td>${e([group.floor, group.room].filter(Boolean).join('\n') || '未填')}</td><td>${e(detail)}</td><td class="row-text">${e(text)}</td></tr>`;
-        while (remaining.length) {
-          const whole = row(remaining.join(''));
-          if (fits(sheet(unit, tableBody([...rows, whole]), 'table-sheet'))) { rows.push(whole); rowNumbers.push(photo.number); break; }
-          if (rows.length) { flush(); continue; }
-          // A single very long photo description needs a continued table row.
-          let lo = 0, hi = remaining.length;
-          while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); if (fits(sheet(unit, tableBody([row(remaining.slice(0, mid).join(''))]), 'table-sheet'))) lo = mid; else hi = mid - 1; }
-          assert(lo > 0, '照片說明表欄位過長，請縮短樓層或房間名稱');
-          rows.push(row(remaining.slice(0, lo).join(''))); rowNumbers.push(photo.number); flush(); remaining = remaining.slice(lo); continuation = true;
-        }
-      }
-      flush();
-      for (let offset = 0; offset < photos.length; offset += index.perPage) {
-        const batch = photos.slice(offset, offset + index.perPage), cards = [];
-        for (const { photo } of batch) {
-          const src = await encodeImage(photo.mediaId, photo.marks); progress(++imageCount, total);
-          cards.push(`<figure data-photo-number="${photo.number}"><figcaption><strong>照片 ${photo.number}</strong>　${e(ROLES[photo.role])}　｜　說明：詳照片說明表</figcaption><img src="${src}" alt="照片 ${photo.number}"></figure>`);
-        }
-        add(unit, `<h2>現況照片</h2><div class="photos count-${index.perPage}">${cards.join('')}</div>`, 'photo-sheet', { photoNumbers: batch.map(x => x.photo.number) });
-      }
-    }
-    index.sections = sections; return pages;
-  } finally { host.remove(); }
-}
 export async function renderAttachment(project, getBlob, options = {}, progress = () => {}) {
-  const index = attachmentIndex(project, options), e = escapeHTML, pages = [], includedAssets = new Map();
+  const index = options.plannedIndex ? clone(options.plannedIndex) : attachmentIndex(project, options), e = escapeHTML, pages = [], includedAssets = new Map();
+  assert(index.projectId === project.id && index.sourceRevision === project.revision, '案件已修改，請重新規劃分冊');
+  const placeholder = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>');
   let pageNumber = 0, imageCount = 0, outputBytes = 0;
   const total = index.groups.reduce((n, g) => n + g.records.reduce((m, r) => m + r.photos.length, 0), 0);
-  const encodeImage = async (mediaId, marks) => {
+  const encodeImage = async (mediaId, marks, planEntries) => {
+    if (options.layoutOnly) return placeholder;
     const meta = project.media.find(m => m.id === mediaId), blob = await getBlob(mediaId);
     assert(blob && await sha256(blob) === meta.sha256, '附件原始檔核對失敗：' + meta.name);
     includedAssets.set(mediaId, { id: mediaId, name: meta.name, sha256: meta.sha256 });
-    const result = await markedImage(blob, marks);
+    const result = planEntries ? await reportPlanImage(blob, planEntries) : await markedImage(blob, marks);
     outputBytes += result.size; assert(outputBytes <= 160 * 1024 * 1024, '附件影像超過 160 MB，請改按戶匯出或減少選片');
     return dataURL(result);
   };
-  const page = (group, body, type = '') => `<section class="sheet ${type}"><header><h1>${e(REPORT_FORMATS[index.format])}</h1><div>${e(index.code)} · ${e(index.name)}</div><div>${e([group.unit, group.floor, group.room, group.address].filter(Boolean).join(' · '))}</div></header>${body}<footer>會勘日期：${e(index.date)}　｜　第 ${++pageNumber} 頁</footer></section>`;
-  if (index.format === 'standard') pages.push(...await standardPages({ index, project, encodeImage, progress }));
+  const encodeDetail = async detail => {
+    if (options.layoutOnly) return placeholder;
+    const get = async id => { const meta = project.media.find(m => m.id === id), blob = await getBlob(id); assert(meta && blob && await sha256(blob) === meta.sha256, '細部底圖原檔核對失敗'); includedAssets.set(id, { id, name: meta.name, sha256: meta.sha256 }); return blob; };
+    const blob = await detailImage(detail, get); outputBytes += blob.size; assert(outputBytes <= 160 * 1024 * 1024, '附件影像超過 160 MB，請縮小每冊頁數或按戶匯出'); return dataURL(blob);
+  };
+  const page = (group, body, type = '') => `<section class="sheet ${type}"><header><h1>${e(REPORT_FORMATS[index.format])}</h1><div>${e(index.code)} · ${e(index.name)}</div><div>${e([group.unit, group.floor, group.room, group.address].filter(Boolean).join(' · '))}</div></header>${body}<footer>會勘日期：${e(dateSummary(group.records, '尚未確認'))}　｜　第 ${e((index.pagePrefix || '') + ((index.pageStart || 1) + pageNumber++))} 頁</footer></section>`;
+  if (index.format === 'standard') pages.push(...await standardPages({ index, project, encodeImage, encodeDetail, progress, e, attachmentUnits, groupPlanEntries, observationMarks, placementMarks }));
   else for (const group of index.groups) {
     const planIds = new Set(group.records.flatMap(r => [r.pin?.planId, ...r.photos.map(p => p.placement?.planId)]).filter(Boolean));
     const photoNumbers = group.records.flatMap(r => r.photos.map(p => p.number));
     for (const planId of planIds) {
       const plan = project.plans.find(p => p.id === planId), entries = groupPlanEntries(group, planId);
       const marks = entries.flatMap(x => x.kind === 'observation' ? observationMarks(x.placement, x.label) : placementMarks(x.placement, x.label));
-      pages.push(page(group, `<h2>${e(plan.title)}</h2><img class="plan" src="${await encodeImage(plan.mediaId, marks)}" alt="位置圖"><p>大圓圈為狀況位置；箭頭起點為拍攝點、箭頭為拍攝方向。代號對應照片編號。簡圖未按比例。</p><p>本房間照片：${e(photoNumbers.join('、'))}</p>`, 'plan-sheet'));
+      pages.push(page(group, `<h2>${e(plan.title)}</h2><img class="plan" src="${await encodeImage(plan.mediaId, marks, entries)}" alt="位置圖"><p>大圓圈為狀況位置；箭頭起點為拍攝點、箭頭為拍攝方向。代號對應照片編號。簡圖未按比例。</p><p>本房間照片：${e(photoNumbers.join('、'))}</p>`, 'plan-sheet'));
     }
     for (const record of group.records) {
-      const fullText = [record.text, record.notes].filter(Boolean).join('\n'), longText = fullText.length > 180 || fullText.split('\n').length > 4;
+      const fullText = [record.text, record.notes, `日期：${record.dateInfo.label}`].filter(Boolean).join('\n'), longText = fullText.length > 180 || fullText.split('\n').length > 4;
       const moreText = [];
       if (longText) moreText.push(`現況完整說明（照片 ${record.photos.map(p => p.number).join('、')}）：\n${fullText}`);
       for (let i = 0; i < record.photos.length; i += index.perPage) {
@@ -212,4 +154,31 @@ export async function renderAttachment(project, getBlob, options = {}, progress 
   *{box-sizing:border-box}body{margin:0;background:#e7ebea;color:#172f2e;font:14px/1.5 sans-serif}.sheet{width:190mm;min-height:270mm;padding:8mm;margin:8mm auto;background:white;position:relative;break-after:page;overflow-wrap:anywhere}header{border-bottom:1px solid #9badab;padding-bottom:3mm;margin-bottom:4mm}h1{font-size:20px;margin:0 0 2mm}h2{font-size:17px}p{margin:2mm 0;white-space:pre-wrap}footer{margin-top:4mm;border-top:1px solid #9badab;padding-top:2mm;font-size:12px}.description{white-space:pre-wrap;margin-bottom:4mm}figure{margin:0 0 4mm;break-inside:avoid}figure img{width:100%;height:76mm;object-fit:contain;background:#f5f6f5}.count-1 img{height:152mm}figcaption{padding:2mm;border-bottom:1px solid #ddd}.plan{width:100%;height:170mm;object-fit:contain}.archive{max-width:190mm;margin:8mm auto;padding:8mm;background:white;overflow-wrap:anywhere}.archive pre{white-space:pre-wrap;font-size:11px}@page{size:A4;margin:10mm}@media print{body{background:white}.sheet{width:100%;min-height:0;margin:0;padding:0}.archive{display:none}}@media screen and (max-width:760px){.sheet{width:100%;min-height:0;margin:12px 0;padding:16px}figure img{height:auto;max-height:76mm}.count-1 img{max-height:152mm}.plan{height:auto;max-height:170mm}}
   ${STANDARD_STYLE}</style></head><body>${pages.join('')}<section class="archive"><p>本檔保存此次選片、文字、圖面及流水編號。請核閱後以瀏覽器列印或另存 PDF，原始媒體另存於案件備份。</p><p>建立時間：${e(index.createdAt)} · 來源案件版次：${index.sourceRevision}<br>編號對照指紋：${digest}</p><details><summary>本次附件編號對照與來源</summary><pre>${e(mapping)}</pre></details></section></body></html>`;
   return { html, index, digest };
+}
+
+export async function prepareVolumes(project, options = {}) {
+  assert((options.format || 'standard') === 'standard', '快速預覽請直接匯出；分冊適用標準附件');
+  const layout = await renderAttachment(project, () => { throw new Error('排版不應讀取原圖'); }, { ...options, toc: false, layoutOnly: true });
+  const volumes = splitVolumes(layout.index, project, options.maxPages ?? 200, options.breakBefore || []);
+  return { index: layout.index, volumes, entries: volumes.flatMap(v => v.entries), toc: options.toc !== false };
+}
+export async function renderPlannedVolume(project, getBlob, plan, number, progress) {
+  const volume = plan.volumes.find(v => v.number === number); assert(volume, '找不到冊次');
+  assert(project.id === plan.index.projectId && project.revision === plan.index.sourceRevision, '案件已修改，請重新規劃分冊');
+  const index = clone(plan.index); index.units = index.units.filter(u => volume.unitIds.includes(u.id));
+  index.groups = index.groups.filter(g => volume.segmentKeys.includes(segmentKey(g.unitId, g.floor, index)));
+  index.segmentKeys = volume.segmentKeys; index.pageStart = volume.start; index.volume = number; index.volumeCount = plan.volumes.length; index.toc = plan.toc;
+  delete index.sections; delete index.assets; delete index.plans; delete index.contents;
+  const result = await renderAttachment(project, getBlob, { plannedIndex: index }, progress);
+  assert(result.index.sections.length === volume.pageCount && result.index.sections[0]?.page === volume.start, '實際排版與分冊計畫不同，請重新規劃');
+  return result;
+}
+export async function masterContentsHTML(plan) {
+  const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-100000px;visibility:hidden'; document.body.append(host); const shadow = host.attachShadow({ mode: 'closed' });
+  try {
+    await document.fonts.ready;
+    const fits = html => { shadow.innerHTML = `<style>${STANDARD_STYLE}</style>${html}`; const el = shadow.querySelector('.sheet-content'); return el.clientHeight > 100 && el.scrollHeight <= el.clientHeight + 1; };
+    const pages = contentsPages(plan.index, plan.entries, escapeHTML, '全案分冊目錄', fits);
+    return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="condition-survey-private" content="attachment"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><title>${escapeHTML(plan.index.code)} 分冊總目錄</title><style>body{margin:0;background:#e7ebea}@page{size:A4;margin:10mm}${STANDARD_STYLE}</style></head><body>${pages.join('')}</body></html>`;
+  } finally { host.remove(); }
 }

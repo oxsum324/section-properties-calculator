@@ -39,7 +39,7 @@ export async function verifyReportWorkflow(browser, base, out) {
     await click(close + ' [data-do="main"]'); await click(close + ' [data-do="photo-up"]');
     data = await current(); assert.match(data.records[0].reportText, /人工核對/); assert.equal(data.records[0].mainPhotoId, seed.close); assert.equal(data.records[0].photos[0].mediaId, seed.close); assert.equal(data.records[0].fieldNumber, 1);
     assert.equal(await page.locator('#reportFormat').inputValue(), 'standard');
-    await page.locator('#reportStart').fill('10'); await click('#previewReport'); await page.frameLocator('#attachmentPreview').locator('figure img').first().waitFor();
+    await page.locator('#reportLayout').evaluate(el => el.open = true); await page.locator('#reportToc').uncheck(); await page.locator('#reportRows').selectOption('0'); await page.locator('#reportPrefix').fill(''); await page.locator('#reportStart').fill('10'); await click('#previewReport'); await page.frameLocator('#attachmentPreview').locator('figure img').first().waitFor();
     const frame = page.frameLocator('#attachmentPreview'); assert.equal(await frame.locator('figure').count(), 3); assert.match(await frame.locator('body').innerText(), /照片 010/); assert(!(await frame.locator('.sheet').allTextContents()).join('').includes('R-')); assert(!(await frame.locator('.sheet').allTextContents()).join('').includes('總長'));
     const download = page.waitForEvent('download'); await click('#downloadAttachment'); const htmlPath = path.join(out, 'synthetic-attachment-v0.9.html'); await (await download).saveAs(htmlPath);
     const mappingDownload = page.waitForEvent('download'); await click('#downloadMapping'); const mappingPath = path.join(out, 'synthetic-attachment-v0.9.json'); await (await mappingDownload).saveAs(mappingPath);
@@ -58,7 +58,7 @@ export async function verifyReportWorkflow(browser, base, out) {
     assert.equal(await page.locator(row + ' [data-report-include]:checked').count(), 1);
     await page.locator(row + ' [data-report-text]').fill('重新整理後的說明'); await click('[data-view="work"]'); assert.equal((await current()).records[0].reportText, '重新整理後的說明');
     const restored = await page.evaluate(async () => { const m = await import('./model.js'), b = await import('./bundle.js'), s = await import('./store.js'), p = (await s.allProjects())[0]; const result = await b.readBundle((await b.makeBundle(p, async id => (await s.getMedia(id)).blob)).blob); const c = m.restoredCopy(result.project); m.validateProject(c.project); return { version: result.manifest.version, equal: JSON.stringify(result.project) === JSON.stringify(p), hash: await m.sha256((await s.getMedia(p.media[0].id)).blob) }; });
-    assert.deepEqual(restored, { version: 4, equal: true, hash: seed.hash });
+    assert.deepEqual(restored, { version: 5, equal: true, hash: seed.hash });
     await context.setOffline(true); await page.reload(); await page.locator('#recordForm').waitFor(); await click('[data-view="report"]'); assert.match(await page.locator(row + ' [data-report-text]').inputValue(), /重新整理/); await context.setOffline(false);
     const standalone = await context.newPage(); await standalone.goto('file:///' + htmlPath.replaceAll('\\', '/')); await standalone.emulateMedia({ media: 'print' });
     await standalone.pdf({ path: path.join(out, 'synthetic-attachment-v0.9.pdf'), preferCSSPageSize: true, printBackground: true });
@@ -66,9 +66,9 @@ export async function verifyReportWorkflow(browser, base, out) {
     await standalone.screenshot({ path: path.join(out, 'v0.9-attachment-page.png'), fullPage: true });
     await standalone.goto('file:///' + quickPath.replaceAll('\\', '/')); await standalone.pdf({ path: path.join(out, 'synthetic-quick-v0.9.pdf'), preferCSSPageSize: true, printBackground: true });
     await standalone.close(); assert.deepEqual(errors, []);
-    await fs.writeFile(path.join(out, 'report-v0.9-result.json'), JSON.stringify({ passed: true, version: VERSION, backupVersion: 4, originalHash: seed.hash, selectedPhotos: 3, physicalPhoneTested: false, checkedAt: new Date().toISOString() }, null, 2));
+    await fs.writeFile(path.join(out, 'report-v0.9-result.json'), JSON.stringify({ passed: true, version: VERSION, backupVersion: 5, originalHash: seed.hash, selectedPhotos: 3, physicalPhoneTested: false, checkedAt: new Date().toISOString() }, null, 2));
     await verifyStandardPagination(page, context, out);
-    console.log('PASS standard/quick layouts, consolidated plans, shared numbering, measured table pagination, standalone frozen PDF and offline v4 backup');
+    console.log('PASS standard/quick layouts, consolidated plans, shared numbering, measured table pagination, standalone frozen PDF and offline backup');
   } finally { await context.close(); }
 }
 

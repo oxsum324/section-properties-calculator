@@ -6,6 +6,75 @@ import { resolveSketchPoint, doorGeometry, expandSketch, sketchArea, sketchView,
 import { syncRooms, clearWrongFloor, observationText, tileTotal, photoPlacement } from '../model.js';
 import { attachmentIndex, attachmentUnits, reportPhotos, groupPlanEntries, moveRoom, textChunks } from '../report.js';
 import { stairGeometry } from '../stairs.js';
+import { parseRoster } from '../organisation.js';
+import { recordDateInfo, validDate } from '../model.js';
+import { splitVolumes } from '../report-standard.js';
+import { planLabelLayout } from '../annotation.js';
+
+test('dense report labels avoid overlap without changing camera points or caller data', () => {
+  const items = Array.from({ length: 18 }, (_, i) => ({ ax: 280 + i * 4, ay: 300, w: 85, h: 26 })), before = structuredClone(items), result = planLabelLayout(items, 1200, 800);
+  assert.deepEqual(items, before); assert.equal(result.length, items.length);
+  result.forEach((a, i) => { assert.equal(a.ax, items[i].ax); assert.equal(a.ay, items[i].ay); assert(a.x >= 0 && a.y >= 0 && a.x + a.w <= 1200 && a.y + a.h <= 800); result.slice(i + 1).forEach(b => assert(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y)); });
+});
+
+test('public floors become contiguous before numbering while remaining within one unit numbering sequence', async () => {
+  const { p, a, r } = await fixture(); p.units = [a]; a.kind = 'public'; p.records = ['RF', '2F', 'B1', '1F', '2F'].map((floor, i) => ({ ...structuredClone(r), id: id(), floor, space: '公設 ' + i })); syncRooms(p);
+  const index = attachmentIndex(p, { publicByFloor: true }), before = structuredClone(p);
+  assert.deepEqual(index.groups.map(g => g.floor), ['B1', '1F', '2F', '2F', 'RF']); assert.deepEqual(index.groups.map(g => g.records[0].photos[0].number), ['001', '002', '003', '004', '005']); assert.equal(attachmentUnits(index, p).length, 4); assert.deepEqual(p, before);
+});
+
+test('roster accepts quoted CSV and Excel tabs, rejects duplicates and unknown columns without changing source', () => {
+  const p = newProject('CASE', '名冊測試', '2026-09-10'), before = structuredClone(p);
+  const csv = parseRoster('戶別,地址,棟別,種類\r\nA-001,"一號,二樓",A棟,住戶\r\nP-01,公設入口,A棟,公設', p);
+  assert.equal(csv.entries[0].address, '一號,二樓'); assert.equal(csv.entries[1].kind, 'public'); assert.deepEqual(csv.errors, []); assert.deepEqual(p, before);
+  assert.equal(parseRoster('戶別\t地址\nA\t入口', p).entries[0].code, 'A');
+  p.units.push(newUnit('A')); assert.equal(parseRoster('戶別\nA\nB\nB', p).errors.length, 2);
+  assert.throws(() => parseRoster('戶別,constructor\nA,X', p)); assert.throws(() => parseRoster('戶別,地址\nB,"未關閉', p));
+  assert.equal(parseRoster('戶別,種類\nB,toString', p).errors.length, 1);
+});
+
+test('visit dates are actual calendar dates; legacy records retain uncertainty and visit ranges do not invent an exact date', async () => {
+  const { p, r, a, blobs } = await fixture(); delete p.visits;
+  assert.equal(recordDateInfo(p, r).confirmed, false); assert.match(recordDateInfo(p, r).label, /原案日期.*逐筆日期未確認/);
+  p.visits = [{ id: id(), name: '補勘', start: '2026-09-10', end: '2026-09-12' }]; r.visitId = p.visits[0].id; r.observedOn = '';
+  assert.match(recordDateInfo(p, r).label, /09-10～2026-09-12/); r.observedOn = '2026-09-11'; assert.equal(recordDateInfo(p, r).confirmed, true);
+  a.visitHistory = [{ visitId: r.visitId, date: '2026-09-11', status: 'partial', scope: '客廳', reason: '房間未開門' }];
+  const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid), a.id)).blob); assert.deepEqual(restored.project.units[0].visitHistory, a.visitHistory); assert.equal(restored.project.records[0].observedOn, '2026-09-11');
+  r.observedOn = '2026-09-13'; assert.throws(() => validateProject(p), /超出/); r.observedOn = '2026-02-30'; assert.throws(() => validateProject(p), /日期/);
+  assert(validDate('2024-02-29')); assert(!validDate('2026-02-29')); assert(!validDate('2026-13-01'));
+});
+
+test('detail drawings and custom originals survive scoped backup and restore with fresh media identities', async () => {
+  const { p, r, blobs, a } = await fixture(), mid = id(), blob = blobs.get(r.photos[0].mediaId);
+  p.media.push({ ...p.media[0], id: mid, kind: 'detail' }); blobs.set(mid, blob);
+  r.detail = { kind: 'image', mediaId: mid, marks: [{ type: 'pen', points: [{ x: .2, y: .3 }, { x: .4, y: .5 }] }] };
+  const result = await readBundle((await makeBundle(p, key => blobs.get(key), a.id)).blob); assert(result.project.media.some(m => m.id === mid));
+  const restored = restoredCopy(result.project); validateProject(restored.project); assert.notEqual(restored.project.records[0].detail.mediaId, mid); assert.deepEqual(restored.project.records[0].detail.marks, r.detail.marks);
+  assert.equal(result.manifest.version, 5); r.detail.mediaId = r.photos[0].mediaId; assert.throws(() => validateProject(p), /細部圖原檔/);
+  r.detail = { kind: 'preset', preset: 'beam', mirror: true, marks: [] }; validateProject(p); r.detail.marks = [{ type: 'pen', points: [{ x: 2, y: .1 }] }]; assert.throws(() => validateProject(p), /座標/);
+});
+
+test('numbering resets per selected unit and the full-project option preserves sequential numbers and field identities', async () => {
+  const { p } = await fixture(); syncRooms(p); const before = structuredClone(p);
+  const perUnit = attachmentIndex(p), nums = perUnit.groups.flatMap(g => g.records.flatMap(r => r.photos.map(p => p.number))); assert.deepEqual(nums, ['001', '001']);
+  assert.deepEqual(attachmentIndex(p, { numbering: 'project' }).groups.flatMap(g => g.records.flatMap(r => r.photos.map(p => p.number))), ['001', '002']);
+  const reversed = attachmentIndex(p, { unitIds: [...p.units].reverse().map(u => u.id) }); assert.equal(reversed.groups[0].unitId, p.units[1].id); assert.deepEqual(p, before);
+  assert.throws(() => attachmentIndex(p, { unitIds: [] })); assert.throws(() => attachmentIndex(p, { unitIds: [p.units[0].id, p.units[0].id] }));
+});
+
+test('volume boundaries retain units, preserve absolute appendix pages and mark oversize units', () => {
+  const p = newProject('CASE', '分冊', '2026-09-10'), a = newUnit('A'), b = newUnit('B'), c = newUnit('P'); p.units.push(a, b, c);
+  const sections = [a.id, a.id, b.id, b.id, c.id, c.id, c.id].map((unitId, i) => ({ unitId, segmentKey: unitId, page: 41 + i, label: '8-' + (41 + i) }));
+  const index = { sections, pagePrefix: '8-' }; const volumes = splitVolumes(index, p, 2);
+  assert.deepEqual(volumes.map(v => [v.start, v.pageCount, v.overLimit]), [[41, 2, false], [43, 2, false], [45, 3, true]]);
+  assert.deepEqual(splitVolumes(index, p, 100, [b.id]).map(v => v.unitIds), [[a.id], [b.id, c.id]]); assert.throws(() => splitVolumes(index, p, 0));
+});
+
+test('zero-photo inaccessible units remain explicit standard-report entries without fabricating observations', () => {
+  const p = newProject('CASE', '未入內', '2026-09-10'), u = newUnit('C'); p.units.push(u); u.status = 'inaccessible'; u.reason = '未能入內';
+  assert.throws(() => attachmentIndex(p)); const index = attachmentIndex(p, { includeEmpty: true }); assert.equal(index.groups.length, 0); assert.equal(attachmentUnits(index, p)[0].status, 'inaccessible');
+  assert.throws(() => attachmentIndex(p, { includeEmpty: true, format: 'quick' }));
+});
 
 test('individual cracks preserve independent units, uncertainty and legacy group through backup', async () => {
   const { p, r, blobs } = await fixture();
@@ -20,7 +89,7 @@ test('individual cracks preserve independent units, uncertainty and legacy group
   assert.match(prose, /原整組紀錄/); assert.deepEqual(recordIssues(r), ['裂縫 C未量測']);
   const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
   assert.deepEqual(restored.project.records[0].cracks, r.cracks); assert.deepEqual(restored.project.records[0].legacyCrack, r.legacyCrack);
-  assert.equal(restored.manifest.version, 4);
+  assert.equal(restored.manifest.version, 5);
   r.cracks[2].width = .3; assert.throws(() => validateProject(p), /未量測/);
 });
 
@@ -103,7 +172,7 @@ test('both report formats share selected numbering; standard plans consolidate a
   p.media.push({ ...p.media[0], id: plan.mediaId, kind: 'plan' }); p.plans.push(plan);
   r.placement = { planId: plan.id, x: .2, y: .3, endX: .6, endY: .7 }; second.placement = { ...r.placement, x: .4 };
   const before = structuredClone(p), standard = attachmentIndex(p, { start: 7 }), quick = attachmentIndex(p, { start: 7, format: 'quick' });
-  assert.equal(standard.format, 'standard'); assert.equal(standard.version, 2); assert.deepEqual(standard.groups, quick.groups);
+  assert.equal(standard.format, 'standard'); assert.equal(standard.version, 3); assert.deepEqual(standard.groups, quick.groups);
   const units = attachmentUnits(standard, p); assert.equal(units.length, 2); assert.equal(units[0].groups.length, 2); assert.equal(units[0].plans.length, 1); assert.equal(units[1].plans.length, 0);
   assert.deepEqual(units[0].records.flatMap(r => r.photos.map(p => p.number)), ['007', '008']);
   assert.deepEqual(groupPlanEntries(units[0], plan.id).map(e => e.label), ['007', '008']);
@@ -342,7 +411,7 @@ test('multiple conditions share originals and retain independent measured or est
   Object.assign(r, { condition: 'crack', conditions: ['crack', 'damp', 'salt', 'spall'], crackPattern: 'network', areas: { crack: { value: null, method: 'estimated' }, damp: { value: 1.5, method: 'measured' }, salt: { value: .8, method: 'estimated' }, spall: { value: 0, method: 'measured' } } });
   validateProject(p); assert.deepEqual(recordIssues(r), []);
   const result = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
-  assert.equal(result.manifest.version, 4); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
+  assert.equal(result.manifest.version, 5); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
   const copy = restoredCopy(result.project).project.records[0]; assert.deepEqual(copy.conditions, r.conditions); assert.deepEqual(copy.areas, r.areas);
   r.conditions = ['damp']; r.condition = 'damp'; validateProject(p); assert.equal(r.areas.salt.value, .8); assert.deepEqual(recordIssues(r), []);
 });

@@ -7,6 +7,9 @@ import { isUCrack, isTile, syncRooms, clearWrongFloor, observationText, tileTota
 import { createCrackFields, crackLabel } from './cracks.js';
 import { individualCracks } from './model.js';
 import { createReportController } from './report-ui.js';
+import { createOrganisationController, unitHistoryLabel } from './organisation.js';
+import { UNIT_KINDS, recordDateInfo, latestUnitHistory } from './model.js';
+import { openDetailEditor } from './detail.js';
 
 const $ = selector => document.querySelector(selector), esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const opts = object => Object.entries(object).map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('');
@@ -15,7 +18,7 @@ const localDate = () => { const date = new Date(); return `${date.getFullYear()}
 let project = null, unitId = '', recordId = '', activeView = 'work', dirty = false, editGeneration = 0, saveTimer, formSaving = null, working = false, renderToken = 0;
 let pendingCapture = null, pendingPlan = null, modalCleanup = () => {}, modalDirty = false, recording = null, toastTimer;
 let conflictDraft = null;
-let reports, crackFields;
+let reports, crackFields, organisation, reviewPage = 0;
 const preference = { get(key) { try { return localStorage.getItem('survey-' + key); } catch { return null; } }, set(key, value) { try { localStorage.setItem('survey-' + key, value); } catch {} } };
 const urls = new Map();
 const currentRecord = () => project?.records.find(r => r.id === recordId);
@@ -32,6 +35,7 @@ async function action(fn, label = '處理中') {
 }
 function requireNoRecording() { assert(!recording, '請先停止並保存目前錄音，再切換位置或案件。'); }
 function openModal(title, body, cleanup = () => {}) {
+  $('#modalBody').onclick = null;
   modalCleanup(); delete $('#modal').dataset.mode; modalCleanup = cleanup; modalDirty = false; $('#modalError').hidden = $('#modalRecover').hidden = $('#discardPrompt').hidden = true; $('#modalTitle').textContent = title; $('#modalBody').innerHTML = body;
   if (!$('#modal').open) $('#modal').showModal();
 }
@@ -54,9 +58,10 @@ async function commit(mutator, assets = []) {
   try { project = await saveProject(next, project.revision, assets); conflictDraft = null; $('#saveStatus').textContent = '已保存於本機'; }
   catch (e) { if (e.name === 'RevisionConflictError') conflictDraft = { project: next, assets }; throw e; }
 }
-function markUnitOpen(next, record) { const u = next.units.find(x => x.id === record.unitId); if (u?.status === 'complete') u.status = 'open'; record.updatedAt = now(); }
+function markUnitOpen(next, record) { const u = next.units.find(x => x.id === record.unitId), h = u?.visitHistory?.find(h => h.visitId === record.visitId); if (h?.status === 'complete') h.status = 'open'; const latest = u && latestUnitHistory(next, u); if (u?.status === 'complete' && (!latest || !record.visitId || latest.visitId === record.visitId)) u.status = 'open'; record.updatedAt = now(); }
 function formValues() {
   const values = {};
+  values.visitId = $('#recordVisit').value; values.observedOn = $('#observedOn').value;
   for (const key of ['floor', 'space', 'location', 'visibility', 'notes', 'resident']) values[key] = $('#' + key).value;
   values.components = [...$('#component').querySelectorAll('input:checked')].map(el => el.value); values.component = values.components[0] || '';
   values.conditions = selectedConditions(); values.condition = values.conditions[0] || '';
@@ -96,7 +101,7 @@ async function saveForm() {
   }).then(async () => {
     if (generation === editGeneration) dirty = false;
     $('#saveStatus').textContent = dirty ? '尚未保存新變更' : '已保存於本機';
-    renderRecordList(); renderRecordIssues();
+    renderRecordList(); renderRecordIssues(); $('#recordDateSummary').textContent = recordDateInfo(project, currentRecord()).label;
     if (beforeFloor !== values.floor && currentRecord()?.id === target) { $('#recordTime').textContent = '樓層變更後請核對位置圖'; await renderLocationCard($('#recordLocation'), currentRecord()); }
   }).finally(() => { formSaving = null; });
   await formSaving;
@@ -191,6 +196,8 @@ async function renderEditor() {
   renderToken++;
   const r = currentRecord(); $('#recordEditor').hidden = !r; $('#recordEmpty').hidden = !!r; if (!r) return;
   $('#recordCode').textContent = recordNumber(r); $('#recordTime').textContent = new Date(r.updatedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+  $('#recordVisit').innerHTML = '<option value="">未指定／原案紀錄</option>' + (project.visits || []).map(v => `<option value="${esc(v.id)}">${esc(v.name)} · ${v.start}${v.end !== v.start ? '～' + v.end : ''}</option>`).join('');
+  $('#recordVisit').value = r.visitId || ''; $('#observedOn').value = r.observedOn || ''; $('#recordDateSummary').textContent = recordDateInfo(project, r).label;
   for (const key of ['floor', 'space', 'location', 'visibility', 'notes', 'resident']) $('#' + key).value = r[key];
   for (const el of $('#component').querySelectorAll('input')) el.checked = recordComponents(r).includes(el.value);
   for (const el of $('#condition').querySelectorAll('input')) el.checked = recordConditions(r).includes(el.value);
@@ -209,6 +216,7 @@ async function renderEditor() {
 async function render() {
   await projectOptions(); $('#welcome').hidden = !!project; $('#workspace').hidden = !project; $('#bottomNav').hidden = !project;
   if (!project) return;
+  organisation.render();
   $('#unitSelect').innerHTML = project.units.length ? project.units.map(u => `<option value="${esc(u.id)}">${esc(u.code)}${u.address ? ' · ' + esc(u.address) : ''}</option>`).join('') : '<option value="">請先新增戶別</option>';
   $('#unitSelect').value = unitId; renderRecordList(); await renderEditor(); await showView(activeView);
 }
@@ -222,11 +230,16 @@ async function showView(view) {
 }
 function renderReview() {
   const totalIssues = project.units.reduce((sum, u) => sum + unitIssues(project, u).length, 0);
-  $('#reviewSummary').innerHTML = [[project.units.length, '鑑定戶'], [project.records.length, '位置紀錄'], [totalIssues, '待補項目']].map(([n, label]) => `<div class="stat"><strong>${n}</strong><span>${label}</span></div>`).join('');
-  $('#reviewList').innerHTML = project.units.length ? project.units.map(u => {
-    const issues = unitIssues(project, u);
-    return `<section class="panel review-unit"><div class="section-heading"><div><h3>${esc(u.code)}</h3><span class="micro">${esc(u.address)}</span></div><button class="secondary" data-unit-state="${esc(u.id)}">${esc(UNIT_STATES[u.status])}</button></div>${u.reason ? `<p class="modal-note">${esc(u.reason)}</p>` : ''}${issues.length ? issues.map(issue => `<div class="issue-row"><p>${issue.recordId ? esc(recordNumber(project.records.find(r => r.id === issue.recordId))) + ' · ' : ''}${esc(issue.text)}</p><button class="quiet" data-review-record="${esc(issue.recordId || '')}" data-unit="${esc(u.id)}">前往 →</button></div>`).join('') : '<p class="micro">目前未列出待補項目；離開前請人工核對本戶範圍與照片。</p>'}</section>`;
-  }).join('') : '<p>尚未新增鑑定戶。</p>';
+  $('#reviewSummary').innerHTML = [[project.units.length, '鑑定單元'], [project.records.length, '位置紀錄'], [totalIssues, '待補項目']].map(([n, label]) => `<div class="stat"><strong>${n}</strong><span>${label}</span></div>`).join('');
+  const search = $('#reviewSearch').value.trim().toLocaleLowerCase(), filter = $('#reviewFilter').value;
+  const units = project.units.filter(u => (!search || [u.code, u.address, u.building].join(' ').toLocaleLowerCase().includes(search)) && (!filter || filter === 'public' && u.kind === 'public' || u.status === filter));
+  const count = Math.max(1, Math.ceil(units.length / 20)); reviewPage = Math.min(reviewPage, count - 1);
+  $('#reviewPager').innerHTML = `<button data-review-page="-1" ${reviewPage === 0 ? 'disabled' : ''}>上一頁</button><span>第 ${reviewPage + 1}／${count} 頁 · ${units.length} 戶</span><button data-review-page="1" ${reviewPage + 1 === count ? 'disabled' : ''}>下一頁</button>`;
+  $('#reviewList').innerHTML = units.slice(reviewPage * 20, reviewPage * 20 + 20).map(u => {
+    const issues = unitIssues(project, u), records = project.records.filter(r => r.unitId === u.id);
+    const photos = records.reduce((n, r) => n + r.photos.filter(p => !p.excluded).length, 0), noDate = records.filter(r => !r.observedOn).length, noDetail = records.filter(r => r.photos.length && !r.detail).length;
+    return `<section class="panel review-unit"><div class="section-heading"><div><h3>${esc(u.code)} · ${UNIT_KINDS[u.kind || 'residence']}</h3><span class="micro">${esc([u.building, u.address].filter(Boolean).join(' · '))}</span></div><button class="secondary" data-unit-state="${esc(u.id)}">${esc(UNIT_STATES[u.status])}</button></div><p class="micro">${photos} 張可用照片 · ${noDate} 筆日期未確認 · ${noDetail} 筆尚未選細圖</p>${u.reason ? `<p class="modal-note">${esc(u.reason)}</p>` : ''}${u.visitHistory?.length ? `<details><summary>歷次進場（${u.visitHistory.length}）</summary><p class="description">${esc(unitHistoryLabel(project, u))}</p></details>` : ''}${issues.length ? issues.slice(0, 50).map(issue => `<div class="issue-row"><p>${issue.recordId ? esc(recordNumber(project.records.find(r => r.id === issue.recordId))) + ' · ' : ''}${esc(issue.text)}</p><button class="quiet" data-review-record="${esc(issue.recordId || '')}" data-unit="${esc(u.id)}">前往 →</button></div>`).join('') + (issues.length > 50 ? '<p>其餘待補項目請至本戶逐筆核對。</p>' : '') : '<p class="micro">未列出必要欄位待補；請另核對本次範圍、日期、細圖與照片。</p>'}</section>`;
+  }).join('') || '<p>此範圍尚無鑑定單元。</p>';
 }
 async function renderBackup() {
   const oldScope = $('#exportScope').value;
@@ -249,17 +262,25 @@ function unitDialog(editId = '') {
   const u = project.units.find(x => x.id === editId);
   openModal(u ? '戶別與本次進場情形' : '新增鑑定戶', `<form id="unitForm"><label>鑑定戶編號／名稱<input name="code" required maxlength="150" value="${esc(u?.code || '')}" placeholder="例如 001、A 棟公設"></label><label>地址<input name="address" maxlength="500" value="${esc(u?.address || '')}" placeholder="可於此核對實際門牌"></label>${u ? `<label>本次狀態<select name="status">${opts(UNIT_STATES)}</select></label><label>未完成範圍／無法入內原因<textarea name="reason" maxlength="10000" rows="3">${esc(u.reason)}</textarea></label><p class="micro">部分完成或無法入內請留下原因；完成狀態只表示本次紀錄進度。</p>` : ''}<div class="modal-actions"><button class="primary" type="submit">${u ? '保存戶況' : '新增戶別'}</button></div></form>`);
   if (u) $('#unitForm [name=status]').value = u.status;
+  const fields = document.createElement('div'); fields.className = 'two-col'; fields.innerHTML = `<label>棟別／群組<input name="building" maxlength="100" value="${esc(u?.building || '')}"></label><label>鑑定單元<select name="kind">${opts(UNIT_KINDS)}</select></label>`; $('#unitForm').prepend(fields); $('#unitForm [name=kind]').value = u?.kind || 'residence';
+  const visit = organisation.visit, history = u?.visitHistory?.find(h => h.visitId === visit?.id);
+  if (u && visit) {
+    $('#unitForm [name=status]').value = history?.status || 'open'; $('#unitForm [name=reason]').value = history?.reason || '';
+    const visitFields = document.createElement('div'); visitFields.innerHTML = `<p>本次批次：${esc(visit.name)}（${visit.start}～${visit.end}）</p><label>本戶實際進場日期<input type="date" name="visitDate" value="${esc(history?.date || '')}"></label><label>本次已觀察／未完成範圍<input name="visitScope" maxlength="1000" value="${esc(history?.scope || '')}"></label><details><summary>歷次進場紀錄</summary><p>${esc(unitHistoryLabel(project, u) || '尚無歷次紀錄')}</p></details>`; $('#unitForm .modal-actions').before(visitFields);
+  }
   $('#unitForm').onsubmit = e => {
     e.preventDefault(); const data = new FormData(e.target), code = data.get('code').trim();
     action(async () => {
       assert(!project.units.some(x => x.id !== editId && x.code === code), '此案件已有相同戶別編號');
       let chosen = u?.id;
       await commit(next => {
-        if (!u) { const item = newUnit(code, data.get('address')); chosen = item.id; next.units.push(item); }
+        if (!u) { const item = { ...newUnit(code, data.get('address')), building: data.get('building').trim(), kind: data.get('kind') }; chosen = item.id; next.units.push(item); }
         else {
           const item = next.units.find(x => x.id === editId); item.code = code; item.address = data.get('address').trim(); item.status = data.get('status'); item.reason = data.get('reason').trim();
+          item.building = data.get('building').trim(); item.kind = data.get('kind');
           assert(!['partial', 'inaccessible'].includes(item.status) || item.reason, '請補上未完成／無法入內原因');
-          if (item.status === 'complete') assert(unitIssues(next, item).length === 0, '本戶仍有待補項目。請補齊，或選擇部分完成並記錄範圍。');
+          if (item.status === 'complete') assert(unitIssues(visit ? { ...next, records: next.records.filter(r => r.visitId === visit.id) } : next, item).length === 0, '本戶仍有待補項目。請補齊，或選擇部分完成並記錄範圍。');
+          if (visit) { item.visitHistory ??= []; const h = { visitId: visit.id, date: data.get('visitDate'), scope: data.get('visitScope').trim(), status: item.status, reason: item.reason }; const i = item.visitHistory.findIndex(h => h.visitId === visit.id); if (i < 0) item.visitHistory.push(h); else item.visitHistory[i] = h; const latest = latestUnitHistory(next, item); item.status = latest.status; item.reason = latest.reason; }
         }
       });
       unitId = chosen; if (!u) recordId = ''; closeModal(true); await render(); toast('戶別已保存');
@@ -269,6 +290,7 @@ function unitDialog(editId = '') {
 async function addRecord() {
   requireNoRecording(); assert(unitId, '請先新增或選擇鑑定戶');
   const previous = currentRecord(), r = newRecord(unitId, previous?.floor || '', previous?.space || '');
+  const visit = organisation.visit; r.visitId = visit?.id || ''; r.observedOn = visit?.start === visit?.end ? visit?.start || '' : '';
   await commit(next => { next.records.push(r); markUnitOpen(next, r); }); recordId = r.id; await render(); $('#location').focus();
 }
 async function prepareAsset(file, kind, source) {
@@ -599,7 +621,7 @@ async function receiveReceipt(file) {
 }
 function helpDialog() {
   openModal('手機使用與保存', `<ol class="help-list"><li>新增案件及戶別。先從「平面圖庫／先建圖」依樓層匯入或手繪，標上入口、樓梯及房間名稱；再進入各空間新增位置，引用圖面標拍攝箭頭，拍全景、近照或量尺照。</li><li>點照片可圈選、畫箭頭與文字；圈註另存，原圖保留。位置圖可加入圖面或草圖照片；手繪簡圖支援雙指縮放、移動、四向擴展及選取刪除。照片旁可核對定位，另可下載照片與位置圖對照副本。</li><li>現況可複選並共用照片；白華、剝落等面積各自填 m²，不合計重疊範圍。裂隙寬度用 mm、長度用 m。現況欄位會自動保存。切換位置前會先保存；上方有錯誤時請先處理。</li><li>離開一戶前查看「待補檢查」，無法入內或部分完成請記原因。</li><li>從「備份還原」匯出全案或單戶。在電腦開啟同一工具、核對備份及建立還原副本。</li><li>iPhone 可從瀏覽器分享選單加入主畫面；Android 可從瀏覽器選單安裝。需先在線開啟，等上方顯示「離線已就緒」。手機使用需 HTTPS。</li></ol><p class="modal-note">資料只保存在此瀏覽器及你匯出的備份檔，不自動上傳。換瀏覽器、清除網站資料或移除應用程式前，請先完成外部備份。勿以無痕模式保存工作。</p><p>本工具記錄現場可見情形，不自動判定損害原因、結構安全或責任歸屬。尚須在實際手機上確認相機、容量及中斷操作。</p><p class="help-version">版本 ${VERSION} · 純本機資料 · 現況紀錄工作稿</p><button id="applyUpdate" class="secondary" hidden>保存後套用離線更新</button>`);
-  $('#modalBody').insertAdjacentHTML('afterbegin', '<p class="modal-note">V0.8.0：一般裂縫可逐條填尺寸並以 A／B／C 圈註；磁磚可選 1／2／5／10／15／20 塊或文字數量。新增大字、橫向拍攝與收合說明的繪圖介面；樓梯提供直梯、L 型、折返及長短梯，方向未確認不加箭頭或文字。梁 U 型裂縫以條數記錄、不列總長；磁磚裂隙與破損可記塊數。在「附件整理」依房間選主照片、排序並自動產生照片流水號與位置圖，可下載 HTML 附件及列印 PDF。照片可各自設定拍攝位置，舊案及舊備份可接續使用。網狀裂隙：網狀裂隙的寬度、長度及實測勾選均可略過，不列尺寸待補。簡圖新增開門、開窗、端點／牆線吸附與水平／垂直鎖定。復原一步後才可重做，清空重畫另有按鈕。拍照先同意啟用相機，再於瀏覽器選允許；可預覽、重拍與保存。部位可複選；裂縫可一鍵選 ≤0.3 mm、>0.3 mm。無圖說可直接「手繪簡圖」，點兩下畫房間／線段，保存後點拍攝點及方向標箭頭。簡圖未按比例，寬度區間不代表安全判定。</p>');
+  $('#modalBody').insertAdjacentHTML('afterbegin', '<p class="modal-note">V0.10.0：可匯入戶別名冊、分次會勘並保留進場歷程。在附件整理選六種細圖、畫損害標註，再依戶編號與規劃分冊。標準附件依序為整體平面圖、照片說明表、照片；保留快速預覽。分冊設定請於每次匯出前核對。</p><details><summary>既有現場功能說明</summary><p>V0.8.0：一般裂縫可逐條填尺寸並以 A／B／C 圈註；磁磚可選 1／2／5／10／15／20 塊或文字數量。新增大字、橫向拍攝與收合說明的繪圖介面；樓梯提供直梯、L 型、折返及長短梯，方向未確認不加箭頭或文字。梁 U 型裂縫以條數記錄、不列總長；磁磚裂隙與破損可記塊數。在「附件整理」依房間選主照片、排序並自動產生照片流水號與位置圖，可下載 HTML 附件及列印 PDF。照片可各自設定拍攝位置，舊案及舊備份可接續使用。網狀裂隙：網狀裂隙的寬度、長度及實測勾選均可略過，不列尺寸待補。簡圖新增開門、開窗、端點／牆線吸附與水平／垂直鎖定。復原一步後才可重做，清空重畫另有按鈕。拍照先同意啟用相機，再於瀏覽器選允許；可預覽、重拍與保存。部位可複選；裂縫可一鍵選 ≤0.3 mm、>0.3 mm。無圖說可直接「手繪簡圖」，點兩下畫房間／線段，保存後點拍攝點及方向標箭頭。簡圖未按比例，寬度區間不代表安全判定。</p></details>');
   navigator.serviceWorker?.getRegistration().then(reg => { if (reg?.waiting && $('#applyUpdate')) { $('#applyUpdate').hidden = false; $('#applyUpdate').onclick = () => action(async () => { requireNoRecording(); assert(!conflictDraft, '請先另存目前副本，再套用更新'); closeModal(true); navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true }); reg.waiting.postMessage('ACTIVATE_UPDATE'); }); } });
 }
 async function initOffline() {
@@ -655,6 +677,8 @@ $('#showPlan').onclick = () => action(() => planEntry(false)); $('#quickSketch')
 $('#recordAudio').onclick = () => action(audioToggle, '準備錄音');
 $('#bottomNav').onclick = e => { const b = e.target.closest('[data-view]'); if (b && project) action(async () => { requireNoRecording(); await showView(b.dataset.view); window.scrollTo(0, 0); }); };
 $('#reviewList').onclick = e => { const status = e.target.closest('[data-unit-state]'), record = e.target.closest('[data-review-record]'); if (status) action(() => unitDialog(status.dataset.unitState)); if (record) action(async () => { unitId = record.dataset.unit; recordId = record.dataset.reviewRecord; activeView = 'work'; await render(); }); };
+for (const selector of ['#reviewSearch', '#reviewFilter']) $(selector).onchange = () => action(async () => { reviewPage = 0; renderReview(); });
+$('#reviewPager').onclick = event => { const b = event.target.closest('[data-review-page]'); if (b) action(async () => { reviewPage += Number(b.dataset.reviewPage); renderReview(); $('#reviewPager').scrollIntoView({ block: 'start' }); }); };
 $('#exportScope').onchange = () => action(renderBackup); $('#exportBackup').onclick = () => action(exportBackup, '核對備份資料');
 $('#readBackup').onclick = $('#welcomeImport').onclick = () => { try { requireNoRecording(); $('#bundleInput').click(); } catch (e) { fail(e); } };
 $('#bundleInput').onchange = e => { const file = e.target.files[0]; e.target.value = ''; if (file) action(() => inspectBackup(file), '核對備份'); };
@@ -680,7 +704,8 @@ for (const selector of ['#tileCrackCount', '#tileBrokenCount']) {
 const applyFont = large => { document.body.classList.toggle('large-type', large); $('#fontSize').setAttribute('aria-pressed', String(large)); $('#fontSize').textContent = large ? '標準字' : '大字'; preference.set('large-type', String(large)); };
 applyFont(preference.get('large-type') === 'true'); $('#fontSize').onclick = () => applyFont(!document.body.classList.contains('large-type'));
 $('#fieldPresets').onclick = e => { const b = e.target.closest('[data-field-preset]'); if (!b) return; $('#condition input[value="normal"]').checked = false; if (b.dataset.fieldPreset === 'u') { $('#component input[value="梁"]').checked = true; $('#condition input[value="crack"]').checked = true; $('#crackPattern').value = 'u'; } else { $('#component input[value="牆面"]').checked = true; $('#surface').value = 'tile'; $('#tileCrack').checked = true; $('#condition input[value="crack"]').checked = true; } changed(); };
-reports = createReportController({ $, action, commit, getProject: () => project, getMedia, mediaURL, openModal, closeModal, download, busyText, editPhoto: async (rid, mid) => { recordId = rid; unitId = currentRecord().unitId; activeView = 'work'; await render(); await photoDialog(mid); }, editRecord: async rid => { recordId = rid; unitId = currentRecord().unitId; activeView = 'work'; await render(); } });
+organisation = createOrganisationController({ $, action, commit, getProject: () => project, openModal, closeModal, render, requireNoRecording, esc });
+reports = createReportController({ $, action, commit, getProject: () => project, getMedia, mediaURL, openModal, closeModal, download, busyText, editDetail: async rid => { requireNoRecording(); await openDetailEditor({ $, getProject: () => project, getMedia, action, commit, openModal, closeModal, prepareAsset, download, esc, setDirty: value => { modalDirty = value; }, render: () => reports.render() }, rid); }, editPhoto: async (rid, mid) => { recordId = rid; unitId = currentRecord().unitId; activeView = 'work'; await render(); await photoDialog(mid); }, editRecord: async rid => { recordId = rid; unitId = currentRecord().unitId; activeView = 'work'; await render(); } });
 $('#help').onclick = () => action(helpDialog); $('#closeModal').onclick = () => closeModal(); $('#modal').addEventListener('cancel', e => { e.preventDefault(); closeModal(); }); $('#dismissError').onclick = () => { $('#errorBar').hidden = true; };
 window.addEventListener('beforeunload', e => { if (dirty || formSaving || recording || conflictDraft || modalDirty || reports?.dirty) { e.preventDefault(); e.returnValue = ''; } });
 document.addEventListener('visibilitychange', () => { if (document.hidden && dirty) saveForm().catch(fail); });

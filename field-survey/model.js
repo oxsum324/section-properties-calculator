@@ -1,4 +1,4 @@
-export const VERSION = '0.9.0';
+export const VERSION = '0.10.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -6,6 +6,22 @@ export const CONDITIONS = { '': '尚未分類', normal: '一般現況', crack: '
 export const COMPONENTS = ['', '外觀', '牆面', '梁', '柱', '地坪', '平頂', '門窗', '其他'];
 export const UNIT_STATES = { open: '待完成', partial: '部分完成', inaccessible: '無法入內', complete: '本次紀錄完成' };
 export const ROLES = { overview: '位置全景', close: '近照', scale: '量尺照', other: '其他' };
+export const UNIT_KINDS = { residence: '住戶', public: '公設' };
+export const DETAIL_PRESETS = { beam: '梁底仰視', frame: '梁柱交接', wall: '純牆面', window: '有窗牆面', door: '有門牆面', corner: '轉角牆面' };
+export const DETAIL_TEXTS = { address: '門牌外觀', current: '現況', plan: '詳平面示意圖', none: '無須細部示意圖' };
+export const validDate = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value + 'T00:00:00Z')) && new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) === value;
+export function recordDateInfo(p, r) {
+  if (r.observedOn) return { start: r.observedOn, end: r.observedOn, label: r.observedOn, confirmed: true };
+  const visit = p.visits?.find(v => v.id === r.visitId);
+  if (visit) return { start: visit.start, end: visit.end, label: `${visit.name}：${visit.start}${visit.end === visit.start ? '' : '～' + visit.end}（逐筆日期未確認）`, confirmed: false };
+  return { start: p.date, end: p.date, label: `原案日期 ${p.date}（逐筆日期未確認）`, confirmed: false };
+}
+export function latestUnitHistory(p, u) {
+  return [...(u.visitHistory || [])].sort((a, b) => {
+    const date = h => { const v = p.visits?.find(v => v.id === h.visitId); return v?.end || h.date || ''; };
+    return date(b).localeCompare(date(a)) || (p.visits || []).findIndex(v => v.id === b.visitId) - (p.visits || []).findIndex(v => v.id === a.visitId);
+  })[0];
+}
 export const WIDTH_MODES = { unknown: '未確認', le03: '0.3 mm 以下（≤0.3）', gt03: '超過 0.3 mm（>0.3）', exact: '輸入實測值', lt03: '舊紀錄：小於 0.3 mm', ge03: '舊紀錄：大於或等於 0.3 mm' };
 export const recordComponents = r => r.components ?? (r.component ? [r.component] : []);
 export const recordConditions = r => r.conditions ?? (r.condition ? [r.condition] : []);
@@ -85,7 +101,7 @@ export function tileTotal(t) {
 }
 export const emptySketch = () => ({ version: 1, width: 1200, height: 900, strokes: [] });
 export function newProject(code, name, date) {
-  return { id: id(), code: code.trim(), name: name.trim(), date, createdAt: now(), updatedAt: now(), revision: 0, units: [], records: [], plans: [], media: [] };
+  return { id: id(), code: code.trim(), name: name.trim(), date, createdAt: now(), updatedAt: now(), revision: 0, visits: [{ id: id(), name: '第 1 次會勘', start: date, end: date }], units: [], records: [], plans: [], media: [] };
 }
 export function newUnit(code, address = '') { return { id: id(), code: code.trim(), address: address.trim(), status: 'open', reason: '' }; }
 export function newRecord(unitId, floor = '', space = '') {
@@ -161,10 +177,15 @@ export function validateProject(p) {
   assert(p && typeof p === 'object', '缺案件資料'); identifier(p.id);
   for (const key of ['code', 'name', 'date', 'createdAt', 'updatedAt']) text(p[key], key, 250);
   assert(p.code.trim() && p.name.trim(), '案號及名稱不可空白');
-  assert(/^\d{4}-\d{2}-\d{2}$/.test(p.date), '會勘日期格式不正確');
+  assert(validDate(p.date), '會勘日期格式不正確');
   assert(Number.isSafeInteger(p.revision) && p.revision >= 0, '案件版本不正確');
   for (const key of ['units', 'records', 'plans', 'media']) list(p[key], key);
   const units = unique(p.units), media = unique(p.media), plans = unique(p.plans); unique(p.records);
+  const visits = new Set();
+  if (p.visits !== undefined) {
+    list(p.visits, '會勘批次', 500); unique(p.visits);
+    for (const v of p.visits) { text(v.name, '會勘名稱', 100); assert(v.name.trim() && validDate(v.start) && validDate(v.end) && v.start <= v.end, '會勘日期範圍不正確'); visits.add(v.id); }
+  }
   if (p.rooms !== undefined) {
     list(p.rooms, '房間'); unique(p.rooms);
     for (const room of p.rooms) { assert(units.has(room.unitId), '房間戶別不存在'); text(room.floor, '房間樓層', 100); text(room.name, '房間名稱', 100); assert(room.name.trim() && room.floor.trim(), '房間名稱及樓層不可空白'); }
@@ -175,11 +196,23 @@ export function validateProject(p) {
   for (const u of p.units) {
     for (const k of ['code', 'address', 'reason']) text(u[k], k);
     assert(u.code.trim() && Object.hasOwn(UNIT_STATES, u.status), '戶別或狀態不正確');
+    if (u.building !== undefined) text(u.building, '棟別／群組', 100);
+    if (u.kind !== undefined) assert(Object.hasOwn(UNIT_KINDS, u.kind), '鑑定單元種類不正確');
+    if (u.visitHistory !== undefined) {
+      list(u.visitHistory, '進場歷程', 500); const seen = new Set();
+      for (const h of u.visitHistory) {
+        assert(visits.has(h.visitId) && !seen.has(h.visitId), '進場批次不存在或重複'); seen.add(h.visitId);
+        assert(Object.hasOwn(UNIT_STATES, h.status) && (h.date === '' || validDate(h.date)), '進場狀態或日期不正確');
+        text(h.reason, '進場原因', 10000); text(h.scope, '會勘範圍', 1000);
+        const v = p.visits.find(v => v.id === h.visitId); assert(!h.date || h.date >= v.start && h.date <= v.end, '進場日期超出會勘批次範圍');
+        assert(!['partial', 'inaccessible'].includes(h.status) || h.reason.trim(), '請填未完成／無法入內原因');
+      }
+    }
   }
   const meta = new Map(p.media.map(m => [m.id, m]));
   for (const m of p.media) {
     text(m.name, '檔名', 500); text(m.type, '媒體類型', 100); text(m.importedAt, '取得時間', 100);
-    assert(['image', 'audio', 'plan'].includes(m.kind), '媒體用途不正確');
+    assert(['image', 'audio', 'plan', 'detail'].includes(m.kind), '媒體用途不正確');
     assert((m.kind === 'audio' ? /^audio\/(webm|ogg|mp4|mpeg|wav|x-wav|aac)(;\s*codecs=(?:[\w.,+-]+|"[\w.,+ -]+"))?$/ : /^image\/(jpeg|png|webp|heic|heif)$/).test(m.type), '媒體格式不正確');
     assert(Number.isSafeInteger(m.size) && m.size > 0 && m.size <= 60 * 1024 * 1024, '單一媒體大小超過 60 MB 或為空');
     assert(/^[a-f0-9]{64}$/.test(m.sha256), '媒體指紋不正確');
@@ -190,6 +223,20 @@ export function validateProject(p) {
     if (plan.sketch !== undefined) validateSketch(plan.sketch);
   }
   for (const r of p.records) {
+    if (r.visitId !== undefined) assert(r.visitId === '' || visits.has(r.visitId), '紀錄會勘批次不存在');
+    if (r.observedOn !== undefined) {
+      assert(r.observedOn === '' || validDate(r.observedOn), '紀錄日期不正確');
+      const v = p.visits?.find(v => v.id === r.visitId); assert(!r.observedOn || !v || r.observedOn >= v.start && r.observedOn <= v.end, '紀錄日期超出會勘批次範圍');
+    }
+    if (r.detail !== undefined) {
+      const d = r.detail; assert(d && ['preset', 'text', 'image'].includes(d.kind), '細部圖種類不正確');
+      if (d.kind === 'text') assert(Object.hasOwn(DETAIL_TEXTS, d.value), '細部圖文字預選不正確');
+      else {
+        validateMarks(d.marks);
+        if (d.kind === 'preset') assert(Object.hasOwn(DETAIL_PRESETS, d.preset) && typeof d.mirror === 'boolean', '細部圖預選不正確');
+        else assert(media.has(d.mediaId) && meta.get(d.mediaId).kind === 'detail', '細部圖原檔關聯遺失');
+      }
+    }
     if (r.fieldNumber !== undefined) { assert(Number.isSafeInteger(r.fieldNumber) && r.fieldNumber > 0 && !fieldNumbers.has(r.fieldNumber), '現場代號重複或不正確'); fieldNumbers.add(r.fieldNumber); }
     if (r.roomId !== undefined) assert(p.rooms?.some(x => x.id === r.roomId && x.unitId === r.unitId && x.floor === r.floor.trim() && x.name === r.space.trim()), '房間關聯不一致');
     const crackMeasurement = c => {
@@ -279,7 +326,7 @@ export function subset(p, unitId = '') {
   result.records = result.records.filter(r => r.unitId === unitId);
   result.plans = result.plans.filter(x => x.unitId === unitId);
   if (result.rooms) result.rooms = result.rooms.filter(x => x.unitId === unitId);
-  const used = new Set([...result.records.flatMap(r => [...r.photos.map(x => x.mediaId), ...r.audioIds]), ...result.plans.map(x => x.mediaId)]);
+  const used = new Set([...result.records.flatMap(r => [...r.photos.map(x => x.mediaId), ...r.audioIds, r.detail?.mediaId].filter(Boolean)), ...result.plans.map(x => x.mediaId)]);
   result.media = result.media.filter(m => used.has(m.id));
   return result;
 }
@@ -288,6 +335,6 @@ export function restoredCopy(p) {
   copy.id = id(); copy.name = copy.name.slice(0, 200) + '（還原副本）'; copy.revision = 0; copy.createdAt = now(); copy.updatedAt = now();
   copy.media.forEach(m => { m.id = remap.get(m.id); });
   copy.plans.forEach(x => { x.mediaId = remap.get(x.mediaId); });
-  copy.records.forEach(r => { r.photos.forEach(x => { x.mediaId = remap.get(x.mediaId); }); if (r.mainPhotoId) r.mainPhotoId = remap.get(r.mainPhotoId); r.audioIds = r.audioIds.map(x => remap.get(x)); });
+  copy.records.forEach(r => { r.photos.forEach(x => { x.mediaId = remap.get(x.mediaId); }); if (r.mainPhotoId) r.mainPhotoId = remap.get(r.mainPhotoId); if (r.detail?.mediaId) r.detail.mediaId = remap.get(r.detail.mediaId); r.audioIds = r.audioIds.map(x => remap.get(x)); });
   return { project: copy, remap };
 }

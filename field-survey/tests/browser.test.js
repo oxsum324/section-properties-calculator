@@ -9,6 +9,7 @@ import { VERSION } from '../model.js';
 import assert from 'node:assert/strict';
 import { verifyFieldV08Workflow } from './field-v08-browser.js';
 import { verifyReportWorkflow } from './report-browser.js';
+import { verifyV010 } from './v010-browser.js';
 import { readBundle } from '../bundle.js';
 const require = createRequire(import.meta.url);
 const { chromium } = require('../../.github/pages-smoke/node_modules/playwright');
@@ -250,7 +251,7 @@ try {
   assert.equal(await page.locator('#recordIssues').innerText(), '本筆必要紀錄已齊'); assert((await page.locator('#widthLabel').innerText()).includes('選填')); assert((await page.locator('#lengthLabel').innerText()).includes('選填'));
   await page.reload(); await page.locator('#crackPattern').waitFor(); assert.equal(await page.locator('#crackPattern').inputValue(), 'network'); assert.equal(await page.locator('#recordIssues').innerText(), '本筆必要紀錄已齊');
   assert.equal(await page.locator('#measured').isChecked(), false); p = (await projects())[0]; assert.equal(p.records[0].width, null); assert.equal(p.records[0].length, null);
-  await click('[data-view=review]'); assert((await page.locator('#reviewList').innerText()).includes('目前未列出待補項目')); await click('[data-view=work]');
+  await click('[data-view=review]'); assert((await page.locator('#reviewList').innerText()).includes('未列出必要欄位待補')); await click('[data-view=work]');
   await page.locator('#measured').check(); await page.locator('#widthMode').selectOption('exact'); await page.locator('#width').fill('0.2'); await click('#saveRecord');
   assert.equal(await page.locator('#recordIssues').innerText(), '本筆必要紀錄已齊');
   await page.locator('#crackPattern').selectOption('diagonal'); await click('#saveRecord'); assert((await page.locator('#recordIssues').innerText()).includes('量測尺寸未齊')); assert(!(await page.locator('#lengthLabel').innerText()).includes('選填')); assert.equal(await page.locator('#width').inputValue(), '0.2');
@@ -371,5 +372,7 @@ try {
   console.log('PASS conflict recovery, exclusion preserves original, stale backup reminder, no external requests');
   await verifyReportWorkflow(browser, base, out);
   await verifyFieldV08Workflow(browser, base, out);
+  await verifyV010(browser, base, out);
+  await (await import('./scale-browser.js')).verifyScale(browser, base, out);
   await fs.writeFile(path.join(out, 'result.json'), JSON.stringify({ passed: true, browser: await browser.version(), viewport: '390x844 + 1280x900', physicalPhoneTested: false, httpCacheUpgradeVerified: true, pageErrors: errors, externalRequests: outbound, originalHash: hash, packageMediaCount: bundle.media.length, checkedAt: new Date().toISOString() }, null, 2));
 } finally { await browser.close(); server?.kill(); }

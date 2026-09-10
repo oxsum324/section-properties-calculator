@@ -289,5 +289,23 @@ dialog[data-mode="sketch"] .sketch-stage { min-height: 0; height: 100%; aspect-r
   .app-header h1 { font-size: 19px; }
   .app-header .quiet { padding: 5px; font-size: 14px; }
   .micro, small, .eyebrow, .record-item small, .system-bar { font-size: 14px; }
-  .bottom-nav button { font-size: 14px; }
+.bottom-nav button { font-size: 14px; }
 }
+
+.visit-context { margin: 8px 0; }
+.record-date-settings { margin: 0 0 12px; }
+#recordDateSummary { display: block; font-size: .85em; font-weight: normal; }
+.detail-presets { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin: 12px 0; }
+.detail-presets button { display: grid; padding: 8px; gap: 4px; font-size: 14px; }
+.detail-presets svg { width: 100%; height: 65px; }
+.detail-stage { margin: 10px auto; background: white; }
+#detailTextPreview { text-align: center; font-size: 26px; padding: 40px 12px; }
+.roster-scroll { overflow: auto; max-height: 45vh; margin: 12px 0; }
+.roster-scroll table { border-collapse: collapse; width: 100%; }
+.roster-scroll td,.roster-scroll th { border: 1px solid var(--line,#ccd5d1); padding: 8px; text-align: left; }
+.report-unit-choice { padding: 8px 0; border-bottom: 1px solid var(--line,#ccd5d1); }
+#reportUnits { max-height: 45vh; overflow: auto; }
+.report-search { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+#reportPager,#reviewPager { align-items: center; justify-content: space-between; margin: 16px 0; }
+.report-photo img { min-height: 100px; background: #eceee9; }
+@media(max-width:600px) { .context-bar { flex-wrap: wrap; } .visit-context .grow { flex-basis: 65%; } .detail-presets { grid-template-columns: repeat(2,minmax(0,1fr)); } .report-search { grid-template-columns: 1fr; } }

@@ -32,7 +32,7 @@ jobs:
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
           npx playwright install --with-deps chromium
-      - name: Verify survey model and real V0.7 upgrade
+      - name: Verify survey model and real V0.7 and V0.9 upgrades
         run: |
           mkdir -p output/field-survey-validation
           node --test field-survey/tests/model.test.js
@@ -43,15 +43,17 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          base_run=$(node -p "require('./field-survey/release-baseline.json').runId")
-          base_sha=$(node -p "require('./field-survey/release-baseline.json').commitSha")
+          base_run=$(node -p "const b=require('./field-survey/release-baseline.json'); (b.artifact||b).runId")
+          base_sha=$(node -p "const b=require('./field-survey/release-baseline.json'); (b.artifact||b).commitSha")
           test "$(gh run view "$base_run" --json conclusion --jq .conclusion)" = success
           test "$(gh run view "$base_run" --json headSha --jq .headSha)" = "$base_sha"
           gh run download "$base_run" -n github-pages -D "$RUNNER_TEMP/survey-baseline"
           mkdir "$RUNNER_TEMP/survey-site"
           tar -xf "$RUNNER_TEMP/survey-baseline/artifact.tar" -C "$RUNNER_TEMP/survey-site"
       - name: Stage only survey runtime and verify unchanged surrounding site
-        run: node field-survey/release.mjs stage "$RUNNER_TEMP/survey-site"
+        run: |
+          node field-survey/tests/release-stage.cjs "$RUNNER_TEMP/survey-site"
+          node field-survey/release.mjs stage "$RUNNER_TEMP/survey-site"
       - name: Verify staged survey workflows
         env:
           SURVEY_URL: http://127.0.0.1:4173/field-survey/recorder.html

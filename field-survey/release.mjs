@@ -10,7 +10,7 @@ import { VERSION } from './model.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const baseline = JSON.parse(fs.readFileSync(new URL('./release-baseline.json', import.meta.url), 'utf8'));
-const runtime = ['recorder.html', 'app.css', 'app.js', 'model.js', 'report.js', 'report-ui.js', 'store.js', 'bundle.js', 'annotation.js', 'sketch.js', 'stairs.js', 'cracks.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'sw.js'];
+const runtime = ['recorder.html', 'app.css', 'app.js', 'model.js', 'report.js', 'report-ui.js', 'report-standard.js', 'organisation.js', 'detail.js', 'store.js', 'bundle.js', 'annotation.js', 'sketch.js', 'stairs.js', 'cracks.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'sw.js'];
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const git = args => execFileSync('git', ['-C', root, ...args]);
 const head = git(['rev-parse', 'HEAD']).toString().trim();
@@ -48,12 +48,29 @@ if (mode === 'baseline') {
   const manifest = JSON.parse(manifestBytes); assert.equal(manifest.commitSha, baseline.commitSha); assert.equal(manifest.runId, baseline.runId);
   const before = files(site);
   const listed = new Map(manifest.files.map(f => [f.path, f.sha256]));
+  if (baseline.artifact) {
+    const bytes = fs.readFileSync(path.join(site, 'field-survey/release.json'));
+    assert.equal(sha(bytes), baseline.artifact.receiptSha256, 'Pinned survey artifact receipt mismatch');
+    const receipt = JSON.parse(bytes);
+    assert.equal(receipt.kind, 'field-survey-module-release'); assert.equal(receipt.sourceDirty, false);
+    assert.equal(receipt.sourceCommitSha, baseline.artifact.commitSha); assert.equal(receipt.baseManifestSha256, baseline.manifestSha256);
+    assert.equal(receipt.baseSiteCommitSha, baseline.commitSha); assert.equal(receipt.baseRunId, baseline.runId);
+    for (const name of [...listed.keys()]) if (name.startsWith('field-survey/')) listed.delete(name);
+    assert.equal(new Set(receipt.files.map(f => f.path)).size, receipt.files.length, 'Receipt paths must be unique');
+    for (const file of receipt.files) {
+      assert(runtime.includes(file.path), 'Pinned survey runtime contains an unexpected file');
+      assert.equal(file.sha256, sha(git(['show', `${receipt.sourceCommitSha}:field-survey/${file.path}`])), 'Pinned survey artifact differs from its source');
+      listed.set('field-survey/' + file.path, file.sha256);
+    }
+    listed.set('field-survey/release.json', baseline.artifact.receiptSha256);
+  }
   for (const f of before) if (!['pages-deployment.json', '.nojekyll'].includes(f.path)) assert.equal(f.sha256, listed.get(f.path), `Baseline artifact mismatch: ${f.path}`);
   assert.equal(before.filter(f => !['pages-deployment.json', '.nojekyll'].includes(f.path)).length, listed.size, 'Baseline artifact is complete');
+  if (fs.existsSync(path.join(site, '.nojekyll'))) assert.equal(fs.readFileSync(path.join(site, '.nojekyll')).length, 0, 'Baseline nojekyll marker must be empty');
   for (const name of runtime) fs.writeFileSync(path.join(site, 'field-survey', name), content(name));
   const outside = inventory => inventory.filter(f => !f.path.startsWith('field-survey/'));
   assert.deepEqual(outside(files(site)), outside(before), 'Other published files must remain byte-for-byte unchanged');
-  const receipt = { schemaVersion: 1, kind: 'field-survey-module-release', version: VERSION, sourceCommitSha: head, sourceDirty: draft, baseSiteCommitSha: baseline.commitSha, baseRunId: baseline.runId, baseManifestSha256: baseline.manifestSha256, validationScope: 'field-survey only; whole-toolbox evidence remains at the base release', unchangedOtherFiles: outside(before).length, files: runtime.map(name => ({ path: name, sha256: sha(content(name)) })) };
+  const receipt = { schemaVersion: 1, kind: 'field-survey-module-release', version: VERSION, sourceCommitSha: head, sourceDirty: draft, baseSiteCommitSha: baseline.commitSha, baseRunId: baseline.runId, baseManifestSha256: baseline.manifestSha256, inputArtifactRunId: baseline.artifact?.runId || baseline.runId, inputArtifactReceiptSha256: baseline.artifact?.receiptSha256 || null, validationScope: 'field-survey only; whole-toolbox evidence remains at the base release', unchangedOtherFiles: outside(before).length, files: runtime.map(name => ({ path: name, sha256: sha(content(name)) })) };
   fs.writeFileSync(path.join(site, 'field-survey', 'release.json'), JSON.stringify(receipt, null, 2) + '\n');
   console.log(`PASS staged survey V${VERSION}; ${receipt.unchangedOtherFiles} other files unchanged`);
 } else if (mode === 'live') {
