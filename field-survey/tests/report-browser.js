@@ -47,6 +47,7 @@ export async function verifyReportWorkflow(browser, base, out) {
     assert.equal(mapping.format, 'standard'); assert.deepEqual(mapping.sections.map(s => s.type), ['plan-sheet', 'table-sheet', 'photo-sheet', 'photo-sheet']);
     assert.equal(await frame.locator('.plan-sheet').count(), 1); assert.equal(await frame.locator('tbody tr').count(), 3);
     assert.match(await frame.locator('tbody').innerText(), /mm|1.2 m/);
+    assert.doesNotMatch(await frame.locator('.table-sheet').innerText(), /日期|2026-09-09/);
     await page.screenshot({ path: path.join(out, 'v0.9-mobile-attachment.png') });
     await click('#closeModal');
     await page.locator(row + ' [data-report-text]').fill('切換格式仍保留手動說明');
@@ -79,7 +80,7 @@ async function verifyStandardPagination(page, context, out) {
     for (const asset of p.media) blobs.set(asset.id, (await s.getMedia(asset.id)).blob);
     p.records[0].photos.forEach((photo, i) => { photo.reportInclude = i < 2; });
     const long = '完整段落：裂縫寬度 ≤0.3 mm；長度 1.2 m；白華面積 2.5 m²。\n'.repeat(110) + '完整說明終點';
-    p.records[0].reportText = long; p.records[0].notes = '<script>不可執行</script>';
+    p.records[0].reportText = long; p.records[0].notes = '<script>不可執行</script>\n屋主陳述：2026-09-08 曾有滲水。';
     const other = m.newUnit('B 戶', '合成測試地址'); p.units.push(other);
     for (const [unit, floor] of [[p.units[0], '2F'], [other, '1F']]) {
       const record = m.newRecord(unit.id, floor, '新增房間'); Object.assign(record, { component: '牆面', condition: 'normal', location: '門旁' });
@@ -116,6 +117,7 @@ async function verifyStandardPagination(page, context, out) {
     assert.equal(await preview.locator('.sheet').count(), sections.length);
     assert.equal(await preview.locator('script').count(), 0);
     const joined = (await preview.locator('tr[data-photo-number="021"] .row-text').allTextContents()).join(''); assert(joined.includes(result.long)); assert(joined.includes('<script>不可執行</script>'));
+    assert(joined.includes('屋主陳述：2026-09-08 曾有滲水。'));
     assert((await preview.locator('.table-sheet').last().innerText()).includes('尚未定位'));
     const overflows = await preview.locator('.sheet-content').evaluateAll(elements => elements.map(el => ({ height: el.clientHeight, used: el.scrollHeight })).filter(x => x.used > x.height + 1)); assert.deepEqual(overflows, []);
     await preview.pdf({ path: path.join(out, 'synthetic-standard-long-v0.9.pdf'), preferCSSPageSize: true, printBackground: true });

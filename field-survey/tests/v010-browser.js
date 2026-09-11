@@ -59,10 +59,13 @@ export async function verifyV010(browser, base, out) {
       await page.locator('#volumeSelect').selectOption(String(v.number)); await click('#previewVolume');
       const frame = page.frames().find(f => f.parentFrame() === page.mainFrame()); await frame.waitForFunction(() => [...document.images].every(img => img.complete && img.naturalWidth > 0));
       assert.equal(await frame.locator('.standard-sheet:not(.toc-sheet)').count(), v.pageCount);
+      for (const text of await frame.locator('.table-sheet').allTextContents()) assert.doesNotMatch(text, /日期|2026-09-/);
+      for (const text of await frame.locator('.table-sheet footer').allTextContents()) assert.match(text, /^第 8-\d+ 頁$/);
       assert.deepEqual(await frame.locator('.sheet-content').evaluateAll(els => els.filter(el => el.scrollHeight > el.clientHeight + 1).map(el => el.scrollHeight)), []);
       assert.equal(await frame.locator('script').count(), 0);
       const mappingPath = await download('#downloadMapping', 'synthetic-v0.10-volume-' + v.number + '.json'), mapping = JSON.parse(await fs.readFile(mappingPath, 'utf8'));
       assert.equal(mapping.sections[0].page, v.start); assert.equal(mapping.sections.at(-1).page, v.start + v.pageCount - 1); assert(mapping.contentsPageCount > 0);
+      if (v.number === 1) { const record = mapping.groups.flatMap(g => g.records).find(r => r.recordId === seed.first); assert.equal(record.observedOn, '2026-09-10'); assert.equal(record.visitId, seed.visit); }
       for (const g of mapping.groups) for (const r of g.records) for (const photo of r.photos) selectedKeys.push(r.recordId + '/' + photo.mediaId);
       const htmlFile = await download('#downloadAttachment', 'synthetic-v0.10-volume-' + v.number + '.html');
       if (v.number <= 2) {

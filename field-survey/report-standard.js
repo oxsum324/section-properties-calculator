@@ -1,4 +1,4 @@
-import { clone, ROLES, CONDITIONS, DETAIL_TEXTS, UNIT_STATES, recordDateInfo, assert } from './model.js';
+import { clone, ROLES, CONDITIONS, DETAIL_TEXTS, UNIT_STATES, assert } from './model.js';
 import { detailLabel } from './detail.js';
 
 export const STANDARD_STYLE = `
@@ -34,7 +34,7 @@ export async function standardPages({ index, project, encodeImage, encodeDetail,
   await document.fonts.ready;
   const label = number => `${index.pagePrefix || ''}${number}`;
   const numberNow = () => (index.pageStart || 1) + pages.length;
-  const sheet = (unit, body, type, number = numberNow()) => `<section class="sheet standard-sheet ${type}" data-unit="${e(unit.unitId)}" id="page-${number}"><header><h1>現況鑑定紀錄附件</h1><div>案號：${e(index.code)}　${e(index.name)}</div><div>戶別：${e(unit.unit)}${unit.segmentFloor ? ' · ' + e(unit.segmentFloor) : ''}${unit.address ? '　地址：' + e(unit.address) : ''}</div></header><div class="sheet-content">${body}</div><footer>會勘日期：${e(dateSummary(unit.records, '尚未確認'))}　｜　第 ${e(label(number))} 頁</footer></section>`;
+  const sheet = (unit, body, type, number = numberNow()) => `<section class="sheet standard-sheet ${type}" data-unit="${e(unit.unitId)}" id="page-${number}"><header><h1>現況鑑定紀錄附件</h1><div>案號：${e(index.code)}　${e(index.name)}</div><div>戶別：${e(unit.unit)}${unit.segmentFloor ? ' · ' + e(unit.segmentFloor) : ''}${unit.address ? '　地址：' + e(unit.address) : ''}</div></header><div class="sheet-content">${body}</div><footer>${type === 'table-sheet' ? '' : `會勘日期：${e(dateSummary(unit.records, '尚未確認'))}　｜　`}第 ${e(label(number))} 頁</footer></section>`;
   const fits = html => { shadow.innerHTML = `<style>${STANDARD_STYLE}</style>${html}`; const content = shadow.querySelector('.sheet-content'); return content.clientHeight > 100 && content.scrollHeight <= content.clientHeight + 1; };
   const add = (unit, body, type, refs = {}) => { const number = numberNow(), html = sheet(unit, body, type, number); assert(fits(html), '附件頁面放不下，請縮短案名、地址或房間名稱後再匯出'); pages.push(html); sections.push({ page: number, label: label(number), type, unitId: unit.unitId, segmentKey: unit.segmentKey, ...refs }); };
   const tableBody = rows => `<h2>照片說明表</h2><table><colgroup><col style="width:10%"><col style="width:17%"><col style="width:25%"><col style="width:48%"></colgroup><thead><tr><th>照片編號</th><th>樓層、隔間</th><th>細部示意圖</th><th>照片內容</th></tr></thead><tbody>${rows.join('')}</tbody></table><p class="units-note">單位：裂縫寬度 mm；長度 m；面積 m²；磁磚塊數 塊；梁 U 型裂縫 條。細圖未按比例。</p>`;
@@ -72,7 +72,7 @@ export async function standardPages({ index, project, encodeImage, encodeDetail,
           if (!detailCache.has(record.recordId)) detailCache.set(record.recordId, await encodeDetail(record.detail));
           detailHTML = `<img class="detail-img" src="${detailCache.get(record.recordId)}" alt="${e(detailLabel(record.detail))}"><span class="detail-title">${e(detailLabel(record.detail))}</span>`;
         }
-        const full = [`部位：${record.components.join('、') || '未填'}　狀況：${record.conditions.map(c => CONDITIONS[c]).join('、') || '未分類'}`, `說明：${record.text}`, record.notes ? `補充：${record.notes}` : '', `${ROLES[photo.role]}${photo.main ? '（主要照片）' : ''}${photo.caption ? '：' + photo.caption : ''}`, `日期：${record.dateInfo?.label || recordDateInfo(project, {}).label}`].filter(Boolean).join('\n');
+        const full = [`部位：${record.components.join('、') || '未填'}　狀況：${record.conditions.map(c => CONDITIONS[c]).join('、') || '未分類'}`, `說明：${record.text}`, record.notes ? `補充：${record.notes}` : '', `${ROLES[photo.role]}${photo.main ? '（主要照片）' : ''}${photo.caption ? '：' + photo.caption : ''}`].filter(Boolean).join('\n');
         let remaining = Array.from(full), continuation = false;
         const row = text => `<tr data-photo-number="${photo.number}"><td class="photo-no">${photo.number}${continuation ? '<span class="continued">（續）</span>' : ''}</td><td>${e([group.floor, group.room].filter(Boolean).join('\n') || '未填')}</td><td>${detailHTML}</td><td class="row-text">${e(text)}</td></tr>`;
         while (remaining.length) {
