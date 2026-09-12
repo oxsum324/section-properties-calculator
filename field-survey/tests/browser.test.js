@@ -9,6 +9,7 @@ import { VERSION } from '../model.js';
 import assert from 'node:assert/strict';
 import { verifyFieldV08Workflow } from './field-v08-browser.js';
 import { verifyReportWorkflow } from './report-browser.js';
+import { verifyV011 } from './v011-browser.js';
 import { verifyV010 } from './v010-browser.js';
 import { readBundle } from '../bundle.js';
 const require = createRequire(import.meta.url);
@@ -295,7 +296,7 @@ try {
   await page.locator('#planStage svg').waitFor(); p = (await projects())[0]; assert.equal(p.plans.length, 3); assert.deepEqual(p.plans[1], sketchPlan); assert.equal(p.plans[2].sketch.strokes.length, 7); assert.equal(p.records[0].placement.planId, sketchPlan.id);
   await tapPair('#planStage svg'); await click('#savePlacement');
   for (const value of ['damp', 'salt', 'spall']) await page.locator('#condition input[value=' + value + ']').check();
-  await page.locator('#area-damp').fill('1.5'); await page.locator('#area-salt').fill('0.8'); await page.locator('#area-method-salt').selectOption('estimated'); await page.locator('#area-spall').fill('0.25'); await click('#saveRecord');
+  await page.locator('#areaMeasurements summary').click(); await page.locator('#area-damp').fill('1.5'); await page.locator('#area-salt').fill('0.8'); await page.locator('#area-method-salt').selectOption('estimated'); await page.locator('#area-spall').fill('0.25'); await click('#saveRecord');
   let multi = (await projects())[0].records[0]; assert.deepEqual(multi.conditions, ['crack', 'damp', 'salt', 'spall']); assert.deepEqual(multi.areas.salt, { value: .8, method: 'estimated' }); assert.equal(multi.width, .3); assert.equal(multi.length, 1.2);
   await page.locator('#condition input[value=normal]').check(); await click('#saveRecord'); assert.deepEqual((await projects())[0].records[0].conditions, ['normal']); assert.equal(await page.locator('#areaMeasurements').isVisible(), false);
   for (const value of ['crack', 'damp', 'salt', 'spall']) await page.locator('#condition input[value=' + value + ']').check(); await click('#saveRecord');
@@ -373,6 +374,7 @@ try {
   await verifyReportWorkflow(browser, base, out);
   await verifyFieldV08Workflow(browser, base, out);
   await verifyV010(browser, base, out);
+  await verifyV011(browser, base, out);
   await (await import('./scale-browser.js')).verifyScale(browser, base, out);
   await fs.writeFile(path.join(out, 'result.json'), JSON.stringify({ passed: true, browser: await browser.version(), viewport: '390x844 + 1280x900', physicalPhoneTested: false, httpCacheUpgradeVerified: true, pageErrors: errors, externalRequests: outbound, originalHash: hash, packageMediaCount: bundle.media.length, checkedAt: new Date().toISOString() }, null, 2));
 } finally { await browser.close(); server?.kill(); }

@@ -193,6 +193,15 @@ dialog{max-height:calc(100dvh - 18px)}
 .choice-chips label{display:flex;flex-direction:row;align-items:center;gap:7px;min-height:46px;padding:8px 14px;border:1px solid #c9d8cd;border-radius:9px;background:#fff;cursor:pointer;margin:0}
 .choice-chips input{width:20px;height:20px;margin:0;accent-color:#173d3b}
 .choice-chips label:has(input:checked),.choice-chips button[aria-pressed=true]{background:#173d3b;color:#fff;border-color:#173d3b}
+#conditionGroups{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:8px 20px}
+#conditionGroups .component-field{margin:8px 0}
+#conditionGroups legend{font-size:1rem}
+#moreConditions{margin:10px 0}
+#moreConditions summary,#areaMeasurements summary{min-height:44px;padding:10px 0;cursor:pointer}
+#normalCondition{margin-bottom:4px}
+.selected-conditions{border-top:1px solid #c9d8cd;padding-top:10px;margin-bottom:4px}
+.selected-conditions:empty{display:none}
+.selected-conditions button{background:#eaf3ed;color:#173d3b;min-height:44px}
 .camera-stage{background:#142e2d;border-radius:12px;overflow:hidden;min-height:180px;margin:12px 0}
 .camera-stage video,.camera-stage img{display:block;width:100%;max-height:45dvh;object-fit:contain}
 .camera-stage [hidden]{display:none}

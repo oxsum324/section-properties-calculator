@@ -10,6 +10,45 @@ import { parseRoster } from '../organisation.js';
 import { recordDateInfo, validDate } from '../model.js';
 import { splitVolumes } from '../report-standard.js';
 import { planLabelLayout } from '../annotation.js';
+import { CONDITIONS, COMMON_CONDITIONS, CONDITION_GROUPS } from '../model.js';
+
+test('expanded conditions and independent observation layers survive backup and both report indexes', async () => {
+  const { p, r, blobs } = await fixture();
+  const keys = [...COMMON_CONDITIONS, ...CONDITION_GROUPS.flatMap(([, keys]) => keys)];
+  assert.equal(new Set(keys).size, keys.length); assert.equal(keys.length, Object.keys(CONDITIONS).length - 2);
+  Object.assign(r, { condition: 'crack', conditions: keys, crackLayer: 'unknown', leakForms: ['drip', 'seep'], cracks: [
+    { id: id(), measured: true, widthMode: 'exact', width: .2, length: 1, pattern: 'vertical', notes: '', layer: 'plaster' },
+    { id: id(), measured: false, widthMode: 'unknown', width: null, length: null, pattern: 'diagonal', notes: '', layer: 'structural' }
+  ] });
+  validateProject(p); const saved = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
+  assert.equal(saved.manifest.version, 6); assert.deepEqual(saved.project.records[0], r);
+  for (const format of ['quick', 'standard']) {
+    const row = attachmentIndex(p, { format }).groups[0].records[0];
+    assert.deepEqual(row.conditions, keys); assert.match(row.text, /裂縫 A.*粉刷層/); assert.match(row.text, /裂縫 B.*結構體/);
+    assert.match(row.text, /滲水痕/); assert(!row.text.includes('滲水跡')); assert.match(row.text, /現場可見漏水（滴水、滲出）/);
+    for (const key of keys.filter(k => !['crack', 'activeLeak'].includes(k))) assert(row.text.includes(CONDITIONS[key]), key);
+  }
+  r.conditions = ['damp']; r.condition = 'damp';
+  assert(!observationText(r).includes('漏水')); assert(!observationText(r).includes('觀察層位')); assert(!observationText(r).includes('裂縫 A'));
+});
+
+test('new tile damage keeps independent counts and never double counts bulging overlap', async () => {
+  const { p, r } = await fixture();
+  Object.assign(r, { condition: 'tileBulge', conditions: ['tileBulge', 'tileBroken'], tiles: { crack: false, broken: true, bulge: true, approx: false, crackCount: null, brokenCount: 2, bulgeCount: 20, overlapCount: null } });
+  validateProject(p); const text = observationText(r);
+  assert.match(text, /磁磚拱起 20 塊/); assert.equal((text.match(/磁磚破損/g) || []).length, 1); assert(!text.includes('合計')); assert.equal(tileTotal(r.tiles), null);
+  r.tiles.broken = false; r.conditions = ['tileBulge']; assert.equal(tileTotal(r.tiles), 20);
+  r.tiles.bulgeText = '二十餘塊'; r.tiles.bulgeCount = null; validateProject(p); assert.equal(tileTotal(r.tiles), null); assert.match(observationText(r), /二十餘塊/);
+  r.tiles.bulgeCount = 21; assert.throws(() => validateProject(p), /推算/);
+});
+
+test('observation layers and leak forms reject invented or duplicate facts without requiring diagnosis', async () => {
+  const { p, r } = await fixture(); r.condition = 'crack'; r.crackPattern = 'network';
+  assert.match(observationText(r), /觀察層位：不確定/); assert.deepEqual(recordIssues(r), []);
+  r.crackLayer = 'safe'; assert.throws(() => validateProject(p), /層位/); r.crackLayer = 'unknown';
+  for (const forms of [['drip', 'drip'], ['residentReported'], 'drip']) { r.leakForms = forms; assert.throws(() => validateProject(p), /漏水/); }
+  r.leakForms = ['drip']; r.condition = 'damp'; r.resident = '住戶說昨天漏水'; validateProject(p); assert.equal(observationText(r).includes('現場可見漏水'), false);
+});
 
 test('dense report labels avoid overlap without changing camera points or caller data', () => {
   const items = Array.from({ length: 18 }, (_, i) => ({ ax: 280 + i * 4, ay: 300, w: 85, h: 26 })), before = structuredClone(items), result = planLabelLayout(items, 1200, 800);
@@ -50,7 +89,7 @@ test('detail drawings and custom originals survive scoped backup and restore wit
   r.detail = { kind: 'image', mediaId: mid, marks: [{ type: 'pen', points: [{ x: .2, y: .3 }, { x: .4, y: .5 }] }] };
   const result = await readBundle((await makeBundle(p, key => blobs.get(key), a.id)).blob); assert(result.project.media.some(m => m.id === mid));
   const restored = restoredCopy(result.project); validateProject(restored.project); assert.notEqual(restored.project.records[0].detail.mediaId, mid); assert.deepEqual(restored.project.records[0].detail.marks, r.detail.marks);
-  assert.equal(result.manifest.version, 5); r.detail.mediaId = r.photos[0].mediaId; assert.throws(() => validateProject(p), /細部圖原檔/);
+  assert.equal(result.manifest.version, 6); r.detail.mediaId = r.photos[0].mediaId; assert.throws(() => validateProject(p), /細部圖原檔/);
   r.detail = { kind: 'preset', preset: 'beam', mirror: true, marks: [] }; validateProject(p); r.detail.marks = [{ type: 'pen', points: [{ x: 2, y: .1 }] }]; assert.throws(() => validateProject(p), /座標/);
 });
 
@@ -89,7 +128,7 @@ test('individual cracks preserve independent units, uncertainty and legacy group
   assert.match(prose, /原整組紀錄/); assert.deepEqual(recordIssues(r), ['裂縫 C未量測']);
   const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
   assert.deepEqual(restored.project.records[0].cracks, r.cracks); assert.deepEqual(restored.project.records[0].legacyCrack, r.legacyCrack);
-  assert.equal(restored.manifest.version, 5);
+  assert.equal(restored.manifest.version, 6);
   r.cracks[2].width = .3; assert.throws(() => validateProject(p), /未量測/);
 });
 
@@ -411,7 +450,7 @@ test('multiple conditions share originals and retain independent measured or est
   Object.assign(r, { condition: 'crack', conditions: ['crack', 'damp', 'salt', 'spall'], crackPattern: 'network', areas: { crack: { value: null, method: 'estimated' }, damp: { value: 1.5, method: 'measured' }, salt: { value: .8, method: 'estimated' }, spall: { value: 0, method: 'measured' } } });
   validateProject(p); assert.deepEqual(recordIssues(r), []);
   const result = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
-  assert.equal(result.manifest.version, 5); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
+  assert.equal(result.manifest.version, 6); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
   const copy = restoredCopy(result.project).project.records[0]; assert.deepEqual(copy.conditions, r.conditions); assert.deepEqual(copy.areas, r.areas);
   r.conditions = ['damp']; r.condition = 'damp'; validateProject(p); assert.equal(r.areas.salt.value, .8); assert.deepEqual(recordIssues(r), []);
 });

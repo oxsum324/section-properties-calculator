@@ -1,8 +1,19 @@
-export const VERSION = '0.10.1';
+export const VERSION = '0.11.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
-export const CONDITIONS = { '': '尚未分類', normal: '一般現況', crack: '裂隙', damp: '滲水跡', salt: '白華', spall: '剝落', other: '其他' };
+export const CONDITIONS = { '': '尚未分類', normal: '一般現況', crack: '裂隙', damp: '滲水痕', salt: '白華', spall: '剝落', tileBulge: '磁磚拱起', tileBroken: '磁磚破損', exposedRebar: '鋼筋外露', rebarCorrosion: '鋼筋鏽蝕', honeycomb: '混凝土蜂窩', tileDetached: '磁磚脫落', paintBlister: '油漆起泡', plasterBulge: '粉刷層鼓起', jointFillerCracked: '填縫材開裂', jointFillerMissing: '填縫材脫落', floorDepression: '地坪局部下陷', floorUneven: '地坪不平', openingDeformation: '門窗變形', openingPoorOperation: '開閉不良', jointOffset: '伸縮縫錯位', activeLeak: '正在漏水', ponding: '積水', rustStain: '鏽水痕', moldStain: '霉斑', other: '其他' };
+export const COMMON_CONDITIONS = ['crack', 'damp', 'salt', 'spall', 'tileBulge', 'tileBroken'];
+export const CONDITION_GROUPS = [
+  ['混凝土／鋼筋', ['exposedRebar', 'rebarCorrosion', 'honeycomb']],
+  ['表面／飾面', ['tileDetached', 'paintBlister', 'plasterBulge', 'jointFillerCracked', 'jointFillerMissing']],
+  ['地坪', ['floorDepression', 'floorUneven']],
+  ['門窗／接縫', ['openingDeformation', 'openingPoorOperation', 'jointOffset']],
+  ['水分／痕跡', ['activeLeak', 'ponding', 'rustStain', 'moldStain']],
+  ['其他', ['other']]
+];
+export const CRACK_LAYERS = { unknown: '不確定', plaster: '粉刷層', structural: '結構體' };
+export const LEAK_FORMS = { drip: '滴水', flow: '流淌', seep: '滲出' };
 export const COMPONENTS = ['', '外觀', '牆面', '梁', '柱', '地坪', '平頂', '門窗', '其他'];
 export const UNIT_STATES = { open: '待完成', partial: '部分完成', inaccessible: '無法入內', complete: '本次紀錄完成' };
 export const ROLES = { overview: '位置全景', close: '近照', scale: '量尺照', other: '其他' };
@@ -25,7 +36,7 @@ export function latestUnitHistory(p, u) {
 export const WIDTH_MODES = { unknown: '未確認', le03: '0.3 mm 以下（≤0.3）', gt03: '超過 0.3 mm（>0.3）', exact: '輸入實測值', lt03: '舊紀錄：小於 0.3 mm', ge03: '舊紀錄：大於或等於 0.3 mm' };
 export const recordComponents = r => r.components ?? (r.component ? [r.component] : []);
 export const recordConditions = r => r.conditions ?? (r.condition ? [r.condition] : []);
-export const AREA_CONDITIONS = { crack: '網狀裂隙分布', damp: '滲水跡', salt: '白華', spall: '剝落', other: '其他損害' };
+export const AREA_CONDITIONS = { crack: '網狀裂隙分布', damp: '滲水痕', salt: '白華', spall: '剝落', tileBulge: '磁磚拱起', tileBroken: '磁磚破損', honeycomb: '混凝土蜂窩', tileDetached: '磁磚脫落', paintBlister: '油漆起泡', plasterBulge: '粉刷層鼓起', ponding: '積水', rustStain: '鏽水痕', moldStain: '霉斑', other: '其他損害' };
 export const AREA_METHODS = { measured: '實測', estimated: '估計' };
 export const CRACK_PATTERNS = { '': '尚未選擇', horizontal: '水平裂隙', vertical: '垂直裂隙', diagonal: '斜向裂隙', network: '網狀裂隙', u: '梁 U 型裂縫', other: '其他（於說明補充）' };
 export const widthMode = r => r.widthMode ?? (r.width !== null ? 'exact' : 'unknown');
@@ -36,6 +47,7 @@ export const individualCracks = r => Array.isArray(r.cracks) && recordConditions
 export const tileQuantityText = (t, kind) => t[kind + 'Text'] || (t[kind + 'Count'] == null ? '（塊數未記）' : `${t.approx ? '約 ' : ''}${t[kind + 'Count']} 塊`);
 export function crackText(c, label) {
   const pieces = [label, CRACK_PATTERNS[c.pattern] || '', c.measured ? '已量測' : '未量測'];
+  pieces.push(`觀察層位：${CRACK_LAYERS[c.layer ?? c.crackLayer ?? 'unknown']}`);
   if (c.measured && c.widthMode === 'exact' && c.width !== null) pieces.push(`寬度 ${c.width} mm`);
   else if (!['unknown', 'exact'].includes(c.widthMode)) pieces.push(`寬度${c.measured ? '實測區間' : '初記'}：${WIDTH_MODES[c.widthMode]}`);
   if (c.measured && c.length !== null) pieces.push(`長度 ${c.length} m`);
@@ -79,22 +91,26 @@ export function observationText(r) {
     if (r.measured && r.length !== null) pieces.push(`實測長度 ${r.length} m`);
   }
   if (conditions.includes('crack') && !individualCracks(r)) {
+    pieces.push(`裂隙觀察層位：${CRACK_LAYERS[r.crackLayer ?? 'unknown']}`);
     const mode = widthMode(r), scope = isUCrack(r) ? (r.uScope === 'each' ? '各條' : '代表條') : '';
     if (r.measured && mode === 'exact' && r.width !== null) pieces.push(`${scope}實測寬度 ${r.width} mm`);
     else if (['le03', 'gt03', 'lt03', 'ge03'].includes(mode)) pieces.push(`${scope}寬度${r.measured ? '實測區間' : '初記'}：${WIDTH_MODES[mode]}`);
   }
-  if (isTile(r)) {
+  if (isTile(r) || conditions.some(c => ['tileBulge', 'tileBroken'].includes(c))) {
     const t = r.tiles || {};
     if (t.crack) pieces.push('磁磚裂隙 ' + tileQuantityText(t, 'crack'));
-    if (t.broken) pieces.push('磁磚破損 ' + tileQuantityText(t, 'broken'));
+    if (t.broken || conditions.includes('tileBroken')) pieces.push('磁磚破損 ' + tileQuantityText(t, 'broken'));
+    if (t.bulge || conditions.includes('tileBulge')) pieces.push('磁磚拱起 ' + tileQuantityText(t, 'bulge'));
     if (t.crack && t.broken && t.overlapCount != null) pieces.push(`其中同時裂隙及破損 ${t.overlapCount} 塊`);
-    const total = tileTotal(t); if (total !== null) pieces.push(`受損磁磚不重複合計 ${t.approx ? '約 ' : ''}${total} 塊`);
+    const total = tileTotal({ ...t, broken: t.broken || conditions.includes('tileBroken'), bulge: t.bulge || conditions.includes('tileBulge') }); if (total !== null) pieces.push(`受損磁磚不重複合計 ${t.approx ? '約 ' : ''}${total} 塊`);
   }
-  for (const c of conditions) if (c !== 'crack') pieces.push(CONDITIONS[c]);
+  for (const c of conditions) if (!['crack', 'tileBulge', 'tileBroken'].includes(c)) pieces.push(c === 'activeLeak' ? `現場可見漏水${r.leakForms?.length ? `（${r.leakForms.map(f => LEAK_FORMS[f]).join('、')}）` : ''}` : CONDITIONS[c]);
   for (const [key, a] of Object.entries(r.areas || {})) if (conditions.includes(key) && a.value !== null && (key !== 'crack' || isNetworkCrack(r))) pieces.push(`${AREA_CONDITIONS[key]}面積 ${a.value} m²（${AREA_METHODS[a.method]}）`);
   return [prefix, pieces.join('；')].filter(Boolean).join('：') + (pieces.length ? '。' : '');
 }
 export function tileTotal(t) {
+  // Bulging may overlap both old damage types; never invent a three-way overlap.
+  if (t.bulge) return t.crack || t.broken || t.bulgeText ? null : t.bulgeCount ?? null;
   if (t.crack && t.crackText || t.broken && t.brokenText) return null;
   if (t.crack && t.broken) return t.crackCount != null && t.brokenCount != null && t.overlapCount != null ? t.crackCount + t.brokenCount - t.overlapCount : null;
   return t.crack ? t.crackCount ?? null : t.broken ? t.brokenCount ?? null : null;
@@ -244,12 +260,15 @@ export function validateProject(p) {
       for (const key of ['width', 'length']) assert(c[key] === null || typeof c[key] === 'number' && Number.isFinite(c[key]) && c[key] >= 0, '逐條裂縫尺寸不正確');
       assert(c.measured || c.width === null && c.length === null, '未量測不可夾帶逐條尺寸');
       assert(c.widthMode === 'exact' || c.width === null, '逐條區間不可夾帶精確寬度');
+      if (c.layer !== undefined) assert(Object.hasOwn(CRACK_LAYERS, c.layer), '裂隙觀察層位不正確');
     };
+    if (r.crackLayer !== undefined) assert(Object.hasOwn(CRACK_LAYERS, r.crackLayer), '裂隙觀察層位不正確');
+    if (r.leakForms !== undefined) { list(r.leakForms, '漏水形式', Object.keys(LEAK_FORMS).length); assert(r.leakForms.every(f => Object.hasOwn(LEAK_FORMS, f)) && new Set(r.leakForms).size === r.leakForms.length, '漏水形式重複或不正確'); }
     if (r.cracks !== undefined) {
       list(r.cracks, '逐條裂縫', 26); unique(r.cracks);
       for (const c of r.cracks) { crackMeasurement(c); text(c.notes, '逐條說明', 1000); assert(Object.hasOwn(CRACK_PATTERNS, c.pattern) && !['network', 'u'].includes(c.pattern), '逐條裂縫型態不正確'); }
     }
-    if (r.legacyCrack !== undefined) { crackMeasurement(r.legacyCrack); assert(Object.hasOwn(CRACK_PATTERNS, r.legacyCrack.crackPattern), '原整組裂縫型態不正確'); }
+    if (r.legacyCrack !== undefined) { crackMeasurement(r.legacyCrack); assert(Object.hasOwn(CRACK_PATTERNS, r.legacyCrack.crackPattern), '原整組裂縫型態不正確'); if (r.legacyCrack.crackLayer !== undefined) assert(Object.hasOwn(CRACK_LAYERS, r.legacyCrack.crackLayer), '原整組觀察層位不正確'); }
     if (r.crackCount !== undefined) assert(count(r.crackCount), '裂縫條數須為非負整數或未記');
     for (const key of ['countApprox', 'uPartial']) if (r[key] !== undefined) assert(typeof r[key] === 'boolean', '裂縫記法不正確');
     if (r.uScope !== undefined) assert(['representative', 'each'].includes(r.uScope), 'U 型裂縫量測範圍不正確');
@@ -258,8 +277,10 @@ export function validateProject(p) {
     if (r.tiles !== undefined) {
       const t = r.tiles; assert(t && typeof t === 'object', '磁磚紀錄不正確');
       for (const key of ['crack', 'broken', 'approx']) assert(typeof t[key] === 'boolean', '磁磚狀況不正確');
+      if (t.bulge !== undefined) assert(typeof t.bulge === 'boolean', '磁磚狀況不正確');
+      if (t.bulgeCount !== undefined) assert(count(t.bulgeCount), '磁磚塊數須為非負整數或未記');
       for (const key of ['crackCount', 'brokenCount', 'overlapCount']) assert(count(t[key]), '磁磚塊數須為非負整數或未記');
-      for (const kind of ['crack', 'broken']) if (t[kind + 'Text'] !== undefined) { assert(['', '十餘塊', '二十餘塊', '多處'].includes(t[kind + 'Text']), '磁磚概述不正確'); assert(!t[kind + 'Text'] || t[kind + 'Count'] === null, '磁磚概述不可夾帶推算塊數'); }
+      for (const kind of ['crack', 'broken', 'bulge']) if (t[kind + 'Text'] !== undefined) { assert(['', '十餘塊', '二十餘塊', '多處'].includes(t[kind + 'Text']), '磁磚概述不正確'); assert(!t[kind + 'Text'] || t[kind + 'Count'] === null, '磁磚概述不可夾帶推算塊數'); }
       if (t.crack && t.broken && t.overlapCount !== null) assert(t.crackCount !== null && t.brokenCount !== null && t.overlapCount <= Math.min(t.crackCount, t.brokenCount), '重疊塊數不可超過任一分類塊數');
     }
     if (r.crackPattern === 'u' && recordConditions(r).includes('crack')) assert(recordComponents(r).includes('梁'), 'U 型裂縫須指定梁部位');

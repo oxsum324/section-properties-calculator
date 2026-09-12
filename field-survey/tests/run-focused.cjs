@@ -16,7 +16,7 @@ const { chromium } = require('../../.github/pages-smoke/node_modules/playwright'
   try {
     const base = `http://127.0.0.1:${server.address().port}/field-survey/recorder.html`;
     for (const name of process.argv.slice(2).length ? process.argv.slice(2) : ['report', 'v010']) {
-      const selected = { report: ['report-browser.js', 'verifyReportWorkflow'], v010: ['v010-browser.js', 'verifyV010'], v08: ['field-v08-browser.js', 'verifyFieldV08Workflow'], scale: ['scale-browser.js', 'verifyScale'] }[name];
+      const selected = { v011: ['v011-browser.js', 'verifyV011'], report: ['report-browser.js', 'verifyReportWorkflow'], v010: ['v010-browser.js', 'verifyV010'], v08: ['field-v08-browser.js', 'verifyFieldV08Workflow'], scale: ['scale-browser.js', 'verifyScale'] }[name];
       if (!selected) throw new Error('Unknown focused workflow: ' + name);
       const workflow = await import(pathToFileURL(path.join(__dirname, selected[0]))); await workflow[selected[1]](browser, base, out);
     }

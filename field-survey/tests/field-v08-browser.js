@@ -55,7 +55,7 @@ export async function verifyFieldV08Workflow(browser, base, out) {
     assert.equal(await page.locator('[data-stair-arrow=up]').count(), 1);
     await click('#saveSketch'); await page.locator('#planStage svg').waitFor(); await click('#closeModal');
     const roundtrip = await page.evaluate(async () => { const s = await import('./store.js'), b = await import('./bundle.js'), m = await import('./model.js'), p = (await s.allProjects())[0], before = await m.sha256((await s.getMedia(p.records[0].photos[0].mediaId)).blob); const bundle = await b.readBundle((await b.makeBundle(p, async id => (await s.getMedia(id)).blob)).blob); const restored = m.restoredCopy(bundle.project); m.validateProject(restored.project); return { equal: JSON.stringify(bundle.project) === JSON.stringify(p), version: bundle.manifest.version, stairs: restored.project.plans[0].sketch.strokes.length, originalHash: before, description: m.observationText(p.records[0]) }; });
-    assert(roundtrip.equal); assert.equal(roundtrip.version, 5); assert.equal(roundtrip.stairs, 5); assert.match(roundtrip.description, /裂縫 B.*0.45 mm.*2.1 m/);
+    assert(roundtrip.equal); assert.equal(roundtrip.version, 6); assert.equal(roundtrip.stairs, 5); assert.match(roundtrip.description, /裂縫 B.*0.45 mm.*2.1 m/);
     await context.setOffline(true); await page.reload(); await page.locator('.photo-card img').waitFor(); assert.equal((await record()).cracks.length, 3);
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)); assert.deepEqual(errors, []);
     await fs.writeFile(path.join(out, 'v0.8-field-result.json'), JSON.stringify({ passed: true, ...roundtrip, physicalPhoneTested: false, checkedAt: new Date().toISOString() }, null, 2));

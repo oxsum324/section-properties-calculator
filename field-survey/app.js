@@ -10,6 +10,7 @@ import { createReportController } from './report-ui.js';
 import { createOrganisationController, unitHistoryLabel } from './organisation.js';
 import { UNIT_KINDS, recordDateInfo, latestUnitHistory } from './model.js';
 import { openDetailEditor } from './detail.js';
+import { COMMON_CONDITIONS, CONDITION_GROUPS, CRACK_LAYERS, LEAK_FORMS } from './model.js';
 
 const $ = selector => document.querySelector(selector), esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const opts = object => Object.entries(object).map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('');
@@ -68,10 +69,12 @@ function formValues() {
   values.measured = $('#measured').checked;
   values.widthMode = $('#widthMode').value;
   values.crackPattern = $('#crackPattern').value;
+  values.crackLayer = $('#crackLayer input:checked')?.value || 'unknown';
+  values.leakForms = [...$('#leakForms').querySelectorAll('input:checked')].map(el => el.value);
   const countValue = selector => { const el = $(selector); assert(!el.validity.badInput, '數量格式不正確'); const value = el.value === '' ? null : Number(el.value); assert(value === null || Number.isSafeInteger(value) && value >= 0 && value <= 99999, '數量須為 0 至 99999 的整數'); return value; };
   values.crackCount = countValue('#crackCount'); values.countApprox = $('#countApprox').checked;
   values.uScope = $('#uScope').value; values.uPartial = $('#uPartial').checked; values.surface = $('#surface').value;
-  values.tiles = { crack: $('#tileCrack').checked, broken: $('#tileBroken').checked, approx: $('#tileApprox').checked, crackCount: countValue('#tileCrackCount'), brokenCount: countValue('#tileBrokenCount'), overlapCount: countValue('#tileOverlapCount') };
+  values.tiles = { crack: $('#tileCrack').checked && values.surface === 'tile', broken: $('#tileBroken').checked, bulge: $('#tileBulge').checked, approx: $('#tileApprox').checked, crackCount: countValue('#tileCrackCount'), brokenCount: countValue('#tileBrokenCount'), bulgeCount: countValue('#tileBulgeCount'), overlapCount: countValue('#tileOverlapCount') };
   for (const key of ['width', 'length']) { const el = $('#' + key), enabled = values.measured && (key === 'length' || values.widthMode === 'exact'); assert(!enabled || !el.validity.badInput, '量測尺寸格式不正確'); values[key] = enabled && el.value !== '' ? Number(el.value) : null; assert(values[key] === null || (Number.isFinite(values[key]) && values[key] >= 0), '量測尺寸須為非負數值'); }
   values.areas = {};
   for (const key of Object.keys(AREA_CONDITIONS)) {
@@ -83,7 +86,7 @@ function formValues() {
   }
   Object.assign(values, crackFields?.read());
   if (individualCracks(values)) { values.measured = false; values.width = values.length = null; values.widthMode = 'unknown'; }
-  for (const [kind, input] of [['crack', '#tileCrackCount'], ['broken', '#tileBrokenCount']]) {
+  for (const [kind, input] of [['crack', '#tileCrackCount'], ['broken', '#tileBrokenCount'], ['bulge', '#tileBulgeCount']]) {
     values.tiles[kind + 'Text'] = $(input + 'Text')?.value || '';
     if (values.tiles[kind + 'Text']) values.tiles[kind + 'Count'] = null;
   }
@@ -109,7 +112,14 @@ async function saveForm() {
 const selectedConditions = () => [...$('#condition').querySelectorAll('input:checked')].map(el => el.value);
 function conditionState() {
   const selected = selectedConditions();
+  const selectionKey = selected.join(',');
+  if ($('#selectedConditions').dataset.selection !== selectionKey) {
+    $('#selectedConditions').dataset.selection = selectionKey;
+    $('#selectedConditions').innerHTML = selected.map(key => `<button type="button" data-remove-condition="${key}" aria-label="取消選取${esc(CONDITIONS[key])}">${esc(CONDITIONS[key])} ×</button>`).join('');
+    $('#conditionSelectionStatus').textContent = selected.length ? `已選 ${selected.length} 項` : '尚未分類';
+  }
   $('#measurement').hidden = !selected.includes('crack');
+  $('#leakFields').hidden = !selected.includes('activeLeak');
   let anyArea = false;
   for (const key of Object.keys(AREA_CONDITIONS)) {
     const shown = selected.includes(key) && (key !== 'crack' || $('#crackPattern').value === 'network');
@@ -117,12 +127,15 @@ function conditionState() {
   }
   $('#areaMeasurements').hidden = !anyArea;
   $('#uCrackFields').hidden = !selected.includes('crack') || $('#crackPattern').value !== 'u';
-  $('#tileFields').hidden = $('#surface').value !== 'tile';
+  $('#tileFields').hidden = $('#surface').value !== 'tile' && !selected.some(c => ['tileBroken', 'tileBulge'].includes(c));
+  $('#tileCrackOption').hidden = $('#surface').value !== 'tile';
   $('#tileCrackQuantity').hidden = !$('#tileCrack').checked; $('#tileBrokenQuantity').hidden = !$('#tileBroken').checked;
+  $('#tileCrackQuantity').hidden ||= $('#surface').value !== 'tile'; $('#tileBulgeQuantity').hidden = !$('#tileBulge').checked;
   $('#tileOverlapQuantity').hidden = !$('#tileCrack').checked || !$('#tileBroken').checked || !!$('#tileCrackCountText').value || !!$('#tileBrokenCountText').value;
-  for (const selector of ['#tileCrackCount', '#tileBrokenCount']) $(selector).disabled = !!$(selector + 'Text').value;
+  $('#tileOverlapQuantity').hidden ||= $('#surface').value !== 'tile';
+  for (const selector of ['#tileCrackCount', '#tileBrokenCount', '#tileBulgeCount']) $(selector).disabled = !!$(selector + 'Text').value;
   $('#individualCracks').hidden = !selected.includes('crack') || ['network', 'u'].includes($('#crackPattern').value) || $('#surface').value === 'tile';
-  try { const values = formValues(), total = tileTotal(values.tiles); $('#tileTotal').textContent = total === null ? '重疊情形未確認時，不自動合計塊數。' : `不重複受損磁磚：${total} 塊`; $('#quickDescription').textContent = observationText(values); } catch { $('#quickDescription').textContent = '請先確認數量或尺寸格式。'; }
+  try { const values = formValues(), total = tileTotal(values.tiles); $('#tileTotal').textContent = total === null ? '數量或重疊情形未確認時，不自動合計塊數。' : `不重複受損磁磚：${values.tiles.approx ? '約 ' : ''}${total} 塊`; $('#quickDescription').textContent = observationText(values); } catch { $('#quickDescription').textContent = '請先確認數量或尺寸格式。'; }
 }
 function measurementState() {
   const mode = $('#widthMode').value, measured = $('#measured').checked;
@@ -130,6 +143,7 @@ function measurementState() {
   const network = isNetworkCrack(data), u = isUCrack(data), optional = network || u || isTile(data);
   for (const button of $('#widthPresets').querySelectorAll('[data-width]')) button.setAttribute('aria-pressed', String(button.dataset.width === mode));
   const individual = !$('#individualCracks').hidden && crackFields?.active;
+  $('#crackLayerFields').hidden = individual;
   for (const selector of ['#widthPresets', '#widthMode', '#widthHint', '#measured', '#width']) { const el = $(selector); (selector === '#widthMode' || selector === '#measured' ? el.parentElement : selector === '#width' ? el.closest('.two-col') : el).hidden = individual; }
   $('#width').disabled = !measured || mode !== 'exact'; $('#length').disabled = !measured;
   $('#widthLabel').textContent = `實測裂縫寬度（mm）${optional ? '・選填' : ''}`; $('#lengthLabel').textContent = `${u ? '單條 U 型裂縫展開長度' : '實測裂縫長度'}（m）${optional ? '・選填' : ''}`;
@@ -142,12 +156,15 @@ function changed(event) {
   if (target?.id === 'crackPattern' && target.value === 'u') $('#component input[value="梁"]').checked = true;
   if (target?.name === 'components' && $('#crackPattern').value === 'u' && !$('#component input[value="梁"]').checked) $('#crackPattern').value = '';
   if (target?.id === 'tileCrack' && target.checked) { $('#condition input[value="crack"]').checked = true; $('#condition input[value="normal"]').checked = false; }
-  if (target?.id === 'tileBroken' && target.checked && !selectedConditions().some(c => c !== 'normal')) { $('#condition input[value="other"]').checked = true; $('#condition input[value="normal"]').checked = false; }
+  for (const key of ['tileBroken', 'tileBulge']) {
+    if (target?.id === key) { $('#condition input[value="' + key + '"]').checked = target.checked; if (target.checked) $('#condition input[value="normal"]').checked = false; }
+    if (target?.name === 'conditions' && target.value === key) $('#' + key).checked = target.checked;
+  }
   if (target?.name === 'conditions' && target.checked) {
     for (const el of $('#condition').querySelectorAll('input')) if (el !== target && (target.value === 'normal' || el.value === 'normal')) el.checked = false;
   }
   if (target?.name === 'conditions' && (target.value === 'normal' && target.checked || target.value === 'crack' && !target.checked)) $('#tileCrack').checked = false;
-  if (target?.name === 'conditions' && target.value === 'normal' && target.checked) $('#tileBroken').checked = false;
+  if (target?.name === 'conditions' && target.value === 'normal' && target.checked) $('#tileBroken').checked = $('#tileBulge').checked = false;
   if (!currentRecord()) return; dirty = true; editGeneration++; $('#saveStatus').textContent = '尚未保存'; clearTimeout(saveTimer); saveTimer = setTimeout(() => { saveForm().catch(fail); }, 500);
   conditionState();
   measurementState();
@@ -201,16 +218,21 @@ async function renderEditor() {
   for (const key of ['floor', 'space', 'location', 'visibility', 'notes', 'resident']) $('#' + key).value = r[key];
   for (const el of $('#component').querySelectorAll('input')) el.checked = recordComponents(r).includes(el.value);
   for (const el of $('#condition').querySelectorAll('input')) el.checked = recordConditions(r).includes(el.value);
+  // Recognize legacy tile quantities without rewriting old saved records on load.
+  if (isTile(r) && !recordConditions(r).includes('normal')) for (const [key, kind] of [['tileBroken', 'broken'], ['tileBulge', 'bulge']]) if (r.tiles?.[kind]) $('#condition input[value="' + key + '"]').checked = true;
+  $('#moreConditions').open = false; $('#areaMeasurements').open = false;
+  for (const el of $('#crackLayer').querySelectorAll('input')) el.checked = el.value === (r.crackLayer || 'unknown');
+  for (const el of $('#leakForms').querySelectorAll('input')) el.checked = r.leakForms?.includes(el.value) || false;
   for (const key of Object.keys(AREA_CONDITIONS)) { $('#area-' + key).value = r.areas?.[key]?.value ?? ''; $('#area-method-' + key).value = r.areas?.[key]?.method || 'measured'; }
   $('#measured').checked = r.measured;
   $('#widthMode').value = widthMode(r); $('#crackPattern').value = r.crackPattern || '';
   $('#crackCount').value = r.crackCount ?? ''; $('#countApprox').checked = r.countApprox || false; $('#uScope').value = r.uScope || 'representative'; $('#uPartial').checked = r.uPartial || false;
-  $('#surface').value = r.surface || ''; $('#tileCrack').checked = r.tiles?.crack || false; $('#tileBroken').checked = r.tiles?.broken || false; $('#tileApprox').checked = r.tiles?.approx || false;
-  for (const [selector, key] of [['#tileCrackCount', 'crackCount'], ['#tileBrokenCount', 'brokenCount'], ['#tileOverlapCount', 'overlapCount']]) $(selector).value = r.tiles?.[key] ?? '';
+  $('#surface').value = r.surface || ''; $('#tileCrack').checked = r.tiles?.crack || false; $('#tileBroken').checked = $('#condition input[value="tileBroken"]').checked; $('#tileBulge').checked = $('#condition input[value="tileBulge"]').checked; $('#tileApprox').checked = r.tiles?.approx || false;
+  for (const [selector, key] of [['#tileCrackCount', 'crackCount'], ['#tileBrokenCount', 'brokenCount'], ['#tileBulgeCount', 'bulgeCount'], ['#tileOverlapCount', 'overlapCount']]) $(selector).value = r.tiles?.[key] ?? '';
   $('#spaces').innerHTML = [...new Set(['客廳', '房間', '廚房', '浴廁', '樓梯', '陽台', ...project.records.filter(x => x.unitId === r.unitId && x.floor === r.floor).map(x => x.space)])].filter(Boolean).map(x => `<option value="${esc(x)}">`).join('');
   for (const k of ['width', 'length']) { $('#' + k).value = r[k] ?? ''; $('#' + k).disabled = !r.measured; }
   crackFields.load(r);
-  for (const [kind, selector] of [['crack', '#tileCrackCountText'], ['broken', '#tileBrokenCountText']]) $(selector).value = r.tiles?.[kind + 'Text'] || '';
+  for (const [kind, selector] of [['crack', '#tileCrackCountText'], ['broken', '#tileBrokenCountText'], ['bulge', '#tileBulgeCountText']]) $(selector).value = r.tiles?.[kind + 'Text'] || '';
   conditionState(); measurementState(); renderRecordIssues(); await renderMedia();
 }
 async function render() {
@@ -656,7 +678,14 @@ async function recoverCopy() {
 $('#recoverCopy').onclick = $('#modalRecover').onclick = () => recoverCopy().catch(fail);
 $('#keepEditing').onclick = () => { $('#discardPrompt').hidden = true; };
 $('#discardChanges').onclick = () => closeModal(true);
-$('#component').innerHTML = COMPONENTS.filter(Boolean).map(x => `<label><input type="checkbox" name="components" value="${esc(x)}"><span>${esc(x === '牆面' ? '牆' : x)}</span></label>`).join(''); $('#condition').innerHTML = Object.entries(CONDITIONS).filter(([key]) => key).map(([key, label]) => `<label><input type="checkbox" name="conditions" value="${key}"><span>${label}</span></label>`).join('');
+$('#component').innerHTML = COMPONENTS.filter(Boolean).map(x => `<label><input type="checkbox" name="components" value="${esc(x)}"><span>${esc(x === '牆面' ? '牆' : x)}</span></label>`).join('');
+const conditionChoices = keys => keys.map(key => `<label><input type="checkbox" name="conditions" value="${key}"><span>${esc(CONDITIONS[key])}</span></label>`).join('');
+$('#commonConditions').innerHTML = conditionChoices(COMMON_CONDITIONS);
+$('#conditionGroups').innerHTML = CONDITION_GROUPS.map(([label, keys]) => `<fieldset class="component-field"><legend>${esc(label)}</legend><div class="choice-chips">${conditionChoices(keys)}</div></fieldset>`).join('');
+$('#normalCondition').innerHTML = conditionChoices(['normal']);
+$('#selectedConditions').onclick = event => { const b = event.target.closest('[data-remove-condition]'); if (!b) return; const input = $('#condition input[value="' + b.dataset.removeCondition + '"]'); input.checked = false; changed({ target: input }); $('#moreConditions summary').focus(); };
+$('#crackLayer').innerHTML = Object.entries(CRACK_LAYERS).map(([key, label]) => `<label><input type="radio" name="crackLayer" value="${key}" ${key === 'unknown' ? 'checked' : ''}>${label}</label>`).join('');
+$('#leakForms').innerHTML = Object.entries(LEAK_FORMS).map(([key, label]) => `<label><input type="checkbox" value="${key}">${label}</label>`).join('');
 $('#areaFields').innerHTML = Object.entries(AREA_CONDITIONS).map(([key, label]) => `<div data-area="${key}" class="two-col" hidden><label>${label}面積（m²，選填）<input id="area-${key}" type="number" min="0" step="any" inputmode="decimal" placeholder="未記錄"></label><label>取得方式<select id="area-method-${key}">${opts(AREA_METHODS)}</select></label></div>`).join('');
 $('#widthMode').innerHTML = opts(WIDTH_MODES); $('#crackPattern').innerHTML = opts(CRACK_PATTERNS);
 $('#widthMode').onchange = () => { if ($('#widthMode').value !== 'exact') $('#width').value = ''; };
@@ -691,12 +720,13 @@ crackFields = createCrackFields($('#individualCracks'), changed, () => {
   const measured = $('#measured').checked, widthMode = $('#widthMode').value;
   const width = measured && widthMode === 'exact' && $('#width').value !== '' ? Number($('#width').value) : null;
   const length = measured && $('#length').value !== '' ? Number($('#length').value) : null;
-  return width !== null || length !== null || !['unknown', 'exact'].includes(widthMode) ? { measured, widthMode, width, length, crackPattern: $('#crackPattern').value } : undefined;
+  const crackLayer = $('#crackLayer input:checked')?.value || 'unknown';
+  return width !== null || length !== null || !['unknown', 'exact'].includes(widthMode) || crackLayer !== 'unknown' ? { measured, widthMode, width, length, crackPattern: $('#crackPattern').value, crackLayer } : undefined;
 }, fail);
-for (const selector of ['#tileCrackCount', '#tileBrokenCount']) {
+for (const selector of ['#tileCrackCount', '#tileBrokenCount', '#tileBulgeCount']) {
   const buttons = document.createElement('div'); buttons.className = 'choice-chips';
   buttons.innerHTML = [1, 2, 5, 10, 15, 20].map(n => `<button type="button" data-value="${n}">${n} 塊</button>`).join('') + [-1, 1, 10].map(n => `<button type="button" data-step="${n}">${n > 0 ? '＋' : '−'}${Math.abs(n)}</button>`).join('');
-  const description = document.createElement('select'); description.id = selector.slice(1) + 'Text'; description.setAttribute('aria-label', selector.includes('Crack') ? '磁磚裂隙數量記法' : '磁磚破損數量記法'); description.innerHTML = opts({ '': '輸入塊數', '十餘塊': '十餘塊', '二十餘塊': '二十餘塊', '多處': '多處（未計數）' });
+  const description = document.createElement('select'); description.id = selector.slice(1) + 'Text'; description.setAttribute('aria-label', selector.includes('Crack') ? '磁磚裂隙數量記法' : selector.includes('Bulge') ? '磁磚拱起數量記法' : '磁磚破損數量記法'); description.innerHTML = opts({ '': '輸入塊數', '十餘塊': '十餘塊', '二十餘塊': '二十餘塊', '多處': '多處（未計數）' });
   $(selector).parentElement.append(description, buttons);
   description.onchange = () => { if (description.value) { $(selector).value = ''; $('#tileOverlapCount').value = ''; } };
   buttons.onclick = event => { const b = event.target.closest('button'); if (!b) return; if (b.dataset.step && description.value) { toast('請先輸入已確認的塊數，再加減'); return; } description.value = ''; $(selector).value = b.dataset.value ?? Math.max(0, Math.min(99999, Number($(selector).value || 0) + Number(b.dataset.step))); changed(); };
