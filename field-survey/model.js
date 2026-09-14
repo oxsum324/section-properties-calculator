@@ -1,4 +1,4 @@
-export const VERSION = '0.11.0';
+export const VERSION = '0.12.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -237,6 +237,14 @@ export function validateProject(p) {
     assert(units.has(plan.unitId) && media.has(plan.mediaId) && meta.get(plan.mediaId).kind === 'plan', '位置圖關聯遺失');
     for (const k of ['floor', 'title']) text(plan[k], k, 250);
     if (plan.sketch !== undefined) validateSketch(plan.sketch);
+    if (plan.labelLayout !== undefined) {
+      list(plan.labelLayout, '編號排版', 50000); const targets = new Set();
+      for (const l of plan.labelLayout) {
+        assert(l && ['photo', 'pin'].includes(l.kind) && typeof l.id === 'string' && !targets.has(JSON.stringify([l.kind, l.id, l.recordId])), '編號排版對象重複或不正確'); targets.add(JSON.stringify([l.kind, l.id, l.recordId]));
+        assert(p.records.some(r => r.unitId === plan.unitId && (l.kind === 'pin' ? r.id === l.id : r.id === l.recordId && r.photos.some(photo => photo.mediaId === l.id))), '編號排版對象不存在');
+        assert(finite01(l.x) && finite01(l.y) && typeof l.locked === 'boolean' && Array.isArray(l.anchor) && l.anchor.length === 4 && l.anchor.every(finite01), '編號排版座標不正確');
+      }
+    }
   }
   for (const r of p.records) {
     if (r.visitId !== undefined) assert(r.visitId === '' || visits.has(r.visitId), '紀錄會勘批次不存在');
@@ -355,7 +363,7 @@ export function restoredCopy(p) {
   const copy = clone(p), remap = new Map(copy.media.map(m => [m.id, id()]));
   copy.id = id(); copy.name = copy.name.slice(0, 200) + '（還原副本）'; copy.revision = 0; copy.createdAt = now(); copy.updatedAt = now();
   copy.media.forEach(m => { m.id = remap.get(m.id); });
-  copy.plans.forEach(x => { x.mediaId = remap.get(x.mediaId); });
+  copy.plans.forEach(x => { x.mediaId = remap.get(x.mediaId); for (const l of x.labelLayout || []) if (l.kind === 'photo') l.id = remap.get(l.id); });
   copy.records.forEach(r => { r.photos.forEach(x => { x.mediaId = remap.get(x.mediaId); }); if (r.mainPhotoId) r.mainPhotoId = remap.get(r.mainPhotoId); if (r.detail?.mediaId) r.detail.mediaId = remap.get(r.detail.mediaId); r.audioIds = r.audioIds.map(x => remap.get(x)); });
   return { project: copy, remap };
 }

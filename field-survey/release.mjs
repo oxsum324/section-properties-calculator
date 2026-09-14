@@ -10,7 +10,7 @@ import { VERSION } from './model.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const baseline = JSON.parse(fs.readFileSync(new URL('./release-baseline.json', import.meta.url), 'utf8'));
-const runtime = ['recorder.html', 'app.css', 'app.js', 'model.js', 'report.js', 'report-ui.js', 'report-standard.js', 'organisation.js', 'detail.js', 'store.js', 'bundle.js', 'annotation.js', 'sketch.js', 'stairs.js', 'cracks.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'sw.js'];
+const runtime = ['recorder.html', 'app.css', 'app.js', 'model.js', 'report.js', 'report-ui.js', 'report-standard.js', 'organisation.js', 'detail.js', 'store.js', 'bundle.js', 'annotation.js', 'sketch.js', 'stairs.js', 'cracks.js', 'plan-labels.js', 'label-editor.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'sw.js'];
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const git = args => execFileSync('git', ['-C', root, ...args]);
 const head = git(['rev-parse', 'HEAD']).toString().trim();

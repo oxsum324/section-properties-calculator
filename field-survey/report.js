@@ -84,14 +84,14 @@ export function attachmentUnits(index, project) {
 export function groupPlanEntries(group, planId) {
   const arrows = new Map(), pins = [];
   for (const r of group.records) {
-    if (r.pin?.planId === planId) pins.push({ placement: r.pin, kind: 'observation', label: r.photos.map(p => p.number).join('、') });
+    if (r.pin?.planId === planId) pins.push({ placement: r.pin, kind: 'observation', targets: [{ kind: 'pin', id: r.recordId }], label: r.photos.map(p => p.number).join('、') });
     for (const photo of r.photos) if (photo.placement?.planId === planId) {
-      const key = JSON.stringify(photo.placement);
-      if (!arrows.has(key)) arrows.set(key, { placement: photo.placement, numbers: [] });
-      arrows.get(key).numbers.push(photo.number);
+      const q = photo.placement, key = JSON.stringify([q.planId, q.x, q.y, q.endX, q.endY]);
+      if (!arrows.has(key)) arrows.set(key, { placement: photo.placement, numbers: [], targets: [] });
+      arrows.get(key).numbers.push(photo.number); arrows.get(key).targets.push({ kind: 'photo', id: photo.mediaId, recordId: r.recordId });
     }
   }
-  return [...pins, ...[...arrows.values()].map(x => ({ placement: x.placement, label: x.numbers.join('、') }))];
+  return [...pins, ...[...arrows.values()].map(x => ({ placement: x.placement, targets: x.targets, label: x.numbers.join('、') }))];
 }
 export function observationMarks(q, label = '') {
   const marks = placementMarks({ ...q, kind: 'observation' }, label);
@@ -109,7 +109,7 @@ export async function renderAttachment(project, getBlob, options = {}, progress 
     const meta = project.media.find(m => m.id === mediaId), blob = await getBlob(mediaId);
     assert(blob && await sha256(blob) === meta.sha256, '附件原始檔核對失敗：' + meta.name);
     includedAssets.set(mediaId, { id: mediaId, name: meta.name, sha256: meta.sha256 });
-    const result = planEntries ? await reportPlanImage(blob, planEntries) : await markedImage(blob, marks);
+    const result = planEntries ? await reportPlanImage(blob, planEntries, project.plans.find(p => p.id === planEntries[0]?.placement.planId)?.labelLayout || []) : await markedImage(blob, marks);
     outputBytes += result.size; assert(outputBytes <= 160 * 1024 * 1024, '附件影像超過 160 MB，請改按戶匯出或減少選片');
     return dataURL(result);
   };

@@ -1,3 +1,4 @@
+import { planLabelGeometry, paintPlanLabels } from './plan-labels.js';
 const NS = 'http://www.w3.org/2000/svg';
 const node = (tag, attrs = {}) => { const el = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v)); return el; };
 export function drawMarks(svg, marks, width, height) {
@@ -15,37 +16,24 @@ export function drawMarks(svg, marks, width, height) {
   }
 }
 function loadImage(url) { return new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = () => reject(new Error('此裝置無法預覽此影像格式；原檔仍可備份。')); img.src = url; }); }
-// Report labels may move; the saved camera points and directions never do.
-export function planLabelLayout(items, width, height) {
-  const gap = width / 160, placed = [], overlaps = (a, b) => a.x < b.x + b.w + gap && a.x + a.w + gap > b.x && a.y < b.y + b.h + gap && a.y + a.h + gap > b.y;
-  for (const item of items) {
-    const { w, h, ax, ay } = item, candidates = [];
-    const add = (x, y) => { const box = { x: Math.max(gap, Math.min(width - w - gap, x)), y: Math.max(gap, Math.min(height - h - gap, y)), w, h }; if (box.x + w <= width && box.y + h <= height && !placed.some(b => overlaps(box, b)) && !items.some(p => p.ax >= box.x - gap && p.ax <= box.x + w + gap && p.ay >= box.y - gap && p.ay <= box.y + h + gap)) candidates.push(box); };
-    for (let ring = 0; ring < 8 && !candidates.length; ring++) for (const dx of [-1, 0, 1]) for (const dy of [-1, 0, 1]) if (dx || dy) add(ax + (dx < 0 ? -w - gap : dx > 0 ? gap : -w / 2) + dx * ring * gap * 3, ay + (dy < 0 ? -h - gap : dy > 0 ? gap : -h / 2) + dy * ring * gap * 3);
-    if (!candidates.length) for (let y = gap; y + h < height; y += Math.max(gap, h / 2)) for (let x = gap; x + w < width; x += Math.max(gap, w / 3)) add(x, y);
-    if (!candidates.length) throw new Error('平面圖照片代號過密，請將紀錄定位至不同區域的平面圖後再匯出');
-    const distance = b => Math.hypot(Math.max(b.x - ax, 0, ax - b.x - b.w), Math.max(b.y - ay, 0, ay - b.y - b.h));
-    candidates.sort((a, b) => distance(a) - distance(b)); placed.push({ ...candidates[0], ...item });
-  }
-  return placed;
+export { planLabelLayout } from './plan-labels.js';
+export function drawPlanOverlay(svg, entries, width, height, layouts = [], strict = true) {
+  const w = 1200, h = w * height / width;
+  const geometry = planLabelGeometry(entries.filter(e => e.placement), w, h, layouts, strict);
+  svg.replaceChildren(); svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  entries.forEach((entry, i) => { if (!entry.placement) return; const g = node('g', { 'data-plan-arrow': i }); drawMarks(g, placementMarks({ ...entry.placement, kind: entry.kind }), w, h); svg.append(g); });
+  paintPlanLabels(svg, geometry); return geometry;
 }
-export async function reportPlanImage(blob, entries) {
+export async function reportPlanImage(blob, entries, layouts = []) {
   const url = URL.createObjectURL(blob);
   try {
     const img = await loadImage(url), scale = Math.min(2, 4096 / Math.max(img.naturalWidth, img.naturalHeight)), canvas = document.createElement('canvas');
     canvas.width = Math.round(img.naturalWidth * scale); canvas.height = Math.round(img.naturalHeight * scale);
-    const w = canvas.width, h = canvas.height, ctx = canvas.getContext('2d'), font = Math.min(w / 42, h / 24), pad = font / 4;
+    const w = canvas.width, h = canvas.height, ctx = canvas.getContext('2d');
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
-    const svg = node('svg', { xmlns: NS, width: w, height: h }); drawMarks(svg, entries.flatMap(e => placementMarks({ ...e.placement, kind: e.kind })), w, h);
+    const svg = node('svg', { xmlns: NS, width: w, height: h }); drawPlanOverlay(svg, entries, img.naturalWidth, img.naturalHeight, layouts);
     const overlay = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' }));
     try { ctx.drawImage(await loadImage(overlay), 0, 0); } finally { URL.revokeObjectURL(overlay); }
-    ctx.font = `600 ${font}px sans-serif`; ctx.textBaseline = 'top';
-    const items = entries.filter(e => e.label).map(e => { const numbers = e.label.split('、'), lines = []; for (let i = 0; i < numbers.length; i += 4) lines.push(numbers.slice(i, i + 4).join('、')); return { ax: e.placement.x * w, ay: e.placement.y * h, lines, w: Math.max(...lines.map(line => ctx.measureText(line).width)) + pad * 2, h: lines.length * font * 1.2 + pad * 2 }; });
-    const labels = planLabelLayout(items, w, h);
-    ctx.strokeStyle = '#b82b25'; ctx.lineWidth = Math.max(1, w / 1000); ctx.setLineDash([font / 5, font / 5]);
-    for (const b of labels) { ctx.beginPath(); ctx.moveTo(b.ax, b.ay); ctx.lineTo(Math.max(b.x, Math.min(b.x + b.w, b.ax)), Math.max(b.y, Math.min(b.y + b.h, b.ay))); ctx.stroke(); }
-    ctx.setLineDash([]);
-    for (const b of labels) { ctx.fillStyle = '#fff'; ctx.fillRect(b.x, b.y, b.w, b.h); ctx.fillStyle = '#b82b25'; b.lines.forEach((line, i) => ctx.fillText(line, b.x + pad, b.y + pad + i * font * 1.2)); }
     return await new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('平面圖代號排版失敗')), 'image/jpeg', .94));
   } finally { URL.revokeObjectURL(url); }
 }
@@ -56,11 +44,11 @@ export function placementMarks(q, title = '') {
 }
 export async function planPreview(stage, url, entries = []) {
   const img = await loadImage(url), svg = node('svg', { role: 'img', 'aria-label': '拍攝點、紀錄編號與方向' });
-  img.alt = '平面位置圖'; drawMarks(svg, entries.flatMap(e => placementMarks(e.placement ? { ...e.placement, kind: e.kind } : null, e.label)), img.naturalWidth, img.naturalHeight);
+  img.alt = '平面位置圖'; drawPlanOverlay(svg, entries, img.naturalWidth, img.naturalHeight, [], false);
   stage.classList.add('plan-preview'); stage.replaceChildren(img, svg);
 }
 export async function photoLocationImage(photoBlob, marks, planBlob, placement, labels) {
-  const blobs = [await markedImage(photoBlob, marks), await markedImage(planBlob, placementMarks(placement, labels.record))], urls = blobs.map(b => URL.createObjectURL(b));
+  const blobs = [await markedImage(photoBlob, marks), await reportPlanImage(planBlob, placement ? [{ placement, label: labels.record }] : [])], urls = blobs.map(b => URL.createObjectURL(b));
   try {
     const images = await Promise.all(urls.map(loadImage)), canvas = document.createElement('canvas'); canvas.width = 1600; canvas.height = 1900;
     const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);

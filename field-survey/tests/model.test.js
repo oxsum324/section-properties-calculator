@@ -10,6 +10,7 @@ import { parseRoster } from '../organisation.js';
 import { recordDateInfo, validDate } from '../model.js';
 import { splitVolumes } from '../report-standard.js';
 import { planLabelLayout } from '../annotation.js';
+import { segmentHitsBox } from '../plan-labels.js';
 import { CONDITIONS, COMMON_CONDITIONS, CONDITION_GROUPS } from '../model.js';
 
 test('expanded conditions and independent observation layers survive backup and both report indexes', async () => {
@@ -21,7 +22,7 @@ test('expanded conditions and independent observation layers survive backup and 
     { id: id(), measured: false, widthMode: 'unknown', width: null, length: null, pattern: 'diagonal', notes: '', layer: 'structural' }
   ] });
   validateProject(p); const saved = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
-  assert.equal(saved.manifest.version, 6); assert.deepEqual(saved.project.records[0], r);
+  assert.equal(saved.manifest.version, 7); assert.deepEqual(saved.project.records[0], r);
   for (const format of ['quick', 'standard']) {
     const row = attachmentIndex(p, { format }).groups[0].records[0];
     assert.deepEqual(row.conditions, keys); assert.match(row.text, /裂縫 A.*粉刷層/); assert.match(row.text, /裂縫 B.*結構體/);
@@ -54,6 +55,46 @@ test('dense report labels avoid overlap without changing camera points or caller
   const items = Array.from({ length: 18 }, (_, i) => ({ ax: 280 + i * 4, ay: 300, w: 85, h: 26 })), before = structuredClone(items), result = planLabelLayout(items, 1200, 800);
   assert.deepEqual(items, before); assert.equal(result.length, items.length);
   result.forEach((a, i) => { assert.equal(a.ax, items[i].ax); assert.equal(a.ay, items[i].ay); assert(a.x >= 0 && a.y >= 0 && a.x + a.w <= 1200 && a.y + a.h <= 800); result.slice(i + 1).forEach(b => assert(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y)); });
+});
+
+test('label avoidance includes full diagonal shafts, arrowhead wings, circles and reserved locked positions', () => {
+  const segments = [{ a: { x: 80, y: 80 }, b: { x: 1100, y: 700 }, pad: 4 }, { a: { x: 700, y: 120 }, b: { x: 1100, y: 700 }, pad: 4 }];
+  const points = [{ x: 200, y: 100, r: 35 }], items = [
+    { ax: 200, ay: 100, w: 85, h: 35 },
+    { ax: 200, ay: 100, w: 85, h: 35, preferred: { x: .3, y: .04, locked: true } },
+    { ax: 650, ay: 460, w: 160, h: 70 }
+  ], before = structuredClone(items), result = planLabelLayout(items, 1200, 800, { segments, points });
+  assert.deepEqual(items, before); assert.equal(result[1].x, 360); assert.equal(result[1].y, 32);
+  for (const box of result) for (const s of segments) assert(!segmentHitsBox(s.a, s.b, box, s.pad + 7.5));
+  assert(segmentHitsBox({ x: 0, y: 0 }, { x: 10, y: 10 }, { x: 4, y: 4, w: 1, h: 1 }));
+  assert(!segmentHitsBox({ x: 0, y: 0 }, { x: 0, y: 10 }, { x: 4, y: 4, w: 1, h: 1 }));
+});
+
+test('impossible or conflicting locked labels request review without silently shifting survey locations', () => {
+  const items = [{ ax: 100, ay: 100, w: 900, h: 800 }];
+  assert.throws(() => planLabelLayout(items, 800, 600), /編號/);
+  const locked = [1, 2].map(() => ({ ax: 100, ay: 100, w: 80, h: 30, preferred: { x: .5, y: .5, locked: true } }));
+  assert.throws(() => planLabelLayout(locked, 800, 600), /編號/);
+  const visible = planLabelLayout(locked, 800, 600, { strict: false });
+  assert(visible[1].invalid); assert.equal(visible[0].x, visible[1].x); assert.equal(visible[0].ax, 100);
+});
+
+test('saved labels follow record-photo identities through renumbering, shared media and isolated backup restore', async () => {
+  const { p, r, a, blobs } = await fixture(), mid = id(), planId = id();
+  p.media.push({ ...p.media[0], id: mid, kind: 'plan' }); blobs.set(mid, blobs.get(r.photos[0].mediaId));
+  r.placement = { planId, x: .2, y: .3, endX: .5, endY: .6 };
+  const other = { ...structuredClone(r), id: id(), placement: { ...r.placement, x: .3 } }; p.records.push(other);
+  const labels = [r, other].map(record => ({ kind: 'photo', id: record.photos[0].mediaId, recordId: record.id, x: .6, y: .2, locked: true, anchor: [.2, .3, .5, .6] }));
+  p.plans.push({ id: planId, unitId: a.id, floor: r.floor, title: '合成圖面', mediaId: mid, labelLayout: labels }); validateProject(p);
+  const before = structuredClone(p), first = groupPlanEntries({ records: attachmentIndex(p).groups.flatMap(g => g.records) }, planId);
+  const next = groupPlanEntries({ records: attachmentIndex(p, { start: 100 }).groups.flatMap(g => g.records) }, planId);
+  assert.deepEqual(first.map(x => x.targets), next.map(x => x.targets)); assert.notEqual(first[0].label, next[0].label); assert.deepEqual(p, before);
+  const bundle = await readBundle((await makeBundle(p, key => blobs.get(key), a.id)).blob), copy = restoredCopy(bundle.project).project;
+  validateProject(copy); assert.deepEqual(bundle.project.plans[0].labelLayout, labels);
+  assert.notEqual(copy.plans[0].labelLayout[0].id, labels[0].id); assert.equal(copy.plans[0].labelLayout[0].recordId, r.id);
+  assert.deepEqual(copy.records[0].placement, r.placement);
+  p.plans[0].labelLayout.push(labels[0]); assert.throws(() => validateProject(p), /重複/); p.plans[0].labelLayout.pop();
+  p.plans[0].labelLayout[0].recordId = 'missing'; assert.throws(() => validateProject(p), /不存在/);
 });
 
 test('public floors become contiguous before numbering while remaining within one unit numbering sequence', async () => {
@@ -89,7 +130,7 @@ test('detail drawings and custom originals survive scoped backup and restore wit
   r.detail = { kind: 'image', mediaId: mid, marks: [{ type: 'pen', points: [{ x: .2, y: .3 }, { x: .4, y: .5 }] }] };
   const result = await readBundle((await makeBundle(p, key => blobs.get(key), a.id)).blob); assert(result.project.media.some(m => m.id === mid));
   const restored = restoredCopy(result.project); validateProject(restored.project); assert.notEqual(restored.project.records[0].detail.mediaId, mid); assert.deepEqual(restored.project.records[0].detail.marks, r.detail.marks);
-  assert.equal(result.manifest.version, 6); r.detail.mediaId = r.photos[0].mediaId; assert.throws(() => validateProject(p), /細部圖原檔/);
+  assert.equal(result.manifest.version, 7); r.detail.mediaId = r.photos[0].mediaId; assert.throws(() => validateProject(p), /細部圖原檔/);
   r.detail = { kind: 'preset', preset: 'beam', mirror: true, marks: [] }; validateProject(p); r.detail.marks = [{ type: 'pen', points: [{ x: 2, y: .1 }] }]; assert.throws(() => validateProject(p), /座標/);
 });
 
@@ -128,7 +169,7 @@ test('individual cracks preserve independent units, uncertainty and legacy group
   assert.match(prose, /原整組紀錄/); assert.deepEqual(recordIssues(r), ['裂縫 C未量測']);
   const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
   assert.deepEqual(restored.project.records[0].cracks, r.cracks); assert.deepEqual(restored.project.records[0].legacyCrack, r.legacyCrack);
-  assert.equal(restored.manifest.version, 6);
+  assert.equal(restored.manifest.version, 7);
   r.cracks[2].width = .3; assert.throws(() => validateProject(p), /未量測/);
 });
 
@@ -450,7 +491,7 @@ test('multiple conditions share originals and retain independent measured or est
   Object.assign(r, { condition: 'crack', conditions: ['crack', 'damp', 'salt', 'spall'], crackPattern: 'network', areas: { crack: { value: null, method: 'estimated' }, damp: { value: 1.5, method: 'measured' }, salt: { value: .8, method: 'estimated' }, spall: { value: 0, method: 'measured' } } });
   validateProject(p); assert.deepEqual(recordIssues(r), []);
   const result = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
-  assert.equal(result.manifest.version, 6); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
+  assert.equal(result.manifest.version, 7); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
   const copy = restoredCopy(result.project).project.records[0]; assert.deepEqual(copy.conditions, r.conditions); assert.deepEqual(copy.areas, r.areas);
   r.conditions = ['damp']; r.condition = 'damp'; validateProject(p); assert.equal(r.areas.salt.value, .8); assert.deepEqual(recordIssues(r), []);
 });

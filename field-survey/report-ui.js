@@ -1,3 +1,4 @@
+import { openLabelEditor } from './label-editor.js';
 import { clone, recordIssues, observationText, roomKey, photoIncluded, ROLES, assert, syncRooms, photoPlacement, recordDateInfo } from './model.js';
 import { attachmentIndex, defaultPhotoIds, reportPhotos, renderAttachment, moveRoom, REPORT_FORMATS, escapeHTML as e, prepareVolumes, renderPlannedVolume, masterContentsHTML } from './report.js';
 import { detailLabel } from './detail.js';
@@ -116,6 +117,7 @@ export function createReportController(api) {
     $('#downloadMapping').onclick = () => download(new Blob([JSON.stringify({ ...result.index, digest: result.digest }, null, 2)], { type: 'application/json' }), p.code + '-' + formatName + suffix + '-編號對照-r' + p.revision + '.json');
     if (back) $('#backToVolumes').onclick = back;
   }
+  $('#editPlanLabels').onclick = () => action(async () => { await saveTextEdits(); await openLabelEditor({ ...api, render }, options()); });
   $('#previewReport').onclick = () => action(async () => {
     await saveTextEdits();
     const p = clone(getProject()), opts = options(); attachmentIndex(p, opts);
