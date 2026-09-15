@@ -5,12 +5,12 @@
   <meta name="theme-color" content="#173d3b"><meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="description" content="手機現況鑑定紀錄：依戶別及位置拍照、圈註、離線保存與案件備份。">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'">
-  <title>現況鑑定紀錄 V0.13.0</title>
+  <title>現況鑑定紀錄 V0.14.0</title>
   <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="./icon-192.png">
   <link rel="stylesheet" href="./app.css"><script type="module" src="./app.js"></script>
 </head>
 <body>
-<header class="app-header"><div class="brand"><img src="./icon.svg" width="40" height="40" alt=""><div><span class="eyebrow">弘一工程 · <span id="appVersion">V0.13.0</span></span><h1>現況鑑定紀錄</h1></div></div><button id="fontSize" class="quiet" aria-pressed="false">大字</button><button id="help" class="quiet" aria-label="使用說明">使用說明</button></header>
+<header class="app-header"><div class="brand"><img src="./icon.svg" width="40" height="40" alt=""><div><span class="eyebrow">弘一工程 · <span id="appVersion">V0.14.0</span></span><h1>現況鑑定紀錄</h1></div></div><button id="fontSize" class="quiet" aria-pressed="false">大字</button><button id="help" class="quiet" aria-label="使用說明">使用說明</button></header>
 <div class="system-bar"><span id="offlineStatus" role="status">離線資源準備中</span><span id="saveStatus" role="status">資料保存在此裝置</span><button id="updateApp" class="quiet" hidden>套用新版</button></div>
 <main id="app">
   <section class="project-bar"><label class="grow">目前案件<select id="caseSelect" aria-label="目前案件"><option value="">尚無案件</option></select></label><button id="newCase" class="secondary">＋ 案件</button></section>
@@ -34,7 +34,7 @@
               <datalist id="spaces"><option value="客廳"><option value="房間"><option value="廚房"><option value="浴廁"><option value="樓梯"><option value="陽台"><option value="騎樓"><option value="外觀"><option value="公設"></datalist>
               <div class="capture-row"><button type="button" id="takePhoto" class="primary camera-button"><span aria-hidden="true">◎</span> 直接拍照</button><button type="button" id="pickPhotos" class="secondary">相簿加入</button><button type="button" id="showPlan" class="secondary">位置圖</button></div>
               <p class="micro capture-help">拍照可先預覽、重拍再保存。沒有圖說可直接<button type="button" id="quickSketch" class="text-button">手繪簡圖</button>，保存後標拍攝箭頭。</p>
-              <div id="photoGrid" class="photo-grid"></div><section id="recordLocation" class="location-card" aria-label="本筆位置圖核對"></section>
+              <div id="photoGrid" class="photo-grid"></div><section id="recordLocation" class="location-card" aria-label="本筆位置圖核對"></section><section id="recordDetail" class="location-card" aria-label="本筆細部示意圖"></section>
               <fieldset class="component-field"><legend>部位（可複選）</legend><div id="component" class="choice-chips"></div></fieldset>
               <fieldset class="component-field"><legend>可見現況（可複選）</legend><div id="condition"><div id="commonConditions" class="choice-chips"></div><details id="moreConditions"><summary>更多現況</summary><div id="conditionGroups"></div></details><div id="normalCondition" class="choice-chips"></div></div><div id="selectedConditions" class="choice-chips selected-conditions" aria-label="已選現況"></div><span id="conditionSelectionStatus" class="micro" role="status"></span></fieldset>
               <label>表面材質<select id="surface"><option value="">未指定</option><option value="tile">磁磚</option><option value="other">其他</option></select></label>

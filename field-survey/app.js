@@ -9,7 +9,7 @@ import { individualCracks } from './model.js';
 import { createReportController } from './report-ui.js';
 import { createOrganisationController, unitHistoryLabel } from './organisation.js';
 import { UNIT_KINDS, recordDateInfo, latestUnitHistory } from './model.js';
-import { openDetailEditor } from './detail.js';
+import { openDetailEditor, detailLabel } from './detail.js';
 import { COMMON_CONDITIONS, CONDITION_GROUPS, CRACK_LAYERS, LEAK_FORMS } from './model.js';
 
 const $ = selector => document.querySelector(selector), esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -197,6 +197,7 @@ async function renderMedia() {
   $('#photoGrid').innerHTML = r.photos.length ? r.photos.map((p, i) => `<button type="button" class="photo-card" data-photo="${esc(p.mediaId)}" aria-label="照片 ${i + 1} 圈註"><span class="photo-placeholder">讀取照片…</span>${p.marks.length ? '<span class="mark-badge">已圈註</span>' : ''}<span class="photo-label"><span>${i + 1} · ${esc(p.excluded ? '不採用' : ROLES[p.role])}</span><span>編輯 ↗</span></span></button>`).join('') : '<div class="photo-empty">先拍一張位置全景，再加入近照或量尺照。</div>';
   $('#audioList').replaceChildren();
   await renderLocationCard($('#recordLocation'), r); if (token !== renderToken) return;
+  renderFieldDetailCard($('#recordDetail'), r);
   for (const photo of r.photos) {
     const url = await mediaURL(photo.mediaId); if (token !== renderToken) return;
     const card = $(`[data-photo="${photo.mediaId}"]`), image = new Image(); image.alt = photo.caption || ROLES[photo.role]; image.loading = 'lazy'; image.src = url;
@@ -342,7 +343,7 @@ function cameraDialog() {
   const stop = () => { request++; stream?.getTracks().forEach(track => track.stop()); stream = null; };
   const pause = () => { stop(); if (!disposed) { video.srcObject = null; shutter.disabled = true; start.disabled = false; start.hidden = !!shot; status.textContent = shot ? '照片尚未保存' : '相機已暫停，返回後請重新啟用'; } };
   const hidden = () => { if (document.hidden) pause(); };
-  openModal('現場拍照', '<p id="cameraPermission">點選「同意並啟用相機」，再於瀏覽器提示選擇「允許」。鏡頭只用於本次拍照，不會自動上傳。</p><div class="camera-stage"><video id="cameraPreview" autoplay muted playsinline></video><img id="cameraShot" alt="待保存的照片" hidden></div><p id="cameraStatus" role="status">相機尚未啟用</p><button id="startCamera" class="primary full">同意並啟用相機</button><div class="camera-actions"><button id="switchCamera" class="secondary">切換前／後鏡頭</button><button id="shutter" class="primary" disabled>◎ 拍攝</button><button id="retakeCamera" class="secondary" hidden>重拍</button><button id="saveCamera" class="primary" hidden>保存這張照片</button></div><p class="micro">若未出現權限提示，請到瀏覽器的網站設定開啟相機；從 LINE 等程式開啟時，可改用 Safari／Chrome 開啟本頁。也可改用下方的系統相機。</p><button id="nativeCamera" class="text-button">改用系統相機／選檔</button>', () => { disposed = true; stop(); video.srcObject = null; if (shotURL) URL.revokeObjectURL(shotURL); document.removeEventListener('visibilitychange', hidden); window.removeEventListener('pagehide', pause); });
+  openModal('現場拍照', '<p id="cameraPermission">點選「同意並啟用相機」，再於瀏覽器提示選擇「允許」。鏡頭只用於本次拍照，不會自動上傳。</p><div class="camera-stage"><video id="cameraPreview" autoplay muted playsinline></video><img id="cameraShot" alt="待保存的照片" hidden></div><p id="cameraStatus" role="status">相機尚未啟用</p><button id="startCamera" class="primary full">同意並啟用相機</button><div class="camera-actions"><button id="switchCamera" class="secondary">切換前／後鏡頭</button><button id="shutter" class="primary" disabled>◎ 拍攝</button><button id="retakeCamera" class="secondary" hidden>重拍</button><button id="saveCamera" class="secondary" hidden>保存這張照片</button><button id="saveCameraNext" class="primary" hidden>保存照片 → 標示方向</button></div><p class="micro">若未出現權限提示，請到瀏覽器的網站設定開啟相機；從 LINE 等程式開啟時，可改用 Safari／Chrome 開啟本頁。也可改用下方的系統相機。</p><button id="nativeCamera" class="text-button">改用系統相機／選檔</button>', () => { disposed = true; stop(); video.srcObject = null; if (shotURL) URL.revokeObjectURL(shotURL); document.removeEventListener('visibilitychange', hidden); window.removeEventListener('pagehide', pause); });
   $('#modal').dataset.mode = 'camera';
   const cameraControls = document.createElement('div'); cameraControls.className = 'camera-controls';
   for (const child of [...$('#modalBody').children]) if (!child.classList.contains('camera-stage')) cameraControls.append(child);
@@ -381,12 +382,13 @@ function cameraDialog() {
       if (disposed) return;
       shot = new File([blob], `現場拍照-${Date.now()}.jpg`, { type: 'image/jpeg' }); stop(); video.srcObject = null;
       shotURL = URL.createObjectURL(shot); preview.src = shotURL; preview.hidden = false; video.hidden = true; modalDirty = true;
-      start.hidden = shutter.hidden = $('#switchCamera').hidden = $('#nativeCamera').hidden = true; $('#retakeCamera').hidden = $('#saveCamera').hidden = false;
+      start.hidden = shutter.hidden = $('#switchCamera').hidden = $('#nativeCamera').hidden = true; $('#retakeCamera').hidden = $('#saveCamera').hidden = $('#saveCameraNext').hidden = false;
       status.textContent = `待保存 · ${canvas.width} × ${canvas.height}。確認清晰後保存，或重拍。`;
     } catch (e) { if (!disposed) { status.textContent = e.message; shutter.disabled = false; } }
   };
-  $('#retakeCamera').onclick = () => { if (shotURL) URL.revokeObjectURL(shotURL); shotURL = shot = null; modalDirty = false; preview.removeAttribute('src'); preview.hidden = true; video.hidden = false; start.hidden = shutter.hidden = $('#switchCamera').hidden = $('#nativeCamera').hidden = false; $('#retakeCamera').hidden = $('#saveCamera').hidden = true; enable(); };
+  $('#retakeCamera').onclick = () => { if (shotURL) URL.revokeObjectURL(shotURL); shotURL = shot = null; modalDirty = false; preview.removeAttribute('src'); preview.hidden = true; video.hidden = false; start.hidden = shutter.hidden = $('#switchCamera').hidden = $('#nativeCamera').hidden = false; $('#retakeCamera').hidden = $('#saveCamera').hidden = $('#saveCameraNext').hidden = true; enable(); };
   $('#saveCamera').onclick = () => action(async () => { assert(shot, '請先拍攝照片'); await addPhotos([shot], context); closeModal(true); }, '保存拍攝照片');
+  $('#saveCameraNext').onclick = () => action(async () => { assert(shot, '請先拍攝照片'); const ids = await addPhotos([shot], context); closeModal(true); const r = project.records.find(r => r.id === context.recordId); assert(r && r.photos.some(p => p.mediaId === ids[0]), '照片位置已變更，請重新選取'); recordId = r.id; unitId = r.unitId; activeView = 'work'; await render(); await planEntry(false, ids[0]); }, '保存拍攝照片');
   $('#nativeCamera').onclick = () => { closeModal(true); capture('camera'); };
 }
 function capture(source) {
@@ -396,18 +398,19 @@ function capture(source) {
 }
 async function addPhotos(files, context) {
   assert(context && project?.id === context.projectId && project.records.some(r => r.id === context.recordId), '拍照時的案件或位置已改變，照片尚未歸戶，請回原位置重新選取');
-  const errors = []; let saved = 0;
+  const errors = [], added = []; let saved = 0;
   for (const [i, file] of files.entries()) {
     busyText(`保存原始照片 ${i + 1} / ${files.length}`);
     try {
       const { metadata, asset } = await prepareAsset(file, 'image', context.source);
       const existing = project.media.find(m => m.sha256 === metadata.sha256 && project.records.find(r => r.id === context.recordId).photos.some(p => p.mediaId === m.id));
       if (existing) { errors.push(`${file.name}：此位置已有相同檔案`); continue; }
-      await commit(next => { next.media.push(metadata); const r = next.records.find(x => x.id === context.recordId); r.photos.push({ mediaId: metadata.id, role: r.photos.length ? 'close' : 'overview', caption: '', marks: [], excluded: false, excludedReason: '' }); markUnitOpen(next, r); }, [asset]); saved++;
+      await commit(next => { next.media.push(metadata); const r = next.records.find(x => x.id === context.recordId); r.photos.push({ mediaId: metadata.id, role: r.photos.length ? 'close' : 'overview', caption: '', marks: [], excluded: false, excludedReason: '' }); markUnitOpen(next, r); }, [asset]); saved++; added.push(metadata.id);
     } catch (e) { if (e.name === 'RevisionConflictError') { e.message = `${file.name} 尚未保存；已暫留原檔供另存副本，其餘照片請在副本重新加入。${e.message}`; throw e; } errors.push(`${file.name}：${e.message || '儲存失敗'}`); }
   }
   await render(); if (saved) toast(`${saved} 張原始照片已保存於本機`);
   if (errors.length) throw new Error(`已保存 ${saved} 張；其餘 ${errors.length} 張未新增：${errors.slice(0, 5).join('；')}`);
+  return added;
 }
 async function renderLocationCard(stage, r, onEdit = () => action(() => planEntry()), photo = null) {
   const position = photo ? photoPlacement(r, photo) : r.placement;
@@ -450,11 +453,27 @@ async function planOverview(plan) {
   for (const b of $('#modalBody').querySelectorAll('[data-location-record]')) b.onclick = () => action(async () => { requireNoRecording(); recordId = b.dataset.locationRecord; closeModal(true); await render(); });
   await planPreview($('#overviewPlan'), await mediaURL(plan.mediaId, true), records.flatMap(r => [{ placement: r.placement, label: planLabel(r) }, { placement: r.observationPin, kind: 'observation', label: planLabel(r) }, ...r.photos.filter(p => p.placement).map(p => ({ placement: p.placement, label: $('#fieldLabels').checked ? `${recordNumber(r)} ${ROLES[p.role]}` : '' }))]).filter(x => x.placement?.planId === plan.id));
 }
+function fieldDetailStatus(r) { return r.detail ? `已保存：${detailLabel(r.detail)}${r.detail.marks ? ` · ${r.detail.marks.length} 筆標記` : ''}` : '尚未建立細部示意圖'; }
+function renderFieldDetailCard(stage, r) {
+  stage.innerHTML = `<strong>本筆細部示意圖</strong><p class="micro">${esc(fieldDetailStatus(r))}。本筆遠拍、近拍共用，附件同步引用。</p><div class="choice-chips"><button type="button" class="primary" data-field-detail="${esc(r.id)}">${r.detail ? '查看／補畫細圖' : '＋ 畫細部示意圖'}</button>${r.photos.length ? `<button type="button" class="secondary" data-latest-photo="${esc(r.photos.at(-1).mediaId)}">最近照片：核對方向 → 細圖</button>` : ''}</div>`;
+  stage.querySelector('[data-field-detail]').onclick = () => action(() => editRecordDetail(r.id));
+  const latest = stage.querySelector('[data-latest-photo]'); if(latest) latest.onclick = () => action(() => planEntry(false, latest.dataset.latestPhoto));
+}
+async function editRecordDetail(rid, origin = 'field', photoId = '') {
+  requireNoRecording(); const r = project.records.find(r => r.id === rid); assert(r, '找不到原位置紀錄');
+  const unit = project.units.find(u => u.id === r.unitId), photo = photoId ? r.photos.find(p => p.mediaId === photoId) : null;
+  assert(!photoId || photo, '照片已不在此位置紀錄，請重新選取');
+  const label = [unit?.code, r.floor, r.space, recordNumber(r), photo ? `照片 ${r.photos.indexOf(photo) + 1} · ${ROLES[photo.role]}` : '本筆照片共用'].filter(Boolean).join(' · ');
+  await openDetailEditor({ $, getProject: () => project, getMedia, action, commit, openModal, closeModal, prepareAsset, download, esc, contextLabel: label, setDirty: value => { modalDirty = value; }, render: async () => {
+    if(origin === 'report') await reports.render();
+    else { recordId = rid; unitId = r.unitId; activeView = 'work'; await render(); toast('細圖已保存至本筆狀況，附件同步引用；可繼續拍照。'); }
+  } }, rid);
+}
 async function photoDialog(mediaId) {
   const targetRecord = recordId, photo = currentRecord().photos.find(p => p.mediaId === mediaId), metadata = project.media.find(m => m.id === mediaId), asset = await getMedia(mediaId);
   let annotator = null;
   openModal('照片圈註', `<div class="annotation-tools"><label>照片用途<select id="photoRole">${opts(ROLES)}</select></label><label>標記文字<input id="markText" maxlength="120" placeholder="選文字工具後點圖面"></label></div><div class="annotation-toolbar" id="photoTools"><button data-mode="circle" class="selected">圈選</button><button data-mode="arrow">箭頭</button><button data-mode="pen">畫線</button><button data-mode="text">文字</button><button data-mode="view">查看</button><button id="undoMark">復原</button></div><div id="conditionLabels" class="choice-chips" aria-label="現況文字快捷註記">${recordConditions(currentRecord()).filter(c => c !== 'normal').map(c => `<button data-condition-label="${c}">${esc(CONDITIONS[c])}</button>`).join('')}</div><p class="micro">同張照片可分別圈註多種現況。點現況文字，再點照片放置；細節或量尺不清楚時再補拍。</p><div id="photoStage" class="annotation-stage"></div><label>照片說明<input id="photoCaption" maxlength="1000" value="${esc(photo.caption)}" placeholder="可補充拍攝細節"></label><div class="two-col" style="margin-top:12px"><label class="check-label"><input id="photoExcluded" type="checkbox" ${photo.excluded ? 'checked' : ''}>不採用此照片（保留原檔）</label><label>不採用原因<input id="excludedReason" maxlength="500" value="${esc(photo.excludedReason || '')}" placeholder="例如 模糊、重拍"></label></div><p class="micro">${esc(metadata.name)} · ${size(metadata.size)} · 取得於 ${esc(new Date(metadata.importedAt).toLocaleString('zh-TW'))}<br>此時間為工具取得時間；不替代原始拍攝資訊。</p><div class="modal-actions"><button id="downloadOriginal" class="quiet">下載原圖</button><button id="downloadMarked" class="secondary">註記副本</button><button id="savePhoto" class="primary">保存圈註</button></div>`, () => annotator?.dispose());
-  $('#photoStage').insertAdjacentHTML('afterend', '<section id="photoLocation" class="location-card"></section>');
+  $('#photoStage').insertAdjacentHTML('afterend', '<section id="photoLocation" class="location-card"></section><section id="photoDetail" class="location-card"></section>');
   $('#downloadMarked').insertAdjacentHTML('afterend', '<button id="downloadPhotoLocation" class="secondary">照片＋位置圖副本</button>');
   const locationPlan = project.plans.find(p => p.id === photoPlacement(currentRecord(), photo)?.planId);
   $('#downloadPhotoLocation').disabled = !locationPlan;
@@ -477,8 +496,10 @@ async function photoDialog(mediaId) {
     await commit(next => { const r = next.records.find(x => x.id === targetRecord); Object.assign(r.photos.find(x => x.mediaId === mediaId), values); if (values.excluded && r.mainPhotoId === mediaId) delete r.mainPhotoId; markUnitOpen(next, r); });
   };
   $('#savePhoto').onclick = () => action(async () => { await savePhotoValues(); closeModal(true); await render(); toast('圈註已另存，原圖保留'); });
-  await renderLocationCard($('#photoLocation'), currentRecord(), () => action(async () => { await savePhotoValues(); closeModal(true); await render(); await planDialog('', mediaId); }), photo);
+  await renderLocationCard($('#photoLocation'), currentRecord(), () => action(async () => { await savePhotoValues(); closeModal(true); await render(); await planEntry(false, mediaId); }), photo);
   $('#photoLocation .location-edit').textContent = locationPlan ? '保存圈註並核對位置' : '保存圈註並引用圖面';
+  $('#photoDetail').innerHTML = `<strong>本筆細部示意圖</strong><p class="micro">${esc(fieldDetailStatus(currentRecord()))}。同筆狀況的照片共用，附件同步引用。</p><button id="photoDetailNext" class="primary">保存圈註 → ${currentRecord().detail ? '補畫' : '畫'}細圖</button>`;
+  $('#photoDetailNext').onclick = () => action(async () => { await savePhotoValues(); closeModal(true); await editRecordDetail(targetRecord, 'field', mediaId); });
   $('#downloadPhotoLocation').onclick = () => action(async () => {
     assert(locationPlan && !annotator?.pending, '請先完成圈註與位置定位');
     const r = currentRecord(), planAsset = await getMedia(locationPlan.mediaId);
@@ -486,11 +507,12 @@ async function photoDialog(mediaId) {
     download(blob, metadata.name.replace(/\.[^.]+$/, '') + '-位置對照.jpg'); toast('已產生位置對照副本；原始照片與圖面保留');
   });
 }
-function planEntry(draw = false) {
+function planEntry(draw = false, photoId = '') {
   assert(currentRecord(), '請先新增位置紀錄');
-  if (currentRecord().floor.trim()) return draw ? sketchDialog() : planDialog();
+  if (currentRecord().floor.trim()) return draw ? sketchDialog() : planDialog('', photoId);
+  const sourceProject = project.id, sourceRecord = recordId;
   openModal('先指定簡圖樓層', '<form id="planFloorForm"><label>本筆紀錄的樓層<input id="planFloor" required maxlength="100" placeholder="例如 1F、2F、RF" autocomplete="off"></label><p class="micro">圖面會歸到目前戶別及此樓層，供後續位置共用。</p><div class="modal-actions"><button class="primary" type="submit">繼續 →</button></div></form>');
-  $('#planFloorForm').onsubmit = e => { e.preventDefault(); const floor = $('#planFloor').value.trim(); if (!floor) return; action(async () => { await commit(next => { const r = next.records.find(x => x.id === recordId); r.floor = floor; markUnitOpen(next, r); }); $('#floor').value = floor; return draw ? sketchDialog() : planDialog(); }); };
+  $('#planFloorForm').onsubmit = e => { e.preventDefault(); const floor = $('#planFloor').value.trim(); if (!floor) return; action(async () => { assert(project.id === sourceProject && recordId === sourceRecord, '原位置紀錄已變更，請重新選取'); await commit(next => { const r = next.records.find(x => x.id === sourceRecord); r.floor = floor; markUnitOpen(next, r); }); $('#floor').value = floor; return draw ? sketchDialog() : planDialog('', photoId); }); };
 }
 async function planDialog(preferredPlanId = '', photoId = '', observation = false) {
   assert(currentRecord(), '請先新增位置紀錄'); const r = currentRecord(); assert(r.floor.trim(), '請先填寫樓層，再加入位置圖');
@@ -498,7 +520,7 @@ async function planDialog(preferredPlanId = '', photoId = '', observation = fals
   const context = { projectId: project.id, recordId, unitId, floor: r.floor, photoId, observation };
   const plans = project.plans.filter(p => p.unitId === r.unitId && p.floor === r.floor), initial = plans.find(p => p.id === preferredPlanId) || plans.find(p => p.id === currentPlacement?.planId) || plans.at(-1);
   let annotator = null, selected = initial?.id || '', point = null;
-  openModal('平面圖上的位置與方向', `<p class="micro">${esc(currentUnit().code)} · ${esc(r.floor)}。先點拍攝點，再點拍攝方向；也可切換拖曳。沒有圖說時，先畫簡圖再定位。</p><div class="annotation-tools"><label>位置圖<select id="planSelect">${plans.map(p => `<option value="${esc(p.id)}">${esc(p.title)}</option>`).join('') || '<option value="">尚無位置圖</option>'}</select></label></div><div class="plan-actions"><button id="addPlanImage" class="secondary">加入既有圖面</button><button id="drawPlan" class="primary">＋ 畫簡圖</button><button id="editSketch" class="quiet" hidden>編輯簡圖副本</button></div><label>標箭頭方式<select id="planGesture"><option value="tap">點兩下：先拍攝點，再拍攝方向</option><option value="drag">按住拖曳箭頭</option></select></label><div id="planStage" class="annotation-stage"></div><p id="planSource" class="micro">可加入 JPG、PNG、WebP，或直接手繪房間與出入口。本版尚不直接讀取 PDF／CAD。</p><div class="modal-actions"><button id="clearPlacement" class="quiet">移除本筆定位</button><button id="savePlacement" class="primary" ${initial ? '' : 'disabled'}>保存位置</button></div>`, () => annotator?.dispose());
+  openModal('平面圖上的位置與方向', `<p class="micro">${esc(currentUnit().code)} · ${esc(r.floor)}。先點拍攝點，再點拍攝方向；也可切換拖曳。沒有圖說時，先畫簡圖再定位。</p><div class="annotation-tools"><label>位置圖<select id="planSelect">${plans.map(p => `<option value="${esc(p.id)}">${esc(p.title)}</option>`).join('') || '<option value="">尚無位置圖</option>'}</select></label></div><div class="plan-actions"><button id="addPlanImage" class="secondary">加入既有圖面</button><button id="drawPlan" class="primary">＋ 畫簡圖</button><button id="editSketch" class="quiet" hidden>編輯簡圖副本</button></div><label>標箭頭方式<select id="planGesture"><option value="tap">點兩下：先拍攝點，再拍攝方向</option><option value="drag">按住拖曳箭頭</option></select></label><div id="planStage" class="annotation-stage"></div><p id="planSource" class="micro">可加入 JPG、PNG、WebP，或直接手繪房間與出入口。本版尚不直接讀取 PDF／CAD。</p><div class="modal-actions"><button id="clearPlacement" class="quiet">移除本筆定位</button><button id="savePlacement" class="secondary" ${initial ? '' : 'disabled'}>保存位置</button><button id="savePlacementDetail" class="primary" ${initial ? '' : 'disabled'}>保存位置 → 畫細圖</button></div>`, () => annotator?.dispose());
   if (initial) $('#planSelect').value = initial.id;
   if (observation) { $('#modalTitle').textContent = '標示狀況位置點'; $('#planGesture').parentElement.hidden = true; $('#modalBody > p').textContent = '在圖上點選裂隙或受損部位的位置；此圓圈表示狀況位置，與拍攝箭頭分開。'; }
   if (photoId) { $('#modalTitle').textContent = '這張照片的拍攝位置'; $('#clearPlacement').insertAdjacentHTML('beforebegin', '<button id="inheritPlacement" class="secondary">沿用本筆拍攝位置</button>'); $('#inheritPlacement').onclick = () => action(async () => { await commit(next => { delete next.records.find(x => x.id === r.id).photos.find(x => x.mediaId === photoId).placement; }); closeModal(true); await photoDialog(photoId); }); }
@@ -520,7 +542,9 @@ async function planDialog(preferredPlanId = '', photoId = '', observation = fals
   $('#drawPlan').onclick = () => { if (canSwitch()) sketchDialog(null, context); };
   $('#editSketch').onclick = () => { if (canSwitch()) sketchDialog(plans.find(p => p.id === selected), context); };
   $('#clearPlacement').onclick = () => action(async () => { await commit(next => { const target = next.records.find(x => x.id === r.id); if (observation) target.observationPin = null; else if (photoId) target.photos.find(x => x.mediaId === photoId).placement = null; else target.placement = null; markUnitOpen(next, target); }); closeModal(true); await renderEditor(); toast('已移除本筆定位，原圖保留'); });
-  $('#savePlacement').onclick = () => action(async () => { assert(!annotator?.pending, '請先點第二個位置完成箭頭'); assert(point, '請在圖上先點拍攝點，再點方向，或切換拖曳畫出箭頭'); await commit(next => { const target = next.records.find(x => x.id === r.id); if (observation) target.observationPin = point; else if (photoId) target.photos.find(x => x.mediaId === photoId).placement = point; else target.placement = point; markUnitOpen(next, target); }); closeModal(true); await renderEditor(); toast('位置與方向已保存'); });
+  const saveLocation = async detailNext => { assertPlanContext(context); assert(!annotator?.pending, '請先點第二個位置完成箭頭'); assert(point, '請在圖上先點拍攝點，再點方向，或切換拖曳畫出箭頭'); await commit(next => { const target = next.records.find(x => x.id === r.id); if (observation) target.observationPin = point; else if (photoId) target.photos.find(x => x.mediaId === photoId).placement = point; else target.placement = point; markUnitOpen(next, target); }); closeModal(true); await renderEditor(); if(detailNext) await editRecordDetail(r.id, 'field', photoId); else toast('位置與方向已保存'); };
+  $('#savePlacement').onclick = () => action(() => saveLocation(false));
+  $('#savePlacementDetail').onclick = () => action(() => saveLocation(true));
   if (initial) await loadPlan(initial.id);
 }
 function sketchDialog(source = null, context = { projectId: project.id, recordId, unitId, floor: currentRecord()?.floor }) {
@@ -735,7 +759,7 @@ const applyFont = large => { document.body.classList.toggle('large-type', large)
 applyFont(preference.get('large-type') === 'true'); $('#fontSize').onclick = () => applyFont(!document.body.classList.contains('large-type'));
 $('#fieldPresets').onclick = e => { const b = e.target.closest('[data-field-preset]'); if (!b) return; $('#condition input[value="normal"]').checked = false; if (b.dataset.fieldPreset === 'u') { $('#component input[value="梁"]').checked = true; $('#condition input[value="crack"]').checked = true; $('#crackPattern').value = 'u'; } else { $('#component input[value="牆面"]').checked = true; $('#surface').value = 'tile'; $('#tileCrack').checked = true; $('#condition input[value="crack"]').checked = true; } changed(); };
 organisation = createOrganisationController({ $, action, commit, getProject: () => project, openModal, closeModal, render, requireNoRecording, esc });
-reports = createReportController({ $, setDirty: value => { modalDirty = value; }, action, commit, getProject: () => project, getMedia, mediaURL, openModal, closeModal, download, busyText, editDetail: async rid => { requireNoRecording(); await openDetailEditor({ $, getProject: () => project, getMedia, action, commit, openModal, closeModal, prepareAsset, download, esc, setDirty: value => { modalDirty = value; }, render: () => reports.render() }, rid); }, editPhoto: async (rid, mid) => { recordId = rid; unitId = currentRecord().unitId; activeView = 'work'; await render(); await photoDialog(mid); }, editRecord: async rid => { recordId = rid; unitId = currentRecord().unitId; activeView = 'work'; await render(); } });
+reports = createReportController({ $, setDirty: value => { modalDirty = value; }, action, commit, getProject: () => project, getMedia, mediaURL, openModal, closeModal, download, busyText, editDetail: rid => editRecordDetail(rid, 'report'), editPhoto: async (rid, mid) => { recordId = rid; unitId = currentRecord().unitId; activeView = 'work'; await render(); await photoDialog(mid); }, editRecord: async rid => { recordId = rid; unitId = currentRecord().unitId; activeView = 'work'; await render(); } });
 $('#help').onclick = () => action(helpDialog); $('#closeModal').onclick = () => closeModal(); $('#modal').addEventListener('cancel', e => { e.preventDefault(); closeModal(); }); $('#dismissError').onclick = () => { $('#errorBar').hidden = true; };
 window.addEventListener('beforeunload', e => { if (dirty || formSaving || recording || conflictDraft || modalDirty || reports?.dirty) { e.preventDefault(); e.returnValue = ''; } });
 document.addEventListener('visibilitychange', () => { if (document.hidden && dirty) saveForm().catch(fail); });

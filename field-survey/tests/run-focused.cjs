@@ -12,11 +12,11 @@ const { chromium } = require('../../.github/pages-smoke/node_modules/playwright'
     } catch { res.writeHead(404); res.end(); }
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const browser = await chromium.launch({ ...(process.platform === 'win32' ? { channel: 'chrome' } : {}), headless: true });
+  const browser = await chromium.launch({ ...(process.platform === 'win32' ? { channel: 'chrome' } : {}), headless: true, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
   try {
     const base = `http://127.0.0.1:${server.address().port}/field-survey/recorder.html`;
     for (const name of process.argv.slice(2).length ? process.argv.slice(2) : ['report', 'v010']) {
-      const selected = { v013: ['v013-browser.js', 'verifyV013'], v012: ['v012-browser.js', 'verifyV012'], v011: ['v011-browser.js', 'verifyV011'], report: ['report-browser.js', 'verifyReportWorkflow'], v010: ['v010-browser.js', 'verifyV010'], v08: ['field-v08-browser.js', 'verifyFieldV08Workflow'], scale: ['scale-browser.js', 'verifyScale'] }[name];
+      const selected = { v014: ['v014-browser.js', 'verifyV014'], v013: ['v013-browser.js', 'verifyV013'], v012: ['v012-browser.js', 'verifyV012'], v011: ['v011-browser.js', 'verifyV011'], report: ['report-browser.js', 'verifyReportWorkflow'], v010: ['v010-browser.js', 'verifyV010'], v08: ['field-v08-browser.js', 'verifyFieldV08Workflow'], scale: ['scale-browser.js', 'verifyScale'] }[name];
       if (!selected) throw new Error('Unknown focused workflow: ' + name);
       const workflow = await import(pathToFileURL(path.join(__dirname, selected[0]))); await workflow[selected[1]](browser, base, out);
     }

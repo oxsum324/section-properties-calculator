@@ -369,3 +369,5 @@ dialog[data-mode="detail"] #modalBody{display:flex;flex-direction:column;gap:6px
  .detail-workspace{grid-column:2;grid-row:1;min-height:0}
  .detail-dock{grid-column:2;grid-row:2}
 }
+
+.detail-context{margin:0 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
