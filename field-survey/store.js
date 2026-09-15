@@ -5,7 +5,7 @@ let database;
 export async function openStore() {
   if (database) return database;
   // Close older writers before expanded conditions and observation layers are saved.
-  const req = indexedDB.open('condition-survey-v1', 7);
+  const req = indexedDB.open('condition-survey-v1', 8);
   req.onupgradeneeded = () => { for (const name of ['projects', 'blobs', 'backups']) if (!req.result.objectStoreNames.contains(name)) req.result.createObjectStore(name, { keyPath: 'id' }); };
   database = await request(req);
   database.onversionchange = () => { database.close(); database = null; };

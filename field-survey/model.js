@@ -1,4 +1,5 @@
-export const VERSION = '0.12.0';
+import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
+export const VERSION = '0.13.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -180,13 +181,15 @@ export function validateSketch(sketch) {
   }
   return sketch;
 }
-export function validateMarks(marks) {
+export function validateMarks(marks, detail = false) {
   list(marks, '圈註', 500);
   for (const m of marks) {
-    assert(['circle', 'arrow', 'pen', 'text'].includes(m.type), '圈註種類不正確');
+    assert(['circle', 'arrow', 'pen', 'text', ...(detail ? ['symbol', 'region'] : [])].includes(m.type), '圈註種類不正確');
     list(m.points, '圈註座標', 2000);
     assert(m.points.length >= 1 && m.points.every(p => p && finite01(p.x) && finite01(p.y)), '圈註座標超出圖面');
     if (m.type === 'text') text(m.text, '圈註文字', 120);
+    if (m.type === 'symbol') assert(Object.hasOwn(DETAIL_SYMBOLS, m.symbol) && m.points.length === 1 && Number.isFinite(m.size) && m.size >= .05 && m.size <= .7 && Number.isFinite(m.rotation) && m.rotation >= 0 && m.rotation < 360 && typeof m.mirror === 'boolean', '細圖符號格式不正確');
+    if (m.type === 'region') assert(Object.hasOwn(REGION_TYPES, m.condition) && m.points.length >= 3 && regionArea(m.points) > 1e-8, '細圖範圍格式不正確');
   }
 }
 export function validateProject(p) {
@@ -256,7 +259,7 @@ export function validateProject(p) {
       const d = r.detail; assert(d && ['preset', 'text', 'image'].includes(d.kind), '細部圖種類不正確');
       if (d.kind === 'text') assert(Object.hasOwn(DETAIL_TEXTS, d.value), '細部圖文字預選不正確');
       else {
-        validateMarks(d.marks);
+        validateMarks(d.marks, true);
         if (d.kind === 'preset') assert(Object.hasOwn(DETAIL_PRESETS, d.preset) && typeof d.mirror === 'boolean', '細部圖預選不正確');
         else assert(media.has(d.mediaId) && meta.get(d.mediaId).kind === 'detail', '細部圖原檔關聯遺失');
       }

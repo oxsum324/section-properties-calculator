@@ -80,7 +80,7 @@ export async function verifyV012(browser, base, out) {
       try { labels.planLabelGeometry(changed, 1200, 900, plan.labelLayout); } catch (e) { stale = /定位/.test(e.message); }
       return { expected, hashes, unchanged: before === JSON.stringify(p), stale, coordinates: geometry.labels.map(b => [b.x, b.y]), renumbered: second.labels.map(b => [b.x, b.y]), version: restored.manifest.version, isolated: copy.plans[0].labelLayout[0].id !== plan.labelLayout[0].id && copy.plans[0].labelLayout[0].recordId === plan.labelLayout[0].recordId };
     });
-    assert(verification.unchanged); assert(verification.stale); assert(verification.isolated); assert.equal(verification.version, 7);
+    assert(verification.unchanged); assert(verification.stale); assert(verification.isolated); assert.equal(verification.version, 8);
     assert.deepEqual(verification.coordinates, verification.renumbered); assert(verification.hashes.every(h => h === verification.expected));
     await page.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒'); await context.setOffline(true); await page.reload(); await click('[data-view=report]'); await click('#editPlanLabels'); assert.equal(await transform(), moved); await click('#closeModal');
     assert.deepEqual(errors, []); await fs.writeFile(path.join(out, 'v0.12-result.json'), JSON.stringify({ passed: true, ...verification, errors, physicalPhoneTested: false }, null, 2));

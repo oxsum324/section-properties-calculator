@@ -12,6 +12,38 @@ import { splitVolumes } from '../report-standard.js';
 import { planLabelLayout } from '../annotation.js';
 import { segmentHitsBox } from '../plan-labels.js';
 import { CONDITIONS, COMMON_CONDITIONS, CONDITION_GROUPS } from '../model.js';
+import { DETAIL_SYMBOLS, moveDetailMark, mirrorDetailMarks, splitDetailLine, symbolBox } from '../detail-geometry.js';
+
+test('detail signs and regions preserve observed quantities, old strokes, manual text and isolated backup', async () => {
+  const { p, r, blobs } = await fixture(); r.reportText = '人工描述不改寫'; r.condition = 'crack'; r.crackPattern = 'network';
+  r.detail = { kind: 'preset', preset: 'wall', mirror: false, marks: [
+    { type: 'pen', points: [{ x: .1, y: .1 }, { x: .3, y: .3 }] },
+    ...Object.keys(DETAIL_SYMBOLS).map(symbol => ({ type: 'symbol', symbol, points: [{ x: .5, y: .5 }], size: .24, rotation: 15, mirror: false })),
+    { type: 'region', condition: 'damp', points: [{ x: .2, y: .2 }, { x: .4, y: .2 }, { x: .3, y: .5 }] }
+  ] };
+  const original = structuredClone(r); validateProject(p); assert.deepEqual(recordIssues(r), []);
+  const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob); assert.equal(restored.manifest.version, 8); assert.deepEqual(restored.project.records[0], original);
+  const copy = restoredCopy(restored.project).project; validateProject(copy); assert.deepEqual(copy.records[0].detail, r.detail); assert.equal(copy.records[0].reportText, original.reportText);
+  r.photos[0].marks = [r.detail.marks[1]]; assert.throws(() => validateProject(p), /圈註/);
+});
+
+test('detail symbols reject malformed geometry and unsupported conditions', async () => {
+  const { p, r } = await fixture(), mark = { type: 'symbol', symbol: 'network', points: [{ x: .5, y: .5 }], size: .24, rotation: 15, mirror: false };
+  for (const change of [{ symbol: 'tile' }, { size: NaN }, { size: 0 }, { rotation: 360 }, { mirror: 'yes' }, { points: [] }]) {
+    r.detail = { kind: 'preset', preset: 'beam', mirror: false, marks: [{ ...mark, ...change }] }; assert.throws(() => validateProject(p));
+  }
+  r.detail.marks = [{ type: 'region', condition: 'diagnosis', points: [{ x: .1, y: .1 }, { x: .2, y: .1 }, { x: .2, y: .2 }] }]; assert.throws(() => validateProject(p), /範圍/);
+  r.detail.marks = [{ type: 'region', condition: 'damp', points: [{ x: .1, y: .1 }, { x: .2, y: .2 }, { x: .3, y: .3 }] }]; assert.throws(() => validateProject(p), /範圍/);
+});
+
+test('detail mirror, bounded moves and segment deletion preserve editable geometry without bridging gaps', () => {
+  const mark = { type: 'symbol', symbol: 'network', points: [{ x: .5, y: .5 }], size: .7, rotation: 45, mirror: false }, before = structuredClone(mark);
+  assert.deepEqual(mirrorDetailMarks(mirrorDetailMarks([mark])), [mark]);
+  for (const [w,h] of [[1200,640],[640,1200]]) { const moved = moveDetailMark(mark, 5, -5, w,h), box = symbolBox(moved,w,h); assert(box.x >= -1e-10 && box.y >= -1e-10 && box.x + box.w <= 1 + 1e-10 && box.y + box.h <= 1 + 1e-10); }
+  assert.deepEqual(mark, before);
+  const line = { type: 'pen', points: Array.from({length:5},(_,i)=>({x:i/5,y:.5})) }, pieces = splitDetailLine(line, 2);
+  assert.deepEqual(pieces.map(p=>p.points.length), [3,2]); assert.equal(pieces[0].points.at(-1).x, .4); assert.equal(pieces[1].points[0].x,.6);
+});
 
 test('expanded conditions and independent observation layers survive backup and both report indexes', async () => {
   const { p, r, blobs } = await fixture();
@@ -22,7 +54,7 @@ test('expanded conditions and independent observation layers survive backup and 
     { id: id(), measured: false, widthMode: 'unknown', width: null, length: null, pattern: 'diagonal', notes: '', layer: 'structural' }
   ] });
   validateProject(p); const saved = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
-  assert.equal(saved.manifest.version, 7); assert.deepEqual(saved.project.records[0], r);
+  assert.equal(saved.manifest.version, 8); assert.deepEqual(saved.project.records[0], r);
   for (const format of ['quick', 'standard']) {
     const row = attachmentIndex(p, { format }).groups[0].records[0];
     assert.deepEqual(row.conditions, keys); assert.match(row.text, /裂縫 A.*粉刷層/); assert.match(row.text, /裂縫 B.*結構體/);
@@ -130,7 +162,7 @@ test('detail drawings and custom originals survive scoped backup and restore wit
   r.detail = { kind: 'image', mediaId: mid, marks: [{ type: 'pen', points: [{ x: .2, y: .3 }, { x: .4, y: .5 }] }] };
   const result = await readBundle((await makeBundle(p, key => blobs.get(key), a.id)).blob); assert(result.project.media.some(m => m.id === mid));
   const restored = restoredCopy(result.project); validateProject(restored.project); assert.notEqual(restored.project.records[0].detail.mediaId, mid); assert.deepEqual(restored.project.records[0].detail.marks, r.detail.marks);
-  assert.equal(result.manifest.version, 7); r.detail.mediaId = r.photos[0].mediaId; assert.throws(() => validateProject(p), /細部圖原檔/);
+  assert.equal(result.manifest.version, 8); r.detail.mediaId = r.photos[0].mediaId; assert.throws(() => validateProject(p), /細部圖原檔/);
   r.detail = { kind: 'preset', preset: 'beam', mirror: true, marks: [] }; validateProject(p); r.detail.marks = [{ type: 'pen', points: [{ x: 2, y: .1 }] }]; assert.throws(() => validateProject(p), /座標/);
 });
 
@@ -169,7 +201,7 @@ test('individual cracks preserve independent units, uncertainty and legacy group
   assert.match(prose, /原整組紀錄/); assert.deepEqual(recordIssues(r), ['裂縫 C未量測']);
   const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
   assert.deepEqual(restored.project.records[0].cracks, r.cracks); assert.deepEqual(restored.project.records[0].legacyCrack, r.legacyCrack);
-  assert.equal(restored.manifest.version, 7);
+  assert.equal(restored.manifest.version, 8);
   r.cracks[2].width = .3; assert.throws(() => validateProject(p), /未量測/);
 });
 
@@ -491,7 +523,7 @@ test('multiple conditions share originals and retain independent measured or est
   Object.assign(r, { condition: 'crack', conditions: ['crack', 'damp', 'salt', 'spall'], crackPattern: 'network', areas: { crack: { value: null, method: 'estimated' }, damp: { value: 1.5, method: 'measured' }, salt: { value: .8, method: 'estimated' }, spall: { value: 0, method: 'measured' } } });
   validateProject(p); assert.deepEqual(recordIssues(r), []);
   const result = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
-  assert.equal(result.manifest.version, 7); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
+  assert.equal(result.manifest.version, 8); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
   const copy = restoredCopy(result.project).project.records[0]; assert.deepEqual(copy.conditions, r.conditions); assert.deepEqual(copy.areas, r.areas);
   r.conditions = ['damp']; r.condition = 'damp'; validateProject(p); assert.equal(r.areas.salt.value, .8); assert.deepEqual(recordIssues(r), []);
 });

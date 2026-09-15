@@ -1,5 +1,5 @@
 import { clone, ROLES, CONDITIONS, DETAIL_TEXTS, UNIT_STATES, assert } from './model.js';
-import { detailLabel } from './detail.js';
+import { detailLabel, detailLegend } from './detail.js';
 
 export const STANDARD_STYLE = `
 .standard-sheet,.standard-sheet *{box-sizing:border-box}
@@ -70,7 +70,7 @@ export async function standardPages({ index, project, encodeImage, encodeDetail,
         if (record.detail?.kind === 'text' && record.detail.value !== 'plan') detailHTML = e(DETAIL_TEXTS[record.detail.value]);
         else if (record.detail && record.detail.kind !== 'text') {
           if (!detailCache.has(record.recordId)) detailCache.set(record.recordId, await encodeDetail(record.detail));
-          detailHTML = `<img class="detail-img" src="${detailCache.get(record.recordId)}" alt="${e(detailLabel(record.detail))}"><span class="detail-title">${e(detailLabel(record.detail))}</span>`;
+          detailHTML = `<img class="detail-img" src="${detailCache.get(record.recordId)}" alt="${e(detailLabel(record.detail))}"><span class="detail-title">${e(detailLabel(record.detail))}${detailLegend(record.detail) ? `<br>符號：${e(detailLegend(record.detail))}（示意）` : ''}</span>`;
         }
         const full = [`部位：${record.components.join('、') || '未填'}　狀況：${record.conditions.map(c => CONDITIONS[c]).join('、') || '未分類'}`, `說明：${record.text}`, record.notes ? `補充：${record.notes}` : '', `${ROLES[photo.role]}${photo.main ? '（主要照片）' : ''}${photo.caption ? '：' + photo.caption : ''}`].filter(Boolean).join('\n');
         let remaining = Array.from(full), continuation = false;
