@@ -1,5 +1,5 @@
 import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
-export const VERSION = '0.15.0';
+export const VERSION = '0.15.1';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -189,7 +189,7 @@ export function validateMarks(marks, detail = false) {
     assert(m.points.length >= 1 && m.points.every(p => p && finite01(p.x) && finite01(p.y)), '圈註座標超出圖面');
     if (m.type === 'text') text(m.text, '圈註文字', 120);
     if (m.type === 'opening') assert(['door', 'window'].includes(m.kind) && m.points.length === 2 && Math.abs(m.points[0].x - m.points[1].x) > 1e-6 && Math.abs(m.points[0].y - m.points[1].y) > 1e-6, '門窗開口須有寬度及高度');
-    if (m.type === 'symbol') assert(Object.hasOwn(DETAIL_SYMBOLS, m.symbol) && m.points.length === 1 && Number.isFinite(m.size) && m.size >= .05 && m.size <= .7 && Number.isFinite(m.rotation) && m.rotation >= 0 && m.rotation < 360 && typeof m.mirror === 'boolean', '細圖符號格式不正確');
+    if (m.type === 'symbol') assert(Object.hasOwn(DETAIL_SYMBOLS, m.symbol) && m.points.length === 1 && Number.isFinite(m.size) && m.size >= .05 && m.size <= .7 && Number.isFinite(m.rotation) && m.rotation >= 0 && m.rotation < 360 && typeof m.mirror === 'boolean', '細圖圖示格式不正確');
     if (m.type === 'region') assert(Object.hasOwn(REGION_TYPES, m.condition) && m.points.length >= 3 && regionArea(m.points) > 1e-8, '細圖範圍格式不正確');
   }
 }
