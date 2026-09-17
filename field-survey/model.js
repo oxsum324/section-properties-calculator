@@ -1,5 +1,5 @@
 import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
-export const VERSION = '0.16.0';
+export const VERSION = '0.17.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -37,6 +37,38 @@ export function latestUnitHistory(p, u) {
 export const WIDTH_MODES = { unknown: '未確認', le03: '0.3 mm 以下（≤0.3）', gt03: '超過 0.3 mm（>0.3）', exact: '輸入實測值', lt03: '舊紀錄：小於 0.3 mm', ge03: '舊紀錄：大於或等於 0.3 mm' };
 export const recordComponents = r => r.components ?? (r.component ? [r.component] : []);
 export const recordConditions = r => r.conditions ?? (r.condition ? [r.condition] : []);
+export function planTemplateCopy(source, { unitId, floor, title, mediaId, sketch = source?.sketch }) {
+  assert(source && source.unitId === unitId, '請選擇本戶的標準層來源圖面');
+  assert(typeof floor === 'string' && floor.trim() && floor.length <= 100, '請指定套用樓層');
+  assert(typeof title === 'string' && title.trim() && title.length <= 150 && typeof mediaId === 'string' && mediaId, '圖面名稱或原檔不正確');
+  // New floor identities intentionally omit photo/pin label layouts and placements.
+  const plan = { id: id(), unitId, floor: floor.trim(), title: title.trim(), mediaId };
+  if (sketch !== undefined) { validateSketch(sketch); plan.sketch = clone(sketch); }
+  return plan;
+}
+// Describe only saved annotations. Drawing a mark never changes observed facts.
+export function detailAnnotationText(detail) {
+  if (!detail) return '';
+  const marks = detail.marks || [], labels = [], texts = [];
+  for (const m of marks) {
+    if (m.type === 'symbol') labels.push(DETAIL_SYMBOLS[m.symbol]);
+    else if (m.type === 'region') labels.push(REGION_TYPES[m.condition] + '範圍');
+    else if (m.type === 'text' && m.text.trim()) texts.push(m.text.trim());
+    else labels.push(({ pen: '手繪線', arrow: '箭頭', circle: '圈選', opening: m.kind === 'door' ? '補畫門框' : '補畫窗框' })[m.type]);
+  }
+  const unique = [...new Set(labels.filter(Boolean))];
+  return [unique.length ? `細圖標註：${unique.join('、')}（示意）。` : '', texts.length ? `圖中文字：${[...new Set(texts)].join('；')}` : '', detail.note?.trim() ? `細圖補充：${detail.note.trim()}` : ''].filter(Boolean).join('\n');
+}
+export function detailComparison(record, detail = record.detail) {
+  const conditions = [...new Set([...recordConditions(record), ...(record.tiles?.crack ? ['crack'] : []), ...(record.tiles?.broken ? ['tileBroken'] : []), ...(record.tiles?.bulge ? ['tileBulge'] : [])])];
+  const marks = detail?.marks || [], drawn = [...new Set(marks.map(m => m.type === 'symbol' ? (m.symbol === 'network' ? 'crack' : m.symbol) : m.type === 'region' ? m.condition : null).filter(Boolean))];
+  const missing = conditions.filter(c => !['normal', 'other'].includes(c) && !drawn.includes(c)), extra = drawn.filter(c => !conditions.includes(c));
+  const manual = !!detail?.note?.trim() || marks.some(m => ['pen','text'].includes(m.type)), hints = [];
+  if (!detail) hints.push('尚未建立細圖，可補畫或註明詳照片。');
+  else if (detail.kind !== 'text' && missing.length) hints.push(`已記錄${missing.map(c => CONDITIONS[c]).join('、')}；${manual ? '請核對手繪或文字是否已對應。' : '細圖尚無對應圖示，可補畫或補充文字。'}`);
+  if (extra.length) hints.push(`細圖有${extra.map(c => CONDITIONS[c]).join('、')}；現況分類未勾選，請核對照片內容。`);
+  return { conditions, drawn, missing, extra, hints };
+}
 export const AREA_CONDITIONS = { crack: '網狀裂隙分布', damp: '滲水痕', salt: '白華', spall: '剝落', tileBulge: '磁磚拱起', tileBroken: '磁磚破損', honeycomb: '混凝土蜂窩', tileDetached: '磁磚脫落', paintBlister: '油漆起泡', plasterBulge: '粉刷層鼓起', ponding: '積水', rustStain: '鏽水痕', moldStain: '霉斑', other: '其他損害' };
 export const AREA_METHODS = { measured: '實測', estimated: '估計' };
 export const CRACK_PATTERNS = { '': '尚未選擇', horizontal: '水平裂隙', vertical: '垂直裂隙', diagonal: '斜向裂隙', network: '網狀裂隙', u: '梁 U 型裂縫', other: '其他（於說明補充）' };
@@ -258,6 +290,7 @@ export function validateProject(p) {
     }
     if (r.detail !== undefined) {
       const d = r.detail; assert(d && ['preset', 'text', 'image'].includes(d.kind), '細部圖種類不正確');
+      if (d.note !== undefined) text(d.note, '細圖補充說明', 2000);
       if (d.kind === 'text') assert(Object.hasOwn(DETAIL_TEXTS, d.value), '細部圖文字預選不正確');
       else {
         validateMarks(d.marks, true);

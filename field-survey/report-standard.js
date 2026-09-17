@@ -1,5 +1,5 @@
 import { clone, ROLES, CONDITIONS, DETAIL_TEXTS, UNIT_STATES, assert } from './model.js';
-import { detailLabel, detailLegend } from './detail.js';
+import { detailAnnotationText } from './model.js';
 
 export const STANDARD_STYLE = `
 .standard-sheet,.standard-sheet *{box-sizing:border-box}
@@ -13,7 +13,7 @@ export const STANDARD_STYLE = `
 .standard-sheet table{width:100%;table-layout:fixed;border-collapse:collapse;font:12px/1.45 Arial,"Microsoft JhengHei",sans-serif}
 .standard-sheet th,.standard-sheet td{border:1px solid #555;padding:1.5mm;vertical-align:top;white-space:pre-wrap;overflow-wrap:anywhere}
 .standard-sheet th{font-weight:bold;background:#f1f3f2}.standard-sheet .photo-no{font-weight:bold;text-align:center}.standard-sheet .continued{font-weight:normal;font-size:11px;display:block}
-.standard-sheet .row-text{white-space:pre-wrap}.standard-sheet .detail-img{display:block;width:100%;height:20mm;object-fit:contain}.standard-sheet .detail-title{font-size:10px}.standard-sheet figure{margin:0 0 4mm;border:1px solid #555;break-inside:avoid}
+.standard-sheet .row-text{white-space:pre-wrap}.standard-sheet .detail-img{display:block;width:100%;height:20mm;object-fit:contain}.standard-sheet figure{margin:0 0 4mm;border:1px solid #555;break-inside:avoid}
 .standard-sheet figcaption{padding:2mm;border:0;border-bottom:1px solid #555;font-size:13px;line-height:1.5}
 .standard-sheet figure img{display:block;width:100%;height:94mm;max-height:none;object-fit:contain;background:white}.standard-sheet .count-1 img{height:193mm;max-height:none}.standard-sheet .toc-table td{padding:2mm}.standard-sheet .toc-table a{color:inherit;text-decoration:none}
 @media print{.standard-sheet.sheet{margin:0}.standard-sheet.sheet:last-of-type{break-after:auto}}
@@ -70,9 +70,9 @@ export async function standardPages({ index, project, encodeImage, encodeDetail,
         if (record.detail?.kind === 'text' && record.detail.value !== 'plan') detailHTML = e(DETAIL_TEXTS[record.detail.value]);
         else if (record.detail && record.detail.kind !== 'text') {
           if (!detailCache.has(record.recordId)) detailCache.set(record.recordId, await encodeDetail(record.detail));
-          detailHTML = `<img class="detail-img" src="${detailCache.get(record.recordId)}" alt="${e(detailLabel(record.detail))}"><span class="detail-title">${e(detailLabel(record.detail))}${detailLegend(record.detail) ? `<br>圖示：${e(detailLegend(record.detail))}（示意）` : ''}</span>`;
+          detailHTML = `<img class="detail-img" src="${detailCache.get(record.recordId)}" alt="細部示意圖">`;
         }
-        const full = [`部位：${record.components.join('、') || '未填'}　狀況：${record.conditions.map(c => CONDITIONS[c]).join('、') || '未分類'}`, `說明：${record.text}`, record.notes ? `補充：${record.notes}` : '', `${ROLES[photo.role]}${photo.main ? '（主要照片）' : ''}${photo.caption ? '：' + photo.caption : ''}`].filter(Boolean).join('\n');
+        const full = [`部位：${record.components.join('、') || '未填'}　狀況：${record.conditions.map(c => CONDITIONS[c]).join('、') || '未分類'}`, `說明：${record.text}`, record.notes ? `補充：${record.notes}` : '', `${ROLES[photo.role]}${photo.main ? '（主要照片）' : ''}${photo.caption ? '：' + photo.caption : ''}`, detailAnnotationText(record.detail)].filter(Boolean).join('\n');
         let remaining = Array.from(full), continuation = false;
         const row = text => `<tr data-photo-number="${photo.number}"><td class="photo-no">${photo.number}${continuation ? '<span class="continued">（續）</span>' : ''}</td><td>${e([group.floor, group.room].filter(Boolean).join('\n') || '未填')}</td><td>${detailHTML}</td><td class="row-text">${e(text)}</td></tr>`;
         while (remaining.length) {

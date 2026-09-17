@@ -9,6 +9,8 @@ import { VERSION } from '../model.js';
 import assert from 'node:assert/strict';
 import { verifyFieldV08Workflow } from './field-v08-browser.js';
 import { verifyReportWorkflow } from './report-browser.js';
+import { verifyStandardFloors } from './standard-floor-browser.js';
+import { verifyV017 } from './v017-browser.js';
 import { verifyV016 } from './v016-browser.js';
 import { verifyV015 } from './v015-browser.js';
 import { verifyV014 } from './v014-browser.js';
@@ -384,6 +386,8 @@ try {
   await verifyV013(browser, base, out);
   await verifyV015(browser, base, out);
   await verifyV016(browser, base, out);
+  await verifyV017(browser, base, out);
+  await verifyStandardFloors(browser, base, out);
   await verifyV014(browser, base, out);
   await (await import('./scale-browser.js')).verifyScale(browser, base, out);
   await fs.writeFile(path.join(out, 'result.json'), JSON.stringify({ passed: true, browser: await browser.version(), viewport: '390x844 + 1280x900', physicalPhoneTested: false, httpCacheUpgradeVerified: true, pageErrors: errors, externalRequests: outbound, originalHash: hash, packageMediaCount: bundle.media.length, checkedAt: new Date().toISOString() }, null, 2));
