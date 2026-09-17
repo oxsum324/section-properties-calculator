@@ -1,5 +1,5 @@
 // Preset signs describe an observation, not its measured extent or severity.
-export const DETAIL_SYMBOLS = { network: '網裂', damp: '滲水痕', salt: '白華', spall: '剝落' };
+export const DETAIL_SYMBOLS = { network: '網裂', damp: '滲水痕', salt: '白華', spall: '剝落', exposedRebar: '鋼筋外露', tileBulge: '磁磚拱起', tileDetached: '磁磚脫落', activeLeak: '正在漏水', tileBroken: '磁磚破損', paintBlister: '油漆起泡' };
 export const REGION_TYPES = { damp: '滲水痕', salt: '白華', spall: '剝落' };
 // Hand-drawn vector artwork, kept within ±52 × ±36 for the shared move/rotate bounds.
 // These are schematic observation icons, not measured outlines or standard code symbols.
@@ -55,6 +55,43 @@ export function symbolArtwork(kind) {
       line('M-49,-12 l3,-2 2,3 -3,2 Z M-35,-29 l4,-2 2,3 -3,2 Z M33,-26 l3,-2 2,4 -3,1 Z M46,17 l3,-2 2,3 -3,2 Z M-43,23 l3,-2 2,4 -3,1 Z M-18,32 l3,-2 2,3 -3,1 Z',.85)
     ];
   }
+  if (kind === 'exposedRebar') {
+    const edge=[[-46,-10],[-40,-25],[-25,-22],[-16,-30],[-3,-25],[8,-29],[23,-23],[35,-25],[46,-13],[42,-2],[47,10],[37,23],[24,20],[13,29],[0,24],[-14,28],[-25,20],[-40,23],[-45,10],[-42,0]];
+    return [line('M'+edge.map(p=>p.join(',')).join(' L')+' Z',1.3),dots(edgeDots(edge)),
+      ...[-9,9].flatMap(y=>[line(`M-39,${y-2} H39 M-39,${y+2} H39`,1.6),line(Array.from({length:12},(_,i)=>`M${-35+i*6},${y-4} l3,8`).join(' '),1.1)])];
+  }
+  if (kind === 'activeLeak') return [
+    line('M-46,-26 L-33,-28 -23,-23 -13,-27 -4,-23 5,-27 16,-23 29,-26 44,-24',1.6),
+    line('M-21,-19 v9 M0,-19 v12 M0,-3 v5 M24,-18 v6',1.25),
+    line('M-21,-4 C-24,2 -30,6 -30,11 A9,9 0 0,0 -12,11 C-12,6 -18,2 -21,-4 Z',1.65),
+    line('M0,8 C-3,14 -9,18 -9,23 A9,9 0 0,0 9,23 C9,18 3,14 0,8 Z',1.65),
+    line('M24,-7 C21,-1 17,2 17,6 A7,7 0 0,0 31,6 C31,2 27,-1 24,-7 Z',1.65),
+    line('M-26,10 Q-27,15 -22,16 M-5,22 Q-6,27 -1,28 M21,5 Q20,9 24,10',.9)
+  ];
+  if (kind === 'tileBulge') return [
+    line('M-48,6 H-22 V27 H-48 Z M22,6 H48 V27 H22 Z',1.4),
+    line('M-22,6 Q0,-29 22,6 L22,19 Q0,-16 -22,19 Z',1.8),
+    line('M0,-11 V2 M-48,16 H-23 M23,16 H48',1),
+    line('M-20,27 H20',.9,{'stroke-dasharray':'2 3'}),
+    line('M0,19 V10 M-4,15 L0,10 4,15',1.3)
+  ];
+  if (['tileDetached','tileBroken'].includes(kind)) {
+    const grid=line('M-48,-29 H48 V29 H-48 Z M-16,-29 V29 M16,-29 V29 M-48,0 H48',1.25);
+    if(kind==='tileBroken') return [grid,
+      line('M-34,-29 L-29,-20 -20,-16 -23,-9 -12,-4 -6,7 4,10 8,22 15,29 M-20,-16 L-10,-20 -5,-29 M-6,7 L-17,14 -23,24 M4,10 L16,5 25,11 37,7 48,13',1.8),
+      line('M29,-29 L34,-20 43,-17 48,-9',1.1)];
+    const exposed=[[-14,-27],[0,-27],[5,-24],[14,-27],[14,-9],[11,-5],[14,-2],[-14,-2],[-11,-11],[-14,-15]];
+    const texture=[];for(let y=-23;y<-3;y+=4)for(let x=-10;x<13;x+=4)texture.push([x+Math.sin(x+y)*.6,y,.4+((x+y+60)%3)*.1]);
+    return [grid,line('M'+exposed.map(p=>p.join(',')).join(' L')+' Z',1.05),dots(texture),
+      line('M-12,4 L9,7 12,22 -7,26 Z',1.4,{fill:'white'}),line('M-7,9 L6,11 8,20',.85)];
+  }
+  if (kind === 'paintBlister') return [
+    ...[[-29,-14,13],[3,-19,11],[31,-5,12],[-13,13,15],[22,22,10]].flatMap(([x,y,r])=>[
+      line(`M${x-r},${y+2} C${x-r},${y-r} ${x+r},${y-r} ${x+r},${y+2} C${x+r},${y+r*.8} ${x-r},${y+r*.8} ${x-r},${y+2} Z`,1.25),
+      line(`M${x-r*.6},${y} Q${x-r*.3},${y-r*.55} ${x+r*.25},${y-r*.4}`,.8),
+      dots(Array.from({length:6},(_,i)=>[x-r*.7+i*r*.27,y+r*.55+.5*Math.sin(i),.35]))
+    ]),line('M-6,7 Q5,5 2,15 L-3,12 Q-1,9 -6,7 Z',1,{fill:'white'})
+  ];
   return [];
 }
 export const symbolPaths = kind => symbolArtwork(kind).map(shape => shape.d);

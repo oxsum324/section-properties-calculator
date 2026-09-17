@@ -4,8 +4,8 @@ const completion = tx => new Promise((resolve, reject) => { tx.oncomplete = reso
 let database;
 export async function openStore() {
   if (database) return database;
-  // Close older writers before editable opening marks are saved.
-  const req = indexedDB.open('condition-survey-v1', 9);
+  // Close older writers that do not recognize the expanded observation icons.
+  const req = indexedDB.open('condition-survey-v1', 10);
   req.onupgradeneeded = () => { for (const name of ['projects', 'blobs', 'backups']) if (!req.result.objectStoreNames.contains(name)) req.result.createObjectStore(name, { keyPath: 'id' }); };
   database = await request(req);
   database.onversionchange = () => { database.close(); database = null; };

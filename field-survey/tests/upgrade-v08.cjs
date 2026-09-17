@@ -3,7 +3,7 @@ const { chromium } = require('../../.github/pages-smoke/node_modules/playwright'
 (async () => {
   const { VERSION } = await import('../model.js');
   const root = path.resolve(__dirname, '../..');
-  for (const source of ['4b324a9cb4c995ef929a504b1a0842828e34a52b', 'd3eef357001a1a00dbbd0dbbab8263ae2105512d', '308fd259772dbe6efd42649e93e1226fe5910836', '433cec277577539ba306e395d5d8ed1445eb5f20', 'aa39ee96996e33ad2057367b641cd94ad0542152', '182b7a2dca46ed0ee92d97f02941c39f50de991f']) {
+  for (const source of ['4b324a9cb4c995ef929a504b1a0842828e34a52b', 'd3eef357001a1a00dbbd0dbbab8263ae2105512d', '308fd259772dbe6efd42649e93e1226fe5910836', '433cec277577539ba306e395d5d8ed1445eb5f20', 'aa39ee96996e33ad2057367b641cd94ad0542152', '182b7a2dca46ed0ee92d97f02941c39f50de991f', '6f74e9329cecabbc2080438825f2ad58bf88a28e']) {
   const from = JSON.parse(execFileSync('git', ['show', source + ':field-survey/package.json'], { cwd: root })).version, old = new Map(), fresh = new Map();
   const oldSW = execFileSync('git', ['show', source + ':field-survey/sw.js'], { cwd: root }).toString();
   const names = sw => [...sw.match(/const ASSETS = \[([^\]]+)\]/)[1].matchAll(/'\.\/([^']+)'/g)].map(x => x[1]);

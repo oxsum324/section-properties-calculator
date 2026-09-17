@@ -40,7 +40,9 @@ export async function openDetailEditor(api, recordId) {
     $('#detailObject').innerHTML = '<option value="-1">選擇標記</option>' + st.marks.map((m,i)=>`<option value="${i}">${i+1} · ${e(detailMarkName(m))}</option>`).join(''); $('#detailObject').value = String(st.selected);
     const m = st.marks[st.selected]; $('#detailDelete').disabled = $('#detailCopy').disabled = !m; $('#detailDeleteSegment').hidden = m?.type !== 'pen' || st.segment < 0; $('#detailDeletePoint').hidden = st.vertex < 0 || !m || m.points.length <= (m.type === 'region' ? 3 : 2); $('#detailSymbolActions').hidden = m?.type !== 'symbol';
     for (const b of $('#modalBody').querySelectorAll('[data-detail-tool]')) b.setAttribute('aria-pressed', String(b.dataset.detailTool === st.mode));
-    $('#detailLegend').textContent = usedSymbols(st.marks).map(s=>DETAIL_SYMBOLS[s]).join('／');
+    const symbols = usedSymbols(st.marks), names = symbols.map(s=>DETAIL_SYMBOLS[s]).join('／');
+    $('#detailLegend').textContent = symbols.length > 4 ? `本圖 ${symbols.length} 種圖示` : names;
+    $('#detailLegend').title = names;
     $('#detailHint').textContent = st.message || (st.pending ? (['door','window'].includes(st.mode) ? '再點另一個對角完成開口框；或按取消筆畫。' : `已點 ${st.count} 點；完成或取消目前筆畫。`) : ({door:'點開口的兩個對角放置門框；選取後拖動或調整藍色對角。',window:'點開口的兩個對角放置窗框；選取後拖動或調整藍色對角。',line:'依序點起點與轉折點，再按完成。',region:'點選範圍角點，再按完成。',symbol:'點圖面放置圖示；選取後可移動及縮放。',select:'點標記附近選取；可拖動整筆或藍色端點。',pan:'單指移動；雙指縮放。',pen:'按住拖曳手繪；雙指可縮放。',arrow:'依序點起點與箭頭終點。',circle:'點兩個對角畫圈。',rect:'點兩個對角畫範圍。',text:'填文字後，點圖面放置。',erase:'點線條附近刪除一筆，可復原。'}[st.mode] || ''));
     if(st.pending) setDirty(true);
   }

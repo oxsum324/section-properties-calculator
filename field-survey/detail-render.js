@@ -29,13 +29,14 @@ export async function renderDetailImage(blob, marks) {
   const url = URL.createObjectURL(blob);
   try {
     const img = new Image(); img.src = url; await img.decode();
-    const symbols = usedSymbols(marks), scale = Math.min(1, 4094 / img.naturalWidth, 4094 / (img.naturalHeight + (symbols.length ? img.naturalWidth / 20 : 0))), w = Math.max(1, Math.round(img.naturalWidth * scale)), h = Math.max(1, Math.round(img.naturalHeight * scale)), legend = symbols.length ? Math.ceil(w / 20) : 0;
+    const symbols = usedSymbols(marks), rows = Math.ceil(symbols.length / 3), legendRatio = rows ? rows / 20 + 1 / 30 : 0;
+    const scale = Math.min(1, 4094 / img.naturalWidth, 4094 / (img.naturalHeight + img.naturalWidth * legendRatio)), w = Math.max(1, Math.round(img.naturalWidth * scale)), h = Math.max(1, Math.round(img.naturalHeight * scale)), legend = Math.ceil(w * legendRatio), rowHeight = w / 20;
     const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h + legend; const ctx = canvas.getContext('2d'); ctx.fillStyle = 'white'; ctx.fillRect(0, 0, w, h + legend); ctx.drawImage(img, 0, 0, w, h);
     const svg = svgNode('svg', { xmlns: ns, width: w, height: h + legend, viewBox: `0 0 ${w} ${h + legend}` }); drawDetailMarks(svg, marks, w, h);
-    symbols.forEach((symbol,i) => { const g = svgNode('g', { transform: `translate(${w * (.04 + i * .19)} ${h + legend / 2}) scale(${w / 2000})`, fill: 'none', stroke: '#25372f', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }); symbolArtwork(symbol).forEach(attributes => g.append(svgNode('path', attributes))); svg.append(g); });
+    symbols.forEach((symbol,i) => { const g = svgNode('g', { transform: `translate(${w * (.04 + i % 3 / 3)} ${h + (Math.floor(i / 3) + .5) * rowHeight}) scale(${w / 2000})`, fill: 'none', stroke: '#25372f', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }); symbolArtwork(symbol).forEach(attributes => g.append(svgNode('path', attributes))); svg.append(g); });
     const overlay = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' }));
     try { const picture = new Image(); picture.src = overlay; await picture.decode(); ctx.drawImage(picture, 0, 0); } finally { URL.revokeObjectURL(overlay); }
-    if (symbols.length) { ctx.fillStyle = '#25372f'; ctx.font = `${w / 55}px sans-serif`; symbols.forEach((s,i) => ctx.fillText(DETAIL_SYMBOLS[s], w * (.075 + i * .19), h + legend * .64)); ctx.font = `${w / 70}px sans-serif`; ctx.fillText('圖示，非實測範圍', w * .8, h + legend * .64); }
+    if (symbols.length) { ctx.fillStyle = '#25372f'; ctx.font = `${w / 55}px sans-serif`; symbols.forEach((s,i) => ctx.fillText(DETAIL_SYMBOLS[s], w * (.075 + i % 3 / 3), h + (Math.floor(i / 3) + .64) * rowHeight)); ctx.font = `${w / 70}px sans-serif`; ctx.fillText('圖示，非實測範圍', w * .015, h + rows * rowHeight + w / 45); }
     return await new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('細圖匯出失敗')), 'image/png'));
   } finally { URL.revokeObjectURL(url); }
 }
