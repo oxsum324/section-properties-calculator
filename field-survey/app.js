@@ -1,4 +1,4 @@
-import { VERSION, id, now, clone, newProject, newUnit, newRecord, CONDITIONS, COMPONENTS, UNIT_STATES, ROLES, WIDTH_MODES, CRACK_PATTERNS, widthMode, isNetworkCrack, recordComponents, recordConditions, AREA_CONDITIONS, AREA_METHODS, emptySketch, recordIssues, unitIssues, sha256, restoredCopy, assert } from './model.js';
+import { VERSION, removeRecordPhotos, id, now, clone, newProject, newUnit, newRecord, CONDITIONS, COMPONENTS, UNIT_STATES, ROLES, WIDTH_MODES, CRACK_PATTERNS, widthMode, isNetworkCrack, recordComponents, recordConditions, AREA_CONDITIONS, AREA_METHODS, emptySketch, recordIssues, unitIssues, sha256, restoredCopy, assert } from './model.js';
 import { openStore, allProjects, getProject, getMedia, saveProject, backupState, saveBackupState } from './store.js';
 import { makeBundle, readBundle, makeReceipt, checkReceipt } from './bundle.js';
 import { createAnnotator, markedImage, planPreview, photoLocationImage } from './annotation.js';
@@ -191,9 +191,35 @@ function renderRecordIssues() {
   const r = currentRecord(); if (!r) return;
   const issues = recordIssues(r); $('#recordIssues').textContent = issues.length ? `待補：${issues.join('、')}` : '本筆必要紀錄已齊';
 }
+async function managePhotos() {
+  const r = currentRecord(), context = { projectId: project.id, recordId: r?.id };
+  assert(r?.photos.length, '本筆尚無照片');
+  openModal('選取照片刪除', `<p class="micro">${esc(recordNumber(r))} · ${esc(r.floor)} · ${esc(r.space)}。勾選多拍的照片，可一次刪除多張。</p><div class="choice-chips"><button id="selectAllPhotos">全選</button><button id="clearPhotoSelection">取消全選</button><span id="photoSelectionCount" role="status">已選 0 張</span></div><div class="photo-grid photo-delete-grid">${r.photos.map((photo, i) => `<label class="photo-delete-card"><input type="checkbox" data-delete-photo="${esc(photo.mediaId)}"><span class="photo-placeholder">讀取照片…</span><span>照片 ${i + 1} · ${esc(ROLES[photo.role])}${photo.mediaId === r.mainPhotoId ? ' · 主照片' : ''}</span><small>${esc(photo.caption)}</small></label>`).join('')}</div><p class="micro">刪除會移除所選照片及其圈註、拍攝方向；此操作無法復原。本筆位置說明與共用細部圖保留。若只想不列入附件，可到照片編輯調整採用狀態。</p><div class="modal-actions"><button id="cancelPhotoDelete" class="secondary">取消</button><button id="deleteSelectedPhotos" class="danger" disabled>刪除所選照片</button></div>`);
+  const boxes = [...$('#modalBody').querySelectorAll('[data-delete-photo]')];
+  const selected = () => boxes.filter(box => box.checked);
+  const update = () => { const n = selected().length; $('#photoSelectionCount').textContent = `已選 ${n} / ${boxes.length} 張`; $('#deleteSelectedPhotos').disabled = !n; $('#deleteSelectedPhotos').textContent = n ? `刪除所選 ${n} 張照片` : '刪除所選照片'; };
+  boxes.forEach(box => { box.onchange = update; });
+  $('#selectAllPhotos').onclick = () => { boxes.forEach(box => { box.checked = true; }); update(); };
+  $('#clearPhotoSelection').onclick = () => { boxes.forEach(box => { box.checked = false; }); update(); };
+  $('#cancelPhotoDelete').onclick = () => closeModal(true);
+  $('#deleteSelectedPhotos').onclick = () => action(async () => {
+    assert(project.id === context.projectId && recordId === context.recordId, '位置已變更，請重新選取照片');
+    const chosen = selected(), ids = chosen.map(box => box.dataset.deletePhoto);
+    assert(ids.length, '請先勾選照片');
+    const numbers = chosen.map(box => boxes.indexOf(box) + 1).join('、');
+    if (!confirm(`確定刪除照片 ${numbers}，共 ${ids.length} 張？${ids.includes(r.mainPhotoId) ? '\n包含主照片，刪除後請到附件整理核對主照片。' : ''}${ids.length === boxes.length ? '\n本筆將沒有照片，位置說明與細部圖仍會保留。' : ''}\n照片及其圈註、方向將移除，無法復原。`)) return;
+    await commit(next => { removeRecordPhotos(next, context.recordId, ids); markUnitOpen(next, next.records.find(r => r.id === context.recordId)); });
+    closeModal(true); revokeURLs(); await render(); toast(`已刪除 ${ids.length} 張照片`);
+  }, '刪除所選照片');
+  for (const box of boxes) {
+    const image = new Image(); image.alt = '照片預覽'; image.loading = 'lazy'; image.src = await mediaURL(box.dataset.deletePhoto);
+    box.parentElement.querySelector('.photo-placeholder').replaceWith(image);
+  }
+}
 async function renderMedia() {
   const token = ++renderToken, r = currentRecord();
   if (!r) return;
+  $('#managePhotos').disabled = !r.photos.length;
   $('#photoGrid').innerHTML = r.photos.length ? r.photos.map((p, i) => `<button type="button" class="photo-card" data-photo="${esc(p.mediaId)}" aria-label="照片 ${i + 1} 圈註"><span class="photo-placeholder">讀取照片…</span>${p.marks.length ? '<span class="mark-badge">已圈註</span>' : ''}<span class="photo-label"><span>${i + 1} · ${esc(p.excluded ? '不採用' : ROLES[p.role])}</span><span>編輯 ↗</span></span></button>`).join('') : '<div class="photo-empty">先拍一張位置全景，再加入近照或量尺照。</div>';
   $('#audioList').replaceChildren();
   await renderLocationCard($('#recordLocation'), r); if (token !== renderToken) return;
@@ -724,6 +750,7 @@ $('#saveRecord').onclick = () => action(async () => toast('目前紀錄已保存
 $('#recordList').onclick = e => { const b = e.target.closest('[data-record]'); if (b) action(async () => { requireNoRecording(); recordId = b.dataset.record; renderRecordList(); await renderEditor(); }); };
 $('#takePhoto').onclick = () => action(cameraDialog); $('#pickPhotos').onclick = () => { try { capture('gallery'); } catch (e) { fail(e); } };
 for (const selector of ['#cameraInput', '#galleryInput']) $(selector).onchange = e => { const files = [...e.target.files], context = pendingCapture; e.target.value = ''; if (files.length) action(() => addPhotos(files, context), '保存原始照片'); };
+$('#managePhotos').onclick = () => action(managePhotos);
 $('#photoGrid').onclick = e => { const b = e.target.closest('[data-photo]'); if (b) action(() => photoDialog(b.dataset.photo)); };
 $('#unitPlans').onclick = () => action(() => planLibrary());
 $('#showPlan').onclick = () => action(() => planEntry(false)); $('#quickSketch').onclick = () => action(() => planEntry(true)); $('#planInput').onchange = e => { const file = e.target.files[0], context = pendingPlan; e.target.value = ''; if (file) action(() => addPlan(file, context)); };

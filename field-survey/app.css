@@ -351,7 +351,7 @@ dialog[data-mode="detail"] #modalBody{display:flex;flex-direction:column;gap:6px
 .detail-controls .choice-chips{margin:4px 0;gap:4px}
 .detail-controls details{margin:4px 0}
 .detail-controls details summary{padding:6px}
-.detail-tools{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
+.detail-tools{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
 .detail-tools button{padding:6px 2px;min-height:44px;font-size:16px}
 .detail-workspace{flex:1;min-height:120px;display:flex;flex-direction:column;gap:4px}
 #detailNavigation{margin:0;flex-shrink:0}
@@ -371,3 +371,11 @@ dialog[data-mode="detail"] #modalBody{display:flex;flex-direction:column;gap:6px
 }
 
 .detail-context{margin:0 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.photo-delete-card { display:flex; flex-direction:column; gap:.4rem; border:2px solid #ccd6d2; border-radius:12px; padding:.55rem; cursor:pointer; position:relative; overflow-wrap:anywhere; min-width:0; }
+.photo-delete-card:has(input:checked) { border-color:#176bc1; background:#eef6ff; }
+.photo-delete-card input { width:24px; height:24px; min-height:24px; accent-color:#176bc1; }
+.photo-delete-card img { width:100%; height:140px; object-fit:contain; background:#e8eeeb; border-radius:6px; }
+.photo-delete-card small { white-space:normal; }
+
+.photo-management .danger, #deleteSelectedPhotos { color:#a02d2d; border-color:#a02d2d; }

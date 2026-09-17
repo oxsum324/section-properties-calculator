@@ -1,5 +1,5 @@
 import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
-export const VERSION = '0.14.0';
+export const VERSION = '0.15.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -184,10 +184,11 @@ export function validateSketch(sketch) {
 export function validateMarks(marks, detail = false) {
   list(marks, '圈註', 500);
   for (const m of marks) {
-    assert(['circle', 'arrow', 'pen', 'text', ...(detail ? ['symbol', 'region'] : [])].includes(m.type), '圈註種類不正確');
+    assert(['circle', 'arrow', 'pen', 'text', ...(detail ? ['symbol', 'region', 'opening'] : [])].includes(m.type), '圈註種類不正確');
     list(m.points, '圈註座標', 2000);
     assert(m.points.length >= 1 && m.points.every(p => p && finite01(p.x) && finite01(p.y)), '圈註座標超出圖面');
     if (m.type === 'text') text(m.text, '圈註文字', 120);
+    if (m.type === 'opening') assert(['door', 'window'].includes(m.kind) && m.points.length === 2 && Math.abs(m.points[0].x - m.points[1].x) > 1e-6 && Math.abs(m.points[0].y - m.points[1].y) > 1e-6, '門窗開口須有寬度及高度');
     if (m.type === 'symbol') assert(Object.hasOwn(DETAIL_SYMBOLS, m.symbol) && m.points.length === 1 && Number.isFinite(m.size) && m.size >= .05 && m.size <= .7 && Number.isFinite(m.rotation) && m.rotation >= 0 && m.rotation < 360 && typeof m.mirror === 'boolean', '細圖符號格式不正確');
     if (m.type === 'region') assert(Object.hasOwn(REGION_TYPES, m.condition) && m.points.length >= 3 && regionArea(m.points) > 1e-8, '細圖範圍格式不正確');
   }
@@ -345,6 +346,17 @@ export function validateProject(p) {
     }
   }
   return p;
+}
+// Remove only the selected record's photos; shared assets stay referenced.
+export function removeRecordPhotos(p, recordId, photoIds) {
+  const r = p.records.find(r => r.id === recordId), selected = new Set(photoIds);
+  assert(r && selected.size && [...selected].every(id => r.photos.some(photo => photo.mediaId === id)), '照片選取已變更，請重新選取');
+  r.photos = r.photos.filter(photo => !selected.has(photo.mediaId));
+  if (selected.has(r.mainPhotoId)) delete r.mainPhotoId;
+  for (const plan of p.plans) if (plan.labelLayout) plan.labelLayout = plan.labelLayout.filter(l => !(l.kind === 'photo' && l.recordId === r.id && selected.has(l.id)));
+  const used = new Set([...p.records.flatMap(r => [...r.photos.map(photo => photo.mediaId), ...r.audioIds, r.detail?.mediaId]), ...p.plans.map(plan => plan.mediaId)]);
+  p.media = p.media.filter(m => !selected.has(m.id) || used.has(m.id));
+  r.updatedAt = now();
 }
 export async function sha256(blob) {
   const buffer = blob instanceof Blob ? await blob.arrayBuffer() : blob;

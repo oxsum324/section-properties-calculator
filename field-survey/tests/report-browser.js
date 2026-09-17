@@ -59,7 +59,7 @@ export async function verifyReportWorkflow(browser, base, out) {
     assert.equal(await page.locator(row + ' [data-report-include]:checked').count(), 1);
     await page.locator(row + ' [data-report-text]').fill('重新整理後的說明'); await click('[data-view="work"]'); assert.equal((await current()).records[0].reportText, '重新整理後的說明');
     const restored = await page.evaluate(async () => { const m = await import('./model.js'), b = await import('./bundle.js'), s = await import('./store.js'), p = (await s.allProjects())[0]; const result = await b.readBundle((await b.makeBundle(p, async id => (await s.getMedia(id)).blob)).blob); const c = m.restoredCopy(result.project); m.validateProject(c.project); return { version: result.manifest.version, equal: JSON.stringify(result.project) === JSON.stringify(p), hash: await m.sha256((await s.getMedia(p.media[0].id)).blob) }; });
-    assert.deepEqual(restored, { version: 8, equal: true, hash: seed.hash });
+    assert.deepEqual(restored, { version: 9, equal: true, hash: seed.hash });
     await context.setOffline(true); await page.reload(); await page.locator('#recordForm').waitFor(); await click('[data-view="report"]'); assert.match(await page.locator(row + ' [data-report-text]').inputValue(), /重新整理/); await context.setOffline(false);
     const standalone = await context.newPage(); await standalone.goto('file:///' + htmlPath.replaceAll('\\', '/')); await standalone.emulateMedia({ media: 'print' });
     await standalone.pdf({ path: path.join(out, 'synthetic-attachment-v0.9.pdf'), preferCSSPageSize: true, printBackground: true });

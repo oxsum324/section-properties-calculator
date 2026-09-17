@@ -29,6 +29,6 @@ export function splitDetailLine(mark, segment) {
   if (mark.type !== 'pen' || segment < 0 || segment >= mark.points.length - 1) return [structuredClone(mark)];
   return [mark.points.slice(0, segment + 1), mark.points.slice(segment + 1)].filter(p => p.length >= 2).map(points => ({ ...structuredClone(mark), points: structuredClone(points) }));
 }
-export const detailMarkName = mark => mark.type === 'symbol' ? DETAIL_SYMBOLS[mark.symbol] : mark.type === 'region' ? REGION_TYPES[mark.condition] + '範圍' : ({ pen: '裂隙線', arrow: '箭頭', circle: '圈選', text: '文字' }[mark.type]);
+export const detailMarkName = mark => mark.type === 'opening' ? (mark.kind === 'door' ? '門框' : '窗框') : mark.type === 'symbol' ? DETAIL_SYMBOLS[mark.symbol] : mark.type === 'region' ? REGION_TYPES[mark.condition] + '範圍' : ({ pen: '裂隙線', arrow: '箭頭', circle: '圈選', text: '文字' }[mark.type]);
 
 export const regionArea = points => Math.abs(points.reduce((sum,a,i) => { const b = points[(i+1)%points.length]; return sum + a.x*b.y - b.x*a.y; },0))/2;

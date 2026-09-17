@@ -4,7 +4,13 @@ export const ns = 'http://www.w3.org/2000/svg';
 export function svgNode(tag, attrs = {}) { const el = document.createElementNS(ns, tag); for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v)); return el; }
 export function drawDetailMark(g, mark, width, height) {
   g.replaceChildren();
-  if (mark.type === 'symbol') {
+  if (mark.type === 'opening') {
+    const [a, b] = mark.points, x = Math.min(a.x, b.x) * width, y = Math.min(a.y, b.y) * height, w = Math.abs(a.x - b.x) * width, h = Math.abs(a.y - b.y) * height, inset = Math.min(w, h) * .07;
+    g.append(svgNode('rect', { x, y, width: w, height: h, fill: 'white', stroke: '#242d32', 'stroke-width': width / 650 }));
+    g.append(svgNode('rect', { x: x + inset, y: y + inset, width: w - inset * 2, height: h - inset * 2, fill: 'none', stroke: '#242d32', 'stroke-width': width / 800 }));
+    if (mark.kind === 'window') g.append(svgNode('line', { x1: x + w / 2, y1: y + inset, x2: x + w / 2, y2: y + h - inset, stroke: '#242d32', 'stroke-width': width / 800 }));
+    else g.append(svgNode('circle', { cx: x + w * .82, cy: y + h * .58, r: Math.min(w, h) * .025, fill: '#242d32' }));
+  } else if (mark.type === 'symbol') {
     const p = mark.points[0], scale = mark.size * Math.min(width, height) / 100;
     const shape = svgNode('g', { transform: `translate(${p.x * width} ${p.y * height}) rotate(${mark.rotation}) scale(${mark.mirror ? -scale : scale} ${scale})`, fill: 'none', stroke: '#25372f', 'stroke-width': 3, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
     symbolPaths(mark.symbol).forEach(d => shape.append(svgNode('path', { d }))); g.append(shape);
@@ -14,7 +20,9 @@ export function drawDetailMark(g, mark, width, height) {
   } else drawMarks(g, [mark], width, height);
 }
 export function drawDetailMarks(g, marks, width, height) {
-  g.replaceChildren(); marks.forEach((mark, i) => { const item = svgNode('g', { 'data-detail-index': i }); drawDetailMark(item, mark, width, height); g.append(item); });
+  g.replaceChildren();
+  // Openings cover base lines only; observation marks remain visible above them.
+  for (const opening of [true, false]) marks.forEach((mark, i) => { if ((mark.type === 'opening') !== opening) return; const item = svgNode('g', { 'data-detail-index': i }); drawDetailMark(item, mark, width, height); g.append(item); });
 }
 export const usedSymbols = marks => [...new Set(marks.filter(m => m.type === 'symbol').map(m => m.symbol))];
 export async function renderDetailImage(blob, marks) {

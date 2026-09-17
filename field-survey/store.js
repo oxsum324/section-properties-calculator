@@ -4,8 +4,8 @@ const completion = tx => new Promise((resolve, reject) => { tx.oncomplete = reso
 let database;
 export async function openStore() {
   if (database) return database;
-  // Close older writers before expanded conditions and observation layers are saved.
-  const req = indexedDB.open('condition-survey-v1', 8);
+  // Close older writers before editable opening marks are saved.
+  const req = indexedDB.open('condition-survey-v1', 9);
   req.onupgradeneeded = () => { for (const name of ['projects', 'blobs', 'backups']) if (!req.result.objectStoreNames.contains(name)) req.result.createObjectStore(name, { keyPath: 'id' }); };
   database = await request(req);
   database.onversionchange = () => { database.close(); database = null; };
@@ -27,6 +27,12 @@ export async function saveProject(project, expectedRevision, media = []) {
       assert(asset?.blob instanceof Blob && asset.blob.size === metadata.size, `原始檔遺失：${metadata.name}`);
     }
     for (const asset of media) blobs.put(asset);
+    const retained = new Set(project.media.map(m => m.id));
+    const removed = (existing?.media || []).filter(m => !retained.has(m.id));
+    if (removed.length) {
+      const others = await request(projects.getAll());
+      for (const m of removed) if (!others.some(p => p.id !== project.id && p.media.some(other => other.id === m.id))) blobs.delete(m.id);
+    }
     const saved = { ...project, revision: expectedRevision + 1, updatedAt: now() };
     projects.put(saved); await done; return saved;
   } catch (error) { try { tx.abort(); } catch {} await done.catch(() => {}); throw error; }
