@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { verifyFieldV08Workflow } from './field-v08-browser.js';
 import { verifyReportWorkflow } from './report-browser.js';
 import { verifyStandardFloors } from './standard-floor-browser.js';
+import { verifyV018 } from './v018-browser.js';
 import { verifyV017 } from './v017-browser.js';
 import { verifyV016 } from './v016-browser.js';
 import { verifyV015 } from './v015-browser.js';
@@ -134,7 +135,7 @@ async function verifyPlanFirstWorkflow() {
     await c('#saveSketch'); assert.equal(await p.locator('#modalTitle').innerText(), '本戶共用平面圖庫'); assert.equal((await data()).records.length, 0); assert.equal((await data()).plans.length, 1);
     const saved = (await data()).plans[0]; assert.equal(saved.sketch.strokes.length, 3); assert(saved.sketch.strokes.every(s => s.type === 'line'));
     // A library with no records must be independently backed up and restored.
-    await c('#finishLibrary'); await c('[data-view=backup]'); const backupEvent = p.waitForEvent('download'); await c('#exportBackup'); const backupPath = path.join(out, 'synthetic-plan-only.csurvey'); await (await backupEvent).saveAs(backupPath);
+    await c('#finishLibrary'); await c('[data-view=case]'); const backupEvent = p.waitForEvent('download'); await c('#exportBackup'); const backupPath = path.join(out, 'synthetic-plan-only.csurvey'); await (await backupEvent).saveAs(backupPath);
     const bundle = await readBundle(new Blob([await fs.readFile(backupPath)])); assert.equal(bundle.project.records.length, 0); assert.deepEqual(bundle.project.plans[0].sketch, saved.sketch); assert.equal(bundle.media.length, 1);
     await c('[data-view=work]'); await c('#unitPlans'); await p.locator('#libraryFloor').fill('2F');
     const fixture = await p.evaluate(() => { const canvas = document.createElement('canvas'); canvas.width = 800; canvas.height = 600; const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 800, 600); ctx.strokeRect(80, 70, 640, 460); return canvas.toDataURL().split(',')[1]; });
@@ -334,7 +335,7 @@ try {
   await context.setOffline(false);
   console.log('PASS microphone capture with simulated stream; offline reload and editing');
 
-  await click('[data-view=backup]'); const downloadEvent = page.waitForEvent('download'); await click('#exportBackup'); const downloaded = await downloadEvent;
+  await click('[data-view=case]'); const downloadEvent = page.waitForEvent('download'); await click('#exportBackup'); const downloaded = await downloadEvent;
   const bundlePath = path.join(out, 'synthetic-backup.csurvey'); await downloaded.saveAs(bundlePath);
   const bundle = await readBundle(new Blob([await fs.readFile(bundlePath)])); assert.equal(bundle.media.length, 5); assert.equal(bundle.project.records[0].photos[0].marks.length, 3); assert.equal(bundle.project.plans[2].sketch.strokes.length, 7);
   assert((await page.locator('#exportState').innerText()).includes('待接收端'));
@@ -374,7 +375,7 @@ try {
   console.log('PASS conflicting annotation and incoming photo both survive isolated-copy recovery');
   await click('.photo-card'); await page.locator('#photoExcluded').check(); await page.locator('#excludedReason').fill('測試排除'); await click('#savePhoto');
   assert((await page.locator('#recordIssues').innerText()).includes('尚無採用照片')); assert.equal(await originalHash(page, mid), hash);
-  await click('[data-view=backup]'); assert((await page.locator('#exportState').innerText()).includes('已有修改'));
+  await click('[data-view=case]'); assert((await page.locator('#exportState').innerText()).includes('已有修改'));
   await page.setViewportSize({ width: 390, height: 844 }); assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   assert.deepEqual(errors, []); assert.deepEqual(outbound, []);
   console.log('PASS conflict recovery, exclusion preserves original, stale backup reminder, no external requests');
@@ -386,6 +387,7 @@ try {
   await verifyV013(browser, base, out);
   await verifyV015(browser, base, out);
   await verifyV016(browser, base, out);
+  await verifyV018(browser, base, out);
   await verifyV017(browser, base, out);
   await verifyStandardFloors(browser, base, out);
   await verifyV014(browser, base, out);

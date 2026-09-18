@@ -186,6 +186,17 @@ function renderRecordList() {
   $('#addRecord').disabled = !unitId; $('#editUnit').disabled = !unitId;
   $('#unitPlans').disabled = !unitId;
   $('#unitPlanSummary').textContent = unitId ? `本戶 ${project.plans.filter(p => p.unitId === unitId).length} 張共用圖面。可先依樓層建圖，再新增位置紀錄。` : '先新增戶別，即可匯入或手繪平面圖。';
+  renderContext();
+}
+function renderContext() {
+  if (!project) return;
+  const visitOption = $('#visitSelect').value ? $('#visitSelect').selectedOptions[0] : null;
+  $('#contextVisit').textContent = visitOption ? visitOption.textContent.split(' · ')[0] : '尚未指定批次';
+  const u = currentUnit(); $('#contextUnit').textContent = u ? u.code : '尚無戶別';
+  const r = activeView === 'work' ? currentRecord() : null; $('#contextRecord').hidden = !r;
+  if (r) $('#contextRecord').textContent = `${recordNumber(r)} · ${[r.floor, r.space].filter(x => x.trim()).join(' ') || '樓層／空間未填'}`;
+  const residences = project.units.filter(x => (x.kind || 'residence') === 'residence').length;
+  $('#caseUnitSummary').textContent = project.units.length ? `已建 ${project.units.length} 戶：住戶 ${residences}、公設 ${project.units.length - residences}。` : '尚無戶別。';
 }
 function renderRecordIssues() {
   const r = currentRecord(); if (!r) return;
@@ -238,7 +249,7 @@ async function renderMedia() {
 }
 async function renderEditor() {
   renderToken++;
-  const r = currentRecord(); $('#recordEditor').hidden = !r; $('#recordEmpty').hidden = !!r; if (!r) return;
+  const r = currentRecord(); $('#recordEditor').hidden = !r; $('#recordEmpty').hidden = !!r; renderContext(); if (!r) return;
   $('#recordCode').textContent = recordNumber(r); $('#recordTime').textContent = new Date(r.updatedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
   $('#recordVisit').innerHTML = '<option value="">未指定／原案紀錄</option>' + (project.visits || []).map(v => `<option value="${esc(v.id)}">${esc(v.name)} · ${v.start}${v.end !== v.start ? '～' + v.end : ''}</option>`).join('');
   $('#recordVisit').value = r.visitId || ''; $('#observedOn').value = r.observedOn || ''; $('#recordDateSummary').textContent = recordDateInfo(project, r).label;
@@ -263,7 +274,7 @@ async function renderEditor() {
   conditionState(); measurementState(); renderRecordIssues(); await renderMedia();
 }
 async function render() {
-  await projectOptions(); $('#welcome').hidden = !!project; $('#workspace').hidden = !project; $('#bottomNav').hidden = !project;
+  await projectOptions(); $('#welcome').hidden = !!project; $('#workspace').hidden = !project; $('#bottomNav').hidden = !project; $('#contextCrumbs').hidden = !project; $('#gotoCase').hidden = !project || activeView === 'case';
   if (!project) return;
   organisation.render();
   $('#unitSelect').innerHTML = project.units.length ? project.units.map(u => `<option value="${esc(u.id)}">${esc(u.code)}${u.address ? ' · ' + esc(u.address) : ''}</option>`).join('') : '<option value="">請先新增戶別</option>';
@@ -271,11 +282,13 @@ async function render() {
 }
 async function showView(view) {
   const previous = activeView; activeView = view;
-  for (const key of ['work', 'review', 'backup', 'report']) $('#' + key + 'View').hidden = key !== view;
+  for (const key of ['case', 'work', 'review', 'report']) $('#' + key + 'View').hidden = key !== view;
   for (const b of document.querySelectorAll('[data-view]')) { b.classList.toggle('active', b.dataset.view === view); if (b.dataset.view === view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
-  if (view === 'review') renderReview(); if (view === 'backup') await renderBackup();
+  $('#gotoCase').hidden = !project || view === 'case';
+  if (view === 'review') renderReview(); if (view === 'case') await renderBackup();
   if (view === 'report') await reports.render();
   if (view === 'work' && previous !== 'work') { renderRecordList(); await renderEditor(); }
+  renderContext();
 }
 function renderReview() {
   const totalIssues = project.units.reduce((sum, u) => sum + unitIssues(project, u).length, 0);
@@ -713,7 +726,7 @@ async function receiveReceipt(file) {
   state.entries[receipt.scope || 'all'] = await checkReceipt(receipt, project, state); await saveBackupState(state); await renderBackup(); toast('核對收據已記錄');
 }
 function helpDialog() {
-  openModal('手機使用與保存', `<ol class="help-list"><li>新增案件及戶別。先從「平面圖庫／先建圖」依樓層匯入或手繪，標上入口、樓梯及房間名稱；再進入各空間新增位置，引用圖面標拍攝箭頭，拍全景、近照或量尺照。</li><li>點照片可圈選、畫箭頭與文字；圈註另存，原圖保留。位置圖可加入圖面或草圖照片；手繪簡圖支援雙指縮放、移動、四向擴展及選取刪除。照片旁可核對定位，另可下載照片與位置圖對照副本。</li><li>現況可複選並共用照片；白華、剝落等面積各自填 m²，不合計重疊範圍。裂隙寬度用 mm、長度用 m。現況欄位會自動保存。切換位置前會先保存；上方有錯誤時請先處理。</li><li>離開一戶前查看「待補檢查」，無法入內或部分完成請記原因。</li><li>從「備份還原」匯出全案或單戶。在電腦開啟同一工具、核對備份及建立還原副本。</li><li>iPhone 可從瀏覽器分享選單加入主畫面；Android 可從瀏覽器選單安裝。需先在線開啟，等上方顯示「離線已就緒」。手機使用需 HTTPS。</li></ol><p class="modal-note">資料只保存在此瀏覽器及你匯出的備份檔，不自動上傳。換瀏覽器、清除網站資料或移除應用程式前，請先完成外部備份。勿以無痕模式保存工作。</p><p>本工具記錄現場可見情形，不自動判定損害原因、結構安全或責任歸屬。尚須在實際手機上確認相機、容量及中斷操作。</p><p class="help-version">版本 ${VERSION} · 純本機資料 · 現況紀錄工作稿</p><button id="applyUpdate" class="secondary" hidden>保存後套用離線更新</button>`);
+  openModal('手機使用與保存', `<ol class="help-list"><li>在「案件與備份」建立案件、會勘批次與戶別名冊；到「現場紀錄」選鑑定戶，先從「平面圖庫／先建圖」依樓層匯入或手繪，標上入口、樓梯及房間名稱；再進入各空間新增位置，引用圖面標拍攝箭頭，拍全景、近照或量尺照。</li><li>點照片可圈選、畫箭頭與文字；圈註另存，原圖保留。位置圖可加入圖面或草圖照片；手繪簡圖支援雙指縮放、移動、四向擴展及選取刪除。照片旁可核對定位，另可下載照片與位置圖對照副本。</li><li>現況可複選並共用照片；白華、剝落等面積各自填 m²，不合計重疊範圍。裂隙寬度用 mm、長度用 m。現況欄位會自動保存。切換位置前會先保存；上方有錯誤時請先處理。</li><li>離開一戶前查看「待補檢查」，無法入內或部分完成請記原因。</li><li>從「案件與備份」匯出全案或單戶。在電腦開啟同一工具、核對備份及建立還原副本。</li><li>iPhone 可從瀏覽器分享選單加入主畫面；Android 可從瀏覽器選單安裝。需先在線開啟，等上方顯示「離線已就緒」。手機使用需 HTTPS。</li></ol><p class="modal-note">資料只保存在此瀏覽器及你匯出的備份檔，不自動上傳。換瀏覽器、清除網站資料或移除應用程式前，請先完成外部備份。勿以無痕模式保存工作。</p><p>本工具記錄現場可見情形，不自動判定損害原因、結構安全或責任歸屬。尚須在實際手機上確認相機、容量及中斷操作。</p><p class="help-version">版本 ${VERSION} · 純本機資料 · 現況紀錄工作稿</p><button id="applyUpdate" class="secondary" hidden>保存後套用離線更新</button>`);
   $('#modalBody').insertAdjacentHTML('afterbegin', '<p class="modal-note">V0.10.0：可匯入戶別名冊、分次會勘並保留進場歷程。在附件整理選六種細圖、畫損害標註，再依戶編號與規劃分冊。標準附件依序為整體平面圖、照片說明表、照片；保留快速預覽。分冊設定請於每次匯出前核對。</p><details><summary>既有現場功能說明</summary><p>V0.8.0：一般裂縫可逐條填尺寸並以 A／B／C 圈註；磁磚可選 1／2／5／10／15／20 塊或文字數量。新增大字、橫向拍攝與收合說明的繪圖介面；樓梯提供直梯、L 型、折返及長短梯，方向未確認不加箭頭或文字。梁 U 型裂縫以條數記錄、不列總長；磁磚裂隙與破損可記塊數。在「附件整理」依房間選主照片、排序並自動產生照片流水號與位置圖，可下載 HTML 附件及列印 PDF。照片可各自設定拍攝位置，舊案及舊備份可接續使用。網狀裂隙：網狀裂隙的寬度、長度及實測勾選均可略過，不列尺寸待補。簡圖新增開門、開窗、端點／牆線吸附與水平／垂直鎖定。復原一步後才可重做，清空重畫另有按鈕。拍照先同意啟用相機，再於瀏覽器選允許；可預覽、重拍與保存。部位可複選；裂縫可一鍵選 ≤0.3 mm、>0.3 mm。無圖說可直接「手繪簡圖」，點兩下畫房間／線段，保存後點拍攝點及方向標箭頭。簡圖未按比例，寬度區間不代表安全判定。</p></details>');
   navigator.serviceWorker?.getRegistration().then(reg => { if (reg?.waiting && $('#applyUpdate')) { $('#applyUpdate').hidden = false; $('#applyUpdate').onclick = () => action(async () => { requireNoRecording(); assert(!conflictDraft, '請先另存目前副本，再套用更新'); closeModal(true); navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true }); reg.waiting.postMessage('ACTIVATE_UPDATE'); }); } });
 }
@@ -777,6 +790,8 @@ $('#unitPlans').onclick = () => action(() => planLibrary());
 $('#showPlan').onclick = () => action(() => planEntry(false)); $('#quickSketch').onclick = () => action(() => planEntry(true)); $('#planInput').onchange = e => { const file = e.target.files[0], context = pendingPlan; e.target.value = ''; if (file) action(() => addPlan(file, context)); };
 $('#recordAudio').onclick = () => action(audioToggle, '準備錄音');
 $('#bottomNav').onclick = e => { const b = e.target.closest('[data-view]'); if (b && project) action(async () => { requireNoRecording(); await showView(b.dataset.view); window.scrollTo(0, 0); }); };
+$('#gotoCase').onclick = () => { if (project) action(async () => { requireNoRecording(); await showView('case'); window.scrollTo(0, 0); }); };
+$('#visitSelect').addEventListener('change', renderContext);
 $('#reviewList').onclick = e => { const status = e.target.closest('[data-unit-state]'), record = e.target.closest('[data-review-record]'); if (status) action(() => unitDialog(status.dataset.unitState)); if (record) action(async () => { unitId = record.dataset.unit; recordId = record.dataset.reviewRecord; activeView = 'work'; await render(); }); };
 for (const selector of ['#reviewSearch', '#reviewFilter']) $(selector).onchange = () => action(async () => { reviewPage = 0; renderReview(); });
 $('#reviewPager').onclick = event => { const b = event.target.closest('[data-review-page]'); if (b) action(async () => { reviewPage += Number(b.dataset.reviewPage); renderReview(); $('#reviewPager').scrollIntoView({ block: 'start' }); }); };

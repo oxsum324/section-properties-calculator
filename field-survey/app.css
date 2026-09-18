@@ -384,3 +384,21 @@ dialog[data-mode="detail"] #modalBody{display:flex;flex-direction:column;gap:6px
 .photo-delete-card small { white-space:normal; }
 
 .photo-management .danger, #deleteSelectedPhotos { color:#a02d2d; border-color:#a02d2d; }
+
+/* V0.18 sticky context strip and the case/backup page. */
+.context-strip{position:sticky;top:0;z-index:9;display:flex;align-items:center;gap:8px;margin:-4px 0 16px;padding:8px 0;background:var(--cream);border-bottom:1px solid var(--line);min-width:0}
+.strip-case{flex:0 1 auto;min-width:0;max-width:48%;gap:0}
+.strip-case select{min-height:40px;padding:6px 32px 6px 10px;font-size:15px;border-color:#d5ded6;background:#e9eee7;font-weight:650;color:var(--green);text-overflow:ellipsis}
+.crumbs{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden}
+.crumb{overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:0}
+.crumb:not(:first-child):before{content:"›";margin-right:6px;color:#9db0a7}
+#contextRecord{color:var(--ink);font-weight:650}
+.context-strip .quiet{flex-shrink:0;min-height:40px;padding:6px 8px;font-size:14px;color:var(--accent)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.plan-workflow.compact{padding:10px 14px;margin:0 0 14px}
+.plan-workflow.compact strong{font-size:15px}
+.plan-workflow.compact p{margin:2px 0 0}
+.page-heading.sub{margin:30px 0 14px}
+.page-heading.sub h3{font-size:21px;margin:4px 0 8px}
+.records-panel{top:72px}
+@media(max-width:760px){.context-strip{flex-wrap:wrap;margin:-6px -14px 14px;padding:6px 14px 5px;gap:4px 8px}.strip-case{flex:1;max-width:none}.strip-case select{font-size:14px;min-height:38px;padding-right:26px}.context-strip .quiet{font-size:13px;padding:6px 4px}.crumbs{flex-basis:100%;order:3;font-size:13px;line-height:1.4}}
