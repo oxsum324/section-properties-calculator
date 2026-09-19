@@ -4,8 +4,8 @@ const completion = tx => new Promise((resolve, reject) => { tx.oncomplete = reso
 let database;
 export async function openStore() {
   if (database) return database;
-  // Close older writers that do not recognize photo date stamps and mark tones.
-  const req = indexedDB.open('condition-survey-v1', 13);
+  // Close older writers that do not recognize unfolded elevation presets.
+  const req = indexedDB.open('condition-survey-v1', 14);
   req.onupgradeneeded = () => { for (const name of ['projects', 'blobs', 'backups']) if (!req.result.objectStoreNames.contains(name)) req.result.createObjectStore(name, { keyPath: 'id' }); };
   database = await request(req);
   database.onversionchange = () => { database.close(); database = null; };

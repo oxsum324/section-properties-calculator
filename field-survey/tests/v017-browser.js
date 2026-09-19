@@ -32,7 +32,7 @@ export async function verifyV017(browser, base, out) {
     const saved=await current();assert.equal(saved.records[0].detail.note,note);assert.deepEqual(saved.records[1],original.records[1]);assert.equal(saved.records[0].reportText,r.reportText);assert.deepEqual(saved.records[0].photos,r.photos);assert.deepEqual(saved.records[0].conditions,r.conditions);
     await click('[data-view=report]');assert.match(await page.locator('#reportRooms .detail-summary').textContent(),/細圖補充/);assert.equal(await page.locator('[data-report-text]').first().inputValue(),r.reportText);
     const reports=await page.evaluate(async()=>{const s=await import('./store.js'),b=await import('./bundle.js'),report=await import('./report.js'),p=(await s.allProjects())[0],get=async id=>(await s.getMedia(id)).blob,bundle=await b.readBundle((await b.makeBundle(p,get)).blob),html={};for(const format of ['standard','quick'])html[format]=(await report.renderAttachment(p,get,{format})).html;return{html,equal:JSON.stringify(bundle.project)===JSON.stringify(p),version:bundle.manifest.version};});
-    assert(reports.equal);assert.equal(reports.version,13);
+    assert(reports.equal);assert.equal(reports.version,14);
     for(const [format,html] of Object.entries(reports.html)) {
       const file=path.join(out,`v0.17-${format}.html`);await fs.writeFile(file,html);const preview=await context.newPage();await preview.goto('file:///'+file.replaceAll('\\','/'));
       if(format==='standard') {

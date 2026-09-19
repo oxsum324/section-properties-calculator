@@ -119,3 +119,40 @@ export function splitDetailLine(mark, segment) {
 export const detailMarkName = mark => mark.type === 'opening' ? (mark.kind === 'door' ? '門框' : '窗框') : mark.type === 'symbol' ? DETAIL_SYMBOLS[mark.symbol] : mark.type === 'region' ? REGION_TYPES[mark.condition] + '範圍' : ({ pen: '裂隙線', arrow: '箭頭', circle: '圈選', text: '文字' }[mark.type]);
 
 export const regionArea = points => Math.abs(points.reduce((sum,a,i) => { const b = points[(i+1)%points.length]; return sum + a.x*b.y - b.x*a.y; },0))/2;
+
+// Oblique preset faces in normalised image coordinates (TL, TR, BR, BL). A flat face keeps the
+// two-corner rectangle; a perspective face turns two taps into a four-corner opening that follows the wall.
+const face = (...pts) => pts.map(([x, y]) => ({ x: x / 600, y: y / 320 }));
+const stageFaces = [face([103, 75], [497, 75], [497, 262], [103, 262]), face([15, 27], [103, 75], [103, 262], [15, 302]), face([497, 75], [585, 27], [585, 302], [497, 262])];
+export const PRESET_PLANES = {
+  wall: stageFaces, window: stageFaces, door: stageFaces,
+  corner: [face([25, 36], [300, 83], [300, 242], [25, 285]), face([300, 83], [575, 36], [575, 285], [300, 242])],
+  frame: [face([45, 45], [555, 45], [555, 105], [45, 105]), face([70, 105], [135, 105], [135, 264], [70, 264]), face([135, 105], [465, 105], [465, 264], [135, 264]), face([465, 105], [530, 105], [530, 264], [465, 264])],
+  beam: [face([45, 68], [555, 68], [555, 148], [45, 148]), face([45, 148], [555, 148], [496, 210], [104, 210])]
+};
+// Square-to-quad projective map (Heckbert) with its inverse through the adjugate.
+export function planeTransform(plane) {
+  const [p0, p1, p2, p3] = plane, sx = p0.x - p1.x + p2.x - p3.x, sy = p0.y - p1.y + p2.y - p3.y;
+  let g = 0, h = 0;
+  if (Math.abs(sx) > 1e-9 || Math.abs(sy) > 1e-9) { const dx1 = p1.x - p2.x, dx2 = p3.x - p2.x, dy1 = p1.y - p2.y, dy2 = p3.y - p2.y, det = dx1 * dy2 - dx2 * dy1; g = (sx * dy2 - dx2 * sy) / det; h = (dx1 * sy - sx * dy1) / det; }
+  const a = p1.x - p0.x + g * p1.x, b = p3.x - p0.x + h * p3.x, c = p0.x, d = p1.y - p0.y + g * p1.y, e = p3.y - p0.y + h * p3.y, f = p0.y;
+  const forward = ({ u, v }) => { const w = g * u + h * v + 1; return { x: (a * u + b * v + c) / w, y: (d * u + e * v + f) / w }; };
+  const A = e - f * h, B = c * h - b, C = b * f - c * e, D = f * g - d, E = a - c * g, F = c * d - a * f, G = d * h - e * g, H = b * g - a * h, I = a * e - b * d;
+  const inverse = ({ x, y }) => { const w = G * x + H * y + I; return { u: (A * x + B * y + C) / w, v: (D * x + E * y + F) / w }; };
+  const flat = Math.abs(p0.y - p1.y) < 1e-9 && Math.abs(p1.x - p2.x) < 1e-9 && Math.abs(p2.y - p3.y) < 1e-9 && Math.abs(p3.x - p0.x) < 1e-9;
+  return { forward, inverse, flat };
+}
+export function planeAt(kind, mirror, point) {
+  const p = mirror ? { x: 1 - point.x, y: point.y } : point;
+  for (const plane of PRESET_PLANES[kind] || []) { const t = planeTransform(plane), l = t.inverse(p); if (l.u >= -1e-6 && l.u <= 1 + 1e-6 && l.v >= -1e-6 && l.v <= 1 + 1e-6) return { plane, ...t }; }
+  return null;
+}
+// Two taps on an oblique face become the face-aligned opening; null means "use the plain rectangle".
+export function openingOnPlane(kind, mirror, a, b) {
+  const found = planeAt(kind, mirror, a); if (!found) return null;
+  const un = p => mirror ? { x: 1 - p.x, y: p.y } : p, clamp = n => Math.max(0, Math.min(1, n));
+  const la = found.inverse(un(a)), lb = found.inverse(un(b)), u0 = clamp(Math.min(la.u, lb.u)), u1 = clamp(Math.max(la.u, lb.u)), v0 = clamp(Math.min(la.v, lb.v)), v1 = clamp(Math.max(la.v, lb.v));
+  if (u1 - u0 < .01 || v1 - v0 < .01) return null;
+  const corners = [{ u: u0, v: v0 }, { u: u1, v: v0 }, { u: u1, v: v1 }, { u: u0, v: v1 }].map(found.forward).map(un);
+  return found.flat ? [corners[0], corners[2]] : corners;
+}

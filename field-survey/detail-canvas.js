@@ -1,7 +1,8 @@
 import { svgNode, drawDetailMarks, drawDetailMark } from './detail-render.js';
 import { moveDetailMark, splitDetailLine, regionArea } from './detail-geometry.js';
 
-export async function createDetailCanvas(stage, url, initial, onChange, onState) {
+export async function createDetailCanvas(stage, url, initial, onChange, onState, options = {}) {
+  const snapOpening = typeof options.snapOpening === 'function' ? options.snapOpening : null;
   const image = new Image(); image.src = url; await image.decode();
   const w = image.naturalWidth, h = image.naturalHeight, svg = svgNode('svg', { viewBox: `0 0 ${w} ${h}`, role: 'img', 'aria-label': '細部圖繪製區' });
   const base = svgNode('image', { href: url, width: w, height: h }), objects = svgNode('g'), draftLayer = svgNode('g'), handles = svgNode('g'); svg.append(base, objects, draftLayer, handles); stage.replaceChildren(svg);
@@ -94,7 +95,7 @@ export async function createDetailCanvas(stage, url, initial, onChange, onState)
         const target = ['door', 'window'].includes(mode) ? openingPoints : 2;
         if (['arrow', 'circle', 'rect', 'door', 'window'].includes(mode) && pending.length === target) {
           if (['door', 'window'].includes(mode) && target === 4) { if (regionArea(pending) * w * h >= 9) append({ type: 'opening', kind: mode, points: structuredClone(pending) }); else { pending = []; message = '四個角太靠近或交叉，請重新依序點四個角。'; } }
-          else if (['door', 'window'].includes(mode)) { const [a, b] = pending; if (Math.abs(a.x - b.x) * w >= 3 && Math.abs(a.y - b.y) * h >= 3) append({ type: 'opening', kind: mode, points: structuredClone(pending) }); else { pending.pop(); message = '開口太窄，請重新點另一個對角。'; } }
+          else if (['door', 'window'].includes(mode)) { const [a, b] = pending, snapped = snapOpening?.(a, b); if (snapped) append({ type: 'opening', kind: mode, points: snapped }); else if (Math.abs(a.x - b.x) * w >= 3 && Math.abs(a.y - b.y) * h >= 3) append({ type: 'opening', kind: mode, points: structuredClone(pending) }); else { pending.pop(); message = '開口太窄，請重新點另一個對角。'; } }
           else if (mode === 'rect') { const [a, b] = pending; if (Math.abs(a.x - b.x) * w > 2 && Math.abs(a.y - b.y) * h > 2) append({ type: 'region', condition, points: [a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }] }); }
           else append({ type: mode, tone, points: structuredClone(pending) });
         }

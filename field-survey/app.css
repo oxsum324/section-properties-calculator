@@ -420,3 +420,6 @@ dialog[data-mode="detail"] #modalBody{display:flex;flex-direction:column;gap:6px
 #photoTools [data-tone]{min-width:44px}
 #photoTools [data-tone="red"].selected{background:#c42e27;color:#fff}
 #photoTools [data-tone="blue"].selected{background:#1d5fbf;color:#fff}
+
+/* V0.21 base picker groups. */
+.detail-preset-group{margin:8px 0 2px;font-weight:650;color:var(--green)}
