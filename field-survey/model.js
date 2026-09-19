@@ -1,5 +1,5 @@
 import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
-export const VERSION = '0.18.0';
+export const VERSION = '0.19.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -156,6 +156,46 @@ export function newUnit(code, address = '') { return { id: id(), code: code.trim
 export function newRecord(unitId, floor = '', space = '') {
   return { id: id(), unitId, floor, space, location: '', component: '', condition: '', visibility: 'visible', notes: '', resident: '', measured: false, width: null, length: null, photos: [], audioIds: [], placement: null, createdAt: now(), updatedAt: now() };
 }
+// Case types only pre-fill floors and quick choices; they never change what was observed.
+export const BUILDING_TYPES = { townhouse: '透天', apartment: '公寓', tower: '大樓', other: '其他／未分類' };
+export const DEFAULT_FLOOR_CONFIG = { above: 5, below: 1, mezzanine: true };
+export const floorConfig = p => ({ ...DEFAULT_FLOOR_CONFIG, ...(p?.floorConfig || {}) });
+export const buildingType = p => p?.buildingType || 'other';
+export function floorOptions(p) {
+  const c = floorConfig(p), out = [];
+  for (let i = c.below; i >= 1; i--) out.push('B' + i);
+  out.push('1F'); if (c.mezzanine) out.push('MF');
+  for (let i = 2; i <= c.above; i++) out.push(i + 'F');
+  out.push('RF'); return out;
+}
+export function floorRank(floor) {
+  const f = String(floor || '').trim().toUpperCase(); let m;
+  if ((m = /^B(\d+)F?$/.exec(f))) return -Number(m[1]);
+  if (f === 'MF') return 1.5;
+  if (f === 'RF' || f === 'PH') return 9999;
+  if ((m = /^(\d+)F$/.exec(f))) return Number(m[1]);
+  return 5000;
+}
+export const SPACE_OPTIONS = {
+  residence: ['客廳', '房間', '主臥', '廚房', '浴廁', '陽台', '儲藏室', '樓梯'],
+  townhouse: ['客廳', '房間', '主臥', '廚房', '浴廁', '陽台', '車庫', '內梯', '頂樓', '儲藏室'],
+  public: ['樓梯間', '梯廳', '走廊', '大廳', '地下室', '停車場', '屋突', '水箱', '機房'],
+  exterior: ['外觀', '正面外牆', '背面外牆', '側面外牆', '騎樓', '女兒牆', '圍牆']
+};
+export function spaceOptions(p, u) {
+  const kind = u?.kind === 'public' ? 'public' : buildingType(p) === 'townhouse' ? 'townhouse' : 'residence';
+  return { main: SPACE_OPTIONS[kind], exterior: SPACE_OPTIONS.exterior };
+}
+const natural = (a, b) => String(a || '').localeCompare(String(b || ''), 'zh-Hant-TW', { numeric: true, sensitivity: 'base' });
+export function unitOrder(a, b) {
+  return natural(a.building, b.building) || ((a.kind === 'public') - (b.kind === 'public')) || (floorRank(a.floor) - floorRank(b.floor)) || natural(a.code, b.code);
+}
+export const sortedUnits = p => [...p.units].sort(unitOrder);
+export function apartmentUnits(config) {
+  const units = floorOptions({ floorConfig: config }).filter(f => /^\d+F$/.test(f)).map(floor => ({ ...newUnit(floor), floor }));
+  units.push({ ...newUnit('公設'), kind: 'public' });
+  return units;
+}
 export function recordIssues(r) {
   const issues = [];
   if (!r.floor.trim()) issues.push('缺樓層');
@@ -231,6 +271,8 @@ export function validateProject(p) {
   assert(p.code.trim() && p.name.trim(), '案號及名稱不可空白');
   assert(validDate(p.date), '會勘日期格式不正確');
   assert(Number.isSafeInteger(p.revision) && p.revision >= 0, '案件版本不正確');
+  if (p.buildingType !== undefined) assert(Object.hasOwn(BUILDING_TYPES, p.buildingType), '案件型態不正確');
+  if (p.floorConfig !== undefined) { const c = p.floorConfig; assert(c && typeof c === 'object' && !Array.isArray(c) && Number.isSafeInteger(c.above) && c.above >= 1 && c.above <= 99 && Number.isSafeInteger(c.below) && c.below >= 0 && c.below <= 9 && typeof c.mezzanine === 'boolean', '樓層設定不正確'); }
   for (const key of ['units', 'records', 'plans', 'media']) list(p[key], key);
   const units = unique(p.units), media = unique(p.media), plans = unique(p.plans); unique(p.records);
   const visits = new Set();
@@ -250,6 +292,7 @@ export function validateProject(p) {
     assert(u.code.trim() && Object.hasOwn(UNIT_STATES, u.status), '戶別或狀態不正確');
     if (u.building !== undefined) text(u.building, '棟別／群組', 100);
     if (u.kind !== undefined) assert(Object.hasOwn(UNIT_KINDS, u.kind), '鑑定單元種類不正確');
+    if (u.floor !== undefined) text(u.floor, '戶別固定樓層', 100);
     if (u.visitHistory !== undefined) {
       list(u.visitHistory, '進場歷程', 500); const seen = new Set();
       for (const h of u.visitHistory) {

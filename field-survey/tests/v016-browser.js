@@ -9,7 +9,7 @@ export async function verifyV016(browser, base, out) {
   const current = () => page.evaluate(async () => (await (await import('./store.js')).allProjects()).find(p => p.code === 'V016'));
   const tap = async (x,y) => { const p = await page.locator('#detailStage svg').evaluate((svg,[x,y]) => { const b = svg.viewBox.baseVal, p = new DOMPoint(b.x + x*b.width, b.y+y*b.height).matrixTransform(svg.getScreenCTM()); return { x:p.x,y:p.y }; },[x,y]); await page.touchscreen.tap(p.x,p.y); };
   try {
-    await page.goto(base); await page.locator('#caseSelect').waitFor();
+    await page.goto(base); await page.locator('#contextStrip').waitFor();
     const keys = await page.evaluate(async () => {
       const m = await import('./model.js'), s = await import('./store.js'), g = await import('./detail-geometry.js'), p = m.newProject('V016','十款圖示合成測試','2026-09-17'), u = m.newUnit('A戶'), r = m.newRecord(u.id,'1F','客廳'); p.units.push(u);p.records.push(r);
       Object.assign(r,{condition:'crack',component:'牆面',location:'窗邊',reportText:'現場人工說明保留',detail:{kind:'preset',preset:'wall',mirror:false,marks:[]}});
@@ -41,7 +41,7 @@ export async function verifyV016(browser, base, out) {
       for(const format of ['quick','standard']) { const report=await r.renderAttachment(p,get,{format}),doc=new DOMParser().parseFromString(report.html,'text/html'),src=doc.querySelector('.detail-img').src;hashes.push(await m.sha256(Uint8Array.from(atob(src.split(',')[1]),c=>c.charCodeAt(0)))); }
       return {version:bundle.manifest.version,equal:JSON.stringify(bundle.project)===JSON.stringify(p),names:Object.values(g.DETAIL_SYMBOLS),labels,size,hashes,expected,png:Array.from(new Uint8Array(await png.arrayBuffer()))};
     });
-    assert.equal(result.version, 11);assert(result.equal);assert(result.hashes.every(h=>h===result.expected));
+    assert.equal(result.version, 12);assert(result.equal);assert(result.hashes.every(h=>h===result.expected));
     assert.deepEqual(result.labels.slice(0,10).map(l=>l.text),result.names);assert.equal(new Set(result.labels.slice(0,10).map(l=>l.y)).size,4);
     assert(result.labels.every(l=>l.x>=0&&l.end<=l.width&&l.y>640&&l.y<l.height));assert.equal(result.size.width,1200);assert(result.size.height>840);
     await fs.writeFile(path.join(out,'v0.16-ten-icons-detail.png'),Buffer.from(result.png));

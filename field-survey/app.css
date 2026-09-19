@@ -402,3 +402,13 @@ dialog[data-mode="detail"] #modalBody{display:flex;flex-direction:column;gap:6px
 .page-heading.sub h3{font-size:21px;margin:4px 0 8px}
 .records-panel{top:72px}
 @media(max-width:760px){.context-strip{flex-wrap:wrap;margin:-6px -14px 14px;padding:6px 14px 5px;gap:4px 8px}.strip-case{flex:1;max-width:none}.strip-case select{font-size:14px;min-height:38px;padding-right:26px}.context-strip .quiet{font-size:13px;padding:6px 4px}.crumbs{flex-basis:100%;order:3;font-size:13px;line-height:1.4}}
+
+/* V0.19 case type quick choices and read-only case crumb. */
+#contextCase{font-weight:650;color:var(--green);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48%;font-size:15px}
+.chip-row{margin:-6px 0 14px}
+.chip-row button{min-height:38px;padding:6px 11px;font-size:14px;background:#edf2ed;color:var(--green);border:1px solid #cbd7ce}
+.chip-row button[aria-pressed=true]{background:var(--green);color:#fff;border-color:var(--green)}
+.chip-row:empty{display:none}
+.chip-divider{flex-basis:100%;height:0}
+.record-shortcut{margin-top:8px}
+@media(max-width:760px){#contextCase{flex:1;max-width:none;font-size:14px}.chip-row button{min-height:36px;padding:5px 9px;font-size:13px}}

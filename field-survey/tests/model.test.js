@@ -31,7 +31,7 @@ test('detail summary links actual marks and notes without base names or invented
   assert.match(summary,/細圖標註：磁磚破損/);assert.match(summary,/圖中文字：裂縫 A/);assert.match(summary,/細圖補充：裂縫 A 在窗角\n破損磁磚在下方/);assert.doesNotMatch(summary,/完整牆面|wall|m²|mm|塊/);
   assert.deepEqual(detailComparison(r).missing,['crack']);assert.match(detailComparison(r).hints[0],/核對手繪或文字/);assert.deepEqual(r,before);
   const index=attachmentIndex(p).groups[0].records[0];assert.equal(index.detailText,summary);assert.equal(index.text,'保留人工照片內容');
-  const restored=await readBundle((await makeBundle(p,id=>blobs.get(id))).blob);assert.deepEqual(restored.project.records[0],before);assert.equal(restored.manifest.version,11);
+  const restored=await readBundle((await makeBundle(p,id=>blobs.get(id))).blob);assert.deepEqual(restored.project.records[0],before);assert.equal(restored.manifest.version,12);
   const copy=restoredCopy(restored.project).project;assert.equal(copy.records[0].detail.note,r.detail.note);
   r.detail.note='a'.repeat(2001);assert.throws(()=>validateProject(p),/細圖補充/);r.detail.note=42;assert.throws(()=>validateProject(p),/細圖補充/);
 });
@@ -64,7 +64,7 @@ test('editable openings retain geometry through backup and mirror and reject deg
   const { p, r, blobs } = await fixture();
   const marks = ['door', 'window'].map(kind => ({ type: 'opening', kind, points: [{ x: .2, y: .3 }, { x: .4, y: .8 }] }));
   r.detail = { kind: 'preset', preset: 'wall', mirror: false, marks }; validateProject(p);
-  const backup = await readBundle((await makeBundle(p, id => blobs.get(id))).blob); assert.equal(backup.manifest.version, 11); assert.deepEqual(backup.project.records[0].detail, r.detail);
+  const backup = await readBundle((await makeBundle(p, id => blobs.get(id))).blob); assert.equal(backup.manifest.version, 12); assert.deepEqual(backup.project.records[0].detail, r.detail);
   const mirrored = mirrorDetailMarks(marks); assert(Math.abs(mirrored[0].points[0].x - .8) < 1e-9); validateMarks(mirrored, true);
   assert.throws(() => validateMarks(marks), /圈註種類/);
   for (const mutation of [m => { m.points[1].x = m.points[0].x; }, m => { m.kind = 'unknown'; }, m => { m.points.push({ x: .5, y: .5 }); }]) { const bad = structuredClone(marks); mutation(bad[0]); assert.throws(() => validateMarks(bad, true), /門窗開口/); }
@@ -78,7 +78,7 @@ test('detail signs and regions preserve observed quantities, old strokes, manual
     { type: 'region', condition: 'damp', points: [{ x: .2, y: .2 }, { x: .4, y: .2 }, { x: .3, y: .5 }] }
   ] };
   const original = structuredClone(r); validateProject(p); assert.deepEqual(recordIssues(r), []);
-  const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob); assert.equal(restored.manifest.version, 11); assert.deepEqual(restored.project.records[0], original);
+  const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob); assert.equal(restored.manifest.version, 12); assert.deepEqual(restored.project.records[0], original);
   const copy = restoredCopy(restored.project).project; validateProject(copy); assert.deepEqual(copy.records[0].detail, r.detail); assert.equal(copy.records[0].reportText, original.reportText);
   r.photos[0].marks = [r.detail.marks[1]]; assert.throws(() => validateProject(p), /圈註/);
 });
@@ -110,7 +110,7 @@ test('expanded conditions and independent observation layers survive backup and 
     { id: id(), measured: false, widthMode: 'unknown', width: null, length: null, pattern: 'diagonal', notes: '', layer: 'structural' }
   ] });
   validateProject(p); const saved = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
-  assert.equal(saved.manifest.version, 11); assert.deepEqual(saved.project.records[0], r);
+  assert.equal(saved.manifest.version, 12); assert.deepEqual(saved.project.records[0], r);
   for (const format of ['quick', 'standard']) {
     const row = attachmentIndex(p, { format }).groups[0].records[0];
     assert.deepEqual(row.conditions, keys); assert.match(row.text, /裂縫 A.*粉刷層/); assert.match(row.text, /裂縫 B.*結構體/);
@@ -218,7 +218,7 @@ test('detail drawings and custom originals survive scoped backup and restore wit
   r.detail = { kind: 'image', mediaId: mid, marks: [{ type: 'pen', points: [{ x: .2, y: .3 }, { x: .4, y: .5 }] }] };
   const result = await readBundle((await makeBundle(p, key => blobs.get(key), a.id)).blob); assert(result.project.media.some(m => m.id === mid));
   const restored = restoredCopy(result.project); validateProject(restored.project); assert.notEqual(restored.project.records[0].detail.mediaId, mid); assert.deepEqual(restored.project.records[0].detail.marks, r.detail.marks);
-  assert.equal(result.manifest.version, 11); r.detail.mediaId = r.photos[0].mediaId; assert.throws(() => validateProject(p), /細部圖原檔/);
+  assert.equal(result.manifest.version, 12); r.detail.mediaId = r.photos[0].mediaId; assert.throws(() => validateProject(p), /細部圖原檔/);
   r.detail = { kind: 'preset', preset: 'beam', mirror: true, marks: [] }; validateProject(p); r.detail.marks = [{ type: 'pen', points: [{ x: 2, y: .1 }] }]; assert.throws(() => validateProject(p), /座標/);
 });
 
@@ -257,7 +257,7 @@ test('individual cracks preserve independent units, uncertainty and legacy group
   assert.match(prose, /原整組紀錄/); assert.deepEqual(recordIssues(r), ['裂縫 C未量測']);
   const restored = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
   assert.deepEqual(restored.project.records[0].cracks, r.cracks); assert.deepEqual(restored.project.records[0].legacyCrack, r.legacyCrack);
-  assert.equal(restored.manifest.version, 11);
+  assert.equal(restored.manifest.version, 12);
   r.cracks[2].width = .3; assert.throws(() => validateProject(p), /未量測/);
 });
 
@@ -579,7 +579,7 @@ test('multiple conditions share originals and retain independent measured or est
   Object.assign(r, { condition: 'crack', conditions: ['crack', 'damp', 'salt', 'spall'], crackPattern: 'network', areas: { crack: { value: null, method: 'estimated' }, damp: { value: 1.5, method: 'measured' }, salt: { value: .8, method: 'estimated' }, spall: { value: 0, method: 'measured' } } });
   validateProject(p); assert.deepEqual(recordIssues(r), []);
   const result = await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob);
-  assert.equal(result.manifest.version, 11); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
+  assert.equal(result.manifest.version, 12); assert.deepEqual(result.project.records[0], r); assert.equal(result.project.records[0].photos.length, 1);
   const copy = restoredCopy(result.project).project.records[0]; assert.deepEqual(copy.conditions, r.conditions); assert.deepEqual(copy.areas, r.areas);
   r.conditions = ['damp']; r.condition = 'damp'; validateProject(p); assert.equal(r.areas.salt.value, .8); assert.deepEqual(recordIssues(r), []);
 });
@@ -625,4 +625,30 @@ test('expanded paper snapping uses unchanged screen distance tolerance', () => {
     assert.equal(resolveSketchPoint(sketch, { x: .5 + 10 / scale / area.width, y: .2 }, { scale }).kind, 'endpoint');
     assert.equal(resolveSketchPoint(sketch, { x: .5 + 15 / scale / area.width, y: .2 }, { scale }).kind, '');
   }
+});
+
+
+import * as M19 from '../model.js';
+import { parseRoster as parseRoster19 } from '../organisation.js';
+test('case types pre-fill floors and quick spaces without changing observations', () => {
+  assert.deepEqual(M19.floorOptions({ floorConfig: { above: 3, below: 1, mezzanine: false } }), ['B1', '1F', '2F', '3F', 'RF']);
+  assert.deepEqual(M19.floorOptions({ floorConfig: { above: 2, below: 0, mezzanine: true } }), ['1F', 'MF', '2F', 'RF']);
+  assert.deepEqual(M19.floorOptions({}), ['B1', '1F', 'MF', '2F', '3F', '4F', '5F', 'RF'], 'legacy projects keep the old floor list');
+  assert.equal(M19.buildingType({}), 'other');
+  assert.deepEqual(M19.floorRank('B2') < M19.floorRank('B1') && M19.floorRank('B1') < M19.floorRank('1F') && M19.floorRank('1F') < M19.floorRank('MF') && M19.floorRank('MF') < M19.floorRank('2F') && M19.floorRank('12F') < M19.floorRank('RF'), true);
+  const units = M19.apartmentUnits({ above: 3, below: 1, mezzanine: true });
+  assert.deepEqual(units.map(u => [u.code, u.floor || '', u.kind || 'residence']), [['1F', '1F', 'residence'], ['2F', '2F', 'residence'], ['3F', '3F', 'residence'], ['公設', '', 'public']]);
+  const order = M19.sortedUnits({ units: [{ code: '公設', kind: 'public' }, { code: '10F-2', floor: '10F' }, { code: '2F', floor: '2F' }, { code: 'B棟公設', building: 'B棟', kind: 'public' }, { code: 'A棟 3F', building: 'A棟', floor: '3F' }] }).map(u => u.code);
+  assert.deepEqual(order, ['2F', '10F-2', '公設', 'A棟 3F', 'B棟公設'], 'buildings first, residences by floor, public units last within a building');
+  assert.deepEqual(M19.spaceOptions({ buildingType: 'townhouse' }, { kind: 'residence' }).main.includes('車庫'), true);
+  assert.deepEqual(M19.spaceOptions({ buildingType: 'apartment' }, { kind: 'public' }).main.includes('樓梯間'), true);
+  assert.deepEqual(M19.spaceOptions({}, {}).exterior.includes('正面外牆'), true);
+  const p = M19.newProject('T19', '型態驗證', '2026-09-19'); p.buildingType = 'apartment'; p.floorConfig = { above: 4, below: 0, mezzanine: false }; p.units.push(...units);
+  M19.validateProject(p);
+  assert.throws(() => M19.validateProject({ ...p, buildingType: 'villa' }), /案件型態/);
+  assert.throws(() => M19.validateProject({ ...p, floorConfig: { above: 0, below: 0, mezzanine: false } }), /樓層設定/);
+  assert.throws(() => M19.validateProject({ ...p, floorConfig: { above: 3, below: 1 } }), /樓層設定/);
+  assert.throws(() => M19.validateProject({ ...p, units: [{ ...units[0], floor: 5 }] }), /戶別固定樓層/);
+  const roster = parseRoster19(['戶別\t地址\t棟別\t種類\t樓層', 'A-301\t合成路 1 號\tA棟\t住戶\t3F', 'A棟公設\t\tA棟\t公設\t'].join('\n'), { units: [] });
+  assert.deepEqual(roster.errors, []); assert.deepEqual(roster.entries.map(u => [u.code, u.building, u.floor, u.kind]), [['A-301', 'A棟', '3F', 'residence'], ['A棟公設', 'A棟', '', 'public']]);
 });

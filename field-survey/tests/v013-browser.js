@@ -11,7 +11,7 @@ export async function verifyV013(browser, base, out) {
   const tap = async(x,y) => { const p=await location(x,y); await page.touchscreen.tap(p.x,p.y); };
   const count = () => page.locator('#detailStage [data-detail-index]').count();
   try {
-    await page.goto(base); await page.locator('#caseSelect').waitFor();
+    await page.goto(base); await page.locator('#contextStrip').waitFor();
     await page.evaluate(async () => {
       const m=await import('./model.js'), s=await import('./store.js'), p=m.newProject('V013-SYNTHETIC','合成細圖操作驗證','2026-09-15'),u=m.newUnit('A戶'),r=m.newRecord(u.id,'1F','客廳'); p.units.push(u);p.records.push(r);
       Object.assign(r,{component:'牆面',condition:'crack',crackPattern:'network',location:'入口旁',reportText:'人工說明保留',detail:{kind:'preset',preset:'wall',mirror:false,marks:[{type:'pen',points:[{x:.1,y:.1},{x:.15,y:.18}]}]}});
@@ -42,7 +42,7 @@ export async function verifyV013(browser, base, out) {
     const saved=(await current()).records[0];assert.equal(saved.detail.marks.length,7);assert.deepEqual(saved.detail.marks[0],original.detail.marks[0]);assert.equal(saved.detail.marks[3].rotation,15);assert.equal(saved.detail.marks[3].size,.3);
     for(const key of ['condition','conditions','crackPattern','width','length','tiles','reportText','photos'])assert.deepEqual(saved[key],original[key]);
     const reports=await page.evaluate(async()=>{const m=await import('./model.js'),s=await import('./store.js'),d=await import('./detail.js'),r=await import('./report.js'),b=await import('./bundle.js'),p=(await s.allProjects())[0],get=async id=>(await s.getMedia(id)).blob,expected=await m.sha256(await d.detailImage(p.records[0].detail,get)),output=[];for(const format of ['standard','quick']){const result=await r.renderAttachment(p,get,{format}),doc=new DOMParser().parseFromString(result.html,'text/html'),src=doc.querySelector('.detail-img').src;output.push({format,hash:await m.sha256(Uint8Array.from(atob(src.split(',')[1]),c=>c.charCodeAt(0))),html:result.html});}const bundle=await b.readBundle((await b.makeBundle(p,get)).blob),copy=m.restoredCopy(bundle.project).project;m.validateProject(copy);return{expected,output,equal:JSON.stringify(copy.records[0].detail)===JSON.stringify(p.records[0].detail),version:bundle.manifest.version};});
-    assert(reports.output.every(x=>x.hash===reports.expected));assert(reports.equal);assert.equal(reports.version, 11);
+    assert(reports.output.every(x=>x.hash===reports.expected));assert(reports.equal);assert.equal(reports.version, 12);
     for(const r of reports.output){const file=path.join(out,`v0.13-${r.format}.html`);await fs.writeFile(file,r.html);const preview=await context.newPage();await preview.goto('file:///'+file.replaceAll('\\','/'));await preview.locator(r.format==='standard'?'.table-sheet':'.detail-sheet').screenshot({path:path.join(out,`v0.13-${r.format}.png`)});await preview.close();}
     await page.waitForFunction(()=>document.querySelector('#offlineStatus').textContent==='離線已就緒');await context.setOffline(true);await page.reload();await click('[data-view=report]');await click('[data-do=edit-detail]');assert.equal(await count(),7);await click('#closeModal');
     assert.deepEqual(errors,[]);await fs.writeFile(path.join(out,'v0.13-result.json'),JSON.stringify({passed:true,hash:reports.expected,backupVersion:reports.version,errors,physicalPhoneTested:false},null,2));console.log('PASS V0.13 tap lines/regions, vertex/segment edits, four symbols, gestures, responsive canvas, identical PNG/report images and legacy/offline backup');

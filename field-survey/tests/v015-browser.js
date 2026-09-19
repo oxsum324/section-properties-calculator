@@ -10,7 +10,7 @@ export async function verifyV015(browser, base, out) {
   const current = () => page.evaluate(async () => (await (await import('./store.js')).allProjects()).find(p => p.code === 'V015'));
   const tap = async (x, y) => { const p = await page.locator('#detailStage svg').evaluate((svg, [x,y]) => { const b = svg.viewBox.baseVal, p = new DOMPoint(b.x + x*b.width, b.y+y*b.height).matrixTransform(svg.getScreenCTM()); return { x:p.x,y:p.y }; }, [x,y]); await page.touchscreen.tap(p.x,p.y); };
   try {
-    await page.goto(base); await page.locator('#caseSelect').waitFor();
+    await page.goto(base); await page.locator('#contextStrip').waitFor();
     const seed = await page.evaluate(async () => {
       const m = await import('./model.js'), s = await import('./store.js'), p = m.newProject('V015','照片選刪與門窗測試','2026-09-17'), u = m.newUnit('A戶'), r = m.newRecord(u.id,'1F','客廳'), other = m.newRecord(u.id,'1F','房間');
       p.units.push(u); p.records.push(r,other); r.location = '入口旁'; r.reportText = '保留人工說明'; r.detail = { kind:'preset',preset:'wall',mirror:false,marks:[{type:'pen',points:[{x:.25,y:.35},{x:.45,y:.55}]}] };
@@ -22,7 +22,7 @@ export async function verifyV015(browser, base, out) {
       const shared=m.newProject('SHARED','跨案共用照片','2026-09-17'),su=m.newUnit('B戶'),sr=m.newRecord(su.id,'1F','房間');shared.units.push(su);shared.records.push(sr);sr.photos.push({...structuredClone(r.photos[0]),placement:null});shared.media.push(structuredClone(p.media[0]));await s.saveProject(shared,0,[assets[0]]);
       await s.saveProject(m.syncRooms(p),0,assets);return {project:p.id,record:r.id,photos:r.photos.map(p=>p.mediaId),other:other.id};
     });
-    await page.reload(); await page.locator('#caseSelect').selectOption(seed.project); await page.locator('#busy').waitFor({state:'hidden'}); await page.locator('#recordForm').waitFor();
+    await page.reload(); await page.locator('[data-view=case]').click(); await page.locator('#busy').waitFor({state:'hidden'}); await page.locator('#caseSelect').selectOption(seed.project); await page.locator('#busy').waitFor({state:'hidden'}); await page.locator('#recordForm').waitFor();
     const before=await current();
     const conflictSafe=await page.evaluate(async()=>{const s=await import('./store.js'),m=await import('./model.js'),p=(await s.allProjects()).find(p=>p.code==='SHARED'),stale=structuredClone(p),mid=p.records[0].photos[0].mediaId;await s.saveProject(p,p.revision);m.removeRecordPhotos(stale,stale.records[0].id,[mid]);try{await s.saveProject(stale,stale.revision);return false;}catch(e){return e.name==='RevisionConflictError' && !!await s.getMedia(mid) && (await s.getProject(p.id)).records[0].photos.length===1;}});assert(conflictSafe);
     await click('#managePhotos'); assert(await page.locator('#deleteSelectedPhotos').isDisabled());
@@ -45,7 +45,7 @@ export async function verifyV015(browser, base, out) {
     await page.setViewportSize({width:390,height:844});await click('#saveDetail');
     const saved=await current();assert.equal(saved.records[0].detail.marks.length,3);assert.equal(saved.records[0].detail.marks[1].kind,'door');assert.notDeepEqual(saved.records[0].detail.marks[1].points[1],{x:.4,y:.8});assert.equal(saved.records[0].reportText,before.records[0].reportText);
     const exported=await page.evaluate(async id=>{const s=await import('./store.js'),m=await import('./model.js'),b=await import('./bundle.js'),d=await import('./detail.js'),r=await import('./report.js'),p=await s.getProject(id),get=async id=>(await s.getMedia(id)).blob,bundle=await b.readBundle((await b.makeBundle(p,get)).blob),png=await d.detailImage(p.records[0].detail,get),expected=await m.sha256(png),hashes=[];for(const format of ['quick','standard']){const rendered=await r.renderAttachment(p,get,{format}),doc=new DOMParser().parseFromString(rendered.html,'text/html'),src=doc.querySelector('.detail-img').src;hashes.push(await m.sha256(Uint8Array.from(atob(src.split(',')[1]),c=>c.charCodeAt(0))));}return{version:bundle.manifest.version,detail:bundle.project.records[0].detail,media:bundle.project.media.map(m=>m.id),expected,hashes};},seed.project);
-    assert.equal(exported.version, 11);assert.deepEqual(exported.detail,saved.records[0].detail);assert(exported.hashes.every(hash=>hash===exported.expected));assert(!exported.media.includes(seed.photos[0]));assert(!exported.media.includes(seed.photos[2]));
+    assert.equal(exported.version, 12);assert.deepEqual(exported.detail,saved.records[0].detail);assert(exported.hashes.every(hash=>hash===exported.expected));assert(!exported.media.includes(seed.photos[0]));assert(!exported.media.includes(seed.photos[2]));
     await page.waitForFunction(()=>document.querySelector('#offlineStatus').textContent==='離線已就緒');await context.setOffline(true);await page.reload();await click(`[data-field-detail="${seed.record}"]`);assert.equal(await page.locator('#detailStage [data-detail-index]').count(),3);await click('#closeModal');
     await click('#managePhotos');await click('#selectAllPhotos');page.once('dialog',d=>d.accept());await click('#deleteSelectedPhotos');assert.equal((await current()).records[0].photos.length,0);assert(await page.locator('#managePhotos').isDisabled());assert.deepEqual((await current()).records[0].detail,saved.records[0].detail);
     // Custom image bases use the same editable opening layer and work offline too.

@@ -14,17 +14,17 @@ export function parseRoster(input, project) {
   }
   assert(!quoted, 'CSV 引號未關閉'); row.push(cell.trim()); if (row.some(Boolean)) rows.push(row);
   assert(rows.length > 1 && rows.length <= 1001, '每次請匯入 1 至 1000 戶，並保留標題列');
-  const aliases = { '戶別': 'code', '戶號': 'code', '鑑定戶編號': 'code', code: 'code', '地址': 'address', address: 'address', '棟別': 'building', '群組': 'building', building: 'building', '種類': 'kind', kind: 'kind' };
+  const aliases = { '戶別': 'code', '戶號': 'code', '鑑定戶編號': 'code', code: 'code', '地址': 'address', address: 'address', '棟別': 'building', '群組': 'building', building: 'building', '種類': 'kind', kind: 'kind', '樓層': 'floor', floor: 'floor' };
   const columns = rows.shift().map(v => Object.hasOwn(aliases, v) ? aliases[v] : undefined);
-  assert(columns.includes('code') && columns.every(Boolean) && new Set(columns).size === columns.length, '標題請使用：戶別、地址、棟別、種類；戶別必填');
+  assert(columns.includes('code') && columns.every(Boolean) && new Set(columns).size === columns.length, '標題請使用：戶別、地址、棟別、種類、樓層；戶別必填');
   const seen = new Set(project.units.map(u => u.code.trim())), entries = [], errors = [];
   rows.forEach((row, i) => {
     const data = Object.fromEntries(columns.map((key, index) => [key, row[index] || '']));
-    if (row.length > columns.length || !data.code || data.code.length > 150 || (data.address || '').length > 500 || (data.building || '').length > 100) { errors.push(`第 ${i + 2} 列：戶別或欄位內容不正確`); return; }
+    if (row.length > columns.length || !data.code || data.code.length > 150 || (data.address || '').length > 500 || (data.building || '').length > 100 || (data.floor || '').length > 100) { errors.push(`第 ${i + 2} 列：戶別或欄位內容不正確`); return; }
     if (seen.has(data.code)) { errors.push(`第 ${i + 2} 列：戶別 ${data.code} 重複，未自動覆蓋`); return; }
     const kinds = { '': 'residence', '住戶': 'residence', residence: 'residence', '公設': 'public', public: 'public' }, kind = Object.hasOwn(kinds, data.kind || '') ? kinds[data.kind || ''] : '';
     if (!kind) { errors.push(`第 ${i + 2} 列：種類限住戶或公設`); return; }
-    seen.add(data.code); entries.push({ ...newUnit(data.code, data.address || ''), building: data.building || '', kind });
+    seen.add(data.code); entries.push({ ...newUnit(data.code, data.address || ''), building: data.building || '', kind, floor: data.floor || '' });
   });
   return { entries, errors };
 }
@@ -47,12 +47,12 @@ export function createOrganisationController(api) {
   }
   function rosterDialog() {
     requireNoRecording();
-    openModal('批次新增戶別／公設', '<p>從 Excel 複製表格貼入，或讀取 UTF-8 CSV。標題列：戶別、地址、棟別、種類；種類填住戶或公設。</p><label>名冊內容<textarea id="rosterText" rows="7" maxlength="2097152" placeholder="戶別,地址,棟別,種類"></textarea></label><input id="rosterFile" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values"><button id="reviewRoster" class="primary">檢查名冊</button><div id="rosterPreview"></div>');
+    openModal('批次新增戶別／公設', '<p>從 Excel 複製表格貼入，或讀取 UTF-8 CSV。標題列：戶別、地址、棟別、種類、樓層（選填）；種類填住戶或公設，樓層填公寓／大樓各戶的固定樓層。</p><label>名冊內容<textarea id="rosterText" rows="7" maxlength="2097152" placeholder="戶別,地址,棟別,種類,樓層"></textarea></label><input id="rosterFile" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values"><button id="reviewRoster" class="primary">檢查名冊</button><div id="rosterPreview"></div>');
     $('#rosterFile').onchange = () => action(async () => { const file = $('#rosterFile').files[0]; if (!file) return; assert(file.size <= 2 * 1024 * 1024, '名冊請小於 2 MB'); $('#rosterText').value = await file.text(); $('#rosterPreview').replaceChildren(); });
     $('#rosterText').oninput = () => $('#rosterPreview').replaceChildren();
     $('#reviewRoster').onclick = () => action(async () => {
       const source = $('#rosterText').value, result = parseRoster(source, getProject());
-      $('#rosterPreview').innerHTML = `<p>${result.entries.length} 戶可新增；${result.errors.length} 筆需修正。</p>${result.errors.slice(0, 20).map(x => `<p class="danger-text">${e(x)}</p>`).join('')}<div class="roster-scroll"><table><thead><tr><th>戶別</th><th>棟別</th><th>種類</th><th>地址</th></tr></thead><tbody>${result.entries.slice(0, 100).map(u => `<tr><td>${e(u.code)}</td><td>${e(u.building)}</td><td>${UNIT_KINDS[u.kind]}</td><td>${e(u.address)}</td></tr>`).join('')}</tbody></table></div>${result.entries.length > 100 ? '<p>預覽前 100 戶，保存時納入全部通過的戶別。</p>' : ''}<button id="applyRoster" class="primary" ${result.errors.length || !result.entries.length ? 'disabled' : ''}>新增 ${result.entries.length} 戶</button>`;
+      $('#rosterPreview').innerHTML = `<p>${result.entries.length} 戶可新增；${result.errors.length} 筆需修正。</p>${result.errors.slice(0, 20).map(x => `<p class="danger-text">${e(x)}</p>`).join('')}<div class="roster-scroll"><table><thead><tr><th>戶別</th><th>棟別</th><th>樓層</th><th>種類</th><th>地址</th></tr></thead><tbody>${result.entries.slice(0, 100).map(u => `<tr><td>${e(u.code)}</td><td>${e(u.building)}</td><td>${e(u.floor || '')}</td><td>${UNIT_KINDS[u.kind]}</td><td>${e(u.address)}</td></tr>`).join('')}</tbody></table></div>${result.entries.length > 100 ? '<p>預覽前 100 戶，保存時納入全部通過的戶別。</p>' : ''}<button id="applyRoster" class="primary" ${result.errors.length || !result.entries.length ? 'disabled' : ''}>新增 ${result.entries.length} 戶</button>`;
       $('#applyRoster').onclick = () => action(async () => { const checked = parseRoster(source, getProject()); assert(!checked.errors.length, '名冊已變更或戶號重複，請重新檢查'); await commit(p => p.units.push(...checked.entries)); closeModal(true); await render(); });
     });
   }

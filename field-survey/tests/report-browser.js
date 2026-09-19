@@ -10,7 +10,7 @@ export async function verifyReportWorkflow(browser, base, out) {
   const click = async selector => { await page.locator(selector).click(); await idle(); };
   const current = () => page.evaluate(async () => (await (await import('./store.js')).allProjects())[0]);
   try {
-    await page.goto(base); await page.locator('#caseSelect').waitFor();
+    await page.goto(base); await page.locator('#contextStrip').waitFor();
     const seed = await page.evaluate(async () => {
       const m = await import('./model.js'), store = await import('./store.js'), p = m.newProject('REPORT-DEMO', '合成附件流程驗證', '2026-09-09'), unit = m.newUnit('A 戶'); p.units.push(unit);
       const r = m.newRecord(unit.id, '1F', '客廳'), s = m.newRecord(unit.id, '1F', '浴廁'); p.records.push(r, s);
@@ -59,7 +59,7 @@ export async function verifyReportWorkflow(browser, base, out) {
     assert.equal(await page.locator(row + ' [data-report-include]:checked').count(), 1);
     await page.locator(row + ' [data-report-text]').fill('重新整理後的說明'); await click('[data-view="work"]'); assert.equal((await current()).records[0].reportText, '重新整理後的說明');
     const restored = await page.evaluate(async () => { const m = await import('./model.js'), b = await import('./bundle.js'), s = await import('./store.js'), p = (await s.allProjects())[0]; const result = await b.readBundle((await b.makeBundle(p, async id => (await s.getMedia(id)).blob)).blob); const c = m.restoredCopy(result.project); m.validateProject(c.project); return { version: result.manifest.version, equal: JSON.stringify(result.project) === JSON.stringify(p), hash: await m.sha256((await s.getMedia(p.media[0].id)).blob) }; });
-    assert.deepEqual(restored, { version: 11, equal: true, hash: seed.hash });
+    assert.deepEqual(restored, { version: 12, equal: true, hash: seed.hash });
     await context.setOffline(true); await page.reload(); await page.locator('#recordForm').waitFor(); await click('[data-view="report"]'); assert.match(await page.locator(row + ' [data-report-text]').inputValue(), /重新整理/); await context.setOffline(false);
     const standalone = await context.newPage(); await standalone.goto('file:///' + htmlPath.replaceAll('\\', '/')); await standalone.emulateMedia({ media: 'print' });
     await standalone.pdf({ path: path.join(out, 'synthetic-attachment-v0.9.pdf'), preferCSSPageSize: true, printBackground: true });

@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { verifyFieldV08Workflow } from './field-v08-browser.js';
 import { verifyReportWorkflow } from './report-browser.js';
 import { verifyStandardFloors } from './standard-floor-browser.js';
+import { verifyV019 } from './v019-browser.js';
 import { verifyV018 } from './v018-browser.js';
 import { verifyV017 } from './v017-browser.js';
 import { verifyV016 } from './v016-browser.js';
@@ -96,7 +97,7 @@ async function verifyHttpCachedUpdate() {
     await upgrade.waitForFunction(async () => !!(await navigator.serviceWorker.getRegistration()).waiting);
     await click('#help', upgrade); await upgrade.locator('#applyUpdate').waitFor({ state: 'visible' });
     await Promise.all([upgrade.waitForEvent('load'), upgrade.locator('#applyUpdate').click()]);
-    await upgrade.locator('#caseSelect').waitFor(); assert.equal(await upgrade.title(), '現況鑑定紀錄 V' + VERSION);
+    await upgrade.locator('#contextStrip').waitFor(); assert.equal(await upgrade.title(), '現況鑑定紀錄 V' + VERSION);
     assert.equal(await upgrade.evaluate(async () => (await import('./model.js')).VERSION), VERSION);
     assert.deepEqual((await projects(upgrade))[0], before);
     const cached = await upgrade.evaluate(async cacheName => {
@@ -106,7 +107,7 @@ async function verifyHttpCachedUpdate() {
     }, cacheName);
     assert.equal(Object.keys(cached).length, assets.length);
     for (const asset of assets) { assert(requestedNew.has(asset), 'new worker refetches ' + asset); assert.equal(cached[asset], createHash('sha256').update(files.get(asset)).digest('hex'), 'offline cache bytes match current ' + asset); }
-    await upgradeContext.setOffline(true); await upgrade.reload(); await upgrade.locator('#caseSelect').waitFor(); assert.equal(await upgrade.title(), '現況鑑定紀錄 V' + VERSION); assert.deepEqual((await projects(upgrade))[0], before);
+    await upgradeContext.setOffline(true); await upgrade.reload(); await upgrade.locator('#contextStrip').waitFor(); assert.equal(await upgrade.title(), '現況鑑定紀錄 V' + VERSION); assert.deepEqual((await projects(upgrade))[0], before);
     console.log('PASS update bypasses fresh HTTP cache for every offline asset and preserves existing case');
   } finally { await upgradeContext.close(); await new Promise(resolve => fixtureServer.close(resolve)); }
 }
@@ -360,13 +361,13 @@ try {
   await click('#recoverCopy', other); const saved = await projects(other); assert.equal(saved.length, 2);
   assert(saved.some(x => x.records[0].notes === '第一視窗修改')); assert(saved.some(x => x.records[0].notes === '第二視窗保留的修改'));
   await other.close();
-  const photoTab = await context.newPage(); await photoTab.goto(base); await photoTab.locator('#caseSelect').selectOption(bundle.project.id); await idle(photoTab);
+  const photoTab = await context.newPage(); await photoTab.goto(base); await photoTab.locator('[data-view=case]').click(); await idle(photoTab); await photoTab.locator('#caseSelect').selectOption(bundle.project.id); await idle(photoTab);
   await click('.photo-card', photoTab); await photoTab.locator('#photoStage svg').waitFor(); await draw('#photoStage svg', photoTab); await photoTab.locator('#photoCaption').fill('衝突圈註副本');
   await page.locator('#notes').fill('第一視窗再次修改'); await click('#saveRecord');
   await click('#savePhoto', photoTab); await photoTab.locator('#modalRecover').waitFor(); await click('#modalRecover', photoTab);
   const markedCopy = (await projects(photoTab)).find(x => x.records[0].photos[0].caption === '衝突圈註副本');
   assert(markedCopy); assert.equal(markedCopy.records[0].photos[0].marks.length, 4); assert.equal(await originalHash(photoTab, markedCopy.records[0].photos[0].mediaId), hash); await photoTab.close();
-  const captureTab = await context.newPage(); await captureTab.goto(base); await captureTab.locator('#caseSelect').selectOption(bundle.project.id); await idle(captureTab);
+  const captureTab = await context.newPage(); await captureTab.goto(base); await captureTab.locator('[data-view=case]').click(); await idle(captureTab); await captureTab.locator('#caseSelect').selectOption(bundle.project.id); await idle(captureTab);
   const extraPath = path.join(out, 'synthetic-extra.png'); await fs.writeFile(extraPath, Buffer.concat([Buffer.from(fixture, 'base64'), Buffer.from([1])]));
   const extraPicker = captureTab.waitForEvent('filechooser'); await click('#pickPhotos', captureTab);
   await page.locator('#notes').fill('原案持續保存'); await click('#saveRecord'); await (await extraPicker).setFiles(extraPath); await idle(captureTab); await captureTab.locator('#recoverCopy').waitFor(); await click('#recoverCopy', captureTab);
@@ -387,6 +388,7 @@ try {
   await verifyV013(browser, base, out);
   await verifyV015(browser, base, out);
   await verifyV016(browser, base, out);
+  await verifyV019(browser, base, out);
   await verifyV018(browser, base, out);
   await verifyV017(browser, base, out);
   await verifyStandardFloors(browser, base, out);

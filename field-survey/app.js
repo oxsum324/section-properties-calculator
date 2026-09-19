@@ -1,4 +1,4 @@
-import { planTemplateCopy, VERSION, removeRecordPhotos, id, now, clone, newProject, newUnit, newRecord, CONDITIONS, COMPONENTS, UNIT_STATES, ROLES, WIDTH_MODES, CRACK_PATTERNS, widthMode, isNetworkCrack, recordComponents, recordConditions, AREA_CONDITIONS, AREA_METHODS, emptySketch, recordIssues, unitIssues, sha256, restoredCopy, assert } from './model.js';
+import { planTemplateCopy, VERSION, removeRecordPhotos, BUILDING_TYPES, floorConfig, buildingType, floorOptions, spaceOptions, sortedUnits, apartmentUnits, validDate, id, now, clone, newProject, newUnit, newRecord, CONDITIONS, COMPONENTS, UNIT_STATES, ROLES, WIDTH_MODES, CRACK_PATTERNS, widthMode, isNetworkCrack, recordComponents, recordConditions, AREA_CONDITIONS, AREA_METHODS, emptySketch, recordIssues, unitIssues, sha256, restoredCopy, assert } from './model.js';
 import { openStore, allProjects, getProject, getMedia, saveProject, backupState, saveBackupState } from './store.js';
 import { makeBundle, readBundle, makeReceipt, checkReceipt } from './bundle.js';
 import { createAnnotator, markedImage, planPreview, photoLocationImage } from './annotation.js';
@@ -165,6 +165,7 @@ function changed(event) {
   }
   if (target?.name === 'conditions' && (target.value === 'normal' && target.checked || target.value === 'crack' && !target.checked)) $('#tileCrack').checked = false;
   if (target?.name === 'conditions' && target.value === 'normal' && target.checked) $('#tileBroken').checked = $('#tileBulge').checked = false;
+  if (target?.id === 'floor' || target?.id === 'space') for (const b of $(target.id === 'floor' ? '#floorChips' : '#spaceChips').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset[target.id] === target.value));
   if (!currentRecord()) return; dirty = true; editGeneration++; $('#saveStatus').textContent = '尚未保存'; clearTimeout(saveTimer); saveTimer = setTimeout(() => { saveForm().catch(fail); }, 500);
   conditionState();
   measurementState();
@@ -173,6 +174,7 @@ async function projectOptions() {
   const projects = (await allProjects()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   $('#caseSelect').innerHTML = projects.length ? projects.map(p => `<option value="${esc(p.id)}">${esc(p.code)} · ${esc(p.name)}</option>`).join('') : '<option value="">尚無案件</option>';
   if (project) $('#caseSelect').value = project.id;
+  $('#contextCase').textContent = project ? `${project.code} · ${project.name}` : '尚無案件';
 }
 async function selectProject(projectId) {
   requireNoRecording(); revokeURLs(); project = projectId ? await getProject(projectId) : null; dirty = false; conflictDraft = null;
@@ -184,7 +186,8 @@ function renderRecordList() {
   $('#recordCount').textContent = records.length;
   $('#recordList').innerHTML = records.length ? records.map(r => `<button class="record-item ${r.id === recordId ? 'active' : ''}" data-record="${esc(r.id)}"><strong>${esc(recordNumber(r))} · ${esc(r.space || '未填空間')}</strong><small>${esc(r.floor || '未填樓層')} · ${r.photos.filter(p => !p.excluded).length} 張照片${recordIssues(r).length ? ' · 待補' : ''}</small></button>`).join('') : '<p class="micro">這一戶尚無位置紀錄</p>';
   $('#addRecord').disabled = !unitId; $('#editUnit').disabled = !unitId;
-  $('#unitPlans').disabled = !unitId;
+  $('#unitPlans').disabled = !unitId; $('#addAddressRecord').disabled = !unitId;
+  const order = project ? sortedUnits(project) : []; $('#nextUnit').disabled = !unitId || order.findIndex(u => u.id === unitId) >= order.length - 1;
   $('#unitPlanSummary').textContent = unitId ? `本戶 ${project.plans.filter(p => p.unitId === unitId).length} 張共用圖面。可先依樓層建圖，再新增位置紀錄。` : '先新增戶別，即可匯入或手繪平面圖。';
   renderContext();
 }
@@ -268,6 +271,7 @@ async function renderEditor() {
   $('#surface').value = r.surface || ''; $('#tileCrack').checked = r.tiles?.crack || false; $('#tileBroken').checked = $('#condition input[value="tileBroken"]').checked; $('#tileBulge').checked = $('#condition input[value="tileBulge"]').checked; $('#tileApprox').checked = r.tiles?.approx || false;
   for (const [selector, key] of [['#tileCrackCount', 'crackCount'], ['#tileBrokenCount', 'brokenCount'], ['#tileBulgeCount', 'bulgeCount'], ['#tileOverlapCount', 'overlapCount']]) $(selector).value = r.tiles?.[key] ?? '';
   $('#spaces').innerHTML = [...new Set(['客廳', '房間', '廚房', '浴廁', '樓梯', '陽台', ...project.records.filter(x => x.unitId === r.unitId && x.floor === r.floor).map(x => x.space)])].filter(Boolean).map(x => `<option value="${esc(x)}">`).join('');
+  renderChips(r);
   for (const k of ['width', 'length']) { $('#' + k).value = r[k] ?? ''; $('#' + k).disabled = !r.measured; }
   crackFields.load(r);
   for (const [kind, selector] of [['crack', '#tileCrackCountText'], ['broken', '#tileBrokenCountText'], ['bulge', '#tileBulgeCountText']]) $(selector).value = r.tiles?.[kind + 'Text'] || '';
@@ -277,7 +281,10 @@ async function render() {
   await projectOptions(); $('#welcome').hidden = !!project; $('#workspace').hidden = !project; $('#bottomNav').hidden = !project; $('#contextCrumbs').hidden = !project; $('#gotoCase').hidden = !project || activeView === 'case';
   if (!project) return;
   organisation.render();
-  $('#unitSelect').innerHTML = project.units.length ? project.units.map(u => `<option value="${esc(u.id)}">${esc(u.code)}${u.address ? ' · ' + esc(u.address) : ''}</option>`).join('') : '<option value="">請先新增戶別</option>';
+  const config = floorConfig(project);
+  $('#caseTypeSummary').textContent = `${BUILDING_TYPES[buildingType(project)]} · 地上 ${config.above} 層${config.below ? `、地下 ${config.below} 層` : ''}${config.mezzanine ? '、含夾層' : ''}`;
+  $('#reportPublicFloors').closest('label').hidden = buildingType(project) === 'townhouse';
+  $('#unitSelect').innerHTML = project.units.length ? sortedUnits(project).map(u => `<option value="${esc(u.id)}">${esc(u.code)}${u.address ? ' · ' + esc(u.address) : ''}</option>`).join('') : '<option value="">請先新增戶別</option>';
   $('#unitSelect').value = unitId; renderRecordList(); await renderEditor(); await showView(activeView);
 }
 async function showView(view) {
@@ -314,17 +321,49 @@ async function renderBackup() {
   $('#storageInfo').textContent = estimate ? `此網站已用 ${size(estimate.usage || 0)}，估計配額 ${size(estimate.quota || 0)}。${await navigator.storage?.persisted?.() ? '已取得持續保存。' : '尚未取得持續保存。'}` : '此瀏覽器無法提供空間估計；請定期匯出備份。';
 }
 
+const CASE_TYPE_HELP = { townhouse: '每個門牌一戶，一戶跨樓層；現場以樓層快選鍵填樓層。', apartment: '一層一戶：建立時依地上層數自動建立各樓層戶別與一個公設單元，紀錄自動帶入樓層。', tower: '每層多戶、可多棟：填棟別會為每棟建立一個公設單元；戶別可用名冊匯入並帶固定樓層。', other: '不預設戶別結構，樓層與空間仍提供快選。' };
+function caseFormFields(p) {
+  const config = floorConfig(p);
+  return `<label>案件型態<select name="type">${opts(BUILDING_TYPES)}</select></label><p id="caseTypeHelp" class="micro"></p><div class="two-col"><label>地上層數<input name="above" type="number" min="1" max="99" step="1" inputmode="numeric" required value="${config.above}"></label><label>地下層數<input name="below" type="number" min="0" max="9" step="1" inputmode="numeric" required value="${config.below}"></label></div><label class="check-label"><input name="mezzanine" type="checkbox" ${config.mezzanine ? 'checked' : ''}>有夾層（MF）</label>`;
+}
+function bindCaseTypeHelp(form) {
+  const update = () => { const type = form.querySelector('[name=type]').value; form.querySelector('#caseTypeHelp').textContent = CASE_TYPE_HELP[type]; const b = form.querySelector('#buildingsField'); if (b) b.hidden = type !== 'tower'; };
+  form.querySelector('[name=type]').onchange = update; update();
+}
+function readCaseForm(form) {
+  const data = new FormData(form), above = Number(data.get('above')), below = Number(data.get('below'));
+  assert(Number.isSafeInteger(above) && above >= 1 && above <= 99 && Number.isSafeInteger(below) && below >= 0 && below <= 9, '層數須為整數：地上 1～99、地下 0～9');
+  assert(Object.hasOwn(BUILDING_TYPES, data.get('type')), '請選擇案件型態');
+  return { code: data.get('code').trim(), name: data.get('name').trim(), date: data.get('date'), type: data.get('type'), config: { above, below, mezzanine: data.has('mezzanine') }, buildings: [...new Set(String(data.get('buildings') || '').split(/[,，、\s]+/).map(x => x.trim()).filter(Boolean))] };
+}
 function caseDialog() {
   requireNoRecording();
-  openModal('建立案件', `<form id="caseForm"><label>案號<input name="code" required maxlength="100" placeholder="公司或公會案號"></label><label>案件名稱<input name="name" required maxlength="180" placeholder="本次現況鑑定名稱"></label><label>本次會勘日期<input name="date" type="date" required value="${localDate()}"></label><p class="modal-note">只在此裝置建立案件，不會上傳照片或住戶資料。</p><div class="modal-actions"><button class="primary" type="submit">建立案件</button></div></form>`);
-  $('#caseForm').onsubmit = e => { e.preventDefault(); const data = new FormData(e.target); action(async () => { const created = newProject(data.get('code'), data.get('name'), data.get('date')); await saveProject(created, 0); closeModal(true); await selectProject(created.id); toast('案件已建立，請新增第一戶'); }); };
+  openModal('建立案件', `<form id="caseForm"><label>案號<input name="code" required maxlength="100" placeholder="公司或公會案號"></label><label>案件名稱<input name="name" required maxlength="180" placeholder="本次現況鑑定名稱"></label><label>本次會勘日期<input name="date" type="date" required value="${localDate()}"></label>${caseFormFields({ floorConfig: { above: 5, below: 0, mezzanine: false } })}<label id="buildingsField" hidden>棟別（以逗號分隔，選填）<input name="buildings" maxlength="500" placeholder="例如 A棟, B棟"></label><p class="modal-note">只在此裝置建立案件，不會上傳照片或住戶資料。型態與層數之後可在「案件設定」修改，戶別可增減。</p><div class="modal-actions"><button class="primary" type="submit">建立案件</button></div></form>`);
+  bindCaseTypeHelp($('#caseForm'));
+  $('#caseForm').onsubmit = e => { e.preventDefault(); action(async () => {
+    const form = readCaseForm(e.target), created = newProject(form.code, form.name, form.date);
+    created.buildingType = form.type; created.floorConfig = form.config;
+    if (form.type === 'apartment') created.units.push(...apartmentUnits(form.config));
+    if (form.type === 'tower') for (const b of form.buildings) created.units.push({ ...newUnit(`${b}公設`), building: b, kind: 'public' });
+    await saveProject(created, 0); closeModal(true); await selectProject(created.id); toast(created.units.length ? `案件已建立，已自動建立 ${created.units.length} 個單元` : '案件已建立，請新增第一戶');
+  }); };
+}
+function caseSettingsDialog() {
+  requireNoRecording(); assert(project, '請先建立案件');
+  openModal('案件設定', `<form id="caseForm"><label>案號<input name="code" required maxlength="100" value="${esc(project.code)}"></label><label>案件名稱<input name="name" required maxlength="180" value="${esc(project.name)}"></label><label>原案會勘日期<input name="date" type="date" required value="${esc(project.date)}"></label>${caseFormFields(project)}<p class="micro">修改型態與層數只影響樓層與空間快選；既有紀錄與戶別不變，公寓不會重新自動建戶，請用「＋ 戶別」補建。</p><div class="modal-actions"><button class="primary" type="submit">保存設定</button></div></form>`);
+  $('#caseForm [name=type]').value = buildingType(project); bindCaseTypeHelp($('#caseForm'));
+  $('#caseForm').onsubmit = e => { e.preventDefault(); action(async () => {
+    const form = readCaseForm(e.target); assert(form.code && form.name && validDate(form.date), '案號、名稱或日期不正確');
+    await commit(next => { next.code = form.code; next.name = form.name; next.date = form.date; next.buildingType = form.type; next.floorConfig = form.config; });
+    closeModal(true); await render(); toast('案件設定已保存');
+  }); };
 }
 function unitDialog(editId = '') {
   requireNoRecording(); assert(project, '請先建立案件');
   const u = project.units.find(x => x.id === editId);
   openModal(u ? '戶別與本次進場情形' : '新增鑑定戶', `<form id="unitForm"><label>鑑定戶編號／名稱<input name="code" required maxlength="150" value="${esc(u?.code || '')}" placeholder="例如 001、A 棟公設"></label><label>地址<input name="address" maxlength="500" value="${esc(u?.address || '')}" placeholder="可於此核對實際門牌"></label>${u ? `<label>本次狀態<select name="status">${opts(UNIT_STATES)}</select></label><label>未完成範圍／無法入內原因<textarea name="reason" maxlength="10000" rows="3">${esc(u.reason)}</textarea></label><p class="micro">部分完成或無法入內請留下原因；完成狀態只表示本次紀錄進度。</p>` : ''}<div class="modal-actions"><button class="primary" type="submit">${u ? '保存戶況' : '新增戶別'}</button></div></form>`);
   if (u) $('#unitForm [name=status]').value = u.status;
-  const fields = document.createElement('div'); fields.className = 'two-col'; fields.innerHTML = `<label>棟別／群組<input name="building" maxlength="100" value="${esc(u?.building || '')}"></label><label>鑑定單元<select name="kind">${opts(UNIT_KINDS)}</select></label>`; $('#unitForm').prepend(fields); $('#unitForm [name=kind]').value = u?.kind || 'residence';
+  const fields = document.createElement('div'); fields.className = 'two-col'; fields.innerHTML = `<label>棟別／群組<input name="building" maxlength="100" value="${esc(u?.building || '')}"></label><label>鑑定單元<select name="kind">${opts(UNIT_KINDS)}</select></label><label>固定樓層（公寓／大樓，選填）<input name="floor" maxlength="100" value="${esc(u?.floor || '')}" placeholder="例如 3F；新紀錄自動帶入，可改"></label>`; $('#unitForm').prepend(fields); $('#unitForm [name=kind]').value = u?.kind || 'residence';
   const visit = organisation.visit, history = u?.visitHistory?.find(h => h.visitId === visit?.id);
   if (u && visit) {
     $('#unitForm [name=status]').value = history?.status || 'open'; $('#unitForm [name=reason]').value = history?.reason || '';
@@ -336,10 +375,10 @@ function unitDialog(editId = '') {
       assert(!project.units.some(x => x.id !== editId && x.code === code), '此案件已有相同戶別編號');
       let chosen = u?.id;
       await commit(next => {
-        if (!u) { const item = { ...newUnit(code, data.get('address')), building: data.get('building').trim(), kind: data.get('kind') }; chosen = item.id; next.units.push(item); }
+        if (!u) { const item = { ...newUnit(code, data.get('address')), building: data.get('building').trim(), kind: data.get('kind'), floor: data.get('floor').trim() }; chosen = item.id; next.units.push(item); }
         else {
           const item = next.units.find(x => x.id === editId); item.code = code; item.address = data.get('address').trim(); item.status = data.get('status'); item.reason = data.get('reason').trim();
-          item.building = data.get('building').trim(); item.kind = data.get('kind');
+          item.building = data.get('building').trim(); item.kind = data.get('kind'); item.floor = data.get('floor').trim();
           assert(!['partial', 'inaccessible'].includes(item.status) || item.reason, '請補上未完成／無法入內原因');
           if (item.status === 'complete') assert(unitIssues(visit ? { ...next, records: next.records.filter(r => r.visitId === visit.id) } : next, item).length === 0, '本戶仍有待補項目。請補齊，或選擇部分完成並記錄範圍。');
           if (visit) { item.visitHistory ??= []; const h = { visitId: visit.id, date: data.get('visitDate'), scope: data.get('visitScope').trim(), status: item.status, reason: item.reason }; const i = item.visitHistory.findIndex(h => h.visitId === visit.id); if (i < 0) item.visitHistory.push(h); else item.visitHistory[i] = h; const latest = latestUnitHistory(next, item); item.status = latest.status; item.reason = latest.reason; }
@@ -351,9 +390,28 @@ function unitDialog(editId = '') {
 }
 async function addRecord() {
   requireNoRecording(); assert(unitId, '請先新增或選擇鑑定戶');
-  const previous = currentRecord(), r = newRecord(unitId, previous?.floor || '', previous?.space || '');
+  const previous = currentRecord(), r = newRecord(unitId, previous?.floor || currentUnit()?.floor || '', previous?.space || '');
   const visit = organisation.visit; r.visitId = visit?.id || ''; r.observedOn = visit?.start === visit?.end ? visit?.start || '' : '';
   await commit(next => { next.records.push(r); markUnitOpen(next, r); }); recordId = r.id; await render(); $('#location').focus();
+}
+// Quick choices come from the case type and the unit kind; free text stays allowed.
+function renderChips(r) {
+  const spaces = spaceOptions(project, currentUnit());
+  const chip = (attr, value, pressed) => `<button type="button" data-${attr}="${esc(value)}" aria-pressed="${pressed}">${esc(value)}</button>`;
+  $('#floorChips').innerHTML = floorOptions(project).map(f => chip('floor', f, f === r.floor)).join('');
+  $('#spaceChips').innerHTML = spaces.main.map(s => chip('space', s, s === r.space)).join('') + '<span class="chip-divider" aria-hidden="true"></span>' + spaces.exterior.map(s => chip('space', s, s === r.space)).join('');
+}
+async function addAddressRecord() {
+  requireNoRecording(); assert(unitId, '請先新增或選擇鑑定戶');
+  const u = currentUnit(), r = newRecord(unitId, u?.floor || '1F', '外觀');
+  Object.assign(r, { location: '門牌', component: '外觀', components: ['外觀'], condition: 'normal', conditions: ['normal'] });
+  const visit = organisation.visit; r.visitId = visit?.id || ''; r.observedOn = visit?.start === visit?.end ? visit?.start || '' : '';
+  await commit(next => { next.records.push(r); markUnitOpen(next, r); }); recordId = r.id; await render(); toast('已建立門牌外觀紀錄，請拍門牌與外觀'); $('#takePhoto').focus();
+}
+async function nextUnit() {
+  requireNoRecording(); const order = sortedUnits(project), index = order.findIndex(u => u.id === unitId);
+  assert(order.length, '尚無戶別'); if (index >= order.length - 1) { toast('已是最後一戶'); return; }
+  unitId = order[index + 1].id; recordId = project.records.find(r => r.unitId === unitId)?.id || ''; await render(); toast(`已切換至 ${order[index + 1].code}`);
 }
 async function prepareAsset(file, kind, source) {
   assert(file.size > 0 && file.size <= 60 * 1024 * 1024, `${file.name || '媒體'}：單一檔案須小於 60 MB`);
@@ -726,7 +784,7 @@ async function receiveReceipt(file) {
   state.entries[receipt.scope || 'all'] = await checkReceipt(receipt, project, state); await saveBackupState(state); await renderBackup(); toast('核對收據已記錄');
 }
 function helpDialog() {
-  openModal('手機使用與保存', `<ol class="help-list"><li>在「案件與備份」建立案件、會勘批次與戶別名冊；到「現場紀錄」選鑑定戶，先從「平面圖庫／先建圖」依樓層匯入或手繪，標上入口、樓梯及房間名稱；再進入各空間新增位置，引用圖面標拍攝箭頭，拍全景、近照或量尺照。</li><li>點照片可圈選、畫箭頭與文字；圈註另存，原圖保留。位置圖可加入圖面或草圖照片；手繪簡圖支援雙指縮放、移動、四向擴展及選取刪除。照片旁可核對定位，另可下載照片與位置圖對照副本。</li><li>現況可複選並共用照片；白華、剝落等面積各自填 m²，不合計重疊範圍。裂隙寬度用 mm、長度用 m。現況欄位會自動保存。切換位置前會先保存；上方有錯誤時請先處理。</li><li>離開一戶前查看「待補檢查」，無法入內或部分完成請記原因。</li><li>從「案件與備份」匯出全案或單戶。在電腦開啟同一工具、核對備份及建立還原副本。</li><li>iPhone 可從瀏覽器分享選單加入主畫面；Android 可從瀏覽器選單安裝。需先在線開啟，等上方顯示「離線已就緒」。手機使用需 HTTPS。</li></ol><p class="modal-note">資料只保存在此瀏覽器及你匯出的備份檔，不自動上傳。換瀏覽器、清除網站資料或移除應用程式前，請先完成外部備份。勿以無痕模式保存工作。</p><p>本工具記錄現場可見情形，不自動判定損害原因、結構安全或責任歸屬。尚須在實際手機上確認相機、容量及中斷操作。</p><p class="help-version">版本 ${VERSION} · 純本機資料 · 現況紀錄工作稿</p><button id="applyUpdate" class="secondary" hidden>保存後套用離線更新</button>`);
+  openModal('手機使用與保存', `<ol class="help-list"><li>在「案件與備份」建立案件（選透天／公寓／大樓並填層數，公寓會自動建立各樓層戶別）、會勘批次與戶別名冊；到「現場紀錄」選鑑定戶，先從「平面圖庫／先建圖」依樓層匯入或手繪，標上入口、樓梯及房間名稱；再進入各空間新增位置，引用圖面標拍攝箭頭，拍全景、近照或量尺照。</li><li>點照片可圈選、畫箭頭與文字；圈註另存，原圖保留。位置圖可加入圖面或草圖照片；手繪簡圖支援雙指縮放、移動、四向擴展及選取刪除。照片旁可核對定位，另可下載照片與位置圖對照副本。</li><li>現況可複選並共用照片；白華、剝落等面積各自填 m²，不合計重疊範圍。裂隙寬度用 mm、長度用 m。現況欄位會自動保存。切換位置前會先保存；上方有錯誤時請先處理。</li><li>離開一戶前查看「待補檢查」，無法入內或部分完成請記原因。</li><li>從「案件與備份」匯出全案或單戶。在電腦開啟同一工具、核對備份及建立還原副本。</li><li>iPhone 可從瀏覽器分享選單加入主畫面；Android 可從瀏覽器選單安裝。需先在線開啟，等上方顯示「離線已就緒」。手機使用需 HTTPS。</li></ol><p class="modal-note">資料只保存在此瀏覽器及你匯出的備份檔，不自動上傳。換瀏覽器、清除網站資料或移除應用程式前，請先完成外部備份。勿以無痕模式保存工作。</p><p>本工具記錄現場可見情形，不自動判定損害原因、結構安全或責任歸屬。尚須在實際手機上確認相機、容量及中斷操作。</p><p class="help-version">版本 ${VERSION} · 純本機資料 · 現況紀錄工作稿</p><button id="applyUpdate" class="secondary" hidden>保存後套用離線更新</button>`);
   $('#modalBody').insertAdjacentHTML('afterbegin', '<p class="modal-note">V0.10.0：可匯入戶別名冊、分次會勘並保留進場歷程。在附件整理選六種細圖、畫損害標註，再依戶編號與規劃分冊。標準附件依序為整體平面圖、照片說明表、照片；保留快速預覽。分冊設定請於每次匯出前核對。</p><details><summary>既有現場功能說明</summary><p>V0.8.0：一般裂縫可逐條填尺寸並以 A／B／C 圈註；磁磚可選 1／2／5／10／15／20 塊或文字數量。新增大字、橫向拍攝與收合說明的繪圖介面；樓梯提供直梯、L 型、折返及長短梯，方向未確認不加箭頭或文字。梁 U 型裂縫以條數記錄、不列總長；磁磚裂隙與破損可記塊數。在「附件整理」依房間選主照片、排序並自動產生照片流水號與位置圖，可下載 HTML 附件及列印 PDF。照片可各自設定拍攝位置，舊案及舊備份可接續使用。網狀裂隙：網狀裂隙的寬度、長度及實測勾選均可略過，不列尺寸待補。簡圖新增開門、開窗、端點／牆線吸附與水平／垂直鎖定。復原一步後才可重做，清空重畫另有按鈕。拍照先同意啟用相機，再於瀏覽器選允許；可預覽、重拍與保存。部位可複選；裂縫可一鍵選 ≤0.3 mm、>0.3 mm。無圖說可直接「手繪簡圖」，點兩下畫房間／線段，保存後點拍攝點及方向標箭頭。簡圖未按比例，寬度區間不代表安全判定。</p></details>');
   navigator.serviceWorker?.getRegistration().then(reg => { if (reg?.waiting && $('#applyUpdate')) { $('#applyUpdate').hidden = false; $('#applyUpdate').onclick = () => action(async () => { requireNoRecording(); assert(!conflictDraft, '請先另存目前副本，再套用更新'); closeModal(true); navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true }); reg.waiting.postMessage('ACTIVATE_UPDATE'); }); } });
 }
@@ -787,6 +845,8 @@ for (const selector of ['#cameraInput', '#galleryInput']) $(selector).onchange =
 $('#managePhotos').onclick = () => action(managePhotos);
 $('#photoGrid').onclick = e => { const b = e.target.closest('[data-photo]'); if (b) action(() => photoDialog(b.dataset.photo)); };
 $('#unitPlans').onclick = () => action(() => planLibrary());
+$('#addAddressRecord').onclick = () => action(addAddressRecord); $('#nextUnit').onclick = () => action(nextUnit); $('#editCase').onclick = () => action(caseSettingsDialog);
+for (const [container, key] of [['#floorChips', 'floor'], ['#spaceChips', 'space']]) $(container).onclick = e => { const b = e.target.closest('button'); if (!b) return; $('#' + key).value = b.dataset[key]; for (const x of $(container).querySelectorAll('button')) x.setAttribute('aria-pressed', String(x === b)); changed({ target: $('#' + key) }); };
 $('#showPlan').onclick = () => action(() => planEntry(false)); $('#quickSketch').onclick = () => action(() => planEntry(true)); $('#planInput').onchange = e => { const file = e.target.files[0], context = pendingPlan; e.target.value = ''; if (file) action(() => addPlan(file, context)); };
 $('#recordAudio').onclick = () => action(audioToggle, '準備錄音');
 $('#bottomNav').onclick = e => { const b = e.target.closest('[data-view]'); if (b && project) action(async () => { requireNoRecording(); await showView(b.dataset.view); window.scrollTo(0, 0); }); };

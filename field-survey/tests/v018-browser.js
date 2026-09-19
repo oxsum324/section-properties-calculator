@@ -12,7 +12,7 @@ export async function verifyV018(browser, base, out) {
   const activeView = () => page.locator('#bottomNav .active').getAttribute('data-view');
   const text = selector => page.locator(selector).textContent();
   try {
-    await page.goto(base); await page.locator('#caseSelect').waitFor();
+    await page.goto(base); await page.locator('#contextStrip').waitFor();
     const seed = await page.evaluate(async () => {
       const m = await import('./model.js'), s = await import('./store.js'), p = m.newProject('V018', '分頁與脈絡列測試', '2026-09-18');
       const a = m.newUnit('A戶', '合成路 1 號'), b = { ...m.newUnit('B棟公設'), kind: 'public' }; p.units.push(a, b);

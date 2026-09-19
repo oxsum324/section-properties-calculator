@@ -11,7 +11,7 @@ export async function verifyV014(browser, base, out) {
   const tapPlan = async (x,y) => { await page.locator('#planStage svg').scrollIntoViewIfNeeded(); const b=await page.locator('#planStage svg').boundingBox();await page.touchscreen.tap(b.x+b.width*x,b.y+b.height*y); };
   const addSymbol = async () => { await click('[data-detail-tool=symbol]');await click('[data-detail-symbol=network]');const p=await page.locator('#detailStage svg').evaluate(svg=>{const p=new DOMPoint(600,320).matrixTransform(svg.getScreenCTM());return{x:p.x,y:p.y};});await page.touchscreen.tap(p.x,p.y); };
   try {
-    await page.goto(base);await page.locator('#caseSelect').waitFor();
+    await page.goto(base);await page.locator('#contextStrip').waitFor();
     await page.evaluate(async()=>{
       const m=await import('./model.js'),s=await import('./store.js'),p=m.newProject('V014-SYNTHETIC','現場細圖流程測試','2026-09-15'),u=m.newUnit('A戶'),u2=m.newUnit('B戶'),r=m.newRecord(u.id,'','客廳'),other=m.newRecord(u2.id,'2F','房間');
       p.units.push(u,u2);p.records.push(r,other);Object.assign(r,{component:'牆面',condition:'crack',crackPattern:'network',reportText:'保留現場人工說明'});other.detail={kind:'preset',preset:'door',mirror:false,marks:[]};
@@ -44,7 +44,7 @@ export async function verifyV014(browser, base, out) {
     const saved=await current();assert(saved.records[0].photos[2].placement);assert.deepEqual(saved.records[0].photos[1].placement,placed.photos[1].placement);assert.deepEqual(saved.records[1],initial.records[1]);assert.equal(saved.records.length,2);assert.equal(saved.records[0].reportText,initial.records[0].reportText);
     // Report editing and field editing address one detail object; cancel keeps committed photos/arrows.
     await click('[data-view=report]');await click(`[data-report-record="${rid}"] [data-do=edit-detail]`);assert.equal(await page.locator('#detailStage [data-detail-index]').count(),2);await click('#closeModal');
-    const backup=await page.evaluate(async()=>{const s=await import('./store.js'),b=await import('./bundle.js'),p=(await s.allProjects())[0],bundle=await b.readBundle((await b.makeBundle(p,async id=>(await s.getMedia(id)).blob)).blob);return{version:bundle.manifest.version,detail:bundle.project.records[0].detail};});assert.equal(backup.version, 11);assert.deepEqual(backup.detail,saved.records[0].detail);
+    const backup=await page.evaluate(async()=>{const s=await import('./store.js'),b=await import('./bundle.js'),p=(await s.allProjects())[0],bundle=await b.readBundle((await b.makeBundle(p,async id=>(await s.getMedia(id)).blob)).blob);return{version:bundle.manifest.version,detail:bundle.project.records[0].detail};});assert.equal(backup.version, 12);assert.deepEqual(backup.detail,saved.records[0].detail);
     await page.waitForFunction(()=>document.querySelector('#offlineStatus').textContent==='離線已就緒');await context.setOffline(true);await page.reload();await click('[data-view=work]');await click(`[data-field-detail="${rid}"]`);assert.equal(await page.locator('#detailStage [data-detail-index]').count(),2);await click('#closeModal');
     assert.deepEqual(errors,[]);await fs.writeFile(path.join(out,'v0.14-result.json'),JSON.stringify({passed:true,errors,physicalPhoneTested:false},null,2));console.log('PASS V0.14 field/photo/camera -> exact photo location -> shared detail; missing floor, pending arrow, cancellation, report, backup and offline');
   }finally{await context.close();}

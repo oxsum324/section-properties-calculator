@@ -7,7 +7,7 @@ export async function verifyScale(browser, base, out) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } }), page = await context.newPage(), errors = [];
   page.on('pageerror', e => errors.push(e.message));
   try {
-    await page.goto(base); await page.locator('#caseSelect').waitFor();
+    await page.goto(base); await page.locator('#contextStrip').waitFor();
     const seed = await page.evaluate(async () => {
       const m = await import('./model.js'), s = await import('./store.js'), p = m.newProject('SYNTHETIC-SCALE', '合成 250 戶 3000 張小圖', '2026-09-10'), assets = [], canvas = document.createElement('canvas'); canvas.width = 240; canvas.height = 160;
       const ctx = canvas.getContext('2d'), started = performance.now(); let serial = 0;

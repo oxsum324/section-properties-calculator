@@ -7,7 +7,7 @@ export async function verifyStandardFloors(browser,base,out){
   const click=async selector=>{const el=page.locator(selector);await el.evaluate(el=>{for(let p=el.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;});await el.click();await page.locator('#busy').waitFor({state:'hidden'});};
   const data=()=>page.evaluate(async()=>(await (await import('./store.js')).allProjects())[0]);
   try{
-    await page.goto(base);await page.locator('#caseSelect').waitFor();
+    await page.goto(base);await page.locator('#contextStrip').waitFor();
     const seed=await page.evaluate(async()=>{
       const m=await import('./model.js'),s=await import('./store.js'),d=await import('./sketch.js'),p=m.newProject('FLOORS','標準層套用測試','2026-09-17'),u=m.newUnit('A戶'),other=m.newUnit('B戶'),r=m.newRecord(u.id,'1F','客廳'),r2=m.newRecord(u.id,'2F','客廳');p.units.push(u,other);p.records.push(r,r2);
       const sketch={...m.emptySketch(),strokes:[{type:'rect',points:[{x:.15,y:.15},{x:.8,y:.8}]},{type:'line',points:[{x:.5,y:.15},{x:.5,y:.5}]}]},blob=await d.sketchImage(sketch),mid=m.id();p.media.push({id:mid,name:'一樓.png',kind:'plan',size:blob.size,type:blob.type,sha256:await m.sha256(blob),importedAt:m.now()});

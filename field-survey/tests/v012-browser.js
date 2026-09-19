@@ -13,7 +13,7 @@ export async function verifyV012(browser, base, out) {
     await page.touchscreen.tap(screen.x, screen.y);
   };
   try {
-    await page.goto(base); await page.locator('#caseSelect').waitFor();
+    await page.goto(base); await page.locator('#contextStrip').waitFor();
     await page.evaluate(async () => {
       const m = await import('./model.js'), s = await import('./store.js'), p = m.newProject('V012-SYNTHETIC', '合成箭頭編號測試', '2026-09-14'), u = m.newUnit('A 戶'); p.units.push(u);
       const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 900; const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 1200, 900); ctx.strokeStyle = '#627a72'; ctx.lineWidth = 4; ctx.strokeRect(120, 160, 900, 540); ctx.strokeRect(120, 160, 400, 300); ctx.font = '28px sans-serif'; ctx.fillStyle = '#627a72'; ctx.fillText('SYNTHETIC PLAN', 150, 200);
@@ -80,7 +80,7 @@ export async function verifyV012(browser, base, out) {
       try { labels.planLabelGeometry(changed, 1200, 900, plan.labelLayout); } catch (e) { stale = /定位/.test(e.message); }
       return { expected, hashes, unchanged: before === JSON.stringify(p), stale, coordinates: geometry.labels.map(b => [b.x, b.y]), renumbered: second.labels.map(b => [b.x, b.y]), version: restored.manifest.version, isolated: copy.plans[0].labelLayout[0].id !== plan.labelLayout[0].id && copy.plans[0].labelLayout[0].recordId === plan.labelLayout[0].recordId };
     });
-    assert(verification.unchanged); assert(verification.stale); assert(verification.isolated); assert.equal(verification.version, 11);
+    assert(verification.unchanged); assert(verification.stale); assert(verification.isolated); assert.equal(verification.version, 12);
     assert.deepEqual(verification.coordinates, verification.renumbered); assert(verification.hashes.every(h => h === verification.expected));
     await page.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒'); await context.setOffline(true); await page.reload(); await click('[data-view=report]'); await click('#editPlanLabels'); assert.equal(await transform(), moved); await click('#closeModal');
     assert.deepEqual(errors, []); await fs.writeFile(path.join(out, 'v0.12-result.json'), JSON.stringify({ passed: true, ...verification, errors, physicalPhoneTested: false }, null, 2));
