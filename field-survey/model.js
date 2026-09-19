@@ -1,5 +1,5 @@
 import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
-export const VERSION = '0.19.0';
+export const VERSION = '0.20.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -196,6 +196,53 @@ export function apartmentUnits(config) {
   units.push({ ...newUnit('公設'), kind: 'public' });
   return units;
 }
+// Colour is a screen aid only: red for cracks, blue for water and other damage, black for base lines.
+export const MARK_TONES = { red: '紅：裂縫', blue: '藍：水分／其他損害', black: '黑：底圖補線' };
+export const conditionTone = c => c === 'crack' || c === 'network' ? 'red' : 'blue';
+export const CAPTURE_SOURCES = { '': '未記', camera: '現場拍攝', exif: '照片 EXIF', file: '檔案日期', manual: '人工填寫' };
+export const localDateOf = value => { const d = value instanceof Date ? value : new Date(value); return Number.isFinite(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : ''; };
+// The stamp is presentation only; the captured date and its source stay recorded beside it.
+export const defaultStamp = (capturedOn, source) => capturedOn ? (source === 'file' ? `${capturedOn}（檔案日期）` : capturedOn) : '';
+export const photoStampText = (p, photo) => p?.photoStamp === false || !photo || photo.stampHidden || !photo.stamp ? '' : photo.stamp;
+export function applyPhotoDate(p, r, capturedOn) {
+  if (!capturedOn || r.observedOn) return false;
+  const v = p.visits?.find(v => v.id === r.visitId); if (v && (capturedOn < v.start || capturedOn > v.end)) return false;
+  r.observedOn = capturedOn; return true;
+}
+// Reads only DateTimeOriginal / DateTime from a JPEG APP1 segment; anything else yields ''.
+export function exifDate(buffer) {
+  const view = new DataView(buffer); if (view.byteLength < 12 || view.getUint16(0) !== 0xFFD8) return '';
+  let offset = 2;
+  while (offset + 4 <= view.byteLength) {
+    const marker = view.getUint16(offset); if (marker === 0xFFDA || marker === 0xFFD9) break;
+    const size = view.getUint16(offset + 2); if (size < 2) break;
+    if (marker === 0xFFE1 && offset + 10 <= view.byteLength && view.getUint32(offset + 4) === 0x45786966) {
+      const tiff = offset + 10; if (tiff + 8 > view.byteLength) return '';
+      const little = view.getUint16(tiff) === 0x4949, u16 = at => view.getUint16(at, little), u32 = at => view.getUint32(at, little);
+      const readIFD = (start, wanted) => {
+        if (start < tiff || start + 2 > view.byteLength) return null;
+        const count = u16(start);
+        for (let i = 0; i < count; i++) {
+          const entry = start + 2 + i * 12; if (entry + 12 > view.byteLength) return null;
+          const tag = u16(entry); if (!wanted.has(tag)) continue;
+          const type = u16(entry + 2), n = u32(entry + 4);
+          if (type === 4) return { value: u32(entry + 8) };
+          if (type !== 2) return null;
+          const at = n <= 4 ? entry + 8 : tiff + u32(entry + 8); let s = '';
+          for (let k = 0; k < n - 1 && at + k < view.byteLength; k++) s += String.fromCharCode(view.getUint8(at + k));
+          return { text: s };
+        }
+        return null;
+      };
+      const ifd0 = tiff + u32(tiff + 4), pointer = readIFD(ifd0, new Set([0x8769]));
+      const found = (pointer?.value ? readIFD(tiff + pointer.value, new Set([0x9003, 0x9004])) : null) || readIFD(ifd0, new Set([0x0132]));
+      const m = /^(\d{4}):(\d{2}):(\d{2})/.exec(found?.text || ''), date = m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+      return validDate(date) ? date : '';
+    }
+    offset += 2 + size;
+  }
+  return '';
+}
 export function recordIssues(r) {
   const issues = [];
   if (!r.floor.trim()) issues.push('缺樓層');
@@ -260,7 +307,8 @@ export function validateMarks(marks, detail = false) {
     list(m.points, '圈註座標', 2000);
     assert(m.points.length >= 1 && m.points.every(p => p && finite01(p.x) && finite01(p.y)), '圈註座標超出圖面');
     if (m.type === 'text') text(m.text, '圈註文字', 120);
-    if (m.type === 'opening') assert(['door', 'window'].includes(m.kind) && m.points.length === 2 && Math.abs(m.points[0].x - m.points[1].x) > 1e-6 && Math.abs(m.points[0].y - m.points[1].y) > 1e-6, '門窗開口須有寬度及高度');
+    if (m.tone !== undefined) assert(Object.hasOwn(MARK_TONES, m.tone), '標記顏色不正確');
+    if (m.type === 'opening') assert(['door', 'window'].includes(m.kind) && (m.points.length === 2 && Math.abs(m.points[0].x - m.points[1].x) > 1e-6 && Math.abs(m.points[0].y - m.points[1].y) > 1e-6 || m.points.length === 4 && regionArea(m.points) > 1e-6), '門窗開口須有寬度及高度');
     if (m.type === 'symbol') assert(Object.hasOwn(DETAIL_SYMBOLS, m.symbol) && m.points.length === 1 && Number.isFinite(m.size) && m.size >= .05 && m.size <= .7 && Number.isFinite(m.rotation) && m.rotation >= 0 && m.rotation < 360 && typeof m.mirror === 'boolean', '細圖圖示格式不正確');
     if (m.type === 'region') assert(Object.hasOwn(REGION_TYPES, m.condition) && m.points.length >= 3 && regionArea(m.points) > 1e-8, '細圖範圍格式不正確');
   }
@@ -273,6 +321,7 @@ export function validateProject(p) {
   assert(Number.isSafeInteger(p.revision) && p.revision >= 0, '案件版本不正確');
   if (p.buildingType !== undefined) assert(Object.hasOwn(BUILDING_TYPES, p.buildingType), '案件型態不正確');
   if (p.floorConfig !== undefined) { const c = p.floorConfig; assert(c && typeof c === 'object' && !Array.isArray(c) && Number.isSafeInteger(c.above) && c.above >= 1 && c.above <= 99 && Number.isSafeInteger(c.below) && c.below >= 0 && c.below <= 9 && typeof c.mezzanine === 'boolean', '樓層設定不正確'); }
+  if (p.photoStamp !== undefined) assert(typeof p.photoStamp === 'boolean', '照片戳記設定不正確');
   for (const key of ['units', 'records', 'plans', 'media']) list(p[key], key);
   const units = unique(p.units), media = unique(p.media), plans = unique(p.plans); unique(p.records);
   const visits = new Set();
@@ -410,6 +459,10 @@ export function validateProject(p) {
       assert(typeof photo.excluded === 'boolean', '照片採用狀態不正確'); text(photo.excludedReason, '不採用原因', 500);
       assert(!photo.excluded || photo.excludedReason.trim(), '缺少照片不採用原因');
       if (photo.reportInclude !== undefined) assert(typeof photo.reportInclude === 'boolean', '附件選片狀態不正確');
+      if (photo.capturedOn !== undefined) assert(photo.capturedOn === '' || validDate(photo.capturedOn), '照片拍攝日期不正確');
+      if (photo.captureSource !== undefined) assert(Object.hasOwn(CAPTURE_SOURCES, photo.captureSource), '照片日期來源不正確');
+      if (photo.stamp !== undefined) text(photo.stamp, '照片日期戳記', 40);
+      if (photo.stampHidden !== undefined) assert(typeof photo.stampHidden === 'boolean', '照片戳記顯示狀態不正確');
       placement(photo.placement, r);
     }
     if (r.mainPhotoId) assert(r.photos.some(x => x.mediaId === r.mainPhotoId && photoIncluded(x)), '主照片必須納入附件且可採用');

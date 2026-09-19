@@ -129,7 +129,7 @@ function paint(svg, sketch, draft = null) {
   for (const stroke of [...strokes.filter(s => !['door', 'window', 'text'].includes(s.type)), ...strokes.filter(s => ['door', 'window', 'text'].includes(s.type))]) {
     const before = ink.children.length;
     const points = stroke.points.map(p => ({ x: area.x + p.x * area.width, y: area.y + p.y * area.height }));
-    const a = points[0], b = points.at(-1), attrs = { fill: 'none', stroke: '#244644', 'stroke-width': 6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
+    const a = points[0], b = points.at(-1), attrs = { fill: 'none', stroke: '#111111', 'stroke-width': 6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
     if (stroke.type === 'stairs') {
       const g = stairGeometry(stroke, a, b), symbol = node('g', { 'data-sketch-type': 'stairs' });
       const polyline = (p, extra = {}) => symbol.append(node('polyline', { ...attrs, 'stroke-width': 3, points: p.map(q => `${q.x},${q.y}`).join(' '), ...extra }));
@@ -139,14 +139,14 @@ function paint(svg, sketch, draft = null) {
         polyline(g.arrow, { 'data-stair-arrow': stroke.direction, 'stroke-width': 4 });
         const tip = g.arrow.at(-1), prev = g.arrow.at(-2), angle = Math.atan2(tip.y-prev.y, tip.x-prev.x), n = Math.min(14, Math.hypot(tip.x-prev.x,tip.y-prev.y)/3);
         polyline([ { x: tip.x-n*Math.cos(angle-.5), y: tip.y-n*Math.sin(angle-.5) }, tip, { x: tip.x-n*Math.cos(angle+.5), y: tip.y-n*Math.sin(angle+.5) } ]);
-        const start = g.arrow[0]; symbol.append(label(g.label, start.x+8, start.y-8, 24, '#244644'));
+        const start = g.arrow[0]; symbol.append(label(g.label, start.x+8, start.y-8, 24, '#111111'));
       }
       ink.append(symbol);
     }
     if (stroke.type === 'line') ink.append(node('line', { ...attrs, x1: a.x, y1: a.y, x2: b.x, y2: b.y }));
     if (stroke.type === 'rect') ink.append(node('rect', { ...attrs, x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), width: Math.abs(a.x - b.x), height: Math.abs(a.y - b.y) }));
     if (stroke.type === 'pen') ink.append(node('polyline', { ...attrs, points: points.map(p => `${p.x},${p.y}`).join(' ') }));
-    if (stroke.type === 'text') ink.append(label(stroke.text, a.x, a.y, 48, '#244644'));
+    if (stroke.type === 'text') ink.append(label(stroke.text, a.x, a.y, 48, '#111111'));
     if (['door', 'window'].includes(stroke.type) && distance(stroke.points[0], stroke.points[1], area) > 0) {
       const symbol = node('g', { 'data-sketch-type': stroke.type, 'aria-label': stroke.type === 'door' ? '門扇與開啟弧線' : '窗戶' });
       const line = (p, q, extra = {}) => symbol.append(node('line', { ...attrs, x1: p.x, y1: p.y, x2: q.x, y2: q.y, ...extra }));
@@ -154,7 +154,7 @@ function paint(svg, sketch, draft = null) {
       if (stroke.type === 'door') {
         const g = doorGeometry(a, b, stroke.swing);
         line(a, g.open); symbol.append(node('path', { ...attrs, 'stroke-width': 3, d: `M${b.x} ${b.y} A${g.radius} ${g.radius} 0 0 ${g.sweep} ${g.open.x} ${g.open.y}` }));
-        symbol.append(node('circle', { cx: a.x, cy: a.y, r: 7, fill: '#244644' }));
+        symbol.append(node('circle', { cx: a.x, cy: a.y, r: 7, fill: '#111111' }));
       } else {
         const length = Math.hypot(b.x - a.x, b.y - a.y), nx = -(b.y - a.y) / length, ny = (b.x - a.x) / length;
         const offset = (p, n) => ({ x: p.x + nx * n, y: p.y + ny * n });
@@ -165,7 +165,7 @@ function paint(svg, sketch, draft = null) {
     }
     for (const el of [...ink.children].slice(before)) el.setAttribute('data-stroke-index', sketch.strokes.indexOf(stroke));
   }
-  svg.append(ink, label('現場示意圖', 24, 36, 26, '#244644'), label('未按比例・僅供辨識位置，尺寸請另行實測', 24, sketch.height - 25, 25, '#667873'));
+  svg.append(ink, label('現場示意圖', 24, 36, 26, '#111111'), label('未按比例・僅供辨識位置，尺寸請另行實測', 24, sketch.height - 25, 25, '#667873'));
 }
 // Paper changes preserve absolute geometry; view changes never touch saved points.
 export function expandSketch(sketch, direction) {

@@ -9,7 +9,7 @@ export function createReportController(api) {
   let projectId = '', pageNumber = 0, observer, generation = 0; const imageURLs = new Set();
   function clearImages() { observer?.disconnect(); generation++; for (const url of imageURLs) URL.revokeObjectURL(url); imageURLs.clear(); }
   const scopeIds = p => settings.unitId ? [settings.unitId] : settings.unitIds || settings.order;
-  function options() { return { ...settings, unitIds: scopeIds(getProject()), start: Number($('#reportStart').value), perPage: Number($('#reportPerPage').value), numbering: $('#reportNumbering').value, pageStart: Number($('#reportPageStart').value), pagePrefix: $('#reportPrefix').value.trim(), plansPerPage: Number($('#reportPlans').value), tableRows: Number($('#reportRows').value), toc: $('#reportToc').checked, includeEmpty: $('#reportEmpty').checked, publicByFloor: $('#reportPublicFloors').checked, maxPages: Number($('#volumeMaxPages').value) }; }
+  function options() { return { ...settings, unitIds: scopeIds(getProject()), start: Number($('#reportStart').value), perPage: Number($('#reportPerPage').value), numbering: $('#reportNumbering').value, pageStart: Number($('#reportPageStart').value), pagePrefix: $('#reportPrefix').value.trim(), plansPerPage: Number($('#reportPlans').value), tableRows: Number($('#reportRows').value), toc: $('#reportToc').checked, includeEmpty: $('#reportEmpty').checked, publicByFloor: $('#reportPublicFloors').checked, color: $('#reportColor').checked, maxPages: Number($('#volumeMaxPages').value) }; }
   async function render() {
     const p = getProject(); if (!p) return;
     clearImages(); const token = generation;

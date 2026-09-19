@@ -1,5 +1,6 @@
 import { assert, clone, now, VERSION, observationText, photoPlacement, photoIncluded, roomKey, ROLES, recordIssues, sha256, validateProject, recordComponents, recordConditions, recordDateInfo } from './model.js';
 import { markedImage, placementMarks, reportPlanImage } from './annotation.js';
+import { photoStampText } from './model.js';
 import { detailAnnotationText, detailComparison } from './model.js';
 import { detailImage, detailLegend } from './detail.js';
 import { STANDARD_STYLE, standardPages, segmentKey, dateSummary, splitVolumes, contentsPages } from './report-standard.js';
@@ -110,14 +111,15 @@ export async function renderAttachment(project, getBlob, options = {}, progress 
     const meta = project.media.find(m => m.id === mediaId), blob = await getBlob(mediaId);
     assert(blob && await sha256(blob) === meta.sha256, '附件原始檔核對失敗：' + meta.name);
     includedAssets.set(mediaId, { id: mediaId, name: meta.name, sha256: meta.sha256 });
-    const result = planEntries ? await reportPlanImage(blob, planEntries, project.plans.find(p => p.id === planEntries[0]?.placement.planId)?.labelLayout || []) : await markedImage(blob, marks);
+    const photo = planEntries ? null : project.records.flatMap(r => r.photos).find(p => p.mediaId === mediaId);
+    const result = planEntries ? await reportPlanImage(blob, planEntries, project.plans.find(p => p.id === planEntries[0]?.placement.planId)?.labelLayout || [], { color: !!options.color }) : await markedImage(blob, marks, { stamp: photoStampText(project, photo) });
     outputBytes += result.size; assert(outputBytes <= 160 * 1024 * 1024, '附件影像超過 160 MB，請改按戶匯出或減少選片');
     return dataURL(result);
   };
   const encodeDetail = async detail => {
     if (options.layoutOnly) return placeholder;
     const get = async id => { const meta = project.media.find(m => m.id === id), blob = await getBlob(id); assert(meta && blob && await sha256(blob) === meta.sha256, '細部底圖原檔核對失敗'); includedAssets.set(id, { id, name: meta.name, sha256: meta.sha256 }); return blob; };
-    const blob = await detailImage(detail, get); outputBytes += blob.size; assert(outputBytes <= 160 * 1024 * 1024, '附件影像超過 160 MB，請縮小每冊頁數或按戶匯出'); return dataURL(blob);
+    const blob = await detailImage(detail, get, { color: !!options.color }); outputBytes += blob.size; assert(outputBytes <= 160 * 1024 * 1024, '附件影像超過 160 MB，請縮小每冊頁數或按戶匯出'); return dataURL(blob);
   };
   const page = (group, body, type = '') => `<section class="sheet ${type}"><header><h1>${e(REPORT_FORMATS[index.format])}</h1><div>${e(index.code)} · ${e(index.name)}</div><div>${e([group.unit, group.floor, group.room, group.address].filter(Boolean).join(' · '))}</div></header>${body}<footer>會勘日期：${e(dateSummary(group.records, '尚未確認'))}　｜　第 ${e((index.pagePrefix || '') + ((index.pageStart || 1) + pageNumber++))} 頁</footer></section>`;
   if (index.format === 'standard') pages.push(...await standardPages({ index, project, encodeImage, encodeDetail, progress, e, attachmentUnits, groupPlanEntries, observationMarks, placementMarks }));

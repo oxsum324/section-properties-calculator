@@ -62,14 +62,14 @@ export function planLabelGeometry(entries, width, height, layouts = [], strict =
 }
 const ns = 'http://www.w3.org/2000/svg';
 const element = (name, attrs) => { const el = document.createElementNS(ns, name); for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v)); return el; };
-export function paintPlanLabels(svg, geometry) {
-  const { font, pad, labels, width } = geometry;
+export function paintPlanLabels(svg, geometry, color = true) {
+  const { font, pad, labels, width } = geometry, ink = color ? '#b82b25' : '#1a1a1a';
   for (const b of labels) {
-    const line = element('line', { x1: b.ax, y1: b.ay, x2: Math.max(b.x, Math.min(b.x + b.w, b.ax)), y2: Math.max(b.y, Math.min(b.y + b.h, b.ay)), stroke: '#b82b25', 'stroke-width': width / 1000, 'stroke-dasharray': `${font / 5} ${font / 5}`, 'pointer-events': 'none', 'data-leader': b.key }); svg.append(line);
+    const line = element('line', { x1: b.ax, y1: b.ay, x2: Math.max(b.x, Math.min(b.x + b.w, b.ax)), y2: Math.max(b.y, Math.min(b.y + b.h, b.ay)), stroke: ink, 'stroke-width': width / 1000, 'stroke-dasharray': `${font / 5} ${font / 5}`, 'pointer-events': 'none', 'data-leader': b.key }); svg.append(line);
   }
   for (const b of labels) {
     const g = element('g', { transform: `translate(${b.x} ${b.y})`, 'data-plan-label': b.key, role: 'img', 'aria-label': '照片 ' + b.entry.label });
     g.append(element('rect', { width: b.w, height: b.h, fill: '#fff', stroke: b.invalid || b.stale ? '#c00000' : 'none', 'stroke-width': 2 }));
-    b.lines.forEach((text, i) => { const t = element('text', { x: pad, y: pad + font * (1 + i * 1.2), fill: '#b82b25', 'font-family': 'sans-serif', 'font-size': font, 'font-weight': 600 }); t.textContent = text; g.append(t); }); svg.append(g);
+    b.lines.forEach((text, i) => { const t = element('text', { x: pad, y: pad + font * (1 + i * 1.2), fill: ink, 'font-family': 'sans-serif', 'font-size': font, 'font-weight': 600 }); t.textContent = text; g.append(t); }); svg.append(g);
   }
 }

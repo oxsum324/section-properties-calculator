@@ -1,4 +1,4 @@
-import { planTemplateCopy, VERSION, removeRecordPhotos, BUILDING_TYPES, floorConfig, buildingType, floorOptions, spaceOptions, sortedUnits, apartmentUnits, validDate, id, now, clone, newProject, newUnit, newRecord, CONDITIONS, COMPONENTS, UNIT_STATES, ROLES, WIDTH_MODES, CRACK_PATTERNS, widthMode, isNetworkCrack, recordComponents, recordConditions, AREA_CONDITIONS, AREA_METHODS, emptySketch, recordIssues, unitIssues, sha256, restoredCopy, assert } from './model.js';
+import { planTemplateCopy, VERSION, removeRecordPhotos, BUILDING_TYPES, floorConfig, buildingType, floorOptions, spaceOptions, sortedUnits, apartmentUnits, validDate, MARK_TONES, CAPTURE_SOURCES, localDateOf, defaultStamp, photoStampText, applyPhotoDate, exifDate, id, now, clone, newProject, newUnit, newRecord, CONDITIONS, COMPONENTS, UNIT_STATES, ROLES, WIDTH_MODES, CRACK_PATTERNS, widthMode, isNetworkCrack, recordComponents, recordConditions, AREA_CONDITIONS, AREA_METHODS, emptySketch, recordIssues, unitIssues, sha256, restoredCopy, assert } from './model.js';
 import { openStore, allProjects, getProject, getMedia, saveProject, backupState, saveBackupState } from './store.js';
 import { makeBundle, readBundle, makeReceipt, checkReceipt } from './bundle.js';
 import { createAnnotator, markedImage, planPreview, photoLocationImage } from './annotation.js';
@@ -324,7 +324,7 @@ async function renderBackup() {
 const CASE_TYPE_HELP = { townhouse: '每個門牌一戶，一戶跨樓層；現場以樓層快選鍵填樓層。', apartment: '一層一戶：建立時依地上層數自動建立各樓層戶別與一個公設單元，紀錄自動帶入樓層。', tower: '每層多戶、可多棟：填棟別會為每棟建立一個公設單元；戶別可用名冊匯入並帶固定樓層。', other: '不預設戶別結構，樓層與空間仍提供快選。' };
 function caseFormFields(p) {
   const config = floorConfig(p);
-  return `<label>案件型態<select name="type">${opts(BUILDING_TYPES)}</select></label><p id="caseTypeHelp" class="micro"></p><div class="two-col"><label>地上層數<input name="above" type="number" min="1" max="99" step="1" inputmode="numeric" required value="${config.above}"></label><label>地下層數<input name="below" type="number" min="0" max="9" step="1" inputmode="numeric" required value="${config.below}"></label></div><label class="check-label"><input name="mezzanine" type="checkbox" ${config.mezzanine ? 'checked' : ''}>有夾層（MF）</label>`;
+  return `<label>案件型態<select name="type">${opts(BUILDING_TYPES)}</select></label><p id="caseTypeHelp" class="micro"></p><div class="two-col"><label>地上層數<input name="above" type="number" min="1" max="99" step="1" inputmode="numeric" required value="${config.above}"></label><label>地下層數<input name="below" type="number" min="0" max="9" step="1" inputmode="numeric" required value="${config.below}"></label></div><label class="check-label"><input name="mezzanine" type="checkbox" ${config.mezzanine ? 'checked' : ''}>有夾層（MF）</label><label class="check-label"><input name="photoStamp" type="checkbox" ${p?.photoStamp === false ? '' : 'checked'}>照片壓年月日戳記（只壓在附件與副本，原圖不變）</label>`;
 }
 function bindCaseTypeHelp(form) {
   const update = () => { const type = form.querySelector('[name=type]').value; form.querySelector('#caseTypeHelp').textContent = CASE_TYPE_HELP[type]; const b = form.querySelector('#buildingsField'); if (b) b.hidden = type !== 'tower'; };
@@ -334,7 +334,7 @@ function readCaseForm(form) {
   const data = new FormData(form), above = Number(data.get('above')), below = Number(data.get('below'));
   assert(Number.isSafeInteger(above) && above >= 1 && above <= 99 && Number.isSafeInteger(below) && below >= 0 && below <= 9, '層數須為整數：地上 1～99、地下 0～9');
   assert(Object.hasOwn(BUILDING_TYPES, data.get('type')), '請選擇案件型態');
-  return { code: data.get('code').trim(), name: data.get('name').trim(), date: data.get('date'), type: data.get('type'), config: { above, below, mezzanine: data.has('mezzanine') }, buildings: [...new Set(String(data.get('buildings') || '').split(/[,，、\s]+/).map(x => x.trim()).filter(Boolean))] };
+  return { code: data.get('code').trim(), name: data.get('name').trim(), date: data.get('date'), type: data.get('type'), config: { above, below, mezzanine: data.has('mezzanine') }, photoStamp: data.has('photoStamp'), buildings: [...new Set(String(data.get('buildings') || '').split(/[,，、\s]+/).map(x => x.trim()).filter(Boolean))] };
 }
 function caseDialog() {
   requireNoRecording();
@@ -342,7 +342,7 @@ function caseDialog() {
   bindCaseTypeHelp($('#caseForm'));
   $('#caseForm').onsubmit = e => { e.preventDefault(); action(async () => {
     const form = readCaseForm(e.target), created = newProject(form.code, form.name, form.date);
-    created.buildingType = form.type; created.floorConfig = form.config;
+    created.buildingType = form.type; created.floorConfig = form.config; created.photoStamp = form.photoStamp;
     if (form.type === 'apartment') created.units.push(...apartmentUnits(form.config));
     if (form.type === 'tower') for (const b of form.buildings) created.units.push({ ...newUnit(`${b}公設`), building: b, kind: 'public' });
     await saveProject(created, 0); closeModal(true); await selectProject(created.id); toast(created.units.length ? `案件已建立，已自動建立 ${created.units.length} 個單元` : '案件已建立，請新增第一戶');
@@ -354,7 +354,7 @@ function caseSettingsDialog() {
   $('#caseForm [name=type]').value = buildingType(project); bindCaseTypeHelp($('#caseForm'));
   $('#caseForm').onsubmit = e => { e.preventDefault(); action(async () => {
     const form = readCaseForm(e.target); assert(form.code && form.name && validDate(form.date), '案號、名稱或日期不正確');
-    await commit(next => { next.code = form.code; next.name = form.name; next.date = form.date; next.buildingType = form.type; next.floorConfig = form.config; });
+    await commit(next => { next.code = form.code; next.name = form.name; next.date = form.date; next.buildingType = form.type; next.floorConfig = form.config; next.photoStamp = form.photoStamp; });
     closeModal(true); await render(); toast('案件設定已保存');
   }); };
 }
@@ -431,7 +431,17 @@ async function prepareAsset(file, kind, source) {
       canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height); asset.thumb = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', .8));
     } catch { metadata.previewUnavailable = true; } finally { URL.revokeObjectURL(url); }
   }
-  return { metadata, asset };
+  // The date is recorded with its source; the stamp drawn on copies is derived from it and stays editable.
+  let capture = { on: '', source: '' };
+  if (kind === 'image') {
+    if (source === 'camera-preview') capture = { on: localDateOf(new Date()), source: 'camera' };
+    else {
+      let exif = '';
+      if (type === 'image/jpeg') { try { exif = exifDate(await file.slice(0, 262144).arrayBuffer()); } catch { exif = ''; } }
+      capture = exif ? { on: exif, source: 'exif' } : file.lastModified ? { on: localDateOf(file.lastModified), source: 'file' } : { on: '', source: '' };
+    }
+  }
+  return { metadata, asset, capture };
 }
 function cameraDialog() {
   requireNoRecording(); assert(currentRecord(), '請先新增位置紀錄');
@@ -499,10 +509,10 @@ async function addPhotos(files, context) {
   for (const [i, file] of files.entries()) {
     busyText(`保存原始照片 ${i + 1} / ${files.length}`);
     try {
-      const { metadata, asset } = await prepareAsset(file, 'image', context.source);
+      const { metadata, asset, capture } = await prepareAsset(file, 'image', context.source);
       const existing = project.media.find(m => m.sha256 === metadata.sha256 && project.records.find(r => r.id === context.recordId).photos.some(p => p.mediaId === m.id));
       if (existing) { errors.push(`${file.name}：此位置已有相同檔案`); continue; }
-      await commit(next => { next.media.push(metadata); const r = next.records.find(x => x.id === context.recordId); r.photos.push({ mediaId: metadata.id, role: r.photos.length ? 'close' : 'overview', caption: '', marks: [], excluded: false, excludedReason: '' }); markUnitOpen(next, r); }, [asset]); saved++; added.push(metadata.id);
+      await commit(next => { next.media.push(metadata); const r = next.records.find(x => x.id === context.recordId); r.photos.push({ mediaId: metadata.id, role: r.photos.length ? 'close' : 'overview', caption: '', marks: [], excluded: false, excludedReason: '', capturedOn: capture.on, captureSource: capture.source, stamp: defaultStamp(capture.on, capture.source), stampHidden: false }); applyPhotoDate(next, r, capture.on); markUnitOpen(next, r); }, [asset]); saved++; added.push(metadata.id);
     } catch (e) { if (e.name === 'RevisionConflictError') { e.message = `${file.name} 尚未保存；已暫留原檔供另存副本，其餘照片請在副本重新加入。${e.message}`; throw e; } errors.push(`${file.name}：${e.message || '儲存失敗'}`); }
   }
   await render(); if (saved) toast(`${saved} 張原始照片已保存於本機`);
@@ -587,26 +597,30 @@ async function editRecordDetail(rid, origin = 'field', photoId = '') {
 async function photoDialog(mediaId) {
   const targetRecord = recordId, photo = currentRecord().photos.find(p => p.mediaId === mediaId), metadata = project.media.find(m => m.id === mediaId), asset = await getMedia(mediaId);
   let annotator = null;
-  openModal('照片圈註', `<div class="annotation-tools"><label>照片用途<select id="photoRole">${opts(ROLES)}</select></label><label>標記文字<input id="markText" maxlength="120" placeholder="選文字工具後點圖面"></label></div><div class="annotation-toolbar" id="photoTools"><button data-mode="circle" class="selected">圈選</button><button data-mode="arrow">箭頭</button><button data-mode="pen">畫線</button><button data-mode="text">文字</button><button data-mode="view">查看</button><button id="undoMark">復原</button></div><div id="conditionLabels" class="choice-chips" aria-label="現況文字快捷註記">${recordConditions(currentRecord()).filter(c => c !== 'normal').map(c => `<button data-condition-label="${c}">${esc(CONDITIONS[c])}</button>`).join('')}</div><p class="micro">同張照片可分別圈註多種現況。點現況文字，再點照片放置；細節或量尺不清楚時再補拍。</p><div id="photoStage" class="annotation-stage"></div><label>照片說明<input id="photoCaption" maxlength="1000" value="${esc(photo.caption)}" placeholder="可補充拍攝細節"></label><div class="two-col" style="margin-top:12px"><label class="check-label"><input id="photoExcluded" type="checkbox" ${photo.excluded ? 'checked' : ''}>不採用此照片（保留原檔）</label><label>不採用原因<input id="excludedReason" maxlength="500" value="${esc(photo.excludedReason || '')}" placeholder="例如 模糊、重拍"></label></div><p class="micro">${esc(metadata.name)} · ${size(metadata.size)} · 取得於 ${esc(new Date(metadata.importedAt).toLocaleString('zh-TW'))}<br>此時間為工具取得時間；不替代原始拍攝資訊。</p><div class="modal-actions"><button id="downloadOriginal" class="quiet">下載原圖</button><button id="downloadMarked" class="secondary">註記副本</button><button id="savePhoto" class="primary">保存圈註</button></div>`, () => annotator?.dispose());
+  openModal('照片圈註', `<div class="annotation-tools"><label>照片用途<select id="photoRole">${opts(ROLES)}</select></label><label>標記文字<input id="markText" maxlength="120" placeholder="選文字工具後點圖面"></label></div><div class="annotation-toolbar" id="photoTools"><button data-mode="circle" class="selected">圈選</button><button data-mode="arrow">箭頭</button><button data-mode="pen">畫線</button><button data-mode="text">文字</button><button data-mode="view">查看</button><button data-tone="red" class="selected">紅</button><button data-tone="blue">藍</button><button id="undoMark">復原</button></div><div id="conditionLabels" class="choice-chips" aria-label="現況文字快捷註記">${recordConditions(currentRecord()).filter(c => c !== 'normal').map(c => `<button data-condition-label="${c}">${esc(CONDITIONS[c])}</button>`).join('')}</div><p class="micro">同張照片可分別圈註多種現況。點現況文字，再點照片放置；細節或量尺不清楚時再補拍。</p><div id="photoStage" class="annotation-stage"></div><label>照片說明<input id="photoCaption" maxlength="1000" value="${esc(photo.caption)}" placeholder="可補充拍攝細節"></label><div class="two-col" style="margin-top:12px"><label>日期戳記（壓在附件與副本上）<input id="photoStamp" maxlength="40" value="${esc(photo.stamp || '')}" placeholder="例如 2026-09-19"></label><label class="check-label"><input id="photoStampHidden" type="checkbox" ${photo.stampHidden ? 'checked' : ''}>這張不壓戳記</label></div><div class="two-col" style="margin-top:12px"><label class="check-label"><input id="photoExcluded" type="checkbox" ${photo.excluded ? 'checked' : ''}>不採用此照片（保留原檔）</label><label>不採用原因<input id="excludedReason" maxlength="500" value="${esc(photo.excludedReason || '')}" placeholder="例如 模糊、重拍"></label></div><p class="micro">${esc(metadata.name)} · ${size(metadata.size)} · 拍攝日期 ${esc(photo.capturedOn || '未記')}（${esc(CAPTURE_SOURCES[photo.captureSource || ''])}）· 取得於 ${esc(new Date(metadata.importedAt).toLocaleString('zh-TW'))}<br>戳記只壓在附件與副本；原圖與拍攝日期紀錄不變。</p><div class="modal-actions"><button id="downloadOriginal" class="quiet">下載原圖</button><button id="downloadMarked" class="secondary">註記副本</button><button id="savePhoto" class="primary">保存圈註</button></div>`, () => annotator?.dispose());
   $('#photoStage').insertAdjacentHTML('afterend', '<section id="photoLocation" class="location-card"></section><section id="photoDetail" class="location-card"></section>');
   $('#downloadMarked').insertAdjacentHTML('afterend', '<button id="downloadPhotoLocation" class="secondary">照片＋位置圖副本</button>');
   const locationPlan = project.plans.find(p => p.id === photoPlacement(currentRecord(), photo)?.planId);
   $('#downloadPhotoLocation').disabled = !locationPlan;
   $('#photoRole').value = photo.role;
-  try { annotator = await createAnnotator($('#photoStage'), await mediaURL(mediaId, true), photo.marks, () => { modalDirty = true; }); }
+  try { annotator = await createAnnotator($('#photoStage'), await mediaURL(mediaId, true), photo.marks, () => { modalDirty = true; }, { stamp: photoStampText(project, photo) }); }
   catch (e) { $('#photoStage').textContent = e.message; $('#photoTools').hidden = true; $('#downloadMarked').disabled = true; }
   $('#markText').oninput = e => annotator?.setText(e.target.value);
-  $('#photoTools').onclick = e => { const b = e.target.closest('[data-mode]'); if (b) { annotator?.setMode(b.dataset.mode); for (const x of $('#photoTools').querySelectorAll('[data-mode]')) x.classList.toggle('selected', x === b); } };
+  const currentStamp = () => project.photoStamp === false || $('#photoStampHidden').checked ? '' : $('#photoStamp').value.trim().slice(0, 40);
+  $('#photoStamp').oninput = $('#photoStampHidden').onchange = () => { modalDirty = true; annotator?.setStamp(currentStamp()); };
+  $('#photoTools').onclick = e => { const b = e.target.closest('[data-mode]'), t = e.target.closest('[data-tone]'); if (b) { annotator?.setMode(b.dataset.mode); for (const x of $('#photoTools').querySelectorAll('[data-mode]')) x.classList.toggle('selected', x === b); } if (t) { annotator?.setTone(t.dataset.tone); for (const x of $('#photoTools').querySelectorAll('[data-tone]')) x.classList.toggle('selected', x === t); } };
   if (individualCracks(currentRecord())) $('#conditionLabels').insertAdjacentHTML('beforeend', currentRecord().cracks.map((c, i) => `<button data-crack-label="${crackLabel(i)}">裂縫 ${crackLabel(i)}</button>`).join(''));
   $('#conditionLabels').addEventListener('click', e => { const b = e.target.closest('[data-crack-label]'); if (b && annotator) { $('#markText').value = '裂縫 ' + b.dataset.crackLabel; annotator.setText($('#markText').value); $('#photoTools [data-mode="text"]').click(); } });
   $('#conditionLabels').onclick = e => { const b = e.target.closest('[data-condition-label]'); if (!b || !annotator) return; $('#markText').value = CONDITIONS[b.dataset.conditionLabel]; annotator.setText($('#markText').value); $('#photoTools [data-mode="text"]').click(); };
   $('#undoMark').onclick = () => annotator?.undo();
   for (const selector of ['#photoRole', '#photoCaption', '#photoExcluded', '#excludedReason']) $(selector).oninput = () => { modalDirty = true; };
   $('#downloadOriginal').onclick = () => download(asset.blob, metadata.name);
-  $('#downloadMarked').onclick = () => action(async () => { download(await markedImage(asset.blob, annotator.marks), metadata.name.replace(/\.[^.]+$/, '') + '-註記.jpg'); toast('已產生註記副本；原圖不變'); });
+  $('#downloadMarked').onclick = () => action(async () => { download(await markedImage(asset.blob, annotator.marks, { stamp: currentStamp() }), metadata.name.replace(/\.[^.]+$/, '') + '-註記.jpg'); toast('已產生註記副本；原圖不變'); });
   const savePhotoValues = async () => {
     assert(!annotator?.pending, '請先完成目前圈註');
     const values = { role: $('#photoRole').value, caption: $('#photoCaption').value, marks: annotator?.marks || photo.marks, excluded: $('#photoExcluded').checked, excludedReason: $('#excludedReason').value.trim() };
+    const stampValue = $('#photoStamp').value.trim().slice(0, 40), stampHidden = $('#photoStampHidden').checked;
+    if (stampValue !== (photo.stamp || '') || stampHidden !== !!photo.stampHidden) Object.assign(values, { stamp: stampValue, stampHidden });
     assert(!values.excluded || values.excludedReason, '請填寫不採用原因');
     await commit(next => { const r = next.records.find(x => x.id === targetRecord); Object.assign(r.photos.find(x => x.mediaId === mediaId), values); if (values.excluded && r.mainPhotoId === mediaId) delete r.mainPhotoId; markUnitOpen(next, r); });
   };
@@ -619,7 +633,7 @@ async function photoDialog(mediaId) {
   $('#downloadPhotoLocation').onclick = () => action(async () => {
     assert(locationPlan && !annotator?.pending, '請先完成圈註與位置定位');
     const r = currentRecord(), planAsset = await getMedia(locationPlan.mediaId);
-    const blob = await photoLocationImage(asset.blob, annotator?.marks || photo.marks, planAsset.blob, photoPlacement(r, photo), { record: planLabel(r), heading: `${project.code} · ${currentUnit().code} · ${r.floor} · ${r.space}`, location: `${r.space} · ${r.location}`, plan: locationPlan.title });
+    const blob = await photoLocationImage(asset.blob, annotator?.marks || photo.marks, planAsset.blob, photoPlacement(r, photo), { record: planLabel(r), heading: `${project.code} · ${currentUnit().code} · ${r.floor} · ${r.space}`, location: `${r.space} · ${r.location}`, plan: locationPlan.title }, { stamp: currentStamp() });
     download(blob, metadata.name.replace(/\.[^.]+$/, '') + '-位置對照.jpg'); toast('已產生位置對照副本；原始照片與圖面保留');
   });
 }
@@ -784,7 +798,7 @@ async function receiveReceipt(file) {
   state.entries[receipt.scope || 'all'] = await checkReceipt(receipt, project, state); await saveBackupState(state); await renderBackup(); toast('核對收據已記錄');
 }
 function helpDialog() {
-  openModal('手機使用與保存', `<ol class="help-list"><li>在「案件與備份」建立案件（選透天／公寓／大樓並填層數，公寓會自動建立各樓層戶別）、會勘批次與戶別名冊；到「現場紀錄」選鑑定戶，先從「平面圖庫／先建圖」依樓層匯入或手繪，標上入口、樓梯及房間名稱；再進入各空間新增位置，引用圖面標拍攝箭頭，拍全景、近照或量尺照。</li><li>點照片可圈選、畫箭頭與文字；圈註另存，原圖保留。位置圖可加入圖面或草圖照片；手繪簡圖支援雙指縮放、移動、四向擴展及選取刪除。照片旁可核對定位，另可下載照片與位置圖對照副本。</li><li>現況可複選並共用照片；白華、剝落等面積各自填 m²，不合計重疊範圍。裂隙寬度用 mm、長度用 m。現況欄位會自動保存。切換位置前會先保存；上方有錯誤時請先處理。</li><li>離開一戶前查看「待補檢查」，無法入內或部分完成請記原因。</li><li>從「案件與備份」匯出全案或單戶。在電腦開啟同一工具、核對備份及建立還原副本。</li><li>iPhone 可從瀏覽器分享選單加入主畫面；Android 可從瀏覽器選單安裝。需先在線開啟，等上方顯示「離線已就緒」。手機使用需 HTTPS。</li></ol><p class="modal-note">資料只保存在此瀏覽器及你匯出的備份檔，不自動上傳。換瀏覽器、清除網站資料或移除應用程式前，請先完成外部備份。勿以無痕模式保存工作。</p><p>本工具記錄現場可見情形，不自動判定損害原因、結構安全或責任歸屬。尚須在實際手機上確認相機、容量及中斷操作。</p><p class="help-version">版本 ${VERSION} · 純本機資料 · 現況紀錄工作稿</p><button id="applyUpdate" class="secondary" hidden>保存後套用離線更新</button>`);
+  openModal('手機使用與保存', `<ol class="help-list"><li>在「案件與備份」建立案件（選透天／公寓／大樓並填層數，公寓會自動建立各樓層戶別）、會勘批次與戶別名冊；到「現場紀錄」選鑑定戶，先從「平面圖庫／先建圖」依樓層匯入或手繪，標上入口、樓梯及房間名稱；再進入各空間新增位置，引用圖面標拍攝箭頭，拍全景、近照或量尺照。</li><li>拍照自動壓年月日戳記在附件與副本（原圖不變；可逐張改，或在案件設定整案關閉），紀錄日期依照片日期帶入。點照片可圈選、畫箭頭與文字（紅＝裂縫、藍＝水分／其他損害）；圈註另存，原圖保留。位置圖可加入圖面或草圖照片；手繪簡圖支援雙指縮放、移動、四向擴展及選取刪除。照片旁可核對定位，另可下載照片與位置圖對照副本。</li><li>現況可複選並共用照片；白華、剝落等面積各自填 m²，不合計重疊範圍。裂隙寬度用 mm、長度用 m。現況欄位會自動保存。切換位置前會先保存；上方有錯誤時請先處理。</li><li>離開一戶前查看「待補檢查」，無法入內或部分完成請記原因。</li><li>從「案件與備份」匯出全案或單戶。在電腦開啟同一工具、核對備份及建立還原副本。</li><li>iPhone 可從瀏覽器分享選單加入主畫面；Android 可從瀏覽器選單安裝。需先在線開啟，等上方顯示「離線已就緒」。手機使用需 HTTPS。</li></ol><p class="modal-note">資料只保存在此瀏覽器及你匯出的備份檔，不自動上傳。換瀏覽器、清除網站資料或移除應用程式前，請先完成外部備份。勿以無痕模式保存工作。</p><p>本工具記錄現場可見情形，不自動判定損害原因、結構安全或責任歸屬。尚須在實際手機上確認相機、容量及中斷操作。</p><p class="help-version">版本 ${VERSION} · 純本機資料 · 現況紀錄工作稿</p><button id="applyUpdate" class="secondary" hidden>保存後套用離線更新</button>`);
   $('#modalBody').insertAdjacentHTML('afterbegin', '<p class="modal-note">V0.10.0：可匯入戶別名冊、分次會勘並保留進場歷程。在附件整理選六種細圖、畫損害標註，再依戶編號與規劃分冊。標準附件依序為整體平面圖、照片說明表、照片；保留快速預覽。分冊設定請於每次匯出前核對。</p><details><summary>既有現場功能說明</summary><p>V0.8.0：一般裂縫可逐條填尺寸並以 A／B／C 圈註；磁磚可選 1／2／5／10／15／20 塊或文字數量。新增大字、橫向拍攝與收合說明的繪圖介面；樓梯提供直梯、L 型、折返及長短梯，方向未確認不加箭頭或文字。梁 U 型裂縫以條數記錄、不列總長；磁磚裂隙與破損可記塊數。在「附件整理」依房間選主照片、排序並自動產生照片流水號與位置圖，可下載 HTML 附件及列印 PDF。照片可各自設定拍攝位置，舊案及舊備份可接續使用。網狀裂隙：網狀裂隙的寬度、長度及實測勾選均可略過，不列尺寸待補。簡圖新增開門、開窗、端點／牆線吸附與水平／垂直鎖定。復原一步後才可重做，清空重畫另有按鈕。拍照先同意啟用相機，再於瀏覽器選允許；可預覽、重拍與保存。部位可複選；裂縫可一鍵選 ≤0.3 mm、>0.3 mm。無圖說可直接「手繪簡圖」，點兩下畫房間／線段，保存後點拍攝點及方向標箭頭。簡圖未按比例，寬度區間不代表安全判定。</p></details>');
   navigator.serviceWorker?.getRegistration().then(reg => { if (reg?.waiting && $('#applyUpdate')) { $('#applyUpdate').hidden = false; $('#applyUpdate').onclick = () => action(async () => { requireNoRecording(); assert(!conflictDraft, '請先另存目前副本，再套用更新'); closeModal(true); navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true }); reg.waiting.postMessage('ACTIVATE_UPDATE'); }); } });
 }

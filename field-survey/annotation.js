@@ -1,37 +1,45 @@
 import { planLabelGeometry, paintPlanLabels } from './plan-labels.js';
 const NS = 'http://www.w3.org/2000/svg';
 const node = (tag, attrs = {}) => { const el = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v)); return el; };
-export function drawMarks(svg, marks, width, height) {
+// Screen palette: red cracks, blue water/other damage, black base lines. Grayscale output keeps
+// the distinction through line weight and dashes so photocopies still read.
+export const TONES = { red: '#c42e27', blue: '#1d5fbf', black: '#1a1a1a' };
+export function drawMarks(svg, marks, width, height, options = {}) {
+  const color = options.color !== false;
   svg.replaceChildren(); svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   for (const mark of marks) {
-    const pts = mark.points.map(p => ({ x: p.x * width, y: p.y * height })), a = pts[0], b = pts.at(-1);
-    const attrs = { fill: 'none', stroke: '#df443a', 'stroke-width': width / 165, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
+    const pts = mark.points.map(p => ({ x: p.x * width, y: p.y * height })), a = pts[0], b = pts.at(-1), tone = Object.hasOwn(TONES, mark.tone) ? mark.tone : 'red';
+    const attrs = { fill: 'none', stroke: color ? TONES[tone] : TONES.black, 'stroke-width': tone === 'black' ? width / 260 : width / 165, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', ...(!color && tone === 'blue' ? { 'stroke-dasharray': `${width / 90} ${width / 160}` } : {}) };
     if (mark.type === 'circle') svg.append(node('ellipse', { ...attrs, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, rx: Math.abs(b.x - a.x) / 2, ry: Math.abs(b.y - a.y) / 2 }));
     if (mark.type === 'pen') svg.append(node('polyline', { ...attrs, points: pts.map(p => `${p.x},${p.y}`).join(' ') }));
     if (mark.type === 'arrow') {
       const angle = Math.atan2(b.y - a.y, b.x - a.x), size = width / 35;
       svg.append(node('path', { ...attrs, d: `M${a.x} ${a.y}L${b.x} ${b.y}M${b.x - size * Math.cos(angle - .5)} ${b.y - size * Math.sin(angle - .5)}L${b.x} ${b.y}L${b.x - size * Math.cos(angle + .5)} ${b.y - size * Math.sin(angle + .5)}` }));
     }
-    if (mark.type === 'text') { const t = node('text', { x: a.x, y: a.y, fill: '#c42e27', stroke: '#fff', 'stroke-width': width / 600, 'paint-order': 'stroke', 'font-family': 'sans-serif', 'font-size': width / 27, 'font-weight': '700' }); t.textContent = mark.text; svg.append(t); }
+    if (mark.type === 'text') { const t = node('text', { x: a.x, y: a.y, fill: TONES.black, stroke: '#fff', 'stroke-width': width / 300, 'paint-order': 'stroke', 'font-family': 'sans-serif', 'font-size': width / 27, 'font-weight': '700' }); t.textContent = mark.text; svg.append(t); }
+  }
+  if (options.stamp) {
+    const font = width / 26, t = node('text', { x: width - font * .6, y: height - font * .55, 'text-anchor': 'end', fill: '#111', stroke: '#fff', 'stroke-width': font / 4, 'paint-order': 'stroke', 'font-family': 'sans-serif', 'font-size': font, 'font-weight': '700', 'data-stamp': '' });
+    t.textContent = String(options.stamp).slice(0, 40); svg.append(t);
   }
 }
 function loadImage(url) { return new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = () => reject(new Error('此裝置無法預覽此影像格式；原檔仍可備份。')); img.src = url; }); }
 export { planLabelLayout } from './plan-labels.js';
-export function drawPlanOverlay(svg, entries, width, height, layouts = [], strict = true) {
-  const w = 1200, h = w * height / width;
+export function drawPlanOverlay(svg, entries, width, height, layouts = [], strict = true, options = {}) {
+  const w = 1200, h = w * height / width, color = options.color !== false;
   const geometry = planLabelGeometry(entries.filter(e => e.placement), w, h, layouts, strict);
   svg.replaceChildren(); svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-  entries.forEach((entry, i) => { if (!entry.placement) return; const g = node('g', { 'data-plan-arrow': i }); drawMarks(g, placementMarks({ ...entry.placement, kind: entry.kind }), w, h); svg.append(g); });
-  paintPlanLabels(svg, geometry); return geometry;
+  entries.forEach((entry, i) => { if (!entry.placement) return; const g = node('g', { 'data-plan-arrow': i }); drawMarks(g, placementMarks({ ...entry.placement, kind: entry.kind }), w, h, { color }); svg.append(g); });
+  paintPlanLabels(svg, geometry, color); return geometry;
 }
-export async function reportPlanImage(blob, entries, layouts = []) {
+export async function reportPlanImage(blob, entries, layouts = [], options = {}) {
   const url = URL.createObjectURL(blob);
   try {
     const img = await loadImage(url), scale = Math.min(2, 4096 / Math.max(img.naturalWidth, img.naturalHeight)), canvas = document.createElement('canvas');
     canvas.width = Math.round(img.naturalWidth * scale); canvas.height = Math.round(img.naturalHeight * scale);
     const w = canvas.width, h = canvas.height, ctx = canvas.getContext('2d');
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
-    const svg = node('svg', { xmlns: NS, width: w, height: h }); drawPlanOverlay(svg, entries, img.naturalWidth, img.naturalHeight, layouts);
+    const svg = node('svg', { xmlns: NS, width: w, height: h }); drawPlanOverlay(svg, entries, img.naturalWidth, img.naturalHeight, layouts, true, { color: options.color === true });
     const overlay = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' }));
     try { ctx.drawImage(await loadImage(overlay), 0, 0); } finally { URL.revokeObjectURL(overlay); }
     return await new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('平面圖代號排版失敗')), 'image/jpeg', .94));
@@ -47,12 +55,12 @@ export async function planPreview(stage, url, entries = []) {
   img.alt = '平面位置圖'; drawPlanOverlay(svg, entries, img.naturalWidth, img.naturalHeight, [], false);
   stage.classList.add('plan-preview'); stage.replaceChildren(img, svg);
 }
-export async function photoLocationImage(photoBlob, marks, planBlob, placement, labels) {
-  const blobs = [await markedImage(photoBlob, marks), await reportPlanImage(planBlob, placement ? [{ placement, label: labels.record }] : [])], urls = blobs.map(b => URL.createObjectURL(b));
+export async function photoLocationImage(photoBlob, marks, planBlob, placement, labels, options = {}) {
+  const blobs = [await markedImage(photoBlob, marks, { stamp: options.stamp }), await reportPlanImage(planBlob, placement ? [{ placement, label: labels.record }] : [], [], { color: false })], urls = blobs.map(b => URL.createObjectURL(b));
   try {
     const images = await Promise.all(urls.map(loadImage)), canvas = document.createElement('canvas'); canvas.width = 1600; canvas.height = 1900;
     const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const text = (value, y, font = 32) => { ctx.font = `${font}px sans-serif`; ctx.fillStyle = '#244644'; let display = String(value); while (display.length && ctx.measureText(display).width > 1500) display = display.slice(0, -1); ctx.fillText(display.length < String(value).length ? display.slice(0, -1) + '…' : display, 50, y); };
+    const text = (value, y, font = 32) => { ctx.font = `${font}px sans-serif`; ctx.fillStyle = '#1a1a1a'; let display = String(value); while (display.length && ctx.measureText(display).width > 1500) display = display.slice(0, -1); ctx.fillText(display.length < String(value).length ? display.slice(0, -1) + '…' : display, 50, y); };
     const contain = (img, y, height) => { const scale = Math.min(1500 / img.naturalWidth, height / img.naturalHeight); ctx.drawImage(img, (1600 - img.naturalWidth * scale) / 2, y, img.naturalWidth * scale, img.naturalHeight * scale); };
     text(labels.heading, 55, 36); text(labels.location, 100, 28); contain(images[0], 125, 900);
     text('位置圖：' + labels.plan, 1080); contain(images[1], 1100, 650);
@@ -61,15 +69,15 @@ export async function photoLocationImage(photoBlob, marks, planBlob, placement, 
     return await new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('位置對照副本產生失敗')), 'image/jpeg', .94));
   } finally { urls.forEach(url => URL.revokeObjectURL(url)); }
 }
-export async function createAnnotator(stage, url, initial = [], onChange = () => {}) {
+export async function createAnnotator(stage, url, initial = [], onChange = () => {}, options = {}) {
   const img = await loadImage(url), svg = node('svg', { 'aria-label': '圖面圈註區', role: 'img' });
-  let marks = structuredClone(initial), mode = 'circle', text = '', draft = null, start = null, gesture = 'drag', anchor = null, pointerId = null;
+  let marks = structuredClone(initial), mode = 'circle', text = '', draft = null, start = null, gesture = 'drag', anchor = null, pointerId = null, tone = 'red', stamp = options.stamp || '';
   const history = [], future = [], w = img.naturalWidth, h = img.naturalHeight;
   const checkpoint = () => { history.push(structuredClone(marks)); future.length = 0; };
   stage.replaceChildren(img, svg);
   const resize = () => { stage.style.width = Math.min(stage.parentElement.clientWidth, innerHeight * .43 * w / h) + 'px'; };
   const observer = new ResizeObserver(resize); observer.observe(stage.parentElement); resize();
-  const draw = () => drawMarks(svg, draft ? [...marks, draft] : marks, w, h);
+  const draw = () => drawMarks(svg, draft ? [...marks, draft] : marks, w, h, { color: true, stamp });
   const point = event => { const r = svg.getBoundingClientRect(); return { x: Math.max(0, Math.min(1, (event.clientX - r.left) / r.width)), y: Math.max(0, Math.min(1, (event.clientY - r.top) / r.height)) }; };
   svg.addEventListener('pointerdown', e => {
     if (mode === 'erase' && e.button <= 0 && e.isPrimary !== false) { const index = [...svg.children].indexOf(e.target); if (index >= 0 && index < marks.length) { e.preventDefault(); checkpoint(); marks.splice(index, 1); draw(); onChange(structuredClone(marks)); } return; }
@@ -77,7 +85,7 @@ export async function createAnnotator(stage, url, initial = [], onChange = () =>
     if (mode === 'text' && !text.trim()) return;
     e.preventDefault(); pointerId = e.pointerId;
     if (gesture === 'tap' && mode === 'arrow') { svg.setPointerCapture(e.pointerId); return; }
-    svg.setPointerCapture(e.pointerId); start = point(e); draft = { type: mode, points: [start, start] };
+    svg.setPointerCapture(e.pointerId); start = point(e); draft = { type: mode, tone, points: [start, start] };
     if (mode === 'text') { draft.points = [start]; draft.text = text.slice(0, 120); } draw();
   });
   svg.addEventListener('pointermove', e => { if (e.pointerId !== pointerId || !draft || (gesture === 'tap' && mode === 'arrow')) return; if (mode === 'pen') { if (draft.points.length < 1500) draft.points.push(point(e)); } else if (mode !== 'text') draft.points[1] = point(e); draw(); });
@@ -88,7 +96,7 @@ export async function createAnnotator(stage, url, initial = [], onChange = () =>
       const p = point(e);
       if (!anchor) { anchor = p; draw(); svg.append(node('circle', { cx: p.x * w, cy: p.y * h, r: w / 70, fill: '#df443a' })); return; }
       if (Math.hypot(anchor.x - p.x, anchor.y - p.y) < .006) return;
-      checkpoint(); marks.push({ type: 'arrow', points: [anchor, p] }); anchor = null; draw(); onChange(structuredClone(marks)); return;
+      checkpoint(); marks.push({ type: 'arrow', tone, points: [anchor, p] }); anchor = null; draw(); onChange(structuredClone(marks)); return;
     }
     if (!draft) return;
     if (e.type === 'pointercancel') { draft = null; draw(); return; }
@@ -97,16 +105,16 @@ export async function createAnnotator(stage, url, initial = [], onChange = () =>
     checkpoint(); marks.push(draft); draft = null; draw(); onChange(structuredClone(marks));
   };
   svg.addEventListener('pointerup', finish); svg.addEventListener('pointercancel', finish); draw();
-  return { get pending() { return !!(draft || anchor); }, get marks() { return structuredClone(marks); }, replace(value) { marks = structuredClone(value); history.length = future.length = 0; draw(); }, setGesture(value) { gesture = value; draft = anchor = null; pointerId = null; draw(); }, setMode(value) { mode = value; draft = anchor = null; pointerId = null; stage.classList.toggle('view', value === 'view'); draw(); }, setText(value) { text = value; }, undo() { draft = anchor = null; pointerId = null; if (history.length) { future.push(structuredClone(marks)); marks = history.pop(); draw(); onChange(structuredClone(marks)); } }, redo() { draft = anchor = null; pointerId = null; if (future.length) { history.push(structuredClone(marks)); marks = future.pop(); draw(); onChange(structuredClone(marks)); } }, clear() { checkpoint(); marks = []; draw(); onChange([]); }, dispose() { observer.disconnect(); } };
+  return { get pending() { return !!(draft || anchor); }, get marks() { return structuredClone(marks); }, replace(value) { marks = structuredClone(value); history.length = future.length = 0; draw(); }, setGesture(value) { gesture = value; draft = anchor = null; pointerId = null; draw(); }, setMode(value) { mode = value; draft = anchor = null; pointerId = null; stage.classList.toggle('view', value === 'view'); draw(); }, setText(value) { text = value; }, setTone(value) { tone = Object.hasOwn(TONES, value) ? value : 'red'; }, setStamp(value) { stamp = value || ''; draw(); }, undo() { draft = anchor = null; pointerId = null; if (history.length) { future.push(structuredClone(marks)); marks = history.pop(); draw(); onChange(structuredClone(marks)); } }, redo() { draft = anchor = null; pointerId = null; if (future.length) { history.push(structuredClone(marks)); marks = future.pop(); draw(); onChange(structuredClone(marks)); } }, clear() { checkpoint(); marks = []; draw(); onChange([]); }, dispose() { observer.disconnect(); } };
 }
-export async function markedImage(blob, marks) {
+export async function markedImage(blob, marks, options = {}) {
   const source = URL.createObjectURL(blob);
   try {
     const img = await loadImage(source), canvas = document.createElement('canvas');
     const scale = Math.min(1, 4096 / Math.max(img.naturalWidth, img.naturalHeight));
     canvas.width = Math.max(1, Math.round(img.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
     const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    const svg = node('svg', { xmlns: NS, width: canvas.width, height: canvas.height }); drawMarks(svg, marks, canvas.width, canvas.height);
+    const svg = node('svg', { xmlns: NS, width: canvas.width, height: canvas.height }); drawMarks(svg, marks, canvas.width, canvas.height, { color: true, stamp: options.stamp });
     const overlayURL = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' }));
     try { ctx.drawImage(await loadImage(overlayURL), 0, 0); } finally { URL.revokeObjectURL(overlayURL); }
     return await new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('註記副本產生失敗')), 'image/jpeg', .94));

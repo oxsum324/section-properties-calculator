@@ -5,14 +5,15 @@ export async function createDetailCanvas(stage, url, initial, onChange, onState)
   const image = new Image(); image.src = url; await image.decode();
   const w = image.naturalWidth, h = image.naturalHeight, svg = svgNode('svg', { viewBox: `0 0 ${w} ${h}`, role: 'img', 'aria-label': '細部圖繪製區' });
   const base = svgNode('image', { href: url, width: w, height: h }), objects = svgNode('g'), draftLayer = svgNode('g'), handles = svgNode('g'); svg.append(base, objects, draftLayer, handles); stage.replaceChildren(svg);
-  let marks = structuredClone(initial), mode = 'line', selected = -1, vertex = -1, segment = -1, symbol = 'network', condition = 'damp', text = '', pending = [], ghost, gesture, message = '', frame = 0, disposed = false;
+  let marks = structuredClone(initial), mode = 'line', selected = -1, vertex = -1, segment = -1, symbol = 'network', condition = 'damp', text = '', tone = 'red', openingPoints = 2, pending = [], ghost, gesture, message = '', frame = 0, disposed = false;
+  const screen = { color: true };
   let view = { x: 0, y: 0, w, h }; const history = [], future = [], pointers = new Map();
   const unit = event => { const p = svg.createSVGPoint(); p.x = event.clientX; p.y = event.clientY; const q = p.matrixTransform(svg.getScreenCTM().inverse()); return { x: q.x / w, y: q.y / h }; };
   const bounded = p => ({ x: Math.max(0, Math.min(1, p.x)), y: Math.max(0, Math.min(1, p.y)) });
   const distance = (a, b) => Math.hypot((a.x - b.x) * w, (a.y - b.y) * h);
   const scale = () => svg.getScreenCTM()?.a || 1;
   const updateView = () => svg.setAttribute('viewBox', `${view.x} ${view.y} ${view.w} ${view.h}`);
-  function state() { onState({ mode, selected, vertex, segment, marks, pending: !!pending.length || !!ghost, count: pending.length, canUndo: !!pending.length || !!history.length, canRedo: !!future.length, message }); }
+  function state() { onState({ mode, selected, vertex, segment, marks, tone, openingPoints, pending: !!pending.length || !!ghost, count: pending.length, canUndo: !!pending.length || !!history.length, canRedo: !!future.length, message }); }
   function decorate() {
     handles.replaceChildren();
     objects.querySelectorAll('[data-detail-index]').forEach(g => { g.style.opacity = selected < 0 || Number(g.dataset.detailIndex) === selected ? '1' : '.55'; });
@@ -21,17 +22,17 @@ export async function createDetailCanvas(stage, url, initial, onChange, onState)
     if (mark.type !== 'symbol') mark.points.forEach((p, i) => { if (mark.points.length > 50 && i !== vertex && i !== mark.points.length - 1 && i % Math.ceil(mark.points.length / 40)) return; handles.append(svgNode('circle', { cx: p.x * w, cy: p.y * h, r: 13 / scale(), fill: 'transparent', 'data-vertex': i }), svgNode('circle', { cx: p.x * w, cy: p.y * h, r: (i === vertex ? 8 : 6) / scale(), fill: 'white', stroke: '#176bc1', 'stroke-width': 2 / scale(), 'pointer-events': 'none' })); });
   }
   function redraw() {
-    drawDetailMarks(objects, marks, w, h); draftLayer.replaceChildren();
-    if (pending.length) { drawDetailMark(draftLayer, { type: 'pen', points: pending }, w, h); pending.forEach(p => draftLayer.append(svgNode('circle', { cx: p.x * w, cy: p.y * h, r: 4 / scale(), fill: '#176bc1' }))); }
+    drawDetailMarks(objects, marks, w, h, screen); draftLayer.replaceChildren();
+    if (pending.length) { drawDetailMark(draftLayer, { type: 'pen', tone, points: pending }, w, h, screen); pending.forEach(p => draftLayer.append(svgNode('circle', { cx: p.x * w, cy: p.y * h, r: 4 / scale(), fill: '#176bc1' }))); }
     decorate(); state();
   }
-  function commit(next) { if (next.some(m => m.type === 'opening' && (Math.abs(m.points[0].x - m.points[1].x) * w < 3 || Math.abs(m.points[0].y - m.points[1].y) * h < 3))) { message = '開口太窄，請拉開兩個對角，保留寬度及高度。'; ghost = null; redraw(); return false; } if (next.some(m => m.type === 'region' && regionArea(m.points) <= 1e-8)) { message = '範圍需由至少三個不在同一直線上的點圍成，請調整後再完成。'; ghost = null; redraw(); return false; } if (next.length > 500) { message = '本圖標記已達 500 筆，請先整理標記。'; redraw(); return false; } history.push(structuredClone(marks)); future.length = 0; marks = next; onChange(structuredClone(marks)); message = ''; redraw(); return true; }
+  function commit(next) { if (next.some(m => m.type === 'opening' && (m.points.length === 4 ? regionArea(m.points) * w * h < 9 : (Math.abs(m.points[0].x - m.points[1].x) * w < 3 || Math.abs(m.points[0].y - m.points[1].y) * h < 3)))) { message = '開口太窄或太小，請拉開對角，保留寬度及高度。'; ghost = null; redraw(); return false; } if (next.some(m => m.type === 'region' && regionArea(m.points) <= 1e-8)) { message = '範圍需由至少三個不在同一直線上的點圍成，請調整後再完成。'; ghost = null; redraw(); return false; } if (next.length > 500) { message = '本圖標記已達 500 筆，請先整理標記。'; redraw(); return false; } history.push(structuredClone(marks)); future.length = 0; marks = next; onChange(structuredClone(marks)); message = ''; redraw(); return true; }
   function append(mark) { selected = marks.length; vertex = segment = -1; if (commit([...marks, mark])) pending = []; redraw(); }
   function finish() {
     const minimum = mode === 'region' ? 3 : 2;
     if (pending.length < minimum) { message = `請至少點選 ${minimum} 個位置；也可取消。`; state(); return; }
     if (mode === 'region') append({ type: 'region', condition, points: structuredClone(pending) });
-    else append({ type: 'pen', points: structuredClone(pending) });
+    else append({ type: 'pen', tone, points: structuredClone(pending) });
   }
   function hit(p) {
     const tolerance = 14 / scale(), hits = [];
@@ -59,7 +60,7 @@ export async function createDetailCanvas(stage, url, initial, onChange, onState)
       else if (hits.length) { const chosen = hits.find(x => x.index === selected) || hits[0]; selected = chosen.index; segment = chosen.segment; vertex = -1; gesture = { type: 'move', start: p, original: structuredClone(marks[selected]), hits }; }
       else { selected = vertex = segment = -1; gesture = null; }
       decorate(); state(); if (gesture) gesture.start = unit(event);
-    } else if (mode === 'pen') { ghost = { type: 'pen', points: [bounded(p)] }; gesture = { type: 'pen', start: p }; state(); }
+    } else if (mode === 'pen') { ghost = { type: 'pen', tone, points: [bounded(p)] }; gesture = { type: 'pen', start: p }; state(); }
     else gesture = { type: 'tap', start: p };
   };
   svg.onpointermove = event => {
@@ -75,7 +76,7 @@ export async function createDetailCanvas(stage, url, initial, onChange, onState)
     else if (gesture.type === 'vertex') { ghost = structuredClone(gesture.original); ghost.points[vertex] = p; }
     else if (gesture.type === 'move') ghost = moveDetailMark(gesture.original, p.x - gesture.start.x, p.y - gesture.start.y, w, h);
     else return;
-    if (!frame) frame = requestAnimationFrame(() => { frame = 0; if (!ghost || disposed) return; if (gesture?.type === 'pen') drawDetailMark(draftLayer, ghost, w, h); else { drawDetailMark(objects.querySelector(`[data-detail-index="${selected}"]`), ghost, w, h); decorate(); } });
+    if (!frame) frame = requestAnimationFrame(() => { frame = 0; if (!ghost || disposed) return; if (gesture?.type === 'pen') drawDetailMark(draftLayer, ghost, w, h, screen); else { drawDetailMark(objects.querySelector(`[data-detail-index="${selected}"]`), ghost, w, h, screen); decorate(); } });
   };
   const release = event => {
     if (!pointers.has(event.pointerId)) return; pointers.delete(event.pointerId); cancelAnimationFrame(frame); frame = 0;
@@ -87,13 +88,15 @@ export async function createDetailCanvas(stage, url, initial, onChange, onState)
       else if (g.type === 'move' && g.hits.length > 1) { const next = g.hits[(g.hits.findIndex(x => x.index === selected) + 1) % g.hits.length]; selected = next.index; segment = next.segment; }
     } else if (g?.type === 'tap' && distance(g.start, p) < 12 / scale()) {
       if (mode === 'symbol') append(moveDetailMark({ type: 'symbol', symbol, points: [p], size: .24, rotation: 0, mirror: false }, 0, 0, w, h));
-      else if (mode === 'text') { if (text.trim()) append({ type: 'text', text: text.trim().slice(0, 120), points: [p] }); else message = '請先填寫標記文字。'; }
+      else if (mode === 'text') { if (text.trim()) append({ type: 'text', tone, text: text.trim().slice(0, 120), points: [p] }); else message = '請先填寫標記文字。'; }
       else if (pending.length < 2000 && (!pending.length || distance(pending.at(-1), p) > 2 / scale())) {
         pending.push(p);
-        if (['arrow', 'circle', 'rect', 'door', 'window'].includes(mode) && pending.length === 2) {
-          if (['door', 'window'].includes(mode)) { const [a, b] = pending; if (Math.abs(a.x - b.x) * w >= 3 && Math.abs(a.y - b.y) * h >= 3) append({ type: 'opening', kind: mode, points: structuredClone(pending) }); else { pending.pop(); message = '開口太窄，請重新點另一個對角。'; } }
+        const target = ['door', 'window'].includes(mode) ? openingPoints : 2;
+        if (['arrow', 'circle', 'rect', 'door', 'window'].includes(mode) && pending.length === target) {
+          if (['door', 'window'].includes(mode) && target === 4) { if (regionArea(pending) * w * h >= 9) append({ type: 'opening', kind: mode, points: structuredClone(pending) }); else { pending = []; message = '四個角太靠近或交叉，請重新依序點四個角。'; } }
+          else if (['door', 'window'].includes(mode)) { const [a, b] = pending; if (Math.abs(a.x - b.x) * w >= 3 && Math.abs(a.y - b.y) * h >= 3) append({ type: 'opening', kind: mode, points: structuredClone(pending) }); else { pending.pop(); message = '開口太窄，請重新點另一個對角。'; } }
           else if (mode === 'rect') { const [a, b] = pending; if (Math.abs(a.x - b.x) * w > 2 && Math.abs(a.y - b.y) * h > 2) append({ type: 'region', condition, points: [a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }] }); }
-          else append({ type: mode, points: structuredClone(pending) });
+          else append({ type: mode, tone, points: structuredClone(pending) });
         }
       }
     }
@@ -105,6 +108,8 @@ export async function createDetailCanvas(stage, url, initial, onChange, onState)
     get marks() { return structuredClone(marks); }, get pending() { return !!pending.length || !!ghost; },
     setMode(value) { if (pending.length || ghost) { message = '請先完成或取消目前筆畫，再切換工具。'; state(); return false; } mode = value; selected = vertex = segment = -1; message = ''; redraw(); return true; },
     setText(value) { text = value; }, setSymbol(value) { symbol = value; }, setCondition(value) { condition = value; },
+    setTone(value) { tone = ['red', 'blue', 'black'].includes(value) ? value : 'red'; redraw(); },
+    setOpeningPoints(value) { openingPoints = value === 4 ? 4 : 2; if (['door', 'window'].includes(mode)) pending = []; redraw(); },
     finish, cancel() { pending = []; ghost = null; message = ''; redraw(); },
     undo() { if (pending.length) pending.pop(); else if (history.length) { future.push(structuredClone(marks)); marks = history.pop(); selected = -1; onChange(structuredClone(marks)); } redraw(); },
     redo() { if (!pending.length && future.length) { history.push(structuredClone(marks)); marks = future.pop(); selected = -1; onChange(structuredClone(marks)); } redraw(); },
