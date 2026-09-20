@@ -392,7 +392,16 @@ async function addRecord() {
   requireNoRecording(); assert(unitId, '請先新增或選擇鑑定戶');
   const previous = currentRecord(), r = newRecord(unitId, previous?.floor || currentUnit()?.floor || '', previous?.space || '');
   const visit = organisation.visit; r.visitId = visit?.id || ''; r.observedOn = visit?.start === visit?.end ? visit?.start || '' : '';
-  await commit(next => { next.records.push(r); markUnitOpen(next, r); }); recordId = r.id; await render(); $('#location').focus();
+  await commit(next => { next.records.push(r); markUnitOpen(next, r); }); recordId = r.id; await render();
+  // Run after action() releases inert; focusing an input here opens the phone keyboard
+  // and can scroll past the new position's heading.
+  requestAnimationFrame(() => {
+    if (recordId !== r.id || activeView !== 'work') return;
+    const heading = $('#recordHeading');
+    heading.focus({ preventScroll: true });
+    const top = window.scrollY + heading.getBoundingClientRect().top - $('#contextStrip').getBoundingClientRect().height - 12;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'instant' });
+  });
 }
 // Quick choices come from the case type and the unit kind; free text stays allowed.
 function renderChips(r) {

@@ -34,7 +34,7 @@ export function drawDetailMark(g, mark, width, height, options = {}) {
   } else if (mark.type === 'symbol') {
     const p = mark.points[0], scale = mark.size * Math.min(width, height) / 100;
     const shape = svgNode('g', { transform: `translate(${p.x * width} ${p.y * height}) rotate(${mark.rotation}) scale(${mark.mirror ? -scale : scale} ${scale})`, fill: 'none', stroke: color ? TONES[symbolTone(mark.symbol)] : BASE, 'stroke-width': 3, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
-    symbolArtwork(mark.symbol).forEach(attributes => shape.append(svgNode('path', attributes))); g.append(shape);
+    symbolArtwork(mark.symbol, mark.size <= .14).forEach(attributes => shape.append(svgNode('path', attributes))); g.append(shape);
   } else if (mark.type === 'region') {
     const water = waterRegion(mark.condition), dash = water ? { 'stroke-dasharray': `${width / 100} ${width / 180}` } : {};
     if (color) g.append(svgNode('polygon', { points: mark.points.map(p => `${p.x * width},${p.y * height}`).join(' '), fill: TONES.blue, 'fill-opacity': .12, stroke: TONES.blue, 'stroke-width': width / 330, ...dash }));

@@ -1,3 +1,4 @@
+import { clickSurvey } from './ui-click.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -5,7 +6,7 @@ import path from 'node:path';
 export async function verifyV013(browser, base, out) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }), page = await context.newPage(), errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  const click = async selector => { const el = page.locator(selector); await el.evaluate(el => { for(let p=el.parentElement;p;p=p.parentElement) if(p.tagName==='DETAILS') p.open=true; }); await el.click(); await page.locator('#busy').waitFor({ state: 'hidden' }); };
+  const click = selector => clickSurvey(page, selector);
   const current = () => page.evaluate(async () => (await (await import('./store.js')).allProjects())[0]);
   const location = (x,y) => page.locator('#detailStage svg').evaluate((svg,[x,y]) => { const p=new DOMPoint(x*1200,y*640).matrixTransform(svg.getScreenCTM()); return {x:p.x,y:p.y}; },[x,y]);
   const tap = async(x,y) => { const p=await location(x,y); await page.touchscreen.tap(p.x,p.y); };
@@ -24,7 +25,7 @@ export async function verifyV013(browser, base, out) {
     await click('#detailUndo');assert.equal(await count(),1);await click('#detailRedo');assert.equal(await count(),2);
     await click('[data-detail-tool=select]');await page.locator('#detailObject').selectOption('1');
     const a=await location(.4,.36),b=await location(.42,.4);await page.mouse.move(a.x,a.y);await page.mouse.down();await page.mouse.move(b.x,b.y,{steps:5});await page.mouse.up();
-    const changed=await page.locator('#detailStage [data-detail-index="1"] polyline').getAttribute('points');assert.match(changed,/504/);
+    const changed=await page.locator('#detailStage [data-detail-index="1"] polyline').getAttribute('points');assert(Math.abs(Number(changed.split(' ')[1].split(',')[0])-504)<.1,'Dragged vertex retains its intended drawing coordinate');
     await page.locator('#detailObject').selectOption('1');await tap(.445,.475);await click('#detailDeleteSegment');assert.equal(await count(),3);await click('#detailUndo');assert.equal(await count(),2);
     await click('[data-detail-tool=region]');for(const p of [[.55,.48],[.72,.5],[.72,.6],[.55,.58]])await tap(...p);await click('#detailFinish');assert.equal(await page.locator('#detailStage polygon').count(),1);
     for(const [symbol,x,y] of [['network',.3,.38],['damp',.62,.38],['salt',.3,.68],['spall',.65,.68]]) {await click('[data-detail-tool=symbol]');await click(`[data-detail-symbol=${symbol}]`);assert(await page.locator('#detailSymbols').isHidden());await tap(x,y);}

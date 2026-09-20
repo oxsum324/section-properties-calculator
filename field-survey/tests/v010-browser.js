@@ -1,3 +1,4 @@
+import { clickSurvey } from './ui-click.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -7,7 +8,7 @@ export async function verifyV010(browser, base, out) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, acceptDownloads: true }), page = await context.newPage(), errors = [];
   page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   const idle = () => page.locator('#busy').waitFor({ state: 'hidden' });
-  const click = async selector => { const locator = page.locator(selector); await locator.evaluate(el => { for (let p = el.parentElement; p; p = p.parentElement) if (p.tagName === 'DETAILS') p.open = true; }); await locator.click(); await idle(); };
+  const click = selector => clickSurvey(page, selector);
   const current = () => page.evaluate(async () => (await (await import('./store.js')).allProjects())[0]);
   const download = async (button, filename) => { const waiting = page.waitForEvent('download'); await click(button); const file = path.join(out, filename); await (await waiting).saveAs(file); return file; };
   const paint = async () => { await click('[data-detail-tool=pen]'); await page.locator('#detailStage svg').scrollIntoViewIfNeeded(); const b = await page.locator('#detailStage svg').boundingBox(); await page.mouse.move(b.x + b.width * .25, b.y + b.height * .25); await page.mouse.down(); await page.mouse.move(b.x + b.width * .4, b.y + b.height * .6, { steps: 8 }); await page.mouse.move(b.x + b.width * .5, b.y + b.height * .7, { steps: 6 }); await page.mouse.up(); return b; };

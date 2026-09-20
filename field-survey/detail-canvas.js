@@ -6,7 +6,7 @@ export async function createDetailCanvas(stage, url, initial, onChange, onState,
   const image = new Image(); image.src = url; await image.decode();
   const w = image.naturalWidth, h = image.naturalHeight, svg = svgNode('svg', { viewBox: `0 0 ${w} ${h}`, role: 'img', 'aria-label': '細部圖繪製區' });
   const base = svgNode('image', { href: url, width: w, height: h }), objects = svgNode('g'), draftLayer = svgNode('g'), handles = svgNode('g'); svg.append(base, objects, draftLayer, handles); stage.replaceChildren(svg);
-  let marks = structuredClone(initial), mode = 'line', selected = -1, vertex = -1, segment = -1, symbol = 'network', condition = 'damp', text = '', tone = 'red', openingPoints = 2, pending = [], ghost, gesture, message = '', frame = 0, disposed = false;
+  let marks = structuredClone(initial), mode = 'line', selected = -1, vertex = -1, segment = -1, symbol = 'network', symbolSize = .24, condition = 'damp', text = '', tone = 'red', openingPoints = 2, pending = [], ghost, gesture, message = '', frame = 0, disposed = false;
   const screen = { color: true };
   let view = { x: 0, y: 0, w, h }; const history = [], future = [], pointers = new Map();
   const unit = event => { const p = svg.createSVGPoint(); p.x = event.clientX; p.y = event.clientY; const q = p.matrixTransform(svg.getScreenCTM().inverse()); return { x: q.x / w, y: q.y / h }; };
@@ -88,7 +88,7 @@ export async function createDetailCanvas(stage, url, initial, onChange, onState,
       if (distance(g.start, p) > 2 / scale()) { const mark = g.type === 'move' ? moveDetailMark(g.original, p.x - g.start.x, p.y - g.start.y, w, h) : { ...g.original, points: g.original.points.map((q, i) => i === vertex ? p : q) }; const next = structuredClone(marks); next[selected] = mark; ghost = null; commit(next); }
       else if (g.type === 'move' && g.hits.length > 1) { const next = g.hits[(g.hits.findIndex(x => x.index === selected) + 1) % g.hits.length]; selected = next.index; segment = next.segment; }
     } else if (g?.type === 'tap' && distance(g.start, p) < 12 / scale()) {
-      if (mode === 'symbol') append(moveDetailMark({ type: 'symbol', symbol, points: [p], size: .24, rotation: 0, mirror: false }, 0, 0, w, h));
+      if (mode === 'symbol') append(moveDetailMark({ type: 'symbol', symbol, points: [p], size: symbolSize, rotation: 0, mirror: false }, 0, 0, w, h));
       else if (mode === 'text') { if (text.trim()) append({ type: 'text', tone, text: text.trim().slice(0, 120), points: [p] }); else message = '請先填寫標記文字。'; }
       else if (pending.length < 2000 && (!pending.length || distance(pending.at(-1), p) > 2 / scale())) {
         pending.push(p);
@@ -109,6 +109,7 @@ export async function createDetailCanvas(stage, url, initial, onChange, onState,
     get marks() { return structuredClone(marks); }, get pending() { return !!pending.length || !!ghost; },
     setMode(value) { if (pending.length || ghost) { message = '請先完成或取消目前筆畫，再切換工具。'; state(); return false; } mode = value; selected = vertex = segment = -1; message = ''; redraw(); return true; },
     setText(value) { text = value; }, setSymbol(value) { symbol = value; }, setCondition(value) { condition = value; },
+    setSymbolSize(value) { if ([.14, .24, .36].includes(Number(value))) symbolSize = Number(value); },
     setTone(value) { tone = ['red', 'blue', 'black'].includes(value) ? value : 'red'; redraw(); },
     setOpeningPoints(value) { openingPoints = value === 4 ? 4 : 2; if (['door', 'window'].includes(mode)) pending = []; redraw(); },
     finish, cancel() { pending = []; ghost = null; message = ''; redraw(); },

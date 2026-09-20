@@ -3,9 +3,14 @@ export const DETAIL_SYMBOLS = { network: '網裂', damp: '滲水痕', salt: '白
 export const REGION_TYPES = { damp: '滲水痕', salt: '白華', spall: '剝落' };
 // Hand-drawn vector artwork, kept within ±52 × ±36 for the shared move/rotate bounds.
 // These are schematic observation icons, not measured outlines or standard code symbols.
-export function symbolArtwork(kind) {
-  const line = (d, width = 1.8, extra = {}) => ({ d, 'stroke-width': width, ...extra });
-  const dots = points => ({ d: points.map(([x,y,r]) => `M${(x-r).toFixed(2)},${y.toFixed(2)} a${r},${r} 0 1,0 ${2*r},0 a${r},${r} 0 1,0 ${-2*r},0`).join(' '), fill: '#25372f', stroke: 'none' });
+export function symbolArtwork(kind, compact = false) {
+  const line = (d, width = 1.8, extra = {}) => ({ d, 'stroke-width': compact ? Math.max(1.5, width) : width, ...extra });
+  // Small marks keep their silhouette, with fewer, clearer dots rather than a
+  // dense dark patch. The same size rule is used on canvas and in exports.
+  const dots = points => ({ d: points.filter((_,i) => !compact || i % 2 === 0).map(([x,y,r]) => {
+    if (compact) r *= 1.3;
+    return `M${(x-r).toFixed(2)},${y.toFixed(2)} a${r},${r} 0 1,0 ${2*r},0 a${r},${r} 0 1,0 ${-2*r},0`;
+  }).join(' '), fill: '#25372f', stroke: 'none' });
   // Fixed point patterns keep the canvas, thumbnails and printed diagrams identical.
   const edgeDots = polygon => polygon.flatMap(([x,y], i) => {
     const [bx,by] = polygon[(i+1)%polygon.length], dx=bx-x, dy=by-y, length=Math.hypot(dx,dy), count=Math.max(1,Math.ceil(length/2.2));

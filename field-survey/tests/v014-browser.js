@@ -1,3 +1,4 @@
+import { clickSurvey } from './ui-click.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -6,7 +7,7 @@ export async function verifyV014(browser, base, out) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, permissions: ['camera'] });
   const page = await context.newPage(), errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  const click = async selector => { const el = page.locator(selector); await el.evaluate(el => { for(let p=el.parentElement;p;p=p.parentElement) if(p.tagName==='DETAILS') p.open=true; }); await el.click(); await page.locator('#busy').waitFor({state:'hidden'}); };
+  const click = selector => clickSurvey(page, selector);
   const current = () => page.evaluate(async () => (await (await import('./store.js')).allProjects())[0]);
   const tapPlan = async (x,y) => { await page.locator('#planStage svg').scrollIntoViewIfNeeded(); const b=await page.locator('#planStage svg').boundingBox();await page.touchscreen.tap(b.x+b.width*x,b.y+b.height*y); };
   const addSymbol = async () => { await click('[data-detail-tool=symbol]');await click('[data-detail-symbol=network]');const p=await page.locator('#detailStage svg').evaluate(svg=>{const p=new DOMPoint(600,320).matrixTransform(svg.getScreenCTM());return{x:p.x,y:p.y};});await page.touchscreen.tap(p.x,p.y); };

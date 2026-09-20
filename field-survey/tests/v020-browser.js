@@ -1,3 +1,4 @@
+import { clickSurvey } from './ui-click.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -13,7 +14,7 @@ export async function verifyV020(browser, base, out) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }), page = await context.newPage(), errors = [];
   page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   const idle = () => page.locator('#busy').waitFor({ state: 'hidden' });
-  const click = async selector => { await page.locator(selector).click(); await idle(); };
+  const click = selector => clickSurvey(page, selector);
   const current = () => page.evaluate(async () => (await (await import('./store.js')).allProjects())[0]);
   const text = selector => page.locator(selector).textContent();
   const choose = async files => { const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#pickPhotos').click()]); await chooser.setFiles(files); await idle(); };
@@ -59,7 +60,7 @@ export async function verifyV020(browser, base, out) {
     await click(`[data-field-detail="${seed.record}"]`); await page.locator('#detailStage').waitFor();
     if (await page.locator('#detailChoices').isHidden()) await click('#chooseDetail');
     await click('[data-detail-preset=corner]'); await page.locator('#detailStage svg').waitFor();
-    await page.locator('#detailQuad').check(); await click('[data-detail-tool=door]');
+    await click('[data-detail-tool=door]'); await page.locator('#detailQuad').check();
     for (const [x, y] of [[.12, .30], [.40, .36], [.40, .70], [.12, .78]]) await tapStage(x, y);
     await click('[data-detail-tool=line]'); await page.locator('#detailTone').selectOption('blue'); await tapStage(.6, .3); await tapStage(.8, .5); await click('#detailFinish');
     await click('[data-detail-tool=symbol]'); await click('[data-detail-symbol=network]'); await tapStage(.7, .75);
