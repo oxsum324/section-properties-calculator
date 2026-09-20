@@ -1,6 +1,6 @@
 import { planTemplateCopy, VERSION, removeRecordPhotos, BUILDING_TYPES, floorConfig, buildingType, floorOptions, spaceOptions, sortedUnits, apartmentUnits, validDate, MARK_TONES, CAPTURE_SOURCES, localDateOf, defaultStamp, photoStampText, applyPhotoDate, exifDate, id, now, clone, newProject, newUnit, newRecord, CONDITIONS, COMPONENTS, UNIT_STATES, ROLES, WIDTH_MODES, CRACK_PATTERNS, widthMode, isNetworkCrack, recordComponents, recordConditions, AREA_CONDITIONS, AREA_METHODS, emptySketch, recordIssues, unitIssues, sha256, restoredCopy, assert } from './model.js';
 import { openStore, allProjects, getProject, getMedia, saveProject, backupState, saveBackupState } from './store.js';
-import { makeBundle, readBundle, makeReceipt, checkReceipt } from './bundle.js';
+import { makeBundle, readBundle, makeReceipt, checkReceipt, consolidateBundles } from './bundle.js';
 import { createAnnotator, markedImage, planPreview, photoLocationImage } from './annotation.js';
 import { createSketcher, sketchImage } from './sketch.js';
 import { isUCrack, isTile, syncRooms, clearWrongFloor, observationText, tileTotal, photoPlacement } from './model.js';
@@ -315,6 +315,9 @@ async function renderBackup() {
   $('#exportScope').innerHTML = '<option value="">全案</option>' + project.units.map(u => `<option value="${esc(u.id)}">單戶：${esc(u.code)}</option>`).join('');
   if (project.units.some(u => u.id === oldScope)) $('#exportScope').value = oldScope;
   const bytes = project.media.reduce((s, m) => s + m.size, 0); $('#backupSummary').textContent = `${project.units.length} 戶 · ${project.records.length} 筆紀錄 · ${project.media.length} 個原始媒體 · ${size(bytes)}`;
+  $('#handoffHistory').hidden = !project.handoffImports?.length;
+  const byRecord = new Map(project.records.map(r => [r.id, r]));
+  $('#handoffHistoryList').innerHTML = (project.handoffImports || []).map(s => `<li><strong>${esc(s.label)}</strong>：${esc(s.settings.name)} · ${esc(s.settings.date)} · ${s.records.length} 筆<div class="micro">${s.records.map(old => { const r = byRecord.get(old.id); return r ? `原 ${old.fieldNumber || '未編號'} → 現 ${r.fieldNumber}` : '位置已移除'; }).map(esc).join('、')}</div></li>`).join('');
   const state = await backupState(project.id), entry = state.entries[$('#exportScope').value || 'all'];
   $('#exportState').textContent = !entry ? '尚未匯出此範圍。' : entry.revision !== project.revision ? '匯出後案件已有修改，請重新備份。' : entry.verifiedAt ? '已匯入本版本的接收端核對收據。' : '已產生備份檔；待接收端開啟核對。';
   const estimate = await navigator.storage?.estimate?.();
@@ -792,14 +795,70 @@ async function exportBackup() {
   download(blob, name);
   const state = await backupState(project.id); state.entries[scope || 'all'] = { digest: manifest.digest, revision: project.revision, exportedAt: now(), verifiedAt: null }; await saveBackupState(state); await renderBackup(); toast('備份檔已產生，請在接收端開啟核對');
 }
+async function prepareHandoff() {
+  requireNoRecording();
+  const scope = $('#exportScope').value, source = clone(project);
+  const { blob, manifest } = await makeBundle(source, async mid => (await getMedia(mid))?.blob, scope, (i, n) => busyText(`準備完整案件 ${i} / ${n}`));
+  const unit = source.units.find(u => u.id === scope);
+  const name = `${source.code}${unit ? '-' + unit.code : ''}-${localDate()}-r${source.revision}.csurvey`.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_');
+  const file = new File([blob], name, { type: blob.type });
+  let canShare = false;
+  try { canShare = !!navigator.share && !!navigator.canShare?.({ files: [file] }); } catch {}
+  openModal('完整案件已準備好', `<h3>${esc(source.name)}</h3><p>${scope ? '單戶' : '全案'} · ${manifest.payload.project.records.length} 筆紀錄 · ${size(blob.size)}</p><p>包含位置紀錄、文字說明、照片、錄音、平面圖及可編輯細圖。接收端開啟本工具，選「開啟案件檔繼續製作」即可接續工作。</p><div class="handoff-actions"><button id="saveHandoff" class="primary" ${typeof window.showSaveFilePicker !== 'function' ? 'hidden' : ''}>另存到資料夾</button><button id="shareHandoff" class="secondary" ${canShare ? '' : 'hidden'}>分享案件檔</button><button id="downloadHandoff" class="secondary">下載案件檔</button></div><p id="handoffStatus" class="modal-note" role="status">電腦可選已同步的 Google Drive 資料夾；手機可在分享選單選 Google Drive（若裝置提供）。儲存後請等 Drive 顯示同步完成。</p><details><summary>從雲端交接的操作方式</summary><ol><li>下載或另存這份 .csurvey 案件檔。</li><li>存入共用雲端資料夾；若未安裝 Drive，可開啟下方資料夾後手動上傳。</li><li>另一台電腦下載案件檔，在本工具開啟、編輯及製作報告。</li><li>多人交件時先開啟一份主案，再選「彙整同事的案件檔」。</li></ol><p><a href="https://drive.google.com/drive/folders/1jwhulKJvNKLTRFoA1a5rw-PKIN9_5g7J" target="_blank" rel="noopener noreferrer">開啟預設交接資料夾</a></p><p class="micro">工具目前不會直接上傳或列出雲端檔案，也無法確認 Drive 的同步進度。這是完整案件交接，不是照片壓縮檔。</p></details>`);
+  const status = $('#handoffStatus');
+  const exported = async () => {
+    const state = await backupState(source.id);
+    state.entries[scope || 'all'] = { digest: manifest.digest, revision: source.revision, exportedAt: now(), verifiedAt: null };
+    await saveBackupState(state); await renderBackup();
+  };
+  // These clicks must reach the native API before awaiting any browser storage work.
+  const run = async operation => {
+    const buttons = [...$('#modalBody').querySelectorAll('button')]; buttons.forEach(b => b.disabled = true);
+    try { await operation(); }
+    catch (e) { status.textContent = e.name === 'AbortError' ? '已取消，案件仍保留在此裝置，可重新選擇。' : `未完成交接：${e.message}。可改用下載案件檔。`; }
+    finally { buttons.forEach(b => b.disabled = false); }
+  };
+  $('#saveHandoff').onclick = () => run(async () => {
+    const handle = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: '現況紀錄案件', accept: { 'application/octet-stream': ['.csurvey'] } }] });
+    const stream = await handle.createWritable();
+    try { await stream.write(blob); await stream.close(); } catch (e) { await stream.abort().catch(() => {}); throw e; }
+    status.textContent = '案件檔已寫入所選資料夾；若為雲端同步資料夾，請在 Drive 確認同步完成。'; await exported();
+  });
+  $('#shareHandoff').onclick = () => run(async () => {
+    await navigator.share({ files: [file], title: source.name });
+    status.textContent = '案件檔已交給系統分享功能；請在接收的應用程式確認保存或上傳完成。'; await exported();
+  });
+  $('#downloadHandoff').onclick = () => run(async () => {
+    download(blob, name); status.textContent = '已交給瀏覽器下載；請確認檔案保存完成，再放入共用雲端資料夾。'; await exported();
+  });
+}
+async function inspectColleagueBundles(files) {
+  requireNoRecording(); assert(project, '請先開啟作為彙整基礎的案件');
+  assert(files.length <= 20, '每次最多彙整 20 份案件檔');
+  const base = clone(project), sources = [];
+  for (const [i, file] of files.entries()) {
+    busyText(`核對第 ${i + 1} / ${files.length} 份案件`);
+    sources.push({ ...await readBundle(file), label: file.name.replace(/\.csurvey$/i, '').slice(0, 80) });
+  }
+  openModal('彙整完整案件', `<p>主案：<strong>${esc(base.name)}</strong>（${base.records.length} 筆紀錄）</p><p class="modal-note">會另建彙整案件，保留主案及同事的全部紀錄、照片、錄音和平面圖／細圖。每份來源的戶別分開保留並加上來源名稱；同一位置的不同內容不會自動合併或覆蓋，製作報告前請核對採用範圍。</p>${sources.map((s, i) => `<label>來源 ${i + 1}：${esc(s.project.name)} · ${s.project.units.length} 戶／${s.project.records.length} 筆<input data-handoff-label="${i}" maxlength="80" value="${esc(s.label)}"></label>`).join('')}<p class="micro">整案設定沿用主案；來檔的案件名稱、日期與設定會記入來源資料。位置代號會重新編排，原代號保留於來源資料；既有圖中文字不會自動改字。同一份未修改的案件檔再次匯入會略過。不同版本仍分開保留。</p><button id="confirmConsolidate" class="primary full">建立彙整案件</button>`);
+  $('#confirmConsolidate').onclick = () => action(async () => {
+    sources.forEach((s, i) => { s.label = $(`[data-handoff-label="${i}"]`).value.trim(); assert(s.label, '請填寫每份檔案的來源名稱'); });
+    const result = await consolidateBundles(base, sources);
+    if (!result.added.length) { toast('這些案件檔已在主案內，未重複加入'); closeModal(true); return; }
+    // Validate and save everything in one transaction. Originals are retained.
+    await saveProject(result.project, 0, result.media); closeModal(true); await selectProject(result.project.id);
+    toast(`已彙整 ${result.added.length} 份案件${result.skipped.length ? `，略過 ${result.skipped.length} 份重複檔` : ''}，原案保留`);
+  }, '保存完整彙整案件');
+}
 async function inspectBackup(file) {
   requireNoRecording(); const result = await readBundle(file, (i, n) => busyText(`核對備份原始檔 ${i} / ${n}`));
   const source = result.project, receipt = makeReceipt(result.manifest);
-  openModal('備份核對完成', `<p class="eyebrow">${esc(source.code)}</p><h3>${esc(source.name)}</h3><p>${source.units.length} 戶 · ${source.records.length} 筆紀錄 · ${result.media.length} 個原始媒體</p><p class="modal-note">紀錄與全部媒體已通過檔案指紋核對。可下載收據帶回原裝置，或在此建立還原副本。</p><p class="micro">本次確認的是檔案完整性；不驗證拍攝現場、填寫者身分或鑑定結論。請在另一裝置實際開啟副本後，再確認備份可用。</p><div class="modal-actions"><button id="downloadReceipt" class="secondary">下載核對收據</button><button id="restoreBundle" class="primary">建立還原副本</button></div>`);
+  openModal('備份核對完成', `<p class="eyebrow">${esc(source.code)}</p><h3>${esc(source.name)}</h3><p>${source.units.length} 戶 · ${source.records.length} 筆紀錄 · ${result.media.length} 個原始媒體</p><p class="modal-note">紀錄與全部媒體已通過檔案指紋核對。可下載收據帶回原裝置，或開啟完整案件繼續製作。</p><p class="micro">本次確認的是檔案完整性；不驗證拍攝現場、填寫者身分或鑑定結論。請在另一裝置實際開啟副本後，再確認備份可用。</p><div class="modal-actions"><button id="downloadReceipt" class="secondary">下載核對收據</button><button id="restoreBundle" class="primary">開啟案件並繼續製作</button></div>`);
   $('#downloadReceipt').onclick = () => download(new Blob([JSON.stringify(receipt, null, 2)], { type: 'application/json' }), `${source.code}-核對收據.json`);
   $('#restoreBundle').onclick = () => action(async () => {
     const copy = restoredCopy(source), assets = result.media.map(a => ({ ...a, id: copy.remap.get(a.id) }));
-    await saveProject(copy.project, 0, assets); closeModal(true); await selectProject(copy.project.id); toast('已建立還原副本，原案保留');
+    copy.project.handoffDigests = [...new Set([...(copy.project.handoffDigests || []), result.manifest.digest])];
+    await saveProject(copy.project, 0, assets); closeModal(true); await selectProject(copy.project.id); toast('案件已開啟，可繼續編輯；原案保留');
   }, '還原原始照片與紀錄');
 }
 async function receiveReceipt(file) {
@@ -879,6 +938,9 @@ $('#reviewList').onclick = e => { const status = e.target.closest('[data-unit-st
 for (const selector of ['#reviewSearch', '#reviewFilter']) $(selector).onchange = () => action(async () => { reviewPage = 0; renderReview(); });
 $('#reviewPager').onclick = event => { const b = event.target.closest('[data-review-page]'); if (b) action(async () => { reviewPage += Number(b.dataset.reviewPage); renderReview(); $('#reviewPager').scrollIntoView({ block: 'start' }); }); };
 $('#exportScope').onchange = () => action(renderBackup); $('#exportBackup').onclick = () => action(exportBackup, '核對備份資料');
+$('#prepareHandoff').onclick = () => action(prepareHandoff, '準備完整案件交接檔');
+$('#mergeBundles').onclick = () => { try { requireNoRecording(); $('#mergeBundleInput').click(); } catch (e) { fail(e); } };
+$('#mergeBundleInput').onchange = e => { const files = [...e.target.files]; e.target.value = ''; if (files.length) action(() => inspectColleagueBundles(files), '核對同事案件'); };
 $('#readBackup').onclick = $('#welcomeImport').onclick = () => { try { requireNoRecording(); $('#bundleInput').click(); } catch (e) { fail(e); } };
 $('#bundleInput').onchange = e => { const file = e.target.files[0]; e.target.value = ''; if (file) action(() => inspectBackup(file), '核對備份'); };
 $('#importReceipt').onclick = () => $('#receiptInput').click(); $('#receiptInput').onchange = e => { const file = e.target.files[0]; e.target.value = ''; if (file) action(() => receiveReceipt(file)); };

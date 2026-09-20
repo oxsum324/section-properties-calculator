@@ -1,5 +1,5 @@
 import { DETAIL_SYMBOLS, REGION_TYPES, regionArea } from './detail-geometry.js';
-export const VERSION = '0.22.2';
+export const VERSION = '0.23.0';
 export const id = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 export const clone = value => structuredClone(value);
@@ -349,6 +349,17 @@ export function validateProject(p) {
   assert(p.code.trim() && p.name.trim(), '案號及名稱不可空白');
   assert(validDate(p.date), '會勘日期格式不正確');
   assert(Number.isSafeInteger(p.revision) && p.revision >= 0, '案件版本不正確');
+  if (p.handoffDigests !== undefined) { list(p.handoffDigests, '交接檔指紋', 10000); assert(p.handoffDigests.every(d => typeof d === 'string' && /^[a-f0-9]{64}$/.test(d)), '交接檔指紋不正確'); }
+  if (p.handoffImports !== undefined) {
+    list(p.handoffImports, '彙整來源', 500);
+    for (const s of p.handoffImports) {
+      assert(s && /^[a-f0-9]{64}$/.test(s.digest) && s.settings && typeof s.settings === 'object', '彙整來源不正確');
+      text(s.label, '來源名稱', 80); text(s.importedAt, '彙整時間', 100);
+      list(s.units, '來源戶別'); list(s.records, '來源位置');
+      for (const u of s.units) { identifier(u.id); identifier(u.originalId); text(u.code, '來源戶號'); }
+      for (const r of s.records) { identifier(r.id); identifier(r.originalId); assert(r.fieldNumber === null || Number.isSafeInteger(r.fieldNumber) && r.fieldNumber > 0, '來源代號不正確'); }
+    }
+  }
   if (p.buildingType !== undefined) assert(Object.hasOwn(BUILDING_TYPES, p.buildingType), '案件型態不正確');
   if (p.floorConfig !== undefined) { const c = p.floorConfig; assert(c && typeof c === 'object' && !Array.isArray(c) && Number.isSafeInteger(c.above) && c.above >= 1 && c.above <= 99 && Number.isSafeInteger(c.below) && c.below >= 0 && c.below <= 9 && typeof c.mezzanine === 'boolean', '樓層設定不正確'); }
   if (p.photoStamp !== undefined) assert(typeof p.photoStamp === 'boolean', '照片戳記設定不正確');
@@ -524,11 +535,17 @@ export async function sha256(blob) {
 export function subset(p, unitId = '') {
   const result = clone(p);
   if (!unitId) return result;
+  // A partial export cannot claim that it contains whole previously imported files.
+  if (result.handoffDigests) result.handoffDigests = [];
   assert(p.units.some(u => u.id === unitId), '找不到匯出的戶別');
   result.units = result.units.filter(u => u.id === unitId);
   result.records = result.records.filter(r => r.unitId === unitId);
   result.plans = result.plans.filter(x => x.unitId === unitId);
   if (result.rooms) result.rooms = result.rooms.filter(x => x.unitId === unitId);
+  if (result.handoffImports) {
+    const records = new Set(result.records.map(r => r.id));
+    result.handoffImports = result.handoffImports.map(s => ({ ...s, units: s.units.filter(u => u.id === unitId), records: s.records.filter(r => records.has(r.id)) })).filter(s => s.units.length || s.records.length);
+  }
   const used = new Set([...result.records.flatMap(r => [...r.photos.map(x => x.mediaId), ...r.audioIds, r.detail?.mediaId].filter(Boolean)), ...result.plans.map(x => x.mediaId)]);
   result.media = result.media.filter(m => used.has(m.id));
   return result;

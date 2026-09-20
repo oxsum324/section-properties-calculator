@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { newProject, newUnit, newRecord, id, now, sha256, validateProject, recordIssues, unitIssues, subset, restoredCopy, widthMode, recordComponents, recordConditions, emptySketch, validateSketch } from '../model.js';
-import { makeBundle, readBundle, snapshot, makeReceipt, checkReceipt } from '../bundle.js';
+import { makeBundle, readBundle, snapshot, makeReceipt, checkReceipt, consolidateBundles } from '../bundle.js';
 import { resolveSketchPoint, doorGeometry, expandSketch, sketchArea, sketchView, hitSketch, deleteSketchSelection } from '../sketch.js';
 import { syncRooms, clearWrongFloor, observationText, tileTotal, photoPlacement } from '../model.js';
 import { attachmentIndex, attachmentUnits, reportPhotos, groupPlanEntries, moveRoom, textChunks } from '../report.js';
@@ -424,6 +424,66 @@ async function fixture() {
   }
   return { p, blobs, r, a, b };
 }
+
+test('case consolidation remaps all relationships and preserves editable content and original media', async () => {
+  const { p, r, a, blobs } = await fixture(); syncRooms(p);
+  r.visitId = p.visits[0].id;
+  a.visitHistory = [{ visitId: r.visitId, status: 'open', date: '', reason: '', scope: '原會勘' }];
+  for (const kind of ['plan', 'detail', 'audio']) {
+    const mid = id(), blob = new Blob([kind], { type: kind === 'audio' ? 'audio/webm' : 'image/png' });
+    p.media.push({ id: mid, kind, name: kind, type: blob.type, size: blob.size, sha256: await sha256(blob), importedAt: now() }); blobs.set(mid, blob);
+    if (kind === 'audio') r.audioIds.push(mid);
+    else if (kind === 'detail') r.detail = { kind, mediaId: mid, marks: [{ type: 'text', text: '窗邊滲水', points: [{ x: .3, y: .3 }] }], note: '保留細圖說明' };
+    else {
+      const plan = { id: id(), unitId: a.id, mediaId: mid, title: '原平面圖', floor: r.floor, sketch: emptySketch() };
+      const q = { planId: plan.id, x: .1, y: .2, endX: .3, endY: .4 };
+      r.placement = { ...q }; r.observationPin = { ...q }; r.photos[0].placement = { ...q };
+      plan.labelLayout = [{ kind: 'photo', id: r.photos[0].mediaId, recordId: r.id, x: .3, y: .4, locked: true, anchor: [.1,.2,.3,.4] }, { kind: 'pin', id: r.id, x: .3, y: .4, locked: true, anchor: [.1,.2,.3,.4] }];
+      p.plans.push(plan);
+    }
+  }
+  r.detail.kind = 'image'; r.mainPhotoId = r.photos[0].mediaId;
+  const original = structuredClone(p), incoming = structuredClone(p); incoming.records[0].notes = '乙同事對同位置的不同觀察';
+  const source = { ...await readBundle((await makeBundle(incoming, mid => blobs.get(mid))).blob), label: '乙同事' };
+  const merged = await consolidateBundles(p, [source]); validateProject(merged.project);
+  assert.deepEqual(p, original); assert.deepEqual(source.project, incoming);
+  assert.equal(merged.project.records.length, 4); assert.equal(merged.project.plans.length, 2);
+  const added = merged.project.records[2], plan = merged.project.plans[1];
+  assert.equal(added.notes, incoming.records[0].notes); assert.equal(added.detail.note, r.detail.note);
+  assert.deepEqual(added.detail.marks, r.detail.marks); assert.notEqual(added.detail.mediaId, r.detail.mediaId);
+  for (const q of [added.placement, added.observationPin, added.photos[0].placement]) assert.equal(q.planId, plan.id);
+  assert.equal(plan.labelLayout[0].id, added.photos[0].mediaId); assert.equal(plan.labelLayout[0].recordId, added.id); assert.equal(plan.labelLayout[1].id, added.id);
+  assert.equal(added.mainPhotoId, added.photos[0].mediaId); assert.notEqual(added.audioIds[0], r.audioIds[0]);
+  assert.equal(merged.project.units[2].visitHistory[0].visitId, added.visitId);
+  assert.equal(new Set(merged.project.records.map(r => r.fieldNumber)).size, 4);
+  const allBlobs = new Map([...blobs, ...merged.media.map(m => [m.id, m.blob])]);
+  const roundTrip = await readBundle((await makeBundle(merged.project, mid => allBlobs.get(mid))).blob);
+  assert.deepEqual(roundTrip.project, merged.project);
+  for (const asset of roundTrip.media) assert.equal(await sha256(asset.blob), merged.project.media.find(m => m.id === asset.id).sha256);
+  assert.equal((await consolidateBundles(merged.project, [source])).added.length, 0);
+  // Partial packages must not suppress reimport of data from other units.
+  const partial = subset(merged.project, a.id); assert.deepEqual(partial.handoffDigests, []);
+  assert.deepEqual(partial.handoffImports, []);
+  const sourceUnit = subset(merged.project, merged.project.units[2].id);
+  assert.equal(sourceUnit.handoffImports[0].units.length, 1); assert.equal(sourceUnit.handoffImports[0].records.length, 1);
+  assert.equal(sourceUnit.handoffImports[0].settings.handoffImports, undefined);
+  assert.equal((await consolidateBundles(partial, [source])).added.length, 1);
+});
+
+test('consolidation skips exact duplicate files, keeps different versions, and rejects corruption without mutation', async () => {
+  const { p, blobs } = await fixture(); const original = structuredClone(p);
+  const source = { ...await readBundle((await makeBundle(p, mid => blobs.get(mid))).blob), label: '同一份' };
+  assert.equal((await consolidateBundles(p, [source])).added.length, 0);
+  const base = newProject('MAIN', '主案', '2026-09-20');
+  const result = await consolidateBundles(base, [source, source]); assert.equal(result.added.length, 1); assert.equal(result.skipped.length, 1);
+  const altered = structuredClone(p); altered.records[0].notes = '不同版本';
+  const v2 = { ...await readBundle((await makeBundle(altered, mid => blobs.get(mid))).blob), label: '第二版' };
+  assert.equal((await consolidateBundles(result.project, [v2])).added.length, 1);
+  const bad = { ...source, media: source.media.map((a, i) => i ? a : { ...a, blob: new Blob(['damaged']) }) };
+  await assert.rejects(consolidateBundles(base, [bad]), /原始檔核對失敗/);
+  await assert.rejects(consolidateBundles(base, [{ ...source, project: altered }]), /核對資料不一致/);
+  assert.deepEqual(p, original); assert.equal(base.records.length, 0);
+});
 test('complete package preserves originals, Unicode, and editable marks byte for byte', async () => {
   const { p, blobs } = await fixture(); p.revision = 8;
   const { blob, manifest } = await makeBundle(p, mid => blobs.get(mid));

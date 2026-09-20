@@ -465,3 +465,6 @@ dialog[data-mode="detail"] #modalBody{position:relative;display:flex;flex-direct
 
 /* V0.21 base picker groups. */
 .detail-preset-group{margin:8px 0 2px;font-weight:650;color:var(--green)}
+
+/* Complete editable case handoff stays inside the backup workflow. */
+.handoff-actions{display:flex;flex-wrap:wrap;gap:10px}.handoff-actions button{flex:1 1 180px}#backupView button.full + button.full{margin-top:10px}#handoffHistoryList{overflow-wrap:anywhere}#handoffHistoryList li{margin-block:12px}

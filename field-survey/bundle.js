@@ -1,4 +1,4 @@
-import { assert, clone, sha256, subset, validateProject, now } from './model.js';
+import { assert, clone, sha256, subset, validateProject, now, id, syncRooms } from './model.js';
 const PREFIX = 'CSURVEY/1\n', HEADER_SIZE = PREFIX.length + 11;
 const MAX_MANIFEST = 8 * 1024 * 1024, MAX_BUNDLE = 2 * 1024 * 1024 * 1024;
 const encode = value => new TextEncoder().encode(JSON.stringify(value));
@@ -58,4 +58,68 @@ export async function checkReceipt(receipt, project, exports) {
   assert(receipt.digest === current.digest && receipt.revision === project.revision, '案件已修改，請重新匯出及核對');
   assert(receipt.mediaCount === current.payload.assets.length && Number.isFinite(Date.parse(receipt.verifiedAt)), '收據內容不完整');
   return { ...entry, verifiedAt: receipt.verifiedAt };
+}
+
+// Consolidate verified packages without resolving disputed observations automatically.
+// Each contributor keeps a separate unit group; all graph references are remapped.
+export async function consolidateBundles(base, sources) {
+  validateProject(base);
+  assert(sources.length > 0 && sources.length <= 20, '每次請選擇 1 至 20 份案件檔');
+  const project = clone(base), media = [], added = [], skipped = [];
+  const seen = new Set([...(base.handoffDigests || []), (await snapshot(base)).digest]);
+  project.id = id(); project.revision = 0; project.name = base.name.slice(0, 210) + '（彙整）';
+  project.createdAt = project.updatedAt = now(); project.handoffImports ||= [];
+  for (const source of sources) {
+    const { manifest, project: incoming, media: assets } = source;
+    validateProject(incoming);
+    // Never trust caller-provided metadata instead of the verified snapshot.
+    assert(await sha256(encode(manifest.payload)) === manifest.digest &&
+      JSON.stringify(manifest.payload.project) === JSON.stringify(incoming), '案件檔核對資料不一致');
+    if (seen.has(manifest.digest)) { skipped.push(source.label); continue; }
+    const label = String(source.label || incoming.name).trim().slice(0, 80);
+    assert(label, '請填寫來源名稱');
+    const copy = clone(incoming), maps = {};
+    const assetMap = new Map(assets.map(a => [a.id, a]));
+    for (const key of ['units', 'records', 'plans', 'media', 'rooms', 'visits']) maps[key] = new Map((copy[key] || []).map(item => [item.id, id()]));
+    const map = (key, value) => { assert(maps[key].has(value), '案件關聯不存在'); return maps[key].get(value); };
+    const placement = q => { if (q) q.planId = map('plans', q.planId); };
+    assert(assets.length === copy.media.length && new Set(assets.map(a => a.id)).size === assets.length, '媒體清單不完整');
+    for (const m of copy.media) {
+      const asset = assetMap.get(m.id);
+      assert(asset?.blob instanceof Blob && asset.blob.size === m.size && await sha256(asset.blob) === m.sha256, '彙整原始檔核對失敗');
+      m.id = map('media', m.id); media.push({ id: m.id, blob: asset.blob });
+    }
+    const units = copy.units.map(u => ({ id: map('units', u.id), originalId: u.id, code: u.code }));
+    const records = copy.records.map(r => ({ id: map('records', r.id), originalId: r.id, fieldNumber: r.fieldNumber ?? null }));
+    for (const u of copy.units) {
+      u.id = map('units', u.id); u.code = u.code.slice(0, 500) + `〔${label}〕`;
+      for (const h of u.visitHistory || []) h.visitId = map('visits', h.visitId);
+    }
+    for (const v of copy.visits || []) v.id = map('visits', v.id);
+    for (const room of copy.rooms || []) { room.id = map('rooms', room.id); room.unitId = map('units', room.unitId); }
+    for (const plan of copy.plans) {
+      plan.id = map('plans', plan.id); plan.unitId = map('units', plan.unitId); plan.mediaId = map('media', plan.mediaId);
+      for (const l of plan.labelLayout || []) {
+        l.id = map(l.kind === 'photo' ? 'media' : 'records', l.id);
+        if (l.recordId) l.recordId = map('records', l.recordId);
+      }
+    }
+    for (const r of copy.records) {
+      r.id = map('records', r.id); r.unitId = map('units', r.unitId); delete r.fieldNumber;
+      if (r.roomId) r.roomId = map('rooms', r.roomId);
+      if (r.visitId) r.visitId = map('visits', r.visitId);
+      if (r.detail?.mediaId) r.detail.mediaId = map('media', r.detail.mediaId);
+      if (r.mainPhotoId) r.mainPhotoId = map('media', r.mainPhotoId);
+      r.audioIds = r.audioIds.map(mid => map('media', mid)); placement(r.placement); placement(r.observationPin);
+      for (const photo of r.photos) { photo.mediaId = map('media', photo.mediaId); placement(photo.placement); }
+    }
+    for (const key of ['units', 'records', 'plans', 'media', 'rooms', 'visits']) project[key] = [...(project[key] || []), ...(copy[key] || [])];
+    const settings = clone(incoming);
+    for (const key of ['units', 'records', 'plans', 'media', 'rooms', 'visits', 'handoffImports', 'handoffDigests']) delete settings[key];
+    project.handoffImports.push({ digest: manifest.digest, label, importedAt: now(), settings, units, records });
+    seen.add(manifest.digest); added.push(label);
+  }
+  project.handoffDigests = [...seen];
+  syncRooms(project); validateProject(project);
+  return { project, media, added, skipped };
 }
