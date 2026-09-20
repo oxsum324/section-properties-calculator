@@ -9,6 +9,7 @@ export function createReportController(api) {
   let projectId = '', pageNumber = 0, observer, generation = 0; const imageURLs = new Set();
   let settingsDirty = false;
   let settingsWrite = null, settingsEdit = 0, textWrite = null, autoSaves = 0;
+  let editQueue = Promise.resolve();
   const controls = { start: 'reportStart', perPage: 'reportPerPage', format: 'reportFormat', numbering: 'reportNumbering', pageStart: 'reportPageStart', pagePrefix: 'reportPrefix', plansPerPage: 'reportPlans', tableRows: 'reportRows', toc: 'reportToc', includeEmpty: 'reportEmpty', publicByFloor: 'reportPublicFloors', color: 'reportColor', maxPages: 'volumeMaxPages' };
   const numeric = new Set(['start', 'perPage', 'pageStart', 'plansPerPage', 'tableRows', 'maxPages']);
   function loadControls() { for (const [key, id] of Object.entries(controls)) { const el = $('#' + id); if (el.type === 'checkbox') el.checked = settings[key]; else el.value = settings[key]; } }
@@ -103,7 +104,14 @@ export function createReportController(api) {
     action(() => mutate(p => { const r = p.records.find(r => r.id === recordId), photo = r.photos.find(x => x.mediaId === mediaId); photo.reportInclude = checked; if (!checked && r.mainPhotoId === mediaId) delete r.mainPhotoId; }));
   };
   // Preserve edits before any rerender (selection, sorting, view changes or preview).
-  async function saveTextEdits() {
+  function saveTextEdits() {
+    // Settings and text share one project revision; serialize the entire flush,
+    // including blur saves queued while an earlier text write is still pending.
+    const operation = editQueue.then(flushEdits);
+    editQueue = operation.catch(() => {});
+    return operation;
+  }
+  async function flushEdits() {
     await saveSettings();
     if (textWrite) await textWrite;
     const p = getProject(); if (!p) return;

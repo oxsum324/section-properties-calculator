@@ -91,6 +91,36 @@ export async function verifyV024(browser, base, out) {
     await page.screenshot({ path: path.join(out, 'v0.24.0-record-focused-390.png') });
     await page.waitForFunction(() => document.querySelector('#offlineStatus').textContent === '離線已就緒');
     await context.setOffline(true); await page.reload(); await click('[data-view=report]'); assert.equal(await page.locator('#reportStart').inputValue(), '10');
+    // Deterministically reproduce a second blur save during a slow text write.
+    // Use the real controller with a delayed revision-checked storage boundary.
+    const race = await receiver.newPage(); await race.goto(base); await race.locator('#contextStrip').waitFor();
+    const concurrency = await race.evaluate(async () => {
+      const m = await import('./model.js'), { createReportController } = await import('./report-ui.js');
+      let p = m.newProject('QUEUE', '延遲保存合成測試', '2026-09-20'), active = 0, peak = 0, triggered = false;
+      const u = m.newUnit('A'), r = m.newRecord(u.id, '1F', '客廳'); p.units.push(u); p.records.push(r); r.condition = 'normal';
+      const errors = [], $ = selector => document.querySelector(selector);
+      const commit = async mutate => {
+        const expected = p.revision, next = m.clone(p); mutate(next); active++; peak = Math.max(peak, active);
+        try {
+          if (next.records[0].reportText && !triggered) {
+            triggered = true; $('#reportStart').value = '37';
+            $('#reportStart').dispatchEvent(new Event('input', { bubbles: true }));
+            $('#reportStart').dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          await new Promise(resolve => setTimeout(resolve, 30));
+          if (p.revision !== expected) throw new Error('Concurrent project revision');
+          next.revision++; p = next;
+        } finally { active--; }
+      };
+      const controller = createReportController({ $, commit, getProject: () => p, action: async fn => fn(), getMedia: async () => null, fail: e => errors.push(e.message) });
+      await controller.render();
+      const input = $('#reportRooms [data-report-text]'); input.value = '連續操作仍保留人工說明'; input.dispatchEvent(new Event('input', { bubbles: true }));
+      $('#reportFormat').value = 'quick'; $('#reportFormat').dispatchEvent(new Event('input', { bubbles: true })); $('#reportFormat').dispatchEvent(new Event('change', { bubbles: true }));
+      for (let i = 0; i < 200 && $('#reportView').getAttribute('aria-busy') === 'true'; i++) await new Promise(resolve => setTimeout(resolve, 10));
+      return { peak, triggered, errors, p, busy: $('#reportView').getAttribute('aria-busy') };
+    });
+    assert.equal(concurrency.triggered, true); assert.equal(concurrency.peak, 1); assert.deepEqual(concurrency.errors, []); assert.equal(concurrency.busy, 'false');
+    assert.equal(concurrency.p.reportSettings.start, 37); assert.equal(concurrency.p.records[0].reportText, '連續操作仍保留人工說明'); await race.close();
     assert.deepEqual(errors, []);
     console.log('PASS V0.24 compact workflows, conditional inputs, rapid setting edits, company style isolation, case switching, complete transfer, responsive/offline persistence');
   } finally { await context.close(); await receiver.close(); }
